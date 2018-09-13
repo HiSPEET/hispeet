@@ -1,0 +1,5 @@
+build*
+doc/html/
+**__pycache__
+**.DS_Store
+

@@ -1,0 +1,138 @@
+!> summary:  3D Cartesian quasi-isotropic Schwarz operator
+!> author:   Joerg Stiller
+!> date:     2017/07/20
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### 3D Cartesian quasi-isotropic Schwarz operator
+!===============================================================================
+
+module CART__TPO_Schwarz_Iso
+  use Kind_Parameters, only: RNP
+  implicit none
+  private
+
+  public :: TPO_Schwarz_Iso_Proc    ! procedure interface
+  public :: TPO_Schwarz_Iso_Assign  ! procedure assignment
+  public :: TPO_Schwarz_Iso_Eval    ! operator evaluation
+
+  abstract interface
+
+    !---------------------------------------------------------------------------
+    !> Abstract interface to isotropic tensor-prod. Schwarz operator procedures
+    !>
+    !> The procedure evaluates a spectral tensor-product operator of the form
+    !>
+    !>     (WxWxW) (SxSxS) D⁻¹ (SxSxS)^T
+    !>
+    !> where S is the column matrix of the eigenvectors to the 1D suboperator
+    !> and Lambda is the diagonal matrix of corresponding 3D eigenvalues.
+    !>
+    !>   * `S` is the column matrix of the eigenvectors to the 1D suboperator
+    !>   * `D` is a diagonal matrix composed of the 1D eigenvalues
+    !>
+    !>         D = lambda  g0 I3 x I2 x I1
+    !>           + nu(e) ( g1 I3 x I2 x V1
+    !>                   + g2 I3 x V2 x I1
+    !>                   + g3 V3 x I2 x I1 )
+    !>
+    !>   * `W` is the diagonal 1D weighting matrix
+    !>
+    !>   * metric coefficients
+    !>
+    !>         g0 = dx(1) * dx(2) * dx(3)
+    !>         g1 = dx(2) * dx(3) / dx(1)
+    !>         g2 = dx(3) * dx(1) / dx(2)
+    !>         g3 = dx(1) * dx(2) / dx(3)
+    !>
+    !>
+    !> To accomodate various types of boundary conditions, every operator
+    !> is given for each possible 1D boundary configuration. The boundary
+    !> configurations can differ from element, as specified in the parameter
+    !> `ec`.
+    !>
+    !> When compiled with OpenACC and run on a GPU,
+    !>
+    !>   * ec, nu, f and u must be present on the device, and
+    !>   * any call to this procedure must be followed by an "acc wait"
+    !>     before accessing f or u from CPU or another than the default
+    !>     accelerator queue.
+
+    subroutine TPO_Schwarz_Iso_Proc( ns, nc, ne, S, V1, V2, V3, W, &
+                                     ec, dx, lambda, nu, f, u      )
+      use Kind_Parameters, only: RNP
+      integer,   intent(in)  :: ns             !< dimension of S
+      integer,   intent(in)  :: nc             !< number of configurations
+      integer,   intent(in)  :: ne             !< number of elements/subdomains
+      real(RNP), intent(in)  :: S(ns,ns,nc)    !< 1D eigenvectors
+      real(RNP), intent(in)  :: V1(ns,nc)      !< 1D eigenvalues in direction 1
+      real(RNP), intent(in)  :: V2(ns,nc)      !< 1D eigenvalues in direction 2
+      real(RNP), intent(in)  :: V3(ns,nc)      !< 1D eigenvalues in direction 3
+      real(RNP), intent(in)  :: W(ns,nc)       !< 1D weights
+      integer,   intent(in)  :: ec(3,ne)       !< element-boundary configurations
+      real(RNP), intent(in)  :: dx(3)          !< element extensions
+      real(RNP), intent(in)  :: lambda         !< Helmholtz parameter
+      real(RNP), intent(in)  :: nu(ne)         !< subdomain diffusivities
+      real(RNP), intent(in)  :: f(ns,ns,ns,ne) !< RHS
+      real(RNP), intent(out) :: u(ns,ns,ns,ne) !< solution
+    end subroutine TPO_Schwarz_Iso_Proc
+
+  end interface
+
+contains
+
+!-------------------------------------------------------------------------------
+!> Assignment of a procedure for given dimensions
+
+subroutine TPO_Schwarz_Iso_Assign(ns, Proc)
+  integer, intent(in) :: ns  !< dimension of S
+  procedure(TPO_Schwarz_Iso_Proc), pointer, intent(out) :: Proc
+
+  ! external procedures ........................................................
+
+  procedure(TPO_Schwarz_Iso_Proc) :: CART__TPO_Schwarz_Iso__gen
+
+  ! initialization .............................................................
+
+  Proc => null()
+
+  ! parametrized procedures ....................................................
+
+  ! generic procedures .........................................................
+
+  if (.not. associated(Proc)) then
+    Proc => CART__TPO_Schwarz_Iso__gen
+  end if
+
+end subroutine TPO_Schwarz_Iso_Assign
+
+!-------------------------------------------------------------------------------
+!> Evaluation of the 3D Cartesian quasi-isotropic Schwarz operator
+
+subroutine TPO_Schwarz_Iso_Eval( ns, nc, ne, S, V1, V2, V3, W, &
+                                 ec, dx, lambda, nu, f, u      )
+
+  integer,   intent(in)  :: ns              !< dimension of S
+  integer,   intent(in)  :: nc              !< number of configurations
+  integer,   intent(in)  :: ne              !< number of elements
+  real(RNP), intent(in)  :: S(ns,ns,nc)     !< 1D eigenvectors/subdomains
+  real(RNP), intent(in)  :: V1(ns,nc)       !< 1D eigenvalues in direction 1
+  real(RNP), intent(in)  :: V2(ns,nc)       !< 1D eigenvalues in direction 2
+  real(RNP), intent(in)  :: V3(ns,nc)       !< 1D eigenvalues in direction 3
+  real(RNP), intent(in)  :: W(ns,nc)        !< 1D weights
+  integer,   intent(in)  :: ec(3,ne)        !< element-boundary configurations
+  real(RNP), intent(in)  :: dx(3)           !< element extensions
+  real(RNP), intent(in)  :: lambda          !< Helmholtz parameter
+  real(RNP), intent(in)  :: nu(ne)          !< subdomain diffusivities
+  real(RNP), intent(in)  :: f(ns,ns,ns,ne)  !< RHS
+  real(RNP), intent(out) :: u(ns,ns,ns,ne)  !< solution
+
+  procedure(TPO_Schwarz_Iso_Proc), pointer :: Proc
+
+  call TPO_Schwarz_Iso_Assign(ns, Proc)
+  call Proc(ns, nc, ne, S, V1, V2, V3, W, ec, dx, lambda, nu, f, u)
+
+end subroutine TPO_Schwarz_Iso_Eval
+
+!===============================================================================
+
+end module CART__TPO_Schwarz_Iso

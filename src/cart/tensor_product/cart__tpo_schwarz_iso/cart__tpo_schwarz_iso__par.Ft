@@ -1,0 +1,138 @@
+!> summary:  Isotropic Schwarz operator: bf-marching, separate, parametrized
+!> author:   Joerg Stiller
+!> date:     2017/10/23
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Isotropic Schwarz operator: bf-marching, separate, parametrized
+!===============================================================================
+
+#define __NA__    <ns>
+#define __NA_T2__ <ns_t2>
+#define __NA_T4__ <ns_t4>
+#define __NA_T8__ <ns_t8>
+
+subroutine CART__TPO_Schwarz_Iso__<tag>( ns, nc, ne, S, V1, V2, V3, W, &
+                                         ec, dx, lambda, nu, f, u      )
+
+  !-----------------------------------------------------------------------------
+  ! modules
+
+  use Kind_Parameters, only: RNP
+  implicit none
+
+  !-----------------------------------------------------------------------------
+  ! arguments
+
+  integer,   intent(in)  :: ns              !< dimension of S
+  integer,   intent(in)  :: nc              !< number of configurations
+  integer,   intent(in)  :: ne              !< number of elements/subdomains
+  real(RNP), intent(in)  :: S(<ns>,<ns>,nc) !< 1D eigenvectors
+  real(RNP), intent(in)  :: V1(<ns>,nc)     !< 1D eigenvalues in direction 1
+  real(RNP), intent(in)  :: V2(<ns>,nc)     !< 1D eigenvalues in direction 2
+  real(RNP), intent(in)  :: V3(<ns>,nc)     !< 1D eigenvalues in direction 3
+  real(RNP), intent(in)  :: W(<ns>,nc)      !< 1D weights
+  integer,   intent(in)  :: ec(3,ne)        !< element-boundary configurations
+  real(RNP), intent(in)  :: dx(3)           !< element extensions
+  real(RNP), intent(in)  :: lambda          !< Helmholtz parameter
+  real(RNP), intent(in)  :: nu(ne)          !< subdomain diffusivities
+  real(RNP), intent(in)  :: f(<ns>,<ns>,<ns>,ne) !< operand
+  real(RNP), intent(out) :: u(<ns>,<ns>,<ns>,ne) !< result
+
+  !-----------------------------------------------------------------------------
+  ! local variables
+
+  real(RNP), parameter   :: ONE = 1
+  real(RNP), allocatable :: WS_t(:,:,:), z(:,:,:)
+  real(RNP) :: g0, g1, g2, g3
+  real(RNP) :: d0, d1, d2, d3
+
+  integer :: e, i, j
+  integer :: c, c1, c2, c3
+
+  !-----------------------------------------------------------------------------
+  ! initialization
+
+  allocate(WS_t(ns,ns,nc), z(ns,ns,ns))
+
+  ! transposed 1D operator
+  do c = 1, nc
+  do j = 1, <ns>
+  do i = 1, <ns>
+    WS_t(j,i,c) = W(i,c) * S(i,j,c)
+  end do
+  end do
+  end do
+
+  ! metric coefficients
+  g0 = dx(1) * dx(2) * dx(3)
+  g1 = dx(2) * dx(3) / dx(1)
+  g2 = dx(3) * dx(1) / dx(2)
+  g3 = dx(1) * dx(2) / dx(3)
+
+  !-----------------------------------------------------------------------------
+  ! evaluation
+
+  !$acc data present(ec,f,u) copyin(V1,V2,V3,S,WS_t) async
+  !$acc parallel num_workers(<num_workers>) vector_length(<vec_length>) async
+  !$acc loop gang worker private(z)
+
+  !$omp do private(e)
+  elements: do e = 1, ne
+
+    ! element-boundary configurations
+    c1 = ec(1,e)
+    c2 = ec(2,e)
+    c3 = ec(3,e)
+
+    ! element-specific coefficients
+    d0 = g0 * lambda
+    d1 = g1 * nu(e)
+    d2 = g2 * nu(e)
+    d3 = g3 * nu(e)
+
+    ! z = S^t x I x I f
+    call SubOp_3i(ONE, S(:,:,c3), f(:,:,:,e), z)
+
+    ! u = I x S^t x I z
+    call SubOp_2i(ONE, S(:,:,c2), z, u(:,:,:,e))
+
+    ! z =  D⁻¹ (I x I x S^t) u
+    call SubOp_1d( d0, d1, d2, d3                &
+                 , V1(:,c1), V2(:,c2), V3(:,c3)  &
+                 , S(:,:,c1)                     &
+                 , u(:,:,:,e)                    &
+                 , z                             )
+
+    ! u = I x I x WS z
+    call SubOp_1i(ONE, WS_t(:,:,c1), z, u(:,:,:,e))
+
+    ! z = I x WS x I u
+    call SubOp_2i(ONE, WS_t(:,:,c2), u(:,:,:,e), z)
+
+    ! u = WS x I x I z
+    call SubOp_3i(ONE, WS_t(:,:,c3), z, u(:,:,:,e))
+
+  end do elements
+  !$omp end do
+
+  !$acc end parallel
+  !$acc end data
+
+contains
+
+#include "<SubOp_1d>"
+
+#include "<SubOp_1i>"
+
+#include "<SubOp_2i>"
+
+#include "<SubOp_3i>"
+
+!===============================================================================
+
+end subroutine CART__TPO_Schwarz_Iso__<tag>
+
+#undef __NA__
+#undef __NA_T2__
+#undef __NA_T4__
+#undef __NA_T8__

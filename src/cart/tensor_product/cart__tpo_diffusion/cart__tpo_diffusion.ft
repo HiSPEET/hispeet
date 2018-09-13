@@ -1,0 +1,126 @@
+!> summary:  3D Cartesian Equidistant Diffusion operator
+!> author:   Joerg Stiller
+!> date:     2017/01/03
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### 3D Cartesian Equidistant Diffusion operator
+!===============================================================================
+
+module CART__TPO_Diffusion
+  use Kind_Parameters, only: RNP
+  implicit none
+  private
+
+  public :: TPO_Diffusion_Proc    ! procedure interface
+  public :: TPO_Diffusion_Assign  ! procedure assignment
+  public :: TPO_Diffusion_Eval    ! operator evaluation
+
+
+  abstract interface
+
+    !---------------------------------------------------------------------------
+    !> Abstract interface to 3D CE diffusion procedures for scalars
+    !>
+    !> The procedure evaluates the element diffusion operator for equidistant 3D
+    !> Cartesian elements with constant coefficients lambda and nu. Given the
+    !> approximate solution u(1:np,1:np,1:np,1:ne), the result is computed as
+    !>
+    !>     v(i,j,k,e)
+    !>
+    !>       = lambda * dx(1)*dx(2)*dx(3)/8 * Ms(i) * Ms(j) * Ms(k) * u(i,j,k,e)
+    !>
+    !>       + nu * dx(2)*dx(3)/(2*dx(1)) * Ms(j) * Ms(k)
+    !>                                    * sum( Ms(:) * Ds(:,i) * u(:,j,k,e) )
+    !>
+    !>       + nu * dx(1)*dx(3)/(2*dx(2)) * Ms(i) * Ms(k)
+    !>                                    * sum( Ms(:) * Ds(:,j) * u(i,:,k,e) )
+    !>
+    !>       + nu * dx(2)*dx(2)/(2*dx(3)) * Ms(i) * Ms(j)
+    !>                                    * sum( Ms(:) * Ds(:,k) * u(i,j,:,e) )
+    !>
+    !> for each point (i,j,k) in every element e.
+    !> Ms and Ls are the 1D standard mass and stiffness matrices for polynomial
+    !> order P = np-1, respectively, and dx(1:3) the element dimensions.
+    !>
+    !> When compiled with OpenACC and run on a GPU, any call to this procedure
+    !> must be followed by an "acc wait" before accessing u or v from CPU or
+    !> other than the default accelerator queue.
+
+    subroutine TPO_Diffusion_Proc(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+      use Kind_Parameters,  only: RNP
+      integer,   intent(in)  :: np             !< number of points per direction
+      integer,   intent(in)  :: ne             !< number of elements
+      real(RNP), intent(in)  :: Ms(np)         !< 1D standard mass matrix
+      real(RNP), intent(in)  :: Ls(np,np)      !< 1D standard stiffness matrix
+      real(RNP), intent(in)  :: lambda         !< Helmholtz parameter
+      real(RNP), intent(in)  :: nu             !< diffusivity
+      real(RNP), intent(in)  :: dx(3)          !< element extensions
+      real(RNP), intent(in)  :: u(np,np,np,ne) !< operand
+      real(RNP), intent(out) :: v(np,np,np,ne) !< result
+    end subroutine TPO_Diffusion_Proc
+
+  end interface
+
+contains
+
+!-------------------------------------------------------------------------------
+!> Assignment of a element Diffusion operator procedure for given dimension
+
+subroutine TPO_Diffusion_Assign(np, Proc)
+  integer, intent(in)  :: np  !< number of points per direction
+  procedure(TPO_Diffusion_Proc), pointer, intent(out) :: Proc
+
+  ! external procedures ........................................................
+
+  procedure(TPO_Diffusion_Proc) :: CART__TPO_Diffusion__gen
+  procedure(TPO_Diffusion_Proc) :: CART__TPO_Diffusion__gen_2
+  procedure(TPO_Diffusion_Proc) :: CART__TPO_Diffusion__gen_3
+  procedure(TPO_Diffusion_Proc) :: CART__TPO_Diffusion__gen_4
+
+  ! initialization .............................................................
+
+  Proc => null()
+
+  ! parametrized procedures ....................................................
+
+  ! generic procedures .........................................................
+
+  if (.not. associated(Proc)) then
+    select case(abs(np))
+    case(2)
+      Proc => CART__TPO_Diffusion__gen_2
+    case(3)
+      Proc => CART__TPO_Diffusion__gen_3
+    case(4)
+      Proc => CART__TPO_Diffusion__gen_4
+    case default
+      Proc => CART__TPO_Diffusion__gen
+    end select
+  end if
+
+end subroutine TPO_Diffusion_Assign
+
+!-------------------------------------------------------------------------------
+!> Evaluation of the element Diffusion operator
+
+subroutine TPO_Diffusion_Eval(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+  integer,   intent(in)  :: np             !< number of points per direction
+  integer,   intent(in)  :: ne             !< number of elements
+  real(RNP), intent(in)  :: Ms(np)         !< 1D standard mass matrix
+  real(RNP), intent(in)  :: Ls(np,np)      !< 1D standard stiffness matrix
+  real(RNP), intent(in)  :: lambda         !< Helmholtz parameter
+  real(RNP), intent(in)  :: nu             !< diffusivity
+  real(RNP), intent(in)  :: dx(3)          !< element extensions
+  real(RNP), intent(in)  :: u(np,np,np,ne) !< operand
+  real(RNP), intent(out) :: v(np,np,np,ne) !< result
+
+  procedure(TPO_Diffusion_Proc), pointer :: Proc
+
+  call TPO_Diffusion_Assign(np, Proc)
+  call Proc(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+
+end subroutine TPO_Diffusion_Eval
+
+!===============================================================================
+
+end module CART__TPO_Diffusion

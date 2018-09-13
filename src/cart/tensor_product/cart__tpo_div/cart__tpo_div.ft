@@ -1,0 +1,85 @@
+!> summary:  Divergence of a vector field: 3D Cartesian equidistant
+!> author:   Joerg Stiller
+!> date:     2017/01/19
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Divergence of a vector field: 3D Cartesian equidistant
+!===============================================================================
+
+module CART__TPO_Div
+  use Kind_Parameters, only: RNP
+  implicit none
+  private
+
+  public :: TPO_Div_Proc    ! procedure interface
+  public :: TPO_Div_Assign  ! procedure assignment
+  public :: TPO_Div_Eval    ! operator evaluation
+
+
+  abstract interface
+
+    !---------------------------------------------------------------------------
+    !> Abstract interface to 3D CE divergence procedures for vectors
+
+    subroutine TPO_Div_Proc(np, ne, Ds, dx, u, v, transp)
+      use Kind_Parameters,  only: RNP
+      integer,   intent(in)  :: np               !< num. points per direction
+      integer,   intent(in)  :: ne               !< number of elements
+      real(RNP), intent(in)  :: Ds(np,np)        !< 1D standard diff matrix
+      real(RNP), intent(in)  :: dx(3)            !< element extensions
+      real(RNP), intent(in)  :: u(np,np,np,ne,3) !< 3D vector field
+      real(RNP), intent(out) :: v(np,np,np,ne)   !< element-wise divergence of u
+      logical, optional, intent(in) :: transp    !< if present, apply Ds^T
+    end subroutine TPO_Div_Proc
+
+  end interface
+
+contains
+
+!-------------------------------------------------------------------------------
+!> Assignment of a element divergence operator procedure for given dimension
+
+subroutine TPO_Div_Assign(np, Proc)
+  integer, intent(in)  :: np  !< number of points per direction
+  procedure(TPO_Div_Proc), pointer, intent(out) :: Proc
+
+  ! external procedures ........................................................
+
+  procedure(TPO_Div_Proc) :: CART__TPO_Div__gen
+
+  ! initialization .............................................................
+
+  Proc => null()
+
+  ! parametrized procedures ....................................................
+
+  ! generic procedures .........................................................
+
+  if (.not. associated(Proc)) then
+    Proc => CART__TPO_Div__gen
+  end if
+
+end subroutine TPO_Div_Assign
+
+!-------------------------------------------------------------------------------
+!> Evaluation of the element divergence operator
+
+subroutine TPO_Div_Eval(np, ne, Ds, dx, u, v, transp)
+  integer,   intent(in)  :: np               !< num. points per direction
+  integer,   intent(in)  :: ne               !< number of elements
+  real(RNP), intent(in)  :: Ds(np,np)        !< 1D standard diff matrix
+  real(RNP), intent(in)  :: dx(3)            !< element extensions
+  real(RNP), intent(in)  :: u(np,np,np,ne,3) !< 3D vector field
+  real(RNP), intent(out) :: v(np,np,np,ne)   !< element-wise divergence of u
+  logical, optional, intent(in) :: transp    !< if present, apply Ds^T
+
+  procedure(TPO_Div_Proc), pointer :: Proc
+
+  call TPO_Div_Assign(np, Proc)
+  call Proc(np, ne, Ds, dx, u, v, transp)
+
+end subroutine TPO_Div_Eval
+
+!===============================================================================
+
+end module CART__TPO_Div

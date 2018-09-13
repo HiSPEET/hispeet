@@ -1,0 +1,91 @@
+!> summary:  Unit test for ParMETIS_Binding
+!> author:   Joerg Stiller
+!> date:     2018/08/24
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Unit test for ParMETIS_Binding
+!>
+!> Tests the accessibility and principal functionality of ParMETIS routines.
+!>
+!===============================================================================
+
+module ParMETIS_Binding__Test
+
+  use Constants, only: ONE
+  use MPI_Binding
+  use ParMETIS_Binding
+
+  use pFUnit_Mod
+
+  implicit none
+
+contains
+
+@test(npes = [3])
+
+!-------------------------------------------------------------------------------
+!> Test of ParMETIS_V3_PartKway
+
+subroutine ParMETIS_V3_PartKway_Test(this)
+  class(MPITestMethod), intent(inout) :: this
+
+  ! MPI
+  integer :: pid
+  integer :: comm
+
+  ! ParMETIS arguments
+  integer(METIS_IDX_T) :: wgtflag=2, numflag=0, ncon=1, nparts=4, edgecut
+  integer(METIS_IDX_T) :: options(3)=0, adjwgt(0)
+  integer(METIS_IDX_T), allocatable :: vtxdist(:), xadj(:), adjncy(:)
+  integer(METIS_IDX_T), allocatable :: vwgt(:,:)
+  real(METIS_REAL_T),   allocatable :: tpwgts(:,:)
+  real(METIS_REAL_T),   allocatable :: ubvec(:)
+  integer(METIS_IDX_T), allocatable :: part(:)
+
+  integer :: nvtx
+
+  ! call Init_MPI_Binding()
+  comm = this % GetMPICommunicator()
+  pid  = this % GetProcessRank()
+
+  if (pid == 0) then
+    write(*,'(A)') 'Testing ParMETIS_V3_PartKway'
+  end if
+
+  ! initialize ParMETIS arguments
+  select case(pid)
+  case(0)
+    allocate(vtxdist(0:3), xadj(0:5), adjncy(13))
+    vtxdist = [0, 5, 10, 15]
+    xadj    = [0, 2, 5, 8, 11, 13]
+    adjncy  = [1, 5, 0, 2, 6, 1, 3, 7, 2, 4, 8, 3, 9]
+  case(1)
+    allocate(vtxdist(0:3), xadj(0:5), adjncy(18))
+    vtxdist = [0, 5, 10, 15]
+    xadj    = [0, 3, 7, 11, 15, 18]
+    adjncy  = [0, 6, 10, 1, 5, 7, 11, 2, 6, 8, 12, 3, 7, 9, 13, 4, 8, 14]
+  case(2)
+    allocate(vtxdist(0:3), xadj(0:5), adjncy(13))
+    vtxdist = [0, 5, 10, 15]
+    xadj    = [0, 2, 5, 8, 11, 13]
+    adjncy  = [5, 11, 6, 10, 12, 7, 11, 13, 8, 12, 14, 9, 13]
+  end select
+
+  nvtx = vtxdist(pid+1) - vtxdist(pid)
+  allocate(vwgt(ncon,nvtx), tpwgts(ncon,nparts), ubvec(ncon), part(nvtx))
+  vwgt   = 1
+  tpwgts = ONE / nparts
+  ubvec  = 1.05
+
+  call ParMETIS_V3_PartKway( vtxdist, xadj, adjncy, vwgt, adjwgt, wgtflag,  &
+                             numflag, ncon, nparts, tpwgts, ubvec, options, &
+                             edgecut, part, comm                            )
+
+  ! check is edgecut equals 13
+  @assertEqual(edgecut, 13)
+
+end subroutine ParMETIS_V3_PartKway_Test
+
+!===============================================================================
+
+end module ParMETIS_Binding__Test

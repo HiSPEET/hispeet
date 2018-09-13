@@ -1,0 +1,108 @@
+!> summary:  Spectral operator backward-forward marching, separate, parametrized
+!> author:   Joerg Stiller
+!> date:     2017/07/24
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Spectral operator backward-forward marching, separate, parametrized
+!===============================================================================
+
+#define __NA__    <na>
+#define __NA_T2__ <na_t2>
+#define __NA_T4__ <na_t4>
+#define __NA_T8__ <na_t8>
+
+subroutine CART__TPO_Spectral_Iso__<tag>(na, ne, A, Lambda, u, v)
+
+  !-----------------------------------------------------------------------------
+  ! modules
+
+  use Kind_Parameters, only: RNP
+  implicit none
+
+  !-----------------------------------------------------------------------------
+  ! arguments
+
+  integer,   intent(in)  :: na                     !< dimension of A
+  integer,   intent(in)  :: ne                     !< number of elements/regions
+  real(RNP), intent(in)  :: A(<na>,<na>)           !< 1D eigenvectors
+  real(RNP), intent(in)  :: Lambda(<na>,<na>,<na>) !< 3D eigenvalues
+  real(RNP), intent(in)  :: u(<na>,<na>,<na>,ne)   !< operand
+  real(RNP), intent(out) :: v(<na>,<na>,<na>,ne)   !< result
+
+  !-----------------------------------------------------------------------------
+  ! local variables
+
+  real(RNP), parameter   :: ONE = 1
+  real(RNP), allocatable :: A_t(:,:), z(:,:,:)
+
+  integer :: e, i, j
+
+  !-----------------------------------------------------------------------------
+  ! initialization
+
+  ! extended/transposed 1D operators ...........................................
+
+  allocate(A_t(<na>, <na>))
+
+  do j = 1, <na>
+  do i = 1, <na>
+    A_t(j,i) = A(i,j)
+  end do
+  end do
+
+  ! workspace ..................................................................
+
+  allocate(z(na, na, na))
+
+  !-----------------------------------------------------------------------------
+  ! evaluation
+
+  !$acc data present(u,v) copyin(A,A_t,Lambda) async
+  !$acc parallel num_workers(<num_workers>) vector_length(<vec_length>) async
+  !$acc loop gang worker private(z)
+
+  !$omp do private(e)
+  elements: do e = 1, ne
+
+    ! z = (A^T x I x I) u
+    call SubOp_3i(ONE, A, u(:,:,:,e), z)
+
+    ! v = (I x A^T x I) z
+    call SubOp_2i(ONE, A, z, v(:,:,:,e))
+
+    ! z = Lambda (I x I x A^T) v
+    call SubOp_1d(A, Lambda, v(:,:,:,e), z)
+
+    ! v = IxIxA z
+    call SubOp_1i(ONE, A_t, z, v(:,:,:,e))
+
+    ! z = IxAxI v
+    call SubOp_2i(ONE, A_t, v(:,:,:,e), z)
+
+    ! v = AxIxI z
+    call SubOp_3i(ONE, A_t, z, v(:,:,:,e))
+
+  end do elements
+  !$omp end do
+
+  !$acc end parallel
+  !$acc end data
+
+contains
+
+#include "<SubOp_1d>"
+
+#include "<SubOp_1i>"
+
+#include "<SubOp_2i>"
+
+#include "<SubOp_3i>"
+
+!===============================================================================
+
+end subroutine CART__TPO_Spectral_Iso__<tag>
+
+#undef __NA__
+#undef __NA_T2__
+#undef __NA_T4__
+#undef __NA_T8__

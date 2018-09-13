@@ -1,0 +1,8 @@
+@test(npes = [1,2,3])
+subroutine Test_MPI(this)
+  use pFUnit_Mod
+  class(MPITestMethod) :: this
+  integer :: pid, i = 1
+  pid = this % GetProcessRank()
+  @assertEqual(i, 1)
+end subroutine Test_MPI

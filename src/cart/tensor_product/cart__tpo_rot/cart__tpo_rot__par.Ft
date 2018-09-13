@@ -1,0 +1,98 @@
+!> summary:  Parametrized rotation of a vector field: 3D Cartesian equidistant
+!> author:   Joerg Stiller
+!> date:     2018/05/20
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Parametrized rotation of a vector field: 3D Cartesian equidistant
+!===============================================================================
+
+#define __NA__    <np>
+#define __NA_T2__ <np_t2>
+#define __NA_T4__ <np_t4>
+#define __NA_T8__ <np_t8>
+
+subroutine CART__TPO_Rot__<tag>(np, ne, Ds, dx, u, v)
+
+  !-----------------------------------------------------------------------------
+  ! modules
+
+  use Kind_Parameters, only: RNP
+  implicit none
+
+  !-----------------------------------------------------------------------------
+  ! arguments
+
+  integer,   intent(in)  :: np                     !< points per direction
+  integer,   intent(in)  :: ne                     !< number of elements
+  real(RNP), intent(in)  :: Ds(<np>,<np>)          !< 1D standard diff matrix
+  real(RNP), intent(in)  :: dx(3)                  !< element extensions
+  real(RNP), intent(in)  :: u(<np>,<np>,<np>,ne,3) !< 3D vector field
+  real(RNP), intent(out) :: v(<np>,<np>,<np>,ne,3) !< element-wise rotation of u
+
+  !-----------------------------------------------------------------------------
+  ! local variables
+
+  real(RNP), allocatable :: Dt(:,:)
+  real(RNP) :: g(3)
+
+  integer :: e, i, j, k
+
+  !-----------------------------------------------------------------------------
+  ! initialization
+
+  ! workspace
+  allocate(Dt(np,np))
+
+  ! transposed 1D standard diff matrix
+  do j = 1, <np>
+  do i = 1, <np>
+    Dt(j,i) = Ds(i,j)
+  end do
+  end do
+
+  ! metric coefficients
+  g = 2 / dx
+
+  !-----------------------------------------------------------------------------
+  ! evaluation
+
+  !$acc data present(u,v) copyin(Dt,g) async
+  !$acc parallel num_workers(<num_workers>) vector_length(<vec_length>) async
+  !$acc loop gang worker
+
+  !$omp do private(e)
+  do e = 1, ne
+
+    call SubOp_3i( g(3), Dt, u(:,:,:,e,1), v(:,:,:,e,2))  ! v2  =  du1/dx3
+    call SubOp_2i(-g(2), Dt, u(:,:,:,e,1), v(:,:,:,e,3))  ! v3  = -du1/dx2
+
+    call SubOp_1a( g(1), Dt, u(:,:,:,e,2), v(:,:,:,e,3))  ! v3 +=  du2/dx1
+    call SubOp_3i(-g(3), Dt, u(:,:,:,e,2), v(:,:,:,e,1))  ! v1  = -du2/dx3
+
+    call SubOp_2a( g(2), Dt, u(:,:,:,e,3), v(:,:,:,e,1))  ! v1 +=  du3/dx2
+    call SubOp_1a(-g(1), Dt, u(:,:,:,e,3), v(:,:,:,e,2))  ! v2 -=  du3/dx1
+
+  end do
+  !$omp end do
+
+  !$acc end parallel
+  !$acc end data
+
+contains
+
+#include "<SubOp_1a>"
+
+#include "<SubOp_2a>"
+
+#include "<SubOp_2i>"
+
+#include "<SubOp_3i>"
+
+!===============================================================================
+
+end subroutine CART__TPO_Rot__<tag>
+
+#undef __NA__
+#undef __NA_T2__
+#undef __NA_T4__
+#undef __NA_T8__

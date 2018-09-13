@@ -1,0 +1,83 @@
+!> summary:  Gradient of a scalar field: 3D Cartesian equidistant
+!> author:   Joerg Stiller
+!> date:     2017/02/04
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Gradient of a scalar field: 3D Cartesian equidistant
+!===============================================================================
+
+module CART__TPO_Grad
+  use Kind_Parameters, only: RNP
+  implicit none
+  private
+
+  public :: TPO_Grad_Proc    ! procedure interface
+  public :: TPO_Grad_Assign  ! procedure assignment
+  public :: TPO_Grad_Eval    ! operator evaluation
+
+
+  abstract interface
+
+    !---------------------------------------------------------------------------
+    !> Abstract interface to 3D CE gradient procedures for vectors
+
+    subroutine TPO_Grad_Proc(np, ne, Ds, dx, u, v)
+      use Kind_Parameters,  only: RNP
+      integer,   intent(in)  :: np               !< num. points per direction
+      integer,   intent(in)  :: ne               !< number of elements
+      real(RNP), intent(in)  :: Ds(np,np)        !< 1D standard diff matrix
+      real(RNP), intent(in)  :: dx(3)            !< element extensions
+      real(RNP), intent(in)  :: u(np,np,np,ne)   !< 3D scalar field
+      real(RNP), intent(out) :: v(np,np,np,ne,3) !< element-wise gradient of u
+    end subroutine TPO_Grad_Proc
+
+  end interface
+
+contains
+
+!-------------------------------------------------------------------------------
+!> Assignment of a element divergence operator procedure for given dimension
+
+subroutine TPO_Grad_Assign(np, Proc)
+  integer, intent(in)  :: np  !< number of points per direction
+  procedure(TPO_Grad_Proc), pointer, intent(out) :: Proc
+
+  ! external procedures ........................................................
+
+  procedure(TPO_Grad_Proc) :: CART__TPO_Grad__gen
+
+  ! initialization .............................................................
+
+  Proc => null()
+
+  ! parametrized procedures ....................................................
+
+  ! generic procedures .........................................................
+
+  if (.not. associated(Proc)) then
+    Proc => CART__TPO_Grad__gen
+  end if
+
+end subroutine TPO_Grad_Assign
+
+!-------------------------------------------------------------------------------
+!> Evaluation of the element divergence operator
+
+subroutine TPO_Grad_Eval(np, ne, Ds, dx, u, v)
+  integer,   intent(in)  :: np               !< num. points per direction
+  integer,   intent(in)  :: ne               !< number of elements
+  real(RNP), intent(in)  :: Ds(np,np)        !< 1D standard diff matrix
+  real(RNP), intent(in)  :: dx(3)            !< element extensions
+  real(RNP), intent(in)  :: u(np,np,np,ne)   !< 3D scalar field
+  real(RNP), intent(out) :: v(np,np,np,ne,3) !< element-wise gradient of u
+
+  procedure(TPO_Grad_Proc), pointer :: Proc
+
+  call TPO_Grad_Assign(np, Proc)
+  call Proc(np, ne, Ds, dx, u, v)
+
+end subroutine TPO_Grad_Eval
+
+!===============================================================================
+
+end module CART__TPO_Grad

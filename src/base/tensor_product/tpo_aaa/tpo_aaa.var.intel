@@ -1,0 +1,40 @@
+# INTEL
+# -----------------------------------------------
+# na1,  na2,   SubOp_1  ,   SubOp_2  ,   SubOp_3
+    4,    4,   llll     ,   llll     ,   lffl
+    5,    5,   llll     ,   llll     ,   lffl
+    6,    6,   llb4u4_r ,   lu4ll_r  ,   u4ffl_r
+    7,    7,   llb4u4_r ,   lu4ll_r  ,   u4ffl_r
+    8,    8,   8x8      ,   lu4ll_r  ,   u4ffl_r
+    9,    9,   llb4u4_r ,   lu4lb4_r ,   u4ffb4_r
+   10,   10,   llll     ,   llll     ,   lffl
+   11,   11,   llll     ,   llll     ,   lffl
+   12,   12,   12x12    ,   lu4lb4_r ,   u4ffb4_r
+   13,   13,   llb4u4_r ,   lu4lb4_r ,   u4ffb4_r
+   14,   14,   llb4u4_r ,   lu4lb4_r ,   u4ffb4_r
+   15,   15,   llb4u4_r ,   lu4lb4_r ,   u4ffb4_r
+   16,   16,   16x16    ,   lu4lb4_r ,   u4ffb4_r
+   17,   17,   llb4u4_r ,   lu4lb4_r ,   u4ffb4_r
+   18,   18,   llb4u4_r ,   lu4lb4_r ,   u4ffb4_r
+   19,   19,   llb4u4_r ,   lu4lb4_r ,   u4ffb4_r
+   20,   20,   llb4u4_r ,   lu4lb4_r ,   u4ffb4_r
+   21,   21,   llb4u4_r ,   lu4lb4_r ,   u4ffb4_r
+   22,   22,   llb4u4_r ,   lu4lb4_r ,   u4ffb4_r
+   23,   23,   llb4u4_r ,   lu4lb4_r ,   u4ffb4_r
+   24,   24,   llb4u4_r ,   lu4lb4_r ,   u4ffb4_r
+#
+    2,    3,   llll     ,   llll     ,   lffl
+    2,    4,   llll     ,   llll     ,   lffl
+    3,    5,   llll     ,   llll     ,   lffl
+    4,    8,   llll     ,   llll     ,   lffl
+    5,    9,   llll     ,   llll     ,   lffl
+    8,   16,   llll     ,   llll     ,   lffl
+    9,   17,   llb4u4_r ,   lu4lb4_r ,   u4ffb4_r
+#
+    3,    2,   llll     ,   llll     ,   lffl
+    4,    2,   llll     ,   llll     ,   lffl
+    5,    3,   llll     ,   llll     ,   lffl
+    8,    4,   llll     ,   llll     ,   lffl
+    9,    5,   llll     ,   llll     ,   lffl
+   16,    8,   llll     ,   llll     ,   lffl
+   17,    9,   llll     ,   llll     ,   lffl

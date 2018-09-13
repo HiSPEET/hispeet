@@ -1,0 +1,94 @@
+!-------------------------------------------------------------------------------
+!> Performs `v =(d₀IxIxI + d₁IxIxV₁ + d₂IxIxV₂ + d₃IxIxV₃)⁻¹ (IxIxA') u`
+!>
+!>   * k: simple loop (l)
+!>   * j: unrolled and jammed with length of 2 (u2)
+!>   * i: unrolled and jammed with length of 2 (u2)
+!>   * p: simple loop (l)
+!>   * explicit remainder handling (r)
+
+subroutine SubOp_1d(d0, d1, d2, d3, V1, V2, V3, A, u, v)
+  !$acc routine vector
+  real(RNP), intent(in)  :: d0                       !< λ Δx₁ Δx₂ Δx₃
+  real(RNP), intent(in)  :: d1                       !< ν Δx₂ Δx₃ / Δx₁
+  real(RNP), intent(in)  :: d2                       !< ν Δx₃ Δx₁ / Δx₂
+  real(RNP), intent(in)  :: d3                       !< ν Δx₁ Δx₂ / Δx₃
+  real(RNP), intent(in)  :: V1(__NA__)               !< 1D eigenvalues in dir 1
+  real(RNP), intent(in)  :: V2(__NA__)               !< 1D eigenvalues in dir 2
+  real(RNP), intent(in)  :: V3(__NA__)               !< 1D eigenvalues in dir 3
+  real(RNP), intent(in)  :: A(__NA__,__NA__)         !< A
+  real(RNP), intent(in)  :: u(__NA__,__NA__,__NA__)  !< operand
+  real(RNP), intent(out) :: v(__NA__,__NA__,__NA__)  !< result
+
+  real(RNP) :: tmp0, tmp1, tmp2, tmp3
+  integer   :: i, j, k, p
+
+  !$acc loop collapse(3) vector
+  do k = 1, __NA__
+  do j = 1, __NA_T2__, 2
+  do i = 1, __NA_T2__, 2
+    tmp0 = 0
+    tmp1 = 0
+    tmp2 = 0
+    tmp3 = 0
+    do p = 1, __NA__
+      tmp0 = tmp0 + A(p,i  ) * u(p,j  ,k)
+      tmp1 = tmp1 + A(p,i+1) * u(p,j  ,k)
+      tmp2 = tmp2 + A(p,i  ) * u(p,j+1,k)
+      tmp3 = tmp3 + A(p,i+1) * u(p,j+1,k)
+    end do
+    v(i  ,j  ,k) = tmp0
+    v(i+1,j  ,k) = tmp1
+    v(i  ,j+1,k) = tmp2
+    v(i+1,j+1,k) = tmp3
+  end do
+  end do
+  end do
+
+#if __NA__ == __NA_T2__ + 1
+
+  ! remainder: i = 1:na-1, j = na ............................................
+
+  j = __NA__
+
+  !$acc loop collapse(2) vector
+  do k = 1, __NA__
+  do i = 1, __NA_T2__, 2
+    tmp0 = 0
+    tmp1 = 0
+    do p = 1, __NA__
+      tmp0 = tmp0 + A(p,i  ) * u(p,j,k)
+      tmp1 = tmp1 + A(p,i+1) * u(p,j,k)
+    end do
+    v(i  ,j,k) = tmp0
+    v(i+1,j,k) = tmp1
+  end do
+  end do
+
+  ! remainder: i = na, j = 1:na ..............................................
+
+  i = __NA__
+
+  !$acc loop collapse(2) vector
+  do k = 1, __NA__
+  do j = 1, __NA__
+    tmp0 = 0
+    do p = 1, __NA__
+      tmp0 = tmp0 + A(p,i) * u(p,j,k)
+    end do
+    v(i,j,k) = tmp0
+  end do
+  end do
+
+#endif
+
+  !$acc loop collapse(3) vector
+  do k = 1, __NA__
+  do j = 1, __NA__
+  do i = 1, __NA__
+    v(i,j,k) = v(i,j,k) / (d0 + d1*V1(i) + d2*V2(j) + d3*V3(k))
+  end do
+  end do
+  end do
+
+end subroutine SubOp_1d

@@ -1,0 +1,100 @@
+!> summary:  Parametrized divergence of a vector field: 3D Cartesian equidistant
+!> author:   Joerg Stiller
+!> date:     2017/01/19
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Parametrized divergence of a vector field: 3D Cartesian equidistant
+!===============================================================================
+
+#define __NA__    <np>
+#define __NA_T2__ <np_t2>
+#define __NA_T4__ <np_t4>
+#define __NA_T8__ <np_t8>
+
+subroutine CART__TPO_Div__<tag>(np, ne, Ds, dx, u, v, transp)
+
+  !-----------------------------------------------------------------------------
+  ! modules
+
+  use Kind_Parameters, only: RNP
+  implicit none
+
+  !-----------------------------------------------------------------------------
+  ! arguments
+
+  integer,   intent(in)  :: np                     !< points per direction
+  integer,   intent(in)  :: ne                     !< number of elements
+  real(RNP), intent(in)  :: Ds(<np>,<np>)          !< 1D standard diff matrix
+  real(RNP), intent(in)  :: dx(3)                  !< element extensions
+  real(RNP), intent(in)  :: u(<np>,<np>,<np>,ne,3) !< 3D vector field
+  real(RNP), intent(out) :: v(<np>,<np>,<np>,ne)   !< divergence of u
+  logical, optional, intent(in) :: transp          !< if present, apply Ds^T
+
+  !-----------------------------------------------------------------------------
+  ! local variables
+
+  real(RNP), allocatable :: A(:,:)
+  real(RNP) :: g(3)
+
+  integer :: e, i, j
+
+  !-----------------------------------------------------------------------------
+  ! initialization
+
+  ! workspace
+  allocate(A(np,np))
+
+  ! adjust diff matrix for optimal memory access
+  if (present(transp)) then
+    do j = 1, <np>
+    do i = 1, <np>
+      A(i,j) = Ds(i,j)
+    end do
+    end do
+  else
+    do j = 1, <np>
+    do i = 1, <np>
+      A(j,i) = Ds(i,j)
+    end do
+    end do
+  end if
+
+  ! metric coefficients
+  g = 2 / dx
+
+  !-----------------------------------------------------------------------------
+  ! evaluation
+
+  !$acc data present(u,v) copyin(A,g) async
+  !$acc parallel num_workers(<num_workers>) vector_length(<vec_length>) async
+  !$acc loop gang worker
+
+  !$omp do private(e)
+  do e = 1, ne
+
+    call SubOp_1i(g(1), A, u(:,:,:,e,1), v(:,:,:,e))  ! v  = du1/dx1
+    call SubOp_2a(g(2), A, u(:,:,:,e,2), v(:,:,:,e))  ! v += du2/dx2
+    call SubOp_3a(g(3), A, u(:,:,:,e,3), v(:,:,:,e))  ! v += du3/dx3
+
+  end do
+  !$omp end do
+
+  !$acc end parallel
+  !$acc end data
+
+contains
+
+#include "<SubOp_1i>"
+
+#include "<SubOp_2a>"
+
+#include "<SubOp_3a>"
+
+!===============================================================================
+
+end subroutine CART__TPO_Div__<tag>
+
+#undef __NA__
+#undef __NA_T2__
+#undef __NA_T4__
+#undef __NA_T8__

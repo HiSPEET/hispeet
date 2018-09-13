@@ -1,0 +1,32 @@
+//> summary:   Wrappers for accessing ParMETIS from Fortran
+//> author:    Joerg Stiller
+//> date:      2014/10/08
+//> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+//>
+//>### Wrappers for accessing ParMETIS from Fortran
+//>
+//> The routines provided with this file are based on the orignal wrappers
+//> with ParMETIS 4. They are supplemented with distributed explicit Fortran
+//> interfaces defined in parmetis_binding.f. Relying on standardized ISO C
+//> binding these interfaces provide a safe access to the corresponding ParMETIS
+//> routines.
+//==============================================================================
+
+#include <mpi.h>
+#include <parmetis.h>
+
+//------------------------------------------------------------------------------
+//> ParMETIS_V3_PartKway Fortran to C wrapper
+
+void ParMETIS_V3_PartKway_F2C(idx_t *vtxdist, idx_t *xadj, idx_t *adjncy,
+    idx_t *vwgt, idx_t *adjwgt, idx_t *wgtflag, idx_t *numflag, idx_t *ncon,
+    idx_t *nparts, real_t *tpwgts, real_t *ubvec, idx_t *options,
+    idx_t *edgecut, idx_t *part, MPI_Fint *comm)
+{
+  MPI_Comm ccomm = MPI_Comm_f2c(*comm);
+
+  ParMETIS_V3_PartKway(vtxdist, xadj, adjncy, vwgt, adjwgt, wgtflag, numflag,
+      ncon, nparts, tpwgts, ubvec, options, edgecut, part, &ccomm);
+
+  return;
+}

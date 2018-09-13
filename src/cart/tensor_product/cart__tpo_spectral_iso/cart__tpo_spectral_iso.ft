@@ -1,0 +1,105 @@
+!> summary:  3D Cartesian equidistant spectral operator
+!> author:   Joerg Stiller
+!> date:     2017/07/20
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### 3D Cartesian equidistant spectral operator
+!===============================================================================
+
+module CART__TPO_Spectral_Iso
+  use Kind_Parameters, only: RNP
+  implicit none
+  private
+
+  public :: TPO_Spectral_Iso_Proc    ! procedure interface
+  public :: TPO_Spectral_Iso_Assign  ! procedure assignment
+  public :: TPO_Spectral_Iso_Eval    ! operator evaluation
+
+  abstract interface
+
+    !---------------------------------------------------------------------------
+    !> Abstract interface to spectral tensor-product operator procedures
+    !>
+    !> The procedure evaluates a spectral tensor-product operator of the form
+    !>
+    !>     (AxAxA) Lambda (AxAxA)^T
+    !>
+    !> where A is the column matrices of the eigenvectors to the 1D suboperator
+    !> and Lambda is the diagonal matrix of corresponding 3D eigenvalues.
+    !> Given the operand u(1:na,1:na,1:na,1:ne), the result is computed as
+    !>
+    !>
+    !>     v(i,j,k,e) = sum[l=1:na, m=1:na, n=1:na]
+    !>                    A(k,n) * A(j,m) * A(i,l) * z(l,m,n,e)
+    !>
+    !> where
+    !>
+    !>     z(i,j,k,e) = sum[l=1:na, m=1:na, n=1:na]
+    !>                    Lambda(i,j,k) * A(n,k) * A(m,j) * A(l,i) * u(l,m,n,e)
+    !>
+    !> for each point (i,j,k) in every element e.
+    !>
+    !> When compiled with OpenACC and run on a GPU, any call to this procedure
+    !> must be followed by an "acc wait" before accessing u or v from CPU or
+    !> other than the default accelerator queue.
+
+    subroutine TPO_Spectral_Iso_Proc(na, ne, A, Lambda, u, v)
+      use Kind_Parameters,  only: RNP
+      integer,   intent(in)  :: na               !< dimension of A
+      integer,   intent(in)  :: ne               !< number of elements
+      real(RNP), intent(in)  :: A(na,na)         !< 1D eigenvectors
+      real(RNP), intent(in)  :: Lambda(na,na,na) !< 3D eigenvalues
+      real(RNP), intent(in)  :: u(na,na,na,ne)   !< operand
+      real(RNP), intent(out) :: v(na,na,na,ne)   !< result
+    end subroutine TPO_Spectral_Iso_Proc
+
+  end interface
+
+contains
+
+!-------------------------------------------------------------------------------
+!> Assignment of a procedure for given dimensions
+
+subroutine TPO_Spectral_Iso_Assign(na, Proc)
+  integer, intent(in) :: na  !< dimension of A
+  procedure(TPO_Spectral_Iso_Proc), pointer, intent(out) :: Proc
+
+  ! external procedures ........................................................
+
+  procedure(TPO_Spectral_Iso_Proc) :: CART__TPO_Spectral_Iso__gen
+
+  ! initialization .............................................................
+
+  Proc => null()
+
+  ! parametrized procedures ....................................................
+
+  ! generic procedures .........................................................
+
+  if (.not. associated(Proc)) then
+    Proc => CART__TPO_Spectral_Iso__gen
+  end if
+
+end subroutine TPO_Spectral_Iso_Assign
+
+!-------------------------------------------------------------------------------
+!> Evaluation of the spectral tensor-product operator
+
+subroutine TPO_Spectral_Iso_Eval(na, ne, A, Lambda, u, v)
+  integer,   intent(in)  :: na               !< dimension of A
+  integer,   intent(in)  :: ne               !< number of elements
+  real(RNP), intent(in)  :: A(na,na)         !< 1D eigenvectors
+  real(RNP), intent(in)  :: Lambda(na,na,na) !< 3D eigenvalues
+  real(RNP), intent(in)  :: u(na,na,na,ne)   !< operand
+  real(RNP), intent(out) :: v(na,na,na,ne)   !< result
+
+  procedure(TPO_Spectral_Iso_Proc), pointer :: Proc
+
+  call TPO_Spectral_Iso_Assign(na, Proc)
+  call Proc(na, ne, A, Lambda, u, v)
+
+end subroutine TPO_Spectral_Iso_Eval
+
+!===============================================================================
+
+end module CART__TPO_Spectral_Iso

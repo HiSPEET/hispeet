@@ -1,0 +1,99 @@
+#===============================================================================
+# essentials
+
+file(GLOB ESSENTIALS essentials/*.f)
+
+#===============================================================================
+# bindings
+
+set(BINDINGS bindings/c_binding.f
+             bindings/mpi_binding.F
+             bindings/vtk_wrapper.c
+             bindings/vtk_binding.f
+             )
+
+if (ParMETIS_FOUND)
+    list(APPEND BINDINGS bindings/parmetis_wrapper.c
+                         bindings/parmetis_binding.f )
+endif ()
+
+if (Exodus_FOUND)
+    list(APPEND BINDINGS bindings/exodus_wrapper.c
+                         bindings/exodus_binding.f )
+endif ()
+
+#===============================================================================
+# xmpi
+
+file(GLOB XMPI xmpi/*.f)
+
+#===============================================================================
+# linear_algebra
+
+file(GLOB LINEAR_ALGEBRA linear_algebra/*.f)
+
+#===============================================================================
+# tensor_product
+
+# pre-existing sources
+set(TENSOR_PRODUCT tensor_product/tpo_sddd.f
+                   tensor_product/tpo_sddd__gen.f )
+
+# configuration script
+set(TPO_CONFIG ${PROJECT_SOURCE_DIR}/bin/tpo_configure.py)
+
+# target directory of generated sources
+set(DEST ${CMAKE_CURRENT_BINARY_DIR})
+
+# parametrized operators
+include(cmake/tpo_aaa.cmake)
+
+# activate extra compile flags
+if (DEFINED Fortran_FLAGS_TPO)
+    set_source_files_properties(${TENSOR_PRODUCT}
+        PROPERTIES COMPILE_FLAGS ${Fortran_FLAGS_TPO})
+endif ()
+
+#===============================================================================
+# utilities
+
+file(GLOB UTILITIES utilities/*.f)
+
+#===============================================================================
+# spectral_element
+
+file(GLOB SPECTRAL_ELEMENT spectral_element/*.f)
+
+#===============================================================================
+# mesh
+
+file(GLOB MESH mesh/*.f)
+
+#===============================================================================
+# base library
+
+set(BASE_SRC ${ESSENTIALS}
+             ${BINDINGS}
+             ${XMPI}
+             ${LINEAR_ALGEBRA}
+             ${TENSOR_PRODUCT}
+             ${SPECTRAL_ELEMENT}
+             ${UTILITIES}
+             ${MESH}
+             )
+
+add_library(hibase ${BASE_SRC})
+
+target_include_directories(hibase
+    PUBLIC  ${PROJECT_BINARY_DIR}/modules
+    PRIVATE ${VTK_INCLUDE_DIRS}
+            ${ParMETIS_INCLUDE_DIRS}
+            ${Exodus_INCLUDE_DIRS}
+            )
+
+target_link_libraries(hibase
+    PUBLIC  ${LAPACK_LIBRARIES}
+            ${VTK_LIBRARIES}
+            ${ParMETIS_LIBRARIES}
+            ${Exodus_LIBRARIES}
+            )

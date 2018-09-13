@@ -1,0 +1,115 @@
+!> summary:  3D Cartesian Equidistant spectral operator
+!> author:   Joerg Stiller
+!> date:     2017/05/18
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### 3D Cartesian Equidistant spectral operator
+!===============================================================================
+
+module CART__TPO_Spectral
+  use Kind_Parameters, only: RNP
+  implicit none
+  private
+
+  public :: TPO_Spectral_Proc    ! procedure interface
+  public :: TPO_Spectral_Assign  ! procedure assignment
+  public :: TPO_Spectral_Eval    ! operator evaluation
+
+  abstract interface
+
+    !---------------------------------------------------------------------------
+    !> Abstract interface to spectral tensor-product operator procedures
+    !>
+    !> The procedure evaluates a spectral tensor-product operator of the form
+    !>
+    !>     (CxBxA) Lambda (CxBxA)^T
+    !>
+    !> where A,B,C are column matrices of the eigenvectors to 1D suboperators
+    !> for directions 1,2,3 and Lambda is the diagonal matrix of corresponding
+    !> eigenvalues. Given the operand u(1:na,1:nb,1:nc,1:ne), the result is
+    !> computed as
+    !>
+    !>     v(i,j,k,e) = sum[l=1:na, m=1:nb, n=1:nc]
+    !>                    C(k,n) * B(j,m) * A(i,l) * z(l,m,n,e)
+    !>
+    !> where
+    !>
+    !>     z(i,j,k,e) = sum[l=1:na, m=1:nb, n=1:nc]
+    !>                    Lambda(i,j,k) * C(n,k) * B(m,j) * A(l,i) * u(l,m,n,e)
+    !>
+    !> for each point (i,j,k) in every element e.
+    !>
+    !> When compiled with OpenACC and run on a GPU, any call to this procedure
+    !> must be followed by an "acc wait" before accessing u or v from CPU or
+    !> other than the default accelerator queue.
+
+    subroutine TPO_Spectral_Proc(na, nb, nc, ne, A, B, C, Lambda, u, v)
+      use Kind_Parameters,  only: RNP
+      integer,   intent(in)  :: na               !< dimension of A
+      integer,   intent(in)  :: nb               !< dimension of B
+      integer,   intent(in)  :: nc               !< dimension of C
+      integer,   intent(in)  :: ne               !< number of elements
+      real(RNP), intent(in)  :: A(na,na)         !< eigenvectors for direction 1
+      real(RNP), intent(in)  :: B(nb,nb)         !< eigenvectors for direction 2
+      real(RNP), intent(in)  :: C(nc,nc)         !< eigenvectors for direction 3
+      real(RNP), intent(in)  :: Lambda(na,nb,nc) !< eigenvalues
+      real(RNP), intent(in)  :: u(na,nb,nc,ne)   !< operand
+      real(RNP), intent(out) :: v(na,nb,nc,ne)   !< result
+    end subroutine TPO_Spectral_Proc
+
+  end interface
+
+contains
+
+!-------------------------------------------------------------------------------
+!> Assignment of a procedure for given dimensions
+
+subroutine TPO_Spectral_Assign(na, nb, nc, Proc)
+  integer,   intent(in) :: na  !< dimension of A
+  integer,   intent(in) :: nb  !< dimension of B
+  integer,   intent(in) :: nc  !< dimension of C
+  procedure(TPO_Spectral_Proc), pointer, intent(out) :: Proc
+
+  ! external procedures ........................................................
+
+  procedure(TPO_Spectral_Proc) :: CART__TPO_Spectral__gen
+
+  ! initialization .............................................................
+
+  Proc => null()
+
+  ! parametrized procedures ....................................................
+
+  ! generic procedures .........................................................
+
+  if (.not. associated(Proc)) then
+    Proc => CART__TPO_Spectral__gen
+  end if
+
+end subroutine TPO_Spectral_Assign
+
+!-------------------------------------------------------------------------------
+!> Evaluation of the spectral tensor-product operator
+
+subroutine TPO_Spectral_Eval(na, nb, nc, ne, A, B, C, Lambda, u, v)
+  integer,   intent(in)  :: na               !< dimension of A
+  integer,   intent(in)  :: nb               !< dimension of B
+  integer,   intent(in)  :: nc               !< dimension of C
+  integer,   intent(in)  :: ne               !< number of elements
+  real(RNP), intent(in)  :: A(na,na)         !< eigenvectors for direction 1
+  real(RNP), intent(in)  :: B(nb,nb)         !< eigenvectors for direction 2
+  real(RNP), intent(in)  :: C(nc,nc)         !< eigenvectors for direction 3
+  real(RNP), intent(in)  :: Lambda(na,nb,nc) !< eigenvalues
+  real(RNP), intent(in)  :: u(na,nb,nc,ne)   !< operand
+  real(RNP), intent(out) :: v(na,nb,nc,ne)   !< result
+
+  procedure(TPO_Spectral_Proc), pointer :: Proc
+
+  call TPO_Spectral_Assign(na, nb, nc, Proc)
+  call Proc(na, nb, nc, ne, A, B, C, Lambda, u, v)
+
+end subroutine TPO_Spectral_Eval
+
+!===============================================================================
+
+end module CART__TPO_Spectral

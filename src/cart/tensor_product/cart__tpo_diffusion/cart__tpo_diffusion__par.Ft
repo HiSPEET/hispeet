@@ -1,0 +1,104 @@
+!> summary:  Parametrized element Diffusion operator: 3D Cartesian equidistant
+!> author:   Joerg Stiller
+!> date:     2017/06/22
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Parametrized element Diffusion operator: 3D Cartesian equidistant
+!===============================================================================
+
+#define __NA__    <np>
+#define __NA_T2__ <np_t2>
+#define __NA_T4__ <np_t4>
+#define __NA_T8__ <np_t8>
+
+subroutine CART__TPO_Diffusion__<tag>(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+
+  !-----------------------------------------------------------------------------
+  ! modules
+
+  use Kind_Parameters,  only: RNP
+  implicit none
+
+  !-----------------------------------------------------------------------------
+  ! arguments
+
+  integer,   intent(in)  :: np                   !< points per direction
+  integer,   intent(in)  :: ne                   !< number of elements
+  real(RNP), intent(in)  :: Ms(<np>)             !< 1D standard mass matrix
+  real(RNP), intent(in)  :: Ls(<np>,<np>)        !< 1D standard stiffness matrix
+  real(RNP), intent(in)  :: lambda               !< Helmholtz parameter
+  real(RNP), intent(in)  :: nu                   !< diffusivity
+  real(RNP), intent(in)  :: dx(3)                !< element extensions
+  real(RNP), intent(in)  :: u(<np>,<np>,<np>,ne) !< operand
+  real(RNP), intent(out) :: v(<np>,<np>,<np>,ne) !< result
+
+  real(RNP), allocatable :: M(:,:,:), M_u(:,:,:), Lm(:,:)
+  real(RNP) :: g(3), tmp
+
+  integer :: e, i, j, k
+
+  !-----------------------------------------------------------------------------
+  ! initialization
+
+  ! workspace
+  allocate(M(np,np,np), M_u(np,np,np), Lm(np,np))
+
+  ! element mass matrix
+  tmp = product(dx) / 8
+  do k = 1, <np>
+  do j = 1, <np>
+  do i = 1, <np>
+    M(i,j,k) = tmp * Ms(k) * Ms(j) * Ms(i)
+  end do
+  end do
+  end do
+
+  ! mass-weighted stiffness matrix: Lm = Ms^-1 Ls = (Ls Ms^-1)^T
+  do j = 1, <np>
+  do i = 1, <np>
+    Lm(i,j) = Ls(i,j) / Ms(i)
+  end do
+  end do
+
+  ! coefficients
+  g = 4 * nu / dx**2
+
+  !-----------------------------------------------------------------------------
+  ! evaluation
+
+  !$acc data present(u,v) copyin(g,M,Lm) async
+  !$acc parallel num_workers(<num_workers>) vector_length(<vec_length>) async
+  !$acc loop gang worker private(M_u)
+
+  !$omp do private(e)
+  do e = 1, ne
+
+    call SubOp_0(lambda, M, u(:,:,:,e), M_u, v(:,:,:,e))
+    call SubOp_1a(g(1), Lm, M_u, v(:,:,:,e))
+    call SubOp_2a(g(2), Lm, M_u, v(:,:,:,e))
+    call SubOp_3a(g(3), Lm, M_u, v(:,:,:,e))
+
+  end do
+  !$omp end do
+
+  !$acc end parallel
+  !$acc end data
+
+contains
+
+#include "<SubOp_0>"
+
+#include "<SubOp_1a>"
+
+#include "<SubOp_2a>"
+
+#include "<SubOp_3a>"
+
+!===============================================================================
+
+end subroutine CART__TPO_Diffusion__<tag>
+
+#undef __NA__
+#undef __NA_T2__
+#undef __NA_T4__
+#undef __NA_T8__

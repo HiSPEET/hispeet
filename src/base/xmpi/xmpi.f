@@ -1,0 +1,38 @@
+!> summary:  Extended Fortran binding to MPI
+!> author:   Joerg Stiller
+!> date:     2014/11/06, revised 2017/04/10
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Extended Fortran binding to MPI
+!===============================================================================
+
+module XMPI
+
+  use MPI_Binding
+
+  use XMPI__Character
+  use XMPI__Integer
+  use XMPI__Logical
+  use XMPI__Real_RNP
+
+  logical, private :: initialized = .false.
+
+contains
+
+!-------------------------------------------------------------------------------
+!> Initializes the extended MPI Fortran binding
+
+subroutine XMPI_Init()
+
+  if (initialized) then
+    return
+  else
+    call Init_MPI_Binding
+    initialized = .true.
+  end if
+
+end subroutine XMPI_Init
+
+!===============================================================================
+
+end module XMPI

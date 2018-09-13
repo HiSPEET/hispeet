@@ -1,0 +1,349 @@
+!> summary:  Unit test for GL/GLL/GRL-Routines from the Gauss_Jacobi
+!> author:   Susanne Stimpert, Joerg Stiller
+!> date:     2015/01/23
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Unit test for GL/GLL/GRL-Routines from the Gauss_Jacobi
+!>
+!> Test of the functions GL/GLL_Points, GL/GLL_Weights, GL/GLL_DiffMatrix and
+!> GL/GLL_Polynomial from the Gauss_Jacobi module in [-1, 1] with the polynomial
+!> degree p ranging from 1 to 15. TestFunc is a non-symmmetric polynomial test
+!> function of degree p which satisfies
+!>
+!>   *  \( TestFunc(-1, p) = TestFunc(1, p) = 0 \)  and
+!>
+!>   *  \( \int_{-1}^1 TestFunc(x, p) dx = 1 \).
+!>
+!===============================================================================
+
+module Gauss_Jacobi__Test
+
+  use Kind_Parameters, only: RNP
+  use Constants,       only: ZERO, ONE, TWO, PI, THIRD
+  use Gauss_Jacobi
+  use Pfunit_Mod
+
+  implicit none
+
+  real(RNP), parameter :: TOL = 1e-11_RNP
+  integer,   parameter :: P_MAX = 15
+  real(RNP)            :: deviation
+
+contains
+
+@test
+
+!-------------------------------------------------------------------------------
+!> Test of the functions GL_Points and GL_DiffMatrix
+
+subroutine GL_Differentiation()
+
+  integer :: p, i
+  real(RNP), allocatable :: x(:), f(:), df(:), df_exact(:), d(:,:)
+
+  write(*,'(A)') 'Testing GL  differentiation'
+
+  do p = 1, P_MAX
+     allocate(x(0:p), f(0:p), df(0:p), df_exact(0:p), d(0:p, 0:p))
+     x = GL_Points(p)
+     d = GL_DiffMatrix(x)
+
+     do i = 0, p
+        f(i) = TestFunc(x(i), p)
+     end do
+
+     do i = 0, p
+        df(i) = sum(f * d(i,:))
+     end do
+
+     df_exact  = [(DTestFunc(x(i), p), i = 0, p)]
+     deviation = maxval(abs(df_exact -df))
+     @assertEqual(deviation, ZERO, TOL)
+
+     deallocate(x, f, df, df_exact, d)
+  end do
+
+end subroutine GL_Differentiation
+
+@test
+
+!-------------------------------------------------------------------------------
+!> Test of the functions GLL_Points and GLL_DiffMatrix
+
+subroutine GLL_Differentiation()
+
+  integer :: p, i
+  real(RNP), allocatable :: x(:), f(:), df(:), df_exact(:), d(:,:)
+
+  write(*,'(A)') 'Testing GLL differentiation'
+
+  do p = 1, P_MAX
+     allocate(x(0:p), f(0:p), df(0:p), df_exact(0:p), d(0:p, 0:p))
+     x = GLL_Points(p)
+     d = GLL_DiffMatrix(x)
+
+     do i = 0, p
+        f(i) = TestFunc(x(i), p)
+     end do
+
+     do i = 0, p
+        df(i) = sum(f * d(i,:))
+     end do
+
+     df_exact = ([(DTestFunc(x(i), p), i = 0, p)])
+     deviation = maxval(abs(df_exact -df))
+     @assertEqual(deviation, ZERO, TOL)
+
+     deallocate(x, f, df, df_exact, d)
+  end do
+
+end subroutine GLL_Differentiation
+
+@test
+
+!-------------------------------------------------------------------------------
+!> Test of the functions GRL_Points and GRL_DiffMatrix
+
+subroutine GRL_Differentiation()
+
+  integer :: p, i
+  real(RNP), allocatable :: x(:), f(:), df(:), df_exact(:), d(:,:)
+
+  write(*,'(A)') 'Testing GRL differentiation'
+
+  do p = 1, P_MAX
+     allocate(x(0:p), f(0:p), df(0:p), df_exact(0:p), d(0:p, 0:p))
+     x = GRL_Points(p)
+     d = GRL_DiffMatrix(x)
+
+     do i = 0, p
+        f(i) = TestFunc(x(i), p)
+     end do
+
+     do i = 0, p
+        df(i) = sum(f * d(i,:))
+     end do
+
+     df_exact = ([(DTestFunc(x(i), p), i = 0, p)])
+     deviation = maxval(abs(df_exact -df))
+     @assertEqual(deviation, ZERO, TOL)
+
+     deallocate(x, f, df, df_exact, d)
+  end do
+
+end subroutine GRL_Differentiation
+
+@test
+
+!-------------------------------------------------------------------------------
+!> Test of the functions GL_Points and GL_Weights
+
+subroutine GL_Integration()
+
+  integer :: p, i
+  real(RNP), allocatable :: x(:), w(:)
+  real(RNP) :: Inum
+
+  write(*,'(A)') 'Testing GL  quadrature'
+
+  do p = 1, P_MAX
+     allocate(x(0:p), w(0:p))
+     x = GL_Points(p)
+     w = GL_weights(x)
+
+     Inum = sum([ (TestFunc(x(i), p) * w(i), i = 0, p) ])
+     deviation = abs(1 - Inum)
+     @assertEqual(deviation, ZERO, TOL)
+
+     deallocate(x, w)
+  end do
+
+end subroutine GL_Integration
+
+@test
+
+!-------------------------------------------------------------------------------
+!> Test of the functions GLL_Points and GLL_Weights
+
+subroutine GLL_Integration()
+  integer :: p, i
+  real(RNP), allocatable :: x(:), w(:)
+  real(RNP) :: Inum
+
+  write(*,'(A)') 'Testing GLL quadrature'
+
+  do p = 1, P_MAX
+     allocate(x(0:p), w(0:p))
+     x = GLL_Points(p)
+     w = GLL_weights(x)
+
+     Inum = sum([ (TestFunc(x(i), p) * w(i), i = 0, p) ])
+     deviation = abs(1 - Inum)
+     @assertEqual(deviation, ZERO, TOL)
+
+     deallocate(x, w)
+  end do
+
+end subroutine GLL_Integration
+
+@test
+
+!-------------------------------------------------------------------------------
+!> Test of the functions GRL_Points and GRL_Weights
+
+subroutine GRL_Integration()
+
+  integer :: p, i
+  real(RNP), allocatable :: x(:), w(:)
+  real(RNP) :: Inum
+
+  write(*,'(A)') 'Testing GRL quadrature'
+
+  do p = 1, P_MAX
+     allocate(x(0:p), w(0:p))
+     x = GRL_Points(p)
+     w = GRL_weights(x)
+
+     Inum = sum([ (TestFunc(x(i), p) * w(i), i = 0, p) ])
+     deviation = abs(1 - Inum)
+     @assertEqual(deviation, ZERO, TOL)
+
+     deallocate(x, w)
+  end do
+
+end subroutine GRL_Integration
+
+@test
+
+!-------------------------------------------------------------------------------
+!> Test of the functions GL_Points and GL_Polynomial
+
+subroutine GL_Interpolation()
+  integer :: p, i
+  real(RNP), allocatable :: x(:)
+  real(RNP) :: f_int, x_int
+
+  write(*,'(A)') 'Testing GL  interpolation'
+
+  do p = 1, P_MAX
+     allocate(x(0:p))
+     x = GL_Points(p)
+     x_int = THIRD * (TWO * x(p/2) + x(p/2 + 1))
+
+     f_int = 0
+     do i = 0, p
+        f_int = f_int + TestFunc(x(i), p) * GL_Polynomial(i, x, x_int)
+     end do
+
+     deviation = abs(TestFunc(x_int, p) - f_int )
+     @assertEqual(deviation, ZERO, TOL)
+
+     deallocate(x)
+  end do
+
+end subroutine GL_Interpolation
+
+@test
+
+!-------------------------------------------------------------------------------
+!> Test of the functions GLL_Points and GLL_Polynomial
+
+subroutine GLL_Interpolation()
+  integer :: p, i
+  real(RNP), allocatable :: x(:)
+  real(RNP) :: f_int, x_int
+
+  write(*,'(A)') 'Testing GLL interpolation'
+
+  do p = 1, P_MAX
+     allocate(x(0:p))
+     x = GLL_Points(p)
+     x_int = THIRD * (TWO * x(p/2) + x(p/2 + 1))
+
+     f_int = 0
+     do i = 0, p
+        f_int = f_int + TestFunc(x(i), p) * GLL_Polynomial(i, x, x_int)
+     end do
+
+     deviation = abs(TestFunc(x_int, p) - f_int)
+     @assertEqual(deviation, ZERO, TOL)
+
+     deallocate(x)
+  end do
+
+end subroutine GLL_Interpolation
+
+@test
+
+!-------------------------------------------------------------------------------
+!> Test of the functions GRL_Points and GRL_Polynomial
+
+subroutine GRL_Interpolation()
+  integer :: p, i
+  real(RNP), allocatable :: x(:)
+  real(RNP) :: f_int, x_int
+
+  write(*,'(A)') 'Testing GRL interpolation'
+
+  do p = 1, P_MAX
+     allocate(x(0:p))
+     x = GRL_Points(p)
+     x_int = THIRD * (TWO * x(p/2) + x(p/2 + 1))
+
+     f_int = 0
+     do i = 0, p
+        f_int = f_int + TestFunc(x(i), p) * GRL_Polynomial(i, x, x_int)
+     end do
+
+     deviation = abs(TestFunc(x_int, p) - f_int)
+     @assertEqual(deviation, ZERO, TOL)
+
+     deallocate(x)
+  end do
+
+end subroutine GRL_Interpolation
+
+!===============================================================================
+! test function
+
+!-------------------------------------------------------------------------------
+!> Test function
+!>
+!> Polynomial test function of degree p in [-1,1] satisfying
+!>
+!>   * TestFunc(-1, p) = TestFunc(1, p) = 0,
+!>
+!>   * \int_{-1}^1 TestFunc(x, p) dx = 1
+
+elemental function TestFunc(x, p) result(y)
+  real(RNP), intent(in) :: x  !< position in [-1,1]
+  integer  , intent(in) :: p  !< polynomial degree
+  real(RNP) :: y
+
+  real(RNP) :: a, b
+
+  a = ONE/((-2)**(p + 1)*(1 - ONE/(p + 1)))
+  b = - a*(-2)**p
+
+  y = a*(x-1)**p + b
+
+end function TestFunc
+
+!-------------------------------------------------------------------------------
+!> Derivative of the test function
+
+elemental function DTestFunc(x, p) result(y)
+  real(RNP), intent(in) :: x  !< position in [-1,1]
+  integer, intent(in)   :: p  !< polynomial degree
+  real(RNP) :: y
+
+  real(RNP) :: a
+
+  a = ONE/((-2)**(p + 1) * (1 - ONE/(p + 1)))
+  y = a * p * (x - 1)**(p - 1)
+
+end function DTestFunc
+
+!===============================================================================
+
+end module  Gauss_Jacobi__Test
