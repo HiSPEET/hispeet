@@ -5,8 +5,9 @@
 
 cmake_minimum_required(VERSION 3.11)
 
-project(HiSPEET LANGUAGES C Fortran)
+project(HiSPEET)
 
+enable_language(Fortran)
 enable_testing()
 include(FindPackageHandleStandardArgs)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)

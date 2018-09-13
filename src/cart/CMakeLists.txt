@@ -87,7 +87,7 @@ set(DIFFUSION diffusion/cart__dg_diffusion_cis_bc.f
               diffusion/cart__dg_diffusion_cis_operator.f
               diffusion/cart__dg_diffusion_ci_operator.f
               diffusion/cart__dg_diffusion_ci_residual.f
-              diffusion/cart__dg_diffusion_ci_conjugate_gradients.f
+              diffusion/cart__dg_diffusion_ci_conj_grad.f
               diffusion/cart__dg_diffusion_ci_schwarz.f
               diffusion/cart__dg_diffusion_ci_pmg_level.f
               diffusion/cart__dg_diffusion_ci_pmg.f

@@ -15,13 +15,15 @@
 
      # for use with OpenMPI
      ml OpenMPI/2.1.2-iccifort-2018.1.163-GCC-6.4.0-2.28
-     export FC=mpiifort
-     export CC=mpiicc
+     export FC=mpifort
+     export CC=mpicc
+     export CXX=mpicxx
 
      # for use with Intel MPI
      ml intel
-     export FC=mpifort
-     export CC=mpicc
+     export FC=mpiiifort
+     export CC=mpiicc
+     export CXX=mpiicxx
 
 
 
@@ -34,3 +36,5 @@
 
      export FC=mpifort
      export CC=mpicc
+     export CXX=mpicxx
+

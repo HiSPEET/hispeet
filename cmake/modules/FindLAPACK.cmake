@@ -9,7 +9,7 @@
 # With Intel use MKL
 if (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     list(APPEND CMAKE_Fortran_FLAGS "-mkl=sequential")
-    set(LAPACK_IS_AVAILABLE True)
+    set(LAPACK_IS_AVAILABLE TRUE)
 
 # With PGI use libraries shipped with the compiler
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
@@ -21,7 +21,7 @@ else ()
     find_package(OpenBLAS QUIET)
     if (OpenBLAS_FOUND)
         set(LAPACK_LIBRARIES ${OpenBLAS_LIBRARIES})
-        set(LAPACK_IS_AVAILABLE True)
+        set(LAPACK_IS_AVAILABLE TRUE)
 
     else ()
 
@@ -30,7 +30,7 @@ else ()
         find_library(LAPACK_LIBRARY lapack)
         if (BLAS_LIBRARY AND LAPACK_LIBRARY)
             set(LAPACK_LIBRARIES ${LAPACK_LIBRARY} ${BLAS_LIBRARY})
-            set(LAPACK_IS_AVAILABLE True)
+            set(LAPACK_IS_AVAILABLE TRUE)
         endif ()
 
     endif ()
