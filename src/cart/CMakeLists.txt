@@ -106,5 +106,6 @@ list(APPEND CART_SRC ${TENSOR_PRODUCT}
                      ${DIFFUSION}
                      )
 
-add_library(hicart ${CART_SRC})
-target_link_libraries(hicart hibase)
+add_library(HiCart ${CART_SRC})
+
+target_link_libraries(HiCart PUBLIC HiBase HiPhysics)

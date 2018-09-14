@@ -5,7 +5,7 @@
 
 add_executable(elliptic_test elliptic_test.f elliptic_test_case.f)
 
-target_link_libraries(elliptic_test hibase hicart)
+target_link_libraries(elliptic_test HiCart)
 
 #===============================================================================
 # Configure files

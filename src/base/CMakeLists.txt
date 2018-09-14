@@ -82,16 +82,16 @@ set(BASE_SRC ${ESSENTIALS}
              ${MESH}
              )
 
-add_library(hibase ${BASE_SRC})
+add_library(HiBase ${BASE_SRC})
 
-target_include_directories(hibase
+target_include_directories(HiBase
     PUBLIC  ${PROJECT_BINARY_DIR}/modules
     PRIVATE ${VTK_INCLUDE_DIRS}
             ${ParMETIS_INCLUDE_DIRS}
             ${Exodus_INCLUDE_DIRS}
             )
 
-target_link_libraries(hibase
+target_link_libraries(HiBase
     PUBLIC  ${LAPACK_LIBRARIES}
             ${VTK_LIBRARIES}
             ${ParMETIS_LIBRARIES}

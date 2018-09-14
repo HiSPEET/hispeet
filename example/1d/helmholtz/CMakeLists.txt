@@ -5,7 +5,7 @@
 
 add_executable(helmholtz_sem_1d-sequential helmholtz_sem_1d-sequential.f)
 
-target_link_libraries(helmholtz_sem_1d-sequential hibase)
+target_link_libraries(helmholtz_sem_1d-sequential HiBase)
 
 #===============================================================================
 # Configure files

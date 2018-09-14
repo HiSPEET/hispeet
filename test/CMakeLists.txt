@@ -5,7 +5,7 @@ if (PFUNIT_FOUND)
     set(TEST_BASE_SOURCES gauss_jacobi__test.pf)
     add_pfunit_test(unit_test_base "${TEST_BASE_SOURCES}" "" "")
 
-    target_link_libraries(unit_test_base hibase)
+    target_link_libraries(unit_test_base HiBase)
 
     # parmetis .................................................................
 
@@ -15,7 +15,7 @@ if (PFUNIT_FOUND)
         add_pfunit_test(unit_test_parmetis "${TEST_ParMETIS_SOURCES}" "" "" NPES 3)
 
         target_compile_options(unit_test_parmetis PRIVATE "-DUSE_MPI")
-        target_link_libraries (unit_test_parmetis hibase)
+        target_link_libraries (unit_test_parmetis HiBase)
 
     endif (ParMETIS_FOUND)
 
