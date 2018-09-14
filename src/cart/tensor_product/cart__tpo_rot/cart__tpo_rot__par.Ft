@@ -35,7 +35,7 @@ subroutine CART__TPO_Rot__<tag>(np, ne, Ds, dx, u, v)
   real(RNP), allocatable :: Dt(:,:)
   real(RNP) :: g(3)
 
-  integer :: e, i, j, k
+  integer :: e, i, j
 
   !-----------------------------------------------------------------------------
   ! initialization
