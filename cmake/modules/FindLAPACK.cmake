@@ -8,7 +8,7 @@
 
 # With Intel use MKL
 if (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-    list(APPEND CMAKE_Fortran_FLAGS "-mkl=sequential")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -mkl=sequential")
     set(LAPACK_IS_AVAILABLE TRUE)
 
 # With PGI use libraries shipped with the compiler
