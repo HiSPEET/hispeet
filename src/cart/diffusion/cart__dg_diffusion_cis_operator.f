@@ -133,7 +133,7 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
 
   ! local traces of u and du/dx ................................................
 
-  call TraceOperators( eop, po, ne, u,                                &
+  call TraceOperators( eop, po, ne, u,                                 &
                        J_u(:,:,i1:j1), J_u(:,:,i2:j2), J_u(:,:,i3:j3), &
                        D_u(:,:,i1:j1), D_u(:,:,i2:j2), D_u(:,:,i3:j3)  )
 
@@ -724,7 +724,7 @@ subroutine AddFluxes(eop, po, ne, nu, J1_u, J2_u, J3_u, D1_u, D2_u, D3_u, v)
 
   ! arguments ..................................................................
 
-  class(DG_ElementOperators), intent(in) :: eop !< ! element operators
+  class(DG_ElementOperators), intent(in) :: eop !< element operators
 
   integer,   intent(in) :: po     !< polynomial order
   integer,   intent(in) :: ne(3)  !< number of elements per direction

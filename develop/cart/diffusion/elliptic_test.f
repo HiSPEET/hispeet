@@ -19,7 +19,8 @@ program Elliptic_Test
   use CART__Generate_Structured_Mesh
   use CART__Boundary_Variable
   use CART__DG_Element_Operators
-  use CART__DG_Diffusion_CIS_BC
+!  use CART__DG_Diffusion_CIS_BC
+  use CART__DG_Diffusion_CIU_BC
   use CART__DG_Diffusion_CI_Operator
   use CART__DG_Diffusion_CI_Residual
   use CART__DG_Diffusion_CI_Conj_Grad

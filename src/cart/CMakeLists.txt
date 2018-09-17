@@ -76,6 +76,7 @@ set(INTER_LEVEL inter_level_transfer/cart__dg_pmg_transfer_operators.f)
 # operators
 
 set(OPERATORS operators/cart__trace_operator.f
+              operators/cart__normal_trace_operator.f
               operators/cart__dg_weak_gradient.f
               operators/cart__dg_weak_divergence.f
               )
@@ -84,7 +85,9 @@ set(OPERATORS operators/cart__trace_operator.f
 # diffusion
 
 set(DIFFUSION diffusion/cart__dg_diffusion_cis_bc.f
+              diffusion/cart__dg_diffusion_ciu_bc.f
               diffusion/cart__dg_diffusion_cis_operator.f
+              diffusion/cart__dg_diffusion_ciu_operator.f
               diffusion/cart__dg_diffusion_ci_operator.f
               diffusion/cart__dg_diffusion_ci_residual.f
               diffusion/cart__dg_diffusion_ci_conj_grad.f

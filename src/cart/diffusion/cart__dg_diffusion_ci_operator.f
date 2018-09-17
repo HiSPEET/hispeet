@@ -15,7 +15,7 @@ module CART__DG_Diffusion_CI_Operator
   use CART__DG_Element_Operators
   use CART__Mesh_Partition
   use CART__DG_Diffusion_CIS_Operator, DiffusionOperator_S => DiffusionOperator
-! use CART__DG_Diffusion_CIU_Operator, DiffusionOperator_U => DiffusionOperator
+  use CART__DG_Diffusion_CIU_Operator, DiffusionOperator_U => DiffusionOperator
 
   implicit none
   private
@@ -44,8 +44,9 @@ subroutine DiffusionOperator(mesh, eops, lambda, nu, bc, u, v)
 
   if (mesh%structured) then
     call DiffusionOperator_S(mesh, eops, lambda, nu, bc, u, v)
-  else
   ! call DiffusionOperator_U(mesh, eops, lambda, nu, bc, u, v)
+  else
+    call DiffusionOperator_U(mesh, eops, lambda, nu, bc, u, v)
   end if
 
 end subroutine DiffusionOperator

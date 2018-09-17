@@ -32,7 +32,7 @@ module CART__Trace_Operator
   public :: TraceOperator
 
   !-----------------------------------------------------------------------------
-  !> Structure generating, keeping and handling trace data
+  !> Operator for generating, keeping and handling trace data
 
   type TraceOperator
 
