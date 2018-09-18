@@ -254,6 +254,8 @@ program Elliptic_Test
         call bv(b) % Extract(mesh, u, b, bc(b))
       case('N')
         call bv(b) % ExtractNormalComponent(mesh, grad_u, b, bc(b))
+      case default
+        call bv(b) % New(mesh, po, b, bc(b))
       end select
     end do
 
