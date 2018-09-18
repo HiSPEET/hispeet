@@ -1,8 +1,8 @@
 # Required environment
 #
-#     CC     C compiler
-#     CXX    C++ compiler
-#     FC     Fortran compiler
+#     CMAKE_C_COMPILER
+#     CMAKE_CXX_COMPILER
+#     CMAKE_Fortran_COMPILER
 #
 # must support MPI
 
