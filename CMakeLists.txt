@@ -62,25 +62,33 @@ find_package(pFUnit PATHS $ENV{PFUNIT})
 #===============================================================================
 # Flags
 
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release")
+endif ()
+
 #-------------------------------------------------------------------------------
 # GNU
 
 if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-form -O3 -Wall -Wpedantic")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-form -Wall")
+    set(CMAKE_Fortran_FLAGS_DEBUG   "-fbacktrace -g")
+    set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native" )
 
 #-------------------------------------------------------------------------------
 # Intel
 
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
 
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -free -O3 -heap-arrays -warn all")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -free -heap-arrays -Wall")
+    set(CMAKE_Fortran_FLAGS_DEBUG   "traceback -g")
+    set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -ip -xHost" )
 
     if (CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -diag-disable=cpu-dispatch")
 
     elseif (CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
-        set(CMAKE_Fortran_FLAGS    "${CMAKE_Fortran_FLAGS} -xHost -fno-common")
+        set(CMAKE_Fortran_FLAGS    "${CMAKE_Fortran_FLAGS} -fno-common")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-stack_size,0x40000000")
 
     endif ()
