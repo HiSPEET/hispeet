@@ -94,7 +94,7 @@ subroutine GetTrace_Start_O(this, mesh, u, tr_un, tag)
   ne = mesh % ne
   nf = mesh % nf
 
-  call GetTrace_Start_X(this, mesh, po, ne, nf, u, null(), tr_un, tag)
+  call GetTrace_Start_X(this, mesh, po, ne, nf, u, tr_un=tr_un, tag=tag)
 
 end subroutine GetTrace_Start_O
 
