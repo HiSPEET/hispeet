@@ -30,14 +30,14 @@ subroutine GenerateMeshLinks(mesh, conn)
   integer, allocatable :: link_face(:,:)
   integer, allocatable :: link_master(:,:,:)
   integer, allocatable :: link_ghost(:,:)
-  integer, allocatable :: map(:)
-  integer :: e, i, j, k, l, n, p, q, r, s
-  integer :: nef(6), perm(26)
+  integer, allocatable :: map(:), perm(:)
+  integer :: b, e, i, j, k, l, n, p, q, r, s
+  integer :: nef(6)
 
   !-----------------------------------------------------------------------------
   ! initialization
 
-  if (mesh%part < 0 .or. mesh%n_part == 1) then
+  if (mesh%part < 0) then
     allocate(mesh%link(0))
     return
   end if
@@ -48,6 +48,8 @@ subroutine GenerateMeshLinks(mesh, conn)
   allocate(nm(0:p), source = 0)
   allocate(ng(0:p), source = 0)
   allocate(og(0:p), source = 0)
+
+  allocate(perm(max(26, mesh%nf)), source = 0)
 
   !-----------------------------------------------------------------------------
   ! identify and count linked entities
@@ -71,23 +73,34 @@ subroutine GenerateMeshLinks(mesh, conn)
   do e = 1, mesh%ne
     do i = 1, 6
       p = conn(e)%face(i)%part
-      if (p >= 0 .and. p /= mesh%part) then
-        ! increase counters
-        k = k + 1
-        nf(p) = nf(p) + 1
-        ! store partition of remote element
-        link_face(1,k) = p
-        ! store adjacent element ID and face from lowest rank partition
-        if (p < mesh%part) then
-          link_face(2,k) = conn(e)%face(i)%id
-          link_face(3,k) = nef(i)
-        else
-          link_face(2,k) = e
-          link_face(3,k) = i
+
+      if (p < 0) cycle
+
+      if (p == mesh%part) then
+        b = mesh%element(e)%face(i)%boundary
+        if (b <= 0) then
+          cycle ! do not link to adjacent local elements
+        else if (mesh%boundary(b)%is_interior) then
+          cycle ! do not link accross interior boundaries
         end if
-        ! store local face ID
-        link_face(4,k) = mesh%element(e)%face(i)%id
       end if
+
+      ! increase counters
+      k = k + 1
+      nf(p) = nf(p) + 1
+      ! store partition of remote element
+      link_face(1,k) = p
+      ! store adjacent element ID and face from lowest rank partition
+      if (p <= mesh%part) then
+        link_face(2,k) = conn(e)%face(i)%id
+        link_face(3,k) = nef(i)
+      else
+        link_face(2,k) = e
+        link_face(3,k) = i
+      end if
+      ! store local face ID
+      link_face(4,k) = mesh%element(e)%face(i)%id
+
     end do
   end do
 
@@ -234,8 +247,11 @@ subroutine GenerateMeshLinks(mesh, conn)
       mesh % link(k) % nm = nm(p)
       mesh % link(k) % ng = ng(p)
       allocate(mesh%link(k)%face ( nf(p) ))
-      allocate(mesh%link(k)%master( nm(p) ))
-      allocate(mesh%link(k)%ghost( ng(p) ))
+      if (p == mesh%part) then
+        allocate(mesh%link(k)%coupled_face, mold=mesh%link(k)%face)
+      end if
+      allocate(mesh%link(k)%master ( nm(p) ))
+      allocate(mesh%link(k)%ghost  ( ng(p) ))
     end if
   end do
 
@@ -247,7 +263,22 @@ subroutine GenerateMeshLinks(mesh, conn)
     p = link_face(1,i)
     if (p < 0) exit
     nf(p) = nf(p) + 1
-    mesh%link(map(p))%face ( nf(p) ) = link_face(4,i)
+    mesh%link(map(p))%face( nf(p) ) = link_face(4,i)
+    if (p == mesh%part) then
+      mesh%link(map(p))%coupled_face( nf(p) ) = &
+          mesh%element( link_face(2,i) ) % face( link_face(3,i) ) % id
+    end if
+  end do
+
+  ! sort local face links
+  do l = 1, size(mesh%link)
+    associate(link => mesh%link(l))
+      if (link%part == mesh%part .and. link%nf > 0) then
+        call SortIndex(link%face, perm)
+        link % face         = link % face         ( perm(1:link%nf) )
+        link % coupled_face = link % coupled_face ( perm(1:link%nf) )
+      end if
+    end associate
   end do
 
   ! master elements ............................................................

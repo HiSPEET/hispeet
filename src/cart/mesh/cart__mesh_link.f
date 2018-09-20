@@ -27,9 +27,15 @@ module CART__Mesh_Link
   !-----------------------------------------------------------------------------
   !> Structure for keeping mesh coupling information
   !>
-  !> We maintain a list of master elements and a list of ghost elements.
-  !> The former belong to the local partition, whereas the latter represent
-  !> virtual entities for keeping data that refers to remote elements.
+  !> The structure provides the following lists
+  !>
+  !>    *  in `face` the IDs of faces linked with partition `part`
+  !>    *  if `part` is the local partition, in `coupled_face` the
+  !>       IDs of the coupled local faces
+  !>    *  in `master` the ElementLink data of local elements possessing
+  !>       a ghost in partition `part`
+  !>    *  in `ghost` the ElementLink data of ghost elements governed by
+  !>       a master in partition `part`
 
   type MeshLink
     integer :: part = -1                        !< remote partition ID
@@ -37,6 +43,7 @@ module CART__Mesh_Link
     integer :: nm = 0                           !< number of master elements
     integer :: ng = 0                           !< number of ghost elements
     integer, allocatable :: face(:)             !< list of linked faces
+    integer, allocatable :: coupled_face(:)     !< list of coupled local faces
     type(ElementLink), allocatable :: master(:) !< master elements
     type(ElementLink), allocatable :: ghost(:)  !< ghost elements
   end type MeshLink

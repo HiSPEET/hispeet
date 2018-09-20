@@ -194,7 +194,8 @@ subroutine New_TransferBuffer_X(this, mesh, np, nc)
     end do
 
     ! set side to position of local mesh face
-    where(mesh % face(side) % element(1) <= mesh % ne)
+    where( mesh % face(side) % element(1) >  0  .and.  &
+           mesh % face(side) % element(1) <= mesh % ne )
       ! element 1 is local
       side = 1
     elsewhere
@@ -271,14 +272,33 @@ subroutine Transfer_X(this, mesh, v, tag)
 
     do l = 1, size(mesh%link)
 
-      call CopyToBuffer( np   = this%np            &
-                       , nc   = this%nc            &
-                       , nf   = mesh%link(l)%nf    &
-                       , nm   = mesh%nf            &
-                       , face = mesh%link(l)%face  &
-                       , side = send%side(s1:)     &
-                       , v    = v                  &
-                       , vb   = send%buf(b1:)      )
+      if (mesh%link(l)%part /= mesh%part) then
+
+        call CopyToBuffer( np   = this%np            &
+                         , nc   = this%nc            &
+                         , nf   = mesh%link(l)%nf    &
+                         , nm   = mesh%nf            &
+                         , face = mesh%link(l)%face  &
+                         , side = send%side(s1:)     &
+                         , v    = v                  &
+                         , vb   = send%buf(b1:)      )
+
+      else
+
+        ! local link: copy coupled face data into send buffer,
+        ! note that for the coupled face the send side equals
+        ! the recv side of the linked face
+
+        call CopyToBuffer( np   = this%np                    &
+                         , nc   = this%nc                    &
+                         , nf   = mesh%link(l)%nf            &
+                         , nm   = mesh%nf                    &
+                         , face = mesh%link(l)%coupled_face  &
+                         , side = recv%side(s1:)             &
+                         , v    = v                          &
+                         , vb   = send%buf(b1:)              )
+      end if
+
 
       s1 = s1 + mesh%link(l)%nf
       b1 = b1 + mesh%link(l)%nf * this%np * this%nc
@@ -298,11 +318,17 @@ subroutine Transfer_X(this, mesh, v, tag)
       l = this % len(i)
       if (l < 1) cycle
 
-      call MPI_Isend( send%buf(m:), l, MPI_REAL_RNP, part, tag, comm, &
-                      send%request(i)                                 )
+      if (part /= mesh%part) then
 
-      call MPI_Irecv( recv%buf(m:), l, MPI_REAL_RNP, part, tag, comm, &
-                      recv%request(i)                                 )
+        call MPI_Isend( send%buf(m:), l, MPI_REAL_RNP, part, tag, comm, &
+                        send%request(i)                                 )
+
+        call MPI_Irecv( recv%buf(m:), l, MPI_REAL_RNP, part, tag, comm, &
+                        recv%request(i)                                 )
+
+      else
+        recv%buf(m:m+l-1) = send%buf(m:m+l-1)
+      end if
 
     end do
 

@@ -54,6 +54,7 @@ module CART__Mesh_Boundary
     character(len=80) :: name =  ''     !< name
     integer           :: nf   = -1      !< number of faces
 
+    logical :: is_periodic = .false.    !< indicates periodic boundary
     logical :: is_interior = .false.    !< indicates interior boundary
 
     type(BoundaryFace), allocatable :: face(:) !< boundary faces
@@ -70,17 +71,19 @@ contains
 !-------------------------------------------------------------------------------
 !> Create a new mesh boundary structure
 
-subroutine New_MeshBoundary(this, id, name, nf)
-  class(MeshBoundary), intent(inout) :: this   !< mesh boundary object
-  integer,             intent(in)    :: id     !< identifier
-  character(len=*),    intent(in)    :: name   !< name
-  integer,             intent(in)    :: nf     !< number of faces
+subroutine New_MeshBoundary(this, id, name, nf, periodic)
+  class(MeshBoundary), intent(inout) :: this     !< mesh boundary object
+  integer,             intent(in)    :: id       !< identifier
+  character(len=*),    intent(in)    :: name     !< name
+  integer,             intent(in)    :: nf       !< number of faces
+  logical,             intent(in)    :: periodic !< switch for periodicity
 
   if (allocated(this%face)) deallocate(this%face)
 
-  this % id   = id
-  this % name = name
-  this % nf   = nf
+  this % id          = id
+  this % name        = name
+  this % nf          = nf
+  this % is_periodic = periodic
 
   allocate(this%face(nf))
 

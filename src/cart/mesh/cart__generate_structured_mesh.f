@@ -88,7 +88,7 @@ subroutine GenerateStructuredMesh(mesh, np, ep, xo, dx, periodic, comm)
   ! empty partitions
   if (part < 0) then
     mesh = EmptyMeshPartition(0, n_boundary, n_part, dx, comm=comm)
-    call GenerateStructuredMeshBoundaries(mesh)
+    call GenerateStructuredMeshBoundaries(mesh, periodic)
     return
   end if
 
@@ -127,7 +127,7 @@ subroutine GenerateStructuredMesh(mesh, np, ep, xo, dx, periodic, comm)
 
   call GenerateStructuredMeshElements
   call GenerateStructuredMeshFaces(mesh)
-  call GenerateStructuredMeshBoundaries(mesh)
+  call GenerateStructuredMeshBoundaries(mesh, periodic)
   call GenerateMeshLinks(mesh, conn)
 
 contains
@@ -457,8 +457,9 @@ end subroutine GenerateStructuredMeshFaces
 !-------------------------------------------------------------------------------
 !> Creates the boundaries of a structured mesh partitions
 
-subroutine GenerateStructuredMeshBoundaries(mesh)
+subroutine GenerateStructuredMeshBoundaries(mesh, periodic)
   type(MeshPartition), intent(inout) :: mesh
+  logical, intent(in) :: periodic(3) !< periodic directions set true
 
   integer :: b, e, e0, f, i, j, k
 
@@ -472,12 +473,12 @@ subroutine GenerateStructuredMeshBoundaries(mesh)
   allocate(mesh%boundary(6))
 
   if (mesh%part < 0) then
-    call mesh % boundary(1) % New(1, 'west',   nf = 0)
-    call mesh % boundary(2) % New(2, 'east',   nf = 0)
-    call mesh % boundary(3) % New(3, 'south',  nf = 0)
-    call mesh % boundary(4) % New(4, 'north',  nf = 0)
-    call mesh % boundary(5) % New(5, 'bottom', nf = 0)
-    call mesh % boundary(6) % New(6, 'top',    nf = 0)
+    call mesh % boundary(1) % New(1, 'west',   nf = 0, periodic = periodic(1))
+    call mesh % boundary(2) % New(2, 'east',   nf = 0, periodic = periodic(1))
+    call mesh % boundary(3) % New(3, 'south',  nf = 0, periodic = periodic(2))
+    call mesh % boundary(4) % New(4, 'north',  nf = 0, periodic = periodic(2))
+    call mesh % boundary(5) % New(5, 'bottom', nf = 0, periodic = periodic(3))
+    call mesh % boundary(6) % New(6, 'top',    nf = 0, periodic = periodic(3))
     return
   else if (.not. mesh%structured) then
     call Error('GenerateStructuredMeshBoundaries', 'mesh must be structured')
@@ -494,7 +495,7 @@ subroutine GenerateStructuredMeshBoundaries(mesh)
     e = 1
     associate(boundary => mesh%boundary(b))
       if (mesh%element(e)%face(b)%boundary == b) then
-        call boundary % New(id=1, name='west', nf=n2*n3)
+        call boundary % New(id=1, name='west', nf=n2*n3, periodic=periodic(1))
         f = 1
         do k = 0, n3-1
           e0 = 1 + n1*n2 * k
@@ -508,7 +509,7 @@ subroutine GenerateStructuredMeshBoundaries(mesh)
           end do
         end do
       else
-        call boundary % New(id=1, name='west', nf=0)
+        call boundary % New(id=1, name='west', nf=0, periodic=periodic(1))
       end if
     end associate
 
@@ -518,7 +519,7 @@ subroutine GenerateStructuredMeshBoundaries(mesh)
     e = n1
     associate(boundary => mesh%boundary(b))
       if (mesh%element(e)%face(b)%boundary == b) then
-        call boundary % New(id=2, name='east', nf=n2*n3)
+        call boundary % New(id=2, name='east', nf=n2*n3, periodic=periodic(1))
         f = 1
         do k = 0, n3-1
           e0 = n1 + n1*n2 * k
@@ -532,7 +533,7 @@ subroutine GenerateStructuredMeshBoundaries(mesh)
           end do
         end do
       else
-        call boundary % New(id=2, name='east', nf=0)
+        call boundary % New(id=2, name='east', nf=0, periodic=periodic(1))
       end if
     end associate
 
@@ -542,7 +543,7 @@ subroutine GenerateStructuredMeshBoundaries(mesh)
     e = 1
     associate(boundary => mesh%boundary(b))
       if (mesh%element(e)%face(b)%boundary == b) then
-        call boundary % New(id=3, name='south', nf=n1*n3)
+        call boundary % New(id=3, name='south', nf=n1*n3, periodic=periodic(2))
         f = 1
         do k = 0, n3-1
           e0 = 1 + n1*n2 * k
@@ -556,7 +557,7 @@ subroutine GenerateStructuredMeshBoundaries(mesh)
           end do
         end do
       else
-        call boundary % New(id=3, name='south', nf=0)
+        call boundary % New(id=3, name='south', nf=0, periodic=periodic(2))
       end if
     end associate
 
@@ -566,7 +567,7 @@ subroutine GenerateStructuredMeshBoundaries(mesh)
     e = 1 + n1*(n2-1)
     associate(boundary => mesh%boundary(b))
       if (mesh%element(e)%face(b)%boundary == b) then
-        call boundary % New(id=4, name='north', nf=n1*n3)
+        call boundary % New(id=4, name='north', nf=n1*n3, periodic=periodic(2))
         f = 1
         do k = 0, n3-1
           e0 = 1 + n1*(n2-1) + n1*n2 * k
@@ -580,7 +581,7 @@ subroutine GenerateStructuredMeshBoundaries(mesh)
           end do
         end do
       else
-        call boundary % New(id=4, name='north', nf=0)
+        call boundary % New(id=4, name='north', nf=0, periodic=periodic(2))
       end if
     end associate
 
@@ -590,7 +591,7 @@ subroutine GenerateStructuredMeshBoundaries(mesh)
     e = 1
     associate(boundary => mesh%boundary(b))
       if (mesh%element(e)%face(b)%boundary == b) then
-        call boundary % New(id=5, name='bottom', nf=n1*n2)
+        call boundary % New(id=5, name='bottom', nf=n1*n2, periodic=periodic(3))
         f = 1
         do j = 0, n2-1
           e0 = 1 + n1 * j
@@ -604,7 +605,7 @@ subroutine GenerateStructuredMeshBoundaries(mesh)
           end do
         end do
       else
-        call boundary % New(id=5, name='bottom', nf=0)
+        call boundary % New(id=5, name='bottom', nf=0, periodic=periodic(3))
       end if
     end associate
 
@@ -614,7 +615,7 @@ subroutine GenerateStructuredMeshBoundaries(mesh)
     e = 1 + n1*n2*(n3-1)
     associate(boundary => mesh%boundary(b))
       if (mesh%element(e)%face(b)%boundary == b) then
-        call boundary % New(id=6, name='top', nf=n1*n2)
+        call boundary % New(id=6, name='top', nf=n1*n2, periodic=periodic(3))
         f = 1
         do j = 0, n2-1
           e0 = 1 + n1 * j + n1*n2*(n3-1)
@@ -628,7 +629,7 @@ subroutine GenerateStructuredMeshBoundaries(mesh)
           end do
         end do
       else
-        call boundary % New(id=6, name='top', nf=0)
+        call boundary % New(id=6, name='top', nf=0, periodic=periodic(3))
       end if
     end associate
 

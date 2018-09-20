@@ -43,8 +43,8 @@ subroutine DiffusionOperator(mesh, eops, lambda, nu, bc, u, v)
   ! evaluation .................................................................
 
   if (mesh%structured) then
-    call DiffusionOperator_S(mesh, eops, lambda, nu, bc, u, v)
-  ! call DiffusionOperator_U(mesh, eops, lambda, nu, bc, u, v)
+   ! call DiffusionOperator_S(mesh, eops, lambda, nu, bc, u, v)
+    call DiffusionOperator_U(mesh, eops, lambda, nu, bc, u, v)
   else
     call DiffusionOperator_U(mesh, eops, lambda, nu, bc, u, v)
   end if

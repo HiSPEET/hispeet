@@ -12,7 +12,7 @@ module CART__DG_Diffusion_CIU_Operator
   use Constants,       only: ZERO, ONE, HALF
   use Array_Assignments
 
-  use CART__TPO_Grad
+!!!  use CART__TPO_Grad
   use CART__TPO_Diffusion
   use CART__DG_Element_Operators
   use CART__Mesh_Partition
@@ -50,7 +50,6 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
 
   ! local variables ............................................................
 
-  procedure(TPO_Grad_Proc),      pointer, save :: GradientOperator
   procedure(TPO_Diffusion_Proc), pointer, save :: StiffnessOperator
 
   ! trace operators
@@ -61,7 +60,7 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
   real(RNP), allocatable, save :: tr_u(:,:,:,:)
   real(RNP), allocatable, save :: tr_dn_u(:,:,:,:)
 
-  ! gradient  ∇u
+  ! normal gradient on element faces
   real(RNP), allocatable, save :: grad_u(:,:,:,:,:)
 
   ! jump and average derivative in direction xᵢ // face normal
@@ -78,7 +77,6 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
   ! procedure for evaluating the element operators
   if (np /= po + 1) then
     np  = po + 1
-    call TPO_Grad_Assign(np, GradientOperator)
     call TPO_Diffusion_Assign(np, StiffnessOperator)
   end if
 
@@ -93,7 +91,6 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
   allocate(normal_trace_op)
   !$omp end single
 
-  call AssignScalar(grad_u , ZERO, multi=.true.)
   call AssignScalar(tr_u   , ZERO)
   call AssignScalar(tr_dn_u, ZERO)
   call AssignScalar(J_u    , ZERO)
@@ -101,7 +98,7 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
 
   ! start generation of traces .................................................
 
-  call GradientOperator(np, ne, eop%D, eop%dx, u, grad_u)
+  call NormalDerivatives(np, ne, eop%D, eop%dx, u, grad_u)
 
   call trace_op        % GetTrace_Start(mesh, u     , tr_u   , tag=1000)
   call normal_trace_op % GetTrace_Start(mesh, grad_u, tr_dn_u, tag=2000)
@@ -136,6 +133,119 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
 end subroutine DiffusionOperator
 
 !-------------------------------------------------------------------------------
+!> Elementwise computation of derivatives parallel to face normals
+!>
+!> Computes the normal components of grad(u) for all element boundary points.
+!> Entries corresponding to interior points or tangential components are set
+!> to zero.
+!>
+!> @note
+!> Derived from `CART__TPO_Grad__gen`.
+!> @endnote
+
+subroutine NormalDerivatives(np, ne, Ds, dx, u, v)
+  integer,   intent(in)  :: np               !< number of points per direction
+  integer,   intent(in)  :: ne               !< number of elements
+  real(RNP), intent(in)  :: Ds(np,np)        !< 1D standard diff matrix
+  real(RNP), intent(in)  :: dx(3)            !< element extensions
+  real(RNP), intent(in)  :: u(np,np,np,ne)   !< 3D scalar field
+  real(RNP), intent(out) :: v(np,np,np,ne,3) !< element-wise gradient of u
+
+  real(RNP), allocatable :: D1(:), D2(:)
+  real(RNP) :: g(3), tmp1, tmp2
+  integer   :: e, i, j, k, m
+  integer   :: vec_len
+
+  ! initialization .............................................................
+
+  ! OpenACC vector length
+  if (np < 8) then
+    vec_len = 128
+  else
+    vec_len = 256
+  end if
+
+  ! transposed diff operators for first and last point
+  allocate(D1, source=Ds( 1,:))
+  allocate(D2, source=Ds(np,:))
+
+  ! metric coefficients
+  g = 2 / dx
+
+  ! result
+  call AssignScalar(v, ZERO, multi=.true.)
+
+  !$acc data present(u,v) copyin(D1,D2,g) async
+  !$acc parallel async &
+  !$acc & device_type(nvidia) num_workers(1024/vec_len) vector_length(vec_len)
+  !$acc loop gang worker
+
+  !$omp do private(e)
+  do e = 1, ne
+
+    ! v1 = du/dx1 @ face 1,2 ...................................................
+
+    !$acc loop collapse(2) vector
+    do k = 1, np
+    do j = 1, np
+
+      tmp1 = 0
+      tmp2 = 0
+      do m = 1, np
+        tmp1 = tmp1 + D1(m) * u(m,j,k,e)
+        tmp2 = tmp2 + D2(m) * u(m,j,k,e)
+      end do
+      v( 1,j,k,e,1) = g(1) * tmp1
+      v(np,j,k,e,1) = g(1) * tmp2
+
+    end do
+    end do
+
+    ! v2 = du/dx2 @ face 3,4 ...................................................
+
+    !$acc loop collapse(2) vector
+    do k = 1, np
+    do i = 1, np
+
+      tmp1 = 0
+      tmp2 = 0
+      do m = 1, np
+        tmp1 = tmp1 + D1(m) * u(i,m,k,e)
+        tmp2 = tmp2 + D2(m) * u(i,m,k,e)
+      end do
+      v(i, 1,k,e,2) = g(2) * tmp1
+      v(i,np,k,e,2) = g(2) * tmp2
+
+    end do
+    end do
+
+    ! v3 = du/dx3 @ face 5,6 ...................................................
+
+    !$acc loop collapse(2) vector
+    do j = 1, np
+    do i = 1, np
+
+      tmp1 = 0
+      tmp2 = 0
+      do m = 1, np
+        tmp1 = tmp1 + D1(m) * u(i,j,m,e)
+        tmp2 = tmp2 + D2(m) * u(i,j,m,e)
+      end do
+      v(i,j, 1,e,3) = g(3) * tmp1
+      v(i,j,np,e,3) = g(3) * tmp2
+
+    end do
+    end do
+
+  end do
+  !$omp end do
+
+  !$acc end parallel
+  !$acc end data
+
+end subroutine NormalDerivatives
+
+!-------------------------------------------------------------------------------
 !> Modify boundary traces to yield correct contribution to the operator
 
 subroutine ApplyBoundaryConditions(mesh, bc, tr_u, tr_dn_u)
@@ -154,7 +264,7 @@ subroutine ApplyBoundaryConditions(mesh, bc, tr_u, tr_dn_u)
 
       select case(bc(b))
 
-      case('D)')
+      case('D')
         ! Dirichlet: interior solution contributes twice to [u]
         do k = 1, size(face)
           f = face(k) % mesh_face % id          ! mesh face
