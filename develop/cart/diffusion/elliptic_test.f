@@ -413,7 +413,7 @@ program Elliptic_Test
 
     if (rank == 0) then
       time = MPI_Wtime()
-      time = (time - time0) !/ nt
+      time = (time - time0)
       dof  = product(np) * product(ep) * (po + 1)**3
       write(*,*)
       write(*,'(A,1X,I0,A,ES10.3,A)') 'dof      =', dof, ' (', real(dof), ' )'
