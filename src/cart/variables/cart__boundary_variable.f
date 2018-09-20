@@ -85,12 +85,12 @@ module CART__Boundary_Variable
 
   contains
 
-    generic,   public  :: New        =>  New_S, New_A, New_O
+    generic,   public  :: New         =>  New_S, New_A, New_O
     procedure, private :: New_S
     procedure, private :: New_A
     procedure, private :: New_O
 
-    generic,   public  :: Extract    =>  Extract_S, Extract_A
+    generic,   public  :: Extract     =>  Extract_S, Extract_A
     procedure, private :: Extract_S
     procedure, private :: Extract_A
 
@@ -100,7 +100,9 @@ module CART__Boundary_Variable
     procedure, public  :: Component
     procedure, public  :: Components
 
-    procedure, public  :: GetHandle
+    generic,   public  :: GetHandle   =>  GetHandle_S, GetHandle_A
+    procedure, private :: GetHandle_S
+    procedure, private :: GetHandle_A
 
     final :: Delete_BoundaryVariable
 
@@ -425,8 +427,8 @@ end function Component
 !-------------------------------------------------------------------------------
 !> Provides a pointer to the values of a multiple components
 !>
-!> The optional argumenta `c1` and `c2` define the range of target components.
-!> If omitted, the corresponding upper or lower bound is assumed.
+!> The optional arguments `c1` and `c2` define the range of target components.
+!> If omitted, the corresponding lower or upper bound is assumed.
 
 function Components(this, c1, c2) result(vb)
   class(BoundaryVariable), intent(in)  :: this
@@ -455,10 +457,36 @@ end function Components
 !===============================================================================
 ! GetHandle
 
-impure elemental subroutine GetHandle(this, c1, c2, handle)
+
+!-------------------------------------------------------------------------------
+!> Generates a new boundary variable as a subset of the given one (scalar)
+
+impure elemental subroutine GetHandle_S(this, c, handle)
   class(BoundaryVariable), intent(in)  :: this
-  integer,                 intent(in)  :: c1     !< first component
-  integer,                 intent(in)  :: c2     !< last component
+  integer,                 intent(in)  :: c     !< selected component
+  type (BoundaryVariable), intent(out) :: handle !< subset of this
+
+  integer :: k
+
+  k = min(max(c, 1), this%nc)
+
+  handle % po = this % po
+  handle % nf = this % nf
+  handle % nc = 1
+
+  handle % bc => this % bc(k:k)
+
+  handle % val(0:,0:,1:,1:) => this % val(:,:,:,k:k)
+
+end subroutine GetHandle_S
+
+!-------------------------------------------------------------------------------
+!> Generates a new boundary variable as a subset of the given one (array)
+
+impure elemental subroutine GetHandle_A(this, c1, c2, handle)
+  class(BoundaryVariable), intent(in)  :: this
+  integer,                 intent(in)  :: c1     !< first component to include
+  integer,                 intent(in)  :: c2     !< last component to include
   type (BoundaryVariable), intent(out) :: handle !< subset of this
 
   integer :: k1, k2
@@ -474,7 +502,7 @@ impure elemental subroutine GetHandle(this, c1, c2, handle)
 
   handle % val(0:,0:,1:,1:) => this % val(:,:,:,k1:k2)
 
-end subroutine GetHandle
+end subroutine GetHandle_A
 
 !===============================================================================
 ! Finalization
