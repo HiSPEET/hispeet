@@ -52,7 +52,7 @@ for DT in $RANGE_DT; do
         -e "s/<n_sweep>/$N_SWEEP/g" \
         -e "s/<n_cpi>/$N_CPI/g" \
         -e "s/<dt>/$DT/g" \
-        ${BASE}.prm.tmpl > ${CASE}.prm
+        ${BASE}.tmpl > ${CASE}.prm
 
     srun -n ${N_PART} isp_flow__sdc_test ${CASE}
 

@@ -16,6 +16,7 @@ program ISP_Flow__SDC_Test
   use Constants,       only: ONE, ZERO
   use Array_Assignments
   use Array_Reductions
+  use Standard_Operators_1D
   use Export_Volume_Data_To_VTK
   use XMPI
 
@@ -24,7 +25,6 @@ program ISP_Flow__SDC_Test
   use CART__TPO_Rot
   use CART__Mesh_Partition
   use CART__Generate_Structured_Mesh
-  use CART__DG_Element_Operators
   use CART__DG_Weak_Divergence
   use CART__DG_Weak_Gradient
   use CART__DG_Diffusion_CI_PMG
@@ -249,8 +249,6 @@ program ISP_Flow__SDC_Test
       call sdc % New(EulerPC, EulerPC, sdc_opt)
     case(3)
       call sdc % New(EulerCS, EulerCS, sdc_opt)
-    case(4)
-      call sdc % New(EulerVX, EulerVX, sdc_opt)
     case default
       call sdc % New(EulerVC, EulerVC, sdc_opt)
     end select
@@ -572,15 +570,15 @@ end subroutine Evaluation
 !-------------------------------------------------------------------------------
 !> Set initial values
 
-subroutine SetInitialValues(problem, mesh, eop, x, t, u, F, w)
-  class(FlowProblem),      intent(in)   :: problem      !< flow problem
-  class(MeshPartition),    intent(in)   :: mesh         !< mesh partition
-  class(ElementOperators), intent(in)   :: eop          !< element operators
-  real(RNP),               intent(out)  :: t            !< time
-  real(RNP),               intent(out)  :: x(:,:,:,:,:) !< mesh points
-  real(RNP),               intent(out)  :: u(:,:,:,:,:) !< flow variables
-  real(RNP),               intent(out)  :: F(:,:,:,:,:) !< ∂u/∂t = F(u)
-  real(RNP),               intent(out)  :: w(:,:,:,:,:) !< workspace
+subroutine SetInitialValues(problem, mesh, sop, x, t, u, F, w)
+  class(FlowProblem),         intent(in)   :: problem      !< flow problem
+  class(MeshPartition),       intent(in)   :: mesh         !< mesh partition
+  class(StandardOperators1D), intent(in)   :: sop          !< standard operators
+  real(RNP),                  intent(out)  :: t            !< time
+  real(RNP),                  intent(out)  :: x(:,:,:,:,:) !< mesh points
+  real(RNP),                  intent(out)  :: u(:,:,:,:,:) !< flow variables
+  real(RNP),                  intent(out)  :: F(:,:,:,:,:) !< ∂u/∂t = F(u)
+  real(RNP),                  intent(out)  :: w(:,:,:,:,:) !< workspace
 
   t = 0
 
@@ -595,7 +593,7 @@ subroutine SetInitialValues(problem, mesh, eop, x, t, u, F, w)
        call TimeDerivative(problem, flow_op, t, u_c=u, u_d=u, F=F)
        call PressureSolver(problem, flow_op, t, F, p, w, &
                            consistent = .true.           )
-       call WeakGradient(mesh, eop%w, eop%D, p, w)
+       call WeakGradient(mesh, sop%w, sop%D, p, w)
        call MergeArrays(ONE, F, -ONE, w, multi=.true.)
      end if
 

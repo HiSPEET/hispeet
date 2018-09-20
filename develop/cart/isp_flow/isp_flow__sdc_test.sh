@@ -20,7 +20,7 @@ for DT in $RANGE_DT; do
         -e "s/<n_cyc>/$N_CYC/g" \
         -e "s/<i_prc>/$I_PRC/g" \
         -e "s/<dt>/$DT/g" \
-        isp_flow__sdc_test.prm.tmpl > \
+        isp_flow__sdc_test.tmpl > \
         isp_flow__sdc_test.prm
     #
     mpirun -n 1 isp_flow__sdc_test
