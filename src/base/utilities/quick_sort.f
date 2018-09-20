@@ -61,7 +61,7 @@ module Quick_Sort
   end interface SortPairs
 
   !-----------------------------------------------------------------------------
-  !> Sorts a given two-dimensional according to first three columns
+  !> Sorts a given two-dimensional array according to first three columns
   !>
   !> Sorts the given 2D array x such that for all  i < k
   !>
