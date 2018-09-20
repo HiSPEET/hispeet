@@ -1,0 +1,5 @@
+&parameters
+ x0(3) = -0.25d0  ! specify domain height to adjust
+ x1(3) =  0.25d0  ! mesh spacing in direction 3
+/
+
