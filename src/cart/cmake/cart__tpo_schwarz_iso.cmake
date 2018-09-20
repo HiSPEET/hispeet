@@ -1,11 +1,7 @@
 # cart__tpo_schwarz_iso ........................................................
 
 set(CART__TPO_SCHWARZ_ISO_SRC cart__tpo_schwarz_iso.f
-                              cart__tpo_schwarz_iso__gen.f )
-
-if(DEFINED ENV{TUNING_FLAG})
-  list(APPEND CART__TPO_SCHWARZ_ISO_SRC cart__tpo_schwarz_iso__par.F)
-endif()
+                              cart__tpo_schwarz_iso__var.F)
 
 # template directory
 set(TMPL ${CMAKE_CURRENT_SOURCE_DIR}/tensor_product/cart__tpo_schwarz_iso)

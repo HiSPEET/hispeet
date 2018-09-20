@@ -1,10 +1,6 @@
 # cart__tpo_rotrot .............................................................
 
-set(CART__TPO_ROTROT_SRC cart__tpo_rotrot.f cart__tpo_rotrot__gen.f)
-
-if(DEFINED ENV{TUNING_FLAG})
-  list(APPEND CART__TPO_ROTROT_SRC cart__tpo_rotrot__par.F)
-endif()
+set(CART__TPO_ROTROT_SRC cart__tpo_rotrot.f cart__tpo_rotrot__var.F)
 
 # template directory
 set(TMPL ${CMAKE_CURRENT_SOURCE_DIR}/tensor_product/cart__tpo_rotrot)

@@ -1,11 +1,6 @@
 # cart__tpo_spectral ...........................................................
 
-set(CART__TPO_SPECTRAL_SRC cart__tpo_spectral.f
-                           cart__tpo_spectral__gen.f)
-
-if(DEFINED ENV{TUNING_FLAG})
-  list(APPEND CART__TPO_SPECTRAL_SRC cart__tpo_spectral__par.F)
-endif()
+set(CART__TPO_SPECTRAL_SRC cart__tpo_spectral.f cart__tpo_spectral__var.F)
 
 # template directory
 set(TMPL ${CMAKE_CURRENT_SOURCE_DIR}/tensor_product/cart__tpo_spectral)

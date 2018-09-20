@@ -1,10 +1,6 @@
 # cart__tpo_grad ...............................................................
 
-set(CART__TPO_GRAD_SRC cart__tpo_grad.f cart__tpo_grad__gen.f)
-
-if(DEFINED ENV{TUNING_FLAG})
-  list(APPEND CART__TPO_GRAD_SRC cart__tpo_grad__par.F)
-endif()
+set(CART__TPO_GRAD_SRC cart__tpo_grad.f cart__tpo_grad__var.F)
 
 # template directory
 set(TMPL ${CMAKE_CURRENT_SOURCE_DIR}/tensor_product/cart__tpo_grad)

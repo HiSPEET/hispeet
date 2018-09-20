@@ -16,10 +16,11 @@ args = get_args(sys.argv)
 tmpl_dir = args.tmpl + '/'
 dest_dir = args.dest + '/'
 
-operator = 'TPO_AAA'
-module   = operator.lower()
-
+operator  = 'TPO_AAA'
 procedure = 'procedure(TPO_AAA_Proc)'
+
+module    = operator.lower()
+dest_proc = dest_dir + module + '__var.F'
 
 # OpenACC device parameters
 max_vec_length = 1024
@@ -27,7 +28,7 @@ max_vec_length = 1024
 #-----------------------------------------------------------------------------
 # generic procedures
 
-shutil.copy(tmpl_dir + module + '__gen.f', dest_dir)
+shutil.copy(tmpl_dir + module + '__gen.f', dest_proc)
 
 #-----------------------------------------------------------------------------
 # parametrized procedures
@@ -51,7 +52,6 @@ op3 = [ entry[4] for entry in proc_par ]
 # create procedures ..........................................................
 
 tmpl_proc = tmpl_dir + module + '__par.Ft'
-dest_proc = dest_dir + module + '__par.F'
 name_proc = []
 
 for i in range(len(proc_par)):
@@ -80,6 +80,7 @@ for i in range(len(proc_par)):
 
     # expand parametrized template
     with open(dest_proc, 'a') as f:
+        f.write('\n')
         for line in fileinput.input(tmpl_proc):
             line = line.replace( '<tag>'         , tag         )
             line = line.replace( '<na1>'         , na1[i]      )
@@ -95,8 +96,6 @@ for i in range(len(proc_par)):
             line = line.replace( '<SubOp_2>'     , subop_2     )
             line = line.replace( '<SubOp_3>'     , subop_3     )
             f.write(line)
-
-        f.write('\n')
 
     name_proc.append(operator + '__' +  tag)
 

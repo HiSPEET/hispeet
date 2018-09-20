@@ -1,10 +1,6 @@
 # cart__tpo_rot ................................................................
 
-set(CART__TPO_ROT_SRC cart__tpo_rot.f cart__tpo_rot__gen.f)
-
-if(DEFINED ENV{TUNING_FLAG})
-  list(APPEND CART__TPO_ROT_SRC cart__tpo_rot__par.F)
-endif()
+set(CART__TPO_ROT_SRC cart__tpo_rot.f cart__tpo_rot__var.F)
 
 # template directory
 set(TMPL ${CMAKE_CURRENT_SOURCE_DIR}/tensor_product/cart__tpo_rot)

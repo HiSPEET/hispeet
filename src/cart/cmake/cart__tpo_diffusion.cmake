@@ -1,14 +1,6 @@
 # cart__tpo_diffusion ..........................................................
 
-set(CART__TPO_DIFFUSION_SRC cart__tpo_diffusion.f
-                            cart__tpo_diffusion__gen.f
-                            cart__tpo_diffusion__gen_2.f
-                            cart__tpo_diffusion__gen_3.f
-                            cart__tpo_diffusion__gen_4.f )
-
-if(DEFINED ENV{TUNING_FLAG})
-  list(APPEND CART__TPO_DIFFUSION_SRC cart__tpo_diffusion__par.F)
-endif()
+set(CART__TPO_DIFFUSION_SRC cart__tpo_diffusion.f cart__tpo_diffusion__var.F)
 
 # template directory
 set(TMPL ${CMAKE_CURRENT_SOURCE_DIR}/tensor_product/cart__tpo_diffusion)

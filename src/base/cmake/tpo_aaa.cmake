@@ -1,9 +1,6 @@
 # tpo_aaa ......................................................................
 
-set(TPO_AAA_SRC tpo_aaa.f tpo_aaa__gen.f)
-if (DEFINED ENV{TUNING_FLAG})
-  list(APPEND TPO_AAA_SRC tpo_aaa__par.F)
-endif ()
+set(TPO_AAA_SRC tpo_aaa.f tpo_aaa__var.F)
 list(APPEND TENSOR_PRODUCT ${TPO_AAA_SRC})
 
 # template directory

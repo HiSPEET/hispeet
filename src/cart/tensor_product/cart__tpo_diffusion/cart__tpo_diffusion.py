@@ -17,10 +17,11 @@ tmpl_dir = args.tmpl + '/'
 dest_dir = args.dest + '/'
 shared_dir = args.shared + '/'
 
-operator = 'CART__TPO_Diffusion'
-module = operator.lower()
-
+operator  = 'CART__TPO_Diffusion'
 procedure = 'procedure(TPO_Diffusion_Proc)'
+
+module    = operator.lower()
+dest_proc = dest_dir + module + '__var.F'
 
 # OpenACC device parameters
 max_vec_length = 1024
@@ -28,10 +29,14 @@ max_vec_length = 1024
 #-----------------------------------------------------------------------------
 # generic procedures
 
-shutil.copy(tmpl_dir + module + '__gen.f'  , dest_dir)
-shutil.copy(tmpl_dir + module + '__gen_2.f', dest_dir)
-shutil.copy(tmpl_dir + module + '__gen_3.f', dest_dir)
-shutil.copy(tmpl_dir + module + '__gen_4.f', dest_dir)
+gen_proc = [ tmpl_dir + module + '__gen.f'   ,
+             tmpl_dir + module + '__gen_2.f' ,
+             tmpl_dir + module + '__gen_3.f' ,
+             tmpl_dir + module + '__gen_4.f' ]
+
+with open(dest_proc, 'a') as f:
+    for proc in gen_proc:
+        with open(proc, 'r') as p: f.write(p.read())
 
 #-----------------------------------------------------------------------------
 # parametrized procedures
@@ -55,7 +60,6 @@ op3 = [ entry[4] for entry in proc_par ]
 # create procedures ..........................................................
 
 tmpl_proc = tmpl_dir + module + '__par.Ft'
-dest_proc = dest_dir + module + '__par.F'
 name_proc = []
 
 for i in range(len(proc_par)):
