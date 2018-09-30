@@ -129,4 +129,7 @@ list(APPEND CART_SRC ${TENSOR_PRODUCT}
 
 add_library(HiCart ${CART_SRC})
 
+set_property(TARGET HiCart
+             PROPERTY Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules)
+
 target_link_libraries(HiCart PUBLIC HiBase HiPhysics)

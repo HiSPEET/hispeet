@@ -13,10 +13,12 @@ module DG_Element_Operators_1D
   implicit none
   private
 
-!-------------------------------------------------------------------------------
-!> Element operators for symmetric interior penalty DGM
+  public :: DG_ElementOperators1D
 
-  type, extends(StandardOperators1D), public :: DG_ElementOperators1D
+  !-----------------------------------------------------------------------------
+  !> Element operators for symmetric interior penalty DGM
+
+  type, extends(StandardOperators1D) :: DG_ElementOperators1D
   contains
     procedure :: PenaltyFactor
     procedure :: GetStiffnessMatrix
@@ -37,11 +39,11 @@ real(RNP) function PenaltyFactor(this, dx, penalty) result(mu)
 end function PenaltyFactor
 
 !-------------------------------------------------------------------------------
-!> Returns the 1D element stiffness matrix
+!> Returns the 1D element stiffness matrix for the interior penalty DGM
 !>
 !> The element stiffness matrix `Le` represents the nontrivial row entries
 !> of the global stiffness matrix corresponding to the given element. It
-!> must be dimensioned as `Le(0:po,0:po,-1:1)`, where `po = this%po` is the
+!> must be dimensioned as `Le(0:P,0:P,-1:1)`, where `P = this%po` is the
 !> polynomial order. The third index refers to the preceding (-1), current (0)
 !> and succeeding (1) element, respectively.
 
@@ -58,7 +60,7 @@ subroutine GetStiffnessMatrix(this, dx, penalty, bc, Le)
 
   ! initialization .............................................................
 
-  P = this % PolynomialOrder()
+  P = this % po
   g = ONE / dx
 
   mu_0 = this % PenaltyFactor(dx(-1:0), penalty)

@@ -79,7 +79,7 @@ program Helmholtz_SEM_1D
   ! variables used with the condensed solver
   real(RNP), allocatable :: HBB(:,:)         ! boundary-boundary part of He
   real(RNP), allocatable :: HBI(:,:)         ! boundary-interior part of He
-  real(RNP), allocatable :: inv_HII(:,:)     ! inverse of interior-interior part
+  real(RNP), allocatable :: HII_inv(:,:)     ! inverse of interior-interior part
   real(RNP), allocatable :: Ac(:,:)          ! condensed system matrix
   real(RNP), allocatable :: fc(:)            ! condensed system RHS
 
@@ -136,8 +136,8 @@ program Helmholtz_SEM_1D
   end if
 
   if (method == 2) then
-    call BuildSubOperators(He, HBB, HBI, inv_HII)
-    call BuildCondensedSystem(HBB, HBI, inv_HII, bc, f, Ac, fc)
+    call BuildSubOperators(He, HBB, HBI, HII_inv)
+    call BuildCondensedSystem(HBB, HBI, HII_inv, bc, f, Ac, fc)
   end if
 
   ! initial values
@@ -167,7 +167,7 @@ program Helmholtz_SEM_1D
     call CG(He, u, f, w, r_max, i_max)
   case(2) ! static condensation + Gauss elimination
     call SolveCondensedSystem(Ac, fc) ! yields fc = uc on output
-    call SolveElementSystems(HBI, inv_HII, bc, fc, f, u)
+    call SolveElementSystems(HBI, HII_inv, bc, fc, f, u)
   end select
 
   call system_clock(count1)
@@ -493,31 +493,31 @@ end subroutine CG
 !------------------------------------------------------------------------------
 !> Interior-boundary decomposition of the element Helmholtz operator
 
-subroutine BuildSubOperators(He, HBB, HBI, inv_HII)
+subroutine BuildSubOperators(He, HBB, HBI, HII_inv)
   real(RNP), intent(in) :: He(0:,0:) !< element Helmholtz operator
   real(RNP), allocatable, intent(out) :: HBB(:,:) !< boundary-boundary part
   real(RNP), allocatable, intent(out) :: HBI(:,:) !< boundary-interior part
-  real(RNP), allocatable, intent(out) :: inv_HII(:,:) !< inverse of HII
+  real(RNP), allocatable, intent(out) :: HII_inv(:,:) !< inverse of HII
 
   integer :: po
 
   po = ubound(He,1)
-  allocate(HBB(2,2), HBI(2,po-1), inv_HII(po-1,po-1))
+  allocate(HBB(2,2), HBI(2,po-1), HII_inv(po-1,po-1))
 
   HBB = He([0,po],[0,po])
   HBI = He([0,po],1:po-1)
 
-  inv_HII = Inverse(He(1:po-1,1:po-1))
+  HII_inv = Inverse(He(1:po-1,1:po-1))
 
 end subroutine BuildSubOperators
 
 !-------------------------------------------------------------------------------
 !> Build the condensed system
 
-subroutine BuildCondensedSystem(HBB, HBI, inv_HII, bc, f, Ac, fc)
+subroutine BuildCondensedSystem(HBB, HBI, HII_inv, bc, f, Ac, fc)
   real(RNP), intent(in) :: HBB(:,:)              !< boundary-boundary part
   real(RNP), intent(in) :: HBI(:,:)              !< boundary-interior part
-  real(RNP), intent(in) :: inv_HII(:,:)          !< inverse of HII
+  real(RNP), intent(in) :: HII_inv(:,:)          !< inverse of HII
   character, intent(in) :: bc(2)                 !< boundary conditions
   real(RNP), intent(in) :: f(0:,:)               !< RHS of the whole system
   real(RNP), allocatable, intent(out) :: Ac(:,:) !< condensed system matrix
@@ -545,7 +545,7 @@ subroutine BuildCondensedSystem(HBB, HBI, inv_HII, bc, f, Ac, fc)
 
   ! condensed element operators ................................................
 
-  b = -matmul(HBI, inv_HII)
+  b = -matmul(HBI, HII_inv)
   a =  HBB + matmul(b, transpose(HBI))
 
   ! condensed system matrix ....................................................
@@ -620,9 +620,9 @@ end subroutine SolveCondensedSystem
 
 !------------------------------------------------------------------------------
 
-subroutine SolveElementSystems(HBI, inv_HII, bc, uc, f, u)
+subroutine SolveElementSystems(HBI, HII_inv, bc, uc, f, u)
   real(RNP), intent(in)    :: HBI(:,:)     !< boundary-interior element op.
-  real(RNP), intent(in)    :: inv_HII(:,:) !< inverse interior element op.
+  real(RNP), intent(in)    :: HII_inv(:,:) !< inverse interior element op.
   character, intent(in)    :: bc(2)        !< boundary conditions
   real(RNP), intent(in)    :: uc(:)        !< condensed solution
   real(RNP), intent(in)    :: f(0:,:)      !< full RHS
@@ -652,7 +652,7 @@ subroutine SolveElementSystems(HBI, inv_HII, bc, uc, f, u)
   ! solve interior subsystems
   k = po-1
   do i = 1, ne
-    u(1:k,i) = matmul(inv_HII, f(1:k,i) - (HBI(1,:)*u(0,i) + HBI(2,:)*u(po,i)))
+    u(1:k,i) = matmul(HII_inv, f(1:k,i) - (HBI(1,:)*u(0,i) + HBI(2,:)*u(po,i)))
   end do
 
 end subroutine SolveElementSystems

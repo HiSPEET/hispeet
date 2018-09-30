@@ -84,6 +84,9 @@ set(BASE_SRC ${ESSENTIALS}
 
 add_library(HiBase ${BASE_SRC})
 
+set_property(TARGET HiBase
+             PROPERTY Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules)
+
 target_include_directories(HiBase
     PUBLIC  ${PROJECT_BINARY_DIR}/modules
     PRIVATE ${VTK_INCLUDE_DIRS}

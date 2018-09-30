@@ -24,10 +24,9 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 # path to Python packages
 set(PYTHONPATH ${PROJECT_SOURCE_DIR}/bin)
 
-# directories for generated libraries, archives and module files
+# directories for generated libraries and archives
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
-set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules)
 
 #===============================================================================
 # Prerequisites
@@ -123,4 +122,4 @@ add_subdirectory(test)
 add_subdirectory(example)
 add_subdirectory(develop)
 
-#add_subdirectory(dirty)
+add_subdirectory(dirty)

@@ -29,14 +29,15 @@ module Standard_Operators_1D
     real(RNP), allocatable, public :: L(:,:)   !< stiffness (Laplace) matrix
 
     ! private comoponents
-    real(RNP), allocatable :: V(:,:)   !< Legendre-Vandermonde matrix
-    real(RNP), allocatable :: VI(:,:)  !< inverse Legendre-Vandermonde matrix
+    real(RNP), allocatable :: V(:,:)     !< Legendre-Vandermonde matrix
+    real(RNP), allocatable :: V_inv(:,:) !< inverse Legendre-Vandermonde matrix
 
   contains
 
     generic,   public  :: New => New_StandardOperators1D
     procedure, private :: New_StandardOperators1D
     procedure, public  :: PolynomialOrder
+    procedure, public  :: InitVandermondeMatrix
     procedure, public  :: GetVandermondeMatrix
     procedure, public  :: GetInverseVandermondeMatrix
 
@@ -67,13 +68,23 @@ end function PolynomialOrder
 !>
 !> GLL is the default, but po = 0 implies GL irrespective of the chosen basis.
 
-subroutine New_StandardOperators1D(this, po, basis)
-  class(StandardOperators1D), intent(inout) :: this  !< standard operators
-  integer,                    intent(in)    :: po    !< polynomial order
-  character(len=*), optional, intent(in)    :: basis !< point set {GL,GLL,GRL}
+subroutine New_StandardOperators1D(this, po, basis, no_vdm)
 
-  integer :: i, j
+  !> standard operators that will be initialized
+  class(StandardOperators1D), intent(inout) :: this
+
+  !> polynomial order
+  integer, intent(in) :: po
+
+  !> point set for generating the Lagrange basis {GL,GLL,GRL} [GLL]
+  character(len=*), optional, intent(in) :: basis
+
+  !> switch to skip the generation of the Vandermonde matrix and its inverse
+  logical, optional, intent(in) :: no_vdm
+
   character(len=3) :: chosen_basis
+  logical :: build_vdm
+  integer :: i, j
 
   ! safeguard ..................................................................
 
@@ -145,78 +156,86 @@ subroutine New_StandardOperators1D(this, po, basis)
   end do
   end do
 
+  ! Vandermonde matrix and its inverse .........................................
+
+  if (present(no_vdm)) then
+    build_vdm = .not. no_vdm
+  else
+    build_vdm = .true.
+  end if
+
+  if (build_vdm) then
+    call InitVandermondeMatrix(this)
+  end if
+
 end subroutine New_StandardOperators1D
+
+!-------------------------------------------------------------------------------
+!> Intializes the Legendre-Vandermonde matrix and its inverse.
+
+subroutine InitVandermondeMatrix(this)
+  class(StandardOperators1D), intent(inout) :: this !< standard operators
+
+  integer :: i, j, po
+
+  ! safeguard ..................................................................
+
+  if (allocated(this % V    )) deallocate(this % V    )
+  if (allocated(this % V_inv)) deallocate(this % V_inv)
+
+  ! prerequisites ..............................................................
+
+  po = this % po
+
+  ! Vandermonde matrix .........................................................
+
+  allocate(this % V(0:po,0:po))
+  do i = 0, po
+  do j = 0, po
+     this % V(i,j) = JacobiPolynomial(a=ZERO, b=ZERO, n=j, x=this%x(i))
+  end do
+  end do
+
+  ! inverse Vandermonde matrix .................................................
+
+  allocate(this % V_inv(0:po,0:po), source=this%V)
+  this % V_inv = Inverse(this % V)
+
+end subroutine InitVandermondeMatrix
 
 !-------------------------------------------------------------------------------
 !> Get the Legendre-Vandermonde matrix
 
-subroutine GetVandermondeMatrix(sop, V)
-  class(StandardOperators1D), intent(inout) :: sop !< standard operators
-  real(RNP), intent(out) :: V(0:sop%po,0:sop%po)   !< Vandermonde matrix
+subroutine GetVandermondeMatrix(this, V)
+  class(StandardOperators1D), intent(in) :: this   !< standard operators
+  real(RNP), intent(out) :: V(0:this%po,0:this%po) !< Vandermonde matrix
 
-  if (sop%po < 0) then
-    call Error('GetVandermondeMatrix', 'sop must be initialized!')
+  if (.not. allocated(this % V)) then
+    call Error( 'GetVandermondeMatrix'               &
+              , 'Vandermonde matrix not initialized' &
+              , 'Standard_Operators_1D'              )
   end if
 
-  if (.not. allocated(sop%V)) then
-    call InitVandermondeMatrix(sop)
-  end if
-
-  V = sop % V
+  V = this % V
 
 end subroutine GetVandermondeMatrix
 
 !-------------------------------------------------------------------------------
 !> Get the inverse Legendre-Vandermonde matrix
 
-subroutine GetInverseVandermondeMatrix(sop, VI)
-  class(StandardOperators1D), intent(inout) :: sop !< standard operators
-  real(RNP), intent(out) :: VI(0:sop%po,0:sop%po)  !< inverse Vandermonde matrix
+subroutine GetInverseVandermondeMatrix(this, V_inv)
+  class(StandardOperators1D), intent(in) :: this       !< standard operators
+  real(RNP), intent(out) :: V_inv(0:this%po,0:this%po) !< inverse VDM matrix
 
-  if (sop%po < 0) then
-    call Error('GetVandermondeMatrix', 'sop must be initialized!')
+  if (.not. allocated(this%V_inv)) then
+    call Error( 'GetInverseVandermondeMatrix'        &
+              , 'Vandermonde matrix not initialized' &
+              , 'Standard_Operators_1D'              )
   end if
 
-  if (.not. allocated(sop%VI)) then
-    call InitVandermondeMatrix(sop)
-  end if
-
-  VI = sop % VI
+  V_inv = this % V_inv
 
 end subroutine GetInverseVandermondeMatrix
-
-!-------------------------------------------------------------------------------
-!> Intializes the Legendre-Vandermonde matrix and its inverse.
-
-subroutine InitVandermondeMatrix(sop)
-  class(StandardOperators1D), intent(inout) :: sop !< standard operators
-
-  integer :: i, j, po
-
-  ! safeguard ..................................................................
-
-  if (allocated(sop%V )) deallocate(sop%V )
-  if (allocated(sop%VI)) deallocate(sop%VI)
-
-  ! prerequisites ..............................................................
-
-  po = sop%po
-
-  ! Vandermonde matrix .........................................................
-
-  allocate(sop%V(0:po,0:po))
-  do i = 0, po
-  do j = 0, po
-     sop%V(i,j) = JacobiPolynomial(a=ZERO, b=ZERO, n=j, x=sop%x(i))
-  end do
-  end do
-
-  ! inverse Vandermonde matrix .................................................
-
-  allocate(sop%VI(0:po,0:po), source=sop%V)
-  sop%VI = Inverse(sop%V)
-
-end subroutine InitVandermondeMatrix
 
 !-------------------------------------------------------------------------------
 !> Finalization
@@ -224,12 +243,12 @@ end subroutine InitVandermondeMatrix
 subroutine Delete_StandardOperators1D(this)
   type(StandardOperators1D), intent(inout) :: this  !< standard operators
 
-  if(allocated(this%x))  deallocate(this%x)
-  if(allocated(this%w )) deallocate(this%w )
-  if(allocated(this%D )) deallocate(this%D )
-  if(allocated(this%L )) deallocate(this%L )
-  if(allocated(this%V )) deallocate(this%V )
-  if(allocated(this%VI)) deallocate(this%VI)
+  if(allocated(this%x    )) deallocate(this%x    )
+  if(allocated(this%w    )) deallocate(this%w    )
+  if(allocated(this%D    )) deallocate(this%D    )
+  if(allocated(this%L    )) deallocate(this%L    )
+  if(allocated(this%V    )) deallocate(this%V    )
+  if(allocated(this%V_inv)) deallocate(this%V_inv)
 
 end subroutine Delete_StandardOperators1D
 
