@@ -1,0 +1,26 @@
+&problem_parameters
+ v  = 1
+ nu = 1e-4
+ !bc = 2*'P'
+ t_end = 1
+/
+
+&wave_package_dimensions
+ nw = 5
+ lw = 1
+/
+
+&wave_parameters
+ k = 1,    3,    5,    7,    9
+ a = 1.00, 0.90, 0.80, 0.70, 0.60
+ s = 0.00, 0.05, 0.10, 0.15, 0.20
+/
+
+&discretization_parameters
+ po  = 11
+ ne  = 7
+ cfl = 0.1
+ !dt  = 0.1
+ !nt  = 50
+ method = 2
+/
