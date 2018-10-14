@@ -5,6 +5,11 @@
 !>
 !>### 1D harmonic wave packages
 !>
+!> This module provides an exact wave solution for the convection-diffusion
+!> equation with constant velocity `v` and diffusivity `nu`. The wave is defined
+!> as a package of superimposed sine waves with different wave numbers and phase
+!> shifts. For details see the description of the type `HarmonicWavePackage`.
+!>
 !> @todo
 !>   *  Extend GetDerivative to second and time derivative using optional
 !>      arguments as needed
@@ -127,11 +132,11 @@ subroutine New_from_File(this, wave_file)
   namelist /wave_package_dimensions/ nw, lw
   namelist /wave_parameters/ k, a, s
 
-  inquire(file=trim(wave_file), opened=opened, exist=exists, number=io)
+  inquire(file=wave_file, opened=opened, exist=exists, number=io)
 
   if (.not. opened) then
     if (exists) then
-      open(newunit=io, file=trim(wave_file), action='READ')
+      open(newunit=io, file=wave_file, action='READ')
     else
       call Error('New_from_File',                                         &
                  'input file "' // trim(wave_file) // '" does not exist', &
@@ -172,7 +177,7 @@ subroutine GetAmplitude_X(this, v, nu, np, x, t, u)
   real(RNP), intent(out) :: u(np)  !< amplitude u(x,t)
 
   integer   :: i
-  real(RNP) :: c, d
+  real(RNP) :: c, d, z
 
   associate(lw => this%lw, k => this%k, a => this%a, s => this%s)
 
@@ -180,7 +185,8 @@ subroutine GetAmplitude_X(this, v, nu, np, x, t, u)
     do i = 1, this % nw
       c = 2 * PI * k(i) / lw
       d = 1 / exp((2 * PI * k(i))**2 * nu * t)
-      u = u + a(i) * d * sin(c * (x - s(i) - v*t))
+      z = s(i) + v*t
+      u = u + a(i) * d * sin(c * (x - z))
     end do
 
   end associate
@@ -254,7 +260,7 @@ subroutine GetDerivative_X(this, v, nu, np, x, t, dx_u)
   real(RNP), intent(out) :: dx_u(np)  !< derivatives ∂u/∂x(x,t)
 
   integer   :: i
-  real(RNP) :: c, d
+  real(RNP) :: c, d, z
 
   associate(lw => this%lw, k => this%k, a => this%a, s => this%s)
 
@@ -262,7 +268,8 @@ subroutine GetDerivative_X(this, v, nu, np, x, t, dx_u)
     do i = 1, this % nw
       c = 2 * PI * k(i) / lw
       d = 1 / exp((2 * PI * k(i))**2 * nu * t)
-      dx_u = dx_u + a(i) * c * d * cos(c * (x - s(i) - v*t))
+      z = s(i) + v*t
+      dx_u = dx_u + a(i) * c * d * cos(c * (x - z))
     end do
 
   end associate

@@ -5,14 +5,34 @@
 !>
 !>### Continuous 1D spectral element utilities
 !>
-!> @todo
-!>   *  OpenMP parallelization
-!> @endtodo
+!> Provides common routines for 1D continuous-Galerkin spectral element methods,
+!> including
+!>
+!>   *  mesh generation (`GetMeshPoints`)
+!>   *  computation of the global mass matrix (`GetMassMatrix`)
+!>   *  averaging of discontinuous data (`MakeContinuous`)
+!>   *  assembly of element integrals (`Assembly`)
+!>   *  provision of point weights based on multiplicity (`GetMeshPoints`)
+!>
+!> These routines are designed for nodal elements with GLL nodes and will not
+!> work properly with bases lacking a boundary-interior decomposition.
+!>
+!> Some routines require conditions for the left and right boundary points,
+!> which are passed in the character array `bc(1:2)`. The following boundary
+!> types are supported:
+!>
+!>   *  periodic  (`'P'`)
+!>   *  Dirichlet (`'D'`)
+!>   *  Neumann   (`'N'`)
+!>
+!> While the latter two can be combined as appropriate, periodic conditions
+!> must be always specified on both sides, i.e. `bc(1:2) ='P'`.
+!>
 !===============================================================================
 
-module CG_Spectral_Element_Utils_1D
-  use Kind_Parameters, only: RNP
-  use Constants,       only: ONE, HALF
+module CG_SEM_1D__Utilities
+  use Kind_Parameters,   only: RNP
+  use Constants,         only: ONE, HALF
   use Standard_Operators_1D
   implicit none
   private
@@ -26,20 +46,32 @@ module CG_Spectral_Element_Utils_1D
 contains
 
 !-------------------------------------------------------------------------------
-!> Computes the mesh points
+!> Computes the mesh points for a given interval [a,b]
+!>
+!> Requires the initialized standard operators `sop` providing the collocation
+!> points `sop%x`. The polynomial order `sop%po` must match the upper bound of
+!> the first dimension in `x`. The second dimension of `x` determines the number
+!> of elements that are generated.
+!>
+!> Works with all nodal bases.
 
-subroutine GetMeshPoints(sop, dx, x)
+subroutine GetMeshPoints(sop, a, b, dx, x)
   class(StandardOperators1D), intent(in)  :: sop     !< standard operators
-  real(RNP),                  intent(in)  :: dx      !< element length
+  real(RNP),                  intent(in)  :: a       !< left border
+  real(RNP),                  intent(in)  :: b       !< right border
+  real(RNP),                  intent(out) :: dx      !< element length
   real(RNP), contiguous,      intent(out) :: x(0:,:) !< mesh points x(0:po,1:ne)
 
-  integer   :: l
+  integer   :: k, ne
   real(RNP) :: xe
 
+  ne = size(x,2)
+  dx = (b - a) / ne
+
   associate(xi => sop%x)
-    do l = 1, ubound(x,2)
-       xe = (l - HALF) * dx - ONE    ! element midpoint
-       x(:,l) = xe + HALF * dx * xi  ! transformed GLL points
+    do k = 1, ne
+       xe = a + (k - HALF) * dx      ! element midpoint
+       x(:,k) = xe + HALF * dx * xi  ! transformed GLL points
     end do
   end associate
 
@@ -47,6 +79,8 @@ end subroutine GetMeshPoints
 
 !-------------------------------------------------------------------------------
 !> Returns the diagonal global mass matrix distributed to element points
+!>
+!> Current version restricted to GLL bases.
 
 subroutine GetMassMatrix(sop, dx, bc, M)
   class(StandardOperators1D), intent(in)  :: sop      !< standard operators
@@ -65,6 +99,8 @@ end subroutine GetMassMatrix
 
 !-------------------------------------------------------------------------------
 !> Average variable over element boundaries
+!>
+!> Current version restricted to GLL bases.
 
 subroutine MakeContinuous(bc, u)
   character,             intent(in)    :: bc(:)   !< left/right BC
@@ -155,4 +191,4 @@ end subroutine GetPointWeights
 
 !===============================================================================
 
-end module CG_Spectral_Element_Utils_1D
+end module CG_SEM_1D__Utilities

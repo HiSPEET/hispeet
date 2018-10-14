@@ -1,7 +1,37 @@
-!> summary:
+!> summary:  Implicit-explicit Runge-Kutta methods
 !> author:   Susanne Stimpert, Joerg Stiller
 !> date:     2017/02/06
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Implicit-explicit Runge-Kutta schemes
+!>
+!> This module provides IMEX Runge-Kutta methods of the form
+!>
+!>     c | a_im     c | a_ex
+!>     ––+––––--    ––+––––-
+!>       | bᵀ         | bᵀ
+!>
+!> where `a_im` is the diagonally implicit part and `a_ex` the explicit part.
+!> They all possess the first-same-as-last property, `c(1) = 0` and `c(s) = 1`,
+!> where `s` is the number of stages. The first stage is always explicit, i.e.
+!> `a_im(1,:) = 0` while, generally, `a_im(:,1) = 0`. The methods with 6 and 8
+!> stages achieve stage-order 2.
+!>
+!> For accessing a particular method, an instance of the type `IMEX_RK_Method`
+!> needs to be initialized using the type-bound procedure `New`.
+!>
+!> The implemented methods are described in
+!>
+!>   *  C.A. Kennedy, M.H. Carpenter, Appl Numer Math 44 (2003) 139–181, and
+!>   *  D. Cavaglieri, T. Bewley, J Comput Phys 286 (2015) 172–193
+!>
+!> @note
+!> In the references, coefficients are given as fractions. The numerators and
+!> denominators of these fractions get too large for being represented by 8-byte
+!> integers. Therefore, they were converted into a decimal form, which remains
+!> precise with 16-byte reals and yields reasonable approximations, when only
+!> 8-byte reals are available.
+!> @endnote
 !===============================================================================
 
 module IMEX_Runge_Kutta_Method
@@ -77,7 +107,7 @@ subroutine New_IMEX_RK_Method(this, s, m)
 
   case(3)
 
-    this % name = 'CB2 (Cavaglieri & Bewley, JCP 286, 2015)'
+    this % name = 'IMEXRKCB2 (Cavaglieri & Bewley, JCP 286, 2015)'
     this % order = 2
 
     this % c(2) = real( 2._RHP / 5._RHP, RNP )
@@ -98,7 +128,7 @@ subroutine New_IMEX_RK_Method(this, s, m)
 
     case(1)
 
-      this % name = 'CB3c (Cavaglieri & Bewley, JCP 286, 2015)'
+      this % name = 'IMEXRKCB3c (Cavaglieri & Bewley, JCP 286, 2015)'
       this % order = 3
 
       this % c(2) = real( 337550982.9940_RHP / 452591907.6317_RHP , RNP )
@@ -131,7 +161,7 @@ subroutine New_IMEX_RK_Method(this, s, m)
 
    case(2)
 
-      this % name = 'CB3e (Cavaglieri & Bewley, JCP 286, 2015)'
+      this % name = 'IMEXRKCB3e (Cavaglieri & Bewley, JCP 286, 2015)'
       this % order = 3
 
       this % c(2) = real( 1._RHP / 3._RHP, RNP )
@@ -160,7 +190,7 @@ subroutine New_IMEX_RK_Method(this, s, m)
 
   case(6)
 
-    this % name = 'CB4 (Cavaglieri & Bewley, JCP 286, 2015)'
+    this % name = 'IMEXRKCB4 (Cavaglieri & Bewley, JCP 286, 2015)'
     this % order = 4
 
     this % c(1) = ZERO

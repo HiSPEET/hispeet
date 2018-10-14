@@ -1,20 +1,28 @@
-!> summary:  Provides the linear convection term for 1D CG-SEM
+!> summary:  Linear convection and diffusion terms for 1D CG-SEM
 !> author:   Joerg Stiller
 !> date:     2018/09/26
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Provides the linear convection term for 1D CG-SEM
+!>### Linear convection and diffusion terms for 1D CG-SEM
+!>
+!> The modules provides procedures for evaluating the convection and diffusion
+!> terms for the 1D convection-diffusion equation
+!>
+!>     ∂u/∂t + v ∂u/∂x = nu  ∂²u/∂x²
+!>
+!> with constant velocity `v` and diffusivity `nu`. Discretization is based on
+!> the continuous Galerkin spectral-element method.
 !>
 !> @note
 !> Implementation restricted to GLL Langrange basis
 !> @endnote
 !===============================================================================
 
-module CG_Conv_Diff_1D__Utils
+module CG_ConvDiff_1D__Utils
   use Kind_Parameters, only: RNP
   use Standard_Operators_1D
   use Harmonic_Wave_Package
-  use CG_Spectral_Element_Utils_1D, only: Assembly
+  use CG_SEM_1D__Utilities, only: Assembly
   implicit none
   private
 
@@ -62,6 +70,10 @@ end subroutine GetLinearConvectionTerm
 
 !-------------------------------------------------------------------------------
 !> Diffusion term
+!>
+!> Computes for all global basis functions φᵢ
+!>
+!>     fdᵢ = -∫ ∂φᵢ/∂x nu ∂u/∂x dx
 
 subroutine GetDiffusionTerm(sop, dx, wave, v, nu, bc, x, t, u, fd)
   class(StandardOperators1D), intent(in)  :: sop      !< standard operators
@@ -77,7 +89,7 @@ subroutine GetDiffusionTerm(sop, dx, wave, v, nu, bc, x, t, u, fd)
 
   if (nu > 0) then
 
-    fd = -nu * dx/2 * matmul(sop%Ls, u)
+    fd = -nu * 2/dx * matmul(sop%L, u)
     call Assembly(bc, fd)
     call ApplyBoundaryConditions(wave, v, nu, bc, x, t, f=fd)
 
@@ -91,6 +103,9 @@ end subroutine GetDiffusionTerm
 
 !-------------------------------------------------------------------------------
 !> Apply boundary conditions to solution `u` and RHS `f`
+!>
+!> Injects Dirichlet conditions into the solution vector `u` and adds Neumann
+!> conditions `nu ∂u/∂x` to the right hand side `f`.
 
 subroutine ApplyBoundaryConditions(wave, v, nu, bc, x, t, u, f)
   class(HarmonicWavePackage), intent(in)    :: wave     !< exact wave solution
@@ -128,4 +143,4 @@ end subroutine ApplyBoundaryConditions
 
 !===============================================================================
 
-end module CG_Conv_Diff_1D__Utils
+end module CG_ConvDiff_1D__Utils

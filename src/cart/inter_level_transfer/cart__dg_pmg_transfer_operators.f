@@ -61,8 +61,8 @@ subroutine New_PMG_TransferOperators(this, pc, pf)
   call sop_f % New(pf)
 
   allocate(V_c(0:pc,0:pc), VI_f(0:pf,0:pf))
-  call sop_c % GetVandermondeMatrix(V_c)
-  call sop_f % GetInverseVandermondeMatrix(VI_f)
+  call sop_c % GetLegendreVDM(V_c)
+  call sop_f % GetInverseLegendreVDM(VI_f)
 
   this % pc = pc
   this % pf = pf

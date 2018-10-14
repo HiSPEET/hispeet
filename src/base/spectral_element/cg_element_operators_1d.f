@@ -7,22 +7,32 @@
 !===============================================================================
 
 module CG_Element_Operators_1D
-  use Kind_Parameters, only: RNP
-  use Constants,       only: ONE, ZERO
-  use Eigenproblems,   only: SolveGeneralizedEigenproblem
+  use Kind_Parameters,   only: RNP
+  use Constants,         only: ONE, ZERO
+  use Execution_Control, only: Error
+  use Eigenproblems,     only: SolveGeneralizedEigenproblem
   use Standard_Operators_1D
   implicit none
   private
 
   !-----------------------------------------------------------------------------
-  !> Element operators for  continuous Galerkin-SEM
+  !> Element operators for continuous Galerkin-SEM
+  !>
+  !> Provides the column matrix of generalized eigenvectors `S` and
+  !> the diagonal matrix of eigenvalues `Λ = Lambda` such that
+  !>
+  !>     Sᵀ Lᵢᵢ S = Λ
+  !>     Sᵀ Mᵢᵢ S = I
+  !>
+  !> where `Lᵢᵢ` and `Mᵢᵢ` the standard stiffness matrix and the standard
+  !> diagonal mass matrix restricted to the interior points.
 
   type, extends(StandardOperators1D), public :: CG_ElementOperators1D
     private
     real(RNP), allocatable :: S(:,:)    !< generalized interior eigenvectors
     real(RNP), allocatable :: Lambda(:) !< generalized interior eigenvalues
   contains
-    procedure :: InitSubstructuring
+    procedure :: BuildInteriorEigensystem
     procedure :: GetInteriorEigensystem
     procedure :: GetEllipticSuboperators
     procedure :: GetStiffnessMatrix
@@ -33,17 +43,8 @@ contains
 
 !-------------------------------------------------------------------------------
 !> Provides the generalized eigensystem for interior stiffness and mass matrices
-!>
-!> Determines the column matrix of generalized eigenvectors `S = this%S` and
-!> the diagonal matrix of eigenvalues `Λ = this%lambda` such that
-!>
-!>     Sᵀ Lᵢᵢ S = Λ
-!>     Sᵀ Mᵢᵢ S = I
-!>
-!> where `Lᵢᵢ` and `Mᵢᵢ` the standard stiffness matrix and the standard diagonal
-!> mass matrix restricted to the interior points.
 
-subroutine InitSubstructuring(this)
+subroutine BuildInteriorEigensystem(this)
   class(CG_ElementOperators1D), intent(inout) :: this
 
   real(RNP), allocatable :: Lii(:,:)
@@ -61,21 +62,19 @@ subroutine InitSubstructuring(this)
     call SolveGeneralizedEigenproblem(Lii, Mii, this%Lambda, this%S)
   end associate
 
-end subroutine InitSubstructuring
+end subroutine BuildInteriorEigensystem
 
 !-------------------------------------------------------------------------------
 !> Returns the generalized eigenvectors and eigenvalues to the standard interior
 !> stiffness and diagonal mass matrices
 
 subroutine GetInteriorEigensystem(this, S, Lambda)
-  class(CG_ElementOperators1D), intent(in) :: this
+  class(CG_ElementOperators1D), intent(inout) :: this
   real(RNP), intent(out) :: S(this%po-1,this%po-1)
   real(RNP), intent(out) :: Lambda(this%po-1)
 
   if (.not. allocated(this%S)) then
-    call Error( 'GetInteriorEigensystem'                        &
-              , 'requires preceding call to InitSubstructuring' &
-              , 'CG_Element_Operators_1D'                       )
+    call BuildInteriorEigensystem(this)
   end if
 
   S = this % S
@@ -104,7 +103,7 @@ subroutine GetEllipticSuboperators(this, dx, c, nu, Hbb, Hbi, Hii_inv)
 
   if (.not. allocated(this%S)) then
     call Error( 'GetEllipticSuboperators'                       &
-              , 'requires preceding call to InitSubstructuring' &
+              , 'requires preceding call to BuildInteriorEigensystem' &
               , 'CG_Element_Operators_1D'                       )
   end if
 

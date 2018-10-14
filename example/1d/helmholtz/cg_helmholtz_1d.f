@@ -21,8 +21,8 @@
 !>   *  Conjugate gradients (CG)
 !>   *  Static condensation + tridiagonal Gauss elimination (SC+GE)
 !>
-!> Implementation largely follows the approach described in the course "Hšhere
-!> Numerische Stršmungsmechanik" given at TU Dresden from 2016 on. The CG method
+!> Implementation largely follows the approach described in the course "HÃ¶here
+!> Numerische StrÃ¶mungsmechanik" given at TU Dresden from 2016 on. The CG method
 !> was adopted from J.R. Shewchuk, An Introduction to the Conjugate Gradient
 !> Method Without the Agonizing Pain, Carnegie Mellon University, 1994.
 !> For the treatment of the singular problem, i.e. Poisson with Neumann BC, see
@@ -41,8 +41,8 @@ program Helmholtz_CG_SEM_1D
   use Kind_Parameters,  only: RNP, IXL
   use Constants,        only: PI, ONE, TWO
   use CG_Element_Operators_1D
-  use CG_Spectral_Element_Utils_1D
-  use CG_Condensed_Elliptic_Solver_1D
+  use CG_SEM_1D__Utilities
+  use CG_SEM_1D__Condensed_Solver
 
   implicit none
 
@@ -100,28 +100,23 @@ program Helmholtz_CG_SEM_1D
   ! start system clock
   call system_clock(count0, count_rate = count_rate)
 
-  ! element operators
-  call eop % New(po)
-  if (method == 2) then
-    call eop % InitSubstructuring()
-  end if
-
-  ! element operators
-  dx = TWO / ne
-  allocate(Me(0:po), He(0:po,0:po))
-  call GetElementOperators(eop, dx, lambda, Me, He)
-
   ! workspace
   allocate( x(0:po,ne), u(0:po,ne), f(0:po,ne), r(0:po,ne), &
             s(0:po,ne), e(0:po,ne), w(0:po,ne)              )
 
-  ! mesh
-  call GetMeshPoints(eop, dx, x)
+  ! element operators
+  call eop % New(po)
+  if (method == 2) then
+    call eop % BuildInteriorEigensystem()
+  end if
 
-  ! initialize mesh variables
-
-  ! node weights
+  ! mesh and point weights
+  call GetMeshPoints(eop, -ONE, ONE, dx, x)
   call GetPointWeights(bc, w)
+
+  ! element operators
+  allocate(Me(0:po), He(0:po,0:po))
+  call GetElementOperators(eop, dx, lambda, Me, He)
 
   ! check if problem is singular
   singular = lambda == 0 .and. (all(bc == 'N') .or. all(bc == 'P'))

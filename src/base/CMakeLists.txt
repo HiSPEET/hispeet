@@ -65,6 +65,11 @@ file(GLOB UTILITIES utilities/*.f)
 file(GLOB SPECTRAL_ELEMENT spectral_element/*.f)
 
 #===============================================================================
+# time_integration
+
+file(GLOB TIME_INTEGRATION time_integration/*.f)
+
+#===============================================================================
 # mesh
 
 file(GLOB MESH mesh/*.f)
@@ -78,6 +83,7 @@ set(BASE_SRC ${ESSENTIALS}
              ${LINEAR_ALGEBRA}
              ${TENSOR_PRODUCT}
              ${SPECTRAL_ELEMENT}
+             ${TIME_INTEGRATION}
              ${UTILITIES}
              ${MESH}
              )

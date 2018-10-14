@@ -6,7 +6,7 @@
 !>###  Direct 1D elliptic solver for SEM with static condensation
 !===============================================================================
 
-module CG_Condensed_Elliptic_Solver_1D
+module CG_SEM_1D__Condensed_Solver
   use Kind_Parameters,  only: RNP
   use Linear_Equations, only: TridiagonalSolver, CyclicTridiagonalSolver
   use CG_Element_Operators_1D
@@ -21,7 +21,7 @@ contains
 !> Direct elliptic solver based on static condensation
 !>
 !> Element suboperators provided with `eop` must be initialized by call to
-!> prior call to `eop % InitSubstructuring`.
+!> prior call to `eop % BuildInteriorEigensystem`.
 
 subroutine CondensedEllipticSolver(eop, dx, c, nu, bc, f, u)
   class(CG_ElementOperators1D), intent(in) :: eop !< element operators
@@ -265,4 +265,4 @@ end subroutine SolveElementSystems
 
 !===============================================================================
 
-end module CG_Condensed_Elliptic_Solver_1D
+end module CG_SEM_1D__Condensed_Solver

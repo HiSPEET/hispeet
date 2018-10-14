@@ -1,8 +1,32 @@
+!> summary:  IMEX Euler with CG-SEM for 1D convection-diffusion equation
+!> author:   Joerg Stiller
+!> date:     2018/09/26
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### IMEX Euler with CG-SEM for 1D convection-diffusion equation
+!>
+!> Advances the solution of the semi-discrete 1D convection-diffusion equation
+!>
+!>     ∂u/∂t = -v ∂u/∂v + nu ∂²u/∂u² ≡ C(u) + D(u)
+!>
+!> according to the implicit-explicit Euler method
+!>
+!>     u = u₀ + ∆t C(u₀) - ∆t D(u)
+!>
+!> where
+!>
+!>     u₀ = u(t₀)
+!>     u  = u(t₀ + ∆t)
+!>
+!> C` and `D` are discretized using continuous spectral elements.
+!>
+!===============================================================================
+
 module CG_ConvDiff_1D__IMEX_Euler
   use Kind_Parameters, only: RNP
-  use CG_Conv_Diff_1D__Utils
+  use CG_ConvDiff_1D__Utils
   use CG_Element_Operators_1D
-  use CG_Condensed_Elliptic_Solver_1D
+  use CG_SEM_1D__Condensed_Solver
   use Harmonic_Wave_Package
   implicit none
   private
@@ -10,6 +34,9 @@ module CG_ConvDiff_1D__IMEX_Euler
   public :: IMEX_Euler
 
 contains
+
+!-------------------------------------------------------------------------------
+!> IMEX Euler method with CG-SEM for 1D convection-diffusion equation
 
 subroutine IMEX_Euler(eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
   class(CG_ElementOperators1D), intent(in)  :: eop      !< element operators
@@ -31,7 +58,11 @@ subroutine IMEX_Euler(eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
   t = t0 + dt
 
   allocate(f, mold = u)
-  call GetLinearConvectionTerm(eop, v, bc, u0, f)
+  if (abs(v) > 0) then
+    call GetLinearConvectionTerm(eop, v, bc, u0, f)
+  else
+    f = 0
+  end if
 
   if (nu > 0) then
     c = 1 / dt
@@ -45,5 +76,6 @@ subroutine IMEX_Euler(eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
 
 end subroutine IMEX_Euler
 
+!===============================================================================
 
 end module CG_ConvDiff_1D__IMEX_Euler
