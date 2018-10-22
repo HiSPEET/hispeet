@@ -20,14 +20,14 @@ module CART__DG_Elliptic_CIS_BC
   implicit none
   private
 
-  public :: Apply_BC_to_RHS
+  public :: ApplyBoundaryConditions
 
 contains
 
 !-------------------------------------------------------------------------------
 !> Adds boundary contributions of the right hand side
 
-subroutine Apply_BC_to_RHS(mesh, eop, nu, bv, f)
+subroutine ApplyBoundaryConditions(mesh, eop, nu, bv, f)
 
   ! arguments ..................................................................
 
@@ -416,7 +416,7 @@ subroutine Apply_BC_to_RHS(mesh, eop, nu, bv, f)
 
   end associate
 
-end subroutine Apply_BC_to_RHS
+end subroutine ApplyBoundaryConditions
 
 !===============================================================================
 
