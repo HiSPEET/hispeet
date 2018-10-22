@@ -259,7 +259,7 @@ program Elliptic_Test
       end select
     end do
 
-    call Apply_BC_to_RHS(mesh, eop, nu, bv, f)
+    call ApplyBoundaryConditions(mesh, eop, nu, bv, f)
 
   end if
 
