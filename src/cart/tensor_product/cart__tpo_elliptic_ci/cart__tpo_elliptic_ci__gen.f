@@ -1,9 +1,9 @@
-!> summary:  Generic element Diffusion operator: 3D Cartesian equidistant
+!> summary:  Elliptic element operator: 3D Cartesian equidistant, generic
 !> author:   Immo Huismann, Joerg Stiller
 !> date:     2015/04/07, revised 2017/01/02
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>###   Generic element Diffusion operator: 3D Cartesian equidistant
+!>### Elliptic element operator: 3D Cartesian equidistant, generic
 !>
 !> @note
 !> When compiled with OpenACC and run on a GPU, any call to this
@@ -12,7 +12,7 @@
 !> @endnote
 !===============================================================================
 
-subroutine CART__TPO_Diffusion__gen(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+subroutine CART__TPO_Elliptic_CI__gen(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 
   !-----------------------------------------------------------------------------
   ! modules
@@ -151,4 +151,4 @@ subroutine CART__TPO_Diffusion__gen(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 
 !===============================================================================
 
-end subroutine CART__TPO_Diffusion__gen
+end subroutine CART__TPO_Elliptic_CI__gen

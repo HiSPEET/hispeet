@@ -1,12 +1,12 @@
-!> summary:  Polynomial multigrid for use with DG diffusion
+!> summary:  Polynomial multigrid for use with DG elliptic solvers
 !> author:   Joerg Stiller
 !> date:     2018/01/30
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Polynomial multigrid for use with DG diffusion
+!>### Polynomial multigrid for use with DG elliptic solvers
 !===============================================================================
 
-module CART__DG_Diffusion_CI_PMG
+module CART__DG_Elliptic_CI_PMG
 
   use Kind_Parameters,   only: RNP
   use Constants,         only: ZERO, ONE
@@ -17,10 +17,10 @@ module CART__DG_Diffusion_CI_PMG
 
   use CART__Mesh_Partition
   use CART__DG_PMG_Transfer_Operators
-  use CART__DG_Diffusion_CI_PMG_Level
-  use CART__DG_Diffusion_CI_Operator
-  use CART__DG_Diffusion_CI_Residual
-  use CART__DG_Diffusion_CI_Conj_Grad
+  use CART__DG_Elliptic_CI_PMG_Level
+  use CART__DG_Elliptic_CI_Operator
+  use CART__DG_Elliptic_CI_Residual
+  use CART__DG_Elliptic_CI_Conj_Grad
 
   implicit none
   private
@@ -499,7 +499,7 @@ subroutine MG_CG_Solver( this, lambda, nu, bc, f, u, ni, r_2, i_max )
     end if
 
     ! initial residual
-    call DiffusionResidual(mesh, eop, lambda, nu, bc, u, g, r)
+    call EllipticResidual(mesh, eop, lambda, nu, bc, u, g, r)
 
     ! termination conditions
     if (check_convergence) then
@@ -555,7 +555,7 @@ subroutine MG_CG_Solver( this, lambda, nu, bc, f, u, ni, r_2, i_max )
       call AssignArray(s, r)
 
       ! correction
-      call DiffusionOperator(mesh, eop, lambda, nu, bc, p, q)
+      call EllipticOperator(mesh, eop, lambda, nu, bc, p, q)
       delta = ScalarProduct(r, z, mesh%comm)
       alpha = delta / ScalarProduct(p, q, mesh%comm)
       call MergeArrays(ONE, u,  alpha, p)                 ! u = u + alpha p
@@ -632,7 +632,7 @@ subroutine Residual(this, l)
 
   else
 
-    call DiffusionResidual( this % mesh               &
+    call EllipticResidual( this % mesh               &
                           , this % level(l) % eop     &
                           , this % level(l) % lambda  &
                           , this % level(l) % nu_c    &
@@ -731,4 +731,4 @@ end subroutine Monitoring
 
 !===============================================================================
 
-end module CART__DG_Diffusion_CI_PMG
+end module CART__DG_Elliptic_CI_PMG

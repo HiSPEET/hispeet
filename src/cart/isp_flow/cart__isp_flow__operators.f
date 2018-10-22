@@ -15,7 +15,7 @@ module CART__ISP_Flow__Operators
   use CART__Mesh_Partition
   use CART__Boundary_Variable
   use CART__DG_Element_Operators
-  use CART__DG_Diffusion_CI_PMG
+  use CART__DG_Elliptic_CI_PMG
   use CART__ISP_Flow__Boundary_Values
 
   implicit none
@@ -38,9 +38,9 @@ module CART__ISP_Flow__Operators
     type(BoundaryVariable), allocatable :: bv_x(:) !< boundary points
     type(BoundaryVariable), allocatable :: bv_u(:) !< boundary values
 
-    type(DG_ElementOperators) :: eop_u !< element operators for u \ p
-    type(DG_ElementOperators) :: eop_p !< element operators for p
-    type(DG_ElementOperators) :: eop_q !< element operators for nonlinear terms
+    type(DG_ElementOperators3D) :: eop_u !< element operators for u \ p
+    type(DG_ElementOperators3D) :: eop_p !< element operators for p
+    type(DG_ElementOperators3D) :: eop_q !< element operators for nonlinear terms
 
     type(InterpolationOperator) :: iop_up !< interpolation from po_u to po_p
     type(InterpolationOperator) :: iop_uq !< interpolation from po_u to po_q

@@ -1,19 +1,19 @@
-!> summary:  Polynomial multigrid level for use with DG diffusion
+!> summary:  Polynomial multigrid level for use with DG elliptic solvers
 !> author:   Joerg Stiller
 !> date:     2018/02/01
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Polynomial multigrid level for use with DG diffusion
+!>### Polynomial multigrid level for use with DG elliptic solvers
 !===============================================================================
 
-module CART__DG_Diffusion_CI_PMG_Level
+module CART__DG_Elliptic_CI_PMG_Level
 
   use Kind_Parameters,   only: RNP
   use Constants,         only: ZERO
   use Array_Assignments, only: AssignScalar
 
   use CART__DG_Element_Operators
-  use CART__DG_Diffusion_CI_Schwarz
+  use CART__DG_Elliptic_CI_Schwarz
 
   implicit none
   private
@@ -32,8 +32,8 @@ module CART__DG_Diffusion_CI_PMG_Level
     integer :: ns1 = 1  !< number of pre-smoothing steps
     integer :: ns2 = 1  !< number of post-smoothing steps
 
-    type(DG_ElementOperators) :: eop        !< 1D DG element operators
-    type(SchwarzOperator)     :: schwarz    !< Schwarz operator
+    type(DG_ElementOperators3D) :: eop      !< 1D DG element operators
+    type(SchwarzOperator)       :: schwarz  !< Schwarz operator
 
     logical                :: has_var_nu    !< switch to variable diffusivity
     real(RNP)              :: lambda        !< Helmholtz parameter
@@ -177,4 +177,4 @@ end subroutine Delete_PMG_Level
 
 !===============================================================================
 
-end module CART__DG_Diffusion_CI_PMG_Level
+end module CART__DG_Elliptic_CI_PMG_Level

@@ -1,12 +1,12 @@
-!> summary:  Evaluation of Cartesian diffusion residual, constant+isotropic
+!> summary:  Residual of elliptic equation with constant+isotropic coefficients
 !> author:   Joerg Stiller
 !> date:     2016/12/12
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Evaluation of Cartesian diffusion residual, constant+isotropic
+!>### Residual of elliptic equation with constant+isotropic coefficients
 !===============================================================================
 
-module CART__DG_Diffusion_CI_Residual
+module CART__DG_Elliptic_CI_Residual
 
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE
@@ -14,24 +14,24 @@ module CART__DG_Diffusion_CI_Residual
 
   use CART__DG_Element_Operators
   use CART__Mesh_Partition
-  use CART__DG_Diffusion_CI_Operator
+  use CART__DG_Elliptic_CI_Operator
 
   implicit none
   private
 
-  public :: DiffusionResidual
+  public :: EllipticResidual
 
 contains
 
 !-------------------------------------------------------------------------------
-!> Diffusion residual, r = f - (lambda M u + nu L u)
+!> Residual of elliptic equation, r = f - (lambda M u + nu L u)
 
-subroutine DiffusionResidual(mesh, eop, lambda, nu, bc, u, f, r)
+subroutine EllipticResidual(mesh, eop, lambda, nu, bc, u, f, r)
 
   ! arguments ..................................................................
 
-  class(MeshPartition),       intent(in) :: mesh !< mesh partition
-  class(DG_ElementOperators), intent(in) :: eop  !< DG element operators
+  class(MeshPartition),         intent(in) :: mesh !< mesh partition
+  class(DG_ElementOperators3D), intent(in) :: eop  !< DG element operators
 
   real(RNP), intent(in)  :: lambda      !< Helmholtz parameter
   real(RNP), intent(in)  :: nu          !< diffusivity
@@ -42,12 +42,12 @@ subroutine DiffusionResidual(mesh, eop, lambda, nu, bc, u, f, r)
 
   ! evaluation .................................................................
 
-  call DiffusionOperator(mesh, eop, lambda, nu, bc, u, r)
+  call EllipticOperator(mesh, eop, lambda, nu, bc, u, r)
 
   call MergeArrays(-ONE, r, ONE, f)
 
-end subroutine DiffusionResidual
+end subroutine EllipticResidual
 
 !===============================================================================
 
-end module CART__DG_Diffusion_CI_Residual
+end module CART__DG_Elliptic_CI_Residual

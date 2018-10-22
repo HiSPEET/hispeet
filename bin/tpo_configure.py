@@ -57,7 +57,6 @@ else:
 #-----------------------------------------------------------------------------
 # Update configuration if changed
 
-
 if os.path.isfile(dest_config):
 
     # replace configuration if existing, but different

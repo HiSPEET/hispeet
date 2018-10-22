@@ -1,12 +1,12 @@
-!> summary:  Element Diffusion operator: 3D Cartesian equidistant, np = 2
+!> summary:  Elliptic element operator: 3D Cartesian equidistant, np = 2
 !> author:   Joerg Stiller
 !> date:     2017/11/14
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Element Diffusion operator: 3D Cartesian equidistant, np = 2
+!>### Elliptic element operator: 3D Cartesian equidistant, np = 2
 !===============================================================================
 
-subroutine CART__TPO_Diffusion__gen_2(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+subroutine CART__TPO_Elliptic_CI__gen_2(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 
   !-----------------------------------------------------------------------------
   ! modules
@@ -130,4 +130,4 @@ end subroutine Diffusion
 
 !===============================================================================
 
-end subroutine CART__TPO_Diffusion__gen_2
+end subroutine CART__TPO_Elliptic_CI__gen_2

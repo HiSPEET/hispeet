@@ -15,7 +15,7 @@ include(cmake/cart__tpo_grad.cmake)
 include(cmake/cart__tpo_div.cmake)
 include(cmake/cart__tpo_rot.cmake)
 include(cmake/cart__tpo_rotrot.cmake)
-include(cmake/cart__tpo_diffusion.cmake)
+include(cmake/cart__tpo_elliptic_ci.cmake)
 include(cmake/cart__tpo_spectral.cmake)
 include(cmake/cart__tpo_spectral_iso.cmake)
 include(cmake/cart__tpo_schwarz_iso.cmake)
@@ -24,7 +24,7 @@ list(APPEND TENSOR_PRODUCT ${CART__TPO_DIV_SRC}
                            ${CART__TPO_GRAD_SRC}
                            ${CART__TPO_ROT_SRC}
                            ${CART__TPO_ROTROT_SRC}
-                           ${CART__TPO_DIFFUSION_SRC}
+                           ${CART__TPO_ELLIPTIC_CI_SRC}
                            ${CART__TPO_SPECTRAL_SRC}
                            ${CART__TPO_SPECTRAL_ISO_SRC}
                            ${CART__TPO_SCHWARZ_ISO_SRC}
@@ -82,19 +82,19 @@ set(OPERATORS operators/cart__trace_operator.f
               )
 
 #===============================================================================
-# diffusion
+# elliptic
 
-set(DIFFUSION diffusion/cart__dg_diffusion_cis_bc.f
-              diffusion/cart__dg_diffusion_ciu_bc.f
-              diffusion/cart__dg_diffusion_cis_operator.f
-              diffusion/cart__dg_diffusion_ciu_operator.f
-              diffusion/cart__dg_diffusion_ci_operator.f
-              diffusion/cart__dg_diffusion_ci_residual.f
-              diffusion/cart__dg_diffusion_ci_conj_grad.f
-              diffusion/cart__dg_diffusion_ci_schwarz.f
-              diffusion/cart__dg_diffusion_ci_pmg_level.f
-              diffusion/cart__dg_diffusion_ci_pmg.f
-              )
+set(ELLIPTIC elliptic/cart__dg_elliptic_cis_bc.f
+             elliptic/cart__dg_elliptic_ciu_bc.f
+             elliptic/cart__dg_elliptic_cis_operator.f
+             elliptic/cart__dg_elliptic_ciu_operator.f
+             elliptic/cart__dg_elliptic_ci_operator.f
+             elliptic/cart__dg_elliptic_ci_residual.f
+             elliptic/cart__dg_elliptic_ci_conj_grad.f
+             elliptic/cart__dg_elliptic_ci_schwarz.f
+             elliptic/cart__dg_elliptic_ci_pmg_level.f
+             elliptic/cart__dg_elliptic_ci_pmg.f
+             )
 
 
 #===============================================================================
@@ -123,7 +123,7 @@ list(APPEND CART_SRC ${TENSOR_PRODUCT}
                      ${INTRA_LEVEL}
                      ${INTER_LEVEL}
                      ${OPERATORS}
-                     ${DIFFUSION}
+                     ${ELLIPTIC}
                      ${ISP_FLOW}
                      )
 

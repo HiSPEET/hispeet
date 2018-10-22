@@ -13,8 +13,8 @@ module CART__ISP_Flow__Diffusion
   use TPO_sDDD
   use ISP_Flow_Problem
   use CART__Boundary_Variable
-  use CART__DG_Diffusion_CIU_BC
-  use CART__DG_Diffusion_CI_PMG
+  use CART__DG_Elliptic_CIU_BC
+  use CART__DG_Elliptic_CI_PMG
   use CART__ISP_Flow__Operators
 
   implicit none

@@ -1,12 +1,12 @@
-!> summary:   Conjugate gradients for diffusion equation with equidistant DG
+!> summary:   Conjugate gradients for elliptic equation with equidistant DG
 !> author:    Joerg Stiller
 !> date:      2017/07/06
 !> license:t  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>###Conjugate gradients for diffusion equation with equidistant DG
+!>### Conjugate gradients for elliptic equation with equidistant DG
 !===============================================================================
 
-module CART__DG_Diffusion_CI_Conj_Grad
+module CART__DG_Elliptic_CI_Conj_Grad
 
   use Kind_Parameters,   only: RNP
   use Constants,         only: ZERO, ONE
@@ -17,8 +17,8 @@ module CART__DG_Diffusion_CI_Conj_Grad
 
   use CART__Mesh_Partition
   use CART__DG_Element_Operators
-  use CART__DG_Diffusion_CI_Operator
-  use CART__DG_Diffusion_CI_Residual
+  use CART__DG_Elliptic_CI_Operator
+  use CART__DG_Elliptic_CI_Residual
 
   implicit none
   private
@@ -28,15 +28,15 @@ module CART__DG_Diffusion_CI_Conj_Grad
 contains
 
 !-------------------------------------------------------------------------------
-!> Conjugate gradient solver for diffusion equation with equidistant DG
+!> Conjugate gradient solver for elliptic equation with equidistant DG
 
 subroutine ConjugateGradients( mesh, eop, lambda, nu, bc, u, f, i_max, r_red, &
                                r_max, d_min, ni )
 
   ! arguments ..................................................................
 
-  class(MeshPartition),       intent(in) :: mesh  !< mesh partition
-  class(DG_ElementOperators), intent(in) :: eop   !< DG element operators
+  class(MeshPartition),         intent(in) :: mesh  !< mesh partition
+  class(DG_ElementOperators3D), intent(in) :: eop   !< DG element operators
 
   real(RNP), intent(in)    :: lambda           !< Helmholtz parameter
   real(RNP), intent(in)    :: nu               !< diffusivity
@@ -88,7 +88,7 @@ subroutine ConjugateGradients( mesh, eop, lambda, nu, bc, u, f, i_max, r_red, &
 
   ! initial residual ...........................................................
 
-  call DiffusionResidual(mesh, eop, lambda, nu, bc, u, g, r)
+  call EllipticResidual(mesh, eop, lambda, nu, bc, u, g, r)
   call AssignArray(p, r)
 
   rr = ScalarProduct(r, r, mesh%comm)
@@ -122,7 +122,7 @@ subroutine ConjugateGradients( mesh, eop, lambda, nu, bc, u, f, i_max, r_red, &
 
     ! next iteration . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-    call DiffusionOperator(mesh, eop, lambda, nu, bc, p, q)
+    call EllipticOperator(mesh, eop, lambda, nu, bc, p, q)
 
     pq = ScalarProduct(p, q, mesh%comm)
     alpha = rr_old / pq
@@ -131,7 +131,7 @@ subroutine ConjugateGradients( mesh, eop, lambda, nu, bc, u, f, i_max, r_red, &
 
     if (mod(i,50) == 0) then
       ! compute true residual to get rid of round-off errors
-      call DiffusionResidual(mesh, eop, lambda, nu, bc, u, g, r)
+      call EllipticResidual(mesh, eop, lambda, nu, bc, u, g, r)
     else
       call MergeArrays(ONE, r, -alpha, q)
     end if
@@ -156,4 +156,4 @@ end subroutine ConjugateGradients
 
 !===============================================================================
 
-end module CART__DG_Diffusion_CI_Conj_Grad
+end module CART__DG_Elliptic_CI_Conj_Grad

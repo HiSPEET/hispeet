@@ -1,9 +1,9 @@
-!> summary:  Schwarz method for diffusion equation with equidistant DG
+!> summary:  Schwarz method for elliptic equation with equidistant DG
 !> author:   Joerg Stiller
 !> date:     2017/09/08
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Schwarz method for diffusion equation with equidistant DG
+!>### Schwarz method for elliptic equation with equidistant DG
 !>
 !> @todo
 !>
@@ -18,7 +18,7 @@
 !> @endtodo
 !===============================================================================
 
-module CART__DG_Diffusion_CI_Schwarz
+module CART__DG_Elliptic_CI_Schwarz
 
   use Kind_Parameters,   only: RNP
   use Constants,         only: ZERO, ONE, HALF
@@ -36,7 +36,7 @@ module CART__DG_Diffusion_CI_Schwarz
   use CART__Mesh_Partition
   use CART__Element_Transfer_Buffer
   use CART__DG_Element_Operators
-  use CART__DG_Diffusion_CI_Residual
+  use CART__DG_Elliptic_CI_Residual
 
   implicit none
   private
@@ -55,7 +55,7 @@ module CART__DG_Diffusion_CI_Schwarz
   !> a negative value can be chosen for restricting the subdomain to the element
   !> alone.
   !>
-  !> The Schwarz operator is the inverse of the truncated diffusion operator,
+  !> The Schwarz operator is the inverse of the truncated elliptic operator,
   !> which is given in tensor-product form by
   !>
   !>       A  =  c0 M3 x M2 x M1
@@ -153,7 +153,7 @@ module CART__DG_Diffusion_CI_Schwarz
 
   type SchwarzOperator
 
-    type(DG_ElementOperators) :: eop    !< DG element operators
+    type(DG_ElementOperators3D) :: eop  !< DG element operators
 
     integer   :: no(3)  = -1            !< overlapped node layers
     logical   :: isotropic              !< switch to isotropic operator
@@ -208,8 +208,8 @@ subroutine New_SchwarzOperator(this, eop, delta, no_min, weighting)
 
   ! arguments ..................................................................
 
-  class(SchwarzOperator),     intent(inout) :: this !< Schwarz operator
-  class(DG_ElementOperators), intent(in)    :: eop  !< DG element operators
+  class(SchwarzOperator),       intent(inout) :: this !< Schwarz operator
+  class(DG_ElementOperators3D), intent(in)    :: eop  !< DG element operators
 
   real(RNP),         intent(in) :: delta(3)  !< relative overlap
   integer, optional, intent(in) :: no_min    !< min overlap in points
@@ -331,13 +331,13 @@ end subroutine New_SchwarzOperator
 !> order to avoid floating points exceptions when used as a divisor.
 
 subroutine GetSubdomainOperators(eop, no, bc, Ws, S, V, W)
-  type(DG_ElementOperators), intent(in) :: eop !< 1D element operators
-  integer,    intent(in)  :: no                !< overlap
-  character,  intent(in)  :: bc(2)             !< left/right boundary conditions
-  real(RNP),  intent(in)  :: Ws(-no:)          !< standard weights
-  real(RNP),  intent(out) :: S(-no:,-no:)      !< subdomain eigenvectors
-  real(RNP),  intent(out) :: V(-no:)           !< subdomain eigenvalues
-  real(RNP),  intent(out) :: W(-no:)           !< subdomain weights
+  type(DG_ElementOperators3D), intent(in) :: eop !< DG element operators
+  integer,    intent(in)  :: no           !< overlap
+  character,  intent(in)  :: bc(2)        !< left/right boundary conditions
+  real(RNP),  intent(in)  :: Ws(-no:)     !< standard weights
+  real(RNP),  intent(out) :: S(-no:,-no:) !< subdomain eigenvectors
+  real(RNP),  intent(out) :: V(-no:)      !< subdomain eigenvalues
+  real(RNP),  intent(out) :: W(-no:)      !< subdomain weights
 
   real(RNP), parameter   :: dx(-1:1) = ONE
   real(RNP), allocatable :: Le_ii(:,:,:), Le_bc(:,:,:)
@@ -701,7 +701,7 @@ subroutine Iteration_C(this, mesh, lambda, nu, bc, u, f, i_max, r_red, r_max)
 !   call TPO_Schwarz_Assign(ns(1), ns(2), ns(3), SchwarzGenOP)
     call Error('Iteration_C', &
                'Anisotropic Schwarz operator not implemented yet', &
-               'CART__DG_Diffusion_CI_Schwarz')
+               'CART__DG_Elliptic_CI_Schwarz')
   end if
 
   ! termination condition
@@ -717,7 +717,7 @@ subroutine Iteration_C(this, mesh, lambda, nu, bc, u, f, i_max, r_red, r_max)
 
   do i = 1, i_max
 
-    call DiffusionResidual(mesh, this%eop, lambda, nu, bc, u, f, r(:,:,:,:ne))
+    call EllipticResidual(mesh, this%eop, lambda, nu, bc, u, f, r(:,:,:,:ne))
 
     ! termination check
     if (present(r_red)) then
@@ -1602,4 +1602,4 @@ end subroutine MergeFromSubdomains
 
 !===============================================================================
 
-end module CART__DG_Diffusion_CI_Schwarz
+end module CART__DG_Elliptic_CI_Schwarz

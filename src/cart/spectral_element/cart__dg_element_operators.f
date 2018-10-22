@@ -13,12 +13,12 @@ module CART__DG_Element_Operators
   implicit none
   private
 
-  public :: DG_ElementOperators
+  public :: DG_ElementOperators3D
 
   !-----------------------------------------------------------------------------
   !> Element operators for discontinuous cuboidal elements
 
-  type, extends(DG_ElementOperators1D) :: DG_ElementOperators
+  type, extends(DG_ElementOperators1D) :: DG_ElementOperators3D
 
     ! discretization parameters
     real(RNP) :: dx(3)       !< element extensions
@@ -30,10 +30,9 @@ module CART__DG_Element_Operators
     generic :: New => New_ElementOperators
     procedure, private :: New_ElementOperators
 
-    procedure :: Adjust => Adjust_ElementOperators
     procedure :: Get_1D_StiffnessMatrix
 
-  end type DG_ElementOperators
+  end type DG_ElementOperators3D
 
 contains
 
@@ -41,7 +40,7 @@ contains
 !> Initialize a new DG element operators
 
 subroutine New_ElementOperators(this, po, dx, penalty)
-  class(DG_ElementOperators), intent(inout) :: this
+  class(DG_ElementOperators3D), intent(inout) :: this
   integer,   intent(in) :: po           !< polynomial order
   real(RNP), intent(in) :: dx(3)        !< element extensions
   real(RNP), intent(in) :: penalty      !< penalty parameter > 1
@@ -61,30 +60,6 @@ subroutine New_ElementOperators(this, po, dx, penalty)
 end subroutine New_ElementOperators
 
 !-------------------------------------------------------------------------------
-!> Adjust DG element operators to given element dimensions and/or penalty
-
-subroutine Adjust_ElementOperators(this, dx, penalty)
-  class(DG_ElementOperators), intent(inout) :: this
-  real(RNP),     optional, intent(in)    :: dx(3)   !< element extensions
-  real(RNP),     optional, intent(in)    :: penalty !< penalty parameter > 1
-
-  if (present(dx)) then
-    this % dx = dx
-  end if
-
-  if (present(penalty)) then
-    this % penalty = penalty
-  end if
-
-  associate(dx => this%dx, penalty => this%penalty)
-    this % mu(1) = this % PenaltyFactor([dx(1), dx(1)], penalty)
-    this % mu(2) = this % PenaltyFactor([dx(2), dx(2)], penalty)
-    this % mu(3) = this % PenaltyFactor([dx(3), dx(3)], penalty)
-  end associate
-
-end subroutine Adjust_ElementOperators
-
-!-------------------------------------------------------------------------------
 !> 1D stiffness matrix for given direction and boundary conditions
 !>
 !> The element stiffness matrix `Le` represents the nontrivial row entries
@@ -94,7 +69,7 @@ end subroutine Adjust_ElementOperators
 !> and succeeding (1) element, respectively.
 
 subroutine Get_1D_StiffnessMatrix(this, direction, bc, Le)
-  class(DG_ElementOperators), intent(in) :: this
+  class(DG_ElementOperators3D), intent(in) :: this
   integer,   intent(in)  :: direction     !< coordinate direction {1,2,3}
   character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N'}
   real(RNP), intent(out) :: Le(0:,0:,-1:) !< 1D element stiffness matrix

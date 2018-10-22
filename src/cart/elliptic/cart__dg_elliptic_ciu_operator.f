@@ -1,19 +1,18 @@
-!> summary:  Cartesian diffusion operator, constant isotropic, unstructured
+!> summary:  Cartesian elliptic operator, constant isotropic, unstructured
 !> author:   Joerg Stiller
 !> date:     2016/12/08, revised 2017/05/04-
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Cartesian diffusion operator, constant isotropic, unstructured
+!>### Cartesian elliptic operator, constant isotropic, unstructured
 !===============================================================================
 
-module CART__DG_Diffusion_CIU_Operator
+module CART__DG_Elliptic_CIU_Operator
 
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE, HALF
   use Array_Assignments
 
-!!!  use CART__TPO_Grad
-  use CART__TPO_Diffusion
+  use CART__TPO_Elliptic_CI
   use CART__DG_Element_Operators
   use CART__Mesh_Partition
   use CART__Trace_Operator
@@ -22,7 +21,7 @@ module CART__DG_Diffusion_CIU_Operator
   implicit none
   private
 
-  public :: DiffusionOperator
+  public :: EllipticOperator
 
   !-----------------------------------------------------------------------------
   ! private variables
@@ -33,14 +32,14 @@ module CART__DG_Diffusion_CIU_Operator
 contains
 
 !-------------------------------------------------------------------------------
-!> Diffusion operator, v = lambda M u + nu L u
+!> Elliptic operator, v = lambda M u + nu L u
 
-subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
+subroutine EllipticOperator(mesh, eop, lambda, nu, bc, u, v)
 
   ! arguments ..................................................................
 
-  class(MeshPartition),       intent(in)  :: mesh !< mesh partition
-  class(DG_ElementOperators), intent(in)  :: eop  !< DG element operators
+  class(MeshPartition),         intent(in)  :: mesh !< mesh partition
+  class(DG_ElementOperators3D), intent(in)  :: eop  !< DG element operators
 
   real(RNP), intent(in)  :: lambda        !< Helmholtz parameter
   real(RNP), intent(in)  :: nu            !< diffusivity
@@ -50,7 +49,7 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
 
   ! local variables ............................................................
 
-  procedure(TPO_Diffusion_Proc), pointer, save :: StiffnessOperator
+  procedure(TPO_Elliptic_CI_Proc), pointer, save :: StiffnessOperator
 
   ! trace operators
   type(TraceOperator),       allocatable, save :: trace_op
@@ -77,7 +76,7 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
   ! procedure for evaluating the element operators
   if (np /= po + 1) then
     np  = po + 1
-    call TPO_Diffusion_Assign(np, StiffnessOperator)
+    call TPO_Elliptic_CI_Assign(np, StiffnessOperator)
   end if
 
   ! workspace and operators
@@ -130,7 +129,7 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
   deallocate(trace_op, normal_trace_op)
   !$omp end single
 
-end subroutine DiffusionOperator
+end subroutine EllipticOperator
 
 !-------------------------------------------------------------------------------
 !> Elementwise computation of derivatives parallel to face normals
@@ -347,7 +346,7 @@ subroutine AddFluxes(mesh, eop, nu, J_u, D_u, v)
   ! arguments ..................................................................
 
   class(MeshPartition),       intent(in) :: mesh !< mesh partition
-  class(DG_ElementOperators), intent(in) :: eop  !< element operators
+  class(DG_ElementOperators3D), intent(in) :: eop  !< element operators
 
   real(RNP), intent(in)    :: nu            !< diffusivity
   real(RNP), intent(in)    :: J_u(0:,0:,:)  !< [u]ᵢ
@@ -447,4 +446,4 @@ end subroutine AddFluxes
 
 !===============================================================================
 
-end module CART__DG_Diffusion_CIU_Operator
+end module CART__DG_Elliptic_CIU_Operator

@@ -27,7 +27,7 @@ program ISP_Flow__SDC_Test
   use CART__Generate_Structured_Mesh
   use CART__DG_Weak_Divergence
   use CART__DG_Weak_Gradient
-  use CART__DG_Diffusion_CI_PMG
+  use CART__DG_Elliptic_CI_PMG
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Time_Derivative
   use CART__ISP_Flow__Pressure

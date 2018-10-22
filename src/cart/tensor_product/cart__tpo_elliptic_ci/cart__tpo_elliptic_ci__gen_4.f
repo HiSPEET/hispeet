@@ -1,12 +1,12 @@
-!> summary:  Element diffusion operator: 3D Cartesian equidistant, np = 3
+!> summary:  Elliptic element operator: 3D Cartesian equidistant, np = 4
 !> author:   Joerg Stiller
 !> date:     2017/11/14
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Element diffusion operator: 3D Cartesian equidistant, np = 3
+!>### Elliptic element operator: 3D Cartesian equidistant, np = 4
 !===============================================================================
 
-subroutine CART__TPO_Diffusion__gen_3(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+subroutine CART__TPO_Elliptic_CI__gen_4(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 
   !-----------------------------------------------------------------------------
   ! modules
@@ -19,13 +19,13 @@ subroutine CART__TPO_Diffusion__gen_3(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 
   integer,   intent(in)  :: np          !< number of points per direction
   integer,   intent(in)  :: ne          !< number of elements
-  real(RNP), intent(in)  :: Ms(3)       !< 1D standard mass matrix
-  real(RNP), intent(in)  :: Ls(3,3)     !< 1D standard stiffness matrix
+  real(RNP), intent(in)  :: Ms(4)       !< 1D standard mass matrix
+  real(RNP), intent(in)  :: Ls(4,4)     !< 1D standard stiffness matrix
   real(RNP), intent(in)  :: lambda      !< Helmholtz parameter
   real(RNP), intent(in)  :: nu          !< diffusivity
   real(RNP), intent(in)  :: dx(3)       !< element extensions
-  real(RNP), intent(in)  :: u(3,3,3,ne) !< operand
-  real(RNP), intent(out) :: v(3,3,3,ne) !< result
+  real(RNP), intent(in)  :: u(4,4,4,ne) !< operand
+  real(RNP), intent(out) :: v(4,4,4,ne) !< result
 
   real(RNP), allocatable :: M(:,:,:), M_u(:,:,:), Lm(:,:)
   real(RNP) :: g(3), tmp
@@ -40,17 +40,17 @@ subroutine CART__TPO_Diffusion__gen_3(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 
   ! element mass matrix
   tmp = product(dx) / 8
-  do k = 1, 3
-  do j = 1, 3
-  do i = 1, 3
+  do k = 1, 4
+  do j = 1, 4
+  do i = 1, 4
     M(i,j,k) = tmp * Ms(k) * Ms(j) * Ms(i)
   end do
   end do
   end do
 
   ! mass-weighted stiffness matrix: Lm = Ms^-1 Ls = (Ls Ms^-1)^T
-  do j = 1, 3
-  do i = 1, 3
+  do j = 1, 4
+  do i = 1, 4
     Lm(i,j) = Ls(i,j) / Ms(i)
   end do
   end do
@@ -87,16 +87,15 @@ contains
 subroutine SubOp_0(lambda, M, u, M_u, v)
   !$acc routine vector
   real(RNP), intent(in)  :: lambda
-  real(RNP), intent(in)  :: M(27)
-  real(RNP), intent(in)  :: u(27)
-  real(RNP), intent(out) :: M_u(27)
-  real(RNP), intent(out) :: v(27)
+  real(RNP), intent(in)  :: M(64)
+  real(RNP), intent(in)  :: u(64)
+  real(RNP), intent(out) :: M_u(64)
+  real(RNP), intent(out) :: v(64)
 
   integer :: l
 
   !$acc loop vector
-  !DIR$ SIMD
-  do l = 1, 27
+  do l = 1, 64
     M_u(l) = M(l) * u(l)
     v(l) = lambda * M_u(l)
   end do
@@ -109,59 +108,59 @@ end subroutine SubOp_0
 subroutine SubOp_1(g1, Lm, M_u, v)
   !$acc routine vector
   real(RNP), intent(in)    :: g1
-  real(RNP), intent(in)    :: Lm(3,3)
-  real(RNP), intent(in)    :: M_u(3,3,3)
-  real(RNP), intent(inout) :: v(3,3,3)
+  real(RNP), intent(in)    :: Lm(4,4)
+  real(RNP), intent(in)    :: M_u(4,4,4)
+  real(RNP), intent(inout) :: v(4,4,4)
 
-  real(RNP) :: tmp1, tmp2, tmp3
-  integer   :: j, k, p
+  real(RNP) :: tmp(0:3)
+  integer   :: j, k
 
   !$acc loop collapse(2) independent vector
-  do k = 1, 3
-  do j = 1, 3
-    tmp1 = 0
-    tmp2 = 0
-    tmp3 = 0
-    do p = 1, 3
-      tmp1 = tmp1 + Lm(p,1) * M_u(p,j,k)
-      tmp2 = tmp2 + Lm(p,2) * M_u(p,j,k)
-      tmp3 = tmp3 + Lm(p,3) * M_u(p,j,k)
-    end do
-    v(1,j,k) = v(1,j,k) + g1 * tmp1
-    v(2,j,k) = v(2,j,k) + g1 * tmp2
-    v(3,j,k) = v(3,j,k) + g1 * tmp3
+  do k = 1, 4
+  do j = 1, 4
+
+    tmp =       Lm(1,1:4) * M_u(1,j,k)
+    tmp = tmp + Lm(2,1:4) * M_u(2,j,k)
+    tmp = tmp + Lm(3,1:4) * M_u(3,j,k)
+    tmp = tmp + Lm(4,1:4) * M_u(4,j,k)
+
+    v(1:4,j,k) = v(1:4,j,k) + g1 * tmp
+
   end do
   end do
 
 end subroutine SubOp_1
 
 !-------------------------------------------------------------------------------
-!> Diffusion operator in direction 2
+!> Diffusion operator in direction 2 for k-slice
 
 subroutine SubOp_2(g2, Lm, M_u, v)
   !$acc routine vector
   real(RNP), intent(in)    :: g2
-  real(RNP), intent(in)    :: Lm(3,3)
-  real(RNP), intent(in)    :: M_u(3,3,3)
-  real(RNP), intent(inout) :: v(3,3,3)
+  real(RNP), intent(in)    :: Lm(4,4)
+  real(RNP), intent(in)    :: M_u(4,4,4)
+  real(RNP), intent(inout) :: v(4,4,4)
 
-  real(RNP) :: tmp1, tmp2, tmp3
-  integer   :: j, k, p
+  real(RNP) :: tmp1, tmp2, tmp3, tmp4
+  integer   :: i, k, p
 
   !$acc loop collapse(2) independent vector
-  do k = 1, 3
-  do j = 1, 3
-    tmp1 = 0
-    tmp2 = 0
-    tmp3 = 0
-    do p = 1, 3
-      tmp1 = tmp1 + Lm(p,j) * M_u(1,p,k)
-      tmp2 = tmp2 + Lm(p,j) * M_u(2,p,k)
-      tmp3 = tmp3 + Lm(p,j) * M_u(3,p,k)
+  do k = 1, 4
+  do i = 1, 4
+    tmp1 = Lm(1,1) * M_u(i,1,k)
+    tmp2 = Lm(1,2) * M_u(i,1,k)
+    tmp3 = Lm(1,3) * M_u(i,1,k)
+    tmp4 = Lm(1,4) * M_u(i,1,k)
+    do p = 2, 4
+      tmp1 = tmp1 + Lm(p,1) * M_u(i,p,k)
+      tmp2 = tmp2 + Lm(p,2) * M_u(i,p,k)
+      tmp3 = tmp3 + Lm(p,3) * M_u(i,p,k)
+      tmp4 = tmp4 + Lm(p,4) * M_u(i,p,k)
     end do
-    v(1,j,k) = v(1,j,k) + g2 * tmp1
-    v(2,j,k) = v(2,j,k) + g2 * tmp2
-    v(3,j,k) = v(3,j,k) + g2 * tmp3
+    v(i,1,k) = v(i,1,k) + g2 * tmp1
+    v(i,2,k) = v(i,2,k) + g2 * tmp2
+    v(i,3,k) = v(i,3,k) + g2 * tmp3
+    v(i,4,k) = v(i,4,k) + g2 * tmp4
   end do
   end do
 
@@ -173,26 +172,33 @@ end subroutine SubOp_2
 subroutine SubOp_3(g3, Lm, M_u, v)
   !$acc routine vector
   real(RNP), intent(in)    :: g3
-  real(RNP), intent(in)    :: Lm(3,3)
-  real(RNP), intent(in)    :: M_u(9,3)
-  real(RNP), intent(inout) :: v(9,3)
+  real(RNP), intent(in)    :: Lm(4,4)
+  real(RNP), intent(in)    :: M_u(16,4)
+  real(RNP), intent(inout) :: v(16,4)
 
-  real(RNP) :: tmp
-  integer   :: ij, k, p
+  real(RNP) :: tmp1, tmp2, tmp3, tmp4
+  integer   :: ij, p
 
-  !$acc loop collapse(2) independent vector
-  do k = 1, 3
-  do ij = 1, 9
-    tmp = 0
-    do p = 1, 3
-      tmp = tmp + Lm(p,k) * M_u(ij,p)
+  !$acc loop independent vector
+  do ij = 1, 16
+    tmp1 = Lm(1,1) * M_u(ij,1)
+    tmp2 = Lm(1,2) * M_u(ij,1)
+    tmp3 = Lm(1,3) * M_u(ij,1)
+    tmp4 = Lm(1,4) * M_u(ij,1)
+    do p = 2, 4
+      tmp1 = tmp1 + Lm(p,1) * M_u(ij,p)
+      tmp2 = tmp2 + Lm(p,2) * M_u(ij,p)
+      tmp3 = tmp3 + Lm(p,3) * M_u(ij,p)
+      tmp4 = tmp4 + Lm(p,4) * M_u(ij,p)
     end do
-    v(ij,k) = v(ij,k) + g3 * tmp
-  end do
+    v(ij,1) = v(ij,1) + g3 * tmp1
+    v(ij,2) = v(ij,2) + g3 * tmp2
+    v(ij,3) = v(ij,3) + g3 * tmp3
+    v(ij,4) = v(ij,4) + g3 * tmp4
   end do
 
 end subroutine SubOp_3
 
 !===============================================================================
 
-end subroutine CART__TPO_Diffusion__gen_3
+end subroutine CART__TPO_Elliptic_CI__gen_4

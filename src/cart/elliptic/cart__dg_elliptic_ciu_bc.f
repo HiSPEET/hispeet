@@ -1,13 +1,13 @@
-!> summary:  Boundary treatment for DG diffusion operator,
+!> summary:  Boundary treatment for DG elliptic operator,
 !>           constant isotropic + unstructured
 !> author:   Joerg Stiller
 !> date:     2018/09/16
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Boundary treatment for DG diffusion operator
+!>### Boundary treatment for DG elliptic operator
 !===============================================================================
 
-module CART__DG_Diffusion_CIU_BC
+module CART__DG_Elliptic_CIU_BC
 
   use Kind_Parameters,   only: RNP
   use Constants,         only: ZERO, ONE
@@ -31,11 +31,11 @@ subroutine Apply_BC_to_RHS(mesh, eop, nu, bv, f)
 
   ! arguments ..................................................................
 
-  class(MeshPartition),       intent(in)    :: mesh  !< mesh partition
-  class(DG_ElementOperators), intent(in)    :: eop   !< DG element oprators
-  real(RNP),                  intent(in)    :: nu    !< diffusivity
-  type(BoundaryVariable),     intent(in)    :: bv(:) !< boundary conds. & values
-  real(RNP),                  intent(inout) :: f     !< RHS
+  class(MeshPartition),         intent(in)    :: mesh  !< mesh partition
+  class(DG_ElementOperators3D), intent(in)    :: eop   !< DG element operators
+  real(RNP),                    intent(in)    :: nu    !< diffusivity
+  type(BoundaryVariable),       intent(in)    :: bv(:) !< boundary conditions
+  real(RNP),                    intent(inout) :: f     !< RHS
 
   dimension :: f(0:eop%po, 0:eop%po, 0:eop%po, mesh%ne)
 
@@ -196,4 +196,4 @@ end subroutine Apply_BC_to_RHS
 
 !===============================================================================
 
-end module CART__DG_Diffusion_CIU_BC
+end module CART__DG_Elliptic_CIU_BC

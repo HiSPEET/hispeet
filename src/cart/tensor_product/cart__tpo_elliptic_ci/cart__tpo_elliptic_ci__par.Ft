@@ -1,9 +1,9 @@
-!> summary:  Parametrized element Diffusion operator: 3D Cartesian equidistant
+!> summary:  Elliptic element operator: 3D Cartesian equidistant, parametrized
 !> author:   Joerg Stiller
 !> date:     2017/06/22
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Parametrized element Diffusion operator: 3D Cartesian equidistant
+!>### Parametrized elliptic element operator: 3D Cartesian equidistant
 !===============================================================================
 
 #define __NA__    <np>
@@ -11,7 +11,7 @@
 #define __NA_T4__ <np_t4>
 #define __NA_T8__ <np_t8>
 
-subroutine CART__TPO_Diffusion__<tag>(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+subroutine CART__TPO_Elliptic_CI__<tag>(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 
   !-----------------------------------------------------------------------------
   ! modules
@@ -96,7 +96,7 @@ contains
 
 !===============================================================================
 
-end subroutine CART__TPO_Diffusion__<tag>
+end subroutine CART__TPO_Elliptic_CI__<tag>
 
 #undef __NA__
 #undef __NA_T2__

@@ -1,23 +1,18 @@
-!> summary:  Cartesian diffusion operator, constant isotropic, structured
+!> summary:  Cartesian elliptic operator, constant isotropic, structured
 !> author:   Joerg Stiller
 !> date:     2016/12/08, revised 2017/05/04-
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Cartesian diffusion operator, constant isotropic, structured
+!>### Cartesian elliptic operator, constant isotropic, structured
 !===============================================================================
 
-module CART__DG_Diffusion_CIS_Operator
-
-!### CHECK
-!  use OpenMP_Binding
-!  use XMPI
-!### END CHECK
+module CART__DG_Elliptic_CIS_Operator
 
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE, HALF
   use Array_Assignments
 
-  use CART__TPO_Diffusion
+  use CART__TPO_Elliptic_CI
   use CART__DG_Element_Operators
   use CART__Mesh_Partition
   use CART__Face_Transfer_Buffer
@@ -25,22 +20,22 @@ module CART__DG_Diffusion_CIS_Operator
   implicit none
   private
 
-  public :: DiffusionOperator
+  public :: EllipticOperator
 
 contains
 
 !-------------------------------------------------------------------------------
-!> Diffusion operator, v = lambda M u + nu L u
+!> Elliptic operator, v = lambda M u + nu L u
 
-subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
+subroutine EllipticOperator(mesh, eop, lambda, nu, bc, u, v)
 
   ! arguments ..................................................................
 
   ! *** ACC: Assuming present(eop,bc,u,v)
   ! *** ACC: Check that all data required by GPU is on device (derived types?)
 
-  class(MeshPartition),       intent(in)  :: mesh !< mesh partition
-  class(DG_ElementOperators), intent(in)  :: eop  !< DG element operators
+  class(MeshPartition),         intent(in)  :: mesh !< mesh partition
+  class(DG_ElementOperators3D), intent(in)  :: eop  !< DG element operators
 
   real(RNP), intent(in)  :: lambda  !< Helmholtz parameter
   real(RNP), intent(in)  :: nu      !< diffusivity
@@ -53,7 +48,7 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
 
   ! local variables ............................................................
 
-  procedure(TPO_Diffusion_Proc), pointer, save :: StiffnessOperator
+  procedure(TPO_Elliptic_CI_Proc), pointer, save :: StiffnessOperator
 
   ! subdomain boundary conditions
   character :: sdbc(6)
@@ -70,21 +65,7 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
   integer :: j1, j2, j3
   integer :: i
 
-!### CHECK
-!  integer :: mpi_id, omp_id
-!  mpi_id = mesh%part
-!  omp_id = OMP_Get_Thread_Num()
-!### END CHECK
-
   ! initialization .............................................................
-!### CHECK
-! block
-! if (any(isNaN(u))) then
-!   print '(9G0)', '@DO1[',mesh%comm,']: u has NaN'
-! end if
-! call MPI_Barrier(mesh%comm)
-! end block
-!### END CHECK
 
   ! mesh dimensions
   po    = ubound(u,3)  ! polynomial order
@@ -95,7 +76,7 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
   ! procedure for evaluating the element operators
   if (np /= po + 1) then
     np  = po + 1
-    call TPO_Diffusion_Assign(np, StiffnessOperator)
+    call TPO_Elliptic_CI_Assign(np, StiffnessOperator)
   end if
 
   ! subdomain BC
@@ -154,14 +135,6 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
     call StiffnessOperator(np, product(ne), Ms, Ls, lambda, nu, dx, u, v)
 
   end associate
-!### CHECK
-! block
-! if (any(isNaN(v))) then
-!   print '(9G0)', '@DO1[',mesh%comm,']: v has NaN'
-! end if
-! call MPI_Barrier(mesh%comm)
-! end block
-!### END CHECK
 
   ! apply boundary conditions ..................................................
 
@@ -185,14 +158,6 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
                   v                                               )
 
   !$acc end data
-!### CHECK
-! block
-! if (any(isNaN(v))) then
-!   print '(9G0)', '@DO2[',mesh%comm,']: v has NaN'
-! end if
-! call MPI_Barrier(mesh%comm)
-! end block
-!### END CHECK
 
   ! wait for send operations to complete .......................................
 
@@ -207,7 +172,7 @@ subroutine DiffusionOperator(mesh, eop, lambda, nu, bc, u, v)
   deallocate(buf__D_u)
   !$omp end single
 
-end subroutine DiffusionOperator
+end subroutine EllipticOperator
 
 !-------------------------------------------------------------------------------
 !> Traces of u and du/dn on local element faces
@@ -216,7 +181,7 @@ subroutine TraceOperators(eop, po, ne, u, J1_u, J2_u, J3_u, D1_u, D2_u, D3_u)
 
   ! arguments ..................................................................
 
-  class(DG_ElementOperators), intent(in) :: eop !< ! element operators
+  class(DG_ElementOperators3D), intent(in) :: eop !< element operators
 
   integer, intent(in) :: po     !< polynomial order (for convenience)
   integer, intent(in) :: ne(3)  !< number of elements per direction
@@ -724,7 +689,7 @@ subroutine AddFluxes(eop, po, ne, nu, J1_u, J2_u, J3_u, D1_u, D2_u, D3_u, v)
 
   ! arguments ..................................................................
 
-  class(DG_ElementOperators), intent(in) :: eop !< element operators
+  class(DG_ElementOperators3D), intent(in) :: eop !< element operators
 
   integer,   intent(in) :: po     !< polynomial order
   integer,   intent(in) :: ne(3)  !< number of elements per direction
@@ -838,4 +803,4 @@ end subroutine AddFluxes
 
 !===============================================================================
 
-end module CART__DG_Diffusion_CIS_Operator
+end module CART__DG_Elliptic_CIS_Operator

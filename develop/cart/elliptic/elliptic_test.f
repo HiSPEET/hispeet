@@ -4,6 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !>### Test elliptic solvers
+!===============================================================================
 
 program Elliptic_Test
 
@@ -19,13 +20,12 @@ program Elliptic_Test
   use CART__Generate_Structured_Mesh
   use CART__Boundary_Variable
   use CART__DG_Element_Operators
-!  use CART__DG_Diffusion_CIS_BC
-  use CART__DG_Diffusion_CIU_BC
-  use CART__DG_Diffusion_CI_Operator
-  use CART__DG_Diffusion_CI_Residual
-  use CART__DG_Diffusion_CI_Conj_Grad
-  use CART__DG_Diffusion_CI_Schwarz
-  use CART__DG_Diffusion_CI_PMG
+  use CART__DG_Elliptic_CIU_BC
+  use CART__DG_Elliptic_CI_Operator
+  use CART__DG_Elliptic_CI_Residual
+  use CART__DG_Elliptic_CI_Conj_Grad
+  use CART__DG_Elliptic_CI_Schwarz
+  use CART__DG_Elliptic_CI_PMG
 
   use Elliptic_Test_Case
 
@@ -101,9 +101,9 @@ program Elliptic_Test
 
   ! operators ..................................................................
 
-  type(DG_ElementOperators) :: eop     ! DG element oprators
-  type(SchwarzOperator)     :: schwarz ! Schwarz operator and procedures
-  type(PolynomialMultigrid) :: pmg     ! polynomial multigrid
+  type(DG_ElementOperators3D) :: eop     ! DG element oprators
+  type(SchwarzOperator)       :: schwarz ! Schwarz operator and procedures
+  type(PolynomialMultigrid)   :: pmg     ! polynomial multigrid
 
   ! input / output .............................................................
 
@@ -267,14 +267,14 @@ program Elliptic_Test
 
   if (rank == 0) then
     write(*,'(/,A)') repeat('-',80)
-    write(*,'(A,/)') 'DG DIFFUSION: OPERATOR'
+    write(*,'(A,/)') 'DG ELLIPTIC: OPERATOR'
   end if
 
   !$omp parallel
   !$acc data copyin(u) copyout(r)
 
   ! setup call
-  call DiffusionOperator(mesh, eop, lambda, nu, bc, u, r)
+  call EllipticOperator(mesh, eop, lambda, nu, bc, u, r)
   !$acc wait
 
   if (rank == 0) then
@@ -282,7 +282,7 @@ program Elliptic_Test
   end if
 
   do i = 1, nt
-    call DiffusionOperator(mesh, eop, lambda, nu, bc, u, r)
+    call EllipticOperator(mesh, eop, lambda, nu, bc, u, r)
     !$acc wait
   end do
 
@@ -302,13 +302,13 @@ program Elliptic_Test
 
   if (rank == 0) then
     write(*,'(/,A)') repeat('-',80)
-    write(*,'(A,/)') 'DG DIFFUSION: RESIDUAL'
+    write(*,'(A,/)') 'DG ELLIPTIC: RESIDUAL'
   end if
 
   !$omp parallel
   !$acc data copyin(u,f) copyout(r)
 
-  call DiffusionResidual(mesh, eop, lambda, nu, bc, u, f, r)
+  call EllipticResidual(mesh, eop, lambda, nu, bc, u, f, r)
 
   !$acc end data
   !$omp end parallel
@@ -330,13 +330,13 @@ program Elliptic_Test
     write(*,'(/,A)') repeat('-',80)
     select case(method)
     case(1)
-      write(*,'(A,/)') 'DG DIFFUSION: CONJUGATE GRADIENTS'
+      write(*,'(A,/)') 'DG ELLIPTIC: CONJUGATE GRADIENTS'
     case(2)
-      write(*,'(A,/)') 'DG DIFFUSION: SCHWARZ ITERATION'
+      write(*,'(A,/)') 'DG ELLIPTIC: SCHWARZ ITERATION'
     case(3)
-      write(*,'(A,/)') 'DG DIFFUSION: P-MULTIGRID'
+      write(*,'(A,/)') 'DG ELLIPTIC: P-MULTIGRID'
     case(4)
-      write(*,'(A,/)') 'DG DIFFUSION: P-MG/CG'
+      write(*,'(A,/)') 'DG ELLIPTIC: P-MG/CG'
     end select
   end if
 
@@ -347,7 +347,7 @@ program Elliptic_Test
   call random_number(u)
   u = 2*u - 1
 
-  call DiffusionResidual(mesh, eop, lambda, nu, bc, u, f, r)
+  call EllipticResidual(mesh, eop, lambda, nu, bc, u, f, r)
   if (mesh%part >= 0) then
     r_max_loc = maxval(abs(r))
   else
@@ -424,7 +424,7 @@ program Elliptic_Test
 
   end select
 
-  call DiffusionResidual(mesh, eop, lambda, nu, bc, u, f, r)
+  call EllipticResidual(mesh, eop, lambda, nu, bc, u, f, r)
 
 
   if (mesh%part >= 0) then
