@@ -1,9 +1,9 @@
-!> summary:  Cartesian mesh partition
+!> summary:  Generation of mesh points to given order an basis type
 !> author:   Joerg Stiller
 !> date:     2017/04/14
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Cartesian mesh partition
+!>### Generation of mesh points to given order an basis type
 !===============================================================================
 
 submodule(CART__Mesh_Partition) CART__Mesh_Partition__Get_Points
@@ -21,18 +21,14 @@ contains
 !>
 !>   *  Lagrange polynomials to Gauss-Legendre points (basis = 'GL')
 !>   *  Lagrange polynomials to Gauss-Lobatto-Legendre points (basis = 'GLL')
-!>
-!> GLL is the default, but po = 0 implies GL irrespective of the chosen basis.
 
-module subroutine GetPoints(mesh, po, x, basis)
-
+module subroutine GetPoints(mesh, po, basis, x)
   class(MeshPartition),   intent(in)  :: mesh         !< mesh parition
   integer,                intent(in)  :: po           !< polynomial order
+  character(len=*),       intent(in)  :: basis        !< 'GL' or 'GLL'
   real(RNP), allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
-  character(len=*),       intent(in)  :: basis        !< set: 'GL' or 'GLL'
-  optional :: basis
 
-  type(StandardOperators1D) :: standard_op
+  type(StandardOperators1D) :: sop
 
   real(RNP), allocatable :: x1(:), x2(:), x3(:)
   real(RNP) :: dx(3)
@@ -43,11 +39,11 @@ module subroutine GetPoints(mesh, po, x, basis)
   allocate(x(0:po, 0:po, 0:po, mesh%ne, 3))
   allocate(x1(0:po), x2(0:po), x3(0:po))
 
-  call standard_op % New(po, basis)
+  call sop % New(po, basis, no_vdm = .true.)
 
   ! create element points ......................................................
 
-  associate(xs => standard_op % x)
+  associate(xs => sop % x)
 
     do e = 1, mesh%ne
 

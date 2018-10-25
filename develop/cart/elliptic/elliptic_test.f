@@ -210,7 +210,7 @@ program Elliptic_Test
 
   ! mesh partition and points
   call GenerateStructuredMesh(mesh, np, ep, xo, dx, periodic, comm)
-  call mesh % GetPoints(po, x)
+  call mesh % GetPoints(po, 'GLL', x)
 
   ! mesh variables
   call InitializeMeshVariables()

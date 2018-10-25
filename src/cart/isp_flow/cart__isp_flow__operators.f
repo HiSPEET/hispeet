@@ -102,7 +102,7 @@ subroutine New_FlowOperators( this                       &
   this % po_q = po_q
 
   this % mesh => mesh
-  call mesh % GetPoints(po_u, this % x)
+  call mesh % GetPoints(po_u, 'GLL', this % x)
   allocate(this % bv_x(mesh%n_boundary))
   allocate(this % bv_u(mesh%n_boundary))
   call GetBoundaryPoints(mesh, this % x, this % bv_x)
