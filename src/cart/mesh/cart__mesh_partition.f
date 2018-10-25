@@ -73,6 +73,8 @@ module CART__Mesh_Partition
   contains
 
     procedure :: GetPoints
+    procedure :: GetPointValency
+    procedure :: GetPointWeights
 
   end type MeshPartition
 
@@ -80,16 +82,44 @@ module CART__Mesh_Partition
   !> Generates Gauss-Lobatto or Gauss points to all elements of a mesh partition
 
   interface
-    module subroutine GetPoints(mesh, po, x, basis)
+    module subroutine GetPoints(mesh, po, basis, x)
       use Kind_Parameters, only: RNP
 
       class(MeshPartition),   intent(in)  :: mesh         !< mesh parition
       integer,                intent(in)  :: po           !< polynomial order
+      character(len=*),       intent(in)  :: basis        !< 'GL' or 'GLL'
       real(RNP), allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
-      character(len=*),       intent(in)  :: basis        !< set: 'GL' or 'GLL'
-      optional :: basis
 
     end subroutine GetPoints
+  end interface
+
+  !-----------------------------------------------------------------------------
+  !> Computes the valency of mesh points
+
+  interface
+    module subroutine GetPointValency(mesh, basis, v)
+      class(MeshPartition), intent(in)  :: mesh          !< mesh parition
+      character(len=*),     intent(in)  :: basis         !< 'GL' or 'GLL'
+      integer,              intent(out) :: v(0:,0:,0:,:) !< point valency
+    end subroutine GetPointValency
+  end interface
+
+  !-----------------------------------------------------------------------------
+  !> Generates point weights based on valency and boundary conditions
+  !>
+  !> Computes the weights required for evaluating dot products in continuous
+  !> spectral element methods. In general, the weights are just the inverse of
+  !> the point valency. If the BC types are given, the weights are set to zero
+  !> for all Dirichlet points, i.e., all boundaries for which `bc = 'D'`.
+  !> Other BC types are ignored.
+
+  interface
+    module subroutine GetPointWeights(mesh, basis, bc, w)
+      class(MeshPartition), intent(in)  :: mesh          !< mesh parition
+      character(len=*),     intent(in)  :: basis         !< 'GL' or 'GLL'
+      character,  optional, intent(in)  :: bc(:)         !< BC types
+      real(RNP),            intent(out) :: w(0:,0:,0:,:) !< point weights
+    end subroutine GetPointWeights
   end interface
 
 contains

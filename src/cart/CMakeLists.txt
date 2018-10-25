@@ -49,6 +49,8 @@ set(MESH mesh/cart__mesh_face.f
          mesh/cart__mesh_link.f
          mesh/cart__mesh_partition.f
          mesh/cart__mesh_partition__get_points.f
+         mesh/cart__mesh_partition__get_valency.f
+         mesh/cart__mesh_partition__get_weights.f
          mesh/cart__element_connectivity.f
          mesh/cart__generate_mesh_links.f
          mesh/cart__generate_structured_mesh.f
@@ -84,7 +86,8 @@ set(OPERATORS operators/cart__trace_operator.f
 #===============================================================================
 # elliptic
 
-set(ELLIPTIC elliptic/cart__dg_elliptic_cis_bc.f
+set(ELLIPTIC elliptic/cart__cg_elliptic_ci_bc.f
+             elliptic/cart__dg_elliptic_cis_bc.f
              elliptic/cart__dg_elliptic_ciu_bc.f
              elliptic/cart__dg_elliptic_cis_operator.f
              elliptic/cart__dg_elliptic_ciu_operator.f
