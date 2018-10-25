@@ -96,7 +96,11 @@ module CART__Boundary_Variable
 
     procedure, public  :: ExtractNormalComponent
 
-    procedure, public  :: BoundaryCondition
+    generic,   public  :: BoundaryCondition => BoundaryCondition_1, &
+                                               BoundaryCondition_S
+    procedure, private :: BoundaryCondition_1
+    procedure, private :: BoundaryCondition_S
+
     procedure, public  :: Component
     procedure, public  :: Components
 
@@ -391,19 +395,35 @@ end subroutine ExtractNormalComponent
 ! BoundaryCondition
 
 !-------------------------------------------------------------------------------
-!> Returns the boundary condition for a selected component
+!> Returns the boundary condition of first component
 
-character function BoundaryCondition(this, c) result(bc)
+impure elemental function BoundaryCondition_1(this) result(bc)
   class(BoundaryVariable), intent(in) :: this
-  integer,       optional, intent(in) :: c    !< component [1]
+  character :: bc   !< BC type of component 1
 
-  if (present(c)) then
-    bc = this % bc(c)
-  else
+  if (associated(this % bc)) then
     bc = this % bc(1)
+  else
+    bc = ''
   end if
 
-end function BoundaryCondition
+end function BoundaryCondition_1
+
+!-------------------------------------------------------------------------------
+!> Returns the boundary condition for a selected component
+
+impure elemental function BoundaryCondition_S(this, c) result(bc)
+  class(BoundaryVariable), intent(in) :: this
+  integer,  intent(in) :: c    !< component
+  character            :: bc   !< BC type of component c
+
+  if (associated(this % bc)) then
+    bc = this % bc(c)
+  else
+    bc = ''
+  end if
+
+end function BoundaryCondition_S
 
 !===============================================================================
 ! Component
@@ -457,13 +477,12 @@ end function Components
 !===============================================================================
 ! GetHandle
 
-
 !-------------------------------------------------------------------------------
 !> Generates a new boundary variable as a subset of the given one (scalar)
 
 impure elemental subroutine GetHandle_S(this, c, handle)
   class(BoundaryVariable), intent(in)  :: this
-  integer,                 intent(in)  :: c     !< selected component
+  integer,                 intent(in)  :: c      !< selected component
   type (BoundaryVariable), intent(out) :: handle !< subset of this
 
   integer :: k
