@@ -1,14 +1,36 @@
-!> summary:  Generates point weights based on valency and boundary conditions
+!> summary:  Utilities for continuous cuboidal elements
 !> author:   Joerg Stiller
-!> date:     2018/10/23
+!> date:     2018/10/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Generates point weights based on valency and boundary conditions
+!>### Utilities for continuous cuboidal elements
+!>
+!> Provides common routines for GLL-based nodal CG-SEM, including
+!>
+!>   *  computation of the global mass matrix (`GetMassMatrix`)  -- not yet
+!>   *  averaging of discontinuous data (`MakeContinuous`)       -- not yet
+!>   *  assembly of element integrals (`Assembly`)
+!>   *  provision of point weights based on valency (`GetPointWeights`)
+!>
+!> Some routines allow/require the specification of boundary condition types,
+!> which are passed in the character array `bc(1:2)`. The following types are
+!> supported:
+!>
+!>   *  periodic  (`'P'`)
+!>   *  Dirichlet (`'D'`)
+!>   *  Neumann   (`'N'`)
+!>
 !===============================================================================
 
-submodule(CART__Mesh_Partition) CART__Mesh_Partition__Get_Weights
-  use Constants, only: ONE
+module CART__CG_Element_Utilities
+  use Kind_Parameters, only: RNP
+  use Constants,       only: ONE
+  use CART__Mesh_Partition
   implicit none
+  private
+
+  public :: Assembly
+  public :: GetPointWeights
 
 contains
 
@@ -18,12 +40,10 @@ contains
 !> Computes the weights required for evaluating dot products in continuous
 !> spectral element methods. In general, the weights are just the inverse of
 !> the point valency. If the BC types are given, the weights are set to zero
-!> for all Dirichlet points, i.e., all boundaries for which `bc = 'D'`.
-!> Other BC types are ignored.
+!> for all Dirichlet points.
 
-module subroutine GetPointWeights(mesh, basis, bc, w)
+subroutine GetPointWeights(mesh, bc, w)
   class(MeshPartition), intent(in)  :: mesh          !< mesh parition
-  character(len=*),     intent(in)  :: basis         !< 'GL' or 'GLL'
   character,  optional, intent(in)  :: bc(:)         !< BC types
   real(RNP),            intent(out) :: w(0:,0:,0:,:) !< point weights
 
@@ -35,7 +55,7 @@ module subroutine GetPointWeights(mesh, basis, bc, w)
   po = ubound(v, 1)
 
   allocate(v(0:po,0:po,0:po,mesh%ne))
-  call mesh % GetPointValency(basis, v)
+  call mesh % GetPointValency('GLL', v)
 
   ! weights based on valency ...................................................
 
@@ -119,4 +139,4 @@ end subroutine GetPointWeights
 
 !===============================================================================
 
-end submodule CART__Mesh_Partition__Get_Weights
+end module CART__CG_Element_Utilities

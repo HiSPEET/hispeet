@@ -36,11 +36,6 @@ if (DEFINED Fortran_FLAGS_TPO)
 endif ()
 
 #===============================================================================
-# spectral_element
-
-file(GLOB SPECTRAL_ELEMENT spectral_element/*.f)
-
-#===============================================================================
 # mesh
 
 set(MESH mesh/cart__mesh_face.f
@@ -50,11 +45,15 @@ set(MESH mesh/cart__mesh_face.f
          mesh/cart__mesh_partition.f
          mesh/cart__mesh_partition__get_points.f
          mesh/cart__mesh_partition__get_valency.f
-         mesh/cart__mesh_partition__get_weights.f
          mesh/cart__element_connectivity.f
          mesh/cart__generate_mesh_links.f
          mesh/cart__generate_structured_mesh.f
          )
+
+#===============================================================================
+# spectral_element
+
+file(GLOB SPECTRAL_ELEMENT spectral_element/*.f)
 
 #===============================================================================
 # variables
