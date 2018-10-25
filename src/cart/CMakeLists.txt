@@ -62,17 +62,17 @@ set(MESH mesh/cart__mesh_face.f
 set(VARIABLES variables/cart__boundary_variable.f)
 
 #===============================================================================
-# intra_level_transfer
+# intra_level
 
-set(INTRA_LEVEL intra_level_transfer/cart__face_transfer_buffer.f
-                intra_level_transfer/cart__trace_transfer_buffer.f
-                intra_level_transfer/cart__element_transfer_buffer.f
+set(INTRA_LEVEL intra_level/cart__face_transfer_buffer.f
+                intra_level/cart__trace_transfer_buffer.f
+                intra_level/cart__element_transfer_buffer.f
                 )
 
 #===============================================================================
-# inter_level_transfer
+# inter_level
 
-set(INTER_LEVEL inter_level_transfer/cart__dg_pmg_transfer_operators.f)
+set(INTER_LEVEL inter_level/cart__dg_pmg_transfer_operators.f)
 
 #===============================================================================
 # operators
