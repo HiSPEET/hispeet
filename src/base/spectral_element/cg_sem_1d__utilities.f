@@ -5,17 +5,13 @@
 !>
 !>### Continuous 1D spectral element utilities
 !>
-!> Provides common routines for 1D continuous-Galerkin spectral element methods,
-!> including
+!> Provides common routines for GLL-based nodal CG-SEM, including
 !>
 !>   *  mesh generation (`GetMeshPoints`)
 !>   *  computation of the global mass matrix (`GetMassMatrix`)
 !>   *  averaging of discontinuous data (`MakeContinuous`)
 !>   *  assembly of element integrals (`Assembly`)
-!>   *  provision of point weights based on multiplicity (`GetMeshPoints`)
-!>
-!> These routines are designed for nodal elements with GLL nodes and will not
-!> work properly with bases lacking a boundary-interior decomposition.
+!>   *  provision of point weights based on valency (`GetPointWeights`)
 !>
 !> Some routines require conditions for the left and right boundary points,
 !> which are passed in the character array `bc(1:2)`. The following boundary
@@ -154,7 +150,7 @@ subroutine Assembly(bc, v)
 end subroutine Assembly
 
 !------------------------------------------------------------------------------
-!> Node weights based on inverse multiplicity
+!> Node weights based on inverse valency
 
 subroutine GetPointWeights(bc, w)
   character,             intent(in)  :: bc(:)   !< left/right BC
