@@ -51,11 +51,6 @@ set(MESH mesh/cart__mesh_face.f
          )
 
 #===============================================================================
-# spectral_element
-
-file(GLOB SPECTRAL_ELEMENT spectral_element/*.f)
-
-#===============================================================================
 # variables
 
 set(VARIABLES variables/cart__boundary_variable.f)
@@ -74,9 +69,15 @@ set(INTRA_LEVEL intra_level/cart__face_transfer_buffer.f
 set(INTER_LEVEL inter_level/cart__dg_pmg_transfer_operators.f)
 
 #===============================================================================
+# spectral_element
+
+file(GLOB SPECTRAL_ELEMENT spectral_element/*.f)
+
+#===============================================================================
 # operators
 
-set(OPERATORS operators/cart__trace_operator.f
+set(OPERATORS operators/cart__assembly_operator.f
+              operators/cart__trace_operator.f
               operators/cart__normal_trace_operator.f
               operators/cart__dg_weak_gradient.f
               operators/cart__dg_weak_divergence.f
