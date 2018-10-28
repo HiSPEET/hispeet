@@ -75,13 +75,13 @@ module CART__Element_Transfer_Buffer
   !>         ...
   !>         ! create and fill buffer, start transfer
   !>         call buf % New(mesh, np, nc, nl)
-  !>         call buf % ToGhost_Transfer(this, mesh, v, tag)
+  !>         call buf % ToGhost_Transfer(mesh, v, tag)
   !>         ...
   !>         ! possibly perform some computations to hide communication costs
   !>         ...
   !>         ! merge received master data into ghosts and finish transfer
-  !>         call face_buf % ToGhost_Merge(v, alpha, beta)
-  !>         call face_buf % ToGhost_Finish()
+  !>         call buf % ToGhost_Merge(v, alpha, beta)
+  !>         call buf % ToGhost_Finish()
   !>
   !> Use with OpenMP:
   !>
@@ -97,7 +97,7 @@ module CART__Element_Transfer_Buffer
   !>         !$omp end single
   !>         ...
   !>         call buf % New(mesh, np, nc, nl)
-  !>         call buf % ToMaster_Transfer(this, mesh, v, tag)
+  !>         call buf % ToMaster_Transfer(mesh, v, tag)
   !>         ...
   !>         call buf % ToMaster_Merge(v, alpha, beta)
   !>         call buf % ToMaster_Finish()
@@ -664,7 +664,7 @@ subroutine ToGhost_Merge_S(this, v, alpha, beta)
 
   !$omp master
   if (size(v,4) /= this%ne + this%ng) then
-    call Error( 'ToGhost_Merge_S'                 &
+    call Error( 'ToGhost_Merge_S'                &
               , 'size(v,4) /= this%ne + this%ng' &
               , 'CART__Element_Transfer_Buffer'  )
   end if
