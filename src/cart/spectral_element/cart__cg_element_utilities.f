@@ -9,11 +9,10 @@
 !>
 !>   *  computation of the global mass matrix (`GetMassMatrix`)  -- not yet
 !>   *  averaging of discontinuous data (`MakeContinuous`)       -- not yet
-!>   *  assembly of element integrals (`Assembly`)
 !>   *  provision of point weights based on valency (`GetPointWeights`)
 !>
-!> Some routines allow/require the specification of boundary condition types,
-!> which are passed in the character array `bc(1:2)`. The following types are
+!> Some routines require the specification of boundary condition types, which
+!> are passed in the character array `bc(1:2)`. The following types are
 !> supported:
 !>
 !>   *  periodic  (`'P'`)
@@ -23,18 +22,20 @@
 !===============================================================================
 
 module CART__CG_Element_Utilities
-  use Kind_Parameters, only: RNP
-  use Constants,       only: ONE
+  use Kind_Parameters,   only: RNP
+  use Constants,         only: ZERO, ONE
+  use Execution_Control, only: Error
+  use Array_Assignments
   use CART__Mesh_Partition
+  use CART__Element_Transfer_Buffer
   implicit none
   private
 
-  public :: Assembly
   public :: GetPointWeights
 
 contains
 
-!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
 !> Generates point weights based on valency and boundary conditions
 !>
 !> Computes the weights required for evaluating dot products in continuous
