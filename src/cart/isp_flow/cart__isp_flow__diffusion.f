@@ -77,7 +77,7 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w)
 
       ! add boundary contributions
       call flow_op % bv_u % GetHandle(c, bv_uc)
-      call Apply_BC_to_RHS(mesh, eop, kappa, bv_uc, fc)
+      call ApplyBoundaryConditions(mesh, eop, kappa, bv_uc, fc)
 
       ! solve
       call pmg % MG_CG_Solver(ONE, kappa, bc(:,c), fc, u(:,:,:,:,c), ni, r_2)

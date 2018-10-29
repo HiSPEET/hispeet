@@ -87,7 +87,7 @@ subroutine PressureSolver_DG_EO( problem, flow_op, tau, f, p, w &
 
     call WeakDivergence(mesh, eop%w, eop%D, f, div_f)
     call TPO_sDDD_Eval(np, ne, g, eop%w, div_f, q)
-    call Apply_BC_to_RHS(mesh, eop, ONE, bv_p, q)
+    call ApplyBoundaryConditions(mesh, eop, ONE, bv_p, q)
 
     ! pressure .................................................................
 

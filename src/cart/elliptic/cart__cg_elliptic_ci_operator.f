@@ -15,8 +15,9 @@ module CART__CG_Elliptic_CI_Operator
 
   use CART__TPO_Elliptic_CI
   use CART__Mesh_Partition
-  use CART__CG_Element_Operators
   use CART__Assembly_Operator
+  use CART__CG_Element_Operators
+  use CART__CG_Elliptic_CI_BC
 
   implicit none
   private
@@ -52,6 +53,7 @@ subroutine EllipticOperator(mesh, eop, lambda, nu, bc, u, v, assemble)
 
   type(AssemblyOperator), allocatable, save :: assembly_op
 
+  logical :: assemble_
   integer :: ne, ng, np
   integer, parameter :: nl(3) = 1
 
@@ -60,6 +62,12 @@ subroutine EllipticOperator(mesh, eop, lambda, nu, bc, u, v, assemble)
   ne = mesh % ne
   ng = mesh % ng
   np = eop  % po + 1
+
+  if (present(assemble)) then
+    assemble_ = assemble
+  else
+    assemble_ = .true.
+  end if
 
   ! apply element operators ....................................................
 
@@ -71,28 +79,32 @@ subroutine EllipticOperator(mesh, eop, lambda, nu, bc, u, v, assemble)
 
   ! assembly ...................................................................
 
-  if (present(assemble)) then
-    if (.not. assemble) return
+  if (assemble_) then
+
+    if (size(v,4) /= ne + ng) then
+      call Error( 'EllipticOperator' &
+                , 'size(v,4) /= ne + ng' &
+                , 'CART__CG_Elliptic_CI_Operator' )
+    end if
+
+    !$omp single
+    allocate(assembly_op)
+    !$omp end single
+
+    call assembly_op % New(mesh, v, nl)
+    call assembly_op % StartAssembly(mesh, v, 1000)
+    call assembly_op % FinishAssembly(mesh, v)
+
+    !$omp wait
+    !$omp master
+    deallocate(assembly_op)
+    !$omp end master
+
   end if
 
-  if (size(v,4) /= ne + ng) then
-    call Error( 'EllipticOperator' &
-              , 'size(v,4) /= ne + ng' &
-              , 'CART__CG_Elliptic_CI_Operator' )
-  end if
+  ! zero Dirichlet entries .....................................................
 
-  !$omp single
-  allocate(assembly_op)
-  !$omp end single
-
-  call assembly_op % New(mesh, v, nl)
-  call assembly_op % StartAssembly(mesh, v, 1000)
-  call assembly_op % FinishAssembly(mesh, v)
-
-  !$omp wait
-  !$omp master
-  deallocate(assembly_op)
-  !$omp end master
+  call ZeroDirichletEntries(mesh, bc, v)
 
 end subroutine EllipticOperator
 
