@@ -1,0 +1,9 @@
+&input
+ po = 21
+ ne = 2048
+ nt = 10
+/
+
+&control
+ scenario = 3   ! 1/2/3 = interior / cube with mixed BC / random
+/
