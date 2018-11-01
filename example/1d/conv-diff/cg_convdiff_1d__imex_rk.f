@@ -32,8 +32,8 @@
 module CG_ConvDiff_1D__IMEX_RK
   use Kind_Parameters, only: RNP
   use CG_ConvDiff_1D__Utils
-  use CG_Element_Operators_1D
-  use CG_SEM_1D__Condensed_Solver
+  use CG_Elliptic_Operator_1D
+  use CG_Condensed_Solver_1D
   use IMEX_Runge_Kutta_Method
   use Harmonic_Wave_Package
   implicit none
@@ -79,7 +79,7 @@ end subroutine New_ConvDiff_IMEX_RK
 
 subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
   class(ConvDiff_IMEX_RK),      intent(inout) :: this
-  class(CG_ElementOperators1D), intent(in)    :: eop      !< element operators
+  class(CG_EllipticOperator1D), intent(in)    :: eop      !< element operators
   real(RNP),                    intent(in)    :: dx       !< element length
   real(RNP),                    intent(in)    :: dt       !< time step size
   real(RNP),                    intent(in)    :: M(0:,:)  !< global mass matrix

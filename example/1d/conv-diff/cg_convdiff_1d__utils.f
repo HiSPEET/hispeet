@@ -22,7 +22,7 @@ module CG_ConvDiff_1D__Utils
   use Kind_Parameters, only: RNP
   use Standard_Operators_1D
   use Harmonic_Wave_Package
-  use CG_SEM_1D__Utilities, only: Assembly
+  use CG_Utilities_1D, only: Assembly
   implicit none
   private
 

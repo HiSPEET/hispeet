@@ -73,8 +73,8 @@ program CG_ConvDiff_1D
   use Kind_Parameters,   only: RNP, IXL
   use Constants,         only: ZERO, ONE
   use Execution_Control, only: Error
-  use CG_Element_Operators_1D
-  use CG_SEM_1D__Utilities
+  use CG_Elliptic_Operator_1D
+  use CG_Utilities_1D
   use Harmonic_Wave_Package
 
   use CG_ConvDiff_1D__IMEX_Euler
@@ -132,7 +132,7 @@ program CG_ConvDiff_1D
 
   ! operators ..................................................................
 
-  type(CG_ElementOperators1D) :: eop     ! element operators
+  type(CG_EllipticOperator1D) :: eop     ! element operators
   real(RNP), allocatable      :: M(:,:)  ! global mass matrix
 
   type(ConvDiff_IMEX_RK)      :: imex_rk ! IMEX Runge-Kutta method

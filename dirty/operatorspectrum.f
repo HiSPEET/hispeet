@@ -1,10 +1,10 @@
 program OperatorSpectrum
   use Kind_Parameters, only: RDP
-  use CG_Element_Operators_1D
+  use CG_Elliptic_Operator_1D
   use Eigenproblems
   implicit none
 
-  type(CG_ElementOperators1D), allocatable :: eop
+  type(CG_EllipticOperator1D), allocatable :: eop
   real(RDP),    allocatable :: S(:,:), Lambda_L(:)
   real(RDP),    allocatable :: A(:,:)
   complex(RDP), allocatable :: Lambda_A(:)

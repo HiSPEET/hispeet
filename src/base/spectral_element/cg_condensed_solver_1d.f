@@ -6,10 +6,10 @@
 !>###  Direct 1D elliptic solver for SEM with static condensation
 !===============================================================================
 
-module CG_SEM_1D__Condensed_Solver
+module CG_Condensed_Solver_1D
   use Kind_Parameters,  only: RNP
   use Linear_Equations, only: TridiagonalSolver, CyclicTridiagonalSolver
-  use CG_Element_Operators_1D
+  use CG_Elliptic_Operator_1D
   implicit none
   private
 
@@ -24,7 +24,7 @@ contains
 !> prior call to `eop % BuildInteriorEigensystem`.
 
 subroutine CondensedEllipticSolver(eop, dx, c, nu, bc, f, u)
-  class(CG_ElementOperators1D), intent(in) :: eop !< element operators
+  class(CG_EllipticOperator1D), intent(in) :: eop !< element operators
   real(RNP), intent(in)    :: dx       !< element width
   real(RNP), intent(in)    :: c        !< coefficient of linear term
   real(RNP), intent(in)    :: nu       !< diffusivity
@@ -265,4 +265,4 @@ end subroutine SolveElementSystems
 
 !===============================================================================
 
-end module CG_SEM_1D__Condensed_Solver
+end module CG_Condensed_Solver_1D

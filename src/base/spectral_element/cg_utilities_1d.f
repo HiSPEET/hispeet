@@ -26,7 +26,7 @@
 !>
 !===============================================================================
 
-module CG_SEM_1D__Utilities
+module CG_Utilities_1D
   use Kind_Parameters,   only: RNP
   use Constants,         only: ONE, HALF
   use Standard_Operators_1D
@@ -187,4 +187,4 @@ end subroutine GetPointWeights
 
 !===============================================================================
 
-end module CG_SEM_1D__Utilities
+end module CG_Utilities_1D
