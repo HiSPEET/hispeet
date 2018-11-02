@@ -1,10 +1,17 @@
 
+    # load environment, e.g.
     module load compiler/intel
 
+    make distclean
     mkdir build
 
     # all things together
-    cd build; rm -rf * && cmake .. && make -j && ctest
+    cd build
+    cmake .. 
+    make -j
+    
+    # optional testing
+    ctest
 
     # step by step and more informative
     cd build
