@@ -6,7 +6,7 @@
 !>###  Element operators for continuous Galerkin-SEM
 !===============================================================================
 
-module CG_Elliptic_Operator_1D
+module CG_Element_Operators_1D
   use Kind_Parameters,   only: RNP
   use Constants,         only: ONE, ZERO
   use Execution_Control, only: Error
@@ -27,7 +27,7 @@ module CG_Elliptic_Operator_1D
   !> where `Lᵢᵢ` and `Mᵢᵢ` the standard stiffness matrix and the standard
   !> diagonal mass matrix restricted to the interior points.
 
-  type, extends(StandardOperators1D), public :: CG_EllipticOperator1D
+  type, extends(StandardOperators1D), public :: CG_ElementOperators1D
     private
     real(RNP), allocatable :: S(:,:)    !< generalized interior eigenvectors
     real(RNP), allocatable :: Lambda(:) !< generalized interior eigenvalues
@@ -36,8 +36,8 @@ module CG_Elliptic_Operator_1D
     procedure :: GetInteriorEigensystem
     procedure :: GetEllipticSuboperators
     procedure :: GetStiffnessMatrix
-    final     :: Delete_CG_EllipticOperator1D
-  end type CG_EllipticOperator1D
+    final     :: Delete_CG_ElementOperators1D
+  end type CG_ElementOperators1D
 
 contains
 
@@ -45,7 +45,7 @@ contains
 !> Provides the generalized eigensystem for interior stiffness and mass matrices
 
 subroutine BuildInteriorEigensystem(this)
-  class(CG_EllipticOperator1D), intent(inout) :: this
+  class(CG_ElementOperators1D), intent(inout) :: this
 
   real(RNP), allocatable :: Lii(:,:)
   integer :: np
@@ -69,7 +69,7 @@ end subroutine BuildInteriorEigensystem
 !> stiffness and diagonal mass matrices
 
 subroutine GetInteriorEigensystem(this, S, Lambda)
-  class(CG_EllipticOperator1D), intent(inout) :: this
+  class(CG_ElementOperators1D), intent(inout) :: this
   real(RNP), intent(out) :: S(this%po-1,this%po-1)
   real(RNP), intent(out) :: Lambda(this%po-1)
 
@@ -86,7 +86,7 @@ end subroutine GetInteriorEigensystem
 !> Computes operators for condensed CG-SEM diffusion problem
 
 subroutine GetEllipticSuboperators(this, dx, c, nu, Hbb, Hbi, Hii_inv)
-  class(CG_EllipticOperator1D), intent(in) :: this
+  class(CG_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx                !< element length
   real(RNP), intent(in)  :: c                 !< coefficient of linear term
   real(RNP), intent(in)  :: nu                !< diffusivity
@@ -104,7 +104,7 @@ subroutine GetEllipticSuboperators(this, dx, c, nu, Hbb, Hbi, Hii_inv)
   if (.not. allocated(this%S)) then
     call Error( 'GetEllipticSuboperators'                       &
               , 'requires preceding call to BuildInteriorEigensystem' &
-              , 'CG_Elliptic_Operator_1D'                       )
+              , 'CG_Element_Operators_1D'                       )
   end if
 
   associate(po => this%po, Ms => this%w, Ls => this%L, S => this%S)
@@ -142,7 +142,7 @@ end subroutine GetEllipticSuboperators
 !> and succeeding (1) element, respectively.
 
 subroutine GetStiffnessMatrix(this, dx, bc, Le)
-  class(CG_EllipticOperator1D), intent(in) :: this
+  class(CG_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
   character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N'}
   real(RNP), intent(out) :: Le(0:,0:,-1:) !< 1D element stiffness matrix
@@ -207,16 +207,16 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
 end subroutine GetStiffnessMatrix
 
 !-------------------------------------------------------------------------------
-!> Finalization of a CG_EllipticOperator1D object
+!> Finalization of a CG_ElementOperators1D object
 
-subroutine Delete_CG_EllipticOperator1D(this)
-  type(CG_EllipticOperator1D), intent(inout) :: this
+subroutine Delete_CG_ElementOperators1D(this)
+  type(CG_ElementOperators1D), intent(inout) :: this
 
   if (allocated(this%S     )) deallocate(this%S     )
   if (allocated(this%Lambda)) deallocate(this%Lambda)
 
-end subroutine Delete_CG_EllipticOperator1D
+end subroutine Delete_CG_ElementOperators1D
 
 !===============================================================================
 
-end module CG_Elliptic_Operator_1D
+end module CG_Element_Operators_1D

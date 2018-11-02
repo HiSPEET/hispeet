@@ -40,7 +40,7 @@
 program Helmholtz_CG_SEM_1D
   use Kind_Parameters,  only: RNP, IXL
   use Constants,        only: PI, ONE, TWO
-  use CG_Elliptic_Operator_1D
+  use CG_Element_Operators_1D
   use CG_Utilities_1D
   use CG_Condensed_Solver_1D
 
@@ -66,7 +66,7 @@ program Helmholtz_CG_SEM_1D
   namelist /solution_parameters/ po, ne, method, r_max, i_max
 
   ! discrete variables and operators
-  type(CG_EllipticOperator1D) :: eop       ! element operators
+  type(CG_ElementOperators1D) :: eop       ! element operators
   real(RNP), allocatable      :: x(:,:)    ! mesh points
   real(RNP), allocatable      :: u(:,:)    ! discrete solution
   real(RNP), allocatable      :: f(:,:)    ! right hand side (RHS)
@@ -259,7 +259,7 @@ end function ddu_exact
 !> Element operators
 
 subroutine GetElementOperators(eop, dx, lambda, Me, He)
-  class(CG_EllipticOperator1D), intent(in) :: eop !< standard operators
+  class(CG_ElementOperators1D), intent(in) :: eop !< standard operators
   real(RNP), intent(in)  :: dx        !< element length
   real(RNP), intent(in)  :: lambda    !< Helmholtz parameter
   real(RNP), intent(out) :: Me(0:)    !< element mass matrix (main diagonal)

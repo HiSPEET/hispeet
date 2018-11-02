@@ -9,7 +9,7 @@
 module CART__CG_Element_Operators
   use Kind_Parameters,   only: RNP
   use Execution_Control, only: Error
-  use CG_Elliptic_Operator_1D
+  use CG_Element_Operators_1D
   implicit none
   private
 
@@ -18,7 +18,7 @@ module CART__CG_Element_Operators
   !-----------------------------------------------------------------------------
   !> Element operators for continuous cuboidal elements
 
-  type, extends(CG_EllipticOperator1D) :: CG_ElementOperators3D
+  type, extends(CG_ElementOperators1D) :: CG_ElementOperators3D
 
     real(RNP) :: dx(3)  !< element extensions
 
