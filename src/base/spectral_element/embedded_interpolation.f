@@ -9,8 +9,6 @@
 module Embedded_Interpolation
   use Kind_Parameters, only: RNP
   use Gauss_Jacobi
-  use Standard_Operators_1D
-  use TPO_AAA
   implicit none
   private
 
@@ -28,10 +26,6 @@ module Embedded_Interpolation
     generic :: New  =>  New_IOP_P, New_IOP_X
     procedure, private :: New_IOP_P
     procedure, private :: New_IOP_X
-
-    generic :: Apply  =>  Interpolate_S, Interpolate_A
-    procedure, private :: Interpolate_S
-    procedure, private :: Interpolate_A
 
     final :: Delete_InterpolationOperator
 
@@ -118,30 +112,6 @@ subroutine Delete_InterpolationOperator(this)
   if (allocated(this % iop)) deallocate(this % iop)
 
 end subroutine Delete_InterpolationOperator
-
-!-------------------------------------------------------------------------------
-!> Interpolation of scalar variables
-
-subroutine Interpolate_S(this, uo, ui)
-  class(InterpolationOperator), intent(in) :: this
-  real(RNP), intent(in)  :: uo(:,:,:,:) !< original mesh variable
-  real(RNP), intent(out) :: ui(:,:,:,:) !< interpolated mesh variable
-
-  call TPO_AAA_Eval(this%ni, this%no, size(uo,4), this%iop, uo, ui)
-
-end subroutine Interpolate_S
-
-!-------------------------------------------------------------------------------
-!> Interpolation of array variables
-
-subroutine Interpolate_A(this, uo, ui)
-  class(InterpolationOperator), intent(in) :: this
-  real(RNP), intent(in)  :: uo(:,:,:,:,:) !< original mesh variable
-  real(RNP), intent(out) :: ui(:,:,:,:,:) !< interpolated mesh variable
-
-  call TPO_AAA_Eval(this%ni, this%no, size(uo,4)*size(uo,5), this%iop, uo, ui)
-
-end subroutine Interpolate_A
 
 !===============================================================================
 

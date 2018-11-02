@@ -27,7 +27,7 @@ module CART__DG_Elliptic_CI_Schwarz
   use Eigenproblems,     only: SolveGeneralizedEigenproblem
   use Execution_Control, only: Error
   use Schwarz_Weighting
-  use DG_Element_Operators_1D
+  use IP_Element_Operators_1D
 
   use XMPI
 

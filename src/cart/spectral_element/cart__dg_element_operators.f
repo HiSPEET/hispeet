@@ -9,7 +9,7 @@
 module CART__DG_Element_Operators
   use Kind_Parameters,   only: RNP
   use Execution_Control, only: Error
-  use DG_Element_Operators_1D
+  use IP_Element_Operators_1D
   implicit none
   private
 
@@ -18,7 +18,7 @@ module CART__DG_Element_Operators
   !-----------------------------------------------------------------------------
   !> Element operators for discontinuous cuboidal elements
 
-  type, extends(DG_ElementOperators1D) :: DG_ElementOperators3D
+  type, extends(IP_ElementOperators1D) :: DG_ElementOperators3D
 
     ! discretization parameters
     real(RNP) :: dx(3)       !< element extensions

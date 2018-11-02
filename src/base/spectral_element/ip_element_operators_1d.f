@@ -6,23 +6,23 @@
 !>### Element operators for IP-DGM
 !===============================================================================
 
-module DG_Element_Operators_1D
+module IP_Element_Operators_1D
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE
   use Standard_Operators_1D
   implicit none
   private
 
-  public :: DG_ElementOperators1D
+  public :: IP_ElementOperators1D
 
   !-----------------------------------------------------------------------------
   !> Element operators for symmetric interior penalty DGM
 
-  type, extends(StandardOperators1D) :: DG_ElementOperators1D
+  type, extends(StandardOperators1D) :: IP_ElementOperators1D
   contains
     procedure :: PenaltyFactor
     procedure :: GetStiffnessMatrix
-  end type DG_ElementOperators1D
+  end type IP_ElementOperators1D
 
 contains
 
@@ -30,7 +30,7 @@ contains
 !> Penalty factor
 
 real(RNP) function PenaltyFactor(this, dx, penalty) result(mu)
-  class(DG_ElementOperators1D), intent(in) :: this
+  class(IP_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in) :: dx(2)    !< element extensions
   real(RNP), intent(in) :: penalty  !< penalty parameter \( \mu_\star \)
 
@@ -48,7 +48,7 @@ end function PenaltyFactor
 !> and succeeding (1) element, respectively.
 
 subroutine GetStiffnessMatrix(this, dx, penalty, bc, Le)
-  class(DG_ElementOperators1D), intent(in) :: this
+  class(IP_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
   real(RNP), intent(in)  :: penalty       !< penalty parameter (> 1)
   character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N'}
@@ -144,4 +144,4 @@ end subroutine GetStiffnessMatrix
 
 !===============================================================================
 
-end module DG_Element_Operators_1D
+end module IP_Element_Operators_1D

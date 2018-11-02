@@ -8,9 +8,9 @@
 
 module CART__ISP_Flow__Operators
 
-  use Kind_Parameters,        only: RNP
-  use Constants,              only: ZERO, ONE
-  use Embedded_Interpolation, only: InterpolationOperator
+  use Kind_Parameters,           only: RNP
+  use Constants,                 only: ZERO, ONE
+  use Embedded_Interpolation_3D, only: InterpolationOperator3D
   use ISP_Flow_Problem
   use CART__Mesh_Partition
   use CART__Boundary_Variable
@@ -42,9 +42,9 @@ module CART__ISP_Flow__Operators
     type(DG_ElementOperators3D) :: eop_p !< element operators for p
     type(DG_ElementOperators3D) :: eop_q !< element operators for nonlinear terms
 
-    type(InterpolationOperator) :: iop_up !< interpolation from po_u to po_p
-    type(InterpolationOperator) :: iop_uq !< interpolation from po_u to po_q
-    type(InterpolationOperator) :: iop_pu !< interpolation from po_p to po_u
+    type(InterpolationOperator3D) :: iop_up !< interpolation from po_u to po_p
+    type(InterpolationOperator3D) :: iop_uq !< interpolation from po_u to po_q
+    type(InterpolationOperator3D) :: iop_pu !< interpolation from po_p to po_u
 
     type(PolynomialMultigrid) :: pmg_u !< p-MG/element operators for u \ p
     type(PolynomialMultigrid) :: pmg_p !< p-MG/element operators for p
