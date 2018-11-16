@@ -87,7 +87,7 @@ subroutine CART__TPO_Grad__gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! v += du3/dx3 .............................................................
+    ! v = du3/dx3 ..............................................................
 
     !$acc loop collapse(3) vector
     do k = 1, np

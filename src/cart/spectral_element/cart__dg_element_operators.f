@@ -4,6 +4,10 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !>### Element operators for discontinuous cuboidal elements
+!>
+!> @note
+!> Obsolete. Avoid using this type.
+!> @endnote
 !===============================================================================
 
 module CART__DG_Element_Operators
@@ -20,10 +24,8 @@ module CART__DG_Element_Operators
 
   type, extends(IP_ElementOperators1D) :: DG_ElementOperators3D
 
-    ! discretization parameters
-    real(RNP) :: dx(3)       !< element extensions
-    real(RNP) :: penalty = 1 !< penalty parameter > 1
-    real(RNP) :: mu(3)       !< penalty coefficients
+    real(RNP) :: dx(3) !< element extensions
+    real(RNP) :: mu(3) !< penalty coefficients
 
   contains
 
@@ -41,21 +43,20 @@ contains
 
 subroutine New_ElementOperators(this, po, dx, penalty)
   class(DG_ElementOperators3D), intent(inout) :: this
-  integer,   intent(in) :: po           !< polynomial order
-  real(RNP), intent(in) :: dx(3)        !< element extensions
-  real(RNP), intent(in) :: penalty      !< penalty parameter > 1
+  integer,             intent(in) :: po       !< polynomial order
+  real(RNP),           intent(in) :: dx(3)    !< element extensions
+  real(RNP), optional, intent(in) :: penalty  !< penalty parameter > 1 [2]
 
-  ! initialize standard operators ..............................................
+  if (present(penalty)) then
+    call this%New(po, penalty)
+  else
+    call this%New(po)
+  end if
 
-  call this%New(po)
-
-  ! discretization parameters ..................................................
-
-  this % dx      = dx
-  this % penalty = penalty
-  this % mu(1)   = this % PenaltyFactor([dx(1), dx(1)], penalty)
-  this % mu(2)   = this % PenaltyFactor([dx(2), dx(2)], penalty)
-  this % mu(3)   = this % PenaltyFactor([dx(3), dx(3)], penalty)
+  this % dx    = dx
+  this % mu(1) = this % PenaltyFactor([dx(1), dx(1)])
+  this % mu(2) = this % PenaltyFactor([dx(2), dx(2)])
+  this % mu(3) = this % PenaltyFactor([dx(3), dx(3)])
 
 end subroutine New_ElementOperators
 
@@ -79,7 +80,7 @@ subroutine Get_1D_StiffnessMatrix(this, direction, bc, Le)
   select case(direction)
   case(1:3)
     dx = this % dx(direction)
-    call this % GetStiffnessMatrix(dx, this%penalty, bc, Le)
+    call this % GetStiffnessMatrix(dx, bc, Le)
   case default
     call Error('Get_1D_StiffnessMatrix',    &
                'direction must 1,2 or 3',   &

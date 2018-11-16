@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> Performs `v = g2 IxAxI u`
+!> Performs `v = g IxAxI u`
 !>
 !>   * k: simple loop (l)
 !>   * j: unrolled and jammed with length of 4 (u4)
@@ -7,9 +7,9 @@
 !>   * p: simple loop (l)
 !>   * explicit remainder handling (r)
 
-subroutine SubOp_2i(g2, At, u, v)
+subroutine SubOp_2i(g, At, u, v)
   !$acc routine vector
-  real(RNP), intent(in)  :: g2                       !< metric factor
+  real(RNP), intent(in)  :: g                        !< metric factor
   real(RNP), intent(in)  :: At(__NA__,__NA__)        !< transpose of A
   real(RNP), intent(in)  :: u(__NA__,__NA__,__NA__)  !< operand
   real(RNP), intent(out) :: v(__NA__,__NA__,__NA__)  !< result
@@ -33,10 +33,10 @@ subroutine SubOp_2i(g2, At, u, v)
       tmp2 = tmp2 + At(p,j+2) * u(i,p,k)
       tmp3 = tmp3 + At(p,j+3) * u(i,p,k)
     end do
-    v(i,j  ,k) = g2 * tmp0
-    v(i,j+1,k) = g2 * tmp1
-    v(i,j+2,k) = g2 * tmp2
-    v(i,j+3,k) = g2 * tmp3
+    v(i,j  ,k) = g * tmp0
+    v(i,j+1,k) = g * tmp1
+    v(i,j+2,k) = g * tmp2
+    v(i,j+3,k) = g * tmp3
   end do
   end do
   end do
@@ -54,7 +54,7 @@ subroutine SubOp_2i(g2, At, u, v)
     do p = 1, __NA__
       tmp0 = tmp0 + At(p,__NA__) * u(i,p,k)
     end do
-    v(i,__NA__,k) = g2 * tmp0
+    v(i,__NA__,k) = g * tmp0
   end do
   end do
 
@@ -71,8 +71,8 @@ subroutine SubOp_2i(g2, At, u, v)
       tmp0 = tmp0 + At(p,__NA__-1) * u(i,p,k)
       tmp1 = tmp1 + At(p,__NA__  ) * u(i,p,k)
     end do
-    v(i,__NA__-1,k) = g2 * tmp0
-    v(i,__NA__  ,k) = g2 * tmp1
+    v(i,__NA__-1,k) = g * tmp0
+    v(i,__NA__  ,k) = g * tmp1
   end do
   end do
 
@@ -91,9 +91,9 @@ subroutine SubOp_2i(g2, At, u, v)
       tmp1 = tmp1 + At(p,__NA__-1) * u(i,p,k)
       tmp2 = tmp2 + At(p,__NA__  ) * u(i,p,k)
     end do
-    v(i,__NA__-2,k) = g2 * tmp0
-    v(i,__NA__-1,k) = g2 * tmp1
-    v(i,__NA__  ,k) = g2 * tmp2
+    v(i,__NA__-2,k) = g * tmp0
+    v(i,__NA__-1,k) = g * tmp1
+    v(i,__NA__  ,k) = g * tmp2
   end do
   end do
 

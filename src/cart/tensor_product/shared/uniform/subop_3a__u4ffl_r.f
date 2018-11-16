@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> Performs `v += g3 AxIxI u` for single element
+!> Performs `v += g AxIxI u` for single element
 !>
 !>   * k: unrolled and jammed with length of 4 (u4)
 !>   * j: joined with i and flattened (f)
@@ -7,9 +7,9 @@
 !>   * p: simple loop (l)
 !>   * explicit remainder handling (r)
 
-subroutine SubOp_3a(g3, At, u, v)
+subroutine SubOp_3a(g, At, u, v)
   !$acc routine vector
-  real(RNP), intent(in)    :: g3                  !< metric factor
+  real(RNP), intent(in)    :: g                   !< metric factor
   real(RNP), intent(in)    :: At(__NA__,__NA__)   !< transpose of A
   real(RNP), intent(in)    :: u(__NA__**2,__NA__) !< operand
   real(RNP), intent(inout) :: v(__NA__**2,__NA__) !< result
@@ -32,10 +32,10 @@ subroutine SubOp_3a(g3, At, u, v)
       tmp2 = tmp2 + At(p,k+2) * u(ij,p)
       tmp3 = tmp3 + At(p,k+3) * u(ij,p)
     end do
-    v(ij,k  ) = v(ij,k  ) + g3 * tmp0
-    v(ij,k+1) = v(ij,k+1) + g3 * tmp1
-    v(ij,k+2) = v(ij,k+2) + g3 * tmp2
-    v(ij,k+3) = v(ij,k+3) + g3 * tmp3
+    v(ij,k  ) = v(ij,k  ) + g * tmp0
+    v(ij,k+1) = v(ij,k+1) + g * tmp1
+    v(ij,k+2) = v(ij,k+2) + g * tmp2
+    v(ij,k+3) = v(ij,k+3) + g * tmp3
   end do
   end do
 
@@ -51,7 +51,7 @@ subroutine SubOp_3a(g3, At, u, v)
     do p = 1, __NA__
       tmp0 = tmp0 + At(p,__NA__) * u(ij,p)
     end do
-    v(ij,__NA__) = v(ij,__NA__) + g3 * tmp0
+    v(ij,__NA__) = v(ij,__NA__) + g * tmp0
   end do
 
 #elif __NA__ == __NA_T4__ + 2
@@ -66,8 +66,8 @@ subroutine SubOp_3a(g3, At, u, v)
       tmp0 = tmp0 + At(p,__NA__-1) * u(ij,p)
       tmp1 = tmp1 + At(p,__NA__  ) * u(ij,p)
     end do
-    v(ij,__NA__-1) = v(ij,__NA__-1) + g3 * tmp0
-    v(ij,__NA__  ) = v(ij,__NA__  ) + g3 * tmp1
+    v(ij,__NA__-1) = v(ij,__NA__-1) + g * tmp0
+    v(ij,__NA__  ) = v(ij,__NA__  ) + g * tmp1
   end do
 
 #elif __NA__ == __NA_T4__ + 3
@@ -82,9 +82,9 @@ subroutine SubOp_3a(g3, At, u, v)
       tmp1 = tmp1 + At(p,__NA__-1) * u(ij,p)
       tmp2 = tmp2 + At(p,__NA__  ) * u(ij,p)
     end do
-    v(ij,__NA__-2) = v(ij,__NA__-2) + g3 * tmp0
-    v(ij,__NA__-1) = v(ij,__NA__-1) + g3 * tmp1
-    v(ij,__NA__  ) = v(ij,__NA__  ) + g3 * tmp2
+    v(ij,__NA__-2) = v(ij,__NA__-2) + g * tmp0
+    v(ij,__NA__-1) = v(ij,__NA__-1) + g * tmp1
+    v(ij,__NA__  ) = v(ij,__NA__  ) + g * tmp2
   end do
 
 #endif

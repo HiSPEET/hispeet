@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> Performs `v += g1 IxIxA u` for na = 8
+!> Performs `v += g IxIxA u` for na = 8
 !>
 !>   * k: simple loop (l)
 !>   * j: simple loop (l)
@@ -7,9 +7,9 @@
 !>   * p: unrolled and jammed with length of 4 (u4)
 !>   * no remainder handling
 
-subroutine SubOp_1a(g1, At, u, v)
+subroutine SubOp_1a(g, At, u, v)
   !$acc routine vector
-  real(RNP), intent(in)    :: g1                      !< metric factor
+  real(RNP), intent(in)    :: g                       !< metric factor
   real(RNP), intent(in)    :: At(__NA__,__NA__)       !< transpose of A
   real(RNP), intent(in)    :: u(__NA__,__NA__,__NA__) !< operand
   real(RNP), intent(inout) :: v(__NA__,__NA__,__NA__) !< result
@@ -31,7 +31,7 @@ subroutine SubOp_1a(g1, At, u, v)
       tmp = tmp + At(7,i:i+3) * u(7,j,k)
       tmp = tmp + At(8,i:i+3) * u(8,j,k)
 
-      v(i:i+3,j,k) = v(i:i+3,j,k) + g1 * tmp
+      v(i:i+3,j,k) = v(i:i+3,j,k) + g * tmp
 
     end do
     end do

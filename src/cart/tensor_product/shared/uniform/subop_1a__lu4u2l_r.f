@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> Performs `v += g1 IxIxA u`
+!> Performs `v += g IxIxA u`
 !>
 !>   * k: simple loop (l)
 !>   * j: unrolled and jammed with length of 4 (u4)
@@ -7,9 +7,9 @@
 !>   * p: simple loop (l)
 !>   * explicit remainder handling (r)
 
-subroutine SubOp_1a(g1, At, u, v)
+subroutine SubOp_1a(g, At, u, v)
   !$acc routine vector
-  real(RNP), intent(in)    :: g1                      !< metric factor
+  real(RNP), intent(in)    :: g                       !< metric factor
   real(RNP), intent(in)    :: At(__NA__,__NA__)       !< transpose of A
   real(RNP), intent(in)    :: u(__NA__,__NA__,__NA__) !< operand
   real(RNP), intent(inout) :: v(__NA__,__NA__,__NA__) !< result
@@ -44,14 +44,14 @@ subroutine SubOp_1a(g1, At, u, v)
       tmp03 = tmp03 + At(p,i  ) * u(p,j+3,k)
       tmp13 = tmp13 + At(p,i+1) * u(p,j+3,k)
     end do
-    v(i  ,j  ,k) = v(i  ,j  ,k) + g1 * tmp00
-    v(i+1,j  ,k) = v(i+1,j  ,k) + g1 * tmp10
-    v(i  ,j+1,k) = v(i  ,j+1,k) + g1 * tmp01
-    v(i+1,j+1,k) = v(i+1,j+1,k) + g1 * tmp11
-    v(i  ,j+2,k) = v(i  ,j+2,k) + g1 * tmp02
-    v(i+1,j+2,k) = v(i+1,j+2,k) + g1 * tmp12
-    v(i  ,j+3,k) = v(i  ,j+3,k) + g1 * tmp03
-    v(i+1,j+3,k) = v(i+1,j+3,k) + g1 * tmp13
+    v(i  ,j  ,k) = v(i  ,j  ,k) + g * tmp00
+    v(i+1,j  ,k) = v(i+1,j  ,k) + g * tmp10
+    v(i  ,j+1,k) = v(i  ,j+1,k) + g * tmp01
+    v(i+1,j+1,k) = v(i+1,j+1,k) + g * tmp11
+    v(i  ,j+2,k) = v(i  ,j+2,k) + g * tmp02
+    v(i+1,j+2,k) = v(i+1,j+2,k) + g * tmp12
+    v(i  ,j+3,k) = v(i  ,j+3,k) + g * tmp03
+    v(i+1,j+3,k) = v(i+1,j+3,k) + g * tmp13
   end do
   end do
   end do
@@ -73,8 +73,8 @@ subroutine SubOp_1a(g1, At, u, v)
       tmp00 = tmp00 + At(p,i  ) * u(p,j,k)
       tmp10 = tmp10 + At(p,i+1) * u(p,j,k)
     end do
-    v(i  ,j,k) = v(i  ,j,k) + g1 * tmp00
-    v(i+1,j,k) = v(i+1,j,k) + g1 * tmp10
+    v(i  ,j,k) = v(i  ,j,k) + g * tmp00
+    v(i+1,j,k) = v(i+1,j,k) + g * tmp10
   end do
   end do
 
@@ -89,7 +89,7 @@ subroutine SubOp_1a(g1, At, u, v)
     do p = 1, __NA__
       tmp00 = tmp00 + At(p,i) * u(p,j,k)
     end do
-    v(i,j,k) = v(i,j,k) + g1 * tmp00
+    v(i,j,k) = v(i,j,k) + g * tmp00
   end do
   end do
 
@@ -112,10 +112,10 @@ subroutine SubOp_1a(g1, At, u, v)
       tmp01 = tmp01 + At(p,i  ) * u(p,j+1,k)
       tmp11 = tmp11 + At(p,i+1) * u(p,j+1,k)
     end do
-    v(i  ,j  ,k) = v(i  ,j  ,k) + g1 * tmp00
-    v(i+1,j  ,k) = v(i+1,j  ,k) + g1 * tmp10
-    v(i  ,j+1,k) = v(i  ,j+1,k) + g1 * tmp01
-    v(i+1,j+1,k) = v(i+1,j+1,k) + g1 * tmp11
+    v(i  ,j  ,k) = v(i  ,j  ,k) + g * tmp00
+    v(i+1,j  ,k) = v(i+1,j  ,k) + g * tmp10
+    v(i  ,j+1,k) = v(i  ,j+1,k) + g * tmp01
+    v(i+1,j+1,k) = v(i+1,j+1,k) + g * tmp11
   end do
   end do
 
@@ -142,12 +142,12 @@ subroutine SubOp_1a(g1, At, u, v)
        tmp02 = tmp02 + At(p,i  ) * u(p,j+2,k)
        tmp12 = tmp12 + At(p,i+1) * u(p,j+2,k)
      end do
-     v(i  ,j  ,k) = v(i  ,j  ,k) + g1 * tmp00
-     v(i+1,j  ,k) = v(i+1,j  ,k) + g1 * tmp10
-     v(i  ,j+1,k) = v(i  ,j+1,k) + g1 * tmp01
-     v(i+1,j+1,k) = v(i+1,j+1,k) + g1 * tmp11
-     v(i  ,j+2,k) = v(i  ,j+2,k) + g1 * tmp02
-     v(i+1,j+2,k) = v(i+1,j+2,k) + g1 * tmp12
+     v(i  ,j  ,k) = v(i  ,j  ,k) + g * tmp00
+     v(i+1,j  ,k) = v(i+1,j  ,k) + g * tmp10
+     v(i  ,j+1,k) = v(i  ,j+1,k) + g * tmp01
+     v(i+1,j+1,k) = v(i+1,j+1,k) + g * tmp11
+     v(i  ,j+2,k) = v(i  ,j+2,k) + g * tmp02
+     v(i+1,j+2,k) = v(i+1,j+2,k) + g * tmp12
   end do
   end do
 
@@ -162,7 +162,7 @@ subroutine SubOp_1a(g1, At, u, v)
     do p = 1, __NA__
       tmp00 = tmp00 + At(p,i) * u(p,j,k)
     end do
-    v(i,j,k) = v(i,j,k) + g1 * tmp00
+    v(i,j,k) = v(i,j,k) + g * tmp00
   end do
   end do
 

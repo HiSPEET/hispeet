@@ -10,7 +10,7 @@ set(UNIFORM ${CMAKE_CURRENT_SOURCE_DIR}/tensor_product/shared/uniform)
 # target directory of generated sources
 set(DEST ${CMAKE_CURRENT_BINARY_DIR})
 
-# operators
+# operators, adding themselves to TENSOR_PRODUCT
 include(cmake/cart__tpo_grad.cmake)
 include(cmake/cart__tpo_div.cmake)
 include(cmake/cart__tpo_rot.cmake)
@@ -19,16 +19,7 @@ include(cmake/cart__tpo_elliptic_ci.cmake)
 include(cmake/cart__tpo_spectral.cmake)
 include(cmake/cart__tpo_spectral_iso.cmake)
 include(cmake/cart__tpo_schwarz_iso.cmake)
-
-list(APPEND TENSOR_PRODUCT ${CART__TPO_DIV_SRC}
-                           ${CART__TPO_GRAD_SRC}
-                           ${CART__TPO_ROT_SRC}
-                           ${CART__TPO_ROTROT_SRC}
-                           ${CART__TPO_ELLIPTIC_CI_SRC}
-                           ${CART__TPO_SPECTRAL_SRC}
-                           ${CART__TPO_SPECTRAL_ISO_SRC}
-                           ${CART__TPO_SCHWARZ_ISO_SRC}
-                           )
+include(cmake/cart__tpo_schwarz_cubic.cmake)
 
 if (DEFINED Fortran_FLAGS_TPO)
     set_source_files_properties(${TENSOR_PRODUCT}
@@ -86,7 +77,13 @@ set(OPERATORS operators/cart__assembly_operator.f
 #===============================================================================
 # elliptic
 
-set(ELLIPTIC elliptic/cart__cg_elliptic_ci_bc.f
+set(ELLIPTIC elliptic/cart__schwarz_operator.f
+             elliptic/cart__schwarz_operator__eigensystems_ip.f
+             elliptic/cart__schwarz_operator__subdomains_ci.f
+             elliptic/cart__elliptic_operator.f
+             elliptic/cart__elliptic_operator_cg.f
+             elliptic/cart__elliptic_operator_ip.f
+             elliptic/cart__cg_elliptic_ci_bc.f
              elliptic/cart__dg_elliptic_cis_bc.f
              elliptic/cart__dg_elliptic_ciu_bc.f
              elliptic/cart__dg_elliptic_cis_operator.f

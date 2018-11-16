@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> Performs `v = g3 AxIxI u` for single element
+!> Performs `v = g AxIxI u` for single element
 !>
 !>   * k: unrolled and jammed with length of 8 (u8)
 !>   * j: joined with i and flattened (f)
@@ -7,9 +7,9 @@
 !>   * p: simple loop (l)
 !>   * explicit remainder handling (r)
 
-subroutine SubOp_3i(g3, At, u, v)
+subroutine SubOp_3i(g, At, u, v)
   !$acc routine vector
-  real(RNP), intent(in)    :: g3                  !< metric factor
+  real(RNP), intent(in)    :: g                   !< metric factor
   real(RNP), intent(in)    :: At(__NA__,__NA__)   !< transpose of A
   real(RNP), intent(in)    :: u(__NA__**2,__NA__) !< operand
   real(RNP), intent(inout) :: v(__NA__**2,__NA__) !< result
@@ -40,14 +40,14 @@ subroutine SubOp_3i(g3, At, u, v)
       tmp6 = tmp6 + At(p,k+6) * u(ij,p)
       tmp7 = tmp7 + At(p,k+7) * u(ij,p)
     end do
-    v(ij,k  ) = g3 * tmp0
-    v(ij,k+1) = g3 * tmp1
-    v(ij,k+2) = g3 * tmp2
-    v(ij,k+3) = g3 * tmp3
-    v(ij,k+4) = g3 * tmp4
-    v(ij,k+5) = g3 * tmp5
-    v(ij,k+6) = g3 * tmp6
-    v(ij,k+7) = g3 * tmp7
+    v(ij,k  ) = g * tmp0
+    v(ij,k+1) = g * tmp1
+    v(ij,k+2) = g * tmp2
+    v(ij,k+3) = g * tmp3
+    v(ij,k+4) = g * tmp4
+    v(ij,k+5) = g * tmp5
+    v(ij,k+6) = g * tmp6
+    v(ij,k+7) = g * tmp7
   end do
   end do
 
@@ -63,7 +63,7 @@ subroutine SubOp_3i(g3, At, u, v)
     do p = 1, __NA__
       tmp0 = tmp0 + At(p,k) * u(ij,p)
     end do
-    v(ij,k) = g3 * tmp0
+    v(ij,k) = g * tmp0
   end do
 
 #elif __NA__ == __NA_T8__ + 2
@@ -78,8 +78,8 @@ subroutine SubOp_3i(g3, At, u, v)
       tmp0 = tmp0 + At(p,k  ) * u(ij,p)
       tmp1 = tmp1 + At(p,k+1) * u(ij,p)
     end do
-    v(ij,k  ) = g3 * tmp0
-    v(ij,k+1) = g3 * tmp1
+    v(ij,k  ) = g * tmp0
+    v(ij,k+1) = g * tmp1
   end do
 
 #elif __NA__ == __NA_T8__ + 3
@@ -96,9 +96,9 @@ subroutine SubOp_3i(g3, At, u, v)
       tmp1 = tmp1 + At(p,k+1) * u(ij,p)
       tmp2 = tmp2 + At(p,k+2) * u(ij,p)
     end do
-    v(ij,k  ) = g3 * tmp0
-    v(ij,k+1) = g3 * tmp1
-    v(ij,k+2) = g3 * tmp2
+    v(ij,k  ) = g * tmp0
+    v(ij,k+1) = g * tmp1
+    v(ij,k+2) = g * tmp2
   end do
 
 #elif __NA__ == __NA_T8__ + 4
@@ -117,10 +117,10 @@ subroutine SubOp_3i(g3, At, u, v)
       tmp2 = tmp2 + At(p,k+2) * u(ij,p)
       tmp3 = tmp3 + At(p,k+3) * u(ij,p)
     end do
-    v(ij,k  ) = g3 * tmp0
-    v(ij,k+1) = g3 * tmp1
-    v(ij,k+2) = g3 * tmp2
-    v(ij,k+3) = g3 * tmp3
+    v(ij,k  ) = g * tmp0
+    v(ij,k+1) = g * tmp1
+    v(ij,k+2) = g * tmp2
+    v(ij,k+3) = g * tmp3
   end do
 
 #elif __NA__ == __NA_T8__ + 5
@@ -141,11 +141,11 @@ subroutine SubOp_3i(g3, At, u, v)
       tmp3 = tmp3 + At(p,k+3) * u(ij,p)
       tmp4 = tmp4 + At(p,k+4) * u(ij,p)
     end do
-    v(ij,k  ) = g3 * tmp0
-    v(ij,k+1) = g3 * tmp1
-    v(ij,k+2) = g3 * tmp2
-    v(ij,k+3) = g3 * tmp3
-    v(ij,k+4) = g3 * tmp4
+    v(ij,k  ) = g * tmp0
+    v(ij,k+1) = g * tmp1
+    v(ij,k+2) = g * tmp2
+    v(ij,k+3) = g * tmp3
+    v(ij,k+4) = g * tmp4
   end do
 
 #elif __NA__ == __NA_T8__ + 6
@@ -168,12 +168,12 @@ subroutine SubOp_3i(g3, At, u, v)
       tmp4 = tmp4 + At(p,k+4) * u(ij,p)
       tmp5 = tmp5 + At(p,k+5) * u(ij,p)
     end do
-    v(ij,k  ) = g3 * tmp0
-    v(ij,k+1) = g3 * tmp1
-    v(ij,k+2) = g3 * tmp2
-    v(ij,k+3) = g3 * tmp3
-    v(ij,k+4) = g3 * tmp4
-    v(ij,k+5) = g3 * tmp5
+    v(ij,k  ) = g * tmp0
+    v(ij,k+1) = g * tmp1
+    v(ij,k+2) = g * tmp2
+    v(ij,k+3) = g * tmp3
+    v(ij,k+4) = g * tmp4
+    v(ij,k+5) = g * tmp5
   end do
 
 #elif __NA__ == __NA_T8__ + 7
@@ -198,13 +198,13 @@ subroutine SubOp_3i(g3, At, u, v)
       tmp5 = tmp5 + At(p,k+5) * u(ij,p)
       tmp6 = tmp6 + At(p,k+6) * u(ij,p)
     end do
-    v(ij,k  ) = g3 * tmp0
-    v(ij,k+1) = g3 * tmp1
-    v(ij,k+2) = g3 * tmp2
-    v(ij,k+3) = g3 * tmp3
-    v(ij,k+4) = g3 * tmp4
-    v(ij,k+5) = g3 * tmp5
-    v(ij,k+6) = g3 * tmp6
+    v(ij,k  ) = g * tmp0
+    v(ij,k+1) = g * tmp1
+    v(ij,k+2) = g * tmp2
+    v(ij,k+3) = g * tmp3
+    v(ij,k+4) = g * tmp4
+    v(ij,k+5) = g * tmp5
+    v(ij,k+6) = g * tmp6
   end do
 
 #endif

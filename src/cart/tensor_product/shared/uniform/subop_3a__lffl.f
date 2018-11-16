@@ -1,14 +1,14 @@
 !-------------------------------------------------------------------------------
-!> Performs `v += g3 AxIxI u` for single element
+!> Performs `v += g AxIxI u` for single element
 !>
 !>   * k: simple loop (l)
 !>   * j: joined with i and flattened (f)
 !>   * i: joined with j and flattened (f)
 !>   * p: simple loop (l)
 
-subroutine SubOp_3a(g3, At, u, v)
+subroutine SubOp_3a(g, At, u, v)
   !$acc routine vector
-  real(RNP), intent(in)    :: g3                  !< metric factor
+  real(RNP), intent(in)    :: g                   !< metric factor
   real(RNP), intent(in)    :: At(__NA__,__NA__)   !< transpose of A
   real(RNP), intent(in)    :: u(__NA__**2,__NA__) !< operand
   real(RNP), intent(inout) :: v(__NA__**2,__NA__) !< result
@@ -24,7 +24,7 @@ subroutine SubOp_3a(g3, At, u, v)
     do p = 1, __NA__
       tmp = tmp + At(p,k) * u(ij,p)
     end do
-    v(ij,k) = v(ij,k) + g3 * tmp
+    v(ij,k) = v(ij,k) + g * tmp
   end do
   end do
 

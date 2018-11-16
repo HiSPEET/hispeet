@@ -2,6 +2,8 @@
 
 set(CART__TPO_DIV_SRC cart__tpo_div.f cart__tpo_div__var.F)
 
+list(APPEND TENSOR_PRODUCT ${CART__TPO_DIV_SRC})
+
 # template directory
 set(TMPL ${CMAKE_CURRENT_SOURCE_DIR}/tensor_product/cart__tpo_div)
 

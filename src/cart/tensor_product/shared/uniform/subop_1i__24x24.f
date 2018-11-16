@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> Performs `v = g1 IxIxA u` for na = 24
+!> Performs `v = g IxIxA u` for na = 24
 !>
 !>   * k: simple loop (l)
 !>   * j: simple loop (l)
@@ -7,9 +7,9 @@
 !>   * p: unrolled and jammed with length of 4 (u4)
 !>   * no remainder handling
 
-subroutine SubOp_1i(g1, At, u, v)
+subroutine SubOp_1i(g, At, u, v)
   !$acc routine vector
-  real(RNP), intent(in)  :: g1                      !< metric factor
+  real(RNP), intent(in)  :: g                       !< metric factor
   real(RNP), intent(in)  :: At(__NA__,__NA__)       !< transpose of A
   real(RNP), intent(in)  :: u(__NA__,__NA__,__NA__) !< operand
   real(RNP), intent(out) :: v(__NA__,__NA__,__NA__) !< result
@@ -28,7 +28,7 @@ subroutine SubOp_1i(g1, At, u, v)
       tmp = tmp + At( 3,i:i+3) * u( 3,j,k)
       tmp = tmp + At( 4,i:i+3) * u( 4,j,k)
 
-      v(i:i+3,j,k) = g1 * tmp
+      v(i:i+3,j,k) = g * tmp
     end do
 
     !$acc loop independent vector private(tmp)
@@ -38,7 +38,7 @@ subroutine SubOp_1i(g1, At, u, v)
       tmp = tmp + At( 7,i:i+3) * u( 7,j,k)
       tmp = tmp + At( 8,i:i+3) * u( 8,j,k)
 
-      v(i:i+3,j,k) = v(i:i+3,j,k) + g1 * tmp
+      v(i:i+3,j,k) = v(i:i+3,j,k) + g * tmp
     end do
 
     !$acc loop independent vector private(tmp)
@@ -48,7 +48,7 @@ subroutine SubOp_1i(g1, At, u, v)
       tmp = tmp + At(11,i:i+3) * u(11,j,k)
       tmp = tmp + At(12,i:i+3) * u(12,j,k)
 
-      v(i:i+3,j,k) = v(i:i+3,j,k) + g1 * tmp
+      v(i:i+3,j,k) = v(i:i+3,j,k) + g * tmp
     end do
 
     !$acc loop independent vector private(tmp)
@@ -58,7 +58,7 @@ subroutine SubOp_1i(g1, At, u, v)
       tmp = tmp + At(15,i:i+3) * u(15,j,k)
       tmp = tmp + At(16,i:i+3) * u(16,j,k)
 
-      v(i:i+3,j,k) = v(i:i+3,j,k) + g1 * tmp
+      v(i:i+3,j,k) = v(i:i+3,j,k) + g * tmp
     end do
 
     !$acc loop independent vector private(tmp)
@@ -68,7 +68,7 @@ subroutine SubOp_1i(g1, At, u, v)
       tmp = tmp + At(19,i:i+3) * u(19,j,k)
       tmp = tmp + At(20,i:i+3) * u(20,j,k)
 
-      v(i:i+3,j,k) = v(i:i+3,j,k) + g1 * tmp
+      v(i:i+3,j,k) = v(i:i+3,j,k) + g * tmp
     end do
 
     !$acc loop independent vector private(tmp)
@@ -78,7 +78,7 @@ subroutine SubOp_1i(g1, At, u, v)
       tmp = tmp + At(23,i:i+3) * u(23,j,k)
       tmp = tmp + At(24,i:i+3) * u(24,j,k)
 
-      v(i:i+3,j,k) = v(i:i+3,j,k) + g1 * tmp
+      v(i:i+3,j,k) = v(i:i+3,j,k) + g * tmp
     end do
 
   end do

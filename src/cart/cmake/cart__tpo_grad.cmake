@@ -2,6 +2,8 @@
 
 set(CART__TPO_GRAD_SRC cart__tpo_grad.f cart__tpo_grad__var.F)
 
+list(APPEND TENSOR_PRODUCT ${CART__TPO_GRAD_SRC})
+
 # template directory
 set(TMPL ${CMAKE_CURRENT_SOURCE_DIR}/tensor_product/cart__tpo_grad)
 

@@ -1,9 +1,9 @@
-!> summary:  Element operators for IP-DGM
+!> summary:  Element operators for IP/DG-SEM
 !> author:   Joerg Stiller
 !> date:     2016/03/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Element operators for IP-DGM
+!>### Element operators for IP/DG-SEM
 !===============================================================================
 
 module IP_Element_Operators_1D
@@ -16,10 +16,13 @@ module IP_Element_Operators_1D
   public :: IP_ElementOperators1D
 
   !-----------------------------------------------------------------------------
-  !> Element operators for symmetric interior penalty DGM
+  !> Element operators for symmetric interior penalty IP/DG-SEM
 
   type, extends(StandardOperators1D) :: IP_ElementOperators1D
+    real(RNP) :: penalty = 2 !< penalty parameter > 1
   contains
+    generic :: New => New_IP_ElementOperators1D
+    procedure, private :: New_IP_ElementOperators1D
     procedure :: PenaltyFactor
     procedure :: GetStiffnessMatrix
   end type IP_ElementOperators1D
@@ -27,14 +30,28 @@ module IP_Element_Operators_1D
 contains
 
 !-------------------------------------------------------------------------------
+!> Specific initialization, only required to override penalty
+
+subroutine New_IP_ElementOperators1D(this, po, penalty)
+  class(IP_ElementOperators1D), intent(inout) :: this
+  integer,   intent(in) :: po       !< polynomial order
+  real(RNP), intent(in) :: penalty  !< penalty parameter > 1 [2]
+
+  ! standard operators
+  call this%New(po)
+
+  this % penalty = penalty
+
+end subroutine New_IP_ElementOperators1D
+
+!-------------------------------------------------------------------------------
 !> Penalty factor
 
-real(RNP) function PenaltyFactor(this, dx, penalty) result(mu)
+real(RNP) function PenaltyFactor(this, dx) result(mu)
   class(IP_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in) :: dx(2)    !< element extensions
-  real(RNP), intent(in) :: penalty  !< penalty parameter \( \mu_\star \)
 
-  mu = penalty/4 * this%po * (this%po + 1) * (1/dx(1) + 1/dx(2))
+  mu = this%penalty/4 * this%po * (this%po + 1) * (1/dx(1) + 1/dx(2))
 
 end function PenaltyFactor
 
@@ -47,10 +64,9 @@ end function PenaltyFactor
 !> polynomial order. The third index refers to the preceding (-1), current (0)
 !> and succeeding (1) element, respectively.
 
-subroutine GetStiffnessMatrix(this, dx, penalty, bc, Le)
+subroutine GetStiffnessMatrix(this, dx, bc, Le)
   class(IP_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
-  real(RNP), intent(in)  :: penalty       !< penalty parameter (> 1)
   character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N'}
   real(RNP), intent(out) :: Le(0:,0:,-1:) !< 1D element stiffness matrix
 
@@ -63,8 +79,8 @@ subroutine GetStiffnessMatrix(this, dx, penalty, bc, Le)
   P = this % po
   g = ONE / dx
 
-  mu_0 = this % PenaltyFactor(dx(-1:0), penalty)
-  mu_P = this % PenaltyFactor(dx( 0:1), penalty)
+  mu_0 = this % PenaltyFactor(dx(-1:0))
+  mu_P = this % PenaltyFactor(dx( 0:1))
 
   allocate(delta_0(0:P), source = ZERO)
   delta_0(0) = ONE

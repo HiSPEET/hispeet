@@ -2,6 +2,8 @@
 
 set(CART__TPO_ROTROT_SRC cart__tpo_rotrot.f cart__tpo_rotrot__var.F)
 
+list(APPEND TENSOR_PRODUCT ${CART__TPO_ROTROT_SRC})
+
 # template directory
 set(TMPL ${CMAKE_CURRENT_SOURCE_DIR}/tensor_product/cart__tpo_rotrot)
 
