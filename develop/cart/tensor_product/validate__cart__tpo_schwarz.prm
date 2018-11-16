@@ -1,0 +1,6 @@
+&input
+ po = 15
+ ep = 3*10
+ nt = 1
+ delta = 3*0.1
+/
