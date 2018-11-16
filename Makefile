@@ -8,3 +8,4 @@ distclean:
 	rm -rf build*
 	rm -rf bin/__pycache__
 	rm -rf doc/html
+	find . -name .DS_Store -exec rm {} \;
