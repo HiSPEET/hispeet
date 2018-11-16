@@ -1,0 +1,257 @@
+module CART__Schwarz_Operator
+  use Kind_Parameters, only: RNP
+  use Standard_Operators_1D
+  use IP_Element_Operators_1D
+  use CART__Mesh_Partition
+
+  implicit none
+  private
+
+  public :: SchwarzOperator3D
+
+  !-----------------------------------------------------------------------------
+  !> Schwarz operator
+  !>
+  !> In the Schwarz method we consider a rectangular subdomain surrounding an
+  !> element located in its center. The subdomain is constructed by adopting a
+  !> layer of collocation points from the adjoining elements. The thickness of
+  !> this layer is a directional property, which depends on two parameters:
+  !> the relative thickness `delta` and the minimal number of overlapped points
+  !> `no_min`. Typically, the thickness assumes a value between 0 and 1, though
+  !> a negative value can be chosen for restricting the subdomain to the element
+  !> alone.
+  !>
+  !> The Schwarz operator is the inverse of the truncated elliptic operator,
+  !> which is given in tensor-product form by
+  !>
+  !>       A  =  c0 M3 x M2 x M1
+  !>          +  c1 M3 x M2 x L1
+  !>          +  c2 M3 x L2 x M1
+  !>          +  c3 L3 x M2 x M1
+  !>
+  !> where `M1`, `M2`, `M3` are the 1D mass matrices and  `L1`, `L2`, `L3` the
+  !> corresponding stiffness matrices. These operators are normalized zo unit
+  !> mesh spacing and, thus, depend only on the following parameters
+  !>
+  !>   *  polynomial order and, possibly, further discretization parameters
+  !>   *  number of overlapped points `no`
+  !>   *  Helmholtz and diffusion coefficients
+  !>   *  boundary conditions.
+  !>
+  !> The effect of element extensions `dx` is incorporated into the coefficients
+  !>
+  !>     c0 = dx(1) * dx(2) * dx(3) * lambda
+  !>     c1 = dx(2) * dx(3) / dx(1) * nu
+  !>     c2 = dx(3) * dx(1) / dx(2) * nu
+  !>     c3 = dx(1) * dx(2) / dx(3) * nu
+  !>
+  !> `lambda` represents the Helmholtz parameter and `nu` the diffusivity.
+  !>
+  !> The element-boundary configuration describes the conditions met at the
+  !> element faces:
+  !>
+  !>   *  In the standard configuration, the element is completely enclosed by
+  !>      adjoining elements and, hence, every everywhere coated by the layer
+  !>      of overlapped points.
+  !>
+  !>   *  In boundary configurations, one or more element faces coincide with
+  !>      the boundary of the computational domain. At those faces, the
+  !>      Helmholtz operator is modified according to the boundary conditions,
+  !>      and no exterior points are adopted to the Schwarz subdomain.
+  !>
+  !> Considering interior (I), Dirichlet (D) and Neumann (N) faces, 9 different
+  !> configurations have to be distinguished in each coordinate direction:
+  !>
+  !>    1.  I-I
+  !>    2.  D-I
+  !>    3.  N-I
+  !>    4.  I-D
+  !>    5.  D-D
+  !>    6.  N-D
+  !>    7.  I-N
+  !>    8.  D-N
+  !>    9.  N-N
+  !>
+  !> For computing the inverse operator, a generalized 1D eigenvalue problem is
+  !> solved for every configuration in each coordinate direction, yielding the
+  !> matrices of right eigenvectors `S1`, `S2`, `S3` and the diagonal matrices
+  !> of eigenvalues `Λ1`, `Λ2`, `Λ3` such that
+  !>
+  !>     S1ᵀ L1 S1 = Λ1
+  !>     S1ᵀ M1 S1 = I1
+  !>
+  !> where `I1` ist the matching unit matrix etc.
+  !> The inverse Helmholtz operator can be expressed in the tensor-product form
+  !>
+  !>     A⁻¹  =  (S3 x S2 x S1) D⁻¹ (S3ᵀ x S2ᵀ x S1ᵀ)
+  !>
+  !> with the diagonal matrix
+  !>
+  !>     D  =  c0 I3 x I2 x I1
+  !>        +  c1 I3 x I2 x Λ1
+  !>        +  c2 I3 x Λ2 x I1
+  !>        +  c3 Λ3 x I2 x I1
+  !>
+  !> Before assembling the global correction to an approximate solution, the
+  !> subdomain correction is weighted according to
+  !>
+  !>     Δu = W (A⁻¹ r)
+  !>
+  !> The weights form a diagonal tensor-product matrix
+  !>
+  !>     W = W3 x W2 x W1
+  !>
+  !> with 1D distributions `W1`, `W2`, `W3` depending on the element-boundary
+  !> configuration.
+  !>
+  !> It is worth noting, that eigenvectors, eigenvalues and weights coincide,
+  !> if the number of overlapped points is identical in each direction.
+  !> To benefit from possible optimizations, this quasi-isotropic case is
+  !> indicated by setting component `cubic` to true.
+
+  type SchwarzOperator3D
+
+    ! 1D eigensystems ..........................................................
+
+    integer :: no(3) = -1                    !< overlapped node layers
+    logical :: cubic                         !< switch to cubic operator
+
+    integer :: n1 = -1                       !< number of points in direction 1
+    integer :: n2 = -1                       !< number of points in direction 2
+    integer :: n3 = -1                       !< number of points in direction 3
+    integer :: nc = -1                       !< number of 1D configurations
+
+    real(RNP), allocatable :: S1(:,:,:)      !< eigenvectors for direction 1
+    real(RNP), allocatable :: S2(:,:,:)      !< eigenvectors for direction 2
+    real(RNP), allocatable :: S3(:,:,:)      !< eigenvectors for direction 3
+
+    real(RNP), allocatable :: V1(:,:)        !< eigenvalues for direction 1 (Λ1)
+    real(RNP), allocatable :: V2(:,:)        !< eigenvalues for direction 2 (Λ2)
+    real(RNP), allocatable :: V3(:,:)        !< eigenvalues for direction 3 (Λ3)
+
+    real(RNP), allocatable :: W1(:,:)        !< weights for direction 1
+    real(RNP), allocatable :: W2(:,:)        !< weights for direction 2
+    real(RNP), allocatable :: W3(:,:)        !< weights for direction 3
+
+    ! subdomain configuration and inverse eigenvalues ..........................
+
+    integer,   allocatable :: cfg(:,:)       !< subdomain configurations
+    real(RNP), allocatable :: D_inv(:,:,:,:) !< subdomain inverse 3D eigenvalues
+
+  contains
+    private
+
+    generic, public :: New => New_CI
+    procedure :: New_CI
+
+    generic, public :: Update => Update_CI
+    procedure :: Update_CI
+
+  end type SchwarzOperator3D
+
+  !=============================================================================
+  !> Interfaces to procedures for generating or updating Schwarz operators
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Build 1D eigensystems for IP/DG-SEM
+
+    module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
+      use IP_Element_Operators_1D
+
+      class(SchwarzOperator3D),     intent(inout) :: this !< Schwarz operator
+      class(IP_ElementOperators1D), intent(in)    :: eop  !< IP-DG SE operators
+
+      real(RNP),         intent(in) :: delta(3)  !< relative overlap
+      integer, optional, intent(in) :: no_min    !< min overlap in points [-1]
+      integer, optional, intent(in) :: weighting !< weighting method      [ 5]
+
+    end subroutine BuildEigensystems_IP
+
+    !---------------------------------------------------------------------------
+    !> Build subdomains for constant isotropic coefficients
+
+    module subroutine BuildSubdomains_CI(this, mesh, lambda, nu, bc)
+      class(SchwarzOperator3D),   intent(inout) :: this   !< Schwarz operator
+      class(MeshPartition),       intent(in)    :: mesh   !< mesh partition
+      real(RNP),                  intent(in)    :: lambda !< Helmholtz parameter
+      real(RNP),                  intent(in)    :: nu     !< diffusivity
+      character,                  intent(in)    :: bc(:)  !< BC {'D','N'}
+    end subroutine BuildSubdomains_CI
+
+  end interface
+
+  !=============================================================================
+  ! Private module variables
+
+  character, parameter :: boundary_type(3)   = [ ' ', 'D', 'N']
+  integer,   parameter :: num_boundary_types = size(boundary_type)
+
+contains
+
+!===============================================================================
+! New
+
+subroutine New_CI(this, eop, mesh, lambda, nu, bc, delta, no_min, weighting)
+
+  class(SchwarzOperator3D),   intent(inout) :: this !< Schwarz operator
+  class(StandardOperators1D), intent(in)    :: eop  !< 1D standard SE ops
+  class(MeshPartition),       intent(in)    :: mesh !< mesh partition
+
+  real(RNP),         intent(in) :: lambda    !< Helmholtz parameter
+  real(RNP),         intent(in) :: nu        !< diffusivity
+  character,         intent(in) :: bc(:)     !< BC {'D','N'}
+  real(RNP),         intent(in) :: delta(3)  !< relative overlap
+  integer, optional, intent(in) :: no_min    !< min overlap in points [-1]
+  integer, optional, intent(in) :: weighting !< weighting method      [ 5]
+
+  select type(eop)
+  class is(IP_ElementOperators1D)
+    call BuildEigensystems_IP(this, eop, delta, no_min, weighting)
+  end select
+
+  call BuildSubdomains_CI(this, mesh, lambda, nu, bc)
+
+end subroutine New_CI
+
+!===============================================================================
+! Update
+
+subroutine Update_CI(this, mesh, lambda, nu, bc)
+  class(SchwarzOperator3D),   intent(inout) :: this   !< Schwarz operator
+  class(MeshPartition),       intent(in)    :: mesh   !< mesh partition
+  real(RNP),                  intent(in)    :: lambda !< Helmholtz parameter
+  real(RNP),                  intent(in)    :: nu     !< diffusivity
+  character,                  intent(in)    :: bc(:)  !< BC {'D','N'}
+
+  call BuildSubdomains_CI(this, mesh, lambda, nu, bc)
+
+end subroutine Update_CI
+
+!===============================================================================
+! Utilities
+
+!-------------------------------------------------------------------------------
+!> Returns the 1D subdomain configuration ID corresponding to the given BCs
+
+pure integer function ConfigurationID(bc) result(cfg)
+  character, intent(in) :: bc(2) !< left/right boundary types {' ','D','N'}
+
+  integer :: i1, i2
+
+  do i1 = 1, num_boundary_types
+    if (bc(1) == boundary_type(i1)) exit
+  end do
+
+  do i2 = 1, num_boundary_types
+    if (bc(2) == boundary_type(i2)) exit
+  end do
+
+  cfg = i1 + num_boundary_types * (i2 - 1)
+
+end function ConfigurationID
+
+!===============================================================================
+
+end module CART__Schwarz_Operator
