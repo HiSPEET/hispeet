@@ -1,0 +1,114 @@
+!> summary:  Schwarz operator cubic subdoms: bf-marching, separate, parametrized
+!> author:   Joerg Stiller
+!> date:     2017/10/23
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Schwarz operator cubic subdomains: bf-marching, separate, parametrized
+!===============================================================================
+
+#define __NA__    <ns>
+#define __NA_T2__ <ns_t2>
+#define __NA_T4__ <ns_t4>
+#define __NA_T8__ <ns_t8>
+
+subroutine CART__TPO_Schwarz_Cubic__<tag>(ns, nc, nd, S, W, cfg, D_inv, f, u)
+
+  !-----------------------------------------------------------------------------
+  ! modules
+
+  use Kind_Parameters, only: RNP
+  implicit none
+
+  !-----------------------------------------------------------------------------
+  ! arguments
+
+  integer,   intent(in)  :: ns                       !< dimension of S
+  integer,   intent(in)  :: nc                       !< number of configurations
+  integer,   intent(in)  :: nd                       !< number of subdomains
+  real(RNP), intent(in)  :: S(<ns>,<ns>,nc)          !< 1D eigenvectors
+  real(RNP), intent(in)  :: W(<ns>,nc)               !< 1D weights
+  integer,   intent(in)  :: cfg(3,nd)                !< subdomain configurations
+  real(RNP), intent(in)  :: D_inv(<ns>,<ns>,<ns>,nd) !< inverse 3D eigenvalues
+  real(RNP), intent(in)  :: f(<ns>,<ns>,<ns>,nd)     !< operand
+  real(RNP), intent(out) :: u(<ns>,<ns>,<ns>,nd)     !< result
+
+  !-----------------------------------------------------------------------------
+  ! local variables
+
+  real(RNP), parameter   :: ONE = 1
+  real(RNP), allocatable :: WS_t(:,:,:), z(:,:,:)
+
+  integer :: i, j, l
+  integer :: c, c1, c2, c3
+
+  !-----------------------------------------------------------------------------
+  ! initialization
+
+  allocate(WS_t(ns,ns,nc), z(ns,ns,ns))
+
+  ! transposed 1D operator
+  do c = 1, nc
+  do j = 1, <ns>
+  do i = 1, <ns>
+    WS_t(j,i,c) = W(i,c) * S(i,j,c)
+  end do
+  end do
+  end do
+
+  !-----------------------------------------------------------------------------
+  ! evaluation
+
+  !$acc data present(cfg,D_inv,f,u) copyin(S,WS_t) async
+  !$acc parallel num_workers(<num_workers>) vector_length(<vec_length>) async
+  !$acc loop gang worker private(z)
+
+  !$omp do private(l)
+  elements: do l = 1, nd
+
+    ! element-boundary configurations
+    c1 = cfg(1,l)
+    c2 = cfg(2,l)
+    c3 = cfg(3,l)
+
+    ! z = S^t x I x I f
+    call SubOp_3i(ONE, S(:,:,c3), f(:,:,:,l), z)
+
+    ! u = I x S^t x I z
+    call SubOp_2i(ONE, S(:,:,c2), z, u(:,:,:,l))
+
+    ! z =  D⁻¹ (I x I x S^t) u
+    call SubOp_1id(ONE, S(:,:,c1), D_inv(:,:,:,l), u(:,:,:,l), z)
+
+    ! u = I x I x WS z
+    call SubOp_1i(ONE, WS_t(:,:,c1), z, u(:,:,:,l))
+
+    ! z = I x WS x I u
+    call SubOp_2i(ONE, WS_t(:,:,c2), u(:,:,:,l), z)
+
+    ! u = WS x I x I z
+    call SubOp_3i(ONE, WS_t(:,:,c3), z, u(:,:,:,l))
+
+  end do elements
+  !$omp end do
+
+  !$acc end parallel
+  !$acc end data
+
+contains
+
+#include "<SubOp_1id>"
+
+#include "<SubOp_1i>"
+
+#include "<SubOp_2i>"
+
+#include "<SubOp_3i>"
+
+!===============================================================================
+
+end subroutine CART__TPO_Schwarz_Cubic__<tag>
+
+#undef __NA__
+#undef __NA_T2__
+#undef __NA_T4__
+#undef __NA_T8__

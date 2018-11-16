@@ -1,0 +1,125 @@
+!> summary:  3D Cartesian Schwarz operator for cubic subdomains
+!> author:   Joerg Stiller
+!> date:     2017/07/20
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### 3D Cartesian Schwarz operator for cubic subdomains
+!===============================================================================
+
+module CART__TPO_Schwarz_Cubic
+  use Kind_Parameters, only: RNP
+  implicit none
+  private
+
+  public :: TPO_Schwarz_Cubic_Proc    ! procedure interface
+  public :: TPO_Schwarz_Cubic_Assign  ! procedure assignment
+  public :: TPO_Schwarz_Cubic_Eval    ! operator evaluation
+
+  abstract interface
+
+    !---------------------------------------------------------------------------
+    !> Abstract interface to Schwarz operator procedures for cubic subdomains
+    !>
+    !> The procedure evaluates a spectral tensor-product operator of the form
+    !>
+    !>     (WxWxW) (SxSxS) D⁻¹ (SxSxS)^T
+    !>
+    !> where S is the column matrix of the eigenvectors to the 1D suboperator
+    !> and Lambda is the diagonal matrix of corresponding 3D eigenvalues.
+    !>
+    !>   * `S` is the column matrix of the eigenvectors to the 1D suboperator
+    !>   * `D` is a diagonal matrix composed of the 1D eigenvalues
+    !>
+    !>         D = lambda  g0 I3 x I2 x I1
+    !>           + nu(e) ( g1 I3 x I2 x V1
+    !>                   + g2 I3 x V2 x I1
+    !>                   + g3 V3 x I2 x I1 )
+    !>
+    !>   * `W` is the diagonal 1D weighting matrix
+    !>
+    !>   * metric coefficients
+    !>
+    !>         g0 = dx(1) * dx(2) * dx(3)
+    !>         g1 = dx(2) * dx(3) / dx(1)
+    !>         g2 = dx(3) * dx(1) / dx(2)
+    !>         g3 = dx(1) * dx(2) / dx(3)
+    !>
+    !>
+    !> To accomodate various types of boundary conditions, every operator
+    !> is given for each possible 1D boundary configuration. The boundary
+    !> configurations can differ from element, as specified in the parameter
+    !> `cfg`.
+    !>
+    !> When compiled with OpenACC and run on a GPU,
+    !>
+    !>   * cfg, D_inv, f and u must be present on the device, and
+    !>   * any call to this procedure must be followed by an "acc wait"
+    !>     before accessing f or u from CPU or another than the default
+    !>     accelerator queue.
+
+    subroutine TPO_Schwarz_Cubic_Proc(ns, nc, nd, S, W, cfg, D_inv, f, u)
+      use Kind_Parameters, only: RNP
+      integer,   intent(in)  :: ns                 !< dimension of S
+      integer,   intent(in)  :: nc                 !< number of configurations
+      integer,   intent(in)  :: nd                 !< number of subdomains
+      real(RNP), intent(in)  :: S(ns,ns,nc)        !< 1D eigenvectors
+      real(RNP), intent(in)  :: W(ns,nc)           !< 1D weights
+      integer,   intent(in)  :: cfg(3,nd)          !< subdomain configurations
+      real(RNP), intent(in)  :: D_inv(ns,ns,ns,nd) !< inverse 3D eigenvalues
+      real(RNP), intent(in)  :: f(ns,ns,ns,nd)     !< RHS
+      real(RNP), intent(out) :: u(ns,ns,ns,nd)     !< solution
+    end subroutine TPO_Schwarz_Cubic_Proc
+
+  end interface
+
+contains
+
+!-------------------------------------------------------------------------------
+!> Assignment of a procedure for given dimensions
+
+subroutine TPO_Schwarz_Cubic_Assign(ns, Proc)
+  integer, intent(in) :: ns  !< dimension of S
+  procedure(TPO_Schwarz_Cubic_Proc), pointer, intent(out) :: Proc
+
+  ! external procedures ........................................................
+
+  procedure(TPO_Schwarz_Cubic_Proc) :: CART__TPO_Schwarz_Cubic__gen
+
+  ! initialization .............................................................
+
+  Proc => null()
+
+  ! parametrized procedures ....................................................
+
+  ! generic procedures .........................................................
+
+  if (.not. associated(Proc)) then
+    Proc => CART__TPO_Schwarz_Cubic__gen
+  end if
+
+end subroutine TPO_Schwarz_Cubic_Assign
+
+!-------------------------------------------------------------------------------
+!> Evaluation of the 3D Cartesian Schwarz operator for cubic subdomains
+
+subroutine TPO_Schwarz_Cubic_Eval(ns, nc, nd, S, W, cfg, D_inv, f, u)
+  integer,   intent(in)  :: ns                 !< dimension of S
+  integer,   intent(in)  :: nc                 !< number of configurations
+  integer,   intent(in)  :: nd                 !< number of subdomains
+  real(RNP), intent(in)  :: S(ns,ns,nc)        !< 1D eigenvectors
+  real(RNP), intent(in)  :: W(ns,nc)           !< 1D weights
+  integer,   intent(in)  :: cfg(3,nd)          !< subdomain configurations
+  real(RNP), intent(in)  :: D_inv(ns,ns,ns,nd) !< inverse 3D eigenvalues
+  real(RNP), intent(in)  :: f(ns,ns,ns,nd)     !< RHS
+  real(RNP), intent(out) :: u(ns,ns,ns,nd)     !< solution
+
+  procedure(TPO_Schwarz_Cubic_Proc), pointer :: Proc
+
+  call TPO_Schwarz_Cubic_Assign(ns, Proc)
+  call Proc(ns, nc, nd, S, W, cfg, D_inv, f, u)
+
+end subroutine TPO_Schwarz_Cubic_Eval
+
+!===============================================================================
+
+end module CART__TPO_Schwarz_Cubic
