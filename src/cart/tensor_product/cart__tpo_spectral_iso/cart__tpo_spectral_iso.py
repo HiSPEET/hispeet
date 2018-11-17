@@ -58,10 +58,10 @@ for i in range(len(proc_par)):
 
     tag = na[i]
 
-    subop_1d =   tmpl_dir + 'subop_1d__' + op1[i] + '.f'
-    subop_1i = shared_dir + 'subop_1i__' + op1[i] + '.f'
-    subop_2i = shared_dir + 'subop_2i__' + op2[i] + '.f'
-    subop_3i = shared_dir + 'subop_3i__' + op3[i] + '.f'
+    subop_1id = shared_dir + 'subop_1id__' + op1[i] + '.f'
+    subop_1i  = shared_dir + 'subop_1i__'  + op1[i] + '.f'
+    subop_2i  = shared_dir + 'subop_2i__'  + op2[i] + '.f'
+    subop_3i  = shared_dir + 'subop_3i__'  + op3[i] + '.f'
 
     # derived parameters
     na_t2 = str( int(na[i]) // 2 * 2 )
@@ -87,7 +87,7 @@ for i in range(len(proc_par)):
             line = line.replace( '<na_t8>'       , na_t8       )
             line = line.replace( '<num_workers>' , num_workers )
             line = line.replace( '<vec_length>'  , vec_length  )
-            line = line.replace( '<SubOp_1d>'    , subop_1d    )
+            line = line.replace( '<SubOp_1id>'   , subop_1id   )
             line = line.replace( '<SubOp_1i>'    , subop_1i    )
             line = line.replace( '<SubOp_2i>'    , subop_2i    )
             line = line.replace( '<SubOp_3i>'    , subop_3i    )

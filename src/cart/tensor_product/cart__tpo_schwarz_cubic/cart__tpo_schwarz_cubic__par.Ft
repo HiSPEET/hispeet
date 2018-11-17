@@ -77,7 +77,7 @@ subroutine CART__TPO_Schwarz_Cubic__<tag>(ns, nc, nd, S, W, cfg, D_inv, f, u)
     call SubOp_2i(ONE, S(:,:,c2), z, u(:,:,:,l))
 
     ! z =  D⁻¹ (I x I x S^t) u
-    call SubOp_1id(ONE, S(:,:,c1), D_inv(:,:,:,l), u(:,:,:,l), z)
+    call SubOp_1id(ONE, D_inv(:,:,:,l), S(:,:,c1), u(:,:,:,l), z)
 
     ! u = I x I x WS z
     call SubOp_1i(ONE, WS_t(:,:,c1), z, u(:,:,:,l))

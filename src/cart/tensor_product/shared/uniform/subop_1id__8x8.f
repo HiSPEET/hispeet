@@ -7,11 +7,11 @@
 !>   * p: unrolled and jammed with length of 4 (u4)
 !>   * no remainder handling
 
-subroutine SubOp_1id(g, At, D, u, v)
+subroutine SubOp_1id(g, D, At, u, v)
   !$acc routine vector
   real(RNP), intent(in)  :: g                       !< metric factor
-  real(RNP), intent(in)  :: At(__NA__,__NA__)       !< transpose of A
   real(RNP), intent(in)  :: D(__NA__,__NA__,__NA__) !< diagonal operator
+  real(RNP), intent(in)  :: At(__NA__,__NA__)       !< transpose of A
   real(RNP), intent(in)  :: u(__NA__,__NA__,__NA__) !< operand
   real(RNP), intent(out) :: v(__NA__,__NA__,__NA__) !< result
 

@@ -10,6 +10,17 @@ configure_file( validate__cart__tpo_elliptic_ci.prm
                 validate__cart__tpo_elliptic_ci.prm COPYONLY )
 
 #===============================================================================
+# TPO Spectral Iso
+
+add_executable( validate__cart__tpo_spectral_iso
+                validate__cart__tpo_spectral_iso.f )
+
+target_link_libraries(validate__cart__tpo_spectral_iso HiCart)
+
+configure_file( validate__cart__tpo_spectral_iso.prm
+                validate__cart__tpo_spectral_iso.prm COPYONLY )
+
+#===============================================================================
 # TPO Schwarz
 
 add_executable( validate__cart__tpo_schwarz
