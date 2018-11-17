@@ -86,7 +86,31 @@ subroutine CART__TPO_Elliptic_CI__<tag>(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 
 contains
 
-#include "<SubOp_0>"
+  !-----------------------------------------------------------------------------
+  !> Projection to element mass matrix and computation of the Helmholtz term
+  !>
+  !>   * k:  joined with i,j and flattened  (f)
+  !>   * j:  joined with i,k and flattened  (f)
+  !>   * i:  joined with j,k and flattened  (f)
+
+  subroutine SubOp_0(lambda, M, u, M_u, v)
+    !$acc routine vector
+    real(RNP), intent(in)  :: lambda
+    real(RNP), intent(in)  :: M   (<np>**3)
+    real(RNP), intent(in)  :: u   (<np>**3)
+    real(RNP), intent(out) :: M_u (<np>**3)
+    real(RNP), intent(out) :: v   (<np>**3)
+
+    integer :: l
+
+    !$acc loop vector
+    !DIR$ SIMD
+    do l = 1, <np>**3
+      M_u(l) = M(l) * u(l)
+      v(l) = lambda * M_u(l)
+    end do
+
+  end subroutine SubOp_0
 
 #include "<SubOp_1a>"
 

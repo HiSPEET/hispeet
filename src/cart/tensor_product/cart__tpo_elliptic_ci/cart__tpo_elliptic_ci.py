@@ -52,10 +52,9 @@ with open(config, 'r') as f:
 
 # shorthands
 np  = [ entry[0] for entry in proc_par ]
-op0 = [ entry[1] for entry in proc_par ]
-op1 = [ entry[2] for entry in proc_par ]
-op2 = [ entry[3] for entry in proc_par ]
-op3 = [ entry[4] for entry in proc_par ]
+op1 = [ entry[1] for entry in proc_par ]
+op2 = [ entry[2] for entry in proc_par ]
+op3 = [ entry[3] for entry in proc_par ]
 
 # create procedures ..........................................................
 
@@ -66,7 +65,6 @@ for i in range(len(proc_par)):
 
     tag = np[i]
 
-    subop_0  =   tmpl_dir + 'subop_0__'  + op0[i] + '.f'
     subop_1a = shared_dir + 'subop_1a__' + op1[i] + '.f'
     subop_2a = shared_dir + 'subop_2a__' + op2[i] + '.f'
     subop_3a = shared_dir + 'subop_3a__' + op3[i] + '.f'
@@ -95,7 +93,6 @@ for i in range(len(proc_par)):
             line = line.replace( '<np_t8>'       , np_t8       )
             line = line.replace( '<num_workers>' , num_workers )
             line = line.replace( '<vec_length>'  , vec_length  )
-            line = line.replace( '<SubOp_0>'     , subop_0     )
             line = line.replace( '<SubOp_1a>'    , subop_1a    )
             line = line.replace( '<SubOp_2a>'    , subop_2a    )
             line = line.replace( '<SubOp_3a>'    , subop_3a    )

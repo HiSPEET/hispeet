@@ -1,25 +1,25 @@
 # PGI @ GPU
 # --------------------------------------------------
-# np,  SubOp_0,   SubOp_1  ,  SubOp_2  ,  SubOp_3
-   4,     fff ,   llll     ,  llll     ,  lffl
-   5,     fff ,   llll     ,  llll     ,  lffl
-   6,     fff ,   llu2l_r  ,  llu2l_r  ,  u2ffl_r
-   7,     fff ,   llll     ,  llll     ,  u2ffl_r
-   8,     fff ,   lu2ll_r  ,  lu2ll_r  ,  u8ffl_r
-   9,     fff ,   llll     ,  llll     ,  u4ffl_r
-  10,     fff ,   llll     ,  lu2ll_r  ,  u2ffl_r
-  11,     fff ,   llll     ,  lu4ll_r  ,  u4ffl_r
-  12,     fff ,   llu2l_r  ,  lu4ll_r  ,  u8ffl_r
-  13,     fff ,   llll     ,  lu4ll_r  ,  u8ffl_r
-  14,     fff ,   llu2l_r  ,  lu2ll_r  ,  u8ffl_r
-  15,     fff ,   llll     ,  llll     ,  u8ffl_r
-  16,     fff ,   lu2u2l_r ,  lu8ll_r  ,  u8ffl_r
-  17,     fff ,   llll     ,  lu8ll_r  ,  u8ffl_r
-  18,     fff ,   llu2l_r  ,  lu8ll_r  ,  u8ffl_r
-  19,     fff ,   llll     ,  lu8ll_r  ,  u8ffl_r
-  20,     fff ,   llu2l_r  ,  lu8ll_r  ,  u4ffl_r
-  21,     fff ,   llll     ,  lu8ll_r  ,  u4ffl_r
-  22,     fff ,   lu2u2l_r ,  lu8ll_r  ,  u4ffl_r
-  23,     fff ,   llll     ,  lu8ll_r  ,  u4ffl_r
-  24,     fff ,   lu4u2l_r ,  lu8ll_r  ,  u8ffl_r
+# np,  SubOp_1  ,  SubOp_2  ,  SubOp_3
+   4,  llll     ,  llll     ,  lffl
+   5,  llll     ,  llll     ,  lffl
+   6,  llu2l_r  ,  llu2l_r  ,  u2ffl_r
+   7,  llll     ,  llll     ,  u2ffl_r
+   8,  lu2ll_r  ,  lu2ll_r  ,  u8ffl_r
+   9,  llll     ,  llll     ,  u4ffl_r
+  10,  llll     ,  lu2ll_r  ,  u2ffl_r
+  11,  llll     ,  lu4ll_r  ,  u4ffl_r
+  12,  llu2l_r  ,  lu4ll_r  ,  u8ffl_r
+  13,  llll     ,  lu4ll_r  ,  u8ffl_r
+  14,  llu2l_r  ,  lu2ll_r  ,  u8ffl_r
+  15,  llll     ,  llll     ,  u8ffl_r
+  16,  lu2u2l_r ,  lu8ll_r  ,  u8ffl_r
+  17,  llll     ,  lu8ll_r  ,  u8ffl_r
+  18,  llu2l_r  ,  lu8ll_r  ,  u8ffl_r
+  19,  llll     ,  lu8ll_r  ,  u8ffl_r
+  20,  llu2l_r  ,  lu8ll_r  ,  u4ffl_r
+  21,  llll     ,  lu8ll_r  ,  u4ffl_r
+  22,  lu2u2l_r ,  lu8ll_r  ,  u4ffl_r
+  23,  llll     ,  lu8ll_r  ,  u4ffl_r
+  24,  lu4u2l_r ,  lu8ll_r  ,  u8ffl_r
 #
