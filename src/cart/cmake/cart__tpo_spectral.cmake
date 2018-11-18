@@ -23,7 +23,7 @@ add_custom_command(OUTPUT  ${CART__TPO_SPECTRAL_SRC}
             ${PYTHON_EXECUTABLE} ${TMPL}/cart__tpo_spectral.py
                                           --tmpl ${TMPL}
                                           --dest ${DEST}
-                                          --shared ${UNIFORM}
+                                          --shared ${NONUNIFORM}
     WORKING_DIRECTORY ${TMPL_}
     MAIN_DEPENDENCY ${DEST}/cart__tpo_spectral.var
     DEPENDS config__cart__tpo_spectral

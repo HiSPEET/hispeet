@@ -1,0 +1,143 @@
+!> summary:  3D Cartesian Equidistant Schwarz operator
+!> author:   Joerg Stiller
+!> date:     2018/11/17
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### 3D Cartesian Equidistant Schwarz operator
+!===============================================================================
+
+module CART__TPO_Schwarz
+  use Kind_Parameters, only: RNP
+  implicit none
+  private
+
+  public :: TPO_Schwarz_Proc    ! procedure interface
+  public :: TPO_Schwarz_Assign  ! procedure assignment
+  public :: TPO_Schwarz_Eval    ! operator evaluation
+
+  abstract interface
+
+    !---------------------------------------------------------------------------
+    !> Abstract interface to Schwarz operator procedures for cuboidal subdomains
+    !>
+    !> The procedure evaluates a spectral tensor-product operator of the form
+    !>
+    !>     (W3xW2xW1) (S3xS2xS1) D⁻¹ (S3xS2xS1)^T
+    !>
+    !> where
+    !>
+    !>   * `S1,S2,S3` are the column matrices of the eigenvectors to the
+    !>      1D suboperators
+    !>
+    !>   * `D` is a diagonal matrix composed of the 1D eigenvalues
+    !>
+    !>         D = lambda  g0 I3 x I2 x I1
+    !>           + nu(e) ( g1 I3 x I2 x V1
+    !>                   + g2 I3 x V2 x I1
+    !>                   + g3 V3 x I2 x I1 )
+    !>
+    !>   * `W1,W2,W3` are the diagonal 1D weighting matrices
+    !>
+    !>   * metric coefficients
+    !>
+    !>         g0 = dx(1) * dx(2) * dx(3)
+    !>         g1 = dx(2) * dx(3) / dx(1)
+    !>         g2 = dx(3) * dx(1) / dx(2)
+    !>         g3 = dx(1) * dx(2) / dx(3)
+    !>
+    !>
+    !> To accomodate various types of boundary conditions, every operator
+    !> is given for each possible 1D boundary configuration. The boundary
+    !> configurations can differ from element, as specified in the parameter
+    !> `cfg`.
+    !>
+    !> When compiled with OpenACC and run on a GPU,
+    !>
+    !>   * cfg, D_inv, f and u must be present on the device, and
+    !>   * any call to this procedure must be followed by an "acc wait"
+    !>     before accessing f or u from CPU or another than the default
+    !>     accelerator queue.
+
+    subroutine TPO_Schwarz_Proc( n1, n2, n3, nc, nd, S1, S2, S3, W1, W2, W3, &
+                                 cfg, D_inv, f, u                            )
+      use Kind_Parameters,  only: RNP
+      integer,   intent(in)  :: n1                 !< dimension of S1
+      integer,   intent(in)  :: n2                 !< dimension of S2
+      integer,   intent(in)  :: n3                 !< dimension of S3
+      integer,   intent(in)  :: nc                 !< number of configurations
+      integer,   intent(in)  :: nd                 !< number of subdomains
+      real(RNP), intent(in)  :: S1(n1,n1,nc)       !< 1D eigenvectors for dir 1
+      real(RNP), intent(in)  :: S2(n2,n2,nc)       !< 1D eigenvectors for dir 2
+      real(RNP), intent(in)  :: S3(n3,n3,nc)       !< 1D eigenvectors for dir 3
+      real(RNP), intent(in)  :: W1(n1,nc)          !< 1D weights for dir 1
+      real(RNP), intent(in)  :: W2(n2,nc)          !< 1D weights for dir 2
+      real(RNP), intent(in)  :: W3(n3,nc)          !< 1D weights for dir 3
+      integer,   intent(in)  :: cfg(3,nd)          !< subdomain configurations
+      real(RNP), intent(in)  :: D_inv(n1,n2,n3,nd) !< inverse 3D eigenvalues
+      real(RNP), intent(in)  :: f(n1,n2,n3,nd)     !< RHS
+      real(RNP), intent(out) :: u(n1,n2,n3,nd)     !< solution
+    end subroutine TPO_Schwarz_Proc
+
+  end interface
+
+contains
+
+!-------------------------------------------------------------------------------
+!> Assignment of a procedure for given dimensions
+
+subroutine TPO_Schwarz_Assign(n1, n2, n3, Proc)
+  integer,   intent(in) :: n1  !< dimension of S1
+  integer,   intent(in) :: n2  !< dimension of S2
+  integer,   intent(in) :: n3  !< dimension of S3
+  procedure(TPO_Schwarz_Proc), pointer, intent(out) :: Proc
+
+  ! external procedures ........................................................
+
+  procedure(TPO_Schwarz_Proc) :: CART__TPO_Schwarz__gen
+
+  ! initialization .............................................................
+
+  Proc => null()
+
+  ! parametrized procedures ....................................................
+
+  ! generic procedures .........................................................
+
+  if (.not. associated(Proc)) then
+    Proc => CART__TPO_Schwarz__gen
+  end if
+
+end subroutine TPO_Schwarz_Assign
+
+!-------------------------------------------------------------------------------
+!> Evaluation of the Schwarz tensor-product operator
+
+subroutine TPO_Schwarz_Eval( n1, n2, n3, nc, nd, S1, S2, S3, W1, W2, W3, &
+                             cfg, D_inv, f, u                            )
+
+  integer,   intent(in)  :: n1                 !< dimension of S1
+  integer,   intent(in)  :: n2                 !< dimension of S2
+  integer,   intent(in)  :: n3                 !< dimension of S3
+  integer,   intent(in)  :: nc                 !< number of configurations
+  integer,   intent(in)  :: nd                 !< number of subdomains
+  real(RNP), intent(in)  :: S1(n1,n1,nc)       !< 1D eigenvectors for dir 1
+  real(RNP), intent(in)  :: S2(n2,n2,nc)       !< 1D eigenvectors for dir 2
+  real(RNP), intent(in)  :: S3(n3,n3,nc)       !< 1D eigenvectors for dir 3
+  real(RNP), intent(in)  :: W1(n1,nc)          !< 1D weights for dir 1
+  real(RNP), intent(in)  :: W2(n2,nc)          !< 1D weights for dir 2
+  real(RNP), intent(in)  :: W3(n3,nc)          !< 1D weights for dir 3
+  integer,   intent(in)  :: cfg(3,nd)          !< subdomain configurations
+  real(RNP), intent(in)  :: D_inv(n1,n2,n3,nd) !< inverse 3D eigenvalues
+  real(RNP), intent(in)  :: f(n1,n2,n3,nd)     !< RHS
+  real(RNP), intent(out) :: u(n1,n2,n3,nd)     !< solution
+
+  procedure(TPO_Schwarz_Proc), pointer :: Proc
+
+  call TPO_Schwarz_Assign(n1, n2, n3, Proc)
+  call Proc(n1, n2, n3, nc, nd, S1, S2, S3, W1, W2, W3, cfg, D_inv, f, u)
+
+end subroutine TPO_Schwarz_Eval
+
+!===============================================================================
+
+end module CART__TPO_Schwarz

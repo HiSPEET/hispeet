@@ -1,6 +1,6 @@
 &input
- po = 7 
+ po = 15
  ep = 3*10
  nt = 1
- delta = 0.01,1,1
+ delta = 3*0.1
 /

@@ -10,6 +10,17 @@ configure_file( validate__cart__tpo_elliptic_ci.prm
                 validate__cart__tpo_elliptic_ci.prm COPYONLY )
 
 #===============================================================================
+# TPO Spectral
+
+add_executable( validate__cart__tpo_spectral
+                validate__cart__tpo_spectral.f )
+
+target_link_libraries(validate__cart__tpo_spectral HiCart)
+
+configure_file( validate__cart__tpo_spectral.prm
+                validate__cart__tpo_spectral.prm COPYONLY )
+
+#===============================================================================
 # TPO Spectral Iso
 
 add_executable( validate__cart__tpo_spectral_iso
@@ -30,3 +41,14 @@ target_link_libraries(validate__cart__tpo_schwarz HiCart)
 
 configure_file( validate__cart__tpo_schwarz.prm
                 validate__cart__tpo_schwarz.prm COPYONLY )
+
+#===============================================================================
+# TPO Schwarz Cubic
+
+add_executable( validate__cart__tpo_schwarz_cubic
+                validate__cart__tpo_schwarz_cubic.f )
+
+target_link_libraries(validate__cart__tpo_schwarz_cubic HiCart)
+
+configure_file( validate__cart__tpo_schwarz_cubic.prm
+                validate__cart__tpo_schwarz_cubic.prm COPYONLY )

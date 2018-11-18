@@ -1,0 +1,140 @@
+!> summary:  Schwarz operator: bf-marching, separate, parametrized
+!> author:   Joerg Stiller
+!> date:     2018/11/18
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Schwarz operator: bf-marching, separate, parametrized
+!===============================================================================
+
+#define __NA__    <n1>
+#define __NB__    <n2>
+#define __NC__    <n3>
+
+subroutine CART__TPO_Schwarz__<tag>( n1, n2, n3, nc, nd, S1, S2, S3, &
+                                     W1, W2, W3, cfg, D_inv, f, u    )
+
+  !-----------------------------------------------------------------------------
+  ! modules
+
+  use Kind_Parameters, only: RNP
+  implicit none
+
+  !-----------------------------------------------------------------------------
+  ! arguments
+
+  integer,   intent(in)  :: n1                       !< dimension of S1
+  integer,   intent(in)  :: n2                       !< dimension of S2
+  integer,   intent(in)  :: n3                       !< dimension of S3
+  integer,   intent(in)  :: nc                       !< num configurations
+  integer,   intent(in)  :: nd                       !< num subdomains
+  real(RNP), intent(in)  :: S1(<n1>,<n1>,nc)         !< 1D eigenvecs for dir 1
+  real(RNP), intent(in)  :: S2(<n2>,<n2>,nc)         !< 1D eigenvecs for dir 2
+  real(RNP), intent(in)  :: S3(<n3>,<n3>,nc)         !< 1D eigenvecs for dir 3
+  real(RNP), intent(in)  :: W1(<n1>,nc)              !< 1D weights for dir 1
+  real(RNP), intent(in)  :: W2(<n2>,nc)              !< 1D weights for dir 2
+  real(RNP), intent(in)  :: W3(<n3>,nc)              !< 1D weights for dir 3
+  integer,   intent(in)  :: cfg(3,nd)                !< subdomain configurations
+  real(RNP), intent(in)  :: D_inv(<n1>,<n2>,<n3>,nd) !< inverse 3D eigenvalues
+  real(RNP), intent(in)  :: f(<n1>,<n2>,<n3>,nd)     !< RHS
+  real(RNP), intent(out) :: u(<n1>,<n2>,<n3>,nd)     !< solution
+
+  !-----------------------------------------------------------------------------
+  ! local variables
+
+  real(RNP), parameter :: ONE = 1
+  real(RNP), dimension(:,:,:), allocatable :: WS1_t, WS2_t, WS3_t, y, z
+
+  integer :: i, j, l
+  integer :: c, c1, c2, c3
+
+  !-----------------------------------------------------------------------------
+  ! initialization
+
+  allocate(WS1_t(n1,n1,nc))
+  do c = 1, nc
+  do j = 1, <n1>
+  do i = 1, <n1>
+    WS1_t(j,i,c) = W1(i,c) * S1(i,j,c)
+  end do
+  end do
+  end do
+
+  allocate(WS2_t(n2,n2,nc))
+  do c = 1, nc
+  do j = 1, <n2>
+  do i = 1, <n2>
+    WS2_t(j,i,c) = W2(i,c) * S2(i,j,c)
+  end do
+  end do
+  end do
+
+  allocate(WS3_t(n3,n3,nc))
+  do c = 1, nc
+  do j = 1, <n3>
+  do i = 1, <n3>
+    WS3_t(j,i,c) = W3(i,c) * S3(i,j,c)
+  end do
+  end do
+  end do
+
+  allocate(y(n1, n2, n3), z(n1, n2, n3))
+
+  !-----------------------------------------------------------------------------
+  ! evaluation
+
+  !$acc data async &
+  !$acc & present(cfg, D_inv, f, u) &
+  !$acc & copyin(S1, S2, S3, WS1_t, WS2_t, WS3_t)
+
+  !$acc parallel num_workers(<num_workers>) vector_length(<vec_length>) async
+  !$acc loop gang worker private(y,z)
+
+  !$omp do private(l)
+  subdomains: do l = 1, nd
+
+    ! element-boundary configurations
+    c1 = cfg(1,l)
+    c2 = cfg(2,l)
+    c3 = cfg(3,l)
+
+    ! y = (S₃ᵀ x I x I) f
+    call SubOp_3i(ONE, S3(:,:,c3), f(:,:,:,l), y)
+
+    ! z = (I x S₂ᵀ x I) y
+    call SubOp_2i(ONE, S2(:,:,c2), y, z)
+
+    ! y = D_inv (I x I x S₁ᵀ) z
+    call SubOp_1id(ONE, S1(:,:,c1), D_inv(:,:,:,l), z, y)
+
+    ! z = I x I x WS₁ y
+    call SubOp_1i(ONE, WS1_t(:,:,c1), y, z)
+
+    ! y = I x WS₂ x I z
+    call SubOp_2i(ONE, WS2_t(:,:,c2), z, y)
+
+    ! u = WS₃ x I x I y
+    call SubOp_3i(ONE, WS3_t(:,:,c3), y, u(:,:,:,l))
+
+  end do subdomains
+  !$omp end do
+
+  !$acc end parallel
+  !$acc end data
+
+contains
+
+#include "<SubOp_1id>"
+
+#include "<SubOp_1i>"
+
+#include "<SubOp_2i>"
+
+#include "<SubOp_3i>"
+
+!===============================================================================
+
+end subroutine  CART__TPO_Schwarz__<tag>
+
+#undef __NA__
+#undef __NB__
+#undef __NC__

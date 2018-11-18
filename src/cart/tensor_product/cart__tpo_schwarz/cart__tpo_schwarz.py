@@ -17,8 +17,8 @@ tmpl_dir = args.tmpl + '/'
 dest_dir = args.dest + '/'
 shared_dir = args.shared + '/'
 
-operator  = 'CART__TPO_Spectral'
-procedure = 'procedure(TPO_Spectral_Proc)'
+operator  = 'CART__TPO_Schwarz'
+procedure = 'procedure(TPO_Schwarz_Proc)'
 
 module    = operator.lower()
 dest_proc = dest_dir + module + '__var.F'
@@ -44,9 +44,9 @@ with open(config, 'r') as f:
     proc_par = [ strip(p) for p in list(reader) if no_comment(p) ]
 
 # shorthands
-na  = [ entry[0] for entry in proc_par ]
-nb  = [ entry[1] for entry in proc_par ]
-nc  = [ entry[2] for entry in proc_par ]
+n1  = [ entry[0] for entry in proc_par ]
+n2  = [ entry[1] for entry in proc_par ]
+n3  = [ entry[2] for entry in proc_par ]
 op1 = [ entry[3] for entry in proc_par ]
 op2 = [ entry[4] for entry in proc_par ]
 op3 = [ entry[5] for entry in proc_par ]
@@ -58,7 +58,7 @@ name_proc = []
 
 for i in range(len(proc_par)):
 
-    tag = na[i] + 'x' + nb[i] + 'x' + nc[i]
+    tag = n1[i] + 'x' + n2[i] + 'x' + n3[i]
 
     subop_1id = shared_dir + 'subop_1id__' + op1[i] + '.f'
     subop_1i  = shared_dir + 'subop_1i__'  + op1[i] + '.f'
@@ -66,7 +66,7 @@ for i in range(len(proc_par)):
     subop_3i  = shared_dir + 'subop_3i__'  + op3[i] + '.f'
 
     # OpenACC
-    if min(int(na[i]), int(nb[i]), int(nc[i])) < 8:
+    if min(int(n1[i]), int(n2[i]), int(n3[i])) < 8:
         vec_length  = 128
     else:
         vec_length  = 256
@@ -78,9 +78,9 @@ for i in range(len(proc_par)):
     with open(dest_proc, 'a') as f:
         for line in fileinput.input(tmpl_proc):
             line = line.replace('<tag>'          , tag         )
-            line = line.replace('<na>'           , na[i]       )
-            line = line.replace('<nb>'           , nb[i]       )
-            line = line.replace('<nc>'           , nc[i]       )
+            line = line.replace('<n1>'           , n1[i]       )
+            line = line.replace('<n2>'           , n2[i]       )
+            line = line.replace('<n3>'           , n3[i]       )
             line = line.replace( '<num_workers>' , num_workers )
             line = line.replace( '<vec_length>'  , vec_length  )
             line = line.replace( '<SubOp_1id>'   , subop_1id   )
@@ -119,9 +119,9 @@ with open(dest_module, 'w') as f:
                 for i in range(len(proc_par)):
                     f.write(IF)
                     f.write('(')
-                    f.write('na == ' + na[i] + ' .and. ')
-                    f.write('nb == ' + nb[i] + ' .and. ')
-                    f.write('nc == ' + nc[i])
+                    f.write('n1 == ' + n1[i] + ' .and. ')
+                    f.write('n2 == ' + n2[i] + ' .and. ')
+                    f.write('n3 == ' + n3[i])
                     f.write(') ')
                     f.write('then\n')
                     f.write('    Proc => ' + name_proc[i] + '\n')

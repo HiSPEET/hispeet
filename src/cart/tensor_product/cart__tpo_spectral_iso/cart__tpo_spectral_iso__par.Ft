@@ -33,16 +33,16 @@ subroutine CART__TPO_Spectral_Iso__<tag>(na, ne, A, Lambda, u, v)
   ! local variables
 
   real(RNP), parameter   :: ONE = 1
-  real(RNP), allocatable :: A_t(:,:), z(:,:,:)
+  real(RNP), allocatable :: A_t(:,:), y(:,:,:), z(:,:,:)
 
   integer :: e, i, j
 
   !-----------------------------------------------------------------------------
   ! initialization
 
-  ! extended/transposed 1D operators ...........................................
+  ! transposed 1D operators ....................................................
 
-  allocate(A_t(<na>, <na>))
+  allocate(A_t(na, na))
 
   do j = 1, <na>
   do i = 1, <na>
@@ -52,35 +52,35 @@ subroutine CART__TPO_Spectral_Iso__<tag>(na, ne, A, Lambda, u, v)
 
   ! workspace ..................................................................
 
-  allocate(z(na, na, na))
+  allocate(y(na, na, na), z(na, na, na))
 
   !-----------------------------------------------------------------------------
   ! evaluation
 
-  !$acc data present(u,v) copyin(A,A_t,Lambda) async
+  !$acc data present(u, v) copyin(A, A_t, Lambda) async
   !$acc parallel num_workers(<num_workers>) vector_length(<vec_length>) async
-  !$acc loop gang worker private(z)
+  !$acc loop gang worker private(y, z)
 
   !$omp do private(e)
   elements: do e = 1, ne
 
-    ! z = (A^T x I x I) u
-    call SubOp_3i(ONE, A, u(:,:,:,e), z)
+    ! y = (A^T x I x I) u
+    call SubOp_3i(ONE, A, u(:,:,:,e), y)
 
-    ! v = (I x A^T x I) z
-    call SubOp_2i(ONE, A, z, v(:,:,:,e))
+    ! z = (I x A^T x I) y
+    call SubOp_2i(ONE, A, y, z)
 
-    ! z = Lambda (I x I x A^T) v
-    call SubOp_1id(ONE, A, Lambda, v(:,:,:,e), z)
+    ! y = Lambda (I x I x A^T) z
+    call SubOp_1id(ONE, A, Lambda, z, y)
 
-    ! v = IxIxA z
-    call SubOp_1i(ONE, A_t, z, v(:,:,:,e))
+    ! z = IxIxA y
+    call SubOp_1i(ONE, A_t, y, z)
 
-    ! z = IxAxI v
-    call SubOp_2i(ONE, A_t, v(:,:,:,e), z)
+    ! y = IxAxI z
+    call SubOp_2i(ONE, A_t, z, y)
 
     ! v = AxIxI z
-    call SubOp_3i(ONE, A_t, z, v(:,:,:,e))
+    call SubOp_3i(ONE, A_t, y, v(:,:,:,e))
 
   end do elements
   !$omp end do

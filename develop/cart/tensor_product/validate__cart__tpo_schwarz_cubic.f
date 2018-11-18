@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-program Validate__CART__TPO_Schwarz
+program Validate__CART__TPO_Schwarz_Cubic
   use Kind_Parameters,   only: IXL, RNP
   use Constants,         only: ONE, THIRD, ZERO
   use Array_Assignments, only: AssignScalar
@@ -17,7 +17,7 @@ program Validate__CART__TPO_Schwarz
   use CART__Mesh_Partition
   use CART__Generate_Structured_Mesh
   use CART__Schwarz_Operator
-  use CART__TPO_Schwarz
+  use CART__TPO_Schwarz_Cubic
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -58,14 +58,14 @@ program Validate__CART__TPO_Schwarz
   type(IP_ElementOperators1D) :: element_op ! IP/DG element oprators
   type(SchwarzOperator3D)     :: schwarz_op ! Schwarz operator
 
-  procedure(TPO_Schwarz_Proc), pointer :: SchwarzOp_Gen
-  procedure(TPO_Schwarz_Proc), pointer :: SchwarzOp_Par
+  procedure(TPO_Schwarz_Cubic_Proc), pointer :: SchwarzOp_Gen
+  procedure(TPO_Schwarz_Cubic_Proc), pointer :: SchwarzOp_Par
 
   real(RNP), allocatable :: f(:,:,:,:), u(:,:,:,:), r(:,:,:,:)
 
   ! auxiliary ..................................................................
 
-  character(len=80) :: input_file = 'validate__cart__tpo_schwarz.prm'
+  character(len=80) :: input_file = 'validate__cart__tpo_schwarz_cubic.prm'
 
   real(RNP) :: time
   real(RNP) :: error_gen, mflops_gen, mlups_gen
@@ -103,6 +103,9 @@ program Validate__CART__TPO_Schwarz
     close(prm)
   end if
 
+  ! enforce uniform subdomains
+  delta = delta(1)
+
   ! mesh .......................................................................
 
   ne = product(ep)
@@ -121,8 +124,8 @@ program Validate__CART__TPO_Schwarz
   nc = schwarz_op % nc
   nd = ne
 
-  call TPO_Schwarz_Assign(-1, -1, -1, SchwarzOp_Gen)  ! generic, for reference
-  call TPO_Schwarz_Assign(n1, n2, n3, SchwarzOp_Par)  ! parametrized
+  call TPO_Schwarz_Cubic_Assign(-1, SchwarzOp_Gen)  ! generic, for reference
+  call TPO_Schwarz_Cubic_Assign(n1, SchwarzOp_Par)  ! parametrized
 
   parametrized = .not. associated( SchwarzOp_Par, &
                                    SchwarzOp_Gen  )
@@ -141,8 +144,6 @@ program Validate__CART__TPO_Schwarz
   !-----------------------------------------------------------------------------
 
   associate( S1  => schwarz_op % S1,  W1 => schwarz_op % W1,      &
-             S2  => schwarz_op % S2,  W2 => schwarz_op % W2,      &
-             S3  => schwarz_op % S3,  W3 => schwarz_op % W3,      &
              cfg => schwarz_op % cfg, D_inv => schwarz_op % D_inv )
 
     ! generic implementation ...................................................
@@ -151,13 +152,11 @@ program Validate__CART__TPO_Schwarz
     !$acc data copyin(S1, W1, cfg, D_inv, f) copyout(r, u)
 
     ! r = reference result
-    call SchwarzOp_Gen( n1, n2, n3, nc, nd, S1, S2, S3, &
-                        W1, W2, W3, cfg, D_inv, f, r    )
+    call SchwarzOp_Gen(n1, nc, nd, S1, W1, cfg, D_inv, f, r)
 
     call system_clock(count0, rate)
     do i = 1, nt
-      call SchwarzOp_Gen( n1, n2, n3, nc, nd, S1, S2, S3, &
-                          W1, W2, W3, cfg, D_inv, f, u    )
+      call SchwarzOp_Gen(n1, nc, nd, S1, W1, cfg, D_inv, f, u)
       !$acc wait
     end do
     call system_clock(count)
@@ -176,14 +175,12 @@ program Validate__CART__TPO_Schwarz
     !$omp parallel
     !$acc data copyin(S1, W1, cfg, D_inv, f) copyout(u)
 
-    call SchwarzOp_Par( n1, n2, n3, nc, nd, S1, S2, S3, &
-                        W1, W2, W3, cfg, D_inv, f, u    )
+    call SchwarzOp_Par(n1, nc, nd, S1, W1, cfg, D_inv, f, u)
     !$acc wait
 
     call system_clock(count0, rate)
     do i = 1, nt
-      call SchwarzOp_Par( n1, n2, n3, nc, nd, S1, S2, S3, &
-                          W1, W2, W3, cfg, D_inv, f, u    )
+      call SchwarzOp_Par(n1, nc, nd, S1, W1, cfg, D_inv, f, u)
       !$acc wait
     end do
     call system_clock(count)
@@ -202,7 +199,7 @@ program Validate__CART__TPO_Schwarz
   !-----------------------------------------------------------------------------
   ! print results
 
-  write(*,'(/,A,/)') 'Non-uniform Schwarz operator'
+  write(*,'(/,A,/)') 'Uniform (cubic) Schwarz operator'
 
   write(*,'(3A)') '#                                  ',   &
                   '   ------------ generic ------------',  &
@@ -223,4 +220,4 @@ program Validate__CART__TPO_Schwarz
 
 !===============================================================================
 
-end program Validate__CART__TPO_Schwarz
+end program Validate__CART__TPO_Schwarz_Cubic

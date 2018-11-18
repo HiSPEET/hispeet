@@ -4,8 +4,9 @@
 # configuration script
 set(TPO_CONFIG ${PROJECT_SOURCE_DIR}/bin/tpo_configure.py)
 
-# shared directory for uniform operators
-set(UNIFORM ${CMAKE_CURRENT_SOURCE_DIR}/tensor_product/shared/uniform)
+# shared directory for non/uniform operators
+set(UNIFORM    ${CMAKE_CURRENT_SOURCE_DIR}/tensor_product/shared/uniform)
+set(NONUNIFORM ${CMAKE_CURRENT_SOURCE_DIR}/tensor_product/shared/nonuniform)
 
 # target directory of generated sources
 set(DEST ${CMAKE_CURRENT_BINARY_DIR})
@@ -18,6 +19,7 @@ include(cmake/cart__tpo_rotrot.cmake)
 include(cmake/cart__tpo_elliptic_ci.cmake)
 include(cmake/cart__tpo_spectral.cmake)
 include(cmake/cart__tpo_spectral_iso.cmake)
+include(cmake/cart__tpo_schwarz.cmake)
 include(cmake/cart__tpo_schwarz_iso.cmake)
 include(cmake/cart__tpo_schwarz_cubic.cmake)
 
