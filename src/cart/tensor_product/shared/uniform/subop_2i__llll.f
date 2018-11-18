@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> Performs `v = g IxAxI u`
+!> Performs `v = g IxAᵀxI u`
 !>
 !>   * k: simple loop (l)
 !>   * j: simple loop (l)
@@ -7,10 +7,10 @@
 !>   * p: simple loop (l)
 !>   * using Intel SIMD directive
 
-subroutine SubOp_2i(g, At, u, v)
+subroutine SubOp_2i(g, A, u, v)
   !$acc routine vector
   real(RNP), intent(in)  :: g                        !< metric factor
-  real(RNP), intent(in)  :: At(__NA__,__NA__)        !< transpose of A
+  real(RNP), intent(in)  :: A(__NA__,__NA__)         !< A
   real(RNP), intent(in)  :: u(__NA__,__NA__,__NA__)  !< operand
   real(RNP), intent(out) :: v(__NA__,__NA__,__NA__)  !< result
 
@@ -24,7 +24,7 @@ subroutine SubOp_2i(g, At, u, v)
     do i = 1, __NA__
       tmp = 0
       do p = 1, __NA__
-        tmp = tmp + At(p,j) * u(i,p,k)
+        tmp = tmp + A(p,j) * u(i,p,k)
       end do
       v(i,j,k) = g * tmp
     end do

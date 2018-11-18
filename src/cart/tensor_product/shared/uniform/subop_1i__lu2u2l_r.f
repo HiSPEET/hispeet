@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> Performs `v = g IxIxA u`
+!> Performs `v = g IxIxAᵀ u`
 !>
 !>   * k: simple loop (l)
 !>   * j: unrolled and jammed with length of 2 (u2)
@@ -7,10 +7,10 @@
 !>   * p: simple loop (l)
 !>   * explicit remainder handling (r)
 
-subroutine SubOp_1i(g, At, u, v)
+subroutine SubOp_1i(g, A, u, v)
   !$acc routine vector
   real(RNP), intent(in)  :: g                       !< metric factor
-  real(RNP), intent(in)  :: At(__NA__,__NA__)       !< transpose of A
+  real(RNP), intent(in)  :: A(__NA__,__NA__)        !< A
   real(RNP), intent(in)  :: u(__NA__,__NA__,__NA__) !< operand
   real(RNP), intent(out) :: v(__NA__,__NA__,__NA__) !< result
 
@@ -26,10 +26,10 @@ subroutine SubOp_1i(g, At, u, v)
     tmp2 = 0
     tmp3 = 0
     do p = 1, __NA__
-      tmp0 = tmp0 + At(p,i  ) * u(p,j  ,k)
-      tmp1 = tmp1 + At(p,i+1) * u(p,j  ,k)
-      tmp2 = tmp2 + At(p,i  ) * u(p,j+1,k)
-      tmp3 = tmp3 + At(p,i+1) * u(p,j+1,k)
+      tmp0 = tmp0 + A(p,i  ) * u(p,j  ,k)
+      tmp1 = tmp1 + A(p,i+1) * u(p,j  ,k)
+      tmp2 = tmp2 + A(p,i  ) * u(p,j+1,k)
+      tmp3 = tmp3 + A(p,i+1) * u(p,j+1,k)
     end do
     v(i  ,j  ,k) = g * tmp0
     v(i+1,j  ,k) = g * tmp1
@@ -51,8 +51,8 @@ subroutine SubOp_1i(g, At, u, v)
     tmp0 = 0
     tmp1 = 0
     do p = 1, __NA__
-      tmp0 = tmp0 + At(p,i  ) * u(p,j,k)
-      tmp1 = tmp1 + At(p,i+1) * u(p,j,k)
+      tmp0 = tmp0 + A(p,i  ) * u(p,j,k)
+      tmp1 = tmp1 + A(p,i+1) * u(p,j,k)
     end do
     v(i  ,j,k) = g * tmp0
     v(i+1,j,k) = g * tmp1
@@ -68,7 +68,7 @@ subroutine SubOp_1i(g, At, u, v)
   do j = 1, __NA__
     tmp0 = 0
     do p = 1, __NA__
-      tmp0 = tmp0 + At(p,i) * u(p,j,k)
+      tmp0 = tmp0 + A(p,i) * u(p,j,k)
     end do
     v(i,j,k) = g * tmp0
   end do

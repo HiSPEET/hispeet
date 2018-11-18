@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> Performs `v = g IxIxA u`
+!> Performs `v = g IxIxAᵀ u`
 !>
 !>   * k: simple loop (l)
 !>   * j: unrolled and jammed with length of 4 (u4)
@@ -7,10 +7,10 @@
 !>   * p: simple loop (l)
 !>   * explicit remainder handling (r)
 
-subroutine SubOp_1i(g, At, u, v)
+subroutine SubOp_1i(g, A, u, v)
   !$acc routine vector
   real(RNP), intent(in)    :: g                       !< metric factor
-  real(RNP), intent(in)    :: At(__NA__,__NA__)       !< transpose of A
+  real(RNP), intent(in)    :: A(__NA__,__NA__)        !< A
   real(RNP), intent(in)    :: u(__NA__,__NA__,__NA__) !< operand
   real(RNP), intent(inout) :: v(__NA__,__NA__,__NA__) !< result
 
@@ -35,14 +35,14 @@ subroutine SubOp_1i(g, At, u, v)
     tmp03 = 0
     tmp13 = 0
     do p = 1, __NA__
-      tmp00 = tmp00 + At(p,i  ) * u(p,j  ,k)
-      tmp10 = tmp10 + At(p,i+1) * u(p,j  ,k)
-      tmp01 = tmp01 + At(p,i  ) * u(p,j+1,k)
-      tmp11 = tmp11 + At(p,i+1) * u(p,j+1,k)
-      tmp02 = tmp02 + At(p,i  ) * u(p,j+2,k)
-      tmp12 = tmp12 + At(p,i+1) * u(p,j+2,k)
-      tmp03 = tmp03 + At(p,i  ) * u(p,j+3,k)
-      tmp13 = tmp13 + At(p,i+1) * u(p,j+3,k)
+      tmp00 = tmp00 + A(p,i  ) * u(p,j  ,k)
+      tmp10 = tmp10 + A(p,i+1) * u(p,j  ,k)
+      tmp01 = tmp01 + A(p,i  ) * u(p,j+1,k)
+      tmp11 = tmp11 + A(p,i+1) * u(p,j+1,k)
+      tmp02 = tmp02 + A(p,i  ) * u(p,j+2,k)
+      tmp12 = tmp12 + A(p,i+1) * u(p,j+2,k)
+      tmp03 = tmp03 + A(p,i  ) * u(p,j+3,k)
+      tmp13 = tmp13 + A(p,i+1) * u(p,j+3,k)
     end do
     v(i  ,j  ,k) = g * tmp00
     v(i+1,j  ,k) = g * tmp10
@@ -70,8 +70,8 @@ subroutine SubOp_1i(g, At, u, v)
     tmp00 = 0
     tmp10 = 0
     do p = 1, __NA__
-      tmp00 = tmp00 + At(p,i  ) * u(p,j,k)
-      tmp10 = tmp10 + At(p,i+1) * u(p,j,k)
+      tmp00 = tmp00 + A(p,i  ) * u(p,j,k)
+      tmp10 = tmp10 + A(p,i+1) * u(p,j,k)
     end do
     v(i  ,j,k) = g * tmp00
     v(i+1,j,k) = g * tmp10
@@ -87,7 +87,7 @@ subroutine SubOp_1i(g, At, u, v)
   do j = 1, __NA__
     tmp00 = 0
     do p = 1, __NA__
-      tmp00 = tmp00 + At(p,i) * u(p,j,k)
+      tmp00 = tmp00 + A(p,i) * u(p,j,k)
     end do
     v(i,j,k) = g * tmp00
   end do
@@ -107,10 +107,10 @@ subroutine SubOp_1i(g, At, u, v)
     tmp01 = 0
     tmp11 = 0
     do p = 1, __NA__
-      tmp00 = tmp00 + At(p,i  ) * u(p,j  ,k)
-      tmp10 = tmp10 + At(p,i+1) * u(p,j  ,k)
-      tmp01 = tmp01 + At(p,i  ) * u(p,j+1,k)
-      tmp11 = tmp11 + At(p,i+1) * u(p,j+1,k)
+      tmp00 = tmp00 + A(p,i  ) * u(p,j  ,k)
+      tmp10 = tmp10 + A(p,i+1) * u(p,j  ,k)
+      tmp01 = tmp01 + A(p,i  ) * u(p,j+1,k)
+      tmp11 = tmp11 + A(p,i+1) * u(p,j+1,k)
     end do
     v(i  ,j  ,k) = g * tmp00
     v(i+1,j  ,k) = g * tmp10
@@ -135,12 +135,12 @@ subroutine SubOp_1i(g, At, u, v)
      tmp02 = 0
      tmp12 = 0
      do p = 1, __NA__
-       tmp00 = tmp00 + At(p,i  ) * u(p,j  ,k)
-       tmp10 = tmp10 + At(p,i+1) * u(p,j  ,k)
-       tmp01 = tmp01 + At(p,i  ) * u(p,j+1,k)
-       tmp11 = tmp11 + At(p,i+1) * u(p,j+1,k)
-       tmp02 = tmp02 + At(p,i  ) * u(p,j+2,k)
-       tmp12 = tmp12 + At(p,i+1) * u(p,j+2,k)
+       tmp00 = tmp00 + A(p,i  ) * u(p,j  ,k)
+       tmp10 = tmp10 + A(p,i+1) * u(p,j  ,k)
+       tmp01 = tmp01 + A(p,i  ) * u(p,j+1,k)
+       tmp11 = tmp11 + A(p,i+1) * u(p,j+1,k)
+       tmp02 = tmp02 + A(p,i  ) * u(p,j+2,k)
+       tmp12 = tmp12 + A(p,i+1) * u(p,j+2,k)
      end do
      v(i  ,j  ,k) = g * tmp00
      v(i+1,j  ,k) = g * tmp10
@@ -160,7 +160,7 @@ subroutine SubOp_1i(g, At, u, v)
   do j = 1, __NA__
     tmp00 = 0
     do p = 1, __NA__
-      tmp00 = tmp00 + At(p,i) * u(p,j,k)
+      tmp00 = tmp00 + A(p,i) * u(p,j,k)
     end do
     v(i,j,k) = g * tmp00
   end do

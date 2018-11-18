@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> Performs `v = g D IxIxA u` for ns = 4
+!> Performs `v = g D IxIxAᵀ u` for ns = 4
 !>
 !>   * k: simple loop (l)
 !>   * j: simple loop (l)
@@ -7,11 +7,11 @@
 !>   * p: unrolled and jammed with length of 4 (u4)
 !>   * no remainder handling
 
-subroutine SubOp_1id(g, D, At, u, v)
+subroutine SubOp_1id(g, A, D, u, v)
   !$acc routine vector
   real(RNP), intent(in)  :: g                       !< metric factor
+  real(RNP), intent(in)  :: A(__NA__,__NA__)        !< A
   real(RNP), intent(in)  :: D(__NA__,__NA__,__NA__) !< diagonal operator
-  real(RNP), intent(in)  :: At(__NA__,__NA__)       !< transpose of A
   real(RNP), intent(in)  :: u(__NA__,__NA__,__NA__) !< operand
   real(RNP), intent(out) :: v(__NA__,__NA__,__NA__) !< result
 
@@ -23,10 +23,10 @@ subroutine SubOp_1id(g, D, At, u, v)
     do j = 1, __NA__
     do i = 1, __NA_T4__, 4
 
-      tmp =       At(1,i:i+3) * u(1,j,k)
-      tmp = tmp + At(2,i:i+3) * u(2,j,k)
-      tmp = tmp + At(3,i:i+3) * u(3,j,k)
-      tmp = tmp + At(4,i:i+3) * u(4,j,k)
+      tmp =       A(1,i:i+3) * u(1,j,k)
+      tmp = tmp + A(2,i:i+3) * u(2,j,k)
+      tmp = tmp + A(3,i:i+3) * u(3,j,k)
+      tmp = tmp + A(4,i:i+3) * u(4,j,k)
 
       v(i:i+3,j,k) = g * D(i:i+3,j,k) * tmp
 

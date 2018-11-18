@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> Performs `v = g D AxIxI u` for single element
+!> Performs `v = g D AᵀxIxI u` for single element
 !>
 !>   * k: unrolled and jammed with length of 4 (u4)
 !>   * j: joined with i and flattened (f)
@@ -7,11 +7,11 @@
 !>   * p: simple loop (l)
 !>   * explicit remainder handling (r)
 
-subroutine SubOp_3id(g, D, At, u, v)
+subroutine SubOp_3id(g, A, D, u, v)
   !$acc routine vector
   real(RNP), intent(in)  :: g                   !< metric factor
+  real(RNP), intent(in)  :: A(__NA__,__NA__)    !< A
   real(RNP), intent(in)  :: D(__NA__**2,__NA__) !< diagonal operator
-  real(RNP), intent(in)  :: At(__NA__,__NA__)   !< transpose of A
   real(RNP), intent(in)  :: u(__NA__**2,__NA__) !< operand
   real(RNP), intent(out) :: v(__NA__**2,__NA__) !< result
 
@@ -28,10 +28,10 @@ subroutine SubOp_3id(g, D, At, u, v)
     tmp2 = 0
     tmp3 = 0
     do p = 1, __NA__
-      tmp0 = tmp0 + At(p,k  ) * u(ij,p)
-      tmp1 = tmp1 + At(p,k+1) * u(ij,p)
-      tmp2 = tmp2 + At(p,k+2) * u(ij,p)
-      tmp3 = tmp3 + At(p,k+3) * u(ij,p)
+      tmp0 = tmp0 + A(p,k  ) * u(ij,p)
+      tmp1 = tmp1 + A(p,k+1) * u(ij,p)
+      tmp2 = tmp2 + A(p,k+2) * u(ij,p)
+      tmp3 = tmp3 + A(p,k+3) * u(ij,p)
     end do
     v(ij,k  ) = g * D(ij,k  ) * tmp0
     v(ij,k+1) = g * D(ij,k+1) * tmp1
@@ -50,7 +50,7 @@ subroutine SubOp_3id(g, D, At, u, v)
   do ij = 1, __NA__**2
     tmp0 = 0
     do p = 1, __NA__
-      tmp0 = tmp0 + At(p,__NA__) * u(ij,p)
+      tmp0 = tmp0 + A(p,__NA__) * u(ij,p)
     end do
     v(ij,__NA__) = g * D(ij,__NA__) * tmp0
   end do
@@ -64,8 +64,8 @@ subroutine SubOp_3id(g, D, At, u, v)
     tmp0 = 0
     tmp1 = 0
     do p = 1, __NA__
-      tmp0 = tmp0 + At(p,__NA__-1) * u(ij,p)
-      tmp1 = tmp1 + At(p,__NA__  ) * u(ij,p)
+      tmp0 = tmp0 + A(p,__NA__-1) * u(ij,p)
+      tmp1 = tmp1 + A(p,__NA__  ) * u(ij,p)
     end do
     v(ij,__NA__-1) = g * D(ij,__NA__-1) * tmp0
     v(ij,__NA__  ) = g * D(ij,__NA__  ) * tmp1
@@ -79,9 +79,9 @@ subroutine SubOp_3id(g, D, At, u, v)
     tmp1 = 0
     tmp2 = 0
     do p = 1, __NA__
-      tmp0 = tmp0 + At(p,__NA__-2) * u(ij,p)
-      tmp1 = tmp1 + At(p,__NA__-1) * u(ij,p)
-      tmp2 = tmp2 + At(p,__NA__  ) * u(ij,p)
+      tmp0 = tmp0 + A(p,__NA__-2) * u(ij,p)
+      tmp1 = tmp1 + A(p,__NA__-1) * u(ij,p)
+      tmp2 = tmp2 + A(p,__NA__  ) * u(ij,p)
     end do
     v(ij,__NA__-2) = g * D(ij,__NA__-2) * tmp0
     v(ij,__NA__-1) = g * D(ij,__NA__-1) * tmp1

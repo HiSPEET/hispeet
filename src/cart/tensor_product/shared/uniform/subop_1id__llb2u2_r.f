@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> Performs `v = g D IxIxA u`
+!> Performs `v = g D IxIxAᵀ u`
 !>
 !>   * k: simple loop (l)
 !>   * j: simple loop (l)
@@ -7,11 +7,11 @@
 !>   * p: unrolled and jammed with length of 2 (u2)
 !>   * explicit remainder handling (r)
 
-subroutine SubOp_1id(g, D, At, u, v)
+subroutine SubOp_1id(g, A, D, u, v)
   !$acc routine vector
   real(RNP), intent(in)  :: g                       !< metric factor
+  real(RNP), intent(in)  :: A(__NA__,__NA__)        !< A
   real(RNP), intent(in)  :: D(__NA__,__NA__,__NA__) !< diagonal operator
-  real(RNP), intent(in)  :: At(__NA__,__NA__)       !< transpose of A
   real(RNP), intent(in)  :: u(__NA__,__NA__,__NA__) !< operand
   real(RNP), intent(out) :: v(__NA__,__NA__,__NA__) !< result
 
@@ -35,8 +35,8 @@ subroutine SubOp_1id(g, D, At, u, v)
       do j = 1, __NA__
       do i = 1, __NA_T2__, 2
 
-        tmp =       At(q  ,i:i+1) * u(q  ,j,k)
-        tmp = tmp + At(q+1,i:i+1) * u(q+1,j,k)
+        tmp =       A(q  ,i:i+1) * u(q  ,j,k)
+        tmp = tmp + A(q+1,i:i+1) * u(q+1,j,k)
 
         v(i:i+1,j,k) = v(i:i+1,j,k) + g * tmp
 
@@ -54,7 +54,7 @@ subroutine SubOp_1id(g, D, At, u, v)
   do j = 1, __NA__
   do i = 1, __NA_T2__, 2
 
-    v(i:i+1,j,k) = v(i:i+1,j,k) + g * At(__NA__,i:i+1) * u(__NA__,j,k)
+    v(i:i+1,j,k) = v(i:i+1,j,k) + g * A(__NA__,i:i+1) * u(__NA__,j,k)
 
   end do
   end do
@@ -69,8 +69,8 @@ subroutine SubOp_1id(g, D, At, u, v)
       !$acc loop private(tmp)
       do j = 1, __NA__
 
-        tmp(0) =          At(q  ,__NA__) * u(q  ,j,k)
-        tmp(0) = tmp(0) + At(q+1,__NA__) * u(q+1,j,k)
+        tmp(0) =          A(q  ,__NA__) * u(q  ,j,k)
+        tmp(0) = tmp(0) + A(q+1,__NA__) * u(q+1,j,k)
 
         v(__NA__,j,k) = v(__NA__,j,k) + g *tmp(0)
 
@@ -83,7 +83,7 @@ subroutine SubOp_1id(g, D, At, u, v)
   !$acc loop collapse(2) independent vector
   do k = 1, __NA__
   do j = 1, __NA__
-    v(__NA__,j,k) = v(__NA__,j,k) + g * At(__NA__,__NA__) * u(__NA__,j,k)
+    v(__NA__,j,k) = v(__NA__,j,k) + g * A(__NA__,__NA__) * u(__NA__,j,k)
   end do
   end do
 
