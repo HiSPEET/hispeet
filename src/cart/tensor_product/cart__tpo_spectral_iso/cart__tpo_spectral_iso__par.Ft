@@ -71,7 +71,7 @@ subroutine CART__TPO_Spectral_Iso__<tag>(na, ne, A, Lambda, u, v)
     call SubOp_2i(ONE, A, z, v(:,:,:,e))
 
     ! z = Lambda (I x I x A^T) v
-    call SubOp_1id(ONE, Lambda, A, v(:,:,:,e), z)
+    call SubOp_1id(ONE, A, Lambda, v(:,:,:,e), z)
 
     ! v = IxIxA z
     call SubOp_1i(ONE, A_t, z, v(:,:,:,e))

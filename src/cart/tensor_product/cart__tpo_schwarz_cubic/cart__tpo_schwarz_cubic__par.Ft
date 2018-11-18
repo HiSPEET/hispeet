@@ -36,7 +36,7 @@ subroutine CART__TPO_Schwarz_Cubic__<tag>(ns, nc, nd, S, W, cfg, D_inv, f, u)
   ! local variables
 
   real(RNP), parameter   :: ONE = 1
-  real(RNP), allocatable :: WS_t(:,:,:), z(:,:,:)
+  real(RNP), allocatable :: WS_t(:,:,:), y(:,:,:), z(:,:,:)
 
   integer :: i, j, l
   integer :: c, c1, c2, c3
@@ -44,7 +44,7 @@ subroutine CART__TPO_Schwarz_Cubic__<tag>(ns, nc, nd, S, W, cfg, D_inv, f, u)
   !-----------------------------------------------------------------------------
   ! initialization
 
-  allocate(WS_t(ns,ns,nc), z(ns,ns,ns))
+  allocate(WS_t(ns,ns,nc), y(ns,ns,ns), z(ns,ns,ns))
 
   ! transposed 1D operator
   do c = 1, nc
@@ -58,9 +58,10 @@ subroutine CART__TPO_Schwarz_Cubic__<tag>(ns, nc, nd, S, W, cfg, D_inv, f, u)
   !-----------------------------------------------------------------------------
   ! evaluation
 
-  !$acc data present(cfg,D_inv,f,u) copyin(S,WS_t) async
-  !$acc parallel num_workers(<num_workers>) vector_length(<vec_length>) async
-  !$acc loop gang worker private(z)
+  !$acc data async present(cfg, D_inv, f, u) copyin(S, WS_t)
+  !$acc parallel async &
+  !$acc & device_type(nvidia) num_workers(1024/vec_len) vector_length(vec_len)
+  !$acc loop gang worker private(y,z)
 
   !$omp do private(l)
   elements: do l = 1, nd
@@ -70,23 +71,23 @@ subroutine CART__TPO_Schwarz_Cubic__<tag>(ns, nc, nd, S, W, cfg, D_inv, f, u)
     c2 = cfg(2,l)
     c3 = cfg(3,l)
 
-    ! z = S^t x I x I f
-    call SubOp_3i(ONE, S(:,:,c3), f(:,:,:,l), z)
+    ! y = S^t x I x I f
+    call SubOp_3i(ONE, S(:,:,c3), f(:,:,:,l), y)
 
-    ! u = I x S^t x I z
-    call SubOp_2i(ONE, S(:,:,c2), z, u(:,:,:,l))
+    ! z = I x S^t x I y
+    call SubOp_2i(ONE, S(:,:,c2), y, z)
 
-    ! z =  D⁻¹ (I x I x S^t) u
-    call SubOp_1id(ONE, D_inv(:,:,:,l), S(:,:,c1), u(:,:,:,l), z)
+    ! y =  D⁻¹ (I x I x S^t) z
+    call SubOp_1id(ONE, S(:,:,c1), D_inv(:,:,:,l), z, y)
 
-    ! u = I x I x WS z
-    call SubOp_1i(ONE, WS_t(:,:,c1), z, u(:,:,:,l))
+    ! z = I x I x WS y
+    call SubOp_1i(ONE, WS_t(:,:,c1), y, z)
 
-    ! z = I x WS x I u
-    call SubOp_2i(ONE, WS_t(:,:,c2), u(:,:,:,l), z)
+    ! y = I x WS x I z
+    call SubOp_2i(ONE, WS_t(:,:,c2), z, y)
 
-    ! u = WS x I x I z
-    call SubOp_3i(ONE, WS_t(:,:,c3), z, u(:,:,:,l))
+    ! u = WS x I x I y
+    call SubOp_3i(ONE, WS_t(:,:,c3), y, u(:,:,:,l))
 
   end do elements
   !$omp end do

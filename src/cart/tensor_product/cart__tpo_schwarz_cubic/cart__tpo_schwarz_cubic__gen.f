@@ -30,7 +30,7 @@ subroutine CART__TPO_Schwarz_Cubic__gen(ns, nc, nd, S, W, cfg, D_inv, f, u)
   !-----------------------------------------------------------------------------
   ! local variables
 
-  real(RNP), allocatable :: WS_t(:,:,:), z(:,:,:)
+  real(RNP), allocatable :: WS_t(:,:,:), y(:,:,:), z(:,:,:)
   real(RNP) :: tmp
 
   integer :: i, j, k, l, m
@@ -47,9 +47,8 @@ subroutine CART__TPO_Schwarz_Cubic__gen(ns, nc, nd, S, W, cfg, D_inv, f, u)
     vec_len = 256
   end if
 
-  allocate(WS_t(ns,ns,nc), z(ns,ns,ns))
+  allocate(WS_t(ns,ns,nc), y(ns,ns,ns), z(ns,ns,ns))
 
-  ! transposed 1D operator
   do c = 1, nc
   do j = 1, ns
   do i = 1, ns
@@ -61,20 +60,20 @@ subroutine CART__TPO_Schwarz_Cubic__gen(ns, nc, nd, S, W, cfg, D_inv, f, u)
   !-----------------------------------------------------------------------------
   ! evaluation
 
-  !$acc data present(cfg,D_inv,f,u) copyin(S,WS_t) async
+  !$acc data async present(cfg, D_inv, f, u) copyin(S, WS_t)
   !$acc parallel async &
   !$acc & device_type(nvidia) num_workers(1024/vec_len) vector_length(vec_len)
-  !$acc loop gang worker private(z)
+  !$acc loop gang worker private(y,z)
 
   !$omp do private(l)
-  elements: do l = 1, nd
+  subdomains: do l = 1, nd
 
     ! element-boundary configurations
     c1 = cfg(1,l)
     c2 = cfg(2,l)
     c3 = cfg(3,l)
 
-    ! z = S^t x I x I f ........................................................
+    ! y = S^t x I x I f ........................................................
 
     !$acc loop collapse(3) vector
     do k = 1, ns
@@ -84,27 +83,12 @@ subroutine CART__TPO_Schwarz_Cubic__gen(ns, nc, nd, S, W, cfg, D_inv, f, u)
       do m = 1, ns
         tmp = tmp + S(m,k,c3) * f(i,j,m,l)
       end do
-      z(i,j,k) = tmp
+      y(i,j,k) = tmp
     end do
     end do
     end do
 
-    ! u = I x S^t x I z ........................................................
-
-    !$acc loop collapse(3) vector
-    do k = 1, ns
-    do j = 1, ns
-    do i = 1, ns
-      tmp = 0
-      do m = 1, ns
-        tmp = tmp + S(m,j,c2) * z(i,m,k)
-      end do
-      u(i,j,k,l) = tmp
-    end do
-    end do
-    end do
-
-    ! z = D⁻¹ (I x I x S^t) u ..................................................
+    ! z = I x S^t x I y ........................................................
 
     !$acc loop collapse(3) vector
     do k = 1, ns
@@ -112,44 +96,14 @@ subroutine CART__TPO_Schwarz_Cubic__gen(ns, nc, nd, S, W, cfg, D_inv, f, u)
     do i = 1, ns
       tmp = 0
       do m = 1, ns
-        tmp = tmp + S(m,i,c1) * u(m,j,k,l)
-      end do
-      z(i,j,k) = D_inv(i,j,k,l) * tmp
-    end do
-    end do
-    end do
-
-    ! u = I x I x WS z .........................................................
-
-    !$acc loop collapse(3) vector
-    do k = 1, ns
-    do j = 1, ns
-    do i = 1, ns
-      tmp = 0
-      do m = 1, ns
-        tmp = tmp + WS_t(m,i,c1) * z(m,j,k)
-      end do
-      u(i,j,k,l) = tmp
-    end do
-    end do
-    end do
-
-    ! z = I x WS x I u .........................................................
-
-    !$acc loop collapse(3) vector
-    do k = 1, ns
-    do j = 1, ns
-    do i = 1, ns
-      tmp = 0
-      do m = 1, ns
-        tmp = tmp + WS_t(m,j,c2) * u(i,m,k,l)
+        tmp = tmp + S(m,j,c2) * y(i,m,k)
       end do
       z(i,j,k) = tmp
     end do
     end do
     end do
 
-    ! u = WS x I x I z .........................................................
+    ! y = D⁻¹ (I x I x S^t) z ..................................................
 
     !$acc loop collapse(3) vector
     do k = 1, ns
@@ -157,14 +111,59 @@ subroutine CART__TPO_Schwarz_Cubic__gen(ns, nc, nd, S, W, cfg, D_inv, f, u)
     do i = 1, ns
       tmp = 0
       do m = 1, ns
-        tmp = tmp + WS_t(m,k,c3) * z(i,j,m)
+        tmp = tmp + S(m,i,c1) * z(m,j,k)
+      end do
+      y(i,j,k) = tmp * D_inv(i,j,k,l)
+    end do
+    end do
+    end do
+
+    ! z = I x I x WS y .........................................................
+
+    !$acc loop collapse(3) vector
+    do k = 1, ns
+    do j = 1, ns
+    do i = 1, ns
+      tmp = 0
+      do m = 1, ns
+        tmp = tmp + WS_t(m,i,c1) * y(m,j,k)
+      end do
+      z(i,j,k) = tmp
+    end do
+    end do
+    end do
+
+    ! y = I x WS x I z .........................................................
+
+    !$acc loop collapse(3) vector
+    do k = 1, ns
+    do j = 1, ns
+    do i = 1, ns
+      tmp = 0
+      do m = 1, ns
+        tmp = tmp + WS_t(m,j,c2) * z(i,m,k)
+      end do
+      y(i,j,k) = tmp
+    end do
+    end do
+    end do
+
+    ! u = WS x I x I y .........................................................
+
+    !$acc loop collapse(3) vector
+    do k = 1, ns
+    do j = 1, ns
+    do i = 1, ns
+      tmp = 0
+      do m = 1, ns
+        tmp = tmp + WS_t(m,k,c3) * y(i,j,m)
       end do
       u(i,j,k,l) = tmp
     end do
     end do
     end do
 
-  end do elements
+  end do subdomains
   !$omp end do
 
   !$acc end parallel

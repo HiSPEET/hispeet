@@ -24,10 +24,10 @@ module CART__TPO_Schwarz_Cubic
     !>
     !>     (WxWxW) (SxSxS) D⁻¹ (SxSxS)^T
     !>
-    !> where S is the column matrix of the eigenvectors to the 1D suboperator
-    !> and Lambda is the diagonal matrix of corresponding 3D eigenvalues.
+    !> where
     !>
     !>   * `S` is the column matrix of the eigenvectors to the 1D suboperator
+    !>
     !>   * `D` is a diagonal matrix composed of the 1D eigenvalues
     !>
     !>         D = lambda  g0 I3 x I2 x I1
