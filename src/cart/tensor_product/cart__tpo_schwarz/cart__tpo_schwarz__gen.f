@@ -6,8 +6,8 @@
 !>### Schwarz operator: bf-marching, separate, generic
 !===============================================================================
 
-subroutine CART__TPO_Schwarz__gen( n1, n2, n3, nc, nd, S1, S2, S3, W1, W2, W3, &
-                                   cfg, D_inv, f, u                            )
+subroutine CART__TPO_Schwarz__gen( n1, n2, n3, nc, nd, S1, S2, S3, &
+                                   W1, W2, W3, cfg, D_inv, f, u    )
 
   !-----------------------------------------------------------------------------
   ! modules
@@ -81,7 +81,7 @@ subroutine CART__TPO_Schwarz__gen( n1, n2, n3, nc, nd, S1, S2, S3, W1, W2, W3, &
   end do
   end do
 
-  allocate(y(n1,n2,n3), z(n1,n2,n3))
+  allocate(y(n1, n2, n3), z(n1, n2, n3))
 
   !-----------------------------------------------------------------------------
   ! evaluation
@@ -103,7 +103,7 @@ subroutine CART__TPO_Schwarz__gen( n1, n2, n3, nc, nd, S1, S2, S3, W1, W2, W3, &
     c2 = cfg(2,l)
     c3 = cfg(3,l)
 
-    ! y = S3^t x I x I f .......................................................
+    ! y = S₃ᵀ x I x I f ........................................................
 
     !$acc loop collapse(3) vector
     do k = 1, n3
@@ -118,7 +118,7 @@ subroutine CART__TPO_Schwarz__gen( n1, n2, n3, nc, nd, S1, S2, S3, W1, W2, W3, &
     end do
     end do
 
-    ! z = I x S2^t x I y .......................................................
+    ! z = I x S₂ᵀ x I y ........................................................
 
     !$acc loop vector collapse(3)
     do k = 1, n3
@@ -133,7 +133,7 @@ subroutine CART__TPO_Schwarz__gen( n1, n2, n3, nc, nd, S1, S2, S3, W1, W2, W3, &
     end do
     end do
 
-    ! y = D⁻¹ (I x I x S1^t) z .................................................
+    ! y = D⁻¹ (I x I x S₁ᵀ) z ..................................................
 
     !$acc loop vector collapse(3)
     do k = 1, n3
@@ -148,7 +148,7 @@ subroutine CART__TPO_Schwarz__gen( n1, n2, n3, nc, nd, S1, S2, S3, W1, W2, W3, &
     end do
     end do
 
-    ! z = I x I x WS1 y ........................................................
+    ! z = I x I x WS₁ y ........................................................
 
     !$acc loop vector collapse(3)
     do k = 1, n3
@@ -156,14 +156,14 @@ subroutine CART__TPO_Schwarz__gen( n1, n2, n3, nc, nd, S1, S2, S3, W1, W2, W3, &
     do i = 1, n1
       tmp = 0
       do m = 1, n1
-        tmp = tmp + WS1_t(i,m,c1) * y(m,j,k)
+        tmp = tmp + WS1_t(m,i,c1) * y(m,j,k)
       end do
       z(i,j,k) = tmp
     end do
     end do
     end do
 
-    ! y = I x WS2 x I z ........................................................
+    ! y = I x WS₂ x I z ........................................................
 
     !$acc loop vector collapse(3)
     do k = 1, n3
@@ -171,14 +171,14 @@ subroutine CART__TPO_Schwarz__gen( n1, n2, n3, nc, nd, S1, S2, S3, W1, W2, W3, &
     do i = 1, n1
       tmp = 0
       do m = 1, n2
-        tmp = tmp + WS2_t(j,m,c2) * z(i,m,k)
+        tmp = tmp + WS2_t(m,j,c2) * z(i,m,k)
       end do
       y(i,j,k) = tmp
     end do
     end do
     end do
 
-    ! u = WS3 x I x I y ........................................................
+    ! u = WS₃ x I x I y ........................................................
 
     !$acc loop collapse(3) vector
     do k = 1, n3
@@ -186,7 +186,7 @@ subroutine CART__TPO_Schwarz__gen( n1, n2, n3, nc, nd, S1, S2, S3, W1, W2, W3, &
     do i = 1, n1
       tmp = 0
       do m = 1, n3
-        tmp = tmp + WS3_t(k,m,c3) * y(i,j,m)
+        tmp = tmp + WS3_t(m,k,c3) * y(i,j,m)
       end do
       u(i,j,k,l) = tmp
     end do

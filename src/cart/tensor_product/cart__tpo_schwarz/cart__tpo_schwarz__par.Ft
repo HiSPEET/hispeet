@@ -97,13 +97,13 @@ subroutine CART__TPO_Schwarz__<tag>( n1, n2, n3, nc, nd, S1, S2, S3, &
     c2 = cfg(2,l)
     c3 = cfg(3,l)
 
-    ! y = (S₃ᵀ x I x I) f
+    ! y = S₃ᵀ x I x I f
     call SubOp_3i(ONE, S3(:,:,c3), f(:,:,:,l), y)
 
-    ! z = (I x S₂ᵀ x I) y
+    ! z = I x S₂ᵀ x I y
     call SubOp_2i(ONE, S2(:,:,c2), y, z)
 
-    ! y = D_inv (I x I x S₁ᵀ) z
+    ! y = D⁻¹ (I x I x S₁ᵀ) z
     call SubOp_1id(ONE, S1(:,:,c1), D_inv(:,:,:,l), z, y)
 
     ! z = I x I x WS₁ y
