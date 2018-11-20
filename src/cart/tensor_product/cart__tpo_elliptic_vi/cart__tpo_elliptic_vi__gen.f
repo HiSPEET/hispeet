@@ -40,10 +40,11 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
   !-----------------------------------------------------------------------------
   ! local variables
 
-  real(RNP), allocatable :: M(:,:,:), M_u(:,:,:), Lm(:,:)
+  real(RNP), allocatable :: M(:,:,:),   M_u(:,:,:),  Dm(:,:), &
+                            Ms_Ds(:,:), tmp1(:,:,:), tmp2(:,:,:)
   real(RNP) :: g(3), tmp
 
-  integer :: e, i, j, k, p
+  integer :: e, i, j, k, p, q
   integer :: vec_len
 
   !-----------------------------------------------------------------------------
@@ -57,7 +58,8 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
   end if
 
   ! workspace
-  allocate(M(np,np,np), M_u(np,np,np), Lm(np,np))
+  allocate(M(np,np,np), M_u(np,np,np), Dm(np,np), Ms_Ds(np,np), &
+           tmp1(np,np,np), tmp2(np,np,np) )
 
   ! element mass matrix
   tmp = product(dx) / 8
@@ -69,10 +71,17 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
   end do
   end do
 
-  ! mass-weighted stiffness matrix: Lm = Ms^-1 Ls = (Ls Ms^-1)^T
+  ! mass-weighted diff matrix: Dm = Ds Ms^-1
+  do i = 1, np
+  do j = 1, np
+    Dm(i,j) = Ds(i,j) / Ms(j)
+  end do
+  end do
+  
+  ! mass-multiplied diff matrix: Ms_Ds = Ms Ds
   do j = 1, np
   do i = 1, np
-    Lm(i,j) = Ls(i,j) / Ms(i)
+    Ms_Ds(i,j) = Ms(i) * Ds(i,j)
   end do
   end do
 
@@ -108,11 +117,15 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
     do k = 1, np
     do j = 1, np
     do i = 1, np
-      tmp = 0
-      do p = 1, np
-        tmp = tmp + Lm(p,i) * M_u(p,j,k)
+      tmp1 = 0
+      tmp2 = 0
+      do q = 1, np
+        do p = 1, np
+            tmp1(q,j,k) = tmp1(q,j,k) + Dm(q,p) * M_u(p,j,k)
+        end do
+        tmp2(i,j,k) = tmp2(i,j,k) + Ms_Ds(q,i) * nu(q,j,k,ne) * tmp1(q,j,k)
       end do
-      v(i,j,k,e) = v(i,j,k,e) + g(1) * tmp
+      v(i,j,k,e) = v(i,j,k,e) + g(1) * tmp2(i,j,k)
     end do
     end do
     end do
@@ -123,11 +136,15 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
     do k = 1, np
     do j = 1, np
     do i = 1, np
-      tmp = 0
-      do p = 1, np
-        tmp = tmp + Lm(p,j) * M_u(i,p,k)
+      tmp1 = 0
+      tmp2 = 0
+      do q = 1, np
+        do p = 1, np
+            tmp1(i,q,k) = tmp1(i,q,k) + Dm(q,p) * M_u(i,p,k)
+        end do
+        tmp2(i,j,k) = tmp2(i,j,k) + Ms_Ds(q,j) * nu(i,q,k,ne) * tmp1(i,q,k)
       end do
-      v(i,j,k,e) = v(i,j,k,e) + g(2) * tmp
+      v(i,j,k,e) = v(i,j,k,e) + g(2) * tmp2(i,j,k)
     end do
     end do
     end do
@@ -138,11 +155,15 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
     do k = 1, np
     do j = 1, np
     do i = 1, np
-      tmp = 0
-      do p = 1, np
-        tmp = tmp + Lm(p,k) * M_u(i,j,p)
+      tmp1 = 0
+      tmp2 = 0
+      do q = 1, np
+        do p = 1, np
+            tmp1(i,j,q) = tmp1(i,j,q) + Dm(q,p) * M_u(i,j,p)
+        end do
+        tmp2(i,j,k) = tmp2(i,j,k) + Ms_Ds(q,k) * nu(i,j,q,ne) * tmp1(i,j,q)
       end do
-      v(i,j,k,e) = v(i,j,k,e) + g(3) * tmp
+      v(i,j,k,e) = v(i,j,k,e) + g(3) * tmp2(i,j,k)
     end do
     end do
     end do
