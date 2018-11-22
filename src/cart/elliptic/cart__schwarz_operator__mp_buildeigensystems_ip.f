@@ -6,7 +6,7 @@
 !>### Build 1D Schwarz eigensystems for IP/DG-SEM
 !===============================================================================
 
-submodule(CART__Schwarz_Operator) CART__Schwarz_Operator__Eigensystems_IP
+submodule(CART__Schwarz_Operator) MP_BuildEigensystems_IP
   use Constants,     only: ZERO, ONE, HALF
   use Eigenproblems, only: SolveGeneralizedEigenproblem
   use Schwarz_Weighting
@@ -358,4 +358,4 @@ end subroutine GetSubdomainOperators
 
 !===============================================================================
 
-end submodule CART__Schwarz_Operator__Eigensystems_IP
+end submodule MP_BuildEigensystems_IP

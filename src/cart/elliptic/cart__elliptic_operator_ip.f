@@ -33,7 +33,63 @@ use CART__Boundary_Variable
 
   end type EllipticOperator3D_IP
 
-  !-----------------------------------------------------------------------------
+  !=============================================================================
+  !> Application of the elliptic operator
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Application of the operator with constant isotropic diffusivity
+
+    module subroutine Apply_CI(this, lambda, nu, bc, u, v)
+      class(EllipticOperator3D_IP), intent(in) :: this
+      real(RNP), intent(in)  :: lambda         !< Helmholtz parameter
+      real(RNP), intent(in)  :: nu             !< diffusivity
+      character, intent(in)  :: bc(:)          !< boundary conditions {P,D,N}
+      real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
+      real(RNP), intent(out) :: v(0:,0:,0:,:)  !< result
+    end subroutine Apply_CI
+
+  end interface
+
+  !=============================================================================
+  !> IP/DG boundary contribution to RHS
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Adds the boundary contributions of the right hand side: const isotropic
+
+    module subroutine BcToRHS_CI(this, nu, bv, f)
+      class(EllipticOperator3D_IP), intent(in)    :: this
+      real(RNP),                    intent(in)    :: nu         !< diffusivity
+      type(BoundaryVariable),       intent(in)    :: bv(:)      !< BC
+      real(RNP),                    intent(inout) :: f(:,:,:,:) !< RHS
+    end subroutine BcToRHS_CI
+
+  end interface
+
+  !=============================================================================
+  !> Residual of the IP/DG elliptic operator
+
+  interface
+
+    !--------------------------------------------------------------------------
+    !> Computes the residual to given approximation: const isotropic
+
+    module subroutine Residual_CI(this, lambda, nu, bc, u, f, r)
+      class(EllipticOperator3D_IP), intent(in) :: this
+      real(RNP), intent(in)  :: lambda         !< Helmholtz parameter
+      real(RNP), intent(in)  :: nu             !< diffusivity
+      character, intent(in)  :: bc(:)          !< BC types {P,D,N}
+      real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
+      real(RNP), intent(in)  :: f(0:,0:,0:,:)  !< right hand side
+      real(RNP), intent(out) :: r(0:,0:,0:,:)  !< result
+    end subroutine Residual_CI
+
+  end interface
+
+  !=============================================================================
   !> Element-centered overlapping Schwarz method
 
   interface
@@ -54,7 +110,6 @@ use CART__Boundary_Variable
       real(RNP), optional, intent(in)  :: r_red  !< min residual reduction
       real(RNP), optional, intent(in)  :: r_max  !< max admissible residual
       integer,   optional, intent(out) :: ni     !< exec num iterations
-
     end subroutine OverlappingSchwarz_CI
 
   end interface
@@ -65,44 +120,6 @@ contains
 
 !===============================================================================
 ! Dummy procedures
-
-!--------------------------------------------------------------------------
-!> Applies the operator to given approximation: const isotropic
-
-subroutine Apply_CI(this, lambda, nu, bc, u, v)
-  class(EllipticOperator3D_IP), intent(in) :: this
-  real(RNP), intent(in)  :: lambda         !< Helmholtz parameter
-  real(RNP), intent(in)  :: nu             !< diffusivity
-  character, intent(in)  :: bc(:)          !< boundary conditions {P,D,N}
-  real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
-  real(RNP), intent(out) :: v(0:,0:,0:,:)  !< result
-
-  v = 0
-
-end subroutine Apply_CI
-
-!--------------------------------------------------------------------------
-!> Adds the boundary contributions of the right hand side: const isotropic
-
-subroutine BcToRHS_CI(this, nu, bv, f)
-  class(EllipticOperator3D_IP), intent(in) :: this
-  real(RNP),              intent(in)    :: nu    !< diffusivity
-  type(BoundaryVariable), intent(in)    :: bv(:) !< boundary conditions
-  real(RNP),              intent(inout) :: f     !< RHS
-end subroutine BcToRHS_CI
-
-!--------------------------------------------------------------------------
-!> Computes the residual to given approximation: const isotropic
-
-subroutine Residual_CI(this, lambda, nu, bc, u, f, r)
-  class(EllipticOperator3D_IP), intent(in) :: this
-  real(RNP), intent(in)  :: lambda         !< Helmholtz parameter
-  real(RNP), intent(in)  :: nu             !< diffusivity
-  character, intent(in)  :: bc(:)          !< BC types {P,D,N}
-  real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
-  real(RNP), intent(in)  :: f(0:,0:,0:,:)  !< right hand side
-  real(RNP), intent(out) :: r(0:,0:,0:,:)  !< result
-end subroutine Residual_CI
 
 !--------------------------------------------------------------------------
 !> Performs iteration sweeps starting from given approx: const isotropic

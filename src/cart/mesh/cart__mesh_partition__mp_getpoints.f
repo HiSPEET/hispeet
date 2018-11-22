@@ -6,7 +6,7 @@
 !>### Generation of mesh points to given order an basis type
 !===============================================================================
 
-submodule(CART__Mesh_Partition) CART__Mesh_Partition__Get_Points
+submodule(CART__Mesh_Partition) MP_GetPoints
   use Kind_Parameters, only: RNP
   use Constants,       only: HALF
   use Standard_Operators_1D
@@ -77,4 +77,4 @@ end subroutine GetPoints
 
 !===============================================================================
 
-end submodule CART__Mesh_Partition__Get_Points
+end submodule MP_GetPoints

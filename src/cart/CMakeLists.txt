@@ -36,8 +36,8 @@ set(MESH mesh/cart__mesh_face.f
          mesh/cart__mesh_boundary.f
          mesh/cart__mesh_link.f
          mesh/cart__mesh_partition.f
-         mesh/cart__mesh_partition__get_points.f
-         mesh/cart__mesh_partition__get_valency.f
+         mesh/cart__mesh_partition__mp_getpoints.f
+         mesh/cart__mesh_partition__mp_getpointvalency.f
          mesh/cart__element_connectivity.f
          mesh/cart__generate_mesh_links.f
          mesh/cart__generate_structured_mesh.f
@@ -80,11 +80,15 @@ set(OPERATORS operators/cart__assembly_operator.f
 # elliptic
 
 set(ELLIPTIC elliptic/cart__schwarz_operator.f
-             elliptic/cart__schwarz_operator__eigensystems_ip.f
-             elliptic/cart__schwarz_operator__subdomains_ci.f
+             elliptic/cart__schwarz_operator__mp_buildeigensystems_ip.f
+             elliptic/cart__schwarz_operator__mp_buildsubdomains_ci.f
              elliptic/cart__elliptic_operator.f
              elliptic/cart__elliptic_operator_cg.f
              elliptic/cart__elliptic_operator_ip.f
+             elliptic/cart__elliptic_operator_ip__mp_apply.f
+             elliptic/cart__elliptic_operator_ip__mp_apply_ci.f
+             elliptic/cart__elliptic_operator_ip__mp_bctorhs_ci.f
+             elliptic/cart__elliptic_operator_ip__mp_residual_ci.f
              elliptic/cart__cg_elliptic_ci_bc.f
              elliptic/cart__dg_elliptic_cis_bc.f
              elliptic/cart__dg_elliptic_ciu_bc.f

@@ -19,12 +19,20 @@ module IP_Element_Operators_1D
   !> Element operators for symmetric interior penalty IP/DG-SEM
 
   type, extends(StandardOperators1D) :: IP_ElementOperators1D
+
     real(RNP) :: penalty = 2 !< penalty parameter > 1
+
   contains
+
     generic :: New => New_IP_ElementOperators1D
     procedure, private :: New_IP_ElementOperators1D
-    procedure :: PenaltyFactor
+
+    generic :: PenaltyFactor => PenaltyFactor_NE, PenaltyFactor_EQ
+    procedure, private :: PenaltyFactor_NE
+    procedure, private :: PenaltyFactor_EQ
+
     procedure :: GetStiffnessMatrix
+
   end type IP_ElementOperators1D
 
 contains
@@ -45,15 +53,26 @@ subroutine New_IP_ElementOperators1D(this, po, penalty)
 end subroutine New_IP_ElementOperators1D
 
 !-------------------------------------------------------------------------------
-!> Penalty factor
+!> Penalty factor for non-equidistant spacing
 
-real(RNP) function PenaltyFactor(this, dx) result(mu)
+real(RNP) function PenaltyFactor_NE(this, dx) result(mu)
   class(IP_ElementOperators1D), intent(in) :: this
-  real(RNP), intent(in) :: dx(2)    !< element extensions
+  real(RNP), intent(in) :: dx(2)  !< element extensions
 
   mu = this%penalty/4 * this%po * (this%po + 1) * (1/dx(1) + 1/dx(2))
 
-end function PenaltyFactor
+end function PenaltyFactor_NE
+
+!-------------------------------------------------------------------------------
+!> Penalty factor for equidistant spacing
+
+real(RNP) function PenaltyFactor_EQ(this, dx) result(mu)
+  class(IP_ElementOperators1D), intent(in) :: this
+  real(RNP), intent(in) :: dx  !< element extension
+
+  mu = this%penalty/4 * this%po * (this%po + 1) * 2/dx
+
+end function PenaltyFactor_EQ
 
 !-------------------------------------------------------------------------------
 !> Returns the 1D element stiffness matrix for the interior penalty DGM

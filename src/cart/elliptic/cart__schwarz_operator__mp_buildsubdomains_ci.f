@@ -6,7 +6,7 @@
 !>### Build Schwarz subdomains for constant isotropic coefficients
 !===============================================================================
 
-submodule(CART__Schwarz_Operator) CART__Schwarz_Operator__Subdomains_CI
+submodule(CART__Schwarz_Operator) MP_BuildSubdomains_CI
   use Constants,     only: ZERO, ONE, HALF
   use Eigenproblems, only: SolveGeneralizedEigenproblem
   use Schwarz_Weighting
@@ -100,4 +100,4 @@ end subroutine BuildSubdomains_CI
 
 !===============================================================================
 
-end submodule CART__Schwarz_Operator__Subdomains_CI
+end submodule MP_BuildSubdomains_CI

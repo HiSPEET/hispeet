@@ -1,5 +1,5 @@
 
-submodule(CART__Elliptic_Operator_IP) CART__Elliptic_Operator_IP__Schwarz
+submodule(CART__Elliptic_Operator_IP) MP_OverlappingSchwarz_CI
   use Execution_Control, only: Error
 
 contains
@@ -143,4 +143,4 @@ end subroutine OverlappingSchwarz_CI
 
 !===============================================================================
 
-end submodule CART__Elliptic_Operator_IP__Schwarz
+end submodule MP_OverlappingSchwarz_CI

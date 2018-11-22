@@ -6,7 +6,7 @@
 !>### Evaluation of the valency of mesh points
 !===============================================================================
 
-submodule(CART__Mesh_Partition) CART__Mesh_Partition__Get_Valency
+submodule(CART__Mesh_Partition) MP_GetPointValency
   implicit none
 
 contains
@@ -92,4 +92,4 @@ end subroutine GetPointValency
 
 !===============================================================================
 
-end submodule CART__Mesh_Partition__Get_Valency
+end submodule MP_GetPointValency

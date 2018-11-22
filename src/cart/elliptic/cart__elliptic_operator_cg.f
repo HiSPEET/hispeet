@@ -55,10 +55,10 @@ end subroutine Apply_CI
 !> Adds the boundary contributions of the right hand side: const isotropic
 
 subroutine BcToRHS_CI(this, nu, bv, f)
-  class(EllipticOperator3D_CG), intent(in) :: this
-  real(RNP),              intent(in)    :: nu    !< diffusivity
-  type(BoundaryVariable), intent(in)    :: bv(:) !< boundary conditions
-  real(RNP),              intent(inout) :: f     !< RHS
+  class(EllipticOperator3D_CG), intent(in)    :: this
+  real(RNP),                    intent(in)    :: nu         !< diffusivity
+  type(BoundaryVariable),       intent(in)    :: bv(:)      !< BC
+  real(RNP),                    intent(inout) :: f(:,:,:,:) !< RHS
 end subroutine BcToRHS_CI
 
 !--------------------------------------------------------------------------

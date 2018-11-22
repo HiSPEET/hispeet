@@ -65,10 +65,10 @@ module CART__Elliptic_Operator
 
     subroutine BcToRHS_CI(this, nu, bv, f)
       import
-      class(EllipticOperator3D), intent(in) :: this
-      real(RNP),              intent(in)    :: nu    !< diffusivity
-      type(BoundaryVariable), intent(in)    :: bv(:) !< boundary conditions
-      real(RNP),              intent(inout) :: f     !< RHS
+      class(EllipticOperator3D), intent(in)    :: this
+      real(RNP),                 intent(in)    :: nu         !< diffusivity
+      type(BoundaryVariable),    intent(in)    :: bv(:)      !< BC
+      real(RNP),                 intent(inout) :: f(:,:,:,:) !< RHS
     end subroutine BcToRHS_CI
 
     !--------------------------------------------------------------------------
