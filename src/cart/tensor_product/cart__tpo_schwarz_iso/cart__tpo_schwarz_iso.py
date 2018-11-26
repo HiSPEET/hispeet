@@ -17,8 +17,8 @@ tmpl_dir = args.tmpl + '/'
 dest_dir = args.dest + '/'
 shared_dir = args.shared + '/'
 
-operator  = 'CART__TPO_Schwarz_Cubic'
-procedure = 'procedure(TPO_Schwarz_Cubic_Proc)'
+operator  = 'CART__TPO_Schwarz_Iso'
+procedure = 'procedure(TPO_Schwarz_Iso_Proc)'
 
 module    = operator.lower()
 dest_proc = dest_dir + module + '__var.F'

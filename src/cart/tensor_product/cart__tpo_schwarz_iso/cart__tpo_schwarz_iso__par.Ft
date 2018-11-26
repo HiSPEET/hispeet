@@ -1,9 +1,9 @@
-!> summary:  Schwarz operator cubic subdoms: bf-marching, separate, parametrized
+!> summary:  Isotropic Schwarz operator: bf-marching, separate, parametrized
 !> author:   Joerg Stiller
 !> date:     2017/10/23
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Schwarz operator cubic subdomains: bf-marching, separate, parametrized
+!>### Isotropic Schwarz operator: bf-marching, separate, parametrized
 !===============================================================================
 
 #define __NA__    <ns>
@@ -11,7 +11,7 @@
 #define __NA_T4__ <ns_t4>
 #define __NA_T8__ <ns_t8>
 
-subroutine CART__TPO_Schwarz_Cubic__<tag>(ns, nc, nd, S, W, cfg, D_inv, f, u)
+subroutine CART__TPO_Schwarz_Iso__<tag>(ns, nc, nd, S, W, cfg, D_inv, f, u)
 
   !-----------------------------------------------------------------------------
   ! modules
@@ -107,7 +107,7 @@ contains
 
 !===============================================================================
 
-end subroutine CART__TPO_Schwarz_Cubic__<tag>
+end subroutine CART__TPO_Schwarz_Iso__<tag>
 
 #undef __NA__
 #undef __NA_T2__

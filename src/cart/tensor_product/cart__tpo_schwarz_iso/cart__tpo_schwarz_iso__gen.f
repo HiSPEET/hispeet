@@ -1,12 +1,12 @@
-!> summary:  Schwarz operator cubic subdomains: bf-marching, separate, generic
+!> summary:  Isotropic Schwarz operator: bf-marching, separate, generic
 !> author:   Joerg Stiller
 !> date:     2017/10/16
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Schwarz operator cubic subdomains: bf-marching, separate, generic
+!>### Isotropic Schwarz operator: bf-marching, separate, generic
 !===============================================================================
 
-subroutine CART__TPO_Schwarz_Cubic__gen(ns, nc, nd, S, W, cfg, D_inv, f, u)
+subroutine CART__TPO_Schwarz_Iso__gen(ns, nc, nd, S, W, cfg, D_inv, f, u)
 
   !-----------------------------------------------------------------------------
   ! modules
@@ -171,4 +171,4 @@ subroutine CART__TPO_Schwarz_Cubic__gen(ns, nc, nd, S, W, cfg, D_inv, f, u)
 
 !===============================================================================
 
-end subroutine CART__TPO_Schwarz_Cubic__gen
+end subroutine CART__TPO_Schwarz_Iso__gen

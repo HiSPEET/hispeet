@@ -21,7 +21,7 @@ include(cmake/cart__tpo_spectral.cmake)
 include(cmake/cart__tpo_spectral_iso.cmake)
 include(cmake/cart__tpo_schwarz.cmake)
 include(cmake/cart__tpo_schwarz_iso.cmake)
-include(cmake/cart__tpo_schwarz_cubic.cmake)
+include(cmake/cart__tpo_schwarz_old.cmake)
 
 if (DEFINED Fortran_FLAGS_TPO)
     set_source_files_properties(${TENSOR_PRODUCT}

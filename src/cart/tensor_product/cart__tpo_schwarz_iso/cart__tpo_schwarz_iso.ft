@@ -1,24 +1,24 @@
-!> summary:  3D Cartesian Schwarz operator for cubic subdomains
+!> summary:  Isotropic 3D Cartesian Schwarz operator
 !> author:   Joerg Stiller
 !> date:     2017/07/20
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### 3D Cartesian Schwarz operator for cubic subdomains
+!>### Isotropic 3D Cartesian Schwarz operator
 !===============================================================================
 
-module CART__TPO_Schwarz_Cubic
+module CART__TPO_Schwarz_Iso
   use Kind_Parameters, only: RNP
   implicit none
   private
 
-  public :: TPO_Schwarz_Cubic_Proc    ! procedure interface
-  public :: TPO_Schwarz_Cubic_Assign  ! procedure assignment
-  public :: TPO_Schwarz_Cubic_Eval    ! operator evaluation
+  public :: TPO_Schwarz_Iso_Proc    ! procedure interface
+  public :: TPO_Schwarz_Iso_Assign  ! procedure assignment
+  public :: TPO_Schwarz_Iso_Eval    ! operator evaluation
 
   abstract interface
 
     !---------------------------------------------------------------------------
-    !> Abstract interface to Schwarz operator procedures for cubic subdomains
+    !> Abstract interface to isotropic Schwarz operator procedures
     !>
     !> The procedure evaluates a spectral tensor-product operator of the form
     !>
@@ -57,7 +57,7 @@ module CART__TPO_Schwarz_Cubic
     !>     before accessing f or u from CPU or another than the default
     !>     accelerator queue.
 
-    subroutine TPO_Schwarz_Cubic_Proc(ns, nc, nd, S, W, cfg, D_inv, f, u)
+    subroutine TPO_Schwarz_Iso_Proc(ns, nc, nd, S, W, cfg, D_inv, f, u)
       use Kind_Parameters, only: RNP
       integer,   intent(in)  :: ns                 !< dimension of S
       integer,   intent(in)  :: nc                 !< number of configurations
@@ -68,7 +68,7 @@ module CART__TPO_Schwarz_Cubic
       real(RNP), intent(in)  :: D_inv(ns,ns,ns,nd) !< inverse 3D eigenvalues
       real(RNP), intent(in)  :: f(ns,ns,ns,nd)     !< RHS
       real(RNP), intent(out) :: u(ns,ns,ns,nd)     !< solution
-    end subroutine TPO_Schwarz_Cubic_Proc
+    end subroutine TPO_Schwarz_Iso_Proc
 
   end interface
 
@@ -77,13 +77,13 @@ contains
 !-------------------------------------------------------------------------------
 !> Assignment of a procedure for given dimensions
 
-subroutine TPO_Schwarz_Cubic_Assign(ns, Proc)
+subroutine TPO_Schwarz_Iso_Assign(ns, Proc)
   integer, intent(in) :: ns  !< dimension of S
-  procedure(TPO_Schwarz_Cubic_Proc), pointer, intent(out) :: Proc
+  procedure(TPO_Schwarz_Iso_Proc), pointer, intent(out) :: Proc
 
   ! external procedures ........................................................
 
-  procedure(TPO_Schwarz_Cubic_Proc) :: CART__TPO_Schwarz_Cubic__gen
+  procedure(TPO_Schwarz_Iso_Proc) :: CART__TPO_Schwarz_Iso__gen
 
   ! initialization .............................................................
 
@@ -94,15 +94,15 @@ subroutine TPO_Schwarz_Cubic_Assign(ns, Proc)
   ! generic procedures .........................................................
 
   if (.not. associated(Proc)) then
-    Proc => CART__TPO_Schwarz_Cubic__gen
+    Proc => CART__TPO_Schwarz_Iso__gen
   end if
 
-end subroutine TPO_Schwarz_Cubic_Assign
+end subroutine TPO_Schwarz_Iso_Assign
 
 !-------------------------------------------------------------------------------
-!> Evaluation of the 3D Cartesian Schwarz operator for cubic subdomains
+!> Evaluation of the 3D isotropic Cartesian Schwarz operator
 
-subroutine TPO_Schwarz_Cubic_Eval(ns, nc, nd, S, W, cfg, D_inv, f, u)
+subroutine TPO_Schwarz_Iso_Eval(ns, nc, nd, S, W, cfg, D_inv, f, u)
   integer,   intent(in)  :: ns                 !< dimension of S
   integer,   intent(in)  :: nc                 !< number of configurations
   integer,   intent(in)  :: nd                 !< number of subdomains
@@ -113,13 +113,13 @@ subroutine TPO_Schwarz_Cubic_Eval(ns, nc, nd, S, W, cfg, D_inv, f, u)
   real(RNP), intent(in)  :: f(ns,ns,ns,nd)     !< RHS
   real(RNP), intent(out) :: u(ns,ns,ns,nd)     !< solution
 
-  procedure(TPO_Schwarz_Cubic_Proc), pointer :: Proc
+  procedure(TPO_Schwarz_Iso_Proc), pointer :: Proc
 
-  call TPO_Schwarz_Cubic_Assign(ns, Proc)
+  call TPO_Schwarz_Iso_Assign(ns, Proc)
   call Proc(ns, nc, nd, S, W, cfg, D_inv, f, u)
 
-end subroutine TPO_Schwarz_Cubic_Eval
+end subroutine TPO_Schwarz_Iso_Eval
 
 !===============================================================================
 
-end module CART__TPO_Schwarz_Cubic
+end module CART__TPO_Schwarz_Iso

@@ -107,14 +107,14 @@ module CART__Schwarz_Operator
   !> It is worth noting, that eigenvectors, eigenvalues and weights coincide,
   !> if the number of overlapped points is identical in each direction.
   !> To benefit from possible optimizations, this quasi-isotropic case is
-  !> indicated by setting component `cubic` to true.
+  !> indicated by setting component `isotropic` to true.
 
   type SchwarzOperator3D
 
     ! 1D eigensystems ..........................................................
 
     integer :: no(3) = -1                    !< overlapped node layers
-    logical :: cubic                         !< switch to cubic operator
+    logical :: isotropic                     !< switch to isotropic operator
 
     integer :: n1 = -1                       !< number of points in direction 1
     integer :: n2 = -1                       !< number of points in direction 2

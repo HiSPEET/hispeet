@@ -48,7 +48,7 @@ module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
       this % no = max(this%no, min(no_min, po+1))
     end if
 
-    this % cubic = all(this%no(2:3) == this%no(1))
+    this % isotropic = all(this%no(2:3) == this%no(1))
 
     this % n1 = po + 1 + 2 * this%no(1)
     this % n2 = po + 1 + 2 * this%no(2)
@@ -96,7 +96,7 @@ module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
                                     V  = this%V1(:,k),   &
                                     W  = this%W1(:,k)    )
 
-        if (this%cubic) then
+        if (this%isotropic) then
 
           this % S2 = this % S1
           this % V2 = this % V1
