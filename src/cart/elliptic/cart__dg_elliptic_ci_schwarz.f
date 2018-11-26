@@ -31,7 +31,7 @@ module CART__DG_Elliptic_CI_Schwarz
 
   use XMPI
 
-  use CART__TPO_Schwarz_Iso
+  use CART__TPO_Schwarz_Old
   use CART__Mesh_Element
   use CART__Mesh_Partition
   use CART__Element_Transfer_Buffer
@@ -651,8 +651,7 @@ subroutine Iteration_C(this, mesh, lambda, nu, bc, u, f, i_max, r_red, r_max)
   type(ElementTransferBuffer), allocatable, save :: buf_r
   type(ElementTransferBuffer), allocatable, save :: buf_u_s
 
-! procedure(TPO_Schwarz_Proc),     pointer :: SchwarzGenOP
-  procedure(TPO_Schwarz_Iso_Proc), pointer :: SchwarzIsoOP
+  procedure(TPO_Schwarz_Old_Proc), pointer :: SchwarzIsoOP
 
   real(RNP), save :: rr_term
   logical  , save :: converged
@@ -696,7 +695,7 @@ subroutine Iteration_C(this, mesh, lambda, nu, bc, u, f, i_max, r_red, r_max)
 
   ! subdomain operator
   if (this % isotropic) then
-    call TPO_Schwarz_Iso_Assign(ns(1), SchwarzIsoOP)
+    call TPO_Schwarz_Old_Assign(ns(1), SchwarzIsoOP)
   else
 !   call TPO_Schwarz_Assign(ns(1), ns(2), ns(3), SchwarzGenOP)
     call Error('Iteration_C', &

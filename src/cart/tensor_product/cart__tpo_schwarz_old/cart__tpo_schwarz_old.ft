@@ -6,14 +6,14 @@
 !>### 3D Cartesian quasi-isotropic Schwarz operator
 !===============================================================================
 
-module CART__TPO_Schwarz_Iso
+module CART__TPO_Schwarz_Old
   use Kind_Parameters, only: RNP
   implicit none
   private
 
-  public :: TPO_Schwarz_Iso_Proc    ! procedure interface
-  public :: TPO_Schwarz_Iso_Assign  ! procedure assignment
-  public :: TPO_Schwarz_Iso_Eval    ! operator evaluation
+  public :: TPO_Schwarz_Old_Proc    ! procedure interface
+  public :: TPO_Schwarz_Old_Assign  ! procedure assignment
+  public :: TPO_Schwarz_Old_Eval    ! operator evaluation
 
   abstract interface
 
@@ -57,7 +57,7 @@ module CART__TPO_Schwarz_Iso
     !>     before accessing f or u from CPU or another than the default
     !>     accelerator queue.
 
-    subroutine TPO_Schwarz_Iso_Proc( ns, nc, ne, S, V1, V2, V3, W, &
+    subroutine TPO_Schwarz_Old_Proc( ns, nc, ne, S, V1, V2, V3, W, &
                                      ec, dx, lambda, nu, f, u      )
       use Kind_Parameters, only: RNP
       integer,   intent(in)  :: ns             !< dimension of S
@@ -74,7 +74,7 @@ module CART__TPO_Schwarz_Iso
       real(RNP), intent(in)  :: nu(ne)         !< subdomain diffusivities
       real(RNP), intent(in)  :: f(ns,ns,ns,ne) !< RHS
       real(RNP), intent(out) :: u(ns,ns,ns,ne) !< solution
-    end subroutine TPO_Schwarz_Iso_Proc
+    end subroutine TPO_Schwarz_Old_Proc
 
   end interface
 
@@ -83,13 +83,13 @@ contains
 !-------------------------------------------------------------------------------
 !> Assignment of a procedure for given dimensions
 
-subroutine TPO_Schwarz_Iso_Assign(ns, Proc)
+subroutine TPO_Schwarz_Old_Assign(ns, Proc)
   integer, intent(in) :: ns  !< dimension of S
-  procedure(TPO_Schwarz_Iso_Proc), pointer, intent(out) :: Proc
+  procedure(TPO_Schwarz_Old_Proc), pointer, intent(out) :: Proc
 
   ! external procedures ........................................................
 
-  procedure(TPO_Schwarz_Iso_Proc) :: CART__TPO_Schwarz_Iso__gen
+  procedure(TPO_Schwarz_Old_Proc) :: CART__TPO_Schwarz_Old__gen
 
   ! initialization .............................................................
 
@@ -100,15 +100,15 @@ subroutine TPO_Schwarz_Iso_Assign(ns, Proc)
   ! generic procedures .........................................................
 
   if (.not. associated(Proc)) then
-    Proc => CART__TPO_Schwarz_Iso__gen
+    Proc => CART__TPO_Schwarz_Old__gen
   end if
 
-end subroutine TPO_Schwarz_Iso_Assign
+end subroutine TPO_Schwarz_Old_Assign
 
 !-------------------------------------------------------------------------------
 !> Evaluation of the 3D Cartesian quasi-isotropic Schwarz operator
 
-subroutine TPO_Schwarz_Iso_Eval( ns, nc, ne, S, V1, V2, V3, W, &
+subroutine TPO_Schwarz_Old_Eval( ns, nc, ne, S, V1, V2, V3, W, &
                                  ec, dx, lambda, nu, f, u      )
 
   integer,   intent(in)  :: ns              !< dimension of S
@@ -126,13 +126,13 @@ subroutine TPO_Schwarz_Iso_Eval( ns, nc, ne, S, V1, V2, V3, W, &
   real(RNP), intent(in)  :: f(ns,ns,ns,ne)  !< RHS
   real(RNP), intent(out) :: u(ns,ns,ns,ne)  !< solution
 
-  procedure(TPO_Schwarz_Iso_Proc), pointer :: Proc
+  procedure(TPO_Schwarz_Old_Proc), pointer :: Proc
 
-  call TPO_Schwarz_Iso_Assign(ns, Proc)
+  call TPO_Schwarz_Old_Assign(ns, Proc)
   call Proc(ns, nc, ne, S, V1, V2, V3, W, ec, dx, lambda, nu, f, u)
 
-end subroutine TPO_Schwarz_Iso_Eval
+end subroutine TPO_Schwarz_Old_Eval
 
 !===============================================================================
 
-end module CART__TPO_Schwarz_Iso
+end module CART__TPO_Schwarz_Old

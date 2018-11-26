@@ -20,28 +20,23 @@ module CART__Elliptic_Operator
   !> Abstract type accommodating 3D Cartesian elliptic operators
 
   type, abstract :: EllipticOperator3D
+
     class(MeshPartition), pointer :: mesh => null()
-    ! to be extended by
-    ! - element operators
-    ! - conjugate gradient method
-    ! - Schwarz operator/method
+
+    real(RNP) :: lambda = 0                   !< Helmholtz parameter
+    real(RNP), allocatable :: nu_ci           !< constant isotropic diffusivity
+    real(RNP), allocatable :: nu_vi(:,:,:,:)  !< variable isotropic diffusivity
+
   contains
     private
 
-    generic, public :: Apply => Apply_CI
-    procedure(Apply_CI), deferred :: Apply_CI
+    procedure(Apply),     deferred :: Apply
+    procedure(BcToRHS),   deferred :: BcToRHS
+    procedure(Residual),  deferred :: Residual
+    procedure(Iteration), deferred :: ConjugateGradients
 
-    generic, public :: BcToRHS => BcToRHS_CI
-    procedure(BcToRHS_CI), deferred :: BcToRHS_CI
-
-    generic, public :: Residual => Residual_CI
-    procedure(Residual_CI), deferred :: Residual_CI
-
-    generic, public :: ConjugateGradients => ConjugateGradients_CI
-    procedure(Iteration_CI), deferred :: ConjugateGradients_CI
-
-    generic, public :: OverlappingSchwarz => OverlappingSchwarz_CI
-    procedure(Iteration_CI), deferred :: OverlappingSchwarz_CI
+!    generic, public :: OverlappingSchwarz => OverlappingSchwarz_CI
+!    procedure(Iteration_CI), deferred :: OverlappingSchwarz_CI
 
   end type EllipticOperator3D
 
@@ -50,49 +45,42 @@ module CART__Elliptic_Operator
     !--------------------------------------------------------------------------
     !> Applies the operator to given approximation: const isotropic
 
-    subroutine Apply_CI(this, lambda, nu, bc, u, v)
+    subroutine Apply(this, bc, u, v)
       import
       class(EllipticOperator3D), intent(in) :: this
-      real(RNP), intent(in)  :: lambda         !< Helmholtz parameter
-      real(RNP), intent(in)  :: nu             !< diffusivity
       character, intent(in)  :: bc(:)          !< boundary conditions {P,D,N}
       real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
       real(RNP), intent(out) :: v(0:,0:,0:,:)  !< result
-    end subroutine Apply_CI
+    end subroutine Apply
 
     !--------------------------------------------------------------------------
     !> Adds the boundary contributions of the right hand side: const isotropic
 
-    subroutine BcToRHS_CI(this, nu, bv, f)
+    subroutine BcToRHS(this, bv, f)
       import
       class(EllipticOperator3D), intent(in)    :: this
-      real(RNP),                 intent(in)    :: nu         !< diffusivity
       type(BoundaryVariable),    intent(in)    :: bv(:)      !< BC
       real(RNP),                 intent(inout) :: f(:,:,:,:) !< RHS
-    end subroutine BcToRHS_CI
+    end subroutine BcToRHS
 
     !--------------------------------------------------------------------------
     !> Computes the residual to given approximation: const isotropic
 
-    subroutine Residual_CI(this, lambda, nu, bc, u, f, r)
+    subroutine Residual(this, bc, u, f, r)
       import
       class(EllipticOperator3D), intent(in) :: this
-      real(RNP), intent(in)  :: lambda         !< Helmholtz parameter
-      real(RNP), intent(in)  :: nu             !< diffusivity
       character, intent(in)  :: bc(:)          !< BC types {P,D,N}
       real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
       real(RNP), intent(in)  :: f(0:,0:,0:,:)  !< right hand side
       real(RNP), intent(out) :: r(0:,0:,0:,:)  !< result
-    end subroutine Residual_CI
+    end subroutine Residual
 
     !--------------------------------------------------------------------------
-    !> Performs iteration sweeps starting from given approx: const isotropic
+    !> Performs iteration sweeps starting from given approximation
 
-    subroutine Iteration_CI(this, lambda, nu, bc, u, f, i_max, r_red, r_max, ni)
+    subroutine Iteration(this, bc, u, f, i_max, r_red, r_max, ni)
       import
       class(EllipticOperator3D), intent(in) :: this
-      real(RNP), intent(in)    :: lambda         !< Helmholtz parameter
-      real(RNP), intent(in)    :: nu             !< diffusivity
       character, intent(in)    :: bc(:)          !< BC types {P,D,N}
       real(RNP), intent(inout) :: u(0:,0:,0:,:)  !< approximate solution
       real(RNP), intent(in)    :: f(0:,0:,0:,:)  !< right hand side
@@ -100,7 +88,7 @@ module CART__Elliptic_Operator
       real(RNP), optional, intent(in)  :: r_red  !< min residual reduction
       real(RNP), optional, intent(in)  :: r_max  !< max admissible residual
       integer,   optional, intent(out) :: ni     !< exec num iterations
-    end subroutine Iteration_CI
+    end subroutine Iteration
 
   end interface
 

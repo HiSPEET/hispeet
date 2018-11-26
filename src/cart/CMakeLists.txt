@@ -86,9 +86,8 @@ set(ELLIPTIC elliptic/cart__schwarz_operator.f
              elliptic/cart__elliptic_operator_cg.f
              elliptic/cart__elliptic_operator_ip.f
              elliptic/cart__elliptic_operator_ip__mp_apply.f
-             elliptic/cart__elliptic_operator_ip__mp_apply_ci.f
-             elliptic/cart__elliptic_operator_ip__mp_bctorhs_ci.f
-             elliptic/cart__elliptic_operator_ip__mp_residual_ci.f
+             elliptic/cart__elliptic_operator_ip__mp_bctorhs.f
+             elliptic/cart__elliptic_operator_ip__mp_residual.f
              elliptic/cart__cg_elliptic_ci_bc.f
              elliptic/cart__dg_elliptic_cis_bc.f
              elliptic/cart__dg_elliptic_ciu_bc.f

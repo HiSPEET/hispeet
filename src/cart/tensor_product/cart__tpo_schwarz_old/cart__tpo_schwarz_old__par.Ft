@@ -11,7 +11,7 @@
 #define __NA_T4__ <ns_t4>
 #define __NA_T8__ <ns_t8>
 
-subroutine CART__TPO_Schwarz_Iso__<tag>( ns, nc, ne, S, V1, V2, V3, W, &
+subroutine CART__TPO_Schwarz_Old__<tag>( ns, nc, ne, S, V1, V2, V3, W, &
                                          ec, dx, lambda, nu, f, u      )
 
   !-----------------------------------------------------------------------------
@@ -130,7 +130,7 @@ contains
 
 !===============================================================================
 
-end subroutine CART__TPO_Schwarz_Iso__<tag>
+end subroutine CART__TPO_Schwarz_Old__<tag>
 
 #undef __NA__
 #undef __NA_T2__

@@ -6,7 +6,7 @@
 !>### Isotropic Schwarz operator: bf-marching, separate, generic
 !===============================================================================
 
-subroutine CART__TPO_Schwarz_Iso__gen( ns, nc, ne, S, V1, V2, V3, W, &
+subroutine CART__TPO_Schwarz_Old__gen( ns, nc, ne, S, V1, V2, V3, W, &
                                        ec, dx, lambda, nu, f, u      )
 
   !-----------------------------------------------------------------------------
@@ -190,4 +190,4 @@ subroutine CART__TPO_Schwarz_Iso__gen( ns, nc, ne, S, V1, V2, V3, W, &
 
 !===============================================================================
 
-end subroutine CART__TPO_Schwarz_Iso__gen
+end subroutine CART__TPO_Schwarz_Old__gen

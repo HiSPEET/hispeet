@@ -6,7 +6,7 @@
 !>### IP/DG boundary contribution to RHS
 !===============================================================================
 
-submodule(CART__Elliptic_Operator_IP) MP_BCtoRHS_CI
+submodule(CART__Elliptic_Operator_IP) MP_BCtoRHS
   use Constants, only: ONE, ZERO
   use CART__Boundary_Variable
   implicit none
@@ -14,11 +14,24 @@ submodule(CART__Elliptic_Operator_IP) MP_BCtoRHS_CI
 contains
 
 !--------------------------------------------------------------------------
+!> Adds the boundary contributions of the right hand side
+
+module subroutine BcToRHS(this, bv, f)
+  class(EllipticOperator3D_IP), intent(in)    :: this
+  type(BoundaryVariable),       intent(in)    :: bv(:)      !< BC
+  real(RNP),                    intent(inout) :: f(:,:,:,:) !< RHS
+
+  if (allocated(this % nu_ci)) then
+    call BcToRHS_CI(this, bv, f)
+  end if
+
+end subroutine BcToRHS
+
+!--------------------------------------------------------------------------
 !> Adds the boundary contributions of the right hand side: const isotropic
 
-module subroutine BcToRHS_CI(this, nu, bv, f)
+subroutine BcToRHS_CI(this, bv, f)
   class(EllipticOperator3D_IP), intent(in)    :: this
-  real(RNP),                    intent(in)    :: nu         !< diffusivity
   type(BoundaryVariable),       intent(in)    :: bv(:)      !< BC
   real(RNP),                    intent(inout) :: f(:,:,:,:) !< RHS
 
@@ -29,10 +42,11 @@ module subroutine BcToRHS_CI(this, nu, bv, f)
   real(RNP) :: cx(3), cf(3), mu(3)
   integer   :: b, e, i, j, k, l, s
 
-  associate( po => this % eop  % po, &
-             Ms => this % eop  % w,  &
-             Ds => this % eop  % D,  &
-             dx => this % mesh % dx  )
+  associate( po => this % eop % po  &
+           , Ms => this % eop % w   &
+           , Ds => this % eop % D   &
+           , nu => this % nu_ci     &
+           , dx => this % mesh % dx )
 
     ! initialization ...........................................................
 
@@ -42,13 +56,9 @@ module subroutine BcToRHS_CI(this, nu, bv, f)
     cf(2) = cx(3)*cx(1)
     cf(3) = cx(1)*cx(2)
 
-    ! delta_i0
-    allocate(delta_0(0:po), source = ZERO)
-    delta_0(0) = ONE
-
-    ! delta_iP
-    allocate(delta_P(0:po), source = ZERO)
-    delta_P(po) = ONE
+    ! delta function
+    allocate(delta_0(0:po), source = [ ONE, (ZERO, i=1,po) ])
+    allocate(delta_P(0:po), source = [ (ZERO, i=1,po), ONE ])
 
     ! penalties
     mu(1) = this % eop % PenaltyFactor(dx(1))
@@ -187,4 +197,4 @@ end subroutine BCtoRHS_CI
 
 !===============================================================================
 
-end submodule MP_BCtoRHS_CI
+end submodule MP_BCtoRHS

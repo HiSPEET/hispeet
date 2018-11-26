@@ -1,5 +1,5 @@
 
-submodule(CART__Elliptic_Operator_IP) MP_OverlappingSchwarz_CI
+submodule(CART__Elliptic_Operator_IP) MP_OverlappingSchwarz
   use Execution_Control, only: Error
 
 contains
@@ -7,12 +7,8 @@ contains
 !-------------------------------------------------------------------------------
 !> Element-centered overlapping Schwarz method with constant coefficients
 
-module subroutine OverlappingSchwarz_CI( this, lambda, nu, bc, u, f, &
-                                         i_max, r_red, r_max, ni     )
-
+module subroutine OverlappingSchwarz(this, bc, u, f, i_max, r_red, r_max, ni)
   class(EllipticOperator3D_IP), intent(in) :: this
-  real(RNP), intent(in)    :: lambda         !< Helmholtz parameter
-  real(RNP), intent(in)    :: nu             !< diffusivity
   character, intent(in)    :: bc(:)          !< BC types {P,D,N}
   real(RNP), intent(inout) :: u(0:,0:,0:,:)  !< approximate solution
   real(RNP), intent(in)    :: f(0:,0:,0:,:)  !< right hand side
@@ -139,8 +135,8 @@ module subroutine OverlappingSchwarz_CI( this, lambda, nu, bc, u, f, &
   !$omp end single
 
 
-end subroutine OverlappingSchwarz_CI
+end subroutine OverlappingSchwarz
 
 !===============================================================================
 
-end submodule MP_OverlappingSchwarz_CI
+end submodule MP_OverlappingSchwarz

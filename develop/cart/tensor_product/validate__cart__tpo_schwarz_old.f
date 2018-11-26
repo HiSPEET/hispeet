@@ -5,12 +5,12 @@
 !> \copyright  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-program Validate__CART__TPO_Schwarz_Iso
+program Validate__CART__TPO_Schwarz_Old
   use Kind_Parameters,   only: IXL, RNP
   use Constants,         only: ONE, THIRD, ZERO
   use Array_Assignments, only: AssignScalar
   use Eigenproblems,     only: SolveGeneralizedEigenproblem
-  use CART__TPO_Schwarz_Iso
+  use CART__TPO_Schwarz_Old
   use CART__DG_Element_Operators
   use CART__DG_Diffusion_CI_Schwarz
   implicit none
@@ -41,8 +41,8 @@ program Validate__CART__TPO_Schwarz_Iso
   type(ElementOperators) :: eop     ! DG element oprators
   type(SchwarzOperator)  :: schwarz ! Schwarz operator and procedures
 
-  procedure(TPO_Schwarz_Iso_Proc), pointer :: SchwarzOp_Gen
-  procedure(TPO_Schwarz_Iso_Proc), pointer :: SchwarzOp_Par
+  procedure(TPO_Schwarz_Old_Proc), pointer :: SchwarzOp_Gen
+  procedure(TPO_Schwarz_Old_Proc), pointer :: SchwarzOp_Par
 
   integer,   allocatable :: ec(:,:)
   real(RNP), allocatable :: nu_e(:)
@@ -63,9 +63,9 @@ program Validate__CART__TPO_Schwarz_Iso
 
   ! read test parameters .......................................................
 
-  inquire(file='validate__cart__tpo_schwarz_iso.prm', exist=exists)
+  inquire(file='validate__cart__tpo_schwarz_old.prm', exist=exists)
   if (exists) then
-    open(newunit=prm, file='validate__cart__tpo_schwarz_iso.prm')
+    open(newunit=prm, file='validate__cart__tpo_schwarz_old.prm')
     read(prm, nml=input)
     read(prm, nml=control)
     close(prm)
@@ -100,8 +100,8 @@ program Validate__CART__TPO_Schwarz_Iso
   nc = size(schwarz % S1, 3)
 
   ! procedures
-  call TPO_Schwarz_Iso_Assign(-1, SchwarzOp_Gen)  ! generic, for reference
-  call TPO_Schwarz_Iso_Assign(np, SchwarzOp_Par)  ! parametrized
+  call TPO_Schwarz_Old_Assign(-1, SchwarzOp_Gen)  ! generic, for reference
+  call TPO_Schwarz_Old_Assign(np, SchwarzOp_Par)  ! parametrized
 
   parametrized = .not. associated( SchwarzOp_Par, &
                                    SchwarzOp_Gen  )
@@ -297,4 +297,4 @@ contains
 
 !===============================================================================
 
-end program Validate__CART__TPO_Schwarz_Iso
+end program Validate__CART__TPO_Schwarz_Old

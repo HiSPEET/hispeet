@@ -22,11 +22,11 @@ use CART__Boundary_Variable
     type(CG_ElementOperators1D) :: eop !< 1D OPs for CG-SEM
   contains
     private
-    procedure :: Apply_CI
-    procedure :: BcToRHS_CI
-    procedure :: Residual_CI
-    procedure :: ConjugateGradients_CI
-    procedure :: OverlappingSchwarz_CI
+    procedure :: Apply
+    procedure :: BcToRHS
+    procedure :: Residual
+    procedure :: ConjugateGradients
+    !procedure :: OverlappingSchwarz_CI
   end type EllipticOperator3D_CG
 
 !===============================================================================
@@ -39,48 +39,41 @@ contains
 !--------------------------------------------------------------------------
 !> Applies the operator to given approximation: const isotropic
 
-subroutine Apply_CI(this, lambda, nu, bc, u, v)
+subroutine Apply(this, bc, u, v)
   class(EllipticOperator3D_CG), intent(in) :: this
-  real(RNP), intent(in)  :: lambda         !< Helmholtz parameter
-  real(RNP), intent(in)  :: nu             !< diffusivity
   character, intent(in)  :: bc(:)          !< boundary conditions {P,D,N}
   real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
   real(RNP), intent(out) :: v(0:,0:,0:,:)  !< result
 
   v = 0
 
-end subroutine Apply_CI
+end subroutine Apply
 
 !--------------------------------------------------------------------------
-!> Adds the boundary contributions of the right hand side: const isotropic
+!> Adds the boundary contributions of the right hand side
 
-subroutine BcToRHS_CI(this, nu, bv, f)
+subroutine BcToRHS(this, bv, f)
   class(EllipticOperator3D_CG), intent(in)    :: this
-  real(RNP),                    intent(in)    :: nu         !< diffusivity
   type(BoundaryVariable),       intent(in)    :: bv(:)      !< BC
   real(RNP),                    intent(inout) :: f(:,:,:,:) !< RHS
-end subroutine BcToRHS_CI
+end subroutine BcToRHS
 
 !--------------------------------------------------------------------------
-!> Computes the residual to given approximation: const isotropic
+!> Computes the residual to given approximation
 
-subroutine Residual_CI(this, lambda, nu, bc, u, f, r)
+subroutine Residual(this, bc, u, f, r)
   class(EllipticOperator3D_CG), intent(in) :: this
-  real(RNP), intent(in)  :: lambda         !< Helmholtz parameter
-  real(RNP), intent(in)  :: nu             !< diffusivity
   character, intent(in)  :: bc(:)          !< BC types {P,D,N}
   real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
   real(RNP), intent(in)  :: f(0:,0:,0:,:)  !< right hand side
   real(RNP), intent(out) :: r(0:,0:,0:,:)  !< result
-end subroutine Residual_CI
+end subroutine Residual
 
 !--------------------------------------------------------------------------
-!> Performs iteration sweeps starting from given approx: const isotropic
+!> Performs iteration sweeps starting from given approximation
 
-subroutine ConjugateGradients_CI(this, lambda, nu, bc, u, f, i_max, r_red, r_max, ni)
+subroutine ConjugateGradients(this, bc, u, f, i_max, r_red, r_max, ni)
   class(EllipticOperator3D_CG), intent(in) :: this
-  real(RNP), intent(in)    :: lambda         !< Helmholtz parameter
-  real(RNP), intent(in)    :: nu             !< diffusivity
   character, intent(in)    :: bc(:)          !< BC types {P,D,N}
   real(RNP), intent(inout) :: u(0:,0:,0:,:)  !< approximate solution
   real(RNP), intent(in)    :: f(0:,0:,0:,:)  !< right hand side
@@ -88,15 +81,13 @@ subroutine ConjugateGradients_CI(this, lambda, nu, bc, u, f, i_max, r_red, r_max
   real(RNP), optional, intent(in)  :: r_red  !< min residual reduction
   real(RNP), optional, intent(in)  :: r_max  !< max admissible residual
   integer,   optional, intent(out) :: ni     !< exec num iterations
-end subroutine ConjugateGradients_CI
+end subroutine ConjugateGradients
 
 !--------------------------------------------------------------------------
-!> Performs iteration sweeps starting from given approx: const isotropic
+!> Performs iteration sweeps starting from given approximation
 
-subroutine OverlappingSchwarz_CI(this, lambda, nu, bc, u, f, i_max, r_red, r_max, ni)
+subroutine OverlappingSchwarz(this, bc, u, f, i_max, r_red, r_max, ni)
   class(EllipticOperator3D_CG), intent(in) :: this
-  real(RNP), intent(in)    :: lambda         !< Helmholtz parameter
-  real(RNP), intent(in)    :: nu             !< diffusivity
   character, intent(in)    :: bc(:)          !< BC types {P,D,N}
   real(RNP), intent(inout) :: u(0:,0:,0:,:)  !< approximate solution
   real(RNP), intent(in)    :: f(0:,0:,0:,:)  !< right hand side
@@ -104,6 +95,8 @@ subroutine OverlappingSchwarz_CI(this, lambda, nu, bc, u, f, i_max, r_red, r_max
   real(RNP), optional, intent(in)  :: r_red  !< min residual reduction
   real(RNP), optional, intent(in)  :: r_max  !< max admissible residual
   integer,   optional, intent(out) :: ni     !< exec num iterations
-end subroutine OverlappingSchwarz_CI
+end subroutine OverlappingSchwarz
+
+!===============================================================================
 
 end module CART__Elliptic_Operator_CG
