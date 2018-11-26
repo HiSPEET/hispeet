@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-program Validate__CART__TPO_Schwarz_Cubic
+program Validate__CART__TPO_Schwarz_Iso
   use Kind_Parameters,   only: IXL, RNP
   use Constants,         only: ONE, THIRD, ZERO
   use Array_Assignments, only: AssignScalar
@@ -17,7 +17,7 @@ program Validate__CART__TPO_Schwarz_Cubic
   use CART__Mesh_Partition
   use CART__Generate_Structured_Mesh
   use CART__Schwarz_Operator
-  use CART__TPO_Schwarz_Cubic
+  use CART__TPO_Schwarz_Iso
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -58,14 +58,14 @@ program Validate__CART__TPO_Schwarz_Cubic
   type(IP_ElementOperators1D) :: element_op ! IP/DG element oprators
   type(SchwarzOperator3D)     :: schwarz_op ! Schwarz operator
 
-  procedure(TPO_Schwarz_Cubic_Proc), pointer :: SchwarzOp_Gen
-  procedure(TPO_Schwarz_Cubic_Proc), pointer :: SchwarzOp_Par
+  procedure(TPO_Schwarz_Iso_Proc), pointer :: SchwarzOp_Gen
+  procedure(TPO_Schwarz_Iso_Proc), pointer :: SchwarzOp_Par
 
   real(RNP), allocatable :: f(:,:,:,:), u(:,:,:,:), r(:,:,:,:)
 
   ! auxiliary ..................................................................
 
-  character(len=80) :: input_file = 'validate__cart__tpo_schwarz_cubic.prm'
+  character(len=80) :: input_file = 'validate__cart__tpo_schwarz_iso.prm'
 
   real(RNP) :: time
   real(RNP) :: error_gen, mflops_gen, mlups_gen
@@ -124,8 +124,8 @@ program Validate__CART__TPO_Schwarz_Cubic
   nc = schwarz_op % nc
   nd = ne
 
-  call TPO_Schwarz_Cubic_Assign(-1, SchwarzOp_Gen)  ! generic, for reference
-  call TPO_Schwarz_Cubic_Assign(n1, SchwarzOp_Par)  ! parametrized
+  call TPO_Schwarz_Iso_Assign(-1, SchwarzOp_Gen)  ! generic, for reference
+  call TPO_Schwarz_Iso_Assign(n1, SchwarzOp_Par)  ! parametrized
 
   parametrized = .not. associated( SchwarzOp_Par, &
                                    SchwarzOp_Gen  )
@@ -199,7 +199,7 @@ program Validate__CART__TPO_Schwarz_Cubic
   !-----------------------------------------------------------------------------
   ! print results
 
-  write(*,'(/,A,/)') 'Uniform (cubic) Schwarz operator'
+  write(*,'(/,A,/)') 'Uniform (isotropic) Schwarz operator'
 
   write(*,'(3A)') '#                                  ',   &
                   '   ------------ generic ------------',  &
@@ -220,4 +220,4 @@ program Validate__CART__TPO_Schwarz_Cubic
 
 !===============================================================================
 
-end program Validate__CART__TPO_Schwarz_Cubic
+end program Validate__CART__TPO_Schwarz_Iso

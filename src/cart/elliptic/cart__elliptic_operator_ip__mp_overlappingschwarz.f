@@ -2,7 +2,7 @@
 submodule(CART__Elliptic_Operator_IP) MP_OverlappingSchwarz
   use Execution_Control, only: Error
   use CART__TPO_Schwarz
-  use CART__TPO_Schwarz_Cubic
+  use CART__TPO_Schwarz_Iso
 
 contains
 
@@ -30,7 +30,7 @@ module subroutine OverlappingSchwarz(this, bc, u, f, i_max, r_red, r_max, ni)
   type(ElementTransferBuffer), allocatable, save :: buf_r
   type(ElementTransferBuffer), allocatable, save :: buf_u_s
 
-  procedure(TPO_Schwarz_Proc),     pointer :: SchwarzGenOP
+  procedure(TPO_Schwarz_Proc),     pointer :: SchwarzOP
   procedure(TPO_Schwarz_Iso_Proc), pointer :: SchwarzIsoOP
 
   real(RNP), save :: rr_term
@@ -70,10 +70,7 @@ module subroutine OverlappingSchwarz(this, bc, u, f, i_max, r_red, r_max, ni)
   if (this % isotropic) then
     call TPO_Schwarz_Iso_Assign(ns(1), SchwarzIsoOP)
   else
-!   call TPO_Schwarz_Assign(ns(1), ns(2), ns(3), SchwarzGenOP)
-    call Error('Iteration_C', &
-               'Anisotropic Schwarz operator not implemented yet', &
-               'CART__DG_Elliptic_CI_Schwarz')
+    call TPO_Schwarz_Assign(ns(1), ns(2), ns(3), SchwarzOP)
   end if
 
   ! termination condition
