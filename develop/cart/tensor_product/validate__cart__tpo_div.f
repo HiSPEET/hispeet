@@ -1,8 +1,7 @@
-!> \file       validate__cart__tpo_div.f
-!> \brief      Validation of the tensor-product divergence operator
-!> \author     Joerg Stiller
-!> \date       2017/02/02
-!> \copyright  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!> summary:  Validation of the tensor-product divergence operator
+!> author:   Joerg Stiller
+!> date:     2017/02/02
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
 program Validate__CART__TPO_Div
@@ -95,7 +94,7 @@ program Validate__CART__TPO_Div
   !-----------------------------------------------------------------------------
   ! operand und exact result
 
-  associate( xs => standard_op % xi )
+  associate( xs => standard_op % x )
 
     do e = 1, ne
 

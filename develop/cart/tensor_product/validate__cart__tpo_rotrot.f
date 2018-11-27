@@ -1,8 +1,7 @@
-!> \file       validate__cart__tpo_rotrot.f
-!> \brief      Validation of the rot-rot tensor-product operator for 3d vectors
-!> \author     Joerg Stiller
-!> \date       2017/01/31
-!> \copyright  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!> summary:  Validation of the rot-rot tensor-product operator for 3d vectors
+!> author:   Joerg Stiller
+!> date:     2017/01/31
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
 program Validate__CART__TPO_RotRot

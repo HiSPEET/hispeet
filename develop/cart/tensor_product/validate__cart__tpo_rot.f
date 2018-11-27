@@ -1,8 +1,7 @@
-!> \file       validate__cart__tpo_rot.f
-!> \brief      Validation of the tensor-product rotation operator
-!> \author     Joerg Stiller
-!> \date       2018/05/20
-!> \copyright  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!> summary:  Validation of the tensor-product rotation operator
+!> author:   Joerg Stiller
+!> date:     2018/05/20
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
 program Validate__CART__TPO_Rot

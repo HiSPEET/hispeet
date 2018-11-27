@@ -1,4 +1,26 @@
 #===============================================================================
+# TPO Grad
+
+add_executable( validate__cart__tpo_grad
+                validate__cart__tpo_grad.f )
+
+target_link_libraries(validate__cart__tpo_grad HiCart)
+
+configure_file( validate__cart__tpo_grad.prm
+                validate__cart__tpo_grad.prm COPYONLY )
+
+#===============================================================================
+# TPO Div
+
+add_executable( validate__cart__tpo_div
+                validate__cart__tpo_div.f )
+
+target_link_libraries(validate__cart__tpo_div HiCart)
+
+configure_file( validate__cart__tpo_div.prm
+                validate__cart__tpo_div.prm COPYONLY )
+
+#===============================================================================
 # TPO Elliptic CI
 
 add_executable( validate__cart__tpo_elliptic_ci
