@@ -43,12 +43,12 @@ configure_file( validate__cart__tpo_schwarz.prm
                 validate__cart__tpo_schwarz.prm COPYONLY )
 
 #===============================================================================
-# TPO Schwarz Cubic
+# TPO Schwarz Iso
 
-add_executable( validate__cart__tpo_schwarz_cubic
-                validate__cart__tpo_schwarz_cubic.f )
+add_executable( validate__cart__tpo_schwarz_iso
+                validate__cart__tpo_schwarz_iso.f )
 
-target_link_libraries(validate__cart__tpo_schwarz_cubic HiCart)
+target_link_libraries(validate__cart__tpo_schwarz_iso HiCart)
 
-configure_file( validate__cart__tpo_schwarz_cubic.prm
-                validate__cart__tpo_schwarz_cubic.prm COPYONLY )
+configure_file( validate__cart__tpo_schwarz_iso.prm
+                validate__cart__tpo_schwarz_iso.prm COPYONLY )
