@@ -86,7 +86,7 @@ module subroutine OverlappingSchwarz(this, bc, u, f, i_max, r_red, r_max, ni)
 
   do i = 1, i_max
 
-    call EllipticResidual(mesh, this%eop, lambda, nu, bc, u, f, r(:,:,:,:ne))
+    call this % Residual(bc, u, f, r(:,:,:,:ne))
 
     ! termination check
     if (present(r_red)) then
@@ -103,6 +103,9 @@ module subroutine OverlappingSchwarz(this, bc, u, f, i_max, r_red, r_max, ni)
       !$omp barrier
     end if
     if (converged) exit
+
+####################### HIER WEITER ##########################################
+
 
     call RestrictToSubdomains(mesh, this, buf_r, r, f_s)
 
