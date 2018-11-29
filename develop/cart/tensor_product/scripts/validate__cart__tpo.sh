@@ -29,7 +29,7 @@ NT_MAX=10
 
 for CASE in $TEST_CASES; do
 
-  PROGRAM="validate__cart__tpo_"${CASE}
+  PROGRAM="./validate__cart__tpo_"${CASE}
 
   if [ ! -f $PROGRAM ]; then
     echo $PROGRAM "does not exist -- skipping test"
@@ -39,12 +39,14 @@ for CASE in $TEST_CASES; do
   echo ""
   echo "----------------------------------------------------------------"
   echo "Evaluation of tensor-product operator "${CASE}
-  echo ""
 
   # test over range of elements ................................................
 
   if [ -n "$NP_TEST" ]
   then
+
+    echo ""
+    echo "test over range of elements"
 
     (( NP = NP_TEST ))
     (( PO = NP - 1  ))
@@ -75,6 +77,9 @@ for CASE in $TEST_CASES; do
 
   if [ -n "$NE_TEST" ]
   then
+
+    echo ""
+    echo "test over range of operator sizes"
 
     (( NE = NE_TEST ))
 

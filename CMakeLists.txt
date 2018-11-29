@@ -49,6 +49,7 @@ endif ()
 find_package(LAPACK REQUIRED)
 find_package(VTK COMPONENTS vtkIOXML REQUIRED)
 find_package(PythonInterp 3 REQUIRED)
+find_package(Slurm)
 find_package(ParMETIS)
 find_package(Exodus)
 find_package(pFUnit PATHS $ENV{PFUNIT})
@@ -68,6 +69,9 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-form -Wall")
     set(CMAKE_Fortran_FLAGS_DEBUG   "-fbacktrace -g")
     set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native" )
+
+    # compiler environment module needed for generating slurm scripts
+    set(ENV_MODULE_COMPILER "compiler/gnu")
 
 #-------------------------------------------------------------------------------
 # Intel
@@ -90,6 +94,9 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     # do not warn about using Intel compiler directives
     set(Fortran_FLAGS_TPO "-diag-disable=6477")
 
+    # compiler environment module needed for generating slurm scripts
+    set(ENV_MODULE_COMPILER "compiler/intel")
+
 #-------------------------------------------------------------------------------
 # PGI
 
@@ -109,6 +116,9 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
     set(CMAKE_Fortran_FLAGS_RELEASE "-fast -O3" )
 
     set(Fortran_FLAGS_TPO "-Minline=reshape")
+
+    # compiler environment module needed for generating slurm scripts
+    set(ENV_MODULE_COMPILER "compiler/pgi")
 
 endif ()
 
