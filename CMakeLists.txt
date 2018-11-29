@@ -1,12 +1,9 @@
 # Recommended environment
 #
-#     CMAKE_C_COMPILER
-#     CMAKE_CXX_COMPILER
+#     FC      set to MPI/Fortran compiler
+#     CC      set to MPI/C compiler
+#     CXX     set to MPI/C++ compiler
 #     CMAKE_Fortran_COMPILER
-#
-#     MPI_C_COMPILER
-#     MPI_CXX_COMPILER
-#     MPI_Fortran_COMPILER
 
 cmake_minimum_required(VERSION 3.5)
 

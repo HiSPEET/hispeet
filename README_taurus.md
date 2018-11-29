@@ -15,18 +15,15 @@
 
      # for use with OpenMPI
      ml OpenMPI/2.1.2-iccifort-2018.1.163-GCC-6.4.0-2.28
+     export FC=mpifort
      export CC=mpicc
      export CXX=mpicxx
-     export FC=mpifort
-     #export CMAKE_C_COMPILER=mpicc
-     #export CMAKE_CXX_COMPILER=mpicxx
-     #export CMAKE_Fortran_COMPILER=mpifort
 
      # for use with Intel MPI
      ml intel
-     export CMAKE_C_COMPILER=mpiicc
-     export CMAKE_CXX_COMPILER=mpiicxx
-     export CMAKE_Fortran_COMPILER=mpiiifort
+     export FC=mpiiifort
+     export CC=mpiicc
+     export CXX=mpiicxx
 
 
 ### GNU
