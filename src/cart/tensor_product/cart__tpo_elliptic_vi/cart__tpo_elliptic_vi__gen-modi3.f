@@ -128,52 +128,44 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
         v(i,j,k,e) = v(i,j,k,e) + g(1) * tmp
       end do
 
-    end do
-    end do
 
     ! direction 2 ..............................................................
     
-    do k = 1, np
-    do i = 1, np
 
-      do j = 1, np
-        z(j) = 0
+      do i = 1, np
+        z(i) = 0
         do p = 1, np
-          z(j) = z(j) + Msi_Dst(p,j) * M_u(i,p,k)
+          z(i) = z(i) + Msi_Dst(p,i) * M_u(j,p,k)
         end do
-        z(j) = nu(i,j,k,e) * z(j)
+        z(i) = nu(j,i,k,e) * z(i)
       end do
 
-      do j = 1, np
+      do i = 1, np
         tmp = 0
         do p = 1, np
-          tmp = tmp + Ms_Ds(p,j) * z(p)
+          tmp = tmp + Ms_Ds(p,i) * z(p)
         end do
-        v(i,j,k,e) = v(i,j,k,e) + g(2) * tmp
+        v(j,i,k,e) = v(j,i,k,e) + g(2) * tmp
       end do
 
-    end do
-    end do
 
     ! direction 3 ..............................................................
     
-    do j = 1, np
-    do i = 1, np
 
-      do k = 1, np
-        z(k) = 0
+      do i = 1, np
+        z(i) = 0
         do p = 1, np
-          z(k) = z(k) + Msi_Dst(p,k) * M_u(i,j,p)
+          z(i) = z(i) + Msi_Dst(p,i) * M_u(j,k,p)
         end do
-        z(k) = nu(i,j,k,e) * z(k)
+        z(i) = nu(j,k,i,e) * z(i)
       end do
 
-      do k = 1, np
+      do i = 1, np
         tmp = 0
         do p = 1, np
-          tmp = tmp + Ms_Ds(p,k) * z(p)
+          tmp = tmp + Ms_Ds(p,i) * z(p)
         end do
-        v(i,j,k,e) = v(i,j,k,e) + g(3) * tmp
+        v(j,k,i,e) = v(j,k,i,e) + g(3) * tmp
       end do
 
     end do

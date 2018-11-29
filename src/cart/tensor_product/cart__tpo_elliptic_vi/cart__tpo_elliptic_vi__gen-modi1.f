@@ -129,7 +129,7 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
     do i = 1, np
       tmp = 0
       do p = 1, np
-        tmp = tmp + Ms_Ds(p,i) * z(i,j,k)
+        tmp = tmp + Ms_Ds(p,i) * z(p,j,k)
       end do
       v(i,j,k,e) = v(i,j,k,e) + g(1) * tmp
     end do
@@ -137,8 +137,58 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
     end do
 
     ! direction 2 ..............................................................
+    
+    do k = 1, np
+    do j = 1, np
+    do i = 1, np
+      tmp = 0
+      do p = 1, np
+        tmp = tmp + Msi_Dst(p,j) * M_u(i,p,k)
+      end do
+      z(i,j,k) = nu(i,j,k,e) * tmp
+    end do
+    end do
+    end do
+
+    !$acc loop collapse(3) independent vector
+    do k = 1, np
+    do j = 1, np
+    do i = 1, np
+      tmp = 0
+      do p = 1, np
+        tmp = tmp + Ms_Ds(p,j) * z(i,p,k)
+      end do
+      v(i,j,k,e) = v(i,j,k,e) + g(2) * tmp
+    end do
+    end do
+    end do
 
     ! direction 3 ..............................................................
+    
+    do k = 1, np
+    do j = 1, np
+    do i = 1, np
+      tmp = 0
+      do p = 1, np
+        tmp = tmp + Msi_Dst(p,k) * M_u(i,j,p)
+      end do
+      z(i,j,k) = nu(i,j,k,e) * tmp
+    end do
+    end do
+    end do
+
+    !$acc loop collapse(3) independent vector
+    do k = 1, np
+    do j = 1, np
+    do i = 1, np
+      tmp = 0
+      do p = 1, np
+        tmp = tmp + Ms_Ds(p,k) * z(i,j,p)
+      end do
+      v(i,j,k,e) = v(i,j,k,e) + g(3) * tmp
+    end do
+    end do
+    end do
 
   end do
   !$omp end do
