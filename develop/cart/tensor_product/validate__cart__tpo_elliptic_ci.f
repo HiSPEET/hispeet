@@ -1,7 +1,7 @@
-!> \brief      Validation of the tensor-product operator for 3d diffusion
-!> \author     Joerg Stiller
-!> \date       2017/01/27
-!> \copyright  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!> summary:  Validation of the tensor-product operator for 3d diffusion
+!> author:   Joerg Stiller
+!> date:     2017/01/27
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
 program Validate__CART__TPO_Elliptic_CI

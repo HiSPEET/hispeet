@@ -1,10 +1,12 @@
-# Required environment
+# Recommended environment
 #
 #     CMAKE_C_COMPILER
 #     CMAKE_CXX_COMPILER
 #     CMAKE_Fortran_COMPILER
 #
-# must support MPI
+#     MPI_C_COMPILER
+#     MPI_CXX_COMPILER
+#     MPI_Fortran_COMPILER
 
 cmake_minimum_required(VERSION 3.5)
 
@@ -39,13 +41,6 @@ set(MPI_SKIP_GUESSING         TRUE)
 find_package(MPI REQUIRED)
 if (NOT MPI_Fortran_HAVE_F08_MODULE)
     message(FATAL_ERROR "MPI does not have MPI_F08 module")
-endif ()
-
-#-------------------------------------------------------------------------------
-# OpenMP
-
-if (OpenMP)
-    find_package(OpenMP REQUIRED)
 endif ()
 
 #-------------------------------------------------------------------------------
@@ -96,9 +91,22 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     set(Fortran_FLAGS_TPO "-diag-disable=6477")
 
 #-------------------------------------------------------------------------------
-# PGI  *** incomplete ***
+# PGI
 
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
+
+    string(JOIN \  CMAKE_Fortran_FLAGS
+           ${CMAKE_Fortran_FLAGS}
+           -Mfree -Minform=inform
+           -Mbackslash
+           -Minfo=inline
+           -Minline=maxsize:250
+           -Mvect=simd
+           -Munroll
+          )
+
+    set(CMAKE_Fortran_FLAGS_DEBUG   "-g")
+    set(CMAKE_Fortran_FLAGS_RELEASE "-fast -O3" )
 
     set(Fortran_FLAGS_TPO "-Minline=reshape")
 
@@ -108,11 +116,31 @@ endif ()
 # OpenMP
 
 if (OpenMP)
+    find_package(OpenMP REQUIRED)
     set(CMAKE_C_FLAGS          "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS        "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     set(CMAKE_Fortran_FLAGS    "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif (OpenMP)
+
+#-------------------------------------------------------------------------------
+# OpenACC
+
+if (OpenACC)
+    find_package(OpenACC REQUIRED)
+    if (NOT DEFINED OpenACC_ACCEL_TARGET)
+        set(OpenACC_ACCEL_TARGET tesla:kepler+)
+    endif()
+    set(CMAKE_C_FLAGS       "${CMAKE_C_FLAGS} ${OpenACC_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS     "${CMAKE_CXX_FLAGS} ${OpenACC_CXX_FLAGS}")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenACC_Fortran_FLAGS}")
+
+    # linker flags
+    if (CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Mcuda -lcublas")
+    endif()
+
+endif ()
 
 #===============================================================================
 # Subprojects

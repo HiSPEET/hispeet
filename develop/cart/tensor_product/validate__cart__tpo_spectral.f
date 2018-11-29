@@ -1,8 +1,7 @@
-!> \file       validate__cart__tpo_spectral.f
-!> \brief      Validation of the tensor-product spectral operator
-!> \author     Joerg Stiller
-!> \date       2017/01/27
-!> \copyright  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!> summary:  Validation of the tensor-product spectral operator
+!> author:   Joerg Stiller
+!> date:     2017/01/27
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
 program Validate__CART__TPO_Spectral

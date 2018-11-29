@@ -1,8 +1,7 @@
-!> \file       validate__cart__tpo_schwarz_iso.f
-!> \brief      Validation of the isotropic tensor-product spectral operator
-!> \author     Joerg Stiller
-!> \date       2017/12/13
-!> \copyright  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!> summary:  Validation of the isotropic tensor-product Schwarz operator
+!> author:   Joerg Stiller
+!> date:     2017/12/13
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
 program Validate__CART__TPO_Schwarz_Old
