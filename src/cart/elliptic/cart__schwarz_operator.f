@@ -9,6 +9,10 @@ module CART__Schwarz_Operator
 
   public :: SchwarzOperator3D
 
+  ! ConfigurationID is made public only to circumvent an error of GCC 8.2 which
+  ! makes private entities invisible to submodules :(!
+  public :: ConfigurationID
+
   !-----------------------------------------------------------------------------
   !> Schwarz operator
   !>

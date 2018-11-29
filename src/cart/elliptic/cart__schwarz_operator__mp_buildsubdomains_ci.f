@@ -63,11 +63,13 @@ module subroutine BuildSubdomains_CI(this, mesh, lambda, nu, bc)
 
     do e = 1, mesh%ne
 
-      where(mesh % element(e) % face % boundary > 0)
-        bc_face = bc( mesh % element(e) % face % boundary )
-      elsewhere
-        bc_face = ''
-      end where
+      associate(boundary => mesh % element(e) % face(1:6) % boundary)
+        where(boundary > 0)
+          bc_face = bc(boundary)
+        elsewhere
+          bc_face = ''
+        end where
+      end associate
 
       cfg(1,e) = ConfigurationID(bc_face(1:2))
       cfg(2,e) = ConfigurationID(bc_face(3:4))
