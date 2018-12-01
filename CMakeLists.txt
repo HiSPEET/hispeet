@@ -3,7 +3,6 @@
 #     FC      set to MPI/Fortran compiler
 #     CC      set to MPI/C compiler
 #     CXX     set to MPI/C++ compiler
-#     CMAKE_Fortran_COMPILER
 
 cmake_minimum_required(VERSION 3.5)
 
@@ -35,7 +34,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 
 set(MPI_SKIP_COMPILER_WRAPPER TRUE)
 set(MPI_SKIP_GUESSING         TRUE)
-find_package(MPI REQUIRED)
+#find_package(MPI REQUIRED)
+find_package(MPI)
 if (NOT MPI_Fortran_HAVE_F08_MODULE)
     message(FATAL_ERROR "MPI does not have MPI_F08 module")
 endif ()
@@ -68,7 +68,7 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native" )
 
     # compiler environment module needed for generating slurm scripts
-    set(ENV_MODULE_COMPILER "compiler/gnu")
+    set(ENV_MODULE_COMPILER "hispeet/gnu")
 
 #-------------------------------------------------------------------------------
 # Intel
@@ -92,7 +92,7 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     set(Fortran_FLAGS_TPO "-diag-disable=6477")
 
     # compiler environment module needed for generating slurm scripts
-    set(ENV_MODULE_COMPILER "compiler/intel")
+    set(ENV_MODULE_COMPILER "hispeet/intel")
 
 #-------------------------------------------------------------------------------
 # PGI
@@ -115,7 +115,7 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
     set(Fortran_FLAGS_TPO "-Minline=reshape")
 
     # compiler environment module needed for generating slurm scripts
-    set(ENV_MODULE_COMPILER "compiler/pgi")
+    set(ENV_MODULE_COMPILER "hispeet/pgi")
 
 endif ()
 
