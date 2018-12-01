@@ -108,7 +108,7 @@ subroutine GetTrace_Start_SO(this, mesh, u, tr_u, tag)
   nf = size(tr_u,4)
   nc = 1
 
-  call GetTrace_Start_X(this, mesh, po, ne, nf, nc, u, null(), tr_u, tag)
+  call GetTrace_Start_X(this, mesh, po, ne, nf, nc, u, tr_u=tr_u, tag=tag)
 
 end subroutine GetTrace_Start_SO
 
@@ -151,7 +151,7 @@ subroutine GetTrace_Start_AO(this, mesh, u, tr_u, tag)
   nf = size(tr_u,4)
   nc = size(tr_u,5)
 
-  call GetTrace_Start_X(this, mesh, po, ne, nf, nc, u, null(), tr_u, tag)
+  call GetTrace_Start_X(this, mesh, po, ne, nf, nc, u, tr_u=tr_u, tag=tag)
 
 end subroutine GetTrace_Start_AO
 
@@ -325,7 +325,7 @@ subroutine ApplyBoundaryConditions(mesh, po, nf, nc, bv_u, tr_u)
 
   ! internal variables .........................................................
 
-  real(RNP), contiguous, pointer, save :: ub(:,:,:)
+  real(RNP), contiguous, pointer :: ub(:,:,:)
   integer :: b, c, f, i, k, o, p, q
 
   ! set boundary conditions ....................................................
