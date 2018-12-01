@@ -263,7 +263,7 @@ subroutine ApplyBoundaryConditions(mesh, po, nf, bv_u, tr_un)
 
   ! internal variables .........................................................
 
-  real(RNP), contiguous, pointer, save :: ub(:,:,:,:)
+  real(RNP), contiguous, pointer :: ub(:,:,:,:)
   character :: bc(3)
   integer   :: b, d, f, i, k, n, o, p, q, s
 
