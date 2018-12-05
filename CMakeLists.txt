@@ -134,18 +134,37 @@ endif (OpenMP)
 # OpenACC
 
 if (OpenACC)
-    find_package(OpenACC REQUIRED)
+
     if (NOT DEFINED OpenACC_ACCEL_TARGET)
-        set(OpenACC_ACCEL_TARGET tesla:kepler+)
-    endif()
+        set(OpenACC_ACCEL_TARGET "tesla:kepler+")
+    endif ()
+
+    ## using CMake module -- not working :(
+    ## find_package(OpenACC REQUIRED)
+
+    # Fortran and C compiler IDs must match to avoid problems with linker
+    if ( CMAKE_Fortran_COMPILER_ID MATCHES "PGI" AND
+         CMAKE_C_COMPILER_ID       MATCHES "PGI" )
+
+        set( OpenACC_C_FLAGS
+             "-acc -Minfo=accel -Minline=3 -ta=${OpenACC_ACCEL_TARGET}" )
+
+        set( OpenACC_Fortran_FLAGS
+             "-acc -Minfo=accel -Minline=3 -ta=${OpenACC_ACCEL_TARGET}" )
+
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Mcuda -lcublas")
+
+        set(OpenACC_FOUND TRUE)
+        message (STATUS "Found OpenACC (PGI)")
+
+    else ()
+        message(FATAL_ERROR "Could NOT find OpenACC")
+    endif ()
+
+    # Add OpenACC compiler flags ()
     set(CMAKE_C_FLAGS       "${CMAKE_C_FLAGS} ${OpenACC_C_FLAGS}")
     set(CMAKE_CXX_FLAGS     "${CMAKE_CXX_FLAGS} ${OpenACC_CXX_FLAGS}")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenACC_Fortran_FLAGS}")
-
-    # linker flags
-    if (CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Mcuda -lcublas")
-    endif()
 
 endif (OpenACC)
 
