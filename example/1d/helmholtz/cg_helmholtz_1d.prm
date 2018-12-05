@@ -9,7 +9,7 @@
 &solution_parameters
  po = 15        ! polynomial order
  ne = 400       ! number of elements
- method = 2     ! 1: CG, 2: SC+GE
- !i_max = 10    ! max number of iterations
- r_max = 1e-10  ! Euclidic norm of terminal residual
+ method = 2     ! 1: conjugate gradients CG, 2: SC+GE
+ !i_max = 10    ! max number iterations with CG
+ r_max = 1e-10  ! Euclidic norm of terminal residual with CG
 /

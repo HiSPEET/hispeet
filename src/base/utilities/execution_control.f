@@ -37,8 +37,6 @@ contains
 
 subroutine Init_Execution_Control
 
-  !$omp master
-
   if (initialized) return
   call MPI_Initialized(parallel)
   if (parallel) then
@@ -46,8 +44,6 @@ subroutine Init_Execution_Control
   end if
 
   initialized = .true.
-
-  !$omp end master
 
 end subroutine Init_Execution_Control
 
@@ -131,9 +127,9 @@ subroutine TracingMessage(level, label, pos, message)
 
   character(len=80) :: label_, pid_, pos_, message_
 
-  !$omp master
-
   if (level < min_trace_level) return
+
+  !$omp master
 
   if (.not. initialized) then
     call Init_Execution_Control

@@ -37,3 +37,6 @@
      export CC=mpicc
      export CXX=mpicxx
 
+### PGI
+
+    ml

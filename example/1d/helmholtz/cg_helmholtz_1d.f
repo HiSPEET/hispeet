@@ -37,7 +37,7 @@
 !>
 !===============================================================================
 
-program Helmholtz_CG_SEM_1D
+program CG_Helmholtz_1D
   use Kind_Parameters,  only: RNP, IXL
   use Constants,        only: PI, ONE, TWO
   use CG_Element_Operators_1D
@@ -394,4 +394,4 @@ end subroutine CG
 
 !===============================================================================
 
-end program Helmholtz_CG_SEM_1D
+end program CG_Helmholtz_1D

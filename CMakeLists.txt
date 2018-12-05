@@ -147,7 +147,7 @@ if (OpenACC)
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Mcuda -lcublas")
     endif()
 
-endif ()
+endif (OpenACC)
 
 #===============================================================================
 # Subprojects

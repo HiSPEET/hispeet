@@ -368,7 +368,6 @@ contains
     deallocate(  Fi )
     deallocate(  Gi )
     deallocate(  Si )
-    !$omp end single
     !$omp end master
 
   end subroutine FreeWorkspace
