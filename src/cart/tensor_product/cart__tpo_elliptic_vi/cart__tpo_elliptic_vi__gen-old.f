@@ -40,12 +40,11 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
   !-----------------------------------------------------------------------------
   ! local variables
 
-  real(RNP), allocatable :: M(:,:,:), M_u(:,:,:), Ms_Ds(:,:), Msi_Dst(:,:)
-  real(RNP), allocatable :: z(:,:,:)
-
+  real(RNP), allocatable :: M(:,:,:),   M_u(:,:,:),  Dm(:,:), &
+                            Ms_Ds(:,:), tmp1(:,:,:), tmp2(:,:,:)
   real(RNP) :: g(3), tmp
 
-  integer :: e, i, j, k, p
+  integer :: e, i, j, k, p, q
   integer :: vec_len
 
   !-----------------------------------------------------------------------------
@@ -59,8 +58,8 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
   end if
 
   ! workspace
-  allocate( M(np,np,np), M_u(np,np,np), Ms_Ds(np,np), Msi_Dst(np,np), &
-            z(np,np,np) )
+  allocate(M(np,np,np), M_u(np,np,np), Dm(np,np), Ms_Ds(np,np), &
+           tmp1(np,np,np), tmp2(np,np,np) )
 
   ! element mass matrix
   tmp = product(dx) / 8
@@ -71,19 +70,20 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
   end do
   end do
   end do
-
-  ! modified differentiation operators
-  !! to optimize cache use, the operators are used in transposed form
-  !! to save loads, both operators are computed in one loop-nest
+  
+  
   do j = 1, np
   do i = 1, np
-    Ms_Ds   (i,j) = Ms(i) * Ds(i,j)  ! = Ms Ds     =  [ (Ms Ds)ᵀ ]ᵀ
-    Msi_Dst (i,j) = Ds(j,i) / Ms(i)  ! = Ms⁻¹ Dsᵀ  =  [  Ds Ms⁻¹ ]ᵀ
+    ! mass-multiplied diff matrix: Ms_Ds = Ms Ds
+    Ms_Ds(i,j) = Ms(i) * Ds(i,j)
+    
+    ! transposed mass-weighted diff matrix: (Dm)^T = (Ds Ms^-1)^T = Ms^-1 Ds^T
+    Dm(i,j) = Ds(j,i) / Ms(i)
   end do
   end do
 
   ! coefficients
-  g = 4 / dx**2
+  g = 4 * nu / dx**2
 
   !-----------------------------------------------------------------------------
   ! evaluation
@@ -114,78 +114,53 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
     do k = 1, np
     do j = 1, np
     do i = 1, np
-      tmp = 0
-      do p = 1, np
-        tmp = tmp + Msi_Dst(p,i) * M_u(p,j,k)
+      tmp1 = 0
+      tmp2 = 0
+      do q = 1, np
+        do p = 1, np
+            tmp1(q,j,k) = tmp1(q,j,k) + Dm(p,q) * M_u(p,j,k)
+        end do
+        tmp2(i,j,k) = tmp2(i,j,k) + Ms_Ds(q,i) * nu(q,j,k,e) * tmp1(q,j,k)
       end do
-      z(i,j,k) = nu(i,j,k,e) * tmp
-    end do
-    end do
-    end do
-
-    !$acc loop collapse(3) independent vector
-    do k = 1, np
-    do j = 1, np
-    do i = 1, np
-      tmp = 0
-      do p = 1, np
-        tmp = tmp + Ms_Ds(p,i) * z(p,j,k)
-      end do
-      v(i,j,k,e) = v(i,j,k,e) + g(1) * tmp
+      v(i,j,k,e) = v(i,j,k,e) + g(1) * tmp2(i,j,k)
     end do
     end do
     end do
 
     ! direction 2 ..............................................................
 
-    do k = 1, np
-    do j = 1, np
-    do i = 1, np
-      tmp = 0
-      do p = 1, np
-        tmp = tmp + Msi_Dst(p,j) * M_u(i,p,k)
-      end do
-      z(i,j,k) = nu(i,j,k,e) * tmp
-    end do
-    end do
-    end do
-
     !$acc loop collapse(3) independent vector
     do k = 1, np
     do j = 1, np
     do i = 1, np
-      tmp = 0
-      do p = 1, np
-        tmp = tmp + Ms_Ds(p,j) * z(i,p,k)
+      tmp1 = 0
+      tmp2 = 0
+      do q = 1, np
+        do p = 1, np
+            tmp1(i,q,k) = tmp1(i,q,k) + Dm(p,q) * M_u(i,p,k)
+        end do
+        tmp2(i,j,k) = tmp2(i,j,k) + Ms_Ds(q,j) * nu(i,q,k,e) * tmp1(i,q,k)
       end do
-      v(i,j,k,e) = v(i,j,k,e) + g(2) * tmp
+      v(i,j,k,e) = v(i,j,k,e) + g(2) * tmp2(i,j,k)
     end do
     end do
     end do
 
     ! direction 3 ..............................................................
 
-    do k = 1, np
-    do j = 1, np
-    do i = 1, np
-      tmp = 0
-      do p = 1, np
-        tmp = tmp + Msi_Dst(p,k) * M_u(i,j,p)
-      end do
-      z(i,j,k) = nu(i,j,k,e) * tmp
-    end do
-    end do
-    end do
-
     !$acc loop collapse(3) independent vector
     do k = 1, np
     do j = 1, np
     do i = 1, np
-      tmp = 0
-      do p = 1, np
-        tmp = tmp + Ms_Ds(p,k) * z(i,j,p)
+      tmp1 = 0
+      tmp2 = 0
+      do q = 1, np
+        do p = 1, np
+            tmp1(i,j,q) = tmp1(i,j,q) + Dm(p,q) * M_u(i,j,p)
+        end do
+        tmp2(i,j,k) = tmp2(i,j,k) + Ms_Ds(q,k) * nu(i,j,q,e) * tmp1(i,j,q)
       end do
-      v(i,j,k,e) = v(i,j,k,e) + g(3) * tmp
+      v(i,j,k,e) = v(i,j,k,e) + g(3) * tmp2(i,j,k)
     end do
     end do
     end do
@@ -195,6 +170,8 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
 
   !$acc end parallel
   !$acc end data
+
+!######################### REWRITE STARTING UNTIL HERE #########################
 
 !===============================================================================
 
