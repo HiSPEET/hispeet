@@ -38,69 +38,69 @@ with open(dest_proc, 'a') as f:
     for proc in gen_proc:
         with open(proc, 'r') as p: f.write(p.read())
 
-#-----------------------------------------------------------------------------
-# parametrized procedures
-
-# read parameters ............................................................
-
-config = dest_dir + module + '.var'
-
-# read parameters
-with open(config, 'r') as f:
-    reader = csv.reader(f)
-    proc_par = [ strip(p) for p in list(reader) if no_comment(p) ]
-
-# shorthands
-np  = [ entry[0] for entry in proc_par ]
-op1 = [ entry[1] for entry in proc_par ]
-op2 = [ entry[2] for entry in proc_par ]
-op3 = [ entry[3] for entry in proc_par ]
-
-# create procedures ..........................................................
-
-tmpl_proc = tmpl_dir + module + '__par.Ft'
-name_proc = []
-
-for i in range(len(proc_par)):
-
-    tag = np[i]
-
-    subop_1a = shared_dir + 'subop_1a__' + op1[i] + '.f'
-    subop_2a = shared_dir + 'subop_2a__' + op2[i] + '.f'
-    subop_3a = shared_dir + 'subop_3a__' + op3[i] + '.f'
-
-    # derived parameters
-    np_t2 = str( int(np[i]) // 2 * 2 )
-    np_t4 = str( int(np[i]) // 4 * 4 )
-    np_t8 = str( int(np[i]) // 8 * 8 )
-
-    # OpenACC
-    if int(np[i]) < 8:
-        vec_length  = 128
-    else:
-        vec_length  = 256
-
-    num_workers = str( max_vec_length // vec_length )
-    vec_length  = str( vec_length )
-
-    # expand parametrized template
-    with open(dest_proc, 'a') as f:
-        for line in fileinput.input(tmpl_proc):
-            line = line.replace( '<tag>'         , tag         )
-            line = line.replace( '<np>'          , np[i]       )
-            line = line.replace( '<np_t2>'       , np_t2       )
-            line = line.replace( '<np_t4>'       , np_t4       )
-            line = line.replace( '<np_t8>'       , np_t8       )
-            line = line.replace( '<num_workers>' , num_workers )
-            line = line.replace( '<vec_length>'  , vec_length  )
-            line = line.replace( '<SubOp_1a>'    , subop_1a    )
-            line = line.replace( '<SubOp_2a>'    , subop_2a    )
-            line = line.replace( '<SubOp_3a>'    , subop_3a    )
-            f.write(line)
-
-        f.write('\n')
-
-    name_proc.append(operator + '__' +  tag)
+#x# #-----------------------------------------------------------------------------
+#x# # parametrized procedures
+#x#
+#x# # read parameters ............................................................
+#x#
+#x# config = dest_dir + module + '.var'
+#x#
+#x# # read parameters
+#x# with open(config, 'r') as f:
+#x#     reader = csv.reader(f)
+#x#     proc_par = [ strip(p) for p in list(reader) if no_comment(p) ]
+#x#
+#x# # shorthands
+#x# np  = [ entry[0] for entry in proc_par ]
+#x# op1 = [ entry[1] for entry in proc_par ]
+#x# op2 = [ entry[2] for entry in proc_par ]
+#x# op3 = [ entry[3] for entry in proc_par ]
+#x#
+#x# # create procedures ..........................................................
+#x#
+#x# tmpl_proc = tmpl_dir + module + '__par.Ft'
+#x# name_proc = []
+#x#
+#x# for i in range(len(proc_par)):
+#x#
+#x#     tag = np[i]
+#x#
+#x#     subop_1a = shared_dir + 'subop_1a__' + op1[i] + '.f'
+#x#     subop_2a = shared_dir + 'subop_2a__' + op2[i] + '.f'
+#x#     subop_3a = shared_dir + 'subop_3a__' + op3[i] + '.f'
+#x#
+#x#     # derived parameters
+#x#     np_t2 = str( int(np[i]) // 2 * 2 )
+#x#     np_t4 = str( int(np[i]) // 4 * 4 )
+#x#     np_t8 = str( int(np[i]) // 8 * 8 )
+#x#
+#x#     # OpenACC
+#x#     if int(np[i]) < 8:
+#x#         vec_length  = 128
+#x#     else:
+#x#         vec_length  = 256
+#x#
+#x#     num_workers = str( max_vec_length // vec_length )
+#x#     vec_length  = str( vec_length )
+#x#
+#x#     # expand parametrized template
+#x#     with open(dest_proc, 'a') as f:
+#x#         for line in fileinput.input(tmpl_proc):
+#x#             line = line.replace( '<tag>'         , tag         )
+#x#             line = line.replace( '<np>'          , np[i]       )
+#x#             line = line.replace( '<np_t2>'       , np_t2       )
+#x#             line = line.replace( '<np_t4>'       , np_t4       )
+#x#             line = line.replace( '<np_t8>'       , np_t8       )
+#x#             line = line.replace( '<num_workers>' , num_workers )
+#x#             line = line.replace( '<vec_length>'  , vec_length  )
+#x#             line = line.replace( '<SubOp_1a>'    , subop_1a    )
+#x#             line = line.replace( '<SubOp_2a>'    , subop_2a    )
+#x#             line = line.replace( '<SubOp_3a>'    , subop_3a    )
+#x#             f.write(line)
+#x#
+#x#         f.write('\n')
+#x#
+#x#     name_proc.append(operator + '__' +  tag)
 
 #-----------------------------------------------------------------------------
 # operator module
@@ -113,19 +113,20 @@ with open(dest_module, 'w') as f:
 
         f.write(line)
 
-        if len(proc_par) > 0:
-
-            # external statements ............................................
-
-            if '! external procedures ...' in line:
-                for i in range(len(proc_par)):
-                    f.write('\n  ' + procedure + ' :: ' + name_proc[i])
-
-            # assignments to parametrized procedures .........................
-
-            if '! parametrized procedures ...' in line:
-                f.write('\n  select case(np)\n')
-                for i in range(len(proc_par)):
-                    f.write('  case(' + np[i] + ')\n')
-                    f.write('    Proc => ' + name_proc[i] + '\n')
-                f.write('  end select\n')
+#x#         if len(proc_par) > 0:
+#x#
+#x#             # external statements ............................................
+#x#
+#x#             if '! external procedures ...' in line:
+#x#                 for i in range(len(proc_par)):
+#x#                     f.write('\n  ' + procedure + ' :: ' + name_proc[i])
+#x#
+#x#             # assignments to parametrized procedures .........................
+#x#
+#x#             if '! parametrized procedures ...' in line:
+#x#                 f.write('\n  select case(np)\n')
+#x#                 for i in range(len(proc_par)):
+#x#                     f.write('  case(' + np[i] + ')\n')
+#x#                     f.write('    Proc => ' + name_proc[i] + '\n')
+#x#                 f.write('  end select\n')
+#x#
