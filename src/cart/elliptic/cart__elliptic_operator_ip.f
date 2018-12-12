@@ -9,16 +9,16 @@
 module CART__Elliptic_Operator_IP
   use Kind_Parameters, only: RNP
   use IP_Element_Operators_1D
+  use CART__Boundary_Variable
   use CART__Elliptic_Operator
-
-! remove if not needed with complete version
-use CART__Mesh_Partition
-use CART__Boundary_Variable
 
   implicit none
   private
 
   public :: EllipticOperator3D_IP
+
+  !-----------------------------------------------------------------------------
+  !> Type accommodating 3D Cartesian elliptic operators for IP/DG-SEM
 
   type, extends(EllipticOperator3D) :: EllipticOperator3D_IP
 
@@ -26,14 +26,12 @@ use CART__Boundary_Variable
     real(RNP), allocatable :: nu_f(:,:,:) !< max diffusivity on faces
 
   contains
-    private
 
     procedure :: Apply
     procedure :: BcToRHS
     procedure :: Residual
     procedure :: ConjugateGradients
-
-    !procedure :: OverlappingSchwarz_CI
+    procedure :: OverlappingSchwarz
 
   end type EllipticOperator3D_IP
 
@@ -71,13 +69,6 @@ use CART__Boundary_Variable
       real(RNP), intent(in)  :: f(0:,0:,0:,:)  !< right hand side
       real(RNP), intent(out) :: r(0:,0:,0:,:)  !< result
     end subroutine Residual
-
-  end interface
-
-  !=============================================================================
-  !> Element-centered overlapping Schwarz method
-
-  interface
 
     !---------------------------------------------------------------------------
     !> Element-centered overlapping Schwarz method with constant coefficients

@@ -10,6 +10,7 @@ module CART__Elliptic_Operator
   use Kind_Parameters, only: RNP
   use CART__Mesh_Partition
   use CART__Boundary_Variable
+  use CART__Schwarz_Operator
 
   implicit none
   private
@@ -27,6 +28,8 @@ module CART__Elliptic_Operator
     real(RNP), allocatable :: nu_ci           !< constant isotropic diffusivity
     real(RNP), allocatable :: nu_vi(:,:,:,:)  !< variable isotropic diffusivity
 
+    type(SchwarzOperator3D) :: schwarz        !< Schwarz operator
+
   contains
     private
 
@@ -34,9 +37,7 @@ module CART__Elliptic_Operator
     procedure(BcToRHS),   deferred :: BcToRHS
     procedure(Residual),  deferred :: Residual
     procedure(Iteration), deferred :: ConjugateGradients
-
-!    generic, public :: OverlappingSchwarz => OverlappingSchwarz_CI
-!    procedure(Iteration_CI), deferred :: OverlappingSchwarz_CI
+    procedure(Iteration), deferred :: OverlappingSchwarz
 
   end type EllipticOperator3D
 

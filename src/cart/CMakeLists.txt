@@ -89,6 +89,7 @@ set(ELLIPTIC elliptic/cart__schwarz_operator.f
              elliptic/cart__elliptic_operator_ip__mp_apply.f
              elliptic/cart__elliptic_operator_ip__mp_bctorhs.f
              elliptic/cart__elliptic_operator_ip__mp_residual.f
+             elliptic/cart__elliptic_operator_ip__mp_overlappingschwarz.f
              elliptic/cart__cg_elliptic_ci_bc.f
              elliptic/cart__dg_elliptic_cis_bc.f
              elliptic/cart__dg_elliptic_ciu_bc.f
@@ -101,7 +102,6 @@ set(ELLIPTIC elliptic/cart__schwarz_operator.f
              elliptic/cart__dg_elliptic_ci_pmg_level.f
              elliptic/cart__dg_elliptic_ci_pmg.f
              )
-
 
 #===============================================================================
 # isp_flow

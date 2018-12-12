@@ -1,3 +1,10 @@
+!> summary:  Schwarz operator for elliptic equations
+!> author:   Joerg Stiller
+!> date:     2018/12/12
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Schwarz operator for elliptic equations
+!===============================================================================
 module CART__Schwarz_Operator
   use Kind_Parameters, only: RNP
   use Standard_Operators_1D
@@ -10,7 +17,7 @@ module CART__Schwarz_Operator
   public :: SchwarzOperator3D
 
   ! ConfigurationID is made public only to circumvent an error of GCC 8.2 which
-  ! makes private entities invisible to submodules :(!
+  ! makes private entities invisible to submodules :(
   public :: ConfigurationID
 
   !-----------------------------------------------------------------------------

@@ -26,7 +26,7 @@ use CART__Boundary_Variable
     procedure :: BcToRHS
     procedure :: Residual
     procedure :: ConjugateGradients
-    !procedure :: OverlappingSchwarz_CI
+    procedure :: OverlappingSchwarz
   end type EllipticOperator3D_CG
 
 !===============================================================================
