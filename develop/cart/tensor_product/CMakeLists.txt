@@ -114,6 +114,7 @@ configure_file( validate__cart__tpo_schwarz_iso.prm
 file( COPY scripts/validate__cart__tpo.sh
            scripts/validate__cart__tpo_div.prm.tmpl
            scripts/validate__cart__tpo_elliptic_ci.prm.tmpl
+           scripts/validate__cart__tpo_elliptic_vi.prm.tmpl
            scripts/validate__cart__tpo_grad.prm.tmpl
            scripts/validate__cart__tpo_rot.prm.tmpl
            scripts/validate__cart__tpo_rotrot.prm.tmpl
