@@ -7,9 +7,7 @@
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP) MP_Apply
-  use Constants, only: ZERO, ONE, HALF
   use Execution_Control
-  use Array_Assignments
   use CART__TPO_Elliptic_CI
   use CART__Mesh_Partition
   use CART__Trace_Operator

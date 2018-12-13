@@ -8,14 +8,11 @@
 
 submodule(CART__Elliptic_Operator_IP) MP_OverlappingSchwarz
   use Execution_Control, only: Error
-  use Constants,         only: ZERO, ONE
-  use Array_Assignments, only: AssignScalar
-  use Array_Reductions,  only: ScalarProduct
-  use XMPI,              only: XMPI_Bcast
   use CART__TPO_Schwarz
   use CART__TPO_Schwarz_Iso
   use CART__Mesh_Partition
   use CART__Element_Transfer_Buffer
+  implicit none
 
 contains
 

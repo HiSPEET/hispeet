@@ -7,8 +7,6 @@
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP) MP_Residual
-  use Constants, only: ONE
-  use Array_Assignments
   implicit none
 
 contains

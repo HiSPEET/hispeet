@@ -7,8 +7,6 @@
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP) MP_BCtoRHS
-  use Constants, only: ONE, ZERO
-  use CART__Boundary_Variable
   implicit none
 
 contains
