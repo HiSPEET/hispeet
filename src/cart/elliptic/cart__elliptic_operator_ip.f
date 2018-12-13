@@ -7,8 +7,12 @@
 !===============================================================================
 
 module CART__Elliptic_Operator_IP
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters,   only: RNP
+  use Constants,         only: ZERO, ONE, HALF
+  use Array_Assignments
+  use Array_Reductions
   use IP_Element_Operators_1D
+  use XMPI, only: XMPI_Bcast
   use CART__Boundary_Variable
   use CART__Elliptic_Operator
 
@@ -90,11 +94,8 @@ module CART__Elliptic_Operator_IP
 
 contains
 
-!===============================================================================
-! Dummy procedures
-
 !--------------------------------------------------------------------------
-!> Performs iteration sweeps starting from given approx: const isotropic
+!> Conjugate gradient method
 
 subroutine ConjugateGradients(this, bc, u, f, i_max, r_red, r_max, ni)
   class(EllipticOperator3D_IP), intent(in) :: this
@@ -105,6 +106,109 @@ subroutine ConjugateGradients(this, bc, u, f, i_max, r_red, r_max, ni)
   real(RNP), optional, intent(in)  :: r_red  !< min residual reduction
   real(RNP), optional, intent(in)  :: r_max  !< max admissible residual
   integer,   optional, intent(out) :: ni     !< exec num iterations
+
+  ! local variables ............................................................
+
+  real(RNP), dimension(:,:,:,:), allocatable, save :: g, r, p, q
+  real(RNP), save :: rr_term
+  logical  , save :: converged
+
+  real(RNP) :: alpha, pq, rr, rr_old
+  integer   :: i
+
+  ! initialization .............................................................
+
+  associate(mesh => this%mesh)
+
+    ! work space
+    !$omp single
+    allocate(g, mold = u)
+    allocate(r, mold = u)
+    allocate(p, mold = u)
+    allocate(q, mold = u)
+    !$omp end single
+
+    !$acc data create(g,r,p,q) present(u,f)
+
+    ! RHS
+    call AssignArray(g, f)
+
+    ! calibrate RHS of singular problem
+    if (abs(this%lambda) < epsilon(ONE) .and. all(bc /= 'D')) then
+      call CalibrateArray(g, mesh%comm)
+    end if
+
+    ! initial residual .........................................................
+
+    call this % Residual(bc, u, g, r)
+    call AssignArray(p, r)
+
+    rr = ScalarProduct(r, r, mesh%comm)
+
+    !$omp single
+    if (present(r_red)) then
+      rr_term  = max(ZERO, sqrt(rr) * r_red)**2
+      if (present(r_max)) then
+        rr_term = max(rr_term, max(ZERO, r_max)**2)
+      end if
+    else
+      rr_term = 0
+    end if
+    !$omp end single
+
+    rr_old = 0
+
+    ! iteration ................................................................
+
+    do i = 1, i_max
+
+      ! termination check  . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+      ! MPI master decides about termination
+      !$omp master
+      if (mesh%part == 0) then
+        converged = rr <= rr_term
+      end if
+      rr_old = rr
+      call XMPI_Bcast(converged, root=0, comm=mesh%comm)
+      !$omp end master
+      !$omp barrier
+
+      if (converged) exit
+
+      ! next iteration . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+      call this % Apply(bc, p, q)
+
+      pq = ScalarProduct(p, q, mesh%comm)
+      alpha = rr_old / pq
+
+      call MergeArrays(ONE, u,  alpha, p)
+
+      if (mod(i,50) == 0) then
+        ! compute true residual to get rid of round-off errors
+        call this % Residual(bc, u, g, r)
+      else
+        call MergeArrays(ONE, r, -alpha, q)
+      end if
+
+      rr = ScalarProduct(r, r, mesh%comm)
+
+      call  MergeArrays(rr/rr_old, p, ONE, r)
+
+    end do
+
+    if (present(ni)) ni = i - 1
+
+    !$acc end data
+
+    !$omp barrier
+    !$omp master
+    deallocate(g, r, p, q)
+    !$omp end master
+
+  end associate
+
 end subroutine ConjugateGradients
 
 !===============================================================================
