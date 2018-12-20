@@ -154,6 +154,9 @@ program Elliptic_Test__IP_CI
   ! Schwarz options
   call schwarz_opt % Bcast(0, comm)
 
+  ! control parameters
+  call XMPI_Bcast(plot_file, 0, comm)
+
 !===============================================================================
 
 end program Elliptic_Test__IP_CI
