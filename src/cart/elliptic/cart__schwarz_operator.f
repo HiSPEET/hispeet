@@ -165,9 +165,11 @@ module CART__Schwarz_Operator
   !> Options for the 3D Schwarz operator
 
   type SchwarzOptions3D
-    real(RNP) :: delta(3)  = 0.08 !< relative overlap
-    integer   :: no_min    = -1   !< min overlap in points
-    integer   :: weighting =  5   !< weighting method
+    real(RNP) :: delta(3)  =  0.125 !< relative overlap
+    integer   :: no_min    = -1     !< min overlap in points
+    integer   :: weighting =  5     !< weighting method
+  contains
+    procedure :: Bcast => SchwarzOptions3D_Bcast
   end type SchwarzOptions3D
 
   !=============================================================================
@@ -212,7 +214,7 @@ module CART__Schwarz_Operator
 contains
 
 !===============================================================================
-! New
+! SchwarzOperator3D :: New
 
 subroutine New_CI(this, opt, eop, mesh, lambda, nu, bc)
 
@@ -235,7 +237,7 @@ subroutine New_CI(this, opt, eop, mesh, lambda, nu, bc)
 end subroutine New_CI
 
 !===============================================================================
-! Update
+! SchwarzOperator3D :: Update
 
 subroutine Update_CI(this, mesh, lambda, nu, bc)
   class(SchwarzOperator3D),   intent(inout) :: this   !< Schwarz operator
@@ -247,6 +249,23 @@ subroutine Update_CI(this, mesh, lambda, nu, bc)
   call BuildSubdomains_CI(this, mesh, lambda, nu, bc)
 
 end subroutine Update_CI
+
+!===============================================================================
+! SchwarzOptions3D :: Bcast
+
+!-------------------------------------------------------------------------------
+!> Extension of MPI_Bcast to objects of type SchwarzOptions3D
+
+subroutine SchwarzOptions3D_Bcast(this, root, comm)
+  class(SchwarzOptions3D), intent(inout) :: this
+  integer,                 intent(in)    :: root !< rank of broadcast root
+  type(MPI_Comm),          intent(in)    :: comm !< MPI communicator
+
+  call XMPI_Bcast( this % delta     , root, comm )
+  call XMPI_Bcast( this % no_min    , root, comm )
+  call XMPI_Bcast( this % weighting , root, comm )
+
+end subroutine SchwarzOptions3D_Bcast
 
 !===============================================================================
 ! Utilities
