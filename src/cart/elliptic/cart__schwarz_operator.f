@@ -15,6 +15,7 @@ module CART__Schwarz_Operator
   private
 
   public :: SchwarzOperator3D
+  public :: SchwarzOptions3D
 
   ! ConfigurationID is made public only to circumvent an error of GCC 8.2 which
   ! makes private entities invisible to submodules :(
@@ -160,6 +161,15 @@ module CART__Schwarz_Operator
 
   end type SchwarzOperator3D
 
+  !-----------------------------------------------------------------------------
+  !> Options for the 3D Schwarz operator
+
+  type SchwarzOptions3D
+    real(RNP) :: delta(3)  = 0.08 !< relative overlap
+    integer   :: no_min    = -1   !< min overlap in points
+    integer   :: weighting =  5   !< weighting method
+  end type SchwarzOptions3D
+
   !=============================================================================
   !> Interfaces to procedures for generating or updating Schwarz operators
 
@@ -204,22 +214,20 @@ contains
 !===============================================================================
 ! New
 
-subroutine New_CI(this, eop, mesh, lambda, nu, bc, delta, no_min, weighting)
+subroutine New_CI(this, opt, eop, mesh, lambda, nu, bc)
 
   class(SchwarzOperator3D),   intent(inout) :: this !< Schwarz operator
+  class(SchwarzOptions3D),    intent(in)    :: opt  !< Schwarz options
   class(StandardOperators1D), intent(in)    :: eop  !< 1D standard SE ops
   class(MeshPartition),       intent(in)    :: mesh !< mesh partition
 
   real(RNP),         intent(in) :: lambda    !< Helmholtz parameter
   real(RNP),         intent(in) :: nu        !< diffusivity
   character,         intent(in) :: bc(:)     !< BC {'D','N'}
-  real(RNP),         intent(in) :: delta(3)  !< relative overlap
-  integer, optional, intent(in) :: no_min    !< min overlap in points [-1]
-  integer, optional, intent(in) :: weighting !< weighting method      [ 5]
 
   select type(eop)
   class is(IP_ElementOperators1D)
-    call BuildEigensystems_IP(this, eop, delta, no_min, weighting)
+    call BuildEigensystems_IP(this, eop, opt%delta, opt%no_min, opt%weighting)
   end select
 
   call BuildSubdomains_CI(this, mesh, lambda, nu, bc)

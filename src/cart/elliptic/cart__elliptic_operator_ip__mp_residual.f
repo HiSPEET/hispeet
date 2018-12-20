@@ -14,14 +14,13 @@ contains
 !--------------------------------------------------------------------------
 !> Computes the residual to given approximation: const isotropic
 
-module subroutine Residual(this, bc, u, f, r)
+module subroutine Residual(this, u, f, r)
   class(EllipticOperator3D_IP), intent(in) :: this
-  character, intent(in)  :: bc(:)          !< BC types {P,D,N}
   real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
   real(RNP), intent(in)  :: f(0:,0:,0:,:)  !< right hand side
   real(RNP), intent(out) :: r(0:,0:,0:,:)  !< result
 
-  call this % Apply(bc, u, r)
+  call this % Apply(u, r)
   call MergeArrays(-ONE, r, ONE, f)
 
 end subroutine Residual

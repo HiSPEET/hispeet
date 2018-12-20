@@ -13,7 +13,9 @@ module CART__Elliptic_Operator_IP
   use Array_Reductions
   use IP_Element_Operators_1D
   use XMPI, only: XMPI_Bcast
+  use CART__Mesh_Partition
   use CART__Boundary_Variable
+  use CART__Schwarz_Operator
   use CART__Elliptic_Operator
 
   implicit none
@@ -31,11 +33,14 @@ module CART__Elliptic_Operator_IP
 
   contains
 
+    generic :: New => New_CI
+    procedure, private :: New_CI
+
     procedure :: Apply
     procedure :: BcToRHS
     procedure :: Residual
     procedure :: ConjugateGradients
-    procedure :: OverlappingSchwarz
+    procedure :: SchwarzMethod
 
   end type EllipticOperator3D_IP
 
@@ -47,9 +52,8 @@ module CART__Elliptic_Operator_IP
     !---------------------------------------------------------------------------
     !> Application of the IP/DG elliptic operator
 
-    module subroutine Apply(this, bc, u, v)
+    module subroutine Apply(this, u, v)
       class(EllipticOperator3D_IP), intent(in) :: this
-      character, intent(in)  :: bc(:)          !< boundary conditions {P,D,N}
       real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
       real(RNP), intent(out) :: v(0:,0:,0:,:)  !< result
     end subroutine Apply
@@ -66,9 +70,8 @@ module CART__Elliptic_Operator_IP
     !--------------------------------------------------------------------------
     !> Computes the residual to given approximation
 
-    module subroutine Residual(this, bc, u, f, r)
+    module subroutine Residual(this, u, f, r)
       class(EllipticOperator3D_IP), intent(in) :: this
-      character, intent(in)  :: bc(:)          !< BC types {P,D,N}
       real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
       real(RNP), intent(in)  :: f(0:,0:,0:,:)  !< right hand side
       real(RNP), intent(out) :: r(0:,0:,0:,:)  !< result
@@ -77,16 +80,15 @@ module CART__Elliptic_Operator_IP
     !---------------------------------------------------------------------------
     !> Element-centered overlapping Schwarz method with constant coefficients
 
-    module subroutine OverlappingSchwarz(this, bc, u, f, i_max, r_red, r_max, ni)
+    module subroutine SchwarzMethod(this, u, f, i_max, r_red, r_max, ni)
       class(EllipticOperator3D_IP), intent(in) :: this
-      character, intent(in)    :: bc(:)          !< BC types {P,D,N}
       real(RNP), intent(inout) :: u(0:,0:,0:,:)  !< approximate solution
       real(RNP), intent(in)    :: f(0:,0:,0:,:)  !< right hand side
       integer,   intent(in)    :: i_max          !< max num iterations
       real(RNP), optional, intent(in)  :: r_red  !< min residual reduction
       real(RNP), optional, intent(in)  :: r_max  !< max admissible residual
       integer,   optional, intent(out) :: ni     !< exec num iterations
-    end subroutine OverlappingSchwarz
+    end subroutine SchwarzMethod
 
   end interface
 
@@ -94,12 +96,41 @@ module CART__Elliptic_Operator_IP
 
 contains
 
-!--------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!> New operator with constant isotropic diffusivity
+
+subroutine New_CI(this, mesh, lambda, nu, bc, eop, schwarz_opt)
+
+  ! arguments ..................................................................
+
+  class(EllipticOperator3D_IP), intent(inout) :: this
+  class(MeshPartition), target, intent(in)    :: mesh   !< mesh partition
+  real(RNP),                    intent(in)    :: lambda !< Helmholtz parameter
+  real(RNP),                    intent(in)    :: nu     !< diffusivity
+  character,                    intent(in)    :: bc(:)  !< boundary conditions
+  type(IP_ElementOperators1D),  intent(in)    :: eop    !< 1D IP-DG operators
+
+  !> options for initializing the Schwarz method
+  class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
+
+  this % mesh => mesh
+
+  this % lambda = lambda
+  this % nu_ci  = nu
+  this % bc     = bc
+
+  if (present(schwarz_opt)) then
+    allocate(this % schwarz)
+    call this % schwarz % New(schwarz_opt, eop, mesh, lambda, nu, bc)
+  end if
+
+end subroutine New_CI
+
+!-------------------------------------------------------------------------------
 !> Conjugate gradient method
 
-subroutine ConjugateGradients(this, bc, u, f, i_max, r_red, r_max, ni)
+subroutine ConjugateGradients(this, u, f, i_max, r_red, r_max, ni)
   class(EllipticOperator3D_IP), intent(in) :: this
-  character, intent(in)    :: bc(:)          !< BC types {P,D,N}
   real(RNP), intent(inout) :: u(0:,0:,0:,:)  !< approximate solution
   real(RNP), intent(in)    :: f(0:,0:,0:,:)  !< right hand side
   integer,   intent(in)    :: i_max          !< max num iterations
@@ -134,13 +165,13 @@ subroutine ConjugateGradients(this, bc, u, f, i_max, r_red, r_max, ni)
     call AssignArray(g, f)
 
     ! calibrate RHS of singular problem
-    if (abs(this%lambda) < epsilon(ONE) .and. all(bc /= 'D')) then
+    if (abs(this%lambda) < epsilon(ONE) .and. all(this%bc /= 'D')) then
       call CalibrateArray(g, mesh%comm)
     end if
 
     ! initial residual .........................................................
 
-    call this % Residual(bc, u, g, r)
+    call this % Residual(u, g, r)
     call AssignArray(p, r)
 
     rr = ScalarProduct(r, r, mesh%comm)
@@ -178,7 +209,7 @@ subroutine ConjugateGradients(this, bc, u, f, i_max, r_red, r_max, ni)
 
       ! next iteration . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-      call this % Apply(bc, p, q)
+      call this % Apply(p, q)
 
       pq = ScalarProduct(p, q, mesh%comm)
       alpha = rr_old / pq
@@ -187,7 +218,7 @@ subroutine ConjugateGradients(this, bc, u, f, i_max, r_red, r_max, ni)
 
       if (mod(i,50) == 0) then
         ! compute true residual to get rid of round-off errors
-        call this % Residual(bc, u, g, r)
+        call this % Residual(u, g, r)
       else
         call MergeArrays(ONE, r, -alpha, q)
       end if

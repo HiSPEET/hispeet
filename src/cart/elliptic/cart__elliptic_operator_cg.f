@@ -26,7 +26,7 @@ use CART__Boundary_Variable
     procedure :: BcToRHS
     procedure :: Residual
     procedure :: ConjugateGradients
-    procedure :: OverlappingSchwarz
+    procedure :: SchwarzMethod
   end type EllipticOperator3D_CG
 
 !===============================================================================
@@ -39,9 +39,8 @@ contains
 !--------------------------------------------------------------------------
 !> Applies the operator to given approximation: const isotropic
 
-subroutine Apply(this, bc, u, v)
+subroutine Apply(this, u, v)
   class(EllipticOperator3D_CG), intent(in) :: this
-  character, intent(in)  :: bc(:)          !< boundary conditions {P,D,N}
   real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
   real(RNP), intent(out) :: v(0:,0:,0:,:)  !< result
 
@@ -61,9 +60,8 @@ end subroutine BcToRHS
 !--------------------------------------------------------------------------
 !> Computes the residual to given approximation
 
-subroutine Residual(this, bc, u, f, r)
+subroutine Residual(this, u, f, r)
   class(EllipticOperator3D_CG), intent(in) :: this
-  character, intent(in)  :: bc(:)          !< BC types {P,D,N}
   real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
   real(RNP), intent(in)  :: f(0:,0:,0:,:)  !< right hand side
   real(RNP), intent(out) :: r(0:,0:,0:,:)  !< result
@@ -72,9 +70,8 @@ end subroutine Residual
 !--------------------------------------------------------------------------
 !> Performs iteration sweeps starting from given approximation
 
-subroutine ConjugateGradients(this, bc, u, f, i_max, r_red, r_max, ni)
+subroutine ConjugateGradients(this, u, f, i_max, r_red, r_max, ni)
   class(EllipticOperator3D_CG), intent(in) :: this
-  character, intent(in)    :: bc(:)          !< BC types {P,D,N}
   real(RNP), intent(inout) :: u(0:,0:,0:,:)  !< approximate solution
   real(RNP), intent(in)    :: f(0:,0:,0:,:)  !< right hand side
   integer,   intent(in)    :: i_max          !< max num iterations
@@ -86,16 +83,15 @@ end subroutine ConjugateGradients
 !--------------------------------------------------------------------------
 !> Performs iteration sweeps starting from given approximation
 
-subroutine OverlappingSchwarz(this, bc, u, f, i_max, r_red, r_max, ni)
+subroutine SchwarzMethod(this, u, f, i_max, r_red, r_max, ni)
   class(EllipticOperator3D_CG), intent(in) :: this
-  character, intent(in)    :: bc(:)          !< BC types {P,D,N}
   real(RNP), intent(inout) :: u(0:,0:,0:,:)  !< approximate solution
   real(RNP), intent(in)    :: f(0:,0:,0:,:)  !< right hand side
   integer,   intent(in)    :: i_max          !< max num iterations
   real(RNP), optional, intent(in)  :: r_red  !< min residual reduction
   real(RNP), optional, intent(in)  :: r_max  !< max admissible residual
   integer,   optional, intent(out) :: ni     !< exec num iterations
-end subroutine OverlappingSchwarz
+end subroutine SchwarzMethod
 
 !===============================================================================
 

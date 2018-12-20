@@ -22,14 +22,13 @@ contains
 !-------------------------------------------------------------------------------
 !> Application of the IP/DG elliptic operator
 
-module subroutine Apply(this, bc, u, v)
+module subroutine Apply(this, u, v)
   class(EllipticOperator3D_IP), intent(in) :: this
-  character, intent(in)  :: bc(:)          !< boundary conditions {P,D,N}
   real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
   real(RNP), intent(out) :: v(0:,0:,0:,:)  !< result
 
   if (allocated(this % nu_ci)) then
-    call Apply_CI(this, bc, u, v)
+    call Apply_CI(this, u, v)
   else
     call AssignScalar(v, ZERO)
     call Error( 'Apply', 'operator not properly initialized', &
@@ -44,9 +43,8 @@ end subroutine Apply
 !-------------------------------------------------------------------------------
 !> Application of the operator with constant isotropic diffusivity
 
-subroutine Apply_CI(this, bc, u, v)
+subroutine Apply_CI(this, u, v)
   class(EllipticOperator3D_IP), intent(in) :: this
-  character, intent(in)  :: bc(:)          !< boundary conditions {P,D,N}
   real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
   real(RNP), intent(out) :: v(0:,0:,0:,:)  !< result
 
@@ -117,7 +115,7 @@ subroutine Apply_CI(this, bc, u, v)
     call trace_op        % GetTrace_Finish(mesh, tr_u   )
     call normal_trace_op % GetTrace_Finish(mesh, tr_dn_u)
 
-    call ApplyBoundaryConditions(mesh, bc, tr_u, tr_dn_u)
+    call ApplyBoundaryConditions(mesh, this%bc, tr_u, tr_dn_u)
 
     ! jumps and average derivatives ............................................
 

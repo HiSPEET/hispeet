@@ -44,7 +44,8 @@ subroutine BcToRHS_CI(this, bv, f)
            , Ms => this % eop % w   &
            , Ds => this % eop % D   &
            , nu => this % nu_ci     &
-           , dx => this % mesh % dx )
+           , dx => this % mesh % dx &
+           , bc => this % bc        )
 
     ! initialization ...........................................................
 
@@ -84,7 +85,7 @@ subroutine BcToRHS_CI(this, bv, f)
 
       Boundary_Faces: associate(face => this%mesh%boundary(b)%face)
 
-        select case(bv(b) % BoundaryCondition())
+        select case(bc(b))
 
         case('D')
 

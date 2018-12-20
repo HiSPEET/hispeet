@@ -24,20 +24,20 @@ module CART__Elliptic_Operator
 
     class(MeshPartition), pointer :: mesh => null()
 
-    real(RNP) :: lambda = 0                   !< Helmholtz parameter
-    real(RNP), allocatable :: nu_ci           !< constant isotropic diffusivity
-    real(RNP), allocatable :: nu_vi(:,:,:,:)  !< variable isotropic diffusivity
+    real(RNP) :: lambda = 0                  !< Helmholtz parameter
+    real(RNP), allocatable :: nu_ci          !< constant isotropic diffusivity
+    real(RNP), allocatable :: nu_vi(:,:,:,:) !< variable isotropic diffusivity
+    character, allocatable :: bc(:)          !< boundary conditions {P,D,N}
 
-    type(SchwarzOperator3D) :: schwarz        !< Schwarz operator
+    type(SchwarzOperator3D), allocatable :: schwarz !< Schwarz operator
 
   contains
-    private
 
     procedure(Apply),     deferred :: Apply
     procedure(BcToRHS),   deferred :: BcToRHS
     procedure(Residual),  deferred :: Residual
     procedure(Iteration), deferred :: ConjugateGradients
-    procedure(Iteration), deferred :: OverlappingSchwarz
+    procedure(Iteration), deferred :: SchwarzMethod
 
   end type EllipticOperator3D
 
@@ -46,10 +46,9 @@ module CART__Elliptic_Operator
     !--------------------------------------------------------------------------
     !> Applies the operator to given approximation: const isotropic
 
-    subroutine Apply(this, bc, u, v)
+    subroutine Apply(this, u, v)
       import
       class(EllipticOperator3D), intent(in) :: this
-      character, intent(in)  :: bc(:)          !< boundary conditions {P,D,N}
       real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
       real(RNP), intent(out) :: v(0:,0:,0:,:)  !< result
     end subroutine Apply
@@ -60,17 +59,16 @@ module CART__Elliptic_Operator
     subroutine BcToRHS(this, bv, f)
       import
       class(EllipticOperator3D), intent(in)    :: this
-      type(BoundaryVariable),    intent(in)    :: bv(:)      !< BC
+      type(BoundaryVariable),    intent(in)    :: bv(:)      !< boundary values
       real(RNP),                 intent(inout) :: f(:,:,:,:) !< RHS
     end subroutine BcToRHS
 
     !--------------------------------------------------------------------------
     !> Computes the residual to given approximation: const isotropic
 
-    subroutine Residual(this, bc, u, f, r)
+    subroutine Residual(this, u, f, r)
       import
       class(EllipticOperator3D), intent(in) :: this
-      character, intent(in)  :: bc(:)          !< BC types {P,D,N}
       real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
       real(RNP), intent(in)  :: f(0:,0:,0:,:)  !< right hand side
       real(RNP), intent(out) :: r(0:,0:,0:,:)  !< result
@@ -79,10 +77,9 @@ module CART__Elliptic_Operator
     !--------------------------------------------------------------------------
     !> Performs iteration sweeps starting from given approximation
 
-    subroutine Iteration(this, bc, u, f, i_max, r_red, r_max, ni)
+    subroutine Iteration(this, u, f, i_max, r_red, r_max, ni)
       import
       class(EllipticOperator3D), intent(in) :: this
-      character, intent(in)    :: bc(:)          !< BC types {P,D,N}
       real(RNP), intent(inout) :: u(0:,0:,0:,:)  !< approximate solution
       real(RNP), intent(in)    :: f(0:,0:,0:,:)  !< right hand side
       integer,   intent(in)    :: i_max          !< max num iterations
