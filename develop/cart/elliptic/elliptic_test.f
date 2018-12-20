@@ -131,7 +131,7 @@ program Elliptic_Test
   integer(IXL) :: dof
 
   !-----------------------------------------------------------------------------
-  ! initialization
+  ! Initialization
 
   call XMPI_Init()
 

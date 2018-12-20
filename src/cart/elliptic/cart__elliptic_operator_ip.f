@@ -99,16 +99,17 @@ contains
 !-------------------------------------------------------------------------------
 !> New operator with constant isotropic diffusivity
 
-subroutine New_CI(this, mesh, lambda, nu, bc, eop, schwarz_opt)
+subroutine New_CI(this, mesh, lambda, nu, bc, po, penalty, schwarz_opt)
 
   ! arguments ..................................................................
 
   class(EllipticOperator3D_IP), intent(inout) :: this
-  class(MeshPartition), target, intent(in)    :: mesh   !< mesh partition
-  real(RNP),                    intent(in)    :: lambda !< Helmholtz parameter
-  real(RNP),                    intent(in)    :: nu     !< diffusivity
-  character,                    intent(in)    :: bc(:)  !< boundary conditions
-  type(IP_ElementOperators1D),  intent(in)    :: eop    !< 1D IP-DG operators
+  class(MeshPartition), target, intent(in)    :: mesh    !< mesh partition
+  real(RNP),                    intent(in)    :: lambda  !< Helmholtz parameter
+  real(RNP),                    intent(in)    :: nu      !< diffusivity
+  character,                    intent(in)    :: bc(:)   !< boundary conditions
+  integer,                      intent(in)    :: po      !< polynomial order
+  real(RNP),          optional, intent(in)    :: penalty !< penalty parameter
 
   !> options for initializing the Schwarz method
   class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
@@ -119,9 +120,11 @@ subroutine New_CI(this, mesh, lambda, nu, bc, eop, schwarz_opt)
   this % nu_ci  = nu
   this % bc     = bc
 
+  call this % eop % New(po, penalty)
+
   if (present(schwarz_opt)) then
     allocate(this % schwarz)
-    call this % schwarz % New(schwarz_opt, eop, mesh, lambda, nu, bc)
+    call this % schwarz % New(schwarz_opt, this%eop, mesh, lambda, nu, bc)
   end if
 
 end subroutine New_CI
