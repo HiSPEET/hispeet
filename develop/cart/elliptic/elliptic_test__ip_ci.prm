@@ -1,0 +1,56 @@
+&problem
+ lambda = 1
+ nu     = 1
+ kappa  = 1
+ bc = 6*'D'
+ !bc = 'D','D','N','N','P','P'
+ !bc(1:2) = 'N', 'D'
+ !bc(1:2) = 'D', 'D'
+ !bc(3:4) = 'N', 'N'
+ !bc(5:6) = 'P', 'P'
+/
+
+&discretization
+ np = 1,1,1
+ ep = 4,4,4
+ !np = 2,2,2
+ !ep = 2,2,2
+ po = 16
+ !penalty = 2
+/
+
+&solver
+ method = 1             ! CG = 1, Schwarz = 2, p-MG = 3, p-MG/CG
+/
+
+&solver_cg
+ i_max  = 100           ! [ huge(1) ]
+ r_red  = 1E-10         ! [ 1E-6    ]
+/
+
+&solver_schwarz
+ i_max  = 100                    ! [ huge(1) ]
+ r_red  = 1E-3                   ! [ 1E-6    ]
+ schwarz_opt%delta     = 3*0.08  ! [ 3*0.125]
+ schwarz_opt%no_min    = 1       ! [ 1 ]
+ schwarz_opt%weighting = 5       ! [ 5 ]
+/
+
+!&solver_pmg
+! pmg_opt%i_max   =  4
+! pmg_opt%r_red   =  1e-10
+! pmg_opt%r_max   = -1e-10
+! pmg_opt%dr_min  = -1e-10
+! pmg_opt%po_top  =  16
+! pmg_opt%po_bot  =  1
+! pmg_opt%i0_max  =  1000
+! pmg_opt%r0_red  =  1E-6
+! pmg_opt%delta   =  3*0.08
+! pmg_opt%no_min  =  1
+! pmg_opt%monitor =  T
+!/
+
+&control
+!plot_file = 'result'
+/
+

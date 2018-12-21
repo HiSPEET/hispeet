@@ -21,7 +21,6 @@ use CART__Boundary_Variable
   type, extends(EllipticOperator3D) :: EllipticOperator3D_CG
     type(CG_ElementOperators1D) :: eop !< 1D OPs for CG-SEM
   contains
-    private
     procedure :: Apply
     procedure :: BcToRHS
     procedure :: Residual

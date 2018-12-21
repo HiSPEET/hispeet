@@ -64,7 +64,7 @@ endif ()
 if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-form -Wall")
-    set(CMAKE_Fortran_FLAGS_DEBUG   "-fbacktrace -g")
+    set(CMAKE_Fortran_FLAGS_DEBUG   "-fcheck=all -fbacktrace -g")
     set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native" )
 
     # compiler environment module needed for generating slurm scripts
@@ -76,7 +76,7 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -free -heap-arrays -warn all")
-    set(CMAKE_Fortran_FLAGS_DEBUG   "-traceback -g")
+    set(CMAKE_Fortran_FLAGS_DEBUG   "-CA -traceback -g")
     set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -ip -xHost" )
 
     if (CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")

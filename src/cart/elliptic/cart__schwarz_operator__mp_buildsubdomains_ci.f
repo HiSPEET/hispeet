@@ -63,9 +63,9 @@ module subroutine BuildSubdomains_CI(this, mesh, lambda, nu, bc)
 
     do e = 1, mesh%ne
 
-      associate(boundary => mesh % element(e) % face(1:6) % boundary)
-        where(boundary > 0)
-          bc_face = bc(boundary)
+      associate(face => mesh % element(e) % face(1:6))
+        where(face(:)%boundary > 0)
+          bc_face = bc(face%boundary)
         elsewhere
           bc_face = ''
         end where

@@ -28,10 +28,11 @@ program Validate__CART__TPO_Schwarz_Iso
   integer   :: po          =  8       ! polynomial order
   integer   :: np(3)       =  1       ! number of partitions in directions 1:3
   integer   :: ep(3)       =  10      ! elements per partition and direction
-  real(RNP) :: delta(3)    = -1       ! relative overlap in directions 1:3
   integer   :: nt          =  1       ! number of test runs
 
-  namelist /input/ po, ep, delta, nt
+  type(SchwarzOptions3D) :: schwarz_options = SchwarzOptions3D(delta = -1)
+
+  namelist /input/ po, ep, schwarz_options, nt
 
   ! MPI ........................................................................
 
@@ -104,7 +105,7 @@ program Validate__CART__TPO_Schwarz_Iso
   end if
 
   ! enforce uniform subdomains
-  delta = delta(1)
+  schwarz_options % delta = schwarz_options % delta(1)
 
   ! mesh .......................................................................
 
@@ -116,7 +117,7 @@ program Validate__CART__TPO_Schwarz_Iso
   ! operators ..................................................................
 
   call element_op % New(po)
-  call schwarz_op % New(element_op, mesh, lambda, nu, bc, delta)
+  call schwarz_op % New(schwarz_options, element_op, mesh, lambda, nu, bc)
 
   n1 = schwarz_op % n1
   n2 = schwarz_op % n2

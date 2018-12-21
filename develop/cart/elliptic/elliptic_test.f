@@ -426,7 +426,6 @@ program Elliptic_Test
 
   call EllipticResidual(mesh, eop, lambda, nu, bc, u, f, r)
 
-
   if (mesh%part >= 0) then
     r_max_loc = maxval(abs(r))
     e = u - s

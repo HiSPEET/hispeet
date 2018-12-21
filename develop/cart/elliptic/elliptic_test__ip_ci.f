@@ -18,6 +18,8 @@ program Elliptic_Test__IP_CI
 
   use CART__Mesh_Partition
   use CART__Generate_Structured_Mesh
+  use CART__Boundary_Variable
+  use CART__Schwarz_Operator
   use CART__Elliptic_Operator_IP
 
   use Elliptic_Test_Case
@@ -98,6 +100,22 @@ program Elliptic_Test__IP_CI
 
   namelist /control/ plot_file
 
+  ! auxiliary ..................................................................
+
+  type(BoundaryVariable) :: bv(6)
+  real(RNP), allocatable :: grad_u(:,:,:,:,:)
+  real(RNP), allocatable :: laplace_u(:,:,:,:)
+  real(RNP) :: r_max, r_max_loc
+  real(RNP) :: e_min, e_min_loc
+  real(RNP) :: e_max, e_max_loc
+  real(RNP) :: c0
+  real(RDP) :: time, time0
+
+  integer :: nt = 10
+  integer :: b, n
+  integer :: i, ni
+  integer(IXL) :: dof
+
   !-----------------------------------------------------------------------------
   ! Initialization
 
@@ -156,6 +174,263 @@ program Elliptic_Test__IP_CI
 
   ! control parameters
   call XMPI_Bcast(plot_file, 0, comm)
+
+  ! mesh and variables .........................................................
+
+  ! spacing
+  dx = lx/ (np * ep)
+
+  ! periodicity
+  periodic(1) = all(bc(1:2) == 'P')
+  periodic(2) = all(bc(3:4) == 'P')
+  periodic(3) = all(bc(5:6) == 'P')
+
+  ! mesh partition and points
+  call GenerateStructuredMesh(mesh, np, ep, xo, dx, periodic, comm)
+  call mesh % GetPoints(po, 'GLL', x)
+
+  ! mesh variables
+  call InitializeMeshVariables()
+
+  ! auxiliary variables
+  allocate(grad_u(0:po, 0:po, 0:po, mesh%ne, 3))
+  allocate(laplace_u(0:po, 0:po, 0:po, mesh%ne))
+
+  ! operators ..................................................................
+
+  call elliptic_op % New(mesh, lambda, nu, bc, po, penalty, schwarz_opt)
+
+  !-----------------------------------------------------------------------------
+  ! Tests
+
+  ! exact solution and RHS  ....................................................
+
+  n = size(u)
+
+  if (n > 0) then
+
+    ! exact solution, gradient and Laplacian
+    call GetExactSolution(  kappa, n, x, u           )
+    call GetExactGradient(  kappa, n, x, grad_u      )
+    call GetExactLaplacian( kappa, n, x, laplace_u=r )
+
+    ! s = u
+    call AssignArray(s, u)
+
+    ! r = -nu laplace u + lambda u
+    call MergeArrays(-nu, r, lambda, u)
+
+    ! project source:  f = M r
+    c0 = product(dx) / 8
+    call TPO_sDDD_Eval(po+1, mesh%ne, c0, elliptic_op%eop%w, r, f)
+
+    ! boundary values
+    do b = 1, size(bc)
+      select case(bc(b))
+      case('D')
+        call bv(b) % Extract(mesh, u, b, bc(b))
+      case('N')
+        call bv(b) % ExtractNormalComponent(mesh, grad_u, b, bc(b))
+      case default
+        call bv(b) % New(mesh, po, b, bc(b))
+      end select
+    end do
+
+    call elliptic_op % BcToRHS(bv, f)
+
+  end if
+
+  ! operator ...................................................................
+
+  if (rank == 0) then
+    write(*,'(/,A)') repeat('-',80)
+    write(*,'(A,/)') 'IP/DG EllipticOperator: Apply'
+  end if
+
+  !$omp parallel
+  !$acc data copyin(u) copyout(r)
+
+  ! setup call
+  call elliptic_op % Apply(u, r)
+  !$acc wait
+
+  if (rank == 0) then
+    time0 = MPI_Wtime()
+  end if
+
+  do i = 1, nt
+    call elliptic_op % Apply(u, r)
+    !$acc wait
+  end do
+
+  !$acc end data
+  !$omp end parallel
+
+  if (rank == 0) then
+    time = MPI_Wtime()
+    time = (time - time0) / nt
+    dof  = product(np) * product(ep) * (po + 1)**3
+    write(*,'(A,1X,I0,A,ES10.3,A)') 'dof      =', dof, ' (', real(dof), ' )'
+    write(*,'(A,ES10.3)')           'time/dof =', time / dof
+    write(*,'(A,ES10.3)')           'dof/time =', dof / time
+  end if
+
+  ! residual ...................................................................
+
+  if (rank == 0) then
+    write(*,'(/,A)') repeat('-',80)
+    write(*,'(A,/)') 'IP/DG EllipticOperator: Residual'
+  end if
+
+  !$omp parallel
+  !$acc data copyin(u,f) copyout(r)
+
+  call elliptic_op % Residual(u, f, r)
+
+  !$acc end data
+  !$omp end parallel
+
+  if (mesh%part >= 0) then
+    r_max_loc = maxval(abs(r))
+  else
+    r_max_loc = 0
+  end if
+  call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
+
+  if (rank == 0) then
+    write(*,'(A,ES10.3)')  'consistency:  r_max =', r_max
+  end if
+
+  ! solution ...................................................................
+
+  if (rank == 0) then
+    write(*,'(/,A)') repeat('-',80)
+    select case(method)
+    case(1)
+      write(*,'(A,/)') 'IP/DG EllipticOperator: Conjugate Gradients'
+    case(2)
+      write(*,'(A,/)') 'IP/DG EllipticOperator: Schwarz Method'
+    case(3)
+      write(*,'(A,/)') 'IP/DG EllipticOperator: p-Multigrid'
+    case(4)
+      write(*,'(A,/)') 'IP/DG EllipticOperator: p-MG/CG'
+    end select
+  end if
+
+  !$omp parallel
+  !$acc data copyin(f) copyout(u) create(r)
+
+  !call AssignScalar(u, ZERO)
+  call random_number(u)
+  u = 2*u - 1
+
+  call elliptic_op % Residual(u, f, r)
+  if (mesh%part >= 0) then
+    r_max_loc = maxval(abs(r))
+  else
+    r_max_loc =  0
+  end if
+  call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
+  if (rank == 0) then
+    write(*,'(A,ES10.3)') 'initial residual:  r_0 =', r_max
+    write(*,*)
+  end if
+
+  !$acc end data
+  !$omp end parallel
+
+  select case(method)
+
+  case(1) ! conjugate gradients
+
+    call elliptic_op % ConjugateGradients(u, f, i_max, r_red, ni=ni)
+
+  end select
+
+  call elliptic_op % Residual(u, f, r)
+
+  if (mesh%part >= 0) then
+    r_max_loc = maxval(abs(r))
+    e = u - s
+    e_min_loc = minval(e)
+    e_max_loc = maxval(e)
+  else
+    r_max_loc =  0
+    e_min_loc = -huge(ONE)
+    e_max_loc =  huge(ONE)
+  end if
+  call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
+  call XMPI_Reduce(e_min_loc, e_min, MPI_MIN, 0, mesh%comm)
+  call XMPI_Reduce(e_max_loc, e_max, MPI_MAX, 0, mesh%comm)
+
+  if (rank == 0) then
+    write(*,'(A,1X,I0)')  'iterations:   ni    =', ni
+    write(*,'(A,ES10.3)') 'residual:     r_max =', r_max
+    write(*,'(A,ES10.3)') 'error:        e_max =', (e_max - e_min)/2
+    write(*,*)
+  end if
+
+  !-----------------------------------------------------------------------------
+  ! Finalization
+
+  call MPI_Finalize()
+
+contains
+
+!-------------------------------------------------------------------------------
+!> Initialization of mesh variables
+
+subroutine InitializeMeshVariables()
+
+  integer :: ns = 5  ! number of scalar fields
+  integer :: ls      ! length of one scalar field
+  integer :: i, j, k
+
+  ! provide memory .............................................................
+
+  ls = (po + 1)**3 * mesh%ne
+
+  allocate( scalar_names(ns) )
+  allocate( scalars(ls * ns) )
+
+  ! assign scalars .............................................................
+
+  i = 1
+  j = 1
+  k = ls
+
+  scalar_names(i) = 's'
+  s(0:po, 0:po, 0:po, 1:mesh%ne) => scalars(j:k)
+
+  i = i + 1
+  j = j + ls
+  k = k + ls
+
+  scalar_names(i) = 'u'
+  u(0:po, 0:po, 0:po, 1:mesh%ne) => scalars(j:k)
+
+  i = i + 1
+  j = j + ls
+  k = k + ls
+
+  scalar_names(i) = 'f'
+  f(0:po, 0:po, 0:po, 1:mesh%ne) => scalars(j:k)
+
+  i = i + 1
+  j = j + ls
+  k = k + ls
+
+  scalar_names(i) = 'r'
+  r(0:po, 0:po, 0:po, 1:mesh%ne) => scalars(j:k)
+
+  i = i + 1
+  j = j + ls
+  k = k + ls
+
+  scalar_names(i) = 'e'
+  e(0:po, 0:po, 0:po, 1:mesh%ne) => scalars(j:k)
+
+end subroutine InitializeMeshVariables
 
 !===============================================================================
 

@@ -9,6 +9,7 @@ module CART__Schwarz_Operator
   use Kind_Parameters, only: RNP
   use Standard_Operators_1D
   use IP_Element_Operators_1D
+  use XMPI
   use CART__Mesh_Partition
 
   implicit none

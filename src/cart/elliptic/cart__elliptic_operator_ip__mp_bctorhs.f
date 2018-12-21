@@ -30,8 +30,8 @@ end subroutine BcToRHS
 
 subroutine BcToRHS_CI(this, bv, f)
   class(EllipticOperator3D_IP), intent(in)    :: this
-  type(BoundaryVariable),       intent(in)    :: bv(:)      !< BC
-  real(RNP),                    intent(inout) :: f(:,:,:,:) !< RHS
+  type(BoundaryVariable),       intent(in)    :: bv(:)         !< BC
+  real(RNP),                    intent(inout) :: f(0:,0:,0:,:) !< RHS
 
   ! local variables ............................................................
 
