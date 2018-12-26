@@ -154,11 +154,13 @@ module CART__Schwarz_Operator
   contains
     private
 
-    generic, public :: New => New_CI
+    generic, public :: New => New_CI, New_VI
     procedure :: New_CI
+    procedure :: New_VI
 
-    generic, public :: Update => Update_CI
+    generic, public :: Update => Update_CI, Update_VI
     procedure :: Update_CI
+    procedure :: Update_VI
 
   end type SchwarzOperator3D
 
@@ -197,12 +199,24 @@ module CART__Schwarz_Operator
     !> Build subdomains for constant isotropic coefficients
 
     module subroutine BuildSubdomains_CI(this, mesh, lambda, nu, bc)
-      class(SchwarzOperator3D),   intent(inout) :: this   !< Schwarz operator
-      class(MeshPartition),       intent(in)    :: mesh   !< mesh partition
-      real(RNP),                  intent(in)    :: lambda !< Helmholtz parameter
-      real(RNP),                  intent(in)    :: nu     !< diffusivity
-      character,                  intent(in)    :: bc(:)  !< BC {'D','N'}
+      class(SchwarzOperator3D), intent(inout) :: this    !< Schwarz operator
+      class(MeshPartition),     intent(in) :: mesh       !< mesh partition
+      real(RNP),                intent(in) :: lambda     !< Helmholtz parameter
+      real(RNP),                intent(in) :: nu         !< diffusivity
+      character,                intent(in) :: bc(:)      !< BC {'D','N'}
     end subroutine BuildSubdomains_CI
+
+    !---------------------------------------------------------------------------
+    !> Build subdomains for variable isotropic coefficients
+
+    module subroutine BuildSubdomains_VI(this, eop, mesh, lambda, nu, bc)
+      class(SchwarzOperator3D),   intent(inout) :: this     !< Schwarz operator
+      class(StandardOperators1D), intent(in) :: eop         !< 1D SE operators
+      class(MeshPartition),       intent(in) :: mesh        !< mesh partition
+      real(RNP),                  intent(in) :: lambda      !< Helmholtz parameter
+      real(RNP),                  intent(in) :: nu(:,:,:,:) !< diffusivity
+      character,                  intent(in) :: bc(:)       !< BC {'D','N'}
+    end subroutine BuildSubdomains_VI
 
   end interface
 
@@ -217,6 +231,9 @@ contains
 !===============================================================================
 ! SchwarzOperator3D :: New
 
+!-------------------------------------------------------------------------------
+!> New Schwarz operator with constant isotropic diffusivity
+
 subroutine New_CI(this, opt, eop, mesh, lambda, nu, bc)
 
   class(SchwarzOperator3D),   intent(inout) :: this !< Schwarz operator
@@ -224,9 +241,9 @@ subroutine New_CI(this, opt, eop, mesh, lambda, nu, bc)
   class(StandardOperators1D), intent(in)    :: eop  !< 1D standard SE ops
   class(MeshPartition),       intent(in)    :: mesh !< mesh partition
 
-  real(RNP),         intent(in) :: lambda    !< Helmholtz parameter
-  real(RNP),         intent(in) :: nu        !< diffusivity
-  character,         intent(in) :: bc(:)     !< BC {'D','N'}
+  real(RNP), intent(in) :: lambda    !< Helmholtz parameter
+  real(RNP), intent(in) :: nu        !< diffusivity
+  character, intent(in) :: bc(:)     !< BC {'D','N'}
 
   select type(eop)
   class is(IP_ElementOperators1D)
@@ -237,8 +254,34 @@ subroutine New_CI(this, opt, eop, mesh, lambda, nu, bc)
 
 end subroutine New_CI
 
+!-------------------------------------------------------------------------------
+!> New Schwarz operator with variable isotropic diffusivity
+
+subroutine New_VI(this, opt, eop, mesh, lambda, nu, bc)
+
+  class(SchwarzOperator3D),   intent(inout) :: this !< Schwarz operator
+  class(SchwarzOptions3D),    intent(in)    :: opt  !< Schwarz options
+  class(StandardOperators1D), intent(in)    :: eop  !< 1D standard SE ops
+  class(MeshPartition),       intent(in)    :: mesh !< mesh partition
+
+  real(RNP), intent(in) :: lambda      !< Helmholtz parameter
+  real(RNP), intent(in) :: nu(:,:,:,:) !< diffusivity
+  character, intent(in) :: bc(:)       !< BC {'D','N'}
+
+  select type(eop)
+  class is(IP_ElementOperators1D)
+    call BuildEigensystems_IP(this, eop, opt%delta, opt%no_min, opt%weighting)
+  end select
+
+  call BuildSubdomains_VI(this, eop, mesh, lambda, nu, bc)
+
+end subroutine New_VI
+
 !===============================================================================
 ! SchwarzOperator3D :: Update
+
+!-------------------------------------------------------------------------------
+!> Update Schwarz operator with constant isotropic diffusivity
 
 subroutine Update_CI(this, mesh, lambda, nu, bc)
   class(SchwarzOperator3D),   intent(inout) :: this   !< Schwarz operator
@@ -250,6 +293,21 @@ subroutine Update_CI(this, mesh, lambda, nu, bc)
   call BuildSubdomains_CI(this, mesh, lambda, nu, bc)
 
 end subroutine Update_CI
+
+!-------------------------------------------------------------------------------
+!> Update Schwarz operator with variable isotropic diffusivity
+
+subroutine Update_VI(this, eop, mesh, lambda, nu, bc)
+  class(SchwarzOperator3D),   intent(inout) :: this        !< Schwarz operator
+  class(StandardOperators1D), intent(in)    :: eop         !< 1D standard SE ops
+  class(MeshPartition),       intent(in)    :: mesh        !< mesh partition
+  real(RNP),                  intent(in)    :: lambda      !< Helmholtz parameter
+  real(RNP),                  intent(in)    :: nu(:,:,:,:) !< diffusivity
+  character,                  intent(in)    :: bc(:)       !< BC {'D','N'}
+
+  call BuildSubdomains_VI(this, eop, mesh, lambda, nu, bc)
+
+end subroutine Update_VI
 
 !===============================================================================
 ! SchwarzOptions3D :: Bcast

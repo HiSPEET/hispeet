@@ -340,11 +340,10 @@ program Elliptic_Test__IP_CI
   !$omp end parallel
 
   select case(method)
-
   case(1) ! conjugate gradients
-
     call elliptic_op % ConjugateGradients(u, f, i_max, r_red, ni=ni)
-
+  case(2) ! Schwarz method
+    call elliptic_op % SchwarzMethod(u, f, i_max, r_red, ni=ni)
   end select
 
   call elliptic_op % Residual(u, f, r)

@@ -83,9 +83,11 @@ set(OPERATORS operators/cart__assembly_operator.f
 set(ELLIPTIC elliptic/cart__schwarz_operator.f
              elliptic/cart__schwarz_operator__mp_buildeigensystems_ip.f
              elliptic/cart__schwarz_operator__mp_buildsubdomains_ci.f
+             elliptic/cart__schwarz_operator__mp_buildsubdomains_vi.f
              elliptic/cart__elliptic_operator.f
              elliptic/cart__elliptic_operator_cg.f
              elliptic/cart__elliptic_operator_ip.f
+             elliptic/cart__elliptic_operator_ip__mp_new.f
              elliptic/cart__elliptic_operator_ip__mp_apply.f
              elliptic/cart__elliptic_operator_ip__mp_bctorhs.f
              elliptic/cart__elliptic_operator_ip__mp_residual.f

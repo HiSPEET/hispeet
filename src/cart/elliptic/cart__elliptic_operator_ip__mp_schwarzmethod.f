@@ -137,6 +137,8 @@ module subroutine SchwarzMethod(this, u, f, i_max, r_red, r_max, ni)
 
   end associate
 
+  if (present(ni)) ni = min(i, i_max)
+
   ! clean-up ...................................................................
 
   !$omp single

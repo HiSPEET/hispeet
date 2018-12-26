@@ -7,23 +7,20 @@
 !===============================================================================
 
 submodule(CART__Schwarz_Operator) MP_BuildSubdomains_CI
-  use Constants,     only: ZERO, ONE, HALF
-  use Eigenproblems, only: SolveGeneralizedEigenproblem
-  use Schwarz_Weighting
-  use IP_Element_Operators_1D
+  use Constants, only: ONE
   implicit none
 
 contains
 
 !-------------------------------------------------------------------------------
-!> Set subdomain configurations and inverse 3D eigenvalues: const isotropic
+!> Set subdomain configurations and inverse 3D eigenvalues: constant isotropic
 
 module subroutine BuildSubdomains_CI(this, mesh, lambda, nu, bc)
-  class(SchwarzOperator3D),   intent(inout) :: this   !< Schwarz operator
-  class(MeshPartition),       intent(in)    :: mesh   !< mesh partition
-  real(RNP),                  intent(in)    :: lambda !< Helmholtz parameter
-  real(RNP),                  intent(in)    :: nu     !< diffusivity
-  character,                  intent(in)    :: bc(:)  !< BC {'D','N'}
+  class(SchwarzOperator3D), intent(inout) :: this   !< Schwarz operator
+  class(MeshPartition),     intent(in)    :: mesh   !< mesh partition
+  real(RNP),                intent(in)    :: lambda !< Helmholtz parameter
+  real(RNP),                intent(in)    :: nu     !< diffusivity
+  character,                intent(in)    :: bc(:)  !< BC {'D','N'}
 
   character :: bc_face(size(bc))
   real(RNP) :: g0, g1, g2, g3
