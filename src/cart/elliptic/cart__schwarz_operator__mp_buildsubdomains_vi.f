@@ -26,7 +26,7 @@ module subroutine BuildSubdomains_VI(this, eop, mesh, lambda, nu, bc)
   character :: bc_face(size(bc))
   integer   :: e, i, j, k, n1, n2, n3, np
   real(RNP) :: g0, g1, g2, g3, nu_0
-  real(RNP), allocatable :: nu_3(:), nu_23(:,:)
+  real(RNP), allocatable :: A(:,:,:)
 
   ! preliminaries ..............................................................
 
@@ -55,7 +55,17 @@ module subroutine BuildSubdomains_VI(this, eop, mesh, lambda, nu, bc)
     allocate(this%D_inv(n1, n2, n3, mesh%ne))
   end if
 
-  allocate(nu_3(np), nu_23(np,np))
+  ! averaging operator
+  allocate(A(np,np,np))
+  associate(w => eop % w)
+    do k = 1, np
+    do j = 1, np
+    do i = 1, np
+      A(i,j,k) = ONE/8 * w(i) * w(j) * w(k)
+    end do
+    end do
+    end do
+  end associate
 
   ! cfg and D_inv ..............................................................
 
@@ -85,14 +95,15 @@ module subroutine BuildSubdomains_VI(this, eop, mesh, lambda, nu, bc)
       g2 = dx(3) * dx(1) / dx(2)
       g3 = dx(1) * dx(2) / dx(3)
 
-      ! mean diffusivity: ν₀ = (Δξ Δη Δζ)⁻¹ ∫∫∫ ν dξ dη dζ
+      ! mean diffusivity
+      nu_0 = 0
       do k = 1, np
-        do j = 1, np
-          nu_23(j,k) = dot_product(eop%w, nu(:,j,k,e))
-        end do
-        nu_3(k) = dot_product(eop%w, nu_23(:,k))
+      do j = 1, np
+      do i = 1, np
+        nu_0 = nu_0 + A(i,j,k) * nu(i,j,k,e)
       end do
-      nu_0 = dot_product(eop%w, nu_3) / 8
+      end do
+      end do
 
       do k = 1, n3
       do j = 1, n2

@@ -22,15 +22,16 @@ module subroutine New_CI(this, mesh, lambda, nu, bc, po, penalty, schwarz_opt)
 
   class(EllipticOperator3D_IP), intent(inout) :: this
 
-  class(MeshPartition), target, intent(in) :: mesh        !< mesh partition
-  real(RNP),                    intent(in) :: lambda      !< Helmholtz parameter
-  real(RNP),                    intent(in) :: nu          !< diffusivity
-  character,                    intent(in) :: bc(:)       !< boundary conditions
-  integer,                      intent(in) :: po          !< polynomial order
-  real(RNP),                    intent(in) :: penalty     !< penalty parameter
-  class(SchwarzOptions3D),      intent(in) :: schwarz_opt !< Schwarz options
+  class(MeshPartition), target, &
+                        intent(in) :: mesh        !< mesh partition
+  real(RNP),            intent(in) :: lambda      !< Helmholtz parameter
+  real(RNP),            intent(in) :: nu          !< diffusivity
+  character,            intent(in) :: bc(:)       !< boundary conditions
+  integer,              intent(in) :: po          !< polynomial order
+  real(RNP),  optional, intent(in) :: penalty     !< penalty parameter
 
-  optional :: penalty, schwarz_opt
+  class(SchwarzOptions3D), &
+              optional, intent(in) :: schwarz_opt !< Schwarz options
 
   ! problem and discretization parameters ......................................
 
@@ -60,16 +61,16 @@ module subroutine New_VI(this, mesh, lambda, nu, bc, po, penalty, schwarz_opt)
 
   class(EllipticOperator3D_IP), intent(inout) :: this
 
-  class(MeshPartition),    target, &
-                           intent(in) :: mesh           !< mesh partition
-  real(RNP),               intent(in) :: lambda         !< Helmholtz parameter
-  real(RNP),               intent(in) :: nu(0:,0:,0:,:) !< diffusivity
-  character,               intent(in) :: bc(:)          !< boundary conditions
-  integer,                 intent(in) :: po             !< polynomial order
-  real(RNP),               intent(in) :: penalty        !< penalty parameter
-  class(SchwarzOptions3D), intent(in) :: schwarz_opt    !< Schwarz options
+  class(MeshPartition), target, &
+                        intent(in) :: mesh           !< mesh partition
+  real(RNP),            intent(in) :: lambda         !< Helmholtz parameter
+  real(RNP),            intent(in) :: nu(0:,0:,0:,:) !< diffusivity
+  character,            intent(in) :: bc(:)          !< boundary conditions
+  integer,              intent(in) :: po             !< polynomial order
+  real(RNP),  optional, intent(in) :: penalty        !< penalty parameter
 
-  optional :: penalty, schwarz_opt
+  class(SchwarzOptions3D), &
+              optional, intent(in) :: schwarz_opt    !< Schwarz options
 
   ! local variables ............................................................
 
@@ -88,7 +89,7 @@ module subroutine New_VI(this, mesh, lambda, nu, bc, po, penalty, schwarz_opt)
   call AssignArray(this % nu_vi, nu)
 
   ! start generating traces of nu
-  allocate(this % nu_f(0:po,0:po,mesh%nf))
+  allocate(this % nu_hat(0:po,0:po,mesh%nf))
   allocate(tr_nu(0:po,0:po,2,mesh%nf))
   allocate(trace_op)
   call trace_op % GetTrace_Start(mesh, nu, tr_nu, tag=1000)
@@ -107,11 +108,11 @@ module subroutine New_VI(this, mesh, lambda, nu, bc, po, penalty, schwarz_opt)
 
   call trace_op % GetTrace_Finish(mesh, tr_nu)
 
-  associate(nu_f => this % nu_f)
+  associate(nu_hat => this % nu_hat)
     do k = 1, mesh%nf
       do j = 0, po
       do i = 0, po
-        nu_f(i,j,k) = max(tr_nu(i,j,1,k), tr_nu(i,j,2,k))
+        nu_hat(i,j,k) = max(tr_nu(i,j,1,k), tr_nu(i,j,2,k))
       end do
       end do
     end do

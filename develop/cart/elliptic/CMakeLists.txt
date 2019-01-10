@@ -15,3 +15,10 @@ add_executable(elliptic_test__ip_ci elliptic_test__ip_ci.f elliptic_test_case.f)
 target_link_libraries(elliptic_test__ip_ci HiCart)
 configure_file(elliptic_test__ip_ci.prm elliptic_test__ip_ci.prm COPYONLY)
 
+# elliptic_test_vi .............................................................
+
+add_executable(elliptic_test__ip_vi elliptic_test__ip_vi.f elliptic_test_case.f)
+
+target_link_libraries(elliptic_test__ip_vi HiCart)
+configure_file(elliptic_test__ip_vi.prm elliptic_test__ip_vi.prm COPYONLY)
+

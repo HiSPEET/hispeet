@@ -58,6 +58,10 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif ()
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} $ENV{CFLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} $ENV{CXXFLAGS}")
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} $ENV{FFLAGS}")
+
 #-------------------------------------------------------------------------------
 # GNU
 
@@ -65,7 +69,7 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-form -Wall")
     set(CMAKE_Fortran_FLAGS_DEBUG   "-fcheck=all -fbacktrace -g")
-    set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -march=native" )
+    set(CMAKE_Fortran_FLAGS_RELEASE "-O3" )
 
     # compiler environment module needed for generating slurm scripts
     set(ENV_MODULE_COMPILER "hispeet/gnu")
@@ -77,7 +81,7 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -free -heap-arrays -warn all")
     set(CMAKE_Fortran_FLAGS_DEBUG   "-CA -traceback -g")
-    set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -ip -xHost" )
+    set(CMAKE_Fortran_FLAGS_RELEASE "-O3 -ip" )
 
     if (CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -diag-disable=cpu-dispatch")

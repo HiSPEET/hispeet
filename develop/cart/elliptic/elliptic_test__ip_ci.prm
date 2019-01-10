@@ -1,7 +1,7 @@
 &problem
  lambda = 1
  nu     = 1
- kappa  = 1
+ k_u    = 1
  bc = 6*'D'
  !bc = 'D','D','N','N','P','P'
  !bc(1:2) = 'N', 'D'

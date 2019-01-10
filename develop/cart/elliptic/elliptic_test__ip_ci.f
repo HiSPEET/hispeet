@@ -33,12 +33,12 @@ program Elliptic_Test__IP_CI
 
   real(RNP) :: lambda  = 0       ! Helmholtz parameter
   real(RNP) :: nu      = 1       ! diffusivity
-  integer   :: kappa   = 1       ! wave number
+  integer   :: k_u     = 1       ! solution wave number
   real(RNP) :: xo(3)   = 0       ! corner closest to -infinity
   real(RNP) :: lx(3)   = 2*PI    ! domain extensions
   character :: bc(6)   = 'P'     ! boundary conditions {'P'|'D'|'N'}
 
-  namelist /problem/ lambda, nu, kappa, xo, lx, bc
+  namelist /problem/ lambda, nu, k_u, xo, lx, bc
 
   ! discretization parameters ..................................................
 
@@ -151,7 +151,7 @@ program Elliptic_Test__IP_CI
   ! problem parameters
   call XMPI_Bcast(lambda   , 0, comm)
   call XMPI_Bcast(nu       , 0, comm)
-  call XMPI_Bcast(kappa    , 0, comm)
+  call XMPI_Bcast(k_u      , 0, comm)
   call XMPI_Bcast(xo       , 0, comm)
   call XMPI_Bcast(lx       , 0, comm)
   call XMPI_Bcast(bc       , 0, comm)
@@ -210,9 +210,9 @@ program Elliptic_Test__IP_CI
   if (n > 0) then
 
     ! exact solution, gradient and Laplacian
-    call GetExactSolution(  kappa, n, x, u           )
-    call GetExactGradient(  kappa, n, x, grad_u      )
-    call GetExactLaplacian( kappa, n, x, laplace_u=r )
+    call GetExactSolution(  k_u, n, x, u           )
+    call GetExactGradient(  k_u, n, x, grad_u      )
+    call GetExactLaplacian( k_u, n, x, laplace_u=r )
 
     ! s = u
     call AssignArray(s, u)
@@ -367,6 +367,20 @@ program Elliptic_Test__IP_CI
     write(*,'(A,ES10.3)') 'residual:     r_max =', r_max
     write(*,'(A,ES10.3)') 'error:        e_max =', (e_max - e_min)/2
     write(*,*)
+  end if
+
+  !  plot file .................................................................
+
+  if (len_trim(plot_file) > 0 .and. mesh%part >= 0) then
+    call ExportVolumeDataToVTK( po, mesh%ne,              &
+                                size(scalar_names),       &
+                                0,                        &
+                                x,                        &
+                                scalars,                  &
+                                scalar_names,             &
+                                file   = trim(plot_file), &
+                                part   = mesh%part,       &
+                                n_part = mesh%n_part      )
   end if
 
   !-----------------------------------------------------------------------------
