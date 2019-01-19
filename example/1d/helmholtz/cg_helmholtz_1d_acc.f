@@ -72,7 +72,7 @@ program CG_Helmholtz_1D_Acc
   real(RNP), allocatable    :: He(:,:)       ! element Helmholtz matrix
 
   ! auxiliary variables
-  logical      :: exists, singular
+  logical      :: exists, periodic, singular
   integer      :: j, k, n, io
   integer(IXL) :: count0, count1, count_rate
   real(RNP)    :: dx, t_pre, t_sol
@@ -91,6 +91,7 @@ program CG_Helmholtz_1D_Acc
     read(io, nml=solution_parameters)
     close(io)
   end if
+  periodic = all(bc == 'P')
 
   ! start system clock
   call system_clock(count0, count_rate = count_rate)
@@ -109,7 +110,7 @@ program CG_Helmholtz_1D_Acc
 
   ! mesh
   call GetMeshPoints(standard_op, -ONE, ONE, dx, x)
-  call GetPointWeights(bc, w)
+  call GetPointWeights(w, periodic)
 
   ! element operators
   !$omp single
@@ -118,7 +119,7 @@ program CG_Helmholtz_1D_Acc
   !$omp end single
 
   ! right hand side
-  call GetRHS(Me, x, f)
+  call GetRHS(Me, x, bc, f)
   if (singular) then ! project f to nullspace
     sw = 0
     sf = 0
@@ -148,7 +149,7 @@ program CG_Helmholtz_1D_Acc
     end do
   else ! intial guess, chosen at random from [0,1]
     call random_number(u)
-    call MakeContinuous(bc, u)
+    call MakeContinuous(u, periodic)
   end if
 
   ! inject Dirichlet BC
@@ -170,8 +171,8 @@ program CG_Helmholtz_1D_Acc
   call system_clock(count0)
 
   !$omp parallel default(shared)
-  !$acc data copy(u) copyin(He,f,w)
-  call CG(He, u, f, w, r_max, i_max)
+  !$acc data copy(u) copyin(He,bc,f,w)
+  call CG(He, bc, u, f, w, r_max, i_max)
   !$acc end data
   !$omp end parallel
 
@@ -189,8 +190,8 @@ program CG_Helmholtz_1D_Acc
   !$omp workshare
   s = u_exact(x)
   !$omp end workshare
-  !$acc data copy(r) copyin(He,s,f)
-  call HelmholtzResidual(He, s, f, r)
+  !$acc data copy(r) copyin(He,bc,s,f)
+  call HelmholtzResidual(He, bc, s, f, r)
   !$acc end data
   !$omp master
   write(*,'(/,A)') 'consistency error'
@@ -200,8 +201,8 @@ program CG_Helmholtz_1D_Acc
   !$omp barrier
 
   ! final residual
-  !$acc data copy(r) copyin(He,u,f)
-  call HelmholtzResidual(He, u, f, r)
+  !$acc data copy(r) copyin(He,bc,u,f)
+  call HelmholtzResidual(He, bc, u, f, r)
   !$acc end data
   !$omp barrier
   !$omp master
@@ -235,7 +236,7 @@ program CG_Helmholtz_1D_Acc
   write(*,'(2X,A,ES12.5)') 't_sol', t_sol
 
   ! save results
-  open(newunit=io, file='helmholtz_sem_1d.dat')
+  open(newunit=io, file='cg_helmholtz_1d_acc.dat')
   write(io,'(A)') '# x, u, s, e, f, r'
   do k = 1, ne
   do j = 0, po
@@ -363,9 +364,10 @@ end subroutine WeightedDotProduct
 !-------------------------------------------------------------------------------
 !> Right hand side
 
-subroutine GetRHS(Me, x, f)
+subroutine GetRHS(Me, x, bc, f)
   real(RNP), intent(in)  :: Me(0:)  !< diagonal element mass matrix     !shared!
   real(RNP), intent(in)  :: x(0:,:) !< mesh points                      !shared!
+  character, intent(in)  :: bc(2)   !< boundary conditions              !shared!
   real(RNP), intent(out) :: f(0:,:) !< RHS                              !shared!
 
   integer :: k, po, ne
@@ -387,20 +389,27 @@ subroutine GetRHS(Me, x, f)
 
   ! assemble element contributions
   !$acc data copy(f)
-  call Assembly(bc, f)
+  call Assembly(f, periodic = bc(1)=='P')
   !$acc end data
+
+  ! nullify RHS at Dirichlet boundaries
+  !$omp single
+  !$acc parallel present(bc,f)
+  if (bc(1) == 'D')  f( 0,  1) = 0
+  if (bc(2) == 'D')  f(po, ne) = 0
+  !$acc parallel
+  !$omp end single
 
 end subroutine GetRHS
 
 !------------------------------------------------------------------------------
-!> Residual of a given approximate solution -- to be placed in parallel region
+!> Application of Helmholtz operator, `v = Au`, `v = 0` at Dirichlet boundaries
 
-subroutine HelmholtzResidual(He, u, f, r)
-  real(RNP), intent(in)  :: He(0:,0:) !< element Helmholtz operator     !shared!
-  real(RNP), intent(in)  :: u(0:,:)   !< approximate solution           !shared!
-  real(RNP), intent(in)  :: f(0:,:)   !< RHS, default: f = 0            !shared!
-  real(RNP), intent(out) :: r(0:,:)   !< residual, r = f - Au           !shared!
-  optional :: f
+subroutine HelmholtzOperator(He, bc, u, v)
+  real(RNP), intent(in)  :: He(0:,0:) !< element Helmholtz operator
+  character, intent(in)  :: bc(2)     !< boundary conditions
+  real(RNP), intent(in)  :: u(0:,:)   !< approximate solution
+  real(RNP), intent(out) :: v(0:,:)   !< residual, r = f - Au
 
   integer :: i, j, k, po, ne
   real(RNP) :: s
@@ -411,7 +420,7 @@ subroutine HelmholtzResidual(He, u, f, r)
 
   ! element contributions
   !$omp do
-  !$acc parallel loop collapse(2) present(He,u,r)
+  !$acc parallel loop collapse(2) present(He,u,v)
   do k = 1, ne
     do i = 0, po
       s = 0
@@ -419,45 +428,59 @@ subroutine HelmholtzResidual(He, u, f, r)
       do j = 0, po
         s = s + He(i,j) * u(j,k)
       end do
-      r(i,k) = -s
+      v(i,k) = s
     end do
   end do
   !$acc end parallel
 
   ! assembly
-  call Assembly(bc, r)
-
-  ! add RHS contribution
-  if (present(f)) then
-    !$omp do
-    !$acc parallel loop collapse(2) present(r,f)
-    do k = 1, ne
-    do j = 0, po
-      r(j,k) = r(j,k) + f(j,k)
-    end do
-    end do
-    !$acc end parallel
-  end if
+  call Assembly(v, periodic = bc(1)=='P')
 
   ! nullify residual at Dirichlet points
   !$omp single
-  if (bc(1) == 'D') then
-    r( 0,  1) = 0
-    !$acc update device(r(0:0,1:1))
-  end if
-  if (bc(2) == 'D') then
-    r(po, ne) = 0
-    !$acc update device(r(po:po,ne:ne))
-  end if
+  !$acc parallel present(bc,v)
+  if (bc(1) == 'D')  v( 0,  1) = 0
+  if (bc(2) == 'D')  v(po, ne) = 0
+  !$acc end parallel
   !$omp end single
+
+end subroutine HelmholtzOperator
+
+!------------------------------------------------------------------------------
+!> Residual of a given approximate solution -- to be placed in parallel region
+
+subroutine HelmholtzResidual(He, bc, u, f, r)
+  real(RNP), intent(in)  :: He(0:,0:) !< element Helmholtz operator     !shared!
+  character, intent(in)  :: bc(2)     !< boundary conditions            !shared!
+  real(RNP), intent(in)  :: u(0:,:)   !< approximate solution           !shared!
+  real(RNP), intent(in)  :: f(0:,:)   !< RHS, default: f = 0            !shared!
+  real(RNP), intent(out) :: r(0:,:)   !< residual, r = f - Au           !shared!
+
+  integer :: j, k, po, ne
+
+  ! dimensions
+  po = ubound(u,1)
+  ne = ubound(u,2)
+
+  call HelmholtzOperator(He, bc, u, r)
+
+  !$omp do
+  !$acc parallel loop collapse(2) present(r,f)
+  do k = 1, ne
+  do j = 0, po
+    r(j,k) = f(j,k) - r(j,k)
+  end do
+  end do
+  !$acc end parallel
 
 end subroutine HelmholtzResidual
 
 !------------------------------------------------------------------------------
 !> Conjugate gradient method
 
-subroutine CG(He, u, f, w, r_max, i_max)
+subroutine CG(He, bc, u, f, w, r_max, i_max)
   real(RNP), intent(in)    :: He(0:,0:) !< element Helmholtz operator
+  character, intent(in)    :: bc(2)     !< boundary conditions
   real(RNP), intent(inout) :: u(0:,:)   !< approximate solution
   real(RNP), intent(in)    :: f(0:,:)   !< right hand side
   real(RNP), intent(in)    :: w(0:,:)   !< node weights
@@ -478,8 +501,8 @@ subroutine CG(He, u, f, w, r_max, i_max)
   po = ubound(u,1)
   ne = ubound(u,2)
 
-  ! number of iterations, with safety factor of 10
-  ni = 10 * ne * po*po
+  ! max number of iterations
+  ni = min(i_max, 10 * ne * po*po)
 
   ! workspace
   !$omp single
@@ -488,11 +511,15 @@ subroutine CG(He, u, f, w, r_max, i_max)
 
   !$acc data create(r, p, q) present(u)
 
-  ! initial residual
-  call HelmholtzResidual(He, u, f, r)
+  ! initial residual, providing r = 0 in Dirichlet points
+  call HelmholtzResidual(He, bc, u, f, r)
 
   ! iteration ..................................................................
 
+  ! Note that scalar products are weighted because r,p,q represent local arrays
+  ! with interior element boundary values listed twice.
+
+  ! delta = sum(w*r*r)
   call WeightedDotProduct(w, r, r, delta)
 
   !$omp do
@@ -509,17 +536,19 @@ subroutine CG(He, u, f, w, r_max, i_max)
     ! termination check  . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     !$omp single
-    finished = delta <= r_max**2 .or. i > i_max
+    finished = delta <= r_max**2
     !$omp end single
 
     if (finished) exit
 
     ! next iteration . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-    call HelmholtzResidual(He, p, r=q)
+    ! q = Ap, 0 in Dirichlet points
+    call HelmholtzOperator(He, bc, p, q)
 
     call WeightedDotProduct(w, p, q, pq)
-    alpha = -delta / pq
+    alpha = delta / pq
+    delta_old = delta
 
     !$omp do
     !$acc parallel loop collapse(2)
@@ -531,19 +560,18 @@ subroutine CG(He, u, f, w, r_max, i_max)
     !$acc end parallel
 
     if (mod(i,50) == 0) then
-      call HelmholtzResidual(He, u, f, r)
+      ! r = f - Au, evaluated explicitly eliminate accumulated round-off errors
+      call HelmholtzResidual(He, bc, u, f, r)
     else
       !$omp do
       !$acc parallel loop collapse(2)
       do k = 1, ne
       do j = 0, po
-        r(j,k) = r(j,k) + alpha * q(j,k)
+        r(j,k) = r(j,k) - alpha * q(j,k)
       end do
       end do
       !$acc end parallel
     end if
-
-    delta_old = delta
 
     !$omp barrier
     call WeightedDotProduct(w, r, r, delta)

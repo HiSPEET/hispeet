@@ -152,7 +152,7 @@ program CG_ConvDiff_1D
 
   ! auxiliary ..................................................................
 
-  logical   :: exists
+  logical   :: exists, periodic
   integer   :: io, stat
   integer   :: i, e
   real(RNP) :: err_max, err_2
@@ -187,6 +187,8 @@ program CG_ConvDiff_1D
                'case file "' // trim(input_file) // '" not found')
   end if
 
+  periodic = all(bc == 'P')
+
   ! workspace ..................................................................
 
   allocate(M(0:po,ne))
@@ -204,8 +206,8 @@ program CG_ConvDiff_1D
   call eop % New(po)
   call eop % BuildInteriorEigensystem()
   call GetMeshPoints(eop, ZERO, ONE, dx, x)
-  call GetMassMatrix(eop, dx, bc, M)
-  call GetPointWeights(bc, w)
+  call GetMassMatrix(eop, dx, M, periodic)
+  call GetPointWeights(w, periodic)
 
   ! initial conditions .........................................................
 

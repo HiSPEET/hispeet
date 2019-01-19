@@ -79,11 +79,11 @@ end subroutine GetMeshPoints
 !>
 !> Current version restricted to GLL bases.
 
-subroutine GetMassMatrix(sop, dx, bc, M)
+subroutine GetMassMatrix(sop, dx, M, periodic)
   class(StandardOperators1D), intent(in)  :: sop      !< standard operators
   real(RNP),                  intent(in)  :: dx       !< element length
-  character,                  intent(in)  :: bc(:)    !< left/right BC
   real(RNP), contiguous,      intent(out) :: M(0:,:)  !< mass matrix
+  logical,     optional,      intent(in)  :: periodic !< assume periodicity [F]
 
   integer :: e
 
@@ -91,7 +91,7 @@ subroutine GetMassMatrix(sop, dx, bc, M)
   do e = 1, size(M,2)
     M(:,e) = dx/2 * sop % w
   end do
-  call Assembly(bc, M)
+  call Assembly(M, periodic)
 
 end subroutine GetMassMatrix
 
@@ -100,9 +100,9 @@ end subroutine GetMassMatrix
 !>
 !> Current version restricted to GLL bases.
 
-subroutine MakeContinuous(bc, u)
-  character,             intent(in)    :: bc(:)   !< left/right BC
-  real(RNP), contiguous, intent(inout) :: u(0:,:) !< element contributions
+subroutine MakeContinuous(u, periodic)
+  real(RNP), contiguous, intent(inout) :: u(0:,:)  !< element contributions
+  logical,     optional, intent(in)    :: periodic !< assume periodic domain [F]
 
   integer   :: l, po, ne
   real(RNP) :: ua
@@ -118,10 +118,12 @@ subroutine MakeContinuous(bc, u)
   end do
 
   !$omp single
-  if (all(bc == 'P')) then
-    ua = HALF * (u(po,ne) + u(0,1))
-    u(po,ne) = ua
-    u(0 , 1) = ua
+  if (present(periodic)) then
+    if (periodic) then
+      ua = HALF * (u(po,ne) + u(0,1))
+      u(po,ne) = ua
+      u(0 , 1) = ua
+    end if
   end if
   !$omp end single
 
@@ -130,9 +132,9 @@ end subroutine MakeContinuous
 !-------------------------------------------------------------------------------
 !> Assembly of element contributions
 
-subroutine Assembly(bc, v)
-  character,             intent(in)    :: bc(:)   !< left/right BC
+subroutine Assembly(v, periodic)
   real(RNP), contiguous, intent(inout) :: v(0:,:) !< element contributions
+  logical,     optional, intent(in)    :: periodic !< assume periodic domain [F]
 
   integer   :: l, po, ne
   real(RNP) :: va
@@ -150,26 +152,34 @@ subroutine Assembly(bc, v)
   !$acc end parallel
 
   !$omp single
-  if (all(bc == 'P')) then
-    va = v(po,ne) + v(0,1)
-    v(po, ne) = va
-    v( 0,  1) = va
+  if (present(periodic)) then
+    if (periodic) then
+      va = v(po,ne) + v(0,1)
+      v(po, ne) = va
+      v( 0,  1) = va
+    end if
   end if
   !$omp end single
 
 end subroutine Assembly
 
-!------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
 !> Node weights based on inverse valency
+!>
+!> The provided node weights `w` allow to evaluate scalar products of global
+!> coefficient vectors using the local (element based) coefficients.
+!> Periodic boundary points are treated as interior ones.
 
-subroutine GetPointWeights(bc, w)
-  character,             intent(in)  :: bc(:)   !< left/right BC
-  real(RNP), contiguous, intent(out) :: w(0:,:) !< node weights
+subroutine GetPointWeights(w, periodic)
+  real(RNP), contiguous, intent(out) :: w(0:,:)  !< node weights
+  logical,     optional, intent(in)  :: periodic !< assume periodic domain [F]
 
   integer :: j, k, po, ne
 
   po = ubound(w,1)
   ne = ubound(w,2)
+
+  ! initialize all weights to w = 1 ............................................
 
   !$omp do
   do k = 1, ne
@@ -178,30 +188,23 @@ subroutine GetPointWeights(bc, w)
     end do
   end do
 
+  ! set interior element boundaries to w = 1/2 .................................
+
   !$omp do
   do k = 1, ne-1
     w(po, k  ) = HALF
     w( 0, k+1) = HALF
   end do
 
-  ! left boundary
-  !$omp single
-  select case(bc(1))
-  case('D')
-    w(0, 1) = 0
-  case('P')
-    w(0, 1) = HALF
-  end select
-  !$omp end single
+  ! periodic points ............................................................
 
-  ! right boundary
   !$omp single
-  select case(bc(2))
-  case('D')
-    w(po, ne) = 0
-  case('P')
-    w(po, ne) = HALF
-  end select
+  if (present(periodic)) then
+    if (periodic) then
+      w(0 , 1 ) = HALF
+      w(po, ne) = HALF
+    end if
+  end if
   !$omp end single
 
 end subroutine GetPointWeights

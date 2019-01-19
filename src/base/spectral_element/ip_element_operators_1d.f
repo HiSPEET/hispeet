@@ -20,7 +20,8 @@ module IP_Element_Operators_1D
 
   type, extends(StandardOperators1D) :: IP_ElementOperators1D
 
-    real(RNP) :: penalty = 2 !< penalty parameter > 1
+    real(RNP) :: penalty = 2       !< penalty parameter > 1
+    logical   :: hybrid  = .false. !< switch to IP-H
 
   contains
 
@@ -40,15 +41,19 @@ contains
 !-------------------------------------------------------------------------------
 !> Specific initialization, only required to override penalty
 
-subroutine New_IP_ElementOperators1D(this, po, penalty)
+subroutine New_IP_ElementOperators1D(this, po, penalty, hybrid)
   class(IP_ElementOperators1D), intent(inout) :: this
-  integer,   intent(in) :: po       !< polynomial order
-  real(RNP), intent(in) :: penalty  !< penalty parameter > 1 [2]
+  integer,           intent(in) :: po      !< polynomial order
+  real(RNP),         intent(in) :: penalty !< penalty parameter > 1 [2]
+  logical, optional, intent(in) :: hybrid  !< switch to IP-H
 
   ! standard operators
   call this%New(po)
 
   this % penalty = penalty
+  if (present(hybrid)) then
+    this % hybrid = hybrid
+  end if
 
 end subroutine New_IP_ElementOperators1D
 
@@ -90,7 +95,7 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
   real(RNP), intent(out) :: Le(0:,0:,-1:) !< 1D element stiffness matrix
 
   integer   :: P, i, j
-  real(RNP) :: g(-1:1), mu_0, mu_P, c_0, c_P
+  real(RNP) :: g(-1:1), mu_0, mu_P, c_0, c_P, h_0, h_P
   real(RNP), allocatable :: delta_0(:), delta_P(:)
 
   ! initialization .............................................................
@@ -132,8 +137,11 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
     ! contribution from preceding element (Le⁻) ................................
 
     if (scan(bc(1), 'DN') > 0) then
+
       Le(:,:,-1) = 0
+
     else
+
       do j = 0, P
       do i = 0, P
         Le(i,j,-1) = - g( 0) * Ds   (0,i) * delta_P(j)  &
@@ -141,36 +149,70 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
                      - mu_0  * delta_0(i) * delta_P(j)
       end do
       end do
+
+      if (this%hybrid) then
+        h_0 = 1 / (dx(-1) * dx(0) * mu_0)
+        do j = 0, P
+        do i = 0, P
+          Le(i,j,-1) = Le(i,j,-1) + h_0 * Ds(0,i) * Ds(P,j)
+        end do
+        end do
+      end if
+
     end if
 
     ! own contribution (Le⁰) ...................................................
 
     do j = 0, P
     do i = 0, P
-      Le(i,j, 0) = 2 * g(0) * Ls(i,j)                           &
+      Le(i,j,0) = 2 * g(0) * Ls(i,j)                           &
 
-                 + c_0 * (   g( 0) * Ds   (0,i) * delta_0(j)    &
-                           + g( 0) * delta_0(i) * Ds   (0,j)    &
-                           + mu_0  * delta_0(i) * delta_0(j) )  &
+                + c_0 * (   g(0) * Ds   (0,i) * delta_0(j)    &
+                          + g(0) * delta_0(i) * Ds   (0,j)    &
+                          + mu_0 * delta_0(i) * delta_0(j) )  &
 
-                 + c_P * ( - g( 0) * Ds   (P,i) * delta_P(j)    &
-                           - g( 0) * delta_P(i) * Ds   (P,j)    &
-                           + mu_P  * delta_P(i) * delta_P(j) )
+                + c_P * ( - g(0) * Ds   (P,i) * delta_P(j)    &
+                          - g(0) * delta_P(i) * Ds   (P,j)    &
+                          + mu_P * delta_P(i) * delta_P(j) )
     end do
     end do
+
+    if (this%hybrid) then
+      h_0 = 1 / (dx(0) * dx(0) * mu_0)
+      h_P = 1 / (dx(0) * dx(0) * mu_P)
+      do j = 0, P
+      do i = 0, P
+        Le(i,j,0) = Le(i,j,0) + h_0 * Ds(0,i) * Ds(0,j)  &
+                              + h_P * Ds(P,i) * Ds(P,j)
+      end do
+      end do
+    end if
 
     ! contribution from following element (Le⁺) ................................
 
     if (scan(bc(2), 'DN') > 0) then
+
       Le(:,:, 1) = 0
+
     else
+
       do j = 0, P
       do i = 0, P
-        Le(i,j, 1) =   g( 0) * Ds   (P,i) * delta_0(j)  &
-                     - g( 1) * delta_P(i) * Ds   (0,j)  &
-                     - mu_P  * delta_P(i) * delta_0(j)
+        Le(i,j,1) =   g(0) * Ds   (P,i) * delta_0(j)  &
+                    - g(1) * delta_P(i) * Ds   (0,j)  &
+                    - mu_P * delta_P(i) * delta_0(j)
       end do
       end do
+
+      if (this%hybrid) then
+        h_P = 1 / (dx(0) * dx(1) * mu_P)
+        do j = 0, P
+        do i = 0, P
+          Le(i,j,1) = Le(i,j,1) + h_P * Ds(P,i) * Ds(0,j)
+        end do
+        end do
+      end if
+
     end if
 
   end associate

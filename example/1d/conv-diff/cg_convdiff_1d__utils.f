@@ -62,7 +62,7 @@ subroutine GetLinearConvectionTerm(sop, v, bc, u, fc)
 
     fc = matmul(Ce, u)
 
-    call Assembly(bc, fc)
+    call Assembly(fc, periodic = bc(1)=='P')
 
   end associate
 
@@ -90,7 +90,7 @@ subroutine GetDiffusionTerm(sop, dx, wave, v, nu, bc, x, t, u, fd)
   if (nu > 0) then
 
     fd = -nu * 2/dx * matmul(sop%L, u)
-    call Assembly(bc, fd)
+    call Assembly(fd, periodic = bc(1)=='P')
     call ApplyBoundaryConditions(wave, v, nu, bc, x, t, f=fd)
 
   else

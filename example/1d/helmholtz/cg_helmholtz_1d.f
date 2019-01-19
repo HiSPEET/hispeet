@@ -78,7 +78,7 @@ program CG_Helmholtz_1D
   real(RNP), allocatable      :: He(:,:)   ! element Helmholtz matrix
 
   ! auxiliary variables
-  logical      :: exists, singular
+  logical      :: exists, periodic, singular
   integer      :: i, l, n, io
   integer(IXL) :: count0, count1, count_rate
   real(RNP)    :: dx, t_pre, t_sol
@@ -96,6 +96,7 @@ program CG_Helmholtz_1D
     read(io, nml=solution_parameters)
     close(io)
   end if
+  periodic = all(bc == 'P')
 
   ! start system clock
   call system_clock(count0, count_rate = count_rate)
@@ -112,7 +113,7 @@ program CG_Helmholtz_1D
 
   ! mesh and point weights
   call GetMeshPoints(eop, -ONE, ONE, dx, x)
-  call GetPointWeights(bc, w)
+  call GetPointWeights(w, periodic)
 
   ! element operators
   allocate(Me(0:po), He(0:po,0:po))
@@ -132,7 +133,7 @@ program CG_Helmholtz_1D
     u = 0
   else ! intial guess, chosen at random from [0,1]
     call random_number(u)
-    call MakeContinuous(bc, u)
+    call MakeContinuous(u, periodic)
   end if
 
   ! inject Dirichlet BC
@@ -193,7 +194,7 @@ program CG_Helmholtz_1D
   write(*,'(2X,A,ES12.5)') 't_sol =', t_sol
 
   ! save results
-  open(newunit=io, file='helmholtz_sem_1d.dat')
+  open(newunit=io, file='cg_helmholtz_1d.dat')
   write(io,'(10(A17,1X))') '# x', 'u', 's', 'e', 'f', 'r'
   do l = 1, ne
   do i = 0, po
@@ -308,34 +309,47 @@ subroutine GetRHS(Me, x, bc, f)
   if (bc(2) == 'N')  f(po, ne) = f(po, ne) + du_exact( ONE)
 
   ! assemble element contributions
-  call Assembly(bc, f)
+  call Assembly(f, periodic = bc(1)=='P')
+
+  ! nullify RHS at Dirichlet boundaries
+  if (bc(1) == 'D')  f( 0,  1) = 0
+  if (bc(2) == 'D')  f(po, ne) = 0
 
 end subroutine GetRHS
+
+!------------------------------------------------------------------------------
+!> Application of Helmholtz operator, `v = Au`, `v = 0` at Dirichlet boundaries
+
+subroutine HelmholtzOperator(He, bc, u, v)
+  real(RNP), intent(in)  :: He(0:,0:) !< element Helmholtz operator
+  character, intent(in)  :: bc(2)     !< boundary conditions
+  real(RNP), intent(in)  :: u(0:,:)   !< approximate solution
+  real(RNP), intent(out) :: v(0:,:)   !< residual, r = f - Au
+
+  ! element contributions
+  v = matmul(He, u)
+
+  ! assembly
+  call Assembly(v, periodic = bc(1)=='P')
+
+  ! nullify result at Dirichlet points
+  if (bc(1) == 'D')  v( 0,  1) = 0
+  if (bc(2) == 'D')  v(po, ne) = 0
+
+end subroutine HelmholtzOperator
 
 !------------------------------------------------------------------------------
 !> Residual of a given approximate solution
 
 subroutine HelmholtzResidual(He, bc, u, f, r)
-  real(RNP),           intent(in)  :: He(0:,0:) !< element Helmholtz operator
-  character,           intent(in)  :: bc(2)     !< boundary conditions
-  real(RNP),           intent(in)  :: u(0:,:)   !< approximate solution
-  real(RNP), optional, intent(in)  :: f(0:,:)   !< RHS, default: f = 0
-  real(RNP),           intent(out) :: r(0:,:)   !< residual, r = f - Au
+  real(RNP), intent(in)  :: He(0:,0:) !< element Helmholtz operator
+  character, intent(in)  :: bc(2)     !< boundary conditions
+  real(RNP), intent(in)  :: u(0:,:)   !< approximate solution
+  real(RNP), intent(in)  :: f(0:,:)   !< RHS
+  real(RNP), intent(out) :: r(0:,:)   !< residual, r = f - Au
 
-  ! element contributions
-  r = -matmul(He, u)
-
-  ! assembly
-  call Assembly(bc, r)
-
-  ! add RHS contribution
-  if (present(f)) then
-    r = r + f
-  end if
-
-  ! nullify residual at Dirichlet points
-  if (bc(1) == 'D')  r( 0,  1) = 0
-  if (bc(2) == 'D')  r(po, ne) = 0
+  call HelmholtzOperator(He, bc, u, r)
+  r = f - r
 
 end subroutine HelmholtzResidual
 
@@ -361,33 +375,38 @@ subroutine CG(He, bc, u, f, w, r_max, i_max)
   po = ubound(u,1)
   ne = ubound(u,2)
 
-  ! number of iterations, with safety factor of 10
-  ni = 10 * ne * po*po
+  ! max number of iterations
+  ni = min(i_max, 10 * ne * po*po)
 
   ! workspace
   allocate(r(0:po,1:ne), p(0:po,1:ne), q(0:po,1:ne))
 
-  ! initial residual
+  ! initial residual, providing r = 0 in Dirichlet points
   call HelmholtzResidual(He, bc, u, f, r)
 
   ! iteration ..................................................................
 
+  ! Note that scalar products are weighted because r,p,q represent local arrays
+  ! with interior element boundary values listed twice.
+
   delta = sum(w * r * r)
   p = r
   do i = 1, ni
-    if (delta <= r_max**2 .or. i > i_max) exit
-    call HelmholtzResidual(He, bc, p, r=q)
-    alpha = -delta / sum(w * p * q)
+    if (delta <= r_max**2) exit
+    ! q = Ap, 0 in Dirichlet points
+    call HelmholtzOperator(He, bc, p, q)
+    alpha = delta / sum(w * p * q)
+    delta_old = delta
     u = u + alpha * p
     if (mod(i,50) == 0) then
+      ! r = f - Au, evaluated explicitly eliminate accumulated round-off errors
       call HelmholtzResidual(He, bc, u, f, r)
     else
-      r = r + alpha * q
+      r = r - alpha * q
     end if
-    delta_old = delta
     delta = sum(w * r * r)
     beta  = delta / delta_old
-    p = r + (delta / delta_old) * p
+    p = r + beta * p
   end do
 
 end subroutine CG
