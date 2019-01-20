@@ -78,9 +78,9 @@ end subroutine CondensedEllipticSolver
 !> Build the condensed system
 
 subroutine BuildCondensedSystem(Abb, Aib, Aii_inv, bc, f, u, Ac, fc)
-  real(RNP), intent(in) :: Abb(:,:)     !< boundary-boundary op.
-  real(RNP), intent(in) :: Aib(:,:)     !< interior-boundary op.
-  real(RNP), intent(in) :: Aii_inv(:,:) !< inverse interior op.
+  real(RNP), intent(in) :: Abb(:,:)     !< boundary-boundary operator
+  real(RNP), intent(in) :: Aib(:,:)     !< interior-boundary operator
+  real(RNP), intent(in) :: Aii_inv(:,:) !< inverse interior operator
   character, intent(in) :: bc(2)        !< boundary conditions
   real(RNP), intent(in) :: f(0:,:)      !< source including Neumann BC
   real(RNP), intent(in) :: u(0:,:)      !< initial values including Dirichlet BC
