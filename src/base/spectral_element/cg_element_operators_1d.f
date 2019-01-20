@@ -7,130 +7,24 @@
 !===============================================================================
 
 module CG_Element_Operators_1D
-  use Kind_Parameters,   only: RNP
-  use Constants,         only: ONE, ZERO
-  use Execution_Control, only: Error
-  use Eigenproblems,     only: SolveGeneralizedEigenproblem
+  use Kind_Parameters, only: RNP
+  use Constants,       only: ONE, ZERO
+  use Eigenproblems,   only: SolveGeneralizedEigenproblem
   use Standard_Operators_1D
   implicit none
   private
 
   !-----------------------------------------------------------------------------
   !> Element operators for continuous Galerkin-SEM
-  !>
-  !> Provides the column matrix of generalized eigenvectors `S` and
-  !> the diagonal matrix of eigenvalues `Λ = Lambda` such that
-  !>
-  !>     Sᵀ Lᵢᵢ S = Λ
-  !>     Sᵀ Mᵢᵢ S = I
-  !>
-  !> where `Lᵢᵢ` and `Mᵢᵢ` the standard stiffness matrix and the standard
-  !> diagonal mass matrix restricted to the interior points.
 
   type, extends(StandardOperators1D), public :: CG_ElementOperators1D
-    private
-    real(RNP), allocatable :: S(:,:)    !< generalized interior eigenvectors
-    real(RNP), allocatable :: Lambda(:) !< generalized interior eigenvalues
   contains
-    procedure :: BuildInteriorEigensystem
-    procedure :: GetInteriorEigensystem
-    procedure :: GetEllipticSuboperators
     procedure :: GetStiffnessMatrix
-    final     :: Delete_CG_ElementOperators1D
+    procedure :: GetEllipticEigensystem
+    procedure :: GetEllipticSuboperators
   end type CG_ElementOperators1D
 
 contains
-
-!-------------------------------------------------------------------------------
-!> Provides the generalized eigensystem for interior stiffness and mass matrices
-
-subroutine BuildInteriorEigensystem(this)
-  class(CG_ElementOperators1D), intent(inout) :: this
-
-  real(RNP), allocatable :: Lii(:,:)
-  integer :: np
-
-  if (allocated(this%S)) return
-
-  np = this%po - 1
-  allocate(this % S(np,np), this % Lambda(np))
-
-  if (np < 1) return
-
-  allocate(Lii, source = this % L(1:np,1:np))
-  associate(Mii => this % w(1:np))
-    call SolveGeneralizedEigenproblem(Lii, Mii, this%Lambda, this%S)
-  end associate
-
-end subroutine BuildInteriorEigensystem
-
-!-------------------------------------------------------------------------------
-!> Returns the generalized eigenvectors and eigenvalues to the standard interior
-!> stiffness and diagonal mass matrices
-
-subroutine GetInteriorEigensystem(this, S, Lambda)
-  class(CG_ElementOperators1D), intent(inout) :: this
-  real(RNP), intent(out) :: S(this%po-1,this%po-1)
-  real(RNP), intent(out) :: Lambda(this%po-1)
-
-  if (.not. allocated(this%S)) then
-    call BuildInteriorEigensystem(this)
-  end if
-
-  S = this % S
-  Lambda = this % Lambda
-
-end subroutine GetInteriorEigensystem
-
-!-------------------------------------------------------------------------------
-!> Computes operators for condensed CG-SEM diffusion problem
-
-subroutine GetEllipticSuboperators(this, dx, c, nu, Hbb, Hbi, Hii_inv)
-  class(CG_ElementOperators1D), intent(in) :: this
-  real(RNP), intent(in)  :: dx                !< element length
-  real(RNP), intent(in)  :: c                 !< coefficient of linear term
-  real(RNP), intent(in)  :: nu                !< diffusivity
-  real(RNP), intent(out) :: Hbb(2,2)          !< boundary-boundary part
-  real(RNP), intent(out) :: Hbi(2,this%po-1)  !< boundary-interior part
-  real(RNP), intent(out) :: Hii_inv(this%po-1,this%po-1) !< Hᵢᵢ⁻¹
-
-  real(RNP), allocatable :: D(:)
-  real(RNP) :: g0, g1
-  integer   :: i, j, np
-
-  g0 = c * dx / 2
-  g1 = nu * 2 / dx
-
-  if (.not. allocated(this%S)) then
-    call Error( 'GetEllipticSuboperators'                       &
-              , 'requires preceding call to BuildInteriorEigensystem' &
-              , 'CG_Element_Operators_1D'                       )
-  end if
-
-  associate(po => this%po, Ms => this%w, Ls => this%L, S => this%S)
-
-    Hbb(1,1)  =  g0 * Ms( 0)  +  g1 * Ls( 0, 0)
-    Hbb(2,1)  =                  g1 * Ls(po, 0)
-    Hbb(1,2)  =                  g1 * Ls( 0,po)
-    Hbb(2,2)  =  g0 * Ms(po)  +  g1 * Ls(po,po)
-
-    np = po - 1
-
-    do i = 1, np
-      Hbi(1,i)  =  g1 * Ls( 0,i)
-      Hbi(2,i)  =  g1 * Ls(po,i)
-    end do
-
-    allocate(D, source = 1/(g0 + g1*this%Lambda))
-    do j = 1, np
-    do i = 1, np
-      Hii_inv(i,j) = sum(S(i,:) * S(j,:) * D)
-    end do
-    end do
-
-  end associate
-
-end subroutine GetEllipticSuboperators
 
 !-------------------------------------------------------------------------------
 !> Returns the 1D element stiffness matrix for the continuous Galerkin SEM
@@ -207,15 +101,80 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
 end subroutine GetStiffnessMatrix
 
 !-------------------------------------------------------------------------------
-!> Finalization of a CG_ElementOperators1D object
+!> Provides the generalized eigensystem for interior stiffness and mass matrices
+!>
+!> Returns the column matrix of generalized eigenvectors `S` and the diagonal
+!> matrix of eigenvalues `Λ = Lambda` to the interior element stiffness matrix
+!> `Lᵢᵢ` and diagonal mass matrix `Mᵢᵢ` such that
+!>
+!>     Sᵀ Lᵢᵢ S = Λ
+!>     Sᵀ Mᵢᵢ S = I
 
-subroutine Delete_CG_ElementOperators1D(this)
-  type(CG_ElementOperators1D), intent(inout) :: this
+subroutine GetEllipticEigensystem(this, dx, S, Lambda)
+  class(CG_ElementOperators1D), intent(in) :: this
+  real(RNP), intent(in)  :: dx         !< element length
+  real(RNP), intent(out) :: S(:,:)     !< eigenvectors
+  real(RNP), intent(out) :: Lambda(:)  !< eigenvalues
 
-  if (allocated(this%S     )) deallocate(this%S     )
-  if (allocated(this%Lambda)) deallocate(this%Lambda)
+  real(RNP), allocatable :: Mii(:), Lii(:,:)
+  integer :: np
 
-end subroutine Delete_CG_ElementOperators1D
+  np = size(Lambda)
+  if (np < 1) return
+
+  allocate(Mii, source = dx/2 * this % w(1:np))
+  allocate(Lii, source = 2/dx * this % L(1:np,1:np))
+
+  call SolveGeneralizedEigenproblem(Lii, Mii, Lambda, S)
+
+end subroutine GetEllipticEigensystem
+
+!-------------------------------------------------------------------------------
+!> Computes operators for condensed CG-SEM diffusion problem
+
+subroutine GetEllipticSuboperators(this, dx, c, nu, Aib, Abb, Aii_inv)
+  class(CG_ElementOperators1D), intent(in) :: this
+  real(RNP), intent(in)  :: dx           !< element length
+  real(RNP), intent(in)  :: c            !< coefficient of linear term
+  real(RNP), intent(in)  :: nu           !< diffusivity
+  real(RNP), intent(out) :: Aib(:,:)     !< interior-boundary part, dim (po-1,2)
+  real(RNP), intent(out) :: Abb(:,:)     !< boundary-boundary part, dim (2,2)
+  real(RNP), intent(out) :: Aii_inv(:,:) !< Aᵢᵢ⁻¹, dimension (po-1,po-1)
+
+  real(RNP), allocatable :: S(:,:), Lambda(:), D_inv(:)
+  real(RNP) :: g0, g1
+  integer   :: i, j, np
+
+  associate(po => this%po, Ms => this%w, Ls => this%L)
+
+    np = po - 1
+
+    allocate(S(np,np), Lambda(np), D_inv(np))
+    call this % GetEllipticEigensystem(dx, S, Lambda)
+
+    g0 = c * dx / 2
+    g1 = nu * 2 / dx
+
+    do i = 1, np
+      Aib(i,1)  =  g1 * Ls( 0,i)
+      Aib(i,2)  =  g1 * Ls(po,i)
+    end do
+
+    Abb(1,1)  =  g0 * Ms( 0)  +  g1 * Ls( 0, 0)
+    Abb(2,1)  =                  g1 * Ls(po, 0)
+    Abb(1,2)  =                  g1 * Ls( 0,po)
+    Abb(2,2)  =  g0 * Ms(po)  +  g1 * Ls(po,po)
+
+    D_inv = 1 / (c + nu * Lambda)
+    do j = 1, np
+    do i = 1, np
+      Aii_inv(i,j) = sum(S(i,:) * S(j,:) * D_inv)
+    end do
+    end do
+
+  end associate
+
+end subroutine GetEllipticSuboperators
 
 !===============================================================================
 

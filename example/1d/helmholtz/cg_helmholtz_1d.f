@@ -105,11 +105,8 @@ program CG_Helmholtz_1D
   allocate( x(0:po,ne), u(0:po,ne), f(0:po,ne), r(0:po,ne), &
             s(0:po,ne), e(0:po,ne), w(0:po,ne)              )
 
-  ! element operators
+  ! standard operators
   call eop % New(po)
-  if (method == 2) then
-    call eop % BuildInteriorEigensystem()
-  end if
 
   ! mesh and point weights
   call GetMeshPoints(eop, -ONE, ONE, dx, x)

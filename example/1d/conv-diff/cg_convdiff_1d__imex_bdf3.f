@@ -88,7 +88,7 @@ subroutine IMEX_BDF3(eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u1, u2, u)
     c = ONE / (6 * a * dt)
     f = c * (M * (b0*u0 + b1*u1 + b2*u2) + dt * f)
     call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u, f)
-    call CondensedEllipticSolver(eop, dx, c, nu, bc, f, u)
+    call CondensedEllipticSolver(eop, dx, c, nu, bc, f, u, standby = .true.)
   else
     u = b0*u0 + b1*u1 + b2*u2 + dt * f / M
     call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u)

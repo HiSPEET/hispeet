@@ -68,7 +68,7 @@ subroutine IMEX_Euler(eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
     c = 1 / dt
     f = f + c * M * u0
     call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u, f)
-    call CondensedEllipticSolver(eop, dx, c, nu, bc, f, u)
+    call CondensedEllipticSolver(eop, dx, c, nu, bc, f, u, standby = .true.)
   else
     u = u0 + dt * f / M
     call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u)

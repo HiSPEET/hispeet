@@ -131,7 +131,7 @@ subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
 
       if (nu > 0) then
         call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u, f)
-        call CondensedEllipticSolver(eop, dx, c, nu, bc, f, u)
+        call CondensedEllipticSolver(eop, dx, c, nu, bc, f, u, standby = .true.)
       else
         u = f / (c * M)
         call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u)

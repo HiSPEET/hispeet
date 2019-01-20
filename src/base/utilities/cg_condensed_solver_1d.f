@@ -19,11 +19,8 @@ contains
 
 !-------------------------------------------------------------------------------
 !> Direct elliptic solver based on static condensation
-!>
-!> Element suboperators provided with `eop` must be initialized by call to
-!> prior call to `eop % BuildInteriorEigensystem`.
 
-subroutine CondensedEllipticSolver(eop, dx, c, nu, bc, f, u)
+subroutine CondensedEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
   class(CG_ElementOperators1D), intent(in) :: eop !< element operators
   real(RNP), intent(in)    :: dx       !< element width
   real(RNP), intent(in)    :: c        !< coefficient of linear term
@@ -32,40 +29,58 @@ subroutine CondensedEllipticSolver(eop, dx, c, nu, bc, f, u)
   real(RNP), intent(in)    :: f(0:,:)  !< source including Neumann BC
   real(RNP), intent(inout) :: u(0:,:)  !< solution with Dirichlet BC set
 
+  !> optionally keep suboperators for repeated application [F]
+  logical, optional, intent(in) :: standby
+
   ! variables ..................................................................
 
   ! suboperators
-  real(RNP), allocatable :: Hbb(:,:)     ! boundary-boundary element operator
-  real(RNP), allocatable :: Hbi(:,:)     ! boundary-interior element operator
-  real(RNP), allocatable :: Hii_inv(:,:) ! inverse of interior-interior part
+  real(RNP), allocatable, save :: Abb(:,:)     ! boundary-boundary element op.
+  real(RNP), allocatable, save :: Aib(:,:)     ! boundary-interior element op.
+  real(RNP), allocatable, save :: Aii_inv(:,:) ! inverse interior-interior op.
 
   ! condensed system
   real(RNP), allocatable :: Ac(:,:)      ! condensed system matrix
   real(RNP), allocatable :: fc(:)        ! condensed RHS / solution
 
+  integer :: np
+
   ! preprocessing ..............................................................
 
-  ! suboperators required for condensation
-  allocate(Hbb(2,2), Hbi(2,eop%po-1), Hii_inv(eop%po-1,eop%po-1))
-  call eop % GetEllipticSuboperators(dx, c, nu, Hbb, Hbi, Hii_inv)
+  np = eop % po - 1
 
-  ! static condensation
-  call BuildCondensedSystem(Hbb, Hbi, Hii_inv, bc, f, u, Ac, fc)
+  if (allocated(Aib)) then
+    if (size(Aib,1) /= np) deallocate(Abb, Aib, Aii_inv)
+  end if
+
+  if (.not. allocated(Aib)) then
+    allocate(Abb(2,2), Aib(np,2), Aii_inv(np,np))
+    call eop % GetEllipticSuboperators(dx, c, nu, Aib, Abb, Aii_inv)
+  end if
 
   ! solution ...................................................................
 
+  call BuildCondensedSystem(Abb, Aib, Aii_inv, bc, f, u, Ac, fc)
   call SolveCondensedSystem(Ac, fc)
-  call SolveElementSystems(Hbi, Hii_inv, bc, fc, f, u)
+  call SolveElementSystems(Aib, Aii_inv, bc, fc, f, u)
+
+  ! clean-up ...................................................................
+
+  if (present(standby)) then
+    if (standby) return
+  end if
+
+  deallocate(Abb, Aib, Aii_inv)
 
 end subroutine CondensedEllipticSolver
 
 !-------------------------------------------------------------------------------
 !> Build the condensed system
 
-subroutine BuildCondensedSystem(Hbb, Hbi, Hii_inv, bc, f, u, Ac, fc)
-  real(RNP), intent(in) :: Hbb(:,:)     !< boundary-boundary op.
-  real(RNP), intent(in) :: Hbi(:,:)     !< boundary-interior op.
-  real(RNP), intent(in) :: Hii_inv(:,:) !< inverse interior op.
+subroutine BuildCondensedSystem(Abb, Aib, Aii_inv, bc, f, u, Ac, fc)
+  real(RNP), intent(in) :: Abb(:,:)     !< boundary-boundary op.
+  real(RNP), intent(in) :: Aib(:,:)     !< interior-boundary op.
+  real(RNP), intent(in) :: Aii_inv(:,:) !< inverse interior op.
   character, intent(in) :: bc(2)        !< boundary conditions
   real(RNP), intent(in) :: f(0:,:)      !< source including Neumann BC
   real(RNP), intent(in) :: u(0:,:)      !< initial values including Dirichlet BC
@@ -74,7 +89,7 @@ subroutine BuildCondensedSystem(Hbb, Hbi, Hii_inv, bc, f, u, Ac, fc)
 
   ! variables ..................................................................
 
-  real(RNP) :: a(2,2), b(2,size(Hbi,2))
+  real(RNP) :: a(2,2), b(2,size(Aib,1))
   real(RNP), allocatable :: fci(:,:)
   integer   :: i, i1, i2, po, ne, np
 
@@ -102,8 +117,8 @@ subroutine BuildCondensedSystem(Hbb, Hbi, Hii_inv, bc, f, u, Ac, fc)
 
   ! condensed element operators ................................................
 
-  b = -matmul(Hbi, Hii_inv)
-  a =  Hbb + matmul(b, transpose(Hbi))
+  b = -matmul(transpose(Aib), Aii_inv)
+  a =  Abb + matmul(b, Aib)
 
   ! condensed system matrix ....................................................
 
@@ -208,9 +223,9 @@ end subroutine SolveCondensedSystem
 !------------------------------------------------------------------------------
 !> Expand condensed solution by solution of element systems
 
-subroutine SolveElementSystems(Hbi, Hii_inv, bc, uc, f, u)
-  real(RNP), intent(in)    :: Hbi(:,:)     !< boundary-interior element op.
-  real(RNP), intent(in)    :: Hii_inv(:,:) !< inverse interior element op.
+subroutine SolveElementSystems(Aib, Aii_inv, bc, uc, f, u)
+  real(RNP), intent(in)    :: Aib(:,:)     !< interior-boundary element op.
+  real(RNP), intent(in)    :: Aii_inv(:,:) !< inverse interior element op.
   character, intent(in)    :: bc(2)        !< boundary conditions
   real(RNP), intent(in)    :: uc(:)        !< condensed solution
   real(RNP), intent(in)    :: f(0:,:)      !< full RHS
@@ -258,7 +273,7 @@ subroutine SolveElementSystems(Hbi, Hii_inv, bc, uc, f, u)
 
   k = po-1
   do i = 1, ne
-    u(1:k,i) = matmul(Hii_inv, f(1:k,i) - (Hbi(1,:)*u(0,i) + Hbi(2,:)*u(po,i)))
+    u(1:k,i) = matmul(Aii_inv, f(1:k,i) - (Aib(:,1)*u(0,i) + Aib(:,2)*u(po,i)))
   end do
 
 end subroutine SolveElementSystems

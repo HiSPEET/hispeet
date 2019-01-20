@@ -7,8 +7,10 @@
 !===============================================================================
 
 module IP_Element_Operators_1D
-  use Kind_Parameters, only: RNP
-  use Constants,       only: ZERO, ONE
+  use Kind_Parameters,   only: RNP
+  use Constants,         only: ZERO, ONE
+  use Execution_Control, only: Error
+  use Eigenproblems,     only: SolveGeneralizedEigenproblem
   use Standard_Operators_1D
   implicit none
   private
@@ -16,7 +18,21 @@ module IP_Element_Operators_1D
   public :: IP_ElementOperators1D
 
   !-----------------------------------------------------------------------------
-  !> Element operators for symmetric interior penalty IP/DG-SEM
+  !> Element operators for the symmetric interior penalty IP/DG-SEM
+  !>
+  !> The operator accommodates classical IP as well as hybridizable IP-H. The
+  !> particular method is selected during initialization and controlled by then
+  !> component `hybrid`.
+  !>
+  !> In case of IP-H, the operator provides  the column matrix of generalized
+  !> eigenvectors `S` and the diagonal matrix of eigenvalues `Λ = Lambda` such
+  !> that
+  !>
+  !>     Sᵀ Lᵢᵢ S = Λ
+  !>     Sᵀ Mᵢᵢ S = I
+  !>
+  !> where `Lᵢᵢ` and `Mᵢᵢ` the standard stiffness matrix and the standard
+  !> diagonal mass matrix restricted to the interior points.
 
   type, extends(StandardOperators1D) :: IP_ElementOperators1D
 
@@ -33,6 +49,8 @@ module IP_Element_Operators_1D
     procedure, private :: PenaltyFactor_EQ
 
     procedure :: GetStiffnessMatrix
+    procedure :: GetEllipticEigensystem
+    procedure :: GetEllipticSuboperators
 
   end type IP_ElementOperators1D
 
@@ -218,6 +236,114 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
   end associate
 
 end subroutine GetStiffnessMatrix
+
+!-------------------------------------------------------------------------------
+!> Provides the generalized eigensystem for interior stiffness and mass matrices
+!>
+!> Returns the column matrix of generalized eigenvectors `S` and the diagonal
+!> matrix of eigenvalues `Λ = Lambda` to the interior element stiffness matrix
+!> `Lᵢᵢ` and diagonal mass matrix `Mᵢᵢ` of the hybridized element system such
+!> that
+!>
+!>     Sᵀ Lᵢᵢ S = Λ
+!>     Sᵀ Mᵢᵢ S = I
+
+subroutine GetEllipticEigensystem(this, dx, bc, S, Lambda)
+  class(IP_ElementOperators1D), intent(in) :: this
+  real(RNP), intent(in)  :: dx(-1:1)   !< element extensions
+  character, intent(in)  :: bc(2)      !< boundary conditions {'','D','N'}
+  real(RNP), intent(out) :: S(0:,0:)   !< eigenvectors
+  real(RNP), intent(out) :: Lambda(0:) !< eigenvalues
+
+  real(RNP), allocatable :: Mii(:), Lii(:,:,:)
+  character :: hybrid_bc(2)
+
+  if (.not. this%hybrid) then
+    call Error( 'GetEllipticEigensystem', &
+                'available only for hybridizable IP', &
+                'IP_Element_Operators_1D' )
+  end if
+
+  ! boundary conditions of the hybrid element system
+  where(bc == 'N')
+    hybrid_bc = bc
+  elsewhere
+    hybrid_bc = 'D'
+  end where
+
+  ! hybrid element operators
+  allocate(Mii(0:this%po), Lii(0:this%po, 0:this%po, -1:1))
+  Mii = dx/2 * this % w
+  call this % GetStiffnessMatrix(dx, hybrid_bc, Lii)
+
+  ! solve eigenproblem
+  call SolveGeneralizedEigenproblem(Lii(:,:,0), Mii, Lambda, S)
+
+end subroutine GetEllipticEigensystem
+
+!-------------------------------------------------------------------------------
+!> Computes operators for hybrid IP/DG-SEM diffusion problem
+
+subroutine GetEllipticSuboperators(this, dx, bc, c, nu, Aib, Aii_inv)
+  class(IP_ElementOperators1D), intent(in) :: this
+  real(RNP), intent(in)  :: dx(-1:1)       !< element extensions
+  character, intent(in)  :: bc(2)          !< boundary conditions {'','D','N'}
+  real(RNP), intent(in)  :: c              !< coefficient of linear term
+  real(RNP), intent(in)  :: nu             !< diffusivity
+  real(RNP), intent(out) :: Aib(0:,:)      !< interior-boundary part, Â(0:P,1:2)
+  real(RNP), intent(out) :: Aii_inv(0:,0:) !< inv interior part, Ã⁻¹(0:P,0:P)
+
+  real(RNP), allocatable :: S(:,:), Lambda(:), D_inv(:)
+  real(RNP), allocatable :: delta_0(:), delta_P(:)
+  real(RNP) :: mu_0, mu_P
+  integer   :: P, i, j
+
+  ! initialization .............................................................
+
+  P = this % po
+
+  mu_0 = this % PenaltyFactor(dx(-1:0))
+  mu_P = this % PenaltyFactor(dx( 0:1))
+
+  allocate(delta_0(0:P), source = ZERO)
+  delta_0(0) = ONE
+
+  allocate(delta_P(0:P), source = ZERO)
+  delta_P(P) = ONE
+
+  allocate(S(0:P,0:P), Lambda(0:P), D_inv(0:P))
+  call this % GetEllipticEigensystem(dx, bc, S, Lambda)
+
+  ! interior-boundary part .....................................................
+
+  associate(Ds => this%D)
+
+    select case (bc(1))
+    case(' ')
+      Aib(:,1) = -2/dx(0) * nu * Ds(0,:)  -  2 * nu * mu_0 * delta_0
+    case default
+      Aib(:,1) =  0
+    end select
+
+    select case (bc(2))
+    case(' ')
+      Aib(:,2) =  2/dx(0) * nu * Ds(P,:)  -  2 * nu * mu_P * delta_P
+    case default
+      Aib(:,2) =  0
+    end select
+
+  end associate
+
+  ! inverse interior part ......................................................
+
+  D_inv = 1 / (c + nu * Lambda)
+  do j = 0, P
+  do i = 0, P
+    Aii_inv(i,j) = sum(S(i,:) * S(j,:) * D_inv)
+  end do
+  end do
+
+end subroutine GetEllipticSuboperators
 
 !===============================================================================
 
