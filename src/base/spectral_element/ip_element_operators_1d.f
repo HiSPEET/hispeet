@@ -319,17 +319,17 @@ subroutine GetEllipticSuboperators(this, dx, bc, c, nu, Aib, Aii_inv)
   associate(Ds => this%D)
 
     select case (bc(1))
-    case(' ')
-      Aib(:,1) = -2/dx(0) * nu * Ds(0,:)  -  2 * nu * mu_0 * delta_0
-    case default
+    case('D','N')
       Aib(:,1) =  0
+    case default ! interior od periodic
+      Aib(:,1) = -2/dx(0) * nu * Ds(0,:)  -  2 * nu * mu_0 * delta_0
     end select
 
     select case (bc(2))
-    case(' ')
-      Aib(:,2) =  2/dx(0) * nu * Ds(P,:)  -  2 * nu * mu_P * delta_P
-    case default
+    case('D','N')
       Aib(:,2) =  0
+    case default ! interior od periodic
+      Aib(:,2) =  2/dx(0) * nu * Ds(P,:)  -  2 * nu * mu_P * delta_P
     end select
 
   end associate
