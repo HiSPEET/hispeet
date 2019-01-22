@@ -89,8 +89,8 @@ subroutine BuildCondensedSystem(Abb, Aib, Aii_inv, bc, f, u, Ac, fc)
 
   ! variables ..................................................................
 
-  real(RNP) :: a(2,2), b(2,size(Aib,1))
   real(RNP), allocatable :: fci(:,:)
+  real(RNP) :: a(2,2), b(2,size(Aib,1))
   integer   :: i, i1, i2, po, ne, np
 
   ! intialization ..............................................................
