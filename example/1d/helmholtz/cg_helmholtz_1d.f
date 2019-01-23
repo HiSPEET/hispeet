@@ -12,8 +12,8 @@
 !> in the domain (-1,1) with u(-1) and u'(1) given. Test cases are based on the
 !> exact solution
 !>
-!>     u = sin(PI x), or
-!>     u = abs(x)^3
+!>     1)  u = sin(PI x), or
+!>     2)  u = abs(x)^3
 !>
 !> Discretization is performed using continuous nodal spectral elements based on
 !> GLL points. Available solution methods are
@@ -39,10 +39,11 @@
 
 program CG_Helmholtz_1D
   use Kind_Parameters,  only: RNP, IXL
-  use Constants,        only: PI, ONE, TWO
+  use Constants,        only: ONE
   use CG_Element_Operators_1D
   use CG_Utilities_1D
   use CG_Condensed_Solver_1D
+  use Helmholtz_1D_Test_Cases
 
   implicit none
 
@@ -50,11 +51,11 @@ program CG_Helmholtz_1D
 
   ! problem parameters
   real(RNP) :: lambda  = 1      ! Helmholtz parameter
-  integer   :: problem = 1      ! test case
+  integer   :: test    = 1      ! test case
   integer   :: init    = 1      ! intial conditions (0: zero, 1: random)
   character :: bc(2)   = 'D'    ! left/right BC ('D': Dirichlet, 'N': Neumann)
 
-  namelist /problem_parameters/ lambda, problem, init, bc
+  namelist /problem_parameters/ lambda, test, init, bc
 
   ! solution parameters
   integer   :: po     = 16      ! polynomial order
@@ -96,6 +97,8 @@ program CG_Helmholtz_1D
     read(io, nml=solution_parameters)
     close(io)
   end if
+
+  call SetTestCase(test)
   periodic = all(bc == 'P')
 
   ! start system clock
@@ -120,7 +123,7 @@ program CG_Helmholtz_1D
   singular = lambda == 0 .and. (all(bc == 'N') .or. all(bc == 'P'))
 
   ! right hand side
-  call GetRHS(Me, x, bc, f)
+  call GetRHS(Me, bc, x, f)
   if (singular) then ! project f to nullspace
     f = f - sum(w*f) / sum(w)
   end if
@@ -203,57 +206,6 @@ program CG_Helmholtz_1D
 contains
 
 !-------------------------------------------------------------------------------
-!> Exact solution
-
-elemental real(RNP) function u_exact(x) result(u)
-  real(RNP), intent(in) :: x !< point coordinate
-
-  select case(problem)
-  case(1)
-    u = sin(PI*x)
-  case(2)
-    u = abs(x)**3
-  case default
-    u = 0
-  end select
-
-end function u_exact
-
-!-------------------------------------------------------------------------------
-!> Exact first derivative
-
-elemental real(RNP) function du_exact(x) result(du)
-  real(RNP), intent(in) :: x !< point coordinate
-
-  select case(problem)
-  case(1)
-    du = PI * cos(PI*x)
-  case(2)
-    du = 3 * abs(x) * x
-  case default
-    du = 0
-  end select
-
-end function du_exact
-
-!-------------------------------------------------------------------------------
-!> Exact second derivative
-
-elemental real(RNP) function ddu_exact(x) result(ddu)
-  real(RNP), intent(in) :: x !< point coordinate
-
-  select case(problem)
-  case(1)
-    ddu = -PI**2 * sin(PI*x)
-  case(2)
-    ddu = 6 * abs(x)
-  case default
-    ddu = 0
-  end select
-
-end function ddu_exact
-
-!-------------------------------------------------------------------------------
 !> Element operators
 
 subroutine GetElementOperators(eop, dx, lambda, Me, He)
@@ -285,10 +237,10 @@ end subroutine GetElementOperators
 !-------------------------------------------------------------------------------
 !> Right hand side
 
-subroutine GetRHS(Me, x, bc, f)
+subroutine GetRHS(Me, bc, x, f)
   real(RNP), intent(in)  :: Me(0:)  !< element mass matrix (main diagonal)
-  real(RNP), intent(in)  :: x(0:,:) !< mesh points
   character, intent(in)  :: bc(2)   !< boundary conditions
+  real(RNP), intent(in)  :: x(0:,:) !< mesh points
   real(RNP), intent(out) :: f(0:,:) !< RHS
 
   integer :: l, ne

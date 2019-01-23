@@ -109,7 +109,7 @@ end function PenaltyFactor_EQ
 subroutine GetStiffnessMatrix(this, dx, bc, Le)
   class(IP_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
-  character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N'}
+  character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N','P'}
   real(RNP), intent(out) :: Le(0:,0:,-1:) !< 1D element stiffness matrix
 
   integer   :: P, i, j
@@ -233,6 +233,14 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
 
     end if
 
+    ! special case: single periodic element ....................................
+
+    if (all(bc == 'P')) then
+      Le(:,:, 0) = Le(:,:,0) + Le(:,:,-1) + Le(:,:,1)
+      Le(:,:,-1) = 0
+      Le(:,:, 1) = 0
+    end if
+
   end associate
 
 end subroutine GetStiffnessMatrix
@@ -265,11 +273,16 @@ subroutine GetEllipticEigensystem(this, dx, bc, S, Lambda)
   end if
 
   ! boundary conditions of the hybrid element system
-  where(bc == 'N')
+  if (all(bc == 'P')) then
     hybrid_bc = bc
-  elsewhere
-    hybrid_bc = 'D'
-  end where
+  else
+    where(bc == 'N')
+      hybrid_bc = bc
+    elsewhere
+      ! interior and single periodic faces behave like Dirichlet boundaries
+      hybrid_bc = 'D'
+    end where
+  end if
 
   ! hybrid element operators
   allocate(Mii(0:this%po), Lii(0:this%po, 0:this%po, -1:1))
@@ -283,15 +296,18 @@ end subroutine GetEllipticEigensystem
 
 !-------------------------------------------------------------------------------
 !> Computes operators for hybrid IP/DG-SEM diffusion problem
+!>
+!> To cope with the singular case (Neumann or periodic with c = 0),
+!> we use the Moore-Penrose inverse, i.e. `Aii_inv = Ã⁺`
 
 subroutine GetEllipticSuboperators(this, dx, bc, c, nu, Aib, Aii_inv)
   class(IP_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)       !< element extensions
-  character, intent(in)  :: bc(2)          !< boundary conditions {'','D','N'}
+  character, intent(in)  :: bc(2)          !< boundary conds {'','D','N','P'}
   real(RNP), intent(in)  :: c              !< coefficient of linear term
   real(RNP), intent(in)  :: nu             !< diffusivity
   real(RNP), intent(out) :: Aib(0:,:)      !< interior-boundary part, Â(0:P,1:2)
-  real(RNP), intent(out) :: Aii_inv(0:,0:) !< inv interior part, Ã⁻¹(0:P,0:P)
+  real(RNP), intent(out) :: Aii_inv(0:,0:) !< inv interior part, Ã⁺(0:P,0:P)
 
   real(RNP), allocatable :: S(:,:), Lambda(:), D_inv(:)
   real(RNP), allocatable :: delta_0(:), delta_P(:)
@@ -318,25 +334,38 @@ subroutine GetEllipticSuboperators(this, dx, bc, c, nu, Aib, Aii_inv)
 
   associate(Ds => this%D)
 
-    select case (bc(1))
-    case('D','N')
+    if (all(bc == 'P')) then
       Aib(:,1) =  0
-    case default ! interior od periodic
-      Aib(:,1) = -2/dx(0) * nu * Ds(0,:)  -  2 * nu * mu_0 * delta_0
-    end select
-
-    select case (bc(2))
-    case('D','N')
       Aib(:,2) =  0
-    case default ! interior od periodic
-      Aib(:,2) =  2/dx(0) * nu * Ds(P,:)  -  2 * nu * mu_P * delta_P
-    end select
+    else
+
+      select case (bc(1))
+      case('D','N')
+        Aib(:,1) =  0
+      case default ! interior od periodic
+        Aib(:,1) = -2/dx(0) * nu * Ds(0,:)  -  2 * nu * mu_0 * delta_0
+      end select
+
+      select case (bc(2))
+      case('D','N')
+        Aib(:,2) =  0
+      case default ! interior od periodic
+        Aib(:,2) =  2/dx(0) * nu * Ds(P,:)  -  2 * nu * mu_P * delta_P
+      end select
+
+    end if
 
   end associate
 
   ! inverse interior part ......................................................
 
-  D_inv = 1 / (c + nu * Lambda)
+  D_inv = c + nu * Lambda
+  where(D_inv > epsilon(ONE))
+    D_inv = 1 / D_inv
+  elsewhere
+    D_inv = ZERO
+  end where
+
   do j = 0, P
   do i = 0, P
     Aii_inv(i,j) = sum(S(i,:) * S(j,:) * D_inv)

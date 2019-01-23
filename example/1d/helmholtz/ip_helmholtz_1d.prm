@@ -1,7 +1,6 @@
 &problem_parameters
  lambda  =  1   ! Helmholtz parameter, lambda >= 0
  test    =  1   ! 1: u=sin(PI*x), 2: u=abs(x)**3
- init    =  0   ! 0: zero, 1: random initial guess
  bc(1)   = 'D'  ! left BC, 'D': Dirichlet, 'N': Neumann
  bc(2)   = 'N'  ! right BC
 /
@@ -9,6 +8,5 @@
 &solution_parameters
  po = 15        ! polynomial order
  ne = 400       ! number of elements
- !i_max = 10    ! max number iterations with CG
- r_max = 1e-10  ! Euclidic norm of terminal residual with CG
+ penalty = 2    ! penalty parameter > 1
 /

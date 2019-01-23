@@ -1,6 +1,6 @@
 &problem_parameters
  lambda  =  1   ! Helmholtz parameter, lambda >= 0
- problem =  1   ! 1: u=sin(PI*x), 2: u=abs(x)**3
+ test    =  1   ! 1: u=sin(PI*x), 2: u=abs(x)**3
  init    =  0   ! 0: zero, 1: random initial guess
  bc(1)   = 'D'  ! left BC, 'D': Dirichlet, 'N': Neumann
  bc(2)   = 'N'  ! right BC

@@ -8,7 +8,7 @@
 
 module IP_Hybridized_Solver_1D
   use Kind_Parameters,  only: RNP
-  use Costants,         only: ZERO
+  use Constants,        only: ZERO
   use Linear_Equations, only: TridiagonalSolver, CyclicTridiagonalSolver
   use IP_Element_Operators_1D
   implicit none
@@ -21,13 +21,12 @@ contains
 !-------------------------------------------------------------------------------
 !> Direct elliptic solver based on hybridization
 
-subroutine HybridEllipticSolver(eop, dx, c, nu, bc, ub, f, u, standby)
+subroutine HybridEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
   class(IP_ElementOperators1D), intent(in) :: eop !< element operators
   real(RNP), intent(in)  :: dx       !< element width
   real(RNP), intent(in)  :: c        !< coefficient of linear term
   real(RNP), intent(in)  :: nu       !< diffusivity
   character, intent(in)  :: bc(2)    !< boundary conditions {'D','N','P'}
-  real(RNP), intent(in)  :: ub(2)    !< Dirichlet boundary values
   real(RNP), intent(in)  :: f(0:,:)  !< source including Neumann BC
   real(RNP), intent(out) :: u(0:,:)  !< solution
 
@@ -38,7 +37,7 @@ subroutine HybridEllipticSolver(eop, dx, c, nu, bc, ub, f, u, standby)
 
   ! suboperators
   real(RNP), allocatable, save :: Aib(:,:,:)     ! interior-boundary operator Â
-  real(RNP), allocatable, save :: Aii_inv(:,:,:) ! inverse interior operator Ã⁻¹
+  real(RNP), allocatable, save :: Aii_inv(:,:,:) ! inverse interior operator Ã⁺
 
   ! flux system
   real(RNP), allocatable :: Af(:,:) ! flux system matrix
@@ -81,9 +80,13 @@ subroutine HybridEllipticSolver(eop, dx, c, nu, bc, ub, f, u, standby)
 
   ! solution ...................................................................
 
-!#### if ne > 1:
-
-  call BuildFluxSystem(Aib, Aii_inv, tau, bc, ub, f, Af, ff)
+  if (ne > 1) then
+    call BuildFluxSystem(Aib, Aii_inv, tau, bc, f, Af, ff)
+    call SolveFluxSystem(Af, ff)
+    call SolveElementSystems(Aib, Aii_inv, bc, ff, f, u)
+  else
+    u = matmul(Aii_inv(:,:, 0), f)
+  end if
 
   ! clean-up ...................................................................
 
@@ -98,21 +101,19 @@ end subroutine HybridEllipticSolver
 !-------------------------------------------------------------------------------
 !> Build the flux system for two or more elements
 
-subroutine BuildFluxSystem(Aib, Aii_inv, bc, ub, f, Af, ff)
+subroutine BuildFluxSystem(Aib, Aii_inv, tau, bc, f, Af, ff)
   real(RNP), intent(in) :: Aib    (0:,1:,-1:)    !< interior-boundary operators
   real(RNP), intent(in) :: Aii_inv(0:,0:,-1:)    !< inverse interior operators
   real(RNP), intent(in) :: tau                   !< penalty, τ = 2μν
   character, intent(in) :: bc(2)                 !< boundary conditions
-  real(RNP), intent(in) :: ub(2)                 !< Dirichlet boundary values
   real(RNP), intent(in) :: f (0:,:)              !< source including Neumann BC
   real(RNP), allocatable, intent(out) :: Af(:,:) !< flux system matrix
   real(RNP), allocatable, intent(out) :: ff(:)   !< flux system RHS
 
-  integer :: i, po, ne, nf
+  integer :: i, ne, nf
 
   ! intialization ..............................................................
 
-  po = ubound(f,1)
   ne = ubound(f,2)
 
   if (bc(2) == 'P') then
@@ -186,7 +187,86 @@ subroutine BuildFluxSystem(Aib, Aii_inv, bc, ub, f, Af, ff)
              + dot_product(Aib(:,1,1), matmul(Aii_inv(:,:,1), f(:,1 )))
     end if
 
+  end select
+
 end subroutine BuildFluxSystem
+
+!------------------------------------------------------------------------------
+!> Solution of the condensed system using tridiagonal Gauss elimination
+
+subroutine SolveFluxSystem(Af, ff)
+  real(RNP), intent(inout) :: Af(:,:) !< system matrix, destroyed on output
+  real(RNP), intent(inout) :: ff(:)   !< RHS (in) / solution (out)
+
+  logical :: regular
+  integer :: n
+
+  n = size(ff)
+
+  if (n == 0) then
+    return
+
+  else if (n == 1) then
+    if (abs(Af(1,2)) > epsilon(Af)) then
+      ff(1) = ff(1) / Af(1,2)
+    else
+      ff(1) = 0
+    end if
+
+  else
+    associate(a => Af(:,1), b => Af(:,2), c => Af(:,3))
+
+      regular = abs(b(1)) > abs(c(1)) .or. abs(b(n)) > abs(a(n))
+      if (a(1) == 0 .and. c(n) == 0) then
+        call TridiagonalSolver(ff, a, b, c, regular)
+      else
+        call CyclicTridiagonalSolver(ff, a, b, c, regular)
+      end if
+
+    end associate
+
+  end if
+
+end subroutine SolveFluxSystem
+
+!------------------------------------------------------------------------------
+!> Solution of the element systems
+
+subroutine SolveElementSystems(Aib, Aii_inv, bc, uf, f, u)
+  real(RNP), intent(in)  :: Aib    (0:,1:,-1:) !< interior-boundary operators
+  real(RNP), intent(in)  :: Aii_inv(0:,0:,-1:) !< inverse interior operators
+  character, intent(in)  :: bc(2)              !< boundary conditions
+  real(RNP), intent(in)  :: uf(:)              !< fluxes
+  real(RNP), intent(in)  :: f(0:,:)            !< full RHS
+  real(RNP), intent(out) :: u(0:,:)            !< full solution
+
+  integer :: i, ne
+
+  ne = ubound(u, 2)
+
+  ! left
+  if (bc(1) == 'P') then
+    u(:,1) = matmul( Aii_inv(:,:, 0), f(:,1) - Aib(:,1, 0) * uf(ne) &
+                                             - Aib(:,2, 0) * uf(1)  )
+  else
+    u(:,1) = matmul( Aii_inv(:,:,-1), f(:,1) - Aib(:,2,-1) * uf(1) )
+  end if
+
+  ! interior
+  do i = 2, ne-1
+    u(:,i) = matmul( Aii_inv(:,:, 0), f(:,i) - Aib(:,1, 0) * uf(i-1) &
+                                             - Aib(:,2, 0) * uf(i)   )
+  end do
+
+  ! right
+  if (bc(2) == 'P') then
+    u(:,ne) = matmul( Aii_inv(:,:, 0), f(:,ne) - Aib(:,1, 0) * uf(ne-1) &
+                                               - Aib(:,2, 0) * uf(ne)   )
+  else
+    u(:,ne) = matmul( Aii_inv(:,:, 1), f(:,ne) - Aib(:,1, 1) * uf(ne-1) )
+  end if
+
+end subroutine SolveElementSystems
 
 !===============================================================================
 
