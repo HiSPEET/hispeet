@@ -48,7 +48,7 @@ program OperatorSpectrum
     nc = po
     allocate(eop, S(nd,nd), Lambda_L(nd), A(nc,nc), Lambda_A(nc))
     call eop % New(po)
-    call eop % GetEllipticEigensystem(S, Lambda_L)
+    call eop % GetEllipticEigensystem(dx, S, Lambda_L)
     do i = 1, nc
       A(i,:) = eop % D(i,1:)
     end do
