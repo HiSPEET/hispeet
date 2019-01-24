@@ -117,6 +117,7 @@ program IP_Helmholtz_1D
   ! evaluation .................................................................
 
   ! error
+  s = u_exact(x)
   e = u - s
   ! remove constant in singular case
   if (singular) then
@@ -176,14 +177,14 @@ subroutine GetRHS(eop, dx, bc, x, f)
 
     ! left boundary
     if (bc(1) == 'D') then
-      f(:,1) = f(:,1) + (2/dx * Ds(0,:) + tau * delta_0) * u_exact(x(:,1))
+      f(:,1) = f(:,1) + (2/dx * Ds(0,:) + tau * delta_0) * u_exact(x(0,1))
     else if (bc(1) == 'N') then
       f(0,1) = f(0,1) - du_exact(-ONE)
     end if
 
     ! right boundary
     if (bc(2) == 'D') then
-      f(:,ne) = f(:,ne) + (2/dx * Ds(P,:) + tau * delta_P) * u_exact(x(:,ne))
+      f(:,ne) = f(:,ne) + (-2/dx * Ds(P,:) + tau * delta_P) * u_exact(x(P,ne))
     else if (bc(1) == 'N') then
       f(P,ne) = f(P,ne) + du_exact(ONE)
     end if

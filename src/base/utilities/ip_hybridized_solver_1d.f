@@ -85,7 +85,7 @@ subroutine HybridEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
     call SolveFluxSystem(Af, ff)
     call SolveElementSystems(Aib, Aii_inv, bc, ff, f, u)
   else
-    u = matmul(Aii_inv(:,:, 0), f)
+    u = matmul(Aii_inv(:,:,0), f)
   end if
 
   ! clean-up ...................................................................

@@ -168,7 +168,7 @@ subroutine GetEllipticSuboperators(this, dx, c, nu, Aib, Abb, Aii_inv)
     D_inv = 1 / (c + nu * Lambda)
     do j = 1, np
     do i = 1, np
-      Aii_inv(i,j) = sum(S(i,:) * S(j,:) * D_inv)
+      Aii_inv(i,j) = sum(S(i,:) * D_inv * S(j,:))
     end do
     end do
 

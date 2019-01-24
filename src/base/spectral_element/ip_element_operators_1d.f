@@ -183,7 +183,7 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
 
     do j = 0, P
     do i = 0, P
-      Le(i,j,0) = 2 * g(0) * Ls(i,j)                           &
+      Le(i,j,0) = 2 * g(0) * Ls(i,j)                          &
 
                 + c_0 * (   g(0) * Ds   (0,i) * delta_0(j)    &
                           + g(0) * delta_0(i) * Ds   (0,j)    &
@@ -200,8 +200,8 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
       h_P = 1 / (dx(0) * dx(0) * mu_P)
       do j = 0, P
       do i = 0, P
-        Le(i,j,0) = Le(i,j,0) + h_0 * Ds(0,i) * Ds(0,j)  &
-                              + h_P * Ds(P,i) * Ds(P,j)
+        Le(i,j,0) = Le(i,j,0) - c_0 * h_0 * Ds(0,i) * Ds(0,j)  &
+                              - c_P * h_P * Ds(P,i) * Ds(P,j)
       end do
       end do
     end if
@@ -259,7 +259,7 @@ end subroutine GetStiffnessMatrix
 subroutine GetEllipticEigensystem(this, dx, bc, S, Lambda)
   class(IP_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)   !< element extensions
-  character, intent(in)  :: bc(2)      !< boundary conditions {'','D','N'}
+  character, intent(in)  :: bc(2)      !< boundary conditions {'','D','N','P'}
   real(RNP), intent(out) :: S(0:,0:)   !< eigenvectors
   real(RNP), intent(out) :: Lambda(0:) !< eigenvalues
 
@@ -286,7 +286,7 @@ subroutine GetEllipticEigensystem(this, dx, bc, S, Lambda)
 
   ! hybrid element operators
   allocate(Mii(0:this%po), Lii(0:this%po, 0:this%po, -1:1))
-  Mii = dx/2 * this % w
+  Mii = dx(0)/2 * this % w
   call this % GetStiffnessMatrix(dx, hybrid_bc, Lii)
 
   ! solve eigenproblem
@@ -360,7 +360,7 @@ subroutine GetEllipticSuboperators(this, dx, bc, c, nu, Aib, Aii_inv)
   ! inverse interior part ......................................................
 
   D_inv = c + nu * Lambda
-  where(D_inv > epsilon(ONE))
+  where(abs(D_inv) > epsilon(ONE))
     D_inv = 1 / D_inv
   elsewhere
     D_inv = ZERO
@@ -368,7 +368,7 @@ subroutine GetEllipticSuboperators(this, dx, bc, c, nu, Aib, Aii_inv)
 
   do j = 0, P
   do i = 0, P
-    Aii_inv(i,j) = sum(S(i,:) * S(j,:) * D_inv)
+    Aii_inv(i,j) = sum(S(i,:) * D_inv * S(j,:))
   end do
   end do
 
