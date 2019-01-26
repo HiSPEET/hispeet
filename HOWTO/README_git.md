@@ -13,3 +13,23 @@
 
 		 # add and commit only the modified and deleted files.
 		 git commit -a
+		 
+	
+### Updating etc.
+
+Show all branches
+
+    git branch -a
+
+Unless told otherwise use the `master` branch.
+But you can change to another branch using 
+
+    git checkout <branch-name>
+
+Unless you made changes you can update your local repo using 
+
+    make distclean
+    git pull
+
+in the `HiSPEET` directory
+
