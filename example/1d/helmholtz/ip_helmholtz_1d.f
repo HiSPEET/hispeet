@@ -185,7 +185,7 @@ subroutine GetRHS(eop, dx, bc, x, f)
     ! right boundary
     if (bc(2) == 'D') then
       f(:,ne) = f(:,ne) + (-2/dx * Ds(P,:) + tau * delta_P) * u_exact(x(P,ne))
-    else if (bc(1) == 'N') then
+    else if (bc(2) == 'N') then
       f(P,ne) = f(P,ne) + du_exact(ONE)
     end if
 

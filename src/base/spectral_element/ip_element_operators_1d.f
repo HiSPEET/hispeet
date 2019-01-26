@@ -105,13 +105,23 @@ end function PenaltyFactor_EQ
 !> must be dimensioned as `Le(0:P,0:P,-1:1)`, where `P = this%po` is the
 !> polynomial order. The third index refers to the preceding (-1), current (0)
 !> and succeeding (1) element, respectively.
+!>
+!> The stiffness matrix is available in two forms
+!>
+!>   * `'primal'`: all numeric fluxes û are eliminated (default)
+!>   * `'flux'`  : û is retained, all corresponding terms are removed from `Le`
+!>
+!> Except for the single element case, i.e. `all(bc /= '')`, the flux form can
+!> be activated by passing `form = 'flux'`.
 
-subroutine GetStiffnessMatrix(this, dx, bc, Le)
+subroutine GetStiffnessMatrix(this, dx, bc, Le, form)
   class(IP_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
   character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N','P'}
   real(RNP), intent(out) :: Le(0:,0:,-1:) !< 1D element stiffness matrix
+  character(len=*), optional, intent(in) :: form !< operator form ['primal']
 
+  logical   :: primal
   integer   :: P, i, j
   real(RNP) :: g(-1:1), mu_0, mu_P, c_0, c_P, h_0, h_P
   real(RNP), allocatable :: delta_0(:), delta_P(:)
@@ -130,25 +140,53 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
   allocate(delta_P(0:P), source = ZERO)
   delta_P(P) = ONE
 
-  ! left boundary condition
-  select case(bc(1))
-  case('D')    ! Dirichlet
-    c_0 = 2
-  case('N')    ! Neumann
-    c_0 = 0
-  case default ! none
-    c_0 = 1
-  end select
+  if (present(form)) then
+    primal = form == 'primal' .or. all(bc /= ' ')
+  else
+    primal = .true.
+  end if
 
-  ! right boundary
-  select case(bc(2))
-  case('D')    ! Dirichlet
-    c_P = 2
-  case('N')    ! Neumann
-    c_P = 0
-  case default ! none
-    c_P = 1
-  end select
+  if (primal) then
+
+    ! left boundary condition
+    select case(bc(1))
+    case('D')    ! Dirichlet
+      c_0 = 2
+    case('N')    ! Neumann
+      c_0 = 0
+    case default ! none
+      c_0 = 1
+    end select
+
+    ! right boundary condition
+    select case(bc(2))
+    case('D')    ! Dirichlet
+      c_P = 2
+    case('N')    ! Neumann
+      c_P = 0
+    case default ! none
+      c_P = 1
+    end select
+
+  else
+
+    ! left boundary condition
+    select case(bc(1))
+    case('N')    ! Neumann
+      c_0 = 0
+    case default
+      c_0 = 2
+    end select
+
+    ! right boundary condition
+    select case(bc(2))
+    case('N')    ! Neumann
+      c_P = 0
+    case default
+      c_P = 2
+    end select
+
+  end if
 
   associate( Ms => this%w, Ds => this%D, Ls => this%L )
 
@@ -168,7 +206,7 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
       end do
       end do
 
-      if (this%hybrid) then
+      if (primal .and. this%hybrid) then
         h_0 = 1 / (dx(-1) * dx(0) * mu_0)
         do j = 0, P
         do i = 0, P
@@ -195,15 +233,28 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
     end do
     end do
 
-    if (this%hybrid) then
-      h_0 = 1 / (dx(0) * dx(0) * mu_0)
-      h_P = 1 / (dx(0) * dx(0) * mu_P)
-      do j = 0, P
-      do i = 0, P
-        Le(i,j,0) = Le(i,j,0) - c_0 * h_0 * Ds(0,i) * Ds(0,j)  &
-                              - c_P * h_P * Ds(P,i) * Ds(P,j)
-      end do
-      end do
+    if (primal .and. this%hybrid) then
+
+      select case(bc(1))
+      case(' ','P')
+        h_0 = 1 / (dx(0) * dx(0) * mu_0)
+        do j = 0, P
+        do i = 0, P
+          Le(i,j,0) = Le(i,j,0) - h_0 * Ds(0,i) * Ds(0,j)
+        end do
+        end do
+      end select
+
+      select case(bc(2))
+      case(' ','P')
+        h_P = 1 / (dx(0) * dx(0) * mu_P)
+        do j = 0, P
+        do i = 0, P
+          Le(i,j,0) = Le(i,j,0) - h_P * Ds(P,i) * Ds(P,j)
+        end do
+        end do
+      end select
+
     end if
 
     ! contribution from following element (Le⁺) ................................
@@ -222,7 +273,7 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
       end do
       end do
 
-      if (this%hybrid) then
+      if (primal .and. this%hybrid) then
         h_P = 1 / (dx(0) * dx(1) * mu_P)
         do j = 0, P
         do i = 0, P
@@ -263,8 +314,8 @@ subroutine GetEllipticEigensystem(this, dx, bc, S, Lambda)
   real(RNP), intent(out) :: S(0:,0:)   !< eigenvectors
   real(RNP), intent(out) :: Lambda(0:) !< eigenvalues
 
+  real(RNP), parameter   :: eps = epsilon(1.0)
   real(RNP), allocatable :: Mii(:), Lii(:,:,:)
-  character :: hybrid_bc(2)
 
   if (.not. this%hybrid) then
     call Error( 'GetEllipticEigensystem', &
@@ -272,25 +323,18 @@ subroutine GetEllipticEigensystem(this, dx, bc, S, Lambda)
                 'IP_Element_Operators_1D' )
   end if
 
-  ! boundary conditions of the hybrid element system
-  if (all(bc == 'P')) then
-    hybrid_bc = bc
-  else
-    where(bc == 'N')
-      hybrid_bc = bc
-    elsewhere
-      ! interior and single periodic faces behave like Dirichlet boundaries
-      hybrid_bc = 'D'
-    end where
-  end if
-
   ! hybrid element operators
   allocate(Mii(0:this%po), Lii(0:this%po, 0:this%po, -1:1))
   Mii = dx(0)/2 * this % w
-  call this % GetStiffnessMatrix(dx, hybrid_bc, Lii)
+  call this % GetStiffnessMatrix(dx, bc, Lii, form='flux')
 
   ! solve eigenproblem
   call SolveGeneralizedEigenproblem(Lii(:,:,0), Mii, Lambda, S)
+
+  ! singular case
+  if (all(bc == 'N') .or. all(bc == 'P')) then
+    Lambda(0) = 0
+  end if
 
 end subroutine GetEllipticEigensystem
 
