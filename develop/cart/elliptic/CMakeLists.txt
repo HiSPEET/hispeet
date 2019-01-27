@@ -16,7 +16,9 @@ configure_file( elliptic_test.prm
 
 add_executable( elliptic_test__ip_ci
                 elliptic_test__ip_ci.f
-                elliptic_test_case.f )
+                elliptic_problem.f
+                elliptic_problem__knotty.f
+                elliptic_problem__simple.f )
 
 target_link_libraries( elliptic_test__ip_ci HiCart )
 

@@ -27,6 +27,8 @@ module Elliptic_Problem__Simple
 
   end type EllipticProblem_Simple
 
+contains
+
 !===============================================================================
 ! GetExactSolution
 
@@ -149,7 +151,7 @@ subroutine GetExactLaplacian_X(k, n, x, laplace_u)
     x2 = x(i,2)
     x3 = x(i,3)
 
-    laplace_u(i) = -3*k*k * (sin(k * x1) * sin(k * x2)) * sin(k * x3))
+    laplace_u(i) = -3*k*k * sin(k * x1) * sin(k * x2) * sin(k * x3)
 
   end do
 
@@ -222,10 +224,10 @@ subroutine GetDiffusivityGradient(problem, x, grad_nu)
 
   n = size(x(:,:,:,:,1))
 
-  call GetDiffusivity_X( problem % nu_1, &
-                         problem % k_nu, &
-                         problem % d_nu, &
-                         n, x, grad_nu   )
+  call GetDiffusivityGradient_X( problem % nu_1, &
+                                 problem % k_nu, &
+                                 problem % d_nu, &
+                                 n, x, grad_nu   )
 
 end subroutine GetDiffusivityGradient
 

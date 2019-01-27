@@ -27,6 +27,8 @@ module Elliptic_Problem__Knotty
 
   end type EllipticProblem_Knotty
 
+contains
+
 !===============================================================================
 ! GetExactSolution
 
@@ -262,10 +264,10 @@ subroutine GetDiffusivityGradient(problem, x, grad_nu)
 
   n = size(x(:,:,:,:,1))
 
-  call GetDiffusivity_X( problem % nu_1, &
-                         problem % k_nu, &
-                         problem % d_nu, &
-                         n, x, grad_nu   )
+  call GetDiffusivityGradient_X( problem % nu_1, &
+                                 problem % k_nu, &
+                                 problem % d_nu, &
+                                 n, x, grad_nu   )
 
 end subroutine GetDiffusivityGradient
 

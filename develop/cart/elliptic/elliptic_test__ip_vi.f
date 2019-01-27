@@ -37,7 +37,6 @@ program Elliptic_Test__IP_VI
 
   integer   :: test    = 1       ! test case: 1 - simple, 2 - knotty
 
-  ! parameters
   real(RNP) :: lambda  = 0       ! Helmholtz parameter
   real(RNP) :: nu_0    = 1       ! diffusivity mean
   real(RNP) :: nu_1    = 0.1     ! diffusivity fluctuation
