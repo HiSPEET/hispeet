@@ -1,30 +1,54 @@
-!> summary:  Test case for elliptic equations, 2π-periodic
+!> summary:  Defines a more complex elliptic test problem
 !> author:   Joerg Stiller
-!> date:     2013/06/16, extended to variable diffusivity 2019/01/08
+!> date:     2019/01/27
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Test case for elliptic equations, 2π-periodic
 !===============================================================================
 
-module Elliptic_Test_Case
+module Elliptic_Problem__Knotty
   use Kind_Parameters, only: RNP
-  use Constants,       only: PI
+  use Elliptic_Problem
+
   implicit none
   private
 
-  public :: GetExactSolution
-  public :: GetExactGradient
-  public :: GetExactLaplacian
-  public :: GetDiffusivity
-  public :: GetDiffusivityGradient
-  public :: GetSource
+  public :: EllipticProblem_Knotty
 
-contains
+  !-----------------------------------------------------------------------------
+  !> Type defining a more difficult problem (pseudo-turbulent pressure)
 
-!-------------------------------------------------------------------------------
+  type, extends(EllipticProblem) :: EllipticProblem_Knotty
+  contains
+
+    procedure :: GetExactSolution
+    procedure :: GetExactGradient
+    procedure :: GetExactLaplacian
+    procedure :: GetDiffusivity
+    procedure :: GetDiffusivityGradient
+
+  end type EllipticProblem_Knotty
+
+!===============================================================================
+! GetExactSolution
+
+!---------------------------------------------------------------------------
 !> Exact solution
 
-subroutine GetExactSolution(k, n, x, u)
+subroutine GetExactSolution(problem, x, u)
+  class(EllipticProblem_Knotty), intent(in)  :: problem
+  real(RNP),              intent(in)  :: x(:,:,:,:,:) !< mesh points
+  real(RNP),              intent(out) :: u(:,:,:,:)   !< solution, u(x)
+
+  integer :: n
+
+  n = size(x(:,:,:,:,1))
+  call GetExactSolution_X(problem % k_u, n, x, u)
+
+end subroutine GetExactSolution
+
+!-------------------------------------------------------------------------------
+!> Exact solution -- explicit
+
+subroutine GetExactSolution_X(k, n, x, u)
   integer,   intent(in)  :: k      !< wave number
   integer,   intent(in)  :: n      !< number of points
   real(RNP), intent(in)  :: x(n,3) !< mesh points
@@ -47,12 +71,30 @@ subroutine GetExactSolution(k, n, x, u)
 
   end do
 
-end subroutine GetExactSolution
+end subroutine GetExactSolution_X
+
+!===============================================================================
+! GetExactGradient
+
+!---------------------------------------------------------------------------
+!> Exact solution gradient
+
+subroutine GetExactGradient(problem, x, grad_u)
+  class(EllipticProblem_Knotty), intent(in)  :: problem
+  real(RNP), intent(in)  :: x(:,:,:,:,:)      !< mesh points
+  real(RNP), intent(out) :: grad_u(:,:,:,:,:) !< ∇u(x)
+
+  integer :: n
+
+  n = size(x(:,:,:,:,1))
+  call GetExactGradient_X(problem % k_u, n, x, grad_u)
+
+end subroutine GetExactGradient
 
 !-------------------------------------------------------------------------------
-!> Exact gradient
+!> Exact gradient -- explicit
 
-subroutine GetExactGradient(k, n, x, grad_u)
+subroutine GetExactGradient_X(k, n, x, grad_u)
   integer,   intent(in)  :: k           !< wave number
   integer,   intent(in)  :: n           !< number of points
   real(RNP), intent(in)  :: x(n,3)      !< mesh points
@@ -96,12 +138,30 @@ subroutine GetExactGradient(k, n, x, grad_u)
 
   end do
 
-end subroutine GetExactGradient
+end subroutine GetExactGradient_X
 
-!-------------------------------------------------------------------------------
+!===============================================================================
+! GetExactLaplacian
+
+!---------------------------------------------------------------------------
 !> Exact laplacian
 
-subroutine GetExactLaplacian(k, n, x, laplace_u)
+subroutine GetExactLaplacian(problem, x, laplace_u)
+  class(EllipticProblem_Knotty), intent(in)  :: problem
+  real(RNP), intent(in)  :: x(:,:,:,:,:)       !< mesh points
+  real(RNP), intent(out) :: laplace_u(:,:,:,:) !< ∇²u(x)
+
+  integer :: n
+
+  n = size(x(:,:,:,:,1))
+  call GetExactLaplacian_X(problem % k_u, n, x, laplace_u)
+
+end subroutine GetExactLaplacian
+
+!-------------------------------------------------------------------------------
+!> Exact laplacian -- explicit
+
+subroutine GetExactLaplacian_X(k, n, x, laplace_u)
   integer,   intent(in)  :: k             !< wave number
   integer,   intent(in)  :: n             !< number of points
   real(RNP), intent(in)  :: x(n,3)        !< mesh points
@@ -133,12 +193,35 @@ subroutine GetExactLaplacian(k, n, x, laplace_u)
 
   end do
 
-end subroutine GetExactLaplacian
+end subroutine GetExactLaplacian_X
 
-!-------------------------------------------------------------------------------
+!===============================================================================
+! GetDiffusivity
+
+!---------------------------------------------------------------------------
 !> Diffusivity
 
-subroutine GetDiffusivity(nu_0, nu_1, k, d, n, x, nu)
+subroutine GetDiffusivity(problem, x, nu)
+  class(EllipticProblem_Knotty), intent(in)  :: problem
+  real(RNP), intent(in)  :: x(:,:,:,:,:)  !< mesh points
+  real(RNP), intent(out) :: nu(:,:,:,:)   !< ν(x)
+
+  integer :: n
+
+  n = size(x(:,:,:,:,1))
+
+  call GetDiffusivity_X( problem % nu_0, &
+                         problem % nu_1, &
+                         problem % k_nu, &
+                         problem % d_nu, &
+                         n, x, nu        )
+
+end subroutine GetDiffusivity
+
+!-------------------------------------------------------------------------------
+!> Diffusivity -- explicit
+
+subroutine GetDiffusivity_X(nu_0, nu_1, k, d, n, x, nu)
   real(RNP), intent(in)  :: nu_0    !< constant part ν₀
   real(RNP), intent(in)  :: nu_1    !< fluctuation amplitude ν₁
   integer,   intent(in)  :: k       !< fluctuation wave number
@@ -162,12 +245,34 @@ subroutine GetDiffusivity(nu_0, nu_1, k, d, n, x, nu)
                  * sin(k * (x3 - d))
   end do
 
-end subroutine GetDiffusivity
+end subroutine GetDiffusivity_X
 
-!-------------------------------------------------------------------------------
+!===============================================================================
+! GetDiffusivityGradient
+
+!---------------------------------------------------------------------------
 !> Diffusivity gradient
 
-subroutine GetDiffusivityGradient(nu_1, k, d, n, x, grad_nu)
+subroutine GetDiffusivityGradient(problem, x, grad_nu)
+  class(EllipticProblem_Knotty), intent(in)  :: problem
+  real(RNP), intent(in)  :: x(:,:,:,:,:)       !< mesh points
+  real(RNP), intent(out) :: grad_nu(:,:,:,:,:) !< ∇ν(x)
+
+  integer :: n
+
+  n = size(x(:,:,:,:,1))
+
+  call GetDiffusivity_X( problem % nu_1, &
+                         problem % k_nu, &
+                         problem % d_nu, &
+                         n, x, grad_nu   )
+
+end subroutine GetDiffusivityGradient
+
+!-------------------------------------------------------------------------------
+!> Diffusivity gradient -- explicit
+
+subroutine GetDiffusivityGradient_X(nu_1, k, d, n, x, grad_nu)
   real(RNP), intent(in)  :: nu_1          !< fluctuation amplitude ν₁
   integer,   intent(in)  :: k             !< fluctuation wave number
   real(RNP), intent(in)  :: d             !< fluctuation phase shift
@@ -196,46 +301,8 @@ subroutine GetDiffusivityGradient(nu_1, k, d, n, x, grad_nu)
 
   end do
 
-end subroutine GetDiffusivityGradient
-
-!-------------------------------------------------------------------------------
-!> Exact source
-
-subroutine GetSource(lambda, nu_0, nu_1, k_nu, d_nu, k_u, n, x, f)
-  real(RNP), intent(in)  :: lambda  !< Helmholtz parameter
-  real(RNP), intent(in)  :: nu_0    !< constant part ν₀
-  real(RNP), intent(in)  :: nu_1    !< fluctuation amplitude ν₁
-  integer,   intent(in)  :: k_nu    !< fluctuation wave number
-  real(RNP), intent(in)  :: d_nu    !< fluctuation phase shift
-  integer,   intent(in)  :: k_u     !< solution wave number
-  integer,   intent(in)  :: n       !< number of points
-  real(RNP), intent(in)  :: x(n,3)  !< mesh points
-  real(RNP), intent(out) :: f(n)    !< source f(x)
-
-  real(RNP), allocatable :: u(:), grad_u(:,:), laplace_u(:)
-  real(RNP), allocatable :: nu(:), grad_nu(:,:)
-  integer :: i
-
-  allocate(u(n), grad_u(n,3), laplace_u(n), nu(n), grad_nu(n,3))
-
-  call GetExactSolution(k_u, n, x, u)
-  call GetExactGradient(k_u, n, x, grad_u)
-  call GetExactLaplacian(k_u, n, x, laplace_u)
-  call GetDiffusivity(nu_0, nu_1, k_nu, d_nu, n, x, nu)
-  call GetDiffusivityGradient(nu_1, k_nu, d_nu, n, x, grad_nu)
-
-  do i = 1, n
-
-    f(i) = lambda * u(i)                 &
-         - ( nu(i) * laplace_u(i)        &
-           + grad_nu(i,1) * grad_u(i,1)  &
-           + grad_nu(i,2) * grad_u(i,2)  &
-           + grad_nu(i,3) * grad_u(i,3) )
-
-  end do
-
-end subroutine GetSource
+end subroutine GetDiffusivityGradient_X
 
 !===============================================================================
 
-end module Elliptic_Test_Case
+end module Elliptic_Problem__Knotty

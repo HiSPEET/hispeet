@@ -1,20 +1,17 @@
-&problem
+&test_case
+ test   = 2  ! 1: simple, 2: knotty
  lambda = 1
  nu     = 1
  k_u    = 1
- bc = 6*'D'
- !bc = 'D','D','N','N','P','P'
- !bc(1:2) = 'N', 'D'
- !bc(1:2) = 'D', 'D'
- !bc(3:4) = 'N', 'N'
- !bc(5:6) = 'P', 'P'
+ bc     = 6*'D'
+!bc     = 'D','D','N','N','P','P'
 /
 
 &discretization
  np = 1,1,1
  ep = 4,4,4
- !np = 2,2,2
- !ep = 2,2,2
+!np = 2,2,2
+!ep = 2,2,2
  po = 16
  !penalty = 2
 /

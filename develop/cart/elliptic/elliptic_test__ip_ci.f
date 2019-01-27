@@ -22,25 +22,34 @@ program Elliptic_Test__IP_CI
   use CART__Schwarz_Operator
   use CART__Elliptic_Operator_IP
 
-  use Elliptic_Test_Case
+  use Elliptic_Problem
+  use Elliptic_Problem__Simple
+  use Elliptic_Problem__Knotty
 
   implicit none
 
   !-----------------------------------------------------------------------------
   ! Declarations
 
-  ! problem parameters .........................................................
+  ! problem ....................................................................
+
+  class(EllipticProblem), allocatable :: problem
+
+  integer   :: test    = 1       ! test case: 1 - simple, 2 - knotty
 
   real(RNP) :: lambda  = 0       ! Helmholtz parameter
   real(RNP) :: nu      = 1       ! diffusivity
   integer   :: k_u     = 1       ! solution wave number
+
   real(RNP) :: xo(3)   = 0       ! corner closest to -infinity
   real(RNP) :: lx(3)   = 2*PI    ! domain extensions
   character :: bc(6)   = 'P'     ! boundary conditions {'P'|'D'|'N'}
 
-  namelist /problem/ lambda, nu, k_u, xo, lx, bc
+  namelist /test_case/ test
+  namelist /test_case/ lambda, nu, k_u
+  namelist /test_case/ xo, lx, bc
 
-  ! discretization parameters ..................................................
+  ! discretization .............................................................
 
   integer   :: np(3)   = 1       ! number of partitions in directions 1:3
   integer   :: ep(3)   = 2       ! elements per partition and direction
@@ -50,7 +59,7 @@ program Elliptic_Test__IP_CI
 
   namelist /discretization/ np, ep, po, penalty
 
-  ! solution parameters ........................................................
+  ! solution ...................................................................
 
   integer   :: method  = 1       ! CG,, Schwarz, p-MG or p-MG/CG {1|2|3|4}
 
@@ -131,7 +140,7 @@ program Elliptic_Test__IP_CI
     inquire(file=parameter_file, exist=exists)
     if (exists) then
       open(newunit=prm, file=parameter_file)
-      read(prm, nml=problem)
+      read(prm, nml=test_case)
       read(prm, nml=discretization)
       read(prm, nml=solver)
       select case(method)
@@ -148,7 +157,8 @@ program Elliptic_Test__IP_CI
 
   end if
 
-  ! problem parameters
+  ! problem
+  call XMPI_Bcast(test     , 0, comm)
   call XMPI_Bcast(lambda   , 0, comm)
   call XMPI_Bcast(nu       , 0, comm)
   call XMPI_Bcast(k_u      , 0, comm)
@@ -156,7 +166,7 @@ program Elliptic_Test__IP_CI
   call XMPI_Bcast(lx       , 0, comm)
   call XMPI_Bcast(bc       , 0, comm)
 
-  ! discretization parameters
+  ! discretization
   call XMPI_Bcast(np       , 0, comm)
   call XMPI_Bcast(ep       , 0, comm)
   call XMPI_Bcast(po       , 0, comm)
@@ -174,6 +184,17 @@ program Elliptic_Test__IP_CI
 
   ! control parameters
   call XMPI_Bcast(plot_file, 0, comm)
+
+  ! problem ....................................................................
+
+  select case(test)
+  case(2)
+    allocate(EllipticProblem_Knotty :: problem)
+  case default
+    allocate(EllipticProblem_Simple :: problem)
+  end select
+
+  call problem % SetProblem(lambda, nu_0 = nu, k_u = k_u)
 
   ! mesh and variables .........................................................
 
@@ -210,9 +231,9 @@ program Elliptic_Test__IP_CI
   if (n > 0) then
 
     ! exact solution, gradient and Laplacian
-    call GetExactSolution(  k_u, n, x, u           )
-    call GetExactGradient(  k_u, n, x, grad_u      )
-    call GetExactLaplacian( k_u, n, x, laplace_u=r )
+    call problem % GetExactSolution  (x, u           )
+    call problem % GetExactGradient  (x, grad_u      )
+    call problem % GetExactLaplacian (x, laplace_u=r )
 
     ! s = u
     call AssignArray(s, u)
