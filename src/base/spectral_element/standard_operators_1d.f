@@ -48,8 +48,6 @@ module Standard_Operators_1D
     procedure, public  :: GetLegendreVDM
     procedure, public  :: GetInverseLegendreVDM
 
-    final :: Delete_StandardOperators1D
-
   end type StandardOperators1D
 
 contains
