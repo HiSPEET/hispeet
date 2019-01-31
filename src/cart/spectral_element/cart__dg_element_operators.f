@@ -48,7 +48,7 @@ subroutine New_ElementOperators(this, po, dx, penalty)
   real(RNP), optional, intent(in) :: penalty  !< penalty parameter > 1 [2]
 
   if (present(penalty)) then
-    call this%New(po, penalty)
+    call this%New(IP_ElementOptions1D(po, penalty, hybrid=.false.))
   else
     call this%New(po)
   end if
