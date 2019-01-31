@@ -16,6 +16,7 @@ module IP_Element_Operators_1D
   private
 
   public :: IP_ElementOperators1D
+  public :: IP_ElementOptions1D
 
   !-----------------------------------------------------------------------------
   !> Element operators for the symmetric interior penalty IP/DG-SEM
@@ -37,7 +38,7 @@ module IP_Element_Operators_1D
   type, extends(StandardOperators1D) :: IP_ElementOperators1D
 
     real(RNP) :: penalty = 2       !< penalty parameter > 1
-    logical   :: hybrid  = .false. !< switch to IP-H
+    logical   :: hybrid  = .false. !< switch to hybridized method
 
   contains
 
@@ -54,24 +55,29 @@ module IP_Element_Operators_1D
 
   end type IP_ElementOperators1D
 
+  !-----------------------------------------------------------------------------
+  !> Options for IP_ElementOperators1D
+
+  type IP_ElementOptions1D
+    integer   :: po      = -1      !< polynomial order
+    real(RNP) :: penalty =  2      !< penalty parameter > 1
+    logical   :: hybrid  = .false. !< switch to hybridized method
+  end type IP_ElementOptions1D
+
 contains
 
 !-------------------------------------------------------------------------------
 !> Specific initialization, only required to override penalty
 
-subroutine New_IP_ElementOperators1D(this, po, penalty, hybrid)
+subroutine New_IP_ElementOperators1D(this, opt)
   class(IP_ElementOperators1D), intent(inout) :: this
-  integer,           intent(in) :: po      !< polynomial order
-  real(RNP),         intent(in) :: penalty !< penalty parameter > 1 [2]
-  logical, optional, intent(in) :: hybrid  !< switch to IP-H
+  class(IP_ElementOptions1D),   intent(in)    :: opt
 
   ! standard operators
-  call this%New(po)
+  call this%New(opt % po)
 
-  this % penalty = penalty
-  if (present(hybrid)) then
-    this % hybrid = hybrid
-  end if
+  this % penalty = opt % penalty
+  this % hybrid  = opt % hybrid
 
 end subroutine New_IP_ElementOperators1D
 
