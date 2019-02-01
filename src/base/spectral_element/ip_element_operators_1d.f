@@ -42,8 +42,7 @@ module IP_Element_Operators_1D
 
   contains
 
-    generic :: New => New_IP_ElementOperators1D
-    procedure, private :: New_IP_ElementOperators1D
+    procedure :: Init_IP_ElementOperators1D
 
     generic :: PenaltyFactor => PenaltyFactor_NE, PenaltyFactor_EQ
     procedure, private :: PenaltyFactor_NE
@@ -55,6 +54,12 @@ module IP_Element_Operators_1D
 
   end type IP_ElementOperators1D
 
+  ! Constructor interface
+  interface IP_ElementOperators1D
+    module procedure New_IP_ElementOperators1D__f
+    module procedure New_IP_ElementOperators1D__b
+  end interface
+
   !-----------------------------------------------------------------------------
   !> Options for IP_ElementOperators1D
 
@@ -62,24 +67,64 @@ module IP_Element_Operators_1D
     integer   :: po      = -1      !< polynomial order
     real(RNP) :: penalty =  2      !< penalty parameter > 1
     logical   :: hybrid  = .false. !< switch to hybridized method
+    logical   :: no_vdm  = .false. !< skip Vandermonde matrix
   end type IP_ElementOptions1D
 
 contains
 
-!-------------------------------------------------------------------------------
-!> Specific initialization, only required to override penalty
+!===============================================================================
+! Constructor
 
-subroutine New_IP_ElementOperators1D(this, opt)
+!-------------------------------------------------------------------------------
+!> Constructor for IP_ElementOperators1D -- flat interface
+
+function New_IP_ElementOperators1D__f(po, penalty, hybrid, no_vdm) result(this)
+  integer,             intent(in) :: po      !< polynomial order
+  real(RNP), optional, intent(in) :: penalty !< penalty parameter > 1        [2]
+  logical,   optional, intent(in) :: hybrid  !< switch to hybridized method  [F]
+  logical,   optional, intent(in) :: no_vdm  !< skip Vandermonde matrix      [F]
+
+  type(IP_ElementOperators1D) :: this
+  type(IP_ElementOptions1D)   :: opt
+
+  opt % po = po
+  if (present(penalty)) opt % penalty = penalty
+  if (present(hybrid )) opt % hybrid  = hybrid
+  if (present(no_vdm )) opt % no_vdm  = no_vdm
+
+  call Init_IP_ElementOperators1D(this, opt)
+
+end function New_IP_ElementOperators1D__f
+
+!-------------------------------------------------------------------------------
+!> Constructor for IP_ElementOperators1D -- bundled arguments
+
+function New_IP_ElementOperators1D__b(opt) result(this)
+  type(IP_ElementOptions1D), intent(in) :: opt
+
+  type(IP_ElementOperators1D) :: this
+
+  call Init_IP_ElementOperators1D(this, opt)
+
+end function New_IP_ElementOperators1D__b
+
+!===============================================================================
+! Type-bound procedures
+
+!-------------------------------------------------------------------------------
+!> Initialization
+
+subroutine Init_IP_ElementOperators1D(this, opt)
   class(IP_ElementOperators1D), intent(inout) :: this
   class(IP_ElementOptions1D),   intent(in)    :: opt
 
   ! standard operators
-  call this%New(opt % po)
+  call this % Init_StandardOperators1D(opt%po, no_vdm = opt%no_vdm)
 
   this % penalty = opt % penalty
   this % hybrid  = opt % hybrid
 
-end subroutine New_IP_ElementOperators1D
+end subroutine Init_IP_ElementOperators1D
 
 !-------------------------------------------------------------------------------
 !> Penalty factor for non-equidistant spacing

@@ -109,7 +109,7 @@ program CG_Helmholtz_1D
             s(0:po,ne), e(0:po,ne), w(0:po,ne)              )
 
   ! standard operators
-  call eop % New(po)
+  eop = CG_ElementOperators1D(po)
 
   ! mesh and point weights
   call GetMeshPoints(eop, -ONE, ONE, dx, x)

@@ -128,7 +128,7 @@ subroutine New_FlowOperators( this                       &
   end if
 
   if (po_q /= po_u) then
-    call this % eop_q  % New(po_q, mesh%dx, penalty)
+    call this % eop_q  % Init_DG_ElementOperators3D(po_q, mesh%dx, penalty)
     call this % iop_uq % New(po_u, po_q)
   end if
 

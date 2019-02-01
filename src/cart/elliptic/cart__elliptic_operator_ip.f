@@ -53,43 +53,27 @@ module CART__Elliptic_Operator_IP
     !---------------------------------------------------------------------------
     !> New operator with constant isotropic diffusivity
 
-    module subroutine New_CI(this, mesh, lambda, nu, bc, po, penalty, &
-                             schwarz_opt)
-
+    module subroutine New_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
       class(EllipticOperator3D_IP), intent(inout) :: this
-
-      class(MeshPartition), target, &
-                            intent(in) :: mesh        !< mesh partition
-      real(RNP),            intent(in) :: lambda      !< Helmholtz parameter
-      real(RNP),            intent(in) :: nu          !< diffusivity
-      character,            intent(in) :: bc(:)       !< boundary conditions
-      integer,              intent(in) :: po          !< polynomial order
-      real(RNP),  optional, intent(in) :: penalty     !< penalty parameter
-
-      class(SchwarzOptions3D), &
-                  optional, intent(in) :: schwarz_opt !< Schwarz options
-
+      class(MeshPartition), target, intent(in) :: mesh !< mesh partition
+      real(RNP), intent(in) :: lambda                  !< Helmholtz parameter
+      real(RNP), intent(in) :: nu                      !< diffusivity
+      character, intent(in) :: bc(:)                   !< boundary conditions
+      class(IP_ElementOptions1D), intent(in) :: ip_opt !< IP/DG element options
+      class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
     end subroutine New_CI
 
     !---------------------------------------------------------------------------
     !> New operator with variable isotropic diffusivity
 
-    module subroutine New_VI(this, mesh, lambda, nu, bc, po, penalty, &
-                             schwarz_opt)
-
+    module subroutine New_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
       class(EllipticOperator3D_IP), intent(inout) :: this
-
-      class(MeshPartition), target, &
-                            intent(in) :: mesh           !< mesh partition
-      real(RNP),            intent(in) :: lambda         !< Helmholtz parameter
-      real(RNP),            intent(in) :: nu(0:,0:,0:,:) !< diffusivity
-      character,            intent(in) :: bc(:)          !< boundary conditions
-      integer,              intent(in) :: po             !< polynomial order
-      real(RNP),  optional, intent(in) :: penalty        !< penalty parameter
-
-      class(SchwarzOptions3D), &
-                  optional, intent(in) :: schwarz_opt    !< Schwarz options
-
+      class(MeshPartition), target, intent(in) :: mesh !< mesh partition
+      real(RNP), intent(in) :: lambda                  !< Helmholtz parameter
+      real(RNP), intent(in) :: nu(0:,0:,0:,:)          !< diffusivity
+      character, intent(in) :: bc(:)                   !< boundary conditions
+      class(IP_ElementOptions1D), intent(in) :: ip_opt !< IP/DG element options
+      class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
     end subroutine New_VI
 
     !---------------------------------------------------------------------------

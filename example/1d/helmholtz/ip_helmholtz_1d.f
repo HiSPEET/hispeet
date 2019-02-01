@@ -86,7 +86,7 @@ program IP_Helmholtz_1D
   n = size(u)
 
   ! standard operators
-  call eop % New(po, penalty, hybrid = .true.)
+  eop = IP_ElementOperators1D(po, penalty, hybrid = .true.)
 
   ! mesh
   dx = TWO / ne

@@ -14,17 +14,81 @@ module CG_Element_Operators_1D
   implicit none
   private
 
+  public :: CG_ElementOperators1D
+  public :: CG_ElementOptions1D
+
   !-----------------------------------------------------------------------------
   !> Element operators for continuous Galerkin-SEM
 
-  type, extends(StandardOperators1D), public :: CG_ElementOperators1D
+  type, extends(StandardOperators1D) :: CG_ElementOperators1D
   contains
+    procedure :: Init_CG_ElementOperators1D
     procedure :: GetStiffnessMatrix
     procedure :: GetEllipticEigensystem
     procedure :: GetEllipticSuboperators
   end type CG_ElementOperators1D
 
+  ! Constructor interface
+  interface CG_ElementOperators1D
+    module procedure New_CG_ElementOperators1D__f
+    module procedure New_CG_ElementOperators1D__b
+  end interface
+
+  !-----------------------------------------------------------------------------
+  !> Options for CG_ElementOperators1D
+
+  type CG_ElementOptions1D
+    integer   :: po      = -1      !< polynomial order
+    logical   :: no_vdm  = .false. !< skip Vandermonde matrix
+  end type CG_ElementOptions1D
+
 contains
+
+!===============================================================================
+! Constructor
+
+!-------------------------------------------------------------------------------
+!> Constructor for CG_ElementOperators1D -- flat interface
+
+function New_CG_ElementOperators1D__f(po, no_vdm) result(this)
+  integer,             intent(in) :: po      !< polynomial order
+  logical,   optional, intent(in) :: no_vdm  !< skip Vandermonde matrix  [F]
+
+  type(CG_ElementOperators1D) :: this
+  type(CG_ElementOptions1D)   :: opt
+
+  opt % po = po
+  if (present(no_vdm )) opt % no_vdm  = no_vdm
+
+  call Init_CG_ElementOperators1D(this, opt)
+
+end function New_CG_ElementOperators1D__f
+
+!-------------------------------------------------------------------------------
+!> Constructor for CG_ElementOperators1D -- bundled arguments
+
+function New_CG_ElementOperators1D__b(opt) result(this)
+  type(CG_ElementOptions1D), intent(in) :: opt
+
+  type(CG_ElementOperators1D) :: this
+
+  call Init_CG_ElementOperators1D(this, opt)
+
+end function New_CG_ElementOperators1D__b
+
+!===============================================================================
+! Type-bound procedures
+
+!-------------------------------------------------------------------------------
+!> Initialization
+
+subroutine Init_CG_ElementOperators1D(this, opt)
+  class(CG_ElementOperators1D), intent(inout) :: this
+  class(CG_ElementOptions1D),   intent(in)    :: opt
+
+  call this % Init_StandardOperators1D(opt%po, no_vdm = opt%no_vdm)
+
+end subroutine Init_CG_ElementOperators1D
 
 !-------------------------------------------------------------------------------
 !> Returns the 1D element stiffness matrix for the continuous Galerkin SEM

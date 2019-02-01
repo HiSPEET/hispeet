@@ -105,7 +105,7 @@ program CG_Helmholtz_1D_Acc
             s(0:po,ne), e(0:po,ne), w(0:po,ne)              )
 
   ! standard operators
-  call standard_op % New(po)
+  standard_op = StandardOperators1D(po)
 
   ! check if problem is singular
   singular = lambda == 0 .and. all(bc == 'N')

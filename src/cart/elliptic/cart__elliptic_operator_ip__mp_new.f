@@ -16,7 +16,7 @@ contains
 !-------------------------------------------------------------------------------
 !> New operator with constant isotropic diffusivity
 
-module subroutine New_CI(this, mesh, lambda, nu, bc, po, penalty, schwarz_opt)
+module subroutine New_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
 
   ! arguments ..................................................................
 
@@ -27,21 +27,20 @@ module subroutine New_CI(this, mesh, lambda, nu, bc, po, penalty, schwarz_opt)
   real(RNP),            intent(in) :: lambda      !< Helmholtz parameter
   real(RNP),            intent(in) :: nu          !< diffusivity
   character,            intent(in) :: bc(:)       !< boundary conditions
-  integer,              intent(in) :: po          !< polynomial order
-  real(RNP),  optional, intent(in) :: penalty     !< penalty parameter
 
-  class(SchwarzOptions3D), &
-              optional, intent(in) :: schwarz_opt !< Schwarz options
+  !> options for the IP/DG method, including polynomial order `po` and `penalty`
+  class(IP_ElementOptions1D), intent(in) :: ip_opt
+
+  !> options for the Schwarz method
+  class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
 
   ! problem and discretization parameters ......................................
 
-  this % mesh => mesh
-
-  this % lambda = lambda
-  this % nu_ci  = nu
-  this % bc     = bc
-
-  call this % eop % New(po, penalty)
+  this % mesh   => mesh
+  this % lambda =  lambda
+  this % nu_ci  =  nu
+  this % bc     =  bc
+  this % eop    =  IP_ElementOperators1D(ip_opt)
 
   ! Schwarz method .............................................................
 
@@ -55,7 +54,7 @@ end subroutine New_CI
 !-------------------------------------------------------------------------------
 !> New operator with variable isotropic diffusivity
 
-module subroutine New_VI(this, mesh, lambda, nu, bc, po, penalty, schwarz_opt)
+module subroutine New_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
 
   ! arguments ..................................................................
 
@@ -66,24 +65,27 @@ module subroutine New_VI(this, mesh, lambda, nu, bc, po, penalty, schwarz_opt)
   real(RNP),            intent(in) :: lambda         !< Helmholtz parameter
   real(RNP),            intent(in) :: nu(0:,0:,0:,:) !< diffusivity
   character,            intent(in) :: bc(:)          !< boundary conditions
-  integer,              intent(in) :: po             !< polynomial order
-  real(RNP),  optional, intent(in) :: penalty        !< penalty parameter
 
-  class(SchwarzOptions3D), &
-              optional, intent(in) :: schwarz_opt    !< Schwarz options
+  !> options for the IP/DG method, including polynomial order `po` and `penalty`
+  class(IP_ElementOptions1D), intent(in) :: ip_opt
+
+  !> options for the Schwarz method
+  class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
 
   ! local variables ............................................................
 
   type(TraceOperator), allocatable, save :: trace_op
   real(RNP),           allocatable, save :: tr_nu(:,:,:,:)
-  integer :: i, j, k
+  integer :: i, j, k, po
 
   ! problem and discretization parameters ......................................
 
-  this % mesh => mesh
+  this % mesh   => mesh
+  this % lambda =  lambda
+  this % bc     =  bc
+  this % eop    =  IP_ElementOperators1D(ip_opt)
 
-  this % lambda = lambda
-  this % bc     = bc
+  po = this % eop % po
 
   allocate(this % nu_vi, mold = nu)
   call AssignArray(this % nu_vi, nu)
@@ -93,9 +95,6 @@ module subroutine New_VI(this, mesh, lambda, nu, bc, po, penalty, schwarz_opt)
   allocate(tr_nu(0:po,0:po,2,mesh%nf))
   allocate(trace_op)
   call trace_op % GetTrace_Start(mesh, nu, tr_nu, tag=1000)
-
-  ! 1D IP/DG operators
-  call this % eop % New(po, penalty)
 
   ! Schwarz method .............................................................
 

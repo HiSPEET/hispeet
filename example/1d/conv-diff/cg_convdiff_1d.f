@@ -203,7 +203,7 @@ program CG_ConvDiff_1D
 
   ! mesh and operators .........................................................
 
-  call eop % New(po)
+  eop = CG_ElementOperators1D(po)
   call GetMeshPoints(eop, ZERO, ONE, dx, x)
   call GetMassMatrix(eop, dx, M, periodic)
   call GetPointWeights(w, periodic)

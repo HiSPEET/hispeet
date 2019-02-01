@@ -11,8 +11,7 @@ program OperatorSpectrum
   real(RDP) :: dx = 2
   integer :: i, nc, nd, po = 15
 
-  allocate(eop)
-  call eop % New(po)
+  eop = CG_ElementOperators1D(po)
 
   ! diffusion
   nd = po - 1
@@ -47,7 +46,7 @@ program OperatorSpectrum
     nd = po - 1
     nc = po
     allocate(eop, S(nd,nd), Lambda_L(nd), A(nc,nc), Lambda_A(nc))
-    call eop % New(po)
+    eop = CG_ElementOperators1D(po)
     call eop % GetEllipticEigensystem(dx, S, Lambda_L)
     do i = 1, nc
       A(i,:) = eop % D(i,1:)

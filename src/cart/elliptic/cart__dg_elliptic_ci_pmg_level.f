@@ -102,7 +102,7 @@ subroutine New_PMG_Level( this                      &
   this % ns1    = ns1
   this % ns2    = ns2
 
-  call this % eop     % New(po, dx, penalty)
+  call this % eop % Init_DG_ElementOperators3D(po, dx, penalty)
   call this % schwarz % New(this%eop, delta, no_min, weighting)
 
 end subroutine New_PMG_Level

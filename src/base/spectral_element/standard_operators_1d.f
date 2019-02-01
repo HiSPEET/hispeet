@@ -41,16 +41,40 @@ module Standard_Operators_1D
 
   contains
 
-    generic,   public  :: New => New_StandardOperators1D
-    procedure, private :: New_StandardOperators1D
-    procedure, public  :: PolynomialOrder
-    procedure, public  :: InitLegendreVDM
-    procedure, public  :: GetLegendreVDM
-    procedure, public  :: GetInverseLegendreVDM
+    procedure :: Init_StandardOperators1D
+    procedure :: PolynomialOrder
+    procedure :: InitLegendreVDM
+    procedure :: GetLegendreVDM
+    procedure :: GetInverseLegendreVDM
 
   end type StandardOperators1D
 
+  ! Constructor interface
+  interface StandardOperators1D
+    module procedure New_StandardOperators1D
+  end interface
+
 contains
+
+!===============================================================================
+! Constructor
+
+!-------------------------------------------------------------------------------
+!> Constructor for StandardOperators1D
+
+function New_StandardOperators1D(po, basis, no_vdm) result(this)
+  integer,                    intent(in) :: po     !< polynomial order
+  character(len=*), optional, intent(in) :: basis  !< points {GL,GLL,GRL} [GLL]
+  logical,          optional, intent(in) :: no_vdm !< skip Vandermonde matrix [F]
+
+  type(StandardOperators1D) :: this
+
+  call Init_StandardOperators1D(this, po, basis, no_vdm)
+
+end function New_StandardOperators1D
+
+!===============================================================================
+! Type-bound procedures
 
 !-------------------------------------------------------------------------------
 !> Returns the polymial order of operators, or -1 if none
@@ -68,7 +92,7 @@ end function PolynomialOrder
 !> The routine provides 1D standard operators for the chosen nodal basis.
 !> GLL is the default, except for `po = 0` which always implies GL.
 
-subroutine New_StandardOperators1D(this, po, basis, no_vdm)
+subroutine Init_StandardOperators1D(this, po, basis, no_vdm)
 
   !> standard operators that will be initialized
   class(StandardOperators1D), intent(inout) :: this
@@ -91,7 +115,7 @@ subroutine New_StandardOperators1D(this, po, basis, no_vdm)
 
   if (po < 0) then
 
-    call Error('New_StandardOperators1D', 'Invalid polynomial order (po < 0)')
+    call Error('Init_StandardOperators1D', 'Invalid polynomial order (po < 0)')
 
   else if (po == 0) then
 
@@ -103,7 +127,7 @@ subroutine New_StandardOperators1D(this, po, basis, no_vdm)
       if (any(basis == [ 'GL ', 'GLL', 'GRL' ])) then
         this%basis = basis
       else
-        call Error('New_StandardOperators1D', 'Invalid basis argument')
+        call Error('Init_StandardOperators1D', 'Invalid basis argument')
       end if
     else
       this%basis = 'GLL'
@@ -167,7 +191,7 @@ subroutine New_StandardOperators1D(this, po, basis, no_vdm)
     call InitLegendreVDM(this)
   end if
 
-end subroutine New_StandardOperators1D
+end subroutine Init_StandardOperators1D
 
 !-------------------------------------------------------------------------------
 !> Intializes the Legendre-Vandermonde matrix and its inverse.

@@ -39,7 +39,7 @@ module subroutine GetPoints(mesh, po, basis, x)
   allocate(x(0:po, 0:po, 0:po, mesh%ne, 3))
   allocate(x1(0:po), x2(0:po), x3(0:po))
 
-  call sop % New(po, basis, no_vdm = .true.)
+  sop = StandardOperators1D(po, basis, no_vdm = .true.)
 
   ! create element points ......................................................
 

@@ -24,9 +24,7 @@ module CART__CG_Element_Operators
 
   contains
 
-    generic :: New => New_ElementOperators
-    procedure, private :: New_ElementOperators
-
+    procedure :: Init_CG_ElementOperators3D
     procedure :: Get_1D_StiffnessMatrix
 
   end type CG_ElementOperators3D
@@ -36,15 +34,15 @@ contains
 !-------------------------------------------------------------------------------
 !> Initialize a new CG element operators
 
-subroutine New_ElementOperators(this, po, dx)
+subroutine Init_CG_ElementOperators3D(this, po, dx)
   class(CG_ElementOperators3D), intent(inout) :: this
   integer,   intent(in) :: po           !< polynomial order
   real(RNP), intent(in) :: dx(3)        !< element extensions
 
-  call this%New(po)
+  call this % Init_CG_ElementOperators1D(CG_ElementOptions1D(po))
   this % dx = dx
 
-end subroutine New_ElementOperators
+end subroutine Init_CG_ElementOperators3D
 
 !-------------------------------------------------------------------------------
 !> 1D stiffness matrix for given direction and boundary conditions

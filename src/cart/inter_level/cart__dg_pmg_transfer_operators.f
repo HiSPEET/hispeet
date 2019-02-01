@@ -57,8 +57,8 @@ subroutine New_PMG_TransferOperators(this, pc, pf)
 
   ! prerequisites ..............................................................
 
-  call sop_c % New(pc)
-  call sop_f % New(pf)
+  sop_c = StandardOperators1D(pc)
+  sop_f = StandardOperators1D(pf)
 
   allocate(V_c(0:pc,0:pc), VI_f(0:pf,0:pf))
   call sop_c % GetLegendreVDM(V_c)

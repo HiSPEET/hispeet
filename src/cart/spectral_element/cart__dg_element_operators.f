@@ -29,9 +29,7 @@ module CART__DG_Element_Operators
 
   contains
 
-    generic :: New => New_ElementOperators
-    procedure, private :: New_ElementOperators
-
+    procedure :: Init_DG_ElementOperators3D
     procedure :: Get_1D_StiffnessMatrix
 
   end type DG_ElementOperators3D
@@ -41,24 +39,27 @@ contains
 !-------------------------------------------------------------------------------
 !> Initialize a new DG element operators
 
-subroutine New_ElementOperators(this, po, dx, penalty)
+subroutine Init_DG_ElementOperators3D(this, po, dx, penalty)
   class(DG_ElementOperators3D), intent(inout) :: this
   integer,             intent(in) :: po       !< polynomial order
   real(RNP),           intent(in) :: dx(3)    !< element extensions
   real(RNP), optional, intent(in) :: penalty  !< penalty parameter > 1 [2]
 
+  type(IP_ElementOptions1D) :: opt
+
+  opt % po = po
   if (present(penalty)) then
-    call this%New(IP_ElementOptions1D(po, penalty, hybrid=.false.))
-  else
-    call this%New(po)
+    opt % penalty = penalty
   end if
+
+  call this % Init_IP_ElementOperators1D(opt)
 
   this % dx    = dx
   this % mu(1) = this % PenaltyFactor([dx(1), dx(1)])
   this % mu(2) = this % PenaltyFactor([dx(2), dx(2)])
   this % mu(3) = this % PenaltyFactor([dx(3), dx(3)])
 
-end subroutine New_ElementOperators
+end subroutine Init_DG_ElementOperators3D
 
 !-------------------------------------------------------------------------------
 !> 1D stiffness matrix for given direction and boundary conditions

@@ -41,7 +41,7 @@ program IP_Spectrum
   np = po + 1
   na = np * ne
 
-  call eop % New(po, penalty, hybrid)
+  eop = IP_ElementOperators1D(po, penalty, hybrid)
 
   allocate(Le(0:po,0:po,-1:1))
   allocate(A(na,na), V(na,na), lambda(na))
