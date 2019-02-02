@@ -221,7 +221,7 @@ program Elliptic_Test
 
   ! operators ..................................................................
 
-  call eop % New(po, dx, penalty)
+  call eop % Init_DG_ElementOperators3D(po, dx, penalty)
 
   !-----------------------------------------------------------------------------
   ! Tests

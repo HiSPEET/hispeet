@@ -1,4 +1,4 @@
-!> summary:  Build new elliptic operator for IP/DG-SEM
+!> summary:  Initialize elliptic operator for IP/DG-SEM
 !> author:   Joerg Stiller
 !> date:     2018/12/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -6,7 +6,7 @@
 !>### Build new elliptic operator for IP/DG-SEM
 !===============================================================================
 
-submodule(CART__Elliptic_Operator_IP) MP_New
+submodule(CART__Elliptic_Operator_IP) MP_Init
   use Array_Assignments, only: AssignArray
   use CART__Trace_Operator
   implicit none
@@ -14,19 +14,17 @@ submodule(CART__Elliptic_Operator_IP) MP_New
 contains
 
 !-------------------------------------------------------------------------------
-!> New operator with constant isotropic diffusivity
+!> Initialize operator with constant isotropic diffusivity
 
-module subroutine New_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
+module subroutine Init_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
 
   ! arguments ..................................................................
 
   class(EllipticOperator3D_IP), intent(inout) :: this
-
-  class(MeshPartition), target, &
-                        intent(in) :: mesh        !< mesh partition
-  real(RNP),            intent(in) :: lambda      !< Helmholtz parameter
-  real(RNP),            intent(in) :: nu          !< diffusivity
-  character,            intent(in) :: bc(:)       !< boundary conditions
+  class(MeshPartition), target, intent(in)    :: mesh   !< mesh partition
+  real(RNP),                    intent(in)    :: lambda !< Helmholtz parameter
+  real(RNP),                    intent(in)    :: nu     !< diffusivity
+  character,                    intent(in)    :: bc(:)  !< boundary conditions
 
   !> options for the IP/DG method, including polynomial order `po` and `penalty`
   class(IP_ElementOptions1D), intent(in) :: ip_opt
@@ -49,22 +47,20 @@ module subroutine New_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
     call this % schwarz % New(schwarz_opt, this%eop, mesh, lambda, nu, bc)
   end if
 
-end subroutine New_CI
+end subroutine Init_CI
 
 !-------------------------------------------------------------------------------
-!> New operator with variable isotropic diffusivity
+!> Initialize operator with variable isotropic diffusivity
 
-module subroutine New_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
+module subroutine Init_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
 
   ! arguments ..................................................................
 
   class(EllipticOperator3D_IP), intent(inout) :: this
-
-  class(MeshPartition), target, &
-                        intent(in) :: mesh           !< mesh partition
-  real(RNP),            intent(in) :: lambda         !< Helmholtz parameter
-  real(RNP),            intent(in) :: nu(0:,0:,0:,:) !< diffusivity
-  character,            intent(in) :: bc(:)          !< boundary conditions
+  class(MeshPartition), target, intent(in)    :: mesh  !< mesh partition
+  real(RNP), intent(in) :: lambda                      !< Helmholtz parameter
+  real(RNP), intent(in) :: nu(0:,0:,0:,:)              !< diffusivity
+  character, intent(in) :: bc(:)                       !< boundary conditions
 
   !> options for the IP/DG method, including polynomial order `po` and `penalty`
   class(IP_ElementOptions1D), intent(in) :: ip_opt
@@ -122,8 +118,8 @@ module subroutine New_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
   deallocate(trace_op)
   deallocate(tr_nu)
 
-end subroutine New_VI
+end subroutine Init_VI
 
 !===============================================================================
 
-end submodule MP_New
+end submodule MP_Init

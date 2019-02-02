@@ -16,15 +16,15 @@ contains
 !> Set subdomain configurations and inverse 3D eigenvalues: variable isotropic
 
 module subroutine BuildSubdomains_VI(this, eop, mesh, lambda, nu, bc)
-  class(SchwarzOperator3D),   intent(inout) :: this        !< Schwarz operator
-  class(StandardOperators1D), intent(in)    :: eop         !< 1D SE operators
-  class(MeshPartition),       intent(in)    :: mesh        !< mesh partition
-  real(RNP),                  intent(in)    :: lambda      !< Helmholtz parameter
-  real(RNP),                  intent(in)    :: nu(:,:,:,:) !< diffusivity
-  character,                  intent(in)    :: bc(:)       !< BC {'D','N'}
+  class(SchwarzOperator3D),   intent(inout) :: this  !< Schwarz operator
+  class(StandardOperators1D), intent(in)    :: eop   !< 1D SE operators
+  class(MeshPartition),       intent(in)    :: mesh  !< mesh partition
+  real(RNP), intent(in) :: lambda                    !< Helmholtz parameter
+  real(RNP), intent(in) :: nu(0:,0:,0:,:)            !< diffusivity
+  character, intent(in) :: bc(:)                     !< BC {'D','N'}
 
   character :: bc_face(size(bc))
-  integer   :: e, i, j, k, n1, n2, n3, np
+  integer   :: e, i, j, k, n1, n2, n3, po
   real(RNP) :: g0, g1, g2, g3, nu_0
   real(RNP), allocatable :: A(:,:,:)
 
@@ -33,7 +33,7 @@ module subroutine BuildSubdomains_VI(this, eop, mesh, lambda, nu, bc)
   n1 = size(this % V1, 1)
   n2 = size(this % V2, 1)
   n3 = size(this % V3, 1)
-  np = eop % po + 1
+  po = eop % po
 
   if (allocated(this%cfg)) then
     if (any(shape(this%cfg) /= [ 3, mesh%ne ])) then
@@ -56,11 +56,11 @@ module subroutine BuildSubdomains_VI(this, eop, mesh, lambda, nu, bc)
   end if
 
   ! averaging operator
-  allocate(A(np,np,np))
+  allocate(A(0:po,0:po,0:po))
   associate(w => eop % w)
-    do k = 1, np
-    do j = 1, np
-    do i = 1, np
+    do k = 0, po
+    do j = 0, po
+    do i = 0, po
       A(i,j,k) = ONE/8 * w(i) * w(j) * w(k)
     end do
     end do
@@ -97,9 +97,9 @@ module subroutine BuildSubdomains_VI(this, eop, mesh, lambda, nu, bc)
 
       ! mean diffusivity
       nu_0 = 0
-      do k = 1, np
-      do j = 1, np
-      do i = 1, np
+      do k = 0, po
+      do j = 0, po
+      do i = 0, po
         nu_0 = nu_0 + A(i,j,k) * nu(i,j,k,e)
       end do
       end do

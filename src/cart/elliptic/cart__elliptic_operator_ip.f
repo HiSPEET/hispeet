@@ -33,9 +33,9 @@ module CART__Elliptic_Operator_IP
 
   contains
 
-    generic :: New => New_CI, New_VI
-    procedure, private :: New_CI
-    procedure, private :: New_VI
+    generic :: Init_EllipticOperator3D_IP => Init_CI, Init_VI
+    procedure, private :: Init_CI
+    procedure, private :: Init_VI
 
     procedure :: Apply
     procedure :: BcToRHS
@@ -45,6 +45,12 @@ module CART__Elliptic_Operator_IP
 
   end type EllipticOperator3D_IP
 
+  ! Constructor interface
+  interface EllipticOperator3D_IP
+    module procedure New_CI
+    module procedure New_VI
+  end interface
+
   !=============================================================================
   ! Separate procedures
 
@@ -53,7 +59,7 @@ module CART__Elliptic_Operator_IP
     !---------------------------------------------------------------------------
     !> New operator with constant isotropic diffusivity
 
-    module subroutine New_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
+    module subroutine Init_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
       class(EllipticOperator3D_IP), intent(inout) :: this
       class(MeshPartition), target, intent(in) :: mesh !< mesh partition
       real(RNP), intent(in) :: lambda                  !< Helmholtz parameter
@@ -61,12 +67,12 @@ module CART__Elliptic_Operator_IP
       character, intent(in) :: bc(:)                   !< boundary conditions
       class(IP_ElementOptions1D), intent(in) :: ip_opt !< IP/DG element options
       class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
-    end subroutine New_CI
+    end subroutine Init_CI
 
     !---------------------------------------------------------------------------
     !> New operator with variable isotropic diffusivity
 
-    module subroutine New_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
+    module subroutine Init_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
       class(EllipticOperator3D_IP), intent(inout) :: this
       class(MeshPartition), target, intent(in) :: mesh !< mesh partition
       real(RNP), intent(in) :: lambda                  !< Helmholtz parameter
@@ -74,7 +80,7 @@ module CART__Elliptic_Operator_IP
       character, intent(in) :: bc(:)                   !< boundary conditions
       class(IP_ElementOptions1D), intent(in) :: ip_opt !< IP/DG element options
       class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
-    end subroutine New_VI
+    end subroutine Init_VI
 
     !---------------------------------------------------------------------------
     !> Application of the IP/DG elliptic operator
@@ -119,9 +125,55 @@ module CART__Elliptic_Operator_IP
 
   end interface
 
-!===============================================================================
-
 contains
+
+!===============================================================================
+! Constructors
+
+!-------------------------------------------------------------------------------
+!> Constructor for EllipticOperator3D_IP with constant isotropic diffusivity
+
+function New_CI(mesh, lambda, nu, bc, ip_opt, schwarz_opt) result(this)
+  class(MeshPartition), target, intent(in) :: mesh  !< mesh partition
+  real(RNP), intent(in) :: lambda  !< Helmholtz parameter
+  real(RNP), intent(in) :: nu      !< diffusivity
+  character, intent(in) :: bc(:)   !< boundary conditions
+
+  !> options for the IP/DG method, including polynomial order `po` and `penalty`
+  class(IP_ElementOptions1D), intent(in) :: ip_opt
+
+  !> options for the Schwarz method
+  class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
+
+  type(EllipticOperator3D_IP) :: this
+
+  call Init_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
+
+end function New_CI
+
+!-------------------------------------------------------------------------------
+!> Constructor for EllipticOperator3D_IP with variable isotropic diffusivity
+
+function New_VI(mesh, lambda, nu, bc, ip_opt, schwarz_opt) result(this)
+  class(MeshPartition), target, intent(in) :: mesh  !< mesh partition
+  real(RNP), intent(in) :: lambda          !< Helmholtz parameter
+  real(RNP), intent(in) :: nu(0:,0:,0:,:)  !< diffusivity
+  character, intent(in) :: bc(:)           !< boundary conditions
+
+  !> options for the IP/DG method, including polynomial order `po` and `penalty`
+  class(IP_ElementOptions1D), intent(in) :: ip_opt
+
+  !> options for the Schwarz method
+  class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
+
+  type(EllipticOperator3D_IP) :: this
+
+  call Init_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
+
+end function New_VI
+
+!===============================================================================
+! Type-bound procedures
 
 !-------------------------------------------------------------------------------
 !> Conjugate gradient method

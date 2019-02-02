@@ -13,7 +13,7 @@
 !np = 2,2,2
 !ep = 2,2,2
  po = 16
- !penalty = 2
+!penalty = 2
 /
 
 &solver

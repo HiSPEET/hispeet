@@ -12,9 +12,9 @@ program Elliptic_Test__IP_CI
   use Constants, only: PI, ZERO, ONE
   use Array_Assignments
   use TPO_sDDD
-  use Export_Volume_Data_To_VTK
-
   use XMPI
+  use IP_Element_Operators_1D
+  use Export_Volume_Data_To_VTK
 
   use CART__Mesh_Partition
   use CART__Generate_Structured_Mesh
@@ -53,9 +53,8 @@ program Elliptic_Test__IP_CI
 
   integer   :: np(3)   = 1       ! number of partitions in directions 1:3
   integer   :: ep(3)   = 2       ! elements per partition and direction
-
   integer   :: po      = 2       ! polynomial order
-  real(RNP) :: penalty = 2       ! penalty parameter (> 1)
+  integer   :: penalty = 2       ! penalty parameter > 1
 
   namelist /discretization/ np, ep, po, penalty
 
@@ -111,6 +110,7 @@ program Elliptic_Test__IP_CI
 
   ! auxiliary ..................................................................
 
+  type(IP_ElementOptions1D) :: ip_opt
   type(BoundaryVariable) :: bv(6)
   real(RNP), allocatable :: grad_u(:,:,:,:,:)
   real(RNP), allocatable :: laplace_u(:,:,:,:)
@@ -158,26 +158,26 @@ program Elliptic_Test__IP_CI
   end if
 
   ! problem
-  call XMPI_Bcast(test     , 0, comm)
-  call XMPI_Bcast(lambda   , 0, comm)
-  call XMPI_Bcast(nu       , 0, comm)
-  call XMPI_Bcast(k_u      , 0, comm)
-  call XMPI_Bcast(xo       , 0, comm)
-  call XMPI_Bcast(lx       , 0, comm)
-  call XMPI_Bcast(bc       , 0, comm)
+  call XMPI_Bcast(test  , 0, comm)
+  call XMPI_Bcast(lambda, 0, comm)
+  call XMPI_Bcast(nu    , 0, comm)
+  call XMPI_Bcast(k_u   , 0, comm)
+  call XMPI_Bcast(xo    , 0, comm)
+  call XMPI_Bcast(lx    , 0, comm)
+  call XMPI_Bcast(bc    , 0, comm)
 
   ! discretization
-  call XMPI_Bcast(np       , 0, comm)
-  call XMPI_Bcast(ep       , 0, comm)
-  call XMPI_Bcast(po       , 0, comm)
-  call XMPI_Bcast(penalty  , 0, comm)
+  call XMPI_Bcast(np     , 0, comm)
+  call XMPI_Bcast(ep     , 0, comm)
+  call XMPI_Bcast(po     , 0, comm)
+  call XMPI_Bcast(penalty, 0, comm)
 
   ! solver
-  call XMPI_Bcast(method   , 0, comm)
+  call XMPI_Bcast(method, 0, comm)
 
   ! CG/Schwarz options
-  call XMPI_Bcast(i_max    , 0, comm)
-  call XMPI_Bcast(r_red    , 0, comm)
+  call XMPI_Bcast(i_max, 0, comm)
+  call XMPI_Bcast(r_red, 0, comm)
 
   ! Schwarz options
   call schwarz_opt % Bcast(0, comm)
@@ -219,7 +219,8 @@ program Elliptic_Test__IP_CI
 
   ! operators ..................................................................
 
-  call elliptic_op % New(mesh, lambda, nu, bc, po, penalty, schwarz_opt)
+  ip_opt = IP_ElementOptions1D(po, penalty)
+  elliptic_op = EllipticOperator3D_IP(mesh, lambda, nu, bc, ip_opt, schwarz_opt)
 
   !-----------------------------------------------------------------------------
   ! Tests

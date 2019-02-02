@@ -12,6 +12,7 @@ module IP_Element_Operators_1D
   use Execution_Control, only: Error
   use Eigenproblems,     only: SolveGeneralizedEigenproblem
   use Standard_Operators_1D
+  use XMPI
   implicit none
   private
 
@@ -68,12 +69,14 @@ module IP_Element_Operators_1D
     real(RNP) :: penalty =  2      !< penalty parameter > 1
     logical   :: hybrid  = .false. !< switch to hybridized method
     logical   :: no_vdm  = .false. !< skip Vandermonde matrix
+  contains
+    procedure :: Bcast => IP_ElementOptions1D_Bcast
   end type IP_ElementOptions1D
 
 contains
 
 !===============================================================================
-! Constructor
+! Constructors
 
 !-------------------------------------------------------------------------------
 !> Constructor for IP_ElementOperators1D -- flat interface
@@ -109,7 +112,7 @@ function New_IP_ElementOperators1D__b(opt) result(this)
 end function New_IP_ElementOperators1D__b
 
 !===============================================================================
-! Type-bound procedures
+! IP_ElementOperators1D type-bound procedures
 
 !-------------------------------------------------------------------------------
 !> Initialization
@@ -468,6 +471,25 @@ subroutine GetEllipticSuboperators(this, dx, bc, c, nu, Aib, Aii_inv)
   end do
 
 end subroutine GetEllipticSuboperators
+
+!===============================================================================
+! IP_ElementOptions1D type-bound procedures
+
+
+!-------------------------------------------------------------------------------
+!> Extension of MPI_Bcast to objects of type SchwarzOptions3D
+
+subroutine IP_ElementOptions1D_Bcast(this, root, comm)
+  class(IP_ElementOptions1D), intent(inout) :: this
+  integer,                    intent(in)    :: root !< rank of broadcast root
+  type(MPI_Comm),             intent(in)    :: comm !< MPI communicator
+
+  call XMPI_Bcast( this % po      , root, comm )
+  call XMPI_Bcast( this % penalty , root, comm )
+  call XMPI_Bcast( this % hybrid  , root, comm )
+  call XMPI_Bcast( this % no_vdm  , root, comm )
+
+end subroutine IP_ElementOptions1D_Bcast
 
 !===============================================================================
 
