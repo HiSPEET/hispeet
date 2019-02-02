@@ -19,3 +19,8 @@
     cmake ..
     make VERBOSE=1
     ctest --verbose
+
+### Debugging
+
+    cd build
+    cmake -DCMAKE_BUILD_TYPE=Debug ..
