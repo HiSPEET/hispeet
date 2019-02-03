@@ -94,6 +94,9 @@ set(ELLIPTIC elliptic/cart__schwarz_operator.f
              elliptic/cart__elliptic_operator_ip__mp_bctorhs.f
              elliptic/cart__elliptic_operator_ip__mp_residual.f
              elliptic/cart__elliptic_operator_ip__mp_schwarzmethod.f
+             elliptic/cart__elliptic_pmg_level.f
+             elliptic/cart__elliptic_pmg.f
+             elliptic/cart__elliptic_pmg__mp_init.f
              elliptic/cart__cg_elliptic_ci_bc.f
              elliptic/cart__dg_elliptic_cis_bc.f
              elliptic/cart__dg_elliptic_ciu_bc.f
