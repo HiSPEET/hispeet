@@ -45,7 +45,7 @@ module CART__Elliptic_Operator_IP
 
   end type EllipticOperator3D_IP
 
-  ! Constructor interface
+  ! constructor interface
   interface EllipticOperator3D_IP
     module procedure New_CI
     module procedure New_VI
@@ -139,11 +139,11 @@ function New_CI(mesh, lambda, nu, bc, ip_opt, schwarz_opt) result(this)
   real(RNP), intent(in) :: nu      !< diffusivity
   character, intent(in) :: bc(:)   !< boundary conditions
 
-  !> options for the IP/DG method, including polynomial order `po` and `penalty`
   class(IP_ElementOptions1D), intent(in) :: ip_opt
+  !< options for the IP/DG method, including polynomial order `po` and `penalty`
 
-  !> options for the Schwarz method
   class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
+  !< options for the Schwarz method
 
   type(EllipticOperator3D_IP) :: this
 
@@ -160,11 +160,11 @@ function New_VI(mesh, lambda, nu, bc, ip_opt, schwarz_opt) result(this)
   real(RNP), intent(in) :: nu(0:,0:,0:,:)  !< diffusivity
   character, intent(in) :: bc(:)           !< boundary conditions
 
-  !> options for the IP/DG method, including polynomial order `po` and `penalty`
   class(IP_ElementOptions1D), intent(in) :: ip_opt
+  !< options for the IP/DG method, including polynomial order `po` and `penalty`
 
-  !> options for the Schwarz method
   class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
+  !< options for the Schwarz method
 
   type(EllipticOperator3D_IP) :: this
 

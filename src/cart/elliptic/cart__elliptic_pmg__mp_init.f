@@ -12,24 +12,24 @@ submodule(CART__Elliptic_PMG) MP_Init
 contains
 
 !-------------------------------------------------------------------------------
-!> PolynomialMultigrid initialization: IP, constant isotropic diffusivity
+!> PMG_Method3D initialization: IP, constant isotropic diffusivity
 
 module subroutine Init__IP_CI( this, mesh, lambda, nu, bc,  &
-                               pmg_opt, ip_opt, schwarz_opt )
+                               ip_opt, schwarz_opt, pmg_opt )
 
-  class(PolynomialMultigrid), intent(inout) :: this
+  class(PMG_Method3D), intent(inout) :: this
 
   class(MeshPartition), target, intent(in) :: mesh        !< mesh partition
   real(RNP),                    intent(in) :: lambda      !< Helmholtz parameter
   real(RNP),                    intent(in) :: nu          !< diffusivity
   character,                    intent(in) :: bc(:)       !< boundary conditions
-  class(PMG_Options),           intent(in) :: pmg_opt     !< PMG options
-  class(IP_ElementOptions1D),   intent(in) :: ip_opt      !< IP/DG opt
-  class(SchwarzOptions3D),      intent(in) :: schwarz_opt !< Schwarz opt
+  class(IP_ElementOptions1D),   intent(in) :: ip_opt      !< IP/DG options
+  class(SchwarzOptions3D),      intent(in) :: schwarz_opt !< Schwarz options
+  class(PMG_Options3D),         intent(in) :: pmg_opt     !< PMG options
 
   class(IP_ElementOptions1D), allocatable :: ip_opt_l
   integer, allocatable :: po(:)
-  integer :: l, l_top
+  integer :: l, l_top, ns1, ns2
 
   allocate(ip_opt_l, source = ip_opt)
 
@@ -38,45 +38,55 @@ module subroutine Init__IP_CI( this, mesh, lambda, nu, bc,  &
   call CreatePolynomialLevels(pmg_opt, po)
 
   l_top = ubound(po,1)
+  allocate(this % level(0:l_top))
+  ns1 = pmg_opt % ns1
+  ns2 = pmg_opt % ns2
 
   do l = l_top, 0, -1
 
     ip_opt_l % po = po(l)
 
-    call this % level(l) % Init( bottom       =  l == 0         &
-                               , top          =  l == l_top     &
-                               , ns1          =  pmg_opt % ns1  &
-                               , ns2          =  pmg_opt % ns2  &
-                               , mesh         =  mesh           &
-                               , lambda       =  lambda         &
-                               , nu           =  nu             &
-                               , bc           =  bc             &
-                               , ip_opt       =  ip_opt_l       &
-                               , schwarz_opt  =  schwarz_opt    &
+    call this % level(l) % Init( bottom       =  l == 0       &
+                               , top          =  l == l_top   &
+                               , ns1          =  ns1          &
+                               , ns2          =  ns2          &
+                               , mesh         =  mesh         &
+                               , lambda       =  lambda       &
+                               , nu           =  nu           &
+                               , bc           =  bc           &
+                               , ip_opt       =  ip_opt_l     &
+                               , schwarz_opt  =  schwarz_opt  &
                                )
+    ns1 = ns1 * pmg_opt % mvs
+    ns2 = ns2 * pmg_opt % mvs
+  end do
+
+  allocate(this % transfer(1:l_top))
+  do l = 1, l_top
+    call this % transfer(l) % New(po(l-1), po(l))
   end do
 
 end subroutine Init__IP_CI
 
 !-------------------------------------------------------------------------------
-!> PolynomialMultigrid initialization: IP, variable isotropic diffusivity
+!> PMG_Method3D initialization: IP, variable isotropic diffusivity
 
 module subroutine Init__IP_VI( this, mesh, lambda, nu, bc,  &
-                               pmg_opt, ip_opt, schwarz_opt )
+                               ip_opt, schwarz_opt, pmg_opt )
 
-  class(PolynomialMultigrid), intent(inout) :: this
+  class(PMG_Method3D), intent(inout) :: this
 
   class(MeshPartition), target, intent(in) :: mesh           !< mesh partition
   real(RNP),                    intent(in) :: lambda         !< Helmholtz param
   real(RNP),                    intent(in) :: nu(0:,0:,0:,:) !< diffusivity
   character,                    intent(in) :: bc(:)          !< boundary cond
-  class(PMG_Options),           intent(in) :: pmg_opt        !< PMG options
   class(IP_ElementOptions1D),   intent(in) :: ip_opt         !< IP/DG opt
   class(SchwarzOptions3D),      intent(in) :: schwarz_opt    !< Schwarz opt
+  class(PMG_Options3D),         intent(in) :: pmg_opt        !< PMG options
 
   class(IP_ElementOptions1D), allocatable :: ip_opt_l
   integer, allocatable :: po(:)
-  integer :: l, l_top
+  integer :: l, l_top, ns1, ns2
 
   allocate(ip_opt_l, source = ip_opt)
 
@@ -85,32 +95,42 @@ module subroutine Init__IP_VI( this, mesh, lambda, nu, bc,  &
   call CreatePolynomialLevels(pmg_opt, po)
 
   l_top = ubound(po,1)
+  allocate(this % level(0:l_top))
+  ns1 = pmg_opt % ns1
+  ns2 = pmg_opt % ns2
 
   do l = l_top, 0, -1
 
     ip_opt_l % po = po(l)
 
-    call this % level(l) % Init( bottom       =  l == 0         &
-                               , top          =  l == l_top     &
-                               , ns1          =  pmg_opt % ns1  &
-                               , ns2          =  pmg_opt % ns2  &
-                               , mesh         =  mesh           &
-                               , lambda       =  lambda         &
-                               , nu           =  nu             &
-                               , bc           =  bc             &
-                               , ip_opt       =  ip_opt_l       &
-                               , schwarz_opt  =  schwarz_opt    &
+    call this % level(l) % Init( bottom       =  l == 0       &
+                               , top          =  l == l_top   &
+                               , ns1          =  ns1          &
+                               , ns2          =  ns2          &
+                               , mesh         =  mesh         &
+                               , lambda       =  lambda       &
+                               , nu           =  nu           &
+                               , bc           =  bc           &
+                               , ip_opt       =  ip_opt_l     &
+                               , schwarz_opt  =  schwarz_opt  &
                                )
+    ns1 = ns1 * pmg_opt % mvs
+    ns2 = ns2 * pmg_opt % mvs
+  end do
+
+  allocate(this % transfer(1:l_top))
+  do l = 1, l_top
+    call this % transfer(l) % New(po(l-1), po(l))
   end do
 
 end subroutine Init__IP_VI
 
 !-------------------------------------------------------------------------------
-!> Assignment of options to PolynomialMultigrid object
+!> Assignment of options to PMG_Method3D object
 
 subroutine Assign_PMG_Options(opt, pmg)
-  class(PMG_Options),         intent(in)    :: opt
-  class(PolynomialMultigrid), intent(inout) :: pmg
+  class(PMG_Options3D),       intent(in)    :: opt
+  class(PMG_Method3D), intent(inout) :: pmg
 
   pmg % i_max   = opt % i_max
   pmg % r_red   = opt % r_red
@@ -128,7 +148,7 @@ end subroutine Assign_PMG_Options
 !> Creates a set of ascending polynomial orders
 
 subroutine CreatePolynomialLevels(opt, po)
-  class(PMG_Options), intent(in) :: opt
+  class(PMG_Options3D), intent(in)  :: opt
   integer, allocatable, intent(out) :: po(:) !< polynomial levels
 
   integer, allocatable :: q(:)
