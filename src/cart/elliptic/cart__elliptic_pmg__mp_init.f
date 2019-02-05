@@ -89,10 +89,16 @@ module subroutine Init__IP_VI( this, mesh, lambda, nu, bc,  &
   integer :: l, l_top, ns1, ns2
 
   allocate(ip_opt_l, source = ip_opt)
+!### CHECK
+print *, '$ 01'
+!### CHECK END
 
   this % mesh => mesh
   call Assign_PMG_Options(pmg_opt, this)
   call CreatePolynomialLevels(pmg_opt, po)
+!### CHECK
+print *, '$ 02'
+!### CHECK END
 
   l_top = ubound(po,1)
   allocate(this % level(0:l_top))
@@ -101,7 +107,13 @@ module subroutine Init__IP_VI( this, mesh, lambda, nu, bc,  &
 
   do l = l_top, 0, -1
 
+!### CHECK
+print *, '$ 03: l =',l
+!### CHECK END
     ip_opt_l % po = po(l)
+!### CHECK
+print *, '$ 04: l =',l
+!### CHECK END
 
     call this % level(l) % Init( bottom       =  l == 0       &
                                , top          =  l == l_top   &
@@ -116,11 +128,17 @@ module subroutine Init__IP_VI( this, mesh, lambda, nu, bc,  &
                                )
     ns1 = ns1 * pmg_opt % mvs
     ns2 = ns2 * pmg_opt % mvs
+!### CHECK
+print *, '$ 05: l =',l
+!### CHECK END
   end do
 
   allocate(this % transfer(1:l_top))
   do l = 1, l_top
     call this % transfer(l) % New(po(l-1), po(l))
+!### CHECK
+print *, '$ 06: l =',l
+!### CHECK END
   end do
 
 end subroutine Init__IP_VI

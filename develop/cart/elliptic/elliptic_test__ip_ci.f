@@ -153,7 +153,7 @@ program Elliptic_Test__IP_CI
         read(prm, nml=solver_cg)
       case(2)
         read(prm, nml=solver_schwarz)
-      case(3:)
+      case(3,4)
         read(prm, nml=solver_pmg)
       end select
       read(prm, nml=control)
@@ -218,6 +218,7 @@ program Elliptic_Test__IP_CI
 
   ! mesh variables
   call InitializeMeshVariables()
+  n = size(u)
 
   ! auxiliary variables
   allocate(grad_u(0:po, 0:po, 0:po, mesh%ne, 3))
@@ -233,8 +234,6 @@ program Elliptic_Test__IP_CI
 
   ! exact solution and RHS  ....................................................
 
-  n = size(u)
-
   if (n > 0) then
 
     ! exact solution, gradient and Laplacian
@@ -245,7 +244,7 @@ program Elliptic_Test__IP_CI
     ! s = u
     call AssignArray(s, u)
 
-    ! r = -nu laplace u + lambda u
+    ! r = -ν ∇²u +  λ u
     call MergeArrays(-nu, r, lambda, u)
 
     ! project source:  f = M r
@@ -367,7 +366,6 @@ program Elliptic_Test__IP_CI
   call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
   if (rank == 0) then
     write(*,'(A,ES10.3)') 'initial residual:  r_0   =', r_max
-    write(*,*)
   end if
 
   !$acc end data

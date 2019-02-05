@@ -21,6 +21,7 @@ program Elliptic_Test__IP_VI
   use CART__Boundary_Variable
   use CART__Schwarz_Operator
   use CART__Elliptic_Operator_IP
+  use CART__Elliptic_PMG
 
   use Elliptic_Problem
   use Elliptic_Problem__Simple
@@ -70,10 +71,12 @@ program Elliptic_Test__IP_VI
   real(RNP) :: r_red   = 1E-6    ! min residual reduction
 
   type(SchwarzOptions3D) :: schwarz_opt
+  type(PMG_Options3D)    :: pmg_opt
 
-  namelist /solver/ method
-  namelist /solver_cg/ i_max, r_red
+  namelist /solver/         method
+  namelist /solver_cg/      i_max, r_red
   namelist /solver_schwarz/ i_max, r_red, schwarz_opt
+  namelist /solver_pmg/     schwarz_opt, pmg_opt
 
   ! MPI ........................................................................
 
@@ -103,6 +106,8 @@ program Elliptic_Test__IP_VI
   ! operators ..................................................................
 
   type(EllipticOperator3D_IP) :: elliptic_op
+
+  type(PMG_Method3D) :: pmg
 
   ! input / output .............................................................
 
@@ -152,8 +157,8 @@ program Elliptic_Test__IP_VI
         read(prm, nml=solver_cg)
       case(2)
         read(prm, nml=solver_schwarz)
-      !case(3:)
-      !  read(prm, nml=solver_pmg)
+      case(3,4)
+        read(prm, nml=solver_pmg)
       end select
       read(prm, nml=control)
       close(prm)
@@ -162,16 +167,16 @@ program Elliptic_Test__IP_VI
   end if
 
   ! problem
-  call XMPI_Bcast(test  , 0, comm)
-  call XMPI_Bcast(lambda, 0, comm)
-  call XMPI_Bcast(nu_0  , 0, comm)
-  call XMPI_Bcast(nu_1  , 0, comm)
-  call XMPI_Bcast(d_nu  , 0, comm)
-  call XMPI_Bcast(k_nu  , 0, comm)
-  call XMPI_Bcast(k_u   , 0, comm)
-  call XMPI_Bcast(xo    , 0, comm)
-  call XMPI_Bcast(lx    , 0, comm)
-  call XMPI_Bcast(bc    , 0, comm)
+  call XMPI_Bcast(test   , 0, comm)
+  call XMPI_Bcast(lambda , 0, comm)
+  call XMPI_Bcast(nu_0   , 0, comm)
+  call XMPI_Bcast(nu_1   , 0, comm)
+  call XMPI_Bcast(d_nu   , 0, comm)
+  call XMPI_Bcast(k_nu   , 0, comm)
+  call XMPI_Bcast(k_u    , 0, comm)
+  call XMPI_Bcast(xo     , 0, comm)
+  call XMPI_Bcast(lx     , 0, comm)
+  call XMPI_Bcast(bc     , 0, comm)
 
   ! discretization
   call XMPI_Bcast(np     , 0, comm)
@@ -180,14 +185,15 @@ program Elliptic_Test__IP_VI
   call XMPI_Bcast(penalty, 0, comm)
 
   ! solver
-  call XMPI_Bcast(method, 0, comm)
+  call XMPI_Bcast(method , 0, comm)
 
   ! CG/Schwarz options
-  call XMPI_Bcast(i_max, 0, comm)
-  call XMPI_Bcast(r_red, 0, comm)
+  call XMPI_Bcast(i_max  , 0, comm)
+  call XMPI_Bcast(r_red  , 0, comm)
 
   ! Schwarz options
   call schwarz_opt % Bcast(0, comm)
+  call pmg_opt     % Bcast(0, comm)
 
   ! control parameters
   call XMPI_Bcast(plot_file, 0, comm)
@@ -213,24 +219,45 @@ program Elliptic_Test__IP_VI
   periodic(2) = all(bc(3:4) == 'P')
   periodic(3) = all(bc(5:6) == 'P')
 
+!### CHECK
+print *, '# 01'
+!### CHECK END
   ! mesh partition and points
   call GenerateStructuredMesh(mesh, np, ep, xo, dx, periodic, comm)
   call mesh % GetPoints(po, 'GLL', x)
 
+!### CHECK
+print *, '# 02'
+!### CHECK END
   ! mesh variables
   call InitializeMeshVariables()
   n = size(u)
+!### CHECK
+print *, '# 03'
+!### CHECK END
 
   ! diffusivity
   call problem % GetDiffusivity(x, nu)
+!### CHECK
+print *, '# 04'
+!### CHECK END
 
   ! auxiliary variables
   allocate(grad_u(0:po, 0:po, 0:po, mesh%ne, 3))
+!### CHECK
+print *, '# 05'
+!### CHECK END
 
   ! operators ..................................................................
 
   ip_opt = IP_ElementOptions1D(po, penalty)
+!### CHECK
+print *, '# 06'
+!### CHECK END
   elliptic_op = EllipticOperator3D_IP(mesh, lambda, nu, bc, ip_opt, schwarz_opt)
+!### CHECK
+print *, '# 07'
+!### CHECK END
 
   !-----------------------------------------------------------------------------
   ! Tests
@@ -243,13 +270,22 @@ program Elliptic_Test__IP_VI
     call problem % GetExactSolution(x, u)
     call problem % GetExactGradient(x, grad_u)
     call AssignArray(s, u)
+!### CHECK
+print *, '# 08'
+!### CHECK END
 
     ! r = λ u - ∇·(ν ∇u)
     call problem % GetSource(x, r)
+!### CHECK
+print *, '# 09'
+!### CHECK END
 
     ! project source:  f = M r
     c0 = product(dx) / 8
     call TPO_sDDD_Eval(po+1, mesh%ne, c0, elliptic_op%eop%w, r, f)
+!### CHECK
+print *, '# 10'
+!### CHECK END
 
     ! boundary values
     do b = 1, size(bc)
@@ -262,10 +298,25 @@ program Elliptic_Test__IP_VI
         call bv(b) % New(mesh, po, b, bc(b))
       end select
     end do
+!### CHECK
+print *, '# 11'
+!### CHECK END
 
     call elliptic_op % BcToRHS(bv, f)
+!### CHECK
+print *, '# 12'
+!### CHECK END
 
   end if
+
+  ! methods
+  select case(method)
+  case(3,4)
+    pmg = PMG_Method3D(mesh, lambda, nu, bc, ip_opt, schwarz_opt, pmg_opt)
+  end select
+!### CHECK
+print *, '# 13'
+!### CHECK END
 
   ! operator ...................................................................
 
@@ -360,18 +411,31 @@ program Elliptic_Test__IP_VI
   call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
   if (rank == 0) then
     write(*,'(A,ES10.3)') 'initial residual:  r_0 =', r_max
-    write(*,*)
   end if
 
   !$acc end data
   !$omp end parallel
+
+  if (rank == 0) then
+    time0 = MPI_Wtime()
+  end if
 
   select case(method)
   case(1) ! conjugate gradients
     call elliptic_op % ConjugateGradients(u, f, i_max, r_red, ni=ni)
   case(2) ! Schwarz method
     call elliptic_op % SchwarzMethod(u, f, i_max, r_red, ni=ni)
+  case(3) ! p-MG method
+    call pmg % MG_Solver(u, f, ni=ni)
+  case(4) ! p-MG/CG method
+     ni = 0
+     u  = 0
   end select
+
+  if (rank == 0) then
+    time = MPI_Wtime()
+    time = (time - time0) / nt
+  end if
 
   call elliptic_op % Residual(u, f, r)
 
@@ -390,9 +454,15 @@ program Elliptic_Test__IP_VI
   call XMPI_Reduce(e_max_loc, e_max, MPI_MAX, 0, mesh%comm)
 
   if (rank == 0) then
-    write(*,'(A,1X,I0)')  'iterations:   ni    =', ni
-    write(*,'(A,ES10.3)') 'residual:     r_max =', r_max
-    write(*,'(A,ES10.3)') 'error:        e_max =', (e_max - e_min)/2
+    write(*,'(/,A)')      'solution:'
+    write(*,'(A,1X,I0)')  '   ni    =', ni
+    write(*,'(A,ES10.3)') '   r_max =', r_max
+    write(*,'(A,ES10.3)') '   e_max =', (e_max - e_min)/2
+    write(*,'(/,A)')      'performance:'
+    write(*,'(A,1X,I0)')  '   dof      =', dof
+    write(*,'(A,ES10.3)') '   time     =', time
+    write(*,'(A,ES10.3)') '   time/dof =', time / dof
+    write(*,'(A,ES10.3)') '   dof/time =', dof / time
     write(*,*)
   end if
 

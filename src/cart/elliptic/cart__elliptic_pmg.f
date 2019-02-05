@@ -307,7 +307,7 @@ subroutine V_Cycle(this)
 
     ! downward leg .............................................................
 
-    !if (this%monitor) call Monitoring(this, l_top, '0')
+    if (this%monitor) call Monitoring(this, l_top, '0')
 
     do l = l_top, 1, -1
 
@@ -318,7 +318,7 @@ subroutine V_Cycle(this)
 
       ! pre-smoothing
       call level(l) % eop % SchwarzMethod(level(l)%u, level(l)%f, level(l)%ns1)
-      !if (this%monitor) call Monitoring(this, l, '1')
+      if (this%monitor) call Monitoring(this, l, '1')
 
       ! residual evaluation: v_l = f_l - A_l u_l
       call level(l) % eop % Residual(level(l)%u, level(l)%f, level(l)%v)
@@ -334,14 +334,14 @@ subroutine V_Cycle(this)
                f_0 => level(0)%f, r_red => this%r0_red  )
 
       call AssignScalar(u_0, ZERO)
-      !if (this%monitor) call Monitoring(this, 0, '0')
+      if (this%monitor) call Monitoring(this, 0, '0')
       select case(this % solver)
       case('C')
         call level(0) % eop % ConjugateGradients(u_0, f_0, i_max, r_red)
       case('S')
         call level(0) % eop % SchwarzMethod(u_0, f_0, i_max, r_red)
       end select
-      !if (this%monitor) call Monitoring(this, 0, 's')
+      if (this%monitor) call Monitoring(this, 0, 's')
 
     end associate
 
@@ -354,11 +354,11 @@ subroutine V_Cycle(this)
 
       ! correction: u_l = u_l + v_l
       call MergeArrays(ONE, level(l)%u, ONE, level(l)%v)
-      !if (this%monitor) call Monitoring(this, l, 'c')
+      if (this%monitor) call Monitoring(this, l, 'c')
 
       ! post-smoothing
       call level(l) % eop % SchwarzMethod(level(l)%u, level(l)%f, level(l)%ns2)
-      !if (this%monitor) call Monitoring(this, l, '2')
+      if (this%monitor) call Monitoring(this, l, '2')
 
     end do
 

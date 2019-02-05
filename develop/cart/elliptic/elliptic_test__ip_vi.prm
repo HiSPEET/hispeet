@@ -33,19 +33,17 @@
  schwarz_opt%weighting = 5       ! [ 5 ]
 /
 
-!&solver_pmg
-! pmg_opt%i_max   =  4
-! pmg_opt%r_red   =  1e-10
-! pmg_opt%r_max   = -1e-10
-! pmg_opt%dr_min  = -1e-10
-! pmg_opt%po_top  =  16
-! pmg_opt%po_bot  =  1
-! pmg_opt%i0_max  =  1000
-! pmg_opt%r0_red  =  1E-6
-! pmg_opt%delta   =  3*0.08
-! pmg_opt%no_min  =  1
-! pmg_opt%monitor =  T
-!/
+&solver_pmg
+ pmg_opt%po_top  =  16
+ pmg_opt%po_bot  =  1
+ pmg_opt%i_max   =  4
+ pmg_opt%r_red   =  1e-10
+ pmg_opt%r_max   = -1e-10
+ pmg_opt%dr_min  = -1e-10
+ pmg_opt%i0_max  =  1000
+ pmg_opt%r0_red  =  1E-6
+ pmg_opt%monitor =  T
+/
 
 &control
 !plot_file = 'result'

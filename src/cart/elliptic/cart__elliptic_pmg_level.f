@@ -120,6 +120,9 @@ subroutine Init__IP_VI( this, bottom, top, ns1, ns2, mesh, lambda, nu, bc, &
   !< options for the Schwarz method
 
   ! initialization of components ...............................................
+!### CHECK
+print *, '§ 00'
+!### CHECK END
 
   this % po     = ip_opt % po
   this % ne     = mesh   % ne
@@ -127,10 +130,19 @@ subroutine Init__IP_VI( this, bottom, top, ns1, ns2, mesh, lambda, nu, bc, &
   this % top    = top
   this % ns1    = ns1
   this % ns2    = ns2
+!### CHECK
+print *, '§ 01'
+!### CHECK END
 
   this % eop = EllipticOperator3D_IP(mesh, lambda, nu, bc, ip_opt, schwarz_opt)
+!### CHECK
+print *, '§ 02'
+!### CHECK END
 
   call GetWorkspace(this)
+!### CHECK
+print *, '§ 03'
+!### CHECK END
 
 end subroutine Init__IP_VI
 

@@ -123,13 +123,13 @@ subroutine New_FlowOperators( this                       &
   end associate
 
   if (po_p /= po_u) then
-    call this % iop_up % New(po_u, po_p)
-    call this % iop_pu % New(po_p, po_u)
+    this % iop_up = InterpolationOperator3D(po_u, po_p)
+    this % iop_pu = InterpolationOperator3D(po_p, po_u)
   end if
 
   if (po_q /= po_u) then
     call this % eop_q  % Init_DG_ElementOperators3D(po_q, mesh%dx, penalty)
-    call this % iop_uq % New(po_u, po_q)
+    this % iop_uq = InterpolationOperator3D(po_u, po_q)
   end if
 
   if (present(monitor_level)) this % monitor_level = monitor_level
