@@ -28,7 +28,7 @@ module CART__Elliptic_Operator_IP
 
   type, extends(EllipticOperator3D) :: EllipticOperator3D_IP
 
-    type(IP_ElementOperators1D) :: eop           !< 1D operators for IP-DG-SEM
+    !type(IP_ElementOperators1D) :: eop           !< 1D operators for IP-DG-SEM
     real(RNP), allocatable      :: nu_hat(:,:,:) !< diffusivity on faces
 
   contains

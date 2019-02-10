@@ -85,7 +85,6 @@ set(ELLIPTIC elliptic/cart__schwarz_operator.f
              elliptic/cart__schwarz_operator__mp_buildsubdomains_ci.f
              elliptic/cart__schwarz_operator__mp_buildsubdomains_vi.f
              elliptic/cart__elliptic_operator.f
-             elliptic/cart__elliptic_operator_cg.f
              elliptic/cart__elliptic_operator_ip.f
              elliptic/cart__elliptic_operator_ip__mp_init.f
              elliptic/cart__elliptic_operator_ip__mp_apply.f
@@ -109,6 +108,8 @@ set(ELLIPTIC elliptic/cart__schwarz_operator.f
              elliptic/cart__dg_elliptic_ci_pmg_level.f
              elliptic/cart__dg_elliptic_ci_pmg.f
              )
+
+#            elliptic/cart__elliptic_operator_cg.f
 
 
 #===============================================================================

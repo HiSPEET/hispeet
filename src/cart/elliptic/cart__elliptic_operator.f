@@ -8,6 +8,7 @@
 
 module CART__Elliptic_Operator
   use Kind_Parameters, only: RNP
+  use Standard_Operators_1D
   use CART__Mesh_Partition
   use CART__Boundary_Variable
   use CART__Schwarz_Operator
@@ -29,7 +30,8 @@ module CART__Elliptic_Operator
     real(RNP), allocatable :: nu_vi(:,:,:,:) !< variable isotropic diffusivity
     character, allocatable :: bc(:)          !< boundary conditions {P,D,N}
 
-    type(SchwarzOperator3D), allocatable :: schwarz !< Schwarz operator
+    class(StandardOperators1D), allocatable :: eop     !< standard SE operators
+    type(SchwarzOperator3D),    allocatable :: schwarz !< Schwarz operator
 
   contains
 

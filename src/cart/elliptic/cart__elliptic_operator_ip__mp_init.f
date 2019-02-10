@@ -8,7 +8,6 @@
 
 submodule(CART__Elliptic_Operator_IP) MP_Init
   use Array_Assignments, only: AssignArray
-  use Legendre_Projection_3D
   use CART__Trace_Operator
   implicit none
 
@@ -39,7 +38,8 @@ module subroutine Init_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
   this % lambda =  lambda
   this % nu_ci  =  nu
   this % bc     =  bc
-  this % eop    =  IP_ElementOperators1D(ip_opt)
+
+  allocate(this % eop, source = IP_ElementOperators1D(ip_opt))
 
   ! Schwarz method .............................................................
 
@@ -83,14 +83,14 @@ print *, '? 00'
   this % mesh   => mesh
   this % lambda =  lambda
   this % bc     =  bc
-  this % eop    =  IP_ElementOperators1D(ip_opt)
+
+  allocate(this % eop, source = IP_ElementOperators1D(ip_opt))
 !### CHECK
 print *, '? 01'
 !### CHECK END
 
   po = this % eop % po
 
-###### LEGENDRE PROJECTION ???
   allocate(this % nu_vi, mold = nu)
   call AssignArray(this % nu_vi, nu)
 !### CHECK

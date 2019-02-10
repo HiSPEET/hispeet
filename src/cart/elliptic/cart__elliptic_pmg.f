@@ -7,15 +7,15 @@
 !===============================================================================
 
 module CART__Elliptic_PMG
-  use Kind_Parameters, only: RNP
-  use Constants,       only: ZERO, ONE
+  use Kind_Parameters,   only: RNP
+  use Constants,         only: ZERO, ONE
+  use Execution_Control, only: Error
   use XMPI
 
   use IP_Element_Operators_1D
   use Array_Assignments
   use Array_Reductions
 
-  use CART__DG_PMG_Transfer_Operators  !!! to be revised
   use CART__Mesh_Partition
   use CART__Schwarz_Operator
   use CART__Elliptic_PMG_Level
@@ -32,9 +32,8 @@ module CART__Elliptic_PMG
   type PMG_Method3D
 
     ! mesh, levels and operators
-    type(MeshPartition),         pointer     :: mesh        !< mesh partition
-    type(PMG_Level),             allocatable :: level(:)    !< levels
-    type(PMG_TransferOperators), allocatable :: transfer(:) !< transfer ops
+    type(MeshPartition), pointer     :: mesh      !< mesh partition
+    type(PMG_Level),     allocatable :: level(:)  !< levels
 
     ! p-MG/CG solver settings
     integer   :: i_max   !< max number iterations (cycles)
@@ -73,7 +72,7 @@ module CART__Elliptic_PMG
 
     ! levels
     integer   :: po_top    = -1  !< polynomial order at top level
-    integer   :: po_bot    =  1  !< polynomial order at bottom4 level
+    integer   :: po_bot    =  1  !< polynomial order at bottom level
     real(RNP) :: cr        =  2  !< target coarsening ratio
     real(RNP) :: cr_max    =  2  !< max coarsening ratio
 
@@ -215,10 +214,10 @@ subroutine MG_Solver(this, u, f, ni, r_2)
 
   check_convergence = max(this%r_red, this%r_max, this%dr_min) > 0
 
-  associate( eop   => this % level( l_top ) % eop, &
-             u_top => this % level( l_top ) % u,   &
-             f_top => this % level( l_top ) % f,   &
-             r_top => this % level( l_top ) % v    )
+  associate( elliptic_op => this % level( l_top ) % elliptic_op, &
+             u_top       => this % level( l_top ) % u,           &
+             f_top       => this % level( l_top ) % f,           &
+             r_top       => this % level( l_top ) % v            )
 
     ! initialization ...........................................................
 
@@ -227,7 +226,7 @@ subroutine MG_Solver(this, u, f, ni, r_2)
 
     ! termination conditions
     if (check_convergence) then
-      call eop % Residual(u_top, f_top, r_top)
+      call elliptic_op % Residual(u_top, f_top, r_top)
       rr = ScalarProduct(r_top, r_top, this%mesh%comm)
       r_old  = sqrt(rr)
       r_max  = max(r_old * this%r_red, this%r_max)
@@ -246,7 +245,7 @@ subroutine MG_Solver(this, u, f, ni, r_2)
 
       if (check_convergence) then
 
-        call eop % Residual(u_top, f_top, r_top)
+        call elliptic_op % Residual(u_top, f_top, r_top)
         rr = ScalarProduct(r_top, r_top, this%mesh%comm)
         r_new = sqrt(rr)
 
@@ -276,7 +275,7 @@ subroutine MG_Solver(this, u, f, ni, r_2)
 
     if (present(r_2)) then
       if (r_max <= 0) then
-        call eop % Residual(u_top, f_top, r_top)
+        call elliptic_op % Residual(u_top, f_top, r_top)
         rr = ScalarProduct(r_top, r_top, this%mesh%comm)
       end if
       !$omp master
@@ -299,7 +298,7 @@ subroutine V_Cycle(this)
 
   integer :: l, l_top
 
-  associate(level => this%level, transfer => this%transfer)
+  associate(level => this%level)
 
     ! prerequisites ............................................................
 
@@ -317,14 +316,16 @@ subroutine V_Cycle(this)
       end if
 
       ! pre-smoothing
-      call level(l) % eop % SchwarzMethod(level(l)%u, level(l)%f, level(l)%ns1)
+      call level(l) % elliptic_op % SchwarzMethod( level(l)%u,  &
+                                                   level(l)%f,  &
+                                                   level(l)%ns1 )
       if (this%monitor) call Monitoring(this, l, '1')
 
       ! residual evaluation: v_l = f_l - A_l u_l
-      call level(l) % eop % Residual(level(l)%u, level(l)%f, level(l)%v)
+      call level(l) % elliptic_op % Residual(level(l)%u, level(l)%f, level(l)%v)
 
       ! restriction: f_l-1 = R v_l
-      call transfer(l) % Restrict(level(l)%v, level(l-1)%f)
+      call level(l) % Restrict(level(l)%v, level(l-1)%f)
 
     end do
 
@@ -337,9 +338,9 @@ subroutine V_Cycle(this)
       if (this%monitor) call Monitoring(this, 0, '0')
       select case(this % solver)
       case('C')
-        call level(0) % eop % ConjugateGradients(u_0, f_0, i_max, r_red)
+        call level(0) % elliptic_op % ConjugateGradients(u_0, f_0, i_max, r_red)
       case('S')
-        call level(0) % eop % SchwarzMethod(u_0, f_0, i_max, r_red)
+        call level(0) % elliptic_op % SchwarzMethod(u_0, f_0, i_max, r_red)
       end select
       if (this%monitor) call Monitoring(this, 0, 's')
 
@@ -350,14 +351,16 @@ subroutine V_Cycle(this)
     do l = 1, l_top
 
       ! prolongation: v_l = I u_l-1
-      call transfer(l) % Prolongate(level(l-1)%u, level(l)%v)
+      call level(l-1) % Prolongate(level(l-1)%u, level(l)%v)
 
       ! correction: u_l = u_l + v_l
       call MergeArrays(ONE, level(l)%u, ONE, level(l)%v)
       if (this%monitor) call Monitoring(this, l, 'c')
 
       ! post-smoothing
-      call level(l) % eop % SchwarzMethod(level(l)%u, level(l)%f, level(l)%ns2)
+      call level(l) % elliptic_op % SchwarzMethod( level(l)%u,  &
+                                                   level(l)%f,  &
+                                                   level(l)%ns2 )
       if (this%monitor) call Monitoring(this, l, '2')
 
     end do
@@ -377,7 +380,7 @@ subroutine Monitoring(this, l, step)
   real(RNP) :: rr
 
   associate(u => this%level(l)%u, f => this%level(l)%f, r => this%level(l)%v)
-    call this % level(l) % eop % Residual(u, f, r)
+    call this % level(l) % elliptic_op % Residual(u, f, r)
     rr = ScalarProduct(r, r, this%mesh%comm)
   end associate
 

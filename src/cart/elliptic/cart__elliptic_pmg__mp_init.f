@@ -27,11 +27,13 @@ module subroutine Init__IP_CI( this, mesh, lambda, nu, bc,  &
   class(SchwarzOptions3D),      intent(in) :: schwarz_opt !< Schwarz options
   class(PMG_Options3D),         intent(in) :: pmg_opt     !< PMG options
 
-  class(IP_ElementOptions1D), allocatable :: ip_opt_l
   integer, allocatable :: po(:)
   integer :: l, l_top, ns1, ns2
 
-  allocate(ip_opt_l, source = ip_opt)
+  if (ip_opt % po /= pmg_opt % po_top) then
+    call Error( 'CART__Elliptic_PMG: Init__IP_CI' &
+              , 'ip_opt % po /= pmg_opt % po_top' )
+  end if
 
   this % mesh => mesh
   call Assign_PMG_Options(pmg_opt, this)
@@ -39,32 +41,27 @@ module subroutine Init__IP_CI( this, mesh, lambda, nu, bc,  &
 
   l_top = ubound(po,1)
   allocate(this % level(0:l_top))
+
   ns1 = pmg_opt % ns1
   ns2 = pmg_opt % ns2
 
-  do l = l_top, 0, -1
+  if (l_top > 0) then
+    call this % level(l_top) % Init_TopLevel( ns1, ns2, mesh, lambda, nu, bc,  &
+                                              ip_opt, schwarz_opt, po(l_top-1) )
+  else
+    call this % level(l_top) % Init_TopLevel( ns1, ns2, mesh, lambda, nu, bc,  &
+                                              ip_opt, schwarz_opt              )
+  end if
 
-    ip_opt_l % po = po(l)
-
-    call this % level(l) % Init( bottom       =  l == 0       &
-                               , top          =  l == l_top   &
-                               , ns1          =  ns1          &
-                               , ns2          =  ns2          &
-                               , mesh         =  mesh         &
-                               , lambda       =  lambda       &
-                               , nu           =  nu           &
-                               , bc           =  bc           &
-                               , ip_opt       =  ip_opt_l     &
-                               , schwarz_opt  =  schwarz_opt  &
-                               )
+  do l = l_top-1, 1, -1
     ns1 = ns1 * pmg_opt % mvs
     ns2 = ns2 * pmg_opt % mvs
+    call this % level(l) % Init_CoarseLevel( po(l), ns1, ns2, this%level(l+1), &
+                                             schwarz_opt, po(l-1)              )
   end do
 
-  allocate(this % transfer(1:l_top))
-  do l = 1, l_top
-    call this % transfer(l) % New(po(l-1), po(l))
-  end do
+  call this % level(0) % Init_CoarseLevel( po(0), ns1, ns2, this%level(1), &
+                                           schwarz_opt                     )
 
 end subroutine Init__IP_CI
 
@@ -84,62 +81,41 @@ module subroutine Init__IP_VI( this, mesh, lambda, nu, bc,  &
   class(SchwarzOptions3D),      intent(in) :: schwarz_opt    !< Schwarz opt
   class(PMG_Options3D),         intent(in) :: pmg_opt        !< PMG options
 
-  class(IP_ElementOptions1D), allocatable :: ip_opt_l
   integer, allocatable :: po(:)
   integer :: l, l_top, ns1, ns2
 
-  allocate(ip_opt_l, source = ip_opt)
-!### CHECK
-print *, '$ 01'
-!### CHECK END
+  if (ip_opt % po /= pmg_opt % po_top) then
+    call Error( 'CART__Elliptic_PMG: Init__IP_CI' &
+              , 'ip_opt % po /= pmg_opt % po_top' )
+  end if
 
   this % mesh => mesh
   call Assign_PMG_Options(pmg_opt, this)
   call CreatePolynomialLevels(pmg_opt, po)
-!### CHECK
-print *, '$ 02'
-!### CHECK END
 
   l_top = ubound(po,1)
   allocate(this % level(0:l_top))
+
   ns1 = pmg_opt % ns1
   ns2 = pmg_opt % ns2
 
-  do l = l_top, 0, -1
+  if (l_top > 0) then
+    call this % level(l_top) % Init_TopLevel( ns1, ns2, mesh, lambda, nu, bc,  &
+                                              ip_opt, schwarz_opt, po(l_top-1) )
+  else
+    call this % level(l_top) % Init_TopLevel( ns1, ns2, mesh, lambda, nu, bc,  &
+                                              ip_opt, schwarz_opt              )
+  end if
 
-!### CHECK
-print *, '$ 03: l =',l
-!### CHECK END
-    ip_opt_l % po = po(l)
-!### CHECK
-print *, '$ 04: l =',l
-!### CHECK END
-
-    call this % level(l) % Init( bottom       =  l == 0       &
-                               , top          =  l == l_top   &
-                               , ns1          =  ns1          &
-                               , ns2          =  ns2          &
-                               , mesh         =  mesh         &
-                               , lambda       =  lambda       &
-                               , nu           =  nu           &
-                               , bc           =  bc           &
-                               , ip_opt       =  ip_opt_l     &
-                               , schwarz_opt  =  schwarz_opt  &
-                               )
+  do l = l_top-1, 1, -1
     ns1 = ns1 * pmg_opt % mvs
     ns2 = ns2 * pmg_opt % mvs
-!### CHECK
-print *, '$ 05: l =',l
-!### CHECK END
+    call this % level(l) % Init_CoarseLevel( po(l), ns1, ns2, this%level(l+1), &
+                                             schwarz_opt, po(l-1)              )
   end do
 
-  allocate(this % transfer(1:l_top))
-  do l = 1, l_top
-    call this % transfer(l) % New(po(l-1), po(l))
-!### CHECK
-print *, '$ 06: l =',l
-!### CHECK END
-  end do
+  call this % level(0) % Init_CoarseLevel( po(0), ns1, ns2, this%level(1), &
+                                           schwarz_opt                     )
 
 end subroutine Init__IP_VI
 

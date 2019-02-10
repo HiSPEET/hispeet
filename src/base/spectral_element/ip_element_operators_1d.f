@@ -55,7 +55,7 @@ module IP_Element_Operators_1D
 
   end type IP_ElementOperators1D
 
-  ! Constructor interface
+  ! constructor interface
   interface IP_ElementOperators1D
     module procedure New_IP_ElementOperators1D__f
     module procedure New_IP_ElementOperators1D__b
@@ -72,6 +72,11 @@ module IP_Element_Operators_1D
   contains
     procedure :: Bcast => IP_ElementOptions1D_Bcast
   end type IP_ElementOptions1D
+
+  ! constructor interface
+  interface IP_ElementOptions1D
+    module procedure New_IP_ElementOptions1D_o
+  end interface
 
 contains
 
@@ -473,8 +478,32 @@ subroutine GetEllipticSuboperators(this, dx, bc, c, nu, Aib, Aii_inv)
 end subroutine GetEllipticSuboperators
 
 !===============================================================================
-! IP_ElementOptions1D type-bound procedures
+! IP_ElementOptions1D constructors and type-bound procedures
 
+!-------------------------------------------------------------------------------
+!> IP_ElementOptions1D from given operators, optionally overriding the order
+
+function New_IP_ElementOptions1D_o(eop, po) result(this)
+  class(StandardOperators1D), intent(in) :: eop !< element operators
+  integer,          optional, intent(in) :: po  !< polynomial order
+
+  type(IP_ElementOptions1D) :: this
+
+  if (present(po)) then
+    this % po = po
+  else
+    this % po = eop % po
+  end if
+
+  select type(eop)
+  class is(IP_ElementOperators1D)
+    this % penalty = eop % penalty
+    this % hybrid  = eop % hybrid
+  end select
+
+  this % no_vdm  = .not. ( eop % HasLegendreVDM() )
+
+end function New_IP_ElementOptions1D_o
 
 !-------------------------------------------------------------------------------
 !> Extension of MPI_Bcast to objects of type SchwarzOptions3D

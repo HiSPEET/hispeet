@@ -44,6 +44,7 @@ module Standard_Operators_1D
     procedure :: Init_StandardOperators1D
     procedure :: PolynomialOrder
     procedure :: InitLegendreVDM
+    procedure :: HasLegendreVDM
     procedure :: GetLegendreVDM
     procedure :: GetInverseLegendreVDM
 
@@ -225,6 +226,14 @@ subroutine InitLegendreVDM(this)
   this % VL_inv = Inverse(this % VL)
 
 end subroutine InitLegendreVDM
+
+!-------------------------------------------------------------------------------
+!> Query if Legendre VDM is available
+
+logical function HasLegendreVDM(this) result(has)
+  class(StandardOperators1D), intent(in) :: this    !< standard operators
+  has = allocated(this % VL)
+end function HasLegendreVDM
 
 !-------------------------------------------------------------------------------
 !> Get the Legendre-Vandermonde matrix

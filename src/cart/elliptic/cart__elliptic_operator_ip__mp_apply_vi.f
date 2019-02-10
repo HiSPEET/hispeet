@@ -43,74 +43,77 @@ module subroutine Apply_VI(this, u, v)
 
   integer :: po, ne, np = -1
 
-  associate( mesh   => this % mesh,   &
-             eop    => this % eop,    &
-             lambda => this % lambda, &
-             nu     => this % nu_vi,  &
-             nu_hat => this % nu_hat  )
+  select type(eop => this % eop)
+  class is (IP_ElementOperators1D)
 
-    ! initialization ...........................................................
+    associate( mesh   => this % mesh,   &
+               lambda => this % lambda, &
+               nu     => this % nu_vi,  &
+               nu_hat => this % nu_hat  )
 
-    po = eop  % po
-    ne = mesh % ne
+      ! initialization .........................................................
 
-    ! procedure for evaluating the element operators
-    if (np /= po + 1) then
-      np  = po + 1
-      call TPO_Elliptic_VI_Assign(np, StiffnessOperator)
-    end if
+      po = eop  % po
+      ne = mesh % ne
 
-    ! workspace and operators
-    !$omp single
-    allocate(q(0:po,0:po,0:po,ne,3))
-    allocate(tr_u(0:po, 0:po, 2, mesh%nf))
-    allocate(tr_qn, mold=tr_u)
-    allocate(J_u(0:po, 0:po, mesh%nf))
-    allocate(A_q, mold=J_u)
-    allocate(trace_op)
-    allocate(normal_trace_op)
-    !$omp end single
+      ! procedure for evaluating the element operators
+      if (np /= po + 1) then
+        np  = po + 1
+        call TPO_Elliptic_VI_Assign(np, StiffnessOperator)
+      end if
 
-    call AssignScalar(tr_u , ZERO)
-    call AssignScalar(tr_qn, ZERO)
-    call AssignScalar(J_u  , ZERO)
-    call AssignScalar(A_q  , ZERO)
+      ! workspace and operators
+      !$omp single
+      allocate(q(0:po,0:po,0:po,ne,3))
+      allocate(tr_u(0:po, 0:po, 2, mesh%nf))
+      allocate(tr_qn, mold=tr_u)
+      allocate(J_u(0:po, 0:po, mesh%nf))
+      allocate(A_q, mold=J_u)
+      allocate(trace_op)
+      allocate(normal_trace_op)
+      !$omp end single
 
-    ! start generation of traces ...............................................
+      call AssignScalar(tr_u , ZERO)
+      call AssignScalar(tr_qn, ZERO)
+      call AssignScalar(J_u  , ZERO)
+      call AssignScalar(A_q  , ZERO)
 
-    call ComputeNormalFluxes(np, ne, eop%D, mesh%dx, nu, u, q)
+      ! start generation of traces .............................................
 
-    call trace_op        % GetTrace_Start(mesh, u, tr_u , tag=1000)
-    call normal_trace_op % GetTrace_Start(mesh, q, tr_qn, tag=2000)
+      call ComputeNormalFluxes(np, ne, eop%D, mesh%dx, nu, u, q)
 
-    ! apply element stiffness operator .........................................
+      call trace_op        % GetTrace_Start(mesh, u, tr_u , tag=1000)
+      call normal_trace_op % GetTrace_Start(mesh, q, tr_qn, tag=2000)
 
-    call StiffnessOperator(np, ne, eop%w, eop%D, lambda, nu, mesh%dx, u, v)
+      ! apply element stiffness operator .......................................
 
-    ! finish generation of traces ..............................................
+      call StiffnessOperator(np, ne, eop%w, eop%D, lambda, nu, mesh%dx, u, v)
 
-    call trace_op        % GetTrace_Finish(mesh, tr_u   )
-    call normal_trace_op % GetTrace_Finish(mesh, tr_qn)
+      ! finish generation of traces ............................................
 
-    call ApplyBoundaryConditions(mesh, this%bc, tr_u, tr_qn)
+      call trace_op        % GetTrace_Finish(mesh, tr_u   )
+      call normal_trace_op % GetTrace_Finish(mesh, tr_qn)
 
-    ! jumps and average derivatives ............................................
+      call ApplyBoundaryConditions(mesh, this%bc, tr_u, tr_qn)
 
-    call ComputeJumps(tr_u, J_u)
-    call ComputeAverages(tr_qn, A_q, normal=.true.)
+      ! jumps and average derivatives ..........................................
 
-    ! add fluxes ...............................................................
+      call ComputeJumps(tr_u, J_u)
+      call ComputeAverages(tr_qn, A_q, normal=.true.)
 
-    call AddFluxes(mesh, eop, nu, nu_hat, J_u, A_q, v)
+      ! add fluxes .............................................................
 
-    ! clean-up .................................................................
+      call AddFluxes(mesh, eop, nu, nu_hat, J_u, A_q, v)
 
-    !$omp single
-    deallocate(q, tr_u, tr_qn, J_u, A_q )
-    deallocate(trace_op, normal_trace_op)
-    !$omp end single
+      ! clean-up ...............................................................
 
-  end associate
+      !$omp single
+      deallocate(q, tr_u, tr_qn, J_u, A_q )
+      deallocate(trace_op, normal_trace_op)
+      !$omp end single
+
+    end associate
+  end select
 
 end subroutine Apply_VI
 
