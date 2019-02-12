@@ -65,7 +65,7 @@ program Validate__CART__TPO_Rot
 
   ! operators ..................................................................
 
-  call standard_op % New(po)
+  standard_op = StandardOperators1D(po)
 
   ! generic operator procedure
   call TPO_Rot_Assign(-1, RotOperator_Gen)

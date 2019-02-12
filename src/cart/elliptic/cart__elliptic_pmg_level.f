@@ -186,7 +186,7 @@ subroutine Init_CoarseLevel(this, po, ns1, ns2, child, schwarz_opt, po_parent)
 
   ! parameters .................................................................
 
-  this % po  = child % po
+  this % po  = po
   this % ne  = child % ne
   this % ns1 = ns1
   this % ns2 = ns2
@@ -217,7 +217,8 @@ subroutine Init_CoarseLevel(this, po, ns1, ns2, child, schwarz_opt, po_parent)
 
       else if (allocated(nu_vi)) then
 
-        call child % Truncate(elliptic_op % nu_vi, nu_vi)
+        !call child % Truncate(elliptic_op % nu_vi, nu_vi)
+        call child % Interpolate(elliptic_op % nu_vi, nu_vi)
 
         this % elliptic_op = EllipticOperator3D_IP( elliptic_op % mesh,   &
                                                     elliptic_op % lambda, &
@@ -310,7 +311,6 @@ subroutine Build_C2F_TransferOps(this, fine)
 
   pc = this % po
   pf = fine % po
-
   xc = this % elliptic_op % eop % x
   xf = fine % elliptic_op % eop % x
 

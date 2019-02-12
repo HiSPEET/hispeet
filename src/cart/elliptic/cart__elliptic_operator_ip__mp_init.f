@@ -76,40 +76,23 @@ module subroutine Init_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
   integer :: i, j, k, po
 
   ! problem and discretization parameters ......................................
-!### CHECK
-print *, '? 00'
-!### CHECK END
 
   this % mesh   => mesh
   this % lambda =  lambda
   this % bc     =  bc
 
   allocate(this % eop, source = IP_ElementOperators1D(ip_opt))
-!### CHECK
-print *, '? 01'
-!### CHECK END
 
   po = this % eop % po
 
   allocate(this % nu_vi, mold = nu)
   call AssignArray(this % nu_vi, nu)
-!### CHECK
-print *, '? 02'
-!### CHECK END
 
   ! start generating traces of nu
   allocate(this % nu_hat(0:po,0:po,mesh%nf))
   allocate(tr_nu(0:po,0:po,2,mesh%nf))
   allocate(trace_op)
-!### CHECK
-print *, '? shape(nu)     =', shape(nu)
-print *, '? shape(nu_hat) =', shape(this % nu_hat)
-print *, '? shape(tr_nu)  =', shape(tr_nu)
-!### CHECK END
   call trace_op % GetTrace_Start(mesh, nu, tr_nu, tag=1000)
-!### CHECK
-print *, '? 03'
-!### CHECK END
 
   ! Schwarz method .............................................................
 
@@ -117,16 +100,10 @@ print *, '? 03'
     allocate(this % schwarz)
     call this % schwarz % New(schwarz_opt, this%eop, mesh, lambda, nu, bc)
   end if
-!### CHECK
-print *, '? 04'
-!### CHECK END
 
   ! max diffusivity on faces ...................................................
 
   call trace_op % GetTrace_Finish(mesh, tr_nu)
-!### CHECK
-print *, '? 05'
-!### CHECK END
 
   associate(nu_hat => this % nu_hat)
     do k = 1, mesh%nf
@@ -137,17 +114,11 @@ print *, '? 05'
       end do
     end do
   end associate
-!### CHECK
-print *, '? 06'
-!### CHECK END
 
   ! clean-up ...................................................................
 
   deallocate(trace_op)
   deallocate(tr_nu)
-!### CHECK
-print *, '? 0X'
-!### CHECK END
 
 end subroutine Init_VI
 

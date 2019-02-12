@@ -68,7 +68,7 @@ program Validate__CART__TPO_Elliptic_VI
 
   ! operators ..................................................................
 
-  call standard_op % New(po)
+  standard_op = StandardOperators1D(po)
 
   ! generic operator procedure
   call TPO_Elliptic_VI_Assign(-np, EllipticOperator_Gen)

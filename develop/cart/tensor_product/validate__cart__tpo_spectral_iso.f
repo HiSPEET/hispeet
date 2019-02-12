@@ -26,7 +26,7 @@ program Validate__CART__TPO_Spectral_Iso
 
   ! operators and variables ....................................................
 
-  type(StandardOperators1D) :: sop
+  type(StandardOperators1D) :: standard_op
 
   procedure(TPO_Spectral_Iso_Proc), pointer :: SpectralOperator_Gen ! generic
   procedure(TPO_Spectral_Iso_Proc), pointer :: SpectralOperator_Par ! param.
@@ -86,10 +86,10 @@ program Validate__CART__TPO_Spectral_Iso
   ! 1D operators ...............................................................
 
   ! standard operators
-  call sop % New(po)
+  standard_op = StandardOperators1D(po)
 
   ! 1D eigenvalues and eigenvectors
-  call SolveGeneralizedEigenproblem(sop%L, sop%w, lambda_A, A)
+  call SolveGeneralizedEigenproblem(standard_op%L, standard_op%w, lambda_A, A)
 
   ! diagonal operator
   do k = 1, na
@@ -106,7 +106,7 @@ program Validate__CART__TPO_Spectral_Iso
   call random_number(w)
 
   ! operand: u = H^e w
-  associate( M => sop%w, L => sop%L )
+  associate( M => standard_op%w, L => standard_op%L )
 
     do e = 1, ne
 

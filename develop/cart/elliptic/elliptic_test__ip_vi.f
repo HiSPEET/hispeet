@@ -24,7 +24,8 @@ program Elliptic_Test__IP_VI
   use CART__Elliptic_PMG
 
   use Elliptic_Problem
-  use Elliptic_Problem__Simple
+  use Elliptic_Problem__Simple_2D
+  use Elliptic_Problem__Simple_3D
   use Elliptic_Problem__Knotty
 
   implicit none
@@ -36,19 +37,19 @@ program Elliptic_Test__IP_VI
 
   class(EllipticProblem), allocatable :: problem
 
-  integer   :: test    = 1       ! test case: 1 - simple, 2 - knotty
+  integer   :: test      = 1       ! test case: {1,2,3} = {simple 2d/3d, knotty}
 
-  real(RNP) :: lambda  = 0       ! Helmholtz parameter
-  real(RNP) :: nu_0    = 1       ! diffusivity mean
-  real(RNP) :: nu_1    = 0.1     ! diffusivity fluctuation
-  integer   :: k_nu    = 1       ! diffusivity wave number
-  real(RNP) :: d_nu    = 0       ! diffusivity phase shift
-  integer   :: k_u     = 1       ! solution wave number
+  real(RNP) :: lambda    = 0       ! Helmholtz parameter
+  real(RNP) :: nu_0      = 1       ! diffusivity mean
+  real(RNP) :: nu_1      = 0.1     ! diffusivity fluctuation
+  integer   :: k_nu      = 1       ! diffusivity wave number
+  real(RNP) :: d_nu      = 0       ! diffusivity phase shift
+  integer   :: k_u       = 1       ! solution wave number
 
   ! domain and boundary conditions
-  real(RNP) :: xo(3)   = 0       ! corner closest to -infinity
-  real(RNP) :: lx(3)   = 2*PI    ! domain extensions
-  character :: bc(6)   = 'P'     ! boundary conditions {'P'|'D'|'N'}
+  real(RNP) :: xo(3)     = 0       ! corner closest to -infinity
+  real(RNP) :: lx(3)     = 2*PI    ! domain extensions
+  character :: bc(6)     = 'P'     ! boundary conditions {'P'|'D'|'N'}
 
   namelist /test_case/ test
   namelist /test_case/ lambda, nu_0, nu_1, d_nu, k_nu, k_u
@@ -56,12 +57,13 @@ program Elliptic_Test__IP_VI
 
   ! discretization .............................................................
 
-  integer   :: np(3)   = 1       ! number of partitions in directions 1:3
-  integer   :: ep(3)   = 2       ! elements per partition and direction
-  integer   :: po      = 2       ! polynomial order
-  integer   :: penalty = 2       ! penalty parameter > 1
+  integer   :: np(3)     = 1       ! number of partitions in directions 1:3
+  integer   :: ep(3)     = 2       ! elements per partition and direction
+  integer   :: po        = 2       ! polynomial order
+  integer   :: penalty   = 2       ! penalty parameter > 1
+  logical   :: adjust_dx = .false. ! adjust mesh spacing: Δx₃ = max(Δx₁,Δx₂)
 
-  namelist /discretization/ np, ep, po, penalty
+  namelist /discretization/ np, ep, po, penalty, adjust_dx
 
   ! solution ...................................................................
 
@@ -179,17 +181,18 @@ program Elliptic_Test__IP_VI
   call XMPI_Bcast(bc     , 0, comm)
 
   ! discretization
-  call XMPI_Bcast(np     , 0, comm)
-  call XMPI_Bcast(ep     , 0, comm)
-  call XMPI_Bcast(po     , 0, comm)
-  call XMPI_Bcast(penalty, 0, comm)
+  call XMPI_Bcast(np        , 0, comm)
+  call XMPI_Bcast(ep        , 0, comm)
+  call XMPI_Bcast(po        , 0, comm)
+  call XMPI_Bcast(penalty   , 0, comm)
+  call XMPI_Bcast(adjust_dx , 0, comm)
 
   ! solver
-  call XMPI_Bcast(method , 0, comm)
+  call XMPI_Bcast(method, 0, comm)
 
   ! CG/Schwarz options
-  call XMPI_Bcast(i_max  , 0, comm)
-  call XMPI_Bcast(r_red  , 0, comm)
+  call XMPI_Bcast(i_max, 0, comm)
+  call XMPI_Bcast(r_red, 0, comm)
 
   ! Schwarz options
   call schwarz_opt % Bcast(0, comm)
@@ -201,10 +204,12 @@ program Elliptic_Test__IP_VI
   ! problem ....................................................................
 
   select case(test)
+  case(1)
+    allocate(EllipticProblem_Simple2D :: problem)
   case(2)
-    allocate(EllipticProblem_Knotty :: problem)
+    allocate(EllipticProblem_Simple3D :: problem)
   case default
-    allocate(EllipticProblem_Simple :: problem)
+    allocate(EllipticProblem_Knotty   :: problem)
   end select
 
   call problem % SetProblem(lambda, nu_0, nu_1, d_nu, k_nu, k_u)
@@ -212,52 +217,35 @@ program Elliptic_Test__IP_VI
   ! mesh and variables .........................................................
 
   ! spacing
-  dx = lx/ (np * ep)
+  dx = lx / (np * ep)
+
+  if (adjust_dx) then
+    dx(3) = maxval(dx(1:2))
+  end if
 
   ! periodicity
   periodic(1) = all(bc(1:2) == 'P')
   periodic(2) = all(bc(3:4) == 'P')
   periodic(3) = all(bc(5:6) == 'P')
 
-!### CHECK
-print *, '# 01'
-!### CHECK END
   ! mesh partition and points
   call GenerateStructuredMesh(mesh, np, ep, xo, dx, periodic, comm)
   call mesh % GetPoints(po, 'GLL', x)
 
-!### CHECK
-print *, '# 02'
-!### CHECK END
   ! mesh variables
   call InitializeMeshVariables()
   n = size(u)
-!### CHECK
-print *, '# 03'
-!### CHECK END
 
   ! diffusivity
   call problem % GetDiffusivity(x, nu)
-!### CHECK
-print *, '# 04'
-!### CHECK END
 
   ! auxiliary variables
   allocate(grad_u(0:po, 0:po, 0:po, mesh%ne, 3))
-!### CHECK
-print *, '# 05'
-!### CHECK END
 
   ! operators ..................................................................
 
   ip_opt = IP_ElementOptions1D(po, penalty)
-!### CHECK
-print *, '# 06'
-!### CHECK END
   elliptic_op = EllipticOperator3D_IP(mesh, lambda, nu, bc, ip_opt, schwarz_opt)
-!### CHECK
-print *, '# 07'
-!### CHECK END
 
   !-----------------------------------------------------------------------------
   ! Tests
@@ -270,22 +258,13 @@ print *, '# 07'
     call problem % GetExactSolution(x, u)
     call problem % GetExactGradient(x, grad_u)
     call AssignArray(s, u)
-!### CHECK
-print *, '# 08'
-!### CHECK END
 
     ! r = λ u - ∇·(ν ∇u)
     call problem % GetSource(x, r)
-!### CHECK
-print *, '# 09'
-!### CHECK END
 
     ! project source:  f = M r
     c0 = product(dx) / 8
     call TPO_sDDD_Eval(po+1, mesh%ne, c0, elliptic_op%eop%w, r, f)
-!### CHECK
-print *, '# 10'
-!### CHECK END
 
     ! boundary values
     do b = 1, size(bc)
@@ -298,14 +277,8 @@ print *, '# 10'
         call bv(b) % New(mesh, po, b, bc(b))
       end select
     end do
-!### CHECK
-print *, '# 11'
-!### CHECK END
 
     call elliptic_op % BcToRHS(bv, f)
-!### CHECK
-print *, '# 12'
-!### CHECK END
 
   end if
 
@@ -314,9 +287,17 @@ print *, '# 12'
   case(3,4)
     pmg = PMG_Method3D(mesh, lambda, nu, bc, ip_opt, schwarz_opt, pmg_opt)
   end select
-!### CHECK
-print *, '# 13'
-!### CHECK END
+
+  if (rank == 0) then
+    dof = product(np) * product(ep) * (po + 1)**3
+    write(*,'(/,A)') repeat('=',80)
+    write(*,'(A,/)') 'IP/DG Elliptic Solver with variable diffusivity'
+    write(*,'(2X,A,1X,I0)')        'P   = ', po
+    write(*,'(2X,A,1X,I0)')        'ne  = ', product(np) * product(ep)
+    write(*,'(2X,A,1X,I0)')        'DOF = ', dof
+    write(*,'(2X,A,3(ES12.5,1X))') 'dx  = ', dx
+    write(*,*)
+  end if
 
   ! operator ...................................................................
 
@@ -347,10 +328,8 @@ print *, '# 13'
   if (rank == 0) then
     time = MPI_Wtime()
     time = (time - time0) / nt
-    dof  = product(np) * product(ep) * (po + 1)**3
-    write(*,'(A,1X,I0,A,ES10.3,A)') 'dof      =', dof, ' (', real(dof), ' )'
-    write(*,'(A,ES10.3)')           'time/dof =', time / dof
-    write(*,'(A,ES10.3)')           'dof/time =', dof / time
+    write(*,'(2X,A,ES10.3)') 'time/DOF =', time / dof
+    write(*,'(2X,A,ES10.3)') 'DOF/time =', dof / time
   end if
 
   ! residual ...................................................................
@@ -376,7 +355,7 @@ print *, '# 13'
   call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
 
   if (rank == 0) then
-    write(*,'(A,ES10.3)')  'consistency:  r_max =', r_max
+    write(*,'(2X,A,ES10.3)') 'consistency:  r_max =', r_max
   end if
 
   ! solution ...................................................................
@@ -410,7 +389,7 @@ print *, '# 13'
   end if
   call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
   if (rank == 0) then
-    write(*,'(A,ES10.3)') 'initial residual:  r_0 =', r_max
+    write(*,'(2X,A,ES10.3)') 'initial residual:  r_0 =', r_max
   end if
 
   !$acc end data
@@ -459,10 +438,9 @@ print *, '# 13'
     write(*,'(A,ES10.3)') '   r_max =', r_max
     write(*,'(A,ES10.3)') '   e_max =', (e_max - e_min)/2
     write(*,'(/,A)')      'performance:'
-    write(*,'(A,1X,I0)')  '   dof      =', dof
     write(*,'(A,ES10.3)') '   time     =', time
-    write(*,'(A,ES10.3)') '   time/dof =', time / dof
-    write(*,'(A,ES10.3)') '   dof/time =', dof / time
+    write(*,'(A,ES10.3)') '   time/DOF =', time / dof
+    write(*,'(A,ES10.3)') '   DOF/time =', dof / time
     write(*,*)
   end if
 

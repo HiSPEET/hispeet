@@ -66,7 +66,7 @@ program Validate__CART__TPO_Div
 
   ! operators ..................................................................
 
-  call standard_op % New(po)
+  standard_op = StandardOperators1D(po)
 
   ! generic operator procedure
   call TPO_Div_Assign(-1, DivOperator_Gen)

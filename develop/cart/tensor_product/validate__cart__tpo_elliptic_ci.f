@@ -69,7 +69,7 @@ program Validate__CART__TPO_Elliptic_CI
 
   ! operators ..................................................................
 
-  call standard_op % New(po)
+  standard_op = StandardOperators1D(po)
 
   ! generic operator procedure
   call TPO_Elliptic_CI_Assign(-np, EllipticOperator_Gen)

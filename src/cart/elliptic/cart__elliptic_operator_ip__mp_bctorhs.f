@@ -42,12 +42,9 @@ subroutine BcToRHS_CI(this, bv, f)
   real(RNP) :: cx(3), cf(3), mu(3)
   integer   :: b, e, i, j, k, l, s
 
-  select type(eop => this % eop)
-  class is (IP_ElementOperators1D)
-
-    associate( P  => eop % po , nu => this % nu_ci,     &
-               Ms => eop % w  , dx => this % mesh % dx, &
-               Ds => eop % D  , bc => this % bc         )
+    associate( P  => this % eop % po , nu => this % nu_ci,     &
+               Ms => this % eop % w  , dx => this % mesh % dx, &
+               Ds => this % eop % D  , bc => this % bc         )
 
       ! initialization .........................................................
 
@@ -62,9 +59,12 @@ subroutine BcToRHS_CI(this, bv, f)
       allocate(delta_P(0:P), source = [ (ZERO, i=1,P), ONE ])
 
       ! penalties
-      mu(1) = eop % PenaltyFactor(dx(1))
-      mu(2) = eop % PenaltyFactor(dx(2))
-      mu(3) = eop % PenaltyFactor(dx(3))
+      select type(eop => this % eop)
+      class is (IP_ElementOperators1D)
+        mu(1) = eop % PenaltyFactor(dx(1))
+        mu(2) = eop % PenaltyFactor(dx(2))
+        mu(3) = eop % PenaltyFactor(dx(3))
+      end select
 
       ! standard face mass matrix scaled with diffusivity
       allocate(Mf(0:P,0:P))
@@ -194,7 +194,6 @@ subroutine BcToRHS_CI(this, bv, f)
       end do Boundaries
 
     end associate
-  end select
 
 end subroutine BCtoRHS_CI
 
@@ -213,9 +212,6 @@ subroutine BcToRHS_VI(this, bv, f)
   real(RNP) :: cx(3), cf(3), mu(3)
   integer   :: b, e, i, j, k, l, s
 
-  select type(eop => this % eop)
-  class is (IP_ElementOperators1D)
-
     associate( P  => this % eop % po , nu => this % nu_vi,     &
                Ms => this % eop % w  , dx => this % mesh % dx, &
                Ds => this % eop % D  , bc => this % bc         )
@@ -233,9 +229,12 @@ subroutine BcToRHS_VI(this, bv, f)
       allocate(delta_P(0:P), source = [ (ZERO, i=1,P), ONE ])
 
       ! penalties
-      mu(1) = eop % PenaltyFactor(dx(1))
-      mu(2) = eop % PenaltyFactor(dx(2))
-      mu(3) = eop % PenaltyFactor(dx(3))
+      select type(eop => this % eop)
+      class is (IP_ElementOperators1D)
+        mu(1) = eop % PenaltyFactor(dx(1))
+        mu(2) = eop % PenaltyFactor(dx(2))
+        mu(3) = eop % PenaltyFactor(dx(3))
+      end select
 
       ! standard face mass matrix scaled with diffusivity
       allocate(Mf(0:P,0:P))
@@ -404,7 +403,6 @@ subroutine BcToRHS_VI(this, bv, f)
       end do Boundaries
 
     end associate
-  end select
 
 end subroutine BCtoRHS_VI
 

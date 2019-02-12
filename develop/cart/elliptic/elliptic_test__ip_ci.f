@@ -24,7 +24,8 @@ program Elliptic_Test__IP_CI
   use CART__Elliptic_PMG
 
   use Elliptic_Problem
-  use Elliptic_Problem__Simple
+  use Elliptic_Problem__Simple_2D
+  use Elliptic_Problem__Simple_3D
   use Elliptic_Problem__Knotty
 
   implicit none
@@ -36,15 +37,15 @@ program Elliptic_Test__IP_CI
 
   class(EllipticProblem), allocatable :: problem
 
-  integer   :: test    = 1       ! test case: 1 - simple, 2 - knotty
+  integer   :: test      = 1       ! test case: {1,2,3} = {simple 2d/3d, knotty}
 
-  real(RNP) :: lambda  = 0       ! Helmholtz parameter
-  real(RNP) :: nu      = 1       ! diffusivity
-  integer   :: k_u     = 1       ! solution wave number
+  real(RNP) :: lambda    = 0       ! Helmholtz parameter
+  real(RNP) :: nu        = 1       ! diffusivity
+  integer   :: k_u       = 1       ! solution wave number
 
-  real(RNP) :: xo(3)   = 0       ! corner closest to -infinity
-  real(RNP) :: lx(3)   = 2*PI    ! domain extensions
-  character :: bc(6)   = 'P'     ! boundary conditions {'P'|'D'|'N'}
+  real(RNP) :: xo(3)     = 0       ! corner closest to -infinity
+  real(RNP) :: lx(3)     = 2*PI    ! domain extensions
+  character :: bc(6)     = 'P'     ! boundary conditions {'P'|'D'|'N'}
 
   namelist /test_case/ test
   namelist /test_case/ lambda, nu, k_u
@@ -52,19 +53,20 @@ program Elliptic_Test__IP_CI
 
   ! discretization .............................................................
 
-  integer   :: np(3)   = 1       ! number of partitions in directions 1:3
-  integer   :: ep(3)   = 2       ! elements per partition and direction
-  integer   :: po      = 2       ! polynomial order
-  integer   :: penalty = 2       ! penalty parameter > 1
+  integer   :: np(3)     = 1       ! number of partitions in directions 1:3
+  integer   :: ep(3)     = 2       ! elements per partition and direction
+  integer   :: po        = 2       ! polynomial order
+  integer   :: penalty   = 2       ! penalty parameter > 1
+  logical   :: adjust_dx = .false. ! adjust mesh spacing: Δx₃ = max(Δx₁,Δx₂)
 
-  namelist /discretization/ np, ep, po, penalty
+  namelist /discretization/ np, ep, po, penalty, adjust_dx
 
   ! solution ...................................................................
 
-  integer   :: method  = 1       ! CG,, Schwarz, p-MG or p-MG/CG {1|2|3|4}
+  integer   :: method    = 1       ! CG,, Schwarz, p-MG or p-MG/CG {1|2|3|4}
 
-  integer   :: i_max   = huge(1) ! max number of iterations/cycles
-  real(RNP) :: r_red   = 1E-6    ! min residual reduction
+  integer   :: i_max     = huge(1) ! max number of iterations/cycles
+  real(RNP) :: r_red     = 1E-6    ! min residual reduction
 
   type(SchwarzOptions3D) :: schwarz_opt
   type(PMG_Options3D)    :: pmg_opt
@@ -172,17 +174,18 @@ program Elliptic_Test__IP_CI
   call XMPI_Bcast(bc     , 0, comm)
 
   ! discretization
-  call XMPI_Bcast(np     , 0, comm)
-  call XMPI_Bcast(ep     , 0, comm)
-  call XMPI_Bcast(po     , 0, comm)
-  call XMPI_Bcast(penalty, 0, comm)
+  call XMPI_Bcast(np        , 0, comm)
+  call XMPI_Bcast(ep        , 0, comm)
+  call XMPI_Bcast(po        , 0, comm)
+  call XMPI_Bcast(penalty   , 0, comm)
+  call XMPI_Bcast(adjust_dx , 0, comm)
 
   ! solver
-  call XMPI_Bcast(method , 0, comm)
+  call XMPI_Bcast(method, 0, comm)
 
   ! CG/Schwarz options
-  call XMPI_Bcast(i_max  , 0, comm)
-  call XMPI_Bcast(r_red  , 0, comm)
+  call XMPI_Bcast(i_max, 0, comm)
+  call XMPI_Bcast(r_red, 0, comm)
 
   ! Schwarz and PMG options
   call schwarz_opt % Bcast(0, comm)
@@ -194,10 +197,12 @@ program Elliptic_Test__IP_CI
   ! problem ....................................................................
 
   select case(test)
+  case(1)
+    allocate(EllipticProblem_Simple2D :: problem)
   case(2)
-    allocate(EllipticProblem_Knotty :: problem)
+    allocate(EllipticProblem_Simple3D :: problem)
   case default
-    allocate(EllipticProblem_Simple :: problem)
+    allocate(EllipticProblem_Knotty   :: problem)
   end select
 
   call problem % SetProblem(lambda, nu_0 = nu, k_u = k_u)
@@ -205,7 +210,11 @@ program Elliptic_Test__IP_CI
   ! mesh and variables .........................................................
 
   ! spacing
-  dx = lx/ (np * ep)
+  dx = lx / (np * ep)
+
+  if (adjust_dx) then
+    dx(3) = maxval(dx(1:2))
+  end if
 
   ! periodicity
   periodic(1) = all(bc(1:2) == 'P')
@@ -273,6 +282,17 @@ program Elliptic_Test__IP_CI
     pmg = PMG_Method3D(mesh, lambda, nu, bc, ip_opt, schwarz_opt, pmg_opt)
   end select
 
+  if (rank == 0) then
+    dof = product(np) * product(ep) * (po + 1)**3
+    write(*,'(/,A)') repeat('=',80)
+    write(*,'(A,/)') 'IP/DG Elliptic Solver with constant diffusivity'
+    write(*,'(2X,A,1X,I0)')        'P   = ', po
+    write(*,'(2X,A,1X,I0)')        'ne  = ', product(np) * product(ep)
+    write(*,'(2X,A,1X,I0)')        'DOF = ', dof
+    write(*,'(2X,A,3(ES12.5,1X))') 'dx  = ', dx
+    write(*,*)
+  end if
+
   ! operator ...................................................................
 
   if (rank == 0) then
@@ -303,9 +323,8 @@ program Elliptic_Test__IP_CI
     time = MPI_Wtime()
     time = (time - time0) / nt
     dof  = product(np) * product(ep) * (po + 1)**3
-    write(*,'(A,1X,I0,A,ES10.3,A)') 'dof      =', dof, ' (', real(dof), ' )'
-    write(*,'(A,ES10.3)')           'time/dof =', time / dof
-    write(*,'(A,ES10.3)')           'dof/time =', dof / time
+    write(*,'(2X,A,ES10.3)') 'time/DOF =', time / dof
+    write(*,'(2X,A,ES10.3)') 'DOF/time =', dof / time
   end if
 
   ! residual ...................................................................
@@ -331,7 +350,7 @@ program Elliptic_Test__IP_CI
   call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
 
   if (rank == 0) then
-    write(*,'(A,ES10.3)')  'consistency:  r_max =', r_max
+    write(*,'(2X,A,ES10.3)') 'consistency:  r_max =', r_max
   end if
 
   ! solution ...................................................................
@@ -365,7 +384,7 @@ program Elliptic_Test__IP_CI
   end if
   call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
   if (rank == 0) then
-    write(*,'(A,ES10.3)') 'initial residual:  r_0   =', r_max
+    write(*,'(2X,A,ES10.3)') 'initial residual:  r_0   =', r_max
   end if
 
   !$acc end data
@@ -414,10 +433,9 @@ program Elliptic_Test__IP_CI
     write(*,'(A,ES10.3)') '   r_max =', r_max
     write(*,'(A,ES10.3)') '   e_max =', (e_max - e_min)/2
     write(*,'(/,A)')      'performance:'
-    write(*,'(A,1X,I0)')  '   dof      =', dof
     write(*,'(A,ES10.3)') '   time     =', time
-    write(*,'(A,ES10.3)') '   time/dof =', time / dof
-    write(*,'(A,ES10.3)') '   dof/time =', dof / time
+    write(*,'(A,ES10.3)') '   time/DOF =', time / dof
+    write(*,'(A,ES10.3)') '   DOF/time =', dof / time
     write(*,*)
   end if
 

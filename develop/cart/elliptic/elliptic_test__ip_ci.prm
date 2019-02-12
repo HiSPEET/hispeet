@@ -1,5 +1,5 @@
 &test_case
- test   = 2  ! 1: simple, 2: knotty
+ test   = 2  ! {1,2,3} = {simple 2d/3d, knotty}
  lambda = 1
  nu     = 1
  k_u    = 1

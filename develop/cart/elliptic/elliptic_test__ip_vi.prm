@@ -1,5 +1,5 @@
 &test_case
- test   = 1
+ test   = 2  ! {1,2,3} = {simple 2d/3d, knotty}
  lambda = 1
  nu_1   = 0.1
  k_nu   = 1
@@ -28,15 +28,21 @@
 &solver_schwarz
  i_max  = 100                    ! [ huge(1) ]
  r_red  = 1E-3                   ! [ 1E-6    ]
- schwarz_opt%delta     = 3*0.08  ! [ 3*0.125]
+ schwarz_opt%delta     = 3*0.125 ! [ 3*0.125]
  schwarz_opt%no_min    = 1       ! [ 1 ]
  schwarz_opt%weighting = 5       ! [ 5 ]
 /
 
 &solver_pmg
+
+ schwarz_opt%delta     = 3*0.125 ! [ 3*0.125]
+ schwarz_opt%no_min    = 1       ! [ 1 ]
+ schwarz_opt%weighting = 5       ! [ 5 ]
+
  pmg_opt%po_top  =  16
  pmg_opt%po_bot  =  1
  pmg_opt%i_max   =  4
+ pmg_opt%mvs     =  1
  pmg_opt%r_red   =  1e-10
  pmg_opt%r_max   = -1e-10
  pmg_opt%dr_min  = -1e-10

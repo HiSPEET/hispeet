@@ -27,7 +27,7 @@ program Validate__CART__TPO_Spectral
 
   ! operators and variables ....................................................
 
-  type(StandardOperators1D) :: sop(3)
+  type(StandardOperators1D) :: standard_op(3)
 
   procedure(TPO_Spectral_Proc), pointer :: SpectralOperator_Gen ! generic
   procedure(TPO_Spectral_Proc), pointer :: SpectralOperator_Par ! parametrized
@@ -88,14 +88,14 @@ program Validate__CART__TPO_Spectral
   ! 1D operators ...............................................................
 
   ! standard operators
-  call sop(1) % New(pa)
-  call sop(2) % New(pb)
-  call sop(3) % New(pc)
+  standard_op(1) = StandardOperators1D(pa)
+  standard_op(2) = StandardOperators1D(pb)
+  standard_op(3) = StandardOperators1D(pc)
 
   ! 1D eigenvalues and eigenvectors
-  call SolveGeneralizedEigenproblem(sop(1)%L, sop(1)%w, lambda_A, A)
-  call SolveGeneralizedEigenproblem(sop(2)%L, sop(2)%w, lambda_B, B)
-  call SolveGeneralizedEigenproblem(sop(3)%L, sop(3)%w, lambda_C, C)
+  call SolveGeneralizedEigenproblem(standard_op(1)%L, standard_op(1)%w, lambda_A, A)
+  call SolveGeneralizedEigenproblem(standard_op(2)%L, standard_op(2)%w, lambda_B, B)
+  call SolveGeneralizedEigenproblem(standard_op(3)%L, standard_op(3)%w, lambda_C, C)
 
   ! diagonal operator
   do k = 1, nc
@@ -112,9 +112,9 @@ program Validate__CART__TPO_Spectral
   call random_number(w)
 
   ! operand: u = H^e w
-  associate( M1 => sop(1)%w, L1 => sop(1)%L, &
-             M2 => sop(2)%w, L2 => sop(2)%L, &
-             M3 => sop(3)%w, L3 => sop(3)%L  )
+  associate( M1 => standard_op(1)%w, L1 => standard_op(1)%L, &
+             M2 => standard_op(2)%w, L2 => standard_op(2)%L, &
+             M3 => standard_op(3)%w, L3 => standard_op(3)%L  )
 
     do e = 1, ne
 

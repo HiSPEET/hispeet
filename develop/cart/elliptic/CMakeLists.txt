@@ -17,8 +17,9 @@ configure_file( elliptic_test.prm
 add_executable( elliptic_test__ip_ci
                 elliptic_test__ip_ci.f
                 elliptic_problem.f
-                elliptic_problem__knotty.f
-                elliptic_problem__simple.f )
+                elliptic_problem__simple_2d.f
+                elliptic_problem__simple_3d.f
+                elliptic_problem__knotty.f    )
 
 target_link_libraries( elliptic_test__ip_ci HiCart )
 
@@ -30,8 +31,9 @@ configure_file( elliptic_test__ip_ci.prm
 add_executable( elliptic_test__ip_vi
                 elliptic_test__ip_vi.f
                 elliptic_problem.f
-                elliptic_problem__knotty.f
-                elliptic_problem__simple.f )
+                elliptic_problem__simple_2d.f
+                elliptic_problem__simple_3d.f
+                elliptic_problem__knotty.f    )
 
 target_link_libraries( elliptic_test__ip_vi HiCart )
 

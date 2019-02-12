@@ -66,7 +66,7 @@ program Validate__CART__TPO_Grad
 
   ! operators ..................................................................
 
-  call standard_op % New(po)
+  standard_op = StandardOperators1D(po)
 
   ! generic operator procedure
   call TPO_Grad_Assign(-1, GradOperator_Gen)
