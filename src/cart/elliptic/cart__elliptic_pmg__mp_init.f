@@ -99,23 +99,30 @@ module subroutine Init__IP_VI( this, mesh, lambda, nu, bc,  &
   ns1 = pmg_opt % ns1
   ns2 = pmg_opt % ns2
 
-  if (l_top > 0) then
+  if (l_top > 0) then ! multi-level
+
+    ! top level
     call this % level(l_top) % Init_TopLevel( ns1, ns2, mesh, lambda, nu, bc,  &
                                               ip_opt, schwarz_opt, po(l_top-1) )
-  else
-    call this % level(l_top) % Init_TopLevel( ns1, ns2, mesh, lambda, nu, bc,  &
-                                              ip_opt, schwarz_opt              )
+
+    ! intermediate levels
+    do l = l_top-1, 1, -1
+      ns1 = ns1 * pmg_opt % mvs
+      ns2 = ns2 * pmg_opt % mvs
+      call this % level(l) % Init_CoarseLevel( po(l), ns1, ns2,     &
+                                               this%level(l+1),     &
+                                               schwarz_opt, po(l-1) )
+    end do
+
+    ! bottom level
+    call this % level(0) % Init_CoarseLevel( po(0), ns1, ns2, this%level(1), &
+                                             schwarz_opt                     )
+
+  else ! single-level
+
+    call this % level(0) % Init_TopLevel( ns1, ns2, mesh, lambda, nu, bc,  &
+                                          ip_opt, schwarz_opt              )
   end if
-
-  do l = l_top-1, 1, -1
-    ns1 = ns1 * pmg_opt % mvs
-    ns2 = ns2 * pmg_opt % mvs
-    call this % level(l) % Init_CoarseLevel( po(l), ns1, ns2, this%level(l+1), &
-                                             schwarz_opt, po(l-1)              )
-  end do
-
-  call this % level(0) % Init_CoarseLevel( po(0), ns1, ns2, this%level(1), &
-                                           schwarz_opt                     )
 
 end subroutine Init__IP_VI
 
@@ -123,8 +130,8 @@ end subroutine Init__IP_VI
 !> Assignment of options to PMG_Method3D object
 
 subroutine Assign_PMG_Options(opt, pmg)
-  class(PMG_Options3D),       intent(in)    :: opt
-  class(PMG_Method3D), intent(inout) :: pmg
+  class(PMG_Options3D), intent(in)    :: opt
+  class(PMG_Method3D),  intent(inout) :: pmg
 
   pmg % i_max   = opt % i_max
   pmg % r_red   = opt % r_red

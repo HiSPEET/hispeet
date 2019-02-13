@@ -56,6 +56,7 @@ module CART__Elliptic_PMG
     procedure, private :: Init__IP_VI
 
     procedure :: MG_Solver
+    procedure :: MG_CG_Solver
 
   end type PMG_Method3D
 
@@ -286,6 +287,158 @@ subroutine MG_Solver(this, u, f, ni, r_2)
   end associate
 
 end subroutine MG_Solver
+
+!-------------------------------------------------------------------------------
+!> p-MG/CG solver
+
+subroutine MG_CG_Solver(this, u, f, ni, r_2, i_max)
+  class(PMG_Method3D), intent(inout) :: this
+  real(RNP),           intent(inout) :: u(:,:,:,:) !< approx/final solution
+  real(RNP),           intent(in)    :: f(:,:,:,:) !< RHS
+  integer,   optional, intent(out)   :: ni         !< number of executed cycles
+  real(RNP), optional, intent(out)   :: r_2        !< L2 norm of residual
+  integer,   optional, intent(in)    :: i_max      !< overrides preset num cycles
+
+  ! local data .................................................................
+
+  real(RNP), dimension(:,:,:,:), allocatable, save :: p, q, r, s, z
+  logical,   save :: converged
+
+  logical   :: check_convergence, singular
+  real(RNP) :: dr_min, r_max, r_new, r_old, rr
+  real(RNP) :: alpha, beta, delta
+  integer   :: i, i_max_, l_top
+
+  ! prerequisites ..............................................................
+
+  l_top = ubound(this%level,1)
+
+  check_convergence = max(this%r_red, this%r_max, this%dr_min) > 0
+
+  ! workspace
+  !$omp single
+  allocate(p, mold=u)
+  allocate(q, mold=u)
+  allocate(r, mold=u)
+  allocate(s, mold=u)
+  allocate(z, mold=u)
+  !$omp end single
+
+  associate( elliptic_op => this % level( l_top ) % elliptic_op, &
+             u_top       => this % level( l_top ) % u,           &
+             f_top       => this % level( l_top ) % f,           &
+             mesh        => this % mesh                          )
+
+    ! initialization ...........................................................
+
+    singular = elliptic_op % lambda == 0 .and. all(elliptic_op % bc == 'D')
+
+    ! initial residual
+    call elliptic_op % Residual(u, f, r)
+
+    ! termination conditions
+    if (check_convergence) then
+      rr = ScalarProduct(r, r, mesh%comm)
+      r_old  = sqrt(rr)
+      r_max  = max(r_old * this%r_red, this%r_max)
+      dr_min = this%dr_min
+      !$omp master
+      converged = r_old < r_max
+      call XMPI_Bcast(converged, root=0, comm=mesh%comm)
+      !$omp end master
+      !$omp barrier
+    else
+      !$omp single
+      converged = .false.
+      !$omp end single
+    end if
+
+    if (converged) then
+      i_max_ = 0
+      i      = 0
+      r_new  = r_old
+    else if (present(i_max)) then
+      i_max_ = i_max
+    else
+      i_max_ = this % i_max
+    end if
+
+    ! iteration ................................................................
+
+    do i = 1, i_max_
+
+      ! MG preconditioner: z = MG(r, 0)
+      call AssignScalar(u_top, ZERO)                      ! u_L = 0
+      call AssignArray(f_top, r)                          ! f_L = r
+      call V_Cycle(this)                                  ! u_L = MG(r, 0)
+      call AssignArray(z, u_top)                          ! z = u_L
+
+      ! set/update search vector
+      if (i == 1) then
+        if (singular) then
+          call CalibrateArray(z, mesh%comm)
+        end if
+        call AssignArray(p, z)                            ! p = z
+      else
+        call AssignArray(q, r)                            ! q = r
+        call MergeArrays(ONE, q, -ONE, s)                 ! q = r - s
+        beta = ScalarProduct(q, z, mesh%comm) / delta
+        call MergeArrays(beta, p, ONE, z)                 ! p = beta p + z
+      end if
+
+      ! save old residual
+      call AssignArray(s, r)
+
+      ! correction
+      call elliptic_op % Apply(p, q)
+      delta = ScalarProduct(r, z, mesh%comm)
+      alpha = delta / ScalarProduct(p, q, mesh%comm)
+      call MergeArrays(ONE, u,  alpha, p)                 ! u = u + alpha p
+      call MergeArrays(ONE, r, -alpha, q)                 ! r = r - alpha q
+
+      if (check_convergence) then
+
+        r_new = sqrt( ScalarProduct(r, r, mesh%comm) )
+
+        converged = r_new <= r_max .or. abs(r_new - r_old) <= dr_min
+
+        !$omp master
+        call XMPI_Bcast(converged, root=0, comm=mesh%comm)
+        !$omp end master
+        !$omp barrier
+
+        r_old = r_new
+      end if
+
+      if (converged .or. i == this%i_max) exit
+
+    end do
+
+    ! finalization .............................................................
+
+    if (present(ni)) then
+      !$omp master
+      ni = i
+      !$omp end master
+    end if
+
+    if (present(r_2)) then
+      if (.not. check_convergence) then
+        r_new = sqrt( ScalarProduct(r, r, mesh%comm) )
+      end if
+      !$omp master
+      r_2 = r_new
+      !$omp end master
+    end if
+
+  end associate
+
+  !$omp barrier
+  !$omp master
+  deallocate(p, q, r, s, z)
+  !$omp end master
+
+end subroutine MG_CG_Solver
 
 !===============================================================================
 ! PMG_Method3D: helpers

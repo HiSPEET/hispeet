@@ -11,6 +11,7 @@ program Elliptic_Test__IP_CI
   use Kind_Parameters, only: RDP, RNP, IXL
   use Constants, only: PI, ZERO, ONE
   use Array_Assignments
+  use Array_Reductions
   use TPO_sDDD
   use XMPI
   use IP_Element_Operators_1D
@@ -121,7 +122,7 @@ program Elliptic_Test__IP_CI
   type(BoundaryVariable) :: bv(6)
   real(RNP), allocatable :: grad_u(:,:,:,:,:)
   real(RNP), allocatable :: laplace_u(:,:,:,:)
-  real(RNP) :: r_max, r_max_loc
+  real(RNP) :: r_max, r_max_loc, r_l2, r_l2_0
   real(RNP) :: e_min, e_min_loc
   real(RNP) :: e_max, e_max_loc
   real(RNP) :: c0
@@ -157,6 +158,7 @@ program Elliptic_Test__IP_CI
         read(prm, nml=solver_schwarz)
       case(3,4)
         read(prm, nml=solver_pmg)
+        pmg_opt % po_top = po
       end select
       read(prm, nml=control)
       close(prm)
@@ -331,13 +333,15 @@ program Elliptic_Test__IP_CI
 
   if (rank == 0) then
     write(*,'(/,A)') repeat('-',80)
-    write(*,'(A,/)') 'IP/DG EllipticOperator: Residual'
+    write(*,'(A,/)') 'IP/DG EllipticOperator: Residual of exact solution'
   end if
 
   !$omp parallel
   !$acc data copyin(u,f) copyout(r)
 
   call elliptic_op % Residual(u, f, r)
+  r_l2 = ScalarProduct(r, r, mesh%comm)
+  r_l2 = sqrt(r_l2)
 
   !$acc end data
   !$omp end parallel
@@ -350,7 +354,8 @@ program Elliptic_Test__IP_CI
   call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
 
   if (rank == 0) then
-    write(*,'(2X,A,ES10.3)') 'consistency:  r_max =', r_max
+    write(*,'(2X,A,ES10.3)') 'r_L2  =', r_l2
+    write(*,'(2X,A,ES10.3)') 'r_max =', r_max
   end if
 
   ! solution ...................................................................
@@ -377,6 +382,8 @@ program Elliptic_Test__IP_CI
   u = 2*u - 1
 
   call elliptic_op % Residual(u, f, r)
+  r_l2_0 = ScalarProduct(r, r, mesh%comm)
+  r_l2_0 = sqrt(r_l2_0)
   if (mesh%part >= 0) then
     r_max_loc = maxval(abs(r))
   else
@@ -384,7 +391,13 @@ program Elliptic_Test__IP_CI
   end if
   call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
   if (rank == 0) then
-    write(*,'(2X,A,ES10.3)') 'initial residual:  r_0   =', r_max
+    write(*,'(A)') 'initial residual:'
+    write(*,'(2X,A,ES10.3)') 'r_L2  =', r_l2_0
+    write(*,'(2X,A,ES10.3)') 'r_max =', r_max
+    select case(method)
+    case(3:4)
+      if (pmg_opt % monitor) write(*,*)
+    end select
   end if
 
   !$acc end data
@@ -402,8 +415,7 @@ program Elliptic_Test__IP_CI
   case(3) ! p-MG method
     call pmg % MG_Solver(u, f, ni=ni)
   case(4) ! p-MG/CG method
-     ni = 0
-     u  = 0
+    call pmg % MG_CG_Solver(u, f, ni=ni)
   end select
 
   if (rank == 0) then
@@ -412,6 +424,8 @@ program Elliptic_Test__IP_CI
   end if
 
   call elliptic_op % Residual(u, f, r)
+  r_l2 = ScalarProduct(r, r, mesh%comm)
+  r_l2 = sqrt(r_l2)
 
   if (mesh%part >= 0) then
     r_max_loc = maxval(abs(r))
@@ -430,8 +444,12 @@ program Elliptic_Test__IP_CI
   if (rank == 0) then
     write(*,'(/,A)')      'solution:'
     write(*,'(A,1X,I0)')  '   ni    =', ni
+    write(*,'(A,ES10.3)') '   r_L2  =', r_l2
     write(*,'(A,ES10.3)') '   r_max =', r_max
     write(*,'(A,ES10.3)') '   e_max =', (e_max - e_min)/2
+    if (ni > 0) then
+      write(*,'(A,ES10.3)') '   -lg ρ =', log10(r_l2_0 / r_l2) / ni
+    end if
     write(*,'(/,A)')      'performance:'
     write(*,'(A,ES10.3)') '   time     =', time
     write(*,'(A,ES10.3)') '   time/DOF =', time / dof
