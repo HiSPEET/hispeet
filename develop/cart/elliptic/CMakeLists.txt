@@ -17,6 +17,7 @@ configure_file( elliptic_test.prm
 add_executable( elliptic_test__ip_ci
                 elliptic_test__ip_ci.f
                 elliptic_problem.f
+                elliptic_problem__simple_1d.f
                 elliptic_problem__simple_2d.f
                 elliptic_problem__simple_3d.f
                 elliptic_problem__knotty.f    )

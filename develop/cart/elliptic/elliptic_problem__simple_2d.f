@@ -1,4 +1,4 @@
-!> summary:  Defines a simple periodic test problem
+!> summary:  Defines a simple periodic 2D test problem
 !> author:   Joerg Stiller
 !> date:     2019/01/27
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -14,7 +14,7 @@ module Elliptic_Problem__Simple_2D
   public :: EllipticProblem_Simple2D
 
   !-----------------------------------------------------------------------------
-  !> Type defining a more difficult problem (pseudo-turbulent pressure)
+  !> Type defining a 2D test problem
 
   type, extends(EllipticProblem) :: EllipticProblem_Simple2D
   contains
@@ -198,6 +198,7 @@ subroutine GetDiffusivity_X(nu_0, nu_1, k, d, n, x, nu)
     x2 = x(i,2)
 
     nu(i) = nu_0  +  nu_1 * sin(k * (x1 - d)) * sin(k * (x2 - d))
+
   end do
 
 end subroutine GetDiffusivity_X

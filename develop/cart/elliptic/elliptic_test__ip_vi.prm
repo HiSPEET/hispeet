@@ -1,5 +1,5 @@
 &test_case
- test   = 2  ! {1,2,3} = {simple 2d/3d, knotty}
+ test   = 2  ! {1,2,3,4} = {simple 1d/2d/3d, knotty}
  lambda = 1
  nu_1   = 0.1
  k_nu   = 1
@@ -57,6 +57,6 @@
 /
 
 &control
-!plot_file = 'result'
+!plot_file = 'elliptic_test__ip_vi'
 /
 
