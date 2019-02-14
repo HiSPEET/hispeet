@@ -39,7 +39,7 @@ subroutine GetExactSolution(k, n, x, u)
     x2 = x(i,2)
     x3 = x(i,3)
 
-    u(i) = sin(k * x1) * sin(k * x2)
+    u(i) = sin(k * x1) * sin(k * x2) * sin(k * x3)
 
   end do
 
@@ -63,9 +63,9 @@ subroutine GetExactGradient(k, n, x, grad_u)
     x2 = x(i,2)
     x3 = x(i,3)
 
-    grad_u(i,1) = -k * cos(k * x1) * sin(k * x2)
-    grad_u(i,2) = -k * sin(k * x1) * cos(k * x2)
-    grad_u(i,3) =  0
+    grad_u(i,1) = -k * cos(k * x1) * sin(k * x2) * sin(k * x3)
+    grad_u(i,2) = -k * sin(k * x1) * cos(k * x2) * sin(k * x3)
+    grad_u(i,3) = -k * sin(k * x1) * sin(k * x2) * cos(k * x3)
 
   end do
 
@@ -89,7 +89,7 @@ subroutine GetExactLaplacian(k, n, x, laplace_u)
     x2 = x(i,2)
     x3 = x(i,3)
 
-    laplace_u(i) = -2*k*k * (sin(k * x1) * sin(k * x2))
+    laplace_u(i) = -3*k*k * (sin(k * x1) * sin(k * x2) * sin(k * x3))
 
   end do
 
