@@ -43,8 +43,8 @@ subroutine EllipticOperator(mesh, eops, lambda, nu, bc, u, v)
   ! evaluation .................................................................
 
   if (mesh%structured) then
-   ! call EllipticOperator_S(mesh, eops, lambda, nu, bc, u, v)
-    call EllipticOperator_U(mesh, eops, lambda, nu, bc, u, v)
+    call EllipticOperator_S(mesh, eops, lambda, nu, bc, u, v)
+   !call EllipticOperator_U(mesh, eops, lambda, nu, bc, u, v)
   else
     call EllipticOperator_U(mesh, eops, lambda, nu, bc, u, v)
   end if
