@@ -333,7 +333,7 @@ program Elliptic_Test__IP_CI
 
   if (rank == 0) then
     write(*,'(/,A)') repeat('-',80)
-    write(*,'(A,/)') 'IP/DG EllipticOperator: Residual of exact solution'
+    write(*,'(A,/)') 'IP/DG EllipticOperator: Consistency'
   end if
 
   !$omp parallel
