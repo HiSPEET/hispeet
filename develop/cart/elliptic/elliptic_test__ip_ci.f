@@ -25,6 +25,7 @@ program Elliptic_Test__IP_CI
   use CART__Elliptic_PMG
 
   use Elliptic_Problem
+  use Elliptic_Problem__Simple_1D
   use Elliptic_Problem__Simple_2D
   use Elliptic_Problem__Simple_3D
   use Elliptic_Problem__Knotty
@@ -38,7 +39,7 @@ program Elliptic_Test__IP_CI
 
   class(EllipticProblem), allocatable :: problem
 
-  integer   :: test      = 1       ! test case: {1,2,3} = {simple 2d/3d, knotty}
+  integer   :: test      = 1       ! case {1,2,3,4} = {simple 1d/2d/3d, knotty}
 
   real(RNP) :: lambda    = 0       ! Helmholtz parameter
   real(RNP) :: nu        = 1       ! diffusivity
@@ -200,8 +201,10 @@ program Elliptic_Test__IP_CI
 
   select case(test)
   case(1)
-    allocate(EllipticProblem_Simple2D :: problem)
+    allocate(EllipticProblem_Simple1D :: problem)
   case(2)
+    allocate(EllipticProblem_Simple2D :: problem)
+  case(3)
     allocate(EllipticProblem_Simple3D :: problem)
   case default
     allocate(EllipticProblem_Knotty   :: problem)

@@ -105,9 +105,9 @@ subroutine GetExactGradient_X(k, n, x, grad_u)
     x1 = x(i,1)
     x2 = x(i,2)
 
-    grad_u(i,1) = -k * cos(k * x1) * sin(k * x2)
-    grad_u(i,2) = -k * sin(k * x1) * cos(k * x2)
-    grad_u(i,3) =  0
+    grad_u(i,1) = k * cos(k * x1) * sin(k * x2)
+    grad_u(i,2) = k * sin(k * x1) * cos(k * x2)
+    grad_u(i,3) = 0
 
   end do
 
@@ -248,9 +248,9 @@ subroutine GetDiffusivityGradient_X(nu_1, k, d, n, x, grad_nu)
     s2 = sin(k * (x(i,2) - d))
     c2 = cos(k * (x(i,2) - d))
 
-    grad_nu(i,1) = -k * nu_1 * c1 * s2
-    grad_nu(i,2) = -k * nu_1 * s1 * c2
-    grad_nu(i,3) =  0
+    grad_nu(i,1) = k * nu_1 * c1 * s2
+    grad_nu(i,2) = k * nu_1 * s1 * c2
+    grad_nu(i,3) = 0
 
   end do
 

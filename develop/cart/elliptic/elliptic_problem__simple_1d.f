@@ -97,7 +97,7 @@ subroutine GetExactGradient_X(k, n, x, grad_u)
 
   do i = 1, n
 
-    grad_u(i,1) = -k * cos(k * x(i,1))
+    grad_u(i,1) =  k * cos(k * x(i,1))
     grad_u(i,2) =  0
     grad_u(i,3) =  0
 
@@ -220,15 +220,11 @@ subroutine GetDiffusivityGradient_X(nu_1, k, d, n, x, grad_nu)
   real(RNP), intent(in)  :: x(n,3)        !< mesh points
   real(RNP), intent(out) :: grad_nu(n,3)  !< diffusivity gradient ∇ν(x)
 
-  real(RNP) :: s1, c1
   integer   :: i
 
   do i = 1, n
 
-    s1 = sin(k * (x(i,1) - d))
-    c1 = cos(k * (x(i,1) - d))
-
-    grad_nu(i,1) = -k * nu_1 * c1 * s2
+    grad_nu(i,1) =  k * nu_1 * cos(k * (x(i,1) - d))
     grad_nu(i,2) =  0
     grad_nu(i,3) =  0
 
