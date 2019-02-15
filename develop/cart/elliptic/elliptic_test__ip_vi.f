@@ -477,6 +477,39 @@ program Elliptic_Test__IP_VI
                                 file   = trim(plot_file), &
                                 part   = mesh%part,       &
                                 n_part = mesh%n_part      )
+
+    !### CHECK
+    block
+      integer :: l, pl
+      real(RNP), allocatable :: xl(:,:,:,:,:), vl(:,:,:,:,:)
+      character(len=2) :: vl_names(4) = [ 'u ', 'f ', 'v ', 'nu' ]
+      select case(method)
+      case(3,4)
+        do l = 0, ubound(pmg % level,1)
+          pl = pmg % level(l) % po
+          write(plot_file, '(A,I0)') 'elliptic_test__ip_vi_', l
+          print '(2(A,I0))', 'level = ',l,': P_l = ', pl
+          allocate(xl(0:pl,0:pl,0:pl,mesh%ne,4))
+          allocate(vl(0:pl,0:pl,0:pl,mesh%ne,4))
+          call mesh % GetPoints(pl, 'GLL', xl)
+          vl(:,:,:,:,1) = pmg % level(l) % u
+          vl(:,:,:,:,2) = pmg % level(l) % f
+          vl(:,:,:,:,3) = pmg % level(l) % v
+          if (allocated(pmg % level(l) % elliptic_op % nu_vi)) then
+            vl(:,:,:,:,4) = pmg % level(l) % elliptic_op % nu_vi
+          else
+            vl(:,:,:,:,4) = 0
+          end if
+          call ExportVolumeDataToVTK( pl, mesh%ne, 4, 0, xl, vl, vl_names, &
+                                      file   = trim(plot_file),            &
+                                      part   = mesh%part,                  &
+                                      n_part = mesh%n_part                 )
+          deallocate(xl, vl)
+        end do
+      end select
+    end block
+    !### CHECK END
+
   end if
 
   !-----------------------------------------------------------------------------
