@@ -125,10 +125,10 @@ end subroutine BcastX2
 !> Ibcast for scalar buffers
 
 subroutine IbcastX0(buffer, root, comm, request)
-  real(RNP),         intent(inout) :: buffer   !< buffer
-  integer,           intent(in)    :: root     !< rank of broadcast root
-  type(MPI_Comm),    intent(in)    :: comm     !< communicator
-  type(MPI_Request), intent(out)   :: request  !< request
+  real(RNP), asynchronous, intent(inout) :: buffer   !< buffer
+  integer,                 intent(in)    :: root     !< rank of broadcast root
+  type(MPI_Comm),          intent(in)    :: comm     !< communicator
+  type(MPI_Request),       intent(out)   :: request  !< request
 
   call MPI_Ibcast(buffer, 1, MPI_REAL_RNP, root, comm, request)
 
@@ -138,10 +138,10 @@ end subroutine IbcastX0
 !> Ibcast for 1D buffers
 
 subroutine IbcastX1(buffer, root, comm, request)
-  real(RNP),         intent(inout) :: buffer(:) !< buffer
-  integer,           intent(in)    :: root      !< rank of broadcast root
-  type(MPI_Comm),    intent(in)    :: comm      !< communicator
-  type(MPI_Request), intent(out)   :: request   !< request
+  real(RNP), asynchronous, intent(inout) :: buffer(:) !< buffer
+  integer,                 intent(in)    :: root      !< rank of broadcast root
+  type(MPI_Comm),          intent(in)    :: comm      !< communicator
+  type(MPI_Request),       intent(out)   :: request   !< request
 
   call MPI_Ibcast(buffer, size(buffer), MPI_REAL_RNP, root, comm, request)
 
@@ -151,10 +151,10 @@ end subroutine IbcastX1
 !> Ibcast for 2D buffers
 
 subroutine IbcastX2(buffer, root, comm, request)
-  real(RNP),         intent(inout) :: buffer(:,:) !< buffer
-  integer,           intent(in)    :: root        !< rank of broadcast root
-  type(MPI_Comm),    intent(in)    :: comm        !< communicator
-  type(MPI_Request), intent(out)   :: request     !< request
+  real(RNP), asynchronous, intent(inout) :: buffer(:,:) !< buffer
+  integer,                 intent(in)    :: root        !< rank of broadcast root
+  type(MPI_Comm),          intent(in)    :: comm        !< communicator
+  type(MPI_Request),       intent(out)   :: request     !< request
 
   call MPI_Ibcast(buffer, size(buffer), MPI_REAL_RNP, root, comm, request)
 
@@ -167,11 +167,11 @@ end subroutine IbcastX2
 !> Isend for scalar buffers
 
 subroutine IsendX0(buffer, dest, tag, comm, request)
-  real(RNP),         intent(in)  :: buffer   !< send buffer
-  integer,           intent(in)  :: dest     !< rank of the receiver
-  integer,           intent(in)  :: tag      !< message tag
-  type(MPI_Comm),    intent(in)  :: comm     !< communicator
-  type(MPI_Request), intent(out) :: request  !< request
+  real(RNP), asynchronous, intent(in)  :: buffer   !< send buffer
+  integer,                 intent(in)  :: dest     !< rank of receiver
+  integer,                 intent(in)  :: tag      !< message tag
+  type(MPI_Comm),          intent(in)  :: comm     !< communicator
+  type(MPI_Request),       intent(out) :: request  !< request
 
   call MPI_Isend(buffer, 1, MPI_REAL_RNP, dest, tag, comm, request)
 
@@ -181,11 +181,11 @@ end subroutine IsendX0
 !> Isend for 1D buffers
 
 subroutine IsendX1(buffer, dest, tag, comm, request)
-  real(RNP),         intent(in)  :: buffer(:) !< send buffer
-  integer,           intent(in)  :: dest      !< rank of the receiver
-  integer,           intent(in)  :: tag       !< message tag
-  type(MPI_Comm),    intent(in)  :: comm      !< communicator
-  type(MPI_Request), intent(out) :: request   !< request
+  real(RNP), asynchronous, intent(in)  :: buffer(:) !< send buffer
+  integer,                 intent(in)  :: dest      !< rank of receiver
+  integer,                 intent(in)  :: tag       !< message tag
+  type(MPI_Comm),          intent(in)  :: comm      !< communicator
+  type(MPI_Request),       intent(out) :: request   !< request
 
   call MPI_Isend(buffer, size(buffer), MPI_REAL_RNP, dest, tag, comm, request)
 
@@ -195,11 +195,11 @@ end subroutine IsendX1
 !> Isend for 2D buffers
 
 subroutine IsendX2(buffer, dest, tag, comm, request)
-  real(RNP),         intent(in)  :: buffer(:,:) !< send buffer
-  integer,           intent(in)  :: dest        !< rank of the receiver
-  integer,           intent(in)  :: tag         !< message tag
-  type(MPI_Comm),    intent(in)  :: comm        !< communicator
-  type(MPI_Request), intent(out) :: request     !< request
+  real(RNP), asynchronous, intent(in)  :: buffer(:,:) !< send buffer
+  integer,                 intent(in)  :: dest        !< rank of receiver
+  integer,                 intent(in)  :: tag         !< message tag
+  type(MPI_Comm),          intent(in)  :: comm        !< communicator
+  type(MPI_Request),       intent(out) :: request     !< request
 
   call MPI_Isend(buffer, size(buffer), MPI_REAL_RNP, dest, tag, comm, request)
 
@@ -209,11 +209,11 @@ end subroutine IsendX2
 !> Isend for 3D buffers
 
 subroutine IsendX3(buffer, dest, tag, comm, request)
-  real(RNP),         intent(in)  :: buffer(:,:,:) !< send buffer
-  integer,           intent(in)  :: dest          !< rank of the receiver
-  integer,           intent(in)  :: tag           !< message tag
-  type(MPI_Comm),    intent(in)  :: comm          !< communicator
-  type(MPI_Request), intent(out) :: request       !< request
+  real(RNP), asynchronous, intent(in)  :: buffer(:,:,:) !< send buffer
+  integer,                 intent(in)  :: dest          !< rank of receiver
+  integer,                 intent(in)  :: tag           !< message tag
+  type(MPI_Comm),          intent(in)  :: comm          !< communicator
+  type(MPI_Request),       intent(out) :: request       !< request
 
   call MPI_Isend(buffer, size(buffer), MPI_REAL_RNP, dest, tag, comm, request)
 
@@ -223,11 +223,11 @@ end subroutine IsendX3
 !> Isend for 4D buffers
 
 subroutine IsendX4(buffer, dest, tag, comm, request)
-  real(RNP),         intent(in)  :: buffer(:,:,:,:) !< send buffer
-  integer,           intent(in)  :: dest            !< rank of the receiver
-  integer,           intent(in)  :: tag             !< message tag
-  type(MPI_Comm),    intent(in)  :: comm            !< communicator
-  type(MPI_Request), intent(out) :: request         !< request
+  real(RNP), asynchronous, intent(in)  :: buffer(:,:,:,:) !< send buffer
+  integer,                 intent(in)  :: dest            !< rank of receiver
+  integer,                 intent(in)  :: tag             !< message tag
+  type(MPI_Comm),          intent(in)  :: comm            !< communicator
+  type(MPI_Request),       intent(out) :: request         !< request
 
   call MPI_Isend(buffer, size(buffer), MPI_REAL_RNP, dest, tag, comm, request)
 
@@ -237,11 +237,11 @@ end subroutine IsendX4
 !> Isend for 5D buffers
 
 subroutine IsendX5(buffer, dest, tag, comm, request)
-  real(RNP),         intent(in)  :: buffer(:,:,:,:,:) !< send buffer
-  integer,           intent(in)  :: dest              !< rank of receiver
-  integer,           intent(in)  :: tag               !< message tag
-  type(MPI_Comm),    intent(in)  :: comm              !< communicator
-  type(MPI_Request), intent(out) :: request           !< request
+  real(RNP), asynchronous, intent(in)  :: buffer(:,:,:,:,:) !< send buffer
+  integer,                 intent(in)  :: dest              !< rank of receiver
+  integer,                 intent(in)  :: tag               !< message tag
+  type(MPI_Comm),          intent(in)  :: comm              !< communicator
+  type(MPI_Request),       intent(out) :: request           !< request
 
   call MPI_Isend(buffer, size(buffer), MPI_REAL_RNP, dest, tag, comm, request)
 
@@ -254,12 +254,11 @@ end subroutine IsendX5
 !> Irecv for scalar buffers
 
 subroutine IrecvX0(buffer, source, tag, comm, request)
-  real(RNP),         intent(out) :: buffer   !< reveive buffer
-  integer,           intent(in)  :: source   !< rank of the sender
-  integer,           intent(in)  :: tag      !< message tag
-  type(MPI_Comm),    intent(in)  :: comm     !< communicator
-  type(MPI_Request), intent(out) :: request  !< request
-  !!! NOT YET SUPPORTED BY PGI !!! asynchronous :: buffer
+  real(RNP), asynchronous, intent(out) :: buffer   !< reveive buffer
+  integer,                 intent(in)  :: source   !< rank of sender
+  integer,                 intent(in)  :: tag      !< message tag
+  type(MPI_Comm),          intent(in)  :: comm     !< communicator
+  type(MPI_Request),       intent(out) :: request  !< request
 
   call MPI_Irecv(buffer, 1, MPI_REAL_RNP, source, tag, comm, request)
 
@@ -269,12 +268,11 @@ end subroutine IrecvX0
 !> Irecv for 1D buffers
 
 subroutine IrecvX1(buffer, source, tag, comm, request)
-  real(RNP),         intent(out) :: buffer(:) !< reveive buffer
-  integer,           intent(in)  :: source    !< rank of the sender
-  integer,           intent(in)  :: tag       !< message tag
-  type(MPI_Comm),    intent(in)  :: comm      !< communicator
-  type(MPI_Request), intent(out) :: request   !< request
-  !!! NOT YET SUPPORTED BY PGI !!! asynchronous :: buffer
+  real(RNP), asynchronous, intent(out) :: buffer(:) !< reveive buffer
+  integer,                 intent(in)  :: source    !< rank of sender
+  integer,                 intent(in)  :: tag       !< message tag
+  type(MPI_Comm),          intent(in)  :: comm      !< communicator
+  type(MPI_Request),       intent(out) :: request   !< request
 
   call MPI_Irecv(buffer, size(buffer), MPI_REAL_RNP, source, tag, comm, request)
 
@@ -284,12 +282,11 @@ end subroutine IrecvX1
 !> Irecv for 2D buffers
 
 subroutine IrecvX2(buffer, source, tag, comm, request)
-  real(RNP),         intent(out) :: buffer(:,:) !< reveive buffer
-  integer,           intent(in)  :: source      !< rank of the sender
-  integer,           intent(in)  :: tag         !< message tag
-  type(MPI_Comm),    intent(in)  :: comm        !< communicator
-  type(MPI_Request), intent(out) :: request     !< request
-  !!! NOT YET SUPPORTED BY PGI !!! asynchronous :: buffer
+  real(RNP), asynchronous, intent(out) :: buffer(:,:) !< reveive buffer
+  integer,                 intent(in)  :: source      !< rank of sender
+  integer,                 intent(in)  :: tag         !< message tag
+  type(MPI_Comm),          intent(in)  :: comm        !< communicator
+  type(MPI_Request),       intent(out) :: request     !< request
 
   call MPI_Irecv(buffer, size(buffer), MPI_REAL_RNP, source, tag, comm, request)
 
@@ -299,12 +296,11 @@ end subroutine IrecvX2
 !> Irecv for 3D buffers
 
 subroutine IrecvX3(buffer, source, tag, comm, request)
-  real(RNP),         intent(out) :: buffer(:,:,:) !< reveive buffer
-  integer,           intent(in)  :: source        !< rank of the sender
-  integer,           intent(in)  :: tag           !< message tag
-  type(MPI_Comm),    intent(in)  :: comm          !< communicator
-  type(MPI_Request), intent(out) :: request       !< request
-  !!! NOT YET SUPPORTED BY PGI !!! asynchronous :: buffer
+  real(RNP), asynchronous, intent(out) :: buffer(:,:,:) !< reveive buffer
+  integer,                 intent(in)  :: source        !< rank of sender
+  integer,                 intent(in)  :: tag           !< message tag
+  type(MPI_Comm),          intent(in)  :: comm          !< communicator
+  type(MPI_Request),       intent(out) :: request       !< request
 
   call MPI_Irecv(buffer, size(buffer), MPI_REAL_RNP, source, tag, comm, request)
 
@@ -314,12 +310,11 @@ end subroutine IrecvX3
 !> Irecv for 4D buffers
 
 subroutine IrecvX4(buffer, source, tag, comm, request)
-  real(RNP),         intent(out) :: buffer(:,:,:,:) !< reveive buffer
-  integer,           intent(in)  :: source          !< rank of the sender
-  integer,           intent(in)  :: tag             !< message tag
-  type(MPI_Comm),    intent(in)  :: comm            !< communicator
-  type(MPI_Request), intent(out) :: request         !< request
-  !!! NOT YET SUPPORTED BY PGI !!! asynchronous :: buffer
+  real(RNP), asynchronous, intent(out) :: buffer(:,:,:,:) !< reveive buffer
+  integer,                 intent(in)  :: source          !< rank of sender
+  integer,                 intent(in)  :: tag             !< message tag
+  type(MPI_Comm),          intent(in)  :: comm            !< communicator
+  type(MPI_Request),       intent(out) :: request         !< request
 
   call MPI_Irecv(buffer, size(buffer), MPI_REAL_RNP, source, tag, comm, request)
 
@@ -329,12 +324,11 @@ end subroutine IrecvX4
 !> Irecv for 5D buffers
 
 subroutine IrecvX5(buffer, source, tag, comm, request)
-  real(RNP),         intent(out) :: buffer(:,:,:,:,:) !< reveive buffer
-  integer,           intent(in)  :: source            !< rank of the sender
-  integer,           intent(in)  :: tag               !< message tag
-  type(MPI_Comm),    intent(in)  :: comm              !< communicator
-  type(MPI_Request), intent(out) :: request           !< request
-  !!! NOT YET SUPPORTED BY PGI !!! asynchronous :: buffer
+  real(RNP), asynchronous, intent(out) :: buffer(:,:,:,:,:) !< reveive buffer
+  integer,                 intent(in)  :: source            !< rank of sender
+  integer,                 intent(in)  :: tag               !< message tag
+  type(MPI_Comm),          intent(in)  :: comm              !< communicator
+  type(MPI_Request),       intent(out) :: request           !< request
 
   call MPI_Irecv(buffer, size(buffer), MPI_REAL_RNP, source, tag, comm, request)
 
