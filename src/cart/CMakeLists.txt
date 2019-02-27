@@ -86,7 +86,7 @@ set(ELLIPTIC elliptic/cart__schwarz_operator.f
              elliptic/cart__schwarz_operator__mp_buildsubdomains_vi.f
              elliptic/cart__elliptic_operator.f
              elliptic/cart__elliptic_operator_ip.f
-             elliptic/cart__elliptic_operator_ip__mp_init.f
+             elliptic/cart__elliptic_operator_ip__mp_setproblem.f
              elliptic/cart__elliptic_operator_ip__mp_apply.f
              elliptic/cart__elliptic_operator_ip__mp_apply_ci.f
              elliptic/cart__elliptic_operator_ip__mp_apply_vi.f
@@ -96,6 +96,7 @@ set(ELLIPTIC elliptic/cart__schwarz_operator.f
              elliptic/cart__elliptic_pmg_level.f
              elliptic/cart__elliptic_pmg.f
              elliptic/cart__elliptic_pmg__mp_init.f
+             elliptic/cart__elliptic_pmg__mp_setproblem.f
              elliptic/cart__cg_elliptic_ci_bc.f
              elliptic/cart__dg_elliptic_cis_bc.f
              elliptic/cart__dg_elliptic_ciu_bc.f
@@ -115,18 +116,18 @@ set(ELLIPTIC elliptic/cart__schwarz_operator.f
 #===============================================================================
 # isp_flow
 
-set(ISP_FLOW isp_flow/cart__isp_flow__boundary_values.f
-             isp_flow/cart__isp_flow__operators.f
-             isp_flow/cart__isp_flow__convection__eq.f
-             isp_flow/cart__isp_flow__convection__iq.f
-             isp_flow/cart__isp_flow__convection.f
-             isp_flow/cart__isp_flow__diffusion.f
-             isp_flow/cart__isp_flow__time_derivative.f
-             isp_flow/cart__isp_flow__pressure__dg_eo.f
-             isp_flow/cart__isp_flow__pressure.f
-             isp_flow/cart__isp_flow__euler.f
-             isp_flow/cart__isp_flow__sdc.f
-             )
+#set(ISP_FLOW isp_flow/cart__isp_flow__boundary_values.f
+#             isp_flow/cart__isp_flow__operators.f
+#             isp_flow/cart__isp_flow__convection__eq.f
+#             isp_flow/cart__isp_flow__convection__iq.f
+#             isp_flow/cart__isp_flow__convection.f
+#             isp_flow/cart__isp_flow__diffusion.f
+#             isp_flow/cart__isp_flow__time_derivative.f
+#             isp_flow/cart__isp_flow__pressure__dg_eo.f
+#             isp_flow/cart__isp_flow__pressure.f
+#             isp_flow/cart__isp_flow__euler.f
+#             isp_flow/cart__isp_flow__sdc.f
+#             )
 
 #===============================================================================
 # cart library
@@ -139,8 +140,8 @@ list(APPEND CART_SRC ${TENSOR_PRODUCT}
                      ${INTER_LEVEL}
                      ${OPERATORS}
                      ${ELLIPTIC}
-                     ${ISP_FLOW}
                      )
+#                     ${ISP_FLOW}
 
 add_library(HiCart ${CART_SRC})
 

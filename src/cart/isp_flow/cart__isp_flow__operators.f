@@ -11,11 +11,15 @@ module CART__ISP_Flow__Operators
   use Kind_Parameters,           only: RNP
   use Constants,                 only: ZERO, ONE
   use Embedded_Interpolation_3D, only: InterpolationOperator3D
+  use Projection_Operator_3D,    only: ProjectionOperator3D
+  use IP_Element_Operators_1D
+
   use ISP_Flow_Problem
+
   use CART__Mesh_Partition
   use CART__Boundary_Variable
-  use CART__DG_Element_Operators
-  use CART__DG_Elliptic_CI_PMG
+  use CART__Elliptic_Operator_IP
+  use CART__Elliptic_PMG
   use CART__ISP_Flow__Boundary_Values
 
   implicit none
@@ -38,16 +42,16 @@ module CART__ISP_Flow__Operators
     type(BoundaryVariable), allocatable :: bv_x(:) !< boundary points
     type(BoundaryVariable), allocatable :: bv_u(:) !< boundary values
 
-    type(DG_ElementOperators3D) :: eop_u !< element operators for u \ p
-    type(DG_ElementOperators3D) :: eop_p !< element operators for p
-    type(DG_ElementOperators3D) :: eop_q !< element operators for nonlinear terms
+    type(EllipticOperator3D_IP) :: eop_u !< element operators for u \ p
+    type(EllipticOperator3D_IP) :: eop_p !< element operators for p
+    type(IP_ElementOperators1D) :: eop_q !< element operators for nonlinear terms
 
-    type(InterpolationOperator3D) :: iop_up !< interpolation from po_u to po_p
+    type(ProjectionOperator3D)    :: pop_up !< projection    from po_u to po_p
     type(InterpolationOperator3D) :: iop_uq !< interpolation from po_u to po_q
     type(InterpolationOperator3D) :: iop_pu !< interpolation from po_p to po_u
 
-    type(PolynomialMultigrid) :: pmg_u !< p-MG/element operators for u \ p
-    type(PolynomialMultigrid) :: pmg_p !< p-MG/element operators for p
+    type(PMG_Method3D) :: pmg_u !< p-MG/element operators for u \ p
+    type(PMG_Method3D) :: pmg_p !< p-MG/element operators for p
 
     integer :: monitor_level = 0 !< no, essential or full monitoring {0,1,2}
 
@@ -84,8 +88,8 @@ subroutine New_FlowOperators( this                       &
   real(RNP), intent(in) :: penalty !< penalty parameter op SIP method > 1
 
   ! multigrid parameters
-  class(PolynomialMultigrid_Options), intent(in) :: pmg_u_opt !< options for u
-  class(PolynomialMultigrid_Options), intent(in) :: pmg_p_opt !< options for p
+  class(PMG_Options3D), intent(in) :: pmg_u_opt !< options for u
+  class(PMG_Options3D), intent(in) :: pmg_p_opt !< options for p
 
   ! control
   integer, optional, intent(in) :: monitor_level !< monitor level [0] {0,1,2}
@@ -110,7 +114,14 @@ subroutine New_FlowOperators( this                       &
     call this % bv_u(b) % New(mesh, po_u, b, problem%bc(b,:))
   end do
 
-  call this % pmg_u % New(pmg_u_opt, mesh, penalty)
+!################################ HIER WEITER !################################!
+!### lambda = ONE -- dt noch unbekannt ?
+!### nu -- was tun im variablen Fall?
+!### bc = problem % bc ?
+!### schwarz_opt  --  Schwarz Options in PMG Options integrieren ?
+!###
+! call this % pmg_u % New(pmg_u_opt, mesh, penalty)
+  this % pmg_u = PMG_Method3D(mesh, lambda, nu, bc, ip_opt, schwarz_opt, pmg_u_opt )
 
   associate(level => this % pmg_u % level)
     this % eop_u = level(ubound(level,1)) % eop
@@ -123,13 +134,17 @@ subroutine New_FlowOperators( this                       &
   end associate
 
   if (po_p /= po_u) then
-    this % iop_up = InterpolationOperator3D(po_u, po_p)
-    this % iop_pu = InterpolationOperator3D(po_p, po_u)
+    this % pop_up = ProjectionOperator3D(    this%eop_u,   &
+                                             this%eop_p%x, &
+                                             this%eop_p%w, &
+                                             mesh%dx       )
+    this % iop_pu = InterpolationOperator3D( this%eop_p,   &
+                                             this%eop_u%x  )
   end if
 
   if (po_q /= po_u) then
-    call this % eop_q  % Init_DG_ElementOperators3D(po_q, mesh%dx, penalty)
-    this % iop_uq = InterpolationOperator3D(po_u, po_q)
+    this % eop_q  = IP_ElementOperators1D( IP_ElementOptions1D(eop_u, po_q) )
+    this % iop_uq = InterpolationOperator3D( this%eop_u, this%eop_q%x )
   end if
 
   if (present(monitor_level)) this % monitor_level = monitor_level

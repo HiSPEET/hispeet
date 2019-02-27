@@ -51,9 +51,15 @@ module CART__Elliptic_PMG
 
   contains
 
-    generic :: Init_PMG_Method3D => Init__IP_CI, Init__IP_VI
-    procedure, private :: Init__IP_CI
-    procedure, private :: Init__IP_VI
+    generic :: Init_PMG_Method3D => Init_IP
+    procedure, private :: Init_IP
+
+    generic :: SetProblem => SetProblem_CI, SetProblem_VI
+    procedure, private :: SetProblem_CI
+    procedure, private :: SetProblem_VI
+
+    procedure :: GetWorkspace
+    procedure :: FreeWorkspace
 
     procedure :: MG_Solver
     procedure :: MG_CG_Solver
@@ -62,8 +68,7 @@ module CART__Elliptic_PMG
 
   ! constructor interface
   interface PMG_Method3D
-    module procedure New__IP_CI
-    module procedure New__IP_VI
+    module procedure New_IP
   end interface
 
   !-----------------------------------------------------------------------------
@@ -88,6 +93,8 @@ module CART__Elliptic_PMG
     integer   :: ns2       =  1  !< num post-smoothing steps on top level
     integer   :: mvs       =  1  !< multiplier for variable smoothing
 
+    type(SchwarzOptions3D) :: schwarz !< Schwarz method
+
     ! coarse grid solver settings
     character :: solver    = 'C' !< coarse grid solver, 'C': CG, 'S': Schwarz
     integer   :: i0_max    =  1  !< max number coarse grid iterations
@@ -108,38 +115,34 @@ module CART__Elliptic_PMG
   interface
 
     !---------------------------------------------------------------------------
-    !> PMG_Method3D initialization: IP, constant isotropic diffusivity
+    !> PMG_Method3D initialization: IP/DG-SEM, no problem data
 
-    module subroutine Init__IP_CI( this, mesh, lambda, nu, bc,  &
-                                   ip_opt, schwarz_opt, pmg_opt )
-
-      class(PMG_Method3D), intent(inout) :: this
-      class(MeshPartition), target, intent(in) :: mesh      !< mesh partition
-      real(RNP), intent(in) :: lambda                       !< Helmholtz parameter
-      real(RNP), intent(in) :: nu                           !< diffusivity
-      character, intent(in) :: bc(:)                        !< boundary cond
-      class(IP_ElementOptions1D), intent(in) :: ip_opt      !< IP/DG options
-      class(SchwarzOptions3D),    intent(in) :: schwarz_opt !< Schwarz options
-      class(PMG_Options3D),       intent(in) :: pmg_opt     !< PMG options
-
-    end subroutine Init__IP_CI
+    module subroutine Init_IP( this, mesh, ip_opt, pmg_opt )
+      class(PMG_Method3D),          intent(inout) :: this
+      class(MeshPartition), target, intent(in)    :: mesh    !< mesh partition
+      class(IP_ElementOptions1D),   intent(in)    :: ip_opt  !< IP/DG options
+      class(PMG_Options3D),         intent(in)    :: pmg_opt !< PMG options
+    end subroutine Init_IP
 
     !---------------------------------------------------------------------------
-    !> PMG_Method3D initialization: IP, variable isotropic diffusivity
+    !> Initialize problem with constant isotropic diffusivity
 
-    module subroutine Init__IP_VI( this, mesh, lambda, nu, bc,  &
-                                   ip_opt, schwarz_opt, pmg_opt )
-
+    module subroutine SetProblem_CI(this, lambda, nu, bc)
       class(PMG_Method3D), intent(inout) :: this
-      class(MeshPartition), target, intent(in) :: mesh      !< mesh partition
-      real(RNP), intent(in) :: lambda                       !< Helmholtz param
-      real(RNP), intent(in) :: nu(0:,0:,0:,:)               !< diffusivity
-      character, intent(in) :: bc(:)                        !< boundary cond
-      class(IP_ElementOptions1D), intent(in) :: ip_opt      !< IP/DG options
-      class(SchwarzOptions3D),    intent(in) :: schwarz_opt !< Schwarz options
-      class(PMG_Options3D),       intent(in) :: pmg_opt     !< PMG options
+      real(RNP),           intent(in)    :: lambda  !< Helmholtz parameter
+      real(RNP),           intent(in)    :: nu      !< diffusivity
+      character,           intent(in)    :: bc(:)   !< boundary conditions
+    end subroutine SetProblem_CI
 
-    end subroutine Init__IP_VI
+    !---------------------------------------------------------------------------
+    !> Initialize problem with variable isotropic diffusivity
+
+    module subroutine SetProblem_VI(this, lambda, nu, bc)
+      class(PMG_Method3D), intent(inout) :: this
+      real(RNP),           intent(in)    :: lambda         !< Helmholtz parameter
+      real(RNP),           intent(in)    :: nu(0:,0:,0:,:) !< diffusivity
+      character,           intent(in)    :: bc(:)          !< boundary conditions
+    end subroutine SetProblem_VI
 
   end interface
 
@@ -149,47 +152,45 @@ contains
 ! PMG_Method3D: constructors
 
 !-------------------------------------------------------------------------------
-!> PMG_Method3D constructor: IP, constant isotropic diffusivity
+!> PMG_Method3D constructor: IP/DG-SEM
 
-function New__IP_CI( mesh, lambda, nu, bc, ip_opt, schwarz_opt, pmg_opt )  &
-                     result(this)
+type(PMG_Method3D) function New_IP(mesh, ip_opt, pmg_opt) result(this)
+  class(MeshPartition), target, intent(in) :: mesh    !< mesh partition
+  class(IP_ElementOptions1D),   intent(in) :: ip_opt  !< IP/DG options
+  class(PMG_Options3D),         intent(in) :: pmg_opt !< PMG options
 
-  type(PMG_Method3D) :: this
+  call Init_IP(this, mesh, ip_opt, pmg_opt)
 
-  class(MeshPartition), target, intent(in) :: mesh        !< mesh partition
-  real(RNP),                    intent(in) :: lambda      !< Helmholtz parameter
-  real(RNP),                    intent(in) :: nu          !< diffusivity
-  character,                    intent(in) :: bc(:)       !< boundary conditions
-  class(IP_ElementOptions1D),   intent(in) :: ip_opt      !< IP/DG opt
-  class(SchwarzOptions3D),      intent(in) :: schwarz_opt !< Schwarz opt
-  class(PMG_Options3D),         intent(in) :: pmg_opt     !< PMG options
-
-  call Init__IP_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt, pmg_opt)
-
-end function New__IP_CI
-
-!-------------------------------------------------------------------------------
-!> PMG_Method3D constructor: IP, variable isotropic diffusivity
-
-function New__IP_VI( mesh, lambda, nu, bc, ip_opt, schwarz_opt, pmg_opt )  &
-                     result(this)
-
-  type(PMG_Method3D) :: this
-
-  class(MeshPartition), target, intent(in) :: mesh           !< mesh partition
-  real(RNP),                    intent(in) :: lambda         !< Helmholtz param
-  real(RNP),                    intent(in) :: nu(0:,0:,0:,:) !< diffusivity
-  character,                    intent(in) :: bc(:)          !< boundary cond
-  class(IP_ElementOptions1D),   intent(in) :: ip_opt         !< IP/DG opt
-  class(SchwarzOptions3D),      intent(in) :: schwarz_opt    !< Schwarz opt
-  class(PMG_Options3D),         intent(in) :: pmg_opt        !< PMG options
-
-  call Init__IP_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt, pmg_opt)
-
-end function New__IP_VI
+end function New_IP
 
 !===============================================================================
 ! PMG_Method3D: type-bound procedures
+
+!-------------------------------------------------------------------------------
+!> Allocate workspace
+
+subroutine GetWorkspace(this)
+  class(PMG_Method3D), intent(inout) :: this
+  integer :: l
+
+  do l = 0, ubound(this % level,1)
+    call this % level(l) % GetWorkspace()
+  end do
+
+end subroutine GetWorkspace
+
+!-------------------------------------------------------------------------------
+!> Delete workspace
+
+subroutine FreeWorkspace(this)
+  class(PMG_Method3D), intent(inout) :: this
+  integer :: l
+
+  do l = 0, ubound(this % level,1)
+    call this % level(l) % FreeWorkspace()
+  end do
+
+end subroutine FreeWorkspace
 
 !-------------------------------------------------------------------------------
 !> p-MG solver
@@ -576,6 +577,8 @@ subroutine PMG_Options3D_Bcast(this, root, comm)
   call XMPI_Ibcast( this % monitor   , root, comm, request(n) )
 
   call MPI_Waitall(n, request, stat)
+
+  call this % Schwarz % Bcast(root, comm)
 
 end subroutine PMG_Options3D_Bcast
 

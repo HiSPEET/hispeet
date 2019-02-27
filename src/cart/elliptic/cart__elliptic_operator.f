@@ -34,16 +34,43 @@ module CART__Elliptic_Operator
     type(SchwarzOperator3D),    allocatable :: schwarz !< Schwarz operator
 
   contains
+    private
 
-    procedure(Apply),     deferred :: Apply
-    procedure(BcToRHS),   deferred :: BcToRHS
-    procedure(Residual),  deferred :: Residual
-    procedure(Iteration), deferred :: ConjugateGradients
-    procedure(Iteration), deferred :: SchwarzMethod
+    generic, public :: SetProblem => SetProblem_CI, SetProblem_VI
+    procedure(SetProblem_CI), deferred :: SetProblem_CI  ! should be private
+    procedure(SetProblem_VI), deferred :: SetProblem_VI  ! but fails with ifort
+
+    procedure(Apply),     public, deferred :: Apply
+    procedure(BcToRHS),   public, deferred :: BcToRHS
+    procedure(Residual),  public, deferred :: Residual
+    procedure(Iteration), public, deferred :: ConjugateGradients
+    procedure(Iteration), public, deferred :: SchwarzMethod
 
   end type EllipticOperator3D
 
   abstract interface
+
+    !--------------------------------------------------------------------------
+    !> (Re)Set problem parameters for constant isotropic viscosity
+
+    subroutine SetProblem_CI(this, lambda, nu, bc)
+      import
+      class(EllipticOperator3D), intent(inout) :: this
+      real(RNP), intent(in) :: lambda !< Helmholtz parameter
+      real(RNP), intent(in) :: nu     !< diffusivity
+      character, intent(in) :: bc(:)  !< BC {'D','N','P'}
+    end subroutine SetProblem_CI
+
+    !--------------------------------------------------------------------------
+    !> (Re)Set problem parameters for variable isotropic viscosity
+
+    subroutine SetProblem_VI(this, lambda, nu, bc)
+      import
+      class(EllipticOperator3D), intent(inout) :: this
+      real(RNP), intent(in) :: lambda         !< Helmholtz parameter
+      real(RNP), intent(in) :: nu(0:,0:,0:,:) !< diffusivity
+      character, intent(in) :: bc(:)          !< BC {'D','N','P'}
+    end subroutine SetProblem_VI
 
     !--------------------------------------------------------------------------
     !> Applies the operator to given approximation: const isotropic

@@ -76,7 +76,7 @@ program Elliptic_Test__IP_CI
   namelist /solver/         method
   namelist /solver_cg/      i_max, r_red
   namelist /solver_schwarz/ i_max, r_red, schwarz_opt
-  namelist /solver_pmg/     schwarz_opt, pmg_opt
+  namelist /solver_pmg/     pmg_opt
 
   ! MPI ........................................................................
 
@@ -284,7 +284,8 @@ program Elliptic_Test__IP_CI
   ! methods
   select case(method)
   case(3,4)
-    pmg = PMG_Method3D(mesh, lambda, nu, bc, ip_opt, schwarz_opt, pmg_opt)
+    pmg = PMG_Method3D(mesh, ip_opt, pmg_opt)
+    call pmg % SetProblem(lambda, nu, bc)
   end select
 
   if (rank == 0) then

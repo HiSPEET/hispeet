@@ -29,49 +29,13 @@ module Embedded_Interpolation_3D
 
   ! constructor interface
   interface InterpolationOperator3D
-    module procedure New_PP
-    module procedure New_PX
-    module procedure New_SP
     module procedure New_SX
   end interface
 
 contains
 
 !===============================================================================
-! Constructors
-
-!-------------------------------------------------------------------------------
-!> New InterpolationOperator3D from orders of source and interpolant
-
-type(InterpolationOperator3D) function New_PP(po, pi) result(this)
-  integer, intent(in) :: po  !< polynomial order of the original
-  integer, intent(in) :: pi  !< polynomial order of the interpolant
-
-  call this % Init_InterpolationOperator(po, pi)
-
-end function New_PP
-
-!-------------------------------------------------------------------------------
-!> New InterpolationOperator from order of source and interpolation points
-
-type(InterpolationOperator3D) function New_PX(po, xi) result(this)
-  integer,   intent(in) :: po     !< polynomial order of the original
-  real(RNP), intent(in) :: xi(0:) !< interpolation points in [-1,1]
-
-  call this % Init_InterpolationOperator(po, xi)
-
-end function New_PX
-
-!-------------------------------------------------------------------------------
-!> New InterpolationOperator from 1D standard operators and order of interpolant
-
-type(InterpolationOperator3D) function New_SP(eop, pi) result(this)
-  class(StandardOperators1D), intent(in) :: eop !< standard operators
-  integer,                    intent(in) :: pi  !< order of interpolant
-
-  call this % Init_InterpolationOperator(eop, pi)
-
-end function New_SP
+! Constructor
 
 !-------------------------------------------------------------------------------
 !> New InterpolationOperator from 1D standard operators and interpolation points

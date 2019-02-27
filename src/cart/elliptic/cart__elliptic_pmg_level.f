@@ -45,16 +45,20 @@ module CART__Elliptic_PMG_Level
 
   contains
 
-    generic :: Init_TopLevel => Init_TopLevel__IP_CI, Init_TopLevel__IP_VI
-    procedure, private :: Init_TopLevel__IP_CI
-    procedure, private :: Init_TopLevel__IP_VI
-
+    procedure :: Init_TopLevel_IP
     procedure :: Init_CoarseLevel
 
-    procedure :: Prolongate  => C2F_Prolongation
-    procedure :: Interpolate => F2C_Interpolation
-    procedure :: Restrict    => F2C_Restriction
-    procedure :: Truncate    => F2C_Truncation
+    procedure :: SetTopLevelProblem_CI
+    procedure :: SetTopLevelProblem_VI
+    procedure :: SetCoarseProblem
+
+    procedure :: GetWorkspace
+    procedure :: FreeWorkspace
+
+    procedure :: Prolongate
+    procedure :: Interpolate
+    procedure :: Restrict
+    procedure :: Truncate
 
   end type PMG_Level
 
@@ -64,10 +68,9 @@ contains
 ! Initialization of PMG_Level
 
 !-------------------------------------------------------------------------------
-!> Initialization of top level with IP/DG-SEM and constant isotropic diffusivity
+!> Initialization of top level with IP/DG-SEM and no problem data
 
-subroutine Init_TopLevel__IP_CI( this, ns1, ns2, mesh, lambda, nu, bc, &
-                                 ip_opt, schwarz_opt, po_parent        )
+subroutine Init_TopLevel_IP(this, ns1, ns2, mesh, ip_opt, schwarz_opt, po_coarse)
 
   ! arguments ..................................................................
 
@@ -75,9 +78,6 @@ subroutine Init_TopLevel__IP_CI( this, ns1, ns2, mesh, lambda, nu, bc, &
   integer,              intent(in)    :: ns1    !< num pre-smoothing steps
   integer,              intent(in)    :: ns2    !< num post-smoothing steps
   class(MeshPartition), intent(in)    :: mesh   !< mesh partition
-  real(RNP),            intent(in)    :: lambda !< Helmholtz parameter
-  real(RNP),            intent(in)    :: nu     !< diffusivity
-  character,            intent(in)    :: bc(:)  !< boundary conditions
 
   class(IP_ElementOptions1D), intent(in) :: ip_opt
   !< options for the IP/DG method, including polynomial order `po` and `penalty`
@@ -85,8 +85,8 @@ subroutine Init_TopLevel__IP_CI( this, ns1, ns2, mesh, lambda, nu, bc, &
   class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
   !< options for the Schwarz method
 
-  integer, optional, intent(in) :: po_parent
-  !< order of next coarser (parent) level, if any
+  integer, optional, intent(in) :: po_coarse
+  !< order of next coarser level, if any
 
   ! parameters .................................................................
 
@@ -97,74 +97,20 @@ subroutine Init_TopLevel__IP_CI( this, ns1, ns2, mesh, lambda, nu, bc, &
 
   ! elliptic operators .........................................................
 
-  this % elliptic_op = EllipticOperator3D_IP( mesh, lambda, nu, bc, &
-                                              ip_opt, schwarz_opt   )
+  this % elliptic_op = EllipticOperator3D_IP(mesh, ip_opt, schwarz_opt)
 
   ! transfer operators .........................................................
 
-  if (present(po_parent)) then
-    call Build_F2C_TransferOps(this, po_parent)
+  if (present(po_coarse)) then
+    call Build_F2C_TransferOps(this, po_coarse)
   end if
 
-  ! workspace ..................................................................
-
-  call GetWorkspace(this)
-
-end subroutine Init_TopLevel__IP_CI
-
-!-------------------------------------------------------------------------------
-!> Initialization of top level with IP/DG-SEM and variable isotropic diffusivity
-
-subroutine Init_TopLevel__IP_VI( this, ns1, ns2, mesh, lambda, nu, bc, &
-                                 ip_opt, schwarz_opt, po_parent        )
-
-  ! arguments ..................................................................
-
-  class(PMG_Level),     intent(inout) :: this
-  integer,              intent(in)    :: ns1            !< n pre-smoothing steps
-  integer,              intent(in)    :: ns2            !< n post-smoothing steps
-  class(MeshPartition), intent(in)    :: mesh           !< mesh partition
-  real(RNP),            intent(in)    :: lambda         !< Helmholtz parameter
-  real(RNP),            intent(in)    :: nu(0:,0:,0:,:) !< diffusivity
-  character,            intent(in)    :: bc(:)          !< boundary conditions
-
-  class(IP_ElementOptions1D), intent(in) :: ip_opt
-  !< options for the IP/DG method, including polynomial order `po` and `penalty`
-
-  class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
-  !< options for the Schwarz method
-
-  integer, optional, intent(in) :: po_parent
-  !< order of next coarser (parent) level, if any
-
-  ! parameters .................................................................
-
-  this % po  = ip_opt % po
-  this % ne  = mesh % ne
-  this % ns1 = ns1
-  this % ns2 = ns2
-
-  ! elliptic operators .........................................................
-
-  this % elliptic_op = EllipticOperator3D_IP( mesh, lambda, nu, bc, &
-                                              ip_opt, schwarz_opt   )
-
-  ! transfer operators .........................................................
-
-  if (present(po_parent)) then
-    call Build_F2C_TransferOps(this, po_parent)
-  end if
-
-  ! workspace ..................................................................
-
-  call GetWorkspace(this)
-
-end subroutine Init_TopLevel__IP_VI
+end subroutine Init_TopLevel_IP
 
 !-------------------------------------------------------------------------------
 !> Initialization of coarse level
 
-subroutine Init_CoarseLevel(this, po, ns1, ns2, child, schwarz_opt, po_parent)
+subroutine Init_CoarseLevel(this, po, ns1, ns2, fine, schwarz_opt, po_coarse)
 
   ! arguments ..................................................................
 
@@ -172,129 +118,193 @@ subroutine Init_CoarseLevel(this, po, ns1, ns2, child, schwarz_opt, po_parent)
   integer,          intent(in)    :: po    !< polynomial order
   integer,          intent(in)    :: ns1   !< num pre-smoothing steps
   integer,          intent(in)    :: ns2   !< num post-smoothing steps
-  class(PMG_Level), intent(in)    :: child !< next finer (child) level
+  class(PMG_Level), intent(in)    :: fine  !< next finer level
 
   class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
   !< options for the Schwarz method
 
-  integer, optional, intent(in) :: po_parent
+  integer, optional, intent(in) :: po_coarse
   !< order of next coarser (parent) level, if any
-
-  ! internal variables .........................................................
-
-  real(RNP), allocatable, save :: nu_vi(:,:,:,:)
 
   ! parameters .................................................................
 
   this % po  = po
-  this % ne  = child % ne
+  this % ne  = fine % ne
   this % ns1 = ns1
   this % ns2 = ns2
 
   ! elliptic operators .........................................................
 
-  if (allocated(child % elliptic_op % nu_vi)) then
-    allocate(nu_vi(0:this%po, 0:this%po, 0:this%po, this%ne))
-  end if
-
-  select type(elliptic_op => child % elliptic_op)
+  select type(elliptic_op => fine % elliptic_op)
 
   class is(EllipticOperator3D_IP)
 
-    block
-      type(IP_ElementOptions1D) :: ip_opt
-
-      ip_opt = IP_ElementOptions1D(elliptic_op % eop, po)
-
-      if (allocated(child % elliptic_op % nu_ci)) then
-
-        this % elliptic_op = EllipticOperator3D_IP( elliptic_op % mesh,   &
-                                                    elliptic_op % lambda, &
-                                                    elliptic_op % nu_ci,  &
-                                                    elliptic_op % bc,     &
-                                                    ip_opt,               &
-                                                    schwarz_opt           )
-
-      else if (allocated(nu_vi)) then
-
-        !call child % Truncate(elliptic_op % nu_vi, nu_vi)
-        call child % Interpolate(elliptic_op % nu_vi, nu_vi)
-
-        this % elliptic_op = EllipticOperator3D_IP( elliptic_op % mesh,   &
-                                                    elliptic_op % lambda, &
-                                                    nu_vi,                &
-                                                    elliptic_op % bc,     &
-                                                    ip_opt,               &
-                                                    schwarz_opt           )
-      end if
-    end block
+     this % elliptic_op = EllipticOperator3D_IP(                        &
+                              elliptic_op % mesh,                       &
+                              IP_ElementOptions1D(elliptic_op%eop, po), &
+                              schwarz_opt                               )
   end select
-
-  if (allocated(nu_vi)) then
-    deallocate(nu_vi)
-  end if
 
   ! transfer operators .........................................................
 
-  call Build_C2F_TransferOps(this, child)
+  call Build_C2F_TransferOps(this, fine)
 
-  if (present(po_parent)) then
-    call Build_F2C_TransferOps(this, po_parent)
+  if (present(po_coarse)) then
+    call Build_F2C_TransferOps(this, po_coarse)
   end if
 
-  ! workspace ..................................................................
+end subroutine Init_CoarseLevel
+
+!===============================================================================
+! (Re)initialization of problem data
+
+!-------------------------------------------------------------------------------
+!> Initialize top-level problem with constant isotropic diffusivity
+
+subroutine SetTopLevelProblem_CI(this, lambda, nu, bc)
+  class(PMG_Level), intent(inout) :: this
+  real(RNP),        intent(in)    :: lambda !< Helmholtz parameter
+  real(RNP),        intent(in)    :: nu     !< diffusivity
+  character,        intent(in)    :: bc(:)  !< boundary conditions
+
+  call this % elliptic_op % SetProblem(lambda, nu, bc)
+  call GetWorkspace(this)
+
+end subroutine SetTopLevelProblem_CI
+
+!-------------------------------------------------------------------------------
+!> Initialize top-level problem with variable isotropic diffusivity
+
+subroutine SetTopLevelProblem_VI(this, lambda, nu, bc)
+  class(PMG_Level), intent(inout) :: this
+  real(RNP),        intent(in)    :: lambda         !< Helmholtz parameter
+  real(RNP),        intent(in)    :: nu(0:,0:,0:,:) !< diffusivity
+  character,        intent(in)    :: bc(:)          !< boundary conditions
+
+  call this % elliptic_op % SetProblem(lambda, nu, bc)
+  call GetWorkspace(this)
+
+end subroutine SetTopLevelProblem_VI
+
+!-------------------------------------------------------------------------------
+!> Initialize coarse-level problem
+
+subroutine SetCoarseProblem(this, fine)
+  class(PMG_Level), intent(inout) :: this
+  class(PMG_Level), intent(in)    :: fine !< next finer level
+
+  real(RNP), allocatable, save :: nu_vi(:,:,:,:)
+
+  if (allocated(fine % elliptic_op % nu_ci)) then
+
+    call this % elliptic_op % SetProblem( fine % elliptic_op % lambda, &
+                                          fine % elliptic_op % nu_ci,  &
+                                          fine % elliptic_op % bc      )
+
+  else if (allocated(fine % elliptic_op % nu_vi)) then
+
+    allocate(nu_vi(0:this%po, 0:this%po, 0:this%po, this%ne))
+   !call fine % Truncate    ( fine % elliptic_op % nu_vi, nu_vi )
+    call fine % Interpolate ( fine % elliptic_op % nu_vi, nu_vi )
+    call this % elliptic_op % SetProblem( fine % elliptic_op % lambda, &
+                                          nu_vi,                       &
+                                          fine % elliptic_op % bc      )
+    deallocate(nu_vi)
+
+  end if
 
   call GetWorkspace(this)
 
-end subroutine Init_CoarseLevel
+end subroutine SetCoarseProblem
+
+!-------------------------------------------------------------------------------
+!> Allocate workspace
+
+subroutine GetWorkspace(this)
+  class(PMG_Level), intent(inout) :: this
+
+  associate(po => this%po, ne => this%ne)
+
+    if (allocated(this % u)) then
+      if (any(shape(this % u) /= [po+1, po+1, po+1, ne])) then
+        deallocate(this % u)
+        deallocate(this % f)
+        deallocate(this % v)
+      end if
+    end if
+
+    if (.not. allocated(this % u)) then
+      allocate(this % u(0:po, 0:po, 0:po, ne))
+      allocate(this % f, mold = this % u)
+      allocate(this % v, mold = this % u)
+    end if
+
+  end associate
+
+end subroutine GetWorkspace
+
+!-------------------------------------------------------------------------------
+!> Delete workspace
+
+subroutine FreeWorkspace(this)
+  class(PMG_Level), intent(inout) :: this
+
+  if (allocated(this % u)) deallocate(this % u)
+  if (allocated(this % f)) deallocate(this % f)
+  if (allocated(this % v)) deallocate(this % v)
+
+end subroutine FreeWorkspace
+
+!===============================================================================
+! Transfer operators
 
 !-------------------------------------------------------------------------------
 !> Prolongation: coarse-to-fine interpolation
 
-subroutine C2F_Prolongation(this, uc, uf)
+subroutine Prolongate(this, uc, uf)
   class(PMG_Level), intent(in) :: this
   real(RNP), intent(in)  :: uc(0:,0:,0:,:) !< mesh variable
   real(RNP), intent(out) :: uf(0:,0:,0:,:) !< fine (child) mesh variable
 
   call TPO_AAA_Eval(size(uf,1), size(uc,1), size(uc,4), this%p2f_op, uc, uf)
 
-end subroutine C2F_Prolongation
+end subroutine Prolongate
 
 !-------------------------------------------------------------------------------
 !> Fine-to-coarse interpolation
 
-subroutine F2C_Interpolation(this, uf, uc)
+subroutine Interpolate(this, uf, uc)
   class(PMG_Level), intent(in) :: this
   real(RNP), intent(in)  :: uf(0:,0:,0:,:) !< mesh variable
   real(RNP), intent(out) :: uc(0:,0:,0:,:) !< coarse (parent) mesh variable
 
   call TPO_AAA_Eval(size(uc,1), size(uf,1), size(uf,4), this%i2c_op, uf, uc)
 
-end subroutine F2C_Interpolation
+end subroutine Interpolate
 
 !-------------------------------------------------------------------------------
 !> Fine-to-coarse restriction -- no weighting / no assembly !!
 
-subroutine F2C_Restriction(this, uf, uc)
+subroutine Restrict(this, uf, uc)
   class(PMG_Level), intent(in) :: this
   real(RNP), intent(in)  :: uf(0:,0:,0:,:) !< mesh variable
   real(RNP), intent(out) :: uc(0:,0:,0:,:) !< coarse (parent) mesh variable
 
   call TPO_AAA_Eval(size(uc,1), size(uf,1), size(uf,4), this%r2c_op, uf, uc)
 
-end subroutine F2C_Restriction
+end subroutine Restrict
 
 !-------------------------------------------------------------------------------
 !> Fine-to-coarse restriction -- no weighting / no assembly !!
 
-subroutine F2C_Truncation(this, uf, uc)
+subroutine Truncate(this, uf, uc)
   class(PMG_Level), intent(in) :: this
   real(RNP), intent(in)  :: uf(0:,0:,0:,:) !< mesh variable
   real(RNP), intent(out) :: uc(0:,0:,0:,:) !< coarse (parent) mesh variable
 
   call TPO_AAA_Eval(size(uc,1), size(uf,1), size(uf,4), this%t2c_op, uf, uc)
 
-end subroutine F2C_Truncation
+end subroutine Truncate
 
 !===============================================================================
 ! Helpers
@@ -374,32 +384,6 @@ subroutine Build_F2C_TransferOps(this, pc)
   end associate
 
 end subroutine Build_F2C_TransferOps
-
-!-------------------------------------------------------------------------------
-!> Allocate workspace
-
-subroutine GetWorkspace(this)
-  class(PMG_Level), intent(inout) :: this
-
-  associate(po => this%po, ne => this%ne)
-
-    if (allocated(this % u)) then
-      if (any(shape(this % u) /= [po+1, po+1, po+1, ne])) then
-        deallocate(this % u)
-        deallocate(this % f)
-        deallocate(this % v)
-      end if
-    end if
-
-    if (.not. allocated(this % u)) then
-      allocate(this % u(0:po, 0:po, 0:po, ne))
-      allocate(this % f, mold = this % u)
-      allocate(this % v, mold = this % u)
-    end if
-
-  end associate
-
-end subroutine GetWorkspace
 
 !===============================================================================
 

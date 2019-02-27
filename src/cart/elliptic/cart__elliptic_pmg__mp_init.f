@@ -14,25 +14,17 @@ contains
 !-------------------------------------------------------------------------------
 !> PMG_Method3D initialization: IP, constant isotropic diffusivity
 
-module subroutine Init__IP_CI( this, mesh, lambda, nu, bc,  &
-                               ip_opt, schwarz_opt, pmg_opt )
-
-  class(PMG_Method3D), intent(inout) :: this
-
-  class(MeshPartition), target, intent(in) :: mesh        !< mesh partition
-  real(RNP),                    intent(in) :: lambda      !< Helmholtz parameter
-  real(RNP),                    intent(in) :: nu          !< diffusivity
-  character,                    intent(in) :: bc(:)       !< boundary conditions
-  class(IP_ElementOptions1D),   intent(in) :: ip_opt      !< IP/DG options
-  class(SchwarzOptions3D),      intent(in) :: schwarz_opt !< Schwarz options
-  class(PMG_Options3D),         intent(in) :: pmg_opt     !< PMG options
+module subroutine Init_IP( this, mesh, ip_opt, pmg_opt )
+  class(PMG_Method3D),          intent(inout) :: this
+  class(MeshPartition), target, intent(in)    :: mesh    !< mesh partition
+  class(IP_ElementOptions1D),   intent(in)    :: ip_opt  !< IP/DG options
+  class(PMG_Options3D),         intent(in)    :: pmg_opt !< PMG options
 
   integer, allocatable :: po(:)
   integer :: l, l_top, ns1, ns2
 
   if (ip_opt % po /= pmg_opt % po_top) then
-    call Error( 'CART__Elliptic_PMG: Init__IP_CI' &
-              , 'ip_opt % po /= pmg_opt % po_top' )
+    call Error('CART__Elliptic_PMG: Init_IP', 'ip_opt % po /= pmg_opt % po_top')
   end if
 
   this % mesh => mesh
@@ -45,86 +37,27 @@ module subroutine Init__IP_CI( this, mesh, lambda, nu, bc,  &
   ns1 = pmg_opt % ns1
   ns2 = pmg_opt % ns2
 
-  if (l_top > 0) then
-    call this % level(l_top) % Init_TopLevel( ns1, ns2, mesh, lambda, nu, bc,  &
-                                              ip_opt, schwarz_opt, po(l_top-1) )
-  else
-    call this % level(l_top) % Init_TopLevel( ns1, ns2, mesh, lambda, nu, bc,  &
-                                              ip_opt, schwarz_opt              )
-  end if
+  associate(level => this % level, schwarz_opt => pmg_opt % schwarz)
 
-  do l = l_top-1, 1, -1
-    ns1 = ns1 * pmg_opt % mvs
-    ns2 = ns2 * pmg_opt % mvs
-    call this % level(l) % Init_CoarseLevel( po(l), ns1, ns2, this%level(l+1), &
-                                             schwarz_opt, po(l-1)              )
-  end do
+    if (l_top > 0) then
+      call level(l_top) % Init_TopLevel_IP( ns1, ns2, mesh, ip_opt, &
+                                            schwarz_opt, po(l_top-1 )                          )
+    else
+      call level(l_top) % Init_TopLevel_IP( ns1, ns2, mesh, ip_opt, schwarz_opt )
+    end if
 
-  call this % level(0) % Init_CoarseLevel( po(0), ns1, ns2, this%level(1), &
-                                           schwarz_opt                     )
-
-end subroutine Init__IP_CI
-
-!-------------------------------------------------------------------------------
-!> PMG_Method3D initialization: IP, variable isotropic diffusivity
-
-module subroutine Init__IP_VI( this, mesh, lambda, nu, bc,  &
-                               ip_opt, schwarz_opt, pmg_opt )
-
-  class(PMG_Method3D), intent(inout) :: this
-
-  class(MeshPartition), target, intent(in) :: mesh           !< mesh partition
-  real(RNP),                    intent(in) :: lambda         !< Helmholtz param
-  real(RNP),                    intent(in) :: nu(0:,0:,0:,:) !< diffusivity
-  character,                    intent(in) :: bc(:)          !< boundary cond
-  class(IP_ElementOptions1D),   intent(in) :: ip_opt         !< IP/DG opt
-  class(SchwarzOptions3D),      intent(in) :: schwarz_opt    !< Schwarz opt
-  class(PMG_Options3D),         intent(in) :: pmg_opt        !< PMG options
-
-  integer, allocatable :: po(:)
-  integer :: l, l_top, ns1, ns2
-
-  if (ip_opt % po /= pmg_opt % po_top) then
-    call Error( 'CART__Elliptic_PMG: Init__IP_CI' &
-              , 'ip_opt % po /= pmg_opt % po_top' )
-  end if
-
-  this % mesh => mesh
-  call Assign_PMG_Options(pmg_opt, this)
-  call CreatePolynomialLevels(pmg_opt, po)
-
-  l_top = ubound(po,1)
-  allocate(this % level(0:l_top))
-
-  ns1 = pmg_opt % ns1
-  ns2 = pmg_opt % ns2
-
-  if (l_top > 0) then ! multi-level
-
-    ! top level
-    call this % level(l_top) % Init_TopLevel( ns1, ns2, mesh, lambda, nu, bc,  &
-                                              ip_opt, schwarz_opt, po(l_top-1) )
-
-    ! intermediate levels
     do l = l_top-1, 1, -1
       ns1 = ns1 * pmg_opt % mvs
       ns2 = ns2 * pmg_opt % mvs
-      call this % level(l) % Init_CoarseLevel( po(l), ns1, ns2,     &
-                                               this%level(l+1),     &
-                                               schwarz_opt, po(l-1) )
+      call level(l) % Init_CoarseLevel( po(l), ns1, ns2, this%level(l+1), &
+                                        schwarz_opt, po(l-1)              )
     end do
 
-    ! bottom level
-    call this % level(0) % Init_CoarseLevel( po(0), ns1, ns2, this%level(1), &
-                                             schwarz_opt                     )
+    call level(0) % Init_CoarseLevel( po(0), ns1, ns2, this%level(1), &
+                                      schwarz_opt                     )
+  end associate
 
-  else ! single-level
-
-    call this % level(0) % Init_TopLevel( ns1, ns2, mesh, lambda, nu, bc,  &
-                                          ip_opt, schwarz_opt              )
-  end if
-
-end subroutine Init__IP_VI
+end subroutine Init_IP
 
 !-------------------------------------------------------------------------------
 !> Assignment of options to PMG_Method3D object
