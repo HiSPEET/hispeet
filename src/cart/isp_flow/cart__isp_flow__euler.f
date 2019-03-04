@@ -19,8 +19,8 @@ module CART__ISP_Flow__Euler
   use ISP_Flow_Problem
   use CART__Mesh_Partition
   use CART__Boundary_Variable
-  use CART__DG_Weak_Divergence
-  use CART__DG_Weak_Gradient
+  use CART__Weak_Divergence
+  use CART__Weak_Gradient
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Boundary_Values
   use CART__ISP_Flow__Convection

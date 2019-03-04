@@ -14,7 +14,7 @@ module CART__ISP_Flow__SDC
   use Array_Assignments
   use XMPI
   use ISP_Flow_Problem
-  use CART__DG_Weak_Gradient
+  use CART__Weak_Gradient
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Pressure
   use CART__ISP_Flow__Time_Derivative

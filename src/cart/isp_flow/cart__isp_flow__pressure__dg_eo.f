@@ -15,7 +15,7 @@ module CART__ISP_Flow__Pressure__DG_EO
   use ISP_Flow_Problem
   use CART__Mesh_Partition
   use CART__Boundary_Variable
-  use CART__DG_Weak_Divergence
+  use CART__Weak_Divergence
   use CART__DG_Elliptic_CIS_BC
   use CART__DG_Elliptic_CI_PMG
   use CART__ISP_Flow__Boundary_Values

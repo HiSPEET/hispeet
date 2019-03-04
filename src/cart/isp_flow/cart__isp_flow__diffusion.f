@@ -9,12 +9,10 @@
 module CART__ISP_Flow__Diffusion
 
   use Kind_Parameters, only: RNP
-  use Constants,       only: ONE
   use TPO_sDDD
   use ISP_Flow_Problem
   use CART__Boundary_Variable
-  use CART__DG_Elliptic_CIU_BC
-  use CART__DG_Elliptic_CI_PMG
+  use CART__Elliptic_PMG
   use CART__ISP_Flow__Operators
 
   implicit none
@@ -27,7 +25,7 @@ contains
 !-------------------------------------------------------------------------------
 !>  Diffusion step
 
-subroutine DiffusionStep(problem, flow_op, dt, f, u, w)
+subroutine DiffusionStep(problem, flow_op, dt, f, u, w, nu)
 
   ! arguments ..................................................................
 
@@ -37,13 +35,15 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w)
   real(RNP),               intent(in)    :: f(:,:,:,:,:)   !< sources
   real(RNP),               intent(inout) :: u(:,:,:,:,:)   !< solution
   real(RNP),               intent(inout) :: w(:,:,:,:,:)   !< workspace
+  real(RNP),     optional, intent(in)    :: nu(:,:,:,:,:)  !< diffusivities
 
   ! local variables ............................................................
 
   type(BoundaryVariable), allocatable, save :: bv_uc(:)
 
-  real(RNP) :: g, kappa, r_2
-  integer   :: c, np, ne, ni
+  real(RNP) :: g, r_2
+  integer   :: l_top, ne, ni, np
+  integer   :: c
 
   associate( mesh => flow_op % mesh   &
            , eop  => flow_op % eop_u  &
@@ -54,8 +54,9 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w)
     ! intialization ............................................................
 
     ! dimensions
-    np = size(u,1)
+    np = size(u, 1)
     ne = mesh % ne
+    l_top = ubound(pmg%level, 1)
 
     ! workspace
     !$omp single
@@ -68,19 +69,23 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w)
 
       if (c == 4) cycle ! skip pressure
 
-      ! project sources
-      g = product(eop%dx) / 8
-      call TPO_sDDD_Eval(np, ne, g, eop%w, f(:,:,:,:,c), fc)
+      ! set problem
+      if (present(nu)) then
+        call pmg % SetProblem(1/dt, nu(:,:,:,:,c), bc(:,c))
+      else
+        call pmg % SetProblem(1/dt, problem%nu_ref(c), bc(:,c))
+      end if
 
-      ! scaled diffusivity
-      kappa = dt * problem % nu_ref(c)
+      ! project sources
+      g = product(mesh%dx) / 8
+      call TPO_sDDD_Eval(np, ne, g, eop%w, f(:,:,:,:,c), fc)
 
       ! add boundary contributions
       call flow_op % bv_u % GetHandle(c, bv_uc)
-      call ApplyBoundaryConditions(mesh, eop, kappa, bv_uc, fc)
+      call pmg % level(l_top) % elliptic_op % BcToRHS(bv_uc, fc)
 
       ! solve
-      call pmg % MG_CG_Solver(ONE, kappa, bc(:,c), fc, u(:,:,:,:,c), ni, r_2)
+      call pmg % MG_CG_Solver(u(:,:,:,:,c), fc, ni, r_2)
 
       ! monitoring
       !$omp single

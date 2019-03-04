@@ -10,9 +10,10 @@ module CART__ISP_Flow__Operators
 
   use Kind_Parameters,           only: RNP
   use Constants,                 only: ZERO, ONE
-  use Embedded_Interpolation_3D, only: InterpolationOperator3D
-  use Projection_Operator_3D,    only: ProjectionOperator3D
+  use Standard_Operators_1D
   use IP_Element_Operators_1D
+  use Embedded_Interpolation_3D
+  use Projection_Operator_3D
 
   use ISP_Flow_Problem
 
@@ -42,9 +43,9 @@ module CART__ISP_Flow__Operators
     type(BoundaryVariable), allocatable :: bv_x(:) !< boundary points
     type(BoundaryVariable), allocatable :: bv_u(:) !< boundary values
 
-    type(EllipticOperator3D_IP) :: eop_u !< element operators for u \ p
-    type(EllipticOperator3D_IP) :: eop_p !< element operators for p
-    type(IP_ElementOperators1D) :: eop_q !< element operators for nonlinear terms
+    type(StandardOperators1D) :: eop_u !< element operators for u \ p
+    type(StandardOperators1D) :: eop_p !< element operators for p
+    type(StandardOperators1D) :: eop_q !< element operators for nonlinear terms
 
     type(ProjectionOperator3D)    :: pop_up !< projection    from po_u to po_p
     type(InterpolationOperator3D) :: iop_uq !< interpolation from po_u to po_q
@@ -57,23 +58,59 @@ module CART__ISP_Flow__Operators
 
   contains
 
-    procedure :: New => New_FlowOperators
+    procedure :: Init_FlowOperators
 
   end type FlowOperators
+
+  ! constructor interface
+  interface FlowOperators
+    module procedure New_FlowOperators
+  end interface
 
 contains
 
 !-------------------------------------------------------------------------------
-!>
+!> Constructor
 
-subroutine New_FlowOperators( this                       &
-                            , problem                    &
-                            , mesh                       &
-                            , po_u, po_p, po_q, penalty  &
-                            , pmg_u_opt                  &
-                            , pmg_p_opt                  &
-                            , monitor_level              &
-                            )
+function New_FlowOperators( problem                    &
+                          , mesh                       &
+                          , po_u, po_p, po_q, penalty  &
+                          , pmg_u_opt                  &
+                          , pmg_p_opt                  &
+                          , monitor_level              &
+                          ) result(this)
+
+
+  type(FlowOperators) :: this
+
+  class(FlowProblem),           intent(in) :: problem !< flow problem
+  class(MeshPartition), target, intent(in) :: mesh    !< mesh partition
+
+  integer,   intent(in) :: po_u    !< order of variables except for pressure
+  integer,   intent(in) :: po_p    !< order of pressure
+  integer,   intent(in) :: po_q    !< order for quadrature of nonlinear terms
+  real(RNP), intent(in) :: penalty !< penalty parameter op SIP method > 1
+
+  class(PMG_Options3D), intent(in) :: pmg_u_opt     !< PMG options for u
+  class(PMG_Options3D), intent(in) :: pmg_p_opt     !< PMG options for p
+  integer,    optional, intent(in) :: monitor_level !< monitor level [0] {0,1,2}
+
+  call Init_FlowOperators( this, problem, mesh, po_u, po_p, po_q, penalty, &
+                           pmg_u_opt, pmg_p_opt, monitor_level             )
+
+end function New_FlowOperators
+
+!-------------------------------------------------------------------------------
+!> Initialization of flow operators
+
+subroutine Init_FlowOperators( this                       &
+                             , problem                    &
+                             , mesh                       &
+                             , po_u, po_p, po_q, penalty  &
+                             , pmg_u_opt                  &
+                             , pmg_p_opt                  &
+                             , monitor_level              &
+                             )
 
   ! arguments ..................................................................
 
@@ -105,6 +142,12 @@ subroutine New_FlowOperators( this                       &
   this % po_p = po_p
   this % po_q = po_q
 
+  this % eop_u = StandardOperators1D(po_u)
+  this % eop_p = StandardOperators1D(po_p)
+  if (po_q /= po_u) then
+    this % eop_q = StandardOperators1D(po_q, no_vdm = .true.)
+  end if
+
   this % mesh => mesh
   call mesh % GetPoints(po_u, 'GLL', this % x)
   allocate(this % bv_x(mesh%n_boundary))
@@ -114,36 +157,19 @@ subroutine New_FlowOperators( this                       &
     call this % bv_u(b) % New(mesh, po_u, b, problem%bc(b,:))
   end do
 
-!################################ HIER WEITER !################################!
-!### lambda = ONE -- dt noch unbekannt ?
-!### nu -- was tun im variablen Fall?
-!### bc = problem % bc ?
-!### schwarz_opt  --  Schwarz Options in PMG Options integrieren ?
-!###
-! call this % pmg_u % New(pmg_u_opt, mesh, penalty)
-  this % pmg_u = PMG_Method3D(mesh, lambda, nu, bc, ip_opt, schwarz_opt, pmg_u_opt )
-
-  associate(level => this % pmg_u % level)
-    this % eop_u = level(ubound(level,1)) % eop
-  end associate
-
-  call this % pmg_p % New(pmg_p_opt, mesh, penalty)
-
-  associate(level => this % pmg_p % level)
-    this % eop_p = level(ubound(level,1)) % eop
-  end associate
+  this%pmg_u = PMG_Method3D(mesh, IP_ElementOptions1D(po_u, penalty), pmg_u_opt)
+  this%pmg_p = PMG_Method3D(mesh, IP_ElementOptions1D(po_p, penalty), pmg_p_opt)
 
   if (po_p /= po_u) then
-    this % pop_up = ProjectionOperator3D(    this%eop_u,   &
-                                             this%eop_p%x, &
-                                             this%eop_p%w, &
-                                             mesh%dx       )
-    this % iop_pu = InterpolationOperator3D( this%eop_p,   &
-                                             this%eop_u%x  )
+    this % pop_up = ProjectionOperator3D( this%eop_u,   &
+                                          this%eop_p%x, &
+                                          this%eop_p%w, &
+                                          mesh%dx       )
+
+    this % iop_pu = InterpolationOperator3D( this%eop_p, this%eop_u%x )
   end if
 
   if (po_q /= po_u) then
-    this % eop_q  = IP_ElementOperators1D( IP_ElementOptions1D(eop_u, po_q) )
     this % iop_uq = InterpolationOperator3D( this%eop_u, this%eop_q%x )
   end if
 
@@ -173,37 +199,8 @@ subroutine New_FlowOperators( this                       &
   end if
   !$omp end single
 
- end subroutine New_FlowOperators
-
-!-------------------------------------------------------------------------------
-!>
-
-subroutine SetPolynomialLevels(po, rc, pl)
-  integer,              intent(in)  :: po    !< polynomial order of top level
-  real(RNP),            intent(in)  :: rc    !< coarsening ratio > 1
-  integer, allocatable, intent(out) :: pl(:) !< polynomial order of top level
-
-  integer, allocatable :: p(:)
-  integer :: i, l
-
-  allocate(p(0:po-1), source = po)
-
-  l = 0
-  do
-    l    = l + 1
-    p(l) = max( min( nint( p(l-1)/rc), p(l-1)-1 ), 1 )
-    if (p(l) == 1) exit
-  end do
-
-  allocate(pl(0:l))
-  do i = 0, l
-    pl(i) = p(l-i)
-  end do
-
-end subroutine SetPolynomialLevels
+ end subroutine Init_FlowOperators
 
 !===============================================================================
 
 end module CART__ISP_Flow__Operators
-
-
