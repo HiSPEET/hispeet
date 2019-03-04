@@ -1,12 +1,12 @@
-!> summary:  DG weak gradient of a vector field
+!> summary:  Weak gradient of a vector field
 !> author:   Joerg Stiller
 !> date:     2018/03/28
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### DG weak gradient of a vector field
+!>### Weak gradient of a vector field
 !===============================================================================
 
-module CART__DG_Weak_Gradient
+module CART__Weak_Gradient
 
   use Kind_Parameters, only: RNP
   use Standard_Operators_1D
@@ -236,4 +236,4 @@ end subroutine WeakGradient_X
 
 !===============================================================================
 
-end module CART__DG_Weak_Gradient
+end module CART__Weak_Gradient

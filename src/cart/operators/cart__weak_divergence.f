@@ -1,12 +1,12 @@
-!> summary:  DG weak divergence of a vector field
+!> summary:  Weak divergence of a vector field
 !> author:   Joerg Stiller
 !> date:     2018/03/26
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### DG weak divergence of a vector field
+!>### Weak divergence of a vector field
 !===============================================================================
 
-module CART__DG_Weak_Divergence
+module CART__Weak_Divergence
 
   use Kind_Parameters, only: RNP
   use Standard_Operators_1D
@@ -236,4 +236,4 @@ end subroutine WeakDivergence_X
 
 !===============================================================================
 
-end module CART__DG_Weak_Divergence
+end module CART__Weak_Divergence
