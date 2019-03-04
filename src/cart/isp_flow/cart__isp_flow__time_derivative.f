@@ -9,15 +9,16 @@
 module CART__ISP_Flow__Time_Derivative
 
   use Kind_Parameters, only: RNP
-  use Constants,       only: ONE, ZERO
+  use Constants,       only: ZERO, ONE, TWO
   use Array_Assignments
   use TPO_sDDD
   use ISP_Flow_Problem
   use CART__TPO_Div
   use CART__TPO_Grad
   use CART__TPO_RotRot
-  use CART__DG_Weak_Gradient
-  use CART__DG_Weak_Divergence
+  use CART__Mesh_Partition
+  use CART__Weak_Gradient
+  use CART__Weak_Divergence
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Convection
 
@@ -60,7 +61,6 @@ subroutine TimeDerivative(problem, flow_op, t, u_c, u_d, p, nu, F, F_c, F_d, F_s
 
   real(RNP), allocatable, save :: w(:,:,:,:,:)
   integer :: np, ne, nc
-  integer :: c
 
   associate( mesh => flow_op % mesh      &
            , Ms   => flow_op % eop_u % w &
@@ -111,35 +111,21 @@ subroutine TimeDerivative(problem, flow_op, t, u_c, u_d, p, nu, F, F_c, F_d, F_s
 
     ! diffusion ................................................................
 
-    if (present(u_d)) then ! so far assuming constant nu
+    if (present(u_d)) then
 
-      associate(v => u_d(:,:,:,:,1:3), q => w(:,:,:,:,4), nu => problem%nu_ref)
+      if (present(nu)) then
+        call DiffTimeDeriv_Velocity_VI (mesh, Ms, Dd, nu, u_d, w, F, F_d)
+        call DiffTimeDeriv_Scalars_VI  (mesh, Ms, Dd, nu, u_d, w, F, F_d)
+      else
+        associate(nu => problem % nu_ref)
+          call DiffTimeDeriv_Velocity_CI (mesh, Ms, Dd, nu, u_d, w, F, F_d)
+          call DiffTimeDeriv_Scalars_CI  (mesh, Ms, Dd, nu, u_d, w, F, F_d)
+        end associate
+      end if
 
-        ! div-grad part
-        do c = 1, nc
-          if (c == 4) then
-            call AssignScalar(q, ZERO)
-          else
-            call TPO_Grad_Eval(np, ne, Dd, mesh%dx, u_d(:,:,:,:,c), w)
-            call ScaleArray(w, nu(c), multi=.true.)
-            call WeakDivergence(mesh, Ms, Dd, w, q)
-            call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
-          end if
-          if (present(F_d)) then
-            call AssignArray(F_d(:,:,:,:,c), q)
-          end if
-        end do
-
-        ! divergence penalty
-        call TPO_Div_Eval(np, ne, Ds, mesh%dx, v, q)
-        call ScaleArray(q, -nu(1))
-        call WeakGradient(mesh, Ms, Ds, q, w)
-        call MergeArrays(ONE, F, ONE, w, multi=.true.)
-        if (present(F_d)) then
-          call MergeArrays(ONE, F_d, ONE, w, multi=.true.)
-        end if
-
-      end associate
+      if (present(F_d)) then
+        call AssignScalar(F_d(:,:,:,:,4), ZERO)
+      end if
 
     else if (present(F_d)) then
 
@@ -165,6 +151,274 @@ subroutine TimeDerivative(problem, flow_op, t, u_c, u_d, p, nu, F, F_c, F_d, F_s
   end associate
 
 end subroutine TimeDerivative
+
+!-------------------------------------------------------------------------------
+!> Diffusive part of momentum equation with constant viscosity
+!>
+!> Computes
+!>
+!>     F(*,1:3) += ν∇·∇v - ν∇∇·v =F_d(*,1:3)
+!>
+!> using the weak (projected) form of the outer divergence and gradient
+!> operators.
+
+subroutine DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, v, w, F, F_d)
+  class(MeshPartition), intent(in)    :: mesh           !< mesh partition
+  real(RNP),            intent(in)    :: Ms (:)         !< standard mass matrix
+  real(RNP),            intent(in)    :: Dd (:,:)       !< standard diff matrix
+  real(RNP),            intent(in)    :: nu (:)         !< viscosity, ν = nu(1)
+  real(RNP),            intent(in)    :: v  (:,:,:,:,:) !< velocity, v(*,1:3)
+  real(RNP),            intent(inout) :: w  (:,:,:,:,:) !< workspace
+  real(RNP),            intent(inout) :: F  (:,:,:,:,:) !< time derivative ∂v/∂t
+  real(RNP),  optional, intent(out)   :: F_d(:,:,:,:,:) !< diff part of ∂v/∂t
+
+  integer :: ne, np
+  integer :: c
+
+  np = size(Ms)
+  ne = mesh%ne
+
+  associate(g => w(:,:,:,:,1:3), q => w(:,:,:,:,4))
+
+    ! div-grad part
+    do c = 1, 3
+      call TPO_Grad_Eval(np, ne, Dd, mesh%dx, v(:,:,:,:,c), g)
+      call ScaleArray(g, nu(1), multi=.true.)
+      call WeakDivergence(mesh, Ms, Dd, g, q)
+      call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
+      if (present(F_d)) then
+        call AssignArray(F_d(:,:,:,:,c), q)
+      end if
+    end do
+
+    ! divergence penalty
+    call TPO_Div_Eval(np, ne, Dd, mesh%dx, v, q)
+    call ScaleArray(q, -nu(1))
+    call WeakGradient(mesh, Ms, Dd, q, g)
+    call MergeArrays(ONE, F(:,:,:,:,1:3), ONE, g, multi=.true.)
+    if (present(F_d)) then
+      call MergeArrays(ONE, F_d(:,:,:,:,1:3), ONE, g, multi=.true.)
+    end if
+
+  end associate
+
+end subroutine DiffTimeDeriv_Velocity_CI
+
+!-------------------------------------------------------------------------------
+!> Diffusive part of scalar transport with constant diffusivity
+!>
+!> Computes
+!>
+!>     F(*,5:nc) += ν∇·∇u = F_d(*,5:nc)
+!>
+!> using the weak (projected) form of the outer divergence and gradient
+!> operators.
+
+subroutine DiffTimeDeriv_Scalars_CI(mesh, Ms, Dd, nu, u, w, F, F_d)
+  class(MeshPartition), intent(in)    :: mesh           !< mesh partition
+  real(RNP),            intent(in)    :: Ms (:)         !< standard mass matrix
+  real(RNP),            intent(in)    :: Dd (:,:)       !< standard diff matrix
+  real(RNP),            intent(in)    :: nu (:)         !< diffusivities
+  real(RNP),            intent(in)    :: u  (:,:,:,:,:) !< scalars: u(*,5:nc)
+  real(RNP),            intent(inout) :: w  (:,:,:,:,:) !< workspace
+  real(RNP),            intent(inout) :: F  (:,:,:,:,:) !< time derivative ∂u/∂t
+  real(RNP),  optional, intent(inout) :: F_d(:,:,:,:,:) !< diff part of ∂u/∂t
+
+  procedure(TPO_Grad_Proc), pointer :: Gradient
+
+  integer :: nc, ne, np
+  integer :: c
+
+  np = size(Ms)
+  ne = size(u,4)
+  nc = size(u,5)
+
+  call TPO_Grad_Assign(np, Gradient)
+
+  associate(g => w(:,:,:,:,1:3), q => w(:,:,:,:,4))
+
+    do c = 5, nc
+      call Gradient(np, ne, Dd, mesh%dx, u(:,:,:,:,c), w)
+      call ScaleArray(g, nu(c), multi=.true.)
+      call WeakDivergence(mesh, Ms, Dd, g, q)
+      call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
+      if (present(F_d)) then
+        call AssignArray(F_d(:,:,:,:,c), q)
+      end if
+    end do
+
+  end associate
+
+end subroutine DiffTimeDeriv_Scalars_CI
+
+!-------------------------------------------------------------------------------
+!> Diffusive part of momentum equation with variable viscosity
+!>
+!> Computes
+!>
+!>     F(*,1:3) += ∇·[ν∇v + ∇·ν(∇v)ᵀ] - 2ν∇∇·v = F_d(*,1:3)
+!>
+!> using the weak (projected) form of the outer divergence and gradient
+!> operators.
+
+subroutine DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, nu, v, w, F, F_d)
+  class(MeshPartition), intent(in)    :: mesh           !< mesh partition
+  real(RNP),            intent(in)    :: Ms (:)         !< standard mass matrix
+  real(RNP),            intent(in)    :: Dd (:,:)       !< standard diff matrix
+  real(RNP),            intent(in)    :: nu (:,:,:,:,:) !< viscosity, ν = nu(*,1)
+  real(RNP),            intent(in)    :: v  (:,:,:,:,:) !< velocity, v(*,1:3)
+  real(RNP),            intent(inout) :: w  (:,:,:,:,:) !< workspace
+  real(RNP),            intent(inout) :: F  (:,:,:,:,:) !< time derivative ∂v/∂t
+  real(RNP),  optional, intent(out)   :: F_d(:,:,:,:,:) !< diff part of ∂v/∂t
+
+  real(RNP), allocatable, save :: grad_v(:,:,:,:,:,:)
+  integer :: ne, np
+  integer :: c, d, e, i, j, k
+
+  np = size(Ms)
+  ne = mesh%ne
+
+  !$omp single
+  allocate(grad_v(np,np,np,ne,3,3))
+  !$omp end single
+
+  call TPO_Grad_Eval(np, 3*ne, Dd, mesh%dx, v(:,:,:,:,1:3), grad_v)
+
+  associate(g => w(:,:,:,:,1:3), q => w(:,:,:,:,4))
+
+    ! diffusion part ...........................................................
+
+    do c = 1, 3
+
+      do d = 1, 3
+        !$omp do
+        do e = 1, ne
+          do k = 1, np
+          do j = 1, np
+          do i = 1, np
+            g(i,j,k,e,d) = nu(i,j,k,e,1) * ( grad_v(i,j,k,e,d,c) &
+                                           + grad_v(i,j,k,e,c,d) )
+          end do
+          end do
+          end do
+        end do
+      end do
+
+      call WeakDivergence(mesh, Ms, Dd, g, q)
+
+      call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
+      if (present(F_d)) then
+        call AssignArray(F_d(:,:,:,:,c), q)
+      end if
+
+    end do
+
+    ! div penalty ..............................................................
+
+    !$omp do
+    do e = 1, ne
+      do k = 1, np
+      do j = 1, np
+      do i = 1, np
+        q(i,j,k,e) = grad_v(i,j,k,e,1,1) &
+                   + grad_v(i,j,k,e,2,2) &
+                   + grad_v(i,j,k,e,3,3)
+      end do
+      end do
+      end do
+    end do
+
+    call WeakGradient(mesh, Ms, Dd, q, g)
+
+    do d = 1, 3
+      !$omp do
+      do e = 1, ne
+        do k = 1, np
+        do j = 1, np
+        do i = 1, np
+          g(i,j,k,e,d) = nu(i,j,k,e,1) * g(i,j,k,e,d)
+        end do
+        end do
+        end do
+      end do
+    end do
+
+    call MergeArrays(ONE, F, -TWO, g, multi = .true.)
+    if (present(F_d)) then
+      call AssignArray(F_d, g, multi = .true.)
+    end if
+
+  end associate
+
+  !$omp barrier
+  !$omp master
+  deallocate(grad_v)
+  !$omp end master
+
+end subroutine DiffTimeDeriv_Velocity_VI
+
+!-------------------------------------------------------------------------------
+!> Diffusive part of scalar transport with variable diffusivity
+!>
+!> Computes
+!>
+!>     F(*,5:nc) += ∇·ν∇u = F_d(*,5:nc)
+!>
+!> using the weak (projected) form of the outer divergence and gradient
+!> operators.
+
+subroutine DiffTimeDeriv_Scalars_VI(mesh, Ms, Dd, nu, u, w, F, F_d)
+  class(MeshPartition), intent(in)    :: mesh           !< mesh partition
+  real(RNP),            intent(in)    :: Ms (:)         !< standard mass matrix
+  real(RNP),            intent(in)    :: Dd (:,:)       !< standard diff matrix
+  real(RNP),            intent(in)    :: nu (:,:,:,:,:) !< diffusivities
+  real(RNP),            intent(in)    :: u  (:,:,:,:,:) !< scalars: u(*,5:nc)
+  real(RNP),            intent(inout) :: w  (:,:,:,:,:) !< workspace
+  real(RNP),            intent(inout) :: F  (:,:,:,:,:) !< time derivative ∂u/∂t
+  real(RNP),  optional, intent(inout) :: F_d(:,:,:,:,:) !< diff part of ∂u/∂t
+
+  procedure(TPO_Grad_Proc), pointer :: Gradient
+
+  integer :: nc, ne, np
+  integer :: c, d, e, i, j, k
+
+  np = size(Ms)
+  ne = size(u,4)
+  nc = size(u,5)
+
+  call TPO_Grad_Assign(np, Gradient)
+
+  associate(g => w(:,:,:,:,1:3), q => w(:,:,:,:,4))
+
+    do c = 5, nc
+
+      call Gradient(np, ne, Dd, mesh%dx, u(:,:,:,:,c), g)
+
+      do d = 1, 3
+        !$omp do
+        do e = 1, ne
+          do k = 1, np
+          do j = 1, np
+          do i = 1, np
+            g(i,j,k,e,d) = nu(i,j,k,e,1) * g(i,j,k,e,d)
+          end do
+          end do
+          end do
+        end do
+      end do
+
+      call WeakDivergence(mesh, Ms, Dd, g, q)
+
+      call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
+      if (present(F_d)) then
+        call AssignArray(F_d(:,:,:,:,c), q)
+      end if
+
+    end do
+
+  end associate
+
+end subroutine DiffTimeDeriv_Scalars_VI
 
 !===============================================================================
 
