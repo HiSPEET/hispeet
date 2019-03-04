@@ -70,8 +70,8 @@ module subroutine SchwarzMethod(this, u, f, i_max, r_red, r_max, ni)
     allocate( buf_u_s )
     !$omp end single
 
-    call AssignScalar(r  , ZERO)
-    call AssignScalar(u_s, ZERO)
+    call SetArray(r  , ZERO)
+    call SetArray(u_s, ZERO)
 
     ! transfer buffers
     call buf_r   % New(mesh, r,  no)
@@ -187,7 +187,7 @@ subroutine RestrictToSubdomains(mesh, no, buf_v, v, vs)
 
   po = ubound(v,1)
 
-  call AssignScalar(vs, ZERO)
+  call SetArray(vs, ZERO)
 
   ! offsets of subdomain point indices
   is0 = no(1) + 1;  is1 = po + is0

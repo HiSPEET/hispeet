@@ -270,7 +270,7 @@ subroutine ConjugateGradients(this, u, f, i_max, r_red, r_max, ni)
     !$acc data create(g,r,p,q) present(u,f)
 
     ! RHS
-    call AssignArray(g, f)
+    call SetArray(g, f)
 
     ! calibrate RHS of singular problem
     if (abs(this%lambda) < epsilon(ONE) .and. all(this%bc /= 'D')) then
@@ -280,7 +280,7 @@ subroutine ConjugateGradients(this, u, f, i_max, r_red, r_max, ni)
     ! initial residual .........................................................
 
     call this % Residual(u, g, r)
-    call AssignArray(p, r)
+    call SetArray(p, r)
 
     rr = ScalarProduct(r, r, mesh%comm)
 

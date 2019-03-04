@@ -93,8 +93,8 @@ subroutine EllipticOperator(mesh, eop, lambda, nu, bc, u, v)
   allocate(buf__J_u)
   !$omp end single
 
-  call AssignScalar(J_u, ZERO)
-  call AssignScalar(D_u, ZERO)
+  call SetArray(J_u, ZERO)
+  call SetArray(D_u, ZERO)
 
   ! index range of x1-faces
   i1 = 1
@@ -222,17 +222,17 @@ subroutine TraceOperators(eop, po, ne, u, J1_u, J2_u, J3_u, D1_u, D2_u, D3_u)
 
   !$omp end single
 
-  call AssignScalar(T1_u , ZERO)
-  call AssignScalar(T2_u , ZERO)
-  call AssignScalar(T3_u , ZERO)
-  call AssignScalar(T1_du, ZERO)
-  call AssignScalar(T2_du, ZERO)
-  call AssignScalar(T3_du, ZERO)
+  call SetArray(T1_u , ZERO)
+  call SetArray(T2_u , ZERO)
+  call SetArray(T3_u , ZERO)
+  call SetArray(T1_du, ZERO)
+  call SetArray(T2_du, ZERO)
+  call SetArray(T3_du, ZERO)
 
   ! generate traces ............................................................
 
   ! *** ACC: Take care that T1_u, ... are created on device
-  ! *** ACC/OMP: Set T1_u, ... to ZERO using AssignScalar from module
+  ! *** ACC/OMP: Set T1_u, ... to ZERO using SetArray from module
   ! ***          Array_Assignments; remove source = ZERO from allocation
 
   associate( Ds => eop%D, dx => eop%dx)

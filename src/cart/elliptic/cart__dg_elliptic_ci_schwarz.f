@@ -22,7 +22,7 @@ module CART__DG_Elliptic_CI_Schwarz
 
   use Kind_Parameters,   only: RNP
   use Constants,         only: ZERO, ONE, HALF
-  use Array_Assignments, only: AssignScalar
+  use Array_Assignments, only: SetArray
   use Array_Reductions,  only: ScalarProduct
   use Eigenproblems,     only: SolveGeneralizedEigenproblem
   use Execution_Control, only: Error
@@ -680,11 +680,11 @@ subroutine Iteration_C(this, mesh, lambda, nu, bc, u, f, i_max, r_red, r_max)
   allocate( buf_u_s )
   !$omp end single
 
-  call AssignScalar(r  , ZERO)
-  call AssignScalar(u_s, ZERO)
+  call SetArray(r  , ZERO)
+  call SetArray(u_s, ZERO)
 
   ! subdomain diffusivity -- constant, so far
-  call AssignScalar(nu_s, nu)
+  call SetArray(nu_s, nu)
 
   ! transfer buffers
   call buf_r   % New(mesh, r,  no)
@@ -805,7 +805,7 @@ subroutine RestrictToSubdomains(mesh, schwarz, buf_v, v, vs)
 
     po = ubound(v,1)
 
-    call AssignScalar(vs, ZERO)
+    call SetArray(vs, ZERO)
 
     ! offsets of subdomain point indices
     is0 = no(1) + 1;  is1 = po + is0

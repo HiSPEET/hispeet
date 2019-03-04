@@ -288,7 +288,7 @@ program ISP_Flow__SDC_Test
     if (sdc % n_sub > 0) then
       call sdc % TimeStep( problem, flow_op, t, dt, u, F, first, last)
     else
-      call AssignArray(u_0, u, multi=.true.)
+      call SetArray(u_0, u, multi=.true.)
       call EulerPC(problem, flow_op, t, dt, u_0, u)
     end if
 
@@ -366,7 +366,7 @@ subroutine InitializeMeshVariables()
   call problem % GetVariableNames(name_u)
 
   allocate(var(np, np, np, ne, n_var))
-  call AssignScalar(var, ZERO, multi=.true.)
+  call SetArray(var, ZERO, multi=.true.)
 
   allocate(character(len=len(name_u) + 10) :: name_var(n_var))
   do i = 1, n_var
@@ -461,7 +461,7 @@ subroutine Evaluation(failed)
       call problem % GetExactSolution(x, t, u_e)
 
       ! error
-      call AssignArray(err_u, u, multi=.true.)              ! err_u = u
+      call SetArray(err_u, u, multi=.true.)              ! err_u = u
       call MergeArrays(ONE, err_u, -ONE, u_e, multi=.true.) ! err_u = err_u - u_e
 
       ! remove constant from pressure error

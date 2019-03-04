@@ -70,10 +70,10 @@ module subroutine Apply_CI(this, u, v)
       allocate(normal_trace_op)
       !$omp end single
 
-      call AssignScalar(tr_u , ZERO)
-      call AssignScalar(tr_qn, ZERO)
-      call AssignScalar(J_u  , ZERO)
-      call AssignScalar(A_q  , ZERO)
+      call SetArray(tr_u , ZERO)
+      call SetArray(tr_qn, ZERO)
+      call SetArray(J_u  , ZERO)
+      call SetArray(A_q  , ZERO)
 
       ! start generation of traces .............................................
 
@@ -306,7 +306,7 @@ subroutine ComputeNormalFluxes(np, ne, Ds, dx, nu, u, q)
   g = 2 / dx
 
   ! result
-  call AssignScalar(q, ZERO, multi=.true.)
+  call SetArray(q, ZERO, multi=.true.)
 
   !$acc data present(u,q) copyin(Ds_0,Ds_P,g) async
   !$acc parallel async &

@@ -155,7 +155,7 @@ subroutine GetInitialValues(problem, x, u)
 
   ! remaining variables get zero
   do m = 5, size(u,5)
-    call AssignScalar(u(:,:,:,:,m), ZERO)
+    call SetArray(u(:,:,:,:,m), ZERO)
   end do
 
 end subroutine GetInitialValues
@@ -181,7 +181,7 @@ subroutine GetBoundaryValues(problem, b, xb, t, ub)
 
   ! remaining variables get zero
   do m = 5, size(ub,4)
-    call AssignScalar(ub(:,:,:,m), ZERO)
+    call SetArray(ub(:,:,:,m), ZERO)
   end do
 
   ! silence the compiler ;)
@@ -210,7 +210,7 @@ subroutine GetBoundaryTimeDerivative(problem, b, xb, t, dt_ub)
 
   ! remaining variables get zero
   do m = 5, size(dt_ub,4)
-    call AssignScalar(dt_ub(:,:,:,m), ZERO)
+    call SetArray(dt_ub(:,:,:,m), ZERO)
   end do
 
   ! silence the compiler ;)
@@ -235,11 +235,11 @@ subroutine GetExternalSources(problem, x, t, f)
     associate(nu => problem%nu_ref(1), vt => problem%vt)
       call GetStokesSource(n, x, t, nu, vt, f(:,:,:,:,1:3))
       do m = 4, size(f,5)
-        call AssignScalar(f(:,:,:,:,m), ZERO)
+        call SetArray(f(:,:,:,:,m), ZERO)
       end do
     end associate
   else
-    call AssignScalar(f, ZERO, multi=.true.)
+    call SetArray(f, ZERO, multi=.true.)
   end if
 
 end subroutine GetExternalSources
@@ -264,7 +264,7 @@ subroutine GetExactSolution(problem, x, t, u)
 
   ! remaining variables get zero
   do m = 5, size(u,5)
-    call AssignScalar(u(:,:,:,:,m), ZERO)
+    call SetArray(u(:,:,:,:,m), ZERO)
   end do
 
 end subroutine GetExactSolution
@@ -289,7 +289,7 @@ subroutine GetExactTimeDerivative(problem, x, t, dt_u)
 
   ! remaining variables get zero
   do m = 5, size(dt_u,5)
-    call AssignScalar(dt_u(:,:,:,:,m), ZERO)
+    call SetArray(dt_u(:,:,:,:,m), ZERO)
   end do
 
 end subroutine GetExactTimeDerivative

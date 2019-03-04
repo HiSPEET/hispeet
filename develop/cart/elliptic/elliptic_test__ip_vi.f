@@ -262,7 +262,7 @@ program Elliptic_Test__IP_VI
     ! exact solution and gradient
     call problem % GetExactSolution(x, u)
     call problem % GetExactGradient(x, grad_u)
-    call AssignArray(s, u)
+    call SetArray(s, u)
 
     ! r = λ u - ∇·(ν ∇u)
     call problem % GetSource(x, r)
@@ -386,7 +386,7 @@ program Elliptic_Test__IP_VI
   !$omp parallel
   !$acc data copyin(f) copyout(u) create(r)
 
-  !call AssignScalar(u, ZERO)
+  !call SetArray(u, ZERO)
   call random_number(u)
   u = 2*u - 1
 

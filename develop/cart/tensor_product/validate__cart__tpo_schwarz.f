@@ -7,7 +7,7 @@
 program Validate__CART__TPO_Schwarz
   use Kind_Parameters,   only: IXL, RNP
   use Constants,         only: ONE, THIRD, ZERO
-  use Array_Assignments, only: AssignScalar
+  use Array_Assignments, only: SetArray
   use Eigenproblems,     only: SolveGeneralizedEigenproblem
   use Execution_Control
   use IP_Element_Operators_1D
@@ -134,9 +134,9 @@ program Validate__CART__TPO_Schwarz
   nflop = nop * (4 * (n1 + n2 + n3) + 1)
 
   allocate(f(n1,n2,n3,nd), u(n1,n2,n3,nd), r(n1,n2,n3,nd))
-  call AssignScalar(u, ZERO)
-  call AssignScalar(r, ZERO)
-  call AssignScalar(f, ZERO)
+  call SetArray(u, ZERO)
+  call SetArray(r, ZERO)
+  call SetArray(f, ZERO)
   call random_number(f)
 
   !-----------------------------------------------------------------------------

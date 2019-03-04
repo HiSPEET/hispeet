@@ -256,7 +256,7 @@ program Elliptic_Test__IP_CI
     call problem % GetExactLaplacian (x, laplace_u=r )
 
     ! s = u
-    call AssignArray(s, u)
+    call SetArray(s, u)
 
     ! r = -ν ∇²u +  λ u
     call MergeArrays(-nu, r, lambda, u)
@@ -381,7 +381,7 @@ program Elliptic_Test__IP_CI
   !$omp parallel
   !$acc data copyin(f) copyout(u) create(r)
 
-  !call AssignScalar(u, ZERO)
+  !call SetArray(u, ZERO)
   call random_number(u)
   u = 2*u - 1
 

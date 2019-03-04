@@ -7,7 +7,7 @@
 program Validate__CART__TPO_Schwarz_Old
   use Kind_Parameters,   only: IXL, RNP
   use Constants,         only: ONE, THIRD, ZERO
-  use Array_Assignments, only: AssignScalar
+  use Array_Assignments, only: SetArray
   use Eigenproblems,     only: SolveGeneralizedEigenproblem
   use CART__TPO_Schwarz_Old
   use CART__DG_Element_Operators
@@ -107,13 +107,13 @@ program Validate__CART__TPO_Schwarz_Old
 
   ! element-mean diffusivity
   allocate(nu_e(ne))
-  call AssignScalar(ne, nu_e, nu)
+  call SetArray(ne, nu_e, nu)
 
   ! workspace
   allocate(f(np,np,np,ne), u(np,np,np,ne), r(np,np,np,ne))
-  call AssignScalar(size(f), f, ZERO)
-  call AssignScalar(size(u), u, ZERO)
-  call AssignScalar(size(r), r, ZERO)
+  call SetArray(size(f), f, ZERO)
+  call SetArray(size(u), u, ZERO)
+  call SetArray(size(r), r, ZERO)
 
   associate( S  => schwarz % S1, &
              V1 => schwarz % V1, &

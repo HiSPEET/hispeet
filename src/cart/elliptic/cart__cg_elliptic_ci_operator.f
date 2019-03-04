@@ -74,7 +74,7 @@ subroutine EllipticOperator(mesh, eop, lambda, nu, bc, u, v, assemble)
   call TPO_Elliptic_CI_Eval(np, ne, eop%w, eop%L, lambda, nu, eop%dx, u, v)
 
   if (size(v,4) > ne) then
-    call AssignScalar(v(:,:,:,ne+1:), ZERO)
+    call SetArray(v(:,:,:,ne+1:), ZERO)
   end if
 
   ! assembly ...................................................................

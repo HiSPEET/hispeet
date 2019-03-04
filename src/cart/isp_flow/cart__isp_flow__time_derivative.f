@@ -81,7 +81,7 @@ subroutine TimeDerivative(problem, flow_op, t, u_c, u_d, p, nu, F, F_c, F_d, F_s
 
     call problem % GetExternalSources(flow_op%x, t, F)
     if (present(F_s)) then
-      call AssignArray(F_s, F, multi=.true.)
+      call SetArray(F_s, F, multi=.true.)
     end if
 
     ! convection ...............................................................
@@ -90,7 +90,7 @@ subroutine TimeDerivative(problem, flow_op, t, u_c, u_d, p, nu, F, F_c, F_d, F_s
 
       ! skip convection term
       if (present(F_c)) then
-        call AssignScalar(F_c, ZERO, multi=.true.)
+        call SetArray(F_c, ZERO, multi=.true.)
       end if
 
     else if (present(u_c)) then
@@ -124,7 +124,7 @@ subroutine TimeDerivative(problem, flow_op, t, u_c, u_d, p, nu, F, F_c, F_d, F_s
       end if
 
       if (present(F_d)) then
-        call AssignScalar(F_d(:,:,:,:,4), ZERO)
+        call SetArray(F_d(:,:,:,:,4), ZERO)
       end if
 
     else if (present(F_d)) then
@@ -187,7 +187,7 @@ subroutine DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, v, w, F, F_d)
       call WeakDivergence(mesh, Ms, Dd, g, q)
       call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
       if (present(F_d)) then
-        call AssignArray(F_d(:,:,:,:,c), q)
+        call SetArray(F_d(:,:,:,:,c), q)
       end if
     end do
 
@@ -243,7 +243,7 @@ subroutine DiffTimeDeriv_Scalars_CI(mesh, Ms, Dd, nu, u, w, F, F_d)
       call WeakDivergence(mesh, Ms, Dd, g, q)
       call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
       if (present(F_d)) then
-        call AssignArray(F_d(:,:,:,:,c), q)
+        call SetArray(F_d(:,:,:,:,c), q)
       end if
     end do
 
@@ -308,7 +308,7 @@ subroutine DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, nu, v, w, F, F_d)
 
       call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
       if (present(F_d)) then
-        call AssignArray(F_d(:,:,:,:,c), q)
+        call SetArray(F_d(:,:,:,:,c), q)
       end if
 
     end do
@@ -345,7 +345,7 @@ subroutine DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, nu, v, w, F, F_d)
 
     call MergeArrays(ONE, F, -TWO, g, multi = .true.)
     if (present(F_d)) then
-      call AssignArray(F_d, g, multi = .true.)
+      call SetArray(F_d, g, multi = .true.)
     end if
 
   end associate
@@ -411,7 +411,7 @@ subroutine DiffTimeDeriv_Scalars_VI(mesh, Ms, Dd, nu, u, w, F, F_d)
 
       call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
       if (present(F_d)) then
-        call AssignArray(F_d(:,:,:,:,c), q)
+        call SetArray(F_d(:,:,:,:,c), q)
       end if
 
     end do

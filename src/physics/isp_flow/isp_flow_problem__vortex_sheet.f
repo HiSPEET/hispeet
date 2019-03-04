@@ -128,7 +128,7 @@ subroutine GetInitialValues(problem, x, u)
 
   ! pressure and remaining variables get zero
   do m = 4, size(u,5)
-    call AssignScalar(u(:,:,:,:,m), ZERO)
+    call SetArray(u(:,:,:,:,m), ZERO)
   end do
 
 end subroutine GetInitialValues
@@ -143,7 +143,7 @@ subroutine GetBoundaryValues(problem, b, xb, t, ub)
   real(RNP), intent(in)  :: t             !< time
   real(RNP), intent(out) :: ub(:,:,:,:)   !< flow variables
 
-  call AssignScalar(ub, ZERO, multi=.true.)
+  call SetArray(ub, ZERO, multi=.true.)
 
 end subroutine GetBoundaryValues
 
@@ -157,7 +157,7 @@ subroutine GetBoundaryTimeDerivative(problem, b, xb, t, dt_ub)
   real(RNP), intent(in)  :: t              !< time
   real(RNP), intent(out) :: dt_ub(:,:,:,:) !< ∂u/∂t
 
-  call AssignScalar(dt_ub, ZERO, multi=.true.)
+  call SetArray(dt_ub, ZERO, multi=.true.)
 
 end subroutine GetBoundaryTimeDerivative
 
@@ -170,7 +170,7 @@ subroutine GetExternalSources(problem, x, t, f)
   real(RNP), intent(in)  :: t            !< time
   real(RNP), intent(out) :: f(:,:,:,:,:) !< external sources
 
-  call AssignScalar(f, ZERO, multi=.true.)
+  call SetArray(f, ZERO, multi=.true.)
 
 end subroutine GetExternalSources
 

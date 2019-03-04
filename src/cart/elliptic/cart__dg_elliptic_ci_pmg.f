@@ -290,7 +290,7 @@ subroutine V_Cycle(this)
 
       ! initialize correction: u_0 = 0
       if (l < l_top) then
-        call AssignScalar(level(l)%u, ZERO)
+        call SetArray(level(l)%u, ZERO)
       end if
 
       ! pre-smoothing
@@ -307,7 +307,7 @@ subroutine V_Cycle(this)
 
     ! coarse mesh solution .....................................................
 
-    call AssignScalar(level(0)%u, ZERO)
+    call SetArray(level(0)%u, ZERO)
     if (this%monitor) call Monitoring(this, 0, '0')
     call CoarseGridSolver(this)
     if (this%monitor) call Monitoring(this, 0, 's')
@@ -372,8 +372,8 @@ subroutine MG_Solver( this, lambda, nu, bc, f, u, ni, r_2 )
 
     ! initialization ...........................................................
 
-    call AssignArray(u_top, u)
-    call AssignArray(f_top, f)
+    call SetArray(u_top, u)
+    call SetArray(f_top, f)
 
     ! termination conditions
     if (check_convergence) then
@@ -416,7 +416,7 @@ subroutine MG_Solver( this, lambda, nu, bc, f, u, ni, r_2 )
 
     ! finalization .............................................................
 
-    call AssignArray(u, u_top)
+    call SetArray(u, u_top)
 
     if (present(ni)) then
       !$omp master
@@ -493,7 +493,7 @@ subroutine MG_CG_Solver( this, lambda, nu, bc, f, u, ni, r_2, i_max )
     ! initialization ...........................................................
 
     ! calibrate RHS of singular problem
-    call AssignArray(g, f)
+    call SetArray(g, f)
     if (abs(lambda) < epsilon(ONE) .and. all(bc /= 'D')) then
       call CalibrateArray(g, mesh%comm)
     end if
@@ -533,26 +533,26 @@ subroutine MG_CG_Solver( this, lambda, nu, bc, f, u, ni, r_2, i_max )
     do i = 1, i_max_
 
       ! MG preconditioner: z = MG(r, 0)
-      call AssignScalar(u_top, ZERO)                      ! u_L = 0
-      call AssignArray(f_top, r)                          ! f_L = r
+      call SetArray(u_top, ZERO)                      ! u_L = 0
+      call SetArray(f_top, r)                          ! f_L = r
       call V_Cycle(this)                                  ! u_L = MG(r, 0)
-      call AssignArray(z, u_top)                          ! z = u_L
+      call SetArray(z, u_top)                          ! z = u_L
 
       ! set/update search vector
       if (i == 1) then
         if (abs(lambda) < epsilon(ONE) .and. all(bc /= 'D')) then
           call CalibrateArray(z, mesh%comm)
         end if
-        call AssignArray(p, z)                            ! p = z
+        call SetArray(p, z)                            ! p = z
       else
-        call AssignArray(q, r)                            ! q = r
+        call SetArray(q, r)                            ! q = r
         call MergeArrays(ONE, q, -ONE, s)                 ! q = r - s
         beta = ScalarProduct(q, z, mesh%comm) / delta
         call MergeArrays(beta, p, ONE, z)                 ! p = beta p + z
       end if
 
       ! save old residual
-      call AssignArray(s, r)
+      call SetArray(s, r)
 
       ! correction
       call EllipticOperator(mesh, eop, lambda, nu, bc, p, q)

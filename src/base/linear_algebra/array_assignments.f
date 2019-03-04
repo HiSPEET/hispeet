@@ -16,25 +16,23 @@ module Array_Assignments
   implicit none
   private
 
-  public :: AssignScalar
-  public :: AssignArray
+  public :: SetArray
   public :: MergeArrays
   public :: ScaleArray
   public :: CalibrateArray
 
-  interface AssignScalar
-    module procedure AssignScalar_1
-    module procedure AssignScalar_2
-    module procedure AssignScalar_3
-    module procedure AssignScalar_4
-    module procedure AssignScalar_5
-    module procedure AssignScalar_6
-  end interface
-
-  interface AssignArray
-    module procedure AssignArray_3
-    module procedure AssignArray_4
-    module procedure AssignArray_5
+  interface SetArray
+    ! set array by assigning a scalar
+    module procedure SetArray_1S
+    module procedure SetArray_2S
+    module procedure SetArray_3S
+    module procedure SetArray_4S
+    module procedure SetArray_5S
+    module procedure SetArray_6S
+    ! set array by assigning a matching array
+    module procedure SetArray_3A
+    module procedure SetArray_4A
+    module procedure SetArray_5A
   end interface
 
   interface MergeArrays
@@ -58,23 +56,23 @@ module Array_Assignments
 contains
 
 !===============================================================================
-! AssignScalar
+! SetArray
 
 !-------------------------------------------------------------------------------
 !> Assigment of a scalar s to 1D array a
 
-subroutine AssignScalar_1(a, s)
+subroutine SetArray_1S(a, s)
   real(RNP),         intent(out) :: a(:)  !< target array
   real(RNP),         intent(in)  :: s     !< assigned scalar
 
-  call AssignScalar_X(size(a), 1, a, s)
+  call SetArray_XS(size(a), 1, a, s)
 
-end subroutine AssignScalar_1
+end subroutine SetArray_1S
 
 !-------------------------------------------------------------------------------
 !> Assigment of a scalar s to 2D array a
 
-subroutine AssignScalar_2(a, s, multi)
+subroutine SetArray_2S(a, s, multi)
   real(RNP),         intent(out) :: a(:,:) !< target array
   real(RNP),         intent(in)  :: s      !< assigned scalar
   logical, optional, intent(in)  :: multi  !< switch to multiple components
@@ -86,14 +84,14 @@ subroutine AssignScalar_2(a, s, multi)
     if (multi) nc = size(a,2)
   end if
 
-  call AssignScalar_X(size(a)/nc, nc, a, s)
+  call SetArray_XS(size(a)/nc, nc, a, s)
 
-end subroutine AssignScalar_2
+end subroutine SetArray_2S
 
 !-------------------------------------------------------------------------------
 !> Assigment of a scalar s to 3D array a
 
-subroutine AssignScalar_3(a, s, multi)
+subroutine SetArray_3S(a, s, multi)
   real(RNP),         intent(out) :: a(:,:,:) !< target array
   real(RNP),         intent(in)  :: s        !< assigned scalar
   logical, optional, intent(in)  :: multi    !< switch to multiple components
@@ -105,14 +103,14 @@ subroutine AssignScalar_3(a, s, multi)
     if (multi) nc = size(a,3)
   end if
 
-  call AssignScalar_X(size(a)/nc, nc, a, s)
+  call SetArray_XS(size(a)/nc, nc, a, s)
 
-end subroutine AssignScalar_3
+end subroutine SetArray_3S
 
 !-------------------------------------------------------------------------------
 !> Assigment of a scalar s to 4D array a
 
-subroutine AssignScalar_4(a, s, multi)
+subroutine SetArray_4S(a, s, multi)
   real(RNP),         intent(out) :: a(:,:,:,:) !< target array
   real(RNP),         intent(in)  :: s          !< assigned scalar
   logical, optional, intent(in)  :: multi      !< switch to multiple components
@@ -124,14 +122,14 @@ subroutine AssignScalar_4(a, s, multi)
     if (multi) nc = size(a,4)
   end if
 
-  call AssignScalar_X(size(a)/nc, nc, a, s)
+  call SetArray_XS(size(a)/nc, nc, a, s)
 
-end subroutine AssignScalar_4
+end subroutine SetArray_4S
 
 !-------------------------------------------------------------------------------
 !> Assigment of a scalar s to 5D array a
 
-subroutine AssignScalar_5(a, s, multi)
+subroutine SetArray_5S(a, s, multi)
   real(RNP),         intent(out) :: a(:,:,:,:,:) !< target array
   real(RNP),         intent(in)  :: s            !< assigned scalar
   logical, optional, intent(in)  :: multi        !< switch to multiple comps.
@@ -143,14 +141,14 @@ subroutine AssignScalar_5(a, s, multi)
     if (multi) nc = size(a,5)
   end if
 
-  call AssignScalar_X(size(a)/nc, nc, a, s)
+  call SetArray_XS(size(a)/nc, nc, a, s)
 
-end subroutine AssignScalar_5
+end subroutine SetArray_5S
 
 !-------------------------------------------------------------------------------
 !> Assigment of a scalar s to 6D array a
 
-subroutine AssignScalar_6(a, s, multi)
+subroutine SetArray_6S(a, s, multi)
   real(RNP),         intent(out) :: a(:,:,:,:,:,:) !< target array
   real(RNP),         intent(in)  :: s              !< assigned scalar
   logical, optional, intent(in)  :: multi          !< switch to multiple comps.
@@ -162,14 +160,14 @@ subroutine AssignScalar_6(a, s, multi)
     if (multi) nc = size(a,6)
   end if
 
-  call AssignScalar_X(size(a)/nc, nc, a, s)
+  call SetArray_XS(size(a)/nc, nc, a, s)
 
-end subroutine AssignScalar_6
+end subroutine SetArray_6S
 
 !-------------------------------------------------------------------------------
 !> Assigment of a scalar s to multi-component array a (eXplicit)
 
-subroutine AssignScalar_X(ne, nc, a, s)
+subroutine SetArray_XS(ne, nc, a, s)
   integer,   intent(in)  :: ne       !< number of entries per component
   integer,   intent(in)  :: nc       !< number of components
   real(RNP), intent(out) :: a(ne,nc) !< target array
@@ -187,15 +185,15 @@ subroutine AssignScalar_X(ne, nc, a, s)
   end do
   !$omp barrier
 
-end subroutine AssignScalar_X
+end subroutine SetArray_XS
 
 !===============================================================================
-! AssignArray
+! SetArray
 
 !-------------------------------------------------------------------------------
 !> Assigment of array b to array a (3D)
 
-subroutine AssignArray_3(a, b, multi)
+subroutine SetArray_3A(a, b, multi)
   real(RNP),         intent(out) :: a(:,:,:) !< target array
   real(RNP),         intent(in)  :: b(:,:,:) !< assigned array
   logical, optional, intent(in)  :: multi    !< switch to multiple components
@@ -207,14 +205,14 @@ subroutine AssignArray_3(a, b, multi)
     if (multi) nc = size(a,3)
   end if
 
-  call AssignArray_X(size(a)/nc, nc, a, b)
+  call SetArray_XA(size(a)/nc, nc, a, b)
 
-end subroutine AssignArray_3
+end subroutine SetArray_3A
 
 !-------------------------------------------------------------------------------
 !> Assigment of array b to array a (4D)
 
-subroutine AssignArray_4(a, b, multi)
+subroutine SetArray_4A(a, b, multi)
   real(RNP),         intent(out) :: a(:,:,:,:) !< target array
   real(RNP),         intent(in)  :: b(:,:,:,:) !< assigned array
   logical, optional, intent(in)  :: multi      !< switch to multiple components
@@ -226,14 +224,14 @@ subroutine AssignArray_4(a, b, multi)
     if (multi) nc = size(a,4)
   end if
 
-  call AssignArray_X(size(a)/nc, nc, a, b)
+  call SetArray_XA(size(a)/nc, nc, a, b)
 
-end subroutine AssignArray_4
+end subroutine SetArray_4A
 
 !-------------------------------------------------------------------------------
 !> Assigment of array b to array a (5D)
 
-subroutine AssignArray_5(a, b, multi)
+subroutine SetArray_5A(a, b, multi)
   real(RNP),         intent(out) :: a(:,:,:,:,:) !< target array
   real(RNP),         intent(in)  :: b(:,:,:,:,:) !< assigned array
   logical, optional, intent(in)  :: multi        !< switch to multiple comps.
@@ -245,14 +243,14 @@ subroutine AssignArray_5(a, b, multi)
     if (multi) nc = size(a,5)
   end if
 
-  call AssignArray_X(size(a)/nc, nc, a, b)
+  call SetArray_XA(size(a)/nc, nc, a, b)
 
-end subroutine AssignArray_5
+end subroutine SetArray_5A
 
 !-------------------------------------------------------------------------------
 !> Assigment of array b to array a (multi-component eXplicit)
 
-subroutine AssignArray_X(ne, nc, a, b)
+subroutine SetArray_XA(ne, nc, a, b)
   integer,   intent(in)  :: ne       !< number of entries per component
   integer,   intent(in)  :: nc       !< number of components
   real(RNP), intent(out) :: a(ne,nc) !< target array
@@ -270,7 +268,7 @@ subroutine AssignArray_X(ne, nc, a, b)
   end do
   !$omp barrier
 
-end subroutine AssignArray_X
+end subroutine SetArray_XA
 
 !===============================================================================
 ! MergeArrays

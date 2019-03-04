@@ -238,7 +238,7 @@ program Elliptic_Test
     call GetExactLaplacian( kappa, n, x, laplace_u=r )
 
     ! s = u
-    call AssignArray(s, u)
+    call SetArray(s, u)
 
     ! r = -nu laplace u + lambda u
     call MergeArrays(-nu, r, lambda, u)
@@ -343,7 +343,7 @@ program Elliptic_Test
   !$omp parallel
   !$acc data copyin(f) copyout(u) create(r)
 
-  !call AssignScalar(u, ZERO)
+  !call SetArray(u, ZERO)
   call random_number(u)
   u = 2*u - 1
 

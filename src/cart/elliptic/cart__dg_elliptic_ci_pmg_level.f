@@ -10,7 +10,7 @@ module CART__DG_Elliptic_CI_PMG_Level
 
   use Kind_Parameters,   only: RNP
   use Constants,         only: ZERO
-  use Array_Assignments, only: AssignScalar
+  use Array_Assignments, only: SetArray
 
   use CART__DG_Element_Operators
   use CART__DG_Elliptic_CI_Schwarz
@@ -142,9 +142,9 @@ subroutine SetProblem_C(this, lambda, nu, bc)
     if (.not. allocated(this % f   )) allocate(this % f(0:po, 0:po, 0:po, ne))
     if (.not. allocated(this % v   )) allocate(this % v(0:po, 0:po, 0:po, ne))
 
-    call AssignScalar(this % u, ZERO)
-    call AssignScalar(this % f, ZERO)
-    call AssignScalar(this % v, ZERO)
+    call SetArray(this % u, ZERO)
+    call SetArray(this % f, ZERO)
+    call SetArray(this % v, ZERO)
 
   end associate
 

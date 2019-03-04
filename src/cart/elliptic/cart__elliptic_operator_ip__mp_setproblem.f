@@ -7,7 +7,7 @@
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP) MP_SetProblem
-  use Array_Assignments, only: AssignArray
+  use Array_Assignments, only: SetArray
   use CART__Trace_Operator
   implicit none
 
@@ -87,7 +87,7 @@ module subroutine SetProblem_VI(this, lambda, nu, bc)
     this % lambda = lambda
     this % bc     = bc
 
-    call AssignArray(this % nu_vi, nu)
+    call SetArray(this % nu_vi, nu)
 
     if (allocated(this % schwarz)) then
       call this % schwarz % SetProblem(this%eop, mesh, lambda, nu, bc)

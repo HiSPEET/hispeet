@@ -19,7 +19,7 @@ module CART__Normal_Trace_Operator
 
   use Kind_Parameters,         only: RNP
   use Constants,               only: ONE, ZERO
-  use Array_Assignments,       only: AssignScalar
+  use Array_Assignments,       only: SetArray
   use CART__Mesh_Partition,    only: MeshPartition
   use CART__Boundary_Variable, only: BoundaryVariable
   use CART__Trace_Transfer_Buffer
@@ -174,7 +174,7 @@ subroutine GetLocalTrace(mesh, po, ne, nf, u, tr_un)
   end if
 
   ! tr_un = 0
-  call AssignScalar(tr_un, ZERO)
+  call SetArray(tr_un, ZERO)
 
   ! extract local trace ........................................................
 

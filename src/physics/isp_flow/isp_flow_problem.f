@@ -158,7 +158,7 @@ subroutine GetExactSolution(problem, x, t, u)
   real(RNP),          intent(in)  :: t            !< time
   real(RNP),          intent(out) :: u(:,:,:,:,:) !< solution
 
-  call AssignScalar(u, ZERO, multi=.true.)
+  call SetArray(u, ZERO, multi=.true.)
 
 end subroutine GetExactSolution
 
@@ -171,7 +171,7 @@ subroutine GetExactTimeDerivative(problem, x, t, dt_u)
   real(RNP),          intent(in)  :: t               !< time
   real(RNP),          intent(out) :: dt_u(:,:,:,:,:) !< time derivative
 
-  call AssignScalar(dt_u, ZERO, multi=.true.)
+  call SetArray(dt_u, ZERO, multi=.true.)
 
 end subroutine GetExactTimeDerivative
 

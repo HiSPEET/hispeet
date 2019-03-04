@@ -90,10 +90,10 @@ subroutine EllipticOperator(mesh, eop, lambda, nu, bc, u, v)
   allocate(normal_trace_op)
   !$omp end single
 
-  call AssignScalar(tr_u   , ZERO)
-  call AssignScalar(tr_dn_u, ZERO)
-  call AssignScalar(J_u    , ZERO)
-  call AssignScalar(D_u    , ZERO)
+  call SetArray(tr_u   , ZERO)
+  call SetArray(tr_dn_u, ZERO)
+  call SetArray(J_u    , ZERO)
+  call SetArray(D_u    , ZERO)
 
   ! start generation of traces .................................................
 
@@ -172,7 +172,7 @@ subroutine NormalDerivatives(np, ne, Ds, dx, u, v)
   g = 2 / dx
 
   ! result
-  call AssignScalar(v, ZERO, multi=.true.)
+  call SetArray(v, ZERO, multi=.true.)
 
   !$acc data present(u,v) copyin(D1,D2,g) async
   !$acc parallel async &

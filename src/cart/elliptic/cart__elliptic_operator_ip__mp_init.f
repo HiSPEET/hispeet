@@ -7,7 +7,7 @@
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP) MP_Init
-  use Array_Assignments, only: AssignArray
+  use Array_Assignments, only: SetArray
   use CART__Trace_Operator
   implicit none
 
@@ -86,7 +86,7 @@ module subroutine Init_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
   po = this % eop % po
 
   allocate(this % nu_vi, mold = nu)
-  call AssignArray(this % nu_vi, nu)
+  call SetArray(this % nu_vi, nu)
 
   ! start generating traces of nu
   allocate(this % nu_hat(0:po,0:po,mesh%nf))

@@ -10,7 +10,7 @@ module CART__DG_Elliptic_CI_Conj_Grad
 
   use Kind_Parameters,   only: RNP
   use Constants,         only: ZERO, ONE
-  use Array_Assignments, only: AssignArray, MergeArrays, CalibrateArray
+  use Array_Assignments, only: SetArray, MergeArrays, CalibrateArray
   use Array_Reductions,  only: ScalarProduct
 
   use XMPI
@@ -72,7 +72,7 @@ subroutine ConjugateGradients( mesh, eop, lambda, nu, bc, u, f, i_max, r_red, &
   !$acc data create(g,r,p,q) present(u,f)
 
   ! RHS
-  call AssignArray(g, f)
+  call SetArray(g, f)
 
   ! calibrate RHS of singular problem
   if (abs(lambda) < epsilon(ONE) .and. all(bc /= 'D')) then
@@ -89,7 +89,7 @@ subroutine ConjugateGradients( mesh, eop, lambda, nu, bc, u, f, i_max, r_red, &
   ! initial residual ...........................................................
 
   call EllipticResidual(mesh, eop, lambda, nu, bc, u, g, r)
-  call AssignArray(p, r)
+  call SetArray(p, r)
 
   rr = ScalarProduct(r, r, mesh%comm)
 
