@@ -17,6 +17,7 @@ module CART__Elliptic_PMG
   use Array_Reductions
 
   use CART__Mesh_Partition
+  use CART__Boundary_Variable
   use CART__Schwarz_Operator
   use CART__Elliptic_PMG_Level
 
@@ -60,6 +61,7 @@ module CART__Elliptic_PMG
 
     procedure :: GetWorkspace
     procedure :: FreeWorkspace
+    procedure :: BCtoRHS
 
     procedure :: MG_Solver
     procedure :: MG_CG_Solver
@@ -191,6 +193,21 @@ subroutine FreeWorkspace(this)
   end do
 
 end subroutine FreeWorkspace
+
+!-------------------------------------------------------------------------------
+!>  Adds the boundary contributions of the right hand side
+
+subroutine BCtoRHS(this, bv, f)
+  class(PMG_Method3D),    intent(in)    :: this
+  type(BoundaryVariable), intent(in)    :: bv(:)      !< boundary values
+  real(RNP),              intent(inout) :: f(:,:,:,:) !< RHS
+
+  integer :: l_top
+
+  l_top = ubound(this % level, 1)
+  call this % level(l_top) % elliptic_op % BcToRHS(bv, f)
+
+end subroutine BCtoRHS
 
 !-------------------------------------------------------------------------------
 !> p-MG solver
@@ -369,19 +386,19 @@ subroutine MG_CG_Solver(this, u, f, ni, r_2, i_max)
     do i = 1, i_max_
 
       ! MG preconditioner: z = MG(r, 0)
-      call SetArray(u_top, ZERO)                      ! u_L = 0
-      call SetArray(f_top, r)                          ! f_L = r
+      call SetArray(u_top, ZERO)                          ! u_L = 0
+      call SetArray(f_top, r)                             ! f_L = r
       call V_Cycle(this)                                  ! u_L = MG(r, 0)
-      call SetArray(z, u_top)                          ! z = u_L
+      call SetArray(z, u_top)                             ! z = u_L
 
       ! set/update search vector
       if (i == 1) then
         if (singular) then
           call CalibrateArray(z, mesh%comm)
         end if
-        call SetArray(p, z)                            ! p = z
+        call SetArray(p, z)                               ! p = z
       else
-        call SetArray(q, r)                            ! q = r
+        call SetArray(q, r)                               ! q = r
         call MergeArrays(ONE, q, -ONE, s)                 ! q = r - s
         beta = ScalarProduct(q, z, mesh%comm) / delta
         call MergeArrays(beta, p, ONE, z)                 ! p = beta p + z

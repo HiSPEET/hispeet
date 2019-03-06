@@ -48,6 +48,7 @@ module CART__ISP_Flow__Operators
     type(StandardOperators1D) :: eop_q !< element operators for nonlinear terms
 
     type(ProjectionOperator3D)    :: pop_up !< projection    from po_u to po_p
+    type(InterpolationOperator3D) :: iop_up !< interpolation from po_u to po_p
     type(InterpolationOperator3D) :: iop_uq !< interpolation from po_u to po_q
     type(InterpolationOperator3D) :: iop_pu !< interpolation from po_p to po_u
 
@@ -154,11 +155,12 @@ subroutine Init_FlowOperators( this                       &
   allocate(this % bv_u(mesh%n_boundary))
   call GetBoundaryPoints(mesh, this % x, this % bv_x)
   do b = 1, mesh%n_boundary
-    call this % bv_u(b) % New(mesh, po_u, b, problem%bc(b,:))
+    this % bv_u(b) = BoundaryVariable(mesh, po_u, b, problem%bc(b,:))
   end do
 
   this%pmg_u = PMG_Method3D(mesh, IP_ElementOptions1D(po_u, penalty), pmg_u_opt)
   this%pmg_p = PMG_Method3D(mesh, IP_ElementOptions1D(po_p, penalty), pmg_p_opt)
+  call this % pmg_p % SetProblem(lambda=ZERO, nu=ONE, bc=problem%bc(:,4))
 
   if (po_p /= po_u) then
     this % pop_up = ProjectionOperator3D( this%eop_u,   &
@@ -166,6 +168,7 @@ subroutine Init_FlowOperators( this                       &
                                           this%eop_p%w, &
                                           mesh%dx       )
 
+    this % iop_up = InterpolationOperator3D( this%eop_u, this%eop_p%x )
     this % iop_pu = InterpolationOperator3D( this%eop_p, this%eop_u%x )
   end if
 

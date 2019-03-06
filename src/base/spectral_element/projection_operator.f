@@ -21,7 +21,7 @@ module Projection_Operator
 
     integer :: nq = -1 !< number of quadrature points per direction
     integer :: np = -1 !< number of projection points per direction
-    real(RNP), allocatable :: pop(:,:) !< 1D projection operator
+    real(RNP), allocatable :: A(:,:) !< 1D projection operator
 
   contains
 
@@ -77,25 +77,25 @@ subroutine Init_SX(this, eop, xq, wq, dx)
     this % nq = nq
     this % np = po + 1
 
-    allocate(this % pop(0:po,1:nq))
+    allocate(this % A(0:po,1:nq))
 
     select case(eop % basis)
     case('GL ') ! Gauss-Legendre
       do k = 1, nq
       do j = 0, po
-        this % pop(j,k) = GL_Polynomial(j, xo, xq(k)) * wq(k) * dx * HALF
+        this % A(j,k) = GL_Polynomial(j, xo, xq(k)) * wq(k) * dx * HALF
       end do
       end do
     case('GRL') ! Gauss-Radau-Legendre
       do k = 1, nq
       do j = 0, po
-        this % pop(j,k) = GRL_Polynomial(j, xo, xq(k)) * wq(k) * dx * HALF
+        this % A(j,k) = GRL_Polynomial(j, xo, xq(k)) * wq(k) * dx * HALF
       end do
       end do
     case default
       do k = 1, nq
       do j = 0, po
-        this % pop(j,k) = GLL_Polynomial(j, xo, xq(k)) * wq(k) * dx * HALF
+        this % A(j,k) = GLL_Polynomial(j, xo, xq(k)) * wq(k) * dx * HALF
       end do
       end do
     end select
@@ -110,7 +110,7 @@ end subroutine Init_SX
 subroutine Delete_ProjectionOperator(this)
   class(ProjectionOperator), intent(inout) :: this
 
-  if (allocated(this % pop)) deallocate(this % pop)
+  if (allocated(this % A)) deallocate(this % A)
 
 end subroutine Delete_ProjectionOperator
 

@@ -28,9 +28,9 @@ module CART__Boundary_Variable
   !> for each component, or empty characters if no condition applies.
   !>
   !> Typically one generates an array of boundary variables, one for each
-  !> boundary. This is achieved using the inbuilt `New` or `Extract` procedures.
-  !> For example, given the local `mesh` partiton and the corresponding variable
-  !> `u(0:po,0:po,0:po,1:ne,1:nc)`
+  !> boundary. This is achieved using the overloaded constructors or
+  !> `Extract` procedures. For example, given the local `mesh` partiton
+  !> and the corresponding variable `u(0:po,0:po,0:po,1:ne,1:nc)`
   !>
   !>     type(BoundaryVariable) :: bv_u(mesh%nb)   ! array of boundary variables
   !>     character :: bc(mesh%nb) = 'D'            ! all Dirichlet conditions
@@ -85,10 +85,10 @@ module CART__Boundary_Variable
 
   contains
 
-    generic,   public  :: New         =>  New_S, New_A, New_O
-    procedure, private :: New_S
-    procedure, private :: New_A
-    procedure, private :: New_O
+    generic,   public  :: Init_BoundaryVariable =>  Init_S, Init_A, Init_O
+    procedure, private :: Init_S
+    procedure, private :: Init_A
+    procedure, private :: Init_O
 
     generic,   public  :: Extract     =>  Extract_S, Extract_A
     procedure, private :: Extract_S
@@ -112,57 +112,106 @@ module CART__Boundary_Variable
 
   end type BoundaryVariable
 
+  ! constructor interface
+  interface BoundaryVariable
+    module procedure New_S
+    module procedure New_A
+    module procedure New_O
+  end interface
+
 contains
 
 !===============================================================================
-! New
+! Constructors
+
+!-------------------------------------------------------------------------------
+!> New boundary variable -- scalar with BC
+
+type(BoundaryVariable) function New_S(mesh, po, b, bc) result(this)
+  class(MeshPartition), intent(in)    :: mesh  !< mesh partition
+  integer,              intent(in)    :: po    !< polynomial order
+  integer,              intent(in)    :: b     !< boundary ID
+  character,            intent(in)    :: bc    !< boundary conditions
+
+  call Init_S(this, mesh, po, b, bc)
+
+end function New_S
+
+!-------------------------------------------------------------------------------
+!> New boundary variable -- array with BC
+
+type(BoundaryVariable) function New_A(mesh, po, b, bc) result(this)
+  class(MeshPartition), intent(in)    :: mesh  !< mesh partition
+  integer,              intent(in)    :: po    !< polynomial order
+  integer,              intent(in)    :: b     !< boundary ID
+  character,            intent(in)    :: bc(:) !< boundary conditions
+
+  call Init_A(this, mesh, po, b, bc)
+
+end function New_A
+
+!-------------------------------------------------------------------------------
+!> New boundary variable -- no BC
+
+type(BoundaryVariable) function New_O(mesh, po, b, nc) result(this)
+  class(MeshPartition), intent(in)    :: mesh  !< mesh partition
+  integer,              intent(in)    :: po    !< polynomial order
+  integer,              intent(in)    :: nc    !< number of components
+  integer,              intent(in)    :: b     !< boundary ID
+
+  call Init_O(this, mesh, po, b, nc)
+
+end function New_O
+
+!===============================================================================
+! Initialization
 
 !-------------------------------------------------------------------------------
 !> Generates a new boundary variable -- scalar with BC
 
-subroutine New_S(this, mesh, po, b, bc)
+subroutine Init_S(this, mesh, po, b, bc)
   class(BoundaryVariable), intent(inout) :: this  !< boundary variable
   class(MeshPartition),    intent(in)    :: mesh  !< mesh partition
   integer,                 intent(in)    :: po    !< polynomial order
   integer,                 intent(in)    :: b     !< boundary ID
   character,               intent(in)    :: bc    !< boundary conditions
 
-  call New_X(this, mesh, po, 1, b, bc)
+  call Init_X(this, mesh, po, 1, b, bc)
 
-end subroutine New_S
+end subroutine Init_S
 
 !-------------------------------------------------------------------------------
 !> Generates a new boundary variable -- array with BC
 
-subroutine New_A(this, mesh, po, b, bc)
+subroutine Init_A(this, mesh, po, b, bc)
   class(BoundaryVariable), intent(inout) :: this  !< boundary variable
   class(MeshPartition),    intent(in)    :: mesh  !< mesh partition
   integer,                 intent(in)    :: po    !< polynomial order
   integer,                 intent(in)    :: b     !< boundary ID
   character,               intent(in)    :: bc(:) !< boundary conditions
 
-  call New_X(this, mesh, po, size(bc), b, bc)
+  call Init_X(this, mesh, po, size(bc), b, bc)
 
-end subroutine New_A
+end subroutine Init_A
 
 !-------------------------------------------------------------------------------
 !> Generates a new boundary variable -- no BC
 
-subroutine New_O(this, mesh, po, b, nc)
+subroutine Init_O(this, mesh, po, b, nc)
   class(BoundaryVariable), intent(inout) :: this  !< boundary variable
   class(MeshPartition),    intent(in)    :: mesh  !< mesh partition
   integer,                 intent(in)    :: po    !< polynomial order
   integer,                 intent(in)    :: nc    !< number of components
   integer,                 intent(in)    :: b     !< boundary ID
 
-  call New_X(this, mesh, po, nc, b)
+  call Init_X(this, mesh, po, nc, b)
 
-end subroutine New_O
+end subroutine Init_O
 
 !-------------------------------------------------------------------------------
 !> Generates a new boundary variable -- eXplicit
 
-subroutine New_X(this, mesh, po, nc, b, bc)
+subroutine Init_X(this, mesh, po, nc, b, bc)
   class(BoundaryVariable), intent(inout) :: this   !< boundary variable
   class(MeshPartition),    intent(in)    :: mesh   !< mesh partition
   integer,                 intent(in)    :: po     !< polynomial order
@@ -191,7 +240,7 @@ subroutine New_X(this, mesh, po, nc, b, bc)
 
   this % is_original = .true.
 
-end subroutine New_X
+end subroutine Init_X
 
 !===============================================================================
 ! Extract
@@ -240,9 +289,9 @@ subroutine Extract_X(this, mesh, po, ne, nc, v, b, bc)
   integer :: c, e, f, i, j, k
 
   if (present(bc)) then
-    call this % New(mesh, po, b, bc)
+    call this % Init_BoundaryVariable(mesh, po, b, bc)
   else
-    call this % New(mesh, po, b, nc)
+    call this % Init_BoundaryVariable(mesh, po, b, nc)
   end if
 
   associate(boundary => mesh%boundary(b), vb => this%val)
@@ -333,9 +382,9 @@ subroutine ExtractNormalComponent(this, mesh, v, b, bc)
   end if
 
   if (present(bc)) then
-    call this % New(mesh, po, b, bc)
+    call this % Init_BoundaryVariable(mesh, po, b, bc)
   else
-    call this % New(mesh, po, b, bc = ' ')
+    call this % Init_BoundaryVariable(mesh, po, b, bc = ' ')
   end if
 
   vb_n => this % Component(1)

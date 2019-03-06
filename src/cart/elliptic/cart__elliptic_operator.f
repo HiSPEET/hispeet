@@ -83,7 +83,7 @@ module CART__Elliptic_Operator
     end subroutine Apply
 
     !--------------------------------------------------------------------------
-    !> Adds the boundary contributions of the right hand side: const isotropic
+    !> Adds the boundary contributions of the right hand side
 
     subroutine BcToRHS(this, bv, f)
       import

@@ -42,7 +42,7 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w, nu)
   type(BoundaryVariable), allocatable, save :: bv_uc(:)
 
   real(RNP) :: g, r_2
-  integer   :: l_top, ne, ni, np
+  integer   :: ne, ni, np
   integer   :: c
 
   associate( mesh => flow_op % mesh   &
@@ -56,7 +56,6 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w, nu)
     ! dimensions
     np = size(u, 1)
     ne = mesh % ne
-    l_top = ubound(pmg%level, 1)
 
     ! workspace
     !$omp single
@@ -82,7 +81,7 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w, nu)
 
       ! add boundary contributions
       call flow_op % bv_u % GetHandle(c, bv_uc)
-      call pmg % level(l_top) % elliptic_op % BcToRHS(bv_uc, fc)
+      call pmg % BcToRHS(bv_uc, fc)
 
       ! solve
       call pmg % MG_CG_Solver(u(:,:,:,:,c), fc, ni, r_2)
@@ -90,7 +89,8 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w, nu)
       ! monitoring
       !$omp single
       if (flow_op % monitor_level > 0 .and. mesh % part == 0) then
-        print '(4X,A,I0,A,I4,A,ES9.2)','diffusion u[',c,']: ni',ni,', ‖r‖ =',r_2
+        print '(4X,A,I0,A,I4,A,ES9.2)', &
+              'diffusion u[',c,']: ni =', ni, ', ‖r‖ =',r_2
       end if
       !$omp end single
 

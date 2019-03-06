@@ -59,7 +59,7 @@ subroutine Interpolate_S(this, uo, ui)
   real(RNP), intent(in)  :: uo(:,:,:,:) !< original mesh variable
   real(RNP), intent(out) :: ui(:,:,:,:) !< interpolated mesh variable
 
-  call TPO_AAA_Eval(this%ni, this%no, size(uo,4), this%iop, uo, ui)
+  call TPO_AAA_Eval(this%ni, this%no, size(uo,4), this%A, uo, ui)
 
 end subroutine Interpolate_S
 
@@ -71,7 +71,7 @@ subroutine Interpolate_A(this, uo, ui)
   real(RNP), intent(in)  :: uo(:,:,:,:,:) !< original mesh variable
   real(RNP), intent(out) :: ui(:,:,:,:,:) !< interpolated mesh variable
 
-  call TPO_AAA_Eval(this%ni, this%no, size(uo,4)*size(uo,5), this%iop, uo, ui)
+  call TPO_AAA_Eval(this%ni, this%no, size(uo,4)*size(uo,5), this%A, uo, ui)
 
 end subroutine Interpolate_A
 

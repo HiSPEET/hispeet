@@ -11,7 +11,8 @@ module CART__ISP_Flow__Pressure
   use Kind_Parameters, only: RNP
   use ISP_Flow_Problem
   use CART__ISP_Flow__Operators
-  use CART__ISP_Flow__Pressure__DG_EO
+  use CART__ISP_Flow__Pressure__EO
+  use CART__ISP_Flow__Pressure__MO
 
   implicit none
   private
@@ -23,22 +24,19 @@ contains
 !-------------------------------------------------------------------------------
 !>  Pressure solver
 
-subroutine PressureSolver(problem, flow_op, tau, f, p, w, consistent, i_max)
-  class(FlowProblem),   intent(in)    :: problem      !< flow problem
-  class(FlowOperators), intent(inout) :: flow_op      !< flow operators
-  real(RNP),            intent(in)    :: tau          !< dt or t
-  real(RNP),            intent(in)    :: f(:,:,:,:,:) !< v* or ∂v/∂t*
-  real(RNP),            intent(inout) :: p(:,:,:,:)   !< pressure
-  real(RNP),            intent(out)   :: w(:,:,:,:,:) !< workspace
-  logical,    optional, intent(in)    :: consistent   !< switch to consistent BC
-  integer,    optional, intent(in)    :: i_max        !< num MG/CG cycles
-
+subroutine PressureSolver(problem, flow_op, dt, v_i, p, w, i_max)
+  class(FlowProblem),   intent(in)    :: problem        !< flow problem
+  class(FlowOperators), intent(inout) :: flow_op        !< flow operators
+  real(RNP),            intent(in)    :: dt             !< time-step size
+  real(RNP),            intent(in)    :: v_i(:,:,:,:,:) !< v*
+  real(RNP),            intent(inout) :: p(:,:,:,:)     !< pressure
+  real(RNP),            intent(out)   :: w(:,:,:,:,:)   !< workspace
+  integer,    optional, intent(in)    :: i_max          !< num MG/CG cycles
 
   if (flow_op % po_p == flow_op % po_u) then
-
-    call PressureSolver_DG_EO(problem, flow_op, tau, f, p, w, consistent, i_max)
-
+    call PressureSolver_EO(problem, flow_op, dt, v_i, p, w, i_max)
   else
+    call PressureSolver_MO(problem, flow_op, dt, v_i, p, w, i_max)
   end if
 
 end subroutine PressureSolver

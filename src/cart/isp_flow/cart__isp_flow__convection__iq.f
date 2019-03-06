@@ -60,7 +60,7 @@ subroutine WeakConvectiveFlux_IQ(flow_op, u, div_f)
   allocate(A(0:pu,0:pq))
   associate( wu => flow_op % eop_u  % w   &
            , wq => flow_op % eop_q  % w   &
-           , J  => flow_op % iop_uq % iop )
+           , J  => flow_op % iop_uq % A )
     do k = 0, pq
     do i = 0, pu
       A(i,k) = wq(k) * J(k,i) / wu(i)

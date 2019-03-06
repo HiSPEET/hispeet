@@ -20,7 +20,7 @@ module Embedded_Interpolation
 
     integer :: no = -1 !< number of original points per direction
     integer :: ni = -1 !< number of interpolated points per direction
-    real(RNP), allocatable :: iop(:,:)  !< 1D interpolation operator
+    real(RNP), allocatable :: A(:,:)  !< 1D interpolation operator
 
   contains
 
@@ -72,25 +72,25 @@ subroutine Init_SX(this, eop, xi)
     this % no = size(xo)
     this % ni = size(xi)
 
-    allocate(this % iop(0:pi,0:po))
+    allocate(this % A(0:pi,0:po))
 
     select case(eop % basis)
     case('GL ') ! Gauss-Legendre
       do k = 0, po
       do j = 0, pi
-        this % iop(j,k) = GL_Polynomial(k, xo, xi(j))
+        this % A(j,k) = GL_Polynomial(k, xo, xi(j))
       end do
       end do
     case('GRL') ! Gauss-Radau-Legendre
       do k = 0, po
       do j = 0, pi
-        this % iop(j,k) = GRL_Polynomial(k, xo, xi(j))
+        this % A(j,k) = GRL_Polynomial(k, xo, xi(j))
       end do
       end do
     case default
       do k = 0, po
       do j = 0, pi
-        this % iop(j,k) = GLL_Polynomial(k, xo, xi(j))
+        this % A(j,k) = GLL_Polynomial(k, xo, xi(j))
       end do
       end do
     end select
@@ -105,7 +105,7 @@ end subroutine Init_SX
 subroutine Delete_InterpolationOperator(this)
   class(InterpolationOperator), intent(inout) :: this
 
-  if (allocated(this % iop)) deallocate(this % iop)
+  if (allocated(this % A)) deallocate(this % A)
 
 end subroutine Delete_InterpolationOperator
 
