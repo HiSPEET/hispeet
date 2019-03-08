@@ -22,27 +22,13 @@ module CART__ISP_Flow__SDC
   implicit none
   private
 
-  public :: SpectralDeferredCorrection_Options
-  public :: SpectralDeferredCorrection
-
-  !-----------------------------------------------------------------------------
-  !> Type bundling spectral deferred correction options
-
-  type SpectralDeferredCorrection_Options
-
-    integer :: n_sub   = -1  !< number of subintervals
-    integer :: n_sweep = -1  !< max number of correction sweeps
-
-  contains
-
-    procedure :: Bcast => SDC_Options_Bcast
-
-  end type SpectralDeferredCorrection_Options
+  public :: SDC_Method3D
+  public :: SDC_Options3D
 
   !-----------------------------------------------------------------------------
   !> Spectral deferred correction parameters and procedures
 
-  type SpectralDeferredCorrection
+  type SDC_Method3D
 
     procedure(Propagator), pointer, nopass :: Predictor => null()
     procedure(Propagator), pointer, nopass :: Corrector => null()
@@ -57,12 +43,31 @@ module CART__ISP_Flow__SDC
 
   contains
 
-    procedure :: New  =>  New_SDC
+    procedure :: Init_SpectralDeferredCorrection  =>  Init_SDC
     procedure :: NumberOfSubintervals
     procedure :: IntermediateTimes
     procedure :: TimeStep
 
-  end type SpectralDeferredCorrection
+  end type SDC_Method3D
+
+  ! constructor
+  interface SDC_Method3D
+    module procedure New_SDC
+  end interface
+
+  !-----------------------------------------------------------------------------
+  !> Type bundling spectral deferred correction options
+
+  type SDC_Options3D
+
+    integer :: n_sub   = -1  !< number of subintervals
+    integer :: n_sweep = -1  !< max number of correction sweeps
+
+  contains
+
+    procedure :: Bcast => SDC_Options_Bcast
+
+  end type SDC_Options3D
 
   abstract interface
 
@@ -95,10 +100,10 @@ module CART__ISP_Flow__SDC
 contains
 
 !===============================================================================
-! SpectralDeferredCorrection_Options: type-bound procedures
+! SDC_Options3D: type-bound procedures
 
 subroutine SDC_Options_Bcast(this, root, comm)
-  class(SpectralDeferredCorrection_Options), intent(inout) :: this
+  class(SDC_Options3D), intent(inout) :: this
   integer,        intent(in) :: root !< rank of broadcast root
   type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
@@ -115,20 +120,34 @@ subroutine SDC_Options_Bcast(this, root, comm)
 end subroutine SDC_Options_Bcast
 
 !===============================================================================
-! SpectralDeferredCorrection: type-bound procedures
+! SDC_Method3D: type-bound procedures
+
+!-------------------------------------------------------------------------------
+!> Constructor
+
+function New_SDC(Predictor, Corrector, opt) result(this)
+  procedure(Propagator) :: Predictor  !< predictor method
+  procedure(Propagator) :: Corrector  !< corrector method
+  type(SDC_Options3D), intent(in) :: opt  !< SDC options
+
+  type(SDC_Method3D) :: this
+
+  call Init_SDC(this, Predictor, Corrector, opt)
+
+end function New_SDC
 
 !-------------------------------------------------------------------------------
 !> Initialization of spectral deferred correction
 
-subroutine New_SDC(sdc, Predictor, Corrector, opt)
+subroutine Init_SDC(sdc, Predictor, Corrector, opt)
 
   ! arguments ..................................................................
 
-  class(SpectralDeferredCorrection), intent(inout) :: sdc
+  class(SDC_Method3D), intent(inout) :: sdc
 
   procedure(Propagator) :: Predictor  !< predictor method
   procedure(Propagator) :: Corrector  !< corrector method
-  type(SpectralDeferredCorrection_Options), intent(in) :: opt  !< SDC options
+  type(SDC_Options3D), intent(in) :: opt  !< SDC options
 
   ! local variables ............................................................
 
@@ -190,13 +209,13 @@ subroutine New_SDC(sdc, Predictor, Corrector, opt)
   ! GLL diff operator for starting time
   allocate(sdc % d0(0:n_sub), source = D(0,:))
 
-end subroutine New_SDC
+end subroutine Init_SDC
 
 !-------------------------------------------------------------------------------
 !> Returns the number of subintervals
 
 pure integer function NumberOfSubintervals(sdc) result(n_sub)
-  class(SpectralDeferredCorrection), intent(in) :: sdc
+  class(SDC_Method3D), intent(in) :: sdc
 
   n_sub = sdc % n_sub
 
@@ -206,7 +225,7 @@ end function NumberOfSubintervals
 !> Returns the intermediate times within a given time interval
 
 pure function IntermediateTimes(sdc, t, dt) result(ti)
-  class(SpectralDeferredCorrection), intent(in) :: sdc
+  class(SDC_Method3D), intent(in) :: sdc
   real(RNP), intent(in)  :: t               !< start of the time interval
   real(RNP), intent(in)  :: dt              !< length of the time interval
   real(RNP)              :: ti(0:sdc%n_sub) !< intermediate times
@@ -232,7 +251,7 @@ subroutine TimeStep( sdc, problem, flow_op, t, dt, u, F, first, last)
 
   ! arguments ..................................................................
 
-  class(SpectralDeferredCorrection), intent(in) :: sdc
+  class(SDC_Method3D), intent(in) :: sdc
 
   class(FlowProblem),   intent(in)    :: problem !< flow problem
   class(FlowOperators), intent(inout) :: flow_op !< flow operators
@@ -371,7 +390,7 @@ end subroutine TimeStep
 !> Evaluation of subintervals for arrays of 3D mesh variables
 
 subroutine SubIntegral(sdc, m, dt, f, r)
-  class(SpectralDeferredCorrection), intent(in) :: sdc
+  class(SDC_Method3D), intent(in) :: sdc
   integer,   intent(in)  :: m               !< interval ID, 0 < m <= sdc%n_sub
   real(RNP), intent(in)  :: dt              !< length of the time interval
   real(RNP), intent(in)  :: f(:,:,:,:,:,0:) !< integrand at intermediate times

@@ -89,7 +89,7 @@ program ISP_Flow__SDC_Test
   integer   :: nt_max = -1           ! max number of time steps
   integer   :: propagator = 1        ! Euler VC|PC {1|2}
 
-  type(SpectralDeferredCorrection_Options) :: sdc_opt
+  type(SDC_Options3D) :: sdc_opt
 
   namelist /time_integration/ t_end, dt, c_conv, c_diff, nt_max, &
                               propagator, sdc_opt
@@ -108,7 +108,7 @@ program ISP_Flow__SDC_Test
   ! operators ..................................................................
 
   type(FlowOperators) :: flow_op
-  type(SpectralDeferredCorrection) :: sdc
+  type(SDC_Method3D) :: sdc
 
   ! variables ..................................................................
 
@@ -244,9 +244,9 @@ program ISP_Flow__SDC_Test
   if (sdc_opt % n_sub > 0) then
     select case(propagator)
     case(2)
-      call sdc % New(EulerPC, EulerPC, sdc_opt)
+      sdc = SDC_Method3D(EulerPC, EulerPC, sdc_opt)
     case default
-      call sdc % New(EulerVC, EulerVC, sdc_opt)
+      sdc = SDC_Method3D(EulerVC, EulerVC, sdc_opt)
     end select
   end if
 
