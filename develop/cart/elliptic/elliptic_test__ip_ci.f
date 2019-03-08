@@ -273,7 +273,7 @@ program Elliptic_Test__IP_CI
       case('N')
         call bv(b) % ExtractNormalComponent(mesh, grad_u, b, bc(b))
       case default
-        call bv(b) % New(mesh, po, b, bc(b))
+        bv(b) = BoundaryVariable(mesh, po, b, bc(b))
       end select
     end do
 

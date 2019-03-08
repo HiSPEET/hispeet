@@ -126,9 +126,9 @@ set(ISP_FLOW isp_flow/cart__isp_flow__boundary_values.f
              isp_flow/cart__isp_flow__pressure__eo.f
              isp_flow/cart__isp_flow__pressure__mo.f
              isp_flow/cart__isp_flow__pressure.f
+             isp_flow/cart__isp_flow__euler.f
+             isp_flow/cart__isp_flow__sdc.f
              )
-#             isp_flow/cart__isp_flow__euler.f
-#             isp_flow/cart__isp_flow__sdc.f
 
 #===============================================================================
 # cart library

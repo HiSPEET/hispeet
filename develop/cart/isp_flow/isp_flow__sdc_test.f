@@ -27,7 +27,7 @@ program ISP_Flow__SDC_Test
   use CART__Generate_Structured_Mesh
   use CART__Weak_Divergence
   use CART__Weak_Gradient
-  use CART__DG_Elliptic_CI_PMG
+  use CART__Elliptic_PMG
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Time_Derivative
   use CART__ISP_Flow__Pressure
@@ -74,8 +74,8 @@ program ISP_Flow__SDC_Test
 
   ! elliptic solver parameters .................................................
 
-  type(PolynomialMultigrid_Options) :: pmg_u_opt
-  type(PolynomialMultigrid_Options) :: pmg_p_opt
+  type(PMG_Options3D) :: pmg_u_opt
+  type(PMG_Options3D) :: pmg_p_opt
 
   namelist /elliptic_solver/ pmg_u_opt, pmg_p_opt
 
@@ -87,7 +87,7 @@ program ISP_Flow__SDC_Test
   real(RNP) :: c_conv = -1           ! max Courant number   (< 0 if unlimited)
   real(RNP) :: c_diff = -1           ! max diffusion number (< 0 if unlimited)
   integer   :: nt_max = -1           ! max number of time steps
-  integer   :: propagator = 1        ! Euler VC|PC|CS {1|2|3}
+  integer   :: propagator = 1        ! Euler VC|PC {1|2}
 
   type(SpectralDeferredCorrection_Options) :: sdc_opt
 
@@ -168,8 +168,6 @@ program ISP_Flow__SDC_Test
     pmg_u_opt % po_top = po_u
     pmg_p_opt % po_top = po_p
 
-    compute_p = compute_p .and. sdc_opt%n_cpi < 1 .and. .not. propagator == 3
-
   end if
 
   ! control parameters
@@ -236,19 +234,17 @@ program ISP_Flow__SDC_Test
 
   ! operators ..................................................................
 
-  call flow_op % New( problem, mesh              &
-                    , po_u, po_p, po_q, penalty  &
-                    , pmg_u_opt                  &
-                    , pmg_p_opt                  &
-                    , monitor_level              &
-                    )
+  flow_op = FlowOperators( problem, mesh              &
+                         , po_u, po_p, po_q, penalty  &
+                         , pmg_u_opt                  &
+                         , pmg_p_opt                  &
+                         , monitor_level              &
+                         )
 
   if (sdc_opt % n_sub > 0) then
     select case(propagator)
     case(2)
       call sdc % New(EulerPC, EulerPC, sdc_opt)
-    case(3)
-      call sdc % New(EulerCS, EulerCS, sdc_opt)
     case default
       call sdc % New(EulerVC, EulerVC, sdc_opt)
     end select
@@ -256,6 +252,7 @@ program ISP_Flow__SDC_Test
 
   ! variables and initial values ...............................................
 
+  t = 0
   call InitializeMeshVariables()
   call SetInitialValues(problem, mesh, flow_op%eop_u, flow_op%x, t, u, F, u_e)
 
@@ -289,14 +286,15 @@ program ISP_Flow__SDC_Test
       call sdc % TimeStep( problem, flow_op, t, dt, u, F, first, last)
     else
       call SetArray(u_0, u, multi=.true.)
-      call EulerPC(problem, flow_op, t, dt, u_0, u)
+      call EulerVC(problem, flow_op, t, dt, u_0, u)
+     !call EulerPC(problem, flow_op, t, dt, u_0, u)
     end if
 
     if (compute_p) then
-      call TimeDerivative(problem, flow_op, t, u_c = u, u_d = u, F = u_e)
-      call PressureSolver(problem, flow_op, t, u_e, u(:,:,:,:,4), w, &
-                          consistent = .true.)
-
+      associate(p => u(:,:,:,:,4), F_v => u_e)
+        call TimeDerivative(problem, flow_op, t, u_c = u, u_d = u, F = F_v)
+        call PressureSolver(problem, flow_op, F_v, t, p, w)
+      end associate
     end if
 
     if (last) exit
@@ -461,7 +459,7 @@ subroutine Evaluation(failed)
       call problem % GetExactSolution(x, t, u_e)
 
       ! error
-      call SetArray(err_u, u, multi=.true.)              ! err_u = u
+      call SetArray(err_u, u, multi=.true.)                 ! err_u = u
       call MergeArrays(ONE, err_u, -ONE, u_e, multi=.true.) ! err_u = err_u - u_e
 
       ! remove constant from pressure error
@@ -532,7 +530,6 @@ subroutine Evaluation(failed)
       write(*,'(A)')    '#'
       write(*,'(A,I0)') '# n_sub   = ', sdc % n_sub
       write(*,'(A,I0)') '# n_sweep = ', sdc % n_sweep
-      write(*,'(A,I0)') '# n_cpi   = ', sdc % n_cpi
       write(*,'(A)')    '#'
 
       write(*,'(9(A12,1X))')               &
@@ -574,28 +571,25 @@ subroutine SetInitialValues(problem, mesh, sop, x, t, u, F, w)
   class(FlowProblem),         intent(in)   :: problem      !< flow problem
   class(MeshPartition),       intent(in)   :: mesh         !< mesh partition
   class(StandardOperators1D), intent(in)   :: sop          !< standard operators
-  real(RNP),                  intent(out)  :: t            !< time
-  real(RNP),                  intent(out)  :: x(:,:,:,:,:) !< mesh points
+  real(RNP),                  intent(in)   :: x(:,:,:,:,:) !< mesh points
+  real(RNP),                  intent(in)   :: t            !< time
   real(RNP),                  intent(out)  :: u(:,:,:,:,:) !< flow variables
   real(RNP),                  intent(out)  :: F(:,:,:,:,:) !< ∂u/∂t = F(u)
   real(RNP),                  intent(out)  :: w(:,:,:,:,:) !< workspace
-
-  t = 0
 
   associate(p => u(:,:,:,:,4))
 
     call problem % GetInitialValues(x, u)
 
-     if (problem % HasExactSolution()) then
-       call problem % GetExactTimeDerivative(x, ZERO, F)
-     else
-       ! compute initial pressure and F(u)
-       call TimeDerivative(problem, flow_op, t, u_c=u, u_d=u, F=F)
-       call PressureSolver(problem, flow_op, t, F, p, w, &
-                           consistent = .true.           )
-       call WeakGradient(mesh, sop%w, sop%D, p, w)
-       call MergeArrays(ONE, F, -ONE, w, multi=.true.)
-     end if
+    if (problem % HasExactSolution()) then
+      call problem % GetExactTimeDerivative(x, ZERO, F)
+    else
+      ! compute initial pressure and F(u)
+      call TimeDerivative(problem, flow_op, t, u_c=u, u_d=u, F=F)
+      call PressureSolver(problem, flow_op, F, t, p, w)
+      call WeakGradient(mesh, sop%w, sop%D, p, w)
+      call MergeArrays(ONE, F, -ONE, w, multi=.true.)
+    end if
 
   end associate
 

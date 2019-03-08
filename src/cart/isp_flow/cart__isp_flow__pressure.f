@@ -19,12 +19,17 @@ module CART__ISP_Flow__Pressure
 
   public :: PressureSolver
 
+  interface PressureSolver
+    module procedure PressureSolver_IBC
+    module procedure PressureSolver_CBC
+  end interface
+
 contains
 
 !-------------------------------------------------------------------------------
-!>  Pressure solver
+!>  Pressure solver with implied boundary conditions
 
-subroutine PressureSolver(problem, flow_op, dt, v_i, p, w, i_max)
+subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
   class(FlowProblem),   intent(in)    :: problem        !< flow problem
   class(FlowOperators), intent(inout) :: flow_op        !< flow operators
   real(RNP),            intent(in)    :: dt             !< time-step size
@@ -39,7 +44,27 @@ subroutine PressureSolver(problem, flow_op, dt, v_i, p, w, i_max)
     call PressureSolver_MO(problem, flow_op, dt, v_i, p, w, i_max)
   end if
 
-end subroutine PressureSolver
+end subroutine PressureSolver_IBC
+
+!-------------------------------------------------------------------------------
+!>  Pressure solver with implied boundary conditions
+
+subroutine PressureSolver_CBC(problem, flow_op, F_i, t, p, w, i_max)
+  class(FlowProblem),   intent(in)    :: problem         !< flow problem
+  class(FlowOperators), intent(inout) :: flow_op         !< flow operators
+  real(RNP),            intent(in)    :: F_i(:,:,:,:,:)  !< ∂ṽ/∂t
+  real(RNP),            intent(in)    :: t               !< time
+  real(RNP),            intent(inout) :: p(:,:,:,:)      !< pressure
+  real(RNP),            intent(out)   :: w(:,:,:,:,:)    !< workspace
+  integer,    optional, intent(in)    :: i_max           !< num MG/CG cycles
+
+  if (flow_op % po_p == flow_op % po_u) then
+    call PressureSolver_EO(problem, flow_op, F_i, t, p, w, i_max)
+  else
+    call PressureSolver_MO(problem, flow_op, F_i, t, p, w, i_max)
+  end if
+
+end subroutine PressureSolver_CBC
 
 !===============================================================================
 

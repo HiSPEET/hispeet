@@ -117,7 +117,8 @@ program Validate__CART__TPO_Schwarz_Iso
   ! operators ..................................................................
 
   element_op = IP_ElementOperators1D(po)
-  call schwarz_op % New(schwarz_options, element_op, mesh, lambda, nu, bc)
+  schwarz_op = SchwarzOperator3D( schwarz_options, element_op, mesh, &
+                                  lambda, nu, bc )
 
   n1 = schwarz_op % n1
   n2 = schwarz_op % n2

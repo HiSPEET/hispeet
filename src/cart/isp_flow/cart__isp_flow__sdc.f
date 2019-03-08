@@ -32,7 +32,6 @@ module CART__ISP_Flow__SDC
 
     integer :: n_sub   = -1  !< number of subintervals
     integer :: n_sweep = -1  !< max number of correction sweeps
-    integer :: n_cpi   =  0  !< max number of consistent pressure iterations
 
   contains
 
@@ -50,7 +49,6 @@ module CART__ISP_Flow__SDC
 
     integer   :: n_sub   = -1         !< number of subintervals
     integer   :: n_sweep = -1         !< max num correction sweeps
-    integer   :: n_cpi   =  0         !< max num consistent pressure iterations
 
     real(RNP), allocatable :: xi(:)   !< GLL points
     real(RNP), allocatable :: d0(:)   !< GLL diff operator for starting time
@@ -71,7 +69,7 @@ module CART__ISP_Flow__SDC
     !---------------------------------------------------------------------------
     !> Single-step time integration, optionally returning the time derivative
 
-    subroutine Propagator(problem, flow_op, t, dt, u_0, u, F, G, S, n_cpi)
+    subroutine Propagator(problem, flow_op, t, dt, u_0, u, F, G, S)
       import
 
       class(FlowProblem),   intent(in)    :: problem !< flow problem
@@ -83,7 +81,6 @@ module CART__ISP_Flow__SDC
       real(RNP),  optional, intent(out)   :: F       !< ∂u/∂t(t+dt)
       real(RNP),  optional, intent(inout) :: G       !< δu/δt(t) → δu/δt(t+dt)
       real(RNP),  optional, intent(in)    :: S       !< ∫∂u/dt over (t,t+dt)
-      integer,    optional, intent(in)    :: n_cpi   !< num consist p-iterations
 
       dimension :: u_0 (:,:,:,:,:)
       dimension :: u   (:,:,:,:,:)
@@ -105,14 +102,13 @@ subroutine SDC_Options_Bcast(this, root, comm)
   integer,        intent(in) :: root !< rank of broadcast root
   type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-  type(MPI_Request)  :: request(3)
+  type(MPI_Request)  :: request(2)
   type(MPI_Status)   :: stat(size(request))
   integer :: n
 
   n = 1
   call XMPI_Ibcast( this % n_sub  , root, comm, request(n) );  n = n + 1
-  call XMPI_Ibcast( this % n_sweep, root, comm, request(n) );  n = n + 1
-  call XMPI_Ibcast( this % n_cpi  , root, comm, request(n) )
+  call XMPI_Ibcast( this % n_sweep, root, comm, request(n) )
 
   call MPI_Waitall(n, request, stat)
 
@@ -163,7 +159,6 @@ subroutine New_SDC(sdc, Predictor, Corrector, opt)
   sdc % Corrector => Corrector
 
   sdc % n_sub = opt % n_sub
-  sdc % n_cpi = opt % n_cpi
 
   if (opt % n_sweep >= 0) then
     sdc % n_sweep = opt % n_sweep
@@ -270,14 +265,13 @@ subroutine TimeStep( sdc, problem, flow_op, t, dt, u, F, first, last)
 
   do m = 1, ni
 
-    call AssignArray(ui(:,:,:,:,:,m), ui(:,:,:,:,:,m-1), multi=.true.)
+    call SetArray(ui(:,:,:,:,:,m), ui(:,:,:,:,:,m-1), multi=.true.)
 
     call sdc % Predictor( problem, flow_op, tau, dti(m) &
                         , u_0   = ui(:,:,:,:,:,m-1)     &
                         , u     = ui(:,:,:,:,:,m  )     &
                         , F     = Fi(:,:,:,:,:,m  )     &
-                        , G     = Gi(:,:,:,:,:,m  )     &
-                        , n_cpi = sdc % n_cpi           )
+                        , G     = Gi(:,:,:,:,:,m  )     )
   end do
 
   ! SDC iterations .............................................................
@@ -297,8 +291,7 @@ subroutine TimeStep( sdc, problem, flow_op, t, dt, u, F, first, last)
                           , u     = ui(:,:,:,:,:,m  )     &
                           , F     = Fi(:,:,:,:,:,m  )     &
                           , G     = Gi(:,:,:,:,:,m  )     &
-                          , S     = Si(:,:,:,:,:,m  )     &
-                          , n_cpi = sdc % n_cpi           )
+                          , S     = Si(:,:,:,:,:,m  )     )
     end do
 
   end do
@@ -307,8 +300,8 @@ subroutine TimeStep( sdc, problem, flow_op, t, dt, u, F, first, last)
 
   t = t + dt
 
-  call AssignArray(u, ui(:,:,:,:,:,ni), multi=.true.)
-  call AssignArray(F, Fi(:,:,:,:,:,ni), multi=.true.)
+  call SetArray(u, ui(:,:,:,:,:,ni), multi=.true.)
+  call SetArray(F, Fi(:,:,:,:,:,ni), multi=.true.)
 
   if (last) then
     call FreeWorkspace()
@@ -343,13 +336,13 @@ contains
     ti  = sdc % IntermediateTimes(t, dt)
     dti = ti(1:ni) - ti(0:ni-1)
 
-    call AssignArray(ui(:,:,:,:,:,0), u, multi=.true.)
-    call AssignArray(Fi(:,:,:,:,:,0), F, multi=.true.)
+    call SetArray(ui(:,:,:,:,:,0), u, multi=.true.)
+    call SetArray(Fi(:,:,:,:,:,0), F, multi=.true.)
     do i = 1, ni
-      call AssignScalar(ui(:,:,:,:,:,i), ZERO, multi=.true.)
-      call AssignScalar(Fi(:,:,:,:,:,i), ZERO, multi=.true.)
-      call AssignScalar(Gi(:,:,:,:,:,i), ZERO, multi=.true.)
-      call AssignScalar(Si(:,:,:,:,:,i), ZERO, multi=.true.)
+      call SetArray(ui(:,:,:,:,:,i), ZERO, multi=.true.)
+      call SetArray(Fi(:,:,:,:,:,i), ZERO, multi=.true.)
+      call SetArray(Gi(:,:,:,:,:,i), ZERO, multi=.true.)
+      call SetArray(Si(:,:,:,:,:,i), ZERO, multi=.true.)
     end do
 
   end subroutine InitializeWorkspace
