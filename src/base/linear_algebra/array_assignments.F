@@ -13,6 +13,7 @@
 module Array_Assignments
   use Kind_Parameters, only: IXL, RNP
   use MPI_Binding
+  use Execution_Control
   implicit none
   private
 
@@ -187,9 +188,6 @@ subroutine SetArray_XS(ne, nc, a, s)
 
 end subroutine SetArray_XS
 
-!===============================================================================
-! SetArray
-
 !-------------------------------------------------------------------------------
 !> Assigment of array b to array a (3D)
 
@@ -199,6 +197,12 @@ subroutine SetArray_3A(a, b, multi)
   logical, optional, intent(in)  :: multi    !< switch to multiple components
 
   integer :: nc
+
+#ifdef DEBUG
+  if (any(shape(a) /= shape(b))) then
+    call Error('SetArray_3A', 'shape mismatch', 'Array_Assignments')
+  end if
+#endif
 
   nc = 1
   if (present(multi)) then
@@ -219,6 +223,12 @@ subroutine SetArray_4A(a, b, multi)
 
   integer :: nc
 
+#ifdef DEBUG
+  if (any(shape(a) /= shape(b))) then
+    call Error('SetArray_4A', 'shape mismatch', 'Array_Assignments')
+  end if
+#endif
+
   nc = 1
   if (present(multi)) then
     if (multi) nc = size(a,4)
@@ -237,6 +247,12 @@ subroutine SetArray_5A(a, b, multi)
   logical, optional, intent(in)  :: multi        !< switch to multiple comps.
 
   integer :: nc
+
+#ifdef DEBUG
+  if (any(shape(a) /= shape(b))) then
+    call Error('SetArray_5A', 'shape mismatch', 'Array_Assignments')
+  end if
+#endif
 
   nc = 1
   if (present(multi)) then
@@ -286,6 +302,12 @@ subroutine MergeArrays_3(alpha, a, beta, b, s, multi)
 
   integer :: nc
 
+#ifdef DEBUG
+  if (any(shape(a) /= shape(b))) then
+    call Error('MergeArrays_3', 'shape mismatch', 'Array_Assignments')
+  end if
+#endif
+
   nc = 1
   if (present(multi)) then
     if (multi) nc = size(a,3)
@@ -308,6 +330,12 @@ subroutine MergeArrays_4(alpha, a, beta, b, s, multi)
 
   integer :: nc
 
+#ifdef DEBUG
+  if (any(shape(a) /= shape(b))) then
+    call Error('MergeArrays_4', 'shape mismatch', 'Array_Assignments')
+  end if
+#endif
+
   nc = 1
   if (present(multi)) then
     if (multi) nc = size(a,4)
@@ -329,6 +357,12 @@ subroutine MergeArrays_5(alpha, a, beta, b, s, multi)
   logical,   optional, intent(in)    :: multi        !< switch to multiple comps.
 
   integer :: nc
+
+#ifdef DEBUG
+  if (any(shape(a) /= shape(b))) then
+    call Error('MergeArrays_5', 'shape mismatch', 'Array_Assignments')
+  end if
+#endif
 
   nc = 1
   if (present(multi)) then

@@ -49,7 +49,6 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
 
   ! local variables  ...........................................................
 
-  type(BoundaryVariable), allocatable, save :: bv_p(:)
   real(RNP) :: g, r_2
   integer   :: np, ne, ni
 
@@ -67,12 +66,6 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
 
     ! preliminaries ............................................................
 
-    ! handle for pressure boundary values
-    !$omp single
-    allocate(bv_p(mesh % n_boundary))
-    call flow_op % bv_u % GetHandle(c = 4, handle = bv_p)
-    !$omp end single
-
     np = size(p,1)
     ne = size(p,4)
 
@@ -81,10 +74,10 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
     ! RHS ......................................................................
 
     call WeakDivergence(mesh, eop%w, eop%D, v_i, div_v)   ! div_v = ∇·ṽ
-    call TPO_sDDD_Eval(np, ne, g, eop%w, div_v, f)        ! f = M div_v
+    call TPO_sDDD_Eval(np, ne, g, eop%w, div_v, f)        ! f = -M div_v
 
-    call GetImpliedBC(problem, mesh, dt, flow_op%bv_u, v_i, bv_p)
-    call pmg % BcToRHS(bv_p, f)
+!?!   call GetImpliedBC(problem, mesh, dt, v_i, flow_op%bv_u)
+!?!   call pmg % BcToRHS(flow_op%bv_u, 4, f)
 
     ! pressure .................................................................
 
@@ -97,13 +90,6 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
     end if
     !$omp end single
 
-    ! clean-up .................................................................
-
-    !$omp barrier
-    !$omp master
-    deallocate(bv_p)
-    !$omp end master
-
   end associate
 
 end subroutine PressureSolver_IBC
@@ -111,16 +97,15 @@ end subroutine PressureSolver_IBC
 !-------------------------------------------------------------------------------
 !> Implied pressure boundary conditions
 
-subroutine GetImpliedBC(problem, mesh, dt, bv_v, v_i, bv_p)
+subroutine GetImpliedBC(problem, mesh, dt, v_i, bv_u)
 
   ! arguments ..................................................................
 
   class(FlowProblem),      intent(in)    :: problem           !< flow problem
   class(MeshPartition),    intent(in)    :: mesh              !< mesh partition
   real(RNP),               intent(in)    :: dt                !< time step size
-  class(BoundaryVariable), intent(in)    :: bv_v(:)           !< v(t) @ boundary
   real(RNP),               intent(in)    :: v_i(0:,0:,0:,:,:) !< ṽ
-  class(BoundaryVariable), intent(inout) :: bv_p(:)           !< BC for p(t)
+  class(BoundaryVariable), intent(inout) :: bv_u(:)           !< BC
 
   ! local variables  ...........................................................
 
@@ -145,8 +130,8 @@ subroutine GetImpliedBC(problem, mesh, dt, bv_v, v_i, bv_p)
     if (problem % bc(b,4) == 'P') cycle
 
    !$omp single
-    v_b  => bv_v(b) % Components(1,3)
-    dn_p => bv_p(b) % Component(1)
+    v_b  => bv_u(b) % Components(1,3)
+    dn_p => bv_u(b) % Component(4)
    !$omp end single
 
     associate(boundary => mesh % boundary(b))
@@ -224,7 +209,6 @@ subroutine PressureSolver_CBC(problem, flow_op, F_v, t, p, w, i_max)
 
   ! local variables  ...........................................................
 
-  type(BoundaryVariable), allocatable, save :: bv_p(:)
   real(RNP) :: g, r_2
   integer   :: np, ne, ni
 
@@ -246,12 +230,6 @@ subroutine PressureSolver_CBC(problem, flow_op, F_v, t, p, w, i_max)
 
     ! preliminaries ............................................................
 
-    ! handle for pressure boundary values
-    !$omp single
-    allocate(bv_p(mesh % n_boundary))
-    call flow_op % bv_u % GetHandle(c = 4, handle = bv_p)
-    !$omp end single
-
     np = size(p,1)
     ne = size(p,4)
 
@@ -260,10 +238,10 @@ subroutine PressureSolver_CBC(problem, flow_op, F_v, t, p, w, i_max)
     ! RHS ......................................................................
 
     call WeakDivergence(mesh, eop%w, eop%D, F_v, div_F) ! div_F = ∇·∂ṽ/∂t
-    call TPO_sDDD_Eval(np, ne, g, eop%w, div_F, f)      ! f = M div_F
+    call TPO_sDDD_Eval(np, ne, g, eop%w, div_F, f)      ! f = -M div_F
 
-    call GetConsistentBC(problem, mesh, flow_op%bv_x, t, F_v, bv_p)
-    call pmg % BcToRHS(bv_p, f)
+    call GetConsistentBC(problem, mesh, flow_op%bv_x, t, F_v, flow_op%bv_u)
+    call pmg % BcToRHS(flow_op%bv_u, 4, f)
 
     ! pressure .................................................................
 
@@ -283,7 +261,7 @@ end subroutine PressureSolver_CBC
 !-------------------------------------------------------------------------------
 !> Consistent pressure boundary conditions
 
-subroutine GetConsistentBC(problem, mesh, bv_x, t, F_v, bv_p)
+subroutine GetConsistentBC(problem, mesh, bv_x, t, F_v, bv_u)
 
   ! arguments ..................................................................
 
@@ -292,7 +270,7 @@ subroutine GetConsistentBC(problem, mesh, bv_x, t, F_v, bv_p)
   class(BoundaryVariable), intent(in)    :: bv_x(:)           !< boundary points
   real(RNP),               intent(in)    :: t                 !< time
   real(RNP),               intent(in)    :: F_v(0:,0:,0:,:,:) !< ∂ṽ/∂t
-  class(BoundaryVariable), intent(inout) :: bv_p(:)           !< BC for p(t)
+  class(BoundaryVariable), intent(inout) :: bv_u(:)           !< BC for p(t)
 
   ! local variables  ...........................................................
 
@@ -325,7 +303,7 @@ subroutine GetConsistentBC(problem, mesh, bv_x, t, F_v, bv_p)
 
     !$omp single
     dt_v => bv_dt_u(b) % Components(1,3)
-    dn_p => bv_p(b) % Component(1)
+    dn_p => bv_u(b) % Component(4)
     !$omp end single
 
     associate(boundary => mesh % boundary(b))

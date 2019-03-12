@@ -34,17 +34,16 @@ module CART__Elliptic_Operator
     type(SchwarzOperator3D),    allocatable :: schwarz !< Schwarz operator
 
   contains
-    private
 
-    generic, public :: SetProblem => SetProblem_CI, SetProblem_VI
+    generic :: SetProblem => SetProblem_CI, SetProblem_VI
     procedure(SetProblem_CI), deferred :: SetProblem_CI  ! should be private
     procedure(SetProblem_VI), deferred :: SetProblem_VI  ! but fails with ifort
 
-    procedure(Apply),     public, deferred :: Apply
-    procedure(BcToRHS),   public, deferred :: BcToRHS
-    procedure(Residual),  public, deferred :: Residual
-    procedure(Iteration), public, deferred :: ConjugateGradients
-    procedure(Iteration), public, deferred :: SchwarzMethod
+    procedure(Apply),     deferred :: Apply
+    procedure(BcToRHS),   deferred :: BcToRHS
+    procedure(Residual),  deferred :: Residual
+    procedure(Iteration), deferred :: ConjugateGradients
+    procedure(Iteration), deferred :: SchwarzMethod
 
   end type EllipticOperator3D
 
@@ -85,10 +84,11 @@ module CART__Elliptic_Operator
     !--------------------------------------------------------------------------
     !> Adds the boundary contributions of the right hand side
 
-    subroutine BcToRHS(this, bv, f)
+    subroutine BcToRHS(this, bv, c, f)
       import
       class(EllipticOperator3D), intent(in)    :: this
       type(BoundaryVariable),    intent(in)    :: bv(:)      !< boundary values
+      integer,         optional, intent(in)    :: c          !< component [1]
       real(RNP),                 intent(inout) :: f(:,:,:,:) !< RHS
     end subroutine BcToRHS
 

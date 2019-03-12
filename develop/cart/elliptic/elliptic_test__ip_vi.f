@@ -283,7 +283,7 @@ program Elliptic_Test__IP_VI
       end select
     end do
 
-    call elliptic_op % BcToRHS(bv, f)
+    call elliptic_op % BcToRHS(bv, 1, f)
 
   end if
 

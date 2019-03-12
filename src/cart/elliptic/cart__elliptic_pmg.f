@@ -197,15 +197,16 @@ end subroutine FreeWorkspace
 !-------------------------------------------------------------------------------
 !>  Adds the boundary contributions of the right hand side
 
-subroutine BCtoRHS(this, bv, f)
+subroutine BCtoRHS(this, bv, c, f)
   class(PMG_Method3D),    intent(in)    :: this
   type(BoundaryVariable), intent(in)    :: bv(:)      !< boundary values
+  integer,      optional, intent(in)    :: c          !< component [1]
   real(RNP),              intent(inout) :: f(:,:,:,:) !< RHS
 
   integer :: l_top
 
   l_top = ubound(this % level, 1)
-  call this % level(l_top) % elliptic_op % BcToRHS(bv, f)
+  call this % level(l_top) % elliptic_op % BcToRHS(bv, c, f)
 
 end subroutine BCtoRHS
 
@@ -312,7 +313,7 @@ end subroutine MG_Solver
 subroutine MG_CG_Solver(this, u, f, ni, r_2, i_max)
   class(PMG_Method3D), intent(inout) :: this
   real(RNP),           intent(inout) :: u(:,:,:,:) !< approx/final solution
-  real(RNP),           intent(in)    :: f(:,:,:,:) !< RHS
+  real(RNP),           intent(inout) :: f(:,:,:,:) !< RHS (may be calibrated)
   integer,   optional, intent(out)   :: ni         !< number of executed cycles
   real(RNP), optional, intent(out)   :: r_2        !< L2 norm of residual
   integer,   optional, intent(in)    :: i_max      !< overrides preset num cycles
@@ -349,7 +350,10 @@ subroutine MG_CG_Solver(this, u, f, ni, r_2, i_max)
 
     ! initialization ...........................................................
 
-    singular = elliptic_op % lambda == 0 .and. all(elliptic_op % bc == 'D')
+    singular = elliptic_op % lambda == ZERO .and. all(elliptic_op % bc /= 'D')
+    if (singular) then
+      call CalibrateArray(f, mesh%comm)
+    end if
 
     ! initial residual
     call elliptic_op % Residual(u, f, r)

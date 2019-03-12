@@ -52,45 +52,24 @@ module CART__Boundary_Variable
   !>
   !>     ! assign all components to v(0:po,0:po,1:nf,1:nc)
   !>     v => bv_u(i) % Components()
-  !>
-  !> Using `GetHandle` it is possible to define a new boundary variable as a
-  !> subset of an existing one, e.g.
-  !>
-  !>     type(BoundaryVariable) :: bv_u(nb)
-  !>     type(BoundaryVariable) :: bv_v(nb)
-  !>
-  !>     ! generate bv_v from components c1:c2
-  !>     call bv_u % GetHandle(c1, c2, bv_v)
-  !>
-  !> Note that `GetHandle`is elemental: In the above example, `bv_v(i)` is
-  !> generated from `bv_u` for `i = 1:nb`. The arguments `c1` and `c2` defining
-  !> the range of components can be scalar or arrays of dimension `nb`.
 
   type BoundaryVariable
-    private
-
-    ! public entities ..........................................................
 
     integer, public :: po = -1  !< polynomial order
     integer, public :: nf = -1  !< number of faces
     integer, public :: nc = -1  !< number of components
 
-    character, pointer, public :: bc(:) => null() !< boundary conditions
-
-    ! private components .......................................................
-
-    real(RNP), pointer, contiguous :: val(:,:,:,:) => null() !< values
-
-    logical :: is_original = .false. !< indicates original boundary variable
+    character, allocatable, public  :: bc(:)        !< boundary conditions
+    real(RNP), allocatable, private :: val(:,:,:,:) !< values
 
   contains
 
-    generic,   public  :: Init_BoundaryVariable =>  Init_S, Init_A, Init_O
+    generic,   public  :: Init_BoundaryVariable => Init_S, Init_A, Init_O
     procedure, private :: Init_S
     procedure, private :: Init_A
     procedure, private :: Init_O
 
-    generic,   public  :: Extract     =>  Extract_S, Extract_A
+    generic,   public  :: Extract => Extract_S, Extract_A
     procedure, private :: Extract_S
     procedure, private :: Extract_A
 
@@ -103,12 +82,6 @@ module CART__Boundary_Variable
 
     procedure, public  :: Component
     procedure, public  :: Components
-
-    generic,   public  :: GetHandle   =>  GetHandle_S, GetHandle_A
-    procedure, private :: GetHandle_S
-    procedure, private :: GetHandle_A
-
-    final :: Delete_BoundaryVariable
 
   end type BoundaryVariable
 
@@ -176,7 +149,10 @@ subroutine Init_S(this, mesh, po, b, bc)
   integer,                 intent(in)    :: b     !< boundary ID
   character,               intent(in)    :: bc    !< boundary conditions
 
-  call Init_X(this, mesh, po, 1, b, bc)
+  character :: bc_(1)
+
+  bc_ = bc
+  call Init_X(this, mesh, po, 1, b, bc_)
 
 end subroutine Init_S
 
@@ -210,14 +186,17 @@ end subroutine Init_O
 
 !-------------------------------------------------------------------------------
 !> Generates a new boundary variable -- eXplicit
+!>
+!> `bc` is deliberately defined with assumed shape to allow for non-contiguous
+!> arguments constructed from structure components
 
 subroutine Init_X(this, mesh, po, nc, b, bc)
-  class(BoundaryVariable), intent(inout) :: this   !< boundary variable
-  class(MeshPartition),    intent(in)    :: mesh   !< mesh partition
-  integer,                 intent(in)    :: po     !< polynomial order
-  integer,                 intent(in)    :: nc     !< number of components
-  integer,                 intent(in)    :: b      !< boundary ID
-  character,     optional, intent(in)    :: bc(nc) !< boundary conditions
+  class(BoundaryVariable), intent(inout) :: this  !< boundary variable
+  class(MeshPartition),    intent(in)    :: mesh  !< mesh partition
+  integer,                 intent(in)    :: po    !< polynomial order
+  integer,                 intent(in)    :: nc    !< number of components
+  integer,                 intent(in)    :: b     !< boundary ID
+  character,     optional, intent(in)    :: bc(:) !< boundary conditions (1:nc)
 
   integer :: nf
 
@@ -225,11 +204,10 @@ subroutine Init_X(this, mesh, po, nc, b, bc)
 
   ! (re)allocate storage, if required
   if (this%po /= po .or. this%nf /= nf .or. this%nc /= nc) then
-    if (this%is_original) then
-      deallocate(this%bc, this%val)
-    end if
-    allocate(this%bc(nc), source = ' ')
-    allocate(this%val(0:po, 0:po, nf, nc))
+    if (allocated(this % bc )) deallocate(this%bc)
+    if (allocated(this % val)) deallocate(this%val)
+    allocate(this % bc(nc), source = ' ')
+    allocate(this % val(0:po, 0:po, nf, nc))
   end if
 
   if (present(bc)) this%bc = bc
@@ -237,8 +215,6 @@ subroutine Init_X(this, mesh, po, nc, b, bc)
   this % po = ubound(this % val, 1)
   this % nf = ubound(this % val, 3)
   this % nc = ubound(this % val, 4)
-
-  this % is_original = .true.
 
 end subroutine Init_X
 
@@ -255,7 +231,15 @@ subroutine Extract_S(this, mesh, v, b, bc)
   integer,                 intent(in)    :: b             !< boundary ID
   character,     optional, intent(in)    :: bc            !< boundary condition
 
-  call Extract_X(this, mesh, ubound(v,1), size(v,4), 1, v, b, bc)
+  character :: bc_(1)
+
+  if (present(bc)) then
+    bc_ = bc
+  else
+    bc_ = ' '
+  end if
+
+  call Extract_X(this, mesh, ubound(v,1), size(v,4), 1, v, b, bc_)
 
 end subroutine Extract_S
 
@@ -275,6 +259,9 @@ end subroutine Extract_A
 
 !-------------------------------------------------------------------------------
 !> Extract boundary variable from mesh variable -- eXplicit shape
+!>
+!> `bc` is deliberately defined with assumed shape to allow for non-contiguous
+!> arguments constructed from structure components
 
 subroutine Extract_X(this, mesh, po, ne, nc, v, b, bc)
   class(BoundaryVariable), intent(inout) :: this   !< boundary variable
@@ -284,7 +271,7 @@ subroutine Extract_X(this, mesh, po, ne, nc, v, b, bc)
   integer,   intent(in) :: nc                      !< number of components
   real(RNP), intent(in) :: v(0:po,0:po,0:po,ne,nc) !< mesh variable
   integer,   intent(in) :: b                       !< boundary ID
-  character, optional, intent(in) :: bc(nc)        !< boundary conditions
+  character, optional, intent(in) :: bc(:)         !< boundary conditions
 
   integer :: c, e, f, i, j, k
 
@@ -450,7 +437,7 @@ impure elemental function BoundaryCondition_1(this) result(bc)
   class(BoundaryVariable), intent(in) :: this
   character :: bc   !< BC type of component 1
 
-  if (associated(this % bc)) then
+  if (allocated(this % bc)) then
     bc = this % bc(1)
   else
     bc = ''
@@ -466,7 +453,7 @@ impure elemental function BoundaryCondition_S(this, c) result(bc)
   integer,  intent(in) :: c    !< component
   character            :: bc   !< BC type of component c
 
-  if (associated(this % bc)) then
+  if (allocated(this % bc)) then
     bc = this % bc(c)
   else
     bc = ''
@@ -481,7 +468,7 @@ end function BoundaryCondition_S
 !> Provides a pointer to the values of a single component
 
 function Component(this, c) result(vb)
-  class(BoundaryVariable), intent(in) :: this
+  class(BoundaryVariable), target, intent(in) :: this
   integer,  optional, intent(in) :: c         !< component [1]
   real(RNP), contiguous, pointer :: vb(:,:,:) !< boundary-face variable
 
@@ -500,7 +487,7 @@ end function Component
 !> If omitted, the corresponding lower or upper bound is assumed.
 
 function Components(this, c1, c2) result(vb)
-  class(BoundaryVariable), intent(in)  :: this
+  class(BoundaryVariable), target, intent(in) :: this
   integer,  optional, intent(in) :: c1          !< first component [1]
   integer,  optional, intent(in) :: c2          !< last component [this%nc]
   real(RNP), contiguous, pointer :: vb(:,:,:,:) !< boundary-face variable
@@ -522,79 +509,6 @@ function Components(this, c1, c2) result(vb)
   vb(0:,0:,1:,1:) => this%val(:,:,:,k1:k2)
 
 end function Components
-
-!===============================================================================
-! GetHandle
-
-!-------------------------------------------------------------------------------
-!> Generates a new boundary variable as a subset of the given one (scalar)
-
-impure elemental subroutine GetHandle_S(this, c, handle)
-  class(BoundaryVariable), intent(in)  :: this
-  integer,                 intent(in)  :: c      !< selected component
-  type (BoundaryVariable), intent(out) :: handle !< subset of this
-
-  integer :: k
-
-  k = min(max(c, 1), this%nc)
-
-  handle % po = this % po
-  handle % nf = this % nf
-  handle % nc = 1
-
-  handle % bc => this % bc(k:k)
-
-  handle % val(0:,0:,1:,1:) => this % val(:,:,:,k:k)
-
-end subroutine GetHandle_S
-
-!-------------------------------------------------------------------------------
-!> Generates a new boundary variable as a subset of the given one (array)
-
-impure elemental subroutine GetHandle_A(this, c1, c2, handle)
-  class(BoundaryVariable), intent(in)  :: this
-  integer,                 intent(in)  :: c1     !< first component to include
-  integer,                 intent(in)  :: c2     !< last component to include
-  type (BoundaryVariable), intent(out) :: handle !< subset of this
-
-  integer :: k1, k2
-
-  k1 = max(c1, 1)
-  k2 = min(c2, this%nc)
-
-  handle % po = this % po
-  handle % nf = this % nf
-  handle % nc = max(k2 - k1 + 1, 0)
-
-  handle % bc => this % bc(k1:k2)
-
-  handle % val(0:,0:,1:,1:) => this % val(:,:,:,k1:k2)
-
-end subroutine GetHandle_A
-
-!===============================================================================
-! Finalization
-
-!-------------------------------------------------------------------------------
-!> Finalize BoundaryVariable
-
-subroutine Delete_BoundaryVariable(this)
-  type(BoundaryVariable), intent(inout) :: this
-
-  if (this % is_original) then
-    deallocate(this%bc, this%val)
-  end if
-
-  this % po = -1
-  this % nf = -1
-  this % nc = -1
-
-  this % bc  => null()
-  this % val => null()
-
-  this % is_original = .false.
-
-end subroutine Delete_BoundaryVariable
 
 !===============================================================================
 

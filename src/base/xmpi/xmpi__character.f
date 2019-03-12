@@ -131,7 +131,7 @@ subroutine IbcastX1(buffer, root, comm, request)
   integer :: l
 
   l = len(buffer) * size(buffer)
-  call MPI_Ibcast(buffer, l, MPI_CHARACTER, root, comm, request)
+  call MPI_Ibcast(buffer(1), l, MPI_CHARACTER, root, comm, request)
 
 end subroutine IbcastX1
 
@@ -147,7 +147,7 @@ subroutine IbcastX2(buffer, root, comm, request)
   integer :: l
 
   l = len(buffer) * size(buffer)
-  call MPI_Ibcast(buffer, l, MPI_CHARACTER, root, comm, request)
+  call MPI_Ibcast(buffer(1,1), l, MPI_CHARACTER, root, comm, request)
 
 end subroutine IbcastX2
 

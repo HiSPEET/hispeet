@@ -1,6 +1,6 @@
 !> summary:  ISP flow: pressure step using DG with mixed-order approximation
 !> author:   Joerg Stiller
-!> date:     2018/04/17
+!> date:     2019/03/08
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !>### ISP flow: pressure step using DG with mixed-order approximation
@@ -10,6 +10,7 @@ module CART__ISP_Flow__Pressure__MO
 
   use Kind_Parameters, only: RNP
   use Constants,       only: ONE
+  use TPO_sDDD
   use ISP_Flow_Problem
   use CART__Mesh_Partition
   use CART__Boundary_Variable
@@ -42,17 +43,18 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
   real(RNP),            intent(in)    :: dt              !< time-step size
   real(RNP),            intent(in)    :: v_i(:,:,:,:,:)  !< ṽ         @ po_u
   real(RNP),            intent(inout) :: p(:,:,:,:)      !< pressure  @ po_u
-  real(RNP),            intent(out)   :: w(:,:,:,:,:)    !< workspace @ po_u
+  real(RNP),  target,   intent(out)   :: w(:,:,:,:,:)    !< workspace @ po_u
   integer,    optional, intent(in)    :: i_max           !< num MG/CG cycles
 
   ! local variables  ...........................................................
 
-  real(RNP), allocatable :: q(:,:,:,:)                 ! pressure  @ pq = po_p
-  real(RNP), allocatable :: f(:,:,:,:)                 ! RHS for q
+  real(RNP), pointer, contiguous, save :: v(:,:,:,:,:) ! ṽ         @ po_p
+  real(RNP), pointer, contiguous, save :: q(:,:,:,:)   ! pressure  @ po_p
+  real(RNP), pointer, contiguous, save :: f(:,:,:,:)   ! RHS       @ po_p
   type(BoundaryVariable), allocatable, save :: bv_q(:) ! boundary values for q
 
-  real(RNP) :: r_2
-  integer   :: pq, ne, ni
+  real(RNP) :: g, r_2
+  integer   :: pq, ne, ni, nq
   integer   :: b
 
   if (present(i_max)) then
@@ -60,22 +62,22 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
   end if
 
   associate( mesh   => flow_op % mesh      &
-           , eop_u  => flow_op % eop_u     &
-           , pop_up => flow_op % pop_up    &
+           , eop_p  => flow_op % eop_p     &
+           , iop_up => flow_op % iop_up    &
+           , iop_pu => flow_op % iop_pu    &
            , pmg    => flow_op % pmg_p     &
            , bc     => problem % bc(:,4)   &
-           , div_v  => w(:,:,:,:,1)        &
            )
 
     ! preliminaries ............................................................
 
     pq = flow_op % po_p
+    nq = pq + 1
+    ne = mesh%ne
 
     !$omp single
 
-    ! pressure and RHS @ pq
-    allocate(q(0:pq, 0:pq, 0:pq, ne))
-    allocate(f, mold=q)
+    call AssignWorkspace(size(w), w)
 
     ! pressure boundary values @ pq
     allocate(bv_q(mesh % n_boundary))
@@ -85,16 +87,19 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
 
     !$omp end single
 
-    ! interpolate initial values from p to q
-    call flow_op % iop_up % Apply(p, q)
+    g = -product(mesh%dx) / (8 * dt)
 
-    ! compute divergence of v_i and project to f
-    call WeakDivergence(mesh, eop_u%w, eop_u%D, v_i, div_v)  ! div_v = ∇·v*
-    call pop_up % Apply(div_v, f)                            ! f = P(div_v)
+    ! f = ∇·I(ṽ) / ∆t, I - interpolation to pressure space
+    call iop_up % Apply(v_i, v)                         ! v = I(ṽ)
+    call WeakDivergence(mesh, eop_p%w, eop_p%D, v, q)   ! q = ∇·v
+    call TPO_sDDD_Eval(nq, ne, g, eop_p%w, q, f)        ! f = -M q / ∆t
 
     ! compute and apply boundary conditions
-    call GetImpliedBC(problem, mesh, pop_up%A, dt, flow_op%bv_u, v_i, bv_q)
-    call pmg % BcToRHS(bv_q, f)
+    call GetImpliedBC(problem, mesh, iop_up%A, dt, v_i, flow_op%bv_u, bv_q)
+    call pmg % BcToRHS(bv_q, 1, f)
+
+    ! interpolate initial values from p to q
+    call iop_up % Apply(p, q)
 
     ! pressure .................................................................
 
@@ -115,27 +120,38 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
 
     !$omp barrier
     !$omp master
-    deallocate(q, f, bv_q)
+    nullify(v, q, f)
+    deallocate(bv_q)
     !$omp end master
 
   end associate
+
+contains
+
+  subroutine AssignWorkspace(l, w)
+    integer, intent(in) :: l
+    real(RNP), target   :: w(l)
+    f(0:pq, 0:pq, 0:pq, 1:ne)      => w(1:)
+    v(0:pq, 0:pq, 0:pq, 1:ne, 1:3) => w(1:)
+    q(0:pq, 0:pq, 0:pq, 1:ne)      => w(1 + size(v):)
+  end subroutine AssignWorkspace
 
 end subroutine PressureSolver_IBC
 
 !-------------------------------------------------------------------------------
 !> Implied pressure boundary conditions
 
-subroutine GetImpliedBC(problem, mesh, A, dt, bv_v, v_i, bv_q)
+subroutine GetImpliedBC(problem, mesh, A, dt, v_i, bv_v, bv_q)
 
   ! arguments ..................................................................
 
-  class(FlowProblem),      intent(in)    :: problem  !< flow problem
-  class(MeshPartition),    intent(in)    :: mesh     !< mesh partition
-  real(RNP),               intent(in)    :: A(:,:)   !< 1D projection operator
-  real(RNP),               intent(in)    :: dt       !< time step size
-  class(BoundaryVariable), intent(in)    :: bv_v(:)  !< v(t) @ boundary
-  real(RNP),               intent(in)    :: v_i      !< ṽ
-  class(BoundaryVariable), intent(inout) :: bv_q(:)  !< BC for q(t)
+  class(FlowProblem),      intent(in)    :: problem !< flow problem
+  class(MeshPartition),    intent(in)    :: mesh    !< mesh partition
+  real(RNP),               intent(in)    :: A(:,:)  !< 1D interpolation operator
+  real(RNP),               intent(in)    :: dt      !< time step size
+  real(RNP),               intent(in)    :: v_i     !< ṽ
+  class(BoundaryVariable), intent(in)    :: bv_v(:) !< v(t) @ boundary
+  class(BoundaryVariable), intent(inout) :: bv_q(:) !< BC for q(t)
 
   dimension :: v_i(0:,0:,0:,:,:)
 
@@ -223,7 +239,7 @@ subroutine GetImpliedBC(problem, mesh, A, dt, bv_v, v_i, bv_q)
           end do
         end select
 
-        call ProjectToPressureSpace(nq, nv, A, dn_p, dn_q(:,:,l), w)
+        call TransferToPressureSpace(nq, nv, A, dn_p, dn_q(:,:,l), w)
 
       end do
 
@@ -244,17 +260,18 @@ subroutine PressureSolver_CBC(problem, flow_op, F_v, t, p, w, i_max)
   real(RNP),            intent(in)    :: F_v(:,:,:,:,:)  !< ∂ṽ/∂t     @ po_u
   real(RNP),            intent(in)    :: t               !< time
   real(RNP),            intent(inout) :: p(:,:,:,:)      !< pressure  @ po_u
-  real(RNP),            intent(out)   :: w(:,:,:,:,:)    !< workspace @ po_u
+  real(RNP),  target,   intent(out)   :: w(:,:,:,:,:)    !< workspace @ po_u
   integer,    optional, intent(in)    :: i_max           !< num MG/CG cycles
 
   ! local variables  ...........................................................
 
-  real(RNP), allocatable :: q(:,:,:,:)                 ! pressure  @ pq = po_p
-  real(RNP), allocatable :: f(:,:,:,:)                 ! RHS for q
+  real(RNP), pointer, contiguous, save :: v(:,:,:,:,:) ! ∂ṽ/∂t     @ po_p
+  real(RNP), pointer, contiguous, save :: q(:,:,:,:)   ! pressure  @ po_p
+  real(RNP), pointer, contiguous, save :: f(:,:,:,:)   ! RHS       @ po_p
   type(BoundaryVariable), allocatable, save :: bv_q(:) ! boundary values for q
 
-  real(RNP) :: r_2
-  integer   :: pq, ne, ni
+  real(RNP) :: g, r_2
+  integer   :: pq, ne, ni, nq
   integer   :: b
 
   if (present(i_max)) then
@@ -262,22 +279,22 @@ subroutine PressureSolver_CBC(problem, flow_op, F_v, t, p, w, i_max)
   end if
 
   associate( mesh   => flow_op % mesh      &
-           , eop_u  => flow_op % eop_u     &
-           , pop_up => flow_op % pop_up    &
+           , eop_p  => flow_op % eop_p     &
+           , iop_up => flow_op % iop_up    &
+           , iop_pu => flow_op % iop_pu    &
            , pmg    => flow_op % pmg_p     &
            , bc     => problem % bc(:,4)   &
-           , div_F  => w(:,:,:,:,1)        &
            )
 
     ! preliminaries ............................................................
 
     pq = flow_op % po_p
+    nq = pq + 1
+    ne = mesh%ne
 
     !$omp single
 
-    ! pressure and RHS @ pq
-    allocate(q(0:pq, 0:pq, 0:pq, ne))
-    allocate(f, mold=q)
+    call AssignWorkspace(size(w), w)
 
     ! pressure boundary values @ pq
     allocate(bv_q(mesh % n_boundary))
@@ -287,16 +304,19 @@ subroutine PressureSolver_CBC(problem, flow_op, F_v, t, p, w, i_max)
 
     !$omp end single
 
-    ! interpolate initial values from p to q
-    call flow_op % iop_up % Apply(p, q)
+    g = -product(mesh%dx) / 8
 
-    ! compute divergence of v_i and project to f
-    call WeakDivergence(mesh, eop_u%w, eop_u%D, F_v, div_F)  ! div_F = ∇·∂ṽ/∂t
-    call pop_up % Apply(div_F, f)                            ! f = P(div_F)
+    ! f = ∇·I(∂ṽ/∂t), I - interpolation to pressure space
+    call iop_up % Apply(F_v, v)                         ! v = I(∂ṽ/∂t)
+    call WeakDivergence(mesh, eop_p%w, eop_p%D, v, q)   ! q = ∇·v
+    call TPO_sDDD_Eval(nq, ne, g, eop_p%w, q, f)        ! f = -M q
 
     ! compute and apply boundary conditions
-    call GetConsistentBC(problem, mesh, pop_up%A, flow_op%bv_x, t, F_v, bv_q)
-    call pmg % BcToRHS(bv_q, f)
+    call GetConsistentBC(problem, mesh, iop_up%A, flow_op%bv_x, t, F_v, bv_q)
+    call pmg % BcToRHS(bv_q, 1, f)
+
+    ! interpolate initial values from p to q
+    call iop_up % Apply(p, q)
 
     ! pressure .................................................................
 
@@ -311,16 +331,27 @@ subroutine PressureSolver_CBC(problem, flow_op, F_v, t, p, w, i_max)
     !$omp end single
 
     ! interpolate to velocity space: p = I(q)
-    call flow_op % iop_pu % Apply(q, p)
+    call iop_pu % Apply(q, p)
 
     ! clean-up .................................................................
 
     !$omp barrier
     !$omp master
-    deallocate(q, f, bv_q)
+    nullify(v, q, f)
+    deallocate(bv_q)
     !$omp end master
 
   end associate
+
+contains
+
+  subroutine AssignWorkspace(l, w)
+    integer, intent(in) :: l
+    real(RNP), target   :: w(l)
+    f(0:pq, 0:pq, 0:pq, 1:ne)      => w(1:)
+    v(0:pq, 0:pq, 0:pq, 1:ne, 1:3) => w(1:)
+    q(0:pq, 0:pq, 0:pq, 1:ne)      => w(1 + size(v):)
+  end subroutine AssignWorkspace
 
 end subroutine PressureSolver_CBC
 
@@ -434,22 +465,29 @@ subroutine GetConsistentBC(problem, mesh, A, bv_x, t, F_v, bv_q)
           end do
         end select
 
-        call ProjectToPressureSpace(nq, nv, A, dn_p, dn_q(:,:,l), w)
+        call TransferToPressureSpace(nq, nv, A, dn_p, dn_q(:,:,l), w)
 
       end do
 
     end associate
   end do
 
+  ! clean-up .................................................................
+
+  !$omp barrier
+  !$omp master
+  deallocate(bv_dt_u)
+  !$omp end master
+
 end subroutine GetConsistentBC
 
 !-------------------------------------------------------------------------------
 !> Project face data from velocity into pressure space
 
-pure subroutine ProjectToPressureSpace(np, nv, A, v, p, w)
+pure subroutine TransferToPressureSpace(np, nv, A, v, p, w)
   integer,   intent(in)    :: np       !< number pressure points per direction
   integer,   intent(in)    :: nv       !< number velocity points per direction
-  real(RNP), intent(in)    :: A(np,nv) !< 1D projection operator
+  real(RNP), intent(in)    :: A(np,nv) !< 1D transfer operator
   real(RNP), intent(in)    :: v(nv,nv) !< variable in velocity space
   real(RNP), intent(out)   :: p(np,np) !< variable in pressure space
   real(RNP), intent(inout) :: w(np,nv) !< workspace for the intermediate result
@@ -457,10 +495,10 @@ pure subroutine ProjectToPressureSpace(np, nv, A, v, p, w)
   real(RNP) :: tmp
   integer   :: i, j, k
 
-  ! projection along direction 1
+  ! direction 1
   do j = 1, nv
   do i = 1, np
-    tmp = 1
+    tmp = 0
     do k = 1, nv
       tmp = tmp + A(i,k) * v(k,j)
     end do
@@ -468,10 +506,10 @@ pure subroutine ProjectToPressureSpace(np, nv, A, v, p, w)
   end do
   end do
 
-  ! projection along direction 2
+  ! direction 2
   do j = 1, np
   do i = 1, np
-    tmp = 1
+    tmp = 0
     do k = 1, nv
       tmp = tmp + A(j,k) * w(i,k)
     end do
@@ -479,7 +517,7 @@ pure subroutine ProjectToPressureSpace(np, nv, A, v, p, w)
   end do
   end do
 
-end subroutine ProjectToPressureSpace
+end subroutine TransferToPressureSpace
 
 !===============================================================================
 

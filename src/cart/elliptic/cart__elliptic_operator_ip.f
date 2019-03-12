@@ -31,22 +31,21 @@ module CART__Elliptic_Operator_IP
     real(RNP), allocatable :: nu_hat(:,:,:) !< diffusivity on faces
 
   contains
-    private
 
-    generic, public :: Init_EllipticOperator3D_IP => Init_Base, Init_CI, Init_VI
-    procedure :: Init_Base
-    procedure :: Init_CI
-    procedure :: Init_VI
+    generic :: Init_EllipticOperator3D_IP => Init_Base, Init_CI, Init_VI
+    procedure, private :: Init_Base
+    procedure, private :: Init_CI
+    procedure, private :: Init_VI
 
     ! specific procedures for generic SetProblem
-    procedure :: SetProblem_CI
-    procedure :: SetProblem_VI
+    procedure :: SetProblem_CI  ! should be private
+    procedure :: SetProblem_VI  ! but fails with ifort
 
-    procedure, public :: Apply
-    procedure, public :: BcToRHS
-    procedure, public :: Residual
-    procedure, public :: ConjugateGradients
-    procedure, public :: SchwarzMethod
+    procedure :: Apply
+    procedure :: BcToRHS
+    procedure :: Residual
+    procedure :: ConjugateGradients
+    procedure :: SchwarzMethod
 
   end type EllipticOperator3D_IP
 
@@ -94,9 +93,10 @@ module CART__Elliptic_Operator_IP
     !---------------------------------------------------------------------------
     !> Adds the boundary contributions of the right hand side
 
-    module subroutine BcToRHS(this, bv, f)
+    module subroutine BcToRHS(this, bv, c, f)
       class(EllipticOperator3D_IP), intent(in)    :: this
       type(BoundaryVariable),       intent(in)    :: bv(:)      !< BC
+      integer,            optional, intent(in)    :: c          !< component [1]
       real(RNP),                    intent(inout) :: f(:,:,:,:) !< RHS
     end subroutine BcToRHS
 

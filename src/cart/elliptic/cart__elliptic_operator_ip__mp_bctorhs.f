@@ -14,15 +14,24 @@ contains
 !-------------------------------------------------------------------------------
 !> Adds the boundary contributions of the right hand side
 
-module subroutine BcToRHS(this, bv, f)
+module subroutine BcToRHS(this, bv, c, f)
   class(EllipticOperator3D_IP), intent(in)    :: this
   type(BoundaryVariable),       intent(in)    :: bv(:)      !< BC
+  integer,            optional, intent(in)    :: c          !< component [1]
   real(RNP),                    intent(inout) :: f(:,:,:,:) !< RHS
 
+  integer :: c_
+
+  if (present(c)) then
+    c_ = c
+  else
+    c_ = 1
+  end if
+
   if (allocated(this % nu_ci)) then
-    call BcToRHS_CI(this, bv, f)
+    call BcToRHS_CI(this, bv, c_, f)
   else if (allocated(this % nu_vi)) then
-    call BcToRHS_VI(this, bv, f)
+    call BcToRHS_VI(this, bv, c_, f)
   end if
 
 end subroutine BcToRHS
@@ -30,9 +39,10 @@ end subroutine BcToRHS
 !-------------------------------------------------------------------------------
 !> Adds the boundary contributions of the right hand side: constant isotropic
 
-subroutine BcToRHS_CI(this, bv, f)
+subroutine BcToRHS_CI(this, bv, c, f)
   class(EllipticOperator3D_IP), intent(in)    :: this
   type(BoundaryVariable),       intent(in)    :: bv(:)         !< BC
+  integer,                      intent(in)    :: c             !< component
   real(RNP),                    intent(inout) :: f(0:,0:,0:,:) !< RHS
 
   ! local variables ............................................................
@@ -93,7 +103,7 @@ subroutine BcToRHS_CI(this, bv, f)
 
             ! Dirichlet BC .....................................................
 
-            u => bv(b) % Component()
+            u => bv(b) % Component(c)
 
             do l = 1, size(face)
               e = face(l) % mesh_element % id
@@ -135,7 +145,7 @@ subroutine BcToRHS_CI(this, bv, f)
 
             ! Neumann BC .......................................................
 
-            dn_u => bv(b) % Component()
+            dn_u => bv(b) % Component(c)
 
             do l = 1, size(face)
               e = face(l) % mesh_element % id
@@ -200,9 +210,10 @@ end subroutine BCtoRHS_CI
 !-------------------------------------------------------------------------------
 !> Adds the boundary contributions of the right hand side: variable isotropic
 
-subroutine BcToRHS_VI(this, bv, f)
+subroutine BcToRHS_VI(this, bv, c, f)
   class(EllipticOperator3D_IP), intent(in)    :: this
   type(BoundaryVariable),       intent(in)    :: bv(:)         !< BC
+  integer,                      intent(in)    :: c             !< component
   real(RNP),                    intent(inout) :: f(0:,0:,0:,:) !< RHS
 
   ! local variables ............................................................
@@ -263,7 +274,7 @@ subroutine BcToRHS_VI(this, bv, f)
 
             ! Dirichlet BC .....................................................
 
-            u => bv(b) % Component()
+            u => bv(b) % Component(c)
 
             do l = 1, size(face)
               e = face(l) % mesh_element % id
@@ -338,7 +349,7 @@ subroutine BcToRHS_VI(this, bv, f)
 
             ! Neumann BC .......................................................
 
-            dn_u => bv(b) % Component()
+            dn_u => bv(b) % Component(c)
 
             do l = 1, size(face)
               e = face(l) % mesh_element % id

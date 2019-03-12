@@ -30,7 +30,13 @@ file(GLOB XMPI xmpi/*.f)
 #===============================================================================
 # linear_algebra
 
-file(GLOB LINEAR_ALGEBRA linear_algebra/*.f)
+set(LINEAR_ALGEBRA linear_algebra/array_assignments.F
+                   linear_algebra/array_reductions.F
+                   linear_algebra/eigenproblems.f
+                   linear_algebra/linear_equations.f
+                   linear_algebra/matrix_operators.f
+                   linear_algebra/singular_value_decomposition.f
+                   )
 
 #===============================================================================
 # tensor_product

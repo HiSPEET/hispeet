@@ -54,10 +54,17 @@ find_package(pFUnit PATHS $ENV{PFUNIT})
 #===============================================================================
 # Flags
 
+# Set default build type to "Release"
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif ()
 
+# Preprocessor settings for debugging
+if (CMAKE_BUILD_TYPE MATCHES "Debug")
+    add_definitions(-DDEBUG)
+endif ()
+
+# adopt externaly set compiler flags -- can be dangerous
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} $ENV{CFLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} $ENV{CXXFLAGS}")
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} $ENV{FFLAGS}")

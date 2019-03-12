@@ -39,8 +39,6 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w, nu)
 
   ! local variables ............................................................
 
-  type(BoundaryVariable), allocatable, save :: bv_uc(:)
-
   real(RNP) :: g, r_2
   integer   :: ne, ni, np
   integer   :: c
@@ -57,11 +55,6 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w, nu)
     np = size(u, 1)
     ne = mesh % ne
 
-    ! workspace
-    !$omp single
-    allocate(bv_uc(mesh % n_boundary))
-    !$omp end single
-
     ! solve components .........................................................
 
     Components: do c = 1, size(u,5)
@@ -76,12 +69,11 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w, nu)
       end if
 
       ! project sources
-      g = product(mesh%dx) / 8
+      g = product(mesh%dx) / (8 * dt)
       call TPO_sDDD_Eval(np, ne, g, eop%w, f(:,:,:,:,c), fc)
 
       ! add boundary contributions
-      call flow_op % bv_u % GetHandle(c, bv_uc)
-      call pmg % BcToRHS(bv_uc, fc)
+      call pmg % BcToRHS(flow_op%bv_u, c, fc)
 
       ! solve
       call pmg % MG_CG_Solver(u(:,:,:,:,c), fc, ni, r_2)
@@ -95,13 +87,6 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w, nu)
       !$omp end single
 
     end do Components
-
-    ! clean-up .................................................................
-
-    !$omp barrier
-    !$omp master
-    deallocate(bv_uc)
-    !$omp end master
 
   end associate
 

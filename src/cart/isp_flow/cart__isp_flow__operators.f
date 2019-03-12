@@ -81,7 +81,6 @@ function New_FlowOperators( problem                    &
                           , monitor_level              &
                           ) result(this)
 
-
   type(FlowOperators) :: this
 
   class(FlowProblem),           intent(in) :: problem !< flow problem
@@ -121,7 +120,7 @@ subroutine Init_FlowOperators( this                       &
 
   ! discretization parameters
   integer,   intent(in) :: po_u    !< order of variables except for pressure
-  integer,   intent(in) :: po_p    !< order of pressure
+  integer,   intent(in) :: po_p    !< order of pressure ≤ po_u
   integer,   intent(in) :: po_q    !< order for quadrature of nonlinear terms
   real(RNP), intent(in) :: penalty !< penalty parameter op SIP method > 1
 
@@ -140,11 +139,11 @@ subroutine Init_FlowOperators( this                       &
   ! initialization of components ...............................................
 
   this % po_u = po_u
-  this % po_p = po_p
+  this % po_p = min(po_p, po_u)
   this % po_q = po_q
 
-  this % eop_u = StandardOperators1D(po_u)
-  this % eop_p = StandardOperators1D(po_p)
+  this % eop_u = StandardOperators1D(this % po_u)
+  this % eop_p = StandardOperators1D(this % po_p)
   if (po_q /= po_u) then
     this % eop_q = StandardOperators1D(po_q, no_vdm = .true.)
   end if
@@ -158,14 +157,17 @@ subroutine Init_FlowOperators( this                       &
     this % bv_u(b) = BoundaryVariable(mesh, po_u, b, problem%bc(b,:))
   end do
 
-  this%pmg_u = PMG_Method3D(mesh, IP_ElementOptions1D(po_u, penalty), pmg_u_opt)
-  this%pmg_p = PMG_Method3D(mesh, IP_ElementOptions1D(po_p, penalty), pmg_p_opt)
+  this%pmg_u = PMG_Method3D( mesh, IP_ElementOptions1D(this%po_u, penalty), &
+                             pmg_u_opt )
+  this%pmg_p = PMG_Method3D( mesh, IP_ElementOptions1D(this%po_p, penalty), &
+                             pmg_p_opt )
+
   call this % pmg_p % SetProblem(lambda=ZERO, nu=ONE, bc=problem%bc(:,4))
 
-  if (po_p /= po_u) then
-    this % pop_up = ProjectionOperator3D( this%eop_u,   &
-                                          this%eop_p%x, &
-                                          this%eop_p%w, &
+  if (this % po_p /= this % po_u) then
+    this % pop_up = ProjectionOperator3D( this%eop_p,   &
+                                          this%eop_u%x, &
+                                          this%eop_u%w, &
                                           mesh%dx       )
 
     this % iop_up = InterpolationOperator3D( this%eop_u, this%eop_p%x )

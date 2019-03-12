@@ -270,7 +270,7 @@ function New_CI(opt, eop, mesh, lambda, nu, bc) result(this)
 end function New_CI
 
 !-------------------------------------------------------------------------------
-!> New Schwarz operator with constant isotropic diffusivity
+!> New Schwarz operator with variable isotropic diffusivity
 
 function New_VI(opt, eop, mesh, lambda, nu, bc) result(this)
   class(SchwarzOptions3D),    intent(in) :: opt         !< Schwarz options
@@ -398,17 +398,27 @@ end subroutine SchwarzOptions3D_Bcast
 !> Returns the 1D subdomain configuration ID corresponding to the given BCs
 
 pure integer function ConfigurationID(bc) result(cfg)
-  character, intent(in) :: bc(2) !< left/right boundary types {' ','D','N'}
+  character, intent(in) :: bc(2) !< left/right boundary types {' ','D','N','P'}
 
   integer :: i1, i2
 
-  do i1 = 1, num_boundary_types
-    if (bc(1) == boundary_type(i1)) exit
-  end do
+  select case(bc(1))
+  case('D')
+    i1 = 2
+  case('N')
+    i1 = 3
+  case default ! ' ' and 'P'
+    i1 = 1
+  end select
 
-  do i2 = 1, num_boundary_types
-    if (bc(2) == boundary_type(i2)) exit
-  end do
+  select case(bc(2))
+  case('D')
+    i2 = 2
+  case('N')
+    i2 = 3
+  case default ! ' ' and 'P'
+    i2 = 1
+  end select
 
   cfg = i1 + num_boundary_types * (i2 - 1)
 

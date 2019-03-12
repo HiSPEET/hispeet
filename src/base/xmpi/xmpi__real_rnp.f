@@ -143,7 +143,7 @@ subroutine IbcastX1(buffer, root, comm, request)
   type(MPI_Comm),          intent(in)    :: comm      !< communicator
   type(MPI_Request),       intent(out)   :: request   !< request
 
-  call MPI_Ibcast(buffer, size(buffer), MPI_REAL_RNP, root, comm, request)
+  call MPI_Ibcast(buffer(1), size(buffer), MPI_REAL_RNP, root, comm, request)
 
 end subroutine IbcastX1
 
@@ -156,7 +156,7 @@ subroutine IbcastX2(buffer, root, comm, request)
   type(MPI_Comm),          intent(in)    :: comm        !< communicator
   type(MPI_Request),       intent(out)   :: request     !< request
 
-  call MPI_Ibcast(buffer, size(buffer), MPI_REAL_RNP, root, comm, request)
+  call MPI_Ibcast(buffer(1,1), size(buffer), MPI_REAL_RNP, root, comm, request)
 
 end subroutine IbcastX2
 
