@@ -18,7 +18,7 @@
 !>
 !>     type(ConvDiff_IMEX_RK) :: imex_rk
 !>
-!>     call imex_rk % New(s, m, po, ne)
+!>     imex_rk = ConvDiff_IMEX_RK(s, m, po, ne)
 !>     ! s  :  number of stages
 !>     ! m  :  method (optional)
 !>     ! po :  polynomial order and
@@ -48,31 +48,49 @@ module CG_ConvDiff_1D__IMEX_RK
     real(RNP), allocatable :: f_ex(:,:,:) !< explicit RHS per stage
     real(RNP), allocatable :: f_im(:,:,:) !< implicit RHS per stage
   contains
-    generic,   public  :: New => New_ConvDiff_IMEX_RK
-    procedure, private :: New_ConvDiff_IMEX_RK
-    procedure, public  :: TimeStep
-    final              :: Delete_ConvDiff_IMEX_RK
+    procedure :: Init_ConvDiff_IMEX_RK
+    procedure :: TimeStep
   end type ConvDiff_IMEX_RK
+
+  ! constructor
+  interface ConvDiff_IMEX_RK
+    module procedure New_ConvDiff_IMEX_RK
+  end interface
 
 contains
 
 !-------------------------------------------------------------------------------
-!> New IMEX RK method for 1D CG-SE convection diffusion solver
+!> Constructor
 
-subroutine New_ConvDiff_IMEX_RK(this, s, m, po, ne)
+type(ConvDiff_IMEX_RK) function New_ConvDiff_IMEX_RK(po, ne, s, m) result(this)
+  integer,           intent(in) :: po  !< polynomial order
+  integer,           intent(in) :: ne  !< number of elements
+  integer,           intent(in) :: s   !< number of stages
+  integer, optional, intent(in) :: m   !< RK scheme [1]
+
+  call Init_ConvDiff_IMEX_RK(this, po, ne, s, m)
+
+end function New_ConvDiff_IMEX_RK
+
+!-------------------------------------------------------------------------------
+!> Init IMEX RK method for 1D CG-SE convection diffusion solver
+
+subroutine Init_ConvDiff_IMEX_RK(this, po, ne, s, m)
   class(ConvDiff_IMEX_RK), intent(inout) :: this
-  integer,                 intent(in)    :: s   !< number of stages
-  integer,       optional, intent(in)    :: m   !< RK scheme [1]
   integer,                 intent(in)    :: po  !< polynomial order
   integer,                 intent(in)    :: ne  !< number of elements
+  integer,                 intent(in)    :: s   !< number of stages
+  integer,       optional, intent(in)    :: m   !< RK scheme [1]
 
-  ! initialize IMEX_RK_Method
-  call this % New(s, m)
+  call this % Init_IMEX_RK_Method(s, m)
+
+  if (allocated(this % f_im)) deallocate(this % f_im)
+  if (allocated(this % f_ex)) deallocate(this % f_ex)
 
   allocate(this % f_ex(0:po, ne, s))
   allocate(this % f_im, mold = this%f_ex)
 
-end subroutine New_ConvDiff_IMEX_RK
+end subroutine Init_ConvDiff_IMEX_RK
 
 !-------------------------------------------------------------------------------
 !> Performs a single IMEX RK time step
@@ -131,7 +149,7 @@ subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
 
       if (nu > 0) then
         call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u, f)
-        call CondensedEllipticSolver(eop, dx, c, nu, bc, f, u, standby = .true.)
+        call CondensedEllipticSolver(eop, dx, c, nu, bc, f, u)
       else
         u = f / (c * M)
         call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u)
@@ -158,17 +176,6 @@ subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
   end associate
 
 end subroutine TimeStep
-
-!-------------------------------------------------------------------------------
-!> Deletes the given `ConvDiff_IMEX_RK` object.
-
-subroutine Delete_ConvDiff_IMEX_RK(this)
-  type(ConvDiff_IMEX_RK), intent(inout) :: this
-
-  if (allocated(this % f_im)) deallocate(this % f_im)
-  if (allocated(this % f_ex)) deallocate(this % f_ex)
-
-end subroutine Delete_ConvDiff_IMEX_RK
 
 !===============================================================================
 

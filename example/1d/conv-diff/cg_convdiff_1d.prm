@@ -19,17 +19,45 @@
  po  = 15
  ne  = 15
 !cfl = 0.128
- dt  = 1d-4
+ dt  = 1e-4
 !nt  = 0
 !method = 1    ! IMEX Euler
 !method = 2    ! IMEX BDF2
  method = 3    ! IMEX BDF3
 !method = 4    ! IMEX Runge-Kutta
+!method = 5    ! variable additive Runge-Kutta
+!method = 6    ! SDC based on IMEX Euler
 flying_start = T
 /
 
 ! required with method = 4 (IMEX Runge-Kutta)
 &imex_runge_kutta
-s = 3       ! number of stages, s = {2,3,4,6,8}
-m = 2       ! scheme m = {1,2}[1], effective only with s=4
+  s = 3       ! number of stages, s = {2,3,4,6,8}
+  m = 2       ! scheme m = {1,2}[1], effective only with s=4
+  show = T    ! print VARK properties and coefficients
+/
+
+! required with method = 5 (variable additive Runge-Kutta)
+&va_runge_kutta
+  set  = 1    ! equidistant (1) or GLL (2) points
+  sh   = 0    ! number of helper stages sh ∈ {0,1}
+!
+ !r    = .16666666666666666666 ! = 1/6   with  sh = 0
+ !r    = .12500000000000000000 ! = 1/8   with  sh = 0
+ !r    = .06666666666666666666 ! = 1/15  with  sh = 0  (current default)
+!
+ !r    = .04166666666666666666 ! = 1/24  with  sh = 1
+ !r    = .02777777777777777777 ! = 1/36  with  sh = 1
+ !r    = .02083333333333333333 ! = 1/48  with  sh = 1
+ !r    = .02000000000000000000 ! = 1/50  with  sh = 1  (current default)
+ !r    = .01851851851851851851 ! = 1/54  with  sh = 1
+!
+  show = T    ! print IMEX RK properties and coefficients
+/
+
+! required with method = 6 (IMEX Euler SDC)
+&sdc_parameters
+ sdc_opt%n_sub     = 1  ! number of subintervals (M)
+ sdc_opt%n_sweep   = 0  ! max num correction sweeps (K)
+ sdc_opt%point_set = 2  ! equidistant (1) or GLL (2) points
 /

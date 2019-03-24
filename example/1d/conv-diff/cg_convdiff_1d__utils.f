@@ -28,6 +28,7 @@ module CG_ConvDiff_1D__Utils
 
   public :: GetLinearConvectionTerm
   public :: GetDiffusionTerm
+  public :: GetTimeDerivative
   public :: ApplyBoundaryConditions
 
 contains
@@ -73,7 +74,7 @@ end subroutine GetLinearConvectionTerm
 !>
 !> Computes for all global basis functions φᵢ
 !>
-!>     fdᵢ = -∫ ∂φᵢ/∂x nu ∂u/∂x dx
+!>     fdᵢ = -∫ ∂φᵢ/∂x nu ∂u/∂x dx  +  Neumann BC contributions
 
 subroutine GetDiffusionTerm(sop, dx, wave, v, nu, bc, x, t, u, fd)
   class(StandardOperators1D), intent(in)  :: sop      !< standard operators
@@ -100,6 +101,31 @@ subroutine GetDiffusionTerm(sop, dx, wave, v, nu, bc, x, t, u, fd)
   end if
 
 end subroutine GetDiffusionTerm
+
+!-------------------------------------------------------------------------------
+!> Time derivative, F(t,u) = ∂u/∂t = M⁻¹ (-Cu - ν Lu + fᴺ(t))
+
+subroutine GetTimeDerivative(sop, dx, M, wave, v, nu, bc, x, t, u, F)
+  class(StandardOperators1D), intent(in)  :: sop     !< element operators
+  real(RNP),                  intent(in)  :: dx      !< element length
+  real(RNP),                  intent(in)  :: M(0:,:) !< global mass matrix
+  class(HarmonicWavePackage), intent(in)  :: wave    !< exact wave solution
+  real(RNP),                  intent(in)  :: v       !< convection velocity
+  real(RNP),                  intent(in)  :: nu      !< diffusivity
+  character,                  intent(in)  :: bc(:)   !< boundary conditions
+  real(RNP),                  intent(in)  :: x(0:,:) !< mesh points
+  real(RNP),                  intent(in)  :: t       !< time
+  real(RNP),                  intent(in)  :: u(0:,:) !< approximate solution
+  real(RNP),                  intent(out) :: F(0:,:) !< F = ∂u/∂t
+
+  real(RNP), allocatable :: w(:,:)
+
+  allocate(w, mold = F)
+  call GetLinearConvectionTerm(sop, v, bc, u, F)              ! F = -Cu
+  call GetDiffusionTerm(sop, dx, wave, v, nu, bc, x, t, u, w) ! w = -ν Lu + fᴺ
+  F = (F + w) / M
+
+end subroutine GetTimeDerivative
 
 !-------------------------------------------------------------------------------
 !> Apply boundary conditions to solution `u` and RHS `f`

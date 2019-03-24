@@ -27,6 +27,8 @@
 !>   *  IMEX BDF2
 !>   *  IMEX BDF3
 !>   *  IMEX Runge-Kutta
+!>   *  variable additive Runge-Kutta (VARK)
+!>   *  SDC based on IMEX Euler
 !>
 !>#### Usage
 !>
@@ -75,12 +77,15 @@ program CG_ConvDiff_1D
   use Execution_Control, only: Error
   use CG_Element_Operators_1D
   use CG_Utilities_1D
+  use Spectral_Deferred_Correction
   use Harmonic_Wave_Package
 
   use CG_ConvDiff_1D__IMEX_Euler
   use CG_ConvDiff_1D__IMEX_BDF2
   use CG_ConvDiff_1D__IMEX_BDF3
   use CG_ConvDiff_1D__IMEX_RK
+  use CG_ConvDiff_1D__IMEX_Euler_SDC
+  use CG_ConvDiff_1D__VARK
 
   implicit none
 
@@ -110,25 +115,30 @@ program CG_ConvDiff_1D
   ! discretization .............................................................
 
   ! space
-  integer   :: po = 16       ! polynomial order
-  integer   :: ne = 10       ! number of elements
-  real(RNP) :: dx            ! element width
+  integer   :: po = 16         ! polynomial order
+  integer   :: ne = 10         ! number of elements
+  real(RNP) :: dx              ! element width
 
   namelist /discretization_parameters/ po, ne
 
   ! time                                               priority:
-  real(RNP) :: cfl    = -1   ! CFL number              1  if > 0 and v ≠ 0
-  real(RNP) :: dt     = -1   ! time step size          2  if > 0
-  integer   :: nt     = -1   ! number of time steps    3  upper limit if > 0
-  integer   :: method =  1   ! time stepping method
+  real(RNP) :: cfl    = -1     ! CFL number              1  if > 0 and v ≠ 0
+  real(RNP) :: dt     = -1     ! time step size          2  if > 0
+  integer   :: nt     = -1     ! number of time steps    3  upper limit if > 0
+  integer   :: method =  1     ! time stepping method
   ! available methods
   ! 1   IMEX Euler
   ! 2   IMEX BDF2
   ! 3   IMEX BDF3
   ! 4   IMEX Runge-Kutta
-  logical   :: flying_start = .false. ! use exact solution for t < 0
+  ! 5   variable additive Runge-Kutta (VARK)
+  ! 6   IMEX SDC based on Euler
+  logical :: flying_start = .false. ! use exact solution for t < 0
 
   namelist /discretization_parameters/ cfl, dt, nt, method, flying_start
+
+  type(SDC_Options) :: sdc_opt ! SDC options
+  namelist /sdc_parameters/ sdc_opt
 
   ! operators ..................................................................
 
@@ -136,7 +146,9 @@ program CG_ConvDiff_1D
   real(RNP), allocatable      :: M(:,:)  ! global mass matrix
 
   type(ConvDiff_IMEX_RK)      :: imex_rk ! IMEX Runge-Kutta method
+  type(ConvDiff_VARK)         :: vark    ! variable additive Runge-Kutta method
 
+  type(SDC_Method)            :: sdc     ! SDC method
 
   ! variables ..................................................................
 
@@ -179,6 +191,15 @@ program CG_ConvDiff_1D
     open(newunit=io, file=input_file)
     read(io, nml=problem_parameters)
     read(io, nml=discretization_parameters)
+    select case (method)
+    case(4)
+      call Init_IMEX_RK(imex_rk, po, ne, io)
+    case(5)
+      call Init_VARK(vark, po, ne, io)
+    case(6)
+      read(io, nml=sdc_parameters)
+      sdc = SDC_Method(sdc_opt)
+    end select
     rewind(io)
     call wave % New(input_file)
     close(io)
@@ -218,12 +239,7 @@ program CG_ConvDiff_1D
   ! time integration ...........................................................
 
   call SetTimeIntegrationParameters(po, dx, v, t_end, cfl, dt, nt)
-  write(*,'(/,A,1X,I0,/)')    'nt =', nt
-
-  select case(method)
-  case(4)
-    call Init_IMEX_RK(imex_rk, input_file, po, ne)
-  end select
+  write(*,'(/,A,1X,I0,/)') 'nt =', nt
 
   !-----------------------------------------------------------------------------
   ! Time integration
@@ -256,6 +272,12 @@ program CG_ConvDiff_1D
       case(4)
         call imex_rk % TimeStep(eop, dx, dt, M, wave, v, nu, bc, x, t, u0, u)
 
+      case(5)
+        call vark % TimeStep(eop, dx, dt, M, wave, v, nu, bc, x, t, u0, u)
+
+      case(6)
+        call IMEX_Euler_SDC(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t, u0, u)
+
       end select
 
       t  = t + dt
@@ -280,8 +302,8 @@ program CG_ConvDiff_1D
   err_max = maxval(abs(err))
   err_2   = sqrt(sum(w * M * err**2))
 
-  write(*,'(9(A8,7X))') 'dt', 'cfl', 'err_max', 'err_2'
-  write(*,'(9(ES12.5,3X))') dt, cfl, err_max, err_2
+  write(*,'(9(A8,7X))') 't', 'dt', 'cfl', 'err_max', 'err_2'
+  write(*,'(9(ES12.5,3X))') t, dt, cfl, err_max, err_2
 
   ! save results
   open(newunit=io, file=result_file)
@@ -337,42 +359,63 @@ contains
   !-----------------------------------------------------------------------------
   !> Initialization of the IMEX Runge-Kutta method
   !>
-  !> The number of stages `s` and, optionally, the scheme identifier `m` are
-  !> read from namelist `imex_runge_kutta` provided in `imex_rk_file`.
+  !> The IMEX_RK parameters are read from namelist `imex_runge_kutta` provided
+  !> in the input file connected to unit `io`.
 
-  subroutine Init_IMEX_RK(imex_rk, imex_rk_file, po, ne)
-    class(ConvDiff_IMEX_RK), intent(inout) :: imex_rk !< IMEX RK method
-    character(len=*), intent(in) :: imex_rk_file !< input file
+  subroutine Init_IMEX_RK(imex_rk, po, ne, io)
+    type(ConvDiff_IMEX_RK), intent(inout) :: imex_rk !< IMEX RK method
     integer, intent(in) :: po !< polynomial order
     integer, intent(in) :: ne !< number of elements
+    integer, intent(in) :: io !< unit number of input file
 
-    logical :: opened, exists
-    integer :: io
-    integer :: s = 3
-    integer :: m = 1
+    integer :: s = 3 ! number of stages
+    integer :: m = 1 ! RK scheme
+    logical :: show = .false. ! print IMEX RK properties and coefficients
 
-    namelist /imex_runge_kutta/ s, m
-
-    inquire(file=imex_rk_file, opened=opened, exist=exists, number=io)
-
-    if (.not. opened) then
-      if (exists) then
-        open(newunit=io, file=imex_rk_file, action='READ')
-      else
-        call Error('Init_IMEX_RK',                                            &
-                   'input file "' // trim(imex_rk_file) // '" does not exist' )
-      end if
-    end if
+    namelist /imex_runge_kutta/ s, m, show
 
     read(io, nml=imex_runge_kutta)
-    call imex_rk % New(s, m, po, ne)
+    imex_rk = ConvDiff_IMEX_RK(po, ne, s, m)
 
-    ! close IO unit if file was closed on entry
-    if (.not. opened) then
-      close(io)
-      end if
+    if (show) then
+      call imex_rk % Write()
+    end if
 
   end subroutine Init_IMEX_RK
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of the VA Runge-Kutta method
+  !>
+  !> The VARK parameters are read from namelist `va_runge_kutta` provided in the
+  !> input file connected to unit `io`.
+
+  subroutine Init_VARK(vark, po, ne, io)
+    type(ConvDiff_VARK), intent(inout) :: vark !< VARK method
+    integer, intent(in) :: po !< polynomial order
+    integer, intent(in) :: ne !< number of elements
+    integer, intent(in) :: io !< unit number of input file
+
+    integer   :: set  =  1 ! equidistant (1) or GLL (2) points
+    integer   :: sp   =  4 ! number of principal stages, so far only 4
+    integer   :: sh   =  0 ! number of helper stages sh ∈ {0,1}
+    real(RNP) :: r    = -1 ! last coefficient of R_ex(z)
+    logical   :: show = .false. ! print VARK properties and coefficients
+
+    namelist /va_runge_kutta/ set, sh, r, show
+
+    read(io, nml=va_runge_kutta)
+
+    if (r > 0) then
+      vark = ConvDiff_VARK(po, ne, set, sp, sh, r)
+    else ! r not set
+      vark = ConvDiff_VARK(po, ne, set, sp, sh)
+    end if
+
+    if (show) then
+      call vark % Write()
+    end if
+
+  end subroutine Init_VARK
 
 !==============================================================================
 

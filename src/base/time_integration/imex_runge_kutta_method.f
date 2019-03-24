@@ -35,6 +35,7 @@
 !===============================================================================
 
 module IMEX_Runge_Kutta_Method
+  use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
   use Kind_Parameters, only: RNP, RHP
   use Constants,       only: ZERO
   use Execution_Control
@@ -47,28 +48,43 @@ module IMEX_Runge_Kutta_Method
   !> Type for keeping the Butcher tableau of an IMEX Runge-Kutta method
 
   type IMEX_RK_Method
-    integer                :: s = 0      !< number of stages
     character(len=80)      :: name = ' ' !< name of RK method
+    integer                :: s = 0      !< number of stages
     integer                :: order = 0  !< convergence order
     real(RNP), allocatable :: a_im(:,:)  !< implicit RK matrix
     real(RNP), allocatable :: a_ex(:,:)  !< explicit RK matrix
     real(RNP), allocatable :: b(:)       !< RK weights
     real(RNP), allocatable :: c(:)       !< RK nodes
   contains
-    generic,    public :: New => New_IMEX_RK_Method
-    procedure, private :: New_IMEX_RK_Method
-    final              :: Delete_IMEX_RK_Method
+    procedure :: Init_IMEX_RK_Method
+    procedure :: Write => Write_IMEX_RK_Method
   end type IMEX_RK_Method
+
+  ! constructor
+  interface IMEX_RK_Method
+    module procedure New_IMEX_RK_Method
+  end interface
 
 contains
 
 !-------------------------------------------------------------------------------
-!> New IMEX Butcher tableau
+!> New IMEX_RK_Method
+
+type(IMEX_RK_Method) function New_IMEX_RK_Method(s, m) result(this)
+  integer,           intent(in)    :: s  !< number of stages
+  integer, optional, intent(in)    :: m  !< RK scheme [1]
+
+  call Init_IMEX_RK_Method(this, s, m)
+
+end function New_IMEX_RK_Method
+
+!-------------------------------------------------------------------------------
+!> Initialize IMEX Butcher tableau
 !>
 !> The optional argument `m` allows to select from different RK (this, s, scheme)
 !> with the same number of stages `s`.
 
-subroutine New_IMEX_RK_Method(this, s, m)
+subroutine Init_IMEX_RK_Method(this, s, m)
   class(IMEX_RK_Method), intent(inout) :: this
   integer,               intent(in)    :: s  !< number of stages
   integer,     optional, intent(in)    :: m  !< RK scheme [1]
@@ -183,7 +199,7 @@ subroutine New_IMEX_RK_Method(this, s, m)
       this % a_ex(4,3) = real( 1._RHP / 4._RHP, RNP )
 
     case default
-      call Error( 'New_IMEX_RK_Method',             &
+      call Error( 'Init_IMEX_RK_Method',             &
                   'requested scheme not available', &
                   'IMEX_Runge_Kutta_Method'         )
     end select
@@ -353,13 +369,13 @@ subroutine New_IMEX_RK_Method(this, s, m)
 
   case default
 
-    call Error( 'New_IMEX_RK_Method',                       &
+    call Error( 'Init_IMEX_RK_Method',                       &
                 'requested number of stages not supported', &
                 'IMEX_Runge_Kutta_Method'                   )
 
   end select
 
-end subroutine New_IMEX_RK_Method
+end subroutine Init_IMEX_RK_Method
 
 !-------------------------------------------------------------------------------
 !> Deletes the given `IMEX_RK_Method` object.
@@ -373,6 +389,46 @@ subroutine Delete_IMEX_RK_Method(this)
   if (allocated( this % c    )) deallocate( this % c    )
 
 end subroutine Delete_IMEX_RK_Method
+
+!===============================================================================
+
+subroutine Write_IMEX_RK_Method(this, unit)
+  class(IMEX_RK_Method), intent(inout) :: this
+  integer,     optional, intent(in)    :: unit  !< output unit
+
+  character(len=*), parameter :: fmt_ca = '(F13.10," |",99F14.10)'
+  character(len=*), parameter :: fmt_b =  '(13X,   " |",99F14.10)'
+  integer :: i, io
+
+  if (this % s < 1) return
+
+  if (present(unit)) then
+    io = unit
+  else
+    io = OUTPUT_UNIT
+  end if
+
+  write(io,'(A,/)')   'IMEX Runge-Kutta method'
+  write(io,'(2A,/)')  'name: ', trim(this % name)
+  write(io,'(A,I0)')  'stages = ', this % s
+  write(io,'(A,I0)')  'order  = ', this % order
+
+  write(io,'(/,A,/)') 'implicit part'
+  do i = 1, this%s
+    write(io,fmt_ca) this % c(i), this % a_im(i,1:i)
+  end do
+  write(io,'(A)') repeat('-', 16 + 14*this%s)
+  write(io,fmt_b) this % b
+
+  write(io,'(/,A,/)') 'explicit part'
+  do i = 1, this%s
+    write(io,fmt_ca) this % c(i), this % a_ex(i,1:i-1)
+  end do
+  write(io,'(A)') repeat('-', 16 + 14*this%s)
+  write(io,fmt_b) this % b
+  write(io,*)
+
+end subroutine Write_IMEX_RK_Method
 
 !===============================================================================
 
