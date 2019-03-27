@@ -38,8 +38,8 @@
 
 module VA_Runge_Kutta_Method
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
-  use Kind_Parameters,               only: RNP, RHP
-  use Constants,                     only: ZERO, HALF, ONE
+  use Kind_Parameters,               only: RNP
+  use Constants,                     only: HALF, ONE
   use Execution_Control
   implicit none
   private
@@ -47,16 +47,18 @@ module VA_Runge_Kutta_Method
   public :: VARK_Method
 
   !-----------------------------------------------------------------------------
-  !> Type for keeping the Butcher tableau of an IMEX Runge-Kutta method
+  !> Type for keeping the Butcher tableau of a VARK method
 
   type VARK_Method
-    character(len=80)      :: name  = ' ' !< name of RK method
-    integer                :: s     = 0   !< number of stages
-    integer                :: order = 0   !< convergence order
-    real(RNP), allocatable :: a_im(:,:)   !< EDIRK matrix
-    real(RNP), allocatable :: a_ex(:,:)   !< ERK matrix
-    real(RNP), allocatable :: b_ex(:)     !< ERK weights
-    real(RNP), allocatable :: c(:)        !< RK nodes
+    character(len=80)      :: name    = ' ' !< name of RK method
+    integer                :: n_stage = 0   !< total number of stages
+    integer                :: helpers = 0   !< number of helper stages
+    integer                :: order   = 0   !< order of convergence
+    integer,   allocatable :: so(:)         !< stage orders
+    real(RNP), allocatable :: a_im(:,:)     !< EDIRK matrix
+    real(RNP), allocatable :: a_ex(:,:)     !< ERK matrix
+    real(RNP), allocatable :: b_ex(:)       !< ERK weights
+    real(RNP), allocatable :: c(:)          !< RK nodes
   contains
     procedure :: Init_VARK_Method
     procedure :: Write => Write_VARK_Method
@@ -72,72 +74,99 @@ contains
 !-------------------------------------------------------------------------------
 !> VARK_Method constructor
 
-type(VARK_Method) function New_VARK_Method(t, sh, r) result(this)
-  real(RNP),           intent(in) :: t(0:) !< principal points
-  integer,             intent(in) :: sh    !< number of helper stages
-  real(RNP), optional, intent(in) :: r     !< last coefficient of R(z)
+type(VARK_Method) function New_VARK_Method(t, o_ps, r_ex) result(this)
+  real(RNP),           intent(in) :: t(:) !< principal nodes
+  integer,             intent(in) :: o_ps !< order of principal stages
+  real(RNP), optional, intent(in) :: r_ex !< last coefficient of R_ex(z)
 
-  call Init_VARK_Method(this, t, sh, r)
+  call Init_VARK_Method(this, t, o_ps, r_ex)
 
 end function New_VARK_Method
 
 !-------------------------------------------------------------------------------
 !> Initialization of VARK_Method
 
-subroutine Init_VARK_Method(this, t, sh, r)
+subroutine Init_VARK_Method(this, t, o_ps, r_ex)
   class(VARK_Method),  intent(inout) :: this
-  real(RNP),           intent(in)    :: t(0:) !< principal points
-  integer,             intent(in)    :: sh    !< number of helper stages
-  real(RNP), optional, intent(in)    :: r     !< last coefficient of R(z)
+  real(RNP),           intent(in)    :: t(:) !< principal nodes
+  integer,             intent(in)    :: o_ps !< order of principal stages
+  real(RNP), optional, intent(in)    :: r_ex !< last coefficient of R_ex(z)
 
-  integer :: sp, se, si
+  integer :: n_ps, n_hs, n_ex, n_im
 
-  sp = size(t)
-  si = sp + sh
-  se = si - 1
+  n_ps = size(t)          ! number of principal stages
+  n_hs = max(o_ps - 1, 0) ! number of helper    stages
+  n_im = n_ps + n_hs      ! number of implicit  stages
+  n_ex = n_im - 1         ! number of explicit  stages
 
-  this % s = si
+  this % n_stage = n_im
+  this % helpers = n_hs
 
   if (allocated(this % a_im)) deallocate( this % a_im )
   if (allocated(this % a_ex)) deallocate( this % a_ex )
   if (allocated(this % b_ex)) deallocate( this % b_ex )
   if (allocated(this % c   )) deallocate( this % c    )
 
-  allocate(this % a_im (si, si) )
-  allocate(this % a_ex (se, se) )
-  allocate(this % b_ex (se)     )
-  allocate(this % c    (si)     )
+  allocate(this % a_im (n_im, n_im) )
+  allocate(this % a_ex (n_ex, n_ex) )
+  allocate(this % b_ex (n_ex)       )
+  allocate(this % c    (n_im)       )
 
-  select case(sp)
+  select case(n_ps)
+  case(2)
+      this % name  = 'EDIRK_211 + ERK_111 (IMEX Euler)'
+      this % order = 1
+      this % so    = [ 1, 1 ]
+      call EDIRK_211  (t, this % a_im, this % c)
+      call ERK_111    (t, this % a_ex, this % b_ex, this % c(1:n_ex))
   case(4)
-    select case(sh)
-    case(0)
+    select case(o_ps)
+    case(1)
       this % name  = 'EDIRK_422 + ERK_321'
       this % order = 2
+      this % so    = [ 2, 1, 2, 2 ]
       call EDIRK_422  (t, this % a_im, this % c)
-      call ERK_321    (t, this % a_ex, this % b_ex, this % c(1:se), r3 = r)
-    case(1)
+      call ERK_321    (t, this % a_ex, this % b_ex, this % c(1:n_ex), r3 = r_ex)
+    case(2)
       this % name  = 'EDIRK_522 + ERK_432'
       this % order = 2
+      this % so    = [ 2, 1, 2, 2, 2 ]
      !call EDIRK_522e (t, this % a_im, this % c)  ! explicit helper
       call EDIRK_522i (t, this % a_im, this % c)  ! implicit helper
-      call ERK_432    (t, this % a_ex, this % b_ex, this % c(1:se), r4 = r)
+      call ERK_432    (t, this % a_ex, this % b_ex, this % c(1:n_ex), r4 = r_ex)
     end select
+  case default
+    call Error('Init_VARK_Method', 'no matching method', 'VA_Runge_Kutta_Method')
   end select
 
 end subroutine Init_VARK_Method
 
 !-------------------------------------------------------------------------------
+!> EDIRK with 2 stages and order 1 (backward Euler)
+
+subroutine EDIRK_211(t, a, c)
+  real(RNP), intent(in)  :: t(2)   !< nodes, expecting t = [0,1]
+  real(RNP), intent(out) :: a(2,2) !< ERK matrix
+  real(RNP), intent(out) :: c(2)   !< ERK nodes
+
+  a = 0
+  c = t
+
+  a(2,2) = t(2)
+
+end subroutine EDIRK_211
+
+!-------------------------------------------------------------------------------
 !> EDIRK with 4 stages, order 2 and stage-order 2
 
 subroutine EDIRK_422(t, a, c)
-  real(RNP), intent(in)  :: t(0:3) !< principal points
+  real(RNP), intent(in)  :: t(4)   !< principal nodes
   real(RNP), intent(out) :: a(4,4) !< ERK matrix
   real(RNP), intent(out) :: c(4)   !< ERK nodes
 
   real(RNP) :: q, w
 
-  a = ZERO
+  a = 0
   c = t
 
   ! CN for stage 2
@@ -165,14 +194,14 @@ end subroutine EDIRK_422
 !> EDIRK with 5 stages, order 2 and main stage-order 2, implicit helper stage
 
 subroutine EDIRK_522i(t, a, c)
-  real(RNP), intent(in)  :: t(0:3) !< principal points
+  real(RNP), intent(in)  :: t(4)   !< principal nodes
   real(RNP), intent(out) :: a(5,5) !< ERK matrix
   real(RNP), intent(out) :: c(5)   !< ERK nodes
 
   real(RNP) :: a_(4,4), c_(4)
 
-  a = ZERO
-  c = [ t(0:1), t(1:3) ]
+  a = 0
+  c = [ t(1:2), t(2:4) ]
 
   ! coefficients of the underlying base scheme
   call EDIRK_422(t, a_, c_)
@@ -192,14 +221,14 @@ end subroutine EDIRK_522i
 !> EDIRK with 5 stages, order 2 and main stage-order 2, explicit helper stage
 
 subroutine EDIRK_522e(t, a, c)
-  real(RNP), intent(in)  :: t(0:3) !< principal points
+  real(RNP), intent(in)  :: t(4)   !< principal nodes
   real(RNP), intent(out) :: a(5,5) !< ERK matrix
   real(RNP), intent(out) :: c(5)   !< ERK nodes
 
   real(RNP) :: a_(4,4), c_(4)
 
-  a = ZERO
-  c = [ t(0:1), t(1:3) ]
+  a = 0
+  c = [ t(1:2), t(2:4) ]
 
   ! coefficients of the underlying base scheme
   call EDIRK_422(t, a_, c_)
@@ -216,28 +245,42 @@ subroutine EDIRK_522e(t, a, c)
 end subroutine EDIRK_522e
 
 !-------------------------------------------------------------------------------
+!> ERK with 1 stage and order 1 (forward Euler)
+
+subroutine ERK_111(t, a, b, c)
+  real(RNP), intent(in)  :: t(2)   !< nodes, expecting t = [0,1]
+  real(RNP), intent(out) :: a(1,1) !< ERK matrix
+  real(RNP), intent(out) :: b(1)   !< ERK weights
+  real(RNP), intent(out) :: c(1)   !< ERK nodes
+
+  a = 0
+  b = 1
+  c = t(1)
+
+end subroutine ERK_111
+
+!-------------------------------------------------------------------------------
 !> ERK with 3 stages, order 2 and main stage-order 1 (1,2)
 
 subroutine ERK_321(t, a, b, c, r3)
-  real(RNP), intent(in)  :: t(0:3) !< principal points
+  real(RNP), intent(in)  :: t(4)   !< principal nodes
   real(RNP), intent(out) :: a(3,3) !< ERK matrix
   real(RNP), intent(out) :: b(3)   !< ERK weights
   real(RNP), intent(out) :: c(3)   !< ERK nodes
-  real(RNP), intent(in)  :: r3     !< coefficient 3 of stability function
+  real(RNP), intent(in)  :: r3     !< coefficient 3 of stability function ≥ 0
   optional :: r3
 
   real(RNP) :: r3_
 
+  r3_ = ONE / 6    ! better accuracy
+ !r3_ = ONE / 15   ! better stability
   if (present(r3)) then
-    r3_ = r3
-  else
-   !r3_ = ONE / 6    ! better accuracy
-    r3_ = ONE / 15   ! better stability
+    if (r3 >= 0) r3_ = r3
   end if
 
-  a = ZERO
-  b = ZERO
-  c = t(0:2)
+  a = 0
+  b = 0
+  c = t(1:3)
 
   a(2,1) = c(2)
 
@@ -254,30 +297,29 @@ end subroutine ERK_321
 !> ERK with 4 stages, order 3 and main stage-order 2
 
 subroutine ERK_432(t, a, b, c, r4)
-  real(RNP), intent(in)  :: t(0:3) !< interior points
+  real(RNP), intent(in)  :: t(4)   !< interior nodes
   real(RNP), intent(out) :: a(4,4) !< ERK matrix
   real(RNP), intent(out) :: b(4)   !< ERK weights
   real(RNP), intent(out) :: c(4)   !< ERK nodes
-  real(RNP), intent(in)  :: r4     !< coefficient 4 of stability function
+  real(RNP), intent(in)  :: r4     !< coefficient 4 of stability function ≥ 0
   optional :: r4
 
   real(RNP) :: r4_
 
+ !r4_ = ONE / 24   ! better accuracy ?
+  r4_ = ONE / 50   ! better stability
   if (present(r4)) then
-    r4_ = r4
-  else
-   !r4_ = ONE / 24   ! better accuracy ?
-    r4_ = ONE / 50   ! better stability
+    if (r4 >= 0) r4_ = r4
   end if
 
-  c = [ t(0:1), t(1:2) ]
+  c = [ t(1:2), t(2:3) ]
 
   b(4) = (2 - 3*c(3)) / (6 * c(4) * (c(4) - c(3)))
   b(3) = (2 - 3*c(4)) / (6 * c(3) * (c(3) - c(4)))
   b(2) = 0
   b(1) = 1 - (b(2) + b(3) + b(4))
 
-  a = ZERO
+  a = 0
 
   a(2,1) = c(2)
 
@@ -300,7 +342,7 @@ subroutine Write_VARK_Method(this, unit)
   character(len=*), parameter :: fmt_b =  '(13X,   " |",99F14.10)'
   integer :: i, io
 
-  if (this % s < 1) return
+  if (this % n_stage < 1) return
 
   if (present(unit)) then
     io = unit
@@ -308,23 +350,23 @@ subroutine Write_VARK_Method(this, unit)
     io = OUTPUT_UNIT
   end if
 
-  write(io,'(A,/)')   'Variable additive Runge-Kutta method'
-  write(io,'(2A,/)')  'name: ', trim(this % name)
-  write(io,'(A,I0)')  'implicit stages = ', size(this % a_im, 1)
-  write(io,'(A,I0)')  'explicit stages = ', size(this % a_ex, 1)
-  write(io,'(A,I0)')  'order           = ', this % order
+  write(io,'(A,/)')        'Variable additive Runge-Kutta method'
+  write(io,'(2A,/)')       'name: ', trim(this % name)
+  write(io,'(A,I0)')       'stages       = ', this % n_stage
+  write(io,'(A,I0)')       'order        = ', this % order
+  write(io,'(A,9(I0,1X))') 'stage orders = ', this % so
 
   write(io,'(/,A,/)') 'implicit part'
-  do i = 1, this%s
+  do i = 1, this%n_stage
     write(io,fmt_ca) this % c(i), this % a_im(i,1:i)
   end do
-  write(io,'(A)') repeat('-', 16 + 14*this%s)
+  write(io,'(A)') repeat('-', 16 + 14*this%n_stage)
 
   write(io,'(/,A,/)') 'explicit part'
-  do i = 1, this%s-1
+  do i = 1, this%n_stage-1
     write(io,fmt_ca) this % c(i), this % a_ex(i,1:i-1)
   end do
-  write(io,'(A)') repeat('-', 1 + 14*this%s)
+  write(io,'(A)') repeat('-', 1 + 14*this%n_stage)
   write(io,fmt_b) this % b_ex
   write(io,*)
 
