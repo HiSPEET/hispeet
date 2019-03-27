@@ -40,11 +40,12 @@ flying_start = T
 ! required with method = 5 (variable additive Runge-Kutta)
 &va_runge_kutta
   set  = 1    ! equidistant (1) or GLL (2) points
-  sh   = 0    ! number of helper stages sh ∈ {0,1}
+  n_ps = 4    ! number of principal stages, n_ps ∈ {2,4}
+  o_ps = 1    ! order  of principal stages, o_ps ∈ {1,2}
 !
- !r    = .16666666666666666666 ! = 1/6   with  sh = 0
+ !r    = .16666666666666666666 ! = 1/6   with  sh = 0  (current default)
  !r    = .12500000000000000000 ! = 1/8   with  sh = 0
- !r    = .06666666666666666666 ! = 1/15  with  sh = 0  (current default)
+ !r    = .06666666666666666666 ! = 1/15  with  sh = 0  (better stability?)
 !
  !r    = .04166666666666666666 ! = 1/24  with  sh = 1
  !r    = .02777777777777777777 ! = 1/36  with  sh = 1
@@ -57,7 +58,7 @@ flying_start = T
 
 ! required with method = 6 (IMEX Euler SDC)
 &sdc_parameters
- sdc_opt%n_sub     = 1  ! number of subintervals (M)
- sdc_opt%n_sweep   = 0  ! max num correction sweeps (K)
- sdc_opt%point_set = 2  ! equidistant (1) or GLL (2) points
+ sdc_opt%n_sub   = 1  ! number of subintervals (M)
+ sdc_opt%n_sweep = 0  ! max num correction sweeps (K)
+ sdc_opt%set     = 2  ! equidistant (1) or GLL (2) points
 /

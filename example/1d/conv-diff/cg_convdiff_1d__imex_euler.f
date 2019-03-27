@@ -18,7 +18,7 @@
 !>     u₀ = u(t₀)
 !>     u  = u(t₀ + ∆t)
 !>
-!> C` and `D` are discretized using continuous spectral elements.
+!> `C` and `D` are discretized using continuous spectral elements.
 !>
 !===============================================================================
 

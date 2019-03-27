@@ -25,18 +25,17 @@ module Spectral_Deferred_Correction
 
   type SDC_Method
 
-    integer :: n_sub     = -1  !< number of subintervals (M)
-    integer :: n_sweep   = -1  !< max num correction sweeps (K)
-    integer :: point_set = -1  !< equidistant (1) or GLL (2) points
+    integer :: n_sub   = -1  !< number of subintervals (M)
+    integer :: n_sweep = -1  !< max num correction sweeps (K)
+    integer :: set     = -1  !< equidistant (1) or GLL (2) points
 
     real(RNP), allocatable :: t(:)    !< nodes tᵢ in [0,1]
     real(RNP), allocatable :: w(:)    !< quadrature weights for [0, 1]
-    real(RNP), allocatable :: wt(:,:) !< quadrature weights for [0, tᵢ]
     real(RNP), allocatable :: ws(:,:) !< quadrature weights for [tᵢ₋₁,tᵢ]
 
   contains
 
-    procedure :: Init_SpectralDeferredCorrection  =>  Init_SDC
+    procedure :: Init_SDC_Method  =>  Init_SDC
     procedure :: HasEquidistantPoints
     procedure :: HasLobattoPoints
     procedure :: IntermediateTimes
@@ -52,9 +51,9 @@ module Spectral_Deferred_Correction
   !> Type bundling spectral deferred correction options
 
   type SDC_Options
-    integer :: n_sub     = 1  !< number of subintervals
-    integer :: n_sweep   = 0  !< max number of correction sweeps
-    integer :: point_set = 2  !< equidistant (1) or GLL (2) points
+    integer :: n_sub   = 1  !< number of subintervals
+    integer :: n_sweep = 0  !< max number of correction sweeps
+    integer :: set     = 2  !< equidistant (1) or GLL (2) points
   end type SDC_Options
 
 contains
@@ -82,7 +81,7 @@ subroutine Init_SDC(this, opt)
   ! local variables ............................................................
 
   real(RNP), allocatable :: x(:), w(:)
-  real(RNP) :: ts, ys, tmp
+  real(RNP) :: tk, yk, tmp
   integer   :: i, j, k, ns
 
   ! initialization .............................................................
@@ -90,19 +89,15 @@ subroutine Init_SDC(this, opt)
   ns = opt % n_sub
 
   if (this % n_sub > 0 .and. this % n_sub /= ns) then
-    deallocate(this % t )
     deallocate(this % w )
-    deallocate(this % wt)
     deallocate(this % ws)
   end if
-  if (.not. allocated(this % t )) allocate(this % t  (0:ns)     )
   if (.not. allocated(this % w )) allocate(this % w  (0:ns)     )
-  if (.not. allocated(this % wt)) allocate(this % wt (0:ns, ns) )
   if (.not. allocated(this % ws)) allocate(this % ws (0:ns, ns) )
 
-  this % n_sub     = ns
-  this % n_sweep   = max(0, opt % n_sweep)
-  this % point_set = max(1, min(2, opt % point_set))
+  this % n_sub   = ns
+  this % n_sweep = max(0, opt % n_sweep)
+  this % set     = max(1, min(2, opt % set))
 
   ! GLL points and weights in [-1,1]
   allocate(x(0:ns), source = GLL_Points(ns))
@@ -110,7 +105,7 @@ subroutine Init_SDC(this, opt)
 
   ! points and quadrature weights in [0,1] .....................................
 
-  select case(this % point_set)
+  select case(this % set)
   case(1) ! equidistant
     this % t(0:ns) = [ ZERO, (i*ONE/ns, i = 1,ns-1), ONE ]
     this % w(0:ns) = GaussLagrangeWeights(this% t )
@@ -119,45 +114,24 @@ subroutine Init_SDC(this, opt)
     this % w(0:ns) = HALF * w
   end select
 
+  ! quadrature weights in [tᵢ₋₁,tᵢ] ............................................
+
   associate(t => this % t )
 
-    ! quadrature weights in [0, tᵢ] ............................................
-
     do i = 1, ns
     do j = 0, ns
       tmp = 0
       do k = 0, ns
-        ! ts = k-th GLL point in [0,tᵢ] mapped to [0,1]
-        ts  = t(i) * HALF * (x(k) + 1)
-        ! ys = value of j-th Lagrange polynomial at ts
-        select case(this % point_set)
+        ! tk = k-th GLL point in [tᵢ₋₁,tᵢ] mapped to [0,1]
+        tk  = t(i-1) + (t(i) - t(i-1)) * HALF * (x(k) + 1)
+        ! yk = value of j-th Lagrange polynomial at tk
+        select case(this % set)
         case(1) ! use equidistant Lagrange polynomial in [0,1]
-          ys = LagrangePolynomial(j, t, ts)
+          yk = LagrangePolynomial(j, t, tk)
         case default ! use GLL Lagrange polynomial in [-1,1]
-          ys = GLL_Polynomial(j, x, 2*ts-1)
+          yk = GLL_Polynomial(j, x, 2*tk-1)
         end select
-        tmp = tmp + w(k) * ys
-      end do
-      this % wt(j,i) = HALF * tmp
-    end do
-    end do
-
-    ! quadrature weights in [tᵢ₋₁,tᵢ] ..........................................
-
-    do i = 1, ns
-    do j = 0, ns
-      tmp = 0
-      do k = 0, ns
-        ! ts = k-th GLL point in [tᵢ₋₁,tᵢ] mapped to [0,1]
-        ts  = t(i-1) + (t(i) - t(i-1)) * HALF * (x(k) + 1)
-        ! ys = value of j-th Lagrange polynomial at ts
-        select case(this % point_set)
-        case(1) ! use equidistant Lagrange polynomial in [0,1]
-          ys = LagrangePolynomial(j, t, ts)
-        case default! use GLL Lagrange polynomial in [-1,1]
-          ys = GLL_Polynomial(j, x, 2*ts-1)
-        end select
-        tmp = tmp + w(k) * ys
+        tmp = tmp + w(k) * yk
       end do
       this % ws(j,i) = HALF * tmp
     end do
@@ -173,7 +147,7 @@ end subroutine Init_SDC
 pure logical function HasEquidistantPoints(this)
   class(SDC_Method), intent(in) :: this
 
-  HasEquidistantPoints = this % point_set == 1
+  HasEquidistantPoints = this % set == 1
 
 end function HasEquidistantPoints
 
@@ -183,7 +157,7 @@ end function HasEquidistantPoints
 pure logical function HasLobattoPoints(this)
   class(SDC_Method), intent(in) :: this
 
-  HasLobattoPoints = this % point_set == 2
+  HasLobattoPoints = this % set == 2
 
 end function HasLobattoPoints
 

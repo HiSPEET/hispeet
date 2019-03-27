@@ -145,8 +145,8 @@ program CG_ConvDiff_1D
   type(CG_ElementOperators1D) :: eop     ! element operators
   real(RNP), allocatable      :: M(:,:)  ! global mass matrix
 
-  type(ConvDiff_IMEX_RK)      :: imex_rk ! IMEX Runge-Kutta method
-  type(ConvDiff_VARK)         :: vark    ! variable additive Runge-Kutta method
+  type(IMEX_RK_Method1D)      :: imex_rk ! IMEX Runge-Kutta method
+  type(VARK_Method1D)         :: vark    ! variable additive Runge-Kutta method
 
   type(SDC_Method)            :: sdc     ! SDC method
 
@@ -363,7 +363,7 @@ contains
   !> in the input file connected to unit `io`.
 
   subroutine Init_IMEX_RK(imex_rk, po, ne, io)
-    type(ConvDiff_IMEX_RK), intent(inout) :: imex_rk !< IMEX RK method
+    type(IMEX_RK_Method1D), intent(inout) :: imex_rk !< IMEX RK method
     integer, intent(in) :: po !< polynomial order
     integer, intent(in) :: ne !< number of elements
     integer, intent(in) :: io !< unit number of input file
@@ -375,7 +375,7 @@ contains
     namelist /imex_runge_kutta/ s, m, show
 
     read(io, nml=imex_runge_kutta)
-    imex_rk = ConvDiff_IMEX_RK(po, ne, s, m)
+    imex_rk = IMEX_RK_Method1D(po, ne, s, m)
 
     if (show) then
       call imex_rk % Write()
@@ -390,25 +390,25 @@ contains
   !> input file connected to unit `io`.
 
   subroutine Init_VARK(vark, po, ne, io)
-    type(ConvDiff_VARK), intent(inout) :: vark !< VARK method
+    type(VARK_Method1D), intent(inout) :: vark !< VARK method
     integer, intent(in) :: po !< polynomial order
     integer, intent(in) :: ne !< number of elements
     integer, intent(in) :: io !< unit number of input file
 
     integer   :: set  =  1 ! equidistant (1) or GLL (2) points
-    integer   :: sp   =  4 ! number of principal stages, so far only 4
-    integer   :: sh   =  0 ! number of helper stages sh ∈ {0,1}
+    integer   :: n_ps =  4 ! number of principal stages, n_ps ∈ {2,4}
+    integer   :: o_ps =  1 ! order of principal stages,  o_ps ∈ {1,2}
     real(RNP) :: r    = -1 ! last coefficient of R_ex(z)
     logical   :: show = .false. ! print VARK properties and coefficients
 
-    namelist /va_runge_kutta/ set, sh, r, show
+    namelist /va_runge_kutta/ set, n_ps, o_ps, r, show
 
     read(io, nml=va_runge_kutta)
 
     if (r > 0) then
-      vark = ConvDiff_VARK(po, ne, set, sp, sh, r)
+      vark = VARK_Method1D(po, ne, set, n_ps, o_ps, r)
     else ! r not set
-      vark = ConvDiff_VARK(po, ne, set, sp, sh)
+      vark = VARK_Method1D(po, ne, set, n_ps, o_ps)
     end if
 
     if (show) then

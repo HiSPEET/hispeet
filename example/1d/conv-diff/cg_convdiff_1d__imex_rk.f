@@ -5,8 +5,8 @@
 !>
 !>### IMEX Runge-Kutta method with CG-SEM for 1D convection-diffusion
 !>
-!> This module provides the type `ConvDiff_IMEX_RK` which extends the IMEX
-!> Runge-Kutta methods defined in `ConvDiff_IMEX_RK` for advancing the solution
+!> This module provides the type `IMEX_RK_Method1D` which extends the IMEX
+!> Runge-Kutta methods defined in `IMEX_RK_Method1D` for advancing the solution
 !> of the semi-discrete 1D convection-diffusion equation
 !>
 !>     ∂u/∂t = -v ∂u/∂v + nu ∂²u/∂u² ≡ C(u) + D(u)
@@ -16,9 +16,9 @@
 !>
 !> Typical usage:
 !>
-!>     type(ConvDiff_IMEX_RK) :: imex_rk
+!>     type(IMEX_RK_Method1D) :: imex_rk
 !>
-!>     imex_rk = ConvDiff_IMEX_RK(s, m, po, ne)
+!>     imex_rk = IMEX_RK_Method1D(s, m, po, ne)
 !>     ! s  :  number of stages
 !>     ! m  :  method (optional)
 !>     ! po :  polynomial order and
@@ -39,21 +39,21 @@ module CG_ConvDiff_1D__IMEX_RK
   implicit none
   private
 
-  public :: ConvDiff_IMEX_RK
+  public :: IMEX_RK_Method1D
 
   !-----------------------------------------------------------------------------
   !> Implementation of the IMEX RK method for 1D convection-diffusion
 
-  type, extends(IMEX_RK_Method) :: ConvDiff_IMEX_RK
-    real(RNP), allocatable :: f_ex(:,:,:) !< explicit RHS per stage
-    real(RNP), allocatable :: f_im(:,:,:) !< implicit RHS per stage
+  type, extends(IMEX_RK_Method) :: IMEX_RK_Method1D
+    real(RNP), allocatable :: F_ex(:,:,:) !< explicit RHS per stage
+    real(RNP), allocatable :: F_im(:,:,:) !< implicit RHS per stage
   contains
     procedure :: Init_ConvDiff_IMEX_RK
     procedure :: TimeStep
-  end type ConvDiff_IMEX_RK
+  end type IMEX_RK_Method1D
 
   ! constructor
-  interface ConvDiff_IMEX_RK
+  interface IMEX_RK_Method1D
     module procedure New_ConvDiff_IMEX_RK
   end interface
 
@@ -62,7 +62,7 @@ contains
 !-------------------------------------------------------------------------------
 !> Constructor
 
-type(ConvDiff_IMEX_RK) function New_ConvDiff_IMEX_RK(po, ne, s, m) result(this)
+type(IMEX_RK_Method1D) function New_ConvDiff_IMEX_RK(po, ne, s, m) result(this)
   integer,           intent(in) :: po  !< polynomial order
   integer,           intent(in) :: ne  !< number of elements
   integer,           intent(in) :: s   !< number of stages
@@ -76,7 +76,7 @@ end function New_ConvDiff_IMEX_RK
 !> Init IMEX RK method for 1D CG-SE convection diffusion solver
 
 subroutine Init_ConvDiff_IMEX_RK(this, po, ne, s, m)
-  class(ConvDiff_IMEX_RK), intent(inout) :: this
+  class(IMEX_RK_Method1D), intent(inout) :: this
   integer,                 intent(in)    :: po  !< polynomial order
   integer,                 intent(in)    :: ne  !< number of elements
   integer,                 intent(in)    :: s   !< number of stages
@@ -84,11 +84,11 @@ subroutine Init_ConvDiff_IMEX_RK(this, po, ne, s, m)
 
   call this % Init_IMEX_RK_Method(s, m)
 
-  if (allocated(this % f_im)) deallocate(this % f_im)
-  if (allocated(this % f_ex)) deallocate(this % f_ex)
+  if (allocated(this % F_im)) deallocate(this % F_im)
+  if (allocated(this % F_ex)) deallocate(this % F_ex)
 
-  allocate(this % f_ex(0:po, ne, s))
-  allocate(this % f_im, mold = this%f_ex)
+  allocate(this % F_ex(0:po, ne, s))
+  allocate(this % F_im, mold = this%F_ex)
 
 end subroutine Init_ConvDiff_IMEX_RK
 
@@ -96,7 +96,7 @@ end subroutine Init_ConvDiff_IMEX_RK
 !> Performs a single IMEX RK time step
 
 subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
-  class(ConvDiff_IMEX_RK),      intent(inout) :: this
+  class(IMEX_RK_Method1D),      intent(inout) :: this
   class(CG_ElementOperators1D), intent(in)    :: eop      !< element operators
   real(RNP),                    intent(in)    :: dx       !< element length
   real(RNP),                    intent(in)    :: dt       !< time step size
@@ -121,17 +121,17 @@ subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
 
   associate( s    => this % s    , b    => this % b     &
            , a_im => this % a_im , a_ex => this % a_ex  &
-           , f_im => this % f_im , f_ex => this % f_ex  )
+           , F_im => this % F_im , F_ex => this % F_ex  )
 
     ! stage 1 ..................................................................
 
     if (first) then
-      call GetDiffusionTerm(eop, dx, wave, v, nu, bc, x, t0, u0, f_im(:,:,1))
-      call GetLinearConvectionTerm(eop, v, bc, u0, f_ex(:,:,1))
+      call GetDiffusionTerm(eop, dx, wave, v, nu, bc, x, t0, u0, F_im(:,:,1))
+      call GetLinearConvectionTerm(eop, v, bc, u0, F_ex(:,:,1))
     else
       ! assume FSAL scheme
-      f_im(:,:,1) = f_im(:,:,s)
-      f_ex(:,:,1) = f_ex(:,:,s)
+      F_im(:,:,1) = F_im(:,:,s)
+      F_ex(:,:,1) = F_ex(:,:,s)
     end if
 
     ! stages 2 to s ............................................................
@@ -143,8 +143,8 @@ subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
 
       f = c * M * u0
       do j = 1, i-1
-        f = f + a_im(i,j) / a_im(i,i) * f_im(:,:,j)  &
-              + a_ex(i,j) / a_im(i,i) * f_ex(:,:,j)
+        f = f + a_im(i,j) / a_im(i,i) * F_im(:,:,j)  &
+              + a_ex(i,j) / a_im(i,i) * F_ex(:,:,j)
       end do
 
       if (nu > 0) then
@@ -155,10 +155,10 @@ subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
         call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u)
       end if
 
-      call GetDiffusionTerm(eop, dx, wave, v, nu, bc, x, t, u, f_im(:,:,i))
-      call GetLinearConvectionTerm(eop, v, bc, u, f_ex(:,:,i))
+      call GetDiffusionTerm(eop, dx, wave, v, nu, bc, x, t, u, F_im(:,:,i))
+      call GetLinearConvectionTerm(eop, v, bc, u, F_ex(:,:,i))
       ! NOTE that the diffusion term could be obtained cheaper from
-      ! f_im(:,:,i) = c * M * u - f
+      ! F_im(:,:,i) = c * M * u - f
       ! HOWEVER need to check, if BC are treated correctly that way
 
     end do
@@ -167,7 +167,7 @@ subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
 
     f = 0
     do i = 1, s
-      f = f + b(i) * (f_im(:,:,i) + f_ex(:,:,i))
+      f = f + b(i) * (F_im(:,:,i) + F_ex(:,:,i))
     end do
 
     u = u0 + dt * f / M

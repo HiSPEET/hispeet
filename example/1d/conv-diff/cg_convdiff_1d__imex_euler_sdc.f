@@ -1,9 +1,11 @@
-!> summary:  IMEX Euler with CG-SEM for 1D convection-diffusion equation
+!> summary:  IMEX-Euler SDC with CG-SEM for 1D convection-diffusion equation
 !> author:   Joerg Stiller
 !> date:     2018/09/26
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### IMEX Euler with CG-SEM for 1D convection-diffusion equation
+!>### IMEX-Euler SDC with CG-SEM for 1D convection-diffusion equation
+!>
+!> **TBD:** Rework description, extend to SDC
 !>
 !> Advances the solution of the semi-discrete 1D convection-diffusion equation
 !>
@@ -18,7 +20,7 @@
 !>     u₀ = u(t₀)
 !>     u  = u(t₀ + ∆t)
 !>
-!> C` and `D` are discretized using continuous spectral elements.
+!> `C` and `D` are discretized using continuous spectral elements.
 !>
 !===============================================================================
 
