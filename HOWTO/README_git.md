@@ -1,3 +1,5 @@
+## How it started
+
      mkdir HiSPEET
      cd HiSPEET
 
@@ -9,27 +11,40 @@
      git commit
 
      # stage the modified and deleted files
-		 git add -u
+     git add -u
 
-		 # add and commit only the modified and deleted files.
-		 git commit -a
-		 
-	
-### Updating etc.
+     # add and commit only the modified and deleted files.
+     git commit -a
+
+## Clone a local git repository from Fusionforge
+
+TBD
+
+## Branches
+
+### Getting around
 
 Show all branches
 
     git branch -a
 
-Unless told otherwise use the `master` branch.
-But you can change to another branch using 
+Switch to your branch
 
     git checkout <branch-name>
 
-Unless you made changes you can update your local repo using 
+
+### Making changes and update your branch
+
+Unless told otherwise use the `master` branch.
+But you can change to another branch using
+
+    git checkout <branch-name>
+
+Unless you made changes you can update your local repo using
 
     make distclean
     git pull
 
-in the `HiSPEET` directory
+in the `HiSPEET` directory.
+
 
