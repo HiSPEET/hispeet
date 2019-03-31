@@ -69,49 +69,49 @@ contains
 !-------------------------------------------------------------------------------
 !> New ConvDiff VARK method from given points
 
-type(VARK_Method1D) function New_VARK_t(po, ne, t, o_ps, r_ex) result(this)
+type(VARK_Method1D) function New_VARK_t(po, ne, t, so_p, r_ex) result(this)
   integer,   intent(in) :: po    !< polynomial order
   integer,   intent(in) :: ne    !< number of elements
   real(RNP), intent(in) :: t(:)  !< principal nodes
-  integer,   intent(in) :: o_ps  !< stage order at principal nodes
+  integer,   intent(in) :: so_p  !< stage order at principal nodes
   real(RNP), intent(in) :: r_ex  !< last coefficient of R_ex(z)
   optional :: r_ex
 
-  call Init_VARK_t(this, po, ne, t, o_ps, r_ex)
+  call Init_VARK_t(this, po, ne, t, so_p, r_ex)
 
 end function New_VARK_t
 
 !-------------------------------------------------------------------------------
 !> New ConvDiff VARK method from specified point set
 
-type(VARK_Method1D) function New_VARK_s(po, ne, set, np, o_ps, r_ex) &
+type(VARK_Method1D) function New_VARK_s(po, ne, set, np, so_p, r_ex) &
     result(this)
   integer,   intent(in) :: po    !< polynomial order
   integer,   intent(in) :: ne    !< number of elements
   integer,   intent(in) :: set   !< equidistant (1) or GLL (2) points
   integer,   intent(in) :: np    !< number of principal nodes
-  integer,   intent(in) :: o_ps  !< stage order at principal nodes
+  integer,   intent(in) :: so_p  !< stage order at principal nodes
   real(RNP), intent(in) :: r_ex  !< last coefficient of R_ex(z)
   optional :: r_ex
 
-  call Init_VARK_s(this, po, ne, set, np, o_ps, r_ex)
+  call Init_VARK_s(this, po, ne, set, np, so_p, r_ex)
 
 end function New_VARK_s
 
 !-------------------------------------------------------------------------------
 !> Initialize ConvDiff VARK method for given points
 
-subroutine Init_VARK_t(this, po, ne, t, o_ps, r_ex)
+subroutine Init_VARK_t(this, po, ne, t, so_p, r_ex)
   class(VARK_Method1D), intent(inout) :: this
   integer,   intent(in) :: po    !< polynomial order
   integer,   intent(in) :: ne    !< number of elements
   real(RNP), intent(in) :: t(:)  !< principal nodes
-  integer,   intent(in) :: o_ps  !< stage order at principal nodes
+  integer,   intent(in) :: so_p  !< stage order at principal nodes
   real(RNP), intent(in) :: r_ex  !< last coefficient of R_ex(z)
   optional :: r_ex
 
   ! initialize VARK
-  call this % Init_VARK_Method(t, o_ps, r_ex)
+  call this % Init_VARK_Method(t, so_p, r_ex)
 
   ! workspace
   allocate(this % F_ex(0:po, ne, this%n_stage-1))
@@ -122,30 +122,30 @@ end subroutine Init_VARK_t
 !-------------------------------------------------------------------------------
 !> Initialize ConvDiff VARK method for specified point set
 
-subroutine Init_VARK_s(this, po, ne, set, n_ps, o_ps, r_ex)
+subroutine Init_VARK_s(this, po, ne, set, ns_p, so_p, r_ex)
   class(VARK_Method1D), intent(inout) :: this
   integer,   intent(in) :: po    !< polynomial order
   integer,   intent(in) :: ne    !< number of elements
   integer,   intent(in) :: set   !< equidistant (1) or GLL (2) points
-  integer,   intent(in) :: n_ps  !< number of principal nodes
-  integer,   intent(in) :: o_ps  !< stage order at principal nodes
+  integer,   intent(in) :: ns_p  !< number of principal nodes
+  integer,   intent(in) :: so_p  !< stage order at principal nodes
   real(RNP), intent(in) :: r_ex  !< last coefficient of R_ex(z)
   optional :: r_ex
 
-  real(RNP) :: t(n_ps)
+  real(RNP) :: t(ns_p)
   integer   :: i, ni
 
   ! number of intervals
-  ni = n_ps - 1
+  ni = ns_p - 1
 
   select case(set)
   case(1) ! equidistant
-    t = [ ((i-1)*ONE/ni, i = 1,n_ps) ]
+    t = [ ((i-1)*ONE/ni, i = 1,ns_p) ]
   case default ! GLL
     t = HALF * (GLL_Points(ni) + ONE)
   end select
 
-  call Init_VARK_t(this, po, ne, t, o_ps, r_ex)
+  call Init_VARK_t(this, po, ne, t, so_p, r_ex)
 
 end subroutine Init_VARK_s
 

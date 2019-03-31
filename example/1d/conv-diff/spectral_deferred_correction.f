@@ -82,46 +82,48 @@ subroutine Init_SDC(this, opt)
 
   real(RNP), allocatable :: x(:), w(:)
   real(RNP) :: tk, yk, tmp
-  integer   :: i, j, k, ns
+  integer   :: i, j, k, n_sub
 
   ! initialization .............................................................
 
-  ns = opt % n_sub
+  n_sub = opt % n_sub
 
-  if (this % n_sub > 0 .and. this % n_sub /= ns) then
+  if (this % n_sub > 0 .and. this % n_sub /= n_sub) then
+    deallocate(this % t )
     deallocate(this % w )
     deallocate(this % ws)
   end if
-  if (.not. allocated(this % w )) allocate(this % w  (0:ns)     )
-  if (.not. allocated(this % ws)) allocate(this % ws (0:ns, ns) )
+  if (.not. allocated(this % t )) allocate(this % t  (0:n_sub)        )
+  if (.not. allocated(this % w )) allocate(this % w  (0:n_sub)        )
+  if (.not. allocated(this % ws)) allocate(this % ws (0:n_sub, n_sub) )
 
-  this % n_sub   = ns
+  this % n_sub   = n_sub
   this % n_sweep = max(0, opt % n_sweep)
   this % set     = max(1, min(2, opt % set))
 
   ! GLL points and weights in [-1,1]
-  allocate(x(0:ns), source = GLL_Points(ns))
-  allocate(w(0:ns), source = GLL_Weights(x))
+  allocate(x(0:n_sub), source = GLL_Points(n_sub))
+  allocate(w(0:n_sub), source = GLL_Weights(x))
 
   ! points and quadrature weights in [0,1] .....................................
 
   select case(this % set)
   case(1) ! equidistant
-    this % t(0:ns) = [ ZERO, (i*ONE/ns, i = 1,ns-1), ONE ]
-    this % w(0:ns) = GaussLagrangeWeights(this% t )
+    this % t(0:n_sub) = [ ZERO, (i*ONE/n_sub, i = 1,n_sub-1), ONE ]
+    this % w(0:n_sub) = GaussLagrangeWeights(this% t)
   case default ! GLL
-    this % t(0:ns) = HALF * (x + ONE)
-    this % w(0:ns) = HALF * w
+    this % t(0:n_sub) = HALF * (x + ONE)
+    this % w(0:n_sub) = HALF * w
   end select
 
   ! quadrature weights in [tᵢ₋₁,tᵢ] ............................................
 
   associate(t => this % t )
 
-    do i = 1, ns
-    do j = 0, ns
+    do i = 1, n_sub
+    do j = 0, n_sub
       tmp = 0
-      do k = 0, ns
+      do k = 0, n_sub
         ! tk = k-th GLL point in [tᵢ₋₁,tᵢ] mapped to [0,1]
         tk  = t(i-1) + (t(i) - t(i-1)) * HALF * (x(k) + 1)
         ! yk = value of j-th Lagrange polynomial at tk

@@ -1,64 +1,62 @@
 &problem_parameters
- v  = 1
- nu = 1e-4
- t_end = 1
+  v  = 1
+  nu = 1e-4
+  t_end = 1
 /
 
 &wave_package_dimensions
- nw = 7
- lw = 1
+  nw = 7
+  lw = 1
 /
 
 &wave_parameters
- k = 1,    3,    5,    7,    9,    12,   15
- a = 1.00, 1.50, 1.80, 1.70, 1.50, 1.30, 1.15
- s = 0.00, 0.05, 0.10, 0.15, 0.20, 0.30, 0.18
+  k = 1,    3,    5,    7,    9,    12,   15
+  a = 1.00, 1.50, 1.80, 1.70, 1.50, 1.30, 1.15
+  s = 0.00, 0.05, 0.10, 0.15, 0.20, 0.30, 0.18
 /
 
 &discretization_parameters
- po  = 15
- ne  = 15
-!cfl = 0.128
- dt  = 1e-4
-!nt  = 0
-!method = 1    ! IMEX Euler
-!method = 2    ! IMEX BDF2
- method = 3    ! IMEX BDF3
-!method = 4    ! IMEX Runge-Kutta
-!method = 5    ! variable additive Runge-Kutta
-!method = 6    ! SDC based on IMEX Euler
+  po  = 15
+  ne  = 15
+! cfl = 0.128
+  dt  = 1e-4
+! nt  = 0
+! method = 1    ! IMEX Euler
+! method = 2    ! IMEX BDF2
+  method = 3    ! IMEX BDF3
+! method = 4    ! IMEX Runge-Kutta
+! method = 5    ! variable additive Runge-Kutta
+! method = 6    ! SDC based on IMEX Euler
+! method = 7    ! SDC based on variable additive Runge-Kutta
 flying_start = T
 /
 
 ! required with method = 4 (IMEX Runge-Kutta)
-&imex_runge_kutta
-  s = 3       ! number of stages, s = {2,3,4,6,8}
-  m = 2       ! scheme m = {1,2}[1], effective only with s=4
-  show = T    ! print VARK properties and coefficients
+&imex_rk_parameters
+  ns     = 3    ! number of stages, ns ∈ {2,3,4,6,8}
+  method = 2    ! method ∈ {1,2}[1], effective only with s=4
+  show   = T    ! print VARK properties and coefficients
 /
 
 ! required with method = 5 (variable additive Runge-Kutta)
-&va_runge_kutta
-  set  = 1    ! equidistant (1) or GLL (2) points
-  n_ps = 4    ! number of principal stages, n_ps ∈ {2,4}
-  o_ps = 1    ! order  of principal stages, o_ps ∈ {1,2}
-!
- !r    = .16666666666666666666 ! = 1/6   with  sh = 0  (current default)
- !r    = .12500000000000000000 ! = 1/8   with  sh = 0
- !r    = .06666666666666666666 ! = 1/15  with  sh = 0  (better stability?)
-!
- !r    = .04166666666666666666 ! = 1/24  with  sh = 1
- !r    = .02777777777777777777 ! = 1/36  with  sh = 1
- !r    = .02083333333333333333 ! = 1/48  with  sh = 1
- !r    = .02000000000000000000 ! = 1/50  with  sh = 1  (current default)
- !r    = .01851851851851851851 ! = 1/54  with  sh = 1
-!
-  show = T    ! print IMEX RK properties and coefficients
+&vark_parameters
+  set  = 1      ! equidistant (1) or GLL (2) points
+  ns_p = 4      ! number of principal stages, ns_p ∈ {2,4}
+  so_p = 1      ! order  of principal stages, so_p ∈ {1,2}
+  show = T      ! print IMEX RK properties and coefficients
 /
 
 ! required with method = 6 (IMEX Euler SDC)
-&sdc_parameters
- sdc_opt%n_sub   = 1  ! number of subintervals (M)
- sdc_opt%n_sweep = 0  ! max num correction sweeps (K)
- sdc_opt%set     = 2  ! equidistant (1) or GLL (2) points
+&euler_sdc_parameters
+  n_sub   = 1   ! number of subintervals (M)
+  n_sweep = 0   ! max num correction sweeps (K)
+  set     = 2   ! equidistant (1) or GLL (2) points
+/
+
+! required with method = 7 (VARK SDC)
+&vark_sdc_parameters
+  n_sub   =  1  ! number of subintervals (M)
+  n_sweep =  0  ! max num correction sweeps (K)
+  set     =  2  ! equidistant (1) or GLL (2) points
+  so_p    =  1  ! order of principal stages
 /

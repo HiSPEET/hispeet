@@ -12,8 +12,8 @@
 !>       | bᵀ         | bᵀ
 !>
 !> where `a_im` is the diagonally implicit part and `a_ex` the explicit part.
-!> They all possess the first-same-as-last property, `c(1) = 0` and `c(s) = 1`,
-!> where `s` is the number of stages. The first stage is always explicit, i.e.
+!> They all possess the first-same-as-last property, `c(1) = 0` and `c(ns) = 1`,
+!> where `ns` is the number of stages. The first stage is always explicit, i.e.
 !> `a_im(1,:) = 0` while, generally, `a_im(:,1) = 0`. The methods with 6 and 8
 !> stages achieve stage-order 2.
 !>
@@ -48,13 +48,13 @@ module IMEX_Runge_Kutta_Method
   !> Type for keeping the Butcher tableau of an IMEX Runge-Kutta method
 
   type IMEX_RK_Method
-    character(len=80)      :: name = ' ' !< name of RK method
-    integer                :: s = 0      !< number of stages
-    integer                :: order = 0  !< convergence order
-    real(RNP), allocatable :: a_im(:,:)  !< implicit RK matrix
-    real(RNP), allocatable :: a_ex(:,:)  !< explicit RK matrix
-    real(RNP), allocatable :: b(:)       !< RK weights
-    real(RNP), allocatable :: c(:)       !< RK nodes
+    character(len=80)      :: name    = ' ' !< name of RK method
+    integer                :: n_stage = 0   !< number of stages
+    integer                :: order   = 0   !< order of convergence
+    real(RNP), allocatable :: a_im(:,:)     !< implicit RK matrix
+    real(RNP), allocatable :: a_ex(:,:)     !< explicit RK matrix
+    real(RNP), allocatable :: b(:)          !< RK weights
+    real(RNP), allocatable :: c(:)          !< RK nodes
   contains
     procedure :: Init_IMEX_RK_Method
     procedure :: Write => Write_IMEX_RK_Method
@@ -70,45 +70,45 @@ contains
 !-------------------------------------------------------------------------------
 !> New IMEX_RK_Method
 
-type(IMEX_RK_Method) function New_IMEX_RK_Method(s, m) result(this)
-  integer,           intent(in)    :: s  !< number of stages
-  integer, optional, intent(in)    :: m  !< RK scheme [1]
+type(IMEX_RK_Method) function New_IMEX_RK_Method(ns, method) result(this)
+  integer,           intent(in) :: ns     !< number of stages
+  integer, optional, intent(in) :: method !< RK method [1]
 
-  call Init_IMEX_RK_Method(this, s, m)
+  call Init_IMEX_RK_Method(this, ns, method)
 
 end function New_IMEX_RK_Method
 
 !-------------------------------------------------------------------------------
 !> Initialize IMEX Butcher tableau
 !>
-!> The optional argument `m` allows to select from different RK (this, s, scheme)
-!> with the same number of stages `s`.
+!> The optional argument `method` allows to select from different RK methods
+!> with the same number of stages `ns`.
 
-subroutine Init_IMEX_RK_Method(this, s, m)
+subroutine Init_IMEX_RK_Method(this, ns, method)
   class(IMEX_RK_Method), intent(inout) :: this
-  integer,               intent(in)    :: s  !< number of stages
-  integer,     optional, intent(in)    :: m  !< RK scheme [1]
+  integer,               intent(in)    :: ns     !< number of stages
+  integer,     optional, intent(in)    :: method !< RK scheme [1]
 
-  integer :: scheme
+  integer :: method_
 
-  if (present(m)) then
-    scheme = m
+  if (present(method)) then
+    method_ = method
   else
-    scheme = 1
+    method_ = 1
   end if
 
   ! set up components ..........................................................
 
-  this % s = min(8, max(2, s))
+  this % n_stage = min(8, max(2, ns))
 
-  allocate( this % a_im ( this%s, this%s ), source = ZERO )
-  allocate( this % a_ex ( this%s, this%s ), source = ZERO )
-  allocate( this % b    ( this%s )        , source = ZERO )
-  allocate( this % c    ( this%s )        , source = ZERO )
+  allocate( this % a_im ( this%n_stage, this%n_stage ), source = ZERO )
+  allocate( this % a_ex ( this%n_stage, this%n_stage ), source = ZERO )
+  allocate( this % b    ( this%n_stage )              , source = ZERO )
+  allocate( this % c    ( this%n_stage )              , source = ZERO )
 
   ! select method ..............................................................
 
-  select case(s)
+  select case(this % n_stage)
 
   case(2)
 
@@ -140,7 +140,7 @@ subroutine Init_IMEX_RK_Method(this, s, m)
 
   case(4)
 
-    select case(scheme)
+    select case(method_)
 
     case(1)
 
@@ -199,8 +199,8 @@ subroutine Init_IMEX_RK_Method(this, s, m)
       this % a_ex(4,3) = real( 1._RHP / 4._RHP, RNP )
 
     case default
-      call Error( 'Init_IMEX_RK_Method',             &
-                  'requested scheme not available', &
+      call Error( 'Init_IMEX_RK_Method',            &
+                  'requested method not available', &
                   'IMEX_Runge_Kutta_Method'         )
     end select
 
@@ -369,7 +369,7 @@ subroutine Init_IMEX_RK_Method(this, s, m)
 
   case default
 
-    call Error( 'Init_IMEX_RK_Method',                       &
+    call Error( 'Init_IMEX_RK_Method',                      &
                 'requested number of stages not supported', &
                 'IMEX_Runge_Kutta_Method'                   )
 
@@ -400,7 +400,7 @@ subroutine Write_IMEX_RK_Method(this, unit)
   character(len=*), parameter :: fmt_b =  '(13X,   " |",99F14.10)'
   integer :: i, io
 
-  if (this % s < 1) return
+  if (this % n_stage < 1) return
 
   if (present(unit)) then
     io = unit
@@ -410,21 +410,21 @@ subroutine Write_IMEX_RK_Method(this, unit)
 
   write(io,'(A,/)')   'IMEX Runge-Kutta method'
   write(io,'(2A,/)')  'name: ', trim(this % name)
-  write(io,'(A,I0)')  'stages = ', this % s
+  write(io,'(A,I0)')  'stages = ', this % n_stage
   write(io,'(A,I0)')  'order  = ', this % order
 
   write(io,'(/,A,/)') 'implicit part'
-  do i = 1, this%s
+  do i = 1, this%n_stage
     write(io,fmt_ca) this % c(i), this % a_im(i,1:i)
   end do
-  write(io,'(A)') repeat('-', 16 + 14*this%s)
+  write(io,'(A)') repeat('-', 16 + 14*this%n_stage)
   write(io,fmt_b) this % b
 
   write(io,'(/,A,/)') 'explicit part'
-  do i = 1, this%s
+  do i = 1, this%n_stage
     write(io,fmt_ca) this % c(i), this % a_ex(i,1:i-1)
   end do
-  write(io,'(A)') repeat('-', 16 + 14*this%s)
+  write(io,'(A)') repeat('-', 16 + 14*this%n_stage)
   write(io,fmt_b) this % b
   write(io,*)
 

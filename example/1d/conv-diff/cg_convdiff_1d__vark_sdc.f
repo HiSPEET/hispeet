@@ -22,6 +22,7 @@ module CG_ConvDiff_1D__VARK_SDC
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE, HALF
   use Gauss_Jacobi
+  use Lagrange_Interpolation
   use CG_ConvDiff_1D__Utils
   use CG_Element_Operators_1D
   use CG_Condensed_Solver_1D
@@ -56,7 +57,7 @@ module CG_ConvDiff_1D__VARK_SDC
 
   ! constructor
   interface VARK_Propagator1D
-    module procedure New_Propagator
+    module procedure New_Propagator1D
   end interface
 
   !-----------------------------------------------------------------------------
@@ -69,7 +70,7 @@ module CG_ConvDiff_1D__VARK_SDC
     integer :: po  = -1 !< polynomial order
     integer :: ne  = -1 !< number of elements
 
-    type(VARK_Propagator) :: vark !< VARK propagator
+    type(VARK_Propagator1D) :: vark !< VARK propagator
 
   contains
 
@@ -87,8 +88,8 @@ module CG_ConvDiff_1D__VARK_SDC
   !> Type bundling VARK-SDC options
 
   type, extends(SDC_Options) :: VARK_SDC_Options1D
-    integer,   intent(in) :: o_ps =  1 !< order of principal stages
-    real(RNP), intent(in) :: r_ex = -1 !< last coefficient of R_ex(z)
+    integer   :: so_p =  1 !< order of principal stages
+    real(RNP) :: r_ex = -1 !< last coefficient of R_ex(z)
   end type VARK_SDC_Options1D
 
 contains
@@ -99,31 +100,31 @@ contains
 !-------------------------------------------------------------------------------
 !> New 1D VARK propagator
 
-function New_Propagator(po, ne, t, set, range, o_ps, r_ex) result(this)
+function New_Propagator1D(po, ne, t, set, range, so_p, r_ex) result(this)
   integer,           intent(in) :: po       !< polynomial order
   integer,           intent(in) :: ne       !< number of elements
   real(RNP),         intent(in) :: t(0:)    !< SDC points
-  integer, optional, intent(in) :: set      !< point set: equidistant (1) GLL (2)
-  integer,           intent(in) :: range(2) !< point range, default: all
-  integer,           intent(in) :: o_ps     !< VARK stage order at SDC  points
+  integer,           intent(in) :: set      !< point set: equidistant (1) GLL (2)
+  integer, optional, intent(in) :: range(2) !< point range, default: all
+  integer,           intent(in) :: so_p     !< VARK stage order at SDC  points
   real(RNP),         intent(in) :: r_ex     !< last coefficient of R_ex(z)
   type(VARK_Propagator1D)       :: this
 
-  call Init_VARK_Propagator1D(this, po, ne, t, set, range, o_ps, r_ex)
+  call Init_VARK_Propagator1D(this, po, ne, t, set, range, so_p, r_ex)
 
-end function New_Propagator
+end function New_Propagator1D
 
 !-------------------------------------------------------------------------------
 !> Initialize 1D VARK propagator
 
-subroutine Init_VARK_Propagator1D(this, po, ne, t, set, range, o_ps, r_ex)
+subroutine Init_VARK_Propagator1D(this, po, ne, t, set, range, so_p, r_ex)
   class(VARK_Propagator1D), intent(inout) :: this
   integer,           intent(in) :: po       !< polynomial order
   integer,           intent(in) :: ne       !< number of elements
   real(RNP),         intent(in) :: t(0:)    !< SDC points
   integer,           intent(in) :: set      !< point set: equistant (1) GLL (2)
   integer, optional, intent(in) :: range(2) !< point range, default: all
-  integer,           intent(in) :: o_ps     !< VARK stage order at SDC  points
+  integer,           intent(in) :: so_p     !< VARK stage order at SDC  points
   real(RNP),         intent(in) :: r_ex     !< last coefficient of R_ex(z)
 
   real(RNP), allocatable :: x(:), w(:)
@@ -154,6 +155,11 @@ subroutine Init_VARK_Propagator1D(this, po, ne, t, set, range, o_ps, r_ex)
     j = n_sub
   end if
 
+  ! VARK method ................................................................
+
+  call this % Init_VARK_Method(t(i:j), so_p, r_ex)
+  call this % Write()
+
   ! workspace ..................................................................
 
   allocate(this % u(0:po, ne, this%n_stage))
@@ -166,10 +172,6 @@ subroutine Init_VARK_Propagator1D(this, po, ne, t, set, range, o_ps, r_ex)
   allocate(this % w(0:n_sub,  2:this%n_stage))
   allocate(this % S(0:po, ne, 2:this%n_stage))
 
-  ! VARK method ................................................................
-
-  call this % Init_VARK_Method(t(i:j), o_ps, r_ex)
-
   ! quadrature weights .........................................................
 
   ! GLL points and weights in [-1,1]
@@ -181,7 +183,7 @@ subroutine Init_VARK_Propagator1D(this, po, ne, t, set, range, o_ps, r_ex)
     w_ji = 0
     do k = 0, n_sub
       ! tk = k-th GLL point in [0,cᵢ] mapped to [0,1]
-      tk  = this % c(i) * HALF * (x(k) + 1)/2
+      tk  = this % c(i) * HALF * (x(k) + 1)
       ! yk = value of j-th Lagrange polynomial at tk
       select case(set)
       case(1) ! use equidistant Lagrange polynomial in [0,1]
@@ -192,7 +194,7 @@ subroutine Init_VARK_Propagator1D(this, po, ne, t, set, range, o_ps, r_ex)
       w_ji = w_ji + w(k) * yk
     end do
     ! weight of j-th SDC point in stage i scaled from [-1,1] to [0,cᵢ]
-    this % w(j,i) = this % c(i) * HALF * tmp
+    this % w(j,i) = this % c(i) * HALF * w_ji
   end do
   end do
 
@@ -201,7 +203,7 @@ end subroutine Init_VARK_Propagator1D
 !-------------------------------------------------------------------------------
 !> VARK propagator
 
-subroutine Propagator(vark, eop, dx, dt, M, wave, v, nu, bc, x, t0, u)
+subroutine Propagator(vark, eop, dx, dt, M, wave, v, nu, bc, x, t0)
   class(VARK_Propagator1D),     intent(inout) :: vark
   class(CG_ElementOperators1D), intent(in)    :: eop       !< element operators
   real(RNP),                    intent(in)    :: dx        !< element length
@@ -230,8 +232,8 @@ subroutine Propagator(vark, eop, dx, dt, M, wave, v, nu, bc, x, t0, u)
 
     ! stage 1 ..................................................................
 
-    call GetDiffusionTerm(eop, dx, wave, v, nu, bc, x, t0, u0, F_im(:,:,1))
-    call GetLinearConvectionTerm(eop, v, bc, u0, F_ex(:,:,1))
+    call GetDiffusionTerm(eop, dx, wave, v, nu, bc, x, t0, u(:,:,1), F_im(:,:,1))
+    call GetLinearConvectionTerm(eop, v, bc, u(:,:,1), F_ex(:,:,1))
 
     ! stages 2 to s-1 ..........................................................
 
@@ -244,7 +246,7 @@ subroutine Propagator(vark, eop, dx, dt, M, wave, v, nu, bc, x, t0, u)
         f = f + dt * a_im(i,j) * (F_im(:,:,j) - F_im_o(:,:,j))  &
               + dt * a_ex(i,j) * (F_ex(:,:,j) - F_ex_o(:,:,j))
       end do
-      f = f + S(:,:,i)
+      f = f - dt * a_im(i,i) * F_im_o(:,:,i) + S(:,:,i)
 
       if (nu > 0 .and. a_im(i,i) /= 0) then
         c = 1 / (dt * a_im(i,i))
@@ -266,9 +268,9 @@ subroutine Propagator(vark, eop, dx, dt, M, wave, v, nu, bc, x, t0, u)
     t = t0 + dt
 
     f = M * u(:,:,1)
-    do i = 1, ns-1
-      f = f + dt * a_im(ns,i) * (F_im(:,:,i) - F_im_o(:,:,i))  &
-            + dt * b_ex(   i) * (F_ex(:,:,i) - F_ex_o(:,:,i))
+    do j = 1, ns-1
+      f = f + dt * a_im(ns,j) * (F_im(:,:,j) - F_im_o(:,:,j))  &
+            + dt * b_ex(   j) * (F_ex(:,:,j) - F_ex_o(:,:,j))
     end do
     f = f - dt * a_im(ns,ns) * F_im_o(:,:,ns) + S(:,:,ns)
 
@@ -279,7 +281,7 @@ subroutine Propagator(vark, eop, dx, dt, M, wave, v, nu, bc, x, t0, u)
       call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u(:,:,ns), f)
       call CondensedEllipticSolver(eop, dx, c, nu, bc, f, u(:,:,ns))
     else
-      u = f / M
+      u(:,:,ns) = f / M
       call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u(:,:,ns))
     end if
 
@@ -317,7 +319,7 @@ subroutine Init_VARK_SDC(this, opt, po, ne)
   call this % Init_SDC_Method(opt)
 
   this % vark = VARK_Propagator1D( po, ne, this%t, this%set &
-                                 , o_ps = opt % o_ps        &
+                                 , so_p = opt % so_p        &
                                  , r_ex = opt % r_ex        )
 
 end subroutine Init_VARK_SDC
@@ -325,8 +327,8 @@ end subroutine Init_VARK_SDC
 !-------------------------------------------------------------------------------
 !> IMEX-Euler SDC method with CG-SEM for 1D convection-diffusion equation
 
-subroutine TimeStep(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
-  class(VARK_SDC_Method1D),     intent(in)    :: sdc      !< VARK SDC method
+subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
+  class(VARK_SDC_Method1D),     intent(inout) :: this     !< VARK SDC method
   class(CG_ElementOperators1D), intent(in)    :: eop      !< element operators
   real(RNP),                    intent(in)    :: dx       !< element length
   real(RNP),                    intent(in)    :: dt       !< time step size ∆t
@@ -344,20 +346,21 @@ subroutine TimeStep(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
 
   real(RNP), dimension(:,:,:), allocatable :: F
 
-  integer :: po, ne, n_mpt, n_sub, n_stg
-  integer :: i, k, s2
+  integer :: po, ne, n_sub
+  integer :: k, s1, s2
 
   ! initialization ...........................................................
 
   po = ubound(u, 1)
   ne = ubound(u, 2)
-  n_mpt = (po + 1) * ne
-  n_sub = sdc % n_sub
+  n_sub = this % n_sub
 
   allocate(F(0:po, 1:ne, 0:n_sub), source = ZERO)
-  call GetTimeDerivative(eop, dx, M, wave, v, nu, bc, x, t0, u0, F(:,:,0))
 
-  associate(vark => sdc % vark)
+  associate(vark => this % vark)
+
+    s1 = 1                    ! 1-st principal stage
+    s2 = 2 + vark % helpers   ! 2-nd principal stage (skipping helpers)
 
     ! predictor ................................................................
 
@@ -370,13 +373,13 @@ subroutine TimeStep(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
 
     ! corrector sweeps .........................................................
 
-    do k = 1, sdc % n_sweep
+    do k = 1, this % n_sweep
 
       vark % F_im_o = vark % F_im
       vark % F_ex_o = vark % F_ex
 
-      ! time derivative at SDC points 1:n_sub
-      s2 = 2 + vark % helpers ! offset due to VARK numbering and helper stages
+      ! time derivative at SDC points
+      F(:,:,0 ) = vark % F_im(:,:,s1 ) + vark % F_ex(:,:,s1 )
       F(:,:,1:) = vark % F_im(:,:,s2:) + vark % F_ex(:,:,s2:)
 
       ! integrals of time derivative over subintervals [0,tᵢ]
@@ -403,11 +406,10 @@ subroutine GetSubintegrals(dt, w, F, S)
   real(RNP), intent(in)  :: F(:,:,:)  !< time derivatives
   real(RNP), intent(out) :: S(:,:,:)  !< subinterval integrals
 
-  integer :: nm, ni, ns
+  integer :: nm, ni
 
   nm = size(F,1) * size(F,2)
   ni = size(F,3) ! = size(w,1)
-  ns = size(S,3) ! = size(w,2)
 
   S = reshape(matmul(reshape(F,[nm,ni]), dt*w), shape(S))
 

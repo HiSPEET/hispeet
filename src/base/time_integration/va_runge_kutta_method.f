@@ -74,66 +74,66 @@ contains
 !-------------------------------------------------------------------------------
 !> VARK_Method constructor
 
-type(VARK_Method) function New_VARK_Method(t, o_ps, r_ex) result(this)
+type(VARK_Method) function New_VARK_Method(t, so_p, r_ex) result(this)
   real(RNP),           intent(in) :: t(:) !< principal nodes
-  integer,             intent(in) :: o_ps !< order of principal stages
+  integer,             intent(in) :: so_p !< order of principal stages
   real(RNP), optional, intent(in) :: r_ex !< last coefficient of R_ex(z)
 
-  call Init_VARK_Method(this, t, o_ps, r_ex)
+  call Init_VARK_Method(this, t, so_p, r_ex)
 
 end function New_VARK_Method
 
 !-------------------------------------------------------------------------------
 !> Initialization of VARK_Method
 
-subroutine Init_VARK_Method(this, t, o_ps, r_ex)
+subroutine Init_VARK_Method(this, t, so_p, r_ex)
   class(VARK_Method),  intent(inout) :: this
   real(RNP),           intent(in)    :: t(:) !< principal nodes
-  integer,             intent(in)    :: o_ps !< order of principal stages
+  integer,             intent(in)    :: so_p !< order of principal stages
   real(RNP), optional, intent(in)    :: r_ex !< last coefficient of R_ex(z)
 
-  integer :: n_ps, n_hs, n_ex, n_im
+  integer :: ns_p, ns_h, ns_e, ns_i
 
-  n_ps = size(t)          ! number of principal stages
-  n_hs = max(o_ps - 1, 0) ! number of helper    stages
-  n_im = n_ps + n_hs      ! number of implicit  stages
-  n_ex = n_im - 1         ! number of explicit  stages
+  ns_p = size(t)          ! number of principal stages
+  ns_h = max(so_p - 1, 0) ! number of helper    stages
+  ns_i = ns_p + ns_h      ! number of implicit  stages
+  ns_e = ns_i - 1         ! number of explicit  stages
 
-  this % n_stage = n_im
-  this % helpers = n_hs
+  this % n_stage = ns_i
+  this % helpers = ns_h
 
   if (allocated(this % a_im)) deallocate( this % a_im )
   if (allocated(this % a_ex)) deallocate( this % a_ex )
   if (allocated(this % b_ex)) deallocate( this % b_ex )
   if (allocated(this % c   )) deallocate( this % c    )
 
-  allocate(this % a_im (n_im, n_im) )
-  allocate(this % a_ex (n_ex, n_ex) )
-  allocate(this % b_ex (n_ex)       )
-  allocate(this % c    (n_im)       )
+  allocate(this % a_im (ns_i, ns_i) )
+  allocate(this % a_ex (ns_e, ns_e) )
+  allocate(this % b_ex (ns_e)       )
+  allocate(this % c    (ns_i)       )
 
-  select case(n_ps)
+  select case(ns_p)
   case(2)
       this % name  = 'EDIRK_211 + ERK_111 (IMEX Euler)'
       this % order = 1
       this % so    = [ 1, 1 ]
       call EDIRK_211  (t, this % a_im, this % c)
-      call ERK_111    (t, this % a_ex, this % b_ex, this % c(1:n_ex))
+      call ERK_111    (t, this % a_ex, this % b_ex, this % c(1:ns_e))
   case(4)
-    select case(o_ps)
+    select case(so_p)
     case(1)
       this % name  = 'EDIRK_422 + ERK_321'
       this % order = 2
       this % so    = [ 2, 1, 2, 2 ]
       call EDIRK_422  (t, this % a_im, this % c)
-      call ERK_321    (t, this % a_ex, this % b_ex, this % c(1:n_ex), r3 = r_ex)
+      call ERK_321    (t, this % a_ex, this % b_ex, this % c(1:ns_e), r3 = r_ex)
     case(2)
       this % name  = 'EDIRK_522 + ERK_432'
       this % order = 2
       this % so    = [ 2, 1, 2, 2, 2 ]
      !call EDIRK_522e (t, this % a_im, this % c)  ! explicit helper
       call EDIRK_522i (t, this % a_im, this % c)  ! implicit helper
-      call ERK_432    (t, this % a_ex, this % b_ex, this % c(1:n_ex), r4 = r_ex)
+      call ERK_432    (t, this % a_ex, this % b_ex, this % c(1:ns_e), r4 = r_ex)
     end select
   case default
     call Error('Init_VARK_Method', 'no matching method', 'VA_Runge_Kutta_Method')

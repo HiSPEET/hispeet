@@ -86,6 +86,7 @@ program CG_ConvDiff_1D
   use CG_ConvDiff_1D__IMEX_RK
   use CG_ConvDiff_1D__IMEX_Euler_SDC
   use CG_ConvDiff_1D__VARK
+  use CG_ConvDiff_1D__VARK_SDC
 
   implicit none
 
@@ -95,9 +96,9 @@ program CG_ConvDiff_1D
   ! problem ....................................................................
 
   ! case identifier: first argument or, if absent, name of inving command
-  character(len=80) :: conv_diff_case
-  character(len=84) :: input_file   ! = trim(conv_diff_case) // '.prm'
-  character(len=84) :: result_file  ! = trim(conv_diff_case) // '.dat'
+  character(len=200) :: conv_diff_case
+  character(len=204) :: input_file   ! = trim(conv_diff_case) // '.prm'
+  character(len=204) :: result_file  ! = trim(conv_diff_case) // '.dat'
 
 
   ! problem parameters
@@ -132,23 +133,28 @@ program CG_ConvDiff_1D
   ! 3   IMEX BDF3
   ! 4   IMEX Runge-Kutta
   ! 5   variable additive Runge-Kutta (VARK)
-  ! 6   IMEX SDC based on Euler
+  ! 6   SDC based on IMEX Euler
+  ! 7   SDC based on VARK
   logical :: flying_start = .false. ! use exact solution for t < 0
 
   namelist /discretization_parameters/ cfl, dt, nt, method, flying_start
 
-  type(SDC_Options) :: sdc_opt ! SDC options
-  namelist /sdc_parameters/ sdc_opt
 
   ! operators ..................................................................
 
-  type(CG_ElementOperators1D) :: eop     ! element operators
-  real(RNP), allocatable      :: M(:,:)  ! global mass matrix
+  type(CG_ElementOperators1D) :: eop          ! element operators
 
-  type(IMEX_RK_Method1D)      :: imex_rk ! IMEX Runge-Kutta method
-  type(VARK_Method1D)         :: vark    ! variable additive Runge-Kutta method
+  type(IMEX_RK_Method1D)      :: imex_rk      ! IMEX Runge-Kutta method
 
-  type(SDC_Method)            :: sdc     ! SDC method
+  type(SDC_Method)            :: sdc          ! Euler SDC method
+  type(SDC_Options)           :: sdc_opt      ! Euler SDC options
+  namelist /sdc_parameters/      sdc_opt
+
+
+  type(VARK_Method1D)         :: vark         ! VARK method
+  type(VARK_SDC_Method1D)     :: vark_sdc     ! VARK-SDC method
+
+  real(RNP), allocatable      :: M(:,:)       ! global mass matrix
 
   ! variables ..................................................................
 
@@ -197,8 +203,9 @@ program CG_ConvDiff_1D
     case(5)
       call Init_VARK(vark, po, ne, io)
     case(6)
-      read(io, nml=sdc_parameters)
-      sdc = SDC_Method(sdc_opt)
+      call Init_Euler_SDC(sdc, io)
+    case(7)
+      call Init_VARK_SDC(vark_sdc, po, ne, io)
     end select
     rewind(io)
     call wave % New(input_file)
@@ -277,6 +284,9 @@ program CG_ConvDiff_1D
 
       case(6)
         call IMEX_Euler_SDC(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t, u0, u)
+
+      case(7)
+        call vark_sdc % TimeStep(eop, dx, dt, M, wave, v, nu, bc, x, t, u0, u)
 
       end select
 
@@ -358,9 +368,6 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Initialization of the IMEX Runge-Kutta method
-  !>
-  !> The IMEX_RK parameters are read from namelist `imex_runge_kutta` provided
-  !> in the input file connected to unit `io`.
 
   subroutine Init_IMEX_RK(imex_rk, po, ne, io)
     type(IMEX_RK_Method1D), intent(inout) :: imex_rk !< IMEX RK method
@@ -368,14 +375,14 @@ contains
     integer, intent(in) :: ne !< number of elements
     integer, intent(in) :: io !< unit number of input file
 
-    integer :: s = 3 ! number of stages
-    integer :: m = 1 ! RK scheme
-    logical :: show = .false. ! print IMEX RK properties and coefficients
+    integer :: ns     = 3 ! number of stages
+    integer :: method = 1 ! RK method, if several with `ns`stages exist
+    logical :: show   = .false. ! print IMEX RK properties and coefficients
 
-    namelist /imex_runge_kutta/ s, m, show
+    namelist /imex_rk_parameters/ ns, method, show
 
-    read(io, nml=imex_runge_kutta)
-    imex_rk = IMEX_RK_Method1D(po, ne, s, m)
+    read(io, nml=imex_rk_parameters)
+    imex_rk = IMEX_RK_Method1D(po, ne, ns, method)
 
     if (show) then
       call imex_rk % Write()
@@ -385,9 +392,6 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Initialization of the VA Runge-Kutta method
-  !>
-  !> The VARK parameters are read from namelist `va_runge_kutta` provided in the
-  !> input file connected to unit `io`.
 
   subroutine Init_VARK(vark, po, ne, io)
     type(VARK_Method1D), intent(inout) :: vark !< VARK method
@@ -396,26 +400,81 @@ contains
     integer, intent(in) :: io !< unit number of input file
 
     integer   :: set  =  1 ! equidistant (1) or GLL (2) points
-    integer   :: n_ps =  4 ! number of principal stages, n_ps ∈ {2,4}
-    integer   :: o_ps =  1 ! order of principal stages,  o_ps ∈ {1,2}
+    integer   :: ns_p =  4 ! number of principal stages, ns_p ∈ {2,4}
+    integer   :: so_p =  1 ! order of principal stages,  so_p ∈ {1,2}
     real(RNP) :: r    = -1 ! last coefficient of R_ex(z)
     logical   :: show = .false. ! print VARK properties and coefficients
 
-    namelist /va_runge_kutta/ set, n_ps, o_ps, r, show
+    namelist /vark_parameters/ set, ns_p, so_p, r, show
 
-    read(io, nml=va_runge_kutta)
+    read(io, nml=vark_parameters)
 
-    if (r > 0) then
-      vark = VARK_Method1D(po, ne, set, n_ps, o_ps, r)
-    else ! r not set
-      vark = VARK_Method1D(po, ne, set, n_ps, o_ps)
-    end if
+    vark = VARK_Method1D(po, ne, set, ns_p, so_p, r)
 
     if (show) then
       call vark % Write()
     end if
 
   end subroutine Init_VARK
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of the Euler-SDC method
+
+  subroutine Init_Euler_SDC(sdc, io)
+    type(SDC_Method), intent(inout) :: sdc !< SDC method
+    integer, intent(in) :: io !< unit number of input file
+
+    integer   :: n_sub   =  1      ! number of subintervals (M)
+    integer   :: n_sweep =  0      ! max num correction sweeps (K)
+    integer   :: set     =  1      ! equidistant (1) or GLL (2) points
+    namelist /euler_sdc_parameters/ n_sub, n_sweep, set
+
+    type(SDC_Options) :: opt ! VARK-SDC options
+
+    read(io, nml=euler_sdc_parameters)
+
+    opt = SDC_Options( n_sub   = n_sub,   &
+                       n_sweep = n_sweep, &
+                       set     = set      )
+
+    sdc = SDC_Method(opt)
+
+  end subroutine Init_Euler_SDC
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of the VARK-SDC method
+
+  subroutine Init_VARK_SDC(sdc, po, ne, io)
+    type(VARK_SDC_Method1D), intent(inout) :: sdc !< VARK-SDC method
+    integer, intent(in) :: po !< polynomial order
+    integer, intent(in) :: ne !< number of elements
+    integer, intent(in) :: io !< unit number of input file
+
+    integer   :: n_sub   =  1      ! number of subintervals (M)
+    integer   :: n_sweep =  0      ! max num correction sweeps (K)
+    integer   :: set     =  1      ! equidistant (1) or GLL (2) points
+    integer   :: so_p    =  1      ! order of principal stages,  so_p ∈ {1,2}
+    real(RNP) :: r       = -1      ! last coefficient of R_ex(z)
+    logical   :: show    = .false. ! print VARK properties and coefficients
+    namelist /vark_sdc_parameters/ n_sub, n_sweep, set, so_p, r, show
+
+    type(VARK_SDC_Options1D) :: opt ! VARK-SDC options
+
+    read(io, nml=vark_sdc_parameters)
+
+    opt = VARK_SDC_Options1D( n_sub   = n_sub,   &
+                              n_sweep = n_sweep, &
+                              set     = set,     &
+                              so_p    = so_p,    &
+                              r_ex    = r        )
+
+    sdc = VARK_SDC_Method1D(opt, po, ne)
+
+    if (show) then
+      call sdc % vark % Write()
+    end if
+
+  end subroutine Init_VARK_SDC
 
 !==============================================================================
 

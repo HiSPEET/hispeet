@@ -18,11 +18,11 @@
 !>
 !>     type(IMEX_RK_Method1D) :: imex_rk
 !>
-!>     imex_rk = IMEX_RK_Method1D(s, m, po, ne)
-!>     ! s  :  number of stages
-!>     ! m  :  method (optional)
-!>     ! po :  polynomial order and
-!>     ! ne :  number of elements
+!>     imex_rk = IMEX_RK_Method1D(ns, method, po, ne)
+!>     ! ns     :  number of stages
+!>     ! method :  method, if several with ns stages exist (optional)
+!>     ! po     :  polynomial order and
+!>     ! ne     :  number of elements
 !>
 !>     call imex_rk % TimeStep(eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
 !>     ! for description of arguments see below
@@ -62,32 +62,34 @@ contains
 !-------------------------------------------------------------------------------
 !> Constructor
 
-type(IMEX_RK_Method1D) function New_ConvDiff_IMEX_RK(po, ne, s, m) result(this)
-  integer,           intent(in) :: po  !< polynomial order
-  integer,           intent(in) :: ne  !< number of elements
-  integer,           intent(in) :: s   !< number of stages
-  integer, optional, intent(in) :: m   !< RK scheme [1]
+type(IMEX_RK_Method1D) function New_ConvDiff_IMEX_RK(po, ne, ns, method) &
+    result(this)
 
-  call Init_ConvDiff_IMEX_RK(this, po, ne, s, m)
+  integer,           intent(in) :: po     !< polynomial order
+  integer,           intent(in) :: ne     !< number of elements
+  integer,           intent(in) :: ns     !< number of stages
+  integer, optional, intent(in) :: method !< RK scheme [1]
+
+  call Init_ConvDiff_IMEX_RK(this, po, ne, ns, method)
 
 end function New_ConvDiff_IMEX_RK
 
 !-------------------------------------------------------------------------------
 !> Init IMEX RK method for 1D CG-SE convection diffusion solver
 
-subroutine Init_ConvDiff_IMEX_RK(this, po, ne, s, m)
+subroutine Init_ConvDiff_IMEX_RK(this, po, ne, ns, method)
   class(IMEX_RK_Method1D), intent(inout) :: this
-  integer,                 intent(in)    :: po  !< polynomial order
-  integer,                 intent(in)    :: ne  !< number of elements
-  integer,                 intent(in)    :: s   !< number of stages
-  integer,       optional, intent(in)    :: m   !< RK scheme [1]
+  integer,                 intent(in)    :: po     !< polynomial order
+  integer,                 intent(in)    :: ne     !< number of elements
+  integer,                 intent(in)    :: ns     !< number of stages
+  integer,       optional, intent(in)    :: method !< RK method [1]
 
-  call this % Init_IMEX_RK_Method(s, m)
+  call this % Init_IMEX_RK_Method(ns, method)
 
   if (allocated(this % F_im)) deallocate(this % F_im)
   if (allocated(this % F_ex)) deallocate(this % F_ex)
 
-  allocate(this % F_ex(0:po, ne, s))
+  allocate(this % F_ex(0:po, ne, ns))
   allocate(this % F_im, mold = this%F_ex)
 
 end subroutine Init_ConvDiff_IMEX_RK
@@ -119,9 +121,9 @@ subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
 
   allocate(f, mold = u)
 
-  associate( s    => this % s    , b    => this % b     &
-           , a_im => this % a_im , a_ex => this % a_ex  &
-           , F_im => this % F_im , F_ex => this % F_ex  )
+  associate( ns   => this % n_stage , b    => this % b     &
+           , a_im => this % a_im    , a_ex => this % a_ex  &
+           , F_im => this % F_im    , F_ex => this % F_ex  )
 
     ! stage 1 ..................................................................
 
@@ -130,13 +132,13 @@ subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
       call GetLinearConvectionTerm(eop, v, bc, u0, F_ex(:,:,1))
     else
       ! assume FSAL scheme
-      F_im(:,:,1) = F_im(:,:,s)
-      F_ex(:,:,1) = F_ex(:,:,s)
+      F_im(:,:,1) = F_im(:,:,ns)
+      F_ex(:,:,1) = F_ex(:,:,ns)
     end if
 
-    ! stages 2 to s ............................................................
+    ! stages 2 to ns ...........................................................
 
-    do i = 2, s
+    do i = 2, ns
 
       t = t0 + this%c(i) * dt
       c = 1 / (dt * a_im(i,i))
@@ -166,7 +168,7 @@ subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
     ! result ...................................................................
 
     f = 0
-    do i = 1, s
+    do i = 1, ns
       f = f + b(i) * (F_im(:,:,i) + F_ex(:,:,i))
     end do
 
