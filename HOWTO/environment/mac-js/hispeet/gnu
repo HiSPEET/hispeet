@@ -1,0 +1,71 @@
+#%Module1.0#####################################################################
+##
+## module gnu
+##
+## ~/privatemodules/gnu  Joerg Stiller
+##
+proc ModulesHelp { } {
+        global version modroot
+
+        puts stderr "gnu - sets the environment for gcc/gfortran and open-mpi"
+}
+
+module-whatis   "Sets the environment for gcc/gfortran and open-mpi"
+
+# Open MPI .....................................................................
+
+set             MPIHOME                 /opt/openmpi/GNU-8
+prepend-path    PATH                    $MPIHOME/bin
+prepend-path    MANPATH                 $MPIHOME/share/man
+prepend-path    LD_LIBRARY_PATH         $MPIHOME/lib
+prepend-path    DYLD_LIBRARY_PATH       $MPIHOME/lib
+
+# allow oversubscription
+setenv          OMPI_MCA_rmaps_base_oversubscribe  1
+
+# Compiler .....................................................................
+
+setenv          CC                      $MPIHOME/bin/mpicc
+setenv          CXX                     $MPIHOME/bin/mpicxx
+setenv          FC                      $MPIHOME/bin/mpifort
+
+# Settings for CMake ...........................................................
+
+setenv          CMAKE_C_COMPILER        $MPIHOME/bin/mpicc
+setenv          CMAKE_CXX_COMPILER      $MPIHOME/bin/mpicxx
+setenv          CMAKE_Fortran_COMPILER  $MPIHOME/bin/mpifort
+
+setenv          PFUNIT                  /opt/pfunit/GNU-8
+setenv          PARMETIS                /opt/metis/GNU-8
+setenv          EXODUS                  /opt/exodus/GNU-8
+
+# Settings for Make ............................................................
+
+prepend-path    LD_LIBRARY_PATH         /opt/local/lib
+
+# BLAS and LAPACK
+setenv          LAPACK_DIR              /opt/local/lib/lapack
+setenv          LAPACK_LIB              "lapack blas"
+
+# VTK
+setenv          VTK_LIB                 vtkIOXML-8.1
+setenv          VTK_INC                 /opt/local/include/vtk-8.1
+setenv          VTK_DIR                 /opt/local/lib
+
+# METIS+ParMETIS
+setenv          METIS_LIB               "parmetis metis"
+setenv          METIS_INC               /opt/metis/GNU-8/include
+setenv          METIS_DIR               /opt/metis/GNU-8/lib
+prepend-path    LD_LIBRARY_PATH         /opt/metis/GNU-8/lib
+
+## EXODUS
+setenv          EXODUS_LIB              "exodus netcdf"
+setenv          EXODUS_INC              /opt/exodus/GNU-8/include
+setenv          EXODUS_DIR              /opt/exodus/GNU-8/lib
+prepend-path    LD_LIBRARY_PATH         /opt/exodus/GNU-8/lib
+prepend-path    DYLD_LIBRARY_PATH       /opt/exodus/GNU-8/lib
+
+# FFTW
+setenv          FFTW_LIB                fftw3
+setenv          FFTW_INC                /opt/local/include
+setenv          FFTW_DIR                /opt/local/lib
