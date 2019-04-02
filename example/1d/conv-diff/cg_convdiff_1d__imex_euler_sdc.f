@@ -106,7 +106,7 @@ subroutine IMEX_Euler_SDC(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
     end do
 
     ! subinterval integrals: Sᵏ⁻¹(tᵢ) = F · wᵢ
-    call GetSubintegrals((po+1)*ne, ns, F, sdc%ws, dts, S)
+    call GetSubintegrals(dt, sdc%ws, F, S)
 
     ! correction
     do i = 1, ns
@@ -128,26 +128,23 @@ subroutine IMEX_Euler_SDC(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
 end subroutine IMEX_Euler_SDC
 
 !-------------------------------------------------------------------------------
-!>
+!> Computes the integrals of the time derivative F over subintervals [tᵢ₋₁,tᵢ]
 
-subroutine GetSubintegrals(nm, ns, F, ws, dts, S)
-  integer,   intent(in)  :: nm          !< number of meshpoints, (po+1)*ne
-  integer,   intent(in)  :: ns          !< number of subintervals
-  real(RNP), intent(in)  :: F(nm,0:ns)  !< time derivatives
-  real(RNP), intent(in)  :: ws(0:ns,ns) !< weights
-  real(RNP), intent(in)  :: dts(ns)     !< subinterval lengths
-  real(RNP), intent(out) :: S(nm,ns)    !< subinterval integrals
+subroutine GetSubintegrals(dt, ws, F, S)
+  real(RNP), intent(in)  :: dt        !< time step width
+  real(RNP), intent(in)  :: ws(:,:)   !< weights
+  real(RNP), intent(in)  :: F(:,:,:)  !< time derivatives
+  real(RNP), intent(out) :: S(:,:,:)  !< subinterval integrals
 
-  real(RNP) :: a(0:ns,ns)
-  integer   :: i
+  integer :: nm, ni
 
-  do i = 1, ns
-    a(:,i) = ws(:,i) * dts(i)
-  end do
+  nm = size(F,1) * size(F,2)
+  ni = size(F,3) ! = size(w,1)
 
-  S = matmul(F, a)
+  S = reshape(matmul(reshape(F,[nm,ni]), dt*ws), shape(S))
 
 end subroutine GetSubintegrals
+
 
 !-------------------------------------------------------------------------------
 !> IMEX-Euler SDC propagator with CG-SEM for 1D convection-diffusion equation

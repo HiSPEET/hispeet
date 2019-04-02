@@ -81,7 +81,7 @@ subroutine Init_SDC(this, opt)
   ! local variables ............................................................
 
   real(RNP), allocatable :: x(:), w(:)
-  real(RNP) :: tk, yk, tmp
+  real(RNP) :: delta, tk, yk, ws_ji
   integer   :: i, j, k, n_sub
 
   ! initialization .............................................................
@@ -118,25 +118,36 @@ subroutine Init_SDC(this, opt)
 
   ! quadrature weights in [tᵢ₋₁,tᵢ] ............................................
 
+  ! The weights are obtained as follows
+  ! 1) map the GLL points x(0:n_sub) to [tᵢ₋₁,tᵢ]
+  ! 2) evaluate the Lagrange polynomials defined in [0,1] in these points
+  ! 3) obtain the weight of the j-th Langrange polynomial by
+  !    3.1) computing the sum of  of GLL weights scaled with the values of
+  !         the polynomial determined in step 2
+  !    3.2) scale the result to match the interval [tᵢ₋₁,tᵢ]
+
   associate(t => this % t )
 
     do i = 1, n_sub
-    do j = 0, n_sub
-      tmp = 0
-      do k = 0, n_sub
-        ! tk = k-th GLL point in [tᵢ₋₁,tᵢ] mapped to [0,1]
-        tk  = t(i-1) + (t(i) - t(i-1)) * HALF * (x(k) + 1)
-        ! yk = value of j-th Lagrange polynomial at tk
-        select case(this % set)
-        case(1) ! use equidistant Lagrange polynomial in [0,1]
-          yk = LagrangePolynomial(j, t, tk)
-        case default ! use GLL Lagrange polynomial in [-1,1]
-          yk = GLL_Polynomial(j, x, 2*tk-1)
-        end select
-        tmp = tmp + w(k) * yk
+      delta = (t(i) - t(i-1)) * HALF
+      do j = 0, n_sub
+        ws_ji = 0
+        do k = 0, n_sub
+          ! tk = k-th GLL point in [tᵢ₋₁,tᵢ]
+          tk  = t(i-1) + delta * (x(k) + 1)
+          ! yk = value of j-th Lagrange polynomial at tk
+          select case(this % set)
+          case(1) ! use equidistant Lagrange polynomial in [0,1]
+            yk = LagrangePolynomial(j, t, tk)
+          case default ! use GLL Lagrange polynomial in [-1,1]
+            yk = GLL_Polynomial(j, x, 2*tk-1)
+          end select
+          ! add contribution of k-th GLL point
+          ws_ji = ws_ji + w(k) * yk
+        end do
+        ! scale the weight to match the length of interval [tᵢ₋₁,tᵢ]
+        this % ws(j,i) = delta * ws_ji
       end do
-      this % ws(j,i) = HALF * tmp
-    end do
     end do
 
   end associate
