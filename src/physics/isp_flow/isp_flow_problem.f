@@ -53,6 +53,7 @@ module ISP_Flow_Problem
     procedure :: GetExactSolution
     procedure :: GetExactTimeDerivative
     procedure :: GetVariableNames
+    procedure :: GetDiffusivity
 
     procedure(SetProblem),                deferred :: SetProblem
     procedure(GetInitialValues),          deferred :: GetInitialValues
@@ -206,6 +207,24 @@ subroutine GetVariableNames(problem, names)
   end do
 
 end subroutine GetVariableNames
+
+!-------------------------------------------------------------------------------
+!> Dummy procedure for variable diffusivity
+
+subroutine GetDiffusivity(problem, x, t, u, nu)
+  class(FlowProblem), intent(in)  :: problem
+  real(RNP),          intent(in)  :: x (:,:,:,:,:) !< mesh points
+  real(RNP),          intent(in)  :: t             !< time
+  real(RNP),          intent(in)  :: u (:,:,:,:,:) !< flow variables
+  real(RNP),          intent(out) :: nu(:,:,:,:,:) !< diffusivities
+
+  integer :: i
+
+  do i = 1, problem % nc
+    call SetArray(nu(:,:,:,:,i), problem % nu_ref(i))
+  end do
+
+end subroutine GetDiffusivity
 
 !===============================================================================
 
