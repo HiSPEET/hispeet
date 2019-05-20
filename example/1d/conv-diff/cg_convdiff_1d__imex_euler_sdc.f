@@ -9,11 +9,11 @@
 !>
 !> Advances the solution of the semi-discrete 1D convection-diffusion equation
 !>
-!>     ∂u/∂t = -v ∂u/∂v + nu ∂²u/∂u² ≡ C(u) + D(u)
+!>     ∂u/∂t = -v ∂u/∂v + nu ∂²u/∂u² ≡ -C(u) + D(u)
 !>
 !> according to the implicit-explicit Euler method
 !>
-!>     u = u₀ + ∆t C(u₀) - ∆t D(u)
+!>     u = u₀ - ∆t C(u₀) + ∆t D(u)
 !>
 !> where
 !>
@@ -180,7 +180,7 @@ subroutine Propagator(eop, dx, M, wave, v, nu, bc, x, t0, dt, u0, u, H, S)
   t = t0 + dt
   c = 1 / dt
 
-  ! w = M ũ/∆tᵢ = M (uᵏ(tᵢ₋₁) + Hᵏ⁻¹ + Sᵏ⁻¹)/∆tᵢ + C uᵏ(tᵢ₋₁)  .................
+  ! w = M ũ/∆tᵢ = M (uᵏ(tᵢ₋₁) + Hᵏ⁻¹ + Sᵏ⁻¹)/∆tᵢ - C uᵏ(tᵢ₋₁)  .................
 
   ! w = -C uᵏ(tᵢ₋₁)
   if (abs(v) > 0) then
@@ -190,9 +190,9 @@ subroutine Propagator(eop, dx, M, wave, v, nu, bc, x, t0, dt, u0, u, H, S)
   end if
 
   ! w += M (uᵏ(tᵢ₋₁) + Hᵏ⁻¹ + Sᵏ⁻¹)/∆tᵢ
-  if (present(S)) then
+  if (present(S)) then ! corrector
     w = w + c * M * (u0 - H + S)
-  else
+  else ! predictor
     w = w + c * M * u0
   end if
 
