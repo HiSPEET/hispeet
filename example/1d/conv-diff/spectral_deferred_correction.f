@@ -122,7 +122,7 @@ subroutine Init_SDC(this, opt)
   ! 1) map the GLL points x(0:n_sub) to [tᵢ₋₁,tᵢ]
   ! 2) evaluate the Lagrange polynomials defined in [0,1] in these points
   ! 3) obtain the weight of the j-th Langrange polynomial by
-  !    3.1) computing the sum of  of GLL weights scaled with the values of
+  !    3.1) computing the sum of GLL weights scaled with the values of
   !         the polynomial determined in step 2
   !    3.2) scale the result to match the interval [tᵢ₋₁,tᵢ]
 
