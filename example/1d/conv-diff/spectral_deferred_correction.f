@@ -22,6 +22,34 @@ module Spectral_Deferred_Correction
 
   !-----------------------------------------------------------------------------
   !> Spectral deferred correction parameters and procedures
+  !>
+  !> This type defines a subdivision of the reference interval `[0,1]` into M
+  !> subintervals `[τᵢ₋₁,τᵢ]`. Two choices exist for the  point set `{τᵢ}`:
+  !>
+  !>     1) the equidistant partition of `[0,1]`, or
+  !>     2) the Gauss-Legendre-Lobatto (GLL) points mapped to `[0,1]`.
+  !>
+  !> Within the type, `t(i) = τᵢ` represents the i-th point, `w(i) = wᵢ` the
+  !> corresponding quadrature weight and `n_sub = M` the number of subintervals.
+  !> The integral of a function f over the reference interval is approximated by
+  !>
+  !>     \[
+  !>       \int_{0}^{1} f d\tau \approx \sum_{i=0}^{M} w_i f(\tau_i)
+  !>     \]
+  !>
+  !> The quadrature will be exact for polynomials of degree `M` with equidistant
+  !> points and degree `2M-1` with GLL points.
+  !>
+  !> Similarly, integrals over the subintervals `[τᵢ₋₁,τᵢ]` can be evaluated by
+  !>
+  !>     \[
+  !>       \int_{\tau_{i-1}}^{\tau_i} f d\tau \approx
+  !>                                          \sum_{j=0}^{M} w^s_{j,i} f(\tau_i)
+  !>     \]
+  !>
+  !> where weights $$ w^s_{j,i} $$, denoted `ws(j,i)` in Fortran, are obtained
+  !> by application of the GLL quadrature with `M+1` points to the Lagrange
+  !> interpolant constructed from `f(τᵢ)`.
 
   type SDC_Method
 
@@ -29,9 +57,9 @@ module Spectral_Deferred_Correction
     integer :: n_sweep = -1  !< max num correction sweeps (K)
     integer :: set     = -1  !< equidistant (1) or GLL (2) points
 
-    real(RNP), allocatable :: t(:)    !< nodes tᵢ in [0,1]
+    real(RNP), allocatable :: t(:)    !< nodes τᵢ in [0,1]
     real(RNP), allocatable :: w(:)    !< quadrature weights for [0, 1]
-    real(RNP), allocatable :: ws(:,:) !< quadrature weights for [tᵢ₋₁,tᵢ]
+    real(RNP), allocatable :: ws(:,:) !< quadrature weights for [τᵢ₋₁,τᵢ]
 
   contains
 
@@ -116,15 +144,7 @@ subroutine Init_SDC(this, opt)
     this % w(0:n_sub) = HALF * w
   end select
 
-  ! quadrature weights in [tᵢ₋₁,tᵢ] ............................................
-
-  ! The weights are obtained as follows
-  ! 1) map the GLL points x(0:n_sub) to [tᵢ₋₁,tᵢ]
-  ! 2) evaluate the Lagrange polynomials defined in [0,1] in these points
-  ! 3) obtain the weight of the j-th Langrange polynomial by
-  !    3.1) computing the sum of GLL weights scaled with the values of
-  !         the polynomial determined in step 2
-  !    3.2) scale the result to match the interval [tᵢ₋₁,tᵢ]
+  ! quadrature weights in [τᵢ₋₁,τᵢ] ............................................
 
   associate(t => this % t )
 
@@ -133,7 +153,7 @@ subroutine Init_SDC(this, opt)
       do j = 0, n_sub
         ws_ji = 0
         do k = 0, n_sub
-          ! tk = k-th GLL point in [tᵢ₋₁,tᵢ]
+          ! tk = τ(x(k)) = k-th GLL point mapped to [τᵢ₋₁,τᵢ]
           tk  = t(i-1) + delta * (x(k) + 1)
           ! yk = value of j-th Lagrange polynomial at tk
           select case(this % set)
@@ -145,7 +165,7 @@ subroutine Init_SDC(this, opt)
           ! add contribution of k-th GLL point
           ws_ji = ws_ji + w(k) * yk
         end do
-        ! scale the weight to match the length of interval [tᵢ₋₁,tᵢ]
+        ! scale the weight to match the length of interval [τᵢ₋₁,τᵢ]
         this % ws(j,i) = delta * ws_ji
       end do
     end do
