@@ -26,26 +26,27 @@ module Spectral_Deferred_Correction
   !> This type defines a subdivision of the reference interval `[0,1]` into M
   !> subintervals `[τᵢ₋₁,τᵢ]`. Two choices exist for the  point set `{τᵢ}`:
   !>
-  !>     1) the equidistant partition of `[0,1]`, or
-  !>     2) the Gauss-Legendre-Lobatto (GLL) points mapped to `[0,1]`.
+  !>   1) the equidistant partition of `[0,1]`, or
+  !>   2) the Gauss-Legendre-Lobatto (GLL) points mapped to `[0,1]`.
   !>
   !> Within the type, `t(i) = τᵢ` represents the i-th point, `w(i) = wᵢ` the
   !> corresponding quadrature weight and `n_sub = M` the number of subintervals.
   !> The integral of a function f over the reference interval is approximated by
-  !>     
-  !>     $$ \int_{0}^{1} f d\tau \approx \sum_{i=0}^{M} w_i f(\tau_i) $$
+  !>
+  !>   \[ \int_{0}^{1} f d\tau \approx \sum_{i=0}^{M} w_i\, f(\tau_i) \]
   !>
   !> The quadrature will be exact for polynomials of degree `M` with equidistant
   !> points and degree `2M-1` with GLL points.
   !>
   !> Similarly, integrals over the subintervals `[τᵢ₋₁,τᵢ]` can be evaluated by
   !>
-  !>     $$ \int_{\tau_{i-1}}^{\tau_i} f d\tau 
-  !>        \approx 
-  !>        \sum_{j=0}^{M} w^s_{j,i} f(\tau_i) $$
-  !>     
+  !>   \[
+  !>      \int_{\tau_{i-1}}^{\tau_i} f d\tau
+  !>      \approx
+  !>      \sum_{j=0}^{M} w^s_{j,i}\, f(\tau_i)
+  !>   \]
   !>
-  !> where weights \(w^s_{j,i}\), denoted `ws(j,i)` in Fortran, are obtained
+  !> where the weights \(w^s_{j,i}\), denoted `ws(j,i)` in Fortran, are obtained
   !> by application of the GLL quadrature with `M+1` points to the Lagrange
   !> interpolant constructed from `f(τᵢ)`.
 

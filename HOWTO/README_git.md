@@ -48,3 +48,15 @@ Unless you made changes you can update your local repo using
 in the `HiSPEET` directory.
 
 
+### Comparing branches
+
+To compare the current branch against master branch, showing only the names of modified files
+
+    git diff --name-status master
+
+To compare any two branches:
+
+$ git diff --name-status <branch1>..<branch2>
+
+Note: 
+To show all changes in detail omit the `name-status` option.
