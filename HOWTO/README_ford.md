@@ -8,17 +8,17 @@ https://github.com/Fortran-FOSS-Programmers/ford/wiki
 
 - First install your own pip
  
-      # go into some temporary directory   
-      wget https://bootstrap.pypa.io/get-pip.py
-      python3 get-pip.py --user
+        # in some temporary directory   
+        wget https://bootstrap.pypa.io/get-pip.py
+        python3 get-pip.py --user
 
 - Add the pip binary path to your PATH (best in shell start-up file)
 
-      export PATH=~/.local/bin:$PATH
+        export PATH=~/.local/bin:$PATH
 
 - Install FORD in your directory
 
-      pip install ford --user
+        pip install ford --user
 
 ### How to use FORD for generating the HiSPEET documentation
      
