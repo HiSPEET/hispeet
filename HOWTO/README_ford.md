@@ -2,7 +2,8 @@
 
 ### Where to find FORD
 
-https://github.com/Fortran-FOSS-Programmers/ford/wiki
+FORD resides on GitHub. For documentation see the [Wiki]
+(https://github.com/Fortran-FOSS-Programmers/ford/wiki)
 
 ### How to install FORD with no root access
 
