@@ -11,14 +11,15 @@
 !>
 !> according to the implicit-explicit Euler method
 !>
-!>     u = u₀ + ∆t C(u₀) - ∆t D(u)
+!>     M u = M u₀ + ∆t C(u₀) - ∆t D(u)
 !>
 !> where
 !>
 !>     u₀ = u(t₀)
 !>     u  = u(t₀ + ∆t)
 !>
-!> `C` and `D` are discretized using continuous spectral elements.
+!> `C` and `D` are discretized using continuous spectral elements, `M` is the
+!> global mass matrix.
 !>
 !===============================================================================
 
@@ -57,6 +58,7 @@ subroutine IMEX_Euler(eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
 
   t = t0 + dt
 
+  ! f = -C u(t₀)
   allocate(f, mold = u)
   if (abs(v) > 0) then
     call GetLinearConvectionTerm(eop, v, bc, u0, f)
@@ -66,8 +68,11 @@ subroutine IMEX_Euler(eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
 
   if (nu > 0) then
     c = 1 / dt
+    ! f = M ũ / ∆t
     f = f + c * M * u0
+    ! add Neumann BC to f, set Dirichlet BC in u
     call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u, f)
+    ! solve implicit diffusion problem
     call CondensedEllipticSolver(eop, dx, c, nu, bc, f, u, standby = .true.)
   else
     u = u0 + dt * f / M
