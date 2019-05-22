@@ -3,6 +3,7 @@ summary:          HiSPEET - High Performance SPEctral Element Techniques.
 author:           Jörg Stiller
 css:              hispeet.css
 src_dir:          ../src
+                  ../example
 output_dir:       ./html
 fixed_extensions: for
                   FOR
