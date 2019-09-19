@@ -1,11 +1,20 @@
 
-    # load environment, e.g.
-    module load compiler/intel
+Load environment, e.g.
+  
+    module load hispeet/intel
+
+Create build directory
 
     make distclean
     mkdir build
 
-    # all things together
+Optionally, set tuning flags
+
+    #export TUNING_FLAG=simple
+    #export TUNING_FLAG=intel
+
+Build (complete)
+
     cd build
     cmake .. 
     make -j
