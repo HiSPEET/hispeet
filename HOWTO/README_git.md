@@ -16,9 +16,25 @@
      # add and commit only the modified and deleted files.
      git commit -a
 
-## Clone a local git repository from Fusionforge
+## Cloning <a name="cloning"></a>
 
-TBD
+Clone HiSPEET into directory hispeet (will be created if not yet existing) 
+
+     git clone https://<uid>@scm.fusionforge.zih.tu-dresden.de/authscm/<uid>/git/hispeet/hispeet.git hispeet
+
+where `<uid>`is your Fusionforge user ID. 
+You may pick your version of the `clone` command from 
+[SCM menu](https://fusionforge.zih.tu-dresden.de/scm/?group_id=747):
+
+  *  go to "Developer Access", change to "via smart HTTP",
+  *  copy the command, and
+  *  add the target directory
+
+Then, change to the repo and initialize the git-submodules, e.g.
+
+      cd hispeet
+      git submodule update --init
+
 
 ## Branches
 
@@ -60,3 +76,19 @@ $ git diff --name-status <branch1>..<branch2>
 
 Note: 
 To show all changes in detail omit the `name-status` option.
+
+
+## Submodules
+
+Some external libraries are provided as git submodules.
+For example, this is how `libxsmm` was included:
+
+    git submodule add https://github.com/hfp/libxsmm.git external/libxsmm
+    git commit -m 'added libxsmm submodule'
+
+Note that the submodules must be manually intialized, see [Cloning](#cloning) above.
+Also you may wish to update the submodules from the external repository, e.g.
+
+    git submodule update
+
+ 
