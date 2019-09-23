@@ -1,6 +1,6 @@
 
     # load environment, e.g.
-    module load compiler/intel
+    module load hispeet/intel
 
     make distclean
     mkdir build
