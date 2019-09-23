@@ -29,10 +29,13 @@ max_vec_length = 1024
 #-----------------------------------------------------------------------------
 # generic procedures
 
+#*** TODO :: sensitive treatment of xsmm module ***#
+
 gen_proc = [ tmpl_dir + module + '__gen.f'   ,
              tmpl_dir + module + '__gen_2.f' ,
              tmpl_dir + module + '__gen_3.f' ,
-             tmpl_dir + module + '__gen_4.f' ]
+             tmpl_dir + module + '__gen_4.f' ,
+             tmpl_dir + module + '__gen_xsmm.f' ]
 
 with open(dest_proc, 'a') as f:
     for proc in gen_proc:

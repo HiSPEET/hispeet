@@ -4,9 +4,11 @@
         PREFIX            ${CMAKE_CURRENT_BINARY_DIR}/external
         GIT_REPOSITORY    ${CMAKE_CURRENT_SOURCE_DIR}/external/libxsmm
         CONFIGURE_COMMAND ""
-        BUILD_COMMAND     ${CMAKE_MAKE_PROGRAM}
+        BUILD_COMMAND     ""
         BUILD_IN_SOURCE   TRUE
         )
+
+#        BUILD_COMMAND     ${CMAKE_MAKE_PROGRAM}
 
     set(LibXSMM_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/external/src/libxsmm)
 

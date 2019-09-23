@@ -76,6 +76,7 @@ subroutine TPO_Elliptic_CI_Assign(np, Proc)
   procedure(TPO_Elliptic_CI_Proc) :: CART__TPO_Elliptic_CI__gen_2
   procedure(TPO_Elliptic_CI_Proc) :: CART__TPO_Elliptic_CI__gen_3
   procedure(TPO_Elliptic_CI_Proc) :: CART__TPO_Elliptic_CI__gen_4
+  procedure(TPO_Elliptic_CI_Proc) :: CART__TPO_Elliptic_CI__gen_xsmm
 
   ! initialization .............................................................
 
@@ -93,6 +94,8 @@ subroutine TPO_Elliptic_CI_Assign(np, Proc)
       Proc => CART__TPO_Elliptic_CI__gen_3
     case(4)
       Proc => CART__TPO_Elliptic_CI__gen_4
+    case(5:)
+      Proc => CART__TPO_Elliptic_CI__gen_xsmm
     case default
       Proc => CART__TPO_Elliptic_CI__gen
     end select

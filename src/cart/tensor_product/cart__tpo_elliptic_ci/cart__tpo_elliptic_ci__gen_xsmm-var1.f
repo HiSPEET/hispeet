@@ -1,32 +1,23 @@
-!> summary:  Elliptic element operator: 3D Cartesian equidistant, generic
-!> author:   Immo Huismann, Joerg Stiller
-!> date:     2015/04/07, revised 2017/01/02
+!> summary:  Elliptic element operator: 3D Cartesian equidistant, LIBXSMM
+!> author:   Erik Pfister, Joerg Stiller
+!> date:     2019/09/23
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Elliptic element operator: 3D Cartesian equidistant, generic
+!>### Elliptic element operator: 3D Cartesian equidistant, LIBXSMM
 !>
-!> @note
-!> When compiled with OpenACC and run on a GPU, any call to this
-!> procedure must be followed by an "acc wait" before accessing u
-!> or v from CPU or any other than the default accelerator queue.
-!> @endnote
+!> (add documentation here)
 !===============================================================================
 
-subroutine CART__TPO_Elliptic_CI__libxsmm_gen(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+subroutine CART__TPO_Elliptic_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 
   !-----------------------------------------------------------------------------
   ! modules
 
   use Kind_Parameters,  only: RNP
-  use ISO_C_BINDING,    only: C_LOC  
-!#ifdef LIBXSMM 
-  use libxsmm,          only: libxsmm_dispatch, libxsmm_dmmfunction, libxsmm_available, libxsmm_mmcall
-!#endif
+  use ISO_C_Binding,    only: C_Loc  
+  use LIBXSMM,          only: LIBXSMM_Dispatch,  LIBXSMM_DMMFunction, &
+                              LIBXSMM_Available, LIBXSMM_MMCall
   implicit none
-
-!#ifdef LIBXSMM
- type(libxsmm_dmmfunction) :: xmm_1, xmm_2, xmm_3
-!#endif
 
   !-----------------------------------------------------------------------------
   ! arguments
@@ -44,24 +35,19 @@ subroutine CART__TPO_Elliptic_CI__libxsmm_gen(np, ne, Ms, Ls, lambda, nu, dx, u,
   !-----------------------------------------------------------------------------
   ! local variables
 
-  real(RNP), allocatable :: M(:,:,:), M_u(:,:,:), Lm(:,:)
+  ! LIBXSMM function pointers
+  type(LIBXSMM_DMMFunction) :: xmm_1, xmm_2, xmm_3
+
+  real(RNP), parameter :: ZERO = 0, ONE = 1
+
+  real(RNP) :: M(np,np,np), M_u(np,np,np), Lm(np,np), Lm_t(np,np)
+  real(RNP) :: v_1(np,np,np), v_2(np,np,np), v_3(np,np,np)
   real(RNP) :: g(3), tmp
 
   integer :: e, i, j, k
-  integer :: vec_len
 
   !-----------------------------------------------------------------------------
   ! initialization
-
-  ! OpenACC vector length
-  if(np < 8) then
-    vec_len = 128
-  else
-    vec_len = 256
-  end if
-
-  ! workspace
-  allocate(M(np,np,np), M_u(np,np,np), Lm(np,np))
 
   ! element mass matrix
   tmp = product(dx) / 8
@@ -79,35 +65,35 @@ subroutine CART__TPO_Elliptic_CI__libxsmm_gen(np, ne, Ms, Ls, lambda, nu, dx, u,
     Lm(i,j) = Ls(i,j) / Ms(i)
   end do
   end do
-    Lm_T=transpose(Lm)
+  Lm_t = transpose(Lm)  
+
+! For additive variant
+! 
+!  Lm_1t = g(1) * transpose(Lm)
+!  Lm_2  = g(2) * Lm
+!  Lm_3  = g(3) * Lm
+!
+! initialize v(:,:,:,e) to lambda * M_u, as in generic variant
+! use v instead of v_* with beta=ONE
 
   ! coefficients
   g = 4 * nu / dx**2
 
+  ! dispatch LIBXSMM functions 
+  call LIBXSMM_Dispatch(xmm_1, np   , np**2, np, alpha=ONE, beta=ZERO)
+  call LIBXSMM_Dispatch(xmm_2, np   , np   , np, alpha=ONE, beta=ZERO)
+  call LIBXSMM_Dispatch(xmm_3, np**2, np   , np, alpha=ONE, beta=ZERO)
   
-  call libxsmm_dispatch(xmm_1, np   , np**2, np, &
-  &  alpha=ONE, beta=ZERO)
-  call libxsmm_dispatch(xmm_2, np   , np   , np, &
-  &  alpha=ONE, beta=ZERO)
-  call libxsmm_dispatch(xmm_3, np**2, np   , np, &
-  &  alpha=ONE, beta=ZERO)
-  
-  if    (libxsmm_available(xmm_1).and.           &
-  &      libxsmm_available(xmm_2).and.           &
-  &      libxsmm_available(xmm_3))               &
-  &  then
-     
+  if ( .not. ( LIBXSMM_Available(xmm_1) .and. &
+               LIBXSMM_Available(xmm_2) .and. &
+               LIBXSMM_Available(xmm_3) )     ) then
+               
+		stop "CART__TPO_Elliptic_CI__gen_xsmm: LIBXSMM _Dispatch failed"
 
+  end if
+     
   !-----------------------------------------------------------------------------
   ! evaluation
-
-  !$acc data present(u,v) copyin(g,M,Lm) async
-  !$acc parallel async &
-  !$acc & device_type(nvidia) num_workers(1024/vec_len) vector_length(vec_len)
-  !$acc loop gang worker private(M_u)
-
-  !$omp do private(e)
-!#ifdef LIBXSMM
 
   !$omp do private(e)
   do e = 1, ne
@@ -127,20 +113,19 @@ subroutine CART__TPO_Elliptic_CI__libxsmm_gen(np, ne, Ms, Ls, lambda, nu, dx, u,
 
     !$acc loop collapse(3) independent vector
 
-    call libxsmm_mmcall(xmm_1, &
-      & C_LOC(Lm_T), C_LOC(M_u(1,1,1)), C_LOC(v_1(1,1,1)))
+    call LIBXSMM_MMCall(xmm_1, C_Loc(Lm_t), C_Loc(M_u(1,1,1)), C_Loc(v_1(1,1,1)))
 
     ! direction 2 ..............................................................
    
     do k = 1, np
-      call libxsmm_mmcall(xmm_2, &
-        & C_LOC(M_u(1,1,k)), C_LOC(Lm), C_LOC(v_2(1,1,k))) 
+      call LIBXSMM_MMCall(xmm_2, C_Loc(M_u(1,1,k)), C_Loc(Lm), C_Loc(v_2(1,1,k))) 
     end do
     
     ! direction 3 ..............................................................
     
-    call libxsmm_mmcall(xmm_3, &
-      & C_LOC(M_u(1,1,1)), C_LOC(Lm), C_LOC(v_3(1,1,1))) 
+    call LIBXSMM_MMCall(xmm_3, C_Loc(M_u(1,1,1)), C_Loc(Lm), C_Loc(v_3(1,1,1))) 
+  
+    ! assembly of the result ...................................................
       
     do k = 1, np
     do j = 1, np
@@ -155,17 +140,7 @@ subroutine CART__TPO_Elliptic_CI__libxsmm_gen(np, ne, Ms, Ls, lambda, nu, dx, u,
     end do
       
   end do
- 
-  else
-    WRITE(*,*) "Fehler bei libxsmm_dispatch!"
-  end if
-  
-!#endif
-  !$omp end do
-
-  !$acc end parallel
-  !$acc end data
 
 !===============================================================================
 
-end subroutine CART__TPO_Elliptic_CI__libxsmm_gen
+end subroutine CART__TPO_Elliptic_CI__gen_xsmm
