@@ -1,17 +1,20 @@
 # libxsmm integration ..........................................................
 
+    set( LibXSMM_SOURCE_DIR    ${CMAKE_CURRENT_BINARY_DIR}/external/src/LibXSMM )
+    set( LibXSMM_INCLUDE_DIR  "${LibXSMM_SOURCE_DIR}/include"      )    
+    set( LibXSMM_LIB_DIR      "${LibXSMM_SOURCE_DIR}/lib"          )
+    set( LIBXSMM_MODULE       "${LibXSMM_INCLUDE_DIR}/LIBXSMM.mod" )
+    set( LibXSMM_LIBRARIES    "${LibXSMM_LIB_DIR}/libxsmmf.a"
+                              "${LibXSMM_LIB_DIR}/libxsmm.a"       ) 
+   
     ExternalProject_Add(LibXSMM 
-        PREFIX            ${CMAKE_CURRENT_BINARY_DIR}/external
-        GIT_REPOSITORY    ${CMAKE_CURRENT_SOURCE_DIR}/external/libxsmm
-        CONFIGURE_COMMAND ""
-        BUILD_COMMAND     ${CMAKE_MAKE_PROGRAM}
-        BUILD_IN_SOURCE   TRUE
+        PREFIX               ${CMAKE_CURRENT_BINARY_DIR}/external
+        GIT_REPOSITORY       ${CMAKE_CURRENT_SOURCE_DIR}/external/libxsmm
+        UPDATE_DISCONNECTED  TRUE
+        CONFIGURE_COMMAND    ""
+        BUILD_COMMAND        test -d ${LibXSMM_LIB_DIR} || make
+        SOURCE_DIR           ${LibXSMM_SOURCE_DIR}
+        BUILD_IN_SOURCE      TRUE
+        BUILD_BYPRODUCTS     ${LIBXSMM_MODULE} ${LibXSMM_LIBRARIES}
+        INSTALL_COMMAND      ""
         )
-
-#        BUILD_COMMAND     ${CMAKE_MAKE_PROGRAM}
-
-    set(LibXSMM_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/external/src/LibXSMM)
-
-    set(LibXSMM_INCLUDE_DIRS "${LibXSMM_INSTALL_DIR}/include" )    
-    set(LibXSMM_LIBRARIES    "${LibXSMM_INSTALL_DIR}/lib/libxsmmf.a"
-                             "${LibXSMM_INSTALL_DIR}/lib/libxsmm.a" ) 

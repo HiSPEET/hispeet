@@ -103,7 +103,7 @@ add_dependencies(HiBase LibXSMM)
 
 target_include_directories(HiBase
     PUBLIC  ${PROJECT_BINARY_DIR}/modules
-    PUBLIC  ${LibXSMM_INCLUDE_DIRS}
+    PUBLIC  ${LibXSMM_INCLUDE_DIR}
     PRIVATE ${VTK_INCLUDE_DIRS}
             ${ParMETIS_INCLUDE_DIRS}
             ${Exodus_INCLUDE_DIRS}
