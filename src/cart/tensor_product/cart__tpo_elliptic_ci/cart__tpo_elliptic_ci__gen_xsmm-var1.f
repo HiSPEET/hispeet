@@ -67,15 +67,6 @@ subroutine CART__TPO_Elliptic_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v)
   end do
   Lm_t = transpose(Lm)  
 
-! For additive variant
-! 
-!  Lm_1t = g(1) * transpose(Lm)
-!  Lm_2  = g(2) * Lm
-!  Lm_3  = g(3) * Lm
-!
-! initialize v(:,:,:,e) to lambda * M_u, as in generic variant
-! use v instead of v_* with beta=ONE
-
   ! coefficients
   g = 4 * nu / dx**2
 
