@@ -36,7 +36,7 @@ subroutine CART__TPO_Elliptic_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v)
   ! local variables
 
   ! LIBXSMM function pointers
-  type(LIBXSMM_DMMFunction) :: xmm_1, xmm_2, xmm_3
+  type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
 
   real(RNP), parameter :: ZERO = 0, ONE = 1
 
@@ -71,6 +71,7 @@ subroutine CART__TPO_Elliptic_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v)
   g = 4 * nu / dx**2
 
   ! dispatch LIBXSMM functions 
+  !$omp master
   call LIBXSMM_Dispatch(xmm_1, np   , np**2, np, alpha=ONE, beta=ZERO)
   call LIBXSMM_Dispatch(xmm_2, np   , np   , np, alpha=ONE, beta=ZERO)
   call LIBXSMM_Dispatch(xmm_3, np**2, np   , np, alpha=ONE, beta=ZERO)
@@ -82,7 +83,9 @@ subroutine CART__TPO_Elliptic_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 		stop "CART__TPO_Elliptic_CI__gen_xsmm: LIBXSMM _Dispatch failed"
 
   end if
-     
+  !$omp end master
+  !$omp barrier
+    
   !-----------------------------------------------------------------------------
   ! evaluation
 
