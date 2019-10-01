@@ -1,21 +1,19 @@
-!> summary:  Elliptic element operator: 3D Cartesian equidistant, LIBXSMM
+!> summary:  Elliptic element operator: 3D Cartesian equidistant, generic EVec
 !> author:   Erik Pfister, Joerg Stiller
-!> date:     2019/09/23
+!> date:     2019/10/01
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Elliptic element operator: 3D Cartesian equidistant, LIBXSMM
+!>### Elliptic element operator: 3D Cartesian equidistant, generic 
 !>
-!> (add documentation here)
+!>   * vectorization over elements
 !===============================================================================
 
-subroutine CART__TPO_Elliptic_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+subroutine CART__TPO_Elliptic_CI__gen_evec(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 
   !-----------------------------------------------------------------------------
   ! modules
 
-  use Kind_Parameters, only: RNP
-  use LIBXSMM,         only: LIBXSMM_Dispatch,  LIBXSMM_DMMFunction, &
-                             LIBXSMM_Available, LIBXSMM_MMCall
+  use Kind_Parameters,  only: RNP
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -34,16 +32,14 @@ subroutine CART__TPO_Elliptic_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v)
   !-----------------------------------------------------------------------------
   ! local variables
 
-  ! LIBXSMM function pointers
-  type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
-
-  real(RNP), parameter :: ZERO = 0, ONE = 1
-
-  real(RNP) :: M(np,np,np), M_u(np,np,np), Lm(np,np), Lm_t(np,np)
-  real(RNP) :: v_1(np,np,np), v_2(np,np,np), v_3(np,np,np)
+  integer, parameter :: LVEC    = 4
+  integer, parameter :: LVEC_M1 = LVEC - 1
+  
+  real(RNP) :: M(np,np,np), Lm(np,np)
+  real(RNP) :: M_u(0:LVEC_M1,np,np,np)
+  real(RNP) :: v_e(0:LVEC_M1,np,np,np)
   real(RNP) :: g(3), tmp
-
-  integer :: e, i, j, k
+  integer   :: e, i, j, k, l, l_max, p
 
   !-----------------------------------------------------------------------------
   ! initialization
@@ -64,32 +60,17 @@ subroutine CART__TPO_Elliptic_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v)
     Lm(i,j) = Ls(i,j) / Ms(i)
   end do
   end do
-  Lm_t = transpose(Lm)  
 
   ! coefficients
   g = 4 * nu / dx**2
 
-  ! dispatch LIBXSMM functions 
-  !$omp master
-  call LIBXSMM_Dispatch(xmm_1, np   , np**2, np, alpha=ONE, beta=ZERO)
-  call LIBXSMM_Dispatch(xmm_2, np   , np   , np, alpha=ONE, beta=ZERO)
-  call LIBXSMM_Dispatch(xmm_3, np**2, np   , np, alpha=ONE, beta=ZERO)
-  
-  if ( .not. ( LIBXSMM_Available(xmm_1) .and. &
-               LIBXSMM_Available(xmm_2) .and. &
-               LIBXSMM_Available(xmm_3) )     ) then
-               
-		stop "CART__TPO_Elliptic_CI__gen_xsmm: LIBXSMM _Dispatch failed"
-
-  end if
-  !$omp end master
-  !$omp barrier
-    
   !-----------------------------------------------------------------------------
   ! evaluation
 
   !$omp do private(e)
-  do e = 1, ne
+  do e = 1, ne, LVEC 
+  
+    l_max = mod(n1, LVEC)
 
     ! M u and lambda M u .......................................................
 
@@ -97,43 +78,89 @@ subroutine CART__TPO_Elliptic_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v)
     do k = 1, np
     do j = 1, np
     do i = 1, np
-      M_u(i,j,k) = M(i,j,k) * u(i,j,k,e)
+       do l = 0, LVEC_M1
+          M_u(l,i,j,k) = M(i,j,k) * u(i,j,k,e + min(l,l_max))
+          v_e(l,i,j,k) = lambda * M_u(l,i,j,k)
+       end do
     end do
     end do
     end do
 
     ! direction 1 ..............................................................
 
-    !$acc loop collapse(3) independent vector
-
-    call LIBXSMM_DMMCall(xmm_1, Lm_t, M_u, v_1)
-
-    ! direction 2 ..............................................................
-   
-    do k = 1, np
-      call LIBXSMM_DMMCall(xmm_2, M_u(:,:,k), Lm, v_2(:,:,k)) 
-    end do
-    
-    ! direction 3 ..............................................................
-    
-    call LIBXSMM_DMMCall(xmm_3, M_u, Lm, v_3) 
-  
-    ! assembly of the result ...................................................
-      
     do k = 1, np
     do j = 1, np
     do i = 1, np
-      v(i,j,k,e) =                   &
-          lambda * M_u(i,j,k)        &      
-          + g(1) * v_1(i,j,k)        &
-          + g(2) * v_2(i,j,k)        &
-          + g(3) * v_3(i,j,k)
+!!! ANPASSEN !!!
+! Intel SIMD ist klar, aber Vektorisierungsreport erzeugen + anschauen
+! GCC vector: lesen, herausfinden wie Vektorisierungsreport erzeugt werden kann
+! Alternative für feste np
+!   - Template-basierte Parametrisierung, oder
+!   - p-Schleife manuell abwickeln (siehe Beispiel von Immo Huismann)
+      !DIR$ SIMD
+      !GCC$ vector
+      do l = 0, LVEC_M1
+				tmp = 0
+				do p = 1, np
+					tmp = tmp + Lm(p,i) * M_u(p,j,k)
+				end do
+				v_e(l,i,j,k,e) = v_e(l,i,j,k,e) + g(1) * tmp
+!!! ANPASSEN ENDE !!!
+			end do
     end do
     end do
     end do
-      
+
+    ! direction 2 ..............................................................
+
+    do k = 1, np
+    do j = 1, np
+    do i = 1, np
+!!! ANPASSEN !!!
+      do l = 0, LVEC_M1
+				tmp = 0
+				do p = 1, np
+					tmp = tmp + Lm(p,j) * M_u(i,p,k)
+				end do
+				v(i,j,k,e) = v(i,j,k,e) + g(2) * tmp
+!!! ANPASSEN ENDE !!!
+			end do
+    end do
+    end do
+    end do
+
+    ! direction 3 ..............................................................
+
+    do k = 1, np
+    do j = 1, np
+    do i = 1, np
+!!! ANPASSEN !!!
+      do l = 0, LVEC_M1
+				tmp = 0
+				do p = 1, np
+					tmp = tmp + Lm(p,k) * M_u(i,j,p)
+				end do
+				v(i,j,k,e) = v(i,j,k,e) + g(3) * tmp
+!!! ANPASSEN ENDE !!!
+			end do
+    end do
+    end do
+    end do
+
+    ! assign result ............................................................
+
+    do k = 1, np
+    do j = 1, np
+    do i = 1, np
+      do l = 0, lmax
+				v(i,j,k,e+l) = v_e(l,i,j,k)
+			end do
+    end do
+    end do
+    end do
+
   end do
 
 !===============================================================================
 
-end subroutine CART__TPO_Elliptic_CI__gen_xsmm
+end subroutine CART__TPO_Elliptic_CI__gen_evec

@@ -13,10 +13,9 @@ subroutine CART__TPO_Elliptic_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v)
   !-----------------------------------------------------------------------------
   ! modules
 
-  use Kind_Parameters,  only: RNP
-  use ISO_C_Binding,    only: C_Loc  
-  use LIBXSMM,          only: LIBXSMM_Dispatch,  LIBXSMM_DMMFunction, &
-                              LIBXSMM_Available, LIBXSMM_MMCall
+  use Kind_Parameters, only: RNP
+  use LIBXSMM,         only: LIBXSMM_Dispatch,  LIBXSMM_DMMFunction, &
+                             LIBXSMM_Available, LIBXSMM_MMCall
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -112,18 +111,17 @@ subroutine CART__TPO_Elliptic_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 
     !$acc loop collapse(3) independent vector
 
-    call LIBXSMM_MMCall(xmm_1, C_Loc(Lm_1t), C_Loc(M_u(1,1,1)), C_Loc(v(1,1,1,e)))
+    call LIBXSMM_DMMCall(xmm_1, Lm_1t, M_u, v(:,:,:,e))
 
     ! direction 2 ..............................................................
    
     do k = 1, np
-      call LIBXSMM_MMCall(xmm_2, C_Loc(M_u(1,1,k)), C_Loc(Lm_2), C_Loc(v(1,1,k,e))) 
+      call LIBXSMM_DMMCall(xmm_2, M_u(:,:,k), Lm_2, v(:,:,k,e))) 
     end do
     
     ! direction 3 ..............................................................
     
-    call LIBXSMM_MMCall(xmm_3, C_Loc(M_u(1,1,1)), C_Loc(Lm_3), C_Loc(v(1,1,1,e))) 
-      
+    call LIBXSMM_DMMCall(xmm_3, M_u, Lm_3, v(:,:,:,e))) 
       
   end do
 
