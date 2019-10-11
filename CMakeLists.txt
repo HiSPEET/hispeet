@@ -184,7 +184,7 @@ endif (OpenACC)
 
 add_subdirectory(src)
 add_subdirectory(test)
-add_subdirectory(example)
+add_subdirectory(app)
 add_subdirectory(develop)
 
 add_subdirectory(dirty)
