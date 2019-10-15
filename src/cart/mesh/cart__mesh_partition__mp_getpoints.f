@@ -7,8 +7,7 @@
 !===============================================================================
 
 submodule(CART__Mesh_Partition) MP_GetPoints
-!  use Kind_Parameters, only: RNP
-  use Constants,       only: HALF
+  use Constants, only: HALF
   use Standard_Operators_1D
   implicit none
 

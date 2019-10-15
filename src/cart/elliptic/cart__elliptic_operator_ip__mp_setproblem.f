@@ -7,7 +7,6 @@
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP) MP_SetProblem
-!  use Array_Assignments, only: SetArray
   use CART__Trace_Operator
   implicit none
 
