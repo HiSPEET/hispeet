@@ -1,1 +1,3 @@
-add_subdirectory(ex_0)
+add_subdirectory(ex_1)
+add_subdirectory(ex_2)
+
