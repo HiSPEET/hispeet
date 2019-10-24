@@ -1,3 +1,8 @@
 add_subdirectory(ex_1)
-add_subdirectory(ex_2)
-
+add_subdirectory(ex_2_SEM)
+add_subdirectory(ex_3_SEM)
+add_subdirectory(ex_4_SEM)
+add_subdirectory(ex_5)
+add_subdirectory(ex_6)
+add_subdirectory(ex_7)
+add_subdirectory(ex_8)
