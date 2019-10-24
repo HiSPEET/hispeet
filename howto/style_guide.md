@@ -91,7 +91,7 @@ Optionally special environments such as `@note` or `@todo` can be appended to th
 
 ### Modules
 
-<a name="module_Gauss_Jacobi">_Code example:_</a> Stripped-down version of the `Gauss_Jacobi` module contained in `gauss_jacobi.f`.
+<a name="module_Gauss_Jacobi">_Listing:_</a> Stripped-down version of the `Gauss_Jacobi` module contained in `gauss_jacobi.f`.
 
 ```Fortran  
 !> summary:  Implementation of Jacobi polynomials and Gauss quadratures
@@ -181,34 +181,169 @@ comment.
   
 For illustration consider the function `JacobiPolynomial` in the [`module Gauss_Jacobi`](#module_Gauss_Jacobi) and the following example of a subroutine .
 
-<a name="subroutine_IntegerSort">_Code example:_</a> Stripped-down version of subroutine `IntegerSort` contained in `quick_sort.f`.
+<a name="subroutine_IntegerSort">_Listing:_</a> Stripped-down version of subroutine `IntegerSort` contained in `quick_sort.f`.
 
 ```Fortran  
+  !-----------------------------------------------------------------------------
+  !> Returns x such that x(j) <= x(k) for all j < k
 
-!-------------------------------------------------------------------------------
-!> Returns x such that x(j) <= x(k) for all j < k
+  pure recursive subroutine IntegerSort(x, i1, i2)
+    integer,           intent(inout) :: x(:) !< array, sorted on output
+    integer, optional, intent(in)    :: i1   !< start index
+    integer, optional, intent(in)    :: i2   !< terminal index
 
-pure recursive subroutine IntegerSort(x, i1, i2)
-  integer,           intent(inout) :: x(:) !< array, sorted on output
-  integer, optional, intent(in)    :: i1   !< start index
-  integer, optional, intent(in)    :: i2   !< terminal index
-
-  integer :: j1, j2, j10, j20 ! internal variables
+    integer :: j1, j2, j10, j20 ! internal variables
   
-  ...
+    ...
 
-end subroutine IntegerSort
-
+  end subroutine IntegerSort
 ```
 
 ### Types
 
-User defined types are no genuine program units, but in many ways similar and sometimes even more complex. In the simplest case, the type just bundles a number of components, e.g.
+User defined types are no genuine program units, but resemble procedures and are documented in a similar fashion. This is a simple example:
+
+<a name="type_StandardOperators1D">_Listing:_</a> Type defining a mesh-element face.
 
 ```Fortran
-type Foo
-  real :: a
-end type Foo
+  !-----------------------------------------------------------------------------
+  !> Structure for keeping element face data
+
+  type ElementFace
+    integer :: id       = 0  !< mesh face ID
+    integer :: neighbor = 0  !< neighbor element, including virtual one
+    integer :: boundary = 0  !< adjacent boundary, if any
+  end type ElementFace
 ```
 
+Note that, by default, all components are `publicì. Moreover, the above type makes use of component initialization.
+The next listing gives a comprehensive example.
+
+<a name="type_StandardOperators1D">_Listing:_</a> Type providing the 1D standard-element operators, extracted from `standard_operators_1d.f`.
+
+```Fortran
+  !-----------------------------------------------------------------------------
+  !> Standard operators for one polynomial order
+  !>
+  !> Supports the following types of nodal base functions
+  !>
+  !>   * Lagrange polynomials to Gauss-Legendre points:         `basis = 'GL'`
+  !>   * Lagrange polynomials to Gauss-Lobatto-Legendre points: `basis = 'GLL'`
+  !>   * Lagrange polynomials to Gauss-Radau-Legendre points:   `basis = 'GRL'`
+
+  type, public :: StandardOperators1D
+    private
+
+    ! public components
+    character(len=3)      , public :: basis    !< basis type
+    integer               , public :: po = -1  !< polynomial order
+    real(RNP), allocatable, public :: x(:)     !< collocation points
+    real(RNP), allocatable, public :: w(:)     !< quadrature weights
+    real(RNP), allocatable, public :: D(:,:)   !< differention matrix
+    real(RNP), allocatable, public :: L(:,:)   !< stiffness (Laplace) matrix
+
+    ! private components
+    real(RNP), allocatable :: VL(:,:)     !< Legendre-Vandermonde matrix
+    real(RNP), allocatable :: VL_inv(:,:) !< inverse Legendre-Vandermonde matrix
+
+  contains
+
+    procedure :: Init_StandardOperators1D ! type-bound procedures
+    procedure :: PolynomialOrder          ! are documented
+    procedure :: InitLegendreVDM          ! separately 
+    procedure :: HasLegendreVDM           ! in the same way 
+    procedure :: GetLegendreVDM           ! as ordinary
+    procedure :: GetInverseLegendreVDM    ! procedures
+
+  end type StandardOperators1D
+```
+
+In this case, the default visibility is changed to `private`. Only components with the `public` attribute are accessible. These settings do not affect the type-bound procedures listed in the `contains` part. Their visibility follows identical rules, but must be declared separately.
+
+
+## Programming guidelines
+
+
+### Arrays and dynamic memory
+
+Best practice rules:
+
+  - Prefer automatic over allocatable arrays, and those over pointers.
+  - In dynamic derived types prefer allocatable over pointer components.
+  - Use the `associate` construct to define shorthands for deeply structured type components. 
+  - Use `move_alloc` to move an allocation from one allocatable object to another.
+  - Use allocatable arrays with the save attribute for reusing internal work space.
+
+Beware that automatic arrays are often placed at the so-called stack memory, which is often limited. On Unix-like systems the stack size can be increased manually using the shell command `ulimit`, e.g.
+
+    ulimit -s unlimited
+
+
+### Types
+
+
+#### Type initialization
+
+Unlike C++ classes, Fortran types have no constructor method. Instead the type name itself gives access to an inbuilt constructor that acts like a `function` and, hence, can be used to initialize objects by assignment. The following listing provides a simple example.
+
+<a name="type_initialization_simple_">_Listing:_</a> Initialization using the inbuilt constructor.
+
+```Fortran
+  type Point2D
+    real(RNP) :: x = 0  !< x-coordinate
+    real(RNP) :: y = 0  !< y-coordinate
+  end type Point2D
+  
+  type(Point2D) :: point = Point2D(y = 1.0_RNP)
+```
+
+Here, component `x` is not specified and thus keeps its default value defined in the type declaration. Note, however, that any component with no default initialization must be defined in the constructor.
+
+The inbuilt constructor can be supplemented or overridden by overloading user-defined functions, e.g.
+
+<a name="constructor_overloading_">_Listing:_</a> Constructor overloading.
+
+
+```Fortran
+  ! in declaration part of the module, following the definition of type Point2D
+
+  interface Point2D
+    module procedure New_Point2D
+  end interface 
+  ...
+  
+contains  
+
+  ...
+  type(Point2D) function New_Point2D(input_file) result(point)
+    character(len=*) :: input_file  !< input file
+    
+    real(RNP) :: x, y
+    
+    ! read x, y from input file
+    ...
+    
+    point % x = x
+    point % y = y
+  
+  end function New_Point2D
+```
+
+New pecularities may occur with type extension. For example consider the type `MassPoint2D` extending `Point2D`.
+
+<a name="type_extension">_Listing:_</a> Type extension.
+
+```Fortran
+  type, extends(Point2D) :: MassPoint2D
+    real(RNP) :: m  !< point mass
+  end type MassPoint2D
+  
+  type(MassPoint2D) :: mass_point = MassPoint2D(x = 1.0_RNP, m = 10.0_RNP)
+```
+
+The child type inherits all components and, if defined, all type-bound procedures of the parent. It also possesses an inbuilt constructor similar to the parent. However, the user-defined constructor of the parent does not easily extend to the child. Instead a new, specific constructor must be provided. Nevertheless, it is possible to structure the parent constructor in such a way that it can be used to initialize the parent components within the child type. To see, how accomplish this, confer to the modules
+
+  - `Standard_Operators_1D`, providing parent type `StandardOperators1D`, and
+  - `CG_Element_Operators_1D`, defining child type `CG_ElementOperators1D`, or
+  - `IP_Element_Operators_1D`, defining child type `IP_ElementOperators1D`
 

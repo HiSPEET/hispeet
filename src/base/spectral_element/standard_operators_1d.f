@@ -20,9 +20,9 @@ module Standard_Operators_1D
   !>
   !> Supports the following types of nodal base functions
   !>
-  !>   *  Lagrange polynomials to Gauss-Legendre points:         `basis = 'GL'`
-  !>   *  Lagrange polynomials to Gauss-Lobatto-Legendre points: `basis = 'GLL'`
-  !>   *  Lagrange polynomials to Gauss-Radau-Legendre points:   `basis = 'GRL'`
+  !>   * Lagrange polynomials to Gauss-Legendre points:         `basis = 'GL'`
+  !>   * Lagrange polynomials to Gauss-Lobatto-Legendre points: `basis = 'GLL'`
+  !>   * Lagrange polynomials to Gauss-Radau-Legendre points:   `basis = 'GRL'`
 
   type, public :: StandardOperators1D
     private
@@ -35,7 +35,7 @@ module Standard_Operators_1D
     real(RNP), allocatable, public :: D(:,:)   !< differention matrix
     real(RNP), allocatable, public :: L(:,:)   !< stiffness (Laplace) matrix
 
-    ! private comoponents
+    ! private components
     real(RNP), allocatable :: VL(:,:)     !< Legendre-Vandermonde matrix
     real(RNP), allocatable :: VL_inv(:,:) !< inverse Legendre-Vandermonde matrix
 
@@ -57,233 +57,233 @@ module Standard_Operators_1D
 
 contains
 
-!===============================================================================
-! Constructor
+	!=============================================================================
+	! Constructor
 
-!-------------------------------------------------------------------------------
-!> Constructor for StandardOperators1D
+	!-----------------------------------------------------------------------------
+	!> Constructor for StandardOperators1D
 
-function New_StandardOperators1D(po, basis, no_vdm) result(this)
-  integer,                    intent(in) :: po     !< polynomial order
-  character(len=*), optional, intent(in) :: basis  !< points {GL,GLL,GRL} [GLL]
-  logical,          optional, intent(in) :: no_vdm !< skip Vandermonde matrix [F]
+	function New_StandardOperators1D(po, basis, no_vdm) result(this)
+		integer,                    intent(in) :: po     !< polynomial order
+		character(len=*), optional, intent(in) :: basis  !< points {GL,GLL,GRL} [GLL]
+		logical,          optional, intent(in) :: no_vdm !< skip Vandermonde matrix [F]
 
-  type(StandardOperators1D) :: this
+		type(StandardOperators1D) :: this
 
-  call Init_StandardOperators1D(this, po, basis, no_vdm)
+		call Init_StandardOperators1D(this, po, basis, no_vdm)
 
-end function New_StandardOperators1D
+	end function New_StandardOperators1D
 
-!===============================================================================
-! Type-bound procedures
+	!=============================================================================
+	! Type-bound procedures
 
-!-------------------------------------------------------------------------------
-!> Returns the polymial order of operators, or -1 if none
+	!-----------------------------------------------------------------------------
+	!> Returns the polymial order of operators, or -1 if none
 
-pure integer function PolynomialOrder(this) result(po)
-  class(StandardOperators1D), intent(in) :: this !< standard operators
+	pure integer function PolynomialOrder(this) result(po)
+		class(StandardOperators1D), intent(in) :: this !< standard operators
 
-  po = this % po
+		po = this % po
 
-end function PolynomialOrder
+	end function PolynomialOrder
 
-!-------------------------------------------------------------------------------
-!> Intializes the public components.
-!>
-!> The routine provides 1D standard operators for the chosen nodal basis.
-!> GLL is the default, except for `po = 0` which always implies GL.
+	!-----------------------------------------------------------------------------
+	!> Intializes the public components.
+	!>
+	!> The routine provides 1D standard operators for the chosen nodal basis.
+	!> GLL is the default, except for `po = 0` which always implies GL.
 
-subroutine Init_StandardOperators1D(this, po, basis, no_vdm)
+	subroutine Init_StandardOperators1D(this, po, basis, no_vdm)
 
-  !> standard operators that will be initialized
-  class(StandardOperators1D), intent(inout) :: this
+		!> standard operators that will be initialized
+		class(StandardOperators1D), intent(inout) :: this
 
-  !> polynomial order
-  integer, intent(in) :: po
+		!> polynomial order
+		integer, intent(in) :: po
 
-  !> point set for generating the Lagrange basis {GL,GLL,GRL} [GLL]
-  character(len=*), optional, intent(in) :: basis
+		!> point set for generating the Lagrange basis {GL,GLL,GRL} [GLL]
+		character(len=*), optional, intent(in) :: basis
 
-  !> switch to skip the generation of the Vandermonde matrix and its inverse
-  logical, optional, intent(in) :: no_vdm
+		!> switch to skip the generation of the Vandermonde matrix and its inverse
+		logical, optional, intent(in) :: no_vdm
 
-  logical :: build_vdm
-  integer :: i, j
+		logical :: build_vdm
+		integer :: i, j
 
-  ! safeguard ..................................................................
+		! safeguard ................................................................
 
-  call Delete_StandardOperators1D(this)
+		call Delete_StandardOperators1D(this)
 
-  if (po < 0) then
+		if (po < 0) then
 
-    call Error('Init_StandardOperators1D', 'Invalid polynomial order (po < 0)')
+			call Error('Init_StandardOperators1D', 'Invalid polynomial order (po < 0)')
 
-  else if (po == 0) then
+		else if (po == 0) then
 
-    this%basis = 'GL'
+			this%basis = 'GL'
 
-  else
+		else
 
-    if (present(basis)) then
-      if (any(basis == [ 'GL ', 'GLL', 'GRL' ])) then
-        this%basis = basis
-      else
-        call Error('Init_StandardOperators1D', 'Invalid basis argument')
-      end if
-    else
-      this%basis = 'GLL'
-    end if
+			if (present(basis)) then
+				if (any(basis == [ 'GL ', 'GLL', 'GRL' ])) then
+					this%basis = basis
+				else
+					call Error('Init_StandardOperators1D', 'Invalid basis argument')
+				end if
+			else
+				this%basis = 'GLL'
+			end if
 
-  end if
+		end if
 
-  ! operators available from Gauss-Jacobi module ...............................
+		! operators available from Gauss-Jacobi module .............................
 
-  this%po = po
+		this%po = po
 
-  if (po == 0) then
+		if (po == 0) then
 
-    ! 1-point Gauss
-    allocate(this%x(0:0),       source = ZERO)
-    allocate(this%w(0:0),       source = TWO)
-    allocate(this%D(0:0,0:0),   source = ZERO)
+			! 1-point Gauss
+			allocate(this%x(0:0),       source = ZERO)
+			allocate(this%w(0:0),       source = TWO)
+			allocate(this%D(0:0,0:0),   source = ZERO)
 
-  else if (this%basis == 'GL') then
+		else if (this%basis == 'GL') then
 
-    ! Gauss-Legendre
-    allocate(this%x(0:po),      source = GL_Points(po))
-    allocate(this%w(0:po),      source = GL_Weights(this%x))
-    allocate(this%D(0:po,0:po), source = GL_DiffMatrix(this%x))
+			! Gauss-Legendre
+			allocate(this%x(0:po),      source = GL_Points(po))
+			allocate(this%w(0:po),      source = GL_Weights(this%x))
+			allocate(this%D(0:po,0:po), source = GL_DiffMatrix(this%x))
 
-  else if (this%basis == 'GLL') then
+		else if (this%basis == 'GLL') then
 
-    ! Gauss-Lobatto-Legendre points
-    allocate(this%x(0:po),      source = GLL_Points(po))
-    allocate(this%w(0:po),      source = GLL_Weights(this%x))
-    allocate(this%D(0:po,0:po), source = GLL_DiffMatrix(this%x))
+			! Gauss-Lobatto-Legendre points
+			allocate(this%x(0:po),      source = GLL_Points(po))
+			allocate(this%w(0:po),      source = GLL_Weights(this%x))
+			allocate(this%D(0:po,0:po), source = GLL_DiffMatrix(this%x))
 
-  else
+		else
 
-    ! Gauss-Radau-Legendre
-    allocate(this%x(0:po),      source = GRL_Points(po))
-    allocate(this%w(0:po),      source = GRL_Weights(this%x))
-    allocate(this%D(0:po,0:po), source = GRL_DiffMatrix(this%x))
+			! Gauss-Radau-Legendre
+			allocate(this%x(0:po),      source = GRL_Points(po))
+			allocate(this%w(0:po),      source = GRL_Weights(this%x))
+			allocate(this%D(0:po,0:po), source = GRL_DiffMatrix(this%x))
 
-  end if
+		end if
 
-  ! stiffness matrix ...........................................................
+		! stiffness matrix .........................................................
 
-  allocate(this%L(0:po,0:po), source = ZERO)
+		allocate(this%L(0:po,0:po), source = ZERO)
 
-  do i = 0, po
-  do j = 0, po
-    this%L(i,j) = this%L(i,j) + sum(this%w * this%D(:,i) * this%D(:,j))
-  end do
-  end do
+		do i = 0, po
+		do j = 0, po
+			this%L(i,j) = this%L(i,j) + sum(this%w * this%D(:,i) * this%D(:,j))
+		end do
+		end do
 
-  ! Vandermonde matrix and its inverse .........................................
+		! Vandermonde matrix and its inverse .......................................
 
-  if (present(no_vdm)) then
-    build_vdm = .not. no_vdm
-  else
-    build_vdm = .true.
-  end if
+		if (present(no_vdm)) then
+			build_vdm = .not. no_vdm
+		else
+			build_vdm = .true.
+		end if
 
-  if (build_vdm) then
-    call InitLegendreVDM(this)
-  end if
+		if (build_vdm) then
+			call InitLegendreVDM(this)
+		end if
 
-end subroutine Init_StandardOperators1D
+	end subroutine Init_StandardOperators1D
 
-!-------------------------------------------------------------------------------
-!> Intializes the Legendre-Vandermonde matrix and its inverse.
+	!-----------------------------------------------------------------------------
+	!> Intializes the Legendre-Vandermonde matrix and its inverse.
 
-subroutine InitLegendreVDM(this)
-  class(StandardOperators1D), intent(inout) :: this !< standard operators
+	subroutine InitLegendreVDM(this)
+		class(StandardOperators1D), intent(inout) :: this !< standard operators
 
-  integer :: i, j, po
+		integer :: i, j, po
 
-  ! safeguard ..................................................................
+		! safeguard ................................................................
 
-  if (allocated(this % VL    )) deallocate(this % VL    )
-  if (allocated(this % VL_inv)) deallocate(this % VL_inv)
+		if (allocated(this % VL    )) deallocate(this % VL    )
+		if (allocated(this % VL_inv)) deallocate(this % VL_inv)
 
-  ! prerequisites ..............................................................
+		! prerequisites ............................................................
 
-  po = this % po
+		po = this % po
 
-  ! Vandermonde matrix .........................................................
+		! Vandermonde matrix .......................................................
 
-  allocate(this % VL(0:po,0:po))
-  do i = 0, po
-  do j = 0, po
-     this % VL(i,j) = JacobiPolynomial(a=ZERO, b=ZERO, n=j, x=this%x(i))
-  end do
-  end do
+		allocate(this % VL(0:po,0:po))
+		do i = 0, po
+		do j = 0, po
+			 this % VL(i,j) = JacobiPolynomial(a=ZERO, b=ZERO, n=j, x=this%x(i))
+		end do
+		end do
 
-  ! inverse Vandermonde matrix .................................................
+		! inverse Vandermonde matrix ...............................................
 
-  allocate(this % VL_inv(0:po,0:po), source=this%VL)
-  this % VL_inv = Inverse(this % VL)
+		allocate(this % VL_inv(0:po,0:po), source=this%VL)
+		this % VL_inv = Inverse(this % VL)
 
-end subroutine InitLegendreVDM
+	end subroutine InitLegendreVDM
 
-!-------------------------------------------------------------------------------
-!> Query if Legendre VDM is available
+	!-----------------------------------------------------------------------------
+	!> Query if Legendre VDM is available
 
-logical function HasLegendreVDM(this) result(has)
-  class(StandardOperators1D), intent(in) :: this    !< standard operators
-  has = allocated(this % VL)
-end function HasLegendreVDM
+	logical function HasLegendreVDM(this) result(has)
+		class(StandardOperators1D), intent(in) :: this    !< standard operators
+		has = allocated(this % VL)
+	end function HasLegendreVDM
 
-!-------------------------------------------------------------------------------
-!> Get the Legendre-Vandermonde matrix
+	!-----------------------------------------------------------------------------
+	!> Get the Legendre-Vandermonde matrix
 
-subroutine GetLegendreVDM(this, VL)
-  class(StandardOperators1D), intent(in) :: this    !< standard operators
-  real(RNP), intent(out) :: VL(0:this%po,0:this%po) !< Vandermonde matrix
+	subroutine GetLegendreVDM(this, VL)
+		class(StandardOperators1D), intent(in) :: this    !< standard operators
+		real(RNP), intent(out) :: VL(0:this%po,0:this%po) !< Vandermonde matrix
 
-  if (.not. allocated(this % VL)) then
-    call Error( 'GetLegendreVDM'                     &
-              , 'Vandermonde matrix not initialized' &
-              , 'Standard_Operators_1D'              )
-  end if
+		if (.not. allocated(this % VL)) then
+			call Error( 'GetLegendreVDM'                     &
+								, 'Vandermonde matrix not initialized' &
+								, 'Standard_Operators_1D'              )
+		end if
 
-  VL = this % VL
+		VL = this % VL
 
-end subroutine GetLegendreVDM
+	end subroutine GetLegendreVDM
 
-!-------------------------------------------------------------------------------
-!> Get the inverse Legendre-Vandermonde matrix
+	!-----------------------------------------------------------------------------
+	!> Get the inverse Legendre-Vandermonde matrix
 
-subroutine GetInverseLegendreVDM(this, VL_inv)
-  class(StandardOperators1D), intent(in) :: this        !< standard operators
-  real(RNP), intent(out) :: VL_inv(0:this%po,0:this%po) !< inverse VDM matrix
+	subroutine GetInverseLegendreVDM(this, VL_inv)
+		class(StandardOperators1D), intent(in) :: this        !< standard operators
+		real(RNP), intent(out) :: VL_inv(0:this%po,0:this%po) !< inverse VDM matrix
 
-  if (.not. allocated(this%VL_inv)) then
-    call Error( 'GetInverseLegendreVDM'              &
-              , 'Vandermonde matrix not initialized' &
-              , 'Standard_Operators_1D'              )
-  end if
+		if (.not. allocated(this%VL_inv)) then
+			call Error( 'GetInverseLegendreVDM'              &
+								, 'Vandermonde matrix not initialized' &
+								, 'Standard_Operators_1D'              )
+		end if
 
-  VL_inv = this % VL_inv
+		VL_inv = this % VL_inv
 
-end subroutine GetInverseLegendreVDM
+	end subroutine GetInverseLegendreVDM
 
-!-------------------------------------------------------------------------------
-!> Finalization
+	!-----------------------------------------------------------------------------
+	!> Finalization
 
-subroutine Delete_StandardOperators1D(this)
-  type(StandardOperators1D), intent(inout) :: this  !< standard operators
+	subroutine Delete_StandardOperators1D(this)
+		type(StandardOperators1D), intent(inout) :: this  !< standard operators
 
-  if(allocated(this%x     )) deallocate(this%x     )
-  if(allocated(this%w     )) deallocate(this%w     )
-  if(allocated(this%D     )) deallocate(this%D     )
-  if(allocated(this%L     )) deallocate(this%L     )
-  if(allocated(this%VL    )) deallocate(this%VL    )
-  if(allocated(this%VL_inv)) deallocate(this%VL_inv)
+		if(allocated(this%x     )) deallocate(this%x     )
+		if(allocated(this%w     )) deallocate(this%w     )
+		if(allocated(this%D     )) deallocate(this%D     )
+		if(allocated(this%L     )) deallocate(this%L     )
+		if(allocated(this%VL    )) deallocate(this%VL    )
+		if(allocated(this%VL_inv)) deallocate(this%VL_inv)
 
-end subroutine Delete_StandardOperators1D
+	end subroutine Delete_StandardOperators1D
 
-!===============================================================================
+	!=============================================================================
 
 end module Standard_Operators_1D
