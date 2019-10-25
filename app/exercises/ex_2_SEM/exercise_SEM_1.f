@@ -1,4 +1,4 @@
-!> \file       exercise_1.f 
+!> \file       exercise_SEM_1.f 
 !> \brief      Code for polynomial interpolation, integration and derivation
 !> \author     Immo Huismann
 !> \date       2013/12/02
@@ -23,11 +23,11 @@
 !>
 !> This code produces a printed output that states the analytical and the
 !> numerical value of the integral. A graphical output can be created by
-!> invoking the 'octave -q scripts/plot_exercise_1.m'.
+!> invoking the python script.
 !>
 !> \todo
 !> Currently the code creates an output which can be plotted using the script
-!> plot_exercise_1.m in the 'scripts' folder.
+!> in the 'scripts' folder.
 !> The functionalities of the code are to be expanded as follows:
 !>
 !> 1)   Set the correct interpolation nodes (start with GLL),  and the
@@ -66,7 +66,7 @@
 !>      
 !===============================================================================
 
-program Exercise_1
+program Exercise_SEM_1
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE, TWO, PI
   use Gauss_Jacobi
@@ -101,7 +101,7 @@ program Exercise_1
   NAMELIST /input_e1/ po,n,poly,func
 
   ! read po, n, poly and func from the input file
-  open(NEWUNIT=uni,FILE='input')
+  open(NEWUNIT=uni,FILE='input.prm')
   read(uni,input_e1)
   close(uni)
 
@@ -123,7 +123,7 @@ program Exercise_1
   ! The node locations, the integration weights and the differentation matrix
   ! are needed on the standard element.
   ! For the GL- and GLL-polynomials functions are present in gauss_jacobi.f
-  ! For the general Lagrange polynomials they are in lagrange_polynomials.f
+  ! For the general Lagrange polynomials they are in lagrange_Interpolation.f
   
   ! TODO 1 - Set the points used for the interpolation
   do i=0, po
@@ -133,11 +133,10 @@ program Exercise_1
   diff = 0
 
   ! output of basis functions ..................................................
-  open(newunit=uni,file='output/e1_nodal')
+  open(newunit=uni,file='output_e1_nodal')
   write(uni,*) x_p
   do i=0, po
-    write(uni,*) [(Lag_Polynomial(i,xi,x_p(j)), j = 0, n)]
-!!!!write(uni,*) [(LagrangePolynomial(i, xi, x_p(j)), j = 0, n)]
+    write(uni,*) [(LagrangePolynomial(i, xi, x_p(j)), j = 0, n)]
   end do
   close(uni)
   
@@ -185,7 +184,7 @@ program Exercise_1
     du_e = DiffFuncThree(x_p)
   end select
   
-  open(newunit=uni,file='output/e1_data')
+  open(newunit=uni,file='output_e1_data')
   write(uni,*) po, poly, n, 0, 0
   do i = 1, n
     write(uni,*)  x_p(i), u_p(i), du_p(i), u_e(i), du_e(i)
@@ -310,4 +309,4 @@ end function DiffFuncThree
 
 !===============================================================================
 
-end program Exercise_1
+end program Exercise_SEM_1

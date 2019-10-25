@@ -1,0 +1,6 @@
+&input_e1
+  po   = 7
+  n    = 200
+  poly = 1
+  func = 1
+/
