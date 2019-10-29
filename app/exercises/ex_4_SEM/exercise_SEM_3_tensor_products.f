@@ -48,11 +48,11 @@ program Exercise_3_Tensor_Products
   integer :: i,j ! loop indices
   integer :: uni ! io unit
 
-  procedure(FuncOne), pointer :: func_1 => FuncOne
-  procedure(FuncOne), pointer :: func_2 => FuncOne
+  procedure(FuncOne), pointer :: func_1
+  procedure(FuncOne), pointer :: func_2
 
-  procedure(IntFuncOne), pointer :: int_func_1 => IntFuncOne
-  procedure(IntFuncOne), pointer :: int_func_2 => IntFuncOne
+  procedure(IntFuncOne), pointer :: int_func_1
+  procedure(IntFuncOne), pointer :: int_func_2
   
 
   NAMELIST /input_e3/ po, n_plot, func

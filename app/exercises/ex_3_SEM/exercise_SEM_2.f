@@ -54,8 +54,8 @@ program Exercise_2
 
   ! problem dependent parameters
   integer   :: func     = 1 !< desired test function
-  procedure(TestFuncOne), pointer :: test_rhs => TestFuncOne
-  procedure(TestSolOne) , pointer :: test_sol => TestSolOne
+  procedure(TestFuncOne), pointer :: test_rhs
+  procedure(TestSolOne) , pointer :: test_sol
   real(RNP) :: bc_n !< Neumann BC
 
   integer :: uni     !< io-unit
