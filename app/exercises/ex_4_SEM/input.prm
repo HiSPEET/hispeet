@@ -1,0 +1,21 @@
+&input_e1
+  po   = 7
+  n    = 200
+  poly = 1
+  func = 1
+/
+
+&input_e2
+  po     = 15
+  n_ele  = 1
+  lambda = 1
+  n_plot = 100
+  r_max  = 1E-6
+  func   = 1
+/
+
+&input_e3
+  po     = 5, 7
+  n_plot = 70, 70
+  func   = 1, 2
+/

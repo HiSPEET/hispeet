@@ -1,1 +1,13 @@
+add_executable(exercise_SEM_3_exact_integration EXCLUDE_FROM_ALL exercise_SEM_3_exact_integration.f)
+target_link_libraries(exercise_SEM_3_exact_integration HiBase)
 
+add_executable(exercise_SEM_3_tensor_products EXCLUDE_FROM_ALL exercise_SEM_3_tensor_products.f)
+target_link_libraries(exercise_SEM_3_tensor_products HiBase)
+
+configure_file(input.prm input.prm COPYONLY)
+
+configure_file(plot_exercise_3_exact_integration.py plot_exercise_3_exact_integration.py COPYONLY)
+
+configure_file(plot_exercise_3_tensor_products.py plot_exercise_3_tensor_products.py COPYONLY)
+
+configure_file(README.md README.md COPYONLY)
