@@ -39,6 +39,12 @@ module Standard_Operators_1D
     real(RNP), allocatable :: VL(:,:)     !< Legendre-Vandermonde matrix
     real(RNP), allocatable :: VL_inv(:,:) !< inverse Legendre-Vandermonde matrix
 
+    ? real(RNP) :: ?_svv = ?     ! epsilon
+    ? integer   :: ?_svv = -1    ! M, cut-off degree
+
+    real(RNP), allocatable :: D_svv(:,:)
+    real(RNP), allocatable :: L_svv(:,:)
+
   contains
 
     procedure :: Init_StandardOperators1D
@@ -47,6 +53,11 @@ module Standard_Operators_1D
     procedure :: HasLegendreVDM
     procedure :: GetLegendreVDM
     procedure :: GetInverseLegendreVDM
+
+ ?  procedure :: Init_SVV
+ ?  procedure :: Has_SVV
+ ?  procedure :: Get_SVV_DiffMatrix
+ ?  procedure :: Get_SVV_StiffnessMatrix
 
   end type StandardOperators1D
 
