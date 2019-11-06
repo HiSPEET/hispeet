@@ -19,16 +19,16 @@ For details see [here](https://git-scm.com/book/en/v2/Getting-Started-First-Time
     git config --global core.editor bbedit
 
 ### Diff and merge tool
-    
+
     # Command line
     git config --global diff.tool vimdiff
     git config --global merge.tool vimdiff
-
+    
     # MacOS - GUI
     git config --global diff.tool opendiff
     git config --global merge.tool opendiff
     
-    # Linux - GUI alternatives: gvim, meld, kdiff3. E.g.
+    # Linux - GUI alternatives: gvim, meld, kdiff3, e.g.
     git config --global diff.tool meld
     git config --global merge.tool meld
 
@@ -39,31 +39,33 @@ Do not prompt before launching the diff and merge tools
 
 ### Enable password caching
 
-MacOS: use the osxkeychain credential helper 
+To get rid off retyping the password every time when contacting a remote repository you may enable password caching. Note, however, that cloning the repository using the HTTPS protocol often provides a more convenient approach. 
+
+With _MacOS_ use the osxkeychain credential helper 
 
     git config --global credential.helper osxkeychain
-    
+
 Enable password chaching (900 seconds are the default;)
 
     git config credential.helper cache
     # or, using a longer caching period
     git config credential.helper 'cache --timeout=1200'
-    
+
 ### How to start a new Git repository
 
      mkdir HiSPEET
      cd HiSPEET
-
+    
      git init
      mkdir doc
      mkdir src
      ..
      git add doc src
      git commit
-
+    
      # stage the modified and deleted files
      git add -u
-
+    
      # add and commit only the modified and deleted files.
      git commit -a
 
@@ -71,7 +73,7 @@ Enable password chaching (900 seconds are the default;)
 
 Clone HiSPEET into directory hispeet (will be created if not yet existing) 
 
-     git clone https://scm.fusionforge.zih.tu-dresden.de/anonscm/git/hispeet/hispeet.git hispeet
+     git clone https://scm.fusionforge.zih.tu-dresden.de/anonscm/git/hispeet/hispeet.git
 
 Alternatively, you may pick your version of the `clone` command from 
 [SCM menu](https://fusionforge.zih.tu-dresden.de/scm/?group_id=747):
@@ -131,9 +133,9 @@ Of course, files and directories can also be removed
     git rm -r <dir>
 
 To remove a file from the repository but keep it on disk, use `--cache`
-  
+
     git rm <file> --cache
-    
+
 Finally, commit the staged changes
 
     commit -m '<description of changes>'
@@ -141,11 +143,11 @@ Finally, commit the staged changes
 ### Unstaging
 
 To remove files from stage use reset HEAD where HEAD is the last commit of the current branch. This will unstage the file but maintain the modifications.
-  
+
     git reset HEAD <file>
 
 To revert the file back to the state it was in before the changes use:
-  
+
     git checkout -- <file>
 
 ### Comparing branches
@@ -154,12 +156,13 @@ To compare the current branch against master branch, showing only the names of m
 
     git diff --name-status master
 
-To compare any two branches:
+For details jomit the `--name-status` option. To compare a file or directory located at `path` against the master use
+
+    git diff --name-status master -- <path>
+
+Similarly, you can compare against another branch. Just replace `master` by the branch name as listed with `git branch -a`.  To compare any two branches:
 
     git diff --name-status <branch1>..<branch2>
-
-Note: 
-To show all changes in detail omit the `--name-status` option.
 
 
 ## Merging
@@ -169,7 +172,7 @@ To show all changes in detail omit the `--name-status` option.
 Merge branch `topic` into current branch
 
     git merge topic
-    
+
 Auto-resolve conflicts
 
     # favor the current branch
@@ -200,3 +203,5 @@ Compare/edit the changes using the difftool and commit
     git commit -m 'pull completed'
 
  
+
+
