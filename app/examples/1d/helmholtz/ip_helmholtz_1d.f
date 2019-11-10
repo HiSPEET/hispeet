@@ -7,7 +7,7 @@
 !>
 !> Solves the Helmholtz equation
 !>
-!>     u - lambda u" = f(x),    lambda = 1
+!>     lambda u - u" = f(x),    lambda = 1
 !>
 !> in the domain (-1,1) with u(-1) and u'(1) given. Test cases are based on the
 !> exact solution

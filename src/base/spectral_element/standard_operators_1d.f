@@ -303,7 +303,15 @@ contains
   subroutine InitSVV(this)
     class(StandardOperators1D), intent(inout) :: this !< standard operators
 
-    integer :: i, j, po
+    real(RNP), allocatable :: Q_modal(:,:) ! SVV operator in spectral space
+    real(RNP), allocatable :: Q(:,:)       ! SVV operator in nodal space
+
+    real(RNP) :: epsilon_svv               ! svv amplitude
+    real(RNP) :: viscosity                 ! mocked viscosity, will be removed
+                                           ! in future versions as it will be
+                                           ! given as a parameter
+    integer   :: cutoff_mode_svv           ! mode up until no viscosity is applied
+    integer   :: i, j, k, po
 
     ! safeguard ................................................................
 
@@ -314,14 +322,45 @@ contains
 
     po = this % po
 
-    ! placeholder for actual computation of SVV matrices .......................
+    ! according to Xu04
+    epsilon_svv     = ONE / po
+    viscosity       = 1.0 ! to be removed
+    cutoff_mode_svv = floor(po / TWO)
 
-    allocate(this % D_svv(0:po,0:po))
-    allocate(this % L_svv(0:po,0:po))
+    ! SVV operator in modal space ..............................................
+
+    allocate(Q_modal(0:po,0:po), source = ZERO)
+
+    ! computes the square root of the altered viscous prefactor, only non-unity
+    ! for modes larger than the cutoff mode number M
+    do k = cutoff_mode_svv+1, po
+      Q_modal(k,k) = sqrt(ONE + epsilon_svv / viscosity *                      &
+                        exp(-(real(po-k,RNP)/real(cutoff_mode_svv-k,RNP))**2))
+    end do
+
+    ! SVV operator in nodal space ..............................................
+
+    allocate(Q(0:po,0:po), source = ZERO)
+
+    ! Q is transfered into physical space utilizing the Vandermonde matrix as
+    ! passage matrix
+    Q = matmul(this%VL_inv, matmul(Q_modal, this%VL))
+
+    ! SVV differentiation matrix ...............................................
+
+    allocate(this%D_SVV(0:po,0:po), source = ZERO)
+
+    ! application of the SVV operator on the differentiation matrix
+    this%D_SVV = matmul(Q, this%D)
+
+    ! SVV stiffness matrix .....................................................
+
+    allocate(this%L_SVV(0:po,0:po), source = ZERO)
+
     do i = 0, po
     do j = 0, po
-      this % D_svv(i,j) = ZERO
-      this % L_svv(i,j) = ZERO
+      this%L_SVV(i,j) = this%L_SVV(i,j) +                                      &
+                            sum(this%w * this%D_SVV(:,i) * this%D_SVV(:,j))
     end do
     end do
 
