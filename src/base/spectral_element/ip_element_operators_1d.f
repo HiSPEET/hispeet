@@ -69,6 +69,7 @@ module IP_Element_Operators_1D
     real(RNP) :: penalty =  2      !< penalty parameter > 1
     logical   :: hybrid  = .false. !< switch to hybridized method
     logical   :: no_vdm  = .false. !< skip Vandermonde matrix
+    logical   :: svv     = .false. !< activate SVV model
   contains
     procedure :: Bcast => IP_ElementOptions1D_Bcast
   end type IP_ElementOptions1D
@@ -86,11 +87,12 @@ contains
 !-------------------------------------------------------------------------------
 !> Constructor for IP_ElementOperators1D -- flat interface
 
-function New_IP_ElementOperators1D__f(po, penalty, hybrid, no_vdm) result(this)
+function New_IP_ElementOperators1D__f(po, penalty, hybrid, no_vdm, svv) result(this)
   integer,             intent(in) :: po      !< polynomial order
   real(RNP), optional, intent(in) :: penalty !< penalty parameter > 1        [2]
   logical,   optional, intent(in) :: hybrid  !< switch to hybridized method  [F]
   logical,   optional, intent(in) :: no_vdm  !< skip Vandermonde matrix      [F]
+  logical,   optional, intent(in) :: svv     !< activate SVV model           [F]
 
   type(IP_ElementOperators1D) :: this
   type(IP_ElementOptions1D)   :: opt
@@ -99,6 +101,7 @@ function New_IP_ElementOperators1D__f(po, penalty, hybrid, no_vdm) result(this)
   if (present(penalty)) opt % penalty = penalty
   if (present(hybrid )) opt % hybrid  = hybrid
   if (present(no_vdm )) opt % no_vdm  = no_vdm
+  if (present(svv    )) opt % svv     = svv
 
   call Init_IP_ElementOperators1D(this, opt)
 
@@ -127,7 +130,7 @@ subroutine Init_IP_ElementOperators1D(this, opt)
   class(IP_ElementOptions1D),   intent(in)    :: opt
 
   ! standard operators
-  call this % Init_StandardOperators1D(opt%po, no_vdm = opt%no_vdm)
+  call this % Init_StandardOperators1D(opt%po, no_vdm = opt%no_vdm, svv = opt%svv)
 
   this % penalty = opt % penalty
   this % hybrid  = opt % hybrid
