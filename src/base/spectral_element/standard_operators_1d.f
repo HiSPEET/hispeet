@@ -323,8 +323,8 @@ contains
     po = this % po
 
     ! according to Xu04
-    epsilon_svv     = ONE / po
-    viscosity       = 1.0 ! to be removed
+    epsilon_svv     = ONE / real(po,RNP)
+    viscosity       = ONE ! to be removed
     cutoff_mode_svv = floor(po / TWO)
 
     ! SVV operator in modal space ..............................................
@@ -333,6 +333,10 @@ contains
 
     ! computes the square root of the altered viscous prefactor, only non-unity
     ! for modes larger than the cutoff mode number M
+    do k = 0, cutoff_mode_svv
+      Q_modal(k,k) = ONE
+    end do
+
     do k = cutoff_mode_svv+1, po
       Q_modal(k,k) = sqrt(ONE + epsilon_svv / viscosity *                      &
                         exp(-(real(po-k,RNP)/real(cutoff_mode_svv-k,RNP))**2))

@@ -186,7 +186,7 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le, form)
   logical   :: primal
   integer   :: P, i, j
   real(RNP) :: g(-1:1), mu_0, mu_P, c_0, c_P, h_0, h_P
-  real(RNP), allocatable :: delta_0(:), delta_P(:)
+  real(RNP), allocatable :: Ds(:,:), Ls(:,:), delta_0(:), delta_P(:)
 
   ! initialization .............................................................
 
@@ -250,7 +250,18 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le, form)
 
   end if
 
-  associate( Ms => this%w, Ds => this%D, Ls => this%L )
+  ! Ds and Ls are set based on if svv is used or not
+  allocate(Ds(0:P,0:P))
+  allocate(Ls(0:P,0:P))
+  if (this%HasSVV()) then
+    call this%GetSVV_DiffMatrix(Ds)
+    call this%GetSVV_StiffnessMatrix(Ls)
+  else
+    Ds = this%D
+    Ls = this%L
+  end if
+
+  associate( Ms => this%w )
 
     ! contribution from preceding element (Le⁻) ................................
 
