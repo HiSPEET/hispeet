@@ -63,8 +63,9 @@ program CG_Helmholtz_1D
   integer   :: method = 1       ! solution method (1: CG, 2: SC+GE)
   integer   :: i_max  = huge(1) ! maximum number of CG iterations
   real(RNP) :: r_max  = 1E-12   ! maximum CG residual
+  logical   :: svv    = .false. ! switch that enables SVV
 
-  namelist /solution_parameters/ po, ne, method, r_max, i_max
+  namelist /solution_parameters/ po, ne, method, r_max, i_max, svv
 
   ! discrete variables and operators
   type(CG_ElementOperators1D) :: eop       ! element operators
@@ -109,7 +110,7 @@ program CG_Helmholtz_1D
             s(0:po,ne), e(0:po,ne), w(0:po,ne)              )
 
   ! standard operators
-  eop = CG_ElementOperators1D(po)
+  eop = CG_ElementOperators1D(po, svv = svv)
 
   ! mesh and point weights
   call GetMeshPoints(eop, -ONE, ONE, dx, x)
@@ -117,7 +118,7 @@ program CG_Helmholtz_1D
 
   ! element operators
   allocate(Me(0:po), He(0:po,0:po))
-  call GetElementOperators(eop, dx, lambda, Me, He)
+  call GetElementOperators(eop, dx, lambda, svv, Me, He)
 
   ! check if problem is singular
   singular = lambda == 0 .and. (all(bc == 'N') .or. all(bc == 'P'))
@@ -208,16 +209,28 @@ contains
 !-------------------------------------------------------------------------------
 !> Element operators
 
-subroutine GetElementOperators(eop, dx, lambda, Me, He)
+subroutine GetElementOperators(eop, dx, lambda, svv, Me, He)
   class(CG_ElementOperators1D), intent(in) :: eop !< standard operators
   real(RNP), intent(in)  :: dx        !< element length
   real(RNP), intent(in)  :: lambda    !< Helmholtz parameter
+  logical,   intent(in)  :: svv       !< SVV switch
   real(RNP), intent(out) :: Me(0:)    !< element mass matrix (main diagonal)
   real(RNP), intent(out) :: He(0:,0:) !< element Helmholtz operator
 
-  integer :: i
+  integer :: i, po
+  real(RNP), allocatable :: Ls(:,:)
 
-  associate(po => eop % po, Ms => eop % w, Ls => eop % L)
+  po = eop % po
+
+  allocate(Ls(0:po,0:po))
+  if (svv) then
+    call eop%GetSVV_StiffnessMatrix(Ls)
+    write(*,*) "Doing SVV!"
+  else
+    Ls = eop%L
+  end if
+
+  associate(Ms => eop % w)
 
     ! element mass matrix
     Me = dx/2 * Ms

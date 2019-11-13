@@ -40,6 +40,7 @@ module CG_Element_Operators_1D
   type CG_ElementOptions1D
     integer   :: po      = -1      !< polynomial order
     logical   :: no_vdm  = .false. !< skip Vandermonde matrix
+    logical   :: svv     = .false. !< activate SVV model
   end type CG_ElementOptions1D
 
 contains
@@ -50,15 +51,17 @@ contains
 !-------------------------------------------------------------------------------
 !> Constructor for CG_ElementOperators1D -- flat interface
 
-function New_CG_ElementOperators1D__f(po, no_vdm) result(this)
+function New_CG_ElementOperators1D__f(po, no_vdm, svv) result(this)
   integer,             intent(in) :: po      !< polynomial order
   logical,   optional, intent(in) :: no_vdm  !< skip Vandermonde matrix  [F]
+  logical,   optional, intent(in) :: svv     !< activate SVV model       [F]
 
   type(CG_ElementOperators1D) :: this
   type(CG_ElementOptions1D)   :: opt
 
   opt % po = po
   if (present(no_vdm )) opt % no_vdm  = no_vdm
+  if (present(svv    )) opt % svv     = svv
 
   call Init_CG_ElementOperators1D(this, opt)
 
@@ -86,7 +89,7 @@ subroutine Init_CG_ElementOperators1D(this, opt)
   class(CG_ElementOperators1D), intent(inout) :: this
   class(CG_ElementOptions1D),   intent(in)    :: opt
 
-  call this % Init_StandardOperators1D(opt%po, no_vdm = opt%no_vdm)
+  call this % Init_StandardOperators1D(opt%po, no_vdm = opt%no_vdm, svv = opt%svv)
 
 end subroutine Init_CG_ElementOperators1D
 
@@ -107,7 +110,7 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
 
   integer   :: P, i, j
   real(RNP) :: g(-1:1)
-  real(RNP), allocatable :: delta_0(:), delta_P(:)
+  real(RNP), allocatable :: delta_0(:), delta_P(:), Ls(:,:)
 
   ! initialization .............................................................
 
@@ -120,47 +123,50 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
   allocate(delta_P(0:P), source = ZERO)
   delta_P(P) = ONE
 
-  associate(Ls => this%L)
+  allocate(Ls(0:P,0:P))
+  if (this%HasSVV()) then
+    call this%GetSVV_StiffnessMatrix(Ls)
+  else
+    Ls = this%L
+  end if
 
-    ! contribution from preceding element (Le⁻) ................................
+  ! contribution from preceding element (Le⁻) ................................
 
-    if (scan(bc(1), 'DN') > 0) then
-      Le(:,:,-1) = 0
-    else
-      do j = 0, P
-      do i = 0, P
-        Le(i,j,-1) = g(-1) * delta_0(i) * Ls(P,j)
-      end do
-      end do
-    end if
+  if (scan(bc(1), 'DN') > 0) then
+    Le(:,:,-1) = 0
+  else
+    do j = 0, P
+    do i = 0, P
+      Le(i,j,-1) = g(-1) * delta_0(i) * Ls(P,j)
+    end do
+    end do
+  end if
 
-    ! own contribution (Le⁰) ...................................................
+  ! own contribution (Le⁰) ...................................................
 
-    Le(:,:,0) = g(0) * Ls
+  Le(:,:,0) = g(0) * Ls
 
-    ! nullify Dirichlet entries
-    if (bc(1) == 'D') then
-      Le(0,:,0) = 0
-      Le(:,0,0) = 0
-    end if
-    if (bc(2) == 'D') then
-      Le(P,:,0) = 0
-      Le(:,P,0) = 0
-    end if
+  ! nullify Dirichlet entries
+  if (bc(1) == 'D') then
+    Le(0,:,0) = 0
+    Le(:,0,0) = 0
+  end if
+  if (bc(2) == 'D') then
+    Le(P,:,0) = 0
+    Le(:,P,0) = 0
+  end if
 
-    ! contribution from following element (Le⁺) ................................
+  ! contribution from following element (Le⁺) ................................
 
-    if (scan(bc(2), 'DN') > 0) then
-      Le(:,:,1) = 0
-    else
-      do j = 0, P
-      do i = 0, P
-        Le(i,j,1) = g(1) * delta_P(i) * Ls(0,j)
-      end do
-      end do
-    end if
-
-  end associate
+  if (scan(bc(2), 'DN') > 0) then
+    Le(:,:,1) = 0
+  else
+    do j = 0, P
+    do i = 0, P
+      Le(i,j,1) = g(1) * delta_P(i) * Ls(0,j)
+    end do
+    end do
+  end if
 
 end subroutine GetStiffnessMatrix
 
