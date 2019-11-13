@@ -225,7 +225,6 @@ subroutine GetElementOperators(eop, dx, lambda, svv, Me, He)
   allocate(Ls(0:po,0:po))
   if (svv) then
     call eop%GetSVV_StiffnessMatrix(Ls)
-    write(*,*) "Doing SVV!"
   else
     Ls = eop%L
   end if

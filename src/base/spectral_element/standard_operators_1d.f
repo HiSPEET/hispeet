@@ -346,9 +346,10 @@ contains
 
     allocate(Q(0:po,0:po), source = ZERO)
 
-    ! Q is transfered into physical space utilizing the Vandermonde matrix as
-    ! passage matrix
-    Q = matmul(this%VL_inv, matmul(Q_modal, this%VL))
+    ! Q is transfered into physical space utilizing the inverse Vandermonde
+    ! matrix V^-1 as passage matrix M
+    Q = matmul(this%VL, matmul(Q_modal, this%VL_inv))
+    ! Q = matmul(matmul(this%VL, Q_modal), this%VL_inv)
 
     ! SVV differentiation matrix ...............................................
 
