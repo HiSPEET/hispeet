@@ -211,11 +211,21 @@ subroutine GetEllipticSuboperators(this, dx, c, nu, Aib, Abb, Aii_inv)
   real(RNP), intent(out) :: Abb(:,:)     !< boundary-boundary part, dim (2,2)
   real(RNP), intent(out) :: Aii_inv(:,:) !< Aᵢᵢ⁻¹, dimension (po-1,po-1)
 
-  real(RNP), allocatable :: S(:,:), Lambda(:), D_inv(:)
+  real(RNP), allocatable :: Ls(:,:), S(:,:), Lambda(:), D_inv(:)
   real(RNP) :: g0, g1
-  integer   :: i, j, np
+  integer   :: po, i, j, np
 
-  associate(po => this%po, Ms => this%w, Ls => this%L)
+  po = this%po
+
+  ! Ls are set based on if svv is used or not
+  allocate(Ls(0:po,0:po))
+  if (this%HasSVV()) then
+    call this%GetSVV_StiffnessMatrix(Ls)
+  else
+    Ls = this%L
+  end if
+
+  associate(Ms => this%w)
 
     np = po - 1
 
