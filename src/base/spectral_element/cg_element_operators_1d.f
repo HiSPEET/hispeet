@@ -186,14 +186,20 @@ subroutine GetEllipticEigensystem(this, dx, S, Lambda)
   real(RNP), intent(out) :: S(:,:)     !< eigenvectors
   real(RNP), intent(out) :: Lambda(:)  !< eigenvalues
 
-  real(RNP), allocatable :: Mii(:), Lii(:,:)
+  real(RNP), allocatable :: Mii(:), Lii(:,:), L_SVV(:,:)
   integer :: np
 
   np = size(Lambda)
   if (np < 1) return
 
   allocate(Mii, source = dx/2 * this % w(1:np))
-  allocate(Lii, source = 2/dx * this % L(1:np,1:np))
+  if (this%HasSVV()) then
+    allocate(L_SVV(0:np+1,0:np+1))
+    call this%GetSVV_StiffnessMatrix(L_SVV)
+    allocate(Lii, source = 2/dx * L_SVV(1:np,1:np))
+  else
+    allocate(Lii, source = 2/dx * this % L(1:np,1:np))
+  end if
 
   call SolveGeneralizedEigenproblem(Lii, Mii, Lambda, S)
 
@@ -217,7 +223,7 @@ subroutine GetEllipticSuboperators(this, dx, c, nu, Aib, Abb, Aii_inv)
 
   po = this%po
 
-  ! Ls are set based on if svv is used or not
+  ! Ls is set based on if svv is used or not
   allocate(Ls(0:po,0:po))
   if (this%HasSVV()) then
     call this%GetSVV_StiffnessMatrix(Ls)

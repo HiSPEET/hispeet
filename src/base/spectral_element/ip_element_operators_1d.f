@@ -426,7 +426,7 @@ subroutine GetEllipticSuboperators(this, dx, bc, c, nu, Aib, Aii_inv)
   real(RNP), intent(out) :: Aib(0:,:)      !< interior-boundary part, Â(0:P,1:2)
   real(RNP), intent(out) :: Aii_inv(0:,0:) !< inv interior part, Ã⁺(0:P,0:P)
 
-  real(RNP), allocatable :: S(:,:), Lambda(:), D_inv(:)
+  real(RNP), allocatable :: Ds(:,:), S(:,:), Lambda(:), D_inv(:)
   real(RNP), allocatable :: delta_0(:), delta_P(:)
   real(RNP) :: mu_0, mu_P
   integer   :: P, i, j
@@ -447,32 +447,35 @@ subroutine GetEllipticSuboperators(this, dx, bc, c, nu, Aib, Aii_inv)
   allocate(S(0:P,0:P), Lambda(0:P), D_inv(0:P))
   call this % GetEllipticEigensystem(dx, bc, S, Lambda)
 
+  allocate(Ds(0:P,0:P))
+  if (this%HasSVV()) then
+    call this%GetSVV_DiffMatrix(Ds)
+  else
+    Ds = this%D
+  end if
+
   ! interior-boundary part .....................................................
 
-  associate(Ds => this%D)
+  if (all(bc == 'P')) then
+    Aib(:,1) =  0
+    Aib(:,2) =  0
+  else
 
-    if (all(bc == 'P')) then
+    select case (bc(1))
+    case('D','N')
       Aib(:,1) =  0
+    case default ! interior od periodic
+      Aib(:,1) = -2/dx(0) * nu * Ds(0,:)  -  2 * nu * mu_0 * delta_0
+    end select
+
+    select case (bc(2))
+    case('D','N')
       Aib(:,2) =  0
-    else
+    case default ! interior od periodic
+      Aib(:,2) =  2/dx(0) * nu * Ds(P,:)  -  2 * nu * mu_P * delta_P
+    end select
 
-      select case (bc(1))
-      case('D','N')
-        Aib(:,1) =  0
-      case default ! interior od periodic
-        Aib(:,1) = -2/dx(0) * nu * Ds(0,:)  -  2 * nu * mu_0 * delta_0
-      end select
-
-      select case (bc(2))
-      case('D','N')
-        Aib(:,2) =  0
-      case default ! interior od periodic
-        Aib(:,2) =  2/dx(0) * nu * Ds(P,:)  -  2 * nu * mu_P * delta_P
-      end select
-
-    end if
-
-  end associate
+  end if
 
   ! inverse interior part ......................................................
 

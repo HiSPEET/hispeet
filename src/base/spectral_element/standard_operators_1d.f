@@ -347,7 +347,7 @@ contains
     allocate(Q(0:po,0:po), source = ZERO)
 
     ! Q is transfered into physical space utilizing the inverse Vandermonde
-    ! matrix V^-1 as passage matrix M
+    ! matrix V⁻¹ as passage matrix M
     Q = matmul(this%VL, matmul(Q_modal, this%VL_inv))
     ! Q = matmul(matmul(this%VL, Q_modal), this%VL_inv)
 
