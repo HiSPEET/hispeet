@@ -194,7 +194,7 @@ contains
 
     do i = 0, po
     do j = 0, po
-      this%L(i,j) = this%L(i,j) + sum(this%w * this%D(:,i) * this%D(:,j))
+      this%L(i,j) = sum(this%w * this%D(:,i) * this%D(:,j))
     end do
     end do
 
@@ -303,15 +303,14 @@ contains
   subroutine InitSVV(this)
     class(StandardOperators1D), intent(inout) :: this !< standard operators
 
-    real(RNP), allocatable :: Q_modal(:,:) ! SVV operator in spectral space
-    real(RNP), allocatable :: Q(:,:)       ! SVV operator in nodal space
+    real(RNP), allocatable :: Q_modal(:,:) ! SVV operator in modal space
 
-    real(RNP) :: epsilon_svv               ! svv amplitude
-    real(RNP) :: viscosity                 ! mocked viscosity, will be removed
-                                           ! in future versions as it will be
-                                           ! given as a parameter
+    ! real(RNP) :: epsilon_svv               ! svv amplitude
+    ! real(RNP) :: viscosity                 ! mocked viscosity, will be removed
+    !                                        ! in future versions as it will be
+    !                                        ! given as a parameter
     integer   :: cutoff_mode_svv           ! mode up until no viscosity is applied
-    integer   :: i, j, k, po
+    integer   :: k, po
 
     ! safeguard ................................................................
 
@@ -322,52 +321,37 @@ contains
 
     po = this % po
 
-    ! according to Xu04
-    epsilon_svv     = ONE / real(po,RNP)
-    viscosity       = ONE ! to be removed
+    ! ! according to Xu04
     cutoff_mode_svv = floor(po / TWO)
 
     ! SVV operator in modal space ..............................................
 
     allocate(Q_modal(0:po,0:po), source = ZERO)
 
-    ! computes the square root of the altered viscous prefactor, only non-unity
-    ! for modes larger than the cutoff mode number M
-    do k = 0, cutoff_mode_svv
-      Q_modal(k,k) = ONE
-    end do
-
+    ! computes the SVV kernel matrix based on the SVV kernel \hat{Q}_k
     do k = cutoff_mode_svv+1, po
-      Q_modal(k,k) = sqrt(ONE + epsilon_svv / viscosity *                      &
-                        exp(-(real(po-k,RNP)/real(cutoff_mode_svv-k,RNP))**2))
+      Q_modal(k,k) = exp(-(real(po-k,RNP)/real(cutoff_mode_svv-k,RNP))**2)
     end do
-
-    ! SVV operator in nodal space ..............................................
-
-    allocate(Q(0:po,0:po), source = ZERO)
-
-    ! Q is transfered into physical space utilizing the inverse Vandermonde
-    ! matrix V⁻¹ as passage matrix M
-    Q = matmul(this%VL, matmul(Q_modal, this%VL_inv))
-    ! Q = matmul(matmul(this%VL, Q_modal), this%VL_inv)
 
     ! SVV differentiation matrix ...............................................
 
-    allocate(this%D_SVV(0:po,0:po), source = ZERO)
+    allocate(this%D_SVV(0:po,0:po), source = this%D)
 
     ! application of the SVV operator on the differentiation matrix
-    this%D_SVV = matmul(Q, this%D)
+    ! TODO: fill D_SVV with life
 
     ! SVV stiffness matrix .....................................................
 
     allocate(this%L_SVV(0:po,0:po), source = ZERO)
 
-    do i = 0, po
-    do j = 0, po
-      this%L_SVV(i,j) = this%L_SVV(i,j) +                                      &
-                            sum(this%w * this%D_SVV(:,i) * this%D_SVV(:,j))
-    end do
-    end do
+    ! \hat{Q} is transfered into physical space utilizing the inverse
+    ! Vandermonde matrix V⁻¹ as passage matrix T, this is then applied to L
+    this%L_SVV = matmul(matmul(this%VL, matmul(Q_modal, this%VL_inv)), this%L)
+
+    write(*,*) "sanity check: ", this%L(1,1) + ONE/real(po,RNP)*this%L_SVV(1,1), &
+                                 this%L(5,8) + ONE/real(po,RNP)*this%L_SVV(5,8), &
+                                 this%L(8,5) + ONE/real(po,RNP)*this%L_SVV(8,5), &
+                                 this%L(1,9) + ONE/real(po,RNP)*this%L_SVV(1,9)
 
   end subroutine InitSVV
 
@@ -376,7 +360,7 @@ contains
 
   logical function HasSVV(this) result(has)
     class(StandardOperators1D), intent(in) :: this !< standard operators
-    has = allocated(this % D_SVV)
+    has = allocated(this % L_SVV)
   end function HasSVV
 
   !-----------------------------------------------------------------------------
@@ -393,6 +377,7 @@ contains
     end if
 
     D_SVV = this % D_SVV
+    write(*,*) "returning the diff matrix for SVV!"
 
   end subroutine GetSVV_DiffMatrix
 

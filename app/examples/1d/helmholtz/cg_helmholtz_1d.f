@@ -7,7 +7,7 @@
 !>
 !> Solves the Helmholtz equation
 !>
-!>     u - lambda u" = f(x),    lambda = 1
+!>     lambda u - u" = f(x),    lambda = 1
 !>
 !> in the domain (-1,1) with u(-1) and u'(1) given. Test cases are based on the
 !> exact solution
@@ -225,6 +225,7 @@ subroutine GetElementOperators(eop, dx, lambda, svv, Me, He)
   allocate(Ls(0:po,0:po))
   if (svv) then
     call eop%GetSVV_StiffnessMatrix(Ls)
+    Ls = eop%L + ONE / real(po,RNP) * Ls
   else
     Ls = eop%L
   end if
