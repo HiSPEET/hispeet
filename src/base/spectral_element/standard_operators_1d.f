@@ -303,14 +303,12 @@ contains
   subroutine InitSVV(this)
     class(StandardOperators1D), intent(inout) :: this !< standard operators
 
-    real(RNP), allocatable :: Q_modal(:,:) ! SVV operator in modal space
+    real(RNP), allocatable :: Q_sqrt_modal(:,:) ! square root of SVV operator in
+                                                ! modal space
 
-    ! real(RNP) :: epsilon_svv               ! svv amplitude
-    ! real(RNP) :: viscosity                 ! mocked viscosity, will be removed
-    !                                        ! in future versions as it will be
-    !                                        ! given as a parameter
-    integer   :: cutoff_mode_svv           ! mode up until no viscosity is applied
-    integer   :: k, po
+    integer   :: cutoff_mode_svv                ! mode up until no spectral
+                                                ! viscosity is applied
+    integer   :: i, j, k, po
 
     ! safeguard ................................................................
 
@@ -326,32 +324,36 @@ contains
 
     ! SVV operator in modal space ..............................................
 
-    allocate(Q_modal(0:po,0:po), source = ZERO)
+    allocate(Q_sqrt_modal(0:po,0:po), source = ZERO)
 
-    ! computes the SVV kernel matrix based on the SVV kernel \hat{Q}_k
+    ! computes the square root of the SVV kernel matrix based on the SVV kernel \hat{Q}_k
     do k = cutoff_mode_svv+1, po
-      Q_modal(k,k) = exp(-(real(po-k,RNP)/real(cutoff_mode_svv-k,RNP))**2)
+      Q_sqrt_modal(k,k) = sqrt(exp(-(real(po-k,RNP)/real(cutoff_mode_svv-k,RNP))**2))
     end do
 
     ! SVV differentiation matrix ...............................................
 
     allocate(this%D_SVV(0:po,0:po), source = this%D)
 
-    ! application of the SVV operator on the differentiation matrix
-    ! TODO: fill D_SVV with life
+    ! application of the square root of the SVV operator on the differentiation
+    ! matrix. The SVV operator is transfered into physical space utilizing the
+    ! inverse Vandermonde matrix V⁻¹ as passage matrix T, this is then applied
+    ! to D
+    this%D_SVV = matmul(matmul(matmul(this%VL, Q_sqrt_modal), this%VL_inv), this%D)
 
     ! SVV stiffness matrix .....................................................
 
     allocate(this%L_SVV(0:po,0:po), source = ZERO)
 
-    ! \hat{Q} is transfered into physical space utilizing the inverse
-    ! Vandermonde matrix V⁻¹ as passage matrix T, this is then applied to L
-    this%L_SVV = matmul(matmul(this%VL, matmul(Q_modal, this%VL_inv)), this%L)
+    ! computation of the SVV stiffness matrix with D^T M D
+    do i = 0, po
+    do j = 0, po
+      this%L_SVV(i,j) = sum(this%w * this%D_SVV(:,i) * this%D_SVV(:,j))
+    end do
+    end do
 
-    write(*,*) "sanity check: ", this%L(1,1) + ONE/real(po,RNP)*this%L_SVV(1,1), &
-                                 this%L(5,8) + ONE/real(po,RNP)*this%L_SVV(5,8), &
-                                 this%L(8,5) + ONE/real(po,RNP)*this%L_SVV(8,5), &
-                                 this%L(1,9) + ONE/real(po,RNP)*this%L_SVV(1,9)
+    write(*,*) "L_SVV: ", this%L_SVV(12,3), this%L_SVV(5,8), this%L_SVV(8,5), this%L_SVV(3,12), this%L_SVV(9,3), this%L_SVV(3,9)
+
 
   end subroutine InitSVV
 

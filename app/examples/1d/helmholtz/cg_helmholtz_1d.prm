@@ -7,7 +7,7 @@
 /
 
 &solution_parameters
- po = 15        ! polynomial order
+ po = 16        ! polynomial order
  ne = 1         ! number of elements
  method = 2     ! 1: conjugate gradients CG, 2: SC+GE
  !i_max = 10    ! max number iterations with CG
