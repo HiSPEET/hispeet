@@ -339,6 +339,8 @@ contains
     ! matrix. The SVV operator is transfered into physical space utilizing the
     ! inverse Vandermonde matrix V⁻¹ as passage matrix T, this is then applied
     ! to D
+    ! TODO: think about if it is more clever to store D_SVV = Q D here instead
+    ! of D_SVV = Q^(1/2) D (which is only used for the L_SVV computation)
     this%D_SVV = matmul(matmul(matmul(this%VL, Q_sqrt_modal), this%VL_inv), this%D)
 
     ! SVV stiffness matrix .....................................................
@@ -351,9 +353,6 @@ contains
       this%L_SVV(i,j) = sum(this%w * this%D_SVV(:,i) * this%D_SVV(:,j))
     end do
     end do
-
-    write(*,*) "L_SVV: ", this%L_SVV(12,3), this%L_SVV(5,8), this%L_SVV(8,5), this%L_SVV(3,12), this%L_SVV(9,3), this%L_SVV(3,9)
-
 
   end subroutine InitSVV
 
