@@ -39,12 +39,13 @@ program IP_Helmholtz_1D
   namelist /problem_parameters/ lambda, test, bc
 
   ! solution parameters
-  integer   :: po      = 16      ! polynomial order
-  integer   :: ne      = 10      ! number of elements
-  real(RNP) :: penalty = 2       ! penalty parameter > 1
-  logical   :: svv     = .false. ! switch that enables SVV
+  integer   :: po         = 16      ! polynomial order
+  integer   :: ne         = 10      ! number of elements
+  real(RNP) :: penalty    = 2       ! penalty parameter > 1
+  logical   :: svv        = .false. ! switch that enables SVV
+  integer   :: po_cut_svv = -1      ! cut-off PO for SVV
 
-  namelist /solution_parameters/ po, ne, penalty, svv
+  namelist /solution_parameters/ po, ne, penalty, svv, po_cut_svv
 
   ! discrete variables and operators
   type(IP_ElementOperators1D) :: eop    ! element operators
@@ -87,7 +88,7 @@ program IP_Helmholtz_1D
   n = size(u)
 
   ! standard operators
-  eop = IP_ElementOperators1D(po, penalty, hybrid = .true., svv = svv)
+  eop = IP_ElementOperators1D(po, penalty, hybrid = .true., svv = svv, po_cut_svv = po_cut_svv)
 
   ! mesh
   dx = TWO / ne

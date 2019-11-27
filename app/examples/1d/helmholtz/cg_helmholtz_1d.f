@@ -58,14 +58,15 @@ program CG_Helmholtz_1D
   namelist /problem_parameters/ lambda, test, init, bc
 
   ! solution parameters
-  integer   :: po     = 16      ! polynomial order
-  integer   :: ne     = 10      ! number of elements
-  integer   :: method = 1       ! solution method (1: CG, 2: SC+GE)
-  integer   :: i_max  = huge(1) ! maximum number of CG iterations
-  real(RNP) :: r_max  = 1E-12   ! maximum CG residual
-  logical   :: svv    = .false. ! switch that enables SVV
+  integer   :: po         = 16      ! polynomial order
+  integer   :: ne         = 10      ! number of elements
+  integer   :: method     = 1       ! solution method (1: CG, 2: SC+GE)
+  integer   :: i_max      = huge(1) ! maximum number of CG iterations
+  real(RNP) :: r_max      = 1E-12   ! maximum CG residual
+  logical   :: svv        = .false. ! switch that enables SVV
+  integer   :: po_cut_svv = -1      ! cut-off PO for SVV
 
-  namelist /solution_parameters/ po, ne, method, r_max, i_max, svv
+  namelist /solution_parameters/ po, ne, method, r_max, i_max, svv, po_cut_svv
 
   ! discrete variables and operators
   type(CG_ElementOperators1D) :: eop       ! element operators
@@ -110,7 +111,7 @@ program CG_Helmholtz_1D
             s(0:po,ne), e(0:po,ne), w(0:po,ne)              )
 
   ! standard operators
-  eop = CG_ElementOperators1D(po, svv = svv)
+  eop = CG_ElementOperators1D(po, svv = svv, po_cut_svv = po_cut_svv)
 
   ! mesh and point weights
   call GetMeshPoints(eop, -ONE, ONE, dx, x)

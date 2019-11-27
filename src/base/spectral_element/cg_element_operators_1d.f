@@ -38,9 +38,10 @@ module CG_Element_Operators_1D
   !> Options for CG_ElementOperators1D
 
   type CG_ElementOptions1D
-    integer   :: po      = -1      !< polynomial order
-    logical   :: no_vdm  = .false. !< skip Vandermonde matrix
-    logical   :: svv     = .false. !< activate SVV model
+    integer :: po         = -1      !< polynomial order
+    logical :: no_vdm     = .false. !< skip Vandermonde matrix
+    logical :: svv        = .false. !< activate SVV model
+    integer :: po_cut_svv = -1      !< cut-off PO for SVV
   end type CG_ElementOptions1D
 
 contains
@@ -51,17 +52,19 @@ contains
 !-------------------------------------------------------------------------------
 !> Constructor for CG_ElementOperators1D -- flat interface
 
-function New_CG_ElementOperators1D__f(po, no_vdm, svv) result(this)
-  integer,             intent(in) :: po      !< polynomial order
-  logical,   optional, intent(in) :: no_vdm  !< skip Vandermonde matrix  [F]
-  logical,   optional, intent(in) :: svv     !< activate SVV model       [F]
+function New_CG_ElementOperators1D__f(po, no_vdm, svv, po_cut_svv) result(this)
+  integer,             intent(in) :: po         !< polynomial order
+  logical,   optional, intent(in) :: no_vdm     !< skip Vandermonde matrix  [F]
+  logical,   optional, intent(in) :: svv        !< activate SVV model       [F]
+  integer,   optional, intent(in) :: po_cut_svv !< cut-off PO for SVV      [-1]
 
   type(CG_ElementOperators1D) :: this
   type(CG_ElementOptions1D)   :: opt
 
   opt % po = po
-  if (present(no_vdm )) opt % no_vdm  = no_vdm
-  if (present(svv    )) opt % svv     = svv
+  if (present(no_vdm ))    opt % no_vdm     = no_vdm
+  if (present(svv    ))    opt % svv        = svv
+  if (present(po_cut_svv)) opt % po_cut_svv = po_cut_svv
 
   call Init_CG_ElementOperators1D(this, opt)
 
@@ -89,7 +92,8 @@ subroutine Init_CG_ElementOperators1D(this, opt)
   class(CG_ElementOperators1D), intent(inout) :: this
   class(CG_ElementOptions1D),   intent(in)    :: opt
 
-  call this % Init_StandardOperators1D(opt%po, no_vdm = opt%no_vdm, svv = opt%svv)
+  call this % Init_StandardOperators1D(opt%po,  no_vdm     = opt%no_vdm,       &
+                                 svv = opt%svv, po_cut_svv = opt%po_cut_svv)
 
 end subroutine Init_CG_ElementOperators1D
 

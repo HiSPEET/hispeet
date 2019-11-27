@@ -39,15 +39,14 @@ module Standard_Operators_1D
     real(RNP), allocatable :: VL(:,:)     !< Legendre-Vandermonde matrix
     real(RNP), allocatable :: VL_inv(:,:) !< inverse Legendre-Vandermonde matrix
 
-    ! for now SVV parameters are not implemented as component of the standard
-    ! operator, as this might not be necessary, when they are constant anyway
-    ! real(RNP) :: amplitude_svv   !< epsilon, maximum amplitude of spectral
-    !                              !< viscosity
-    ! integer   :: cutoff_mode_svv !< M, SVV is applied for all modes larger than M
-
-    real(RNP), allocatable :: G_svv(:,:) !< SVV operator in nodal space
-    real(RNP), allocatable :: D_svv(:,:) !< SVV differentiation matrix D_svv = G_svv D
-    real(RNP), allocatable :: L_svv(:,:) !< SVV stiffness matrix L_svv = D_svvᵀ M D_svv
+    real(RNP), allocatable :: D_root_svv(:,:) !< SVV differentiation matrix
+                                              !< rooted filter applied once
+                                              !< \tilde{D} = Q^{1/2} D
+    real(RNP), allocatable :: D_svv(:,:)      !< SVV differentiation matrix
+                                              !< rooted filter applied twice
+                                              !< \tilde{\tilde{D}} = Q D
+    real(RNP), allocatable :: L_svv(:,:)      !< SVV stiffness matrix
+                                              !< \tilde{\tilde{L}} = \tilde{D}ᵀ M \tilde{D}
 
   contains
 
@@ -60,6 +59,7 @@ module Standard_Operators_1D
 
     procedure :: InitSVV
     procedure :: HasSVV
+    procedure :: GetSVV_RootDiffMatrix
     procedure :: GetSVV_DiffMatrix
     procedure :: GetSVV_StiffnessMatrix
 
@@ -78,15 +78,16 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor for StandardOperators1D
 
-  function New_StandardOperators1D(po, basis, no_vdm, svv) result(this)
-    integer,                    intent(in) :: po     !< polynomial order
-    character(len=*), optional, intent(in) :: basis  !< points {GL,GLL,GRL} [GLL]
-    logical,          optional, intent(in) :: no_vdm !< skip Vandermonde matrix [F]
-    logical,          optional, intent(in) :: svv    !< activate SVV model [F]
+  function New_StandardOperators1D(po, basis, no_vdm, svv, po_cut_svv) result(this)
+    integer,                    intent(in) :: po         !< polynomial order
+    character(len=*), optional, intent(in) :: basis      !< points {GL,GLL,GRL} [GLL]
+    logical,          optional, intent(in) :: no_vdm     !< skip Vandermonde matrix [F]
+    logical,          optional, intent(in) :: svv        !< activate SVV model [F]
+    integer,          optional, intent(in) :: po_cut_svv !< cutoff PO for SVV [po/2]
 
     type(StandardOperators1D) :: this
 
-    call Init_StandardOperators1D(this, po, basis, no_vdm, svv)
+    call Init_StandardOperators1D(this, po, basis, no_vdm, svv, po_cut_svv)
 
   end function New_StandardOperators1D
 
@@ -109,7 +110,7 @@ contains
   !> The routine provides 1D standard operators for the chosen nodal basis.
   !> GLL is the default, except for `po = 0` which always implies GL.
 
-  subroutine Init_StandardOperators1D(this, po, basis, no_vdm, svv)
+  subroutine Init_StandardOperators1D(this, po, basis, no_vdm, svv, po_cut_svv)
 
     !> standard operators that will be initialized
     class(StandardOperators1D), intent(inout) :: this
@@ -126,8 +127,11 @@ contains
     !> switch to activate the SVV model
     logical, optional, intent(in) :: svv
 
+    !> cutoff polynomial degree for the SVV model
+    integer, optional, intent(in) :: po_cut_svv
+
     logical :: build_vdm
-    integer :: i, j
+    integer :: i, j, po_cut
 
     ! safeguard ................................................................
 
@@ -218,7 +222,12 @@ contains
     ! SVV differentation and stiffness matrix ..................................
 
     if (present(svv) .and. svv) then
-      call InitSVV(this)
+      if (present(po_cut_svv) .and. po_cut_svv /= -1) then
+        po_cut = po_cut_svv
+      else
+        po_cut = floor(po / TWO) ! default value according to Xu04
+      end if
+      call InitSVV(this, po_cut)
     end if
 
   end subroutine Init_StandardOperators1D
@@ -299,66 +308,57 @@ contains
   end subroutine GetInverseLegendreVDM
 
   !-----------------------------------------------------------------------------
-  !> Initializes the SVV operator G_svv and the SVV differentitation and
-  !> stiffness matrix D_svv and L_svv
+  !> Initializes both types of SVV differentitation matrix \tilde{D},
+  !> \tilde{\tilde{D}} and the stiffness matrix \tilde{\tilde{L}}
 
-  subroutine InitSVV(this)
-    class(StandardOperators1D), intent(inout) :: this !< standard operators
+  subroutine InitSVV(this, po_cut)
+    class(StandardOperators1D), intent(inout) :: this   !< standard operators
+    integer,                    intent(in)    :: po_cut !< cut-off polynomial degree
 
-    real(RNP), allocatable :: Q_hat(:) ! SVV filter coefficients
+    real(RNP), allocatable :: Q_hat_sqrt(:,:) ! root of SVV filter coefficients
+    real(RNP), allocatable :: Q_hat(:,:)      ! SVV filter coefficients
 
-    integer :: cutoff_mode_svv ! mode up until no spectral viscosity is applied
-    integer :: i, j, k, po
+    integer :: i, j, k, po, po_init
 
     ! safeguard ................................................................
 
-    if (allocated(this % G_svv)) deallocate(this % G_svv)
-    if (allocated(this % D_svv)) deallocate(this % D_svv)
-    if (allocated(this % L_svv)) deallocate(this % L_svv)
+    if (allocated(this % D_root_svv)) deallocate(this % D_root_svv)
+    if (allocated(this % D_svv     )) deallocate(this % D_svv     )
+    if (allocated(this % L_svv     )) deallocate(this % L_svv     )
 
     ! prerequisites ............................................................
 
-    po = this % po
-
-    ! based on to Xu04
-    cutoff_mode_svv = floor(po / TWO)
+    po      = this % po
+    po_init = abs(max(po_cut+1,0)) ! first polynomial order where the filter is
+                                   ! applied. Is zero if the cut-off PO is negative
 
     ! SVV filter coeffients ....................................................
 
-    allocate(Q_hat(0:po), source = ZERO)
+    allocate(Q_hat_sqrt(0:po,0:po), source = ZERO)
+    allocate(Q_hat     (0:po,0:po), source = ZERO)
 
     ! computes the SVV filter coeffients based on the SVV kernel
-    do k = cutoff_mode_svv+1, po
-      Q_hat(k) = exp(-(real(po-k,RNP)/real(cutoff_mode_svv-k,RNP))**2)
+    do k = po_init, po
+      Q_hat_sqrt(k,k) = sqrt(exp(-(real(po-k,RNP)/real(po_cut-k,RNP))**2))
+      Q_hat(k,k)      =      exp(-(real(po-k,RNP)/real(po_cut-k,RNP))**2)
     end do
 
-    ! SVV operator in nodal space ..............................................
+    ! SVV differentiation matrices .............................................
 
-    allocate(this%G_svv(0:po,0:po), source = ZERO)
+    allocate(this%D_root_svv(0:po,0:po), source = ZERO)
+    allocate(this%D_svv(     0:po,0:po), source = ZERO)
 
-    ! computation of the SVV operator in nodal space with V \hat{Q} V⁻¹
-    do i = 0, po
-    do j = 0, po
-      this%G_svv(i,j) = sum(Q_hat(:) * this%VL(i,:) * this%VL_inv(:,j))
-    end do
-    end do
-
-    ! SVV differentiation matrix ...............................................
-
-    allocate(this%D_svv(0:po,0:po), source = ZERO)
-
-    ! application of of the SVV operator G_svv on the differentiation matrix
-    ! to compute the SVV differentiaton matrix
-    this%D_svv = matmul(this%G_svv, this%D)
+    this%D_root_svv = matmul(matmul(matmul(this%VL, Q_hat_sqrt), this%VL_inv), this%D)
+    this%D_svv      = matmul(matmul(matmul(this%VL, Q_hat     ), this%VL_inv), this%D)
 
     ! SVV stiffness matrix .....................................................
 
     allocate(this%L_svv(0:po,0:po), source = ZERO)
 
-    ! computation of the SVV stiffness matrix with Dᵀ M D
+    ! computation of the SVV stiffness matrix with \tilde{D}ᵀ M \tilde{D}
     do i = 0, po
     do j = 0, po
-      this%L_svv(i,j) = sum(this%w * this%D_svv(:,i) * this%D_svv(:,j))
+      this%L_svv(i,j) = sum(this%w * this%D_root_svv(:,i) * this%D_root_svv(:,j))
     end do
     end do
 
@@ -369,32 +369,33 @@ contains
 
   logical function HasSVV(this) result(has)
     class(StandardOperators1D), intent(in) :: this !< standard operators
-    has = allocated(this % L_svv)
+    has = allocated(this % D_root_svv)
   end function HasSVV
 
   !-----------------------------------------------------------------------------
-  !> Get the SVV operator (in nodal space) G_svv
+  !> Get the SVV differentiation matrix \tilde{D} (rooted SVV filter applied once)
 
-  subroutine GetSVV_Operator(this, G_svv)
-    class(StandardOperators1D), intent(in) :: this       !< standard operators
-    real(RNP), intent(out) :: G_svv(0:this%po,0:this%po) !< SVV operator
+  subroutine GetSVV_RootDiffMatrix(this, D_root_svv)
+    class(StandardOperators1D), intent(in) :: this            !< standard operators
+    real(RNP), intent(out) :: D_root_svv(0:this%po,0:this%po) !< a SVV diff matrix
 
-    if (.not. allocated(this % G_svv)) then
-      call Error( 'GetSVV_Operator'              &
-                , 'SVV operator not initialized' &
-                , 'Standard_Operators_1D'        )
+    if (.not. allocated(this % D_root_svv)) then
+      call Error( 'GetSVV_RootDiffMatrix'                             &
+                , 'SVV rooted differentiation matrix not initialized' &
+                , 'Standard_Operators_1D'                             )
     end if
 
-    G_svv = this % G_svv
+    D_root_svv = this % D_root_svv
 
-  end subroutine GetSVV_Operator
+  end subroutine GetSVV_RootDiffMatrix
 
   !-----------------------------------------------------------------------------
-  !> Get the SVV differentiation matrix D_svv
+  !> Get the SVV differentiation matrix \tilde{\tilde{D}} (rooted SVV filter
+  !> applied twice)
 
   subroutine GetSVV_DiffMatrix(this, D_svv)
     class(StandardOperators1D), intent(in) :: this       !< standard operators
-    real(RNP), intent(out) :: D_svv(0:this%po,0:this%po) !< SVV diff matrix
+    real(RNP), intent(out) :: D_svv(0:this%po,0:this%po) !< a SVV diff matrix
 
     if (.not. allocated(this % D_svv)) then
       call Error( 'GetSVV_DiffMatrix'                          &
@@ -429,15 +430,15 @@ contains
   subroutine Delete_StandardOperators1D(this)
     type(StandardOperators1D), intent(inout) :: this  !< standard operators
 
-    if(allocated(this%x     )) deallocate(this%x     )
-    if(allocated(this%w     )) deallocate(this%w     )
-    if(allocated(this%D     )) deallocate(this%D     )
-    if(allocated(this%L     )) deallocate(this%L     )
-    if(allocated(this%VL    )) deallocate(this%VL    )
-    if(allocated(this%VL_inv)) deallocate(this%VL_inv)
-    if(allocated(this%G_svv )) deallocate(this%G_svv )
-    if(allocated(this%D_svv )) deallocate(this%D_svv )
-    if(allocated(this%L_svv )) deallocate(this%L_svv )
+    if(allocated(this%x          )) deallocate(this%x          )
+    if(allocated(this%w          )) deallocate(this%w          )
+    if(allocated(this%D          )) deallocate(this%D          )
+    if(allocated(this%L          )) deallocate(this%L          )
+    if(allocated(this%VL         )) deallocate(this%VL         )
+    if(allocated(this%VL_inv     )) deallocate(this%VL_inv     )
+    if(allocated(this%D_root_svv )) deallocate(this%D_root_svv )
+    if(allocated(this%D_svv      )) deallocate(this%D_svv      )
+    if(allocated(this%L_svv      )) deallocate(this%L_svv      )
 
   end subroutine Delete_StandardOperators1D
 

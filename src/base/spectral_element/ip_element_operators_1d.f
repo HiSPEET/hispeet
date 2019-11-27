@@ -65,11 +65,12 @@ module IP_Element_Operators_1D
   !> Options for IP_ElementOperators1D
 
   type IP_ElementOptions1D
-    integer   :: po      = -1      !< polynomial order
-    real(RNP) :: penalty =  2      !< penalty parameter > 1
-    logical   :: hybrid  = .false. !< switch to hybridized method
-    logical   :: no_vdm  = .false. !< skip Vandermonde matrix
-    logical   :: svv     = .false. !< activate SVV model
+    integer   :: po         = -1      !< polynomial order
+    real(RNP) :: penalty    =  2      !< penalty parameter > 1
+    logical   :: hybrid     = .false. !< switch to hybridized method
+    logical   :: no_vdm     = .false. !< skip Vandermonde matrix
+    logical   :: svv        = .false. !< activate SVV model
+    integer   :: po_cut_svv = -1      !< cutoff PO for SVV model
   contains
     procedure :: Bcast => IP_ElementOptions1D_Bcast
   end type IP_ElementOptions1D
@@ -87,21 +88,23 @@ contains
 !-------------------------------------------------------------------------------
 !> Constructor for IP_ElementOperators1D -- flat interface
 
-function New_IP_ElementOperators1D__f(po, penalty, hybrid, no_vdm, svv) result(this)
-  integer,             intent(in) :: po      !< polynomial order
-  real(RNP), optional, intent(in) :: penalty !< penalty parameter > 1        [2]
-  logical,   optional, intent(in) :: hybrid  !< switch to hybridized method  [F]
-  logical,   optional, intent(in) :: no_vdm  !< skip Vandermonde matrix      [F]
-  logical,   optional, intent(in) :: svv     !< activate SVV model           [F]
+function New_IP_ElementOperators1D__f(po, penalty, hybrid, no_vdm, svv, po_cut_svv) result(this)
+  integer,             intent(in) :: po         !< polynomial order
+  real(RNP), optional, intent(in) :: penalty    !< penalty parameter > 1       [2]
+  logical,   optional, intent(in) :: hybrid     !< switch to hybridized method [F]
+  logical,   optional, intent(in) :: no_vdm     !< skip Vandermonde matrix     [F]
+  logical,   optional, intent(in) :: svv        !< activate SVV model          [F]
+  integer,   optional, intent(in) :: po_cut_svv !< cutoff PO for SVV model    [-1]
 
   type(IP_ElementOperators1D) :: this
   type(IP_ElementOptions1D)   :: opt
 
   opt % po = po
-  if (present(penalty)) opt % penalty = penalty
-  if (present(hybrid )) opt % hybrid  = hybrid
-  if (present(no_vdm )) opt % no_vdm  = no_vdm
-  if (present(svv    )) opt % svv     = svv
+  if (present(penalty   )) opt % penalty    = penalty
+  if (present(hybrid    )) opt % hybrid     = hybrid
+  if (present(no_vdm    )) opt % no_vdm     = no_vdm
+  if (present(svv       )) opt % svv        = svv
+  if (present(po_cut_svv)) opt % po_cut_svv = po_cut_svv
 
   call Init_IP_ElementOperators1D(this, opt)
 
@@ -130,7 +133,7 @@ subroutine Init_IP_ElementOperators1D(this, opt)
   class(IP_ElementOptions1D),   intent(in)    :: opt
 
   ! standard operators
-  call this % Init_StandardOperators1D(opt%po, no_vdm = opt%no_vdm, svv = opt%svv)
+  call this % Init_StandardOperators1D(opt%po, no_vdm = opt%no_vdm, svv = opt%svv, po_cut_svv = opt%po_cut_svv)
 
   this % penalty = opt % penalty
   this % hybrid  = opt % hybrid
