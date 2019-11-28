@@ -114,7 +114,7 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
 
   integer   :: P, i, j
   real(RNP) :: g(-1:1)
-  real(RNP), allocatable :: delta_0(:), delta_P(:), Ls(:,:)
+  real(RNP), allocatable :: delta_0(:), delta_P(:)
 
   ! initialization .............................................................
 
@@ -127,51 +127,46 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
   allocate(delta_P(0:P), source = ZERO)
   delta_P(P) = ONE
 
-  allocate(Ls(0:P,0:P))
-  if (this%HasSVV()) then
-    call this%GetSVV_StiffnessMatrix(Ls)
-    Ls = this%L + ONE / real(P,RNP) * Ls
-  else
-    Ls = this%L
-  end if
+  associate(Ls => this%L)
 
-  ! contribution from preceding element (Le⁻) ................................
+    ! contribution from preceding element (Le⁻) ................................
 
-  if (scan(bc(1), 'DN') > 0) then
-    Le(:,:,-1) = 0
-  else
-    do j = 0, P
-    do i = 0, P
-      Le(i,j,-1) = g(-1) * delta_0(i) * Ls(P,j)
-    end do
-    end do
-  end if
+    if (scan(bc(1), 'DN') > 0) then
+      Le(:,:,-1) = 0
+    else
+      do j = 0, P
+      do i = 0, P
+        Le(i,j,-1) = g(-1) * delta_0(i) * Ls(P,j)
+      end do
+      end do
+    end if
 
-  ! own contribution (Le⁰) ...................................................
+    ! own contribution (Le⁰) ...................................................
 
-  Le(:,:,0) = g(0) * Ls
+    Le(:,:,0) = g(0) * Ls
 
-  ! nullify Dirichlet entries
-  if (bc(1) == 'D') then
-    Le(0,:,0) = 0
-    Le(:,0,0) = 0
-  end if
-  if (bc(2) == 'D') then
-    Le(P,:,0) = 0
-    Le(:,P,0) = 0
-  end if
+    ! nullify Dirichlet entries
+    if (bc(1) == 'D') then
+      Le(0,:,0) = 0
+      Le(:,0,0) = 0
+    end if
+    if (bc(2) == 'D') then
+      Le(P,:,0) = 0
+      Le(:,P,0) = 0
+    end if
 
-  ! contribution from following element (Le⁺) ................................
+    ! contribution from following element (Le⁺) ................................
 
-  if (scan(bc(2), 'DN') > 0) then
-    Le(:,:,1) = 0
-  else
-    do j = 0, P
-    do i = 0, P
-      Le(i,j,1) = g(1) * delta_P(i) * Ls(0,j)
-    end do
-    end do
-  end if
+    if (scan(bc(2), 'DN') > 0) then
+      Le(:,:,1) = 0
+    else
+      do j = 0, P
+      do i = 0, P
+        Le(i,j,1) = g(1) * delta_P(i) * Ls(0,j)
+      end do
+      end do
+    end if
+  end associate
 
 end subroutine GetStiffnessMatrix
 

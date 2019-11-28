@@ -126,7 +126,7 @@ program CG_Helmholtz_1D
 
   ! element operators
   allocate(Me(0:po), He(0:po,0:po))
-  call GetElementOperators(eop, dx, lambda, nu, nu_svv, svv, Me, He)
+  call GetElementOperators(eop, dx, lambda, nu, nu_svv, Me, He)
 
   ! check if problem is singular
   singular = lambda == 0 .and. (all(bc == 'N') .or. all(bc == 'P'))
@@ -217,13 +217,12 @@ contains
 !-------------------------------------------------------------------------------
 !> Element operators
 
-subroutine GetElementOperators(eop, dx, lambda, nu, nu_svv, svv, Me, He)
+subroutine GetElementOperators(eop, dx, lambda, nu, nu_svv, Me, He)
   class(CG_ElementOperators1D), intent(in) :: eop !< standard operators
   real(RNP), intent(in)  :: dx        !< element length
   real(RNP), intent(in)  :: lambda    !< Helmholtz parameter
   real(RNP), intent(in)  :: nu        !< diffusivity
   real(RNP), intent(in)  :: nu_svv    !< spectral diffusivity amplitude
-  logical,   intent(in)  :: svv       !< SVV switch
   real(RNP), intent(out) :: Me(0:)    !< element mass matrix (main diagonal)
   real(RNP), intent(out) :: He(0:,0:) !< element Helmholtz operator
 
@@ -233,7 +232,7 @@ subroutine GetElementOperators(eop, dx, lambda, nu, nu_svv, svv, Me, He)
   po = eop % po
 
   allocate(Ls(0:po,0:po))
-  if (svv) then
+  if (eop%HasSVV()) then
     call eop%GetSVV_StiffnessMatrix(Ls)
     Ls = eop%L + nu_svv/nu * Ls
   else
