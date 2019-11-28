@@ -315,8 +315,7 @@ contains
     class(StandardOperators1D), intent(inout) :: this   !< standard operators
     integer,                    intent(in)    :: po_cut !< cut-off polynomial degree
 
-    real(RNP), allocatable :: Q_hat_sqrt(:,:) ! root of SVV filter coefficients
-    real(RNP), allocatable :: Q_hat(:,:)      ! SVV filter coefficients
+    real(RNP), allocatable :: Q_hat(:,:) ! SVV filter coefficients
 
     integer :: i, j, k, po, po_init
 
@@ -334,13 +333,11 @@ contains
 
     ! SVV filter coeffients ....................................................
 
-    allocate(Q_hat_sqrt(0:po,0:po), source = ZERO)
-    allocate(Q_hat     (0:po,0:po), source = ZERO)
+    allocate(Q_hat(0:po,0:po), source = ZERO)
 
     ! computes the SVV filter coeffients based on the SVV kernel
     do k = po_init, po
-      Q_hat_sqrt(k,k) = sqrt(exp(-(real(po-k,RNP)/real(po_cut-k,RNP))**2))
-      Q_hat(k,k)      =      exp(-(real(po-k,RNP)/real(po_cut-k,RNP))**2)
+      Q_hat(k,k) = exp(-(real(po-k,RNP)/real(po_cut-k,RNP))**2)
     end do
 
     ! SVV differentiation matrices .............................................
@@ -348,8 +345,8 @@ contains
     allocate(this%D_root_svv(0:po,0:po), source = ZERO)
     allocate(this%D_svv(     0:po,0:po), source = ZERO)
 
-    this%D_root_svv = matmul(matmul(matmul(this%VL, Q_hat_sqrt), this%VL_inv), this%D)
-    this%D_svv      = matmul(matmul(matmul(this%VL, Q_hat     ), this%VL_inv), this%D)
+    this%D_root_svv = matmul(matmul(matmul(this%VL, sqrt(Q_hat)), this%VL_inv), this%D)
+    this%D_svv      = matmul(matmul(matmul(this%VL,      Q_hat ), this%VL_inv), this%D)
 
     ! SVV stiffness matrix .....................................................
 

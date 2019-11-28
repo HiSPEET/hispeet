@@ -185,11 +185,12 @@ end subroutine GetStiffnessMatrix
 !>     Sᵀ Lᵢᵢ S = Λ
 !>     Sᵀ Mᵢᵢ S = I
 
-subroutine GetEllipticEigensystem(this, dx, S, Lambda)
+subroutine GetEllipticEigensystem(this, dx, nu_svv_by_nu, S, Lambda)
   class(CG_ElementOperators1D), intent(in) :: this
-  real(RNP), intent(in)  :: dx         !< element length
-  real(RNP), intent(out) :: S(:,:)     !< eigenvectors
-  real(RNP), intent(out) :: Lambda(:)  !< eigenvalues
+  real(RNP), intent(in)  :: dx           !< element length
+  real(RNP), intent(in)  :: nu_svv_by_nu !< ratio of spectral to molecular diffusivity
+  real(RNP), intent(out) :: S(:,:)       !< eigenvectors
+  real(RNP), intent(out) :: Lambda(:)    !< eigenvalues
 
   real(RNP), allocatable :: Mii(:), Lii(:,:), L(:,:)
   integer :: np
@@ -201,7 +202,7 @@ subroutine GetEllipticEigensystem(this, dx, S, Lambda)
   if (this%HasSVV()) then
     allocate(L(0:np+1,0:np+1))
     call this%GetSVV_StiffnessMatrix(L)
-    L = this%L + ONE / real(np+1,RNP) * L
+    L = this%L + nu_svv_by_nu * L
     allocate(Lii, source = 2/dx * L(1:np,1:np))
   else
     allocate(Lii, source = 2/dx * this % L(1:np,1:np))
@@ -214,11 +215,12 @@ end subroutine GetEllipticEigensystem
 !-------------------------------------------------------------------------------
 !> Computes operators for condensed CG-SEM diffusion problem
 
-subroutine GetEllipticSuboperators(this, dx, c, nu, Aib, Abb, Aii_inv)
+subroutine GetEllipticSuboperators(this, dx, c, nu, nu_svv, Aib, Abb, Aii_inv)
   class(CG_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx           !< element length
   real(RNP), intent(in)  :: c            !< coefficient of linear term
   real(RNP), intent(in)  :: nu           !< diffusivity
+  real(RNP), intent(in)  :: nu_svv       !< spectral diffusivity amplitude
   real(RNP), intent(out) :: Aib(:,:)     !< interior-boundary part, dim (po-1,2)
   real(RNP), intent(out) :: Abb(:,:)     !< boundary-boundary part, dim (2,2)
   real(RNP), intent(out) :: Aii_inv(:,:) !< Aᵢᵢ⁻¹, dimension (po-1,po-1)
@@ -233,7 +235,7 @@ subroutine GetEllipticSuboperators(this, dx, c, nu, Aib, Abb, Aii_inv)
   allocate(Ls(0:po,0:po))
   if (this%HasSVV()) then
     call this%GetSVV_StiffnessMatrix(Ls)
-    Ls = this%L + ONE / real(po,RNP) * Ls
+    Ls = this%L + nu_svv/nu * Ls
   else
     Ls = this%L
   end if
@@ -243,7 +245,7 @@ subroutine GetEllipticSuboperators(this, dx, c, nu, Aib, Abb, Aii_inv)
     np = po - 1
 
     allocate(S(np,np), Lambda(np), D_inv(np))
-    call this % GetEllipticEigensystem(dx, S, Lambda)
+    call this % GetEllipticEigensystem(dx, nu_svv/nu, S, Lambda)
 
     g0 = c * dx / 2
     g1 = nu * 2 / dx

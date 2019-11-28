@@ -33,6 +33,7 @@ program IP_Helmholtz_1D
 
   ! problem parameters
   real(RNP) :: lambda  = 1    ! Helmholtz parameter
+  real(RNP) :: nu      = 1    ! diffusivity
   integer   :: test    = 1    ! test case
   character :: bc(2)   = 'D'  ! left/right BC ('D': Dirichlet, 'N': Neumann)
 
@@ -44,8 +45,9 @@ program IP_Helmholtz_1D
   real(RNP) :: penalty    = 2       ! penalty parameter > 1
   logical   :: svv        = .false. ! switch that enables SVV
   integer   :: po_cut_svv = -1      ! cut-off PO for SVV
+  real(RNP) :: nu_svv     = -1      ! spectral diffusivity amplitude
 
-  namelist /solution_parameters/ po, ne, penalty, svv, po_cut_svv
+  namelist /solution_parameters/ po, ne, penalty, svv, po_cut_svv, nu_svv
 
   ! discrete variables and operators
   type(IP_ElementOperators1D) :: eop    ! element operators
@@ -74,6 +76,12 @@ program IP_Helmholtz_1D
     read(io, nml=solution_parameters)
     close(io)
   end if
+
+  ! set spectral diffusivity amplitude to default value if not given as parameter
+  if (nu_svv == -1) then
+    nu_svv = ONE / real(po,RNP)
+  end if
+
   call SetTestCase(test)
 
   ! start system clock
@@ -111,7 +119,7 @@ program IP_Helmholtz_1D
   ! solution ...................................................................
 
   call system_clock(count0)
-  call HybridEllipticSolver(eop, dx, lambda, ONE, bc, f, u)
+  call HybridEllipticSolver(eop, dx, lambda, nu, nu_svv, bc, f, u)
   call system_clock(count1)
 
   t_sol = (count1 - count0) / real(count_rate, RNP)

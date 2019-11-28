@@ -20,11 +20,12 @@ contains
 !-------------------------------------------------------------------------------
 !> Direct elliptic solver based on static condensation
 
-subroutine CondensedEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
+subroutine CondensedEllipticSolver(eop, dx, c, nu, nu_svv, bc, f, u, standby)
   class(CG_ElementOperators1D), intent(in) :: eop !< element operators
   real(RNP), intent(in)    :: dx       !< element width
   real(RNP), intent(in)    :: c        !< coefficient of linear term
   real(RNP), intent(in)    :: nu       !< diffusivity
+  real(RNP), intent(in)    :: nu_svv   !< spectral diffusivity amplitude
   character, intent(in)    :: bc(:)    !< boundary conditions {'D','N','P'}
   real(RNP), intent(in)    :: f(0:,:)  !< source including Neumann BC
   real(RNP), intent(inout) :: u(0:,:)  !< solution with Dirichlet BC set
@@ -40,8 +41,8 @@ subroutine CondensedEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
   real(RNP), allocatable, save :: Aii_inv(:,:) ! inverse interior-interior op.
 
   ! condensed system
-  real(RNP), allocatable :: Ac(:,:)      ! condensed system matrix
-  real(RNP), allocatable :: fc(:)        ! condensed RHS / solution
+  real(RNP), allocatable :: Ac(:,:) ! condensed system matrix
+  real(RNP), allocatable :: fc(:)   ! condensed RHS / solution
 
   integer :: np
 
@@ -55,7 +56,7 @@ subroutine CondensedEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
 
   if (.not. allocated(Aib)) then
     allocate(Abb(2,2), Aib(np,2), Aii_inv(np,np))
-    call eop % GetEllipticSuboperators(dx, c, nu, Aib, Abb, Aii_inv)
+    call eop % GetEllipticSuboperators(dx, c, nu, nu_svv, Aib, Abb, Aii_inv)
   end if
 
   ! solution ...................................................................
