@@ -65,10 +65,12 @@ module IP_Element_Operators_1D
   !> Options for IP_ElementOperators1D
 
   type IP_ElementOptions1D
-    integer   :: po      = -1      !< polynomial order
-    real(RNP) :: penalty =  2      !< penalty parameter > 1
-    logical   :: hybrid  = .false. !< switch to hybridized method
-    logical   :: no_vdm  = .false. !< skip Vandermonde matrix
+    integer   :: po         = -1      !< polynomial order
+    real(RNP) :: penalty    =  2      !< penalty parameter > 1
+    logical   :: hybrid     = .false. !< switch to hybridized method
+    logical   :: no_vdm     = .false. !< skip Vandermonde matrix
+    logical   :: svv        = .false. !< activate SVV model
+    integer   :: po_cut_svv = -1      !< cutoff PO for SVV model
   contains
     procedure :: Bcast => IP_ElementOptions1D_Bcast
   end type IP_ElementOptions1D
@@ -86,19 +88,23 @@ contains
 !-------------------------------------------------------------------------------
 !> Constructor for IP_ElementOperators1D -- flat interface
 
-function New_IP_ElementOperators1D__f(po, penalty, hybrid, no_vdm) result(this)
-  integer,             intent(in) :: po      !< polynomial order
-  real(RNP), optional, intent(in) :: penalty !< penalty parameter > 1        [2]
-  logical,   optional, intent(in) :: hybrid  !< switch to hybridized method  [F]
-  logical,   optional, intent(in) :: no_vdm  !< skip Vandermonde matrix      [F]
+function New_IP_ElementOperators1D__f(po, penalty, hybrid, no_vdm, svv, po_cut_svv) result(this)
+  integer,             intent(in) :: po         !< polynomial order
+  real(RNP), optional, intent(in) :: penalty    !< penalty parameter > 1       [2]
+  logical,   optional, intent(in) :: hybrid     !< switch to hybridized method [F]
+  logical,   optional, intent(in) :: no_vdm     !< skip Vandermonde matrix     [F]
+  logical,   optional, intent(in) :: svv        !< activate SVV model          [F]
+  integer,   optional, intent(in) :: po_cut_svv !< cutoff PO for SVV model    [-1]
 
   type(IP_ElementOperators1D) :: this
   type(IP_ElementOptions1D)   :: opt
 
   opt % po = po
-  if (present(penalty)) opt % penalty = penalty
-  if (present(hybrid )) opt % hybrid  = hybrid
-  if (present(no_vdm )) opt % no_vdm  = no_vdm
+  if (present(penalty   )) opt % penalty    = penalty
+  if (present(hybrid    )) opt % hybrid     = hybrid
+  if (present(no_vdm    )) opt % no_vdm     = no_vdm
+  if (present(svv       )) opt % svv        = svv
+  if (present(po_cut_svv)) opt % po_cut_svv = po_cut_svv
 
   call Init_IP_ElementOperators1D(this, opt)
 
@@ -127,7 +133,7 @@ subroutine Init_IP_ElementOperators1D(this, opt)
   class(IP_ElementOptions1D),   intent(in)    :: opt
 
   ! standard operators
-  call this % Init_StandardOperators1D(opt%po, no_vdm = opt%no_vdm)
+  call this % Init_StandardOperators1D(opt%po, no_vdm = opt%no_vdm, svv = opt%svv, po_cut_svv = opt%po_cut_svv)
 
   this % penalty = opt % penalty
   this % hybrid  = opt % hybrid
@@ -173,17 +179,18 @@ end function PenaltyFactor_EQ
 !> Except for the single element case, i.e. `all(bc /= '')`, the flux form can
 !> be activated by passing `form = 'flux'`.
 
-subroutine GetStiffnessMatrix(this, dx, bc, Le, form)
+subroutine GetStiffnessMatrix(this, dx, bc, nu_svv_by_nu, Le, form)
   class(IP_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
   character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N','P'}
+  real(RNP), intent(in)  :: nu_svv_by_nu  !< ratio of spectral to molecular diffusivity
   real(RNP), intent(out) :: Le(0:,0:,-1:) !< 1D element stiffness matrix
   character(len=*), optional, intent(in) :: form !< operator form ['primal']
 
   logical   :: primal
   integer   :: P, i, j
   real(RNP) :: g(-1:1), mu_0, mu_P, c_0, c_P, h_0, h_P
-  real(RNP), allocatable :: delta_0(:), delta_P(:)
+  real(RNP), allocatable :: Ds(:,:), Ls(:,:), delta_0(:), delta_P(:)
 
   ! initialization .............................................................
 
@@ -247,7 +254,20 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le, form)
 
   end if
 
-  associate( Ms => this%w, Ds => this%D, Ls => this%L )
+  ! Ds and Ls are set based on if svv is used or not
+  allocate(Ds(0:P,0:P))
+  allocate(Ls(0:P,0:P))
+  if (this%HasSVV()) then
+    call this%GetSVV_DiffMatrix(Ds)
+    call this%GetSVV_StiffnessMatrix(Ls)
+    Ds = this%D + nu_svv_by_nu * Ds
+    Ls = this%L + nu_svv_by_nu * Ls
+  else
+    Ds = this%D
+    Ls = this%L
+  end if
+
+  associate( Ms => this%w )
 
     ! contribution from preceding element (Le⁻) ................................
 
@@ -366,26 +386,26 @@ end subroutine GetStiffnessMatrix
 !>     Sᵀ Lᵢᵢ S = Λ
 !>     Sᵀ Mᵢᵢ S = I
 
-subroutine GetEllipticEigensystem(this, dx, bc, S, Lambda)
+subroutine GetEllipticEigensystem(this, dx, bc, nu_svv_by_nu, S, Lambda)
   class(IP_ElementOperators1D), intent(in) :: this
-  real(RNP), intent(in)  :: dx(-1:1)   !< element extensions
-  character, intent(in)  :: bc(2)      !< boundary conditions {'','D','N','P'}
-  real(RNP), intent(out) :: S(0:,0:)   !< eigenvectors
-  real(RNP), intent(out) :: Lambda(0:) !< eigenvalues
+  real(RNP), intent(in)  :: dx(-1:1)     !< element extensions
+  character, intent(in)  :: bc(2)        !< boundary conditions {'','D','N','P'}
+  real(RNP), intent(in)  :: nu_svv_by_nu !< ratio of spectral to molecular diffusivity
+  real(RNP), intent(out) :: S(0:,0:)     !< eigenvectors
+  real(RNP), intent(out) :: Lambda(0:)   !< eigenvalues
 
-  real(RNP), parameter   :: eps = epsilon(1.0)
   real(RNP), allocatable :: Mii(:), Lii(:,:,:)
 
   if (.not. this%hybrid) then
-    call Error( 'GetEllipticEigensystem', &
+    call Error( 'GetEllipticEigensystem',             &
                 'available only for hybridizable IP', &
-                'IP_Element_Operators_1D' )
+                'IP_Element_Operators_1D'             )
   end if
 
   ! hybrid element operators
   allocate(Mii(0:this%po), Lii(0:this%po, 0:this%po, -1:1))
   Mii = dx(0)/2 * this % w
-  call this % GetStiffnessMatrix(dx, bc, Lii, form='flux')
+  call this % GetStiffnessMatrix(dx, bc, nu_svv_by_nu, Lii, form='flux')
 
   ! solve eigenproblem
   call SolveGeneralizedEigenproblem(Lii(:,:,0), Mii, Lambda, S)
@@ -403,16 +423,17 @@ end subroutine GetEllipticEigensystem
 !> To cope with the singular case (Neumann or periodic with c = 0),
 !> we use the Moore-Penrose inverse, i.e. `Aii_inv = Ã⁺`
 
-subroutine GetEllipticSuboperators(this, dx, bc, c, nu, Aib, Aii_inv)
+subroutine GetEllipticSuboperators(this, dx, bc, c, nu, nu_svv, Aib, Aii_inv)
   class(IP_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)       !< element extensions
   character, intent(in)  :: bc(2)          !< boundary conds {'','D','N','P'}
   real(RNP), intent(in)  :: c              !< coefficient of linear term
   real(RNP), intent(in)  :: nu             !< diffusivity
+  real(RNP), intent(in)  :: nu_svv         !< spectral diffusivity amplitude
   real(RNP), intent(out) :: Aib(0:,:)      !< interior-boundary part, Â(0:P,1:2)
   real(RNP), intent(out) :: Aii_inv(0:,0:) !< inv interior part, Ã⁺(0:P,0:P)
 
-  real(RNP), allocatable :: S(:,:), Lambda(:), D_inv(:)
+  real(RNP), allocatable :: Ds(:,:), S(:,:), Lambda(:), D_inv(:)
   real(RNP), allocatable :: delta_0(:), delta_P(:)
   real(RNP) :: mu_0, mu_P
   integer   :: P, i, j
@@ -431,34 +452,46 @@ subroutine GetEllipticSuboperators(this, dx, bc, c, nu, Aib, Aii_inv)
   delta_P(P) = ONE
 
   allocate(S(0:P,0:P), Lambda(0:P), D_inv(0:P))
-  call this % GetEllipticEigensystem(dx, bc, S, Lambda)
+  call this % GetEllipticEigensystem(dx, bc, nu_svv/nu, S, Lambda)
+
+  allocate(Ds(0:P,0:P))
+  if (this%HasSVV()) then
+    call this%GetSVV_DiffMatrix(Ds)
+    Ds = this%D + nu_svv/nu * Ds
+  else
+    Ds = this%D
+  end if
 
   ! interior-boundary part .....................................................
 
-  associate(Ds => this%D)
+  if (all(bc == 'P')) then
+    Aib(:,1) =  0
+    Aib(:,2) =  0
+  else
 
-    if (all(bc == 'P')) then
+    select case (bc(1))
+    case('D','N')
       Aib(:,1) =  0
+    case default ! interior or periodic
+      if (this%HasSVV()) then
+        Aib(:,1) = -2/dx(0) * nu * Ds(0,:)  -  2 * (nu + nu_svv) * mu_0 * delta_0
+      else
+        Aib(:,1) = -2/dx(0) * nu * Ds(0,:)  -  2 *  nu           * mu_0 * delta_0
+      end if
+    end select
+
+    select case (bc(2))
+    case('D','N')
       Aib(:,2) =  0
-    else
+    case default ! interior or periodic
+      if (this%HasSVV()) then
+        Aib(:,2) =  2/dx(0) * nu * Ds(P,:)  -  2 * (nu + nu_svv) * mu_P * delta_P
+      else
+        Aib(:,2) =  2/dx(0) * nu * Ds(P,:)  -  2 *  nu           * mu_P * delta_P
+      end if
+    end select
 
-      select case (bc(1))
-      case('D','N')
-        Aib(:,1) =  0
-      case default ! interior od periodic
-        Aib(:,1) = -2/dx(0) * nu * Ds(0,:)  -  2 * nu * mu_0 * delta_0
-      end select
-
-      select case (bc(2))
-      case('D','N')
-        Aib(:,2) =  0
-      case default ! interior od periodic
-        Aib(:,2) =  2/dx(0) * nu * Ds(P,:)  -  2 * nu * mu_P * delta_P
-      end select
-
-    end if
-
-  end associate
+  end if
 
   ! inverse interior part ......................................................
 

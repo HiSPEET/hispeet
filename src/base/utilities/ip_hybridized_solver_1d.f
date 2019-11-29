@@ -21,11 +21,12 @@ contains
 !-------------------------------------------------------------------------------
 !> Direct elliptic solver based on hybridization
 
-subroutine HybridEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
+subroutine HybridEllipticSolver(eop, dx, c, nu, nu_svv, bc, f, u, standby)
   class(IP_ElementOperators1D), intent(in) :: eop !< element operators
   real(RNP), intent(in)  :: dx       !< element width
   real(RNP), intent(in)  :: c        !< coefficient of linear term
   real(RNP), intent(in)  :: nu       !< diffusivity
+  real(RNP), intent(in)  :: nu_svv   !< spectral diffusivity amplitude
   character, intent(in)  :: bc(2)    !< boundary conditions {'D','N','P'}
   real(RNP), intent(in)  :: f(0:,:)  !< source including Neumann BC
   real(RNP), intent(out) :: u(0:,:)  !< solution
@@ -51,7 +52,11 @@ subroutine HybridEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
   po  = eop%po
   ne  = size(f,2)
   dx_ = dx
-  tau = 2 * nu * eop%PenaltyFactor(dx)
+  if (eop%HasSVV()) then
+    tau = 2 * (nu + nu_svv) * eop%PenaltyFactor(dx)
+  else
+    tau = 2 * nu * eop%PenaltyFactor(dx)
+  end if
 
   if (allocated(Aib)) then
     if (ubound(Aib,1) /= po) deallocate(Aib, Aii_inv)
@@ -62,19 +67,19 @@ subroutine HybridEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
     allocate( Aii_inv (0:po, 0:po, -1:1), source = ZERO)
     select case(ne)
     case(1)
-      call eop % GetEllipticSuboperators( dx_, bc, c, nu,              &
-                                          Aib(:,:, 0), Aii_inv(:,:, 0) )
+      call eop % GetEllipticSuboperators( dx_, bc,             c, nu, nu_svv, &
+                                          Aib(:,:, 0), Aii_inv(:,:, 0)        )
     case default
       ! left element
-      call eop % GetEllipticSuboperators( dx_, [ bc(1), ' ' ], c, nu,  &
-                                          Aib(:,:,-1), Aii_inv(:,:,-1) )
+      call eop % GetEllipticSuboperators( dx_, [ bc(1), ' ' ], c, nu, nu_svv, &
+                                          Aib(:,:,-1), Aii_inv(:,:,-1)        )
 
       ! interior element(s)
-      call eop % GetEllipticSuboperators( dx_, [ ' ', ' ' ], c, nu,    &
-                                          Aib(:,:, 0), Aii_inv(:,:, 0) )
+      call eop % GetEllipticSuboperators( dx_, [ ' ', ' ' ],   c, nu, nu_svv, &
+                                          Aib(:,:, 0), Aii_inv(:,:, 0)        )
       ! right element
-      call eop % GetEllipticSuboperators( dx_, [ ' ', bc(2) ], c, nu,  &
-                                          Aib(:,:, 1), Aii_inv(:,:, 1) )
+      call eop % GetEllipticSuboperators( dx_, [ ' ', bc(2) ], c, nu, nu_svv, &
+                                          Aib(:,:, 1), Aii_inv(:,:, 1)        )
     end select
   end if
 

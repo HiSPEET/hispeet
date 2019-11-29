@@ -38,8 +38,10 @@ module CG_Element_Operators_1D
   !> Options for CG_ElementOperators1D
 
   type CG_ElementOptions1D
-    integer   :: po      = -1      !< polynomial order
-    logical   :: no_vdm  = .false. !< skip Vandermonde matrix
+    integer :: po         = -1      !< polynomial order
+    logical :: no_vdm     = .false. !< skip Vandermonde matrix
+    logical :: svv        = .false. !< activate SVV model
+    integer :: po_cut_svv = -1      !< cut-off PO for SVV
   end type CG_ElementOptions1D
 
 contains
@@ -50,15 +52,19 @@ contains
 !-------------------------------------------------------------------------------
 !> Constructor for CG_ElementOperators1D -- flat interface
 
-function New_CG_ElementOperators1D__f(po, no_vdm) result(this)
-  integer,             intent(in) :: po      !< polynomial order
-  logical,   optional, intent(in) :: no_vdm  !< skip Vandermonde matrix  [F]
+function New_CG_ElementOperators1D__f(po, no_vdm, svv, po_cut_svv) result(this)
+  integer,             intent(in) :: po         !< polynomial order
+  logical,   optional, intent(in) :: no_vdm     !< skip Vandermonde matrix  [F]
+  logical,   optional, intent(in) :: svv        !< activate SVV model       [F]
+  integer,   optional, intent(in) :: po_cut_svv !< cut-off PO for SVV      [-1]
 
   type(CG_ElementOperators1D) :: this
   type(CG_ElementOptions1D)   :: opt
 
   opt % po = po
-  if (present(no_vdm )) opt % no_vdm  = no_vdm
+  if (present(no_vdm ))    opt % no_vdm     = no_vdm
+  if (present(svv    ))    opt % svv        = svv
+  if (present(po_cut_svv)) opt % po_cut_svv = po_cut_svv
 
   call Init_CG_ElementOperators1D(this, opt)
 
@@ -86,7 +92,8 @@ subroutine Init_CG_ElementOperators1D(this, opt)
   class(CG_ElementOperators1D), intent(inout) :: this
   class(CG_ElementOptions1D),   intent(in)    :: opt
 
-  call this % Init_StandardOperators1D(opt%po, no_vdm = opt%no_vdm)
+  call this % Init_StandardOperators1D(opt%po,  no_vdm     = opt%no_vdm,       &
+                                 svv = opt%svv, po_cut_svv = opt%po_cut_svv)
 
 end subroutine Init_CG_ElementOperators1D
 
@@ -159,7 +166,6 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
       end do
       end do
     end if
-
   end associate
 
 end subroutine GetStiffnessMatrix
@@ -174,20 +180,28 @@ end subroutine GetStiffnessMatrix
 !>     Sᵀ Lᵢᵢ S = Λ
 !>     Sᵀ Mᵢᵢ S = I
 
-subroutine GetEllipticEigensystem(this, dx, S, Lambda)
+subroutine GetEllipticEigensystem(this, dx, nu_svv_by_nu, S, Lambda)
   class(CG_ElementOperators1D), intent(in) :: this
-  real(RNP), intent(in)  :: dx         !< element length
-  real(RNP), intent(out) :: S(:,:)     !< eigenvectors
-  real(RNP), intent(out) :: Lambda(:)  !< eigenvalues
+  real(RNP), intent(in)  :: dx           !< element length
+  real(RNP), intent(in)  :: nu_svv_by_nu !< ratio of spectral to molecular diffusivity
+  real(RNP), intent(out) :: S(:,:)       !< eigenvectors
+  real(RNP), intent(out) :: Lambda(:)    !< eigenvalues
 
-  real(RNP), allocatable :: Mii(:), Lii(:,:)
+  real(RNP), allocatable :: Mii(:), Lii(:,:), L(:,:)
   integer :: np
 
   np = size(Lambda)
   if (np < 1) return
 
   allocate(Mii, source = dx/2 * this % w(1:np))
-  allocate(Lii, source = 2/dx * this % L(1:np,1:np))
+  if (this%HasSVV()) then
+    allocate(L(0:np+1,0:np+1))
+    call this%GetSVV_StiffnessMatrix(L)
+    L = this%L + nu_svv_by_nu * L
+    allocate(Lii, source = 2/dx * L(1:np,1:np))
+  else
+    allocate(Lii, source = 2/dx * this % L(1:np,1:np))
+  end if
 
   call SolveGeneralizedEigenproblem(Lii, Mii, Lambda, S)
 
@@ -196,25 +210,37 @@ end subroutine GetEllipticEigensystem
 !-------------------------------------------------------------------------------
 !> Computes operators for condensed CG-SEM diffusion problem
 
-subroutine GetEllipticSuboperators(this, dx, c, nu, Aib, Abb, Aii_inv)
+subroutine GetEllipticSuboperators(this, dx, c, nu, nu_svv, Aib, Abb, Aii_inv)
   class(CG_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx           !< element length
   real(RNP), intent(in)  :: c            !< coefficient of linear term
   real(RNP), intent(in)  :: nu           !< diffusivity
+  real(RNP), intent(in)  :: nu_svv       !< spectral diffusivity amplitude
   real(RNP), intent(out) :: Aib(:,:)     !< interior-boundary part, dim (po-1,2)
   real(RNP), intent(out) :: Abb(:,:)     !< boundary-boundary part, dim (2,2)
   real(RNP), intent(out) :: Aii_inv(:,:) !< Aᵢᵢ⁻¹, dimension (po-1,po-1)
 
-  real(RNP), allocatable :: S(:,:), Lambda(:), D_inv(:)
+  real(RNP), allocatable :: Ls(:,:), S(:,:), Lambda(:), D_inv(:)
   real(RNP) :: g0, g1
-  integer   :: i, j, np
+  integer   :: po, i, j, np
 
-  associate(po => this%po, Ms => this%w, Ls => this%L)
+  po = this%po
+
+  ! Ls is set based on if svv is used or not
+  allocate(Ls(0:po,0:po))
+  if (this%HasSVV()) then
+    call this%GetSVV_StiffnessMatrix(Ls)
+    Ls = this%L + nu_svv/nu * Ls
+  else
+    Ls = this%L
+  end if
+
+  associate(Ms => this%w)
 
     np = po - 1
 
     allocate(S(np,np), Lambda(np), D_inv(np))
-    call this % GetEllipticEigensystem(dx, S, Lambda)
+    call this % GetEllipticEigensystem(dx, nu_svv/nu, S, Lambda)
 
     g0 = c * dx / 2
     g1 = nu * 2 / dx
