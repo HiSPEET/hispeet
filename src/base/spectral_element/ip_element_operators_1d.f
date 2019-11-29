@@ -65,12 +65,12 @@ module IP_Element_Operators_1D
   !> Options for IP_ElementOperators1D
 
   type IP_ElementOptions1D
-    integer   :: po         = -1      !< polynomial order
-    real(RNP) :: penalty    =  2      !< penalty parameter > 1
-    logical   :: hybrid     = .false. !< switch to hybridized method
-    logical   :: no_vdm     = .false. !< skip Vandermonde matrix
-    logical   :: svv        = .false. !< activate SVV model
-    integer   :: po_cut_svv = -1      !< cutoff PO for SVV model
+    integer   :: po         = -1       !< polynomial order
+    real(RNP) :: penalty    =  2       !< penalty parameter > 1
+    logical   :: hybrid     = .false.  !< switch to hybridized method
+    logical   :: no_vdm     = .false.  !< skip Vandermonde matrix
+    logical   :: svv        = .false.  !< activate SVV model
+    integer   :: po_cut_svv = -huge(1) !< cutoff PO for SVV model
   contains
     procedure :: Bcast => IP_ElementOptions1D_Bcast
   end type IP_ElementOptions1D

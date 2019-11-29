@@ -1,5 +1,5 @@
 !> summary:   Spectral element operators in the one-dimensional standard region
-!> author:    Immo Huismann, Joerg Stiller
+!> author:    Immo Huismann, Joerg Stiller, Gustav Tschirschnitz
 !> date:      2014/11/24
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
@@ -28,30 +28,28 @@ module Standard_Operators_1D
     private
 
     ! public components
-    character(len=3)      , public :: basis    !< basis type
-    integer               , public :: po = -1  !< polynomial order
-    real(RNP), allocatable, public :: x(:)     !< collocation points
-    real(RNP), allocatable, public :: w(:)     !< quadrature weights
-    real(RNP), allocatable, public :: D(:,:)   !< differention matrix
-    real(RNP), allocatable, public :: L(:,:)   !< stiffness (Laplace) matrix
+    character(len=3)      , public :: basis   !< basis type
+    integer               , public :: po = -1 !< polynomial order
+    real(RNP), allocatable, public :: x(:)    !< collocation points
+    real(RNP), allocatable, public :: w(:)    !< quadrature weights
+    real(RNP), allocatable, public :: D(:,:)  !< differention matrix
+    real(RNP), allocatable, public :: L(:,:)  !< stiffness (Laplace) matrix
 
     ! private components
-    real(RNP), allocatable :: VL(:,:)     !< Legendre-Vandermonde matrix
-    real(RNP), allocatable :: VL_inv(:,:) !< inverse Legendre-Vandermonde matrix
+    real(RNP), allocatable :: VL(:,:)         !< Legendre-Vandermonde matrix
+    real(RNP), allocatable :: VL_inv(:,:)     !< inverse Legendre-Vandermonde
+                                              !! matrix
 
-    real(RNP), allocatable :: D_root_svv(:,:) !< SVV differentiation matrix
-                                              !< rooted filter applied once
-                                              !< \tilde{D} = Q^{1/2} D
-    real(RNP), allocatable :: D_svv(:,:)      !< SVV differentiation matrix
-                                              !< rooted filter applied twice
-                                              !< \tilde{\tilde{D}} = Q D
-    real(RNP), allocatable :: L_svv(:,:)      !< SVV stiffness matrix
-                                              !< \tilde{\tilde{L}} = \tilde{D}ᵀ M \tilde{D}
+    real(RNP), allocatable :: D_root_svv(:,:) !< SVV root-based diff matrix: √Q D
+    real(RNP), allocatable :: D_svv(:,:)      !< SVV differentiation matrix:  Q D
+    real(RNP), allocatable :: L_svv(:,:)      !< SVV stiffness matrix:
+                                              !! (√Q D)ᵀ M (√Q D)
 
   contains
 
     procedure :: Init_StandardOperators1D
     procedure :: PolynomialOrder
+
     procedure :: InitLegendreVDM
     procedure :: HasLegendreVDM
     procedure :: GetLegendreVDM
@@ -78,12 +76,15 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor for StandardOperators1D
 
-  function New_StandardOperators1D(po, basis, no_vdm, svv, po_cut_svv) result(this)
-    integer,                    intent(in) :: po         !< polynomial order
-    character(len=*), optional, intent(in) :: basis      !< points {GL,GLL,GRL} [GLL]
-    logical,          optional, intent(in) :: no_vdm     !< skip Vandermonde matrix [F]
-    logical,          optional, intent(in) :: svv        !< activate SVV model [F]
-    integer,          optional, intent(in) :: po_cut_svv !< cutoff PO for SVV [po/2]
+  function New_StandardOperators1D(po, basis, no_vdm, svv, po_cut_svv)
+     result(this)
+
+    integer,                    intent(in) :: po    !< polynomial order
+    character(len=*), optional, intent(in) :: basis !< points {GL,GLL,GRL} [GLL]
+
+    logical, optional, intent(in) :: no_vdm     !< skip Vandermonde matrix [F]
+    logical, optional, intent(in) :: svv        !< activate SVV model [F]
+    integer, optional, intent(in) :: po_cut_svv !< cut-off PO for SVV [po/2]
 
     type(StandardOperators1D) :: this
 
@@ -127,10 +128,11 @@ contains
     !> switch to activate the SVV model
     logical, optional, intent(in) :: svv
 
-    !> cutoff polynomial degree for the SVV model
+    !> cut-off polynomial degree for the SVV model
     integer, optional, intent(in) :: po_cut_svv
 
     logical :: build_vdm
+    logical :: build_svv
     integer :: i, j, po_cut
 
     ! safeguard ................................................................
@@ -203,17 +205,26 @@ contains
     end do
     end do
 
-    ! Vandermonde matrix and its inverse .......................................
+    ! check what else to build .................................................
 
+    ! Vandermonde matrix
     if (present(no_vdm)) then
       build_vdm = .not. no_vdm
     else
       build_vdm = .true.
     end if
 
-    if (present(svv) .and. svv) then
-      build_vdm = .true.
+    ! SVV
+    if (present(svv)) then
+      build_svv = svv
+    else
+      build_svv = .false.
     end if
+
+    ! require Vandermonde matrix when SVV is activated
+    build_vdm = build_vdm .or. build_svv
+
+    ! Vandermonde matrix and its inverse .......................................
 
     if (build_vdm) then
       call InitLegendreVDM(this)
@@ -221,8 +232,8 @@ contains
 
     ! SVV differentation and stiffness matrix ..................................
 
-    if (present(svv) .and. svv) then
-      if (present(po_cut_svv) .and. po_cut_svv /= -1) then
+    if (build_svv) then
+      if (present(po_cut_svv)) then
         po_cut = po_cut_svv
       else
         po_cut = floor(po / TWO) ! default value according to Xu04
@@ -308,8 +319,7 @@ contains
   end subroutine GetInverseLegendreVDM
 
   !-----------------------------------------------------------------------------
-  !> Initializes both types of SVV differentitation matrix \tilde{D},
-  !> \tilde{\tilde{D}} and the stiffness matrix \tilde{\tilde{L}}
+  !> Initializes SVV operators
 
   subroutine InitSVV(this, po_cut)
     class(StandardOperators1D), intent(inout) :: this   !< standard operators
@@ -328,8 +338,7 @@ contains
     ! prerequisites ............................................................
 
     po      = this % po
-    po_init = abs(max(po_cut+1,0)) ! first polynomial order where the filter is
-                                   ! applied. Is zero if the cut-off PO is negative
+    po_init = abs(max(po_cut+1,0)) ! lowest order to which the filter is applied
 
     ! SVV filter coeffients ....................................................
 
@@ -337,27 +346,34 @@ contains
 
     ! computes the SVV filter coeffients based on the SVV kernel
     do k = po_init, po
-      Q_hat(k,k) = exp(-(real(po-k,RNP)/real(po_cut-k,RNP))**2)
+      Q_hat(k,k) = exp(-(real(po-k,RNP) / real(po_cut-k,RNP))**2)
     end do
 
-    ! SVV differentiation matrices .............................................
+    ! SVV operators ............................................................
 
-    allocate(this%D_root_svv(0:po,0:po), source = ZERO)
-    allocate(this%D_svv(     0:po,0:po), source = ZERO)
+    allocate(this%D_root_svv (0:po,0:po), source = ZERO)
+    allocate(this%D_svv      (0:po,0:po), source = ZERO)
+    allocate(this%L_svv      (0:po,0:po), source = ZERO)
 
-    this%D_root_svv = matmul(matmul(matmul(this%VL, sqrt(Q_hat)), this%VL_inv), this%D)
-    this%D_svv      = matmul(matmul(matmul(this%VL,      Q_hat ), this%VL_inv), this%D)
+    associate( D          => this % D           &
+             , VL         => this % VL          &
+             , VL_inv     => this % VL_inv      &
+             , D_root_svv => this % D_root_svv  &
+             , D_svv      => this % D_svv       &
+             , L_svv      => this % L_svv       )
 
-    ! SVV stiffness matrix .....................................................
+      ! diff matrices
+      D_root_svv = matmul( matmul( matmul( VL, sqrt(Q_hat) ), VL_inv ), D )
+      D_svv      = matmul( matmul( matmul( VL,      Q_hat  ), VL_inv ), D )
 
-    allocate(this%L_svv(0:po,0:po), source = ZERO)
+      ! stiffness matrix
+      do i = 0, po
+      do j = 0, po
+        L_svv(i,j) = sum( this%w * D_root_svv(:,i) * D_root_svv(:,j) )
+      end do
+      end do
 
-    ! computation of the SVV stiffness matrix with \tilde{D}ᵀ M \tilde{D}
-    do i = 0, po
-    do j = 0, po
-      this%L_svv(i,j) = sum(this%w * this%D_root_svv(:,i) * this%D_root_svv(:,j))
-    end do
-    end do
+    end associate
 
   end subroutine InitSVV
 
@@ -370,16 +386,16 @@ contains
   end function HasSVV
 
   !-----------------------------------------------------------------------------
-  !> Get the SVV differentiation matrix \tilde{D} (rooted SVV filter applied once)
+  !> Get the SVV root-based differentiation matrix `D_root_svv`
 
   subroutine GetSVV_RootDiffMatrix(this, D_root_svv)
     class(StandardOperators1D), intent(in) :: this            !< standard operators
-    real(RNP), intent(out) :: D_root_svv(0:this%po,0:this%po) !< a SVV diff matrix
+    real(RNP), intent(out) :: D_root_svv(0:this%po,0:this%po) !< SVV diff matrix
 
     if (.not. allocated(this % D_root_svv)) then
-      call Error( 'GetSVV_RootDiffMatrix'                             &
-                , 'SVV rooted differentiation matrix not initialized' &
-                , 'Standard_Operators_1D'                             )
+      call Error( 'GetSVV_RootDiffMatrix'                                 &
+                , 'SVV root-based differentiation matrix not initialized' &
+                , 'Standard_Operators_1D'                                 )
     end if
 
     D_root_svv = this % D_root_svv
@@ -387,12 +403,11 @@ contains
   end subroutine GetSVV_RootDiffMatrix
 
   !-----------------------------------------------------------------------------
-  !> Get the SVV differentiation matrix \tilde{\tilde{D}} (rooted SVV filter
-  !> applied twice)
+  !> Get the SVV differentiation matrix `root-based`
 
   subroutine GetSVV_DiffMatrix(this, D_svv)
     class(StandardOperators1D), intent(in) :: this       !< standard operators
-    real(RNP), intent(out) :: D_svv(0:this%po,0:this%po) !< a SVV diff matrix
+    real(RNP), intent(out) :: D_svv(0:this%po,0:this%po) !< SVV diff matrix
 
     if (.not. allocated(this % D_svv)) then
       call Error( 'GetSVV_DiffMatrix'                          &
@@ -405,7 +420,7 @@ contains
   end subroutine GetSVV_DiffMatrix
 
   !-----------------------------------------------------------------------------
-  !> Get the SVV stiffness matrix L_svv
+  !> Get the SVV stiffness matrix `L_svv`
 
   subroutine GetSVV_StiffnessMatrix(this, L_svv)
     class(StandardOperators1D), intent(in) :: this       !< standard operators
