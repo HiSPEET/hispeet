@@ -76,7 +76,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor for StandardOperators1D
 
-  function New_StandardOperators1D(po, basis, no_vdm, svv, po_cut_svv)
+  function New_StandardOperators1D(po, basis, no_vdm, svv, po_cut_svv)         &
      result(this)
 
     integer,                    intent(in) :: po    !< polynomial order
@@ -232,11 +232,11 @@ contains
 
     ! SVV differentation and stiffness matrix ..................................
 
+    po_cut = floor(po / TWO) ! default value according to Xu04
     if (build_svv) then
+      ! only if po_cut_svv is present and not the default value use it
       if (present(po_cut_svv)) then
-        po_cut = po_cut_svv
-      else
-        po_cut = floor(po / TWO) ! default value according to Xu04
+        if (po_cut_svv /= -huge(1)) po_cut = po_cut_svv
       end if
       call InitSVV(this, po_cut)
     end if

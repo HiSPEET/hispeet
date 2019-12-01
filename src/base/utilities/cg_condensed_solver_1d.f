@@ -20,18 +20,18 @@ contains
 !-------------------------------------------------------------------------------
 !> Direct elliptic solver based on static condensation
 
-subroutine CondensedEllipticSolver(eop, dx, c, nu, nu_svv, bc, f, u, standby)
+subroutine CondensedEllipticSolver(eop, dx, c, bc, f, u, standby, nu, nu_svv)
   class(CG_ElementOperators1D), intent(in) :: eop !< element operators
   real(RNP), intent(in)    :: dx       !< element width
   real(RNP), intent(in)    :: c        !< coefficient of linear term
-  real(RNP), intent(in)    :: nu       !< diffusivity
-  real(RNP), intent(in)    :: nu_svv   !< spectral diffusivity amplitude
   character, intent(in)    :: bc(:)    !< boundary conditions {'D','N','P'}
   real(RNP), intent(in)    :: f(0:,:)  !< source including Neumann BC
   real(RNP), intent(inout) :: u(0:,:)  !< solution with Dirichlet BC set
 
   !> optionally keep suboperators for repeated application [F]
-  logical, optional, intent(in) :: standby
+  logical,   optional, intent(in) :: standby
+  real(RNP), optional, intent(in) :: nu     !< physical diffusivity [1]
+  real(RNP), optional, intent(in) :: nu_svv !< spectral diffusivity [0]
 
   ! variables ..................................................................
 
@@ -56,7 +56,8 @@ subroutine CondensedEllipticSolver(eop, dx, c, nu, nu_svv, bc, f, u, standby)
 
   if (.not. allocated(Aib)) then
     allocate(Abb(2,2), Aib(np,2), Aii_inv(np,np))
-    call eop % GetEllipticSuboperators(dx, c, nu, nu_svv, Aib, Abb, Aii_inv)
+    call eop % GetEllipticSuboperators(dx, c, Aib, Abb, Aii_inv, nu = nu,      &
+                                       nu_svv = nu_svv)
   end if
 
   ! solution ...................................................................
@@ -64,6 +65,8 @@ subroutine CondensedEllipticSolver(eop, dx, c, nu, nu_svv, bc, f, u, standby)
   call BuildCondensedSystem(Abb, Aib, Aii_inv, bc, f, u, Ac, fc)
   call SolveCondensedSystem(Ac, fc)
   call SolveElementSystems(Aib, Aii_inv, bc, fc, f, u)
+
+  print *, "f check: ", f(2,1), f(7,1), f(3,1)
 
   ! clean-up ...................................................................
 

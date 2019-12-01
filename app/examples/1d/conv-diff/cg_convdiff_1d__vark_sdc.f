@@ -252,7 +252,7 @@ subroutine Propagator(vark, eop, dx, dt, M, wave, v, nu, bc, x, t0)
         c = 1 / (dt * a_im(i,i))
         f = c * f
         call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u(:,:,i), f)
-        call CondensedEllipticSolver(eop, dx, c, nu, bc, f, u(:,:,i))
+        call CondensedEllipticSolver(eop, dx, c, bc, f, u(:,:,i), nu = nu)
       else
         u(:,:,i) = f / M
         call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u(:,:,i))
@@ -279,7 +279,7 @@ subroutine Propagator(vark, eop, dx, dt, M, wave, v, nu, bc, x, t0)
       c = 1 / (dt * a_im(ns,ns))
       f = c * f
       call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u(:,:,ns), f)
-      call CondensedEllipticSolver(eop, dx, c, nu, bc, f, u(:,:,ns))
+      call CondensedEllipticSolver(eop, dx, c, bc, f, u(:,:,ns), nu = nu)
     else
       u(:,:,ns) = f / M
       call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u(:,:,ns))

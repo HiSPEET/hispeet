@@ -73,7 +73,7 @@ subroutine IMEX_Euler(eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
     ! add Neumann BC to f, set Dirichlet BC in u
     call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u, f)
     ! solve implicit diffusion problem
-    call CondensedEllipticSolver(eop, dx, c, nu, bc, f, u, standby = .true.)
+    call CondensedEllipticSolver(eop, dx, c, bc, f, u, standby = .true., nu = nu)
   else
     u = u0 + dt * f / M
     call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u)

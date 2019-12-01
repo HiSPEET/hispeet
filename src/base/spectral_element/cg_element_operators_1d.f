@@ -38,10 +38,10 @@ module CG_Element_Operators_1D
   !> Options for CG_ElementOperators1D
 
   type CG_ElementOptions1D
-    integer :: po         = -1      !< polynomial order
-    logical :: no_vdm     = .false. !< skip Vandermonde matrix
-    logical :: svv        = .false. !< activate SVV model
-    integer :: po_cut_svv = -1      !< cut-off PO for SVV
+    integer :: po         = -1       !< polynomial order
+    logical :: no_vdm     = .false.  !< skip Vandermonde matrix
+    logical :: svv        = .false.  !< activate SVV model
+    integer :: po_cut_svv = -huge(1) !< cut-off PO for SVV
   end type CG_ElementOptions1D
 
 contains
@@ -180,46 +180,41 @@ end subroutine GetStiffnessMatrix
 !>     Sᵀ Lᵢᵢ S = Λ
 !>     Sᵀ Mᵢᵢ S = I
 
-!?!subroutine GetEllipticEigensystem(this, dx, S, Lambda, eps_0, eps_svv)
-!?!  class(CG_ElementOperators1D), intent(in) :: this
-!?!  real(RNP), intent(in)  :: dx           !< element length
-!?!  real(RNP), intent(out) :: S(:,:)       !< eigenvectors
-!?!  real(RNP), intent(out) :: Lambda(:)    !< eigenvalues
-!?!
-!?!  real(RNP), optional, intent(in) :: nu     !< constant diffusivity [1]
-!?!  real(RNP), optional, intent(in) :: nu_svv !< constant SVV diffusivity [0]
-
-
-
-subroutine GetEllipticEigensystem(this, dx, nu_svv_by_nu, S, Lambda)
+subroutine GetEllipticEigensystem(this, dx, S, Lambda, nu, nu_svv)
   class(CG_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx           !< element length
-  real(RNP), intent(in)  :: nu_svv_by_nu !< ratio of spectral to molecular diffusivity
   real(RNP), intent(out) :: S(:,:)       !< eigenvectors
   real(RNP), intent(out) :: Lambda(:)    !< eigenvalues
 
-  real(RNP), allocatable :: Mii(:), Lii(:,:), L(:,:)
+  real(RNP), optional, intent(in) :: nu     !< constant physical diffusivity [1]
+  real(RNP), optional, intent(in) :: nu_svv !< constant spectral diffusivity [0]
+
+  real(RNP), allocatable :: Mii(:), Lii(:,:), Ls(:,:), Ls_svv(:,:)
+  real(RNP) :: diff, diff_svv
   integer :: np
 
   np = size(Lambda)
   if (np < 1) return
 
+  diff     = ONE
+  diff_svv = ZERO
+  if (present(nu    )) diff     = nu
+  if (present(nu_svv)) diff_svv = nu_svv
+
+  print *, "diff_svv is ", diff_svv
+
   allocate(Mii, source = dx/2 * this % w(1:np))
+
+  allocate(Ls(0:np+1,0:np+1))
   if (this%HasSVV()) then
-!?!  L = this % L
-!?!  call this%GetSVV_StiffnessMatrix(L_svv)
-!?!  L = nu * L + nu_svv * L_svv
-!?!
-!?!
-!?!
-    allocate(L(0:np+1,0:np+1))
-    call this%GetSVV_StiffnessMatrix(L)
-    L = this%L + nu_svv_by_nu * L
-!?! L = nu_ * this%L + nu_svv_ * L
-    allocate(Lii, source = 2/dx * L(1:np,1:np))
+    allocate(Ls_svv(0:np+1,0:np+1))
+    call this%GetSVV_StiffnessMatrix(Ls_svv)
+    Ls = diff * this%L + diff_svv * Ls_svv
   else
-    allocate(Lii, source = 2/dx * this % L(1:np,1:np))
+    Ls = diff * this%L
   end if
+
+  allocate(Lii, source = 2/dx * Ls(1:np,1:np))
 
   call SolveGeneralizedEigenproblem(Lii, Mii, Lambda, S)
 
@@ -228,30 +223,35 @@ end subroutine GetEllipticEigensystem
 !-------------------------------------------------------------------------------
 !> Computes operators for condensed CG-SEM diffusion problem
 
-subroutine GetEllipticSuboperators(this, dx, c, nu, nu_svv, Aib, Abb, Aii_inv)
+subroutine GetEllipticSuboperators(this, dx, c, Aib, Abb, Aii_inv, nu, nu_svv)
   class(CG_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx           !< element length
   real(RNP), intent(in)  :: c            !< coefficient of linear term
-  real(RNP), intent(in)  :: nu           !< diffusivity
-  real(RNP), intent(in)  :: nu_svv       !< spectral diffusivity amplitude
   real(RNP), intent(out) :: Aib(:,:)     !< interior-boundary part, dim (po-1,2)
   real(RNP), intent(out) :: Abb(:,:)     !< boundary-boundary part, dim (2,2)
   real(RNP), intent(out) :: Aii_inv(:,:) !< Aᵢᵢ⁻¹, dimension (po-1,po-1)
 
-  real(RNP), allocatable :: Ls(:,:), S(:,:), Lambda(:), D_inv(:)
-  real(RNP) :: g0, g1
+  real(RNP), optional, intent(in) :: nu     !< physical diffusivity [1]
+  real(RNP), optional, intent(in) :: nu_svv !< spectral diffusivity [0]
+
+  real(RNP), allocatable :: Ls(:,:), Ls_svv(:,:), S(:,:), Lambda(:), D_inv(:)
+  real(RNP) :: diff, diff_svv, g0, g1
   integer   :: po, i, j, np
 
   po = this%po
+  diff     = ONE
+  diff_svv = ZERO
+  if (present(nu    )) diff     = nu
+  if (present(nu_svv)) diff_svv = nu_svv
 
-  ! Ls is set based on if svv is used or not
+  ! Ls is set based on if SVV is utilized or not
   allocate(Ls(0:po,0:po))
   if (this%HasSVV()) then
-    call this%GetSVV_StiffnessMatrix(Ls)
-    Ls = this%L + nu_svv/nu * Ls
-
+    allocate(Ls_svv(0:po,0:po))
+    call this%GetSVV_StiffnessMatrix(Ls_svv)
+    Ls = diff * this%L + diff_svv * Ls_svv
   else
-    Ls = this%L
+    Ls = diff * this%L
   end if
 
   associate(Ms => this%w)
@@ -259,12 +259,10 @@ subroutine GetEllipticSuboperators(this, dx, c, nu, nu_svv, Aib, Abb, Aii_inv)
     np = po - 1
 
     allocate(S(np,np), Lambda(np), D_inv(np))
-    call this % GetEllipticEigensystem(dx, nu_svv/nu, S, Lambda)
-!!  call this % GetEllipticEigensystem(dx, S, Lambda, nu, nu_svv)
+    call this % GetEllipticEigensystem(dx, S, Lambda, nu = nu, nu_svv = nu_svv)
 
     g0 = c * dx / 2
-    g1 = nu * 2 / dx
-!!  g1 = 2 / dx
+    g1 = 2 / dx
 
     do i = 1, np
       Aib(i,1)  =  g1 * Ls( 0,i)
@@ -276,12 +274,12 @@ subroutine GetEllipticSuboperators(this, dx, c, nu, nu_svv, Aib, Abb, Aii_inv)
     Abb(1,2)  =                  g1 * Ls( 0,po)
     Abb(2,2)  =  g0 * Ms(po)  +  g1 * Ls(po,po)
 
-    D_inv = 1 / (c + nu * Lambda)
-!?! where (abs(c + Lambda) > 1000 * tiny(ONE))  !???
-!?!    D_inv = 1 / (c + Lambda)
-!?! elsewhere
-!?!    D_inv = 0
-!?! end where
+    !D_inv = 1 / (c + Lambda)
+    where (abs(c + Lambda) > 1000 * tiny(ONE))
+      D_inv = 1 / (c + Lambda)
+    elsewhere
+      D_inv = 0
+    end where
 
     do j = 1, np
     do i = 1, np

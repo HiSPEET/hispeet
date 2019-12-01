@@ -51,7 +51,7 @@ program CG_Helmholtz_1D
 
   ! problem parameters
   real(RNP) :: lambda  = 1      ! Helmholtz parameter
-  real(RNP) :: nu      = 1      ! diffusivity
+  real(RNP) :: nu      = 1      ! physical diffusivity
   integer   :: test    = 1      ! test case
   integer   :: init    = 1      ! intial conditions (0: zero, 1: random)
   character :: bc(2)   = 'D'    ! left/right BC ('D': Dirichlet, 'N': Neumann)
@@ -59,16 +59,14 @@ program CG_Helmholtz_1D
   namelist /problem_parameters/ lambda, nu, test, init, bc
 
   ! solution parameters
-  integer   :: po         = 16      ! polynomial order
-  integer   :: ne         = 10      ! number of elements
-  integer   :: method     = 1       ! solution method (1: CG, 2: SC+GE)
-  integer   :: i_max      = huge(1) ! maximum number of CG iterations
-  real(RNP) :: r_max      = 1E-12   ! maximum CG residual
-  logical   :: svv        = .false. ! switch that enables SVV
-  integer   :: po_cut_svv = -1      ! cut-off PO for SVV
-  real(RNP) :: nu_svv     = -1      ! spectral diffusivity amplitude
+  type(CG_ElementOptions1D) :: eop_opt ! options for CG element operator
+  integer   :: ne     = 10      ! number of elements
+  integer   :: method = 1       ! solution method (1: CG, 2: SC+GE)
+  integer   :: i_max  = huge(1) ! maximum number of CG iterations
+  real(RNP) :: r_max  = 1E-12   ! maximum CG residual
+  real(RNP) :: nu_svv = -1      ! spectral diffusivity amplitude
 
-  namelist /solution_parameters/ po, ne, method, r_max, i_max, svv, po_cut_svv, nu_svv
+  namelist /solution_parameters/ eop_opt, ne, method, r_max, i_max, nu_svv
 
   ! discrete variables and operators
   type(CG_ElementOperators1D) :: eop       ! element operators
@@ -84,7 +82,7 @@ program CG_Helmholtz_1D
 
   ! auxiliary variables
   logical      :: exists, periodic, singular
-  integer      :: i, l, n, io
+  integer      :: po, i, l, n, io
   integer(IXL) :: count0, count1, count_rate
   real(RNP)    :: dx, t_pre, t_sol
 
@@ -102,10 +100,9 @@ program CG_Helmholtz_1D
     close(io)
   end if
 
-  ! set spectral diffusivity amplitude to default value if not given as parameter
-  if (nu_svv == -1) then
-    nu_svv = ONE / real(po,RNP)
-  end if
+  po = eop_opt%po
+  ! set spectral diffusivity to default value if not given as parameter
+  if (nu_svv == -1) nu_svv = ONE / real(po,RNP)
 
   call SetTestCase(test)
   periodic = all(bc == 'P')
@@ -118,7 +115,7 @@ program CG_Helmholtz_1D
             s(0:po,ne), e(0:po,ne), w(0:po,ne)              )
 
   ! standard operators
-  eop = CG_ElementOperators1D(po, svv = svv, po_cut_svv = po_cut_svv)
+  eop = CG_ElementOperators1D(eop_opt)
 
   ! mesh and point weights
   call GetMeshPoints(eop, -ONE, ONE, dx, x)
@@ -132,7 +129,7 @@ program CG_Helmholtz_1D
   singular = lambda == 0 .and. (all(bc == 'N') .or. all(bc == 'P'))
 
   ! right hand side
-  call GetRHS(Me, bc, x, f)
+  call GetRHS(Me, bc, x, lambda, f)
   if (singular) then ! project f to nullspace
     f = f - sum(w*f) / sum(w)
   end if
@@ -163,7 +160,8 @@ program CG_Helmholtz_1D
   case(1) ! CG
     call CG(He, bc, u, f, w, r_max, i_max)
   case(2) ! static condensation + Gauss elimination
-    call CondensedEllipticSolver(eop, dx, lambda, nu, nu_svv, bc, f, u)
+    call CondensedEllipticSolver(eop, dx, lambda, bc, f, u, nu = nu,           &
+                                 nu_svv = nu_svv)
   end select
 
   call system_clock(count1)
@@ -227,16 +225,17 @@ subroutine GetElementOperators(eop, dx, lambda, nu, nu_svv, Me, He)
   real(RNP), intent(out) :: He(0:,0:) !< element Helmholtz operator
 
   integer :: i, po
-  real(RNP), allocatable :: Ls(:,:)
+  real(RNP), allocatable :: Ls(:,:), Ls_svv(:,:)
 
   po = eop % po
 
   allocate(Ls(0:po,0:po))
   if (eop%HasSVV()) then
-    call eop%GetSVV_StiffnessMatrix(Ls)
-    Ls = eop%L + nu_svv/nu * Ls
+    allocate(Ls_svv(0:po,0:po))
+    call eop%GetSVV_StiffnessMatrix(Ls_svv)
+    Ls = nu * eop%L + nu_svv * Ls_svv
   else
-    Ls = eop%L
+    Ls = nu * eop%L
   end if
 
   associate(Ms => eop % w)
@@ -245,7 +244,7 @@ subroutine GetElementOperators(eop, dx, lambda, nu, nu_svv, Me, He)
     Me = dx/2 * Ms
 
     ! element Helmhotz operator
-    He = 2/dx * nu * Ls
+    He = 2/dx * Ls
     if (lambda > 0) then
       do i = 0, po
         He(i,i) = He(i,i) + lambda * Me(i)
@@ -259,10 +258,11 @@ end subroutine GetElementOperators
 !-------------------------------------------------------------------------------
 !> Right hand side
 
-subroutine GetRHS(Me, bc, x, f)
+subroutine GetRHS(Me, bc, x, lambda, f)
   real(RNP), intent(in)  :: Me(0:)  !< element mass matrix (main diagonal)
   character, intent(in)  :: bc(2)   !< boundary conditions
   real(RNP), intent(in)  :: x(0:,:) !< mesh points
+  real(RNP), intent(in)  :: lambda  ! Helmholtz parameter
   real(RNP), intent(out) :: f(0:,:) !< RHS
 
   integer :: l, ne

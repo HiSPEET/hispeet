@@ -199,7 +199,7 @@ subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
         c = 1 / (dt * a_im(i,i))
         f = c * f
         call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u, f)
-        call CondensedEllipticSolver(eop, dx, c, nu, bc, f, u)
+        call CondensedEllipticSolver(eop, dx, c, bc, f, u, nu = nu)
       else
         u = f / M
         call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u)
@@ -224,7 +224,7 @@ subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
       c = 1 / (dt * a_im(ns,ns))
       f = c * f
       call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u, f)
-      call CondensedEllipticSolver(eop, dx, c, nu, bc, f, u)
+      call CondensedEllipticSolver(eop, dx, c, bc, f, u, nu = nu)
     else
       u = f / M
       call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u)

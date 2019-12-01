@@ -183,7 +183,7 @@ subroutine GetStiffnessMatrix(this, dx, bc, nu_svv_by_nu, Le, form)
   class(IP_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
   character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N','P'}
-  real(RNP), intent(in)  :: nu_svv_by_nu  !< ratio of spectral to molecular diffusivity
+  real(RNP), intent(in)  :: nu_svv_by_nu  !< ratio of spectral to physical diffusivity
   real(RNP), intent(out) :: Le(0:,0:,-1:) !< 1D element stiffness matrix
   character(len=*), optional, intent(in) :: form !< operator form ['primal']
 
@@ -390,7 +390,7 @@ subroutine GetEllipticEigensystem(this, dx, bc, nu_svv_by_nu, S, Lambda)
   class(IP_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)     !< element extensions
   character, intent(in)  :: bc(2)        !< boundary conditions {'','D','N','P'}
-  real(RNP), intent(in)  :: nu_svv_by_nu !< ratio of spectral to molecular diffusivity
+  real(RNP), intent(in)  :: nu_svv_by_nu !< ratio of spectral to phsyical diffusivity
   real(RNP), intent(out) :: S(0:,0:)     !< eigenvectors
   real(RNP), intent(out) :: Lambda(0:)   !< eigenvalues
 
