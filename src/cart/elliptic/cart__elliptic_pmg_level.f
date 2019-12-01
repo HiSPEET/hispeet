@@ -375,10 +375,10 @@ subroutine Build_F2C_TransferOps(this, pc)
 
   ! prepend order reduction, if possible
   associate(eop => this % elliptic_op % eop, t2c_op => this % t2c_op)
-    if (eop % HasLegendreVDM()) then
+    if (eop % Has_Legendre_VDM()) then
       allocate(VL(0:pf,0:pf), VL_inv(0:pf,0:pf))
-      call eop % GetLegendreVDM(VL)
-      call eop % GetInverseLegendreVDM(VL_inv)
+      call eop % Get_Legendre_VDM(VL)
+      call eop % Get_InverseLegendre_VDM(VL_inv)
       t2c_op = matmul(t2c_op, matmul(VL(:,0:pc), VL_inv(0:pc,:)))
     end if
   end associate

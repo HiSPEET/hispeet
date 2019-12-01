@@ -22,10 +22,23 @@ module CG_Element_Operators_1D
 
   type, extends(StandardOperators1D) :: CG_ElementOperators1D
   contains
+
     procedure :: Init_CG_ElementOperators1D
-    procedure :: GetStiffnessMatrix
-    procedure :: GetEllipticEigensystem
-    procedure :: GetEllipticSuboperators
+    procedure :: Get_StiffnessMatrix
+    ! procedure :: Get_DiffusionOperator
+
+    generic   :: Get_EllipticEigensystem => Get_EllipticEigensystem__w_svv, &
+                                            Get_EllipticEigensystem__n_svv
+
+    procedure, private :: Get_EllipticEigensystem__w_svv
+    procedure, private :: Get_EllipticEigensystem__n_svv
+
+    generic   :: Get_EllipticSuboperators => Get_EllipticSuboperators__w_svv, &
+                                             Get_EllipticSuboperators__n_svv
+
+    procedure, private :: Get_EllipticSuboperators__w_svv
+    procedure, private :: Get_EllipticSuboperators__n_svv
+
   end type CG_ElementOperators1D
 
   ! Constructor interface
@@ -36,12 +49,10 @@ module CG_Element_Operators_1D
 
   !-----------------------------------------------------------------------------
   !> Options for CG_ElementOperators1D
+  !>
+  !> @note: identical to StandardOperatorOptions1D, so far
 
-  type CG_ElementOptions1D
-    integer :: po         = -1       !< polynomial order
-    logical :: no_vdm     = .false.  !< skip Vandermonde matrix
-    logical :: svv        = .false.  !< activate SVV model
-    integer :: po_cut_svv = -huge(1) !< cut-off PO for SVV
+  type, extends(StandardOperatorOptions1D) :: CG_ElementOptions1D
   end type CG_ElementOptions1D
 
 contains
@@ -75,7 +86,6 @@ end function New_CG_ElementOperators1D__f
 
 function New_CG_ElementOperators1D__b(opt) result(this)
   type(CG_ElementOptions1D), intent(in) :: opt
-
   type(CG_ElementOperators1D) :: this
 
   call Init_CG_ElementOperators1D(this, opt)
@@ -92,31 +102,37 @@ subroutine Init_CG_ElementOperators1D(this, opt)
   class(CG_ElementOperators1D), intent(inout) :: this
   class(CG_ElementOptions1D),   intent(in)    :: opt
 
-  call this % Init_StandardOperators1D(opt%po,  no_vdm     = opt%no_vdm,       &
-                                 svv = opt%svv, po_cut_svv = opt%po_cut_svv)
+  call this % Init_StandardOperators1D(opt)
 
 end subroutine Init_CG_ElementOperators1D
 
 !-------------------------------------------------------------------------------
-!> Returns the 1D element stiffness matrix for the continuous Galerkin SEM
+!> Returns the regular and, optionally, SVV stiffness matrices for one element
 !>
 !> The element stiffness matrix `Le` represents the nontrivial row entries
-!> of the global stiffness matrix corresponding to the given element. It
-!> must be dimensioned as `Le(0:P,0:P,-1:1)`, where `P = this%po` is the
-!> polynomial order. The third index refers to the preceding (-1), current (0)
-!> and succeeding (1) element, respectively.
+!> of the global stiffness matrix corresponding to a single element.
+!> It must be dimensioned as `Le(0:P,0:P,-1:1)`, where `P = this%po` is the
+!> polynomial order. The third index refers to the
+!>
+!>   * preceding (-1),
+!>   * current (0) and
+!>   * succeeding (1) elements,
+!>
+!> with lengths `dx(-1:1)è respectively.
+!>
+!> The corresponding SVV stiffness matrix `Le_svv` is returned if requested
+!> If SVV is not initialized, `Le_svv` is set to zero.
 
-subroutine GetStiffnessMatrix(this, dx, bc, Le)
+subroutine Get_StiffnessMatrix(this, dx, bc, Le, Le_svv)
   class(CG_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
   character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N'}
-  real(RNP), intent(out) :: Le(0:,0:,-1:) !< 1D element stiffness matrix
+  real(RNP), intent(out) :: Le(0:,0:,-1:) !< regular stiffness matrix
+  real(RNP), optional, intent(out) :: Le_svv(0:,0:,-1:) !< SVV stiffness matrix
 
-  integer   :: P, i, j
-  real(RNP) :: g(-1:1)
+  integer   :: P
+  real(RNP) :: g(-1:1), Ls(0:this%po, 0:this%po)
   real(RNP), allocatable :: delta_0(:), delta_P(:)
-
-  ! initialization .............................................................
 
   P = this % po
   g = 2 / dx
@@ -127,7 +143,23 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
   allocate(delta_P(0:P), source = ZERO)
   delta_P(P) = ONE
 
-  associate(Ls => this%L)
+  Le = StiffnessMatrix(this%L)
+
+  if (present(Le_svv)) then
+    if (this % Has_SVV()) then
+      call this % Get_SVV_StandardStiffnessMatrix(Ls)
+      Le_svv = StiffnessMatrix(Ls)
+    else
+      Le_svv = 0
+    end if
+  end if
+
+contains
+
+  function StiffnessMatrix(Ls) result(Le)
+    real(RNP), intent(in) :: Ls(0:P,0:P) !< 1D standard stiffness matrix
+    real(RNP) :: Le(0:P,0:P,-1:1)
+    integer   :: i, j
 
     ! contribution from preceding element (Le⁻) ................................
 
@@ -166,100 +198,103 @@ subroutine GetStiffnessMatrix(this, dx, bc, Le)
       end do
       end do
     end if
-  end associate
 
-end subroutine GetStiffnessMatrix
+  end function StiffnessMatrix
+
+end subroutine Get_StiffnessMatrix
 
 !-------------------------------------------------------------------------------
-!> Provides the generalized eigensystem for interior stiffness and mass matrices
+!> Provides the generalized eigensystem for the interior diffusion operator
 !>
 !> Returns the column matrix of generalized eigenvectors `S` and the diagonal
-!> matrix of eigenvalues `Λ = Lambda` to the interior element stiffness matrix
-!> `Lᵢᵢ` and diagonal mass matrix `Mᵢᵢ` such that
+!> matrix of eigenvalues `Λ = Lambda` to the interior element diffusion matrix
+!> `Cᵢᵢ` and diagonal mass matrix `Mᵢᵢ` such that
 !>
-!>     Sᵀ Lᵢᵢ S = Λ
+!>     Sᵀ Cᵢᵢ S = Λ
 !>     Sᵀ Mᵢᵢ S = I
+!>
+!> The diffusion matrix comprises a regular part with diffusivity `ν` and
+!> an SVV part with diffusivity `νˢ`
+!>
+!>     Cᵢᵢ = ν Lᵢᵢ + νˢ Lˢᵢᵢ
+!>
+!> `Lᵢᵢ` and `Lˢᵢᵢ` are the corresponding interior stiffness matrices
 
-subroutine GetEllipticEigensystem(this, dx, S, Lambda, nu, nu_svv)
+subroutine Get_EllipticEigensystem__w_svv(this, dx, nu, nu_svv, S, Lambda)
   class(CG_ElementOperators1D), intent(in) :: this
-  real(RNP), intent(in)  :: dx           !< element length
-  real(RNP), intent(out) :: S(:,:)       !< eigenvectors
-  real(RNP), intent(out) :: Lambda(:)    !< eigenvalues
+  real(RNP), intent(in)  :: dx        !< element length
+  real(RNP), intent(in)  :: nu        !< diffusivity
+  real(RNP), intent(in)  :: nu_svv    !< SVV diffusivity [0]
+  real(RNP), intent(out) :: S(:,:)    !< eigenvectors
+  real(RNP), intent(out) :: Lambda(:) !< eigenvalues
 
-  real(RNP), optional, intent(in) :: nu     !< constant physical diffusivity [1]
-  real(RNP), optional, intent(in) :: nu_svv !< constant spectral diffusivity [0]
-
-  real(RNP), allocatable :: Mii(:), Lii(:,:), Ls(:,:), Ls_svv(:,:)
-  real(RNP) :: diff, diff_svv
+  real(RNP), allocatable :: Mii(:), Cii(:,:), L_svv(:,:)
   integer :: np
 
   np = size(Lambda)
   if (np < 1) return
 
-  diff     = ONE
-  diff_svv = ZERO
-  if (present(nu    )) diff     = nu
-  if (present(nu_svv)) diff_svv = nu_svv
-
-  print *, "diff_svv is ", diff_svv
-
   allocate(Mii, source = dx/2 * this % w(1:np))
+  allocate(Cii, source = nu * 2/dx * this % L(1:np,1:np))
 
-  allocate(Ls(0:np+1,0:np+1))
-  if (this%HasSVV()) then
-    allocate(Ls_svv(0:np+1,0:np+1))
-    call this%GetSVV_StiffnessMatrix(Ls_svv)
-    Ls = diff * this%L + diff_svv * Ls_svv
-  else
-    Ls = diff * this%L
+  if (this % Has_SVV()) then
+    allocate(L_svv(0:this%po, 0:this%po))
+    call this % Get_SVV_StandardStiffnessMatrix(L_svv)
+    Cii = Cii + nu_svv * 2/dx * L_svv(1:np,1:np)
   end if
 
-  allocate(Lii, source = 2/dx * Ls(1:np,1:np))
+  call SolveGeneralizedEigenproblem(Cii, Mii, Lambda, S)
 
-  call SolveGeneralizedEigenproblem(Lii, Mii, Lambda, S)
-
-end subroutine GetEllipticEigensystem
+end subroutine Get_EllipticEigensystem__w_svv
 
 !-------------------------------------------------------------------------------
-!> Computes operators for condensed CG-SEM diffusion problem
+!> Provides the generalized eigensystem for the interior diffusion operator
+!> with no SVV
 
-subroutine GetEllipticSuboperators(this, dx, c, Aib, Abb, Aii_inv, nu, nu_svv)
+subroutine Get_EllipticEigensystem__n_svv(this, dx, nu, S, Lambda)
+  class(CG_ElementOperators1D), intent(in) :: this
+  real(RNP), intent(in)  :: dx        !< element length
+  real(RNP), intent(in)  :: nu        !< diffusivity
+  real(RNP), intent(out) :: S(:,:)    !< eigenvectors
+  real(RNP), intent(out) :: Lambda(:) !< eigenvalues
+
+  call Get_EllipticEigensystem__w_svv(this, dx, nu, ZERO, S, Lambda)
+
+end subroutine Get_EllipticEigensystem__n_svv
+
+!-------------------------------------------------------------------------------
+!> Computes operators for condensed CG-SEM diffusion problem including SVV
+
+subroutine Get_EllipticSuboperators__w_svv( this, dx, c, nu, nu_svv  &
+                                          , Aib, Abb, Aii_inv        )
   class(CG_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx           !< element length
-  real(RNP), intent(in)  :: c            !< coefficient of linear term
+  real(RNP), intent(in)  :: c            !< coefficient of linear term, c ≥ 0
+  real(RNP), intent(in)  :: nu           !< regular diffusivity
+  real(RNP), intent(in)  :: nu_svv       !< SVV diffusivity
   real(RNP), intent(out) :: Aib(:,:)     !< interior-boundary part, dim (po-1,2)
   real(RNP), intent(out) :: Abb(:,:)     !< boundary-boundary part, dim (2,2)
   real(RNP), intent(out) :: Aii_inv(:,:) !< Aᵢᵢ⁻¹, dimension (po-1,po-1)
 
-  real(RNP), optional, intent(in) :: nu     !< physical diffusivity [1]
-  real(RNP), optional, intent(in) :: nu_svv !< spectral diffusivity [0]
-
-  real(RNP), allocatable :: Ls(:,:), Ls_svv(:,:), S(:,:), Lambda(:), D_inv(:)
-  real(RNP) :: diff, diff_svv, g0, g1
+  real(RNP), allocatable :: Ls(:,:), S(:,:), Lambda(:), D_inv(:)
+  real(RNP) :: g0, g1
   integer   :: po, i, j, np
 
   po = this%po
-  diff     = ONE
-  diff_svv = ZERO
-  if (present(nu    )) diff     = nu
-  if (present(nu_svv)) diff_svv = nu_svv
 
-  ! Ls is set based on if SVV is utilized or not
-  allocate(Ls(0:po,0:po))
-  if (this%HasSVV()) then
-    allocate(Ls_svv(0:po,0:po))
-    call this%GetSVV_StiffnessMatrix(Ls_svv)
-    Ls = diff * this%L + diff_svv * Ls_svv
-  else
-    Ls = diff * this%L
+  ! standard diffusion matrix comprising regular and SVV contributions
+  allocate(Ls(0:po,0:po), source = ZERO)
+  if (this % Has_SVV()) then
+    call this % Get_SVV_StandardStiffnessMatrix(Ls)
   end if
+  Ls = nu * this%L + nu_svv * Ls
 
   associate(Ms => this%w)
 
     np = po - 1
 
     allocate(S(np,np), Lambda(np), D_inv(np))
-    call this % GetEllipticEigensystem(dx, S, Lambda, nu = nu, nu_svv = nu_svv)
+    call this % Get_EllipticEigensystem(dx, nu, nu_svv, S, Lambda)
 
     g0 = c * dx / 2
     g1 = 2 / dx
@@ -274,8 +309,7 @@ subroutine GetEllipticSuboperators(this, dx, c, Aib, Abb, Aii_inv, nu, nu_svv)
     Abb(1,2)  =                  g1 * Ls( 0,po)
     Abb(2,2)  =  g0 * Ms(po)  +  g1 * Ls(po,po)
 
-    !D_inv = 1 / (c + Lambda)
-    where (abs(c + Lambda) > 1000 * tiny(ONE))
+    where (abs(c + Lambda) > epsilon(ONE))
       D_inv = 1 / (c + Lambda)
     elsewhere
       D_inv = 0
@@ -289,7 +323,23 @@ subroutine GetEllipticSuboperators(this, dx, c, Aib, Abb, Aii_inv, nu, nu_svv)
 
   end associate
 
-end subroutine GetEllipticSuboperators
+end subroutine Get_EllipticSuboperators__w_svv
+
+!-------------------------------------------------------------------------------
+!> Computes operators for condensed CG-SEM diffusion problem with no SVV
+
+subroutine Get_EllipticSuboperators__n_svv(this, dx, c, nu, Aib, Abb, Aii_inv)
+  class(CG_ElementOperators1D), intent(in) :: this
+  real(RNP), intent(in)  :: dx           !< element length
+  real(RNP), intent(in)  :: c            !< coefficient of linear term, c ≥ 0
+  real(RNP), intent(in)  :: nu           !< regular diffusivity
+  real(RNP), intent(out) :: Aib(:,:)     !< interior-boundary part, dim (po-1,2)
+  real(RNP), intent(out) :: Abb(:,:)     !< boundary-boundary part, dim (2,2)
+  real(RNP), intent(out) :: Aii_inv(:,:) !< Aᵢᵢ⁻¹, dimension (po-1,po-1)
+
+  call Get_EllipticSuboperators__w_svv(this, dx, c, nu, ZERO, Aib, Abb, Aii_inv)
+
+end subroutine Get_EllipticSuboperators__n_svv
 
 !===============================================================================
 

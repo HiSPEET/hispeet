@@ -16,7 +16,7 @@ program OperatorSpectrum
   ! diffusion
   nd = po - 1
   allocate(S(nd,nd), Lambda_L(nd))
-  call eop % GetEllipticEigensystem(dx, S, Lambda_L)
+  call eop % Get_EllipticEigensystem(dx, S, Lambda_L)
 
   print '(/,A,I0,A)', 'po = ', po, ': Λ(L)'
   do i = 1, nd
@@ -47,7 +47,7 @@ program OperatorSpectrum
     nc = po
     allocate(eop, S(nd,nd), Lambda_L(nd), A(nc,nc), Lambda_A(nc))
     eop = CG_ElementOperators1D(po)
-    call eop % GetEllipticEigensystem(dx, S, Lambda_L)
+    call eop % Get_EllipticEigensystem(dx, S, Lambda_L)
     do i = 1, nc
       A(i,:) = eop % D(i,1:)
     end do

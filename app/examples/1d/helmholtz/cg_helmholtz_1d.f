@@ -39,7 +39,7 @@
 
 program CG_Helmholtz_1D
   use Kind_Parameters,  only: RNP, IXL
-  use Constants,        only: ONE
+  use Constants,        only: ONE, ZERO
   use CG_Element_Operators_1D
   use CG_Utilities_1D
   use CG_Condensed_Solver_1D
@@ -225,18 +225,16 @@ subroutine GetElementOperators(eop, dx, lambda, nu, nu_svv, Me, He)
   real(RNP), intent(out) :: He(0:,0:) !< element Helmholtz operator
 
   integer :: i, po
-  real(RNP), allocatable :: Ls(:,:), Ls_svv(:,:)
+  real(RNP), allocatable :: Ls(:,:)
 
   po = eop % po
 
-  allocate(Ls(0:po,0:po))
-  if (eop%HasSVV()) then
-    allocate(Ls_svv(0:po,0:po))
-    call eop%GetSVV_StiffnessMatrix(Ls_svv)
-    Ls = nu * eop%L + nu_svv * Ls_svv
-  else
-    Ls = nu * eop%L
+  ! standard diffusion matrix comprising regular and SVV contributions
+  allocate(Ls(0:po,0:po), source = ZERO)
+  if (eop % Has_SVV()) then
+    call eop % Get_SVV_StandardStiffnessMatrix(Ls)
   end if
+  Ls = nu * eop%L + nu_svv * Ls
 
   associate(Ms => eop % w)
 

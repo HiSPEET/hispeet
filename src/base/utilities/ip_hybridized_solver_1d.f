@@ -52,7 +52,7 @@ subroutine HybridEllipticSolver(eop, dx, c, nu, nu_svv, bc, f, u, standby)
   po  = eop%po
   ne  = size(f,2)
   dx_ = dx
-  if (eop%HasSVV()) then
+  if (eop%Has_SVV()) then
     tau = 2 * (nu + nu_svv) * eop%PenaltyFactor(dx)
   else
     tau = 2 * nu * eop%PenaltyFactor(dx)

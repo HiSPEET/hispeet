@@ -56,8 +56,7 @@ subroutine CondensedEllipticSolver(eop, dx, c, bc, f, u, standby, nu, nu_svv)
 
   if (.not. allocated(Aib)) then
     allocate(Abb(2,2), Aib(np,2), Aii_inv(np,np))
-    call eop % GetEllipticSuboperators(dx, c, Aib, Abb, Aii_inv, nu = nu,      &
-                                       nu_svv = nu_svv)
+    call eop % Get_EllipticSuboperators(dx, c, nu, nu_svv, Aib, Abb, Aii_inv)
   end if
 
   ! solution ...................................................................
@@ -65,8 +64,6 @@ subroutine CondensedEllipticSolver(eop, dx, c, bc, f, u, standby, nu, nu_svv)
   call BuildCondensedSystem(Abb, Aib, Aii_inv, bc, f, u, Ac, fc)
   call SolveCondensedSystem(Ac, fc)
   call SolveElementSystems(Aib, Aii_inv, bc, fc, f, u)
-
-  print *, "f check: ", f(2,1), f(7,1), f(3,1)
 
   ! clean-up ...................................................................
 

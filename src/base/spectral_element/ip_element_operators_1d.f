@@ -37,10 +37,8 @@ module IP_Element_Operators_1D
   !> diagonal mass matrix restricted to the interior points.
 
   type, extends(StandardOperators1D) :: IP_ElementOperators1D
-
     real(RNP) :: penalty = 2       !< penalty parameter > 1
     logical   :: hybrid  = .false. !< switch to hybridized method
-
   contains
 
     procedure :: Init_IP_ElementOperators1D
@@ -64,13 +62,9 @@ module IP_Element_Operators_1D
   !-----------------------------------------------------------------------------
   !> Options for IP_ElementOperators1D
 
-  type IP_ElementOptions1D
-    integer   :: po         = -1       !< polynomial order
+  type, extends(StandardOperatorOptions1D) :: IP_ElementOptions1D
     real(RNP) :: penalty    =  2       !< penalty parameter > 1
     logical   :: hybrid     = .false.  !< switch to hybridized method
-    logical   :: no_vdm     = .false.  !< skip Vandermonde matrix
-    logical   :: svv        = .false.  !< activate SVV model
-    integer   :: po_cut_svv = -huge(1) !< cutoff PO for SVV model
   contains
     procedure :: Bcast => IP_ElementOptions1D_Bcast
   end type IP_ElementOptions1D
@@ -132,8 +126,7 @@ subroutine Init_IP_ElementOperators1D(this, opt)
   class(IP_ElementOperators1D), intent(inout) :: this
   class(IP_ElementOptions1D),   intent(in)    :: opt
 
-  ! standard operators
-  call this % Init_StandardOperators1D(opt%po, no_vdm = opt%no_vdm, svv = opt%svv, po_cut_svv = opt%po_cut_svv)
+  call this % Init_StandardOperators1D(opt)
 
   this % penalty = opt % penalty
   this % hybrid  = opt % hybrid
@@ -257,9 +250,9 @@ subroutine GetStiffnessMatrix(this, dx, bc, nu_svv_by_nu, Le, form)
   ! Ds and Ls are set based on if svv is used or not
   allocate(Ds(0:P,0:P))
   allocate(Ls(0:P,0:P))
-  if (this%HasSVV()) then
-    call this%GetSVV_DiffMatrix(Ds)
-    call this%GetSVV_StiffnessMatrix(Ls)
+  if (this%Has_SVV()) then
+    call this%Get_SVV_StandardDiffMatrix(Ds)
+    call this%Get_SVV_StandardStiffnessMatrix(Ls)
     Ds = this%D + nu_svv_by_nu * Ds
     Ls = this%L + nu_svv_by_nu * Ls
   else
@@ -455,8 +448,8 @@ subroutine GetEllipticSuboperators(this, dx, bc, c, nu, nu_svv, Aib, Aii_inv)
   call this % GetEllipticEigensystem(dx, bc, nu_svv/nu, S, Lambda)
 
   allocate(Ds(0:P,0:P))
-  if (this%HasSVV()) then
-    call this%GetSVV_DiffMatrix(Ds)
+  if (this%Has_SVV()) then
+    call this%Get_SVV_StandardDiffMatrix(Ds)
     Ds = this%D + nu_svv/nu * Ds
   else
     Ds = this%D
@@ -473,7 +466,7 @@ subroutine GetEllipticSuboperators(this, dx, bc, c, nu, nu_svv, Aib, Aii_inv)
     case('D','N')
       Aib(:,1) =  0
     case default ! interior or periodic
-      if (this%HasSVV()) then
+      if (this%Has_SVV()) then
         Aib(:,1) = -2/dx(0) * nu * Ds(0,:)  -  2 * (nu + nu_svv) * mu_0 * delta_0
       else
         Aib(:,1) = -2/dx(0) * nu * Ds(0,:)  -  2 *  nu           * mu_0 * delta_0
@@ -484,7 +477,7 @@ subroutine GetEllipticSuboperators(this, dx, bc, c, nu, nu_svv, Aib, Aii_inv)
     case('D','N')
       Aib(:,2) =  0
     case default ! interior or periodic
-      if (this%HasSVV()) then
+      if (this%Has_SVV()) then
         Aib(:,2) =  2/dx(0) * nu * Ds(P,:)  -  2 * (nu + nu_svv) * mu_P * delta_P
       else
         Aib(:,2) =  2/dx(0) * nu * Ds(P,:)  -  2 *  nu           * mu_P * delta_P
@@ -534,7 +527,7 @@ function New_IP_ElementOptions1D_o(eop, po) result(this)
     this % hybrid  = eop % hybrid
   end select
 
-  this % no_vdm  = .not. ( eop % HasLegendreVDM() )
+  this % no_vdm  = .not. ( eop % Has_Legendre_VDM() )
 
 end function New_IP_ElementOptions1D_o
 

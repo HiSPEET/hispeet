@@ -15,6 +15,9 @@ module Standard_Operators_1D
   implicit none
   private
 
+  public :: StandardOperators1D
+  public :: StandardOperatorOptions1D
+
   !-----------------------------------------------------------------------------
   !> Standard operators for one polynomial order
   !>
@@ -24,7 +27,7 @@ module Standard_Operators_1D
   !>   * Lagrange polynomials to Gauss-Lobatto-Legendre points: `basis = 'GLL'`
   !>   * Lagrange polynomials to Gauss-Radau-Legendre points:   `basis = 'GRL'`
 
-  type, public :: StandardOperators1D
+  type StandardOperators1D
     private
 
     ! public components
@@ -50,23 +53,35 @@ module Standard_Operators_1D
     procedure :: Init_StandardOperators1D
     procedure :: PolynomialOrder
 
-    procedure :: InitLegendreVDM
-    procedure :: HasLegendreVDM
-    procedure :: GetLegendreVDM
-    procedure :: GetInverseLegendreVDM
+    procedure :: Init_Legendre_VDM
+    procedure :: Has_Legendre_VDM
+    procedure :: Get_Legendre_VDM
+    procedure :: Get_InverseLegendre_VDM
 
-    procedure :: InitSVV
-    procedure :: HasSVV
-    procedure :: GetSVV_RootDiffMatrix
-    procedure :: GetSVV_DiffMatrix
-    procedure :: GetSVV_StiffnessMatrix
+    procedure :: Init_SVV
+    procedure :: Has_SVV
+    procedure :: Get_SVV_StandardRootDiffMatrix
+    procedure :: Get_SVV_StandardDiffMatrix
+    procedure :: Get_SVV_StandardStiffnessMatrix
 
   end type StandardOperators1D
 
   ! Constructor interface
   interface StandardOperators1D
-    module procedure New_StandardOperators1D
+    module procedure New_StandardOperators1D__f
+    module procedure New_StandardOperators1D__b
   end interface
+
+  !-----------------------------------------------------------------------------
+  !> Options for StandardOperators1D
+
+  type StandardOperatorOptions1D
+    integer          :: po         = -1       !< polynomial order
+    character(len=3) :: basis      = 'GLL'    !< basis type
+    logical          :: no_vdm     = .false.  !< skip Vandermonde matrix
+    logical          :: svv        = .false.  !< activate SVV model
+    integer          :: po_cut_svv = -huge(1) !< cut-off PO for SVV
+  end type StandardOperatorOptions1D
 
 contains
 
@@ -74,9 +89,9 @@ contains
   ! Constructor
 
   !-----------------------------------------------------------------------------
-  !> Constructor for StandardOperators1D
+  !> Constructor for StandardOperators1D -- flat interface
 
-  function New_StandardOperators1D(po, basis, no_vdm, svv, po_cut_svv)         &
+  function New_StandardOperators1D__f(po, basis, no_vdm, svv, po_cut_svv)      &
      result(this)
 
     integer,                    intent(in) :: po    !< polynomial order
@@ -86,11 +101,30 @@ contains
     logical, optional, intent(in) :: svv        !< activate SVV model [F]
     integer, optional, intent(in) :: po_cut_svv !< cut-off PO for SVV [po/2]
 
+    type(StandardOperators1D)       :: this
+    type(StandardOperatorOptions1D) :: opt
+
+    opt % po = po
+
+    if (present(basis  ))    opt % basis      = basis
+    if (present(no_vdm ))    opt % no_vdm     = no_vdm
+    if (present(svv    ))    opt % svv        = svv
+    if (present(po_cut_svv)) opt % po_cut_svv = po_cut_svv
+
+    call Init_StandardOperators1D(this, opt)
+
+  end function New_StandardOperators1D__f
+
+  !-----------------------------------------------------------------------------
+  !> Constructor for StandardOperators1D -- bundled arguments
+
+  function New_StandardOperators1D__b(opt) result(this)
+    class(StandardOperatorOptions1D), intent(in) :: opt
     type(StandardOperators1D) :: this
 
-    call Init_StandardOperators1D(this, po, basis, no_vdm, svv, po_cut_svv)
+    call Init_StandardOperators1D(this, opt)
 
-  end function New_StandardOperators1D
+  end function New_StandardOperators1D__b
 
   !=============================================================================
   ! Type-bound procedures
@@ -111,142 +145,103 @@ contains
   !> The routine provides 1D standard operators for the chosen nodal basis.
   !> GLL is the default, except for `po = 0` which always implies GL.
 
-  subroutine Init_StandardOperators1D(this, po, basis, no_vdm, svv, po_cut_svv)
-
+  subroutine Init_StandardOperators1D(this, opt)
     !> standard operators that will be initialized
-    class(StandardOperators1D), intent(inout) :: this
+    class(StandardOperators1D),       intent(inout) :: this
+    !> options variable for the standard operator construction
+    class(StandardOperatorOptions1D), intent(in)    :: opt
 
-    !> polynomial order
-    integer, intent(in) :: po
-
-    !> point set for generating the Lagrange basis {GL,GLL,GRL} [GLL]
-    character(len=*), optional, intent(in) :: basis
-
-    !> switch to skip the generation of the Vandermonde matrix and its inverse
-    logical, optional, intent(in) :: no_vdm
-
-    !> switch to activate the SVV model
-    logical, optional, intent(in) :: svv
-
-    !> cut-off polynomial degree for the SVV model
-    integer, optional, intent(in) :: po_cut_svv
-
-    logical :: build_vdm
-    logical :: build_svv
     integer :: i, j, po_cut
 
-    ! safeguard ................................................................
+    associate( po          =>  opt % po          &
+             , basis       =>  opt % basis       &
+             , no_vdm      =>  opt % no_vdm      &
+             , svv         =>  opt % svv         &
+             , po_cut_svv  =>  opt % po_cut_svv  )
 
-    call Delete_StandardOperators1D(this)
+      ! safeguard ..............................................................
 
-    if (po < 0) then
+      call Delete_StandardOperators1D(this)
 
-      call Error('Init_StandardOperators1D', 'Invalid polynomial order (po < 0)')
-
-    else if (po == 0) then
-
-      this%basis = 'GL'
-
-    else
-
-      if (present(basis)) then
-        if (any(basis == [ 'GL ', 'GLL', 'GRL' ])) then
-          this%basis = basis
-        else
-          call Error('Init_StandardOperators1D', 'Invalid basis argument')
-        end if
+      if (po < 0) then
+        call Error('Init_StandardOperators1D', 'Invalid order (po < 0)')
+      else if (po == 0) then
+        this%basis = 'GL'
+      else if (any(basis == [ 'GL ', 'GLL', 'GRL' ])) then
+        this%basis = basis
       else
-        this%basis = 'GLL'
+        call Error('Init_StandardOperators1D', 'Invalid basis')
       end if
 
-    end if
+      ! operators available from Gauss-Jacobi module ...........................
 
-    ! operators available from Gauss-Jacobi module .............................
+      this%po = po
 
-    this%po = po
+      if (po == 0) then
 
-    if (po == 0) then
+        ! 1-point Gauss
+        allocate(this%x(0:0),       source = ZERO)
+        allocate(this%w(0:0),       source = TWO)
+        allocate(this%D(0:0,0:0),   source = ZERO)
 
-      ! 1-point Gauss
-      allocate(this%x(0:0),       source = ZERO)
-      allocate(this%w(0:0),       source = TWO)
-      allocate(this%D(0:0,0:0),   source = ZERO)
+      else if (this%basis == 'GL') then
 
-    else if (this%basis == 'GL') then
+        ! Gauss-Legendre
+        allocate(this%x(0:po),      source = GL_Points(po))
+        allocate(this%w(0:po),      source = GL_Weights(this%x))
+        allocate(this%D(0:po,0:po), source = GL_DiffMatrix(this%x))
 
-      ! Gauss-Legendre
-      allocate(this%x(0:po),      source = GL_Points(po))
-      allocate(this%w(0:po),      source = GL_Weights(this%x))
-      allocate(this%D(0:po,0:po), source = GL_DiffMatrix(this%x))
+      else if (this%basis == 'GLL') then
 
-    else if (this%basis == 'GLL') then
+        ! Gauss-Lobatto-Legendre points
+        allocate(this%x(0:po),      source = GLL_Points(po))
+        allocate(this%w(0:po),      source = GLL_Weights(this%x))
+        allocate(this%D(0:po,0:po), source = GLL_DiffMatrix(this%x))
 
-      ! Gauss-Lobatto-Legendre points
-      allocate(this%x(0:po),      source = GLL_Points(po))
-      allocate(this%w(0:po),      source = GLL_Weights(this%x))
-      allocate(this%D(0:po,0:po), source = GLL_DiffMatrix(this%x))
+      else
 
-    else
+        ! Gauss-Radau-Legendre
+        allocate(this%x(0:po),      source = GRL_Points(po))
+        allocate(this%w(0:po),      source = GRL_Weights(this%x))
+        allocate(this%D(0:po,0:po), source = GRL_DiffMatrix(this%x))
 
-      ! Gauss-Radau-Legendre
-      allocate(this%x(0:po),      source = GRL_Points(po))
-      allocate(this%w(0:po),      source = GRL_Weights(this%x))
-      allocate(this%D(0:po,0:po), source = GRL_DiffMatrix(this%x))
-
-    end if
-
-    ! stiffness matrix .........................................................
-
-    allocate(this%L(0:po,0:po), source = ZERO)
-
-    do i = 0, po
-    do j = 0, po
-      this%L(i,j) = sum(this%w * this%D(:,i) * this%D(:,j))
-    end do
-    end do
-
-    ! check what else to build .................................................
-
-    ! Vandermonde matrix
-    if (present(no_vdm)) then
-      build_vdm = .not. no_vdm
-    else
-      build_vdm = .true.
-    end if
-
-    ! SVV
-    if (present(svv)) then
-      build_svv = svv
-    else
-      build_svv = .false.
-    end if
-
-    ! require Vandermonde matrix when SVV is activated
-    build_vdm = build_vdm .or. build_svv
-
-    ! Vandermonde matrix and its inverse .......................................
-
-    if (build_vdm) then
-      call InitLegendreVDM(this)
-    end if
-
-    ! SVV differentation and stiffness matrix ..................................
-
-    po_cut = floor(po / TWO) ! default value according to Xu04
-    if (build_svv) then
-      ! only if po_cut_svv is present and not the default value use it
-      if (present(po_cut_svv)) then
-        if (po_cut_svv /= -huge(1)) po_cut = po_cut_svv
       end if
-      call InitSVV(this, po_cut)
-    end if
+
+      ! stiffness matrix .......................................................
+
+      allocate(this%L(0:po,0:po), source = ZERO)
+
+      do i = 0, po
+      do j = 0, po
+        this%L(i,j) = sum(this%w * this%D(:,i) * this%D(:,j))
+      end do
+      end do
+
+      ! Vandermonde matrix and its inverse .....................................
+
+      if (.not. no_vdm .or. svv) then
+        call Init_Legendre_VDM(this)
+      end if
+
+      ! SVV differentation and stiffness matrix ................................
+
+      if (svv) then
+        if (po_cut_svv > -huge(1)) then
+          po_cut = po_cut_svv
+        else
+          po_cut = floor(po / TWO) ! default value according to Xu04
+        end if
+        call Init_SVV(this, po_cut)
+      end if
+
+    end associate
 
   end subroutine Init_StandardOperators1D
 
   !-----------------------------------------------------------------------------
   !> Intializes the Legendre-Vandermonde matrix and its inverse.
 
-  subroutine InitLegendreVDM(this)
+  subroutine Init_Legendre_VDM(this)
     class(StandardOperators1D), intent(inout) :: this !< standard operators
 
     integer :: i, j, po
@@ -274,54 +269,54 @@ contains
     allocate(this % VL_inv(0:po,0:po), source=this%VL)
     this % VL_inv = Inverse(this % VL)
 
-  end subroutine InitLegendreVDM
+  end subroutine Init_Legendre_VDM
 
   !-----------------------------------------------------------------------------
   !> Query if Legendre VDM is available
 
-  logical function HasLegendreVDM(this) result(has)
+  logical function Has_Legendre_VDM(this) result(has)
     class(StandardOperators1D), intent(in) :: this    !< standard operators
     has = allocated(this % VL)
-  end function HasLegendreVDM
+  end function Has_Legendre_VDM
 
   !-----------------------------------------------------------------------------
   !> Get the Legendre-Vandermonde matrix
 
-  subroutine GetLegendreVDM(this, VL)
+  subroutine Get_Legendre_VDM(this, VL)
     class(StandardOperators1D), intent(in) :: this    !< standard operators
     real(RNP), intent(out) :: VL(0:this%po,0:this%po) !< Vandermonde matrix
 
     if (.not. allocated(this % VL)) then
-      call Error( 'GetLegendreVDM'                     &
+      call Error( 'Get_Legendre_VDM'                     &
                 , 'Vandermonde matrix not initialized' &
                 , 'Standard_Operators_1D'              )
     end if
 
     VL = this % VL
 
-  end subroutine GetLegendreVDM
+  end subroutine Get_Legendre_VDM
 
   !-----------------------------------------------------------------------------
   !> Get the inverse Legendre-Vandermonde matrix
 
-  subroutine GetInverseLegendreVDM(this, VL_inv)
+  subroutine Get_InverseLegendre_VDM(this, VL_inv)
     class(StandardOperators1D), intent(in) :: this        !< standard operators
     real(RNP), intent(out) :: VL_inv(0:this%po,0:this%po) !< inverse VDM matrix
 
     if (.not. allocated(this%VL_inv)) then
-      call Error( 'GetInverseLegendreVDM'              &
+      call Error( 'Get_InverseLegendre_VDM'              &
                 , 'Vandermonde matrix not initialized' &
                 , 'Standard_Operators_1D'              )
     end if
 
     VL_inv = this % VL_inv
 
-  end subroutine GetInverseLegendreVDM
+  end subroutine Get_InverseLegendre_VDM
 
   !-----------------------------------------------------------------------------
   !> Initializes SVV operators
 
-  subroutine InitSVV(this, po_cut)
+  subroutine Init_SVV(this, po_cut)
     class(StandardOperators1D), intent(inout) :: this   !< standard operators
     integer,                    intent(in)    :: po_cut !< cut-off polynomial degree
 
@@ -375,66 +370,66 @@ contains
 
     end associate
 
-  end subroutine InitSVV
+  end subroutine Init_SVV
 
   !-----------------------------------------------------------------------------
   !> Query if SVV is used
 
-  logical function HasSVV(this) result(has)
+  logical function Has_SVV(this) result(has)
     class(StandardOperators1D), intent(in) :: this !< standard operators
     has = allocated(this % D_root_svv)
-  end function HasSVV
+  end function Has_SVV
 
   !-----------------------------------------------------------------------------
-  !> Get the SVV root-based differentiation matrix `D_root_svv`
+  !> Get the SVV standard differentiation matrix based on the root of SVV kernel
 
-  subroutine GetSVV_RootDiffMatrix(this, D_root_svv)
+  subroutine Get_SVV_StandardRootDiffMatrix(this, D_root_svv)
     class(StandardOperators1D), intent(in) :: this            !< standard operators
     real(RNP), intent(out) :: D_root_svv(0:this%po,0:this%po) !< SVV diff matrix
 
     if (.not. allocated(this % D_root_svv)) then
-      call Error( 'GetSVV_RootDiffMatrix'                                 &
-                , 'SVV root-based differentiation matrix not initialized' &
-                , 'Standard_Operators_1D'                                 )
+      call Error( 'Get_SVV_StandardRootDiffMatrix' &
+                , 'SVV not initialized'            &
+                , 'Standard_Operators_1D'          )
     end if
 
     D_root_svv = this % D_root_svv
 
-  end subroutine GetSVV_RootDiffMatrix
+  end subroutine Get_SVV_StandardRootDiffMatrix
 
   !-----------------------------------------------------------------------------
-  !> Get the SVV differentiation matrix `root-based`
+  !> Get the SVV standard differentiation matrix
 
-  subroutine GetSVV_DiffMatrix(this, D_svv)
+  subroutine Get_SVV_StandardDiffMatrix(this, D_svv)
     class(StandardOperators1D), intent(in) :: this       !< standard operators
     real(RNP), intent(out) :: D_svv(0:this%po,0:this%po) !< SVV diff matrix
 
     if (.not. allocated(this % D_svv)) then
-      call Error( 'GetSVV_DiffMatrix'                          &
-                , 'SVV differentiation matrix not initialized' &
-                , 'Standard_Operators_1D'                      )
+      call Error( 'Get_SVV_StandardDiffMatrix' &
+                , 'SVV not initialized'        &
+                , 'Standard_Operators_1D'      )
     end if
 
     D_svv = this % D_svv
 
-  end subroutine GetSVV_DiffMatrix
+  end subroutine Get_SVV_StandardDiffMatrix
 
   !-----------------------------------------------------------------------------
-  !> Get the SVV stiffness matrix `L_svv`
+  !> Get the SVV standard stiffness matrix
 
-  subroutine GetSVV_StiffnessMatrix(this, L_svv)
+  subroutine Get_SVV_StandardStiffnessMatrix(this, L_svv)
     class(StandardOperators1D), intent(in) :: this       !< standard operators
     real(RNP), intent(out) :: L_svv(0:this%po,0:this%po) !< SVV stiffness matrix
 
     if (.not. allocated(this % L_svv)) then
-      call Error( 'GetSVV_StiffnessMatrix'                     &
-                , 'SVV differentiation matrix not initialized' &
-                , 'Standard_Operators_1D'                      )
+      call Error( 'Get_SVV_StandardStiffnessMatrix' &
+                , 'SVV not initialized'             &
+                , 'Standard_Operators_1D'           )
     end if
 
     L_svv = this % L_svv
 
-  end subroutine GetSVV_StiffnessMatrix
+  end subroutine Get_SVV_StandardStiffnessMatrix
 
   !-----------------------------------------------------------------------------
   !> Finalization
