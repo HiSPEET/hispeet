@@ -200,7 +200,7 @@ subroutine Propagator(eop, dx, M, wave, v, nu, bc, x, t0, dt, u0, u, H, S)
 
   if (nu > 0) then
     call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u, w)
-    call CondensedEllipticSolver(eop, dx, c, bc, w, u, nu = nu)
+    call CondensedEllipticSolver(eop, dx, c, nu bc, w, u)
   else
     u = dt * w / M
     call ApplyBoundaryConditions(wave, v, nu, bc, x, t, u)

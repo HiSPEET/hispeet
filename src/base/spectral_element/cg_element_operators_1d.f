@@ -25,7 +25,6 @@ module CG_Element_Operators_1D
 
     procedure :: Init_CG_ElementOperators1D
     procedure :: Get_StiffnessMatrix
-    ! procedure :: Get_DiffusionOperator
 
     generic   :: Get_EllipticEigensystem => Get_EllipticEigensystem__w_svv, &
                                             Get_EllipticEigensystem__n_svv
@@ -309,6 +308,7 @@ subroutine Get_EllipticSuboperators__w_svv( this, dx, c, nu, nu_svv  &
     Abb(1,2)  =                  g1 * Ls( 0,po)
     Abb(2,2)  =  g0 * Ms(po)  +  g1 * Ls(po,po)
 
+    write(*,*) "c + lambda is: ", c + lambda
     where (abs(c + Lambda) > epsilon(ONE))
       D_inv = 1 / (c + Lambda)
     elsewhere

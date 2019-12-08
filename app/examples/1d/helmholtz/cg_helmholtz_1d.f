@@ -160,8 +160,7 @@ program CG_Helmholtz_1D
   case(1) ! CG
     call CG(He, bc, u, f, w, r_max, i_max)
   case(2) ! static condensation + Gauss elimination
-    call CondensedEllipticSolver(eop, dx, lambda, bc, f, u, nu = nu,           &
-                                 nu_svv = nu_svv)
+    call CondensedEllipticSolver(eop, dx, lambda, nu, nu_svv, bc, f, u)
   end select
 
   call system_clock(count1)
