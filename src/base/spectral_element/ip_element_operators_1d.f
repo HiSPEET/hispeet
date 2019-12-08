@@ -269,7 +269,7 @@ subroutine Get_DiffusionMatrix(this, dx, bc, nu, nu_svv, Ce, form)
 
   if (this % Has_SVV()) then
     call this % Get_SVV_StandardStiffnessMatrix(Cs)
-    call this % Get_SVV_StandardRootDiffMatrix(Fs)
+    call this % Get_SVV_StandardDiffMatrix(Fs)
     Cs = nu_svv * Cs
     Fs = nu_svv * Fs
   else
@@ -491,7 +491,7 @@ subroutine Get_EllipticSuboperators__w_svv( this, dx, bc, c, nu, nu_svv &
   call this % Get_EllipticEigensystem(dx, bc, nu, nu_svv, S, Lambda)
 
   if (this % Has_SVV()) then
-    call this % Get_SVV_StandardRootDiffMatrix(Fs)
+    call this % Get_SVV_StandardDiffMatrix(Fs)
     Fs = nu_svv * Fs
     nu_total = nu + nu_svv
   else
