@@ -81,7 +81,7 @@ subroutine Get_1D_StiffnessMatrix(this, direction, bc, Le)
   select case(direction)
   case(1:3)
     dx = this % dx(direction)
-    call this % GetStiffnessMatrix(dx, bc, Le)
+    call this % Get_StiffnessMatrix(dx, bc, Le)
   case default
     call Error('Get_1D_StiffnessMatrix',    &
                'direction must 1,2 or 3',   &

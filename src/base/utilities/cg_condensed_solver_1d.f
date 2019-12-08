@@ -24,10 +24,10 @@ module CG_Condensed_Solver_1D
 contains
 
 !-------------------------------------------------------------------------------
-!> Direct elliptic solver based on static condensation
+!> Direct elliptic solver based on static condensation with SVV
 
-subroutine CondensedEllipticSolver__w_svv(eop, dx, c, nu, nu_svv, bc, f, u,    &
-                                          standby)
+subroutine CondensedEllipticSolver__w_svv( eop, dx, c, nu, nu_svv &
+                                         , bc, f, u, standby      )
   class(CG_ElementOperators1D), intent(in) :: eop !< element operators
   real(RNP), intent(in)    :: dx       !< element width
   real(RNP), intent(in)    :: c        !< coefficient of linear term
@@ -83,8 +83,7 @@ subroutine CondensedEllipticSolver__w_svv(eop, dx, c, nu, nu_svv, bc, f, u,    &
 end subroutine CondensedEllipticSolver__w_svv
 
 !-------------------------------------------------------------------------------
-!> Direct elliptic solver based on static condensation without spectral
-!> viscosity
+!> Direct elliptic solver based on static condensation without SVV
 
 subroutine CondensedEllipticSolver__n_svv(eop, dx, c, nu, bc, f, u, standby)
   class(CG_ElementOperators1D), intent(in) :: eop !< element operators

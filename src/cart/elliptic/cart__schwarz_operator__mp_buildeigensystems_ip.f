@@ -172,10 +172,10 @@ subroutine GetSubdomainOperators(eop, no, bc, Ws, S, V, W)
   allocate(Le_bc(0:po,0:po,-1:1))
 
   ! stiffness matrix for interior element, assuming dx=1
-  call eop % GetStiffnessMatrix(dx, bc=ii, Le=Le_ii)
+  call eop % Get_StiffnessMatrix(dx, bc=ii, Le=Le_ii)
 
   ! stiffness matrix for given boundary conditions, assuming dx=1
-  call eop % GetStiffnessMatrix(dx, bc=bc, Le=Le_bc)
+  call eop % Get_StiffnessMatrix(dx, bc=bc, Le=Le_bc)
 
   ! initialization: eigenvalues V set to 1 to avoid division by zero in
   ! in case of truncated overlap zones

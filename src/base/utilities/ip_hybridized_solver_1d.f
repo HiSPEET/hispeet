@@ -16,17 +16,23 @@ module IP_Hybridized_Solver_1D
 
   public :: HybridEllipticSolver
 
+  interface HybridEllipticSolver
+    procedure :: HybridEllipticSolver__w_svv
+    procedure :: HybridEllipticSolver__n_svv
+  end interface
+
 contains
 
 !-------------------------------------------------------------------------------
-!> Direct elliptic solver based on hybridization
+!> Direct elliptic solver based on hybridization with SVV
 
-subroutine HybridEllipticSolver(eop, dx, c, nu, nu_svv, bc, f, u, standby)
+subroutine HybridEllipticSolver__w_svv( eop, dx, c, nu, nu_svv &
+                                      , bc, f, u, standby      )
   class(IP_ElementOperators1D), intent(in) :: eop !< element operators
   real(RNP), intent(in)  :: dx       !< element width
   real(RNP), intent(in)  :: c        !< coefficient of linear term
   real(RNP), intent(in)  :: nu       !< diffusivity
-  real(RNP), intent(in)  :: nu_svv   !< spectral diffusivity amplitude
+  real(RNP), intent(in)  :: nu_svv   !< SVV diffusivity [0]
   character, intent(in)  :: bc(2)    !< boundary conditions {'D','N','P'}
   real(RNP), intent(in)  :: f(0:,:)  !< source including Neumann BC
   real(RNP), intent(out) :: u(0:,:)  !< solution
@@ -44,7 +50,7 @@ subroutine HybridEllipticSolver(eop, dx, c, nu, nu_svv, bc, f, u, standby)
   real(RNP), allocatable :: Af(:,:) ! flux system matrix
   real(RNP), allocatable :: ff(:)   ! flux RHS / solution
 
-  real(RNP) :: dx_(-1:1), tau
+  real(RNP) :: dx_(-1:1), tau, nu_total
   integer   :: po, ne
 
   ! preprocessing ............................................................
@@ -52,11 +58,14 @@ subroutine HybridEllipticSolver(eop, dx, c, nu, nu_svv, bc, f, u, standby)
   po  = eop%po
   ne  = size(f,2)
   dx_ = dx
-  if (eop%Has_SVV()) then
-    tau = 2 * (nu + nu_svv) * eop%PenaltyFactor(dx)
+
+  if (eop % Has_SVV()) then
+    nu_total = nu + nu_svv
   else
-    tau = 2 * nu * eop%PenaltyFactor(dx)
+    nu_total = nu
   end if
+
+  tau = 2 * nu_total * eop%PenaltyFactor(dx)
 
   if (allocated(Aib)) then
     if (ubound(Aib,1) /= po) deallocate(Aib, Aii_inv)
@@ -67,19 +76,19 @@ subroutine HybridEllipticSolver(eop, dx, c, nu, nu_svv, bc, f, u, standby)
     allocate( Aii_inv (0:po, 0:po, -1:1), source = ZERO)
     select case(ne)
     case(1)
-      call eop % GetEllipticSuboperators( dx_, bc,             c, nu, nu_svv, &
-                                          Aib(:,:, 0), Aii_inv(:,:, 0)        )
+      call eop % Get_EllipticSuboperators( dx_, bc,             c, nu, nu_svv, &
+                                          Aib(:,:, 0), Aii_inv(:,:, 0)         )
     case default
       ! left element
-      call eop % GetEllipticSuboperators( dx_, [ bc(1), ' ' ], c, nu, nu_svv, &
-                                          Aib(:,:,-1), Aii_inv(:,:,-1)        )
+      call eop % Get_EllipticSuboperators( dx_, [ bc(1), ' ' ], c, nu, nu_svv, &
+                                          Aib(:,:,-1), Aii_inv(:,:,-1)         )
 
       ! interior element(s)
-      call eop % GetEllipticSuboperators( dx_, [ ' ', ' ' ],   c, nu, nu_svv, &
-                                          Aib(:,:, 0), Aii_inv(:,:, 0)        )
+      call eop % Get_EllipticSuboperators( dx_, [ ' ', ' ' ],   c, nu, nu_svv, &
+                                          Aib(:,:, 0), Aii_inv(:,:, 0)         )
       ! right element
-      call eop % GetEllipticSuboperators( dx_, [ ' ', bc(2) ], c, nu, nu_svv, &
-                                          Aib(:,:, 1), Aii_inv(:,:, 1)        )
+      call eop % Get_EllipticSuboperators( dx_, [ ' ', bc(2) ], c, nu, nu_svv, &
+                                          Aib(:,:, 1), Aii_inv(:,:, 1)         )
     end select
   end if
 
@@ -101,7 +110,26 @@ subroutine HybridEllipticSolver(eop, dx, c, nu, nu_svv, bc, f, u, standby)
 
   deallocate(Aib, Aii_inv)
 
-end subroutine HybridEllipticSolver
+end subroutine HybridEllipticSolver__w_svv
+
+!-------------------------------------------------------------------------------
+!> Direct elliptic solver based on hybridization with SVV
+
+subroutine HybridEllipticSolver__n_svv(eop, dx, c, nu, bc, f, u, standby)
+  class(IP_ElementOperators1D), intent(in) :: eop !< element operators
+  real(RNP), intent(in)  :: dx       !< element width
+  real(RNP), intent(in)  :: c        !< coefficient of linear term
+  real(RNP), intent(in)  :: nu       !< diffusivity
+  character, intent(in)  :: bc(2)    !< boundary conditions {'D','N','P'}
+  real(RNP), intent(in)  :: f(0:,:)  !< source including Neumann BC
+  real(RNP), intent(out) :: u(0:,:)  !< solution
+
+  !> optionally keep suboperators for repeated application [F]
+  logical, optional, intent(in) :: standby
+
+  call HybridEllipticSolver__w_svv(eop, dx, c, nu, ZERO, bc, f, u, standby)
+
+end subroutine HybridEllipticSolver__n_svv
 
 !-------------------------------------------------------------------------------
 !> Build the flux system for two or more elements

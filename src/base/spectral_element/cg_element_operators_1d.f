@@ -66,7 +66,7 @@ function New_CG_ElementOperators1D__f(po, no_vdm, svv, po_cut_svv) result(this)
   integer,             intent(in) :: po         !< polynomial order
   logical,   optional, intent(in) :: no_vdm     !< skip Vandermonde matrix  [F]
   logical,   optional, intent(in) :: svv        !< activate SVV model       [F]
-  integer,   optional, intent(in) :: po_cut_svv !< cut-off PO for SVV      [-1]
+  integer,   optional, intent(in) :: po_cut_svv !< cut-off PO for SVV      [-∞]
 
   type(CG_ElementOperators1D) :: this
   type(CG_ElementOptions1D)   :: opt
@@ -275,18 +275,18 @@ subroutine Get_EllipticSuboperators__w_svv( this, dx, c, nu, nu_svv  &
   real(RNP), intent(out) :: Abb(:,:)     !< boundary-boundary part, dim (2,2)
   real(RNP), intent(out) :: Aii_inv(:,:) !< Aᵢᵢ⁻¹, dimension (po-1,po-1)
 
-  real(RNP), allocatable :: Ls(:,:), S(:,:), Lambda(:), D_inv(:)
+  real(RNP), allocatable :: Cs(:,:), S(:,:), Lambda(:), D_inv(:)
   real(RNP) :: g0, g1
   integer   :: po, i, j, np
 
   po = this%po
 
   ! standard diffusion matrix comprising regular and SVV contributions
-  allocate(Ls(0:po,0:po), source = ZERO)
+  allocate(Cs(0:po,0:po), source = ZERO)
   if (this % Has_SVV()) then
-    call this % Get_SVV_StandardStiffnessMatrix(Ls)
+    call this % Get_SVV_StandardStiffnessMatrix(Cs)
   end if
-  Ls = nu * this%L + nu_svv * Ls
+  Cs = nu * this%L + nu_svv * Cs
 
   associate(Ms => this%w)
 
@@ -299,20 +299,19 @@ subroutine Get_EllipticSuboperators__w_svv( this, dx, c, nu, nu_svv  &
     g1 = 2 / dx
 
     do i = 1, np
-      Aib(i,1)  =  g1 * Ls( 0,i)
-      Aib(i,2)  =  g1 * Ls(po,i)
+      Aib(i,1)  =  g1 * Cs( 0,i)
+      Aib(i,2)  =  g1 * Cs(po,i)
     end do
 
-    Abb(1,1)  =  g0 * Ms( 0)  +  g1 * Ls( 0, 0)
-    Abb(2,1)  =                  g1 * Ls(po, 0)
-    Abb(1,2)  =                  g1 * Ls( 0,po)
-    Abb(2,2)  =  g0 * Ms(po)  +  g1 * Ls(po,po)
+    Abb(1,1)  =  g0 * Ms( 0)  +  g1 * Cs( 0, 0)
+    Abb(2,1)  =                  g1 * Cs(po, 0)
+    Abb(1,2)  =                  g1 * Cs( 0,po)
+    Abb(2,2)  =  g0 * Ms(po)  +  g1 * Cs(po,po)
 
-    write(*,*) "c + lambda is: ", c + lambda
     where (abs(c + Lambda) > epsilon(ONE))
-      D_inv = 1 / (c + Lambda)
+      D_inv = ONE / (c + Lambda)
     elsewhere
-      D_inv = 0
+      D_inv = ZERO
     end where
 
     do j = 1, np
@@ -326,7 +325,7 @@ subroutine Get_EllipticSuboperators__w_svv( this, dx, c, nu, nu_svv  &
 end subroutine Get_EllipticSuboperators__w_svv
 
 !-------------------------------------------------------------------------------
-!> Computes operators for condensed CG-SEM diffusion problem with no SVV
+!> Computes operators for condensed CG-SEM diffusion problem without SVV
 
 subroutine Get_EllipticSuboperators__n_svv(this, dx, c, nu, Aib, Abb, Aii_inv)
   class(CG_ElementOperators1D), intent(in) :: this

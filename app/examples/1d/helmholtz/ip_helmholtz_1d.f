@@ -40,14 +40,11 @@ program IP_Helmholtz_1D
   namelist /problem_parameters/ lambda, test, bc
 
   ! solution parameters
-  integer   :: po         = 16      ! polynomial order
-  integer   :: ne         = 10      ! number of elements
-  real(RNP) :: penalty    = 2       ! penalty parameter > 1
-  logical   :: svv        = .false. ! switch that enables SVV
-  integer   :: po_cut_svv = -1      ! cut-off PO for SVV
-  real(RNP) :: nu_svv     = -1      ! spectral diffusivity amplitude
+  type(IP_ElementOptions1D) :: eop_opt ! options for IP element operator
+  integer   :: ne         = 10 ! number of elements
+  real(RNP) :: nu_svv     = -1 ! spectral diffusivity amplitude
 
-  namelist /solution_parameters/ po, ne, penalty, svv, po_cut_svv, nu_svv
+  namelist /solution_parameters/ eop_opt, ne, nu_svv
 
   ! discrete variables and operators
   type(IP_ElementOperators1D) :: eop    ! element operators
@@ -59,7 +56,7 @@ program IP_Helmholtz_1D
 
   ! auxiliary variables
   logical      :: exists, singular
-  integer      :: i, l, n, io
+  integer      :: po, i, l, n, io
   integer(IXL) :: count0, count1, count_rate
   real(RNP)    :: dx, t_pre, t_sol
 
@@ -72,15 +69,15 @@ program IP_Helmholtz_1D
   inquire(file='ip_helmholtz_1d.prm', exist=exists)
   if (exists) then
     open(newunit=io, file='ip_helmholtz_1d.prm')
-    read(io, nml=problem_parameters)
+    read(io, nml=problem_parameters )
     read(io, nml=solution_parameters)
     close(io)
   end if
 
-  ! set spectral diffusivity amplitude to default value if not given as parameter
-  if (nu_svv == -1) then
-    nu_svv = ONE / real(po,RNP)
-  end if
+  eop_opt%hybrid = .true.
+  po = eop_opt%po
+  ! set spectral diffusivity to default value if not given as parameter
+  if (nu_svv == -1) nu_svv = ONE / real(po,RNP)
 
   call SetTestCase(test)
 
@@ -96,7 +93,7 @@ program IP_Helmholtz_1D
   n = size(u)
 
   ! standard operators
-  eop = IP_ElementOperators1D(po, penalty, hybrid = .true., svv = svv, po_cut_svv = po_cut_svv)
+  eop = IP_ElementOperators1D(eop_opt)
 
   ! mesh
   dx = TWO / ne

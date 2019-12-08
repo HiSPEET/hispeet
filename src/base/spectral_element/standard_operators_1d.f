@@ -98,8 +98,8 @@ contains
     character(len=*), optional, intent(in) :: basis !< points {GL,GLL,GRL} [GLL]
 
     logical, optional, intent(in) :: no_vdm     !< skip Vandermonde matrix [F]
-    logical, optional, intent(in) :: svv        !< activate SVV model [F]
-    integer, optional, intent(in) :: po_cut_svv !< cut-off PO for SVV [po/2]
+    logical, optional, intent(in) :: svv        !< activate SVV model      [F]
+    integer, optional, intent(in) :: po_cut_svv !< cut-off PO for SVV   [po/2]
 
     type(StandardOperators1D)       :: this
     type(StandardOperatorOptions1D) :: opt
