@@ -47,7 +47,13 @@ module IP_Element_Operators_1D
     procedure, private :: PenaltyFactor_NE
     procedure, private :: PenaltyFactor_EQ
 
-    procedure :: Get_DiffusionMatrix
+    procedure :: Get_StiffnessMatrix
+
+    generic   :: Get_DiffusionMatrix => Get_DiffusionMatrix__w_svv, &
+                                        Get_DiffusionMatrix__n_svv
+
+    procedure, private :: Get_DiffusionMatrix__w_svv
+    procedure, private :: Get_DiffusionMatrix__n_svv
 
     generic   :: Get_EllipticEigensystem => Get_EllipticEigensystem__w_svv, &
                                             Get_EllipticEigensystem__n_svv
@@ -169,11 +175,11 @@ end function PenaltyFactor_EQ
 !> Returns the 1D element diffusion matrix for the interior penalty DGM, i.e.
 !> the product of diffusivity and the element stiffness matrix.
 !>
-!>  C = ν L + νˢ Lˢ
+!>  A = ν L + νˢ Lˢ
 !>
-!> Here the element diffusion matrix `Ce` represents the nontrivial row entries
+!> Here the element diffusion matrix `Ae` represents the nontrivial row entries
 !> of the global diffusion matrix corresponding to the given element. It
-!> must be dimensioned as `Ce(0:P,0:P,-1:1)`, where `P = this%po` is the
+!> must be dimensioned as `Ae(0:P,0:P,-1:1)`, where `P = this%po` is the
 !> polynomial order. The third index refers to the
 !>
 !>   * preceding (-1),
@@ -185,24 +191,24 @@ end function PenaltyFactor_EQ
 !> The diffusion matrix is available in two forms
 !>
 !>   * `'primal'`: all numeric fluxes û are eliminated (default)
-!>   * `'flux'`  : û is retained, all corresponding terms are removed from `Ce`
+!>   * `'flux'`  : û is retained, all corresponding terms are removed from `Ae`
 !>
 !> Except for the single element case, i.e. `all(bc /= '')`, the flux form can
 !> be activated by passing `form = 'flux'`.
 
-subroutine Get_DiffusionMatrix(this, dx, bc, nu, nu_svv, Ce, form)
+subroutine Get_DiffusionMatrix__w_svv(this, dx, bc, nu, nu_svv, Ae, form)
   class(IP_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
   character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N','P'}
   real(RNP), intent(in)  :: nu            !< diffusivity
   real(RNP), intent(in)  :: nu_svv        !< SVV diffusivity [0]
-  real(RNP), intent(out) :: Ce(0:,0:,-1:) !< regular stiffness matrix
+  real(RNP), intent(out) :: Ae(0:,0:,-1:) !< regular stiffness matrix
   character(len=*), optional, intent(in) :: form !< operator form ['primal']
 
   logical   :: primal
   integer   :: P
-  real(RNP) :: g(-1:1), mu_0, mu_P, c_0, c_P, h_0, h_P
-  real(RNP) :: Cs(0:this%po, 0:this%po), Fs(0:this%po, 0:this%po) ! nu * D
+  real(RNP) :: g(-1:1), mu_0, mu_P, c_0, c_P
+  real(RNP) :: As(0:this%po, 0:this%po), Bs(0:this%po, 0:this%po) ! νL, νD
   real(RNP), allocatable :: delta_0(:), delta_P(:)
 
   ! initialization .............................................................
@@ -268,139 +274,185 @@ subroutine Get_DiffusionMatrix(this, dx, bc, nu, nu_svv, Ce, form)
   end if
 
   if (this % Has_SVV()) then
-    call this % Get_SVV_StandardStiffnessMatrix(Cs)
-    call this % Get_SVV_StandardDiffMatrix(Fs)
-    Cs = nu_svv * Cs
-    Fs = nu_svv * Fs
+    call this % Get_SVV_StandardStiffnessMatrix(As)
+    call this % Get_SVV_StandardDiffMatrix(Bs)
+    As = nu_svv * As
+    Bs = nu_svv * Bs
   else
-    Cs = 0
-    Fs = 0
+    As = 0
+    Bs = 0
   end if
 
-  Cs = Cs + nu * this%L
-  Fs = Fs + nu * this%D
+  As = As + nu * this%L
+  Bs = Bs + nu * this%D
 
-  Ce = DiffusionMatrix(Cs, Fs)
+  Ae = DiffusionMatrix(As, Bs)
+
+  if (primal .and. this%hybrid) then
+    call AddHybridPenaltyTerm(Bs, Ae)
+  end if
+
+  ! special case: single periodic element ......................................
+  if (all(bc == 'P')) then
+    Ae(:,:, 0) = Ae(:,:,0) + Ae(:,:,-1) + Ae(:,:,1)
+    Ae(:,:,-1) = 0
+    Ae(:,:, 1) = 0
+  end if
 
 contains
 
-  function DiffusionMatrix(Cs, Fs) result (Ce)
-    real(RNP), intent(in) :: Cs(0:P,0:P) !< 1D standard diffusion operator
-    real(RNP), intent(in) :: Fs(0:P,0:P) !< 1D standard "flux" operator
-    real(RNP) :: Ce(0:P,0:P,-1:1)
+  function DiffusionMatrix(As, Bs) result (Ae)
+    real(RNP), intent(in) :: As(0:P,0:P) !< 1D standard diffusion operator νL
+    real(RNP), intent(in) :: Bs(0:P,0:P) !< 1D standard "flux" operator νD
+    real(RNP) :: Ae(0:P,0:P,-1:1)
     integer   :: i, j
 
-    ! contribution from preceding element (Le⁻) ................................
+    ! contribution from preceding element (Ae⁻) ................................
 
     if (scan(bc(1), 'DN') > 0) then
-      Ce(:,:,-1) = 0
+      Ae(:,:,-1) = 0
     else
       do j = 0, P
       do i = 0, P
-        Ce(i,j,-1) = - g( 0) * Fs   (0,i) * delta_P(j)  &
-                     + g(-1) * delta_0(i) * Fs   (P,j)  &
-                     - mu_0  * delta_0(i) * delta_P(j)
+        Ae(i,j,-1) = - g( 0)                * Bs   (0,i) * delta_P(j)  &
+                     + g(-1)                * delta_0(i) * Bs   (P,j)  &
+                     - (nu + nu_svv) * mu_0 * delta_0(i) * delta_P(j)
       end do
       end do
-
-      if (primal .and. this%hybrid) then
-        h_0 = 1 / (dx(-1) * dx(0) * mu_0)
-        do j = 0, P
-        do i = 0, P
-          Ce(i,j,-1) = Ce(i,j,-1) + h_0 * Fs(0,i) * Fs(P,j)
-        end do
-        end do
-      end if
     end if
 
-    ! own contribution (Le⁰) ...................................................
+    ! own contribution (Ae⁰) ...................................................
 
     do j = 0, P
     do i = 0, P
-      Ce(i,j,0) = 2 * g(0) * Cs(i,j)                          &
+      Ae(i,j,0) = 2 * g(0) * As(i,j)                                          &
 
-                + c_0 * (   g(0) * Fs   (0,i) * delta_0(j)    &
-                          + g(0) * delta_0(i) * Fs   (0,j)    &
-                          + mu_0 * delta_0(i) * delta_0(j) )  &
+                + c_0 * (   g(0)                 * Bs   (0,i) * delta_0(j)    &
+                          + g(0)                 * delta_0(i) * Bs   (0,j)    &
+                          + (nu + nu_svv) * mu_0 * delta_0(i) * delta_0(j) )  &
 
-                + c_P * ( - g(0) * Fs   (P,i) * delta_P(j)    &
-                          - g(0) * delta_P(i) * Fs   (P,j)    &
-                          + mu_P * delta_P(i) * delta_P(j) )
+                + c_P * ( - g(0)                 * Bs   (P,i) * delta_P(j)    &
+                          - g(0)                 * delta_P(i) * Bs   (P,j)    &
+                          + (nu + nu_svv) * mu_P * delta_P(i) * delta_P(j) )
     end do
     end do
 
-    if (primal .and. this%hybrid) then
-      select case(bc(1))
-      case(' ','P')
-        h_0 = 1 / (dx(0) * dx(0) * mu_0)
-        do j = 0, P
-        do i = 0, P
-          Ce(i,j,0) = Ce(i,j,0) - h_0 * Fs(0,i) * Fs(0,j)
-        end do
-        end do
-      end select
-
-      select case(bc(2))
-      case(' ','P')
-        h_P = 1 / (dx(0) * dx(0) * mu_P)
-        do j = 0, P
-        do i = 0, P
-          Ce(i,j,0) = Ce(i,j,0) - h_P * Fs(P,i) * Fs(P,j)
-        end do
-        end do
-      end select
-    end if
-
-    ! contribution from following element (Le⁺) ................................
+    ! contribution from following element (Ae⁺) ................................
 
     if (scan(bc(2), 'DN') > 0) then
-      Ce(:,:, 1) = 0
+      Ae(:,:, 1) = 0
     else
       do j = 0, P
       do i = 0, P
-        Ce(i,j,1) =   g(0) * Fs   (P,i) * delta_0(j)  &
-                    - g(1) * delta_P(i) * Fs   (0,j)  &
-                    - mu_P * delta_P(i) * delta_0(j)
+        Ae(i,j,1) =   g(0)                 * Bs   (P,i) * delta_0(j)  &
+                    - g(1)                 * delta_P(i) * Bs   (0,j)  &
+                    - (nu + nu_svv) * mu_P * delta_P(i) * delta_0(j)
       end do
       end do
-
-      if (primal .and. this%hybrid) then
-        h_P = 1 / (dx(0) * dx(1) * mu_P)
-        do j = 0, P
-        do i = 0, P
-          Ce(i,j,1) = Ce(i,j,1) + h_P * Fs(P,i) * Fs(0,j)
-        end do
-        end do
-      end if
-    end if
-
-    ! special case: single periodic element ....................................
-
-    if (all(bc == 'P')) then
-      Ce(:,:, 0) = Ce(:,:,0) + Ce(:,:,-1) + Ce(:,:,1)
-      Ce(:,:,-1) = 0
-      Ce(:,:, 1) = 0
     end if
 
   end function DiffusionMatrix
 
-end subroutine Get_DiffusionMatrix
+  subroutine AddHybridPenaltyTerm(Bs, Ae)
+    real(RNP), intent(in)    :: Bs(0:P,0:P) !< 1D standard "flux" operator νD
+    real(RNP), intent(inout) :: Ae(0:P,0:P,-1:1)
+
+    real(RNP) :: h_0, h_P
+    integer   :: i, j
+
+    ! contribution from preceding element (Ae⁻) ................................
+
+    if (.NOT. (scan(bc(1), 'DN') > 0)) then
+      h_0 = 1 / (dx(-1) * dx(0) * mu_0 * (nu + nu_svv))
+      do j = 0, P
+      do i = 0, P
+        Ae(i,j,-1) = Ae(i,j,-1) + h_0 * Bs(0,i) * Bs(P,j)
+      end do
+      end do
+    end if
+
+    ! own contribution (Ae⁰) ...................................................
+  
+    select case(bc(1))
+    case(' ','P')
+      h_0 = 1 / (dx(0) * dx(0) * mu_0 * (nu + nu_svv))
+      do j = 0, P
+      do i = 0, P
+        Ae(i,j,0) = Ae(i,j,0) - h_0 * Bs(0,i) * Bs(0,j)
+      end do
+      end do
+    end select
+
+    select case(bc(2))
+    case(' ','P')
+      h_P = 1 / (dx(0) * dx(0) * mu_P * (nu + nu_svv))
+      do j = 0, P
+      do i = 0, P
+        Ae(i,j,0) = Ae(i,j,0) - h_P * Bs(P,i) * Bs(P,j)
+      end do
+      end do
+    end select
+
+    ! contribution from following element (Ae⁺) ................................
+
+    if (.NOT. (scan(bc(2), 'DN') > 0)) then
+      h_P = 1 / (dx(0) * dx(1) * mu_P * (nu + nu_svv))
+      do j = 0, P
+      do i = 0, P
+        Ae(i,j,1) = Ae(i,j,1) + h_P * Bs(P,i) * Bs(0,j)
+      end do
+      end do
+    end if
+    
+  end subroutine AddHybridPenaltyTerm
+
+end subroutine Get_DiffusionMatrix__w_svv
+
+!-------------------------------------------------------------------------------
+!> Returns the 1D element diffusion matrix for the interior penalty DGM, i.e.
+!> the product of diffusivity and the element stiffness matrix without SVV.
+
+subroutine Get_DiffusionMatrix__n_svv(this, dx, bc, nu, Ae, form)
+  class(IP_ElementOperators1D), intent(in) :: this
+  real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
+  character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N','P'}
+  real(RNP), intent(in)  :: nu            !< diffusivity
+  real(RNP), intent(out) :: Ae(0:,0:,-1:) !< regular stiffness matrix
+  character(len=*), optional, intent(in) :: form !< operator form ['primal']
+
+  call Get_DiffusionMatrix__w_svv(this, dx, bc, nu, ZERO, Ae, form)
+
+end subroutine Get_DiffusionMatrix__n_svv
+
+!-------------------------------------------------------------------------------
+!> Returns the 1D element stiffness matrix for the interior penalty DGM
+
+subroutine Get_StiffnessMatrix(this, dx, bc, Le, form)
+  class(IP_ElementOperators1D), intent(in) :: this
+  real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
+  character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N','P'}
+  real(RNP), intent(out) :: Le(0:,0:,-1:) !< regular stiffness matrix
+  character(len=*), optional, intent(in) :: form !< operator form ['primal']
+
+  call Get_DiffusionMatrix__n_svv(this, dx, bc, ONE, Le, form)
+
+end subroutine Get_StiffnessMatrix
 
 !-------------------------------------------------------------------------------
 !> Provides the generalized eigensystem for interior diffusion operator
 !>
 !> Returns the column matrix of generalized eigenvectors `S` and the diagonal
-!> matrix of eigenvalues `Λ = Lambda` to the interior element stiffness matrix
-!> `Cᵢᵢ` and diagonal mass matrix `Mᵢᵢ` of the hybridized element system such
+!> matrix of eigenvalues `Λ = Lambda` to the interior element diffusion matrix
+!> `Aᵢᵢ` and diagonal mass matrix `Mᵢᵢ` of the hybridized element system such
 !> that
 !>
-!>     Sᵀ Cᵢᵢ S = Λ
+!>     Sᵀ Aᵢᵢ S = Λ
 !>     Sᵀ Mᵢᵢ S = I
 !>
 !> The diffusion matrix comprises a regular part with diffusivity `ν` and
 !> an SVV part with diffusivity `νˢ`
 !>
-!>     Cᵢᵢ = ν Lᵢᵢ + νˢ Lˢᵢᵢ
+!>     Aᵢᵢ = ν Lᵢᵢ + νˢ Lˢᵢᵢ
 !>
 !> `Lᵢᵢ` and `Lˢᵢᵢ` are the corresponding interior stiffness matrices
 
@@ -413,7 +465,7 @@ subroutine Get_EllipticEigensystem__w_svv(this, dx, bc, nu, nu_svv, S, Lambda)
   real(RNP), intent(out) :: S(0:,0:)   !< eigenvectors
   real(RNP), intent(out) :: Lambda(0:) !< eigenvalues
 
-  real(RNP), allocatable :: Mii(:), Cii(:,:,:)
+  real(RNP), allocatable :: Mii(:), Aii(:,:,:)
 
   if (.not. this%hybrid) then
     call Error( 'Get_EllipticEigensystem',             &
@@ -422,12 +474,12 @@ subroutine Get_EllipticEigensystem__w_svv(this, dx, bc, nu, nu_svv, S, Lambda)
   end if
 
   ! hybrid element operators
-  allocate(Mii(0:this%po), Cii(0:this%po, 0:this%po, -1:1))
+  allocate(Mii(0:this%po), Aii(0:this%po, 0:this%po, -1:1))
   Mii = dx(0)/2 * this % w
-  call this % Get_DiffusionMatrix(dx, bc, nu, nu_svv, Cii, form='flux')
+  call this % Get_DiffusionMatrix(dx, bc, nu, nu_svv, Aii, form='flux')
 
   ! solve eigenproblem
-  call SolveGeneralizedEigenproblem(Cii(:,:,0), Mii, Lambda, S)
+  call SolveGeneralizedEigenproblem(Aii(:,:,0), Mii, Lambda, S)
 
   ! singular case
   if (all(bc == 'N') .or. all(bc == 'P')) then
@@ -438,7 +490,7 @@ end subroutine Get_EllipticEigensystem__w_svv
 
 !-------------------------------------------------------------------------------
 !> Provides the generalized eigensystem for the interior diffusion operator
-!> with no SVV
+!> without SVV
 
 subroutine Get_EllipticEigensystem__n_svv(this, dx, bc, nu, S, Lambda)
   class(IP_ElementOperators1D), intent(in) :: this
@@ -471,7 +523,7 @@ subroutine Get_EllipticSuboperators__w_svv( this, dx, bc, c, nu, nu_svv &
 
   real(RNP), allocatable :: S(:,:), Lambda(:), D_inv(:)
   real(RNP), allocatable :: delta_0(:), delta_P(:)
-  real(RNP) :: Fs(0:this%po, 0:this%po), mu_0, mu_P, nu_total
+  real(RNP) :: Bs(0:this%po, 0:this%po), mu_0, mu_P
   integer   :: P, i, j
 
   ! initialization .............................................................
@@ -491,14 +543,12 @@ subroutine Get_EllipticSuboperators__w_svv( this, dx, bc, c, nu, nu_svv &
   call this % Get_EllipticEigensystem(dx, bc, nu, nu_svv, S, Lambda)
 
   if (this % Has_SVV()) then
-    call this % Get_SVV_StandardDiffMatrix(Fs)
-    Fs = nu_svv * Fs
-    nu_total = nu + nu_svv
+    call this % Get_SVV_StandardDiffMatrix(Bs)
+    Bs = nu_svv * Bs
   else
-    Fs = 0
-    nu_total = nu
+    Bs = 0
   end if
-  Fs = Fs + nu * this%D
+  Bs = Bs + nu * this%D
 
   ! interior-boundary part .....................................................
 
@@ -511,14 +561,14 @@ subroutine Get_EllipticSuboperators__w_svv( this, dx, bc, c, nu, nu_svv &
   case('D','N')
     Aib(:,1) =  0
   case default ! interior or periodic
-    Aib(:,1) = -2/dx(0) * Fs(0,:) - 2 * nu_total * mu_0 * delta_0
+    Aib(:,1) = -2/dx(0) * Bs(0,:) - 2 * (nu + nu_svv) * mu_0 * delta_0
   end select
 
   select case (bc(2))
   case('D','N')
     Aib(:,2) =  0
   case default ! interior or periodic
-    Aib(:,2) =  2/dx(0) * Fs(P,:) - 2 * nu_total * mu_P * delta_P
+    Aib(:,2) =  2/dx(0) * Bs(P,:) - 2 * (nu + nu_svv) * mu_P * delta_P
   end select
 
   end if

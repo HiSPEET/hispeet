@@ -50,7 +50,7 @@ subroutine HybridEllipticSolver__w_svv( eop, dx, c, nu, nu_svv &
   real(RNP), allocatable :: Af(:,:) ! flux system matrix
   real(RNP), allocatable :: ff(:)   ! flux RHS / solution
 
-  real(RNP) :: dx_(-1:1), tau, nu_total
+  real(RNP) :: dx_(-1:1), tau
   integer   :: po, ne
 
   ! preprocessing ............................................................
@@ -59,13 +59,7 @@ subroutine HybridEllipticSolver__w_svv( eop, dx, c, nu, nu_svv &
   ne  = size(f,2)
   dx_ = dx
 
-  if (eop % Has_SVV()) then
-    nu_total = nu + nu_svv
-  else
-    nu_total = nu
-  end if
-
-  tau = 2 * nu_total * eop%PenaltyFactor(dx)
+  tau = 2 * (nu + nu_svv) * eop%PenaltyFactor(dx)
 
   if (allocated(Aib)) then
     if (ubound(Aib,1) /= po) deallocate(Aib, Aii_inv)
