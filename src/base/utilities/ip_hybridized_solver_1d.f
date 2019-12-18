@@ -24,7 +24,7 @@ module IP_Hybridized_Solver_1D
 contains
 
 !-------------------------------------------------------------------------------
-!> Direct elliptic solver based on hybridization with SVV
+!> Direct elliptic solver based on hybridization including SVV
 
 subroutine HybridEllipticSolver__w_svv( eop, dx, c, nu, nu_svv &
                                       , bc, f, u, standby      )
@@ -107,7 +107,7 @@ subroutine HybridEllipticSolver__w_svv( eop, dx, c, nu, nu_svv &
 end subroutine HybridEllipticSolver__w_svv
 
 !-------------------------------------------------------------------------------
-!> Direct elliptic solver based on hybridization with SVV
+!> Direct elliptic solver based on hybridization without SVV
 
 subroutine HybridEllipticSolver__n_svv(eop, dx, c, nu, bc, f, u, standby)
   class(IP_ElementOperators1D), intent(in) :: eop !< element operators

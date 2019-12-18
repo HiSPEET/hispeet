@@ -30,10 +30,10 @@ module IP_Element_Operators_1D
   !> eigenvectors `S` and the diagonal matrix of eigenvalues `Λ = Lambda` such
   !> that
   !>
-  !>     Sᵀ Lᵢᵢ S = Λ
+  !>     Sᵀ Aᵢᵢ S = Λ
   !>     Sᵀ Mᵢᵢ S = I
   !>
-  !> where `Lᵢᵢ` and `Mᵢᵢ` the standard stiffness matrix and the standard
+  !> where `Aᵢᵢ` and `Mᵢᵢ` the standard diffusion matrix and the standard
   !> diagonal mass matrix restricted to the interior points.
 
   type, extends(StandardOperators1D) :: IP_ElementOperators1D
@@ -175,8 +175,9 @@ end function PenaltyFactor_EQ
 !> Returns the 1D element diffusion matrix for the interior penalty DGM
 !> including SVV
 !>
-!> *** details need further clarification ***
-!> the product of diffusivity and the element stiffness matrix
+!> *** details need further clarification, as the formula is not correct ***
+!> *** when one uses a hybridizable flux formulation and primal form due ***
+!> *** to terms where the viscosity occurs in a non-linear manner ***
 !>
 !>     Ae = ν Le + νˢ Leˢ
 !>
@@ -205,14 +206,14 @@ subroutine Get_DiffusionMatrix__w_svv(this, dx, bc, nu, nu_svv, Ae, form)
   character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N','P'}
   real(RNP), intent(in)  :: nu            !< diffusivity
   real(RNP), intent(in)  :: nu_svv        !< SVV diffusivity
-  real(RNP), intent(out) :: Ae(0:,0:,-1:) !< regular stiffness matrix
+  real(RNP), intent(out) :: Ae(0:,0:,-1:) !< regular diffusion matrix
   character(len=*), optional, intent(in) :: form !< operator form ['primal']
 
   logical   :: primal
   integer   :: P
   real(RNP) :: g(-1:1), mu_0, mu_P, c_0, c_P
   real(RNP) :: As(0:this%po, 0:this%po) ! standard diffusion operator Dᵀ(ν+νˢQ)D
-  real(RNP) :: Bs(0:this%po, 0:this%po) ! standard "flux" operator, (ν+νˢQ)D
+  real(RNP) :: Bs(0:this%po, 0:this%po) ! standard "flux" operator (ν+νˢQ)D
   real(RNP), allocatable :: delta_0(:), delta_P(:)
 
   ! initialization .............................................................
@@ -306,9 +307,9 @@ subroutine Get_DiffusionMatrix__w_svv(this, dx, bc, nu, nu_svv, Ae, form)
 contains
 
   function DiffusionMatrix(As, Bs) result (Ae)
-    real(RNP), intent(in) :: As(0:P,0:P) !< 1D standard diffusion operator νL
-    real(RNP), intent(in) :: Bs(0:P,0:P) !< 1D standard "flux" operator νD
-    real(RNP) :: Ae(0:P,0:P,-1:1)
+    real(RNP), intent(in) :: As(0:P,0:P) !< standard diffusion operator Dᵀ(ν+νˢQ)D
+    real(RNP), intent(in) :: Bs(0:P,0:P) !< standard "flux" operator (ν+νˢQ)D
+    real(RNP) :: Ae(0:P,0:P,-1:1)        !< regular diffusion matrix
     integer   :: i, j
 
     ! contribution from preceding element (Ae⁻) ................................
@@ -358,7 +359,7 @@ contains
   end function DiffusionMatrix
 
   subroutine AddHybridPenaltyTerm(Bs, Ae)
-    real(RNP), intent(in)    :: Bs(0:P,0:P) !< 1D standard "flux" operator νD
+    real(RNP), intent(in)    :: Bs(0:P,0:P) !< standard "flux" operator (ν+νˢQ)D
     real(RNP), intent(inout) :: Ae(0:P,0:P,-1:1)
 
     real(RNP) :: h_0, h_P
@@ -421,7 +422,7 @@ subroutine Get_DiffusionMatrix__n_svv(this, dx, bc, nu, Ae, form)
   real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
   character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N','P'}
   real(RNP), intent(in)  :: nu            !< diffusivity
-  real(RNP), intent(out) :: Ae(0:,0:,-1:) !< regular stiffness matrix
+  real(RNP), intent(out) :: Ae(0:,0:,-1:) !< regular diffusion matrix
   character(len=*), optional, intent(in) :: form !< operator form ['primal']
 
   call Get_DiffusionMatrix__w_svv(this, dx, bc, nu, ZERO, Ae, form)
@@ -454,8 +455,10 @@ end subroutine Get_StiffnessMatrix
 !>     Sᵀ Aᵢᵢ S = Λ
 !>     Sᵀ Mᵢᵢ S = I
 !>
-!> The diffusion matrix comprises a regular part with diffusivity `ν` and
-!> an SVV part with diffusivity `νˢ`
+!> The diffusion matrix comprises a regular part with diffusivity `ν` and an SVV
+!> part with diffusivity `νˢ` (as we are only working with the flux formulation
+!> of Aᵢᵢ this is correct, otherwise a new term comprising both regular and
+!> spectral diffusivity could occur)
 !>
 !>     Aᵢᵢ = ν Lᵢᵢ + νˢ Lˢᵢᵢ
 !>
@@ -466,7 +469,7 @@ subroutine Get_EllipticEigensystem__w_svv(this, dx, bc, nu, nu_svv, S, Lambda)
   real(RNP), intent(in)  :: dx(-1:1)   !< element extensions
   character, intent(in)  :: bc(2)      !< boundary conditions {'','D','N','P'}
   real(RNP), intent(in)  :: nu         !< diffusivity
-  real(RNP), intent(in)  :: nu_svv     !< SVV diffusivity [0]
+  real(RNP), intent(in)  :: nu_svv     !< SVV diffusivity
   real(RNP), intent(out) :: S(0:,0:)   !< eigenvectors
   real(RNP), intent(out) :: Lambda(0:) !< eigenvalues
 
@@ -522,13 +525,14 @@ subroutine Get_EllipticSuboperators__w_svv( this, dx, bc, c, nu, nu_svv &
   character, intent(in)  :: bc(2)          !< boundary conds {'','D','N','P'}
   real(RNP), intent(in)  :: c              !< coefficient of linear term
   real(RNP), intent(in)  :: nu             !< diffusivity
-  real(RNP), intent(in)  :: nu_svv         !< SVV diffusivity [0]
+  real(RNP), intent(in)  :: nu_svv         !< SVV diffusivity
   real(RNP), intent(out) :: Aib(0:,:)      !< interior-boundary part, Â(0:P,1:2)
   real(RNP), intent(out) :: Aii_inv(0:,0:) !< inv interior part, Ã⁺(0:P,0:P)
 
   real(RNP), allocatable :: S(:,:), Lambda(:), D_inv(:)
   real(RNP), allocatable :: delta_0(:), delta_P(:)
-  real(RNP) :: Bs(0:this%po, 0:this%po), mu_0, mu_P
+  real(RNP) :: Bs(0:this%po, 0:this%po) ! standard "flux" operator (ν+νˢQ)D
+  real(RNP) :: mu_0, mu_P
   integer   :: P, i, j
 
   ! initialization .............................................................
@@ -639,17 +643,17 @@ function New_IP_ElementOptions1D_o(eop, po) result(this)
 end function New_IP_ElementOptions1D_o
 
 !-------------------------------------------------------------------------------
-!> Extension of MPI_Bcast to objects of type SchwarzOptions3D
+!> Extension of MPI_Bcast to objects of type IP_ElementOptions1D
 
 subroutine IP_ElementOptions1D_Bcast(this, root, comm)
   class(IP_ElementOptions1D), intent(inout) :: this
   integer,                    intent(in)    :: root !< rank of broadcast root
   type(MPI_Comm),             intent(in)    :: comm !< MPI communicator
 
-  call XMPI_Bcast( this % po      , root, comm )
+  call this % Bcast(root, comm)
+
   call XMPI_Bcast( this % penalty , root, comm )
   call XMPI_Bcast( this % hybrid  , root, comm )
-  call XMPI_Bcast( this % no_vdm  , root, comm )
 
 end subroutine IP_ElementOptions1D_Bcast
 

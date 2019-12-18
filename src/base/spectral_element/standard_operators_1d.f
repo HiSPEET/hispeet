@@ -12,6 +12,7 @@ module Standard_Operators_1D
   use Execution_Control, only: Warning, Error
   use Gauss_Jacobi
   use Matrix_Operators,  only: Inverse
+  use XMPI
   implicit none
   private
 
@@ -81,6 +82,8 @@ module Standard_Operators_1D
     logical          :: no_vdm     = .false.  !< skip Vandermonde matrix
     logical          :: svv        = .false.  !< activate SVV model
     integer          :: po_cut_svv = -huge(1) !< cut-off PO for SVV
+  contains
+    procedure :: Bcast => StandardOperatorOptions1D_Bcast
   end type StandardOperatorOptions1D
 
 contains
@@ -448,6 +451,22 @@ contains
     if(allocated(this%L_svv      )) deallocate(this%L_svv      )
 
   end subroutine Delete_StandardOperators1D
+
+  !-----------------------------------------------------------------------------
+  !> MPI_Bcast for objects of type StandardOperatorOptions1D
+
+  subroutine StandardOperatorOptions1D_Bcast(this, root, comm)
+    class(StandardOperatorOptions1D), intent(inout) :: this
+    integer,        intent(in) :: root !< rank of broadcast root
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
+
+    call XMPI_Bcast( this % po        , root, comm )
+    call XMPI_Bcast( this % basis     , root, comm )
+    call XMPI_Bcast( this % no_vdm    , root, comm )
+    call XMPI_Bcast( this % svv       , root, comm )
+    call XMPI_Bcast( this % po_cut_svv, root, comm )
+
+  end subroutine StandardOperatorOptions1D_Bcast
 
   !=============================================================================
 

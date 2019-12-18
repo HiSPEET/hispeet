@@ -11,6 +11,7 @@ module CG_Element_Operators_1D
   use Constants,       only: ONE, ZERO
   use Eigenproblems,   only: SolveGeneralizedEigenproblem
   use Standard_Operators_1D
+  use XMPI
   implicit none
   private
 
@@ -52,6 +53,8 @@ module CG_Element_Operators_1D
   !> @note: identical to StandardOperatorOptions1D, so far
 
   type, extends(StandardOperatorOptions1D) :: CG_ElementOptions1D
+  contains
+    procedure :: Bcast => CG_ElementOptions1D_Bcast
   end type CG_ElementOptions1D
 
 contains
@@ -339,6 +342,18 @@ subroutine Get_EllipticSuboperators__n_svv(this, dx, c, nu, Aib, Abb, Aii_inv)
   call Get_EllipticSuboperators__w_svv(this, dx, c, nu, ZERO, Aib, Abb, Aii_inv)
 
 end subroutine Get_EllipticSuboperators__n_svv
+
+!-------------------------------------------------------------------------------
+!> Extension of MPI_Bcast to objects of type CG_ElementOptions1D
+
+subroutine CG_ElementOptions1D_Bcast(this, root, comm)
+  class(CG_ElementOptions1D), intent(inout) :: this
+  integer,                    intent(in)    :: root !< rank of broadcast root
+  type(MPI_Comm),             intent(in)    :: comm !< MPI communicator
+
+  call this % Bcast(root, comm)
+
+end subroutine CG_ElementOptions1D_Bcast
 
 !===============================================================================
 
