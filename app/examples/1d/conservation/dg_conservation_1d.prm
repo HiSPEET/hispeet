@@ -1,0 +1,4 @@
+&Discretization_Parameters
+  cfl     = 0.1
+  t_end   = 0.35
+/
