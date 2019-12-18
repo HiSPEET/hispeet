@@ -71,18 +71,18 @@ subroutine HybridEllipticSolver__w_svv( eop, dx, c, nu, nu_svv &
     select case(ne)
     case(1)
       call eop % Get_EllipticSuboperators( dx_, bc,             c, nu, nu_svv, &
-                                          Aib(:,:, 0), Aii_inv(:,:, 0)         )
+                                           Aib(:,:, 0), Aii_inv(:,:, 0)        )
     case default
       ! left element
       call eop % Get_EllipticSuboperators( dx_, [ bc(1), ' ' ], c, nu, nu_svv, &
-                                          Aib(:,:,-1), Aii_inv(:,:,-1)         )
+                                           Aib(:,:,-1), Aii_inv(:,:,-1)        )
 
       ! interior element(s)
       call eop % Get_EllipticSuboperators( dx_, [ ' ', ' ' ],   c, nu, nu_svv, &
-                                          Aib(:,:, 0), Aii_inv(:,:, 0)         )
+                                           Aib(:,:, 0), Aii_inv(:,:, 0)        )
       ! right element
       call eop % Get_EllipticSuboperators( dx_, [ ' ', bc(2) ], c, nu, nu_svv, &
-                                          Aib(:,:, 1), Aii_inv(:,:, 1)         )
+                                           Aib(:,:, 1), Aii_inv(:,:, 1)        )
     end select
   end if
 

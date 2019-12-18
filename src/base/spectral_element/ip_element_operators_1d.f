@@ -172,10 +172,13 @@ real(RNP) function PenaltyFactor_EQ(this, dx) result(mu)
 end function PenaltyFactor_EQ
 
 !-------------------------------------------------------------------------------
-!> Returns the 1D element diffusion matrix for the interior penalty DGM, i.e.
-!> the product of diffusivity and the element stiffness matrix.
+!> Returns the 1D element diffusion matrix for the interior penalty DGM
+!> including SVV
 !>
-!>  A = ν L + νˢ Lˢ
+!> *** details need further clarification ***
+!> the product of diffusivity and the element stiffness matrix
+!>
+!>     Ae = ν Le + νˢ Leˢ
 !>
 !> Here the element diffusion matrix `Ae` represents the nontrivial row entries
 !> of the global diffusion matrix corresponding to the given element. It
@@ -186,7 +189,7 @@ end function PenaltyFactor_EQ
 !>   * current (0) and
 !>   * succeeding (1) elements,
 !>
-!> with lengths `dx(-1:1)è respectively.
+!> with lengths `dx(-1:1)` respectively.
 !>
 !> The diffusion matrix is available in two forms
 !>
@@ -201,14 +204,15 @@ subroutine Get_DiffusionMatrix__w_svv(this, dx, bc, nu, nu_svv, Ae, form)
   real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
   character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N','P'}
   real(RNP), intent(in)  :: nu            !< diffusivity
-  real(RNP), intent(in)  :: nu_svv        !< SVV diffusivity [0]
+  real(RNP), intent(in)  :: nu_svv        !< SVV diffusivity
   real(RNP), intent(out) :: Ae(0:,0:,-1:) !< regular stiffness matrix
   character(len=*), optional, intent(in) :: form !< operator form ['primal']
 
   logical   :: primal
   integer   :: P
   real(RNP) :: g(-1:1), mu_0, mu_P, c_0, c_P
-  real(RNP) :: As(0:this%po, 0:this%po), Bs(0:this%po, 0:this%po) ! νL, νD
+  real(RNP) :: As(0:this%po, 0:this%po) ! standard diffusion operator Dᵀ(ν+νˢQ)D
+  real(RNP) :: Bs(0:this%po, 0:this%po) ! standard "flux" operator, (ν+νˢQ)D
   real(RNP), allocatable :: delta_0(:), delta_P(:)
 
   ! initialization .............................................................
@@ -372,7 +376,7 @@ contains
     end if
 
     ! own contribution (Ae⁰) ...................................................
-  
+
     select case(bc(1))
     case(' ','P')
       h_0 = 1 / (dx(0) * dx(0) * mu_0 * (nu + nu_svv))
@@ -403,7 +407,7 @@ contains
       end do
       end do
     end if
-    
+
   end subroutine AddHybridPenaltyTerm
 
 end subroutine Get_DiffusionMatrix__w_svv
@@ -439,7 +443,8 @@ subroutine Get_StiffnessMatrix(this, dx, bc, Le, form)
 end subroutine Get_StiffnessMatrix
 
 !-------------------------------------------------------------------------------
-!> Provides the generalized eigensystem for interior diffusion operator
+!> Provides the generalized eigensystem for the interior diffusion operator
+!> including SVV
 !>
 !> Returns the column matrix of generalized eigenvectors `S` and the diagonal
 !> matrix of eigenvalues `Λ = Lambda` to the interior element diffusion matrix
@@ -468,7 +473,7 @@ subroutine Get_EllipticEigensystem__w_svv(this, dx, bc, nu, nu_svv, S, Lambda)
   real(RNP), allocatable :: Mii(:), Aii(:,:,:)
 
   if (.not. this%hybrid) then
-    call Error( 'Get_EllipticEigensystem',             &
+    call Error( 'Get_EllipticEigensystem',            &
                 'available only for hybridizable IP', &
                 'IP_Element_Operators_1D'             )
   end if
