@@ -3,11 +3,11 @@ program DG_Conservation_1D
   use Kind_Parameters
   use Constants
   use IP_Element_Operators_1D
-  use Conservation_Problem_1D
+  use Scalar_Problem_1D
   use Burgers_Problem_1D__Breaking_Wave
   implicit none
 
-  class(ConservationProblem1D), allocatable :: problem
+  class(ScalarProblem1D), allocatable :: problem
   type(IP_ElementOptions1D) :: dg_opt
   real(RNP), allocatable    :: u(:,:,:)   ! discrete solution
 
@@ -17,8 +17,10 @@ program DG_Conservation_1D
   real(RNP) :: penalty    =  2
   real(RNP) :: cfl        =  0.1
   real(RNP) :: t_end      =  0.35
+  logical   :: svv        = .true.
 
-  namelist /Discretization_Parameters/ po, po_cut_svv, ne, penalty, cfl, t_end
+  namelist /Discretization_Parameters/ po, po_cut_svv, ne, penalty, cfl,       &
+                                       t_end, svv
 
   logical :: exists
   integer :: prm
@@ -39,7 +41,7 @@ program DG_Conservation_1D
   dg_opt = IP_ElementOptions1D( po         = po         &
                               , penalty    = penalty    &
                               , hybrid     = .true.     &
-                              , svv        = .true.     &
+                              , svv        = svv        &
                               , po_cut_svv = po_cut_svv )
 
   allocate(BurgersProblem1D_BreakingWave :: problem)
@@ -49,7 +51,8 @@ program DG_Conservation_1D
   allocate(u(0:po, ne, problem%nc))
   u(0:,:,:) = problem % InitialValues()
 
-  dt = cfl * problem % dx / po**2
+  dt = min(cfl     *  problem % dx     / po**2, 
+           cfl/2.0 * (problem % dx)**2 / (po**4 * (problem % nu_0r + problem % nu_0s)))
 
   k = 1
   t = 0
@@ -79,7 +82,7 @@ contains
   !> 3rd order TVD Runge-Kutta method
 
   subroutine TVDRK(problem, t, dt, u)
-    class(ConservationProblem1D), intent(in)    :: problem
+    class(ScalarProblem1D), intent(in)    :: problem
     real(RNP),                    intent(inout) :: t
     real(RNP),                    intent(in)    :: dt
     real(RNP),                    intent(inout) :: u(0:,:,:)

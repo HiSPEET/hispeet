@@ -202,19 +202,17 @@ contains
         call ConstViscosityContrib(nu = problem % nu_0s, Ds = Ds_b, Ls = Ls)
       end if
 
-      ! variable viscosity .......................................................
+      ! variable viscosity .....................................................
 
       if (allocated(problem % nu_vr)) then
         ! TBD
       end if
 
-      ! spectral viscosity .......................................................
-
       if (allocated(problem % nu_vs)) then
         ! TBD
       end if
 
-      ! Neumann boundary flux ...................................................
+      ! Neumann boundary flux ..................................................
 
       if (problem % bc(1,1) == 'N') then
         rd( 0, 1,1) = rd( 0, 1,1) - BoundaryNormalFlux(problem, 1, t)
@@ -373,7 +371,7 @@ contains
   !> Dummy BoundaryValue function -- should not be used
 
   function BoundaryValue(problem, b, t) result(ub)
-    import
+    ! import
     class(ScalarProblem1D), intent(in) :: problem
     integer,                intent(in) :: b    !< boundary {1,2}
     real(RNP),              intent(in) :: t    !< time
@@ -392,7 +390,7 @@ contains
   !> Dummy BoundaryNormalFlux function -- should not be used
 
   function BoundaryNormalFlux(problem, b, t) result(qb)
-    import
+    ! import
     class(ScalarProblem1D), intent(in) :: problem
     integer,                intent(in) :: b    !< boundary {1,2}
     real(RNP),              intent(in) :: t    !< time
