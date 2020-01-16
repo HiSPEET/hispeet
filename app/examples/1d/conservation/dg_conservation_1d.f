@@ -51,7 +51,7 @@ program DG_Conservation_1D
   allocate(u(0:po, ne, problem%nc))
   u(0:,:,:) = problem % InitialValues()
 
-  dt = min(cfl     *  problem % dx     / po**2, 
+  dt = min(cfl     *  problem % dx     / po**2,                                &
            cfl/2.0 * (problem % dx)**2 / (po**4 * (problem % nu_0r + problem % nu_0s)))
 
   k = 1
