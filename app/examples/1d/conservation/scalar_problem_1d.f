@@ -202,6 +202,18 @@ contains
         call ConstViscosityContrib(nu = problem % nu_0s, Ds = Ds_b, Ls = Ls)
       end if
 
+      if ((problem % nu_0r > 0) .or. (problem % nu_0s > 0)) then
+        if (eop % Has_SVV()) then
+          call eop % Get_SVV_StandardDiffMatrix(Ds_b)
+          Ds_b = problem % nu_0s * Ds_b
+        else
+          Ds_b = 0
+        end if
+
+        Ds_b = Ds_b + problem % nu_0r * eop%D
+        call AddHybridPenaltyTerm(Ds_b)
+      end if
+
       ! variable viscosity .....................................................
 
       if (allocated(problem % nu_vr)) then
@@ -278,16 +290,55 @@ contains
           rd( 0,e,1) = rd( 0,e,1) + mu * nu * jmp_u(e-1)
           rd(po,e,1) = rd(po,e,1) - mu * nu * jmp_u(e  )
 
+        end do
+      end associate
+
+    end subroutine ConstViscosityContrib
+
+    subroutine AddHybridPenaltyTerm(Bs)
+      real(RNP), intent(in) :: Bs(0:,0:) !< standard "flux" operator (ν+νˢQ)D
+
+      real(RNP) :: g, mu
+
+      associate( po     =>  problem % eop % po  &
+               , ne     =>  problem % ne        &
+               , dx     =>  problem % dx        &
+               , nu     =>  problem % nu_0r     &
+               , nu_svv =>  problem % nu_0s     )
+
+        mu = problem % eop % PenaltyFactor(dx)
+        g  = (2/dx) / (4 * mu * (nu + nu_svv))
+
+        ! diffusive flux at element boundaries
+        ql(1:ne  ) = 2/dx * matmul(Bs(po,:), u(:,:,1))
+        qr(0:ne-1) = 2/dx * matmul(Bs( 0,:), u(:,:,1))
+        call SetBoundaryFluxes(problem, ql, qr)
+        avg_q = HALF * (ql + qr)
+
+        ! [q] at interior interfaces, considered only with IP-H
+        if (problem % eop % hybrid) then
+          if (all(problem % bc(:,1) == 'P')) then
+            jmp_q = ql - qr
+          else
+            jmp_q = [ ZERO, ql(1:ne-1) - qr(1:ne-1), ZERO ]
+          end if
+        else
+          jmp_q = 0
+        end if
+
+        ! element boundary fluxes
+        do e = 1, ne
+
           ! 1/4μ⟨ν⟩ [ν∂v/∂x][ν∂u/∂x]
           do i = 0, po
-            rd(i,e,1) = rd(i,e,1) - g * Ds( 0,i) * jmp_q(e-1) &
-                                  + g * Ds(po,i) * jmp_q(e  )
+            rd(i,e,1) = rd(i,e,1) - g * Bs( 0,i) * jmp_q(e-1) &
+                                  + g * Bs(po,i) * jmp_q(e  )
           end do
 
         end do
       end associate
 
-    end subroutine ConstViscosityContrib
+    end subroutine AddHybridPenaltyTerm
 
   end function RHS_Diffusion
 
