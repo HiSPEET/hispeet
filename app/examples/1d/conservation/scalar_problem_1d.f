@@ -202,16 +202,18 @@ contains
         call ConstViscosityContrib(nu = problem % nu_0s, Ds = Ds_b, Ls = Ls)
       end if
 
-      if ((problem % nu_0r > 0) .or. (problem % nu_0s > 0)) then
-        if (eop % Has_SVV()) then
-          call eop % Get_SVV_StandardDiffMatrix(Ds_b)
-          Ds_b = problem % nu_0s * Ds_b
-        else
-          Ds_b = 0
-        end if
+      if (problem % eop % hybrid) then
+        if ((problem % nu_0r > 0) .or. (problem % nu_0s > 0)) then
+          if (eop % Has_SVV()) then
+            call eop % Get_SVV_StandardDiffMatrix(Ds_b)
+            Ds_b = problem % nu_0s * Ds_b
+          else
+            Ds_b = 0
+          end if
 
-        Ds_b = Ds_b + problem % nu_0r * eop%D
-        call AddHybridPenaltyTerm(Ds_b)
+          Ds_b = Ds_b + problem % nu_0r * eop%D
+          call AddHybridPenaltyTerm(Ds_b)
+        end if
       end if
 
       ! variable viscosity .....................................................
@@ -315,15 +317,11 @@ contains
         call SetBoundaryFluxes(problem, ql, qr)
         avg_q = HALF * (ql + qr)
 
-        ! [q] at interior interfaces, considered only with IP-H
-        if (problem % eop % hybrid) then
-          if (all(problem % bc(:,1) == 'P')) then
-            jmp_q = ql - qr
-          else
-            jmp_q = [ ZERO, ql(1:ne-1) - qr(1:ne-1), ZERO ]
-          end if
+        ! [q] at interior interfaces
+        if (all(problem % bc(:,1) == 'P')) then
+          jmp_q = ql - qr
         else
-          jmp_q = 0
+          jmp_q = [ ZERO, ql(1:ne-1) - qr(1:ne-1), ZERO ]
         end if
 
         ! element boundary fluxes
@@ -384,12 +382,12 @@ contains
   end subroutine GetElementBoundaryTraces
 
   !-----------------------------------------------------------------------------
-  !> Set element-boundary fluxes, reflective at Neuman boundaries
+  !> Set element-boundary fluxes, reflective at Neumann boundaries
 
   subroutine SetBoundaryFluxes(problem, ql, qr)
-    class(ScalarProblem1D), intent(in)  :: problem
-    real(RNP), contiguous,  intent(out) :: ql(0:)    !< q⁻
-    real(RNP), contiguous,  intent(out) :: qr(0:)    !< q⁺
+    class(ScalarProblem1D), intent(in)    :: problem
+    real(RNP), contiguous,  intent(inout) :: ql(0:)   !< q⁻
+    real(RNP), contiguous,  intent(inout) :: qr(0:)   !< q⁺
 
     associate( po  =>  problem % eop % po  &
              , ne  =>  problem % ne        )
@@ -422,7 +420,6 @@ contains
   !> Dummy BoundaryValue function -- should not be used
 
   function BoundaryValue(problem, b, t) result(ub)
-    ! import
     class(ScalarProblem1D), intent(in) :: problem
     integer,                intent(in) :: b    !< boundary {1,2}
     real(RNP),              intent(in) :: t    !< time
@@ -441,7 +438,6 @@ contains
   !> Dummy BoundaryNormalFlux function -- should not be used
 
   function BoundaryNormalFlux(problem, b, t) result(qb)
-    ! import
     class(ScalarProblem1D), intent(in) :: problem
     integer,                intent(in) :: b    !< boundary {1,2}
     real(RNP),              intent(in) :: t    !< time

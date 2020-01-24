@@ -7,7 +7,7 @@
 module Burgers_Problem_1D__Breaking_Wave
 
   use Kind_Parameters,   only: RNP
-  use Constants,         only: HALF, PI
+  use Constants,         only: HALF, ONE, TWO, PI
   use Execution_Control
   use Burgers_Problem_1D
 
@@ -91,7 +91,7 @@ contains
     class(BurgersProblem1D_BreakingWave), intent(in) :: problem
     real(RNP) :: u(0:problem%eop%po, problem%ne, problem%nc)
 
-    u(:,:,1) = HALF - sin(PI * problem % x)
+    u(:,:,1) = ONE + HALF * sin(PI * problem % x + TWO - PI)
 
   end function InitialValues
 
