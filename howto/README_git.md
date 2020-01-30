@@ -55,17 +55,17 @@ Enable password chaching (900 seconds are the default;)
 
      mkdir HiSPEET
      cd HiSPEET
-    
+
      git init
      mkdir doc
      mkdir src
      ..
      git add doc src
      git commit
-    
+
      # stage the modified and deleted files
      git add -u
-    
+
      # add and commit only the modified and deleted files.
      git commit -a
 
@@ -100,6 +100,17 @@ Switch to your branch
 
     git checkout <branch-name>
 
+### Create a new branch
+
+__Note:__ This may fail when using the HTTPS protocol :(
+
+Create a new (local) branch
+
+    git checkout -b <new_branch>
+
+Push the branch on the remote repository
+
+    git push origin <new_branch>
 
 ### Making changes and update your branch
 
@@ -113,7 +124,7 @@ Unless you made changes you can update your local repo using
     make distclean
     git pull
 
-in the `HiSPEET` directory. 
+in the `HiSPEET` directory.
 Before pulling, all changes to the current branch should be committed or reverted.
 
 ### Staging and committing
@@ -202,6 +213,23 @@ Compare/edit the changes using the difftool and commit
     git difftool HEAD foo.f
     git commit -m 'pull completed'
 
- 
 
+$ git diff --name-status <branch1>..<branch2>
+
+Note: 
+To show all changes in detail omit the `name-status` option.
+
+
+## Submodules
+
+Some external libraries are provided as git submodules.
+For example, this is how `libxsmm` was included:
+
+    git submodule add https://github.com/hfp/libxsmm.git external/libxsmm
+    git commit -m 'added libxsmm submodule'
+
+Note that the submodules must be manually intialized, see [Cloning](#cloning) above.
+Also you may wish to update the submodules from the external repository, e.g.
+
+    git submodule update
 
