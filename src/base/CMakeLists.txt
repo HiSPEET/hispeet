@@ -99,8 +99,11 @@ add_library(HiBase ${BASE_SRC})
 set_property(TARGET HiBase
              PROPERTY Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules)
 
+add_dependencies(HiBase LibXSMM)
+
 target_include_directories(HiBase
     PUBLIC  ${PROJECT_BINARY_DIR}/modules
+    PUBLIC  ${LibXSMM_INCLUDE_DIR}
     PRIVATE ${VTK_INCLUDE_DIRS}
             ${ParMETIS_INCLUDE_DIRS}
             ${Exodus_INCLUDE_DIRS}
@@ -111,4 +114,5 @@ target_link_libraries(HiBase
             ${VTK_LIBRARIES}
             ${ParMETIS_LIBRARIES}
             ${Exodus_LIBRARIES}
+            ${LibXSMM_LIBRARIES}
             )

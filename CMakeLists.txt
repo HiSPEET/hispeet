@@ -15,6 +15,7 @@ enable_language(Fortran)
 enable_testing()
 
 include(FindPackageHandleStandardArgs)
+include(ExternalProject)
 
 # path to CMake modules
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
@@ -178,6 +179,11 @@ if (OpenACC)
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenACC_Fortran_FLAGS}")
 
 endif (OpenACC)
+
+#===============================================================================
+# External libraries
+
+include(external/cmake/libxsmm.cmake)
 
 #===============================================================================
 # Subprojects

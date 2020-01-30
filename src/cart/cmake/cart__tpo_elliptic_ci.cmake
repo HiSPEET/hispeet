@@ -27,8 +27,9 @@ add_custom_command(OUTPUT  ${CART__TPO_ELLIPTIC_CI_SRC}
                                      --tmpl ${TMPL}
                                      --dest ${DEST}
                                      --shared ${UNIFORM}
-    WORKING_DIRECTORY ${TMPL_}
-    MAIN_DEPENDENCY ${DEST}/cart__tpo_elliptic_ci.var
-    DEPENDS config__cart__tpo_elliptic_ci
+    WORKING_DIRECTORY  ${TMPL_}
+    MAIN_DEPENDENCY    ${DEST}/cart__tpo_elliptic_ci.var
+    DEPENDS            config__cart__tpo_elliptic_ci
+                       ${LIBXSMM_MODULE}
     )
 
