@@ -1,3 +1,0 @@
-[submodule "external/libxsmm"]
-	path = external/libxsmm
-	url = https://github.com/hfp/libxsmm.git
