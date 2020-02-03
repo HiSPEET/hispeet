@@ -191,6 +191,7 @@ subroutine AddFluxes(mesh, eop, nu, J_u, A_q, v)
       !
       !   [ϕ]₁   =  delta_P(i)
       !   {ν∇ϕ}₁ =  nu * g(1) *  Ds(P,i)
+      !?  {ν∇ϕ + νs Q ∇ϕ}₁ = g(1) * (nu*Ds(P,i) + nu_s * Q * Ds(P,i))
       !   [u]₁   =  J_u(j,k,f₂)
       !   {ν∇u}₁ =  A_q(j,k,f₂)
 
