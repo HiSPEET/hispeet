@@ -58,7 +58,7 @@ program Elliptic_Test__IP_CI
   integer   :: np(3)     = 1       ! number of partitions in directions 1:3
   integer   :: ep(3)     = 2       ! elements per partition and direction
   integer   :: po        = 2       ! polynomial order
-  integer   :: penalty   = 2       ! penalty parameter > 1
+  real(RNP) :: penalty   = 2       ! penalty parameter > 1
   logical   :: adjust_dx = .false. ! adjust mesh spacing: Δx₃ = max(Δx₁,Δx₂)
 
   namelist /discretization/ np, ep, po, penalty, adjust_dx
@@ -240,7 +240,7 @@ program Elliptic_Test__IP_CI
 
   ! operators ..................................................................
 
-  ip_opt = IP_ElementOptions1D(po, penalty)
+  ip_opt = IP_ElementOptions1D(po = po, penalty = penalty)
   elliptic_op = EllipticOperator3D_IP(mesh, lambda, nu, bc, ip_opt, schwarz_opt)
 
   !-----------------------------------------------------------------------------

@@ -157,10 +157,10 @@ subroutine Init_FlowOperators( this                       &
     this % bv_u(b) = BoundaryVariable(mesh, po_u, b, problem%bc(b,:))
   end do
 
-  this%pmg_u = PMG_Method3D( mesh, IP_ElementOptions1D(this%po_u, penalty), &
-                             pmg_u_opt )
-  this%pmg_p = PMG_Method3D( mesh, IP_ElementOptions1D(this%po_p, penalty), &
-                             pmg_p_opt )
+  this%pmg_u = PMG_Method3D( mesh, IP_ElementOptions1D(po = this%po_u,         &
+                             penalty = penalty), pmg_u_opt )
+  this%pmg_p = PMG_Method3D( mesh, IP_ElementOptions1D(po = this%po_p,         &
+                             penalty = penalty), pmg_p_opt )
 
   call this % pmg_p % SetProblem(lambda=ZERO, nu=ONE, bc=problem%bc(:,4))
 
