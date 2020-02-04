@@ -28,6 +28,8 @@ module CART__Elliptic_Operator
     real(RNP) :: lambda = 0                  !< Helmholtz parameter
     real(RNP), allocatable :: nu_ci          !< constant isotropic diffusivity
     real(RNP), allocatable :: nu_vi(:,:,:,:) !< variable isotropic diffusivity
+    real(RNP), allocatable :: nu_ci_svv      !< constant isotropic spectral
+                                             !  diffusivity
     character, allocatable :: bc(:)          !< boundary conditions {P,D,N}
 
     class(StandardOperators1D), allocatable :: eop     !< standard SE operators
@@ -35,9 +37,11 @@ module CART__Elliptic_Operator
 
   contains
 
-    generic :: SetProblem => SetProblem_CI, SetProblem_VI
-    procedure(SetProblem_CI), deferred :: SetProblem_CI  ! should be private
-    procedure(SetProblem_VI), deferred :: SetProblem_VI  ! but fails with ifort
+    generic :: SetProblem => SetProblem_CI, SetProblem_VI, SetProblem_CI_svv
+    procedure(SetProblem_CI),     deferred :: SetProblem_CI ! should be private
+    procedure(SetProblem_VI),     deferred :: SetProblem_VI ! but fails with ifort
+    procedure(SetProblem_CI_svv), deferred :: SetProblem_CI_svv
+
 
     procedure(Apply),     deferred :: Apply
     procedure(BcToRHS),   deferred :: BcToRHS
@@ -70,6 +74,19 @@ module CART__Elliptic_Operator
       real(RNP), intent(in) :: nu(0:,0:,0:,:) !< diffusivity
       character, intent(in) :: bc(:)          !< BC {'D','N','P'}
     end subroutine SetProblem_VI
+
+    !--------------------------------------------------------------------------
+    !> (Re)Set problem parameters for a combination of constant isotropic
+    !> viscosity and constant isotropic spectral viscosity
+
+    subroutine SetProblem_CI_svv(this, lambda, nu, nu_svv, bc)
+      import
+      class(EllipticOperator3D), intent(inout) :: this
+      real(RNP), intent(in) :: lambda !< Helmholtz parameter
+      real(RNP), intent(in) :: nu     !< diffusivity
+      real(RNP), intent(in) :: nu_svv !< SVV diffusivity
+      character, intent(in) :: bc(:)  !< BC {'D','N','P'}
+    end subroutine SetProblem_CI_svv
 
     !--------------------------------------------------------------------------
     !> Applies the operator to given approximation: const isotropic
