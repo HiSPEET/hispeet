@@ -242,7 +242,8 @@ program Elliptic_Test__IP_CI
   allocate(laplace_u(0:po, 0:po, 0:po, mesh%ne))
 
   ! set spectral diffusivity to default value if not given as parameter
-  if (svv) nu_svv = ONE / real(po,RNP)
+  if (nu_svv == -1) nu_svv = ONE / real(po,RNP)
+  if (.not. svv) nu_svv = ZERO
 
   ! operators ..................................................................
 
