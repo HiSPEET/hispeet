@@ -60,8 +60,10 @@ program Elliptic_Test__IP_CI
   integer   :: po        = 2       ! polynomial order
   real(RNP) :: penalty   = 2       ! penalty parameter > 1
   logical   :: adjust_dx = .false. ! adjust mesh spacing: Δx₃ = max(Δx₁,Δx₂)
+  logical   :: svv       = .false. ! switch for the SVV model
+  real(RNP) :: nu_svv    = -1      ! spectral diffusivity amplitude
 
-  namelist /discretization/ np, ep, po, penalty, adjust_dx
+  namelist /discretization/ np, ep, po, penalty, adjust_dx, svv, nu_svv
 
   ! solution ...................................................................
 
@@ -185,6 +187,7 @@ program Elliptic_Test__IP_CI
 
   ! solver
   call XMPI_Bcast(method, 0, comm)
+  call XMPI_Bcast(svv, 0, comm)
 
   ! CG/Schwarz options
   call XMPI_Bcast(i_max, 0, comm)
@@ -238,10 +241,14 @@ program Elliptic_Test__IP_CI
   allocate(grad_u(0:po, 0:po, 0:po, mesh%ne, 3))
   allocate(laplace_u(0:po, 0:po, 0:po, mesh%ne))
 
+  ! set spectral diffusivity to default value if not given as parameter
+  if (svv) nu_svv = ONE / real(po,RNP)
+
   ! operators ..................................................................
 
-  ip_opt = IP_ElementOptions1D(po = po, penalty = penalty)
-  elliptic_op = EllipticOperator3D_IP(mesh, lambda, nu, bc, ip_opt, schwarz_opt)
+  ip_opt = IP_ElementOptions1D(po = po, penalty = penalty, svv = svv)
+  elliptic_op = EllipticOperator3D_IP(mesh, lambda, nu, nu_svv, bc, ip_opt,    &
+                                      schwarz_opt)
 
   !-----------------------------------------------------------------------------
   ! Tests
