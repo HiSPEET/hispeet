@@ -38,6 +38,7 @@ end subroutine BcToRHS
 
 !-------------------------------------------------------------------------------
 !> Adds the boundary contributions of the right hand side: constant isotropic
+!> (and constant isotropic spectral, if given)
 
 subroutine BcToRHS_CI(this, bv, c, f)
   class(EllipticOperator3D_IP), intent(in)    :: this
@@ -48,13 +49,13 @@ subroutine BcToRHS_CI(this, bv, c, f)
   ! local variables ............................................................
 
   real(RNP), pointer, contiguous :: u(:,:,:), dn_u(:,:,:)
-  real(RNP), allocatable :: delta_0(:), delta_P(:), cd(:,:), Mf(:,:)
+  real(RNP), allocatable :: delta_0(:), delta_P(:), cd(:,:), Mf(:,:), Bs(:,:)
   real(RNP) :: cx(3), cf(3), mu(3)
   integer   :: b, e, i, j, k, l, s
 
-    associate( P  => this % eop % po , nu => this % nu_ci,     &
-               Ms => this % eop % w  , dx => this % mesh % dx, &
-               Ds => this % eop % D  , bc => this % bc         )
+    associate( P      => this % eop % po , nu => this % nu_ci  , &
+               nu_svv => this % nu_ci_svv, Ms => this % eop % w, &
+               dx     => this % mesh % dx, bc => this % bc       )
 
       ! initialization .........................................................
 
@@ -84,14 +85,24 @@ subroutine BcToRHS_CI(this, bv, c, f)
       end do
       end do
 
+      ! 1D standard "flux operator" (ν+νˢQ)D
+      allocate(Bs(0:P,0:P))
+      if (this % eop % Has_SVV()) then
+        call this % eop % Get_SVV_StandardDiffMatrix(Bs)
+        Bs = nu_svv * Bs
+      else
+        Bs = 0
+      end if
+      Bs = Bs + nu * this%eop%D
+
       ! Dirichlet coefficients
       allocate(cd(0:P,6))
-      cd(:,1) = cf(1) * ( Ds(0,:)/cx(1) + 2*mu(1) * delta_0(:))
-      cd(:,2) = cf(1) * (-Ds(P,:)/cx(1) + 2*mu(1) * delta_P(:))
-      cd(:,3) = cf(2) * ( Ds(0,:)/cx(2) + 2*mu(2) * delta_0(:))
-      cd(:,4) = cf(2) * (-Ds(P,:)/cx(2) + 2*mu(2) * delta_P(:))
-      cd(:,5) = cf(3) * ( Ds(0,:)/cx(3) + 2*mu(3) * delta_0(:))
-      cd(:,6) = cf(3) * (-Ds(P,:)/cx(3) + 2*mu(3) * delta_P(:))
+      cd(:,1) = cf(1) * ( Bs(0,:)/cx(1) + 2*mu(1) * (nu + nu_svv) * delta_0(:))
+      cd(:,2) = cf(1) * (-Bs(P,:)/cx(1) + 2*mu(1) * (nu + nu_svv) * delta_P(:))
+      cd(:,3) = cf(2) * ( Bs(0,:)/cx(2) + 2*mu(2) * (nu + nu_svv) * delta_0(:))
+      cd(:,4) = cf(2) * (-Bs(P,:)/cx(2) + 2*mu(2) * (nu + nu_svv) * delta_P(:))
+      cd(:,5) = cf(3) * ( Bs(0,:)/cx(3) + 2*mu(3) * (nu + nu_svv) * delta_0(:))
+      cd(:,6) = cf(3) * (-Bs(P,:)/cx(3) + 2*mu(3) * (nu + nu_svv) * delta_P(:))
 
       Boundaries: do b = 1, size(bv)
 
@@ -115,7 +126,7 @@ subroutine BcToRHS_CI(this, bv, c, f)
                 do k = 0, P
                 do j = 0, P
                 do i = 0, P
-                  f(i,j,k,e) = f(i,j,k,e) + cd(i,s) * Mf(j,k) * nu * u(j,k,l)
+                  f(i,j,k,e) = f(i,j,k,e) + cd(i,s) * Mf(j,k) * u(j,k,l)
                 end do
                 end do
                 end do
@@ -124,7 +135,7 @@ subroutine BcToRHS_CI(this, bv, c, f)
                 do k = 0, P
                 do j = 0, P
                 do i = 0, P
-                  f(i,j,k,e) = f(i,j,k,e) + cd(j,s) * Mf(i,k) * nu * u(i,k,l)
+                  f(i,j,k,e) = f(i,j,k,e) + cd(j,s) * Mf(i,k) * u(i,k,l)
                 end do
                 end do
                 end do
@@ -133,7 +144,7 @@ subroutine BcToRHS_CI(this, bv, c, f)
                 do k = 0, P
                 do j = 0, P
                 do i = 0, P
-                  f(i,j,k,e) = f(i,j,k,e) + cd(k,s) * Mf(i,j) * nu * u(i,j,l)
+                  f(i,j,k,e) = f(i,j,k,e) + cd(k,s) * Mf(i,j) * u(i,j,l)
                 end do
                 end do
                 end do
