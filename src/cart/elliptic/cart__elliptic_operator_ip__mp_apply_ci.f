@@ -147,7 +147,7 @@ subroutine AddFluxes(mesh, eop, Bs, nu, nu_svv, J_u, A_q, v)
   class(MeshPartition),         intent(in) :: mesh !< mesh partition
   class(IP_ElementOperators1D), intent(in) :: eop  !< ID/DG element operators
 
-  real(RNP), intent(in)    :: Bs(0:,0:)     !< 1D standard "flux" matrix !! TODO: array bounds?
+  real(RNP), intent(in)    :: Bs(0:,0:)     !< 1D standard "flux" matrix
   real(RNP), intent(in)    :: nu            !< diffusivity
   real(RNP), intent(in)    :: nu_svv        !< spectral diffusivity
   real(RNP), intent(in)    :: J_u(0:,0:,:)  !< [u]ᵢ
