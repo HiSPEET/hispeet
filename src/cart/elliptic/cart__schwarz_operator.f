@@ -43,7 +43,7 @@ module CART__Schwarz_Operator
   !>          +  c3 L3 x M2 x M1
   !>
   !> where `M1`, `M2`, `M3` are the 1D mass matrices and  `L1`, `L2`, `L3` the
-  !> corresponding stiffness matrices. These operators are normalized zo unit
+  !> corresponding stiffness matrices. These operators are normalized to unit
   !> mesh spacing and, thus, depend only on the following parameters
   !>
   !>   *  polynomial order and, possibly, further discretization parameters

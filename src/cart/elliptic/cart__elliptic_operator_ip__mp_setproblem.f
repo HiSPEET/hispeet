@@ -26,7 +26,6 @@ module subroutine SetProblem_CI(this, lambda, nu, bc)
 
   this % lambda    = lambda
   this % nu_ci     = nu
-  this % nu_ci_svv = ZERO
   this % bc        = bc
 
   if (allocated(this % schwarz)) then

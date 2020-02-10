@@ -41,19 +41,19 @@ module subroutine Apply_CI(this, u, v)
 
   ! jump and average derivative in direction xᵢ // face normal
   real(RNP), allocatable, save :: J_u(:,:,:) ! [u]ᵢ
-  real(RNP), allocatable, save :: A_q(:,:,:) ! {q}ᵢ = {ν∇u + νs Q∇u}ᵢ
+  real(RNP), allocatable, save :: A_q(:,:,:) ! {q}ᵢ = {ν∇u + νˢQ∇u}ᵢ
 
   ! 1D standard operators
-  real(RNP) :: As(0:this%eop%po, 0:this%eop%po) ! standard diffusion operator Dᵀ(ν+νˢQ)D
-  real(RNP) :: Bs(0:this%eop%po, 0:this%eop%po) ! standard "flux" operator (ν+νˢQ)D
+  real(RNP) :: As(0:this%eop%po, 0:this%eop%po) ! diffusion Dᵀ(ν+νˢQ)D
+  real(RNP) :: Bs(0:this%eop%po, 0:this%eop%po) ! "flux" (ν+νˢQ)D
 
-  integer :: po, ne, np = -1
+  integer   :: po, ne, np = -1
+  real(RNP) :: nu_svv
 
   select type(eop => this % eop)
   class is (IP_ElementOperators1D)
 
-    associate(mesh => this % mesh,  lambda => this % lambda,                   &
-             nu    => this % nu_ci, nu_svv => this % nu_ci_svv                 )
+    associate(mesh => this % mesh, lambda => this % lambda, nu => this % nu_ci)
 
       ! initialization .........................................................
 
@@ -65,11 +65,13 @@ module subroutine Apply_CI(this, u, v)
       if (eop % Has_SVV()) then
         call eop % Get_SVV_StandardStiffnessMatrix(As)
         call eop % Get_SVV_StandardDiffMatrix(Bs)
-        As = nu_svv * As
-        Bs = nu_svv * Bs
+        nu_svv = this % nu_ci_svv
+        As     = nu_svv * As
+        Bs     = nu_svv * Bs
       else
-        As = 0
-        Bs = 0
+        nu_svv = ZERO
+        As     = ZERO
+        Bs     = ZERO
       end if
 
       As = As + nu * eop%L
@@ -147,7 +149,7 @@ subroutine AddFluxes(mesh, eop, Bs, nu, nu_svv, J_u, A_q, v)
   class(MeshPartition),         intent(in) :: mesh !< mesh partition
   class(IP_ElementOperators1D), intent(in) :: eop  !< ID/DG element operators
 
-  real(RNP), intent(in)    :: Bs(0:,0:)     !< 1D standard "flux" matrix
+  real(RNP), intent(in)    :: Bs(0:,0:)     !< 1D standard "flux" operator
   real(RNP), intent(in)    :: nu            !< diffusivity
   real(RNP), intent(in)    :: nu_svv        !< spectral diffusivity
   real(RNP), intent(in)    :: J_u(0:,0:,:)  !< [u]ᵢ
@@ -298,14 +300,14 @@ end subroutine AddFluxes
 !-------------------------------------------------------------------------------
 !> Elementwise computation of diffusive fluxes parallel to face normals
 !>
-!> Computes the normal components of ν grad(u) for all element boundary points.
-!> Entries corresponding to interior points or tangential components are set
-!> to zero.
+!> Computes the normal components of (ν+νˢQ) grad(u) for all element boundary
+!> points. Entries corresponding to interior points or tangential components are
+!> set to zero.
 
 subroutine ComputeNormalFluxes(np, ne, Bs, dx, u, q)
   integer,   intent(in)  :: np               !< number of points per direction
   integer,   intent(in)  :: ne               !< number of elements
-  real(RNP), intent(in)  :: Bs(np,np)        !< 1D standard "flux" matrix
+  real(RNP), intent(in)  :: Bs(np,np)        !< 1D standard "flux" operator
   real(RNP), intent(in)  :: dx(3)            !< element extensions
   real(RNP), intent(in)  :: u(np,np,np,ne)   !< 3D scalar field
   real(RNP), intent(out) :: q(np,np,np,ne,3) !< element-wise gradient of u
@@ -342,7 +344,7 @@ subroutine ComputeNormalFluxes(np, ne, Bs, dx, u, q)
   !$omp do private(e)
   do e = 1, ne
 
-    ! q1 = ν ∂u/∂x1 @ face 1,2 .................................................
+    ! q1 = (ν+νˢQ) ∂u/∂x1 @ face 1,2 ...........................................
 
     !$acc loop collapse(2) vector
     do k = 1, np
@@ -360,7 +362,7 @@ subroutine ComputeNormalFluxes(np, ne, Bs, dx, u, q)
     end do
     end do
 
-    ! q2 = ν ∂u/∂x2 @ face 3,4 .................................................
+    ! q2 = (ν+νˢQ) ∂u/∂x2 @ face 3,4 ...........................................
 
     !$acc loop collapse(2) vector
     do k = 1, np
@@ -378,7 +380,7 @@ subroutine ComputeNormalFluxes(np, ne, Bs, dx, u, q)
     end do
     end do
 
-    ! q3 = ν ∂u/∂x3 @ face 5,6 .................................................
+    ! q3 = (ν+νˢQ) ∂u/∂x3 @ face 5,6 ...........................................
 
     !$acc loop collapse(2) vector
     do j = 1, np

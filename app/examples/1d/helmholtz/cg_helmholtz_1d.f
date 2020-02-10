@@ -52,11 +52,12 @@ program CG_Helmholtz_1D
   ! problem parameters
   real(RNP) :: lambda  = 1      ! Helmholtz parameter
   real(RNP) :: nu      = 1      ! physical diffusivity
+  real(RNP) :: nu_svv = -1      ! spectral diffusivity amplitude
   integer   :: test    = 1      ! test case
   integer   :: init    = 1      ! intial conditions (0: zero, 1: random)
   character :: bc(2)   = 'D'    ! left/right BC ('D': Dirichlet, 'N': Neumann)
 
-  namelist /problem_parameters/ lambda, nu, test, init, bc
+  namelist /problem_parameters/ lambda, nu, nu_svv, test, init, bc
 
   ! solution parameters
   type(CG_ElementOptions1D) :: eop_opt ! options for CG element operator
@@ -64,9 +65,8 @@ program CG_Helmholtz_1D
   integer   :: method = 1       ! solution method (1: CG, 2: SC+GE)
   integer   :: i_max  = huge(1) ! maximum number of CG iterations
   real(RNP) :: r_max  = 1E-12   ! maximum CG residual
-  real(RNP) :: nu_svv = -1      ! spectral diffusivity amplitude
 
-  namelist /solution_parameters/ eop_opt, ne, method, r_max, i_max, nu_svv
+  namelist /solution_parameters/ eop_opt, ne, method, r_max, i_max
 
   ! discrete variables and operators
   type(CG_ElementOperators1D) :: eop       ! element operators
@@ -103,7 +103,6 @@ program CG_Helmholtz_1D
   po = eop_opt%po
   ! set spectral diffusivity to default value if not given as parameter
   if (nu_svv == -1) nu_svv = ONE / real(po,RNP)
-  if (.not. svv) nu_svv = ZERO
 
   call SetTestCase(test)
   periodic = all(bc == 'P')
@@ -161,7 +160,11 @@ program CG_Helmholtz_1D
   case(1) ! CG
     call CG(He, bc, u, f, w, r_max, i_max)
   case(2) ! static condensation + Gauss elimination
-    call CondensedEllipticSolver(eop, dx, lambda, nu, nu_svv, bc, f, u)
+    if (eop % Has_SVV()) then
+      call CondensedEllipticSolver(eop, dx, lambda, nu, nu_svv, bc, f, u)
+    else
+      call CondensedEllipticSolver(eop, dx, lambda, nu,         bc, f, u)
+    end if
   end select
 
   call system_clock(count1)

@@ -51,6 +51,46 @@ module subroutine Init_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
 end subroutine Init_CI
 
 !-------------------------------------------------------------------------------
+!> Initialize operator with a combination of constant isotropic diffusivity and
+!> constant isotropic spectral diffusivity
+
+module subroutine Init_CI_svv(this, mesh, lambda, nu, nu_svv, bc, ip_opt,      &
+  schwarz_opt)
+
+! arguments ..................................................................
+
+class(EllipticOperator3D_IP), intent(inout) :: this
+class(MeshPartition), target, intent(in)    :: mesh   !< mesh partition
+real(RNP),                    intent(in)    :: lambda !< Helmholtz parameter
+real(RNP),                    intent(in)    :: nu     !< diffusivity
+real(RNP),                    intent(in)    :: nu_svv !< SVV diffusivity
+character,                    intent(in)    :: bc(:)  !< boundary conditions
+
+!> options for the IP/DG method, including polynomial order `po` and `penalty`
+class(IP_ElementOptions1D), intent(in) :: ip_opt
+
+!> options for the Schwarz method
+class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
+
+! problem and discretization parameters ......................................
+
+this % mesh      => mesh
+this % lambda    =  lambda
+this % nu_ci     =  nu
+this % nu_ci_svv =  nu_svv
+this % bc        =  bc
+
+allocate(this % eop, source = IP_ElementOperators1D(ip_opt))
+
+! Schwarz method .............................................................
+
+if (present(schwarz_opt)) then
+write(*,*) "the Schwarz method does not work with SVV yet"
+end if
+
+end subroutine Init_CI_svv
+
+!-------------------------------------------------------------------------------
 !> Initialize operator with variable isotropic diffusivity
 
 module subroutine Init_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
@@ -121,46 +161,6 @@ module subroutine Init_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
   deallocate(tr_nu)
 
 end subroutine Init_VI
-
-!-------------------------------------------------------------------------------
-!> Initialize operator with a combination of constant isotropic diffusivity and
-!> constant isotropic spectral diffusivity
-
-module subroutine Init_CI_svv(this, mesh, lambda, nu, nu_svv, bc, ip_opt,      &
-                              schwarz_opt)
-
-  ! arguments ..................................................................
-
-  class(EllipticOperator3D_IP), intent(inout) :: this
-  class(MeshPartition), target, intent(in)    :: mesh   !< mesh partition
-  real(RNP),                    intent(in)    :: lambda !< Helmholtz parameter
-  real(RNP),                    intent(in)    :: nu     !< diffusivity
-  real(RNP),                    intent(in)    :: nu_svv !< SVV diffusivity
-  character,                    intent(in)    :: bc(:)  !< boundary conditions
-
-  !> options for the IP/DG method, including polynomial order `po` and `penalty`
-  class(IP_ElementOptions1D), intent(in) :: ip_opt
-
-  !> options for the Schwarz method
-  class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
-
-  ! problem and discretization parameters ......................................
-
-  this % mesh      => mesh
-  this % lambda    =  lambda
-  this % nu_ci     =  nu
-  this % nu_ci_svv =  nu_svv
-  this % bc        =  bc
-
-  allocate(this % eop, source = IP_ElementOperators1D(ip_opt))
-
-  ! Schwarz method .............................................................
-
-  if (present(schwarz_opt)) then
-   write(*,*) "the Schwarz method does not work with SVV yet"
-  end if
-
-end subroutine Init_CI_svv
 
 !===============================================================================
 

@@ -34,17 +34,17 @@ program IP_Helmholtz_1D
   ! problem parameters
   real(RNP) :: lambda  = 1    ! Helmholtz parameter
   real(RNP) :: nu      = 1    ! diffusivity
+  real(RNP) :: nu_svv  = -1   ! spectral diffusivity amplitude
   integer   :: test    = 1    ! test case
   character :: bc(2)   = 'D'  ! left/right BC ('D': Dirichlet, 'N': Neumann)
 
-  namelist /problem_parameters/ lambda, test, bc
+  namelist /problem_parameters/ lambda, nu, nu_svv, test, bc
 
   ! solution parameters
   type(IP_ElementOptions1D) :: eop_opt ! options for IP element operator
-  integer   :: ne         = 10 ! number of elements
-  real(RNP) :: nu_svv     = -1 ! spectral diffusivity amplitude
+  integer                   :: ne = 10 ! number of elements
 
-  namelist /solution_parameters/ eop_opt, ne, nu_svv
+  namelist /solution_parameters/ eop_opt, ne
 
   ! discrete variables and operators
   type(IP_ElementOperators1D) :: eop    ! element operators
@@ -116,7 +116,11 @@ program IP_Helmholtz_1D
   ! solution ...................................................................
 
   call system_clock(count0)
-  call HybridEllipticSolver(eop, dx, lambda, nu, nu_svv, bc, f, u)
+  if (eop % Has_SVV()) then
+    call HybridEllipticSolver(eop, dx, lambda, nu, nu_svv, bc, f, u)
+  else
+    call HybridEllipticSolver(eop, dx, lambda, nu        , bc, f, u)
+  end if
   call system_clock(count1)
 
   t_sol = (count1 - count0) / real(count_rate, RNP)

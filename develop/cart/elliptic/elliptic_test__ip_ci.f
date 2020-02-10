@@ -43,6 +43,7 @@ program Elliptic_Test__IP_CI
 
   real(RNP) :: lambda    = 0       ! Helmholtz parameter
   real(RNP) :: nu        = 1       ! diffusivity
+  real(RNP) :: nu_svv    = -1      ! spectral diffusivity amplitude
   integer   :: k_u       = 1       ! solution wave number
 
   real(RNP) :: xo(3)     = 0       ! corner closest to -infinity
@@ -50,7 +51,7 @@ program Elliptic_Test__IP_CI
   character :: bc(6)     = 'P'     ! boundary conditions {'P'|'D'|'N'}
 
   namelist /test_case/ test
-  namelist /test_case/ lambda, nu, k_u
+  namelist /test_case/ lambda, nu, nu_svv, k_u
   namelist /test_case/ xo, lx, bc
 
   ! discretization .............................................................
@@ -61,9 +62,8 @@ program Elliptic_Test__IP_CI
   real(RNP) :: penalty   = 2       ! penalty parameter > 1
   logical   :: adjust_dx = .false. ! adjust mesh spacing: Δx₃ = max(Δx₁,Δx₂)
   logical   :: svv       = .false. ! switch for the SVV model
-  real(RNP) :: nu_svv    = -1      ! spectral diffusivity amplitude
 
-  namelist /discretization/ np, ep, po, penalty, adjust_dx, svv, nu_svv
+  namelist /discretization/ np, ep, po, penalty, adjust_dx, svv
 
   ! solution ...................................................................
 
@@ -173,6 +173,7 @@ program Elliptic_Test__IP_CI
   call XMPI_Bcast(test   , 0, comm)
   call XMPI_Bcast(lambda , 0, comm)
   call XMPI_Bcast(nu     , 0, comm)
+  call XMPI_Bcast(nu_svv , 0, comm)
   call XMPI_Bcast(k_u    , 0, comm)
   call XMPI_Bcast(xo     , 0, comm)
   call XMPI_Bcast(lx     , 0, comm)
@@ -187,7 +188,7 @@ program Elliptic_Test__IP_CI
 
   ! solver
   call XMPI_Bcast(method, 0, comm)
-  call XMPI_Bcast(svv, 0, comm)
+  call XMPI_Bcast(svv,    0, comm)
 
   ! CG/Schwarz options
   call XMPI_Bcast(i_max, 0, comm)
@@ -243,13 +244,18 @@ program Elliptic_Test__IP_CI
 
   ! set spectral diffusivity to default value if not given as parameter
   if (nu_svv == -1) nu_svv = ONE / real(po,RNP)
-  if (.not. svv) nu_svv = ZERO
 
   ! operators ..................................................................
 
   ip_opt = IP_ElementOptions1D(po = po, penalty = penalty, svv = svv)
-  elliptic_op = EllipticOperator3D_IP(mesh, lambda, nu, nu_svv, bc, ip_opt,    &
-                                      schwarz_opt)
+
+  if (svv) then
+    elliptic_op = EllipticOperator3D_IP(mesh, lambda, nu, nu_svv, bc, ip_opt,  &
+                                        schwarz_opt)
+  else
+    elliptic_op = EllipticOperator3D_IP(mesh, lambda, nu,         bc, ip_opt,  &
+                                        schwarz_opt)
+  end if
 
   !-----------------------------------------------------------------------------
   ! Tests

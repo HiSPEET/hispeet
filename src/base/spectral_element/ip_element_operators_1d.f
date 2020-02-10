@@ -284,8 +284,8 @@ subroutine Get_DiffusionMatrix__w_svv(this, dx, bc, nu, nu_svv, Ae, form)
     As = nu_svv * As
     Bs = nu_svv * Bs
   else
-    As = 0
-    Bs = 0
+    As = ZERO
+    Bs = ZERO
   end if
 
   As = As + nu * this%L
@@ -555,7 +555,7 @@ subroutine Get_EllipticSuboperators__w_svv( this, dx, bc, c, nu, nu_svv &
     call this % Get_SVV_StandardDiffMatrix(Bs)
     Bs = nu_svv * Bs
   else
-    Bs = 0
+    Bs = ZERO
   end if
   Bs = Bs + nu * this%D
 
