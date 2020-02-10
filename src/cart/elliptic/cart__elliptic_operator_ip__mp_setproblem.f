@@ -29,7 +29,9 @@ module subroutine SetProblem_CI(this, lambda, nu, bc)
   this % bc        = bc
 
   if (allocated(this % schwarz)) then
-    call this % schwarz % SetProblem(this%mesh, lambda, nu, bc)
+    ! TODO: Schwarz operator no longer has a SetProblem function. Maybe
+    !       deallocate Schwarz operator and instanciate it again?
+    !call this % schwarz % SetProblem(this%mesh, lambda, nu, bc)
   end if
 
 end subroutine SetProblem_CI
@@ -54,7 +56,9 @@ module subroutine SetProblem_CI_svv(this, lambda, nu, nu_svv, bc)
   this % bc        = bc
 
   if (allocated(this % schwarz)) then
-    write(*,*) "the Schwarz method does not work with SVV yet"
+    ! TODO: Schwarz operator no longer has a SetProblem function. Maybe
+    !       deallocate Schwarz operator and instanciate it again?
+    !call this % schwarz % SetProblem(this%mesh, lambda, nu, nu_svv, bc)
   end if
 
 end subroutine SetProblem_CI_svv
@@ -115,7 +119,9 @@ module subroutine SetProblem_VI(this, lambda, nu, bc)
     call SetArray(this % nu_vi, nu)
 
     if (allocated(this % schwarz)) then
-      call this % schwarz % SetProblem(this%eop, mesh, lambda, nu, bc)
+      ! TODO: Schwarz operator no longer has a SetProblem function. Maybe
+      !       deallocate Schwarz operator and instanciate it again?
+      ! call this % schwarz % SetProblem(this%eop, mesh, lambda, nu, bc)
     end if
 
     call trace_op % GetTrace_Finish(mesh, tr_nu)

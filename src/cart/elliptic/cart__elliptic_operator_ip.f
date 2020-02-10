@@ -157,7 +157,10 @@ function New_Base(mesh, ip_opt, schwarz_opt) result(this)
 
   type(EllipticOperator3D_IP) :: this
 
-  call Init_Base(this, mesh, ip_opt, schwarz_opt)
+  call Init_Base(this, mesh, ip_opt)
+  if (present(schwarz_opt)) then
+    this % schwarz = SchwarzOperator3D(schwarz_opt, this%eop)
+  end if
 
 end function New_Base
 
@@ -220,19 +223,13 @@ end function New_VI
 !-------------------------------------------------------------------------------
 !> Initialize operator with no problem data
 
-subroutine Init_Base(this, mesh, ip_opt, schwarz_opt)
+subroutine Init_Base(this, mesh, ip_opt)
   class(EllipticOperator3D_IP),      intent(inout) :: this
   class(MeshPartition), target,      intent(in)    :: mesh
   class(IP_ElementOptions1D),        intent(in)    :: ip_opt
-  class(SchwarzOptions3D), optional, intent(in)    :: schwarz_opt
 
   this % mesh => mesh
-
   allocate(this % eop, source = IP_ElementOperators1D(ip_opt))
-
-  if (present(schwarz_opt)) then
-    this % schwarz = SchwarzOperator3D(schwarz_opt, this%eop)
-  end if
 
 end subroutine Init_Base
 
@@ -248,7 +245,12 @@ subroutine Init_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
   class(IP_ElementOptions1D),        intent(in)    :: ip_opt
   class(SchwarzOptions3D), optional, intent(in)    :: schwarz_opt
 
-  call Init_Base(this, mesh, ip_opt, schwarz_opt)
+  call Init_Base(this, mesh, ip_opt)
+  if (present(schwarz_opt)) then
+    this % schwarz = SchwarzOperator3D(schwarz_opt, this%eop, mesh, lambda,    &
+                                       nu, bc)
+  end if
+
   call SetProblem_CI(this, lambda, nu, bc)
 
 end subroutine Init_CI
@@ -267,7 +269,12 @@ subroutine Init_CI_svv(this, mesh, lambda, nu, nu_svv, bc, ip_opt, schwarz_opt)
   class(IP_ElementOptions1D),        intent(in)    :: ip_opt
   class(SchwarzOptions3D), optional, intent(in)    :: schwarz_opt
 
-  call Init_Base(this, mesh, ip_opt, schwarz_opt)
+  call Init_Base(this, mesh, ip_opt)
+  if (present(schwarz_opt)) then
+    this % schwarz = SchwarzOperator3D(schwarz_opt, this%eop, mesh, lambda,    &
+                                       nu, nu_svv, bc)
+  end if
+
   call SetProblem_CI_svv(this, lambda, nu, nu_svv, bc)
 
 end subroutine Init_CI_svv
@@ -284,7 +291,12 @@ subroutine Init_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
   class(IP_ElementOptions1D),        intent(in)    :: ip_opt
   class(SchwarzOptions3D), optional, intent(in)    :: schwarz_opt
 
-  call Init_Base(this, mesh, ip_opt, schwarz_opt)
+  call Init_Base(this, mesh, ip_opt)
+  if (present(schwarz_opt)) then
+    this % schwarz = SchwarzOperator3D(schwarz_opt, this%eop, mesh, lambda,    &
+                                       nu, bc)
+  end if
+
   call SetProblem_VI(this, lambda, nu, bc)
 
 end subroutine Init_VI
