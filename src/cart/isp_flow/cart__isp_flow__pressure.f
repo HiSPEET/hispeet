@@ -47,7 +47,7 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
 end subroutine PressureSolver_IBC
 
 !-------------------------------------------------------------------------------
-!>  Pressure solver with implied boundary conditions
+!>  Pressure solver with consistent boundary conditions
 
 subroutine PressureSolver_CBC(problem, flow_op, F_v, t, p, w, i_max)
   class(FlowProblem),   intent(in)    :: problem         !< flow problem
