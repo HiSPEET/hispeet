@@ -7,6 +7,7 @@
 !===============================================================================
 module CART__Schwarz_Operator
   use Kind_Parameters, only: RNP
+  use Constants,       only: ZERO, ONE
   use Standard_Operators_1D
   use IP_Element_Operators_1D
   use XMPI
@@ -122,6 +123,17 @@ module CART__Schwarz_Operator
   !> To benefit from possible optimizations, this quasi-isotropic case is
   !> indicated by setting component `isotropic` to true.
 
+  !-----------------------------------------------------------------------------
+  !> Options for the 3D Schwarz operator
+
+  type SchwarzOptions3D
+    real(RNP) :: delta(3)  =  0.125 !< relative overlap
+    integer   :: no_min    = -1     !< min overlap in points
+    integer   :: weighting =  5     !< weighting method
+  contains
+    procedure :: Bcast => SchwarzOptions3D_Bcast
+  end type SchwarzOptions3D
+
   type SchwarzOperator3D
 
     ! 1D eigensystems ..........................................................
@@ -151,16 +163,26 @@ module CART__Schwarz_Operator
     integer,   allocatable :: cfg(:,:)       !< subdomain configurations
     real(RNP), allocatable :: D_inv(:,:,:,:) !< subdomain inverse 3D eigenvalues
 
+    ! variable for the SVV case ................................................
+
+    class(SchwarzOptions3D), allocatable :: opt ! options for the Schwarz operator
+    real(RNP) :: svv_ratio = ONE !< ν/(ν+νˢ), if this changes the Eigensystem
+                                 !! has to be built again
+
   contains
     private
 
-    generic, public :: Init_SchwarzOperator3D => Init_Base, Init_CI, Init_VI
+    generic, public :: Init_SchwarzOperator3D => Init_Base,   Init_CI,         &
+                                                 Init_CI_svv, Init_VI
     procedure :: Init_Base
     procedure :: Init_CI
+    procedure :: Init_CI_svv
     procedure :: Init_VI
 
-    generic, public :: SetProblem => SetProblem_CI, SetProblem_VI
+    generic, public :: SetProblem => SetProblem_CI, SetProblem_CI_svv,         &
+                                     SetProblem_VI
     procedure :: SetProblem_CI
+    procedure :: SetProblem_CI_svv
     procedure :: SetProblem_VI
 
   end type SchwarzOperator3D
@@ -169,19 +191,9 @@ module CART__Schwarz_Operator
   interface SchwarzOperator3D
     module procedure New_Base
     module procedure New_CI
+    module procedure New_CI_svv
     module procedure New_VI
   end interface
-
-  !-----------------------------------------------------------------------------
-  !> Options for the 3D Schwarz operator
-
-  type SchwarzOptions3D
-    real(RNP) :: delta(3)  =  0.125 !< relative overlap
-    integer   :: no_min    = -1     !< min overlap in points
-    integer   :: weighting =  5     !< weighting method
-  contains
-    procedure :: Bcast => SchwarzOptions3D_Bcast
-  end type SchwarzOptions3D
 
   !=============================================================================
   !> Interfaces to procedures for generating or updating Schwarz operators
@@ -270,6 +282,26 @@ function New_CI(opt, eop, mesh, lambda, nu, bc) result(this)
 end function New_CI
 
 !-------------------------------------------------------------------------------
+!> New Schwarz operator with a combination of constant isotropic diffusivity
+!> and constant isotropic spectral diffusivity
+
+function New_CI_svv(opt, eop, mesh, lambda, nu, nu_svv, bc) result(this)
+  class(SchwarzOptions3D),    intent(in) :: opt    !< Schwarz options
+  class(StandardOperators1D), intent(in) :: eop    !< 1D standard SE ops
+  class(MeshPartition),       intent(in) :: mesh   !< mesh partition
+  real(RNP),                  intent(in) :: lambda !< Helmholtz parameter
+  real(RNP),                  intent(in) :: nu     !< diffusivity
+  real(RNP),                  intent(in) :: nu_svv !< spectral diffusivity
+  character,                  intent(in) :: bc(:)  !< BC {'D','N'}
+
+  type(SchwarzOperator3D) :: this
+
+  this % opt = opt
+  call Init_CI_svv(this, opt, eop, mesh, lambda, nu, nu_svv, bc)
+
+end function New_CI_svv
+
+!-------------------------------------------------------------------------------
 !> New Schwarz operator with variable isotropic diffusivity
 
 function New_VI(opt, eop, mesh, lambda, nu, bc) result(this)
@@ -324,6 +356,27 @@ subroutine Init_CI(this, opt, eop, mesh, lambda, nu, bc)
 end subroutine Init_CI
 
 !-------------------------------------------------------------------------------
+!> Initialize Schwarz operator with a combination of a constant isotropic
+!> diffusivity and a constant isotropic spectral diffusivity
+
+subroutine Init_CI_svv(this, opt, eop, mesh, lambda, nu, nu_svv, bc)
+
+  class(SchwarzOperator3D),   intent(inout) :: this !< Schwarz operator
+  class(SchwarzOptions3D),    intent(in)    :: opt  !< Schwarz options
+  class(StandardOperators1D), intent(in)    :: eop  !< 1D standard SE ops
+  class(MeshPartition),       intent(in)    :: mesh !< mesh partition
+
+  real(RNP), intent(in) :: lambda    !< Helmholtz parameter
+  real(RNP), intent(in) :: nu        !< diffusivity
+  real(RNP), intent(in) :: nu_svv    !< spectral diffusivity
+  character, intent(in) :: bc(:)     !< BC {'D','N'}
+
+  call Init_Base(this, opt, eop)
+  call SetProblem_CI_svv(this, eop, mesh, lambda, nu, nu_svv, bc)
+
+end subroutine Init_CI_svv
+
+!-------------------------------------------------------------------------------
 !> Initialize Schwarz operator with variable isotropic diffusivity
 
 subroutine Init_VI(this, opt, eop, mesh, lambda, nu, bc)
@@ -358,6 +411,40 @@ subroutine SetProblem_CI(this, mesh, lambda, nu, bc)
   call BuildSubdomains_CI(this, mesh, lambda, nu, bc)
 
 end subroutine SetProblem_CI
+
+!-------------------------------------------------------------------------------
+!> (Re)Set problem parameters for constant isotropic viscosity
+
+subroutine SetProblem_CI_svv(this, eop, mesh, lambda, nu, nu_svv, bc)
+  class(SchwarzOperator3D),   intent(inout) :: this   !< Schwarz operator
+  class(StandardOperators1D), intent(in)    :: eop    !< 1D standard SE ops
+  class(MeshPartition),       intent(in)    :: mesh   !< mesh partition
+  real(RNP),                  intent(in)    :: lambda !< Helmholtz parameter
+  real(RNP),                  intent(in)    :: nu     !< diffusivity
+  real(RNP),                  intent(in)    :: nu_svv !< diffusivity
+  character,                  intent(in)    :: bc(:)  !< BC {'D','N'}
+
+  real(RNP) :: svv_ratio
+  
+  svv_ratio = nu / (nu + nu_svv)
+
+  ! if the ratio ν/(ν+νˢ) changed compared to the time where the Eigensystem was
+  ! built, the Eigensystem has to be built again
+  if (this%svv_ratio /= svv_ratio) then
+    this%svv_ratio = svv_ratio
+
+    select type(eop)
+    class is(IP_ElementOperators1D)
+      call BuildEigensystems_IP(this, eop, this%opt%delta, this%opt%no_min,    &
+                                this%opt%weighting)
+    end select
+  end if
+
+  ! use ν+νˢ as prefactor for the D_inv computation as this is the common
+  ! denominator due to the SVV ratio ν/(ν+νˢ)
+  call BuildSubdomains_CI(this, mesh, lambda, nu + nu_svv, bc)
+
+end subroutine SetProblem_CI_svv
 
 !-------------------------------------------------------------------------------
 !> (Re)Set problem parameters for variable isotropic viscosity

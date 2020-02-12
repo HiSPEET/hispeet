@@ -54,7 +54,8 @@ module subroutine SetProblem_CI_svv(this, lambda, nu, nu_svv, bc)
   this % bc        = bc
 
   if (allocated(this % schwarz)) then
-    write(*,*) "the Schwarz method does not work with SVV yet"
+    call this % schwarz % SetProblem(this%eop, this%mesh, lambda, nu, nu_svv,  &
+                                     bc)
   end if
 
 end subroutine SetProblem_CI_svv

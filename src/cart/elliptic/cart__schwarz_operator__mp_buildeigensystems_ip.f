@@ -88,7 +88,7 @@ module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
         bc(1) = boundary_type(i)
         k = i + num_boundary_types * (j - 1)
 
-        call GetSubdomainOperators( eop,                 &
+        call GetSubdomainOperators( eop, this%svv_ratio, &
                                     no = this%no(1),     &
                                     bc = bc,             &
                                     Ws = W1,             &
@@ -108,7 +108,7 @@ module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
 
         else
 
-          call GetSubdomainOperators( eop,                 &
+          call GetSubdomainOperators( eop, this%svv_ratio, &
                                       no = this%no(2),     &
                                       bc = bc,             &
                                       Ws = W2,             &
@@ -116,7 +116,7 @@ module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
                                       V  = this%V2(:,k),   &
                                       W  = this%W2(:,k)    )
 
-          call GetSubdomainOperators( eop,                 &
+          call GetSubdomainOperators( eop, this%svv_ratio, &
                                       no = this%no(3),     &
                                       bc = bc,             &
                                       Ws = W3,             &
@@ -148,8 +148,9 @@ end subroutine BuildEigensystems_IP
 !> eigenvectors and weights. The corresponding eigenvalues they are set `1` in
 !> order to avoid floating points exceptions when used as a divisor.
 
-subroutine GetSubdomainOperators(eop, no, bc, Ws, S, V, W)
+subroutine GetSubdomainOperators(eop, svv_ratio, no, bc, Ws, S, V, W)
   type(IP_ElementOperators1D), intent(in) :: eop !< IP-DG element operators
+  real(RNP),  intent(in)  :: svv_ratio    !< ν/(ν+νˢ)
   integer,    intent(in)  :: no           !< overlap
   character,  intent(in)  :: bc(2)        !< left/right boundary conditions
   real(RNP),  intent(in)  :: Ws(-no:)     !< standard weights
@@ -172,10 +173,12 @@ subroutine GetSubdomainOperators(eop, no, bc, Ws, S, V, W)
   allocate(Le_bc(0:po,0:po,-1:1))
 
   ! stiffness matrix for interior element, assuming dx=1
-  call eop % Get_StiffnessMatrix(dx, bc=ii, Le=Le_ii)
+  call eop % Get_DiffusionMatrix(dx, bc     = ii,              nu = svv_ratio, &
+                                     nu_svv = (ONE-svv_ratio), Ae = Le_ii      )
 
   ! stiffness matrix for given boundary conditions, assuming dx=1
-  call eop % Get_StiffnessMatrix(dx, bc=bc, Le=Le_bc)
+  call eop % Get_DiffusionMatrix(dx, bc     = bc,              nu = svv_ratio, &
+                                     nu_svv = (ONE-svv_ratio), Ae = Le_bc      )
 
   ! initialization: eigenvalues V set to 1 to avoid division by zero in
   ! in case of truncated overlap zones

@@ -85,7 +85,8 @@ allocate(this % eop, source = IP_ElementOperators1D(ip_opt))
 ! Schwarz method .............................................................
 
 if (present(schwarz_opt)) then
-write(*,*) "the Schwarz method does not work with SVV yet"
+  allocate(this % schwarz)
+  call this % schwarz % New(schwarz_opt, this%eop, mesh, lambda, nu, nu_svv, bc)
 end if
 
 end subroutine Init_CI_svv
