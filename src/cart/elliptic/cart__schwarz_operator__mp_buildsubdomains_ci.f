@@ -15,10 +15,11 @@ contains
 !-------------------------------------------------------------------------------
 !> Set subdomain configurations and inverse 3D eigenvalues: constant isotropic
 
-module subroutine BuildSubdomains_CI(this, mesh, lambda, bc)
+module subroutine BuildSubdomains_CI(this, mesh, lambda, nu, bc)
   class(SchwarzOperator3D), intent(inout) :: this   !< Schwarz operator
   class(MeshPartition),     intent(in)    :: mesh   !< mesh partition
   real(RNP),                intent(in)    :: lambda !< Helmholtz parameter
+  real(RNP),                intent(in)    :: nu     !< diffusivity
   character,                intent(in)    :: bc(:)  !< BC {'D','N'}
 
   character :: bc_face(size(bc))
@@ -80,11 +81,11 @@ module subroutine BuildSubdomains_CI(this, mesh, lambda, bc)
       do j = 1, n2
       do i = 1, n1
 
-        D_inv(i,j,k,e) = ONE / ( lambda * g0              &
-                               +  ( g1 * V1(i, cfg(1,e))  &
-                                  + g2 * V2(j, cfg(2,e))  &
-                                  + g3 * V3(k, cfg(3,e))  &
-                                  )                       &
+        D_inv(i,j,k,e) = ONE / ( lambda * g0                  &
+                               + nu * ( g1 * V1(i, cfg(1,e))  &
+                                      + g2 * V2(j, cfg(2,e))  &
+                                      + g3 * V3(k, cfg(3,e))  &
+                                      )                       &
                                )
       end do
       end do

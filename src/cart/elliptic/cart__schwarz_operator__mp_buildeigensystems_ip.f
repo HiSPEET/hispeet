@@ -18,16 +18,13 @@ contains
 !-------------------------------------------------------------------------------
 !> Build 1D Schwarz eigensystems for IP/DG-SEM
 
-module subroutine BuildEigensystems_IP(this, eop, nu, nu_svv, delta, no_min,   &
-                                       weighting)
+module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
 
   ! arguments ..................................................................
 
   class(SchwarzOperator3D),     intent(inout) :: this !< Schwarz operator
   class(IP_ElementOperators1D), intent(in)    :: eop  !< IP-DG SE operators
 
-  real(RNP),         intent(in) :: nu        !< diffusivity
-  real(RNP),         intent(in) :: nu_svv    !< spectral diffusivity
   real(RNP),         intent(in) :: delta(3)  !< relative overlap
   integer, optional, intent(in) :: no_min    !< min overlap in points [-1]
   integer, optional, intent(in) :: weighting !< weighting method      [ 5]
@@ -91,7 +88,7 @@ module subroutine BuildEigensystems_IP(this, eop, nu, nu_svv, delta, no_min,   &
         bc(1) = boundary_type(i)
         k = i + num_boundary_types * (j - 1)
 
-        call GetSubdomainOperators( eop, nu, nu_svv,     &
+        call GetSubdomainOperators( eop,                 &
                                     no = this%no(1),     &
                                     bc = bc,             &
                                     Ws = W1,             &
@@ -111,7 +108,7 @@ module subroutine BuildEigensystems_IP(this, eop, nu, nu_svv, delta, no_min,   &
 
         else
 
-          call GetSubdomainOperators( eop, nu, nu_svv,     &
+          call GetSubdomainOperators( eop,                 &
                                       no = this%no(2),     &
                                       bc = bc,             &
                                       Ws = W2,             &
@@ -119,7 +116,7 @@ module subroutine BuildEigensystems_IP(this, eop, nu, nu_svv, delta, no_min,   &
                                       V  = this%V2(:,k),   &
                                       W  = this%W2(:,k)    )
 
-          call GetSubdomainOperators( eop, nu, nu_svv,     &
+          call GetSubdomainOperators( eop,                 &
                                       no = this%no(3),     &
                                       bc = bc,             &
                                       Ws = W3,             &
@@ -151,10 +148,8 @@ end subroutine BuildEigensystems_IP
 !> eigenvectors and weights. The corresponding eigenvalues they are set `1` in
 !> order to avoid floating points exceptions when used as a divisor.
 
-subroutine GetSubdomainOperators(eop, nu, nu_svv, no, bc, Ws, S, V, W)
+subroutine GetSubdomainOperators(eop, no, bc, Ws, S, V, W)
   type(IP_ElementOperators1D), intent(in) :: eop !< IP-DG element operators
-  real(RNP),  intent(in)  :: nu           !< diffusivity
-  real(RNP),  intent(in)  :: nu_svv       !< spectral diffusivity
   integer,    intent(in)  :: no           !< overlap
   character,  intent(in)  :: bc(2)        !< left/right boundary conditions
   real(RNP),  intent(in)  :: Ws(-no:)     !< standard weights
@@ -163,8 +158,8 @@ subroutine GetSubdomainOperators(eop, nu, nu_svv, no, bc, Ws, S, V, W)
   real(RNP),  intent(out) :: W(-no:)      !< subdomain weights
 
   real(RNP), parameter   :: dx(-1:1) = ONE
-  real(RNP), allocatable :: Ae_ii(:,:,:), Ae_bc(:,:,:)
-  real(RNP), allocatable :: Ad(:,:), Md(:), Sd(:,:), vd(:)
+  real(RNP), allocatable :: Le_ii(:,:,:), Le_bc(:,:,:)
+  real(RNP), allocatable :: Ld(:,:), Md(:), Sd(:,:), vd(:)
 
   character, parameter :: ii(2) = [ ' ', ' ' ]
   integer :: po, np
@@ -173,14 +168,14 @@ subroutine GetSubdomainOperators(eop, nu, nu_svv, no, bc, Ws, S, V, W)
   po = eop%po
   np = po + 1
 
-  allocate(Ae_ii(0:po,0:po,-1:1))
-  allocate(Ae_bc(0:po,0:po,-1:1))
+  allocate(Le_ii(0:po,0:po,-1:1))
+  allocate(Le_bc(0:po,0:po,-1:1))
 
-  ! diffusion matrix for interior element, assuming dx=1
-  call eop % Get_DiffusionMatrix(dx, bc=ii, nu=nu, nu_svv=nu_svv, Ae=Ae_ii)
+  ! stiffness matrix for interior element, assuming dx=1
+  call eop % Get_StiffnessMatrix(dx, bc=ii, Le=Le_ii)
 
-  ! diffusion matrix for given boundary conditions, assuming dx=1
-  call eop % Get_DiffusionMatrix(dx, bc=bc, nu=nu, nu_svv=nu_svv, Ae=Ae_bc)
+  ! stiffness matrix for given boundary conditions, assuming dx=1
+  call eop % Get_StiffnessMatrix(dx, bc=bc, Le=Le_bc)
 
   ! initialization: eigenvalues V set to 1 to avoid division by zero in
   ! in case of truncated overlap zones
@@ -202,29 +197,29 @@ subroutine GetSubdomainOperators(eop, nu, nu_svv, no, bc, Ws, S, V, W)
       Md(  0:po   ) = HALF * Ms(     0:po   )
       Md( np:po+no) = HALF * Ms(     0:no-1 )
 
-      ! diffusion matrix .......................................................
+      ! stiffness matrix .......................................................
 
-      allocate(Ad(-no:po+no,-no:po+no), source = ZERO)
+      allocate(Ld(-no:po+no,-no:po+no), source = ZERO)
 
       ! lines from preceding element
-      Ad(-no:-1, -no:-1) = Ae_ii(np-no:po, np-no:po,  0)
-      Ad(-no:-1,   0:po) = Ae_ii(np-no:po,     0:po,  1)
+      Ld(-no:-1, -no:-1) = Le_ii(np-no:po, np-no:po,  0)
+      Ld(-no:-1,   0:po) = Le_ii(np-no:po,     0:po,  1)
 
       ! lines from present element
-      Ad(0:po, -no:-1   ) = Ae_ii(0:po, np-no:po  , -1)
-      Ad(0:po,   0:po   ) = Ae_ii(0:po,     0:po  ,  0)
-      Ad(0:po,  np:po+no) = Ae_ii(0:po,     0:no-1,  1)
+      Ld(0:po, -no:-1   ) = Le_ii(0:po, np-no:po  , -1)
+      Ld(0:po,   0:po   ) = Le_ii(0:po,     0:po  ,  0)
+      Ld(0:po,  np:po+no) = Le_ii(0:po,     0:no-1,  1)
 
       ! lines from following element
-      Ad(np:po+no,  0:po   ) = Ae_ii(0:no-1, 0:po  , -1)
-      Ad(np:po+no, np:po+no) = Ae_ii(0:no-1, 0:no-1,  0)
+      Ld(np:po+no,  0:po   ) = Le_ii(0:no-1, 0:po  , -1)
+      Ld(np:po+no, np:po+no) = Le_ii(0:no-1, 0:no-1,  0)
 
       ! eigenvectors and eigenvalues ...........................................
 
-      allocate(Sd, mold = Ad)
+      allocate(Sd, mold = Ld)
       allocate(vd, mold = Md)
 
-      call SolveGeneralizedEigenproblem(Ad, Md, vd, Sd)
+      call SolveGeneralizedEigenproblem(Ld, Md, vd, Sd)
 
       ! inject eigenvectors and eigenvalues
       S = Sd
@@ -242,15 +237,15 @@ subroutine GetSubdomainOperators(eop, nu, nu_svv, no, bc, Ws, S, V, W)
 
       allocate(Md(0:po), source = HALF * Ms)
 
-      ! diffusion matrix .......................................................
+      ! stiffness matrix .......................................................
 
-      allocate(Ad(0:po,0:po), source = Ae_bc(:,:,0))
+      allocate(Ld(0:po,0:po), source = Le_bc(:,:,0))
 
       ! eigenvectors and eigenvalues ...........................................
 
       allocate(Sd(0:po,0:po), vd(0:po))
 
-      call SolveGeneralizedEigenproblem(Ad, Md, vd, Sd)
+      call SolveGeneralizedEigenproblem(Ld, Md, vd, Sd)
 
       ! inject eigenvectors and eigenvalues
       S(0:po,0:po) = Sd
@@ -281,23 +276,23 @@ subroutine GetSubdomainOperators(eop, nu, nu_svv, no, bc, Ws, S, V, W)
       Md(  0:po   ) = HALF * Ms(     0:po   )
       Md( np:po+no) = HALF * Ms(     0:no-1 )
 
-      ! diffusion matrix .......................................................
+      ! stiffness matrix .......................................................
 
-      allocate(Ad(0:po+no,0:po+no), source = ZERO)
+      allocate(Ld(0:po+no,0:po+no), source = ZERO)
 
       ! lines from present element
-      Ad( 0:po,  0:po   ) = Ae_bc(0:po, 0:po  ,  0)
-      Ad( 0:po, np:po+no) = Ae_bc(0:po, 0:no-1,  1)
+      Ld( 0:po,  0:po   ) = Le_bc(0:po, 0:po  ,  0)
+      Ld( 0:po, np:po+no) = Le_bc(0:po, 0:no-1,  1)
 
       ! lines from following element
-      Ad(np:po+no,  0:po   ) = Ae_ii(0:no-1, 0:po  , -1)
-      Ad(np:po+no, np:po+no) = Ae_ii(0:no-1, 0:no-1,  0)
+      Ld(np:po+no,  0:po   ) = Le_ii(0:no-1, 0:po  , -1)
+      Ld(np:po+no, np:po+no) = Le_ii(0:no-1, 0:no-1,  0)
 
       ! eigenvectors and eigenvalues ...........................................
 
       allocate(Sd(0:po+no,0:po+no), vd(0:po+no))
 
-      call SolveGeneralizedEigenproblem(Ad, Md, vd, Sd)
+      call SolveGeneralizedEigenproblem(Ld, Md, vd, Sd)
 
       ! inject eigenvectors and eigenvalues
 
@@ -324,23 +319,23 @@ subroutine GetSubdomainOperators(eop, nu, nu_svv, no, bc, Ws, S, V, W)
       Md(-no:-1   ) = HALF * Ms( np-no:po   )
       Md(  0:po   ) = HALF * Ms(     0:po   )
 
-      ! diffusion matrix .......................................................
+      ! stiffness matrix .......................................................
 
-      allocate(Ad(-no:po,-no:po), source = ZERO)
+      allocate(Ld(-no:po,-no:po), source = ZERO)
 
       ! lines from preceding element
-      Ad(-no:-1, -no:-1) = Ae_ii(np-no:po, np-no:po,  0)
-      Ad(-no:-1,   0:po) = Ae_ii(np-no:po,     0:po,  1)
+      Ld(-no:-1, -no:-1) = Le_ii(np-no:po, np-no:po,  0)
+      Ld(-no:-1,   0:po) = Le_ii(np-no:po,     0:po,  1)
 
       ! lines from present element
-      Ad(0:po, -no:-1) = Ae_bc(0:po, np-no:po, -1)
-      Ad(0:po,   0:po) = Ae_bc(0:po,     0:po,  0)
+      Ld(0:po, -no:-1) = Le_bc(0:po, np-no:po, -1)
+      Ld(0:po,   0:po) = Le_bc(0:po,     0:po,  0)
 
       ! eigenvectors and eigenvalues ...........................................
 
       allocate(Sd(-no:po,-no:po), vd(-no:po))
 
-      call SolveGeneralizedEigenproblem(Ad, Md, vd, Sd)
+      call SolveGeneralizedEigenproblem(Ld, Md, vd, Sd)
 
       ! inject eigenvectors and eigenvalues
       S(-no:po,-no:po) = Sd
