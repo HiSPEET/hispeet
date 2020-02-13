@@ -296,7 +296,6 @@ function New_CI_svv(opt, eop, mesh, lambda, nu, nu_svv, bc) result(this)
 
   type(SchwarzOperator3D) :: this
 
-  this % opt = opt
   call Init_CI_svv(this, opt, eop, mesh, lambda, nu, nu_svv, bc)
 
 end function New_CI_svv
@@ -329,6 +328,7 @@ subroutine Init_Base(this, opt, eop)
   class(SchwarzOptions3D),    intent(in)    :: opt  !< Schwarz options
   class(StandardOperators1D), intent(in)    :: eop  !< 1D standard SE ops
 
+  this%opt = opt
   select type(eop)
   class is(IP_ElementOperators1D)
     call BuildEigensystems_IP(this, eop, opt%delta, opt%no_min, opt%weighting)

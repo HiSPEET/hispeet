@@ -71,6 +71,11 @@ module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
       call WeightDistribution(eop%x, this%no(2), k, W2)
       call WeightDistribution(eop%x, this%no(3), k, W3)
 
+      if (allocated(this%S1)) then
+        deallocate(this%S1, this%V1, this%W1)
+        deallocate(this%S2, this%V2, this%W2)
+        deallocate(this%S3, this%V3, this%W3)
+      end if
       allocate(this%S1(n1,n1,nc), this%V1(n1,nc), this%W1(n1,nc))
       allocate(this%S2(n2,n2,nc), this%V2(n2,nc), this%W2(n2,nc))
       allocate(this%S3(n3,n3,nc), this%V3(n3,nc), this%W3(n3,nc))
