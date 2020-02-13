@@ -49,6 +49,7 @@ module CART__Elliptic_PMG_Level
     procedure :: Init_CoarseLevel
 
     procedure :: SetTopLevelProblem_CI
+    procedure :: SetTopLevelProblem_CI_svv
     procedure :: SetTopLevelProblem_VI
     procedure :: SetCoarseProblem
 
@@ -171,6 +172,22 @@ subroutine SetTopLevelProblem_CI(this, lambda, nu, bc)
   call GetWorkspace(this)
 
 end subroutine SetTopLevelProblem_CI
+
+!-------------------------------------------------------------------------------
+!> Initialize top-level problem with a combination of a constant isotropic
+!> diffusivity and a constant isotropic spectral diffusivity
+
+subroutine SetTopLevelProblem_CI_svv(this, lambda, nu, nu_svv, bc)
+  class(PMG_Level), intent(inout) :: this
+  real(RNP),        intent(in)    :: lambda !< Helmholtz parameter
+  real(RNP),        intent(in)    :: nu     !< diffusivity
+  real(RNP),        intent(in)    :: nu_svv !< spectral diffusivity
+  character,        intent(in)    :: bc(:)  !< boundary conditions
+
+  call this % elliptic_op % SetProblem(lambda, nu, nu_svv, bc)
+  call GetWorkspace(this)
+
+end subroutine SetTopLevelProblem_CI_svv
 
 !-------------------------------------------------------------------------------
 !> Initialize top-level problem with variable isotropic diffusivity

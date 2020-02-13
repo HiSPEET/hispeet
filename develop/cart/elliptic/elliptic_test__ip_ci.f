@@ -299,7 +299,11 @@ program Elliptic_Test__IP_CI
   select case(method)
   case(3,4)
     pmg = PMG_Method3D(mesh, ip_opt, pmg_opt)
-    call pmg % SetProblem(lambda, nu, bc)
+    if (svv) then
+      call pmg % SetProblem(lambda, nu, nu_svv, bc)
+    else
+      call pmg % SetProblem(lambda, nu,         bc)
+    end if
   end select
 
   if (rank == 0) then
