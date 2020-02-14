@@ -53,8 +53,11 @@ module subroutine Init_IP( this, mesh, ip_opt, pmg_opt )
                                         schwarz_opt, po(l-1)              )
     end do
 
-    call level(0) % Init_CoarseLevel( po(0), ns1, ns2, this%level(1), &
-                                      schwarz_opt                     )
+    if (l_top > 0) then
+      call level(0) % Init_CoarseLevel( po(0), ns1, ns2, this%level(1), &
+                                        schwarz_opt                     )
+    end if
+
   end associate
 
 end subroutine Init_IP
