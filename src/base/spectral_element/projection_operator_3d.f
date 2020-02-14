@@ -66,7 +66,7 @@ subroutine Project_S(this, uq, up)
   real(RNP), intent(in)  :: uq(:,:,:,:) !< mesh variable at quadrature points
   real(RNP), intent(out) :: up(:,:,:,:) !< projected mesh variable
 
-  call TPO_AAA_Eval(this%np, this%nq, size(uq,4), this%A, uq, up)
+  call TPO_AAA_Eval(this%np, this%nq, size(uq,4), this%MA, uq, up)
 
 end subroutine Project_S
 
@@ -78,7 +78,7 @@ subroutine Project_A(this, uq, up)
   real(RNP), intent(in)  :: uq(:,:,:,:,:) !< mesh variable at quadrature points
   real(RNP), intent(out) :: up(:,:,:,:,:) !< projected mesh variable
 
-  call TPO_AAA_Eval(this%np, this%nq, size(uq,4)*size(uq,5), this%A, uq, up)
+  call TPO_AAA_Eval(this%np, this%nq, size(uq,4)*size(uq,5), this%MA, uq, up)
 
 end subroutine Project_A
 
