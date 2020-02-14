@@ -34,9 +34,6 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
   real(RNP), intent(in)  :: u(np,np,np,ne)  !< operand
   real(RNP), intent(out) :: v(np,np,np,ne)  !< result
 
-
-!######################### REWRITE STARTING FROM HERE ##########################
-
   !-----------------------------------------------------------------------------
   ! local variables
 
@@ -138,6 +135,7 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
 
     ! direction 2 ..............................................................
 
+    !$acc loop collapse(3) independent vector
     do k = 1, np
     do j = 1, np
     do i = 1, np
@@ -165,6 +163,7 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
 
     ! direction 3 ..............................................................
 
+    !$acc loop collapse(3) independent vector
     do k = 1, np
     do j = 1, np
     do i = 1, np

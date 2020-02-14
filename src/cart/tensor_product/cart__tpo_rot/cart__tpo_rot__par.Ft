@@ -32,16 +32,13 @@ subroutine CART__TPO_Rot__<tag>(np, ne, Ds, dx, u, v)
   !-----------------------------------------------------------------------------
   ! local variables
 
-  real(RNP), allocatable :: Dt(:,:)
+  real(RNP) :: Dt(<np>,<np>)
   real(RNP) :: g(3)
 
   integer :: e, i, j
 
   !-----------------------------------------------------------------------------
   ! initialization
-
-  ! workspace
-  allocate(Dt(np,np))
 
   ! transposed 1D standard diff matrix
   do j = 1, <np>

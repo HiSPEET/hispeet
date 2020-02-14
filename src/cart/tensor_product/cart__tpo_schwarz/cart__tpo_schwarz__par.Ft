@@ -42,7 +42,10 @@ subroutine CART__TPO_Schwarz__<tag>( n1, n2, n3, nc, nd, S1, S2, S3, &
   ! local variables
 
   real(RNP), parameter :: ONE = 1
-  real(RNP), dimension(:,:,:), allocatable :: WS1_t, WS2_t, WS3_t, y, z
+  real(RNP) :: WS1_t(<n1>,<n1>,nc)
+  real(RNP) :: WS2_t(<n2>,<n2>,nc)
+  real(RNP) :: WS3_t(<n3>,<n3>,nc)
+  real(RNP) :: y(<n1>,<n2>,<n3>), z(<n1>,<n2>,<n3>)
 
   integer :: i, j, l
   integer :: c, c1, c2, c3
@@ -50,7 +53,6 @@ subroutine CART__TPO_Schwarz__<tag>( n1, n2, n3, nc, nd, S1, S2, S3, &
   !-----------------------------------------------------------------------------
   ! initialization
 
-  allocate(WS1_t(n1,n1,nc))
   do c = 1, nc
   do j = 1, <n1>
   do i = 1, <n1>
@@ -59,7 +61,6 @@ subroutine CART__TPO_Schwarz__<tag>( n1, n2, n3, nc, nd, S1, S2, S3, &
   end do
   end do
 
-  allocate(WS2_t(n2,n2,nc))
   do c = 1, nc
   do j = 1, <n2>
   do i = 1, <n2>
@@ -68,7 +69,6 @@ subroutine CART__TPO_Schwarz__<tag>( n1, n2, n3, nc, nd, S1, S2, S3, &
   end do
   end do
 
-  allocate(WS3_t(n3,n3,nc))
   do c = 1, nc
   do j = 1, <n3>
   do i = 1, <n3>
@@ -76,8 +76,6 @@ subroutine CART__TPO_Schwarz__<tag>( n1, n2, n3, nc, nd, S1, S2, S3, &
   end do
   end do
   end do
-
-  allocate(y(n1, n2, n3), z(n1, n2, n3))
 
   !-----------------------------------------------------------------------------
   ! evaluation

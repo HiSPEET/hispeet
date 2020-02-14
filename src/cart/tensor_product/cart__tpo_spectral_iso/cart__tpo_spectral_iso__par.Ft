@@ -32,8 +32,8 @@ subroutine CART__TPO_Spectral_Iso__<tag>(na, ne, A, Lambda, u, v)
   !-----------------------------------------------------------------------------
   ! local variables
 
-  real(RNP), parameter   :: ONE = 1
-  real(RNP), allocatable :: A_t(:,:), y(:,:,:), z(:,:,:)
+  real(RNP), parameter :: ONE = 1
+  real(RNP) :: A_t(<na>,<na>), y(<na>,<na>,<na>), z(<na>,<na>,<na>)
 
   integer :: e, i, j
 
@@ -42,17 +42,11 @@ subroutine CART__TPO_Spectral_Iso__<tag>(na, ne, A, Lambda, u, v)
 
   ! transposed 1D operators ....................................................
 
-  allocate(A_t(na, na))
-
   do j = 1, <na>
   do i = 1, <na>
     A_t(j,i) = A(i,j)
   end do
   end do
-
-  ! workspace ..................................................................
-
-  allocate(y(na, na, na), z(na, na, na))
 
   !-----------------------------------------------------------------------------
   ! evaluation

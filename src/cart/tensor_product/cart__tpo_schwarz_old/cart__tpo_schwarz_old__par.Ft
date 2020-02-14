@@ -41,8 +41,8 @@ subroutine CART__TPO_Schwarz_Old__<tag>( ns, nc, ne, S, V1, V2, V3, W, &
   !-----------------------------------------------------------------------------
   ! local variables
 
-  real(RNP), parameter   :: ONE = 1
-  real(RNP), allocatable :: WS_t(:,:,:), z(:,:,:)
+  real(RNP), parameter :: ONE = 1
+  real(RNP) :: WS_t(<ns>,<ns>,nc), z(<ns>,<ns>,<ns>)
   real(RNP) :: g0, g1, g2, g3
   real(RNP) :: d0, d1, d2, d3
 
@@ -51,8 +51,6 @@ subroutine CART__TPO_Schwarz_Old__<tag>( ns, nc, ne, S, V1, V2, V3, W, &
 
   !-----------------------------------------------------------------------------
   ! initialization
-
-  allocate(WS_t(ns,ns,nc), z(ns,ns,ns))
 
   ! transposed 1D operator
   do c = 1, nc

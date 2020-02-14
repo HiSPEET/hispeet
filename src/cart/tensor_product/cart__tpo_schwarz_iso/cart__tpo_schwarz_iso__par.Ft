@@ -35,16 +35,14 @@ subroutine CART__TPO_Schwarz_Iso__<tag>(ns, nc, nd, S, W, cfg, D_inv, f, u)
   !-----------------------------------------------------------------------------
   ! local variables
 
-  real(RNP), parameter   :: ONE = 1
-  real(RNP), allocatable :: WS_t(:,:,:), y(:,:,:), z(:,:,:)
+  real(RNP), parameter :: ONE = 1
+  real(RNP) :: WS_t(<ns>,<ns>,nc), y(<ns>,<ns>,<ns>), z(<ns>,<ns>,<ns>)
 
   integer :: i, j, l
   integer :: c, c1, c2, c3
 
   !-----------------------------------------------------------------------------
   ! initialization
-
-  allocate(WS_t(ns,ns,nc), y(ns,ns,ns), z(ns,ns,ns))
 
   ! transposed 1D operator
   do c = 1, nc
