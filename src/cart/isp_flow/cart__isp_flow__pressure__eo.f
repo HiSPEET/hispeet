@@ -15,7 +15,7 @@ module CART__ISP_Flow__Pressure__EO
   use ISP_Flow_Problem
   use CART__Mesh_Partition
   use CART__Boundary_Variable
-  use CART__Weak_Divergence
+  use CART__DG_Weak_Divergence
   use CART__Elliptic_PMG
   use CART__ISP_Flow__Boundary_Values
   use CART__ISP_Flow__Operators
@@ -76,8 +76,8 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
     call WeakDivergence(mesh, eop%w, eop%D, v_i, div_v)   ! div_v = ∇·ṽ
     call TPO_sDDD_Eval(np, ne, g, eop%w, div_v, f)        ! f = -M div_v
 
-!?!   call GetImpliedBC(problem, mesh, dt, v_i, flow_op%bv_u)
-!?!   call pmg % BcToRHS(flow_op%bv_u, 4, f)
+    call GetImpliedBC(problem, mesh, dt, v_i, flow_op%bv_u)
+    call pmg % BcToRHS(flow_op%bv_u, 4, f)
 
     ! pressure .................................................................
 
@@ -85,7 +85,7 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
 
     ! monitoring
     !$omp single
-    if (flow_op % monitor_level > 0 .and. mesh % part == 0) then
+    if (flow_op % control % monitor > 0 .and. mesh % part == 0) then
       print '(4X,A,I4,A,ES9.2)', 'pressure  p:    ni =', ni, ', ‖r‖ =', r_2
     end if
     !$omp end single
@@ -249,7 +249,7 @@ subroutine PressureSolver_CBC(problem, flow_op, F_v, t, p, w, i_max)
 
     ! monitoring
     !$omp single
-    if (flow_op % monitor_level > 0 .and. mesh % part == 0) then
+    if (flow_op % control % monitor > 0 .and. mesh % part == 0) then
       print '(4X,A,I4,A,ES9.2)', 'pressure  p:    ni =', ni, ', ‖r‖ =', r_2
     end if
     !$omp end single

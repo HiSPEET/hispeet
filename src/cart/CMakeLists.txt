@@ -73,8 +73,8 @@ file(GLOB SPECTRAL_ELEMENT spectral_element/*.f)
 set(OPERATORS operators/cart__assembly_operator.f
               operators/cart__trace_operator.f
               operators/cart__normal_trace_operator.f
-              operators/cart__weak_gradient.f
-              operators/cart__weak_divergence.f
+              operators/cart__dg_weak_gradient.f
+              operators/cart__dg_weak_divergence.f
               )
 
 #===============================================================================
@@ -126,6 +126,7 @@ set(ISP_FLOW isp_flow/cart__isp_flow__boundary_values.f
              isp_flow/cart__isp_flow__pressure__eo.f
              isp_flow/cart__isp_flow__pressure__mo.f
              isp_flow/cart__isp_flow__pressure.f
+             isp_flow/cart__isp_flow__projection.f
              isp_flow/cart__isp_flow__euler.f
              isp_flow/cart__isp_flow__sdc.f
              )

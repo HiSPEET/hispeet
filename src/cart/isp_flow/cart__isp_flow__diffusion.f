@@ -25,7 +25,7 @@ contains
 !-------------------------------------------------------------------------------
 !>  Diffusion step
 
-subroutine DiffusionStep(problem, flow_op, dt, f, u, w, nu)
+subroutine DiffusionStep(problem, flow_op, dt, f, u, w, nu, i_max)
 
   ! arguments ..................................................................
 
@@ -36,6 +36,7 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w, nu)
   real(RNP),               intent(inout) :: u(:,:,:,:,:)   !< solution
   real(RNP),               intent(inout) :: w(:,:,:,:,:)   !< workspace
   real(RNP),     optional, intent(in)    :: nu(:,:,:,:,:)  !< diffusivities
+  integer,       optional, intent(in)    :: i_max          !< max num iterations
 
   ! local variables ............................................................
 
@@ -76,11 +77,11 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w, nu)
       call pmg % BcToRHS(flow_op%bv_u, c, fc)
 
       ! solve
-      call pmg % MG_CG_Solver(u(:,:,:,:,c), fc, ni, r_2)
+      call pmg % MG_CG_Solver(u(:,:,:,:,c), fc, ni, r_2, i_max)
 
       ! monitoring
       !$omp single
-      if (flow_op % monitor_level > 0 .and. mesh % part == 0) then
+      if (flow_op % control % monitor > 0 .and. mesh % part == 0) then
         print '(4X,A,I0,A,I4,A,ES9.2)', &
               'diffusion u[',c,']: ni =', ni, ', ‖r‖ =',r_2
       end if

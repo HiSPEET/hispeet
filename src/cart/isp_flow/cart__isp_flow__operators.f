@@ -10,6 +10,8 @@ module CART__ISP_Flow__Operators
 
   use Kind_Parameters,           only: RNP
   use Constants,                 only: ZERO, ONE
+  use XMPI
+
   use Standard_Operators_1D
   use IP_Element_Operators_1D
   use Embedded_Interpolation_3D
@@ -27,6 +29,35 @@ module CART__ISP_Flow__Operators
   private
 
   public :: FlowOperators
+  public :: FlowOpControl
+
+  !-----------------------------------------------------------------------------
+  !>
+
+  type FlowOpControl
+
+    real(RNP) :: chi           = -2.0    !< factor of ∇[ν∇·v] such that with
+                                         !! constant viscosity
+                                         !!   χ = -2.   ⟺ ∇·τ = -ν∇×∇×v
+                                         !!   χ = -1.   ⟺ ∇·τ = ν∇²v
+                                         !!   χ = -2./3 ⟺ ∇·τ = ν(∇²v + ∇∇·v/3)
+
+    integer   :: div_penalty   =  0      !< divergence penalty type
+                                         !!   0: no div penalty
+                                         !!   1: penalty scales with viscosity
+                                         !!   2: penalty scales with (Δx/P)²/Δt
+    real(RNP) :: div_coeff     =  10     !< divergence penalty coefficient
+    real(RNP) :: div_r_red     =  1E-10  !< min divergence residual reduction
+    integer   :: div_i_max     =  20     !< max num div correction iterations
+    logical   :: div_final     = .false. !< perform final projection step
+
+    integer   :: monitor       =  0      !< no, basic or full monitoring {0,1,2}
+
+  contains
+
+    procedure ::  Bcast => FlowOpControl_Bcast
+
+  end type FlowOpControl
 
   !-----------------------------------------------------------------------------
   !>
@@ -55,7 +86,7 @@ module CART__ISP_Flow__Operators
     type(PMG_Method3D) :: pmg_u !< p-MG/element operators for u \ p
     type(PMG_Method3D) :: pmg_p !< p-MG/element operators for p
 
-    integer :: monitor_level = 0 !< no, essential or full monitoring {0,1,2}
+    type(FlowOpControl) :: control !< control parameters
 
   contains
 
@@ -71,6 +102,31 @@ module CART__ISP_Flow__Operators
 contains
 
 !-------------------------------------------------------------------------------
+!>
+
+subroutine FlowOpControl_Bcast(this, root, comm)
+  class(FlowOpControl), intent(inout) :: this
+  integer,              intent(in)    :: root !< rank of broadcast root
+  type(MPI_Comm),       intent(in)    :: comm !< MPI communicator
+
+  type(MPI_Request) :: request(7)
+  type(MPI_Status)  :: stat(size(request))
+  integer :: n
+
+  n = 1
+  call XMPI_Ibcast( this % chi           , root, comm, request(n) );  n = n + 1
+  call XMPI_Ibcast( this % div_penalty   , root, comm, request(n) );  n = n + 1
+  call XMPI_Ibcast( this % div_coeff     , root, comm, request(n) );  n = n + 1
+  call XMPI_Ibcast( this % div_r_red     , root, comm, request(n) );  n = n + 1
+  call XMPI_Ibcast( this % div_i_max     , root, comm, request(n) );  n = n + 1
+  call XMPI_Ibcast( this % div_final     , root, comm, request(n) );  n = n + 1
+  call XMPI_Ibcast( this % monitor       , root, comm, request(n) )
+
+  call MPI_Waitall(n, request, stat)
+
+end subroutine FlowOpControl_Bcast
+
+!-------------------------------------------------------------------------------
 !> Constructor
 
 function New_FlowOperators( problem                    &
@@ -78,7 +134,7 @@ function New_FlowOperators( problem                    &
                           , po_u, po_p, po_q, penalty  &
                           , pmg_u_opt                  &
                           , pmg_p_opt                  &
-                          , monitor_level              &
+                          , control                    &
                           ) result(this)
 
   type(FlowOperators) :: this
@@ -91,12 +147,12 @@ function New_FlowOperators( problem                    &
   integer,   intent(in) :: po_q    !< order for quadrature of nonlinear terms
   real(RNP), intent(in) :: penalty !< penalty parameter op SIP method > 1
 
-  class(PMG_Options3D), intent(in) :: pmg_u_opt     !< PMG options for u
-  class(PMG_Options3D), intent(in) :: pmg_p_opt     !< PMG options for p
-  integer,    optional, intent(in) :: monitor_level !< monitor level [0] {0,1,2}
+  class(PMG_Options3D), intent(in) :: pmg_u_opt !< PMG options for u
+  class(PMG_Options3D), intent(in) :: pmg_p_opt !< PMG options for p
+  class(FlowOpControl), intent(in) :: control   !< control parameters
 
   call Init_FlowOperators( this, problem, mesh, po_u, po_p, po_q, penalty, &
-                           pmg_u_opt, pmg_p_opt, monitor_level             )
+                           pmg_u_opt, pmg_p_opt, control                   )
 
 end function New_FlowOperators
 
@@ -109,7 +165,7 @@ subroutine Init_FlowOperators( this                       &
                              , po_u, po_p, po_q, penalty  &
                              , pmg_u_opt                  &
                              , pmg_p_opt                  &
-                             , monitor_level              &
+                             , control                    &
                              )
 
   ! arguments ..................................................................
@@ -129,7 +185,7 @@ subroutine Init_FlowOperators( this                       &
   class(PMG_Options3D), intent(in) :: pmg_p_opt !< options for p
 
   ! control
-  integer, optional, intent(in) :: monitor_level !< monitor level [0] {0,1,2}
+  class(FlowOpControl), intent(in) :: control   !< control parameters
 
   ! local variables ............................................................
 
@@ -178,12 +234,12 @@ subroutine Init_FlowOperators( this                       &
     this % iop_uq = InterpolationOperator3D( this%eop_u, this%eop_q%x )
   end if
 
-  if (present(monitor_level)) this % monitor_level = monitor_level
+  this % control = control
 
   ! control output .............................................................
 
   !$omp single
-  if (this%monitor_level > 0 .and. mesh%part == 0) then
+  if (control%monitor > 0 .and. mesh%part == 0) then
     associate( pl_u => this % pmg_u % level % po &
              , pl_p => this % pmg_p % level % po )
 

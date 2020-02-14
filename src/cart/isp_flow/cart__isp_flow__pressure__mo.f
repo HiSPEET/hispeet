@@ -10,11 +10,12 @@ module CART__ISP_Flow__Pressure__MO
 
   use Kind_Parameters, only: RNP
   use Constants,       only: ONE
+  use Array_Assignments
   use TPO_sDDD
   use ISP_Flow_Problem
   use CART__Mesh_Partition
   use CART__Boundary_Variable
-  use CART__Weak_Divergence
+  use CART__DG_Weak_Divergence
   use CART__Elliptic_PMG
   use CART__ISP_Flow__Boundary_Values
   use CART__ISP_Flow__Operators
@@ -48,13 +49,13 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
 
   ! local variables  ...........................................................
 
-  real(RNP), pointer, contiguous, save :: v(:,:,:,:,:) ! ṽ         @ po_p
-  real(RNP), pointer, contiguous, save :: q(:,:,:,:)   ! pressure  @ po_p
-  real(RNP), pointer, contiguous, save :: f(:,:,:,:)   ! RHS       @ po_p
-  type(BoundaryVariable), allocatable, save :: bv_q(:) ! boundary values for q
+  real(RNP), pointer, contiguous, save :: div_v(:,:,:,:) ! pressure  @ po_p
+  real(RNP), pointer, contiguous, save :: f(:,:,:,:)     ! RHS       @ po_p
+  real(RNP), pointer, contiguous, save :: q(:,:,:,:)     ! pressure  @ po_p
+  type(BoundaryVariable), allocatable, save :: bv_q(:)   ! boundary values for q
 
-  real(RNP) :: g, r_2
-  integer   :: pq, ne, ni, nq
+  real(RNP) :: r_2
+  integer   :: pq, pv, ne, ni
   integer   :: b
 
   if (present(i_max)) then
@@ -62,7 +63,8 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
   end if
 
   associate( mesh   => flow_op % mesh      &
-           , eop_p  => flow_op % eop_p     &
+           , eop_u  => flow_op % eop_u     &
+           , pop_up => flow_op % pop_up    &
            , iop_up => flow_op % iop_up    &
            , iop_pu => flow_op % iop_pu    &
            , pmg    => flow_op % pmg_p     &
@@ -72,7 +74,7 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
     ! preliminaries ............................................................
 
     pq = flow_op % po_p
-    nq = pq + 1
+    pv = flow_op % po_u
     ne = mesh%ne
 
     !$omp single
@@ -87,15 +89,14 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
 
     !$omp end single
 
-    g = -product(mesh%dx) / (8 * dt)
+    ! f = -∫ψ(∇·ṽ)dx / ∆t
+    call WeakDivergence(mesh, eop_u%w, eop_u%D, v_i, div_v) ! q = ∇·ṽ
 
-    ! f = ∇·I(ṽ) / ∆t, I - interpolation to pressure space
-    call iop_up % Apply(v_i, v)                         ! v = I(ṽ)
-    call WeakDivergence(mesh, eop_p%w, eop_p%D, v, q)   ! q = ∇·v
-    call TPO_sDDD_Eval(nq, ne, g, eop_p%w, q, f)        ! f = -M q / ∆t
+    call ScaleArray(div_v, -ONE/dt)
+    call pop_up % Apply(div_v, f)
 
     ! compute and apply boundary conditions
-    call GetImpliedBC(problem, mesh, iop_up%A, dt, v_i, flow_op%bv_u, bv_q)
+    call GetImpliedBC(problem, mesh, pop_up%A, dt, v_i, flow_op%bv_u, bv_q)
     call pmg % BcToRHS(bv_q, 1, f)
 
     ! interpolate initial values from p to q
@@ -108,7 +109,7 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
 
     ! monitoring
     !$omp single
-    if (flow_op % monitor_level > 0 .and. mesh % part == 0) then
+    if (flow_op % control % monitor > 0 .and. mesh % part == 0) then
       print '(4X,A,I4,A,ES9.2)', 'pressure  p:    ni =', ni, ', ‖r‖ =', r_2
     end if
     !$omp end single
@@ -120,7 +121,7 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
 
     !$omp barrier
     !$omp master
-    nullify(v, q, f)
+    nullify(div_v, f, q)
     deallocate(bv_q)
     !$omp end master
 
@@ -131,9 +132,9 @@ contains
   subroutine AssignWorkspace(l, w)
     integer, intent(in) :: l
     real(RNP), target   :: w(l)
-    f(0:pq, 0:pq, 0:pq, 1:ne)      => w(1:)
-    v(0:pq, 0:pq, 0:pq, 1:ne, 1:3) => w(1:)
-    q(0:pq, 0:pq, 0:pq, 1:ne)      => w(1 + size(v):)
+    div_v (0:pv, 0:pv, 0:pv, 1:ne) => w(1:)
+    f     (0:pq, 0:pq, 0:pq, 1:ne) => w(1 + size(div_v):)
+    q     (0:pq, 0:pq, 0:pq, 1:ne) => w(1 + size(div_v) + size(f):)
   end subroutine AssignWorkspace
 
 end subroutine PressureSolver_IBC
@@ -325,7 +326,7 @@ subroutine PressureSolver_CBC(problem, flow_op, F_v, t, p, w, i_max)
 
     ! monitoring
     !$omp single
-    if (flow_op % monitor_level > 0 .and. mesh % part == 0) then
+    if (flow_op % control % monitor > 0 .and. mesh % part == 0) then
       print '(4X,A,I4,A,ES9.2)', 'pressure  p:    ni =', ni, ', ‖r‖ =', r_2
     end if
     !$omp end single

@@ -14,7 +14,7 @@ module CART__ISP_Flow__SDC
   use Array_Assignments
   use XMPI
   use ISP_Flow_Problem
-  use CART__Weak_Gradient
+  use CART__DG_Weak_Gradient
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Pressure
   use CART__ISP_Flow__Time_Derivative
@@ -74,7 +74,7 @@ module CART__ISP_Flow__SDC
     !---------------------------------------------------------------------------
     !> Single-step time integration, optionally returning the time derivative
 
-    subroutine Propagator(problem, flow_op, t, dt, u_0, u, F, G, S)
+    subroutine Propagator(problem, flow_op, t, dt, u_0, u, F, H, S)
       import
 
       class(FlowProblem),   intent(in)    :: problem !< flow problem
@@ -84,13 +84,13 @@ module CART__ISP_Flow__SDC
       real(RNP),            intent(in)    :: u_0     !< solution u(t)
       real(RNP),            intent(inout) :: u       !< solution u(t+dt)
       real(RNP),  optional, intent(out)   :: F       !< ∂u/∂t(t+dt)
-      real(RNP),  optional, intent(inout) :: G       !< δu/δt(t) → δu/δt(t+dt)
+      real(RNP),  optional, intent(inout) :: H       !< δu/δt(t) → δu/δt(t+dt)
       real(RNP),  optional, intent(in)    :: S       !< ∫∂u/dt over (t,t+dt)
 
       dimension :: u_0 (:,:,:,:,:)
       dimension :: u   (:,:,:,:,:)
       dimension :: F   (:,:,:,:,:)
-      dimension :: G   (:,:,:,:,:)
+      dimension :: H   (:,:,:,:,:)
       dimension :: S   (:,:,:,:,:)
 
     end subroutine Propagator
@@ -265,7 +265,7 @@ subroutine TimeStep( sdc, problem, flow_op, t, dt, u, F, first, last)
 
   ! local variables  ...........................................................
 
-  real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: ui, Fi, Gi, Si
+  real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: ui, Fi, Hi, Si
   real(RNP), dimension(:),           allocatable, save :: ti, dti
 
   real(RNP) :: tau
@@ -290,7 +290,7 @@ subroutine TimeStep( sdc, problem, flow_op, t, dt, u, F, first, last)
                         , u_0   = ui(:,:,:,:,:,m-1)     &
                         , u     = ui(:,:,:,:,:,m  )     &
                         , F     = Fi(:,:,:,:,:,m  )     &
-                        , G     = Gi(:,:,:,:,:,m  )     )
+                        , H     = Hi(:,:,:,:,:,m  )     )
   end do
 
   ! SDC iterations .............................................................
@@ -309,7 +309,7 @@ subroutine TimeStep( sdc, problem, flow_op, t, dt, u, F, first, last)
                           , u_0   = ui(:,:,:,:,:,m-1)     &
                           , u     = ui(:,:,:,:,:,m  )     &
                           , F     = Fi(:,:,:,:,:,m  )     &
-                          , G     = Gi(:,:,:,:,:,m  )     &
+                          , H     = Hi(:,:,:,:,:,m  )     &
                           , S     = Si(:,:,:,:,:,m  )     )
     end do
 
@@ -346,7 +346,7 @@ contains
       allocate( dti(  ni                  ) )
       allocate(  ui(  np,np,np,ne,nc,0:ni ) )
       allocate(  Fi(  np,np,np,ne,nc,0:ni ) )
-      allocate(  Gi(  np,np,np,ne,nc,1:ni ) )
+      allocate(  Hi(  np,np,np,ne,nc,1:ni ) )
       allocate(  Si(  np,np,np,ne,nc,1:ni ) )
       !$omp end single
       !$acc enter data create(ui, Fi, Si)
@@ -360,7 +360,7 @@ contains
     do i = 1, ni
       call SetArray(ui(:,:,:,:,:,i), ZERO, multi=.true.)
       call SetArray(Fi(:,:,:,:,:,i), ZERO, multi=.true.)
-      call SetArray(Gi(:,:,:,:,:,i), ZERO, multi=.true.)
+      call SetArray(Hi(:,:,:,:,:,i), ZERO, multi=.true.)
       call SetArray(Si(:,:,:,:,:,i), ZERO, multi=.true.)
     end do
 
@@ -371,14 +371,14 @@ contains
 
   subroutine FreeWorkspace()
 
-    !$acc exit data delete(ui, Fi, Gi, Si)
+    !$acc exit data delete(ui, Fi, Hi, Si)
     !$omp barrier
     !$omp master
     deallocate(  ti )
     deallocate( dti )
     deallocate(  ui )
     deallocate(  Fi )
-    deallocate(  Gi )
+    deallocate(  Hi )
     deallocate(  Si )
     !$omp end master
 
