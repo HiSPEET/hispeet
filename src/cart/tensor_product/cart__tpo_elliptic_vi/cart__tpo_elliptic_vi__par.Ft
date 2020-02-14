@@ -1,0 +1,137 @@
+!> summary:  Parametrized elliptic element operator with variable diffusivity
+!> author:   Joerg Stiller
+!> date:     2017/06/22
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Parametrized elliptic element operator with variable diffusivity
+!===============================================================================
+
+#define __NA__    <np>
+#define __NA_T2__ <np_t2>
+#define __NA_T4__ <np_t4>
+#define __NA_T8__ <np_t8>
+
+subroutine CART__TPO_Elliptic_VI__<tag>(np, ne, Ms, Ds, lambda, nu, dx, u, v)
+
+  !-----------------------------------------------------------------------------
+  ! modules
+
+  use Kind_Parameters,  only: RNP
+  implicit none
+
+  !-----------------------------------------------------------------------------
+  ! arguments
+
+  integer,   intent(in)  :: np                    !< points per direction
+  integer,   intent(in)  :: ne                    !< number of elements
+  real(RNP), intent(in)  :: Ms(<np>)              !< 1D standard mass matrix
+  real(RNP), intent(in)  :: Ds(<np>,<np>)         !< 1D standard diff matrix
+  real(RNP), intent(in)  :: lambda                !< Helmholtz parameter
+  real(RNP), intent(in)  :: nu(<np>,<np>,<np>,ne) !< diffusivity
+  real(RNP), intent(in)  :: dx(3)                 !< element extensions
+  real(RNP), intent(in)  :: u(<np>,<np>,<np>,ne)  !< operand
+  real(RNP), intent(out) :: v(<np>,<np>,<np>,ne)  !< result
+
+  real(RNP) :: M(<np>,<np>,<np>), M_u(<np>,<np>,<np>), z(<np>,<np>,<np>)
+  real(RNP) :: Ms_Ds(<np>,<np>), Msi_Dst(<np>,<np>)
+
+  real(RNP) :: g(3), tmp
+
+  integer :: e, i, j, k
+
+  !-----------------------------------------------------------------------------
+  ! initialization
+
+  ! element mass matrix
+  tmp = product(dx) / 8
+  do k = 1, <np>
+  do j = 1, <np>
+  do i = 1, <np>
+    M(i,j,k) = tmp * Ms(k) * Ms(j) * Ms(i)
+  end do
+  end do
+  end do
+
+  ! modified differentiation operators
+  do j = 1, <np>
+  do i = 1, <np>
+    Ms_Ds   (i,j) = Ms(i) * Ds(i,j)  ! = Ms Ds     =  [ (Ms Ds)ᵀ ]ᵀ
+    Msi_Dst (i,j) = Ds(j,i) / Ms(i)  ! = Ms⁻¹ Dsᵀ  =  [  Ds Ms⁻¹ ]ᵀ
+  end do
+  end do
+
+  ! coefficients
+  g = 2 / dx
+
+  !-----------------------------------------------------------------------------
+  ! evaluation
+
+  !$acc data present(u,v) copyin(g, M, Ms_Ds, Msi_Dst) async
+  !$acc parallel num_workers(<num_workers>) vector_length(<vec_length>) async
+  !$acc loop gang worker private(M_u)
+
+  !$omp do private(e)
+  do e = 1, ne
+
+    call SubOp_0(lambda, M, u(:,:,:,e), M_u, v(:,:,:,e))
+
+    call SubOp_1id(g(1), Msi_Dst, nu(:,:,:,e), M_u, z)
+    call SubOp_1a (g(1), Ms_Ds, z, v(:,:,:,e))
+
+    call SubOp_2id(g(2), Msi_Dst, nu(:,:,:,e), M_u, z)
+    call SubOp_2a (g(2), Ms_Ds, z, v(:,:,:,e))
+
+    call SubOp_3id(g(3), Msi_Dst, nu(:,:,:,e), M_u, z)
+    call SubOp_3a (g(3), Ms_Ds, z, v(:,:,:,e))
+
+  end do
+  !$omp end do
+
+  !$acc end parallel
+  !$acc end data
+
+contains
+
+  !-----------------------------------------------------------------------------
+  !> Projection to element mass matrix and computation of the Helmholtz term
+  !>
+  !>   * k:  joined with i,j and flattened  (f)
+  !>   * j:  joined with i,k and flattened  (f)
+  !>   * i:  joined with j,k and flattened  (f)
+
+  subroutine SubOp_0(lambda, M, u, M_u, v)
+    !$acc routine vector
+    real(RNP), intent(in)  :: lambda
+    real(RNP), intent(in)  :: M   (<np>**3)
+    real(RNP), intent(in)  :: u   (<np>**3)
+    real(RNP), intent(out) :: M_u (<np>**3)
+    real(RNP), intent(out) :: v   (<np>**3)
+
+    integer :: l
+
+    !$acc loop vector
+    !DIR$ SIMD
+    do l = 1, <np>**3
+      M_u(l) = M(l) * u(l)
+      v(l) = lambda * M_u(l)
+    end do
+
+  end subroutine SubOp_0
+
+#include "<SubOp_1id>"
+#include "<SubOp_1a>"
+
+#include "<SubOp_2id>"
+#include "<SubOp_2a>"
+
+#include "<SubOp_3id>"
+#include "<SubOp_3a>"
+
+!===============================================================================
+
+end subroutine CART__TPO_Elliptic_VI__<tag>
+
+#undef __NA__
+#undef __NA_T2__
+#undef __NA_T4__
+#undef __NA_T8__

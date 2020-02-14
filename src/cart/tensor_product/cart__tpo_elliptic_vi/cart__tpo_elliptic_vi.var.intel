@@ -1,0 +1,34 @@
+# INTEL
+# --------------------------------------------------
+# np,  SubOp_1  ,  SubOp_2  ,  SubOp_3
+   4,  4x4      ,  lu4ll_r  ,  u4ffb4_r
+   5,  llb4u4_r ,  lu4ll_r  ,  u4ffb4_r
+   6,  llb4u4_r ,  lu4ll_r  ,  u4ffb4_r
+   7,  llb4u4_r ,  lu4ll_r  ,  u4ffb4_r
+   8,  8x8      ,  lu4ll_r  ,  u4ffb4_r
+   9,  llb4u4_r ,  lu4ll_r  ,  u4ffb4_r
+  10,  llb4u4_r ,  lu4ll_r  ,  u4ffb4_r
+  11,  llb4u4_r ,  lu4ll_r  ,  u4ffb4_r
+  12,  12x12    ,  lu4lb4_r ,  u4ffb4_r
+  13,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  14,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  15,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  16,  16x16    ,  lu4lb4_r ,  u4ffb4_r
+  17,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  18,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  19,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  20,  20x20    ,  lu4lb4_r ,  u4ffb4_r
+  21,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  22,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  23,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  24,  24x24    ,  lu4lb4_r ,  u4ffb4_r
+  25,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  26,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  27,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  28,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  29,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  30,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  31,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  32,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+  33,  llb4u4_r ,  lu4lb4_r ,  u4ffb4_r
+#
