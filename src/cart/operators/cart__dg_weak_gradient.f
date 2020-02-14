@@ -1,16 +1,16 @@
-!> summary:  Weak divergence of a vector field
+!> summary:  Weak gradient of a vector field
 !> author:   Joerg Stiller
-!> date:     2018/03/26
+!> date:     2018/03/28
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Weak divergence of a vector field
+!>### Weak gradient of a vector field
 !===============================================================================
 
-module CART__Weak_Divergence
+module CART__DG_Weak_Gradient
 
   use Kind_Parameters, only: RNP
   use Standard_Operators_1D
-  use CART__TPO_Div
+  use CART__TPO_Grad
   use CART__Mesh_Partition
   use CART__Boundary_Variable
   use CART__Trace_Operator
@@ -18,48 +18,48 @@ module CART__Weak_Divergence
   implicit none
   private
 
-  public :: WeakDivergence
+  public :: WeakGradient
 
-  interface WeakDivergence
-    module procedure WeakDivergence_B
-    module procedure WeakDivergence_O
+  interface WeakGradient
+    module procedure WeakGradient_B
+    module procedure WeakGradient_O
   end interface
 
 contains
 
 !-------------------------------------------------------------------------------
-!> Weak divergence of a vector field on discontinuous elements - with BC
+!> Weak gradient of a scalar field on discontinuous elements - with BC
 
-subroutine WeakDivergence_B(mesh, Ms, Ds, u, bv_u, div_u)
-  class(MeshPartition),    intent(in)  :: mesh           !< mesh partition
-  real(RNP),               intent(in)  :: Ms(:)          !< std mass matrix
-  real(RNP),               intent(in)  :: Ds(:,:)        !< std diff matrix
-  real(RNP),               intent(in)  :: u(:,:,:,:,:)   !< vector field
-  class(BoundaryVariable), intent(in)  :: bv_u(:)        !< BC
-  real(RNP),               intent(out) :: div_u(:,:,:,:) !< weak divergence
+subroutine WeakGradient_B(mesh, Ms, Ds, u, bv_u, grad_u)
+  class(MeshPartition),    intent(in)  :: mesh              !< mesh partition
+  real(RNP),               intent(in)  :: Ms(:)             !< std mass matrix
+  real(RNP),               intent(in)  :: Ds(:,:)           !< std diff matrix
+  real(RNP),               intent(in)  :: u(:,:,:,:)        !< scalar field
+  class(BoundaryVariable), intent(in)  :: bv_u(:)           !< BC
+  real(RNP),               intent(out) :: grad_u(:,:,:,:,:) !< weak gradient
 
-  call WeakDivergence_X(mesh, size(Ms)-1, size(u,4), Ms, Ds, u, bv_u, div_u)
+  call WeakGradient_X(mesh, size(Ms)-1, size(u,4), Ms, Ds, u, bv_u, grad_u)
 
-end subroutine WeakDivergence_B
-
-!-------------------------------------------------------------------------------
-!> Weak divergence of a vector field on discontinuous elements - open (no BC)
-
-subroutine WeakDivergence_O(mesh, Ms, Ds, u, div_u)
-  class(MeshPartition), intent(in)  :: mesh           !< mesh partition
-  real(RNP),            intent(in)  :: Ms(:)          !< std mass matrix
-  real(RNP),            intent(in)  :: Ds(:,:)        !< std diff matrix
-  real(RNP),            intent(in)  :: u(:,:,:,:,:)   !< vector field
-  real(RNP),            intent(out) :: div_u(:,:,:,:) !< weak divergence
-
-  call WeakDivergence_X(mesh, size(Ms)-1, size(u,4), Ms, Ds, u, null(), div_u)
-
-end subroutine WeakDivergence_O
+end subroutine WeakGradient_B
 
 !-------------------------------------------------------------------------------
-!> Weak divergence of a vector field on discontinuous elements - eXplicit
+!> Weak gradient of a scalar field on discontinuous elements - open (no BC)
 
-subroutine WeakDivergence_X(mesh, po, ne, Ms, Ds, u, bv_u, div_u)
+subroutine WeakGradient_O(mesh, Ms, Ds, u, grad_u)
+  class(MeshPartition), intent(in)  :: mesh              !< mesh partition
+  real(RNP),            intent(in)  :: Ms(:)             !< std mass matrix
+  real(RNP),            intent(in)  :: Ds(:,:)           !< std diff matrix
+  real(RNP),            intent(in)  :: u(:,:,:,:)        !< scalar field
+  real(RNP),            intent(out) :: grad_u(:,:,:,:,:) !< weak gradient
+
+  call WeakGradient_X(mesh, size(Ms)-1, size(u,4), Ms, Ds, u, null(), grad_u)
+
+end subroutine WeakGradient_O
+
+!-------------------------------------------------------------------------------
+!> Weak gradient of a scalar field on discontinuous elements - eXplicit
+
+subroutine WeakGradient_X(mesh, po, ne, Ms, Ds, u, bv_u, grad_u)
 
   ! arguments ..................................................................
 
@@ -74,16 +74,16 @@ subroutine WeakDivergence_X(mesh, po, ne, Ms, Ds, u, bv_u, div_u)
   !> std diff matrix
   real(RNP), intent(in) :: Ds(0:po, 0:po)
   !> vector field
-  real(RNP), intent(in) :: u(0:po, 0:po, 0:po, ne, 3)
+  real(RNP), intent(in) :: u(0:po, 0:po, 0:po, ne)
   !> boundary conditions for u
   class(BoundaryVariable), optional, intent(in) :: bv_u(mesh%n_boundary)
-  !> weak divergence of u
-  real(RNP), intent(out) :: div_u(0:po, 0:po, 0:po, ne)
+  !> weak gradient of u
+  real(RNP), intent(out) :: grad_u(0:po, 0:po, 0:po, ne, 3)
 
   ! internal variables .........................................................
 
   type(TraceOperator), allocatable, save :: trace_op
-  real(RNP), allocatable, save :: tr_u(:,:,:,:,:)
+  real(RNP), allocatable, save :: tr_u(:,:,:,:)
   real(RNP), allocatable, save :: Dm(:,:)
   real(RNP) :: g
 
@@ -94,7 +94,7 @@ subroutine WeakDivergence_X(mesh, po, ne, Ms, Ds, u, bv_u, div_u)
 
   !$omp single
   allocate(trace_op)
-  allocate(tr_u(0:po, 0:po, 2, mesh%nf, 3))
+  allocate(tr_u(0:po, 0:po, 2, mesh%nf))
   allocate(Dm(0:po,0:po))
   !$omp end single
 
@@ -112,9 +112,9 @@ subroutine WeakDivergence_X(mesh, po, ne, Ms, Ds, u, bv_u, div_u)
     call trace_op % GetTrace_Start(mesh, u, tr_u, tag)
   end if
 
-  ! compute transposed divergence ..............................................
+  ! compute transposed gradient ..............................................
 
-  call TPO_Div_Eval(po+1, mesh%ne, Dm, mesh%dx, u, div_u)
+  call TPO_Grad_Eval(po+1, mesh%ne, Dm, mesh%dx, u, grad_u)
 
   ! complete transfer ..........................................................
 
@@ -136,8 +136,8 @@ subroutine WeakDivergence_X(mesh, po, ne, Ms, Ds, u, bv_u, div_u)
         i = po
         do k = 0, po
         do j = 0, po
-          div_u(i,j,k,e) = div_u(i,j,k,e) &
-                         + g * (tr_u(j,k,1,f,c) + tr_u(j,k,2,f,c))
+          grad_u(i,j,k,e,c) = grad_u(i,j,k,e,c) &
+                            + g * (tr_u(j,k,1,f) + tr_u(j,k,2,f))
         end do
         end do
       end if
@@ -147,8 +147,8 @@ subroutine WeakDivergence_X(mesh, po, ne, Ms, Ds, u, bv_u, div_u)
         i = 0
         do k = 0, po
         do j = 0, po
-          div_u(i,j,k,e) = div_u(i,j,k,e) &
-                         - g * (tr_u(j,k,1,f,c) + tr_u(j,k,2,f,c))
+          grad_u(i,j,k,e,c) = grad_u(i,j,k,e,c) &
+                            - g * (tr_u(j,k,1,f) + tr_u(j,k,2,f))
         end do
         end do
       end if
@@ -169,8 +169,8 @@ subroutine WeakDivergence_X(mesh, po, ne, Ms, Ds, u, bv_u, div_u)
         j = po
         do k = 0, po
         do i = 0, po
-          div_u(i,j,k,e) = div_u(i,j,k,e) &
-                         + g * (tr_u(i,k,1,f,c) + tr_u(i,k,2,f,c))
+          grad_u(i,j,k,e,c) = grad_u(i,j,k,e,c) &
+                            + g * (tr_u(i,k,1,f) + tr_u(i,k,2,f))
         end do
         end do
       end if
@@ -180,8 +180,8 @@ subroutine WeakDivergence_X(mesh, po, ne, Ms, Ds, u, bv_u, div_u)
         j = 0
         do k = 0, po
         do i = 0, po
-          div_u(i,j,k,e) = div_u(i,j,k,e) &
-                         - g * (tr_u(i,k,1,f,c) + tr_u(i,k,2,f,c))
+          grad_u(i,j,k,e,c) = grad_u(i,j,k,e,c) &
+                            - g * (tr_u(i,k,1,f) + tr_u(i,k,2,f))
         end do
         end do
       end if
@@ -202,8 +202,8 @@ subroutine WeakDivergence_X(mesh, po, ne, Ms, Ds, u, bv_u, div_u)
         k = po
         do j = 0, po
         do i = 0, po
-          div_u(i,j,k,e) = div_u(i,j,k,e) &
-                         + g * (tr_u(i,j,1,f,c) + tr_u(i,j,2,f,c))
+          grad_u(i,j,k,e,c) = grad_u(i,j,k,e,c) &
+                            + g * (tr_u(i,j,1,f) + tr_u(i,j,2,f))
         end do
         end do
       end if
@@ -213,8 +213,8 @@ subroutine WeakDivergence_X(mesh, po, ne, Ms, Ds, u, bv_u, div_u)
         k = 0
         do j = 0, po
         do i = 0, po
-          div_u(i,j,k,e) = div_u(i,j,k,e) &
-                         - g * (tr_u(i,j,1,f,c) + tr_u(i,j,2,f,c))
+          grad_u(i,j,k,e,c) = grad_u(i,j,k,e,c) &
+                            - g * (tr_u(i,j,1,f) + tr_u(i,j,2,f))
         end do
         end do
       end if
@@ -232,8 +232,8 @@ subroutine WeakDivergence_X(mesh, po, ne, Ms, Ds, u, bv_u, div_u)
   deallocate(trace_op)
   !$omp end master
 
-end subroutine WeakDivergence_X
+end subroutine WeakGradient_X
 
 !===============================================================================
 
-end module CART__Weak_Divergence
+end module CART__DG_Weak_Gradient
