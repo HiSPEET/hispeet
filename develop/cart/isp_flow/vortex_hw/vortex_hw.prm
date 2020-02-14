@@ -1,0 +1,13 @@
+&parameters
+  stokes = F
+  nu = 0.025
+
+! translation
+  vt = 0.00, 0.00, 0.00    ! standing vortex
+! vt = 1.00, 0.25, 0.00    ! traveling vortex
+
+! boundary conditions
+  bc(:,1:3) = 18*'D'       ! Dirichlet
+! bc(:,1:3) = 18*'P'       ! periodic case
+/
+

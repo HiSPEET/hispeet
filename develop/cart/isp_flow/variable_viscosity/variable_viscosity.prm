@@ -1,0 +1,8 @@
+&parameters
+  stokes = F
+  test_case = 1
+  nu_0 = 1.0
+  nu_1 = 1.0
+
+! bc(:,1:3) = 18*'D'
+/

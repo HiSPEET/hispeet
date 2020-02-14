@@ -2,19 +2,37 @@
 ! 'vortex_tg' 'vortex_hw' 'stokes_dkm' 'stokes_gms'
   flow_type     =  'vortex_tg'
   flow_case     =  'vortex_tg'
-  compute_p     =  T
+  compute_p     =  F
   write_stat    =  T
-  write_vtk     =  T
-  monitor_level =  0
+  write_vtk     =  F
+!
+  flow_op_control%chi            = -2     ! [-2.0]
+  flow_op_control%f_d3           =  0     ! [0]
+!
+  flow_op_control%div_penalty    =  1     ! [1]
+  flow_op_control%div_coeff      =  1     ! [1]
+  flow_op_control%div_i_max      =  10    ! [10]
+! flow_op_control%div_final      =  T     ! [F]
+!
+! flow_op_control%n_outer        =  4     ! [-1]
+! flow_op_control%n_inner        = -1     ! [-1]
+!
+  flow_op_control%sdc_diffusion  =  2     ! [1]
+  flow_op_control%sdc_pressure   =  1     ! [0]
+  flow_op_control%sdc_lo_op      =  2     ! [2]
+  flow_op_control%sdc_div_pen    =  0     ! [0]
+!
+! flow_op_control%monitor        =  0
+/
 /
 
 &discretization
   np   =  1,1,1
   ep   =  4,4,1
-  po_u =  12
-  po_p =  12
-! po_q =  19
-  penalty = 2
+  po_u =  10
+  po_p =   9
+  po_q =  16
+  penalty = 20
   adjust_dx = T
 /
 
@@ -47,14 +65,14 @@
 &time_integration
 !
 ! time stepping
-  t_end  = 0.5
+  t_end  = 0.25
   dt     = 0.002
  !c_conv = 1.0
  !c_diff = 100
-  nt_max = 1 !00000
+  nt_max = 10 !0000
 !
 ! SDC
-  sdc_opt%n_sub   =  0
-  sdc_opt%n_sweep =  6
+  sdc_opt%n_sub   =  3
+  sdc_opt%n_sweep =  2
 /
 

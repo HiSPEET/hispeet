@@ -17,6 +17,7 @@ program ISP_Flow__SDC_Test
   use Array_Assignments
   use Array_Reductions
   use Standard_Operators_1D
+  use Execution_Control
   use Export_Volume_Data_To_VTK
   use XMPI
 
@@ -25,8 +26,8 @@ program ISP_Flow__SDC_Test
   use CART__TPO_Rot
   use CART__Mesh_Partition
   use CART__Generate_Structured_Mesh
-  use CART__Weak_Divergence
-  use CART__Weak_Gradient
+  use CART__DG_Weak_Divergence
+  use CART__DG_Weak_Gradient
   use CART__Elliptic_PMG
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Time_Derivative
@@ -55,10 +56,10 @@ program ISP_Flow__SDC_Test
   logical :: compute_p  = .false.   ! recompute p at the end of time step
   logical :: write_stat = .false.   ! evaluate+print solution metrics each step
   logical :: write_vtk  = .false.   ! export results to VTK file
-  integer :: monitor_level = 0      ! no/essential/full monitoring (0/1/2)
+  type(FlowOpControl) :: flow_op_control
 
   namelist /control/ flow_type, flow_case, compute_p, write_stat, write_vtk, &
-                     monitor_level
+                     flow_op_control
 
   ! discretization parameters ..................................................
 
@@ -87,12 +88,10 @@ program ISP_Flow__SDC_Test
   real(RNP) :: c_conv = -1           ! max Courant number   (< 0 if unlimited)
   real(RNP) :: c_diff = -1           ! max diffusion number (< 0 if unlimited)
   integer   :: nt_max = -1           ! max number of time steps
-  integer   :: propagator = 1        ! Euler VC|PC {1|2}
 
   type(SDC_Options3D) :: sdc_opt
 
-  namelist /time_integration/ t_end, dt, c_conv, c_diff, nt_max, &
-                              propagator, sdc_opt
+  namelist /time_integration/ t_end, dt, c_conv, c_diff, nt_max, sdc_opt
 
   ! flow problem ...............................................................
 
@@ -108,7 +107,7 @@ program ISP_Flow__SDC_Test
   ! operators ..................................................................
 
   type(FlowOperators) :: flow_op
-  type(SDC_Method3D) :: sdc
+  type(SDC_Method3D)  :: sdc
 
   ! variables ..................................................................
 
@@ -118,9 +117,9 @@ program ISP_Flow__SDC_Test
   ! solution variables !!! those listed in one line share storage !!!
   real(RNP), dimension(:,:,:,:,:), pointer, contiguous :: &
     u,            & ! approximate solution
-    u_e, u_0,     & ! exact | initial solution
-    err_u, w,     & ! error | workspace
-    F, rot_v        ! F(u)  | div(v), rot(v)
+    u_e, u_0,     & ! exact / initial solution
+    err_u, w,     & ! error / workspace
+    F, nu, rot_v    ! F(u)  / nu / rot(v), div(v)
 
   ! additional scalar variables
   real(RNP), dimension(:,:,:,:), pointer, contiguous :: &
@@ -171,12 +170,12 @@ program ISP_Flow__SDC_Test
   end if
 
   ! control parameters
-  call XMPI_Bcast(flow_type     , 0, comm)
-  call XMPI_Bcast(flow_case     , 0, comm)
-  call XMPI_Bcast(compute_p     , 0, comm)
-  call XMPI_Bcast(write_stat    , 0, comm)
-  call XMPI_Bcast(write_vtk     , 0, comm)
-  call XMPI_Bcast(monitor_level , 0, comm)
+  call XMPI_Bcast(flow_type   , 0, comm)
+  call XMPI_Bcast(flow_case   , 0, comm)
+  call XMPI_Bcast(compute_p   , 0, comm)
+  call XMPI_Bcast(write_stat  , 0, comm)
+  call XMPI_Bcast(write_vtk   , 0, comm)
+  call flow_op_control % Bcast( 0, comm)
 
   ! discretization and time integration parameters
   call XMPI_Bcast(np            , 0, comm)
@@ -186,7 +185,6 @@ program ISP_Flow__SDC_Test
   call XMPI_Bcast(po_q          , 0, comm)
   call XMPI_Bcast(penalty       , 0, comm)
   call XMPI_Bcast(adjust_dx     , 0, comm)
-  call XMPI_Bcast(propagator    , 0, comm)
 
   ! elliptic solver parameters
   call pmg_u_opt % Bcast(0, comm)
@@ -198,18 +196,20 @@ program ISP_Flow__SDC_Test
   ! flow problem ...............................................................
 
   select case(flow_type)
-  case('Stokes_DKM', 'stokes_dkm')
-    allocate(FlowProblem_Stokes_DKM :: problem)
-  case('Stokes_GMS', 'stokes_gms')
-    allocate(FlowProblem_Stokes_GMS :: problem)
-  case('Vortex_HW', 'vortex_hw')
-    allocate(FlowProblem_Vortex_HW  :: problem)
-  case('Vortex_TG', 'vortex_tg')
-    allocate(FlowProblem_Vortex_TG  :: problem)
-  case('VortexSheet', 'vortexsheet')
-    allocate(FlowProblem_VortexSheet :: problem)
+  case('Stokes_DKM')
+    allocate(FlowProblem_Stokes_DKM        :: problem)
+  case('Stokes_GMS')
+    allocate(FlowProblem_Stokes_GMS        :: problem)
+  case('Vortex_HW')
+    allocate(FlowProblem_Vortex_HW         :: problem)
+  case('Vortex_TG')
+    allocate(FlowProblem_Vortex_TG         :: problem)
+  case('VortexSheet')
+    allocate(FlowProblem_VortexSheet       :: problem)
+  case('VariableViscosity')
+    allocate(FlowProblem_VariableViscosity :: problem)
   case default
-    allocate(FlowProblem_Vortex_HW  :: problem)
+    allocate(FlowProblem_Vortex_HW         :: problem)
   end select
 
   call problem % SetProblem(flow_case, comm)
@@ -238,16 +238,11 @@ program ISP_Flow__SDC_Test
                          , po_u, po_p, po_q, penalty  &
                          , pmg_u_opt                  &
                          , pmg_p_opt                  &
-                         , monitor_level              &
+                         , flow_op_control            &
                          )
 
   if (sdc_opt % n_sub > 0) then
-    select case(propagator)
-    case(2)
-      sdc = SDC_Method3D(EulerPC, EulerPC, sdc_opt)
-    case default
-      sdc = SDC_Method3D(EulerVC, EulerVC, sdc_opt)
-    end select
+    sdc = SDC_Method3D(EulerVC, EulerVC, sdc_opt)
   end if
 
   ! variables and initial values ...............................................
@@ -287,7 +282,6 @@ program ISP_Flow__SDC_Test
     else
       call SetArray(u_0, u, multi=.true.)
       call EulerVC(problem, flow_op, t, dt, u_0, u)
-     !call EulerPC(problem, flow_op, t, dt, u_0, u)
     end if
 
     if (compute_p) then
@@ -301,17 +295,27 @@ program ISP_Flow__SDC_Test
 
   end do
 
-  call Evaluation()
+  if (.not. failed) then
+    call Evaluation(last=.true.)
+  else if (rank == 0) then
+    !$omp master
+    write(*,'(A)') 'failed'
+    !$omp end master
+  end if
 
   !-----------------------------------------------------------------------------
   ! Export results
 
-  ! compute rot(v)
-  call TPO_Rot_Eval(size(u,1), size(u,4), flow_op%eop_u%D, mesh%dx, u, rot_v)
-
-  !$omp barrier
-  !$omp master
   if (write_vtk .and. mesh%part >= 0) then
+
+    !$omp barrier
+    !$omp master
+
+    ! viscosity
+    call problem % GetDiffusivity(flow_op%x, t, u, nu)
+
+    ! rot(v), overrides all but first component of nu
+    call TPO_Rot_Eval(size(u,1), size(u,4), flow_op%eop_u%D, mesh%dx, u, rot_v)
 
     call ExportVolumeDataToVTK( po_u                 & ! polynomial order
                               , mesh%ne              & ! number of elements
@@ -400,32 +404,35 @@ subroutine InitializeMeshVariables()
   ! workspace
   w(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+nc)
 
-  ! time derivative and vorticity ..............................................
+  ! time derivative, diffusivity, vorticity and divergence .....................
+
+  ! ATTENTION !!!  F, nu and rot_v share memory !!!
 
   i = i + nc
   F(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+nc)
 
+  ! viscosity !!! only first component will be exported !!!
+  nu(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+nc)
+  name_var(i+1) = 'nu_1'
+
   ! vorticity
-  rot_v(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+3)
-  name_var(i+1) = 'rot(v)_1'
-  name_var(i+2) = 'rot(v)_2'
-  name_var(i+3) = 'rot(v)_3'
-
-  ! additional variables .......................................................
-
-  i = i + nc
+  rot_v(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+2:i+4)
+  name_var(i+2) = 'rot(v)_1'
+  name_var(i+3) = 'rot(v)_2'
+  name_var(i+4) = 'rot(v)_3'
 
   ! divergence
-  div_v(0:, 0:, 0:, 1:) => var(:,:,:,:,i+1)
-  name_var(i+1) = 'div(v)'
+  div_v(0:, 0:, 0:, 1:) => var(:,:,:,:,i+5)
+  name_var(i+5) = 'div(v)'
 
 end subroutine InitializeMeshVariables
 
 !-------------------------------------------------------------------------------
 !> Evaluation of the approximate solution
 
-subroutine Evaluation(failed)
+subroutine Evaluation(failed, last)
   logical, optional, intent(out) :: failed
+  logical, optional, intent(in)  :: last
 
   ! local variables ............................................................
 
@@ -435,6 +442,7 @@ subroutine Evaluation(failed)
   real(RNP) :: e_kin, e_kin_loc
 
   logical   :: head = .true.
+  logical   :: failed_
   integer   :: n = 0, n_loc = 0
   integer   :: e, i, j, k
 
@@ -532,30 +540,54 @@ subroutine Evaluation(failed)
       write(*,'(A,I0)') '# n_sweep = ', sdc % n_sweep
       write(*,'(A)')    '#'
 
-      write(*,'(9(A12,1X))')               &
-        '#     t      ' , '     dt      ', &
-        '  err_v_max  ' , '  err_v_rms  ', &
-        '  err_p_max  ' , '  err_p_rms  ', &
-        '  div_v_max  ' , '  div_v_rms  ', &
-        '    e_kin    '
+      write(*,'( A,  6X )',advance='NO') '#'
+      write(*,'( A, 11X )',advance='NO') 't'
+      write(*,'( A, 11X )',advance='NO') 'dt'
+      write(*,'( A, 11X )',advance='NO') 'dx'
+      write(*,'( A, 11X )',advance='NO') 'dy'
+      write(*,'( A,  7X )',advance='NO') 'dz'
+      write(*,'( A,  3X )',advance='NO') 'po'
+      write(*,'( A,  3X )',advance='NO') 'err_v_max'
+      write(*,'( A,  3X )',advance='NO') 'err_v_rms'
+      write(*,'( A,  3X )',advance='NO') 'err_p_max'
+      write(*,'( A,  3X )',advance='NO') 'err_p_rms'
+      write(*,'( A,  3X )',advance='NO') 'div_v_max'
+      write(*,'( A,  4X )',advance='NO') 'div_v_rms'
+      write(*,'( A,  3X )',advance='NO') 'e_kin'
+      write(*,*)
 
       head = .false.
     end if
 
-    write(*,'(9(ES12.5,1X))') &
-      t, dt,                  &
-      err_v_max, err_v_rms,   &
-      err_p_max, err_p_rms,   &
-      div_v_max, div_v_rms,   &
-      e_kin
+    write(*,'(ES12.5,1X)',advance='NO') t
+    write(*,'(ES12.5,1X)',advance='NO') dt
+    write(*,'(ES12.5,1X)',advance='NO') dx(1)
+    write(*,'(ES12.5,1X)',advance='NO') dx(2)
+    write(*,'(ES12.5,1X)',advance='NO') dx(3)
+    write(*,'(I4    ,1X)',advance='NO') po_u
+    write(*,'(ES11.4,1X)',advance='NO') err_v_max
+    write(*,'(ES11.4,1X)',advance='NO') err_v_rms
+    write(*,'(ES11.4,1X)',advance='NO') err_p_max
+    write(*,'(ES11.4,1X)',advance='NO') err_p_rms
+    write(*,'(ES11.4,1X)',advance='NO') div_v_max
+    write(*,'(ES11.4,1X)',advance='NO') div_v_rms
+    write(*,'(ES12.5,1X)',advance='NO') e_kin
+    if (present(last)) then
+      if (last) write(*,'(A)') ' #last#'
+    end if
+    write(*,*)
+
   end if
-  !$omp end master
+
+
+ !$omp end master
 
   ! check for fatal errors .....................................................
 
-  !$omp single
+  !$omp master
   if (present(failed)) then
-    failed = err_v_rms > 10 * problem%v_ref .or. ieee_is_nan(err_v_rms)
+    failed_ = err_v_max > problem%v_ref .or. ieee_is_nan(err_v_rms)
+    call XMPI_Allreduce(failed_, failed, MPI_LOR, mesh%comm)
   end if
   !$omp end single
 

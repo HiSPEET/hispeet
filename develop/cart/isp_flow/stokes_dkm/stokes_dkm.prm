@@ -1,5 +1,4 @@
 &parameters
  stokes = T
  nu     = 1
- bc(5:6,3) = 2*'D'
 /

@@ -1,0 +1,71 @@
+&control
+  flow_type     =  'Vortex_HW'
+  flow_case     =  'vortex_hw'
+  compute_p     =  T
+  write_stat    =  T
+  write_vtk     =  F
+!
+! flow_op_control%div_i_max =  100
+! flow_op_control%div_final =  T
+! flow_op_control%n_outer   =  4
+! flow_op_control%n_inner   = -1
+! flow_op_control%monitor   =  0
+/
+
+&discretization
+  np   =  <np1>,<np2>,1
+  ep   =  <ep1>,<ep2>,1
+  po_u =  <po_u>
+  po_p =  <po_p>
+  po_q =  <po_q>
+  penalty = 20
+  adjust_dx = T
+/
+
+&elliptic_solver
+!
+! u \ p
+! pmg_u_opt%po_bot          =  8
+  pmg_u_opt%i_max           =  8 !4
+  pmg_u_opt%ns1             =  1
+  pmg_u_opt%ns2             =  1
+  pmg_u_opt%mvs             =  1
+  pmg_u_opt%r_red           =  1e-10
+  pmg_u_opt%r_max           =  1e-12
+  pmg_u_opt%dr_min          =  1e-10
+! pmg_u_opt%solver          =  'S'
+  pmg_u_opt%i0_max          =  1000
+  pmg_u_opt%r0_red          =  1e-10
+  pmg_u_opt%schwarz%delta   =  0.125
+  pmg_u_opt%schwarz%no_min  =  1
+  pmg_u_opt%monitor         =  F
+!
+! p
+  pmg_p_opt%i_max           =  8 !4
+  pmg_p_opt%ns1             =  1
+  pmg_p_opt%ns2             =  1
+  pmg_p_opt%r_red           =  1e-10
+  pmg_p_opt%r_max           =  1e-12
+  pmg_p_opt%dr_min          =  1e-10
+! pmg_p_opt%solver          =  'C'
+  pmg_p_opt%i0_max          =  1000
+  pmg_p_opt%r0_red          =  1e-10
+  pmg_p_opt%schwarz%delta   =  0.125
+  pmg_p_opt%schwarz%no_min  =  1
+  pmg_p_opt%monitor         =  F
+/
+
+&time_integration
+!
+! time stepping
+  t_end  = 1.0
+  dt     = <dt>
+ !c_conv = 1.0
+ !c_diff = 100
+  nt_max = 10000000
+!
+! SDC
+  sdc_opt%n_sub   =  <n_sub>
+  sdc_opt%n_sweep =  <n_sweep>
+/
+
