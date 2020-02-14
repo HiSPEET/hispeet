@@ -53,8 +53,8 @@ contains
 
 subroutine SetProblem(problem, file, comm)
   class(FlowProblem_Vortex_TG), intent(inout) :: problem
-  character(len=*), optional, intent(in) :: file    !< input file
-  type(MPI_Comm),   optional, intent(in) :: comm    !< MPI communicator
+  character(len=*), optional, intent(in) :: file  !< input file
+  type(MPI_Comm),   optional, intent(in) :: comm  !< MPI communicator
 
   ! local variables ............................................................
 
