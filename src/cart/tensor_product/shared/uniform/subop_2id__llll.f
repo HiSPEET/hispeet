@@ -27,7 +27,7 @@ subroutine SubOp_2id(g, A, D, u, v)
       do p = 1, __NA__
         tmp = tmp + A(p,j) * u(i,p,k)
       end do
-      v(i,j,k) = g * D((i,j,k) * tmp
+      v(i,j,k) = g * D(i,j,k) * tmp
     end do
   end do
   end do
