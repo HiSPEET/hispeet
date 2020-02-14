@@ -55,17 +55,17 @@ Enable password chaching (900 seconds are the default;)
 
      mkdir HiSPEET
      cd HiSPEET
-
+    
      git init
      mkdir doc
      mkdir src
      ..
      git add doc src
      git commit
-
+    
      # stage the modified and deleted files
      git add -u
-
+    
      # add and commit only the modified and deleted files.
      git commit -a
 
@@ -96,7 +96,11 @@ Show all branches
 
     git branch -a
 
-Switch to your branch
+First time switching to a remote branch
+
+    git checkout -b origin/<branch-name> 
+
+This creates the local branch <branch-name> tracking the remote origin/<branch-name>. Next time you can switch to your local branch just by 
 
     git checkout <branch-name>
 
