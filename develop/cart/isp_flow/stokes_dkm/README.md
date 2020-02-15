@@ -9,7 +9,7 @@ The test cases on
 
 are adopted from N. Fehn, W.A. Wall & M. Kronbichler, _On the stability of projection methods for the incompressible Navier-Stokes equations based on high-order discontinuous Galerkin discretizations_, J. Comput. Phys. 351: 392-421, 2017.
 
-Befor running the tests, take care that the environment match the settings at build time.
+Befor running the tests, take care that the environment matches the settings at build time.
 
 ### Temporal convergence
 
