@@ -46,10 +46,10 @@ module CART__ISP_Flow__Operators
                                          !!   0: no div penalty
                                          !!   1: penalty scales with viscosity
                                          !!   2: penalty scales with (Δx/P)²/Δt
-    real(RNP) :: div_coeff     =  10     !< divergence penalty coefficient
+    real(RNP) :: div_coeff     =  1      !< divergence penalty coefficient
     real(RNP) :: div_r_red     =  1E-10  !< min divergence residual reduction
-    integer   :: div_i_max     =  20     !< max num div correction iterations
-    logical   :: div_final     = .false. !< perform final projection step
+    integer   :: div_i_max     =  10     !< max num div correction iterations
+    logical   :: div_final     = .true.  !< perform final projection step
 
     integer   :: monitor       =  0      !< no, basic or full monitoring {0,1,2}
 
