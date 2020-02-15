@@ -60,7 +60,7 @@ for N_SWEEP in $RANGE_N_SWEEP; do
   done
 
   grep -e "#      t" -m 1 ${LOG_FILE} >  ${DAT_FILE}
-  grep -e ^" 1.00000E-01" ${LOG_FILE} >> ${DAT_FILE}
+  grep -e "#last#"        ${LOG_FILE} >> ${DAT_FILE}
 
   date >> ${LOG_FILE}
 
