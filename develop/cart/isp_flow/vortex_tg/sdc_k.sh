@@ -3,7 +3,7 @@
 # SDC(M,K) with fixed number of subintervals M and varying number of sweeps K
 
 # execute within slurm script or stand-alone using
-# `bash -l sdc_m_k.sh`
+# `bash -l sdc_k.sh`
 
 # number of partitions in directions 1-2
 NP1=${NP1:-"1"}
@@ -24,11 +24,14 @@ PO_U="16"
 PO_P="15"
 PO_Q="24"
 
+# Final time
+T_END=${T_END:-"0.1"}
+
 # SDC parameters
 N_SUB=${N_SUB:-"3"}
-RANGE_N_SWEEP=${RANGE_N_SWEEP:-"0 1 2 3 4 5 6"}
+N_SWEEP_MAX=$((3*${N_SUB}))
 
-for N_SWEEP in $RANGE_N_SWEEP; do
+for((N_SWEEP=0; N_SWEEP<=N_SWEEP_MAX; N_SWEEP++)); do
 
   CASE=sdc_${N_SUB}-${N_SWEEP}
   LOG_FILE=${CASE}.log
@@ -40,15 +43,15 @@ for N_SWEEP in $RANGE_N_SWEEP; do
   # investigated range of time step sizes
   # dt = 0.1 / sqrt(2^k), k = k_min, ... k_max
 
-  case "$N_SWEEP" in              # trial # study  #
-      0)  k_min=3; k_max="25" ;;  #  "8"  #  "25"  #
-      1)  k_min=3; k_max="23" ;;  #  "7"  #  "23"  #
-      2)  k_min=3; k_max="13" ;;  #  "6"  #  "13"  #
-      3)  k_min=3; k_max="11" ;;  #  "5"  #  "11"  #
-      4)  k_min=3; k_max="9"  ;;  #  "4"  #  "8"   #
-      5)  k_min=3; k_max="7"  ;;  #  "3"  #  "7"   #
-      6)  k_min=3; k_max="6"  ;;  #  "3"  #  "6"   #
-      *)  k_min=3; k_max="5"      #  "3"  #  "5"   #
+  case "$N_SWEEP" in            
+      0)  k_min=2; k_max="12" ;;
+      1)  k_min=2; k_max="12" ;;
+      2)  k_min=2; k_max="12" ;;
+      3)  k_min=2; k_max="10" ;;
+      4)  k_min=2; k_max="9"  ;;
+      5)  k_min=2; k_max="8"  ;;
+      6)  k_min=2; k_max="7"  ;;
+      *)  k_min=2; k_max="6"    
   esac
 
   for((k=k_min; k<=k_max; k++)); do
@@ -56,7 +59,7 @@ for N_SWEEP in $RANGE_N_SWEEP; do
       DT=$(bc -l <<< "0.1/sqrt(2^${k})")
 
       echo "========================================================================="
-      echo "M =" ${N_SUB} ", K =", ${N_SWEEP} ", dt =" $DT
+      echo "M =" ${N_SUB} ", K =" ${N_SWEEP} ", dt =" $DT
       echo
       sed -e "s/<np1>/$NP1/g" \
           -e "s/<np2>/$NP2/g" \
@@ -65,6 +68,7 @@ for N_SWEEP in $RANGE_N_SWEEP; do
           -e "s/<po_u>/$PO_U/g" \
           -e "s/<po_p>/$PO_P/g" \
           -e "s/<po_q>/$PO_Q/g" \
+          -e "s/<t_end>/$T_END/g" \
           -e "s/<dt>/$DT/g" \
           -e "s/<n_sub>/$N_SUB/g" \
           -e "s/<n_sweep>/$N_SWEEP/g" \

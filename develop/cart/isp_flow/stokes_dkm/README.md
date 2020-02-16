@@ -7,9 +7,9 @@ The test cases on
   * [temporal convergence](#temporal-convergence)
   * [temporal stability](#temporal-stability)
 
-are adopted from N. Fehn, W.A. Wall & M. Kronbichler, _On the stability of projection methods for the incompressible Navier-Stokes equations based on high-order discontinuous Galerkin discretizations_, J. Comput. Phys. 351: 392-421, 2017.
+are adopted from N. Fehn, W.A. Wall & M. Kronbichler, _On the stability of projection methods for the incompressible Navier-Stokes equations based on high-order discontinuous Galerkin discretizations_, J. Comput. Phys. 375: 392-421, 2018.
 
-Befor running the tests, take care that the environment matches the settings at build time.
+Before running the tests, take care that the environment matches the settings at build time.
 
 ### Temporal convergence
 
@@ -37,7 +37,7 @@ Unless you changed `RANGE_N_SUB` in `convergence_dt.sh` the results can be plott
 
 The produced graph is stored in `convergence_dt.pdf`.  For comparison see the corresponding file in this directory.
 
-![temporal convergence results](convergence_dt.pdf).
+![temporal convergence results](convergence_dt.pdf)
 
 ### Temporal stability
 
