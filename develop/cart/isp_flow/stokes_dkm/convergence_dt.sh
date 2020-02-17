@@ -19,12 +19,13 @@ CASE="convergence_dt"
 
 # elements per partition in directions 1-2 and polynomial orders for u and p
 EP=${EP:-"4"}
-PO_U="6"
-PO_P="5"
+#PO_U="6"
+#PO_P="5"
+PO_U="10"
+PO_P="9"
 
 # investigated range of time step sizes, dt = 0.1 / 2^k, k = 1, ... 
-RANGE_DT=\
-".05 .025 .0125 6.25d-3 3.125d-3 1.5625d-3 7.8125d-4"
+RANGE_DT=".025 .0125 6.25e-3 3.125e-3 1.5625e-3"
 
 # SDC parameters
 RANGE_N_SUB="0 1 2"

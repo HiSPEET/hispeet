@@ -18,7 +18,7 @@ plt.xscale('log', basex=10)
 plt.xlabel(r'$\Delta t$', size='14')
 
 plt.yscale('log')
-plt.ylabel(r'$\varepsilon_2$', size='14')
+plt.ylabel(r'$\varepsilon_v$', size='14')
 
 plt.legend(loc='best', ncol=1)
 

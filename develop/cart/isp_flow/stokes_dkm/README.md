@@ -11,7 +11,7 @@ are adopted from N. Fehn, W.A. Wall & M. Kronbichler, _On the stability of proje
 
 Before running the tests, take care that the environment matches the settings at build time.
 
-### Temporal convergence
+### Temporal convergence with SDC
 
 Check and adjust the settings in the input template `isp_flow__sdc_test.tmpl` and in the run script `convergence_dt.sh`. In interactive mode you can run the test just by typing
 
