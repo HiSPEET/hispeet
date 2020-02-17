@@ -3,7 +3,7 @@
     set( LibXSMM_SOURCE_DIR    ${CMAKE_CURRENT_BINARY_DIR}/external/src/LibXSMM )
     set( LibXSMM_INCLUDE_DIR  "${LibXSMM_SOURCE_DIR}/include"      )    
     set( LibXSMM_LIB_DIR      "${LibXSMM_SOURCE_DIR}/lib"          )
-    set( LIBXSMM_MODULE       "${LibXSMM_INCLUDE_DIR}/LIBXSMM.mod" )
+    set( LIBXSMM_MODULE       "${LibXSMM_INCLUDE_DIR}/libxsmm.mod" )
     set( LibXSMM_LIBRARIES    "${LibXSMM_LIB_DIR}/libxsmmf.a"
                               "${LibXSMM_LIB_DIR}/libxsmm.a"       ) 
    
