@@ -18,16 +18,12 @@ contains
 !-------------------------------------------------------------------------------
 !> Build 1D Schwarz eigensystems for IP/DG-SEM
 
-module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
+module subroutine BuildEigensystems_IP(this, eop)
 
   ! arguments ..................................................................
 
   class(SchwarzOperator3D),     intent(inout) :: this !< Schwarz operator
   class(IP_ElementOperators1D), intent(in)    :: eop  !< IP-DG SE operators
-
-  real(RNP),         intent(in) :: delta(3)  !< relative overlap
-  integer, optional, intent(in) :: no_min    !< min overlap in points [-1]
-  integer, optional, intent(in) :: weighting !< weighting method      [ 5]
 
   ! local variables ............................................................
 
@@ -41,12 +37,10 @@ module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
     ! parameters ...............................................................
 
     do i = 1, 3
-      this % no(i) = count(eop%x <= 2*delta(i) - 1)
+      this % no(i) = count(eop%x <= 2*this%opt%delta(i) - 1)
     end do
 
-    if (present(no_min)) then
-      this % no = max(this%no, min(no_min, po+1))
-    end if
+    this % no = max(this%no, min(this%opt%no_min, po+1))
 
     this % isotropic = all(this%no(2:3) == this%no(1))
 
@@ -62,14 +56,9 @@ module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
 
       ! weights for standard (interior-interior) configuration
       allocate(W1(n1), W2(n3), W3(n3))
-      if (present(weighting)) then
-        k = weighting
-      else
-        k = 5
-      end if
-      call WeightDistribution(eop%x, this%no(1), k, W1)
-      call WeightDistribution(eop%x, this%no(2), k, W2)
-      call WeightDistribution(eop%x, this%no(3), k, W3)
+      call WeightDistribution(eop%x, this%no(1), this%opt%weighting, W1)
+      call WeightDistribution(eop%x, this%no(2), this%opt%weighting, W2)
+      call WeightDistribution(eop%x, this%no(3), this%opt%weighting, W3)
 
       if (allocated(this%S1)) then
         deallocate(this%S1, this%V1, this%W1)

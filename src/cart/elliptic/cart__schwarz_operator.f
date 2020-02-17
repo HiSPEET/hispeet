@@ -136,6 +136,12 @@ module CART__Schwarz_Operator
 
   type SchwarzOperator3D
 
+    ! parameters for the Schwarz operator ......................................
+
+    type(SchwarzOptions3D) :: opt ! options for the Schwarz operator
+    real(RNP) :: svv_ratio = ONE  !< ν/(ν+νˢ), if this changes the Eigensystem
+                                  !! has to be built again
+
     ! 1D eigensystems ..........................................................
 
     integer :: no(3) = -1                    !< overlapped node layers
@@ -163,11 +169,6 @@ module CART__Schwarz_Operator
     integer,   allocatable :: cfg(:,:)       !< subdomain configurations
     real(RNP), allocatable :: D_inv(:,:,:,:) !< subdomain inverse 3D eigenvalues
 
-    ! variable for the SVV case ................................................
-
-    class(SchwarzOptions3D), allocatable :: opt ! options for the Schwarz operator
-    real(RNP) :: svv_ratio = ONE !< ν/(ν+νˢ), if this changes the Eigensystem
-                                 !! has to be built again
 
   contains
     private
@@ -203,15 +204,11 @@ module CART__Schwarz_Operator
     !---------------------------------------------------------------------------
     !> Build 1D eigensystems for IP/DG-SEM
 
-    module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
+    module subroutine BuildEigensystems_IP(this, eop)
       use IP_Element_Operators_1D
 
       class(SchwarzOperator3D),     intent(inout) :: this !< Schwarz operator
       class(IP_ElementOperators1D), intent(in)    :: eop  !< IP-DG SE operators
-
-      real(RNP),         intent(in) :: delta(3)  !< relative overlap
-      integer, optional, intent(in) :: no_min    !< min overlap in points [-1]
-      integer, optional, intent(in) :: weighting !< weighting method      [ 5]
 
     end subroutine BuildEigensystems_IP
 
@@ -331,7 +328,7 @@ subroutine Init_Base(this, opt, eop)
   this%opt = opt
   select type(eop)
   class is(IP_ElementOperators1D)
-    call BuildEigensystems_IP(this, eop, opt%delta, opt%no_min, opt%weighting)
+    call BuildEigensystems_IP(this, eop)
   end select
 
 end subroutine Init_Base
@@ -435,8 +432,7 @@ subroutine SetProblem_CI_svv(this, eop, mesh, lambda, nu, nu_svv, bc)
 
     select type(eop)
     class is(IP_ElementOperators1D)
-      call BuildEigensystems_IP(this, eop, this%opt%delta, this%opt%no_min,    &
-                                this%opt%weighting)
+      call BuildEigensystems_IP(this, eop)
     end select
   end if
 
