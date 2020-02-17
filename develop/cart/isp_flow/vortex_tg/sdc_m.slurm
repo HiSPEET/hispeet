@@ -39,6 +39,17 @@ export EP="1"
 # final time
 export T_END="1" 
 
+# max number of subintervals for SDC
+export N_SUB_MAX="3"
+
+# max time step size, may be increased to 0.0625 for periodic case
+export DT_MAX="0.015625"
+
+# max number of time step reductions per series 
+export ST_MAX="8"
+
+
+
 # ------------------------------------------------------------------------------
 # Execution
 

@@ -25,37 +25,48 @@ PO_P="15"
 PO_Q="24"
 
 # Final time
-T_END=${T_END:-"0.1"}
+T_END=${T_END:-"0.03125"}
 
 # SDC parameters
-N_SUB_MAX=${N_SUB_MAX:-"2"}
+N_SUB_MAX=${N_SUB_MAX:-"3"}
+
+# max time step size and max number of time step subdivisions per series
+DT_MAX=${DT_MAX:-"0.015625"}
+ST_MAX=${ST_MAX:-"4"}
 
 for((N_SUB=0; N_SUB<=N_SUB_MAX; N_SUB++)); do
 
   N_SWEEP=$((3*${N_SUB}))
 
-  LOG_FILE=sdc_${N_SUB}-${N_SWEEP}.log
-  DAT_FILE=sdc_${N_SUB}-${N_SWEEP}.dat
+  CASE=sdc_${N_SUB}-${N_SWEEP}
+  LOG_FILE=${CASE}.log
+  PRM_FILE=${CASE}.prm
+  DAT_FILE=${CASE}.dat
 
   date > ${LOG_FILE}
 
   # investigated range of time step sizes
-  # dt = 0.1 / sqrt(2^k), k = 2, ... k_max
+  # dt = DT_MAX / sqrt(2^s), s = 0, ... ST
 
-  case "$N_SUB" int
-      1)  k_max="12" ;;
-      2)  k_max="10" ;;
-      3)  k_max="8"  ;;
-      4)  k_max="6"  ;;
-      *)  k_max="4"
+  case "$N_SWEEP" in            
+      0)  ST="10" ;;
+      1)  ST="10" ;;
+      2)  ST="10" ;;
+      3)  ST="10" ;;
+      4)  ST="10" ;;
+      5)  ST="10" ;;
+      6)  ST="9"  ;;
+      *)  ST="8"    
   esac
 
-  for((k=2; k<=k_max; k++)); do
+  ST=$((ST > ST_MAX ? ST_MAX : ST))
 
-      DT=$(bc -l <<< "0.1/sqrt(2^${k})")
+  for((s=0; s<=ST; s++)); do
+
+      DT=$(bc -l <<< "${DT_MAX}/sqrt(2^${s})")
 
       echo "========================================================================="
-      echo "M =" ${N_SUB} ", K =", ${N_SWEEP} ", dt =" $DT
+      echo "M =" ${N_SUB} ", K =" ${N_SWEEP} ", dt =" $DT, ", s =" $s
       echo
       sed -e "s/<np1>/$NP1/g" \
           -e "s/<np2>/$NP2/g" \
@@ -68,10 +79,9 @@ for((N_SUB=0; N_SUB<=N_SUB_MAX; N_SUB++)); do
           -e "s/<dt>/$DT/g" \
           -e "s/<n_sub>/$N_SUB/g" \
           -e "s/<n_sweep>/$N_SWEEP/g" \
-          isp_flow__sdc_test.tmpl > \
-          isp_flow__sdc_test.prm
+          isp_flow__sdc_test.tmpl > ${PRM_FILE}
 
-      ${EXEC} ${PROGRAM} 2>&1 | tee -a ${LOG_FILE}
+      ${EXEC} ${PROGRAM} ${CASE} 2>&1 | tee -a ${LOG_FILE}
 
   done
 
