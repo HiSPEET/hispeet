@@ -69,7 +69,7 @@ Enable password chaching (900 seconds are the default;)
      # add and commit only the modified and deleted files.
      git commit -a
 
-## Cloning <a name="cloning"></a>
+## Cloning HiSPEET from FusionForge
 
 Clone HiSPEET into directory hispeet (will be created if not yet existing) 
 
@@ -232,7 +232,7 @@ For example, this is how `libxsmm` was included:
     git submodule add https://github.com/hfp/libxsmm.git external/libxsmm
     git commit -m 'added libxsmm submodule'
 
-Note that the submodules must be manually intialized, see [Cloning](#cloning) above.
+Note that the submodules must be manually intialized, see [Cloning](#cloning-hispeet-from-fusionforge) above.
 Also you may wish to update the submodules from the external repository, e.g.
 
     git submodule update
