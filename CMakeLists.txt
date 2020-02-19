@@ -194,3 +194,12 @@ add_subdirectory(app)
 add_subdirectory(develop)
 
 add_subdirectory(dirty)
+
+#===============================================================================
+# Info
+
+message("")
+message("CMAKE_SYSTEM_NAME: "         "${CMAKE_SYSTEM_NAME}")
+message("CMAKE_SYSTEM_VERSION: "      "${CMAKE_SYSTEM_VERSION}")
+message("CMAKE_Fortran_COMPILER_ID: " "${CMAKE_Fortran_COMPILER_ID}")
+message("")
