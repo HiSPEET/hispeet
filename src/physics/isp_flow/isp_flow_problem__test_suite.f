@@ -13,6 +13,6 @@ module ISP_Flow_Problem__Test_Suite
   use ISP_Flow_Problem__Vortex_TG         , only: FlowProblem_Vortex_TG
   use ISP_Flow_Problem__Vortex_Sheet      , only: FlowProblem_VortexSheet
   use ISP_Flow_Problem__Variable_Viscosity, only: FlowProblem_VariableViscosity
-  use ISP_Flow_Problem__Transistion_TG    , only: FlowProblem_Vortex_TG
+  use ISP_Flow_Problem__Transition_TG     , only: FlowProblem_Transition_TG
 
 end module ISP_Flow_Problem__Test_Suite

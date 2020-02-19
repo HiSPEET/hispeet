@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module ISP_Flow_Problem__Transistion_TG
+module ISP_Flow_Problem__Transition_TG
 
   use Kind_Parameters,   only: RNP
   use Constants,         only: ZERO, ONE, HALF, PI
@@ -17,14 +17,14 @@ module ISP_Flow_Problem__Transistion_TG
   implicit none
   private
 
-  public :: FlowProblem_Vortex_TG
+  public :: FlowProblem_Transition_TG
 
   !-----------------------------------------------------------------------------
   !> Type for defining and handling the Minion-Saye vortex problem
 
-  type, extends(FlowProblem) :: FlowProblem_Vortex_TG
+  type, extends(FlowProblem) :: FlowProblem_Transition_TG
 
-    real(RNP) :: ???   = 0  !< ???
+    !real(RNP) :: ???   = 0  !< ???
 
   contains
 
@@ -34,7 +34,7 @@ module ISP_Flow_Problem__Transistion_TG
     procedure :: GetBoundaryTimeDerivative
     procedure :: GetExternalSources
 
-  end type FlowProblem_Vortex_TG
+  end type FlowProblem_Transition_TG
 
 contains
 
@@ -45,19 +45,19 @@ contains
 !> Initialization
 
 subroutine SetProblem(problem, file, comm)
-  class(FlowProblem_Vortex_TG), intent(inout) :: problem
+  class(FlowProblem_Transition_TG), intent(inout) :: problem
   character(len=*), optional, intent(in) :: file  !< input file
   type(MPI_Comm),   optional, intent(in) :: comm  !< MPI communicator
 
   ! local variables ............................................................
 
   real(RNP) :: nu     =  0.01         ! kinematic viscosity
-  real(RNP) :: ???    =  ???          ! translation velocity
+  !real(RNP) :: ???    =  ???          ! ???
   real(RNP) :: x0(3)  = -HALF         ! bounding box: corner nearest to -∞
   real(RNP) :: x1(3)  =  HALF         ! bounding box: corner nearest to +∞
   character, allocatable :: bc(:,:)
 
-  namelist /parameters/ nu, ???
+  namelist /parameters/ nu!, ???
 
   logical :: exists
   integer :: prm, rank
@@ -101,7 +101,7 @@ subroutine SetProblem(problem, file, comm)
 
   if (present(comm)) then
     call XMPI_Bcast(nu , 0, comm)
-    call XMPI_Bcast(???, 0, comm)
+    !call XMPI_Bcast(???, 0, comm)
     call XMPI_Bcast(bc , 0, comm)
   end if
 
@@ -111,7 +111,7 @@ subroutine SetProblem(problem, file, comm)
   allocate(problem % nu_ref( problem%nc ), source = ZERO)
   problem % nu_ref(1:3) = nu
 
-  problem % ??? = ???
+  !problem % ??? = ???
   problem % x0  = x0
   problem % x1  = x1
 
@@ -123,7 +123,7 @@ end subroutine SetProblem
 !> Provides the initial values u(x,0) for mesh points x
 
 subroutine GetInitialValues(problem, x, u)
-  class(FlowProblem_Vortex_TG), intent(in) :: problem
+  class(FlowProblem_Transition_TG), intent(in) :: problem
   real(RNP), intent(in)  :: x(:,:,:,:,:) !< mesh points
   real(RNP), intent(out) :: u(:,:,:,:,:) !< flow variables
 
@@ -131,9 +131,9 @@ subroutine GetInitialValues(problem, x, u)
 
   n = size(x(:,:,:,:,1))
 
-  associate(??? => problem%???)
-    call GetVelocity(n, x, ???, u(:,:,:,:,1:3))
-  end associate
+  !associate(??? => problem%???)
+  !  call GetVelocity(n, x, ???, u(:,:,:,:,1:3))
+  !end associate
 
   ! remaining variables get zero
   do m = 4, size(u,5)
@@ -146,7 +146,7 @@ end subroutine GetInitialValues
 !> Provides the values `ub = u(xb,t)` for points `xb` on boundary `b`
 
 subroutine GetBoundaryValues(problem, b, xb, t, ub)
-  class(FlowProblem_Vortex_TG), intent(in) :: problem
+  class(FlowProblem_Transition_TG), intent(in) :: problem
   integer,   intent(in)  :: b             !< boundary ID
   real(RNP), intent(in)  :: xb(:,:,:,:)   !< mesh boundary points
   real(RNP), intent(in)  :: t             !< time
@@ -163,7 +163,7 @@ end subroutine GetBoundaryValues
 !> Provides the values `dt_ub = ∂u/∂t(xb,t)` for points `xb` on boundary `b`
 
 subroutine GetBoundaryTimeDerivative(problem, b, xb, t, dt_ub)
-  class(FlowProblem_Vortex_TG), intent(in)  :: problem
+  class(FlowProblem_Transition_TG), intent(in)  :: problem
   integer,   intent(in)  :: b              !< boundary ID
   real(RNP), intent(in)  :: xb(:,:,:,:)    !< boundary points
   real(RNP), intent(in)  :: t              !< time
@@ -180,7 +180,7 @@ end subroutine GetBoundaryTimeDerivative
 !> Provides the external sources for all variables at points x and time t
 
 subroutine GetExternalSources(problem, x, t, f)
-  class(FlowProblem_Vortex_TG), intent(in) :: problem
+  class(FlowProblem_Transition_TG), intent(in) :: problem
   real(RNP), intent(in)  :: x(:,:,:,:,:) !< mesh points
   real(RNP), intent(in)  :: t            !< time
   real(RNP), intent(out) :: f(:,:,:,:,:) !< external sources
@@ -195,20 +195,21 @@ end subroutine GetExternalSources
 !-------------------------------------------------------------------------------
 !> Velocity
 
-subroutine GetVelocity(n, x, ??? , v)
+!subroutine GetVelocity(n, x, ??? , v)
+subroutine GetVelocity(n, x, v)
   integer,   intent(in)  :: n       !< number of points
   real(RNP), intent(in)  :: x(n,3)  !< mesh points
-  real(RNP), intent(in)  :: ???     !< translation velocity
+  !real(RNP), intent(in)  :: ???     !< translation velocity
   real(RNP), intent(out) :: v(n,3)  !< velocity at mesh points
 
   real(RNP) :: c, phi1, phi2
   integer   :: i
 
-  c =
+  c = 0 !???
 
   do i = 1, n
-    phi1 =
-    phi2 =
+    phi1 = 0 !???
+    phi2 = 0 !???
     v(i,1) = c * sin(phi1) * cos(phi2)
     v(i,2) = c * cos(phi1) * sin(phi2)
     v(i,3) = ZERO
@@ -218,4 +219,4 @@ end subroutine GetVelocity
 
 !===============================================================================
 
-end module ISP_Flow_Problem__Transistion_TG
+end module ISP_Flow_Problem__Transition_TG
