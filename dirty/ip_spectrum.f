@@ -55,7 +55,7 @@ program IP_Spectrum
 
   case(1) ! single element .....................................................
 
-    call eop % GetStiffnessMatrix(dx, bc, Le)
+    call eop % Get_StiffnessMatrix(dx, bc, Le)
     if (all(bc == 'P')) then
       A = Le(:,:,-1) + Le(:,:,0) + Le(:,:,1)
     else
@@ -66,7 +66,7 @@ program IP_Spectrum
 
     if (all(bc == 'P')) then
 
-      call eop % GetStiffnessMatrix(dx, bc, Le)
+      call eop % Get_StiffnessMatrix(dx, bc, Le)
       i1 = 1
       i2 = np
       A( i1:i2,  i1   :i2    ) = Le(:,:, 0)
@@ -79,13 +79,13 @@ program IP_Spectrum
 
     else
 
-      call eop % GetStiffnessMatrix(dx, [bc(1), ' '], Le)
+      call eop % Get_StiffnessMatrix(dx, [bc(1), ' '], Le)
       i1 = 1
       i2 = np
       A( i1:i2,  i1   :i2    ) = Le(:,:, 0)
       A( i1:i2,  i1+np:i2+np ) = Le(:,:, 1)
 
-      call eop % GetStiffnessMatrix(dx, [' ', bc(2)], Le)
+      call eop % Get_StiffnessMatrix(dx, [' ', bc(2)], Le)
       i1 = i1 + np
       i2 = i2 + np
       A( i1:i2,  i1-np:i2-np ) = Le(:,:,-1)
@@ -96,7 +96,7 @@ program IP_Spectrum
   case(3:) ! 3 or more elements ................................................
 
     ! first
-    call eop % GetStiffnessMatrix(dx, [bc(1), ' '], Le)
+    call eop % Get_StiffnessMatrix(dx, [bc(1), ' '], Le)
     i1 = 1
     i2 = np
     A( i1:i2,  i1   :i2    ) = Le(:,:, 0)
@@ -106,7 +106,7 @@ program IP_Spectrum
     end if
 
     ! interior
-    call eop % GetStiffnessMatrix(dx, [' ', ' '], Le)
+    call eop % Get_StiffnessMatrix(dx, [' ', ' '], Le)
     do i = 2, ne-1
       i1 = i1 + np
       i2 = i2 + np
@@ -116,7 +116,7 @@ program IP_Spectrum
     end do
 
     ! last
-    call eop % GetStiffnessMatrix(dx, [' ', bc(2)], Le)
+    call eop % Get_StiffnessMatrix(dx, [' ', bc(2)], Le)
     i1 = i1 + np
     i2 = i2 + np
     A( i1:i2,  i1-np:i2-np ) = Le(:,:,-1)

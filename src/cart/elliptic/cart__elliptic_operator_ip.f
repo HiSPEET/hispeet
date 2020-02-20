@@ -1,5 +1,5 @@
 !> summary:  3D Cartesian elliptic operator for interior penalty (IP) DG-SEM
-!> author:   Joerg Stiller
+!> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2018/11/05
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
@@ -32,15 +32,19 @@ module CART__Elliptic_Operator_IP
 
   contains
 
-    generic :: Init_EllipticOperator3D_IP => Init_Base, Init_CI, Init_VI
+    generic :: Init_EllipticOperator3D_IP => Init_Base, Init_CI, Init_CI_svv,  &
+                                             Init_VI
+
+
     procedure, private :: Init_Base
     procedure, private :: Init_CI
+    procedure, private :: Init_CI_svv
     procedure, private :: Init_VI
 
     ! specific procedures for generic SetProblem
-    procedure :: SetProblem_CI  ! should be private
-    procedure :: SetProblem_VI  ! but fails with ifort
-
+    procedure :: SetProblem_CI     ! should be private
+    procedure :: SetProblem_CI_svv ! but fails with ifort
+    procedure :: SetProblem_VI
     procedure :: Apply
     procedure :: BcToRHS
     procedure :: Residual
@@ -53,6 +57,7 @@ module CART__Elliptic_Operator_IP
   interface EllipticOperator3D_IP
     module procedure New_Base
     module procedure New_CI
+    module procedure New_CI_svv
     module procedure New_VI
   end interface
 
@@ -71,7 +76,19 @@ module CART__Elliptic_Operator_IP
       character, intent(in) :: bc(:)  !< boundary conditions
     end subroutine SetProblem_CI
 
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    !> Initialize problem with a combination of constant isotropic diffusivity
+    !> and constant isotropic spectral diffusivity
+
+    module subroutine SetProblem_CI_svv(this, lambda, nu, nu_svv, bc)
+      class(EllipticOperator3D_IP), intent(inout) :: this
+      real(RNP), intent(in) :: lambda !< Helmholtz parameter
+      real(RNP), intent(in) :: nu     !< diffusivity
+      real(RNP), intent(in) :: nu_svv !< spectral diffusivity
+      character, intent(in) :: bc(:)  !< boundary conditions
+    end subroutine SetProblem_CI_svv
+
+    !---------------------------------------------------------------------------
     !> Initialize problem with variable isotropic diffusivity
 
     module subroutine SetProblem_VI(this, lambda, nu, bc)
@@ -100,7 +117,7 @@ module CART__Elliptic_Operator_IP
       real(RNP),                    intent(inout) :: f(:,:,:,:) !< RHS
     end subroutine BcToRHS
 
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> Computes the residual to given approximation
 
     module subroutine Residual(this, u, f, r)
@@ -162,6 +179,27 @@ function New_CI(mesh, lambda, nu, bc, ip_opt, schwarz_opt) result(this)
 end function New_CI
 
 !-------------------------------------------------------------------------------
+!> New EllipticOperator3D_IP with a combination of constant isotropic
+!> diffusivity and constant isotropic spectral diffusivity
+
+function New_CI_svv(mesh, lambda, nu, nu_svv, bc, ip_opt, schwarz_opt) &
+    result(this)
+
+  class(MeshPartition), target,      intent(in) :: mesh
+  real(RNP),                         intent(in) :: lambda
+  real(RNP),                         intent(in) :: nu
+  real(RNP),                         intent(in) :: nu_svv
+  character,                         intent(in) :: bc(:)
+  class(IP_ElementOptions1D),        intent(in) :: ip_opt
+  class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
+
+  type(EllipticOperator3D_IP) :: this
+
+  call Init_CI_svv(this, mesh, lambda, nu, nu_svv, bc, ip_opt, schwarz_opt)
+
+end function New_CI_svv
+
+!-------------------------------------------------------------------------------
 !> New EllipticOperator3D_IP with variable isotropic diffusivity
 
 function New_VI(mesh, lambda, nu, bc, ip_opt, schwarz_opt) result(this)
@@ -216,6 +254,25 @@ subroutine Init_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
   call SetProblem_CI(this, lambda, nu, bc)
 
 end subroutine Init_CI
+
+!-------------------------------------------------------------------------------
+!> Initialize operator with a combination of constant isotropic diffusivity and
+!> constant isotropic spectral diffusivity
+
+subroutine Init_CI_svv(this, mesh, lambda, nu, nu_svv, bc, ip_opt, schwarz_opt)
+  class(EllipticOperator3D_IP),      intent(inout) :: this
+  class(MeshPartition), target,      intent(in)    :: mesh
+  real(RNP),                         intent(in)    :: lambda
+  real(RNP),                         intent(in)    :: nu
+  real(RNP),                         intent(in)    :: nu_svv
+  character,                         intent(in)    :: bc(:)
+  class(IP_ElementOptions1D),        intent(in)    :: ip_opt
+  class(SchwarzOptions3D), optional, intent(in)    :: schwarz_opt
+
+  call Init_Base(this, mesh, ip_opt, schwarz_opt)
+  call SetProblem_CI_svv(this, lambda, nu, nu_svv, bc)
+
+end subroutine Init_CI_svv
 
 !-------------------------------------------------------------------------------
 !> Initialize operator with variable isotropic diffusivity

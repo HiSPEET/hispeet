@@ -1,13 +1,26 @@
+## Code: extension to SVV and IP-H
+
+* `src/base/spectral_element/ip_element_operators_1d.`
+  - revise documentation of subroutines
+     `Get_DiffusionMatrix__w_svv`and
+     `Get_EllipticEigensystem__w_svv`
+
+* `src/cart/elliptic/cart__elliptic_operator_ip__mp_apply_ci.f`
+  - extension to hybridizable case
+
+* `src/cart/elliptic/cart__schwarz_operator.f`
+  - adapt documentation of SchwarzOperator3D to cover the SVV case
+
+* `src/cart/isp_flow/cart__isp_flow__operators.f`
+  - extension to IP-H
+  - give `IP_ElementOptions1D` instead constructing them,
+  e.g. for initialization of `pmg_u` and `pmg_p`
+  
+* testing
+
 ## Funding
 
-1. DFG Antrag: MG für variable Koeffizienten und bewegte Gitter
-
-   * Vorarbeiten
-       - lineare p-MG für kondensierte CG-SEM
-       - lineare p-MG für hybride DG-SEM
-       - p-MG und Strömungslöser für variable Koeffizienten
-       - effiziente Operatoren, hybride Parallelisierung
-       - HiSPEET, künftig public domain
+1. DFG Anträge: MG für variable Koeffizienten und Bewegte Gitter
 
    * Ziele
        - lineare Löser für variable Koeffizienten?
@@ -15,23 +28,3 @@
        - Ursachen für Probleme bei kurzwellige Koeffizienten finden
        - Lösung durch alternative Techniken: FAS, pCG/Schwarz-Glätter, ... ?
        - bessere Skalierbarkeit durch Kombination p/h-MG
-
-## Theory
-
-1. SDC for advection-diffusion equation
-   *
-   *
-   *
-   *
-
-## Code
-
-1. Linear IPH solvers for elliptic equations with constant coefficients
-   * residual evaluation
-   * Schwarz method on vertex-centered subdomains
-   * Schwarz/MG-CG
-   * integration into flow solver
-
-1. More convenient and safer TPOs
-   * use assumed shape instead of explicit one
-   * argument checking switched on in DEBUG mode

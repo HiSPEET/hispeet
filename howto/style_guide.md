@@ -11,33 +11,33 @@ This guide summarizes the rules for designing for program units in __HiSPEET__, 
 
 ### Nomen est omen
 
-__Names__ should transport a meaning and give orientation. Therefore, take your time to find concise but descriptive names for program entities. Additionally, use the  case and underscores to improve readability and to hint at the nature of the entity . 
+__Names__ should transport a meaning and give orientation. Therefore, take your time to find concise but descriptive names for program entities. Additionally, use the case and underscores to improve readability and to hint at the nature of the entity .
 
 These are the basic rules:
 
-  - Use lower case Fortran keywords and intrinsic procedures 
+  - Use lower case Fortran keywords and intrinsic procedures
 
   - Program units and types are set in camel case, e.g.
      * `module Gauss_Jacobi`
      * `program FlowSolver`
      * `subroutine SetProblemParameters`
      * `function MeanValue`
- 
+
   - In module names words are separated by underscores
- 
+
   - Subroutine, function and type names are preferably written in camel case with
     no underscores in-between. However, underscores can be inserted for clarity or readability, e.g.
       * `subroutine VTK_Export`
- 
-  - Constants are written in upper case such as 
+
+  - Constants are written in upper case such as
       * `PI` for the number $\pi$, or `ONE` for 1, and
       * `RSP`,`RDP`, `RHP`, `RNP` for the real kind parameters defined in module `Kind_Parameters`
-      
-  - Variables are generally written in lower case with underscores as separators.  However, in favor of conformity to mathematical notation capitalized names can 
+
+  - Variables are generally written in lower case with underscores as separators.  However, in favor of conformity to mathematical notation capitalized names can
 be used where appropriate, e.g.
       * `M`, `D`, ` L`  for mass, differentiation and stiffness matrices
       * `i`, `j`, `k`, `l ` etc. for loop indices
-      * `c`, `dx`, `v_rms`, `last_exit` 
+      * `c`, `dx`, `v_rms`, `last_exit`
 
 ### Source files
 
@@ -86,7 +86,7 @@ The header of a program, module or submodule is composed of comment lines contai
 
 These fields can be followed be a more detailed description placed in a compound of _predoc_ comment lines.
 
-Optionally special environments such as `@note` or `@todo` can be appended to the header. For more details on the supported Markdown features see the [FORD wiki](https://github.com/Fortran-FOSS-Programmers/ford/wiki/Writing-Documentation). 
+Optionally special environments such as `@note` or `@todo` can be appended to the header. For more details on the supported Markdown features see the [FORD wiki](https://github.com/Fortran-FOSS-Programmers/ford/wiki/Writing-Documentation).
 
 
 ### Modules
@@ -162,7 +162,7 @@ This example demonstrates the usage of in-source documentation and illustrates f
       * `RHP` _high_ precision, typically 16 Byte,
       * `RDP` for interfacing libraries that require `double precision` arguments, e.g. BLAS and LAPACK.
   - Use the default kind for other intrinsic types, i.e., `integer`, `logical`, and `character`.
-      
+
 
 ### Procedures
 
@@ -177,8 +177,8 @@ comment.
   - If necessary, define the function result just after the arguments.
   - Insert a blank line between these declarations and the body of the procedure.
   - Put another blank line between the body and the end statement.
-  - Include type and the name of the procedure in `end` statement 
-  
+  - Include type and the name of the procedure in `end` statement
+
 For illustration consider the function `JacobiPolynomial` in the [`module Gauss_Jacobi`](#module_Gauss_Jacobi) and the following example of a subroutine .
 
 <a name="subroutine_IntegerSort">_Listing:_</a> Stripped-down version of subroutine `IntegerSort` contained in `quick_sort.f`.
@@ -193,7 +193,7 @@ For illustration consider the function `JacobiPolynomial` in the [`module Gauss_
     integer, optional, intent(in)    :: i2   !< terminal index
 
     integer :: j1, j2, j10, j20 ! internal variables
-  
+
     ...
 
   end subroutine IntegerSort
@@ -250,10 +250,10 @@ The next listing gives a comprehensive example.
 
     procedure :: Init_StandardOperators1D ! type-bound procedures
     procedure :: PolynomialOrder          ! are documented
-    procedure :: InitLegendreVDM          ! separately 
-    procedure :: HasLegendreVDM           ! in the same way 
-    procedure :: GetLegendreVDM           ! as ordinary
-    procedure :: GetInverseLegendreVDM    ! procedures
+    procedure :: InitLegendreVDM          ! separately
+    procedure :: Has_Legendre_VDM         ! in the same way
+    procedure :: Get_Legendre_VDM         ! as ordinary
+    procedure :: Get_InverseLegendre_VDM  ! procedures
 
   end type StandardOperators1D
 ```
@@ -270,7 +270,7 @@ Best practice rules:
 
   - Prefer automatic over allocatable arrays, and those over pointers.
   - In dynamic derived types prefer allocatable over pointer components.
-  - Use the `associate` construct to define shorthands for deeply structured type components. 
+  - Use the `associate` construct to define shorthands for deeply structured type components.
   - Use `move_alloc` to move an allocation from one allocatable object to another.
   - Use allocatable arrays with the save attribute for reusing internal work space.
 
@@ -293,7 +293,7 @@ Unlike C++ classes, Fortran types have no constructor method. Instead the type n
     real(RNP) :: x = 0  !< x-coordinate
     real(RNP) :: y = 0  !< y-coordinate
   end type Point2D
-  
+
   type(Point2D) :: point = Point2D(y = 1.0_RNP)
 ```
 
@@ -309,23 +309,23 @@ The inbuilt constructor can be supplemented or overridden by overloading user-de
 
   interface Point2D
     module procedure New_Point2D
-  end interface 
+  end interface
   ...
-  
+
 contains  
 
   ...
   type(Point2D) function New_Point2D(input_file) result(point)
     character(len=*) :: input_file  !< input file
-    
+
     real(RNP) :: x, y
-    
+
     ! read x, y from input file
     ...
-    
+
     point % x = x
     point % y = y
-  
+
   end function New_Point2D
 ```
 
@@ -337,7 +337,7 @@ New pecularities may occur with type extension. For example consider the type `M
   type, extends(Point2D) :: MassPoint2D
     real(RNP) :: m  !< point mass
   end type MassPoint2D
-  
+
   type(MassPoint2D) :: mass_point = MassPoint2D(x = 1.0_RNP, m = 10.0_RNP)
 ```
 
@@ -346,4 +346,3 @@ The child type inherits all components and, if defined, all type-bound procedure
   - `Standard_Operators_1D`, providing parent type `StandardOperators1D`, and
   - `CG_Element_Operators_1D`, defining child type `CG_ElementOperators1D`, or
   - `IP_Element_Operators_1D`, defining child type `IP_ElementOperators1D`
-

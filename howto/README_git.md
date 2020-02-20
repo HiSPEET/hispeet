@@ -171,7 +171,7 @@ To compare the current branch against master branch, showing only the names of m
 
     git diff --name-status master
 
-For details jomit the `--name-status` option. To compare a file or directory located at `path` against the master use
+For details just omit the `--name-status` option. To compare a file or directory located at `path` against the master use
 
     git diff --name-status master -- <path>
 
@@ -200,9 +200,11 @@ Auto-resolve conflicts
 
 Disable fast-forward merging and do not create a merge commit.
 This is useful if auto-merging cannot be trusted.
-Works with `pull` as well as with `merge`
+Works with `pull` as well as with `merge`, e.g.
 
     git pull --no-ff --no-commit
+    # or
+    git merge --no-ff --no-commit origin/topic
 
 Now inspect the changes
 
@@ -215,10 +217,7 @@ Now inspect the changes
 Compare/edit the changes using the difftool and commit
 
     git difftool HEAD foo.f
-    git commit -m 'pull completed'
-
-
-$ git diff --name-status <branch1>..<branch2>
+    git commit -m 'pull/merge completed'
 
 Note: 
 To show all changes in detail omit the `name-status` option.

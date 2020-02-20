@@ -1,5 +1,5 @@
 !> summary:  Polynomial multigrid level for use with elliptic solvers
-!> author:   Joerg Stiller
+!> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2019/01/30
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
@@ -49,6 +49,7 @@ module CART__Elliptic_PMG_Level
     procedure :: Init_CoarseLevel
 
     procedure :: SetTopLevelProblem_CI
+    procedure :: SetTopLevelProblem_CI_svv
     procedure :: SetTopLevelProblem_VI
     procedure :: SetCoarseProblem
 
@@ -171,6 +172,22 @@ subroutine SetTopLevelProblem_CI(this, lambda, nu, bc)
   call GetWorkspace(this)
 
 end subroutine SetTopLevelProblem_CI
+
+!-------------------------------------------------------------------------------
+!> Initialize top-level problem with a combination of a constant isotropic
+!> diffusivity and a constant isotropic spectral diffusivity
+
+subroutine SetTopLevelProblem_CI_svv(this, lambda, nu, nu_svv, bc)
+  class(PMG_Level), intent(inout) :: this
+  real(RNP),        intent(in)    :: lambda !< Helmholtz parameter
+  real(RNP),        intent(in)    :: nu     !< diffusivity
+  real(RNP),        intent(in)    :: nu_svv !< spectral diffusivity
+  character,        intent(in)    :: bc(:)  !< boundary conditions
+
+  call this % elliptic_op % SetProblem(lambda, nu, nu_svv, bc)
+  call GetWorkspace(this)
+
+end subroutine SetTopLevelProblem_CI_svv
 
 !-------------------------------------------------------------------------------
 !> Initialize top-level problem with variable isotropic diffusivity
@@ -375,10 +392,10 @@ subroutine Build_F2C_TransferOps(this, pc)
 
   ! prepend order reduction, if possible
   associate(eop => this % elliptic_op % eop, t2c_op => this % t2c_op)
-    if (eop % HasLegendreVDM()) then
+    if (eop % Has_Legendre_VDM()) then
       allocate(VL(0:pf,0:pf), VL_inv(0:pf,0:pf))
-      call eop % GetLegendreVDM(VL)
-      call eop % GetInverseLegendreVDM(VL_inv)
+      call eop % Get_Legendre_VDM(VL)
+      call eop % Get_InverseLegendre_VDM(VL_inv)
       t2c_op = matmul(t2c_op, matmul(VL(:,0:pc), VL_inv(0:pc,:)))
     end if
   end associate

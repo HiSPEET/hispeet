@@ -1,5 +1,5 @@
 !> summary:  Test elliptic IP/DG operator with constant isotropic diffusivity
-!> author:   Joerg Stiller
+!> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2018/12/20
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
@@ -39,18 +39,19 @@ program Elliptic_Test__IP_CI
 
   class(EllipticProblem), allocatable :: problem
 
-  integer   :: test      = 1       ! case {1,2,3,4} = {simple 1d/2d/3d, knotty}
+  integer   :: test      =  1     ! case {1,2,3,4} = {simple 1d/2d/3d, knotty}
 
-  real(RNP) :: lambda    = 0       ! Helmholtz parameter
-  real(RNP) :: nu        = 1       ! diffusivity
-  integer   :: k_u       = 1       ! solution wave number
+  real(RNP) :: lambda    =  0      ! Helmholtz parameter
+  real(RNP) :: nu        =  1      ! diffusivity
+  real(RNP) :: nu_svv    = -1      ! spectral diffusivity amplitude
+  integer   :: k_u       =  1      ! solution wave number
 
-  real(RNP) :: xo(3)     = 0       ! corner closest to -infinity
-  real(RNP) :: lx(3)     = 2*PI    ! domain extensions
+  real(RNP) :: xo(3)     =  0      ! corner closest to -infinity
+  real(RNP) :: lx(3)     =  2*PI   ! domain extensions
   character :: bc(6)     = 'P'     ! boundary conditions {'P'|'D'|'N'}
 
   namelist /test_case/ test
-  namelist /test_case/ lambda, nu, k_u
+  namelist /test_case/ lambda, nu, nu_svv, k_u
   namelist /test_case/ xo, lx, bc
 
   ! discretization .............................................................
@@ -58,10 +59,11 @@ program Elliptic_Test__IP_CI
   integer   :: np(3)     = 1       ! number of partitions in directions 1:3
   integer   :: ep(3)     = 2       ! elements per partition and direction
   integer   :: po        = 2       ! polynomial order
-  integer   :: penalty   = 2       ! penalty parameter > 1
+  real(RNP) :: penalty   = 2       ! penalty parameter > 1
   logical   :: adjust_dx = .false. ! adjust mesh spacing: Δx₃ = max(Δx₁,Δx₂)
+  logical   :: svv       = .false. ! switch for the SVV model
 
-  namelist /discretization/ np, ep, po, penalty, adjust_dx
+  namelist /discretization/ np, ep, po, penalty, adjust_dx, svv
 
   ! solution ...................................................................
 
@@ -171,6 +173,7 @@ program Elliptic_Test__IP_CI
   call XMPI_Bcast(test   , 0, comm)
   call XMPI_Bcast(lambda , 0, comm)
   call XMPI_Bcast(nu     , 0, comm)
+  call XMPI_Bcast(nu_svv , 0, comm)
   call XMPI_Bcast(k_u    , 0, comm)
   call XMPI_Bcast(xo     , 0, comm)
   call XMPI_Bcast(lx     , 0, comm)
@@ -185,6 +188,7 @@ program Elliptic_Test__IP_CI
 
   ! solver
   call XMPI_Bcast(method, 0, comm)
+  call XMPI_Bcast(svv,    0, comm)
 
   ! CG/Schwarz options
   call XMPI_Bcast(i_max, 0, comm)
@@ -238,10 +242,20 @@ program Elliptic_Test__IP_CI
   allocate(grad_u(0:po, 0:po, 0:po, mesh%ne, 3))
   allocate(laplace_u(0:po, 0:po, 0:po, mesh%ne))
 
+  ! set spectral diffusivity to default value if not given as parameter
+  if (nu_svv == -1) nu_svv = ONE / real(po,RNP)
+
   ! operators ..................................................................
 
-  ip_opt = IP_ElementOptions1D(po, penalty)
-  elliptic_op = EllipticOperator3D_IP(mesh, lambda, nu, bc, ip_opt, schwarz_opt)
+  ip_opt = IP_ElementOptions1D(po = po, penalty = penalty, svv = svv)
+
+  if (svv) then
+    elliptic_op = EllipticOperator3D_IP(mesh, lambda, nu, nu_svv, bc, ip_opt,  &
+                                        schwarz_opt)
+  else
+    elliptic_op = EllipticOperator3D_IP(mesh, lambda, nu,         bc, ip_opt,  &
+                                        schwarz_opt)
+  end if
 
   !-----------------------------------------------------------------------------
   ! Tests
@@ -285,7 +299,11 @@ program Elliptic_Test__IP_CI
   select case(method)
   case(3,4)
     pmg = PMG_Method3D(mesh, ip_opt, pmg_opt)
-    call pmg % SetProblem(lambda, nu, bc)
+    if (svv) then
+      call pmg % SetProblem(lambda, nu, nu_svv, bc)
+    else
+      call pmg % SetProblem(lambda, nu,         bc)
+    end if
   end select
 
   if (rank == 0) then

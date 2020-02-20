@@ -6,7 +6,8 @@
 /
 
 &solution_parameters
- po = 15        ! polynomial order
- ne = 400       ! number of elements
- penalty = 2    ! penalty parameter > 1
+ eop_opt%po      = 15 ! polynomial order
+ eop_opt%svv     = T  ! switch for SVV activation
+ eop_opt%penalty = 2  ! penalty parameter > 1
+ ne = 400             ! number of elements
 /

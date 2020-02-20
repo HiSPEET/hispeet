@@ -1,5 +1,5 @@
 !> summary:  Build 1D Schwarz eigensystems for IP/DG-SEM
-!> author:   Joerg Stiller
+!> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2018/11/08
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
@@ -18,16 +18,12 @@ contains
 !-------------------------------------------------------------------------------
 !> Build 1D Schwarz eigensystems for IP/DG-SEM
 
-module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
+module subroutine BuildEigensystems_IP(this, eop)
 
   ! arguments ..................................................................
 
   class(SchwarzOperator3D),     intent(inout) :: this !< Schwarz operator
   class(IP_ElementOperators1D), intent(in)    :: eop  !< IP-DG SE operators
-
-  real(RNP),         intent(in) :: delta(3)  !< relative overlap
-  integer, optional, intent(in) :: no_min    !< min overlap in points [-1]
-  integer, optional, intent(in) :: weighting !< weighting method      [ 5]
 
   ! local variables ............................................................
 
@@ -41,12 +37,10 @@ module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
     ! parameters ...............................................................
 
     do i = 1, 3
-      this % no(i) = count(eop%x <= 2*delta(i) - 1)
+      this % no(i) = count(eop%x <= 2*this%opt%delta(i) - 1)
     end do
 
-    if (present(no_min)) then
-      this % no = max(this%no, min(no_min, po+1))
-    end if
+    this % no = max(this%no, min(this%opt%no_min, po+1))
 
     this % isotropic = all(this%no(2:3) == this%no(1))
 
@@ -62,15 +56,15 @@ module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
 
       ! weights for standard (interior-interior) configuration
       allocate(W1(n1), W2(n3), W3(n3))
-      if (present(weighting)) then
-        k = weighting
-      else
-        k = 5
-      end if
-      call WeightDistribution(eop%x, this%no(1), k, W1)
-      call WeightDistribution(eop%x, this%no(2), k, W2)
-      call WeightDistribution(eop%x, this%no(3), k, W3)
+      call WeightDistribution(eop%x, this%no(1), this%opt%weighting, W1)
+      call WeightDistribution(eop%x, this%no(2), this%opt%weighting, W2)
+      call WeightDistribution(eop%x, this%no(3), this%opt%weighting, W3)
 
+      if (allocated(this%S1)) then
+        deallocate(this%S1, this%V1, this%W1)
+        deallocate(this%S2, this%V2, this%W2)
+        deallocate(this%S3, this%V3, this%W3)
+      end if
       allocate(this%S1(n1,n1,nc), this%V1(n1,nc), this%W1(n1,nc))
       allocate(this%S2(n2,n2,nc), this%V2(n2,nc), this%W2(n2,nc))
       allocate(this%S3(n3,n3,nc), this%V3(n3,nc), this%W3(n3,nc))
@@ -88,7 +82,7 @@ module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
         bc(1) = boundary_type(i)
         k = i + num_boundary_types * (j - 1)
 
-        call GetSubdomainOperators( eop,                 &
+        call GetSubdomainOperators( eop, this%svv_ratio, &
                                     no = this%no(1),     &
                                     bc = bc,             &
                                     Ws = W1,             &
@@ -108,7 +102,7 @@ module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
 
         else
 
-          call GetSubdomainOperators( eop,                 &
+          call GetSubdomainOperators( eop, this%svv_ratio, &
                                       no = this%no(2),     &
                                       bc = bc,             &
                                       Ws = W2,             &
@@ -116,7 +110,7 @@ module subroutine BuildEigensystems_IP(this, eop, delta, no_min, weighting)
                                       V  = this%V2(:,k),   &
                                       W  = this%W2(:,k)    )
 
-          call GetSubdomainOperators( eop,                 &
+          call GetSubdomainOperators( eop, this%svv_ratio, &
                                       no = this%no(3),     &
                                       bc = bc,             &
                                       Ws = W3,             &
@@ -148,8 +142,9 @@ end subroutine BuildEigensystems_IP
 !> eigenvectors and weights. The corresponding eigenvalues they are set `1` in
 !> order to avoid floating points exceptions when used as a divisor.
 
-subroutine GetSubdomainOperators(eop, no, bc, Ws, S, V, W)
+subroutine GetSubdomainOperators(eop, svv_ratio, no, bc, Ws, S, V, W)
   type(IP_ElementOperators1D), intent(in) :: eop !< IP-DG element operators
+  real(RNP),  intent(in)  :: svv_ratio    !< ν/(ν+νˢ)
   integer,    intent(in)  :: no           !< overlap
   character,  intent(in)  :: bc(2)        !< left/right boundary conditions
   real(RNP),  intent(in)  :: Ws(-no:)     !< standard weights
@@ -172,10 +167,12 @@ subroutine GetSubdomainOperators(eop, no, bc, Ws, S, V, W)
   allocate(Le_bc(0:po,0:po,-1:1))
 
   ! stiffness matrix for interior element, assuming dx=1
-  call eop % GetStiffnessMatrix(dx, bc=ii, Le=Le_ii)
+  call eop % Get_DiffusionMatrix(dx, bc     = ii,              nu = svv_ratio, &
+                                     nu_svv = (ONE-svv_ratio), Ae = Le_ii      )
 
   ! stiffness matrix for given boundary conditions, assuming dx=1
-  call eop % GetStiffnessMatrix(dx, bc=bc, Le=Le_bc)
+  call eop % Get_DiffusionMatrix(dx, bc     = bc,              nu = svv_ratio, &
+                                     nu_svv = (ONE-svv_ratio), Ae = Le_bc      )
 
   ! initialization: eigenvalues V set to 1 to avoid division by zero in
   ! in case of truncated overlap zones

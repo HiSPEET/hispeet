@@ -7,7 +7,7 @@
 !>
 !> Solves the Helmholtz equation
 !>
-!>     u - lambda u" = f(x),    lambda = 1
+!>     lambda u - u" = f(x),    lambda = 1
 !>
 !> in the domain (-1,1) with u(-1) and u'(1) given. Test cases are based on the
 !> exact solution
@@ -32,18 +32,19 @@ program IP_Helmholtz_1D
   ! variables ..................................................................
 
   ! problem parameters
-  real(RNP) :: lambda  = 1    ! Helmholtz parameter
-  integer   :: test    = 1    ! test case
+  real(RNP) :: lambda  =  1   ! Helmholtz parameter
+  real(RNP) :: nu      =  1   ! diffusivity
+  real(RNP) :: nu_svv  = -1   ! spectral diffusivity amplitude
+  integer   :: test    =  1   ! test case
   character :: bc(2)   = 'D'  ! left/right BC ('D': Dirichlet, 'N': Neumann)
 
-  namelist /problem_parameters/ lambda, test, bc
+  namelist /problem_parameters/ lambda, nu, nu_svv, test, bc
 
   ! solution parameters
-  integer   :: po      = 16   ! polynomial order
-  integer   :: ne      = 10   ! number of elements
-  real(RNP) :: penalty = 2    ! penalty parameter > 1
+  type(IP_ElementOptions1D) :: eop_opt ! options for IP element operator
+  integer                   :: ne = 10 ! number of elements
 
-  namelist /solution_parameters/ po, ne, penalty
+  namelist /solution_parameters/ eop_opt, ne
 
   ! discrete variables and operators
   type(IP_ElementOperators1D) :: eop    ! element operators
@@ -55,7 +56,7 @@ program IP_Helmholtz_1D
 
   ! auxiliary variables
   logical      :: exists, singular
-  integer      :: i, l, n, io
+  integer      :: po, i, l, n, io
   integer(IXL) :: count0, count1, count_rate
   real(RNP)    :: dx, t_pre, t_sol
 
@@ -68,10 +69,16 @@ program IP_Helmholtz_1D
   inquire(file='ip_helmholtz_1d.prm', exist=exists)
   if (exists) then
     open(newunit=io, file='ip_helmholtz_1d.prm')
-    read(io, nml=problem_parameters)
+    read(io, nml=problem_parameters )
     read(io, nml=solution_parameters)
     close(io)
   end if
+
+  eop_opt%hybrid = .true.
+  po = eop_opt%po
+  ! set spectral diffusivity to default value if not given as parameter
+  if (nu_svv == -1) nu_svv = ONE / real(po,RNP)
+
   call SetTestCase(test)
 
   ! start system clock
@@ -86,7 +93,7 @@ program IP_Helmholtz_1D
   n = size(u)
 
   ! standard operators
-  eop = IP_ElementOperators1D(po, penalty, hybrid = .true.)
+  eop = IP_ElementOperators1D(eop_opt)
 
   ! mesh
   dx = TWO / ne
@@ -109,7 +116,11 @@ program IP_Helmholtz_1D
   ! solution ...................................................................
 
   call system_clock(count0)
-  call HybridEllipticSolver(eop, dx, lambda, ONE, bc, f, u)
+  if (eop % Has_SVV()) then
+    call HybridEllipticSolver(eop, dx, lambda, nu, nu_svv, bc, f, u)
+  else
+    call HybridEllipticSolver(eop, dx, lambda, nu        , bc, f, u)
+  end if
   call system_clock(count1)
 
   t_sol = (count1 - count0) / real(count_rate, RNP)

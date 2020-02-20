@@ -1,5 +1,5 @@
 !> summary:  Polynomial multigrid for use with elliptic solvers
-!> author:   Joerg Stiller
+!> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2019/02/03
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
@@ -55,8 +55,9 @@ module CART__Elliptic_PMG
     generic :: Init_PMG_Method3D => Init_IP
     procedure, private :: Init_IP
 
-    generic :: SetProblem => SetProblem_CI, SetProblem_VI
+    generic :: SetProblem => SetProblem_CI, SetProblem_CI_svv, SetProblem_VI
     procedure, private :: SetProblem_CI
+    procedure, private :: SetProblem_CI_svv
     procedure, private :: SetProblem_VI
 
     procedure :: GetWorkspace
@@ -135,6 +136,18 @@ module CART__Elliptic_PMG
       real(RNP),           intent(in)    :: nu      !< diffusivity
       character,           intent(in)    :: bc(:)   !< boundary conditions
     end subroutine SetProblem_CI
+
+    !---------------------------------------------------------------------------
+    !> Initialize problem with a combination of a constant isotropic diffusivity
+    !> and a constant isotropic spectral diffusivity
+
+    module subroutine SetProblem_CI_svv(this, lambda, nu, nu_svv, bc)
+      class(PMG_Method3D), intent(inout) :: this
+      real(RNP),           intent(in)    :: lambda  !< Helmholtz parameter
+      real(RNP),           intent(in)    :: nu      !< diffusivity
+      real(RNP),           intent(in)    :: nu_svv  !< spectral diffusivity
+      character,           intent(in)    :: bc(:)   !< boundary conditions
+    end subroutine SetProblem_CI_svv
 
     !---------------------------------------------------------------------------
     !> Initialize problem with variable isotropic diffusivity

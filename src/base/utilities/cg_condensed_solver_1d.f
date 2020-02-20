@@ -8,6 +8,7 @@
 
 module CG_Condensed_Solver_1D
   use Kind_Parameters,  only: RNP
+  use Constants,        only: ZERO
   use Linear_Equations, only: TridiagonalSolver, CyclicTridiagonalSolver
   use CG_Element_Operators_1D
   implicit none
@@ -15,22 +16,29 @@ module CG_Condensed_Solver_1D
 
   public :: CondensedEllipticSolver
 
+  interface CondensedEllipticSolver
+    procedure :: CondensedEllipticSolver__w_svv
+    procedure :: CondensedEllipticSolver__n_svv
+  end interface
+
 contains
 
 !-------------------------------------------------------------------------------
-!> Direct elliptic solver based on static condensation
+!> Direct elliptic solver based on static condensation with SVV
 
-subroutine CondensedEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
+subroutine CondensedEllipticSolver__w_svv( eop, dx, c, nu, nu_svv &
+                                         , bc, f, u, standby      )
   class(CG_ElementOperators1D), intent(in) :: eop !< element operators
   real(RNP), intent(in)    :: dx       !< element width
   real(RNP), intent(in)    :: c        !< coefficient of linear term
-  real(RNP), intent(in)    :: nu       !< diffusivity
+  real(RNP), intent(in)    :: nu       !< physical diffusivity
+  real(RNP), intent(in)    :: nu_svv   !< spectral diffusivity [0]
   character, intent(in)    :: bc(:)    !< boundary conditions {'D','N','P'}
   real(RNP), intent(in)    :: f(0:,:)  !< source including Neumann BC
   real(RNP), intent(inout) :: u(0:,:)  !< solution with Dirichlet BC set
 
   !> optionally keep suboperators for repeated application [F]
-  logical, optional, intent(in) :: standby
+  logical,   optional, intent(in) :: standby
 
   ! variables ..................................................................
 
@@ -40,8 +48,8 @@ subroutine CondensedEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
   real(RNP), allocatable, save :: Aii_inv(:,:) ! inverse interior-interior op.
 
   ! condensed system
-  real(RNP), allocatable :: Ac(:,:)      ! condensed system matrix
-  real(RNP), allocatable :: fc(:)        ! condensed RHS / solution
+  real(RNP), allocatable :: Ac(:,:) ! condensed system matrix
+  real(RNP), allocatable :: fc(:)   ! condensed RHS / solution
 
   integer :: np
 
@@ -55,7 +63,7 @@ subroutine CondensedEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
 
   if (.not. allocated(Aib)) then
     allocate(Abb(2,2), Aib(np,2), Aii_inv(np,np))
-    call eop % GetEllipticSuboperators(dx, c, nu, Aib, Abb, Aii_inv)
+    call eop % Get_EllipticSuboperators(dx, c, nu, nu_svv, Aib, Abb, Aii_inv)
   end if
 
   ! solution ...................................................................
@@ -72,7 +80,26 @@ subroutine CondensedEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
 
   deallocate(Abb, Aib, Aii_inv)
 
-end subroutine CondensedEllipticSolver
+end subroutine CondensedEllipticSolver__w_svv
+
+!-------------------------------------------------------------------------------
+!> Direct elliptic solver based on static condensation without SVV
+
+subroutine CondensedEllipticSolver__n_svv(eop, dx, c, nu, bc, f, u, standby)
+  class(CG_ElementOperators1D), intent(in) :: eop !< element operators
+  real(RNP), intent(in)    :: dx       !< element width
+  real(RNP), intent(in)    :: c        !< coefficient of linear term
+  real(RNP), intent(in)    :: nu       !< physical diffusivity
+  character, intent(in)    :: bc(:)    !< boundary conditions {'D','N','P'}
+  real(RNP), intent(in)    :: f(0:,:)  !< source including Neumann BC
+  real(RNP), intent(inout) :: u(0:,:)  !< solution with Dirichlet BC set
+
+  !> optionally keep suboperators for repeated application [F]
+  logical,   optional, intent(in) :: standby
+
+  call CondensedEllipticSolver__w_svv(eop, dx, c, nu, ZERO, bc, f, u, standby)
+
+end subroutine CondensedEllipticSolver__n_svv
 
 !-------------------------------------------------------------------------------
 !> Build the condensed system

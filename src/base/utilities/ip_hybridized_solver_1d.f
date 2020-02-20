@@ -1,5 +1,5 @@
 !> summary:  Direct 1D elliptic solver for hybrid IP/DG-SEM
-!> author:   Joerg Stiller
+!> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2019/01/20
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
@@ -16,16 +16,23 @@ module IP_Hybridized_Solver_1D
 
   public :: HybridEllipticSolver
 
+  interface HybridEllipticSolver
+    procedure :: HybridEllipticSolver__w_svv
+    procedure :: HybridEllipticSolver__n_svv
+  end interface
+
 contains
 
 !-------------------------------------------------------------------------------
-!> Direct elliptic solver based on hybridization
+!> Direct elliptic solver based on hybridization including SVV
 
-subroutine HybridEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
+subroutine HybridEllipticSolver__w_svv( eop, dx, c, nu, nu_svv &
+                                      , bc, f, u, standby      )
   class(IP_ElementOperators1D), intent(in) :: eop !< element operators
   real(RNP), intent(in)  :: dx       !< element width
   real(RNP), intent(in)  :: c        !< coefficient of linear term
   real(RNP), intent(in)  :: nu       !< diffusivity
+  real(RNP), intent(in)  :: nu_svv   !< SVV diffusivity [0]
   character, intent(in)  :: bc(2)    !< boundary conditions {'D','N','P'}
   real(RNP), intent(in)  :: f(0:,:)  !< source including Neumann BC
   real(RNP), intent(out) :: u(0:,:)  !< solution
@@ -51,7 +58,8 @@ subroutine HybridEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
   po  = eop%po
   ne  = size(f,2)
   dx_ = dx
-  tau = 2 * nu * eop%PenaltyFactor(dx)
+
+  tau = 2 * (nu + nu_svv) * eop%PenaltyFactor(dx)
 
   if (allocated(Aib)) then
     if (ubound(Aib,1) /= po) deallocate(Aib, Aii_inv)
@@ -62,19 +70,19 @@ subroutine HybridEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
     allocate( Aii_inv (0:po, 0:po, -1:1), source = ZERO)
     select case(ne)
     case(1)
-      call eop % GetEllipticSuboperators( dx_, bc, c, nu,              &
-                                          Aib(:,:, 0), Aii_inv(:,:, 0) )
+      call eop % Get_EllipticSuboperators( dx_, bc,             c, nu, nu_svv, &
+                                           Aib(:,:, 0), Aii_inv(:,:, 0)        )
     case default
       ! left element
-      call eop % GetEllipticSuboperators( dx_, [ bc(1), ' ' ], c, nu,  &
-                                          Aib(:,:,-1), Aii_inv(:,:,-1) )
+      call eop % Get_EllipticSuboperators( dx_, [ bc(1), ' ' ], c, nu, nu_svv, &
+                                           Aib(:,:,-1), Aii_inv(:,:,-1)        )
 
       ! interior element(s)
-      call eop % GetEllipticSuboperators( dx_, [ ' ', ' ' ], c, nu,    &
-                                          Aib(:,:, 0), Aii_inv(:,:, 0) )
+      call eop % Get_EllipticSuboperators( dx_, [ ' ', ' ' ],   c, nu, nu_svv, &
+                                           Aib(:,:, 0), Aii_inv(:,:, 0)        )
       ! right element
-      call eop % GetEllipticSuboperators( dx_, [ ' ', bc(2) ], c, nu,  &
-                                          Aib(:,:, 1), Aii_inv(:,:, 1) )
+      call eop % Get_EllipticSuboperators( dx_, [ ' ', bc(2) ], c, nu, nu_svv, &
+                                           Aib(:,:, 1), Aii_inv(:,:, 1)        )
     end select
   end if
 
@@ -96,7 +104,26 @@ subroutine HybridEllipticSolver(eop, dx, c, nu, bc, f, u, standby)
 
   deallocate(Aib, Aii_inv)
 
-end subroutine HybridEllipticSolver
+end subroutine HybridEllipticSolver__w_svv
+
+!-------------------------------------------------------------------------------
+!> Direct elliptic solver based on hybridization without SVV
+
+subroutine HybridEllipticSolver__n_svv(eop, dx, c, nu, bc, f, u, standby)
+  class(IP_ElementOperators1D), intent(in) :: eop !< element operators
+  real(RNP), intent(in)  :: dx       !< element width
+  real(RNP), intent(in)  :: c        !< coefficient of linear term
+  real(RNP), intent(in)  :: nu       !< diffusivity
+  character, intent(in)  :: bc(2)    !< boundary conditions {'D','N','P'}
+  real(RNP), intent(in)  :: f(0:,:)  !< source including Neumann BC
+  real(RNP), intent(out) :: u(0:,:)  !< solution
+
+  !> optionally keep suboperators for repeated application [F]
+  logical, optional, intent(in) :: standby
+
+  call HybridEllipticSolver__w_svv(eop, dx, c, nu, ZERO, bc, f, u, standby)
+
+end subroutine HybridEllipticSolver__n_svv
 
 !-------------------------------------------------------------------------------
 !> Build the flux system for two or more elements

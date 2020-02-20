@@ -1,5 +1,5 @@
 !> summary:  Initialize elliptic operator for IP/DG-SEM
-!> author:   Joerg Stiller
+!> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2018/12/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
@@ -49,6 +49,47 @@ module subroutine Init_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
   end if
 
 end subroutine Init_CI
+
+!-------------------------------------------------------------------------------
+!> Initialize operator with a combination of constant isotropic diffusivity and
+!> constant isotropic spectral diffusivity
+
+module subroutine Init_CI_svv(this, mesh, lambda, nu, nu_svv, bc, ip_opt,      &
+  schwarz_opt)
+
+! arguments ..................................................................
+
+class(EllipticOperator3D_IP), intent(inout) :: this
+class(MeshPartition), target, intent(in)    :: mesh   !< mesh partition
+real(RNP),                    intent(in)    :: lambda !< Helmholtz parameter
+real(RNP),                    intent(in)    :: nu     !< diffusivity
+real(RNP),                    intent(in)    :: nu_svv !< SVV diffusivity
+character,                    intent(in)    :: bc(:)  !< boundary conditions
+
+!> options for the IP/DG method, including polynomial order `po` and `penalty`
+class(IP_ElementOptions1D), intent(in) :: ip_opt
+
+!> options for the Schwarz method
+class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
+
+! problem and discretization parameters ......................................
+
+this % mesh      => mesh
+this % lambda    =  lambda
+this % nu_ci     =  nu
+this % nu_ci_svv =  nu_svv
+this % bc        =  bc
+
+allocate(this % eop, source = IP_ElementOperators1D(ip_opt))
+
+! Schwarz method .............................................................
+
+if (present(schwarz_opt)) then
+  allocate(this % schwarz)
+  call this % schwarz % New(schwarz_opt, this%eop, mesh, lambda, nu, nu_svv, bc)
+end if
+
+end subroutine Init_CI_svv
 
 !-------------------------------------------------------------------------------
 !> Initialize operator with variable isotropic diffusivity

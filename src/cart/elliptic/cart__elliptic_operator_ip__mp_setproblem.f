@@ -1,5 +1,5 @@
 !> summary:  Set problem parameters for elliptic operator with IP/DG-SEM
-!> author:   Joerg Stiller
+!> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2019/02/24
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
@@ -35,6 +35,31 @@ module subroutine SetProblem_CI(this, lambda, nu, bc)
 end subroutine SetProblem_CI
 
 !-------------------------------------------------------------------------------
+!> Initialize problem with a combination of constant isotropic diffusivity and
+!> constant isotropic spectral diffusivity
+
+module subroutine SetProblem_CI_svv(this, lambda, nu, nu_svv, bc)
+  class(EllipticOperator3D_IP), intent(inout) :: this
+  real(RNP), intent(in) :: lambda !< Helmholtz parameter
+  real(RNP), intent(in) :: nu     !< diffusivity
+  real(RNP), intent(in) :: nu_svv !< spectral diffusivity
+  character, intent(in) :: bc(:)  !< boundary conditions
+
+  if (allocated(this % nu_vi )) deallocate(this % nu_vi )
+  if (allocated(this % nu_hat)) deallocate(this % nu_hat)
+
+  this % lambda    = lambda
+  this % nu_ci     = nu
+  this % nu_ci_svv = nu_svv
+  this % bc        = bc
+
+  if (allocated(this % schwarz)) then
+    call this % schwarz % SetProblem(this%eop, this%mesh, lambda, nu, nu_svv, bc)
+  end if
+
+end subroutine SetProblem_CI_svv
+
+!-------------------------------------------------------------------------------
 !> Initialize problem with variable isotropic diffusivity
 
 module subroutine SetProblem_VI(this, lambda, nu, bc)
@@ -56,7 +81,8 @@ module subroutine SetProblem_VI(this, lambda, nu, bc)
     po = this % eop % po
     np = po + 1
 
-    if (allocated(this % nu_ci)) deallocate(this % nu_ci)
+    if (allocated(this % nu_ci))     deallocate(this % nu_ci)
+    if (allocated(this % nu_ci_svv)) deallocate(this % nu_ci_svv)
 
     ! (re)allocate nu_vi, if necessary
     if (allocated(this % nu_vi)) then

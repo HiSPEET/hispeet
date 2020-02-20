@@ -15,6 +15,7 @@
 !ep = 2,2,2
  po = 16
 !penalty = 2
+ svv = F
 /
 
 &solver

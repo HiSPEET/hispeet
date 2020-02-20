@@ -1,5 +1,5 @@
 !> summary:  Abstract 3D Cartesian elliptic operator
-!> author:   Joerg Stiller
+!> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2018/11/05
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
@@ -27,6 +27,8 @@ module CART__Elliptic_Operator
 
     real(RNP) :: lambda = 0                  !< Helmholtz parameter
     real(RNP), allocatable :: nu_ci          !< constant isotropic diffusivity
+    real(RNP), allocatable :: nu_ci_svv      !< constant isotropic spectral
+                                             !! diffusivity
     real(RNP), allocatable :: nu_vi(:,:,:,:) !< variable isotropic diffusivity
     character, allocatable :: bc(:)          !< boundary conditions {P,D,N}
 
@@ -35,9 +37,11 @@ module CART__Elliptic_Operator
 
   contains
 
-    generic :: SetProblem => SetProblem_CI, SetProblem_VI
-    procedure(SetProblem_CI), deferred :: SetProblem_CI  ! should be private
-    procedure(SetProblem_VI), deferred :: SetProblem_VI  ! but fails with ifort
+    generic :: SetProblem => SetProblem_CI, SetProblem_CI_svv, SetProblem_VI
+    procedure(SetProblem_CI),     deferred :: SetProblem_CI     ! should be
+    procedure(SetProblem_CI_svv), deferred :: SetProblem_CI_svv ! private but
+    procedure(SetProblem_VI),     deferred :: SetProblem_VI     ! fails with ifort
+
 
     procedure(Apply),     deferred :: Apply
     procedure(BcToRHS),   deferred :: BcToRHS
@@ -49,7 +53,7 @@ module CART__Elliptic_Operator
 
   abstract interface
 
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> (Re)Set problem parameters for constant isotropic viscosity
 
     subroutine SetProblem_CI(this, lambda, nu, bc)
@@ -60,7 +64,20 @@ module CART__Elliptic_Operator
       character, intent(in) :: bc(:)  !< BC {'D','N','P'}
     end subroutine SetProblem_CI
 
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    !> (Re)Set problem parameters for a combination of constant isotropic
+    !> viscosity and constant isotropic spectral viscosity
+
+    subroutine SetProblem_CI_svv(this, lambda, nu, nu_svv, bc)
+      import
+      class(EllipticOperator3D), intent(inout) :: this
+      real(RNP), intent(in) :: lambda !< Helmholtz parameter
+      real(RNP), intent(in) :: nu     !< diffusivity
+      real(RNP), intent(in) :: nu_svv !< SVV diffusivity
+      character, intent(in) :: bc(:)  !< BC {'D','N','P'}
+    end subroutine SetProblem_CI_svv
+
+    !---------------------------------------------------------------------------
     !> (Re)Set problem parameters for variable isotropic viscosity
 
     subroutine SetProblem_VI(this, lambda, nu, bc)
@@ -71,7 +88,7 @@ module CART__Elliptic_Operator
       character, intent(in) :: bc(:)          !< BC {'D','N','P'}
     end subroutine SetProblem_VI
 
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> Applies the operator to given approximation: const isotropic
 
     subroutine Apply(this, u, v)
@@ -81,7 +98,7 @@ module CART__Elliptic_Operator
       real(RNP), intent(out) :: v(0:,0:,0:,:)  !< result
     end subroutine Apply
 
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> Adds the boundary contributions of the right hand side
 
     subroutine BcToRHS(this, bv, c, f)
@@ -92,7 +109,7 @@ module CART__Elliptic_Operator
       real(RNP),                 intent(inout) :: f(:,:,:,:) !< RHS
     end subroutine BcToRHS
 
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> Computes the residual to given approximation: const isotropic
 
     subroutine Residual(this, u, f, r)
@@ -103,7 +120,7 @@ module CART__Elliptic_Operator
       real(RNP), intent(out) :: r(0:,0:,0:,:)  !< result
     end subroutine Residual
 
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> Performs iteration sweeps starting from given approximation
 
     subroutine Iteration(this, u, f, i_max, r_red, r_max, ni)

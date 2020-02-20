@@ -7,7 +7,7 @@
 !>
 !> Solves the Helmholtz equation
 !>
-!>     u - lambda u" = f(x),    lambda = 1
+!>     lambda u - u" = f(x),    lambda = 1
 !>
 !> in the domain (-1,1) with u(-1) and u'(1) given. Test cases are based on the
 !> exact solution
@@ -39,7 +39,7 @@
 
 program CG_Helmholtz_1D
   use Kind_Parameters,  only: RNP, IXL
-  use Constants,        only: ONE
+  use Constants,        only: ONE, ZERO
   use CG_Element_Operators_1D
   use CG_Utilities_1D
   use CG_Condensed_Solver_1D
@@ -51,20 +51,22 @@ program CG_Helmholtz_1D
 
   ! problem parameters
   real(RNP) :: lambda  = 1      ! Helmholtz parameter
+  real(RNP) :: nu      = 1      ! physical diffusivity
+  real(RNP) :: nu_svv = -1      ! spectral diffusivity amplitude
   integer   :: test    = 1      ! test case
   integer   :: init    = 1      ! intial conditions (0: zero, 1: random)
   character :: bc(2)   = 'D'    ! left/right BC ('D': Dirichlet, 'N': Neumann)
 
-  namelist /problem_parameters/ lambda, test, init, bc
+  namelist /problem_parameters/ lambda, nu, nu_svv, test, init, bc
 
   ! solution parameters
-  integer   :: po     = 16      ! polynomial order
+  type(CG_ElementOptions1D) :: eop_opt ! options for CG element operator
   integer   :: ne     = 10      ! number of elements
   integer   :: method = 1       ! solution method (1: CG, 2: SC+GE)
   integer   :: i_max  = huge(1) ! maximum number of CG iterations
   real(RNP) :: r_max  = 1E-12   ! maximum CG residual
 
-  namelist /solution_parameters/ po, ne, method, r_max, i_max
+  namelist /solution_parameters/ eop_opt, ne, method, r_max, i_max
 
   ! discrete variables and operators
   type(CG_ElementOperators1D) :: eop       ! element operators
@@ -80,7 +82,7 @@ program CG_Helmholtz_1D
 
   ! auxiliary variables
   logical      :: exists, periodic, singular
-  integer      :: i, l, n, io
+  integer      :: po, i, l, n, io
   integer(IXL) :: count0, count1, count_rate
   real(RNP)    :: dx, t_pre, t_sol
 
@@ -93,10 +95,14 @@ program CG_Helmholtz_1D
   inquire(file='cg_helmholtz_1d.prm', exist=exists)
   if (exists) then
     open(newunit=io, file='cg_helmholtz_1d.prm')
-    read(io, nml=problem_parameters)
+    read(io, nml=problem_parameters )
     read(io, nml=solution_parameters)
     close(io)
   end if
+
+  po = eop_opt%po
+  ! set spectral diffusivity to default value if not given as parameter
+  if (nu_svv == -1) nu_svv = ONE / real(po,RNP)
 
   call SetTestCase(test)
   periodic = all(bc == 'P')
@@ -109,7 +115,7 @@ program CG_Helmholtz_1D
             s(0:po,ne), e(0:po,ne), w(0:po,ne)              )
 
   ! standard operators
-  eop = CG_ElementOperators1D(po)
+  eop = CG_ElementOperators1D(eop_opt)
 
   ! mesh and point weights
   call GetMeshPoints(eop, -ONE, ONE, dx, x)
@@ -117,13 +123,13 @@ program CG_Helmholtz_1D
 
   ! element operators
   allocate(Me(0:po), He(0:po,0:po))
-  call GetElementOperators(eop, dx, lambda, Me, He)
+  call GetElementOperators(eop, dx, lambda, nu, nu_svv, Me, He)
 
   ! check if problem is singular
   singular = lambda == 0 .and. (all(bc == 'N') .or. all(bc == 'P'))
 
   ! right hand side
-  call GetRHS(Me, bc, x, f)
+  call GetRHS(Me, bc, x, lambda, f)
   if (singular) then ! project f to nullspace
     f = f - sum(w*f) / sum(w)
   end if
@@ -153,8 +159,12 @@ program CG_Helmholtz_1D
   select case(method)
   case(1) ! CG
     call CG(He, bc, u, f, w, r_max, i_max)
-  case(2) ! static condensation + Gauss elimination, nu = ONE
-    call CondensedEllipticSolver(eop, dx, lambda, ONE, bc, f, u)
+  case(2) ! static condensation + Gauss elimination
+    if (eop % Has_SVV()) then
+      call CondensedEllipticSolver(eop, dx, lambda, nu, nu_svv, bc, f, u)
+    else
+      call CondensedEllipticSolver(eop, dx, lambda, nu,         bc, f, u)
+    end if
   end select
 
   call system_clock(count1)
@@ -208,16 +218,28 @@ contains
 !-------------------------------------------------------------------------------
 !> Element operators
 
-subroutine GetElementOperators(eop, dx, lambda, Me, He)
+subroutine GetElementOperators(eop, dx, lambda, nu, nu_svv, Me, He)
   class(CG_ElementOperators1D), intent(in) :: eop !< standard operators
   real(RNP), intent(in)  :: dx        !< element length
   real(RNP), intent(in)  :: lambda    !< Helmholtz parameter
+  real(RNP), intent(in)  :: nu        !< diffusivity
+  real(RNP), intent(in)  :: nu_svv    !< spectral diffusivity amplitude
   real(RNP), intent(out) :: Me(0:)    !< element mass matrix (main diagonal)
   real(RNP), intent(out) :: He(0:,0:) !< element Helmholtz operator
 
-  integer :: i
+  integer :: i, po
+  real(RNP), allocatable :: Ls(:,:)
 
-  associate(po => eop % po, Ms => eop % w, Ls => eop % L)
+  po = eop % po
+
+  ! standard diffusion matrix comprising regular and SVV contributions
+  allocate(Ls(0:po,0:po), source = ZERO)
+  if (eop % Has_SVV()) then
+    call eop % Get_SVV_StandardStiffnessMatrix(Ls)
+  end if
+  Ls = nu * eop%L + nu_svv * Ls
+
+  associate(Ms => eop % w)
 
     ! element mass matrix
     Me = dx/2 * Ms
@@ -237,10 +259,11 @@ end subroutine GetElementOperators
 !-------------------------------------------------------------------------------
 !> Right hand side
 
-subroutine GetRHS(Me, bc, x, f)
+subroutine GetRHS(Me, bc, x, lambda, f)
   real(RNP), intent(in)  :: Me(0:)  !< element mass matrix (main diagonal)
   character, intent(in)  :: bc(2)   !< boundary conditions
   real(RNP), intent(in)  :: x(0:,:) !< mesh points
+  real(RNP), intent(in)  :: lambda  ! Helmholtz parameter
   real(RNP), intent(out) :: f(0:,:) !< RHS
 
   integer :: l, ne
