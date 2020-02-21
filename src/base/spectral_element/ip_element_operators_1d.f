@@ -172,38 +172,49 @@ real(RNP) function PenaltyFactor_EQ(this, dx) result(mu)
 end function PenaltyFactor_EQ
 
 !-------------------------------------------------------------------------------
-!> Returns the 1D element diffusion matrix for the interior penalty DGM
-!> including SVV
+!> Returns the 1D element diffusion matrix for the interior penalty DGM with SVV
 !>
-!> *** details need further clarification, as the formula is not correct ***
-!> *** when one uses a hybridizable flux formulation and primal form due ***
-!> *** to terms where the viscosity occurs in a non-linear manner ***
+!> The matrix `Ae(0:P,0:P,-1:1)` provides the rows of the global diffusion
+!> matrix corresponding to one element of degree `P = this%po`. Due to then
+!> block-tridiagonal structure of the global matrix, `Ae` contains at most
+!> three blocks, which are accessed by the third index: `-1` corresponds to
+!> the preceding, `0` to the current and `1` to the succeeding element.
+!> The lengths of these elements are stored in `dx(-1:1)`.
 !>
-!>     Ae = ν Le + νˢ Leˢ
+!> The argument `bc(1:2)` allows to specify the type of the left (1) and
+!> right (2) boundaries of the element:
 !>
-!> Here the element diffusion matrix `Ae` represents the nontrivial row entries
-!> of the global diffusion matrix corresponding to the given element. It
-!> must be dimensioned as `Ae(0:P,0:P,-1:1)`, where `P = this%po` is the
-!> polynomial order. The third index refers to the
-!>
-!>   * preceding (-1),
-!>   * current (0) and
-!>   * succeeding (1) elements,
-!>
-!> with lengths `dx(-1:1)` respectively.
+!>   * `' '` interior
+!>   * `'D'` Dirichlet
+!>   * `'N'` Neumann
+!>   * `'P'` periodic
 !>
 !> The diffusion matrix is available in two forms
 !>
 !>   * `'primal'`: all numeric fluxes û are eliminated (default)
 !>   * `'flux'`  : û is retained, all corresponding terms are removed from `Ae`
 !>
-!> Except for the single element case, i.e. `all(bc /= '')`, the flux form can
-!> be activated by passing `form = 'flux'`.
+!> The flux form is not available for a single element, i.e. `all(bc /= ' ')`.
+!> In this case the routine returns always the primal form.
+!>
+!> In general the diffusion matrix comprises
+!>
+!>   * a regular part with diffusivity `ν`,
+!>   * an SVV part with diffusivity `νˢ` and
+!>   * a combined part,depending nonlinearly on `ν` and `νˢ`.
+!>
+!> Except for the primal form of the hybridizable IP method the combined part
+!> vanishes and the element diffusion matrix takes the form
+!>
+!>     Ae = ν Le + νˢ Leˢ
+!>
+!> where `Le` and `Leˢ` are the regular and SVV element stiffness matrices,
+!> respectively.
 
 subroutine Get_DiffusionMatrix__w_svv(this, dx, bc, nu, nu_svv, Ae, form)
   class(IP_ElementOperators1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
-  character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N','P'}
+  character, intent(in)  :: bc(2)         !< l/r boundary type {' ','D','N','P'}
   real(RNP), intent(in)  :: nu            !< diffusivity
   real(RNP), intent(in)  :: nu_svv        !< SVV diffusivity
   real(RNP), intent(out) :: Ae(0:,0:,-1:) !< regular diffusion matrix
@@ -445,18 +456,18 @@ subroutine Get_StiffnessMatrix(this, dx, bc, Le, form)
 end subroutine Get_StiffnessMatrix
 
 !-------------------------------------------------------------------------------
-!> Provides the generalized eigensystem for the interior diffusion operator
-!> including SVV
+!> Returns the generalized eigensystem to the interior element diffusion matrix
+!> with SVV
 !>
 !> Returns the column matrix of generalized eigenvectors `S` and the diagonal
-!> matrix of eigenvalues `Λ = Lambda` to the interior element diffusion matrix
+!> matrix of eigenvalues `Λ = Lambda` to the interior 1D element diffusion matrix
 !> `Aᵢᵢ` and diagonal mass matrix `Mᵢᵢ` of the hybridized element system such
 !> that
 !>
 !>     Sᵀ Aᵢᵢ S = Λ
 !>     Sᵀ Mᵢᵢ S = I
 !>
-!> The diffusion matrix comprises a regular part with diffusivity `ν` and an SVV
+!> The diffusion matrix comprises a regular part with diffusivity `ν`, an SVV
 !> part with diffusivity `νˢ` (as we are only working with the flux formulation
 !> of Aᵢᵢ this is correct, otherwise a new term comprising both regular and
 !> spectral diffusivity could occur)
