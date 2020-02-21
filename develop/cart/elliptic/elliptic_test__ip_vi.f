@@ -249,7 +249,7 @@ program Elliptic_Test__IP_VI
 
   ! operators ..................................................................
 
-  ip_opt = IP_ElementOptions1D(po, penalty)
+  ip_opt = IP_ElementOptions1D(po = po, penalty = penalty)
   elliptic_op = EllipticOperator3D_IP(mesh, lambda, nu, bc, ip_opt, schwarz_opt)
 
   !-----------------------------------------------------------------------------
