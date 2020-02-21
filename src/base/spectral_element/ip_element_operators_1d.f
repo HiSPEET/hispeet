@@ -662,7 +662,7 @@ subroutine Bcast_IP_ElementOptions1D(this, root, comm)
   integer,                    intent(in)    :: root !< rank of broadcast root
   type(MPI_Comm),             intent(in)    :: comm !< MPI communicator
 
-  call this % StandardOperators1D % Bcast(root, comm)
+  call this % StandardOperatorOptions1D % Bcast(root, comm)
 
   call XMPI_Bcast( this % penalty , root, comm )
   call XMPI_Bcast( this % hybrid  , root, comm )
