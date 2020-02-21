@@ -120,7 +120,7 @@ subroutine Init_SX(this, eop, xq, wq, dx)
 
       ! L2 projection operator
       allocate(VL(0:po,0:po))
-      call eop % GetLegendreVDM(VL)
+      call eop % Get_Legendre_VDM(VL)
       A = matmul(transpose(VL), MA)
       do k = 1, nq
       do i = 0, po
