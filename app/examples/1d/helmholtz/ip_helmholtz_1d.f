@@ -77,7 +77,7 @@ program IP_Helmholtz_1D
   eop_opt%hybrid = .true.
   po = eop_opt%po
   ! set spectral diffusivity to default value if not given as parameter
-  if (nu_svv == -1) nu_svv = ONE / real(po,RNP)
+  if (nu_svv < 0) nu_svv = ONE / real(po,RNP)
 
   call SetTestCase(test)
 

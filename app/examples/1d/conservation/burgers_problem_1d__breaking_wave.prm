@@ -1,3 +1,4 @@
 &Burgers1D_BreakingWave_Parameters
-  nu_0r = 50e-4
+  nu_0r =  4e-3
+  nu_0s =  4e-3
 /

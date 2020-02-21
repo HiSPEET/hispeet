@@ -7,7 +7,7 @@
 !
 !> Solves the Helmholtz equation
 !>
-!>     u - lambda u" = f(x),    lambda = 1
+!>     lambda u - u" = f(x),    lambda = 1
 !>
 !> in the domain (-1,1) with u(-1) and u'(1) given. Test cases are based on the
 !> exact solution
@@ -105,7 +105,7 @@ program CG_Helmholtz_1D_Acc
             s(0:po,ne), e(0:po,ne), w(0:po,ne)              )
 
   ! standard operators
-  standard_op = StandardOperators1D(po)
+  standard_op = StandardOperators1D(po = po)
 
   ! check if problem is singular
   singular = lambda == 0 .and. all(bc == 'N')

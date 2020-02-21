@@ -19,7 +19,7 @@ program DG_Conservation_1D
   real(RNP) :: t_end      =  0.35
   logical   :: svv        = .true.
 
-  namelist /Discretization_Parameters/ po, po_cut_svv, ne, penalty, cfl,       &
+  namelist /Discretization_Parameters/ po, po_cut_svv, ne, penalty, cfl,  &
                                        t_end, svv
 
   logical :: exists
@@ -51,8 +51,8 @@ program DG_Conservation_1D
   allocate(u(0:po, ne, problem%nc))
   u(0:,:,:) = problem % InitialValues()
 
-  dt = min(cfl     *  problem%dx     /  po**2,                                 &
-           cfl/2.0 * (problem%dx)**2 / (po**4 * (problem%nu_0r + problem%nu_0s)))
+  dt = min(cfl   *  problem%dx     /  po**2,                                  &
+           cfl/2 * (problem%dx)**2 / (po**4 * (problem%nu_0r + problem%nu_0s)))
 
   k = 1
   t = 0
