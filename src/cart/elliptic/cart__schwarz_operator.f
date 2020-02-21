@@ -49,10 +49,10 @@ module CART__Schwarz_Operator
   !> The Schwarz operator is the inverse of the truncated elliptic operator,
   !> which is given in tensor-product form by
   !>
-  !>       A  =  c0 M3 x M2 x M1
-  !>          +  c1 M3 x M2 x L1
-  !>          +  c2 M3 x L2 x M1
-  !>          +  c3 L3 x M2 x M1
+  !>     A  =  c0 M3 x M2 x M1
+  !>        +  c1 M3 x M2 x L1
+  !>        +  c2 M3 x L2 x M1
+  !>        +  c3 L3 x M2 x M1
   !>
   !> where `M1`, `M2`, `M3` are the 1D mass matrices and  `L1`, `L2`, `L3` the
   !> corresponding stiffness matrices. These operators are normalized to unit
@@ -63,17 +63,25 @@ module CART__Schwarz_Operator
   !>   *  Helmholtz and diffusion coefficients
   !>   *  boundary conditions.
   !>
+  !> In the case with spectral vanishing viscosity (SVV), the stiffness matrices
+  !> are defined as
+  !>
+  !>     L1 = A1 / (nu + nu_svv)
+  !>
+  !> where `A1` is the 1D element diffusion matrix for `dx=1` etc.
+  !>
   !> The effect of element extensions `dx` is incorporated into the coefficients
   !>
   !>     c0 = dx(1) * dx(2) * dx(3) * lambda
-  !>     c1 = dx(2) * dx(3) / dx(1) * nu
-  !>     c2 = dx(3) * dx(1) / dx(2) * nu
-  !>     c3 = dx(1) * dx(2) / dx(3) * nu
+  !>     c1 = dx(2) * dx(3) / dx(1) * (nu + nu_svv)
+  !>     c2 = dx(3) * dx(1) / dx(2) * (nu + nu_svv)
+  !>     c3 = dx(1) * dx(2) / dx(3) * (nu + nu_svv)
   !>
-  !> `lambda` represents the Helmholtz parameter and `nu` the diffusivity.
+  !> where `lambda` represents the Helmholtz parameter λ, `nu` the physical
+  !> diffusivity ν and `nu_svv` the spectral viscosity amplitude νˢ.
   !>
-  !> The element-boundary configuration describes the conditions met at the
-  !> element faces:
+  !> The element-boundary configuration describes the conditions at the element
+  !> faces:
   !>
   !>   *  In the standard configuration, the element is completely enclosed by
   !>      adjoining elements and, hence, every everywhere coated by the layer
