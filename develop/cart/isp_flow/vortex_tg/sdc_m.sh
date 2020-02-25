@@ -11,7 +11,8 @@ NP2=${NP2:-"1"}
 NP=$((${NP1} * ${NP2}))
 
 # use preset execution command, or mpirun, if not set
-EXEC=${EXEC:-"mpirun -n ${NP}"}
+MPIRUN=${MPIRUN:-"mpirun"}
+EXEC=${EXEC:-"${MPIRUN} -n ${NP}"}
 
 # path to program
 PROGRAM="../isp_flow__sdc_test"
@@ -66,7 +67,7 @@ for((N_SUB=0; N_SUB<=N_SUB_MAX; N_SUB++)); do
       DT=$(bc -l <<< "${DT_MAX}/sqrt(2^${s})")
 
       echo "========================================================================="
-      echo "M =" ${N_SUB} ", K =" ${N_SWEEP} ", dt =" $DT, ", s =" $s
+      echo "M =" ${N_SUB} ", K =" ${N_SWEEP} ", dt =" $DT ", s =" $s
       echo
       sed -e "s/<np1>/$NP1/g" \
           -e "s/<np2>/$NP2/g" \

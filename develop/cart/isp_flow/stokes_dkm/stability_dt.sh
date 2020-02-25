@@ -9,7 +9,8 @@ NP2=${NP2:-"1"}
 NP=$((${NP1} * ${NP2}))
 
 # use preset execution command, or mpirun, if not set
-EXEC=${EXEC:-"mpirun -n ${NP}"}
+MPIRUN=${MPIRUN:-"mpirun"}
+EXEC=${EXEC:-"${MPIRUN} -n ${NP}"}
 
 # path to program
 PROGRAM="../isp_flow__sdc_test"
