@@ -22,7 +22,7 @@ if (SLURM_FOUND)
       set( RUN_SDC_M sdc_m.slurm )
   endif ()
 
-  configure_file( ${RUN_SDC_K} sdc_k__slurm.sh )
-  configure_file( ${RUN_SDC_M} sdc_m__slurm.sh )
+  configure_file( ${RUN_SDC_K} sdc_k.slurm )
+  configure_file( ${RUN_SDC_M} sdc_m.slurm )
 
 endif (SLURM_FOUND)

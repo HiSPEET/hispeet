@@ -21,7 +21,7 @@ if (SLURM_FOUND)
       set( RUN_STABILITY_DT    stability_dt.slurm        )
   endif ()
 
-  configure_file( ${RUN_CONVERGENCE_DT}    convergence_dt__slurm.sh    )
-  configure_file( ${RUN_STABILITY_DT}      stability_dt__slurm.sh      )
+  configure_file( ${RUN_CONVERGENCE_DT} convergence_dt.slurm )
+  configure_file( ${RUN_STABILITY_DT}   stability_dt.slurm   )
 
 endif (SLURM_FOUND)
