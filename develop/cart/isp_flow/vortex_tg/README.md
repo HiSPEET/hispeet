@@ -59,7 +59,7 @@ In this test, the number of subintervals $$M$$ is fixed, while the number of cor
 
 The test can be run with
 
-    bash -l sdc_b.sh
+    bash -l sdc_k.sh
 
 possibly using more processes as explained above, or with slurm
 
