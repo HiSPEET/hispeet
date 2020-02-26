@@ -6,7 +6,7 @@
 
 # Adjust the following arguments as appropriate
 
-#SBATCH --account=p_lvnsm                     # project (p_lvnsm)
+#SBATCH --account=p_hispeet                   # project
 #SBATCH --nodes=1                             # number of nodes
 #SBATCH --ntasks=4                            # max number of MPI processes
 #SBATCH --cpu-freq=highm1                     # CPU frequency in kHz
