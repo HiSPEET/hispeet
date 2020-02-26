@@ -2,6 +2,16 @@
 !> author:   Joerg Stiller
 !> date:     2018/03/22
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Stokes test case of Guermond, Minev & Shen (2006)
+!>
+!> Test case from
+!>   J. Guermond, P. Minev & J. Shen,
+!>   An overview of projection methods for incompressible flows,
+!>   Computer Methods in Applied Mechanics and Engineering,
+!>   195(44-47):6011–6045, 2006
+!> on page 6018, equation (30).
+!>
 !===============================================================================
 
 module ISP_Flow_Problem__Stokes_GMS
