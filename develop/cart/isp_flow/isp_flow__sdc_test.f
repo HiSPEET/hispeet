@@ -203,9 +203,9 @@ program ISP_Flow__SDC_Test
   case('Vortex_HW')
     allocate(FlowProblem_Vortex_HW         :: problem)
   case('Vortex_TG')
-    allocate(FlowProblem_Vortex_TG         :: problem) !< 2D- TG-Vortex 
+    allocate(FlowProblem_Vortex_TG         :: problem) !< 2D TG-Vortex
   case('3D_Vortex_TG')
-    allocate(FlowProblem_Transition_TG     :: problem) !< 3D- TG-Vortex  
+    allocate(FlowProblem_Transition_TG     :: problem) !< 3D TG-Vortex  
   case('VortexSheet')
     allocate(FlowProblem_VortexSheet       :: problem)
   case('VariableViscosity')

@@ -1,5 +1,5 @@
 !> summary:  3D Transition of disturbed Taylor-Green vortex
-!> author:   
+!> author:   Joerg Stiller, Montadhar Guesmi
 !> date:     2020/02/18
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
