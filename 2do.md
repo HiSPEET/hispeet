@@ -11,3 +11,5 @@
 
 ## Issues
 * Accuracy problem when using Intel with `-O3`
+* Vortex_HW example converges somewhat slower than with branch `isp_flow-var_diff`, convergence rate with $$P=5$$  only 5 instead of 6
+
