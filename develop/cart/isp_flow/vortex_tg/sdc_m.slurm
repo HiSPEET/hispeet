@@ -9,13 +9,13 @@
 #SBATCH --account=p_hispeet                   # project
 #SBATCH --nodes=1                             # number of nodes
 #SBATCH --ntasks=4                            # max number of MPI processes
-#SBATCH --cpu-freq=highm1                     # CPU frequency in kHz
+##SBATCH --cpu-freq=highm1                    # CPU frequency in kHz
 
 ##SBATCH --partition=haswell                  # partition
 ##SBATCH --cpus-per-task=1                    # number of cores per process
 ##SBATCH --mem=60000                          # memory per node in MB
 
-#SBATCH --time=00-00:55:00                    # dd-hh:mm:ss
+#SBATCH --time=00-04:00:00                    # dd-hh:mm:ss
 ##SBATCH --exclusive                          # don't share nodes with others
 #SBATCH --job-name=sdc_m                      # sensible job name
 #SBATCH --output=sdc_m_%j.out                 # output file

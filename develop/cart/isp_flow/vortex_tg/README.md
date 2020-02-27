@@ -1,6 +1,6 @@
 ## Vortex_TG
 
-Traveling 2D Taylor:Green vortex example proposed in M. Minion & R. Saye, _Higher-order temporal integration for the incompressible Navier-Stokes equations in bounded domains_, J. Comput. Phys. 351: 797-822, 2018. The example is extended to 3D by imposing periodicity in the z-direction, see J. Stiller, _A spectral deferred correction method for incompressible flow with variable viscosity_, [arXiv:2001.11902](https://arxiv.org/abs/2001.11902), 2020. 
+Traveling 2D Taylor-Green vortex example proposed in M. Minion & R. Saye, _Higher-order temporal integration for the incompressible Navier-Stokes equations in bounded domains_, J. Comput. Phys. 351: 797-822, 2018. The example is extended to 3D by imposing periodicity in the z-direction, see J. Stiller, _A spectral deferred correction method for incompressible flow with variable viscosity_, [arXiv:2001.11902](https://arxiv.org/abs/2001.11902), 2020. 
 
 ### Standalone test
 
