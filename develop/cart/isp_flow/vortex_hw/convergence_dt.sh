@@ -9,7 +9,8 @@ NP2=${NP2:-"1"}
 NP=$((${NP1} * ${NP2}))
 
 # use preset execution command, or mpirun, if not set
-EXEC=${EXEC:-"mpirun -n ${NP}"}
+MPIRUN=${MPIRUN:-"mpirun"}
+EXEC=${EXEC:-"${MPIRUN} -n ${NP}"}
 
 # path to program
 PROGRAM="../isp_flow__sdc_test"
@@ -23,15 +24,15 @@ EP=${EP:-"4"}
 # polynomial orders for u and p and for integrating the nonlinear terms
 PO_U="8"
 PO_P="7"
-PO_Q=${PO_U}
+PO_Q="12"
 
-# investigated range of time step sizes, dt = 0.1 / 2^k, k = 1, ... 12
+# investigated range of time step sizes
 RANGE_DT=\
 ".2 .1 .05 .025 .0125 6.25d-3 3.125d-3 1.5625d-3 7.8125d-4 3.90625d-4 1.953125d-4"
 
 # SDC parameters
-N_SUB="1"
-N_SWEEP="0"
+N_SUB=${N_SUB:-"1"}
+N_SWEEP=${N_SWEEP:-"1"}
 
 date > ${CASE}.log
 
@@ -57,7 +58,7 @@ for DT in $RANGE_DT; do
 
 done
 
-grep -e "#     t" -m 1  ${CASE}.log >  ${CASE}.dat
-grep -e ^" 1.00000E-01" ${CASE}.log >> ${CASE}.dat
+grep -e "#      t" -m 1 ${CASE}.log >  ${CASE}.dat
+grep -e "#last#$"       ${CASE}.log >> ${CASE}.dat
 
 date >> ${CASE}.log
