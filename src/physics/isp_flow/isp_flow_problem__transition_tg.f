@@ -16,17 +16,14 @@ module ISP_Flow_Problem__Transition_TG
 
   implicit none
   private
- 
+
   public :: FlowProblem_Transition_TG
 
   !-----------------------------------------------------------------------------
-  !> Type for defining and handling the Minion-Saye vortex problem
+  !> Type for defining and handling the problem
 
   type, extends(FlowProblem) :: FlowProblem_Transition_TG
-
-    !real(RNP) :: vt(3) = 0  !<  Transitional Velocity 
-    !real(RNP) :: xt(3) = 0  !<  Initial Displacement
- contains
+  contains
 
     procedure :: SetProblem
     procedure :: GetInitialValues
@@ -51,14 +48,10 @@ subroutine SetProblem(problem, file, comm)
 
   ! local variables ............................................................
 
-  real(RNP) :: nu     =  0.01         ! kinematic viscosity
-  !real(RNP) :: vt(3)  =  0            ! velocity field 
-  !real(RNP) :: xt(3)  =  0            ! initial displacement
-  real(RNP) :: x0(3)  = -HALF         ! bounding box: corner nearest to -∞
-  real(RNP) :: x1(3)  =  HALF         ! bounding box: corner nearest to +∞
+  real(RNP) :: nu  =  0.01  ! kinematic viscosity, ν = 1/Re
   character, allocatable :: bc(:,:)
 
-  namelist /parameters/  nu, x0, x1, bc ! < have to be controlled !!!
+  namelist /parameters/ nu
 
   logical :: exists
   integer :: prm, rank
@@ -101,19 +94,16 @@ subroutine SetProblem(problem, file, comm)
   end if
 
   if (present(comm)) then
-    call XMPI_Bcast(nu    , 0, comm)
-    call XMPI_Bcast(x0    , 0, comm)   
-    call XMPI_Bcast(x1    , 0, comm)   
-    call XMPI_Bcast(bc    , 0, comm)
+    call XMPI_Bcast(nu, 0, comm)
   end if
 
-  problem % stokes         = .false.   ! < Stokes Flow ??
-  problem % exact_solution = .false.   ! < Exact Solution is not provided
+  problem % stokes         = .false.   ! Stokes flow
+  problem % exact_solution = .false.   ! exact solution is not provided
 
   allocate(problem % nu_ref( problem%nc ), source = ZERO)
   problem % nu_ref(1:3) = nu
-  problem % x0  = x0
-  problem % x1  = x1
+  problem % x0 = -PI
+  problem % x1 =  PI
 
   call move_alloc(bc, problem % bc)
 
@@ -131,12 +121,11 @@ subroutine GetInitialValues(problem, x, u)
 
   n = size(x(:,:,:,:,1))
 
-  associate(nu => problem%nu_ref(1))
-    call GetVelocity(n, x, u(:,:,:,:,1:3))
-  end associate
+  call GetVelocity(n, x, u(:,:,:,:,1:3))
+  call GetPressure(n, x, u(:,:,:,:,4))
 
   ! remaining variables get zero
-  do m = 4, size(u,5)
+  do m = 5, size(u,5)
     call SetArray(u(:,:,:,:,m), ZERO)
   end do
 
@@ -152,10 +141,14 @@ subroutine GetBoundaryValues(problem, b, xb, t, ub)
   real(RNP), intent(in)  :: t             !< time
   real(RNP), intent(out) :: ub(:,:,:,:)   !< flow variables
 
+  call Warning( 'GetBoundaryValues'               &
+              , 'No boundary values available'    &
+              , 'ISP_Flow_Problem__Transition_TG' )
+
   call SetArray(ub, ZERO, multi=.true.)
-   
+
   ! silence the compiler ;)
-  if (b < 0) return
+  if (b < 0 .or. size(xb) < 0 .or. t < 0) return
 
 end subroutine GetBoundaryValues
 
@@ -169,10 +162,14 @@ subroutine GetBoundaryTimeDerivative(problem, b, xb, t, dt_ub)
   real(RNP), intent(in)  :: t              !< time
   real(RNP), intent(out) :: dt_ub(:,:,:,:) !< ∂u/∂t
 
+  call Warning( 'GetBoundaryTimeDerivative'       &
+              , 'No boundary values available'    &
+              , 'ISP_Flow_Problem__Transition_TG' )
+
   call SetArray(dt_ub, ZERO, multi=.true.)
-  
+
   ! silence the compiler ;)
-  if (b < 0) return
+  if (b < 0 .or. size(xb) < 0 .or. t < 0) return
 
 end subroutine GetBoundaryTimeDerivative
 
@@ -195,59 +192,45 @@ end subroutine GetExternalSources
 !-------------------------------------------------------------------------------
 !> Velocity
 
-!subroutine GetVelocity(n, x, v)
 subroutine GetVelocity(n, x, v)
-  !arguments....................................................................
-  integer,   intent(in)  :: n          !< number of points
-  real(RNP), intent(in)  :: x(n,3)     !< mesh points
-  real(RNP), intent(out) :: v(n,3)     !< velocity at mesh points
-  !local variables..............................................................
-  real(RNP)              :: c, L, K    !< constans 
-  real(RNP)              :: x1, x2, x3 !< Space components xi
-  real(RNP)              :: phi1, phi2, phi3
-  integer                :: i
-  !constants...................................................................
-  K =  PI/HALF !< 2π 
-  c = 1.0_RNP  !< U0: Velocity scale set 1 hier  
-  L = 1.0_RNP  !< L : Length scale set 1 also hier ==> in this case Re=1/nu.
+  integer,   intent(in)  :: n      !< number of points
+  real(RNP), intent(in)  :: x(n,3) !< mesh points
+  real(RNP), intent(out) :: v(n,3) !< velocity at mesh points
+
+  real(RNP) :: x1, x2, x3 ! coordinates xi
+  integer   :: i
+
   do i = 1, n
-    x1   = x(i,1)
-    x2   = x(i,2)
-    x3   = x(i,3)
-    phi1 = K * x1 / L 
-    phi2 = K * x2 / L
-    phi3 = K * x3 / L
-    v(i,1) =  cos(phi3) * sin( phi1)      * cos(phi2)
-    v(i,2) =  cos(phi3) * sin(-phi2)      * cos(phi1)
+    x1 = x(i,1)
+    x2 = x(i,2)
+    x3 = x(i,3)
+    v(i,1) =  cos(x3) * sin(x1) * cos(x2)
+    v(i,2) = -cos(x3) * sin(x2) * cos(x1)
     v(i,3) =  ZERO
   end do
 
 end subroutine GetVelocity
-!in case it is needed to initialize the pressure for t=0 
-! from the work of Felix S. Schranner,  Vladyslav Rozov and Nikolaus A. Adams
-! p(x,y,z) = 100 + 1/16 *[(cos(2x)+cos(2y))*(2+ cos(2z))-2]
-!subroutine GetPressure(n,x,v) 
+
+!-------------------------------------------------------------------------------
+!> Pressure
+!>
+!> Pressure provided by F.S. Schranner, V. Rozov, N.A. Adams (????)
+
 subroutine GetPressure(n, x, p)
-  !arguments....................................................................
-  integer,   intent(in)  :: n         !< number of points 
-  real(RNP), intent(in)  :: x(n,3)    !< mesh points  
-  real(RNP), intent(out) :: p(n)      !< pressure at mesh points
-  !local variables..............................................................
-  integer    :: i
-  real(RNP)  :: x1, x2, x3, K, phi1, phi2, phi3, L
-  !constants....................................................................
-  K = PI/HALF 
-  L = 1.0_RNP !< lenght scale set to 1. 
-  do i=1, n
-    x1   = x(i,1)
-    x2   = x(i,2)
-    x3   = x(i,3)
-    phi1 = K * x1 / L 
-    phi2 = K * x2 / L
-    phi3 = K * x3 / L
-    p(i)= (1/16) * ( (cos(2*phi1) + cos(2*phi2)) * (2 + cos(2*phi3)) - 2 )
-  end do 
-end subroutine GetPressure 
+  integer,   intent(in)  :: n      !< number of points
+  real(RNP), intent(in)  :: x(n,3) !< mesh points
+  real(RNP), intent(out) :: p(n)   !< pressure at mesh points
+
+  integer   :: i
+  real(RNP) :: x1, x2, x3
+
+  do i = 1, n
+    x1 = x(i,1)
+    x2 = x(i,2)
+    x3 = x(i,3)
+    p(i) = (ONE/16) * ((cos(2*x1) + cos(2*x2)) * (2 + cos(2*x3)) - 2)
+  end do
+end subroutine GetPressure
 
 !===============================================================================
 
