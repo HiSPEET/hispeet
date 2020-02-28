@@ -37,9 +37,9 @@ EP2=2
 EP3=2
 
 CASE="p16_n06"
-LOG_FILE=.log
-PRM_FILE=.prm
-DAT_FILE=.dat
+LOG_FILE=${CASE}.log
+PRM_FILE=${CASE}.prm
+DAT_FILE=${CASE}.dat
 
 sed -e "s/<np1>/$NP1/g" \
     -e "s/<np2>/$NP2/g" \
@@ -50,15 +50,15 @@ sed -e "s/<np1>/$NP1/g" \
     -e "s/<po_u>/$PO_U/g" \
     -e "s/<po_p>/$PO_P/g" \
     -e "s/<po_q>/$PO_Q/g" \
-    isp_flow__sdc_test.tmpl > 
+    isp_flow__sdc_test.tmpl > ${PRM_FILE}
 
-date > 
+date > ${LOG_FILE}
 
-srun ../../../isp_flow__sdc_test  2>&1 | tee -a 
+srun ../../../isp_flow__sdc_test ${CASE} 2>&1 | tee -a 
 
-date >> 
+date >> ${LOG_FILE}
 
 sleep 10
 
-grep -e "#      t" -m 1  >  
-grep -e "#last#$"        >> 
+grep -e "#      t" -m 1  >  ${LOG_FILE}
+grep -e "#last#$"        >> ${LOG_FILE}
