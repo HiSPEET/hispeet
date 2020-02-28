@@ -23,7 +23,7 @@
 # ------------------------------------------------------------------------------
 # Environment
 
-module load ${ENV_MODULE_COMPILER}
+module load @ENV_MODULE_COMPILER@
 
 PO_U=16
 PO_P=15

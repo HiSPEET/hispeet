@@ -8,7 +8,7 @@ if (SLURM_FOUND)
 
   file(GLOB SLURM_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "*.slurm")
   foreach(FILE ${SLURM_FILES})
-      configure_file( ${FILE} ${FILE} )
+      configure_file( ${FILE} ${FILE} @ONLY )
   endforeach ()
 
 endif (SLURM_FOUND)
