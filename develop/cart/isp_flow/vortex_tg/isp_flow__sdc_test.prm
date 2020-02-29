@@ -1,6 +1,6 @@
 &control
-  flow_type     =  'Vortex_TG'
-  flow_case     =  'vortex_tg'
+  flow_type     =  'Transition_TG' ! 'Vortex_TG' for 2D-case and 'Transition_TG' for 3D
+  flow_case     =  'transition_tg' ! 2D: 'vortex_tg', 3D: 'transition_tg'
   compute_p     =  T
   write_stat    =  T
   write_vtk     =  T
