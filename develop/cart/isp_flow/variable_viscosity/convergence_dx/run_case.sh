@@ -15,6 +15,7 @@ sed -e "s/<np1>/$NP1/g" \
 
 date > ${LOG_FILE}
 
-srun ../../isp_flow__sdc_test ${CASE} 2>&1 | tee -a 
+srun ../../isp_flow__sdc_test ${CASE} 2>&1 | tee -a ${LOG_FILE}
 
 date >> ${LOG_FILE}
+
