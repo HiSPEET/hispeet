@@ -51,7 +51,7 @@ subroutine SetProblem(problem, file, comm)
   real(RNP) :: nu  =  0.01  ! kinematic viscosity, ν = 1/Re
   character, allocatable :: bc(:,:)
 
-  namelist /parameters/ nu
+  namelist /parameters/  nu
 
   logical :: exists
   integer :: prm, rank
@@ -94,7 +94,8 @@ subroutine SetProblem(problem, file, comm)
   end if
 
   if (present(comm)) then
-    call XMPI_Bcast(nu, 0, comm)
+    call XMPI_Bcast(nu    , 0, comm)
+    
   end if
 
   problem % stokes         = .false.   ! Stokes flow
@@ -214,7 +215,7 @@ end subroutine GetVelocity
 !-------------------------------------------------------------------------------
 !> Pressure
 !>
-!> Pressure provided by F.S. Schranner, V. Rozov, N.A. Adams (????)
+!> Pressure provided by F.S. Schranner, V. Rozov, N.A. Adams, 'Optimization of an     Implicit Large-Eddy Simulation Method for Underresolved Incompressible Flow Simulations', Technische Universität München, 85748 Garching, Germany.
 
 subroutine GetPressure(n, x, p)
   integer,   intent(in)  :: n      !< number of points
