@@ -23,6 +23,7 @@ program ISP_Flow__SDC_Test
 
   use ISP_Flow_Problem__Test_Suite
 
+  use CART__TPO_Grad
   use CART__TPO_Rot
   use CART__Mesh_Partition
   use CART__Generate_Structured_Mesh
@@ -50,17 +51,22 @@ program ISP_Flow__SDC_Test
 
   character(len=80) :: control_file
 
-  character(len=80) :: flow_type  = 'Vortex_HW'
+  character(len=80) :: flow_type  = 'Vortex_TG'
   character(len=80) :: flow_case  = ''
 
-  logical :: restart    = .false.   ! continue computation from snapshot
-  logical :: compute_p  = .false.   ! recompute p at the end of time step
-  logical :: write_stat = .false.   ! evaluate+print solution metrics each step
-  logical :: write_vtk  = .false.   ! export results to VTK file
+  logical :: restart    = .false. ! continue computation from snapshot
+  logical :: compute_p  = .false. ! recompute p at the end of time step
+  logical :: write_stat = .false. ! evaluate+print solution metrics each step
+  logical :: write_vtk  = .false. ! export results to VTK file
+  logical :: eval_rms   = .true.  ! evaluate rms errors and divergence
+  logical :: eval_max   = .false. ! evaluate max errors and divergence
+  logical :: eval_eps   = .false. ! evaluate dissipation, ε = ∫ν∇v:∇v dΩ
   type(FlowOpControl) :: flow_op_control
 
-  namelist /control/ flow_type, flow_case, &
-                     restart, compute_p, write_stat, write_vtk, &
+  namelist /control/ flow_type, flow_case,         &
+                     restart, compute_p,           &
+                     write_stat, write_vtk,        &
+                     eval_rms, eval_max, eval_eps, &
                      flow_op_control
 
   ! discretization parameters ..................................................
@@ -178,6 +184,9 @@ program ISP_Flow__SDC_Test
   call XMPI_Bcast(compute_p   , 0, comm)
   call XMPI_Bcast(write_stat  , 0, comm)
   call XMPI_Bcast(write_vtk   , 0, comm)
+  call XMPI_Bcast(eval_rms    , 0, comm)
+  call XMPI_Bcast(eval_max    , 0, comm)
+  call XMPI_Bcast(eval_eps    , 0, comm)
   call flow_op_control % Bcast( 0, comm)
 
   ! discretization and time integration parameters
@@ -449,10 +458,11 @@ subroutine Evaluation(failed, last)
 
   ! local variables ............................................................
 
-  real(RNP) :: err_v_max = 0, err_v_rms, err_v_loc
-  real(RNP) :: err_p_max = 0, err_p_rms, err_p_loc
-  real(RNP) :: div_v_max = 0, div_v_rms, div_v_loc
+  real(RNP) :: err_v_max = -1, err_v_rms = -1, err_v_loc
+  real(RNP) :: err_p_max = -1, err_p_rms = -1, err_p_loc
+  real(RNP) :: div_v_max = -1, div_v_rms = -1, div_v_loc
   real(RNP) :: e_kin, e_kin_loc
+  real(RNP) :: eps = -1, eps_loc
 
   logical   :: head = .true.
   logical   :: failed_
@@ -486,33 +496,40 @@ subroutine Evaluation(failed, last)
       ! remove constant from pressure error
       call CalibrateArray(err_p, mesh%comm)
 
-      ! error norms
-      err_v_loc = maxval(abs(err_v))
-      err_p_loc = maxval(abs(err_p))
-      !$omp master
-      call XMPI_Reduce(err_v_loc, err_v_max, MPI_MAX, 0, mesh%comm)
-      call XMPI_Reduce(err_p_loc, err_p_max, MPI_MAX, 0, mesh%comm)
-      !$omp end master
-      err_v_rms = sqrt(ScalarProduct(err_v, err_v, mesh%comm) / n)
-      err_p_rms = sqrt(ScalarProduct(err_p, err_p, mesh%comm) / n)
+      ! rms error
+      if (eval_rms) then
+        err_v_rms = sqrt(ScalarProduct(err_v, err_v, mesh%comm) / n)
+        err_p_rms = sqrt(ScalarProduct(err_p, err_p, mesh%comm) / n)
+      end if
 
-    else
-
-      err_v_max = 0
-      err_p_max = 0
-      err_v_rms = 0
-      err_p_rms = 0
+      ! max error
+      if (eval_max) then
+        err_v_loc = maxval(abs(err_v))
+        err_p_loc = maxval(abs(err_p))
+        !$omp master
+        call XMPI_Reduce(err_v_loc, err_v_max, MPI_MAX, 0, mesh%comm)
+        call XMPI_Reduce(err_p_loc, err_p_max, MPI_MAX, 0, mesh%comm)
+        !$omp end master
+      end if
 
     end if
 
     ! divergence ...............................................................
 
     call WeakDivergence(mesh, eop%w, eop%D, u, div_v)
-    div_v_loc = maxval(abs(div_v))
-    !$omp master
-    call XMPI_Reduce(div_v_loc, div_v_max, MPI_MAX, 0, mesh%comm)
-    !$omp end master
-    div_v_rms = sqrt(ScalarProduct(div_v, div_v, mesh%comm) / n)
+
+    ! rms divergence
+    if (eval_rms) then
+      div_v_rms = sqrt(ScalarProduct(div_v, div_v, mesh%comm) / n)
+    end if
+
+    ! max divergence
+    if (eval_max) then
+      div_v_loc = maxval(abs(div_v))
+      !$omp master
+      call XMPI_Reduce(div_v_loc, div_v_max, MPI_MAX, 0, mesh%comm)
+      !$omp end master
+    end if
 
     ! kinetic energy ...........................................................
 
@@ -535,9 +552,52 @@ subroutine Evaluation(failed, last)
     end associate
 
     e_kin_loc = product(mesh%dx) / 16 * e_kin_loc
+
     !$omp master
     call XMPI_Reduce(e_kin_loc, e_kin, MPI_SUM, 0, mesh%comm)
     !$omp end master
+
+    ! dissipation -- for constant viscosity only ...............................
+
+    if (eval_eps) then
+      associate(Ms => eop%w)
+        block
+
+          real(RNP), allocatable :: grad_v(:,:,:,:,:,:)
+          real(RNP) :: nu
+          integer   :: po, np, ne
+
+          po = eop%po
+          np = po + 1
+          ne = size(u,4)
+          nu = problem % nu_ref(1)
+
+          allocate(grad_v(0:po,0:po,0:po,ne,3,3))
+
+          call TPO_Grad_Eval(np, ne, eop%D, mesh%dx, u(:,:,:,:,1:3), grad_v)
+
+          eps_loc = 0
+          do e = 1, ne
+            do k = 0, po
+            do j = 0, po
+            do i = 0, po
+              eps_loc = eps_loc &
+                      + Ms(i)*Ms(j)*Ms(k) * nu * sum(grad_v(i,j,k,e,:,:)**2)
+            end do
+            end do
+            end do
+          end do
+          eps_loc = product(mesh%dx)/8 * eps_loc
+
+          !$omp master
+          call XMPI_Reduce(eps_loc, eps, MPI_SUM, 0, mesh%comm)
+          !$omp end master
+
+          deallocate(grad_v)
+
+        end block
+      end associate
+    end if
 
   end associate
 
@@ -553,20 +613,21 @@ subroutine Evaluation(failed, last)
       write(*,'(A,I0)') '# n_sweep = ', sdc % n_sweep
       write(*,'(A)')    '#'
 
-      write(*,'( A,  6X )',advance='NO') '#'
-      write(*,'( A, 11X )',advance='NO') 't'
-      write(*,'( A, 11X )',advance='NO') 'dt'
-      write(*,'( A, 11X )',advance='NO') 'dx'
-      write(*,'( A, 11X )',advance='NO') 'dy'
-      write(*,'( A,  7X )',advance='NO') 'dz'
-      write(*,'( A,  3X )',advance='NO') 'po'
-      write(*,'( A,  3X )',advance='NO') 'err_v_max'
-      write(*,'( A,  3X )',advance='NO') 'err_v_rms'
-      write(*,'( A,  3X )',advance='NO') 'err_p_max'
-      write(*,'( A,  3X )',advance='NO') 'err_p_rms'
-      write(*,'( A,  3X )',advance='NO') 'div_v_max'
-      write(*,'( A,  4X )',advance='NO') 'div_v_rms'
-      write(*,'( A,  3X )',advance='NO') 'e_kin'
+      write(*,'(A,  6X)',advance='NO') '#'
+      write(*,'(A, 11X)',advance='NO') 't'
+      write(*,'(A, 11X)',advance='NO') 'dt'
+      write(*,'(A, 11X)',advance='NO') 'dx'
+      write(*,'(A, 11X)',advance='NO') 'dy'
+      write(*,'(A,  7X)',advance='NO') 'dz'
+      write(*,'(A,  3X)',advance='NO') 'po'
+      if (err_v_rms >= 0) write(*,'(A, 3X)',advance='NO') 'err_v_rms '
+      if (err_p_rms >= 0) write(*,'(A, 3X)',advance='NO') 'err_p_rms '
+      if (div_v_rms >= 0) write(*,'(A, 3X)',advance='NO') 'div_v_rms '
+      if (err_p_max >= 0) write(*,'(A, 3X)',advance='NO') 'err_p_max '
+      if (err_v_max >= 0) write(*,'(A, 3X)',advance='NO') 'err_v_max '
+      if (div_v_max >= 0) write(*,'(A, 3X)',advance='NO') 'div_v_max '
+      if (e_kin     >= 0) write(*,'(A, 3X)',advance='NO') '  e_kin   '
+      if (eps       >= 0) write(*,'(A, 3X)',advance='NO') '   eps    '
       write(*,*)
 
       head = .false.
@@ -578,22 +639,21 @@ subroutine Evaluation(failed, last)
     write(*,'(ES12.5,1X)',advance='NO') dx(2)
     write(*,'(ES12.5,1X)',advance='NO') dx(3)
     write(*,'(I4    ,1X)',advance='NO') po_u
-    write(*,'(ES11.4,1X)',advance='NO') err_v_max
-    write(*,'(ES11.4,1X)',advance='NO') err_v_rms
-    write(*,'(ES11.4,1X)',advance='NO') err_p_max
-    write(*,'(ES11.4,1X)',advance='NO') err_p_rms
-    write(*,'(ES11.4,1X)',advance='NO') div_v_max
-    write(*,'(ES11.4,1X)',advance='NO') div_v_rms
-    write(*,'(ES12.5,1X)',advance='NO') e_kin
+    if (err_v_rms >= 0) write(*,'(ES12.5,1X)',advance='NO') err_v_rms
+    if (err_p_rms >= 0) write(*,'(ES12.5,1X)',advance='NO') err_p_rms
+    if (div_v_rms >= 0) write(*,'(ES12.5,1X)',advance='NO') div_v_rms
+    if (err_p_max >= 0) write(*,'(ES12.5,1X)',advance='NO') err_v_max
+    if (err_v_max >= 0) write(*,'(ES12.5,1X)',advance='NO') err_p_max
+    if (div_v_max >= 0) write(*,'(ES12.5,1X)',advance='NO') div_v_max
+    if (e_kin     >= 0) write(*,'(ES12.5,1X)',advance='NO') e_kin
+    if (eps       >= 0) write(*,'(ES12.5,1X)',advance='NO') eps
     if (present(last)) then
       if (last) write(*,'(A)') ' #last#'
     end if
     write(*,*)
 
   end if
-
-
- !$omp end master
+  !$omp end master
 
   ! check for fatal errors .....................................................
 

@@ -5,6 +5,7 @@
   compute_p     =  T
   write_stat    =  T
   write_vtk     =  T
+  eval_eps      =  F
 !
   flow_op_control%div_penalty    =  0     ! [1]
   flow_op_control%div_final      =  F     ! [T]
