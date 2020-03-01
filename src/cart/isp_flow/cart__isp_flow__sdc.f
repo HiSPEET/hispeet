@@ -355,6 +355,11 @@ contains
     ti  = sdc % IntermediateTimes(t, dt)
     dti = ti(1:ni) - ti(0:ni-1)
 
+    if (first) then
+      ! compute RHS without pressure contribution
+      call TimeDerivative(problem, flow_op, t, u_c=u, u_d=u, F=F)
+    end if
+
     call SetArray(ui(:,:,:,:,:,0), u, multi=.true.)
     call SetArray(Fi(:,:,:,:,:,0), F, multi=.true.)
     do i = 1, ni
