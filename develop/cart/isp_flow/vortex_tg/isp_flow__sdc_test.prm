@@ -1,6 +1,7 @@
 &control
   flow_type     =  'Vortex_TG'
   flow_case     =  'vortex_tg'
+  restart       =  F
   compute_p     =  T
   write_stat    =  T
   write_vtk     =  T

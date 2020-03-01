@@ -53,12 +53,14 @@ program ISP_Flow__SDC_Test
   character(len=80) :: flow_type  = 'Vortex_HW'
   character(len=80) :: flow_case  = ''
 
+  logical :: restart    = .false.   ! continue computation from snapshot
   logical :: compute_p  = .false.   ! recompute p at the end of time step
   logical :: write_stat = .false.   ! evaluate+print solution metrics each step
   logical :: write_vtk  = .false.   ! export results to VTK file
   type(FlowOpControl) :: flow_op_control
 
-  namelist /control/ flow_type, flow_case, compute_p, write_stat, write_vtk, &
+  namelist /control/ flow_type, flow_case, &
+                     restart, compute_p, write_stat, write_vtk, &
                      flow_op_control
 
   ! discretization parameters ..................................................
@@ -87,7 +89,7 @@ program ISP_Flow__SDC_Test
   real(RNP) :: t_end  =  0           ! final problem time
   real(RNP) :: c_conv = -1           ! max Courant number   (< 0 if unlimited)
   real(RNP) :: c_diff = -1           ! max diffusion number (< 0 if unlimited)
-  integer   :: nt_max = -1           ! max number of time steps
+  integer   :: nt_max = huge(1)      ! max number of time steps
 
   type(SDC_Options3D) :: sdc_opt
 
@@ -172,6 +174,7 @@ program ISP_Flow__SDC_Test
   ! control parameters
   call XMPI_Bcast(flow_type   , 0, comm)
   call XMPI_Bcast(flow_case   , 0, comm)
+  call XMPI_Bcast(restart     , 0, comm)
   call XMPI_Bcast(compute_p   , 0, comm)
   call XMPI_Bcast(write_stat  , 0, comm)
   call XMPI_Bcast(write_vtk   , 0, comm)
@@ -247,14 +250,19 @@ program ISP_Flow__SDC_Test
 
   ! variables and initial values ...............................................
 
-  t = 0
   call InitializeMeshVariables()
-  call SetInitialValues(problem, mesh, flow_op%eop_u, flow_op%x, t, u, F, u_e)
+
+  if (restart) then
+    call LoadFlowVariables(t, u)
+  else
+    t = 0
+    call problem % GetInitialValues(flow_op%x, u)
+  end if
 
   ! time stepping ..............................................................
 
   call SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
-  nt_max = min(nint(t_end / dt), nt_max)
+  nt_max = min(nint((t_end - t)/ dt), nt_max)
   call XMPI_Bcast(nt_max, 0, comm)
   nt_10 = int((nt_max + 9)/10)
 
@@ -302,6 +310,11 @@ program ISP_Flow__SDC_Test
     write(*,'(A)') 'failed'
     !$omp end master
   end if
+
+  !-----------------------------------------------------------------------------
+  ! Save current solution
+
+  call SaveFlowVariables(t, u)
 
   !-----------------------------------------------------------------------------
   ! Export results
@@ -593,39 +606,48 @@ subroutine Evaluation(failed, last)
 
 end subroutine Evaluation
 
-!===============================================================================
-! Standalone procedures
+!-------------------------------------------------------------------------------
+!> Saves the flow variables to disk
+
+subroutine SaveFlowVariables(t, u)
+  real(RNP), intent(in) :: t            !< time
+  real(RNP), intent(in) :: u(:,:,:,:,:) !< flow variables
+
+  integer :: unit
+  character(len=100) :: file
+
+  write(file,'(2A,I0,A)') trim(flow_case), '_p', rank, '.fld'
+  open(newunit=unit, file=file, status='REPLACE', form='UNFORMATTED')
+  write(unit) t
+  write(unit) u
+  close(unit)
+
+end subroutine SaveFlowVariables
 
 !-------------------------------------------------------------------------------
-!> Set initial values
+!> Loads the flow variables to disk
 
-subroutine SetInitialValues(problem, mesh, sop, x, t, u, F, w)
-  class(FlowProblem),         intent(in)   :: problem      !< flow problem
-  class(MeshPartition),       intent(in)   :: mesh         !< mesh partition
-  class(StandardOperators1D), intent(in)   :: sop          !< standard operators
-  real(RNP),                  intent(in)   :: x(:,:,:,:,:) !< mesh points
-  real(RNP),                  intent(in)   :: t            !< time
-  real(RNP),                  intent(out)  :: u(:,:,:,:,:) !< flow variables
-  real(RNP),                  intent(out)  :: F(:,:,:,:,:) !< ∂u/∂t = F(u)
-  real(RNP),                  intent(out)  :: w(:,:,:,:,:) !< workspace
+subroutine LoadFlowVariables(t, u)
+  real(RNP), intent(out) :: t            !< time
+  real(RNP), intent(out) :: u(:,:,:,:,:) !< flow variables
 
-  associate(p => u(:,:,:,:,4))
+  integer :: unit, ios
+  character(len=100) :: file
 
-    call problem % GetInitialValues(x, u)
+  write(file,'(2A,I0,A)') trim(flow_case), '_p', rank, '.fld'
+  open(newunit=unit, file=file, status='OLD', form='UNFORMATTED', iostat=ios)
+  if (ios == 0) then
+    read(unit) t
+    read(unit) u
+    close(unit)
+  else
+    call Error('SaveFlowVariables', 'found no matching input file')
+  end if
 
-    if (problem % HasExactSolution()) then
-      call problem % GetExactTimeDerivative(x, ZERO, F)
-    else
-      ! compute initial pressure and F(u)
-      call TimeDerivative(problem, flow_op, t, u_c=u, u_d=u, F=F)
-      call PressureSolver(problem, flow_op, F, t, p, w)
-      call WeakGradient(mesh, sop%w, sop%D, p, w)
-      call MergeArrays(ONE, F, -ONE, w, multi=.true.)
-    end if
+end subroutine LoadFlowVariables
 
-  end associate
-
-end subroutine SetInitialValues
+!===============================================================================
+! Standalone procedures
 
 !-------------------------------------------------------------------------------
 !> Determination of the time step size
