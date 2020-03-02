@@ -15,4 +15,4 @@ add_subdirectory(stokes_gms)
 add_subdirectory(vortex_hw)
 add_subdirectory(vortex_tg)
 add_subdirectory(variable_viscosity)
-
+add_subdirectory(transition_tg)

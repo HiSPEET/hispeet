@@ -90,7 +90,7 @@ program ISP_Flow__SDC_Test
   ! time integration ...........................................................
 
   real(RNP) :: t                     ! problem time
-  real(RNP) :: dt = -1               ! time step width
+  real(RNP) :: dt     = -1           ! time step width
   real(RNP) :: t_end  =  0           ! final problem time
   real(RNP) :: c_conv = -1           ! max Courant number   (< 0 if unlimited)
   real(RNP) :: c_diff = -1           ! max diffusion number (< 0 if unlimited)
@@ -216,6 +216,8 @@ program ISP_Flow__SDC_Test
     allocate(FlowProblem_Vortex_HW         :: problem)
   case('Vortex_TG')
     allocate(FlowProblem_Vortex_TG         :: problem)
+  case('Transition_TG')
+    allocate(FlowProblem_Transition_TG     :: problem)
   case('VortexSheet')
     allocate(FlowProblem_VortexSheet       :: problem)
   case('VariableViscosity')
