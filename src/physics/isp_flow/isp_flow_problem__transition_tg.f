@@ -1,4 +1,4 @@
-!> summary:  3D Transition of disturbed Taylor-Green vortex
+    !> summary:  3D Transition of disturbed Taylor-Green vortex
 !> author:   Joerg Stiller, Montadhar Guesmi
 !> date:     2020/02/18
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -123,10 +123,9 @@ subroutine GetInitialValues(problem, x, u)
   n = size(x(:,:,:,:,1))
 
   call GetVelocity(n, x, u(:,:,:,:,1:3))
-  call GetPressure(n, x, u(:,:,:,:,4))
 
   ! remaining variables get zero
-  do m = 5, size(u,5)
+  do m = 4, size(u,5)
     call SetArray(u(:,:,:,:,m), ZERO)
   end do
 
@@ -211,27 +210,6 @@ subroutine GetVelocity(n, x, v)
   end do
 
 end subroutine GetVelocity
-
-!-------------------------------------------------------------------------------
-!> Pressure
-!>
-!> Pressure provided by F.S. Schranner, V. Rozov, N.A. Adams, 'Optimization of an     Implicit Large-Eddy Simulation Method for Underresolved Incompressible Flow Simulations', Technische Universität München, 85748 Garching, Germany.
-
-subroutine GetPressure(n, x, p)
-  integer,   intent(in)  :: n      !< number of points
-  real(RNP), intent(in)  :: x(n,3) !< mesh points
-  real(RNP), intent(out) :: p(n)   !< pressure at mesh points
-
-  integer   :: i
-  real(RNP) :: x1, x2, x3
-
-  do i = 1, n
-    x1 = x(i,1)
-    x2 = x(i,2)
-    x3 = x(i,3)
-    p(i) = (ONE/16) * ((cos(2*x1) + cos(2*x2)) * (2 + cos(2*x3)) - 2)
-  end do
-end subroutine GetPressure
 
 !===============================================================================
 
