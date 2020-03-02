@@ -12,8 +12,8 @@ program ISP_Flow__SDC_Test
 
   use, intrinsic :: IEEE_Arithmetic, only: ieee_is_nan
 
-  use Kind_Parameters, only: RNP
-  use Constants,       only: ONE, ZERO
+  use Kind_Parameters, only: RNP, RDP
+  use Constants,       only: ONE, ZERO, HALF
   use Array_Assignments
   use Array_Reductions
   use Standard_Operators_1D
@@ -24,7 +24,6 @@ program ISP_Flow__SDC_Test
   use ISP_Flow_Problem__Test_Suite
 
   use CART__TPO_Grad
-  use CART__TPO_Rot
   use CART__Mesh_Partition
   use CART__Generate_Structured_Mesh
   use CART__DG_Weak_Divergence
@@ -127,11 +126,12 @@ program ISP_Flow__SDC_Test
     u,            & ! approximate solution
     u_e, u_0,     & ! exact / initial solution
     err_u, w,     & ! error / workspace
-    F, nu, rot_v    ! F(u)  / nu / rot(v), div(v)
+    F, nu           ! F(u)  / nu / div(v), lambda2(v)
 
   ! additional scalar variables
   real(RNP), dimension(:,:,:,:), pointer, contiguous :: &
-    div_v           ! divergence of approximate velocity
+    div_v,        & ! divergence of approximate velocity
+    lmb_2           ! lambda_2 vortex sensor
 
   ! auxiliary ..................................................................
 
@@ -328,29 +328,28 @@ program ISP_Flow__SDC_Test
   !-----------------------------------------------------------------------------
   ! Export results
 
-  if (write_vtk .and. mesh%part >= 0) then
+  if (write_vtk) then
+
+    call problem % GetDiffusivity(flow_op%x, t, u, nu)
+    call GetDerivedVariables(flow_op, u, div_v, lmb_2)
 
     !$omp barrier
     !$omp master
+    if (mesh%part >= 0) then
+      call ExportVolumeDataToVTK( po_u                 & ! polynomial order
+                                , mesh%ne              & ! number of elements
+                                , size(name_var)       & ! number of scalars
+                                , 0                    & ! no vectors
+                                , flow_op%x            & ! mesh points
+                                , var                  & ! variables
+                                , name_var             & ! variable names
+                                , file   = flow_case   & ! VTK file base name
+                                , part   = mesh%part   & ! partition ID
+                                , n_part = mesh%n_part ) ! number of partitions
+    end if
+    !$omp end master
 
-    ! viscosity
-    call problem % GetDiffusivity(flow_op%x, t, u, nu)
-
-    ! rot(v), overrides all but first component of nu
-    call TPO_Rot_Eval(size(u,1), size(u,4), flow_op%eop_u%D, mesh%dx, u, rot_v)
-
-    call ExportVolumeDataToVTK( po_u                 & ! polynomial order
-                              , mesh%ne              & ! number of elements
-                              , size(name_var)       & ! number of scalars
-                              , 0                    & ! no vectors
-                              , flow_op%x            & ! mesh points
-                              , var                  & ! variables
-                              , name_var             & ! variable names
-                              , file   = flow_case   & ! VTK file base name
-                              , part   = mesh%part   & ! partition ID
-                              , n_part = mesh%n_part ) ! number of partitions
   end if
-  !$omp end master
 
   !-----------------------------------------------------------------------------
   ! Finalization
@@ -384,7 +383,7 @@ subroutine InitializeMeshVariables()
   nc = problem % nc
 
   ! number of variables
-  n_var = 4 * nc + 1
+  n_var = 4 * nc + 2
 
   ! names of solution variables
   call problem % GetVariableNames(name_u)
@@ -393,7 +392,7 @@ subroutine InitializeMeshVariables()
   call SetArray(var, ZERO, multi=.true.)
 
   allocate(character(len=len(name_u) + 10) :: name_var(n_var))
-  do i = 1, n_var
+  do i = 1, size(name_var)
     write(name_var(i), '(A,1X,I0)') 'var', i
   end do
 
@@ -426,26 +425,28 @@ subroutine InitializeMeshVariables()
   ! workspace
   w(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+nc)
 
-  ! time derivative, diffusivity, vorticity and divergence .....................
-
-  ! ATTENTION !!!  F, nu and rot_v share memory !!!
+  ! time derivative / diffusivity ..............................................
 
   i = i + nc
   F(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+nc)
 
-  ! viscosity !!! only first component will be exported !!!
+  ! viscosity !!! export only -- overides F !!!
   nu(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+nc)
-  name_var(i+1) = 'nu_1'
+  do j = 1, nc
+    write(name_var(i + j), '(A,I0)') 'nu_', j
+  end do
 
-  ! vorticity
-  rot_v(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+2:i+4)
-  name_var(i+2) = 'rot(v)_1'
-  name_var(i+3) = 'rot(v)_2'
-  name_var(i+4) = 'rot(v)_3'
+  ! vorticity and divergence ...................................................
+
+  i = i + nc
 
   ! divergence
-  div_v(0:, 0:, 0:, 1:) => var(:,:,:,:,i+5)
-  name_var(i+5) = 'div(v)'
+  div_v(0:, 0:, 0:, 1:) => var(:,:,:,:,i+1)
+  name_var(i+1) = 'div(v)'
+
+  ! lambda_2
+  lmb_2(0:, 0:, 0:, 1:) => var(:,:,:,:,i+2)
+  name_var(i+2) = 'lambda_2'
 
 end subroutine InitializeMeshVariables
 
@@ -464,6 +465,7 @@ subroutine Evaluation(failed, last)
   real(RNP) :: e_kin, e_kin_loc
   real(RNP) :: eps = -1, eps_loc
 
+  real(RNP), allocatable, save :: grad_v(:,:,:,:,:,:)
   logical   :: head = .true.
   logical   :: failed_
   integer   :: n = 0, n_loc = 0
@@ -562,8 +564,6 @@ subroutine Evaluation(failed, last)
     if (eval_eps) then
       associate(Ms => eop%w)
         block
-
-          real(RNP), allocatable :: grad_v(:,:,:,:,:,:)
           real(RNP) :: nu
           integer   :: po, np, ne
 
@@ -572,9 +572,16 @@ subroutine Evaluation(failed, last)
           ne = size(u,4)
           nu = problem % nu_ref(1)
 
+          !$omp single
           allocate(grad_v(0:po,0:po,0:po,ne,3,3))
+          !$omp end single
 
-          call TPO_Grad_Eval(np, ne, eop%D, mesh%dx, u(:,:,:,:,1:3), grad_v)
+          call TPO_Grad_Eval( np, ne, eop%D, mesh%dx, u(:,:,:,:,1), &
+                              grad_v(:,:,:,:,1:3,1)                 )
+          call TPO_Grad_Eval( np, ne, eop%D, mesh%dx, u(:,:,:,:,2), &
+                              grad_v(:,:,:,:,1:3,2)                 )
+          call TPO_Grad_Eval( np, ne, eop%D, mesh%dx, u(:,:,:,:,3), &
+                              grad_v(:,:,:,:,1:3,3)                 )
 
           eps_loc = 0
           do e = 1, ne
@@ -589,11 +596,11 @@ subroutine Evaluation(failed, last)
           end do
           eps_loc = product(mesh%dx)/8 * eps_loc
 
+          !$omp barrier
           !$omp master
           call XMPI_Reduce(eps_loc, eps, MPI_SUM, 0, mesh%comm)
-          !$omp end master
-
           deallocate(grad_v)
+          !$omp end master
 
         end block
       end associate
@@ -805,6 +812,92 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
   end associate
 
 end subroutine SetTimeStep
+
+!-------------------------------------------------------------------------------
+!>
+
+subroutine GetDerivedVariables(flow_op, u, div_v, lmb_2)
+  class(FlowOperators), intent(in)  :: flow_op        !< flow operators
+  real(RNP),            intent(in)  :: u(:,:,:,:,:)   !< flow variables
+  real(RNP),            intent(out) :: div_v(:,:,:,:) !< divergence of velocity
+  real(RNP),            intent(out) :: lmb_2(:,:,:,:) !< lambda_2 vortex sensor
+
+  ! local variables ............................................................
+
+  real(RNP), allocatable, save :: grad_v(:,:,:,:,:,:)
+  real(RNP) :: grad_ve(3,3)
+  integer   :: po, np, ne
+  integer   :: e, i, j, k
+
+  associate( mesh => flow_op % mesh          &
+           , Ms   => flow_op % eop_u % w     &
+           , Ds   => flow_op % eop_u % D     )
+
+    ! intialization ............................................................
+
+    po = ubound(Ms,1)
+    np = po + 1
+    ne = mesh % ne
+
+    !$omp single
+    allocate(grad_v(np,np,np,ne,3,3))
+    !$omp end single
+
+    ! grad_v(:,i) = ∇vᵢ
+    do i = 1, 3
+      call WeakGradient(mesh, Ms, Ds, u(:,:,:,:,i), grad_v(:,:,:,:,1:3,i))
+    end do
+
+    ! divegence and lambda2 ....................................................
+
+    !$omp do
+    do e = 1, ne
+      do k = 1, np
+      do j = 1, np
+      do i = 1, np
+        grad_ve = grad_v(i,j,k,e,1:3,1:3)
+        div_v(i,j,k,e) = grad_ve(1,1) + grad_ve(2,2) + grad_ve(3,3)
+        lmb_2(i,j,k,e) = Lambda2(grad_ve)
+      end do
+      end do
+      end do
+    end do
+
+    ! clean-up .................................................................
+
+    !$omp barrier
+    !$omp master
+    deallocate(grad_v)
+    !$omp end master
+
+  end associate
+
+end subroutine GetDerivedVariables
+
+!-------------------------------------------------------------------------------
+!> Evaluates the λ₂ vortex sensor based on the velocity gradient tensor
+!>
+!> author:  Immo Huismann, Joerg Stiller
+
+real(RNP) function Lambda2(grad_v)
+  use Eigenproblems, only: SolveSymmetricEigenproblem
+  real(RNP), intent(in) :: grad_v(3,3) !< gradient of velocity ∇v
+
+  real(RNP) :: S(3,3)     ! symmetric part of grad_v
+  real(RNP) :: O(3,3)     ! antisymmetric part of grad_v
+  real(RDP) :: SS_OO(3,3) ! S² + O²
+  real(RDP) :: lambda(3)  ! eigenvalues of S² + O²
+
+  S = HALF * (grad_v + transpose(grad_v))
+  O = HALF * (grad_v - transpose(grad_v))
+
+  SS_OO = matmul(S,S) + matmul(O,O)
+
+  call SolveSymmetricEigenproblem(SS_OO, lambda)
+
+  Lambda2 = lambda(2)
+
+end function Lambda2
 
 !===============================================================================
 
