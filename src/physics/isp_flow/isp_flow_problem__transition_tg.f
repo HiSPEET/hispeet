@@ -94,8 +94,7 @@ subroutine SetProblem(problem, file, comm)
   end if
 
   if (present(comm)) then
-    call XMPI_Bcast(nu    , 0, comm)
-    
+    call XMPI_Bcast(nu, 0, comm)
   end if
 
   problem % stokes         = .false.   ! Stokes flow
