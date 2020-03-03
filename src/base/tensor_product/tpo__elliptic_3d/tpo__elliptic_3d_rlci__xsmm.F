@@ -5,6 +5,9 @@
 !===============================================================================
 
 module TPO__Elliptic_3d_RLCI__XSMM
+
+#ifdef LIBXSMM
+
   use Kind_Parameters, only: RNP
   use LIBXSMM
   implicit none
@@ -114,5 +117,7 @@ contains
   end subroutine TPO_Elliptic_RLCI_XSMM
 
   !=============================================================================
+
+#endif
 
 end module TPO__Elliptic_3d_RLCI__XSMM
