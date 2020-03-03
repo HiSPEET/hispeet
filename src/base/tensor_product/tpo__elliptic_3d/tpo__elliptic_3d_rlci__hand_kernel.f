@@ -44,7 +44,7 @@ subroutine PROC(TPO_Elliptic_RLCI_Hand,_NP_)(ne, Ms, Ls, lambda, nu, dx, u, v)
   !---------------------------------------------------------------------------
   ! evaluation
 
-  !$acc data present(u,v) copyin(c,M,Lm) async
+  !$acc data present(u,v) copyin(c,M,Lm)
   !$acc parallel
   !$acc loop gang worker private(M_u)
 

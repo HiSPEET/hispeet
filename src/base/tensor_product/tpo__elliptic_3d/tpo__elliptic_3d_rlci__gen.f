@@ -64,7 +64,7 @@ contains
   !-----------------------------------------------------------------------------
   ! evaluation
 
-  !$acc data present(u,v) copyin(c,M,Lm) async
+  !$acc data present(u,v) copyin(c,M,Lm)
   !$acc parallel
   !$acc loop gang worker private(M_u)
 
