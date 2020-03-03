@@ -1,17 +1,17 @@
 #ifdef LIBXSMM
 
 #  ifdef __INTEL_COMPILER
-#    include 'IxIxQt_nq02-07_intel.F'
-#  elif
-#    include 'IxIxQt_nq02-07_gnu.F'
+#    include "IxIxQt_nq02-07_intel.F"
+#  else
+#    include "IxIxQt_nq02-07_gnu.F"
 #  endif
 
-#elif
+#else
 
 #  ifdef __INTEL_COMPILER
-#    include 'IxIxQt_nq02-33_intel.F'
-#  elif
-#    include 'IxIxQt_nq02-33_gnu.F'
+#    include "IxIxQt_nq02-33_intel.F"
+#  else
+#    include "IxIxQt_nq02-33_gnu.F"
 #  endif
 
 #endif
