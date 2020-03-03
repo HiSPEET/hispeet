@@ -20,9 +20,6 @@
 
 1. SDC for advection-diffusion equation
    *
-   *
-   *
-   *
 
 ## Code
 
