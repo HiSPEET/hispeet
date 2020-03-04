@@ -19,8 +19,6 @@ subroutine PROC(IxIxQt__,_NQ_)(Q, alpha, beta, u, v)
 
   integer, parameter :: NQ_T8 = _NQ_T8_
 
-  real(RNP) :: tmp0, tmp1, tmp2, tmp3
-  real(RNP) :: tmp4, tmp5, tmp6, tmp7
   integer   :: i, j, k, p   ! loop counters
   integer   :: ib           ! block counters
 
