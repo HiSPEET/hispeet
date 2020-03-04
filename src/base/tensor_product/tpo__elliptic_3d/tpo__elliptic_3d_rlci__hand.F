@@ -41,7 +41,7 @@ contains
       call TPO_Elliptic_RLCI_Hand__6  (ne, Ms, Ls, lambda, nu, dx, u, v)
     case( 7)
       call TPO_Elliptic_RLCI_Hand__7  (ne, Ms, Ls, lambda, nu, dx, u, v)
-#ifndef LIBXSMM
+#ifndef __LIBXSMM__
     case( 8)
       call TPO_Elliptic_RLCI_Hand__8  (ne, Ms, Ls, lambda, nu, dx, u, v)
     case( 9)
@@ -158,7 +158,7 @@ contains
 #include "tpo__elliptic_3d_rlci__hand_kernel.f"
 #undef _NP_
 
-#ifndef LIBXSMM
+#ifndef __LIBXSMM__
 
 #define _NP_  8
 #include "tpo__elliptic_3d_rlci__hand_kernel.f"
@@ -244,9 +244,9 @@ contains
 !===============================================================================
 ! primitives for direction 1,2,3
 
-#include "../primitives/IxIxQt/IxIxQt.F"
-#include "../primitives/IxQtxI/IxQtxI.F"
-#include "../primitives/QtxIxI/QtxIxI.F"
+#include "IxIxQt.F"
+#include "IxQtxI.F"
+#include "QtxIxI.F"
 
 !===============================================================================
 

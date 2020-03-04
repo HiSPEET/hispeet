@@ -6,7 +6,7 @@
 
 module TPO__Elliptic_3d_RLCI__XSMM
 
-#ifdef LIBXSMM
+#ifdef __LIBXSMM__
 
   use Kind_Parameters, only: RNP
   use LIBXSMM

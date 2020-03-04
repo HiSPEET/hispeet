@@ -41,8 +41,6 @@ contains
 
   subroutine TPO_Elliptic_RLCI(Ms, Ls, lambda, nu, dx, u, v)
     use Kind_Parameters,  only: RNP
-    integer,   intent(in)  :: np         !< number of points per direction
-    integer,   intent(in)  :: ne         !< number of elements
     real(RNP), intent(in)  :: Ms(:)      !< 1D standard mass matrix
     real(RNP), intent(in)  :: Ls(:,:)    !< 1D standard stiffness matrix
     real(RNP), intent(in)  :: lambda     !< Helmholtz parameter
@@ -58,7 +56,7 @@ contains
 
     select case(np)
 
-#ifdef LIBXSMM
+#ifdef __LIBXSMM__
     case(8:)
       call TPO_Elliptic_RLCI_XSMM(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 #endif

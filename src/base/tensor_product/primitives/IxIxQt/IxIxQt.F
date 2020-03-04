@@ -1,4 +1,4 @@
-#ifdef LIBXSMM
+#ifdef __LIBXSMM__
 
 #  ifdef __INTEL_COMPILER
 #    include "IxIxQt_nq02-07_intel.F"

@@ -51,8 +51,14 @@ set(TPO_CONFIG ${PROJECT_SOURCE_DIR}/bin/tpo_configure.py)
 # target directory of generated sources
 set(DEST ${CMAKE_CURRENT_BINARY_DIR})
 
+# add primitive directories to include path
+include_directories( tensor_product/primitives/IxIxQt 
+                     tensor_product/primitives/IxQtxI 
+                     tensor_product/primitives/QtxIxI )
+
 # parametrized operators
 include(cmake/tpo_aaa.cmake)
+include(cmake/tpo__elliptic_3d.cmake)
 
 # activate extra compile flags
 if (DEFINED Fortran_FLAGS_TPO)

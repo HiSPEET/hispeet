@@ -1,7 +1,7 @@
 !-------------------------------------------------------------------------------
 !> Parametrized 3d elliptic kernel using hand-crafted suboperators (RCLI)
 
-subroutine PROC(TPO_Elliptic_RLCI_Hand,_NP_)(ne, Ms, Ls, lambda, nu, dx, u, v)
+subroutine PROC(TPO_Elliptic_RLCI_Hand__,_NP_)(ne, Ms, Ls, lambda, nu, dx, u, v)
   integer,   intent(in)  :: ne                   !< num elements
   real(RNP), intent(in)  :: Ms(_NP_)             !< standard mass matrix
   real(RNP), intent(in)  :: Ls(_NP_,_NP_)        !< standard stiffness matrix
@@ -87,4 +87,4 @@ contains
 
   !-----------------------------------------------------------------------------
 
-end subroutine PROC(TPO_Elliptic_RLCI_Hand,_NP_)
+end subroutine PROC(TPO_Elliptic_RLCI_Hand__,_NP_)

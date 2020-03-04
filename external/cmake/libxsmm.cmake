@@ -28,6 +28,6 @@ if ( NOT DEFINED OpenACC )
       INSTALL_COMMAND      ""
       )
 
-  add_compile_definitions(LIBXSMM)
+  add_compile_definitions(__LIBXSMM__)
 
 endif  ( NOT DEFINED OpenACC )
