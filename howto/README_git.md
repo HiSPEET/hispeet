@@ -96,11 +96,7 @@ Show all branches
 
     git branch -a
 
-First time switching to a remote branch
-
-    git checkout -b origin/<branch-name> 
-
-This creates the local branch <branch-name> tracking the remote origin/<branch-name>. Next time you can switch to your local branch just by 
+Switch to your branch just by 
 
     git checkout <branch-name>
 
