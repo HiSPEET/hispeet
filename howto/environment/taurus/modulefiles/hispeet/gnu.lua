@@ -4,7 +4,7 @@
 
 load("CMake")
 load("VTK/8.1.1-foss-2018b-Python-3.6.6")
-load("OpenMPI/3.1.2-GCC-8.2.0-2.30")
+load("OpenMPI/4.0.1-GCC-9.1.0-2.32")
 
 setenv("CC",  "mpicc")
 setenv("CXX", "mpicxx")
