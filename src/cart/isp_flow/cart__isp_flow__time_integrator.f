@@ -31,8 +31,8 @@ module CART__ISP_Flow__Time_Integrator
       class(TimeIntegrator), intent(inout) :: this
       real(RNP),             intent(inout) :: t             !< time t₀ → t
       real(RNP),             intent(in)    :: dt            !< step size ∆t = t-t₀
+      real(RNP), optional,   intent(in)    :: nu(:,:,:,:,:) !< ν(x,t₀)
       real(RNP),             intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
-      real(RNP), optional,   intent(inout) :: nu(:,:,:,:,:) !< ν(x,t₀) → ν(x,t)
     end subroutine TimeStep
 
   end interface
