@@ -6,24 +6,66 @@
 
 module CART__ISP_Flow__Time_Integrator__Euler_DS
   use Kind_Parameters, only: RNP
+  use Constants,       only: ONE, ZERO
+  use Array_Assignments
 
-  use CART__ISP_Flow__Time_Integrator
+  use ISP_Flow_Problem
+
   use CART__ISP_Flow__Boundary_Values
+  use CART__ISP_Flow__Diffusion
+  use CART__ISP_Flow__Operators
+  use CART__ISP_Flow__Pressure
+  use CART__ISP_Flow__Projection
+  use CART__ISP_Flow__Time_Derivative
+  use CART__ISP_Flow__Time_Integrator
 
   implicit none
   private
 
   public :: TimeIntegrator_EulerDS
 
+  !-----------------------------------------------------------------------------
+  !> IMEX Euler method for incompressible flows with dual splitting
+
   type, extends(TimeIntegrator) :: TimeIntegrator_EulerDS
   contains
+    procedure :: Init_TimeIntegrator_EulerDS
     procedure :: TimeStep
   end type TimeIntegrator_EulerDS
+
+  ! overloading the constructor
+  interface TimeIntegrator_EulerDS
+    module procedure New_TimeIntegrator_EulerDS
+  end interface
 
 contains
 
   !-----------------------------------------------------------------------------
-  !>
+  !> Constructor for objects of type TimeIntegrator_EulerDS
+
+  function New_TimeIntegrator_EulerDS(problem, flow_op) result(this)
+    class(FlowProblem),   target,  intent(in)    :: problem !< flow problem
+    class(FlowOperators), target,  intent(in)    :: flow_op !< flow operators
+    type(TimeIntegrator_EulerDS) :: this
+
+    call Init_TimeIntegrator_EulerDS(this, problem, flow_op)
+
+  end function New_TimeIntegrator_EulerDS
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of Init_TimeIntegrator_EulerDS object
+
+  subroutine Init_TimeIntegrator_EulerDS(this, problem, flow_op)
+    class(TimeIntegrator_EulerDS), intent(inout) :: this
+    class(FlowProblem),   target,  intent(in)    :: problem !< flow problem
+    class(FlowOperators), target,  intent(in)    :: flow_op !< flow operators
+
+    call this % Init_TimeIntegrator(problem, flow_op)
+
+  end subroutine Init_TimeIntegrator_EulerDS
+
+  !-----------------------------------------------------------------------------
+  !> Performs a single IMEX Euler step
 
   subroutine TimeStep(this, t, dt, u, nu)
     class(TimeIntegrator_EulerDS), intent(inout) :: this

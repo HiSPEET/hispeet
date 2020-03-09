@@ -6,6 +6,8 @@
 
 module CART__ISP_Flow__Time_Integrator
   use Kind_Parameters, only: RNP
+  use ISP_Flow_Problem
+  use CART__ISP_Flow__Operators
   implicit none
   private
 
@@ -18,6 +20,7 @@ module CART__ISP_Flow__Time_Integrator
     class(FlowProblem),   pointer :: problem => null() !< flow problem
     class(FlowOperators), pointer :: flow_op => null() !< flow operators
   contains
+    procedure :: Init_TimeIntegrator
     procedure(TimeStep), deferred :: TimeStep
   end type TimeIntegrator
 
@@ -36,6 +39,21 @@ module CART__ISP_Flow__Time_Integrator
     end subroutine TimeStep
 
   end interface
+
+contains
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of Init_TimeIntegrator object
+
+  subroutine Init_TimeIntegrator(this, problem, flow_op)
+    class(TimeIntegrator),        intent(inout) :: this
+    class(FlowProblem),   target, intent(in)    :: problem !< flow problem
+    class(FlowOperators), target, intent(in)    :: flow_op !< flow operators
+
+    this % problem => problem
+    this % flow_op => flow_op
+
+  end subroutine Init_TimeIntegrator
 
   !=============================================================================
 
