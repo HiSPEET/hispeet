@@ -32,8 +32,12 @@ program ISP_Flow__SDC_Test
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Time_Derivative
   use CART__ISP_Flow__Pressure
-  use CART__ISP_Flow__Euler
-  use CART__ISP_Flow__SDC
+
+  ! time integration
+  use CART__ISP_Flow__Euler                           ! old standalone Euler
+  use CART__ISP_Flow__SDC                             ! current SDC
+  use CART__ISP_Flow__Time_Integrator                 ! TI base type
+  use CART__ISP_Flow__Time_Integrator__Euler_DS       ! new standalone Euler
 
   implicit none
 
@@ -113,8 +117,11 @@ program ISP_Flow__SDC_Test
 
   ! operators ..................................................................
 
-  type(FlowOperators) :: flow_op
-  type(SDC_Method3D)  :: sdc
+  type(FlowOperators)   :: flow_op
+  type(SDC_Method3D)    :: sdc
+
+  ! standalone time integrator, switched on with sdc_opt%n_sub = 0
+  class(TimeIntegrator), allocatable :: time_integrator
 
   ! variables ..................................................................
 
@@ -126,7 +133,8 @@ program ISP_Flow__SDC_Test
     u,            & ! approximate solution
     u_e, u_0,     & ! exact / initial solution
     err_u, w,     & ! error / workspace
-    F, nu           ! F(u)  / nu / div(v), lambda2(v)
+    F,            & ! time derivative for SDC
+    nu              ! diffusivity
 
   ! additional scalar variables
   real(RNP), dimension(:,:,:,:), pointer, contiguous :: &
@@ -255,9 +263,12 @@ program ISP_Flow__SDC_Test
                          , flow_op_control            &
                          )
 
-  if (sdc_opt % n_sub > 0) then
+  select case (sdc_opt % n_sub)
+  case(1:)
     sdc = SDC_Method3D(EulerVC, EulerVC, sdc_opt)
-  end if
+  case(0)
+    time_integrator = TimeIntegrator_EulerDS(problem, flow_op)
+  end select
 
   ! variables and initial values ...............................................
 
@@ -296,12 +307,20 @@ program ISP_Flow__SDC_Test
       end if
     end if
 
-    if (sdc % n_sub > 0) then
+    select case (sdc % n_sub)
+    case(1:)
       call sdc % TimeStep( problem, flow_op, t, dt, u, F, first, last)
-    else
+    case(0)
+      if (problem % HasVariableProperties()) then
+        call problem % GetDiffusivity(flow_op%x, t, u, nu)
+        call time_integrator % TimeStep(t, dt, u, nu)
+      else
+        call time_integrator % TimeStep(t, dt, u)
+      end if
+    case default
       call SetArray(u_0, u, multi=.true.)
       call EulerVC(problem, flow_op, t, dt, u_0, u)
-    end if
+    end select
 
     if (compute_p) then
       associate(p => u(:,:,:,:,4), F_v => u_e)
@@ -385,7 +404,7 @@ subroutine InitializeMeshVariables()
   nc = problem % nc
 
   ! number of variables
-  n_var = 4 * nc + 2
+  n_var = 5 * nc + 2
 
   ! names of solution variables
   call problem % GetVariableNames(name_u)
@@ -427,15 +446,20 @@ subroutine InitializeMeshVariables()
   ! workspace
   w(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+nc)
 
+  ! diffusivity ................................................................
+
+  i = i + nc
+  nu(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+nc)
+  do j = 1, nc
+    write(name_var(i + j), '(A,I0)') 'nu_', j
+  end do
+
   ! time derivative / diffusivity ..............................................
 
   i = i + nc
   F(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+nc)
-
-  ! viscosity !!! export only -- overides F !!!
-  nu(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+nc)
   do j = 1, nc
-    write(name_var(i + j), '(A,I0)') 'nu_', j
+    write(name_var(i + j), '(A,I0)') 'du/dt_', j
   end do
 
   ! vorticity and divergence ...................................................
