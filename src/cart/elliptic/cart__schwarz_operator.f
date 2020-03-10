@@ -7,7 +7,7 @@
 !===============================================================================
 module CART__Schwarz_Operator
   use Kind_Parameters, only: RNP
-  use Constants,       only: ZERO, ONE
+  use Constants
   use Standard_Operators_1D
   use IP_Element_Operators_1D
   use XMPI

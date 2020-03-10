@@ -7,7 +7,6 @@
 !===============================================================================
 
 submodule(CART__Schwarz_Operator) MP_BuildEigensystems_IP
-  use Constants,     only: ZERO, ONE, HALF
   use Eigenproblems, only: SolveGeneralizedEigenproblem
   use Schwarz_Weighting
   use IP_Element_Operators_1D

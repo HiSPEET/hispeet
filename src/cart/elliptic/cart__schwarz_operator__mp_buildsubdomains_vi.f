@@ -7,7 +7,6 @@
 !===============================================================================
 
 submodule(CART__Schwarz_Operator) MP_BuildSubdomains_VI
-  use Constants, only: ONE
   implicit none
 
 contains
