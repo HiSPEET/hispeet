@@ -26,8 +26,6 @@ module subroutine Apply_CI(this, u, v)
 
   ! local variables ............................................................
 
-  !!!procedure(TPO_Elliptic_CI_Proc), pointer, save :: DiffusionOperator
-
   ! trace operators
   type(TraceOperator),       allocatable, save :: trace_op
   type(NormalTraceOperator), allocatable, save :: normal_trace_op
@@ -47,7 +45,7 @@ module subroutine Apply_CI(this, u, v)
   real(RNP) :: As(0:this%eop%po, 0:this%eop%po) ! diffusion Dᵀ(ν+νˢQ)D
   real(RNP) :: Bs(0:this%eop%po, 0:this%eop%po) ! "flux" (ν+νˢQ)D
 
-  integer   :: po, ne, np = -1
+  integer   :: po, ne, np
   real(RNP) :: nu_svv
 
   select type(eop => this % eop)

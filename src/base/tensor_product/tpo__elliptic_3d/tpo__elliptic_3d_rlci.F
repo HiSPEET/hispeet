@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module CART__TPO_Elliptic_3d_RLCI
+module TPO__Elliptic_3d_RLCI
   use Kind_Parameters, only: RNP
   use TPO__Elliptic_3d_RLCI__Hand
   use TPO__Elliptic_3d_RLCI__XSMM
@@ -70,4 +70,4 @@ contains
 
   !=============================================================================
 
-end module CART__TPO_Elliptic_3d_RLCI
+end module TPO__Elliptic_3d_RLCI

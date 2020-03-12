@@ -1,13 +1,13 @@
 !> summary:  Validation of the tensor-product operator for 3d diffusion
-!> author:   Joerg Stiller
+!> author:   Joerg Stiller, Erik Pfister
 !> date:     2017/01/27
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-program Validate__CART__TPO_Elliptic_3d_RLCI
+program Validate__TPO__Elliptic_3d_RLCI
   use Kind_Parameters, only: IXL, RNP
   use Standard_Operators_1D
-  use CART__TPO_Elliptic_3d_RLCI
+  use TPO__Elliptic_3d_RLCI
   use TPO__Elliptic_3d_RLCI__Gen
   implicit none
 
@@ -250,7 +250,7 @@ program Validate__CART__TPO_Elliptic_3d_RLCI
   write(*,*)
   write(*,'(3A)') '#                        ',             &
                   '   ------ elliptic operator --------'
-                 
+
   write(*,'(3A)') '#  np        ne        nt    ',         &
                   '   error     MFLOP/s      MLUP/s    '
 
@@ -266,4 +266,4 @@ program Validate__CART__TPO_Elliptic_3d_RLCI
 
 !===============================================================================
 
-end program Validate__CART__TPO_Elliptic_3d_RLCI
+end program Validate__TPO__Elliptic_3d_RLCI
