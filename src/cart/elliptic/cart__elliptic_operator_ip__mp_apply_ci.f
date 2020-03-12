@@ -1,5 +1,5 @@
 !> summary:  Application of the IP/DG elliptic operator with const diffusivity
-!> author:   Joerg Stiller, Gustav Tschirschnitz
+!> author:   Joerg Stiller, Gustav Tschirschnitz, Erik Pfister
 !> date:     2018/11/22
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
@@ -8,7 +8,7 @@
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP:MP_Apply) MP_Apply_CI
-  use CART__TPO_Elliptic_3d_RLCI
+  use TPO__Elliptic_3d_RLCI
   use CART__Trace_Operator
   use CART__Normal_Trace_Operator
   implicit none
