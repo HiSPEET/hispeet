@@ -29,9 +29,6 @@ program Validate__TPO__Elliptic_3d_RLCI
 
   type(StandardOperators1D) :: standard_op
 
- ! procedure(TPO_Elliptic_CI_Proc), pointer :: EllipticOperator_Gen ! generic
- ! procedure(TPO_Elliptic_CI_Proc), pointer :: EllipticOperator_Par ! parametrized
-
   real(RNP), dimension(:,:,:,:), allocatable :: u, v, w
   real(RNP), dimension(:,:,:),   allocatable :: dx_u, dy_u, dz_u
   real(RNP), dimension(:),       allocatable :: x, y, z
@@ -40,7 +37,7 @@ program Validate__TPO__Elliptic_3d_RLCI
   real(RNP) :: dx(3) = 2
   real(RNP) :: time
   real(RNP) :: error_gen, mflops_gen, mlups_gen
-  real(RNP) :: error_par, mflops_par, mlups_par
+  real(RNP) :: error_opt, mflops_opt, mlups_opt
 
   logical :: exists!, parametrized
   integer :: np, nflop, npop, prm
@@ -54,9 +51,9 @@ program Validate__TPO__Elliptic_3d_RLCI
 
   ! read test parameters .......................................................
 
-  inquire(file='validate__cart__tpo_elliptic_ci.prm', exist=exists)
+  inquire(file='validate__tpo__elliptic_3d_rlci.prm', exist=exists)
   if (exists) then
-    open(newunit=prm, file='validate__cart__tpo_elliptic_ci.prm')
+    open(newunit=prm, file='validate__tpo__elliptic_3d_rlci.prm')
     read(prm, nml=input)
     close(prm)
   end if
@@ -68,20 +65,11 @@ program Validate__TPO__Elliptic_3d_RLCI
   nflop = np**3 * (6*np + 4)
   npop  = np**3
 
-!  ! operators ..................................................................
-!
+  ! operators ..................................................................
+
    standard_op = StandardOperators1D(po)
-!
-!  ! generic operator procedure
-!  call TPO_Elliptic_CI_Assign(-np, EllipticOperator_Gen)
-!
-!  ! try parametrized operator procedure
-!  call TPO_Elliptic_CI_Assign(np, EllipticOperator_Par)
-!
-!  parametrized = .not. associated( EllipticOperator_Par, &
-!                                   EllipticOperator_Gen  )
-!
-!  ! workspace ..................................................................
+
+  ! workspace ..................................................................
 
   allocate( u(0:po,0:po,0:po,ne), &
             v(0:po,0:po,0:po,ne), &
@@ -186,13 +174,13 @@ program Validate__TPO__Elliptic_3d_RLCI
     !$omp parallel
     !$acc data copyin(u) copyout(v)
 
-    call TPO_Elliptic_RLCI(Ms, Ls, lambda, nu, dx, u, v)
+    call TPO_Elliptic_RLCI_Gen(np, ne, Ms, Ls, lambda, nu, dx, u, v)
     !$acc wait
 
     call system_clock(count0, rate)
 
     do i = 1, nt
-      call TPO_Elliptic_RLCI(Ms, Ls, lambda, nu, dx, u, v)
+      call TPO_Elliptic_RLCI_Gen(np, ne, Ms, Ls, lambda, nu, dx, u, v)
       !$acc wait
     end do
 
@@ -211,57 +199,50 @@ program Validate__TPO__Elliptic_3d_RLCI
   !-----------------------------------------------------------------------------
   ! test parametrized procedure
 
-!  if (parametrized) then
-!
-!    associate( Ms => standard_op % w,  &
-!               Ls => standard_op % L   )
-!
-!      !$omp parallel
-!      !$acc data copyin(u) copyout(v)
-!
-!      call TPO_Elliptic_RLCI(np, ne, Ms, Ls, lambda, nu, dx, u, v)
-!      !$acc wait
-!
-!      call system_clock(count0, rate)
-!
-!      do i = 1, nt
-!        call TPO_Elliptic_RLCI(np, ne, Ms, Ls, lambda, nu, dx, u, v)
-!        !$acc wait
-!      end do
-!
-!      call system_clock(count)
-!
-!      !$acc end data
-!      !$omp end parallel
-!
-!    end associate
-!
-!    time = (count - count0) / real(rate, RNP) / nt
-!
-!    error_par  = maxval(abs(v - w))
-!    mflops_par = 1E-6 / time * ne * nflop
-!    mlups_par  = 1E-6 / time * ne * npop
-!
-!  end if
+  associate( Ms => standard_op % w,  &
+             Ls => standard_op % L   )
+
+    !$omp parallel
+    !$acc data copyin(u) copyout(v)
+
+    call TPO_Elliptic_RLCI(Ms, Ls, lambda, nu, dx, u, v)
+    !$acc wait
+
+    call system_clock(count0, rate)
+
+    do i = 1, nt
+      call TPO_Elliptic_RLCI(Ms, Ls, lambda, nu, dx, u, v)
+      !$acc wait
+    end do
+
+    call system_clock(count)
+
+    !$acc end data
+    !$omp end parallel
+
+  end associate
+
+  time = (count - count0) / real(rate, RNP) / nt
+
+  error_opt  = maxval(abs(v - w))
+  mflops_opt = 1E-6 / time * ne * nflop
+  mlups_opt  = 1E-6 / time * ne * npop
 
   !-----------------------------------------------------------------------------
   ! print results
 
   write(*,*)
   write(*,'(3A)') '#                        ',             &
-                  '   ------ elliptic operator --------'
+                  '   ------ generic operator --------',   &
+                  '   ------ optimized operator ------'  
 
   write(*,'(3A)') '#  np        ne        nt    ',         &
+                  '   error     MFLOP/s      MLUP/s    ',  &
                   '   error     MFLOP/s      MLUP/s    '
 
   write(*,'(I5,2(2X,I8))',  advance='NO') np, ne, nt
   write(*,'(3(2X,ES10.3))', advance='NO') error_gen, mflops_gen, mlups_gen
-
-!  if (parametrized) then
-!    write(*,'(3(2X,ES10.3))') error_par, mflops_par, mlups_par
-!  else
-!    write(*,'(3(8X,A))') 'None', 'None', 'None'
-!  end if
+  write(*,'(3(2X,ES10.3))') error_opt, mflops_opt, mlups_opt
   write(*,*)
 
 !===============================================================================
