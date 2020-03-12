@@ -8,7 +8,7 @@
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP:MP_Apply) MP_Apply_CI
-  use CART__TPO_Elliptic_CI
+  use CART__TPO_Elliptic_3d_RLCI
   use CART__Trace_Operator
   use CART__Normal_Trace_Operator
   implicit none
@@ -26,7 +26,7 @@ module subroutine Apply_CI(this, u, v)
 
   ! local variables ............................................................
 
-  procedure(TPO_Elliptic_CI_Proc), pointer, save :: DiffusionOperator
+  !!!procedure(TPO_Elliptic_CI_Proc), pointer, save :: DiffusionOperator
 
   ! trace operators
   type(TraceOperator),       allocatable, save :: trace_op
@@ -59,7 +59,7 @@ module subroutine Apply_CI(this, u, v)
 
       po = eop  % po
       ne = mesh % ne
-
+      np = po + 1
 
       ! computation of 1D standard diffusion and standard flux operator
       if (eop % Has_SVV()) then
@@ -76,13 +76,6 @@ module subroutine Apply_CI(this, u, v)
 
       As = As + nu * eop%L
       Bs = Bs + nu * eop%D
-
-
-      ! procedure for evaluating the element operators
-      if (np /= po + 1) then
-        np  = po + 1
-        call TPO_Elliptic_CI_Assign(np, DiffusionOperator)
-      end if
 
       ! workspace and operators
       !$omp single
@@ -109,7 +102,7 @@ module subroutine Apply_CI(this, u, v)
 
       ! apply element stiffness operator .......................................
 
-      call DiffusionOperator(np, ne, eop%w, As, lambda, ONE, mesh%dx, u, v)
+      call TPO_Elliptic_RLCI(eop%w, As, lambda, ONE, mesh%dx, u, v)
 
       ! finish generation of traces ............................................
 
@@ -199,7 +192,7 @@ subroutine AddFluxes(mesh, eop, Bs, nu, nu_svv, J_u, A_q, v)
 
     g = ONE / dx
 
-    !$omp do
+    !$omp do private(e)
     do e = 1, mesh % ne
 
       f = mesh % element(e) % face % id
