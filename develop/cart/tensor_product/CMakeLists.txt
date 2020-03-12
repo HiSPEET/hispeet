@@ -54,17 +54,6 @@ configure_file( validate__cart__tpo_elliptic_ci.prm
                 validate__cart__tpo_elliptic_ci.prm COPYONLY )
 
 #===============================================================================
-# TPO Elliptic 3d RLCI
-
-add_executable( validate__cart__tpo_elliptic_3d_rlci
-                validate__cart__tpo_elliptic_3d_rlci.f )
-
-target_link_libraries(validate__cart__tpo_elliptic_3d_rlci HiCart)
-
-configure_file( validate__cart__tpo_elliptic_ci.prm
-                validate__cart__tpo_elliptic_ci.prm COPYONLY )
-
-#===============================================================================
 # TPO Elliptic VI
 
 add_executable( validate__cart__tpo_elliptic_vi
