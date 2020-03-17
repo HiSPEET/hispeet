@@ -1,5 +1,5 @@
 !> summary:  Application of the IP/DG elliptic operator with const diffusivity
-!> author:   Joerg Stiller, Gustav Tschirschnitz
+!> author:   Joerg Stiller, Gustav Tschirschnitz, Erik Pfister
 !> date:     2018/11/22
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
@@ -8,7 +8,7 @@
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP:MP_Apply) MP_Apply_CI
-  use CART__TPO_Elliptic_CI
+  use TPO__Elliptic_3d_RLCI
   use CART__Trace_Operator
   use CART__Normal_Trace_Operator
   implicit none
@@ -25,8 +25,6 @@ module subroutine Apply_CI(this, u, v)
   real(RNP), intent(out) :: v(0:,0:,0:,:)  !< result
 
   ! local variables ............................................................
-
-  procedure(TPO_Elliptic_CI_Proc), pointer, save :: DiffusionOperator
 
   ! trace operators
   type(TraceOperator),       allocatable, save :: trace_op
@@ -47,7 +45,7 @@ module subroutine Apply_CI(this, u, v)
   real(RNP) :: As(0:this%eop%po, 0:this%eop%po) ! diffusion Dᵀ(ν+νˢQ)D
   real(RNP) :: Bs(0:this%eop%po, 0:this%eop%po) ! "flux" (ν+νˢQ)D
 
-  integer   :: po, ne, np = -1
+  integer   :: po, ne, np
   real(RNP) :: nu_svv
 
   select type(eop => this % eop)
@@ -59,7 +57,7 @@ module subroutine Apply_CI(this, u, v)
 
       po = eop  % po
       ne = mesh % ne
-
+      np = po + 1
 
       ! computation of 1D standard diffusion and standard flux operator
       if (eop % Has_SVV()) then
@@ -76,13 +74,6 @@ module subroutine Apply_CI(this, u, v)
 
       As = As + nu * eop%L
       Bs = Bs + nu * eop%D
-
-
-      ! procedure for evaluating the element operators
-      if (np /= po + 1) then
-        np  = po + 1
-        call TPO_Elliptic_CI_Assign(np, DiffusionOperator)
-      end if
 
       ! workspace and operators
       !$omp single
@@ -109,7 +100,7 @@ module subroutine Apply_CI(this, u, v)
 
       ! apply element stiffness operator .......................................
 
-      call DiffusionOperator(np, ne, eop%w, As, lambda, ONE, mesh%dx, u, v)
+      call TPO_Elliptic_RLCI(eop%w, As, lambda, ONE, mesh%dx, u, v)
 
       ! finish generation of traces ............................................
 
@@ -199,7 +190,7 @@ subroutine AddFluxes(mesh, eop, Bs, nu, nu_svv, J_u, A_q, v)
 
     g = ONE / dx
 
-    !$omp do
+    !$omp do private(e)
     do e = 1, mesh % ne
 
       f = mesh % element(e) % face % id

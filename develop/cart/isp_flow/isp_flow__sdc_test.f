@@ -671,7 +671,7 @@ subroutine Evaluation(failed, last)
     failed_ = err_v_max > problem%v_ref .or. ieee_is_nan(err_v_rms)
     call XMPI_Allreduce(failed_, failed, MPI_LOR, mesh%comm)
   end if
-  !$omp end single
+  !$omp end master
 
 end subroutine Evaluation
 
