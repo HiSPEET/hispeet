@@ -165,8 +165,7 @@ program Validate__TPO__Elliptic_3d_RLCI
   end associate
 
   !-----------------------------------------------------------------------------
-  ! test generic procedure
-  ! test operator procedure
+  ! test generic operator
 
   associate( Ms => standard_op % w,  &
              Ls => standard_op % L   )
@@ -197,7 +196,7 @@ program Validate__TPO__Elliptic_3d_RLCI
   mlups_gen  = 1E-6 / time * ne * npop
 
   !-----------------------------------------------------------------------------
-  ! test parametrized procedure
+  ! test optimized operator
 
   associate( Ms => standard_op % w,  &
              Ls => standard_op % L   )
@@ -234,7 +233,7 @@ program Validate__TPO__Elliptic_3d_RLCI
   write(*,*)
   write(*,'(3A)') '#                        ',             &
                   '   ------ generic operator --------',   &
-                  '   ------ optimized operator ------'  
+                  '   ------ optimized operator ------'
 
   write(*,'(3A)') '#  np        ne        nt    ',         &
                   '   error     MFLOP/s      MLUP/s    ',  &
