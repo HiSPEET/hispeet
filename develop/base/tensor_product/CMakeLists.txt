@@ -1,4 +1,15 @@
 #===============================================================================
+# TPO Div
+
+add_executable( validate__tpo__div_3d_r
+                validate__tpo__div_3d_r.f )
+
+target_link_libraries(validate__tpo__div_3d_r HiBase)
+
+configure_file( validate__tpo__div_3d_r.prm
+                validate__tpo__div_3d_r.prm COPYONLY )
+
+#===============================================================================
 # TPO Elliptic CI
 
 add_executable( validate__tpo__elliptic_3d_rlci
