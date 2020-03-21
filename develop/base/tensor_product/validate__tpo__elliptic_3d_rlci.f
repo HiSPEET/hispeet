@@ -39,7 +39,7 @@ program Validate__TPO__Elliptic_3d_RLCI
   real(RNP) :: error_gen, mflops_gen, mlups_gen
   real(RNP) :: error_opt, mflops_opt, mlups_opt
 
-  logical :: exists
+  logical :: exists!, parametrized
   integer :: np, nflop, npop, prm
   integer :: p, pm1, pm2, pm3
   integer :: i, j, k, e
