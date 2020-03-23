@@ -34,7 +34,6 @@ subroutine TPO_Div_R_Gen(np, ne, Ds, dx, u, v)
   real(RNP), intent(in)  :: dx(3)            !< element extensions
   real(RNP), intent(in)  :: u(np,np,np,ne,3) !< 3D vector field
   real(RNP), intent(out) :: v(np,np,np,ne)   !< element-wise divergence of u
-!  logical, optional, intent(in) :: transp    !< if present, apply Ds^T
 
   !-----------------------------------------------------------------------------
   ! local variables
