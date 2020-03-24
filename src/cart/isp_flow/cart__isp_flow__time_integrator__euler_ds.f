@@ -106,7 +106,7 @@ contains
 
       ! explicit + extrapolated diffusive parts ................................
 
-      ! u' = u₀ ≡ u(x,t₀)
+      ! u' = u₀ ≡ u(x,t₀)    
       call SetArray(u_i, u, multi=.true.)
 
       ! w = -∇⋅v₀v₀ + ∇⋅ν₀(∇v₀)ᵀ - χ∇(ν₀∇⋅v₀)     for v
@@ -128,7 +128,7 @@ contains
       ! solve for p = p"
       call PressureSolver(problem, flow_op, dt, u_i, p, w)
 
-      ! v" = v' - 1/∆t ∇p" - J(v")
+      ! v" = v' - 1/∆t ∇p" - J(v"). div/mass-flux stabilization(paper eq. 68)
       call ProjectionStep(problem, flow_op, dt, p, u_i, w)
 
       ! solve implicit diffusive part for u'''
@@ -142,9 +142,8 @@ contains
 
         ! solve for p = p" + dp
         call SetArray(dp, ZERO)
-        call PressureSolver(problem, flow_op, dt, u, dp, w)
+        call PressureSolver(problem, flow_op, dt, u, dp, w) ! u=u(x,t₀+∆t)
         call MergeArrays(ONE, p, ONE, dp)
-
         ! v = v''' - 1/∆t ∇p - J(v)
         call ProjectionStep(problem, flow_op, dt, dp, u, w)
 

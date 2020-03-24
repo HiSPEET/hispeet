@@ -38,6 +38,7 @@ program ISP_Flow__SDC_Test
   use CART__ISP_Flow__SDC                             ! current SDC
   use CART__ISP_Flow__Time_Integrator                 ! TI base type
   use CART__ISP_Flow__Time_Integrator__Euler_DS       ! new standalone Euler
+  use CART__ISP_Flow__Time_Integrator__Runge_Kutta_DS ! new standalone Runge Kutta
 
   implicit none
 
@@ -268,6 +269,8 @@ program ISP_Flow__SDC_Test
     sdc = SDC_Method3D(EulerVC, EulerVC, sdc_opt)
   case(0)
     time_integrator = TimeIntegrator_EulerDS(problem, flow_op)
+  case(-1)      ! case time integration using RK- method 
+    time_integrator = TimeIntegrator_RungeKuttaDS(problem, flow_op)
   end select
 
   ! variables and initial values ...............................................
@@ -642,6 +645,7 @@ subroutine Evaluation(failed, last)
     if (head) then
 
       write(*,'(A)')    '#'
+      write(*,'(A,I0)') '# sdc_opt % n_sub   = ', sdc_opt  % n_sub
       write(*,'(A,I0)') '# n_sub   = ', sdc % n_sub
       write(*,'(A,I0)') '# n_sweep = ', sdc % n_sweep
       write(*,'(A)')    '#'
