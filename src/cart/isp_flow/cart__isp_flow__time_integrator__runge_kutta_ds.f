@@ -106,23 +106,22 @@ contains
    ! TODO : IMEX Runge-Kutta step
 
   subroutine TimeStep(this, t, dt, u, nu)
-
     class(TimeIntegrator_RungeKuttaDS), intent(inout) :: this
-    
     real(RNP),           intent(inout) :: t             !< time t₀ → t
     real(RNP),           intent(in)    :: dt            !< step size ∆t = t-t₀
     real(RNP), optional, intent(in)    :: nu(:,:,:,:,:) !< variable ν(x,t₀)
     real(RNP),           intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
 
-
     ! local variables  .........................................................
+
     type(IMEX_RK_Method)                                 :: imex          
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: K_ex, K_im !impl. & expl. K
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d1, F_d3
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_s
     real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: F, F_c 
     real(RNP), dimension(:)          , allocatable, save :: ts         ! node times
-    real(RNP), dimension(:,:,:,:,:),   allocatable, save :: u_i, u_0   
+    real(RNP), dimension(:,:,:,:,:),   allocatable, save :: u_i, u_0  
+ 
     ! auxiliary
     integer   :: ns ! number of stages
     integer   :: i  ! i = 1,..,s
@@ -144,8 +143,10 @@ contains
       !$omp single
       allocate(K_im ( size(u,1), size(u,2), size(u,3), &
                     & size(u,4), size(u,5), ns )) 
+
       allocate(K_ex ( size(u,1), size(u,2), size(u,3), &
                     & size(u,4), size(u,5), ns ))
+
       allocate(F_d1 ( size(u,1), size(u,2), size(u,3), &
                     & size(u,4), size(u,5), ns ))
 
@@ -175,17 +176,19 @@ contains
 
       ! stage 1 
       if (any(imex % a_im(:,1) /= 0).or. imex % b(1) /= 0) then  
-      call TimeDerivative( problem, flow_op, ts(1) &
-                          , u_c  = u_0             &
-                          , u_d  = u_0             &
-                          , nu   = nu              &
-                          , F    = F               &
-                          , F_c  = F_c             &
-                          ) 
+        call TimeDerivative( problem, flow_op, ts(1) &
+                            , u_c  = u_0             &
+                            , u_d  = u_0             &
+                            , nu   = nu              &
+                            , F    = F               &
+                            , F_c  = F_c             &
+                            ) 
       
-      K_im(:,:,:,:,:,1) = F - F_c
-      K_ex(:,:,:,:,:,1) = F_c
-      u    = u +  dt * imex % b(1) * (K_im(:,:,:,:,:,1) + K_ex(:,:,:,:,:,1))
+        K_im(:,:,:,:,:,1) = F - F_c
+        K_ex(:,:,:,:,:,1) = F_c
+        !u = u +  dt * imex % b(1) * (K_im(:,:,:,:,:,1) + K_ex(:,:,:,:,:,1))
+        call MergeArrays(ONE,u,dt * imex % b(1), K_im(:,:,:,:,:,1),multi=.true.)
+        call MergeArrays(ONE,u,dt * imex % b(1), K_ex(:,:,:,:,:,1),multi=.true.)
       end if 
 
       ! stage 2 - ns
@@ -195,7 +198,6 @@ contains
       
       do i=2, ns
          
-        
         call RungeKuttaStage(this, imex, i, dt, u_0 , nu,    &
                              K_im, K_ex, F_s, F_d1, F_d3, u_i)
         ! stage values 
