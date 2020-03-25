@@ -268,11 +268,17 @@ contains
                     & size(u_i,4)))
     
     !step 1: exptrapolation of u'(i) ...................................
+    call SetArray(u_i, u_n, multi=.true.)
+
+    do j=1, i-1 
+
+      call MergeArrays(ONE, u_i, dt * imex % a_ex(i,j),K_ex(:,:,:,:,:,j), multi=.true.)
+
+      call MergeArrays(ONE, u_i, dt * imex % a_ex(i,j),K_im(:,:,:,:,:,j), multi=.true.)
+
+      call MergeArrays(ONE, u_i, dt * (imex % a_ex(i,j) - imex % a_im(i,j)) &
+                                ,K_ex(:,:,:,:,:,j), multi=.true.)
  
-    do j=1, i 
-      u_i(:,:,:,:,1:3) = u_n(:,:,:,:,1:3) &
-                + dt * imex % a_ex(i,j)* (K_ex(:,:,:,:,:,j) + K_im(:,:,:,:,:,j)) &
-                + dt * (imex % a_ex(i,j) - imex % a_im(i,j)) * F_s(:,:,:,:,:,j)
     end do
     ! + for p = i 
     !u_i = u_i + dt*imex % a_im(i,i) * F_s(:,:,:,:,:,i)
