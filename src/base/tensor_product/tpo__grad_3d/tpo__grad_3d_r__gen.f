@@ -39,7 +39,7 @@ subroutine TPO_Grad_R_Gen(np, ne, Ds, dx, u, v)
   ! local variables
 
   real(RNP) :: A(np,np)
-  real(RNP) :: g(3), tmp
+  real(RNP) :: g(3), tmp1, tmp2, tmp3
 
   integer :: e, i, j, k, m
   integer :: vec_len
