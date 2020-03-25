@@ -41,7 +41,7 @@ subroutine TPO_Rot_R_Gen(np, ne, Ds, dx, u, v)
   real(RNP) :: A(np,np)
   real(RNP) :: g(3), tmp
 
-  integer :: e, i, j, k, m
+  integer :: e, i, j, k, p
   integer :: vec_len
 
   !-----------------------------------------------------------------------------
@@ -79,8 +79,8 @@ subroutine TPO_Rot_R_Gen(np, ne, Ds, dx, u, v)
     do i = 1, np
 
       tmp = 0
-      do m = 1, np
-        tmp = tmp + A(m,k) * u(i,j,m,e,1)
+      do p = 1, np
+        tmp = tmp + A(p,k) * u(i,j,p,e,1)
       end do
       v(i,j,k,e,2) = g(3) * tmp
 
@@ -96,8 +96,8 @@ subroutine TPO_Rot_R_Gen(np, ne, Ds, dx, u, v)
     do i = 1, np
 
       tmp = 0
-      do m = 1, np
-        tmp = tmp + A(m,j) * u(i,m,k,e,1)
+      do p = 1, np
+        tmp = tmp + A(p,j) * u(i,p,k,e,1)
       end do
       v(i,j,k,e,3) = - g(2) * tmp
 
@@ -113,8 +113,8 @@ subroutine TPO_Rot_R_Gen(np, ne, Ds, dx, u, v)
     do i = 1, np
 
       tmp = 0
-      do m = 1, np
-        tmp = tmp + A(m,i) * u(m,j,k,e,2)
+      do p = 1, np
+        tmp = tmp + A(p,i) * u(p,j,k,e,2)
       end do
       v(i,j,k,e,3) = v(i,j,k,e,3) + g(1) * tmp
 
@@ -131,8 +131,8 @@ subroutine TPO_Rot_R_Gen(np, ne, Ds, dx, u, v)
     do i = 1, np
 
       tmp = 0
-      do m = 1, np
-        tmp = tmp + A(m,k) * u(i,j,m,e,2)
+      do p = 1, np
+        tmp = tmp + A(p,k) * u(i,j,p,e,2)
       end do
       v(i,j,k,e,1) = - g(3) * tmp
 
@@ -149,8 +149,8 @@ subroutine TPO_Rot_R_Gen(np, ne, Ds, dx, u, v)
     do i = 1, np
 
       tmp = 0
-      do m = 1, np
-        tmp = tmp + A(m,j) * u(i,m,k,e,3)
+      do p = 1, np
+        tmp = tmp + A(p,j) * u(i,p,k,e,3)
       end do
       v(i,j,k,e,1) = v(i,j,k,e,1) + g(2) * tmp
 
@@ -167,8 +167,8 @@ subroutine TPO_Rot_R_Gen(np, ne, Ds, dx, u, v)
     do i = 1, np
 
       tmp = 0
-      do m = 1, np
-        tmp = tmp + A(m,i) * u(m,j,k,e,3)
+      do p = 1, np
+        tmp = tmp + A(p,i) * u(p,j,k,e,3)
       end do
       v(i,j,k,e,2) = v(i,j,k,e,2) - g(1) * tmp
 
