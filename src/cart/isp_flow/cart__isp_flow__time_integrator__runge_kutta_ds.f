@@ -106,6 +106,7 @@ contains
    ! TODO : IMEX Runge-Kutta step
 
   subroutine TimeStep(this, t, dt, u, nu)
+
     class(TimeIntegrator_RungeKuttaDS), intent(inout) :: this
     
     real(RNP),           intent(inout) :: t             !< time t₀ → t
@@ -115,11 +116,12 @@ contains
 
 
     ! local variables  .........................................................
-    type(IMEX_RK_Method)               :: imex          !< IMEX butcher tableau 
+    type(IMEX_RK_Method)                                 :: imex          
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: K_ex, K_im !impl. & expl. K
-    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d1, F_d3, F_s
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d1, F_d3
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_s
     real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: F, F_c 
-    real(RNP), dimension(:),    allocatable, save        :: ts         ! node times
+    real(RNP), dimension(:)          , allocatable, save :: ts         ! node times
     real(RNP), dimension(:,:,:,:,:),   allocatable, save :: u_i, u_0   
     ! auxiliary
     integer   :: ns ! number of stages
@@ -214,21 +216,23 @@ contains
 
       end do 
       
+      ! prepare next timestep 
+      t = t + dt
 
-      
       ! clean up .................................................................
     
       !$omp barrier
       !$omp master
-      if(allocated(K_im )) deallocate(K_im) 
-      if(allocated(K_ex )) deallocate(K_ex) 
-      if(allocated(F_d1 )) deallocate(F_d1) 
-      if(allocated(F_d3 )) deallocate(F_d3)
-      if(allocated(F_s  )) deallocate(F_s ) 
-      if(allocated(u_i))   deallocate(u_i)
-      if(allocated(u_0))   deallocate(u_0)
-      if(allocated(F  ))   deallocate(F  )
-      if(allocated(F_c))   deallocate(F_c)
+      if(allocated(K_im ))   deallocate(K_im) 
+      if(allocated(K_ex ))   deallocate(K_ex) 
+      if(allocated(F_d1 ))   deallocate(F_d1) 
+      if(allocated(F_d3 ))   deallocate(F_d3)
+      if(allocated(F_s  ))   deallocate(F_s ) 
+      if(allocated(u_i  ))   deallocate(u_i )
+      if(allocated(u_0  ))   deallocate(u_0 )
+      if(allocated(F    ))   deallocate(F   )
+      if(allocated(F_c  ))   deallocate(F_c )
+      if(allocated(ts   ))   deallocate(ts  )
       !$omp end master
     end associate
     end subroutine TimeStep
@@ -247,34 +251,36 @@ contains
     integer,              intent(in) :: i               !< stage i=2,..,s  
     real(RNP),            intent(in) :: dt              !< time step width 
     real(RNP), optional,  intent(in) :: nu(:,:,:,:,:)   !< variable ν(x,t₀) 
-    real(RNP),         intent(inout) :: u_n (:,:,:,:,:) !< u(x,t₀) 
+    real(RNP),         intent(in   ) :: u_n (:,:,:,:,:) !< u(x,t₀) 
     real(RNP),         intent(inout) :: u_i (:,:,:,:,:) !< u(x,t₀)
     
     real(RNP), dimension(:,:,:,:,:,:), intent(inout) :: K_im, K_ex, F_d1, F_d3, F_s
  
     ! local variables...................................................
     integer                :: j              ! j=1,..,i
-    real(RNP), allocatable :: w (:,:,:,:,:)  ! ....
-    real(RNP), allocatable :: p (:,:,:,:)
+    real(RNP), allocatable :: w(:,:,:,:,:)  ! ....
+    real(RNP), allocatable :: u_s(:,:,:,:,:)  ! ....
+    real(RNP), allocatable :: p(:,:,:,:)
     ! allocate workspaces ..............................................
     allocate(w , mold = u_i) 
+    allocate(u_s , mold = u_i) 
     allocate(p(size(u_i,1), size(u_i,2), size(u_i,3), &
                     & size(u_i,4)))
     
     !step 1: exptrapolation of u'(i) ...................................
  
     do j=1, i 
-      u_i(:,:,:,:,1:3) = u_n(:,:,:,:,1:3) + &
-                  dt * imex % a_ex(i,j) * (K_ex(:,:,:,:,:,j) + K_im(:,:,:,:,:,j)) &
-                + dt * (imex % a_ex(i,j) -imex % a_im(i,j)) * F_s(:,:,:,:,:,j)
+      u_i(:,:,:,:,1:3) = u_n(:,:,:,:,1:3) &
+                + dt * imex % a_ex(i,j)* (K_ex(:,:,:,:,:,j) + K_im(:,:,:,:,:,j)) &
+                + dt * (imex % a_ex(i,j) - imex % a_im(i,j)) * F_s(:,:,:,:,:,j)
     end do
     ! + for p = i 
     !u_i = u_i + dt*imex % a_im(i,i) * F_s(:,:,:,:,:,i)
-    call MergeArrays(ONE, u_i,dt* imex % a_im(i,i), F_s(:,:,:,:,:,i), multi=.true. )
+    call MergeArrays(ONE, u_i,dt * imex % a_im(i,i), F_s(:,:,:,:,:,i), multi=.true. )
 
     !step 2: projection => p''(i), ∇ p''(i) and u''(i) = u'(i) - dt * ∇ p''(i)
-    call PressureSolver(this % problem, this % flow_op, dt, u_i, u_i(:,:,:,:,4), w)
-    call ProjectionStep(this % problem, this % flow_op, dt, u_i(:,:,:,:,4), u_i, w)
+    call PressureSolver(this % problem, this % flow_op, dt, u_i, p, w)
+    call ProjectionStep(this % problem, this % flow_op, dt, p, u_i, w)
 
 
     !step 3: diffusion: => u'''(i) = u''(i) + dt * a_im(i,i)*∇.ν(i)∇u'''(i) &
@@ -290,8 +296,10 @@ contains
       call MergeArrays(ONE, u_i,  dt * imex % a_im(i,j),& 
                           F_d1(:,:,:,:,:,i), multi=.true.)
     end do 
-    call DiffusionStep(this % problem, this % flow_op, dt, f=u_i, u=u_i, w=w, nu=nu)
-
+    call DiffusionStep(this % problem, this % flow_op, dt* imex % a_im(i,i),&
+                       f=u_i, u=u_s, w=w, nu=nu)
+    call SetArray(u_i,u_s, multi=.true.)
+    call SetArray(u_i(:,:,:,:,4),p, multi=.true.)
     !step 4: in case the viscosity is variable execute final projection ...
      
     !clean up ............................................................
@@ -299,6 +307,7 @@ contains
       !$omp master
       if (allocated(p   )) deallocate(p   )
       if (allocated(w   )) deallocate(w   )
+      if (allocated(u_s )) deallocate(u_s )
       !$omp end master
   end subroutine RungeKuttaStage
 

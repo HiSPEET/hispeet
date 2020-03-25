@@ -320,6 +320,13 @@ program ISP_Flow__SDC_Test
       else
         call time_integrator % TimeStep(t, dt, u)
       end if
+    case(-1) 
+      if (problem % HasVariableProperties()) then
+        call problem % GetDiffusivity(flow_op%x, t, u, nu)
+        call time_integrator % TimeStep(t, dt, u, nu)
+      else
+        call time_integrator % TimeStep(t, dt, u)
+      end if
     case default
       call SetArray(u_0, u, multi=.true.)
       call EulerVC(problem, flow_op, t, dt, u_0, u)
