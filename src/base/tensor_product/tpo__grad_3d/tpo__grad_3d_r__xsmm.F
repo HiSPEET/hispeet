@@ -69,8 +69,6 @@ contains
     !$omp do
     do e = 1, ne
     
-      v(:,:,:,e)=0     
-
       ! apply operator in direction 1
       call LIBXSMM_DMMCall(xmm_1, Ds_1, u(:,:,1,e) , v(:,:,:,e,1))
 

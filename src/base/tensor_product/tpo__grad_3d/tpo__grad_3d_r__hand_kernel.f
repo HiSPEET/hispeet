@@ -2,6 +2,9 @@
 !> Parametrized 3d gradient kernel using hand-crafted suboperators (RCLI)
 
 subroutine PROC(TPO_Grad_R_Hand__,_NP_)(ne, Ds, dx, u, v)
+
+  use Constants, only: ZERO
+
   integer,   intent(in)  :: ne                     !< num elements
   real(RNP), intent(in)  :: Ds(_NP_,_NP_)          !< standard diff matrix
   real(RNP), intent(in)  :: u(_NP_,_NP_,_NP_,ne)   !< operand
@@ -9,8 +12,6 @@ subroutine PROC(TPO_Grad_R_Hand__,_NP_)(ne, Ds, dx, u, v)
   real(RNP), intent(in)  :: dx(3)                  !< element extensions
 
   real(RNP) :: A(_NP_,_NP_)
-  real(RNP), parameter :: beta_1 = 0
-  real(RNP), parameter :: beta   = 1
   real(RNP) :: g(3)
 
   integer :: e
@@ -33,9 +34,9 @@ subroutine PROC(TPO_Grad_R_Hand__,_NP_)(ne, Ds, dx, u, v)
   !$omp do
   do e = 1, ne
 
-    call PROC(IxIxQt__,_NP_)(A, g(1), beta_1, u(:,:,:,e), v(:,:,:,e,1))
-    call PROC(IxQtxI__,_NP_)(A, g(2), beta_1, u(:,:,:,e), v(:,:,:,e,2))
-    call PROC(QtxIxI__,_NP_)(A, g(3), beta_1, u(:,:,:,e), v(:,:,:,e,3))
+    call PROC(IxIxQt__,_NP_)(A, g(1), ZERO, u(:,:,:,e), v(:,:,:,e,1))
+    call PROC(IxQtxI__,_NP_)(A, g(2), ZERO, u(:,:,:,e), v(:,:,:,e,2))
+    call PROC(QtxIxI__,_NP_)(A, g(3), ZERO, u(:,:,:,e), v(:,:,:,e,3))
 
   end do
 

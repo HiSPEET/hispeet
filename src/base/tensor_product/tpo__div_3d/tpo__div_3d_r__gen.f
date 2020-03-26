@@ -41,7 +41,7 @@ subroutine TPO_Div_R_Gen(np, ne, Ds, dx, u, v)
   real(RNP) :: A(np,np)
   real(RNP) :: g(3), tmp
 
-  integer :: e, i, j, k, m
+  integer :: e, i, j, k, p
   integer :: vec_len
 
   !-----------------------------------------------------------------------------
@@ -79,8 +79,8 @@ subroutine TPO_Div_R_Gen(np, ne, Ds, dx, u, v)
     do i = 1, np
 
       tmp = 0
-      do m = 1, np
-        tmp = tmp + A(m,i) * u(m,j,k,e,1)
+      do p = 1, np
+        tmp = tmp + A(p,i) * u(p,j,k,e,1)
       end do
       v(i,j,k,e) = g(1) * tmp
 
@@ -96,8 +96,8 @@ subroutine TPO_Div_R_Gen(np, ne, Ds, dx, u, v)
     do i = 1, np
 
       tmp = 0
-      do m = 1, np
-        tmp = tmp + A(m,j) * u(i,m,k,e,2)
+      do p = 1, np
+        tmp = tmp + A(p,j) * u(i,p,k,e,2)
       end do
       v(i,j,k,e) = v(i,j,k,e) + g(2) * tmp
 
@@ -113,8 +113,8 @@ subroutine TPO_Div_R_Gen(np, ne, Ds, dx, u, v)
     do i = 1, np
 
       tmp = 0
-      do m = 1, np
-        tmp = tmp + A(m,k) * u(i,j,m,e,3)
+      do p = 1, np
+        tmp = tmp + A(p,k) * u(i,j,p,e,3)
       end do
       v(i,j,k,e) = v(i,j,k,e) + g(3) * tmp
 

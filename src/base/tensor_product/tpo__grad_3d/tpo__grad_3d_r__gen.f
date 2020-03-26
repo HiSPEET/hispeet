@@ -39,9 +39,9 @@ subroutine TPO_Grad_R_Gen(np, ne, Ds, dx, u, v)
   ! local variables
 
   real(RNP) :: A(np,np)
-  real(RNP) :: g(3), tmp
+  real(RNP) :: g(3), tmp1, tmp2, tmp3
 
-  integer :: e, i, j, k, m
+  integer :: e, i, j, k, p
   integer :: vec_len
 
   !-----------------------------------------------------------------------------
@@ -80,9 +80,9 @@ subroutine TPO_Grad_R_Gen(np, ne, Ds, dx, u, v)
 
       tmp1 = 0
       tmp2 = 0
-      do m = 1, np
-        tmp1 = tmp1 + A(m,i) * u(m,j,k,e)
-        tmp2 = tmp2 + A(m,j) * u(i,m,k,e)
+      do p = 1, np
+        tmp1 = tmp1 + A(p,i) * u(p,j,k,e)
+        tmp2 = tmp2 + A(p,j) * u(i,p,k,e)
       end do
       v(i,j,k,e,1) = g(1) * tmp1
       v(i,j,k,e,2) = g(2) * tmp2
@@ -99,8 +99,8 @@ subroutine TPO_Grad_R_Gen(np, ne, Ds, dx, u, v)
     do i = 1, np
 
       tmp3 = 0
-      do m = 1, np
-        tmp3 = tmp3 + A(m,k) * u(i,j,m,e)
+      do p = 1, np
+        tmp3 = tmp3 + A(p,k) * u(i,j,p,e)
       end do
       v(i,j,k,e,3) = g(3) * tmp3
 
