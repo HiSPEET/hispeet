@@ -23,7 +23,7 @@ contains
     real(RNP), intent(in)  :: Ds(np,np)        !< standard diff matrix
     real(RNP), intent(in)  :: dx(3)            !< element extensions
     real(RNP), intent(in)  :: u(np,np,np,ne,3) !< operand
-    real(RNP), intent(out) :: v(np,np,np,ne)   !< result
+    real(RNP), intent(out) :: v(np,np,np,ne,3) !< result
 
     select case(np)
     case( 2)
