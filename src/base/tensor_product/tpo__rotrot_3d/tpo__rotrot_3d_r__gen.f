@@ -57,7 +57,12 @@ subroutine TPO_RotRot_R_Gen(np, ne, Ds, dx, u, v)
 
   ! Initialization
   A  = transpose(Ds)
-  DA = transpose(Ds*Ds)
+
+  do j = 1, np
+  do i = 1, np
+    DA(j,i) = sum(Ds(i,:) * Ds(:,j))
+  end do
+  end do
 
   ! metric coefficients
   g = 2 / dx
@@ -73,7 +78,7 @@ subroutine TPO_RotRot_R_Gen(np, ne, Ds, dx, u, v)
   !$omp do private(e)
   do e = 1, ne
 
-       ! div_u = du1/dx1 ..........................................................
+    ! div_u = du1/dx1 ..........................................................
 
     !$acc loop collapse(3) vector
     do k = 1, np
@@ -239,7 +244,7 @@ subroutine TPO_RotRot_R_Gen(np, ne, Ds, dx, u, v)
 
       tmp = 0
       do p = 1, np
-        tmp = tmp + A(p,k) * div_u(i,j,m)
+        tmp = tmp + A(p,k) * div_u(i,j,p)
       end do
       v(i,j,k,e,3) = g(3) * tmp
 

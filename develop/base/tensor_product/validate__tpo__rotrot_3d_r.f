@@ -80,6 +80,7 @@ program Validate__TPO__RotRot_3d_R
 
   pm1 = max(p - 1, 0)
   pm2 = max(p - 2, 0)
+  pm3 = max(p - 3, 0)
 
   !-----------------------------------------------------------------------------
   ! operand und exact result

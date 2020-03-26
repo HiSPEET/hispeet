@@ -1,7 +1,7 @@
 !-------------------------------------------------------------------------------
 !> Parametrized 3d rotrotrotrot kernel using hand-crafted suboperators (RCLI)
 
-subroutine PROC(TPO_Rot_R_Hand__,_NP_)(ne, Ds, dx, u, v)
+subroutine PROC(TPO_RotRot_R_Hand__,_NP_)(ne, Ds, dx, u, v)
  
   use Constants, only: ZERO, ONE
 
@@ -15,13 +15,18 @@ subroutine PROC(TPO_Rot_R_Hand__,_NP_)(ne, Ds, dx, u, v)
   real(RNP) :: div_u(_NP_,_NP_,_NP_)
   real(RNP) :: g(3)
 
-  integer :: e
+  integer :: e, i, j
 
   !-----------------------------------------------------------------------------
   ! initialization
 
   A  = transpose(Ds)
-  DA = transpose(Ds*Ds)
+
+  do j = 1, _NP_
+  do i = 1, _NP_
+    DA(j,i) = sum(Ds(i,:) * Ds(:,j))
+  end do
+  end do
 
   ! metric coefficients
   g = 2 / dx

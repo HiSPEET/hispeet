@@ -33,12 +33,13 @@ contains
     real(RNP) :: Ds_1(np,np), DDs_1(np,np)
     real(RNP) :: Ds_2T(np,np), Ds_3T(np,np)
     real(RNP) :: DDs_2T(np,np), DDs_3T(np,np)
+    real(RNP) :: DDs(np,np)
     real(RNP) :: div_u(np,np,np)
     real(RNP), parameter :: alpha  = 1
     real(RNP), parameter :: beta   = 1
 
     real(RNP) :: g(3)
-    integer   :: e, k
+    integer   :: e, i, j, k
 
     !-----------------------------------------------------------------------------
 
@@ -49,9 +50,15 @@ contains
     Ds_2T = g(2) * transpose(Ds)
     Ds_3T = g(3) * transpose(Ds)
 
-    DDs_1  = -g(1) * g(1) * Ds * Ds
-    DDs_2T = -g(2) * g(2) * transpose(Ds*Ds)
-    DDs_3T = -g(3) * g(3) * transpose(Ds*Ds)
+    do j = 1, np
+    do i = 1, np
+      DDs(i,j) = sum(Ds(i,:) * Ds(:,j))
+    end do
+    end do
+
+    DDs_1  = -g(1) * g(1) * DDs
+    DDs_2T = -g(2) * g(2) * transpose(DDs)
+    DDs_3T = -g(3) * g(3) * transpose(DDs)
 
     ! XSMM dispatch
     !$omp master
@@ -116,7 +123,7 @@ contains
       end do
 
       ! v2 -= d( du2/dx1 )/dx1 
-      call LIBXSMM_DMMCall(xmm_1, DDs_1, u(:,:,1,e,2), v(:,:,:,e,2)
+      call LIBXSMM_DMMCall(xmm_1, DDs_1, u(:,:,1,e,2), v(:,:,:,e,2))
 
       ! v2 -= d( du2/dx2 )/dx2
       do k = 1, np
@@ -132,7 +139,7 @@ contains
       call LIBXSMM_DMMCall(xmm_3, div_u(:,:,1), DDs_3T, v(:,:,k,e,3))
 
       ! v3 -= d( du3/dx1 )/dx1 
-      call LIBXSMM_DMMCall(xmm_1, DDs_1, u(:,:,1,e,3), v(:,:,:,e,3)
+      call LIBXSMM_DMMCall(xmm_1, DDs_1, u(:,:,1,e,3), v(:,:,:,e,3))
 
       ! v3 -= d( du3/dx2 )/dx2
       do k = 1, np
