@@ -88,6 +88,8 @@ program Validate__TPO__Rot_3d_R
 
     do e = 1, ne
 
+      ! element points .........................................................
+
       call random_number(x0)
       call random_number(y0)
       call random_number(z0)
