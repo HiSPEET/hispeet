@@ -32,6 +32,17 @@ configure_file( validate__tpo__rot_3d_r.prm
                 validate__tpo__rot_3d_r.prm COPYONLY )
 
 #===============================================================================
+# TPO RotRot
+
+add_executable( validate__tpo__rotrot_3d_r
+                validate__tpo__rotrot_3d_r.f )
+
+target_link_libraries(validate__tpo__rotrot_3d_r HiBase)
+
+configure_file( validate__tpo__rotrot_3d_r.prm
+                validate__tpo__rotrot_3d_r.prm COPYONLY )
+
+#===============================================================================
 # TPO Elliptic CI
 
 add_executable( validate__tpo__elliptic_3d_rlci
