@@ -212,6 +212,8 @@ contains
                             , F_s  = F_s (:,:,:,:,:,1) &
                            )
 
+!x  heißt löschen
+
         ! K_ex(:,:,:,:,:,i) = F_c   !? OK
         call MergeArrays(ZERO, K_ex(:,:,:,:,:,1), ONE, F_c, multi = .true.)  !x
     !?  call SetArray(K_ex(:,:,:,:,:,1), F_c, multi = .true.)
@@ -262,12 +264,14 @@ contains
         ! explicit and implicit values K_im, K_ex
         ! K_ex(:,:,:,:,:,i) = F_c
 
-        call MergeArrays(ZERO, K_ex(:,:,:,:,:,i), ONE, F_c, multi = .true.)
+        call MergeArrays(ZERO, K_ex(:,:,:,:,:,i), ONE, F_c, multi = .true.) !x
+    !?  call SetArray(K_ex(:,:,:,:,:,i), F_c, multi = .true.)
         !print*,'K_ex', K_ex(1,1,1,1,1,i) !>> debugging
 
         !K_im(:,:,:,:,:,i) = F - F_c
 
-        call MergeArrays(ZERO, K_im(:,:,:,:,:,i),  ONE, F  , multi = .true.)
+        call MergeArrays(ZERO, K_im(:,:,:,:,:,i),  ONE, F  , multi = .true.) !x
+    !?  call SetArray(K_im(:,:,:,:,:,1), F, multi = .true.)
         call MergeArrays(ONE , K_im(:,:,:,:,:,i), -ONE, F_c, multi = .true.)
         !print* ,'K_im', K_im(1,2,2,2,1,i)  !>> debugging
 
@@ -309,7 +313,7 @@ contains
 
   ! TODO : generic Runge-Kutta stage, derived from dual-split IMEX Euler
 
-  subroutine RungeKuttaStage(this, i,t, dt,u_n, nu, &
+  subroutine RungeKuttaStage(this, i,t, dt,u_n, nu, &           !!! u_0  statt  u_n
                              K_im, K_ex, F_s, F_d1, F_d3, u_i)
 
     class(TimeIntegrator_RungeKuttaDS), intent(inout) :: this
@@ -331,6 +335,11 @@ contains
     real(RNP), allocatable :: w(:,:,:,:,:)   ! ....
     real(RNP), allocatable :: u_s(:,:,:,:,:) ! ....
     real(RNP), allocatable :: p(:,:,:,:)
+
+
+!? associate(problem => this % problem      &  !!! etc. !!!
+!?           a_ex => this % imex_rk % a_ex, &
+!?           a_im => this % imex_rk % a_im  )
 
     ! allocate workspaces ..............................................
 
@@ -356,14 +365,17 @@ contains
 
     call SetArray(u_i, u_n, multi=.true.)
 
+
     do j=1, i-1
 
       call MergeArrays(ONE, u_i, dt * this % imex_rk % a_ex(i,j) &
                       ,K_ex(:,:,:,:,:,j), multi =.true.)
 
+     !? + dt * a_ex(i,j) * F_s(j)
       call MergeArrays(ONE, u_i, dt * this % imex_rk % a_ex(i,j) &
                       , K_im(:,:,:,:,:,j), multi =.true.)
 
+     !? + dt * a_ex(i,j) - a_im(i,j) * F_s(j)   !!! vertauscht !!!
       call MergeArrays(ONE, u_i &
                       , dt * (this % imex_rk % a_ex(i,j) - this % imex_rk % a_im(i,j)) &
                       , F_s(:,:,:,:,:,j), multi = .true.)
@@ -371,13 +383,21 @@ contains
     end do
     ! + for j = i
     !u_i = u_i + dt*imex % a_im(i,i) * F_s(:,:,:,:,:,i)
+!?  call this % problem % GetExternalSources(this % flow_op%x, t, F_s(:,:,:,:,:,i))
     call MergeArrays(ONE, u_i, dt * this % imex_rk % a_im(i,i) &
                     , F_s(:,:,:,:,:,i), multi =.true. )
 
+
+!?   Hier haben wir u' = u_i, d.h. die Extrapolation ist hier fertig
+
+
     !step 2: projection => p''(i), ∇ p''(i) and u''(i) = u'(i) - dt * ∇ p''(i)
 
-    call MergeArrays(ZERO, w, ONE/dt &
-                    , (u_i - u_n), multi =.true. )
+    call MergeArrays(ZERO, w, ONE/dt &                  !x  kein Sinn
+                    , (u_i - u_n), multi =.true. )      !x  wird verwendet
+
+
+
     call PressureSolver(this % problem, this % flow_op, dt, u_i, p, w)
     call ProjectionStep(this % problem, this % flow_op, dt, p, u_i, w)
 
@@ -385,6 +405,7 @@ contains
     !                                + dt * Σ(j=1,..,i-1) a_im(i,j)*F_d1(j)
     !                                - dt * Σ(j=1,..,i-1) a_ex(i,j)*(Fd_1(j)+Fd_3(j))
 
+!?????????
     do j=1, i-1
 
       call MergeArrays(ONE, u_i,  dt * this % imex_rk % a_im(i,j)  &
@@ -400,6 +421,28 @@ contains
                        , F_d3(:,:,:,:,:,i), multi = .true.)
 
     end do
+!??????????
+
+!?    ! goal: subtract extrapolated diffusion part
+!?    do j=1, i-1
+!?      ! subtract extrapolated K_im
+!?      call MergeArrays(ONE, u_i, dt * (a_im(i,j) - a_ex(i,j)),  &
+!?                      , K_im(:,:,:,:,:,j), multi =.true.)
+!?
+!?      ! oops F_s should *NOT* be subtracted
+!?      call MergeArrays(ONE, u_i, -dt * (a_im(i,j) - a_ex(i,j)),  &
+!?                      , F_s():,:,:,:,:,j), multi =.true.)
+!?
+!?    ! THIS IS SILLY
+!?    ! NEED SEPARATE TREATMENT OF F_s, e.g.
+!?    !
+!?    !   K_im = K_im_d + K_im_s   --->  store K_im_d, K_im_s = F_s
+!?    !                            --->  of    K_im,  K_im_d
+!?    !
+!?    ! bitte überlegen was am besten ist
+!?
+!?   end do
+
 
     call DiffusionStep(this % problem, this % flow_op, dt * this % imex_rk % a_im(i,i)&
                       ,f=u_i, u=u_i, w=w, nu=nu)
