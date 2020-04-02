@@ -269,8 +269,9 @@ program ISP_Flow__SDC_Test
     sdc = SDC_Method3D(EulerVC, EulerVC, sdc_opt)
   case(0)
     time_integrator = TimeIntegrator_EulerDS(problem, flow_op)
-  case(-1)      ! case time integration using RK- method 
+  case(-1)      ! case time integration using RK- method
     time_integrator = TimeIntegrator_RungeKuttaDS(problem, flow_op)
+!?  time_integrator = TimeIntegrator_RungeKuttaDS(problem, flow_op, ns, method)
   end select
 
   ! variables and initial values ...............................................
@@ -320,7 +321,7 @@ program ISP_Flow__SDC_Test
       else
         call time_integrator % TimeStep(t, dt, u)
       end if
-    case(-1) 
+    case(-1)
       if (problem % HasVariableProperties()) then
         call problem % GetDiffusivity(flow_op%x, t, u, nu)
         call time_integrator % TimeStep(t, dt, u, nu)
