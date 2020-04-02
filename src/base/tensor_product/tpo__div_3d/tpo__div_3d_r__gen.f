@@ -88,7 +88,7 @@ subroutine TPO_Div_R_Gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! v += du2/dx2 .............................................................
+    ! v+= du2/dx2 ..............................................................
 
     !$acc loop collapse(3) vector
     do k = 1, np
@@ -105,7 +105,7 @@ subroutine TPO_Div_R_Gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! v += du3/dx3 .............................................................
+    ! v+= du3/dx3 ..............................................................
 
     !$acc loop collapse(3) vector
     do k = 1, np

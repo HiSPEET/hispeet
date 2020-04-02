@@ -27,8 +27,8 @@ contains
     integer,   intent(in)  :: ne               !< num elements
     real(RNP), intent(in)  :: Ds(np, np)       !< standard diff matrix
     real(RNP), intent(in)  :: dx(3)            !< element extensions
-    real(RNP), intent(in)  :: u(np,np,np,ne,3) !< operand
-    real(RNP), intent(out) :: v(np,np,np,ne)   !< result
+    real(RNP), intent(in)  :: u(np,np,np,ne,3) !< 3D vector field
+    real(RNP), intent(out) :: v(np,np,np,ne)   !< element-wise divergence of u
 
     real(RNP) :: Ds_1(np,np)
     real(RNP) :: Ds_2T(np,np), Ds_3T(np, np)
@@ -70,15 +70,15 @@ contains
     
       v(:,:,:,e) = 0     
 
-      ! apply operator in direction 1
+      ! v = du1/dx1
       call LIBXSMM_DMMCall(xmm_1, Ds_1, u(:,:,1,e,1) , v(:,:,:,e))
 
-      ! direction 2
+      ! v+= du2/dx2
       do k = 1, np
         call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,2), Ds_2T, v(:,:,k,e))
       end do
 
-      ! direction 3
+      ! v+= du3/dx3
       call LIBXSMM_DMMCall(xmm_3, u(:,:,1,e,3), Ds_3T, v(:,:,:,e))
 
     end do
