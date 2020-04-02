@@ -14,7 +14,7 @@
 !>       - `imex_rk` using `IMEX_RK_Method()` constructor  
 !>
 !>   * constructor for `type(TimeIntegrator_RungeKuttaDS)` objects
-!>     based on initialization routine
+!>     based on initialization routine 
 !>
 !>   * TimeStep
 !>       - develop skeleton using ideas from
@@ -53,7 +53,7 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta_DS
   use CART__ISP_Flow__Time_Derivative
   use CART__ISP_Flow__Time_Integrator
 
-  implicit none             
+  implicit none              
   private
 
   public :: TimeIntegrator_RungeKuttaDS
@@ -131,8 +131,7 @@ contains
              , flow_op => this % flow_op          &
              , mesh    => this % flow_op % mesh   &
              , x       => this % flow_op % x      &
-             , eop     => this % flow_op % eop_u  &
-             , p       => u(:,:,:,:,4)             )
+             , eop     => this % flow_op % eop_u  )
       
       ! initialization   .........................................................
       
@@ -146,6 +145,7 @@ contains
 
       ! workspace ................................................................
       !$omp single
+      
       allocate(K_im ( size(u,1), size(u,2), size(u,3), &
                     & size(u,4), size(u,5), ns )) 
 
@@ -164,18 +164,21 @@ contains
       allocate(u_i , mold = u)
       allocate(u_0 , mold = u)
       allocate (ts(ns))
+      
       !$omp end single 
       
       ! node times ...............................................................
       do k = 1, ns
         ts(k) = t + this % imex_rk % c(k) * dt 
         !print*, ts(k)      !>> debugging
-      end do  
+      end do
 
       ! boundary conditions ......................................................
-      call GetBoundaryValues(problem, mesh, flow_op%bv_x, t, flow_op%bv_u)
+      
+      call GetBoundaryValues(problem, mesh, flow_op%bv_x, ts(1), flow_op%bv_u)
+      
       !.....
-      F_s = ZERO
+      !F_s = ZERO
       
       ! steps ....................................................................
       
@@ -199,9 +202,9 @@ contains
                              
         
         !K_ex(:,:,:,:,:,i) = F_c
-        call SetArray(K_ex(:,:,:,:,:,1), F_c, multi = .true.)
-
-        !K_im(:,:,:,:,:,i) = F - F_c
+        call MergeArrays(ZERO, K_ex(:,:,:,:,:,1), ONE, F_c, multi = .true.)
+        
+        !K_im(:,:,:,:,:,i) = F - F_c ??? 
         call MergeArrays(ZERO, K_im(:,:,:,:,:,1), ONE, F  , multi = .true.)
         call MergeArrays(ONE , K_im(:,:,:,:,:,1),-ONE, F_c, multi = .true.)  
         
@@ -210,9 +213,11 @@ contains
         
         call MergeArrays(ONE,u, dt * this % imex_rk % b(1), &
                          K_im(:,:,:,:,:,1), multi = .true.  )
+        
         call MergeArrays(ONE,u, dt * this % imex_rk % b(1), &
                          K_ex(:,:,:,:,:,1), multi = .true.  )
       end if 
+      !print*, K_ex(1,1,1,1,1,:) !>> debugging
 
       ! stage 2 - ns
       ! determine different stage values
@@ -220,10 +225,15 @@ contains
       ! u(t+dt) = u(t) + dt * Σ(i=1,..,ns) b(i) * ( K_im(:,i) + K_ex(:,i) )
       
       do i=2, ns
-        !print*, i   !>> debugging
+        !print*, i, this % imex_rk % c(i)   !>> debugging
+        
+        ! call GetBoundaryValues(problem, mesh, flow_op%bv_x, ts(i+1), flow_op%bv_u)
+        
+        call RungeKuttaStage(this , i, ts(i), dt, u_0 , &
+                            nu, K_im, K_ex, F_s, F_d1, F_d3, u_i)
 
-        call RungeKuttaStage(this , i, dt, u_0 , &
-                             nu, K_im, K_ex, F_s, F_d1, F_d3, u_i)
+        !print*, u_i(1,1,1,1,1)  !>> debugging
+
         ! stage values 
         call TimeDerivative( problem, flow_op, ts(i) &
                           , u_c  = u_i               &
@@ -234,28 +244,31 @@ contains
                           , F_d1 = F_d1(:,:,:,:,:,i) &
                           , F_d3 = F_d3(:,:,:,:,:,i) &
                           , F_s  = F_s (:,:,:,:,:,i) &
-                          ) 
+                          )
+ 
         ! explicit and implicit values K_im, K_ex
-        
-        !K_ex(:,:,:,:,:,i) = F_c
-        call SetArray(K_ex(:,:,:,:,:,i), F_c, multi = .true.)
+        ! K_ex(:,:,:,:,:,i) = F_c
 
-        !K_im(:,:,:,:,:,i) = F - F_c
-        call MergeArrays(ZERO, K_im(:,:,:,:,:,i), ONE, F  , multi = .true.)
-        call MergeArrays(ONE , K_im(:,:,:,:,:,i),-ONE, F_c, multi = .true.)  
+        call MergeArrays(ZERO, K_ex(:,:,:,:,:,i), ONE, F_c, multi = .true.)
+        !print*,'K_ex', K_ex(1,1,1,1,1,i) !>> debugging
         
+        !K_im(:,:,:,:,:,i) = F - F_c 
+
+        call MergeArrays(ZERO, K_im(:,:,:,:,:,i),  ONE, F  , multi = .true.)
+        call MergeArrays(ONE , K_im(:,:,:,:,:,i), -ONE, F_c, multi = .true.)  
+        !print* ,'K_im', K_im(1,2,2,2,1,i)  !>> debugging
         
-        !print* , K_ex(1,2,2,2,1,i)  !>> debugging
-        
-        !u = u +  dt * imex % b(i) * (K_im(:,:,:,:,:,i) + K_ex(:,:,:,:,:,i))
+        !u = u +  dt * imex % b(i) * (K_ex(:,:,:,:,:,i) + K_im(:,:,:,:,:,i))
+
         call MergeArrays(ONE, u, dt * this % imex_rk % b(i) &  
-                        , K_im(:,:,:,:,:,i), multi = .true. )
+                        , K_ex(:,:,:,:,:,i), multi = .true. )
 
         call MergeArrays(ONE, u, dt * this % imex_rk % b(i) &
-                        , K_ex(:,:,:,:,:,i), multi = .true. )
+                        , K_im(:,:,:,:,:,i), multi = .true. )
+
       end do 
 
-      !print*, K_ex(1,1,1,1,1,:) !>> debugging
+      !print*, u(1,1,1,1,1) !>> debugging
 
       ! prepare next timestep 
       t = t + dt
@@ -283,13 +296,14 @@ contains
   
   ! TODO : generic Runge-Kutta stage, derived from dual-split IMEX Euler
 
-  subroutine RungeKuttaStage(this, i, dt,u_n, nu, &
+  subroutine RungeKuttaStage(this, i,t, dt,u_n, nu, &
                              K_im, K_ex, F_s, F_d1, F_d3, u_i)
 
     class(TimeIntegrator_RungeKuttaDS), intent(inout) :: this
     
     
-    integer,              intent(in) :: i               !< stage i=2,..,s  
+    integer,              intent(in) :: i               !< stage i=2,..,s 
+    real(RNP),            intent(in) :: t              !< time t 
     real(RNP),            intent(in) :: dt              !< time step width 
     real(RNP), optional,  intent(in) :: nu(:,:,:,:,:)   !< variable ν(x,t₀) 
     real(RNP),         intent(in   ) :: u_n (:,:,:,:,:) !< u(x,t₀) 
@@ -307,20 +321,25 @@ contains
 
     ! allocate workspaces ..............................................
     
-    !$omp single
+    
     allocate(w   , mold = u_i) 
     allocate(u_s , mold = u_i) 
     allocate(p(size(u_i,1), size(u_i,2), size(u_i,3), &
                     & size(u_i,4)))
-    !$omp end single
+    
     
     !imex = this % imex_rk
+    
+
+    ! BC................................................................
+    call GetBoundaryValues(this % problem,this %flow_op % mesh &
+                           , this % flow_op%bv_x, t, this % flow_op%bv_u)
 
     !step 1: exptrapolation of u'(i) ...................................
-    ! u'(i) = u(t) + dt*Σ(j=1,..,i-1) a_ex(i,j)*(K_ex(j) + F_d(j) + F_p(j) ?) &
-    !              + dt*Σ(j=1,..,i) a_im(i,j)* F_s(j)
-    !       = u(t) + dt*Σ(j=1,..,i-1) a_ex(i,j)*(K_ex(j) + K_im(j)) &
-    !              + dt*Σ(j=1,..,i  ) (a_im(i,j)-a_ex(i,j))* F_s(j)
+    ! u'(i) = u(t) + dt*Σ(j=1,..,i-1) a_ex(i,j) * (K_ex(j) + F_d(j) + F_p(j) ?) &
+    !              + dt*Σ(j=1,..,i) a_im(i,j) * F_s(j)
+    !       = u(t) + dt*Σ(j=1,..,i-1) a_ex(i,j) * (K_ex(j) + K_im(j)) &
+    !              + dt*Σ(j=1,..,i  ) (a_im(i,j)-a_ex(i,j)) * F_s(j)
     
     call SetArray(u_i, u_n, multi=.true.)
 
@@ -334,16 +353,18 @@ contains
 
       call MergeArrays(ONE, u_i &
                       , dt * (this % imex_rk % a_ex(i,j) - this % imex_rk % a_im(i,j)) &
-                      , K_ex(:,:,:,:,:,j), multi = .true.)
+                      , F_s(:,:,:,:,:,j), multi = .true.)
  
     end do
-    ! + for p = i 
-    !u_i = u_i + dt*imex % a_im(i,i) * F_s(:,:,:,:,:,i)
+    ! + for j = i 
+    !u_i = u_i + dt*imex % a_im(i,i) * F_s(:,:,:,:,:,i)  
     call MergeArrays(ONE, u_i, dt * this % imex_rk % a_im(i,i) &
                     , F_s(:,:,:,:,:,i), multi =.true. )
 
     !step 2: projection => p''(i), ∇ p''(i) and u''(i) = u'(i) - dt * ∇ p''(i)
 
+    call MergeArrays(ZERO, w, ONE/dt &
+                    , (u_i - u_n), multi =.true. )
     call PressureSolver(this % problem, this % flow_op, dt, u_i, p, w)
     call ProjectionStep(this % problem, this % flow_op, dt, p, u_i, w)
 
@@ -352,20 +373,25 @@ contains
     !                                - dt * Σ(j=1,..,i-1) a_ex(i,j)*(Fd_1(j)+Fd_3(j))
 
     do j=1, i-1
+
+      call MergeArrays(ONE, u_i,  dt * this % imex_rk % a_im(i,j)  & 
+                       , F_d1(:,:,:,:,:,i), multi = .true.)
+      ! +F_d3 ???
+      !call MergeArrays(ONE, u_i,  dt * this % imex_rk % a_im(i,j)  & 
+       !                , F_d3(:,:,:,:,:,i), multi = .true.)
+
       call MergeArrays(ONE, u_i, -dt * this % imex_rk % a_ex(i,j)  &
                        , F_d1(:,:,:,:,:,i), multi = .true.)
 
       call MergeArrays(ONE, u_i, -dt * this % imex_rk % a_ex(i,j)  &
                        , F_d3(:,:,:,:,:,i), multi = .true.)
-
-      call MergeArrays(ONE, u_i,  dt * this % imex_rk % a_im(i,j)  & 
-                       , F_d1(:,:,:,:,:,i), multi = .true.)
+      
     end do
  
     call DiffusionStep(this % problem, this % flow_op, dt * this % imex_rk % a_im(i,i)&
-                      ,f=u_i, u=u_s, w=w, nu=nu)
+                      ,f=u_i, u=u_i, w=w, nu=nu)
  
-    call SetArray(u_i, u_s, multi = .true.)
+    !call SetArray(u_i, u_s, multi = .true.)
 
     !call SetArray(u_i(:,:,:,:,4), p, multi = .true.)  !>> debugging
 
@@ -374,13 +400,10 @@ contains
 
     !clean up .............................................................
 
-    !$omp barrier
-    !$omp master
     if (allocated(p   )) deallocate(p   )
     if (allocated(w   )) deallocate(w   )
     if (allocated(u_s )) deallocate(u_s )
-    !$omp end master
- 
+    
  end subroutine RungeKuttaStage
 
   !=============================================================================
