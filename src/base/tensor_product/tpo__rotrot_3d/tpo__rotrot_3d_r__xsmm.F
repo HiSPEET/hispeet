@@ -27,8 +27,8 @@ contains
     integer,   intent(in)  :: ne               !< num elements
     real(RNP), intent(in)  :: Ds(np, np)       !< standard diff matrix
     real(RNP), intent(in)  :: dx(3)            !< element extensions
-    real(RNP), intent(in)  :: u(np,np,np,ne,3) !< operand
-    real(RNP), intent(out) :: v(np,np,np,ne,3) !< result
+    real(RNP), intent(in)  :: u(np,np,np,ne,3) !< 3D vector field
+    real(RNP), intent(out) :: v(np,np,np,ne,3) !< v = rot(rot(u))
 
     real(RNP) :: Ds_1(np,np), DDs_1(np,np)
     real(RNP) :: Ds_2T(np,np), Ds_3T(np,np)
@@ -87,16 +87,15 @@ contains
       v(:,:,:,e,2) = 0
       v(:,:,:,e,3) = 0     
 
-      !div(u)
-      ! v1 = du1/dx1
+      ! div(u) = du1/dx1
       call LIBXSMM_DMMCall(xmm_1, Ds_1, u(:,:,1,e,1),  div_u(:,:,:))
 
-      ! v1 += du1/dx2
+      ! div(u)+= du2/dx2
       do k = 1, np
         call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,2), Ds_2T, div_u(:,:,k))
       end do
 
-      ! v1 += du1/dx3
+      ! div(u)+= du3/dx3
       call LIBXSMM_DMMCall(xmm_3, u(:,:,1,e,3), Ds_3T, div_u(:,:,:))
 
 
@@ -104,15 +103,15 @@ contains
       ! v1 = d(div_u)/dx1
       call LIBXSMM_DMMCall(xmm_1, Ds_1, div_u(:,:,1),  v(:,:,:,e,1))
 
-      ! v1 -= d( du1/dx1 )/dx1 
+      ! v1+=id( du1/dx1 )/dx1 
       call LIBXSMM_DMMCall(xmm_1, DDs_1, u(:,:,1,e,1), v(:,:,:,e,1))
 
-      ! v1 -= d( du1/dx2 )/dx2
+      ! v1+=id( du1/dx2 )/dx2
       do k = 1, np
         call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,1), DDs_2T, v(:,:,k,e,1))
       end do
 
-      ! v1 -= d( du1/dx3 )/dx3
+      ! v1+=id( du1/dx3 )/dx3
       call LIBXSMM_DMMCall(xmm_3, u(:,:,1,e,1), DDs_3T, v(:,:,:,e,1))
 
 
@@ -122,15 +121,15 @@ contains
         call LIBXSMM_DMMCall(xmm_2, div_u(:,:,k), Ds_2T, v(:,:,k,e,2))
       end do
 
-      ! v2 -= d( du2/dx1 )/dx1 
+      ! v2+=-d( du2/dx1 )/dx1 
       call LIBXSMM_DMMCall(xmm_1, DDs_1, u(:,:,1,e,2), v(:,:,:,e,2))
 
-      ! v2 -= d( du2/dx2 )/dx2
+      ! v2+=-d( du2/dx2 )/dx2
       do k = 1, np
         call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,2), DDs_2T, v(:,:,k,e,2))
       end do
 
-      ! v2 -= d( du2/dxx )/dxx
+      ! v2+=-d( du2/dxx )/dxx
       call LIBXSMM_DMMCall(xmm_3, u(:,:,1,e,2), DDs_3T, v(:,:,:,e,2))
 
 
@@ -138,15 +137,15 @@ contains
       ! v3 = d(div_u)/dx3
       call LIBXSMM_DMMCall(xmm_3, div_u(:,:,1), Ds_3T, v(:,:,:,e,3))
 
-      ! v3 -= d( du3/dx1 )/dx1 
+      ! v3+=-d( du3/dx1 )/dx1 
       call LIBXSMM_DMMCall(xmm_1, DDs_1, u(:,:,1,e,3), v(:,:,:,e,3))
 
-      ! v3 -= d( du3/dx2 )/dx2
+      ! v3+=-d( du3/dx2 )/dx2
       do k = 1, np
         call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,3), DDs_2T, v(:,:,k,e,3))
       end do
 
-      ! v3 -= d( du3/dxx )/dxx
+      ! v3+=-d( du3/dx3 )/dx3
       call LIBXSMM_DMMCall(xmm_3, u(:,:,1,e,3), DDs_3T, v(:,:,:,e,3))
 
     end do

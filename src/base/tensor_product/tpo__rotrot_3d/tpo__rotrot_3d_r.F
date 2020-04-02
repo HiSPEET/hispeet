@@ -19,8 +19,8 @@ contains
     use Kind_Parameters,  only: RNP
     real(RNP), intent(in)  :: Ds(:,:)          !< 1D standard stiffness matrix
     real(RNP), intent(in)  :: dx(3)            !< element extensions
-    real(RNP), intent(in)  :: u(:,:,:,:,:)     !< operand
-    real(RNP), intent(out) :: v(:,:,:,:,:)     !< result
+    real(RNP), intent(in)  :: u(:,:,:,:,:)     !< 3D vector field
+    real(RNP), intent(out) :: v(:,:,:,:,:)     !< v = rot(rot(u))
 
     integer :: np, ne
 

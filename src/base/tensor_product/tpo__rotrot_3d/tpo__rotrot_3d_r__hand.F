@@ -1,4 +1,4 @@
-!> summary:   RotRotrotrot element operator based on handcrafted kernels (R)
+!> summary:   rotrot element operator based on handcrafted kernels (R)
 !> author:    Erik Pfister
 !> date:      2020/03/26
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -22,8 +22,8 @@ contains
     integer,   intent(in)  :: ne               !< num elements
     real(RNP), intent(in)  :: Ds(np,np)        !< standard diff matrix
     real(RNP), intent(in)  :: dx(3)            !< element extensions
-    real(RNP), intent(in)  :: u(np,np,np,ne,3) !< operand
-    real(RNP), intent(out) :: v(np,np,np,ne,3) !< result
+    real(RNP), intent(in)  :: u(np,np,np,ne,3) !< 3D vector field
+    real(RNP), intent(out) :: v(np,np,np,ne,3) !< v = rot(rot(u))
 
     select case(np)
     case( 2)

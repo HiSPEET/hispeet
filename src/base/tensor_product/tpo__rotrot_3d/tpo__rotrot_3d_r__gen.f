@@ -33,7 +33,7 @@ subroutine TPO_RotRot_R_Gen(np, ne, Ds, dx, u, v)
   real(RNP), intent(in)  :: Ds(np,np)        !< 1D standard diff matrix
   real(RNP), intent(in)  :: dx(3)            !< element extensions
   real(RNP), intent(in)  :: u(np,np,np,ne,3) !< 3D vector field
-  real(RNP), intent(out) :: v(np,np,np,ne,3) !< element-wise divergence of u
+  real(RNP), intent(out) :: v(np,np,np,ne,3) !< v = rot(rot(u))
 
   !-----------------------------------------------------------------------------
   ! local variables
@@ -95,7 +95,7 @@ subroutine TPO_RotRot_R_Gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! div_u += du2/dx2 .........................................................
+    ! div_u+= du2/dx2 ..........................................................
 
     !$acc loop collapse(3) vector
     do k = 1, np
@@ -112,7 +112,7 @@ subroutine TPO_RotRot_R_Gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! div_u += du3/dx3 .........................................................
+    ! div_u+= du3/dx3 ..........................................................
 
     !$acc loop collapse(3) vector
     do k = 1, np
@@ -146,7 +146,7 @@ subroutine TPO_RotRot_R_Gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! v1 -= d( du1/dx1 )/dx1 + d( du1/dx2 )/dx2 ................................
+    ! v1+=-d( du1/dx1 )/dx1 - d( du1/dx2 )/dx2 .................................
 
     !$acc loop collapse(3) vector
     do k = 1, np
@@ -165,7 +165,7 @@ subroutine TPO_RotRot_R_Gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! v1 -= d( du1/dx3 )/dx3 ...................................................
+    ! v1+=-d( du1/dx3 )/dx3 ....................................................
 
     !$acc loop collapse(3) vector
     do k = 1, np
@@ -199,7 +199,7 @@ subroutine TPO_RotRot_R_Gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! v2 -= d( du2/dx1 )/dx1 + d( du2/dx2 )/dx2 ................................
+    ! v2+=-d( du2/dx1 )/dx1 - d( du2/dx2 )/dx2 ..................................
 
     !$acc loop collapse(3) vector
     do k = 1, np
@@ -218,7 +218,7 @@ subroutine TPO_RotRot_R_Gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! v2 -= d( du2/dx3 )/dx3 ...................................................
+    ! v2+=-d( du2/dx3 )/dx3 .....................................................
 
     !$acc loop collapse(3) vector
     do k = 1, np
@@ -252,7 +252,7 @@ subroutine TPO_RotRot_R_Gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! v3 -= d( du3/dx1 )/dx1 + d( du3/dx2 )/dx2 ................................
+    ! v3+=-d( du3/dx1 )/dx1 - d( du3/dx2 )/dx2 ..................................
 
     !$acc loop collapse(3) vector
     do k = 1, np
@@ -271,7 +271,7 @@ subroutine TPO_RotRot_R_Gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! v3 -= d( du3/dx3 )/dx3 ...................................................
+    ! v3+=-d( du3/dx3 )/dx3 ....................................................
 
     !$acc loop collapse(3) vector
     do k = 1, np
