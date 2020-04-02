@@ -33,7 +33,7 @@ subroutine TPO_Rot_R_Gen(np, ne, Ds, dx, u, v)
   real(RNP), intent(in)  :: Ds(np,np)        !< 1D standard diff matrix
   real(RNP), intent(in)  :: dx(3)            !< element extensions
   real(RNP), intent(in)  :: u(np,np,np,ne,3) !< 3D vector field
-  real(RNP), intent(out) :: v(np,np,np,ne,3) !< element-wise divergence of u
+  real(RNP), intent(out) :: v(np,np,np,ne,3) !< element-wise rotation of u
 
   !-----------------------------------------------------------------------------
   ! local variables
@@ -88,7 +88,7 @@ subroutine TPO_Rot_R_Gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! v3 = - du1/dx2 .............................................................
+    ! v3 =-du1/dx2 ...............................................................
 
     !$acc loop collapse(3) vector
     do k = 1, np
@@ -105,7 +105,7 @@ subroutine TPO_Rot_R_Gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! v3 += du2/dx1 .............................................................
+    ! v3+= du2/dx1 ..............................................................
 
     !$acc loop collapse(3) vector
     do k = 1, np
@@ -122,8 +122,7 @@ subroutine TPO_Rot_R_Gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! v1 = -du2/dx3
-    ! .............................................................
+    ! v1 =-du2/dx3  .............................................................
 
     !$acc loop collapse(3) vector
     do k = 1, np
@@ -140,8 +139,7 @@ subroutine TPO_Rot_R_Gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! v1 += du3/dx2
-    ! .............................................................
+    ! v1+= du3/dx2 ..............................................................
 
     !$acc loop collapse(3) vector
     do k = 1, np
@@ -158,8 +156,7 @@ subroutine TPO_Rot_R_Gen(np, ne, Ds, dx, u, v)
     end do
     end do
 
-    ! v2 = -du3/dx1
-    ! .............................................................
+    ! v2+=-du3/dx1 .............................................................
 
     !$acc loop collapse(3) vector
     do k = 1, np

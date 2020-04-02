@@ -27,8 +27,8 @@ contains
     integer,   intent(in)  :: ne               !< num elements
     real(RNP), intent(in)  :: Ds(np, np)       !< standard diff matrix
     real(RNP), intent(in)  :: dx(3)            !< element extensions
-    real(RNP), intent(in)  :: u(np,np,np,ne,3) !< operand
-    real(RNP), intent(out) :: v(np,np,np,ne,3) !< result
+    real(RNP), intent(in)  :: u(np,np,np,ne,3) !< 3D vector field
+    real(RNP), intent(out) :: v(np,np,np,ne,3) !< element-wise rotation of u
 
     real(RNP) :: Ds_1(np,np)
     real(RNP) :: Ds_2T(np,np), Ds_3T(np, np)
@@ -73,26 +73,26 @@ contains
       v(:,:,:,e,2) = 0
       v(:,:,:,e,3) = 0     
 
-      !  du1/dx3
+      ! v2 = du1/dx3
       call LIBXSMM_DMMCall(xmm_3, u(:,:,1,e,1), Ds_3T,  v(:,:,:,e,2))
 
-      ! -du1/dx2
+      ! v3 =-du1/dx2
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,1),-Ds_2T, v(:,:,k,e,3))
+        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,1), -Ds_2T, v(:,:,k,e,3))
       end do
 
-      !  du2/dx1
+      ! v3+= du2/dx1
       call LIBXSMM_DMMCall(xmm_1, Ds_1,  u(:,:,1,e,2), v(:,:,:,e,3))
 
-      !  du1/dx3
+      ! v1 =-du1/dx3
       call LIBXSMM_DMMCall(xmm_3, u(:,:,1,e,2), -Ds_3T,  v(:,:,:,e,1))
 
-      ! -du1/dx2
+      ! v1+= du1/dx2
       do k = 1, np
         call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,3), Ds_2T, v(:,:,k,e,1))
       end do
 
-      !  du2/dx1
+      ! v2+=-du3/dx1
       call LIBXSMM_DMMCall(xmm_1, -Ds_1,  u(:,:,1,e,3), v(:,:,:,e,2))
 
     end do
