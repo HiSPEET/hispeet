@@ -27,8 +27,8 @@ contains
     integer,   intent(in)  :: ne               !< num elements
     real(RNP), intent(in)  :: Ds(np, np)       !< standard diff matrix
     real(RNP), intent(in)  :: dx(3)            !< element extensions
-    real(RNP), intent(in)  :: u(np,np,np,ne)   !< operand
-    real(RNP), intent(out) :: v(np,np,np,ne,3) !< result
+    real(RNP), intent(in)  :: u(np,np,np,ne)   !< 3D scalar field
+    real(RNP), intent(out) :: v(np,np,np,ne,3) !< element-wise gradient of u
 
     real(RNP) :: Ds_1(np,np)
     real(RNP) :: Ds_2T(np,np), Ds_3T(np, np)
@@ -69,15 +69,15 @@ contains
     !$omp do
     do e = 1, ne
     
-      ! apply operator in direction 1
+      ! v1 = du/dx1
       call LIBXSMM_DMMCall(xmm_1, Ds_1, u(:,:,1,e) , v(:,:,:,e,1))
 
-      ! direction 2
+      ! v2 = du/dx2
       do k = 1, np
         call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e), Ds_2T, v(:,:,k,e,2))
       end do
 
-      ! direction 3
+      ! v3 = du/dx3
       call LIBXSMM_DMMCall(xmm_3, u(:,:,1,e), Ds_3T, v(:,:,:,e,3))
 
     end do

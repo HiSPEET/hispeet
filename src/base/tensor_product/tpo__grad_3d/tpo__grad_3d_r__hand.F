@@ -22,8 +22,8 @@ contains
     integer,   intent(in)  :: ne               !< num elements
     real(RNP), intent(in)  :: Ds(np,np)        !< standard diff matrix
     real(RNP), intent(in)  :: dx(3)            !< element extensions
-    real(RNP), intent(in)  :: u(np,np,np,ne)   !< operand
-    real(RNP), intent(out) :: v(np,np,np,ne,3) !< result
+    real(RNP), intent(in)  :: u(np,np,np,ne)   !< 3D scalar field
+    real(RNP), intent(out) :: v(np,np,np,ne,3) !< element-wise gradient of u
 
     select case(np)
     case( 2)

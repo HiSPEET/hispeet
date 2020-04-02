@@ -19,8 +19,8 @@ contains
     use Kind_Parameters,  only: RNP
     real(RNP), intent(in)  :: Ds(:,:)          !< 1D standard stiffness matrix
     real(RNP), intent(in)  :: dx(3)            !< element extensions
-    real(RNP), intent(in)  :: u(:,:,:,:)       !< operand, 3D Scalar Field
-    real(RNP), intent(out) :: v(:,:,:,:,:)     !< result, gradient of u
+    real(RNP), intent(in)  :: u(:,:,:,:)       !< 3D Scalar Field
+    real(RNP), intent(out) :: v(:,:,:,:,:)     !< element-wise gradient of u
 
     integer :: np, ne
 
