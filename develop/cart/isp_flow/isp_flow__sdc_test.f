@@ -269,9 +269,10 @@ program ISP_Flow__SDC_Test
     sdc = SDC_Method3D(EulerVC, EulerVC, sdc_opt)
   case(0)
     time_integrator = TimeIntegrator_EulerDS(problem, flow_op)
-  case(-1)      ! case time integration using RK- method
-    time_integrator = TimeIntegrator_RungeKuttaDS(problem, flow_op)
-!?  time_integrator = TimeIntegrator_RungeKuttaDS(problem, flow_op, ns, method)
+  case(-1)   
+    control_file = 'isp_flow__sdc_test' ! file where are  RK parameters.
+    time_integrator = TimeIntegrator_RungeKuttaDS(problem, flow_op, &
+                                                  file = trim(control_file)//'.prm' )
   end select
 
   ! variables and initial values ...............................................

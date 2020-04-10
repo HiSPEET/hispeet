@@ -57,3 +57,7 @@
   sdc_opt%n_sub   =  3
   sdc_opt%n_sweep =  2
 /
+&runge_kutta_ds_parameters
+ns = 2
+method = 1
+/
