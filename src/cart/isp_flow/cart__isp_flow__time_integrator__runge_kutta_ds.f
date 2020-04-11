@@ -1,5 +1,5 @@
 !> summary:  Runge-Kutta method for incompressible flows with dual splitting
-!> author:   Joerg Stiller, ...
+!> author:   Joerg Stiller, Montadhar Guesmi
 !> date:     2020/03/05
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
@@ -149,8 +149,6 @@ contains
     real(RNP),           intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
 
     ! local variables  .........................................................
-
-    !type(IMEX_RK_Method)                                 :: imex
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: K_ex, K_im !impl. & expl. K
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d, F_d1, F_d3
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_s
@@ -176,7 +174,6 @@ contains
       
       ! workspace ................................................................
       !$omp single
-
       allocate(K_im ( size(u,1), size(u,2), size(u,3), &
                     & size(u,4), size(u,5), ns ))
 
@@ -197,13 +194,13 @@ contains
       allocate(u_i , mold = u)
       allocate(u_0 , mold = u)
       allocate (ts(ns))
-
       !$omp end single
 
       ! node times ...............................................................
       do k = 1, ns
         ts(k) = t + c(k) * dt 
       end do
+
       ! stages 1 to ns ...........................................................
       ! u₀ = u(x,t₀)
       call SetArray(u_0, u, multi=.true.)
@@ -228,8 +225,8 @@ contains
       ! stage 2,..,ns  
       do i=2, ns
         
-        ! u(i) = u(t) + dt*Σ a_ex(i,:i-1) * K_ex(*,: i-1)&
-        !              + dt*Σ a_im(i,:i) * K_im(*,:i)
+        ! u(i) = u(t)  + ∆t * Σ a_ex(i,:i-1) * K_ex(*,: i-1)&
+        !              + ∆t * Σ a_im(i,:i) * K_im(*,:i)
         ! p(i) 
         call RungeKuttaStage(this , i, ts(i), dt, u_0 , &
                             nu, K_im, K_ex, F_s, F_d, F_d1, F_d3, u_i)
@@ -237,7 +234,7 @@ contains
       end do
       
       ! compute result............................................................
-      ! u(t+dt) = u(t) + dt * Σ b(i) * ( K_im(:,:ns) + K_ex(:,:ns) )
+      ! u(t+dt) = u(t) + ∆t * Σ b(i) * ( K_im(:,:ns) + K_ex(:,:ns) )
 
       call SetArray(u, u_i, multi = .true.)
 
@@ -251,7 +248,8 @@ contains
         !  tau = dt * b(i)
         !  call MergeArrays(ONE, u, tau, K_ex(:,:,:,:,:,i), multi = .true. )
         !end if
-     ! end do
+      !end do
+
       ! prepare next timestep .....................................................
       t = t + dt
 
@@ -316,8 +314,8 @@ contains
     !$omp end single
     
     !step 1, exptrapolation: u_i→u'(x,,tᵢ) ....................................
-    ! u'(i) = u(t) + dt*Σ a_ex(i,:i-1) * (K_ex(*,: i-1) + F_d(*,:i-1)) &
-    !              + dt*Σ a_im(i,:i) * F_s(*,:i)
+    ! u'(i) = u(t) + ∆t * Σ a_ex(i,:i-1) * (K_ex(*,: i-1) + F_d(*,:i-1)) &
+    !              + ∆t * Σ a_im(i,:i) * F_s(*,:i)
 
     call SetArray(u_i, u_0, multi=.true.)
     do j=1, i-1
@@ -341,15 +339,15 @@ contains
     call GetBoundaryValues(problem, mesh, flow_op % bv_x, t, flow_op % bv_u)
 
     !step 2, projection: u_i → u"(x,tᵢ) p → p''(i)..............................
-    ! solve for p''(i) Poisson eq. ∇²p''(i) = ∇ u'(i)/dt
-    ! then,  u''(i) = u'(i) - dt * ∇ p''(i)
+    ! solve for p''(i) Poisson eq. ∇²p''(i) = ∇ u'(i)/∆t
+    ! then,  u''(i) = u'(i) - ∆t * ∇ p''(i)
     call PressureSolver(problem, flow_op, dt, u_i, p, w)
     call ProjectionStep(problem, flow_op, dt, p, u_i, w)
 
-    ! step 3, diffusion:  u_i → u(x,tᵢ) ........................................
-    !u'''(i) = u''(i) + dt * a_im(i,i)*∇.ν(i)∇u'''(i) &
-    !                 + dt * Σ(j=1,..,i-1) a_im(i,j)*F_d1(j)
-    !                 - dt * Σ(j=1,..,i-1) a_ex(i,j)*(Fd_1(j)+Fd_3(j))
+    ! step 3, diffusion:  u_i → u'''(x,tᵢ) .....................................
+    !u'''(i) = u''(i) + ∆t *a_im(i,i)*∇.ν(i)∇u'''(i) &
+    !                 + ∆t * Σ a_im(i,: i-1)*F_d1(*,: i-1)
+    !                 - ∆t * Σ a_ex(i,: i-1)*(Fd_1(*,: i-1)+Fd_3(*,: i-1))
     
     ! f = u"(x,tᵢ) - ∆t ∑ a_ex(i,:i-1) F_13(*,:i-1)
     call SetArray(f, u_i, multi = .true.)
@@ -367,10 +365,8 @@ contains
     tau = dt * a_im(i,i)
     call DiffusionStep(problem, flow_op, tau, f=f, u=u_i, w=w, nu=nu)
 
-    ! step4, final projection in case the viscosity is variable.................
-    
+    ! step4, final projection in case the viscosity is variable.................  
     if (flow_op % control % div_final) then
-
       ! solve for p = p" + dp
       call SetArray(dp, ZERO)
       call PressureSolver(problem, flow_op, dt, u_i, dp, w) ! u=u(x,t₀+∆t)
@@ -382,7 +378,6 @@ contains
     end if
 
     ! now determine the values of K_im, K_ex, F_d, F_d1, F_d3 and F_s......
-
     call TimeDerivative( problem, flow_op, t         &
                         , u_c  = u_i                 &
                         , u_d  = u_i                 &
@@ -413,4 +408,3 @@ contains
   !=============================================================================
 
 end module CART__ISP_Flow__Time_Integrator__Runge_Kutta_DS
-
