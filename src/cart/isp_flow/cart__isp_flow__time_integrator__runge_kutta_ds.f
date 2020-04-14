@@ -193,7 +193,7 @@ contains
 
       allocate(u_i , mold = u)
       allocate(u_0 , mold = u)
-      allocate (ts(ns))
+      allocate (ts(1:ns))
       !$omp end single
 
       ! node times ...............................................................
@@ -232,24 +232,16 @@ contains
                             nu, K_im, K_ex, F_s, F_d, F_d1, F_d3, u_i)
 
       end do
-      
-      ! compute result............................................................
-      ! u(t+dt) = u(t) + ∆t * Σ b(i) * ( K_im(:,:ns) + K_ex(:,:ns) )
-
+      ! compute u(t + dt) ........................................................
       call SetArray(u, u_i, multi = .true.)
+      if (ns > 2 .and. ns < 8) then     ! for IMEX Euler not needed
+        do i =1, ns 
 
-      !do i=1, ns
-        !if (a_ex(ns,i) /= ZERO) then 
-        !  tau = - dt * a_ex(ns,i) 
-         ! call MergeArrays(ONE, u, tau, K_ex(:,:,:,:,:,i), multi = .true. )
-        !end if
+          tau = (b(i) - a_ex(ns,i)) * dt 
+          call MergeArrays(ONE, u, tau, K_ex(:,:,:,:,:,i), multi=.true.)
 
-        !if ( b(i) /= ZERO) then 
-        !  tau = dt * b(i)
-        !  call MergeArrays(ONE, u, tau, K_ex(:,:,:,:,:,i), multi = .true. )
-        !end if
-      !end do
-
+        end do 
+     end if
       ! prepare next timestep .....................................................
       t = t + dt
 
@@ -312,7 +304,7 @@ contains
     allocate(w   , mold = u_i)
     allocate(dp  , mold = p  )
     !$omp end single
-    
+
     !step 1, exptrapolation: u_i→u'(x,,tᵢ) ....................................
     ! u'(i) = u(t) + ∆t * Σ a_ex(i,:i-1) * (K_ex(*,: i-1) + F_d(*,:i-1)) &
     !              + ∆t * Σ a_im(i,:i) * F_s(*,:i)
@@ -344,6 +336,9 @@ contains
     call PressureSolver(problem, flow_op, dt, u_i, p, w)
     call ProjectionStep(problem, flow_op, dt, p, u_i, w)
 
+    ! boundary conditions.......................................................
+    call GetBoundaryValues(problem, mesh, flow_op % bv_x, t, flow_op % bv_u)
+
     ! step 3, diffusion:  u_i → u'''(x,tᵢ) .....................................
     !u'''(i) = u''(i) + ∆t *a_im(i,i)*∇.ν(i)∇u'''(i) &
     !                 + ∆t * Σ a_im(i,: i-1)*F_d1(*,: i-1)
@@ -360,7 +355,7 @@ contains
       call MergeArrays(ONE, f, tau, F_d1(:,:,:,:,:,j), multi = .true.)
       call MergeArrays(ONE, f, tau, F_d3(:,:,:,:,:,j), multi = .true.)
     end do
-
+     
     ! solve diffusion equation
     tau = dt * a_im(i,i)
     call DiffusionStep(problem, flow_op, tau, f=f, u=u_i, w=w, nu=nu)
