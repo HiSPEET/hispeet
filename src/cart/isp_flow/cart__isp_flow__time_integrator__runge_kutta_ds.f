@@ -217,8 +217,7 @@ contains
                           , F_s  = F_s  (:,:,:,:,:,1)  &
                          )    
       ! K_ex(:,:,:,:,:,i) = F_c   
-      ! K_im(:,:,:,:,:,i) = F - F_c 
-
+      ! K_im(:,:,:,:,:,i) = F - F_c
       call MergeArrays(ONE , K_im(:,:,:,:,:,1),-ONE &
                      , K_ex(:,:,:,:,:,1), multi = .true.)
 
@@ -226,22 +225,65 @@ contains
       do i=2, ns
         
         ! u(i) = u(t)  + ∆t * Σ a_ex(i,:i-1) * K_ex(*,: i-1)&
-        !              + ∆t * Σ a_im(i,:i) * K_im(*,:i)
+        !              + ∆t * Σ a_im(i,:i  ) * K_im(*,: i  )
         ! p(i) 
         call RungeKuttaStage(this , i, ts(i), dt, u_0 , &
-                            nu, K_im, K_ex, F_s, F_d, F_d1, F_d3, u_i)
+                            nu, K_im, K_ex, F_s, F_d, F_d1, F_d3, u)
 
       end do
+
       ! compute u(t + dt) ........................................................
-      call SetArray(u, u_i, multi = .true.)
-      if (ns > 2 .and. ns < 8) then     ! for IMEX Euler not needed
+
+      ! IMEX-EULER sheme: u(t+∆t) = u(t) + ∆t * ( K_ex(*,1) + K_im(*,2) ) 
+      ! it is exactly the output from RungeKuttaStage for i = ns  
+      ! it delivers the same results as the separate Euler_DS.
+      ! that expalains the following if condition ns > 2. 
+      
+      ! now for stages greater than 2 
+      ! u(t+∆t) = u(t)  + ∆t * Σ b_ex(i,:ns) * K_ex(*,: ns) &
+      !                 + ∆t * Σ b_im(i,:ns) * K_im(*,: ns)
+      !         = u(ns) - ∆t * Σ a_ex(i,:ns) * K_ex(*,: ns) &
+      !                 - ∆t * Σ a_im(i,:ns) * K_im(*,: ns) &
+      !                 + ∆t * Σ b_ex(i,:ns) * K_ex(*,: ns) &
+      !                 + ∆t * Σ b_im(i,:ns) * K_im(*,: ns)
+
+      if (ns > 2) then     ! for stages ns > 2
         do i =1, ns 
 
           tau = (b(i) - a_ex(ns,i)) * dt 
           call MergeArrays(ONE, u, tau, K_ex(:,:,:,:,:,i), multi=.true.)
+          tau = (b(i) - a_im(ns,i)) * dt 
+          call MergeArrays(ONE, u, tau, K_im(:,:,:,:,:,i), multi=.true.)
 
         end do 
-     end if
+
+      end if
+      print*, 'u   =',u(3,2,3,3,1)
+      
+      ! fazit: Simulation shows accurate results for ns=3,4,6 but ns=8  there is 
+      ! a problem. thus, for ns=8 assuming b_ex(j) = a_ex(ns,j) and b_im(j) = a_im(ns,j)
+      ! shows accurate results. 
+      
+      ! now trying the direct formula with b(i) poses some convergence problems.
+   
+      ! for this reason evaluation test of 
+      !  u(i) = u(t)  + ∆t * Σ a_ex(i,:i-1) * K_ex(*,: i-1)&
+      !               + ∆t * Σ a_im(i,:i  ) * K_im(*,: i  )' was done at some 
+      ! random point. they seem not to be exactly equal with error up to 1~2%. 
+      !  
+      ! alternatively with the formula u = u + ∆t * Σ b_ex(i,:ns) * K_ex(*,: ns) &
+      !                                      + ∆t * Σ b_im(i,:ns) * K_im(*,: ns)
+      ! activate formula with 1.eq.1
+      if (1 .eq. 0) then
+        do i =1, ns 
+          tau = b(i) * dt
+          call MergeArrays(ONE, u, tau, K_ex(:,:,:,:,:,i), multi=.true.)
+          call MergeArrays(ONE, u, tau, K_im(:,:,:,:,:,i), multi=.true.)    
+        end do 
+      end if 
+      !print*, 'u   =',u(3,2,3,3,1)
+      
+
       ! prepare next timestep .....................................................
       t = t + dt
 
@@ -249,6 +291,7 @@ contains
 
       !$omp barrier
       !$omp master
+      
       if(allocated(K_im ))   deallocate(K_im)
       if(allocated(K_ex ))   deallocate(K_ex)
       if(allocated(F_d  ))   deallocate(F_d )
@@ -260,7 +303,7 @@ contains
       if(allocated(ts   ))   deallocate(ts  )
       !$omp end master
     end associate
-
+      
     end subroutine TimeStep
 
   !-----------------------------------------------------------------------------
@@ -308,13 +351,14 @@ contains
     !step 1, exptrapolation: u_i→u'(x,,tᵢ) ....................................
     ! u'(i) = u(t) + ∆t * Σ a_ex(i,:i-1) * (K_ex(*,: i-1) + F_d(*,:i-1)) &
     !              + ∆t * Σ a_im(i,:i) * F_s(*,:i)
-
+    
     call SetArray(u_i, u_0, multi=.true.)
     do j=1, i-1
       
       ! apply ERK scheme to F_ex and F_im
       tau = dt * a_ex(i,j)
       call MergeArrays(ONE, u_i, tau, K_ex(:,:,:,:,:,j), multi =.true.)
+      !tau = dt * a_im(i,j)
       call MergeArrays(ONE, u_i, tau, F_d (:,:,:,:,:,j), multi =.true.)
       
      ! upgrade F_s to DIRK scheme
@@ -354,12 +398,12 @@ contains
       tau = -dt * a_ex(i,j) 
       call MergeArrays(ONE, f, tau, F_d1(:,:,:,:,:,j), multi = .true.)
       call MergeArrays(ONE, f, tau, F_d3(:,:,:,:,:,j), multi = .true.)
+
     end do
      
     ! solve diffusion equation
     tau = dt * a_im(i,i)
     call DiffusionStep(problem, flow_op, tau, f=f, u=u_i, w=w, nu=nu)
-
     ! step4, final projection in case the viscosity is variable.................  
     if (flow_op % control % div_final) then
       ! solve for p = p" + dp
@@ -385,8 +429,29 @@ contains
                         , F_s  = F_s  (:,:,:,:,:,i)  &
                         )
     ! K_im
-    call MergeArrays(ONE, K_im(:,:,:,:,:,i), -ONE, K_ex(:,:,:,:,:,i), multi=.true.)
+    call MergeArrays(ONE, K_im(:,:,:,:,:,i) &
+                   , -ONE, K_ex (:,:,:,:,:,i), multi=.true.)
+    
+    
+    call SetArray(w,u_0, multi =.true.)
+    do j =1, i-1 
+        !tau = b(i) * dt
+         tau = a_ex(i,j) * dt
+         call MergeArrays(ONE, w, tau, K_ex(:,:,:,:,:,j), multi=.true.)
+         tau = a_im(i,j) * dt
+         call MergeArrays(ONE, w, tau, K_im(:,:,:,:,:,j), multi=.true.)        
+    end do
+    tau = a_im(i,i) * dt 
+    call MergeArrays(ONE, w, tau, K_im(:,:,:,:,:,i), multi=.true.) 
 
+    !! ----------------------test -------------
+    ! evaluate if the equation u(i) = 
+    if (i == this % imex_rk % n_stage) then 
+      print*, 'test wether u(i) = rhs or not !!'
+      print*,'u(i)=', u_i(2,4,3,4,2)
+      print*,'w   =', w(2,4,3,4,2)
+    end if
+   !----------------------end test---------------
     !clean up .............................................................
     !!$omp barrier
     !!$omp master
