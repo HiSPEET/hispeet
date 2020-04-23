@@ -247,18 +247,17 @@ contains
       !                 + ∆t * Σ b_ex(i,:ns) * K_ex(*,: ns) &
       !                 + ∆t * Σ b_im(i,:ns) * K_im(*,: ns)
 
-      if (ns > 2) then     ! for stages ns > 2
+      if (ns > 2 .and. ns < 8 ) then     ! for stages ns > 2
         do i =1, ns 
 
           tau = (b(i) - a_ex(ns,i)) * dt 
           call MergeArrays(ONE, u, tau, K_ex(:,:,:,:,:,i), multi=.true.)
-          tau = (b(i) - a_im(ns,i)) * dt 
-          call MergeArrays(ONE, u, tau, K_im(:,:,:,:,:,i), multi=.true.)
+          !tau = (b(i) - a_im(ns,i)) * dt 
+          !call MergeArrays(ONE, u, tau, K_im(:,:,:,:,:,i), multi=.true.)
 
         end do 
-
       end if
-      print*, 'u   =',u(3,2,3,3,1)
+      !print*, 'u   =',u(3,2,3,3,1)
       
       ! fazit: Simulation shows accurate results for ns=3,4,6 but ns=8  there is 
       ! a problem. thus, for ns=8 assuming b_ex(j) = a_ex(ns,j) and b_im(j) = a_im(ns,j)
@@ -275,14 +274,16 @@ contains
       !                                      + ∆t * Σ b_im(i,:ns) * K_im(*,: ns)
       ! activate formula with 1.eq.1
       if (1 .eq. 0) then
+        call SetArray(u(:,:,:,:,1:3),u_0(:,:,:,:,1:3),multi = .true.)
         do i =1, ns 
           tau = b(i) * dt
           call MergeArrays(ONE, u, tau, K_ex(:,:,:,:,:,i), multi=.true.)
-          call MergeArrays(ONE, u, tau, K_im(:,:,:,:,:,i), multi=.true.)    
+          call MergeArrays(ONE, u, tau, K_im(:,:,:,:,:,i), multi=.true.)   
         end do 
+        call ProjectionStep(problem, flow_op, dt, p, u, u_i) ! for stabilisation.. 
       end if 
-      !print*, 'u   =',u(3,2,3,3,1)
-      
+
+      !print*, 'u   =', u(8,2,3,3,1)
 
       ! prepare next timestep .....................................................
       t = t + dt
@@ -347,6 +348,9 @@ contains
     allocate(w   , mold = u_i)
     allocate(dp  , mold = p  )
     !$omp end single
+    
+    ! boundary conditions.......................................................
+    call GetBoundaryValues(problem, mesh, flow_op % bv_x, t, flow_op % bv_u)
 
     !step 1, exptrapolation: u_i→u'(x,,tᵢ) ....................................
     ! u'(i) = u(t) + ∆t * Σ a_ex(i,:i-1) * (K_ex(*,: i-1) + F_d(*,:i-1)) &
@@ -384,9 +388,9 @@ contains
     call GetBoundaryValues(problem, mesh, flow_op % bv_x, t, flow_op % bv_u)
 
     ! step 3, diffusion:  u_i → u'''(x,tᵢ) .....................................
-    !u'''(i) = u''(i) + ∆t *a_im(i,i)*∇.ν(i)∇u'''(i) &
-    !                 + ∆t * Σ a_im(i,: i-1)*F_d1(*,: i-1)
-    !                 - ∆t * Σ a_ex(i,: i-1)*(Fd_1(*,: i-1)+Fd_3(*,: i-1))
+    !u'''(i) = u''(i) + ∆t * a_im(i,i) * ∇.ν(i)∇u'''(i) &
+    !                 + ∆t * Σ a_im(i,: i-1) * F_d1(*,: i-1)
+    !                 - ∆t * Σ a_ex(i,: i-1) * (Fd_1(*,: i-1)+Fd_3(*,: i-1))
     
     ! f = u"(x,tᵢ) - ∆t ∑ a_ex(i,:i-1) F_13(*,:i-1)
     call SetArray(f, u_i, multi = .true.)
@@ -404,6 +408,7 @@ contains
     ! solve diffusion equation
     tau = dt * a_im(i,i)
     call DiffusionStep(problem, flow_op, tau, f=f, u=u_i, w=w, nu=nu)
+
     ! step4, final projection in case the viscosity is variable.................  
     if (flow_op % control % div_final) then
       ! solve for p = p" + dp
@@ -433,34 +438,33 @@ contains
                    , -ONE, K_ex (:,:,:,:,:,i), multi=.true.)
     
     
+
+    !! ----------------------test if th formula u(i) = holds-------------
     call SetArray(w,u_0, multi =.true.)
     do j =1, i-1 
-        !tau = b(i) * dt
-         tau = a_ex(i,j) * dt
-         call MergeArrays(ONE, w, tau, K_ex(:,:,:,:,:,j), multi=.true.)
-         tau = a_im(i,j) * dt
-         call MergeArrays(ONE, w, tau, K_im(:,:,:,:,:,j), multi=.true.)        
+      !tau = b(i) * dt
+      tau = a_ex(i,j) * dt
+      call MergeArrays(ONE, w, tau, K_ex(:,:,:,:,:,j), multi=.true.)
+      tau = a_im(i,j) * dt
+      call MergeArrays(ONE, w, tau, K_im(:,:,:,:,:,j), multi=.true.) 
+       
     end do
     tau = a_im(i,i) * dt 
     call MergeArrays(ONE, w, tau, K_im(:,:,:,:,:,i), multi=.true.) 
-
-    !! ----------------------test -------------
-    ! evaluate if the equation u(i) = 
-    if (i == this % imex_rk % n_stage) then 
+    ! evaluate if the equation u(i) = w
+    if ( 0 == this % imex_rk % n_stage) then 
       print*, 'test wether u(i) = rhs or not !!'
       print*,'u(i)=', u_i(2,4,3,4,2)
-      print*,'w   =', w(2,4,3,4,2)
+      print*,'w   =', w (2,4,3,4,2)
     end if
    !----------------------end test---------------
     !clean up .............................................................
-    !!$omp barrier
-    !!$omp master
-    !$omp single
+    !$omp barrier
+    !$omp master
     if (allocated(dp  )) deallocate(dp )
     if (allocated(w   )) deallocate(w  )
     if (allocated(f   )) deallocate(f  )
-    !$omp end single
-    !!$omp end master
+    !$omp end master
     end associate
     
  end subroutine RungeKuttaStage
