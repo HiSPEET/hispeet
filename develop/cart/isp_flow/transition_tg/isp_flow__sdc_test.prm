@@ -5,6 +5,8 @@
   compute_p     =  T
   write_stat    =  T
   write_vtk     =  T
+  eval_rms      =  T
+  eval_max      =  F
   eval_eps      =  F
 !
   flow_op_control%div_penalty    =  0     ! [1]
@@ -53,7 +55,8 @@
  !c_diff = 100
   nt_max = 100000
 !
-! SDC
+! Time Integration method: SDC (n_sub >=1), IMEX RK (n_sub=-1), IMEX Euler ( n_sub=0)
+
   sdc_opt%n_sub   =  3
   sdc_opt%n_sweep =  2
 /
