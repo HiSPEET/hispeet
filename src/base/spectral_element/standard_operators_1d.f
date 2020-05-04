@@ -290,7 +290,7 @@ contains
     real(RNP), intent(out) :: VL(0:this%po,0:this%po) !< Vandermonde matrix
 
     if (.not. allocated(this % VL)) then
-      call Error( 'Get_Legendre_VDM'                     &
+      call Error( 'Get_Legendre_VDM'                   &
                 , 'Vandermonde matrix not initialized' &
                 , 'Standard_Operators_1D'              )
     end if
@@ -307,7 +307,7 @@ contains
     real(RNP), intent(out) :: VL_inv(0:this%po,0:this%po) !< inverse VDM matrix
 
     if (.not. allocated(this%VL_inv)) then
-      call Error( 'Get_InverseLegendre_VDM'              &
+      call Error( 'Get_InverseLegendre_VDM'            &
                 , 'Vandermonde matrix not initialized' &
                 , 'Standard_Operators_1D'              )
     end if
