@@ -55,21 +55,21 @@ Enable password chaching (900 seconds are the default;)
 
      mkdir HiSPEET
      cd HiSPEET
-    
+
      git init
      mkdir doc
      mkdir src
      ..
      git add doc src
      git commit
-    
+
      # stage the modified and deleted files
      git add -u
-    
+
      # add and commit only the modified and deleted files.
      git commit -a
 
-## Cloning HiSPEET from FusionForge
+## Cloning <a name="cloning"></a>
 
 Clone HiSPEET into directory hispeet (will be created if not yet existing) 
 
@@ -96,7 +96,7 @@ Show all branches
 
     git branch -a
 
-Switch to your branch just by 
+Switch to your branch
 
     git checkout <branch-name>
 
@@ -167,7 +167,7 @@ To compare the current branch against master branch, showing only the names of m
 
     git diff --name-status master
 
-For details just omit the `--name-status` option. To compare a file or directory located at `path` against the master use
+For details jomit the `--name-status` option. To compare a file or directory located at `path` against the master use
 
     git diff --name-status master -- <path>
 
@@ -196,7 +196,7 @@ Auto-resolve conflicts
 
 Disable fast-forward merging and do not create a merge commit.
 This is useful if auto-merging cannot be trusted.
-Works with `pull` as well as with `merge`, e.g.
+Works with `pull` as well as with `merge`
 
     git pull --no-ff --no-commit
     # or
@@ -227,7 +227,7 @@ For example, this is how `libxsmm` was included:
     git submodule add https://github.com/hfp/libxsmm.git external/libxsmm
     git commit -m 'added libxsmm submodule'
 
-Note that the submodules must be manually intialized, see [Cloning](#cloning-hispeet-from-fusionforge) above.
+Note that the submodules must be manually intialized, see [Cloning](#cloning) above.
 Also you may wish to update the submodules from the external repository, e.g.
 
     git submodule update

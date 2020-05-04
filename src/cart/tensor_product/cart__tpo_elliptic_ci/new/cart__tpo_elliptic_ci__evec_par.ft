@@ -1,0 +1,96 @@
+!> summary:  Elliptic element operator: 3D Cartesian equidistant, EVec
+!> author:   Erik Pfister, Joerg Stiller
+!> date:     2019/10/01
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Elliptic element operator: 3D Cartesian equidistant, generic
+!>
+!>   * vectorization over elements
+!===============================================================================
+
+subroutine _PROC_(_NP_)(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+
+  !-----------------------------------------------------------------------------
+  ! modules
+
+  use Kind_Parameters,  only: RNP
+  implicit none
+
+  !-----------------------------------------------------------------------------
+  ! arguments
+
+  integer,   intent(in)  :: np             !< number of points per direction
+  integer,   intent(in)  :: ne             !< number of elements
+  real(RNP), intent(in)  :: Ms(np)         !< 1D standard mass matrix
+  real(RNP), intent(in)  :: Ls(np,np)      !< 1D standard stiffness matrix
+  real(RNP), intent(in)  :: lambda         !< Helmholtz parameter
+  real(RNP), intent(in)  :: nu             !< diffusivity
+  real(RNP), intent(in)  :: dx(3)          !< element extensions
+  real(RNP), intent(in)  :: u(np,np,np,ne) !< operand
+  real(RNP), intent(out) :: v(np,np,np,ne) !< result
+
+  !-----------------------------------------------------------------------------
+  ! local variables
+
+  real(RNP) :: M(np,np,np), Lm(np,np)
+  real(RNP) :: M_u(0:LVEC_M1,np,np,np)
+  real(RNP) :: v_e(0:LVEC_M1,np,np,np)
+  real(RNP) :: g(3), tmp
+  integer   :: e, i, j, k, l, l_max, p
+
+  !-----------------------------------------------------------------------------
+  ! initialization
+
+  ! element mass matrix
+  tmp = product(dx) / 8
+  do k = 1, np
+  do j = 1, np
+  do i = 1, np
+    M(i,j,k) = tmp * Ms(k) * Ms(j) * Ms(i)
+  end do
+  end do
+  end do
+
+  ! mass-weighted stiffness matrix: Lm = Ms^-1 Ls = (Ls Ms^-1)^T
+  do j = 1, np
+  do i = 1, np
+    Lm(i,j) = Ls(i,j) / Ms(i)
+  end do
+  end do
+
+  ! coefficients
+  g = 4 * nu / dx**2
+
+  !-----------------------------------------------------------------------------
+  ! evaluation
+
+  !$omp do private(e)
+  do e = 1, ne, LVEC
+
+    ! [...]
+
+    ! direction 1 ..............................................................
+
+    do k = 1, np
+    do j = 1, np
+    do i = 1, np
+      !DIR$ SIMD
+      !GCC$ vector
+      do l = 0, LVEC_M1
+				tmp = 0
+				do p = 1, _NP_
+					tmp = tmp + Lm(p,i) * M_u(p,j,k)
+				end do
+				v_e(l,i,j,k,e) = v_e(l,i,j,k,e) + g(1) * tmp
+			end do
+    end do
+    end do
+    end do
+
+    ! [...]
+
+  end do
+
+!===============================================================================
+
+end subroutine _PROC_(_NP_)
