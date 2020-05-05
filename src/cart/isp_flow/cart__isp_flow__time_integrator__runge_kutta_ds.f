@@ -236,7 +236,7 @@ contains
       ! compute u(t + dt) ........................................................
 
       ! IMEX-EULER sheme: u(t+∆t) = u(t) + ∆t * ( F_ex(*,1) + F_im(*,2) ) 
-      ! it is exactly the output from RungeKuttaStage for i = ns  
+      ! it is exactly the output from RungeKuttaStage for i=ns=2.  
       ! it delivers the same results as the separate Euler_DS.
       ! that expalains the following if condition ns > 2. 
       
@@ -250,7 +250,6 @@ contains
 
       if ( ns > 2 ) then     ! for stages ns > 2
         do i =1, ns 
-
           tau = (b(i) - a_ex(ns,i)) * dt 
           call MergeArrays(ONE, u, tau, F_ex(:,:,:,:,:,i), multi=.true.)
           tau = (b(i) - a_im(ns,i)) * dt 
@@ -260,23 +259,12 @@ contains
         
 
       end if
-      !print*, 'u   =',u(3,2,3,3,1)
       
-      ! fazit: Simulation shows accurate results for ns=3,4,6 but ns=8  there is 
-      ! a problem. thus, for ns=8 assuming b_ex(j) = a_ex(ns,j) and b_im(j) = a_im(ns,j)
-      ! shows accurate results. 
-      
-      ! now trying the direct formula with b(i) poses some convergence problems.
-   
-      ! for this reason evaluation test of 
-      !  u(i) = u(t)  + ∆t * Σ a_ex(i,:i-1) * F_ex(*,: i-1)&
-      !               + ∆t * Σ a_im(i,:i  ) * F_im(*,: i  )' was done at some 
-      ! random point. they seem not to be exactly equal with error up to 1~2%. 
-      !  
-      ! alternatively with the formula u = u + ∆t * Σ b_ex(i,:ns) * F_ex(*,: ns) &
-      !                                      + ∆t * Σ b_im(i,:ns) * F_im(*,: ns)
+      ! now trying the direct formula with b(i) 
+      ! u = u + ∆t * Σ b_ex(i,:ns) * F_ex(*,: ns) &
+      !       + ∆t * Σ b_im(i,:ns) * F_im(*,: ns)
       ! activate formula with 1.eq.1
-      if (1 .eq. 1) then
+      if (1.eq.0 .and. ns > 2) then
         call SetArray(u(:,:,:,:,1:3),u_0(:,:,:,:,1:3),multi = .true.)
         do i =1, ns 
           tau = b(i) * dt
@@ -285,14 +273,14 @@ contains
         end do 
          
       end if 
-
+      
       ! compute the pressure p_n and perform a projection step.
       ! u" = u 
-      !call SetArray(u_i(:,:,:,:,1:3),u(:,:,:,:,1:3),multi = .true.)
-      ! ∇²p = ∇(v")/∆t -----> p 
+      call SetArray(u_i(:,:,:,:,1:3),u(:,:,:,:,1:3),multi = .true.)
+      ! ∇²p = ∇(v")/∆t 
       call PressureSolver(problem, flow_op, dt, u, p, w=u_i)
       ! v" = v' -  ∆t * ∇p - J(v") + stabilisation    
-      call ProjectionStep(problem, flow_op, dt, p, u, w=u_i) ! for stabilisation..... 
+      call ProjectionStep(problem, flow_op, dt, p, u, w=u_i) 
       
       ! prepare next timestep .....................................................
       t = t + dt
@@ -360,8 +348,7 @@ contains
     allocate(dp  , mold = p  )
     !$omp end single
     
-    ! boundary conditions.......................................................
-    call GetBoundaryValues(problem, mesh, flow_op % bv_x, t, flow_op % bv_u)
+    
     !step 1, exptrapolation: u_i→u'(x,,tᵢ) ....................................
     ! u'(i) = u(t) + ∆t * Σ a_ex(i,:i-1) * (F_ex(*,: i-1) + F_d(*,:i-1)) &
     !              + ∆t * Σ a_im(i,:i) * F_s(*,:i)
@@ -372,10 +359,9 @@ contains
       ! apply ERK scheme to F_ex and F_im
       tau = dt * a_ex(i,j)
       call MergeArrays(ONE, u_i, tau, F_ex(:,:,:,:,:,j), multi =.true.)
-      !tau = dt * a_im(i,j)
       call MergeArrays(ONE, u_i, tau, F_d (:,:,:,:,:,j), multi =.true.)
       
-     ! upgrade F_s to DIRK scheme
+      !upgrade F_s to DIRK scheme
       tau = dt * a_im(i,j)
       call MergeArrays(ONE, u_i, tau, F_s(:,:,:,:,:,j), multi = .true.)
 
@@ -384,13 +370,16 @@ contains
     call this % problem % GetExternalSources( x, t, F_s(:,:,:,:,:,i))
     tau = dt * a_im(i,i)
     call MergeArrays(ONE, u_i, tau, F_s(:,:,:,:,:,i), multi =.true. )
-
+    
+    ! boundary conditions.......................................................
+    call GetBoundaryValues(problem, mesh, flow_op % bv_x, t, flow_op % bv_u)
+    
     !step 2, projection: u_i → u"(x,tᵢ) p → p''(i)..............................
     ! solve for p''(i) Poisson eq. ∇²p''(i) = ∇ u'(i)/∆t
     ! then,  u''(i) = u'(i) - ∆t * ∇ p''(i)
     call PressureSolver(problem, flow_op, dt, u_i, p, w)
     call ProjectionStep(problem, flow_op, dt, p, u_i, w)
-
+    
     ! step 3, diffusion:  u_i → u'''(x,tᵢ) .....................................
     !u'''(i) = u''(i) + ∆t * a_im(i,i) * ∇.ν(i)∇u'''(i)                    &
     !                 + ∆t * Σ a_im(i,: i-1) * F_d1(*,: i-1)               &
@@ -400,10 +389,8 @@ contains
     call SetArray(f, u_i, multi = .true.)
     do j=1, i-1
       tau = dt * a_im(i,j)
-      call MergeArrays(ONE, f, tau, F_im(:,:,:,:,:,j), multi = .true.)
-      tau = -tau
-      call MergeArrays(ONE, f, tau, F_d3(:,:,:,:,:,j), multi = .true.) ! Variante 02.
-
+      call MergeArrays(ONE, f, tau, F_d1(:,:,:,:,:,j), multi = .true.)
+      
       tau = -dt * a_ex(i,j) 
       call MergeArrays(ONE, f, tau, F_d1(:,:,:,:,:,j), multi = .true.)
       call MergeArrays(ONE, f, tau, F_d3(:,:,:,:,:,j), multi = .true.)
