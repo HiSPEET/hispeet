@@ -62,7 +62,7 @@ program Validate__TPO__Elliptic_3d_RLCI
   np = po + 1
 
   ! problem dimensions
-  nflop = np**3 * (6*np + 4)
+  nflop = np**3 * (6*np + 8)
   npop  = np**3
 
   ! operators ..................................................................

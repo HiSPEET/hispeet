@@ -59,7 +59,7 @@ program Validate__TPO__RotRot_3d_R
   np = po + 1
 
   ! problem dimensions
-  nflop = np**3 * (6*np + 5)
+  nflop = np**3 * (30*np + 35)
   npop  = np**3
 
   ! operators ..................................................................
@@ -148,7 +148,7 @@ program Validate__TPO__RotRot_3d_R
     call system_clock(count0, rate)
 
     do i = 1, nt
-    call TPO_RotRot_R_Gen(np, ne, Ds, dx, u, v)  
+    call TPO_RotRot_R_Gen(np, ne, Ds, dx, u, v)
     !$acc wait
     end do
 
