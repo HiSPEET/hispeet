@@ -1,6 +1,6 @@
 &control
-  flow_type     =  'Vortex_TG'
-  flow_case     =  'vortex_tg'
+  flow_type     =  'Vortex_TG' ! 'Vortex_TG' for 2D-case and 'Transition_TG' for 3D
+  flow_case     =  'vortex_tg' ! 2D: 'vortex_tg', 3D: 'transition_tg'
   restart       =  F
   compute_p     =  T
   write_stat    =  T
@@ -56,10 +56,8 @@
   nt_max = 100000
 !
 ! Time Integration method: SDC (n_sub >=1), IMEX RK (n_sub=-1), IMEX Euler ( n_sub=0)
-  sdc_opt%n_sub   =  3 
+
+  sdc_opt%n_sub   =  3
   sdc_opt%n_sweep =  2
 /
-&runge_kutta_ds_parameters
-ns = 2
-method = 1
-/
+

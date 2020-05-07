@@ -54,7 +54,6 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta_DS
   use CART__ISP_Flow__Projection
   use CART__ISP_Flow__Time_Derivative
   use CART__ISP_Flow__Time_Integrator
-  use CART__DG_Weak_Gradient !!
 
   implicit none             
   private
@@ -201,7 +200,7 @@ contains
       do k = 1, ns
         ts(k) = t + c(k) * dt 
       end do
-
+      
       ! stages 1 to ns ...........................................................
       ! u₀ = u(x,t₀)
       call SetArray(u_0, u, multi=.true.)

@@ -121,7 +121,7 @@ program ISP_Flow__SDC_Test
   type(FlowOperators)   :: flow_op
   type(SDC_Method3D)    :: sdc
 
-  ! standalone time integrator, switched on with sdc_opt%n_sub = 0
+  ! standalone time integrator, switched on with sdc_opt%n_sub = 0 or -1 
   class(TimeIntegrator), allocatable :: time_integrator
 
   ! variables ..................................................................
@@ -270,7 +270,7 @@ program ISP_Flow__SDC_Test
   case(0)
     time_integrator = TimeIntegrator_EulerDS(problem, flow_op)
   case(-1)   
-    control_file = 'isp_flow__sdc_test' ! file where are  RK parameters.
+    control_file = 'runge_kutta_parameters' ! file where are  RK parameters.
     time_integrator = TimeIntegrator_RungeKuttaDS(problem, flow_op, &
                                                   file = trim(control_file)//'.prm' )
   end select
