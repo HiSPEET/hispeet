@@ -1,0 +1,7 @@
+! define the imex runge kutta method
+
+&runge_kutta_ds_parameters
+ns = 3
+method = 1
+/
+
