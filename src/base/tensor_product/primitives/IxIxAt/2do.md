@@ -55,11 +55,10 @@
 3. Vektorisierung anschauen
 
         ifort -free -O2 -o vec_test -qopt-report=2 -qopt-report-phase=vec vec_test.fpp
-        gedit 
    * Optimierungsreport `vec_test.optrpt` im Editor öffnen
    * Mit `vec_test.fpp` sowie `vec_test.f` vergleichen
    * Hinweisen nachgehen
-
+   
 4. Leistungstest
 
         ifort -free -O2 -o vec_test vec_test.fpp
