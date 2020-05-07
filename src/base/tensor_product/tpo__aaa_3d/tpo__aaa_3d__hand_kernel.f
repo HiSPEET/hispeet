@@ -1,7 +1,7 @@
 !-------------------------------------------------------------------------------
 !> Parametrized 3d AxAxA kernel using hand-crafted suboperators
 
-subroutine PROC(TPO_AxAxA_Hand__,_NA1_,_NA2_)(ne, u, v)
+subroutine PROC(TPO_AxAxA_Hand__,_NA1_,_NA2_)(ne, A, u, v)
   integer,   intent(in)  :: ne                       !< num elements
   real(RNP), intent(in)  :: A(_NA1_,_NA2_)           !< 1D operator
   real(RNP), intent(in)  :: u(_NA2_,_NA2_,_NA2_,ne)  !< operand
