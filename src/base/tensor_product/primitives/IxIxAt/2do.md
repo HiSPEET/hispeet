@@ -2,13 +2,15 @@
 
 ### Ausgangsdateien
 
-      ../tpo_aaa/subop_1__llll.f
-      ../tpo_aaa/subop_1__llu2l_r.f
-      ../tpo_aaa/subop_1__llb4u4_r.f
+      ../../tpo_aaa/subop_1__llll.f
+      ../../tpo_aaa/subop_1__llu2l_r.f
+      ../../tpo_aaa/subop_1__llb4u4_r.f
 
 ### Aktionen
 
 * Header anpassen
+
+* Intent von `v` zu `inout` ändern
 
 * Dimension von `u` und `v` setzen
 

@@ -1,23 +1,24 @@
 ## Anpassung der subop_2 Routinen
 
-* diese Datei ab Aktionen überarbeiten
 * offene Frage
   * Wirksamkeit der SIMD Direktive bei variabler Schleifengröße
   * SIMD Direktive ggf. von `i`-  auf `j`-Schleife umsetzen
 
 ### Ausgangsdateien
 
-      ../tpo_aaa/subop_2__llll.f
-      ../tpo_aaa/subop_2__lu2ll_r.f
-      ../tpo_aaa/subop_2__lu4ll_r.f
-      ../tpo_aaa/subop_2__lu8ll_r.f
-      ../tpo_aaa/subop_2__lu4lb4_r.f 
+      ../../tpo_aaa/subop_2__llll.f
+      ../../tpo_aaa/subop_2__lu2ll_r.f
+      ../../tpo_aaa/subop_2__lu4ll_r.f
+      ../../tpo_aaa/subop_2__lu8ll_r.f
+      ../../tpo_aaa/subop_2__lu4lb4_r.f 
 
 ### Aktionen
 
 __noch anpassen__
 
 * Header anpassen
+
+* Intent von `v` zu `inout` ändern
 
 * Dimension von `u` und `v` setzen
 
