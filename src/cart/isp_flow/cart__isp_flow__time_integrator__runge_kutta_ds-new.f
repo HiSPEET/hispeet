@@ -47,6 +47,8 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta_DS
 
   use ISP_Flow_Problem
 
+  use CART__DG_Weak_Gradient
+
   use CART__ISP_Flow__Boundary_Values
   use CART__ISP_Flow__Diffusion
   use CART__ISP_Flow__Operators
@@ -225,7 +227,8 @@ contains
       !                 + ∆t * Σ b_ex(i,:ns) * F_ex(*,: ns) &
       !                 + ∆t * Σ b_im(i,:ns) * F_im(*,: ns)
 
-      if ( ns > 2 ) then     ! for stages ns > 2
+      ! Variant 1
+      if (variant == 1 .and. ns > 2 ) then     ! for stages ns > 2
         do i =1, ns
           tau = (b(i) - a_ex(ns,i)) * dt
           call MergeArrays(ONE, u, tau, F_ex(:,:,:,:,:,i), multi=.true.)
@@ -234,18 +237,31 @@ contains
         end do
       end if
 
+      ! Variant 2
       ! now trying the direct formula with b(i)
       ! u = u + ∆t * Σ b_ex(i,:ns) * F_ex(*,: ns) &
       !       + ∆t * Σ b_im(i,:ns) * F_im(*,: ns)
       ! activate formula with 1.eq.1
-      if (1.eq.0 .and. ns > 2) then
+      if (variant == 2 .and. ns > 2) then
         call SetArray(u(:,:,:,:,1:3),u_0(:,:,:,:,1:3),multi = .true.)
         do i =1, ns
           tau = b(i) * dt
           call MergeArrays(ONE, u, tau, F_ex(:,:,:,:,:,i), multi=.true.)
           call MergeArrays(ONE, u, tau, F_im(:,:,:,:,:,i), multi=.true.)
         end do
+      end if
 
+      ! Variant 3
+      ! u = u₀ + ∆t Σ b(i) [F_ex(*,i) + F_im(*,i)] - ∆t∇pˢ
+      if (variant == 2 .and. ns > 2) then
+        call WeakGradient(mesh, flow_op%eop_u%w, flow_op%eop_u%D, p, w) ! w = ∇pˢ
+        call SetArray(u, u_0, multi = .true.)                           ! u = u₀
+        do i =1, ns
+          tau = b(i) * dt
+          call MergeArrays(ONE, u, tau, F_ex(:,:,:,:,:,i), multi=.true.)
+          call MergeArrays(ONE, u, tau, F_im(:,:,:,:,:,i), multi=.true.)
+          call MergeArrays(ONE, u(:,:,:,:,1:3), -dt, w(:,:,:,:,:3), multi=.true.)
+        end do
       end if
 
       ! project to divergence-free velocity field
