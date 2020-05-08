@@ -270,13 +270,14 @@ contains
   !-----------------------------------------------------------------------------
   !> Executes one IMEX Runge-Kutta stage
 
-  subroutine RungeKuttaStage(this, i, t, dt, u_0, F_im, F_ex, nu)
+  subroutine RungeKuttaStage(this, i, t, dt, u_0, u, F_im, F_ex, nu)
 
     class(TimeIntegrator_RungeKuttaDS), intent(inout) :: this
     integer,   intent(in)    :: i                 !< stage i=2,..,s
     real(RNP), intent(in)    :: t                 !< stage time tᵢ = t₀ + cᵢ∆t
     real(RNP), intent(in)    :: dt                !< time step width
     real(RNP), intent(in)    :: u_0 (:,:,:,:,:)   !< u(x,t₀)
+    real(RNP), intent(inout) :: u   (:,:,:,:,:)   !< u(x,t)
     real(RNP), intent(inout) :: F_im(:,:,:,:,:,:) !<
     real(RNP), intent(inout) :: F_ex(:,:,:,:,:,:) !<
     real(RNP), intent(in)    :: nu(:,:,:,:,:)     !< variable ν(x,t₀)
@@ -293,7 +294,6 @@ contains
     real(RNP), allocatable, save :: F_d1 (:,:,:,:,:,:) !
     real(RNP), allocatable, save :: F_d3 (:,:,:,:,:,:) !
     real(RNP), allocatable, save :: F_s  (:,:,:,:,:,:) !
-    real(RNP), allocatable, save :: u    (:,:,:,:,:)   ! stage solution
     real(RNP), allocatable, save :: f    (:,:,:,:,:)   ! RHS for diffusion step
     real(RNP), allocatable, save :: w    (:,:,:,:,:)   ! u workspace
     real(RNP), allocatable, save :: dp   (:,:,:,:)     ! p workspace
@@ -304,7 +304,7 @@ contains
     !$omp single
     if (i == 2) then
       allocate(F_d, F_d1, F_d3, F_s, mold = F_im)
-      allocate(u, f, w , mold = u_0)
+      allocate(f, w , mold = u_0)
       allocate(dp, mold = u_0(:,:,:,:,4))
     end if
     !$omp end single
@@ -405,9 +405,9 @@ contains
     ! last stage deallocates workspace
     !$omp barrier
     !$omp master
-    if (i == this % imex_rk % n_stage then
+    if (i == this % imex_rk % n_stage) then
       deallocate(F_d, F_d1, F_d3, F_s)
-      deallocate(u, f, w, dp)
+      deallocate(f, w, dp)
     end if
     !$omp end master
 
