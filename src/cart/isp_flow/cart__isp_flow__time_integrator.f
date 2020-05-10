@@ -14,7 +14,7 @@ module CART__ISP_Flow__Time_Integrator
   public :: TimeIntegrator
 
   !-----------------------------------------------------------------------------
-  !> Abstract type for defining a one-step time integrator incompressible flow
+  !> Abstract type of a one-step time integrator for incompressible flow
 
   type, abstract :: TimeIntegrator
     class(FlowProblem),   pointer :: problem => null() !< flow problem
