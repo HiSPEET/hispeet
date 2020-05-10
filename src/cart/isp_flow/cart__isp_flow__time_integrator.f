@@ -27,7 +27,7 @@ module CART__ISP_Flow__Time_Integrator
   abstract interface
 
     !---------------------------------------------------------------------------
-    !> Execution of a single time step with optional variable viscosity ν
+    !> Execution of a single time step
 
     subroutine TimeStep(this, t, dt, u)
       import
