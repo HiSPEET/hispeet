@@ -88,7 +88,6 @@ contains
              , p       => u(:,:,:,:,4)            )
 
       ! initialization .........................................................
-
       t   = t + dt
 
       ! workspace
@@ -124,10 +123,8 @@ contains
       call MergeArrays(ONE, u_i, dt, w, multi=.true.)
 
       ! pressure, continuity and diffusion .....................................
-
       ! solve for p = p"
       call PressureSolver(problem, flow_op, dt, u_i, p, w)
-
       ! v" = v' - 1/∆t ∇p" - J(v"). div/mass-flux stabilization(paper eq. 68)
       call ProjectionStep(problem, flow_op, dt, p, u_i, w)
 
@@ -135,9 +132,8 @@ contains
       call MergeArrays(ONE, u_i, -dt, F_d1, multi=.true.)
       call MergeArrays(ONE, u_i, -dt, F_d3, multi=.true.)
       call DiffusionStep(problem, flow_op, dt, f=u_i, u=u, w=w, nu=nu)
-
+      
       ! final projection .......................................................
-
       if (flow_op % control % div_final) then
 
         ! solve for p = p" + dp
@@ -148,9 +144,9 @@ contains
         call ProjectionStep(problem, flow_op, dt, dp, u, w)
 
       end if
-
+      
       ! clean-up ...............................................................
-
+      
       !$omp barrier
       !$omp master
       if (allocated(F_d1)) deallocate(F_d1)
