@@ -138,12 +138,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs a single IMEX Runge-Kutta step
 
-  subroutine TimeStep(this, t, dt, u, nu)
+  subroutine TimeStep(this, t, dt, u)
     class(TimeIntegrator_RungeKuttaDS), intent(inout) :: this
 
     real(RNP),           intent(inout) :: t             !< time t₀ → t
     real(RNP),           intent(in)    :: dt            !< step size ∆t = t-t₀
-    real(RNP), optional, intent(in)    :: nu(:,:,:,:,:) !< variable ν(x,t₀)
     real(RNP),           intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
 
     ! local variables  .........................................................
@@ -152,6 +151,8 @@ contains
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_ex !expl. part
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d, F_d1, F_d3
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_s
+    real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: nu ! variable diffusivity
+
     real(RNP), dimension(:,:,:,:,:),   allocatable, save :: u_i, u_0
     real(RNP), dimension(:)          , allocatable, save :: ts   ! node times
 

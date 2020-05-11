@@ -318,14 +318,14 @@ program ISP_Flow__SDC_Test
     case(0)
       if (problem % HasVariableProperties()) then
         call problem % GetDiffusivity(flow_op%x, t, u, nu)
-        call time_integrator % TimeStep(t, dt, u, nu)
+        call time_integrator % TimeStep(t, dt, u)
       else
         call time_integrator % TimeStep(t, dt, u)
       end if
     case(-1)
       if (problem % HasVariableProperties()) then
         call problem % GetDiffusivity(flow_op%x, t, u, nu)
-        call time_integrator % TimeStep(t, dt, u, nu)
+        call time_integrator % TimeStep(t, dt, u)
       else
         call time_integrator % TimeStep(t, dt, u)
       end if
