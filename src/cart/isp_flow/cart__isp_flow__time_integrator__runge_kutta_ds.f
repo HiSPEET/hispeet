@@ -54,6 +54,7 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta_DS
   use CART__ISP_Flow__Projection
   use CART__ISP_Flow__Time_Derivative
   use CART__ISP_Flow__Time_Integrator
+  use CART__DG_Weak_Gradient
 
   implicit none             
   private
@@ -137,9 +138,6 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs a single IMEX Runge-Kutta step
 
-
-   ! TODO : IMEX Runge-Kutta step
-
   subroutine TimeStep(this, t, dt, u, nu)
     class(TimeIntegrator_RungeKuttaDS), intent(inout) :: this
 
@@ -149,14 +147,16 @@ contains
     real(RNP),           intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
 
     ! local variables  .........................................................
-    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_ex, F_im !impl. & expl. K
+    
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_im !impl. part
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_ex !expl. part
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d, F_d1, F_d3
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_s
-    real(RNP), dimension(:)          , allocatable, save :: ts         ! node times
     real(RNP), dimension(:,:,:,:,:),   allocatable, save :: u_i, u_0
+    real(RNP), dimension(:)          , allocatable, save :: ts   ! node times
 
     ! auxiliary
-    integer   :: i, k  ! i = 1,..,s
+    integer   :: i, k , variant 
     real(RNP) :: tau    
 
     associate(problem => this % problem            &
@@ -173,38 +173,32 @@ contains
 
       
       ! workspace ................................................................
+      
       !$omp single
-      allocate(F_im ( size(u,1), size(u,2), size(u,3), &
-                    & size(u,4), size(u,5), ns ))
-
-      allocate(F_ex ( size(u,1), size(u,2), size(u,3), &
-                    & size(u,4), size(u,5), ns ))
-
-      allocate(F_d  ( size(u,1), size(u,2), size(u,3), &
-                    & size(u,4), size(u,5), ns ))
-
-      allocate(F_d1 ( size(u,1), size(u,2), size(u,3), &
-                    & size(u,4), size(u,5), ns ))
-
-      allocate(F_d3 ( size(u,1), size(u,2), size(u,3), &
-                    & size(u,4), size(u,5), ns ))
-      allocate(F_s  ( size(u,1), size(u,2), size(u,3), &
-                    & size(u,4), size(u,5), ns ))
-
+      allocate(F_im(size(u,1), size(u,2), size(u,3), size(u,4), size(u,5), ns))
+      allocate(F_ex, mold = F_im)
+      allocate(F_d , mold = F_im)
+      allocate(F_d1, mold = F_im)
+      allocate(F_d3, mold = F_im)
+      allocate(F_s , mold = F_im)
       allocate(u_i , mold = u)
       allocate(u_0 , mold = u)
       allocate (ts(1:ns))
       !$omp end single
 
       ! node times ...............................................................
+      
       do k = 1, ns
         ts(k) = t + c(k) * dt 
       end do
       
       ! stages 1 to ns ...........................................................
+      
       ! u₀ = u(x,t₀)
       call SetArray(u_0, u, multi=.true.)
       ! stage 1
+      ! F_ex(:,:,:,:,:,i) = F_c   
+      ! F_im(:,:,:,:,:,i) = F - F_c
       call TimeDerivative( problem, flow_op, ts(1)     &
                           , u_c  = u_0                 &
                           , u_d  = u_0                 &
@@ -216,14 +210,13 @@ contains
                           , F_d3 = F_d3 (:,:,:,:,:,1)  &
                           , F_s  = F_s  (:,:,:,:,:,1)  &
                          )    
-      ! F_ex(:,:,:,:,:,i) = F_c   
-      ! F_im(:,:,:,:,:,i) = F - F_c
-      call MergeArrays(ONE , F_im(:,:,:,:,:,1),-ONE &
-                     , F_ex(:,:,:,:,:,1), multi = .true.)
+      
+      call MergeArrays(ONE , F_im(:,:,:,:,:,1) & 
+                     ,-ONE , F_ex(:,:,:,:,:,1) &
+                     , multi = .true.          )
 
       ! stage 2,..,ns  
       do i=2, ns
-        
         ! u(i) = u(t)  + ∆t * Σ a_ex(i,:i-1) * F_ex(*,: i-1)&
         !              + ∆t * Σ a_im(i,:i  ) * F_im(*,: i  )
         ! pressure contribution p"(i)  
@@ -231,7 +224,8 @@ contains
                             nu, F_im, F_ex, F_s, F_d, F_d1, F_d3, u)
 
       end do
-
+      
+      variant = 2 ! three possible computing methods to be compared
       ! compute u(t + dt) ........................................................
 
       ! IMEX-EULER sheme: u(t+∆t) = u(t) + ∆t * ( F_ex(*,1) + F_im(*,2) ) 
@@ -246,45 +240,63 @@ contains
       !                 - ∆t * Σ a_im(i,:ns) * F_im(*,: ns) &
       !                 + ∆t * Σ b_ex(i,:ns) * F_ex(*,: ns) &
       !                 + ∆t * Σ b_im(i,:ns) * F_im(*,: ns)
-
-      if ( ns > 2 ) then     ! for stages ns > 2
+      
+      if (variant == 1 .and. ns > 2  ) then     ! for stages ns > 2
         do i =1, ns 
           tau = (b(i) - a_ex(ns,i)) * dt 
           call MergeArrays(ONE, u, tau, F_ex(:,:,:,:,:,i), multi=.true.)
           tau = (b(i) - a_im(ns,i)) * dt 
           call MergeArrays(ONE, u, tau, F_im(:,:,:,:,:,i), multi=.true.)
-
         end do 
-        
-
+    
       end if
       
       ! now trying the direct formula with b(i) 
       ! u = u + ∆t * Σ b_ex(i,:ns) * F_ex(*,: ns) &
       !       + ∆t * Σ b_im(i,:ns) * F_im(*,: ns)
       ! activate formula with 1.eq.1
-      if (1.eq.0 .and. ns > 2) then
-        call SetArray(u(:,:,:,:,1:3),u_0(:,:,:,:,1:3),multi = .true.)
+      
+      if (variant == 2 .and. ns > 2) then
+        ! u = u₀
+        call SetArray(u, u_0, multi = .true.)
+        do i =1, ns 
+          tau = b(i) * dt
+          call MergeArrays(ONE, u, tau, F_ex(:,:,:,:,:,i), multi=.true.)
+          call MergeArrays(ONE, u, tau, F_im(:,:,:,:,:,i), multi=.true.)                  
+        end do 
+      
+      end if 
+      
+      if (variant == 3 .and. ns > 2) then
+        ! u = u₀
+        call SetArray(p, u(:,:,:,:,4), multi = .true.)
+        call SetArray(u(:,:,:,:,1:3), u_0(:,:,:,:,1:3), multi = .true.)
+        call WeakGradient(mesh, eop % w, eop % D, p, u_i) ! w = ∇pˢ
         do i =1, ns 
           tau = b(i) * dt
           call MergeArrays(ONE, u, tau, F_ex(:,:,:,:,:,i), multi=.true.)
           call MergeArrays(ONE, u, tau, F_im(:,:,:,:,:,i), multi=.true.)   
+               
         end do 
-         
+        call MergeArrays(ONE, u  (:,:,:,:,1:3) &
+                       , -dt, u_i(:,:,:,:,1:3) &
+                       , multi=.true.          )       
+      
       end if 
       
-      ! compute the pressure p_n and perform a projection step.
-      ! u" = u 
-      call SetArray(u_i(:,:,:,:,1:3),u(:,:,:,:,1:3),multi = .true.)
-      ! ∇²p = ∇(v")/∆t 
+      ! project to divergence-free velocity field   
+      ! u'  = u 
+      ! ∇²p = ∇(v')/∆t 
       call PressureSolver(problem, flow_op, dt, u, p, w=u_i)
       ! v" = v' -  ∆t * ∇p - J(v") + stabilisation    
       call ProjectionStep(problem, flow_op, dt, p, u, w=u_i) 
       
       ! prepare next timestep .....................................................
+      
       t = t + dt
 
       ! clean up ..................................................................
+      
       !$omp barrier
       !$omp master 
       if(allocated(F_im ))   deallocate(F_im)
@@ -305,8 +317,6 @@ contains
   !-----------------------------------------------------------------------------
   !> Executes one IMEX Runge-Kutta stage
 
-  ! TODO : generic Runge-Kutta stage, derived from dual-split IMEX Euler
-
   subroutine RungeKuttaStage(this, i,t, dt,u_0, nu, &           
                              F_im, F_ex, F_s, F_d, F_d1, F_d3, u_i)
 
@@ -322,10 +332,12 @@ contains
     real(RNP), dimension(:,:,:,:,:,:), intent(inout) :: F_d, F_d1, F_d3, F_s
 
     ! local variables.........................................................
-    real(RNP)              :: tau
+    
+    real(RNP)              :: tau, fd1
     integer                :: j              ! j=1,..,i
 
     ! workspaces..............................................................
+    
     real(RNP), allocatable :: f(:,:,:,:,:)   ! rhs for 3rd step
     real(RNP), allocatable :: w(:,:,:,:,:)   ! workspace for 2nd and 3rd step
     real(RNP), allocatable :: dp(:,:,:,:)    ! workspace for final step
@@ -338,15 +350,17 @@ contains
              , p       => u_i(:,:,:,:,4)          &
              , a_ex    => this % imex_rk % a_ex   &
              , a_im    => this % imex_rk % a_im   &
-             , eop     => this % flow_op % eop_u)
+             , ns      => this % imex_rk % n_stage&
+             , eop     => this % flow_op % eop_u  &
+             )
 
     ! allocate workspaces .....................................................
+    
     !$omp single
     allocate(f   , mold = u_i)
     allocate(w   , mold = u_i)
     allocate(dp  , mold = p  )
     !$omp end single
-    
     
     !step 1, exptrapolation: u_i→u'(x,,tᵢ) ....................................
     ! u'(i) = u(t) + ∆t * Σ a_ex(i,:i-1) * (F_ex(*,: i-1) + F_d(*,:i-1)) &
@@ -354,16 +368,14 @@ contains
     
     call SetArray(u_i, u_0, multi=.true.)
     do j=1, i-1
-      
       ! apply ERK scheme to F_ex and F_im
       tau = dt * a_ex(i,j)
       call MergeArrays(ONE, u_i, tau, F_ex(:,:,:,:,:,j), multi =.true.)
       call MergeArrays(ONE, u_i, tau, F_d (:,:,:,:,:,j), multi =.true.)
-      
       !upgrade F_s to DIRK scheme
       tau = dt * a_im(i,j)
       call MergeArrays(ONE, u_i, tau, F_s(:,:,:,:,:,j), multi = .true.)
-
+    
     end do
     ! + for j = i
     call this % problem % GetExternalSources( x, t, F_s(:,:,:,:,:,i))
@@ -371,11 +383,13 @@ contains
     call MergeArrays(ONE, u_i, tau, F_s(:,:,:,:,:,i), multi =.true. )
     
     ! boundary conditions.......................................................
+    
     call GetBoundaryValues(problem, mesh, flow_op % bv_x, t, flow_op % bv_u)
     
     !step 2, projection: u_i → u"(x,tᵢ) p → p''(i)..............................
     ! solve for p''(i) Poisson eq. ∇²p''(i) = ∇ u'(i)/∆t
     ! then,  u''(i) = u'(i) - ∆t * ∇ p''(i)
+    
     call PressureSolver(problem, flow_op, dt, u_i, p, w)
     call ProjectionStep(problem, flow_op, dt, p, u_i, w)
     
@@ -383,35 +397,38 @@ contains
     !u'''(i) = u''(i) + ∆t * a_im(i,i) * ∇.ν(i)∇u'''(i)                    &
     !                 + ∆t * Σ a_im(i,: i-1) * F_d1(*,: i-1)               &
     !                 - ∆t * Σ a_ex(i,: i-1) * (Fd_1(*,: i-1)+Fd_3(*,: i-1))
-    
     ! f = u"(x,tᵢ) - ∆t ∑ a_ex(i,:i-1) F_13(*,:i-1)
+    
     call SetArray(f, u_i, multi = .true.)
     do j=1, i-1
       tau = dt * a_im(i,j)
       call MergeArrays(ONE, f, tau, F_d1(:,:,:,:,:,j), multi = .true.)
-      
+      call MergeArrays(ONE, f, tau, F_d3(:,:,:,:,:,j), multi = .true.)
       tau = -dt * a_ex(i,j) 
       call MergeArrays(ONE, f, tau, F_d1(:,:,:,:,:,j), multi = .true.)
       call MergeArrays(ONE, f, tau, F_d3(:,:,:,:,:,j), multi = .true.)
-
+      
     end do
-     
     ! solve diffusion equation
     tau = dt * a_im(i,i)
-    call DiffusionStep(problem, flow_op, tau, f=f, u=u_i, w=w, nu=nu)
-    
+    call DiffusionStep(problem, flow_op, tau, f=f, u=u_i, w=w, nu=nu)    
+    fd1= (u_i(1,1,1,1,1) - f(1,1,1,1,1))/tau
+    !print*, fd1
+
     ! step4, final projection in case the viscosity is variable................. 
+    
     if (flow_op % control % div_final) then
       ! solve for p = p" + dp
       call SetArray(dp, ZERO)
       call PressureSolver(problem, flow_op, dt, u_i, dp, w) ! u=u(x,t₀+∆t)
       call MergeArrays(ONE, p, ONE, dp)
       ! v = v''' - 1/∆t ∇p - J(v)
-      call ProjectionStep(problem, flow_op, dt, dp, u_i, w)
+      call ProjectionStep(problem, flow_op, dt, dp, u_i(:,:,:,:,1:3), w)
 
     end if
     
     ! now determine the values of F_im, F_ex, F_d, F_d1, F_d3 and F_s......
+    
     call TimeDerivative( problem, flow_op, t         &
                         , u_c  = u_i                 &
                         , u_d  = u_i                 &
@@ -425,9 +442,24 @@ contains
                         )
     ! F_im
     call MergeArrays( ONE, F_im(:,:,:,:,:,i) &
-                   , -ONE, F_ex (:,:,:,:,:,i), multi=.true.)
-    
-    
+                   , -ONE, F_ex(:,:,:,:,:,i) &
+                   , multi = .true.           )
+   call WeakGradient(mesh, eop % w, eop % D, p, f) ! f = ∇p
+   !print*, f_d1(1,1,1,1,1,i) !+ dt * w(1,1,1,1,1)
+   
+    if ( i== ns +1) then
+      call SetArray(w,u_0, multi = .true.)
+      do j=1, i
+        tau = a_ex(i,j) * dt 
+        call MergeArrays(ONE, w, tau, F_ex(:,:,:,:,:,j), multi = .true.)
+        tau = a_im(i,j) * dt 
+        call MergeArrays(ONE, w, tau, F_im(:,:,:,:,:,j), multi = .true.)
+      end do 
+      !call WeakGradient(mesh, eop % w, eop % D, p, f) ! f = ∇p
+      !call MergeArrays(ONE, w(:,:,:,:,1:3), -dt, f(:,:,:,:,:3), multi=.true.)
+      !print*, w  (1,1,1,1,1)
+      !print*, u_i(1,1,1,1,1)
+    end if
     !clean up .............................................................
     !$omp barrier
     !$omp master
@@ -441,6 +473,6 @@ contains
  
  end subroutine RungeKuttaStage
 
-  !=============================================================================
+!=============================================================================
 
 end module CART__ISP_Flow__Time_Integrator__Runge_Kutta_DS
