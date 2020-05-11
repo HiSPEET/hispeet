@@ -14,7 +14,7 @@ module CART__ISP_Flow__Time_Integrator
   public :: TimeIntegrator
 
   !-----------------------------------------------------------------------------
-  !> Abstract type for defining a one-step time integrator incompressible flow
+  !> Abstract type of a one-step time integrator for incompressible flow
 
   type, abstract :: TimeIntegrator
     class(FlowProblem),   pointer :: problem => null() !< flow problem
@@ -27,14 +27,13 @@ module CART__ISP_Flow__Time_Integrator
   abstract interface
 
     !---------------------------------------------------------------------------
-    !> Execution of a single time step with optional variable viscosity ν
+    !> Execution of a single time step
 
-    subroutine TimeStep(this, t, dt, u, nu)
+    subroutine TimeStep(this, t, dt, u)
       import
       class(TimeIntegrator), intent(inout) :: this
       real(RNP),             intent(inout) :: t             !< time t₀ → t
       real(RNP),             intent(in)    :: dt            !< step size ∆t = t-t₀
-      real(RNP), optional,   intent(in)    :: nu(:,:,:,:,:) !< ν(x,t₀)
       real(RNP),             intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
     end subroutine TimeStep
 

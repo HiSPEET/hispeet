@@ -2,6 +2,9 @@
 !> author:   Joerg Stiller
 !> date:     2020/03/05
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @todo
+!>   * handling of variable viscosity
 !===============================================================================
 
 module CART__ISP_Flow__Time_Integrator__Euler_DS
@@ -67,18 +70,20 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs a single IMEX Euler step
 
-  subroutine TimeStep(this, t, dt, u, nu)
+  subroutine TimeStep(this, t, dt, u)
     class(TimeIntegrator_EulerDS), intent(inout) :: this
     real(RNP),           intent(inout) :: t             !< time t₀ → t
     real(RNP),           intent(in)    :: dt            !< step size ∆t = t-t₀
-    real(RNP), optional, intent(in)    :: nu(:,:,:,:,:) !< variable ν(x,t₀)
     real(RNP),           intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
 
     ! local variables  .........................................................
 
-    real(RNP), dimension(:,:,:,:,:), allocatable, save :: F_d1, F_d3
-    real(RNP), dimension(:,:,:,:,:), allocatable, save :: u_i, w
-    real(RNP), dimension(:,:,:,:),   allocatable, save :: dp
+    real(RNP), allocatable, save :: u_i  (:,:,:,:,:) ! intermediate solution
+    real(RNP), allocatable, save :: nu   (:,:,:,:,:) ! variable diffusivity
+    real(RNP), allocatable, save :: F_d1 (:,:,:,:,:) ! ∇·ν∇u
+    real(RNP), allocatable, save :: F_d3 (:,:,:,:,:) ! -χ∇ν(∇·v)
+    real(RNP), allocatable, save :: w    (:,:,:,:,:) ! workspace for u
+    real(RNP), allocatable, save :: dp   (:,:,:,:)   ! pressure correction
 
     associate( problem => this % problem          &
              , flow_op => this % flow_op          &
@@ -105,7 +110,7 @@ contains
 
       ! explicit + extrapolated diffusive parts ................................
 
-      ! u' = u₀ ≡ u(x,t₀)    
+      ! u' = u₀ ≡ u(x,t₀)
       call SetArray(u_i, u, multi=.true.)
 
       ! w = -∇⋅v₀v₀ + ∇⋅ν₀(∇v₀)ᵀ - χ∇(ν₀∇⋅v₀)     for v
@@ -149,9 +154,10 @@ contains
       
       !$omp barrier
       !$omp master
+      if (allocated(u_i )) deallocate(u_i )
+      if (allocated(nu  )) deallocate(nu  )
       if (allocated(F_d1)) deallocate(F_d1)
       if (allocated(F_d3)) deallocate(F_d3)
-      if (allocated(u_i )) deallocate(u_i )
       if (allocated(w   )) deallocate(w   )
       if (allocated(dp  )) deallocate(dp  )
       !$omp end master

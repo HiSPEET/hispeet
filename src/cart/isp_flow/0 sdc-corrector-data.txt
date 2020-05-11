@@ -1,0 +1,33 @@
+Data requirements of SDC Euler/TR corrector for 3D flow 
+=================================================================
+
+formal argument   intent   actual argument    time       sweep
+---------------   ------   ---------------    --------   -------
+
+problem           in       problem            -         -
+flow_op           inout    flow_op            -         -
+t                 inout    t                  i-1 ➞ i   -
+dt                in       dt                 -         -
+
+u_0(*)            in       u_s(*,i-1)         i-1       k
+u(*)              inout    u_s(*,i)           i         k-1 ➞ k
+
+F_im_0_old(*)     in       F_im_0(*)          i-1       k-1     
+F_ex_0_old(*)     in       F_ex_0(*)          i-1       k-1     
+F_im_0(*)         in       F_im(*,i-1)        i-1       k         
+F_ex_0(*)         in       F_ex(*,i-1)        i-1       k         
+               
+F_im(*)           inout    F_im(*,i)          i         k-1 ➞ k
+F_ex(*)           inout    F_ex(*,i)          i         k-1 ➞ k
+               
+S(*)              in       S(*,i)             i         k-1
+
+
+variables required in calling unit with ni subintervals
+-----------------------------------------------------------------
+u_s    (np,np,np,ne,nc,0:ni)
+F_im   (np,np,np,ne,nc,0:ni)
+F_ex   (np,np,np,ne,nc,0:ni)
+S      (np,np,np,ne,nc,1:ni)
+F_im_0 (np,np,np,ne,nc)
+F_ex_0 (np,np,np,ne,nc)
