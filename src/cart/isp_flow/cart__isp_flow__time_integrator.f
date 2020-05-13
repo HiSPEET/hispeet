@@ -42,7 +42,7 @@ module CART__ISP_Flow__Time_Integrator
 contains
 
   !-----------------------------------------------------------------------------
-  !> Initialization of Init_TimeIntegrator object
+  !> Initialization of TimeIntegrator object
 
   subroutine Init_TimeIntegrator(this, problem, flow_op)
     class(TimeIntegrator),        intent(inout) :: this

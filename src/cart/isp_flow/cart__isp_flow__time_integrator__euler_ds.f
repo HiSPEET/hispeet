@@ -56,7 +56,7 @@ contains
   end function New_TimeIntegrator_EulerDS
 
   !-----------------------------------------------------------------------------
-  !> Initialization of Init_TimeIntegrator_EulerDS object
+  !> Initialization of a Init_TimeIntegrator_EulerDS object
 
   subroutine Init_TimeIntegrator_EulerDS(this, problem, flow_op)
     class(TimeIntegrator_EulerDS), intent(inout) :: this
@@ -103,6 +103,9 @@ contains
       allocate(F_d3, mold = u)
       allocate(w   , mold = u)
       allocate(dp  , mold = p)
+      if (problem % HasVariableProperties()) then
+        allocate(nu, mold = u)
+      end if
       !$omp end single
 
       ! boundary conditions ....................................................
@@ -114,16 +117,21 @@ contains
       ! u' = u₀ ≡ u(x,t₀)
       call SetArray(u_i, u, multi=.true.)
 
+      ! nu = ν₀ = ν(tᵢ₋₁)
+      if (problem % HasVariableProperties()) then
+        call problem % GetDiffusivity(flow_op%x, t_0, u_0, nu)
+      end if
+
       ! w = -∇⋅v₀v₀ + ∇⋅ν₀(∇v₀)ᵀ - χ∇(ν₀∇⋅v₀)     for v
       ! w = -∇⋅v₀u₀                               for u \ (v,p)
-       call TimeDerivative( problem, flow_op, t  &
-                          , u_c  = u             &
-                          , u_d  = u             &
-                          , nu   = nu            &
-                          , F    = w             &
-                          , F_d1 = F_d1          &
-                          , F_d3 = F_d3          &
-                          )
+      call TimeDerivative( problem, flow_op, t  &
+                         , u_c  = u             &
+                         , u_d  = u             &
+                         , nu   = nu            &
+                         , F    = w             &
+                         , F_d1 = F_d1          &
+                         , F_d3 = F_d3          &
+                         )
 
       ! u' += ∆t w
       call MergeArrays(ONE, u_i, dt, w, multi=.true.)
