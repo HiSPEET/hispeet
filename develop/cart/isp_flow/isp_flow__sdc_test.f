@@ -121,7 +121,7 @@ program ISP_Flow__SDC_Test
   type(FlowOperators)   :: flow_op
   type(SDC_Method3D)    :: sdc
 
-  ! standalone time integrator, switched on with sdc_opt%n_sub = 0 or -1 
+  ! standalone time integrator, switched on with sdc_opt%n_sub = 0 or -1
   class(TimeIntegrator), allocatable :: time_integrator
 
   ! variables ..................................................................
@@ -269,7 +269,7 @@ program ISP_Flow__SDC_Test
     sdc = SDC_Method3D(EulerVC, EulerVC, sdc_opt)
   case(0)
     time_integrator = TimeIntegrator_EulerDS(problem, flow_op)
-  case(-1)   
+  case(-1)
     control_file = 'runge_kutta_parameters' ! file where are  RK parameters.
     time_integrator = TimeIntegrator_RungeKuttaDS(problem, flow_op, &
                                                   file = trim(control_file)//'.prm' )
@@ -316,19 +316,9 @@ program ISP_Flow__SDC_Test
     case(1:)
       call sdc % TimeStep( problem, flow_op, t, dt, u, F, first, last)
     case(0)
-      if (problem % HasVariableProperties()) then
-        call problem % GetDiffusivity(flow_op%x, t, u, nu)
-        call time_integrator % TimeStep(t, dt, u, nu)
-      else
-        call time_integrator % TimeStep(t, dt, u)
-      end if
+      call time_integrator % TimeStep(t, dt, u)
     case(-1)
-      if (problem % HasVariableProperties()) then
-        call problem % GetDiffusivity(flow_op%x, t, u, nu)
-        call time_integrator % TimeStep(t, dt, u, nu)
-      else
-        call time_integrator % TimeStep(t, dt, u)
-      end if
+      call time_integrator % TimeStep(t, dt, u)
     case default
       call SetArray(u_0, u, multi=.true.)
       call EulerVC(problem, flow_op, t, dt, u_0, u)

@@ -72,9 +72,9 @@ contains
 
   subroutine TimeStep(this, t, dt, u)
     class(TimeIntegrator_EulerDS), intent(inout) :: this
-    real(RNP),           intent(inout) :: t             !< time t₀ → t
-    real(RNP),           intent(in)    :: dt            !< step size ∆t = t-t₀
-    real(RNP),           intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
+    real(RNP), intent(inout) :: t             !< time t₀ → t
+    real(RNP), intent(in)    :: dt            !< step size ∆t = t-t₀
+    real(RNP), intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
 
     ! local variables  .........................................................
 
@@ -94,8 +94,6 @@ contains
 
       ! initialization .........................................................
 
-      t   = t + dt
-
       ! workspace
       !$omp single
       allocate(u_i , mold = u)
@@ -108,6 +106,13 @@ contains
       end if
       !$omp end single
 
+      ! nu = ν₀ = ν(x,t₀,u₀)
+      if (problem % HasVariableProperties()) then
+        call problem % GetDiffusivity(flow_op%x, t, u, nu)
+      end if
+
+      t = t + dt
+
       ! boundary conditions ....................................................
 
       call GetBoundaryValues(problem, mesh, flow_op%bv_x, t, flow_op%bv_u)
@@ -116,11 +121,6 @@ contains
 
       ! u' = u₀ ≡ u(x,t₀)
       call SetArray(u_i, u, multi=.true.)
-
-      ! nu = ν₀ = ν(tᵢ₋₁)
-      if (problem % HasVariableProperties()) then
-        call problem % GetDiffusivity(flow_op%x, t_0, u_0, nu)
-      end if
 
       ! w = -∇⋅v₀v₀ + ∇⋅ν₀(∇v₀)ᵀ - χ∇(ν₀∇⋅v₀)     for v
       ! w = -∇⋅v₀u₀                               for u \ (v,p)
@@ -141,7 +141,7 @@ contains
       ! solve for p = p"
       call PressureSolver(problem, flow_op, dt, u_i, p, w)
 
-      ! v" = v' - 1/∆t ∇p" - J(v"). div/mass-flux stabilization(paper eq. 68)
+      ! v" = v' - 1/∆t ∇p" - J(v")
       call ProjectionStep(problem, flow_op, dt, p, u_i, w)
 
       ! solve implicit diffusive part for u'''
