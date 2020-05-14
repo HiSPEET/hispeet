@@ -19,15 +19,17 @@ module CART__ISP_Flow__SDC_Corrector__Euler_DS
   use CART__ISP_Flow__Time_Derivative
   use CART__ISP_Flow__Time_Integrator
 
+  use CART__ISP_Flow__SDC_Corrector
+
   implicit none
   private
 
-  public :: Corrector
+  public :: SDC_Corrector_EulerDS
 
   !-----------------------------------------------------------------------------
   !> Abstract type of a SDC corrector for incompressible flow
 
-  type, abstract :: SDC_Corrector_EulerDS
+  type, extends(SDC_Corrector) :: SDC_Corrector_EulerDS
   contains
     procedure :: Init_SDC_Corrector_EulerDS
     procedure :: GetCorrectionRHS
@@ -77,7 +79,7 @@ contains
   !>
   !>       F_ex += ∇⋅[ν(∇v_ex)ᵀ]
 
-  subroutine GetCorrectionRHS(this, t, nu, u_ex, u_im, F_ex, F_im,)
+  subroutine GetCorrectionRHS(this, t, nu, u_ex, u_im, F_ex, F_im)
 
     class(SDC_Corrector_EulerDS), intent(in) :: this
     real(RNP), intent(in)  :: t                !< time
@@ -104,8 +106,8 @@ contains
     call TimeDerivative( this % problem  &
                        , this % flow_op  &
                        , t               &
-                       , u_c  = u_im     &
-                       , u_d  = u_im     &
+                       , u_c  = u_ex     &
+                       , u_d  = u_ex     &
                        , nu   = nu       &
                        , F_c  = F_ex     & ! F_ex = -∇⋅(v_ex u_ex)
                        , F_d2 = F_w      ) ! F_w  =  ∇⋅[ν(∇v_ex)ᵀ]
@@ -240,6 +242,7 @@ contains
     if (size(F_im_0    ) > 0) return
     if (size(F_ex_0_old) > 0) return
     if (size(F_ex_0    ) > 0) return
+    if (size(F_ex      ) > 0) return
 
   end subroutine CorrectionStep
 

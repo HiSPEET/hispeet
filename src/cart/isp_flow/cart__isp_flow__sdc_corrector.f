@@ -30,10 +30,10 @@ module CART__ISP_Flow__SDC_Corrector
     !---------------------------------------------------------------------------
     !> Computes F_ex and F_im as defined in the corrector
 
-    subroutine GetCorrectionRHS(this, t, nu, u_ex, u_im, F_ex, F_im,)
+    subroutine GetCorrectionRHS(this, t, nu, u_ex, u_im, F_ex, F_im)
       import
 
-      class(SDC_Corrector_EulerDS), intent(in) :: this
+      class(SDC_Corrector), intent(in) :: this
       real(RNP), intent(in)  :: t                !< time
       real(RNP), intent(in)  :: nu   (:,:,:,:,:) !< diffusivity
       real(RNP), intent(in)  :: u_ex (:,:,:,:,:) !< u applied in F_ex
@@ -54,7 +54,7 @@ module CART__ISP_Flow__SDC_Corrector
                              , S, u_0, u, nu             )
       import
 
-      class(SDC_Corrector_EulerDS), intent(inout) :: this
+      class(SDC_Corrector), intent(inout) :: this
       real(RNP), intent(inout) :: t                      !< time t₀ → t
       real(RNP), intent(in)    :: dt                     !< step size ∆t = t-t₀
       real(RNP), intent(in)    :: F_ex_0_old (:,:,:,:,:) !< F^ex (t₀)ᵏ⁻¹
@@ -79,7 +79,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Initialization of SDC_Corrector object
 
-  subroutine SDC_Corrector(this, problem, flow_op)
+  subroutine Init_SDC_Corrector(this, problem, flow_op)
     class(SDC_Corrector),         intent(inout) :: this
     class(FlowProblem),   target, intent(in)    :: problem !< flow problem
     class(FlowOperators), target, intent(in)    :: flow_op !< flow operators
