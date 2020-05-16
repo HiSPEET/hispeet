@@ -1,0 +1,437 @@
+!> summary:  SDC method for incompressible flows
+!> author:   Joerg Stiller
+!> date:     2020/05/14
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!===============================================================================
+
+module CART__ISP_Flow__SDC_Method
+
+  use Kind_Parameters, only: RNP
+  use Constants,       only: ZERO, ONE, HALF
+  use Gauss_Jacobi
+  use Array_Assignments
+  use XMPI
+  use ISP_Flow_Problem
+  use CART__ISP_Flow__Operators
+  use CART__ISP_Flow__Time_Integrator
+  use CART__ISP_Flow__SDC_Corrector
+
+  implicit none
+  private
+
+  public :: SDC_Options
+  public :: SDC_Method
+
+  !-----------------------------------------------------------------------------
+  !> Type for providing SDC options
+
+  type SDC_Options
+    integer :: n_sub   =  1  !< number of subintervals
+    integer :: n_sweep = -1  !< max number of correction sweeps
+  contains
+    procedure :: Bcast => SDC_Options_Bcast
+  end type SDC_Options
+
+  !-----------------------------------------------------------------------------
+  !> Modular SDC method with flexible choice of predictor and corrector
+
+  type SDC_Method
+
+    integer :: n_sub   = -1           !< number of subintervals
+    integer :: n_sweep = -1           !< max num correction sweeps
+
+    real(RNP), allocatable :: xi(:)   !< SDC points in [-1,1]
+    real(RNP), allocatable :: ws(:,:) !< subinterval quadrature weights
+
+    class(FlowProblem),    pointer     :: problem => null() !< flow problem
+    class(FlowOperators),  pointer     :: flow_op => null() !< flow operators
+    class(TimeIntegrator), allocatable :: predictor         !< predictor method
+    class(SDC_Corrector),  allocatable :: corrector         !< corrector method
+
+  contains
+
+    procedure :: Init_SDC_Method
+    procedure :: NumberOfSubintervals
+    procedure :: IntermediateTimes
+    procedure :: TimeStep
+
+  end type SDC_Method
+
+  ! overloading the constructor
+  interface SDC_Method
+    module procedure New_SDC_Method
+  end interface
+
+contains
+
+  !=============================================================================
+  ! SDC_Option: type-bound procedures
+
+  subroutine SDC_Options_Bcast(this, root, comm)
+    class(SDC_Options), intent(inout) :: this
+    integer,        intent(in) :: root !< rank of broadcast root
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
+
+    type(MPI_Request)  :: request(2)
+    type(MPI_Status)   :: stat(size(request))
+    integer :: n
+
+    n = 1
+    call XMPI_Ibcast( this % n_sub  , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % n_sweep, root, comm, request(n) )
+
+    call MPI_Waitall(n, request, stat)
+
+  end subroutine SDC_Options_Bcast
+
+  !=============================================================================
+  ! SDC_Method: type-bound procedures
+
+  !-----------------------------------------------------------------------------
+  !> Constructor for objects of type SDC_Method
+
+  function New_SDC_Method(problem, flow_op, predictor, corrector, opt) &
+      result(this)
+
+    class(FlowProblem),    target, intent(in) :: problem   !< flow problem
+    class(FlowOperators),  target, intent(in) :: flow_op   !< flow operators
+    class(TimeIntegrator), target, intent(in) :: predictor !< predictor method
+    class(SDC_Corrector),  target, intent(in) :: corrector !< corrector method
+    class(SDC_Options),            intent(in) :: opt       !< SDC options
+    type(SDC_Method) :: this
+
+    call Init_SDC_Method(this, problem, flow_op, predictor, corrector, opt)
+
+  end function New_SDC_Method
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of SDC_Method object
+  !>
+  !> Currently the predictor and the corrector need to be initialized outside.
+  !> This may change in future.
+
+  subroutine Init_SDC_Method(this, problem, flow_op, predictor, corrector, opt)
+
+    ! arguments ................................................................
+
+    class(SDC_Method), intent(inout) :: this
+
+    class(FlowProblem),    target, intent(in) :: problem   !< flow problem
+    class(FlowOperators),  target, intent(in) :: flow_op   !< flow operators
+    class(TimeIntegrator), target, intent(in) :: predictor !< predictor method
+    class(SDC_Corrector),  target, intent(in) :: corrector !< corrector method
+    class(SDC_Options),            intent(in) :: opt       !< SDC options
+
+    ! local variables ..........................................................
+
+    real(RNP), allocatable :: x (:), w (:)
+    real(RNP), allocatable :: xs(:), ws(:,:)
+    integer :: i, j, k, n_sub
+
+    ! prerequisites ............................................................
+
+    n_sub = max(1, opt % n_sub)
+
+    ! GLL points and weights
+    allocate(x(0:n_sub), source = GLL_Points(n_sub))
+    allocate(w(0:n_sub), source = GLL_Weights(x))
+
+    ! workspace
+    allocate(xs, mold=x)
+    allocate(ws(0:n_sub, n_sub))
+
+    ! components ...............................................................
+
+    this % problem => problem
+    this % flow_op => flow_op
+
+    this % predictor = predictor
+    this % corrector = corrector
+
+    this % n_sub = opt % n_sub
+
+    if (opt % n_sweep >= 0) then
+      this % n_sweep = opt % n_sweep
+    else
+      this % n_sweep = 2 * n_sub - 1
+    end if
+
+    ! subinterval weights
+    do j = 1, n_sub
+
+      ! scaled GLL points
+      do i = 0, n_sub
+        xs(i) = x(j-1) + HALF * (x(j) - x(j-1)) * (x(i) + 1)
+      end do
+
+      ! scaled GLL weights
+      do i = 0, n_sub
+        ws(i,j) = 0
+        do k = 0, n_sub
+          ws(i,j) = ws(i,j) + w(k) * GLL_Polynomial(i, x, xs(k))
+        end do
+      end do
+
+    end do
+
+    call move_alloc(x , this % xi)
+    call move_alloc(ws, this % ws)
+
+  end subroutine Init_SDC_Method
+
+  !-----------------------------------------------------------------------------
+  !> Returns the number of subintervals
+
+  pure integer function NumberOfSubintervals(this) result(n_sub)
+    class(SDC_Method), intent(in) :: this
+
+    n_sub = this % n_sub
+
+  end function NumberOfSubintervals
+
+  !-----------------------------------------------------------------------------
+  !> Returns the intermediate times within a given time interval
+
+  pure function IntermediateTimes(this, t, dt) result(ti)
+    class(SDC_Method), intent(in) :: this
+    real(RNP), intent(in)  :: t                !< start of the time interval
+    real(RNP), intent(in)  :: dt               !< length of the time interval
+    real(RNP)              :: ti(0:this%n_sub) !< intermediate times
+
+    real(RNP) :: c
+    integer   :: m, n
+
+    c = dt / 2
+    n = this % n_sub
+
+    ti(0) = t
+    do m = 1, n - 1
+      ti(m) = t + c * (this % xi(m) + 1)
+    end do
+    ti(n) = t + dt
+
+  end function IntermediateTimes
+
+  !-----------------------------------------------------------------------------
+  !> SDC time step
+
+  subroutine TimeStep(this, t, dt, u, standby)
+
+    ! arguments ................................................................
+
+    class(SDC_Method), intent(inout) :: this         !< (flow_op may change)
+    real(RNP),         intent(inout) :: t            !< time
+    real(RNP),         intent(in)    :: dt           !< time step size
+    real(RNP),         intent(inout) :: u(:,:,:,:,:) !< solution
+    logical, optional, intent(in)    :: standby      !< reuse workspace [F]
+
+    ! local variables  .........................................................
+
+    real(RNP), dimension(:),           allocatable, save :: t_, dt_
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: u_
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_ex_, F_im_, F_, S_
+    real(RNP), dimension(:,:,:,:,:),   allocatable, save :: F_ex_0_old
+    real(RNP), dimension(:,:,:,:,:),   allocatable, save :: F_im_0_old
+
+    real(RNP), allocatable, target, save :: nu_(:,:,:,:,:,:)
+    real(RNP), contiguous, pointer, save :: nu_i(:,:,:,:,:) => null()
+
+    real(RNP) :: t_0
+    integer   :: np, ne, nc, n_sub, n_sweep
+    integer   :: i, n
+
+    !---------------------------------------------------------------------------
+    ! initialization
+
+    np = size(u,1)
+    ne = size(u,4)
+    nc = size(u,5)
+
+    n_sub   = this % n_sub
+    n_sweep = this % n_sweep
+
+    !$omp barrier
+    !$omp master
+
+    if (allocated(u_)) then
+      if (any(shape(u_) /= [np,np,np,ne,nc,n_sub])) then
+        deallocate(t_, dt_)
+        deallocate(u_, F_ex_, F_im_, F_, S_)
+        deallocate(F_ex_0_old, F_im_0_old)
+        if (allocated(nu_)) deallocate(nu_)
+      end if
+    end if
+
+    if (.not. allocated(u_)) then
+
+      allocate(t_(0:n_sub), source = this % IntermediateTimes(t, dt))
+      dt_ = t_(1:n_sub) - t_(0:n_sub-1)
+
+      allocate(u_(np,np,np,ne,nc,0:n_sub))
+      allocate(F_ex_, F_im_, F_, mold = u_)
+      allocate(S_(np,np,np,ne,nc,1:n_sub))
+      allocate(F_ex_0_old(np,np,np,ne,nc))
+      allocate(F_im_0_old(np,np,np,ne,nc))
+      !$acc enter data create(t_,dt_,u_,...)
+
+      if (this % problem % HasVariableProperties()) then
+        allocate(nu_, mold = u_)
+        !$acc enter data create(nu_)
+      end if
+
+    end if
+    !$omp end master
+    !$omp barrier
+
+    !---------------------------------------------------------------------------
+    ! predictor
+
+    ! u⁰(t_0) = u(t_0)
+    call SetArray(u_(:,:,:,:,:,0), u(:,:,:,:,:), multi=.true.)
+
+    do i = 1, n_sub
+      t_0 = t_(i-1)
+      call SetArray(u_(:,:,:,:,:,i), u_(:,:,:,:,:,i-1), multi=.true.)
+      call this % predictor % TimeStep(t_0, dt_(i), u_(:,:,:,:,:,i))
+    end do
+
+    !---------------------------------------------------------------------------
+    ! corrector
+
+    ! prerequisites ............................................................
+
+    do i = 0, n_sub
+
+      ! initialize variable diffusivity
+      if (allocated(nu_)) then
+        nu_i => nu_(:,:,:,:,:,i)
+        call this % problem %                  &
+               GetDiffusivity( this%flow_op%x  &
+                             , t_(i)           &
+                             , u_(:,:,:,:,:,i) &
+                             , nu_i            )
+      end if
+
+      ! RHS for corrector and subintegrals
+      call this % corrector %                           &
+             GetCorrectorRHS( t_(i)                     &
+                            , nu_i                      &
+                            , u    = u_   (:,:,:,:,:,i) &
+                            , F_ex = F_ex_(:,:,:,:,:,i) &
+                            , F_im = F_im_(:,:,:,:,:,i) &
+                            , F    = F_   (:,:,:,:,:,i) )
+
+    end do
+
+    ! correction sweeps ........................................................
+
+    Sweeps: do n = 1, n_sweep
+
+      ! subintegrals
+      do i = 1, n_sub
+        call SubIntegral(this, i, dt, F_, S_(:,:,:,:,:,i))
+      end do
+
+      call SetArray(F_ex_0_old, F_ex_(:,:,:,:,:,0), multi=.true.)
+      call SetArray(F_im_0_old, F_im_(:,:,:,:,:,0), multi=.true.)
+
+      do i = 1, n_sub
+
+        t_0 = t_(i-1)
+
+        ! correction
+        call this % corrector %                                  &
+               CorrectionStep( t          = t_0                  &
+                             , dt         = dt_(i)               &
+                             , F_ex_0_old = F_ex_0_old           &
+                             , F_ex_0     = F_ex_(:,:,:,:,:,i-1) &
+                             , F_ex       = F_ex_(:,:,:,:,:,i)   &
+                             , F_im_0_old = F_im_0_old           &
+                             , F_im_0     = F_im_(:,:,:,:,:,i-1) &
+                             , F_im       = F_im_(:,:,:,:,:,i)   &
+                             , S          = S_   (:,:,:,:,:,i)   &
+                             , u_0        = u_   (:,:,:,:,:,i-1) &
+                             , u          = u_   (:,:,:,:,:,i)   &
+                             , nu         = nu_i                 )
+
+        ! save old RHS
+        if (i < n_sub) then
+          call SetArray(F_ex_0_old, F_ex_(:,:,:,:,:,i), multi=.true.)
+          call SetArray(F_im_0_old, F_im_(:,:,:,:,:,i), multi=.true.)
+        end if
+
+        if (n == n_sweep) exit
+
+        ! update RHS
+        call this % corrector %                           &
+               GetCorrectorRHS( t_(i)                     &
+                              , nu_i                      &
+                              , u    = u_   (:,:,:,:,:,i) &
+                              , F_ex = F_ex_(:,:,:,:,:,i) &
+                              , F_im = F_im_(:,:,:,:,:,i) &
+                              , F    = F_   (:,:,:,:,:,i) )
+
+        ! update variable diffusivity
+        if (associated(nu_i)) then
+          call this % problem %                  &
+                 GetDiffusivity( this%flow_op%x  &
+                               , t_(i)           &
+                               , u_(:,:,:,:,:,i) &
+                               , nu_i            )
+        end if
+
+      end do
+
+    end do Sweeps
+
+    ! clean-up .................................................................
+
+    ! keep workspace in case of standby
+    if (present(standby)) then
+      if (standby) return
+    end if
+
+    !$omp barrier
+    !$omp master
+    if (allocated(u_)) then
+      !$acc exit data delete(...)
+      deallocate(t_, dt_)
+      deallocate(u_, F_ex_, F_im_, F_, S_)
+      deallocate(F_ex_0_old, F_im_0_old)
+      if (allocated(nu_)) then
+        deallocate(nu_)
+      end if
+      nu_i => null()
+    end if
+    !$omp end master
+
+  end subroutine TimeStep
+
+  !=============================================================================
+  ! SDC_Method: auxiliary procedures
+
+  !-----------------------------------------------------------------------------
+  !> Evaluation of subintervals for arrays of 3D mesh variables
+
+  subroutine SubIntegral(sdc, m, dt, f, r)
+    class(SDC_Method), intent(in) :: sdc
+    integer,   intent(in)  :: m               !< interval ID, 0 < m <= sdc%n_sub
+    real(RNP), intent(in)  :: dt              !< length of the time interval
+    real(RNP), intent(in)  :: f(:,:,:,:,:,0:) !< integrand at intermediate times
+    real(RNP), intent(out) :: r(:,:,:,:,:)    !< result
+
+    integer :: i
+
+    ! r = 0
+    call SetArray(r, ZERO, multi=.true.)
+
+    ! r = dt/2 * sum(ws(:,m) * f(*,:))
+    do i = 0, sdc%n_sub
+      call MergeArrays(ONE, r, dt/2 * sdc%ws(i,m), f(:,:,:,:,:,i), multi=.true.)
+    end do
+
+  end subroutine SubIntegral
+
+  !=============================================================================
+
+end module CART__ISP_Flow__SDC_Method

@@ -32,7 +32,7 @@ module CART__ISP_Flow__SDC_Corrector__Euler_DS
   type, extends(SDC_Corrector) :: SDC_Corrector_EulerDS
   contains
     procedure :: Init_SDC_Corrector_EulerDS
-    procedure :: GetCorrectionRHS
+    procedure :: GetCorrectorRHS
     procedure :: CorrectionStep
   end type SDC_Corrector_EulerDS
 
@@ -68,72 +68,54 @@ contains
   end subroutine Init_SDC_Corrector_EulerDS
 
   !-----------------------------------------------------------------------------
-  !> Computes F_ex and F_im as defined in the corrector
+  !> Computes F_ex and F_im as defined in the corrector and F for subintegrals
   !>
   !> For IMEX Euler with dual splitting:
   !>
-  !>       F_ex = -∇⋅(v_ex u_ex)
-  !>       F_im =  ∇⋅(ν ∇u_im) + f(x,t)
+  !>       F_ex = -∇⋅(v u) + ∇⋅[ν(∇v_ex)ᵀ]
+  !>       F_im =  ∇⋅(ν ∇u)
+  !>       F    =  F_ex + F_im - χ∇ν(∇·v) + f(x,t)
   !>
-  !> supplemented by the following additions for velocity
-  !>
-  !>       F_ex += ∇⋅[ν(∇v_ex)ᵀ]
+  !> Note
+  !>  *  last terms in F_ex and F for velocity only
 
-  subroutine GetCorrectionRHS(this, t, nu, u_ex, u_im, F_ex, F_im)
+  subroutine GetCorrectorRHS(this, t, nu, u, F_ex, F_im, F)
 
     class(SDC_Corrector_EulerDS), intent(in) :: this
     real(RNP), intent(in)  :: t                !< time
     real(RNP), intent(in)  :: nu   (:,:,:,:,:) !< diffusivity
-    real(RNP), intent(in)  :: u_ex (:,:,:,:,:) !< u applied in F_ex
-    real(RNP), intent(in)  :: u_im (:,:,:,:,:) !< u applied in F_im and F
+    real(RNP), intent(in)  :: u    (:,:,:,:,:) !< u
     real(RNP), intent(out) :: F_ex (:,:,:,:,:) !< explicit RHS for corrector
     real(RNP), intent(out) :: F_im (:,:,:,:,:) !< implicit RHS for corrector
+    real(RNP), intent(out) :: F    (:,:,:,:,:) !< RHS for subintegrals
 
     optional :: nu
 
-    ! local variables  .........................................................
-
-    real(RNP), allocatable, save :: F_w(:,:,:,:,:)
-
-    ! initialization ...........................................................
+    real(RNP), allocatable, save :: F_d2(:,:,:,:,:)
 
     !$omp single
-    allocate(F_w, mold = F_ex)
+    allocate(F_d2, mold = u)
     !$omp end single
 
-    ! F_ex .....................................................................
-
     call TimeDerivative( this % problem  &
                        , this % flow_op  &
                        , t               &
-                       , u_c  = u_ex     &
-                       , u_d  = u_ex     &
+                       , u_c  = u        &
+                       , u_d  = u        &
                        , nu   = nu       &
-                       , F_c  = F_ex     & ! F_ex = -∇⋅(v_ex u_ex)
-                       , F_d2 = F_w      ) ! F_w  =  ∇⋅[ν(∇v_ex)ᵀ]
+                       , F    = F        &
+                       , F_c  = F_ex     & ! -∇⋅(v u)
+                       , F_d1 = F_im     & !  ∇⋅(ν ∇u)
+                       , F_d2 = F_d2     ) !  ∇⋅[ν(∇v_ex)ᵀ]
 
-    call MergeArrays(ONE, F_ex, ONE, F_w, multi=.true.) ! F_ex += F_w ≡ F_d2
-
-    ! F_im .....................................................................
-
-    call TimeDerivative( this % problem  &
-                       , this % flow_op  &
-                       , t               &
-                       , u_d  = u_im     &
-                       , nu   = nu       &
-                       , F_d1 = F_im     & ! F_im = ∇⋅(ν(∇u_im))
-                       , F_s  = F_w      ) ! F_w  = f(x,t)
-
-    call MergeArrays(ONE, F_im, ONE, F_w, multi=.true.) ! F_im += F_w ≡ F_s
-
-    ! clean-up .................................................................
+    call MergeArrays(ONE, F_ex, ONE, F_d2, multi=.true.)
 
     !$omp barrier
     !$omp master
-    deallocate(F_w)
+    deallocate(F_d2)
     !$omp end master
 
-  end subroutine GetCorrectionRHS
+  end subroutine GetCorrectorRHS
 
   !-----------------------------------------------------------------------------
   !> Execution of a single correction step

@@ -21,8 +21,8 @@ module CART__ISP_Flow__SDC_Corrector
     class(FlowOperators), pointer :: flow_op => null() !< flow operators
   contains
     procedure :: Init_SDC_Corrector
-    procedure(GetCorrectionRHS), deferred :: GetCorrectionRHS
-    procedure(CorrectionStep),   deferred :: CorrectionStep
+    procedure(GetCorrectorRHS), deferred :: GetCorrectorRHS
+    procedure(CorrectionStep),  deferred :: CorrectionStep
   end type SDC_Corrector
 
   abstract interface
@@ -30,20 +30,20 @@ module CART__ISP_Flow__SDC_Corrector
     !---------------------------------------------------------------------------
     !> Computes F_ex and F_im as defined in the corrector
 
-    subroutine GetCorrectionRHS(this, t, nu, u_ex, u_im, F_ex, F_im)
+    subroutine GetCorrectorRHS(this, t, nu, u, F_ex, F_im, F)
       import
 
       class(SDC_Corrector), intent(in) :: this
       real(RNP), intent(in)  :: t                !< time
       real(RNP), intent(in)  :: nu   (:,:,:,:,:) !< diffusivity
-      real(RNP), intent(in)  :: u_ex (:,:,:,:,:) !< u applied in F_ex
-      real(RNP), intent(in)  :: u_im (:,:,:,:,:) !< u applied in F_im and F
+      real(RNP), intent(in)  :: u    (:,:,:,:,:) !< u
       real(RNP), intent(out) :: F_ex (:,:,:,:,:) !< explicit RHS for corrector
       real(RNP), intent(out) :: F_im (:,:,:,:,:) !< implicit RHS for corrector
+      real(RNP), intent(out) :: F    (:,:,:,:,:) !< RHS for subintegrals
 
       optional :: nu
 
-    end subroutine GetCorrectionRHS
+    end subroutine GetCorrectorRHS
 
     !---------------------------------------------------------------------------
     !> Execution of a single correction step
