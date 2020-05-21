@@ -26,6 +26,7 @@ module CART__ISP_Flow__Time_Integrator__Euler_DS
   private
 
   public :: TimeIntegrator_EulerDS
+  public :: TimeIntegrator_EulerDS_Options
 
   !-----------------------------------------------------------------------------
   !> IMEX Euler method for incompressible flows with dual splitting
@@ -41,29 +42,40 @@ module CART__ISP_Flow__Time_Integrator__Euler_DS
     module procedure New_TimeIntegrator_EulerDS
   end interface
 
+  !-----------------------------------------------------------------------------
+  !> Type for providing Euler-DS time-integrator options (none, so far)
+
+  type, extends(TimeIntegratorOptions) :: TimeIntegrator_EulerDS_Options
+  end type TimeIntegrator_EulerDS_Options
+
 contains
 
   !-----------------------------------------------------------------------------
-  !> Constructor for objects of type TimeIntegrator_EulerDS
+  !> Constructor for objects of type TimeIntegrator_EulerDS with options
 
-  function New_TimeIntegrator_EulerDS(problem, flow_op) result(this)
-    class(FlowProblem),   target,  intent(in)    :: problem !< flow problem
-    class(FlowOperators), target,  intent(in)    :: flow_op !< flow operators
+  function New_TimeIntegrator_EulerDS(problem, flow_op, opt) result(this)
+    class(FlowProblem),                              intent(in) :: problem
+    class(FlowOperators),                            intent(in) :: flow_op
+    class(TimeIntegrator_EulerDS_Options), optional, intent(in) :: opt
     type(TimeIntegrator_EulerDS) :: this
 
-    call Init_TimeIntegrator_EulerDS(this, problem, flow_op)
+    call Init_TimeIntegrator_EulerDS(this, problem, flow_op, opt)
 
   end function New_TimeIntegrator_EulerDS
 
   !-----------------------------------------------------------------------------
   !> Initialization of a Init_TimeIntegrator_EulerDS object
 
-  subroutine Init_TimeIntegrator_EulerDS(this, problem, flow_op)
-    class(TimeIntegrator_EulerDS), intent(inout) :: this
-    class(FlowProblem),   target,  intent(in)    :: problem !< flow problem
-    class(FlowOperators), target,  intent(in)    :: flow_op !< flow operators
+  subroutine Init_TimeIntegrator_EulerDS(this, problem, flow_op, opt)
+    class(TimeIntegrator_EulerDS),                   intent(inout) :: this
+    class(FlowProblem),                              intent(in)    :: problem
+    class(FlowOperators),                            intent(in)    :: flow_op
+    class(TimeIntegrator_EulerDS_Options), optional, intent(in)    :: opt
 
     call this % Init_TimeIntegrator(problem, flow_op)
+
+    ! no options, so far
+    if (present(opt)) return
 
   end subroutine Init_TimeIntegrator_EulerDS
 

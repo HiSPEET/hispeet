@@ -12,6 +12,7 @@ module CART__ISP_Flow__Time_Integrator
   private
 
   public :: TimeIntegrator
+  public :: TimeIntegratorOptions
 
   !-----------------------------------------------------------------------------
   !> Abstract type of a one-step time integrator for incompressible flow
@@ -39,6 +40,12 @@ module CART__ISP_Flow__Time_Integrator
 
   end interface
 
+  !-----------------------------------------------------------------------------
+  !> Base type for providing time integrator options
+
+  type TimeIntegratorOptions
+  end type TimeIntegratorOptions
+
 contains
 
   !-----------------------------------------------------------------------------
@@ -46,8 +53,8 @@ contains
 
   subroutine Init_TimeIntegrator(this, problem, flow_op)
     class(TimeIntegrator),        intent(inout) :: this
-    class(FlowProblem),   target, intent(in)    :: problem !< flow problem
-    class(FlowOperators), target, intent(in)    :: flow_op !< flow operators
+    class(FlowProblem),   target, intent(in)    :: problem    !< flow problem
+    class(FlowOperators), target, intent(in)    :: flow_op    !< flow operators
 
     this % problem => problem
     this % flow_op => flow_op
