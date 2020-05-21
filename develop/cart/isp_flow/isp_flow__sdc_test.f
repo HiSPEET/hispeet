@@ -39,6 +39,7 @@ program ISP_Flow__SDC_Test
   use CART__ISP_Flow__Time_Integrator                 ! TI base type
   use CART__ISP_Flow__Time_Integrator__Euler_DS       ! new standalone Euler
   use CART__ISP_Flow__Time_Integrator__Runge_Kutta_DS ! new standalone Runge Kutta
+  use CART__ISP_Flow__SDC_Method                      ! new SDC method
 
   implicit none
 
@@ -101,9 +102,17 @@ program ISP_Flow__SDC_Test
   real(RNP) :: c_diff = -1           ! max diffusion number (< 0 if unlimited)
   integer   :: nt_max = huge(1)      ! max number of time steps
 
-  type(SDC_Options3D) :: sdc_opt
+  namelist /time_integration/ t_end, dt, c_conv, c_diff, nt_max
 
-  namelist /time_integration/ t_end, dt, c_conv, c_diff, nt_max, sdc_opt
+  integer :: time_method = 1
+  ! 1  Euler
+  ! 2  Trapezoidal Rule
+  ! 3  Runge-Kutta
+  ! 4  SDC - original
+  ! 5  SDC - new
+
+  namelist /time_integration/ time_method
+
 
   ! flow problem ...............................................................
 
@@ -119,10 +128,17 @@ program ISP_Flow__SDC_Test
   ! operators ..................................................................
 
   type(FlowOperators)   :: flow_op
-  type(SDC_Method3D)    :: sdc
 
-  ! standalone time integrator, switched on with sdc_opt%n_sub = 0 or -1
-  class(TimeIntegrator), allocatable :: time_integrator
+  ! standalone time integrator
+  class(TimeIntegrator), allocatable        :: time_integrator
+  type(TimeIntegrator_EulerDS_Options)      :: eu_ds_opt
+  type(TimeIntegrator_RungeKuttaDS_Options) :: rk_ds_opt
+  namelist /time_integration/ eu_ds_opt, rk_ds_opt
+
+  ! original SDC
+  type(SDC_Method3D)  :: sdc_orig
+  type(SDC_Options3D) :: sdc_orig_opt
+  namelist /time_integration/ sdc_orig_opt
 
   ! variables ..................................................................
 
@@ -211,8 +227,9 @@ program ISP_Flow__SDC_Test
   call pmg_u_opt % Bcast(0, comm)
   call pmg_p_opt % Bcast(0, comm)
 
-  ! SDC parameters
-  call sdc_opt % Bcast(0, comm)
+  ! time integration parameters
+  call XMPI_Bcast(time_method, 0, comm)
+  call sdc_orig_opt % Bcast(0, comm)
 
   ! flow problem ...............................................................
 
@@ -264,15 +281,17 @@ program ISP_Flow__SDC_Test
                          , flow_op_control            &
                          )
 
-  select case (sdc_opt % n_sub)
-  case(1:)
-    sdc = SDC_Method3D(EulerVC, EulerVC, sdc_opt)
-  case(0)
+  select case(time_method)
+  case(1)
     time_integrator = TimeIntegrator_EulerDS(problem, flow_op)
-  case(-1)
-    control_file = 'runge_kutta_parameters' ! file where are  RK parameters.
-    time_integrator = TimeIntegrator_RungeKuttaDS(problem, flow_op, &
-                                                  file = trim(control_file)//'.prm' )
+  case(2)
+    ! Trapezoidal Rule
+  case(3)
+    time_integrator = TimeIntegrator_RungeKuttaDS(problem, flow_op, rk_ds_opt)
+  case(4)
+    sdc_orig = SDC_Method3D(EulerVC, EulerVC, sdc_orig_opt)
+  case(5)
+    ! SDC - new
   end select
 
   ! variables and initial values ...............................................
@@ -312,14 +331,15 @@ program ISP_Flow__SDC_Test
       end if
     end if
 
-    select case (sdc % n_sub)
-    case(1:)
-      call sdc % TimeStep( problem, flow_op, t, dt, u, F, first, last)
-    case(0)
+    select case(time_method)
+    case(1:3)
       call time_integrator % TimeStep(t, dt, u)
-    case(-1)
-      call time_integrator % TimeStep(t, dt, u)
+    case(4)
+      call sdc_orig % TimeStep( problem, flow_op, t, dt, u, F, first, last)
+    case(5)
+      ! SDC - new
     case default
+      ! using old Euler as the fall-back
       call SetArray(u_0, u, multi=.true.)
       call EulerVC(problem, flow_op, t, dt, u_0, u)
     end select
@@ -644,9 +664,9 @@ subroutine Evaluation(failed, last)
     if (head) then
 
       write(*,'(A)')    '#'
-      write(*,'(A,I0)') '# sdc_opt % n_sub   = ', sdc_opt  % n_sub
-      write(*,'(A,I0)') '# n_sub   = ', sdc % n_sub
-      write(*,'(A,I0)') '# n_sweep = ', sdc % n_sweep
+      write(*,'(A,I0)') '# sdc_orig_opt % n_sub   = ', sdc_orig_opt  % n_sub
+      write(*,'(A,I0)') '# n_sub   = ', sdc_orig % n_sub
+      write(*,'(A,I0)') '# n_sweep = ', sdc_orig % n_sweep
       write(*,'(A)')    '#'
 
       write(*,'(A,  6X)',advance='NO') '#'

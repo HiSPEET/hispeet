@@ -53,11 +53,15 @@
   dt     = 0.002
  !c_conv = 1.0
  !c_diff = 100
-  nt_max = 100000
+  nt_max = 10!0000
 !
-! Time Integration method: SDC (n_sub >=1), IMEX RK (n_sub=-1), IMEX Euler ( n_sub=0)
-
-  sdc_opt%n_sub   =  3
-  sdc_opt%n_sweep =  2
+! time-integration method: 1 Euler-DS, 2 TR-DS, 3 RK-DS, 4 SDC-orig, 5 SDC-new
+  time_method = 1
+!
+  rk_ds_opt%n_stage = 3
+  rk_ds_opt%method  = 1
+!
+  sdc_orig_opt%n_sub   =  3
+  sdc_orig_opt%n_sweep =  2
 /
 
