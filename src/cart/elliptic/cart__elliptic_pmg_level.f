@@ -252,8 +252,8 @@ subroutine GetWorkspace(this)
 
     if (.not. allocated(this % u)) then
       allocate(this % u(0:po, 0:po, 0:po, ne))
-      allocate(this % f, mold = this % u)
-      allocate(this % v, mold = this % u)
+      allocate(this % f(0:po, 0:po, 0:po, ne))
+      allocate(this % v(0:po, 0:po, 0:po, ne))
     end if
 
   end associate

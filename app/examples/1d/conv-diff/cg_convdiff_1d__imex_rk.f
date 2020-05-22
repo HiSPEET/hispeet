@@ -90,7 +90,7 @@ subroutine Init_ConvDiff_IMEX_RK(this, po, ne, ns, method)
   if (allocated(this % F_ex)) deallocate(this % F_ex)
 
   allocate(this % F_ex(0:po, ne, ns))
-  allocate(this % F_im, mold = this%F_ex)
+  allocate(this % F_im(0:po, ne, ns))
 
 end subroutine Init_ConvDiff_IMEX_RK
 

@@ -273,7 +273,7 @@ subroutine DivergencePenalty(mesh, Ms, Ds, gamma, v, w)
   ! NB: this should be replaced by a single grad-div TPO
 
   ! transposed element gradient operator
-  allocate(Dt, mold = Ds)
+  allocate(Dt(0:po,0:po))
   do j = 0, po
   do i = 0, po
     Dt(i,j) = Ms(j) * Ds(j,i) / Ms(i)

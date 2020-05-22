@@ -89,7 +89,7 @@ module subroutine SetProblem_VI(this, lambda, nu, bc)
       if (any(shape(this % nu_vi) /= shape(nu))) deallocate(this % nu_vi)
     end if
     if (.not. allocated(this % nu_vi)) then
-      allocate(this % nu_vi, mold = nu)
+      allocate(this % nu_vi(0:po,0:po,0:po,mesh%ne))
     end if
 
     ! (re)allocate nu_hat, if necessary

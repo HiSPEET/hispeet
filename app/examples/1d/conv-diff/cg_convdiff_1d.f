@@ -219,15 +219,15 @@ program CG_ConvDiff_1D
 
   ! workspace ..................................................................
 
-  allocate(M(0:po,ne))
-  allocate(x,    mold = M) ! join
-  allocate(w,    mold = M) ! these
-  allocate(u,    mold = M) ! once
-  allocate(u0,   mold = M) ! supported
-  allocate(u1,   mold = M) ! by
-  allocate(u2,   mold = M) ! ..
-  allocate(u_ex, mold = M) ! ..
-  allocate(err,  mold = M) ! pgfortran
+  allocate(M    (0:po,ne))
+  allocate(x    (0:po,ne)) ! since mold is dangerous with lower bound of 0
+  allocate(w    (0:po,ne)) !
+  allocate(u    (0:po,ne)) !
+  allocate(u0   (0:po,ne)) !
+  allocate(u1   (0:po,ne)) !
+  allocate(u2   (0:po,ne)) !
+  allocate(u_ex (0:po,ne)) !
+  allocate(err  (0:po,ne)) !
 
   ! mesh and operators .........................................................
 
