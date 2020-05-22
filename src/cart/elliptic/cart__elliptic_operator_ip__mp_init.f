@@ -126,7 +126,7 @@ module subroutine Init_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
 
   po = this % eop % po
 
-  allocate(this % nu_vi, mold = nu)
+  allocate(this % nu_vi(0:po,0:po,0:po,mesh%ne))
   call SetArray(this % nu_vi, nu)
 
   ! start generating traces of nu

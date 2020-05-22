@@ -6,6 +6,7 @@
 
 module CART__ISP_Flow__Time_Integrator
   use Kind_Parameters, only: RNP
+  use XMPI
   use ISP_Flow_Problem
   use CART__ISP_Flow__Operators
   implicit none
@@ -44,9 +45,14 @@ module CART__ISP_Flow__Time_Integrator
   !> Base type for providing time integrator options
 
   type TimeIntegratorOptions
+  contains
+    procedure :: Bcast => TimeIntegratorOptions_Bcast
   end type TimeIntegratorOptions
 
 contains
+
+  !=============================================================================
+  ! TimeIntegrator: type-bound procedures
 
   !-----------------------------------------------------------------------------
   !> Initialization of TimeIntegrator object
@@ -60,6 +66,22 @@ contains
     this % flow_op => flow_op
 
   end subroutine Init_TimeIntegrator
+
+  !=============================================================================
+  ! TimeIntegratorOptions: type-bound procedures
+
+  !-----------------------------------------------------------------------------
+  !> MPI broadcasting of time-integrator options
+
+  subroutine TimeIntegratorOptions_Bcast(this, root, comm)
+    class(TimeIntegratorOptions), intent(inout) :: this
+    integer,        intent(in) :: root !< rank of broadcast root
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
+
+    ! nothing to broadcast, so far
+    if (root == 0 .or. comm == MPI_COMM_WORLD) return
+
+  end subroutine TimeIntegratorOptions_Bcast
 
   !=============================================================================
 

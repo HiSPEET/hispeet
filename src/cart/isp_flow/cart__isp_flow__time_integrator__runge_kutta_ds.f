@@ -42,6 +42,7 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta_DS
   use Constants,         only: ONE, ZERO
   use Execution_Control, only: Error
 
+  use XMPI
   use Array_Assignments
   use IMEX_Runge_Kutta_Method
 
@@ -83,9 +84,14 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta_DS
   type, extends(TimeIntegratorOptions) :: TimeIntegrator_RungeKuttaDS_Options
     integer :: n_stage = 3 !< number of stages
     integer :: method  = 1 !< RK method selector, if more than one exist
+  contains
+    procedure :: Bcast => TimeIntegrator_RungeKuttaDS_Options_Bcast
   end type TimeIntegrator_RungeKuttaDS_Options
 
 contains
+
+  !=============================================================================
+  ! TimeIntegrator_RungeKuttaDS: type-bound procedures
 
   !-----------------------------------------------------------------------------
   !> Constructor for objects of type TimeIntegrator_RungeKuttaDS
@@ -447,6 +453,29 @@ contains
 
  end subroutine RungeKuttaStage
 
-!=============================================================================
+  !=============================================================================
+  ! TimeIntegrator_RungeKuttaDS_Options: type-bound procedures
+
+  !-----------------------------------------------------------------------------
+  !> MPI broadcasting of time-integrator options
+
+  subroutine TimeIntegrator_RungeKuttaDS_Options_Bcast(this, root, comm)
+    class(TimeIntegrator_RungeKuttaDS_Options), intent(inout) :: this
+    integer,        intent(in) :: root !< rank of broadcast root
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
+
+    type(MPI_Request)  :: request(2)
+    type(MPI_Status)   :: stat(size(request))
+    integer :: n
+
+    n = 1
+    call XMPI_Ibcast( this % n_stage, root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % method , root, comm, request(n) )
+
+    call MPI_Waitall(n, request, stat)
+
+  end subroutine TimeIntegrator_RungeKuttaDS_Options_Bcast
+
+  !===========================================================================
 
 end module CART__ISP_Flow__Time_Integrator__Runge_Kutta_DS

@@ -137,8 +137,7 @@ contains
     allocate(w(0:n_sub), source = GLL_Weights(x))
 
     ! workspace
-    allocate(xs, mold=x)
-    allocate(ws(0:n_sub, n_sub))
+    allocate(xs(0:n_sub), ws(0:n_sub, n_sub))
 
     ! components ...............................................................
 
@@ -267,15 +266,17 @@ contains
       allocate(t_(0:n_sub), source = this % IntermediateTimes(t, dt))
       dt_ = t_(1:n_sub) - t_(0:n_sub-1)
 
-      allocate(u_(np,np,np,ne,nc,0:n_sub))
-      allocate(F_ex_, F_im_, F_, mold = u_)
-      allocate(S_(np,np,np,ne,nc,1:n_sub))
-      allocate(F_ex_0_old(np,np,np,ne,nc))
-      allocate(F_im_0_old(np,np,np,ne,nc))
+      allocate(u_         (np,np,np,ne,nc,0:n_sub))
+      allocate(F_ex_      (np,np,np,ne,nc,0:n_sub))
+      allocate(F_im_      (np,np,np,ne,nc,0:n_sub))
+      allocate(F_         (np,np,np,ne,nc,0:n_sub))
+      allocate(S_         (np,np,np,ne,nc,1:n_sub))
+      allocate(F_ex_0_old (np,np,np,ne,nc))
+      allocate(F_im_0_old (np,np,np,ne,nc))
       !$acc enter data create(t_,dt_,u_,...)
 
       if (this % problem % HasVariableProperties()) then
-        allocate(nu_, mold = u_)
+        allocate(nu_(np,np,np,ne,nc,0:n_sub))
         !$acc enter data create(nu_)
       end if
 

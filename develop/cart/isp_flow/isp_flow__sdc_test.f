@@ -229,6 +229,7 @@ program ISP_Flow__SDC_Test
 
   ! time integration parameters
   call XMPI_Bcast(time_method, 0, comm)
+  call rk_ds_opt    % Bcast(0, comm)
   call sdc_orig_opt % Bcast(0, comm)
 
   ! flow problem ...............................................................

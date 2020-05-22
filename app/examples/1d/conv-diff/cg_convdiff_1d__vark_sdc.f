@@ -164,10 +164,10 @@ subroutine Init_VARK_Propagator1D(this, po, ne, t, set, range, so_p, r_ex)
 
   allocate(this % u(0:po, ne, this%n_stage))
 
-  allocate(this % F_im,   mold = this % u)
-  allocate(this % F_im_o, mold = this % u)
-  allocate(this % F_ex  , mold = this % u)
-  allocate(this % F_ex_o, mold = this % u)
+  allocate(this % F_im   (0:po, ne, this%n_stage))
+  allocate(this % F_im_o (0:po, ne, this%n_stage))
+  allocate(this % F_ex   (0:po, ne, this%n_stage))
+  allocate(this % F_ex_o (0:po, ne, this%n_stage))
 
   allocate(this % w(0:n_sub,  2:this%n_stage))
   allocate(this % S(0:po, ne, 2:this%n_stage))
