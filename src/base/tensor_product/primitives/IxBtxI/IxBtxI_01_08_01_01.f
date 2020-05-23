@@ -2,7 +2,7 @@
 !> Computes  v = α I⊗Bᵀ⊗I u + β v
 !>
 !>   * k:  block 1,  unroll 1
-!>   * j:  block 1,  unroll 4
+!>   * j:  block 1,  unroll 8
 !>   * i:  block 1,  unroll 1
 !>   * p:  block 1,  unroll 1
 !>   * using Intel SIMD directive
@@ -237,4 +237,4 @@ subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
 
 #endif
 
-end subroutine SubOp_2
+end subroutine PROC(IxBtxI__,_NB1_,_NB2_)

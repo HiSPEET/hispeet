@@ -21,9 +21,6 @@ subroutine PROC(IxBtxI_,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   integer   :: i, j, k, p, pb
 
 
-!!! alpha&beta
-
-
 #if _NB1_ > 0
 
   !$acc loop collapse(2) independent vector
@@ -34,10 +31,10 @@ subroutine PROC(IxBtxI_,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
       !$acc loop independent vector
       do i = 1, na
         do p = pb, pb + 3
-          v(i,j  ,k) = v(i,j  ,k) + B(p,j  ) * u(i,p,k)
-          v(i,j+1,k) = v(i,j+1,k) + B(p,j+1) * u(i,p,k)
-          v(i,j+2,k) = v(i,j+2,k) + B(p,j+2) * u(i,p,k)
-          v(i,j+3,k) = v(i,j+3,k) + B(p,j+3) * u(i,p,k)
+          v(i,j  ,k) = alpha * B(p,j  ) * u(i,p,k) + beta * v(i,j  ,k)
+          v(i,j+1,k) = alpha * B(p,j+1) * u(i,p,k) + beta * v(i,j+1,k)
+          v(i,j+2,k) = alpha * B(p,j+2) * u(i,p,k) + beta * v(i,j+2,k)
+          v(i,j+3,k) = alpha * B(p,j+3) * u(i,p,k) + beta * v(i,j+3,k)
         end do
       end do
     end do
@@ -50,10 +47,10 @@ subroutine PROC(IxBtxI_,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   do k = 1, nc
   do j = 1, _NB2_T4_, 4
   do i = 1, na
-    v(i,j  ,k) = v(i,j  ,k) + B(_NB1_,j  ) * u(i,nc,k)
-    v(i,j+1,k) = v(i,j+1,k) + B(_NB1_,j+1) * u(i,nc,k)
-    v(i,j+2,k) = v(i,j+2,k) + B(_NB1_,j+2) * u(i,nc,k)
-    v(i,j+3,k) = v(i,j+3,k) + B(_NB1_,j+3) * u(i,nc,k)
+    v(i,j  ,k) = alpha * B(_NB1_,j  ) * u(i,nc,k) + beta * v(i,j  ,k)
+    v(i,j+1,k) = alpha * B(_NB1_,j+1) * u(i,nc,k) + beta * v(i,j+1,k)
+    v(i,j+2,k) = alpha * B(_NB1_,j+2) * u(i,nc,k) + beta * v(i,j+2,k)
+    v(i,j+3,k) = alpha * B(_NB1_,j+3) * u(i,nc,k) + beta * v(i,j+3,k)
   end do
   end do
   end do
@@ -65,10 +62,10 @@ subroutine PROC(IxBtxI_,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   do j = 1, _NB2_T4_, 4
   do i = 1, na
     do p = _NB1_-1, _NB1_
-      v(i,j  ,k) = v(i,j  ,k) + B(p,j  ) * u(i,p,k)
-      v(i,j+1,k) = v(i,j+1,k) + B(p,j+1) * u(i,p,k)
-      v(i,j+2,k) = v(i,j+2,k) + B(p,j+2) * u(i,p,k)
-      v(i,j+3,k) = v(i,j+3,k) + B(p,j+3) * u(i,p,k)
+      v(i,j  ,k) = alpha * B(p,j  ) * u(i,p,k) + beta * v(i,j  ,k)
+      v(i,j+1,k) = alpha * B(p,j+1) * u(i,p,k) + beta * v(i,j+1,k)
+      v(i,j+2,k) = alpha * B(p,j+2) * u(i,p,k) + beta * v(i,j+2,k)
+      v(i,j+3,k) = alpha * B(p,j+3) * u(i,p,k) + beta * v(i,j+3,k)
     end do
   end do
   end do
@@ -81,10 +78,10 @@ subroutine PROC(IxBtxI_,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   do j = 1, _NB2_T4_, 4
   do i = 1, na
     do p = _NB1_-2, _NB1_
-      v(i,j  ,k) = v(i,j  ,k) + B(p,j  ) * u(i,p,k)
-      v(i,j+1,k) = v(i,j+1,k) + B(p,j+1) * u(i,p,k)
-      v(i,j+2,k) = v(i,j+2,k) + B(p,j+2) * u(i,p,k)
-      v(i,j+3,k) = v(i,j+3,k) + B(p,j+3) * u(i,p,k)
+      v(i,j  ,k) = alpha * B(p,j  ) * u(i,p,k) + beta * v(i,j  ,k)
+      v(i,j+1,k) = alpha * B(p,j+1) * u(i,p,k) + beta * v(i,j+1,k)
+      v(i,j+2,k) = alpha * B(p,j+2) * u(i,p,k) + beta * v(i,j+2,k)
+      v(i,j+3,k) = alpha * B(p,j+3) * u(i,p,k) + beta * v(i,j+3,k)
     end do
   end do
   end do
@@ -98,7 +95,7 @@ subroutine PROC(IxBtxI_,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   do k = 1, nc
   do i = 1, na
     do p = 1, _NB1_
-      v(i,_NB2_,k) = v(i,_NB2_,k) + B(p,_NB2_) * u(i,p,k)
+      v(i,_NB2_,k) = alpha * B(p,_NB2_) * u(i,p,k) + beta * v(i,_NB2_,k)
     end do
   end do
   end do
@@ -109,8 +106,8 @@ subroutine PROC(IxBtxI_,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   do k = 1, nc
   do i = 1, na
     do p = 1, _NB1_
-      v(i,_NB2_-1,k) = v(i,_NB2_-1,k) + B(p,_NB2_-1) * u(i,p,k)
-      v(i,_NB2_  ,k) = v(i,_NB2_  ,k) + B(p,_NB2_  ) * u(i,p,k)
+      v(i,_NB2_-1,k) = alpha * B(p,_NB2_-1) * u(i,p,k) + beta * v(i,_NB2_-1,k)
+      v(i,_NB2_  ,k) = alpha * B(p,_NB2_  ) * u(i,p,k) + beta * v(i,_NB2_  ,k)
     end do
   end do
   end do
@@ -121,13 +118,13 @@ subroutine PROC(IxBtxI_,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   do k = 1, nc
   do i = 1, na
     do p = 1, _NB1_
-      v(i,_NB2_-2,k) = v(i,_NB2_-2,k) + B(p,_NB2_-2) * u(i,p,k)
-      v(i,_NB2_-1,k) = v(i,_NB2_-1,k) + B(p,_NB2_-1) * u(i,p,k)
-      v(i,_NB2_  ,k) = v(i,_NB2_  ,k) + B(p,_NB2_  ) * u(i,p,k)
+      v(i,_NB2_-2,k) = alpha * B(p,_NB2_-2) * u(i,p,k) + beta * v(i,_NB2_-2,k)
+      v(i,_NB2_-1,k) = alpha * B(p,_NB2_-1) * u(i,p,k) + beta * v(i,_NB2_-1,k)
+      v(i,_NB2_  ,k) = alpha * B(p,_NB2_  ) * u(i,p,k) + beta * v(i,_NB2_  ,k)
     end do
   end do
   end do
 
 #endif
 
-end subroutine SubOp_2
+end subroutine PROC(IxBtxI_,_NB1_,_NB2_)
