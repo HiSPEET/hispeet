@@ -67,7 +67,7 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
     integer :: method   = 1 !< RK method selector, if more than one exist
     integer :: project  = 0 !< switch for additional projections
     integer :: pressure = 0 !< switch for pressure recomputation
-    integer :: variant  = 2 !< RK stage variant
+    integer :: variant  = 1 !< RK stage variant
   contains
     procedure :: Bcast => TimeIntegrator_RungeKutta_Options_Bcast
   end type TimeIntegrator_RungeKutta_Options
@@ -143,7 +143,6 @@ contains
              , b       => this % imex_rk % b       &
              , ns      => this % imex_rk % n_stage &
              , eop     => this % flow_op % eop_u   )
-p = 0
 
       ! workspace ................................................................
 
@@ -186,8 +185,8 @@ p = 0
 
       do i = 2, ns
         select case(this % variant)
-        case(2)
-          call RungeKuttaStage_v2( this, i, ts(i), dt, nu, u, u_i  &
+        case(1)
+          call RungeKuttaStage_v1( this, i, ts(i), dt, nu, u, u_i  &
                                  , F_c, F_d1, F_d2, F_d3, F_p, F_s )
         end select
       end do
@@ -239,7 +238,7 @@ p = 0
   !-----------------------------------------------------------------------------
   !> Executes one IMEX Runge-Kutta stage
 
-  subroutine RungeKuttaStage_v2( this, i, t, dt, nu, u_0, u_i    &
+  subroutine RungeKuttaStage_v1( this, i, t, dt, nu, u_0, u_i    &
                                , F_c, F_d1, F_d2, F_d3, F_p, F_s )
 
     ! arguments ................................................................
@@ -377,7 +376,7 @@ p = 0
     if (allocated(dp)) deallocate(dp)
     !$omp end master
 
-  end subroutine RungeKuttaStage_v2
+  end subroutine RungeKuttaStage_v1
 
   !=============================================================================
   ! TimeIntegrator_RungeKutta_Options: type-bound procedures

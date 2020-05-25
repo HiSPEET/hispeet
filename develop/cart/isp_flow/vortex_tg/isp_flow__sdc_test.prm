@@ -61,7 +61,7 @@
   rk_opt%n_stage = 3
   rk_opt%method  = 1
   rk_opt%project = 0
-  rk_opt%variant = 2
+  rk_opt%variant = 1
 !
   sdc_orig_opt%n_sub   =  3
   sdc_orig_opt%n_sweep =  2

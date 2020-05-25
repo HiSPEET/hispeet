@@ -359,6 +359,7 @@ program ISP_Flow__SDC_Test
       associate(p => u(:,:,:,:,4), F_v => u_e)
         call TimeDerivative(problem, flow_op, t, u_c = u, u_d = u, F = F_v)
         call PressureSolver(problem, flow_op, F_v, t, p, w)
+!p = 0
       end associate
     end if
 
