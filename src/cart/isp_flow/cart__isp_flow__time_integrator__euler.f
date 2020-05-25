@@ -7,7 +7,7 @@
 !>   * handling of variable viscosity
 !===============================================================================
 
-module CART__ISP_Flow__Time_Integrator__Euler_DS
+module CART__ISP_Flow__Time_Integrator__Euler
   use Kind_Parameters, only: RNP
   use Constants,       only: ONE, ZERO
   use Array_Assignments
@@ -25,65 +25,65 @@ module CART__ISP_Flow__Time_Integrator__Euler_DS
   implicit none
   private
 
-  public :: TimeIntegrator_EulerDS
-  public :: TimeIntegrator_EulerDS_Options
+  public :: TimeIntegrator_Euler
+  public :: TimeIntegrator_Euler_Options
 
   !-----------------------------------------------------------------------------
   !> IMEX Euler method for incompressible flows with dual splitting
 
-  type, extends(TimeIntegrator) :: TimeIntegrator_EulerDS
+  type, extends(TimeIntegrator) :: TimeIntegrator_Euler
   contains
-    procedure :: Init_TimeIntegrator_EulerDS
+    procedure :: Init_TimeIntegrator_Euler
     procedure :: TimeStep
-  end type TimeIntegrator_EulerDS
+  end type TimeIntegrator_Euler
 
   ! overloading the constructor
-  interface TimeIntegrator_EulerDS
-    module procedure New_TimeIntegrator_EulerDS
+  interface TimeIntegrator_Euler
+    module procedure New_TimeIntegrator_Euler
   end interface
 
   !-----------------------------------------------------------------------------
-  !> Type for providing Euler-DS time-integrator options (none, so far)
+  !> Type for providing Euler- time-integrator options (none, so far)
 
-  type, extends(TimeIntegratorOptions) :: TimeIntegrator_EulerDS_Options
-  end type TimeIntegrator_EulerDS_Options
+  type, extends(TimeIntegratorOptions) :: TimeIntegrator_Euler_Options
+  end type TimeIntegrator_Euler_Options
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Constructor for objects of type TimeIntegrator_EulerDS with options
+  !> Constructor for objects of type TimeIntegrator_Euler with options
 
-  function New_TimeIntegrator_EulerDS(problem, flow_op, opt) result(this)
-    class(FlowProblem),                              intent(in) :: problem
-    class(FlowOperators),                            intent(in) :: flow_op
-    class(TimeIntegrator_EulerDS_Options), optional, intent(in) :: opt
-    type(TimeIntegrator_EulerDS) :: this
+  function New_TimeIntegrator_Euler(problem, flow_op, opt) result(this)
+    class(FlowProblem),                            intent(in) :: problem
+    class(FlowOperators),                          intent(in) :: flow_op
+    class(TimeIntegrator_Euler_Options), optional, intent(in) :: opt
+    type(TimeIntegrator_Euler) :: this
 
-    call Init_TimeIntegrator_EulerDS(this, problem, flow_op, opt)
+    call Init_TimeIntegrator_Euler(this, problem, flow_op, opt)
 
-  end function New_TimeIntegrator_EulerDS
+  end function New_TimeIntegrator_Euler
 
   !-----------------------------------------------------------------------------
-  !> Initialization of a Init_TimeIntegrator_EulerDS object
+  !> Initialization of a Init_TimeIntegrator_Euler object
 
-  subroutine Init_TimeIntegrator_EulerDS(this, problem, flow_op, opt)
-    class(TimeIntegrator_EulerDS),                   intent(inout) :: this
-    class(FlowProblem),                              intent(in)    :: problem
-    class(FlowOperators),                            intent(in)    :: flow_op
-    class(TimeIntegrator_EulerDS_Options), optional, intent(in)    :: opt
+  subroutine Init_TimeIntegrator_Euler(this, problem, flow_op, opt)
+    class(TimeIntegrator_Euler),                   intent(inout) :: this
+    class(FlowProblem),                            intent(in)    :: problem
+    class(FlowOperators),                          intent(in)    :: flow_op
+    class(TimeIntegrator_Euler_Options), optional, intent(in)    :: opt
 
     call this % Init_TimeIntegrator(problem, flow_op)
 
     ! no options, so far
     if (present(opt)) return
 
-  end subroutine Init_TimeIntegrator_EulerDS
+  end subroutine Init_TimeIntegrator_Euler
 
   !-----------------------------------------------------------------------------
   !> Performs a single IMEX Euler step
 
   subroutine TimeStep(this, t, dt, u)
-    class(TimeIntegrator_EulerDS), intent(inout) :: this
+    class(TimeIntegrator_Euler), intent(inout) :: this
     real(RNP), intent(inout) :: t             !< time t₀ → t
     real(RNP), intent(in)    :: dt            !< step size ∆t = t-t₀
     real(RNP), intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
@@ -192,4 +192,4 @@ contains
 
   !=============================================================================
 
-end module CART__ISP_Flow__Time_Integrator__Euler_DS
+end module CART__ISP_Flow__Time_Integrator__Euler

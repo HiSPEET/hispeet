@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module CART__ISP_Flow__SDC_Corrector__Euler_DS
+module CART__ISP_Flow__SDC_Corrector__Euler
   use Kind_Parameters, only: RNP
   use Constants,       only: ONE, ZERO
   use Array_Assignments
@@ -24,48 +24,48 @@ module CART__ISP_Flow__SDC_Corrector__Euler_DS
   implicit none
   private
 
-  public :: SDC_Corrector_EulerDS
+  public :: SDC_Corrector_Euler
 
   !-----------------------------------------------------------------------------
   !> Abstract type of a SDC corrector for incompressible flow
 
-  type, extends(SDC_Corrector) :: SDC_Corrector_EulerDS
+  type, extends(SDC_Corrector) :: SDC_Corrector_Euler
   contains
-    procedure :: Init_SDC_Corrector_EulerDS
+    procedure :: Init_SDC_Corrector_Euler
     procedure :: GetCorrectorRHS
     procedure :: CorrectionStep
-  end type SDC_Corrector_EulerDS
+  end type SDC_Corrector_Euler
 
   ! overloading the constructor
-  interface SDC_Corrector_EulerDS
-    module procedure New_SDC_Corrector_EulerDS
+  interface SDC_Corrector_Euler
+    module procedure New_SDC_Corrector_Euler
   end interface
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Constructor for objects of type SDC_Corrector_EulerDS
+  !> Constructor for objects of type SDC_Corrector_Euler
 
-  function New_SDC_Corrector_EulerDS(problem, flow_op) result(this)
+  function New_SDC_Corrector_Euler(problem, flow_op) result(this)
     class(FlowProblem),   target,  intent(in)    :: problem !< flow problem
     class(FlowOperators), target,  intent(in)    :: flow_op !< flow operators
-    type(SDC_Corrector_EulerDS) :: this
+    type(SDC_Corrector_Euler) :: this
 
-    call Init_SDC_Corrector_EulerDS(this, problem, flow_op)
+    call Init_SDC_Corrector_Euler(this, problem, flow_op)
 
-  end function New_SDC_Corrector_EulerDS
+  end function New_SDC_Corrector_Euler
 
   !-----------------------------------------------------------------------------
-  !> Initialization of a SDC_Corrector_EulerDS object
+  !> Initialization of a SDC_Corrector_Euler object
 
-  subroutine Init_SDC_Corrector_EulerDS(this, problem, flow_op)
-    class(SDC_Corrector_EulerDS), intent(inout) :: this
+  subroutine Init_SDC_Corrector_Euler(this, problem, flow_op)
+    class(SDC_Corrector_Euler),   intent(inout) :: this
     class(FlowProblem),   target, intent(in)    :: problem !< flow problem
     class(FlowOperators), target, intent(in)    :: flow_op !< flow operators
 
     call this % Init_SDC_Corrector(problem, flow_op)
 
-  end subroutine Init_SDC_Corrector_EulerDS
+  end subroutine Init_SDC_Corrector_Euler
 
   !-----------------------------------------------------------------------------
   !> Computes F_ex and F_im as defined in the corrector and F for subintegrals
@@ -81,7 +81,7 @@ contains
 
   subroutine GetCorrectorRHS(this, t, nu, u, F_ex, F_im, F)
 
-    class(SDC_Corrector_EulerDS), intent(in) :: this
+    class(SDC_Corrector_Euler), intent(in) :: this
     real(RNP), intent(in)  :: t                !< time
     real(RNP), intent(in)  :: nu   (:,:,:,:,:) !< diffusivity
     real(RNP), intent(in)  :: u    (:,:,:,:,:) !< u
@@ -125,7 +125,7 @@ contains
                            , F_im_0_old, F_im_0, F_im  &
                            , S, u_0, u, nu             )
 
-    class(SDC_Corrector_EulerDS), intent(inout) :: this
+    class(SDC_Corrector_Euler), intent(inout) :: this
     real(RNP), intent(inout) :: t                      !< time t₀ → t
     real(RNP), intent(in)    :: dt                     !< step size ∆t = t-t₀
     real(RNP), intent(in)    :: F_ex_0_old (:,:,:,:,:) !< F^ex (t₀)ᵏ⁻¹
@@ -230,4 +230,4 @@ contains
 
   !=============================================================================
 
-end module CART__ISP_Flow__SDC_Corrector__Euler_DS
+end module CART__ISP_Flow__SDC_Corrector__Euler

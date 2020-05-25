@@ -2,7 +2,7 @@
   flow_type     =  'Vortex_TG' ! 'Vortex_TG' for 2D-case and 'Transition_TG' for 3D
   flow_case     =  'vortex_tg' ! 2D: 'vortex_tg', 3D: 'transition_tg'
   restart       =  F
-  compute_p     =  T
+  compute_p     =  F
   write_stat    =  T
   write_vtk     =  T
   eval_rms      =  T
@@ -55,11 +55,13 @@
  !c_diff = 100
   nt_max = 10!0000
 !
-! time-integration method: 1 Euler-DS, 2 TR-DS, 3 RK-DS, 4 SDC-orig, 5 SDC-new
-  time_method = 1
+! time-integration method: 1 Euler, 2 TR, 3 RK, 4 SDC-orig, 5 SDC-new
+  time_method = 3
 !
-  rk_ds_opt%n_stage = 3
-  rk_ds_opt%method  = 1
+  rk_opt%n_stage = 3
+  rk_opt%method  = 1
+  rk_opt%project = 0
+  rk_opt%variant = 2
 !
   sdc_orig_opt%n_sub   =  3
   sdc_orig_opt%n_sweep =  2

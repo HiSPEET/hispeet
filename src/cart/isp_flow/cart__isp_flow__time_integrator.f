@@ -79,7 +79,7 @@ contains
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
     ! nothing to broadcast, so far
-    if (root == 0 .or. comm == MPI_COMM_WORLD) return
+    if (root == 0 .or. comm % mpi_val == 0) return
 
   end subroutine TimeIntegratorOptions_Bcast
 

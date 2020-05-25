@@ -128,13 +128,13 @@ set(ISP_FLOW isp_flow/cart__isp_flow__boundary_values.f
              isp_flow/cart__isp_flow__projection.f
              isp_flow/cart__isp_flow__time_derivative.f
              isp_flow/cart__isp_flow__time_integrator.f
-             isp_flow/cart__isp_flow__time_integrator__euler_ds.f
-             isp_flow/cart__isp_flow__time_integrator__runge_kutta_ds.f
+             isp_flow/cart__isp_flow__time_integrator__euler.f
+             isp_flow/cart__isp_flow__time_integrator__runge_kutta.f
              isp_flow/cart__isp_flow__euler.f
              isp_flow/cart__isp_flow__sdc.f
              isp_flow/cart__isp_flow__sdc_method.f
              isp_flow/cart__isp_flow__sdc_corrector.f
-             isp_flow/cart__isp_flow__sdc_corrector__euler_ds.f
+             isp_flow/cart__isp_flow__sdc_corrector__euler.f
              )
 
 #===============================================================================

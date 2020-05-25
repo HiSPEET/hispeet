@@ -32,8 +32,8 @@ contains
 !-------------------------------------------------------------------------------
 !> Computation of time derivative to given solution
 
-subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu,  &
-                           F, F_c, F_d, F_d1, F_d2, F_d3, F_s     )
+subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu,   &
+                           F, F_c, F_d, F_d1, F_d2, F_d3, F_p, F_s )
 
   ! arguments ..................................................................
 
@@ -50,6 +50,7 @@ subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu,  &
   real(RNP),  optional, intent(out)   :: F_d1    !< diffusion part, only ∇·ν∇u
   real(RNP),  optional, intent(out)   :: F_d2    !< diffusion part, only ∇·ν(∇v)ᵀ
   real(RNP),  optional, intent(out)   :: F_d3    !< diffusion part, only -χ∇ν(∇·v)
+  real(RNP),  optional, intent(out)   :: F_p     !< pressure part
   real(RNP),  optional, intent(out)   :: F_s     !< source part
 
   dimension :: u_c  (:,:,:,:,:)
@@ -62,6 +63,7 @@ subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu,  &
   dimension :: F_d1 (:,:,:,:,:)
   dimension :: F_d2 (:,:,:,:,:)
   dimension :: F_d3 (:,:,:,:,:)
+  dimension :: F_p  (:,:,:,:,:)
   dimension :: F_s  (:,:,:,:,:)
 
   ! local variables ............................................................
@@ -156,9 +158,14 @@ subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu,  &
 
     ! pressure .................................................................
 
-    if (present(F) .and. present(p)) then
+    if (present(p)) then
       call WeakGradient(mesh, Ms, Ds, p, w)
-      call MergeArrays(ONE, F(:,:,:,:,:3), -ONE, w(:,:,:,:,:3), multi=.true.)
+      if (present(F)) then
+        call MergeArrays(ONE, F(:,:,:,:,:3), -ONE, w(:,:,:,:,:3), multi=.true.)
+      end if
+      if (present(F_p)) then
+        call MergeArrays(ONE, F_p(:,:,:,:,:3), -ONE, w(:,:,:,:,:3), multi=.true.)
+      end if
     end if
 
     ! clean-up .................................................................

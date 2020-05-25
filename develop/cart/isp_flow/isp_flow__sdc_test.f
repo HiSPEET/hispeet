@@ -34,12 +34,12 @@ program ISP_Flow__SDC_Test
   use CART__ISP_Flow__Pressure
 
   ! time integration
-  use CART__ISP_Flow__Euler                           ! old standalone Euler
-  use CART__ISP_Flow__SDC                             ! current SDC
-  use CART__ISP_Flow__Time_Integrator                 ! TI base type
-  use CART__ISP_Flow__Time_Integrator__Euler_DS       ! new standalone Euler
-  use CART__ISP_Flow__Time_Integrator__Runge_Kutta_DS ! new standalone Runge Kutta
-  use CART__ISP_Flow__SDC_Method                      ! new SDC method
+  use CART__ISP_Flow__Euler                        ! old standalone Euler
+  use CART__ISP_Flow__SDC                          ! current SDC
+  use CART__ISP_Flow__Time_Integrator              ! TI base type
+  use CART__ISP_Flow__Time_Integrator__Euler       ! new standalone Euler
+  use CART__ISP_Flow__Time_Integrator__Runge_Kutta ! new standalone Runge Kutta
+  use CART__ISP_Flow__SDC_Method                   ! new SDC method
 
   implicit none
 
@@ -130,10 +130,10 @@ program ISP_Flow__SDC_Test
   type(FlowOperators)   :: flow_op
 
   ! standalone time integrator
-  class(TimeIntegrator), allocatable        :: time_integrator
-  type(TimeIntegrator_EulerDS_Options)      :: eu_ds_opt
-  type(TimeIntegrator_RungeKuttaDS_Options) :: rk_ds_opt
-  namelist /time_integration/ eu_ds_opt, rk_ds_opt
+  class(TimeIntegrator), allocatable      :: time_integrator
+  type(TimeIntegrator_Euler_Options)      :: eu_opt
+  type(TimeIntegrator_RungeKutta_Options) :: rk_opt
+  namelist /time_integration/ eu_opt, rk_opt
 
   ! original SDC
   type(SDC_Method3D)  :: sdc_orig
@@ -229,7 +229,7 @@ program ISP_Flow__SDC_Test
 
   ! time integration parameters
   call XMPI_Bcast(time_method, 0, comm)
-  call rk_ds_opt    % Bcast(0, comm)
+  call rk_opt       % Bcast(0, comm)
   call sdc_orig_opt % Bcast(0, comm)
 
   ! flow problem ...............................................................
@@ -284,11 +284,15 @@ program ISP_Flow__SDC_Test
 
   select case(time_method)
   case(1)
-    time_integrator = TimeIntegrator_EulerDS(problem, flow_op)
+    time_integrator = TimeIntegrator_Euler(problem, flow_op)
   case(2)
     ! Trapezoidal Rule
   case(3)
-    time_integrator = TimeIntegrator_RungeKuttaDS(problem, flow_op, rk_ds_opt)
+    time_integrator = TimeIntegrator_RungeKutta(problem, flow_op, rk_opt)
+    select type(time_integrator)
+    class is(TimeIntegrator_RungeKutta)
+      call time_integrator % imex_rk % Write()
+    end select
   case(4)
     sdc_orig = SDC_Method3D(EulerVC, EulerVC, sdc_orig_opt)
   case(5)
@@ -304,6 +308,12 @@ program ISP_Flow__SDC_Test
   else
     t = 0
     call problem % GetInitialValues(flow_op%x, u)
+    if (.not. problem % HasExactSolution()) then
+      associate(p => u(:,:,:,:,4), F_v => u_e)
+        call TimeDerivative(problem, flow_op, t, u_c = u, u_d = u, F = F_v)
+        call PressureSolver(problem, flow_op, F_v, t, p, w)
+      end associate
+    end if
   end if
 
   ! time stepping ..............................................................
