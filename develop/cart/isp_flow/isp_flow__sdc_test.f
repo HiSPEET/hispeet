@@ -73,6 +73,10 @@ program ISP_Flow__SDC_Test
                      write_stat, write_vtk,        &
                      eval_rms, eval_max, eval_eps, &
                      flow_op_control
+!### CHECK START
+logical :: check = .false.
+namelist /control/ check
+!### CHECK END
 
   ! discretization parameters ..................................................
 
@@ -214,6 +218,10 @@ program ISP_Flow__SDC_Test
   call XMPI_Bcast(eval_eps    , 0, comm)
   call flow_op_control % Bcast( 0, comm)
 
+!### CHECK START
+call XMPI_Bcast(check   , 0, comm)
+!### CHECK END
+
   ! discretization and time integration parameters
   call XMPI_Bcast(np            , 0, comm)
   call XMPI_Bcast(ep            , 0, comm)
@@ -342,8 +350,32 @@ program ISP_Flow__SDC_Test
       end if
     end if
 
+!### CHECK START
+    if (check) then
+    block
+      logical :: monitor
+      real(RNP), allocatable :: pp(:,:,:,:), ff(:,:,:,:,:), ww(:,:,:,:,:)
+      allocate(pp, mold=u(:,:,:,:,4))
+      allocate(ff, ww, mold=u)
+      call SetArray(pp, ZERO)
+      call SetArray(ff, ZERO, multi=.true.)
+      call SetArray(ww, ZERO, multi=.true.)
+      !!call TimeDerivative(problem, flow_op, t, u_c = ww, u_d = ww, F = ff)
+      monitor = flow_op % pmg_p % monitor
+      flow_op % pmg_p % monitor = .false.
+      !!call PressureSolver(problem, flow_op, ff, t, pp, ww)
+      call PressureSolver(problem, flow_op, dt, ff, pp, ww)
+      flow_op % pmg_p % monitor = monitor
+      deallocate(pp, ff, ww)
+    end block
+    end if
+!### CHECK END
+
     select case(time_method)
     case(1:3)
+!### CHECK START
+u(:,:,:,:,4) = 0 ! p = 0
+!### CHECK END
       call time_integrator % TimeStep(t, dt, u)
     case(4)
       call sdc_orig % TimeStep( problem, flow_op, t, dt, u, F, first, last)
@@ -359,7 +391,6 @@ program ISP_Flow__SDC_Test
       associate(p => u(:,:,:,:,4), F_v => u_e)
         call TimeDerivative(problem, flow_op, t, u_c = u, u_d = u, F = F_v)
         call PressureSolver(problem, flow_op, F_v, t, p, w)
-!p = 0
       end associate
     end if
 
