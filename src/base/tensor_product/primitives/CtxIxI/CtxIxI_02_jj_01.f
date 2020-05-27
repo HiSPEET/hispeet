@@ -25,7 +25,7 @@ subroutine PROC(CtxIxI__,_NC1_,_NC2_)(na_nb, C, alpha, beta, u, v)
     tmp0 = 0
     tmp1 = 0
     do p = 1, _NC1_
-      tmp0 = tmp0 + C(p,k  ) + u(ij,p)
+      tmp0 = tmp0 + C(p,k  ) * u(ij,p)
       tmp1 = tmp1 + C(p,k+1) * u(ij,p)
     end do
     v(ij,k  ) = alpha * tmp0 + beta * v(ij,k  )

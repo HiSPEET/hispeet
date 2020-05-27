@@ -18,15 +18,6 @@ subroutine PROC(CtxIxI__,_NC1_,_NC2_)(na_nb, C, alpha, beta, u, v)
 
   integer   :: ij, k, p, pb
 
-
-  !!! ???
-  !$acc loop collapse(2) vector
-  do k = 1, _NC2_
-  do ij = 1, na_nb
-   v(ij,k) = 0
-  end do
-  end do
-
   !$acc loop independent vector
   do k = 1, _NC2_T4_, 4
     !$acc loop seq

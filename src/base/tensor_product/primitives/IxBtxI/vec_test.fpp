@@ -8,7 +8,12 @@
 # endif
 
 # define _NB1_ 8
+# define _NB1_T4_ (_NB1_ / 4) * 4
 # define _NB2_ 16
+# define _NB2_T2_ (_NB2_ / 2) * 2
+# define _NB2_T4_ (_NB2_ / 4) * 4
+# define _NB2_T8_ (_NB2_ / 8) * 8
+
 
 program Vec_Test
   implicit none
@@ -62,6 +67,6 @@ program Vec_Test
 
 contains
 
-# include "IxBtxI_01_01_01_01.f"
+# include "IxBtxI_01_04_01_41.f"
 
 end program Vec_Test

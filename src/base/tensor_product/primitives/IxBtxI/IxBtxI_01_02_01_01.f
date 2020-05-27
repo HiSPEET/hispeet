@@ -29,7 +29,7 @@ subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   do i = 1, na
     tmp0 = 0
     tmp1 = 0
-    do p = 1, _NB1__
+    do p = 1, _NB1_
       tmp0 = tmp0 + B(p,j  ) * u(i,p,k)
       tmp1 = tmp1 + B(p,j+1) * u(i,p,k)
     end do
@@ -38,6 +38,8 @@ subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   end do
   end do
   end do
+
+#endif
 
 #if _NB2_ == _NB2_T2_ + 1
 

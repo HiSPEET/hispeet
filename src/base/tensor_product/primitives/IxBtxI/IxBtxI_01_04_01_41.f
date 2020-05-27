@@ -7,7 +7,7 @@
 !>   * p:  block 4,  unroll 1
 !>   * using Intel SIMD directive
 
-subroutine PROC(IxBtxI_,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
+subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   !$acc routine vector
   integer,   intent(in)    :: na              !< 1st dimension of u,v
   integer,   intent(in)    :: nc              !< 3rd dimension of u,v
@@ -40,6 +40,8 @@ subroutine PROC(IxBtxI_,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
     end do
   end do
   end do
+
+#endif
 
 #if _NB1_ == _NB1_T4_ + 1
 
@@ -127,4 +129,4 @@ subroutine PROC(IxBtxI_,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
 
 #endif
 
-end subroutine PROC(IxBtxI_,_NB1_,_NB2_)
+end subroutine PROC(IxBtxI__,_NB1_,_NB2_)
