@@ -350,32 +350,8 @@ call XMPI_Bcast(check   , 0, comm)
       end if
     end if
 
-!### CHECK START
-    if (check) then
-    block
-      logical :: monitor
-      real(RNP), allocatable :: pp(:,:,:,:), ff(:,:,:,:,:), ww(:,:,:,:,:)
-      allocate(pp, mold=u(:,:,:,:,4))
-      allocate(ff, ww, mold=u)
-      call SetArray(pp, ZERO)
-      call SetArray(ff, ZERO, multi=.true.)
-      call SetArray(ww, ZERO, multi=.true.)
-      !!call TimeDerivative(problem, flow_op, t, u_c = ww, u_d = ww, F = ff)
-      monitor = flow_op % pmg_p % monitor
-      flow_op % pmg_p % monitor = .false.
-      !!call PressureSolver(problem, flow_op, ff, t, pp, ww)
-      call PressureSolver(problem, flow_op, dt, ff, pp, ww)
-      flow_op % pmg_p % monitor = monitor
-      deallocate(pp, ff, ww)
-    end block
-    end if
-!### CHECK END
-
     select case(time_method)
     case(1:3)
-!### CHECK START
-u(:,:,:,:,4) = 0 ! p = 0
-!### CHECK END
       call time_integrator % TimeStep(t, dt, u)
     case(4)
       call sdc_orig % TimeStep( problem, flow_op, t, dt, u, F, first, last)

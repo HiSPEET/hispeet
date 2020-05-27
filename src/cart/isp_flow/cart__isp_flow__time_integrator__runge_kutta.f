@@ -200,14 +200,6 @@ contains
         call MergeArrays(ONE, u, tau, F_d2(:,:,:,:,:,i), multi=.true.)
         call MergeArrays(ONE, u, tau, F_p (:,:,:,:,:,i), multi=.true.)
         call MergeArrays(ONE, u, tau, F_s (:,:,:,:,:,i), multi=.true.)
-!### CHECK START
-if (tau == 0) cycle
-print '(A,I0,A,ES17.10)', '#X  max|F_c (*,1:3,',i,')| = ', maxval(abs(F_c (:,:,:,:,1:3,i)))
-print '(A,I0,A,ES17.10)', '#X  max|F_d1(*,1:3,',i,')| = ', maxval(abs(F_d1(:,:,:,:,1:3,i)))
-print '(A,I0,A,ES17.10)', '#X  max|F_d2(*,1:3,',i,')| = ', maxval(abs(F_d2(:,:,:,:,1:3,i)))
-print '(A,I0,A,ES17.10)', '#X  max|F_p (*,1:3,',i,')| = ', maxval(abs(F_p (:,:,:,:,1:3,i)))
-print '(A,I0,A,ES17.10)', '#X  max|F_s (*,1:3,',i,')| = ', maxval(abs(F_s (:,:,:,:,1:3,i)))
-!### CHECK END
       end do
 
       ! enforce continuity:  ∇²δp = ∇⋅ṽ/∆t, v + J(v) = ṽ - ∆t∇δp
@@ -218,10 +210,7 @@ print '(A,I0,A,ES17.10)', '#X  max|F_s (*,1:3,',i,')| = ', maxval(abs(F_s (:,:,:
         end associate
       end if
 
-      call SetArray(p, u_i(:,:,:,:,4), multi=.true.)
-!### CHECK START
-print '(A,ES17.10)', '#Z  max|u(*,1:3)|      = ', maxval(abs(u(:,:,:,:,1:3)))
-!### CHECK END
+      call SetArray(p, u_i(:,:,:,:,4))
 
       ! prepare next timestep ..................................................
 
@@ -304,9 +293,6 @@ print '(A,ES17.10)', '#Z  max|u(*,1:3)|      = ', maxval(abs(u(:,:,:,:,1:3)))
 
       call SetArray(u_i, u_0, multi=.true.)
       call SetArray(F_d1(:,:,:,:,:,i), ZERO, multi=.true.)
-!### CHECK START
-print '(A,ES17.10)', '#0  max|u_1(*,1:3)|    = ', maxval(abs(u_i(:,:,:,:,1:3)))
-!### CHECK END
 
       ! extrapolation: u_i ← u .................................................
 
@@ -335,11 +321,6 @@ print '(A,ES17.10)', '#0  max|u_1(*,1:3)|    = ', maxval(abs(u_i(:,:,:,:,1:3)))
 
         end do
       end do
-!### CHECK START
-print '(A,ES17.10)', '#1  max|u_1(*,1:3)|    = ', maxval(abs(u_i(:,:,:,:,1:3)))
-print '(A,ES17.10)', '#1  min(p)             = ', minval(p)
-print '(A,ES17.10)', '#1  max(p)             = ', maxval(p)
-!### CHECK END
 
       ! projection: u_i ← u", p ← p" ...........................................
 
@@ -347,11 +328,6 @@ print '(A,ES17.10)', '#1  max(p)             = ', maxval(p)
 
       call PressureSolver(problem, flow_op, tau, u_i, p, w) ! ∇²p" = ∇⋅v'/τ
       call ProjectionStep(problem, flow_op, tau, p, u_i, w) ! v"+J(v") = v'-τ∇p"
-!### CHECK START
-print '(A,ES17.10)', '#2  max|u_1(*,1:3)|    = ', maxval(abs(u_i(:,:,:,:,1:3)))
-print '(A,ES17.10)', '#2  min(p)             = ', minval(p)
-print '(A,ES17.10)', '#2  max(p)             = ', maxval(p)
-!### CHECK END
 
       ! diffusion: u_i ← u''' ..................................................
 
@@ -368,9 +344,6 @@ print '(A,ES17.10)', '#2  max(p)             = ', maxval(p)
         call DiffusionStep(problem, flow_op, tau, F_d1(:,:,:,:,:,i), u_i, w, nu)
 
       end if
-!### CHECK START
-print '(A,ES17.10)', '#3  max|u_1(*,1:3)|    = ', maxval(abs(u_i(:,:,:,:,1:3)))
-!### CHECK END
 
       ! final projection: u_i ← u ..............................................
 
@@ -385,9 +358,6 @@ print '(A,ES17.10)', '#3  max|u_1(*,1:3)|    = ', maxval(abs(u_i(:,:,:,:,1:3)))
         call ProjectionStep(problem, flow_op, tau, dp, u_i(:,:,:,:,1:3), w)
 
       end if
-!### CHECK START
-print '(A,ES17.10)', '#4  max|u_1(*,1:3)|    = ', maxval(abs(u_i(:,:,:,:,1:3)))
-!### CHECK END
 
       ! RHS contributions ......................................................
 

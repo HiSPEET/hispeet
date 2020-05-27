@@ -164,7 +164,7 @@ subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu,   &
         call MergeArrays(ONE, F(:,:,:,:,:3), -ONE, w(:,:,:,:,:3), multi=.true.)
       end if
       if (present(F_p)) then
-        call MergeArrays(ONE, F_p(:,:,:,:,:3), -ONE, w(:,:,:,:,:3), multi=.true.)
+        call MergeArrays(ZERO, F_p(:,:,:,:,:3), -ONE, w(:,:,:,:,:3), multi=.true.)
       end if
     end if
 
