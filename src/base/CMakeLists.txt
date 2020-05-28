@@ -52,12 +52,16 @@ set(TPO_CONFIG ${PROJECT_SOURCE_DIR}/bin/tpo_configure.py)
 set(DEST ${CMAKE_CURRENT_BINARY_DIR})
 
 # add primitive directories to include path
-include_directories( tensor_product/primitives/IxIxQt 
-                     tensor_product/primitives/IxQtxI 
-                     tensor_product/primitives/QtxIxI )
+include_directories( tensor_product/primitives/IxIxQt
+                     tensor_product/primitives/IxQtxI
+                     tensor_product/primitives/QtxIxI
+                     tensor_product/primitives/IxIxAt 
+                     tensor_product/primitives/IxBtxI 
+                     tensor_product/primitives/CtxIxI )
 
 # parametrized operators
 include(cmake/tpo_aaa.cmake)
+include(cmake/tpo__aaa_3d.cmake)
 include(cmake/tpo__elliptic_3d.cmake)
 include(cmake/tpo__div_3d.cmake)
 include(cmake/tpo__rot_3d.cmake)

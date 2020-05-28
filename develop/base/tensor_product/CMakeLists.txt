@@ -1,6 +1,17 @@
 #===============================================================================
 # TPO Div
 
+add_executable( validate__tpo__aaa_3d
+                validate__tpo__aaa_3d.f )
+
+target_link_libraries(validate__tpo__aaa_3d HiBase)
+
+configure_file( validate__tpo__aaa_3d.prm
+                validate__tpo__aaa_3d.prm COPYONLY )
+
+#===============================================================================
+# TPO Div
+
 add_executable( validate__tpo__div_3d_r
                 validate__tpo__div_3d_r.f )
 

@@ -7,14 +7,14 @@ subroutine PROC(TPO_AxAxA_Hand__,_NA1_,_NA2_)(ne, A, u, v)
   real(RNP), intent(in)  :: u(_NA2_,_NA2_,_NA2_,ne)  !< operand
   real(RNP), intent(out) :: v(_NA1_,_NA1_,_NA1_,ne)  !< result
 
-  real(RNP), parameter :: alpha = 0
-  real(RNP), parameter :: beta  = 1
-  real(RNP) :: At(_NA2_,_NA2_)
+  real(RNP), parameter :: alpha = 1
+  real(RNP), parameter :: beta  = 0
+  real(RNP) :: At(_NA2_,_NA1_)
   real(RNP) :: z2(_NA2_,_NA1_,_NA1_)
   real(RNP) :: z3(_NA2_,_NA2_,_NA1_)
 
   integer, parameter :: NA2_NA2 = _NA2_ * _NA2_
-  integer :: e, i, j, k
+  integer :: e
 
   !-----------------------------------------------------------------------------
   ! initialization
@@ -40,4 +40,4 @@ subroutine PROC(TPO_AxAxA_Hand__,_NA1_,_NA2_)(ne, A, u, v)
 
   !-----------------------------------------------------------------------------
 
-end subroutine PROC(TPO_Elliptic_RLCI_Hand__,_NP_)
+end subroutine PROC(TPO_AxAxA_Hand__,_NA1_,_NA2_)

@@ -107,40 +107,68 @@ contains
 
   else if (na1 == 2) then
     if (na2 == 3) then
+      call TPO_AxAxA_Hand__2x3 (ne, A, u, v)
     else if (na2 == 4) then
+      call TPO_AxAxA_Hand__2x4 (ne, A, u, v)
+    else
+      call TPO_AAA_Gen(A, u, v)
     end if
 
   else if (na1 == 3) then
     if (na2 == 4) then
+      call TPO_AxAxA_Hand__3x4 (ne, A, u, v)
     else if (na2 == 5) then
+      call TPO_AxAxA_Hand__3x5 (ne, A, u, v)
+    else
+      call TPO_AAA_Gen(A, u, v)
     end if
 
 #ifndef __LIBXSMM__
   else if (na1 ==  4 .and. na2 ==  8) then
+    call TPO_AxAxA_Hand__4x8 (ne, A, u, v)
   else if (na1 ==  5 .and. na2 ==  9) then
+    call TPO_AxAxA_Hand__5x9 (ne, A, u, v)
   else if (na1 ==  8 .and. na2 == 16) then
+    call TPO_AxAxA_Hand__8x16 (ne, A, u, v)
   else if (na1 ==  9 .and. na2 == 17) then
+    call TPO_AxAxA_Hand__9x17 (ne, A, u, v)
   else if (na1 == 16 .and. na2 == 30) then
+    call TPO_AxAxA_Hand__16x30 (ne, A, u, v)
   else if (na1 == 17 .and. na2 == 33) then
+    call TPO_AxAxA_Hand__17x33 (ne, A, u, v)
 #endif
 
   else if (na2 == 2) then
     if (na1 == 3) then
+      call TPO_AxAxA_Hand__3x2 (ne, A, u, v)
     else if (na1 == 4) then
+      call TPO_AxAxA_Hand__4x2 (ne, A, u, v)
+    else
+      call TPO_AAA_Gen(A, u, v)
     end if
 
   else if (na2 == 3) then
     if (na1 == 4) then
+      call TPO_AxAxA_Hand__4x3 (ne, A, u, v)
     else if (na1 == 5) then
+      call TPO_AxAxA_Hand__5x3 (ne, A, u, v)
+    else
+      call TPO_AAA_Gen(A, u, v)
     end if
 
 #ifndef __LIBXSMM__
   else if (na1 ==  8 .and. na2 ==  4) then
+    call TPO_AxAxA_Hand__8x4 (ne, A, u, v)
   else if (na1 ==  9 .and. na2 ==  5) then
+    call TPO_AxAxA_Hand__9x5 (ne, A, u, v)
   else if (na1 == 16 .and. na2 ==  8) then
+    call TPO_AxAxA_Hand__16x8 (ne, A, u, v)
   else if (na1 == 17 .and. na2 ==  9) then
+    call TPO_AxAxA_Hand__17x9 (ne, A, u, v)
   else if (na1 == 30 .and. na2 == 16) then
+    call TPO_AxAxA_Hand__30x16 (ne, A, u, v)
   else if (na1 == 33 .and. na2 == 17) then
+    call TPO_AxAxA_Hand__33x17 (ne, A, u, v)
 #endif
 
   else
@@ -151,128 +179,310 @@ contains
 
   end subroutine TPO_AAA_Hand
 
-######################## AB HIERR NOCH IN ARBEIT -##############################
-
 
 !===============================================================================
-! operator routine
+! operator routines
 
 # ifdef __GFORTRAN__
 #   define PASTE(base_name) base_name
-#   define PROC(base_name,np) PASTE(base_name)np
+#   define PROC(base_name,na1,na2) PASTE(base_name)PASTE(na1)PASTE(x)na2
 # else
-#  define PASTE(base_name,np) base_name ## np
-#  define PROC(base_name,np) PASTE(base_name,np)
+#  define PASTE(base_name,na1,na2) base_name ## na1 ## x ##na2
+#  define PROC(base_name,na1,na2) PASTE(base_name,na1,na2)
 # endif
 
-#define _NP_  2
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_  3
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_  4
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_  5
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_  6
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_  7
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
+!-------------------------------------------------------------------------------
+! 1:1 operators for na1 = na2 = 2:7
+
+#define _NA1_  2
+#define _NA2_  2
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  3
+#define _NA2_  3
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  4
+#define _NA2_  4
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  5
+#define _NA2_  5
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  6
+#define _NA2_  6
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  7
+#define _NA2_  7
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+
+!-------------------------------------------------------------------------------
+! 1:1 operators for na1 = na2 = 8:33
 
 #ifndef __LIBXSMM__
 
-#define _NP_  8
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_  9
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 10
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 11
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 12
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 13
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 14
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 15
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 16
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 17
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 18
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 19
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 20
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 21
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 22
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 23
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 24
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 25
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 26
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 27
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 28
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 29
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 30
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 31
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 32
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
-#define _NP_ 33
-#include "tpo__elliptic_3d_rlci__hand_kernel.f"
-#undef _NP_
+#define _NA1_  8
+#define _NA2_  8
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  9
+#define _NA2_  9
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  10
+#define _NA2_  10
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  11
+#define _NA2_  11
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  12
+#define _NA2_  12
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  13
+#define _NA2_  13
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  14
+#define _NA2_  14
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  15
+#define _NA2_  15
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  16
+#define _NA2_  16
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  17
+#define _NA2_  17
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  18
+#define _NA2_  18
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  19
+#define _NA2_  19
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  20
+#define _NA2_  20
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  21
+#define _NA2_  21
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  22
+#define _NA2_  22
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  23
+#define _NA2_  23
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  24
+#define _NA2_  24
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  25
+#define _NA2_  25
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  26
+#define _NA2_  26
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  27
+#define _NA2_  27
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  28
+#define _NA2_  28
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  29
+#define _NA2_  29
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  30
+#define _NA2_  30
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  31
+#define _NA2_  31
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  32
+#define _NA2_  32
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  33
+#define _NA2_  33
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+
+#endif
+
+!-------------------------------------------------------------------------------
+! 1:2 and 2:1 operators up to max(na1,na2) = 7
+
+#define _NA1_  2
+#define _NA2_  3
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  2
+#define _NA2_  4
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  3
+#define _NA2_  4
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  3
+#define _NA2_  5
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+
+#define _NA1_  3
+#define _NA2_  2
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  4
+#define _NA2_  2
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  4
+#define _NA2_  3
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  5
+#define _NA2_  3
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+
+!-------------------------------------------------------------------------------
+! remaining 1:2 and 2:1 operators up to max(na1,na2) = 33
+
+#ifndef __LIBXSMM__
+
+#define _NA1_  4
+#define _NA2_  8
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  5
+#define _NA2_  9
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  8
+#define _NA2_ 16
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  9
+#define _NA2_ 17
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_ 16
+#define _NA2_ 30
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_ 17
+#define _NA2_ 33
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+
+#define _NA1_  8
+#define _NA2_  4
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_  9
+#define _NA2_  5
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_ 16
+#define _NA2_  8
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_ 17
+#define _NA2_  9
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_ 30
+#define _NA2_ 16
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
+#define _NA1_ 33
+#define _NA2_ 17
+#include "tpo__aaa_3d__hand_kernel.f"
+#undef _NA1_
+#undef _NA2_
 
 #endif
 
 !===============================================================================
 ! primitives for direction 1,2,3
 
-#include "IxIxQt.F"
-#include "IxQtxI.F"
-#include "QtxIxI.F"
+#include "IxIxAt.F"
+#include "IxBtxI.F"
+#include "CtxIxI.F"
 
 !===============================================================================
 
