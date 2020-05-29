@@ -34,7 +34,7 @@ Names `TPO_<Name>_[R|D][L][C|V][I|A][_<dim_u><dim_v>]`
    `R`/`D`   |  regular/deformed elements
    `L`       |  diagonal (lumped) mass matrix
    `C`/`V`   |  constant/variable coefficients
-   `I`/`A`   |  isotropic/anisotropic coefficients
+   `I`/`A`   | isotropic/anisotropic 
 
 Optionally, the dimensions of the operand, `dim_u`, and of the result, `dim_v`, can be specified as follows
 
