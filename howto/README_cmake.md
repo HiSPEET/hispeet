@@ -14,7 +14,7 @@ Build (complete)
     cd build
     cmake .. 
     make -j
-    
+
 In case of trouble try sequential build, i.e.
 
     make
@@ -29,7 +29,8 @@ Alternatively, you can build with optimized operators
     #  <cfg> = intel      for Intel compilers
     #  <cfg> = pgi        for PGI compilers
 
-    
+
+​    
 ### Optional testing
 
 Following to build
@@ -72,6 +73,17 @@ For reaching a reasonable speedup, the number of elements is important. You can 
 
 ### Debugging
 
-    cd build
-    cmake -DCMAKE_BUILD_TYPE=Debug ..
+The first step in tracking down arrows is to enable runtime checks. This is done by choosing the build type `Check`: 
 
+    cmake -DCMAKE_BUILD_TYPE=Check ..
+    make
+
+ The next option is to enable debugging:
+
+    cmake -DCMAKE_BUILD_TYPE=Debug ..
+    make
+
+Then change to the working directory with the executable and invoke the debugger, e.g.
+
+* `gdb` if you are using `gfortran` (`ggdb` with MacPorts under MacOS)
+* `gdb-aa` when using `ifort`

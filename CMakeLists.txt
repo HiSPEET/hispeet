@@ -76,6 +76,7 @@ set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} $ENV{FFLAGS}")
 if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-form -Wall")
+    set(CMAKE_Fortran_FLAGS_CHECK   "-fcheck=all -fbacktrace")
     set(CMAKE_Fortran_FLAGS_DEBUG   "-fcheck=all -fbacktrace -g")
     set(CMAKE_Fortran_FLAGS_RELEASE "-O3" )
 
@@ -88,6 +89,7 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -free -heap-arrays -warn all")
+    set(CMAKE_Fortran_FLAGS_CHECK   "-CA -traceback")
     set(CMAKE_Fortran_FLAGS_DEBUG   "-CA -traceback -g")
     set(CMAKE_Fortran_FLAGS_RELEASE "-O2 -ip" )
 
