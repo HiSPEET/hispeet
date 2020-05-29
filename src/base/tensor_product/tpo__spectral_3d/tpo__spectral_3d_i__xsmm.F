@@ -1,22 +1,24 @@
-!> summary:  3d generic isotropic spectral operator
-!> author:   Joerg Stiller
-!> date:     2020/05/28
+!> summary:  3d generic isotropic spectral operator using LIBXSMM
+!> author:   Erik Pfister
+!> date:     2020/06/??
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @todo     Replace this dummy by true LIBXSMM version
 !===============================================================================
 
-module TPO__Spectral_3d_I__Gen
+module TPO__Spectral_3d_I__XSMM
   use Kind_Parameters, only: RNP
   implicit none
   private
 
-  public :: TPO_Spectral_I_Gen
+  public :: TPO_Spectral_I_XSMM
 
 contains
 
   !-----------------------------------------------------------------------------
   !> Generic procedure for evaluating  v = [(SxSxS) Λ (SxSxS)ᵀ] u
 
-  subroutine TPO_Spectral_I_Gen(S, Lambda, u, v)
+  subroutine TPO_Spectral_I_XSMM(S, Lambda, u, v)
     real(RNP), intent(in)  :: S(:,:)        !< 1D eigenvectors
     real(RNP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues
     real(RNP), intent(in)  :: u(:,:,:,:)    !< operand
@@ -145,9 +147,9 @@ contains
     !$acc end parallel
     !$acc end data
 
-  end subroutine TPO_Spectral_I_Gen
+  end subroutine TPO_Spectral_I_XSMM
 
   !=============================================================================
 
-end module TPO__Spectral_3d_I__Gen
+end module TPO__Spectral_3d_I__XSMM
 
