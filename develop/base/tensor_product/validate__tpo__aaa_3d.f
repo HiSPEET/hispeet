@@ -50,7 +50,7 @@ program Validate__TPO__AAA_3d
   end if
 
   ! problem dimensions
-  nflop = np**3 * 2 * np * nq * (np*np + np*nq + nq*nq)
+  nflop = 2 * np*nq * (np*np + np*nq + nq*nq)
   npop  = np**3
 
   ! workspace ..................................................................
@@ -95,7 +95,7 @@ program Validate__TPO__AAA_3d
   !-----------------------------------------------------------------------------
   ! test optimized operator
 
-  call random_number(v(:,:,:,i))
+  call random_number(v)
 
   !$omp parallel
   !$acc data copyin(u) copyout(v)

@@ -1,4 +1,4 @@
-!> summary:   3d generic AxAxA operator using LIBXSSM
+!> summary:   3d generic AxAxA operator using LIBXSMM
 !> author:    Erik Pfister
 !> date:      2020/06/??
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
