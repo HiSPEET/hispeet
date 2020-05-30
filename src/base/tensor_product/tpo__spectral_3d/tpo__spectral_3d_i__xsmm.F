@@ -7,11 +7,17 @@
 !===============================================================================
 
 module TPO__Spectral_3d_I__XSMM
+
+#ifdef __LIBXSMM__
+
   use Kind_Parameters, only: RNP
+  use LIBXSMM
   implicit none
   private
 
   public :: TPO_Spectral_I_XSMM
+
+  type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
 
 contains
 
@@ -23,6 +29,8 @@ contains
     real(RNP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues
     real(RNP), intent(in)  :: u(:,:,:,:)    !< operand
     real(RNP), intent(out) :: v(:,:,:,:)    !< result
+    real(RNP), parameter :: alpha  = 1
+    real(RNP), parameter :: beta   = 0
 
     !-----------------------------------------------------------------------------
     ! local variables
@@ -31,7 +39,7 @@ contains
     real(RNP) :: z ( size(S,1), size(S,1), size(S,1) )
     real(RNP) :: tmp
     integer   :: np, ne
-    integer   :: e, i, j, k, p
+    integer   :: e, k, i, j, p
 
     !---------------------------------------------------------------------------
     ! initialization
@@ -41,47 +49,38 @@ contains
 
     St = transpose(S)
 
+    !-----------------------------------------------------------------------------
+    ! XSMM dispatch
+    !$omp master
+    call LIBXSMM_Dispatch(xmm_1, np**2, np   , np, alpha=alpha, beta=beta)
+    call LIBXSMM_Dispatch(xmm_2, np   , np   , np, alpha=alpha, beta=beta)
+    call LIBXSMM_Dispatch(xmm_3, np   , np**2, np, alpha=alpha, beta=beta)
+
+    if (.not. ( libxsmm_available(xmm_1) .and.  &
+                libxsmm_available(xmm_2) .and.  &
+                libxsmm_available(xmm_3)        ) ) then
+
+      stop "TPO_Div_R_XSMM: LIBXSMM_Dispatch failed"
+
+    end if
+    !$omp end master
+    !$omp barrier
+
     !---------------------------------------------------------------------------
     ! evaluation
 
-    !$acc data present(u,v) copyin(S,St,Lambda)
-    !$acc parallel
-    !$acc loop gang worker private(z)
+    !$omp do
+    do e = 1, ne
 
-    !$omp do private(e)
-    elements: do e = 1, ne
+      v(:,:,:,e) = 0
 
-      ! z = Sᵀ x I x I u .......................................................
+      ! 
+      call LIBXSMM_DMMCall(xmm_1, u(:,:,:,e) ,S , z(:,:,:))
 
-      !$acc loop collapse(3) vector
+      ! 
       do k = 1, np
-      do j = 1, np
-      do i = 1, np
-        tmp = 0
-        do p = 1, np
-          tmp = tmp + S(p,k) * u(i,j,p,e)
-        end do
-        z(i,j,k) = tmp
+        call LIBXSMM_DMMCall(xmm_2, z(:,:,k), S, v(:,:,k,e))
       end do
-      end do
-      end do
-
-      ! v = I x Sᵀ x I z .......................................................
-
-      !$acc loop collapse(3) vector
-      do k = 1, np
-      do j = 1, np
-      do i = 1, np
-        tmp = 0
-        do p = 1, np
-          tmp = tmp + S(p,j) * z(i,p,k)
-        end do
-        v(i,j,k,e) = tmp
-      end do
-      end do
-      end do
-
-      ! z = Lambda I x I x Sᵀ v ................................................
 
       !$acc loop collapse(3) vector
       do k = 1, np
@@ -96,60 +95,25 @@ contains
       end do
       end do
 
-      ! v = I x I x S z ........................................................
+      ! 
+      call LIBXSMM_DMMCall(xmm_3, S, z(:,:,:), v(:,:,:,e))
 
-      !$acc loop collapse(3) vector
+      ! 
       do k = 1, np
-      do j = 1, np
-      do i = 1, np
-        tmp = 0
-        do p = 1, np
-          tmp = tmp + St(p,i) * z(p,j,k)
-        end do
-        v(i,j,k,e) = tmp
-      end do
-      end do
+        call LIBXSMM_DMMCall(xmm_2, v(:,:,k,e), St, z(:,:,k))
       end do
 
-      ! z = I x S x I v ........................................................
+      ! 
+      call LIBXSMM_DMMCall(xmm_1, z(:,:,:),St , v(:,:,:,e))
 
-      !$acc loop collapse(3) vector
-      do k = 1, np
-      do j = 1, np
-      do i = 1, np
-        tmp = 0
-        do p = 1, np
-          tmp = tmp + St(p,j) * v(i,p,k,e)
-        end do
-        z(i,j,k) = tmp
-      end do
-      end do
-      end do
+    end do
 
-      ! v = S x I x I z ........................................................
-
-      !$acc loop collapse(3) vector
-      do k = 1, np
-      do j = 1, np
-      do i = 1, np
-        tmp = 0
-        do p = 1, np
-          tmp = tmp + St(p,k) * z(i,j,p)
-        end do
-        v(i,j,k,e) = tmp
-      end do
-      end do
-      end do
-
-    end do elements
-    !$omp end do
-
-    !$acc end parallel
-    !$acc end data
 
   end subroutine TPO_Spectral_I_XSMM
 
   !=============================================================================
+
+#endif
 
 end module TPO__Spectral_3d_I__XSMM
 
