@@ -7,21 +7,29 @@
 !===============================================================================
 
 module TPO__AAA_3d__XSMM
+
+#ifdef __LIBXSMM__
+
   use Kind_Parameters, only: RNP
+  use LIBXSMM
   implicit none
   private
 
   public :: TPO_AAA_XSMM
 
+  type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
+
 contains
 
   !-----------------------------------------------------------------------------
-  !> Generic AxAxA operator
+  !> XSMM AxAxA operator
 
   subroutine TPO_AAA_XSMM(A, u, v)
     real(RNP), intent(in)  :: A(:,:)     !< 1D operator
     real(RNP), intent(in)  :: u(:,:,:,:) !< operand
     real(RNP), intent(out) :: v(:,:,:,:) !< result
+    real(RNP), parameter :: alpha  = 1
+    real(RNP), parameter :: beta   = 0
 
     !---------------------------------------------------------------------------
     ! local variables
@@ -31,7 +39,7 @@ contains
     real(RNP) :: z3( size(A,2), size(A,2), size(A,1))
     real(RNP) :: tmp
     integer   :: na1, na2, ne
-    integer   :: e, i, j, k, p
+    integer   :: e, k
 
     !---------------------------------------------------------------------------
     ! initialization
@@ -42,72 +50,48 @@ contains
 
     At = transpose(A)
 
+    !-----------------------------------------------------------------------------
+    ! XSMM dispatch
+    !$omp master
+    call LIBXSMM_Dispatch(xmm_1, na2**2 , na1    , na2, alpha=alpha, beta=beta)
+    call LIBXSMM_Dispatch(xmm_2, na2    , na1    , na2, alpha=alpha, beta=beta)
+    call LIBXSMM_Dispatch(xmm_3, na1    , na1**2 , na2, alpha=alpha, beta=beta)
+
+    if (.not. ( libxsmm_available(xmm_1) .and.  &
+                libxsmm_available(xmm_2) .and.  &
+                libxsmm_available(xmm_3)        ) ) then
+
+      stop "TPO_Div_R_XSMM: LIBXSMM_Dispatch failed"
+
+    end if
+    !$omp end master
+    !$omp barrier
+
     !---------------------------------------------------------------------------
     ! evaluation
 
-    !$acc data present(u,v) copyin(At)
-    !$acc parallel
-    !$acc loop gang worker private(z2,z3)
-
-    !$omp do private(e)
+    !$omp do
     do e = 1, ne
 
-      ! z3 = AxIxI u^e .........................................................
+      v(:,:,:,e) = 0
 
-      !$acc loop collapse(3) vector
+      !direction 3 
+      call LIBXSMM_DMMCall(xmm_1, u(:,:,:,e), At , z3(:,:,:))
+
+      !direction 2
       do k = 1, na1
-      do j = 1, na2
-      !DIR$ SIMD
-      do i = 1, na2
-        tmp = 0
-        do p = 1, na2
-          tmp = tmp + At(p,k) * u(i,j,p,e)
-        end do
-        z3(i,j,k) = tmp
-      end do
-      end do
+        call LIBXSMM_DMMCall(xmm_2, z3(:,:,k), At, z2(:,:,k))
       end do
 
-      ! z2 = IxAxI z3 ..........................................................
-
-      !$acc loop collapse(3) vector
-      do k = 1, na1
-      do j = 1, na1
-      !DIR$ SIMD
-      do i = 1, na2
-        tmp = 0
-        do p = 1, na2
-          tmp = tmp + At(p,j) * z3(i,p,k)
-        end do
-        z2(i,j,k) = tmp
-      end do
-      end do
-      end do
-
-      ! v^e = IxIxA z2 .........................................................
-
-      !$acc loop collapse(3) vector
-      do k = 1, na1
-      do j = 1, na1
-      !DIR$ SIMD
-      do i = 1, na1
-        tmp = 0
-        do p = 1, na2
-          tmp = tmp + At(p,i) * z2(p,j,k)
-        end do
-        v(i,j,k,e) = tmp
-      end do
-      end do
-      end do
+      !direction 1
+      call LIBXSMM_DMMCall(xmm_3, A, z2(:,:,:), v(:,:,:,e))
 
     end do
-    !$omp end do
-
-    !$acc end parallel
-    !$acc end data
 
   end subroutine TPO_AAA_XSMM
 
   !=============================================================================
+
+#endif
 
 end module TPO__AAA_3d__XSMM
