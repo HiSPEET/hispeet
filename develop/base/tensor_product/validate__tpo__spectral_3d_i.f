@@ -4,10 +4,10 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-program Validate__TPO__AAA_3d
+program Validate__TPO__Spectral_3d_I
   use Kind_Parameters, only: IXL, RNP
-  use TPO__AAA_3d
-  use TPO__AAA_3d__Gen
+  use TPO__Spectral_3d_I
+  use TPO__Spectral_3d_I__Gen
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -15,17 +15,17 @@ program Validate__TPO__AAA_3d
 
   ! test parameters ............................................................
 
-  integer :: np = 4   ! number of element points per direction in u
-  integer :: nq = 4   ! number of element points per direction in v and w
+  integer :: np = 4   ! number of points per direction in element domain
   integer :: ne = 1   ! number of elements
   integer :: nt = 1   ! number of test runs
 
-  namelist /input/ np, nq, ne, nt
+  namelist /input/ np, ne, nt
 
   ! operators and variables ....................................................
 
   real(RNP), dimension(:,:,:,:), allocatable :: u, v, w
-  real(RNP), dimension(:,:),     allocatable :: A
+  real(RNP), dimension(:,:,:),   allocatable :: Lambda
+  real(RNP), dimension(:,:),     allocatable :: S
 
   real(RNP) :: time
   real(RNP) :: error_gen, mflops_gen, mlups_gen
@@ -42,20 +42,21 @@ program Validate__TPO__AAA_3d
 
   ! read test parameters .......................................................
 
-  inquire(file='validate__tpo__aaa_3d.prm', exist=exists)
+  inquire(file='validate__tpo__spectral_3d_i.prm', exist=exists)
   if (exists) then
-    open(newunit=prm, file='validate__tpo__aaa_3d.prm')
+    open(newunit=prm, file='validate__tpo__spectral_3d_i.prm')
     read(prm, nml=input)
     close(prm)
   end if
 
   ! problem dimensions
-  nflop = 2 * np*nq * (np*np + np*nq + nq*nq)
+  nflop = np**3 * (12*np + 1)
   npop  = np**3
 
   ! workspace ..................................................................
 
-  allocate(u(np,np,np,ne), v(nq,nq,nq,ne), w(nq,nq,nq,ne), A(nq,np))
+  allocate(u(np,np,np,ne), v(np,np,np,ne), w(np,np,np,ne))
+  allocate(Lambda(np,np,np), S(np,np))
 
   !$omp do
   do i = 1, ne
@@ -64,7 +65,8 @@ program Validate__TPO__AAA_3d
     call random_number(w(:,:,:,i))
   end do
 
-  call random_number(A)
+  call random_number(Lambda)
+  call random_number(S)
 
   !-----------------------------------------------------------------------------
   ! test generic operator
@@ -72,13 +74,13 @@ program Validate__TPO__AAA_3d
   !$omp parallel
   !$acc data copyin(u) copyout(v) create(w)
 
-  call TPO_AAA_Gen(A, u, w)
+  call TPO_Spectral_I_Gen(S, Lambda, u, w)
   !$acc wait
 
   call system_clock(count0, rate)
 
   do i = 1, nt
-    call TPO_AAA_Gen(A, u, v)
+    call TPO_Spectral_I_Gen(S, Lambda, u, v)
     !$acc wait
   end do
 
@@ -100,13 +102,13 @@ program Validate__TPO__AAA_3d
   !$omp parallel
   !$acc data copyin(u) copyout(v)
 
-  call TPO_AAA(A, u, v)
+  call TPO_Spectral_I(S, Lambda, u, v)
   !$acc wait
 
   call system_clock(count0, rate)
 
   do i = 1, nt
-    call TPO_AAA(A, u, v)
+    call TPO_Spectral_I(S, Lambda, u, v)
     !$acc wait
   end do
 
@@ -125,19 +127,19 @@ program Validate__TPO__AAA_3d
   ! print results
 
   write(*,*)
-  write(*,'(3A)') '#                                 ',   &
+  write(*,'(3A)') '#                          ',   &
                   ' ------- generic operator --------  ', &
                   ' ------- optimized operator ------'
 
-  write(*,'(3A)') '#  np     nq        ne        nt    ',  &
+  write(*,'(3A)') '#  np        ne        nt    ',  &
                   '   error     MFLOP/s      MLUP/s    ',  &
                   '   error     MFLOP/s      MLUP/s    '
 
-  write(*,'(I5,2X,I5,2(2X,I8))',  advance='NO') np, nq, ne, nt
+  write(*,'(I5,2(2X,I8))',  advance='NO') np, ne, nt
   write(*,'(3(2X,ES10.3))', advance='NO') error_gen, mflops_gen, mlups_gen
   write(*,'(3(2X,ES10.3))') error_opt, mflops_opt, mlups_opt
   write(*,*)
 
 !===============================================================================
 
-end program Validate__TPO__AAA_3d
+end program Validate__TPO__Spectral_3d_I

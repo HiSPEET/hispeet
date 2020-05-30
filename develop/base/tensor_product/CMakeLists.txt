@@ -1,5 +1,5 @@
 #===============================================================================
-# TPO Div
+# TPO AAA
 
 add_executable( validate__tpo__aaa_3d
                 validate__tpo__aaa_3d.f )
@@ -63,6 +63,17 @@ target_link_libraries(validate__tpo__elliptic_3d_rlci HiBase)
 
 configure_file( validate__tpo__elliptic_3d_rlci.prm
                 validate__tpo__elliptic_3d_rlci.prm COPYONLY )
+
+#===============================================================================
+# TPO Spectral I
+
+add_executable( validate__tpo__spectral_3d_i
+                validate__tpo__spectral_3d_i.f )
+
+target_link_libraries(validate__tpo__spectral_3d_i HiBase)
+
+configure_file( validate__tpo__spectral_3d_i.prm
+                validate__tpo__spectral_3d_i.prm COPYONLY )
 
 ##===============================================================================
 # Scripts

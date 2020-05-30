@@ -16,7 +16,7 @@ module TPO__AAA_3d
 contains
 
   !-----------------------------------------------------------------------------
-  !> Abstract interface to the 3D AxAxA operator
+  !> 3D AxAxA (interpolation) operator
 
   subroutine TPO_AAA(A, u, v)
     use Kind_Parameters,  only: RNP
