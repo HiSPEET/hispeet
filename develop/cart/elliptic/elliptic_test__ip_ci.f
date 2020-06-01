@@ -98,11 +98,11 @@ program Elliptic_Test__IP_CI
   real(RNP), allocatable, target :: scalars(:)       ! storage for scalar fields
   character(len=80), allocatable :: scalar_names(:)  ! names of scalars
 
-  real(RNP), dimension(:,:,:,:), pointer, contiguous :: s  ! exact solution
-  real(RNP), dimension(:,:,:,:), pointer, contiguous :: u  ! numeric solution
-  real(RNP), dimension(:,:,:,:), pointer, contiguous :: f  ! source
-  real(RNP), dimension(:,:,:,:), pointer, contiguous :: r  ! residual
-  real(RNP), dimension(:,:,:,:), pointer, contiguous :: e  ! error
+  real(RNP), pointer, contiguous :: s(:,:,:,:)  ! exact solution
+  real(RNP), pointer, contiguous :: u(:,:,:,:)  ! numeric solution
+  real(RNP), pointer, contiguous :: f(:,:,:,:)  ! source
+  real(RNP), pointer, contiguous :: r(:,:,:,:)  ! residual
+  real(RNP), pointer, contiguous :: e(:,:,:,:)  ! error
 
   ! operators / methods ........................................................
 
@@ -114,10 +114,11 @@ program Elliptic_Test__IP_CI
 
   character(len=80) :: parameter_file = 'elliptic_test__ip_ci'
   character(len=80) :: plot_file      = ''
+  integer :: nt = 10
   integer :: prm
   logical :: exists
 
-  namelist /control/ plot_file
+  namelist /control/ nt, plot_file
 
   ! auxiliary ..................................................................
 
@@ -131,7 +132,6 @@ program Elliptic_Test__IP_CI
   real(RNP) :: c0
   real(RDP) :: time, time0
 
-  integer :: nt = 10
   integer :: b, n
   integer :: i, ni
   integer(IXL) :: dof
@@ -380,118 +380,118 @@ program Elliptic_Test__IP_CI
     write(*,'(2X,A,ES10.3)') 'r_max =', r_max
   end if
 
-  ! solution ...................................................................
-
-  if (rank == 0) then
-    write(*,'(/,A)') repeat('-',80)
-    select case(method)
-    case(1)
-      write(*,'(A,/)') 'IP/DG EllipticOperator: Conjugate Gradients'
-    case(2)
-      write(*,'(A,/)') 'IP/DG EllipticOperator: Schwarz Method'
-    case(3)
-      write(*,'(A,/)') 'IP/DG EllipticOperator: p-Multigrid'
-    case(4)
-      write(*,'(A,/)') 'IP/DG EllipticOperator: p-MG/CG'
-    end select
-  end if
-
-  !$omp parallel
-  !$acc data copyin(f) copyout(u) create(r)
-
-  !call SetArray(u, ZERO)
-  call random_number(u)
-  u = 2*u - 1
-
-  call elliptic_op % Residual(u, f, r)
-  r_l2_0 = ScalarProduct(r, r, mesh%comm)
-  r_l2_0 = sqrt(r_l2_0)
-  if (mesh%part >= 0) then
-    r_max_loc = maxval(abs(r))
-  else
-    r_max_loc =  0
-  end if
-  call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
-  if (rank == 0) then
-    write(*,'(A)') 'initial residual:'
-    write(*,'(2X,A,ES10.3)') 'r_L2  =', r_l2_0
-    write(*,'(2X,A,ES10.3)') 'r_max =', r_max
-    select case(method)
-    case(3:4)
-      if (pmg_opt % monitor) write(*,*)
-    end select
-  end if
-
-  !$acc end data
-  !$omp end parallel
-
-  if (rank == 0) then
-    time0 = MPI_Wtime()
-  end if
-
-  select case(method)
-  case(1) ! conjugate gradients
-    call elliptic_op % ConjugateGradients(u, f, i_max, r_red, ni=ni)
-  case(2) ! Schwarz method
-    call elliptic_op % SchwarzMethod(u, f, i_max, r_red, ni=ni)
-  case(3) ! p-MG method
-    call pmg % MG_Solver(u, f, ni=ni)
-  case(4) ! p-MG/CG method
-    call pmg % MG_CG_Solver(u, f, ni=ni)
-  end select
-
-  if (rank == 0) then
-    time = MPI_Wtime()
-    time = (time - time0) / nt
-  end if
-
-  call elliptic_op % Residual(u, f, r)
-  r_l2 = ScalarProduct(r, r, mesh%comm)
-  r_l2 = sqrt(r_l2)
-
-  if (mesh%part >= 0) then
-    r_max_loc = maxval(abs(r))
-    e = u - s
-    e_min_loc = minval(e)
-    e_max_loc = maxval(e)
-  else
-    r_max_loc =  0
-    e_min_loc = -huge(ONE)
-    e_max_loc =  huge(ONE)
-  end if
-  call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
-  call XMPI_Reduce(e_min_loc, e_min, MPI_MIN, 0, mesh%comm)
-  call XMPI_Reduce(e_max_loc, e_max, MPI_MAX, 0, mesh%comm)
-
-  if (rank == 0) then
-    write(*,'(/,A)')      'solution:'
-    write(*,'(A,1X,I0)')  '   ni    =', ni
-    write(*,'(A,ES10.3)') '   r_L2  =', r_l2
-    write(*,'(A,ES10.3)') '   r_max =', r_max
-    write(*,'(A,ES10.3)') '   e_max =', (e_max - e_min)/2
-    if (ni > 0) then
-      write(*,'(A,ES10.3)') '   -lg ρ =', log10(r_l2_0 / r_l2) / ni
-    end if
-    write(*,'(/,A)')      'performance:'
-    write(*,'(A,ES10.3)') '   time     =', time
-    write(*,'(A,ES10.3)') '   time/DOF =', time / dof
-    write(*,'(A,ES10.3)') '   DOF/time =', dof / time
-    write(*,*)
-  end if
-
-  !  plot file .................................................................
-
-  if (len_trim(plot_file) > 0 .and. mesh%part >= 0) then
-    call ExportVolumeDataToVTK( po, mesh%ne,              &
-                                size(scalar_names),       &
-                                0,                        &
-                                x,                        &
-                                scalars,                  &
-                                scalar_names,             &
-                                file   = trim(plot_file), &
-                                part   = mesh%part,       &
-                                n_part = mesh%n_part      )
-  end if
+!?!  ! solution ...................................................................
+!?!
+!?!  if (rank == 0) then
+!?!    write(*,'(/,A)') repeat('-',80)
+!?!    select case(method)
+!?!    case(1)
+!?!      write(*,'(A,/)') 'IP/DG EllipticOperator: Conjugate Gradients'
+!?!    case(2)
+!?!      write(*,'(A,/)') 'IP/DG EllipticOperator: Schwarz Method'
+!?!    case(3)
+!?!      write(*,'(A,/)') 'IP/DG EllipticOperator: p-Multigrid'
+!?!    case(4)
+!?!      write(*,'(A,/)') 'IP/DG EllipticOperator: p-MG/CG'
+!?!    end select
+!?!  end if
+!?!
+!?!  !$omp parallel
+!?!  !$acc data copyin(f) copyout(u) create(r)
+!?!
+!?!  !call SetArray(u, ZERO)
+!?!  call random_number(u)
+!?!  u = 2*u - 1
+!?!
+!?!  call elliptic_op % Residual(u, f, r)
+!?!  r_l2_0 = ScalarProduct(r, r, mesh%comm)
+!?!  r_l2_0 = sqrt(r_l2_0)
+!?!  if (mesh%part >= 0) then
+!?!    r_max_loc = maxval(abs(r))
+!?!  else
+!?!    r_max_loc =  0
+!?!  end if
+!?!  call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
+!?!  if (rank == 0) then
+!?!    write(*,'(A)') 'initial residual:'
+!?!    write(*,'(2X,A,ES10.3)') 'r_L2  =', r_l2_0
+!?!    write(*,'(2X,A,ES10.3)') 'r_max =', r_max
+!?!    select case(method)
+!?!    case(3:4)
+!?!      if (pmg_opt % monitor) write(*,*)
+!?!    end select
+!?!  end if
+!?!
+!?!  !$acc end data
+!?!  !$omp end parallel
+!?!
+!?!  if (rank == 0) then
+!?!    time0 = MPI_Wtime()
+!?!  end if
+!?!
+!?!  select case(method)
+!?!  case(1) ! conjugate gradients
+!?!    call elliptic_op % ConjugateGradients(u, f, i_max, r_red, ni=ni)
+!?!  case(2) ! Schwarz method
+!?!    call elliptic_op % SchwarzMethod(u, f, i_max, r_red, ni=ni)
+!?!  case(3) ! p-MG method
+!?!    call pmg % MG_Solver(u, f, ni=ni)
+!?!  case(4) ! p-MG/CG method
+!?!    call pmg % MG_CG_Solver(u, f, ni=ni)
+!?!  end select
+!?!
+!?!  if (rank == 0) then
+!?!    time = MPI_Wtime()
+!?!    time = (time - time0) / nt
+!?!  end if
+!?!
+!?!  call elliptic_op % Residual(u, f, r)
+!?!  r_l2 = ScalarProduct(r, r, mesh%comm)
+!?!  r_l2 = sqrt(r_l2)
+!?!
+!?!  if (mesh%part >= 0) then
+!?!    r_max_loc = maxval(abs(r))
+!?!    e = u - s
+!?!    e_min_loc = minval(e)
+!?!    e_max_loc = maxval(e)
+!?!  else
+!?!    r_max_loc =  0
+!?!    e_min_loc = -huge(ONE)
+!?!    e_max_loc =  huge(ONE)
+!?!  end if
+!?!  call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
+!?!  call XMPI_Reduce(e_min_loc, e_min, MPI_MIN, 0, mesh%comm)
+!?!  call XMPI_Reduce(e_max_loc, e_max, MPI_MAX, 0, mesh%comm)
+!?!
+!?!  if (rank == 0) then
+!?!    write(*,'(/,A)')      'solution:'
+!?!    write(*,'(A,1X,I0)')  '   ni    =', ni
+!?!    write(*,'(A,ES10.3)') '   r_L2  =', r_l2
+!?!    write(*,'(A,ES10.3)') '   r_max =', r_max
+!?!    write(*,'(A,ES10.3)') '   e_max =', (e_max - e_min)/2
+!?!    if (ni > 0) then
+!?!      write(*,'(A,ES10.3)') '   -lg ρ =', log10(r_l2_0 / r_l2) / ni
+!?!    end if
+!?!    write(*,'(/,A)')      'performance:'
+!?!    write(*,'(A,ES10.3)') '   time     =', time
+!?!    write(*,'(A,ES10.3)') '   time/DOF =', time / dof
+!?!    write(*,'(A,ES10.3)') '   DOF/time =', dof / time
+!?!    write(*,*)
+!?!  end if
+!?!
+!?!  !  plot file .................................................................
+!?!
+!?!  if (len_trim(plot_file) > 0 .and. mesh%part >= 0) then
+!?!    call ExportVolumeDataToVTK( po, mesh%ne,              &
+!?!                                size(scalar_names),       &
+!?!                                0,                        &
+!?!                                x,                        &
+!?!                                scalars,                  &
+!?!                                scalar_names,             &
+!?!                                file   = trim(plot_file), &
+!?!                                part   = mesh%part,       &
+!?!                                n_part = mesh%n_part      )
+!?!  end if
 
   !-----------------------------------------------------------------------------
   ! Finalization
