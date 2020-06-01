@@ -120,6 +120,14 @@ subroutine GetTrace_Start_X(this, mesh, po, ne, nf, u, bv_u, tr_un, tag)
   dimension :: bv_u  (mesh%n_boundary)
   optional  :: bv_u
 
+  ! initialization .............................................................
+
+  ! prevent delayed threads from interfering
+  !$omp barrier
+
+  ! tr_un = 0
+  call SetArray(tr_un, ZERO)
+
   ! get local trace ............................................................
 
   call GetLocalTrace(mesh, po, ne, nf, u, tr_un)
@@ -145,12 +153,12 @@ subroutine GetLocalTrace(mesh, po, ne, nf, u, tr_un)
 
   ! arguments ..................................................................
 
-  class(MeshPartition),  intent(in)  :: mesh    !< mesh partition
-  integer,               intent(in)  :: po      !< polynomial order
-  integer,               intent(in)  :: ne      !< number of elements
-  integer,               intent(in)  :: nf      !< number of faces
-  real(RNP),             intent(in)  :: u       !< mesh variable
-  real(RNP),             intent(out) :: tr_un   !< normal trace of u
+  class(MeshPartition),  intent(in)    :: mesh    !< mesh partition
+  integer,               intent(in)    :: po      !< polynomial order
+  integer,               intent(in)    :: ne      !< number of elements
+  integer,               intent(in)    :: nf      !< number of faces
+  real(RNP),             intent(in)    :: u       !< mesh variable
+  real(RNP),             intent(inout) :: tr_un   !< normal trace of u
 
   dimension :: u     (0:po, 0:po, 0:po, ne, 3)
   dimension :: tr_un (0:po, 0:po, 1:2 , nf)
@@ -158,29 +166,11 @@ subroutine GetLocalTrace(mesh, po, ne, nf, u, tr_un)
   ! internal variables .........................................................
 
   integer :: e, f(6), i, j, k
-  integer :: vec_len
-
-  ! initialization .............................................................
-
-  ! OpenACC vector length
-  if (po < 7) then
-    vec_len = 32
-  else if (po < 11) then
-    vec_len = 64
-  else if (po < 15) then
-    vec_len = 128
-  else
-    vec_len = 256
-  end if
-
-  ! tr_un = 0
-  call SetArray(tr_un, ZERO)
 
   ! extract local trace ........................................................
 
   !$acc data present(u, tr_un)
-  !$acc parallel &
-  !$acc & device_type(nvidia) num_workers(1024/vec_len) vector_length(vec_len)
+  !$acc parallel
   !$acc loop gang worker private(f)
 
   !$omp do private(f)
@@ -263,7 +253,8 @@ subroutine ApplyBoundaryConditions(mesh, po, nf, bv_u, tr_un)
 
   ! internal variables .........................................................
 
-  real(RNP), contiguous, pointer :: ub(:,:,:,:)
+  real(RNP), contiguous, pointer, save :: ub(:,:,:,:) => null()
+
   character :: bc(3)
   integer   :: b, d, f, i, k, n, o, p, q, s
 
@@ -272,8 +263,11 @@ subroutine ApplyBoundaryConditions(mesh, po, nf, bv_u, tr_un)
   do b = 1, mesh%n_boundary
     associate(boundary => mesh%boundary(b))
 
-      ub => bv_u(b) % Components(1,3)
-      bc =  bv_u(b) % bc(1:3)
+      bc = bv_u(b) % bc(1:3)
+
+      !$omp single
+      ub(0:,0:,1:,1:) => bv_u(b) % Components(1,3)
+      !$omp end single
 
       !$omp do
       do k = 1, boundary%nf
