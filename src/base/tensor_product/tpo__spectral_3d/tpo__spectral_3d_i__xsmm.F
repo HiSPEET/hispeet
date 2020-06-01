@@ -1,9 +1,7 @@
 !> summary:  3d generic isotropic spectral operator using LIBXSMM
-!> author:   Erik Pfister
-!> date:     2020/06/??
+!> author:   Erik Pfister, Joerg Stiller
+!> date:     2020/06/01
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!> @todo     Replace this dummy by true LIBXSMM version
 !===============================================================================
 
 module TPO__Spectral_3d_I__XSMM
@@ -16,8 +14,6 @@ module TPO__Spectral_3d_I__XSMM
   private
 
   public :: TPO_Spectral_I_XSMM
-
-  type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
 
 contains
 
@@ -35,11 +31,13 @@ contains
     !-----------------------------------------------------------------------------
     ! local variables
 
+    type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
+
     real(RNP) :: St( size(S,1), size(S,1) )
     real(RNP) :: z ( size(S,1), size(S,1), size(S,1) )
     real(RNP) :: tmp
     integer   :: np, ne
-    integer   :: e, k, i, j, p
+    integer   :: e, k
 
     !---------------------------------------------------------------------------
     ! initialization
@@ -51,10 +49,11 @@ contains
 
     !-----------------------------------------------------------------------------
     ! XSMM dispatch
+
     !$omp master
-    call LIBXSMM_Dispatch(xmm_1, np**2, np   , np, alpha=alpha, beta=beta)
+    call LIBXSMM_Dispatch(xmm_1, np   , np**2, np, alpha=alpha, beta=beta)
     call LIBXSMM_Dispatch(xmm_2, np   , np   , np, alpha=alpha, beta=beta)
-    call LIBXSMM_Dispatch(xmm_3, np   , np**2, np, alpha=alpha, beta=beta)
+    call LIBXSMM_Dispatch(xmm_3, np**2, np   , np, alpha=alpha, beta=beta)
 
     if (.not. ( libxsmm_available(xmm_1) .and.  &
                 libxsmm_available(xmm_2) .and.  &
@@ -72,42 +71,32 @@ contains
     !$omp do
     do e = 1, ne
 
-      v(:,:,:,e) = 0
+      ! z = SᵀxIxI uᵉ
+      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e), S, z(:,:,:))
 
-      ! 
-      call LIBXSMM_DMMCall(xmm_1, u(:,:,:,e) ,S , z(:,:,:))
-
-      ! 
+      ! vᵉ = IxSᵀxI z
       do k = 1, np
         call LIBXSMM_DMMCall(xmm_2, z(:,:,k), S, v(:,:,k,e))
       end do
 
-      !$acc loop collapse(3) vector
-      do k = 1, np
-      do j = 1, np
-      do i = 1, np
-        tmp = 0
-        do p = 1, np
-          tmp = tmp + S(p,i) * v(p,j,k,e)
-        end do
-        z(i,j,k) = tmp * Lambda(i,j,k)
-      end do
-      end do
-      end do
+      ! z  = IxIxSᵀ vᵉ
+      call LIBXSMM_DMMCall(xmm_1, St, v(:,:,k,e), z(:,:,:))
 
-      ! 
-      call LIBXSMM_DMMCall(xmm_3, S, z(:,:,:), v(:,:,:,e))
+      ! apply eigenvalues
+      z = Lambda * z
 
-      ! 
+      ! vᵉ = IxIxS z
+      call LIBXSMM_DMMCall(xmm_1, S, z(:,:,:), v(:,:,:,e))
+
+      ! z = IxSxI vᵉ
       do k = 1, np
         call LIBXSMM_DMMCall(xmm_2, v(:,:,k,e), St, z(:,:,k))
       end do
 
-      ! 
-      call LIBXSMM_DMMCall(xmm_1, z(:,:,:),St , v(:,:,:,e))
+      ! vᵉ = SxIxI z
+      call LIBXSMM_DMMCall(xmm_3, z(:,:,:), St, v(:,:,:,e))
 
     end do
-
 
   end subroutine TPO_Spectral_I_XSMM
 

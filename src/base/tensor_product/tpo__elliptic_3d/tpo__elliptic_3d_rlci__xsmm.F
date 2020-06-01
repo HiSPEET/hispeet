@@ -15,8 +15,6 @@ module TPO__Elliptic_3d_RLCI__XSMM
 
   public :: TPO_Elliptic_RLCI_XSMM
 
-  type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
-
 contains
 
   !-----------------------------------------------------------------------------
@@ -33,11 +31,13 @@ contains
     real(RNP), intent(in)  :: u(np,np,np,ne) !< operand
     real(RNP), intent(out) :: v(np,np,np,ne) !< result
 
+    type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
+
     real(RNP), parameter :: alpha = 1
     real(RNP), parameter :: beta  = 1
 
     real(RNP) :: M(np,np,np), Lm(np,np), Mu_e(np,np,np)
-    real(RNP) :: Lm_1T(np,np), Lm_2(np,np), Lm_3(np,np)
+    real(RNP) :: Lm_1t(np,np), Lm_2(np,np), Lm_3(np,np)
     real(RNP) :: c(3), tmp
     integer   :: e, i, j, k
 
@@ -65,7 +65,7 @@ contains
     c = 4 * nu / dx**2
 
     ! initialize operators
-    Lm_1T = c(1) * transpose(Lm)
+    Lm_1t = c(1) * transpose(Lm)
     Lm_2  = c(2) * Lm
     Lm_3  = c(3) * Lm
 
@@ -102,7 +102,7 @@ contains
       end do
 
       ! apply operator in direction 1
-      call LIBXSMM_DMMCall(xmm_1, Lm_1T, Mu_e, v(:,:,:,e))
+      call LIBXSMM_DMMCall(xmm_1, Lm_1t, Mu_e, v(:,:,:,e))
 
       ! direction 2
       do k = 1, np
