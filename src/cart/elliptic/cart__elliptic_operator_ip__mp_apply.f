@@ -73,6 +73,7 @@ subroutine ApplyBoundaryConditions(mesh, bc, tr_u, tr_qn)
 
       case('D')
         ! Dirichlet: interior solution contributes twice to [u]
+        !$omp do
         do l = 1, size(face)
           f = face(l) % mesh_face % id          ! mesh face
           i = inner_side(face(l) % orientation) ! inner side
@@ -86,6 +87,7 @@ subroutine ApplyBoundaryConditions(mesh, bc, tr_u, tr_qn)
 
       case('N')
         ! Neumann: du/dn does not contribute, [u] = 0 due to extrapolation
+        !$omp do
         do l = 1, size(face)
           f = face(l) % mesh_face % id
           do k = 0, po
@@ -123,6 +125,7 @@ subroutine ComputeJumps(tr_u, J_u, normal)
 
   po = ubound(J_u, 1)
 
+  !$omp do
   do f = 1, size(J_u, 3)
     do k = 0, po
     do j = 0, po
@@ -154,6 +157,7 @@ subroutine ComputeAverages(tr_u, A_u, normal)
 
   po = ubound(A_u, 1)
 
+  !$omp do
   do f = 1, size(A_u, 3)
     do k = 0, po
     do j = 0, po
