@@ -65,15 +65,26 @@ configure_file( validate__tpo__elliptic_3d_rlci.prm
                 validate__tpo__elliptic_3d_rlci.prm COPYONLY )
 
 #===============================================================================
-# TPO Spectral I
+# TPO Spectral CI
 
-add_executable( validate__tpo__spectral_3d_i
-                validate__tpo__spectral_3d_i.f )
+add_executable( validate__tpo__spectral_3d_ci
+                validate__tpo__spectral_3d_ci.f )
 
-target_link_libraries(validate__tpo__spectral_3d_i HiBase)
+target_link_libraries(validate__tpo__spectral_3d_ci HiBase)
 
-configure_file( validate__tpo__spectral_3d_i.prm
-                validate__tpo__spectral_3d_i.prm COPYONLY )
+configure_file( validate__tpo__spectral_3d_ci.prm
+                validate__tpo__spectral_3d_ci.prm COPYONLY )
+
+#===============================================================================
+# TPO Spectral CA
+
+add_executable( validate__tpo__spectral_3d_ca
+                validate__tpo__spectral_3d_ca.f )
+
+target_link_libraries(validate__tpo__spectral_3d_ca HiBase)
+
+configure_file( validate__tpo__spectral_3d_ca.prm
+                validate__tpo__spectral_3d_ca.prm COPYONLY )
 
 ##===============================================================================
 # Scripts
