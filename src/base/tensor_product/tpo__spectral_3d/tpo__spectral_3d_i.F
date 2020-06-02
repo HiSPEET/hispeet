@@ -1,25 +1,24 @@
-!> summary:  Evaluation of  v = [(S₃xS₂xS₁) Λ (S₃xS₂xS₁)ᵀ] u
-!>           with 3D mesh variables
+!> summary:  Evaluation of  v = [(SxSxS) Λ (SxSxS)ᵀ] u  with 3D mesh variables
 !> author:   Joerg Stiller
 !> date:     2020/05/29
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Spectral_3d_I
+module TPO__Spectral_3d_CI
   use Kind_Parameters, only: RNP
-  use TPO__Spectral_3d_I__Hand
-  use TPO__Spectral_3d_I__XSMM
+  use TPO__Spectral_3d_CI__Hand
+  use TPO__Spectral_3d_CI__XSMM
   implicit none
   private
 
-  public :: TPO_Spectral_I
+  public :: TPO_Spectral_CI
 
 contains
 
   !-----------------------------------------------------------------------------
   !> 3D (SxSxS) Λ (SxSxS)ᵀ operator
 
-  subroutine TPO_Spectral_I(S, Lambda, u, v)
+  subroutine TPO_Spectral_CI(S, Lambda, u, v)
     use Kind_Parameters,  only: RNP
     real(RNP), intent(in)  :: S(:,:)        !< 1D eigenvectors
     real(RNP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues
@@ -30,16 +29,16 @@ contains
 
 #ifdef __LIBXSMM__
     case(8:)
-      call TPO_Spectral_I_XSMM(S, Lambda, u, v)
+      call TPO_Spectral_CI_XSMM(S, Lambda, u, v)
 #endif
 
     case default
-      call TPO_Spectral_I_Hand(S, Lambda, u, v)
+      call TPO_Spectral_CI_Hand(S, Lambda, u, v)
 
     end select
 
-  end subroutine TPO_Spectral_I
+  end subroutine TPO_Spectral_CI
 
   !=============================================================================
 
-end module TPO__Spectral_3d_I
+end module TPO__Spectral_3d_CI

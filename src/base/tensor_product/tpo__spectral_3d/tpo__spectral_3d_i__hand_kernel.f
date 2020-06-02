@@ -1,7 +1,7 @@
 !-------------------------------------------------------------------------------
 !> Parametrized 3d isotropic spectral kernel using hand-crafted suboperators
 
-subroutine PROC(TPO_Spectral_I_Hand__,_NP_)(ne, S, Lambda, u, v)
+subroutine PROC(TPO_Spectral_CI_Hand__,_NP_)(ne, S, Lambda, u, v)
   integer,   intent(in)  :: ne                     !< num elements
   real(RNP), intent(in)  :: S(_NP_,_NP_)           !< 1D eigenvectors
   real(RNP), intent(in)  :: Lambda(_NP_,_NP_,_NP_) !< 3D eigenvalues
@@ -42,5 +42,5 @@ subroutine PROC(TPO_Spectral_I_Hand__,_NP_)(ne, S, Lambda, u, v)
   !$acc end parallel
   !$acc end data
 
-end subroutine PROC(TPO_Spectral_I_Hand__,_NP_)
+end subroutine PROC(TPO_Spectral_CI_Hand__,_NP_)
 

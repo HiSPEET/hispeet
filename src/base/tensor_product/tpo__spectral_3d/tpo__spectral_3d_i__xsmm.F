@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Spectral_3d_I__XSMM
+module TPO__Spectral_3d_CI__XSMM
 
 #ifdef __LIBXSMM__
 
@@ -13,14 +13,14 @@ module TPO__Spectral_3d_I__XSMM
   implicit none
   private
 
-  public :: TPO_Spectral_I_XSMM
+  public :: TPO_Spectral_CI_XSMM
 
 contains
 
   !-----------------------------------------------------------------------------
   !> Generic procedure for evaluating  v = [(SxSxS) Λ (SxSxS)ᵀ] u
 
-  subroutine TPO_Spectral_I_XSMM(S, Lambda, u, v)
+  subroutine TPO_Spectral_CI_XSMM(S, Lambda, u, v)
     real(RNP), intent(in)  :: S(:,:)        !< 1D eigenvectors
     real(RNP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues
     real(RNP), intent(in)  :: u(:,:,:,:)    !< operand
@@ -35,7 +35,6 @@ contains
 
     real(RNP) :: St( size(S,1), size(S,1) )
     real(RNP) :: z ( size(S,1), size(S,1), size(S,1) )
-    real(RNP) :: tmp
     integer   :: np, ne
     integer   :: e, k
 
@@ -80,7 +79,7 @@ contains
       end do
 
       ! z  = IxIxSᵀ vᵉ
-      call LIBXSMM_DMMCall(xmm_1, St, v(:,:,k,e), z(:,:,:))
+      call LIBXSMM_DMMCall(xmm_1, St, v(:,:,:,e), z(:,:,:))
 
       ! apply eigenvalues
       z = Lambda * z
@@ -98,11 +97,11 @@ contains
 
     end do
 
-  end subroutine TPO_Spectral_I_XSMM
+  end subroutine TPO_Spectral_CI_XSMM
 
   !=============================================================================
 
 #endif
 
-end module TPO__Spectral_3d_I__XSMM
+end module TPO__Spectral_3d_CI__XSMM
 

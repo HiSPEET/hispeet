@@ -4,19 +4,19 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Spectral_3d_I__Gen
+module TPO__Spectral_3d_CI__Gen
   use Kind_Parameters, only: RNP
   implicit none
   private
 
-  public :: TPO_Spectral_I_Gen
+  public :: TPO_Spectral_CI_Gen
 
 contains
 
   !-----------------------------------------------------------------------------
   !> Generic procedure for evaluating  v = [(SxSxS) Λ (SxSxS)ᵀ] u
 
-  subroutine TPO_Spectral_I_Gen(S, Lambda, u, v)
+  subroutine TPO_Spectral_CI_Gen(S, Lambda, u, v)
     real(RNP), intent(in)  :: S(:,:)        !< 1D eigenvectors
     real(RNP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues
     real(RNP), intent(in)  :: u(:,:,:,:)    !< operand
@@ -54,13 +54,14 @@ contains
       !$acc loop collapse(3) vector
       do k = 1, np
       do j = 1, np
-      do i = 1, np
-        tmp = 0
-        do p = 1, np
-          tmp = tmp + S(p,k) * u(i,j,p,e)
+        !DIR$ SIMD
+        do i = 1, np
+          tmp = 0
+          do p = 1, np
+            tmp = tmp + S(p,k) * u(i,j,p,e)
+          end do
+          z(i,j,k) = tmp
         end do
-        z(i,j,k) = tmp
-      end do
       end do
       end do
 
@@ -69,13 +70,14 @@ contains
       !$acc loop collapse(3) vector
       do k = 1, np
       do j = 1, np
-      do i = 1, np
-        tmp = 0
-        do p = 1, np
-          tmp = tmp + S(p,j) * z(i,p,k)
+        !DIR$ SIMD
+        do i = 1, np
+          tmp = 0
+          do p = 1, np
+            tmp = tmp + S(p,j) * z(i,p,k)
+          end do
+          v(i,j,k,e) = tmp
         end do
-        v(i,j,k,e) = tmp
-      end do
       end do
       end do
 
@@ -84,13 +86,14 @@ contains
       !$acc loop collapse(3) vector
       do k = 1, np
       do j = 1, np
-      do i = 1, np
-        tmp = 0
-        do p = 1, np
-          tmp = tmp + S(p,i) * v(p,j,k,e)
+        !DIR$ SIMD
+        do i = 1, np
+          tmp = 0
+          do p = 1, np
+            tmp = tmp + S(p,i) * v(p,j,k,e)
+          end do
+          z(i,j,k) = tmp * Lambda(i,j,k)
         end do
-        z(i,j,k) = tmp * Lambda(i,j,k)
-      end do
       end do
       end do
 
@@ -99,13 +102,14 @@ contains
       !$acc loop collapse(3) vector
       do k = 1, np
       do j = 1, np
-      do i = 1, np
-        tmp = 0
-        do p = 1, np
-          tmp = tmp + St(p,i) * z(p,j,k)
+        !DIR$ SIMD
+        do i = 1, np
+          tmp = 0
+          do p = 1, np
+            tmp = tmp + St(p,i) * z(p,j,k)
+          end do
+          v(i,j,k,e) = tmp
         end do
-        v(i,j,k,e) = tmp
-      end do
       end do
       end do
 
@@ -114,13 +118,14 @@ contains
       !$acc loop collapse(3) vector
       do k = 1, np
       do j = 1, np
-      do i = 1, np
-        tmp = 0
-        do p = 1, np
-          tmp = tmp + St(p,j) * v(i,p,k,e)
+        !DIR$ SIMD
+        do i = 1, np
+          tmp = 0
+          do p = 1, np
+            tmp = tmp + St(p,j) * v(i,p,k,e)
+          end do
+          z(i,j,k) = tmp
         end do
-        z(i,j,k) = tmp
-      end do
       end do
       end do
 
@@ -129,13 +134,14 @@ contains
       !$acc loop collapse(3) vector
       do k = 1, np
       do j = 1, np
-      do i = 1, np
-        tmp = 0
-        do p = 1, np
-          tmp = tmp + St(p,k) * z(i,j,p)
+        !DIR$ SIMD
+        do i = 1, np
+          tmp = 0
+          do p = 1, np
+            tmp = tmp + St(p,k) * z(i,j,p)
+          end do
+          v(i,j,k,e) = tmp
         end do
-        v(i,j,k,e) = tmp
-      end do
       end do
       end do
 
@@ -145,9 +151,9 @@ contains
     !$acc end parallel
     !$acc end data
 
-  end subroutine TPO_Spectral_I_Gen
+  end subroutine TPO_Spectral_CI_Gen
 
   !=============================================================================
 
-end module TPO__Spectral_3d_I__Gen
+end module TPO__Spectral_3d_CI__Gen
 
