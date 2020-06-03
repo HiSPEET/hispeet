@@ -27,7 +27,7 @@ contains
     real(RNP), intent(in)  :: u(:,:,:,:)    !< operand: u(n1.n2,n3,ne)
     real(RNP), intent(out) :: v(:,:,:,:)    !< result:  v(n1,n2,n3,ne)
 
-    select case(min( size(S1,1), size(S2), size(S3,1) ))
+    select case(min( size(S1,1), size(S2,1), size(S3,1) ))
 
 #ifdef __LIBXSMM__
     case(6:)

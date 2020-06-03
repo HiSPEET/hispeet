@@ -4,7 +4,8 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !> @todo
-!>   * convert to XSMM version following the example of TPO__Spectral_3d_I__XSMM
+!>   * convert to XSMM version
+!>   * feel inspired by tpo__spectral_3d_ci__xsmm
 !> @endtodo
 !===============================================================================
 

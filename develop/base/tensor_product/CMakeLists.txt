@@ -86,6 +86,28 @@ target_link_libraries(validate__tpo__spectral_3d_ca HiBase)
 configure_file( validate__tpo__spectral_3d_ca.prm
                 validate__tpo__spectral_3d_ca.prm COPYONLY )
 
+#===============================================================================
+# TPO Schwarz CI
+
+add_executable( validate__tpo__schwarz_3d_ci
+                validate__tpo__schwarz_3d_ci.f )
+
+target_link_libraries(validate__tpo__schwarz_3d_ci HiBase)
+
+configure_file( validate__tpo__schwarz_3d_ci.prm
+                validate__tpo__schwarz_3d_ci.prm COPYONLY )
+
+#===============================================================================
+# TPO Schwarz CA
+
+add_executable( validate__tpo__schwarz_3d_ca
+                validate__tpo__schwarz_3d_ca.f )
+
+target_link_libraries(validate__tpo__schwarz_3d_ca HiBase)
+
+configure_file( validate__tpo__schwarz_3d_ca.prm
+                validate__tpo__schwarz_3d_ca.prm COPYONLY )
+
 ##===============================================================================
 # Scripts
 #

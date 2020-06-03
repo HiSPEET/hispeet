@@ -43,4 +43,3 @@ subroutine PROC(TPO_Spectral_CI_Hand__,_NP_)(ne, S, Lambda, u, v)
   !$acc end data
 
 end subroutine PROC(TPO_Spectral_CI_Hand__,_NP_)
-
