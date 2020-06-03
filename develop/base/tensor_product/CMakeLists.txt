@@ -64,6 +64,18 @@ target_link_libraries(validate__tpo__elliptic_3d_rlci HiBase)
 configure_file( validate__tpo__elliptic_3d_rlci.prm
                 validate__tpo__elliptic_3d_rlci.prm COPYONLY )
 
+
+#===============================================================================
+# TPO Elliptic VI
+
+add_executable( validate__tpo__elliptic_3d_rlvi
+                validate__tpo__elliptic_3d_rlvi.f )
+
+target_link_libraries(validate__tpo__elliptic_3d_rlvi HiBase)
+
+configure_file( validate__tpo__elliptic_3d_rlvi.prm
+                validate__tpo__elliptic_3d_rlvi.prm COPYONLY )
+
 #===============================================================================
 # TPO Spectral CI
 

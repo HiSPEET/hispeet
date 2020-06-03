@@ -6,6 +6,7 @@
 
 module TPO__Elliptic_3d
   use TPO__Elliptic_3d_RLCI
+  use TPO__Elliptic_3d_RLVI
   implicit none
   private
 
@@ -13,6 +14,7 @@ module TPO__Elliptic_3d
 
   interface TPO_Elliptic
     module procedure TPO_Elliptic_RLCI
+    module procedure TPO_Elliptic_RLVI
   end interface
 
 end module TPO__Elliptic_3d

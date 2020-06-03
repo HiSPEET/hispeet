@@ -1,6 +1,6 @@
 !> summary:  3D Cartesian elliptic operator with constant isotropic diffusivity
 !> author:   Joerg Stiller
-!> date:     2020/03/03
+!> date:     2020/06/03
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
@@ -16,7 +16,7 @@ module TPO__Elliptic_3d_RLCI
 contains
 
   !-----------------------------------------------------------------------------
-  !> Abstract interface to the 3D elliptic element operator for scalars
+  !> 3D elliptic element operator for scalars
   !>
   !> The procedure evaluates the elliptic operator with constant coefficients
   !> lambda and nu for equidistant 3D Cartesian elements. Given the scalar
@@ -49,20 +49,15 @@ contains
     real(RNP), intent(in)  :: u(:,:,:,:) !< operand
     real(RNP), intent(out) :: v(:,:,:,:) !< result
 
-    integer :: np, ne
-
-    np = size(u,1)
-    ne = size(u,4)
-
-    select case(np)
+    select case(size(Ms))
 
 #ifdef __LIBXSMM__
     case(8:)
-      call TPO_Elliptic_RLCI_XSMM(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+      call TPO_Elliptic_RLCI_XSMM(Ms, Ls, lambda, nu, dx, u, v)
 #endif
 
     case default
-      call TPO_Elliptic_RLCI_Hand(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+      call TPO_Elliptic_RLCI_Hand(Ms, Ls, lambda, nu, dx, u, v)
 
     end select
 

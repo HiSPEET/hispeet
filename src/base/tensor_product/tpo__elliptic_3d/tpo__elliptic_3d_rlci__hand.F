@@ -1,4 +1,4 @@
-!> summary:   Elliptic element operator based on handcrafted kernels (RCLI)
+!> summary:   Elliptic element operator based on handcrafted kernels (RLCI)
 !> author:    Joerg Stiller, Erik Pfister
 !> date:      2019/10/28
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -15,18 +15,21 @@ module TPO__Elliptic_3d_RLCI__Hand
 contains
 
   !-----------------------------------------------------------------------------
-  !> Elliptic element operator based on handcrafted kernels (RCLI)
+  !> Elliptic element operator based on handcrafted kernels (RLCI)
 
-  subroutine TPO_Elliptic_RLCI_Hand(np, ne, Ms, Ls, lambda, nu, dx, u, v)
-    integer,   intent(in)  :: np             !< num points per direction
-    integer,   intent(in)  :: ne             !< num elements
-    real(RNP), intent(in)  :: Ms(np)         !< standard mass matrix
-    real(RNP), intent(in)  :: Ls(np,np)      !< standard stiffness matrix
-    real(RNP), intent(in)  :: lambda         !< Helmholtz parameter λ
-    real(RNP), intent(in)  :: nu             !< diffusivity nu
-    real(RNP), intent(in)  :: dx(3)          !< element extensions
-    real(RNP), intent(in)  :: u(np,np,np,ne) !< operand
-    real(RNP), intent(out) :: v(np,np,np,ne) !< result
+  subroutine TPO_Elliptic_RLCI_Hand(Ms, Ls, lambda, nu, dx, u, v)
+    real(RNP), intent(in)  :: Ms(:)      !< 1D standard mass matrix         (np)
+    real(RNP), intent(in)  :: Ls(:,:)    !< 1D standard stiffness matrix (np,np)
+    real(RNP), intent(in)  :: lambda     !< Helmholtz parameter
+    real(RNP), intent(in)  :: nu         !< diffusivity
+    real(RNP), intent(in)  :: dx(3)      !< element extensions
+    real(RNP), intent(in)  :: u(:,:,:,:) !< operand                (np,np,np,ne)
+    real(RNP), intent(out) :: v(:,:,:,:) !< result                 (np,np,np,ne)
+
+    integer :: np, ne
+
+    np = size(Ms)
+    ne = size(u,4)
 
     select case(np)
     case( 2)
@@ -96,37 +99,10 @@ contains
       call TPO_Elliptic_RLCI_Hand__33 (ne, Ms, Ls, lambda, nu, dx, u, v)
 #endif
     case default
-      call TPO_Elliptic_RLCI_Gen(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+      call TPO_Elliptic_RLCI_Gen(Ms, Ls, lambda, nu, dx, u, v)
     end select
 
   end subroutine TPO_Elliptic_RLCI_Hand
-
-  !-----------------------------------------------------------------------------
-  !> Projection to element mass matrix and computation of the Helmholtz term
-  !>
-  !>   * k:  joined with i,j and flattened  (f)
-  !>   * j:  joined with i,k and flattened  (f)
-  !>   * i:  joined with j,k and flattened  (f)
-
-  subroutine SetOperands(np_e, lambda, M, u, M_u, v)
-    !$acc routine vector
-    integer,   intent(in)  :: np_e
-    real(RNP), intent(in)  :: lambda
-    real(RNP), intent(in)  :: M   (np_e)
-    real(RNP), intent(in)  :: u   (np_e)
-    real(RNP), intent(out) :: M_u (np_e)
-    real(RNP), intent(out) :: v   (np_e)
-
-    integer :: l
-
-    !$acc loop vector
-    !DIR$ SIMD
-    do l = 1, np_e
-      M_u(l) = M(l) * u(l)
-      v(l) = lambda * M_u(l)
-    end do
-
-  end subroutine SetOperands
 
 !===============================================================================
 ! operator routine
