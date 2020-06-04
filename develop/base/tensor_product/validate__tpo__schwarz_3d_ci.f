@@ -40,7 +40,7 @@ program Validate__TPO__Schwarz_3d_CI
 
   real(RNP) :: time
   real(RNP) :: error_gen, mflops_gen, mlups_gen
-  real(RNP) :: error_par, mflops_par, mlups_par
+  real(RNP) :: error_opt, mflops_opt, mlups_opt
   real(RNP) :: c(3)
 
   logical :: exists
@@ -137,9 +137,9 @@ program Validate__TPO__Schwarz_3d_CI
 
   time = (count - count0) / real(rate, RNP) / nt
 
-  error_par  = maxval(abs(u - r))
-  mflops_par = 1E-6 / time * nd * nflop
-  mlups_par  = 1E-6 / time * nd * nop
+  error_opt  = maxval(abs(u - r))
+  mflops_opt = 1E-6 / time * nd * nflop
+  mlups_opt  = 1E-6 / time * nd * nop
 
   !-----------------------------------------------------------------------------
   ! print results
@@ -156,7 +156,7 @@ program Validate__TPO__Schwarz_3d_CI
   write(*,'(I5,2(2X,I8))', advance='NO') np, nd, nt
   write(*,'(3(2X,ES10.3))', advance='NO') error_gen, mflops_gen, mlups_gen
 
-  write(*,'(3(2X,ES10.3))') error_par, mflops_par, mlups_par
+  write(*,'(3(2X,ES10.3))') error_opt, mflops_opt, mlups_opt
   write(*,*)
 
 !===============================================================================
