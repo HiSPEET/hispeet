@@ -1,4 +1,4 @@
-!> summary:  3D Cartesian elliptic element operators
+!> summary:  3D elliptic element operators
 !> author:   Joerg Stiller
 !> date:     2020/05/29
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
