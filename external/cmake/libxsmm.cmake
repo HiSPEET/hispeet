@@ -1,6 +1,6 @@
 # libxsmm integration ..........................................................
 
-if ( NOT DEFINED OpenACC )
+if ( NOT LIBXSMM MATCHES "0" )
 
   set( LibXSMM_SOURCE_DIR    ${CMAKE_CURRENT_BINARY_DIR}/external/src/LibXSMM )
   set( LibXSMM_INCLUDE_DIR  "${LibXSMM_SOURCE_DIR}/include"      )    
@@ -30,4 +30,4 @@ if ( NOT DEFINED OpenACC )
 
   add_definitions(-D__LIBXSMM__)
 
-endif  ( NOT DEFINED OpenACC )
+endif ()

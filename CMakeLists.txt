@@ -149,12 +149,15 @@ endif (OpenMP)
 
 if (OpenACC)
 
-    if (NOT DEFINED OpenACC_ACCEL_TARGET)
-        set(OpenACC_ACCEL_TARGET "tesla:kepler+")
-    endif ()
+    # LibXSMM is not used
+    set(LIBXSMM "0")
 
     ## using CMake module -- not working :(
     ## find_package(OpenACC REQUIRED)
+
+    if (NOT DEFINED OpenACC_ACCEL_TARGET)
+        set(OpenACC_ACCEL_TARGET "tesla:kepler+")
+    endif ()
 
     # Fortran and C compiler IDs must match to avoid problems with linker
     if ( CMAKE_Fortran_COMPILER_ID MATCHES "PGI" AND

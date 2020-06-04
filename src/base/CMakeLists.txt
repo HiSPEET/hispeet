@@ -62,6 +62,7 @@ include_directories( tensor_product/primitives/IxIxQt
 # parametrized operators
 include(cmake/tpo_aaa.cmake)
 include(cmake/tpo__aaa_3d.cmake)
+include(cmake/tpo__diagonal_3d.cmake)
 include(cmake/tpo__elliptic_3d.cmake)
 include(cmake/tpo__div_3d.cmake)
 include(cmake/tpo__rot_3d.cmake)
@@ -115,7 +116,9 @@ add_library(HiBase ${BASE_SRC})
 set_property(TARGET HiBase
              PROPERTY Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules)
 
-add_dependencies(HiBase LibXSMM)
+if (NOT LIBXSMM MATCHES "0")
+    add_dependencies(HiBase LibXSMM)
+endif ()
 
 target_include_directories(HiBase
     PUBLIC  ${PROJECT_BINARY_DIR}/modules
