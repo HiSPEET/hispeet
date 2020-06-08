@@ -141,11 +141,11 @@ module subroutine SchwarzMethod(this, u, f, i_max, r_red, r_max, ni)
 
   ! clean-up ...................................................................
 
+  !$omp barrier
   !$omp single
   deallocate(r, u_s, f_s)
   deallocate(buf_r, buf_u_s)
   !$omp end single
-
 
 end subroutine SchwarzMethod
 
@@ -205,6 +205,7 @@ subroutine RestrictToSubdomains(mesh, no, buf_v, v, vs)
 
   ! assign core regions ........................................................
 
+  !$omp do
   do e = 1, mesh%ne
     do k = 0, po
     do j = 0, po
@@ -233,6 +234,7 @@ subroutine RestrictToSubdomains(mesh, no, buf_v, v, vs)
 
   associate(element => mesh % element)
 
+    !$omp do
     do e = 1, mesh % ne
 
       ! face 1: -x1 <--> west
@@ -612,6 +614,7 @@ subroutine MergeFromSubdomains(mesh, no, buf_vs, vs, v)
 
   ! add vs core regions to v .................................................
 
+  !$omp do
   do e = 1, mesh%ne
     do k = 0, po
     do j = 0, po
@@ -630,6 +633,7 @@ subroutine MergeFromSubdomains(mesh, no, buf_vs, vs, v)
 
     associate(element => mesh % element)
 
+      !$omp do
       do e = 1, mesh % ne
 
         ! face 1: -x1 <--> west
