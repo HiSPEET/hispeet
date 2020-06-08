@@ -4,7 +4,10 @@
 !> date:     2018/09/16
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Boundary treatment for DG elliptic operator
+!> @note
+!>   * not threadsafe, i.e. not parallelizable with OpenMP, since more than
+!>     one element face may belong to the same boundary
+!> @endnote
 !===============================================================================
 
 module CART__DG_Elliptic_CIU_BC
@@ -45,6 +48,8 @@ subroutine ApplyBoundaryConditions(mesh, eop, nu, bv, f)
   real(RNP), allocatable :: delta_0(:), delta_P(:), cd(:,:), nu_Mf(:,:)
   real(RNP) :: cx(3), cf(3)
   integer   :: b, e, i, j, k, l, s
+
+  !$omp single
 
   associate(po => eop%po, Ms => eop%w, Ds => eop%D, mu => eop%mu)
 
@@ -191,6 +196,8 @@ subroutine ApplyBoundaryConditions(mesh, eop, nu, bv, f)
       end associate Boundary_Faces
     end do Boundaries
   end associate
+
+  !$omp end single
 
 end subroutine ApplyBoundaryConditions
 

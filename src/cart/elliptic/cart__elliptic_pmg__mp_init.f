@@ -2,8 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2019/02/03
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Polynomial multigrid for use with elliptic solvers
 !===============================================================================
 
 submodule(CART__Elliptic_PMG) MP_Init

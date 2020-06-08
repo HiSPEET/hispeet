@@ -19,7 +19,7 @@
 /
 
 &solver
- method = 1             ! CG = 1, Schwarz = 2, p-MG = 3, p-MG/CG
+ method = 1             ! CG = 1, Schwarz = 2, p-MG = 3, p-MG/CG = 4
 /
 
 &solver_cg

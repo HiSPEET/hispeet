@@ -365,12 +365,13 @@ subroutine ConjugateGradients(this, u, f, i_max, r_red, r_max, ni)
       if (mesh%part == 0) then
         converged = rr <= rr_term
       end if
-      rr_old = rr
       call XMPI_Bcast(converged, root=0, comm=mesh%comm)
       !$omp end master
       !$omp barrier
 
       if (converged) exit
+
+      rr_old = rr
 
       ! next iteration . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -399,9 +400,9 @@ subroutine ConjugateGradients(this, u, f, i_max, r_red, r_max, ni)
     !$acc end data
 
     !$omp barrier
-    !$omp master
+    !$omp single
     deallocate(g, r, p, q)
-    !$omp end master
+    !$omp end single
 
   end associate
 

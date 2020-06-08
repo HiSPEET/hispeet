@@ -3,7 +3,10 @@
 !> date:     2018/10/23
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Boundary treatment for CG elliptic operator
+!> @note
+!>   * not threadsafe, i.e. not parallelizable with OpenMP, since more than
+!>     one element face may belong to the same boundary
+!> @endnote
 !===============================================================================
 
 module CART__CG_Elliptic_CI_BC
@@ -35,6 +38,8 @@ subroutine InjectDirichletConditions(mesh, bv, u)
 
   real(RNP), pointer, contiguous :: ub(:,:,:)
   integer :: b, e, i, j, k, l, s, po
+
+  !$omp single
 
   po = ubound(u,1)
 
@@ -104,6 +109,8 @@ subroutine InjectDirichletConditions(mesh, bv, u)
     end associate Boundary_Faces
   end do Boundaries
 
+  !$omp end single
+
 end subroutine InjectDirichletConditions
 
 !-------------------------------------------------------------------------------
@@ -115,6 +122,8 @@ subroutine ZeroDirichletEntries(mesh, bc, f)
   real(RNP),            intent(inout) :: f(0:,0:,0:,:) !< mesh variable
 
   integer :: b, e, i, j, k, l, s, po
+
+  !$omp single
 
   po = ubound(f,1)
 
@@ -180,6 +189,8 @@ subroutine ZeroDirichletEntries(mesh, bc, f)
     end associate Boundary_Faces
   end do Boundaries
 
+  !$omp end single
+
 end subroutine ZeroDirichletEntries
 
 !-------------------------------------------------------------------------------
@@ -203,6 +214,8 @@ subroutine ApplyBoundaryConditions(mesh, eop, nu, bv, f)
   real(RNP), allocatable :: Mf(:,:)
   real(RNP) :: cf(3)
   integer   :: b, e, i, j, k, l, s
+
+  !$omp single
 
   associate(po => eop%po, Ms => eop%w, dx => eop%dx)
 
@@ -293,6 +306,8 @@ subroutine ApplyBoundaryConditions(mesh, eop, nu, bv, f)
   ! f = 0 in all Dirichlet points ..............................................
 
   call ZeroDirichletEntries(mesh, bv%BoundaryCondition(), f)
+
+  !$omp end single
 
 end subroutine ApplyBoundaryConditions
 

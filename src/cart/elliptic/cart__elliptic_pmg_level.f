@@ -2,8 +2,6 @@
 !> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2019/01/30
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Polynomial multigrid level for use with DG elliptic solvers
 !===============================================================================
 
 module CART__Elliptic_PMG_Level
@@ -220,13 +218,19 @@ subroutine SetCoarseProblem(this, fine)
 
   else if (allocated(fine % elliptic_op % nu_vi)) then
 
+    !$omp single
     allocate(nu_vi(0:this%po, 0:this%po, 0:this%po, this%ne))
+    !$omp end single
+
    !call fine % Truncate    ( fine % elliptic_op % nu_vi, nu_vi )
     call fine % Interpolate ( fine % elliptic_op % nu_vi, nu_vi )
     call this % elliptic_op % SetProblem( fine % elliptic_op % lambda, &
                                           nu_vi,                       &
                                           fine % elliptic_op % bc      )
+    !$omp barrier
+    !$omp master
     deallocate(nu_vi)
+    !$omp end master
 
   end if
 
@@ -240,6 +244,8 @@ end subroutine SetCoarseProblem
 subroutine GetWorkspace(this)
   class(PMG_Level), intent(inout) :: this
 
+  !$omp barrier
+  !$omp single
   associate(po => this%po, ne => this%ne)
 
     if (allocated(this % u)) then
@@ -252,11 +258,12 @@ subroutine GetWorkspace(this)
 
     if (.not. allocated(this % u)) then
       allocate(this % u(0:po, 0:po, 0:po, ne))
-      allocate(this % f, mold = this % u)
-      allocate(this % v, mold = this % u)
+      allocate(this % f(0:po, 0:po, 0:po, ne))
+      allocate(this % v(0:po, 0:po, 0:po, ne))
     end if
 
   end associate
+  !$omp end single
 
 end subroutine GetWorkspace
 
@@ -266,9 +273,12 @@ end subroutine GetWorkspace
 subroutine FreeWorkspace(this)
   class(PMG_Level), intent(inout) :: this
 
+  !$omp barrier
+  !$omp single
   if (allocated(this % u)) deallocate(this % u)
   if (allocated(this % f)) deallocate(this % f)
   if (allocated(this % v)) deallocate(this % v)
+  !$omp end single
 
 end subroutine FreeWorkspace
 
@@ -336,6 +346,8 @@ subroutine Build_C2F_TransferOps(this, fine)
   real(RNP) :: xc(0:this%po), xf(0:fine%po)
   integer   :: i, k, pc, pf
 
+  !$omp single
+
   pc = this % po
   pf = fine % po
   xc = this % elliptic_op % eop % x
@@ -350,6 +362,8 @@ subroutine Build_C2F_TransferOps(this, fine)
   end do
   end do
 
+  !$omp end single
+
 end subroutine Build_C2F_TransferOps
 
 !-------------------------------------------------------------------------------
@@ -362,6 +376,8 @@ subroutine Build_F2C_TransferOps(this, pc)
   real(RNP), allocatable :: VL(:,:), VL_inv(:,:)
   real(RNP) :: xf(0:this%po), xc(0:pc)
   integer   :: i, k, pf
+
+  !$omp single
 
   pf = this % po
   xf = this % elliptic_op % eop % x
@@ -399,6 +415,8 @@ subroutine Build_F2C_TransferOps(this, pc)
       t2c_op = matmul(t2c_op, matmul(VL(:,0:pc), VL_inv(0:pc,:)))
     end if
   end associate
+
+  !$omp end single
 
 end subroutine Build_F2C_TransferOps
 
