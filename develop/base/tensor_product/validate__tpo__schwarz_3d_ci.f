@@ -94,7 +94,7 @@ program Validate__TPO__Schwarz_3d_CI
   ! test of generic implementation
 
   !$omp parallel
-  !$acc data copyin(S, W, cfg, D_inv, f) copyout(r, u)
+  !$acc data copyin(S, W, cfg, D_inv, f) copyout(u) create(r)
 
   ! r = reference result
   call TPO_Schwarz_CI_Gen(S, W, cfg, D_inv, f, r)
@@ -119,10 +119,12 @@ program Validate__TPO__Schwarz_3d_CI
   !-----------------------------------------------------------------------------
   ! test of optimized implementation
 
-  !$omp parallel
-  !$acc data copyin(S, W, cfg, D_inv, f) copyout(r, u)
+  call random_number(u)
 
-  call TPO_Schwarz_CI(S, W, cfg, D_inv, f, r)
+  !$omp parallel
+  !$acc data copyin(S, W, cfg, D_inv, f) copyout(u) create(r)
+
+  call TPO_Schwarz_CI(S, W, cfg, D_inv, f, u)
   !$acc wait
 
   call system_clock(count0, rate)
