@@ -28,7 +28,7 @@ contains
     real(RNP), intent(out) :: u(:,:,:,:)     !< solution          (np,np,np,nd)
 
     real(RNP), parameter :: alpha  = 1
-    real(RNP), parameter :: beta   = 1
+    real(RNP), parameter :: beta   = 0
 
     !-----------------------------------------------------------------------------
     ! local variables
@@ -106,9 +106,6 @@ contains
       c2 = cfg(2,l)
       c3 = cfg(3,l)
 
-      y(:,:,:) = 0
-      z(:,:,:) = 0
-
       ! y = Sᵀ x I x I f .......................................................      
       call LIBXSMM_DMMCall(xmm_3, f(:,:,:,l), S(:,:,c3) , y(:,:,:))
 
@@ -117,21 +114,14 @@ contains
         call LIBXSMM_DMMCall(xmm_2, y(:,:,k), S(:,:,c2), z(:,:,k))
       end do
 
-      y(:,:,:) = 0
-
       ! y =I x I x Sᵀ z ........................................................
       call LIBXSMM_DMMCall(xmm_1, S_t(:,:,c1), z(:,:,:) , y(:,:,:))
 
       ! y = D⁻¹ y
       y = D_inv(:,:,:,l) * y
 
-      z(:,:,:) = 0
-
       ! z = I x I x WS y .......................................................
       call LIBXSMM_DMMCall(xmm_1, WS(:,:,c1), y(:,:,:) , z(:,:,:))
-
-      y(:,:,:)   = 0
-      u(:,:,:,l) = 0
 
       ! y = I x WS x I z .......................................................
       do k = 1, np

@@ -33,7 +33,7 @@ contains
     real(RNP), intent(out) :: u(:,:,:,:)     !< solution           (n1,n2,n3,nd)
 
     real(RNP), parameter :: alpha  = 1
-    real(RNP), parameter :: beta   = 1
+    real(RNP), parameter :: beta   = 0
 
     !---------------------------------------------------------------------------
     ! local variables
@@ -123,9 +123,6 @@ contains
       c2 = cfg(2,l)
       c3 = cfg(3,l)
 
-      y(:,:,:) = 0
-      z(:,:,:) = 0
-
       ! y = S₃ᵀ x I x I f ......................................................
       call LIBXSMM_DMMCall(xmm_3, f(:,:,:,l), S3(:,:,c3) , y(:,:,:))
 
@@ -134,28 +131,20 @@ contains
         call LIBXSMM_DMMCall(xmm_2, y(:,:,k), S2(:,:,c2), z(:,:,k))
       end do
 
-      y(:,:,:) = 0
-
       ! y = I x I x S₁ᵀ z ......................................................      
       call LIBXSMM_DMMCall(xmm_1, S1_t(:,:,c1), z(:,:,:) , y(:,:,:))
 
       ! y = D⁻¹ y
       y = D_inv(:,:,:,l) * y
 
-      z(:,:,:) = 0
-
       ! z = I x I x W₁S₁ y .....................................................
       call LIBXSMM_DMMCall(xmm_1, WS1(:,:,c1), y(:,:,:) , z(:,:,:))     
-
-      y(:,:,:) = 0
 
       ! y = I x W₂S₂ x I z .....................................................
       do k = 1, n3
         call LIBXSMM_DMMCall(xmm_2, z(:,:,k), WS2_t(:,:,c2), y(:,:,k))
       end do
       
-      u(:,:,:,l) = 0
-
       ! u = W₃S₃ x I x I y .....................................................
       call LIBXSMM_DMMCall(xmm_3, y(:,:,:), WS3_t(:,:,c3) , u(:,:,:,l))
 
