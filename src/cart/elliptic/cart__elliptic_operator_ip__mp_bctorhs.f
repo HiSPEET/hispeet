@@ -3,7 +3,10 @@
 !> date:     2018/11/22
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### IP/DG boundary contribution to RHS
+!> @note
+!>   * not threadsafe, i.e. not parallelizable with OpenMP, since more than
+!>     one element face may belong to the same boundary
+!> @endnote
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP) MP_BCtoRHS
@@ -22,6 +25,8 @@ module subroutine BcToRHS(this, bv, c, f)
 
   integer :: c_
 
+  !$omp single
+
   if (present(c)) then
     c_ = c
   else
@@ -33,6 +38,8 @@ module subroutine BcToRHS(this, bv, c, f)
   else if (allocated(this % nu_vi)) then
     call BcToRHS_VI(this, bv, c_, f)
   end if
+
+  !$omp end single
 
 end subroutine BcToRHS
 

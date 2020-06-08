@@ -2,8 +2,6 @@
 !> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2019/02/03
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Polynomial multigrid for use with elliptic solvers
 !===============================================================================
 
 module CART__Elliptic_PMG
@@ -282,9 +280,8 @@ subroutine MG_Solver(this, u, f, ni, r_2)
         rr = ScalarProduct(r_top, r_top, this%mesh%comm)
         r_new = sqrt(rr)
 
-        converged = r_new <= r_max .or. abs(r_new - r_old) <= dr_min
-
         !$omp master
+        converged = r_new <= r_max .or. abs(r_new - r_old) <= dr_min
         call XMPI_Bcast(converged, root=0, comm=this%mesh%comm)
         !$omp end master
         !$omp barrier
@@ -334,7 +331,7 @@ subroutine MG_CG_Solver(this, u, f, ni, r_2, i_max)
   ! local data .................................................................
 
   real(RNP), dimension(:,:,:,:), allocatable, save :: p, q, r, s, z
-  logical,   save :: converged
+  logical, save :: converged
 
   logical   :: check_convergence, singular
   real(RNP) :: dr_min, r_max, r_new, r_old, rr
@@ -435,9 +432,8 @@ subroutine MG_CG_Solver(this, u, f, ni, r_2, i_max)
 
         r_new = sqrt( ScalarProduct(r, r, mesh%comm) )
 
-        converged = r_new <= r_max .or. abs(r_new - r_old) <= dr_min
-
         !$omp master
+        converged = r_new <= r_max .or. abs(r_new - r_old) <= dr_min
         call XMPI_Bcast(converged, root=0, comm=mesh%comm)
         !$omp end master
         !$omp barrier
