@@ -2,14 +2,13 @@
 !> author:   Erik Pfister, Joerg Stiller
 !> date:     2020/06/02
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!> @todo
-!>   * convert to XSMM version
-!>   * feel inspired by tpo__spectral_3d_ci__xsmm
-!> @endtodo
 !===============================================================================
 
 module TPO__Spectral_3d_CA__XSMM
+
+#ifdef __LIBXSMM__
+
+  use LIBXSMM
   use Kind_Parameters, only: RNP
   implicit none
   private
@@ -28,14 +27,21 @@ contains
     real(RNP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues: Λ(n1,n2,n3)
     real(RNP), intent(in)  :: u(:,:,:,:)    !< operand: u(n1.n2,n3,ne)
     real(RNP), intent(out) :: v(:,:,:,:)    !< result:  v(n1,n2,n3,ne)
+    real(RNP), parameter :: alpha  = 1
+    real(RNP), parameter :: beta   = 0
 
     !-----------------------------------------------------------------------------
     ! local variables
 
+    type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
+
     real(RNP) :: z( size(S1,1), size(S2,1), size(S3,1) )
     real(RNP) :: tmp
     integer   :: n1, n2, n3, ne
-    integer   :: e, i, j, k, p
+    integer   :: e, i, j, k, p    
+    real(RNP) :: S1_t (size(S1,1), size(S1,1) )
+    real(RNP) :: S2_t (size(S2,1), size(S2,1) )
+    real(RNP) :: S3_t (size(S3,1), size(S3,1) )
 
     !---------------------------------------------------------------------------
     ! initialization
@@ -45,113 +51,65 @@ contains
     n3 = size(S3,1)
     ne = size(u ,4)
 
+    S1_t = transpose(S1)
+    S2_t = transpose(S2)
+    S3_t = transpose(S3)
+
+    !-----------------------------------------------------------------------------
+    ! XSMM dispatch
+
+    !$omp master
+    call LIBXSMM_Dispatch(xmm_1, n1   , n2*n3, n1, alpha=alpha, beta=beta)
+    call LIBXSMM_Dispatch(xmm_2, n1   , n2   , n2, alpha=alpha, beta=beta)
+    call LIBXSMM_Dispatch(xmm_3, n1*n2, n3   , n3, alpha=alpha, beta=beta)
+
+    if (.not. ( libxsmm_available(xmm_1) .and.  &
+                libxsmm_available(xmm_2) .and.  &
+                libxsmm_available(xmm_3)        ) ) then
+
+      stop "TPO_Div_R_XSMM: LIBXSMM_Dispatch failed"
+
+    end if
+    !$omp end master
+    !$omp barrier
+
     !---------------------------------------------------------------------------
     ! evaluation
 
-    !$acc data present(u,v) copyin(S1,S2,S3,Lambda)
-    !$acc parallel
-    !$acc loop gang worker private(z1,z2,z3)
-
     !$omp do private(e)
-    elements: do e = 1, ne
+    do e = 1, ne
 
       ! z = S₃ᵀ x I x I u ......................................................
-
-      !$acc loop collapse(3) vector
-      do k = 1, n3
-      do j = 1, n2
-      do i = 1, n1
-        tmp = 0
-        do p = 1, n3
-          tmp = tmp + S3(p,k) * u(i,j,p,e)
-        end do
-        z(i,j,k) = tmp
-      end do
-      end do
-      end do
+      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e), S3(:,:), z(:,:,:))
 
       ! vᵉ = I x S₂ᵀ x I z .....................................................
-
-      !$acc loop vector collapse(3)
       do k = 1, n3
-      do j = 1, n2
-      do i = 1, n1
-        tmp = 0
-        do p = 1, n2
-          tmp = tmp + S2(p,j) * z(i,p,k)
-        end do
-        v(i,j,k,e) = tmp
-      end do
-      end do
-      end do
+        call LIBXSMM_DMMCall(xmm_2, z(:,:,k), S2(:,:), v(:,:,k,e))
+      end do      
 
-      ! z = Λ (I x I x S₁ᵀ) vᵉ .................................................
+      ! z = I x I x S₁ᵀ vᵉ .....................................................
+      call LIBXSMM_DMMCall(xmm_1, S1_t(:,:), v(:,:,:,e), z(:,:,:))
 
-      !$acc loop vector collapse(3)
-      do k = 1, n3
-      do j = 1, n2
-      do i = 1, n1
-        tmp = 0
-        do p = 1, n1
-          tmp = tmp + S1(p,i) * v(p,j,k,e)
-        end do
-        z(i,j,k) = tmp * Lambda(i,j,k)
-      end do
-      end do
-      end do
+      ! apply eigenvalues
+      z = Lambda * z
 
       ! vᵉ = I x I x S₁ z ......................................................
-
-      !$acc loop vector collapse(3)
-      do k = 1, n3
-      do j = 1, n2
-      do i = 1, n1
-        tmp = 0
-        do p = 1, n1
-          tmp = tmp + S1(i,p) * z(p,j,k)
-        end do
-        v(i,j,k,e) = tmp
-      end do
-      end do
-      end do
+      call LIBXSMM_DMMCall(xmm_1, S1(:,:), z(:,:,:), v(:,:,:,e))
 
       ! z = I x S₂ x I vᵉ ......................................................
-
-      !$acc loop vector collapse(3)
       do k = 1, n3
-      do j = 1, n2
-      do i = 1, n1
-        tmp = 0
-        do p = 1, n2
-          tmp = tmp + S2(j,p) * v(i,p,k,e)
-        end do
-        z(i,j,k) = tmp
-      end do
-      end do
-      end do
-
+        call LIBXSMM_DMMCall(xmm_2, v(:,:,k,e), S2_t(:,:), z(:,:,k))
+      end do     
+      
       ! vᵉ = S₃ x I x I z ......................................................
+      call LIBXSMM_DMMCall(xmm_3, z(:,:,:), S3_t(:,:), v(:,:,:,e))      
 
-      !$acc loop collapse(3) vector
-      do k = 1, n3
-      do j = 1, n2
-      do i = 1, n1
-        tmp = 0
-        do p = 1, n3
-          tmp = tmp + S3(k,p) * z(i,j,p)
-        end do
-        v(i,j,k,e) = tmp
-      end do
-      end do
-      end do
-
-    end do elements
-
-    !$acc end parallel
-    !$acc end data
+    end do
 
   end subroutine TPO_Spectral_CA_XSMM
 
   !=============================================================================
+
+#endif
 
 end module TPO__Spectral_3d_CA__XSMM
