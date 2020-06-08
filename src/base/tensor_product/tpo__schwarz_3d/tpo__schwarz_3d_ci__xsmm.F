@@ -1,17 +1,14 @@
 !> summary:  3d generic isotropic Schwarz operator using LIBXSMM
-!> author:   Joerg Stiller
+!> author:   Joerg Stiller, Erik Pfister
 !> date:     2020/06/02
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!> @todo
-!>   * convert to XSMM version
-!>   * feel inspired by
-!>       - tpo__spectral_3d_ci__xsmm.F
-!>       - tpo__schwarz_3d_ci__hand_kernel.f
-!> @endtodo
 !===============================================================================
 
 module TPO__Schwarz_3d_CI__XSMM
+
+#ifdef __LIBXSMM__
+
+  use LIBXSMM
   use Kind_Parameters, only: RNP
   implicit none
   private
@@ -30,9 +27,16 @@ contains
     real(RNP), intent(in)  :: f(:,:,:,:)     !< RHS               (np,np,np,nd)
     real(RNP), intent(out) :: u(:,:,:,:)     !< solution          (np,np,np,nd)
 
+    real(RNP), parameter :: alpha  = 1
+    real(RNP), parameter :: beta   = 1
+
     !-----------------------------------------------------------------------------
     ! local variables
 
+    type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
+
+    real(RNP) :: S_t  ( size(S,2), size(S,1), size(S,3) )
+    real(RNP) :: WS   ( size(S,1), size(S,2), size(S,3) )
     real(RNP) :: WS_t ( size(S,1), size(S,2), size(S,3) )
     real(RNP) :: y    ( size(f,1), size(f,2), size(f,3) )
     real(RNP) :: z    ( size(f,1), size(f,2), size(f,3) )
@@ -49,6 +53,15 @@ contains
     nc = size(S,3)
     nd = size(f,4)
 
+    ! WS(:,:,c) = (WS)(:,:,c)
+    do c = 1, nc
+    do j = 1, np
+    do i = 1, np
+      WS(i,j,c) = S(i,j,c) * W(i,c)
+    end do
+    end do
+    end do
+
     ! WS_t(:,:,c) = (WS)ᵀ(:,:,c)
     do c = 1, nc
     do j = 1, np
@@ -58,12 +71,32 @@ contains
     end do
     end do
 
+    do c = 1, nc
+    do j = 1, np
+    do i = 1, np
+      S_t(j,i,c) = S(i,j,c)
+    end do
+    end do
+    end do
+
+    ! XSMM dispatch
+    !$omp master
+    call LIBXSMM_Dispatch(xmm_1, np   , np**2, np, alpha=alpha, beta=beta)
+    call LIBXSMM_Dispatch(xmm_2, np   , np   , np, alpha=alpha, beta=beta)
+    call LIBXSMM_Dispatch(xmm_3, np**2, np   , np, alpha=alpha, beta=beta)
+
+    if (.not. ( libxsmm_available(xmm_1) .and.  &
+                libxsmm_available(xmm_2) .and.  &
+                libxsmm_available(xmm_3)        ) ) then
+
+      stop "TPO_Div_R_XSMM: LIBXSMM_Dispatch failed"
+
+    end if
+    !$omp end master
+    !$omp barrier
+
     !---------------------------------------------------------------------------
     ! evaluation
-
-    !$acc data async present(cfg, D_inv, f, u) copyin(S, WS_t)
-    !$acc parallel
-    !$acc loop gang worker private(y,z)
 
     !$omp do private(l)
     subdomains: do l = 1, nd
@@ -73,109 +106,47 @@ contains
       c2 = cfg(2,l)
       c3 = cfg(3,l)
 
-      ! y = Sᵀ x I x I f .......................................................
+      y(:,:,:) = 0
+      z(:,:,:) = 0
 
-      !$acc loop collapse(3) vector
-      do k = 1, np
-      do j = 1, np
-        !DIR$ SIMD
-        do i = 1, np
-          tmp = 0
-          do p = 1, np
-            tmp = tmp + S(p,k,c3) * f(i,j,p,l)
-          end do
-          y(i,j,k) = tmp
-        end do
-      end do
-      end do
+      ! y = Sᵀ x I x I f .......................................................      
+      call LIBXSMM_DMMCall(xmm_3, f(:,:,:,l), S(:,:,c3) , y(:,:,:))
 
       ! z = I x Sᵀ x I y .......................................................
-
-      !$acc loop collapse(3) vector
       do k = 1, np
-      do j = 1, np
-        !DIR$ SIMD
-        do i = 1, np
-          tmp = 0
-          do p = 1, np
-            tmp = tmp + S(p,j,c2) * y(i,p,k)
-          end do
-          z(i,j,k) = tmp
-        end do
-      end do
+        call LIBXSMM_DMMCall(xmm_2, y(:,:,k), S(:,:,c2), z(:,:,k))
       end do
 
-      ! y = D⁻¹ (I x I x Sᵀ) z .................................................
+      y(:,:,:) = 0
 
-      !$acc loop collapse(3) vector
-      do k = 1, np
-      do j = 1, np
-        !DIR$ SIMD
-        do i = 1, np
-          tmp = 0
-          do p = 1, np
-            tmp = tmp + S(p,i,c1) * z(p,j,k)
-          end do
-          y(i,j,k) = tmp * D_inv(i,j,k,l)
-        end do
-      end do
-      end do
+      ! y =I x I x Sᵀ z ........................................................
+      call LIBXSMM_DMMCall(xmm_1, S_t(:,:,c1), z(:,:,:) , y(:,:,:))
+
+      ! y = D⁻¹ y
+      y = D_inv(:,:,:,l) * y
+
+      z(:,:,:) = 0
 
       ! z = I x I x WS y .......................................................
+      call LIBXSMM_DMMCall(xmm_1, WS(:,:,c1), y(:,:,:) , z(:,:,:))
 
-      !$acc loop collapse(3) vector
-      do k = 1, np
-      do j = 1, np
-        !DIR$ SIMD
-        do i = 1, np
-          tmp = 0
-          do p = 1, np
-            tmp = tmp + WS_t(p,i,c1) * y(p,j,k)
-          end do
-          z(i,j,k) = tmp
-        end do
-      end do
-      end do
+      y(:,:,:)   = 0
+      u(:,:,:,l) = 0
 
       ! y = I x WS x I z .......................................................
-
-      !$acc loop collapse(3) vector
       do k = 1, np
-      do j = 1, np
-        !DIR$ SIMD
-        do i = 1, np
-          tmp = 0
-          do p = 1, np
-            tmp = tmp + WS_t(p,j,c2) * z(i,p,k)
-          end do
-          y(i,j,k) = tmp
-        end do
-      end do
+        call LIBXSMM_DMMCall(xmm_2, z(:,:,k), WS_t(:,:,c2), y(:,:,k))
       end do
 
       ! u = WS x I x I y .......................................................
-
-      !$acc loop collapse(3) vector
-      do k = 1, np
-      do j = 1, np
-        !DIR$ SIMD
-        do i = 1, np
-          tmp = 0
-          do p = 1, np
-            tmp = tmp + WS_t(p,k,c3) * y(i,j,p)
-          end do
-          u(i,j,k,l) = tmp
-        end do
-      end do
-      end do
+      call LIBXSMM_DMMCall(xmm_3, y(:,:,:), WS_t(:,:,c3) , u(:,:,:,l))
 
     end do subdomains
-
-    !$acc end parallel
-    !$acc end data
 
   end subroutine TPO_Schwarz_CI_XSMM
 
   !=============================================================================
+
+#endif
 
 end module TPO__Schwarz_3d_CI__XSMM
