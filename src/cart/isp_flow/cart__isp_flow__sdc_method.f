@@ -13,8 +13,13 @@ module CART__ISP_Flow__SDC_Method
   use XMPI
   use ISP_Flow_Problem
   use CART__ISP_Flow__Operators
+
   use CART__ISP_Flow__Time_Integrator
+  use CART__ISP_Flow__Time_Integrator__Euler
+  use CART__ISP_Flow__Time_Integrator__Runge_Kutta
+
   use CART__ISP_Flow__SDC_Corrector
+  use CART__ISP_Flow__SDC_Corrector__Euler
 
   implicit none
   private
@@ -26,8 +31,8 @@ module CART__ISP_Flow__SDC_Method
   !> Type for providing SDC options
 
   type SDC_Options
-    integer :: n_sub   =  1  !< number of subintervals
-    integer :: n_sweep = -1  !< max number of correction sweeps
+    integer :: n_sub   =  1      !< number of subintervals
+    integer :: n_sweep = -1      !< max number of correction sweeps
   contains
     procedure :: Bcast => SDC_Options_Bcast
   end type SDC_Options
@@ -90,37 +95,34 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor for objects of type SDC_Method
 
-  function New_SDC_Method(problem, flow_op, predictor, corrector, opt) &
+  function New_SDC_Method(problem, flow_op, pre_opt, cor_opt, sdc_opt) &
       result(this)
 
-    class(FlowProblem),    target, intent(in) :: problem   !< flow problem
-    class(FlowOperators),  target, intent(in) :: flow_op   !< flow operators
-    class(TimeIntegrator), target, intent(in) :: predictor !< predictor method
-    class(SDC_Corrector),  target, intent(in) :: corrector !< corrector method
-    class(SDC_Options),            intent(in) :: opt       !< SDC options
+    class(FlowProblem),    target, intent(in) :: problem !< flow problem
+    class(FlowOperators),  target, intent(in) :: flow_op !< flow operators
+    class(TimeIntegratorOptions),  intent(in) :: pre_opt !< predictor options
+    class(SDC_Corrector_Options),  intent(in) :: cor_opt !< corrector method
+    class(SDC_Options),            intent(in) :: sdc_opt !< SDC options
     type(SDC_Method) :: this
 
-    call Init_SDC_Method(this, problem, flow_op, predictor, corrector, opt)
+    call Init_SDC_Method(this, problem, flow_op, pre_opt, cor_opt, sdc_opt)
 
   end function New_SDC_Method
 
   !-----------------------------------------------------------------------------
   !> Initialization of SDC_Method object
-  !>
-  !> Currently the predictor and the corrector need to be initialized outside.
-  !> This may change in future.
 
-  subroutine Init_SDC_Method(this, problem, flow_op, predictor, corrector, opt)
+  subroutine Init_SDC_Method(this, problem, flow_op, pre_opt, cor_opt, sdc_opt)
 
     ! arguments ................................................................
 
     class(SDC_Method), intent(inout) :: this
 
-    class(FlowProblem),    target, intent(in) :: problem   !< flow problem
-    class(FlowOperators),  target, intent(in) :: flow_op   !< flow operators
-    class(TimeIntegrator), target, intent(in) :: predictor !< predictor method
-    class(SDC_Corrector),  target, intent(in) :: corrector !< corrector method
-    class(SDC_Options),            intent(in) :: opt       !< SDC options
+    class(FlowProblem),    target, intent(in) :: problem !< flow problem
+    class(FlowOperators),  target, intent(in) :: flow_op !< flow operators
+    class(TimeIntegratorOptions),  intent(in) :: pre_opt !< predictor options
+    class(SDC_Corrector_Options),  intent(in) :: cor_opt !< corrector method
+    class(SDC_Options),            intent(in) :: sdc_opt !< SDC options
 
     ! local variables ..........................................................
 
@@ -130,7 +132,7 @@ contains
 
     ! prerequisites ............................................................
 
-    n_sub = max(1, opt % n_sub)
+    n_sub = max(1, sdc_opt % n_sub)
 
     ! GLL points and weights
     allocate(x(0:n_sub), source = GLL_Points(n_sub))
@@ -139,21 +141,19 @@ contains
     ! workspace
     allocate(xs(0:n_sub), ws(0:n_sub, n_sub))
 
-    ! components ...............................................................
+    ! subintervals and sweeps ..................................................
 
-    this % problem => problem
-    this % flow_op => flow_op
+    ! number of subintervals
+    this % n_sub = sdc_opt % n_sub
 
-    this % predictor = predictor
-    this % corrector = corrector
-
-    this % n_sub = opt % n_sub
-
-    if (opt % n_sweep >= 0) then
-      this % n_sweep = opt % n_sweep
+    ! max number of correction sweeps
+    if (sdc_opt % n_sweep >= 0) then
+      this % n_sweep = sdc_opt % n_sweep
     else
       this % n_sweep = 2 * n_sub - 1
     end if
+
+    ! points and weights .......................................................
 
     ! subinterval weights
     do j = 1, n_sub
@@ -175,6 +175,27 @@ contains
 
     call move_alloc(x , this % xi)
     call move_alloc(ws, this % ws)
+
+    ! problem and flow operators ...............................................
+
+    this % problem => problem
+    this % flow_op => flow_op
+
+    ! predictor ................................................................
+
+    select type(pre_opt)
+    class is (TimeIntegrator_Euler_Options)
+      this % predictor = TimeIntegrator_Euler(problem, flow_op, pre_opt)
+    class is (TimeIntegrator_RungeKutta_Options)
+      this % predictor = TimeIntegrator_RungeKutta(problem, flow_op, pre_opt)
+    end select
+
+    ! corrector ................................................................
+
+    select type(cor_opt)
+    class is (SDC_Corrector_Euler_Options)
+      this % corrector = SDC_Corrector_Euler(problem, flow_op, cor_opt)
+    end select
 
   end subroutine Init_SDC_Method
 
@@ -250,7 +271,7 @@ contains
     n_sweep = this % n_sweep
 
     !$omp barrier
-    !$omp master
+    !$omp single
 
     if (allocated(u_)) then
       if (any(shape(u_) /= [np,np,np,ne,nc,n_sub])) then
@@ -263,7 +284,8 @@ contains
 
     if (.not. allocated(u_)) then
 
-      allocate(t_(0:n_sub), source = this % IntermediateTimes(t, dt))
+      allocate(t_(0:n_sub), dt_(1:n_sub))
+      t_  = this % IntermediateTimes(t, dt)
       dt_ = t_(1:n_sub) - t_(0:n_sub-1)
 
       allocate(u_         (np,np,np,ne,nc,0:n_sub))
@@ -281,8 +303,7 @@ contains
       end if
 
     end if
-    !$omp end master
-    !$omp barrier
+    !$omp end single
 
     !---------------------------------------------------------------------------
     ! predictor
@@ -299,71 +320,23 @@ contains
     !---------------------------------------------------------------------------
     ! corrector
 
-    ! prerequisites ............................................................
+    Corrector: if (n_sweep > 0) then
 
-    do i = 0, n_sub
+      ! prerequisites ..........................................................
 
-      ! initialize variable diffusivity
-      if (allocated(nu_)) then
-        nu_i => nu_(:,:,:,:,:,i)
-        call this % problem %                  &
-               GetDiffusivity( this%flow_op%x  &
-                             , t_(i)           &
-                             , u_(:,:,:,:,:,i) &
-                             , nu_i            )
-      end if
+      do i = 0, n_sub
 
-      ! RHS for corrector and subintegrals
-      call this % corrector %                           &
-             GetCorrectorRHS( t_(i)                     &
-                            , nu_i                      &
-                            , u    = u_   (:,:,:,:,:,i) &
-                            , F_ex = F_ex_(:,:,:,:,:,i) &
-                            , F_im = F_im_(:,:,:,:,:,i) &
-                            , F    = F_   (:,:,:,:,:,i) )
-
-    end do
-
-    ! correction sweeps ........................................................
-
-    Sweeps: do n = 1, n_sweep
-
-      ! subintegrals
-      do i = 1, n_sub
-        call SubIntegral(this, i, dt, F_, S_(:,:,:,:,:,i))
-      end do
-
-      call SetArray(F_ex_0_old, F_ex_(:,:,:,:,:,0), multi=.true.)
-      call SetArray(F_im_0_old, F_im_(:,:,:,:,:,0), multi=.true.)
-
-      do i = 1, n_sub
-
-        t_0 = t_(i-1)
-
-        ! correction
-        call this % corrector %                                  &
-               CorrectionStep( t          = t_0                  &
-                             , dt         = dt_(i)               &
-                             , F_ex_0_old = F_ex_0_old           &
-                             , F_ex_0     = F_ex_(:,:,:,:,:,i-1) &
-                             , F_ex       = F_ex_(:,:,:,:,:,i)   &
-                             , F_im_0_old = F_im_0_old           &
-                             , F_im_0     = F_im_(:,:,:,:,:,i-1) &
-                             , F_im       = F_im_(:,:,:,:,:,i)   &
-                             , S          = S_   (:,:,:,:,:,i)   &
-                             , u_0        = u_   (:,:,:,:,:,i-1) &
-                             , u          = u_   (:,:,:,:,:,i)   &
-                             , nu         = nu_i                 )
-
-        ! save old RHS
-        if (i < n_sub) then
-          call SetArray(F_ex_0_old, F_ex_(:,:,:,:,:,i), multi=.true.)
-          call SetArray(F_im_0_old, F_im_(:,:,:,:,:,i), multi=.true.)
+        ! initialize variable diffusivity
+        if (allocated(nu_)) then
+          nu_i => nu_(:,:,:,:,:,i)
+          call this % problem %                  &
+                 GetDiffusivity( this%flow_op%x  &
+                               , t_(i)           &
+                               , u_(:,:,:,:,:,i) &
+                               , nu_i            )
         end if
 
-        if (n == n_sweep) exit
-
-        ! update RHS
+        ! RHS for corrector and subintegrals
         call this % corrector %                           &
                GetCorrectorRHS( t_(i)                     &
                               , nu_i                      &
@@ -372,18 +345,75 @@ contains
                               , F_im = F_im_(:,:,:,:,:,i) &
                               , F    = F_   (:,:,:,:,:,i) )
 
-        ! update variable diffusivity
-        if (associated(nu_i)) then
-          call this % problem %                  &
-                 GetDiffusivity( this%flow_op%x  &
-                               , t_(i)           &
-                               , u_(:,:,:,:,:,i) &
-                               , nu_i            )
-        end if
-
       end do
 
-    end do Sweeps
+      ! correction sweeps ......................................................
+
+      Sweeps: do n = 1, n_sweep
+
+        ! subintegrals
+        do i = 1, n_sub
+          call SubIntegral(this, i, dt, F_, S_(:,:,:,:,:,i))
+        end do
+
+        call SetArray(F_ex_0_old, F_ex_(:,:,:,:,:,0), multi=.true.)
+        call SetArray(F_im_0_old, F_im_(:,:,:,:,:,0), multi=.true.)
+
+        do i = 1, n_sub
+
+          t_0 = t_(i-1)
+
+          ! correction
+          call this % corrector %                                  &
+                 CorrectionStep( t          = t_0                  &
+                               , dt         = dt_(i)               &
+                               , F_ex_0_old = F_ex_0_old           &
+                               , F_ex_0     = F_ex_(:,:,:,:,:,i-1) &
+                               , F_ex       = F_ex_(:,:,:,:,:,i)   &
+                               , F_im_0_old = F_im_0_old           &
+                               , F_im_0     = F_im_(:,:,:,:,:,i-1) &
+                               , F_im       = F_im_(:,:,:,:,:,i)   &
+                               , S          = S_   (:,:,:,:,:,i)   &
+                               , u_0        = u_   (:,:,:,:,:,i-1) &
+                               , u          = u_   (:,:,:,:,:,i)   &
+                               , nu         = nu_i                 )
+
+          ! save old RHS
+          if (i < n_sub) then
+            call SetArray(F_ex_0_old, F_ex_(:,:,:,:,:,i), multi=.true.)
+            call SetArray(F_im_0_old, F_im_(:,:,:,:,:,i), multi=.true.)
+          end if
+
+          if (n == n_sweep) exit
+
+          ! update RHS
+          call this % corrector %                           &
+                 GetCorrectorRHS( t_(i)                     &
+                                , nu_i                      &
+                                , u    = u_   (:,:,:,:,:,i) &
+                                , F_ex = F_ex_(:,:,:,:,:,i) &
+                                , F_im = F_im_(:,:,:,:,:,i) &
+                                , F    = F_   (:,:,:,:,:,i) )
+
+          ! update variable diffusivity
+          if (associated(nu_i)) then
+            call this % problem %                  &
+                   GetDiffusivity( this%flow_op%x  &
+                                 , t_(i)           &
+                                 , u_(:,:,:,:,:,i) &
+                                 , nu_i            )
+          end if
+
+        end do
+
+      end do Sweeps
+
+    end if Corrector
+
+    ! result ...................................................................
+
+    t = t + dt
+    call SetArray(u, u_(:,:,:,:,:,n_sub), multi=.true.)
 
     ! clean-up .................................................................
 
@@ -393,7 +423,7 @@ contains
     end if
 
     !$omp barrier
-    !$omp master
+    !$omp single
     if (allocated(u_)) then
       !$acc exit data delete(...)
       deallocate(t_, dt_)
@@ -404,7 +434,7 @@ contains
       end if
       nu_i => null()
     end if
-    !$omp end master
+    !$omp end single
 
   end subroutine TimeStep
 
