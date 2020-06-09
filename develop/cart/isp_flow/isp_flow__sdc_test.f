@@ -39,7 +39,8 @@ program ISP_Flow__SDC_Test
   use CART__ISP_Flow__Time_Integrator              ! TI base type
   use CART__ISP_Flow__Time_Integrator__Euler       ! new standalone Euler
   use CART__ISP_Flow__Time_Integrator__Runge_Kutta ! new standalone Runge Kutta
-  use CART__ISP_Flow__SDC_Method                   ! new SDC method
+  use CART__ISP_Flow__SDC_Method                   ! SDC method
+  use CART__ISP_Flow__SDC_Corrector__Euler         ! SDC Euler-corrector
 
   implicit none
 
@@ -113,7 +114,9 @@ namelist /control/ check
   ! 2  Trapezoidal Rule
   ! 3  Runge-Kutta
   ! 4  SDC - original
-  ! 5  SDC - new
+  ! 5  SDC(Eu,Eu)
+  ! 6  SDC(TR,Eu)
+  ! 7  SDC(RK,Eu)
 
   namelist /time_integration/ time_method
 
@@ -143,6 +146,14 @@ namelist /control/ check
   type(SDC_Method3D)  :: sdc_orig
   type(SDC_Options3D) :: sdc_orig_opt
   namelist /time_integration/ sdc_orig_opt
+
+  ! SDC
+  type(SDC_Method)  :: sdc
+  type(SDC_Options) :: sdc_opt
+  type(TimeIntegrator_Euler_Options)      :: pre_eu_opt
+  type(TimeIntegrator_RungeKutta_Options) :: pre_rk_opt
+  type(SDC_Corrector_Euler_Options)       :: cor_eu_opt
+  namelist /time_integration/ sdc_opt, pre_eu_opt, pre_rk_opt, cor_eu_opt
 
   ! variables ..................................................................
 
@@ -239,6 +250,10 @@ call XMPI_Bcast(check   , 0, comm)
   call XMPI_Bcast(time_method, 0, comm)
   call rk_opt       % Bcast(0, comm)
   call sdc_orig_opt % Bcast(0, comm)
+  call sdc_opt      % Bcast(0, comm)
+  call pre_eu_opt   % Bcast(0, comm)
+  call pre_rk_opt   % Bcast(0, comm)
+  call cor_eu_opt   % Bcast(0, comm)
 
   ! flow problem ...............................................................
 
@@ -298,13 +313,17 @@ call XMPI_Bcast(check   , 0, comm)
   case(3)
     time_integrator = TimeIntegrator_RungeKutta(problem, flow_op, rk_opt)
     select type(time_integrator)
-    class is(TimeIntegrator_RungeKutta)
+    class is (TimeIntegrator_RungeKutta)
       call time_integrator % imex_rk % Write()
     end select
   case(4)
     sdc_orig = SDC_Method3D(EulerVC, EulerVC, sdc_orig_opt)
   case(5)
-    ! SDC - new
+    ! SDC(Eu,Eu)
+    sdc = SDC_Method(problem, flow_op, pre_eu_opt, cor_eu_opt, sdc_opt)
+  case(7)
+    ! SDC(RK,Eu)
+    sdc = SDC_Method(problem, flow_op, pre_rk_opt, cor_eu_opt, sdc_opt)
   end select
 
   ! variables and initial values ...............................................
@@ -355,8 +374,8 @@ call XMPI_Bcast(check   , 0, comm)
       call time_integrator % TimeStep(t, dt, u)
     case(4)
       call sdc_orig % TimeStep( problem, flow_op, t, dt, u, F, first, last)
-    case(5)
-      ! SDC - new
+    case(5,7)
+      call sdc % TimeStep(t, dt, u, standby = .not. last )
     case default
       ! using old Euler as the fall-back
       call SetArray(u_0, u, multi=.true.)

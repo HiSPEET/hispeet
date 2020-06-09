@@ -55,9 +55,15 @@
  !c_diff = 100
   nt_max = 10!0000
 !
-! time-integration method: 1 Euler, 2 TR, 3 RK, 4 SDC-orig, 5 SDC-new
-  time_method = 3
+! time-integration method:
+! 1  Euler
+! 2  TR
+! 3  RK
+! 4 SDC-orig
+! 5 SDC(Eu,Eu)
+  time_method = 7
 !
+! section for standalone Runge-Kutta
   rk_opt%n_stage = 3
   rk_opt%method  = 1
   rk_opt%project = 0
@@ -65,5 +71,13 @@
 !
   sdc_orig_opt%n_sub   =  3
   sdc_orig_opt%n_sweep =  2
+!
+! section for SDC(*,*)
+  sdc_opt%n_sub      = 1
+  sdc_opt%n_sweep    = 1
+  pre_rk_opt%n_stage = 3
+  pre_rk_opt%method  = 1
+  pre_rk_opt%project = 0
+  pre_rk_opt%variant = 1 
 /
 
