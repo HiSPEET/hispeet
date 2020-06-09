@@ -43,7 +43,7 @@ module CART__ISP_Flow__Time_Integrator__Euler
   end interface
 
   !-----------------------------------------------------------------------------
-  !> Type for providing Euler- time-integrator options (none, so far)
+  !> Type for providing Euler time-integrator options (none, so far)
 
   type, extends(TimeIntegratorOptions) :: TimeIntegrator_Euler_Options
   end type TimeIntegrator_Euler_Options
