@@ -6,12 +6,14 @@
 
 module CART__ISP_Flow__SDC_Corrector
   use Kind_Parameters, only: RNP
+  use XMPI
   use ISP_Flow_Problem
   use CART__ISP_Flow__Operators
   implicit none
   private
 
   public :: SDC_Corrector
+  public :: SDC_Corrector_Options
 
   !-----------------------------------------------------------------------------
   !> Abstract type of a SDC corrector for incompressible flow
@@ -74,7 +76,18 @@ module CART__ISP_Flow__SDC_Corrector
 
   end interface
 
+  !-----------------------------------------------------------------------------
+  !> Base type for providing time SDC-corrector options
+
+  type SDC_Corrector_Options
+  contains
+    procedure :: Bcast => SDC_Corrector_Options_Bcast
+  end type SDC_Corrector_Options
+
 contains
+
+  !=============================================================================
+  ! SDC_Corrector: type-bound procedures
 
   !-----------------------------------------------------------------------------
   !> Initialization of SDC_Corrector object
@@ -88,6 +101,22 @@ contains
     this % flow_op => flow_op
 
   end subroutine Init_SDC_Corrector
+
+  !=============================================================================
+  ! SDC_Corrector_Options: type-bound procedures
+
+  !-----------------------------------------------------------------------------
+  !> MPI broadcasting of SDC-corrector options
+
+  subroutine SDC_Corrector_Options_Bcast(this, root, comm)
+    class(SDC_Corrector_Options), intent(inout) :: this
+    integer,        intent(in) :: root !< rank of broadcast root
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
+
+    ! nothing to broadcast, so far
+    if (root == 0 .or. comm % mpi_val == 0) return
+
+  end subroutine SDC_Corrector_Options_Bcast
 
   !=============================================================================
 
