@@ -25,6 +25,7 @@ module CART__ISP_Flow__SDC_Corrector__Euler
   private
 
   public :: SDC_Corrector_Euler
+  public :: SDC_Corrector_Euler_Options
 
   !-----------------------------------------------------------------------------
   !> Abstract type of a SDC corrector for incompressible flow
@@ -41,29 +42,43 @@ module CART__ISP_Flow__SDC_Corrector__Euler
     module procedure New_SDC_Corrector_Euler
   end interface
 
+  !-----------------------------------------------------------------------------
+  !> Type for providing Euler SDC-corrector options (none, so far)
+
+  type, extends(SDC_Corrector_Options) :: SDC_Corrector_Euler_Options
+  end type SDC_Corrector_Euler_Options
+
 contains
 
   !-----------------------------------------------------------------------------
   !> Constructor for objects of type SDC_Corrector_Euler
 
-  function New_SDC_Corrector_Euler(problem, flow_op) result(this)
-    class(FlowProblem),   target,  intent(in)    :: problem !< flow problem
-    class(FlowOperators), target,  intent(in)    :: flow_op !< flow operators
+  function New_SDC_Corrector_Euler(problem, flow_op, opt) result(this)
+    class(FlowProblem),   target,       intent(in) :: problem !< flow problem
+    class(FlowOperators), target,       intent(in) :: flow_op !< flow operators
+    class(SDC_Corrector_Euler_Options), intent(in) :: opt     !< SDC options
     type(SDC_Corrector_Euler) :: this
 
-    call Init_SDC_Corrector_Euler(this, problem, flow_op)
+    call Init_SDC_Corrector_Euler(this, problem, flow_op, opt)
 
   end function New_SDC_Corrector_Euler
 
   !-----------------------------------------------------------------------------
   !> Initialization of a SDC_Corrector_Euler object
 
-  subroutine Init_SDC_Corrector_Euler(this, problem, flow_op)
+  subroutine Init_SDC_Corrector_Euler(this, problem, flow_op, opt)
     class(SDC_Corrector_Euler),   intent(inout) :: this
     class(FlowProblem),   target, intent(in)    :: problem !< flow problem
     class(FlowOperators), target, intent(in)    :: flow_op !< flow operators
+    class(SDC_Corrector_Euler_Options), intent(in) :: opt  !< SDC options
 
     call this % Init_SDC_Corrector(problem, flow_op)
+
+    ! no options, so far -- dummy action to avoid compiler warning
+    select type(opt)
+    class default
+      return
+    end select
 
   end subroutine Init_SDC_Corrector_Euler
 
