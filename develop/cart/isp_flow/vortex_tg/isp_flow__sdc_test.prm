@@ -4,12 +4,14 @@
   restart       =  F
   compute_p     =  F
   write_stat    =  T
-  write_vtk     =  T
+  write_vtk     =  F
   eval_rms      =  T
   eval_max      =  F
   eval_eps      =  F
 !
   flow_op_control%div_penalty    =  0     ! [1]
+  flow_op_control%div_coeff      =  20    ! [1]
+  flow_op_control%div_i_max      =  10000 ! [10]
   flow_op_control%div_final      =  F     ! [T]
 /
 
@@ -53,28 +55,30 @@
   dt     = 0.002
  !c_conv = 1.0
  !c_diff = 100
-  nt_max = 10!0000
+  nt_max = 100000
 !
 ! time-integration method:
 ! 1  Euler
-! 2  TR
+![2  TR         ]
 ! 3  RK
-! 4 SDC-orig
-! 5 SDC(Eu,Eu)
-  time_method = 7
+! 4  SDC-orig
+! 5  SDC(Eu,Eu)
+![6  SDC(TR,Eu) ]
+! 7  SDC(RK,Eu)
+  time_method = 5
 !
 ! section for standalone Runge-Kutta
   rk_opt%n_stage = 3
   rk_opt%method  = 1
-  rk_opt%project = 0
+  rk_opt%project = 1
   rk_opt%variant = 1
 !
   sdc_orig_opt%n_sub   =  3
-  sdc_orig_opt%n_sweep =  2
+  sdc_orig_opt%n_sweep =  3
 !
 ! section for SDC(*,*)
-  sdc_opt%n_sub      = 1
-  sdc_opt%n_sweep    = 1
+  sdc_opt%n_sub      = 3
+  sdc_opt%n_sweep    = 3
   pre_rk_opt%n_stage = 3
   pre_rk_opt%method  = 1
   pre_rk_opt%project = 0
