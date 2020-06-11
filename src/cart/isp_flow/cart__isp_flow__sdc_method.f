@@ -284,9 +284,8 @@ contains
 
     if (.not. allocated(u_)) then
 
-      allocate(t_(0:n_sub), dt_(1:n_sub))
-      t_  = this % IntermediateTimes(t, dt)
-      dt_ = t_(1:n_sub) - t_(0:n_sub-1)
+      allocate(t_  (0:n_sub))
+      allocate(dt_ (1:n_sub))
 
       allocate(u_         (np,np,np,ne,nc,0:n_sub))
       allocate(F_ex_      (np,np,np,ne,nc,0:n_sub))
@@ -303,6 +302,10 @@ contains
       end if
 
     end if
+
+    t_  = this % IntermediateTimes(t, dt)
+    dt_ = t_(1:n_sub) - t_(0:n_sub-1)
+
     !$omp end single
 
     !---------------------------------------------------------------------------
@@ -353,7 +356,7 @@ contains
 
         ! subintegrals
         do i = 1, n_sub
-          call SubIntegral(this, i, dt, F_, S_(:,:,:,:,:,i))
+          call SubIntegral(this, i, dt_(i), F_, S_(:,:,:,:,:,i))
         end do
 
         call SetArray(F_ex_0_old, F_ex_(:,:,:,:,:,0), multi=.true.)
@@ -383,8 +386,6 @@ contains
             call SetArray(F_ex_0_old, F_ex_(:,:,:,:,:,i), multi=.true.)
             call SetArray(F_im_0_old, F_im_(:,:,:,:,:,i), multi=.true.)
           end if
-
-          if (n == n_sweep) exit
 
           ! update RHS
           call this % corrector %                           &
@@ -442,7 +443,7 @@ contains
   ! SDC_Method: auxiliary procedures
 
   !-----------------------------------------------------------------------------
-  !> Evaluation of subintervals for arrays of 3D mesh variables
+  !> Evaluation of subinterval integrals for arrays of 3D mesh variables
 
   subroutine SubIntegral(sdc, m, dt, f, r)
     class(SDC_Method), intent(in) :: sdc

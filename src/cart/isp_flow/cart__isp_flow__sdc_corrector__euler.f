@@ -158,9 +158,9 @@ contains
 
     ! local variables  .........................................................
 
-    real(RNP), allocatable, save :: u_i (:,:,:,:,:) ! intermediate solution
-    real(RNP), allocatable, save :: w   (:,:,:,:,:) ! workspace for u
-    real(RNP), allocatable, save :: dp  (:,:,:,:)   ! pressure correction
+    real(RNP), allocatable, save :: u_i  (:,:,:,:,:) ! intermediate solution
+    real(RNP), allocatable, save :: w    (:,:,:,:,:) ! workspace for u
+    real(RNP), allocatable, save :: dp   (:,:,:,:)   ! pressure correction
 
     real(RNP) :: t_0
 
@@ -176,9 +176,9 @@ contains
 
       ! workspace
       !$omp single
-      allocate(u_i, mold = u)
-      allocate(w  , mold = u)
-      allocate(dp , mold = p)
+      allocate(u_i , mold = u)
+      allocate(w   , mold = u)
+      allocate(dp  , mold = p)
       !$omp end single
 
       ! boundary conditions ....................................................
@@ -203,7 +203,7 @@ contains
 
       ! diffusion ...............................................................
 
-      ! remove old diffusion termi i.e: u_i -= F_im ≡ ∇⋅[ν(t₀)∇u(t)]ᵏ⁻¹
+      ! remove old diffusion term: u_i -= F_im ≡ ∇⋅[ν(t₀)∇u(t)]ᵏ⁻¹
       call MergeArrays(ONE, u_i, -dt, F_im, multi=.true.)
 
       ! solve u'''/∆t - ν(t₀)ᵏ u''' = u_i/∆t
@@ -227,9 +227,9 @@ contains
 
       !$omp barrier
       !$omp master
-      deallocate(u_i)
-      deallocate(w  )
-      deallocate(dp )
+      deallocate(u_i )
+      deallocate(w   )
+      deallocate(dp  )
       !$omp end master
 
     end associate
