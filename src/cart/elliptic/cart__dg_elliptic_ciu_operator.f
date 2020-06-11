@@ -12,7 +12,7 @@ module CART__DG_Elliptic_CIU_Operator
   use Constants,       only: ZERO, ONE, HALF
   use Array_Assignments
 
-  use CART__TPO_Elliptic_CI
+  use TPO__Elliptic_3d_RLCI
   use CART__DG_Element_Operators
   use CART__Mesh_Partition
   use CART__Trace_Operator
@@ -47,10 +47,6 @@ subroutine EllipticOperator(mesh, eop, lambda, nu, bc, u, v)
   real(RNP), intent(in)  :: u(0:,0:,0:,:) !< approximate solution
   real(RNP), intent(out) :: v(0:,0:,0:,:) !< result
 
-  ! local variables ............................................................
-
-  procedure(TPO_Elliptic_CI_Proc), pointer, save :: StiffnessOperator
-
   ! trace operators
   type(TraceOperator),       allocatable, save :: trace_op
   type(NormalTraceOperator), allocatable, save :: normal_trace_op
@@ -72,12 +68,7 @@ subroutine EllipticOperator(mesh, eop, lambda, nu, bc, u, v)
 
   po = eop  % po
   ne = mesh % ne
-
-  ! procedure for evaluating the element operators
-  if (np /= po + 1) then
-    np  = po + 1
-    call TPO_Elliptic_CI_Assign(np, StiffnessOperator)
-  end if
+  np = po + 1
 
   ! workspace and operators
   !$omp single
@@ -104,7 +95,7 @@ subroutine EllipticOperator(mesh, eop, lambda, nu, bc, u, v)
 
   ! apply element stiffness operator ...........................................
 
-  call StiffnessOperator(np, ne, eop%w, eop%L, lambda, nu, eop%dx, u, v)
+  call TPO_Elliptic_RLCI(eop%w, eop%L, lambda, nu, eop%dx, u, v)
 
   ! finish generation of traces ................................................
 

@@ -13,7 +13,7 @@ module CART__CG_Elliptic_CI_Operator
   use Execution_Control, only: Error
   use Array_Assignments
 
-  use CART__TPO_Elliptic_CI
+  use TPO__Elliptic_3d_RLCI
   use CART__Mesh_Partition
   use CART__Assembly_Operator
   use CART__CG_Element_Operators
@@ -71,7 +71,7 @@ subroutine EllipticOperator(mesh, eop, lambda, nu, bc, u, v, assemble)
 
   ! apply element operators ....................................................
 
-  call TPO_Elliptic_CI_Eval(np, ne, eop%w, eop%L, lambda, nu, eop%dx, u, v)
+  call TPO_Elliptic_RLCI(eop%w, eop%L, lambda, nu, eop%dx, u, v)
 
   if (size(v,4) > ne) then
     call SetArray(v(:,:,:,ne+1:), ZERO)

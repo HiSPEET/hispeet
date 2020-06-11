@@ -7,7 +7,8 @@
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP:MP_Apply) MP_Apply_VI
-  use CART__TPO_Elliptic_VI
+
+  use TPO__Elliptic_3d_RLVI
   use CART__Trace_Operator
   use CART__Normal_Trace_Operator
   implicit none
@@ -21,10 +22,6 @@ module subroutine Apply_VI(this, u, v)
   class(EllipticOperator3D_IP), intent(in) :: this
   real(RNP), intent(in)  :: u(0:,0:,0:,:)  !< approximate solution
   real(RNP), intent(out) :: v(0:,0:,0:,:)  !< result
-
-  ! local variables ............................................................
-
-  procedure(TPO_Elliptic_VI_Proc), pointer, save :: StiffnessOperator
 
   ! trace operators
   type(TraceOperator),       allocatable, save :: trace_op
@@ -41,7 +38,7 @@ module subroutine Apply_VI(this, u, v)
   real(RNP), allocatable, save :: J_u(:,:,:) ! [u]ᵢ
   real(RNP), allocatable, save :: A_q(:,:,:) ! {q}ᵢ = {ν∇u}ᵢ
 
-  integer :: po, ne, np = -1
+  integer :: po, ne, np 
 
   select type(eop => this % eop)
   class is (IP_ElementOperators1D)
@@ -55,12 +52,7 @@ module subroutine Apply_VI(this, u, v)
 
       po = eop  % po
       ne = mesh % ne
-
-      ! procedure for evaluating the element operators
-      if (np /= po + 1) then
-        np  = po + 1
-        call TPO_Elliptic_VI_Assign(np, StiffnessOperator)
-      end if
+      np = po + 1 
 
       ! workspace and operators
       !$omp single
@@ -87,7 +79,7 @@ module subroutine Apply_VI(this, u, v)
 
       ! apply element stiffness operator .......................................
 
-      call StiffnessOperator(np, ne, eop%w, eop%D, lambda, nu, mesh%dx, u, v)
+      call TPO_Elliptic_RLVI(eop%w, eop%D, lambda, nu, mesh%dx, u, v)
 
       ! finish generation of traces ............................................
 
