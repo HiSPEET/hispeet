@@ -7,7 +7,7 @@
 module CART__Elliptic_PMG_Level
   use Kind_Parameters, only: RNP
   use Gauss_Jacobi
-  use TPO_AAA
+  use TPO__AAA_3d
   use Standard_Operators_1D
   use IP_Element_Operators_1D
   use CART__Mesh_Partition
@@ -293,7 +293,7 @@ subroutine Prolongate(this, uc, uf)
   real(RNP), intent(in)  :: uc(0:,0:,0:,:) !< mesh variable
   real(RNP), intent(out) :: uf(0:,0:,0:,:) !< fine (child) mesh variable
 
-  call TPO_AAA_Eval(size(uf,1), size(uc,1), size(uc,4), this%p2f_op, uc, uf)
+  call TPO_AAA(this%p2f_op, uc, uf)
 
 end subroutine Prolongate
 
@@ -305,7 +305,7 @@ subroutine Interpolate(this, uf, uc)
   real(RNP), intent(in)  :: uf(0:,0:,0:,:) !< mesh variable
   real(RNP), intent(out) :: uc(0:,0:,0:,:) !< coarse (parent) mesh variable
 
-  call TPO_AAA_Eval(size(uc,1), size(uf,1), size(uf,4), this%i2c_op, uf, uc)
+  call TPO_AAA(this%i2c_op, uf, uc)
 
 end subroutine Interpolate
 
@@ -317,7 +317,7 @@ subroutine Restrict(this, uf, uc)
   real(RNP), intent(in)  :: uf(0:,0:,0:,:) !< mesh variable
   real(RNP), intent(out) :: uc(0:,0:,0:,:) !< coarse (parent) mesh variable
 
-  call TPO_AAA_Eval(size(uc,1), size(uf,1), size(uf,4), this%r2c_op, uf, uc)
+  call TPO_AAA(this%r2c_op, uf, uc)
 
 end subroutine Restrict
 
@@ -329,7 +329,7 @@ subroutine Truncate(this, uf, uc)
   real(RNP), intent(in)  :: uf(0:,0:,0:,:) !< mesh variable
   real(RNP), intent(out) :: uc(0:,0:,0:,:) !< coarse (parent) mesh variable
 
-  call TPO_AAA_Eval(size(uc,1), size(uf,1), size(uf,4), this%t2c_op, uf, uc)
+  call TPO_AAA(this%t2c_op, uf, uc)
 
 end subroutine Truncate
 
