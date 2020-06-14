@@ -298,7 +298,6 @@ contains
 
       do k = 1, problem % nc
         if (k == 4) cycle ! skip pressure
-
         do j = 1, i-1
 
           tau = dt * a_ex(i,j)
@@ -322,6 +321,13 @@ contains
         end do
       end do
 
+      tau = dt * a_im(i,i)
+      do k = 1, problem % nc
+        if (k == 4) cycle ! skip pressure
+        call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d1(:,:,:,:,k,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_s (:,:,:,:,k,i))
+      end do
+
       ! projection: u_i ← u", p ← p" ...........................................
 
       tau = dt * a_im(i,i)
@@ -338,7 +344,10 @@ contains
         end if
 
         ! RHS: f = uᵢ - τ F_d1(*,i) → F_d1(*,i)
-        call MergeArrays(tau, F_d1(:,:,:,:,:,i), ONE, u_i, multi=.true.)
+        do k = 1, problem % nc
+          if (k == 4) cycle ! skip pressure
+          call MergeArrays(-tau, F_d1(:,:,:,:,k,i), ONE, u_i(:,:,:,:,k))
+        end do
 
         ! uᵢ/τ - ∇⋅(ν∇uᵢ) = f/τ
         call DiffusionStep(problem, flow_op, tau, F_d1(:,:,:,:,:,i), u_i, w, nu)
