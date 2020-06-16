@@ -303,7 +303,12 @@ contains
 
       call GetBoundaryValues(problem, mesh, flow_op % bv_x, t, flow_op % bv_u)
 
+      call TimeDerivative(problem, flow_op, t, F_s = F_s(:,:,:,:,:,i))
+
       call SetArray(u_i, u_0, multi=.true.)
+
+
+
       call SetArray(F_d1(:,:,:,:,:,i), ZERO, multi=.true.)
 
       ! extrapolation: u_i ← u .................................................
@@ -431,7 +436,6 @@ end if
                          , F_d2 = F_d2 (:,:,:,:,:,i)  &
                          , F_d3 = F_d3 (:,:,:,:,:,i)  &
                          , F_p  = F_p  (:,:,:,:,:,i)  &
-                         , F_s  = F_s  (:,:,:,:,:,i)  &
                          )
 
       select case(this % F_d1_method)
