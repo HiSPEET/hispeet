@@ -19,6 +19,7 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   use Kind_Parameters,   only: RNP
   use Constants,         only: ONE, ZERO
   use Execution_Control, only: Error
+  use TPO_sDDD
 
   use XMPI
   use Array_Assignments
@@ -46,9 +47,11 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
 
   type, extends(TimeIntegrator) :: TimeIntegrator_RungeKutta
     type(IMEX_RK_Method) :: imex_rk  !< IMEX Runge-Kutta method
-    integer :: project  = 0 !< switch for additional projections
-    integer :: pressure = 0 !< switch for pressure recomputation
-    integer :: variant  = 1 !< RK stage variant
+    integer :: project     = 0 !< switch for additional projections
+    integer :: rotational  = 1 !< switch for rotational scheme
+    integer :: F_d1_method = 3 !< method for computing F_d1
+    integer :: pressure    = 0 !< switch for pressure recomputation
+    integer :: variant     = 1 !< RK stage variant
   contains
     procedure :: Init_TimeIntegrator_RungeKutta
     procedure :: TimeStep
@@ -63,11 +66,13 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   !> Type for providing Runge-Kutta- time-integrator options
 
   type, extends(TimeIntegratorOptions) :: TimeIntegrator_RungeKutta_Options
-    integer :: n_stage  = 3 !< number of stages
-    integer :: method   = 1 !< RK method selector, if more than one exist
-    integer :: project  = 0 !< switch for additional projections
-    integer :: pressure = 0 !< switch for pressure recomputation
-    integer :: variant  = 1 !< RK stage variant
+    integer :: n_stage     = 3 !< number of stages
+    integer :: method      = 1 !< RK method selector, if more than one exist
+    integer :: project     = 0 !< switch for additional projections
+    integer :: rotational  = 1 !< switch for rotational scheme
+    integer :: F_d1_method = 3 !< switch for using F_d1 from diffusion step
+    integer :: pressure    = 0 !< switch for pressure recomputation
+    integer :: variant     = 1 !< RK stage variant
   contains
     procedure :: Bcast => TimeIntegrator_RungeKutta_Options_Bcast
   end type TimeIntegrator_RungeKutta_Options
@@ -105,8 +110,11 @@ contains
     ! initialize RK method
     call this % imex_rk % Init_IMEX_RK_Method(opt % n_stage, opt % method)
 
-    ! TK stage variant
-    this % variant = opt % variant
+    ! options
+    this % rotational  = opt % rotational
+    this % F_d1_method = opt % F_d1_method
+    this % pressure    = opt % pressure
+    this % variant     = opt % variant
 
   end subroutine Init_TimeIntegrator_RungeKutta
 
@@ -261,8 +269,10 @@ contains
 
     ! local variables...........................................................
 
-    real(RNP), allocatable, save :: w (:,:,:,:,:)  ! workspace for 2nd and 3rd step
-    real(RNP), allocatable, save :: dp(:,:,:,:  )  ! workspace for final step
+    real(RNP), allocatable, save :: f (:,:,:,:,:)
+    real(RNP), allocatable, save :: w (:,:,:,:,:)
+    real(RNP), allocatable, save :: u_x(:,:,:,:,:)  ! extrapolated solution
+    real(RNP), allocatable, save :: dp(:,:,:,:  )
 
     real(RNP) :: tau
     integer   :: j, k
@@ -270,7 +280,9 @@ contains
     ! workspace ................................................................
 
     !$omp single
+    allocate(f , mold = u_0)
     allocate(w , mold = u_0)
+    allocate(u_x, mold = u_0)
     allocate(dp, mold = u_0(:,:,:,:,4))
     !$omp end single
 
@@ -303,19 +315,17 @@ contains
           tau = dt * a_ex(i,j)
           if (tau /= 0) then
             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_c (:,:,:,:,k,j))
+            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d2(:,:,:,:,k,j))
+            if (this % rotational == 1) then
+              call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
+            end if
           end if
 
           tau = dt * a_im(i,j)
           if (tau /= 0) then
             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_p (:,:,:,:,k,j))
             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_s (:,:,:,:,k,j))
-            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
-          end if
-
-          tau = dt * (a_ex(i,j) - a_im(i,j)) / a_im(i,i)
-          if (tau /= 0) then
-            call MergeArrays( ONE, F_d1(:,:,:,:,k,i), tau, F_d1(:,:,:,:,k,j))
           end if
 
         end do
@@ -324,11 +334,26 @@ contains
       tau = dt * a_im(i,i)
       do k = 1, problem % nc
         if (k == 4) cycle ! skip pressure
-        call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d1(:,:,:,:,k,i))
         call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_s (:,:,:,:,k,i))
       end do
 
       ! projection: u_i ← u", p ← p" ...........................................
+
+if (this % F_d1_method == 3) then
+  call SetArray(u_x, u_i, multi = .true.)
+  do k = 1, problem % nc
+    if (k == 4) cycle
+    do j = 1, i-1
+      call MergeArrays( ONE                         , u_x  (:,:,:,:,k)   &
+                      , dt * (a_im(i,j) - a_ex(i,j)), F_d1 (:,:,:,:,k,j) )
+
+      if (this % rotational == 1) then
+        call MergeArrays( ONE            , u_x  (:,:,:,:,k)   &
+                        , -dt * a_ex(i,j), F_d3 (:,:,:,:,k,j) )
+      end if
+    end do
+  end do
+end if
 
       tau = dt * a_im(i,i)
 
@@ -339,18 +364,37 @@ contains
 
       if (present(nu) .or. any(problem % nu_ref > 0)) then
 
+        ! update diffusivity
         if (present(nu)) then
           call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u")
         end if
 
-        ! RHS: f = uᵢ - τ F_d1(*,i) → F_d1(*,i)
+        ! RHS: f = uᵢ + ∆t[ ∑ⁱ⁻¹(aⁱᵐ-aᵉˣ)F_d1 - ∑ⁱ⁻¹ aᵉˣF_d3 ]
         do k = 1, problem % nc
-          if (k == 4) cycle ! skip pressure
-          call MergeArrays(-tau, F_d1(:,:,:,:,k,i), ONE, u_i(:,:,:,:,k))
+          if (k == 4) cycle
+          call SetArray(f(:,:,:,:,k), u_i(:,:,:,:,k))
+          do j = 1, i-1
+            call MergeArrays( ONE                         , f    (:,:,:,:,k)   &
+                            , dt * (a_im(i,j) - a_ex(i,j)), F_d1 (:,:,:,:,k,j) )
+
+            if (this % rotational == 1) then
+              call MergeArrays( ONE            , f    (:,:,:,:,k)   &
+                              , -dt * a_ex(i,j), F_d3 (:,:,:,:,k,j) )
+            end if
+          end do
         end do
 
         ! uᵢ/τ - ∇⋅(ν∇uᵢ) = f/τ
-        call DiffusionStep(problem, flow_op, tau, F_d1(:,:,:,:,:,i), u_i, w, nu)
+        tau = dt * a_im(i,i)
+        call DiffusionStep(problem, flow_op, tau, f, u_i, w, nu)
+
+        if (this % F_d1_method == 2) then
+          ! F_d1 = (uᵢ-f)/τ
+          do k = 1, problem % nc
+            if (k == 4) cycle
+            call MergeArrays(-1/tau, f(:,:,:,:,k), 1/tau, u_i(:,:,:,:,k))
+          end do
+        end if
 
       end if
 
@@ -390,13 +434,62 @@ contains
                          , F_s  = F_s  (:,:,:,:,:,i)  &
                          )
 
+      select case(this % F_d1_method)
+
+      case(2)
+        do k = 1, problem % nc
+          if (k == 4) cycle
+          call SetArray(F_d1(:,:,:,:,k,i), f(:,:,:,:,k))
+        end do
+
+      case(3)
+        tau = dt * a_im(i,i)
+        do k = 1, problem % nc
+          if (k == 4) cycle
+          call SetArray(F_d1(:,:,:,:,k,i), u_i(:,:,:,:,k))
+          call MergeArrays(1/tau, F_d1(:,:,:,:,k,i), -1/tau, u_x(:,:,:,:,k))
+          call MergeArrays(ONE  , F_d1(:,:,:,:,k,i), -ONE  , F_p(:,:,:,:,k,i))
+        end do
+
+      case(4)
+        block
+          real(RNP), allocatable :: Msi(:)
+          real(RNP) :: c
+          integer   :: l
+          l = ubound(flow_op % pmg_u % level, 1)
+          associate( elliptic_op => flow_op % pmg_u % level(l) % elliptic_op )
+            allocate(Msi, source = flow_op % eop_u % w)
+            Msi = 1 / Msi
+            c   = 8 / product(mesh % dx)
+            do k = 1, problem % nc
+              if (k == 4) cycle
+              if (present(nu)) then
+                call elliptic_op % SetProblem(ZERO, nu(:,:,:,:,k), problem % bc(:,k))
+              else
+                call elliptic_op % SetProblem(ZERO, problem % nu_ref(k), problem % bc(:,k))
+              end if
+              call SetArray(f(:,:,:,:,k), ZERO)
+              call elliptic_op % BcToRHS(flow_op % bv_u, k, f(:,:,:,:,k))
+              call elliptic_op % Residual(u_i(:,:,:,:,k), f(:,:,:,:,k), w(:,:,:,:,k))
+              ! apply inverse mass matrix
+              call TPO_sDDD_Eval(size(Msi), mesh%ne, c, Msi, w(:,:,:,:,k), &
+                                 F_d1(:,:,:,:,k,i))
+            end do
+            deallocate(Msi)
+          end associate
+        end block
+
+      end select
+
     end associate
 
     ! clean up .................................................................
 
     !$omp barrier
     !$omp master
+    if (allocated(f )) deallocate(f )
     if (allocated(w )) deallocate(w )
+    if (allocated(u_x)) deallocate(u_x)
     if (allocated(dp)) deallocate(dp)
     !$omp end master
 
@@ -413,16 +506,18 @@ contains
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    type(MPI_Request)  :: request(5)
+    type(MPI_Request)  :: request(7)
     type(MPI_Status)   :: stat(size(request))
     integer :: n
 
     n = 1
-    call XMPI_Ibcast( this % n_stage , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % method  , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % pressure, root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % project , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % variant , root, comm, request(n) )
+    call XMPI_Ibcast( this % n_stage   , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % method    , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % pressure  , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % project   , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % rotational, root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % F_d1_method , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % variant   , root, comm, request(n) )
 
     call MPI_Waitall(n, request, stat)
 
