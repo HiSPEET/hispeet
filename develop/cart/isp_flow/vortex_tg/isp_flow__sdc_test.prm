@@ -69,22 +69,24 @@
   time_method = 3
 !
 ! section for standalone Runge-Kutta
-  rk_opt%n_stage     = 4
-  rk_opt%method      = 2
-  rk_opt%project     = 0
-  rk_opt%rotational  = 1
-  rk_opt%F_d1_method = 3
-  rk_opt%variant     = 1
+  rk_opt%n_stage    = 4
+  rk_opt%method     = 2
+  rk_opt%project    = 0
+  rk_opt%splitting  = 2
+  rk_opt%pressure   = 0
+  rk_opt%variant    = 1
 !
   sdc_orig_opt%n_sub   =  3
   sdc_orig_opt%n_sweep =  6
 !
 ! section for SDC(*,*)
-  sdc_opt%n_sub       = 3
-  sdc_opt%n_sweep     = 1
-  pre_rk_opt%n_stage  = 3
-  pre_rk_opt%method   = 1
-  pre_rk_opt%project  = 0
-  pre_rk_opt%variant  = 1 
+  sdc_opt%n_sub        = 3
+  sdc_opt%n_sweep      = 1
+  pre_rk_opt%n_stage   = 3
+  pre_rk_opt%method    = 1
+  pre_rk_opt%project   = 0
+  pre_rk_opt%splitting = 2
+  pre_rk_opt%pressure  = 0
+  pre_rk_opt%variant   = 2
 /
 
