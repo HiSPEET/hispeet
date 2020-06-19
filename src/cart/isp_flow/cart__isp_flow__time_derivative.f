@@ -3,7 +3,33 @@
 !> date:     2018/05/31
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### ISP flow: computation of time derivative to given solution
+!> Computes the time derivative to a given solution and/or contributions to it.
+!>
+!>       F = ∂u/∂t = F_c + F_d + F_p + F_s
+!>
+!> where
+!>
+!>      F_c = -∇·(v u_c)
+!>
+!> with `v = u_c(*,1:3)` if `u_c` is given and `F_c = 0` else,
+!>
+!>      F_d = F_d1 + F_d2 + F_d3
+!>
+!>      F_d1(*, : ) = ∇·(ν (∇v) )
+!>      F_d2(*,1:3) = ∇·(ν (∇v)ᵀ)
+!>      F_d3(*,1:3) = χ∇(ν (∇·v))
+!>
+!> with `v = u_d(*,1:3)` if `u_d` is given and `F_d = F_d1 = Fd2 = F_d3 = 0`
+!> else,
+!>
+!>      F_p = -∇p
+!>
+!> if `p` is present and `F_p = 0` else, and
+!>
+!>      F_s = f(x,t)
+!>
+!> are the solution-independent sources.
+!>
 !===============================================================================
 
 module CART__ISP_Flow__Time_Derivative
@@ -31,9 +57,13 @@ contains
 
 !-------------------------------------------------------------------------------
 !> Computation of time derivative to given solution
+!>
+!> @note
+!>   * if absent, the bulk diffusion parameter χ ist taken from `flow_op`
+!> @endnote
 
-subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu,   &
-                           F, F_c, F_d, F_d1, F_d2, F_d3, F_p, F_s )
+subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu, chi,  &
+                           F, F_c, F_d, F_d1, F_d2, F_d3, F_p, F_s     )
 
   ! arguments ..................................................................
 
@@ -44,12 +74,13 @@ subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu,   &
   real(RNP),  optional, intent(in)    :: u_d     !< variables for diffusion
   real(RNP),  optional, intent(in)    :: p       !< pressure
   real(RNP),  optional, intent(in)    :: nu      !< variable diffusivity
+  real(RNP),  optional, intent(in)    :: chi     !< bulk diffusion parameter χ
   real(RNP),  optional, intent(out)   :: F       !< ∂u/∂t
   real(RNP),  optional, intent(inout) :: F_c     !< convection part
   real(RNP),  optional, intent(inout) :: F_d     !< diffusion part, complete
   real(RNP),  optional, intent(out)   :: F_d1    !< diffusion part, only ∇·ν∇u
   real(RNP),  optional, intent(out)   :: F_d2    !< diffusion part, only ∇·ν(∇v)ᵀ
-  real(RNP),  optional, intent(out)   :: F_d3    !< diffusion part, only -χ∇ν(∇·v)
+  real(RNP),  optional, intent(out)   :: F_d3    !< diffusion part, only χ∇ν(∇·v)
   real(RNP),  optional, intent(out)   :: F_p     !< pressure part
   real(RNP),  optional, intent(out)   :: F_s     !< source part
 
@@ -69,13 +100,13 @@ subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu,   &
   ! local variables ............................................................
 
   real(RNP), allocatable, save :: v(:,:,:,:,:), w(:,:,:,:,:)
-  integer :: po, np, ne, nc
+  real(RNP) :: chi_
+  integer   :: po, np, ne, nc
 
   associate( mesh => flow_op % mesh          &
            , Ms   => flow_op % eop_u % w     &
            , Ds   => flow_op % eop_u % D     &
-           , Dd   => flow_op % eop_u % D     &
-           , chi  => flow_op % control % chi )
+           , Dd   => flow_op % eop_u % D     )
 
     ! intialization ............................................................
 
@@ -83,6 +114,12 @@ subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu,   &
     np = po + 1
     ne = mesh % ne
     nc = problem % nc
+
+    if (present(chi)) then
+      chi_ = chi
+    else
+      chi_ = flow_op % control % chi
+    end if
 
     !$omp single
     allocate(w(np,np,np,ne,nc))
@@ -133,17 +170,17 @@ subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu,   &
       if (present(F_d3)) call SetArray(F_d3, ZERO, multi = .true.)
 
       if (present(nu)) then
-        call DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, nu, chi, u_d, w, F, F_d, &
+        call DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, nu, chi_, u_d, w, F, F_d, &
                                        F_d1, F_d2, F_d3)
         call DiffTimeDeriv_Scalars_VI(mesh, Ms, Dd, nu, u_d, w, F, F_d, F_d1)
       else if (problem % HasVariableProperties()) then
         call problem % GetDiffusivity(flow_op%x, t, u_d, nu = v)
-        call DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, v, chi, u_d, w, F, F_d, &
+        call DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, v, chi_, u_d, w, F, F_d, &
                                        F_d1, F_d2, F_d3)
         call DiffTimeDeriv_Scalars_VI (mesh, Ms, Dd, v, u_d, w, F, F_d, F_d1)
       else
         associate(nu => problem % nu_ref)
-          call DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi, u_d, w, F, F_d, &
+          call DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi_, u_d, w, F, F_d, &
                                          F_d1, F_d3)
           call DiffTimeDeriv_Scalars_CI(mesh, Ms, Dd, nu, u_d, w, F, F_d, F_d1)
         end associate
@@ -185,13 +222,13 @@ end subroutine TimeDerivative
 !>
 !> Computes
 !>
-!>     F(*,1:3) += ν∇·[∇v + (∇v)ᵀ] + χν∇∇·v =F_d(*,1:3)
+!>     F(*,1:3) += ν∇²v + ν∇∇·v + χν∇∇·v = F_d(*,1:3)
 !>
 !> using the weak (projected) form of the outer divergence and gradient
 !> operators.
 
 subroutine DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
-    F_d1, F_d3)
+    F_d1, F_d2, F_d3)
   class(MeshPartition), intent(in)    :: mesh            !< mesh partition
   real(RNP),            intent(in)    :: Ms  (:)         !< standard mass matrix
   real(RNP),            intent(in)    :: Dd  (:,:)       !< standard diff matrix
@@ -202,6 +239,7 @@ subroutine DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
   real(RNP),  optional, intent(inout) :: F   (:,:,:,:,:) !< time derivative ∂v/∂t
   real(RNP),  optional, intent(out)   :: F_d (:,:,:,:,:) !< ∂u/∂t diffusive part
   real(RNP),  optional, intent(out)   :: F_d1(:,:,:,:,:) !< ∇·ν∇v contribution
+  real(RNP),  optional, intent(out)   :: F_d2(:,:,:,:,:) !< ν∇∇·v contribution
   real(RNP),  optional, intent(out)   :: F_d3(:,:,:,:,:) !< χν∇∇·v contribution
 
   integer :: ne, np
@@ -210,6 +248,7 @@ subroutine DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
   if (.not. ( present(F)    .or. &
               present(F_d)  .or. &
               present(F_d1) .or. &
+              present(F_d2) .or. &
               present(F_d3)     )) return
 
   np = size(Ms)
@@ -227,7 +266,7 @@ subroutine DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
           call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
         end if
         if (present(F_d)) then
-          call SetArray(F_d (:,:,:,:,c), q)
+          call SetArray(F_d(:,:,:,:,c), q)
         end if
         if (present(F_d1)) then
           call SetArray(F_d1(:,:,:,:,c), q)
@@ -235,19 +274,22 @@ subroutine DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
       end do
     end if
 
-    ! divergence penalty
-    if (present(F) .or. present(F_d) .or. present(F_d3)) then
+    ! F_d2 and F_d3
+    if (present(F) .or. present(F_d) .or. present(F_d2) .or. present(F_d3)) then
       call TPO_Div_Eval(np, ne, Dd, mesh%dx, v, q)
-      call ScaleArray(q, (1 + chi)*sum(nu(1:3))/3)
+      call ScaleArray(q, sum(nu(1:3))/3)
       call WeakGradient(mesh, Ms, Dd, q, g)
       if (present(F_d)) then
-        call MergeArrays(ONE, F(:,:,:,:,1:3), ONE, g, multi=.true.)
+        call MergeArrays(ONE, F(:,:,:,:,1:3), 1+chi, g, multi=.true.)
       end if
       if (present(F_d)) then
-        call MergeArrays(ONE, F_d(:,:,:,:,1:3), ONE, g, multi=.true.)
+        call MergeArrays(ONE, F_d(:,:,:,:,1:3), 1+chi, g, multi=.true.)
+      end if
+      if (present(F_d2)) then
+        call SetArray(F_d2(:,:,:,:,1:3), g, multi=.true.)
       end if
       if (present(F_d3)) then
-        call SetArray(F_d3(:,:,:,:,1:3), g)
+        call MergeArrays(ZERO, F_d3(:,:,:,:,1:3), chi, g, multi=.true.)
       end if
     end if
 
@@ -354,6 +396,7 @@ subroutine DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
   allocate(grad_v(np,np,np,ne,3,3))
   !$omp end single
 
+  ! grad_v(c,d) = ∂ v_c / ∂ x_d,  i.e.  grad_v = (∇v)ᵀ
   call TPO_Grad_Eval(np, 3*ne, Dd, mesh%dx, v(:,:,:,:,1:3), grad_v)
 
   associate(g => w(:,:,:,:,1:3), q => w(:,:,:,:,4))
@@ -364,6 +407,7 @@ subroutine DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
 
       if (present(F) .or. present(F_d) .or. present(F_d1)) then
 
+        ! g = ν ∇ v_c
         do d = 1, 3
           !$omp do
           do e = 1, ne
@@ -377,6 +421,7 @@ subroutine DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
           end do
         end do
 
+        ! q = ∇·g = ∇·(ν ∇ v_c)
         call WeakDivergence(mesh, Ms, Dd, g, q)
 
         if (present(F)) then
@@ -391,6 +436,7 @@ subroutine DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
 
       if (present(F) .or. present(F_d) .or. present(F_d2)) then
 
+        ! g = ν (∂ v/ ∂ x_c)
         do d = 1, 3
           !$omp do
           do e = 1, ne
@@ -404,6 +450,7 @@ subroutine DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
           end do
         end do
 
+        ! q = ∇·g = ∇·(ν (∂ v/ ∂ x_c))
         call WeakDivergence(mesh, Ms, Dd, g, q)
 
         if (present(F)) then
@@ -424,6 +471,7 @@ subroutine DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
 
     if (present(F) .or. present(F_d) .or. present(F_d3)) then
 
+      ! q = ∇·g = χν(∇·v)
       !$omp do
       do e = 1, ne
         do k = 1, np
@@ -437,6 +485,7 @@ subroutine DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
         end do
       end do
 
+      ! g = ∇q = χ∇ν(∇·v)
       call WeakGradient(mesh, Ms, Dd, q, g)
 
       if (present(F)) then
