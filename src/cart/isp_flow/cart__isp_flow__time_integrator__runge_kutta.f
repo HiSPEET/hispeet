@@ -69,26 +69,26 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   !>   * `n_stage`    defines the number of stages of the Runge-Kutta method
   !>   * `method`     selects the RK method, if more than one method with the
   !>                  specified number of stages exists
-  !>   * `project`    0: no additional projection step                      \n
+  !>   * `project`    0: no additional projection step                       \n
   !>                  1: additional projection after assembly
-  !>   * `splitting`  defines the splitting scheme used in the stages.      \n
-  !>                  1: standard velocity correction with χ = -1           \n
+  !>   * `splitting`  defines the splitting scheme used in the stages:       \n
+  !>                  1: standard velocity correction with χ = -1            \n
   !>                  2: rotational velocity correction with χ = -2
-  !>                     and F_d3/2 removed after extrapolation             \n
-  !>                  3: "native" velocity correction with χ = 0            \n
+  !>                     and F_d3/2 removed after extrapolation              \n
+  !>                  3: "native" velocity correction with χ = 0             \n
   !>                  4: velocity correction with χ = -1
-  !>                     and F_d3 removed after extrapolation               \n
+  !>                     and F_d3 removed after extrapolation                \n
   !>                  5: velocity correction with χ = -2
-  !>                     and F_d3 removed after extrapolation               \n
+  !>                     and F_d3 removed after extrapolation                \n
   !>   * `pressure`   0: return pressure as computed in last stage  \n
   !>                  1: recompute pressure after assembly
   !>   * `variant`    1: compute RHS after assembly \n
-  !>                  2: compute diffusive RHS as F_d1 = (u - u')/τ - ∆F - F_p,
-  !>                     where                                           \n
-  !>                       u' is the extrapolated solution,              \n
-  !>                       u  is the stage solution,                     \n
-  !>                       τ  = ∆t aⁱᵐ(i,i), and                         \n
-  !>                       ∆F = ∆t/τ ∑ⁱ⁻¹ [(aᵉˣ - aⁱᵐ)F_d1 + aᵉˣ F_d3)]  \n
+  !>                  2: compute diffusive RHS as F_d1 = [u - (u' + τ∆F)]/τ - F_p,
+  !>                     where                                               \n
+  !>                       u' is the extrapolated solution,                  \n
+  !>                       u  is the stage solution,                         \n
+  !>                       τ  = ∆t aⁱᵐ(i,i), and                             \n
+  !>                       ∆F = ∆t/τ ∑ⁱ⁻¹ [(aⁱᵐ - aᵉˣ)F_d1 - cd3 aᵉˣ F_d3)]  \n
   !>                  3: employs
   !>                       variant 1 for all, but the last stage, and
   !>                       variant 2 for the latter
@@ -199,16 +199,16 @@ contains
         cd3 =  0
       case(2)
         chi = -2
-        cd3 = -HALF
+        cd3 =  HALF
       case(3)
         chi =  0
         cd3 =  0
       case(4)
         chi = -1
-        cd3 = -1
+        cd3 =  1
       case(5)
         chi = -2
-        cd3 = -1
+        cd3 =  1
       end select
 
       ! node times
@@ -339,7 +339,7 @@ contains
     real(RNP), intent(inout) :: F_c (:,:,:,:,:,:) !< F_c  = -∇⋅(vu)
     real(RNP), intent(inout) :: F_d1(:,:,:,:,:,:) !< F_d1 =  ∇⋅(ν∇u)
     real(RNP), intent(inout) :: F_d2(:,:,:,:,:,:) !< F_d2 =  ∇⋅(ν∇v)ᵀ
-    real(RNP), intent(inout) :: F_d3(:,:,:,:,:,:) !< F_d3 = -χ∇(ν∇⋅v)
+    real(RNP), intent(inout) :: F_d3(:,:,:,:,:,:) !< F_d3 =  χ∇(ν∇⋅v)
     real(RNP), intent(inout) :: F_p (:,:,:,:,:,:) !< F_p  = -∇p
     real(RNP), intent(inout) :: F_s (:,:,:,:,:,:) !< F_s  =  f(x,t)
 
@@ -383,16 +383,18 @@ contains
 
       ! extrapolation: u_i ← u' ................................................
 
+      ! u' = u₀ + ∆t ∑ⁱ⁻¹ [aᵉˣ(F_c + F_d) + aⁱᵐ F_p] + ∆t ∑ⁱ aⁱᵐ F_s
+
       do k = 1, problem % nc
         if (k == 4) cycle ! skip pressure
         do j = 1, i-1
 
           tau = dt * a_ex(i,j)
           if (tau /= 0) then
-            call MergeArrays(ONE, u_i(:,:,:,:,k), tau    , F_c (:,:,:,:,k,j))
-            call MergeArrays(ONE, u_i(:,:,:,:,k), tau    , F_d1(:,:,:,:,k,j))
-            call MergeArrays(ONE, u_i(:,:,:,:,k), tau    , F_d2(:,:,:,:,k,j))
-            call MergeArrays(ONE, u_i(:,:,:,:,k), cd3*tau, F_d3(:,:,:,:,k,j))
+            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_c (:,:,:,:,k,j))
+            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
+            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d2(:,:,:,:,k,j))
+            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
           end if
 
           tau = dt * a_im(i,j)
@@ -413,7 +415,6 @@ contains
       ! projection: u_i ← u", p ← p" ...........................................
 
       tau = dt * a_im(i,i)
-
       call PressureSolver(problem, flow_op, tau, u_i, p, w) ! ∇²p" = ∇⋅v'/τ
       call ProjectionStep(problem, flow_op, tau, p, u_i, w) ! v"+J(v") = v'-τ∇p"
 
@@ -426,17 +427,18 @@ contains
           call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u")
         end if
 
-        ! RHS: f = uᵢ + ∆t[ ∑ⁱ⁻¹(aⁱᵐ-aᵉˣ)F_d1 - ∑ⁱ⁻¹ aᵉˣF_d3 ]
+        ! RHS: f = uᵢ + τ∆F = uᵢ + ∆t[ ∑ⁱ⁻¹(aⁱᵐ-aᵉˣ)F_d1 - cd3 ∑ⁱ⁻¹ aᵉˣF_d3 ]
         do k = 1, problem % nc
           if (k == 4) cycle
           call SetArray(f(:,:,:,:,k), u_i(:,:,:,:,k))
           do j = 1, i-1
-            call MergeArrays( ONE                         , f    (:,:,:,:,k)   &
-                            , dt * (a_im(i,j) - a_ex(i,j)), F_d1 (:,:,:,:,k,j) )
-
-            if (this % splitting == 1) then
-              call MergeArrays( ONE            , f    (:,:,:,:,k)   &
-                              , -dt * a_ex(i,j), F_d3 (:,:,:,:,k,j) )
+            tau = dt * (a_im(i,j) - a_ex(i,j))
+            if (tau /= 0) then
+              call MergeArrays(ONE, f(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
+            end if
+            tau = -cd3 * dt * a_ex(i,j)
+            if (tau /= 0) then
+              call MergeArrays(ONE, f(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
             end if
           end do
         end do
@@ -450,6 +452,8 @@ contains
       ! final projection: u_i ← u ..............................................
 
       if (flow_op % control % div_final) then
+
+        tau = dt * a_im(i,i)
 
         ! ∇²δp = ∇⋅v'''/τ
         call SetArray(dp, ZERO)
@@ -516,7 +520,7 @@ contains
     real(RNP), intent(inout) :: F_c (:,:,:,:,:,:) !< F_c  = -∇⋅(vu)
     real(RNP), intent(inout) :: F_d1(:,:,:,:,:,:) !< F_d1 =  ∇⋅(ν∇u)
     real(RNP), intent(inout) :: F_d2(:,:,:,:,:,:) !< F_d2 =  ∇⋅(ν∇v)ᵀ
-    real(RNP), intent(inout) :: F_d3(:,:,:,:,:,:) !< F_d3 = -χ∇(ν∇⋅v)
+    real(RNP), intent(inout) :: F_d3(:,:,:,:,:,:) !< F_d3 =  χ∇(ν∇⋅v)
     real(RNP), intent(inout) :: F_p (:,:,:,:,:,:) !< F_p  = -∇p
     real(RNP), intent(inout) :: F_s (:,:,:,:,:,:) !< F_s  =  f(x,t)
 
@@ -562,8 +566,6 @@ contains
 
       ! u' = u₀ + ∆t ∑ⁱ⁻¹ [aᵉˣ(F_c + F_d) + aⁱᵐ F_p] + ∆t ∑ⁱ aⁱᵐ F_s
 
-      call SetArray(f, ZERO, multi=.true.)
-
       do k = 1, problem % nc
         if (k == 4) cycle ! skip pressure
         do j = 1, i-1
@@ -571,22 +573,18 @@ contains
           tau = dt * a_ex(i,j)
           if (tau /= 0) then
             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_c (:,:,:,:,k,j))
+            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d2(:,:,:,:,k,j))
-
-            ! f collects contributions dropped after the projection step
-            call MergeArrays(ONE, f(:,:,:,:,k), tau    , F_d1(:,:,:,:,k,j))
-            call MergeArrays(ONE, f(:,:,:,:,k), cd3*tau, F_d3(:,:,:,:,k,j))
+            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
           end if
 
           tau = dt * a_im(i,j)
-          call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_p (:,:,:,:,k,j))
-          call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_s (:,:,:,:,k,j))
+          if (tau /= 0) then
+            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_p (:,:,:,:,k,j))
+            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_s (:,:,:,:,k,j))
+          end if
 
         end do
-
-        ! add contributions from f
-        call MergeArrays(ONE, u_i(:,:,:,:,k), ONE, f(:,:,:,:,k))
-
       end do
 
       tau = dt * a_im(i,i)
@@ -597,23 +595,31 @@ contains
 
       ! initialize diffusive RHS ...............................................
 
-      ! f = -∆t ∑ⁱ⁻¹ aᵉˣ(F_d1 + F_d3)
-      call ScaleArray (f, -ONE, multi = .true.)
-
       do k = 1, problem % nc
         if (k == 4) cycle
+        call SetArray(f(:,:,:,:,k), ZERO)
 
-        ! f += ∆t ∑ⁱ⁻¹ aⁱᵐ F_d1
         do j = 1, i-1
-          if (a_im(i,j) == 0) cycle
+
+          ! f = ∆t ∑ⁱ⁻¹ aⁱᵐ F_d1
           tau = dt * a_im(i,j)
-          call MergeArrays(ONE, f(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
+          if (tau /= 0) then
+            call MergeArrays(ONE, f(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
+          end if
+
+          ! f = f - ∆t ∑ⁱ⁻¹ aᵉˣ(F_d1 + cd3 F_d3) = τ∆F
+          tau = -dt * a_ex(i,j)
+          if (tau /= 0) then
+            call MergeArrays(ONE, f(:,:,:,:,k), tau      , F_d1(:,:,:,:,k,j))
+            call MergeArrays(ONE, f(:,:,:,:,k), tau * cd3, F_d3(:,:,:,:,k,j))
+          end if
+
         end do
 
-        ! F_d1(*,i) = -[u' + ∆t ∑ⁱ⁻¹ ((aⁱᵐ - aᵉˣ)F_d1 - aᵉˣ F_d3)] / [∆t aⁱᵐ(i,i)]
+        ! F_d1(*,i) = -(u' + τ∆F)/τ
         tau = dt * a_im(i,i)
-        call MergeArrays(ZERO, F_d1(:,:,:,:,k,i), -1/tau, f  (:,:,:,:,k))
-        call MergeArrays(ONE , F_d1(:,:,:,:,k,i), -1/tau, u_i(:,:,:,:,k))
+        call MergeArrays(ZERO, F_d1(:,:,:,:,k,i), -1/tau, u_i(:,:,:,:,k)) ! -u'/τ
+        call MergeArrays(ONE , F_d1(:,:,:,:,k,i), -1/tau, f  (:,:,:,:,k)) ! -∆F
 
       end do
 
@@ -632,7 +638,7 @@ contains
           call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u")
         end if
 
-        ! RHS: f = f + u_i = uᵢ + ∆t ∑ⁱ⁻¹ [ (aⁱᵐ - aᵉˣ)F_d1 - aᵉˣF_d3 ]
+        ! RHS: f =  u_i + f  = uᵢ + τ∆F
         do k = 1, problem % nc
           if (k == 4) cycle
           call MergeArrays(ONE, f(:,:,:,:,k), ONE, u_i(:,:,:,:,k))
@@ -647,6 +653,8 @@ contains
       ! final projection: u_i ← u ..............................................
 
       if (flow_op % control % div_final) then
+
+        tau = dt * a_im(i,i)
 
         ! ∇²δp = ∇⋅v'''/τ
         call SetArray(dp, ZERO)
