@@ -181,7 +181,7 @@ subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu, chi,  &
       else
         associate(nu => problem % nu_ref)
           call DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi_, u_d, w, F, F_d, &
-                                         F_d1, F_d3)
+                                         F_d1, F_d2, F_d3)
           call DiffTimeDeriv_Scalars_CI(mesh, Ms, Dd, nu, u_d, w, F, F_d, F_d1)
         end associate
       end if

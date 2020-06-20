@@ -196,7 +196,7 @@ contains
       select case(this % splitting)
       case(1)
         chi = -1
-        cd3 =  0
+        cd3 =  1
       case(2)
         chi = -2
         cd3 =  HALF
@@ -261,11 +261,12 @@ contains
 
       do i =1, ns
         tau = b(i) * dt
-        call MergeArrays(ONE, u, tau, F_c (:,:,:,:,:,i), multi=.true.)
-        call MergeArrays(ONE, u, tau, F_d1(:,:,:,:,:,i), multi=.true.)
-        call MergeArrays(ONE, u, tau, F_d2(:,:,:,:,:,i), multi=.true.)
-        call MergeArrays(ONE, u, tau, F_p (:,:,:,:,:,i), multi=.true.)
-        call MergeArrays(ONE, u, tau, F_s (:,:,:,:,:,i), multi=.true.)
+        call MergeArrays(ONE, u,     tau, F_c (:,:,:,:,:,i), multi=.true.)
+        call MergeArrays(ONE, u,     tau, F_d1(:,:,:,:,:,i), multi=.true.)
+        call MergeArrays(ONE, u,     tau, F_d2(:,:,:,:,:,i), multi=.true.)
+        call MergeArrays(ONE, u, cd3*tau, F_d3(:,:,:,:,:,i), multi=.true.)
+        call MergeArrays(ONE, u,     tau, F_p (:,:,:,:,:,i), multi=.true.)
+        call MergeArrays(ONE, u,     tau, F_s (:,:,:,:,:,i), multi=.true.)
       end do
 
       ! enforce continuity:  ∇²δp = ∇⋅ṽ/∆t, v + J(v) = ṽ - ∆t∇δp
