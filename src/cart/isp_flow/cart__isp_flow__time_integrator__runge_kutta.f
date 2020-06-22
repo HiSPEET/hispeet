@@ -16,6 +16,7 @@
 !===============================================================================
 
 module CART__ISP_Flow__Time_Integrator__Runge_Kutta
+  use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
   use Kind_Parameters,   only: RNP
   use Constants,         only: ZERO, ONE, HALF
   use Execution_Control, only: Error
@@ -47,12 +48,10 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
 
   type, extends(TimeIntegrator) :: TimeIntegrator_RungeKutta
     type(IMEX_RK_Method) :: imex_rk  !< IMEX Runge-Kutta method
-    integer :: project    = 0 !< switch for additional projections
-    integer :: splitting  = 2 !< selector for stage splitting scheme
-    integer :: pressure   = 0 !< switch for pressure recomputation
-    integer :: variant    = 2 !< RK stage variant
+    integer :: variant = 2  !< RK stage variant
   contains
     procedure :: Init_TimeIntegrator_RungeKutta
+    procedure :: Show => Show_TimeIntegrator_RungeKutta
     procedure :: TimeStep
   end type TimeIntegrator_RungeKutta
 
@@ -64,42 +63,50 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   !-----------------------------------------------------------------------------
   !> Type for providing Runge-Kutta time-integrator options
   !>
-  !> Options overview
+  !> Options inherited from base class
   !>
-  !>   * `n_stage`    defines the number of stages of the Runge-Kutta method
-  !>   * `method`     selects the RK method, if more than one method with the
-  !>                  specified number of stages exists
-  !>   * `project`    0: no additional projection step                       \n
-  !>                  1: additional projection after assembly
-  !>   * `splitting`  defines the splitting scheme used in the stages:       \n
-  !>                  1: standard velocity correction with χ = -1            \n
-  !>                  2: rotational velocity correction with χ = -2
-  !>                     and F_d3/2 removed after extrapolation              \n
-  !>                  3: "native" velocity correction with χ = 0             \n
-  !>                  4: velocity correction with χ = -1
-  !>                     and F_d3 removed after extrapolation                \n
-  !>                  5: velocity correction with χ = -2
-  !>                     and F_d3 removed after extrapolation                \n
-  !>   * `pressure`   0: return pressure as computed in last stage  \n
-  !>                  1: recompute pressure after assembly
-  !>   * `variant`    1: compute RHS after assembly \n
-  !>                  2: compute diffusive RHS as F_d1 = [u - (u' + τ∆F)]/τ - F_p,
-  !>                     where                                               \n
-  !>                       u' is the extrapolated solution,                  \n
-  !>                       u  is the stage solution,                         \n
-  !>                       τ  = ∆t aⁱᵐ(i,i), and                             \n
-  !>                       ∆F = ∆t/τ ∑ⁱ⁻¹ [(aⁱᵐ - aᵉˣ)F_d1 - cd3 aᵉˣ F_d3)]  \n
-  !>                  3: employs
-  !>                       variant 1 for all, but the last stage, and
-  !>                       variant 2 for the latter
+  !>   * `splitting` -- defines the splitting scheme used in the stages:      \n
+  !>        1: standard velocity correction with χ = -1                       \n
+  !>        2: rotational velocity correction with χ = -2
+  !>           and F_d3/2 removed after extrapolation                         \n
+  !>        3: "native" velocity correction with χ = 0                        \n
+  !>        4: velocity correction with χ = -1
+  !>           and F_d3 removed after extrapolation                           \n
+  !>        5: velocity correction with χ = -2
+  !>           and F_d3 removed after extrapolation
+  !>
+  !>   * `project`                                                            \n
+  !>        0: no additional projection step                                  \n
+  !>        1: additional projection at the end of the time step
+  !>
+  !>   * `pressure`
+  !>        0: return pressure as computed                                    \n
+  !>        1: recompute pressure at the end of the time step
+  !>
+  !> Further options
+  !>
+  !>   * `variant`                                                            \n
+  !>        1: compute RHS after assembly \n
+  !>        2: compute diffusive RHS as F_d1 = [u - (u' + τ∆F)]/τ - F_p,      \n
+  !>           where                                                          \n
+  !>             u' is the extrapolated solution,                             \n
+  !>             u  is the stage solution,                                    \n
+  !>             τ  = ∆t aⁱᵐ(i,i), and                                        \n
+  !>             ∆F = ∆t/τ ∑ⁱ⁻¹ [(aⁱᵐ - aᵉˣ)F_d1 - cd3 aᵉˣ F_d3)]             \n
+  !>        3: employs
+  !>             variant 1 for all, but the last stage, and
+  !>             variant 2 for the latter
+  !>
+  !> Options for initializing the IMEX_RK_Method
+  !>
+  !>   * `n_stage` -- defines the number of stages of the Runge-Kutta method
+  !>
+  !>   * `method`  -- selector among RK methods with `n_stage` stages
 
   type, extends(TimeIntegratorOptions) :: TimeIntegrator_RungeKutta_Options
-    integer :: n_stage    = 3 !< number of stages
-    integer :: method     = 1 !< RK method selector, if more than one exist
-    integer :: project    = 0 !< switch for additional projections
-    integer :: splitting  = 2 !< selector for stage splitting scheme
-    integer :: pressure   = 0 !< switch for pressure recomputation
-    integer :: variant    = 2 !< RK stage variant
+    integer :: n_stage = 3 !< number of stages
+    integer :: method  = 1 !< RK method selector, if more than one exist
+    integer :: variant = 2 !< RK stage variant
   contains
     procedure :: Bcast => TimeIntegrator_RungeKutta_Options_Bcast
   end type TimeIntegrator_RungeKutta_Options
@@ -132,17 +139,43 @@ contains
     class(TimeIntegrator_RungeKutta_Options), intent(in)    :: opt
 
     ! intialize parent type
-    call this % Init_TimeIntegrator(problem, flow_op)
+    call this % Init_TimeIntegrator(problem, flow_op, opt)
+    this % name = 'IMEX Runge-Kutta method'
+
+    ! specific settings
+    this % variant = opt % variant
 
     ! initialize RK method
     call this % imex_rk % Init_IMEX_RK_Method(opt % n_stage, opt % method)
 
-    ! options
-    this % splitting  = opt % splitting
-    this % pressure   = opt % pressure
-    this % variant    = opt % variant
-
   end subroutine Init_TimeIntegrator_RungeKutta
+
+  !-----------------------------------------------------------------------------
+  !> Output of TimeIntegrator_RungeKutta settings
+
+  subroutine Show_TimeIntegrator_RungeKutta(this, unit)
+    class(TimeIntegrator_RungeKutta), intent(in) :: this
+    integer,                optional, intent(in) :: unit  !< output unit
+
+    integer :: io
+
+    if (present(unit)) then
+      io = unit
+    else
+      io = OUTPUT_UNIT
+    end if
+
+    ! show parent settings
+    call this % Show_TimeIntegrator(unit)
+
+    write(io,'(A)')         'TimeIntegrator_RungeKutta settings'
+    write(io,'(A,/)')       repeat('-',80)
+    write(io,'(2X,A12,I0)') 'variant:', this % variant
+
+    ! show IMEX RK settings
+    call this % imex_rk % Show(unit)
+
+  end subroutine Show_TimeIntegrator_RungeKutta
 
   !-----------------------------------------------------------------------------
   !> Performs a single IMEX Runge-Kutta step
@@ -722,17 +755,17 @@ contains
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    type(MPI_Request)  :: request(6)
-    type(MPI_Status)   :: stat(size(request))
+    type(MPI_Request) :: request(3)
+    type(MPI_Status)  :: stat(size(request))
     integer :: n
 
+    ! broadcast options of parent class
+    call this % TimeIntegratorOptions % Bcast(root, comm)
+
     n = 1
-    call XMPI_Ibcast( this % n_stage  , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % method   , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % pressure , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % project  , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % splitting, root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % variant  , root, comm, request(n) )
+    call XMPI_Ibcast( this % n_stage, root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % method , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % variant, root, comm, request(n) )
 
     call MPI_Waitall(n, request, stat)
 

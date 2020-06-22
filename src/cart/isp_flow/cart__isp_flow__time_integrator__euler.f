@@ -34,6 +34,7 @@ module CART__ISP_Flow__Time_Integrator__Euler
   type, extends(TimeIntegrator) :: TimeIntegrator_Euler
   contains
     procedure :: Init_TimeIntegrator_Euler
+    procedure :: Show => Show_TimeIntegrator_Euler
     procedure :: TimeStep
   end type TimeIntegrator_Euler
 
@@ -44,6 +45,26 @@ module CART__ISP_Flow__Time_Integrator__Euler
 
   !-----------------------------------------------------------------------------
   !> Type for providing Euler time-integrator options (none, so far)
+  !>
+  !> Options inherited from base class
+  !>
+  !>   * `splitting` -- defines the splitting scheme used in the stages:      \n
+  !>        1: standard velocity correction with χ = -1                       \n
+  !>        2: rotational velocity correction with χ = -2
+  !>           and F_d3/2 removed after extrapolation                         \n
+  !>        3: "native" velocity correction with χ = 0                        \n
+  !>        4: velocity correction with χ = -1
+  !>           and F_d3 removed after extrapolation                           \n
+  !>        5: velocity correction with χ = -2
+  !>           and F_d3 removed after extrapolation
+  !>
+  !>   * `project`                                                            \n
+  !>        0: no additional projection step                                  \n
+  !>        1: additional projection at the end of the time step
+  !>
+  !>   * `pressure`
+  !>        0: return pressure as computed                                    \n
+  !>        1: recompute pressure at the end of the time step
 
   type, extends(TimeIntegratorOptions) :: TimeIntegrator_Euler_Options
   end type TimeIntegrator_Euler_Options
@@ -72,12 +93,23 @@ contains
     class(FlowOperators),                          intent(in)    :: flow_op
     class(TimeIntegrator_Euler_Options), optional, intent(in)    :: opt
 
-    call this % Init_TimeIntegrator(problem, flow_op)
-
-    ! no options, so far
-    if (present(opt)) return
+    ! intialize parent type
+    call this % Init_TimeIntegrator(problem, flow_op, opt)
+    this % name = 'IMEX Euler method'
 
   end subroutine Init_TimeIntegrator_Euler
+
+  !-----------------------------------------------------------------------------
+  !> Output of TimeIntegrator_Euler settings
+
+  subroutine Show_TimeIntegrator_Euler(this, unit)
+    class(TimeIntegrator_Euler), intent(in) :: this
+    integer,           optional, intent(in) :: unit  !< output unit
+
+    ! show parent settings
+    call this % Show_TimeIntegrator(unit)
+
+  end subroutine Show_TimeIntegrator_Euler
 
   !-----------------------------------------------------------------------------
   !> Performs a single IMEX Euler step
