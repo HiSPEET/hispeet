@@ -18,7 +18,7 @@
 module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
   use Kind_Parameters,   only: RNP
-  use Constants,         only: ZERO, ONE, HALF
+  use Constants,         only: ZERO, ONE
   use Execution_Control, only: Error
   use TPO_sDDD
 
@@ -168,9 +168,9 @@ contains
     ! show parent settings
     call this % Show_TimeIntegrator(unit)
 
-    write(io,'(A)')         'TimeIntegrator_RungeKutta settings'
-    write(io,'(A,/)')       repeat('-',80)
-    write(io,'(2X,A12,I0)') 'variant:', this % variant
+    write(io,'(A)')           'TimeIntegrator_RungeKutta settings'
+    write(io,'(A,/)')         repeat('-',80)
+    write(io,'(2X,A,T15,I0)') 'variant:', this % variant
 
     ! show IMEX RK settings
     call this % imex_rk % Show(unit)
@@ -196,13 +196,14 @@ contains
     real(RNP), dimension(:)          , allocatable, save :: ts
 
     ! auxiliary
-    real(RNP) :: chi = 0, cd3 = 0
     real(RNP) :: tau
     integer   :: i, k
 
     associate( problem => this % problem           &
              , flow_op => this % flow_op           &
              , mesh    => this % flow_op % mesh    &
+             , chi     => this % chi               &
+             , cd3     => this % cd3               &
              , x       => this % flow_op % x       &
              , p       => u(:,:,:,:,4)             &
              , a_im    => this % imex_rk % a_im    &
@@ -225,24 +226,6 @@ contains
       !$omp end single
 
       ! initialization .........................................................
-
-      select case(this % splitting)
-      case(1)
-        chi = -1
-        cd3 =  1
-      case(2)
-        chi = -2
-        cd3 =  HALF
-      case(3)
-        chi =  0
-        cd3 =  0
-      case(4)
-        chi = -1
-        cd3 =  1
-      case(5)
-        chi = -2
-        cd3 =  1
-      end select
 
       ! node times
       do k = 1, ns

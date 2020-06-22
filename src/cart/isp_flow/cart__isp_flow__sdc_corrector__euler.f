@@ -33,6 +33,7 @@ module CART__ISP_Flow__SDC_Corrector__Euler
   type, extends(SDC_Corrector) :: SDC_Corrector_Euler
   contains
     procedure :: Init_SDC_Corrector_Euler
+    procedure :: Show => Show_SDC_Corrector_Euler
     procedure :: GetCorrectorRHS
     procedure :: CorrectionStep
   end type SDC_Corrector_Euler
@@ -72,15 +73,23 @@ contains
     class(FlowOperators), target, intent(in)    :: flow_op !< flow operators
     class(SDC_Corrector_Euler_Options), intent(in) :: opt  !< SDC options
 
-    call this % Init_SDC_Corrector(problem, flow_op)
-
-    ! no options, so far -- dummy action to avoid compiler warning
-    select type(opt)
-    class default
-      return
-    end select
+    ! intialize parent type
+    call this % Init_SDC_Corrector(problem, flow_op, opt)
+    this % name = 'IMEX Euler corrector'
 
   end subroutine Init_SDC_Corrector_Euler
+
+  !-----------------------------------------------------------------------------
+  !> Output of SDC_Corrector_Euler settings
+
+  subroutine Show_SDC_Corrector_Euler(this, unit)
+    class(SDC_Corrector_Euler), intent(in) :: this
+    integer,          optional, intent(in) :: unit  !< output unit
+
+    ! show parent settings
+    call this % Show_SDC_Corrector(unit)
+
+  end subroutine Show_SDC_Corrector_Euler
 
   !-----------------------------------------------------------------------------
   !> Computes F_ex and F_im as defined in the corrector and F for subintegrals
@@ -88,8 +97,8 @@ contains
   !> For IMEX Euler with dual splitting:
   !>
   !>       F_ex = -∇⋅(v u) + ∇⋅[ν(∇v_ex)ᵀ]
-  !>       F_im =  ∇⋅(ν ∇u)
-  !>       F    =  F_ex + F_im - χ∇ν(∇·v) + f(x,t)
+  !>       F_im =  ∇⋅(ν ∇u) + f(x,t)
+  !>       F    =  F_ex + F_im + χ∇ν(∇·v)
   !>
   !> Note
   !>  *  last terms in F_ex and F for velocity only
@@ -112,16 +121,17 @@ contains
     allocate(F_d2, mold = u)
     !$omp end single
 
-    call TimeDerivative( this % problem  &
-                       , this % flow_op  &
-                       , t               &
-                       , u_c  = u        &
-                       , u_d  = u        &
-                       , nu   = nu       &
-                       , F    = F        &
-                       , F_c  = F_ex     & ! -∇⋅(v u)
-                       , F_d1 = F_im     & !  ∇⋅(ν ∇u)
-                       , F_d2 = F_d2     ) !  ∇⋅[ν(∇v_ex)ᵀ]
+    call TimeDerivative( this % problem     &
+                       , this % flow_op     &
+                       , t                  &
+                       , u_c  = u           &
+                       , u_d  = u           &
+                       , chi  = this % chi  &
+                       , nu   = nu          &
+                       , F    = F           &
+                       , F_c  = F_ex        & ! -∇⋅(v u)
+                       , F_d1 = F_im        & !  ∇⋅(ν ∇u)
+                       , F_d2 = F_d2        ) !  ∇⋅[ν(∇v_ex)ᵀ]
 
     call MergeArrays(ONE, F_ex, ONE, F_d2, multi=.true.)
 
@@ -211,7 +221,7 @@ contains
 
       ! final projection .......................................................
 
-      if (flow_op % control % div_final) then
+      if (this % project > 0) then
 
         ! p = p" + ∆p  with ∆p such that  ∇²∆p = ∆t ∇⋅(v''' - v) = 0
         call SetArray(dp, ZERO)

@@ -6,6 +6,8 @@
 
 module CART__ISP_Flow__SDC_Method
 
+  use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
+
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE, HALF
   use Gauss_Jacobi
@@ -56,6 +58,7 @@ module CART__ISP_Flow__SDC_Method
   contains
 
     procedure :: Init_SDC_Method
+    procedure :: Show => Show_SDC_Method
     procedure :: NumberOfSubintervals
     procedure :: IntermediateTimes
     procedure :: TimeStep
@@ -198,6 +201,31 @@ contains
     end select
 
   end subroutine Init_SDC_Method
+
+  !-----------------------------------------------------------------------------
+  !> Output of TimeIntegrator_Euler settings
+
+  subroutine Show_SDC_Method(this, unit)
+    class(SDC_Method), intent(in) :: this
+    integer, optional, intent(in) :: unit  !< output unit
+
+    integer :: io
+
+    if (present(unit)) then
+      io = unit
+    else
+      io = OUTPUT_UNIT
+    end if
+
+    write(io,'(/,A)')       'SDC_Method settings'
+    write(io,'(A,/)')       repeat('≡',80)
+    write(io,'(2X,A,T15,I0)') 'n_sub'     , this % n_sub
+    write(io,'(2X,A,T15,I0)') 'n_sweeps:' , this % n_sub
+
+    call this % predictor % Show(unit)
+    call this % corrector % Show(unit)
+
+  end subroutine Show_SDC_Method
 
   !-----------------------------------------------------------------------------
   !> Returns the number of subintervals

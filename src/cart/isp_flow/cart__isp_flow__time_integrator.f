@@ -7,6 +7,7 @@
 module CART__ISP_Flow__Time_Integrator
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
   use Kind_Parameters, only: RNP
+  use Constants,       only: HALF
   use XMPI
   use ISP_Flow_Problem
   use CART__ISP_Flow__Operators
@@ -46,9 +47,14 @@ module CART__ISP_Flow__Time_Integrator
 
     character(len=80) :: name = ''  !< time-integrator name
 
+    ! options
     integer :: splitting  = 2 !< selector for stage splitting scheme
     integer :: project    = 0 !< switch for additional projections
     integer :: pressure   = 0 !< switch for pressure recomputation
+
+    ! derived parameters
+    real(RNP) :: chi
+    real(RNP) :: cd3
 
   contains
     procedure, non_overridable :: Init_TimeIntegrator
@@ -95,15 +101,36 @@ contains
     class(TimeIntegrator),        intent(inout) :: this
     class(FlowProblem),   target, intent(in)    :: problem    !< flow problem
     class(FlowOperators), target, intent(in)    :: flow_op    !< flow operators
-    class(TimeIntegratorOptions), intent(in)    :: opt        !< options
+    class(TimeIntegratorOptions), optional, intent(in) :: opt !< options
 
     this % problem => problem
     this % flow_op => flow_op
 
     ! options
-    this % splitting  = opt % splitting
-    this % project    = opt % project
-    this % pressure   = opt % pressure
+    if (present(opt)) then
+      this % splitting  = opt % splitting
+      this % project    = opt % project
+      this % pressure   = opt % pressure
+    end if
+
+    ! derived parameters
+    select case(this % splitting)
+    case(1)
+      this % chi = -1
+      this % cd3 =  1
+    case(2)
+      this % chi = -2
+      this % cd3 =  HALF
+    case(3)
+      this % chi =  0
+      this % cd3 =  0
+    case(4)
+      this % chi = -1
+      this % cd3 =  1
+    case(5)
+      this % chi = -2
+      this % cd3 =  1
+    end select
 
   end subroutine Init_TimeIntegrator
 
@@ -124,10 +151,10 @@ contains
 
     write(io,'(/,A)')       'TimeIntegrator settings'
     write(io,'(A,/)')       repeat('=',80)
-    write(io,'(2X,A12,A)')  'name:'     , trim(this % name)
-    write(io,'(2X,A12,I0)') 'splitting:', this % splitting
-    write(io,'(2X,A12,I0)') 'project:'  , this % project
-    write(io,'(2X,A12,I0)') 'pressure:' , this % pressure
+    write(io,'(2X,A,T15,A)')  'name:'     , trim(this % name)
+    write(io,'(2X,A,T15,I0)') 'splitting:', this % splitting
+    write(io,'(2X,A,T15,I0)') 'project:'  , this % project
+    write(io,'(2X,A,T15,I0)') 'pressure:' , this % pressure
     write(io,*)
 
     ! append further settings in corresponding routines of derived types

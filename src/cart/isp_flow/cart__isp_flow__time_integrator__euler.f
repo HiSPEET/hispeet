@@ -9,7 +9,7 @@
 
 module CART__ISP_Flow__Time_Integrator__Euler
   use Kind_Parameters, only: RNP
-  use Constants,       only: ONE, ZERO
+  use Constants,       only: ZERO, ONE
   use Array_Assignments
 
   use ISP_Flow_Problem
@@ -125,7 +125,7 @@ contains
     real(RNP), allocatable, save :: u_i  (:,:,:,:,:) ! intermediate solution
     real(RNP), allocatable, save :: nu   (:,:,:,:,:) ! variable diffusivity
     real(RNP), allocatable, save :: F_d1 (:,:,:,:,:) ! ∇·ν∇u
-    real(RNP), allocatable, save :: F_d3 (:,:,:,:,:) ! -χ∇ν(∇·v)
+    real(RNP), allocatable, save :: F_d3 (:,:,:,:,:) ! χ∇ν(∇·v)
     real(RNP), allocatable, save :: w    (:,:,:,:,:) ! workspace for u
     real(RNP), allocatable, save :: dp   (:,:,:,:)   ! pressure correction
 
@@ -134,9 +134,12 @@ contains
              , mesh    => this % flow_op % mesh   &
              , x       => this % flow_op % x      &
              , eop     => this % flow_op % eop_u  &
+             , chi     => this % chi              &
+             , cd3     => this % cd3              &
              , p       => u(:,:,:,:,4)            )
 
       ! initialization .........................................................
+
 
       ! workspace
       !$omp single
@@ -172,6 +175,7 @@ contains
                          , u_c  = u             &
                          , u_d  = u             &
                          , nu   = nu            &
+                         , chi  = chi           &
                          , F    = w             &
                          , F_d1 = F_d1          &
                          , F_d3 = F_d3          &
@@ -189,13 +193,13 @@ contains
       call ProjectionStep(problem, flow_op, dt, p, u_i, w)
 
       ! solve implicit diffusive part for u'''
-      call MergeArrays(ONE, u_i, -dt, F_d1, multi=.true.)
-      call MergeArrays(ONE, u_i, -dt, F_d3, multi=.true.)
+      call MergeArrays(ONE, u_i, -dt      , F_d1, multi=.true.)
+      call MergeArrays(ONE, u_i, -dt * cd3, F_d3, multi=.true.)
       call DiffusionStep(problem, flow_op, dt, f=u_i, u=u, w=w, nu=nu)
 
       ! final projection .......................................................
 
-      if (flow_op % control % div_final) then
+      if (this % project > 0) then
 
         ! solve for p = p" + dp
         call SetArray(dp, ZERO)
@@ -204,6 +208,17 @@ contains
         ! v = v''' - 1/∆t ∇p - J(v)
         call ProjectionStep(problem, flow_op, dt, dp, u, w)
 
+      end if
+
+      ! pressure ...............................................................
+
+      if (this % pressure > 0) then
+        if (problem % HasVariableProperties()) then
+          call problem % GetDiffusivity(flow_op%x, t, u, nu)
+        end if
+        ! recompute pressure using F_d1 as workspace for F_v
+        call TimeDerivative(problem, flow_op, t, u, u, nu=nu, chi=chi, F=F_d1)
+        call PressureSolver(problem, flow_op, F_d1, t, p, w)
       end if
 
       ! clean-up ...............................................................

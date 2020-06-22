@@ -307,7 +307,7 @@ call XMPI_Bcast(check   , 0, comm)
 
   select case(time_method)
   case(1)
-    time_integrator = TimeIntegrator_Euler(problem, flow_op)
+    time_integrator = TimeIntegrator_Euler(problem, flow_op, eu_opt)
   case(2)
     ! Trapezoidal Rule
   case(3)
@@ -326,6 +326,8 @@ call XMPI_Bcast(check   , 0, comm)
   select case(time_method)
   case(1,3)
     call time_integrator % Show()
+  case(5,7)
+    call sdc % Show()
   end select
 
   ! variables and initial values ...............................................
@@ -702,12 +704,6 @@ subroutine Evaluation(failed, last)
   if (rank == 0) then
 
     if (head) then
-
-      write(*,'(A)')    '#'
-      write(*,'(A,I0)') '# sdc_orig_opt % n_sub   = ', sdc_orig_opt  % n_sub
-      write(*,'(A,I0)') '# n_sub   = ', sdc_orig % n_sub
-      write(*,'(A,I0)') '# n_sweep = ', sdc_orig % n_sweep
-      write(*,'(A)')    '#'
 
       write(*,'(A,  6X)',advance='NO') '#'
       write(*,'(A, 11X)',advance='NO') 't'
