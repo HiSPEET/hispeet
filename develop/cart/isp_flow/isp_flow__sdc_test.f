@@ -312,10 +312,6 @@ call XMPI_Bcast(check   , 0, comm)
     ! Trapezoidal Rule
   case(3)
     time_integrator = TimeIntegrator_RungeKutta(problem, flow_op, rk_opt)
-    select type(time_integrator)
-    class is (TimeIntegrator_RungeKutta)
-      call time_integrator % imex_rk % Write()
-    end select
   case(4)
     sdc_orig = SDC_Method3D(EulerVC, EulerVC, sdc_orig_opt)
   case(5)
@@ -324,6 +320,12 @@ call XMPI_Bcast(check   , 0, comm)
   case(7)
     ! SDC(RK,Eu)
     sdc = SDC_Method(problem, flow_op, pre_rk_opt, cor_eu_opt, sdc_opt)
+  end select
+
+  ! print time-integrator settings
+  select case(time_method)
+  case(1,3)
+    call time_integrator % Show()
   end select
 
   ! variables and initial values ...............................................

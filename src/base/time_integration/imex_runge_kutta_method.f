@@ -57,7 +57,7 @@ module IMEX_Runge_Kutta_Method
     real(RNP), allocatable :: c(:)          !< RK nodes
   contains
     procedure :: Init_IMEX_RK_Method
-    procedure :: Write => Write_IMEX_RK_Method
+    procedure :: Show => Show_IMEX_RK_Method
   end type IMEX_RK_Method
 
   ! constructor
@@ -392,9 +392,9 @@ end subroutine Delete_IMEX_RK_Method
 
 !===============================================================================
 
-subroutine Write_IMEX_RK_Method(this, unit)
-  class(IMEX_RK_Method), intent(inout) :: this
-  integer,     optional, intent(in)    :: unit  !< output unit
+subroutine Show_IMEX_RK_Method(this, unit)
+  class(IMEX_RK_Method), intent(in) :: this
+  integer,     optional, intent(in) :: unit  !< output unit
 
   character(len=*), parameter :: fmt_ca = '(F13.10," |",99F14.10)'
   character(len=*), parameter :: fmt_b =  '(13X,   " |",99F14.10)'
@@ -408,7 +408,7 @@ subroutine Write_IMEX_RK_Method(this, unit)
     io = OUTPUT_UNIT
   end if
 
-  write(io,'(A,/)')   'IMEX Runge-Kutta method'
+  write(io,'(/,A,/)') 'IMEX Runge-Kutta method'
   write(io,'(2A,/)')  'name: ', trim(this % name)
   write(io,'(A,I0)')  'stages = ', this % n_stage
   write(io,'(A,I0)')  'order  = ', this % order
@@ -428,7 +428,7 @@ subroutine Write_IMEX_RK_Method(this, unit)
   write(io,fmt_b) this % b
   write(io,*)
 
-end subroutine Write_IMEX_RK_Method
+end subroutine Show_IMEX_RK_Method
 
 !===============================================================================
 

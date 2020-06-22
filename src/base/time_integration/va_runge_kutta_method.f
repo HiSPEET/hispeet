@@ -61,7 +61,7 @@ module VA_Runge_Kutta_Method
     real(RNP), allocatable :: c(:)          !< RK nodes
   contains
     procedure :: Init_VARK_Method
-    procedure :: Write => Write_VARK_Method
+    procedure :: Show => Show_VARK_Method
   end type VARK_Method
 
   ! constructor
@@ -334,7 +334,7 @@ end subroutine ERK_432
 
 !===============================================================================
 
-subroutine Write_VARK_Method(this, unit)
+subroutine Show_VARK_Method(this, unit)
   class(VARK_Method), intent(inout) :: this
   integer,  optional, intent(in)    :: unit  !< output unit
 
@@ -370,7 +370,7 @@ subroutine Write_VARK_Method(this, unit)
   write(io,fmt_b) this % b_ex
   write(io,*)
 
-end subroutine Write_VARK_Method
+end subroutine Show_VARK_Method
 
 !===============================================================================
 
