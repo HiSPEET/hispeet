@@ -86,7 +86,7 @@ module CART__ISP_Flow__Time_Integrator
     integer :: project    = 0 !< switch for additional projections
     integer :: pressure   = 0 !< switch for pressure recomputation
   contains
-    procedure :: Bcast => TimeIntegratorOptions_Bcast
+    procedure :: Bcast => Bcast_TimeIntegratorOptions
   end type TimeIntegratorOptions
 
 contains
@@ -167,7 +167,7 @@ contains
   !-----------------------------------------------------------------------------
   !> MPI broadcasting of time-integrator options
 
-  subroutine TimeIntegratorOptions_Bcast(this, root, comm)
+  subroutine Bcast_TimeIntegratorOptions(this, root, comm)
     class(TimeIntegratorOptions), intent(inout) :: this
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
@@ -183,7 +183,7 @@ contains
 
     call MPI_Waitall(n, request, stat)
 
-  end subroutine TimeIntegratorOptions_Bcast
+  end subroutine Bcast_TimeIntegratorOptions
 
   !=============================================================================
 

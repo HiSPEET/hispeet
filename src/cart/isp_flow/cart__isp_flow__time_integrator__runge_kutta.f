@@ -108,7 +108,7 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
     integer :: method  = 1 !< RK method selector, if more than one exist
     integer :: variant = 2 !< RK stage variant
   contains
-    procedure :: Bcast => TimeIntegrator_RungeKutta_Options_Bcast
+    procedure :: Bcast => Bcast_TimeIntegrator_RungeKutta_Options
   end type TimeIntegrator_RungeKutta_Options
 
 contains
@@ -733,7 +733,7 @@ contains
   !-----------------------------------------------------------------------------
   !> MPI broadcasting of time-integrator options
 
-  subroutine TimeIntegrator_RungeKutta_Options_Bcast(this, root, comm)
+  subroutine Bcast_TimeIntegrator_RungeKutta_Options(this, root, comm)
     class(TimeIntegrator_RungeKutta_Options), intent(inout) :: this
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
@@ -752,7 +752,7 @@ contains
 
     call MPI_Waitall(n, request, stat)
 
-  end subroutine TimeIntegrator_RungeKutta_Options_Bcast
+  end subroutine Bcast_TimeIntegrator_RungeKutta_Options
 
   !===========================================================================
 

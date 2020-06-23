@@ -68,12 +68,12 @@
 ! 7  SDC(RK,Eu)
   time_method = 3
 !
-! section for standalone Euler
+! section for standalone Euler -- method 1
   eu_opt%TimeIntegratorOptions%splitting  = 2
  !eu_opt%TimeIntegratorOptions%project    = 0
  !eu_opt%TimeIntegratorOptions%pressure   = 0
 !
-! section for standalone Runge-Kutta
+! section for standalone Runge-Kutta -- method 3
  !rk_opt%TimeIntegratorOptions%splitting  = 2
  !rk_opt%TimeIntegratorOptions%project    = 0
  !rk_opt%TimeIntegratorOptions%pressure   = 0
@@ -81,28 +81,30 @@
   rk_opt%method  = 2
   rk_opt%variant = 2
 !
+! section for "original" SDC -- method 4
   sdc_orig_opt%n_sub   =  2
   sdc_orig_opt%n_sweep =  2
 !
-! section for SDC(*,*)
+! section for SDC(*,*) -- methods 5,6,7
   sdc_opt%n_sub        = 2
   sdc_opt%n_sweep      = 2
   !
   ! Euler predictor 
   pre_eu_opt%TimeIntegratorOptions%splitting  = 2
-  !pre_eu_opt%TimeIntegratorOptions%project    = 0
-  !pre_eu_opt%TimeIntegratorOptions%pressure   = 0
+ !pre_eu_opt%TimeIntegratorOptions%project    = 0
+ !pre_eu_opt%TimeIntegratorOptions%pressure   = 0
   !
   ! Runge-Kutta predictor 
-  !pre_rk_opt%TimeIntegratorOptions%splitting = 2
-  !pre_rk_opt%TimeIntegratorOptions%project   = 0
-  !pre_rk_opt%TimeIntegratorOptions%pressure  = 0
+ !pre_rk_opt%TimeIntegratorOptions%splitting = 2
+  pre_rk_opt%TimeIntegratorOptions%project   = 1
+ !pre_rk_opt%TimeIntegratorOptions%pressure  = 0
   pre_rk_opt%variant   = 2
   pre_rk_opt%n_stage   = 4
   pre_rk_opt%method    = 2
   !
   ! Euler corrector
-  cor_eu_opt%SDC_Corrector_Options%splitting  = 0
-  !cor_eu_opt%SDC_Corrector_Options%project    = 0
+  cor_eu_opt%SDC_Corrector_Options%splitting  = 2
+ !cor_eu_opt%SDC_Corrector_Options%project    = 0
+ !cor_eu_opt%sloppy=T
 /
 

@@ -13,8 +13,12 @@ module CART__ISP_Flow__SDC_Method
   use Gauss_Jacobi
   use Array_Assignments
   use XMPI
+
   use ISP_Flow_Problem
+
   use CART__ISP_Flow__Operators
+  use CART__ISP_Flow__Pressure
+  use CART__ISP_Flow__Time_Derivative
 
   use CART__ISP_Flow__Time_Integrator
   use CART__ISP_Flow__Time_Integrator__Euler
@@ -33,10 +37,11 @@ module CART__ISP_Flow__SDC_Method
   !> Type for providing SDC options
 
   type SDC_Options
-    integer :: n_sub   =  1      !< number of subintervals
-    integer :: n_sweep = -1      !< max number of correction sweeps
+    integer :: n_sub    =  1      !< number of subintervals
+    integer :: n_sweep  = -1      !< max number of correction sweeps
+    integer :: pressure =  0      !< switch for pressure recomputation
   contains
-    procedure :: Bcast => SDC_Options_Bcast
+    procedure :: Bcast => Bcast_SDC_Options
   end type SDC_Options
 
   !-----------------------------------------------------------------------------
@@ -44,8 +49,9 @@ module CART__ISP_Flow__SDC_Method
 
   type SDC_Method
 
-    integer :: n_sub   = -1           !< number of subintervals
-    integer :: n_sweep = -1           !< max num correction sweeps
+    integer :: n_sub    = -1          !< number of subintervals
+    integer :: n_sweep  = -1          !< max num correction sweeps
+    integer :: pressure =  0          !< switch for pressure recomputation
 
     real(RNP), allocatable :: xi(:)   !< SDC points in [-1,1]
     real(RNP), allocatable :: ws(:,:) !< subinterval quadrature weights
@@ -75,22 +81,23 @@ contains
   !=============================================================================
   ! SDC_Option: type-bound procedures
 
-  subroutine SDC_Options_Bcast(this, root, comm)
+  subroutine Bcast_SDC_Options(this, root, comm)
     class(SDC_Options), intent(inout) :: this
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    type(MPI_Request)  :: request(2)
+    type(MPI_Request)  :: request(3)
     type(MPI_Status)   :: stat(size(request))
     integer :: n
 
     n = 1
-    call XMPI_Ibcast( this % n_sub  , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % n_sweep, root, comm, request(n) )
+    call XMPI_Ibcast( this % n_sub   , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % n_sweep , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % pressure, root, comm, request(n) )
 
     call MPI_Waitall(n, request, stat)
 
-  end subroutine SDC_Options_Bcast
+  end subroutine Bcast_SDC_Options
 
   !=============================================================================
   ! SDC_Method: type-bound procedures
@@ -156,6 +163,9 @@ contains
       this % n_sweep = 2 * n_sub - 1
     end if
 
+    ! pressure recomputation
+    this % pressure = sdc_opt % pressure
+
     ! points and weights .......................................................
 
     ! subinterval weights
@@ -220,7 +230,7 @@ contains
     write(io,'(/,A)')       'SDC_Method settings'
     write(io,'(A,/)')       repeat('≡',80)
     write(io,'(2X,A,T15,I0)') 'n_sub'     , this % n_sub
-    write(io,'(2X,A,T15,I0)') 'n_sweeps:' , this % n_sub
+    write(io,'(2X,A,T15,I0)') 'n_sweeps:' , this % n_sweep
 
     call this % predictor % Show(unit)
     call this % corrector % Show(unit)
@@ -277,9 +287,11 @@ contains
 
     real(RNP), dimension(:),           allocatable, save :: t_, dt_
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: u_
-    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_ex_, F_im_, F_, S_
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_ex_, F_im_, F_d3_
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_, S_
     real(RNP), dimension(:,:,:,:,:),   allocatable, save :: F_ex_0_old
     real(RNP), dimension(:,:,:,:,:),   allocatable, save :: F_im_0_old
+    real(RNP), dimension(:,:,:,:,:),   allocatable, save :: F_d3_0_old
 
     real(RNP), allocatable, target, save :: nu_(:,:,:,:,:,:)
     real(RNP), contiguous, pointer, save :: nu_i(:,:,:,:,:) => null()
@@ -304,8 +316,8 @@ contains
     if (allocated(u_)) then
       if (any(shape(u_) /= [np,np,np,ne,nc,n_sub])) then
         deallocate(t_, dt_)
-        deallocate(u_, F_ex_, F_im_, F_, S_)
-        deallocate(F_ex_0_old, F_im_0_old)
+        deallocate(u_, F_ex_, F_im_, F_d3_, F_, S_)
+        deallocate(F_ex_0_old, F_im_0_old, F_d3_0_old)
         if (allocated(nu_)) deallocate(nu_)
       end if
     end if
@@ -318,10 +330,12 @@ contains
       allocate(u_         (np,np,np,ne,nc,0:n_sub))
       allocate(F_ex_      (np,np,np,ne,nc,0:n_sub))
       allocate(F_im_      (np,np,np,ne,nc,0:n_sub))
+      allocate(F_d3_      (np,np,np,ne,nc,0:n_sub))
       allocate(F_         (np,np,np,ne,nc,0:n_sub))
       allocate(S_         (np,np,np,ne,nc,1:n_sub))
       allocate(F_ex_0_old (np,np,np,ne,nc))
       allocate(F_im_0_old (np,np,np,ne,nc))
+      allocate(F_d3_0_old (np,np,np,ne,nc))
       !$acc enter data create(t_,dt_,u_,...)
 
       if (this % problem % HasVariableProperties()) then
@@ -374,6 +388,7 @@ contains
                               , u    = u_   (:,:,:,:,:,i) &
                               , F_ex = F_ex_(:,:,:,:,:,i) &
                               , F_im = F_im_(:,:,:,:,:,i) &
+                              , F_d3 = F_d3_(:,:,:,:,:,i) &
                               , F    = F_   (:,:,:,:,:,i) )
 
       end do
@@ -389,6 +404,7 @@ contains
 
         call SetArray(F_ex_0_old, F_ex_(:,:,:,:,:,0), multi=.true.)
         call SetArray(F_im_0_old, F_im_(:,:,:,:,:,0), multi=.true.)
+        call SetArray(F_d3_0_old, F_d3_(:,:,:,:,:,0), multi=.true.)
 
         do i = 1, n_sub
 
@@ -404,6 +420,8 @@ contains
                                , F_im_0_old = F_im_0_old           &
                                , F_im_0     = F_im_(:,:,:,:,:,i-1) &
                                , F_im       = F_im_(:,:,:,:,:,i)   &
+                               , F_d3_0_old = F_d3_0_old           &
+                               , F_d3_0     = F_d3_(:,:,:,:,:,i-1) &
                                , S          = S_   (:,:,:,:,:,i)   &
                                , u_0        = u_   (:,:,:,:,:,i-1) &
                                , u          = u_   (:,:,:,:,:,i)   &
@@ -413,6 +431,7 @@ contains
           if (i < n_sub) then
             call SetArray(F_ex_0_old, F_ex_(:,:,:,:,:,i), multi=.true.)
             call SetArray(F_im_0_old, F_im_(:,:,:,:,:,i), multi=.true.)
+            call SetArray(F_d3_0_old, F_d3_(:,:,:,:,:,i), multi=.true.)
           end if
 
           ! update RHS
@@ -422,6 +441,7 @@ contains
                                 , u    = u_   (:,:,:,:,:,i) &
                                 , F_ex = F_ex_(:,:,:,:,:,i) &
                                 , F_im = F_im_(:,:,:,:,:,i) &
+                                , F_d3 = F_d3_(:,:,:,:,:,i) &
                                 , F    = F_   (:,:,:,:,:,i) )
 
           ! update variable diffusivity
@@ -444,6 +464,16 @@ contains
     t = t + dt
     call SetArray(u, u_(:,:,:,:,:,n_sub), multi=.true.)
 
+    if (this % pressure > 0) then
+      associate( F_v => u_(:,:,:,:,:,0) &
+               , w   => u_(:,:,:,:,:,1) &
+               , p   => u (:,:,:,:,4)   )
+        call TimeDerivative( this % problem, this % flow_op, t, u, u      &
+                           , nu = nu_i, chi = this%corrector%chi, F = F_v )
+        call PressureSolver( this % problem, this % flow_op, F_v, t, p, w )
+      end associate
+    end if
+
     ! clean-up .................................................................
 
     ! keep workspace in case of standby
@@ -456,8 +486,8 @@ contains
     if (allocated(u_)) then
       !$acc exit data delete(...)
       deallocate(t_, dt_)
-      deallocate(u_, F_ex_, F_im_, F_, S_)
-      deallocate(F_ex_0_old, F_im_0_old)
+      deallocate(u_, F_ex_, F_im_, F_d3_, F_, S_)
+      deallocate(F_ex_0_old, F_im_0_old, F_d3_0_old)
       if (allocated(nu_)) then
         deallocate(nu_)
       end if

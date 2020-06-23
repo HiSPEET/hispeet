@@ -160,8 +160,8 @@ subroutine EulerVC(problem, flow_op, t, dt, u_0, u, F, H, S)
     call ProjectionStep(problem, flow_op, dt, p, u_i, w)
 
     ! solve for uᵢ'''
-    call MergeArrays(ONE, u_i, -dt, F_d1, multi=.true.)
-    call MergeArrays(ONE, u_i, -dt, F_d3, multi=.true.) !
+    call MergeArrays(ONE, u_i, -dt  , F_d1, multi=.true.)
+    call MergeArrays(ONE, u_i, -dt/2, F_d3, multi=.true.) !
     call DiffusionStep(problem, flow_op, dt, f=u_i, u=u, w=w, nu=nu)
 
     !!! activate following command for published version
