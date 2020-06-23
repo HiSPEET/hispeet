@@ -48,7 +48,7 @@ module CART__ISP_Flow__SDC_Corrector
     !---------------------------------------------------------------------------
     !> Computes F_ex and F_im as defined in the corrector
 
-    subroutine GetCorrectorRHS(this, t, nu, u, F_ex, F_im, F)
+    subroutine GetCorrectorRHS(this, t, nu, u, F_ex, F_im, F_d3, F)
       import
 
       class(SDC_Corrector), intent(in) :: this
@@ -57,6 +57,7 @@ module CART__ISP_Flow__SDC_Corrector
       real(RNP), intent(in)  :: u    (:,:,:,:,:) !< u
       real(RNP), intent(out) :: F_ex (:,:,:,:,:) !< explicit RHS for corrector
       real(RNP), intent(out) :: F_im (:,:,:,:,:) !< implicit RHS for corrector
+      real(RNP), intent(out) :: F_d3 (:,:,:,:,:) !< χ∇(ν∇⋅v) for rotational VC
       real(RNP), intent(out) :: F    (:,:,:,:,:) !< RHS for subintegrals
 
       optional :: nu
@@ -69,7 +70,8 @@ module CART__ISP_Flow__SDC_Corrector
     subroutine CorrectionStep( this, t, dt               &
                              , F_ex_0_old, F_ex_0, F_ex  &
                              , F_im_0_old, F_im_0, F_im  &
-                             , S, u_0, u, nu             )
+                             , F_d3_0_old, F_d3_0, S     &
+                             , u_0, u, nu                )
       import
 
       class(SDC_Corrector), intent(inout) :: this
@@ -81,6 +83,8 @@ module CART__ISP_Flow__SDC_Corrector
       real(RNP), intent(in)    :: F_im_0_old (:,:,:,:,:) !< F^im (t₀)ᵏ⁻¹
       real(RNP), intent(in)    :: F_im_0     (:,:,:,:,:) !< F^im (t₀)ᵏ
       real(RNP), intent(inout) :: F_im       (:,:,:,:,:) !< F^im (t )ᵏ⁻¹
+      real(RNP), intent(in)    :: F_d3_0_old (:,:,:,:,:) !< F_d3 (t₀)ᵏ⁻¹
+      real(RNP), intent(in)    :: F_d3_0     (:,:,:,:,:) !< F_d3 (t₀)ᵏ
       real(RNP), intent(in)    :: S          (:,:,:,:,:) !< S    (t₀)ᵏ⁻¹
       real(RNP), intent(in)    :: u_0        (:,:,:,:,:) !< u    (t₀)ᵏ
       real(RNP), intent(inout) :: u          (:,:,:,:,:) !< u    (t )ᵏ⁻¹ → (t)ᵏ
@@ -99,7 +103,7 @@ module CART__ISP_Flow__SDC_Corrector
     integer :: splitting  = 2 !< selector for stage splitting scheme
     integer :: project    = 0 !< switch for additional projections
   contains
-    procedure :: Bcast => SDC_Corrector_Options_Bcast
+    procedure :: Bcast => Bcast_SDC_Corrector_Options
   end type SDC_Corrector_Options
 
 contains
@@ -166,7 +170,6 @@ contains
     write(io,'(2X,A,T15,A)')  'name:'     , trim(this % name)
     write(io,'(2X,A,T15,I0)') 'splitting:', this % splitting
     write(io,'(2X,A,T15,I0)') 'project:'  , this % project
-    write(io,*)
 
     ! append further settings in corresponding routines of derived types
 
@@ -178,7 +181,7 @@ contains
   !-----------------------------------------------------------------------------
   !> MPI broadcasting of SDC-corrector options
 
-  subroutine SDC_Corrector_Options_Bcast(this, root, comm)
+  subroutine Bcast_SDC_Corrector_Options(this, root, comm)
     class(SDC_Corrector_Options), intent(inout) :: this
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
@@ -193,7 +196,7 @@ contains
 
     call MPI_Waitall(n, request, stat)
 
-  end subroutine SDC_Corrector_Options_Bcast
+  end subroutine Bcast_SDC_Corrector_Options
 
   !=============================================================================
 

@@ -2,12 +2,20 @@
 !> author:   Joerg Stiller
 !> date:     2020/05/10
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @todo
+!>   * assess the impact of `sloppy = T`
+!>   * if negligible, remove F_d3, F_d3_0 and F_d3_0_old from this and the
+!>     parent module
+!> @endtodo
 !===============================================================================
 
 module CART__ISP_Flow__SDC_Corrector__Euler
+  use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
   use Kind_Parameters, only: RNP
   use Constants,       only: ONE, ZERO
   use Array_Assignments
+  use XMPI
 
   use ISP_Flow_Problem
 
@@ -28,9 +36,10 @@ module CART__ISP_Flow__SDC_Corrector__Euler
   public :: SDC_Corrector_Euler_Options
 
   !-----------------------------------------------------------------------------
-  !> Abstract type of a SDC corrector for incompressible flow
+  !> IMEX Euler SDC corrector for incompressible flow
 
   type, extends(SDC_Corrector) :: SDC_Corrector_Euler
+    logical :: sloppy  !< if true omit F_d3 correction
   contains
     procedure :: Init_SDC_Corrector_Euler
     procedure :: Show => Show_SDC_Corrector_Euler
@@ -47,9 +56,15 @@ module CART__ISP_Flow__SDC_Corrector__Euler
   !> Type for providing Euler SDC-corrector options (none, so far)
 
   type, extends(SDC_Corrector_Options) :: SDC_Corrector_Euler_Options
+    logical :: sloppy = .false.  !< if true omit F_d3 correction
+  contains
+    procedure :: Bcast => Bcast_SDC_Corrector_Euler_Options
   end type SDC_Corrector_Euler_Options
 
 contains
+
+  !=============================================================================
+  ! SDC_Corrector_Euler: type-bound procedures
 
   !-----------------------------------------------------------------------------
   !> Constructor for objects of type SDC_Corrector_Euler
@@ -77,6 +92,8 @@ contains
     call this % Init_SDC_Corrector(problem, flow_op, opt)
     this % name = 'IMEX Euler corrector'
 
+    this % sloppy = opt % sloppy
+
   end subroutine Init_SDC_Corrector_Euler
 
   !-----------------------------------------------------------------------------
@@ -86,8 +103,19 @@ contains
     class(SDC_Corrector_Euler), intent(in) :: this
     integer,          optional, intent(in) :: unit  !< output unit
 
+    integer :: io
+
+    if (present(unit)) then
+      io = unit
+    else
+      io = OUTPUT_UNIT
+    end if
+
     ! show parent settings
     call this % Show_SDC_Corrector(unit)
+
+    write(io,'(2X,A,T15,G0)') 'sloppy:', this % sloppy
+    write(io,*)
 
   end subroutine Show_SDC_Corrector_Euler
 
@@ -103,7 +131,7 @@ contains
   !> Note
   !>  *  last terms in F_ex and F for velocity only
 
-  subroutine GetCorrectorRHS(this, t, nu, u, F_ex, F_im, F)
+  subroutine GetCorrectorRHS(this, t, nu, u, F_ex, F_im, F_d3, F)
 
     class(SDC_Corrector_Euler), intent(in) :: this
     real(RNP), intent(in)  :: t                !< time
@@ -111,6 +139,7 @@ contains
     real(RNP), intent(in)  :: u    (:,:,:,:,:) !< u
     real(RNP), intent(out) :: F_ex (:,:,:,:,:) !< explicit RHS for corrector
     real(RNP), intent(out) :: F_im (:,:,:,:,:) !< implicit RHS for corrector
+    real(RNP), intent(out) :: F_d3 (:,:,:,:,:) !< χ∇(ν∇⋅v) for rotational VC
     real(RNP), intent(out) :: F    (:,:,:,:,:) !< RHS for subintegrals
 
     optional :: nu
@@ -131,9 +160,14 @@ contains
                        , F    = F           &
                        , F_c  = F_ex        & ! -∇⋅(v u)
                        , F_d1 = F_im        & !  ∇⋅(ν ∇u)
-                       , F_d2 = F_d2        ) !  ∇⋅[ν(∇v_ex)ᵀ]
+                       , F_d2 = F_d2        & !  ∇⋅[ν(∇v)ᵀ]
+                       , F_d3 = F_d3        ) !  χ∇(ν∇⋅v)
 
     call MergeArrays(ONE, F_ex, ONE, F_d2, multi=.true.)
+
+    if (this % chi /= 0) then
+      call MergeArrays(ONE, F_ex, ONE, F_d3, multi=.true.)
+    end if
 
     !$omp barrier
     !$omp master
@@ -148,7 +182,8 @@ contains
   subroutine CorrectionStep( this, t, dt               &
                            , F_ex_0_old, F_ex_0, F_ex  &
                            , F_im_0_old, F_im_0, F_im  &
-                           , S, u_0, u, nu             )
+                           , F_d3_0_old, F_d3_0, S     &
+                           , u_0, u, nu                )
 
     class(SDC_Corrector_Euler), intent(inout) :: this
     real(RNP), intent(inout) :: t                      !< time t₀ → t
@@ -159,6 +194,8 @@ contains
     real(RNP), intent(in)    :: F_im_0_old (:,:,:,:,:) !< F^im (t₀)ᵏ⁻¹
     real(RNP), intent(in)    :: F_im_0     (:,:,:,:,:) !< F^im (t₀)ᵏ
     real(RNP), intent(inout) :: F_im       (:,:,:,:,:) !< F^im (t )ᵏ⁻¹
+    real(RNP), intent(in)    :: F_d3_0_old (:,:,:,:,:) !< F_d3 (t₀)ᵏ⁻¹
+    real(RNP), intent(in)    :: F_d3_0     (:,:,:,:,:) !< F_d3 (t₀)ᵏ
     real(RNP), intent(in)    :: S          (:,:,:,:,:) !< S    (t₀)ᵏ⁻¹
     real(RNP), intent(in)    :: u_0        (:,:,:,:,:) !< u    (t₀)ᵏ
     real(RNP), intent(inout) :: u          (:,:,:,:,:) !< u    (t )ᵏ⁻¹ → (t)ᵏ
@@ -213,6 +250,12 @@ contains
 
       ! diffusion ...............................................................
 
+      ! full or partial removal of divergence contribution to F_d
+      if (this % cd3 /= 0 .and. .not. this % sloppy) then
+        call MergeArrays(ONE, u_i, -dt * this%cd3, F_d3_0    , multi=.true.)
+        call MergeArrays(ONE, u_i,  dt * this%cd3, F_d3_0_old, multi=.true.)
+      end if
+
       ! remove old diffusion term: u_i -= F_im ≡ ∇⋅[ν(t₀)∇u(t)]ᵏ⁻¹
       call MergeArrays(ONE, u_i, -dt, F_im, multi=.true.)
 
@@ -252,6 +295,30 @@ contains
     if (size(F_ex      ) > 0) return
 
   end subroutine CorrectionStep
+
+  !=============================================================================
+  ! SDC_Corrector_Euler_Options: type-bound procedures
+  !-----------------------------------------------------------------------------
+  !> MPI broadcasting of Euler-corrector options
+
+  subroutine Bcast_SDC_Corrector_Euler_Options(this, root, comm)
+    class(SDC_Corrector_Euler_Options), intent(inout) :: this
+    integer,        intent(in) :: root !< rank of broadcast root
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
+
+    type(MPI_Request) :: request(1)
+    type(MPI_Status)  :: stat(size(request))
+    integer :: n
+
+    ! broadcast options of parent class
+    call this % SDC_Corrector_Options % Bcast(root, comm)
+
+    n = 1
+    call XMPI_Ibcast( this % sloppy, root, comm, request(n) )
+
+    call MPI_Waitall(n, request, stat)
+
+  end subroutine Bcast_SDC_Corrector_Euler_Options
 
   !=============================================================================
 
