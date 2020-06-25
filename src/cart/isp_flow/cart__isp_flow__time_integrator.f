@@ -117,7 +117,7 @@ contains
     select case(this % splitting)
     case(1)
       this % chi = -1
-      this % cd3 =  1
+      this % cd3 =  0
     case(2)
       this % chi = -2
       this % cd3 =  HALF
