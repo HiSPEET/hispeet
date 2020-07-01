@@ -2,8 +2,6 @@
 !> author:    Erik Pfister, Joerg Stiller
 !> date:      2020/06/01
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!> @todo      Replace this dummy by true LIBXSMM version
 !===============================================================================
 
 module TPO__AAA_3d__XSMM
@@ -53,9 +51,9 @@ contains
     !-----------------------------------------------------------------------------
     ! XSMM dispatch
     !$omp master
-    call LIBXSMM_Dispatch(xmm_1, na2**2, na1   , na2, alpha=alpha, beta=beta)
+    call LIBXSMM_Dispatch(xmm_3, na2**2, na1   , na2, alpha=alpha, beta=beta)
     call LIBXSMM_Dispatch(xmm_2, na2   , na1   , na2, alpha=alpha, beta=beta)
-    call LIBXSMM_Dispatch(xmm_3, na2   , na1**2, na2, alpha=alpha, beta=beta)
+    call LIBXSMM_Dispatch(xmm_1, na1   , na1**2, na2, alpha=alpha, beta=beta)
 
     if (.not. ( libxsmm_available(xmm_1) .and.  &
                 libxsmm_available(xmm_2) .and.  &
