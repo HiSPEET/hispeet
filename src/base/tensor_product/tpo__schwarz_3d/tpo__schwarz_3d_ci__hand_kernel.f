@@ -49,13 +49,13 @@ subroutine PROC(TPO_Schwarz_CI_Hand__,_NP_)(nc, nd, S, W, cfg, D_inv, f, u)
     c3 = cfg(3,l)
 
     ! y = Sᵀ x I x I uᵉ
-    call PROC(QtxIxI__,_NP_)(S, alpha, beta, f(:,:,:,l), y)
+    call PROC(QtxIxI__,_NP_)(S(:,:,c3), alpha, beta, f(:,:,:,l), y)
 
     ! z = I x Sᵀ x I y
-    call PROC(IxQtxI__,_NP_)(S, alpha, beta, y, z)
+    call PROC(IxQtxI__,_NP_)(S(:,:,c2), alpha, beta, y, z)
 
     ! y = I x I x Sᵀ z
-    call PROC(IxIxQt__,_NP_)(S, alpha, beta, z, y)
+    call PROC(IxIxQt__,_NP_)(S(:,:,c1), alpha, beta, z, y)
 
     ! y = D⁻¹ y
     y = D_inv(:,:,:,l) * y
