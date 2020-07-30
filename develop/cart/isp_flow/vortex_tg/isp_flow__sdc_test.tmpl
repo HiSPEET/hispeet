@@ -1,11 +1,18 @@
 &control
   flow_type     =  'Vortex_TG'
   flow_case     =  'vortex_tg'
-  compute_p     =  T
+  restart       =  F
+  compute_p     =  F
   write_stat    =  T
   write_vtk     =  F
+  eval_rms      =  T
+  eval_max      =  F
+  eval_eps      =  F
 !
+  flow_op_control%chi            = -2     ! [-1]
   flow_op_control%div_penalty    =  0     ! [1]
+  flow_op_control%div_coeff      =  1     ! [1]
+  flow_op_control%div_i_max      =  100   ! [10]
   flow_op_control%div_final      =  F     ! [T]
 /
 
@@ -49,8 +56,58 @@
   dt     = <dt>
   nt_max = 10000000
 !
-! SDC
-  sdc_opt%n_sub   =  <n_sub>
-  sdc_opt%n_sweep =  <n_sweep>
+! time-integration method:
+! 0  SDC-orig
+! 1  Euler
+! 2  BDF2
+! 3  TR
+! 4  RK
+! 5  SDC(Eu,Eu)
+! 6  SDC(TR,Eu)
+! 7  SDC(RK,Eu)
+  time_method = <time_method>
+!
+! section for "original" SDC -- method 0
+  sdc_orig_opt%n_sub   =  <n_sub>
+  sdc_orig_opt%n_sweep =  <n_sweep>
+!
+! section for standalone Euler -- method 1
+  eu_opt%TimeIntegratorOptions%splitting   = 2
+  eu_opt%TimeIntegratorOptions%project     = 0
+  eu_opt%TimeIntegratorOptions%pressure    = 0
+!
+! section for standalone BDF2 -- method 2
+  bdf2_opt%TimeIntegratorOptions%splitting = 2
+  bdf2_opt%TimeIntegratorOptions%project   = 0
+  bdf2_opt%TimeIntegratorOptions%pressure  = 0
+!
+! section for standalone Runge-Kutta -- method 4
+  rk_opt%TimeIntegratorOptions%splitting   = 2
+  rk_opt%TimeIntegratorOptions%project     = 1
+  rk_opt%TimeIntegratorOptions%pressure    = 0
+  rk_opt%n_stage = 4
+  rk_opt%method  = 2
+  rk_opt%variant = 2
+!
+! section for SDC(*,*) -- methods 5:7
+  sdc_opt%n_sub        = <n_sub>
+  sdc_opt%n_sweep      = <n_sweep>
+  !
+  ! Euler predictor 
+  pre_eu_opt%TimeIntegratorOptions%splitting  = 2
+  pre_eu_opt%TimeIntegratorOptions%project    = 0
+  pre_eu_opt%TimeIntegratorOptions%pressure   = 0
+  !
+  ! Runge-Kutta predictor 
+  pre_rk_opt%TimeIntegratorOptions%splitting = 2
+  pre_rk_opt%TimeIntegratorOptions%project   = 1
+  pre_rk_opt%TimeIntegratorOptions%pressure  = 0
+  pre_rk_opt%variant   = 2
+  pre_rk_opt%n_stage   = 4
+  pre_rk_opt%method    = 2
+  !
+  ! Euler corrector
+  cor_eu_opt%SDC_Corrector_Options%splitting  = 2
+  cor_eu_opt%SDC_Corrector_Options%project    = 0
 /
 

@@ -5,6 +5,9 @@
 # execute within slurm script or stand-alone using
 # `bash -l sdc_k.sh`
 
+# path to program
+PROGRAM="../isp_flow__sdc_test"
+
 # number of partitions in directions 1-3
 NP1=${NP1:-"1"}
 NP2=${NP2:-"1"}
@@ -14,20 +17,28 @@ NP=$((${NP1} * ${NP2} * ${NP3}))
 # use preset execution command, or mpirun, if not set
 EXEC=${EXEC:-"mpirun -n ${NP}"}
 
-# path to program
-PROGRAM="../isp_flow__sdc_test"
-
 # elements per partition in directions 1-3
-EP=${EP:-"2"}
+EP1=${EP1:-"2"}
+EP2=${EP2:-"2"}
+EP3=${EP3:-"2"}
 
 # polynomial orders for u and p and for integrating the nonlinear terms
 PO_U="16"
 PO_P="15"
 PO_Q="24"
 
+# time integration
+T_END=${T_END:-"0.25"}
+TIME_METHOD=${TIME_METHOD:-"5"}
+
 # SDC parameters
 N_SUB=${N_SUB:-"3"}
 RANGE_N_SWEEP=${RANGE_N_SWEEP:-"0 1 2 3 4 5 6"}
+
+# investigated range of time step sizes, dt = dt_0 / 2^k, k = k_min, ... k_max
+dt_0="0.1"
+k_min="2"
+k_max="6"
 
 for N_SWEEP in $RANGE_N_SWEEP; do
 
@@ -38,41 +49,29 @@ for N_SWEEP in $RANGE_N_SWEEP; do
 
   date > ${LOG_FILE}
 
-  # investigated range of time step sizes
-  # dt = 0.1 / sqrt(2^k), k = 2, ... k_max
+  for ((k=k_min; k<=k_max; k++)); do
 
-  case "$N_SWEEP" in     # trial # periodic # Dirichlet
-      0)  k_max="25" ;;  #  "8"  #   "25"   #
-      1)  k_max="23" ;;  #  "7"  #   "23"   #
-      2)  k_max="20" ;;  #  "6"  #   "11"   #
-      3)  k_max="17" ;;  #  "5"  #   "6"    #
-      4)  k_max="14" ;;  #  "4"  #   "6"    #
-      5)  k_max="11" ;;  #  "3"  #   "6"    #
-      6)  k_max="8"  ;;  #  "2"  #   "6"    #
-      *)  k_max="6"
-  esac
-
-  for ((k=2; k<=k_max; k++)); do
-
-      DT=$(bc -l <<< "0.1/sqrt(2^${k})")
+      DT=$(bc -l <<< "${dt_0}/sqrt(2^${k})")
 
       echo "========================================================================="
-      echo "M =" ${N_SUB} ", K =", ${N_SWEEP} ", dt =" $DT
+      echo "M =" ${N_SUB} ", K =", ${N_SWEEP} ", dt =" $DTT  "(",$k,"/",$k_max,")"
       echo
       echo
       sed -e "s/<np1>/$NP1/g" \
           -e "s/<np2>/$NP2/g" \
           -e "s/<np3>/$NP3/g" \
-          -e "s/<ep1>/$EP/g" \
-          -e "s/<ep2>/$EP/g" \
-          -e "s/<ep3>/$EP/g" \
+          -e "s/<ep1>/$EP1/g" \
+          -e "s/<ep2>/$EP2/g" \
+          -e "s/<ep3>/$EP3/g" \
           -e "s/<po_u>/$PO_U/g" \
           -e "s/<po_p>/$PO_P/g" \
           -e "s/<po_q>/$PO_Q/g" \
+          -e "s/<t_end>/$T_END/g" \
           -e "s/<dt>/$DT/g" \
+          -e "s/<time_method>/$TIME_METHOD/g" \
           -e "s/<n_sub>/$N_SUB/g" \
           -e "s/<n_sweep>/$N_SWEEP/g" \
-            isp_flow__sdc_test.tmpl > ${PRM_FILE}
+          isp_flow__sdc_test.tmpl > ${PRM_FILE}
 
         ${EXEC} ${PROGRAM} ${CASE} 2>&1 | tee -a ${LOG_FILE}
 

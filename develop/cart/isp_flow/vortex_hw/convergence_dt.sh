@@ -3,6 +3,12 @@
 # execute within slurm script or stand-alone using
 # `bash -l convergence_dt.sh`
 
+# test case
+CASE="convergence_dt"
+
+# path to program
+PROGRAM="../isp_flow__sdc_test"
+
 # number of partitions in directions 1-2
 NP1=${NP1:-"1"}
 NP2=${NP2:-"1"}
@@ -12,12 +18,6 @@ NP=$((${NP1} * ${NP2}))
 MPIRUN=${MPIRUN:-"mpirun"}
 EXEC=${EXEC:-"${MPIRUN} -n ${NP}"}
 
-# path to program
-PROGRAM="../isp_flow__sdc_test"
-
-# test case
-CASE="convergence_dt"
-
 # elements per partition in directions 1-2
 EP=${EP:-"4"}
 
@@ -26,20 +26,24 @@ PO_U="8"
 PO_P="7"
 PO_Q="12"
 
-# investigated range of time step sizes
-RANGE_DT=\
-".2 .1 .05 .025 .0125 6.25d-3 3.125d-3 1.5625d-3 7.8125d-4 3.90625d-4 1.953125d-4"
-
-# SDC parameters
+# time integration
+T_END=${T_END:-"0.1"}
+TIME_METHOD=${TIME_METHOD:-"5"}
 N_SUB=${N_SUB:-"1"}
 N_SWEEP=${N_SWEEP:-"1"}
 
+# max time step size and max number of time step subdivisions per series
+DT_MAX=${DT_MAX:-"0.2"}
+ST_MAX=${ST_MAX:-"8"}
+
 date > ${CASE}.log
 
-for DT in $RANGE_DT; do
+for((s=0; s<=ST_MAX; s++)); do
+
+    DT=$(bc -l <<< "${DT_MAX}/sqrt(2^${s})")
 
     echo "========================================================================="
-    echo "dt =" $DT
+    echo "dt =" $DT ", s = "${s}"/"${ST_MAX}
     echo
     sed -e "s/<np1>/$NP1/g" \
         -e "s/<np2>/$NP2/g" \
@@ -48,7 +52,9 @@ for DT in $RANGE_DT; do
         -e "s/<po_u>/$PO_U/g" \
         -e "s/<po_p>/$PO_P/g" \
         -e "s/<po_q>/$PO_Q/g" \
+        -e "s/<t_end>/$T_END/g" \
         -e "s/<dt>/$DT/g" \
+        -e "s/<time_method>/$TIME_METHOD/g" \
         -e "s/<n_sub>/$N_SUB/g" \
         -e "s/<n_sweep>/$N_SWEEP/g" \
         isp_flow__sdc_test.tmpl > \

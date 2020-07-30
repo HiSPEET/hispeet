@@ -1,26 +1,28 @@
 &control
-  flow_type     =  'Transition_TG' ! 'Vortex_TG' for 2D-case and 'Transition_TG' for 3D
-  flow_case     =  'transition_tg' ! 2D: 'vortex_tg', 3D: 'transition_tg'
+  flow_type     =  'Transition_TG'
+  flow_case     =  'transition_tg'
   restart       =  F
-  compute_p     =  T
+  compute_p     =  F
   write_stat    =  T
-  write_vtk     =  T
+  write_vtk     =  F
   eval_rms      =  T
   eval_max      =  F
   eval_eps      =  F
 !
+  flow_op_control%chi            = -2     ! [-1]
   flow_op_control%div_penalty    =  0     ! [1]
+  flow_op_control%div_coeff      =  1     ! [1]
+  flow_op_control%div_i_max      =  100   ! [10]
   flow_op_control%div_final      =  F     ! [T]
 /
 
 &discretization
   np   =  1,1,1
-  ep   =  4,4,1
+  ep   =  4,4,4
   po_u =  10
   po_p =   9
   po_q =  16
   penalty = 20
-  adjust_dx = T
 /
 
 &elliptic_solver
@@ -55,9 +57,58 @@
  !c_diff = 100
   nt_max = 100000
 !
-! Time Integration method: SDC (n_sub >=1), IMEX RK (n_sub=-1), IMEX Euler ( n_sub=0)
-
-  sdc_opt%n_sub   =  3
-  sdc_opt%n_sweep =  2
+! time-integration method:
+! 0  SDC-orig
+! 1  Euler
+! 2  BDF2
+! 3  TR
+! 4  RK
+! 5  SDC(Eu,Eu)
+! 6  SDC(TR,Eu)
+! 7  SDC(RK,Eu)
+  time_method = 5
+!
+! section for "original" SDC -- method 0
+  sdc_orig_opt%n_sub   =  2
+  sdc_orig_opt%n_sweep =  3
+!
+! section for standalone Euler -- method 1
+  eu_opt%TimeIntegratorOptions%splitting   = 2
+  eu_opt%TimeIntegratorOptions%project     = 0
+  eu_opt%TimeIntegratorOptions%pressure    = 0
+!
+! section for standalone BDF2 -- method 2
+  bdf2_opt%TimeIntegratorOptions%splitting = 2
+  bdf2_opt%TimeIntegratorOptions%project   = 0
+  bdf2_opt%TimeIntegratorOptions%pressure  = 0
+!
+! section for standalone Runge-Kutta -- method 4
+  rk_opt%TimeIntegratorOptions%splitting   = 2
+  rk_opt%TimeIntegratorOptions%project     = 1
+  rk_opt%TimeIntegratorOptions%pressure    = 0
+  rk_opt%n_stage = 4
+  rk_opt%method  = 2
+  rk_opt%variant = 2
+!
+! section for SDC(*,*) -- methods 5:7
+  sdc_opt%n_sub        = 2
+  sdc_opt%n_sweep      = 3
+  !
+  ! Euler predictor 
+  pre_eu_opt%TimeIntegratorOptions%splitting  = 2
+  pre_eu_opt%TimeIntegratorOptions%project    = 0
+  pre_eu_opt%TimeIntegratorOptions%pressure   = 0
+  !
+  ! Runge-Kutta predictor 
+  pre_rk_opt%TimeIntegratorOptions%splitting = 2
+  pre_rk_opt%TimeIntegratorOptions%project   = 1
+  pre_rk_opt%TimeIntegratorOptions%pressure  = 0
+  pre_rk_opt%n_stage   = 4
+  pre_rk_opt%method    = 2
+  pre_rk_opt%variant   = 2
+  !
+  ! Euler corrector
+  cor_eu_opt%SDC_Corrector_Options%splitting  = 2
+  cor_eu_opt%SDC_Corrector_Options%project    = 0
 /
 

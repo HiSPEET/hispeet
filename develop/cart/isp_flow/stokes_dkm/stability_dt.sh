@@ -3,6 +3,12 @@
 # execute within slurm script or stand-alone using
 # `bash -l stability_dt.sh`
 
+# test case
+CASE="stability_dt"
+
+# path to program
+PROGRAM="../isp_flow__sdc_test"
+
 # number of partitions in directions 1-2
 NP1=${NP1:-"1"}
 NP2=${NP2:-"1"}
@@ -12,37 +18,34 @@ NP=$((${NP1} * ${NP2}))
 MPIRUN=${MPIRUN:-"mpirun"}
 EXEC=${EXEC:-"${MPIRUN} -n ${NP}"}
 
-# path to program
-PROGRAM="../isp_flow__sdc_test"
-
-# test case
-CASE="stability_dt"
-
 # elements per partition in directions 1-2 and polynomial orders for u and p
 EP=${EP:-"2"}
 PO_U="3"
 PO_P="2"
 
-# investigated range of time step sizes, dt = 0.1 / 2^k, k = 1, ... 14
-RANGE_DT=\
-".05 .025 .0125 6.25d-3 3.125d-3 1.5625d-3 7.8125d-4 3.90625d-4 1.953125d-4 "\
-"9.765625d-5 4.8828125d-5 2.44140625d-5 1.220703125d-5 6.103515625d-6"
+# time integration
+T_END=${T_END:-"0.25"}
+TIME_METHOD=${TIME_METHOD:-"5"}
+N_SUB=${N_SUB:-"2"}
+N_SWEEP_MAX=${N_SWEEP_MAX:-"4"}
 
-# SDC parameters
-N_SUB="1"
-RANGE_N_SWEEP="0 1"
+# max time step size and max number of time step subdivisions per series
+DT_MAX=${DT_MAX:-"0.05"}
+ST_MAX=${ST_MAX:-"10"}
 
-for N_SWEEP in $RANGE_N_SWEEP; do
+for((N_SWEEP=0; N_SWEEP<=N_SWEEP_MAX; N_SWEEP++)); do
 
   LOG_FILE=${CASE}-sdc-${N_SUB}-${N_SWEEP}.log
   DAT_FILE=${CASE}-sdc-${N_SUB}-${N_SWEEP}.dat
 
   date > ${LOG_FILE}
 
-  for DT in $RANGE_DT; do
-
+  for((s=0; s<=ST_MAX; s++)); do
+  
+      DT=$(bc -l <<< "${DT_MAX}/sqrt(2^${s})")
+  
       echo "========================================================================="
-      echo "dt =" $DT
+      echo "dt =" $DT ", s = "${s}"/"${ST_MAX}
       echo
       sed -e "s/<np1>/$NP1/g" \
           -e "s/<np2>/$NP2/g" \
@@ -51,6 +54,7 @@ for N_SWEEP in $RANGE_N_SWEEP; do
           -e "s/<po_u>/$PO_U/g" \
           -e "s/<po_p>/$PO_P/g" \
           -e "s/<dt>/$DT/g" \
+          -e "s/<time_method>/$TIME_METHOD/g" \
           -e "s/<n_sub>/$N_SUB/g" \
           -e "s/<n_sweep>/$N_SWEEP/g" \
           isp_flow__sdc_test.tmpl > \

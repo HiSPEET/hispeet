@@ -3,67 +3,62 @@
 # execute within slurm script or stand-alone using
 # `bash -l convergence_dt.sh`
 
+# test case
+CASE="convergence_dt"
+
+# path to program
+PROGRAM="../isp_flow__sdc_test"
+
 # number of partitions in directions 1-2
 NP1=${NP1:-"1"}
 NP2=${NP2:-"1"}
-NP3=${NP3:-"1"}
-NP=$((${NP1} * ${NP2} * ${NP3}))
+NP=$((${NP1} * ${NP2}))
 
 # use preset execution command, or mpirun, if not set
 MPIRUN=${MPIRUN:-"mpirun"}
 EXEC=${EXEC:-"${MPIRUN} -n ${NP}"}
 
-# path to program
-PROGRAM="../isp_flow__sdc_test"
-
-# test case
-CASE="convergence_dt_sdc_2_4"
-
 # elements per partition in directions 1-2
 EP=${EP:-"4"}
-EP3=${EP3:-"1"}
+
 # polynomial orders for u and p and for integrating the nonlinear terms
 PO_U="10"
 PO_P="9"
 PO_Q="16"
-# final time
+
+# time integration
 T_END=${T_END:-"0.25"}
-
-# investigated range of time step sizes
-RANGE_DT=\
-" .05 .025 .0125 6.25d-3 3.125d-3 1.5625d-3 7.8125d-4 3.90625d-4" # 1.953125d-4"
-
-# SDC parameters
+TIME_METHOD=${TIME_METHOD:-"5"}
 N_SUB=${N_SUB:-"2"}
 N_SWEEP=${N_SWEEP:-"4"}
-# RK parameters 
-NS=${NS:-"3"}
-METHOD=${METHOD:-"1"}
+
+# max time step size and max number of time step subdivisions per series
+DT_MAX=${DT_MAX:-"0.015625"}
+ST_MAX=${ST_MAX:-"4"}
+
 date > ${CASE}.log
 
-for DT in $RANGE_DT; do
+for((s=0; s<=ST_MAX; s++)); do
+
+    DT=$(bc -l <<< "${DT_MAX}/sqrt(2^${s})")
 
     echo "========================================================================="
-    echo "dt =" $DT
+    echo "dt =" $DT ", s = "${s}"/"${ST_MAX}
     echo
     sed -e "s/<np1>/$NP1/g" \
         -e "s/<np2>/$NP2/g" \
-        -e "s/<np3>/$NP3/g" \
         -e "s/<ep1>/$EP/g" \
         -e "s/<ep2>/$EP/g" \
-        -e "s/<ep3>/$EP3/g" \
         -e "s/<po_u>/$PO_U/g" \
         -e "s/<po_p>/$PO_P/g" \
         -e "s/<po_q>/$PO_Q/g" \
         -e "s/<t_end>/$T_END/g" \
         -e "s/<dt>/$DT/g" \
+        -e "s/<time_method>/$TIME_METHOD/g" \
         -e "s/<n_sub>/$N_SUB/g" \
         -e "s/<n_sweep>/$N_SWEEP/g" \
-        -e "s/<ns>/$NS/g" \
-        -e "s/<method>/$METHOD/g" \
         isp_flow__sdc_test.tmpl > \
         isp_flow__sdc_test.prm
-
 
     ${EXEC} ${PROGRAM} 2>&1 | tee -a ${CASE}.log
 

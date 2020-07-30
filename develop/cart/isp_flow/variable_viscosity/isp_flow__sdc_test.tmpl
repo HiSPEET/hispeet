@@ -1,27 +1,19 @@
 &control
   flow_type     =  'VariableViscosity'
   flow_case     =  'variable_viscosity'
-  compute_p     =  T
+  restart       =  F
+  compute_p     =  F
   write_stat    =  T
   write_vtk     =  F
+  eval_rms      =  T
+  eval_max      =  F
+  eval_eps      =  F
 !
-  flow_op_control%chi            = -2     ! [-1.0]
-  flow_op_control%f_d3           =  0     ! [0]
-!
-  flow_op_control%div_penalty    =  1     ! [0]    ! activate div penalization
-  flow_op_control%div_coeff      =  1     ! [10]   ! div penalty factor
-  flow_op_control%div_i_max      =  10    ! [20]   ! max num iterations for div penalization
-  flow_op_control%div_final      =  T     ! [F]    ! perform final projection step
-!
-! flow_op_control%n_outer        =  4     ! [-1]   ! num of add coupled iterations (p,friction)
-! flow_op_control%n_inner        =  1     ! [-1]   ! num inner iterations
-!
-  flow_op_control%sdc_diffusion  =  5     ! [2]
-! flow_op_control%sdc_pressure   =  0     ! [0]
-! flow_op_control%sdc_lo_op      =  2     ! [2]
-! flow_op_control%sdc_div_pen    =  0     ! [0]
-!
-! flow_op_control%monitor        =  0
+  flow_op_control%chi            = -2     ! [-1]
+  flow_op_control%div_penalty    =  1     ! [1]
+  flow_op_control%div_coeff      =  1     ! [1]
+  flow_op_control%div_i_max      =  100   ! [10]
+  flow_op_control%div_final      =  T     ! [T]
 /
 
 &discretization
@@ -61,7 +53,7 @@
 ! pmg_p_opt%solver          =  'C'
   pmg_p_opt%i0_max          =  1000
   pmg_p_opt%r0_red          =  1e-10
-  pmg_p_opt%schwarz%delta   =  0.125
+  pmg_p_opt%schwarz%delta   =  0.08
   pmg_p_opt%schwarz%no_min  =  1
   pmg_p_opt%monitor         =  F
 /
@@ -69,14 +61,64 @@
 &time_integration
 !
 ! time stepping
-  t_end  = 0.5
+  t_end  = <t_end>
   dt     = <dt>
  !c_conv = <c_conv>
  !c_diff = 100
   nt_max = 10000000
 !
-! SDC
-  sdc_opt%n_sub   =  <n_sub>
-  sdc_opt%n_sweep =  <n_sweep>
+! time-integration method:
+! 0  SDC-orig
+! 1  Euler
+! 2  BDF2
+! 3  TR
+! 4  RK
+! 5  SDC(Eu,Eu)
+! 6  SDC(TR,Eu)
+! 7  SDC(RK,Eu)
+  time_method = <time_method>
+!
+! section for "original" SDC -- method 0
+  sdc_orig_opt%n_sub   =  <n_sub>
+  sdc_orig_opt%n_sweep =  <n_sweep>
+!
+! section for standalone Euler -- method 1
+  eu_opt%TimeIntegratorOptions%splitting   = 2
+  eu_opt%TimeIntegratorOptions%project     = 1
+  eu_opt%TimeIntegratorOptions%pressure    = 0
+!
+! section for standalone BDF2 -- method 2
+  bdf2_opt%TimeIntegratorOptions%splitting = 2
+  bdf2_opt%TimeIntegratorOptions%project   = 1
+  bdf2_opt%TimeIntegratorOptions%pressure  = 0
+!
+! section for standalone Runge-Kutta -- method 4
+  rk_opt%TimeIntegratorOptions%splitting   = 2
+  rk_opt%TimeIntegratorOptions%project     = 1
+  rk_opt%TimeIntegratorOptions%pressure    = 0
+  rk_opt%n_stage = 4
+  rk_opt%method  = 2
+  rk_opt%variant = 2
+!
+! section for SDC(*,*) -- methods 5:7
+  sdc_opt%n_sub        = <n_sub>
+  sdc_opt%n_sweep      = <n_sweep>
+  !
+  ! Euler predictor 
+  pre_eu_opt%TimeIntegratorOptions%splitting  = 2
+  pre_eu_opt%TimeIntegratorOptions%project    = 1
+  pre_eu_opt%TimeIntegratorOptions%pressure   = 0
+  !
+  ! Runge-Kutta predictor 
+  pre_rk_opt%TimeIntegratorOptions%splitting = 2
+  pre_rk_opt%TimeIntegratorOptions%project   = 1
+  pre_rk_opt%TimeIntegratorOptions%pressure  = 0
+  pre_rk_opt%n_stage   = 4
+  pre_rk_opt%method    = 2
+  pre_rk_opt%variant   = 2
+  !
+  ! Euler corrector
+  cor_eu_opt%SDC_Corrector_Options%splitting  = 2
+  cor_eu_opt%SDC_Corrector_Options%project    = 1
 /
 

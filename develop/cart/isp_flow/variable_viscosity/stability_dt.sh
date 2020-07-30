@@ -3,6 +3,14 @@
 # execute within slurm script or stand-alone using
 # `bash -l stability_dt.sh`
 
+# path to program
+PROGRAM="../isp_flow__sdc_test"
+
+# elements per partition in directions 1-2
+EP1=${EP1:-"1"}
+EP2=${EP2:-"1"}
+EP3=${EP3:-"1"}
+
 # number of partitions in directions 1-3
 NP1=${NP1:-"1"}
 NP2=${NP2:-"1"}
@@ -12,20 +20,14 @@ NP=$((${NP1} * ${NP2} * ${NP3}))
 # use preset execution command, or mpirun, if not set
 EXEC=${EXEC:-"mpirun -n ${NP}"}
 
-# path to program
-PROGRAM="../isp_flow__sdc_test"
-
-# elements per partition in directions 1-2
-EP1=${EP1:-"1"}
-EP2=${EP2:-"1"}
-EP3=${EP3:-"1"}
-
 # polynomial orders for u and p and for integrating the nonlinear terms
 PO_U=${PO_U:-"8"}
 PO_P=${PO_P:-"7"}
 PO_Q=${PO_Q:-"12"}
 
-# SDC parameters
+# time integration
+T_END=${T_END:-"10"}
+TIME_METHOD=${TIME_METHOD:-"5"}
 N_SUB=${N_SUB:-"1"}
 N_SWEEP=${N_SWEEP:-"0"}
 
@@ -59,7 +61,9 @@ for((i=1; i<=NBI; i++)); do
         -e "s/<po_u>/$PO_U/g" \
         -e "s/<po_p>/$PO_P/g" \
         -e "s/<po_q>/$PO_Q/g" \
+        -e "s/<t_end>/$T_END/g" \
         -e "s/<dt>/$DT/g" \
+        -e "s/<time_method>/$TIME_METHOD/g" \
         -e "s/<n_sub>/$N_SUB/g" \
         -e "s/<n_sweep>/$N_SWEEP/g" \
         isp_flow__sdc_test.tmpl > \
