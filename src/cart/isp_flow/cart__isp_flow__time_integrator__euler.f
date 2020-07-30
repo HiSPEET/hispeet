@@ -50,12 +50,12 @@ module CART__ISP_Flow__Time_Integrator__Euler
   !>
   !>   * `splitting` -- defines the splitting scheme used in the stages:      \n
   !>        1: standard velocity correction with χ = -1                       \n
-  !>        2: rotational velocity correction with χ = -2
+  !>        2: rotational velocity correction with χ = -2                     \n
   !>           and F_d3/2 removed after extrapolation                         \n
   !>        3: "native" velocity correction with χ = 0                        \n
-  !>        4: velocity correction with χ = -1
+  !>        4: velocity correction with χ = -1                                \n
   !>           and F_d3 removed after extrapolation                           \n
-  !>        5: velocity correction with χ = -2
+  !>        5: velocity correction with χ = -2                                \n
   !>           and F_d3 removed after extrapolation
   !>
   !>   * `project`                                                            \n
@@ -129,6 +129,8 @@ contains
     real(RNP), allocatable, save :: w    (:,:,:,:,:) ! workspace for u
     real(RNP), allocatable, save :: dp   (:,:,:,:)   ! pressure correction
 
+    integer :: i
+
     associate( problem => this % problem          &
              , flow_op => this % flow_op          &
              , mesh    => this % flow_op % mesh   &
@@ -182,7 +184,10 @@ contains
                          )
 
       ! u' += ∆t w
-      call MergeArrays(ONE, u_i, dt, w, multi=.true.)
+      do i = 1, problem % nc
+        if (i == 4) cycle
+        call MergeArrays(ONE, u_i(:,:,:,:,i), dt, w(:,:,:,:,i))
+      end do
 
       ! pressure, continuity and diffusion .....................................
 
@@ -192,9 +197,16 @@ contains
       ! v" = v' - 1/∆t ∇p" - J(v")
       call ProjectionStep(problem, flow_op, dt, p, u_i, w)
 
+      ! starting values and RHS for diffusion
+      do i = 1, problem % nc
+        if (i == 4) cycle
+        call SetArray(u(:,:,:,:,i), u_i(:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt      , F_d1(:,:,:,:,i))
+        if (i > 3) cycle
+        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt * cd3, F_d3(:,:,:,:,i))
+      end do
+
       ! solve implicit diffusive part for u'''
-      call MergeArrays(ONE, u_i, -dt      , F_d1, multi=.true.)
-      call MergeArrays(ONE, u_i, -dt * cd3, F_d3, multi=.true.)
       call DiffusionStep(problem, flow_op, dt, f=u_i, u=u, w=w, nu=nu)
 
       ! final projection .......................................................

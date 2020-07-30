@@ -114,10 +114,10 @@ subroutine EulerVC(problem, flow_op, t, dt, u_0, u, F, H, S)
     ! uᵢ' = uᵢ₋₁ ≡ u_0
     call SetArray(u_i, u_0, multi=.true.)
 
-    ! SDC: uᵢ' += -Hᵢᵏ⁻¹ + Sᵢᵏ⁻¹
+    ! SDC: uᵢ' += Sᵢᵏ⁻¹ - Hᵢᵏ⁻¹
     if (present(H) .and. present(S)) then
-      call MergeArrays(ONE, u_i, -ONE, H, multi=.true.)
       call MergeArrays(ONE, u_i,  ONE, S, multi=.true.)
+      call MergeArrays(ONE, u_i, -ONE, H, multi=.true.)
     end if
 
     ! nu = ν₀ = ν(tᵢ₋₁)
@@ -151,7 +151,7 @@ subroutine EulerVC(problem, flow_op, t, dt, u_0, u, F, H, S)
     ! uᵢ' += ∆t w
     call MergeArrays(ONE, u_i, dt, w, multi=.true.)
 
-    ! pressure, continuity and diffusion .......................................
+   ! pressure, continuity and diffusion .......................................
 
     ! solve for p = pᵢ"
     call PressureSolver(problem, flow_op, dt, u_i, p, w)
@@ -193,7 +193,6 @@ subroutine EulerVC(problem, flow_op, t, dt, u_0, u, F, H, S)
       call TimeDerivative(problem, flow_op, t, u_d=u, nu=nu, F_d1=F_d1)
       call MergeArrays(ONE, H, ONE, F_d1, multi=.true.)
       call MergeArrays(ONE, H, ONE, F_d2, multi=.true.)
-
       call ScaleArray(H, dt, multi = .true.)
 
     end if

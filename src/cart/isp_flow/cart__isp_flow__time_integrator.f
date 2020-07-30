@@ -24,12 +24,12 @@ module CART__ISP_Flow__Time_Integrator
   !>
   !>   * `splitting` -- defines the splitting scheme used in the stages:     \n
   !>        1: standard velocity correction with χ = -1                      \n
-  !>        2: rotational velocity correction with χ = -2
+  !>        2: rotational velocity correction with χ = -2                    \n
   !>           and F_d3/2 removed after extrapolation                        \n
   !>        3: "native" velocity correction with χ = 0                       \n
-  !>        4: velocity correction with χ = -1
+  !>        4: velocity correction with χ = -1                               \n
   !>           and F_d3 removed after extrapolation                          \n
-  !>        5: velocity correction with χ = -2
+  !>        5: velocity correction with χ = -2                               \n
   !>           and F_d3 removed after extrapolation
   !>
   !>   * `project`                                                           \n
