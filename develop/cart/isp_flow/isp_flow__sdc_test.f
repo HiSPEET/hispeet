@@ -37,8 +37,9 @@ program ISP_Flow__SDC_Test
   use CART__ISP_Flow__Euler                        ! old standalone Euler
   use CART__ISP_Flow__SDC                          ! current SDC
   use CART__ISP_Flow__Time_Integrator              ! TI base type
-  use CART__ISP_Flow__Time_Integrator__Euler       ! new standalone Euler
-  use CART__ISP_Flow__Time_Integrator__Runge_Kutta ! new standalone Runge Kutta
+  use CART__ISP_Flow__Time_Integrator__Euler       ! standalone Euler
+  use CART__ISP_Flow__Time_Integrator__BDF2        ! standalone Euler
+  use CART__ISP_Flow__Time_Integrator__Runge_Kutta ! standalone Runge Kutta
   use CART__ISP_Flow__SDC_Method                   ! SDC method
   use CART__ISP_Flow__SDC_Corrector__Euler         ! SDC Euler-corrector
 
@@ -110,10 +111,11 @@ namelist /control/ check
   namelist /time_integration/ t_end, dt, c_conv, c_diff, nt_max
 
   integer :: time_method = 1
+  ! 0  SDC - original
   ! 1  Euler
-  ! 2  Trapezoidal Rule
-  ! 3  Runge-Kutta
-  ! 4  SDC - original
+  ! 2  BDF2
+  ! 3  TR
+  ! 4  Runge-Kutta
   ! 5  SDC(Eu,Eu)
   ! 6  SDC(TR,Eu)
   ! 7  SDC(RK,Eu)
@@ -139,8 +141,9 @@ namelist /control/ check
   ! standalone time integrator
   class(TimeIntegrator), allocatable      :: time_integrator
   type(TimeIntegrator_Euler_Options)      :: eu_opt
+  type(TimeIntegrator_BDF2_Options)       :: bdf2_opt
   type(TimeIntegrator_RungeKutta_Options) :: rk_opt
-  namelist /time_integration/ eu_opt, rk_opt
+  namelist /time_integration/ eu_opt, bdf2_opt, rk_opt
 
   ! original SDC
   type(SDC_Method3D)  :: sdc_orig
@@ -175,8 +178,9 @@ namelist /control/ check
 
   ! auxiliary ..................................................................
 
-  logical :: exists, first, last, failed
-  integer :: prm, stat, nt, nt_10
+  logical   :: exists, first, last, failed
+  integer   :: prm, stat, nt, nt_10
+  real(RDP) :: time, time0
 
   !-----------------------------------------------------------------------------
   ! initialization
@@ -248,6 +252,8 @@ call XMPI_Bcast(check   , 0, comm)
 
   ! time integration parameters
   call XMPI_Bcast(time_method, 0, comm)
+  call eu_opt       % Bcast(0, comm)
+  call bdf2_opt     % Bcast(0, comm)
   call rk_opt       % Bcast(0, comm)
   call sdc_orig_opt % Bcast(0, comm)
   call sdc_opt      % Bcast(0, comm)
@@ -306,14 +312,16 @@ call XMPI_Bcast(check   , 0, comm)
                          )
 
   select case(time_method)
+  case(0)
+    sdc_orig = SDC_Method3D(EulerVC, EulerVC, sdc_orig_opt)
   case(1)
     time_integrator = TimeIntegrator_Euler(problem, flow_op, eu_opt)
   case(2)
-    ! Trapezoidal Rule
+    time_integrator = TimeIntegrator_BDF2(problem, flow_op, bdf2_opt)
   case(3)
-    time_integrator = TimeIntegrator_RungeKutta(problem, flow_op, rk_opt)
+   !time_integrator = TimeIntegrator_TR(problem, flow_op, tr_opt)
   case(4)
-    sdc_orig = SDC_Method3D(EulerVC, EulerVC, sdc_orig_opt)
+    time_integrator = TimeIntegrator_RungeKutta(problem, flow_op, rk_opt)
   case(5)
     ! SDC(Eu,Eu)
     sdc = SDC_Method(problem, flow_op, pre_eu_opt, cor_eu_opt, sdc_opt)
@@ -324,7 +332,7 @@ call XMPI_Bcast(check   , 0, comm)
 
   ! print time-integrator settings
   select case(time_method)
-  case(1,3)
+  case(1:4)
     call time_integrator % Show()
   case(5,7)
     call sdc % Show()
@@ -359,6 +367,12 @@ call XMPI_Bcast(check   , 0, comm)
 
   failed = .false.
 
+  if (rank == 0) then
+    !$omp master
+    time0 = MPI_Wtime()
+    !$omp end master
+  end if
+
   do nt = 1, nt_max
 
     first = nt == 1
@@ -374,10 +388,10 @@ call XMPI_Bcast(check   , 0, comm)
     end if
 
     select case(time_method)
-    case(1:3)
-      call time_integrator % TimeStep(t, dt, u)
-    case(4)
+    case(0)
       call sdc_orig % TimeStep( problem, flow_op, t, dt, u, F, first, last)
+    case(1:4)
+      call time_integrator % TimeStep(t, dt, u)
     case(5,7)
       call sdc % TimeStep(t, dt, u, standby = .not. last )
     case default
@@ -397,11 +411,27 @@ call XMPI_Bcast(check   , 0, comm)
 
   end do
 
+  if (rank == 0) then
+    !$omp master
+    time = MPI_Wtime()
+    time = time - time0
+    !$omp end master
+  end if
+
   if (.not. failed) then
     call Evaluation(last=.true.)
   else if (rank == 0) then
     !$omp master
     write(*,'(A)') 'failed'
+    !$omp end master
+  end if
+
+  if (rank == 0) then
+    !$omp master
+    write(*,'(A)') 'Performance'
+    write(*,'(A,ES10.3)') ' time               =', time
+    write(*,'(A,ES10.3)') ' time       / step  =', time / nt
+    write(*,'(A,ES10.3)') ' throughput / step  =', nt / time * size(u)
     !$omp end master
   end if
 
