@@ -77,7 +77,8 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   !>
   !>   * `project`                                                            \n
   !>        0: no additional projection step                                  \n
-  !>        1: additional projection at the end of the time step
+  !>        1: additional projection at the end of the time step              \n
+  !>        2: additional projection at the end of each stage
   !>
   !>   * `pressure`
   !>        0: return pressure as computed                                    \n
@@ -275,14 +276,14 @@ contains
 
       ! assembly ...............................................................
 
-      do i =1, ns
+      do i = 1, ns
         tau = b(i) * dt
-        call MergeArrays(ONE, u,     tau, F_c (:,:,:,:,:,i), multi=.true.)
-        call MergeArrays(ONE, u,     tau, F_d1(:,:,:,:,:,i), multi=.true.)
-        call MergeArrays(ONE, u,     tau, F_d2(:,:,:,:,:,i), multi=.true.)
-        call MergeArrays(ONE, u, cd3*tau, F_d3(:,:,:,:,:,i), multi=.true.)
-        call MergeArrays(ONE, u,     tau, F_p (:,:,:,:,:,i), multi=.true.)
-        call MergeArrays(ONE, u,     tau, F_s (:,:,:,:,:,i), multi=.true.)
+        call MergeArrays(ONE, u,         tau, F_c (:,:,:,:,:,i), multi=.true.)
+        call MergeArrays(ONE, u,         tau, F_d1(:,:,:,:,:,i), multi=.true.)
+        call MergeArrays(ONE, u,         tau, F_d2(:,:,:,:,:,i), multi=.true.)
+        call MergeArrays(ONE, u, (1-cd3)*tau, F_d3(:,:,:,:,:,i), multi=.true.)
+        call MergeArrays(ONE, u,         tau, F_p (:,:,:,:,:,i), multi=.true.)
+        call MergeArrays(ONE, u,         tau, F_s (:,:,:,:,:,i), multi=.true.)
       end do
 
       ! enforce continuity:  ∇²δp = ∇⋅ṽ/∆t, v + J(v) = ṽ - ∆t∇δp
@@ -410,8 +411,10 @@ contains
           if (tau /= 0) then
             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_c (:,:,:,:,k,j))
             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
-            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d2(:,:,:,:,k,j))
-            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
+            if (k < 4) then
+              call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d2(:,:,:,:,k,j))
+              call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
+            end if
           end if
 
           tau = dt * a_im(i,j)
@@ -454,7 +457,7 @@ contains
               call MergeArrays(ONE, f(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
             end if
             tau = -cd3 * dt * a_ex(i,j)
-            if (tau /= 0) then
+            if (tau /= 0 .and. k < 4) then
               call MergeArrays(ONE, f(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
             end if
           end do
@@ -468,7 +471,7 @@ contains
 
       ! final projection: u_i ← u ..............................................
 
-      if (flow_op % control % div_final) then
+      if (this % project > 1) then
 
         tau = dt * a_im(i,i)
 
@@ -591,8 +594,10 @@ contains
           if (tau /= 0) then
             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_c (:,:,:,:,k,j))
             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
-            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d2(:,:,:,:,k,j))
-            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
+            if (k < 4) then
+              call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d2(:,:,:,:,k,j))
+              call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
+            end if
           end if
 
           tau = dt * a_im(i,j)
@@ -626,7 +631,7 @@ contains
 
           ! f = f - ∆t ∑ⁱ⁻¹ aᵉˣ(F_d1 + cd3 F_d3) = τ∆F
           tau = -dt * a_ex(i,j)
-          if (tau /= 0) then
+          if (tau /= 0 .and. k < 4) then
             call MergeArrays(ONE, f(:,:,:,:,k), tau      , F_d1(:,:,:,:,k,j))
             call MergeArrays(ONE, f(:,:,:,:,k), tau * cd3, F_d3(:,:,:,:,k,j))
           end if
@@ -669,7 +674,7 @@ contains
 
       ! final projection: u_i ← u ..............................................
 
-      if (flow_op % control % div_final) then
+      if (this % project > 1) then
 
         tau = dt * a_im(i,i)
 
