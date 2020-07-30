@@ -48,47 +48,44 @@ module CART__ISP_Flow__SDC_Corrector
     !---------------------------------------------------------------------------
     !> Computes F_ex and F_im as defined in the corrector
 
-    subroutine GetCorrectorRHS(this, t, nu, u, F_ex, F_im, F_d3, F)
+    subroutine GetCorrectorRHS(this, t, nu_c, nu_s, u, F_ex, F_im, F)
       import
 
       class(SDC_Corrector), intent(in) :: this
-      real(RNP), intent(in)  :: t                !< time
-      real(RNP), intent(in)  :: nu   (:,:,:,:,:) !< diffusivity
-      real(RNP), intent(in)  :: u    (:,:,:,:,:) !< u
-      real(RNP), intent(out) :: F_ex (:,:,:,:,:) !< explicit RHS for corrector
-      real(RNP), intent(out) :: F_im (:,:,:,:,:) !< implicit RHS for corrector
-      real(RNP), intent(out) :: F_d3 (:,:,:,:,:) !< χ∇(ν∇⋅v) for rotational VC
-      real(RNP), intent(out) :: F    (:,:,:,:,:) !< RHS for subintegrals
+      real(RNP), intent(in)  :: t               !< time
+      real(RNP), intent(in)  :: nu_c(:,:,:,:,:) !< variable ν for corrector RHS
+      real(RNP), intent(in)  :: nu_s(:,:,:,:,:) !< variable ν for subintegral RHS
+      real(RNP), intent(in)  :: u   (:,:,:,:,:) !< u
+      real(RNP), intent(out) :: F_ex(:,:,:,:,:) !< explicit RHS for corrector
+      real(RNP), intent(out) :: F_im(:,:,:,:,:) !< implicit RHS for corrector
+      real(RNP), intent(out) :: F   (:,:,:,:,:) !< RHS for subintegrals
 
-      optional :: nu
+      optional :: nu_c, nu_s
 
     end subroutine GetCorrectorRHS
 
     !---------------------------------------------------------------------------
     !> Execution of a single correction step
 
-    subroutine CorrectionStep( this, t, dt               &
-                             , F_ex_0_old, F_ex_0, F_ex  &
-                             , F_im_0_old, F_im_0, F_im  &
-                             , F_d3_0_old, F_d3_0, S     &
-                             , u_0, u, nu                )
+    subroutine CorrectionStep( this, t, dt                   &
+                             , F_ex_0_old, F_ex_0, F_ex_old  &
+                             , F_im_0_old, F_im_0, F_im_old  &
+                             , S, u_0, u, nu                 )
       import
 
       class(SDC_Corrector), intent(inout) :: this
       real(RNP), intent(inout) :: t                      !< time t₀ → t
       real(RNP), intent(in)    :: dt                     !< step size ∆t = t-t₀
-      real(RNP), intent(in)    :: F_ex_0_old (:,:,:,:,:) !< F^ex (t₀)ᵏ⁻¹
-      real(RNP), intent(in)    :: F_ex_0     (:,:,:,:,:) !< F^ex (t₀)ᵏ
-      real(RNP), intent(inout) :: F_ex       (:,:,:,:,:) !< F^ex (t )ᵏ⁻¹
-      real(RNP), intent(in)    :: F_im_0_old (:,:,:,:,:) !< F^im (t₀)ᵏ⁻¹
-      real(RNP), intent(in)    :: F_im_0     (:,:,:,:,:) !< F^im (t₀)ᵏ
-      real(RNP), intent(inout) :: F_im       (:,:,:,:,:) !< F^im (t )ᵏ⁻¹
-      real(RNP), intent(in)    :: F_d3_0_old (:,:,:,:,:) !< F_d3 (t₀)ᵏ⁻¹
-      real(RNP), intent(in)    :: F_d3_0     (:,:,:,:,:) !< F_d3 (t₀)ᵏ
-      real(RNP), intent(in)    :: S          (:,:,:,:,:) !< S    (t₀)ᵏ⁻¹
-      real(RNP), intent(in)    :: u_0        (:,:,:,:,:) !< u    (t₀)ᵏ
-      real(RNP), intent(inout) :: u          (:,:,:,:,:) !< u    (t )ᵏ⁻¹ → (t)ᵏ
-      real(RNP), intent(inout) :: nu         (:,:,:,:,:) !< v    (t )ᵏ⁻¹
+      real(RNP), intent(in)    :: F_ex_0_old (:,:,:,:,:) !< F^ex (t₀)ᵏ
+      real(RNP), intent(in)    :: F_ex_0     (:,:,:,:,:) !< F^ex (t₀)ᵏ⁺¹
+      real(RNP), intent(in)    :: F_ex_old   (:,:,:,:,:) !< F^ex (t )ᵏ
+      real(RNP), intent(in)    :: F_im_0_old (:,:,:,:,:) !< F^im (t₀)ᵏ
+      real(RNP), intent(in)    :: F_im_0     (:,:,:,:,:) !< F^im (t₀)ᵏ⁺¹
+      real(RNP), intent(in)    :: F_im_old   (:,:,:,:,:) !< F^im (t )ᵏ
+      real(RNP), intent(in)    :: S          (:,:,:,:,:) !< S    (t₀)ᵏ
+      real(RNP), intent(in)    :: u_0        (:,:,:,:,:) !< u    (t₀)ᵏ⁺¹
+      real(RNP), intent(inout) :: u          (:,:,:,:,:) !< u    (t )ᵏ   → (t)ᵏ⁺¹
+      real(RNP), intent(inout) :: nu         (:,:,:,:,:) !< v    (t₀)ᵏ⁺¹ → ?
 
       optional :: nu
 

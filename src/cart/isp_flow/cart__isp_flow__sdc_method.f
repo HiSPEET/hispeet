@@ -287,13 +287,13 @@ contains
 
     real(RNP), dimension(:),           allocatable, save :: t_, dt_
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: u_
-    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_ex_, F_im_, F_d3_
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_ex_, F_im_
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_, S_
     real(RNP), dimension(:,:,:,:,:),   allocatable, save :: F_ex_0_old
     real(RNP), dimension(:,:,:,:,:),   allocatable, save :: F_im_0_old
-    real(RNP), dimension(:,:,:,:,:),   allocatable, save :: F_d3_0_old
 
     real(RNP), allocatable, target, save :: nu_(:,:,:,:,:,:)
+    real(RNP), contiguous, pointer, save :: nu_0(:,:,:,:,:) => null()
     real(RNP), contiguous, pointer, save :: nu_i(:,:,:,:,:) => null()
 
     real(RNP) :: t_0
@@ -316,8 +316,8 @@ contains
     if (allocated(u_)) then
       if (any(shape(u_) /= [np,np,np,ne,nc,n_sub])) then
         deallocate(t_, dt_)
-        deallocate(u_, F_ex_, F_im_, F_d3_, F_, S_)
-        deallocate(F_ex_0_old, F_im_0_old, F_d3_0_old)
+        deallocate(u_, F_ex_, F_im_, F_, S_)
+        deallocate(F_ex_0_old, F_im_0_old)
         if (allocated(nu_)) deallocate(nu_)
       end if
     end if
@@ -330,12 +330,10 @@ contains
       allocate(u_         (np,np,np,ne,nc,0:n_sub))
       allocate(F_ex_      (np,np,np,ne,nc,0:n_sub))
       allocate(F_im_      (np,np,np,ne,nc,0:n_sub))
-      allocate(F_d3_      (np,np,np,ne,nc,0:n_sub))
       allocate(F_         (np,np,np,ne,nc,0:n_sub))
       allocate(S_         (np,np,np,ne,nc,1:n_sub))
       allocate(F_ex_0_old (np,np,np,ne,nc))
       allocate(F_im_0_old (np,np,np,ne,nc))
-      allocate(F_d3_0_old (np,np,np,ne,nc))
       !$acc enter data create(t_,dt_,u_,...)
 
       if (this % problem % HasVariableProperties()) then
@@ -373,6 +371,7 @@ contains
 
         ! initialize variable diffusivity
         if (allocated(nu_)) then
+          nu_0 => nu_(:,:,:,:,:,max(i-1,0))
           nu_i => nu_(:,:,:,:,:,i)
           call this % problem %                  &
                  GetDiffusivity( this%flow_op%x  &
@@ -384,11 +383,11 @@ contains
         ! RHS for corrector and subintegrals
         call this % corrector %                           &
                GetCorrectorRHS( t_(i)                     &
-                              , nu_i                      &
+                              , nu_c = nu_0               &
+                              , nu_s = nu_i               &
                               , u    = u_   (:,:,:,:,:,i) &
                               , F_ex = F_ex_(:,:,:,:,:,i) &
                               , F_im = F_im_(:,:,:,:,:,i) &
-                              , F_d3 = F_d3_(:,:,:,:,:,i) &
                               , F    = F_   (:,:,:,:,:,i) )
 
       end do
@@ -404,11 +403,17 @@ contains
 
         call SetArray(F_ex_0_old, F_ex_(:,:,:,:,:,0), multi=.true.)
         call SetArray(F_im_0_old, F_im_(:,:,:,:,:,0), multi=.true.)
-        call SetArray(F_d3_0_old, F_d3_(:,:,:,:,:,0), multi=.true.)
 
         do i = 1, n_sub
 
           t_0 = t_(i-1)
+
+          ! initialize diffusivity with v(tᵢ₋₁)ᵏ⁺¹
+          if (allocated(nu_)) then
+            nu_0 => nu_(:,:,:,:,:,i-1)
+            nu_i => nu_(:,:,:,:,:,i)
+            call SetArray(nu_i, nu_0)
+          end if
 
           ! correction
           call this % corrector %                                  &
@@ -416,12 +421,10 @@ contains
                                , dt         = dt_(i)               &
                                , F_ex_0_old = F_ex_0_old           &
                                , F_ex_0     = F_ex_(:,:,:,:,:,i-1) &
-                               , F_ex       = F_ex_(:,:,:,:,:,i)   &
+                               , F_ex_old   = F_ex_(:,:,:,:,:,i)   &
                                , F_im_0_old = F_im_0_old           &
                                , F_im_0     = F_im_(:,:,:,:,:,i-1) &
-                               , F_im       = F_im_(:,:,:,:,:,i)   &
-                               , F_d3_0_old = F_d3_0_old           &
-                               , F_d3_0     = F_d3_(:,:,:,:,:,i-1) &
+                               , F_im_old   = F_im_(:,:,:,:,:,i)   &
                                , S          = S_   (:,:,:,:,:,i)   &
                                , u_0        = u_   (:,:,:,:,:,i-1) &
                                , u          = u_   (:,:,:,:,:,i)   &
@@ -431,18 +434,7 @@ contains
           if (i < n_sub) then
             call SetArray(F_ex_0_old, F_ex_(:,:,:,:,:,i), multi=.true.)
             call SetArray(F_im_0_old, F_im_(:,:,:,:,:,i), multi=.true.)
-            call SetArray(F_d3_0_old, F_d3_(:,:,:,:,:,i), multi=.true.)
           end if
-
-          ! update RHS
-          call this % corrector %                           &
-                 GetCorrectorRHS( t_(i)                     &
-                                , nu_i                      &
-                                , u    = u_   (:,:,:,:,:,i) &
-                                , F_ex = F_ex_(:,:,:,:,:,i) &
-                                , F_im = F_im_(:,:,:,:,:,i) &
-                                , F_d3 = F_d3_(:,:,:,:,:,i) &
-                                , F    = F_   (:,:,:,:,:,i) )
 
           ! update variable diffusivity
           if (associated(nu_i)) then
@@ -452,6 +444,16 @@ contains
                                  , u_(:,:,:,:,:,i) &
                                  , nu_i            )
           end if
+
+          ! update RHS
+          call this % corrector %                           &
+                 GetCorrectorRHS( t_(i)                     &
+                                , nu_c = nu_0               &
+                                , nu_s = nu_i               &
+                                , u    = u_   (:,:,:,:,:,i) &
+                                , F_ex = F_ex_(:,:,:,:,:,i) &
+                                , F_im = F_im_(:,:,:,:,:,i) &
+                                , F    = F_   (:,:,:,:,:,i) )
 
         end do
 
@@ -486,8 +488,8 @@ contains
     if (allocated(u_)) then
       !$acc exit data delete(...)
       deallocate(t_, dt_)
-      deallocate(u_, F_ex_, F_im_, F_d3_, F_, S_)
-      deallocate(F_ex_0_old, F_im_0_old, F_d3_0_old)
+      deallocate(u_, F_ex_, F_im_, F_, S_)
+      deallocate(F_ex_0_old, F_im_0_old)
       if (allocated(nu_)) then
         deallocate(nu_)
       end if

@@ -2,12 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2020/05/10
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!> @todo
-!>   * assess the impact of `sloppy = T`
-!>   * if negligible, remove F_d3, F_d3_0 and F_d3_0_old from this and the
-!>     parent module
-!> @endtodo
 !===============================================================================
 
 module CART__ISP_Flow__SDC_Corrector__Euler
@@ -39,7 +33,6 @@ module CART__ISP_Flow__SDC_Corrector__Euler
   !> IMEX Euler SDC corrector for incompressible flow
 
   type, extends(SDC_Corrector) :: SDC_Corrector_Euler
-    logical :: sloppy  !< if true omit F_d3 correction
   contains
     procedure :: Init_SDC_Corrector_Euler
     procedure :: Show => Show_SDC_Corrector_Euler
@@ -56,9 +49,6 @@ module CART__ISP_Flow__SDC_Corrector__Euler
   !> Type for providing Euler SDC-corrector options (none, so far)
 
   type, extends(SDC_Corrector_Options) :: SDC_Corrector_Euler_Options
-    logical :: sloppy = .false.  !< if true omit F_d3 correction
-  contains
-    procedure :: Bcast => Bcast_SDC_Corrector_Euler_Options
   end type SDC_Corrector_Euler_Options
 
 contains
@@ -92,8 +82,6 @@ contains
     call this % Init_SDC_Corrector(problem, flow_op, opt)
     this % name = 'IMEX Euler corrector'
 
-    this % sloppy = opt % sloppy
-
   end subroutine Init_SDC_Corrector_Euler
 
   !-----------------------------------------------------------------------------
@@ -114,41 +102,36 @@ contains
     ! show parent settings
     call this % Show_SDC_Corrector(unit)
 
-    write(io,'(2X,A,T15,G0)') 'sloppy:', this % sloppy
     write(io,*)
 
   end subroutine Show_SDC_Corrector_Euler
 
   !-----------------------------------------------------------------------------
   !> Computes F_ex and F_im as defined in the corrector and F for subintegrals
-  !>
-  !> For IMEX Euler with dual splitting:
-  !>
-  !>       F_ex = -∇⋅(v u) + ∇⋅[ν(∇v_ex)ᵀ]
-  !>       F_im =  ∇⋅(ν ∇u) + f(x,t)
-  !>       F    =  F_ex + F_im + χ∇ν(∇·v)
-  !>
-  !> Note
-  !>  *  last terms in F_ex and F for velocity only
 
-  subroutine GetCorrectorRHS(this, t, nu, u, F_ex, F_im, F_d3, F)
+  subroutine GetCorrectorRHS(this, t, nu_c, nu_s, u, F_ex, F_im, F)
 
     class(SDC_Corrector_Euler), intent(in) :: this
-    real(RNP), intent(in)  :: t                !< time
-    real(RNP), intent(in)  :: nu   (:,:,:,:,:) !< diffusivity
-    real(RNP), intent(in)  :: u    (:,:,:,:,:) !< u
-    real(RNP), intent(out) :: F_ex (:,:,:,:,:) !< explicit RHS for corrector
-    real(RNP), intent(out) :: F_im (:,:,:,:,:) !< implicit RHS for corrector
-    real(RNP), intent(out) :: F_d3 (:,:,:,:,:) !< χ∇(ν∇⋅v) for rotational VC
-    real(RNP), intent(out) :: F    (:,:,:,:,:) !< RHS for subintegrals
+    real(RNP), intent(in)  :: t               !< time
+    real(RNP), intent(in)  :: nu_c(:,:,:,:,:) !< variable ν for corrector RHS
+    real(RNP), intent(in)  :: nu_s(:,:,:,:,:) !< variable ν for subintegral RHS
+    real(RNP), intent(in)  :: u   (:,:,:,:,:) !< u
+    real(RNP), intent(out) :: F_ex(:,:,:,:,:) !< explicit RHS for corrector
+    real(RNP), intent(out) :: F_im(:,:,:,:,:) !< implicit RHS for corrector
+    real(RNP), intent(out) :: F   (:,:,:,:,:) !< RHS for subintegrals
 
-    optional :: nu
+    optional :: nu_c, nu_s
 
     real(RNP), allocatable, save :: F_d2(:,:,:,:,:)
+    real(RNP), allocatable, save :: F_d3(:,:,:,:,:)
+    integer :: i
 
     !$omp single
     allocate(F_d2, mold = u)
+    allocate(F_d3, mold = u)
     !$omp end single
+
+    ! RHS for high-order subintegrals ..........................................
 
     call TimeDerivative( this % problem     &
                        , this % flow_op     &
@@ -156,22 +139,32 @@ contains
                        , u_c  = u           &
                        , u_d  = u           &
                        , chi  = this % chi  &
-                       , nu   = nu          &
+                       , nu   = nu_s        &
                        , F    = F           &
-                       , F_c  = F_ex        & ! -∇⋅(v u)
-                       , F_d1 = F_im        & !  ∇⋅(ν ∇u)
-                       , F_d2 = F_d2        & !  ∇⋅[ν(∇v)ᵀ]
-                       , F_d3 = F_d3        ) !  χ∇(ν∇⋅v)
+                       , F_c  = F_ex        )
 
-    call MergeArrays(ONE, F_ex, ONE, F_d2, multi=.true.)
+    ! RHS for low-order part of corrector ......................................
 
-    if (this % chi /= 0) then
-      call MergeArrays(ONE, F_ex, ONE, F_d3, multi=.true.)
-    end if
+    call TimeDerivative( this % problem     &
+                       , this % flow_op     &
+                       , t                  &
+                       , u_d  = u           &
+                       , chi  = this % chi  &
+                       , nu   = nu_c        &
+                       , F_d1 = F_im        &
+                       , F_d2 = F_d2        &
+                       , F_d3 = F_d3        )
+
+    do i = 1, 3
+      call MergeArrays(ONE, F_ex(:,:,:,:,i), ONE, F_d2(:,:,:,:,i))
+      if (this % chi /= 0 .and. this%cd3 /= ONE ) then
+        call MergeArrays(ONE, F_ex(:,:,:,:,i), ONE-this%cd3, F_d3(:,:,:,:,i))
+      end if
+    end do
 
     !$omp barrier
     !$omp master
-    deallocate(F_d2)
+    deallocate(F_d2, F_d3)
     !$omp end master
 
   end subroutine GetCorrectorRHS
@@ -179,41 +172,42 @@ contains
   !-----------------------------------------------------------------------------
   !> Execution of a single correction step
 
-  subroutine CorrectionStep( this, t, dt               &
-                           , F_ex_0_old, F_ex_0, F_ex  &
-                           , F_im_0_old, F_im_0, F_im  &
-                           , F_d3_0_old, F_d3_0, S     &
-                           , u_0, u, nu                )
+  subroutine CorrectionStep( this, t, dt                   &
+                           , F_ex_0_old, F_ex_0, F_ex_old  &
+                           , F_im_0_old, F_im_0, F_im_old  &
+                           , S, u_0, u, nu                 )
 
     class(SDC_Corrector_Euler), intent(inout) :: this
     real(RNP), intent(inout) :: t                      !< time t₀ → t
     real(RNP), intent(in)    :: dt                     !< step size ∆t = t-t₀
-    real(RNP), intent(in)    :: F_ex_0_old (:,:,:,:,:) !< F^ex (t₀)ᵏ⁻¹
-    real(RNP), intent(in)    :: F_ex_0     (:,:,:,:,:) !< F^ex (t₀)ᵏ
-    real(RNP), intent(inout) :: F_ex       (:,:,:,:,:) !< F^ex (t )ᵏ⁻¹
-    real(RNP), intent(in)    :: F_im_0_old (:,:,:,:,:) !< F^im (t₀)ᵏ⁻¹
-    real(RNP), intent(in)    :: F_im_0     (:,:,:,:,:) !< F^im (t₀)ᵏ
-    real(RNP), intent(inout) :: F_im       (:,:,:,:,:) !< F^im (t )ᵏ⁻¹
-    real(RNP), intent(in)    :: F_d3_0_old (:,:,:,:,:) !< F_d3 (t₀)ᵏ⁻¹
-    real(RNP), intent(in)    :: F_d3_0     (:,:,:,:,:) !< F_d3 (t₀)ᵏ
-    real(RNP), intent(in)    :: S          (:,:,:,:,:) !< S    (t₀)ᵏ⁻¹
-    real(RNP), intent(in)    :: u_0        (:,:,:,:,:) !< u    (t₀)ᵏ
-    real(RNP), intent(inout) :: u          (:,:,:,:,:) !< u    (t )ᵏ⁻¹ → (t)ᵏ
-    real(RNP), intent(inout) :: nu         (:,:,:,:,:) !< v    (t )ᵏ⁻¹
+    real(RNP), intent(in)    :: F_ex_0_old (:,:,:,:,:) !< F^ex (t₀)ᵏ
+    real(RNP), intent(in)    :: F_ex_0     (:,:,:,:,:) !< F^ex (t₀)ᵏ⁺¹
+    real(RNP), intent(in)    :: F_ex_old   (:,:,:,:,:) !< F^ex (t )ᵏ    ! unused
+    real(RNP), intent(in)    :: F_im_0_old (:,:,:,:,:) !< F^im (t₀)ᵏ    ! unused
+    real(RNP), intent(in)    :: F_im_0     (:,:,:,:,:) !< F^im (t₀)ᵏ⁺¹  ! unused
+    real(RNP), intent(in)    :: F_im_old   (:,:,:,:,:) !< F^im (t )ᵏ
+    real(RNP), intent(in)    :: S          (:,:,:,:,:) !< S    (t₀)ᵏ
+    real(RNP), intent(in)    :: u_0        (:,:,:,:,:) !< u    (t₀)ᵏ⁺¹
+    real(RNP), intent(inout) :: u          (:,:,:,:,:) !< u    (t )ᵏ → (t)ᵏ⁺¹
+    real(RNP), intent(inout) :: nu         (:,:,:,:,:) !< v    (t₀)ᵏ⁺¹  ! unused
 
     optional :: nu
 
     ! local variables  .........................................................
 
     real(RNP), allocatable, save :: u_i  (:,:,:,:,:) ! intermediate solution
+    real(RNP), allocatable, save :: F_im (:,:,:,:,:) ! aproximate F_im
+    real(RNP), allocatable, save :: F_d3 (:,:,:,:,:) ! aproximate F_d3
     real(RNP), allocatable, save :: w    (:,:,:,:,:) ! workspace for u
     real(RNP), allocatable, save :: dp   (:,:,:,:)   ! pressure correction
 
     real(RNP) :: t_0
+    integer   :: i
 
     associate( problem => this % problem          &
              , flow_op => this % flow_op          &
              , mesh    => this % flow_op % mesh   &
+             , cd3     => this % cd3              &
              , p       => u(:,:,:,:,4)            )
 
       ! initialization .........................................................
@@ -224,6 +218,8 @@ contains
       ! workspace
       !$omp single
       allocate(u_i , mold = u)
+      allocate(F_im, mold = u)
+      allocate(F_d3, mold = u)
       allocate(w   , mold = u)
       allocate(dp  , mold = p)
       !$omp end single
@@ -234,11 +230,31 @@ contains
 
       ! explicit + extrapolated diffusive parts ................................
 
-      ! u' = u₀ + ∆t [F^ex(t₀)ᵏ - F^ex(t₀)ᵏ⁻¹] + Sᵏ⁻¹
+      ! compute F_im = F_d1(v₀ᵏ⁺¹,uᵏ) and F_d3(v₀ᵏ⁺¹,uᵏ)
+      call TimeDerivative( this % problem     &
+                         , this % flow_op     &
+                         , t_0                &
+                         , u_d  = u           &
+                         , chi  = this % chi  &
+                         , nu   = nu          &
+                         , F_d1 = F_im        &
+                         , F_d3 = F_d3        )
+
+      ! u' = u₀ + Sᵏ + ∆t [ F^ex(t₀)ᵏ⁺¹    - F^ex(t₀)ᵏ
+      !                   + F^im(v₀ᵏ⁺¹,uᵏ) - F^im(v₀ᵏ,uᵏ)
+      !                   + F_d3(v₀ᵏ⁺¹,uᵏ) ]
       call SetArray(u_i, u_0, multi=.true.)
-      call MergeArrays(ONE, u_i,  dt, F_ex_0    , multi=.true.)
-      call MergeArrays(ONE, u_i, -dt, F_ex_0_old, multi=.true.)
-      call MergeArrays(ONE, u_i, ONE, S         , multi=.true.)
+      do i = 1, problem % nc
+        if (i == 4) cycle
+        call MergeArrays(ONE, u_i(:,:,:,:,i), ONE, S         (:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i),  dt, F_ex_0    (:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, F_ex_0_old(:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i),  dt, F_im      (:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, F_im_old  (:,:,:,:,i))
+        if (i < 4 .and. this % chi /= 0) then
+          call MergeArrays(ONE, u_i(:,:,:,:,i), dt*this%cd3, F_d3(:,:,:,:,i))
+        end if
+      end do
 
       ! projection .............................................................
 
@@ -250,16 +266,17 @@ contains
 
       ! diffusion ...............................................................
 
-      ! full or partial removal of divergence contribution to F_d
-      if (this % cd3 /= 0 .and. .not. this % sloppy) then
-        call MergeArrays(ONE, u_i, -dt * this%cd3, F_d3_0    , multi=.true.)
-        call MergeArrays(ONE, u_i,  dt * this%cd3, F_d3_0_old, multi=.true.)
-      end if
+      ! starting values and RHS for diffusion
+      do i = 1, problem % nc
+        if (i == 4) cycle
+        call SetArray(u(:,:,:,:,i), u_i(:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, F_im(:,:,:,:,i))
+        if (i < 4 .and. this % cd3 /= 0) then
+          call MergeArrays(ONE, u_i(:,:,:,:,i), -dt*cd3, F_d3(:,:,:,:,i))
+        end if
+      end do
 
-      ! remove old diffusion term: u_i -= F_im ≡ ∇⋅[ν(t₀)∇u(t)]ᵏ⁻¹
-      call MergeArrays(ONE, u_i, -dt, F_im, multi=.true.)
-
-      ! solve u'''/∆t - ν(t₀)ᵏ u''' = u_i/∆t
+      ! solve u'''/∆t - ν(t₀)ᵏ⁺¹ u''' = u_i/∆t
       call DiffusionStep(problem, flow_op, dt, f=u_i, u=u, w=w, nu=nu)
 
       ! final projection .......................................................
@@ -281,6 +298,8 @@ contains
       !$omp barrier
       !$omp master
       deallocate(u_i )
+      deallocate(F_im)
+      deallocate(F_d3)
       deallocate(w   )
       deallocate(dp  )
       !$omp end master
@@ -288,37 +307,13 @@ contains
     end associate
 
     ! touch possibly unused arguments to suppress compiler warnings ;)
-    if (size(F_im_0_old) > 0) return
-    if (size(F_im_0    ) > 0) return
     if (size(F_ex_0_old) > 0) return
     if (size(F_ex_0    ) > 0) return
-    if (size(F_ex      ) > 0) return
+    if (size(F_ex_old  ) > 0) return
+    if (size(F_im_0_old) > 0) return
+    if (size(F_im_0    ) > 0) return
 
   end subroutine CorrectionStep
-
-  !=============================================================================
-  ! SDC_Corrector_Euler_Options: type-bound procedures
-  !-----------------------------------------------------------------------------
-  !> MPI broadcasting of Euler-corrector options
-
-  subroutine Bcast_SDC_Corrector_Euler_Options(this, root, comm)
-    class(SDC_Corrector_Euler_Options), intent(inout) :: this
-    integer,        intent(in) :: root !< rank of broadcast root
-    type(MPI_Comm), intent(in) :: comm !< MPI communicator
-
-    type(MPI_Request) :: request(1)
-    type(MPI_Status)  :: stat(size(request))
-    integer :: n
-
-    ! broadcast options of parent class
-    call this % SDC_Corrector_Options % Bcast(root, comm)
-
-    n = 1
-    call XMPI_Ibcast( this % sloppy, root, comm, request(n) )
-
-    call MPI_Waitall(n, request, stat)
-
-  end subroutine Bcast_SDC_Corrector_Euler_Options
 
   !=============================================================================
 
