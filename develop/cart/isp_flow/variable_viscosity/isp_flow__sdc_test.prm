@@ -82,6 +82,15 @@
   bdf2_opt%TimeIntegratorOptions%project   = 1
   bdf2_opt%TimeIntegratorOptions%pressure  = 0
 !
+! section for standalone TR -- method 3
+  tr_opt%TimeIntegratorOptions%splitting = 2
+  tr_opt%TimeIntegratorOptions%project   = 0
+  tr_opt%TimeIntegratorOptions%pressure  = 0
+ !tr_opt%i_max_p1 = 2
+ !tr_opt%i_max_u1 = 1
+ !tr_opt%i_max_p2 = 2
+ !tr_opt%i_max_u2 = 1
+!
 ! section for standalone Runge-Kutta -- method 4
   rk_opt%TimeIntegratorOptions%splitting   = 2
   rk_opt%TimeIntegratorOptions%project     = 1

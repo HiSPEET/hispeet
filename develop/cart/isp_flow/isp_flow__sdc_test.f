@@ -38,7 +38,8 @@ program ISP_Flow__SDC_Test
   use CART__ISP_Flow__SDC                          ! current SDC
   use CART__ISP_Flow__Time_Integrator              ! TI base type
   use CART__ISP_Flow__Time_Integrator__Euler       ! standalone Euler
-  use CART__ISP_Flow__Time_Integrator__BDF2        ! standalone Euler
+  use CART__ISP_Flow__Time_Integrator__BDF2        ! standalone BDF2
+  use CART__ISP_Flow__Time_Integrator__TR          ! standalone trapezodial rule
   use CART__ISP_Flow__Time_Integrator__Runge_Kutta ! standalone Runge Kutta
   use CART__ISP_Flow__SDC_Method                   ! SDC method
   use CART__ISP_Flow__SDC_Corrector__Euler         ! SDC Euler-corrector
@@ -142,8 +143,9 @@ namelist /control/ check
   class(TimeIntegrator), allocatable      :: time_integrator
   type(TimeIntegrator_Euler_Options)      :: eu_opt
   type(TimeIntegrator_BDF2_Options)       :: bdf2_opt
+  type(TimeIntegrator_TR_Options)         :: tr_opt
   type(TimeIntegrator_RungeKutta_Options) :: rk_opt
-  namelist /time_integration/ eu_opt, bdf2_opt, rk_opt
+  namelist /time_integration/ eu_opt, bdf2_opt, tr_opt, rk_opt
 
   ! original SDC
   type(SDC_Method3D)  :: sdc_orig
@@ -254,6 +256,7 @@ call XMPI_Bcast(check   , 0, comm)
   call XMPI_Bcast(time_method, 0, comm)
   call eu_opt       % Bcast(0, comm)
   call bdf2_opt     % Bcast(0, comm)
+  call tr_opt       % Bcast(0, comm)
   call rk_opt       % Bcast(0, comm)
   call sdc_orig_opt % Bcast(0, comm)
   call sdc_opt      % Bcast(0, comm)
@@ -319,7 +322,7 @@ call XMPI_Bcast(check   , 0, comm)
   case(2)
     time_integrator = TimeIntegrator_BDF2(problem, flow_op, bdf2_opt)
   case(3)
-   !time_integrator = TimeIntegrator_TR(problem, flow_op, tr_opt)
+    time_integrator = TimeIntegrator_TR(problem, flow_op, tr_opt)
   case(4)
     time_integrator = TimeIntegrator_RungeKutta(problem, flow_op, rk_opt)
   case(5)
