@@ -1,4 +1,4 @@
-    !> summary:  3D Transition of disturbed Taylor-Green vortex
+!> summary:  3D Transition of disturbed Taylor-Green vortex
 !> author:   Joerg Stiller, Montadhar Guesmi
 !> date:     2020/02/18
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -48,10 +48,11 @@ subroutine SetProblem(problem, file, comm)
 
   ! local variables ............................................................
 
-  real(RNP) :: nu  =  0.01  ! kinematic viscosity, ν = 1/Re
+  real(RNP) :: nu     = 0.01 ! kinematic viscosity, ν = 1/Re
+  real(RNP) :: nu_svv = 0.0  ! spectral diffusivity amplitude
   character, allocatable :: bc(:,:)
 
-  namelist /parameters/  nu
+  namelist /parameters/ nu, nu_svv
 
   logical :: exists
   integer :: prm, rank
@@ -94,14 +95,17 @@ subroutine SetProblem(problem, file, comm)
   end if
 
   if (present(comm)) then
-    call XMPI_Bcast(nu, 0, comm)
+    call XMPI_Bcast(nu,     0, comm)
+    call XMPI_Bcast(nu_svv, 0, comm)
   end if
 
   problem % stokes         = .false.   ! Stokes flow
   problem % exact_solution = .false.   ! exact solution is not provided
 
-  allocate(problem % nu_ref( problem%nc ), source = ZERO)
-  problem % nu_ref(1:3) = nu
+  allocate(problem % nu_ref(     problem%nc ), source = ZERO)
+  allocate(problem % nu_svv_ref( problem%nc ), source = ZERO)
+  problem % nu_ref(1:3)     = nu
+  problem % nu_svv_ref(1:3) = nu_svv
   problem % x0 = -PI
   problem % x1 =  PI
 

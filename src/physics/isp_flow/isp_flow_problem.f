@@ -35,9 +35,10 @@ module ISP_Flow_Problem
     logical :: variable_props = .false. !< switch to variable properties
 
     ! reference values
-    real(RNP) :: rho_ref = 1            !< density
-    real(RNP) :: v_ref   = 1            !< velocity
-    real(RNP), allocatable :: nu_ref(:) !< diffusivity
+    real(RNP) :: rho_ref = 1                !< density
+    real(RNP) :: v_ref   = 1                !< velocity
+    real(RNP), allocatable :: nu_ref(:)     !< physical diffusivity
+    real(RNP), allocatable :: nu_svv_ref(:) !< spectral diffusivity amplitude
 
     ! bounding box
     real(RNP) :: x0(3) = 0              !< position nearest to +(∞,∞,∞)

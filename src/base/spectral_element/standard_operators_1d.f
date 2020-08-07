@@ -226,7 +226,7 @@ contains
         call Init_Legendre_VDM(this)
       end if
 
-      ! SVV differentation and stiffness matrix ................................
+      ! SVV differentiation and stiffness matrix ...............................
 
       if (svv) then
         if (po_cut_svv > -huge(1)) then
