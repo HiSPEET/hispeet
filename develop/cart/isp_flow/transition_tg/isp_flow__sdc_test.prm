@@ -4,34 +4,22 @@
   restart       =  F
   compute_p     =  F
   write_stat    =  T
-<<<<<<< HEAD
-  write_vtk     =  T
-  eval_eps      =  T
-!
-  flow_op_control%div_penalty    = 0     ! [1]
-  flow_op_control%div_final      = F     ! [T]
-  flow_op_control%svv            = F     ! [F]
-=======
   write_vtk     =  F
   eval_rms      =  T
   eval_max      =  F
-  eval_eps      =  F
+  eval_eps      =  T
 !
   flow_op_control%chi            = -2     ! [-1]
   flow_op_control%div_penalty    =  0     ! [1]
   flow_op_control%div_coeff      =  1     ! [1]
   flow_op_control%div_i_max      =  100   ! [10]
   flow_op_control%div_final      =  F     ! [T]
->>>>>>> origin/isp_flow-rk+sdc-js
+  flow_op_control%svv            =  F     ! [F]
 /
 
 &discretization
   np   =  1,1,1
-<<<<<<< HEAD
   ep   =  2,2,2
-=======
-  ep   =  4,4,4
->>>>>>> origin/isp_flow-rk+sdc-js
   po_u =  10
   po_p =   9
   po_q =  16
