@@ -1,6 +1,6 @@
 &control
-  flow_type     =  'Vortex_TG' ! 'Vortex_TG' for 2D-case and 'Transition_TG' for 3D
-  flow_case     =  'vortex_tg' ! 2D: 'vortex_tg', 3D: 'transition_tg'
+  flow_type     =  'VariableViscosity'
+  flow_case     =  'variable_viscosity'
   restart       =  F
   compute_p     =  F
   write_stat    =  T
@@ -10,20 +10,19 @@
   eval_eps      =  F
 !
   flow_op_control%chi            = -2     ! [-1]
-  flow_op_control%div_penalty    =  0     ! [1]
+  flow_op_control%div_penalty    =  1     ! [1]
   flow_op_control%div_coeff      =  1     ! [1]
   flow_op_control%div_i_max      =  100   ! [10]
-  flow_op_control%div_final      =  F     ! [T]
+  flow_op_control%div_final      =  T     ! [T]
 /
 
 &discretization
   np   =  1,1,1
-  ep   =  4,4,1
-  po_u =  10   ! 10
-  po_p =   9   ! 9
-  po_q =  16   ! 16
+  ep   =  2,2,2
+  po_u =  16
+  po_p =  15
+  po_q =  24
   penalty = 20
-  adjust_dx = T
 /
 
 &elliptic_solver
@@ -34,7 +33,7 @@
   pmg_u_opt%r_max           =  1e-14
   pmg_u_opt%i0_max          =  1000
   pmg_u_opt%r0_red          =  1e-10
-  pmg_u_opt%schwarz%delta   =  0.08
+  pmg_u_opt%schwarz%delta   =  0.125
   pmg_u_opt%schwarz%no_min  =  1
   pmg_u_opt%monitor         =  F
 !
@@ -75,12 +74,12 @@
 !
 ! section for standalone Euler -- method 1
   eu_opt%TimeIntegratorOptions%splitting   = 2
-  eu_opt%TimeIntegratorOptions%project     = 0
+  eu_opt%TimeIntegratorOptions%project     = 1
   eu_opt%TimeIntegratorOptions%pressure    = 0
 !
 ! section for standalone BDF2 -- method 2
   bdf2_opt%TimeIntegratorOptions%splitting = 2
-  bdf2_opt%TimeIntegratorOptions%project   = 0
+  bdf2_opt%TimeIntegratorOptions%project   = 1
   bdf2_opt%TimeIntegratorOptions%pressure  = 0
 !
 ! section for standalone TR -- method 3
@@ -106,18 +105,18 @@
   !
   ! Euler predictor 
   pre_eu_opt%TimeIntegratorOptions%splitting  = 2
-  pre_eu_opt%TimeIntegratorOptions%project    = 0
+  pre_eu_opt%TimeIntegratorOptions%project    = 1
   pre_eu_opt%TimeIntegratorOptions%pressure   = 0
   !
   ! Runge-Kutta predictor 
   pre_rk_opt%TimeIntegratorOptions%splitting = 2
   pre_rk_opt%TimeIntegratorOptions%project   = 1
- !pre_rk_opt%TimeIntegratorOptions%pressure  = 0
-  pre_rk_opt%variant   = 2
+  pre_rk_opt%TimeIntegratorOptions%pressure  = 0
   pre_rk_opt%n_stage   = 4
   pre_rk_opt%method    = 2
+  pre_rk_opt%variant   = 2
   !
   ! Euler corrector
   cor_eu_opt%SDC_Corrector_Options%splitting  = 2
-  cor_eu_opt%SDC_Corrector_Options%project    = 0
+  cor_eu_opt%SDC_Corrector_Options%project    = 1
 /

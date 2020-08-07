@@ -57,7 +57,7 @@ module IMEX_Runge_Kutta_Method
     real(RNP), allocatable :: c(:)          !< RK nodes
   contains
     procedure :: Init_IMEX_RK_Method
-    procedure :: Write => Write_IMEX_RK_Method
+    procedure :: Show => Show_IMEX_RK_Method
   end type IMEX_RK_Method
 
   ! constructor
@@ -392,12 +392,12 @@ end subroutine Delete_IMEX_RK_Method
 
 !===============================================================================
 
-subroutine Write_IMEX_RK_Method(this, unit)
-  class(IMEX_RK_Method), intent(inout) :: this
-  integer,     optional, intent(in)    :: unit  !< output unit
+subroutine Show_IMEX_RK_Method(this, unit)
+  class(IMEX_RK_Method), intent(in) :: this
+  integer,     optional, intent(in) :: unit  !< output unit
 
-  character(len=*), parameter :: fmt_ca = '(F13.10," |",99F14.10)'
-  character(len=*), parameter :: fmt_b =  '(13X,   " |",99F14.10)'
+  character(len=*), parameter :: fmt_ca = '(2X,F13.10," |",99F14.10)'
+  character(len=*), parameter :: fmt_b =  '(2X,13X,   " |",99F14.10)'
   integer :: i, io
 
   if (this % n_stage < 1) return
@@ -408,27 +408,27 @@ subroutine Write_IMEX_RK_Method(this, unit)
     io = OUTPUT_UNIT
   end if
 
-  write(io,'(A,/)')   'IMEX Runge-Kutta method'
-  write(io,'(2A,/)')  'name: ', trim(this % name)
-  write(io,'(A,I0)')  'stages = ', this % n_stage
-  write(io,'(A,I0)')  'order  = ', this % order
+  write(io,'(/,2X,A)') 'IMEX Runge-Kutta method'
+  write(io,'(2X,A,T15,A)')  'name:'  , trim(this % name)
+  write(io,'(2X,A,T15,I0)') 'stages:', this % n_stage
+  write(io,'(2X,A,T15,I0)') 'order:' , this % order
 
-  write(io,'(/,A,/)') 'implicit part'
+  write(io,'(/,2X,A,/)') 'implicit part'
   do i = 1, this%n_stage
     write(io,fmt_ca) this % c(i), this % a_im(i,1:i)
   end do
-  write(io,'(A)') repeat('-', 16 + 14*this%n_stage)
+  write(io,'(2X,A)') repeat('-', 16 + 14*this%n_stage)
   write(io,fmt_b) this % b
 
-  write(io,'(/,A,/)') 'explicit part'
+  write(io,'(/,2X,A,/)') 'explicit part'
   do i = 1, this%n_stage
     write(io,fmt_ca) this % c(i), this % a_ex(i,1:i-1)
   end do
-  write(io,'(A)') repeat('-', 16 + 14*this%n_stage)
+  write(io,'(2X,A)') repeat('-', 16 + 14*this%n_stage)
   write(io,fmt_b) this % b
   write(io,*)
 
-end subroutine Write_IMEX_RK_Method
+end subroutine Show_IMEX_RK_Method
 
 !===============================================================================
 

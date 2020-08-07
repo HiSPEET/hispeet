@@ -158,7 +158,7 @@ subroutine Init_VARK_Propagator1D(this, po, ne, t, set, range, so_p, r_ex)
   ! VARK method ................................................................
 
   call this % Init_VARK_Method(t(i:j), so_p, r_ex)
-  call this % Write()
+  call this % Show()
 
   ! workspace ..................................................................
 

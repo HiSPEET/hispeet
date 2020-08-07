@@ -6,14 +6,14 @@
 
 # Adjust the following arguments as appropriate
 
-#SBATCH --account=triton-ism                  # project (triton-ism|p_lvnsm)
+#SBATCH --account=p_hispeet                   # project
 #SBATCH --nodes=1                             # number of nodes
 #SBATCH --ntasks=8                            # max number of MPI processes
-##SBATCH --cpu-freq=highm1                     # CPU frequency in kHz
+#SBATCH --cpu-freq=highm1                     # CPU frequency in kHz
 
-##SBATCH --partition=haswell                   # partition
+#SBATCH --partition=haswell                   # partition
 #SBATCH --cpus-per-task=1                     # number of cores per process
-###SBATCH --mem=60000                          # memory per node in MB
+##SBATCH --mem=60000                          # memory per node in MB
 
 #SBATCH --time=00-00:55:00                    # dd-hh:mm:ss
 ##SBATCH --exclusive                          # don't share nodes with others
@@ -35,7 +35,9 @@ export NP2="2"
 export NP3="2"
 
 # number of elements per partition in directions 1-3
-export EP="1"
+export EP1="1"
+export EP2="1"
+export EP3="1"
 
 # range of number of sweeps
 export RANGE_N_SWEEP="0 1 2 3 4 5 6"

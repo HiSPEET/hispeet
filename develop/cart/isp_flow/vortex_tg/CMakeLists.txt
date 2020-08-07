@@ -5,6 +5,10 @@ file( COPY isp_flow__sdc_test.tmpl
            sdc_k.py
            sdc_m.sh
            sdc_m.py
+           convergence_dt.py
+           convergence_dt.sh
+	   convergence_dt.slurm
+	   isp_flow__sdc_test.slurm
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR} )
 

@@ -1,9 +1,12 @@
 &control
   flow_type     =  'VariableViscosity'
   flow_case     =  'variable_viscosity'
-  compute_p     =  T
+  restart       =  F
   write_stat    =  T
   write_vtk     =  F
+  eval_rms      =  T
+  eval_max      =  F
+  eval_eps      =  F
 !
   flow_op_control%div_penalty    =  1     ! activate div penalization
   flow_op_control%div_coeff      =  1     ! div penalty factor
@@ -58,8 +61,57 @@
   dt     = 0.00390625
   nt_max = 10000000
 !
-! SDC
-  sdc_opt%n_sub   =  6
-  sdc_opt%n_sweep =  11
+! time-integration method:
+! 0  SDC-orig
+! 1  Euler
+! 2  BDF2
+! 3  TR
+! 4  RK
+! 5  SDC(Eu,Eu)
+! 6  SDC(TR,Eu)
+! 7  SDC(RK,Eu)
+  time_method = 5
+!
+! section for "original" SDC -- method 0
+  sdc_orig_opt%n_sub   =  6
+  sdc_orig_opt%n_sweep =  11
+!
+! section for standalone Euler -- method 1
+  eu_opt%TimeIntegratorOptions%splitting   = 2
+  eu_opt%TimeIntegratorOptions%project     = 1
+  eu_opt%TimeIntegratorOptions%pressure    = 0
+!
+! section for standalone BDF2 -- method 2
+  bdf2_opt%TimeIntegratorOptions%splitting = 2
+  bdf2_opt%TimeIntegratorOptions%project   = 1
+  bdf2_opt%TimeIntegratorOptions%pressure  = 0
+!
+! section for standalone Runge-Kutta -- method 4
+  rk_opt%TimeIntegratorOptions%splitting   = 2
+  rk_opt%TimeIntegratorOptions%project     = 1
+  rk_opt%TimeIntegratorOptions%pressure    = 0
+  rk_opt%n_stage = 4
+  rk_opt%method  = 2
+  rk_opt%variant = 2
+!
+! section for SDC(*,*) -- methods 5:7
+  sdc_opt%n_sub        = 6
+  sdc_opt%n_sweep      = 11
+  !
+  ! Euler predictor 
+  pre_eu_opt%TimeIntegratorOptions%splitting  = 2
+  pre_eu_opt%TimeIntegratorOptions%project    = 1
+  pre_eu_opt%TimeIntegratorOptions%pressure   = 0
+  !
+  ! Runge-Kutta predictor 
+  pre_rk_opt%TimeIntegratorOptions%splitting = 2
+  pre_rk_opt%TimeIntegratorOptions%project   = 1
+  pre_rk_opt%TimeIntegratorOptions%pressure  = 0
+  pre_rk_opt%n_stage   = 4
+  pre_rk_opt%method    = 2
+  pre_rk_opt%variant   = 2
+  !
+  ! Euler corrector
+  cor_eu_opt%SDC_Corrector_Options%splitting  = 2
+  cor_eu_opt%SDC_Corrector_Options%project    = 1
 /
-

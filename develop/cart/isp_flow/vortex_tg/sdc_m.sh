@@ -5,6 +5,9 @@
 # execute within slurm script or stand-alone using
 # `bash -l sdc_m.sh`
 
+# path to program
+PROGRAM="../isp_flow__sdc_test"
+
 # number of partitions in directions 1-2
 NP1=${NP1:-"1"}
 NP2=${NP2:-"1"}
@@ -13,9 +16,6 @@ NP=$((${NP1} * ${NP2}))
 # use preset execution command, or mpirun, if not set
 MPIRUN=${MPIRUN:-"mpirun"}
 EXEC=${EXEC:-"${MPIRUN} -n ${NP}"}
-
-# path to program
-PROGRAM="../isp_flow__sdc_test"
 
 # elements per partition in directions 1-2
 EP=${EP:-"2"}
@@ -26,9 +26,10 @@ PO_P="15"
 PO_Q="24"
 
 # Final time
-T_END=${T_END:-"0.03125"}
+T_END=${T_END:-"0.25"}
 
-# SDC parameters
+# SDC method and parameters
+TIME_METHOD=${TIME_METHOD:-"5"}
 N_SUB_MAX=${N_SUB_MAX:-"3"}
 
 # max time step size and max number of time step subdivisions per series
@@ -67,7 +68,7 @@ for((N_SUB=0; N_SUB<=N_SUB_MAX; N_SUB++)); do
       DT=$(bc -l <<< "${DT_MAX}/sqrt(2^${s})")
 
       echo "========================================================================="
-      echo "M =" ${N_SUB} ", K =" ${N_SWEEP} ", dt =" $DT ", s =" $s
+      echo "M =" ${N_SUB} ", K =" ${N_SWEEP} ", dt =" $DT ", s = "${s}"/"${ST}
       echo
       sed -e "s/<np1>/$NP1/g" \
           -e "s/<np2>/$NP2/g" \
@@ -78,6 +79,7 @@ for((N_SUB=0; N_SUB<=N_SUB_MAX; N_SUB++)); do
           -e "s/<po_q>/$PO_Q/g" \
           -e "s/<t_end>/$T_END/g" \
           -e "s/<dt>/$DT/g" \
+          -e "s/<time_method>/$TIME_METHOD/g" \
           -e "s/<n_sub>/$N_SUB/g" \
           -e "s/<n_sweep>/$N_SWEEP/g" \
           isp_flow__sdc_test.tmpl > ${PRM_FILE}

@@ -55,7 +55,7 @@ module CART__ISP_Flow__Operators
 
   contains
 
-    procedure ::  Bcast => FlowOpControl_Bcast
+    procedure ::  Bcast => Bcast_FlowOpControl
 
   end type FlowOpControl
 
@@ -104,7 +104,7 @@ contains
 !-------------------------------------------------------------------------------
 !>
 
-subroutine FlowOpControl_Bcast(this, root, comm)
+subroutine Bcast_FlowOpControl(this, root, comm)
   class(FlowOpControl), intent(inout) :: this
   integer,              intent(in)    :: root !< rank of broadcast root
   type(MPI_Comm),       intent(in)    :: comm !< MPI communicator
@@ -124,7 +124,7 @@ subroutine FlowOpControl_Bcast(this, root, comm)
 
   call MPI_Waitall(n, request, stat)
 
-end subroutine FlowOpControl_Bcast
+end subroutine Bcast_FlowOpControl
 
 !-------------------------------------------------------------------------------
 !> Constructor

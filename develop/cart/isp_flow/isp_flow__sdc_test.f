@@ -32,8 +32,17 @@ program ISP_Flow__SDC_Test
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Time_Derivative
   use CART__ISP_Flow__Pressure
-  use CART__ISP_Flow__Euler
-  use CART__ISP_Flow__SDC
+
+  ! time integration
+  use CART__ISP_Flow__Euler                        ! old standalone Euler
+  use CART__ISP_Flow__SDC                          ! current SDC
+  use CART__ISP_Flow__Time_Integrator              ! TI base type
+  use CART__ISP_Flow__Time_Integrator__Euler       ! standalone Euler
+  use CART__ISP_Flow__Time_Integrator__BDF2        ! standalone BDF2
+  use CART__ISP_Flow__Time_Integrator__TR          ! standalone trapezodial rule
+  use CART__ISP_Flow__Time_Integrator__Runge_Kutta ! standalone Runge Kutta
+  use CART__ISP_Flow__SDC_Method                   ! SDC method
+  use CART__ISP_Flow__SDC_Corrector__Euler         ! SDC Euler-corrector
 
   implicit none
 
@@ -67,6 +76,10 @@ program ISP_Flow__SDC_Test
                      write_stat, write_vtk,        &
                      eval_rms, eval_max, eval_eps, &
                      flow_op_control
+!### CHECK START
+logical :: check = .false.
+namelist /control/ check
+!### CHECK END
 
   ! discretization parameters ..................................................
 
@@ -96,9 +109,20 @@ program ISP_Flow__SDC_Test
   real(RNP) :: c_diff = -1           ! max diffusion number (< 0 if unlimited)
   integer   :: nt_max = huge(1)      ! max number of time steps
 
-  type(SDC_Options3D) :: sdc_opt
+  namelist /time_integration/ t_end, dt, c_conv, c_diff, nt_max
 
-  namelist /time_integration/ t_end, dt, c_conv, c_diff, nt_max, sdc_opt
+  integer :: time_method = 1
+  ! 0  SDC - original
+  ! 1  Euler
+  ! 2  BDF2
+  ! 3  TR
+  ! 4  Runge-Kutta
+  ! 5  SDC(Eu,Eu)
+  ! 6  SDC(TR,Eu)
+  ! 7  SDC(RK,Eu)
+
+  namelist /time_integration/ time_method
+
 
   ! flow problem ...............................................................
 
@@ -113,8 +137,28 @@ program ISP_Flow__SDC_Test
 
   ! operators ..................................................................
 
-  type(FlowOperators) :: flow_op
-  type(SDC_Method3D)  :: sdc
+  type(FlowOperators)   :: flow_op
+
+  ! standalone time integrator
+  class(TimeIntegrator), allocatable      :: time_integrator
+  type(TimeIntegrator_Euler_Options)      :: eu_opt
+  type(TimeIntegrator_BDF2_Options)       :: bdf2_opt
+  type(TimeIntegrator_TR_Options)         :: tr_opt
+  type(TimeIntegrator_RungeKutta_Options) :: rk_opt
+  namelist /time_integration/ eu_opt, bdf2_opt, tr_opt, rk_opt
+
+  ! original SDC
+  type(SDC_Method3D)  :: sdc_orig
+  type(SDC_Options3D) :: sdc_orig_opt
+  namelist /time_integration/ sdc_orig_opt
+
+  ! SDC
+  type(SDC_Method)  :: sdc
+  type(SDC_Options) :: sdc_opt
+  type(TimeIntegrator_Euler_Options)      :: pre_eu_opt
+  type(TimeIntegrator_RungeKutta_Options) :: pre_rk_opt
+  type(SDC_Corrector_Euler_Options)       :: cor_eu_opt
+  namelist /time_integration/ sdc_opt, pre_eu_opt, pre_rk_opt, cor_eu_opt
 
   ! variables ..................................................................
 
@@ -126,7 +170,8 @@ program ISP_Flow__SDC_Test
     u,            & ! approximate solution
     u_e, u_0,     & ! exact / initial solution
     err_u, w,     & ! error / workspace
-    F, nu           ! F(u)  / nu / div(v), lambda2(v)
+    F,            & ! time derivative for SDC
+    nu              ! diffusivity
 
   ! additional scalar variables
   real(RNP), dimension(:,:,:,:), pointer, contiguous :: &
@@ -135,8 +180,9 @@ program ISP_Flow__SDC_Test
 
   ! auxiliary ..................................................................
 
-  logical :: exists, first, last, failed
-  integer :: prm, stat, nt, nt_10
+  logical   :: exists, first, last, failed
+  integer   :: prm, stat, nt, nt_10
+  real(RDP) :: time, time0
 
   !-----------------------------------------------------------------------------
   ! initialization
@@ -189,6 +235,10 @@ program ISP_Flow__SDC_Test
   call XMPI_Bcast(eval_eps    , 0, comm)
   call flow_op_control % Bcast( 0, comm)
 
+!### CHECK START
+call XMPI_Bcast(check   , 0, comm)
+!### CHECK END
+
   ! discretization and time integration parameters
   call XMPI_Bcast(np            , 0, comm)
   call XMPI_Bcast(ep            , 0, comm)
@@ -202,8 +252,17 @@ program ISP_Flow__SDC_Test
   call pmg_u_opt % Bcast(0, comm)
   call pmg_p_opt % Bcast(0, comm)
 
-  ! SDC parameters
-  call sdc_opt % Bcast(0, comm)
+  ! time integration parameters
+  call XMPI_Bcast(time_method, 0, comm)
+  call eu_opt       % Bcast(0, comm)
+  call bdf2_opt     % Bcast(0, comm)
+  call tr_opt       % Bcast(0, comm)
+  call rk_opt       % Bcast(0, comm)
+  call sdc_orig_opt % Bcast(0, comm)
+  call sdc_opt      % Bcast(0, comm)
+  call pre_eu_opt   % Bcast(0, comm)
+  call pre_rk_opt   % Bcast(0, comm)
+  call cor_eu_opt   % Bcast(0, comm)
 
   ! flow problem ...............................................................
 
@@ -255,9 +314,32 @@ program ISP_Flow__SDC_Test
                          , flow_op_control            &
                          )
 
-  if (sdc_opt % n_sub > 0) then
-    sdc = SDC_Method3D(EulerVC, EulerVC, sdc_opt)
-  end if
+  select case(time_method)
+  case(0)
+    sdc_orig = SDC_Method3D(EulerVC, EulerVC, sdc_orig_opt)
+  case(1)
+    time_integrator = TimeIntegrator_Euler(problem, flow_op, eu_opt)
+  case(2)
+    time_integrator = TimeIntegrator_BDF2(problem, flow_op, bdf2_opt)
+  case(3)
+    time_integrator = TimeIntegrator_TR(problem, flow_op, tr_opt)
+  case(4)
+    time_integrator = TimeIntegrator_RungeKutta(problem, flow_op, rk_opt)
+  case(5)
+    ! SDC(Eu,Eu)
+    sdc = SDC_Method(problem, flow_op, pre_eu_opt, cor_eu_opt, sdc_opt)
+  case(7)
+    ! SDC(RK,Eu)
+    sdc = SDC_Method(problem, flow_op, pre_rk_opt, cor_eu_opt, sdc_opt)
+  end select
+
+  ! print time-integrator settings
+  select case(time_method)
+  case(1:4)
+    call time_integrator % Show()
+  case(5,7)
+    call sdc % Show()
+  end select
 
   ! variables and initial values ...............................................
 
@@ -268,6 +350,12 @@ program ISP_Flow__SDC_Test
   else
     t = 0
     call problem % GetInitialValues(flow_op%x, u)
+    if (.not. problem % HasExactSolution()) then
+      associate(p => u(:,:,:,:,4), F_v => u_e)
+        call TimeDerivative(problem, flow_op, t, u_c = u, u_d = u, F = F_v)
+        call PressureSolver(problem, flow_op, F_v, t, p, w)
+      end associate
+    end if
   end if
 
   ! time stepping ..............................................................
@@ -281,6 +369,12 @@ program ISP_Flow__SDC_Test
   ! Time integration
 
   failed = .false.
+
+  if (rank == 0) then
+    !$omp master
+    time0 = MPI_Wtime()
+    !$omp end master
+  end if
 
   do nt = 1, nt_max
 
@@ -296,12 +390,18 @@ program ISP_Flow__SDC_Test
       end if
     end if
 
-    if (sdc % n_sub > 0) then
-      call sdc % TimeStep( problem, flow_op, t, dt, u, F, first, last)
-    else
+    select case(time_method)
+    case(0)
+      call sdc_orig % TimeStep( problem, flow_op, t, dt, u, F, first, last)
+    case(1:4)
+      call time_integrator % TimeStep(t, dt, u)
+    case(5,7)
+      call sdc % TimeStep(t, dt, u, standby = .not. last )
+    case default
+      ! using old Euler as the fall-back
       call SetArray(u_0, u, multi=.true.)
       call EulerVC(problem, flow_op, t, dt, u_0, u)
-    end if
+    end select
 
     if (compute_p) then
       associate(p => u(:,:,:,:,4), F_v => u_e)
@@ -314,11 +414,27 @@ program ISP_Flow__SDC_Test
 
   end do
 
+  if (rank == 0) then
+    !$omp master
+    time = MPI_Wtime()
+    time = time - time0
+    !$omp end master
+  end if
+
   if (.not. failed) then
     call Evaluation(last=.true.)
   else if (rank == 0) then
     !$omp master
     write(*,'(A)') 'failed'
+    !$omp end master
+  end if
+
+  if (rank == 0) then
+    !$omp master
+    write(*,'(A)') 'Performance'
+    write(*,'(A,ES10.3)') ' time               =', time
+    write(*,'(A,ES10.3)') ' time       / step  =', time / nt
+    write(*,'(A,ES10.3)') ' throughput / step  =', nt / time * size(u)
     !$omp end master
   end if
 
@@ -385,7 +501,7 @@ subroutine InitializeMeshVariables()
   nc = problem % nc
 
   ! number of variables
-  n_var = 4 * nc + 2
+  n_var = 5 * nc + 2
 
   ! names of solution variables
   call problem % GetVariableNames(name_u)
@@ -427,15 +543,20 @@ subroutine InitializeMeshVariables()
   ! workspace
   w(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+nc)
 
+  ! diffusivity ................................................................
+
+  i = i + nc
+  nu(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+nc)
+  do j = 1, nc
+    write(name_var(i + j), '(A,I0)') 'nu_', j
+  end do
+
   ! time derivative / diffusivity ..............................................
 
   i = i + nc
   F(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+nc)
-
-  ! viscosity !!! export only -- overides F !!!
-  nu(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+nc)
   do j = 1, nc
-    write(name_var(i + j), '(A,I0)') 'nu_', j
+    write(name_var(i + j), '(A,I0)') 'du/dt_', j
   end do
 
   ! vorticity and divergence ...................................................
@@ -466,6 +587,7 @@ subroutine Evaluation(failed, last)
   real(RNP) :: div_v_max = -1, div_v_rms = -1, div_v_loc
   real(RNP) :: e_kin, e_kin_loc
   real(RNP) :: eps = -1, eps_loc
+  real(RNP) :: eps_svv = -1, eps_svv_loc
 
   real(RNP), allocatable, save :: grad_v(:,:,:,:,:,:)
   logical   :: head = .true.
@@ -566,7 +688,8 @@ subroutine Evaluation(failed, last)
     if (eval_eps) then
       associate(Ms => eop%w)
         block
-          real(RNP) :: nu
+          real(RNP), allocatable :: Ds_svv(:,:)
+          real(RNP) :: nu, nu_svv
           integer   :: po, np, ne
 
           po = eop%po
@@ -578,6 +701,9 @@ subroutine Evaluation(failed, last)
           allocate(grad_v(0:po,0:po,0:po,ne,3,3))
           !$omp end single
 
+          ! physical dissipation . . . . . . . . . . . . . . . . . . . . . . . .
+
+          ! element velocity gradient
           call TPO_Grad_Eval( np, ne, eop%D, mesh%dx, u(:,:,:,:,1), &
                               grad_v(:,:,:,:,1:3,1)                 )
           call TPO_Grad_Eval( np, ne, eop%D, mesh%dx, u(:,:,:,:,2), &
@@ -585,6 +711,7 @@ subroutine Evaluation(failed, last)
           call TPO_Grad_Eval( np, ne, eop%D, mesh%dx, u(:,:,:,:,3), &
                               grad_v(:,:,:,:,1:3,3)                 )
 
+          ! local element contributions to physical dissipation
           eps_loc = 0
           do e = 1, ne
             do k = 0, po
@@ -601,9 +728,53 @@ subroutine Evaluation(failed, last)
           !$omp barrier
           !$omp master
           call XMPI_Reduce(eps_loc, eps, MPI_SUM, 0, mesh%comm)
-          deallocate(grad_v)
           !$omp end master
 
+          ! SVV dissipation  . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+          if (flow_op_control%svv) then
+            allocate(Ds_svv(0:po,0:po))
+
+            ! get modified standard diff matrix and SVV coefficient
+            if (eop % Has_SVV()) then
+              call eop % Get_SVV_StandardRootDiffMatrix(Ds_svv) ! Ds_svv = √Q D
+              nu_svv = problem % nu_svv_ref(1)
+            else
+              Ds_svv = ZERO
+              nu_svv = ZERO
+            end if
+
+            ! element velocity gradient based on modified diff matrix
+            call TPO_Grad_Eval( np, ne, Ds_svv, mesh%dx, u(:,:,:,:,1), &
+                                grad_v(:,:,:,:,1:3,1)                 )
+            call TPO_Grad_Eval( np, ne, Ds_svv, mesh%dx, u(:,:,:,:,2), &
+                                grad_v(:,:,:,:,1:3,2)                 )
+            call TPO_Grad_Eval( np, ne, Ds_svv, mesh%dx, u(:,:,:,:,3), &
+                                grad_v(:,:,:,:,1:3,3)                 )
+
+            ! local element contributions to SVV dissipation
+            eps_svv_loc = 0
+            do e = 1, ne
+              do k = 0, po
+              do j = 0, po
+              do i = 0, po
+                eps_svv_loc = eps_svv_loc + Ms(i)*Ms(j)*Ms(k) * nu_svv *       &
+                                            sum(grad_v(i,j,k,e,:,:)**2)
+              end do
+              end do
+              end do
+            end do
+            eps_svv_loc = product(mesh%dx)/8 * eps_svv_loc
+
+            !$omp barrier
+            !$omp master
+            call XMPI_Reduce(eps_svv_loc, eps_svv, MPI_SUM, 0, mesh%comm)
+            !$omp end master
+          end if
+          !$omp barrier
+          !$omp master
+          deallocate(grad_v)
+          !$omp end master
         end block
       end associate
     end if
@@ -616,11 +787,6 @@ subroutine Evaluation(failed, last)
   if (rank == 0) then
 
     if (head) then
-
-      write(*,'(A)')    '#'
-      write(*,'(A,I0)') '# n_sub   = ', sdc % n_sub
-      write(*,'(A,I0)') '# n_sweep = ', sdc % n_sweep
-      write(*,'(A)')    '#'
 
       write(*,'(A,  6X)',advance='NO') '#'
       write(*,'(A, 11X)',advance='NO') 't'
@@ -637,6 +803,7 @@ subroutine Evaluation(failed, last)
       if (div_v_max >= 0) write(*,'(A, 3X)',advance='NO') 'div_v_max '
       if (e_kin     >= 0) write(*,'(A, 3X)',advance='NO') '  e_kin   '
       if (eps       >= 0) write(*,'(A, 3X)',advance='NO') '   eps    '
+      if (eps_svv   >= 0) write(*,'(A, 3X)',advance='NO') ' eps_svv  '
       write(*,*)
 
       head = .false.
@@ -656,6 +823,7 @@ subroutine Evaluation(failed, last)
     if (div_v_max >= 0) write(*,'(ES12.5,1X)',advance='NO') div_v_max
     if (e_kin     >= 0) write(*,'(ES12.5,1X)',advance='NO') e_kin
     if (eps       >= 0) write(*,'(ES12.5,1X)',advance='NO') eps
+    if (eps_svv   >= 0) write(*,'(ES12.5,1X)',advance='NO') eps_svv
     if (present(last)) then
       if (last) write(*,'(A)') ' #last#'
     end if
@@ -766,7 +934,7 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
 
     ! diffusive time scale .....................................................
 
-    nu_max = maxval(problem % nu_ref)
+    nu_max = maxval(problem % nu_ref) + maxval(problem % nu_svv_ref)
 
     if (mesh %part == 0) then
       dt_diff = 1 / (2 * nu_max * po**2 * sum(1/(dx*dx)))

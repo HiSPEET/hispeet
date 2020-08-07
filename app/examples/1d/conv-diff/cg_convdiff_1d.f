@@ -385,7 +385,7 @@ contains
     imex_rk = IMEX_RK_Method1D(po, ne, ns, method)
 
     if (show) then
-      call imex_rk % Write()
+      call imex_rk % Show()
     end if
 
   end subroutine Init_IMEX_RK
@@ -412,7 +412,7 @@ contains
     vark = VARK_Method1D(po, ne, set, ns_p, so_p, r)
 
     if (show) then
-      call vark % Write()
+      call vark % Show()
     end if
 
   end subroutine Init_VARK
@@ -471,7 +471,7 @@ contains
     sdc = VARK_SDC_Method1D(opt, po, ne)
 
     if (show) then
-      call sdc % vark % Write()
+      call sdc % vark % Show()
     end if
 
   end subroutine Init_VARK_SDC

@@ -4,48 +4,51 @@
 # `bash -l convergence_dt.sh`
 
 # test case
-CASE="convergence_dx"
+CASE="convergence_dt"
 
 # path to program
 PROGRAM="../isp_flow__sdc_test"
 
 # number of partitions in directions 1-2
-NP1="1"
-NP2="1"
-NP3="1"
-NP=$((${NP1} * ${NP2} * ${NP3}))
+NP1=${NP1:-"1"}
+NP2=${NP2:-"1"}
+NP=$((${NP1} * ${NP2}))
 
 # use preset execution command, or mpirun, if not set
-EXEC=${EXEC:-"mpirun -n ${NP}"}
+MPIRUN=${MPIRUN:-"mpirun"}
+EXEC=${EXEC:-"${MPIRUN} -n ${NP}"}
 
-# investigated range of elements per partition in directions 1-2
-RANGE_EP="2 4 8"
+# elements per partition in directions 1-2
+EP=${EP:-"4"}
 
 # polynomial orders for u and p and for integrating the nonlinear terms
-PO_U="5"
-PO_P="4"
-PO_Q=${PO_U}
+PO_U="10"
+PO_P="9"
+PO_Q="16"
 
 # time integration
 T_END=${T_END:-"0.25"}
-DT=${DT:-"1e-1"}
 TIME_METHOD=${TIME_METHOD:-"5"}
-N_SUB="1"
-N_SWEEP="1"
+N_SUB=${N_SUB:-"2"}
+N_SWEEP=${N_SWEEP:-"4"}
+
+# max time step size and max number of time step subdivisions per series
+DT_MAX=${DT_MAX:-"0.015625"}
+ST_MAX=${ST_MAX:-"4"}
 
 date > ${CASE}.log
 
-for EP in $RANGE_EP; do
+for((s=0; s<=ST_MAX; s++)); do
+
+    DT=$(bc -l <<< "${DT_MAX}/sqrt(2^${s})")
 
     echo "========================================================================="
-    echo "ep =" $EP
+    echo "dt =" $DT ", s = "${s}"/"${ST_MAX}
     echo
     sed -e "s/<np1>/$NP1/g" \
         -e "s/<np2>/$NP2/g" \
-        -e "s/<np3>/$NP3/g" \
         -e "s/<ep1>/$EP/g" \
         -e "s/<ep2>/$EP/g" \
-        -e "s/<ep3>/$EP/g" \
         -e "s/<po_u>/$PO_U/g" \
         -e "s/<po_p>/$PO_P/g" \
         -e "s/<po_q>/$PO_Q/g" \
@@ -65,3 +68,4 @@ grep -e "#      t" -m 1 ${CASE}.log >  ${CASE}.dat
 grep -e "#last#$"       ${CASE}.log >> ${CASE}.dat
 
 date >> ${CASE}.log
+

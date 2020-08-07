@@ -65,7 +65,7 @@ module CART__ISP_Flow__SDC
 
   contains
 
-    procedure :: Bcast => SDC_Options_Bcast
+    procedure :: Bcast => Bcast_SDC_Options
 
   end type SDC_Options3D
 
@@ -102,7 +102,7 @@ contains
 !===============================================================================
 ! SDC_Options3D: type-bound procedures
 
-subroutine SDC_Options_Bcast(this, root, comm)
+subroutine Bcast_SDC_Options(this, root, comm)
   class(SDC_Options3D), intent(inout) :: this
   integer,        intent(in) :: root !< rank of broadcast root
   type(MPI_Comm), intent(in) :: comm !< MPI communicator
@@ -117,7 +117,7 @@ subroutine SDC_Options_Bcast(this, root, comm)
 
   call MPI_Waitall(n, request, stat)
 
-end subroutine SDC_Options_Bcast
+end subroutine Bcast_SDC_Options
 
 !===============================================================================
 ! SDC_Method3D: type-bound procedures
