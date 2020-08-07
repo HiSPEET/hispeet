@@ -587,6 +587,7 @@ subroutine Evaluation(failed, last)
   real(RNP) :: div_v_max = -1, div_v_rms = -1, div_v_loc
   real(RNP) :: e_kin, e_kin_loc
   real(RNP) :: eps = -1, eps_loc
+  real(RNP) :: eps_svv = -1, eps_svv_loc
 
   real(RNP), allocatable, save :: grad_v(:,:,:,:,:,:)
   logical   :: head = .true.
@@ -687,7 +688,8 @@ subroutine Evaluation(failed, last)
     if (eval_eps) then
       associate(Ms => eop%w)
         block
-          real(RNP) :: nu
+          real(RNP), allocatable :: Ds_svv(:,:)
+          real(RNP) :: nu, nu_svv
           integer   :: po, np, ne
 
           po = eop%po
@@ -699,6 +701,9 @@ subroutine Evaluation(failed, last)
           allocate(grad_v(0:po,0:po,0:po,ne,3,3))
           !$omp end single
 
+          ! physical dissipation . . . . . . . . . . . . . . . . . . . . . . . .
+
+          ! element velocity gradient
           call TPO_Grad_Eval( np, ne, eop%D, mesh%dx, u(:,:,:,:,1), &
                               grad_v(:,:,:,:,1:3,1)                 )
           call TPO_Grad_Eval( np, ne, eop%D, mesh%dx, u(:,:,:,:,2), &
@@ -706,6 +711,7 @@ subroutine Evaluation(failed, last)
           call TPO_Grad_Eval( np, ne, eop%D, mesh%dx, u(:,:,:,:,3), &
                               grad_v(:,:,:,:,1:3,3)                 )
 
+          ! local element contributions to physical dissipation
           eps_loc = 0
           do e = 1, ne
             do k = 0, po
@@ -722,9 +728,53 @@ subroutine Evaluation(failed, last)
           !$omp barrier
           !$omp master
           call XMPI_Reduce(eps_loc, eps, MPI_SUM, 0, mesh%comm)
-          deallocate(grad_v)
           !$omp end master
 
+          ! SVV dissipation  . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+          if (flow_op_control%svv) then
+            allocate(Ds_svv(0:po,0:po))
+
+            ! get modified standard diff matrix and SVV coefficient
+            if (eop % Has_SVV()) then
+              call eop % Get_SVV_StandardRootDiffMatrix(Ds_svv) ! Ds_svv = √Q D
+              nu_svv = problem % nu_svv_ref(1)
+            else
+              Ds_svv = ZERO
+              nu_svv = ZERO
+            end if
+
+            ! element velocity gradient based on modified diff matrix
+            call TPO_Grad_Eval( np, ne, Ds_svv, mesh%dx, u(:,:,:,:,1), &
+                                grad_v(:,:,:,:,1:3,1)                 )
+            call TPO_Grad_Eval( np, ne, Ds_svv, mesh%dx, u(:,:,:,:,2), &
+                                grad_v(:,:,:,:,1:3,2)                 )
+            call TPO_Grad_Eval( np, ne, Ds_svv, mesh%dx, u(:,:,:,:,3), &
+                                grad_v(:,:,:,:,1:3,3)                 )
+
+            ! local element contributions to SVV dissipation
+            eps_svv_loc = 0
+            do e = 1, ne
+              do k = 0, po
+              do j = 0, po
+              do i = 0, po
+                eps_svv_loc = eps_svv_loc + Ms(i)*Ms(j)*Ms(k) * nu_svv *       &
+                                            sum(grad_v(i,j,k,e,:,:)**2)
+              end do
+              end do
+              end do
+            end do
+            eps_svv_loc = product(mesh%dx)/8 * eps_svv_loc
+
+            !$omp barrier
+            !$omp master
+            call XMPI_Reduce(eps_svv_loc, eps_svv, MPI_SUM, 0, mesh%comm)
+            !$omp end master
+          end if
+          !$omp barrier
+          !$omp master
+          deallocate(grad_v)
+          !$omp end master
         end block
       end associate
     end if
@@ -753,6 +803,7 @@ subroutine Evaluation(failed, last)
       if (div_v_max >= 0) write(*,'(A, 3X)',advance='NO') 'div_v_max '
       if (e_kin     >= 0) write(*,'(A, 3X)',advance='NO') '  e_kin   '
       if (eps       >= 0) write(*,'(A, 3X)',advance='NO') '   eps    '
+      if (eps_svv   >= 0) write(*,'(A, 3X)',advance='NO') ' eps_svv  '
       write(*,*)
 
       head = .false.
@@ -772,6 +823,7 @@ subroutine Evaluation(failed, last)
     if (div_v_max >= 0) write(*,'(ES12.5,1X)',advance='NO') div_v_max
     if (e_kin     >= 0) write(*,'(ES12.5,1X)',advance='NO') e_kin
     if (eps       >= 0) write(*,'(ES12.5,1X)',advance='NO') eps
+    if (eps_svv   >= 0) write(*,'(ES12.5,1X)',advance='NO') eps_svv
     if (present(last)) then
       if (last) write(*,'(A)') ' #last#'
     end if
@@ -882,7 +934,7 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
 
     ! diffusive time scale .....................................................
 
-    nu_max = maxval(problem % nu_ref)
+    nu_max = maxval(problem % nu_ref) + maxval(problem % nu_svv_ref)
 
     if (mesh %part == 0) then
       dt_diff = 1 / (2 * nu_max * po**2 * sum(1/(dx*dx)))
