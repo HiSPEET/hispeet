@@ -55,17 +55,17 @@ Enable password chaching (900 seconds are the default;)
 
      mkdir HiSPEET
      cd HiSPEET
-
+    
      git init
      mkdir doc
      mkdir src
      ..
      git add doc src
      git commit
-
+    
      # stage the modified and deleted files
      git add -u
-
+    
      # add and commit only the modified and deleted files.
      git commit -a
 
@@ -214,6 +214,10 @@ Compare/edit the changes using the difftool and commit
 
     git difftool HEAD foo.f
     git commit -m 'pull/merge completed'
+
+Alternatively, you can proceed with the mergetool
+
+    git mergetool
 
 Note: 
 To show all changes in detail omit the `name-status` option.
