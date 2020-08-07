@@ -53,6 +53,8 @@ module CART__ISP_Flow__Operators
 
     integer   :: monitor       =  0      !< no, basic or full monitoring {0,1,2}
 
+    logical   :: svv           = .false. !< switch for the SVV model
+
   contains
 
     procedure ::  Bcast => Bcast_FlowOpControl
@@ -109,7 +111,7 @@ subroutine Bcast_FlowOpControl(this, root, comm)
   integer,              intent(in)    :: root !< rank of broadcast root
   type(MPI_Comm),       intent(in)    :: comm !< MPI communicator
 
-  type(MPI_Request) :: request(7)
+  type(MPI_Request) :: request(8)
   type(MPI_Status)  :: stat(size(request))
   integer :: n
 
@@ -120,7 +122,8 @@ subroutine Bcast_FlowOpControl(this, root, comm)
   call XMPI_Ibcast( this % div_r_red     , root, comm, request(n) );  n = n + 1
   call XMPI_Ibcast( this % div_i_max     , root, comm, request(n) );  n = n + 1
   call XMPI_Ibcast( this % div_final     , root, comm, request(n) );  n = n + 1
-  call XMPI_Ibcast( this % monitor       , root, comm, request(n) )
+  call XMPI_Ibcast( this % monitor       , root, comm, request(n) );  n = n + 1
+  call XMPI_Ibcast( this % svv           , root, comm, request(n) )
 
   call MPI_Waitall(n, request, stat)
 
@@ -198,7 +201,7 @@ subroutine Init_FlowOperators( this                       &
   this % po_p = min(po_p, po_u)
   this % po_q = po_q
 
-  this % eop_u = StandardOperators1D(this % po_u)
+  this % eop_u = StandardOperators1D(this % po_u, svv = control%svv)
   this % eop_p = StandardOperators1D(this % po_p)
   if (po_q /= po_u) then
     this % eop_q = StandardOperators1D(po_q, no_vdm = .true.)
@@ -213,12 +216,18 @@ subroutine Init_FlowOperators( this                       &
     this % bv_u(b) = BoundaryVariable(mesh, po_u, b, problem%bc(b,:))
   end do
 
-  this%pmg_u = PMG_Method3D( mesh,                                                   &
-                             IP_ElementOptions1D(po = this%po_u, penalty = penalty), &
-                             pmg_u_opt                                               )
-  this%pmg_p = PMG_Method3D( mesh,                                                   &
-                             IP_ElementOptions1D(po = this%po_p, penalty = penalty), &
-                             pmg_p_opt                                               )
+  this%pmg_u = PMG_Method3D( mesh,                                       &
+                             IP_ElementOptions1D( po      = this%po_u,   &
+                                                  penalty = penalty,     &
+                                                  svv     = control%svv  &
+                                                ),                       &
+                             pmg_u_opt                                   )
+
+  this%pmg_p = PMG_Method3D( mesh,                                       &
+                             IP_ElementOptions1D( po      = this%po_p,   &
+                                                  penalty = penalty      &
+                                                ),                       &
+                             pmg_p_opt                                   )
 
   call this % pmg_p % SetProblem(lambda=ZERO, nu=ONE, bc=problem%bc(:,4))
 

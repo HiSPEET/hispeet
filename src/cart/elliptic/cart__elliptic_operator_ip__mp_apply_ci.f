@@ -98,7 +98,7 @@ module subroutine Apply_CI(this, u, v)
       call trace_op        % GetTrace_Start(mesh, u, tr_u , tag=1000)
       call normal_trace_op % GetTrace_Start(mesh, q, tr_qn, tag=2000)
 
-      ! apply element stiffness operator .......................................
+      ! apply element diffusion operator .......................................
 
       call TPO_Elliptic_RLCI(eop%w, As, lambda, ONE, mesh%dx, u, v)
 

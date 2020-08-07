@@ -66,7 +66,14 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w, nu, i_max)
       if (present(nu)) then
         call pmg % SetProblem(1/dt, nu(:,:,:,:,c), bc(:,c))
       else
-        call pmg % SetProblem(1/dt, problem%nu_ref(c), bc(:,c))
+        if (allocated(problem%nu_svv_ref)) then
+          call pmg % SetProblem(1/dt,                  &
+                                problem%nu_ref(c),     &
+                                problem%nu_svv_ref(c), &
+                                bc(:,c)                )
+        else
+          call pmg % SetProblem(1/dt, problem%nu_ref(c), bc(:,c))
+        end if
       end if
 
       ! project sources
