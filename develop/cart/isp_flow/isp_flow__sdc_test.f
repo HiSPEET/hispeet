@@ -69,12 +69,15 @@ program ISP_Flow__SDC_Test
   logical :: eval_rms   = .true.  ! evaluate rms errors and divergence
   logical :: eval_max   = .false. ! evaluate max errors and divergence
   logical :: eval_eps   = .false. ! evaluate dissipation, ε = ∫ν∇v:∇v dΩ
+  logical :: average    = .false. ! compute temporal averages
+  integer :: i_avg      =  10     ! sampling rate for temporal averaging
   type(FlowOpControl) :: flow_op_control
 
   namelist /control/ flow_type, flow_case,         &
                      restart, compute_p,           &
                      write_stat, write_vtk,        &
                      eval_rms, eval_max, eval_eps, &
+                     average, i_avg,               &
                      flow_op_control
 !### CHECK START
 logical :: check = .false.
@@ -171,7 +174,8 @@ namelist /control/ check
     u_e, u_0,     & ! exact / initial solution
     err_u, w,     & ! error / workspace
     F,            & ! time derivative for SDC
-    nu              ! diffusivity
+    nu,           & ! diffusivity
+    q_avg           ! temporally averaged quantities
 
   ! additional scalar variables
   real(RNP), dimension(:,:,:,:), pointer, contiguous :: &
@@ -181,7 +185,7 @@ namelist /control/ check
   ! auxiliary ..................................................................
 
   logical   :: exists, first, last, failed
-  integer   :: prm, stat, nt, nt_10
+  integer   :: prm, stat, nt, nt_10, n_avg
   real(RDP) :: time, time0
 
   !-----------------------------------------------------------------------------
@@ -233,6 +237,8 @@ namelist /control/ check
   call XMPI_Bcast(eval_rms    , 0, comm)
   call XMPI_Bcast(eval_max    , 0, comm)
   call XMPI_Bcast(eval_eps    , 0, comm)
+  call XMPI_Bcast(average     , 0, comm)
+  call XMPI_Bcast(i_avg    , 0, comm)
   call flow_op_control % Bcast( 0, comm)
 
 !### CHECK START
@@ -267,16 +273,20 @@ call XMPI_Bcast(check   , 0, comm)
   ! flow problem ...............................................................
 
   select case(flow_type)
+  case('Channel')
+    allocate(FlowProblem_Channel           :: problem)
+  case('Poiseuille')
+    allocate(FlowProblem_Poiseuille        :: problem)
   case('Stokes_DKM')
     allocate(FlowProblem_Stokes_DKM        :: problem)
   case('Stokes_GMS')
     allocate(FlowProblem_Stokes_GMS        :: problem)
+  case('Transition_TG')
+    allocate(FlowProblem_Transition_TG     :: problem)
   case('Vortex_HW')
     allocate(FlowProblem_Vortex_HW         :: problem)
   case('Vortex_TG')
     allocate(FlowProblem_Vortex_TG         :: problem)
-  case('Transition_TG')
-    allocate(FlowProblem_Transition_TG     :: problem)
   case('VortexSheet')
     allocate(FlowProblem_VortexSheet       :: problem)
   case('VariableViscosity')
@@ -334,19 +344,23 @@ call XMPI_Bcast(check   , 0, comm)
   end select
 
   ! print time-integrator settings
-  select case(time_method)
-  case(1:4)
-    call time_integrator % Show()
-  case(5,7)
-    call sdc % Show()
-  end select
+  if (rank == 0) then
+    !$omp master
+    select case(time_method)
+    case(1:4)
+      call time_integrator % Show()
+    case(5:7)
+      call sdc % Show()
+    end select
+    !$omp end master
+  end if
 
   ! variables and initial values ...............................................
 
   call InitializeMeshVariables()
 
   if (restart) then
-    call LoadFlowVariables(t, u)
+    call LoadFlowVariables(t, u, n_avg, q_avg)
   else
     t = 0
     call problem % GetInitialValues(flow_op%x, u)
@@ -441,7 +455,7 @@ call XMPI_Bcast(check   , 0, comm)
   !-----------------------------------------------------------------------------
   ! Save current solution
 
-  call SaveFlowVariables(t, u)
+  call SaveFlowVariables(t, u, n_avg, q_avg)
 
   !-----------------------------------------------------------------------------
   ! Export results
@@ -502,6 +516,9 @@ subroutine InitializeMeshVariables()
 
   ! number of variables
   n_var = 5 * nc + 2
+  if (average) then
+    n_var = n_var + 9
+  end if
 
   ! names of solution variables
   call problem % GetVariableNames(name_u)
@@ -570,6 +587,24 @@ subroutine InitializeMeshVariables()
   ! lambda_2
   lmb_2(0:, 0:, 0:, 1:) => var(:,:,:,:,i+2)
   name_var(i+2) = 'lambda_2'
+
+  ! temporal averages ..........................................................
+
+  i = i + 2
+  if (average) then
+    q_avg(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+9)
+    name_var(i+1) = '< v_1 >'
+    name_var(i+2) = '< v_2 >'
+    name_var(i+3) = '< v_3 >'
+    name_var(i+4) = '< v_1 v_1 >'
+    name_var(i+5) = '< v_1 v_2 >'
+    name_var(i+6) = '< v_1 v_3 >'
+    name_var(i+7) = '< v_2 v_2 >'
+    name_var(i+8) = '< v_2 v_3 >'
+    name_var(i+9) = '< v_3 v_3 >'
+  else
+    q_avg => null()
+  end if
 
 end subroutine InitializeMeshVariables
 
@@ -846,9 +881,11 @@ end subroutine Evaluation
 !-------------------------------------------------------------------------------
 !> Saves the flow variables to disk
 
-subroutine SaveFlowVariables(t, u)
-  real(RNP), intent(in) :: t            !< time
-  real(RNP), intent(in) :: u(:,:,:,:,:) !< flow variables
+subroutine SaveFlowVariables(t, u, n_avg, q_avg)
+  real(RNP),           intent(in) :: t                !< time
+  real(RNP),           intent(in) :: u(:,:,:,:,:)     !< flow variables
+  integer  ,           intent(in) :: n_avg            !< current num averages
+  real(RNP), optional, intent(in) :: q_avg(:,:,:,:,:) !< averaged quantities
 
   integer :: unit
   character(len=100) :: file
@@ -857,6 +894,12 @@ subroutine SaveFlowVariables(t, u)
   open(newunit=unit, file=file, status='REPLACE', form='UNFORMATTED')
   write(unit) t
   write(unit) u
+  if (present(q_avg)) then
+    write(unit) n_avg
+    write(unit) q_avg
+  else
+    write(unit) 0
+  end if
   close(unit)
 
 end subroutine SaveFlowVariables
@@ -864,9 +907,11 @@ end subroutine SaveFlowVariables
 !-------------------------------------------------------------------------------
 !> Loads the flow variables to disk
 
-subroutine LoadFlowVariables(t, u)
-  real(RNP), intent(out) :: t            !< time
-  real(RNP), intent(out) :: u(:,:,:,:,:) !< flow variables
+subroutine LoadFlowVariables(t, u, n_avg, q_avg)
+  real(RNP),           intent(out) :: t                !< time
+  real(RNP),           intent(out) :: u(:,:,:,:,:)     !< flow variables
+  integer  ,           intent(out) :: n_avg            !< current num averages
+  real(RNP), optional, intent(out) :: q_avg(:,:,:,:,:) !< averaged quantities
 
   integer :: unit, ios
   character(len=100) :: file
@@ -876,6 +921,14 @@ subroutine LoadFlowVariables(t, u)
   if (ios == 0) then
     read(unit) t
     read(unit) u
+    read(unit) n_avg
+    if (present(q_avg)) then
+      if (n_avg > 0) then
+        read(unit) q_avg
+      else
+        call SetArray(q_avg, ZERO, multi = .true.)
+      end if
+    end if
     close(unit)
   else
     call Error('SaveFlowVariables', 'found no matching input file')
@@ -917,14 +970,16 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
 
     else
 
-      if (mesh % ne < 0) then
+      if (mesh % ne > 0) then
         v_max_loc = sqrt(maxval(v1**2 + v2**2 + v3**2))
       else
         v_max_loc = 0
       end if
       v_max_loc = max(v_max_loc, problem % v_ref)
 
+      !$omp master
       call XMPI_Reduce(v_max_loc, v_max, MPI_MAX, 0, mesh%comm)
+      !$omp end master
 
       if (mesh %part == 0) then
         dt_conv = minval(mesh % dx)/ (po * v_max)
@@ -977,7 +1032,9 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
 
     end if
 
+    !$omp master
     call XMPI_Bcast(dt, 0, comm)
+    !$omp end master
 
   end associate
 
@@ -1068,6 +1125,45 @@ real(RNP) function Lambda2(grad_v)
   Lambda2 = lambda(2)
 
 end function Lambda2
+
+!===============================================================================
+! Temporal averaging
+
+!-------------------------------------------------------------------------------
+!> Perform temporal averaging
+
+subroutine TemporalAveraging
+
+  real(RNP) :: wa, ws
+  integer   :: e, i, j, k
+
+  if (.not. average .or. mod(nt, i_avg) > 0) return
+
+  n_avg = n_avg + 1
+  if (n_avg > 1) then
+    wa = real(n_avg - 1, RNP) / n_avg   ! weight of current average
+    ws = ONE - wa                       ! weight of sample
+  else
+    wa = 0
+    ws = 1
+  end if
+
+  !$omp do
+  do e = 1, mesh%ne
+    do concurrent(i = 0:po_u, j = 0:po_u, k = 0:po_u)
+      q_avg(i,j,k,e,1) = wa * q_avg(i,j,k,e,1) + ws * u(i,j,k,e,1)
+      q_avg(i,j,k,e,2) = wa * q_avg(i,j,k,e,2) + ws * u(i,j,k,e,2)
+      q_avg(i,j,k,e,3) = wa * q_avg(i,j,k,e,3) + ws * u(i,j,k,e,3)
+      q_avg(i,j,k,e,4) = wa * q_avg(i,j,k,e,4) + ws * u(i,j,k,e,1) * u(i,j,k,e,1)
+      q_avg(i,j,k,e,5) = wa * q_avg(i,j,k,e,5) + ws * u(i,j,k,e,1) * u(i,j,k,e,2)
+      q_avg(i,j,k,e,6) = wa * q_avg(i,j,k,e,6) + ws * u(i,j,k,e,1) * u(i,j,k,e,3)
+      q_avg(i,j,k,e,7) = wa * q_avg(i,j,k,e,7) + ws * u(i,j,k,e,2) * u(i,j,k,e,2)
+      q_avg(i,j,k,e,8) = wa * q_avg(i,j,k,e,8) + ws * u(i,j,k,e,2) * u(i,j,k,e,3)
+      q_avg(i,j,k,e,9) = wa * q_avg(i,j,k,e,9) + ws * u(i,j,k,e,3) * u(i,j,k,e,3)
+    end do
+  end do
+
+end subroutine TemporalAveraging
 
 !===============================================================================
 
