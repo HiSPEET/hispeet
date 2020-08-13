@@ -2,9 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2020/03/05
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!> @todo
-!>   * handling of variable viscosity
 !===============================================================================
 
 module CART__ISP_Flow__Time_Integrator__Euler
@@ -129,7 +126,8 @@ contains
     real(RNP), allocatable, save :: w    (:,:,:,:,:) ! workspace for u
     real(RNP), allocatable, save :: dp   (:,:,:,:)   ! pressure correction
 
-    integer :: i
+    real(RNP) :: t_0
+    integer   :: i
 
     associate( problem => this % problem          &
              , flow_op => this % flow_op          &
@@ -141,7 +139,6 @@ contains
              , p       => u(:,:,:,:,4)            )
 
       ! initialization .........................................................
-
 
       ! workspace
       !$omp single
@@ -155,35 +152,45 @@ contains
       end if
       !$omp end single
 
+      t_0 = t
+      t   = t + dt
+
       ! nu = ν₀ = ν(x,t₀,u₀)
       if (problem % HasVariableProperties()) then
-        call problem % GetDiffusivity(flow_op%x, t, u, nu)
+        call problem % GetDiffusivity(flow_op%x, t_0, u, nu)
       end if
-
-      t = t + dt
-
-      ! boundary conditions ....................................................
-
-      call GetBoundaryValues(problem, mesh, flow_op%bv_x, t, flow_op%bv_u)
 
       ! explicit + extrapolated diffusive parts ................................
 
       ! u' = u₀ ≡ u(x,t₀)
       call SetArray(u_i, u, multi=.true.)
 
+      ! update boundary conditions
+      call GetBoundaryValues(problem, mesh, flow_op%bv_x, t_0, flow_op%bv_u)
+
       ! w = -∇⋅v₀v₀ + ∇⋅ν₀(∇v₀)ᵀ - χ∇(ν₀∇⋅v₀)     for v
       ! w = -∇⋅v₀u₀                               for u \ (v,p)
-      call TimeDerivative( problem, flow_op, t  &
-                         , u_c  = u             &
-                         , u_d  = u             &
-                         , nu   = nu            &
-                         , chi  = chi           &
-                         , F    = w             &
-                         , F_d1 = F_d1          &
-                         , F_d3 = F_d3          &
+      call TimeDerivative( problem, flow_op, t_0  &
+                         , u_c    = u             &
+                         , u_d    = u             &
+                         , chi    = chi           &
+                         , nu     = nu            &
+                         , F      = w             &
+                         , F_d1   = F_d1          &
+                         , F_d3   = F_d3          &
+                         , source = .false.       &
                          )
 
       ! u' += ∆t w
+      do i = 1, problem % nc
+        if (i == 4) cycle
+        call MergeArrays(ONE, u_i(:,:,:,:,i), dt, w(:,:,:,:,i))
+      end do
+
+      ! implicit sources .......................................................
+
+      call problem % GetExternalSources(flow_op%x, t, w)
+
       do i = 1, problem % nc
         if (i == 4) cycle
         call MergeArrays(ONE, u_i(:,:,:,:,i), dt, w(:,:,:,:,i))
