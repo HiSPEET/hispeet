@@ -62,8 +62,8 @@ contains
 !>   * if absent, the bulk diffusion parameter χ ist taken from `flow_op`
 !> @endnote
 
-subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu, chi,  &
-                           F, F_c, F_d, F_d1, F_d2, F_d3, F_p, F_s     )
+subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu, chi,      &
+                           F, F_c, F_d, F_d1, F_d2, F_d3, F_p, F_s, source )
 
   ! arguments ..................................................................
 
@@ -78,11 +78,12 @@ subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu, chi,  &
   real(RNP),  optional, intent(out)   :: F       !< ∂u/∂t
   real(RNP),  optional, intent(inout) :: F_c     !< convection part
   real(RNP),  optional, intent(inout) :: F_d     !< diffusion part, complete
-  real(RNP),  optional, intent(out)   :: F_d1    !< diffusion part, only ∇·ν∇u
-  real(RNP),  optional, intent(out)   :: F_d2    !< diffusion part, only ∇·ν(∇v)ᵀ
-  real(RNP),  optional, intent(out)   :: F_d3    !< diffusion part, only χ∇ν(∇·v)
+  real(RNP),  optional, intent(out)   :: F_d1    !< diffusion, only ∇·ν∇u
+  real(RNP),  optional, intent(out)   :: F_d2    !< diffusion, only ∇·ν(∇v)ᵀ
+  real(RNP),  optional, intent(out)   :: F_d3    !< diffusion, only χ∇ν(∇·v)
   real(RNP),  optional, intent(out)   :: F_p     !< pressure part
   real(RNP),  optional, intent(out)   :: F_s     !< source part
+  logical,    optional, intent(in)    :: source  !< include sources in F [T]
 
   dimension :: u_c  (:,:,:,:,:)
   dimension :: u_d  (:,:,:,:,:)
@@ -101,6 +102,7 @@ subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu, chi,  &
 
   real(RNP), allocatable, save :: v(:,:,:,:,:), w(:,:,:,:,:)
   real(RNP) :: chi_
+  logical   :: source_
   integer   :: po, np, ne, nc
 
   associate( mesh => flow_op % mesh          &
@@ -121,6 +123,12 @@ subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu, chi,  &
       chi_ = flow_op % control % chi
     end if
 
+    if (present(source)) then
+      source_ = present(F) .and. source
+    else
+      source_ = present(F)
+    end if
+
     !$omp single
     allocate(w(np,np,np,ne,nc))
     if (present(u_d)) then
@@ -132,10 +140,12 @@ subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu, chi,  &
 
     ! external sources .........................................................
 
-    if (present(F) .or. present(F_s)) then
+    if (source_ .or. present(F_s)) then
       call problem % GetExternalSources(flow_op%x, t, w)
-      if (present(F  )) call SetArray(F  , w, multi=.true.)
+      if (source_     ) call SetArray(F  , w, multi=.true.)
       if (present(F_s)) call SetArray(F_s, w, multi=.true.)
+    else if (present(F)) then
+      call SetArray(F, ZERO, multi=.true.)
     end if
 
     ! convection ...............................................................
