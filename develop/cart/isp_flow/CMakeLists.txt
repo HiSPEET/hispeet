@@ -10,9 +10,11 @@ target_link_libraries(isp_flow__sdc_test HiCart)
 #===============================================================================
 # Test cases
 
+add_subdirectory(channel)
+add_subdirectory(poiseuille)
 add_subdirectory(stokes_dkm)
 add_subdirectory(stokes_gms)
+add_subdirectory(transition_tg)
 add_subdirectory(vortex_hw)
 add_subdirectory(vortex_tg)
 add_subdirectory(variable_viscosity)
-add_subdirectory(transition_tg)

@@ -1,0 +1,124 @@
+&control
+  flow_type     =  'Poiseuille'
+  flow_case     =  'poiseuille'
+  restart       =  F
+  compute_p     =  F
+  write_stat    =  T
+  write_vtk     =  F
+  eval_rms      =  T
+  eval_max      =  F
+!
+  flow_op_control%chi            = -2     ! [-1]
+  flow_op_control%div_penalty    =  0     ! [1]
+  flow_op_control%div_coeff      =  1     ! [1]
+  flow_op_control%div_i_max      =  100   ! [10]
+  flow_op_control%div_final      =  F     ! [T]
+/
+
+! using 12 elements of degree 16 in y-direction yields y⁺ ≈ 0.4 for Re_τ = 1180
+&discretization
+  np   =   1, 1, 1
+  ep   =   1, 2, 1
+  po_u =  16
+  po_p =  15
+  po_q =  24
+  penalty = 20
+ !adjust_dx = T
+/
+
+&elliptic_solver
+!
+! u \ p
+  pmg_u_opt%i_max           =  4
+  pmg_u_opt%r_red           =  1e-12
+  pmg_u_opt%r_max           =  1e-14
+  pmg_u_opt%i0_max          =  1000
+  pmg_u_opt%r0_red          =  1e-10
+  pmg_u_opt%schwarz%delta   =  0.08
+  pmg_u_opt%schwarz%no_min  =  1
+  pmg_u_opt%monitor         =  F
+!
+! p
+  pmg_p_opt%i_max           =  5
+  pmg_p_opt%r_red           =  1e-12
+  pmg_p_opt%r_max           =  1e-14
+  pmg_p_opt%i0_max          =  1000
+  pmg_p_opt%r0_red          =  1e-10
+  pmg_p_opt%schwarz%delta   =  0.08
+  pmg_p_opt%schwarz%no_min  =  1
+  pmg_p_opt%monitor         =  F
+/
+
+&time_integration
+!
+! time stepping
+  t_end  = 0.25
+ !dt     = 0.002
+  c_conv = 0.1
+ !c_diff = 100
+  nt_max = 100
+!
+! time-integration method:
+! 0  SDC-orig
+! 1  Euler
+! 2  BDF2
+! 3  TR
+! 4  RK
+! 5  SDC(Eu,Eu)
+! 6  SDC(TR,Eu)
+! 7  SDC(RK,Eu)
+  time_method = 2
+!
+! section for "original" SDC -- method 0
+  sdc_orig_opt%n_sub   =  2
+  sdc_orig_opt%n_sweep =  3
+!
+! section for standalone Euler -- method 1
+  eu_opt%TimeIntegratorOptions%splitting   = 2
+  eu_opt%TimeIntegratorOptions%project     = 0
+  eu_opt%TimeIntegratorOptions%pressure    = 0
+!
+! section for standalone BDF2 -- method 2
+  bdf2_opt%TimeIntegratorOptions%splitting = 2
+  bdf2_opt%TimeIntegratorOptions%project   = 0
+  bdf2_opt%TimeIntegratorOptions%pressure  = 0
+!
+! section for standalone TR -- method 3
+  tr_opt%TimeIntegratorOptions%splitting = 2
+  tr_opt%TimeIntegratorOptions%project   = 0
+  tr_opt%TimeIntegratorOptions%pressure  = 0
+ !tr_opt%i_max_p1 = 2
+ !tr_opt%i_max_u1 = 1
+ !tr_opt%i_max_p2 = 2
+ !tr_opt%i_max_u2 = 1
+!
+! section for standalone Runge-Kutta -- method 4
+  rk_opt%TimeIntegratorOptions%splitting   = 2
+  rk_opt%TimeIntegratorOptions%project     = 1
+  rk_opt%TimeIntegratorOptions%pressure    = 0
+  rk_opt%n_stage = 4
+  rk_opt%method  = 2
+  rk_opt%variant = 2
+!
+! section for SDC(*,*) -- methods 5:7
+  sdc_opt%n_sub        = 2
+  sdc_opt%n_sweep      = 3
+  !
+  ! Euler predictor 
+  pre_eu_opt%TimeIntegratorOptions%splitting  = 2
+  pre_eu_opt%TimeIntegratorOptions%project    = 0
+  pre_eu_opt%TimeIntegratorOptions%pressure   = 0
+  !
+  ! Runge-Kutta predictor 
+  pre_rk_opt%TimeIntegratorOptions%splitting = 2
+  pre_rk_opt%TimeIntegratorOptions%project   = 1
+  pre_rk_opt%TimeIntegratorOptions%pressure  = 0
+  pre_rk_opt%n_stage   = 4
+  pre_rk_opt%method    = 2
+  pre_rk_opt%variant   = 2
+  !
+  ! Euler corrector
+  cor_eu_opt%SDC_Corrector_Options%splitting  = 2
+  cor_eu_opt%SDC_Corrector_Options%project    = 0
+/
+

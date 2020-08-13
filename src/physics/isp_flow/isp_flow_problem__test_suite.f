@@ -7,12 +7,14 @@
 module ISP_Flow_Problem__Test_Suite
 
   use ISP_Flow_Problem
+  use ISP_Flow_Problem__Channel           , only: FlowProblem_Channel
+  use ISP_Flow_Problem__Poiseuille        , only: FlowProblem_Poiseuille
   use ISP_Flow_Problem__Stokes_DKM        , only: FlowProblem_Stokes_DKM
   use ISP_Flow_Problem__Stokes_GMS        , only: FlowProblem_Stokes_GMS
+  use ISP_Flow_Problem__Transition_TG     , only: FlowProblem_Transition_TG
   use ISP_Flow_Problem__Vortex_HW         , only: FlowProblem_Vortex_HW
   use ISP_Flow_Problem__Vortex_TG         , only: FlowProblem_Vortex_TG
   use ISP_Flow_Problem__Vortex_Sheet      , only: FlowProblem_VortexSheet
   use ISP_Flow_Problem__Variable_Viscosity, only: FlowProblem_VariableViscosity
-  use ISP_Flow_Problem__Transition_TG     , only: FlowProblem_Transition_TG
 
 end module ISP_Flow_Problem__Test_Suite
