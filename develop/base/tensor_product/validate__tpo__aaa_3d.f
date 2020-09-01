@@ -8,6 +8,7 @@ program Validate__TPO__AAA_3d
   use Kind_Parameters, only: IXL, RNP
   use TPO__AAA_3d
   use TPO__AAA_3d__Gen
+  use Array_Assignments
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -25,6 +26,7 @@ program Validate__TPO__AAA_3d
   ! operators and variables ....................................................
 
   real(RNP), dimension(:,:,:,:), allocatable :: u, v, w
+  real(RNP), dimension(:,:,:), allocatable :: z3, z2
   real(RNP), dimension(:,:),     allocatable :: A
 
   real(RNP) :: time
@@ -33,7 +35,9 @@ program Validate__TPO__AAA_3d
 
   logical :: exists
   integer :: nflop, npop, prm
-  integer :: i
+  integer :: i, e, j, k
+  integer :: alpha = 1
+  integer :: beta  = 0
 
   integer(IXL) :: count, count0, rate
 
@@ -56,8 +60,8 @@ program Validate__TPO__AAA_3d
   ! workspace ..................................................................
 
   allocate(u(np,np,np,ne), v(nq,nq,nq,ne), w(nq,nq,nq,ne), A(nq,np))
+  allocate(z3(np,np,nq), z2(np,nq,nq))
 
-  !$omp do
   do i = 1, ne
     call random_number(u(:,:,:,i))
     call random_number(v(:,:,:,i))
@@ -65,6 +69,31 @@ program Validate__TPO__AAA_3d
   end do
 
   call random_number(A)
+
+!  !-----------------------------------------------------------------------------
+!  ! exact result
+!  do e = 1, ne
+!
+!    do j = 1, np
+!    do i = 1, np
+!      z3(i,j,:) = alpha * matmul(A, u(i,j,:,e)) + beta * z3(i,j,:)
+!    end do
+!    end do
+!
+!    do k = 1, np
+!    do i = 1, nq
+!     z2(i,:,k) = alpha * matmul(A, z3(i,:,k)) + beta * z2(i,:,k)
+!   end do
+!    end do
+!
+!    do k = 1, nq
+!    do j = 1, nq
+!      w(:,j,k,e) = alpha * matmul(A, z2(:,j,k)) + beta * w(:,j,k,e)
+!    end do
+!    end do
+!
+!  end do
+
 
   !-----------------------------------------------------------------------------
   ! test generic operator
@@ -95,10 +124,9 @@ program Validate__TPO__AAA_3d
   !-----------------------------------------------------------------------------
   ! test optimized operator
 
-  call random_number(v)
-
   !$omp parallel
   !$acc data copyin(u) copyout(v)
+  call SetArray(u, u)
 
   call TPO_AAA(A, u, v)
   !$acc wait
