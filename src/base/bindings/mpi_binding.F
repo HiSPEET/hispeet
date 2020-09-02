@@ -3,7 +3,8 @@
 !> date:     2014/01/15
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Initialization of MPI and provison of custom intrinsic types
+!> @todo
+!>   * reactivate MPI_REAL_RHP once quad precision is supported by Intel MPI
 !==============================================================================
 
 module MPI_Binding
@@ -20,8 +21,8 @@ module MPI_Binding
     MPI_INTEGER_IXS, & !< MPI data type matching integer(IXS)
     MPI_INTEGER_IXL, & !< MPI data type matching integer(IXL)
     MPI_REAL_RDP,    & !< MPI data type matching real(RDP)
-    MPI_REAL_RNP,    & !< MPI data type matching real(RNP)
-    MPI_REAL_RHP       !< MPI data type matching real(RHP)
+    MPI_REAL_RNP       !< MPI data type matching real(RNP)
+!!! MPI_REAL_RHP       !< MPI data type matching real(RHP)   !!! 
 
   !-----------------------------------------------------------------------------
   ! Private variables
@@ -79,7 +80,7 @@ subroutine Init_MPI_Binding()
 
   MPI_REAL_RDP = MPI_Real_Type(RDP, range(1.0_RDP))
   MPI_REAL_RNP = MPI_Real_Type(RNP, range(1.0_RNP))
-  MPI_REAL_RHP = MPI_Real_Type(RHP, range(1.0_RHP))
+! MPI_REAL_RHP = MPI_Real_Type(RHP, range(1.0_RHP))
 
   initialized = .true.
 
@@ -88,7 +89,7 @@ contains
   !> Automatic selection/creation of matching MPI real datatype
   type(MPI_Datatype) function MPI_Real_Type(k, r)
     integer, intent(in) :: k  !< kind parameter
-    integer, intent(in) :: r  !< precision
+    integer, intent(in) :: r  !< range
 
     if (k == kind(1E0)) then
       MPI_Real_Type = MPI_REAL
