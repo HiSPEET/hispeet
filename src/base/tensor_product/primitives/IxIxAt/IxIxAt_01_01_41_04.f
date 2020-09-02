@@ -7,6 +7,9 @@
 !>   * p:  block 1,  unroll 4
 !>   * using Intel SIMD directive
 
+#define _NA1_T4_ (_NA1_ / 4) * 4
+#define _NA2_T4_ (_NA2_ / 4) * 4
+
 subroutine PROC(IxIxAt__,_NA1_,_NA2_)(nb, nc, A, alpha, beta, u, v)
   !$acc routine vector
   integer,   intent(in)    :: nb              !< 2nd dimension of u,v
@@ -19,6 +22,26 @@ subroutine PROC(IxIxAt__,_NA1_,_NA2_)(nb, nc, A, alpha, beta, u, v)
 
   real(RNP) :: tmp(0:3)
   integer   :: i, j, k, p
+
+  if (beta == 0) then
+    do k = 1, nc
+    do j = 1, nb
+    do i = 1, _NA2_
+     v(i,j,k) = 0
+    end do
+    end do
+    end do
+  else
+    do k = 1, nc
+    do j = 1, nb
+    do i = 1, _NA2_
+     v(i,j,k) = beta * v(i,j,k)
+    end do
+    end do
+    end do
+  end if
+
+#if _NA1_T4_ > 0
 
   !$acc loop independent vector
   do k = 1, nc
@@ -33,14 +56,16 @@ subroutine PROC(IxIxAt__,_NA1_,_NA2_)(nb, nc, A, alpha, beta, u, v)
         tmp = tmp + A(p+2,i:i+3) * u(p+2,j,k)
         tmp = tmp + A(p+3,i:i+3) * u(p+3,j,k)
 
-        v(i:i+3,j,k) = alpha * tmp + beta * v(i:i+3,j,k)
+        v(i:i+3,j,k) = alpha * tmp + v(i:i+3,j,k)
 
       end do
       end do
     end do
   end do
 
-#if _NA1_ == _NA1_T4__ + 1
+#endif
+
+#if _NA1_ == _NA1_T4_ + 1
 
   ! 1:na1/4*4, na2 -------------------------------------------------------------
 
@@ -51,13 +76,13 @@ subroutine PROC(IxIxAt__,_NA1_,_NA2_)(nb, nc, A, alpha, beta, u, v)
     do j = 1, nb
     do i = 1, _NA2_T4_, 4
 
-      v(i:i+3,j,k) = v(i:i+3,j,k) + A(p,i:i+3) * u(p,j,k)
+      v(i:i+3,j,k) = v(i:i+3,j,k) + alpha * A(p,i:i+3) * u(p,j,k)
 
     end do
     end do
   end do
 
-#elif _NA1_ == _NA1_T4__ + 2
+#elif _NA1_ == _NA1_T4_ + 2
 
   ! 1:na1/4*4, na2-1:na2 -------------------------------------------------------
 
@@ -71,13 +96,13 @@ subroutine PROC(IxIxAt__,_NA1_,_NA2_)(nb, nc, A, alpha, beta, u, v)
       tmp =       A(p  ,i:i+3) * u(p  ,j,k)
       tmp = tmp + A(p+1,i:i+3) * u(p+1,j,k)
 
-      v(i:i+3,j,k) = alpha * tmp + beta * v(i:i+3,j,k)
+      v(i:i+3,j,k) = alpha * tmp + v(i:i+3,j,k)
 
     end do
     end do
   end do
 
-#elif _NA1_ == _NA1_T4__ + 3
+#elif _NA1_ == _NA1_T4_ + 3
 
   ! 1:na1/4*4, na2-2:na2 -------------------------------------------------------
 
@@ -92,7 +117,7 @@ subroutine PROC(IxIxAt__,_NA1_,_NA2_)(nb, nc, A, alpha, beta, u, v)
       tmp = tmp + A(p+1,i:i+3) * u(p+1,j,k)
       tmp = tmp + A(p+2,i:i+3) * u(p+2,j,k)
 
-      v(i:i+3,j,k) = alpha * tmp + beta * v(i:i+3,j,k)
+      v(i:i+3,j,k) = alpha * tmp + v(i:i+3,j,k)
 
     end do
     end do
@@ -111,7 +136,7 @@ subroutine PROC(IxIxAt__,_NA1_,_NA2_)(nb, nc, A, alpha, beta, u, v)
   do j = 1, nb
     do p = 1, _NA1_
 
-      v(i,j,k) = v(i,j,k) + A(p,i) * u(p,j,k)
+      v(i,j,k) = v(i,j,k) + alpha * A(p,i) * u(p,j,k)
 
     end do
   end do
@@ -128,7 +153,7 @@ subroutine PROC(IxIxAt__,_NA1_,_NA2_)(nb, nc, A, alpha, beta, u, v)
   do j = 1, nb
     do p = 1, _NA1_
 
-      v(i:i+1,j,k) = v(i:i+1,j,k) + A(p,i:i+1) * u(p,j,k)
+      v(i:i+1,j,k) = v(i:i+1,j,k) + alpha * A(p,i:i+1) * u(p,j,k)
 
     end do
   end do
@@ -145,7 +170,7 @@ subroutine PROC(IxIxAt__,_NA1_,_NA2_)(nb, nc, A, alpha, beta, u, v)
   do j = 1, nb
     do p = 1, _NA1_
 
-      v(i:i+2,j,k) = v(i:i+2,j,k) + A(p,i:i+2) * u(p,j,k)
+      v(i:i+2,j,k) = v(i:i+2,j,k) + alpha * A(p,i:i+2) * u(p,j,k)
 
     end do
   end do
@@ -154,3 +179,6 @@ subroutine PROC(IxIxAt__,_NA1_,_NA2_)(nb, nc, A, alpha, beta, u, v)
 #endif
 
 end subroutine PROC(IxIxAt__,_NA1_,_NA2_)
+
+#undef _NA1_T4_
+#undef _NA2_T4_

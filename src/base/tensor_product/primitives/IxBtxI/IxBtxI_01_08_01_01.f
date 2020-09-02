@@ -7,6 +7,8 @@
 !>   * p:  block 1,  unroll 1
 !>   * using Intel SIMD directive
 
+#define _NB2_T8_ (_NB2_ / 8) * 8
+
 subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   !$acc routine vector
   integer,   intent(in)    :: na              !< 1st dimension of u,v
@@ -60,7 +62,7 @@ subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
 
 #endif
 
-#if na == _NB2_T8_ + 1
+#if _NB2_ == _NB2_T8_ + 1
 
   j = _NB2_T8_ + 1
 
@@ -69,14 +71,14 @@ subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   !DIR$ SIMD
   do i = 1, na
     tmp0 = 0
-    do p = 1, nc
+    do p = 1, _NB1_
       tmp0 = tmp0 + B(p,j) * u(i,p,k)
     end do
     v(i,j,k) = alpha * tmp0 + beta * v(i,j,k)
   end do
   end do
 
-#elif na == _NB2_T8_ + 2
+#elif _NB2_ == _NB2_T8_ + 2
 
   j = _NB2_T8_ + 1
 
@@ -95,7 +97,7 @@ subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   end do
   end do
 
-#elif na == _NB2_T8_ + 3
+#elif _NB2_ == _NB2_T8_ + 3
 
   j = _NB2_T8_ + 1
 
@@ -117,7 +119,7 @@ subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   end do
   end do
 
-#elif na == _NB2_T8_ + 4
+#elif _NB2_ == _NB2_T8_ + 4
 
   j = _NB2_T8_ + 1
 
@@ -142,7 +144,7 @@ subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   end do
   end do
 
-#elif na == _NB2_T8_ + 5
+#elif _NB2_ == _NB2_T8_ + 5
 
   j = _NB2_T8_ + 1
 
@@ -170,7 +172,7 @@ subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   end do
   end do
 
-#elif na == _NB2_T8_ + 6
+#elif _NB2_ == _NB2_T8_ + 6
 
   j = _NB2_T8_ + 1
 
@@ -201,7 +203,7 @@ subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   end do
   end do
 
-#elif na == _NB2_T8_ + 7
+#elif _NB2_ == _NB2_T8_ + 7
 
   j = _NB2_T8_ + 1
 
@@ -238,3 +240,5 @@ subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
 #endif
 
 end subroutine PROC(IxBtxI__,_NB1_,_NB2_)
+
+#undef _NB2_T8_

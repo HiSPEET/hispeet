@@ -7,10 +7,12 @@
 !>   * p:  block 1,  unroll 1
 !>   * using Intel SIMD directive
 
+#define _NC2_T8_ (_NC2_ / 8) * 8
+
 subroutine PROC(CtxIxI__,_NC1_,_NC2_)(na_nb, C, alpha, beta, u, v)
   !$acc routine vector
   integer,   intent(in)    :: na_nb           !< size of dimensions 1+2 of u,v
-  real(RNP), intent(in)    :: C(_NC1_,_NC2_)  !< transpose of C
+  real(RNP), intent(in)    :: C(_NC1_,_NC2_)  !< rectangular matrix
   real(RNP), intent(in)    :: alpha           !< factor α
   real(RNP), intent(in)    :: beta            !< factor β
   real(RNP), intent(in)    :: u(na_nb,_NC1_)  !< operand
@@ -221,3 +223,5 @@ subroutine PROC(CtxIxI__,_NC1_,_NC2_)(na_nb, C, alpha, beta, u, v)
 #endif
 
 end subroutine PROC(CtxIxI__,_NC1_,_NC2_)
+
+#undef _NC2_T8_

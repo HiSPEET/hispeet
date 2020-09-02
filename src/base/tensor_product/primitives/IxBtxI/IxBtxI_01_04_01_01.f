@@ -7,6 +7,8 @@
 !>   * p:  block 1,  unroll 1
 !>   * using Intel SIMD directive
 
+#define _NB2_T4_ (_NB2_ / 4) * 4
+
 subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   integer,   intent(in)    :: na              !< 1st dimension of u,v
   integer,   intent(in)    :: nc              !< 3rd dimension of u,v
@@ -54,7 +56,7 @@ subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
     do p = 1, _NB1_
       tmp0 = tmp0 + B(p,_NB2_) * u(i,p,k)
     end do
-    v(i,_NB2_,k) = alpha * tmp0 + beta v(i,_NB2_,k)
+    v(i,_NB2_,k) = alpha * tmp0 + beta * v(i,_NB2_,k)
   end do
   end do
 
@@ -96,3 +98,5 @@ subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
 #endif
 
 end subroutine PROC(IxBtxI__,_NB1_,_NB2_)
+
+#undef _NB2_T4_
