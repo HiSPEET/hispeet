@@ -65,7 +65,10 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug")
     add_definitions(-DDEBUG)
 endif ()
 
-# adopt externaly set compiler flags -- can be dangerous
+# Compiler environment module used in slurm scripts
+set(ENV_MODULE_COMPILER "$ENV(ENV_MODULE_COMPILER)")
+
+# Adopt externaly set compiler flags -- can be dangerous
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} $ENV{CFLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} $ENV{CXXFLAGS}")
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} $ENV{FFLAGS}")
@@ -79,9 +82,6 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     set(CMAKE_Fortran_FLAGS_CHECK   "-fcheck=all -fbacktrace")
     set(CMAKE_Fortran_FLAGS_DEBUG   "-fcheck=all -fbacktrace -g")
     set(CMAKE_Fortran_FLAGS_RELEASE "-O3" )
-
-    # compiler environment module needed for generating slurm scripts
-    set(ENV_MODULE_COMPILER "hispeet/gnu")
 
 #-------------------------------------------------------------------------------
 # Intel
@@ -105,9 +105,6 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     # do not warn about using Intel compiler directives
     set(Fortran_FLAGS_TPO "-diag-disable=6477")
 
-    # compiler environment module needed for generating slurm scripts
-    set(ENV_MODULE_COMPILER "hispeet/intel")
-
 #-------------------------------------------------------------------------------
 # PGI
 
@@ -127,9 +124,6 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
     set(CMAKE_Fortran_FLAGS_RELEASE "-fast -O3" )
 
     set(Fortran_FLAGS_TPO "-Minline=reshape")
-
-    # compiler environment module needed for generating slurm scripts
-    set(ENV_MODULE_COMPILER "hispeet/pgi")
 
 endif ()
 
