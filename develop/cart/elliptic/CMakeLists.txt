@@ -27,6 +27,9 @@ target_link_libraries( elliptic_test__ip_ci HiCart )
 configure_file( elliptic_test__ip_ci.prm
                 elliptic_test__ip_ci.prm COPYONLY )
 
+configure_file( elliptic_test__ip_ci.slurm
+                elliptic_test__ip_ci.slurm )
+
 # elliptic_test_vi .............................................................
 
 add_executable( elliptic_test__ip_vi
