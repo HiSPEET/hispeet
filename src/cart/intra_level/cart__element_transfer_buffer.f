@@ -470,6 +470,7 @@ subroutine ToGhost_Transfer_X(this, mesh, ne_t, v, tag)
 
     ! send master data ........................................................
 
+    !$omp master
     associate(buf => master%buf, request => master%request)
       do i = 1, size(mesh%link)
         dest = mesh % link(i) % part
@@ -479,9 +480,11 @@ subroutine ToGhost_Transfer_X(this, mesh, ne_t, v, tag)
         call MPI_Isend(buf(m:), l, MPI_REAL_RNP, dest, tag, comm, request(i))
       end do
     end associate
+    !$omp end master
 
     ! receive master data ......................................................
 
+    !$omp master
     associate(buf => ghost%buf, request => ghost%request)
       do i = 1, size(mesh%link)
         source = mesh % link(i) % part
@@ -491,6 +494,7 @@ subroutine ToGhost_Transfer_X(this, mesh, ne_t, v, tag)
         call MPI_Irecv(buf(m:), l, MPI_REAL_RNP, source, tag, comm, request(i))
       end do
     end associate
+    !$omp end master
 
   end associate
 
@@ -764,6 +768,7 @@ subroutine ToMaster_Transfer_X(this, mesh, v, tag)
 
     ! send ghost data ..........................................................
 
+    !$omp master
     associate(buf => ghost%buf, request => ghost%request)
       do i = 1, size(mesh%link)
         dest = mesh % link(i) % part
@@ -773,9 +778,11 @@ subroutine ToMaster_Transfer_X(this, mesh, v, tag)
         call MPI_Isend(buf(m:), l, MPI_REAL_RNP, dest, tag, comm, request(i))
       end do
     end associate
+    !$omp end master
 
     ! receive ghost data .......................................................
 
+    !$omp master
     associate(buf => master%buf, request => master%request)
       do i = 1, size(mesh%link)
         source = mesh % link(i) % part
@@ -785,6 +792,7 @@ subroutine ToMaster_Transfer_X(this, mesh, v, tag)
         call MPI_Irecv(buf(m:), l, MPI_REAL_RNP, source, tag, comm, request(i))
       end do
     end associate
+    !$omp end master
 
   end associate
 

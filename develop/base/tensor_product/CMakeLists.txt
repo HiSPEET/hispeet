@@ -1,4 +1,15 @@
 #===============================================================================
+# TPO AAA
+
+add_executable( validate__tpo__aaa_3d
+                validate__tpo__aaa_3d.f )
+
+target_link_libraries(validate__tpo__aaa_3d HiBase)
+
+configure_file( validate__tpo__aaa_3d.prm
+                validate__tpo__aaa_3d.prm COPYONLY )
+
+#===============================================================================
 # TPO Div
 
 add_executable( validate__tpo__div_3d_r
@@ -52,6 +63,62 @@ target_link_libraries(validate__tpo__elliptic_3d_rlci HiBase)
 
 configure_file( validate__tpo__elliptic_3d_rlci.prm
                 validate__tpo__elliptic_3d_rlci.prm COPYONLY )
+
+
+#===============================================================================
+# TPO Elliptic VI
+
+add_executable( validate__tpo__elliptic_3d_rlvi
+                validate__tpo__elliptic_3d_rlvi.f )
+
+target_link_libraries(validate__tpo__elliptic_3d_rlvi HiBase)
+
+configure_file( validate__tpo__elliptic_3d_rlvi.prm
+                validate__tpo__elliptic_3d_rlvi.prm COPYONLY )
+
+#===============================================================================
+# TPO Spectral CI
+
+add_executable( validate__tpo__spectral_3d_ci
+                validate__tpo__spectral_3d_ci.f )
+
+target_link_libraries(validate__tpo__spectral_3d_ci HiBase)
+
+configure_file( validate__tpo__spectral_3d_ci.prm
+                validate__tpo__spectral_3d_ci.prm COPYONLY )
+
+#===============================================================================
+# TPO Spectral CA
+
+add_executable( validate__tpo__spectral_3d_ca
+                validate__tpo__spectral_3d_ca.f )
+
+target_link_libraries(validate__tpo__spectral_3d_ca HiBase)
+
+configure_file( validate__tpo__spectral_3d_ca.prm
+                validate__tpo__spectral_3d_ca.prm COPYONLY )
+
+#===============================================================================
+# TPO Schwarz CI
+
+add_executable( validate__tpo__schwarz_3d_ci
+                validate__tpo__schwarz_3d_ci.f )
+
+target_link_libraries(validate__tpo__schwarz_3d_ci HiBase)
+
+configure_file( validate__tpo__schwarz_3d_ci.prm
+                validate__tpo__schwarz_3d_ci.prm COPYONLY )
+
+#===============================================================================
+# TPO Schwarz CA
+
+add_executable( validate__tpo__schwarz_3d_ca
+                validate__tpo__schwarz_3d_ca.f )
+
+target_link_libraries(validate__tpo__schwarz_3d_ca HiBase)
+
+configure_file( validate__tpo__schwarz_3d_ca.prm
+                validate__tpo__schwarz_3d_ca.prm COPYONLY )
 
 ##===============================================================================
 # Scripts

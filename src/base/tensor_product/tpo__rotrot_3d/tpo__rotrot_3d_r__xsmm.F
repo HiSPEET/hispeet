@@ -15,8 +15,6 @@ module TPO__RotRot_3d_R__XSMM
 
   public :: TPO_RotRot_R_XSMM
 
-  type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
-
 contains
 
   !-----------------------------------------------------------------------------
@@ -30,10 +28,12 @@ contains
     real(RNP), intent(in)  :: u(np,np,np,ne,3) !< 3D vector field
     real(RNP), intent(out) :: v(np,np,np,ne,3) !< v = rot(rot(u))
 
+    type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
+
     real(RNP) :: Ds_1(np,np), DDs_1(np,np)
-    real(RNP) :: Ds_2T(np,np), Ds_3T(np,np)
-    real(RNP) :: DDs_2T(np,np), DDs_3T(np,np)
-    real(RNP) :: DDs_T(np,np)
+    real(RNP) :: Ds_2t(np,np), Ds_3t(np,np)
+    real(RNP) :: DDs_2t(np,np), DDs_3t(np,np)
+    real(RNP) :: DDs_t(np,np)
     real(RNP) :: div_u(np,np,np)
     real(RNP), parameter :: alpha  = 1
     real(RNP), parameter :: beta   = 1
@@ -47,18 +47,18 @@ contains
     g = 2 / dx
 
     Ds_1  = g(1) * Ds
-    Ds_2T = g(2) * transpose(Ds)
-    Ds_3T = g(3) * transpose(Ds)
+    Ds_2t = g(2) * transpose(Ds)
+    Ds_3t = g(3) * transpose(Ds)
 
     do j = 1, np
     do i = 1, np
-      DDs_T(j,i) = sum(Ds(i,:) * Ds(:,j))
+      DDs_t(j,i) = sum(Ds(i,:) * Ds(:,j))
     end do
     end do
 
-    DDs_1  = -(g(1) * g(1)) * transpose(DDs_T)
-    DDs_2T = -(g(2) * g(2)) * DDs_T
-    DDs_3T = -(g(3) * g(3)) * DDs_T
+    DDs_1  = -(g(1) * g(1)) * transpose(DDs_t)
+    DDs_2t = -(g(2) * g(2)) * DDs_t
+    DDs_3t = -(g(3) * g(3)) * DDs_t
 
     ! XSMM dispatch
     !$omp master
@@ -92,11 +92,11 @@ contains
 
       ! div(u)+= du2/dx2
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,2), Ds_2T, div_u(:,:,k))
+        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,2), Ds_2t, div_u(:,:,k))
       end do
 
       ! div(u)+= du3/dx3
-      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,3), Ds_3T, div_u(:,:,:))
+      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,3), Ds_3t, div_u(:,:,:))
 
 
       ! direction 1
@@ -108,17 +108,17 @@ contains
 
       ! v1+=id( du1/dx2 )/dx2
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,1), DDs_2T, v(:,:,k,e,1))
+        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,1), DDs_2t, v(:,:,k,e,1))
       end do
 
       ! v1+=id( du1/dx3 )/dx3
-      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,1), DDs_3T, v(:,:,:,e,1))
+      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,1), DDs_3t, v(:,:,:,e,1))
 
 
       !direction 2
       ! v2 = d(div_u)/dx2
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_2, div_u(:,:,k), Ds_2T, v(:,:,k,e,2))
+        call LIBXSMM_DMMCall(xmm_2, div_u(:,:,k), Ds_2t, v(:,:,k,e,2))
       end do
 
       ! v2+=-d( du2/dx1 )/dx1
@@ -126,27 +126,27 @@ contains
 
       ! v2+=-d( du2/dx2 )/dx2
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,2), DDs_2T, v(:,:,k,e,2))
+        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,2), DDs_2t, v(:,:,k,e,2))
       end do
 
       ! v2+=-d( du2/dxx )/dxx
-      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,2), DDs_3T, v(:,:,:,e,2))
+      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,2), DDs_3t, v(:,:,:,e,2))
 
 
       !direction 3
       ! v3 = d(div_u)/dx3
-      call LIBXSMM_DMMCall(xmm_3, div_u(:,:,:), Ds_3T, v(:,:,:,e,3))
+      call LIBXSMM_DMMCall(xmm_3, div_u(:,:,:), Ds_3t, v(:,:,:,e,3))
 
       ! v3+=-d( du3/dx1 )/dx1
       call LIBXSMM_DMMCall(xmm_1, DDs_1, u(:,:,:,e,3), v(:,:,:,e,3))
 
       ! v3+=-d( du3/dx2 )/dx2
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,3), DDs_2T, v(:,:,k,e,3))
+        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,3), DDs_2t, v(:,:,k,e,3))
       end do
 
       ! v3+=-d( du3/dx3 )/dx3
-      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,3), DDs_3T, v(:,:,:,e,3))
+      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,3), DDs_3t, v(:,:,:,e,3))
 
     end do
 

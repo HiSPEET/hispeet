@@ -2,14 +2,12 @@
 !> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2019/01/30
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Polynomial multigrid level for use with DG elliptic solvers
 !===============================================================================
 
 module CART__Elliptic_PMG_Level
   use Kind_Parameters, only: RNP
   use Gauss_Jacobi
-  use TPO_AAA
+  use TPO__AAA_3d
   use Standard_Operators_1D
   use IP_Element_Operators_1D
   use CART__Mesh_Partition
@@ -220,13 +218,19 @@ subroutine SetCoarseProblem(this, fine)
 
   else if (allocated(fine % elliptic_op % nu_vi)) then
 
+    !$omp single
     allocate(nu_vi(0:this%po, 0:this%po, 0:this%po, this%ne))
+    !$omp end single
+
    !call fine % Truncate    ( fine % elliptic_op % nu_vi, nu_vi )
     call fine % Interpolate ( fine % elliptic_op % nu_vi, nu_vi )
     call this % elliptic_op % SetProblem( fine % elliptic_op % lambda, &
                                           nu_vi,                       &
                                           fine % elliptic_op % bc      )
+    !$omp barrier
+    !$omp master
     deallocate(nu_vi)
+    !$omp end master
 
   end if
 
@@ -240,6 +244,8 @@ end subroutine SetCoarseProblem
 subroutine GetWorkspace(this)
   class(PMG_Level), intent(inout) :: this
 
+  !$omp barrier
+  !$omp single
   associate(po => this%po, ne => this%ne)
 
     if (allocated(this % u)) then
@@ -257,6 +263,7 @@ subroutine GetWorkspace(this)
     end if
 
   end associate
+  !$omp end single
 
 end subroutine GetWorkspace
 
@@ -266,9 +273,12 @@ end subroutine GetWorkspace
 subroutine FreeWorkspace(this)
   class(PMG_Level), intent(inout) :: this
 
+  !$omp barrier
+  !$omp single
   if (allocated(this % u)) deallocate(this % u)
   if (allocated(this % f)) deallocate(this % f)
   if (allocated(this % v)) deallocate(this % v)
+  !$omp end single
 
 end subroutine FreeWorkspace
 
@@ -283,7 +293,7 @@ subroutine Prolongate(this, uc, uf)
   real(RNP), intent(in)  :: uc(0:,0:,0:,:) !< mesh variable
   real(RNP), intent(out) :: uf(0:,0:,0:,:) !< fine (child) mesh variable
 
-  call TPO_AAA_Eval(size(uf,1), size(uc,1), size(uc,4), this%p2f_op, uc, uf)
+  call TPO_AAA(this%p2f_op, uc, uf)
 
 end subroutine Prolongate
 
@@ -295,7 +305,7 @@ subroutine Interpolate(this, uf, uc)
   real(RNP), intent(in)  :: uf(0:,0:,0:,:) !< mesh variable
   real(RNP), intent(out) :: uc(0:,0:,0:,:) !< coarse (parent) mesh variable
 
-  call TPO_AAA_Eval(size(uc,1), size(uf,1), size(uf,4), this%i2c_op, uf, uc)
+  call TPO_AAA(this%i2c_op, uf, uc)
 
 end subroutine Interpolate
 
@@ -307,7 +317,7 @@ subroutine Restrict(this, uf, uc)
   real(RNP), intent(in)  :: uf(0:,0:,0:,:) !< mesh variable
   real(RNP), intent(out) :: uc(0:,0:,0:,:) !< coarse (parent) mesh variable
 
-  call TPO_AAA_Eval(size(uc,1), size(uf,1), size(uf,4), this%r2c_op, uf, uc)
+  call TPO_AAA(this%r2c_op, uf, uc)
 
 end subroutine Restrict
 
@@ -319,7 +329,7 @@ subroutine Truncate(this, uf, uc)
   real(RNP), intent(in)  :: uf(0:,0:,0:,:) !< mesh variable
   real(RNP), intent(out) :: uc(0:,0:,0:,:) !< coarse (parent) mesh variable
 
-  call TPO_AAA_Eval(size(uc,1), size(uf,1), size(uf,4), this%t2c_op, uf, uc)
+  call TPO_AAA(this%t2c_op, uf, uc)
 
 end subroutine Truncate
 
@@ -336,6 +346,8 @@ subroutine Build_C2F_TransferOps(this, fine)
   real(RNP) :: xc(0:this%po), xf(0:fine%po)
   integer   :: i, k, pc, pf
 
+  !$omp single
+
   pc = this % po
   pf = fine % po
   xc = this % elliptic_op % eop % x
@@ -350,6 +362,8 @@ subroutine Build_C2F_TransferOps(this, fine)
   end do
   end do
 
+  !$omp end single
+
 end subroutine Build_C2F_TransferOps
 
 !-------------------------------------------------------------------------------
@@ -362,6 +376,8 @@ subroutine Build_F2C_TransferOps(this, pc)
   real(RNP), allocatable :: VL(:,:), VL_inv(:,:)
   real(RNP) :: xf(0:this%po), xc(0:pc)
   integer   :: i, k, pf
+
+  !$omp single
 
   pf = this % po
   xf = this % elliptic_op % eop % x
@@ -399,6 +415,8 @@ subroutine Build_F2C_TransferOps(this, pc)
       t2c_op = matmul(t2c_op, matmul(VL(:,0:pc), VL_inv(0:pc,:)))
     end if
   end associate
+
+  !$omp end single
 
 end subroutine Build_F2C_TransferOps
 

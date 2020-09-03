@@ -8,8 +8,8 @@
 
 submodule(CART__Elliptic_Operator_IP) MP_SchwarzMethod
   use Execution_Control, only: Error
-  use CART__TPO_Schwarz
-  use CART__TPO_Schwarz_Iso
+  use TPO__Schwarz_3d_CA
+  use TPO__Schwarz_3d_CI
   use CART__Mesh_Partition
   use CART__Element_Transfer_Buffer
   implicit none
@@ -38,9 +38,6 @@ module subroutine SchwarzMethod(this, u, f, i_max, r_red, r_max, ni)
 
   type(ElementTransferBuffer), allocatable, save :: buf_r
   type(ElementTransferBuffer), allocatable, save :: buf_u_s
-
-  procedure(TPO_Schwarz_Proc),     pointer :: SchwarzOP
-  procedure(TPO_Schwarz_Iso_Proc), pointer :: SchwarzIsoOP
 
   real(RNP), save :: rr_term
   logical  , save :: converged
@@ -77,13 +74,6 @@ module subroutine SchwarzMethod(this, u, f, i_max, r_red, r_max, ni)
     call buf_r   % New(mesh, r,  no)
     call buf_u_s % New(mesh, u_s, no)
 
-    ! subdomain operator
-    if (schwarz % isotropic) then
-      call TPO_Schwarz_Iso_Assign(ns(1), SchwarzIsoOP)
-    else
-      call TPO_Schwarz_Assign(ns(1), ns(2), ns(3), SchwarzOP)
-    end if
-
     ! termination condition
     !$omp single
     if (present(r_max)) then
@@ -118,17 +108,17 @@ module subroutine SchwarzMethod(this, u, f, i_max, r_red, r_max, ni)
       call RestrictToSubdomains(mesh, no, buf_r, r, f_s)
 
       if (schwarz % isotropic) then
-        call SchwarzIsoOP( ns(1), nc, ne,                  &
-                           schwarz % S1,  schwarz % W1,    &
-                           schwarz % cfg, schwarz % D_inv, &
-                           f_s, u_s                        )
 
+         call TPO_Schwarz_CI( schwarz %S1, schwarz % W1,      &
+                              schwarz % cfg, schwarz % D_inv, &
+                              f_s, u_s                        )
       else
-        call SchwarzOP( ns(1), ns(2), ns(3), nc, ne,                &
-                        schwarz % S1,  schwarz % S2,  schwarz % S3, &
-                        schwarz % W1,  schwarz % W2,  schwarz % W3, &
-                        schwarz % cfg, schwarz % D_inv,             &
-                        f_s, u_s                                    )
+
+         call TPO_Schwarz_CA( schwarz % S1,  schwarz % S2,  schwarz % S3, &
+                              schwarz % W1,  schwarz % W2,  schwarz % W3, &
+                              schwarz % cfg, schwarz % D_inv,             &
+                              f_s, u_s                                    )
+
       end if
 
       call MergeFromSubdomains(mesh, no, buf_u_s, u_s, u)
@@ -141,11 +131,11 @@ module subroutine SchwarzMethod(this, u, f, i_max, r_red, r_max, ni)
 
   ! clean-up ...................................................................
 
+  !$omp barrier
   !$omp single
   deallocate(r, u_s, f_s)
   deallocate(buf_r, buf_u_s)
   !$omp end single
-
 
 end subroutine SchwarzMethod
 
@@ -205,6 +195,7 @@ subroutine RestrictToSubdomains(mesh, no, buf_v, v, vs)
 
   ! assign core regions ........................................................
 
+  !$omp do
   do e = 1, mesh%ne
     do k = 0, po
     do j = 0, po
@@ -233,6 +224,7 @@ subroutine RestrictToSubdomains(mesh, no, buf_v, v, vs)
 
   associate(element => mesh % element)
 
+    !$omp do
     do e = 1, mesh % ne
 
       ! face 1: -x1 <--> west
@@ -612,6 +604,7 @@ subroutine MergeFromSubdomains(mesh, no, buf_vs, vs, v)
 
   ! add vs core regions to v .................................................
 
+  !$omp do
   do e = 1, mesh%ne
     do k = 0, po
     do j = 0, po
@@ -630,6 +623,7 @@ subroutine MergeFromSubdomains(mesh, no, buf_vs, vs, v)
 
     associate(element => mesh % element)
 
+      !$omp do
       do e = 1, mesh % ne
 
         ! face 1: -x1 <--> west

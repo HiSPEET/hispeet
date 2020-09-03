@@ -52,17 +52,24 @@ set(TPO_CONFIG ${PROJECT_SOURCE_DIR}/bin/tpo_configure.py)
 set(DEST ${CMAKE_CURRENT_BINARY_DIR})
 
 # add primitive directories to include path
-include_directories( tensor_product/primitives/IxIxQt 
-                     tensor_product/primitives/IxQtxI 
-                     tensor_product/primitives/QtxIxI )
+include_directories( tensor_product/primitives/IxIxQt
+                     tensor_product/primitives/IxQtxI
+                     tensor_product/primitives/QtxIxI
+                     tensor_product/primitives/IxIxAt 
+                     tensor_product/primitives/IxBtxI 
+                     tensor_product/primitives/CtxIxI )
 
 # parametrized operators
 include(cmake/tpo_aaa.cmake)
+include(cmake/tpo__aaa_3d.cmake)
+include(cmake/tpo__diagonal_3d.cmake)
 include(cmake/tpo__elliptic_3d.cmake)
 include(cmake/tpo__div_3d.cmake)
 include(cmake/tpo__rot_3d.cmake)
 include(cmake/tpo__grad_3d.cmake)
 include(cmake/tpo__rotrot_3d.cmake)
+include(cmake/tpo__spectral_3d.cmake)
+include(cmake/tpo__schwarz_3d.cmake)
 
 # activate extra compile flags
 if (DEFINED Fortran_FLAGS_TPO)
@@ -109,7 +116,9 @@ add_library(HiBase ${BASE_SRC})
 set_property(TARGET HiBase
              PROPERTY Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules)
 
-add_dependencies(HiBase LibXSMM)
+if (NOT LIBXSMM MATCHES "0")
+    add_dependencies(HiBase LibXSMM)
+endif ()
 
 target_include_directories(HiBase
     PUBLIC  ${PROJECT_BINARY_DIR}/modules

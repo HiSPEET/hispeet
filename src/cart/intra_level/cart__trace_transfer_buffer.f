@@ -3,7 +3,9 @@
 !> date:     2018/03/12
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Type for transferring linked traces (double-valued face data)
+!> @todo
+!>   See if this type can be extended to [Normal]TraceOperator
+!> @endtodo
 !===============================================================================
 
 module CART__Trace_Transfer_Buffer
@@ -92,9 +94,10 @@ module CART__Trace_Transfer_Buffer
 
   contains
 
-    generic,   public  :: New => New_TransferBuffer_S, New_TransferBuffer_A
-    procedure, private :: New_TransferBuffer_S
-    procedure, private :: New_TransferBuffer_A
+    generic,   public  :: Init_TransferBuffer => Init_TransferBuffer_S, &
+                                                 Init_TransferBuffer_A
+    procedure, private :: Init_TransferBuffer_S
+    procedure, private :: Init_TransferBuffer_A
 
     generic,   public  :: Transfer => Transfer_S, Transfer_A
     procedure, private :: Transfer_S
@@ -133,7 +136,7 @@ end subroutine Delete_TraceTransferData
 !-------------------------------------------------------------------------------
 !> Create a new trace transfer buffer from mesh and given variable dimensions
 
-subroutine New_TransferBuffer_X(this, mesh, np, nc)
+subroutine Init_TransferBuffer_X(this, mesh, np, nc)
   class(TraceTransferBuffer), intent(inout) :: this  !< buffer
   type(MeshPartition),        intent(in)    :: mesh  !< mesh partition
   integer,                    intent(in)    :: np    !< num points/face
@@ -142,6 +145,7 @@ subroutine New_TransferBuffer_X(this, mesh, np, nc)
   integer :: lb, nl, nf
   integer :: i, j
 
+  !$omp barrier
   !$omp single
 
   if (allocated(this % start)) deallocate(this % start)
@@ -214,12 +218,12 @@ subroutine New_TransferBuffer_X(this, mesh, np, nc)
 
   !$omp end single
 
-end subroutine New_TransferBuffer_X
+end subroutine Init_TransferBuffer_X
 
 !-------------------------------------------------------------------------------
 !> Create a new trace transfer buffer for a single variable
 
-subroutine New_TransferBuffer_S(this, mesh, v)
+subroutine Init_TransferBuffer_S(this, mesh, v)
   class(TraceTransferBuffer), intent(inout) :: this        !< buffer
   type(MeshPartition),        intent(in)    :: mesh        !< mesh partition
   real(RNP),                  intent(in)    :: v(:,:,:,:)  !< trace variable
@@ -228,14 +232,14 @@ subroutine New_TransferBuffer_S(this, mesh, v)
 
   np = size(v,1) * size(v,2)
 
-  call New_TransferBuffer_X(this, mesh, np, nc=1)
+  call Init_TransferBuffer_X(this, mesh, np, nc=1)
 
-end subroutine New_TransferBuffer_S
+end subroutine Init_TransferBuffer_S
 
 !-------------------------------------------------------------------------------
 !> Create a new trace transfer buffer for an array of variables
 
-subroutine New_TransferBuffer_A(this, mesh, v)
+subroutine Init_TransferBuffer_A(this, mesh, v)
   class(TraceTransferBuffer), intent(inout) :: this          !< buffer
   type(MeshPartition),        intent(in)    :: mesh          !< mesh partition
   real(RNP),                  intent(in)    :: v(:,:,:,:,:)  !< trace variable
@@ -245,9 +249,9 @@ subroutine New_TransferBuffer_A(this, mesh, v)
   np = size(v,1) * size(v,2)
   nc = size(v,5)
 
-  call New_TransferBuffer_X(this, mesh, np, nc)
+  call Init_TransferBuffer_X(this, mesh, np, nc)
 
-end subroutine New_TransferBuffer_A
+end subroutine Init_TransferBuffer_A
 
 !-------------------------------------------------------------------------------
 !> Extract and transfer buffer -- eXplicit shape version
@@ -350,8 +354,8 @@ contains
 
     integer :: i, j, k
 
-    !$omp do collapse(2)
     !$acc parallel loop collapse(3) present(v) copyin(face,side) copyout(vb)
+    !$omp do collapse(2)
     do k = 1, nc
     do j = 1, nf
     do i = 1, np
@@ -376,7 +380,7 @@ subroutine Transfer_S(this, mesh, v, tag)
   integer,                    intent(in)    :: tag        !< message tag
 
   if (this%np /= size(v,1)*size(v,2) .or. this%nc /= 1) then
-    call this % New(mesh, v)
+    call this % Init_TransferBuffer(mesh, v)
   end if
 
   call Transfer_X(this, mesh, v, tag)
@@ -396,7 +400,7 @@ subroutine Transfer_A(this, mesh, v, tag)
   integer,                    intent(in)    :: tag          !< message tag
 
   if (this%np /= size(v,1)*size(v,2) .or. this%nc /= size(v,5)) then
-    call this % New(mesh, v)
+    call this % Init_TransferBuffer(mesh, v)
   end if
 
   call Transfer_X(this, mesh, v, tag)

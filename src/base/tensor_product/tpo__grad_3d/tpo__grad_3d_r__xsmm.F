@@ -15,8 +15,6 @@ module TPO__Grad_3d_R__XSMM
 
   public :: TPO_Grad_R_XSMM
 
-  type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
-
 contains
 
   !-----------------------------------------------------------------------------
@@ -30,8 +28,10 @@ contains
     real(RNP), intent(in)  :: u(np,np,np,ne)   !< 3D scalar field
     real(RNP), intent(out) :: v(np,np,np,ne,3) !< element-wise gradient of u
 
+    type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
+
     real(RNP) :: Ds_1(np,np)
-    real(RNP) :: Ds_2T(np,np), Ds_3T(np, np)
+    real(RNP) :: Ds_2t(np,np), Ds_3t(np, np)
     real(RNP), parameter :: alpha  = 1
     real(RNP), parameter :: beta   = 0
 
@@ -44,8 +44,8 @@ contains
     g = 2 / dx
 
     Ds_1  = g(1) * Ds
-    Ds_2T = g(2) * transpose(Ds)
-    Ds_3T = g(3) * transpose(Ds)
+    Ds_2t = g(2) * transpose(Ds)
+    Ds_3t = g(3) * transpose(Ds)
 
     ! XSMM dispatch
     !$omp master
@@ -74,11 +74,11 @@ contains
 
       ! v2 = du/dx2
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e), Ds_2T, v(:,:,k,e,2))
+        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e), Ds_2t, v(:,:,k,e,2))
       end do
 
       ! v3 = du/dx3
-      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e), Ds_3T, v(:,:,:,e,3))
+      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e), Ds_3t, v(:,:,:,e,3))
 
     end do
 

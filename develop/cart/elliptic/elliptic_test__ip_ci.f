@@ -98,11 +98,11 @@ program Elliptic_Test__IP_CI
   real(RNP), allocatable, target :: scalars(:)       ! storage for scalar fields
   character(len=80), allocatable :: scalar_names(:)  ! names of scalars
 
-  real(RNP), dimension(:,:,:,:), pointer, contiguous :: s  ! exact solution
-  real(RNP), dimension(:,:,:,:), pointer, contiguous :: u  ! numeric solution
-  real(RNP), dimension(:,:,:,:), pointer, contiguous :: f  ! source
-  real(RNP), dimension(:,:,:,:), pointer, contiguous :: r  ! residual
-  real(RNP), dimension(:,:,:,:), pointer, contiguous :: e  ! error
+  real(RNP), pointer, contiguous :: s(:,:,:,:)  ! exact solution
+  real(RNP), pointer, contiguous :: u(:,:,:,:)  ! numeric solution
+  real(RNP), pointer, contiguous :: f(:,:,:,:)  ! source
+  real(RNP), pointer, contiguous :: r(:,:,:,:)  ! residual
+  real(RNP), pointer, contiguous :: e(:,:,:,:)  ! error
 
   ! operators / methods ........................................................
 
@@ -114,10 +114,11 @@ program Elliptic_Test__IP_CI
 
   character(len=80) :: parameter_file = 'elliptic_test__ip_ci'
   character(len=80) :: plot_file      = ''
+  integer :: nt = 10
   integer :: prm
   logical :: exists
 
-  namelist /control/ plot_file
+  namelist /control/ nt, plot_file
 
   ! auxiliary ..................................................................
 
@@ -131,7 +132,6 @@ program Elliptic_Test__IP_CI
   real(RNP) :: c0
   real(RDP) :: time, time0
 
-  integer :: nt = 10
   integer :: b, n
   integer :: i, ni
   integer(IXL) :: dof
@@ -399,13 +399,15 @@ program Elliptic_Test__IP_CI
   !$omp parallel
   !$acc data copyin(f) copyout(u) create(r)
 
-  !call SetArray(u, ZERO)
-  call random_number(u)
-  u = 2*u - 1
+  call SetArray(u, ZERO)
+  !call random_number(u)
+  !u = 2*u - 1
 
   call elliptic_op % Residual(u, f, r)
   r_l2_0 = ScalarProduct(r, r, mesh%comm)
   r_l2_0 = sqrt(r_l2_0)
+
+  !$omp master
   if (mesh%part >= 0) then
     r_max_loc = maxval(abs(r))
   else
@@ -422,12 +424,10 @@ program Elliptic_Test__IP_CI
     end select
   end if
 
-  !$acc end data
-  !$omp end parallel
-
   if (rank == 0) then
     time0 = MPI_Wtime()
   end if
+  !$omp end master
 
   select case(method)
   case(1) ! conjugate gradients
@@ -440,14 +440,19 @@ program Elliptic_Test__IP_CI
     call pmg % MG_CG_Solver(u, f, ni=ni)
   end select
 
+  !$omp master
   if (rank == 0) then
     time = MPI_Wtime()
     time = (time - time0) / nt
   end if
+  !$omp end master
 
   call elliptic_op % Residual(u, f, r)
   r_l2 = ScalarProduct(r, r, mesh%comm)
   r_l2 = sqrt(r_l2)
+
+  !$acc end data
+  !$omp end parallel
 
   if (mesh%part >= 0) then
     r_max_loc = maxval(abs(r))

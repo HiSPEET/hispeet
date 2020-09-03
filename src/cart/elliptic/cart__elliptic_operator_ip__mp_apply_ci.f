@@ -76,27 +76,27 @@ module subroutine Apply_CI(this, u, v)
       Bs = Bs + nu * eop%D
 
       ! workspace and operators
-      !$omp single
-      allocate(q(0:po,0:po,0:po,ne,3))
-      allocate(tr_u(0:po, 0:po, 2, mesh%nf))
-      allocate(tr_qn, mold=tr_u)
-      allocate(J_u(0:po, 0:po, mesh%nf))
-      allocate(A_q, mold=J_u)
-      allocate(trace_op)
-      allocate(normal_trace_op)
-      !$omp end single
+      !$omp single                                                            !1
+      allocate(q(0:po,0:po,0:po,ne,3))                                        !1
+      allocate(tr_u(0:po, 0:po, 2, mesh%nf))                                  !1
+      allocate(tr_qn, mold=tr_u)                                              !1
+      allocate(J_u(0:po, 0:po, mesh%nf))                                      !1
+      allocate(A_q, mold=J_u)                                                 !1
+      allocate(trace_op)                                                      !1
+      allocate(normal_trace_op)                                               !1
+      !$omp end single                                                        !1
 
-      call SetArray(tr_u , ZERO)
-      call SetArray(tr_qn, ZERO)
-      call SetArray(J_u  , ZERO)
-      call SetArray(A_q  , ZERO)
+      call SetArray(tr_u , ZERO)                                              !2
+      call SetArray(tr_qn, ZERO)                                              !2
+      call SetArray(J_u  , ZERO)                                              !2
+      call SetArray(A_q  , ZERO)                                              !2
 
       ! start generation of traces .............................................
 
-      call ComputeNormalFluxes(np, ne, Bs, mesh%dx, u, q)
+      call ComputeNormalFluxes(np, ne, Bs, mesh%dx, u, q)                     !3
 
-      call trace_op        % GetTrace_Start(mesh, u, tr_u , tag=1000)
-      call normal_trace_op % GetTrace_Start(mesh, q, tr_qn, tag=2000)
+      call trace_op        % GetTrace_Start(mesh, u, tr_u , tag=1000)         !8
+      call normal_trace_op % GetTrace_Start(mesh, q, tr_qn, tag=2000)         !9
 
       ! apply element diffusion operator .......................................
 
@@ -104,25 +104,26 @@ module subroutine Apply_CI(this, u, v)
 
       ! finish generation of traces ............................................
 
-      call trace_op        % GetTrace_Finish(mesh, tr_u )
-      call normal_trace_op % GetTrace_Finish(mesh, tr_qn)
+      call trace_op        % GetTrace_Finish(mesh, tr_u )                     !8
+      call normal_trace_op % GetTrace_Finish(mesh, tr_qn)                     !9
 
-      call ApplyBoundaryConditions(mesh, this%bc, tr_u, tr_qn)
+      call ApplyBoundaryConditions(mesh, this%bc, tr_u, tr_qn)                !5
 
       ! jumps and average derivatives ..........................................
 
-      call ComputeJumps(tr_u, J_u)
-      call ComputeAverages(tr_qn, A_q, normal=.true.)
+      call ComputeJumps(tr_u, J_u)                                            !6
+      call ComputeAverages(tr_qn, A_q, normal=.true.)                         !7
 
       ! add fluxes .............................................................
 
-      call AddFluxes(mesh, eop, Bs, nu, nu_svv, J_u, A_q, v)
+      call AddFluxes(mesh, eop, Bs, nu, nu_svv, J_u, A_q, v)                  !4
 
       ! clean-up ...............................................................
 
-      !$omp single
-      deallocate(q, tr_u, tr_qn, J_u, A_q )
-      deallocate(trace_op, normal_trace_op)
+      !$omp barrier
+      !$omp single                                                            !1
+      deallocate(q, tr_u, tr_qn, J_u, A_q )                                   !1
+      deallocate(trace_op, normal_trace_op)                                   !1
       !$omp end single
 
     end associate
@@ -282,7 +283,6 @@ subroutine AddFluxes(mesh, eop, Bs, nu, nu_svv, J_u, A_q, v)
       end do
 
     end do
-    !$omp end do
 
   end associate
 
@@ -306,16 +306,8 @@ subroutine ComputeNormalFluxes(np, ne, Bs, dx, u, q)
   real(RNP), allocatable :: Bs_0(:), Bs_P(:)
   real(RNP) :: g(3), tmp1, tmp2
   integer   :: e, i, j, k, m
-  integer   :: vec_len
 
   ! initialization .............................................................
-
-  ! OpenACC vector length
-  if (np < 8) then
-    vec_len = 128
-  else
-    vec_len = 256
-  end if
 
   ! transposed diff operators for first and last point
   allocate(Bs_0, source=Bs( 1,:))
@@ -327,9 +319,8 @@ subroutine ComputeNormalFluxes(np, ne, Bs, dx, u, q)
   ! result
   call SetArray(q, ZERO, multi=.true.)
 
-  !$acc data present(u,q) copyin(Bs_0,Bs_P,g) async
-  !$acc parallel async &
-  !$acc & device_type(nvidia) num_workers(1024/vec_len) vector_length(vec_len)
+  !$acc data present(u,q) copyin(Bs_0,Bs_P,g)
+  !$acc parallel
   !$acc loop gang worker
 
   !$omp do private(e)
@@ -390,7 +381,6 @@ subroutine ComputeNormalFluxes(np, ne, Bs, dx, u, q)
     end do
 
   end do
-  !$omp end do
 
   !$acc end parallel
   !$acc end data

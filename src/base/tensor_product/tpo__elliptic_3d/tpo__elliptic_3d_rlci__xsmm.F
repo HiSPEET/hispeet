@@ -1,5 +1,5 @@
-!> summary:  3D elliptic element operator using LIBXSSM (RCLI)
-!> author:   Erik Pfister
+!> summary:  3D elliptic element operator using LIBXSSM (RLCI)
+!> author:   Erik Pfister, Joerg Stiller
 !> date:     2019/11/06
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
@@ -15,34 +15,37 @@ module TPO__Elliptic_3d_RLCI__XSMM
 
   public :: TPO_Elliptic_RLCI_XSMM
 
-  type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
-
 contains
 
   !-----------------------------------------------------------------------------
-  !> 3D elliptic element operator based on LIBXSMM (RCLI)
+  !> 3D elliptic element operator based on LIBXSMM (RLCI)
 
-  subroutine TPO_Elliptic_RLCI_XSMM(np, ne, Ms, Ls, lambda, nu, dx, u, v)
-    integer,   intent(in)  :: np             !< num points per direction
-    integer,   intent(in)  :: ne             !< num elements
-    real(RNP), intent(in)  :: Ms(np)         !< standard mass matrix
-    real(RNP), intent(in)  :: Ls(np,np)      !< standard stiffness matrix
-    real(RNP), intent(in)  :: lambda         !< Helmholtz parameter λ
-    real(RNP), intent(in)  :: nu             !< diffusivity nu
-    real(RNP), intent(in)  :: dx(3)          !< element extensions
-    real(RNP), intent(in)  :: u(np,np,np,ne) !< operand
-    real(RNP), intent(out) :: v(np,np,np,ne) !< result
+  subroutine TPO_Elliptic_RLCI_XSMM(Ms, Ls, lambda, nu, dx, u, v)
+    real(RNP), intent(in)  :: Ms(:)      !< 1D standard mass matrix         (np)
+    real(RNP), intent(in)  :: Ls(:,:)    !< 1D standard stiffness matrix (np,np)
+    real(RNP), intent(in)  :: lambda     !< Helmholtz parameter
+    real(RNP), intent(in)  :: nu         !< diffusivity
+    real(RNP), intent(in)  :: dx(3)      !< element extensions
+    real(RNP), intent(in)  :: u(:,:,:,:) !< operand                (np,np,np,ne)
+    real(RNP), intent(out) :: v(:,:,:,:) !< result                 (np,np,np,ne)
+
+    type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
 
     real(RNP), parameter :: alpha = 1
     real(RNP), parameter :: beta  = 1
 
-    real(RNP) :: M(np,np,np), Lm(np,np), Mu_e(np,np,np)
-    real(RNP) :: Lm_1T(np,np), Lm_2(np,np), Lm_3(np,np)
+    real(RNP), dimension(size(Ms), size(Ms), size(Ms)) :: M, Mu_e
+    real(RNP), dimension(size(Ms), size(Ms))           :: Lm, Lm_1t, Lm_2, Lm_3
+
     real(RNP) :: c(3), tmp
+    integer   :: np, ne
     integer   :: e, i, j, k
 
     !---------------------------------------------------------------------------
     ! initialization
+
+    np = size(Ms)
+    ne = size(u,4)
 
     ! element mass matrix
     tmp = product(dx) / 8
@@ -65,7 +68,7 @@ contains
     c = 4 * nu / dx**2
 
     ! initialize operators
-    Lm_1T = c(1) * transpose(Lm)
+    Lm_1t = c(1) * transpose(Lm)
     Lm_2  = c(2) * Lm
     Lm_3  = c(3) * Lm
 
@@ -102,7 +105,7 @@ contains
       end do
 
       ! apply operator in direction 1
-      call LIBXSMM_DMMCall(xmm_1, Lm_1T, Mu_e, v(:,:,:,e))
+      call LIBXSMM_DMMCall(xmm_1, Lm_1t, Mu_e, v(:,:,:,e))
 
       ! direction 2
       do k = 1, np

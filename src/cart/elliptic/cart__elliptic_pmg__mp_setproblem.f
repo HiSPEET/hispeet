@@ -2,8 +2,6 @@
 !> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2019/02/26
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Polynomial multigrid problem setup
 !===============================================================================
 
 submodule(CART__Elliptic_PMG) MP_SetProblem
