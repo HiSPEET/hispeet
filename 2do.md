@@ -9,6 +9,13 @@
       e.g. for initialization of `pmg_u` and `pmg_p`
 * testing
 
+### OpenMP
+
+* Re-integration of OpenMP_Binding module
+* Make more routines working with OpenMP
+    - `src/cart/elliptic/cart__dg_elliptic_ciu_bc.f`
+    - `src/cart/elliptic/cart__elliptic_operator_ip__mp_bctorhs.f`
+
 ## Issues
 
 * Accuracy problem when using Intel with `-O3`

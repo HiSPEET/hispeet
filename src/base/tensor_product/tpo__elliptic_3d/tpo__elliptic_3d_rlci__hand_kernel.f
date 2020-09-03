@@ -48,7 +48,7 @@ subroutine PROC(TPO_Elliptic_RLCI_Hand__,_NP_)(ne, Ms, Ls, lambda, nu, dx, u, v)
   !$acc parallel
   !$acc loop gang worker private(M_u)
 
-  !$omp do schedule(dynamic)
+  !$omp do
   do e = 1, ne
 
     call SetOperands(lambda, M, u(:,:,:,e), M_u, v(:,:,:,e))

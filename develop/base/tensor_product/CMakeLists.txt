@@ -64,7 +64,6 @@ target_link_libraries(validate__tpo__elliptic_3d_rlci HiBase)
 configure_file( validate__tpo__elliptic_3d_rlci.prm
                 validate__tpo__elliptic_3d_rlci.prm COPYONLY )
 
-
 #===============================================================================
 # TPO Elliptic VI
 

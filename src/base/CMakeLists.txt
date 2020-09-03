@@ -56,7 +56,7 @@ include_directories( tensor_product/primitives/IxIxQt
                      tensor_product/primitives/IxQtxI
                      tensor_product/primitives/QtxIxI
                      tensor_product/primitives/IxIxAt 
-                     tensor_product/primitives/IxBtxI 
+                     tensor_product/primitives/IxBtxI
                      tensor_product/primitives/CtxIxI )
 
 # parametrized operators
