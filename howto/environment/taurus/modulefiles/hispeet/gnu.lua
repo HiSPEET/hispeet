@@ -1,10 +1,11 @@
 -- REMARK
 -- Normally we shold just use `ml foss` to get GCC including OpenMPI, LAPACK etc.
--- However, foss/2018b is based one GCC 7, whereas we need GCC 8.
 
 load("CMake")
-load("VTK/8.1.1-foss-2018b-Python-3.6.6")
-load("OpenMPI/4.0.1-GCC-9.1.0-2.32")
+load("VTK/8.2.0-foss-2020a-Python-3.8.2")
+load("OpenMPI/4.0.4")
+
+setenv("ENV_MODULE_COMPILER", "hispeet/gnu")
 
 setenv("CC",  "mpicc")
 setenv("CXX", "mpicxx")
