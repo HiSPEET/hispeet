@@ -59,8 +59,8 @@ module CART__Boundary_Variable
     integer, public :: nf = -1  !< number of faces
     integer, public :: nc = -1  !< number of components
 
-    character, allocatable, public  :: bc(:)        !< boundary conditions
-    real(RNP), allocatable, private :: val(:,:,:,:) !< values
+    character, allocatable, public :: bc(:)        !< boundary conditions
+    real(RNP), allocatable, public :: val(:,:,:,:) !< values
 
   contains
 
