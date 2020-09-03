@@ -207,7 +207,7 @@ contains
       ! starting values and RHS for diffusion
       do i = 1, problem % nc
         if (i == 4) cycle
-        call SetArray(u(:,:,:,:,i), u_i(:,:,:,:,i))
+!!!        call SetArray(u(:,:,:,:,i), u_i(:,:,:,:,i))
         call MergeArrays(ONE, u_i(:,:,:,:,i), -dt      , F_d1(:,:,:,:,i))
         if (i > 3) cycle
         call MergeArrays(ONE, u_i(:,:,:,:,i), -dt * cd3, F_d3(:,:,:,:,i))
@@ -237,7 +237,7 @@ contains
         end if
         ! recompute pressure using F_d1 as workspace for F_v
         call TimeDerivative(problem, flow_op, t, u, u, nu=nu, chi=chi, F=F_d1)
-        call PressureSolver(problem, flow_op, F_d1, t, p, w)
+        call ComputePressure(problem, flow_op, t, F_d1, p, w)
       end if
 
       ! clean-up ...............................................................

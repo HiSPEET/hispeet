@@ -1,0 +1,12 @@
+&parameters
+  stokes  = .false.
+  init    = 1       ! 0 zero, 1 harmonic, 2 random, 3 boundary
+  alpha   = 3*1.0
+  k       = 3*1
+  m       = 2
+  cb      = 0,1,0,0,0,0
+  nu      = 1.0
+  bc(:,1) = 6*'D'
+  bc(:,2) = 6*'D'
+  bc(:,3) = 6*'D'
+/

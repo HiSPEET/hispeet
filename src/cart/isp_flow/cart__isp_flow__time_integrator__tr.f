@@ -346,7 +346,7 @@ contains
         end if
         ! recompute pressure using F_1 as workspace for F_v
         call TimeDerivative(problem, flow_op, t, u, u, nu=nu, chi=chi, F=F_1)
-        call PressureSolver(problem, flow_op, F_1, t, p, w)
+        call ComputePressure(problem, flow_op, t, F_1, p, w)
       end if
 
       ! clean-up ...............................................................

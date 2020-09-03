@@ -12,7 +12,7 @@ program ISP_Flow__SDC_Test
 
   use, intrinsic :: IEEE_Arithmetic, only: ieee_is_nan
 
-  use Kind_Parameters, only: RNP, RDP
+  use Kind_Parameters, only: RNP, RDP, IXL
   use Constants,       only: ONE, ZERO, HALF
   use Array_Assignments
   use Array_Reductions
@@ -275,6 +275,8 @@ call XMPI_Bcast(check   , 0, comm)
   select case(flow_type)
   case('Channel')
     allocate(FlowProblem_Channel           :: problem)
+  case('No_Flow')
+    allocate(FlowProblem_No_Flow           :: problem)
   case('Poiseuille')
     allocate(FlowProblem_Poiseuille        :: problem)
   case('Stokes_DKM')
@@ -367,7 +369,7 @@ call XMPI_Bcast(check   , 0, comm)
     if (.not. problem % HasExactSolution()) then
       associate(p => u(:,:,:,:,4), F_v => u_e)
         call TimeDerivative(problem, flow_op, t, u_c = u, u_d = u, F = F_v)
-        call PressureSolver(problem, flow_op, F_v, t, p, w)
+        call ComputePressure(problem, flow_op, t, F_v, p, w)
       end associate
     end if
   end if
@@ -375,7 +377,7 @@ call XMPI_Bcast(check   , 0, comm)
   ! time stepping ..............................................................
 
   call SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
-  nt_max = min(nint((t_end - t)/ dt), nt_max)
+  nt_max = min(nint((t_end - t)/ dt, IXL), nt_max)
   call XMPI_Bcast(nt_max, 0, comm)
   nt_10 = int((nt_max + 9)/10)
 
@@ -420,7 +422,7 @@ call XMPI_Bcast(check   , 0, comm)
     if (compute_p) then
       associate(p => u(:,:,:,:,4), F_v => u_e)
         call TimeDerivative(problem, flow_op, t, u_c = u, u_d = u, F = F_v)
-        call PressureSolver(problem, flow_op, F_v, t, p, w)
+        call ComputePressure(problem, flow_op, t, F_v, p, w)
       end associate
     end if
 
@@ -626,7 +628,7 @@ subroutine Evaluation(failed, last)
 
   real(RNP), allocatable, save :: grad_v(:,:,:,:,:,:)
   logical   :: head = .true.
-  logical   :: failed_
+  logical   :: failed_, failed_nan, failed_max
   integer   :: n = 0, n_loc = 0
   integer   :: e, i, j, k
 
@@ -833,8 +835,8 @@ subroutine Evaluation(failed, last)
       if (err_v_rms >= 0) write(*,'(A, 3X)',advance='NO') 'err_v_rms '
       if (err_p_rms >= 0) write(*,'(A, 3X)',advance='NO') 'err_p_rms '
       if (div_v_rms >= 0) write(*,'(A, 3X)',advance='NO') 'div_v_rms '
-      if (err_p_max >= 0) write(*,'(A, 3X)',advance='NO') 'err_p_max '
       if (err_v_max >= 0) write(*,'(A, 3X)',advance='NO') 'err_v_max '
+      if (err_p_max >= 0) write(*,'(A, 3X)',advance='NO') 'err_p_max '
       if (div_v_max >= 0) write(*,'(A, 3X)',advance='NO') 'div_v_max '
       if (e_kin     >= 0) write(*,'(A, 3X)',advance='NO') '  e_kin   '
       if (eps       >= 0) write(*,'(A, 3X)',advance='NO') '   eps    '
@@ -853,8 +855,8 @@ subroutine Evaluation(failed, last)
     if (err_v_rms >= 0) write(*,'(ES12.5,1X)',advance='NO') err_v_rms
     if (err_p_rms >= 0) write(*,'(ES12.5,1X)',advance='NO') err_p_rms
     if (div_v_rms >= 0) write(*,'(ES12.5,1X)',advance='NO') div_v_rms
-    if (err_p_max >= 0) write(*,'(ES12.5,1X)',advance='NO') err_v_max
-    if (err_v_max >= 0) write(*,'(ES12.5,1X)',advance='NO') err_p_max
+    if (err_v_max >= 0) write(*,'(ES12.5,1X)',advance='NO') err_v_max
+    if (err_p_max >= 0) write(*,'(ES12.5,1X)',advance='NO') err_p_max
     if (div_v_max >= 0) write(*,'(ES12.5,1X)',advance='NO') div_v_max
     if (e_kin     >= 0) write(*,'(ES12.5,1X)',advance='NO') e_kin
     if (eps       >= 0) write(*,'(ES12.5,1X)',advance='NO') eps
@@ -870,8 +872,17 @@ subroutine Evaluation(failed, last)
   ! check for fatal errors .....................................................
 
   !$omp master
+  failed_nan = ieee_is_nan(err_v_rms)
+  failed_max = abs(err_v_max) > huge(ONE)
+
+  if (failed_nan) then
+    call Warning('*** NaN detected ***','ISP_Flow__SDC_Test')
+  else if (failed_max) then
+    call Warning('*** err_v_max = INFINITY ***','ISP_Flow__SDC_Test')
+  end if
+
   if (present(failed)) then
-    failed_ = err_v_max > problem%v_ref .or. ieee_is_nan(err_v_rms)
+    failed_ = failed_nan .or. failed_max .or. err_v_max > problem%v_ref
     call XMPI_Allreduce(failed_, failed, MPI_LOR, mesh%comm)
   end if
   !$omp end master
@@ -989,7 +1000,10 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
 
     ! diffusive time scale .....................................................
 
-    nu_max = maxval(problem % nu_ref) + maxval(problem % nu_svv_ref)
+    nu_max = maxval(problem % nu_ref)
+    if (allocated(problem % nu_svv_ref)) then
+      nu_max = nu_max + maxval(problem % nu_svv_ref)
+    end if
 
     if (mesh %part == 0) then
       dt_diff = 1 / (2 * nu_max * po**2 * sum(1/(dx*dx)))

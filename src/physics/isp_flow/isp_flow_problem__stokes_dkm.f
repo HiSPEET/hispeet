@@ -63,7 +63,6 @@ subroutine SetProblem(problem, file, comm)
 
   logical :: exists
   integer :: prm, rank
-  integer :: b1, b2, d
 
   ! preliminaries ..............................................................
 
@@ -119,18 +118,8 @@ subroutine SetProblem(problem, file, comm)
   problem % x0 = x0
   problem % x1 = x1
 
-  ! pressure BC
-  do d = 1, 3
-    b1 = 2*d - 1
-    b2 = b1  + 1
-    if (all(bc(b1:b2, d) == 'P')) then
-      bc(b1:b2, 4) = 'P'
-    else
-      bc(b1:b2, 4) = 'N'
-    end if
-  end do
-
   call move_alloc(bc, problem % bc)
+  call problem % GeneratePressureBC()
 
 end subroutine SetProblem
 

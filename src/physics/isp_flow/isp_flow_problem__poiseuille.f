@@ -85,7 +85,7 @@ subroutine SetProblem(problem, file, comm)
   real(RNP) :: w      = 2       ! channel width
   character, allocatable :: bc(:,:)
 
-  namelist /parameters/ stokes, re, alpha, l, w
+  namelist /parameters/ stokes, re, alpha, l, w, bc
 
   logical :: exists
   integer :: prm, rank
@@ -133,6 +133,7 @@ subroutine SetProblem(problem, file, comm)
     call XMPI_Bcast(alpha , 0, comm)
     call XMPI_Bcast(l     , 0, comm)
     call XMPI_Bcast(w     , 0, comm)
+    call XMPI_Bcast(bc    , 0, comm)
   end if
 
   allocate(problem % nu_ref(     problem%nc ), source = ZERO)
@@ -148,6 +149,7 @@ subroutine SetProblem(problem, file, comm)
   problem % x1              =  [l, TWO, w]
 
   call move_alloc(bc, problem % bc)
+  call problem % GeneratePressureBC()
 
 end subroutine SetProblem
 
@@ -184,10 +186,19 @@ subroutine GetBoundaryValues(problem, b, xb, t, ub)
   real(RNP), intent(in)  :: t             !< time
   real(RNP), intent(out) :: ub(:,:,:,:)   !< flow variables
 
-  call SetArray(ub, ZERO, multi=.true.)
+  integer :: m, n
+
+  n = size(xb(:,:,:,2))
+
+  call GetVelocity(n, alpha = ZERO, y = xb(:,:,:,2), v = ub(:,:,:,1:3))
+
+  ! remaining variables get zero
+  do m = 4, size(ub,4)
+    call SetArray(ub(:,:,:,m), ZERO)
+  end do
 
   ! silence the compiler ;)
-  if (b < 0 .or. size(xb) < 0 .or. t < 0) return
+  if (b < 0 .or. t < 0) return
 
 end subroutine GetBoundaryValues
 

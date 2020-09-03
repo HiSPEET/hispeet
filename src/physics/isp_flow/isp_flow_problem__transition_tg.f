@@ -56,7 +56,6 @@ subroutine SetProblem(problem, file, comm)
 
   logical :: exists
   integer :: prm, rank
-  integer :: b1, b2, d
 
   ! preliminaries ..............................................................
 
@@ -86,9 +85,6 @@ subroutine SetProblem(problem, file, comm)
 
   ! parameters .................................................................
 
-  ! default BC (pressure is ignored)
-  allocate(bc(6, problem % nc), source = 'P')
-
   if (rank == 0 .and. exists) then
     read(prm, nml=parameters)
     close(prm)
@@ -109,7 +105,7 @@ subroutine SetProblem(problem, file, comm)
   problem % x0 = -PI
   problem % x1 =  PI
 
-  call move_alloc(bc, problem % bc)
+  allocate(problem % bc(6, problem % nc), source = 'P')
 
 end subroutine SetProblem
 

@@ -308,7 +308,7 @@ contains
             call problem % GetDiffusivity(flow_op%x, t, u, nu)
           end if
           call TimeDerivative(problem, flow_op, t, u, u, nu=nu, chi=chi, F=F_v)
-          call PressureSolver(problem, flow_op, F_v, t, p, w)
+          call ComputePressure(problem, flow_op, t, F_v, p, w)
         end associate
       case default
         call SetArray(p, u_i(:,:,:,:,4))

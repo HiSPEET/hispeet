@@ -7,6 +7,7 @@
 module ISP_Flow_Problem
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO
+  use Execution_Control
   use Array_Assignments
   use MPI_Binding
 
@@ -55,6 +56,7 @@ module ISP_Flow_Problem
     procedure :: GetExactTimeDerivative
     procedure :: GetVariableNames
     procedure :: GetDiffusivity
+    procedure :: GeneratePressureBC
 
     procedure(SetProblem),                deferred :: SetProblem
     procedure(GetInitialValues),          deferred :: GetInitialValues
@@ -226,6 +228,30 @@ subroutine GetDiffusivity(problem, x, t, u, nu)
   end do
 
 end subroutine GetDiffusivity
+
+!-------------------------------------------------------------------------------
+!> Automatic generation of pressure boundary conditions
+
+subroutine GeneratePressureBC(problem)
+  class(FlowProblem), intent(inout) :: problem
+
+  integer :: b
+
+  associate(bc => problem % bc)
+    do b = 1, size(bc,1)
+      if (all(bc(b,1:3) == 'D')) then
+        ! Dirichlet conditions for velocity
+        bc(b,4) = 'N'
+      else if (all(bc(b,1:3) == 'P')) then
+        ! periodic conditions for velocity
+        bc(b,4) = 'P'
+      else
+        call Error('GeneratePressureBC','invalid velocity BC','ISP_Flow_Problem')
+      end if
+    end do
+  end associate
+
+end subroutine GeneratePressureBC
 
 !===============================================================================
 

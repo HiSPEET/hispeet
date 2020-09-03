@@ -24,6 +24,7 @@ module CART__ISP_Flow__Pressure__MO
   private
 
   public :: PressureSolver_MO
+  public :: ComputePressure_MO
 
   interface PressureSolver_MO
     module procedure PressureSolver_IBC
@@ -90,8 +91,7 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
     !$omp end single
 
     ! f = -∫ψ(∇·ṽ)dx / ∆t
-    call WeakDivergence(mesh, eop_u%w, eop_u%D, v_i, div_v) ! q = ∇·ṽ
-
+    call WeakDivergence(mesh, eop_u%w, eop_u%D, v_i, div_v)
     call ScaleArray(div_v, -ONE/dt)
     call pop_up % Apply(div_v, f)
 
@@ -138,6 +138,224 @@ contains
   end subroutine AssignWorkspace
 
 end subroutine PressureSolver_IBC
+
+!-------------------------------------------------------------------------------
+!> Mixed-order pressure solver with consistent boundary conditions
+
+subroutine PressureSolver_CBC(problem, flow_op, t, dt, v_i, F_v, p, w, i_max)
+
+  ! arguments ..................................................................
+
+  class(FlowProblem),   intent(in)    :: problem         !< flow problem
+  class(FlowOperators), intent(inout) :: flow_op         !< flow operators
+  real(RNP),            intent(in)    :: t               !< time
+  real(RNP),            intent(in)    :: dt              !< time-step size
+  real(RNP),            intent(in)    :: v_i(:,:,:,:,:)  !< ṽ         @ po_u
+  real(RNP),            intent(in)    :: F_v(:,:,:,:,:)  !< ∂ṽ/∂t     @ po_u
+  real(RNP),            intent(inout) :: p(:,:,:,:)      !< pressure  @ po_u
+  real(RNP),  target,   intent(out)   :: w(:,:,:,:,:)    !< workspace @ po_u
+  integer,    optional, intent(in)    :: i_max           !< num MG/CG cycles
+
+  ! local variables  ...........................................................
+
+  real(RNP), pointer, contiguous, save :: div_v(:,:,:,:) ! pressure  @ po_p
+  real(RNP), pointer, contiguous, save :: f(:,:,:,:)     ! RHS       @ po_p
+  real(RNP), pointer, contiguous, save :: q(:,:,:,:)     ! pressure  @ po_p
+  type(BoundaryVariable), allocatable, save :: bv_q(:)   ! boundary values for q
+
+  real(RNP) :: r_2
+  integer   :: pq, pv, ne, ni
+  integer   :: b
+
+  if (present(i_max)) then
+    if (i_max <= 0) return
+  end if
+
+  associate( mesh   => flow_op % mesh      &
+           , eop_u  => flow_op % eop_u     &
+           , pop_up => flow_op % pop_up    &
+           , iop_up => flow_op % iop_up    &
+           , iop_pu => flow_op % iop_pu    &
+           , pmg    => flow_op % pmg_p     &
+           , bc     => problem % bc(:,4)   &
+           )
+
+    ! preliminaries ............................................................
+
+    pq = flow_op % po_p
+    pv = flow_op % po_u
+    ne = mesh%ne
+
+    !$omp single
+
+    call AssignWorkspace(size(w), w)
+
+    ! pressure boundary values @ pq
+    allocate(bv_q(mesh % n_boundary))
+    do b = 1, mesh % n_boundary
+      bv_q(b) = BoundaryVariable(mesh, pq, b, bc(b))
+    end do
+
+    !$omp end single
+
+    ! f = -∫ψ(∇·ṽ)dx / ∆t
+    call WeakDivergence(mesh, eop_u%w, eop_u%D, v_i, div_v)
+    call ScaleArray(div_v, -ONE/dt)
+    call pop_up % Apply(div_v, f)
+
+    ! compute and apply boundary conditions
+    call GetConsistentBC(problem, mesh, iop_up%A, flow_op%bv_x, t, F_v, bv_q)
+    call pmg % BcToRHS(bv_q, 1, f)
+
+    ! interpolate initial values from p to q
+    call iop_up % Apply(p, q)
+
+    ! pressure .................................................................
+
+    ! compute
+    call pmg % MG_CG_Solver(q, f, ni, r_2, i_max)
+
+    ! monitoring
+    !$omp single
+    if (flow_op % control % monitor > 0 .and. mesh % part == 0) then
+      print '(4X,A,I4,A,ES9.2)', 'pressure  p:    ni =', ni, ', ‖r‖ =', r_2
+    end if
+    !$omp end single
+
+    ! interpolate to velocity space: p = I(q)
+    call iop_pu % Apply(q, p)
+
+    ! clean-up .................................................................
+
+    !$omp barrier
+    !$omp master
+    nullify(div_v, f, q)
+    deallocate(bv_q)
+    !$omp end master
+
+  end associate
+
+contains
+
+  subroutine AssignWorkspace(l, w)
+    integer, intent(in) :: l
+    real(RNP), target   :: w(l)
+    div_v (0:pv, 0:pv, 0:pv, 1:ne) => w(1:)
+    f     (0:pq, 0:pq, 0:pq, 1:ne) => w(1 + size(div_v):)
+    q     (0:pq, 0:pq, 0:pq, 1:ne) => w(1 + size(div_v) + size(f):)
+  end subroutine AssignWorkspace
+
+
+end subroutine PressureSolver_CBC
+
+!-------------------------------------------------------------------------------
+!> Mixed-order pressure computation
+
+subroutine ComputePressure_MO(problem, flow_op, t, F_v, p, w, i_max)
+
+  ! arguments ..................................................................
+
+  class(FlowProblem),   intent(in)    :: problem         !< flow problem
+  class(FlowOperators), intent(inout) :: flow_op         !< flow operators
+  real(RNP),            intent(in)    :: t               !< time
+  real(RNP),            intent(in)    :: F_v(:,:,:,:,:)  !< ∂v/∂t + ∇p  @ po_u
+  real(RNP),            intent(inout) :: p(:,:,:,:)      !< pressure    @ po_u
+  real(RNP),  target,   intent(out)   :: w(:,:,:,:,:)    !< workspace   @ po_u
+  integer,    optional, intent(in)    :: i_max           !< num MG/CG cycles
+
+  ! local variables  ...........................................................
+
+  real(RNP), pointer, contiguous, save :: s(:,:,:,:)   ! div(F_v)  @ po_u
+  real(RNP), pointer, contiguous, save :: f(:,:,:,:)   ! RHS       @ po_p
+  real(RNP), pointer, contiguous, save :: q(:,:,:,:)   ! pressure  @ po_p
+  type(BoundaryVariable), allocatable, save :: bv_q(:) ! boundary values for q
+
+  real(RNP) :: g, r_2
+  integer   :: pv, pq, ne, ni, nq
+  integer   :: b
+
+  if (present(i_max)) then
+    if (i_max <= 0) return
+  end if
+
+  associate( mesh   => flow_op % mesh      &
+           , eop_u  => flow_op % eop_u     &
+           , eop_p  => flow_op % eop_p     &
+           , iop_up => flow_op % iop_up    &
+           , iop_pu => flow_op % iop_pu    &
+           , pmg    => flow_op % pmg_p     &
+           , bc     => problem % bc(:,4)   &
+           )
+
+    ! preliminaries ............................................................
+
+    pv = flow_op % po_u
+    pq = flow_op % po_p
+    nq = pq + 1
+    ne = mesh%ne
+
+    !$omp single
+
+    call AssignWorkspace(size(w), w)
+
+    ! pressure boundary values @ pq
+    allocate(bv_q(mesh % n_boundary))
+    do b = 1, mesh % n_boundary
+      bv_q(b) = BoundaryVariable(mesh, pq, b, bc(b))
+    end do
+
+    !$omp end single
+
+    g = -product(mesh%dx) / 8
+
+    ! f = I(∇·F), I - interpolation to pressure space
+    call WeakDivergence(mesh, eop_u%w, eop_u%D, F_v, s) ! s =  ∇·F_v
+    call iop_up % Apply(s, q)                           ! q =  I(q)
+    call TPO_sDDD_Eval(nq, ne, g, eop_p%w, q, f)        ! f = -M q
+
+    ! compute and apply boundary conditions
+    call GetConsistentBC(problem, mesh, iop_up%A, flow_op%bv_x, t, F_v, bv_q)
+    call pmg % BcToRHS(bv_q, 1, f)
+
+    ! interpolate initial values from p to q
+    call iop_up % Apply(p, q)
+
+    ! pressure .................................................................
+
+    ! compute
+    call pmg % MG_CG_Solver(q, f, ni, r_2, i_max)
+
+    ! monitoring
+    !$omp single
+    if (flow_op % control % monitor > 0 .and. mesh % part == 0) then
+      print '(4X,A,I4,A,ES9.2)', 'pressure  p:    ni =', ni, ', ‖r‖ =', r_2
+    end if
+    !$omp end single
+
+    ! interpolate to velocity space: p = I(q)
+    call iop_pu % Apply(q, p)
+
+    ! clean-up .................................................................
+
+    !$omp barrier
+    !$omp master
+    nullify(s, f, q)
+    deallocate(bv_q)
+    !$omp end master
+
+  end associate
+
+contains
+
+  subroutine AssignWorkspace(l, w)
+    integer, intent(in) :: l
+    real(RNP), target   :: w(l)
+    s(0:pv, 0:pv, 0:pv, 1:ne) => w(1:)
+    f(0:pq, 0:pq, 0:pq, 1:ne) => w(1 + size(s):)
+    q(0:pq, 0:pq, 0:pq, 1:ne) => w(1 + size(s) + size(f):)
+  end subroutine AssignWorkspace
+
+end subroutine ComputePressure_MO
 
 !-------------------------------------------------------------------------------
 !> Implied pressure boundary conditions
@@ -248,113 +466,6 @@ subroutine GetImpliedBC(problem, mesh, A, dt, v_i, bv_v, bv_q)
   end do
 
 end subroutine GetImpliedBC
-
-!-------------------------------------------------------------------------------
-!> Mixed-order pressure solver with consistent boundary conditions
-
-subroutine PressureSolver_CBC(problem, flow_op, F_v, t, p, w, i_max)
-
-  ! arguments ..................................................................
-
-  class(FlowProblem),   intent(in)    :: problem         !< flow problem
-  class(FlowOperators), intent(inout) :: flow_op         !< flow operators
-  real(RNP),            intent(in)    :: F_v(:,:,:,:,:)  !< ∂ṽ/∂t     @ po_u
-  real(RNP),            intent(in)    :: t               !< time
-  real(RNP),            intent(inout) :: p(:,:,:,:)      !< pressure  @ po_u
-  real(RNP),  target,   intent(out)   :: w(:,:,:,:,:)    !< workspace @ po_u
-  integer,    optional, intent(in)    :: i_max           !< num MG/CG cycles
-
-  ! local variables  ...........................................................
-
-  real(RNP), pointer, contiguous, save :: v(:,:,:,:,:) ! ∂ṽ/∂t     @ po_p
-  real(RNP), pointer, contiguous, save :: q(:,:,:,:)   ! pressure  @ po_p
-  real(RNP), pointer, contiguous, save :: f(:,:,:,:)   ! RHS       @ po_p
-  type(BoundaryVariable), allocatable, save :: bv_q(:) ! boundary values for q
-
-  real(RNP) :: g, r_2
-  integer   :: pq, ne, ni, nq
-  integer   :: b
-
-  if (present(i_max)) then
-    if (i_max <= 0) return
-  end if
-
-  associate( mesh   => flow_op % mesh      &
-           , eop_p  => flow_op % eop_p     &
-           , iop_up => flow_op % iop_up    &
-           , iop_pu => flow_op % iop_pu    &
-           , pmg    => flow_op % pmg_p     &
-           , bc     => problem % bc(:,4)   &
-           )
-
-    ! preliminaries ............................................................
-
-    pq = flow_op % po_p
-    nq = pq + 1
-    ne = mesh%ne
-
-    !$omp single
-
-    call AssignWorkspace(size(w), w)
-
-    ! pressure boundary values @ pq
-    allocate(bv_q(mesh % n_boundary))
-    do b = 1, mesh % n_boundary
-      bv_q(b) = BoundaryVariable(mesh, pq, b, bc(b))
-    end do
-
-    !$omp end single
-
-    g = -product(mesh%dx) / 8
-
-    ! f = ∇·I(∂ṽ/∂t), I - interpolation to pressure space
-    call iop_up % Apply(F_v, v)                         ! v = I(∂ṽ/∂t)
-    call WeakDivergence(mesh, eop_p%w, eop_p%D, v, q)   ! q = ∇·v
-    call TPO_sDDD_Eval(nq, ne, g, eop_p%w, q, f)        ! f = -M q
-
-    ! compute and apply boundary conditions
-    call GetConsistentBC(problem, mesh, iop_up%A, flow_op%bv_x, t, F_v, bv_q)
-    call pmg % BcToRHS(bv_q, 1, f)
-
-    ! interpolate initial values from p to q
-    call iop_up % Apply(p, q)
-
-    ! pressure .................................................................
-
-    ! compute
-    call pmg % MG_CG_Solver(q, f, ni, r_2, i_max)
-
-    ! monitoring
-    !$omp single
-    if (flow_op % control % monitor > 0 .and. mesh % part == 0) then
-      print '(4X,A,I4,A,ES9.2)', 'pressure  p:    ni =', ni, ', ‖r‖ =', r_2
-    end if
-    !$omp end single
-
-    ! interpolate to velocity space: p = I(q)
-    call iop_pu % Apply(q, p)
-
-    ! clean-up .................................................................
-
-    !$omp barrier
-    !$omp master
-    nullify(v, q, f)
-    deallocate(bv_q)
-    !$omp end master
-
-  end associate
-
-contains
-
-  subroutine AssignWorkspace(l, w)
-    integer, intent(in) :: l
-    real(RNP), target   :: w(l)
-    f(0:pq, 0:pq, 0:pq, 1:ne)      => w(1:)
-    v(0:pq, 0:pq, 0:pq, 1:ne, 1:3) => w(1:)
-    q(0:pq, 0:pq, 0:pq, 1:ne)      => w(1 + size(v):)
-  end subroutine AssignWorkspace
-
-end subroutine PressureSolver_CBC
 
 !-------------------------------------------------------------------------------
 !> Consistent pressure boundary conditions

@@ -8,6 +8,7 @@ module ISP_Flow_Problem__Test_Suite
 
   use ISP_Flow_Problem
   use ISP_Flow_Problem__Channel           , only: FlowProblem_Channel
+  use ISP_Flow_Problem__No_Flow           , only: FlowProblem_No_Flow
   use ISP_Flow_Problem__Poiseuille        , only: FlowProblem_Poiseuille
   use ISP_Flow_Problem__Stokes_DKM        , only: FlowProblem_Stokes_DKM
   use ISP_Flow_Problem__Stokes_GMS        , only: FlowProblem_Stokes_GMS

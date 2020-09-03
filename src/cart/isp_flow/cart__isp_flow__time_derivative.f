@@ -43,6 +43,7 @@ module CART__ISP_Flow__Time_Derivative
   use CART__TPO_Grad
   use CART__TPO_RotRot
   use CART__Mesh_Partition
+  use CART__Boundary_Variable
   use CART__DG_Weak_Gradient
   use CART__DG_Weak_Divergence
   use CART__ISP_Flow__Operators
@@ -106,6 +107,7 @@ subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu, chi,      &
   integer   :: po, np, ne, nc
 
   associate( mesh => flow_op % mesh          &
+           , bv_u => flow_op % bv_u          &
            , Ms   => flow_op % eop_u % w     &
            , Ds   => flow_op % eop_u % D     &
            , Dd   => flow_op % eop_u % D     )
@@ -190,8 +192,8 @@ subroutine TimeDerivative( problem, flow_op, t, u_c, u_d, p, nu, chi,      &
         call DiffTimeDeriv_Scalars_VI (mesh, Ms, Dd, v, u_d, w, F, F_d, F_d1)
       else
         associate(nu => problem % nu_ref)
-          call DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi_, u_d, w, F, F_d, &
-                                         F_d1, F_d2, F_d3)
+          call DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi_, bv_u, u_d, w, &
+                                         F, F_d, F_d1, F_d2, F_d3)
           call DiffTimeDeriv_Scalars_CI(mesh, Ms, Dd, nu, u_d, w, F, F_d, F_d1)
         end associate
       end if
@@ -237,23 +239,27 @@ end subroutine TimeDerivative
 !> using the weak (projected) form of the outer divergence and gradient
 !> operators.
 
-subroutine DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
+subroutine DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi, bv_u, v, w, F, F_d, &
     F_d1, F_d2, F_d3)
-  class(MeshPartition), intent(in)    :: mesh            !< mesh partition
-  real(RNP),            intent(in)    :: Ms  (:)         !< standard mass matrix
-  real(RNP),            intent(in)    :: Dd  (:,:)       !< standard diff matrix
-  real(RNP),            intent(in)    :: nu  (:)         !< viscosity
-  real(RNP),            intent(in)    :: chi             !< factor of ν∇∇·v
-  real(RNP),            intent(in)    :: v   (:,:,:,:,:) !< velocity, v(*,1:3)
-  real(RNP),            intent(inout) :: w   (:,:,:,:,:) !< workspace
-  real(RNP),  optional, intent(inout) :: F   (:,:,:,:,:) !< time derivative ∂v/∂t
-  real(RNP),  optional, intent(out)   :: F_d (:,:,:,:,:) !< ∂u/∂t diffusive part
-  real(RNP),  optional, intent(out)   :: F_d1(:,:,:,:,:) !< ∇·ν∇v contribution
-  real(RNP),  optional, intent(out)   :: F_d2(:,:,:,:,:) !< ν∇∇·v contribution
-  real(RNP),  optional, intent(out)   :: F_d3(:,:,:,:,:) !< χν∇∇·v contribution
+  class(MeshPartition),    intent(in)    :: mesh            !< mesh partition
+  real(RNP),               intent(in)    :: Ms  (:)         !< standard mass matrix
+  real(RNP),               intent(in)    :: Dd  (:,:)       !< standard diff matrix
+  real(RNP),               intent(in)    :: nu  (:)         !< viscosity
+  real(RNP),               intent(in)    :: chi             !< factor of ν∇∇·v
+  class(BoundaryVariable), intent(in)    :: bv_u(:)         !< boundary values
+  real(RNP),               intent(in)    :: v   (:,:,:,:,:) !< velocity, v(*,1:3)
+  real(RNP),               intent(inout) :: w   (:,:,:,:,:) !< workspace
+  real(RNP),     optional, intent(inout) :: F   (:,:,:,:,:) !< time derivative ∂v/∂t
+  real(RNP),     optional, intent(out)   :: F_d (:,:,:,:,:) !< ∂u/∂t diffusive part
+  real(RNP),     optional, intent(out)   :: F_d1(:,:,:,:,:) !< ∇·ν∇v contribution
+  real(RNP),     optional, intent(out)   :: F_d2(:,:,:,:,:) !< ν∇∇·v contribution
+  real(RNP),     optional, intent(out)   :: F_d3(:,:,:,:,:) !< χν∇∇·v contribution
 
-  integer :: ne, np
-  integer :: c
+  type(BoundaryVariable), allocatable, save :: bv_s(:) ! scalar boundary values
+  type(BoundaryVariable), allocatable, save :: bv_v(:) ! vector boundary values
+
+  integer :: ne, np, po
+  integer :: b, c
 
   if (.not. ( present(F)    .or. &
               present(F_d)  .or. &
@@ -261,17 +267,34 @@ subroutine DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
               present(F_d2) .or. &
               present(F_d3)     )) return
 
-  np = size(Ms)
   ne = mesh%ne
+  np = size(Ms)
+  po = np - 1
+
+  !$omp single
+  allocate(bv_s(mesh % n_boundary))
+  allocate(bv_v(mesh % n_boundary))
+  do b = 1, mesh % n_boundary
+    bv_s(b) = BoundaryVariable(mesh, po, b, nc=1)
+    bv_v(b) = BoundaryVariable(mesh, po, b, nc=3)
+  end do
+  !$omp end single
 
   associate(g => w(:,:,:,:,1:3), q => w(:,:,:,:,4))
 
     ! div-grad part
     if (present(F) .or. present(F_d) .or. present(F_d1)) then
       do c = 1, 3
-        call TPO_Grad_Eval(np, ne, Dd, mesh%dx, v(:,:,:,:,c), g)
+        do b = 1, mesh % n_boundary
+          bv_s(b) % bc(1)        = bv_u(b) % bc(c)
+          bv_s(b) % val(:,:,:,1) = bv_u(b) % val(:,:,:,c)
+        end do
+       !call TPO_Grad_Eval(np, ne, Dd, mesh%dx, v(:,:,:,:,c), g)
+        call WeakGradient(mesh, Ms, Dd, v(:,:,:,:,c), g)
+       !call WeakGradient(mesh, Ms, Dd, v(:,:,:,:,c), bv_s, g) !***
         call ScaleArray(g, nu(c), multi=.true.)
-        call WeakDivergence(mesh, Ms, Dd, g, q)
+       !call WeakDivergence(mesh, Ms, Dd, g, q)
+        call TPO_Div_Eval(np, ne, Dd, mesh%dx, g, q)
         if (present(F)) then
           call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
         end if
@@ -286,10 +309,17 @@ subroutine DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
 
     ! F_d2 and F_d3
     if (present(F) .or. present(F_d) .or. present(F_d2) .or. present(F_d3)) then
-      call TPO_Div_Eval(np, ne, Dd, mesh%dx, v, q)
+      do b = 1, mesh % n_boundary
+        bv_v(b) % bc(1:3)        = bv_u(b) % bc(1:3)
+        bv_v(b) % val(:,:,:,1:3) = bv_u(b) % val(:,:,:,1:3)
+      end do
+     !call TPO_Div_Eval(np, ne, Dd, mesh%dx, v, q)
+      call WeakDivergence(mesh, Ms, Dd, v, q)
+     !call WeakDivergence(mesh, Ms, Dd, v, bv_v, q) !***
       call ScaleArray(q, sum(nu(1:3))/3)
-      call WeakGradient(mesh, Ms, Dd, q, g)
-      if (present(F_d)) then
+     !call WeakGradient(mesh, Ms, Dd, q, g)
+      call TPO_Grad_Eval(np, ne, Dd, mesh%dx, q, g)
+      if (present(F)) then
         call MergeArrays(ONE, F(:,:,:,:,1:3), 1+chi, g, multi=.true.)
       end if
       if (present(F_d)) then
@@ -304,6 +334,11 @@ subroutine DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
     end if
 
   end associate
+
+  !$omp barrier
+  !$omp master
+  deallocate(bv_s, bv_v)
+  !$omp end master
 
 end subroutine DiffTimeDeriv_Velocity_CI
 

@@ -472,7 +472,7 @@ contains
                , p   => u (:,:,:,:,4)   )
         call TimeDerivative( this % problem, this % flow_op, t, u, u      &
                            , nu = nu_i, chi = this%corrector%chi, F = F_v )
-        call PressureSolver( this % problem, this % flow_op, F_v, t, p, w )
+        call ComputePressure( this % problem, this % flow_op, t, F_v, p, w )
       end associate
     end if
 

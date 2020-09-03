@@ -24,6 +24,7 @@ module CART__ISP_Flow__Pressure__EO
   private
 
   public :: PressureSolver_EO
+  public :: ComputePressure_EO
 
   interface PressureSolver_EO
     module procedure PressureSolver_IBC
@@ -93,6 +94,140 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
   end associate
 
 end subroutine PressureSolver_IBC
+
+!-------------------------------------------------------------------------------
+!>  Equal-order pressure solver with consistent boundary conditions
+
+subroutine PressureSolver_CBC(problem, flow_op, t, dt, v_i, F_v, p, w, i_max)
+
+  ! arguments ..................................................................
+
+  class(FlowProblem),   intent(in)    :: problem         !< flow problem
+  class(FlowOperators), intent(inout) :: flow_op         !< flow operators
+  real(RNP),            intent(in)    :: t               !< time
+  real(RNP),            intent(in)    :: dt              !< time-step size
+  real(RNP),            intent(in)    :: v_i(:,:,:,:,:)  !< ṽ
+  real(RNP),            intent(in)    :: F_v(:,:,:,:,:)  !< ∂ṽ/∂t
+  real(RNP),            intent(inout) :: p(:,:,:,:)      !< pressure
+  real(RNP),            intent(out)   :: w(:,:,:,:,:)    !< workspace
+  integer,    optional, intent(in)    :: i_max           !< num MG/CG cycles
+
+  ! local variables  ...........................................................
+
+  real(RNP) :: g, r_2
+  integer   :: np, ne, ni
+
+  if (present(i_max)) then
+    if (i_max <= 0) return
+  end if
+
+  ! initialization .............................................................
+
+  if (all(problem % bc == 'P')) return
+
+  associate( mesh  => flow_op % mesh      &
+           , eop   => flow_op % eop_u     &
+           , pmg   => flow_op % pmg_p     &
+           , bc    => problem % bc(:,4)   &
+           , div_v => w(:,:,:,:,1)        &
+           , f     => w(:,:,:,:,2)        &
+           )
+
+    ! preliminaries ............................................................
+
+    np = size(p,1)
+    ne = size(p,4)
+
+    g = -product(mesh%dx) / (8 * dt)
+
+    ! RHS ......................................................................
+
+    call WeakDivergence(mesh, eop%w, eop%D, v_i, div_v)   ! div_v = ∇·ṽ
+    call TPO_sDDD_Eval(np, ne, g, eop%w, div_v, f)        ! f = -M div_v
+
+    call GetConsistentBC(problem, mesh, flow_op%bv_x, t, F_v, flow_op%bv_u)
+    call pmg % BcToRHS(flow_op%bv_u, 4, f)
+
+    ! pressure .................................................................
+
+    call pmg % MG_CG_Solver(p, f, ni, r_2, i_max)
+
+    ! monitoring
+    !$omp single
+    if (flow_op % control % monitor > 0 .and. mesh % part == 0) then
+      print '(4X,A,I4,A,ES9.2)', 'pressure  p:    ni =', ni, ', ‖r‖ =', r_2
+    end if
+    !$omp end single
+
+  end associate
+
+end subroutine PressureSolver_CBC
+
+!-------------------------------------------------------------------------------
+!>  Equal-order pressure computation
+
+subroutine ComputePressure_EO(problem, flow_op, t, F_v, p, w, i_max)
+
+  ! arguments ..................................................................
+
+  class(FlowProblem),   intent(in)    :: problem         !< flow problem
+  class(FlowOperators), intent(inout) :: flow_op         !< flow operators
+  real(RNP),            intent(in)    :: t               !< time
+  real(RNP),            intent(in)    :: F_v(:,:,:,:,:)  !< ∂v/∂t + ∇p
+  real(RNP),            intent(inout) :: p(:,:,:,:)      !< pressure
+  real(RNP),            intent(out)   :: w(:,:,:,:,:)    !< workspace
+  integer,    optional, intent(in)    :: i_max           !< num MG/CG cycles
+
+  ! local variables  ...........................................................
+
+  real(RNP) :: g, r_2
+  integer   :: np, ne, ni
+
+  if (present(i_max)) then
+    if (i_max <= 0) return
+  end if
+
+  ! initialization .............................................................
+
+  if (all(problem % bc == 'P')) return
+
+  associate( mesh  => flow_op % mesh      &
+           , eop   => flow_op % eop_u     &
+           , pmg   => flow_op % pmg_p     &
+           , bc    => problem % bc(:,4)   &
+           , div_F => w(:,:,:,:,1)        &
+           , f     => w(:,:,:,:,2)        &
+           )
+
+    ! preliminaries ............................................................
+
+    np = size(p,1)
+    ne = size(p,4)
+
+    g = -product(mesh%dx) / 8
+
+    ! RHS ......................................................................
+
+    call WeakDivergence(mesh, eop%w, eop%D, F_v, div_F) ! div_F = ∇·∂ṽ/∂t
+    call TPO_sDDD_Eval(np, ne, g, eop%w, div_F, f)      ! f = -M div_F
+
+    call GetConsistentBC(problem, mesh, flow_op%bv_x, t, F_v, flow_op%bv_u)
+    call pmg % BcToRHS(flow_op%bv_u, 4, f)
+
+    ! pressure .................................................................
+
+    call pmg % MG_CG_Solver(p, f, ni, r_2, i_max)
+
+    ! monitoring
+    !$omp single
+    if (flow_op % control % monitor > 0 .and. mesh % part == 0) then
+      print '(4X,A,I4,A,ES9.2)', 'pressure  p:    ni =', ni, ', ‖r‖ =', r_2
+    end if
+    !$omp end single
+
+  end associate
+
+end subroutine ComputePressure_EO
 
 !-------------------------------------------------------------------------------
 !> Implied pressure boundary conditions
@@ -191,72 +326,6 @@ subroutine GetImpliedBC(problem, mesh, dt, v_i, bv_u)
   end do
 
 end subroutine GetImpliedBC
-
-!-------------------------------------------------------------------------------
-!>  Equal-order pressure solver with consistent boundary conditions
-
-subroutine PressureSolver_CBC(problem, flow_op, F_v, t, p, w, i_max)
-
-  ! arguments ..................................................................
-
-  class(FlowProblem),   intent(in)    :: problem         !< flow problem
-  class(FlowOperators), intent(inout) :: flow_op         !< flow operators
-  real(RNP),            intent(in)    :: F_v(:,:,:,:,:)  !< ∂ṽ/∂t
-  real(RNP),            intent(in)    :: t               !< time
-  real(RNP),            intent(inout) :: p(:,:,:,:)      !< pressure
-  real(RNP),            intent(out)   :: w(:,:,:,:,:)    !< workspace
-  integer,    optional, intent(in)    :: i_max           !< num MG/CG cycles
-
-  ! local variables  ...........................................................
-
-  real(RNP) :: g, r_2
-  integer   :: np, ne, ni
-
-  if (present(i_max)) then
-    if (i_max <= 0) return
-  end if
-
-  ! initialization .............................................................
-
-  if (all(problem % bc == 'P')) return
-
-  associate( mesh  => flow_op % mesh      &
-           , eop   => flow_op % eop_u     &
-           , pmg   => flow_op % pmg_p     &
-           , bc    => problem % bc(:,4)   &
-           , div_F => w(:,:,:,:,1)        &
-           , f     => w(:,:,:,:,2)        &
-           )
-
-    ! preliminaries ............................................................
-
-    np = size(p,1)
-    ne = size(p,4)
-
-    g = -product(mesh%dx) / 8
-
-    ! RHS ......................................................................
-
-    call WeakDivergence(mesh, eop%w, eop%D, F_v, div_F) ! div_F = ∇·∂ṽ/∂t
-    call TPO_sDDD_Eval(np, ne, g, eop%w, div_F, f)      ! f = -M div_F
-
-    call GetConsistentBC(problem, mesh, flow_op%bv_x, t, F_v, flow_op%bv_u)
-    call pmg % BcToRHS(flow_op%bv_u, 4, f)
-
-    ! pressure .................................................................
-
-    call pmg % MG_CG_Solver(p, f, ni, r_2, i_max)
-
-    ! monitoring
-    !$omp single
-    if (flow_op % control % monitor > 0 .and. mesh % part == 0) then
-      print '(4X,A,I4,A,ES9.2)', 'pressure  p:    ni =', ni, ', ‖r‖ =', r_2
-    end if
-    !$omp end single
-
-  end associate
-
-end subroutine PressureSolver_CBC
 
 !-------------------------------------------------------------------------------
 !> Consistent pressure boundary conditions

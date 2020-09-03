@@ -11,6 +11,7 @@ target_link_libraries(isp_flow__sdc_test HiCart)
 # Test cases
 
 add_subdirectory(channel)
+add_subdirectory(no_flow)
 add_subdirectory(poiseuille)
 add_subdirectory(stokes_dkm)
 add_subdirectory(stokes_gms)

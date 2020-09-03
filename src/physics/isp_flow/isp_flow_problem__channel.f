@@ -146,6 +146,7 @@ subroutine SetProblem(problem, file, comm)
   problem % x1              = [l, h, w]
 
   call move_alloc(bc, problem % bc)
+  call problem % GeneratePressureBC()
 
 end subroutine SetProblem
 
