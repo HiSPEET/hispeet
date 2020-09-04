@@ -37,11 +37,9 @@ module CART__ISP_Flow__Time_Derivative
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE, TWO
   use Array_Assignments
-  use TPO_sDDD
+  use TPO__Div_3d_R
+  use TPO__Grad_3d_R
   use ISP_Flow_Problem
-  use CART__TPO_Div
-  use CART__TPO_Grad
-  use CART__TPO_RotRot
   use CART__Mesh_Partition
   use CART__Boundary_Variable
   use CART__DG_Weak_Gradient
@@ -289,12 +287,12 @@ subroutine DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi, bv_u, v, w, F, F_d, 
           bv_s(b) % bc(1)        = bv_u(b) % bc(c)
           bv_s(b) % val(:,:,:,1) = bv_u(b) % val(:,:,:,c)
         end do
-       !call TPO_Grad_Eval(np, ne, Dd, mesh%dx, v(:,:,:,:,c), g)
+       !call TPO_Grad_R(Dd, mesh%dx, v(:,:,:,:,c), g)
         call WeakGradient(mesh, Ms, Dd, v(:,:,:,:,c), g)
        !call WeakGradient(mesh, Ms, Dd, v(:,:,:,:,c), bv_s, g) !***
         call ScaleArray(g, nu(c), multi=.true.)
        !call WeakDivergence(mesh, Ms, Dd, g, q)
-        call TPO_Div_Eval(np, ne, Dd, mesh%dx, g, q)
+        call TPO_Div_R(Dd, mesh%dx, g, q)
         if (present(F)) then
           call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
         end if
@@ -313,12 +311,12 @@ subroutine DiffTimeDeriv_Velocity_CI(mesh, Ms, Dd, nu, chi, bv_u, v, w, F, F_d, 
         bv_v(b) % bc(1:3)        = bv_u(b) % bc(1:3)
         bv_v(b) % val(:,:,:,1:3) = bv_u(b) % val(:,:,:,1:3)
       end do
-     !call TPO_Div_Eval(np, ne, Dd, mesh%dx, v, q)
+     !call TPO_Div_R(Dd, mesh%dx, v, q)
       call WeakDivergence(mesh, Ms, Dd, v, q)
      !call WeakDivergence(mesh, Ms, Dd, v, bv_v, q) !***
       call ScaleArray(q, sum(nu(1:3))/3)
      !call WeakGradient(mesh, Ms, Dd, q, g)
-      call TPO_Grad_Eval(np, ne, Dd, mesh%dx, q, g)
+      call TPO_Grad_R(Dd, mesh%dx, q, g)
       if (present(F)) then
         call MergeArrays(ONE, F(:,:,:,:,1:3), 1+chi, g, multi=.true.)
       end if
@@ -363,8 +361,6 @@ subroutine DiffTimeDeriv_Scalars_CI(mesh, Ms, Dd, nu, u, w, F, F_d, F_d1)
   real(RNP),  optional, intent(out)   :: F_d (:,:,:,:,:) !< ∂u/∂t diffusive part
   real(RNP),  optional, intent(out)   :: F_d1(:,:,:,:,:) !< ∇·ν∇u contribution
 
-  procedure(TPO_Grad_Proc), pointer :: Gradient
-
   integer :: nc, ne, np
   integer :: c
 
@@ -374,12 +370,10 @@ subroutine DiffTimeDeriv_Scalars_CI(mesh, Ms, Dd, nu, u, w, F, F_d, F_d1)
   ne = size(u,4)
   nc = size(u,5)
 
-  call TPO_Grad_Assign(np, Gradient)
-
   associate(g => w(:,:,:,:,1:3), q => w(:,:,:,:,4))
 
     do c = 5, nc
-      call Gradient(np, ne, Dd, mesh%dx, u(:,:,:,:,c), w)
+      call TPO_Grad_R(Dd, mesh%dx, u(:,:,:,:,c), w)
       call ScaleArray(g, nu(c), multi=.true.)
       call WeakDivergence(mesh, Ms, Dd, g, q)
       if (present(F)) then
@@ -441,8 +435,10 @@ subroutine DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
   allocate(grad_v(np,np,np,ne,3,3))
   !$omp end single
 
-  ! grad_v(c,d) = ∂ v_c / ∂ x_d,  i.e.  grad_v = (∇v)ᵀ
-  call TPO_Grad_Eval(np, 3*ne, Dd, mesh%dx, v(:,:,:,:,1:3), grad_v)
+  ! grad_v(d,c) = ∂ v_c / ∂ x_d,  i.e.  grad_v = ∇v
+  do c = 1, 3
+    call TPO_Grad_R(Dd, mesh%dx, v(:,:,:,:,c), grad_v(:,:,:,:,:,c))
+  end do
 
   associate(g => w(:,:,:,:,1:3), q => w(:,:,:,:,4))
 
@@ -459,7 +455,7 @@ subroutine DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
             do k = 1, np
             do j = 1, np
             do i = 1, np
-              g(i,j,k,e,d) = nu(i,j,k,e,1) * grad_v(i,j,k,e,c,d)
+              g(i,j,k,e,d) = nu(i,j,k,e,1) * grad_v(i,j,k,e,d,c)
             end do
             end do
             end do
@@ -488,7 +484,7 @@ subroutine DiffTimeDeriv_Velocity_VI(mesh, Ms, Dd, nu, chi, v, w, F, F_d, &
             do k = 1, np
             do j = 1, np
             do i = 1, np
-              g(i,j,k,e,d) = nu(i,j,k,e,1) * grad_v(i,j,k,e,d,c)
+              g(i,j,k,e,d) = nu(i,j,k,e,1) * grad_v(i,j,k,e,c,d)
             end do
             end do
             end do
@@ -575,8 +571,6 @@ subroutine DiffTimeDeriv_Scalars_VI(mesh, Ms, Dd, nu, u, w, F, F_d, F_d1)
   real(RNP),  optional, intent(inout) :: F_d (:,:,:,:,:) !< ∂u/∂t diffusive part
   real(RNP),  optional, intent(out)   :: F_d1(:,:,:,:,:) !< ∇·ν∇u contribution
 
-  procedure(TPO_Grad_Proc), pointer :: Gradient
-
   integer :: nc, ne, np
   integer :: c, d, e, i, j, k
 
@@ -586,13 +580,11 @@ subroutine DiffTimeDeriv_Scalars_VI(mesh, Ms, Dd, nu, u, w, F, F_d, F_d1)
   ne = size(u,4)
   nc = size(u,5)
 
-  call TPO_Grad_Assign(np, Gradient)
-
   associate(g => w(:,:,:,:,1:3), q => w(:,:,:,:,4))
 
     do c = 5, nc
 
-      call Gradient(np, ne, Dd, mesh%dx, u(:,:,:,:,c), g)
+      call TPO_Grad_R(Dd, mesh%dx, u(:,:,:,:,c), g)
 
       do d = 1, 3
         !$omp do

@@ -11,7 +11,7 @@ module CART__ISP_Flow__Pressure__EO
   use Kind_Parameters, only: RNP
   use Constants,       only: ONE
   use Array_Assignments
-  use TPO_sDDD
+  use TPO__Diagonal_3d
   use ISP_Flow_Problem
   use CART__Mesh_Partition
   use CART__Boundary_Variable
@@ -75,7 +75,7 @@ subroutine PressureSolver_IBC(problem, flow_op, dt, v_i, p, w, i_max)
     ! RHS ......................................................................
 
     call WeakDivergence(mesh, eop%w, eop%D, v_i, div_v)   ! div_v = ∇·ṽ
-    call TPO_sDDD_Eval(np, ne, g, eop%w, div_v, f)        ! f = -M div_v
+    call TPO_Diagonal(g, eop%w, div_v, f)                 ! f = -M div_v
 
     call GetImpliedBC(problem, mesh, dt, v_i, flow_op%bv_u)
     call pmg % BcToRHS(flow_op%bv_u, 4, f)
@@ -143,7 +143,7 @@ subroutine PressureSolver_CBC(problem, flow_op, t, dt, v_i, F_v, p, w, i_max)
     ! RHS ......................................................................
 
     call WeakDivergence(mesh, eop%w, eop%D, v_i, div_v)   ! div_v = ∇·ṽ
-    call TPO_sDDD_Eval(np, ne, g, eop%w, div_v, f)        ! f = -M div_v
+    call TPO_Diagonal(g, eop%w, div_v, f)                 ! f = -M div_v
 
     call GetConsistentBC(problem, mesh, flow_op%bv_x, t, F_v, flow_op%bv_u)
     call pmg % BcToRHS(flow_op%bv_u, 4, f)
@@ -209,7 +209,7 @@ subroutine ComputePressure_EO(problem, flow_op, t, F_v, p, w, i_max)
     ! RHS ......................................................................
 
     call WeakDivergence(mesh, eop%w, eop%D, F_v, div_F) ! div_F = ∇·∂ṽ/∂t
-    call TPO_sDDD_Eval(np, ne, g, eop%w, div_F, f)      ! f = -M div_F
+    call TPO_Diagonal(g, eop%w, div_F, f)               ! f = -M div_F
 
     call GetConsistentBC(problem, mesh, flow_op%bv_x, t, F_v, flow_op%bv_u)
     call pmg % BcToRHS(flow_op%bv_u, 4, f)

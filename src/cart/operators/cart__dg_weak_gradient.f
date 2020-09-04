@@ -10,7 +10,7 @@ module CART__DG_Weak_Gradient
 
   use Kind_Parameters, only: RNP
   use Standard_Operators_1D
-  use CART__TPO_Grad
+  use TPO__Grad_3d_R
   use CART__Mesh_Partition
   use CART__Boundary_Variable
   use CART__Trace_Operator
@@ -114,7 +114,7 @@ subroutine WeakGradient_X(mesh, po, ne, Ms, Ds, u, bv_u, grad_u)
 
   ! compute transposed gradient ..............................................
 
-  call TPO_Grad_Eval(po+1, mesh%ne, Dm, mesh%dx, u, grad_u)
+  call TPO_Grad_R(Dm, mesh%dx, u, grad_u)
 
   ! complete transfer ..........................................................
 

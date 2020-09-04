@@ -14,7 +14,7 @@ module CART__DG_Weak_Divergence
 
   use Kind_Parameters, only: RNP
   use Standard_Operators_1D
-  use CART__TPO_Div
+  use TPO__Div_3d_R
   use CART__Mesh_Partition
   use CART__Boundary_Variable
   use CART__Normal_Trace_Operator
@@ -110,7 +110,7 @@ subroutine WeakDivergence_X(mesh, po, ne, Ms, Ds, u, bv_u, div_u)
 
   ! compute transposed divergence ..............................................
 
-  call TPO_Div_Eval(po+1, mesh%ne, Ds, mesh%dx, u, div_u)
+  call TPO_Div_R(Ds, mesh%dx, u, div_u)
 
   ! complete transfer ..........................................................
 

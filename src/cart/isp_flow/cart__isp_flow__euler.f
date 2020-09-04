@@ -22,7 +22,6 @@ module CART__ISP_Flow__Euler
 
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE
-  use TPO_sDDD
   use Array_Assignments
   use ISP_Flow_Problem
   use CART__Mesh_Partition

@@ -9,7 +9,7 @@
 module CART__ISP_Flow__Diffusion
 
   use Kind_Parameters, only: RNP
-  use TPO_sDDD
+  use TPO__Diagonal_3d
   use ISP_Flow_Problem
   use CART__Boundary_Variable
   use CART__Elliptic_PMG
@@ -78,7 +78,7 @@ subroutine DiffusionStep(problem, flow_op, dt, f, u, w, nu, i_max)
 
       ! project sources
       g = product(mesh%dx) / (8 * dt)
-      call TPO_sDDD_Eval(np, ne, g, eop%w, f(:,:,:,:,c), fc)
+      call TPO_Diagonal(g, eop%w, f(:,:,:,:,c), fc)
 
       ! add boundary contributions
       call pmg % BcToRHS(flow_op%bv_u, c, fc)

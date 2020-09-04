@@ -11,7 +11,7 @@ module CART__DG_PMG_Transfer_Operators
   use Kind_Parameters, only: RNP
   use Gauss_Jacobi
   use Standard_Operators_1D
-  use TPO_AAA
+  use TPO__AAA_3d
 
   implicit none
   private
@@ -123,7 +123,7 @@ subroutine C2F_Interpolation(this, uc, uf)
   real(RNP), intent(in)  :: uc(0:,0:,0:,:) !< mesh variable of order pc
   real(RNP), intent(out) :: uf(0:,0:,0:,:) !< mesh variable of order pf
 
-  call TPO_AAA_Eval(this%pf+1, this%pc+1, size(uc,4), this%c2f_iop, uc, uf)
+  call TPO_AAA(this%c2f_iop, uc, uf)
 
 end subroutine C2F_Interpolation
 
@@ -135,7 +135,7 @@ subroutine F2C_Interpolation(this, uf, uc)
   real(RNP), intent(in)  :: uf(0:,0:,0:,:) !< mesh variable of order pf
   real(RNP), intent(out) :: uc(0:,0:,0:,:) !< mesh variable of order pc
 
-  call TPO_AAA_Eval(this%pc+1, this%pf+1, size(uf,4), this%f2c_iop, uf, uc)
+  call TPO_AAA(this%f2c_iop, uf, uc)
 
 end subroutine F2C_Interpolation
 
@@ -147,7 +147,7 @@ subroutine F2C_Restriction(this, uf, uc)
   real(RNP), intent(in)  :: uf(0:,0:,0:,:) !< mesh variable of order pf
   real(RNP), intent(out) :: uc(0:,0:,0:,:) !< mesh variable of order pc
 
-  call TPO_AAA_Eval(this%pc+1, this%pf+1, size(uf,4), this%f2c_rop, uf, uc)
+  call TPO_AAA(this%f2c_rop, uf, uc)
 
 end subroutine F2C_Restriction
 
@@ -159,7 +159,7 @@ subroutine F2C_Truncation(this, uf, uc)
   real(RNP), intent(in)  :: uf(0:,0:,0:,:) !< mesh variable of order pf
   real(RNP), intent(out) :: uc(0:,0:,0:,:) !< mesh variable of order pc
 
-  call TPO_AAA_Eval(this%pc+1, this%pf+1, size(uf,4), this%f2c_top, uf, uc)
+  call TPO_AAA(this%f2c_top, uf, uc)
 
 end subroutine F2C_Truncation
 

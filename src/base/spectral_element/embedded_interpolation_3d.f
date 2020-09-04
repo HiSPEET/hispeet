@@ -10,7 +10,7 @@ module Embedded_Interpolation_3D
   use Kind_Parameters, only: RNP
   use Standard_Operators_1D
   use Embedded_Interpolation
-  use TPO_AAA
+  use TPO__AAA_3d
   implicit none
   private
 
@@ -59,7 +59,7 @@ subroutine Interpolate_S(this, uo, ui)
   real(RNP), intent(in)  :: uo(:,:,:,:) !< original mesh variable
   real(RNP), intent(out) :: ui(:,:,:,:) !< interpolated mesh variable
 
-  call TPO_AAA_Eval(this%ni, this%no, size(uo,4), this%A, uo, ui)
+  call TPO_AAA(this%A, uo, ui)
 
 end subroutine Interpolate_S
 
@@ -71,7 +71,11 @@ subroutine Interpolate_A(this, uo, ui)
   real(RNP), intent(in)  :: uo(:,:,:,:,:) !< original mesh variable
   real(RNP), intent(out) :: ui(:,:,:,:,:) !< interpolated mesh variable
 
-  call TPO_AAA_Eval(this%ni, this%no, size(uo,4)*size(uo,5), this%A, uo, ui)
+  integer :: c
+
+  do c = 1, size(uo,5)
+    call TPO_AAA(this%A, uo(:,:,:,:,c), ui(:,:,:,:,c))
+  end do
 
 end subroutine Interpolate_A
 

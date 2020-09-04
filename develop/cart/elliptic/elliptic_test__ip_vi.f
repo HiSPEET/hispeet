@@ -12,7 +12,7 @@ program Elliptic_Test__IP_VI
   use Constants, only: PI, ZERO, ONE
   use Array_Assignments
   use Array_Reductions
-  use TPO_sDDD
+  use TPO__Diagonal_3d
   use XMPI
   use IP_Element_Operators_1D
   use Export_Volume_Data_To_VTK
@@ -269,7 +269,7 @@ program Elliptic_Test__IP_VI
 
     ! project source:  f = M r
     c0 = product(dx) / 8
-    call TPO_sDDD_Eval(po+1, mesh%ne, c0, elliptic_op%eop%w, r, f)
+    call TPO_Diagonal(c0, elliptic_op%eop%w, r, f)
 
     ! boundary values
     do b = 1, size(bc)

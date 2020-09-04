@@ -18,12 +18,12 @@ program ISP_Flow__SDC_Test
   use Array_Reductions
   use Standard_Operators_1D
   use Execution_Control
+  use TPO__Grad_3d_R
   use Export_Volume_Data_To_VTK
   use XMPI
 
   use ISP_Flow_Problem__Test_Suite
 
-  use CART__TPO_Grad
   use CART__Mesh_Partition
   use CART__Generate_Structured_Mesh
   use CART__DG_Weak_Divergence
@@ -741,12 +741,9 @@ subroutine Evaluation(failed, last)
           ! physical dissipation . . . . . . . . . . . . . . . . . . . . . . . .
 
           ! element velocity gradient
-          call TPO_Grad_Eval( np, ne, eop%D, mesh%dx, u(:,:,:,:,1), &
-                              grad_v(:,:,:,:,1:3,1)                 )
-          call TPO_Grad_Eval( np, ne, eop%D, mesh%dx, u(:,:,:,:,2), &
-                              grad_v(:,:,:,:,1:3,2)                 )
-          call TPO_Grad_Eval( np, ne, eop%D, mesh%dx, u(:,:,:,:,3), &
-                              grad_v(:,:,:,:,1:3,3)                 )
+          call TPO_Grad_R( eop%D, mesh%dx, u(:,:,:,:,1), grad_v(:,:,:,:,1:3,1) )
+          call TPO_Grad_R( eop%D, mesh%dx, u(:,:,:,:,2), grad_v(:,:,:,:,1:3,2) )
+          call TPO_Grad_R( eop%D, mesh%dx, u(:,:,:,:,3), grad_v(:,:,:,:,1:3,3) )
 
           ! local element contributions to physical dissipation
           eps_loc = 0
@@ -782,12 +779,9 @@ subroutine Evaluation(failed, last)
             end if
 
             ! element velocity gradient based on modified diff matrix
-            call TPO_Grad_Eval( np, ne, Ds_svv, mesh%dx, u(:,:,:,:,1), &
-                                grad_v(:,:,:,:,1:3,1)                 )
-            call TPO_Grad_Eval( np, ne, Ds_svv, mesh%dx, u(:,:,:,:,2), &
-                                grad_v(:,:,:,:,1:3,2)                 )
-            call TPO_Grad_Eval( np, ne, Ds_svv, mesh%dx, u(:,:,:,:,3), &
-                                grad_v(:,:,:,:,1:3,3)                 )
+            call TPO_Grad_R(Ds_svv, mesh%dx, u(:,:,:,:,1), grad_v(:,:,:,:,1:3,1))
+            call TPO_Grad_R(Ds_svv, mesh%dx, u(:,:,:,:,2), grad_v(:,:,:,:,1:3,2))
+            call TPO_Grad_R(Ds_svv, mesh%dx, u(:,:,:,:,3), grad_v(:,:,:,:,1:3,3))
 
             ! local element contributions to SVV dissipation
             eps_svv_loc = 0

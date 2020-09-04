@@ -12,7 +12,7 @@ module Export_Volume_Data_To_VTK
   use Gauss_Jacobi,    only: GLL_Points, GLL_Polynomial
   use C_Binding
   use VTK_Binding
-  use TPO_AAA
+  use TPO__AAA_3d
   use Structured_Mesh
   implicit none
   private
@@ -347,21 +347,27 @@ subroutine BuildQuadraticPointCoords(iop, xc, xg)
   real(RNP),      intent(in)  :: xc(:,:,:,:,:) !< mesh element points
   real(C_DOUBLE), intent(out) :: xg(:,:)       !< VTK grid points
 
-  real(RNP), allocatable :: w(:)
-  integer :: nc, ne, ng, np
+  real(RNP), allocatable, save :: w(:,:,:,:)
+  integer :: ne, ng, np
   integer :: i
 
   ng = size(iop,1)
-  nc = size(iop,2)
   ne = size(xc,4)
   np = size(xg,2)
 
-  allocate(w(np))
+  !$omp single
+  allocate(w(ng,ng,ng,ne))
+  !$omp end single
 
   do i = 1, 3
-    call TPO_AAA_Eval(ng, nc, ne, iop, xc(:,:,:,:,i), w)
-    xg(i,:) = w
+    call TPO_AAA(iop, xc(:,:,:,:,i), w)
+    xg(i,:) = reshape(w, [np])
   end do
+
+  !$omp barrier
+  !$omp master
+  deallocate(w)
+  !$omp end master
 
 end subroutine BuildQuadraticPointCoords
 
@@ -431,14 +437,28 @@ subroutine BuildQuadraticScalarData(iop, sc, sg)
   real(RNP),      intent(in)  :: sc(:,:,:,:,:) !< scalars at collocation points
   real(C_DOUBLE), intent(out) :: sg(:,:)       !< scalars at VTK grid points
 
-  integer :: nc, ne, ng, ns
+  real(RNP), allocatable, save :: w(:,:,:,:)
+  integer :: ne, ng, np, ns
+  integer :: i
 
   ng = size(iop,1)
-  nc = size(iop,2)
   ne = size(sc,4)
   ns = size(sc,5)
+  np = size(sg,2)
 
-  call TPO_AAA_Eval(ng, nc, ne*ns, iop, sc, sg)
+  !$omp single
+  allocate(w(ng,ng,ng,ne))
+  !$omp end single
+
+  do i = 1, ns
+    call TPO_AAA(iop, sc(:,:,:,:,i), w)
+    sg(:,i) = reshape(w, [np])
+  end do
+
+  !$omp barrier
+  !$omp master
+  deallocate(w)
+  !$omp end master
 
 end subroutine BuildQuadraticScalarData
 
@@ -450,24 +470,30 @@ subroutine BuildQuadraticVectorData(iop, vc, vg)
   real(RNP),      intent(in)  :: vc(:,:,:,:,:,:) !< vectors at collocation pts.
   real(C_DOUBLE), intent(out) :: vg(:,:,:)       !< vectors at VTK grid points
 
-  real(RNP), allocatable :: w(:)
-  integer :: nc, ne, ng, np, nv
+  real(RNP), allocatable, save :: w(:,:,:,:)
+  integer :: ne, ng, np, nv
   integer :: i, j
 
   ng = size(iop,1)
-  nc = size(iop,2)
   ne = size(vc,4)
   nv = size(vc,6)
   np = size(vg,2)
 
-  allocate(w(np))
+  !$omp single
+  allocate(w(ng,ng,ng,ne))
+  !$omp end single
 
   do j = 1, nv
     do i = 1, 3
-      call TPO_AAA_Eval(ng, nc, ne, iop, vc(:,:,:,:,i,j), w)
-      vg(i,:,j) = w
+      call TPO_AAA(iop, vc(:,:,:,:,i,j), w)
+      vg(i,:,j) = reshape(w, [np])
     end do
   end do
+
+  !$omp barrier
+  !$omp master
+  deallocate(w)
+  !$omp end master
 
 end subroutine BuildQuadraticVectorData
 

@@ -8,7 +8,7 @@
 module CART__ISP_Flow__Convection__IQ
 
   use Kind_Parameters, only: RNP
-  use TPO_AAA
+  use TPO__AAA_3d
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Convection__EQ
 
@@ -38,12 +38,11 @@ subroutine WeakConvectiveFlux_IQ(flow_op, u, div_f)
   real(RNP), dimension(:,:,:,:,:), allocatable, save :: uq, div_fq
 
   real(RNP), allocatable :: A(:,:)
-  integer :: nc, ne, nq, nu, pq, pu
+  integer :: nc, ne, nq, pq, pu
   integer :: i, k
 
   ! initialization .............................................................
 
-  nu = size(u,1)
   ne = size(u,4)
   nc = size(u,5)
 
@@ -80,7 +79,9 @@ subroutine WeakConvectiveFlux_IQ(flow_op, u, div_f)
                             , div_fq          )
 
   ! projection
-  call TPO_AAA_Eval(nu, nq, ne*nc, A, div_fq, div_f)
+  do i = 1, nc
+    call TPO_AAA(A, div_fq(:,:,:,:,i), div_f(:,:,:,:,i))
+  end do
 
   ! clean-up ...................................................................
 

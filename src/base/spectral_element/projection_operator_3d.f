@@ -11,7 +11,7 @@ module Projection_Operator_3D
   use Constants,       only: THIRD
   use Standard_Operators_1D
   use Projection_Operator
-  use TPO_AAA
+  use TPO__AAA_3d
   implicit none
   private
 
@@ -66,7 +66,7 @@ subroutine Project_S(this, uq, up)
   real(RNP), intent(in)  :: uq(:,:,:,:) !< mesh variable at quadrature points
   real(RNP), intent(out) :: up(:,:,:,:) !< projected mesh variable
 
-  call TPO_AAA_Eval(this%np, this%nq, size(uq,4), this%MA, uq, up)
+  call TPO_AAA(this%MA, uq, up)
 
 end subroutine Project_S
 
@@ -78,7 +78,11 @@ subroutine Project_A(this, uq, up)
   real(RNP), intent(in)  :: uq(:,:,:,:,:) !< mesh variable at quadrature points
   real(RNP), intent(out) :: up(:,:,:,:,:) !< projected mesh variable
 
-  call TPO_AAA_Eval(this%np, this%nq, size(uq,4)*size(uq,5), this%MA, uq, up)
+  integer :: c
+
+  do c = 1, size(uq,5)
+    call TPO_AAA(this%MA, uq(:,:,:,:,c), up(:,:,:,:,c))
+  end do
 
 end subroutine Project_A
 

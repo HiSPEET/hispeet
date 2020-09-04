@@ -22,12 +22,12 @@ module CART__ISP_Flow__Projection
   use Array_Assignments
   use Array_Reductions
   use Standard_Operators_1D
-  use TPO_sDDD
+  use TPO__Diagonal_3d
+  use TPO__Div_3d_R
+  use TPO__Grad_3d_R
 
   use ISP_Flow_Problem
 
-  use CART__TPO_Div
-  use CART__TPO_Grad
   use CART__Mesh_Partition
   use CART__Boundary_Variable
   use CART__Normal_Trace_Operator
@@ -110,7 +110,7 @@ subroutine ProjectionSolver(mesh, sop, dt, gamma, r_red, i_max, f, v)
   real(RNP) :: alpha, beta, rz, rz_old, rz_max
   real(RNP) :: g, g_inv
   integer   :: np, ne
-  integer   :: i
+  integer   :: i, k
 
   ! initialization .............................................................
 
@@ -140,7 +140,9 @@ subroutine ProjectionSolver(mesh, sop, dt, gamma, r_red, i_max, f, v)
     call MergeArrays(-ONE, z, ONE, f, multi = .true.)  ! z₀ = f  - z₀
 
     ! r₀ = M z₀
-    call TPO_sDDD_Eval(np, 3*ne, g, Ms, z, r)
+    do k = 1, 3
+      call TPO_Diagonal(g, Ms, z(:,:,:,:,k), r(:,:,:,:,k))
+    end do
 
     ! residual metrics
     rz = ScalarProduct(r, z, mesh%comm)
@@ -156,14 +158,18 @@ subroutine ProjectionSolver(mesh, sop, dt, gamma, r_red, i_max, f, v)
       ! q = M (p + Δt DivPenalty(p))
       call DivergencePenalty(mesh, Ms, Ds, gamma, p, z) ! z = DivPenalty(p)
       call MergeArrays(dt, z, ONE, p, multi = .true.)   ! z = Δt z + p
-      call TPO_sDDD_Eval(np, 3*ne, g, Ms, z, q)         ! q = M z
+      do k = 1, 3
+        call TPO_Diagonal(g, Ms, z(:,:,:,:,k), q(:,:,:,:,k)) ! q = M z
+      end do
 
       alpha = rz / ScalarProduct(p, q, mesh%comm)
 
       ! correction
       call MergeArrays(ONE, v,  alpha, p, multi = .true.) ! v = v + alpha p
       call MergeArrays(ONE, r, -alpha, q, multi = .true.) ! r = r - alpha q
-      call TPO_sDDD_Eval(np, 3*ne, g_inv, Ms_inv, r, z)   ! z = M⁻¹ z
+      do k = 1, 3
+        call TPO_Diagonal(g_inv, Ms_inv, r(:,:,:,:,k), z(:,:,:,:,k)) ! z = M⁻¹ r
+      end do
 
       rz = ScalarProduct(r, z, mesh%comm)
 
@@ -281,10 +287,10 @@ subroutine DivergencePenalty(mesh, Ms, Ds, gamma, v, w)
   end do
 
   ! divergence
-  call TPO_Div_Eval(np, ne, Ds, mesh%dx, v, div_v)
+  call TPO_Div_R(Ds, mesh%dx, v, div_v)
 
   ! transposed gradient with zero boundary flux, including penalty factor
-  call TPO_Grad_Eval(np, ne, Dt, mesh%dx, div_v, w)
+  call TPO_Grad_R(Dt, mesh%dx, div_v, w)
   call ScaleArray(w(:,:,:,:,1:3), gamma)
 
   ! element-boundary contributions  ............................................

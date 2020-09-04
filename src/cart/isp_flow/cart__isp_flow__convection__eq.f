@@ -11,7 +11,7 @@ module CART__ISP_Flow__Convection__EQ
   use Kind_Parameters, only: RNP
   use Constants,       only: HALF
   use Standard_Operators_1D
-  use CART__TPO_Div
+  use TPO__Div_3d_R
   use CART__Mesh_Partition
   use CART__Trace_Operator
 
@@ -39,8 +39,6 @@ subroutine WeakConvectiveFlux_EQ(mesh, sop, u, div_f)
 
   ! internal variables .........................................................
 
-  procedure(TPO_Div_Proc), pointer :: TPO_Div
-
   type(TraceOperator), allocatable, save :: trace_op
   real(RNP),           allocatable, save :: tr_u(:,:,:,:,:)
   real(RNP),           allocatable, save :: fc(:,:,:,:,:)
@@ -57,8 +55,6 @@ subroutine WeakConvectiveFlux_EQ(mesh, sop, u, div_f)
 
   po = sop % po
   nc = size(u,5)
-
-  call TPO_Div_Assign(po+1, TPO_Div)
 
   !$omp single
   allocate(trace_op)
@@ -91,7 +87,7 @@ subroutine WeakConvectiveFlux_EQ(mesh, sop, u, div_f)
       end do
     end do
 
-    call TPO_Div(po+1, mesh%ne, Ds=sop%D, dx=mesh%dx, u=fc, v=div_f(:,:,:,:,c))
+    call TPO_Div_R(Ds=sop%D, dx=mesh%dx, u=fc, v=div_f(:,:,:,:,c))
 
   end do
 

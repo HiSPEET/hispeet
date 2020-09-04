@@ -41,16 +41,6 @@ set(LINEAR_ALGEBRA linear_algebra/array_assignments.F
 #===============================================================================
 # tensor_product
 
-# pre-existing sources
-set(TENSOR_PRODUCT tensor_product/tpo_sddd.f
-                   tensor_product/tpo_sddd__gen.f )
-
-# configuration script
-set(TPO_CONFIG ${PROJECT_SOURCE_DIR}/bin/tpo_configure.py)
-
-# target directory of generated sources
-set(DEST ${CMAKE_CURRENT_BINARY_DIR})
-
 # add primitive directories to include path
 include_directories( tensor_product/primitives/IxIxQt
                      tensor_product/primitives/IxQtxI
@@ -60,7 +50,6 @@ include_directories( tensor_product/primitives/IxIxQt
                      tensor_product/primitives/CtxIxI )
 
 # parametrized operators
-include(cmake/tpo_aaa.cmake)
 include(cmake/tpo__aaa_3d.cmake)
 include(cmake/tpo__diagonal_3d.cmake)
 include(cmake/tpo__elliptic_3d.cmake)

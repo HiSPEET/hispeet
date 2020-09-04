@@ -1,35 +1,4 @@
 #===============================================================================
-# tensor_product
-
-# configuration script
-set(TPO_CONFIG ${PROJECT_SOURCE_DIR}/bin/tpo_configure.py)
-
-# shared directory for non/uniform operators
-set(UNIFORM    ${CMAKE_CURRENT_SOURCE_DIR}/tensor_product/shared/uniform)
-set(NONUNIFORM ${CMAKE_CURRENT_SOURCE_DIR}/tensor_product/shared/nonuniform)
-
-# target directory of generated sources
-set(DEST ${CMAKE_CURRENT_BINARY_DIR})
-
-# operators, adding themselves to TENSOR_PRODUCT
-include(cmake/cart__tpo_grad.cmake)
-include(cmake/cart__tpo_div.cmake)
-include(cmake/cart__tpo_rot.cmake)
-include(cmake/cart__tpo_rotrot.cmake)
-include(cmake/cart__tpo_elliptic_ci.cmake)
-include(cmake/cart__tpo_elliptic_vi.cmake)
-include(cmake/cart__tpo_spectral.cmake)
-include(cmake/cart__tpo_spectral_iso.cmake)
-include(cmake/cart__tpo_schwarz.cmake)
-include(cmake/cart__tpo_schwarz_iso.cmake)
-include(cmake/cart__tpo_schwarz_old.cmake)
-
-if (DEFINED Fortran_FLAGS_TPO)
-    set_source_files_properties(${TENSOR_PRODUCT}
-        PROPERTIES COMPILE_FLAGS ${Fortran_FLAGS_TPO})
-endif ()
-
-#===============================================================================
 # mesh
 
 set(MESH mesh/cart__mesh_face.f
@@ -97,21 +66,9 @@ set(ELLIPTIC elliptic/cart__schwarz_operator.f
              elliptic/cart__elliptic_pmg.f
              elliptic/cart__elliptic_pmg__mp_init.f
              elliptic/cart__elliptic_pmg__mp_setproblem.f
-             elliptic/cart__cg_elliptic_ci_bc.f
-             elliptic/cart__dg_elliptic_cis_bc.f
-             elliptic/cart__dg_elliptic_ciu_bc.f
-             elliptic/cart__dg_elliptic_cis_operator.f
-             elliptic/cart__dg_elliptic_ciu_operator.f
-             elliptic/cart__dg_elliptic_ci_operator.f
-             elliptic/cart__dg_elliptic_ci_residual.f
-             elliptic/cart__dg_elliptic_ci_conj_grad.f
-             elliptic/cart__dg_elliptic_ci_schwarz.f
-             elliptic/cart__dg_elliptic_ci_pmg_level.f
-             elliptic/cart__dg_elliptic_ci_pmg.f
              )
 
 #            elliptic/cart__elliptic_operator_cg.f
-
 
 #===============================================================================
 # isp_flow
@@ -142,8 +99,7 @@ set(ISP_FLOW isp_flow/cart__isp_flow__boundary_values.f
 #===============================================================================
 # cart library
 
-list(APPEND CART_SRC ${TENSOR_PRODUCT}
-                     ${SPECTRAL_ELEMENT}
+list(APPEND CART_SRC ${SPECTRAL_ELEMENT}
                      ${MESH}
                      ${VARIABLES}
                      ${INTRA_LEVEL}

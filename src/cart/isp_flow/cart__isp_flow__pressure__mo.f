@@ -11,7 +11,7 @@ module CART__ISP_Flow__Pressure__MO
   use Kind_Parameters, only: RNP
   use Constants,       only: ONE
   use Array_Assignments
-  use TPO_sDDD
+  use TPO__Diagonal_3d
   use ISP_Flow_Problem
   use CART__Mesh_Partition
   use CART__Boundary_Variable
@@ -311,7 +311,7 @@ subroutine ComputePressure_MO(problem, flow_op, t, F_v, p, w, i_max)
     ! f = I(∇·F), I - interpolation to pressure space
     call WeakDivergence(mesh, eop_u%w, eop_u%D, F_v, s) ! s =  ∇·F_v
     call iop_up % Apply(s, q)                           ! q =  I(q)
-    call TPO_sDDD_Eval(nq, ne, g, eop_p%w, q, f)        ! f = -M q
+    call TPO_Diagonal(g, eop_p%w, q, f)                 ! f = -M q
 
     ! compute and apply boundary conditions
     call GetConsistentBC(problem, mesh, iop_up%A, flow_op%bv_x, t, F_v, bv_q)

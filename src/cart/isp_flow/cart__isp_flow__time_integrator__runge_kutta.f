@@ -20,7 +20,6 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   use Kind_Parameters,   only: RNP
   use Constants,         only: ZERO, ONE
   use Execution_Control, only: Error
-  use TPO_sDDD
 
   use XMPI
   use Array_Assignments
