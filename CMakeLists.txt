@@ -1,8 +1,30 @@
-# Recommended environment
+# Environment
 #
-#     FC      set to MPI/Fortran compiler
-#     CC      set to MPI/C compiler
-#     CXX     set to MPI/C++ compiler
+#     FC    path to MPI/Fortran compiler
+#     CC    path to MPI/C compiler
+#     CXX   path to MPI/C++ compiler
+#
+#  Command-line options for cmake
+#
+#     -D CMAKE_BUILD_TYPE=⟨Release|Check|Debug⟩
+#         Release:  default build type
+#         Check:    similar to Release, with additional runtime checks
+#         Debug:    enables debugging, may fail with some compilers (Intel)
+#
+#     -D OPT=⟨n⟩
+#         overrides preset optimization level to -On
+#
+#     -D LIBXSMM=⟨0|1⟩
+#         0:  do not use LibXSMM
+#         1:  use LibXSMM if available (default)
+#
+#     -D OpenMP=⟨0|1⟩
+#         0:  compile without OpenMP (default)
+#         1:  compile with OpenMP
+#
+#     -D OpenACC=⟨0|1⟩
+#         0:  compile without OpenACC (default)
+#         1:  compile with OpenACC
 
 cmake_minimum_required(VERSION 3.5)
 
@@ -65,14 +87,6 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug")
     add_definitions(-DDEBUG)
 endif ()
 
-# Compiler environment module used in slurm scripts
-set(ENV_MODULE_COMPILER "$ENV(ENV_MODULE_COMPILER)")
-
-# Adopt externaly set compiler flags -- can be dangerous
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} $ENV{CFLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} $ENV{CXXFLAGS}")
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} $ENV{FFLAGS}")
-
 #-------------------------------------------------------------------------------
 # GNU
 
@@ -81,7 +95,12 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-form -Wall")
     set(CMAKE_Fortran_FLAGS_CHECK   "-fcheck=all -fbacktrace")
     set(CMAKE_Fortran_FLAGS_DEBUG   "-fcheck=all -fbacktrace -g")
-    set(CMAKE_Fortran_FLAGS_RELEASE "-O3" )
+
+    if (OPT)
+        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O${OPT}")
+    else (OPT)
+        set(CMAKE_Fortran_FLAGS_RELEASE "-O3" )
+    endif (OPT)
 
 #-------------------------------------------------------------------------------
 # Intel
@@ -91,7 +110,15 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -free -heap-arrays -warn all")
     set(CMAKE_Fortran_FLAGS_CHECK   "-CA -traceback")
     set(CMAKE_Fortran_FLAGS_DEBUG   "-CA -traceback -g")
-    set(CMAKE_Fortran_FLAGS_RELEASE "-O2 -ip" )
+    set(CMAKE_Fortran_FLAGS_RELEASE "-ip" )
+
+    if (OPT)
+        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O${OPT}")
+        set(Fortran_FLAGS_TPO "-diag-disable=6477 -O${OPT}")
+    else (OPT)
+        set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O2" )
+        set(Fortran_FLAGS_TPO "-diag-disable=6477 -O3")
+    endif (OPT)
 
     if (CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -diag-disable=cpu-dispatch")
@@ -101,9 +128,6 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-stack_size,0x40000000")
 
     endif ()
-
-    # do not warn about using Intel compiler directives
-    set(Fortran_FLAGS_TPO "-diag-disable=6477")
 
 #-------------------------------------------------------------------------------
 # PGI
@@ -121,7 +145,14 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
           )
 
     set(CMAKE_Fortran_FLAGS_DEBUG   "-g")
-    set(CMAKE_Fortran_FLAGS_RELEASE "-fast -O3" )
+    set(CMAKE_Fortran_FLAGS_CHECK   "-Mbounds")
+    set(CMAKE_Fortran_FLAGS_RELEASE "-fast" )
+
+    if (OPT)
+        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O${OPT}")
+    else (OPT)
+        set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O3" )
+    endif (OPT)
 
     set(Fortran_FLAGS_TPO "-Minline=reshape")
 
