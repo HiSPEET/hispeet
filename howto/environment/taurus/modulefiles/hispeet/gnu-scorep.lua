@@ -5,8 +5,6 @@ load("CMake")
 load("VTK/8.1.1-foss-2018b-Python-3.6.6")
 load("Score-P/6.0-gompi-2019b")
 
-setenv("ENV_MODULE_COMPILER", "hispeet/gnu-scorep")
-
 setenv("CC",  "scorep-mpicc")
 setenv("CXX", "scorep-mpicxx")
 setenv("FC",  "scorep-mpif90")

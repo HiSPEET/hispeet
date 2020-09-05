@@ -5,8 +5,6 @@ load("CMake")
 load("VTK/8.2.0-foss-2020a-Python-3.8.2")
 load("OpenMPI/4.0.4")
 
-setenv("ENV_MODULE_COMPILER", "hispeet/gnu")
-
 setenv("CC",  "mpicc")
 setenv("CXX", "mpicxx")
 setenv("FC",  "mpifort")
