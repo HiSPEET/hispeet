@@ -119,24 +119,35 @@ target_link_libraries(validate__tpo__schwarz_3d_ca HiBase)
 configure_file( validate__tpo__schwarz_3d_ca.prm
                 validate__tpo__schwarz_3d_ca.prm COPYONLY )
 
-##===============================================================================
-# Scripts
-#
-#file( COPY
-#           scripts/validate__tpo__elliptic_3d_rlci.prm.tmpl
-#      DESTINATION
-#           ${CMAKE_CURRENT_BINARY_DIR} )
-#
-#if (SLURM_FOUND)
-#
-#  if (OpenMP)
-#      set(RUN_SCRIPT scripts/validate__cart__tpo__slurm_omp.sh)
-#  elseif (OpenACC)
-#      set(RUN_SCRIPT scripts/validate__cart__tpo__slurm_acc.sh)
-#  else ()
-#      set(RUN_SCRIPT scripts/validate__cart__tpo__slurm_seq.sh)
-#  endif ()
-#
-#  configure_file(${RUN_SCRIPT} validate__cart__tpo__slurm.sh )
-#
-#endif (SLURM_FOUND)
+#===============================================================================
+ Scripts
+
+file( COPY
+           scripts/validate__tpo.sh
+           scripts/validate__tpo__aaa_3d.tmpl
+           scripts/validate__tpo__div_3d_r.tmpl
+           scripts/validate__tpo__elliptic_3d_rlci.tmpl
+           scripts/validate__tpo__elliptic_3d_rlvi.tmpl
+           scripts/validate__tpo__grad_3d_r.tmpl
+           scripts/validate__tpo__rot_3d_r.tmpl
+           scripts/validate__tpo__rotrot_3d_r.tmpl
+           scripts/validate__tpo__schwarz_3d_ca.tmpl
+           scripts/validate__tpo__schwarz_3d_ci.tmpl
+           scripts/validate__tpo__spectral_3d_ca.tmpl
+           scripts/validate__tpo__spectral_3d_ci.tmpl
+      DESTINATION
+           ${CMAKE_CURRENT_BINARY_DIR} )
+
+if (SLURM_FOUND)
+
+  if (OpenMP)
+      set(RUN_SCRIPT scripts/validate__tpo_omp.slurm)
+  elseif (OpenACC)
+      set(RUN_SCRIPT scripts/validate__tpo_acc.slurm)
+  else ()
+      set(RUN_SCRIPT scripts/validate__tpo_seq.slurm)
+  endif ()
+
+  configure_file(${RUN_SCRIPT} validate__tpo.slurm)
+
+endif (SLURM_FOUND)
