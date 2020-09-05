@@ -22,11 +22,6 @@
 #SBATCH --output=elliptic_test__ip_ci_%j.out  # output file
 
 # ------------------------------------------------------------------------------
-# Environment
-
-module load ${ENV_MODULE_COMPILER}
-
-# ------------------------------------------------------------------------------
 # Execution
 
 srun ../elliptic_test__ip_ci

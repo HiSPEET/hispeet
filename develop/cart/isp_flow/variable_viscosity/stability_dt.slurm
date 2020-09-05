@@ -22,7 +22,6 @@
 
 # ------------------------------------------------------------------------------
 
-module load ${ENV_MODULE_COMPILER}
 # run job with unbuffered output
 export EXEC="srun -u"
 

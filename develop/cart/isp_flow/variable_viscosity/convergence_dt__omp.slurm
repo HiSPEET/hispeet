@@ -1,7 +1,5 @@
 #!/bin/bash
 
-#!!!!! MUSS NOCH FUER OMP ANGEPASST WERDEN !!!!!
-
 # ==============================================================================
 # SLURM script for dt-convergence test using MPI
 # ------------------------------------------------------------------------------
@@ -24,7 +22,7 @@
 
 # ------------------------------------------------------------------------------
 
-module load ${ENV_MODULE_COMPILER}
 export EXEC="srun"
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 ./convergence_dt.sh

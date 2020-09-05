@@ -1,7 +1,5 @@
 #!/bin/bash
 
-#!!!!! MUSS NOCH FUER OMP ANGEPASST WERDEN !!!!!
-
 # ==============================================================================
 # SLURM script for dt-stability test using MPI
 # ------------------------------------------------------------------------------
@@ -10,11 +8,11 @@
 
 #SBATCH --account=p_lvnsm                     # project
 #SBATCH --nodes=1                             # number of nodes
-#SBATCH --ntasks=8                            # max number of MPI processes
+#SBATCH --ntasks=1                            # max number of MPI processes
 #SBATCH --cpu-freq=highm1                     # CPU frequency in kHz
 
 #SBATCH --partition=haswell                   # partition
-##SBATCH --cpus-per-task=12                    # number of cores per process
+#SBATCH --cpus-per-task=12                    # number of cores per process
 #SBATCH --mem=60000                           # memory per node in MB
 
 #SBATCH --time=32:00:00                       # dd-hh:mm:ss
@@ -24,9 +22,9 @@
 
 # ------------------------------------------------------------------------------
 
-module load ${ENV_MODULE_COMPILER}
 # run job with unbuffered output
 export EXEC="srun -u"
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 # ------------------------------------------------------------------------------
 # Settings (overriding those in sdc_k.sh)

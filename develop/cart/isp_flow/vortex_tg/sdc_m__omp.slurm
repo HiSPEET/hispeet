@@ -14,7 +14,7 @@
 ##SBATCH --cpu-freq=highm1                    # CPU frequency in kHz
 
 ##SBATCH --partition=haswell                  # partition
-##SBATCH --cpus-per-task=1                    # number of cores per process
+#SBATCH --cpus-per-task=12                   # number of cores per process
 ##SBATCH --mem=60000                          # memory per node in MB
 
 #SBATCH --time=00-04:00:00                    # dd-hh:mm:ss
@@ -23,13 +23,10 @@
 #SBATCH --output=sdc_m_%j.out                 # output file
 
 # ------------------------------------------------------------------------------
-# Environment
-
-module load ${ENV_MODULE_COMPILER}
-export EXEC="srun"
-
-# ------------------------------------------------------------------------------
 # Settings (overriding those in sdc_m.sh)
+
+export EXEC="srun"
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 # number of partitions in directions 1-2 such that NP1*NP2 = ntasks
 export NP1="2"
@@ -49,8 +46,6 @@ export DT_MAX="0.015625"
 
 # max number of time step reductions per series 
 export ST_MAX="8"
-
-
 
 # ------------------------------------------------------------------------------
 # Execution

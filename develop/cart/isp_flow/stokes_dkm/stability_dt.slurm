@@ -19,11 +19,6 @@
 ##SBATCH --exclusive                          # don't share nodes with others
 #SBATCH --job-name=stability_dt               # sensible job name
 #SBATCH --output=stability_dt_%j.out          # output file
-
-# ------------------------------------------------------------------------------
-# Environment
-
-module load ${ENV_MODULE_COMPILER}
 export EXEC="srun"
 
 # ------------------------------------------------------------------------------

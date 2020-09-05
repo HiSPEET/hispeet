@@ -1,7 +1,5 @@
 #!/bin/bash
 
-#!!!!! MUSS NOCH FUER OMP ANGEPASST WERDEN !!!!!
-
 # ==============================================================================
 # SLURM script for dt-stability test using MPI
 # ------------------------------------------------------------------------------
@@ -23,12 +21,9 @@
 #SBATCH --output=stability_dt_%j.out          # output file
 
 # ------------------------------------------------------------------------------
-# Environment
-
-module load ${ENV_MODULE_COMPILER}
-export EXEC="srun"
-
-# ------------------------------------------------------------------------------
 # Execution
+
+export EXEC="srun"
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 ./stability_dt.sh

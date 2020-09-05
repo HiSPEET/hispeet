@@ -22,7 +22,6 @@
 
 # ------------------------------------------------------------------------------
 
-module load ${ENV_MODULE_COMPILER}
 export EXEC="srun"
 
 ./convergence_dt.sh

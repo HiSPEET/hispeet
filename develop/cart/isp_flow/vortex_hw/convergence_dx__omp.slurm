@@ -1,7 +1,5 @@
 #!/bin/bash
 
-#!!!!! MUSS NOCH FUER OMP ANGEPASST WERDEN !!!!!
-
 # ==============================================================================
 # SLURM script for dx-convergence test using MPI
 # ------------------------------------------------------------------------------
@@ -10,11 +8,11 @@
 
 #SBATCH --account=p_hispeet                   # project
 #SBATCH --nodes=1                             # number of nodes
-#SBATCH --ntasks=4                            # max number of MPI processes
+#SBATCH --ntasks=1                            # max number of MPI processes
 ##SBATCH --cpu-freq=highm1                    # CPU frequency in kHz
 
 ##SBATCH --partition=haswell                  # partition
-##SBATCH --cpus-per-task=1                    # number of cores per process
+##SBATCH --cpus-per-task=12                   # number of cores per process
 ##SBATCH --mem=60000                          # memory per node in MB
 
 #SBATCH --time=00-02:00:00                    # dd-hh:mm:ss
@@ -23,13 +21,10 @@
 #SBATCH --output=convergence_dt_%j.out        # output file
 
 # ------------------------------------------------------------------------------
-# Environment
-
-module load ${ENV_MODULE_COMPILER}
-export EXEC="srun"
-
-# ------------------------------------------------------------------------------
 # Settings (overriding those in convergence_dx.sh)
+
+export EXEC="srun"
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 # number of partitions in directions 1-2 such that NP1*NP2 = ntasks
 export NP1="2"

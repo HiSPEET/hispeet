@@ -19,11 +19,6 @@
 ##SBATCH --exclusive                          # don't share nodes with others
 #SBATCH --job-name=sdc_k                      # sensible job name
 #SBATCH --output=sdc_k_%j.out                 # output file
-
-# ------------------------------------------------------------------------------
-# Environment
-
-module load ${ENV_MODULE_COMPILER}
 export EXEC="srun"
 
 # ------------------------------------------------------------------------------
