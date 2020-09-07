@@ -120,10 +120,9 @@ configure_file( validate__tpo__schwarz_3d_ca.prm
                 validate__tpo__schwarz_3d_ca.prm COPYONLY )
 
 #===============================================================================
- Scripts
+# Scripts
 
-file( COPY
-           scripts/validate__tpo.sh
+file( COPY scripts/validate__tpo.sh
            scripts/validate__tpo__aaa_3d.tmpl
            scripts/validate__tpo__div_3d_r.tmpl
            scripts/validate__tpo__elliptic_3d_rlci.tmpl
