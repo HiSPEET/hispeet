@@ -443,7 +443,7 @@ program Elliptic_Test__IP_CI
   !$omp master
   if (rank == 0) then
     time = MPI_Wtime()
-    time = (time - time0) / nt
+    time = time - time0
   end if
   !$omp end master
 
