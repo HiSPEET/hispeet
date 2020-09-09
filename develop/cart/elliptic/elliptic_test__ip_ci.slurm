@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 
 # Take care that the number of tasks matches the number of partitions defined by 
-# parameter `np` in `isp_flow__sdc_test.prm`, i.e., ntasks = np(1)*np(2)*np(3)
+# parameter `np` in `elliptic_test__ip_ci.prm`, i.e., ntasks = np(1)*np(2)*np(3)
 
 #SBATCH --account=p_hispeet                   # project
 #SBATCH --nodes=1                             # number of nodes
@@ -24,5 +24,6 @@
 # ------------------------------------------------------------------------------
 # Execution
 
-srun ../elliptic_test__ip_ci
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+srun ./elliptic_test__ip_ci
 

@@ -23,8 +23,10 @@ if (SLURM_FOUND)
       set( RUN_CONVERGENCE_DT convergence_dt.slurm )
       set( RUN_CONVERGENCE_DX convergence_dx.slurm )
       set( RUN_STABILITY_DT   stability_dt.slurm   )
-      set( RUN_SDC_K          sdc_k.slurm          )
   endif ()
+
+  # no OpenMP and OpenACC versions yet
+  set( RUN_SDC_K sdc_k.slurm )
 
   configure_file( ${RUN_CONVERGENCE_DT} convergence_dt.slurm )
   configure_file( ${RUN_CONVERGENCE_DX} convergence_dx.slurm )
