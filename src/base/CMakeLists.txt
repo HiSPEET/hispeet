@@ -7,6 +7,7 @@ file(GLOB ESSENTIALS essentials/*.f)
 # bindings
 
 set(BINDINGS bindings/c_binding.f
+             bindings/openmp_binding.F
              bindings/mpi_binding.F
              bindings/vtk_wrapper.c
              bindings/vtk_binding.f
