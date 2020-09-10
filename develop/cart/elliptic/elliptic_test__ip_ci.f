@@ -13,6 +13,7 @@ program Elliptic_Test__IP_CI
   use Array_Assignments
   use Array_Reductions
   use TPO__Diagonal_3d
+  use OpenMP_Binding
   use XMPI
   use IP_Element_Operators_1D
   use Export_Volume_Data_To_VTK
@@ -80,11 +81,12 @@ program Elliptic_Test__IP_CI
   namelist /solver_schwarz/ i_max, r_red, schwarz_opt
   namelist /solver_pmg/     pmg_opt
 
-  ! MPI ........................................................................
+  ! MPI and OpenMP .............................................................
 
-  type(MPI_Comm) :: comm         ! communicator
-  integer        :: comm_size    ! number of processes
-  integer        :: rank         ! local rank
+  type(MPI_Comm) :: comm         ! MPI communicator
+  integer        :: rank         ! local MPI rank
+  integer        :: n_proc       ! number of MPI processes
+  integer        :: n_thread     ! number of OpenMP threads
 
   ! mesh .......................................................................
 
@@ -142,8 +144,12 @@ program Elliptic_Test__IP_CI
   call XMPI_Init()
 
   comm = MPI_COMM_WORLD
-  call MPI_Comm_size(comm, comm_size)
   call MPI_Comm_rank(comm, rank)
+  call MPI_Comm_size(comm, n_proc)
+
+  !$omp parallel
+  n_thread = OMP_Num_Threads()
+  !$omp end parallel
 
   if (rank == 0) then
 
@@ -309,7 +315,11 @@ program Elliptic_Test__IP_CI
   if (rank == 0) then
     dof = product(np) * product(ep) * (po + 1)**3
     write(*,'(/,A)') repeat('=',80)
-    write(*,'(A,/)') 'IP/DG Elliptic Solver with constant diffusivity'
+    write(*,'(A)') 'IP/DG Elliptic Solver with constant diffusivity'
+    write(*,*)
+    write(*,'(2X,A,1X,I0)')        'n_proc   = ', n_proc
+    write(*,'(2X,A,1X,I0)')        'n_thread = ', n_thread
+    write(*,*)
     write(*,'(2X,A,1X,I0)')        'P   = ', po
     write(*,'(2X,A,1X,I0)')        'ne  = ', product(np) * product(ep)
     write(*,'(2X,A,1X,I0)')        'DOF = ', dof

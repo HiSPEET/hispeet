@@ -13,6 +13,7 @@ program Elliptic_Test__IP_VI
   use Array_Assignments
   use Array_Reductions
   use TPO__Diagonal_3d
+  use OpenMP_Binding
   use XMPI
   use IP_Element_Operators_1D
   use Export_Volume_Data_To_VTK
@@ -82,11 +83,12 @@ program Elliptic_Test__IP_VI
   namelist /solver_schwarz/ i_max, r_red, schwarz_opt
   namelist /solver_pmg/     pmg_opt
 
-  ! MPI ........................................................................
+  ! MPI and OpenMP .............................................................
 
-  type(MPI_Comm) :: comm         ! communicator
-  integer        :: comm_size    ! number of processes
-  integer        :: rank         ! local rank
+  type(MPI_Comm) :: comm         ! MPI communicator
+  integer        :: rank         ! local MPI rank
+  integer        :: n_proc       ! number of MPI processes
+  integer        :: n_thread     ! number of OpenMP threads
 
   ! mesh .......................................................................
 
@@ -144,8 +146,12 @@ program Elliptic_Test__IP_VI
   call XMPI_Init()
 
   comm = MPI_COMM_WORLD
-  call MPI_Comm_size(comm, comm_size)
   call MPI_Comm_rank(comm, rank)
+  call MPI_Comm_size(comm, n_proc)
+
+  !$omp parallel
+  n_thread = OMP_Num_Threads()
+  !$omp end parallel
 
   if (rank == 0) then
 
@@ -297,7 +303,11 @@ program Elliptic_Test__IP_VI
   if (rank == 0) then
     dof = product(np) * product(ep) * (po + 1)**3
     write(*,'(/,A)') repeat('=',80)
-    write(*,'(A,/)') 'IP/DG Elliptic Solver with variable diffusivity'
+    write(*,'(A)') 'IP/DG Elliptic Solver with variable diffusivity'
+    write(*,*)
+    write(*,'(2X,A,1X,I0)')        'n_proc   = ', n_proc
+    write(*,'(2X,A,1X,I0)')        'n_thread = ', n_thread
+    write(*,*)
     write(*,'(2X,A,1X,I0)')        'P   = ', po
     write(*,'(2X,A,1X,I0)')        'ne  = ', product(np) * product(ep)
     write(*,'(2X,A,1X,I0)')        'DOF = ', dof
@@ -393,6 +403,8 @@ program Elliptic_Test__IP_VI
   call elliptic_op % Residual(u, f, r)
   r_l2_0 = ScalarProduct(r, r, mesh%comm)
   r_l2_0 = sqrt(r_l2_0)
+
+  !$omp master
   if (mesh%part >= 0) then
     r_max_loc = maxval(abs(r))
   else
@@ -409,12 +421,10 @@ program Elliptic_Test__IP_VI
     end select
   end if
 
-  !$acc end data
-  !$omp end parallel
-
   if (rank == 0) then
     time0 = MPI_Wtime()
   end if
+  !$omp end master
 
   select case(method)
   case(1) ! conjugate gradients
@@ -427,14 +437,19 @@ program Elliptic_Test__IP_VI
     call pmg % MG_CG_Solver(u, f, ni=ni)
   end select
 
+  !$omp master
   if (rank == 0) then
     time = MPI_Wtime()
     time = (time - time0) / nt
   end if
+  !$omp end master
 
   call elliptic_op % Residual(u, f, r)
   r_l2 = ScalarProduct(r, r, mesh%comm)
   r_l2 = sqrt(r_l2)
+
+  !$acc end data
+  !$omp end parallel
 
   if (mesh%part >= 0) then
     r_max_loc = maxval(abs(r))
