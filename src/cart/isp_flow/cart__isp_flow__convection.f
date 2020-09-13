@@ -21,30 +21,30 @@ module CART__ISP_Flow__Convection
 
 contains
 
-!-------------------------------------------------------------------------------
-!> Weak divergence of convective fluxes for incompressible flow
+  !-----------------------------------------------------------------------------
+  !> Weak divergence of convective fluxes for incompressible flow
 
-subroutine WeakConvectiveFlux(flow_op, u, div_f)
+  subroutine WeakConvectiveFlux(flow_op, u, div_f)
 
-  ! arguments ..................................................................
+    ! arguments ................................................................
 
-  class(FlowOperators), intent(in)  :: flow_op    !< flow operators
-  real(RNP),            intent(in)  :: u          !< flow variables
-  real(RNP),            intent(out) :: div_f      !< flux divergence
+    class(FlowOperators), intent(in)  :: flow_op    !< flow operators
+    real(RNP),            intent(in)  :: u          !< flow variables
+    real(RNP),            intent(out) :: div_f      !< flux divergence
 
-  dimension :: u     (:,:,:,:,:)
-  dimension :: div_f (:,:,:,:,:)
+    dimension :: u     (:,:,:,:,:)
+    dimension :: div_f (:,:,:,:,:)
 
-  ! computation ................................................................
+    ! computation ..............................................................
 
-  if (flow_op % po_q == flow_op % po_u) then
-      call WeakConvectiveFlux_EQ(flow_op%mesh, flow_op%eop_u, u, div_f)
-  else
-      call WeakConvectiveFlux_IQ(flow_op, u, div_f)
-  end if
+    if (flow_op % po_q == flow_op % po_u) then
+        call WeakConvectiveFlux_EQ(flow_op%mesh, flow_op%eop_u, u, div_f)
+    else
+        call WeakConvectiveFlux_IQ(flow_op, u, div_f)
+    end if
 
-end subroutine WeakConvectiveFlux
+  end subroutine WeakConvectiveFlux
 
-!===============================================================================
+  !=============================================================================
 
 end module CART__ISP_Flow__Convection

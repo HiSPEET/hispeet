@@ -20,6 +20,7 @@ program ISP_Flow__SDC_Test
   use Execution_Control
   use TPO__Grad_3d_R
   use Export_Volume_Data_To_VTK
+  use OpenMP_Binding
   use XMPI
 
   use ISP_Flow_Problem__Test_Suite
@@ -49,11 +50,12 @@ program ISP_Flow__SDC_Test
   !-----------------------------------------------------------------------------
   ! Declarations
 
-  ! MPI ........................................................................
+  ! MPI and OpenMP .............................................................
 
-  type(MPI_Comm) :: comm      ! communicator
-  integer        :: comm_size ! number of processes
-  integer        :: rank      ! local rank
+  type(MPI_Comm) :: comm         ! MPI communicator
+  integer        :: rank         ! local MPI rank
+  integer        :: n_proc       ! number of MPI processes
+  integer        :: n_thread     ! number of OpenMP threads
 
   ! control ....................................................................
 
@@ -79,10 +81,6 @@ program ISP_Flow__SDC_Test
                      eval_rms, eval_max, eval_eps, &
                      average, i_avg,               &
                      flow_op_control
-!### CHECK START
-logical :: check = .false.
-namelist /control/ check
-!### CHECK END
 
   ! discretization parameters ..................................................
 
@@ -196,12 +194,20 @@ namelist /control/ check
   call XMPI_Init()
 
   comm = MPI_COMM_WORLD
-  call MPI_Comm_size(comm, comm_size)
   call MPI_Comm_rank(comm, rank)
+  call MPI_Comm_size(comm, n_proc)
+
+  !$omp parallel
+  n_thread = OMP_Num_Threads()
+  !$omp end parallel
 
   ! control and discretization parameters ......................................
 
   if (rank == 0) then
+
+    write(*,'(/,A)') repeat('=',80)
+    write(*,'(A)') 'Cartesian IP/DG Incompressible Flow Solver'
+    write(*,*)
 
     call get_command_argument(1, control_file, status=stat)
     if (stat /= 0 .or. len_trim(control_file) == 0) then
@@ -210,7 +216,7 @@ namelist /control/ check
 
     inquire(file=trim(control_file)//'.prm', exist=exists)
     if (exists) then
-      write(*,'(/,2X,A,/)') 'reading ' // trim(control_file)//'.prm'
+      write(*,'(2X,A,/)') 'reading ' // trim(control_file)//'.prm'
       open(newunit=prm, file=trim(control_file)//'.prm')
       read(prm, nml=control)
       read(prm, nml=discretization)
@@ -225,6 +231,12 @@ namelist /control/ check
     pmg_u_opt % po_top = po_u
     pmg_p_opt % po_top = po_p
 
+    write(*,'(2X,A,1X,A)')  'flow type = ', trim(flow_type)
+    write(*,'(2X,A,1X,A)')  'flow case = ', trim(flow_case)
+    write(*,'(2X,A,1X,I0)') 'n_proc    = ', n_proc
+    write(*,'(2X,A,1X,I0)') 'n_thread  = ', n_thread
+    write(*,*)
+
   end if
 
   ! control parameters
@@ -238,12 +250,8 @@ namelist /control/ check
   call XMPI_Bcast(eval_max    , 0, comm)
   call XMPI_Bcast(eval_eps    , 0, comm)
   call XMPI_Bcast(average     , 0, comm)
-  call XMPI_Bcast(i_avg    , 0, comm)
+  call XMPI_Bcast(i_avg       , 0, comm)
   call flow_op_control % Bcast( 0, comm)
-
-!### CHECK START
-call XMPI_Bcast(check   , 0, comm)
-!### CHECK END
 
   ! discretization and time integration parameters
   call XMPI_Bcast(np            , 0, comm)
@@ -347,17 +355,17 @@ call XMPI_Bcast(check   , 0, comm)
 
   ! print time-integrator settings
   if (rank == 0) then
-    !$omp master
     select case(time_method)
     case(1:4)
       call time_integrator % Show()
     case(5:7)
       call sdc % Show()
     end select
-    !$omp end master
   end if
 
   ! variables and initial values ...............................................
+
+  !$omp parallel private(first,last)
 
   call InitializeMeshVariables()
 
@@ -377,9 +385,11 @@ call XMPI_Bcast(check   , 0, comm)
   ! time stepping ..............................................................
 
   call SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
+  !$omp master
   nt_max = min(nint((t_end - t)/ dt, IXL), nt_max)
   call XMPI_Bcast(nt_max, 0, comm)
   nt_10 = int((nt_max + 9)/10)
+  !$omp end master
 
   !-----------------------------------------------------------------------------
   ! Time integration
@@ -391,6 +401,8 @@ call XMPI_Bcast(check   , 0, comm)
     time0 = MPI_Wtime()
     !$omp end master
   end if
+
+  !$omp barrier
 
   do nt = 1, nt_max
 
@@ -425,8 +437,6 @@ call XMPI_Bcast(check   , 0, comm)
         call ComputePressure(problem, flow_op, t, F_v, p, w)
       end associate
     end if
-
-    if (last) exit
 
   end do
 
@@ -485,6 +495,8 @@ call XMPI_Bcast(check   , 0, comm)
 
   end if
 
+  !$omp end parallel
+
   !-----------------------------------------------------------------------------
   ! Finalization
 
@@ -510,6 +522,8 @@ subroutine InitializeMeshVariables()
   integer :: np, nc, ne, n_var
   integer :: i, j
 
+  !$omp single
+
   ! prerequisites ..............................................................
 
   np = po_u + 1
@@ -526,7 +540,6 @@ subroutine InitializeMeshVariables()
   call problem % GetVariableNames(name_u)
 
   allocate(var(np, np, np, ne, n_var))
-  call SetArray(var, ZERO, multi=.true.)
 
   allocate(character(len=len(name_u) + 10) :: name_var(n_var))
   do i = 1, size(name_var)
@@ -608,6 +621,10 @@ subroutine InitializeMeshVariables()
     q_avg => null()
   end if
 
+  !$omp end single
+
+  call SetArray(var, ZERO, multi=.true.)
+
 end subroutine InitializeMeshVariables
 
 !-------------------------------------------------------------------------------
@@ -619,12 +636,12 @@ subroutine Evaluation(failed, last)
 
   ! local variables ............................................................
 
-  real(RNP) :: err_v_max = -1, err_v_rms = -1, err_v_loc
-  real(RNP) :: err_p_max = -1, err_p_rms = -1, err_p_loc
-  real(RNP) :: div_v_max = -1, div_v_rms = -1, div_v_loc
-  real(RNP) :: e_kin, e_kin_loc
-  real(RNP) :: eps = -1, eps_loc
-  real(RNP) :: eps_svv = -1, eps_svv_loc
+  real(RNP), save :: err_v_max = -1, err_v_rms = -1, err_v_loc
+  real(RNP), save :: err_p_max = -1, err_p_rms = -1, err_p_loc
+  real(RNP), save :: div_v_max = -1, div_v_rms = -1, div_v_loc
+  real(RNP), save :: e_kin, e_kin_loc
+  real(RNP), save :: eps = -1, eps_loc
+  real(RNP), save :: eps_svv = -1, eps_svv_loc
 
   real(RNP), allocatable, save :: grad_v(:,:,:,:,:,:)
   logical   :: head = .true.
@@ -667,9 +684,9 @@ subroutine Evaluation(failed, last)
 
       ! max error
       if (eval_max) then
+        !$omp master
         err_v_loc = maxval(abs(err_v))
         err_p_loc = maxval(abs(err_p))
-        !$omp master
         call XMPI_Reduce(err_v_loc, err_v_max, MPI_MAX, 0, mesh%comm)
         call XMPI_Reduce(err_p_loc, err_p_max, MPI_MAX, 0, mesh%comm)
         !$omp end master
@@ -688,8 +705,8 @@ subroutine Evaluation(failed, last)
 
     ! max divergence
     if (eval_max) then
-      div_v_loc = maxval(abs(div_v))
       !$omp master
+      div_v_loc = maxval(abs(div_v))
       call XMPI_Reduce(div_v_loc, div_v_max, MPI_MAX, 0, mesh%comm)
       !$omp end master
     end if
@@ -699,7 +716,7 @@ subroutine Evaluation(failed, last)
     e_kin_loc = 0
 
     associate(po => eop%po, Ms => eop%w)
-      !!$omp loop reduction
+      !$omp do reduction(+:e_kin_loc)
       do e = 1, size(u,4)
         do k = 0, po
         do j = 0, po
@@ -714,9 +731,8 @@ subroutine Evaluation(failed, last)
       end do
     end associate
 
-    e_kin_loc = product(mesh%dx) / 16 * e_kin_loc
-
     !$omp master
+    e_kin_loc = product(mesh%dx) / 16 * e_kin_loc
     call XMPI_Reduce(e_kin_loc, e_kin, MPI_SUM, 0, mesh%comm)
     !$omp end master
 
@@ -747,6 +763,7 @@ subroutine Evaluation(failed, last)
 
           ! local element contributions to physical dissipation
           eps_loc = 0
+          !$omp do reduction(+:eps_loc)
           do e = 1, ne
             do k = 0, po
             do j = 0, po
@@ -757,10 +774,10 @@ subroutine Evaluation(failed, last)
             end do
             end do
           end do
-          eps_loc = product(mesh%dx)/8 * eps_loc
 
           !$omp barrier
           !$omp master
+          eps_loc = product(mesh%dx)/8 * eps_loc
           call XMPI_Reduce(eps_loc, eps, MPI_SUM, 0, mesh%comm)
           !$omp end master
 
@@ -785,6 +802,7 @@ subroutine Evaluation(failed, last)
 
             ! local element contributions to SVV dissipation
             eps_svv_loc = 0
+            !$omp do reduction(+:eps_svv_loc)
             do e = 1, ne
               do k = 0, po
               do j = 0, po
@@ -795,10 +813,10 @@ subroutine Evaluation(failed, last)
               end do
               end do
             end do
-            eps_svv_loc = product(mesh%dx)/8 * eps_svv_loc
 
             !$omp barrier
             !$omp master
+            eps_svv_loc = product(mesh%dx)/8 * eps_svv_loc
             call XMPI_Reduce(eps_svv_loc, eps_svv, MPI_SUM, 0, mesh%comm)
             !$omp end master
           end if
@@ -895,6 +913,8 @@ subroutine SaveFlowVariables(t, u, n_avg, q_avg)
   integer :: unit
   character(len=100) :: file
 
+  !$omp single
+
   write(file,'(2A,I0,A)') trim(flow_case), '_p', rank, '.fld'
   open(newunit=unit, file=file, status='REPLACE', form='UNFORMATTED')
   write(unit) t
@@ -906,6 +926,8 @@ subroutine SaveFlowVariables(t, u, n_avg, q_avg)
     write(unit) 0
   end if
   close(unit)
+
+  !$omp end single
 
 end subroutine SaveFlowVariables
 
@@ -920,6 +942,8 @@ subroutine LoadFlowVariables(t, u, n_avg, q_avg)
 
   integer :: unit, ios
   character(len=100) :: file
+
+  !$omp single
 
   write(file,'(2A,I0,A)') trim(flow_case), '_p', rank, '.fld'
   open(newunit=unit, file=file, status='OLD', form='UNFORMATTED', iostat=ios)
@@ -938,6 +962,8 @@ subroutine LoadFlowVariables(t, u, n_avg, q_avg)
   else
     call Error('SaveFlowVariables', 'found no matching input file')
   end if
+
+  !$omp end single
 
 end subroutine LoadFlowVariables
 
@@ -1005,6 +1031,8 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
 
     ! evaluation ...............................................................
 
+    !$omp master
+
     if (mesh % part == 0) then
 
       if (dt <= 0) then
@@ -1040,8 +1068,8 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
 
     end if
 
-    !$omp master
     call XMPI_Bcast(dt, 0, comm)
+
     !$omp end master
 
   end associate

@@ -35,181 +35,182 @@ module ISP_Flow_Problem__Transition_TG
 
 contains
 
-!===============================================================================
-! type bound procedures
+  !=============================================================================
+  ! type bound procedures
 
-!-------------------------------------------------------------------------------
-!> Initialization
+  !-----------------------------------------------------------------------------
+  !> Initialization
 
-subroutine SetProblem(problem, file, comm)
-  class(FlowProblem_Transition_TG), intent(inout) :: problem
-  character(len=*), optional, intent(in) :: file  !< input file
-  type(MPI_Comm),   optional, intent(in) :: comm  !< MPI communicator
+  subroutine SetProblem(problem, file, comm)
+    class(FlowProblem_Transition_TG), intent(inout) :: problem
+    character(len=*), optional, intent(in) :: file  !< input file
+    type(MPI_Comm),   optional, intent(in) :: comm  !< MPI communicator
 
-  ! local variables ............................................................
+    ! local variables ..........................................................
 
-  real(RNP) :: nu     = 0.01 ! kinematic viscosity, ν = 1/Re
-  real(RNP) :: nu_svv = 0.0  ! spectral diffusivity amplitude
-  character, allocatable :: bc(:,:)
+    real(RNP) :: nu     = 0.01 ! kinematic viscosity, ν = 1/Re
+    real(RNP) :: nu_svv = 0.0  ! spectral diffusivity amplitude
+    character, allocatable :: bc(:,:)
 
-  namelist /parameters/ nu, nu_svv
+    namelist /parameters/ nu, nu_svv
 
-  logical :: exists
-  integer :: prm, rank
+    logical :: exists
+    integer :: prm, rank
 
-  ! preliminaries ..............................................................
+    ! preliminaries ............................................................
 
-  if (present(comm)) then
-    call MPI_Comm_rank(comm, rank)
-  else
-    rank = 0
-  end if
-
-  ! check for input file
-  if (rank == 0 .and. present(file)) then
-
-    exists = len_trim(file) > 0
-    if (exists) then
-      inquire(file=trim(file)//'.prm', exist=exists)
-    end if
-
-    if (exists) then
-      open(newunit=prm, file=trim(file)//'.prm')
+    if (present(comm)) then
+      call MPI_Comm_rank(comm, rank)
     else
-      call Warning('SetProblem', 'Input file "'//trim(file)//'.prm" not found')
+      rank = 0
     end if
 
-  else
-    exists = .false.
-  end if
+    ! check for input file
+    if (rank == 0 .and. present(file)) then
 
-  ! parameters .................................................................
+      exists = len_trim(file) > 0
+      if (exists) then
+        inquire(file=trim(file)//'.prm', exist=exists)
+      end if
 
-  if (rank == 0 .and. exists) then
-    read(prm, nml=parameters)
-    close(prm)
-  end if
+      if (exists) then
+        open(newunit=prm, file=trim(file)//'.prm')
+      else
+        call Warning('SetProblem','Input file "'//trim(file)//'.prm" not found')
+      end if
 
-  if (present(comm)) then
-    call XMPI_Bcast(nu,     0, comm)
-    call XMPI_Bcast(nu_svv, 0, comm)
-  end if
+    else
+      exists = .false.
+    end if
 
-  problem % stokes         = .false.   ! Stokes flow
-  problem % exact_solution = .false.   ! exact solution is not provided
+    ! parameters ...............................................................
 
-  allocate(problem % nu_ref(     problem%nc ), source = ZERO)
-  allocate(problem % nu_svv_ref( problem%nc ), source = ZERO)
-  problem % nu_ref(1:3)     = nu
-  problem % nu_svv_ref(1:3) = nu_svv
-  problem % x0 = -PI
-  problem % x1 =  PI
+    if (rank == 0 .and. exists) then
+      read(prm, nml=parameters)
+      close(prm)
+    end if
 
-  allocate(problem % bc(6, problem % nc), source = 'P')
+    if (present(comm)) then
+      call XMPI_Bcast(nu,     0, comm)
+      call XMPI_Bcast(nu_svv, 0, comm)
+    end if
 
-end subroutine SetProblem
+    problem % stokes         = .false.   ! Stokes flow
+    problem % exact_solution = .false.   ! exact solution is not provided
 
-!-------------------------------------------------------------------------------
-!> Provides the initial values u(x,0) for mesh points x
+    allocate(problem % nu_ref(     problem%nc ), source = ZERO)
+    allocate(problem % nu_svv_ref( problem%nc ), source = ZERO)
+    problem % nu_ref(1:3)     = nu
+    problem % nu_svv_ref(1:3) = nu_svv
+    problem % x0 = -PI
+    problem % x1 =  PI
 
-subroutine GetInitialValues(problem, x, u)
-  class(FlowProblem_Transition_TG), intent(in) :: problem
-  real(RNP), intent(in)  :: x(:,:,:,:,:) !< mesh points
-  real(RNP), intent(out) :: u(:,:,:,:,:) !< flow variables
+    allocate(problem % bc(6, problem % nc), source = 'P')
 
-  integer :: m, n
+  end subroutine SetProblem
 
-  n = size(x(:,:,:,:,1))
+  !-----------------------------------------------------------------------------
+  !> Provides the initial values u(x,0) for mesh points x
 
-  call GetVelocity(n, x, u(:,:,:,:,1:3))
+  subroutine GetInitialValues(problem, x, u)
+    class(FlowProblem_Transition_TG), intent(in) :: problem
+    real(RNP), intent(in)  :: x(:,:,:,:,:) !< mesh points
+    real(RNP), intent(out) :: u(:,:,:,:,:) !< flow variables
 
-  ! remaining variables get zero
-  do m = 4, size(u,5)
-    call SetArray(u(:,:,:,:,m), ZERO)
-  end do
+    integer :: m, n
 
-end subroutine GetInitialValues
+    n = size(x(:,:,:,:,1))
 
-!-------------------------------------------------------------------------------
-!> Provides the values `ub = u(xb,t)` for points `xb` on boundary `b`
+    call GetVelocity(n, x, u(:,:,:,:,1:3))
 
-subroutine GetBoundaryValues(problem, b, xb, t, ub)
-  class(FlowProblem_Transition_TG), intent(in) :: problem
-  integer,   intent(in)  :: b             !< boundary ID
-  real(RNP), intent(in)  :: xb(:,:,:,:)   !< mesh boundary points
-  real(RNP), intent(in)  :: t             !< time
-  real(RNP), intent(out) :: ub(:,:,:,:)   !< flow variables
+    ! remaining variables get zero
+    do m = 4, size(u,5)
+      call SetArray(u(:,:,:,:,m), ZERO)
+    end do
 
-  call Warning( 'GetBoundaryValues'               &
-              , 'No boundary values available'    &
-              , 'ISP_Flow_Problem__Transition_TG' )
+  end subroutine GetInitialValues
 
-  call SetArray(ub, ZERO, multi=.true.)
+  !-----------------------------------------------------------------------------
+  !> Provides the values `ub = u(xb,t)` for points `xb` on boundary `b`
 
-  ! silence the compiler ;)
-  if (b < 0 .or. size(xb) < 0 .or. t < 0) return
+  subroutine GetBoundaryValues(problem, b, xb, t, ub)
+    class(FlowProblem_Transition_TG), intent(in) :: problem
+    integer,   intent(in)  :: b             !< boundary ID
+    real(RNP), intent(in)  :: xb(:,:,:,:)   !< mesh boundary points
+    real(RNP), intent(in)  :: t             !< time
+    real(RNP), intent(out) :: ub(:,:,:,:)   !< flow variables
 
-end subroutine GetBoundaryValues
+    call Warning( 'GetBoundaryValues'               &
+                , 'No boundary values available'    &
+                , 'ISP_Flow_Problem__Transition_TG' )
 
-!-------------------------------------------------------------------------------
-!> Provides the values `dt_ub = ∂u/∂t(xb,t)` for points `xb` on boundary `b`
+    call SetArray(ub, ZERO, multi=.true.)
 
-subroutine GetBoundaryTimeDerivative(problem, b, xb, t, dt_ub)
-  class(FlowProblem_Transition_TG), intent(in)  :: problem
-  integer,   intent(in)  :: b              !< boundary ID
-  real(RNP), intent(in)  :: xb(:,:,:,:)    !< boundary points
-  real(RNP), intent(in)  :: t              !< time
-  real(RNP), intent(out) :: dt_ub(:,:,:,:) !< ∂u/∂t
+    ! silence the compiler ;)
+    if (b < 0 .or. size(xb) < 0 .or. t < 0) return
 
-  call Warning( 'GetBoundaryTimeDerivative'       &
-              , 'No boundary values available'    &
-              , 'ISP_Flow_Problem__Transition_TG' )
+  end subroutine GetBoundaryValues
 
-  call SetArray(dt_ub, ZERO, multi=.true.)
+  !-----------------------------------------------------------------------------
+  !> Provides the values `dt_ub = ∂u/∂t(xb,t)` for points `xb` on boundary `b`
 
-  ! silence the compiler ;)
-  if (b < 0 .or. size(xb) < 0 .or. t < 0) return
+  subroutine GetBoundaryTimeDerivative(problem, b, xb, t, dt_ub)
+    class(FlowProblem_Transition_TG), intent(in)  :: problem
+    integer,   intent(in)  :: b              !< boundary ID
+    real(RNP), intent(in)  :: xb(:,:,:,:)    !< boundary points
+    real(RNP), intent(in)  :: t              !< time
+    real(RNP), intent(out) :: dt_ub(:,:,:,:) !< ∂u/∂t
 
-end subroutine GetBoundaryTimeDerivative
+    call Warning( 'GetBoundaryTimeDerivative'       &
+                , 'No boundary values available'    &
+                , 'ISP_Flow_Problem__Transition_TG' )
 
-!-------------------------------------------------------------------------------
-!> Provides the external sources for all variables at points x and time t
+    call SetArray(dt_ub, ZERO, multi=.true.)
 
-subroutine GetExternalSources(problem, x, t, f)
-  class(FlowProblem_Transition_TG), intent(in) :: problem
-  real(RNP), intent(in)  :: x(:,:,:,:,:) !< mesh points
-  real(RNP), intent(in)  :: t            !< time
-  real(RNP), intent(out) :: f(:,:,:,:,:) !< external sources
+    ! silence the compiler ;)
+    if (b < 0 .or. size(xb) < 0 .or. t < 0) return
 
-  call SetArray(f, ZERO, multi=.true.)
+  end subroutine GetBoundaryTimeDerivative
 
-end subroutine GetExternalSources
+  !-----------------------------------------------------------------------------
+  !> Provides the external sources for all variables at points x and time t
 
-!===============================================================================
-! problem-specific procedures
+  subroutine GetExternalSources(problem, x, t, f)
+    class(FlowProblem_Transition_TG), intent(in) :: problem
+    real(RNP), intent(in)  :: x(:,:,:,:,:) !< mesh points
+    real(RNP), intent(in)  :: t            !< time
+    real(RNP), intent(out) :: f(:,:,:,:,:) !< external sources
 
-!-------------------------------------------------------------------------------
-!> Velocity
+    call SetArray(f, ZERO, multi=.true.)
 
-subroutine GetVelocity(n, x, v)
-  integer,   intent(in)  :: n      !< number of points
-  real(RNP), intent(in)  :: x(n,3) !< mesh points
-  real(RNP), intent(out) :: v(n,3) !< velocity at mesh points
+  end subroutine GetExternalSources
 
-  real(RNP) :: x1, x2, x3 ! coordinates xi
-  integer   :: i
+  !=============================================================================
+  ! problem-specific procedures
 
-  do i = 1, n
-    x1 = x(i,1)
-    x2 = x(i,2)
-    x3 = x(i,3)
-    v(i,1) =  cos(x3) * sin(x1) * cos(x2)
-    v(i,2) = -cos(x3) * sin(x2) * cos(x1)
-    v(i,3) =  ZERO
-  end do
+  !-----------------------------------------------------------------------------
+  !> Velocity
 
-end subroutine GetVelocity
+  subroutine GetVelocity(n, x, v)
+    integer,   intent(in)  :: n      !< number of points
+    real(RNP), intent(in)  :: x(n,3) !< mesh points
+    real(RNP), intent(out) :: v(n,3) !< velocity at mesh points
 
-!===============================================================================
+    real(RNP) :: x1, x2, x3 ! coordinates xi
+    integer   :: i
+
+    !$omp do
+    do i = 1, n
+      x1 = x(i,1)
+      x2 = x(i,2)
+      x3 = x(i,3)
+      v(i,1) =  cos(x3) * sin(x1) * cos(x2)
+      v(i,2) = -cos(x3) * sin(x2) * cos(x1)
+      v(i,3) =  ZERO
+    end do
+
+  end subroutine GetVelocity
+
+  !=============================================================================
 
 end module ISP_Flow_Problem__Transition_TG

@@ -2,9 +2,8 @@
 !> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2018/12/12
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Schwarz operator for elliptic equations
 !===============================================================================
+
 module CART__Schwarz_Operator
   use Kind_Parameters, only: RNP
   use Constants

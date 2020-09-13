@@ -133,126 +133,126 @@ module ISP_Flow_Problem
 
 contains
 
-!-------------------------------------------------------------------------------
-!> Function for enquiring wether an exact solution is available
+  !-----------------------------------------------------------------------------
+  !> Function for enquiring wether an exact solution is available
 
-logical function HasExactSolution(problem)
-  class(FlowProblem), intent(in) :: problem
+  logical function HasExactSolution(problem)
+    class(FlowProblem), intent(in) :: problem
 
-  HasExactSolution = problem % exact_solution
+    HasExactSolution = problem % exact_solution
 
-end function HasExactSolution
+  end function HasExactSolution
 
-!-------------------------------------------------------------------------------
-!> Function for enquiring wether fluid properties are variable
+  !-----------------------------------------------------------------------------
+  !> Function for enquiring wether fluid properties are variable
 
-logical function HasVariableProperties(problem)
-  class(FlowProblem), intent(in) :: problem
+  logical function HasVariableProperties(problem)
+    class(FlowProblem), intent(in) :: problem
 
-  HasVariableProperties = problem % variable_props
+    HasVariableProperties = problem % variable_props
 
-end function HasVariableProperties
+  end function HasVariableProperties
 
-!-------------------------------------------------------------------------------
-!> Dummy procedure for exact solution
+  !-----------------------------------------------------------------------------
+  !> Dummy procedure for exact solution
 
-subroutine GetExactSolution(problem, x, t, u)
-  class(FlowProblem), intent(in)  :: problem
-  real(RNP),          intent(in)  :: x(:,:,:,:,:) !< mesh points
-  real(RNP),          intent(in)  :: t            !< time
-  real(RNP),          intent(out) :: u(:,:,:,:,:) !< solution
+  subroutine GetExactSolution(problem, x, t, u)
+    class(FlowProblem), intent(in)  :: problem
+    real(RNP),          intent(in)  :: x(:,:,:,:,:) !< mesh points
+    real(RNP),          intent(in)  :: t            !< time
+    real(RNP),          intent(out) :: u(:,:,:,:,:) !< solution
 
-  call SetArray(u, ZERO, multi=.true.)
+    call SetArray(u, ZERO, multi=.true.)
 
-end subroutine GetExactSolution
+  end subroutine GetExactSolution
 
-!-------------------------------------------------------------------------------
-!> Dummy procedure for exact time derivative
+  !-----------------------------------------------------------------------------
+  !> Dummy procedure for exact time derivative
 
-subroutine GetExactTimeDerivative(problem, x, t, dt_u)
-  class(FlowProblem), intent(in)  :: problem
-  real(RNP),          intent(in)  :: x(:,:,:,:,:)    !< mesh points
-  real(RNP),          intent(in)  :: t               !< time
-  real(RNP),          intent(out) :: dt_u(:,:,:,:,:) !< time derivative
+  subroutine GetExactTimeDerivative(problem, x, t, dt_u)
+    class(FlowProblem), intent(in)  :: problem
+    real(RNP),          intent(in)  :: x(:,:,:,:,:)    !< mesh points
+    real(RNP),          intent(in)  :: t               !< time
+    real(RNP),          intent(out) :: dt_u(:,:,:,:,:) !< time derivative
 
-  call SetArray(dt_u, ZERO, multi=.true.)
+    call SetArray(dt_u, ZERO, multi=.true.)
 
-end subroutine GetExactTimeDerivative
+  end subroutine GetExactTimeDerivative
 
-!-------------------------------------------------------------------------------
-!> Returns the default variable names
+  !-----------------------------------------------------------------------------
+  !> Returns the default variable names
 
-subroutine GetVariableNames(problem, names)
-  class(FlowProblem),            intent(in)  :: problem
-  character(len=:), allocatable, intent(out) :: names(:)  !< variable names
+  subroutine GetVariableNames(problem, names)
+    class(FlowProblem),            intent(in)  :: problem
+    character(len=:), allocatable, intent(out) :: names(:)  !< variable names
 
-  integer :: i, k, l
+    integer :: i, k, l
 
-  l = 5 + ceiling(log10(real( max(1, problem%nc_active, problem%nc_passive) )))
+    l = 5 + ceiling(log10(real( max(1, problem%nc_active, problem%nc_passive) )))
 
-  allocate(character(len=l) :: names(problem % nc))
+    allocate(character(len=l) :: names(problem % nc))
 
-  names(1) = 'v_1'
-  names(2) = 'v_2'
-  names(3) = 'v_3'
-  names(4) = 'p'
+    names(1) = 'v_1'
+    names(2) = 'v_2'
+    names(3) = 'v_3'
+    names(4) = 'p'
 
-  k = 4
+    k = 4
 
-  do i = 1, problem % nc_active
-    k = k + 1
-    write(names(k), '(A,I0)') 'Phi_', i
-  end do
-
-  do i = 1, problem % nc_passive
-    k = k + 1
-    write(names(k), '(A,I0)') 'Psi_', i
-  end do
-
-end subroutine GetVariableNames
-
-!-------------------------------------------------------------------------------
-!> Dummy procedure for variable diffusivity
-
-subroutine GetDiffusivity(problem, x, t, u, nu)
-  class(FlowProblem), intent(in)  :: problem
-  real(RNP),          intent(in)  :: x (:,:,:,:,:) !< mesh points
-  real(RNP),          intent(in)  :: t             !< time
-  real(RNP),          intent(in)  :: u (:,:,:,:,:) !< flow variables
-  real(RNP),          intent(out) :: nu(:,:,:,:,:) !< diffusivities
-
-  integer :: i
-
-  do i = 1, problem % nc
-    call SetArray(nu(:,:,:,:,i), problem % nu_ref(i))
-  end do
-
-end subroutine GetDiffusivity
-
-!-------------------------------------------------------------------------------
-!> Automatic generation of pressure boundary conditions
-
-subroutine GeneratePressureBC(problem)
-  class(FlowProblem), intent(inout) :: problem
-
-  integer :: b
-
-  associate(bc => problem % bc)
-    do b = 1, size(bc,1)
-      if (all(bc(b,1:3) == 'D')) then
-        ! Dirichlet conditions for velocity
-        bc(b,4) = 'N'
-      else if (all(bc(b,1:3) == 'P')) then
-        ! periodic conditions for velocity
-        bc(b,4) = 'P'
-      else
-        call Error('GeneratePressureBC','invalid velocity BC','ISP_Flow_Problem')
-      end if
+    do i = 1, problem % nc_active
+      k = k + 1
+      write(names(k), '(A,I0)') 'Phi_', i
     end do
-  end associate
 
-end subroutine GeneratePressureBC
+    do i = 1, problem % nc_passive
+      k = k + 1
+      write(names(k), '(A,I0)') 'Psi_', i
+    end do
 
-!===============================================================================
+  end subroutine GetVariableNames
+
+  !-----------------------------------------------------------------------------
+  !> Dummy procedure for variable diffusivity
+
+  subroutine GetDiffusivity(problem, x, t, u, nu)
+    class(FlowProblem), intent(in)  :: problem
+    real(RNP),          intent(in)  :: x (:,:,:,:,:) !< mesh points
+    real(RNP),          intent(in)  :: t             !< time
+    real(RNP),          intent(in)  :: u (:,:,:,:,:) !< flow variables
+    real(RNP),          intent(out) :: nu(:,:,:,:,:) !< diffusivities
+
+    integer :: i
+
+    do i = 1, problem % nc
+      call SetArray(nu(:,:,:,:,i), problem % nu_ref(i))
+    end do
+
+  end subroutine GetDiffusivity
+
+  !-----------------------------------------------------------------------------
+  !> Automatic generation of pressure boundary conditions
+
+  subroutine GeneratePressureBC(problem)
+    class(FlowProblem), intent(inout) :: problem
+
+    integer :: b
+
+    associate(bc => problem % bc)
+      do b = 1, size(bc,1)
+        if (all(bc(b,1:3) == 'D')) then
+          ! Dirichlet conditions for velocity
+          bc(b,4) = 'N'
+        else if (all(bc(b,1:3) == 'P')) then
+          ! periodic conditions for velocity
+          bc(b,4) = 'P'
+        else
+          call Error('GeneratePressureBC','invalid velocity BC','ISP_Flow_Problem')
+        end if
+      end do
+    end associate
+
+  end subroutine GeneratePressureBC
+
+  !=============================================================================
 
 end module ISP_Flow_Problem

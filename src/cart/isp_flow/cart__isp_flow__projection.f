@@ -9,8 +9,6 @@
 !>   * test using velocity BV when computing the traces
 !>   * check element-based assembly of jump contributions
 !> @endtodo
-!>
-!>### ISP flow:projection step
 !===============================================================================
 
 module CART__ISP_Flow__Projection
@@ -43,52 +41,52 @@ module CART__ISP_Flow__Projection
 
 contains
 
-!-------------------------------------------------------------------------------
-!>
+  !-----------------------------------------------------------------------------
+  !>
 
-subroutine ProjectionStep(problem, flow_op, dt, p, u, w)
-  class(FlowProblem),   intent(in)    :: problem      !< flow problem
-  class(FlowOperators), intent(in)    :: flow_op      !< flow operators
-  real(RNP),            intent(in)    :: dt           !< time step size
-  real(RNP),            intent(in)    :: p(:,:,:,:)   !< pressure
-  real(RNP),            intent(inout) :: u(:,:,:,:,:) !< current solution
-  real(RNP),            intent(inout) :: w(:,:,:,:,:) !< workspace
+  subroutine ProjectionStep(problem, flow_op, dt, p, u, w)
+    class(FlowProblem),   intent(in)    :: problem      !< flow problem
+    class(FlowOperators), intent(in)    :: flow_op      !< flow operators
+    real(RNP),            intent(in)    :: dt           !< time step size
+    real(RNP),            intent(in)    :: p(:,:,:,:)   !< pressure
+    real(RNP),            intent(inout) :: u(:,:,:,:,:) !< current solution
+    real(RNP),            intent(inout) :: w(:,:,:,:,:) !< workspace
 
-  real(RNP) :: gamma
+    real(RNP) :: gamma
 
-  associate( mesh => flow_op % mesh     &
-           , eop  => flow_op % eop_u    &
-           , v    => u(:,:,:,:,1:3)     &
-           , f    => w(:,:,:,:,1:3)     )
+    associate( mesh => flow_op % mesh     &
+             , eop  => flow_op % eop_u    &
+             , v    => u(:,:,:,:,1:3)     &
+             , f    => w(:,:,:,:,1:3)     )
 
-    ! pressure correction ......................................................
+      ! pressure correction ....................................................
 
-    ! v = v - ∆t ∇p
-    call WeakGradient(mesh, eop%w, eop%D, p, f)    ! f = ∇p
-    call MergeArrays(ONE, v, -dt, f, multi=.true.) ! v = v - ∆t f
+      ! v = v - ∆t ∇p
+      call WeakGradient(mesh, eop%w, eop%D, p, f)    ! f = ∇p
+      call MergeArrays(ONE, v, -dt, f, multi=.true.) ! v = v - ∆t f
 
-    ! divergence penalization ..................................................
+      ! divergence penalization ................................................
 
-    gamma = DivergencePenaltyFactor( penalty = flow_op % control % div_penalty &
-                                   , coeff   = flow_op % control % div_coeff   &
-                                   , nu      = problem % nu_ref(1)             &
-                                   , dt      = dt                              &
-                                   , dx      = mesh % dx                       &
-                                   , po      = eop % po                        )
+      gamma = DivergencePenaltyFactor( penalty = flow_op % control % div_penalty &
+                                     , coeff   = flow_op % control % div_coeff   &
+                                     , nu      = problem % nu_ref(1)             &
+                                     , dt      = dt                              &
+                                     , dx      = mesh % dx                       &
+                                     , po      = eop % po                        )
 
-    if (gamma > 0) then
-      call SetArray(f, v, multi = .true.)
-      call ProjectionSolver( mesh, eop, dt, gamma           &
-                           , flow_op % control % div_r_red  &
-                           , flow_op % control % div_i_max  &
-                           , f, v                           )
-    end if
+      if (gamma > 0) then
+        call SetArray(f, v, multi = .true.)
+        call ProjectionSolver( mesh, eop, dt, gamma           &
+                             , flow_op % control % div_r_red  &
+                             , flow_op % control % div_i_max  &
+                             , f, v                           )
+      end if
 
-  end associate
+    end associate
 
-end subroutine ProjectionStep
+  end subroutine ProjectionStep
 
-!-------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 !>
 
 subroutine ProjectionSolver(mesh, sop, dt, gamma, r_red, i_max, f, v)
@@ -101,7 +99,7 @@ subroutine ProjectionSolver(mesh, sop, dt, gamma, r_red, i_max, f, v)
   real(RNP),                  intent(in)    :: f(:,:,:,:,:) !< RHS
   real(RNP),                  intent(inout) :: v(:,:,:,:,:) !< velocity
 
-  ! local variables ............................................................
+  ! local variables ..........................................................
 
   real(RNP), dimension(:,:,:,:,:), allocatable, save :: r, p, q, z
   logical  , save :: converged
@@ -310,6 +308,7 @@ subroutine DivergencePenalty(mesh, Ms, Ds, gamma, v, w)
     f1 = 1                 ! first face
     f2 = mesh % nf1        ! last
 
+    !$omp do private(wf)
     do f = f1, f2
 
       wf = g(1) * (tr_vn(:,:,1,f) + tr_vn(:,:,2,f))
@@ -331,6 +330,7 @@ subroutine DivergencePenalty(mesh, Ms, Ds, gamma, v, w)
     f1 = f2 + 1            ! first face
     f2 = f2 + mesh % nf2   ! last
 
+    !$omp do private(wf)
     do f = f1, f2
 
       wf = g(2) * (tr_vn(:,:,1,f) + tr_vn(:,:,2,f))
@@ -352,6 +352,7 @@ subroutine DivergencePenalty(mesh, Ms, Ds, gamma, v, w)
     f1 = f2 + 1            ! first face
     f2 = f2 + mesh % nf3   ! last
 
+    !$omp do private(wf)
     do f = f1, f2
 
       wf = g(3) * (tr_vn(:,:,1,f) + tr_vn(:,:,2,f))

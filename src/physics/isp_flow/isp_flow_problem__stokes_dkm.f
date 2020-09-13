@@ -40,339 +40,343 @@ module ISP_Flow_Problem__Stokes_DKM
 
 contains
 
-!===============================================================================
-! type bound procedures
+  !=============================================================================
+  ! type bound procedures
 
-!-------------------------------------------------------------------------------
-!> Initialization
+  !-----------------------------------------------------------------------------
+  !> Initialization
 
-subroutine SetProblem(problem, file, comm)
-  class(FlowProblem_Stokes_DKM), intent(inout) :: problem
-  character(len=*), optional, intent(in) :: file    !< input file
-  type(MPI_Comm),   optional, intent(in) :: comm    !< MPI communicator
+  subroutine SetProblem(problem, file, comm)
+    class(FlowProblem_Stokes_DKM), intent(inout) :: problem
+    character(len=*), optional, intent(in) :: file    !< input file
+    type(MPI_Comm),   optional, intent(in) :: comm    !< MPI communicator
 
-  ! local variables ............................................................
+    ! local variables ..........................................................
 
-  logical   :: stokes = .true.
-  real(RNP) :: nu     =  1  ! kinematic viscosity
-  real(RNP) :: x0(3)  = -1  ! bounding box: corner nearest to -infinity
-  real(RNP) :: x1(3)  =  1  ! bounding box: corner nearest to +infinity
-  character, allocatable :: bc(:,:)
+    logical   :: stokes = .true.
+    real(RNP) :: nu     =  1  ! kinematic viscosity
+    real(RNP) :: x0(3)  = -1  ! bounding box: corner nearest to -infinity
+    real(RNP) :: x1(3)  =  1  ! bounding box: corner nearest to +infinity
+    character, allocatable :: bc(:,:)
 
-  namelist /parameters/ stokes, nu, x0, x1, bc
+    namelist /parameters/ stokes, nu, x0, x1, bc
 
-  logical :: exists
-  integer :: prm, rank
+    logical :: exists
+    integer :: prm, rank
 
-  ! preliminaries ..............................................................
+    ! preliminaries ............................................................
 
-  if (present(comm)) then
-    call MPI_Comm_rank(comm, rank)
-  else
-    rank = 0
-  end if
-
-  ! check for input file
-  if (rank == 0 .and. present(file)) then
-
-    exists = len_trim(file) > 0
-    if (exists) then
-      inquire(file=trim(file)//'.prm', exist=exists)
-    end if
-
-    if (exists) then
-      open(newunit=prm, file=trim(file)//'.prm')
+    if (present(comm)) then
+      call MPI_Comm_rank(comm, rank)
     else
-      call Warning('SetProblem', 'Input file "'//trim(file)//'.prm" not found')
+      rank = 0
     end if
 
-  else
-    exists = .false.
-  end if
+    ! check for input file
+    if (rank == 0 .and. present(file)) then
 
-  ! parameters .................................................................
+      exists = len_trim(file) > 0
+      if (exists) then
+        inquire(file=trim(file)//'.prm', exist=exists)
+      end if
 
-  ! default BC (pressure is ignored)
-  allocate(bc(6, problem % nc))
-  bc(1:4,:) = 'D'
-  bc(5:6,:) = 'P'
+      if (exists) then
+        open(newunit=prm, file=trim(file)//'.prm')
+      else
+        call Warning('SetProblem','Input file "'//trim(file)//'.prm" not found')
+      end if
+
+    else
+      exists = .false.
+    end if
 
-  if (rank == 0 .and. exists) then
-    read(prm, nml=parameters)
-    close(prm)
-  end if
+    ! parameters ...............................................................
 
-  if (present(comm)) then
-    call XMPI_Bcast(stokes, 0, comm)
-    call XMPI_Bcast(nu    , 0, comm)
-    call XMPI_Bcast(x0    , 0, comm)
-    call XMPI_Bcast(x1    , 0, comm)
-    call XMPI_Bcast(bc    , 0, comm)
-  end if
+    ! default BC (pressure is ignored)
+    allocate(bc(6, problem % nc))
+    bc(1:4,:) = 'D'
+    bc(5:6,:) = 'P'
 
-  problem % stokes = stokes
-  problem % exact_solution = .true.
+    if (rank == 0 .and. exists) then
+      read(prm, nml=parameters)
+      close(prm)
+    end if
 
-  allocate(problem % nu_ref( problem%nc ), source = ZERO)
-  problem % nu_ref(1:3) = nu
-  problem % x0 = x0
-  problem % x1 = x1
+    if (present(comm)) then
+      call XMPI_Bcast(stokes, 0, comm)
+      call XMPI_Bcast(nu    , 0, comm)
+      call XMPI_Bcast(x0    , 0, comm)
+      call XMPI_Bcast(x1    , 0, comm)
+      call XMPI_Bcast(bc    , 0, comm)
+    end if
 
-  call move_alloc(bc, problem % bc)
-  call problem % GeneratePressureBC()
+    problem % stokes = stokes
+    problem % exact_solution = .true.
 
-end subroutine SetProblem
+    allocate(problem % nu_ref( problem%nc ), source = ZERO)
+    problem % nu_ref(1:3) = nu
+    problem % x0 = x0
+    problem % x1 = x1
 
-!-------------------------------------------------------------------------------
-!> Provides the initial values u(x,0) for mesh points x
+    call move_alloc(bc, problem % bc)
+    call problem % GeneratePressureBC()
 
-subroutine GetInitialValues(problem, x, u)
-  class(FlowProblem_Stokes_DKM), intent(in) :: problem
-  real(RNP), intent(in)  :: x(:,:,:,:,:) !< mesh points
-  real(RNP), intent(out) :: u(:,:,:,:,:) !< flow variables
+  end subroutine SetProblem
 
-  integer :: m, n
+  !-----------------------------------------------------------------------------
+  !> Provides the initial values u(x,0) for mesh points x
 
-  n = size(x(:,:,:,:,1))
+  subroutine GetInitialValues(problem, x, u)
+    class(FlowProblem_Stokes_DKM), intent(in) :: problem
+    real(RNP), intent(in)  :: x(:,:,:,:,:) !< mesh points
+    real(RNP), intent(out) :: u(:,:,:,:,:) !< flow variables
 
-  associate(nu => problem%nu_ref(1), a => problem%a)
-    call GetVelocity(n, x, ZERO, nu, a, u(:,:,:,:,1:3))
-    call GetPressure(n, x, ZERO, nu, a, u(:,:,:,:,4)  )
-  end associate
+    integer :: m, n
 
-  ! remaining variables get zero
-  do m = 5, size(u,5)
-    call SetArray(u(:,:,:,:,m), ZERO)
-  end do
+    n = size(x(:,:,:,:,1))
 
-end subroutine GetInitialValues
+    associate(nu => problem%nu_ref(1), a => problem%a)
+      call GetVelocity(n, x, ZERO, nu, a, u(:,:,:,:,1:3))
+      call GetPressure(n, x, ZERO, nu, a, u(:,:,:,:,4)  )
+    end associate
 
-!-------------------------------------------------------------------------------
-!> Provides the values `ub = u(xb,t)` for points `xb` on boundary `b`
+    ! remaining variables get zero
+    do m = 5, size(u,5)
+      call SetArray(u(:,:,:,:,m), ZERO)
+    end do
 
-subroutine GetBoundaryValues(problem, b, xb, t, ub)
-  class(FlowProblem_Stokes_DKM), intent(in) :: problem
-  integer,   intent(in)  :: b             !< boundary ID
-  real(RNP), intent(in)  :: xb(:,:,:,:)   !< mesh boundary points
-  real(RNP), intent(in)  :: t             !< time
-  real(RNP), intent(out) :: ub(:,:,:,:)   !< flow variables
+  end subroutine GetInitialValues
 
-  integer :: m, n
+  !-----------------------------------------------------------------------------
+  !> Provides the values `ub = u(xb,t)` for points `xb` on boundary `b`
 
-  n = size(xb(:,:,:,1))
+  subroutine GetBoundaryValues(problem, b, xb, t, ub)
+    class(FlowProblem_Stokes_DKM), intent(in) :: problem
+    integer,   intent(in)  :: b             !< boundary ID
+    real(RNP), intent(in)  :: xb(:,:,:,:)   !< mesh boundary points
+    real(RNP), intent(in)  :: t             !< time
+    real(RNP), intent(out) :: ub(:,:,:,:)   !< flow variables
 
-  associate(nu => problem%nu_ref(1), a => problem%a)
-    call GetVelocity(n, xb, t, nu, a, ub(:,:,:,1:3))
-    call GetPressure(n, xb, t, nu, a, ub(:,:,:,4)  )
-  end associate
+    integer :: m, n
 
-  ! remaining variables get zero
-  do m = 5, size(ub,4)
-    call SetArray(ub(:,:,:,m), ZERO)
-  end do
+    n = size(xb(:,:,:,1))
 
-  ! silence the compiler ;)
-  if (b < 0) return
+    associate(nu => problem%nu_ref(1), a => problem%a)
+      call GetVelocity(n, xb, t, nu, a, ub(:,:,:,1:3))
+      call GetPressure(n, xb, t, nu, a, ub(:,:,:,4)  )
+    end associate
 
-end subroutine GetBoundaryValues
+    ! remaining variables get zero
+    do m = 5, size(ub,4)
+      call SetArray(ub(:,:,:,m), ZERO)
+    end do
 
-!-------------------------------------------------------------------------------
-!> Provides the values `dt_ub = ∂u/∂t(xb,t)` for points `xb` on boundary `b`
+    ! silence the compiler ;)
+    if (b < 0) return
 
-subroutine GetBoundaryTimeDerivative(problem, b, xb, t, dt_ub)
-  class(FlowProblem_Stokes_DKM), intent(in) :: problem
-  integer,   intent(in)  :: b              !< boundary ID
-  real(RNP), intent(in)  :: xb(:,:,:,:)    !< boundary points
-  real(RNP), intent(in)  :: t              !< time
-  real(RNP), intent(out) :: dt_ub(:,:,:,:) !< ∂u/∂t
+  end subroutine GetBoundaryValues
 
-  integer :: m, n
+  !-----------------------------------------------------------------------------
+  !> Provides the values `dt_ub = ∂u/∂t(xb,t)` for points `xb` on boundary `b`
 
-  n = size(xb(:,:,:,1))
+  subroutine GetBoundaryTimeDerivative(problem, b, xb, t, dt_ub)
+    class(FlowProblem_Stokes_DKM), intent(in) :: problem
+    integer,   intent(in)  :: b              !< boundary ID
+    real(RNP), intent(in)  :: xb(:,:,:,:)    !< boundary points
+    real(RNP), intent(in)  :: t              !< time
+    real(RNP), intent(out) :: dt_ub(:,:,:,:) !< ∂u/∂t
 
-  associate(nu => problem%nu_ref(1), a => problem%a)
-    call GetVelocityTimeDerivative(n, xb, t, nu, a, dt_ub(:,:,:,1:3))
-    call GetPressureTimeDerivative(n, xb, t, nu, a, dt_ub(:,:,:,4)  )
-  end associate
+    integer :: m, n
 
-  ! remaining variables get zero
-  do m = 5, size(dt_ub,4)
-    call SetArray(dt_ub(:,:,:,m), ZERO)
-  end do
+    n = size(xb(:,:,:,1))
 
-  ! silence the compiler ;)
-  if (b < 0) return
+    associate(nu => problem%nu_ref(1), a => problem%a)
+      call GetVelocityTimeDerivative(n, xb, t, nu, a, dt_ub(:,:,:,1:3))
+      call GetPressureTimeDerivative(n, xb, t, nu, a, dt_ub(:,:,:,4)  )
+    end associate
 
-end subroutine GetBoundaryTimeDerivative
+    ! remaining variables get zero
+    do m = 5, size(dt_ub,4)
+      call SetArray(dt_ub(:,:,:,m), ZERO)
+    end do
 
-!-------------------------------------------------------------------------------
-!> Provides the external sources for all variables at points x and time t
+    ! silence the compiler ;)
+    if (b < 0) return
 
-subroutine GetExternalSources(problem, x, t, f)
-  class(FlowProblem_Stokes_DKM), intent(in) :: problem
-  real(RNP), intent(in)  :: x(:,:,:,:,:) !< mesh points
-  real(RNP), intent(in)  :: t            !< time
-  real(RNP), intent(out) :: f(:,:,:,:,:) !< external sources
+  end subroutine GetBoundaryTimeDerivative
 
-  call SetArray(f, ZERO, multi=.true.)
+  !-----------------------------------------------------------------------------
+  !> Provides the external sources for all variables at points x and time t
 
-end subroutine GetExternalSources
+  subroutine GetExternalSources(problem, x, t, f)
+    class(FlowProblem_Stokes_DKM), intent(in) :: problem
+    real(RNP), intent(in)  :: x(:,:,:,:,:) !< mesh points
+    real(RNP), intent(in)  :: t            !< time
+    real(RNP), intent(out) :: f(:,:,:,:,:) !< external sources
 
-!---------------------------------------------------------------------------
-!> Provides the exact solution u(x,t)
+    call SetArray(f, ZERO, multi=.true.)
 
-subroutine GetExactSolution(problem, x, t, u)
-  class(FlowProblem_Stokes_DKM), intent(in) :: problem
-  real(RNP), intent(in)  :: x(:,:,:,:,:) !< mesh points
-  real(RNP), intent(in)  :: t            !< time
-  real(RNP), intent(out) :: u(:,:,:,:,:) !< solution
+  end subroutine GetExternalSources
 
-  integer :: m, n
+  !---------------------------------------------------------------------------
+  !> Provides the exact solution u(x,t)
 
-  n = size(x(:,:,:,:,1))
+  subroutine GetExactSolution(problem, x, t, u)
+    class(FlowProblem_Stokes_DKM), intent(in) :: problem
+    real(RNP), intent(in)  :: x(:,:,:,:,:) !< mesh points
+    real(RNP), intent(in)  :: t            !< time
+    real(RNP), intent(out) :: u(:,:,:,:,:) !< solution
 
-  associate(nu => problem%nu_ref(1), a => problem%a)
-    call GetVelocity(n, x, t, nu, a, u(:,:,:,:,1:3))
-    call GetPressure(n, x, t, nu, a, u(:,:,:,:,4)  )
-  end associate
+    integer :: m, n
 
-  ! remaining variables get zero
-  do m = 5, size(u,5)
-    call SetArray(u(:,:,:,:,m), ZERO)
-  end do
+    n = size(x(:,:,:,:,1))
 
-end subroutine GetExactSolution
+    associate(nu => problem%nu_ref(1), a => problem%a)
+      call GetVelocity(n, x, t, nu, a, u(:,:,:,:,1:3))
+      call GetPressure(n, x, t, nu, a, u(:,:,:,:,4)  )
+    end associate
 
-!---------------------------------------------------------------------------
-!> Provides the time derivative of the exact solution, ∂u/∂t(x,t)
+    ! remaining variables get zero
+    do m = 5, size(u,5)
+      call SetArray(u(:,:,:,:,m), ZERO)
+    end do
 
-subroutine GetExactTimeDerivative(problem, x, t, dt_u)
-  class(FlowProblem_Stokes_DKM), intent(in) :: problem
-  real(RNP), intent(in)  :: x(:,:,:,:,:)    !< mesh points
-  real(RNP), intent(in)  :: t               !< time
-  real(RNP), intent(out) :: dt_u(:,:,:,:,:) !< time derivative
+  end subroutine GetExactSolution
 
-  integer :: m, n
+  !---------------------------------------------------------------------------
+  !> Provides the time derivative of the exact solution, ∂u/∂t(x,t)
 
-  n = size(x(:,:,:,:,1))
+  subroutine GetExactTimeDerivative(problem, x, t, dt_u)
+    class(FlowProblem_Stokes_DKM), intent(in) :: problem
+    real(RNP), intent(in)  :: x(:,:,:,:,:)    !< mesh points
+    real(RNP), intent(in)  :: t               !< time
+    real(RNP), intent(out) :: dt_u(:,:,:,:,:) !< time derivative
 
-  associate(nu => problem%nu_ref(1), a => problem%a)
-    call GetVelocityTimeDerivative(n, x, t, nu, a, dt_u(:,:,:,:,1:3))
-    call GetPressureTimeDerivative(n, x, t, nu, a, dt_u(:,:,:,:,4)  )
-  end associate
+    integer :: m, n
 
-  ! remaining variables get zero
-  do m = 5, size(dt_u,5)
-    call SetArray(dt_u(:,:,:,:,m), ZERO)
-  end do
+    n = size(x(:,:,:,:,1))
 
-end subroutine GetExactTimeDerivative
+    associate(nu => problem%nu_ref(1), a => problem%a)
+      call GetVelocityTimeDerivative(n, x, t, nu, a, dt_u(:,:,:,:,1:3))
+      call GetPressureTimeDerivative(n, x, t, nu, a, dt_u(:,:,:,:,4)  )
+    end associate
 
-!===============================================================================
-! problem-specific procedures
+    ! remaining variables get zero
+    do m = 5, size(dt_u,5)
+      call SetArray(dt_u(:,:,:,:,m), ZERO)
+    end do
 
-!-------------------------------------------------------------------------------
-!> Velocity
+  end subroutine GetExactTimeDerivative
 
-subroutine GetVelocity(n, x, t, nu, a, v)
-  integer,   intent(in)  :: n       !< number of points
-  real(RNP), intent(in)  :: x(n,3)  !< mesh points
-  real(RNP), intent(in)  :: t       !< time
-  real(RNP), intent(in)  :: nu      !< kinematic viscosity
-  real(RNP), intent(in)  :: a       !< wave length
-  real(RNP), intent(out) :: v(n,3)  !< velocity at mesh points
+  !=============================================================================
+  ! problem-specific procedures
 
-  real(RNP) :: lambda, b, c, x1, x2
-  integer   :: i
+  !-----------------------------------------------------------------------------
+  !> Velocity
 
-  lambda = nu * (1 + a*a)
-  b = cos(a)
-  c = exp(-lambda * t)
+  subroutine GetVelocity(n, x, t, nu, a, v)
+    integer,   intent(in)  :: n       !< number of points
+    real(RNP), intent(in)  :: x(n,3)  !< mesh points
+    real(RNP), intent(in)  :: t       !< time
+    real(RNP), intent(in)  :: nu      !< kinematic viscosity
+    real(RNP), intent(in)  :: a       !< wave length
+    real(RNP), intent(out) :: v(n,3)  !< velocity at mesh points
 
-  do i = 1, n
-    x1 = x(i,1)
-    x2 = x(i,2)
-    v(i,1) = c * sin(x1) * (a * sin(a*x2) - b * sinh(x2))
-    v(i,2) = c * cos(x1) * (    cos(a*x2) + b * cosh(x2))
-    v(i,3) = ZERO
-  end do
+    real(RNP) :: lambda, b, c, x1, x2
+    integer   :: i
 
-end subroutine GetVelocity
+    lambda = nu * (1 + a*a)
+    b = cos(a)
+    c = exp(-lambda * t)
 
-!-------------------------------------------------------------------------------
-!> Velocity time derivative
+    !$omp do
+    do i = 1, n
+      x1 = x(i,1)
+      x2 = x(i,2)
+      v(i,1) = c * sin(x1) * (a * sin(a*x2) - b * sinh(x2))
+      v(i,2) = c * cos(x1) * (    cos(a*x2) + b * cosh(x2))
+      v(i,3) = ZERO
+    end do
 
-subroutine GetVelocityTimeDerivative(n, x, t, nu, a, dt_v)
-  integer,   intent(in)  :: n          !< number of points
-  real(RNP), intent(in)  :: x(n,3)     !< mesh points
-  real(RNP), intent(in)  :: t          !< time
-  real(RNP), intent(in)  :: nu         !< kinematic viscosity
-  real(RNP), intent(in)  :: a          !< wave length
-  real(RNP), intent(out) :: dt_v(n,3)  !< velocity time derivative
+  end subroutine GetVelocity
 
-  real(RNP) :: lambda, b, c, x1, x2
-  integer   :: i
+  !-----------------------------------------------------------------------------
+  !> Velocity time derivative
 
-  lambda = nu * (1 + a*a)
-  b = cos(a)
-  c = -lambda * exp(-lambda * t)
+  subroutine GetVelocityTimeDerivative(n, x, t, nu, a, dt_v)
+    integer,   intent(in)  :: n          !< number of points
+    real(RNP), intent(in)  :: x(n,3)     !< mesh points
+    real(RNP), intent(in)  :: t          !< time
+    real(RNP), intent(in)  :: nu         !< kinematic viscosity
+    real(RNP), intent(in)  :: a          !< wave length
+    real(RNP), intent(out) :: dt_v(n,3)  !< velocity time derivative
 
-  do i = 1, n
-    x1 = x(i,1)
-    x2 = x(i,2)
-    dt_v(i,1) = c * sin(x1) * (a * sin(a*x2) - b * sinh(x2))
-    dt_v(i,2) = c * cos(x1) * (    cos(a*x2) + b * cosh(x2))
-    dt_v(i,3) = ZERO
-  end do
+    real(RNP) :: lambda, b, c, x1, x2
+    integer   :: i
 
-end subroutine GetVelocityTimeDerivative
+    lambda = nu * (1 + a*a)
+    b = cos(a)
+    c = -lambda * exp(-lambda * t)
 
-!-------------------------------------------------------------------------------
-!> Pressure
+    !$omp do
+    do i = 1, n
+      x1 = x(i,1)
+      x2 = x(i,2)
+      dt_v(i,1) = c * sin(x1) * (a * sin(a*x2) - b * sinh(x2))
+      dt_v(i,2) = c * cos(x1) * (    cos(a*x2) + b * cosh(x2))
+      dt_v(i,3) = ZERO
+    end do
 
-subroutine GetPressure(n, x, t, nu, a, p)
-  integer,   intent(in)  :: n       !< number of points
-  real(RNP), intent(in)  :: x(n,3)  !< mesh points
-  real(RNP), intent(in)  :: t       !< time
-  real(RNP), intent(in)  :: nu      !< kinematic viscosity
-  real(RNP), intent(in)  :: a       !< wave length
-  real(RNP), intent(out) :: p(n)    !< pressure at mesh points
+  end subroutine GetVelocityTimeDerivative
 
-  real(RNP) :: lambda, c
-  integer   :: i
+  !-----------------------------------------------------------------------------
+  !> Pressure
 
-  lambda = nu * (1 + a*a)
-  c = lambda * cos(a) * exp(-lambda * t)
+  subroutine GetPressure(n, x, t, nu, a, p)
+    integer,   intent(in)  :: n       !< number of points
+    real(RNP), intent(in)  :: x(n,3)  !< mesh points
+    real(RNP), intent(in)  :: t       !< time
+    real(RNP), intent(in)  :: nu      !< kinematic viscosity
+    real(RNP), intent(in)  :: a       !< wave length
+    real(RNP), intent(out) :: p(n)    !< pressure at mesh points
 
-  do i = 1, n
-    p(i) = c * cos(x(i,1)) * sinh(x(i,2))
-  end do
+    real(RNP) :: lambda, c
+    integer   :: i
 
-end subroutine GetPressure
+    lambda = nu * (1 + a*a)
+    c = lambda * cos(a) * exp(-lambda * t)
 
-!-------------------------------------------------------------------------------
-!> Pressure time derivative
+    !$omp do
+    do i = 1, n
+      p(i) = c * cos(x(i,1)) * sinh(x(i,2))
+    end do
 
-subroutine GetPressureTimeDerivative(n, x, t, nu, a, dt_p)
-  integer,   intent(in)  :: n       !< number of points
-  real(RNP), intent(in)  :: x(n,3)  !< mesh points
-  real(RNP), intent(in)  :: t       !< time
-  real(RNP), intent(in)  :: nu      !< kinematic viscosity
-  real(RNP), intent(in)  :: a       !< wave length
-  real(RNP), intent(out) :: dt_p(n) !< pressure time derivative
+  end subroutine GetPressure
 
-  real(RNP) :: lambda, c
-  integer   :: i
+  !-----------------------------------------------------------------------------
+  !> Pressure time derivative
 
-  lambda = nu * (1 + a*a)
-  c = -lambda**2 * cos(a) * exp(-lambda * t)
+  subroutine GetPressureTimeDerivative(n, x, t, nu, a, dt_p)
+    integer,   intent(in)  :: n       !< number of points
+    real(RNP), intent(in)  :: x(n,3)  !< mesh points
+    real(RNP), intent(in)  :: t       !< time
+    real(RNP), intent(in)  :: nu      !< kinematic viscosity
+    real(RNP), intent(in)  :: a       !< wave length
+    real(RNP), intent(out) :: dt_p(n) !< pressure time derivative
 
-  do i = 1, n
-    dt_p(i) = c * cos(x(i,1)) * sinh(x(i,2))
-  end do
+    real(RNP) :: lambda, c
+    integer   :: i
 
-end subroutine GetPressureTimeDerivative
+    lambda = nu * (1 + a*a)
+    c = -lambda**2 * cos(a) * exp(-lambda * t)
 
-!===============================================================================
+    !$omp do
+    do i = 1, n
+      dt_p(i) = c * cos(x(i,1)) * sinh(x(i,2))
+    end do
+
+  end subroutine GetPressureTimeDerivative
+
+  !=============================================================================
 
 end module ISP_Flow_Problem__Stokes_DKM

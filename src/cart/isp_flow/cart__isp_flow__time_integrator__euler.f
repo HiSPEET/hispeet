@@ -126,8 +126,8 @@ contains
     real(RNP), allocatable, save :: w    (:,:,:,:,:) ! workspace for u
     real(RNP), allocatable, save :: dp   (:,:,:,:)   ! pressure correction
 
-    real(RNP) :: t_0
-    integer   :: i
+    real(RNP), save :: t_0
+    integer :: i
 
     associate( problem => this % problem          &
              , flow_op => this % flow_op          &
@@ -140,8 +140,9 @@ contains
 
       ! initialization .........................................................
 
-      ! workspace
       !$omp single
+
+      ! workspace
       allocate(u_i , mold = u)
       allocate(F_d1, mold = u)
       allocate(F_d3, mold = u)
@@ -150,10 +151,11 @@ contains
       if (problem % HasVariableProperties()) then
         allocate(nu, mold = u)
       end if
-      !$omp end single
 
       t_0 = t
       t   = t + dt
+
+      !$omp end single
 
       ! nu = ν₀ = ν(x,t₀,u₀)
       if (problem % HasVariableProperties()) then

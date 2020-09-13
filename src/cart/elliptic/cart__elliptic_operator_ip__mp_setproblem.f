@@ -2,8 +2,6 @@
 !> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2019/02/24
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Build new elliptic operator for IP/DG-SEM
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP) MP_SetProblem
@@ -21,12 +19,17 @@ module subroutine SetProblem_CI(this, lambda, nu, bc)
   real(RNP), intent(in) :: nu     !< diffusivity
   character, intent(in) :: bc(:)  !< boundary conditions
 
+  !$omp barrier
+  !$omp master
+
   if (allocated(this % nu_vi )) deallocate(this % nu_vi )
   if (allocated(this % nu_hat)) deallocate(this % nu_hat)
 
   this % lambda = lambda
   this % nu_ci  = nu
   this % bc     = bc
+
+  !$omp end master
 
   if (allocated(this % schwarz)) then
     call this % schwarz % SetProblem(this%mesh, lambda, nu, bc)
@@ -45,6 +48,9 @@ module subroutine SetProblem_CI_svv(this, lambda, nu, nu_svv, bc)
   real(RNP), intent(in) :: nu_svv !< spectral diffusivity
   character, intent(in) :: bc(:)  !< boundary conditions
 
+  !$omp barrier
+  !$omp master
+
   if (allocated(this % nu_vi )) deallocate(this % nu_vi )
   if (allocated(this % nu_hat)) deallocate(this % nu_hat)
 
@@ -52,6 +58,8 @@ module subroutine SetProblem_CI_svv(this, lambda, nu, nu_svv, bc)
   this % nu_ci     = nu
   this % nu_ci_svv = nu_svv
   this % bc        = bc
+
+  !$omp end master
 
   if (allocated(this % schwarz)) then
     call this % schwarz % SetProblem(this%eop, this%mesh, lambda, nu, nu_svv, bc)
@@ -77,6 +85,9 @@ module subroutine SetProblem_VI(this, lambda, nu, bc)
   associate(mesh => this % mesh)
 
     ! preparations ............................................................
+
+    !$omp barrier
+    !$omp master
 
     po = this % eop % po
     np = po + 1
@@ -105,12 +116,17 @@ module subroutine SetProblem_VI(this, lambda, nu, bc)
     ! start generating traces of nu
     allocate(tr_nu(0:po,0:po,2,mesh%nf))
     allocate(trace_op)
-    call trace_op % GetTrace_Start(mesh, nu, tr_nu, tag=1000)
+
+    !$omp end master
 
     ! components ...............................................................
 
+    call trace_op % GetTrace_Start(mesh, nu, tr_nu, tag=1000)
+
+    !$omp master
     this % lambda = lambda
     this % bc     = bc
+    !$omp end master
 
     call SetArray(this % nu_vi, nu)
 
@@ -121,6 +137,7 @@ module subroutine SetProblem_VI(this, lambda, nu, bc)
     call trace_op % GetTrace_Finish(mesh, tr_nu)
 
     associate(nu_hat => this % nu_hat)
+      !$omp do
       do k = 1, mesh%nf
         do j = 0, po
         do i = 0, po
@@ -130,10 +147,12 @@ module subroutine SetProblem_VI(this, lambda, nu, bc)
       end do
     end associate
 
-   ! clean-up .................................................................
+    ! clean-up .................................................................
 
+    !$omp master
     deallocate(trace_op)
     deallocate(tr_nu)
+    !$omp end master
 
   end associate
 

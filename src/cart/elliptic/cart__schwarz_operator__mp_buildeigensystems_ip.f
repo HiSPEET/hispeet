@@ -31,9 +31,12 @@ module subroutine BuildEigensystems_IP(this, eop)
   character :: bc(2)
   integer :: i, j, k
 
+  !$omp single
+
   associate(po => eop%po, Ms => eop%w)
 
     ! parameters ...............................................................
+
 
     do i = 1, 3
       this % no(i) = count(eop%x <= 2*this%opt%delta(i) - 1)
@@ -122,6 +125,8 @@ module subroutine BuildEigensystems_IP(this, eop)
     end do
 
   end associate
+
+  !$omp end single
 
 end subroutine BuildEigensystems_IP
 
