@@ -365,7 +365,7 @@ program ISP_Flow__SDC_Test
 
   ! variables and initial values ...............................................
 
-  !$omp parallel private(first,last)
+  !$omp parallel
 
   call InitializeMeshVariables()
 
@@ -376,7 +376,7 @@ program ISP_Flow__SDC_Test
     call problem % GetInitialValues(flow_op%x, u)
     if (.not. problem % HasExactSolution()) then
       associate(p => u(:,:,:,:,4), F_v => u_e)
-        call TimeDerivative(problem, flow_op, t, u_c = u, u_d = u, F = F_v)
+        call TimeDerivative(problem, flow_op, t, u, F = F_v)
         call ComputePressure(problem, flow_op, t, F_v, p, w)
       end associate
     end if
@@ -424,6 +424,9 @@ program ISP_Flow__SDC_Test
     case(1:4)
       call time_integrator % TimeStep(t, dt, u)
     case(5,7)
+!###CHECK
+!last = .false.
+!###CHECK END
       call sdc % TimeStep(t, dt, u, standby = .not. last )
     case default
       ! using old Euler as the fall-back
@@ -433,7 +436,7 @@ program ISP_Flow__SDC_Test
 
     if (compute_p) then
       associate(p => u(:,:,:,:,4), F_v => u_e)
-        call TimeDerivative(problem, flow_op, t, u_c = u, u_d = u, F = F_v)
+        call TimeDerivative(problem, flow_op, t, u, F = F_v)
         call ComputePressure(problem, flow_op, t, F_v, p, w)
       end associate
     end if

@@ -109,7 +109,7 @@ module subroutine SchwarzMethod(this, u, f, i_max, r_red, r_max, ni)
 
       if (schwarz % isotropic) then
 
-         call TPO_Schwarz_CI( schwarz %S1, schwarz % W1,      &
+         call TPO_Schwarz_CI( schwarz % S1,  schwarz % W1,    &
                               schwarz % cfg, schwarz % D_inv, &
                               f_s, u_s                        )
       else

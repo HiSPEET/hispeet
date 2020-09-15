@@ -48,6 +48,9 @@ subroutine PROC(TPO_Elliptic_RLVI_Hand__,_NP_)(ne, Ms, Ds, lambda, nu, dx, u, v)
   ! coefficients
   g = 4 / dx**2
 
+  ! make sure that aux array doe not contain NaNS
+  z = 0
+
   !---------------------------------------------------------------------------
   ! evaluation
 

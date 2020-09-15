@@ -2,7 +2,7 @@
 !> Parametrized 3d rotrot kernel using hand-crafted suboperators (RCLI)
 
 subroutine PROC(TPO_RotRot_R_Hand__,_NP_)(ne, Ds, dx, u, v)
- 
+
   use Constants, only: ZERO, ONE
 
   integer,   intent(in)  :: ne                     !< num elements
@@ -31,6 +31,9 @@ subroutine PROC(TPO_RotRot_R_Hand__,_NP_)(ne, Ds, dx, u, v)
   ! metric coefficients
   g = 2 / dx
 
+  ! make sure that aux array doe not contain NaNs
+  div_u = 0
+
   !---------------------------------------------------------------------------
   ! evaluation
 
@@ -47,16 +50,16 @@ subroutine PROC(TPO_RotRot_R_Hand__,_NP_)(ne, Ds, dx, u, v)
     call PROC(IxQtxI__,_NP_)( A, g(2)     , ONE , u(:,:,:,e,2), div_u(:,:,:))
     ! div(u)+= du3/dx3
     call PROC(QtxIxI__,_NP_)( A, g(3)     , ONE , u(:,:,:,e,3), div_u(:,:,:))
-    
+
     ! v1 = d(div(u))/dx1
     call PROC(IxIxQt__,_NP_)( A, g(1)     , ZERO, div_u(:,:,:), v(:,:,:,e,1))
-    ! v1+=-d( du1/dx1 )/dx1 
+    ! v1+=-d( du1/dx1 )/dx1
     call PROC(IxIxQt__,_NP_)(DA,-g(1)*g(1), ONE , u(:,:,:,e,1), v(:,:,:,e,1))
     ! v1+=-d( du1/dx2 )/dx2
     call PROC(IxQtxI__,_NP_)(DA,-g(2)*g(2), ONE , u(:,:,:,e,1), v(:,:,:,e,1))
     ! v1+=-d( du1/dx3 )/dx3
     call PROC(QtxIxI__,_NP_)(DA,-g(3)*g(3), ONE , u(:,:,:,e,1), v(:,:,:,e,1))
-    
+
     ! v2 = d(div(u))/dx2
     call PROC(IxQtxI__,_NP_)( A, g(2)     , ZERO, div_u(:,:,:), v(:,:,:,e,2))
     ! v2+=-d( du2/dx1 )/dx1
@@ -64,8 +67,8 @@ subroutine PROC(TPO_RotRot_R_Hand__,_NP_)(ne, Ds, dx, u, v)
     ! v2+=-d( du2/dx2 )/dx2
     call PROC(IxQtxI__,_NP_)(DA,-g(2)*g(2), ONE , u(:,:,:,e,2), v(:,:,:,e,2))
     ! v2+=-d( du2/dx3 )/dx3
-    call PROC(QtxIxI__,_NP_)(DA,-g(3)*g(3), ONE , u(:,:,:,e,2), v(:,:,:,e,2)) 
-    
+    call PROC(QtxIxI__,_NP_)(DA,-g(3)*g(3), ONE , u(:,:,:,e,2), v(:,:,:,e,2))
+
     ! v3 = d(div(u))/dx3
     call PROC(QtxIxI__,_NP_)( A, g(3)     , ZERO, div_u(:,:,:), v(:,:,:,e,3))
     ! v3+=-d( du3/dx1 )/dx1

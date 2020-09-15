@@ -60,6 +60,7 @@ subroutine GetBoundaryValues(problem, mesh, bv_x, t, bv_u)
   do i = 1, mesh % n_boundary
 
     if (all(problem % bc(i,:) == 'P')) cycle
+    !$omp barrier
     !$omp single
     xb => bv_x(i) % Components()
     ub => bv_u(i) % Components()

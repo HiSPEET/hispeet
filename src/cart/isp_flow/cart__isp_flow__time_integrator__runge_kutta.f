@@ -213,9 +213,11 @@ contains
              , ns      => this % imex_rk % n_stage &
              , eop     => this % flow_op % eop_u   )
 
-      ! workspace ................................................................
+      ! initialization .........................................................
 
       !$omp single
+
+      ! workspace
       allocate(ts(1:ns))
       allocate(u_i, mold = u)
       allocate(F_c(size(u,1), size(u,2), size(u,3), size(u,4), size(u,5), ns))
@@ -223,14 +225,16 @@ contains
       if (problem % HasVariableProperties()) then
         allocate(nu, mold = u)
       end if
-      !$omp end single
-
-      ! initialization .........................................................
 
       ! node times
       do k = 1, ns
         ts(k) = t + c(k) * dt
       end do
+
+      ! time
+      t = t + dt
+
+      !$omp end single
 
       ! stage 1 ................................................................
 
@@ -239,8 +243,7 @@ contains
       end if
 
       call TimeDerivative( problem, flow_op, ts(1)    &
-                         , u_c  = u                   &
-                         , u_d  = u                   &
+                         , u    = u                   &
                          , p    = p                   &
                          , nu   = nu                  &
                          , chi  = chi                 &
@@ -293,10 +296,6 @@ contains
         end associate
       end if
 
-      ! advance time ...........................................................
-
-      t = t + dt
-
       ! pressure ...............................................................
 
       select case(this % pressure)
@@ -306,7 +305,7 @@ contains
           if (b(ns) /= ONE .and. problem % HasVariableProperties()) then
             call problem % GetDiffusivity(flow_op%x, t, u, nu)
           end if
-          call TimeDerivative(problem, flow_op, t, u, u, nu=nu, chi=chi, F=F_v)
+          call TimeDerivative(problem, flow_op, t, u, nu=nu, chi=chi, F=F_v)
           call ComputePressure(problem, flow_op, t, F_v, p, w)
         end associate
       case default
@@ -316,7 +315,7 @@ contains
       ! clean up ...............................................................
 
       !$omp barrier
-      !$omp master
+      !$omp single
       if(allocated(ts   ))   deallocate(ts  )
       if(allocated(u_i  ))   deallocate(u_i )
       if(allocated(F_c  ))   deallocate(F_c )
@@ -326,7 +325,7 @@ contains
       if(allocated(F_p  ))   deallocate(F_p )
       if(allocated(F_s  ))   deallocate(F_s )
       if(allocated(nu   ))   deallocate(nu  )
-      !$omp end master
+      !$omp end single
 
     end associate
 
@@ -395,7 +394,7 @@ contains
       ! initialization .........................................................
 
       call GetBoundaryValues(problem, mesh, flow_op % bv_x, t, flow_op % bv_u)
-      call TimeDerivative(problem, flow_op, t, F_s = F_s(:,:,:,:,:,i))
+      call problem % GetExternalSources(flow_op%x, t, F_s(:,:,:,:,:,i))
       call SetArray(u_i, u_0, multi=.true.)
 
       ! extrapolation: u_i ← u' ................................................
@@ -494,8 +493,7 @@ contains
 
       ! contributions to time derivative
       call TimeDerivative( problem, flow_op, t        &
-                         , u_c  = u_i                 &
-                         , u_d  = u_i                 &
+                         , u    = u_i                 &
                          , p    = p                   &
                          , nu   = nu                  &
                          , chi  = chi                 &
@@ -511,11 +509,11 @@ contains
     ! clean up .................................................................
 
     !$omp barrier
-    !$omp master
+    !$omp single
     if (allocated(f )) deallocate(f )
     if (allocated(w )) deallocate(w )
     if (allocated(dp)) deallocate(dp)
-    !$omp end master
+    !$omp end single
 
   end subroutine RungeKuttaStage_v1
 
@@ -578,7 +576,7 @@ contains
       ! initialization .........................................................
 
       call GetBoundaryValues(problem, mesh, flow_op % bv_x, t, flow_op % bv_u)
-      call TimeDerivative(problem, flow_op, t, F_s = F_s(:,:,:,:,:,i))
+      call problem % GetExternalSources(flow_op%x, t, F_s(:,:,:,:,:,i))
       call SetArray(u_i, u_0, multi=.true.)
 
       ! extrapolation: u_i ← u' ................................................
@@ -697,8 +695,7 @@ contains
 
       ! contributions to time derivative
       call TimeDerivative( problem, flow_op, t        &
-                         , u_c  = u_i                 &
-                         , u_d  = u_i                 &
+                         , u    = u_i                 &
                          , p    = p                   &
                          , nu   = nu                  &
                          , chi  = chi                 &
@@ -723,11 +720,11 @@ contains
     ! clean up .................................................................
 
     !$omp barrier
-    !$omp master
+    !$omp single
     if (allocated(f )) deallocate(f )
     if (allocated(w )) deallocate(w )
     if (allocated(dp)) deallocate(dp)
-    !$omp end master
+    !$omp end single
 
   end subroutine RungeKuttaStage_v2
 

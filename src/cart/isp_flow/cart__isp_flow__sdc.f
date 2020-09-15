@@ -2,8 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2017/08/22
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Spectral deferred correction method for incompressible flow
 !===============================================================================
 
 module CART__ISP_Flow__SDC
@@ -317,10 +315,12 @@ subroutine TimeStep( sdc, problem, flow_op, t, dt, u, F, first, last)
 
   ! finalization ...............................................................
 
-  t = t + dt
-
   call SetArray(u, ui(:,:,:,:,:,ni), multi=.true.)
   call SetArray(F, Fi(:,:,:,:,:,ni), multi=.true.)
+
+  !$omp single
+  t = t + dt
+  !$omp end single
 
   if (last) then
     call FreeWorkspace()
@@ -340,24 +340,22 @@ contains
     ne = size(u,4)
     nc = size(u,5)
 
+    !$omp single
     if (first) then
-      !$omp single
       allocate(  ti(0:ni                  ) )
       allocate( dti(  ni                  ) )
       allocate(  ui(  np,np,np,ne,nc,0:ni ) )
       allocate(  Fi(  np,np,np,ne,nc,0:ni ) )
       allocate(  Hi(  np,np,np,ne,nc,1:ni ) )
       allocate(  Si(  np,np,np,ne,nc,1:ni ) )
-      !$omp end single
-      !$acc enter data create(ui, Fi, Si)
     end if
-
     ti  = sdc % IntermediateTimes(t, dt)
     dti = ti(1:ni) - ti(0:ni-1)
+    !$omp end single
 
     if (first) then
       ! compute RHS without pressure contribution
-      call TimeDerivative(problem, flow_op, t, u_c=u, u_d=u, F=F)
+      call TimeDerivative(problem, flow_op, t, u=u, F=F)
     end if
 
     call SetArray(ui(:,:,:,:,:,0), u, multi=.true.)
@@ -376,16 +374,15 @@ contains
 
   subroutine FreeWorkspace()
 
-    !$acc exit data delete(ui, Fi, Hi, Si)
     !$omp barrier
-    !$omp master
+    !$omp single
     deallocate(  ti )
     deallocate( dti )
     deallocate(  ui )
     deallocate(  Fi )
     deallocate(  Hi )
     deallocate(  Si )
-    !$omp end master
+    !$omp end single
 
   end subroutine FreeWorkspace
 

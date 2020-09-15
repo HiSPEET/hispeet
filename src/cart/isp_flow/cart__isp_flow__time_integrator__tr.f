@@ -177,8 +177,8 @@ contains
     real(RNP), allocatable, save :: nu  (:,:,:,:,:) ! variable diffusivity
     real(RNP), allocatable, save :: w   (:,:,:,:,:) ! workspace for u
 
-    real(RNP) :: t_0
-    integer   :: i
+    real(RNP), save :: t_0
+    integer :: i
 
     associate( problem => this % problem          &
              , flow_op => this % flow_op          &
@@ -204,10 +204,11 @@ contains
       if (problem % HasVariableProperties()) then
         allocate(nu, mold = u)
       end if
-      !$omp end single
 
       t_0 = t
       t   = t + dt
+
+      !$omp end single
 
       ! boundary conditions at time t ..........................................
 
@@ -225,8 +226,7 @@ contains
 
       ! F_0 = [F_c + F_d + F_s](x,t₀,ν₀,u₀), u_i = F_d3(ν₀,u₀)
       call TimeDerivative( problem, flow_op, t_0  &
-                         , u_c  = u               &
-                         , u_d  = u               &
+                         , u    = u               &
                          , nu   = nu              &
                          , chi  = chi             &
                          , F    = F_0             &
@@ -276,8 +276,7 @@ contains
 
       ! F_1 = [F_c + F_d + F_s](x,t₁,ν₁,u₁)
       call TimeDerivative( problem, flow_op, t  &
-                         , u_c  = u_1           &
-                         , u_d  = u_1           &
+                         , u    = u_1           &
                          , nu   = nu            &
                          , chi  = chi           &
                          , F    = F_1           &
@@ -345,7 +344,7 @@ contains
           call problem % GetDiffusivity(flow_op%x, t, u, nu)
         end if
         ! recompute pressure using F_1 as workspace for F_v
-        call TimeDerivative(problem, flow_op, t, u, u, nu=nu, chi=chi, F=F_1)
+        call TimeDerivative(problem, flow_op, t, u, nu=nu, chi=chi, F=F_1)
         call ComputePressure(problem, flow_op, t, F_1, p, w)
       end if
 

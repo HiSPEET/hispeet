@@ -310,7 +310,9 @@ contains
     n_sub   = this % n_sub
     n_sweep = this % n_sweep
 
-    !$omp barrier
+!###CHECK
+!!!    !$omp barrier
+!###CHECK END
     !$omp single
 
     if (allocated(u_)) then
@@ -319,6 +321,8 @@ contains
         deallocate(u_, F_ex_, F_im_, F_, S_)
         deallocate(F_ex_0_old, F_im_0_old)
         if (allocated(nu_)) deallocate(nu_)
+        nu_0 => null()
+        nu_i => null()
       end if
     end if
 
@@ -334,11 +338,9 @@ contains
       allocate(S_         (np,np,np,ne,nc,1:n_sub))
       allocate(F_ex_0_old (np,np,np,ne,nc))
       allocate(F_im_0_old (np,np,np,ne,nc))
-      !$acc enter data create(t_,dt_,u_,...)
 
       if (this % problem % HasVariableProperties()) then
         allocate(nu_(np,np,np,ne,nc,0:n_sub))
-        !$acc enter data create(nu_)
       end if
 
     end if
@@ -371,8 +373,10 @@ contains
 
         ! initialize variable diffusivity
         if (allocated(nu_)) then
+          !$omp single
           nu_0 => nu_(:,:,:,:,:,max(i-1,0))
           nu_i => nu_(:,:,:,:,:,i)
+          !$omp end single
           call this % problem %                  &
                  GetDiffusivity( this%flow_op%x  &
                                , t_(i)           &
@@ -389,7 +393,6 @@ contains
                               , F_ex = F_ex_(:,:,:,:,:,i) &
                               , F_im = F_im_(:,:,:,:,:,i) &
                               , F    = F_   (:,:,:,:,:,i) )
-
       end do
 
       ! correction sweeps ......................................................
@@ -410,8 +413,10 @@ contains
 
           ! initialize diffusivity with v(tᵢ₋₁)ᵏ⁺¹
           if (allocated(nu_)) then
+            !$omp single
             nu_0 => nu_(:,:,:,:,:,i-1)
             nu_i => nu_(:,:,:,:,:,i)
+            !$omp end single
             call SetArray(nu_i, nu_0)
           end if
 
@@ -463,20 +468,24 @@ contains
 
     ! result ...................................................................
 
+    !$omp single
     t = t + dt
+    !$omp end single
+
     call SetArray(u, u_(:,:,:,:,:,n_sub), multi=.true.)
 
     if (this % pressure > 0) then
       associate( F_v => u_(:,:,:,:,:,0) &
                , w   => u_(:,:,:,:,:,1) &
                , p   => u (:,:,:,:,4)   )
-        call TimeDerivative( this % problem, this % flow_op, t, u, u      &
+        call TimeDerivative( this % problem, this % flow_op, t, u         &
                            , nu = nu_i, chi = this%corrector%chi, F = F_v )
         call ComputePressure( this % problem, this % flow_op, t, F_v, p, w )
       end associate
     end if
 
-    ! clean-up .................................................................
+    !---------------------------------------------------------------------------
+    ! clean-up
 
     ! keep workspace in case of standby
     if (present(standby)) then
@@ -486,13 +495,13 @@ contains
     !$omp barrier
     !$omp single
     if (allocated(u_)) then
-      !$acc exit data delete(...)
       deallocate(t_, dt_)
       deallocate(u_, F_ex_, F_im_, F_, S_)
       deallocate(F_ex_0_old, F_im_0_old)
       if (allocated(nu_)) then
         deallocate(nu_)
       end if
+      nu_0 => null()
       nu_i => null()
     end if
     !$omp end single

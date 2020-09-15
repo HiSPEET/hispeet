@@ -143,12 +143,12 @@ contains
     real(RNP), parameter :: beta_1  = -1
 
     ! control
-    real(RNP), save :: t_1 = -huge(ONE)
+    real(RNP), save :: t_0, t_1 = -huge(ONE)
     logical,   save :: euler
 
     ! auxiliary
+    real(RNP) :: tau, tau_s
     integer   :: i
-    real(RNP) :: t_0, tau, tau_s
 
 
     associate( problem => this % problem          &
@@ -201,12 +201,15 @@ contains
 
       end if
 
+      t_0 = t
+      t   = t + dt
+
       !$omp end single
 
       ! variable viscosity
       if (problem % HasVariableProperties()) then
         ! nu = ν(*,t₀)
-        call problem % GetDiffusivity(flow_op%x, t, u, nu)
+        call problem % GetDiffusivity(flow_op%x, t_0, u, nu)
         ! nu_x ≈ ν(*,t₀+∆t)
         if (euler) then
           call SetArray(nu_x, nu, multi = .true.)
@@ -216,9 +219,6 @@ contains
         end if
         call SetArray(nu_1, nu, multi = .true.)
       end if
-
-      t_0 = t
-      t   = t + dt
 
       ! boundary conditions ....................................................
 
@@ -252,8 +252,7 @@ contains
       end if
 
       call TimeDerivative( problem, flow_op, t  &
-                         , u_c  = u             &
-                         , u_d  = u             &
+                         , u    = u             &
                          , nu   = nu            &
                          , chi  = chi           &
                          , F_c  = F_c           &
@@ -264,7 +263,9 @@ contains
                          )
 
       ! save t₀ and u(x,t₀) for next step
+      !$omp single
       t_1 = t_0
+      !$omp end single
       call SetArray(u_1, u, multi = .true.)
 
       if (euler) then
@@ -333,7 +334,7 @@ contains
           call problem % GetDiffusivity(flow_op%x, t, u, nu)
         end if
         ! recompute pressure using dF as workspace for F_v
-        call TimeDerivative(problem, flow_op, t, u, u, nu=nu, chi=chi, F=dF)
+        call TimeDerivative(problem, flow_op, t, u, nu=nu, chi=chi, F=dF)
         call ComputePressure(problem, flow_op, t, dF, p, w)
       end if
 

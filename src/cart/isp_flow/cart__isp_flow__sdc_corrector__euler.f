@@ -136,8 +136,7 @@ contains
     call TimeDerivative( this % problem     &
                        , this % flow_op     &
                        , t                  &
-                       , u_c  = u           &
-                       , u_d  = u           &
+                       , u    = u           &
                        , chi  = this % chi  &
                        , nu   = nu_s        &
                        , F    = F           &
@@ -148,7 +147,7 @@ contains
     call TimeDerivative( this % problem     &
                        , this % flow_op     &
                        , t                  &
-                       , u_d  = u           &
+                       , u    = u           &
                        , chi  = this % chi  &
                        , nu   = nu_c        &
                        , F_d1 = F_im        &
@@ -162,10 +161,9 @@ contains
       end if
     end do
 
-    !$omp barrier
-    !$omp master
+    !$omp single
     deallocate(F_d2, F_d3)
-    !$omp end master
+    !$omp end single
 
   end subroutine GetCorrectorRHS
 
@@ -201,8 +199,8 @@ contains
     real(RNP), allocatable, save :: w    (:,:,:,:,:) ! workspace for u
     real(RNP), allocatable, save :: dp   (:,:,:,:)   ! pressure correction
 
-    real(RNP) :: t_0
-    integer   :: i
+    real(RNP), save :: t_0
+    integer :: i
 
     associate( problem => this % problem          &
              , flow_op => this % flow_op          &
@@ -212,16 +210,17 @@ contains
 
       ! initialization .........................................................
 
-      t_0 = t
-      t   = t + dt
-
-      ! workspace
       !$omp single
+
       allocate(u_i , mold = u)
       allocate(F_im, mold = u)
       allocate(F_d3, mold = u)
       allocate(w   , mold = u)
       allocate(dp  , mold = p)
+
+      t_0 = t
+      t   = t + dt
+
       !$omp end single
 
       ! boundary conditions ....................................................
@@ -234,7 +233,7 @@ contains
       call TimeDerivative( this % problem     &
                          , this % flow_op     &
                          , t_0                &
-                         , u_d  = u           &
+                         , u    = u           &
                          , chi  = this % chi  &
                          , nu   = nu          &
                          , F_d1 = F_im        &
@@ -296,13 +295,13 @@ contains
       ! clean-up ...............................................................
 
       !$omp barrier
-      !$omp master
+      !$omp single
       deallocate(u_i )
       deallocate(F_im)
       deallocate(F_d3)
       deallocate(w   )
       deallocate(dp  )
-      !$omp end master
+      !$omp end single
 
     end associate
 

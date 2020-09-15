@@ -127,8 +127,7 @@ subroutine EulerVC(problem, flow_op, t, dt, u_0, u, F, H, S)
     ! w = -∇⋅vᵢ₋₁vᵢ₋₁ + ∇⋅ν₀(∇vᵢ₋₁)ᵀ - χ∇(ν₀∇⋅vᵢ₋₁)     for v
     ! w = -∇⋅vᵢ₋₁uᵢ₋₁                                   for u \ (v,p)
      call TimeDerivative( problem, flow_op, t  &
-                        , u_c  = u_0           &
-                        , u_d  = u_0           &
+                        , u    = u_0           &
                         , nu   = nu            &
                         , F    = w             &
                         , F_d1 = F_d1          &
@@ -139,7 +138,7 @@ subroutine EulerVC(problem, flow_op, t, dt, u_0, u, F, H, S)
 
      ! w += ∇⋅ν₀∇uᵢᵏ⁻¹ ≡ F_d1, using current approximation of u
      call TimeDerivative( problem, flow_op, t  &
-                        , u_d  = u             &
+                        , u    = u             &
                         , nu   = nu            &
                         , F_d1 = F_d1          &
                         , F_d3 = F_d3          & !!! cut for published version
@@ -164,7 +163,7 @@ subroutine EulerVC(problem, flow_op, t, dt, u_0, u, F, H, S)
     call DiffusionStep(problem, flow_op, dt, f=u_i, u=u, w=w, nu=nu)
 
     !!! activate following command for published version
-    !call TimeDerivative(problem, flow_op, t, u_d=u, nu=nu, F_d1 = F_d1)
+    !call TimeDerivative(problem, flow_op, t, u=u, nu=nu, F_d1 = F_d1)
 
     ! final projection .........................................................
 
@@ -185,11 +184,11 @@ subroutine EulerVC(problem, flow_op, t, dt, u_0, u, F, H, S)
     if (present(H)) then
 
       ! convective part
-      call TimeDerivative(problem, flow_op, t, u_c=u_0, F = H)
+      call TimeDerivative(problem, flow_op, t, u=u_0, F_c = H)
 
       ! diffusive part
       !!! deactivate following command for published version
-      call TimeDerivative(problem, flow_op, t, u_d=u, nu=nu, F_d1=F_d1)
+      call TimeDerivative(problem, flow_op, t, u=u, nu=nu, F_d1=F_d1)
       call MergeArrays(ONE, H, ONE, F_d1, multi=.true.)
       call MergeArrays(ONE, H, ONE, F_d2, multi=.true.)
       call ScaleArray(H, dt, multi = .true.)
@@ -204,7 +203,7 @@ subroutine EulerVC(problem, flow_op, t, dt, u_0, u, F, H, S)
         call problem % GetDiffusivity(flow_op%x, t, u, nu)
       end if
 
-      call TimeDerivative(problem, flow_op, t, u, u, nu = nu, F = F)
+      call TimeDerivative(problem, flow_op, t, u, nu = nu, F = F)
 
     end if
 

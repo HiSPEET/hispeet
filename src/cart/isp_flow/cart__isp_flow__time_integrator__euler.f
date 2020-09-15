@@ -173,8 +173,7 @@ contains
       ! w = -∇⋅v₀v₀ + ∇⋅ν₀(∇v₀)ᵀ - χ∇(ν₀∇⋅v₀)     for v
       ! w = -∇⋅v₀u₀                               for u \ (v,p)
       call TimeDerivative( problem, flow_op, t_0  &
-                         , u_c    = u             &
-                         , u_d    = u             &
+                         , u      = u             &
                          , chi    = chi           &
                          , nu     = nu            &
                          , F      = w             &
@@ -238,7 +237,7 @@ contains
           call problem % GetDiffusivity(flow_op%x, t, u, nu)
         end if
         ! recompute pressure using F_d1 as workspace for F_v
-        call TimeDerivative(problem, flow_op, t, u, u, nu=nu, chi=chi, F=F_d1)
+        call TimeDerivative(problem, flow_op, t, u, nu=nu, chi=chi, F=F_d1)
         call ComputePressure(problem, flow_op, t, F_d1, p, w)
       end if
 

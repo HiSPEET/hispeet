@@ -3,8 +3,8 @@
 !> date:     2018/11/22
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Application of the IP/DG elliptic operator with constant diffusivity
-!>    and constant isotropic spectral diffusivity, if given
+!> Application of the IP/DG elliptic operator with constant diffusivity
+!> and constant isotropic spectral diffusivity, if given
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP:MP_Apply) MP_Apply_CI

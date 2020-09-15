@@ -33,6 +33,10 @@ subroutine PROC(TPO_Schwarz_CI_Hand__,_NP_)(nc, nd, S, W, cfg, D_inv, f, u)
   end do
   end do
 
+  ! assure that aux arrays do not contain NaNs
+  y = 0
+  z = 0
+
   !---------------------------------------------------------------------------
   ! evaluation
 

@@ -108,7 +108,7 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -free -heap-arrays -warn all")
-    set(CMAKE_Fortran_FLAGS_CHECK   "-CA -traceback")
+    set(CMAKE_Fortran_FLAGS_CHECK   "-CA -traceback -ffpe-trap=invalid,zero,overflow")
     set(CMAKE_Fortran_FLAGS_DEBUG   "-CA -traceback -g")
     set(CMAKE_Fortran_FLAGS_RELEASE "-ip" )
 

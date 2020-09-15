@@ -19,6 +19,7 @@ subroutine PROC(TPO_Spectral_CI_Hand__,_NP_)(ne, S, Lambda, u, v)
   ! initialization
 
   St = transpose(S)
+  z  = 0
 
   !---------------------------------------------------------------------------
   ! evaluation
