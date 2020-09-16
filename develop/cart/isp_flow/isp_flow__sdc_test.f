@@ -413,9 +413,11 @@ program ISP_Flow__SDC_Test
       call Evaluation(failed)
       if (failed) exit
     else
+      !$omp master
       if (mod(nt, nt_10) == 0 .and. mesh%part == 0) then
         print '(I5,A)', nint(100.*nt/nt_max), ' %'
       end if
+      !$omp end master
     end if
 
     select case(time_method)
