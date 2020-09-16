@@ -244,14 +244,14 @@ contains
       ! clean-up ...............................................................
 
       !$omp barrier
-      !$omp master
+      !$omp single
       if (allocated(u_i )) deallocate(u_i )
       if (allocated(nu  )) deallocate(nu  )
       if (allocated(F_d1)) deallocate(F_d1)
       if (allocated(F_d3)) deallocate(F_d3)
       if (allocated(w   )) deallocate(w   )
       if (allocated(dp  )) deallocate(dp  )
-      !$omp end master
+      !$omp end single
 
     end associate
 
