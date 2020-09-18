@@ -192,22 +192,27 @@ real(RNP) function ScalarProduct_X(n, a, b, comm) result(r)
 
   ! local variables declared save to become shared with OpenMP
   real(RNP), save :: r_loc, r_glob
-  integer  :: i
+  real(RNP) :: r_priv
+  integer :: i
 
   ! local contribution .........................................................
 
+  !$omp single
   r_loc = 0
+  !$omp end single
 
-  !$omp do reduction(+:r_loc)
-  !$acc data present(a,b)
-  !$acc parallel loop reduction(+:r_loc)
+  r_priv = 0
+
+  !$omp do
   do i = 1, n
-    r_loc = r_loc + a(i) * b(i)
+    r_priv = r_priv + a(i) * b(i)
   end do
-  !$acc end data
+  !$omp end do nowait
 
-  ! OpenACC:
-  ! Note that the reduction variable is automatically updated on the host!
+  !$omp critical
+  r_loc = r_loc + r_priv
+  !$omp end critical
+  !$omp barrier
 
   ! global result ..............................................................
 
@@ -294,22 +299,27 @@ real(RNP) function WeightedScalarProduct_X(n, w, a, b, comm) result(r)
 
   ! local variables declared save to become shared with OpenMP
   real(RNP), save :: r_loc, r_glob
+  real(RNP) :: r_priv
   integer  :: i
 
   ! local contribution .........................................................
 
+  !$omp single
   r_loc = 0
+  !$omp end single
 
-  !$omp do reduction(+:r_loc)
-  !$acc data present(w,a,b)
-  !$acc parallel loop reduction(+:r_loc)
+  r_priv = 0
+
+  !$omp do
   do i = 1, n
-    r_loc = r_loc + w(i) * a(i) * b(i)
+    r_priv = r_priv + w(i) * a(i) * b(i)
   end do
-  !$acc end data
+  !$omp end do nowait
 
-  ! OpenACC:
-  ! Note that the reduction variable is automatically updated on the host!
+  !$omp critical
+  r_loc = r_loc + r_priv
+  !$omp end critical
+  !$omp barrier
 
   ! global result ..............................................................
 
