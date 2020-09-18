@@ -363,11 +363,15 @@ subroutine MG_CG_Solver(this, u, f, ni, r_2, i_max)
     singular = elliptic_op % lambda == ZERO .and. all(elliptic_op % bc /= 'D')
     if (singular) then
       if (this%monitor .and. this%mesh%part == 0) then
+        !$omp single
         print '(2X,A,G0)', 'before calibration:  sum(f) = ', sum(f)
+        !$omp end single
       end if
       call CalibrateArray(f, mesh%comm)
       if (this%monitor .and. this%mesh%part == 0) then
+        !$omp single
         print '(2X,A,G0)', 'after calibration:   sum(f) = ', sum(f)
+        !$omp end single
       end if
     end if
 
