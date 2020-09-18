@@ -114,10 +114,8 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
 
     if (OPT)
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O${OPT}")
-        set(Fortran_FLAGS_TPO "-diag-disable=6477 -O${OPT}")
     else (OPT)
-        set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O2" )
-        set(Fortran_FLAGS_TPO "-diag-disable=6477 -O3")
+        set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O3" )
     endif (OPT)
 
     if (CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
