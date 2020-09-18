@@ -21,7 +21,7 @@ subroutine PROC(TPO_AxAxA_Hand__,_NA1_,_NA2_)(ne, A, u, v)
 
   At = transpose(A)
 
-  ! make sure that aux array doe not contain NaNS
+  ! make sure that aux array does not contain NaNs
   z2 = 0
   z3 = 0
 
