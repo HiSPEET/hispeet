@@ -209,9 +209,8 @@ real(RNP) function ScalarProduct_X(n, a, b, comm) result(r)
   end do
   !$omp end do nowait
 
-  !$omp critical
+  !$omp atomic
   r_loc = r_loc + r_priv
-  !$omp end critical
   !$omp barrier
 
   ! global result ..............................................................
@@ -316,9 +315,8 @@ real(RNP) function WeightedScalarProduct_X(n, w, a, b, comm) result(r)
   end do
   !$omp end do nowait
 
-  !$omp critical
+  !$omp atomic
   r_loc = r_loc + r_priv
-  !$omp end critical
   !$omp barrier
 
   ! global result ..............................................................
