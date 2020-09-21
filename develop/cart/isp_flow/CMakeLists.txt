@@ -3,7 +3,7 @@
 
 # isp_sdc_flow_test ............................................................
 
-add_executable(isp_flow__sdc_test isp_flow__sdc_test.f)
+add_executable(isp_flow__sdc_test isp_flow__sdc_test.F)
 
 target_link_libraries(isp_flow__sdc_test HiCart)
 

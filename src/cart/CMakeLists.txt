@@ -73,27 +73,27 @@ set(ELLIPTIC elliptic/cart__schwarz_operator.f
 #===============================================================================
 # isp_flow
 
-set(ISP_FLOW isp_flow/cart__isp_flow__boundary_values.f
-             isp_flow/cart__isp_flow__convection__eq.f
-             isp_flow/cart__isp_flow__convection__iq.f
-             isp_flow/cart__isp_flow__convection.f
-             isp_flow/cart__isp_flow__diffusion.f
-             isp_flow/cart__isp_flow__operators.f
-             isp_flow/cart__isp_flow__pressure__eo.f
-             isp_flow/cart__isp_flow__pressure__mo.f
-             isp_flow/cart__isp_flow__pressure.f
-             isp_flow/cart__isp_flow__projection.f
-             isp_flow/cart__isp_flow__time_derivative.f
-             isp_flow/cart__isp_flow__time_integrator.f
-             isp_flow/cart__isp_flow__time_integrator__euler.f
-             isp_flow/cart__isp_flow__time_integrator__bdf2.f
-             isp_flow/cart__isp_flow__time_integrator__tr.f
-             isp_flow/cart__isp_flow__time_integrator__runge_kutta.f
-             isp_flow/cart__isp_flow__euler.f
-             isp_flow/cart__isp_flow__sdc.f
-             isp_flow/cart__isp_flow__sdc_method.f
-             isp_flow/cart__isp_flow__sdc_corrector.f
-             isp_flow/cart__isp_flow__sdc_corrector__euler.f
+set(ISP_FLOW isp_flow/cart__isp_flow__boundary_values.F
+             isp_flow/cart__isp_flow__convection__eq.F
+             isp_flow/cart__isp_flow__convection__iq.F
+             isp_flow/cart__isp_flow__convection.F
+             isp_flow/cart__isp_flow__diffusion.F
+             isp_flow/cart__isp_flow__operators.F
+             isp_flow/cart__isp_flow__pressure__eo.F
+             isp_flow/cart__isp_flow__pressure__mo.F
+             isp_flow/cart__isp_flow__pressure.F
+             isp_flow/cart__isp_flow__projection.F
+             isp_flow/cart__isp_flow__time_derivative.F
+             isp_flow/cart__isp_flow__time_integrator.F
+             isp_flow/cart__isp_flow__time_integrator__euler.F
+             isp_flow/cart__isp_flow__time_integrator__bdf2.F
+             isp_flow/cart__isp_flow__time_integrator__tr.F
+             isp_flow/cart__isp_flow__time_integrator__runge_kutta.F
+             isp_flow/cart__isp_flow__euler.F
+             isp_flow/cart__isp_flow__sdc.F
+             isp_flow/cart__isp_flow__sdc_method.F
+             isp_flow/cart__isp_flow__sdc_corrector.F
+             isp_flow/cart__isp_flow__sdc_corrector__euler.F
              )
 
 #===============================================================================

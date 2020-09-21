@@ -82,10 +82,17 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif ()
 
+# Flags for checkingh
+if (CMAKE_BUILD_TYPE MATCHES "Check")
+    add_definitions(-DCHECK)
+    add_definitions(-DOMP_SERIAL_SCALARPRODUCT)
+endif ()
+
 # Preprocessor settings for debugging
 if (CMAKE_BUILD_TYPE MATCHES "Debug")
     add_definitions(-DDEBUG)
 endif ()
+
 
 #-------------------------------------------------------------------------------
 # GNU
@@ -93,7 +100,7 @@ endif ()
 if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-form -Wall")
-    set(CMAKE_Fortran_FLAGS_CHECK   "-fcheck=all -fbacktrace")
+    set(CMAKE_Fortran_FLAGS_CHECK   "-fcheck=all -fbacktrace -fpe0")
     set(CMAKE_Fortran_FLAGS_DEBUG   "-fcheck=all -fbacktrace -g")
 
     if (OPT)

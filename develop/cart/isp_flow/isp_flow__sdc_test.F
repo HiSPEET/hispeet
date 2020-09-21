@@ -167,7 +167,7 @@ program ISP_Flow__SDC_Test
   character(len=:),  allocatable :: name_var(:)     ! variable names
 
   ! solution variables !!! those listed in one line share storage !!!
-  real(RNP), dimension(:,:,:,:,:), pointer, contiguous :: &
+  real(RNP), dimension(:,:,:,:,:), pointer, contiguous, save :: &
     u,            & ! approximate solution
     u_e, u_0,     & ! exact / initial solution
     err_u, w,     & ! error / workspace
@@ -176,7 +176,7 @@ program ISP_Flow__SDC_Test
     q_avg           ! temporally averaged quantities
 
   ! additional scalar variables
-  real(RNP), dimension(:,:,:,:), pointer, contiguous :: &
+  real(RNP), dimension(:,:,:,:), pointer, contiguous, save :: &
     div_v,        & ! divergence of approximate velocity
     lmb_2           ! lambda_2 vortex sensor
 
@@ -188,6 +188,10 @@ program ISP_Flow__SDC_Test
 
   !-----------------------------------------------------------------------------
   ! initialization
+
+#ifdef CHECK
+  print '(A)', "*** ISP_Flow__SDC_Test *** #0"
+#endif
 
   ! MPI ........................................................................
 
@@ -280,6 +284,10 @@ program ISP_Flow__SDC_Test
 
   ! flow problem ...............................................................
 
+#ifdef CHECK
+  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #1  rank = ", rank
+#endif
+
   select case(flow_type)
   case('Channel')
     allocate(FlowProblem_Channel           :: problem)
@@ -309,6 +317,10 @@ program ISP_Flow__SDC_Test
 
   ! mesh .......................................................................
 
+#ifdef CHECK
+  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #2  rank = ", rank
+#endif
+
   ! origin and spacing
   xo = problem % x0
   dx = (problem % x1 - problem % x0) / (np * ep)
@@ -326,6 +338,10 @@ program ISP_Flow__SDC_Test
   call GenerateStructuredMesh(mesh, np, ep, xo, dx, periodic, comm)
 
   ! operators ..................................................................
+
+#ifdef CHECK
+  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #3  rank = ", rank
+#endif
 
   flow_op = FlowOperators( problem, mesh              &
                          , po_u, po_p, po_q, penalty  &
@@ -365,6 +381,10 @@ program ISP_Flow__SDC_Test
 
   ! variables and initial values ...............................................
 
+#ifdef CHECK
+  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #4  rank = ", rank
+#endif
+
   !$omp parallel
 
   call InitializeMeshVariables()
@@ -384,6 +404,12 @@ program ISP_Flow__SDC_Test
 
   ! time stepping ..............................................................
 
+#ifdef CHECK
+  !$omp master
+  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #5  rank = ", rank
+  !$omp end master
+#endif
+
   call SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
   !$omp master
   nt_max = min(nint((t_end - t)/ dt, IXL), nt_max)
@@ -393,6 +419,12 @@ program ISP_Flow__SDC_Test
 
   !-----------------------------------------------------------------------------
   ! Time integration
+
+#ifdef CHECK
+  !$omp master
+  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #6  rank = ", rank
+  !$omp end master
+#endif
 
   failed = .false.
 
@@ -426,9 +458,6 @@ program ISP_Flow__SDC_Test
     case(1:4)
       call time_integrator % TimeStep(t, dt, u)
     case(5,7)
-!###CHECK
-!last = .false.
-!###CHECK END
       call sdc % TimeStep(t, dt, u, standby = .not. last )
     case default
       ! using old Euler as the fall-back
@@ -472,6 +501,12 @@ program ISP_Flow__SDC_Test
   !-----------------------------------------------------------------------------
   ! Save current solution
 
+#ifdef CHECK
+  !$omp master
+  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #7  rank = ", rank
+  !$omp end master
+#endif
+
   call SaveFlowVariables(t, u, n_avg, q_avg)
 
   !-----------------------------------------------------------------------------
@@ -504,6 +539,10 @@ program ISP_Flow__SDC_Test
 
   !-----------------------------------------------------------------------------
   ! Finalization
+
+#ifdef CHECK
+  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #8  rank = ", rank
+#endif
 
   call MPI_Finalize()
 
@@ -654,6 +693,12 @@ subroutine Evaluation(failed, last)
   integer   :: n = 0, n_loc = 0
   integer   :: e, i, j, k
 
+#ifdef CHECK
+  !$omp master
+  print '(A,G0)', "*** Evaluation *** #0  rank = ", rank
+  !$omp end master
+#endif
+
   associate( eop   => flow_op % eop_u     &
            , x     => flow_op % x         &
            , err_v => err_u(:,:,:,:,1:3)  &
@@ -668,6 +713,12 @@ subroutine Evaluation(failed, last)
     call XMPI_Allreduce(n_loc, n, MPI_SUM, mesh%comm)
     !$omp end master
 
+#ifdef CHECK
+  !$omp master
+  print '(A,G0)', "*** Evaluation *** #1  rank = ", rank
+  !$omp end master
+#endif
+
     ! exact solution and error .................................................
 
     if (problem % HasExactSolution()) then
@@ -678,6 +729,12 @@ subroutine Evaluation(failed, last)
       call SetArray(err_u, u, multi=.true.)                 ! err_u = u
       call MergeArrays(ONE, err_u, -ONE, u_e, multi=.true.) ! err_u = err_u - u_e
 
+#ifdef CHECK
+  !$omp master
+  print '(A,G0)', "*** Evaluation *** #2  rank = ", rank
+  !$omp end master
+#endif
+
       ! remove constant from pressure error
       call CalibrateArray(err_p, mesh%comm)
 
@@ -686,6 +743,12 @@ subroutine Evaluation(failed, last)
         err_v_rms = sqrt(ScalarProduct(err_v, err_v, mesh%comm) / n)
         err_p_rms = sqrt(ScalarProduct(err_p, err_p, mesh%comm) / n)
       end if
+
+#ifdef CHECK
+  !$omp master
+  print '(A,G0)', "*** Evaluation *** #3  rank = ", rank
+  !$omp end master
+#endif
 
       ! max error
       if (eval_max) then
@@ -703,10 +766,22 @@ subroutine Evaluation(failed, last)
 
     call WeakDivergence(mesh, eop%w, eop%D, u, div_v)
 
+#ifdef CHECK
+  !$omp master
+  print '(A,G0)', "*** Evaluation *** #4  rank = ", rank
+  !$omp end master
+#endif
+
     ! rms divergence
     if (eval_rms) then
       div_v_rms = sqrt(ScalarProduct(div_v, div_v, mesh%comm) / n)
     end if
+
+#ifdef CHECK
+  !$omp master
+  print '(A,G0)', "*** Evaluation *** #5  rank = ", rank
+  !$omp end master
+#endif
 
     ! max divergence
     if (eval_max) then
@@ -715,6 +790,12 @@ subroutine Evaluation(failed, last)
       call XMPI_Reduce(div_v_loc, div_v_max, MPI_MAX, 0, mesh%comm)
       !$omp end master
     end if
+
+#ifdef CHECK
+  !$omp master
+  print '(A,G0)', "*** Evaluation *** #6  rank = ", rank
+  !$omp end master
+#endif
 
     ! kinetic energy ...........................................................
 
@@ -740,6 +821,12 @@ subroutine Evaluation(failed, last)
     e_kin_loc = product(mesh%dx) / 16 * e_kin_loc
     call XMPI_Reduce(e_kin_loc, e_kin, MPI_SUM, 0, mesh%comm)
     !$omp end master
+
+#ifdef CHECK
+  !$omp master
+  print '(A,G0)', "*** Evaluation *** #7  rank = ", rank
+  !$omp end master
+#endif
 
     ! dissipation -- for constant viscosity only ...............................
 
@@ -837,6 +924,12 @@ subroutine Evaluation(failed, last)
 
   ! print statistics ...........................................................
 
+#ifdef CHECK
+  !$omp master
+  print '(A,G0)', "*** Evaluation *** #M  rank = ", rank
+  !$omp end master
+#endif
+
   !$omp master
   if (rank == 0) then
 
@@ -903,6 +996,12 @@ subroutine Evaluation(failed, last)
     call XMPI_Allreduce(failed_, failed, MPI_LOR, mesh%comm)
   end if
   !$omp end master
+
+#ifdef CHECK
+  !$omp master
+  print '(A,G0)', "*** Evaluation *** #X  rank = ", rank
+  !$omp end master
+#endif
 
 end subroutine Evaluation
 

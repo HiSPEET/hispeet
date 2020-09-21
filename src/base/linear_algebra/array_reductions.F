@@ -203,11 +203,21 @@ real(RNP) function ScalarProduct_X(n, a, b, comm) result(r)
 
   r_priv = 0
 
+#ifdef OMP_SERIAL_SCALARPRODUCT
+  !$omp single
+#else
   !$omp do
+#endif
   do i = 1, n
     r_priv = r_priv + a(i) * b(i)
   end do
+#ifdef OMP_SERIAL_SCALARPRODUCT
+  !$omp end single
+!print *, '********** omp serial **********'
+#else
   !$omp end do nowait
+print *, '********** omp parallel **********'
+#endif
 
   !$omp atomic
   r_loc = r_loc + r_priv
@@ -309,11 +319,19 @@ real(RNP) function WeightedScalarProduct_X(n, w, a, b, comm) result(r)
 
   r_priv = 0
 
+#ifdef OMP_SERIAL_SCALARPRODUCT
+  !$omp single
+#else
   !$omp do
+#endif
   do i = 1, n
     r_priv = r_priv + w(i) * a(i) * b(i)
   end do
+#ifdef OMP_SERIAL_SCALARPRODUCT
+  !$omp end single
+#else
   !$omp end do nowait
+#endif
 
   !$omp atomic
   r_loc = r_loc + r_priv
