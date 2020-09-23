@@ -1091,6 +1091,8 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
   real(RNP) :: v_max, v_max_loc
   real(RNP) :: nu_max
 
+  !$omp master
+
   associate( mesh => flow_op % mesh &
            , po   => flow_op % po_u &
            , v1   => u(:,:,:,:,1)   &
@@ -1112,9 +1114,7 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
       end if
       v_max_loc = max(v_max_loc, problem % v_ref)
 
-      !$omp master
       call XMPI_Reduce(v_max_loc, v_max, MPI_MAX, 0, mesh%comm)
-      !$omp end master
 
       if (mesh %part == 0) then
         dt_conv = minval(mesh % dx)/ (po * v_max)
@@ -1134,8 +1134,6 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
     end if
 
     ! evaluation ...............................................................
-
-    !$omp master
 
     if (mesh % part == 0) then
 
@@ -1174,9 +1172,9 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
 
     call XMPI_Bcast(dt, 0, comm)
 
-    !$omp end master
-
   end associate
+
+  !$omp end master
 
 end subroutine SetTimeStep
 
