@@ -216,7 +216,7 @@ real(RNP) function ScalarProduct_X(n, a, b, comm) result(r)
 !print *, '********** omp serial **********'
 #else
   !$omp end do nowait
-print *, '********** omp parallel **********'
+!print *, '********** omp parallel **********'
 #endif
 
   !$omp atomic

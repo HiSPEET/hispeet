@@ -34,6 +34,7 @@ subroutine PROC(TPO_AxAxA_Hand__,_NA1_,_NA2_)(ne, A, u, v)
 
   !$omp do
   do e = 1, ne
+    v(:,:,:,e) = 0  ! avoid trouble with NaNs 
     call PROC(CtxIxI__,_NA2_,_NA1_)(NA2_NA2, At, alpha, beta, u(:,:,:,e), z3)
     call PROC(IxBtxI__,_NA2_,_NA1_)(_NA2_, _NA1_, At, alpha, beta, z3, z2)
     call PROC(IxIxAt__,_NA2_,_NA1_)(_NA1_, _NA1_, At, alpha, beta, z2, v(:,:,:,e))

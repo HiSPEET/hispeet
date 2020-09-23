@@ -4,6 +4,12 @@
 !> license:   Institute of Fluid Mechanics &
 !>
 !>### Solvers for eigenproblems
+!>
+!> @note
+!>   * Choosing the parameter `abstol` too small in SolveSymmetricEigenproblem
+!>     can trigger a divide by zero in DSYEVR, which may remain undetected in
+!>     Release buildi and cause a lot of trouble when debugging.
+!>
 !==============================================================================
 
 module Eigenproblems
@@ -41,9 +47,6 @@ subroutine SolveSymmetricEigenproblem(A, lambda, V, i, success)
   logical,   intent(out) :: success   !< true upon successful execution
   optional :: V, i, success
 
-  ! external function
-  real(RDP), external :: DLAMCH
-
   ! interface to LAPACK and auxiliary parameters
   character :: jobv
   real(RDP) :: A_(size(A,1),size(A,2))
@@ -53,6 +56,16 @@ subroutine SolveSymmetricEigenproblem(A, lambda, V, i, success)
   real(RDP) :: work(100*size(A,1))
   integer   :: iwork(10*size(A,1)), isuppz(2*size(A,1))
   integer   :: il, iu, m, n, info
+
+!#ifdef CHECK
+!  print '(A)', '*** SolveSymmetricEigenproblem *** #0'
+!  print '(A,2(1X,G0))', '*** shape(A)  =', shape(A)
+!  print '(A,2(1X,G0))', '*** max|A-Aᵀ| =', maxval(abs(A - transpose(A)))
+!  print '(A,2(1X,G0))', '*** shape(lambda) =', shape(lambda)
+!  if (present(V)) then
+!    print '(A,2(1X,G0))', '*** shape(V) =', shape(V)
+!  end if
+!#endif
 
   ! intialization ..............................................................
 
@@ -75,7 +88,7 @@ subroutine SolveSymmetricEigenproblem(A, lambda, V, i, success)
 
   vl = 0
   vu = 1
-  abstol = 2*DLAMCH('S')
+  abstol = 1000 * epsilon(1D0)
 
   ! solve eigenproblem .........................................................
 

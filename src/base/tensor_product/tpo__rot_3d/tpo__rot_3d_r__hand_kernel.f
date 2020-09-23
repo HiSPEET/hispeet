@@ -35,12 +35,15 @@ subroutine PROC(TPO_Rot_R_Hand__,_NP_)(ne, Ds, dx, u, v)
   do e = 1, ne
     
     ! v2 = du1/dx3
+    v(:,:,:,e,2) = 0  ! avoid trouble with NaNs
     call PROC(QtxIxI__,_NP_)(A, g(3), ZERO, u(:,:,:,e,1), v(:,:,:,e,2))
     ! v3 =-du1/dx2
+    v(:,:,:,e,3) = 0  ! avoid trouble with NaNs
     call PROC(IxQtxI__,_NP_)(A,-g(2), ZERO, u(:,:,:,e,1), v(:,:,:,e,3))
     ! v3+= du2/dx1
     call PROC(IxIxQt__,_NP_)(A, g(1), ONE , u(:,:,:,e,2), v(:,:,:,e,3))
     ! v1 =-du2/dx3
+    v(:,:,:,e,1) = 0  ! avoid trouble with NaNs
     call PROC(QtxIxI__,_NP_)(A,-g(3), ZERO, u(:,:,:,e,2), v(:,:,:,e,1))
     ! v1+= du3/dx2
     call PROC(IxQtxI__,_NP_)(A, g(2), ONE , u(:,:,:,e,3), v(:,:,:,e,1))

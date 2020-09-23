@@ -35,10 +35,13 @@ subroutine PROC(TPO_Grad_R_Hand__,_NP_)(ne, Ds, dx, u, v)
   do e = 1, ne
     
     ! v1 = du/dx1
+    v(:,:,:,e,1) = 0  ! avoid trouble with NaNs
     call PROC(IxIxQt__,_NP_)(A, g(1), ZERO, u(:,:,:,e), v(:,:,:,e,1))
     ! v2 = du/dx2
+    v(:,:,:,e,2) = 0  ! avoid trouble with NaNs
     call PROC(IxQtxI__,_NP_)(A, g(2), ZERO, u(:,:,:,e), v(:,:,:,e,2))
     ! v3 = du/dx3
+    v(:,:,:,e,3) = 0  ! avoid trouble with NaNs
     call PROC(QtxIxI__,_NP_)(A, g(3), ZERO, u(:,:,:,e), v(:,:,:,e,3))
 
   end do

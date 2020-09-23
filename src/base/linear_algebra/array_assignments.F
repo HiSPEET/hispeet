@@ -11,7 +11,7 @@
 !===============================================================================
 
 module Array_Assignments
-  use Kind_Parameters, only: IXL, RNP
+  use Kind_Parameters, only: RNP
   use MPI_Binding
   use Execution_Control
   implicit none
@@ -553,7 +553,7 @@ subroutine CalibrateArray_X(ne, a, comm)
 
   ! local variables, some declared save to become shared with OpenMP
   real(RNP), save :: s_loc, s_glob, a_mean
-  integer(IXL) :: n_loc, n_glob
+  integer :: n_loc, n_glob
   integer :: i
 
   ! mean value .................................................................
@@ -575,8 +575,8 @@ subroutine CalibrateArray_X(ne, a, comm)
 
     !$omp master
     n_loc = ne
-    call MPI_Allreduce(n_loc, n_glob, 1, MPI_INTEGER_IXL, MPI_SUM, comm)
-    call MPI_Allreduce(s_loc, s_glob, 1, MPI_REAL_RNP   , MPI_SUM, comm)
+    call MPI_Allreduce(n_loc, n_glob, 1, MPI_INTEGER , MPI_SUM, comm)
+    call MPI_Allreduce(s_loc, s_glob, 1, MPI_REAL_RNP, MPI_SUM, comm)
     a_mean = s_glob / n_glob
     !$omp end master
     !$omp barrier

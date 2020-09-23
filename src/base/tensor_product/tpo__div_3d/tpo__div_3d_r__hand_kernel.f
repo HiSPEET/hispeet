@@ -33,6 +33,8 @@ subroutine PROC(TPO_Div_R_Hand__,_NP_)(ne, Ds, dx, u, v)
 
   !$omp do
   do e = 1, ne
+    
+    v(:,:,:,e) = 0  ! avoid trouble with NaNs
 
     ! v is initialized   v = du1/dx1 (beta = 0)
     call PROC(IxIxQt__,_NP_)(A, g(1), ZERO , u(:,:,:,e,1), v(:,:,:,e))

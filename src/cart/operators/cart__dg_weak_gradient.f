@@ -50,7 +50,7 @@ contains
     real(RNP),            intent(in)  :: u(:,:,:,:)        !< scalar field
     real(RNP),            intent(out) :: grad_u(:,:,:,:,:) !< weak gradient
 
-    call WeakGradient_X(mesh, size(Ms)-1, size(u,4), Ms, Ds, u, null(), grad_u)
+    call WeakGradient_X(mesh, size(Ms)-1, size(u,4), Ms, Ds, u, grad_u=grad_u)
 
   end subroutine WeakGradient_O
 

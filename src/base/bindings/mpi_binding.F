@@ -3,16 +3,17 @@
 !> date:     2014/01/15
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!> @todo
-!>   * reactivate MPI_REAL_RHP once quad precision is supported by Intel MPI
+!> @note
+!>   * The real MPI type should be generated with `MPI_Type_create_f90_real`.
+!>     As this fails with Intel's MPI, a workaround must be used :( 
 !==============================================================================
 
 module MPI_Binding
   use MPI_F08
-  use Kind_Parameters, only: IXS, IXL, RNP, RHP, RDP
+  use Kind_Parameters, only: IXS, IXL, RSP, RDP, RHP, RNP
   public
 
-  private :: IXS, IXL, RNP, RHP, RDP
+  private :: IXS, IXL, RSP, RDP, RNP, RHP
 
   !-----------------------------------------------------------------------------
   ! MPI data types
@@ -20,9 +21,10 @@ module MPI_Binding
   type(MPI_Datatype), save :: &
     MPI_INTEGER_IXS, & !< MPI data type matching integer(IXS)
     MPI_INTEGER_IXL, & !< MPI data type matching integer(IXL)
+    MPI_REAL_RSP,    & !< MPI data type matching real(RDP)
     MPI_REAL_RDP,    & !< MPI data type matching real(RDP)
+    MPI_REAL_RHP,    & !< MPI data type matching real(RHP) 
     MPI_REAL_RNP       !< MPI data type matching real(RNP)
-!!! MPI_REAL_RHP       !< MPI data type matching real(RHP)   !!! 
 
   !-----------------------------------------------------------------------------
   ! Private variables
@@ -78,28 +80,26 @@ subroutine Init_MPI_Binding()
 
   ! real types .................................................................
 
-  MPI_REAL_RDP = MPI_Real_Type(RDP, range(1.0_RDP))
-  MPI_REAL_RNP = MPI_Real_Type(RNP, range(1.0_RNP))
-! MPI_REAL_RHP = MPI_Real_Type(RHP, range(1.0_RHP))
+  MPI_REAL_RSP = MPI_REAL
+  MPI_REAL_RDP = MPI_DOUBLE_PRECISION
 
+  select case(RHP)
+  case(RDP)
+    MPI_REAL_RHP = MPI_REAL_RDP
+  case default
+    MPI_REAL_RHP = MPI_REAL16
+  end select
+
+  select case(RNP)
+  case(RSP)
+    MPI_REAL_RNP = MPI_REAL_RSP
+  case(RDP)
+    MPI_REAL_RNP = MPI_REAL_RDP
+  case(RHP)
+    MPI_REAL_RNP = MPI_REAL_RHP
+  end select
+  
   initialized = .true.
-
-contains
-
-  !> Automatic selection/creation of matching MPI real datatype
-  type(MPI_Datatype) function MPI_Real_Type(k, r)
-    integer, intent(in) :: k  !< kind parameter
-    integer, intent(in) :: r  !< range
-
-    if (k == kind(1E0)) then
-      MPI_Real_Type = MPI_REAL
-    else if (k == kind(1D0)) then
-      MPI_Real_Type = MPI_DOUBLE_PRECISION
-    else
-      call MPI_Type_create_f90_real(MPI_UNDEFINED, r, MPI_Real_Type)
-    end if
-
-  end function MPI_Real_Type
 
 end subroutine Init_MPI_Binding
 

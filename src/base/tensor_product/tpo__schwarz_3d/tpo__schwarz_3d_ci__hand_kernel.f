@@ -70,7 +70,8 @@ subroutine PROC(TPO_Schwarz_CI_Hand__,_NP_)(nc, nd, S, W, cfg, D_inv, f, u)
     ! y  = I x WS x I z
     call PROC(IxQtxI__,_NP_)(WS_t(:,:,c2), alpha, beta, z, y)
 
-    ! vᵉ = WS x I x I y
+    ! uᵉ = WS x I x I y
+    u(:,:,:,l) = 0  ! avoid trouble with NaNs
     call PROC(QtxIxI__,_NP_)(WS_t(:,:,c3), alpha, beta, y, u(:,:,:,l))
 
   end do subdomains

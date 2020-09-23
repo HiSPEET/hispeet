@@ -50,7 +50,7 @@ contains
     real(RNP),            intent(in)  :: u(:,:,:,:,:)   !< vector field
     real(RNP),            intent(out) :: div_u(:,:,:,:) !< weak divergence
 
-    call WeakDivergence_X(mesh, size(Ms)-1, size(u,4), Ms, Ds, u, null(), div_u)
+    call WeakDivergence_X(mesh, size(Ms)-1, size(u,4), Ms, Ds, u, div_u=div_u)
 
   end subroutine WeakDivergence_O
 

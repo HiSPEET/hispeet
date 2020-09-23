@@ -30,6 +30,7 @@ subroutine PROC(TPO_Spectral_CI_Hand__,_NP_)(ne, S, Lambda, u, v)
 
   !$omp do private(e)
   do e = 1, ne
+    v(:,:,:,e) = 0  ! avoid trouble with NaNs
     call PROC(QtxIxI__,_NP_)(S, alpha, beta, u(:,:,:,e), z)  ! z  = SᵀxIxI uᵉ
     call PROC(IxQtxI__,_NP_)(S, alpha, beta, z, v(:,:,:,e))  ! vᵉ = IxSᵀxI z
     call PROC(IxIxQt__,_NP_)(S, alpha, beta, v(:,:,:,e), z)  ! z  = IxIxSᵀ vᵉ
