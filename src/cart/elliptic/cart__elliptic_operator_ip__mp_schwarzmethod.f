@@ -131,10 +131,12 @@ module subroutine SchwarzMethod(this, u, f, i_max, r_red, r_max, ni)
 
   ! clean-up ...................................................................
 
-  !$omp barrier
   !$omp single
-  deallocate(r, u_s, f_s)
-  deallocate(buf_r, buf_u_s)
+  if (allocated( r       )) deallocate( r       )
+  if (allocated( u_s     )) deallocate( u_s     )
+  if (allocated( f_s     )) deallocate( f_s     )
+  if (allocated( buf_r   )) deallocate( buf_r   )
+  if (allocated( buf_u_s )) deallocate( buf_u_s )
   !$omp end single
 
 end subroutine SchwarzMethod
