@@ -562,11 +562,9 @@ subroutine InitializeMeshVariables()
 
   ! local variables ............................................................
 
-  character(len=:), allocatable :: name_u(:)
+  character(len=:), allocatable, save :: name_u(:)
   integer :: np, nc, ne, n_var
   integer :: i, j
-
-  !$omp single
 
   ! prerequisites ..............................................................
 
@@ -580,17 +578,25 @@ subroutine InitializeMeshVariables()
     n_var = n_var + 9
   end if
 
+  !$omp single
+
   ! names of solution variables
   call problem % GetVariableNames(name_u)
-
-  allocate(var(np, np, np, ne, n_var))
 
   allocate(character(len=len(name_u) + 10) :: name_var(n_var))
   do i = 1, size(name_var)
     write(name_var(i), '(A,1X,I0)') 'var', i
   end do
 
+  allocate(var(np, np, np, ne, n_var))
+
+  !$omp end single
+
+  call SetArray(var, ZERO, multi=.true.)
+
   ! approximate solution .......................................................
+
+  !$omp single
 
   i = 0
   u(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+nc)
@@ -667,8 +673,6 @@ subroutine InitializeMeshVariables()
 
   !$omp end single
 
-  call SetArray(var, ZERO, multi=.true.)
-
 end subroutine InitializeMeshVariables
 
 !-------------------------------------------------------------------------------
@@ -680,17 +684,21 @@ subroutine Evaluation(failed, last)
 
   ! local variables ............................................................
 
-  real(RNP), save :: err_v_max = -1, err_v_rms = -1, err_v_loc
-  real(RNP), save :: err_p_max = -1, err_p_rms = -1, err_p_loc
-  real(RNP), save :: div_v_max = -1, div_v_rms = -1, div_v_loc
-  real(RNP), save :: e_kin, e_kin_loc
-  real(RNP), save :: eps = -1, eps_loc
-  real(RNP), save :: eps_svv = -1, eps_svv_loc
+  ! shared with OpenMP
+  real(RNP), save :: err_v_max, err_v_loc
+  real(RNP), save :: err_p_max, err_p_loc
+  real(RNP), save :: div_v_max, div_v_loc
+  real(RNP), save :: e_kin    , e_kin_loc
+  real(RNP), save :: eps      , eps_loc
+  real(RNP), save :: eps_svv  , eps_svv_loc
+  integer,   save :: n        , n_loc
+  logical,   save :: head = .true.
 
   real(RNP), allocatable, save :: grad_v(:,:,:,:,:,:)
-  logical   :: head = .true.
+
+  real(RNP) :: err_v_rms, err_p_rms, div_v_rms
+
   logical   :: failed_, failed_nan, failed_max
-  integer   :: n = 0, n_loc = 0
   integer   :: e, i, j, k
 
 #ifdef CHECK
@@ -742,6 +750,9 @@ subroutine Evaluation(failed, last)
       if (eval_rms) then
         err_v_rms = sqrt(ScalarProduct(err_v, err_v, mesh%comm) / n)
         err_p_rms = sqrt(ScalarProduct(err_p, err_p, mesh%comm) / n)
+      else
+        err_v_rms = -1
+        err_p_rms = -1
       end if
 
 #ifdef CHECK
@@ -751,14 +762,17 @@ subroutine Evaluation(failed, last)
 #endif
 
       ! max error
+      !$omp master
       if (eval_max) then
-        !$omp master
         err_v_loc = maxval(abs(err_v))
         err_p_loc = maxval(abs(err_p))
         call XMPI_Reduce(err_v_loc, err_v_max, MPI_MAX, 0, mesh%comm)
         call XMPI_Reduce(err_p_loc, err_p_max, MPI_MAX, 0, mesh%comm)
-        !$omp end master
+      else
+        err_v_max = -1
+        err_p_max = -1
       end if
+      !$omp end master
 
     end if
 
@@ -784,12 +798,14 @@ subroutine Evaluation(failed, last)
 #endif
 
     ! max divergence
+    !$omp master
     if (eval_max) then
-      !$omp master
       div_v_loc = maxval(abs(div_v))
       call XMPI_Reduce(div_v_loc, div_v_max, MPI_MAX, 0, mesh%comm)
-      !$omp end master
+    else
+      div_v_max = -1
     end if
+    !$omp end master
 
 #ifdef CHECK
   !$omp master
@@ -799,7 +815,9 @@ subroutine Evaluation(failed, last)
 
     ! kinetic energy ...........................................................
 
+    !$omp master
     e_kin_loc = 0
+    !$omp end master
 
     associate(po => eop%po, Ms => eop%w)
       !$omp do reduction(+:e_kin_loc)
@@ -854,7 +872,9 @@ subroutine Evaluation(failed, last)
           call TPO_Grad_R( eop%D, mesh%dx, u(:,:,:,:,3), grad_v(:,:,:,:,1:3,3) )
 
           ! local element contributions to physical dissipation
+          !$omp master
           eps_loc = 0
+          !$omp end master
           !$omp do reduction(+:eps_loc)
           do e = 1, ne
             do k = 0, po
@@ -867,7 +887,6 @@ subroutine Evaluation(failed, last)
             end do
           end do
 
-          !$omp barrier
           !$omp master
           eps_loc = product(mesh%dx)/8 * eps_loc
           call XMPI_Reduce(eps_loc, eps, MPI_SUM, 0, mesh%comm)
@@ -899,25 +918,29 @@ subroutine Evaluation(failed, last)
               do k = 0, po
               do j = 0, po
               do i = 0, po
-                eps_svv_loc = eps_svv_loc + Ms(i)*Ms(j)*Ms(k) * nu_svv *       &
+                eps_svv_loc = eps_svv_loc + Ms(i)*Ms(j)*Ms(k) * nu_svv *   &
                                             sum(grad_v(i,j,k,e,:,:)**2)
               end do
               end do
               end do
             end do
 
-            !$omp barrier
             !$omp master
             eps_svv_loc = product(mesh%dx)/8 * eps_svv_loc
             call XMPI_Reduce(eps_svv_loc, eps_svv, MPI_SUM, 0, mesh%comm)
             !$omp end master
           end if
-          !$omp barrier
           !$omp master
           deallocate(grad_v)
           !$omp end master
         end block
       end associate
+
+    else
+      !$omp master
+      eps     = -1
+      eps_svv = -1
+      !$omp end master
     end if
 
   end associate

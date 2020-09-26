@@ -227,11 +227,10 @@ contains
 
     ! finalization .............................................................
 
-    !$omp barrier
-    !$omp master
+    !$omp single
     deallocate(tr_u)
     deallocate(trace_op)
-    !$omp end master
+    !$omp end single
 
   end subroutine WeakGradient_X
 

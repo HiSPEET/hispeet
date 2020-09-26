@@ -74,7 +74,7 @@ contains
     !> vector field
     real(RNP), intent(in) :: u(0:po, 0:po, 0:po, ne, 3)
     !> boundary conditions for u
-    class(BoundaryVariable), optional, intent(in) :: bv_u(mesh%n_boundary)
+    class(BoundaryVariable), optional, intent(in) :: bv_u(mesh%n_boundary
     !> weak divergence of u
     real(RNP), intent(out) :: div_u(0:po, 0:po, 0:po, ne)
 
@@ -185,11 +185,10 @@ contains
 
     ! finalization .............................................................
 
-    !$omp barrier
-    !$omp master
+    !$omp single
     deallocate(tr_un)
     deallocate(trace_op)
-    !$omp end master
+    !$omp end single
 
   end subroutine WeakDivergence_X
 
