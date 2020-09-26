@@ -309,6 +309,7 @@ subroutine ConjugateGradients(this, u, f, i_max, r_red, r_max, ni)
   real(RNP), save :: rr_term
   logical  , save :: converged
 
+  real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
   real(RNP) :: alpha, pq, rr, rr_old
   integer   :: i
 
@@ -378,6 +379,7 @@ subroutine ConjugateGradients(this, u, f, i_max, r_red, r_max, ni)
       call this % Apply(p, q)
 
       pq = ScalarProduct(p, q, mesh%comm)
+      pq = sign(max(abs(pq),eps), pq)
       alpha = rr_old / pq
 
       call MergeArrays(ONE, u,  alpha, p)
