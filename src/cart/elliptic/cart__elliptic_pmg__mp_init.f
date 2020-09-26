@@ -75,6 +75,7 @@ subroutine Assign_PMG_Options(opt, pmg)
   pmg % solver  = opt % solver
   pmg % i0_max  = opt % i0_max
   pmg % r0_red  = opt % r0_red
+  pmg % r0_max  = opt % r0_max
   pmg % monitor = opt % monitor
 
 end subroutine Assign_PMG_Options

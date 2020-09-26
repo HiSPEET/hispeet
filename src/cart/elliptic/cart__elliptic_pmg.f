@@ -44,6 +44,7 @@ module CART__Elliptic_PMG
     character :: solver  !< coarse grid solver, 'C': CG, 'S': Schwarz
     integer   :: i0_max  !< max num of iterations on coarse grid
     real(RNP) :: r0_red  !< min residual reduction on coarse grid
+    real(RNP) :: r0_max  !< max admissible residual on coarse grid
 
     ! control
     logical   :: monitor !< switch for monitoring
@@ -100,6 +101,7 @@ module CART__Elliptic_PMG
     character :: solver    = 'C' !< coarse grid solver, 'C': CG, 'S': Schwarz
     integer   :: i0_max    =  1  !< max number coarse grid iterations
     real(RNP) :: r0_red    = -1  !< min coarse grid residual reduction
+    real(RNP) :: r0_max    = -1  !< max admissible residual on coarse grid
 
     ! control
     logical   :: monitor   = .false. !< switch for monitoring
@@ -526,13 +528,15 @@ subroutine V_Cycle(this)
     ! coarse mesh solution .....................................................
 
     associate( u_0 => level(0)%u, i_max => this%i0_max, &
-               f_0 => level(0)%f, r_red => this%r0_red  )
+               f_0 => level(0)%f, r_red => this%r0_red, &
+                                  r_max => this%r0_max  )
 
       call SetArray(u_0, ZERO)
       if (this%monitor) call Monitoring(this, 0, '0')
       select case(this % solver)
       case('C')
-        call level(0) % elliptic_op % ConjugateGradients(u_0, f_0, i_max, r_red)
+        call level(0) % elliptic_op % &
+               ConjugateGradients(u_0, f_0, i_max, r_red, r_max)
       case('S')
         call level(0) % elliptic_op % SchwarzMethod(u_0, f_0, i_max, r_red)
       end select
@@ -595,7 +599,7 @@ subroutine PMG_Options3D_Bcast(this, root, comm)
   integer,        intent(in) :: root !< rank of broadcast root
   type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-  type(MPI_Request) :: request(15)
+  type(MPI_Request) :: request(16)
   type(MPI_Status)  :: stat(size(request))
   integer :: n
 
@@ -614,6 +618,7 @@ subroutine PMG_Options3D_Bcast(this, root, comm)
   call XMPI_Ibcast( this % solver    , root, comm, request(n) );  n = n + 1
   call XMPI_Ibcast( this % i0_max    , root, comm, request(n) );  n = n + 1
   call XMPI_Ibcast( this % r0_red    , root, comm, request(n) );  n = n + 1
+  call XMPI_Ibcast( this % r0_max    , root, comm, request(n) );  n = n + 1
   call XMPI_Ibcast( this % monitor   , root, comm, request(n) )
 
   call MPI_Waitall(n, request, stat)
