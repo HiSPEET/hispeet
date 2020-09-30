@@ -395,10 +395,9 @@ program ISP_Flow__SDC_Test
     t = 0
     call problem % GetInitialValues(flow_op%x, u)
     if (.not. problem % HasExactSolution()) then
-      associate(p => u(:,:,:,:,4), F_v => u_e)
-        call TimeDerivative(problem, flow_op, t, u, F = F_v)
-        call ComputePressure(problem, flow_op, t, F_v, p, w)
-      end associate
+      ! using p = u(*,4) and F_v = u_e
+      call TimeDerivative(problem, flow_op, t, u, F = u_e)
+      call ComputePressure(problem, flow_op, t, u_e, u(:,:,:,:,4), w) ! p = u(*,4)
     end if
   end if
 
@@ -491,10 +490,11 @@ program ISP_Flow__SDC_Test
 
   if (rank == 0) then
     !$omp master
+    nt = max(min(nt, nt_max)
     write(*,'(A)') 'Performance'
     write(*,'(A,ES10.3)') ' time               =', time
     write(*,'(A,ES10.3)') ' time       / step  =', time / nt
-    write(*,'(A,ES10.3)') ' throughput / step  =', nt / time * size(u)
+    write(*,'(A,ES10.3)') ' throughput / step  =', nt / time * size(u) * n_proc
     !$omp end master
   end if
 
@@ -685,13 +685,13 @@ subroutine Evaluation(failed, last)
   ! local variables ............................................................
 
   ! shared with OpenMP
-  real(RNP), save :: err_v_max, err_v_loc
-  real(RNP), save :: err_p_max, err_p_loc
-  real(RNP), save :: div_v_max, div_v_loc
-  real(RNP), save :: e_kin    , e_kin_loc
-  real(RNP), save :: eps      , eps_loc
-  real(RNP), save :: eps_svv  , eps_svv_loc
-  integer,   save :: n        , n_loc
+  real(RNP), save :: err_v_max = -1, err_v_loc
+  real(RNP), save :: err_p_max = -1, err_p_loc
+  real(RNP), save :: div_v_max = -1, div_v_loc
+  real(RNP), save :: e_kin     = -1, e_kin_loc
+  real(RNP), save :: eps       = -1, eps_loc
+  real(RNP), save :: eps_svv   = -1, eps_svv_loc
+  integer,   save :: n         = -1, n_loc
   logical,   save :: head = .true.
 
   real(RNP), allocatable, save :: grad_v(:,:,:,:,:,:)
@@ -706,6 +706,10 @@ subroutine Evaluation(failed, last)
   print '(A,G0)', "*** Evaluation *** #0  rank = ", rank
   !$omp end master
 #endif
+
+  err_v_rms = -1
+  err_p_rms = -1
+  div_v_rms = -1
 
   associate( eop   => flow_op % eop_u     &
            , x     => flow_op % x         &
