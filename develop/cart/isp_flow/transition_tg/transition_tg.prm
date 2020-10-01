@@ -1,8 +1,3 @@
 &parameters
-<<<<<<< HEAD
-  nu     = 0.000625
-  nu_svv = 0.01
-=======
   nu = 0.01
->>>>>>> origin/isp_flow-rk+sdc-js
 /

@@ -6,9 +6,8 @@ file( COPY isp_flow__sdc_test.prm
 
 if (SLURM_FOUND)
 
-  if (OpenMP)
-  else ()
-      configure_file( isp_flow__sdc_test.slurm isp_flow__sdc_test.slurm )
-  endif ()
+    file( COPY test-cases/
+          DESTINATION ${CMAKE_CURRENT_BINARY_DIR} )
 
 endif (SLURM_FOUND)
+
