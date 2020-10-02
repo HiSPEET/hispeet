@@ -490,7 +490,7 @@ program ISP_Flow__SDC_Test
 
   if (rank == 0) then
     !$omp master
-    nt = max(min(nt, nt_max)
+    nt = max(min(nt, nt_max),1)
     write(*,'(A)') 'Performance'
     write(*,'(A,ES10.3)') ' time               =', time
     write(*,'(A,ES10.3)') ' time       / step  =', time / nt
