@@ -72,7 +72,9 @@ subroutine ApplyBoundaryConditions(mesh, bc, tr_u, tr_qn)
       select case(bc(b))
 
       case('D')
-        ! Dirichlet: interior solution contributes twice to [u]
+        ! Dirichlet
+        !   – interior solution contributes twice to [u]
+        !   - du/dn is mirrored from interior
         !$omp do
         do l = 1, size(face)
           f = face(l) % mesh_face % id          ! mesh face
@@ -80,7 +82,8 @@ subroutine ApplyBoundaryConditions(mesh, bc, tr_u, tr_qn)
           o = 3 - i                             ! outer side
           do k = 0, po
           do j = 0, po
-            tr_u(j,k,o,f) = -tr_u(j,k,i,f)
+            tr_u (j,k,o,f) = -tr_u (j,k,i,f)
+            tr_qn(j,k,o,f) = -tr_qn(j,k,i,f)
           end do
           end do
         end do
@@ -92,6 +95,7 @@ subroutine ApplyBoundaryConditions(mesh, bc, tr_u, tr_qn)
           f = face(l) % mesh_face % id
           do k = 0, po
           do j = 0, po
+           !tr_u (j,k,o,f) = tr_u (j,k,i,f)
             tr_qn(j,k,1,f) = 0
             tr_qn(j,k,2,f) = 0
           end do
