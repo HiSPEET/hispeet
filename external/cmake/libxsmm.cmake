@@ -21,7 +21,7 @@ if ( NOT LIBXSMM MATCHES "0" )
       GIT_REPOSITORY       ${CMAKE_CURRENT_SOURCE_DIR}/external/libxsmm
       UPDATE_DISCONNECTED  TRUE
       CONFIGURE_COMMAND    ""
-      BUILD_COMMAND        test -d ${LibXSMM_LIB_DIR} || make
+      BUILD_COMMAND        test -d ${LibXSMM_LIB_DIR} || make OMP=0 BLAS=0
       SOURCE_DIR           ${LibXSMM_SOURCE_DIR}
       BUILD_IN_SOURCE      TRUE
       BUILD_BYPRODUCTS     ${LIBXSMM_MODULE} ${LibXSMM_LIBRARIES}
