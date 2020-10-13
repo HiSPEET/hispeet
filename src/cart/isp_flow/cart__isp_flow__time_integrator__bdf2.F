@@ -113,12 +113,16 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Performs a single IMEX BDF2 step
+  !>
+  !> This method reuses data from the previous step. Passing `standby=F`
+  !> overrides this behavior and results in falling back to IMEX Euler!
 
-  subroutine TimeStep(this, t, dt, u)
+  subroutine TimeStep(this, t, dt, u, standby)
     class(TimeIntegrator_BDF2), intent(inout) :: this
-    real(RNP), intent(inout) :: t             !< time t₀ → t
-    real(RNP), intent(in)    :: dt            !< step size ∆t = t-t₀
-    real(RNP), intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
+    real(RNP),         intent(inout) :: t             !< time t₀ → t
+    real(RNP),         intent(in)    :: dt            !< step size ∆t = t-t₀
+    real(RNP),         intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
+    logical, optional, intent(in)    :: standby       !< reuse workspace [T]
 
     ! local variables  .........................................................
 
@@ -162,11 +166,9 @@ contains
 
       ! initialization .........................................................
 
-
-      ! workspace  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
       !$omp single
 
+      ! check for reusable workspace
       if (allocated(u_1)) then
         if (any(shape(u_1) /= shape(u))) then
           deallocate(u_1, u_i, F_c, F_d1, F_d2, F_d3, dF, w)
@@ -176,6 +178,7 @@ contains
         end if
       end if
 
+      ! decide whether a Euler step or a BDF2 step will be executed
       if (allocated(u_1)) then
 
         euler = abs(t_1 + dt - t) > epsilon(ONE)
@@ -337,6 +340,30 @@ contains
         call TimeDerivative(problem, flow_op, t, u, nu=nu, chi=chi, F=dF)
         call ComputePressure(problem, flow_op, t, dF, p, w)
       end if
+
+      ! clean-up ...............................................................
+
+      !$omp barrier
+      !$omp single
+
+      ! release workspace in case of no standby
+      if (present(standby)) then
+        if (standby) then
+          if (allocated( u_1  )) deallocate( u_1  )
+          if (allocated( u_i  )) deallocate( u_i  )
+          if (allocated( nu   )) deallocate( nu   )
+          if (allocated( nu_1 )) deallocate( nu_1 )
+          if (allocated( nu_x )) deallocate( nu_x )
+          if (allocated( F_c  )) deallocate( F_c  )
+          if (allocated( F_d1 )) deallocate( F_d1 )
+          if (allocated( F_d2 )) deallocate( F_d2 )
+          if (allocated( F_d3 )) deallocate( F_d3 )
+          if (allocated( dF   )) deallocate( dF   )
+          if (allocated( w    )) deallocate( w    )
+        end if
+      end if
+
+      !$omp end single
 
     end associate
 

@@ -34,7 +34,8 @@ module CART__ISP_Flow__Time_Integrator
   !>
   !>   * `project`                                                           \n
   !>        0: no additional projection step                                 \n
-  !>        1: additional projection at the end of the time step
+  !>        1: additional projection at the end of the time step             \n
+  !>        2: additional projection at the end of each stage (RK only)
   !>
   !>   * `pressure`
   !>        0: return pressure as computed                                   \n
@@ -67,13 +68,16 @@ module CART__ISP_Flow__Time_Integrator
 
     !---------------------------------------------------------------------------
     !> Execution of a single time step
+    !>
+    !> Activate the `standby` option to allow for reusing workspace and data
 
-    subroutine TimeStep(this, t, dt, u)
+    subroutine TimeStep(this, t, dt, u, standby)
       import
       class(TimeIntegrator), intent(inout) :: this
-      real(RNP), intent(inout) :: t            !< time t₀ → t
-      real(RNP), intent(in)    :: dt           !< step size ∆t = t-t₀
-      real(RNP), intent(inout) :: u(:,:,:,:,:) !< u(x,t₀) → u(x,t)
+      real(RNP),         intent(inout) :: t            !< time t₀ → t
+      real(RNP),         intent(in)    :: dt           !< step size ∆t = t-t₀
+      real(RNP),         intent(inout) :: u(:,:,:,:,:) !< u(x,t₀) → u(x,t)
+      logical, optional, intent(in)    :: standby      !< reuse workspace
     end subroutine TimeStep
 
   end interface

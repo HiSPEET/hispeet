@@ -98,7 +98,7 @@
   rk_opt%TimeIntegratorOptions%pressure    = 0
   rk_opt%n_stage = 4
   rk_opt%method  = 2
-  rk_opt%variant = 2
+  rk_opt%diffusion = 2
 !
 ! section for SDC(*,*) -- methods 5:7
   sdc_opt%n_sub        = 2
@@ -113,7 +113,7 @@
   pre_rk_opt%TimeIntegratorOptions%splitting = 2
   pre_rk_opt%TimeIntegratorOptions%project   = 1
  !pre_rk_opt%TimeIntegratorOptions%pressure  = 0
-  pre_rk_opt%variant   = 2
+  pre_rk_opt%diffusion   = 2
   pre_rk_opt%n_stage   = 4
   pre_rk_opt%method    = 2
   !

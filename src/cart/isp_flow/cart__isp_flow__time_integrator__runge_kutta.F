@@ -47,7 +47,8 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
 
   type, extends(TimeIntegrator) :: TimeIntegrator_RungeKutta
     type(IMEX_RK_Method) :: imex_rk  !< IMEX Runge-Kutta method
-    integer :: variant = 2  !< RK stage variant
+    integer :: diffusion = 2 !< method for computing diffusive RHS (F_d1)
+    integer :: assembly  = 1 !< method for constructing the final solution
   contains
     procedure :: Init_TimeIntegrator_RungeKutta
     procedure :: Show => Show_TimeIntegrator_RungeKutta
@@ -85,8 +86,8 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   !>
   !> Further options
   !>
-  !>   * `variant`                                                            \n
-  !>        1: compute RHS after assembly \n
+  !>   * `diffusion`                                                          \n
+  !>        1: compute diffusive RHS from stage solution: F_d1(ν,u)           \n
   !>        2: compute diffusive RHS as F_d1 = [u - (u' + τ∆F)]/τ - F_p,      \n
   !>           where                                                          \n
   !>             u' is the extrapolated solution,                             \n
@@ -94,8 +95,12 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   !>             τ  = ∆t aⁱᵐ(i,i), and                                        \n
   !>             ∆F = ∆t/τ ∑ⁱ⁻¹ [(aⁱᵐ - aᵉˣ)F_d1 - cd3 aᵉˣ F_d3)]             \n
   !>        3: employs
-  !>             variant 1 for all, but the last stage, and
-  !>             variant 2 for the latter
+  !>             diffusion 1 for all, but the last stage, and
+  !>             diffusion 2 for the latter
+  !>
+  !>   * `assembly`                                                           \n
+  !>        1: starting from u(x,t₀)                                          \n
+  !>        2: starting from last stage
   !>
   !> Options for initializing the IMEX_RK_Method
   !>
@@ -104,9 +109,10 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   !>   * `method`  -- selector among RK methods with `n_stage` stages
 
   type, extends(TimeIntegratorOptions) :: TimeIntegrator_RungeKutta_Options
-    integer :: n_stage = 3 !< number of stages
-    integer :: method  = 1 !< RK method selector, if more than one exist
-    integer :: variant = 2 !< RK stage variant
+    integer :: n_stage   = 3 !< number of stages
+    integer :: method    = 1 !< RK method selector, if more than one exist
+    integer :: diffusion = 2 !< method for computing the diffusive RHS (F_d1)
+    integer :: assembly  = 1 !< method for constructing the final solution
   contains
     procedure :: Bcast => Bcast_TimeIntegrator_RungeKutta_Options
   end type TimeIntegrator_RungeKutta_Options
@@ -143,7 +149,8 @@ contains
     this % name = 'IMEX Runge-Kutta method'
 
     ! specific settings
-    this % variant = opt % variant
+    this % diffusion = opt % diffusion
+    this % assembly  = opt % assembly
 
     ! initialize RK method
     call this % imex_rk % Init_IMEX_RK_Method(opt % n_stage, opt % method)
@@ -170,7 +177,8 @@ contains
 
     write(io,'(A)')           'TimeIntegrator_RungeKutta settings'
     write(io,'(A,/)')         repeat('-',80)
-    write(io,'(2X,A,T15,I0)') 'variant:', this % variant
+    write(io,'(2X,A,T15,I0)') 'diffusion:', this % diffusion
+    write(io,'(2X,A,T15,I0)') 'assembly:',  this % assembly
 
     ! show IMEX RK settings
     call this % imex_rk % Show(unit)
@@ -180,11 +188,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs a single IMEX Runge-Kutta step
 
-  subroutine TimeStep(this, t, dt, u)
+  subroutine TimeStep(this, t, dt, u, standby)
     class(TimeIntegrator_RungeKutta), intent(inout) :: this
-    real(RNP), intent(inout) :: t             !< time t₀ → t
-    real(RNP), intent(in)    :: dt            !< step size ∆t = t-t₀
-    real(RNP), intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
+    real(RNP),         intent(inout) :: t             !< time t₀ → t
+    real(RNP),         intent(in)    :: dt            !< step size ∆t = t-t₀
+    real(RNP),         intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
+    logical, optional, intent(in)    :: standby       !< reuse workspace [F]
 
     ! local variables  .........................................................
 
@@ -195,8 +204,12 @@ contains
     real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: nu
     real(RNP), dimension(:)          , allocatable, save :: ts
 
+    ! control
+    real(RNP), save :: t_0 = -huge(ONE)
+    logical,   save :: fsal
+
     ! auxiliary
-    real(RNP) :: tau
+    real(RNP) :: tau, d3
     integer   :: i, k
 
     associate( problem => this % problem           &
@@ -217,13 +230,34 @@ contains
 
       !$omp single
 
-      ! workspace
-      allocate(ts(1:ns))
-      allocate(u_i, mold = u)
-      allocate(F_c(size(u,1), size(u,2), size(u,3), size(u,4), size(u,5), ns))
-      allocate(F_d1, F_d2, F_d3, F_p, F_s, mold = F_c)
-      if (problem % HasVariableProperties()) then
-        allocate(nu, mold = u)
+      ! check for reusable workspace
+      if (allocated(F_c)) then
+        if (any(shape(F_c) /= [shape(u),ns])) then
+          if(allocated(ts   ))   deallocate(ts  )
+          if(allocated(u_i  ))   deallocate(u_i )
+          if(allocated(F_c  ))   deallocate(F_c )
+          if(allocated(F_d1 ))   deallocate(F_d1)
+          if(allocated(F_d2 ))   deallocate(F_d2)
+          if(allocated(F_d3 ))   deallocate(F_d3)
+          if(allocated(F_p  ))   deallocate(F_p )
+          if(allocated(F_s  ))   deallocate(F_s )
+          if(allocated(nu   ))   deallocate(nu  )
+        end if
+      end if
+
+      if (allocated(F_c)) then
+        ! check if reuse last stage of previous step in stage 1
+        fsal = t == t_0
+      else
+        ! allocate new workspace
+        fsal = t == t_0
+        allocate(ts(1:ns))
+        allocate(u_i, mold = u)
+        allocate(F_c(size(u,1), size(u,2), size(u,3), size(u,4), size(u,5), ns))
+        allocate(F_d1, F_d2, F_d3, F_p, F_s, mold = F_c)
+        if (problem % HasVariableProperties()) then
+          allocate(nu, mold = u)
+        end if
       end if
 
       ! node times
@@ -232,45 +266,59 @@ contains
       end do
 
       ! time
-      t = t + dt
+      t_0 = t
+      t   = t + dt
 
       !$omp end single
 
       ! stage 1 ................................................................
 
-      if (problem % HasVariableProperties()) then
-        call problem % GetDiffusivity(flow_op%x, ts(1), u, nu)
-      end if
+      if (fsal) then
 
-      call TimeDerivative( problem, flow_op, ts(1)    &
-                         , u    = u                   &
-                         , p    = p                   &
-                         , nu   = nu                  &
-                         , chi  = chi                 &
-                         , F_c  = F_c  (:,:,:,:,:,1)  &
-                         , F_d1 = F_d1 (:,:,:,:,:,1)  &
-                         , F_d2 = F_d2 (:,:,:,:,:,1)  &
-                         , F_d3 = F_d3 (:,:,:,:,:,1)  &
-                         , F_p  = F_p  (:,:,:,:,:,1)  &
-                         , F_s  = F_s  (:,:,:,:,:,1)  &
-                         )
+        ! reuse last stage of previous step
+        call SetArray( F_c (:,:,:,:,:,1), F_c (:,:,:,:,:,ns), multi = .true.)
+        call SetArray( F_d1(:,:,:,:,:,1), F_d1(:,:,:,:,:,ns), multi = .true.)
+        call SetArray( F_d2(:,:,:,:,:,1), F_d2(:,:,:,:,:,ns), multi = .true.)
+        call SetArray( F_d3(:,:,:,:,:,1), F_d3(:,:,:,:,:,ns), multi = .true.)
+        call SetArray( F_p (:,:,:,:,:,1), F_p (:,:,:,:,:,ns), multi = .true.)
+        call SetArray( F_s (:,:,:,:,:,1), F_s (:,:,:,:,:,ns), multi = .true.)
+
+      else
+
+        if (problem % HasVariableProperties()) then
+          call problem % GetDiffusivity(flow_op%x, ts(1), u, nu)
+        end if
+
+        call TimeDerivative( problem, flow_op, ts(1)    &
+                           , u    = u                   &
+                           , p    = p                   &
+                           , nu   = nu                  &
+                           , chi  = chi                 &
+                           , F_c  = F_c  (:,:,:,:,:,1)  &
+                           , F_d1 = F_d1 (:,:,:,:,:,1)  &
+                           , F_d2 = F_d2 (:,:,:,:,:,1)  &
+                           , F_d3 = F_d3 (:,:,:,:,:,1)  &
+                           , F_p  = F_p  (:,:,:,:,:,1)  &
+                           , F_s  = F_s  (:,:,:,:,:,1)  &
+                           )
+      end if
 
       ! stages 2 to ns .........................................................
 
       do i = 2, ns
-        select case(this % variant)
+        select case(this % diffusion)
         case(1)
-          call RungeKuttaStage_v1( this, i, ts(i), dt, chi, cd3, nu, u, u_i &
+          call RungeKuttaStage_d1( this, i, ts(i), dt, chi, cd3, nu, u, u_i &
                                  , F_c, F_d1, F_d2, F_d3, F_p, F_s          )
         case(2)
-          call RungeKuttaStage_v2( this, i, ts(i), dt, chi, cd3, nu, u, u_i &
+          call RungeKuttaStage_d2( this, i, ts(i), dt, chi, cd3, nu, u, u_i &
                                  , F_c, F_d1, F_d2, F_d3, F_p, F_s          )
         case(3)
           if (i < ns) then
-            call RungeKuttaStage_v1( this, i, ts(i), dt, chi, cd3, nu, u, u_i &
+            call RungeKuttaStage_d1( this, i, ts(i), dt, chi, cd3, nu, u, u_i &
                                    , F_c, F_d1, F_d2, F_d3, F_p, F_s          )
           else
-            call RungeKuttaStage_v2( this, i, ts(i), dt, chi, cd3, nu, u, u_i &
+            call RungeKuttaStage_d2( this, i, ts(i), dt, chi, cd3, nu, u, u_i &
                                    , F_c, F_d1, F_d2, F_d3, F_p, F_s          )
           end if
         end select
@@ -278,15 +326,49 @@ contains
 
       ! assembly ...............................................................
 
-      do i = 1, ns
-        tau = b(i) * dt
-        call MergeArrays(ONE, u,         tau, F_c (:,:,:,:,:,i), multi=.true.)
-        call MergeArrays(ONE, u,         tau, F_d1(:,:,:,:,:,i), multi=.true.)
-        call MergeArrays(ONE, u,         tau, F_d2(:,:,:,:,:,i), multi=.true.)
-        call MergeArrays(ONE, u, (1-cd3)*tau, F_d3(:,:,:,:,:,i), multi=.true.)
-        call MergeArrays(ONE, u,         tau, F_p (:,:,:,:,:,i), multi=.true.)
-        call MergeArrays(ONE, u,         tau, F_s (:,:,:,:,:,i), multi=.true.)
-      end do
+      d3 = 1 - cd3
+
+      select case(this % assembly)
+
+      case(1) ! starting from u(x,t₀)
+
+        do i = 1, ns
+          tau = b(i) * dt
+          call MergeArrays(ONE, u,    tau, F_c (:,:,:,:,:,i), multi=.true.)
+          call MergeArrays(ONE, u,    tau, F_d1(:,:,:,:,:,i), multi=.true.)
+          call MergeArrays(ONE, u,    tau, F_d2(:,:,:,:,:,i), multi=.true.)
+          call MergeArrays(ONE, u, d3*tau, F_d3(:,:,:,:,:,i), multi=.true.)
+          call MergeArrays(ONE, u,    tau, F_p (:,:,:,:,:,i), multi=.true.)
+          call MergeArrays(ONE, u,    tau, F_s (:,:,:,:,:,i), multi=.true.)
+        end do
+
+      case default ! starting from final stage
+
+        call SetArray(u, u_i, multi=.true.)
+
+        do i = 1, ns
+
+          ! adjust implicit contributions
+          tau = (b(i) -  this % imex_rk % a_im(ns,i)) * dt
+          if (abs(tau) > epsilon(ONE)) then
+            call MergeArrays(ONE, u,    tau, F_d1(:,:,:,:,:,i), multi=.true.)
+            call MergeArrays(ONE, u,    tau, F_d2(:,:,:,:,:,i), multi=.true.)
+            call MergeArrays(ONE, u, d3*tau, F_d3(:,:,:,:,:,i), multi=.true.)
+            call MergeArrays(ONE, u,    tau, F_p (:,:,:,:,:,i), multi=.true.)
+            call MergeArrays(ONE, u,    tau, F_s (:,:,:,:,:,i), multi=.true.)
+          end if
+
+          if (i == ns) exit
+
+          ! adjust explicit contributions
+          tau = (b(i) -  this % imex_rk % a_ex(ns,i)) * dt
+          if (abs(tau) > epsilon(ONE)) then
+            call MergeArrays(ONE, u,    tau, F_c (:,:,:,:,:,i), multi=.true.)
+          end if
+
+        end do
+
+      end select
 
       ! enforce continuity:  ∇²δp = ∇⋅ṽ/∆t, v + J(v) = ṽ - ∆t∇δp
       if (this % project > 0) then
@@ -314,6 +396,11 @@ contains
 
       ! clean up ...............................................................
 
+      ! keep workspace in case of standby
+      if (present(standby)) then
+        if (standby) return
+      end if
+
       !$omp barrier
       !$omp single
       if(allocated(ts   ))   deallocate(ts  )
@@ -338,7 +425,7 @@ contains
   !>   * F_d1(:,:,:,:,:,i) could be used as workspace, e.g. instead of f
   !> @endnote
 
-  subroutine RungeKuttaStage_v1( this, i, t, dt, chi, cd3, nu, u_0, u_i  &
+  subroutine RungeKuttaStage_d1( this, i, t, dt, chi, cd3, nu, u_0, u_i  &
                                , F_c, F_d1, F_d2, F_d3, F_p, F_s         )
 
     ! arguments ................................................................
@@ -487,7 +574,7 @@ contains
 
       if (present(nu)) then
         if (problem % HasVariableProperties()) then
-          call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u")
+          call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u)
         end if
       end if
 
@@ -515,12 +602,12 @@ contains
     if (allocated(dp)) deallocate(dp)
     !$omp end single
 
-  end subroutine RungeKuttaStage_v1
+  end subroutine RungeKuttaStage_d1
 
   !-----------------------------------------------------------------------------
   !> Executes one IMEX Runge-Kutta stage
 
-  subroutine RungeKuttaStage_v2( this, i, t, dt, chi, cd3, nu, u_0, u_i  &
+  subroutine RungeKuttaStage_d2( this, i, t, dt, chi, cd3, nu, u_0, u_i  &
                                , F_c, F_d1, F_d2, F_d3, F_p, F_s         )
 
     ! arguments ................................................................
@@ -689,7 +776,7 @@ contains
 
       if (present(nu)) then
         if (problem % HasVariableProperties()) then
-          call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u")
+          call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u)
         end if
       end if
 
@@ -726,7 +813,7 @@ contains
     if (allocated(dp)) deallocate(dp)
     !$omp end single
 
-  end subroutine RungeKuttaStage_v2
+  end subroutine RungeKuttaStage_d2
 
   !=============================================================================
   ! TimeIntegrator_RungeKutta_Options: type-bound procedures
@@ -739,7 +826,7 @@ contains
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    type(MPI_Request) :: request(3)
+    type(MPI_Request) :: request(4)
     type(MPI_Status)  :: stat(size(request))
     integer :: n
 
@@ -747,9 +834,10 @@ contains
     call this % TimeIntegratorOptions % Bcast(root, comm)
 
     n = 1
-    call XMPI_Ibcast( this % n_stage, root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % method , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % variant, root, comm, request(n) )
+    call XMPI_Ibcast( this % n_stage  , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % method   , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % diffusion, root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % assembly , root, comm, request(n) )
 
     call MPI_Waitall(n, request, stat)
 

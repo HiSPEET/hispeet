@@ -111,11 +111,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs a single IMEX Euler step
 
-  subroutine TimeStep(this, t, dt, u)
+  subroutine TimeStep(this, t, dt, u, standby)
     class(TimeIntegrator_Euler), intent(inout) :: this
-    real(RNP), intent(inout) :: t             !< time t₀ → t
-    real(RNP), intent(in)    :: dt            !< step size ∆t = t-t₀
-    real(RNP), intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
+    real(RNP),         intent(inout) :: t             !< time t₀ → t
+    real(RNP),         intent(in)    :: dt            !< step size ∆t = t-t₀
+    real(RNP),         intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
+    logical, optional, intent(in)    :: standby       !< reuse workspace [F]
 
     ! local variables  .........................................................
 
@@ -148,14 +149,28 @@ contains
 
       !$omp single
 
-      ! workspace
-      allocate(u_i , mold = u)
-      allocate(F_d1, mold = u)
-      allocate(F_d3, mold = u)
-      allocate(w   , mold = u)
-      allocate(dp  , mold = p)
-      if (problem % HasVariableProperties()) then
-        allocate(nu, mold = u)
+      ! check for reusable workspace
+      if (allocated(u_i)) then
+        if (any(shape(u_i) /= shape(u))) then
+          if (allocated(u_i )) deallocate(u_i )
+          if (allocated(nu  )) deallocate(nu  )
+          if (allocated(F_d1)) deallocate(F_d1)
+          if (allocated(F_d3)) deallocate(F_d3)
+          if (allocated(w   )) deallocate(w   )
+          if (allocated(dp  )) deallocate(dp  )
+        end if
+      end if
+
+      ! allocate new workspace, if necessary
+      if (.not. allocated(u_i)) then
+        allocate(u_i , mold = u)
+        allocate(F_d1, mold = u)
+        allocate(F_d3, mold = u)
+        allocate(w   , mold = u)
+        allocate(dp  , mold = p)
+        if (problem % HasVariableProperties()) then
+          allocate(nu, mold = u)
+        end if
       end if
 
       t_0 = t
@@ -284,6 +299,11 @@ contains
   print '(A,G0)', "*** TimeStep *** #7  rank = ", mesh%part
   !$omp end master
 #endif
+
+      ! keep workspace in case of standby
+      if (present(standby)) then
+        if (standby) return
+      end if
 
       !$omp barrier
       !$omp single

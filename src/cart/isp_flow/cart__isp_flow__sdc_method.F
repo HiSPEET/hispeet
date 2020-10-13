@@ -310,9 +310,6 @@ contains
     n_sub   = this % n_sub
     n_sweep = this % n_sweep
 
-!###CHECK
-!!!    !$omp barrier
-!###CHECK END
     !$omp single
 
     if (allocated(u_)) then

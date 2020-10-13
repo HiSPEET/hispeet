@@ -455,7 +455,8 @@ program ISP_Flow__SDC_Test
     case(0)
       call sdc_orig % TimeStep( problem, flow_op, t, dt, u, F, first, last)
     case(1:4)
-      call time_integrator % TimeStep(t, dt, u)
+     !call time_integrator % TimeStep(t, dt, u)
+      call time_integrator % TimeStep(t, dt, u, standby = .not.last)
     case(5,7)
       call sdc % TimeStep(t, dt, u, standby = .not. last )
     case default

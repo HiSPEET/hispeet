@@ -160,11 +160,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs a single IMEX TR step
 
-  subroutine TimeStep(this, t, dt, u)
+  subroutine TimeStep(this, t, dt, u, standby)
     class(TimeIntegrator_TR), intent(inout) :: this
-    real(RNP), intent(inout) :: t             !< time t₀ → t
-    real(RNP), intent(in)    :: dt            !< step size ∆t = t-t₀
-    real(RNP), intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
+    real(RNP),         intent(inout) :: t             !< time t₀ → t
+    real(RNP),         intent(in)    :: dt            !< step size ∆t = t-t₀
+    real(RNP),         intent(inout) :: u (:,:,:,:,:) !< u(x,t₀) → u(x,t)
+    logical, optional, intent(in)    :: standby       !< reuse workspace [F]
 
     ! local variables  .........................................................
 
@@ -192,17 +193,34 @@ contains
       !-------------------------------------------------------------------------
       ! intialization
 
-      ! workspace
       !$omp single
-      allocate(u_i , mold = u)
-      allocate(u_1 , mold = u)
-      allocate(F_0 , mold = u)
-      allocate(F_1 , mold = u)
-      allocate(dF  , mold = u)
-      allocate(F_d3, mold = u)
-      allocate(w   , mold = u)
-      if (problem % HasVariableProperties()) then
-        allocate(nu, mold = u)
+
+      ! check for reusable workspace
+      if (allocated(u_i)) then
+        if (any(shape(u_i) /= shape(u))) then
+          if (allocated(u_i )) deallocate(u_i )
+          if (allocated(u_1 )) deallocate(u_1 )
+          if (allocated(F_0 )) deallocate(F_0 )
+          if (allocated(F_1 )) deallocate(F_1 )
+          if (allocated(dF  )) deallocate(dF  )
+          if (allocated(F_d3)) deallocate(F_d3)
+          if (allocated(nu  )) deallocate(nu  )
+          if (allocated(w   )) deallocate(w   )
+        end if
+      end if
+
+      ! allocate new workspace, if necessary
+      if (.not. allocated(u_i)) then
+        allocate(u_i , mold = u)
+        allocate(u_1 , mold = u)
+        allocate(F_0 , mold = u)
+        allocate(F_1 , mold = u)
+        allocate(dF  , mold = u)
+        allocate(F_d3, mold = u)
+        allocate(w   , mold = u)
+        if (problem % HasVariableProperties()) then
+          allocate(nu, mold = u)
+        end if
       end if
 
       t_0 = t
@@ -350,17 +368,22 @@ contains
 
       ! clean-up ...............................................................
 
+      ! keep workspace in case of standby
+      if (present(standby)) then
+        if (standby) return
+      end if
+
       !$omp barrier
-      !$omp master
-      if (allocated(u_i)) deallocate(u_i)
-      if (allocated(u_1)) deallocate(u_1)
-      if (allocated(F_0)) deallocate(F_0)
-      if (allocated(F_1)) deallocate(F_1)
-      if (allocated(dF )) deallocate(dF )
+      !$omp single
+      if (allocated(u_i )) deallocate(u_i )
+      if (allocated(u_1 )) deallocate(u_1 )
+      if (allocated(F_0 )) deallocate(F_0 )
+      if (allocated(F_1 )) deallocate(F_1 )
+      if (allocated(dF  )) deallocate(dF  )
       if (allocated(F_d3)) deallocate(F_d3)
-      if (allocated(w  )) deallocate(w  )
-      if (allocated(nu )) deallocate(nu )
-      !$omp end master
+      if (allocated(w   )) deallocate(w   )
+      if (allocated(nu  )) deallocate(nu  )
+      !$omp end single
 
     end associate
 
