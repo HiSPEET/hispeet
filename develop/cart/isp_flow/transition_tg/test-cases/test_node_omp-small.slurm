@@ -23,6 +23,17 @@
 #SBATCH --output=test_node_omp-small_%j.out
 
 # ------------------------------------------------------------------------------
+
+if [ X"$SLURM_STEP_ID" = "X" -a X"$SLURM_PROCID" = "X"0 ]
+then
+  echo ""
+  echo "SLURM_JOB_ID        = $SLURM_JOB_ID"
+  echo "SLURM_JOB_PARTITION = $SLURM_JOB_PARTITION"
+  echo "SLURM_JOB_NODELIST  = $SLURM_JOB_NODELIST"
+  echo ""
+fi
+
+# ------------------------------------------------------------------------------
 # Execution
 
 export KMP_AFFINITY=compact,1,0

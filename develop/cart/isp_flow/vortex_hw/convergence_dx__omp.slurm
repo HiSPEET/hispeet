@@ -21,6 +21,17 @@
 #SBATCH --output=convergence_dt_%j.out        # output file
 
 # ------------------------------------------------------------------------------
+
+if [ X"$SLURM_STEP_ID" = "X" -a X"$SLURM_PROCID" = "X"0 ]
+then
+  echo ""
+  echo "SLURM_JOB_ID        = $SLURM_JOB_ID"
+  echo "SLURM_JOB_PARTITION = $SLURM_JOB_PARTITION"
+  echo "SLURM_JOB_NODELIST  = $SLURM_JOB_NODELIST"
+  echo ""
+fi
+
+# ------------------------------------------------------------------------------
 # Settings (overriding those in convergence_dx.sh)
 
 export EXEC="srun"

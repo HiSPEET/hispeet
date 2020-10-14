@@ -19,6 +19,18 @@
 ##SBATCH --exclusive                          # don't share nodes with others
 #SBATCH --job-name=stability_dt               # sensible job name
 #SBATCH --output=stability_dt_%j.out          # output file
+
+# ------------------------------------------------------------------------------
+
+if [ X"$SLURM_STEP_ID" = "X" -a X"$SLURM_PROCID" = "X"0 ]
+then
+  echo ""
+  echo "SLURM_JOB_ID        = $SLURM_JOB_ID"
+  echo "SLURM_JOB_PARTITION = $SLURM_JOB_PARTITION"
+  echo "SLURM_JOB_NODELIST  = $SLURM_JOB_NODELIST"
+  echo ""
+fi
+
 export EXEC="srun"
 
 # ------------------------------------------------------------------------------

@@ -22,6 +22,17 @@
 
 # ------------------------------------------------------------------------------
 
+if [ X"$SLURM_STEP_ID" = "X" -a X"$SLURM_PROCID" = "X"0 ]
+then
+  echo ""
+  echo "SLURM_JOB_ID        = $SLURM_JOB_ID"
+  echo "SLURM_JOB_PARTITION = $SLURM_JOB_PARTITION"
+  echo "SLURM_JOB_NODELIST  = $SLURM_JOB_NODELIST"
+  echo ""
+fi
+
+# ------------------------------------------------------------------------------
+
 # run job with unbuffered output
 export EXEC="srun -u"
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
