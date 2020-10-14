@@ -198,26 +198,14 @@ contains
       ! check for reusable workspace
       if (allocated(u_i)) then
         if (any(shape(u_i) /= shape(u))) then
-          if (allocated(u_i )) deallocate(u_i )
-          if (allocated(u_1 )) deallocate(u_1 )
-          if (allocated(F_0 )) deallocate(F_0 )
-          if (allocated(F_1 )) deallocate(F_1 )
-          if (allocated(dF  )) deallocate(dF  )
-          if (allocated(F_d3)) deallocate(F_d3)
-          if (allocated(nu  )) deallocate(nu  )
-          if (allocated(w   )) deallocate(w   )
+          deallocate(u_i, u_1, F_0, F_1, dF, F_d3, w)
+          if (allocated(nu  )) deallocate(nu)
         end if
       end if
 
       ! allocate new workspace, if necessary
       if (.not. allocated(u_i)) then
-        allocate(u_i , mold = u)
-        allocate(u_1 , mold = u)
-        allocate(F_0 , mold = u)
-        allocate(F_1 , mold = u)
-        allocate(dF  , mold = u)
-        allocate(F_d3, mold = u)
-        allocate(w   , mold = u)
+        allocate(u_i, u_1, F_0, F_1, dF, F_d3, w, mold = u)
         if (problem % HasVariableProperties()) then
           allocate(nu, mold = u)
         end if
@@ -366,26 +354,24 @@ contains
         call ComputePressure(problem, flow_op, t, F_1, p, w)
       end if
 
-      ! clean-up ...............................................................
-
-      ! keep workspace in case of standby
-      if (present(standby)) then
-        if (standby) return
-      end if
-
-      !$omp barrier
-      !$omp single
-      if (allocated(u_i )) deallocate(u_i )
-      if (allocated(u_1 )) deallocate(u_1 )
-      if (allocated(F_0 )) deallocate(F_0 )
-      if (allocated(F_1 )) deallocate(F_1 )
-      if (allocated(dF  )) deallocate(dF  )
-      if (allocated(F_d3)) deallocate(F_d3)
-      if (allocated(w   )) deallocate(w   )
-      if (allocated(nu  )) deallocate(nu  )
-      !$omp end single
-
     end associate
+
+    ! clean-up .................................................................
+
+    if (present(standby)) then
+      if (standby) return
+    end if
+
+    !$omp single
+    if (allocated(u_i )) deallocate(u_i )
+    if (allocated(u_1 )) deallocate(u_1 )
+    if (allocated(F_0 )) deallocate(F_0 )
+    if (allocated(F_1 )) deallocate(F_1 )
+    if (allocated(dF  )) deallocate(dF  )
+    if (allocated(F_d3)) deallocate(F_d3)
+    if (allocated(w   )) deallocate(w   )
+    if (allocated(nu  )) deallocate(nu  )
+    !$omp end single
 
   end subroutine TimeStep
 

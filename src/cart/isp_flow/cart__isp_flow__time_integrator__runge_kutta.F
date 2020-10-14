@@ -233,15 +233,8 @@ contains
       ! check for reusable workspace
       if (allocated(F_c)) then
         if (any(shape(F_c) /= [shape(u),ns])) then
-          if(allocated(ts   ))   deallocate(ts  )
-          if(allocated(u_i  ))   deallocate(u_i )
-          if(allocated(F_c  ))   deallocate(F_c )
-          if(allocated(F_d1 ))   deallocate(F_d1)
-          if(allocated(F_d2 ))   deallocate(F_d2)
-          if(allocated(F_d3 ))   deallocate(F_d3)
-          if(allocated(F_p  ))   deallocate(F_p )
-          if(allocated(F_s  ))   deallocate(F_s )
-          if(allocated(nu   ))   deallocate(nu  )
+          deallocate(ts, u_i, F_c, F_d1, F_d2, F_d3, F_p, F_s)
+          if(allocated(nu))   deallocate(nu  )
         end if
       end if
 
@@ -394,27 +387,26 @@ contains
         call SetArray(p, u_i(:,:,:,:,4))
       end select
 
-      ! clean up ...............................................................
-
-      ! keep workspace in case of standby
-      if (present(standby)) then
-        if (standby) return
-      end if
-
-      !$omp barrier
-      !$omp single
-      if(allocated(ts   ))   deallocate(ts  )
-      if(allocated(u_i  ))   deallocate(u_i )
-      if(allocated(F_c  ))   deallocate(F_c )
-      if(allocated(F_d1 ))   deallocate(F_d1)
-      if(allocated(F_d2 ))   deallocate(F_d2)
-      if(allocated(F_d3 ))   deallocate(F_d3)
-      if(allocated(F_p  ))   deallocate(F_p )
-      if(allocated(F_s  ))   deallocate(F_s )
-      if(allocated(nu   ))   deallocate(nu  )
-      !$omp end single
-
     end associate
+
+    ! clean up .................................................................
+
+    ! keep workspace in case of standby
+    if (present(standby)) then
+      if (standby) return
+    end if
+
+    !$omp single
+    if(allocated(ts   ))   deallocate(ts  )
+    if(allocated(u_i  ))   deallocate(u_i )
+    if(allocated(F_c  ))   deallocate(F_c )
+    if(allocated(F_d1 ))   deallocate(F_d1)
+    if(allocated(F_d2 ))   deallocate(F_d2)
+    if(allocated(F_d3 ))   deallocate(F_d3)
+    if(allocated(F_p  ))   deallocate(F_p )
+    if(allocated(F_s  ))   deallocate(F_s )
+    if(allocated(nu   ))   deallocate(nu  )
+    !$omp end single
 
   end subroutine TimeStep
 

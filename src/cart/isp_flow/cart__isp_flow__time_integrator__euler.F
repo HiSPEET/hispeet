@@ -152,22 +152,15 @@ contains
       ! check for reusable workspace
       if (allocated(u_i)) then
         if (any(shape(u_i) /= shape(u))) then
-          if (allocated(u_i )) deallocate(u_i )
-          if (allocated(nu  )) deallocate(nu  )
-          if (allocated(F_d1)) deallocate(F_d1)
-          if (allocated(F_d3)) deallocate(F_d3)
-          if (allocated(w   )) deallocate(w   )
-          if (allocated(dp  )) deallocate(dp  )
+          deallocate(u_i, F_d1, F_d3, w, dp)
+          if (allocated(nu)) deallocate(nu)
         end if
       end if
 
       ! allocate new workspace, if necessary
       if (.not. allocated(u_i)) then
-        allocate(u_i , mold = u)
-        allocate(F_d1, mold = u)
-        allocate(F_d3, mold = u)
-        allocate(w   , mold = u)
-        allocate(dp  , mold = p)
+        allocate(u_i, F_d1, F_d3, w, mold = u)
+        allocate(dp, mold = p)
         if (problem % HasVariableProperties()) then
           allocate(nu, mold = u)
         end if
@@ -292,7 +285,9 @@ contains
         call ComputePressure(problem, flow_op, t, F_d1, p, w)
       end if
 
-      ! clean-up ...............................................................
+    end associate
+
+    ! clean-up .................................................................
 
 #ifdef CHECK
   !$omp master
@@ -300,22 +295,19 @@ contains
   !$omp end master
 #endif
 
-      ! keep workspace in case of standby
-      if (present(standby)) then
-        if (standby) return
-      end if
+    ! keep workspace in case of standby
+    if (present(standby)) then
+      if (standby) return
+    end if
 
-      !$omp barrier
-      !$omp single
-      if (allocated(u_i )) deallocate(u_i )
-      if (allocated(nu  )) deallocate(nu  )
-      if (allocated(F_d1)) deallocate(F_d1)
-      if (allocated(F_d3)) deallocate(F_d3)
-      if (allocated(w   )) deallocate(w   )
-      if (allocated(dp  )) deallocate(dp  )
-      !$omp end single
-
-    end associate
+    !$omp single
+    if (allocated(u_i )) deallocate(u_i )
+    if (allocated(nu  )) deallocate(nu  )
+    if (allocated(F_d1)) deallocate(F_d1)
+    if (allocated(F_d3)) deallocate(F_d3)
+    if (allocated(w   )) deallocate(w   )
+    if (allocated(dp  )) deallocate(dp  )
+    !$omp end single
 
   end subroutine TimeStep
 

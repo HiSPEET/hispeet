@@ -113,9 +113,6 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Performs a single IMEX BDF2 step
-  !>
-  !> This method reuses data from the previous step. Passing `standby=F`
-  !> overrides this behavior and results in falling back to IMEX Euler!
 
   subroutine TimeStep(this, t, dt, u, standby)
     class(TimeIntegrator_BDF2), intent(inout) :: this
@@ -166,9 +163,11 @@ contains
 
       ! initialization .........................................................
 
+
+      ! workspace  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
       !$omp single
 
-      ! check for reusable workspace
       if (allocated(u_1)) then
         if (any(shape(u_1) /= shape(u))) then
           deallocate(u_1, u_i, F_c, F_d1, F_d2, F_d3, dF, w)
@@ -178,7 +177,6 @@ contains
         end if
       end if
 
-      ! decide whether a Euler step or a BDF2 step will be executed
       if (allocated(u_1)) then
 
         euler = abs(t_1 + dt - t) > epsilon(ONE)
@@ -341,31 +339,29 @@ contains
         call ComputePressure(problem, flow_op, t, dF, p, w)
       end if
 
-      ! clean-up ...............................................................
-
-      !$omp barrier
-      !$omp single
-
-      ! release workspace in case of no standby
-      if (present(standby)) then
-        if (standby) then
-          if (allocated( u_1  )) deallocate( u_1  )
-          if (allocated( u_i  )) deallocate( u_i  )
-          if (allocated( nu   )) deallocate( nu   )
-          if (allocated( nu_1 )) deallocate( nu_1 )
-          if (allocated( nu_x )) deallocate( nu_x )
-          if (allocated( F_c  )) deallocate( F_c  )
-          if (allocated( F_d1 )) deallocate( F_d1 )
-          if (allocated( F_d2 )) deallocate( F_d2 )
-          if (allocated( F_d3 )) deallocate( F_d3 )
-          if (allocated( dF   )) deallocate( dF   )
-          if (allocated( w    )) deallocate( w    )
-        end if
-      end if
-
-      !$omp end single
-
     end associate
+
+    ! clean-up .................................................................
+
+    if (.not. present(standby)) then
+      return
+    else if (standby) then
+      return
+    end if
+
+    !$omp single
+    if (allocated( u_1  )) deallocate( u_1  )
+    if (allocated( u_i  )) deallocate( u_i  )
+    if (allocated( nu   )) deallocate( nu   )
+    if (allocated( nu_1 )) deallocate( nu_1 )
+    if (allocated( nu_x )) deallocate( nu_x )
+    if (allocated( F_c  )) deallocate( F_c  )
+    if (allocated( F_d1 )) deallocate( F_d1 )
+    if (allocated( F_d2 )) deallocate( F_d2 )
+    if (allocated( F_d3 )) deallocate( F_d3 )
+    if (allocated( dF   )) deallocate( dF   )
+    if (allocated( w    )) deallocate( w    )
+    !$omp end single
 
   end subroutine TimeStep
 
