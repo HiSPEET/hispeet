@@ -240,10 +240,10 @@ contains
 
       if (allocated(F_c)) then
         ! check if reuse last stage of previous step in stage 1
-        fsal = t == t_0
+        fsal = t == t_0 .and. c(ns) == ONE
       else
         ! allocate new workspace
-        fsal = t == t_0
+        fsal = t == t_0 .and. c(ns) == ONE
         allocate(ts(1:ns))
         allocate(u_i, mold = u)
         allocate(F_c(size(u,1), size(u,2), size(u,3), size(u,4), size(u,5), ns))
