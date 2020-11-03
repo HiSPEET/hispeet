@@ -11,4 +11,10 @@ find_package_handle_standard_args( Exodus DEFAULT_MSG
                                    Exodus_LIBRARIES 
                                    Exodus_INCLUDE_DIRS )
 
+if (NOT Exodus_FOUND)
+    set(Exodus_LIBRARIES "")
+    set(Exodus_INCLUDE_DIRS "")
+endif ()
+
 mark_as_advanced(Exodus_LIBRARIES Exodus_INCLUDE_DIRS)
+

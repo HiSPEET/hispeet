@@ -75,7 +75,7 @@ find_package(Slurm)
 find_package(FFTW)
 find_package(ParMETIS)
 find_package(Exodus)
-find_package(pFUnit)
+find_package(pFUnit QUIET)
 
 #===============================================================================
 # Flags

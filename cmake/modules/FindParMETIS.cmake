@@ -11,4 +11,10 @@ find_package_handle_standard_args( ParMETIS DEFAULT_MSG
                                    ParMETIS_LIBRARIES
                                    ParMETIS_INCLUDE_DIRS )
 
+if (NOT ParMETIS_FOUND)
+    set(ParMETIS_LIBRARIES "")
+    set(ParMETIS_INCLUDE_DIRS "")
+endif ()
+
 mark_as_advanced(ParMETIS_LIBRARIES ParMETIS_INCLUDE_DIRS)
+
