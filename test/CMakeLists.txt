@@ -1,4 +1,4 @@
-if (PFUNIT_FOUND)
+if (pFUnit_FOUND)
 
     # base .....................................................................
 
@@ -19,4 +19,4 @@ if (PFUNIT_FOUND)
 
     endif (ParMETIS_FOUND)
 
-endif (PFUNIT_FOUND)
+endif (pFUnit_FOUND)

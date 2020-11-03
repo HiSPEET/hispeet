@@ -9,7 +9,7 @@ file( COPY isp_flow__sdc_test.prm
            ${CMAKE_CURRENT_BINARY_DIR} )
 
 
-if (SLURM_FOUND)
+if (Slurm_FOUND)
 
   if (OpenMP)
       set( RUN_CONVERGENCE_DT convergence_dt__omp.slurm )
@@ -33,7 +33,7 @@ if (SLURM_FOUND)
   configure_file( ${RUN_STABILITY_DT}   stability_dt.slurm   )
   configure_file( ${RUN_SDC_K}          sdc_k.slurm          )
 
-endif (SLURM_FOUND)
+endif (Slurm_FOUND)
 
 
 add_subdirectory(convergence_dx)

@@ -13,6 +13,10 @@ set(BINDINGS bindings/c_binding.f
              bindings/vtk_binding.f
              )
 
+if (FFTW_FOUND)
+    list(APPEND BINDINGS bindings/fftw_binding.f )
+endif ()
+
 if (ParMETIS_FOUND)
     list(APPEND BINDINGS bindings/parmetis_wrapper.c
                          bindings/parmetis_binding.f )
@@ -106,13 +110,13 @@ add_library(HiBase ${BASE_SRC})
 set_property(TARGET HiBase
              PROPERTY Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules)
 
-if (NOT LIBXSMM MATCHES "0")
-    add_dependencies(HiBase LibXSMM)
+if (NOT SKIP_LIBXSMM)
+    add_dependencies(HiBase LIBXSMM)
 endif ()
 
 target_include_directories(HiBase
     PUBLIC  ${PROJECT_BINARY_DIR}/modules
-    PUBLIC  ${LibXSMM_INCLUDE_DIR}
+            ${LIBXSMM_INCLUDE_DIRS}
     PRIVATE ${VTK_INCLUDE_DIRS}
             ${ParMETIS_INCLUDE_DIRS}
             ${Exodus_INCLUDE_DIRS}
@@ -123,5 +127,5 @@ target_link_libraries(HiBase
             ${VTK_LIBRARIES}
             ${ParMETIS_LIBRARIES}
             ${Exodus_LIBRARIES}
-            ${LibXSMM_LIBRARIES}
+            ${LIBXSMM_LIBRARIES}
             )

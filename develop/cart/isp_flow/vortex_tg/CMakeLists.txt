@@ -13,7 +13,7 @@ file( COPY isp_flow__sdc_test.tmpl
            ${CMAKE_CURRENT_BINARY_DIR} )
 
 
-if (SLURM_FOUND)
+if (Slurm_FOUND)
 
   if (OpenMP)
       set( RUN_SDC_K sdc_k__omp.slurm )
@@ -29,4 +29,4 @@ if (SLURM_FOUND)
   configure_file( ${RUN_SDC_K} sdc_k.slurm )
   configure_file( ${RUN_SDC_M} sdc_m.slurm )
 
-endif (SLURM_FOUND)
+endif (Slurm_FOUND)
