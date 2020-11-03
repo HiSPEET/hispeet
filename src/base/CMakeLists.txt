@@ -119,12 +119,14 @@ target_include_directories(HiBase
             ${LIBXSMM_INCLUDE_DIRS}
     PRIVATE ${VTK_INCLUDE_DIRS}
             ${ParMETIS_INCLUDE_DIRS}
+            ${FFTW_INCLUDE_DIRS}
             ${Exodus_INCLUDE_DIRS}
             )
 
 target_link_libraries(HiBase
     PUBLIC  ${LAPACK_LIBRARIES}
             ${VTK_LIBRARIES}
+            ${FFTW_LIBRARIES}
             ${ParMETIS_LIBRARIES}
             ${Exodus_LIBRARIES}
             ${LIBXSMM_LIBRARIES}
