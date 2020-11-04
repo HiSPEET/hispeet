@@ -36,6 +36,8 @@ program Transition_TG_Post
   integer        :: n_proc       ! number of MPI processes
   integer        :: n_thread     ! number of OpenMP threads
 
+  type(MPI_Status) :: status
+
   ! control ....................................................................
 
   character(len=80) :: control_file
@@ -87,16 +89,16 @@ program Transition_TG_Post
   real(RNP), allocatable, save :: vi(:,:,:,:,:) ! interpolated velocity
   real(RNP), allocatable, save :: xi(:)         ! interpolation points in [-1,1]
 
-  ! interpolated/transformed velocity on regular Cartesian mesh
-  real    (C_DOUBLE)        , allocatable, save :: wi(:,:,:,:)
-  complex (C_DOUBLE_COMPLEX), allocatable, save :: wt(:,:,:,:)
+  ! global/transformed velocity on regular Cartesian mesh (rank 0 only)
+  real    (C_DOUBLE)        , allocatable, save :: vg(:,:,:,:)
+  complex (C_DOUBLE_COMPLEX), allocatable, save :: vt(:,:,:,:)
 
   logical   :: exists
   integer   :: prm, stat
   integer   :: e, e1, e2, e3
-  integer   :: i, i0, i1, i2, ig
-  integer   :: j, j0, j1, j2, jg
-  integer   :: k, k0, k1, k2, kg
+  integer   :: i, i0, ig
+  integer   :: j, j0, jg
+  integer   :: k, k0, kg
 
   complex(RNP) :: z
 
@@ -152,6 +154,8 @@ program Transition_TG_Post
   call XMPI_Bcast(np  , 0, comm)
   call XMPI_Bcast(ep  , 0, comm)
   call XMPI_Bcast(po_u, 0, comm)
+  call XMPI_Bcast(ks  , 0, comm)
+  call XMPI_Bcast(kc  , 0, comm)
 
   ! derived parameters
   dx = (problem % x1 - problem % x0) / (np * ep)
@@ -161,15 +165,13 @@ program Transition_TG_Post
   ng = nl * np
 
   ! 3D partition ID
-  ip(3) = rank / (np(1) * np(2))
-  ip(2) = (rank - np(1) * np(2) * ip(3)) / np(1)
-  ip(1) = rank - np(1) * (ip(2) + np(2) * ip(3))
+  ip = CartPID(rank, np)
 
   if (rank == 0) then
     write(*,*)
     write(*,'(A,3I5)') 'np = ', np
     write(*,'(A,3I5)') 'ip = ', ip
-    write(*,'(A,3I5)') 'ep = ', np
+    write(*,'(A,3I5)') 'ep = ', ep
     write(*,'(A,3I5)') 'ni = ', ni
     write(*,'(A,3I5)') 'nl = ', nl
     write(*,'(A,3I5)') 'ng = ', ng
@@ -182,9 +184,6 @@ program Transition_TG_Post
 
   ! variables and operators ....................................................
 
-  allocate(uc(0:po_u, 0:po_u, 0:po_u, ne, problem%nc))
-  call LoadFlowVariables(flow_case, t, uc)
-
   allocate(xi(ni))
   do i = 1, ni
     xi(i) = (TWO * i - ONE)/ni - ONE
@@ -194,85 +193,137 @@ program Transition_TG_Post
   interpol_op = InterpolationOperator3D(standard_op, xi)
 
   allocate(vi(ni, ni, ni, ne, 3))
-  allocate(wi(1:nl(1)  , 1:nl(2)  ,1:nl(3)  , 3))
-  allocate(wt(0:nl(1)-1, 0:nl(2)-1,0:nl(3)/2, 3))
 
-  plan = fftw_plan_dft_r2c_3d( ng(3), ng(2), ng(1), wi(:,:,:,1), wt(:,:,:,1) &
-                             , FFTW_ESTIMATE )
+  if (rank == 0) then
 
-  !!$omp parallel
+    allocate(vg(1:ng(1)  , 1:ng(2)  , 1:ng(3)  , 3))
+    allocate(vt(0:ng(1)/2, 0:ng(2)-1, 0:ng(3)-1, 3))
+
+    plan = fftw_plan_dft_r2c_3d( ng(3), ng(2), ng(1), vg(:,:,:,1), vt(:,:,:,1) &
+                               , FFTW_ESTIMATE )
+  end if
 
   !-----------------------------------------------------------------------------
-  ! FFT test
+  ! Generate/read and interpolate flow data
 
   if (any(kc >= 0) .or. any(ks > 0)) then
 
+    ! local FFT test data ......................................................
+
     ! global offsets
-    i0 = nl(1) * ip(1) - 1
-    j0 = nl(2) * ip(2) - 1
-    k0 = nl(3) * ip(3) - 1
+    i0 = nl(1) * ip(1)
+    j0 = nl(2) * ip(2)
+    k0 = nl(3) * ip(3)
 
-    do k = 1, nl(3)
-    do j = 1, nl(2)
-    do i = 1, nl(1)
+    do e3 = 1, ep(3)
+    do e2 = 1, ep(2)
+    do e1 = 1, ep(1)
 
-      ig = i0 + i
-      jg = j0 + j
-      kg = k0 + k
+      do k = 1, ni
+      do j = 1, ni
+      do i = 1, ni
 
-      wi(i,j,k,1) = 0
+        ! element ID
+        e  = e1 + ep(1) * (e2 - 1 + ep(2) * (e3 - 1))
 
-      if (kc(1) >= 0)  wi(i,j,k,1) = wi(i,j,k,1) + cos(2*PI*kc(1)*ig/ng(1))
-      if (kc(2) >= 0)  wi(i,j,k,1) = wi(i,j,k,1) + cos(2*PI*kc(2)*jg/ng(2))
-      if (kc(3) >= 0)  wi(i,j,k,1) = wi(i,j,k,1) + cos(2*PI*kc(3)*kg/ng(3))
+        ! global point indices starting from 0
+        ig = i0 + ni * (e1 - 1) + i - 1
+        jg = j0 + ni * (e2 - 1) + j - 1
+        kg = k0 + ni * (e3 - 1) + k - 1
 
-      if (ks(1) >  0)  wi(i,j,k,1) = wi(i,j,k,1) + sin(2*PI*ks(1)*ig/ng(1))
-      if (ks(2) >  0)  wi(i,j,k,1) = wi(i,j,k,1) + sin(2*PI*ks(2)*jg/ng(2))
-      if (ks(3) >  0)  wi(i,j,k,1) = wi(i,j,k,1) + sin(2*PI*ks(3)*kg/ng(3))
+        vi(i,j,k,e,1:3) = 0
+
+        if (kc(1) >= 0) vi(i,j,k,e,1) = vi(i,j,k,e,1) + cos(2*PI*kc(1)*ig/ng(1))
+        if (kc(2) >= 0) vi(i,j,k,e,1) = vi(i,j,k,e,1) + cos(2*PI*kc(2)*jg/ng(2))
+        if (kc(3) >= 0) vi(i,j,k,e,1) = vi(i,j,k,e,1) + cos(2*PI*kc(3)*kg/ng(3))
+
+        if (ks(1) >  0) vi(i,j,k,e,1) = vi(i,j,k,e,1) + sin(2*PI*ks(1)*ig/ng(1))
+        if (ks(2) >  0) vi(i,j,k,e,1) = vi(i,j,k,e,1) + sin(2*PI*ks(2)*jg/ng(2))
+        if (ks(3) >  0) vi(i,j,k,e,1) = vi(i,j,k,e,1) + sin(2*PI*ks(3)*kg/ng(3))
+
+      end do
+      end do
+      end do
 
     end do
     end do
     end do
 
-    call fftw_execute_dft_r2c(plan, wi(:,:,:,1), wt(:,:,:,1))
+  else
 
-    do k = 0, ubound(wt,3)
-    do j = 0, ubound(wt,2)
-    do i = 0, ubound(wt,1)
-      z = wt(i,j,k,1)
-      if (abs(z) < epsilon(1.0)) cycle
-      if (abs(z%re) < epsilon(1.0)) z%re = 0
-      if (abs(z%im) < epsilon(1.0)) z%im = 0
-      write(*,'(3I4,3X,2(2(ES12.5,2X),2X))') i, j, k, z, z / product(ng)
-    end do
-    end do
+    ! local flow data ..........................................................
+
+    ! load
+    allocate(uc(0:po_u, 0:po_u, 0:po_u, ne, problem%nc))
+    call LoadFlowVariables(flow_case, t, uc)
+
+    ! interpolate to equidistant nodes
+    call interpol_op % Apply(uc(:,:,:,:,1:3), vi)
+    deallocate(uc)
+
+  end if
+
+  !-----------------------------------------------------------------------------
+  ! Transfer to data to rank 0
+
+  if (rank > 0) then
+
+    call MPI_Send(vi, size(vi), MPI_REAL_RNP, 0, 0, MPI_COMM_WORLD)
+
+  else
+!print *, 'minval(vi(*,1)) = ', minval(vi(:,:,:,:,1))
+!print *, 'maxval(vi(*,1)) = ', maxval(vi(:,:,:,:,1))
+
+    ! own contribution
+    call CopyLocalToGlobal(nl, ep, ip, vi, vg)
+
+    do i = 1, product(np)-1
+
+      ! receive data from partition i
+      call MPI_Recv(vi, size(vi), MPI_REAL_RNP, i, 0, MPI_COMM_WORLD, status)
+
+      ! copy into global velocity array
+      ip = CartPID(i, np)
+      call CopyLocalToGlobal(nl, ep, ip, vi, vg)
+
     end do
 
   end if
 
-  ! interpolate to equidistant nodes
-  call interpol_op % Apply(uc(:,:,:,:,1:3), vi)
+  !-----------------------------------------------------------------------------
 
-  ! map to cartesian mesh
-  !!$omp do collapse(3) private(e, i1, i2, j1, j2, k1, k2)
-  do e3 = 1, ep(3)
-  do e2 = 1, ep(2)
-  do e1 = 1, ep(1)
-    e  = e1 + ep(1) * (e2 - 1 + ep(2) * (e3 - 1))
-    i1 = 1  + ep(1) * (e1 - 1)
-    i2 = i1 + ni - 1
-    j1 = 1  + ep(2) * (e2 - 1)
-    j2 = j1 + ni - 1
-    k1 = 1  + ep(3) * (e3 - 1)
-    k2 = k1 + ni - 1
-    wi(i1:i2,j1:j2,k1:k2,1:3) = vi(:,:,:,e,1:3)
-  end do
-  end do
+!print *, 'minval(vg(*,1)) = ', minval(vg(:,:,:,1))
+!print *, 'maxval(vg(*,1)) = ', maxval(vg(:,:,:,1))
+  do i = 1, 3
+    call fftw_execute_dft_r2c(plan, vg(:,:,:,i), vt(:,:,:,i))
   end do
 
-  call fftw_execute_dft_r2c(plan, wi(:,:,:,1), wt(:,:,:,1))
+  !-----------------------------------------------------------------------------
+  ! Evaluation
 
-  !!$omp end parallel
+  if (any(kc >= 0) .or. any(ks > 0)) then
+
+    if (rank == 0) then
+      write(*,'(/,A,/)') 'FFT test: active modes'
+      write(*,'(  A  )') '   i   j   k       real          imag'
+      do k = 0, ubound(vt,3)
+      do j = 0, ubound(vt,2)
+      do i = 0, ubound(vt,1)
+        z = vt(i,j,k,1)
+        if (abs(z) < epsilon(1.0)) cycle
+        if (abs(z%re) < epsilon(1.0)) z%re = 0
+        if (abs(z%im) < epsilon(1.0)) z%im = 0
+        write(*,'(3I4,3X,2(ES12.5,2X))') i, j, k, z / product(ng)
+      end do
+      end do
+      end do
+    end if
+
+  else
+
+    ! TBD
+
+  end if
 
   !-----------------------------------------------------------------------------
   ! Finalization
@@ -281,37 +332,99 @@ program Transition_TG_Post
 
 contains
 
-!===============================================================================
-! Standalone procedures
+  !-----------------------------------------------------------------------------
+  !> Map given MPI rank to 3D Cartesian partition ID
 
-!-------------------------------------------------------------------------------
-!> Loads the flow variables to disk
+  function CartPID(rk, np) result(ip)
+    integer, intent(in)  :: rk     !< MPI rank
+    integer, intent(in)  :: np(3)  !< number of partitions in directions 1:3
+    integer              :: ip(3)  !< triple partition ID, 0 ≤ ip < np
 
-subroutine LoadFlowVariables(flow_case, t, u)
-  character(len=*), intent(in)  :: flow_case    !< flow case
-  real(RNP),        intent(out) :: t            !< time
-  real(RNP),        intent(out) :: u(:,:,:,:,:) !< flow variables
+    ip(3) = rk / (np(1) * np(2))
+    ip(2) = (rk - np(1) * np(2) * ip(3)) / np(1)
+    ip(1) = rk - np(1) * (ip(2) + np(2) * ip(3))
 
-  integer :: unit, ios
-  character(len=100) :: file
+  end function CartPID
 
-  !$omp single
+  !-----------------------------------------------------------------------------
+  !> Copy local velocity data to global cartesian array
 
-  write(file,'(2A,I0,A)') trim(flow_case), '_p', rank, '.fld'
+  subroutine CopyLocalToGlobal(nl, ep, ip, vl, vg)
+    integer,   intent(in)    :: nl(3)
+    integer,   intent(in)    :: ep(3)
+    integer,   intent(in)    :: ip(3)
+    real(RNP), intent(in)    :: vl(:,:,:,:,:)
+    real(RNP), intent(inout) :: vg(:,:,:,:)
 
-  open(newunit=unit, file=file, status='OLD', form='UNFORMATTED', iostat=ios)
-  if (ios == 0) then
-    read(unit) t
-    read(unit) u
-    close(unit)
-  else
-    call Error('LoadFlowVariables', 'found no matching input file')
-  end if
+    integer :: ni
+    integer :: e1, e2, e3
+    integer :: i0, il, ig
+    integer :: j0, jl, jg
+    integer :: k0, kl, kg
 
-  !$omp end single
+    ni = size(vl,1)
 
-end subroutine LoadFlowVariables
+    ! global offsets
+    i0 = nl(1) * ip(1)
+    j0 = nl(2) * ip(2)
+    k0 = nl(3) * ip(3)
 
-!===============================================================================
+    do e3 = 1, ep(3)
+    do e2 = 1, ep(2)
+    do e1 = 1, ep(1)
+
+      do kl = 1, ni
+      do jl = 1, ni
+      do il = 1, ni
+
+        ! element ID
+        e  = e1 + ep(1) * (e2 - 1 + ep(2) * (e3 - 1))
+
+        ! global point indices
+        ig = i0 + ni * (e1 - 1) + il
+        jg = j0 + ni * (e2 - 1) + jl
+        kg = k0 + ni * (e3 - 1) + kl
+
+        vg(ig,jg,kg,1:3) = vl(il,jl,kl,e,1:3)
+
+      end do
+      end do
+      end do
+
+    end do
+    end do
+    end do
+
+  end subroutine CopyLocalToGlobal
+
+  !-----------------------------------------------------------------------------
+  !> Loads the flow variables from file
+
+  subroutine LoadFlowVariables(flow_case, t, u)
+    character(len=*), intent(in)  :: flow_case    !< flow case
+    real(RNP),        intent(out) :: t            !< time
+    real(RNP),        intent(out) :: u(:,:,:,:,:) !< flow variables
+
+    integer :: unit, ios
+    character(len=100) :: file
+
+    !$omp single
+
+    write(file,'(2A,I0,A)') trim(flow_case), '_p', rank, '.fld'
+
+    open(newunit=unit, file=file, status='OLD', form='UNFORMATTED', iostat=ios)
+    if (ios == 0) then
+      read(unit) t
+      read(unit) u
+      close(unit)
+    else
+      call Error('LoadFlowVariables', 'found no matching input file')
+    end if
+
+    !$omp end single
+
+  end subroutine LoadFlowVariables
+
+  !=============================================================================
 
 end program Transition_TG_Post
