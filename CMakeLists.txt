@@ -1,10 +1,12 @@
 # Environment
 #
-#     FC    path to MPI/Fortran compiler
-#     CC    path to MPI/C compiler
-#     CXX   path to MPI/C++ compiler
+#     FC            path to MPI/Fortran compiler
+#     CC            path to MPI/C compiler
+#     CXX           path to MPI/C++ compiler
 #
-#  Command-line options for cmake
+#     FFTW_ROOT     root path of FFTW3 (if not in system paths)
+#
+# Command-line options for cmake
 #
 #     -D CMAKE_BUILD_TYPE=⟨Release|Check|Debug⟩
 #         Release:  default build type
@@ -14,9 +16,9 @@
 #     -D OPT=⟨n⟩
 #         overrides preset optimization level to -On
 #
-#     -D LIBXSMM=⟨0|1⟩
-#         0:  do not use LibXSMM
-#         1:  use LibXSMM if available (default)
+#     -D SKIP_LIBXSMM=⟨0|1⟩
+#         0:  use LIBXSMM if available (default)
+#         1:  do not use LIBXSMM
 #
 #     -D OpenMP=⟨0|1⟩
 #         0:  compile without OpenMP (default)
@@ -26,7 +28,7 @@
 #         0:  compile without OpenACC (default)
 #         1:  compile with OpenACC
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.12)
 
 project(HiSPEET)
 
@@ -70,9 +72,10 @@ find_package(LAPACK REQUIRED)
 find_package(VTK COMPONENTS vtkIOXML REQUIRED)
 find_package(PythonInterp 3 REQUIRED)
 find_package(Slurm)
+find_package(FFTW)
 find_package(ParMETIS)
 find_package(Exodus)
-find_package(pFUnit PATHS $ENV{PFUNIT})
+find_package(pFUnit QUIET)
 
 #===============================================================================
 # Flags
@@ -180,8 +183,8 @@ endif (OpenMP)
 
 if (OpenACC)
 
-    # LibXSMM is not used
-    set(LIBXSMM "0")
+    # LIBXSMM is not used
+    set(SKIP_LIBXSMM "1")
 
     ## using CMake module -- not working :(
     ## find_package(OpenACC REQUIRED)
@@ -230,12 +233,3 @@ add_subdirectory(app)
 add_subdirectory(develop)
 
 add_subdirectory(dirty)
-
-#===============================================================================
-# Info
-
-message("")
-message("CMAKE_SYSTEM_NAME: "         "${CMAKE_SYSTEM_NAME}")
-message("CMAKE_SYSTEM_VERSION: "      "${CMAKE_SYSTEM_VERSION}")
-message("CMAKE_Fortran_COMPILER_ID: " "${CMAKE_Fortran_COMPILER_ID}")
-message("")

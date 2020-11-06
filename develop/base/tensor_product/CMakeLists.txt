@@ -137,7 +137,7 @@ file( COPY scripts/validate__tpo.sh
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR} )
 
-if (SLURM_FOUND)
+if (Slurm_FOUND)
 
   if (OpenMP)
       set(RUN_SCRIPT scripts/validate__tpo_omp.slurm)
@@ -149,4 +149,4 @@ if (SLURM_FOUND)
 
   configure_file(${RUN_SCRIPT} validate__tpo.slurm)
 
-endif (SLURM_FOUND)
+endif (Slurm_FOUND)

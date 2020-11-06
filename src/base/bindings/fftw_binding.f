@@ -1,17 +1,17 @@
-!> \file       fftw_binding.f
-!> \brief      Minimal interface to the real one-dimensional transforms of FFTW.
-!> \author     Joerg Stiller
-!> \date       2013/06/15
-!> \copyright  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!> summary:    Minimal interface to FFTW3
+!> author:     Joerg Stiller
+!> date:       2013/06/15, revised 2020/10/
+!> copyright:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!> \details
+!> ### Note on 1D transforms
+!>
 !> The module provides the "Modern Fortran" interface to FFTW and defines a more
-!> comfortable interface to the one-dimensional real transforms.
-!> The latter supports the following discrete Fourier transforms:
+!> comfortable interface to the one-dimensional real transforms. The latter
+!> supports the following discrete Fourier transforms:
 !>
-!> * type = 'real' :  halfcomplex transform (FFTW_R2HC and FFTW_HC2R)
-!> * type = 'cos'  :  cosine transform (real even or DCT-I, FFTW_REDFT00)
-!> * type = 'sin'  :  sine transform (real odd or DST-I, FFTW_RODFT00)
+!> * typ = 'real' :  halfcomplex transform (FFTW_R2HC and FFTW_HC2R)
+!> * typ = 'cos'  :  cosine transform (real even or DCT-I, FFTW_REDFT00)
+!> * typ = 'sin'  :  sine transform (real odd or DST-I, FFTW_RODFT00)
 !>
 !> The forward halfcomplex transform of a real vector u(0:n-1) is defined as
 !>
@@ -42,114 +42,165 @@
 !>
 !> Note that both the DCT-1 and the DST-1 are symmetric.
 !>
-!> All transforms are initialized by calling FFT_InitPlan, which creates a plan
+!> All transforms are initialized by calling FFT_1D_InitPlan, which creates a plan
 !> for the forward and backward FFTW transforms corresponding to the selected
-!> type. The two plans are stored in an instance of the derived type FFT_Plan.
-!> For releasing the plans call FFT_DestroyPlan.
+!> type. The two plans are stored in an instance of the derived type FFT_1D_Plan.
+!> For releasing the plans call Delete_FFT_1D.
 !>
 !> As common with FFTW, the transforms are unnormalized. To obtain a normalized
 !> transform divide by 1/n in the halfcomplex (real) case, and 1/2n in the even
 !> (cos) or odd (sin) case. The normalization can be applied either to the
 !> forward or backward transforms.
-!>
-!> \todo
-!>   * Include examples or usage instructions into description
-!>   * Testing
 !===============================================================================
 
 module FFTW_Binding
   use, intrinsic :: ISO_C_Binding
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters,   only: RNP
+  use Execution_Control, only: Error
   implicit none
-  public
+
+  private :: RNP
+  private :: Error
 
   !-----------------------------------------------------------------------------
-  !> \brief   Compound holding the bidirectional plans for an FFT
-  !> \author  Joerg Stiller
-
-  type, public :: FFT_Plan
-    type(C_PTR) :: forward   !< plan for the forward transform
-    type(C_PTR) :: backward  !< plan for the backward transform
-  end type FFT_Plan
-
-  !-----------------------------------------------------------------------------
-  ! public procedures
-
-  public :: FFT_InitPlan
-  public :: FFT_DestroyPlan
-  public :: FFT_Execute
-
-  !-----------------------------------------------------------------------------
-  ! FFTW constants
+  ! FFTW3 interface
 
   include 'fftw3.f03'
+
+  !-----------------------------------------------------------------------------
+  !> Compound holding the bidirectional plans for an FFT
+
+  type, public :: FFT_1D
+    private
+    integer     :: n = 0                 !< size
+    type(C_PTR) :: forward               !< plan for the forward transform
+    type(C_PTR) :: backward              !< plan for the backward transform
+    real(C_DOUBLE), allocatable :: ri(:) !< workspace
+    real(C_DOUBLE), allocatable :: ro(:) !< workspace
+  contains
+    procedure :: Init_FFT_1D
+    procedure :: ForwardTransform
+    procedure :: BackwardTransform
+    final     :: Delete_FFT_1D
+  end type FFT_1D
+
+  ! Constructor interface
+  interface FFT_1D
+    module procedure New_FFT_1D
+  end interface
 
 contains
 
 !-------------------------------------------------------------------------------
-!> \brief   Initialize discrete Fourier transform of size n.
-!> \author  Joerg Stiller
+!> Constructor
 !>
-!> \details
 !> The the following FFTW types are supported:
-!>   * type = 'real'  --  halfcomplex transform
-!>   * type = 'cos'   --  cosine transform
-!>   * type = 'sin'   --  sine transform
+!>   * typ = 'real'  --  halfcomplex transform
+!>   * typ = 'cos'   --  cosine transform
+!>   * typ = 'sin'   --  sine transform
+
+function New_FFT_1D(typ, n) result(this)
+  character(len=*), intent(in) :: typ  !< FFTW type
+  integer,          intent(in) :: n    !< size of the transform
+  type(FFT_1D)                 :: this !< FFT_1D object
+
+  call Init_FFT_1D(this, typ, n)
+
+end function New_FFT_1D
+
+!-------------------------------------------------------------------------------
+!> Initialize 1D discrete Fourier transform of size n.
 !>
+!> The the following FFTW types are supported:
+!>   * typ = 'real'  --  halfcomplex transform
+!>   * typ = 'cos'   --  cosine transform
+!>   * typ = 'sin'   --  sine transform
 
-subroutine FFT_InitPlan(n, type, fft)
-  integer,          intent(in)  :: n     !< size of the transform
-  character(len=*), intent(in)  :: type  !< FFTW type
-  type(FFT_Plan),   intent(out) :: fft   !< FFTW plan
+subroutine Init_FFT_1D(this, typ, n)
+  class(FFT_1D),    intent(inout) :: this !< FFT_1D object
+  integer,          intent(in)    :: n    !< size of the transform
+  character(len=*), intent(in)    :: typ  !< FFTW type
 
-  real(C_DOUBLE) :: ri(n), ro(n)
+  call Delete_FFT_1D(this)
 
-  if (type == 'real') then
-    fft%forward  = fftw_plan_r2r_1d(n, ri, ro, FFTW_R2HC, FFTW_ESTIMATE)
-    fft%backward = fftw_plan_r2r_1d(n, ri, ro, FFTW_HC2R, FFTW_ESTIMATE)
-  else if (type == 'cos') then
-    fft%forward  = fftw_plan_r2r_1d(n, ri, ro, FFTW_REDFT00, FFTW_ESTIMATE)
-    fft%backward = fftw_plan_r2r_1d(n, ri, ro, FFTW_REDFT00, FFTW_ESTIMATE)
-  else if (type == 'sin') then
-    fft%forward  = fftw_plan_r2r_1d(n, ri, ro, FFTW_RODFT00, FFTW_ESTIMATE)
-    fft%backward = fftw_plan_r2r_1d(n, ri, ro, FFTW_RODFT00, FFTW_ESTIMATE)
+  allocate(this % ri(n))
+  allocate(this % ro(n))
+
+  if (typ == 'real') then
+    this % forward  = fftw_plan_r2r_1d( n, this%ri, this%ro         &
+                                      , FFTW_R2HC, FFTW_ESTIMATE    )
+    this % backward = fftw_plan_r2r_1d( n, this%ri, this%ro         &
+                                      , FFTW_HC2R, FFTW_ESTIMATE    )
+  else if (typ == 'cos') then
+    this % forward  = fftw_plan_r2r_1d( n, this%ri, this%ro         &
+                                      , FFTW_REDFT00, FFTW_ESTIMATE )
+    this % backward = fftw_plan_r2r_1d( n, this%ri, this%ro         &
+                                      , FFTW_REDFT00, FFTW_ESTIMATE )
+  else if (typ == 'sin') then
+    this % forward  = fftw_plan_r2r_1d( n, this%ri, this%ro         &
+                                      , FFTW_RODFT00, FFTW_ESTIMATE )
+    this % backward = fftw_plan_r2r_1d( n, this%ri, this%ro         &
+                                      , FFTW_RODFT00, FFTW_ESTIMATE )
   end if
 
-end subroutine FFT_InitPlan
+end subroutine Init_FFT_1D
 
 !-------------------------------------------------------------------------------
-!> \brief   Destroy FFT plan.
-!> \author  Joerg Stiller
+!> Delete `FFT_1D` object.
 
-subroutine FFT_DestroyPlan(fft)
-  type(FFT_Plan), intent(inout) :: fft   !< FFTW plan
+subroutine Delete_FFT_1D(this)
+  type(FFT_1D) :: this
 
-  if (C_ASSOCIATED(fft%forward)) then
-    call fftw_destroy_plan(fft%forward)
+  this % n = 0
+
+  if (C_ASSOCIATED(this % forward)) then
+    call fftw_destroy_plan(this % forward)
   end if
 
-  if (C_ASSOCIATED(fft%backward)) then
-    call fftw_destroy_plan(fft%backward)
+  if (C_ASSOCIATED(this % backward)) then
+    call fftw_destroy_plan(this % backward)
   end if
 
-end subroutine FFT_DestroyPlan
+  if (allocated(this % ri)) deallocate(this % ri)
+  if (allocated(this % ro)) deallocate(this % ro)
+
+end subroutine Delete_FFT_1D
 
 !-------------------------------------------------------------------------------
-!> \brief   Perform discrete Fourier transform.
-!> \author  Joerg Stiller
+!> In-place 1D forward transform.
 
-subroutine FFT_Execute(plan, u)
+subroutine ForwardTransform(this, u)
 
-  type(C_PTR), intent(in)    :: plan  !< FFTW plan
-  real(RNP),   intent(inout) :: u(:)  !< data being transformed
+  class(FFT_1D), intent(inout) :: this  !< FFTW object, ri and ro are changed
+  real(RNP),     intent(inout) :: u(:)  !< data being transformed
 
-  real(C_DOUBLE), dimension(size(u)) :: ri, ro
+  if (size(u) == this % n) then
+    this % ri = u
+    call fftw_execute_r2r(this % forward, this % ri, this % ro)
+    u = this % ro
+  else
+    call Error('ForwardTransform', 'size(u) /= n', 'FFTW_Binding')
+  end if
 
-  ri = u
-  call fftw_execute_r2r(plan, ri, ro)
-  u = ro
+end subroutine ForwardTransform
 
-end subroutine FFT_Execute
+!-------------------------------------------------------------------------------
+!> In-place 1D backward transform.
+
+subroutine BackwardTransform(this, u)
+
+  class(FFT_1D), intent(inout) :: this  !< FFTW object, ri and ro are changed
+  real(RNP),     intent(inout) :: u(:)  !< data being transformed
+
+  if (size(u) == this % n) then
+    this % ri = u
+    call fftw_execute_r2r(this % forward, this % ri, this % ro)
+    u = this % ro
+  else
+    call Error('BackwardTransform', 'size(u) /= n', 'FFTW_Binding')
+  end if
+
+end subroutine BackwardTransform
 
 !===============================================================================
 

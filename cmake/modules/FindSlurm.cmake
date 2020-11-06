@@ -1,17 +1,8 @@
-find_program(SLURM_SBATCH_COMMAND sbatch DOC "Path to the SLURM sbatch executable")
-find_program(SLURM_SRUN_COMMAND srun DOC "Path to the SLURM srun executable")
-mark_as_advanced(SLURM_SRUN_COMMAND SLURM_SBATCH_COMMAND)
+find_program(Slurm_SBATCH_COMMAND sbatch DOC "Path to the Slurm sbatch executable")
+find_program(Slurm_SRUN_COMMAND   srun   DOC "Path to the Slurm srun executable")
 
-if (SLURM_SRUN_COMMAND AND SLURM_SBATCH_COMMAND)
-    set(SLURM_FOUND TRUE)
-    if (NOT SLURM_FIND_QUIETLY)
-        message (STATUS "Found Slurm")
-    endif ()
-else ()
-    set(SLURM_FOUND FALSE)
-    if(SLURM_FIND_REQUIRED)
-        message(FATAL_ERROR "Could NOT find Slurm")
-    elseif (NOT SLURM_FIND_QUIETLY)
-        message(STATUS "Could NOT find Slurm")
-    endif()
-endif()
+find_package_handle_standard_args( Slurm DEFAULT_MSG 
+                                   Slurm_SBATCH_COMMAND 
+                                   Slurm_SRUN_COMMAND   )
+
+mark_as_advanced(Slurm_SRUN_COMMAND Slurm_SBATCH_COMMAND)
