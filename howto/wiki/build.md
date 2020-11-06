@@ -1,37 +1,30 @@
-### Basics
+# Build Wiki
 
-Load environment, e.g.
+## Basics
 
-    module load hispeet/intel
+Initialize the computing environment as described in the [environment](./wiki/environment) wiki. Then proceed as follows:
 
-Create build directory
+- Go to the _HiSPEET_ root directory
 
-    make distclean
-    mkdir build
+- Optionally, remove old build directories
 
-Build (complete)
+      make distclean
 
-    cd build
-    cmake .. 
-    make -j
+- Create the build directory, e.g.
 
-In case of trouble try sequential build, i.e.
+      mkdir build
 
-    make
+- Generate the configuratiion and and accomplish a complete build
 
-Alternatively, you can build with optimized operators
+      cd build
+      cmake .. 
+      make -j
 
-    cd build
-    cmake ..
-    make -j TUNING_FLAG=<cfg>
-    # where
-    #  <cfg> = simple     for simple parametrization
-    #  <cfg> = intel      for Intel compilers
-    #  <cfg> = pgi        for PGI compilers
+  In case of trouble try a sequential build, i.e.
 
+      make
 
-​    
-### Optional testing
+## Optional testing
 
 Following to build
 
@@ -45,20 +38,19 @@ Step by step and more informative
     make VERBOSE=1
     ctest --verbose
 
-### OpenMP
+## OpenMP
 
 Parts of the code are prepared for acceleration with OpenMP.
 First build the libraries, e.g.
 
     mkdir build-omp
     cd build-omp
-    cmake -DOpenMP=1 ..
-    make -j HiBase HiPhysics HiCart
+    cmake -D OpenMP=1 ..
+    make -j
 
 Now try the Cartesian tensor-product operators
 
     cd develop/cart/tensor-product
-    make
 
 For example, you may test the divergence operator
 
@@ -71,16 +63,16 @@ For example, you may test the divergence operator
 For reaching a reasonable speedup, the number of elements is important. You can see this by changing the parameter `ne` in
 `validate__cart__tpo_div.prm` and repeating the test.
 
-### Debugging
+## Debugging
 
 The first step in tracking down arrows is to enable runtime checks. This is done by choosing the build type `Check`: 
 
-    cmake -DCMAKE_BUILD_TYPE=Check ..
+    cmake -D CMAKE_BUILD_TYPE=Check ..
     make
 
  The next option is to enable debugging:
 
-    cmake -DCMAKE_BUILD_TYPE=Debug ..
+    cmake -D CMAKE_BUILD_TYPE=Debug ..
     make
 
 Then change to the working directory with the executable and invoke the debugger, e.g.
