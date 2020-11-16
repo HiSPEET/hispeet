@@ -50,23 +50,24 @@ program CG_Helmholtz_1D
   ! variables ..................................................................
 
   ! problem parameters
-  real(RNP) :: lambda  = 1      ! Helmholtz parameter
-  real(RNP) :: nu      = 1      ! physical diffusivity
-  real(RNP) :: nu_svv = -1      ! spectral diffusivity amplitude
-  integer   :: test    = 1      ! test case
-  integer   :: init    = 1      ! intial conditions (0: zero, 1: random)
-  character :: bc(2)   = 'D'    ! left/right BC ('D': Dirichlet, 'N': Neumann)
+  real(RNP) :: lambda  =  1      ! Helmholtz parameter
+  real(RNP) :: nu      =  1      ! physical diffusivity
+  real(RNP) :: nu_svv  = -1      ! spectral diffusivity amplitude
+  integer   :: test    =  1      ! test case
+  integer   :: init    =  1      ! intial conditions (0: zero, 1: random)
+  character :: bc(2)   = 'D'     ! left/right BC ('D': Dirichlet, 'N': Neumann)
 
   namelist /problem_parameters/ lambda, nu, nu_svv, test, init, bc
 
   ! solution parameters
-  type(CG_ElementOptions1D) :: eop_opt ! options for CG element operator
-  integer   :: ne     = 10      ! number of elements
-  integer   :: method = 1       ! solution method (1: CG, 2: SC+GE)
-  integer   :: i_max  = huge(1) ! maximum number of CG iterations
-  real(RNP) :: r_max  = 1E-12   ! maximum CG residual
+  integer   :: po     =  16      ! polynomial degree
+  integer   :: ne     =  10      ! number of elements
+  logical   :: svv    = .false.  ! switch to activate SVV
+  integer   :: method =  1       ! solution method (1: CG, 2: SC+GE)
+  integer   :: i_max  =  huge(1) ! maximum number of CG iterations
+  real(RNP) :: r_max  =  1E-12   ! maximum CG residual
 
-  namelist /solution_parameters/ eop_opt, ne, method, r_max, i_max
+  namelist /solution_parameters/ po, ne, svv, method, r_max, i_max
 
   ! discrete variables and operators
   type(CG_ElementOperators1D) :: eop       ! element operators
@@ -82,7 +83,7 @@ program CG_Helmholtz_1D
 
   ! auxiliary variables
   logical      :: exists, periodic, singular
-  integer      :: po, i, l, n, io
+  integer      :: i, l, n, io
   integer(IXL) :: count0, count1, count_rate
   real(RNP)    :: dx, t_pre, t_sol
 
@@ -100,7 +101,6 @@ program CG_Helmholtz_1D
     close(io)
   end if
 
-  po = eop_opt%po
   ! set spectral diffusivity to default value if not given as parameter
   if (nu_svv < 0) nu_svv = ONE / real(po,RNP)
 
@@ -115,7 +115,7 @@ program CG_Helmholtz_1D
             s(0:po,ne), e(0:po,ne), w(0:po,ne)              )
 
   ! standard operators
-  eop = CG_ElementOperators1D(eop_opt)
+  eop = CG_ElementOperators1D(po, svv=svv)
 
   ! mesh and point weights
   call GetMeshPoints(eop, -ONE, ONE, dx, x)
