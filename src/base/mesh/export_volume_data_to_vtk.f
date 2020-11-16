@@ -444,7 +444,7 @@ subroutine BuildQuadraticScalarData(iop, sc, sg)
   ng = size(iop,1)
   ne = size(sc,4)
   ns = size(sc,5)
-  np = size(sg,2)
+  np = size(sg,1)
 
   !$omp single
   allocate(w(ng,ng,ng,ne))
