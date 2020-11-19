@@ -184,12 +184,11 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
       b(3) = ( 6 * c(2)**2 - 3 * c(2) + 1 ) / (6 * c(2)**2)
 
       a_im(2,2) = c(2)
-      a_im(3,3) = ( 1._RHP / 6._RHP - b(2) * c(2)**2 - b(3) * c(2) *c(3) ) &
+      a_im(3,3) = ( 1._RHP / 6._RHP - b(2) * c(2)**2 - b(3) * c(2) * c(3) ) &
                 / ( b(3) * ( c(3) - c(2) ) )
       a_im(3,2) = a_im(3,3) - c(3)
 
       a_ex(2,1) = c(2)
-      a_ex(3,1) = 1._RHP / 2._RHP
       a_ex(3,2) = c(3)
 
     case(3)
