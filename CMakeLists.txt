@@ -28,7 +28,7 @@
 #         0:  compile without OpenACC (default)
 #         1:  compile with OpenACC
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.12)
 
 project(HiSPEET)
 
