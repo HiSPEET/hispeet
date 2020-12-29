@@ -89,6 +89,33 @@ file(GLOB TIME_INTEGRATION time_integration/*.f)
 file(GLOB MESH mesh/*.f)
 
 #===============================================================================
+# mesh_3d
+
+set ( MESH_3D mesh_3d/generic_mesh_3d.f
+              mesh_3d/mesh_3d__boundary.f
+              mesh_3d/mesh_3d__element_indexing.f
+              mesh_3d/mesh_3d__element.f
+              mesh_3d/mesh_3d__face.f
+              mesh_3d/mesh_3d__link.f
+              mesh_3d/mesh_3d__partition.f
+              mesh_3d/mesh_3d__partition__mp_buildfaces.f
+              mesh_3d/mesh_3d__partition__mp_buildlinks.f
+              mesh_3d/mesh_3d__partition__mp_getpoints.f
+              mesh_3d/mesh_3d__partition__mp_getpointvalency.f
+              mesh_3d/mesh_3d__partition__mp_identifyedges.f
+              mesh_3d/mesh_3d__partition__mp_importgenericmesh.f
+              mesh_3d/mesh_3d__structured_indexing.f
+              mesh_3d/mesh_3d__generate_regular_mesh.f
+              )
+
+#===============================================================================
+# util_3d
+
+if (Exodus_FOUND)
+    set ( UTIL_3D util_3d/import/import_exodus_3d.f )
+endif ()
+
+#===============================================================================
 # base library
 
 set(BASE_SRC ${ESSENTIALS}
@@ -100,6 +127,8 @@ set(BASE_SRC ${ESSENTIALS}
              ${TIME_INTEGRATION}
              ${UTILITIES}
              ${MESH}
+             ${MESH_3D}
+             ${UTIL_3D}
              )
 
 add_library(HiBase ${BASE_SRC})

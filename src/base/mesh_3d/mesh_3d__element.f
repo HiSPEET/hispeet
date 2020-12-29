@@ -1,0 +1,131 @@
+!> summary:  3D mesh element type
+!> author:   Joerg Stiller
+!> date:     2020/11/12
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!===============================================================================
+
+module Mesh_3d__Element
+  use Kind_Parameters, only: IXS, RNP
+  implicit none
+  private
+
+  public :: Mesh3d_Element
+  public :: Mesh3d_ElementNeighbor
+
+  !-----------------------------------------------------------------------------
+  !> Element vertex data
+
+  type Mesh3d_ElementVertex
+    integer      :: id         = -1 !< local mesh vertex ID
+    integer(IXS) :: n_neighbor =  0 !< number of neighbor elements
+    integer(IXS) :: i_neighbor =  0 !< first entry in `neighbor` list
+  end type Mesh3d_ElementVertex
+
+  !-----------------------------------------------------------------------------
+  !> Element edge data
+  !>
+  !> The `orientation` describes the transformation required to align the
+  !> element edge with the mesh edge.
+  !>
+  !>     orientation | transformation
+  !>     ------------|-----------------
+  !>       1         | none
+  !>      -1         | flip
+
+  type Mesh3d_ElementEdge
+    integer      :: id          = -1 !< local mesh edge ID
+    integer(IXS) :: orientation =  1 !< orientation against mesh edge
+    integer(IXS) :: n_neighbor  =  0 !< number of neighbor elements
+    integer(IXS) :: i_neighbor  =  0 !< first entry in `neighbor` list
+  end type Mesh3d_ElementEdge
+
+  !-----------------------------------------------------------------------------
+  !> Element face data
+  !>
+  !> With `rotation` specifies the number of quarter rotations required to align
+  !> the element face with the mesh face. In case of negative normal orientation,
+  !> the face must be flipped before rotating.
+
+  type Mesh3d_ElementFace
+    integer      :: id         = -1 !< local mesh face ID
+    integer      :: boundary   = -1 !< mesh boundary ID, if > 0
+    integer(IXS) :: normal     =  1 !< normal orientation against mesh face (±1)
+    integer(IXS) :: rotation   =  0 !< 1/4-rotation for aligning with mesh face
+    integer(IXS) :: n_neighbor =  0 !< number of neighbor elements
+    integer(IXS) :: i_neighbor =  0 !< first entry in `neighbor` list
+  end type Mesh3d_ElementFace
+
+  !-----------------------------------------------------------------------------
+  !> Neighbor element properties
+  !>
+  !> @note
+  !> Before creating the ghosts `id` refers to the neighbor's home partition.
+
+  type Mesh3d_ElementNeighbor
+    integer :: id   = -1 !< local ID of neighbor element, including ghosts
+    integer :: part = -1 !< partition owning the neighbor
+    integer :: cc   = -1 !< coupled neighbor component (face, edge or vertex)
+  end type Mesh3d_ElementNeighbor
+
+  !-----------------------------------------------------------------------------
+  !> 3D mesh element
+  !>
+  !> Numbering
+  !>
+  !>   - vertices:
+  !>
+  !>         index |  standard vertex coordinates
+  !>         ------|-----------------------------
+  !>           1   |  -1,-1,-1
+  !>           2   |   1,-1,-1
+  !>           3   |  -1, 1,-1
+  !>           4   |   1, 1,-1
+  !>           5   |  -1,-1, 1
+  !>           6   |   1,-1, 1
+  !>           7   |  -1, 1, 1
+  !>           8   |   1, 1, 1
+  !>
+  !>   - edges:
+  !>
+  !>         index |  vertices |  direction
+  !>         ------|-----------|-----------
+  !>           1   |  1, 2     |  xi
+  !>           2   |  3, 4     |  xi
+  !>           3   |  5, 6     |  xi
+  !>           4   |  7, 8     |  xi
+  !>           5   |  1, 3     |  eta
+  !>           6   |  2, 4     |  eta
+  !>           7   |  5, 7     |  eta
+  !>           8   |  6, 8     |  eta
+  !>           9   |  1, 5     |  zeta
+  !>          10   |  2, 6     |  zeta
+  !>          11   |  3, 7     |  zeta
+  !>          12   |  4, 8     |  zeta
+  !>
+  !>   - faces:
+  !>
+  !>         index |  vertices    |  edges          |  normal direction
+  !>         ------|--------------|-----------------|------------------
+  !>           1   |  1, 3, 5, 7  |  5,  7,  9, 11  |  xi
+  !>           2   |  2, 4, 6, 8  |  6,  8, 10, 12  |  xi
+  !>           3   |  1, 2, 5, 6  |  1,  3,  9, 10  |  eta
+  !>           4   |  3, 4, 7, 8  |  2,  4, 11, 12  |  eta
+  !>           5   |  1, 2, 3, 4  |  1,  2,  5,  6  |  zeta
+  !>           6   |  5, 6, 7, 8  |  3,  4,  7,  8  |  zeta
+  !>
+
+  type Mesh3d_Element
+
+    integer :: global_id = 0  !< global element ID
+
+    type(Mesh3d_ElementVertex)  :: vertex(8)  !< vertex data
+    type(Mesh3d_ElementEdge)    :: edge(12)   !< edge data
+    type(Mesh3d_ElementFace)    :: face(6)    !< face data
+
+    type(Mesh3d_ElementNeighbor), allocatable :: neighbor(:) !< neighbor data
+
+  end type Mesh3d_Element
+
+  !=============================================================================
+
+end module Mesh_3d__Element
