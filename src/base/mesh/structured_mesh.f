@@ -2,8 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2013/05/24; revised 2014/11/20
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Procedures for lexical ordering
 !===============================================================================
 
 module Structured_Mesh

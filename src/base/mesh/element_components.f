@@ -2,8 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2017/04/30
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Numbering and identification of element components
 !===============================================================================
 
 module Element_Components
