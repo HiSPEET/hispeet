@@ -14,7 +14,8 @@ find_package_handle_standard_args( Exodus DEFAULT_MSG
 if (NOT Exodus_FOUND)
     set(Exodus_LIBRARIES "")
     set(Exodus_INCLUDE_DIRS "")
+else ()
+    add_compile_definitions(__EXODUS__)
 endif ()
 
 mark_as_advanced(Exodus_LIBRARIES Exodus_INCLUDE_DIRS)
-

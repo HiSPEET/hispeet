@@ -28,6 +28,6 @@ if (NOT SKIP_LIBXSMM)
       INSTALL_COMMAND      ""
       )
 
-  add_definitions(-D__LIBXSMM__)
+  add_compile_definitions(__LIBXSMM__)
 
 endif ()

@@ -28,7 +28,7 @@
 #         0:  compile without OpenACC (default)
 #         1:  compile with OpenACC
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.12)
 
 project(HiSPEET)
 
@@ -87,13 +87,13 @@ endif ()
 
 # Flags for checkingh
 if (CMAKE_BUILD_TYPE MATCHES "Check")
-    add_definitions(-DCHECK)
-    add_definitions(-DOMP_SERIAL_SCALARPRODUCT)
+    add_compile_definitions(CHECK)
+    add_compile_definitions(OMP_SERIAL_SCALARPRODUCT)
 endif ()
 
 # Preprocessor settings for debugging
 if (CMAKE_BUILD_TYPE MATCHES "Debug")
-    add_definitions(-DDEBUG)
+    add_compile_definitions(DEBUG)
 endif ()
 
 
@@ -103,8 +103,11 @@ endif ()
 if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-form -Wall")
-    set(CMAKE_Fortran_FLAGS_CHECK   "-fcheck=all -fbacktrace -fpe0")
-    set(CMAKE_Fortran_FLAGS_DEBUG   "-fcheck=all -fbacktrace -g")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Wno-conversion")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Wno-c-binding-type")
+
+    set(CMAKE_Fortran_FLAGS_CHECK "-fcheck=all -fbacktrace")
+    set(CMAKE_Fortran_FLAGS_DEBUG "-fcheck=all -fbacktrace -g")
 
     if (OPT)
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O${OPT}")
