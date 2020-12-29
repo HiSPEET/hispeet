@@ -2,8 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2018/03/09
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Embedded interpolation operator
 !===============================================================================
 
 module Embedded_Interpolation

@@ -2,8 +2,6 @@
 !> author:    Immo Huismann, Joerg Stiller, Gustav Tschirschnitz
 !> date:      2014/11/24
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Spectral element operators in the one-dimensional standard region
 !===============================================================================
 
 module Standard_Operators_1D
