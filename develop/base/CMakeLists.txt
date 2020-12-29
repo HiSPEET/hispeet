@@ -1,1 +1,2 @@
 add_subdirectory(tensor_product)
+add_subdirectory(mesh_3d)
