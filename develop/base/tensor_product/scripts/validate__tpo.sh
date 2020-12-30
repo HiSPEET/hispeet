@@ -29,7 +29,7 @@ NT_MAX=10
 
 for CASE in $TEST_CASES; do
 
-  PROGRAM="./validate__tpo_"${CASE}
+  PROGRAM="./validate__tpo__"${CASE}
 
   if [ ! -f $PROGRAM ]; then
     echo $PROGRAM "does not exist -- skipping test"
@@ -96,10 +96,10 @@ for CASE in $TEST_CASES; do
         NT=$(( NT > NT_MAX ? NT_MAX : NT ))
         NT=$(( NT < NT_MIN ? NT_MIN : NT ))
 
-      sed -e "s/<PO>/$PO/g" \
-          -e "s/<NP>/$NP/g" \
-          -e "s/<NE>/$NE/g" \
-          -e "s/<NT>/$NT/g" \
+      sed -e "s/<po>/$PO/g" \
+          -e "s/<np>/$NP/g" \
+          -e "s/<ne>/$NE/g" \
+          -e "s/<nt>/$NT/g" \
             ${PROGRAM}.tmpl > ${PROGRAM}.prm
 
       $EXEC $PROGRAM | grep ^[[:blank:]]*[1-9] >> ${FILE}

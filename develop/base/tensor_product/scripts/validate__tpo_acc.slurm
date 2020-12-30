@@ -31,4 +31,4 @@ fi
 
 export EXEC="srun"
 
-./validate__cart__tpo.sh
+./validate__tpo.sh
