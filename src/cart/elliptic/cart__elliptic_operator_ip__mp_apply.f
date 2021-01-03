@@ -2,8 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2018/11/22
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Application of the IP/DG elliptic operator
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP) MP_Apply
@@ -61,10 +59,7 @@ subroutine ApplyBoundaryConditions(mesh, bc, tr_u, tr_qn)
   real(RNP),            intent(inout) :: tr_u (0:,0:,:,:) !< trace of u
   real(RNP),            intent(inout) :: tr_qn(0:,0:,:,:) !< trace of ν du/dn
 
-  integer :: po
-  integer :: b, f, i, j, k, l, o
-
-  po = ubound(tr_u, 1)
+  integer :: b, f, i, l, o
 
   do b = 1, size(bc)
     associate(face => mesh % boundary(b) % face)
@@ -80,26 +75,19 @@ subroutine ApplyBoundaryConditions(mesh, bc, tr_u, tr_qn)
           f = face(l) % mesh_face % id          ! mesh face
           i = inner_side(face(l) % orientation) ! inner side
           o = 3 - i                             ! outer side
-          do k = 0, po
-          do j = 0, po
-            tr_u (j,k,o,f) = -tr_u (j,k,i,f)
-            tr_qn(j,k,o,f) = -tr_qn(j,k,i,f)
-          end do
-          end do
+          tr_u (:,:,o,f) = -tr_u (:,:,i,f)
+          tr_qn(:,:,o,f) = -tr_qn(:,:,i,f)
         end do
 
       case('N')
         ! Neumann: du/dn does not contribute, [u] = 0 due to extrapolation
         !$omp do
         do l = 1, size(face)
-          f = face(l) % mesh_face % id
-          do k = 0, po
-          do j = 0, po
-           !tr_u (j,k,o,f) = tr_u (j,k,i,f)
-            tr_qn(j,k,1,f) = 0
-            tr_qn(j,k,2,f) = 0
-          end do
-          end do
+          f = face(l) % mesh_face % id          ! mesh face
+          i = inner_side(face(l) % orientation) ! inner side
+          o = 3 - i                             ! outer side
+          tr_u (:,:,o,f) = tr_u (:,:,i,f)
+          tr_qn(:,:,:,f) = 0
         end do
 
       end select
@@ -119,24 +107,19 @@ subroutine ComputeJumps(tr_u, J_u, normal)
   real(RNP), intent(out) :: J_u (0:,0:,:)   !< [u]ᵢ
   logical, optional, intent(in) :: normal   !< switch for normal traces [F]
 
-  real(RNP) :: s
-  integer   :: f, j, k, po
+  integer   :: f
 
-  s = -1
   if (present(normal)) then
-    if (normal) s = 1
+    !$omp do
+    do f = 1, size(J_u, 3)
+      J_u(:,:,f) = tr_u(:,:,1,f) + tr_u(:,:,2,f)
+    end do
+  else
+    !$omp do
+    do f = 1, size(J_u, 3)
+      J_u(:,:,f) = tr_u(:,:,1,f) - tr_u(:,:,2,f)
+    end do
   end if
-
-  po = ubound(J_u, 1)
-
-  !$omp do
-  do f = 1, size(J_u, 3)
-    do k = 0, po
-    do j = 0, po
-      J_u(j,k,f) = tr_u(j,k,1,f) + s * tr_u(j,k,2,f)
-    end do
-    end do
-  end do
 
 end subroutine ComputeJumps
 
@@ -151,24 +134,19 @@ subroutine ComputeAverages(tr_u, A_u, normal)
   real(RNP), intent(out) :: A_u (0:,0:,:)   !< {u}
   logical, optional, intent(in) :: normal   !< switch for normal traces [F]
 
-  real(RNP) :: s
-  integer   :: f, j, k, po
+  integer   :: f
 
-  s = 1
   if (present(normal)) then
-    if (normal) s = -1
+    !$omp do
+    do f = 1, size(A_u, 3)
+      A_u(:,:,f) = HALF * (tr_u(:,:,1,f) - tr_u(:,:,2,f))
+    end do
+  else
+    !$omp do
+    do f = 1, size(A_u, 3)
+      A_u(:,:,f) = HALF * (tr_u(:,:,1,f) + tr_u(:,:,2,f))
+    end do
   end if
-
-  po = ubound(A_u, 1)
-
-  !$omp do
-  do f = 1, size(A_u, 3)
-    do k = 0, po
-    do j = 0, po
-      A_u(j,k,f) = (tr_u(j,k,1,f) + s * tr_u(j,k,2,f)) * HALF
-    end do
-    end do
-  end do
 
 end subroutine ComputeAverages
 

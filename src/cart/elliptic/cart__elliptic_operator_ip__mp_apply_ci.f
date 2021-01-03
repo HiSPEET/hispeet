@@ -27,16 +27,12 @@ module subroutine Apply_CI(this, u, v)
   ! local variables ............................................................
 
   ! trace operators
-  type(TraceOperator),       allocatable, save :: u_trace_op
+  type(TraceTransferBuffer), allocatable, save ::  u_trace_buf
   type(TraceTransferBuffer), allocatable, save :: qn_trace_buf
 
   ! trace variables
   real(RNP), allocatable, save :: tr_u (:,:,:,:)
   real(RNP), allocatable, save :: tr_qn(:,:,:,:)
-
-  ! jump and average flux in direction xᵢ // face normal
-  real(RNP), allocatable, save :: J_u(:,:,:) ! [u]ᵢ
-  real(RNP), allocatable, save :: A_q(:,:,:) ! {q}ᵢ = {ν∇u + νˢQ∇u}ᵢ
 
   ! 1D standard operators
   real(RNP) :: As(0:this%eop%po, 0:this%eop%po) ! diffusion Dᵀ(ν+νˢQ)D
@@ -77,22 +73,15 @@ module subroutine Apply_CI(this, u, v)
       !$omp single                                                            !1
       allocate(tr_u(0:po, 0:po, 2, mesh%nf))                                  !1
       allocate(tr_qn, mold=tr_u)                                              !1
-      allocate(J_u(0:po, 0:po, mesh%nf))                                      !1
-      allocate(A_q, mold=J_u)                                                 !1
-      allocate(u_trace_op)                                                    !1
-      allocate(qn_trace_buf)                                                  !1
+      allocate(u_trace_buf, qn_trace_buf)                                     !1
       !$omp end single                                                        !1
 
       ! start generation of traces .............................................
 
       ! initialize, compute and transfer face normal fluxes qn
-      call SetArray(tr_qn, ZERO)                                              !2
-      call ComputeNormalFluxes(mesh, np, ne, nf, Bs, mesh%dx, u, tr_qn)       !3
-      call qn_trace_buf % Transfer(mesh, tr_qn, tag=1000)                     !9
-
-      ! initialize, compute and transfer traces of u
-      call SetArray(tr_u, ZERO)                                               !2
-      call u_trace_op % GetTrace_Start(mesh, u, tr_u, tag=2000)               !8
+      call GetLocalTraces(mesh, np, ne, nf, Bs, mesh%dx, u, tr_u, tr_qn)      !3
+      call  u_trace_buf % Transfer(mesh, tr_u , tag=1000)                     !9
+      call qn_trace_buf % Transfer(mesh, tr_qn, tag=2000)                     !9
 
       ! apply element diffusion operator .......................................
 
@@ -100,30 +89,23 @@ module subroutine Apply_CI(this, u, v)
 
       ! finish generation of traces ............................................
 
+      call  u_trace_buf % Merge(mesh, tr_u, alpha=ZERO, beta=ONE)             !9
+      call  u_trace_buf % Finish()                                            !9
+
       call qn_trace_buf % Merge(mesh, tr_qn, alpha=ZERO, beta=ONE)            !9
       call qn_trace_buf % Finish()                                            !9
 
-      call u_trace_op % GetTrace_Finish(mesh, tr_u )                          !8
-
       call ApplyBoundaryConditions(mesh, this%bc, tr_u, tr_qn)                !5
-
-      ! jumps and average derivatives ..........................................
-
-      call SetArray(J_u, ZERO)                                                !2
-      call ComputeJumps(tr_u, J_u)                                            !6
-
-      call SetArray(A_q, ZERO)                                                !2
-      call ComputeAverages(tr_qn, A_q, normal=.true.)                         !7
 
       ! add fluxes .............................................................
 
-      call AddFluxes(mesh, eop, Bs, nu, nu_svv, J_u, A_q, v)                  !4
+      call AddFluxes(mesh, eop, Bs, nu, nu_svv, tr_u, tr_qn, v)                  !4
 
       ! clean-up ...............................................................
 
       !$omp single                                                            !1
-      deallocate(tr_u, tr_qn, J_u, A_q )                                      !1
-      deallocate(u_trace_op, qn_trace_buf)                                    !1
+      deallocate(tr_u, tr_qn)                                                 !1
+      deallocate(u_trace_buf, qn_trace_buf)                                   !1
       !$omp end single
 
     end associate
@@ -134,24 +116,25 @@ end subroutine Apply_CI
 !-------------------------------------------------------------------------------
 !> Compute and add fluxes through element boundaries
 
-subroutine AddFluxes(mesh, eop, Bs, nu, nu_svv, J_u, A_q, v)
+subroutine AddFluxes(mesh, eop, Bs, nu, nu_svv, tr_u, tr_qn, v)
 
   ! arguments ..................................................................
 
   class(MeshPartition),         intent(in) :: mesh !< mesh partition
   class(IP_ElementOperators1D), intent(in) :: eop  !< ID/DG element operators
 
-  real(RNP), intent(in)    :: Bs(0:,0:)     !< 1D standard "flux" operator
-  real(RNP), intent(in)    :: nu            !< diffusivity
-  real(RNP), intent(in)    :: nu_svv        !< spectral diffusivity
-  real(RNP), intent(in)    :: J_u(0:,0:,:)  !< [u]ᵢ
-  real(RNP), intent(in)    :: A_q(0:,0:,:)  !< {q}ᵢ
-  real(RNP), intent(inout) :: v(0:,0:,0:,:) !< result
+  real(RNP), intent(in)    :: Bs(0:,0:)        !< 1D standard "flux" operator
+  real(RNP), intent(in)    :: nu               !< diffusivity
+  real(RNP), intent(in)    :: nu_svv           !< spectral diffusivity
+  real(RNP), intent(in)    :: tr_u (0:,0:,:,:) !< [u]ᵢ
+  real(RNP), intent(in)    :: tr_qn(0:,0:,:,:) !< {q}ᵢ
+  real(RNP), intent(inout) :: v(0:,0:,0:,:)    !< result
 
   ! local variables ............................................................
 
-  real(RNP), dimension(:,:), allocatable :: Mf1, Mf2, Mf3
-  real(RNP), dimension(:),   allocatable :: delta_0, delta_P
+  real(RNP), dimension(0:eop%po, 0:eop%po) :: Mf1, Mf2, Mf3
+  real(RNP), dimension(0:eop%po, 0:eop%po) :: Aq_0, Aq_P, Ju_0, Ju_P
+  real(RNP), dimension(0:eop%po)           :: delta_0, delta_P
   real(RNP) :: g(3), mu(3)
   real(RNP) :: cd_0, cd_P, cp_0, cp_P
   integer   :: i, j, k, e, f(6), f_0, f_P
@@ -163,8 +146,6 @@ subroutine AddFluxes(mesh, eop, Bs, nu, nu_svv, J_u, A_q, v)
     ! auxiliaries .............................................................
 
     ! face mass matrices
-
-    allocate(Mf1(0:P,0:P), Mf2(0:P,0:P), Mf3(0:P,0:P))
 
     g(1) = dx(2) * dx(3) / 4
     g(2) = dx(3) * dx(1) / 4
@@ -179,8 +160,8 @@ subroutine AddFluxes(mesh, eop, Bs, nu, nu_svv, J_u, A_q, v)
     end do
 
     ! delta function
-    allocate(delta_0(0:P), source = [ ONE, (ZERO, i=1,P) ])
-    allocate(delta_P(0:P), source = [ (ZERO, i=1,P), ONE ])
+    delta_0 = [ ONE, (ZERO, i=1,P) ]
+    delta_P = [ (ZERO, i=1,P), ONE ]
 
     ! penalties
     mu(1) = eop % PenaltyFactor(dx(1))
@@ -203,15 +184,15 @@ subroutine AddFluxes(mesh, eop, Bs, nu, nu_svv, J_u, A_q, v)
       !
       !   [ϕ]₁         = -delta_0(i)
       !   {(ν+νˢQ)∇ϕ}₁ = g(1) * Bs(0,i)
-      !   [u]₁         = J_u(j,k,f₁)
-      !   {(ν+νˢQ)∇u}₁ = A_q(j,k,f₁)
+      !   [u]₁         = jmp( u (j,k,f₁) )
+      !   {(ν+νˢQ)∇u}₁ = avg( q₁(j,k,f₁) )
       !
       ! and, at  ξ = +1
       !
-      !   [ϕ]₁          = delta_P(i)
+      !   [ϕ]₁         = delta_P(i)
       !   {(ν+νˢQ)∇ϕ}₁ = g(1) * Bs(P,i)
-      !   [u]₁         = J_u(j,k,f₂)
-      !   {(ν+νˢQ)∇u}₁ = A_q(j,k,f₂)
+      !   [u]₁         = jmp( u (j,k,f₂) )
+      !   {(ν+νˢQ)∇u}₁ = avg( q₁(j,k,f₂) )
 
       f_0 = f(1)
       f_P = f(2)
@@ -221,15 +202,21 @@ subroutine AddFluxes(mesh, eop, Bs, nu, nu_svv, J_u, A_q, v)
       cp_0 = -(nu + nu_svv) * mu(1)
       cp_P =  (nu + nu_svv) * mu(1)
 
+      Aq_0 = HALF * (tr_qn(:,:,1,f_0) - tr_qn(:,:,2,f_0))
+      Aq_P = HALF * (tr_qn(:,:,1,f_P) - tr_qn(:,:,2,f_P))
+
+      Ju_0 = tr_u(:,:,1,f_0) - tr_u(:,:,2,f_0)
+      Ju_P = tr_u(:,:,1,f_P) - tr_u(:,:,2,f_P)
+
       do k = 0, P
       do j = 0, P
       do i = 0, P
 
-        v(i,j,k,e) = v(i,j,k,e)                                              &
-          + Mf1(j,k) * ( delta_0(i) * A_q(j,k,f_0)                           &
-                       - delta_P(i) * A_q(j,k,f_P)                           &
-                       + (cd_0 * Bs(0,i) + cp_0 * delta_0(i)) * J_u(j,k,f_0) &
-                       + (cd_P * Bs(P,i) + cp_P * delta_P(i)) * J_u(j,k,f_P) )
+        v(i,j,k,e) = v(i,j,k,e)                                           &
+          + Mf1(j,k) * ( delta_0(i) * Aq_0(j,k)                           &
+                       - delta_P(i) * Aq_P(j,k)                           &
+                       + (cd_0 * Bs(0,i) + cp_0 * delta_0(i)) * Ju_0(j,k) &
+                       + (cd_P * Bs(P,i) + cp_P * delta_P(i)) * Ju_P(j,k) )
       end do
       end do
       end do
@@ -245,15 +232,21 @@ subroutine AddFluxes(mesh, eop, Bs, nu, nu_svv, J_u, A_q, v)
       cp_0 = -(nu + nu_svv) * mu(2)
       cp_P =  (nu + nu_svv) * mu(2)
 
+      Aq_0 = HALF * (tr_qn(:,:,1,f_0) - tr_qn(:,:,2,f_0))
+      Aq_P = HALF * (tr_qn(:,:,1,f_P) - tr_qn(:,:,2,f_P))
+
+      Ju_0 = tr_u(:,:,1,f_0) - tr_u(:,:,2,f_0)
+      Ju_P = tr_u(:,:,1,f_P) - tr_u(:,:,2,f_P)
+
       do k = 0, P
       do j = 0, P
       do i = 0, P
 
-        v(i,j,k,e) = v(i,j,k,e)                                              &
-          + Mf2(i,k) * ( delta_0(j) * A_q(i,k,f_0)                           &
-                       - delta_P(j) * A_q(i,k,f_P)                           &
-                       + (cd_0 * Bs(0,j) + cp_0 * delta_0(j)) * J_u(i,k,f_0) &
-                       + (cd_P * Bs(P,j) + cp_P * delta_P(j)) * J_u(i,k,f_P) )
+        v(i,j,k,e) = v(i,j,k,e)                                           &
+          + Mf2(i,k) * ( delta_0(j) * Aq_0(i,k)                           &
+                       - delta_P(j) * Aq_P(i,k)                           &
+                       + (cd_0 * Bs(0,j) + cp_0 * delta_0(j)) * Ju_0(i,k) &
+                       + (cd_P * Bs(P,j) + cp_P * delta_P(j)) * Ju_P(i,k) )
       end do
       end do
       end do
@@ -269,15 +262,21 @@ subroutine AddFluxes(mesh, eop, Bs, nu, nu_svv, J_u, A_q, v)
       cp_0 = -(nu + nu_svv) * mu(3)
       cp_P =  (nu + nu_svv) * mu(3)
 
+      Aq_0 = HALF * (tr_qn(:,:,1,f_0) - tr_qn(:,:,2,f_0))
+      Aq_P = HALF * (tr_qn(:,:,1,f_P) - tr_qn(:,:,2,f_P))
+
+      Ju_0 = tr_u(:,:,1,f_0) - tr_u(:,:,2,f_0)
+      Ju_P = tr_u(:,:,1,f_P) - tr_u(:,:,2,f_P)
+
       do k = 0, P
       do j = 0, P
       do i = 0, P
 
-        v(i,j,k,e) = v(i,j,k,e)                                              &
-          + Mf3(i,j) * ( delta_0(k) * A_q(i,j,f_0)                           &
-                       - delta_P(k) * A_q(i,j,f_P)                           &
-                       + (cd_0 * Bs(0,k) + cp_0 * delta_0(k)) * J_u(i,j,f_0) &
-                       + (cd_P * Bs(P,k) + cp_P * delta_P(k)) * J_u(i,j,f_P) )
+        v(i,j,k,e) = v(i,j,k,e)                                           &
+          + Mf3(i,j) * ( delta_0(k) * Aq_0(i,j)                           &
+                       - delta_P(k) * Aq_P(i,j)                           &
+                       + (cd_0 * Bs(0,k) + cp_0 * delta_0(k)) * Ju_0(i,j) &
+                       + (cd_P * Bs(P,k) + cp_P * delta_P(k)) * Ju_P(i,j) )
       end do
       end do
       end do
@@ -295,7 +294,7 @@ end subroutine AddFluxes
 !> points. Entries corresponding to interior points or tangential components are
 !> set to zero.
 
-subroutine ComputeNormalFluxes(mesh, np, ne, nf, Bs, dx, u, tr_qn)
+subroutine GetLocalTraces(mesh, np, ne, nf, Bs, dx, u, tr_u, tr_qn)
   class(MeshPartition), intent(in) :: mesh      !< mesh partition
   integer,   intent(in)    :: np                !< number of points per direction
   integer,   intent(in)    :: ne                !< number of elements
@@ -303,7 +302,8 @@ subroutine ComputeNormalFluxes(mesh, np, ne, nf, Bs, dx, u, tr_qn)
   real(RNP), intent(in)    :: Bs(np,np)         !< 1D standard "flux" operator
   real(RNP), intent(in)    :: dx(3)             !< element extensions
   real(RNP), intent(in)    :: u(np,np,np,ne)    !< 3D scalar field
-  real(RNP), intent(inout) :: tr_qn(np,np,2,nf) !< normal flux traces (in: = 0)
+  real(RNP), intent(inout) :: tr_u (np,np,2,nf) !< solution traces
+  real(RNP), intent(inout) :: tr_qn(np,np,2,nf) !< normal flux traces
 
   real(RNP) :: Bs_f(np,2)
   real(RNP) :: g(3), tmp1, tmp2
@@ -339,6 +339,8 @@ subroutine ComputeNormalFluxes(mesh, np, ne, nf, Bs, dx, u, tr_qn)
         tmp1 = tmp1 + Bs_f(m,1) * u(m,j,k,e)
         tmp2 = tmp2 + Bs_f(m,2) * u(m,j,k,e)
       end do
+      tr_u (j,k,2,f(1)) = u( 1,j,k,e)
+      tr_u (j,k,1,f(2)) = u(np,j,k,e)
       tr_qn(j,k,2,f(1)) = g(1) * tmp1
       tr_qn(j,k,1,f(2)) = g(1) * tmp2
 
@@ -357,6 +359,8 @@ subroutine ComputeNormalFluxes(mesh, np, ne, nf, Bs, dx, u, tr_qn)
         tmp1 = tmp1 + Bs_f(m,1) * u(i,m,k,e)
         tmp2 = tmp2 + Bs_f(m,2) * u(i,m,k,e)
       end do
+      tr_u (i,k,2,f(3)) = u(i, 1,k,e)
+      tr_u (i,k,1,f(4)) = u(i,np,k,e)
       tr_qn(i,k,2,f(3)) = g(2) * tmp1
       tr_qn(i,k,1,f(4)) = g(2) * tmp2
 
@@ -375,6 +379,8 @@ subroutine ComputeNormalFluxes(mesh, np, ne, nf, Bs, dx, u, tr_qn)
         tmp1 = tmp1 + Bs_f(m,1) * u(i,j,m,e)
         tmp2 = tmp2 + Bs_f(m,2) * u(i,j,m,e)
       end do
+      tr_u (i,j,2,f(5)) = u(i,j, 1,e)
+      tr_u (i,j,1,f(6)) = u(i,j,np,e)
       tr_qn(i,j,2,f(5)) = g(3) * tmp1
       tr_qn(i,j,1,f(6)) = g(3) * tmp2
 
@@ -386,7 +392,7 @@ subroutine ComputeNormalFluxes(mesh, np, ne, nf, Bs, dx, u, tr_qn)
   !$acc end parallel
   !$acc end data
 
-end subroutine ComputeNormalFluxes
+end subroutine GetLocalTraces
 
 !===============================================================================
 
