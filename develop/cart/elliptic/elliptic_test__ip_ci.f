@@ -68,7 +68,7 @@ program Elliptic_Test__IP_CI
 
   ! solution ...................................................................
 
-  integer   :: method    = 1       ! CG,, Schwarz, p-MG or p-MG/CG {1|2|3|4}
+  integer   :: method    = 1       ! none, CG, Schwarz, p-MG, p-MG/CG {0,1|2|3|4}
 
   integer   :: i_max     = huge(1) ! max number of iterations/cycles
   real(RNP) :: r_red     = 1E-6    ! min residual reduction
@@ -403,7 +403,14 @@ program Elliptic_Test__IP_CI
       write(*,'(A,/)') 'IP/DG EllipticOperator: p-Multigrid'
     case(4)
       write(*,'(A,/)') 'IP/DG EllipticOperator: p-MG/CG'
+    case default
+      write(*,'(A,/)') 'skipping solver test'
     end select
+  end if
+
+  if (method == 0) then
+    call MPI_Finalize()
+    stop
   end if
 
   !$omp parallel
