@@ -5,7 +5,7 @@
 !==============================================================================
 
 module Generic_Mesh_3d
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters
   implicit none
   private
 
@@ -194,7 +194,39 @@ module Generic_Mesh_3d
     ! type-bound procedures
     procedure :: SwitchToLexicalNumbering
     procedure :: SwitchToRotationalNumbering
+    procedure :: CreateCylinder
+    procedure :: CreateAnnularGap
   end type GenericMesh3d
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Creates a generic mesh for a cylinder
+
+    module subroutine CreateCylinder(mesh, nr, nz, po, periodic)
+      class(GenericMesh3d), intent(out) :: mesh  !< cylindrical 3d mesh
+      integer, intent(in) :: nr  !< num intervals in radial section
+      integer, intent(in) :: nz  !< num intervals in axial  direction
+      integer, intent(in) :: po  !< polynomial order of mesh elements
+      logical, intent(in) :: periodic !< switch for axial periodicity
+    end subroutine CreateCylinder
+
+    !---------------------------------------------------------------------------
+    !> Creates a generic mesh for an annular gap
+
+    module subroutine CreateAnnularGap(mesh, r0, r1, h, nr, np, nz, po, periodic)
+      class(GenericMesh3d), intent(out) :: mesh  !< cylindrical 3d mesh
+      real(RNP), intent(in) :: r0  !< inner radius
+      real(RNP), intent(in) :: r1  !< outer radius
+      real(RNP), intent(in) :: h   !< height
+      integer,   intent(in) :: nr  !< num elements in radial    (r)   direction
+      integer,   intent(in) :: np  !< num elements in azimuthal (phi) direction
+      integer,   intent(in) :: nz  !< num elements in axial     (z)   direction
+      integer,   intent(in) :: po  !< polynomial order of mesh elements
+      logical,   intent(in) :: periodic !< switch for axial periodicity
+    end subroutine CreateAnnularGap
+
+  end interface
 
   !=============================================================================
   ! Parameters

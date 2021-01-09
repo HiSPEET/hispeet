@@ -92,6 +92,8 @@ file(GLOB MESH mesh/*.f)
 # mesh_3d
 
 set ( MESH_3D mesh_3d/generic_mesh_3d.f
+              mesh_3d/generic_mesh_3d__mp_createcylinder.f
+              mesh_3d/generic_mesh_3d__mp_createannulargap.f
               mesh_3d/mesh_3d__boundary.f
               mesh_3d/mesh_3d__element_indexing.f
               mesh_3d/mesh_3d__element.f
@@ -111,8 +113,12 @@ set ( MESH_3D mesh_3d/generic_mesh_3d.f
 #===============================================================================
 # util_3d
 
+set( UTIL_3D util_3d/export/export_vtk_3d__volume_data.f
+             util_3d/transfer/element_transfer_buffer_3d.f
+             )
+
 if (Exodus_FOUND)
-    set ( UTIL_3D util_3d/import/import_exodus_3d.f )
+    set (UTIL_3D ${UTIL_3D} util_3d/import/import_exodus_3d.f)
 endif ()
 
 #===============================================================================

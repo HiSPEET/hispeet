@@ -1,0 +1,11 @@
+&input
+  conf = 1     ! configuration: 1 cylinder, 2 annular gap
+! r0   = 0.5   ! inner radius  (annular gap only)
+! r1   = 1     ! outer radius
+! h    = 2     ! height
+! nr   = 2     ! num elements in radial    direction
+! np   = 4     ! num elements in azimuthal direction (gap only)
+! nz   = 2     ! num elements in axial     direction
+! po   = 3     ! polynomial order of mesh elements
+! periodic = T ! switch for axial periodicity
+/

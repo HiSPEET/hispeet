@@ -7,6 +7,17 @@ add_executable( mesh3d_explore
 target_link_libraries(mesh3d_explore HiBase)
 
 #===============================================================================
+# mesh3d_import_generic
+
+add_executable( mesh3d_import_generic
+                mesh3d_import_generic.f )
+
+target_link_libraries(mesh3d_import_generic HiBase)
+
+configure_file( mesh3d_import_generic.prm
+                mesh3d_import_generic.prm COPYONLY )
+
+#===============================================================================
 # mesh3d_import_exodus
 
 if (Exodus_FOUND)
@@ -15,9 +26,6 @@ if (Exodus_FOUND)
                     mesh3d_import_exodus.f )
 
     target_link_libraries(mesh3d_import_exodus HiBase)
-
-    #configure_file( mesh3d_import_exodus.prm
-    #                mesh3d_import_exodus.prm COPYONLY )
 
     file( COPY exodus DESTINATION . )
 
