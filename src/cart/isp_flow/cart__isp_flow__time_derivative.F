@@ -160,7 +160,7 @@ contains
           call SetArray(F_c, ZERO, multi=.true.)
         end if
 
-      else
+      else if (present(F) .or. present(F_c)) then
 
         ! compute convection term
         call WeakConvectiveFlux(flow_op, u, div_F=w)
@@ -171,10 +171,10 @@ contains
 
       ! diffusion ..............................................................
 
-      if (present(F_d )) call SetArray(F_d , ZERO, multi = .true.)
-      if (present(F_d1)) call SetArray(F_d1, ZERO, multi = .true.)
-      if (present(F_d2)) call SetArray(F_d2, ZERO, multi = .true.)
-      if (present(F_d3)) call SetArray(F_d3, ZERO, multi = .true.)
+      if (present(F_d )) call SetArray(F_d (:,:,:,:,4:nc), ZERO, multi = .true.)
+      if (present(F_d1)) call SetArray(F_d1(:,:,:,:,4   ), ZERO                )
+      if (present(F_d2)) call SetArray(F_d2(:,:,:,:,4:nc), ZERO, multi = .true.)
+      if (present(F_d3)) call SetArray(F_d3(:,:,:,:,4:nc), ZERO, multi = .true.)
 
       if (present(nu)) then
 
@@ -286,8 +286,10 @@ contains
       if (present(F) .or. present(F_d) .or. present(F_d1)) then
         do c = 1, 3
           call WeakGradient(mesh, Ms, Ds, v(:,:,:,:,c), g)
-          call ScaleArray(g, nu(c), multi=.true.)
-          call TPO_Div_R(Ds, mesh%dx, g, q)
+!x! !!! save once loading q !!!
+!x!          call ScaleArray(g, nu(c), multi=.true.)
+!x!          call TPO_Div_R(Ds, mesh%dx, g, q)
+          call TPO_Div_R(nu(c) * Ds, mesh%dx, g, q)
           if (present(F)) then
             call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
           end if
@@ -303,8 +305,10 @@ contains
       ! F_d2 and F_d3
       if (present(F) .or. present(F_d) .or. present(F_d2) .or. present(F_d3)) then
         call WeakDivergence(mesh, Ms, Ds, v, q)
-        call ScaleArray(q, sum(nu(1:3))/3)
-        call TPO_Grad_R(Ds, mesh%dx, q, g)
+!x! !!! save once loading q !!!
+!x!        call ScaleArray(q, sum(nu(1:3))/3)
+!x!        call TPO_Grad_R(Ds, mesh%dx, q, g)
+        call TPO_Grad_R(sum(nu(1:3))/3 * Ds, mesh%dx, q, g)
         if (present(F)) then
           call MergeArrays(ONE, F(:,:,:,:,1:3), 1+chi, g, multi=.true.)
         end if
@@ -356,8 +360,10 @@ contains
     associate(g => w(:,:,:,:,1:3), q => w(:,:,:,:,4))
 
       do c = 5, nc
-        call TPO_Grad_R(Ds, mesh%dx, u(:,:,:,:,c), w)
-        call ScaleArray(g, nu(c), multi=.true.)
+!x! !!! save once loading q !!!
+!x!        call TPO_Grad_R(Ds, mesh%dx, u(:,:,:,:,c), w)
+!x!        call ScaleArray(g, nu(c), multi=.true.)
+        call TPO_Grad_R(nu(c) * Ds, mesh%dx, u(:,:,:,:,c), w)
         call WeakDivergence(mesh, Ms, Ds, g, q)
         if (present(F)) then
           call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
@@ -442,8 +448,10 @@ contains
       ! F_d2 and F_d3
       if (present(F) .or. present(F_d) .or. present(F_d2) .or. present(F_d3)) then
         call WeakDivergence(mesh, Ms, Ds, v, q)
-        call ScaleArray(q, sum(nu(1:3))/3)
-        call TPO_Grad_R(Ds, mesh%dx, q, g)
+!x! !!! save once loading q !!!
+!x!        call ScaleArray(q, sum(nu(1:3))/3)
+!x!        call TPO_Grad_R(Ds, mesh%dx, q, g)
+        call TPO_Grad_R(sum(nu(1:3))/3 * Ds, mesh%dx, q, g)
         if (present(F)) then
           call MergeArrays(ONE, F(:,:,:,:,1:3), 1+chi, g, multi=.true.)
         end if

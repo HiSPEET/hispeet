@@ -2,8 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2018/11/22
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Residual of the IP/DG elliptic operator: const isotropic diffusivity
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP) MP_Residual

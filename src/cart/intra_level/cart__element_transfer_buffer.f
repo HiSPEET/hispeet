@@ -2,13 +2,12 @@
 !> author:   Joerg Stiller
 !> date:     2017/09/05
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Type and methods for transferring linked element data
 !===============================================================================
 
 module CART__Element_Transfer_Buffer
 
   use Kind_Parameters,   only: RNP
+  use Constants,         only: ZERO
   use Array_Assignments, only: ScaleArray
   use Execution_Control, only: Error
   use XMPI
@@ -510,7 +509,7 @@ contains
 
     integer :: i, j
 
-    !$omp do collapse(2)
+    !$omp do collapse(2) private(i,j)
     !$acc parallel loop collapse(2) present(v) copyin(node) copyout(vb)
     do j = 1, nc
     do i = 1, nn
@@ -600,18 +599,6 @@ subroutine ToGhost_Merge_X(this, v, alpha, beta)
 
   ! merge buffer ...............................................................
 
-!### CHECK
-! block
-!   logical :: buf_has_nan
-!   buf_has_nan = any(isNaN(this%ghost%buf))
-!   if (buf_has_nan) print '(9G0)', '@ET[','?',']: this%ghost%buf has NaN'
-!   call MPI_Barrier(MPI_COMM_WORLD)
-!   if (buf_has_nan) then
-!     call Error('ElementTransfer.MergeBuffer', 'STOP due to NaN')
-!   end if
-! end block
-!### END CHECK
-
   call MergeBuffer( nn   = size(this%ghost%node)  &
                   , nm   = size(v) / this%nc      &
                   , nc   = this%nc                &
@@ -634,13 +621,23 @@ contains
 
     integer :: i, j
 
-    !$omp do collapse(2)
-    !$acc parallel collapse(2) loop present(v) copyin(node,vb)
-    do j = 1, nc
-    do i = 1, nn
-      v(node(i), j) = a * v(node(i), j)  +  b * vb(i,j)
-    end do
-    end do
+    if (a /= ZERO) then
+      !$omp do collapse(2) private(i,j)
+      !$acc parallel collapse(2) loop present(v) copyin(node,vb)
+      do j = 1, nc
+      do i = 1, nn
+        v(node(i), j) = a * v(node(i), j)  +  b * vb(i,j)
+      end do
+      end do
+    else
+      !$omp do collapse(2) private(i,j)
+      !$acc parallel collapse(2) loop present(v) copyin(node,vb)
+      do j = 1, nc
+      do i = 1, nn
+        v(node(i), j) = b * vb(i,j)
+      end do
+      end do
+    end if
 
   end subroutine MergeBuffer
 
@@ -808,7 +805,7 @@ contains
 
     integer :: i, j
 
-    !$omp do collapse(2)
+    !$omp do collapse(2) private(i,j)
     !$acc parallel loop collapse(2) present(v) copyin(node) copyout(vb)
     do j = 1, nc
     do i = 1, nn
@@ -972,7 +969,7 @@ contains
 
     integer :: i, j
 
-    !$omp do collapse(2)
+    !$omp do collapse(2) private(i,j)
     !$acc parallel loop collapse(2) present(v) copyin(node,vb)
     do j = 1, nc
     do i = 1, nn

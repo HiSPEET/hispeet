@@ -901,12 +901,25 @@ contains
 
       integer :: i, j
 
-      !$omp do collapse(2)
-      do j = 1, nc
-      do i = 1, nn
-        v(node(i), j) = a * v(node(i), j)  +  b * vb(i,j)
-      end do
-      end do
+      if (a /= ZERO) then
+
+        !$omp do collapse(2)
+        do j = 1, nc
+        do i = 1, nn
+          v(node(i), j) = a * v(node(i), j)  +  b * vb(i,j)
+        end do
+        end do
+
+      else
+
+        !$omp do collapse(2)
+        do j = 1, nc
+        do i = 1, nn
+          v(node(i), j) = b * vb(i,j)
+        end do
+        end do
+
+      end if
 
     end subroutine MergeBuffer
 
@@ -1051,12 +1064,25 @@ contains
 
       integer :: i, j
 
-      !$omp do collapse(2)
-      do j = 1, nc
-      do i = 1, nn
-        v(node(i), j) = a * v(node(i), j)  +  b * vb(i,j)
-      end do
-      end do
+      if (a /= ZERO) then
+
+        !$omp do collapse(2)
+        do j = 1, nc
+        do i = 1, nn
+          v(node(i), j) = a * v(node(i), j)  +  b * vb(i,j)
+        end do
+        end do
+
+      else
+
+        !$omp do collapse(2)
+        do j = 1, nc
+        do i = 1, nn
+          v(node(i), j) = b * vb(i,j)
+        end do
+        end do
+
+      end if
 
     end subroutine MergeBuffer
 

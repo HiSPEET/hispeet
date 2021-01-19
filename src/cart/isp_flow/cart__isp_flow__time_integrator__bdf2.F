@@ -148,9 +148,13 @@ contains
     logical,   save :: euler
 
     ! auxiliary
-    real(RNP) :: tau, tau_s
-    integer   :: i
+    real(RNP) :: a0, a1, tau, tau_cd3, tau_s
+    integer   :: np, ne, nc
+    integer   :: c, e, i, j, k
 
+    np = size(u,1)
+    ne = size(u,4)
+    nc = size(u,5)
 
     associate( problem => this % problem          &
              , flow_op => this % flow_op          &
@@ -234,20 +238,52 @@ contains
 
       else ! BDF2 with u_1, F_c, F_d1, F_d2, F_d3 storing values from t₀-∆t
 
-        call SetArray(u_i, u, multi = .true.)
-        call MergeArrays( alpha_0 / gamma_0, u_i, &
-                          alpha_1 / gamma_0, u_1, multi=.true.)
+        a0       =  alpha_0 / gamma_0
+        a1       =  alpha_1 / gamma_0
+        tau      =  dt / gamma_0 * beta_1
+        tau_cd3  =  tau*cd3
 
-        tau = dt / gamma_0 * beta_1
-        do i = 1, problem%nc
-          if (i == 4) cycle
-          call MergeArrays(ONE , u_i(:,:,:,:,i), tau    , F_c (:,:,:,:,i))
-          call MergeArrays(ONE , u_i(:,:,:,:,i), tau    , F_d1(:,:,:,:,i))
-          call MergeArrays(ZERO, dF (:,:,:,:,i), tau    , F_d1(:,:,:,:,i))
-          if (i > 3) cycle
-          call MergeArrays(ONE , u_i(:,:,:,:,i), tau    , F_d2(:,:,:,:,i))
-          call MergeArrays(ONE , u_i(:,:,:,:,i), tau    , F_d3(:,:,:,:,i))
-          call MergeArrays(ONE , dF (:,:,:,:,i), tau*cd3, F_d3(:,:,:,:,i))
+        !$omp do collapse(2)
+        do c = 1, 3
+        do e = 1, ne
+          do k = 1, np
+          do j = 1, np
+          do i = 1, np
+
+            u_i(i,j,k,e,c)  =  a0  *   u    (i,j,k,e,c) &
+                            +  a1  *   u_1  (i,j,k,e,c) &
+                            +  tau * ( F_c  (i,j,k,e,c) &
+                                     + F_d1 (i,j,k,e,c) &
+                                     + F_d2 (i,j,k,e,c) &
+                                     + F_d3 (i,j,k,e,c) )
+
+            dF(i,j,k,e,c)  =  tau     * F_d1(i,j,k,e,c)  &
+                           +  tau_cd3 * F_d3(i,j,k,e,c)
+
+          end do
+          end do
+          end do
+        end do
+        end do
+
+        !$omp do collapse(2)
+        do c = 5, nc
+        do e = 1, ne
+          do k = 1, np
+          do j = 1, np
+          do i = 1, np
+
+            u_i(i,j,k,e,c)  =  a0  *   u    (i,j,k,e,c) &
+                            +  a1  *   u_1  (i,j,k,e,c) &
+                            +  tau * ( F_c  (i,j,k,e,c) &
+                                     + F_d1 (i,j,k,e,c) )
+
+            dF(i,j,k,e,c)  =  tau * F_d1(i,j,k,e,c)
+
+          end do
+          end do
+          end do
+        end do
         end do
 
       end if
@@ -276,17 +312,51 @@ contains
         tau   = dt / gamma_0 * beta_0
         tau_s = dt / gamma_0
       end if
+      tau_cd3 = tau*cd3
 
-      do i = 1, problem % nc
-        if (i == 4) cycle
-        call MergeArrays(ONE, u_i(:,:,:,:,i), tau    , F_c (:,:,:,:,i))
-        call MergeArrays(ONE, u_i(:,:,:,:,i), tau    , F_d1(:,:,:,:,i))
-        call MergeArrays(ONE, u_i(:,:,:,:,i), tau    , F_d3(:,:,:,:,i))
-        call MergeArrays(ONE, u_i(:,:,:,:,i), tau_s  , w   (:,:,:,:,i))
-        call MergeArrays(ONE, dF (:,:,:,:,i), tau    , F_d1(:,:,:,:,i))
-        if (i > 3) cycle
-        call MergeArrays(ONE, u_i(:,:,:,:,i), tau    , F_d2(:,:,:,:,i))
-        call MergeArrays(ONE, dF (:,:,:,:,i), tau*cd3, F_d3(:,:,:,:,i))
+      !$omp do collapse(2)
+      do c = 1, 3
+      do e = 1, ne
+        do k = 1, np
+        do j = 1, np
+        do i = 1, np
+
+          u_i(i,j,k,e,c)  =          u_i  (i,j,k,e,c)   &
+                          +  tau * ( F_c  (i,j,k,e,c)   &
+                                   + F_d1 (i,j,k,e,c)   &
+                                   + F_d2 (i,j,k,e,c)   &
+                                   + F_d3 (i,j,k,e,c) ) &
+                          +  tau_s * w    (i,j,k,e,c)
+
+          dF(i,j,k,e,c)  =            dF   (i,j,k,e,c)  &
+                         +  tau     * F_d1 (i,j,k,e,c)  &
+                         +  tau_cd3 * F_d3 (i,j,k,e,c)
+
+        end do
+        end do
+        end do
+      end do
+      end do
+
+      !$omp do collapse(2)
+      do c = 5, nc
+      do e = 1, ne
+        do k = 1, np
+        do j = 1, np
+        do i = 1, np
+
+          u_i(i,j,k,e,c)  =          u_i  (i,j,k,e,c)   &
+                          +  tau * ( F_c  (i,j,k,e,c)   &
+                                   + F_d1 (i,j,k,e,c) ) &
+                          +  tau_s * w    (i,j,k,e,c)
+
+          dF(i,j,k,e,c)  =        dF   (i,j,k,e,c)  &
+                         +  tau * F_d1 (i,j,k,e,c)
+
+        end do
+        end do
+        end do
+      end do
       end do
 
       ! pressure, continuity and diffusion .....................................

@@ -4,13 +4,15 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !> @todo
-!>   See if this type can be extended to [Normal]TraceOperator
+!>   - OMP DO occasionally failed in Merge_X
+!>   - See if this type can be extended to [Normal]TraceOperator
 !> @endtodo
 !===============================================================================
 
 module CART__Trace_Transfer_Buffer
 
   use Kind_Parameters,   only: RNP
+  use Constants,         only: ZERO
   use Execution_Control, only: Error
   use XMPI
   use CART__Mesh_Partition
@@ -355,7 +357,7 @@ contains
     integer :: i, j, k
 
     !$acc parallel loop collapse(3) present(v) copyin(face,side) copyout(vb)
-    !$omp do collapse(2)
+    !$omp do collapse(2) private(i,j,k)
     do k = 1, nc
     do j = 1, nf
     do i = 1, np
@@ -491,16 +493,26 @@ contains
 
     integer :: i, j, k
 
-    !$omp do collapse(2)
-    !$acc parallel loop collapse(3) present(v) copyin(face,side,vb)
-    do k = 1, nc
-    do j = 1, nf
-    do i = 1, np
-      v(i, side(j), face(j), k)  =  a * v(i, side(j), face(j), k)  &
-                                 +  b * vb(i + np*(j-1 + nf*(k-1)))
-    end do
-    end do
-    end do
+    if (a /= ZERO) then
+      !$omp do collapse(2) private(i,j,k)
+      do k = 1, nc
+      do j = 1, nf
+      do i = 1, np
+        v(i, side(j), face(j), k)  =  a * v(i, side(j), face(j), k)  &
+                                   +  b * vb(i + np*(j-1 + nf*(k-1)))
+      end do
+      end do
+      end do
+    else
+      !$omp do collapse(2) private(i,j,k)
+      do k = 1, nc
+      do j = 1, nf
+      do i = 1, np
+        v(i, side(j), face(j), k)  =  b * vb(i + np*(j-1 + nf*(k-1)))
+      end do
+      end do
+      end do
+    end if
 
   end subroutine MergeBuffer
 

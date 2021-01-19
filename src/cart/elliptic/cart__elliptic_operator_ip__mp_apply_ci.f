@@ -99,7 +99,7 @@ module subroutine Apply_CI(this, u, v)
 
       ! add fluxes .............................................................
 
-      call AddFluxes(mesh, eop, Bs, nu, nu_svv, tr_u, tr_qn, v)                  !4
+      call AddFluxes(mesh, eop, Bs, nu, nu_svv, tr_u, tr_qn, v)               !4
 
       ! clean-up ...............................................................
 
