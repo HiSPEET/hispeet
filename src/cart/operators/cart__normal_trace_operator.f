@@ -123,6 +123,9 @@ subroutine GetTrace_Start_X(this, mesh, po, ne, nf, u, bv_u, tr_un, tag)
   ! initialization .............................................................
 
   ! prevent delayed threads from interfering
+  !$omp master
+  this % buf = TraceTransferBuffer(mesh, tr_un)
+  !$omp end master
   !$omp barrier
 
   ! tr_un = 0
@@ -173,7 +176,7 @@ subroutine GetLocalTrace(mesh, po, ne, nf, u, tr_un)
   !$acc parallel
   !$acc loop gang worker private(f)
 
-  !$omp do private(f)
+  !$omp do private(e,f)
   do e = 1, mesh%ne
 
     f = mesh % element(e) % face % id
@@ -269,7 +272,7 @@ subroutine ApplyBoundaryConditions(mesh, po, nf, bv_u, tr_un)
       ub(0:,0:,1:,1:) => bv_u(b) % Components(1,3)
       !$omp end single
 
-      !$omp do
+      !$omp do private(k)
       do k = 1, boundary%nf
 
         f = boundary % face(k) % mesh_face % id  ! mesh face
@@ -326,7 +329,7 @@ subroutine ExtendToBoundary(mesh, po, nf, tr_un)
   do b = 1, mesh%n_boundary
     associate(boundary => mesh%boundary(b))
 
-      !$omp do
+      !$omp do private(f)
       do k = 1, boundary%nf
 
         f = boundary % face(k) % mesh_face % id
@@ -358,7 +361,6 @@ subroutine GetTrace_Finish(this, mesh, tr_un)
   real(RNP),           intent(inout) :: tr_un(:,:,:,:)  !< normal trace of u
 
   call this % buf % Merge(mesh, tr_un, alpha=ZERO, beta=ONE)
-  call this % buf % Finish()
 
 end subroutine GetTrace_Finish
 

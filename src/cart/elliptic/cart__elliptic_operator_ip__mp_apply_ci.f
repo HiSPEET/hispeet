@@ -10,7 +10,6 @@
 submodule(CART__Elliptic_Operator_IP:MP_Apply) MP_Apply_CI
   use TPO__Elliptic_3d_RLCI
   use CART__Trace_Transfer_Buffer
-  use CART__Trace_Operator
   implicit none
 
 contains
@@ -70,11 +69,13 @@ module subroutine Apply_CI(this, u, v)
       Bs = Bs + nu * eop%D
 
       ! workspace and operators
-      !$omp single                                                            !1
+      !$omp master                                                            !1
       allocate(tr_u(0:po, 0:po, 2, mesh%nf))                                  !1
       allocate(tr_qn, mold=tr_u)                                              !1
-      allocate(u_trace_buf, qn_trace_buf)                                     !1
-      !$omp end single                                                        !1
+      u_trace_buf  = TraceTransferBuffer(mesh, tr_u)                          !1
+      qn_trace_buf = TraceTransferBuffer(mesh, tr_qn)                         !1
+      !$omp end master                                                        !1
+      !$omp barrier                                                           !1
 
       ! start generation of traces .............................................
 
@@ -89,11 +90,8 @@ module subroutine Apply_CI(this, u, v)
 
       ! finish generation of traces ............................................
 
-      call  u_trace_buf % Merge(mesh, tr_u, alpha=ZERO, beta=ONE)             !9
-      call  u_trace_buf % Finish()                                            !9
-
-      call qn_trace_buf % Merge(mesh, tr_qn, alpha=ZERO, beta=ONE)            !9
-      call qn_trace_buf % Finish()                                            !9
+      call  u_trace_buf % Merge(mesh, tr_u , alpha = ZERO, beta = ONE )       !9
+      call qn_trace_buf % Merge(mesh, tr_qn, alpha = ZERO, beta = ONE)        !9
 
       call ApplyBoundaryConditions(mesh, this%bc, tr_u, tr_qn)                !5
 
@@ -103,10 +101,10 @@ module subroutine Apply_CI(this, u, v)
 
       ! clean-up ...............................................................
 
-      !$omp single                                                            !1
+      !$omp master                                                            !1
       deallocate(tr_u, tr_qn)                                                 !1
       deallocate(u_trace_buf, qn_trace_buf)                                   !1
-      !$omp end single
+      !$omp end master
 
     end associate
   end select

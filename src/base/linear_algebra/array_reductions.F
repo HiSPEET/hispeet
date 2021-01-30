@@ -206,7 +206,7 @@ real(RNP) function ScalarProduct_X(n, a, b, comm) result(r)
 #ifdef OMP_SERIAL_SCALARPRODUCT
   !$omp single
 #else
-  !$omp do
+  !$omp do private(i)
 #endif
   do i = 1, n
     r_priv = r_priv + a(i) * b(i)

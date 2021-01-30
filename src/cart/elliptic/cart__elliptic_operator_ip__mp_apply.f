@@ -78,6 +78,7 @@ subroutine ApplyBoundaryConditions(mesh, bc, tr_u, tr_qn)
           tr_u (:,:,o,f) = -tr_u (:,:,i,f)
           tr_qn(:,:,o,f) = -tr_qn(:,:,i,f)
         end do
+        !$omp end do nowait
 
       case('N')
         ! Neumann: du/dn does not contribute, [u] = 0 due to extrapolation
@@ -89,10 +90,13 @@ subroutine ApplyBoundaryConditions(mesh, bc, tr_u, tr_qn)
           tr_u (:,:,o,f) = tr_u (:,:,i,f)
           tr_qn(:,:,:,f) = 0
         end do
+        !$omp end do nowait
 
       end select
     end associate
   end do
+
+  !$omp barrier
 
 end subroutine ApplyBoundaryConditions
 

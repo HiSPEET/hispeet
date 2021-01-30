@@ -1,6 +1,7 @@
 v0     current master rk-paper
 v1     transfer_buffer + apply + apply_ci
 v2     + schwarzmethod
+v3     + omp barriers reduced
  
 O      elliptic operator
 R      consistency error (residual of exact solution)
@@ -9,13 +10,13 @@ S      Schwarz method, delta = 0.08, 100 iterations
 M1000  p-MG/CG, 4 cycles, i0_max = 1000
 M100   p-MG/CG, 4 cycles, i0_max = 100
 
-                        v0          v1          v2    
-O      1     t/DOF   1.923E-08   1.650E-08      =     
-O      12    t/DOF   2.393E-09   1.584E-09      =     
-O      1     DOF/t   5.201E+07   6.061E+07      =     
-O      12    DOF/t   4.179E+08   6.313E+08      =     
-R            r_L2    1.402E-12      =           =     
-R            r_max   1.572E-15      =           =     
+                        v0          v1          v2          v3
+O      1     t/DOF   1.923E-08   1.650E-08      =        1.652E-08
+O      12    t/DOF   2.393E-09   1.584E-09      =        1.580E-09
+O      1     DOF/t   5.201E+07   6.061E+07      =        6.053E+07
+O      12    DOF/t   4.179E+08   6.313E+08      =        6.327E+08
+R            r_L2    1.402E-12      =           =           =
+R            r_max   1.572E-15      =           =           =
 
 C            r_L2    2.126E-01                  =
 C            r_max   1.174E-03                  =
@@ -31,17 +32,17 @@ S      12    t/DOF   1.026E-06   9.549E-07   8.471E-07
 S      1     DOF/t   1.234E+05   1.277E+05   1.326E+05
 S      12    DOF/t   9.746E+05   1.047E+06   1.180E+06
 
-M1000        r_L2    8.228E-09                  =     
-M1000        r_max   2.291E-11                  =     
-M1000  1     t/DOF   1.489E-06               1.377E-06
-M1000  12    t/DOF   2.203E-07               1.870E-07
-M1000  1     DOF/t   6.717E+05               7.264E+05
-M1000  12    DOF/t   4.540E+06               5.348E+06
+M1000        r_L2    8.228E-09                  =           =
+M1000        r_max   2.291E-11                  =           =
+M1000  1     t/DOF   1.489E-06               1.377E-06   1.363E-06
+M1000  12    t/DOF   2.203E-07               1.870E-07   1.839E-07
+M1000  1     DOF/t   6.717E+05               7.264E+05   7.338E+05
+M1000  12    DOF/t   4.540E+06               5.348E+06   5.436E+06
 
-M100         r_L2    8.228E-09                  =     
-M100         r_max   2.291E-11                  =     
-M100   1     t/DOF   1.399E-06               1.280E-06
-M100   12    t/DOF   2.052E-07               1.770E-07
-M100   1     DOF/t   7.147E+05               7.815E+05
-M100   12    DOF/t   4.874E+06               5.649E+06
+M100         r_L2    8.228E-09                  =           =
+M100         r_max   2.291E-11                  =           =
+M100   1     t/DOF   1.399E-06               1.280E-06   1.272E-06
+M100   12    t/DOF   2.052E-07               1.770E-07   1.752E-07
+M100   1     DOF/t   7.147E+05               7.815E+05   7.862E+05
+M100   12    DOF/t   4.874E+06               5.649E+06   5.707E+06
 

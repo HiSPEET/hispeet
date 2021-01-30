@@ -193,19 +193,20 @@ program Elliptic_Test__IP_CI
   call XMPI_Bcast(adjust_dx , 0, comm)
 
   ! solver
-  call XMPI_Bcast(method, 0, comm)
-  call XMPI_Bcast(svv,    0, comm)
+  call XMPI_Bcast(method , 0, comm)
+  call XMPI_Bcast(svv    , 0, comm)
 
   ! CG/Schwarz options
-  call XMPI_Bcast(i_max, 0, comm)
-  call XMPI_Bcast(r_red, 0, comm)
+  call XMPI_Bcast(i_max , 0, comm)
+  call XMPI_Bcast(r_red , 0, comm)
 
   ! Schwarz and PMG options
   call schwarz_opt % Bcast(0, comm)
   call pmg_opt     % Bcast(0, comm)
 
   ! control parameters
-  call XMPI_Bcast(plot_file, 0, comm)
+  call XMPI_Bcast(nt        , 0, comm)
+  call XMPI_Bcast(plot_file , 0, comm)
 
   ! problem ....................................................................
 

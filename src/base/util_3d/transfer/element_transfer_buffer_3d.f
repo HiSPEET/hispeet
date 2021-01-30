@@ -8,8 +8,8 @@
 
 module Element_Transfer_Buffer_3d
 
-  use Kind_Parameters,   only: RNP
-! use Array_Assignments, only: ScaleArray
+  use Kind_Parameters  , only: RNP
+  use Constants        , only: ZERO
   use Execution_Control, only: Error
   use XMPI
   use Mesh_3d__Link
@@ -30,8 +30,6 @@ module Element_Transfer_Buffer_3d
     integer,           allocatable :: ibuf(:)    !< integer message buffer
     real(RNP),         allocatable :: rbuf(:)    !< real message buffer
     type(MPI_Request), allocatable :: request(:) !< MPI requests
-  contains
-    final :: Delete_ElementTransferData
   end type ElementTransferData
 
   !-----------------------------------------------------------------------------
@@ -132,10 +130,6 @@ module Element_Transfer_Buffer_3d
     procedure, private :: Merge_IS, Merge_IA
     procedure, private :: Merge_RS, Merge_RA
 
-    ! finalization .............................................................
-
-    final :: Delete_TransferBuffer
-
   end type ElementTransferBuffer3d
 
   !-----------------------------------------------------------------------------
@@ -149,24 +143,6 @@ module Element_Transfer_Buffer_3d
   end interface
 
 contains
-
-  !=============================================================================
-  ! ElementTransferData: type bound procedures
-
-  !-----------------------------------------------------------------------------
-  !> Delete element transfer data
-
-  subroutine Delete_ElementTransferData(this)
-    type(ElementTransferData), intent(inout) :: this  !< buffer
-
-    if (allocated(this % start  )) deallocate(this % start  )
-    if (allocated(this % len    )) deallocate(this % len    )
-    if (allocated(this % node   )) deallocate(this % node   )
-    if (allocated(this % ibuf   )) deallocate(this % ibuf   )
-    if (allocated(this % rbuf   )) deallocate(this % rbuf   )
-    if (allocated(this % request)) deallocate(this % request)
-
-  end subroutine Delete_ElementTransferData
 
   !=============================================================================
   ! ElementTransferBuffer3d: constructor functions
@@ -340,8 +316,6 @@ contains
     integer :: e, i, j, k, l, m, n
     logical :: partial
 
-    !$omp single
-
     ! setup ....................................................................
 
     this % np = np
@@ -456,8 +430,6 @@ contains
                 source = MPI_REQUEST_NULL )
 
     end associate
-
-    !$omp end single
 
   end subroutine Init_X
 
@@ -1113,23 +1085,6 @@ contains
     !$omp barrier
 
   end subroutine Finish
-
-  !=============================================================================
-  ! ElementTransferBuffer3d: finalization
-
-  !-----------------------------------------------------------------------------
-  !> Delete element transfer buffer
-
-  subroutine Delete_TransferBuffer(this)
-    type(ElementTransferBuffer3d), intent(inout) :: this  !< buffer
-
-    this % np = 0
-    this % ne = 0
-    this % ng = 0
-    this % nc = 0
-    this % nl = 0
-
-  end subroutine Delete_TransferBuffer
 
   !=============================================================================
 

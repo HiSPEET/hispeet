@@ -382,7 +382,7 @@ subroutine ConjugateGradients(this, u, f, i_max, r_red, r_max, ni)
       pq = sign(max(abs(pq),eps), pq)
       alpha = rr_old / pq
 
-      call MergeArrays(ONE, u,  alpha, p)
+      call MergeArrays(ONE, u,  alpha, p)  !?! nowait in case mod(i,50) /= 0
 
       if (mod(i,50) == 0) then
         ! compute true residual to get rid of round-off errors
@@ -401,10 +401,9 @@ subroutine ConjugateGradients(this, u, f, i_max, r_red, r_max, ni)
 
     !$acc end data
 
-    !$omp barrier
-    !$omp single
+    !$omp master
     deallocate(g, r, p, q)
-    !$omp end single
+    !$omp end master
 
   end associate
 

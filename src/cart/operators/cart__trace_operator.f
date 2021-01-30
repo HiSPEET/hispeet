@@ -181,6 +181,9 @@ subroutine GetTrace_Start_X(this, mesh, po, ne, nf, nc, u, bv_u, tr_u, tag)
   ! initialization .............................................................
 
   ! prevent delayed threads from interfering
+  !$omp master
+  this % buf = TraceTransferBuffer(mesh, tr_u)
+  !$omp end master
   !$omp barrier
 
   ! tr_u = 0
@@ -232,7 +235,7 @@ subroutine GetLocalTrace(mesh, po, ne, nf, nc, u, tr_u)
   !$acc parallel
   !$acc loop collapse(2) gang worker private(f)
 
-  !$omp do collapse(2) private(f)
+  !$omp do collapse(2) private(c,e,f)
   do c = 1, nc
   do e = 1, mesh%ne
 
@@ -331,7 +334,7 @@ subroutine ApplyBoundaryConditions(mesh, po, nf, nc, bv_u, tr_u)
           ub(0:,0:,1:) => bv_u(b) % Component(c)
           !$omp end single
 
-          !$omp do
+          !$omp do private(k)
           do k = 1, boundary%nf
             f = boundary % face(k) % mesh_face % id
             i = inner_side(boundary % face(k) % orientation)
@@ -344,7 +347,7 @@ subroutine ApplyBoundaryConditions(mesh, po, nf, nc, bv_u, tr_u)
           end do
 
         case('N')
-          !$omp do
+          !$omp do private(k)
           do k = 1, boundary%nf
             f = boundary % face(k) % mesh_face % id
             i = inner_side(boundary % face(k) % orientation)
@@ -388,7 +391,7 @@ subroutine ExtendToBoundary(mesh, po, nf, nc, tr_u)
   do b = 1, mesh%n_boundary
     associate(boundary => mesh%boundary(b))
 
-      !$omp do collapse(2)
+      !$omp do collapse(2) private(c,k)
       do c = 1, nc
         do k = 1, boundary%nf
 
@@ -422,7 +425,6 @@ subroutine GetTrace_Finish_S(this, mesh, tr_u)
   real(RNP),            intent(inout) :: tr_u(:,:,:,:)   !< trace of u
 
   call this % buf % Merge(mesh, tr_u, alpha=ZERO, beta=ONE)
-  call this % buf % Finish()
 
 end subroutine GetTrace_Finish_S
 
@@ -435,7 +437,6 @@ subroutine GetTrace_Finish_A(this, mesh, tr_u)
   real(RNP),            intent(inout) :: tr_u(:,:,:,:,:) !< trace of u
 
   call this % buf % Merge(mesh, tr_u, alpha=ZERO, beta=ONE)
-  call this % buf % Finish()
 
 end subroutine GetTrace_Finish_A
 

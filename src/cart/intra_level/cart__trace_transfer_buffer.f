@@ -29,8 +29,6 @@ module CART__Trace_Transfer_Buffer
     integer,           allocatable :: side(:)    !< side to transfer (1 or 2)
     real(RNP),         allocatable :: buf(:)     !< message buffer
     type(MPI_Request), allocatable :: request(:) !< requests
-  contains
-    final :: Delete_TraceTransferData
   end type TraceTransferData
 
   !-----------------------------------------------------------------------------
@@ -54,13 +52,13 @@ module CART__Trace_Transfer_Buffer
   !>        type(TraceTransferBuffer) :: trace_buf
   !>        ...
   !>        ! create and fill buffer, start transfer
+  !>        trace_buf = TraceTransferBuffer(mesh, v)
   !>        call trace_buf % Transfer(mesh, v, tag)
   !>        ...
   !>        ! possibly perform some computations to hide communication costs
   !>        ...
   !>        ! merge received data and wait transfer to finish
   !>        call trace_buf % Merge(mesh, v, alpha, beta)
-  !>        call trace_buf % Finish()
   !>
   !> Use with OpenMP:
   !>
@@ -70,19 +68,19 @@ module CART__Trace_Transfer_Buffer
   !>
   !>          type(TraceTransferBuffer), allocatable, save :: trace_buf
   !>          ...
-  !>          !$omp single
-  !>          allocate(trace_buf)
-  !>          !$omp end single
+  !>          !$omp master
+  !>          trace_buf = TraceTransferBuffer(mesh, v)
+  !>          !$omp master
+  !>          !$omp barrier
   !>          ...
   !>          call trace_buf % Transfer(mesh, v, tag)
   !>          ...
   !>          call trace_buf % Merge(mesh, v, alpha, beta)
-  !>          call trace_buf % Finish()
   !>          ...
-  !>          !$omp barrier
-  !>          !$omp single
+  !>          !$omp barrier !! skip in case of another omp barrier after Finish
+  !>          !$omp master
   !>          deallocate(trace_buf)
-  !>          !$omp end single
+  !>          !$omp end master
 
   type TraceTransferBuffer
 !    private
@@ -96,11 +94,6 @@ module CART__Trace_Transfer_Buffer
 
   contains
 
-    generic,   public  :: Init_TransferBuffer => Init_TransferBuffer_S, &
-                                                 Init_TransferBuffer_A
-    procedure, private :: Init_TransferBuffer_S
-    procedure, private :: Init_TransferBuffer_A
-
     generic,   public  :: Transfer => Transfer_S, Transfer_A
     procedure, private :: Transfer_S
     procedure, private :: Transfer_A
@@ -109,36 +102,45 @@ module CART__Trace_Transfer_Buffer
     procedure, private :: Merge_S
     procedure, private :: Merge_A
 
-    procedure :: Finish => FinishTransfer
-
-    final :: Delete_TransferBuffer
-
   end type TraceTransferBuffer
+
+  ! constructor interface
+  interface TraceTransferBuffer
+    module procedure New_TransferBuffer_S
+    module procedure New_TransferBuffer_A
+  end interface
 
 contains
 
-!===============================================================================
-! TraceTransferData type bound procedures
+!-------------------------------------------------------------------------------
+!> Create a new trace transfer buffer for a single variable
+
+function New_TransferBuffer_S(mesh, v) result(this)
+  type(MeshPartition), intent(in) :: mesh        !< mesh partition
+  real(RNP),           intent(in) :: v(:,:,:,:)  !< trace variable
+  type(TraceTransferBuffer) :: this
+
+  call Init_TransferBuffer(this, mesh, np = size(v,1)*size(v,2), nc = 1)
+
+end function New_TransferBuffer_S
 
 !-------------------------------------------------------------------------------
-!> Finalize trace transfer data
+!> Create a new trace transfer buffer for an array of variables
 
-subroutine Delete_TraceTransferData(this)
-  type(TraceTransferData), intent(inout) :: this  !< buffer
+function New_TransferBuffer_A(mesh, v) result(this)
+  type(MeshPartition), intent(in) :: mesh          !< mesh partition
+  real(RNP),           intent(in) :: v(:,:,:,:,:)  !< trace variable
+  type(TraceTransferBuffer) :: this
 
-  if (allocated(this % side   )) deallocate(this % side   )
-  if (allocated(this % buf    )) deallocate(this % buf    )
-  if (allocated(this % request)) deallocate(this % request)
+  call Init_TransferBuffer(this, mesh, np = size(v,1)*size(v,2), nc = size(v,5))
 
-end subroutine Delete_TraceTransferData
+end function New_TransferBuffer_A
 
-!===============================================================================
-! TraceTransferBuffer: type bound procedures
 
 !-------------------------------------------------------------------------------
 !> Create a new trace transfer buffer from mesh and given variable dimensions
 
-subroutine Init_TransferBuffer_X(this, mesh, np, nc)
+subroutine Init_TransferBuffer(this, mesh, np, nc)
   class(TraceTransferBuffer), intent(inout) :: this  !< buffer
   type(MeshPartition),        intent(in)    :: mesh  !< mesh partition
   integer,                    intent(in)    :: np    !< num points/face
@@ -146,12 +148,6 @@ subroutine Init_TransferBuffer_X(this, mesh, np, nc)
 
   integer :: lb, nl, nf
   integer :: i, j
-
-  !$omp barrier
-  !$omp single
-
-  if (allocated(this % start)) deallocate(this % start)
-  if (allocated(this % len  )) deallocate(this % len  )
 
   this%np = np
   this%nc = nc
@@ -215,45 +211,10 @@ subroutine Init_TransferBuffer_X(this, mesh, np, nc)
 
   ! requests ..................................................................
 
-  allocate( this % send % request(nl), source = MPI_REQUEST_NULL )
-  allocate( this % recv % request(nl), source = MPI_REQUEST_NULL )
+  allocate(this % send % request(nl))
+  allocate(this % recv % request(nl))
 
-  !$omp end single
-
-end subroutine Init_TransferBuffer_X
-
-!-------------------------------------------------------------------------------
-!> Create a new trace transfer buffer for a single variable
-
-subroutine Init_TransferBuffer_S(this, mesh, v)
-  class(TraceTransferBuffer), intent(inout) :: this        !< buffer
-  type(MeshPartition),        intent(in)    :: mesh        !< mesh partition
-  real(RNP),                  intent(in)    :: v(:,:,:,:)  !< trace variable
-
-  integer :: np
-
-  np = size(v,1) * size(v,2)
-
-  call Init_TransferBuffer_X(this, mesh, np, nc=1)
-
-end subroutine Init_TransferBuffer_S
-
-!-------------------------------------------------------------------------------
-!> Create a new trace transfer buffer for an array of variables
-
-subroutine Init_TransferBuffer_A(this, mesh, v)
-  class(TraceTransferBuffer), intent(inout) :: this          !< buffer
-  type(MeshPartition),        intent(in)    :: mesh          !< mesh partition
-  real(RNP),                  intent(in)    :: v(:,:,:,:,:)  !< trace variable
-
-  integer :: np, nc
-
-  np = size(v,1) * size(v,2)
-  nc = size(v,5)
-
-  call Init_TransferBuffer_X(this, mesh, np, nc)
-
-end subroutine Init_TransferBuffer_A
+end subroutine Init_TransferBuffer
 
 !-------------------------------------------------------------------------------
 !> Extract and transfer buffer -- eXplicit shape version
@@ -333,7 +294,9 @@ subroutine Transfer_X(this, mesh, v, tag)
                         recv%request(i)                                 )
 
       else
-        recv%buf(m:m+l-1) = send%buf(m:m+l-1)
+        recv % buf(m:m+l-1) = send % buf(m:m+l-1)
+        recv % request(i)   = MPI_REQUEST_NULL
+        send % request(i)   = MPI_REQUEST_NULL
       end if
 
     end do
@@ -356,8 +319,7 @@ contains
 
     integer :: i, j, k
 
-    !$acc parallel loop collapse(3) present(v) copyin(face,side) copyout(vb)
-    !$omp do collapse(2) private(i,j,k)
+    !$omp do collapse(2) private(i,j,k) firstprivate(nf)
     do k = 1, nc
     do j = 1, nf
     do i = 1, np
@@ -365,6 +327,7 @@ contains
     end do
     end do
     end do
+    !$omp end do nowait
 
   end subroutine CopyToBuffer
 
@@ -380,10 +343,6 @@ subroutine Transfer_S(this, mesh, v, tag)
   type(MeshPartition),        intent(in)    :: mesh       !< mesh partition
   real(RNP),                  intent(in)    :: v(:,:,:,:) !< trace variable
   integer,                    intent(in)    :: tag        !< message tag
-
-  if (this%np /= size(v,1)*size(v,2) .or. this%nc /= 1) then
-    call this % Init_TransferBuffer(mesh, v)
-  end if
 
   call Transfer_X(this, mesh, v, tag)
 
@@ -401,16 +360,12 @@ subroutine Transfer_A(this, mesh, v, tag)
   real(RNP),                  intent(in)    :: v(:,:,:,:,:) !< trace variable
   integer,                    intent(in)    :: tag          !< message tag
 
-  if (this%np /= size(v,1)*size(v,2) .or. this%nc /= size(v,5)) then
-    call this % Init_TransferBuffer(mesh, v)
-  end if
-
   call Transfer_X(this, mesh, v, tag)
 
 end subroutine Transfer_A
 
 !-------------------------------------------------------------------------------
-!> Wait receive to complete and merge buffer into trace variable
+!> Wait transfer to complete and merge buffer into trace variable
 !>
 !> Denoting the buffer with vb, the following operation will be executed:
 !>
@@ -425,9 +380,9 @@ subroutine Merge_X(this, mesh, v, alpha, beta)
 
   type(MPI_Status), allocatable :: status(:)
 
-  integer :: l, nr
-  integer :: b1, s1
   real(RNP) :: a, b
+  integer   :: l, nr
+  integer   :: b1, s1
 
   ! initialization .............................................................
 
@@ -445,12 +400,13 @@ subroutine Merge_X(this, mesh, v, alpha, beta)
     b = 1
   end if
 
-  ! wait for receive to complete ...............................................
+  ! wait for transfer to complete ..............................................
 
   !$omp master
   nr = size(this%recv%request)
   allocate(status(nr))
   call MPI_Waitall(nr, this%recv%request, status)
+  call MPI_Waitall(nr, this%send%request, status)
   !$omp end master
   !$omp barrier
 
@@ -476,6 +432,7 @@ subroutine Merge_X(this, mesh, v, alpha, beta)
     b1 = b1 + mesh%link(l)%nf * this%np * this%nc
 
   end do
+  !$omp barrier
 
 contains
 
@@ -494,7 +451,7 @@ contains
     integer :: i, j, k
 
     if (a /= ZERO) then
-      !$omp do collapse(2) private(i,j,k)
+      !$omp do collapse(2) private(i,j,k) firstprivate(nf)
       do k = 1, nc
       do j = 1, nf
       do i = 1, np
@@ -503,8 +460,9 @@ contains
       end do
       end do
       end do
+      !$omp end do nowait
     else
-      !$omp do collapse(2) private(i,j,k)
+      !$omp do collapse(2) private(i,j,k) firstprivate(nf)
       do k = 1, nc
       do j = 1, nf
       do i = 1, np
@@ -512,6 +470,7 @@ contains
       end do
       end do
       end do
+      !$omp end do nowait
     end if
 
   end subroutine MergeBuffer
@@ -524,11 +483,11 @@ end subroutine Merge_X
 !> The variable must be dimensioned `v(n1,n2,2,mesh%nf)` with `n1*n2 = this%np`
 
 subroutine Merge_S(this, mesh, v, alpha, beta)
-  class(TraceTransferBuffer), intent(inout) :: this        !< buffer
-  type(MeshPartition),        intent(in)    :: mesh        !< mesh partition
-  real(RNP),                  intent(inout) :: v(:,:,:,:)  !< face variable
-  real(RNP),        optional, intent(in)    :: alpha       !< coeff of v  [1]
-  real(RNP),        optional, intent(in)    :: beta        !< coeff of vb [1]
+  class(TraceTransferBuffer), intent(inout) :: this !< buffer
+  type(MeshPartition), intent(in)    :: mesh        !< mesh partition
+  real(RNP),           intent(inout) :: v(:,:,:,:)  !< face variable
+  real(RNP), optional, intent(in)    :: alpha       !< coeff of v  [1]
+  real(RNP), optional, intent(in)    :: beta        !< coeff of vb [1]
 
   call Merge_X(this, mesh, v, alpha, beta)
 
@@ -541,53 +500,15 @@ end subroutine Merge_S
 !> with `n1*n2 = this%np`
 
 subroutine Merge_A(this, mesh, v, alpha, beta)
-  class(TraceTransferBuffer), intent(inout) :: this          !< buffer
-  type(MeshPartition),        intent(in)    :: mesh          !< mesh partition
-  real(RNP),                  intent(inout) :: v(:,:,:,:,:)  !< face variable
-  real(RNP),        optional, intent(in)    :: alpha         !< coeff of v  [1]
-  real(RNP),        optional, intent(in)    :: beta          !< coeff of vb [1]
+  class(TraceTransferBuffer), intent(inout) :: this  !< buffer
+  type(MeshPartition), intent(in)    :: mesh         !< mesh partition
+  real(RNP),           intent(inout) :: v(:,:,:,:,:) !< face variable
+  real(RNP), optional, intent(in)    :: alpha        !< coeff of v  [1]
+  real(RNP), optional, intent(in)    :: beta         !< coeff of vb [1]
 
   call Merge_X(this, mesh, v, alpha, beta)
 
 end subroutine Merge_A
-
-!-------------------------------------------------------------------------------
-!> Executes MPI_Waitall to complete all transfers associated with the buffer
-
-subroutine FinishTransfer(this)
-  class(TraceTransferBuffer), intent(inout) :: this  !< buffer
-
-  type(MPI_Status), allocatable :: status(:)
-  integer :: n
-
-  !$omp master
-
-  n = size(this%send%request)
-
-  if (n > 0) then
-    allocate(status(n))
-    call MPI_Waitall(n, this%send%request, status)
-    call MPI_Waitall(n, this%recv%request, status)
-  end if
-
-  !$omp end master
-  !$omp barrier
-
-end subroutine FinishTransfer
-
-!-------------------------------------------------------------------------------
-!> Finalization of a trace transfer buffer
-
-subroutine Delete_TransferBuffer(this)
-  type(TraceTransferBuffer), intent(inout) :: this  !< buffer
-
-  this % np = 0
-  this % nc = 0
-
-  if (allocated(this % start)) deallocate(this % start)
-  if (allocated(this % len  )) deallocate(this % len  )
-
-end subroutine Delete_TransferBuffer
 
 !===============================================================================
 
