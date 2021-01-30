@@ -404,9 +404,21 @@ subroutine Merge_X(this, mesh, v, alpha, beta)
 
   !$omp master
   nr = size(this%recv%request)
+!### CHECK
+print '(99(G0,1X))', '*** part',mesh%part,': size(mesh%link)         =',size(mesh%link)
+print '(99(G0,1X))', '*** part',mesh%part,': mesh%link(:)%part       =',mesh%link(:)%part
+print '(99(G0,1X))', '*** part',mesh%part,': size(this%recv%request) =',size(this%recv%request)
+print '(99(G0,1X))', '*** part',mesh%part,': nr                      =',nr
+!### CHECK END
   allocate(status(nr))
   call MPI_Waitall(nr, this%recv%request, status)
+!### CHECK
+print '(99(G0,1X))', '*** part',mesh%part,': Waital recv PASSed'
+!### CHECK END
   call MPI_Waitall(nr, this%send%request, status)
+!### CHECK
+print '(99(G0,1X))', '*** part',mesh%part,': Waital send PASSed'
+!### CHECK END
   !$omp end master
   !$omp barrier
 
