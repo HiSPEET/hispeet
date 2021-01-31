@@ -281,20 +281,28 @@ subroutine Transfer_X(this, mesh, v, tag)
 
     m = this % start(i)
     l = this % len(i)
-    if (l < 1) cycle
 
-    if (part /= mesh%part) then
+    if (l > 0) then
 
-      call MPI_Isend( this%send%buf(m:), l, MPI_REAL_RNP, part, tag, mesh%comm, &
-                      this%send%request(i)                                      )
+      if (part /= mesh%part) then
 
-      call MPI_Irecv( this%recv%buf(m:), l, MPI_REAL_RNP, part, tag, mesh%comm, &
-                      this%recv%request(i)                                      )
+        call MPI_Isend( this%send%buf(m:), l, MPI_REAL_RNP, part, tag &
+                      , mesh%comm, this%send%request(i)               )
+
+        call MPI_Irecv( this%recv%buf(m:), l, MPI_REAL_RNP, part, tag &
+                      , mesh%comm, this%recv%request(i)                )
+
+      else
+        this%recv % buf(m:m+l-1) = this%send % buf(m:m+l-1)
+        this%recv % request(i)   = MPI_REQUEST_NULL
+        this%send % request(i)   = MPI_REQUEST_NULL
+      end if
 
     else
-      this%recv % buf(m:m+l-1) = this%send % buf(m:m+l-1)
-      this%recv % request(i)   = MPI_REQUEST_NULL
-      this%send % request(i)   = MPI_REQUEST_NULL
+
+      this%recv % request(i) = MPI_REQUEST_NULL
+      this%send % request(i) = MPI_REQUEST_NULL
+
     end if
 
   end do
