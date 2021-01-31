@@ -285,10 +285,10 @@ subroutine Transfer_X(this, mesh, v, tag)
 
     if (part /= mesh%part) then
 
-      call MPI_Isend( this%send%buf(m:), l, MPI_REAL_RNP, part, tag, this%comm, &
+      call MPI_Isend( this%send%buf(m:), l, MPI_REAL_RNP, part, tag, mesh%comm, &
                       this%send%request(i)                                      )
 
-      call MPI_Irecv( this%recv%buf(m:), l, MPI_REAL_RNP, part, tag, this%comm, &
+      call MPI_Irecv( this%recv%buf(m:), l, MPI_REAL_RNP, part, tag, mesh%comm, &
                       this%recv%request(i)                                      )
 
     else
