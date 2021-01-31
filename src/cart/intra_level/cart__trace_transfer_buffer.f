@@ -228,82 +228,78 @@ subroutine Transfer_X(this, mesh, v, tag)
   integer :: i, l, m, part
   integer :: b1, s1
 
-  associate(send => this%send, recv => this%recv, comm => mesh%comm)
+  if (size(this%send%buf) < 1) return
 
-    if (size(send%buf) < 1) return
+  ! extract send buffer ......................................................
 
-    ! extract send buffer ......................................................
+  s1 = 1  ! first entry in this%send%side
+  b1 = 1  ! first entry in this%send%buf
 
-    s1 = 1  ! first entry in send%side
-    b1 = 1  ! first entry in send%buf
+  do l = 1, size(mesh%link)
 
-    do l = 1, size(mesh%link)
+    if (mesh%link(l)%part /= mesh%part) then
 
-      if (mesh%link(l)%part /= mesh%part) then
+      call CopyToBuffer( np   = this%np              &
+                       , nc   = this%nc              &
+                       , nf   = mesh%link(l)%nf      &
+                       , nm   = mesh%nf              &
+                       , face = mesh%link(l)%face    &
+                       , side = this%send%side(s1:)  &
+                       , v    = v                    &
+                       , vb   = this%send%buf(b1:)   )
 
-        call CopyToBuffer( np   = this%np            &
-                         , nc   = this%nc            &
-                         , nf   = mesh%link(l)%nf    &
-                         , nm   = mesh%nf            &
-                         , face = mesh%link(l)%face  &
-                         , side = send%side(s1:)     &
-                         , v    = v                  &
-                         , vb   = send%buf(b1:)      )
+    else
 
-      else
+      ! local link: copy coupled face data into send buffer,
+      ! note that for the coupled face the send side equals
+      ! the recv side of the linked face
 
-        ! local link: copy coupled face data into send buffer,
-        ! note that for the coupled face the send side equals
-        ! the recv side of the linked face
-
-        call CopyToBuffer( np   = this%np                    &
-                         , nc   = this%nc                    &
-                         , nf   = mesh%link(l)%nf            &
-                         , nm   = mesh%nf                    &
-                         , face = mesh%link(l)%coupled_face  &
-                         , side = recv%side(s1:)             &
-                         , v    = v                          &
-                         , vb   = send%buf(b1:)              )
-      end if
+      call CopyToBuffer( np   = this%np                    &
+                       , nc   = this%nc                    &
+                       , nf   = mesh%link(l)%nf            &
+                       , nm   = mesh%nf                    &
+                       , face = mesh%link(l)%coupled_face  &
+                       , side = this%recv%side(s1:)        &
+                       , v    = v                          &
+                       , vb   = this%send%buf(b1:)         )
+    end if
 
 
-      s1 = s1 + mesh%link(l)%nf
-      b1 = b1 + mesh%link(l)%nf * this%np * this%nc
+    s1 = s1 + mesh%link(l)%nf
+    b1 = b1 + mesh%link(l)%nf * this%np * this%nc
 
-    end do
+  end do
 
-    ! start send/receive .......................................................
+  ! start this%send/receive .......................................................
 
-    !$omp barrier
-    !$omp master
+  !$omp barrier
+  !$omp master
 
-    do i = 1, size(mesh%link)
+  do i = 1, size(mesh%link)
 
-      part = mesh % link(i) % part
+    part = mesh % link(i) % part
 
-      m = this % start(i)
-      l = this % len(i)
-      if (l < 1) cycle
+    m = this % start(i)
+    l = this % len(i)
+    if (l < 1) cycle
 
-      if (part /= mesh%part) then
+    if (part /= mesh%part) then
 
-        call MPI_Isend( send%buf(m:), l, MPI_REAL_RNP, part, tag, comm, &
-                        send%request(i)                                 )
+      call MPI_Isend( this%send%buf(m:), l, MPI_REAL_RNP, part, tag, this%comm, &
+                      this%send%request(i)                                      )
 
-        call MPI_Irecv( recv%buf(m:), l, MPI_REAL_RNP, part, tag, comm, &
-                        recv%request(i)                                 )
+      call MPI_Irecv( this%recv%buf(m:), l, MPI_REAL_RNP, part, tag, this%comm, &
+                      this%recv%request(i)                                      )
 
-      else
-        recv % buf(m:m+l-1) = send % buf(m:m+l-1)
-        recv % request(i)   = MPI_REQUEST_NULL
-        send % request(i)   = MPI_REQUEST_NULL
-      end if
+    else
+      this%recv % buf(m:m+l-1) = this%send % buf(m:m+l-1)
+      this%recv % request(i)   = MPI_REQUEST_NULL
+      this%send % request(i)   = MPI_REQUEST_NULL
+    end if
 
-    end do
+  end do
 
-    !$omp end master
-
-  end associate
+  !$omp end master
 
 contains
 
