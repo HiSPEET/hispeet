@@ -2,8 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2014/11/06, revised 2017/04/10
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Extended Fortran binding to MPI
 !===============================================================================
 
 module XMPI
@@ -12,6 +10,8 @@ module XMPI
 
   use XMPI__Character
   use XMPI__Integer
+  use XMPI__Integer_IXS
+  use XMPI__Integer_IXL
   use XMPI__Logical
   use XMPI__Real_RNP
 

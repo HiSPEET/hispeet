@@ -36,8 +36,8 @@ module subroutine SchwarzMethod(this, u, f, i_max, r_red, r_max, ni)
   real(RNP), allocatable, save :: u_s(:,:,:,:) ! solution of subsystems
   real(RNP), allocatable, save :: f_s(:,:,:,:) ! RHS of subsystems
 
-  type(ElementTransferBuffer), allocatable, save :: buf_r
-  type(ElementTransferBuffer), allocatable, save :: buf_u_s
+  type(ElementTransferBuffer), asynchronous, allocatable, save :: buf_r
+  type(ElementTransferBuffer), asynchronous, allocatable, save :: buf_u_s
 
   real(RNP), save :: rr_term
   logical  , save :: converged
@@ -160,9 +160,9 @@ subroutine RestrictToSubdomains(mesh, no, buf_v, v, vs)
 
   ! arguments ..................................................................
 
-  class(MeshPartition),         intent(in)    :: mesh   !< mesh partition
-  integer,                      intent(in)    :: no(3)  !< subdomain overlap
-  class(ElementTransferBuffer), intent(inout) :: buf_v  !< buffer for v
+  class(MeshPartition), intent(in) :: mesh   !< mesh partition
+  integer,              intent(in) :: no(3)  !< subdomain overlap
+  class(ElementTransferBuffer), asynchronous, intent(inout) :: buf_v
 
   real(RNP), intent(inout) :: v(0:,0:,0:,:)  !< extended mesh variable
   real(RNP), intent(out)   :: vs(:,:,:,:)    !< restricted variable
@@ -569,9 +569,9 @@ subroutine MergeFromSubdomains(mesh, no, buf_vs, vs, v)
 
   ! arguments ..................................................................
 
-  class(MeshPartition),         intent(in)    :: mesh   !< mesh partition
-  integer,                      intent(in)    :: no(3)  !< subdomain overlap
-  class(ElementTransferBuffer), intent(inout) :: buf_vs !< buffer for vs
+  class(MeshPartition), intent(in) :: mesh   !< mesh partition
+  integer,              intent(in) :: no(3)  !< subdomain overlap
+  class(ElementTransferBuffer), asynchronous, intent(inout) :: buf_vs
 
   real(RNP), intent(inout) :: vs(:,:,:,:)    !< subdomain variables
   real(RNP), intent(inout) :: v(0:,0:,0:,:)  !< mesh variable

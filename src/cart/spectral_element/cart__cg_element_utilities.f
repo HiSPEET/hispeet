@@ -27,7 +27,6 @@ module CART__CG_Element_Utilities
   use Execution_Control, only: Error
   use Array_Assignments
   use CART__Mesh_Partition
-  use CART__Element_Transfer_Buffer
   implicit none
   private
 

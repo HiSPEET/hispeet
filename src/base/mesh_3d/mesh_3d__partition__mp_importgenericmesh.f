@@ -54,14 +54,16 @@ contains
     call ImportBoundaries     (mesh, generic_mesh)
 
     call mesh % BuildLinks()
+    call mesh % IdentifyPrimaries()
+    call mesh % BuildGhosts()
 
   end subroutine ImportGenericMesh
 
   !-----------------------------------------------------------------------------
   !> Import of mesh elements
   !>
-  !> Allocates the elements, sets `global_id` and adopts the vertex IDs from then
-  !> generic mesh.
+  !> Allocates the elements, sets global and local IDs, and adopts the vertex
+  !> IDs from then generic mesh.
 
   subroutine ImportElements(mesh, generic_mesh)
     class(Mesh3d_Partition), intent(inout) :: mesh         !< mesh partition
@@ -73,6 +75,7 @@ contains
 
     do i = 1, mesh % n_elem
       mesh % element(i) % global_id = i
+      mesh % element(i) % local_id  = i
       mesh % element(i) % vertex % id = generic_mesh % element(i) % vertex
     end do
 
@@ -457,7 +460,7 @@ contains
 
     type(InterpolationOperator), allocatable :: iop(:)
     real(RNP), allocatable :: xi(:)
-    integer   :: c, e, pg, pg_max, pg_min, po
+    integer :: c, e, pg, pg_max, pg_min, po
 
     ! preliminaries ............................................................
 

@@ -2,8 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2018/11/22
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Application of the IP/DG elliptic operator with constant diffusivity
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP:MP_Apply) MP_Apply_VI
@@ -24,8 +22,8 @@ module subroutine Apply_VI(this, u, v)
   real(RNP), intent(out) :: v(0:,0:,0:,:)  !< result
 
   ! trace operators
-  type(TraceOperator),       allocatable, save :: trace_op
-  type(NormalTraceOperator), allocatable, save :: normal_trace_op
+  type(TraceOperator)      , asynchronous, allocatable, save :: trace_op
+  type(NormalTraceOperator), asynchronous, allocatable, save :: normal_trace_op
 
   ! trace variables
   real(RNP), allocatable, save :: tr_u (:,:,:,:)
@@ -38,7 +36,7 @@ module subroutine Apply_VI(this, u, v)
   real(RNP), allocatable, save :: J_u(:,:,:) ! [u]ᵢ
   real(RNP), allocatable, save :: A_q(:,:,:) ! {q}ᵢ = {ν∇u}ᵢ
 
-  integer :: po, ne, np 
+  integer :: po, ne, np
 
   select type(eop => this % eop)
   class is (IP_ElementOperators1D)
@@ -52,7 +50,7 @@ module subroutine Apply_VI(this, u, v)
 
       po = eop  % po
       ne = mesh % ne
-      np = po + 1 
+      np = po + 1
 
       ! workspace and operators
       !$omp single

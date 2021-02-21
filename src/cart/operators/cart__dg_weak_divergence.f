@@ -80,7 +80,7 @@ contains
 
     ! internal variables .......................................................
 
-    type(NormalTraceOperator), allocatable, save :: trace_op
+    type(NormalTraceOperator), asynchronous, allocatable, save :: trace_op
     real(RNP), allocatable, save :: tr_un(:,:,:,:)
     real(RNP) :: g, qf(0:po,0:po)
 

@@ -2,6 +2,9 @@
 !> author:   Joerg Stiller
 !> date:     2017/04/30
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @note
+!> This module is obsolet and should not be used
 !===============================================================================
 
 module CART__Face_Transfer_Buffer
@@ -41,7 +44,7 @@ module CART__Face_Transfer_Buffer
   !>
   !> Use with single thread (no OpenMP):
   !>
-  !>        type(FaceTransferBuffer) :: face_buf
+  !>        type(FaceTransferBuffer), asynchronous :: face_buf
   !>        ...
   !>        ! create and fill buffer, start transfer
   !>        call face_buf % Transfer(mesh, v, tag)
@@ -58,7 +61,7 @@ module CART__Face_Transfer_Buffer
   !>    *  it must be `allocatable` and (de)allocated explicitly to ensure
   !>       correct finalization and, thus, release of component storage
   !>
-  !>         type(FaceTransferBuffer), allocatable, save :: face_buf
+  !>         type(FaceTransferBuffer), asynchronous, allocatable, save :: face_buf
   !>
   !>         !$omp single
   !>         allocate(face_buf)
@@ -214,10 +217,10 @@ end subroutine New_TransferBuffer_A
 !> Extract and transfer buffer -- eXplicit shape version
 
 subroutine Transfer_X(this, mesh, v, tag)
-  class(FaceTransferBuffer), intent(inout) :: this  !< buffer
-  type(MeshPartition),       intent(in)    :: mesh  !< mesh partition
-  real(RNP),                 intent(in)    :: v     !< face variable
-  integer,                   intent(in)    :: tag   !< message tag
+  class(FaceTransferBuffer), asynchronous, intent(inout) :: this  !< buffer
+  type(MeshPartition), intent(in) :: mesh  !< mesh partition
+  real(RNP),           intent(in) :: v     !< face variable
+  integer,             intent(in) :: tag   !< message tag
   dimension :: v(this%np, mesh%nf,this%nc)
 
   integer :: i, l, m, b1, part
@@ -322,10 +325,10 @@ end subroutine Transfer_X
 !> The variable must be dimensioned `v(n1,n2,mesh%nf)` with `n1*n2 = this%np`
 
 subroutine Transfer_S(this, mesh, v, tag)
-  class(FaceTransferBuffer), intent(inout) :: this     !< buffer
-  type(MeshPartition),       intent(in)    :: mesh     !< mesh partition
-  real(RNP),                 intent(in)    :: v(:,:,:) !< face variable
-  integer,                   intent(in)    :: tag      !< message tag
+  class(FaceTransferBuffer), asynchronous, intent(inout) :: this !< buffer
+  type(MeshPartition), intent(in) :: mesh     !< mesh partition
+  real(RNP),           intent(in) :: v(:,:,:) !< face variable
+  integer,             intent(in) :: tag      !< message tag
 
   if (this%np /= size(v,1)*size(v,2) .or. this%nc /= 1) then
     call this % New(mesh, v)
@@ -342,10 +345,10 @@ end subroutine Transfer_S
 !> with `n1*n2 = this%np`
 
 subroutine Transfer_A(this, mesh, v, tag)
-  class(FaceTransferBuffer), intent(inout) :: this       !< buffer
-  type(MeshPartition),       intent(in)    :: mesh       !< mesh partition
-  real(RNP),                 intent(in)    :: v(:,:,:,:) !< face variable
-  integer,                   intent(in)    :: tag        !< message tag
+  class(FaceTransferBuffer), asynchronous, intent(inout) :: this !< buffer
+  type(MeshPartition), intent(in) :: mesh       !< mesh partition
+  real(RNP),           intent(in) :: v(:,:,:,:) !< face variable
+  integer,             intent(in) :: tag        !< message tag
 
   if (this%np /= size(v,1)*size(v,2) .or. this%nc /= size(v,4)) then
     call this % New(mesh, v)
@@ -366,11 +369,11 @@ subroutine Merge_X(this, mesh, v, alpha, beta)
 
   ! arguments ..................................................................
 
-  class(FaceTransferBuffer), intent(inout) :: this  !< buffer
-  type(MeshPartition),       intent(in)    :: mesh  !< mesh partition
-  real(RNP),                 intent(inout) :: v     !< face variable
-  real(RNP),       optional, intent(in)    :: alpha !< coeff of v  [1]
-  real(RNP),       optional, intent(in)    :: beta  !< coeff of vb [1]
+  class(FaceTransferBuffer), asynchronous, intent(inout) :: this !< buffer
+  type(MeshPartition), intent(in)    :: mesh  !< mesh partition
+  real(RNP),           intent(inout) :: v     !< face variable
+  real(RNP), optional, intent(in)    :: alpha !< coeff of v  [1]
+  real(RNP), optional, intent(in)    :: beta  !< coeff of vb [1]
 
   dimension :: v(this%np, mesh%nf, this%nc)
 

@@ -70,7 +70,7 @@ module CART__Element_Transfer_Buffer
   !>
   !>    *  example for master to ghost transfer
   !>
-  !>         type(ElementTransferBuffer) :: buf
+  !>         type(ElementTransferBuffer), asynchronous :: buf
   !>         ...
   !>         ! create and fill buffer, start transfer
   !>         call buf % New(mesh, np, nc, nl)
@@ -89,7 +89,7 @@ module CART__Element_Transfer_Buffer
   !>       correct finalization and, thus, release of component storage
   !>    *  example for ghost to master transfer
   !>
-  !>         type(ElementTransferBuffer), allocatable, save :: buf
+  !>         type(ElementTransferBuffer), asynchronous, allocatable, save :: buf
   !>         ...
   !>         !$omp single
   !>         allocate(buf)
@@ -433,7 +433,7 @@ subroutine ToGhost_Transfer_X(this, mesh, ne_t, v, tag)
 
   ! arguments ..................................................................
 
-  class(ElementTransferBuffer), intent(inout) :: this  !< buffer
+  class(ElementTransferBuffer), asynchronous, intent(inout) :: this !< buffer
   type(MeshPartition),          intent(in)    :: mesh  !< mesh partition
   integer,                      intent(in)    :: ne_t  !< total num elements
   real(RNP),                    intent(in)    :: v     !< mesh variable
@@ -525,10 +525,10 @@ end subroutine ToGhost_Transfer_X
 !> Send master data to ghosts and receive own ghost data -- single
 
 subroutine ToGhost_Transfer_S(this, mesh, v, tag)
-  class(ElementTransferBuffer),  intent(inout) :: this  !< buffer
-  type(MeshPartition),           intent(in)    :: mesh  !< mesh partition
-  real(RNP), dimension(:,:,:,:), intent(in)    :: v     !< mesh variable
-  integer,                       intent(in)    :: tag   !< message tag
+  class(ElementTransferBuffer), asynchronous, intent(inout) :: this !< buffer
+  type(MeshPartition),           intent(in) :: mesh  !< mesh partition
+  real(RNP), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
+  integer,                       intent(in) :: tag   !< message tag
 
   call ToGhost_Transfer_X(this, mesh, size(v,4), v, tag)
 
@@ -538,10 +538,10 @@ end subroutine ToGhost_Transfer_S
 !> Send master data to ghosts and receive own ghost data -- array
 
 subroutine ToGhost_Transfer_A(this, mesh, v, tag)
-  class(ElementTransferBuffer),    intent(inout) :: this  !< buffer
-  type(MeshPartition),             intent(in)    :: mesh  !< mesh partition
-  real(RNP), dimension(:,:,:,:,:), intent(in)    :: v     !< mesh variable
-  integer,                         intent(in)    :: tag   !< message tag
+  class(ElementTransferBuffer), asynchronous, intent(inout) :: this !< buffer
+  type(MeshPartition),             intent(in) :: mesh  !< mesh partition
+  real(RNP), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variable
+  integer,                         intent(in) :: tag   !< message tag
 
   call ToGhost_Transfer_X(this, mesh, size(v,4), v, tag)
 
@@ -558,10 +558,10 @@ subroutine ToGhost_Merge_X(this, v, alpha, beta)
 
   ! arguments ..................................................................
 
-  class(ElementTransferBuffer), intent(inout) :: this   !< buffer
-  real(RNP),                    intent(inout) :: v      !< mesh variable
-  real(RNP),          optional, intent(in)    :: alpha  !< coeff of v  [1]
-  real(RNP),          optional, intent(in)    :: beta   !< coeff of vb [1]
+  class(ElementTransferBuffer), intent(inout) :: this !< buffer
+  real(RNP),           intent(inout) :: v      !< mesh variable
+  real(RNP), optional, intent(in)    :: alpha  !< coeff of v  [1]
+  real(RNP), optional, intent(in)    :: beta   !< coeff of vb [1]
 
   dimension :: v(this%np(1), this%np(2), this%np(3), this%ne+this%ng, this%nc)
 
@@ -658,7 +658,7 @@ end subroutine ToGhost_Merge_X
 !>    *  `ng` is the number of ghost elements
 
 subroutine ToGhost_Merge_S(this, v, alpha, beta)
-  class(ElementTransferBuffer),  intent(inout) :: this   !< buffer
+  class(ElementTransferBuffer), intent(inout) :: this !< buffer
   real(RNP), dimension(:,:,:,:), intent(inout) :: v      !< mesh variable
   real(RNP),           optional, intent(in)    :: alpha  !< coeff of v  [1]
   real(RNP),           optional, intent(in)    :: beta   !< coeff of vb [1]
@@ -691,7 +691,7 @@ end subroutine ToGhost_Merge_S
 !>    *  `nc` is the number of components, as in `this%nc`
 
 subroutine ToGhost_Merge_A(this, v, alpha, beta)
-  class(ElementTransferBuffer),    intent(inout) :: this   !< buffer
+  class(ElementTransferBuffer), intent(inout) :: this !< buffer
   real(RNP), dimension(:,:,:,:,:), intent(inout) :: v      !< mesh variable
   real(RNP),             optional, intent(in)    :: alpha  !< coeff of v  [1]
   real(RNP),             optional, intent(in)    :: beta   !< coeff of vb [1]
@@ -740,10 +740,10 @@ subroutine ToMaster_Transfer_X(this, mesh, v, tag)
 
   ! arguments ..................................................................
 
-  class(ElementTransferBuffer), intent(inout) :: this  !< buffer
-  type(MeshPartition),          intent(in)    :: mesh  !< mesh partition
-  real(RNP),                    intent(in)    :: v     !< mesh variable
-  integer,                      intent(in)    :: tag   !< message tag
+  class(ElementTransferBuffer), asynchronous, intent(inout) :: this !< buffer
+  type(MeshPartition), intent(in) :: mesh  !< mesh partition
+  real(RNP),           intent(in) :: v     !< mesh variable
+  integer,             intent(in) :: tag   !< message tag
 
   dimension :: v(this%np(1), this%np(2), this%np(3), this%ne+this%ng, this%nc)
 
@@ -831,10 +831,10 @@ subroutine ToMaster_Transfer_S(this, mesh, v, tag)
 
   ! arguments ..................................................................
 
-  class(ElementTransferBuffer),  intent(inout) :: this  !< buffer
-  type(MeshPartition),           intent(in)    :: mesh  !< mesh partition
-  real(RNP), dimension(:,:,:,:), intent(in)    :: v     !< mesh variable
-  integer,                       intent(in)    :: tag   !< message tag
+  class(ElementTransferBuffer), asynchronous, intent(inout) :: this !< buffer
+  type(MeshPartition),           intent(in) :: mesh  !< mesh partition
+  real(RNP), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
+  integer,                       intent(in) :: tag   !< message tag
 
   !$omp master
   if (size(v,4) /= this%ne + this%ng) then
@@ -863,10 +863,10 @@ subroutine ToMaster_Transfer_A(this, mesh, v, tag)
 
   ! arguments ..................................................................
 
-  class(ElementTransferBuffer),    intent(inout) :: this  !< buffer
-  type(MeshPartition),             intent(in)    :: mesh  !< mesh partition
-  real(RNP), dimension(:,:,:,:,:), intent(in)    :: v     !< mesh variable
-  integer,                         intent(in)    :: tag   !< message tag
+  class(ElementTransferBuffer), asynchronous,intent(inout) :: this !< buffer
+  type(MeshPartition),             intent(in) :: mesh  !< mesh partition
+  real(RNP), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variable
+  integer,                         intent(in) :: tag   !< message tag
 
   !$omp master
   if (size(v,4) /= this%ne + this%ng) then

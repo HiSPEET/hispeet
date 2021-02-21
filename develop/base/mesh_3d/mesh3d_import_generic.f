@@ -4,6 +4,7 @@ program Mesh3d_Import_Generic
   use XMPI
   use Generic_Mesh_3d
   use Mesh_3d__Partition
+  use Verify_Mesh_3d
   use Export_VTK_3d__Volume_Data
   implicit none
 
@@ -29,6 +30,7 @@ program Mesh3d_Import_Generic
   integer :: rank
   integer :: io     ! IO unit number
   integer :: ns = 1 ! number of scalar variables
+  logical :: passed
 
   call MPI_Init()
   call MPI_Comm_rank(comm, rank)
@@ -48,6 +50,9 @@ program Mesh3d_Import_Generic
     end select
 
     call mesh % ImportGenericMesh(generic_mesh, comm = comm)
+
+    call VerifyMesh3d(mesh, passed)
+    write(*,'(/,A,G0,/)') 'VerifyMesh3d: passed = ', passed
 
     call mesh % GetPoints(po, 'GLL', x)
     allocate(s(0:po, 0:po, 0:po, mesh%n_elem, ns), source = ZERO)

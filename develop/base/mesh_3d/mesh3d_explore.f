@@ -4,6 +4,7 @@ program Mesh3d_Explore
   use Mesh_3d__Element
   use Mesh_3d__Partition
   use Mesh_3d__Generate_Regular_Mesh
+  use Verify_Mesh_3d
   implicit none
 
   real(RNP) :: xo(3) = -1                ! corner closest to -infinity
@@ -22,6 +23,7 @@ program Mesh3d_Explore
   real(RNP)              :: dx(3)        ! element spacing in directions 1:3
 
   integer :: l, part
+  logical :: passed, all_passed
 
 
   call XMPI_Init()
@@ -31,7 +33,6 @@ program Mesh3d_Explore
 
   dx = lx / (np * ep)
 
-
   call XMPI_Bcast(np      , 0, comm)
   call XMPI_Bcast(ep      , 0, comm)
   call XMPI_Bcast(xo      , 0, comm)
@@ -40,6 +41,11 @@ program Mesh3d_Explore
   call XMPI_Bcast(pg      , 0, comm)
 
   call GenerateRegularMesh(mesh, np, ep, xo, dx, periodic, comm, pg)
+  call VerifyMesh3d(mesh, passed)
+  call XMPI_Reduce(passed, all_passed, MPI_LAND, 0, comm)
+  if (rank == 0) then
+    write(*,'(/,A,G0)') 'VerifyMesh3d: passed = ', all_passed
+  end if
 
   do
     if (rank == 0) then

@@ -73,12 +73,12 @@ contains
 !> Extract and start transferring traces -- scalar with BC
 
 subroutine GetTrace_Start_SB(this, mesh, u, bv_u, tr_u, tag)
-  class(TraceOperator),   intent(inout) :: this            !< trace operator
-  type(MeshPartition),    intent(in)    :: mesh            !< mesh partition
-  real(RNP),              intent(in)    :: u(0:,0:,0:,:)   !< mesh variable
-  type(BoundaryVariable), intent(in)    :: bv_u(:)         !< boundary cond.
-  real(RNP),              intent(out)   :: tr_u(0:,0:,:,:) !< trace of u
-  integer,                intent(in)    :: tag             !< message tag
+  class(TraceOperator), asynchronous, intent(inout) :: this !< trace operator
+  type(MeshPartition),    intent(in)  :: mesh            !< mesh partition
+  real(RNP),              intent(in)  :: u(0:,0:,0:,:)   !< mesh variable
+  type(BoundaryVariable), intent(in)  :: bv_u(:)         !< boundary cond.
+  real(RNP),              intent(out) :: tr_u(0:,0:,:,:) !< trace of u
+  integer,                intent(in)  :: tag             !< message tag
 
   integer :: po, ne, nf, nc
 
@@ -95,11 +95,11 @@ end subroutine GetTrace_Start_SB
 !> Extract and start transferring traces -- scalar, open (no BC)
 
 subroutine GetTrace_Start_SO(this, mesh, u, tr_u, tag)
-  class(TraceOperator),   intent(inout) :: this            !< trace operator
-  type(MeshPartition),    intent(in)    :: mesh            !< mesh partition
-  real(RNP),              intent(in)    :: u(0:,0:,0:,:)   !< mesh variable
-  real(RNP),              intent(out)   :: tr_u(0:,0:,:,:) !< trace of u
-  integer,                intent(in)    :: tag             !< message tag
+  class(TraceOperator), asynchronous, intent(inout) :: this !< trace operator
+  type(MeshPartition), intent(in)  :: mesh            !< mesh partition
+  real(RNP),           intent(in)  :: u(0:,0:,0:,:)   !< mesh variable
+  real(RNP),           intent(out) :: tr_u(0:,0:,:,:) !< trace of u
+  integer,             intent(in)  :: tag             !< message tag
 
   integer :: po, ne, nf, nc
 
@@ -116,12 +116,12 @@ end subroutine GetTrace_Start_SO
 !> Extract and start transferring traces -- array with BC
 
 subroutine GetTrace_Start_AB(this, mesh, u, bv_u, tr_u, tag)
-  class(TraceOperator),   intent(inout) :: this              !< trace operator
-  type(MeshPartition),    intent(in)    :: mesh              !< mesh partition
-  real(RNP),              intent(in)    :: u(0:,0:,0:,:,:)   !< mesh variable
-  type(BoundaryVariable), intent(in)    :: bv_u(:)           !< boundary cond.
-  real(RNP),              intent(out)   :: tr_u(0:,0:,:,:,:) !< trace of u
-  integer,                intent(in)    :: tag               !< message tag
+  class(TraceOperator), asynchronous, intent(inout) :: this !< trace operator
+  type(MeshPartition),    intent(in)  :: mesh              !< mesh partition
+  real(RNP),              intent(in)  :: u(0:,0:,0:,:,:)   !< mesh variable
+  type(BoundaryVariable), intent(in)  :: bv_u(:)           !< boundary cond.
+  real(RNP),              intent(out) :: tr_u(0:,0:,:,:,:) !< trace of u
+  integer,                intent(in)  :: tag               !< message tag
 
   integer :: po, ne, nf, nc
 
@@ -138,11 +138,11 @@ end subroutine GetTrace_Start_AB
 !> Extract and start transferring traces -- array, open (no BC)
 
 subroutine GetTrace_Start_AO(this, mesh, u, tr_u, tag)
-  class(TraceOperator),   intent(inout) :: this              !< trace operator
-  type(MeshPartition),    intent(in)    :: mesh              !< mesh partition
-  real(RNP),              intent(in)    :: u(0:,0:,0:,:,:)   !< mesh variable
-  real(RNP),              intent(out)   :: tr_u(0:,0:,:,:,:) !< trace of u
-  integer,                intent(in)    :: tag               !< message tag
+  class(TraceOperator), asynchronous, intent(inout) :: this !< trace operator
+  type(MeshPartition), intent(in)  :: mesh              !< mesh partition
+  real(RNP),           intent(in)  :: u(0:,0:,0:,:,:)   !< mesh variable
+  real(RNP),           intent(out) :: tr_u(0:,0:,:,:,:) !< trace of u
+  integer,             intent(in)  :: tag               !< message tag
 
   integer :: po, ne, nf, nc
 
@@ -162,7 +162,7 @@ subroutine GetTrace_Start_X(this, mesh, po, ne, nf, nc, u, bv_u, tr_u, tag)
 
   ! arguments ..................................................................
 
-  class(TraceOperator),   intent(inout) :: this  !< trace operator
+  class(TraceOperator), asynchronous, intent(inout) :: this !< trace operator
   type(MeshPartition),    intent(in)    :: mesh  !< mesh partition
   integer,                intent(in)    :: po    !< polynomial order
   integer,                intent(in)    :: ne    !< number of elements

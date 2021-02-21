@@ -5,7 +5,7 @@
 !===============================================================================
 
 module Mesh_3d__Partition
-  use Kind_Parameters, only: IXS, RNP
+  use Kind_Parameters, only: IXL, IXS, RNP
   use XMPI
   use Mesh_3d__Face
   use Mesh_3d__Element
@@ -18,6 +18,10 @@ module Mesh_3d__Partition
 
   !-----------------------------------------------------------------------------
   !> 3D mesh partition type
+  !>
+  !> ### Ghost elements
+  !>
+  !> The ghost elements stored in `ghost(1:n_ghost)` ...
 
   type Mesh3d_Partition
 
@@ -52,6 +56,7 @@ module Mesh_3d__Partition
     ! mesh components and links
     type(Mesh3d_Face)    , allocatable :: face(:)     !< mesh faces
     type(Mesh3d_Element) , allocatable :: element(:)  !< mesh elements
+    type(Mesh3d_Element) , allocatable :: ghost(:)    !< ghost elements
     type(Mesh3d_Boundary), allocatable :: boundary(:) !< mesh boundaries
     type(Mesh3d_Link)    , allocatable :: link(:)     !< mesh links
 
@@ -68,8 +73,10 @@ module Mesh_3d__Partition
 
     ! automatic identification and generation of components
     procedure :: IdentifyEdges
+    procedure :: IdentifyPrimaries
     procedure :: BuildFaces
     procedure :: BuildLinks
+    procedure :: BuildGhosts
 
     ! import/export
     procedure :: ImportGenericMesh
@@ -136,6 +143,23 @@ module Mesh_3d__Partition
     end subroutine BuildFaces
 
     !---------------------------------------------------------------------------
+    !> Identification of primary element components
+    !>
+    !> Requires
+    !>   - mesh % element % face   % {n_neighbor, i_neighbor}
+    !>   - mesh % element % edge   % {n_neighbor, i_neighbor}
+    !>   - mesh % element % vertex % {n_neighbor, i_neighbor}
+    !>
+    !> Generates
+    !>   - mesh % element % face   % primary
+    !>   - mesh % element % edge   % primary
+    !>   - mesh % element % vertex % primary
+
+    module subroutine IdentifyPrimaries(mesh)
+      class(Mesh3d_Partition), intent(inout) :: mesh !< mesh partition
+    end subroutine IdentifyPrimaries
+
+    !---------------------------------------------------------------------------
     !> Generation of mesh links from global element neighbor information
     !>
     !> On entry, mesh elements must be complete and `mesh%element%neighbor%id`
@@ -155,6 +179,25 @@ module Mesh_3d__Partition
     module subroutine BuildLinks(mesh)
       class(Mesh3d_Partition), intent(inout) :: mesh !< local partition
     end subroutine BuildLinks
+
+    !---------------------------------------------------------------------------
+    !> Generation of ghost elements
+    !>
+    !> On entry, the mesh elements and mesh links must be complete. Using this
+    !> information, the ghosts are created in `mesh % ghost(1:n_ghost)` and
+    !> initialized as follows:
+    !>
+    !>   - `ghost % global_id` :
+    !>      is the global ID of the corresponding mesh element
+    !>
+    !>   - `ghost % local_id` :
+    !>      is the virtual element ID in the local mesh partition. It holds
+    !>      `ghost(i) % local_id = mesh % n_elem + i`
+    !>
+
+    module subroutine BuildGhosts(mesh)
+      class(Mesh3d_Partition), intent(inout) :: mesh !< local partition
+    end subroutine BuildGhosts
 
     !---------------------------------------------------------------------------
     !> Import a generic 3d mesh

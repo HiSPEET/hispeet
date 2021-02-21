@@ -8,17 +8,17 @@
         src/differential_operators
         - metrische Koeffizienten, Grad, Div
         src/util
-        - Generierung generischer zylindrischer Gitter
-        - Import generischer und Exodus-Gitter
         program/curved
         - Moving-Mesh
+        program/repart
         
       ~/Numerics/HiSPEET-legacy/HiSPEET-old/branches/js-first-flow
         - elliptische Löser?!
       
       ~/Numerics/HiSPEET-legacy/HiBASE/trunk/src/mesh/
-        - generic_volume_mesh.F
-        - generic_volume_mesh__import_exodus.f
+        - mesh/generic_surface_mesh.f
+        - bezier
+        - triangles
 
 ### Extension to SVV and IP-H
 

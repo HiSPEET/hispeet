@@ -26,8 +26,8 @@ module subroutine Apply_CI(this, u, v)
   ! local variables ............................................................
 
   ! trace operators
-  type(TraceTransferBuffer), allocatable, save ::  u_trace_buf
-  type(TraceTransferBuffer), allocatable, save :: qn_trace_buf
+  type(TraceTransferBuffer), asynchronous, allocatable, save ::  u_trace_buf
+  type(TraceTransferBuffer), asynchronous, allocatable, save :: qn_trace_buf
 
   ! trace variables
   real(RNP), allocatable, save :: tr_u (:,:,:,:)

@@ -44,7 +44,7 @@ module CART__Trace_Transfer_Buffer
   !>
   !>  Use with single thread (no OpenMP):
   !>
-  !>        type(TraceTransferBuffer) :: trace_buf
+  !>        type(TraceTransferBuffer), asynchronous :: trace_buf
   !>        ...
   !>        ! create and fill buffer, start transfer
   !>        trace_buf = TraceTransferBuffer(mesh, v)
@@ -61,21 +61,21 @@ module CART__Trace_Transfer_Buffer
   !>    *  it must be `allocatable` and (de)allocated explicitly to ensure
   !>       correct finalization and, thus, release of component storage
   !>
-  !>          type(TraceTransferBuffer), allocatable, save :: trace_buf
-  !>          ...
-  !>          !$omp master
-  !>          trace_buf = TraceTransferBuffer(mesh, v)
-  !>          !$omp master
-  !>          !$omp barrier
-  !>          ...
-  !>          call trace_buf % Transfer(mesh, v, tag)
-  !>          ...
-  !>          call trace_buf % Merge(mesh, v, alpha, beta)
-  !>          ...
-  !>          !$omp barrier !! skip in case of another omp barrier after Finish
-  !>          !$omp master
-  !>          deallocate(trace_buf)
-  !>          !$omp end master
+  !>         type(TraceTransferBuffer), asynchronous, allocatable, save :: trace_buf
+  !>         ...
+  !>         !$omp master
+  !>         trace_buf = TraceTransferBuffer(mesh, v)
+  !>         !$omp master
+  !>         !$omp barrier
+  !>         ...
+  !>         call trace_buf % Transfer(mesh, v, tag)
+  !>         ...
+  !>         call trace_buf % Merge(mesh, v, alpha, beta)
+  !>         ...
+  !>         !$omp barrier !! skip in case of another omp barrier after Merge
+  !>         !$omp master
+  !>         deallocate(trace_buf)
+  !>         !$omp end master
 
   type TraceTransferBuffer
 !    private
@@ -215,7 +215,7 @@ end subroutine Init_TransferBuffer
 !> Extract and transfer buffer -- eXplicit shape version
 
 subroutine Transfer_X(this, mesh, v, tag)
-  class(TraceTransferBuffer), intent(inout) :: this        !< buffer
+  class(TraceTransferBuffer), asynchronous, intent(inout) :: this !< buffer
   type(MeshPartition), intent(in) :: mesh                  !< mesh partition
   real(RNP), intent(in) :: v(this%np, 2, mesh%nf, this%nc) !< trace variable
   integer,   intent(in) :: tag                             !< message tag
@@ -338,10 +338,10 @@ end subroutine Transfer_X
 !> The variable must be dimensioned `v(n1,n2,2,mesh%nf)` with `n1*n2 = this%np`
 
 subroutine Transfer_S(this, mesh, v, tag)
-  class(TraceTransferBuffer), intent(inout) :: this       !< buffer
-  type(MeshPartition),        intent(in)    :: mesh       !< mesh partition
-  real(RNP),                  intent(in)    :: v(:,:,:,:) !< trace variable
-  integer,                    intent(in)    :: tag        !< message tag
+  class(TraceTransferBuffer), asynchronous, intent(inout) :: this !< buffer
+  type(MeshPartition), intent(in)  :: mesh       !< mesh partition
+  real(RNP),           intent(in)  :: v(:,:,:,:) !< trace variable
+  integer,             intent(in)  :: tag        !< message tag
 
   call Transfer_X(this, mesh, v, tag)
 
@@ -354,10 +354,10 @@ end subroutine Transfer_S
 !> with `n1*n2 = this%np`
 
 subroutine Transfer_A(this, mesh, v, tag)
-  class(TraceTransferBuffer), intent(inout) :: this         !< buffer
-  type(MeshPartition),        intent(in)    :: mesh         !< mesh partition
-  real(RNP),                  intent(in)    :: v(:,:,:,:,:) !< trace variable
-  integer,                    intent(in)    :: tag          !< message tag
+  class(TraceTransferBuffer), asynchronous, intent(inout) :: this         !< buffer
+  type(MeshPartition), intent(in) :: mesh         !< mesh partition
+  real(RNP),           intent(in) :: v(:,:,:,:,:) !< trace variable
+  integer,             intent(in) :: tag          !< message tag
 
   call Transfer_X(this, mesh, v, tag)
 
@@ -371,7 +371,7 @@ end subroutine Transfer_A
 !>    `v  =  alpha * v  +  beta * vb`
 
 subroutine Merge_X(this, mesh, v, alpha, beta)
-  class(TraceTransferBuffer), intent(inout) :: this           !< buffer
+  class(TraceTransferBuffer), intent(inout) :: this !< buffer
   type(MeshPartition), intent(in) :: mesh                     !< mesh partition
   real(RNP), intent(inout) :: v(this%np, 2, mesh%nf, this%nc) !< trace variable
   real(RNP), optional, intent(in) :: alpha                    !< coeff of v  [1]

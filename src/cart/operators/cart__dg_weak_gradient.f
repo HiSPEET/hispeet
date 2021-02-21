@@ -81,7 +81,7 @@ contains
     ! internal variables .......................................................
 
     ! shared with OpenMP
-    type(TraceOperator), allocatable, save :: trace_op
+    type(TraceOperator), asynchronous, allocatable, save :: trace_op
     real(RNP), allocatable, save :: tr_u(:,:,:,:)
 
     real(RNP), allocatable :: Dm(:,:)

@@ -1,6 +1,6 @@
 module Mesh_3d__Generate_Regular_Mesh
 
-  use Kind_Parameters  , only: IXS, RNP
+  use Kind_Parameters  , only: IXL, IXS, RNP
   use Execution_Control, only: Error
   use Gauss_Jacobi
   use XMPI
@@ -108,6 +108,8 @@ contains
     call GenerateRegularMeshBoundaries(mesh, periodic)
 
     call mesh % BuildLinks()
+    call mesh % IdentifyPrimaries()
+    call mesh % BuildGhosts()
 
   end subroutine GenerateRegularMesh
 
@@ -121,13 +123,13 @@ contains
     integer, intent(in) :: ep(3) !< num elements per partition and direction
     logical, intent(in) :: periodic(3) !< set true for periodic directions
 
-    integer :: ie, je, ke             ! local element indices
-    integer :: ip, jp, kp             ! partion triple index
-    integer :: i0, j0, k0             ! offsets WRT global numbering
-    integer :: ig, jg, kg, ng(3)      ! global elements indices and counts
-    integer :: ies, jes, kes          ! shifted element indices
-    integer :: ips, jps, kps          ! shifted partition indices
-    integer :: i, e, l, r, s, t
+    integer(IXL) :: ig, jg, kg, ng(3)  ! global elements indices and counts
+    integer      :: ie, je, ke         ! local element indices
+    integer      :: ip, jp, kp         ! partion triple index
+    integer      :: i0, j0, k0         ! offsets WRT global numbering
+    integer      :: ies, jes, kes      ! shifted element indices
+    integer      :: ips, jps, kps      ! shifted partition indices
+    integer      :: i, e, l, r, s, t
 
     type(Mesh3d_ElementNeighbor) :: neighbor(26)
 
@@ -156,15 +158,16 @@ contains
       do je = 1, n2
       do ie = 1, n1
 
-        e = LexicalElementIndex(ie, je, ke, n1, n2)
+        ! local and global element IDs .........................................
 
-        ! global element ID ....................................................
+        e = LexicalElementIndex(ie, je, ke, n1, n2)
 
         ig = i0 + ie
         jg = j0 + je
         kg = k0 + ke
 
         element(e) % global_id = LexicalElementIndex(ig,jg,kg,ng(1),ng(2))
+        element(e) % local_id  = e
 
         ! element vertices .....................................................
 

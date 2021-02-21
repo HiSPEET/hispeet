@@ -78,8 +78,8 @@ module subroutine SetProblem_VI(this, lambda, nu, bc)
 
   ! local variables ............................................................
 
-  type(TraceOperator), allocatable, save :: trace_op
-  real(RNP),           allocatable, save :: tr_nu(:,:,:,:)
+  type(TraceOperator), asynchronous, allocatable, save :: trace_op
+  real(RNP), allocatable, save :: tr_nu(:,:,:,:)
   integer :: i, j, k, po, np
 
   associate(mesh => this % mesh)

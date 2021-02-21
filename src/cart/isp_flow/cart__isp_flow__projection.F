@@ -243,7 +243,7 @@ subroutine DivergencePenalty(mesh, Ms, Ds, gamma, v, w)
 
   ! internal variables .........................................................
 
-  type(NormalTraceOperator), allocatable, save :: trace_op
+  type(NormalTraceOperator), asynchronous, allocatable, save :: trace_op
   real(RNP), allocatable, save :: tr_vn(:,:,:,:)
   real(RNP), allocatable, save :: div_v(:,:,:,:)
 

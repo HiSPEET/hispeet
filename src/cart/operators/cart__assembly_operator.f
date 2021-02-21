@@ -41,7 +41,7 @@ contains
 !>
 
 subroutine StartAssembly_S(this, mesh, v, tag)
-  class(AssemblyOperator),       intent(inout) :: this
+  class(AssemblyOperator), asynchronous, intent(inout) :: this
   type(MeshPartition),           intent(in)    :: mesh  !< mesh partition
   real(RNP), dimension(:,:,:,:), intent(in)    :: v     !< mesh variable
   integer,                       intent(in)    :: tag   !< message tag

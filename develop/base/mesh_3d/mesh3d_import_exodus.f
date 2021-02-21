@@ -5,6 +5,7 @@ program Mesh3d_Import_Exodus
   use Generic_Mesh_3d
   use Import_Exodus_3d
   use Mesh_3d__Partition
+  use Verify_Mesh_3d
   use Export_VTK_3d__Volume_Data
   implicit none
 
@@ -15,11 +16,14 @@ program Mesh3d_Import_Exodus
   real(RNP), allocatable :: x(:,:,:,:,:)
   real(RNP), allocatable :: s(:,:,:,:,:)
   integer :: po = 1, ne, ns = 1
+  logical :: passed
 
   call MPI_Init()
   call ImportExodus3d(exodus_file, generic_mesh)
   call generic_mesh % SwitchToLexicalNumbering()
   call mesh % ImportGenericMesh(generic_mesh, comm = MPI_COMM_WORLD)
+  call VerifyMesh3d(mesh, passed)
+  write(*,'(A,G0,/)') 'VerifyMesh3d: passed = ', passed
   call mesh % GetPoints(po, 'GLL', x)
   ne = mesh % n_elem
   allocate(s(0:po,0:po,0:po,ne,ns), source = ZERO)

@@ -5,7 +5,7 @@
 !===============================================================================
 
 module Mesh_3d__Element
-  use Kind_Parameters, only: IXS, RNP
+  use Kind_Parameters, only: IXL, IXS, RNP
   implicit none
   private
 
@@ -19,6 +19,7 @@ module Mesh_3d__Element
     integer      :: id         = -1 !< local mesh vertex ID
     integer(IXS) :: n_neighbor =  0 !< number of neighbor elements
     integer(IXS) :: i_neighbor =  0 !< first entry in `neighbor` list
+    integer(IXS) :: primary    =  0 !< 0/1 if not/ first reference to mesh vertex
   end type Mesh3d_ElementVertex
 
   !-----------------------------------------------------------------------------
@@ -37,6 +38,7 @@ module Mesh_3d__Element
     integer(IXS) :: orientation =  1 !< orientation against mesh edge
     integer(IXS) :: n_neighbor  =  0 !< number of neighbor elements
     integer(IXS) :: i_neighbor  =  0 !< first entry in `neighbor` list
+    integer(IXS) :: primary     =  0 !< 0/1 if not/ first reference to mesh edge
   end type Mesh3d_ElementEdge
 
   !-----------------------------------------------------------------------------
@@ -53,24 +55,33 @@ module Mesh_3d__Element
     integer(IXS) :: rotation   =  0 !< 1/4-rotation for aligning with mesh face
     integer(IXS) :: n_neighbor =  0 !< number of neighbor elements
     integer(IXS) :: i_neighbor =  0 !< first entry in `neighbor` list
+    integer(IXS) :: primary    =  0 !< 0/1 if not/ first reference to mesh face
   end type Mesh3d_ElementFace
 
   !-----------------------------------------------------------------------------
   !> Neighbor element properties
   !>
+  !> The neighbor element properties are usually accessed through the components
+  !> of a given element. Every component is coupled to a neighbor component of
+  !> identical type. Thus, if the component is a face, then `cc` refers to the
+  !> coupled element face of the neighbor, etc.
+  !> If `part` coincides with the present partition, then `id` refers to a local
+  !> element. Otherwise it corresponds to the ghost of a remote neighbor and can
+  !> be used to access corresponding data.
+  !>
   !> @note
-  !> Before creating the ghosts `id` refers to the neighbor's home partition.
+  !> Before creating mesh links, `id` refers to the neighbor's home partition.
 
   type Mesh3d_ElementNeighbor
     integer :: id   = -1 !< local ID of neighbor element, including ghosts
     integer :: part = -1 !< partition owning the neighbor
-    integer :: cc   = -1 !< coupled neighbor component (face, edge or vertex)
+    integer :: cc   = -1 !< coupled neighbor component
   end type Mesh3d_ElementNeighbor
 
   !-----------------------------------------------------------------------------
   !> 3D mesh element
   !>
-  !> Numbering
+  !> ### Numbering
   !>
   !>   - vertices:
   !>
@@ -113,10 +124,14 @@ module Mesh_3d__Element
   !>           5   |  1, 2, 3, 4  |  1,  2,  5,  6  |  zeta
   !>           6   |  5, 6, 7, 8  |  3,  4,  7,  8  |  zeta
   !>
+  !> ### Ghost element mode
+  !>
+  !>
 
   type Mesh3d_Element
 
-    integer :: global_id = 0  !< global element ID
+    integer(IXL) :: global_id = -1  !< global element ID
+    integer      :: local_id  = -1  !< local  element ID
 
     type(Mesh3d_ElementVertex)  :: vertex(8)  !< vertex data
     type(Mesh3d_ElementEdge)    :: edge(12)   !< edge data

@@ -38,9 +38,9 @@ contains
     ! internal variables .......................................................
 
     ! shared with OpenMP
-    type(TraceOperator), allocatable, save :: trace_op
-    real(RNP),           allocatable, save :: tr_u(:,:,:,:,:)
-    real(RNP),           allocatable, save :: fc(:,:,:,:,:)
+    type(TraceOperator), asynchronous, allocatable, save :: trace_op
+    real(RNP), allocatable, save :: tr_u(:,:,:,:,:)
+    real(RNP), allocatable, save :: fc(:,:,:,:,:)
 
     integer :: tag = 1000
     integer :: po, nc

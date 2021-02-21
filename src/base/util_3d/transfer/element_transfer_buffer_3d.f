@@ -8,8 +8,8 @@
 
 module Element_Transfer_Buffer_3d
 
-  use Kind_Parameters  , only: RNP
-  use Constants        , only: ZERO
+  use Kind_Parameters
+  use Constants        , only: ZERO, ONE
   use Execution_Control, only: Error
   use XMPI
   use Mesh_3d__Link
@@ -20,6 +20,9 @@ module Element_Transfer_Buffer_3d
 
   public :: ElementTransferBuffer3d
 
+  ! made public to circumvent an error with gfortran*9/10:
+  public :: Init_ElementTransferBuffer3d_Shared
+
   !-----------------------------------------------------------------------------
   !> Auxiliary structure for keeping linked element data and metadata
 
@@ -27,8 +30,7 @@ module Element_Transfer_Buffer_3d
     integer,           allocatable :: start(:)   !< message start addresses
     integer,           allocatable :: len(:)     !< message lengths
     integer,           allocatable :: node(:)    !< mesh point IDs
-    integer,           allocatable :: ibuf(:)    !< integer message buffer
-    real(RNP),         allocatable :: rbuf(:)    !< real message buffer
+    class(*),          allocatable :: buf(:)     !< message buffer
     type(MPI_Request), allocatable :: request(:) !< MPI requests
   end type ElementTransferData
 
@@ -47,7 +49,8 @@ module Element_Transfer_Buffer_3d
   !>    -  single variable of the shape `v(np(1),np(2),np(3),ne+ng)`
   !>    -  variable arrays of the shape `v(np(1),np(2),np(3),ne+ng,nc)`
   !>
-  !> where `v` is either of type `real(RNP)` or `integer` and
+  !> where `v` is either of type `real(RNP)`, `integer`, `integer(IXS)` or
+  !> `integer(IXL)` and
   !>
   !>    -  `np(1:3)` is the number of element or region points per direction
   !>    -  `ne` is the number of local elements, i.e. `mesh%ne`
@@ -60,7 +63,10 @@ module Element_Transfer_Buffer_3d
   !>
   !> Use with single thread (no OpenMP):
   !>
-  !>         type(ElementTransferBuffer3d) :: buf
+  !>    -  the `asynchronous` attribute is required for non-blocking MPI send
+  !>       and receive operations in `Transfer`
+  !>
+  !>         type(ElementTransferBuffer3d), asynchronous :: buf
   !>         ...
   !>         ! create and fill buffer, start transfer
   !>         buf = ElementTransferBuffer3d(mesh, v, nl)
@@ -70,7 +76,6 @@ module Element_Transfer_Buffer_3d
   !>         ...
   !>         ! merge received master data into ghosts and finish transfer
   !>         call buf % Merge(v, alpha, beta)
-  !>         call buf % Finish()
   !>
   !> Use with OpenMP:
   !>
@@ -78,21 +83,20 @@ module Element_Transfer_Buffer_3d
   !>    -  it must be `allocatable` and (de)allocated explicitly to ensure
   !>       correct finalization and, thus, release of component storage
   !>
-  !>         type(ElementTransferBuffer3d), allocatable, save :: buf
+  !>         type(ElementTransferBuffer3d), asynchronous, allocatable, save :: buf
   !>         ...
-  !>         !$omp single
+  !>         !$omp master
   !>         buf = ElementTransferBuffer3d(mesh, v, nl)
-  !>         !$omp end single
+  !>         !$omp end master
+  !>         !$omp barrier
   !>         ...
   !>         call buf % Transfer(mesh, v, tag)
   !>         ...
   !>         call buf % Merge(v, alpha, beta)
-  !>         call buf % Finish()
   !>         ...
-  !>         !$omp barrier
-  !>         !$omp single
+  !>         !$omp master
   !>         deallocate(buf)
-  !>         !$omp end single
+  !>         !$omp end master
 
   type ElementTransferBuffer3d
 
@@ -107,203 +111,297 @@ module Element_Transfer_Buffer_3d
 
   contains
 
-    ! public procedures ........................................................
+    generic, public :: Transfer => Transfer_IDK_S, Transfer_IDK_A, &
+                                   Transfer_IXS_S, Transfer_IXS_A, &
+                                   Transfer_IXL_S, Transfer_IXL_A, &
+                                   Transfer_RNP_S, Transfer_RNP_A
 
-    generic,   public  :: Init     => Init_IS, Init_IA, &
-                                      Init_RS, Init_RA
+    generic, public :: Merge    => Merge_IDK_S, Merge_IDK_A, &
+                                   Merge_IXS_S, Merge_IXS_A, &
+                                   Merge_IXL_S, Merge_IXL_A, &
+                                   Merge_RNP_S, Merge_RNP_A
 
-    generic,   public  :: Transfer => Transfer_IS, Transfer_IA, &
-                                      Transfer_RS, Transfer_RA
+    procedure, private :: Transfer_IDK_S, Transfer_IDK_A
+    procedure, private :: Transfer_IXS_S, Transfer_IXS_A
+    procedure, private :: Transfer_IXL_S, Transfer_IXL_A
+    procedure, private :: Transfer_RNP_S, Transfer_RNP_A
 
-    generic,   public  :: Merge    => Merge_IS, Merge_IA, &
-                                      Merge_RS, Merge_RA
-    procedure, public  :: Finish
-
-    ! private procedures .......................................................
-
-    procedure, private :: Init_IS, Init_IA
-    procedure, private :: Init_RS, Init_RA
-
-    procedure, private :: Transfer_IS, Transfer_IA
-    procedure, private :: Transfer_RS, Transfer_RA
-
-    procedure, private :: Merge_IS, Merge_IA
-    procedure, private :: Merge_RS, Merge_RA
+    procedure, private :: Merge_IDK_S, Merge_IDK_A
+    procedure, private :: Merge_IXS_S, Merge_IXS_A
+    procedure, private :: Merge_IXL_S, Merge_IXL_A
+    procedure, private :: Merge_RNP_S, Merge_RNP_A
 
   end type ElementTransferBuffer3d
 
-  !-----------------------------------------------------------------------------
+  !=============================================================================
   ! Constructor
 
   interface ElementTransferBuffer3d
-    module procedure New_TransferBuffer_IS
-    module procedure New_TransferBuffer_IA
-    module procedure New_TransferBuffer_RS
-    module procedure New_TransferBuffer_RA
+
+    !---------------------------------------------------------------------------
+    !> New element transfer buffer for a single integer variable
+
+    module function New_TransferBuffer_IDK_S(mesh, v, nl) result(this)
+      type(ElementTransferBuffer3d) :: this
+      type(Mesh3d_Partition),      intent(in) :: mesh  !< mesh partition
+      integer, dimension(:,:,:,:), intent(in) :: v     !< mesh variable
+      integer,           optional, intent(in) :: nl(3) !< number of layers
+    end function New_TransferBuffer_IDK_S
+
+    !---------------------------------------------------------------------------
+    !> New element transfer buffer for an array of integer variables
+
+    module function New_TransferBuffer_IDK_A(mesh, v, nl) result(this)
+      type(ElementTransferBuffer3d) :: this
+      type(Mesh3d_Partition),        intent(in) :: mesh  !< mesh partition
+      integer, dimension(:,:,:,:,:), intent(in) :: v     !< mesh variables
+      integer,             optional, intent(in) :: nl(3) !< number of layers
+    end function New_TransferBuffer_IDK_A
+
+    !---------------------------------------------------------------------------
+    !> New element transfer buffer for a single integer(IXS) variable
+
+    module function New_TransferBuffer_IXS_S(mesh, v, nl) result(this)
+      type(ElementTransferBuffer3d) :: this
+      type(Mesh3d_Partition),           intent(in) :: mesh  !< mesh partition
+      integer(IXS), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
+      integer,                optional, intent(in) :: nl(3) !< number of layers
+    end function New_TransferBuffer_IXS_S
+
+    !---------------------------------------------------------------------------
+    !> New element transfer buffer for an array of integer(IXS) variables
+
+    module function New_TransferBuffer_IXS_A(mesh, v, nl) result(this)
+      type(ElementTransferBuffer3d) :: this
+      type(Mesh3d_Partition),             intent(in) :: mesh  !< mesh partition
+      integer(IXS), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variables
+      integer,                  optional, intent(in) :: nl(3) !< number of layers
+    end function New_TransferBuffer_IXS_A
+
+    !---------------------------------------------------------------------------
+    !> New element transfer buffer for a single integer(IXL) variable
+
+    module function New_TransferBuffer_IXL_S(mesh, v, nl) result(this)
+      type(ElementTransferBuffer3d) :: this
+      type(Mesh3d_Partition),           intent(in) :: mesh  !< mesh partition
+      integer(IXL), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
+      integer,                optional, intent(in) :: nl(3) !< number of layers
+    end function New_TransferBuffer_IXL_S
+
+    !---------------------------------------------------------------------------
+    !> New element transfer buffer for an array of integer(IXL) variables
+
+    module function New_TransferBuffer_IXL_A(mesh, v, nl) result(this)
+      type(ElementTransferBuffer3d) :: this
+      type(Mesh3d_Partition),             intent(in) :: mesh  !< mesh partition
+      integer(IXL), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variables
+      integer,                  optional, intent(in) :: nl(3) !< number of layers
+    end function New_TransferBuffer_IXL_A
+
+    !---------------------------------------------------------------------------
+    !> New element transfer buffer for a single real variable
+
+    module function New_TransferBuffer_RNP_S(mesh, v, nl) result(this)
+      type(ElementTransferBuffer3d) :: this
+      type(Mesh3d_Partition),        intent(in) :: mesh  !< mesh partition
+      real(RNP), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
+      integer,             optional, intent(in) :: nl(3) !< number of layers
+    end function New_TransferBuffer_RNP_S
+
+    !---------------------------------------------------------------------------
+    !> New element transfer buffer for an array of real variables
+
+    module function New_TransferBuffer_RNP_A(mesh, v, nl) result(this)
+      type(ElementTransferBuffer3d) :: this
+      type(Mesh3d_Partition),          intent(in) :: mesh  !< mesh partition
+      real(RNP), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variables
+      integer,               optional, intent(in) :: nl(3) !< number of layers
+    end function New_TransferBuffer_RNP_A
+
   end interface
 
+  !=============================================================================
+  ! Transfer procedures
+
+  interface
+
+    !--------------------------------------------------------------------------
+    !> Send master data to ghosts and receive ghost data -- integer scalar
+
+    module subroutine Transfer_IDK_S(this, mesh, v, tag)
+      class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
+      type(Mesh3d_Partition),      intent(in) :: mesh  !< mesh partition
+      integer, dimension(:,:,:,:), intent(in) :: v     !< mesh variable
+      integer,                     intent(in) :: tag   !< message tag
+    end subroutine Transfer_IDK_S
+
+    !---------------------------------------------------------------------------
+    !> Send master data to ghosts and receive ghost data -- integer array
+
+    module subroutine Transfer_IDK_A(this, mesh, v, tag)
+      class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
+      type(Mesh3d_Partition),        intent(in) :: mesh  !< mesh partition
+      integer, dimension(:,:,:,:,:), intent(in) :: v     !< mesh variable
+      integer,                       intent(in) :: tag   !< message tag
+    end subroutine Transfer_IDK_A
+
+    !--------------------------------------------------------------------------
+    !> Send master data to ghosts and receive ghost data -- integer(IXS) scalar
+
+    module subroutine Transfer_IXS_S(this, mesh, v, tag)
+      class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
+      type(Mesh3d_Partition),           intent(in) :: mesh  !< mesh partition
+      integer(IXS), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
+      integer,                          intent(in) :: tag   !< message tag
+    end subroutine Transfer_IXS_S
+
+    !---------------------------------------------------------------------------
+    !> Send master data to ghosts and receive ghost data -- integer(IXS) array
+
+    module subroutine Transfer_IXS_A(this, mesh, v, tag)
+      class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
+      type(Mesh3d_Partition),             intent(in) :: mesh  !< mesh partition
+      integer(IXS), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variable
+      integer,                            intent(in) :: tag   !< message tag
+    end subroutine Transfer_IXS_A
+
+    !--------------------------------------------------------------------------
+    !> Send master data to ghosts and receive ghost data -- integer(IXL) scalar
+
+    module subroutine Transfer_IXL_S(this, mesh, v, tag)
+      class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
+      type(Mesh3d_Partition),           intent(in) :: mesh  !< mesh partition
+      integer(IXL), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
+      integer,                          intent(in) :: tag   !< message tag
+    end subroutine Transfer_IXL_S
+
+    !---------------------------------------------------------------------------
+    !> Send master data to ghosts and receive ghost data -- integer(IXL) array
+
+    module subroutine Transfer_IXL_A(this, mesh, v, tag)
+      class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
+      type(Mesh3d_Partition),             intent(in) :: mesh  !< mesh partition
+      integer(IXL), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variable
+      integer,                            intent(in) :: tag   !< message tag
+    end subroutine Transfer_IXL_A
+
+    !--------------------------------------------------------------------------
+    !> Send master data to ghosts and receive ghost data -- real scalar
+
+    module subroutine Transfer_RNP_S(this, mesh, v, tag)
+      class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
+      type(Mesh3d_Partition),        intent(in) :: mesh  !< mesh partition
+      real(RNP), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
+      integer,                       intent(in) :: tag   !< message tag
+    end subroutine Transfer_RNP_S
+
+    !---------------------------------------------------------------------------
+    !> Send master data to ghosts and receive ghost data -- real array
+
+    module subroutine Transfer_RNP_A(this, mesh, v, tag)
+      class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
+      type(Mesh3d_Partition),          intent(in) :: mesh  !< mesh partition
+      real(RNP), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variable
+      integer,                         intent(in) :: tag   !< message tag
+    end subroutine Transfer_RNP_A
+
+  end interface
+
+  !=============================================================================
+  ! Merge procedures
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Complete receive and merge buffer into ghost data -- integer scalar
+
+    module subroutine Merge_IDK_S(this, v, alpha, beta)
+      class(ElementTransferBuffer3d), intent(inout) :: this
+      integer, dimension(:,:,:,:), intent(inout) :: v     !< mesh variable
+      integer,           optional, intent(in)    :: alpha !< coeff of v  [0]
+      integer,           optional, intent(in)    :: beta  !< coeff of vb [1]
+    end subroutine Merge_IDK_S
+
+    !---------------------------------------------------------------------------
+    !> Complete receive and merge buffer into ghost data -- integer array
+
+    module subroutine Merge_IDK_A(this, v, alpha, beta)
+      class(ElementTransferBuffer3d), intent(inout) :: this
+      integer, dimension(:,:,:,:,:), intent(inout) :: v     !< mesh variable
+      integer,             optional, intent(in)    :: alpha !< coeff of v  [0]
+      integer,             optional, intent(in)    :: beta  !< coeff of vb [1]
+    end subroutine Merge_IDK_A
+
+    !---------------------------------------------------------------------------
+    !> Complete receive and merge buffer into ghost data -- integer(IXS) scalar
+
+    module subroutine Merge_IXS_S(this, v, alpha, beta)
+      class(ElementTransferBuffer3d), intent(inout) :: this
+      integer(IXS), dimension(:,:,:,:), intent(inout) :: v     !< mesh variable
+      integer,                optional, intent(in)    :: alpha !< coeff of v  [0]
+      integer,                optional, intent(in)    :: beta  !< coeff of vb [1]
+    end subroutine Merge_IXS_S
+
+    !---------------------------------------------------------------------------
+    !> Complete receive and merge buffer into ghost data -- integer(IXS) array
+
+    module subroutine Merge_IXS_A(this, v, alpha, beta)
+      class(ElementTransferBuffer3d), intent(inout) :: this
+      integer(IXS), dimension(:,:,:,:,:), intent(inout) :: v     !< mesh variable
+      integer,                  optional, intent(in)    :: alpha !< coeff of v  [0]
+      integer,                  optional, intent(in)    :: beta  !< coeff of vb [1]
+    end subroutine Merge_IXS_A
+
+    !---------------------------------------------------------------------------
+    !> Complete receive and merge buffer into ghost data -- integer(IXL) scalar
+
+    module subroutine Merge_IXL_S(this, v, alpha, beta)
+      class(ElementTransferBuffer3d), intent(inout) :: this
+      integer(IXL), dimension(:,:,:,:), intent(inout) :: v     !< mesh variable
+      integer,                optional, intent(in)    :: alpha !< coeff of v  [0]
+      integer,                optional, intent(in)    :: beta  !< coeff of vb [1]
+    end subroutine Merge_IXL_S
+
+    !---------------------------------------------------------------------------
+    !> Complete receive and merge buffer into ghost data -- integer(IXL) array
+
+    module subroutine Merge_IXL_A(this, v, alpha, beta)
+      class(ElementTransferBuffer3d), intent(inout) :: this
+      integer(IXL), dimension(:,:,:,:,:), intent(inout) :: v     !< mesh variable
+      integer,                  optional, intent(in)    :: alpha !< coeff of v  [0]
+      integer,                  optional, intent(in)    :: beta  !< coeff of vb [1]
+    end subroutine Merge_IXL_A
+
+    !---------------------------------------------------------------------------
+    !> Complete receive and merge buffer into ghost data -- real scalar
+
+    module subroutine Merge_RNP_S(this, v, alpha, beta)
+      class(ElementTransferBuffer3d), intent(inout) :: this
+      real(RNP),  dimension(:,:,:,:), intent(inout) :: v     !< mesh variable
+      real(RNP),            optional, intent(in)    :: alpha !< coeff of v  [0]
+      real(RNP),            optional, intent(in)    :: beta  !< coeff of vb [1]
+    end subroutine Merge_RNP_S
+
+    !---------------------------------------------------------------------------
+    !> Complete receive and merge buffer into ghost data -- real array
+
+    module subroutine Merge_RNP_A(this, v, alpha, beta)
+      class(ElementTransferBuffer3d) , intent(inout) :: this
+      real(RNP), dimension(:,:,:,:,:), intent(inout) :: v     !< mesh variable
+      real(RNP),             optional, intent(in)    :: alpha !< coeff of v  [0]
+      real(RNP),             optional, intent(in)    :: beta  !< coeff of vb [1]
+    end subroutine Merge_RNP_A
+
+  end interface
+
+  !=============================================================================
+
 contains
-
-  !=============================================================================
-  ! ElementTransferBuffer3d: constructor functions
-
-  !-----------------------------------------------------------------------------
-  !> New element transfer buffer for a single integer variable
-
-  function New_TransferBuffer_IS(mesh, v, nl) result(this)
-    type(Mesh3d_Partition),      intent(in) :: mesh  !< mesh partition
-    integer, dimension(:,:,:,:), intent(in) :: v     !< mesh variable
-    integer,           optional, intent(in) :: nl(3) !< number of layers
-    type(ElementTransferBuffer3d) :: this
-
-    call Init_IS(this, mesh, v, nl)
-
-  end function New_TransferBuffer_IS
-
-  !-----------------------------------------------------------------------------
-  !> New element transfer buffer for an array of integer variables
-
-  function New_TransferBuffer_IA(mesh, v, nl) result(this)
-    type(Mesh3d_Partition),        intent(in) :: mesh  !< mesh partition
-    integer, dimension(:,:,:,:,:), intent(in) :: v     !< mesh variables
-    integer,             optional, intent(in) :: nl(3) !< number of layers
-    type(ElementTransferBuffer3d) :: this
-
-    call Init_IA(this, mesh, v, nl)
-
-  end function New_TransferBuffer_IA
-
-  !-----------------------------------------------------------------------------
-  !> New element transfer buffer for a single real variable
-
-  function New_TransferBuffer_RS(mesh, v, nl) result(this)
-    type(Mesh3d_Partition),        intent(in) :: mesh  !< mesh partition
-    real(RNP), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
-    integer,             optional, intent(in) :: nl(3) !< number of layers
-    type(ElementTransferBuffer3d) :: this
-
-    call Init_RS(this, mesh, v, nl)
-
-  end function New_TransferBuffer_RS
-
-  !-----------------------------------------------------------------------------
-  !> New element transfer buffer for an array of real variables
-
-  function New_TransferBuffer_RA(mesh, v, nl) result(this)
-    type(Mesh3d_Partition),          intent(in) :: mesh  !< mesh partition
-    real(RNP), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variables
-    integer,               optional, intent(in) :: nl(3) !< number of layers
-    type(ElementTransferBuffer3d) :: this
-
-    call Init_RA(this, mesh, v, nl)
-
-  end function New_TransferBuffer_RA
-
-  !=============================================================================
-  ! ElementTransferBuffer3d: initialization procedures
-
-  !-----------------------------------------------------------------------------
-  !> Create a new element transfer buffer for a single integer variable
-
-  subroutine Init_IS(this, mesh, v, nl)
-    class(ElementTransferBuffer3d), intent(inout) :: this  !< buffer
-    type(Mesh3d_Partition),         intent(in)    :: mesh  !< mesh partition
-    integer,    dimension(:,:,:,:), intent(in)    :: v     !< mesh variable
-    integer,              optional, intent(in)    :: nl(3) !< number of layers
-
-    integer :: np(3)
-
-    np(1) = size(v,1)
-    np(2) = size(v,2)
-    np(3) = size(v,3)
-
-    call Init_X(this, mesh, np, nl)
-
-    this % nc = 1
-
-    allocate(this % master % ibuf( size(this % master % node) ))
-    allocate(this % ghost  % ibuf( size(this % ghost  % node) ))
-
-  end subroutine Init_IS
-
-  !-----------------------------------------------------------------------------
-  !> Create a new element transfer buffer for an array of integer variables
-
-  subroutine Init_IA(this, mesh, v, nl)
-    class(ElementTransferBuffer3d),  intent(inout) :: this  !< buffer
-    type(Mesh3d_Partition),          intent(in)    :: mesh  !< mesh partition
-    integer,   dimension(:,:,:,:,:), intent(in)    :: v     !< mesh variables
-    integer,               optional, intent(in)    :: nl(3) !< number of layers
-
-    integer :: np(3), nc
-
-    np(1) = size(v,1)
-    np(2) = size(v,2)
-    np(3) = size(v,3)
-    nc    = size(v,5)
-
-    call Init_X(this, mesh, np, nl)
-
-    this % nc = nc
-
-    allocate(this % master % ibuf( size(this % master % node) * nc ))
-    allocate(this % ghost  % ibuf( size(this % ghost  % node) * nc ))
-
-  end subroutine Init_IA
-
-  !-----------------------------------------------------------------------------
-  !> Create a new element transfer buffer for a single real variable
-
-  subroutine Init_RS(this, mesh, v, nl)
-    class(ElementTransferBuffer3d), intent(inout) :: this  !< buffer
-    type(Mesh3d_Partition),         intent(in)    :: mesh  !< mesh partition
-    real(RNP),  dimension(:,:,:,:), intent(in)    :: v     !< mesh variable
-    integer,              optional, intent(in)    :: nl(3) !< number of layers
-
-    integer :: np(3)
-
-    np(1) = size(v,1)
-    np(2) = size(v,2)
-    np(3) = size(v,3)
-
-    call Init_X(this, mesh, np, nl)
-
-    this % nc = 1
-
-    allocate(this % master % rbuf( size(this % master % node) ))
-    allocate(this % ghost  % rbuf( size(this % ghost  % node) ))
-
-  end subroutine Init_RS
-
-  !-----------------------------------------------------------------------------
-  !> Create a new element transfer buffer for an array of real variables
-
-  subroutine Init_RA(this, mesh, v, nl)
-    class(ElementTransferBuffer3d),  intent(inout) :: this  !< buffer
-    type(Mesh3d_Partition),          intent(in)    :: mesh  !< mesh partition
-    real(RNP), dimension(:,:,:,:,:), intent(in)    :: v     !< mesh variables
-    integer,               optional, intent(in)    :: nl(3) !< number of layers
-
-    integer :: np(3), nc
-
-    np(1) = size(v,1)
-    np(2) = size(v,2)
-    np(3) = size(v,3)
-    nc    = size(v,5)
-
-    call Init_X(this, mesh, np, nl)
-
-    this % nc = nc
-
-    allocate(this % master % rbuf( size(this % master % node) * nc ))
-    allocate(this % ghost  % rbuf( size(this % ghost  % node) * nc ))
-
-  end subroutine Init_RA
 
   !-----------------------------------------------------------------------------
   !> Common initialization of element transfer buffers
 
-  subroutine Init_X(this, mesh, np, nl)
+  subroutine Init_ElementTransferBuffer3d_Shared(this, mesh, np, nl)
     class(ElementTransferBuffer3d), intent(inout) :: this !< buffer
     type(Mesh3d_Partition), intent(in) :: mesh  !< mesh partition
     integer,                intent(in) :: np(3) !< points per direction
@@ -379,8 +477,7 @@ contains
       end do
 
       allocate( this % master % node(n), source = node(1:n) )
-      allocate( this % master % request(size(mesh%link)), &
-                source = MPI_REQUEST_NULL )
+      allocate( this % master % request(size(mesh%link))    )
 
     end associate
 
@@ -425,13 +522,11 @@ contains
       end do
 
       allocate( this % ghost % node(n), source = node(1:n) )
-
-      allocate( this % ghost % request(size(mesh%link)), &
-                source = MPI_REQUEST_NULL )
+      allocate( this % ghost % request(size(mesh%link)) )
 
     end associate
 
-  end subroutine Init_X
+  end subroutine Init_ElementTransferBuffer3d_Shared
 
   !-------------------------------------------------------------------------------
   !> Generates a mask of points subjected to transfer operations
@@ -491,600 +586,6 @@ contains
     if (link % vertex( 8) > 0) mask(r1:  , r2:  , r3:  ) = .true.
 
   end subroutine GeneratePointMask
-
-  !=============================================================================
-  ! ElementTransferBuffer3d: transfer procedures
-
-  !----------------------------------------------------------------------------
-  !> Send master data to ghosts and receive own ghost data -- integer scalar
-
-  subroutine Transfer_IS(this, mesh, v, tag)
-    class(ElementTransferBuffer3d), intent(inout) :: this  !< buffer
-    type(Mesh3d_Partition),         intent(in)    :: mesh  !< mesh partition
-    integer, dimension(:,:,:,:),    intent(in)    :: v     !< mesh variable
-    integer,                        intent(in)    :: tag   !< message tag
-
-    call Transfer_IX(this, mesh, size(v,4), v, tag)
-
-  end subroutine Transfer_IS
-
-  !-----------------------------------------------------------------------------
-  !> Send master data to ghosts and receive own ghost data -- integer array
-
-  subroutine Transfer_IA(this, mesh, v, tag)
-    class(ElementTransferBuffer3d), intent(inout) :: this  !< buffer
-    type(Mesh3d_Partition),         intent(in)    :: mesh  !< mesh partition
-    integer, dimension(:,:,:,:,:),  intent(in)    :: v     !< mesh variable
-    integer,                        intent(in)    :: tag   !< message tag
-
-    call Transfer_IX(this, mesh, size(v,4), v, tag)
-
-  end subroutine Transfer_IA
-
-  !-----------------------------------------------------------------------------
-  !> Send master data to ghosts and receive own ghost data -- integer eXplicit
-
-  subroutine Transfer_IX(this, mesh, ne_t, v, tag)
-
-    ! arguments ................................................................
-
-    class(ElementTransferBuffer3d), intent(inout) :: this  !< buffer
-    type(Mesh3d_Partition),         intent(in)    :: mesh  !< mesh partition
-    integer,                        intent(in)    :: ne_t  !< total num elements
-    integer,                        intent(in)    :: v     !< mesh variable
-    integer,                        intent(in)    :: tag   !< message tag
-
-    dimension :: v(this%np(1), this%np(2), this%np(3), ne_t, this%nc)
-
-    ! internal data ..............................................................
-
-    integer :: dest, source
-    integer :: i, l, m
-
-    ! sanity check ..............................................................
-
-    !$omp master
-    if (ne_t < this%ne) then
-      call Error('Transfer_IX','size(v,4) < this%ne','Element_Transfer_Buffer_3d')
-    end if
-    !$omp end master
-
-    associate(master => this%master, ghost => this%ghost, comm => mesh%comm)
-
-      ! copy master data into buffer ............................................
-
-      call CopyToBuffer( nn   = size(master%node)  &
-                       , nm   = size(v) / this%nc  &
-                       , nc   = this%nc            &
-                       , node = master%node        &
-                       , v    = v                  &
-                       , vb   = master%ibuf        )
-
-      ! send master data ......................................................
-
-      !$omp master
-      associate(buf => master%ibuf, request => master%request)
-        do i = 1, size(mesh%link)
-          dest = mesh % link(i) % part
-          m = master % start(i)
-          l = master % len(i)
-          if (l < 1) cycle
-          call MPI_Isend(buf(m:), l, MPI_INTEGER, dest, tag, comm, request(i))
-        end do
-      end associate
-      !$omp end master
-
-      ! receive master data ....................................................
-
-      !$omp master
-      associate(buf => ghost%ibuf, request => ghost%request)
-        do i = 1, size(mesh%link)
-          source = mesh % link(i) % part
-          m = ghost % start(i)
-          l = ghost % len(i)
-          if (l < 1) cycle
-          call MPI_Irecv(buf(m:), l, MPI_INTEGER, source, tag, comm, request(i))
-        end do
-      end associate
-      !$omp end master
-
-    end associate
-
-  contains
-
-    subroutine CopyToBuffer(nn, nm, nc, node, v, vb)
-      integer, intent(in)  :: nn
-      integer, intent(in)  :: nm
-      integer, intent(in)  :: nc
-      integer, intent(in)  :: node(nn)
-      integer, intent(in)  :: v(nm,nc)
-      integer, intent(out) :: vb(nn,nc)
-
-      integer :: i, j
-
-      !$omp do collapse(2)
-      do j = 1, nc
-      do i = 1, nn
-        vb(i,j) = v(node(i), j)
-      end do
-      end do
-
-    end subroutine CopyToBuffer
-
-  end subroutine Transfer_IX
-
-  !----------------------------------------------------------------------------
-  !> Send master data to ghosts and receive own ghost data -- real scalar
-
-  subroutine Transfer_RS(this, mesh, v, tag)
-    class(ElementTransferBuffer3d), intent(inout) :: this  !< buffer
-    type(Mesh3d_Partition),         intent(in)    :: mesh  !< mesh partition
-    real(RNP), dimension(:,:,:,:),  intent(in)    :: v     !< mesh variable
-    integer,                        intent(in)    :: tag   !< message tag
-
-    call Transfer_RX(this, mesh, size(v,4), v, tag)
-
-  end subroutine Transfer_RS
-
-  !-----------------------------------------------------------------------------
-  !> Send master data to ghosts and receive own ghost data -- real array
-
-  subroutine Transfer_RA(this, mesh, v, tag)
-    class(ElementTransferBuffer3d),  intent(inout) :: this  !< buffer
-    type(Mesh3d_Partition),          intent(in)    :: mesh  !< mesh partition
-    real(RNP), dimension(:,:,:,:,:), intent(in)    :: v     !< mesh variable
-    integer,                         intent(in)    :: tag   !< message tag
-
-    call Transfer_RX(this, mesh, size(v,4), v, tag)
-
-  end subroutine Transfer_RA
-
-  !-----------------------------------------------------------------------------
-  !> Send master data to ghosts and receive own ghost data -- real eXplicit
-
-  subroutine Transfer_RX(this, mesh, ne_t, v, tag)
-
-    ! arguments ................................................................
-
-    class(ElementTransferBuffer3d), intent(inout) :: this  !< buffer
-    type(Mesh3d_Partition),         intent(in)    :: mesh  !< mesh partition
-    integer,                        intent(in)    :: ne_t  !< total num elements
-    real(RNP),                      intent(in)    :: v     !< mesh variable
-    integer,                        intent(in)    :: tag   !< message tag
-
-    dimension :: v(this%np(1), this%np(2), this%np(3), ne_t, this%nc)
-
-    ! internal data ..............................................................
-
-    integer :: dest, source
-    integer :: i, l, m
-
-    ! sanity check ..............................................................
-
-    !$omp master
-    if (ne_t < this%ne) then
-      call Error('Transfer_RX','size(v,4) < this%ne','Element_Transfer_Buffer_3d')
-    end if
-    !$omp end master
-
-    associate(master => this%master, ghost => this%ghost, comm => mesh%comm)
-
-      ! copy master data into buffer ............................................
-
-      call CopyToBuffer( nn   = size(master%node)  &
-                       , nm   = size(v) / this%nc  &
-                       , nc   = this%nc            &
-                       , node = master%node        &
-                       , v    = v                  &
-                       , vb   = master%rbuf        )
-
-      ! send master data ......................................................
-
-      !$omp master
-      associate(buf => master%rbuf, request => master%request)
-        do i = 1, size(mesh%link)
-          dest = mesh % link(i) % part
-          m = master % start(i)
-          l = master % len(i)
-          if (l < 1) cycle
-          call MPI_Isend(buf(m:), l, MPI_REAL_RNP, dest, tag, comm, request(i))
-        end do
-      end associate
-      !$omp end master
-
-      ! receive master data ....................................................
-
-      !$omp master
-      associate(buf => ghost%rbuf, request => ghost%request)
-        do i = 1, size(mesh%link)
-          source = mesh % link(i) % part
-          m = ghost % start(i)
-          l = ghost % len(i)
-          if (l < 1) cycle
-          call MPI_Irecv(buf(m:), l, MPI_REAL_RNP, source, tag, comm, request(i))
-        end do
-      end associate
-      !$omp end master
-
-    end associate
-
-  contains
-
-    subroutine CopyToBuffer(nn, nm, nc, node, v, vb)
-      integer,   intent(in)  :: nn
-      integer,   intent(in)  :: nm
-      integer,   intent(in)  :: nc
-      integer,   intent(in)  :: node(nn)
-      real(RNP), intent(in)  :: v(nm,nc)
-      real(RNP), intent(out) :: vb(nn,nc)
-
-      integer :: i, j
-
-      !$omp do collapse(2)
-      do j = 1, nc
-      do i = 1, nn
-        vb(i,j) = v(node(i), j)
-      end do
-      end do
-
-    end subroutine CopyToBuffer
-
-  end subroutine Transfer_RX
-
-  !=============================================================================
-  ! ElementTransferBuffer3d: merge procedures
-
-  !-----------------------------------------------------------------------------
-  !> Complete receive merge buffer into ghost data -- integer scalar
-  !>
-  !> Denoting the buffer with `vb`, the following operation will be executed:
-  !>
-  !>     v  =  alpha * v  +  beta * vb
-  !>
-  !> As this operation affects the ghost elements, the mesh variable must
-  !> be dimensioned as `v(np(1), np(2), np(3), ne+ng)`, where
-  !>
-  !>    *  `np` is the number of points per direction, as in this%np
-  !>    *  `ne` is the number of master elements
-  !>    *  `ng` is the number of ghost elements
-
-  subroutine Merge_IS(this, v, alpha, beta)
-    class(ElementTransferBuffer3d), intent(inout) :: this   !< buffer
-    integer,    dimension(:,:,:,:), intent(inout) :: v      !< mesh variable
-    integer,              optional, intent(in)    :: alpha  !< coeff of v  [1]
-    integer,              optional, intent(in)    :: beta   !< coeff of vb [1]
-
-    !$omp master
-    if (size(v,4) /= this%ne + this%ng) then
-      call Error( 'Merge_IS'                       &
-                , 'size(v,4) /= this%ne + this%ng' &
-                , 'Element_Transfer_Buffe_3dr'     )
-    end if
-    !$omp end master
-
-    call Merge_IX(this, v, alpha, beta)
-
-  end subroutine Merge_IS
-
-  !-----------------------------------------------------------------------------
-  !> Complete receive and merge buffer into ghost data -- integer array
-  !>
-  !> Denoting the buffer with `vb`, the following operation will be executed:
-  !>
-  !>      v  =  alpha * v  +  beta * vb
-  !>
-  !> As this operation affects the ghost elements, the mesh variable must
-  !> be dimensioned as `v(np(1), np(2), np(3), ne+ng, nc)`, where
-  !>
-  !>    *  `np` is the number of points per direction, as in `this%np`
-  !>    *  `ne` is the number of master elements
-  !>    *  `ng` is the number of ghost elements
-  !>    *  `nc` is the number of components, as in `this%nc`
-
-  subroutine Merge_IA(this, v, alpha, beta)
-    class(ElementTransferBuffer3d),  intent(inout) :: this   !< buffer
-    integer,   dimension(:,:,:,:,:), intent(inout) :: v      !< mesh variable
-    integer,               optional, intent(in)    :: alpha  !< coeff of v  [1]
-    integer,               optional, intent(in)    :: beta   !< coeff of vb [1]
-
-    !$omp master
-    if (size(v,4) /= this%ne + this%ng) then
-      call Error( 'Merge_IA'                       &
-                , 'size(v,4) /= this%ne + this%ng' &
-                , 'Element_Transfer_Buffer_3d'     )
-    end if
-    !$omp end master
-
-    call Merge_IX(this, v, alpha, beta)
-
-  end subroutine Merge_IA
-
-  !-----------------------------------------------------------------------------
-  !> Complete receive and merge buffer into ghost data -- integer eXplicit
-  !>
-  !> Denoting the buffer with `vb`, the following operation will be executed:
-  !>
-  !>       v  =  alpha * v  +  beta * vb
-
-  subroutine Merge_IX(this, v, alpha, beta)
-
-    ! arguments ................................................................
-
-    class(ElementTransferBuffer3d), intent(inout) :: this   !< buffer
-    integer,                        intent(inout) :: v      !< mesh variable
-    integer,              optional, intent(in)    :: alpha  !< coeff of v  [1]
-    integer,              optional, intent(in)    :: beta   !< coeff of vb [1]
-
-    dimension :: v(this%np(1), this%np(2), this%np(3), this%ne+this%ng, this%nc)
-
-    ! internal data ............................................................
-
-    type(MPI_Status), allocatable :: status(:)
-
-    integer :: a, b
-    integer :: n
-
-    ! initialization ...........................................................
-
-    if (size(this % ghost % ibuf) == 0) return
-
-    if (present(alpha)) then
-      a = alpha
-    else
-      a = 1
-    end if
-
-    if (present(beta)) then
-      b = beta
-    else
-      b = 1
-    end if
-
-    ! wait for receive to complete .............................................
-
-    !$omp master
-    n = size(this % ghost % request)
-    allocate(status(n))
-    call MPI_Waitall(n, this%ghost%request, status)
-    !$omp end master
-    !$omp barrier
-
-    ! merge buffer .............................................................
-
-    call MergeBuffer( nn   = size(this%ghost%node)  &
-                    , nm   = size(v) / this % nc    &
-                    , nc   = this % nc              &
-                    , node = this % ghost % node    &
-                    , a    = a                      &
-                    , b    = b                      &
-                    , vb   = this % ghost % ibuf    &
-                    , v    = v                      )
-
-  contains
-
-    subroutine MergeBuffer(nn, nm, nc, node, a, b, vb, v)
-      integer, intent(in)    :: nn
-      integer, intent(in)    :: nm
-      integer, intent(in)    :: nc
-      integer, intent(in)    :: node(nn)
-      integer, intent(in)    :: a, b
-      integer, intent(in)    :: vb(nn,nc)
-      integer, intent(inout) :: v(nm,nc)
-
-      integer :: i, j
-
-      if (a /= ZERO) then
-
-        !$omp do collapse(2)
-        do j = 1, nc
-        do i = 1, nn
-          v(node(i), j) = a * v(node(i), j)  +  b * vb(i,j)
-        end do
-        end do
-
-      else
-
-        !$omp do collapse(2)
-        do j = 1, nc
-        do i = 1, nn
-          v(node(i), j) = b * vb(i,j)
-        end do
-        end do
-
-      end if
-
-    end subroutine MergeBuffer
-
-  end subroutine Merge_IX
-
-  !-----------------------------------------------------------------------------
-  !> Complete receive merge buffer into ghost data -- real scalar
-  !>
-  !> Denoting the buffer with `vb`, the following operation will be executed:
-  !>
-  !>     v  =  alpha * v  +  beta * vb
-  !>
-  !> As this operation affects the ghost elements, the mesh variable must
-  !> be dimensioned as `v(np(1), np(2), np(3), ne+ng)`, where
-  !>
-  !>    *  `np` is the number of points per direction, as in this%np
-  !>    *  `ne` is the number of master elements
-  !>    *  `ng` is the number of ghost elements
-
-  subroutine Merge_RS(this, v, alpha, beta)
-    class(ElementTransferBuffer3d), intent(inout) :: this   !< buffer
-    real(RNP),  dimension(:,:,:,:), intent(inout) :: v      !< mesh variable
-    real(RNP),            optional, intent(in)    :: alpha  !< coeff of v  [1]
-    real(RNP),            optional, intent(in)    :: beta   !< coeff of vb [1]
-
-    !$omp master
-    if (size(v,4) /= this%ne + this%ng) then
-      call Error( 'Merge_RS'                       &
-                , 'size(v,4) /= this%ne + this%ng' &
-                , 'Element_Transfer_Buffe_3dr'     )
-    end if
-    !$omp end master
-
-    call Merge_RX(this, v, alpha, beta)
-
-  end subroutine Merge_RS
-
-  !-----------------------------------------------------------------------------
-  !> Complete receive and merge buffer into ghost data -- real array
-  !>
-  !> Denoting the buffer with `vb`, the following operation will be executed:
-  !>
-  !>      v  =  alpha * v  +  beta * vb
-  !>
-  !> As this operation affects the ghost elements, the mesh variable must
-  !> be dimensioned as `v(np(1), np(2), np(3), ne+ng, nc)`, where
-  !>
-  !>    *  `np` is the number of points per direction, as in `this%np`
-  !>    *  `ne` is the number of master elements
-  !>    *  `ng` is the number of ghost elements
-  !>    *  `nc` is the number of components, as in `this%nc`
-
-  subroutine Merge_RA(this, v, alpha, beta)
-    class(ElementTransferBuffer3d),  intent(inout) :: this   !< buffer
-    real(RNP), dimension(:,:,:,:,:), intent(inout) :: v      !< mesh variable
-    real(RNP),             optional, intent(in)    :: alpha  !< coeff of v  [1]
-    real(RNP),             optional, intent(in)    :: beta   !< coeff of vb [1]
-
-    !$omp master
-    if (size(v,4) /= this%ne + this%ng) then
-      call Error( 'Merge_RA'                       &
-                , 'size(v,4) /= this%ne + this%ng' &
-                , 'Element_Transfer_Buffer_3d'     )
-    end if
-    !$omp end master
-
-    call Merge_RX(this, v, alpha, beta)
-
-  end subroutine Merge_RA
-
-  !-----------------------------------------------------------------------------
-  !> Complete receive and merge buffer into ghost data -- real eXplicit
-  !>
-  !> Denoting the buffer with `vb`, the following operation will be executed:
-  !>
-  !>       v  =  alpha * v  +  beta * vb
-
-  subroutine Merge_RX(this, v, alpha, beta)
-
-    ! arguments ................................................................
-
-    class(ElementTransferBuffer3d), intent(inout) :: this   !< buffer
-    real(RNP),                      intent(inout) :: v      !< mesh variable
-    real(RNP),            optional, intent(in)    :: alpha  !< coeff of v  [1]
-    real(RNP),            optional, intent(in)    :: beta   !< coeff of vb [1]
-
-    dimension :: v(this%np(1), this%np(2), this%np(3), this%ne+this%ng, this%nc)
-
-    ! internal data ............................................................
-
-    type(MPI_Status), allocatable :: status(:)
-
-    real(RNP) :: a, b
-    integer   :: n
-
-    ! initialization ...........................................................
-
-    if (size(this % ghost % rbuf) == 0) return
-
-    if (present(alpha)) then
-      a = alpha
-    else
-      a = 1
-    end if
-
-    if (present(beta)) then
-      b = beta
-    else
-      b = 1
-    end if
-
-    ! wait for receive to complete .............................................
-
-    !$omp master
-    n = size(this % ghost % request)
-    allocate(status(n))
-    call MPI_Waitall(n, this%ghost%request, status)
-    !$omp end master
-    !$omp barrier
-
-    ! merge buffer .............................................................
-
-    call MergeBuffer( nn   = size(this%ghost%node)  &
-                    , nm   = size(v) / this % nc    &
-                    , nc   = this % nc              &
-                    , node = this % ghost % node    &
-                    , a    = a                      &
-                    , b    = b                      &
-                    , vb   = this % ghost % rbuf    &
-                    , v    = v                      )
-
-  contains
-
-    subroutine MergeBuffer(nn, nm, nc, node, a, b, vb, v)
-      integer,   intent(in)    :: nn
-      integer,   intent(in)    :: nm
-      integer,   intent(in)    :: nc
-      integer,   intent(in)    :: node(nn)
-      real(RNP), intent(in)    :: a, b
-      real(RNP), intent(in)    :: vb(nn,nc)
-      real(RNP), intent(inout) :: v(nm,nc)
-
-      integer :: i, j
-
-      if (a /= ZERO) then
-
-        !$omp do collapse(2)
-        do j = 1, nc
-        do i = 1, nn
-          v(node(i), j) = a * v(node(i), j)  +  b * vb(i,j)
-        end do
-        end do
-
-      else
-
-        !$omp do collapse(2)
-        do j = 1, nc
-        do i = 1, nn
-          v(node(i), j) = b * vb(i,j)
-        end do
-        end do
-
-      end if
-
-    end subroutine MergeBuffer
-
-  end subroutine Merge_RX
-
-  !=============================================================================
-  ! ElementTransferBuffer3d: finish procedure
-
-  !-----------------------------------------------------------------------------
-  !> Executes MPI_Waitall to complete send of master element data
-
-  subroutine Finish(this)
-    class(ElementTransferBuffer3d), intent(inout) :: this  !< buffer
-
-    type(MPI_Status), allocatable :: status(:)
-    integer :: n
-
-    !$omp master
-
-    n = size(this%master%request)
-
-    if (n > 0) then
-      allocate(status(n))
-      call MPI_Waitall(n, this%master%request, status)
-    end if
-
-    !$omp end master
-    !$omp barrier
-
-  end subroutine Finish
 
   !=============================================================================
 

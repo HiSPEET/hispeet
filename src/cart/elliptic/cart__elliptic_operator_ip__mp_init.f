@@ -112,8 +112,8 @@ module subroutine Init_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
 
   ! local variables ............................................................
 
-  type(TraceOperator), allocatable, save :: trace_op
-  real(RNP),           allocatable, save :: tr_nu(:,:,:,:)
+  type(TraceOperator), asynchronous, allocatable, save :: trace_op
+  real(RNP), allocatable, save :: tr_nu(:,:,:,:)
   integer :: i, j, k, po
 
   ! problem and discretization parameters ......................................

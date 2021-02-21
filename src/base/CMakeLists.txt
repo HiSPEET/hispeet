@@ -102,9 +102,11 @@ set ( MESH_3D mesh_3d/generic_mesh_3d.f
               mesh_3d/mesh_3d__partition.f
               mesh_3d/mesh_3d__partition__mp_buildfaces.f
               mesh_3d/mesh_3d__partition__mp_buildlinks.f
+              mesh_3d/mesh_3d__partition__mp_buildghosts.f
               mesh_3d/mesh_3d__partition__mp_getpoints.f
               mesh_3d/mesh_3d__partition__mp_getpointvalency.f
               mesh_3d/mesh_3d__partition__mp_identifyedges.f
+              mesh_3d/mesh_3d__partition__mp_identifyprimaries.f
               mesh_3d/mesh_3d__partition__mp_importgenericmesh.f
               mesh_3d/mesh_3d__structured_indexing.f
               mesh_3d/mesh_3d__generate_regular_mesh.f
@@ -115,6 +117,12 @@ set ( MESH_3D mesh_3d/generic_mesh_3d.f
 
 set( UTIL_3D util_3d/export/export_vtk_3d__volume_data.f
              util_3d/transfer/element_transfer_buffer_3d.f
+             util_3d/transfer/element_transfer_buffer_3d__sm_integer_idk.F
+             util_3d/transfer/element_transfer_buffer_3d__sm_integer_ixs.F
+             util_3d/transfer/element_transfer_buffer_3d__sm_integer_ixl.F
+             util_3d/transfer/element_transfer_buffer_3d__sm_real_rnp.F
+             util_3d/transfer/trace_transfer_buffer_3d.f
+             util_3d/verification/verify_mesh_3d.f
              )
 
 if (Exodus_FOUND)

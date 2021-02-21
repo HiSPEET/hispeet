@@ -61,7 +61,7 @@ contains
 !> Extract and start transferring traces -- with BC
 
 subroutine GetTrace_Start_B(this, mesh, u, bv_u, tr_un, tag)
-  class(NormalTraceOperator), intent(inout) :: this
+  class(NormalTraceOperator), asynchronous, intent(inout) :: this
   type(MeshPartition),    intent(in)  :: mesh             !< mesh partition
   real(RNP),              intent(in)  :: u(0:,0:,0:,:,:)  !< vector variable
   type(BoundaryVariable), intent(in)  :: bv_u(:)          !< boundary conditions
@@ -82,7 +82,7 @@ end subroutine GetTrace_Start_B
 !> Extract and start transferring traces -- open (no BC)
 
 subroutine GetTrace_Start_O(this, mesh, u, tr_un, tag)
-  class(NormalTraceOperator), intent(inout) :: this
+  class(NormalTraceOperator), asynchronous, intent(inout) :: this
   type(MeshPartition), intent(in)    :: mesh             !< mesh partition
   real(RNP),           intent(in)    :: u(0:,0:,0:,:,:)  !< vector variable
   real(RNP),           intent(out)   :: tr_un(0:,0:,:,:) !< normal trace of u
@@ -105,7 +105,7 @@ subroutine GetTrace_Start_X(this, mesh, po, ne, nf, u, bv_u, tr_un, tag)
 
   ! arguments ..................................................................
 
-  class(NormalTraceOperator), intent(inout) :: this
+  class(NormalTraceOperator), asynchronous, intent(inout) :: this
   type(MeshPartition),        intent(in)    :: mesh  !< mesh partition
   integer,                    intent(in)    :: po    !< polynomial order
   integer,                    intent(in)    :: ne    !< number of elements

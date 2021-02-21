@@ -57,6 +57,7 @@
 !===============================================================================
 
 module Mesh_3d__Structured_Indexing
+  use Kind_Parameters, only: IXL
   implicit none
   private
 
@@ -76,6 +77,11 @@ module Mesh_3d__Structured_Indexing
   public :: TripleEdgeIndex
   public :: TripleFaceIndex
   public :: TripleElementIndex
+
+  interface LexicalElementIndex
+    module procedure LexicalElementIndex_IDK
+    module procedure LexicalElementIndex_IXL
+  end interface
 
 contains
 
@@ -348,18 +354,32 @@ contains
   end subroutine TripleFaceIndex
 
   !-----------------------------------------------------------------------------
-  !> Lexical index of an element.
+  !> Lexical index of an element -- Integer Default Kind
 
-  pure integer function LexicalElementIndex(i, j, k, n1, n2) result(l)
+  pure integer function LexicalElementIndex_IDK(i, j, k, n1, n2) result(l)
     integer, intent(in) :: i   !< element index in direction 1
     integer, intent(in) :: j   !< element index in direction 2
     integer, intent(in) :: k   !< element index in direction 3
     integer, intent(in) :: n1  !< number of intervals in direction 1
     integer, intent(in) :: n2  !< number of intervals in direction 2
 
-    l = LexicalIndex(i, j, k, n1, n2, i0=1, j0=1, k0=1)
+    l = i + n1*(j-1) + n1*n2*(k-1)
 
-  end function LexicalElementIndex
+  end function LexicalElementIndex_IDK
+
+  !-----------------------------------------------------------------------------
+  !> Lexical index of an element -- Integer eXtra Large
+
+  pure integer(IXL) function LexicalElementIndex_IXL(i, j, k, n1, n2) result(l)
+    integer(IXL), intent(in) :: i   !< element index in direction 1
+    integer(IXL), intent(in) :: j   !< element index in direction 2
+    integer(IXL), intent(in) :: k   !< element index in direction 3
+    integer(IXL), intent(in) :: n1  !< number of intervals in direction 1
+    integer(IXL), intent(in) :: n2  !< number of intervals in direction 2
+
+    l = i + n1*(j-1) + n1*n2*(k-1)
+
+  end function LexicalElementIndex_IXL
 
   !-----------------------------------------------------------------------------
   !> Triple index of an element.

@@ -2,8 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2014/11/06, revised 2017/04/10
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Extended MPI Fortran binding for type real(RNP)
 !===============================================================================
 
 module XMPI__Real_RNP
