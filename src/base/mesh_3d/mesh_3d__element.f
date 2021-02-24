@@ -39,6 +39,10 @@ module Mesh_3d__Element
     integer(IXS) :: n_neighbor  =  0 !< number of neighbor elements
     integer(IXS) :: i_neighbor  =  0 !< first entry in `neighbor` list
     integer(IXS) :: primary     =  0 !< 0/1 if not/ first reference to mesh edge
+  contains
+    generic :: AlignWithMeshEdge    => AlignEdgeData_IS, AlignEdgeData_RS
+    generic :: AlignWithElementEdge => AlignEdgeData_IS, AlignEdgeData_RS
+    procedure, private :: AlignEdgeData_IS, AlignEdgeData_RS
   end type Mesh3d_ElementEdge
 
   !-----------------------------------------------------------------------------
@@ -56,6 +60,13 @@ module Mesh_3d__Element
     integer(IXS) :: n_neighbor =  0 !< number of neighbor elements
     integer(IXS) :: i_neighbor =  0 !< first entry in `neighbor` list
     integer(IXS) :: primary    =  0 !< 0/1 if not/ first reference to mesh face
+  contains
+    generic :: AlignWithMeshFace    => AlignWithMeshFace_IS, &
+                                       AlignWithMeshFace_RS
+    generic :: AlignWithElementFace => AlignWithElementFace_IS, &
+                                       AlignWithElementFace_RS
+    procedure, private :: AlignWithMeshFace_IS, AlignWithElementFace_IS
+    procedure, private :: AlignWithMeshFace_RS, AlignWithElementFace_RS
   end type Mesh3d_ElementFace
 
   !-----------------------------------------------------------------------------
@@ -140,6 +151,213 @@ module Mesh_3d__Element
     type(Mesh3d_ElementNeighbor), allocatable :: neighbor(:) !< neighbor data
 
   end type Mesh3d_Element
+
+contains
+
+  !=============================================================================
+  ! Edge alignment procedures
+  !
+  ! For convenience only. For better perfomance inline into application, which
+  ! saves the procedure overhead.
+
+  !-----------------------------------------------------------------------------
+  !> Switch edge data between element and mesh orientations -- integer scalar
+
+  pure subroutine AlignEdgeData_IS(edge, v, va)
+    class(Mesh3d_ElementEdge), intent(in) :: edge  !< mesh element edge
+    integer, intent(in)  :: v(:)  !< given edge data
+    integer, intent(out) :: va(:) !< aligned edge data
+
+    integer :: i, np
+
+    if (edge%orientation == 1_IXS) then ! edges aligned
+      va = v
+    else ! element and mesh edges have reverse orientation
+      np = size(v,1)
+      forall(i=1:np) va(np+1-i) = v(i)
+    end if
+
+  end subroutine AlignEdgeData_IS
+
+  !-----------------------------------------------------------------------------
+  !> Switch edge data between element and mesh orientations -- real(RNP) scalar
+
+  pure subroutine AlignEdgeData_RS(edge, v, va)
+    class(Mesh3d_ElementEdge), intent(in) :: edge  !< mesh element edge
+    real(RNP), intent(in)  :: v(:)  !< given edge data
+    real(RNP), intent(out) :: va(:) !< aligned edge data
+
+    integer :: i, np
+
+    if (edge%orientation == 1_IXS) then ! edges aligned
+      va = v
+    else ! element and mesh edges have reverse orientation
+      np = size(v,1)
+      do i = 1, np
+        va(np+1-i) = v(i)
+      end do
+    end if
+
+  end subroutine AlignEdgeData_RS
+
+  !=============================================================================
+  ! Face alignment procedures
+
+  !-----------------------------------------------------------------------------
+  !> Transforms face data from element to mesh orientation -- integer scalar
+
+  pure subroutine AlignWithMeshFace_IS(face, ve, vm)
+    class(Mesh3d_ElementFace), intent(in) :: face  !< mesh element face
+    integer, intent(in)  :: ve(:,:)  !< element face data
+    integer, intent(out) :: vm(:,:)  !< mesh face data
+
+    integer :: i, j, l, np
+
+    np = size(ve,1)
+    l  = np + 1
+
+    if (face % normal == 1_IXS) then
+      select case(face % rotation)
+      case(0_IXS)
+        vm = ve
+      case(1_IXS)
+        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-j,   i)
+      case(2_IXS)
+        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-i, l-j)
+      case default
+        forall (i=1:np, j=1:np)  vm(i,j) = ve(  j, l-i)
+      end select
+    else
+      select case(face % rotation)
+      case(0_IXS)
+        forall (i=1:np, j=1:np)  vm(i,j) = ve(  i, l-j)
+      case(1_IXS)
+        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-j, l-i)
+      case(2_IXS)
+        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-i,   j)
+      case default
+        forall (i=1:np, j=1:np)  vm(i,j) = ve(  j,   i)
+      end select
+    end if
+
+  end subroutine AlignWithMeshFace_IS
+
+  !-----------------------------------------------------------------------------
+  !> Transforms face data from element to mesh orientation -- real(RNP) scalar
+
+  pure subroutine AlignWithMeshFace_RS(face, ve, vm)
+    class(Mesh3d_ElementFace), intent(in) :: face  !< mesh element face
+    real(RNP), intent(in)  :: ve(:,:)  !< element face data
+    real(RNP), intent(out) :: vm(:,:)  !< mesh face data
+
+    integer :: i, j, l, np
+
+    np = size(ve,1)
+    l  = np + 1
+
+    if (face % normal == 1_IXS) then
+      select case(face % rotation)
+      case(0_IXS)
+        vm = ve
+      case(1_IXS)
+        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-j,   i)
+      case(2_IXS)
+        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-i, l-j)
+      case default
+        forall (i=1:np, j=1:np)  vm(i,j) = ve(  j, l-i)
+      end select
+    else
+      select case(face % rotation)
+      case(0_IXS)
+        forall (i=1:np, j=1:np)  vm(i,j) = ve(  i, l-j)
+      case(1_IXS)
+        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-j, l-i)
+      case(2_IXS)
+        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-i,   j)
+      case default
+        forall (i=1:np, j=1:np)  vm(i,j) = ve(  j,   i)
+      end select
+    end if
+
+  end subroutine AlignWithMeshFace_RS
+
+  !-----------------------------------------------------------------------------
+  !> Transforms face data from mesh to element orientation -- integer scalar
+
+  pure subroutine AlignWithElementFace_IS(face, vm, ve)
+    class(Mesh3d_ElementFace), intent(in) :: face  !< mesh element face
+    integer, intent(in)  :: vm(:,:)  !< mesh face data
+    integer, intent(out) :: ve(:,:)  !< element face data
+
+    integer :: i, j, l, np
+
+    np = size(vm,1)
+    l  = np + 1
+
+    if (face % normal == 1_IXS) then
+      select case(face % rotation)
+      case(0_IXS)
+        ve = vm
+      case(1_IXS)
+        forall (i=1:np, j=1:np)  ve(l-j,   i) = vm(i,j)
+      case(2_IXS)
+        forall (i=1:np, j=1:np)  ve(l-i, l-j) = vm(i,j)
+      case default
+        forall (i=1:np, j=1:np)  ve(  j, l-i) = vm(i,j)
+      end select
+    else
+      select case(face % rotation)
+      case(0_IXS)
+        forall (i=1:np, j=1:np)  ve(  i, l-j) = vm(i,j)
+      case(1_IXS)
+        forall (i=1:np, j=1:np)  ve(l-j, l-i) = vm(i,j)
+      case(2_IXS)
+        forall (i=1:np, j=1:np)  ve(l-i,   j) = vm(i,j)
+      case default
+        forall (i=1:np, j=1:np)  ve(  j,   i) = vm(i,j)
+      end select
+    end if
+
+  end subroutine AlignWithElementFace_IS
+
+  !-----------------------------------------------------------------------------
+  !> Transforms face data from mesh to element orientation -- real(RNP) scalar
+
+  pure subroutine AlignWithElementFace_RS(face, vm, ve)
+    class(Mesh3d_ElementFace), intent(in) :: face  !< mesh element face
+    real(RNP), intent(in)  :: vm(:,:)  !< mesh face data
+    real(RNP), intent(out) :: ve(:,:)  !< element face data
+
+    integer :: i, j, l, np
+
+    np = size(vm,1)
+    l  = np + 1
+
+    if (face % normal == 1_IXS) then
+      select case(face % rotation)
+      case(0_IXS)
+        ve = vm
+      case(1_IXS)
+        forall (i=1:np, j=1:np)  ve(l-j,   i) = vm(i,j)
+      case(2_IXS)
+        forall (i=1:np, j=1:np)  ve(l-i, l-j) = vm(i,j)
+      case default
+        forall (i=1:np, j=1:np)  ve(  j, l-i) = vm(i,j)
+      end select
+    else
+      select case(face % rotation)
+      case(0_IXS)
+        forall (i=1:np, j=1:np)  ve(  i, l-j) = vm(i,j)
+      case(1_IXS)
+        forall (i=1:np, j=1:np)  ve(l-j, l-i) = vm(i,j)
+      case(2_IXS)
+        forall (i=1:np, j=1:np)  ve(l-i,   j) = vm(i,j)
+      case default
+        forall (i=1:np, j=1:np)  ve(  j,   i) = vm(i,j)
+      end select
+    end if
+
+  end subroutine AlignWithElementFace_RS
 
   !=============================================================================
 

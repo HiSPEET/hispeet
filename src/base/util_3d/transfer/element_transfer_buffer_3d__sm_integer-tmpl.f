@@ -66,7 +66,7 @@
         m = this % ghost % start(i)
         l = this % ghost % len(i)
         if (l > 0) then
-          call XMPI_Irecv( vb(m:+l-1), source, tag, mesh%comm &
+          call XMPI_Irecv( vb(m:m+l-1), source, tag, mesh%comm &
                          , this%ghost%request(i)              )
         else
           this%ghost%request(i) = MPI_REQUEST_NULL
@@ -142,7 +142,7 @@
       if (present(alpha)) then
         a = alpha
       else
-        a = 1
+        a = 0
       end if
 
       if (present(beta)) then

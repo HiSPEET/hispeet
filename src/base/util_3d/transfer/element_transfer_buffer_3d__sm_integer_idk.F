@@ -8,7 +8,7 @@ submodule(Element_Transfer_Buffer_3d) SM_Integer_IDK
   use Element_Transfer_Buffer_3d
   implicit none
 
-  integer, parameter :: IK = kind(1)
+   integer, parameter :: IK = kind(1)
 
 contains
 

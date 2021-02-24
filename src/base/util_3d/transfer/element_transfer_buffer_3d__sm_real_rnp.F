@@ -8,7 +8,7 @@ submodule(Element_Transfer_Buffer_3d) SM_Real_RNP
   use Element_Transfer_Buffer_3d
   implicit none
 
-  integer, parameter :: RK = RNP
+   integer, parameter :: RK = RNP
 
 contains
 

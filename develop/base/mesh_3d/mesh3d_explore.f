@@ -9,10 +9,10 @@ program Mesh3d_Explore
 
   real(RNP) :: xo(3) = -1                ! corner closest to -infinity
   real(RNP) :: lx(3) =  2                ! domain extensions
-  integer   :: np(3) = [2,2,1]           ! number of partitions per direction
-  integer   :: ep(3) = [1,1,2]           ! elements per partition and direction
+  integer   :: np(3) = [2,1,1]           ! number of partitions per direction
+  integer   :: ep(3) = [1,1,1]           ! elements per partition and direction
   integer   :: pg    =  1                ! degree of geometry description
-  logical   :: periodic(3) = .true.      ! periodic directions set true
+  logical   :: periodic(3) = .false.      ! periodic directions set true
 
   type(MPI_Comm) :: comm                 ! MPI communicator
   integer        :: rank                 ! local MPI rank
@@ -68,8 +68,12 @@ program Mesh3d_Explore
       end if
       call XMPI_Bcast(l, 0, comm)
       if (l < 1) exit
-      if (part == rank .and. l <= mesh % n_elem) then
-        call ShowMeshElement(mesh % element(l))
+      if (part == rank) then
+        if (l <= mesh % n_elem) then
+          call ShowMeshElement(mesh % element(l))
+        else
+          call ShowMeshElement(mesh % ghost(l - mesh%n_elem))
+        end if
       end if
       call MPI_Barrier(comm)
     end do
@@ -145,10 +149,18 @@ contains
     integer :: i, j, j1, j2, k
 
     write(*,*)
-    write(*,'(A,99(1X,I5))') 'vertex % id =', element%vertex%id
-    write(*,'(A,99(1X,I5))') 'edge   % id =', element%edge%id
-    write(*,'(A,99(1X,I5))') 'face   % id =', element%face%id
+    write(*,'(A,99(1X,I5))') 'global_id        =', element%global_id
+    write(*,'(A,99(1X,I5))') 'local_id         =', element%local_id
+    write(*,'(A,99(1X,I5))') 'vertex % id      =', element%vertex%id
+    write(*,'(A,99(1X,I5))') 'vertex % primary =', element%vertex%primary
+    write(*,'(A,99(1X,I5))') 'edge   % id      =', element%edge%id
+    write(*,'(A,99(1X,I5))') 'edge   % primary =', element%edge%primary
+    write(*,'(A,99(1X,I5))') 'face   % id      =', element%face%id
+    write(*,'(A,99(1X,I5))') 'face   % primary =', element%face%primary
     write(*,*)
+
+    if (.not.allocated(element%neighbor)) return
+
     write(*,'(A,99(1X,I5))') 'n_neighbor  =', size(element%neighbor)
     write(*,*)
     k = 0

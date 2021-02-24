@@ -52,7 +52,27 @@ contains
 
     ! extract and adopt IDs ....................................................
 
-    !$omp do schedule(static)
+!!! This is not enough!
+!!!
+!!! 1) primary faces transfer
+!!!      - mesh face IDs
+!!!      - mesh IDs of their primary edges
+!!!      - mesh IDs of their primary vertices
+!!!      - edges and vertices must be mapped via mesh face to neighbor face
+!!! 2) untouched primary edges transfer
+!!!      - mesh edge IDs
+!!!      - mesh IDs of their primary vertices
+!!!      - vertices must be mapped via mesh edge to neighbor edge
+!!! 3) untouched primary vertices transfer mesh vertex id
+!!!
+!!! For doing this
+!!!   - first transfer ghost orientations
+!!!   - extract mesh IDs of element edges and vertices
+!!!   - mark element edges and vertices for transfer via face/edge/vertex/nil
+!!!   - use these marks to mask IDs before a particular transfer
+!!!   - provide the required mappings
+
+    !?!$omp do schedule(static)
     do e = 1, mesh % n_elem
       associate( face     => mesh % element(e) % face     &
                , edge     => mesh % element(e) % edge     &
@@ -125,6 +145,7 @@ contains
         e = mesh % n_elem + g
 
         mesh % ghost(g) % global_id = global_id(1,1,1,e)
+        mesh % ghost(g) % local_id  = e
 
         ! faces
         do k = 1, 6

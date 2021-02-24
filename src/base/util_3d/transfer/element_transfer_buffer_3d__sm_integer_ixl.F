@@ -8,7 +8,7 @@ submodule(Element_Transfer_Buffer_3d) SM_Integer_IXL
   use Element_Transfer_Buffer_3d
   implicit none
 
-  integer, parameter :: IK = IXL
+   integer, parameter :: IK = IXL
 
 contains
 
