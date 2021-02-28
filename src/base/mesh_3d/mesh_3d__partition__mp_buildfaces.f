@@ -6,8 +6,7 @@
 
 submodule(Mesh_3d__Partition) MP_BuildFaces
   use Quick_Sort
-  use Mesh_3d__Element_Indexing, only: EVF => ELEMENT_VERTEX_PER_FACE, &
-                                       EEF => ELEMENT_EDGE_PER_FACE
+  use Mesh_3d__Element_Indexing, only: V_FACE, E_FACE
   implicit none
 
 contains
@@ -52,8 +51,8 @@ contains
     do i = 1, size(mesh%element)
       associate(element => mesh % element(i))
         do k = 1, 6
-          element_face(:,j+k) = [ minval(element % edge(EEF(:,k)) % id) &
-                                , maxval(element % edge(EEF(:,k)) % id) &
+          element_face(:,j+k) = [ minval(element % edge(E_FACE(:,k)) % id) &
+                                , maxval(element % edge(E_FACE(:,k)) % id) &
                                 , i, k ]
         end do
       end associate
@@ -124,11 +123,11 @@ contains
         mesh % face(k)     % element(s) % id   = l2
         mesh % face(k)     % element(s) % face = f2
         mesh % element(l2) % face(f2)   % id   = k
-        call ElementFaceOrientation(                                   &
-               fv       = mesh % element(l1) % vertex(EVF(:,f1)) % id, &
-               ev       = mesh % element(l2) % vertex(EVF(:,f2)) % id, &
-               normal   = mesh % element(l2) % face(f2) % normal,      &
-               rotation = mesh % element(l2) % face(f2) % rotation     )
+        call ElementFaceOrientation(                                      &
+               fv       = mesh % element(l1) % vertex(V_FACE(:,f1)) % id, &
+               ev       = mesh % element(l2) % vertex(V_FACE(:,f2)) % id, &
+               normal   = mesh % element(l2) % face(f2) % normal,         &
+               rotation = mesh % element(l2) % face(f2) % rotation        )
 
       end if
 

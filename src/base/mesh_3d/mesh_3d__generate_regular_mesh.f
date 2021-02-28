@@ -10,7 +10,6 @@ module Mesh_3d__Generate_Regular_Mesh
   use Mesh_3d__Element_Indexing
   use Mesh_3d__Partition
   use Mesh_3d__Structured_Indexing
-
   implicit none
   private
 
@@ -241,7 +240,7 @@ contains
                 ips = np(1)
               else
                 if (ElementComponentType(r,s,t) == IS_FACE) then
-                  element(e) % face(ElementComponentID(r,s,t)) % boundary = 1
+                  element(e) % face(ElementFaceID(r,s,t)) % boundary = 1
                 end if
                 ips = -1
               end if
@@ -254,7 +253,7 @@ contains
                 ips = 1
               else
                 if (ElementComponentType(r,s,t) == IS_FACE) then
-                  element(e) % face(ElementComponentID(r,s,t)) % boundary = 2
+                  element(e) % face(ElementFaceID(r,s,t)) % boundary = 2
                 end if
                 ips = -1
               end if
@@ -271,7 +270,7 @@ contains
                 jps = np(2)
               else
                 if (ElementComponentType(r,s,t) == IS_FACE) then
-                  element(e) % face(ElementComponentID(r,s,t)) % boundary = 3
+                  element(e) % face(ElementFaceID(r,s,t)) % boundary = 3
                 end if
                 jps = -1
               end if
@@ -284,7 +283,7 @@ contains
                 jps = 1
               else
                 if (ElementComponentType(r,s,t) == IS_FACE) then
-                  element(e) % face(ElementComponentID(r,s,t)) % boundary = 4
+                  element(e) % face(ElementFaceID(r,s,t)) % boundary = 4
                 end if
                 jps = -1
               end if
@@ -301,7 +300,7 @@ contains
                 kps = np(3)
               else
                 if (ElementComponentType(r,s,t) == IS_FACE) then
-                  element(e) % face(ElementComponentID(r,s,t)) % boundary = 5
+                  element(e) % face(ElementFaceID(r,s,t)) % boundary = 5
                 end if
                 kps = -1
               end if
@@ -314,7 +313,7 @@ contains
                 kps = 1
               else
                 if (ElementComponentType(r,s,t) == IS_FACE) then
-                  element(e) % face(ElementComponentID(r,s,t)) % boundary = 6
+                  element(e) % face(ElementFaceID(r,s,t)) % boundary = 6
                 end if
                 kps = -1
               end if
@@ -334,7 +333,14 @@ contains
           neighbor(i) % part = LexicalIndex(ips,jps,kps,np(1),np(2),1,1,1) - 1
 
           ! neighbor element component
-          neighbor(i) % cc   = ElementComponentID(-r,-s,-t)
+          select case(ElementComponentType(r,s,t))
+          case(IS_FACE)
+            neighbor(i) % cc = ElementFaceID(-r,-s,-t)
+          case(IS_EDGE)
+            neighbor(i) % cc = ElementEdgeID(-r,-s,-t)
+          case(IS_VERTEX)
+            neighbor(i) % cc = ElementVertexID(-r,-s,-t)
+          end select
 
         end do
         end do
@@ -348,15 +354,17 @@ contains
           if (neighbor(i) % id > 0) then
             l = l + 1
             element(e) % neighbor(l) = neighbor(i)
-            s = ElementComponentID(i)
             select case(ElementComponentType(i))
-            case (IS_FACE)
+            case(IS_FACE)
+              s = ElementFaceID(i)
               element(e) % face(s) % n_neighbor = 1
               element(e) % face(s) % i_neighbor = int(l, IXS)
-            case (IS_EDGE)
+            case(IS_EDGE)
+              s = ElementEdgeID(i)
               element(e) % edge(s) % n_neighbor = 1
               element(e) % edge(s) % i_neighbor = int(l, IXS)
-            case (IS_VERTEX)
+            case(IS_VERTEX)
+              s = ElementVertexID(i)
               element(e) % vertex(s) % n_neighbor = 1
               element(e) % vertex(s) % i_neighbor = int(l, IXS)
             end select

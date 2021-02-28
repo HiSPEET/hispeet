@@ -6,7 +6,7 @@
 
 submodule(Mesh_3d__Partition) MP_IdentifyEdges
   use Quick_Sort
-  use Mesh_3d__Element_Indexing, only: EVE => ELEMENT_VERTEX_PER_EDGE
+  use Mesh_3d__Element_Indexing, only: V_EDGE
   implicit none
 
 contains
@@ -45,7 +45,7 @@ contains
     do i = 1, size(mesh%element)
       associate(element => mesh % element(i))
         do k = 1, 12
-          element_edge(1:5,j+k) = [ element % vertex(EVE(1:2,k)) % id, i, k, 1 ]
+          element_edge(1:5,j+k) = [ element % vertex(V_EDGE(1:2,k)) % id, i, k, 1 ]
         end do
       end associate
       j = j + 12

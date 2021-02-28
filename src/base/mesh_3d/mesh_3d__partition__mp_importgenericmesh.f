@@ -10,8 +10,7 @@ submodule(Mesh_3d__Partition) MP_ImportGenericMesh
   use Standard_Operators_1D
   use Embedded_Interpolation
   use Generic_Mesh_3d
-  use Mesh_3d__Element_Indexing, only: EVF => ELEMENT_VERTEX_PER_FACE, &
-                                       EEF => ELEMENT_EDGE_PER_FACE
+  use Mesh_3d__Element_Indexing, only: V_FACE, E_FACE
   implicit none
 
 contains
@@ -218,18 +217,18 @@ contains
           mb = mesh % boundary(b) % face(i) % mesh_element % face
 
           ! corresponding mesh face, edges and vertices on boundary b
-          fb = mesh % element(lb) % face   (         mb ) % id
-          eb = mesh % element(lb) % edge   (EEF(1:4, mb)) % id
-          vb = mesh % element(lb) % vertex (EVF(1:4, mb)) % id
+          fb = mesh % element(lb) % face   (            mb ) % id
+          eb = mesh % element(lb) % edge   (E_FACE(1:4, mb)) % id
+          vb = mesh % element(lb) % vertex (V_FACE(1:4, mb)) % id
 
           ! corresponding element ID and face on boundary c
           lc = mesh % boundary(b) % face(i) % mesh_element % id
           mc = mesh % boundary(b) % face(i) % mesh_element % face
 
           ! corresponding mesh face, edges and vertices on boundary c
-          fc = mesh % element(lc) % face   (         mc ) % id
-          ec = mesh % element(lc) % edge   (EEF(1:4, mc)) % id
-          vc = mesh % element(lc) % vertex (EVF(1:4, mc)) % id
+          fc = mesh % element(lc) % face   (            mc ) % id
+          ec = mesh % element(lc) % edge   (E_FACE(1:4, mc)) % id
+          vc = mesh % element(lc) % vertex (V_FACE(1:4, mc)) % id
 
           ! increase coupled face counts
           nc_face(fb) = nc_face(fb) + nl_face(fc)
@@ -305,18 +304,18 @@ contains
           mb = mesh % boundary(b) % face(i) % mesh_element % face
 
           ! corresponding mesh face, edges and vertices on boundary b
-          fb = mesh % element(lb) % face   (         mb ) % id
-          eb = mesh % element(lb) % edge   (EEF(1:4, mb)) % id
-          vb = mesh % element(lb) % vertex (EVF(1:4, mb)) % id
+          fb = mesh % element(lb) % face   (            mb ) % id
+          eb = mesh % element(lb) % edge   (E_FACE(1:4, mb)) % id
+          vb = mesh % element(lb) % vertex (V_FACE(1:4, mb)) % id
 
           ! corresponding element ID and face on boundary c
           lc = mesh % boundary(b) % face(i) % mesh_element % id
           mc = mesh % boundary(b) % face(i) % mesh_element % face
 
           ! corresponding mesh face, edges and vertices on boundary c
-          fc = mesh % element(lc) % face   (         mc ) % id
-          ec = mesh % element(lc) % edge   (EEF(1:4, mc)) % id
-          vc = mesh % element(lc) % vertex (EVF(1:4, mc)) % id
+          fc = mesh % element(lc) % face   (            mc ) % id
+          ec = mesh % element(lc) % edge   (E_FACE(1:4, mc)) % id
+          vc = mesh % element(lc) % vertex (V_FACE(1:4, mc)) % id
 
           ! append coupled face neighbors
           nb = nl_face(fb) ! number of local elements adjoining to face fb
