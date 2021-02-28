@@ -107,7 +107,7 @@ contains
     call GenerateRegularMeshBoundaries(mesh, periodic)
 
     call mesh % BuildLinks()
-    call mesh % IdentifyPrimaries()
+    call mesh % IdentifyComponentRanks()
     call mesh % BuildGhosts()
 
   end subroutine GenerateRegularMesh

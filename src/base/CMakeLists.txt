@@ -106,7 +106,7 @@ set ( MESH_3D mesh_3d/generic_mesh_3d.f
               mesh_3d/mesh_3d__partition__mp_getpoints.f
               mesh_3d/mesh_3d__partition__mp_getpointvalency.f
               mesh_3d/mesh_3d__partition__mp_identifyedges.f
-              mesh_3d/mesh_3d__partition__mp_identifyprimaries.f
+              mesh_3d/mesh_3d__partition__mp_identifycomponentranks.f
               mesh_3d/mesh_3d__partition__mp_importgenericmesh.f
               mesh_3d/mesh_3d__structured_indexing.f
               mesh_3d/mesh_3d__generate_regular_mesh.f

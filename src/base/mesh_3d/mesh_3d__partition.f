@@ -73,7 +73,7 @@ module Mesh_3d__Partition
 
     ! automatic identification and generation of components
     procedure :: IdentifyEdges
-    procedure :: IdentifyPrimaries
+    procedure :: IdentifyComponentRanks
     procedure :: BuildFaces
     procedure :: BuildLinks
     procedure :: BuildGhosts
@@ -110,14 +110,6 @@ module Mesh_3d__Partition
 
     !---------------------------------------------------------------------------
     !> Identification of mesh edges
-    !>
-    !> Requires
-    !>   - mesh % element % vertex % id
-    !>
-    !> Generates
-    !>   - mesh % n_edge
-    !>   - mesh % element % edge % id
-    !>   - mesh % element % edge % orientation
 
     module subroutine IdentifyEdges(mesh)
       class(Mesh3d_Partition), intent(inout) :: mesh !< mesh partition
@@ -125,18 +117,6 @@ module Mesh_3d__Partition
 
     !---------------------------------------------------------------------------
     !> Generation of mesh faces
-    !>
-    !> Requires
-    !>   - mesh % element % vertex % id
-    !>   - mesh % element % edge % id
-    !>
-    !> Generates
-    !>   - mesh % n_face
-    !>   - mesh % face
-    !>   - mesh % face % element % id
-    !>   - mesh % face % element % face
-    !>   - mesh % element % face % id
-    !>   - mesh % element % face % orientation
 
     module subroutine BuildFaces(mesh)
       class(Mesh3d_Partition), intent(inout) :: mesh !< mesh partition
@@ -144,37 +124,13 @@ module Mesh_3d__Partition
 
     !---------------------------------------------------------------------------
     !> Identification of primary element components
-    !>
-    !> Requires
-    !>   - mesh % element % face   % {n_neighbor, i_neighbor}
-    !>   - mesh % element % edge   % {n_neighbor, i_neighbor}
-    !>   - mesh % element % vertex % {n_neighbor, i_neighbor}
-    !>
-    !> Generates
-    !>   - mesh % element % face   % primary
-    !>   - mesh % element % edge   % primary
-    !>   - mesh % element % vertex % primary
 
-    module subroutine IdentifyPrimaries(mesh)
+    module subroutine IdentifyComponentRanks(mesh)
       class(Mesh3d_Partition), intent(inout) :: mesh !< mesh partition
-    end subroutine IdentifyPrimaries
+    end subroutine IdentifyComponentRanks
 
     !---------------------------------------------------------------------------
     !> Generation of mesh links from global element neighbor information
-    !>
-    !> On entry, mesh elements must be complete and `mesh%element%neighbor%id`
-    !> set to the home-partition ID of the neighbors.
-    !>
-    !> Using this information
-    !>
-    !>   - `mesh % link` :
-    !>      is built
-    !>
-    !>   – `mesh % element % neighbor % id` :
-    !>      entries referring to remote neighbors are translated into ghost IDs
-    !>
-    !>   - `mesh % face % element` :
-    !>     is completed by inserting the ghost ID of adjacent remote elements
 
     module subroutine BuildLinks(mesh)
       class(Mesh3d_Partition), intent(inout) :: mesh !< local partition
@@ -182,18 +138,6 @@ module Mesh_3d__Partition
 
     !---------------------------------------------------------------------------
     !> Generation of ghost elements
-    !>
-    !> On entry, the mesh elements and mesh links must be complete. Using this
-    !> information, the ghosts are created in `mesh % ghost(1:n_ghost)` and
-    !> initialized as follows:
-    !>
-    !>   - `ghost % global_id` :
-    !>      is the global ID of the corresponding mesh element
-    !>
-    !>   - `ghost % local_id` :
-    !>      is the virtual element ID in the local mesh partition. It holds
-    !>      `ghost(i) % local_id = mesh % n_elem + i`
-    !>
 
     module subroutine BuildGhosts(mesh)
       class(Mesh3d_Partition), intent(inout) :: mesh !< local partition

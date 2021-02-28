@@ -56,6 +56,14 @@ module Mesh_3d__Element_Indexing
   public :: ElementVertexID
 
   !-----------------------------------------------------------------------------
+  !> `F_EDGE(:,e)` -- indices of element faces sharing edge `e`
+
+  integer, parameter, public ::                               &
+      F_EDGE(2,12) = reshape( [ 3,5, 4,5, 3,6, 4,6,           &
+                                1,5, 2,5, 1,6, 2,6,           &
+                                1,3, 2,3, 1,4, 2,4 ],  [2,12] )
+
+  !-----------------------------------------------------------------------------
   !> `V_EDGE(i,e)` -- index `v` of vertex `i` of edge `e`
 
   integer, parameter, public ::                               &
@@ -84,6 +92,24 @@ module Mesh_3d__Element_Indexing
                                 2,  4, 11, 12,                &
                                 1,  2,  5,  6,                &
                                 3,  4,  7,  8 ],  [4,6] )
+
+  !-----------------------------------------------------------------------------
+  !> `F_VERT(:,v)` -- indices of element faces sharing vertex `v`
+
+  integer, parameter, public ::                               &
+      F_VERT(3,8)  = reshape( [ 1,3,5,  2,3,5,                &
+                                1,4,5,  2,4,5,                &
+                                1,3,6,  2,3,6,                &
+                                1,4,6,  2,4,6 ],  [3,8] )
+
+  !-----------------------------------------------------------------------------
+  !> `E_VERT(:,v)` -- indices of element edges sharing vertex `v`
+
+  integer, parameter, public ::                               &
+      E_VERT(3,8)  = reshape( [ 1, 5,  9,  1, 6, 10,          &
+                                2, 5, 11,  2, 6, 12,          &
+                                3, 7,  9,  3, 8, 10,          &
+                                4, 7, 11,  4, 8, 12 ],  [3,8] )
 
   !-----------------------------------------------------------------------------
   !> Element component index `l` associated with linear position index `p`

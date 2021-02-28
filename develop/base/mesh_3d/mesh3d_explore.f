@@ -149,14 +149,17 @@ contains
     integer :: i, j, j1, j2, k
 
     write(*,*)
-    write(*,'(A,99(1X,I5))') 'global_id        =', element%global_id
-    write(*,'(A,99(1X,I5))') 'local_id         =', element%local_id
-    write(*,'(A,99(1X,I5))') 'vertex % id      =', element%vertex%id
-    write(*,'(A,99(1X,I5))') 'vertex % primary =', element%vertex%primary
-    write(*,'(A,99(1X,I5))') 'edge   % id      =', element%edge%id
-    write(*,'(A,99(1X,I5))') 'edge   % primary =', element%edge%primary
-    write(*,'(A,99(1X,I5))') 'face   % id      =', element%face%id
-    write(*,'(A,99(1X,I5))') 'face   % primary =', element%face%primary
+    write(*,'(A,99(1X,I5))') 'global_id     =', element%global_id
+    write(*,'(A,99(1X,I5))') 'local_id      =', element%local_id
+    write(*,'(A,99(1X,I5))') 'vertex % id   =', element%vertex%id
+    write(*,'(A,99(1X,I5))') 'vertex % rank =', element%vertex%rank
+    write(*,'(A,99(1X,I5))') 'vertex % val  =', element%vertex%val
+    write(*,'(A,99(1X,I5))') 'edge   % id   =', element%edge%id
+    write(*,'(A,99(1X,I5))') 'edge   % rank =', element%edge%rank
+    write(*,'(A,99(1X,I5))') 'edge   % val  =', element%edge%val
+    write(*,'(A,99(1X,I5))') 'face   % id   =', element%face%id
+    write(*,'(A,99(1X,I5))') 'face   % rank =', element%face%rank
+    write(*,'(A,99(1X,I5))') 'face   % val  =', element%face%val
     write(*,*)
 
     if (.not.allocated(element%neighbor)) return

@@ -25,6 +25,23 @@ contains
   !>      is the virtual element ID in the local mesh partition. It holds
   !>      `ghost(i) % local_id = mesh % n_elem + i`
   !>
+  !>   - `ghost % face % {id, rank, val}` :
+  !>      refer to
+  !>        * the corresponding mesh face,
+  !>        * the rank of the ghost element face and
+  !>        * the valency of the face
+  !>
+  !>   - `ghost % edge % {id, rank, val}` :
+  !>      refer to
+  !>        * the corresponding mesh edge,
+  !>        * the rank of the ghost element edge and
+  !>        * the valency of the edge
+  !>
+  !>   - `ghost % vertex % {id, rank, val}` :
+  !>      refer to
+  !>        * the corresponding mesh vertex,
+  !>        * the rank of the ghost element vertex and
+  !>        * the valency of the vertex
 
   module subroutine BuildGhosts(mesh)
     class(Mesh3d_Partition), intent(inout) :: mesh !< local partition
@@ -34,8 +51,10 @@ contains
     integer(IXL), allocatable, save :: global_id(:,:,:,:)
     integer(IXS), allocatable, save :: orientation(:,:,:,:)
 
-    integer :: lf_id(-1:1,-1:1), gf_id(-1:1,-1:1)
-    integer :: e, f, g, i, j, k, l, n
+    integer      :: lfi(-1:1,-1:1), gfi(-1:1,-1:1), lei(-1:1)
+    integer(IXS) :: lfr(-1:1,-1:1), gfr(-1:1,-1:1), ler(-1:1)
+    integer(IXS) :: lfv(-1:1,-1:1), gfv(-1:1,-1:1), lev(-1:1)
+    integer      :: e, f, g, i, j, k, l, m, n, v
 
     !---------------------------------------------------------------------------
     ! initialization
@@ -111,60 +130,107 @@ contains
 
     !$omp do schedule(static)
     do l = 1, mesh % n_elem
-      associate( face     => mesh % element(l) % face     &
-               , edge     => mesh % element(l) % edge     &
-               , vertex   => mesh % element(l) % vertex   &
-               , neighbor => mesh % element(l) % neighbor )
+      associate(element => mesh % element(l))
 
         ! faces, including associated edges and vertices .......................
 
         do k = 1, 6
-          if (face(k) % primary < 1) cycle
+          if (element % face(k) % rank /= 1) cycle
 
-          n = face(k) % n_neighbor
-          i = face(k) % i_neighbor
+          n = element % face(k) % n_neighbor
+          i = element % face(k) % i_neighbor
           do j = i, i+n-1
 
             ! check if neighbor(j) is a ghost
-            g = neighbor(j) % id - mesh % n_elem
+            m = element % neighbor(j) % id
+            g = m - mesh % n_elem
             if (g > 0) then
+              associate(ghost => mesh % ghost(g))
 
-              ! identify corresponding ghost face
-              f = neighbor(j) % cc
+                ! identify corresponding ghost face
+                f = element % neighbor(j) % cc
 
-              ! get local element face mesh IDs at position ξ₁=i and ξ₂=j
-              lf_id(-1,-1) = vertex( V_FACE(1,k) ) % id
-              lf_id( 0,-1) = edge  ( E_FACE(1,k) ) % id
-              lf_id( 1,-1) = vertex( V_FACE(2,k) ) % id
-              lf_id(-1, 0) = edge  ( E_FACE(3,k) ) % id
-              lf_id( 0, 0) = face  (          k  ) % id
-              lf_id( 1, 0) = edge  ( E_FACE(4,k) ) % id
-              lf_id(-1, 1) = vertex( V_FACE(3,k) ) % id
-              lf_id( 0, 1) = edge  ( E_FACE(2,k) ) % id
-              lf_id( 1, 1) = vertex( V_FACE(4,k) ) % id
+                ! local element face IDs at position ξ₁=i and ξ₂=j
+                lfi(-1,-1) = element % vertex( V_FACE(1,k) ) % id
+                lfi( 0,-1) = element % edge  ( E_FACE(1,k) ) % id
+                lfi( 1,-1) = element % vertex( V_FACE(2,k) ) % id
+                lfi(-1, 0) = element % edge  ( E_FACE(3,k) ) % id
+                lfi( 0, 0) = element % face  (          k  ) % id
+                lfi( 1, 0) = element % edge  ( E_FACE(4,k) ) % id
+                lfi(-1, 1) = element % vertex( V_FACE(3,k) ) % id
+                lfi( 0, 1) = element % edge  ( E_FACE(2,k) ) % id
+                lfi( 1, 1) = element % vertex( V_FACE(4,k) ) % id
 
-              ! transform ID array to ghost face orientation
-              if (mesh % structured) then
-                gf_id = lf_id
-              else if (face(k)%normal == 1 .and. face(k)%rotation == 0) then
-                ! local element face is aligned with mesh face
-                call mesh%ghost(g)%face(f)%AlignWithElementFace(lf_id, gf_id)
-              else
-                ! ghost face is aligned with mesh face
-                call face(k) % AlignWithMeshFace(lf_id, gf_id)
-              end if
+                ! ranks of ghost components based on virtual element ID
+                call element % DetermineVertexRank(V_FACE(1,k), m, lfr(-1,-1))
+                call element % DetermineEdgeRank  (E_FACE(1,k), m, lfr( 0,-1))
+                call element % DetermineVertexRank(V_FACE(2,k), m, lfr( 1,-1))
+                call element % DetermineEdgeRank  (E_FACE(3,k), m, lfr(-1, 0))
+                call element % DetermineFaceRank  (         k , m, lfr( 0, 0))
+                call element % DetermineEdgeRank  (E_FACE(4,k), m, lfr( 1, 0))
+                call element % DetermineVertexRank(V_FACE(3,k), m, lfr(-1, 1))
+                call element % DetermineEdgeRank  (E_FACE(2,k), m, lfr( 0, 1))
+                call element % DetermineVertexRank(V_FACE(4,k), m, lfr( 1, 1))
 
-              ! set ghost face mesh IDs
-              mesh % ghost(g) % vertex( V_FACE(1,f) ) % id = gf_id(-1,-1)
-              mesh % ghost(g) % edge  ( E_FACE(1,f) ) % id = gf_id( 0,-1)
-              mesh % ghost(g) % vertex( V_FACE(2,f) ) % id = gf_id( 1,-1)
-              mesh % ghost(g) % edge  ( E_FACE(3,f) ) % id = gf_id(-1, 0)
-              mesh % ghost(g) % face  (          f  ) % id = gf_id( 0, 0)
-              mesh % ghost(g) % edge  ( E_FACE(4,f) ) % id = gf_id( 1, 0)
-              mesh % ghost(g) % vertex( V_FACE(3,f) ) % id = gf_id(-1, 1)
-              mesh % ghost(g) % edge  ( E_FACE(2,f) ) % id = gf_id( 0, 1)
-              mesh % ghost(g) % vertex( V_FACE(4,f) ) % id = gf_id( 1, 1)
+                ! local element face valencies at position ξ₁=i and ξ₂=j
+                lfv(-1,-1) = element % vertex( V_FACE(1,k) ) % val
+                lfv( 0,-1) = element % edge  ( E_FACE(1,k) ) % val
+                lfv( 1,-1) = element % vertex( V_FACE(2,k) ) % val
+                lfv(-1, 0) = element % edge  ( E_FACE(3,k) ) % val
+                lfv( 0, 0) = element % face  (          k  ) % val
+                lfv( 1, 0) = element % edge  ( E_FACE(4,k) ) % val
+                lfv(-1, 1) = element % vertex( V_FACE(3,k) ) % val
+                lfv( 0, 1) = element % edge  ( E_FACE(2,k) ) % val
+                lfv( 1, 1) = element % vertex( V_FACE(4,k) ) % val
 
+                ! transform ID and rank arrays to ghost face orientation
+                if (mesh % structured) then
+                  gfi = lfi
+                  gfr = lfr
+                  gfv = lfv
+                else if ( element % face(k) % normal   == 1 .and. &
+                          element % face(k) % rotation == 0 ) then
+                  ! local element face is aligned with mesh face
+                  call ghost % face(f) % AlignWithElementFace(lfi, gfi)
+                  call ghost % face(f) % AlignWithElementFace(lfr, gfr)
+                  call ghost % face(f) % AlignWithElementFace(lfv, gfv)
+                else
+                  ! ghost face is aligned with mesh face
+                  call element % face(k) % AlignWithMeshFace(lfi, gfi)
+                  call element % face(k) % AlignWithMeshFace(lfr, gfr)
+                  call element % face(k) % AlignWithMeshFace(lfv, gfv)
+                end if
+
+                ! set ghost face IDs and ranks
+                ghost % vertex( V_FACE(1,f) ) % id   = gfi(-1,-1)
+                ghost % vertex( V_FACE(1,f) ) % rank = gfr(-1,-1)
+                ghost % vertex( V_FACE(1,f) ) % val  = gfv(-1,-1)
+                ghost % edge  ( E_FACE(1,f) ) % id   = gfi( 0,-1)
+                ghost % edge  ( E_FACE(1,f) ) % rank = gfr( 0,-1)
+                ghost % edge  ( E_FACE(1,f) ) % val  = gfv( 0,-1)
+                ghost % vertex( V_FACE(2,f) ) % id   = gfi( 1,-1)
+                ghost % vertex( V_FACE(2,f) ) % rank = gfr( 1,-1)
+                ghost % vertex( V_FACE(2,f) ) % val  = gfv( 1,-1)
+                ghost % edge  ( E_FACE(3,f) ) % id   = gfi(-1, 0)
+                ghost % edge  ( E_FACE(3,f) ) % rank = gfr(-1, 0)
+                ghost % edge  ( E_FACE(3,f) ) % val  = gfv(-1, 0)
+                ghost % face  (          f  ) % id   = gfi( 0, 0)
+                ghost % face  (          f  ) % rank = gfr( 0, 0)
+                ghost % face  (          f  ) % val  = gfv( 0, 0)
+                ghost % edge  ( E_FACE(4,f) ) % id   = gfi( 1, 0)
+                ghost % edge  ( E_FACE(4,f) ) % rank = gfr( 1, 0)
+                ghost % edge  ( E_FACE(4,f) ) % val  = gfv( 1, 0)
+                ghost % vertex( V_FACE(3,f) ) % id   = gfi(-1, 1)
+                ghost % vertex( V_FACE(3,f) ) % rank = gfr(-1, 1)
+                ghost % vertex( V_FACE(3,f) ) % val  = gfv(-1, 1)
+                ghost % edge  ( E_FACE(2,f) ) % id   = gfi( 0, 1)
+                ghost % edge  ( E_FACE(2,f) ) % rank = gfr( 0, 1)
+                ghost % edge  ( E_FACE(2,f) ) % val  = gfv( 0, 1)
+                ghost % vertex( V_FACE(4,f) ) % id   = gfi( 1, 1)
+                ghost % vertex( V_FACE(4,f) ) % rank = gfr( 1, 1)
+                ghost % vertex( V_FACE(4,f) ) % val  = gfv( 1, 1)
+
+              end associate
             end if
           end do
         end do
@@ -172,31 +238,58 @@ contains
         ! edges, including associated vertices .................................
 
         do k = 1, 12
-          if (edge(k) % primary < 1) cycle
-          n = edge(k) % n_neighbor
-          i = edge(k) % i_neighbor
+          if (element % edge(k) % rank /= 1) cycle
+          n = element % edge(k) % n_neighbor
+          i = element % edge(k) % i_neighbor
           do j = i, i+n-1
 
             ! check if neighbor(j) is a ghost
-            g = neighbor(j) % id - mesh % n_elem
+            m = element % neighbor(j) % id
+            g = m - mesh % n_elem
             if (g > 0) then
-              associate( ghost_edge   => mesh % ghost(g) % edge   &
-                       , ghost_vertex => mesh % ghost(g) % vertex )
+              associate(ghost => mesh % ghost(g))
 
                 ! identify corresponding ghost edge
-                e = neighbor(j) % cc
+                e = element % neighbor(j) % cc
 
-                ! copy edge and vertex IDs
-                if ( mesh % structured    .or.                              &
-                     edge(k) % orientation == ghost_edge(e) % orientation ) &
+                ! get element edge mesh IDs at position ξ=i
+                lei(-1) = element % vertex( V_EDGE(1,k) ) % id
+                lei( 0) = element % edge  (          k  ) % id
+                lei( 1) = element % vertex( V_EDGE(2,k) ) % id
+
+                ! ranks of the corresponding ghost components at position ξ=i
+                call element % DetermineVertexRank( V_EDGE(1,k), m, ler(-1))
+                call element % DetermineEdgeRank  (          k , m, ler( 0))
+                call element % DetermineVertexRank( V_EDGE(2,k), m, ler( 1))
+
+                ! get element edge mesh valencies at position ξ=i
+                lev(-1) = element % vertex( V_EDGE(1,k) ) % val
+                lev( 0) = element % edge  (          k  ) % val
+                lev( 1) = element % vertex( V_EDGE(2,k) ) % val
+
+                ! copy IDs and ranks
+                if ( mesh % structured    .or.                                  &
+                     element%edge(k)%orientation == ghost%edge(e)%orientation ) &
                 then
-                  ghost_edge  (          e  ) % id = edge  (          k  ) % id
-                  ghost_vertex( V_EDGE(1,e) ) % id = vertex( V_EDGE(1,k) ) % id
-                  ghost_vertex( V_EDGE(2,e) ) % id = vertex( V_EDGE(2,k) ) % id
+                  ghost % vertex( V_EDGE(1,e) ) % id   = lei(-1)
+                  ghost % vertex( V_EDGE(1,e) ) % rank = ler(-1)
+                  ghost % vertex( V_EDGE(1,e) ) % val  = lev(-1)
+                  ghost % edge  (          e  ) % id   = lei( 0)
+                  ghost % edge  (          e  ) % rank = ler( 0)
+                  ghost % edge  (          e  ) % val  = lev( 0)
+                  ghost % vertex( V_EDGE(2,e) ) % id   = lei( 1)
+                  ghost % vertex( V_EDGE(2,e) ) % rank = ler( 1)
+                  ghost % vertex( V_EDGE(2,e) ) % val  = lev( 1)
                 else
-                  ghost_edge  (          e  ) % id = edge  (          k  ) % id
-                  ghost_vertex( V_EDGE(1,e) ) % id = vertex( V_EDGE(2,k) ) % id
-                  ghost_vertex( V_EDGE(2,e) ) % id = vertex( V_EDGE(1,k) ) % id
+                  ghost % vertex( V_EDGE(1,e) ) % id   = lei( 1)
+                  ghost % vertex( V_EDGE(1,e) ) % rank = ler( 1)
+                  ghost % vertex( V_EDGE(1,e) ) % val  = lev( 1)
+                  ghost % edge  (          e  ) % id   = lei( 0)
+                  ghost % edge  (          e  ) % rank = ler( 0)
+                  ghost % edge  (          e  ) % val  = lev( 0)
+                  ghost % vertex( V_EDGE(2,e) ) % id   = lei(-1)
+                  ghost % vertex( V_EDGE(2,e) ) % rank = ler(-1)
+                  ghost % vertex( V_EDGE(2,e) ) % val  = lev(-1)
                 end if
 
               end associate
@@ -207,13 +300,19 @@ contains
         ! vertices .............................................................
 
         do k = 1, 8
-          if (vertex(k) % primary < 1) cycle
-          n = vertex(k) % n_neighbor
-          i = vertex(k) % i_neighbor
+          if (element % vertex(k) % rank /= 1) cycle
+          n = element % vertex(k) % n_neighbor
+          i = element % vertex(k) % i_neighbor
           do j = i, i+n-1
-            g = neighbor(j) % id - mesh % n_elem
+            m = element % neighbor(j) % id
+            g = m - mesh % n_elem
             if (g > 0) then
-              mesh % ghost(g) % vertex(neighbor(j) % cc) % id = vertex(k) % id
+              associate(ghost => mesh % ghost(g))
+                v = element % neighbor(j) % cc
+                ghost % vertex(v) % id  = element % vertex(k) % id
+                ghost % vertex(v) % val = element % vertex(k) % val
+                call element % DetermineVertexRank(k, m, ghost%vertex(v)%rank)
+              end associate
             end if
           end do
         end do

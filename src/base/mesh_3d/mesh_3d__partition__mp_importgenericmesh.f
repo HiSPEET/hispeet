@@ -53,7 +53,7 @@ contains
     call ImportBoundaries     (mesh, generic_mesh)
 
     call mesh % BuildLinks()
-    call mesh % IdentifyPrimaries()
+    call mesh % IdentifyComponentRanks()
     call mesh % BuildGhosts()
 
   end subroutine ImportGenericMesh
