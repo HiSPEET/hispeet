@@ -1,0 +1,6 @@
+&input
+  np = 2,1,1
+  ep = 1,1,1
+  pg = 1
+  periodic = F,F,F
+/

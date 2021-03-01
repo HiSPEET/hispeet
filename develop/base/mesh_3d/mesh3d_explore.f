@@ -7,12 +7,14 @@ program Mesh3d_Explore
   use Verify_Mesh_3d
   implicit none
 
+  character(len=*), parameter :: input_file = 'mesh3d_explore.prm'
   real(RNP) :: xo(3) = -1                ! corner closest to -infinity
   real(RNP) :: lx(3) =  2                ! domain extensions
   integer   :: np(3) = [2,1,1]           ! number of partitions per direction
   integer   :: ep(3) = [1,1,1]           ! elements per partition and direction
   integer   :: pg    =  1                ! degree of geometry description
-  logical   :: periodic(3) = .false.      ! periodic directions set true
+  logical   :: periodic(3) = .false.     ! periodic directions set true
+  namelist/input/ xo, lx, np, ep, pg, periodic
 
   type(MPI_Comm) :: comm                 ! MPI communicator
   integer        :: rank                 ! local MPI rank
@@ -22,7 +24,7 @@ program Mesh3d_Explore
   real(RNP), allocatable :: x(:,:,:,:,:) ! mesh points
   real(RNP)              :: dx(3)        ! element spacing in directions 1:3
 
-  integer :: l, part
+  integer :: io, l, part
   logical :: passed, all_passed
 
 
@@ -31,14 +33,20 @@ program Mesh3d_Explore
   call MPI_Comm_rank(comm, rank)
   call MPI_Comm_size(comm, n_proc)
 
-  dx = lx / (np * ep)
+  if (rank == 0) then
+    open(newunit = io, file = input_file)
+    read(io, nml = input)
+    close(io)
+  end if
 
+  call XMPI_Bcast(xo      , 0, comm)
+  call XMPI_Bcast(lx      , 0, comm)
   call XMPI_Bcast(np      , 0, comm)
   call XMPI_Bcast(ep      , 0, comm)
-  call XMPI_Bcast(xo      , 0, comm)
-  call XMPI_Bcast(dx      , 0, comm)
-  call XMPI_Bcast(periodic, 0, comm)
   call XMPI_Bcast(pg      , 0, comm)
+  call XMPI_Bcast(periodic, 0, comm)
+
+  dx = lx / (np * ep)
 
   call GenerateRegularMesh(mesh, np, ep, xo, dx, periodic, comm, pg)
   call VerifyMesh3d(mesh, passed)

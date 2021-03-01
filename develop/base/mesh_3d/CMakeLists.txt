@@ -6,6 +6,9 @@ add_executable( mesh3d_explore
 
 target_link_libraries(mesh3d_explore HiBase)
 
+configure_file( mesh3d_explore.prm
+                mesh3d_explore.prm COPYONLY )
+
 #===============================================================================
 # mesh3d_import_generic
 
