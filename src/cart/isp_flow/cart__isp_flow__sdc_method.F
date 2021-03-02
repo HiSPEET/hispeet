@@ -10,6 +10,7 @@ module CART__ISP_Flow__SDC_Method
 
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE, HALF
+  use Spectral_Deferred_Correction
   use Gauss_Jacobi
   use Array_Assignments
   use XMPI
@@ -30,31 +31,24 @@ module CART__ISP_Flow__SDC_Method
   implicit none
   private
 
-  public :: SDC_Options
-  public :: SDC_Method
+  public :: SDC_FlowOptions
+  public :: SDC_FlowMethod
 
   !-----------------------------------------------------------------------------
   !> Type for providing SDC options
 
-  type SDC_Options
-    integer :: n_sub    =  1      !< number of subintervals
-    integer :: n_sweep  = -1      !< max number of correction sweeps
-    integer :: pressure =  0      !< switch for pressure recomputation
+  type, extends(SDC_Options) :: SDC_FlowOptions
+    integer :: pressure  =  0  !< switch for pressure recomputation
   contains
-    procedure :: Bcast => Bcast_SDC_Options
-  end type SDC_Options
+    procedure :: Bcast => Bcast_SDC_FlowOptions
+  end type SDC_FlowOptions
 
   !-----------------------------------------------------------------------------
   !> Modular SDC method with flexible choice of predictor and corrector
 
-  type SDC_Method
+  type, extends(SDC_Method) :: SDC_FlowMethod
 
-    integer :: n_sub    = -1          !< number of subintervals
-    integer :: n_sweep  = -1          !< max num correction sweeps
-    integer :: pressure =  0          !< switch for pressure recomputation
-
-    real(RNP), allocatable :: xi(:)   !< SDC points in [-1,1]
-    real(RNP), allocatable :: ws(:,:) !< subinterval quadrature weights
+    integer :: pressure  =  0  !< switch for pressure recomputation
 
     class(FlowProblem),    pointer     :: problem => null() !< flow problem
     class(FlowOperators),  pointer     :: flow_op => null() !< flow operators
@@ -63,17 +57,15 @@ module CART__ISP_Flow__SDC_Method
 
   contains
 
-    procedure :: Init_SDC_Method
-    procedure :: Show => Show_SDC_Method
-    procedure :: NumberOfSubintervals
-    procedure :: IntermediateTimes
+    procedure :: Init_SDC_FlowMethod
+    procedure :: Show => Show_SDC_FlowMethod
     procedure :: TimeStep
 
-  end type SDC_Method
+  end type SDC_FlowMethod
 
   ! overloading the constructor
-  interface SDC_Method
-    module procedure New_SDC_Method
+  interface SDC_FlowMethod
+    module procedure New_SDC_FlowMethod
   end interface
 
 contains
@@ -81,113 +73,62 @@ contains
   !=============================================================================
   ! SDC_Option: type-bound procedures
 
-  subroutine Bcast_SDC_Options(this, root, comm)
-    class(SDC_Options), intent(inout) :: this
+  !-----------------------------------------------------------------------------
+  !> Broadcasting the IDP Flow SDC options
+
+  subroutine Bcast_SDC_FlowOptions(this, root, comm)
+    class(SDC_FlowOptions), intent(inout) :: this
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    type(MPI_Request)  :: request(3)
-    type(MPI_Status)   :: stat(size(request))
-    integer :: n
+    call this % SDC_Options % Bcast(root, comm)
 
-    n = 1
-    call XMPI_Ibcast( this % n_sub   , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % n_sweep , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % pressure, root, comm, request(n) )
+    call XMPI_Bcast(this % pressure, root, comm)
 
-    call MPI_Waitall(n, request, stat)
-
-  end subroutine Bcast_SDC_Options
+  end subroutine Bcast_SDC_FlowOptions
 
   !=============================================================================
-  ! SDC_Method: type-bound procedures
+  ! SDC_FlowMethod: type-bound procedures
 
   !-----------------------------------------------------------------------------
-  !> Constructor for objects of type SDC_Method
+  !> Constructor for objects of type SDC_FlowMethod
 
-  function New_SDC_Method(problem, flow_op, pre_opt, cor_opt, sdc_opt) &
+  function New_SDC_FlowMethod(problem, flow_op, pre_opt, cor_opt, sdc_opt) &
       result(this)
 
-    class(FlowProblem),    target, intent(in) :: problem !< flow problem
-    class(FlowOperators),  target, intent(in) :: flow_op !< flow operators
-    class(TimeIntegratorOptions),  intent(in) :: pre_opt !< predictor options
-    class(SDC_Corrector_Options),  intent(in) :: cor_opt !< corrector method
-    class(SDC_Options),            intent(in) :: sdc_opt !< SDC options
-    type(SDC_Method) :: this
+    class(FlowProblem),   target, intent(in) :: problem !< flow problem
+    class(FlowOperators), target, intent(in) :: flow_op !< flow operators
+    class(TimeIntegratorOptions), intent(in) :: pre_opt !< predictor options
+    class(SDC_CorrectorOptions),  intent(in) :: cor_opt !< corrector method
+    class(SDC_FlowOptions),       intent(in) :: sdc_opt !< SDC options
+    type(SDC_FlowMethod) :: this
 
-    call Init_SDC_Method(this, problem, flow_op, pre_opt, cor_opt, sdc_opt)
+    call Init_SDC_FlowMethod(this, problem, flow_op, pre_opt, cor_opt, sdc_opt)
 
-  end function New_SDC_Method
+  end function New_SDC_FlowMethod
 
   !-----------------------------------------------------------------------------
-  !> Initialization of SDC_Method object
+  !> Initialization of SDC_FlowMethod object
 
-  subroutine Init_SDC_Method(this, problem, flow_op, pre_opt, cor_opt, sdc_opt)
+  subroutine Init_SDC_FlowMethod( this, problem, flow_op, pre_opt, cor_opt, &
+                                  sdc_opt                                   )
 
     ! arguments ................................................................
 
-    class(SDC_Method), intent(inout) :: this
+    class(SDC_FlowMethod), intent(inout) :: this
 
-    class(FlowProblem),    target, intent(in) :: problem !< flow problem
-    class(FlowOperators),  target, intent(in) :: flow_op !< flow operators
-    class(TimeIntegratorOptions),  intent(in) :: pre_opt !< predictor options
-    class(SDC_Corrector_Options),  intent(in) :: cor_opt !< corrector method
-    class(SDC_Options),            intent(in) :: sdc_opt !< SDC options
+    class(FlowProblem),   target, intent(in) :: problem !< flow problem
+    class(FlowOperators), target, intent(in) :: flow_op !< flow operators
+    class(TimeIntegratorOptions), intent(in) :: pre_opt !< predictor options
+    class(SDC_CorrectorOptions),  intent(in) :: cor_opt !< corrector method
+    class(SDC_FlowOptions),       intent(in) :: sdc_opt !< SDC options
 
-    ! local variables ..........................................................
+    ! options ..................................................................
 
-    real(RNP), allocatable :: x (:), w (:)
-    real(RNP), allocatable :: xs(:), ws(:,:)
-    integer :: i, j, k, n_sub
+    ! initialize base type
+    call this % Init_SDC_Method(sdc_opt)
 
-    ! prerequisites ............................................................
-
-    n_sub = max(1, sdc_opt % n_sub)
-
-    ! GLL points and weights
-    allocate(x(0:n_sub), source = GLL_Points(n_sub))
-    allocate(w(0:n_sub), source = GLL_Weights(x))
-
-    ! workspace
-    allocate(xs(0:n_sub), ws(0:n_sub, n_sub))
-
-    ! subintervals and sweeps ..................................................
-
-    ! number of subintervals
-    this % n_sub = sdc_opt % n_sub
-
-    ! max number of correction sweeps
-    if (sdc_opt % n_sweep >= 0) then
-      this % n_sweep = sdc_opt % n_sweep
-    else
-      this % n_sweep = 2 * n_sub - 1
-    end if
-
-    ! pressure recomputation
     this % pressure = sdc_opt % pressure
-
-    ! points and weights .......................................................
-
-    ! subinterval weights
-    do j = 1, n_sub
-
-      ! scaled GLL points
-      do i = 0, n_sub
-        xs(i) = x(j-1) + HALF * (x(j) - x(j-1)) * (x(i) + 1)
-      end do
-
-      ! scaled GLL weights
-      do i = 0, n_sub
-        ws(i,j) = 0
-        do k = 0, n_sub
-          ws(i,j) = ws(i,j) + w(k) * GLL_Polynomial(i, x, xs(k))
-        end do
-      end do
-
-    end do
-
-    call move_alloc(x , this % xi)
-    call move_alloc(ws, this % ws)
 
     ! problem and flow operators ...............................................
 
@@ -206,17 +147,17 @@ contains
     ! corrector ................................................................
 
     select type(cor_opt)
-    class is (SDC_Corrector_Euler_Options)
+    class is (SDC_CorrectorOptions_Euler)
       this % corrector = SDC_Corrector_Euler(problem, flow_op, cor_opt)
     end select
 
-  end subroutine Init_SDC_Method
+  end subroutine Init_SDC_FlowMethod
 
   !-----------------------------------------------------------------------------
-  !> Output of TimeIntegrator_Euler settings
+  !> Output of SDC_FlowMethod settings
 
-  subroutine Show_SDC_Method(this, unit)
-    class(SDC_Method), intent(in) :: this
+  subroutine Show_SDC_FlowMethod(this, unit)
+    class(SDC_FlowMethod), intent(in) :: this
     integer, optional, intent(in) :: unit  !< output unit
 
     integer :: io
@@ -227,48 +168,14 @@ contains
       io = OUTPUT_UNIT
     end if
 
-    write(io,'(/,A)')       'SDC_Method settings'
-    write(io,'(A,/)')       repeat('≡',80)
-    write(io,'(2X,A,T15,I0)') 'n_sub'     , this % n_sub
-    write(io,'(2X,A,T15,I0)') 'n_sweeps:' , this % n_sweep
+    call this % SDC_Method % Show(unit)
+
+    write(io,'(2X,A,T15,I0)') 'pressure:' , this % pressure
 
     call this % predictor % Show(unit)
     call this % corrector % Show(unit)
 
-  end subroutine Show_SDC_Method
-
-  !-----------------------------------------------------------------------------
-  !> Returns the number of subintervals
-
-  pure integer function NumberOfSubintervals(this) result(n_sub)
-    class(SDC_Method), intent(in) :: this
-
-    n_sub = this % n_sub
-
-  end function NumberOfSubintervals
-
-  !-----------------------------------------------------------------------------
-  !> Returns the intermediate times within a given time interval
-
-  pure function IntermediateTimes(this, t, dt) result(ti)
-    class(SDC_Method), intent(in) :: this
-    real(RNP), intent(in)  :: t                !< start of the time interval
-    real(RNP), intent(in)  :: dt               !< length of the time interval
-    real(RNP)              :: ti(0:this%n_sub) !< intermediate times
-
-    real(RNP) :: c
-    integer   :: m, n
-
-    c = dt / 2
-    n = this % n_sub
-
-    ti(0) = t
-    do m = 1, n - 1
-      ti(m) = t + c * (this % xi(m) + 1)
-    end do
-    ti(n) = t + dt
-
-  end function IntermediateTimes
+  end subroutine Show_SDC_FlowMethod
 
   !-----------------------------------------------------------------------------
   !> SDC time step
@@ -277,11 +184,11 @@ contains
 
     ! arguments ................................................................
 
-    class(SDC_Method), intent(inout) :: this         !< (flow_op may change)
-    real(RNP),         intent(inout) :: t            !< time
-    real(RNP),         intent(in)    :: dt           !< time step size
-    real(RNP),         intent(inout) :: u(:,:,:,:,:) !< solution
-    logical, optional, intent(in)    :: standby      !< reuse workspace [F]
+    class(SDC_FlowMethod), intent(inout) :: this         !< (flow_op may change)
+    real(RNP),             intent(inout) :: t            !< time
+    real(RNP),             intent(in)    :: dt           !< time step size
+    real(RNP),             intent(inout) :: u(:,:,:,:,:) !< solution
+    logical,     optional, intent(in)    :: standby      !< reuse workspace [F]
 
     ! local variables  .........................................................
 
@@ -342,8 +249,8 @@ contains
 
     end if
 
-    t_  = this % IntermediateTimes(t, dt)
-    dt_ = t_(1:n_sub) - t_(0:n_sub-1)
+    t_ (0:n_sub) = this % IntermediateTimes(t, dt)
+    dt_(1:n_sub) = t_(1:n_sub) - t_(0:n_sub-1)
 
     !$omp end single
 
@@ -398,7 +305,7 @@ contains
 
         ! subintegrals
         do i = 1, n_sub
-          call SubIntegral(this, i, dt_(i), F_, S_(:,:,:,:,:,i))
+          call SubIntegral(this, i, dt, F_, S_(:,:,:,:,:,i))
         end do
 
         call SetArray(F_ex_0_old, F_ex_(:,:,:,:,:,0), multi=.true.)
@@ -506,26 +413,26 @@ contains
   end subroutine TimeStep
 
   !=============================================================================
-  ! SDC_Method: auxiliary procedures
+  ! SDC_FlowMethod: auxiliary procedures
 
   !-----------------------------------------------------------------------------
-  !> Evaluation of subinterval integrals for arrays of 3D mesh variables
+  !> Computes the integrals of the time derivative F over subintervals [tᵢ₋₁,tᵢ]
 
-  subroutine SubIntegral(sdc, m, dt, f, r)
-    class(SDC_Method), intent(in) :: sdc
+  subroutine SubIntegral(sdc, m, dt, F, S)
+    class(SDC_FlowMethod), intent(in) :: sdc
     integer,   intent(in)  :: m               !< interval ID, 0 < m <= sdc%n_sub
-    real(RNP), intent(in)  :: dt              !< length of the time interval
-    real(RNP), intent(in)  :: f(:,:,:,:,:,0:) !< integrand at intermediate times
-    real(RNP), intent(out) :: r(:,:,:,:,:)    !< result
+    real(RNP), intent(in)  :: dt              !< length of the full time step
+    real(RNP), intent(in)  :: F(:,:,:,:,:,0:) !< integrand at intermediate times
+    real(RNP), intent(out) :: S(:,:,:,:,:)    !< result
 
     integer :: i
 
-    ! r = 0
-    call SetArray(r, ZERO, multi=.true.)
+    ! S = 0
+    call SetArray(S, ZERO, multi=.true.)
 
-    ! r = dt/2 * sum(ws(:,m) * f(*,:))
+    ! S = dt * sum(ws(:,m) * F(*,:))
     do i = 0, sdc%n_sub
-      call MergeArrays(ONE, r, dt/2 * sdc%ws(i,m), f(:,:,:,:,:,i), multi=.true.)
+      call MergeArrays(ONE, S, dt * sdc%ws(i,m), F(:,:,:,:,:,i), multi=.true.)
     end do
 
   end subroutine SubIntegral

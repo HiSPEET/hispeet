@@ -154,11 +154,11 @@ program ISP_Flow__SDC_Test
   namelist /time_integration/ sdc_orig_opt
 
   ! SDC
-  type(SDC_Method)  :: sdc
-  type(SDC_Options) :: sdc_opt
+  type(SDC_FlowMethod)  :: sdc
+  type(SDC_FlowOptions) :: sdc_opt
   type(TimeIntegrator_Euler_Options)      :: pre_eu_opt
   type(TimeIntegrator_RungeKutta_Options) :: pre_rk_opt
-  type(SDC_Corrector_Euler_Options)       :: cor_eu_opt
+  type(SDC_CorrectorOptions_Euler)        :: cor_eu_opt
   namelist /time_integration/ sdc_opt, pre_eu_opt, pre_rk_opt, cor_eu_opt
 
   ! variables ..................................................................
@@ -363,10 +363,10 @@ program ISP_Flow__SDC_Test
     time_integrator = TimeIntegrator_RungeKutta(problem, flow_op, rk_opt)
   case(5)
     ! SDC(Eu,Eu)
-    sdc = SDC_Method(problem, flow_op, pre_eu_opt, cor_eu_opt, sdc_opt)
+    sdc = SDC_FlowMethod(problem, flow_op, pre_eu_opt, cor_eu_opt, sdc_opt)
   case(7)
     ! SDC(RK,Eu)
-    sdc = SDC_Method(problem, flow_op, pre_rk_opt, cor_eu_opt, sdc_opt)
+    sdc = SDC_FlowMethod(problem, flow_op, pre_rk_opt, cor_eu_opt, sdc_opt)
   end select
 
   ! print time-integrator settings

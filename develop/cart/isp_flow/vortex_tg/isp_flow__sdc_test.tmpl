@@ -94,13 +94,13 @@
   rk_opt%TimeIntegratorOptions%splitting   = 2
   rk_opt%TimeIntegratorOptions%project     = 1
   rk_opt%TimeIntegratorOptions%pressure    = 0
-  rk_opt%n_stage = 4
-  rk_opt%method  = 2
+  rk_opt%n_stage   = 4
+  rk_opt%method    = 2
   rk_opt%diffusion = 2
 !
 ! section for SDC(*,*) -- methods 5:7
-  sdc_opt%n_sub        = <n_sub>
-  sdc_opt%n_sweep      = <n_sweep>
+  sdc_opt%n_sub   = <n_sub>
+  sdc_opt%n_sweep = <n_sweep>
   !
   ! Euler predictor 
   pre_eu_opt%TimeIntegratorOptions%splitting  = 2
@@ -111,12 +111,12 @@
   pre_rk_opt%TimeIntegratorOptions%splitting = 2
   pre_rk_opt%TimeIntegratorOptions%project   = 1
   pre_rk_opt%TimeIntegratorOptions%pressure  = 0
-  pre_rk_opt%diffusion   = 2
+  pre_rk_opt%diffusion = 2
   pre_rk_opt%n_stage   = 4
   pre_rk_opt%method    = 2
   !
   ! Euler corrector
-  cor_eu_opt%SDC_Corrector_Options%splitting  = 2
-  cor_eu_opt%SDC_Corrector_Options%project    = 0
+  cor_eu_opt%SDC_CorrectorOptions%splitting  = 2
+  cor_eu_opt%SDC_CorrectorOptions%project    = 0
 /
 

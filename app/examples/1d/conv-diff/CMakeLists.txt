@@ -8,8 +8,6 @@ add_executable(cg_convdiff_1d
     cg_convdiff_1d__imex_bdf3.f
     cg_convdiff_1d__imex_rk.f
     cg_convdiff_1d__imex_euler_sdc.f
-    cg_convdiff_1d__vark.f
-    cg_convdiff_1d__vark_sdc.f
     )
 
 target_link_libraries(cg_convdiff_1d HiBase)

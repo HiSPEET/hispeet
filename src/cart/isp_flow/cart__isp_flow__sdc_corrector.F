@@ -15,7 +15,7 @@ module CART__ISP_Flow__SDC_Corrector
   private
 
   public :: SDC_Corrector
-  public :: SDC_Corrector_Options
+  public :: SDC_CorrectorOptions
 
   !-----------------------------------------------------------------------------
   !> Abstract type of a SDC corrector for incompressible flow
@@ -96,12 +96,12 @@ module CART__ISP_Flow__SDC_Corrector
   !-----------------------------------------------------------------------------
   !> Base type for providing time SDC-corrector options
 
-  type SDC_Corrector_Options
+  type SDC_CorrectorOptions
     integer :: splitting  = 2 !< selector for stage splitting scheme
     integer :: project    = 0 !< switch for additional projections
   contains
     procedure :: Bcast => Bcast_SDC_Corrector_Options
-  end type SDC_Corrector_Options
+  end type SDC_CorrectorOptions
 
 contains
 
@@ -115,7 +115,7 @@ contains
     class(SDC_Corrector),         intent(inout) :: this
     class(FlowProblem),   target, intent(in)    :: problem    !< flow problem
     class(FlowOperators), target, intent(in)    :: flow_op    !< flow operators
-    class(SDC_Corrector_Options), optional, intent(in) :: opt !< options
+    class(SDC_CorrectorOptions), optional, intent(in) :: opt !< options
 
     this % problem => problem
     this % flow_op => flow_op
@@ -173,13 +173,13 @@ contains
   end subroutine Show_SDC_Corrector
 
   !=============================================================================
-  ! SDC_Corrector_Options: type-bound procedures
+  ! SDC_CorrectorOptions: type-bound procedures
 
   !-----------------------------------------------------------------------------
   !> MPI broadcasting of SDC-corrector options
 
   subroutine Bcast_SDC_Corrector_Options(this, root, comm)
-    class(SDC_Corrector_Options), intent(inout) :: this
+    class(SDC_CorrectorOptions), intent(inout) :: this
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 

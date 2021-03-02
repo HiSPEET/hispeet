@@ -118,7 +118,7 @@
   pre_rk_opt%diffusion   = 2
   !
   ! Euler corrector
-  cor_eu_opt%SDC_Corrector_Options%splitting  = 2
-  cor_eu_opt%SDC_Corrector_Options%project    = 0
+  cor_eu_opt%SDC_CorrectorOptions%splitting  = 2
+  cor_eu_opt%SDC_CorrectorOptions%project    = 0
 /
 

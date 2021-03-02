@@ -27,7 +27,7 @@ module CART__ISP_Flow__SDC_Corrector__Euler
   private
 
   public :: SDC_Corrector_Euler
-  public :: SDC_Corrector_Euler_Options
+  public :: SDC_CorrectorOptions_Euler
 
   !-----------------------------------------------------------------------------
   !> IMEX Euler SDC corrector for incompressible flow
@@ -48,8 +48,8 @@ module CART__ISP_Flow__SDC_Corrector__Euler
   !-----------------------------------------------------------------------------
   !> Type for providing Euler SDC-corrector options (none, so far)
 
-  type, extends(SDC_Corrector_Options) :: SDC_Corrector_Euler_Options
-  end type SDC_Corrector_Euler_Options
+  type, extends(SDC_CorrectorOptions) :: SDC_CorrectorOptions_Euler
+  end type SDC_CorrectorOptions_Euler
 
 contains
 
@@ -62,7 +62,7 @@ contains
   function New_SDC_Corrector_Euler(problem, flow_op, opt) result(this)
     class(FlowProblem),   target,       intent(in) :: problem !< flow problem
     class(FlowOperators), target,       intent(in) :: flow_op !< flow operators
-    class(SDC_Corrector_Euler_Options), intent(in) :: opt     !< SDC options
+    class(SDC_CorrectorOptions_Euler), intent(in) :: opt     !< SDC options
     type(SDC_Corrector_Euler) :: this
 
     call Init_SDC_Corrector_Euler(this, problem, flow_op, opt)
@@ -73,10 +73,10 @@ contains
   !> Initialization of a SDC_Corrector_Euler object
 
   subroutine Init_SDC_Corrector_Euler(this, problem, flow_op, opt)
-    class(SDC_Corrector_Euler),   intent(inout) :: this
-    class(FlowProblem),   target, intent(in)    :: problem !< flow problem
-    class(FlowOperators), target, intent(in)    :: flow_op !< flow operators
-    class(SDC_Corrector_Euler_Options), intent(in) :: opt  !< SDC options
+    class(SDC_Corrector_Euler), intent(inout) :: this
+    class(FlowProblem),        target, intent(in) :: problem !< flow problem
+    class(FlowOperators),      target, intent(in) :: flow_op !< flow operators
+    class(SDC_CorrectorOptions_Euler), intent(in) :: opt     !< SDC options
 
     ! intialize parent type
     call this % Init_SDC_Corrector(problem, flow_op, opt)

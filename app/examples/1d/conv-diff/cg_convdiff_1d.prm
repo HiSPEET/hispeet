@@ -25,9 +25,7 @@
 ! method = 2    ! IMEX BDF2
   method = 3    ! IMEX BDF3
 ! method = 4    ! IMEX Runge-Kutta
-! method = 5    ! variable additive Runge-Kutta
-! method = 6    ! SDC based on IMEX Euler
-! method = 7    ! SDC based on variable additive Runge-Kutta
+! method = 5    ! SDC based on IMEX Euler
 flying_start = T
 /
 
@@ -35,28 +33,12 @@ flying_start = T
 &imex_rk_parameters
   ns     = 3    ! number of stages, ns ∈ {2,3,4,6,8}
   method = 2    ! method ∈ {1,2}[1], effective only with s=4
-  show   = T    ! print VARK properties and coefficients
+  show   = T    ! print IMEX RK properties and coefficients
 /
 
-! required with method = 5 (variable additive Runge-Kutta)
-&vark_parameters
-  set  = 1      ! equidistant (1) or GLL (2) points
-  ns_p = 4      ! number of principal stages, ns_p ∈ {2,4}
-  so_p = 1      ! order  of principal stages, so_p ∈ {1,2}
-  show = T      ! print IMEX RK properties and coefficients
-/
-
-! required with method = 6 (IMEX Euler SDC)
+! required with method = 5 (IMEX Euler SDC)
 &euler_sdc_parameters
   n_sub   = 1   ! number of subintervals (M)
   n_sweep = 0   ! max num correction sweeps (K)
   set     = 2   ! equidistant (1) or GLL (2) points
-/
-
-! required with method = 7 (VARK SDC)
-&vark_sdc_parameters
-  n_sub   =  1  ! number of subintervals (M)
-  n_sweep =  0  ! max num correction sweeps (K)
-  set     =  2  ! equidistant (1) or GLL (2) points
-  so_p    =  1  ! order of principal stages
 /
