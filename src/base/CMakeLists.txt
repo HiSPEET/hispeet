@@ -106,7 +106,7 @@ set ( MESH_3D mesh_3d/generic_mesh_3d.f
               mesh_3d/mesh_3d__partition__mp_getpoints.f
               mesh_3d/mesh_3d__partition__mp_getpointvalency.f
               mesh_3d/mesh_3d__partition__mp_identifyedges.f
-              mesh_3d/mesh_3d__partition__mp_identifycomponentranks.f
+              mesh_3d/mesh_3d__partition__mp_identifyranks.f
               mesh_3d/mesh_3d__partition__mp_importgenericmesh.f
               mesh_3d/mesh_3d__structured_indexing.f
               mesh_3d/mesh_3d__generate_regular_mesh.f
@@ -122,6 +122,8 @@ set( UTIL_3D util_3d/export/export_vtk_3d__volume_data.f
              util_3d/transfer/element_transfer_buffer_3d__sm_integer_ixl.F
              util_3d/transfer/element_transfer_buffer_3d__sm_real_rnp.F
              util_3d/transfer/trace_transfer_buffer_3d.f
+             util_3d/ops/assembly_3d.f
+             util_3d/ops/assembly_3d__sm_u0.f
              util_3d/verification/verify_mesh_3d.f
              )
 

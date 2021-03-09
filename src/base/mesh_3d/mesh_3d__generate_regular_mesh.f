@@ -30,11 +30,13 @@ contains
 
     ! local variables ..........................................................
 
-    integer :: part       ! partition ID
-    integer :: n_part     ! number of non-empty partitions
-    integer :: n_bound    ! number of external boundaries
-    integer :: p_geom     ! polynomial order of element geometry
-    integer :: n1, n2, n3 ! local mesh dimensions
+    integer :: part          ! partition ID
+    integer :: n_part        ! number of non-empty partitions
+    integer :: n_bound       ! number of external boundaries
+    integer :: p_geom        ! polynomial order of element geometry
+    integer :: n1, n2, n3    ! local mesh dimensions
+    integer :: i0, j0, k0    ! element offsets WRT global numbering
+    logical :: self(3)       ! indicator wether linked to itself
 
     ! MPI
     integer :: comm_size
@@ -77,11 +79,14 @@ contains
     n2 = ep(2)
     n3 = ep(3)
 
+    ! indicator wether linked to itself
+    self = periodic .and. np == 1
+
     ! mesh attributes and properties ...........................................
 
-    mesh % n_vert     =  NumberOfVertices (n1, n2, n3)
-    mesh % n_edge     =  NumberOfEdges    (n1, n2, n3)
-    mesh % n_face     =  NumberOfFaces    (n1, n2, n3)
+    mesh % n_vert     =  NumberOfVertices (n1, n2, n3, self)
+    mesh % n_edge     =  NumberOfEdges    (n1, n2, n3, self)
+    mesh % n_face     =  NumberOfFaces    (n1, n2, n3, self)
     mesh % n_elem     =  NumberOfElements (n1, n2, n3)
     mesh % p_geom     =  p_geom
     mesh % n_bound    =  n_bound
@@ -94,38 +99,54 @@ contains
     mesh % n_elem_3   =  n3
 
     mesh % regular    = .true.
-    mesh % n_face_1   =  (n1+1) * n2 * n3
-    mesh % n_face_2   =  (n2+1) * n3 * n1
-    mesh % n_face_3   =  (n3+1) * n1 * n2
-    mesh % dx         =  dx
 
-    mesh % comm       =  comm
+    if (periodic(1)) then
+      mesh % n_face_1 =  n1    * n2 * n3
+    else
+      mesh % n_face_1 = (n1+1) * n2 * n3
+    end if
 
-    call GenerateRegularElements(mesh, np, ep, periodic)
-    call GenerateRegularElementDomains(mesh, xo)
-    call GenerateRegularFaces(mesh)
-    call GenerateRegularMeshBoundaries(mesh, periodic)
+    if (periodic(2)) then
+      mesh % n_face_2 =  n2    * n3 * n1
+    else
+      mesh % n_face_2 = (n2+1) * n3 * n1
+    end if
+
+    if (periodic(3)) then
+      mesh % n_face_3 =  n3    * n1 * n2
+    else
+      mesh % n_face_3 = (n3+1) * n1 * n2
+    end if
+
+    mesh % dx    =  dx
+    mesh % comm  =  comm
+
+    call GenerateRegularElements(mesh, np, ep, periodic, self, i0, j0, k0)
+    call GenerateRegularElementDomains(mesh, xo, i0, j0, k0)
+    call GenerateRegularFaces(mesh, self)
+    call GenerateRegularMeshBoundaries(mesh, periodic, self)
 
     call mesh % BuildLinks()
-    call mesh % IdentifyComponentRanks()
     call mesh % BuildGhosts()
+    call mesh % IdentifyRanks()
 
   end subroutine GenerateRegularMesh
 
   !-----------------------------------------------------------------------------
   !> Builds the local mesh elements
 
-  subroutine GenerateRegularElements(mesh, np, ep, periodic)
+  subroutine GenerateRegularElements(mesh, np, ep, periodic, self, i0, j0, k0)
 
     class(Mesh3d_Partition), intent(inout) :: mesh  !< local partition
-    integer, intent(in) :: np(3) !< num partitions in directions 1:3
-    integer, intent(in) :: ep(3) !< num elements per partition and direction
-    logical, intent(in) :: periodic(3) !< set true for periodic directions
+    integer, intent(in)  :: np(3)       !< num partitions in directions 1:3
+    integer, intent(in)  :: ep(3)       !< num elements per partition and dir.
+    logical, intent(in)  :: periodic(3) !< set true for periodic directions
+    logical, intent(in)  :: self(3)     !< indicator wether linked to itself
+    integer, intent(out) :: i0, j0, k0  !< element offsets WRT global numbering
 
     integer(IXL) :: ig, jg, kg, ng(3)  ! global elements indices and counts
     integer      :: ie, je, ke         ! local element indices
     integer      :: ip, jp, kp         ! partion triple index
-    integer      :: i0, j0, k0         ! offsets WRT global numbering
     integer      :: ies, jes, kes      ! shifted element indices
     integer      :: ips, jps, kps      ! shifted partition indices
     integer      :: i, e, l, r, s, t
@@ -137,7 +158,7 @@ contains
     ! global mesh dimensions
     ng = np * ep
 
-    call TripleIndex(ip, jp, kp, np(1), np(2), 1, 1, 1, l=mesh%part+1)
+    call TripleIndex(ip, jp, kp, 1, 1, 1, np(1), np(2), l=mesh%part+1)
 
     ! offset of local element indices WRT global numbering
     i0 = ep(1) * (ip - 1)
@@ -165,47 +186,47 @@ contains
         jg = j0 + je
         kg = k0 + ke
 
-        element(e) % global_id = LexicalElementIndex(ig,jg,kg,ng(1),ng(2))
+        element(e) % global_id = LexicalElementIndex(ig, jg, kg, ng(1), ng(2))
         element(e) % local_id  = e
 
         ! element vertices .....................................................
 
-        element(e) % vertex(1) % id = LexicalVertexIndex(ie-1,je-1,ke-1, n1,n2)
-        element(e) % vertex(2) % id = LexicalVertexIndex(ie  ,je-1,ke-1, n1,n2)
-        element(e) % vertex(3) % id = LexicalVertexIndex(ie-1,je  ,ke-1, n1,n2)
-        element(e) % vertex(4) % id = LexicalVertexIndex(ie  ,je  ,ke-1, n1,n2)
-        element(e) % vertex(5) % id = LexicalVertexIndex(ie-1,je-1,ke  , n1,n2)
-        element(e) % vertex(6) % id = LexicalVertexIndex(ie  ,je-1,ke  , n1,n2)
-        element(e) % vertex(7) % id = LexicalVertexIndex(ie-1,je  ,ke  , n1,n2)
-        element(e) % vertex(8) % id = LexicalVertexIndex(ie  ,je  ,ke  , n1,n2)
+        element(e) % vertex(1) % id = LexicalVertexIndex(ie-1,je-1,ke-1, n1,n2,n3, self)
+        element(e) % vertex(2) % id = LexicalVertexIndex(ie  ,je-1,ke-1, n1,n2,n3, self)
+        element(e) % vertex(3) % id = LexicalVertexIndex(ie-1,je  ,ke-1, n1,n2,n3, self)
+        element(e) % vertex(4) % id = LexicalVertexIndex(ie  ,je  ,ke-1, n1,n2,n3, self)
+        element(e) % vertex(5) % id = LexicalVertexIndex(ie-1,je-1,ke  , n1,n2,n3, self)
+        element(e) % vertex(6) % id = LexicalVertexIndex(ie  ,je-1,ke  , n1,n2,n3, self)
+        element(e) % vertex(7) % id = LexicalVertexIndex(ie-1,je  ,ke  , n1,n2,n3, self)
+        element(e) % vertex(8) % id = LexicalVertexIndex(ie  ,je  ,ke  , n1,n2,n3, self)
 
         ! element edges ........................................................
 
-        element(e) % edge( 1) % id = LexicalEdgeIndex(ie,je-1,ke-1, 1, n1,n2,n3)
-        element(e) % edge( 2) % id = LexicalEdgeIndex(ie,je  ,ke-1, 1, n1,n2,n3)
-        element(e) % edge( 3) % id = LexicalEdgeIndex(ie,je-1,ke  , 1, n1,n2,n3)
-        element(e) % edge( 4) % id = LexicalEdgeIndex(ie,je  ,ke  , 1, n1,n2,n3)
+        element(e) % edge( 1) % id = LexicalEdgeIndex(ie,je-1,ke-1, 1, n1,n2,n3, self)
+        element(e) % edge( 2) % id = LexicalEdgeIndex(ie,je  ,ke-1, 1, n1,n2,n3, self)
+        element(e) % edge( 3) % id = LexicalEdgeIndex(ie,je-1,ke  , 1, n1,n2,n3, self)
+        element(e) % edge( 4) % id = LexicalEdgeIndex(ie,je  ,ke  , 1, n1,n2,n3, self)
 
-        element(e) % edge( 5) % id = LexicalEdgeIndex(ie-1,je,ke-1, 2, n1,n2,n3)
-        element(e) % edge( 6) % id = LexicalEdgeIndex(ie  ,je,ke-1, 2, n1,n2,n3)
-        element(e) % edge( 7) % id = LexicalEdgeIndex(ie-1,je,ke  , 2, n1,n2,n3)
-        element(e) % edge( 8) % id = LexicalEdgeIndex(ie  ,je,ke  , 2, n1,n2,n3)
+        element(e) % edge( 5) % id = LexicalEdgeIndex(ie-1,je,ke-1, 2, n1,n2,n3, self)
+        element(e) % edge( 6) % id = LexicalEdgeIndex(ie  ,je,ke-1, 2, n1,n2,n3, self)
+        element(e) % edge( 7) % id = LexicalEdgeIndex(ie-1,je,ke  , 2, n1,n2,n3, self)
+        element(e) % edge( 8) % id = LexicalEdgeIndex(ie  ,je,ke  , 2, n1,n2,n3, self)
 
-        element(e) % edge( 9) % id = LexicalEdgeIndex(ie-1,je-1,ke, 3, n1,n2,n3)
-        element(e) % edge(10) % id = LexicalEdgeIndex(ie  ,je-1,ke, 3, n1,n2,n3)
-        element(e) % edge(11) % id = LexicalEdgeIndex(ie-1,je  ,ke, 3, n1,n2,n3)
-        element(e) % edge(12) % id = LexicalEdgeIndex(ie  ,je  ,ke, 3, n1,n2,n3)
+        element(e) % edge( 9) % id = LexicalEdgeIndex(ie-1,je-1,ke, 3, n1,n2,n3, self)
+        element(e) % edge(10) % id = LexicalEdgeIndex(ie  ,je-1,ke, 3, n1,n2,n3, self)
+        element(e) % edge(11) % id = LexicalEdgeIndex(ie-1,je  ,ke, 3, n1,n2,n3, self)
+        element(e) % edge(12) % id = LexicalEdgeIndex(ie  ,je  ,ke, 3, n1,n2,n3, self)
 
         ! element faces ........................................................
 
-        element(e) % face(1) % id = LexicalFaceIndex(ie-1,je,ke, 1, n1,n2,n3)
-        element(e) % face(2) % id = LexicalFaceIndex(ie  ,je,ke, 1, n1,n2,n3)
+        element(e) % face(1) % id = LexicalFaceIndex(ie-1,je,ke, 1, n1,n2,n3, self)
+        element(e) % face(2) % id = LexicalFaceIndex(ie  ,je,ke, 1, n1,n2,n3, self)
 
-        element(e) % face(3) % id = LexicalFaceIndex(ie,je-1,ke, 2, n1,n2,n3)
-        element(e) % face(4) % id = LexicalFaceIndex(ie,je  ,ke, 2, n1,n2,n3)
+        element(e) % face(3) % id = LexicalFaceIndex(ie,je-1,ke, 2, n1,n2,n3, self)
+        element(e) % face(4) % id = LexicalFaceIndex(ie,je  ,ke, 2, n1,n2,n3, self)
 
-        element(e) % face(5) % id = LexicalFaceIndex(ie,je,ke-1, 3, n1,n2,n3)
-        element(e) % face(6) % id = LexicalFaceIndex(ie,je,ke  , 3, n1,n2,n3)
+        element(e) % face(5) % id = LexicalFaceIndex(ie,je,ke-1, 3, n1,n2,n3, self)
+        element(e) % face(6) % id = LexicalFaceIndex(ie,je,ke  , 3, n1,n2,n3, self)
 
         if (ie == 1  .and. ip == 1    )  element(e) % face(1) % boundary = 1
         if (ie == n1 .and. ip == np(1))  element(e) % face(2) % boundary = 2
@@ -327,10 +348,10 @@ contains
           i = ElementComponentIndex(r,s,t)
 
           ! neighbor element ID in its home partition
-          neighbor(i) % id   = LexicalElementIndex(ies, jes, kes, n1, n2)
+          neighbor(i) % id = LexicalElementIndex(ies, jes, kes, n1, n2)
 
           ! neighbor element home partition ID
-          neighbor(i) % part = LexicalIndex(ips,jps,kps,np(1),np(2),1,1,1) - 1
+          neighbor(i) % part = LexicalIndex(ips,jps,kps,1,1,1,np(1),np(2),np(3)) - 1
 
           ! neighbor element component
           select case(ElementComponentType(r,s,t))
@@ -382,9 +403,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Builds the local mesh faces
 
-  subroutine GenerateRegularFaces(mesh)
+  subroutine GenerateRegularFaces(mesh, self)
 
     class(Mesh3d_Partition), intent(inout) :: mesh  !< local partition
+    logical, intent(in) :: self(3) !< indicator wether linked to itself
 
     integer :: i, j, k, l
 
@@ -401,15 +423,27 @@ contains
       do j = 1, n2
       do i = 0, n1
 
-        l = LexicalFaceIndex(i, j, k, 1, n1, n2, n3)
+        l = LexicalFaceIndex(i, j, k, 1, n1, n2, n3, self)
 
-        if (i > 0) then
-          face(l) % element(1) % id   = LexicalElementIndex(i  , j, k, n1, n2)
+        if (i > 0 .and. i < n1) then
+          face(l) % element(1) % id   = LexicalElementIndex(i, j, k, n1, n2)
           face(l) % element(1) % face = 2
-        end if
-        if (i < n1) then
           face(l) % element(2) % id   = LexicalElementIndex(i+1, j, k, n1, n2)
           face(l) % element(2) % face = 1
+        else if (i == 0) then
+          if (self(1)) then
+            face(l) % element(1) % id   = LexicalElementIndex(n1, j, k, n1, n2)
+            face(l) % element(1) % face = 2
+          end if
+          face(l) % element(2) % id   = LexicalElementIndex(i+1, j, k, n1, n2)
+          face(l) % element(2) % face = 1
+        else if (i == n1) then
+          face(l) % element(1) % id   = LexicalElementIndex(i, j, k, n1, n2)
+          face(l) % element(1) % face = 2
+          if (self(1)) then
+            face(l) % element(2) % id   = LexicalElementIndex(1, j, k, n1, n2)
+            face(l) % element(2) % face = 1
+          end if
         end if
 
       end do
@@ -422,15 +456,27 @@ contains
       do j = 0, n2
       do i = 1, n1
 
-        l = LexicalFaceIndex(i, j, k, 2, n1, n2, n3)
+        l = LexicalFaceIndex(i, j, k, 2, n1, n2, n3, self)
 
-        if (j > 0) then
-          face(l) % element(1) % id   = LexicalElementIndex(i, j  , k, n1, n2)
+        if (j > 0 .and. j < n2) then
+          face(l) % element(1) % id   = LexicalElementIndex(i, j, k, n1, n2)
           face(l) % element(1) % face = 4
-        end if
-        if (j < n2) then
           face(l) % element(2) % id   = LexicalElementIndex(i, j+1, k, n1, n2)
           face(l) % element(2) % face = 3
+        else if (j == 0) then
+          if (self(2)) then
+            face(l) % element(1) % id   = LexicalElementIndex(i, n2, k, n1, n2)
+            face(l) % element(1) % face = 4
+          end if
+          face(l) % element(2) % id   = LexicalElementIndex(i, j+1, k, n1, n2)
+          face(l) % element(2) % face = 3
+        else if (j == n2) then
+          face(l) % element(1) % id   = LexicalElementIndex(i, j, k, n1, n2)
+          face(l) % element(1) % face = 4
+          if (self(2)) then
+            face(l) % element(2) % id   = LexicalElementIndex(i, 1, k, n1, n2)
+            face(l) % element(2) % face = 3
+          end if
         end if
 
       end do
@@ -440,19 +486,30 @@ contains
       ! x3-faces ...............................................................
 
       do k = 0, n3
-      do j = 0, n2
-      do i = 0, n1
+      do j = 1, n2
+      do i = 1, n1
 
-        l = LexicalFaceIndex(i, j, k, 3, n1, n2, n3)
+        l = LexicalFaceIndex(i, j, k, 3, n1, n2, n3, self)
 
-        if (k > 0) then
-          face(l) % element(1) % id   = LexicalElementIndex(i, j, k  , n1, n2)
+        if (k > 0 .and. k < n3) then
+          face(l) % element(1) % id   = LexicalElementIndex(i, j, k, n1, n2)
           face(l) % element(1) % face = 6
-        end if
-
-        if (k < n3) then
           face(l) % element(2) % id   = LexicalElementIndex(i, j, k+1, n1, n2)
           face(l) % element(2) % face = 5
+        else if (k == 0) then
+          if (self(3)) then
+            face(l) % element(1) % id   = LexicalElementIndex(i, j, n3, n1, n2)
+            face(l) % element(1) % face = 6
+          end if
+          face(l) % element(2) % id   = LexicalElementIndex(i, j, k+1, n1, n2)
+          face(l) % element(2) % face = 5
+        else if (k == n3) then
+          face(l) % element(1) % id   = LexicalElementIndex(i, j, k, n1, n2)
+          face(l) % element(1) % face = 6
+          if (self(3)) then
+            face(l) % element(2) % id   = LexicalElementIndex(i, j, 1, n1, n2)
+            face(l) % element(2) % face = 5
+          end if
         end if
 
       end do
@@ -466,10 +523,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Creates the boundaries of a structured mesh partitions
 
-  subroutine GenerateRegularMeshBoundaries(mesh, periodic)
+  subroutine GenerateRegularMeshBoundaries(mesh, periodic, self)
 
     class(Mesh3d_Partition), intent(inout) :: mesh !< local partition
-    logical, intent(in) :: periodic(3)             !< T for periodic directions
+    logical, intent(in) :: periodic(3) !< indicator of periodic directions
+    logical, intent(in) :: self(3)     !< indicator wether linked to itself
 
     integer :: b, e, f, i, j, k, l
     integer :: coupled(6)
@@ -496,7 +554,7 @@ contains
       do k = 1, n3
       do j = 1, n2
         e = LexicalElementIndex(i, j, k, n1, n2)
-        l = LexicalFaceIndex(i-1, j, k, 1, n1, n2, n3)
+        l = LexicalFaceIndex(i-1, j, k, 1, n1, n2, n3, self)
         boundary(b) % face(f) % mesh_face    % id   = l
         boundary(b) % face(f) % mesh_face    % side = 2
         boundary(b) % face(f) % mesh_element % id   = e
@@ -514,7 +572,7 @@ contains
       do k = 1, n3
       do j = 1, n2
         e = LexicalElementIndex(i, j, k, n1, n2)
-        l = LexicalFaceIndex(i, j, k, 1, n1, n2, n3)
+        l = LexicalFaceIndex(i, j, k, 1, n1, n2, n3, self)
         boundary(b) % face(f) % mesh_face    % id   = l
         boundary(b) % face(f) % mesh_face    % side = 1
         boundary(b) % face(f) % mesh_element % id   = e
@@ -532,7 +590,7 @@ contains
       do k = 1, n3
       do i = 1, n1
         e = LexicalElementIndex(i, j, k, n1, n2)
-        l = LexicalFaceIndex(i, j-1, k, 2, n1, n2, n3)
+        l = LexicalFaceIndex(i, j-1, k, 2, n1, n2, n3, self)
         boundary(b) % face(f) % mesh_face    % id   = l
         boundary(b) % face(f) % mesh_face    % side = 2
         boundary(b) % face(f) % mesh_element % id   = e
@@ -550,7 +608,7 @@ contains
       do k = 1, n3
       do i = 1, n1
         e = LexicalElementIndex(i, j, k, n1, n2)
-        l = LexicalFaceIndex(i, j, k, 2, n1, n2, n3)
+        l = LexicalFaceIndex(i, j, k, 2, n1, n2, n3, self)
         boundary(b) % face(f) % mesh_face    % id   = l
         boundary(b) % face(f) % mesh_face    % side = 1
         boundary(b) % face(f) % mesh_element % id   = e
@@ -568,7 +626,7 @@ contains
       do j = 1, n2
       do i = 1, n1
         e = LexicalElementIndex(i, j, k, n1, n2)
-        l = LexicalFaceIndex(i, j, k-1, 3, n1, n2, n3)
+        l = LexicalFaceIndex(i, j, k-1, 3, n1, n2, n3, self)
         boundary(b) % face(f) % mesh_face    % id   = l
         boundary(b) % face(f) % mesh_face    % side = 2
         boundary(b) % face(f) % mesh_element % id   = e
@@ -586,7 +644,7 @@ contains
       do j = 1, n2
       do i = 1, n1
         e = LexicalElementIndex(i, j, k, n1, n2)
-        l = LexicalFaceIndex(i, j, k, 3, n1, n2, n3)
+        l = LexicalFaceIndex(i, j, k, 3, n1, n2, n3, self)
         boundary(b) % face(f) % mesh_face    % id   = l
         boundary(b) % face(f) % mesh_face    % side = 1
         boundary(b) % face(f) % mesh_element % id   = e
@@ -602,12 +660,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Creates the element domains
 
-  subroutine GenerateRegularElementDomains(mesh, xo)
+  subroutine GenerateRegularElementDomains(mesh, xo, i0, j0, k0)
     class(Mesh3d_Partition), intent(inout) :: mesh  !< local partition
-    real(RNP)              , intent(in)    :: xo(3) !< corner closest to -∞
+    real(RNP), intent(in) :: xo(3)      !< corner closest to -∞
+    integer  , intent(in) :: i0, j0, k0 !< element offsets WRT global numbering
 
-    real(RNP), dimension(0 : mesh%p_geom)   :: x1, x2, x3, ys
-    integer :: e, i, j, k, l, m, n
+    real(RNP), dimension(0 : mesh%p_geom) :: x1, x2, x3, ys
+    integer :: e, i, j, k, r, s, t
 
     ! GLL points transformed to [-1,0]
     ys = (GLL_Points(mesh % p_geom) - 1) / 2
@@ -620,24 +679,24 @@ contains
 
       allocate(mesh % x_elem(0:pg, 0:pg, 0:pg, 1:mesh%n_elem, 1:3))
 
-      do n = 1, n3
-      do m = 1, n2
-      do l = 1, n1
+      do k = 1, n3
+      do j = 1, n2
+      do i = 1, n1
 
-        e = LexicalElementIndex(l, m, n, n1, n2)
+        e = LexicalElementIndex(i, j, k, n1, n2)
 
         ! 1D point distributions
-        x1 = xo(1) + (l + ys) * dx(1)
-        x2 = xo(2) + (m + ys) * dx(2)
-        x3 = xo(3) + (n + ys) * dx(3)
+        x1 = xo(1) + (i0 + i + ys) * dx(1)
+        x2 = xo(2) + (j0 + j + ys) * dx(2)
+        x3 = xo(3) + (k0 + k + ys) * dx(3)
 
         ! element points
-        do k = 0, pg
-        do j = 0, pg
-        do i = 0, pg
-          mesh % x_elem(i,j,k,e,1) = x1(i)
-          mesh % x_elem(i,j,k,e,2) = x2(j)
-          mesh % x_elem(i,j,k,e,3) = x3(k)
+        do t = 0, pg
+        do s = 0, pg
+        do r = 0, pg
+          mesh % x_elem(r,s,t,e,1) = x1(r)
+          mesh % x_elem(r,s,t,e,2) = x2(s)
+          mesh % x_elem(r,s,t,e,3) = x3(t)
         end do
         end do
         end do

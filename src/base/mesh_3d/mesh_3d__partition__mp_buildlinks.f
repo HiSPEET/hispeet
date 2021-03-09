@@ -59,18 +59,15 @@ contains
     ! In periodic domains with only two element layers, two elements can be
     ! linked twice (at opposite sides). To match the face links to each other,
     ! the entries must ordered in an unique manner. This is achieved by sorting
-    ! according
-    !            1) the adjoining element ID from the lowest rank partition
-    !            2) the adjacent face of this element
+    ! according to the adjoining element ID from the lowest rank partition
 
     ! faces ....................................................................
 
     ! link_face(1,:) : remote partition ID
     ! link_face(2,:) : adjacent element ID from lowest rank partition
-    ! link_face(3,:) : corresponding element face
-    ! link_face(4,:) : local face ID
+    ! link_face(3,:) : local face ID
 
-    allocate(link_face(4, mesh%n_face), source = -1)
+    allocate(link_face(3, mesh%n_face), source = -1)
 
     ! identify and count
     k = 0
@@ -81,13 +78,13 @@ contains
 
           j = element % face(i) % i_neighbor
 
-          if (j < 1) cycle ! non-periodic boundary
+          if (j < 1) cycle
 
           ! identify linked partition
           p = element % neighbor(j) % part
 
           ! skip adjacent local elements
-          if (p == mesh % part .and. element % face(i) % boundary < 0) cycle
+          if (p == mesh % part) cycle
 
           ! increase counters
           k     = k     + 1  ! linked faces
@@ -99,14 +96,12 @@ contains
           ! store adjacent element ID and face from lowest rank partition
           if (p <= mesh%part) then
             link_face(2,k) = element % neighbor(j) % id
-            link_face(3,k) = element % neighbor(j) % cc
           else
             link_face(2,k) = e
-            link_face(3,k) = i
           end if
 
           ! store local face ID
-          link_face(4,k) = element % face(i) % id
+          link_face(3,k) = element % face(i) % id
 
         end do
 
@@ -116,8 +111,7 @@ contains
     ! sort linked faces according to
     !   1) remote partition ID
     !   2) element ID
-    !   3) element face
-    call SortTriplets(link_face(:,1:k))
+    call SortPairs(link_face(:,1:k))
 
     ! identify master elements and number of ghosts ............................
 
@@ -302,10 +296,7 @@ contains
         mesh % link(k) % n_face   = nf(p)
         mesh % link(k) % n_master = nm(p)
         mesh % link(k) % n_ghost  = ng(p)
-        allocate(mesh % link(k) % face ( nf(p) ))
-        if (p == mesh%part) then
-          allocate(mesh % link(k) % coupled_face, mold = mesh % link(k) % face)
-        end if
+        allocate(mesh % link(k) % face   ( nf(p) ))
         allocate(mesh % link(k) % master ( nm(p) ))
         allocate(mesh % link(k) % ghost  ( ng(p) ))
       end if
@@ -319,22 +310,7 @@ contains
       p = link_face(1,i)
       if (p < 0) exit
       nf(p) = nf(p) + 1
-      mesh % link(map(p)) % face( nf(p) ) = link_face(4,i)
-      if (p == mesh%part) then
-        mesh % link(map(p)) % coupled_face( nf(p) ) = &
-            mesh % element( link_face(2,i) ) % face( link_face(3,i) ) % id
-      end if
-    end do
-
-    ! sort local face links
-    do l = 1, size(mesh % link)
-      associate(link => mesh % link(l))
-        if (link % part == mesh % part .and. link % n_face > 0) then
-          call SortIndex(link % face, perm)
-          link % face         = link % face         ( perm(1:link%n_face) )
-          link % coupled_face = link % coupled_face ( perm(1:link%n_face) )
-        end if
-      end associate
+      mesh % link(map(p)) % face( nf(p) ) = link_face(3,i)
     end do
 
     ! master elements ..........................................................

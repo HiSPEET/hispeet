@@ -67,11 +67,11 @@ contains
 
         ! boundaries
         x1( 0) = mesh % x_elem( 0,  0,  0, e, 1)
-        x1(po) = mesh % x_elem(po,  0,  0, e, 1)
+        x1(po) = mesh % x_elem(pg,  0,  0, e, 1)
         x2( 0) = mesh % x_elem( 0,  0,  0, e, 2)
-        x2(po) = mesh % x_elem( 0, po,  0, e, 2)
+        x2(po) = mesh % x_elem( 0, pg,  0, e, 2)
         x3( 0) = mesh % x_elem( 0,  0,  0, e, 3)
-        x3(po) = mesh % x_elem( 0,  0, po, e, 3)
+        x3(po) = mesh % x_elem( 0,  0, pg, e, 3)
 
         ! 1D point distributions
         x1(1:po-1) = x1(0) + (x1(po) - x1(0)) * ys

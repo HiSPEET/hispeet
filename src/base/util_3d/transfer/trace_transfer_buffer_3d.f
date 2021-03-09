@@ -265,33 +265,14 @@ contains
 
     do l = 1, size(mesh%link)
 
-      if (mesh%link(l)%part /= mesh%part) then
-
-        call CopyToBuffer( np   = this%np              &
-                         , nc   = this%nc              &
-                         , nf   = mesh%link(l)%n_face  &
-                         , nm   = mesh%n_face          &
-                         , face = mesh%link(l)%face    &
-                         , side = this%send%side(s1:)  &
-                         , v    = v                    &
-                         , vb   = this%send%rbuf(b1:)  )
-
-      else
-
-        ! local link: copy coupled face data into send buffer,
-        ! note that for the coupled face the send side equals
-        ! the recv side of the linked face
-
-        call CopyToBuffer( np   = this%np                    &
-                         , nc   = this%nc                    &
-                         , nf   = mesh%link(l)%n_face        &
-                         , nm   = mesh%n_face                &
-                         , face = mesh%link(l)%coupled_face  &
-                         , side = this%recv%side(s1:)        &
-                         , v    = v                          &
-                         , vb   = this%send%rbuf(b1:)        )
-      end if
-
+      call CopyToBuffer( np   = this%np              &
+                       , nc   = this%nc              &
+                       , nf   = mesh%link(l)%n_face  &
+                       , nm   = mesh%n_face          &
+                       , face = mesh%link(l)%face    &
+                       , side = this%send%side(s1:)  &
+                       , v    = v                    &
+                       , vb   = this%send%rbuf(b1:)  )
 
       s1 = s1 + mesh%link(l)%n_face
       b1 = b1 + mesh%link(l)%n_face * this%np * this%nc
@@ -312,19 +293,11 @@ contains
 
       if (l > 0) then
 
-        if (part /= mesh%part) then
+        call MPI_Isend( this%send%rbuf(m:), l, MPI_REAL_RNP, part, tag &
+                      , mesh%comm, this%send%request(i)                )
 
-          call MPI_Isend( this%send%rbuf(m:), l, MPI_REAL_RNP, part, tag &
-                        , mesh%comm, this%send%request(i)                )
-
-          call MPI_Irecv( this%recv%rbuf(m:), l, MPI_REAL_RNP, part, tag &
-                        , mesh%comm, this%recv%request(i)                )
-
-        else
-          this%recv % rbuf(m:m+l-1) = this%send % rbuf(m:m+l-1)
-          this%recv % request(i)    = MPI_REQUEST_NULL
-          this%send % request(i)    = MPI_REQUEST_NULL
-        end if
+        call MPI_Irecv( this%recv%rbuf(m:), l, MPI_REAL_RNP, part, tag &
+                      , mesh%comm, this%recv%request(i)                )
 
       else
 

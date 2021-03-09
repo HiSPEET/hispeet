@@ -1,10 +1,13 @@
 program Mesh3d_Explore
   use Kind_Parameters, only: RNP
+  use Constants
   use XMPI
   use Mesh_3d__Element
   use Mesh_3d__Partition
   use Mesh_3d__Generate_Regular_Mesh
+  use Element_Transfer_Buffer_3d
   use Verify_Mesh_3d
+  use Assembly_3d
   implicit none
 
   character(len=*), parameter :: input_file = 'mesh3d_explore.prm'
@@ -13,8 +16,12 @@ program Mesh3d_Explore
   integer   :: np(3) = [2,1,1]           ! number of partitions per direction
   integer   :: ep(3) = [1,1,1]           ! elements per partition and direction
   integer   :: pg    =  1                ! degree of geometry description
+  integer   :: po    =  2                ! degree of mesh variables
   logical   :: periodic(3) = .false.     ! periodic directions set true
-  namelist/input/ xo, lx, np, ep, pg, periodic
+  namelist/input/ xo, lx, np, ep, pg, po, periodic
+
+  logical   :: test_avg = .false.        ! perform averaging test
+  namelist/control/ test_avg
 
   type(MPI_Comm) :: comm                 ! MPI communicator
   integer        :: rank                 ! local MPI rank
@@ -24,9 +31,18 @@ program Mesh3d_Explore
   real(RNP), allocatable :: x(:,:,:,:,:) ! mesh points
   real(RNP)              :: dx(3)        ! element spacing in directions 1:3
 
-  integer :: io, l, part
-  logical :: passed, all_passed
+  real(RNP), allocatable, target :: var(:,:,:,:,:)
+  real(RNP), allocatable         :: v(:,:,:,:)     ! test variable
+  real(RNP), pointer             :: r(:,:,:,:)     ! reference variable
+  real(RNP), pointer             :: e(:,:,:,:)     ! error
 
+  type(ElementTransferBuffer3d), asynchronous, allocatable :: v_buf
+
+  real(RNP) :: kappa(3), y(3), err, err_loc
+  logical   :: passed, all_passed
+  integer   :: io, part
+  integer   :: i, j, k, l
+  integer   :: i_err, j_err, k_err, l_err
 
   call XMPI_Init()
   comm = MPI_COMM_WORLD
@@ -36,6 +52,7 @@ program Mesh3d_Explore
   if (rank == 0) then
     open(newunit = io, file = input_file)
     read(io, nml = input)
+    read(io, nml = control)
     close(io)
   end if
 
@@ -44,9 +61,14 @@ program Mesh3d_Explore
   call XMPI_Bcast(np      , 0, comm)
   call XMPI_Bcast(ep      , 0, comm)
   call XMPI_Bcast(pg      , 0, comm)
+  call XMPI_Bcast(po      , 0, comm)
   call XMPI_Bcast(periodic, 0, comm)
 
+  call XMPI_Bcast(test_avg, 0, comm)
+
   dx = lx / (np * ep)
+
+  ! verification ...............................................................
 
   call GenerateRegularMesh(mesh, np, ep, xo, dx, periodic, comm, pg)
   call VerifyMesh3d(mesh, passed)
@@ -54,6 +76,67 @@ program Mesh3d_Explore
   if (rank == 0) then
     write(*,'(/,A,G0)') 'VerifyMesh3d: passed = ', all_passed
   end if
+
+  ! averaging test .............................................................
+
+  if (test_avg) then
+
+    call mesh % GetPoints(po, 'GLL', x)
+
+    allocate(v  (0:po, 0:po, 0:po, mesh%n_elem + mesh%n_ghost))
+    allocate(var(0:po, 0:po, 0:po, mesh%n_elem, 2))
+    r(0:,0:,0:,1:) => var(:,:,:,:,1)
+    e(0:,0:,0:,1:) => var(:,:,:,:,2)
+
+    kappa = 2 * PI / lx
+
+    do l = 1, mesh%n_elem
+      do k = 0, po
+      do j = 0, po
+      do i = 0, po
+        y(1) = x(i,j,k,l,1) - xo(1)
+        y(2) = x(i,j,k,l,2) - xo(2)
+        y(3) = x(i,j,k,l,3) - xo(3)
+        r(i,j,k,l) = cos(sum(kappa * y))
+        v(i,j,k,l) = r(i,j,k,l)
+      end do
+      end do
+      end do
+    end do
+
+    v_buf = ElementTransferBuffer3d(mesh, v)
+    call Assembly3d(mesh, v, v_buf, avg=.true.)
+
+    err_loc = 0
+    do l = 1, mesh%n_elem
+      do k = 0, po
+      do j = 0, po
+      do i = 0, po
+        e(i,j,k,l) = v(i,j,k,l) - r(i,j,k,l)
+        if (abs(e(i,j,k,l)) > err_loc) then
+          err_loc = abs(e(i,j,k,l))
+          i_err   = i
+          j_err   = j
+          k_err   = k
+          l_err   = l
+        end if
+      end do
+      end do
+      end do
+    end do
+    call XMPI_Reduce(err_loc, err, MPI_MAX, 0, comm)
+    if (rank == 0) then
+      write(*,'(/,A,ES10.3)') 'Average over element boundaries: err = ', err
+    end if
+    if (err_loc > epsilon(ONE)) then
+      write(*,'(I5,A,ES10.3,A,4I5)') &
+        rank,': err = ', err_loc,' at ', i_err, j_err, k_err, l_err
+    end if
+    call MPI_Barrier(comm)
+
+  end if
+
+  ! interactive exploration ....................................................
 
   do
     if (rank == 0) then
@@ -130,14 +213,14 @@ contains
 
     do i = 1, mesh % n_elem
       associate(element => mesh % element(i))
-        min_vert = min( min_vert, minval(element % vertex   % id) )
-        max_vert = max( max_vert, maxval(element % vertex   % id) )
-        min_edge = min( min_edge, minval(element % edge     % id) )
-        max_edge = max( max_edge, maxval(element % edge     % id) )
-        min_face = min( min_face, minval(element % face     % id) )
-        max_face = max( max_face, maxval(element % face     % id) )
-        min_elem = min( min_elem, minval(element % neighbor % id) )
-        max_elem = max( max_elem, maxval(element % neighbor % id) )
+        min_vert = min( min_vert, minval(element % vertex % id) )
+        max_vert = max( max_vert, maxval(element % vertex % id) )
+        min_edge = min( min_edge, minval(element % edge   % id) )
+        max_edge = max( max_edge, maxval(element % edge   % id) )
+        min_face = min( min_face, minval(element % face   % id) )
+        max_face = max( max_face, maxval(element % face   % id) )
+        min_elem = min( min_elem, element % local_id )
+        max_elem = max( max_elem, element % local_id )
         min_n_nb = min( min_n_nb, size(element % neighbor) )
         max_n_nb = max( max_n_nb, size(element % neighbor) )
       end associate

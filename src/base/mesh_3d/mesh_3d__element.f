@@ -11,6 +11,9 @@ module Mesh_3d__Element
   private
 
   public :: Mesh3d_Element
+  public :: Mesh3d_ElementVertex
+  public :: Mesh3d_ElementEdge
+  public :: Mesh3d_ElementFace
   public :: Mesh3d_ElementNeighbor
 
   !-----------------------------------------------------------------------------
@@ -43,8 +46,8 @@ module Mesh_3d__Element
     integer(IXS) :: rank        =  0 !< rank among local EE ref to same mesh edge
     integer(IXS) :: val         =  0 !< edge valency
   contains
-    generic :: AlignWithMeshEdge    => AlignEdgeData_IDK, AlignEdgeData_RNP
-    generic :: AlignWithElementEdge => AlignEdgeData_IDK, AlignEdgeData_RNP
+    generic :: AlignWithMesh    => AlignEdgeData_IDK, AlignEdgeData_RNP
+    generic :: AlignWithElement => AlignEdgeData_IDK, AlignEdgeData_RNP
     procedure, private :: AlignEdgeData_IDK, AlignEdgeData_RNP
   end type Mesh3d_ElementEdge
 
@@ -65,12 +68,12 @@ module Mesh_3d__Element
     integer(IXS) :: rank       =  0 !< rank among local EF ref to same mesh face
     integer(IXS) :: val        =  0 !< face valency
   contains
-    generic :: AlignWithMeshFace    => AlignWithMeshFace_IDK, &
-                                       AlignWithMeshFace_IXS, &
-                                       AlignWithMeshFace_RNP
-    generic :: AlignWithElementFace => AlignWithElementFace_IDK, &
-                                       AlignWithElementFace_IXS, &
-                                       AlignWithElementFace_RNP
+    generic :: AlignWithMesh    => AlignWithMeshFace_IDK, &
+                                   AlignWithMeshFace_IXS, &
+                                   AlignWithMeshFace_RNP
+    generic :: AlignWithElement => AlignWithElementFace_IDK, &
+                                   AlignWithElementFace_IXS, &
+                                   AlignWithElementFace_RNP
     procedure, private :: AlignWithMeshFace_IDK, AlignWithElementFace_IDK
     procedure, private :: AlignWithMeshFace_IXS, AlignWithElementFace_IXS
     procedure, private :: AlignWithMeshFace_RNP, AlignWithElementFace_RNP
@@ -156,12 +159,6 @@ module Mesh_3d__Element
     type(Mesh3d_ElementFace)    :: face(6)    !< face data
 
     type(Mesh3d_ElementNeighbor), allocatable :: neighbor(:) !< neighbor data
-
-  contains
-
-    procedure, public :: DetermineFaceRank
-    procedure, public :: DetermineEdgeRank
-    procedure, public :: DetermineVertexRank
 
   end type Mesh3d_Element
 
@@ -449,150 +446,6 @@ contains
     end if
 
   end subroutine AlignWithElementFace_RNP
-
-  !=============================================================================
-  ! Procedures to determine the element component ranks
-  !
-  ! Note:
-  ! These routines are required for mesh generation. Once completed the ranks
-  ! are available via the corresponding components of the Mesh3d_ElementFace,
-  ! Mesh3d_ElementEdge and Mesh3d_ElementVertex data structures.
-
-  !-----------------------------------------------------------------------------
-  !> Identifies the rank and the valency of an element face
-  !>
-  !> This routine determines the rank of face `f` among the all local element
-  !> faces referring to the same mesh face and, optionally, its valency.
-  !> If `nb` is absent, `rank - 1` equals the number of neighbor elements or
-  !> ghosts possessing a lower local ID. Alternatively, the local ID of a
-  !> neighbor can be passed with `nb`. In this case, the `rank` of the
-  !> corresponding neighbor face will be returned.
-
-  module subroutine DetermineFaceRank(element, f, nb, rank, val)
-    class(Mesh3D_Element), intent(in)  :: element !< mesh element
-    integer,               intent(in)  :: f       !< element face ID
-    integer,     optional, intent(in)  :: nb       !< reference element ID
-    integer(IXS)         , intent(out) :: rank    !< element face rank
-    integer(IXS),optional, intent(out) :: val     !< element face rank
-
-    integer :: i, n
-    integer :: l
-
-    if (present(nb)) then
-      l = nb + 1
-    else
-      l = element % local_id
-    end if
-
-    n = element % face(f) % n_neighbor
-    i = element % face(f) % i_neighbor
-    rank = 1_IXS + count(l > element % neighbor(i:i+n-1) % id, kind=IXS)
-
-    if (present(val)) then
-      val = int(1 + n, kind=IXS)
-    end if
-
-  end subroutine DetermineFaceRank
-
-  !-----------------------------------------------------------------------------
-  !> Identifies the rank and the valency of an element edge
-  !>
-  !> This routine determines the rank of edge `e` among the all local element
-  !> edges referring to the same mesh edge and, optionally, its valency.
-  !> If `nb` is absent, `rank - 1` equals the number of neighbor elements or
-  !> ghosts possessing a lower local ID. Alternatively, the local ID of a
-  !> neighbor can be passed with `nb`. In this case, the `rank` of the
-  !> corresponding neighbor edge will be returned.
-
-
-  module subroutine DetermineEdgeRank(element, e, nb, rank, val)
-    class(Mesh3D_Element), intent(in)  :: element !< mesh element
-    integer,               intent(in)  :: e       !< element edge ID
-    integer,     optional, intent(in)  :: nb       !< reference element ID
-    integer(IXS)         , intent(out) :: rank    !< element edge rank
-    integer(IXS),optional, intent(out) :: val     !< element edge valency
-
-    integer :: i, k, f, n
-    integer :: l, val_
-
-    if (present(nb)) then
-      l = nb + 1
-    else
-      l = element % local_id
-    end if
-
-    ! probe edge neighbors
-    n = element % edge(e) % n_neighbor
-    i = element % edge(e) % i_neighbor
-    rank = 1_IXS + count(l > element % neighbor(i:i+n-1) % id, kind=IXS)
-    val_ = 1_IXS + n
-
-    ! probe neighbors via adjoining faces
-    do k = 1, 2
-      f = F_EDGE(k,e)
-      n = element % face(f) % n_neighbor
-      i = element % face(f) % i_neighbor
-      rank = rank + count(l > element % neighbor(i:i+n-1) % id, kind=IXS)
-      val_ = val_ + n
-    end do
-
-    if (present(val)) val = val_
-
-  end subroutine DetermineEdgeRank
-
-  !-----------------------------------------------------------------------------
-  !> Identifies the rank and the valency of an element vertex
-  !>
-  !> This routine determines the rank of vertex `v` among the all local element
-  !> vertices referring to the same mesh vertex and, optionally, its valency.
-  !> If `nb` is absent, `rank - 1` equals the number of neighbor elements or
-  !> ghosts possessing a lower local ID. Alternatively, the local ID of a
-  !> neighbor can be passed with `nb`. In this case, the `rank` of the
-  !> corresponding neighbor vertex will be returned.
-
-  module subroutine DetermineVertexRank(element, v, nb, rank, val)
-    class(Mesh3D_Element), intent(in)  :: element !< mesh element
-    integer,               intent(in)  :: v       !< element vertex ID
-    integer,     optional, intent(in)  :: nb       !< reference element ID
-    integer(IXS)         , intent(out) :: rank    !< element edge rank
-    integer(IXS),optional, intent(out) :: val     !< element edge valency
-
-    integer :: e, i, k, f, n
-    integer :: l, val_
-
-    if (present(nb)) then
-      l = nb + 1
-    else
-      l = element % local_id
-    end if
-
-    ! probe vertex neighbors
-    n = element % vertex(v) % n_neighbor
-    i = element % vertex(v) % i_neighbor
-    rank = 1_IXS + count(l > element % neighbor(i:i+n-1) % id, kind=IXS)
-    val_ = 1_IXS + n
-
-    ! probe neighbors via adjoining edges
-    do k = 1, 3
-      e = E_VERT(k,v)
-      n = element % edge(e) % n_neighbor
-      i = element % edge(e) % i_neighbor
-      rank = rank + count(l > element % neighbor(i:i+n-1) % id, kind=IXS)
-      val_ = val_ + n
-    end do
-
-    ! probe neighbors via adjoining faces
-    do k = 1, 3
-      f = F_VERT(k,v)
-      n = element % face(f) % n_neighbor
-      i = element % face(f) % i_neighbor
-      rank = rank + count(l > element % neighbor(i:i+n-1) % id, kind=IXS)
-      val_ = val_ + n
-    end do
-
-    if (present(val)) val = val_
-
-  end subroutine DetermineVertexRank
 
   !=============================================================================
 

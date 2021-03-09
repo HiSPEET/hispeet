@@ -34,7 +34,6 @@ module Mesh_3d__Link
   !> Provides the following lists:
   !>
   !>   - `face`: the IDs of faces linked with partition `part`
-  !>   - `coupled_face`: the IDs of local faces linked to those in `face`
   !>   - `master`: link to local elements with a ghost in partition `part`
   !>   - `ghost` : link to ghost elements with their master in partition `part`
   !>
@@ -42,12 +41,11 @@ module Mesh_3d__Link
   !> partition.
 
   type Mesh3d_Link
-    integer :: part     = -1                 !< remote partition ID
-    integer :: n_face   =  0                 !< number of linked faces
-    integer :: n_master =  0                 !< number of master elements
-    integer :: n_ghost  =  0                 !< number of ghost elements
-    integer, allocatable :: face(:)          !< list of linked faces
-    integer, allocatable :: coupled_face(:)  !< list of coupled local faces
+    integer :: part     = -1        !< remote partition ID
+    integer :: n_face   =  0        !< number of linked faces
+    integer :: n_master =  0        !< number of master elements
+    integer :: n_ghost  =  0        !< number of ghost elements
+    integer, allocatable :: face(:) !< list of linked faces
     type(Mesh3d_ElementLink), allocatable :: master(:) !< master elements
     type(Mesh3d_ElementLink), allocatable :: ghost(:)  !< ghost elements
   end type Mesh3d_Link

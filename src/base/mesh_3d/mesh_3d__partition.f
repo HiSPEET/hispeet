@@ -25,6 +25,17 @@ module Mesh_3d__Partition
 
   type Mesh3d_Partition
 
+    ! global attributes ........................................................
+
+    integer :: n_bound = 0           !< number of domain boundaries
+    integer :: n_part  = 0           !< number of non-empty partitions
+
+    ! local attributes .........................................................
+
+    integer :: part       = -1       !< partition ID
+    logical :: structured = .false.  !< T if mapping to structured mesh exists
+    logical :: regular    = .false.  !< T if equidistant Cartesian
+
     ! dimensions
     integer :: n_vert  = 0           !< number of mesh vertices
     integer :: n_edge  = 0           !< number of mesh edges
@@ -33,14 +44,8 @@ module Mesh_3d__Partition
     integer :: n_ghost = 0           !< number of ghost elements
     integer :: p_geom  = 0           !< polynomial order of element geometry
 
-    ! global attributes
-    integer :: n_bound = 0           !< number of domain boundaries
-    integer :: n_part  = 0           !< number of non-empty partitions
-
-    ! local attributes
-    integer :: part       = -1       !< partition ID
-    logical :: structured = .false.  !< T if mapping to structured mesh exists
-    logical :: regular    = .false.  !< T if equidistant Cartesian
+    integer :: max_vert_val = 0      !< maximum vertex valency
+    integer :: max_edge_val = 0      !< maximum edge valency
 
     ! structured mesh properties
     integer :: n_elem_1 = 0          !< number of elements in direction 1
@@ -53,7 +58,8 @@ module Mesh_3d__Partition
     integer   :: n_face_3 =  0       !< number of faces normal to direction 3
     real(RNP) :: dx(3)    = -1       !< mesh element spacing in directions 1:3
 
-    ! mesh components and links
+    ! mesh components and links ................................................
+
     type(Mesh3d_Face)    , allocatable :: face(:)     !< mesh faces
     type(Mesh3d_Element) , allocatable :: element(:)  !< mesh elements
     type(Mesh3d_Element) , allocatable :: ghost(:)    !< ghost elements
@@ -73,7 +79,7 @@ module Mesh_3d__Partition
 
     ! automatic identification and generation of components
     procedure :: IdentifyEdges
-    procedure :: IdentifyComponentRanks
+    procedure :: IdentifyRanks
     procedure :: BuildFaces
     procedure :: BuildLinks
     procedure :: BuildGhosts
@@ -125,9 +131,9 @@ module Mesh_3d__Partition
     !---------------------------------------------------------------------------
     !> Identification of primary element components
 
-    module subroutine IdentifyComponentRanks(mesh)
+    module subroutine IdentifyRanks(mesh)
       class(Mesh3d_Partition), intent(inout) :: mesh !< mesh partition
-    end subroutine IdentifyComponentRanks
+    end subroutine IdentifyRanks
 
     !---------------------------------------------------------------------------
     !> Generation of mesh links from global element neighbor information
