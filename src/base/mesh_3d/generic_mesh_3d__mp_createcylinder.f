@@ -76,10 +76,6 @@ contains
       end do
     end do
 
-    do i = 1, size(mesh%vertex)
-      mesh%vertex(i)%id = i
-    end do
-
     ! elements .................................................................
 
     mesh%element%typ   = HEXAHEDRAL_ELEMENT
@@ -172,6 +168,10 @@ contains
       mesh%boundary(2)%coupled = 3
       mesh%boundary(3)%coupled = 2
     end if
+
+    ! vertex IDs ...............................................................
+
+    call mesh % GenerateConsistentVertexIDs()
 
   end subroutine CreateCylinder
 

@@ -251,7 +251,11 @@ contains
     integer, optional, intent(in) :: n3  !< number of intervals in direction 3
     logical, optional, intent(in) :: periodic(3) !< T periodic directions [F]
 
-    l = LexicalIndex(i, j, k, 0, 0, 0, n1+1, n2+1, n3+1, periodic)
+    if (present(n3) .and. present(periodic)) then
+      l = LexicalIndex(i, j, k, 0, 0, 0, n1+1, n2+1, n3+1, periodic)
+    else
+      l = LexicalIndex(i, j, k, 0, 0, 0, n1+1, n2+1)
+    end if
 
   end function LexicalVertexIndex
 

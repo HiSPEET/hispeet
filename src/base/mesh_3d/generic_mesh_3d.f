@@ -6,6 +6,7 @@
 
 module Generic_Mesh_3d
   use Kind_Parameters
+  use Mesh_3d__Element_Indexing, only: V_FACE
   implicit none
   private
 
@@ -89,6 +90,8 @@ module Generic_Mesh_3d
   !>     - face 5  <-->  vertices 1, 2, 3, 4  <-->  zeta = -1
   !>     - face 6  <-->  vertices 5, 6, 7, 8  <-->  zeta =  1
   !>
+  !>     (encoded in V_FACE adopted from Mesh_3d__Element_Indexing)
+  !>
   !> In rotational, mode face nodes are numbered about the external normal:
   !>
   !>   * hexahedron
@@ -132,7 +135,7 @@ module Generic_Mesh_3d
   type, public :: GenericMesh3d_Element
     integer :: id        = 0          !< identifer
     integer :: typ       = 0          !< element type
-    integer :: vertex(8) = 0          !< vertex IDs
+    integer :: vertex(8) = 0          !< vertex indices (not IDs!)
     integer :: basis     = 0          !< type of basis functions
     integer :: order     = 0          !< polynomial order
     real(RNP), allocatable :: x(:,:)  !< control/collocation points, x(:,1:3)
@@ -194,6 +197,7 @@ module Generic_Mesh_3d
     ! type-bound procedures
     procedure :: SwitchToLexicalNumbering
     procedure :: SwitchToRotationalNumbering
+    procedure :: GenerateConsistentVertexIDs
     procedure :: CreateCylinder
     procedure :: CreateAnnularGap
   end type GenericMesh3d
@@ -352,6 +356,49 @@ contains
     mesh%numbering = ROTATIONAL_NUMBERING
 
   end subroutine SwitchToRotationalNumbering
+
+  !-----------------------------------------------------------------------------
+  !> Generates consistent vertex IDs including unique identifiers for periodic
+  !> vertices.
+
+  subroutine GenerateConsistentVertexIDs(mesh)
+    class(GenericMesh3d), intent(inout) :: mesh
+
+    integer :: i, k
+    integer :: b, lb, fb
+    integer :: c, lc, fc
+
+    associate(vertex => mesh % vertex, element => mesh % element)
+
+      ! initialization .........................................................
+
+      call mesh % SwitchToLexicalNumbering()
+
+      do i = 1, size(mesh % vertex)
+        mesh % vertex(i) % id = i
+      end do
+
+      ! periodic boundaries ....................................................
+
+      do b = 1, size(mesh%boundary)
+        c = mesh % boundary(b) % coupled
+        if (c > b) then
+          do i = 1, size(mesh % boundary(b) % face)
+            lb = mesh % boundary(b) % face(i) % element_id
+            fb = mesh % boundary(b) % face(i) % element_face
+            lc = mesh % boundary(c) % face(i) % element_id
+            fc = mesh % boundary(c) % face(i) % element_face
+            do k = 1, 4
+              vertex( element(lc) % vertex(V_FACE(k,fc)) ) % id = &
+              vertex( element(lb) % vertex(V_FACE(k,fb)) ) % id
+            end do
+          end do
+        end if
+      end do
+
+    end associate
+
+  end subroutine GenerateConsistentVertexIDs
 
   !=============================================================================
 

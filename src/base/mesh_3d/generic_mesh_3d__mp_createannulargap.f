@@ -87,7 +87,6 @@ contains
     do j = 0, np-1
     do i = 0, nr
       v = VertexIndex(i, j, k, nz, np)
-      mesh%vertex(v)%id = v
       mesh%vertex(v)%x  = [ i*cr, j*cp, k*cz ]
     end do
     end do
@@ -103,7 +102,6 @@ contains
     do j = 1, np
     do i = 1, nr
       l = ElementIndex(i, j, k, nr, np)
-print *, 'l =', l
 
       mesh%element(l)%id = l
 
@@ -208,6 +206,10 @@ print *, 'l =', l
       mesh%boundary(3)%coupled = 4
       mesh%boundary(4)%coupled = 3
     end if
+
+    ! vertex IDs ...............................................................
+
+    call mesh % GenerateConsistentVertexIDs()
 
   end subroutine CreateAnnularGap
 

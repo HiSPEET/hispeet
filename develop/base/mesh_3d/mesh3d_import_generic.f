@@ -55,6 +55,7 @@ program Mesh3d_Import_Generic
     write(*,'(/,A,G0,/)') 'VerifyMesh3d: passed = ', passed
 
     call mesh % GetPoints(po, 'GLL', x)
+
     allocate(s(0:po, 0:po, 0:po, mesh%n_elem, ns), source = ZERO)
 
     call ExportVTK_VolumeData( x, s                    &
