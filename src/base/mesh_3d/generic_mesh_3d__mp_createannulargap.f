@@ -7,6 +7,7 @@
 submodule(Generic_Mesh_3d) MP_CreateAnnularGap
   use Constants
   use Gauss_Jacobi
+  use Execution_Control
   implicit none
 
 contains
@@ -37,16 +38,20 @@ contains
   !>             |_________|/               \__________/    / np
   !>                  np                                 __/
   !>
+  !>
+  !> Restrictions
+  !>   - np ≥ 3
+  !>   - nz = 1 or nz ≥ 3 in the periodic case
 
   module subroutine CreateAnnularGap(mesh, r0, r1, h, nr, np, nz, po, periodic)
     class(GenericMesh3d), intent(out) :: mesh  !< cylindrical 3d mesh
-    real(RNP), intent(in) :: r0  !< inner radius
-    real(RNP), intent(in) :: r1  !< outer radius
-    real(RNP), intent(in) :: h   !< height
-    integer,   intent(in) :: nr  !< num elements in radial    (r)   direction
-    integer,   intent(in) :: np  !< num elements in azimuthal (phi) direction
-    integer,   intent(in) :: nz  !< num elements in axial     (z)   direction
-    integer,   intent(in) :: po  !< polynomial order of mesh elements
+    real(RNP), intent(in) :: r0 !< inner radius
+    real(RNP), intent(in) :: r1 !< outer radius
+    real(RNP), intent(in) :: h  !< height
+    integer,   intent(in) :: nr !< num elements in radial    (r)   direction
+    integer,   intent(in) :: np !< num elements in azimuthal (phi) direction ≥ 3
+    integer,   intent(in) :: nz !< num elements in axial     (z)   direction
+    integer,   intent(in) :: po !< polynomial order of mesh elements
     logical,   intent(in) :: periodic !< switch for axial periodicity
 
     ! local variables
@@ -62,6 +67,12 @@ contains
     real(RNP) :: cr, cp, cz       ! 1/np, 1/nr, 1/nz
 
     ! prerequisites ...........................................................
+
+    if (np < 3) then
+      call Error('CreateAnnularGap', 'np ≥ 3 is required')
+    else if (periodic .and. nz == 2) then
+      call Error('CreateAnnularGap', 'nz ≥ 3 required in periodic case')
+    end if
 
     ! number of vertices, elements and boundaries
     nv = (nr+1) * np * (nz+1) ! num vertices
@@ -86,7 +97,7 @@ contains
     do k = 0, nz
     do j = 0, np-1
     do i = 0, nr
-      v = VertexIndex(i, j, k, nz, np)
+      v = VertexIndex(i, j, k, nr, np)
       mesh%vertex(v)%x  = [ i*cr, j*cp, k*cz ]
     end do
     end do

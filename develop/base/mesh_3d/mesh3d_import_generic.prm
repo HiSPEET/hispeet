@@ -3,9 +3,14 @@
 ! r0   = 0.5   ! inner radius  (annular gap only)
 ! r1   = 1     ! outer radius
 ! h    = 2     ! height
-! nr   = 2     ! num elements in radial    direction
-! np   = 4     ! num elements in azimuthal direction (gap only)
-! nz   = 2     ! num elements in axial     direction
+! nr   = 1     ! num elements in radial    direction
+! np   = 3     ! num elements in azimuthal direction ≥ 3 (gap only)
+! nz   = 1     ! num elements in axial     direction ≠ 2 if periodic
 ! po   = 3     ! polynomial order of mesh elements
 ! periodic = T ! switch for axial periodicity
+/
+
+&control
+! test_avg   = .true.
+  export_vtk = .true.
 /

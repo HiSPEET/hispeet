@@ -95,7 +95,7 @@ contains
       do
         l = element_edge(3,j)           ! corresponding element ID
         e = element_edge(4,j)           ! element edge
-        o = int(element_edge(4,j), IXS) ! element edge orientation
+        o = int(element_edge(5,j), IXS) ! element edge orientation
         mesh % element(l) % edge(e) % id = k
         mesh % element(l) % edge(e) % orientation = o
         j = j + 1

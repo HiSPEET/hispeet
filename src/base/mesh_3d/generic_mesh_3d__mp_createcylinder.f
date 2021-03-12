@@ -10,6 +10,7 @@
 submodule(Generic_Mesh_3d) MP_CreateCylinder
   use Constants
   use Gauss_Jacobi
+  use Execution_Control
   implicit none
 
   ! curvature radius of one side of the inner quadrangle
@@ -26,6 +27,8 @@ contains
   !> The current implementation returs a uniform mesh for a cylinder of radius 1
   !> and length 2. Future extensions may include mappings to different extension
   !> and nonuniform spacing.
+  !>
+  !> Restriction: nz = 1 or nz ≥ 3 in the periodic case.
 
   module subroutine CreateCylinder(mesh, nr, nz, po, periodic)
     class(GenericMesh3d), intent(out) :: mesh  !< cylindrical 3d mesh
@@ -40,6 +43,10 @@ contains
     real(RNP) :: xi, eta, zeta
 
     ! prerequisites ............................................................
+
+    if (periodic .and. nz == 2) then
+      call Error('CreateCylinder', 'nz ≥ 3 required in periodic case')
+    end if
 
     ! number of vertices and elements and boundaries
     nv = ((nr+1)**2 + 4*nr**2) * (nz+1)
