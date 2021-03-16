@@ -530,14 +530,30 @@ contains
     logical, intent(in) :: self(3)     !< indicator wether linked to itself
 
     integer :: b, e, f, i, j, k, l
-    integer :: coupled(6)
+    integer :: coupled(6), polarity(6)
 
     allocate(mesh % boundary(6))
 
-    coupled = 0
-    if (periodic(1)) coupled([1,2]) = [2,1]
-    if (periodic(2)) coupled([3,4]) = [4,3]
-    if (periodic(3)) coupled([5,6]) = [6,5]
+    coupled  = 0
+    polarity = 0
+    if (periodic(1)) then
+      coupled (1) =  2
+      polarity(1) = -1
+      coupled (2) =  1
+      polarity(2) =  1
+    end if
+    if (periodic(2)) then
+      coupled (3) =  4
+      polarity(3) = -2
+      coupled (4) =  3
+      polarity(4) =  2
+    end if
+    if (periodic(3)) then
+      coupled (5) =  6
+      polarity(5) = -3
+      coupled (6) =  5
+      polarity(6) =  3
+    end if
 
     associate( boundary => mesh % boundary  &
              , element  => mesh%element     &
@@ -549,7 +565,7 @@ contains
 
       b = 1
       i = 1
-      boundary(b) = Mesh3d_Boundary( b, 'west', n2*n3, coupled(b) )
+      boundary(b) = Mesh3d_Boundary(b, 'west', coupled(b), polarity(b), n2*n3)
       f = 1
       do k = 1, n3
       do j = 1, n2
@@ -567,7 +583,7 @@ contains
 
       b = 2
       i = n1
-      boundary(b) = Mesh3d_Boundary( b, 'east', n2*n3, coupled(b) )
+      boundary(b) = Mesh3d_Boundary(b, 'east', coupled(b), polarity(b), n2*n3)
       f = 1
       do k = 1, n3
       do j = 1, n2
@@ -585,7 +601,7 @@ contains
 
       b = 3
       j = 1
-      boundary(b) = Mesh3d_Boundary( b, 'south', n1*n3, coupled(b) )
+      boundary(b) = Mesh3d_Boundary(b, 'south', coupled(b), polarity(b), n1*n3)
       f = 1
       do k = 1, n3
       do i = 1, n1
@@ -603,7 +619,7 @@ contains
 
       b = 4
       j = n2
-      boundary(b) = Mesh3d_Boundary( b, 'north', n1*n3, coupled(b) )
+      boundary(b) = Mesh3d_Boundary(b, 'north', coupled(b), polarity(b), n1*n3)
       f = 1
       do k = 1, n3
       do i = 1, n1
@@ -621,7 +637,7 @@ contains
 
       b = 5
       k = 1
-      boundary(b) = Mesh3d_Boundary( b, 'bottom', n1*n2, coupled(b) )
+      boundary(b) = Mesh3d_Boundary(b, 'bottom', coupled(b), polarity(b), n1*n2)
       f = 1
       do j = 1, n2
       do i = 1, n1
@@ -639,7 +655,7 @@ contains
 
       b = 6
       k = n3
-      boundary(b) = Mesh3d_Boundary( b, 'top', n1*n2, coupled(b) )
+      boundary(b) = Mesh3d_Boundary(b, 'top', coupled(b), polarity(b), n1*n2)
       f = 1
       do j = 1, n2
       do i = 1, n1

@@ -32,15 +32,17 @@ contains
 
     ! local data ...............................................................
 
-    integer :: element_face(4, 6*size(mesh%element))
+    integer :: element_face(5, 6*size(mesh%element))
     ! encoding:
-    ! - element_face(1,:) :  lowest edge ID
-    ! - element_face(2,:) :  highest edge ID
-    ! - element_face(3,:) :  element ID
-    ! - element_face(4,:) :  corresponding element face (1 .. 6)
+    ! - element_face(1,:) :  edge 1 \
+    ! - element_face(2,:) :  edge 2  } sorted according to mesh edge IDs
+    ! - element_face(3,:) :  edge 3 /
+    ! - element_face(4,:) :  element ID
+    ! - element_face(5,:) :  corresponding element face (1 .. 6)
 
     integer :: nef
     integer :: i, j, k, s
+    integer :: e(4), p(4)
     integer :: f1, l1
     integer :: f2, l2
 
@@ -51,17 +53,17 @@ contains
     do i = 1, size(mesh%element)
       associate(element => mesh % element(i))
         do k = 1, 6
-          element_face(:,j+k) = [ minval(element % edge(E_FACE(:,k)) % id) &
-                                , maxval(element % edge(E_FACE(:,k)) % id) &
-                                , i, k ]
+          e = element % edge(E_FACE(:,k)) % id
+          call SortFaceEdges(e, p)
+          element_face(:,j+k) = [ e(p(1:3)) , i, k ]
         end do
       end associate
       j = j + 6
     end do
     nef = size(element_face, 2)
 
-    ! sort the element faces according to 1) first, 2) second edge ID
-    call SortPairs(element_face)
+    ! sort the element faces according to edge IDs
+    call SortTriplets(element_face)
 
     ! count mesh faces .........................................................
 
@@ -72,8 +74,9 @@ contains
       do
         j = j + 1
         if (j > nef) exit
-        if (element_face(1,j) /= element_face(1,i)) exit
-        if (element_face(2,j) /= element_face(2,i)) exit
+        if (element_face(1,j) /= element_face(1,i)) exit ! edge 1 differs
+        if (element_face(2,j) /= element_face(2,i)) exit ! edge 2 differs
+        if (element_face(3,j) /= element_face(3,i)) exit ! edge 3 differs
       end do
       if (j > nef) exit COUNT_FACES
       i = j
@@ -92,13 +95,14 @@ contains
       do
         j = j + 1
         if (j > nef) exit
-        if (element_face(1,j) /= element_face(1,i)) exit
-        if (element_face(2,j) /= element_face(2,i)) exit
+        if (element_face(1,j) /= element_face(1,i)) exit ! edge 1 differs
+        if (element_face(2,j) /= element_face(2,i)) exit ! edge 2 differs
+        if (element_face(3,j) /= element_face(3,i)) exit ! edge 3 differs
       end do
 
       ! first adjacent element generates the face
-      l1 = element_face(3,i) ! mesh element ID
-      f1 = element_face(4,i) ! mesh element face
+      l1 = element_face(4,i) ! mesh element ID
+      f1 = element_face(5,i) ! mesh element face
       select case(f1)
       case(1:3)
         s = 2   ! side 2: element in positive normal direction
@@ -115,8 +119,8 @@ contains
       if (j - i == 2) then
 
         ! identify second element
-        l2 = element_face(3,i+1) ! mesh element ID
-        f2 = element_face(4,i+1) ! mesh element face
+        l2 = element_face(4,i+1) ! mesh element ID
+        f2 = element_face(5,i+1) ! mesh element face
         s  = 3 - s               ! side where the element is located
 
         ! update face and element data
@@ -137,6 +141,22 @@ contains
     end do BUILD_FACES
 
   end subroutine BuildFaces
+
+  !-----------------------------------------------------------------------------
+  !> Sort face edges according to ascending ID
+
+  pure subroutine SortFaceEdges(e, p)
+    integer, intent(in)  :: e(4) !< edge IDs
+    integer, intent(out) :: p(4) !< permutation: e(p(i)) ≤ e(p(j)) if i < j
+
+    p = [1,2,3,4]
+    if (e(1) > e(2)) p([1,2]) = p([2,1])
+    if (e(3) > e(4)) p([3,4]) = p([4,3])
+    if (e(1) > e(3)) p([1,3]) = p([3,1])
+    if (e(2) > e(4)) p([2,4]) = p([4,2])
+    if (e(2) > e(3)) p([2,3]) = p([3,2])
+
+  end subroutine SortFaceEdges
 
   !-----------------------------------------------------------------------------
   !> Identification of element face orientation

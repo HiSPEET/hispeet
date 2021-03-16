@@ -39,9 +39,7 @@ contains
   !>                  np                                 __/
   !>
   !>
-  !> Restrictions
-  !>   - np ≥ 3
-  !>   - nz = 1 or nz ≥ 3 in the periodic case
+  !> Restriction: np ≥ 3
 
   module subroutine CreateAnnularGap(mesh, r0, r1, h, nr, np, nz, po, periodic)
     class(GenericMesh3d), intent(out) :: mesh  !< cylindrical 3d mesh
@@ -70,8 +68,6 @@ contains
 
     if (np < 3) then
       call Error('CreateAnnularGap', 'np ≥ 3 is required')
-    else if (periodic .and. nz == 2) then
-      call Error('CreateAnnularGap', 'nz ≥ 3 required in periodic case')
     end if
 
     ! number of vertices, elements and boundaries
@@ -212,10 +208,12 @@ contains
     end do
     end do
 
-    ! in the periodic case identify the bottom and the top
+    ! in the periodic case identify coupled boundary and polarity
     if (periodic) then
-      mesh%boundary(3)%coupled = 4
-      mesh%boundary(4)%coupled = 3
+      mesh%boundary(3) % coupled  =  4
+      mesh%boundary(3) % polarity = -1
+      mesh%boundary(4) % coupled  =  3
+      mesh%boundary(4) % polarity =  1
     end if
 
     ! vertex IDs ...............................................................

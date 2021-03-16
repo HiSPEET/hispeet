@@ -10,7 +10,6 @@
 submodule(Generic_Mesh_3d) MP_CreateCylinder
   use Constants
   use Gauss_Jacobi
-  use Execution_Control
   implicit none
 
   ! curvature radius of one side of the inner quadrangle
@@ -43,10 +42,6 @@ contains
     real(RNP) :: xi, eta, zeta
 
     ! prerequisites ............................................................
-
-    if (periodic .and. nz == 2) then
-      call Error('CreateCylinder', 'nz ≥ 3 required in periodic case')
-    end if
 
     ! number of vertices and elements and boundaries
     nv = ((nr+1)**2 + 4*nr**2) * (nz+1)
@@ -172,8 +167,10 @@ contains
     end do
 
     if (periodic) then
-      mesh%boundary(2)%coupled = 3
-      mesh%boundary(3)%coupled = 2
+      mesh%boundary(2) % coupled  =  3
+      mesh%boundary(2) % polarity = -1
+      mesh%boundary(3) % coupled  =  2
+      mesh%boundary(3) % polarity =  1
     end if
 
     ! vertex IDs ...............................................................

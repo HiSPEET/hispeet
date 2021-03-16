@@ -124,8 +124,8 @@ program Mesh3d_Import_Generic
         end do
         end do
       end do
-      write(*,'(/,A,ES10.3,A,4I5)') 'Average over element boundaries: err = ', &
-                                     err, ' at ', i_err, j_err, k_err, l_err
+      write(*,'(A,ES10.3,A,4I5)') 'Average over element boundaries: err = ', &
+                                  err, ' at ', i_err, j_err, k_err, l_err
     end if
 
     ! export mesh and data .....................................................

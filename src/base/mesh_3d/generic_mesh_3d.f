@@ -156,6 +156,7 @@ module Generic_Mesh_3d
     integer           :: id   = 0     !< identifer
     character(len=80) :: name = ''    !< boundary name
     integer           :: coupled = 0  !< ID of coupled boundary, 0 if none
+    integer           :: polarity = 0 !< position WRT to periodic direction
     type(GenericMesh3d_ElementFace), allocatable :: face(:) !< element faces
   end type GenericMesh3d_Boundary
 
@@ -169,19 +170,24 @@ module Generic_Mesh_3d
   !> faces must appear in the same order and numbered consistently. Coupling of
   !> boundaries b and c implies that
   !>
-  !>   * boundary(b)%face(f) matches boundary(c)%face(f), and
+  !>   - boundary(b)%polarity = -boundary(c)%polarity ≠ 0
   !>
-  !>   * the vertices of the corresponding faces of
+  !>   - boundary(b)%face(f) matches boundary(c)%face(f), and
   !>
-  !>       - element( boundary(b)%face(f)%element ) and
-  !>       - element( boundary(c)%face(f)%element )
+  !>   - the vertices of the corresponding faces of
+  !>
+  !>       *  element( boundary(b)%face(f)%element ) and
+  !>       *  element( boundary(c)%face(f)%element )
   !>
   !>     are coupled to each other according to element vertex numbering.
   !>     For example, with lexically numbered hexadra:
   !>
-  !>       - if face 1 of element i is coupled with face 2 of element j,
-  !>       - then vertices 1,3,5,7 of element i are coupled with vertices
-  !>         2,4,5,8 of element j in exactly this order.
+  !>       *  if face 1 of element i is coupled with face 2 of element j,
+  !>       *  then vertices 1,3,5,7 of element i are coupled with vertices
+  !>          2,4,5,8 of element j in exactly this order.
+  !>
+  !> All boundaries residing on the same extremity of a periodic direction
+  !> must have an identical polarity.
   !>
   !> Compliance to these conventions is the precondition for constructing
   !> mappings between coupled mesh vertices on a purely topological basis.

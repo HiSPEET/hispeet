@@ -35,14 +35,37 @@ module Mesh_3d__Boundary
   end type Mesh_3d_BoundaryFace
 
   !-----------------------------------------------------------------------------
-  !> Cartesian mesh boundary
+  !> Mesh boundary
+  !>
+  !> This type provides the properties of a boundary and serves for accessing
+  !> adjacent mesh faces and elements of the local partition.
+  !> The components `id`, `name`, `coupled` and `polarity` represent global
+  !> properties and, therefore, are same in all mesh partitions even if they
+  !> do not share any part of the boundary.
+  !> The numeric identifier `id` equals the index in the `boundary` component
+  !> of the related `Mesh3D_Partition` object, whereas `name` represents a
+  !> textual label.
+  !> Periodicity is supported via the `coupled` and `polarity` components.
+  !> While the former specifies the ID of the coupled boundary, the latter
+  !> allows to identify their relative location respective to the pertinent
+  !> periodic direction. More precisely, `polarity` can assume the values
+  !> 0, ±1, ±2 or ±3. For example, a polarity of -1 indicates a boundary
+  !> limiting the domain toward -∞ in periodic direction 1. Similarly,
+  !> +1 refers to a position on the opposite side, i.e. toward +∞. Thus, then
+  !> `polarity` component enables the identification of all boundaries forming
+  !> an extremity or "pole" of one periodic direction.
+  !>
+  !> The `face` component provides the required information for accessing the
+  !> local mesh face and the element face adjoining a given boundary face.
+  !> Once initialized, the number of local boundary faces is stored in `n_face`.
 
   type Mesh3d_Boundary
 
-    integer           :: id      =  0  !< boundary identifier
-    character(len=80) :: name    = ''  !< name
-    integer           :: n_face  = -1  !< number of faces
-    integer           :: coupled =  0  !< ID of coupled boundary, 0 if none
+    integer           :: id       =  0  !< boundary identifier
+    character(len=80) :: name     = ''  !< name
+    integer           :: coupled  =  0  !< ID of coupled boundary, 0 if none
+    integer           :: polarity =  0  !< position WRT to periodic direction
+    integer           :: n_face   = -1  !< number of faces
 
     type(Mesh_3d_BoundaryFace), allocatable :: face(:) !< boundary faces
 
@@ -58,35 +81,41 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor for Mesh3d_Boundary
 
-  function New_Mesh3d_Boundary(id, name, n_face, coupled) result(this)
-    integer,          intent(in) :: id       !< identifier
-    character(len=*), intent(in) :: name     !< name
-    integer,          intent(in) :: n_face   !< number of faces
-    integer,          intent(in) :: coupled  !< ID coupled boundary, 0 if none
-    type(Mesh3d_Boundary)        :: this     !< 3d mesh boundary object
+  function New_Mesh3d_Boundary(id, name, coupled, polarity, n_face) result(this)
+    integer,           intent(in) :: id       !< identifier
+    character(len=*),  intent(in) :: name     !< name
+    integer, optional, intent(in) :: coupled  !< ID coupled boundary, 0 if none
+    integer, optional, intent(in) :: polarity !< pos WRT to periodic direction
+    integer, optional, intent(in) :: n_face   !< number of faces
+    type(Mesh3d_Boundary)         :: this     !< 3d mesh boundary object
 
-    call Init_Mesh3d_Boundary(this, id, name, n_face, coupled)
+    call Init_Mesh3d_Boundary(this, id, name, coupled, polarity, n_face)
 
   end function New_Mesh3d_Boundary
 
   !-----------------------------------------------------------------------------
   !> Initialize a new 3d mesh boundary
 
-  subroutine Init_Mesh3d_Boundary(this, id, name, n_face, coupled)
+  subroutine Init_Mesh3d_Boundary(this, id, name, coupled, polarity, n_face)
     class(Mesh3d_Boundary), intent(inout) :: this !< 3d mesh boundary object
-    integer,          intent(in) :: id       !< identifier
-    character(len=*), intent(in) :: name     !< name
-    integer,          intent(in) :: n_face   !< number of faces
-    integer,          intent(in) :: coupled  !< ID coupled boundary, 0 if none
+    integer,           intent(in) :: id       !< identifier
+    character(len=*),  intent(in) :: name     !< name
+    integer, optional, intent(in) :: coupled  !< ID coupled boundary, 0 if none
+    integer, optional, intent(in) :: polarity !< pos WRT to periodic direction
+    integer, optional, intent(in) :: n_face   !< number of faces
 
     if (allocated(this%face)) deallocate(this%face)
 
     this % id      = id
     this % name    = name
-    this % n_face  = n_face
-    this % coupled = coupled
 
-    allocate(this%face(n_face))
+    if (present(coupled )) this % coupled  = coupled
+    if (present(polarity)) this % polarity = polarity
+
+    if (present(n_face)) then
+      this % n_face  = n_face
+      allocate(this%face(n_face))
+    end if
 
   end subroutine Init_Mesh3d_Boundary
 

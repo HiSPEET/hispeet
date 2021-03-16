@@ -23,7 +23,7 @@ contains
     class(GenericMesh3d),    intent(in)  :: generic_mesh !< generic mesh
     type(MPI_Comm),          intent(in)  :: comm         !< MPI communicator
 
-    integer :: rank
+    integer :: i, rank
 
     call MPI_Comm_rank(comm, rank)
     if (rank > 0) return
@@ -36,6 +36,7 @@ contains
       call Error('ImportGenericMesh', 'Only hexahedral elements supported')
     end if
 
+    mesh % n_bound     =  size(generic_mesh % boundary)
     mesh % n_elem      =  size(generic_mesh % element)
     mesh % n_part      =  1
     mesh % part        =  0
@@ -43,12 +44,21 @@ contains
     mesh % regular     = .false.
     mesh % comm        =  comm
 
+    allocate(mesh % boundary( mesh%n_bound ))
+    do i = 1, mesh % n_bound
+      mesh % boundary(i) = Mesh3d_Boundary( i                                   &
+                             , name     = generic_mesh % boundary(i) % name     &
+                             , coupled  = generic_mesh % boundary(i) % coupled  &
+                             , polarity = generic_mesh % boundary(i) % polarity )
+    end do
+
+
     call ImportElements(mesh, generic_mesh)
 
     call mesh % IdentifyEdges()
     call mesh % BuildFaces()
 
-    call ImportBoundaries     (mesh, generic_mesh)
+    call ImportBoundaryFaces  (mesh, generic_mesh)
     call ImportElementDomains (mesh, generic_mesh)
 
     call mesh % BuildLinks()
@@ -67,9 +77,11 @@ contains
     class(Mesh3d_Partition), intent(inout) :: mesh         !< mesh partition
     class(GenericMesh3d),    intent(in)    :: generic_mesh !< generic mesh
 
-    integer :: i, j, k, n
+    integer :: b, i, j, k, n
 
     allocate(mesh % element( mesh % n_elem ))
+
+    ! element and vertex IDs ...................................................
 
     n = 0
     do i = 1, mesh % n_elem
@@ -84,7 +96,64 @@ contains
 
     mesh % n_vert = n
 
+    ! boundary IDs .............................................................
+
+    do b = 1, size(generic_mesh%boundary)
+      associate(boundary => generic_mesh % boundary(b))
+        do i = 1, size(boundary % face)
+
+          j = boundary % face(i) % element_id    ! corresponding element ID
+          k = boundary % face(i) % element_face  ! corresponding element face
+
+          mesh % element(j) % face(k) % boundary = b
+
+        end do
+      end associate
+    end do
+
   end subroutine ImportElements
+
+  !-----------------------------------------------------------------------------
+  !> Import of boundary faces
+
+  subroutine ImportBoundaryFaces(mesh, generic_mesh)
+    class(Mesh3d_Partition), intent(inout) :: mesh         !< mesh partition
+    class(GenericMesh3d),    intent(in)    :: generic_mesh !< generic mesh
+
+    integer :: b, e, f, i, j, s
+
+    do b = 1, size(generic_mesh%boundary)
+
+      associate( mb => mesh % boundary(b)         &
+               , gb => generic_mesh % boundary(b) )
+
+        allocate(mb % face(mb % n_face))
+
+        do i = 1, mb % n_face
+
+          e = gb % face(i) % element_id         ! corresponding element ID
+          j = gb % face(i) % element_face       ! corresponding element face
+          f = mesh % element(e) % face(j) % id  ! corresponding mesh face ID
+
+          ! side of the mesh face on which the boundary is located
+          if (mesh % face(f) % element(1) % id == e) then
+            s = 2
+          else
+            s = 1
+          end if
+
+          mb % face(i) % mesh_face % id   = f
+          mb % face(i) % mesh_face % side = s
+
+          mb % face(i) % mesh_element % id   = e
+          mb % face(i) % mesh_element % face = j
+
+        end do
+
+      end associate
+    end do
+
+  end subroutine ImportBoundaryFaces
 
   !-----------------------------------------------------------------------------
   !> Import of mesh boundaries
@@ -133,8 +202,6 @@ contains
 
           mb % face(i) % mesh_element % id   = e
           mb % face(i) % mesh_element % face = j
-
-          mesh % element(e) % face(j) % boundary = i
 
         end do
 
