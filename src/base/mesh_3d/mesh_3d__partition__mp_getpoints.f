@@ -17,8 +17,8 @@ contains
   !>
   !> The routine provides the element points for one of the following bases:
   !>
-  !>   *  Lagrange polynomials to Gauss-Legendre points (basis = 'GL')
-  !>   *  Lagrange polynomials to Gauss-Lobatto-Legendre points (basis = 'GLL')
+  !>   -  Lagrange polynomials to Gauss-Legendre points (basis = 'GL')
+  !>   -  Lagrange polynomials to Gauss-Lobatto-Legendre points (basis = 'GLL')
 
   module subroutine GetPoints(mesh, po, basis, x)
     class(Mesh3d_Partition), intent(in)  :: mesh         !< mesh parition
@@ -28,13 +28,13 @@ contains
 
     type(StandardOperators1D) :: sop
 
-    sop = StandardOperators1D(po, basis, no_vdm = .true.)
-
     !$omp single
     allocate(x(0:po, 0:po, 0:po, mesh%n_elem, 3))
     !$omp end single
 
     if (mesh % n_elem < 1) return
+
+    sop = StandardOperators1D(po, basis, no_vdm = .true.)
 
     if (mesh % regular) then
       call GetRegularMeshPoints(mesh, sop, x)

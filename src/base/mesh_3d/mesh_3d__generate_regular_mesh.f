@@ -1,6 +1,7 @@
 module Mesh_3d__Generate_Regular_Mesh
 
   use Kind_Parameters  , only: IXL, IXS, RNP
+  use Constants        , only: ZERO, HALF
   use Execution_Control, only: Error
   use Gauss_Jacobi
   use XMPI
@@ -674,7 +675,7 @@ contains
   end subroutine GenerateRegularMeshBoundaries
 
   !-----------------------------------------------------------------------------
-  !> Creates the element domains
+  !> Creates the element domains and their cuboid approximations
 
   subroutine GenerateRegularElementDomains(mesh, xo, i0, j0, k0)
     class(Mesh3d_Partition), intent(inout) :: mesh  !< local partition
@@ -693,7 +694,8 @@ contains
              , pg => mesh % p_geom    &
              , dx => mesh % dx        )
 
-      allocate(mesh % x_elem(0:pg, 0:pg, 0:pg, 1:mesh%n_elem, 1:3))
+      allocate(mesh % x_elem(0:pg, 0:pg, 0:pg, mesh%n_elem, 1:3))
+      allocate(mesh % x_cube(0:3, 1:mesh%n_elem, 1:3))
 
       do k = 1, n3
       do j = 1, n2
@@ -716,6 +718,11 @@ contains
         end do
         end do
         end do
+
+        ! cuboid
+        mesh % x_cube(:,e,1) = HALF * [ x1(0) + x1(pg), dx(1), ZERO , ZERO  ]
+        mesh % x_cube(:,e,2) = HALF * [ x2(0) + x2(pg), ZERO , dx(2), ZERO  ]
+        mesh % x_cube(:,e,3) = HALF * [ x3(0) + x3(pg), ZERO , ZERO , dx(3) ]
 
       end do
       end do

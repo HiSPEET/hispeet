@@ -62,7 +62,7 @@ subroutine New_PMG_TransferOperators(this, pc, pf)
 
   allocate(V_c(0:pc,0:pc), VI_f(0:pf,0:pf))
   call sop_c % Get_Legendre_VDM(V_c)
-  call sop_f % Get_InverseLegendre_VDM(VI_f)
+  call sop_f % Get_Inverse_Legendre_VDM(VI_f)
 
   this % pc = pc
   this % pf = pf

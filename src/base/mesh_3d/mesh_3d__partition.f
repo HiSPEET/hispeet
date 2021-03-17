@@ -22,6 +22,20 @@ module Mesh_3d__Partition
   !> ### Ghost elements
   !>
   !> The ghost elements stored in `ghost(1:n_ghost)` ...
+  !>
+  !> ### Element geometry
+  !>
+  !> All element domains are defined as Lagrange polynomials of degree `p_geom`.
+  !> The array `x_elem(0:p_geom,0:p_geom,0:p_geom,l,1:3)` holds the Cartesian
+  !> coordinates at the GLL points in element `l`. For convenience, `x_cube`
+  !> provides a cuboidal approximation to that element, which is given by
+  !>
+  !>       x(ξ,η,ζ) = x_cube(0,l,1:3)
+  !>                + x_cube(1,l,1:3) ξ
+  !>                + x_cube(2,l,1:3) η
+  !>                + x_cube(3,l,1:3) ζ
+  !>
+  !> with `-1 ≤ ξ,η,ζ ≤ 1`.
 
   type Mesh3d_Partition
 
@@ -68,12 +82,14 @@ module Mesh_3d__Partition
 
     ! mesh element geometry
     real(RNP), allocatable :: x_elem(:,:,:,:,:) !< element GLL points
+    real(RNP), allocatable :: x_cube(:,:,:)     !< approximate cuboids
 
     ! MPI
     type(MPI_Comm) :: comm  !< communicator
 
   contains
 
+    procedure :: GetCuboids
     procedure :: GetPoints
     procedure :: GetPointValency
 
@@ -95,6 +111,14 @@ module Mesh_3d__Partition
   end interface
 
   interface
+
+    !---------------------------------------------------------------------------
+    !> Generates Cuboid points to all elements of a partition
+
+    module subroutine GetCuboids(mesh, x)
+      class(Mesh3d_Partition), intent(in)  :: mesh         !< mesh parition
+      real(RNP), allocatable,  intent(out) :: x(:,:,:,:,:) !< mesh points
+    end subroutine GetCuboids
 
     !---------------------------------------------------------------------------
     !> Generates Gauss-Lobatto or Gauss points to all elements of a partition

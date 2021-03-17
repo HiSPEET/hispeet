@@ -133,9 +133,16 @@ program Mesh3d_Import_Generic
     if (export_vtk) then
       call ExportVTK_VolumeData( x, var                  &
                                , sname  = ['r','e']      &
-                               , file   = 'generic_mesh' &
+                               , file   = 'element_mesh' &
                                , part   = mesh % part    &
                                , n_part = mesh % n_part  )
+
+      call mesh % GetCuboids(x)
+      call ExportVTK_VolumeData( x                       &
+                               , file   = 'cuboid_mesh'  &
+                               , part   = mesh % part    &
+                               , n_part = mesh % n_part  )
+
     end if
 
   end if

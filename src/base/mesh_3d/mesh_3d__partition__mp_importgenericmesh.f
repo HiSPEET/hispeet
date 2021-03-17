@@ -6,7 +6,6 @@
 
 submodule(Mesh_3d__Partition) MP_ImportGenericMesh
   use Execution_Control
-  use Gauss_Jacobi
   use Standard_Operators_1D
   use Embedded_Interpolation
   use Generic_Mesh_3d
@@ -217,9 +216,10 @@ contains
     class(Mesh3d_Partition), intent(inout) :: mesh         !< mesh partition
     class(GenericMesh3d),    intent(in)    :: generic_mesh !< generic mesh
 
+    type(StandardOperators1D) :: sop
     type(InterpolationOperator), allocatable :: iop(:)
-    real(RNP), allocatable :: xi(:)
-    integer :: c, e, pg, pg_max, pg_min, po
+    real(RNP), allocatable :: VI(:,:)
+    integer :: d, e, pg, pg_max, pg_min, po
 
     ! preliminaries ............................................................
 
@@ -234,36 +234,42 @@ contains
       end if
     end do
 
-    ! interpolation operators
+    ! standard and interpolation operators
     mesh%p_geom = max(mesh%p_geom, pg_max)
-    po = mesh%p_geom
-    allocate(xi(0:po), source = GLL_Points(po))
-    allocate(iop(pg_min:pg_max))
+    po  = mesh%p_geom
+    sop = StandardOperators1D(po)
+    allocate(VI(0:po,0:po), iop(pg_min:pg_max))
+    call sop % Get_Inverse_Legendre_VDM(VI)
     do pg = pg_min, pg_max
       if (pg == mesh%p_geom) cycle
-      iop(pg) = InterpolationOperator(StandardOperators1D(pg), xi)
+      iop(pg) = InterpolationOperator(StandardOperators1D(pg), sop%x)
     end do
 
-    ! import/interpolate element points ........................................
+    ! element points and approximate cuboids ...................................
 
     allocate(mesh % x_elem(0:po, 0:po, 0:po, mesh%n_elem, 3))
-
+    allocate(mesh % x_cube(0:3, mesh%n_elem, 3))
     do e = 1, mesh % n_elem
-      pg = generic_mesh % element(e) % order
-      associate(xg => generic_mesh%element(e)%x, xe => mesh % x_elem)
-        if (pg == po) then
-          do c = 1, 3
-            xe(:,:,:,e,c) = reshape(xg(:,c), [po+1,po+1,po+1])
-          end do
-        else
-          do c = 1, 3
-            call Interpolate(iop(pg), xg(:,c), xe(:,:,:,e,c))
-          end do
-        end if
+      associate(xg => generic_mesh % element(e) % x)
+        pg = generic_mesh % element(e) % order
+        do d = 1, 3
+
+          if (pg == po) then
+            mesh % x_elem(:,:,:,e,d) = reshape(xg(:,d), [po+1,po+1,po+1])
+          else
+            call Interpolate(iop(pg), xg(:,d), mesh%x_elem(:,:,:,e,d))
+          end if
+
+          call LinearFit(VI, mesh%x_elem(:,:,:,e,d), mesh%x_cube(:,e,d))
+
+        end do
       end associate
     end do
 
   contains
+
+    !---------------------------------------------------------------------------
+    !> Interpolates element points from generic mesh element
 
     subroutine Interpolate(iop, xo, xi)
       class(InterpolationOperator), intent(in)  :: iop
@@ -312,6 +318,35 @@ contains
       end do
 
     end subroutine Interpolate
+
+    !---------------------------------------------------------------------------
+    !> Computes the constant and linear Legendre coefficients to given 3D GLL
+    !> coefficients
+
+    subroutine LinearFit(VI, x, y)
+      real(RNP), intent(in)  :: VI(0:,0:)   !< Inverse Vandermonde matrix
+      real(RNP), intent(in)  :: x(0:,0:,0:) !< GLL coefficients
+      real(RNP), intent(out) :: y(0:3)      !< Legendre coefficients
+
+      real(RNP) :: a(size(VI,1), size(VI,1)), b(size(VI,1)), c(0:1, 0:1, 0:1)
+      integer   :: i, j, k, n
+
+      n = size(VI,1)
+
+      do i = 0, 1
+        a = reshape(matmul(VI(i,:), reshape(x, [n,n*n])), [n,n])
+
+        do j = 0, 1
+          b = matmul(VI(j,:), a)
+          do k = 0, 1
+            c(i,j,k) = dot_product(VI(k,:), b)
+          end do
+        end do
+      end do
+
+      y = [ c(0,0,0), c(1,0,0), c(0,1,0), c(0,0,1) ]
+
+    end subroutine LinearFit
 
   end subroutine ImportElementDomains
 

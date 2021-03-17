@@ -55,7 +55,7 @@ module Standard_Operators_1D
     procedure :: Init_Legendre_VDM
     procedure :: Has_Legendre_VDM
     procedure :: Get_Legendre_VDM
-    procedure :: Get_InverseLegendre_VDM
+    procedure :: Get_Inverse_Legendre_VDM
 
     procedure :: Init_SVV
     procedure :: Has_SVV
@@ -300,19 +300,19 @@ contains
   !-----------------------------------------------------------------------------
   !> Get the inverse Legendre-Vandermonde matrix
 
-  subroutine Get_InverseLegendre_VDM(this, VL_inv)
+  subroutine Get_Inverse_Legendre_VDM(this, VL_inv)
     class(StandardOperators1D), intent(in) :: this        !< standard operators
     real(RNP), intent(out) :: VL_inv(0:this%po,0:this%po) !< inverse VDM matrix
 
     if (.not. allocated(this%VL_inv)) then
-      call Error( 'Get_InverseLegendre_VDM'            &
+      call Error( 'Get_Inverse_Legendre_VDM'            &
                 , 'Vandermonde matrix not initialized' &
                 , 'Standard_Operators_1D'              )
     end if
 
     VL_inv = this % VL_inv
 
-  end subroutine Get_InverseLegendre_VDM
+  end subroutine Get_Inverse_Legendre_VDM
 
   !-----------------------------------------------------------------------------
   !> Initializes SVV operators

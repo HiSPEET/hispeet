@@ -103,6 +103,7 @@ set ( MESH_3D mesh_3d/generic_mesh_3d.f
               mesh_3d/mesh_3d__partition__mp_buildfaces.f
               mesh_3d/mesh_3d__partition__mp_buildlinks.f
               mesh_3d/mesh_3d__partition__mp_buildghosts.f
+              mesh_3d/mesh_3d__partition__mp_getcuboids.f
               mesh_3d/mesh_3d__partition__mp_getpoints.f
               mesh_3d/mesh_3d__partition__mp_getpointvalency.f
               mesh_3d/mesh_3d__partition__mp_identifyedges.f
