@@ -19,7 +19,7 @@
 /
 
 &solver
- method = 1             ! CG = 1, Schwarz = 2, p-MG = 3, p-MG/CG
+ method = 1  ! 0: none, 1: CG, 2: Schwarz, 3: Schwarz-PCG, 4: p-MG, 5: p-MG/CG
 /
 
 &solver_cg
@@ -35,6 +35,14 @@
  schwarz_opt%weighting = 5       ! [ 5 ]
 /
 
+&solver_schwarz_pcg
+ i_max  = 100                    ! [ huge(1) ]
+ r_red  = 1E-3                   ! [ 1E-6    ]
+ schwarz_opt%delta     = 3*0.08  ! [ 3*0.125]
+ schwarz_opt%no_min    = 1       ! [ 1 ]
+ schwarz_opt%weighting = 5       ! [ 5 ]
+/
+
 &solver_pmg
 !pmg_opt%po_top  will be set to po
  pmg_opt%po_bot             =  1
@@ -42,6 +50,7 @@
  pmg_opt%ns1                =  1
  pmg_opt%ns2                =  1
  pmg_opt%mvs                =  1
+!pmg_opt%smoother           = 'P'
  pmg_opt%schwarz%delta      =  3*0.125 ! [ 3*0.125]
 !pmg_opt%schwarz%no_min     =  1       ! [ 1 ]
 !pmg_opt%schwarz%weighting  =  5       ! [ 5 ]

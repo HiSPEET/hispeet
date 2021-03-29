@@ -48,6 +48,7 @@ module CART__Elliptic_Operator
     procedure(Residual),  deferred :: Residual
     procedure(Iteration), deferred :: ConjugateGradients
     procedure(Iteration), deferred :: SchwarzMethod
+    procedure(Iteration), deferred :: SchwarzPreConjugateGradients
 
   end type EllipticOperator3D
 

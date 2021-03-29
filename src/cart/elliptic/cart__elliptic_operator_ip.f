@@ -50,6 +50,7 @@ module CART__Elliptic_Operator_IP
     procedure :: Residual
     procedure :: ConjugateGradients
     procedure :: SchwarzMethod
+    procedure :: SchwarzPreConjugateGradients
 
   end type EllipticOperator3D_IP
 
@@ -408,6 +409,145 @@ subroutine ConjugateGradients(this, u, f, i_max, r_red, r_max, ni)
   end associate
 
 end subroutine ConjugateGradients
+
+!-------------------------------------------------------------------------------
+!> Schwarz-preconditioned conjugate gradient method
+
+subroutine SchwarzPreConjugateGradients(this, u, f, i_max, r_red, r_max, ni)
+  class(EllipticOperator3D_IP), intent(in) :: this
+  real(RNP), intent(inout) :: u(0:,0:,0:,:)  !< approximate solution
+  real(RNP), intent(in)    :: f(0:,0:,0:,:)  !< right hand side
+  integer,   intent(in)    :: i_max          !< max num iterations
+  real(RNP), optional, intent(in)  :: r_red  !< min residual reduction
+  real(RNP), optional, intent(in)  :: r_max  !< max admissible residual
+  integer,   optional, intent(out) :: ni     !< exec num iterations
+
+  ! local variables ............................................................
+
+  real(RNP), dimension(:,:,:,:), allocatable, save :: g, r, p, q, s, z
+  real(RNP), save :: rr_term
+  logical  , save :: converged
+
+  real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
+  logical   :: check_convergence, singular
+  real(RNP) :: alpha, beta, delta, rr
+  integer   :: i, i_max_
+
+  ! initialization .............................................................
+
+  check_convergence = present(r_red) .or. present(r_max)
+  singular = abs(this%lambda) < epsilon(ONE) .and. all(this%bc /= 'D')
+
+  associate(mesh => this%mesh)
+
+    ! work space
+    !$omp single
+    allocate(g, mold = u)
+    allocate(p, mold = u)
+    allocate(q, mold = u)
+    allocate(r, mold = u)
+    allocate(s, mold = u)
+    allocate(z, mold = u)
+    !$omp end single
+
+    ! RHS
+    call SetArray(g, f)
+
+    ! calibrate RHS of singular problem
+    if (singular) then
+      call CalibrateArray(g, mesh%comm)
+    end if
+
+    ! initial residual .........................................................
+
+    call this % Residual(u, g, r)
+    call SetArray(p, r)
+
+    ! termination conditions
+    if (check_convergence) then
+      rr = ScalarProduct(r, r, mesh%comm)
+      !$omp master
+      if (present(r_red)) then
+        rr_term  = max(ZERO, sqrt(rr) * r_red)**2
+      else
+        rr_term = 0
+      end if
+      if (present(r_max)) then
+        rr_term = max(rr_term, max(ZERO, r_max)**2)
+      end if
+      converged = rr <= rr_term
+      call XMPI_Bcast(converged, root=0, comm=mesh%comm)
+      !$omp end master
+      !$omp barrier
+    else
+      !$omp master
+      converged = .false.
+      !$omp end master
+      !$omp barrier
+    end if
+
+    if (converged) then
+      i_max_ = 0
+      i      = 0
+    else
+      i_max_ = i_max
+    end if
+
+    ! iteration ................................................................
+
+    do i = 1, i_max_
+
+      ! Schwarz preconditioner
+      call SetArray(z, ZERO)
+      call this % SchwarzMethod(z, r, 1)
+
+      ! set/update search vector
+      if (i == 1) then
+        if (singular) then
+          call CalibrateArray(z, mesh%comm)
+        end if
+        call SetArray(p, z)                               ! p = z
+      else
+        call SetArray(q, r)                               ! q = r
+        call MergeArrays(ONE, q, -ONE, s)                 ! q = r - s
+        beta = ScalarProduct(q, z, mesh%comm) / delta
+        call MergeArrays(beta, p, ONE, z)                 ! p = beta p + z
+      end if
+
+      ! save old residual
+      call SetArray(s, r)
+
+      ! correction
+      call this % Apply(p, q)
+      delta = ScalarProduct(r, z, mesh%comm)
+      alpha = delta / ScalarProduct(p, q, mesh%comm)
+      call MergeArrays(ONE, u,  alpha, p)                 ! u = u + alpha p
+      call MergeArrays(ONE, r, -alpha, q)                 ! r = r - alpha q
+
+      if (check_convergence) then
+        rr = ScalarProduct(r, r, mesh%comm)
+        !$omp master
+        converged = rr <= rr_term
+        call XMPI_Bcast(converged, root=0, comm=mesh%comm)
+        !$omp end master
+        !$omp barrier
+      end if
+
+      if (converged .or. i == i_max_) exit
+
+    end do
+
+    ! finalization .............................................................
+
+    if (present(ni)) ni = i
+
+    !$omp master
+    deallocate(g, p, q, r, s, z)
+    !$omp end master
+
+  end associate
+
+end subroutine SchwarzPreConjugateGradients
 
 !===============================================================================
 

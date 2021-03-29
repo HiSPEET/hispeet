@@ -68,7 +68,13 @@ program Elliptic_Test__IP_CI
 
   ! solution ...................................................................
 
-  integer   :: method    = 1       ! none, CG, Schwarz, p-MG, p-MG/CG {0,1|2|3|4}
+  integer :: method = 1
+  ! 0  none
+  ! 1  CG
+  ! 2  Schwarz
+  ! 3  Schwarz-PCG
+  ! 4  p-MG
+  ! 5  p-MG/CG
 
   integer   :: i_max     = huge(1) ! max number of iterations/cycles
   real(RNP) :: r_red     = 1E-6    ! min residual reduction
@@ -76,10 +82,11 @@ program Elliptic_Test__IP_CI
   type(SchwarzOptions3D) :: schwarz_opt
   type(PMG_Options3D)    :: pmg_opt
 
-  namelist /solver/         method
-  namelist /solver_cg/      i_max, r_red
-  namelist /solver_schwarz/ i_max, r_red, schwarz_opt
-  namelist /solver_pmg/     pmg_opt
+  namelist /solver/             method
+  namelist /solver_cg/          i_max, r_red
+  namelist /solver_schwarz/     i_max, r_red, schwarz_opt
+  namelist /solver_schwarz_pcg/ i_max, r_red, schwarz_opt
+  namelist /solver_pmg/         pmg_opt
 
   ! MPI and OpenMP .............................................................
 
@@ -165,7 +172,9 @@ program Elliptic_Test__IP_CI
         read(prm, nml=solver_cg)
       case(2)
         read(prm, nml=solver_schwarz)
-      case(3,4)
+      case(3)
+        read(prm, nml=solver_schwarz_pcg)
+      case(4,5)
         read(prm, nml=solver_pmg)
         pmg_opt % po_top = po
       end select
@@ -200,7 +209,7 @@ program Elliptic_Test__IP_CI
   call XMPI_Bcast(i_max , 0, comm)
   call XMPI_Bcast(r_red , 0, comm)
 
-  ! Schwarz and PMG options
+  ! Schwarz, PCG and PMG options
   call schwarz_opt % Bcast(0, comm)
   call pmg_opt     % Bcast(0, comm)
 
@@ -304,7 +313,7 @@ program Elliptic_Test__IP_CI
 
   ! methods
   select case(method)
-  case(3,4)
+  case(4,5)
     pmg = PMG_Method3D(mesh, ip_opt, pmg_opt)
     if (svv) then
       call pmg % SetProblem(lambda, nu, nu_svv, bc)
@@ -401,8 +410,10 @@ program Elliptic_Test__IP_CI
     case(2)
       write(*,'(A,/)') 'IP/DG EllipticOperator: Schwarz Method'
     case(3)
-      write(*,'(A,/)') 'IP/DG EllipticOperator: p-Multigrid'
+      write(*,'(A,/)') 'IP/DG EllipticOperator: Schwarz-PCG Method'
     case(4)
+      write(*,'(A,/)') 'IP/DG EllipticOperator: p-Multigrid'
+    case(5)
       write(*,'(A,/)') 'IP/DG EllipticOperator: p-MG/CG'
     case default
       write(*,'(A,/)') 'skipping solver test'
@@ -437,7 +448,7 @@ program Elliptic_Test__IP_CI
     write(*,'(2X,A,ES10.3)') 'r_L2  =', r_l2_0
     write(*,'(2X,A,ES10.3)') 'r_max =', r_max
     select case(method)
-    case(3:4)
+    case(4:5)
       if (pmg_opt % monitor) write(*,*)
     end select
   end if
@@ -452,9 +463,11 @@ program Elliptic_Test__IP_CI
     call elliptic_op % ConjugateGradients(u, f, i_max, r_red, ni=ni)
   case(2) ! Schwarz method
     call elliptic_op % SchwarzMethod(u, f, i_max, r_red, ni=ni)
-  case(3) ! p-MG method
+  case(3) ! Schwarz-PCG method
+    call elliptic_op % SchwarzPreConjugateGradients(u, f, i_max, r_red, ni=ni)
+  case(4) ! p-MG method
     call pmg % MG_Solver(u, f, ni=ni)
-  case(4) ! p-MG/CG method
+  case(5) ! p-MG/CG method
     call pmg % MG_CG_Solver(u, f, ni=ni)
   end select
 

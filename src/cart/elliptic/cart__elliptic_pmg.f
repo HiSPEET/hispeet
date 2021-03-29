@@ -94,11 +94,12 @@ module CART__Elliptic_PMG
     integer   :: ns1       =  1  !< num pre-smoothing  steps on top level
     integer   :: ns2       =  1  !< num post-smoothing steps on top level
     integer   :: mvs       =  1  !< multiplier for variable smoothing
+    character :: smoother  = 'S' !< 'S': Schwarz, 'C': CG, 'P': Schwarz-PCG
 
     type(SchwarzOptions3D) :: schwarz !< Schwarz method
 
     ! coarse grid solver settings
-    character :: solver    = 'C' !< coarse grid solver, 'C': CG, 'S': Schwarz
+    character :: solver    = 'C' !< coarse grid solver (see smoother)
     integer   :: i0_max    =  1  !< max number coarse grid iterations
     real(RNP) :: r0_red    = -1  !< min coarse grid residual reduction
     real(RNP) :: r0_max    = -1  !< max admissible residual on coarse grid
@@ -512,9 +513,17 @@ subroutine V_Cycle(this)
       end if
 
       ! pre-smoothing
-      call level(l) % elliptic_op % SchwarzMethod( level(l)%u,  &
-                                                   level(l)%f,  &
-                                                   level(l)%ns1 )
+      select case(level(l) % smoother)
+      case('S')
+        call level(l) % elliptic_op % &
+               SchwarzMethod(level(l)%u, level(l)%f, level(l)%ns1)
+      case('C')
+        call level(l) % elliptic_op % &
+               ConjugateGradients(level(l)%u, level(l)%f, level(l)%ns1)
+      case('P')
+        call level(l) % elliptic_op % &
+               SchwarzPreConjugateGradients(level(l)%u, level(l)%f, level(l)%ns1)
+      end select
       if (this%monitor) call Monitoring(this, l, '1')
 
       ! residual evaluation: v_l = f_l - A_l u_l
@@ -534,11 +543,15 @@ subroutine V_Cycle(this)
       call SetArray(u_0, ZERO)
       if (this%monitor) call Monitoring(this, 0, '0')
       select case(this % solver)
+      case('S')
+        call level(0) % elliptic_op % &
+               SchwarzMethod(u_0, f_0, i_max, r_red)
       case('C')
         call level(0) % elliptic_op % &
                ConjugateGradients(u_0, f_0, i_max, r_red, r_max)
-      case('S')
-        call level(0) % elliptic_op % SchwarzMethod(u_0, f_0, i_max, r_red)
+      case('P')
+        call level(0) % elliptic_op % &
+               SchwarzPreConjugateGradients(u_0, f_0, i_max, r_red, r_max)
       end select
       if (this%monitor) call Monitoring(this, 0, 's')
 
@@ -556,9 +569,17 @@ subroutine V_Cycle(this)
       if (this%monitor) call Monitoring(this, l, 'c')
 
       ! post-smoothing
-      call level(l) % elliptic_op % SchwarzMethod( level(l)%u,  &
-                                                   level(l)%f,  &
-                                                   level(l)%ns2 )
+      select case(level(l) % smoother)
+      case('S')
+        call level(l) % elliptic_op % &
+               SchwarzMethod(level(l)%u, level(l)%f, level(l)%ns2)
+      case('C')
+        call level(l) % elliptic_op % &
+               ConjugateGradients(level(l)%u, level(l)%f, level(l)%ns2)
+      case('P')
+        call level(l) % elliptic_op % &
+               SchwarzPreConjugateGradients(level(l)%u, level(l)%f, level(l)%ns2)
+      end select
       if (this%monitor) call Monitoring(this, l, '2')
 
     end do
@@ -599,8 +620,7 @@ subroutine PMG_Options3D_Bcast(this, root, comm)
   integer,        intent(in) :: root !< rank of broadcast root
   type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-  type(MPI_Request) :: request(16)
-  type(MPI_Status)  :: stat(size(request))
+  type(MPI_Request) :: request(17)
   integer :: n
 
   n = 1
@@ -612,6 +632,7 @@ subroutine PMG_Options3D_Bcast(this, root, comm)
   call XMPI_Ibcast( this % r_red     , root, comm, request(n) );  n = n + 1
   call XMPI_Ibcast( this % r_max     , root, comm, request(n) );  n = n + 1
   call XMPI_Ibcast( this % dr_min    , root, comm, request(n) );  n = n + 1
+  call XMPI_Ibcast( this % smoother  , root, comm, request(n) );  n = n + 1
   call XMPI_Ibcast( this % ns1       , root, comm, request(n) );  n = n + 1
   call XMPI_Ibcast( this % ns2       , root, comm, request(n) );  n = n + 1
   call XMPI_Ibcast( this % mvs       , root, comm, request(n) );  n = n + 1
@@ -621,7 +642,7 @@ subroutine PMG_Options3D_Bcast(this, root, comm)
   call XMPI_Ibcast( this % r0_max    , root, comm, request(n) );  n = n + 1
   call XMPI_Ibcast( this % monitor   , root, comm, request(n) )
 
-  call MPI_Waitall(n, request, stat)
+  call MPI_Waitall(n, request, MPI_STATUSES_IGNORE)
 
   call this % Schwarz % Bcast(root, comm)
 

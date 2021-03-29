@@ -35,25 +35,31 @@ module subroutine Init_IP( this, mesh, ip_opt, pmg_opt )
   ns1 = pmg_opt % ns1
   ns2 = pmg_opt % ns2
 
-  associate(level => this % level, schwarz_opt => pmg_opt % schwarz)
+  associate(level => this % level)
 
     if (l_top > 0) then
-      call level(l_top) % Init_TopLevel_IP( ns1, ns2, mesh, ip_opt, &
-                                            schwarz_opt, po(l_top-1 )                          )
+      call level(l_top) % Init_TopLevel_IP( ns1, ns2            &
+                                          , pmg_opt % smoother  &
+                                          , mesh, ip_opt        &
+                                          , pmg_opt % schwarz   &
+                                          , po(l_top-1)         )
     else
-      call level(l_top) % Init_TopLevel_IP( ns1, ns2, mesh, ip_opt, schwarz_opt )
+      call level(l_top) % Init_TopLevel_IP( ns1, ns2            &
+                                          , pmg_opt % smoother  &
+                                          , mesh, ip_opt        &
+                                          , pmg_opt % schwarz   )
     end if
 
     do l = l_top-1, 1, -1
       ns1 = ns1 * pmg_opt % mvs
       ns2 = ns2 * pmg_opt % mvs
-      call level(l) % Init_CoarseLevel( po(l), ns1, ns2, this%level(l+1), &
-                                        schwarz_opt, po(l-1)              )
+      call level(l) % Init_CoarseLevel( po(l), ns1, ns2, this%level(l+1)  &
+                                      , pmg_opt % schwarz, po(l-1)        )
     end do
 
     if (l_top > 0) then
-      call level(0) % Init_CoarseLevel( po(0), ns1, ns2, this%level(1), &
-                                        schwarz_opt                     )
+      call level(0) % Init_CoarseLevel( po(0), ns1, ns2, this%level(1)  &
+                                      , pmg_opt % schwarz               )
     end if
 
   end associate

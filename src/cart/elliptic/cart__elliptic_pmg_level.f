@@ -25,10 +25,11 @@ module CART__Elliptic_PMG_Level
 
   type PMG_Level
 
-    integer :: po = -1  !< polynomial order
-    integer :: ne = -1  !< number of local elements
-    integer :: ns1 = 1  !< number of pre-smoothing steps
-    integer :: ns2 = 1  !< number of post-smoothing steps
+    integer   :: po = -1        !< polynomial order
+    integer   :: ne = -1        !< number of local elements
+    integer   :: ns1 = 1        !< number of pre-smoothing steps
+    integer   :: ns2 = 1        !< number of post-smoothing steps
+    character :: smoother = 'S' !< 'S': Schwarz, 'C': CG, 'P': Schwarz-PCG
 
     class(EllipticOperator3D), allocatable :: elliptic_op !< elliptic operator
 
@@ -69,14 +70,16 @@ contains
 !-------------------------------------------------------------------------------
 !> Initialization of top level with IP/DG-SEM and no problem data
 
-subroutine Init_TopLevel_IP(this, ns1, ns2, mesh, ip_opt, schwarz_opt, po_coarse)
+subroutine Init_TopLevel_IP( this, ns1, ns2, smoother, mesh, &
+                             ip_opt , schwarz_opt, po_coarse )
 
   ! arguments ..................................................................
 
   class(PMG_Level),     intent(inout) :: this
-  integer,              intent(in)    :: ns1    !< num pre-smoothing steps
-  integer,              intent(in)    :: ns2    !< num post-smoothing steps
-  class(MeshPartition), intent(in)    :: mesh   !< mesh partition
+  integer,              intent(in)    :: ns1      !< num pre-smoothing steps
+  integer,              intent(in)    :: ns2      !< num post-smoothing steps
+  character,            intent(in)    :: smoother !< smoothing method
+  class(MeshPartition), intent(in)    :: mesh     !< mesh partition
 
   class(IP_ElementOptions1D), intent(in) :: ip_opt
   !< options for the IP/DG method, including polynomial order `po` and `penalty`
@@ -89,10 +92,11 @@ subroutine Init_TopLevel_IP(this, ns1, ns2, mesh, ip_opt, schwarz_opt, po_coarse
 
   ! parameters .................................................................
 
-  this % po  = ip_opt % po
-  this % ne  = mesh % ne
-  this % ns1 = ns1
-  this % ns2 = ns2
+  this % po       = ip_opt % po
+  this % ne       = mesh % ne
+  this % ns1      = ns1
+  this % ns2      = ns2
+  this % smoother = smoother
 
   ! elliptic operators .........................................................
 
@@ -127,10 +131,11 @@ subroutine Init_CoarseLevel(this, po, ns1, ns2, fine, schwarz_opt, po_coarse)
 
   ! parameters .................................................................
 
-  this % po  = po
-  this % ne  = fine % ne
-  this % ns1 = ns1
-  this % ns2 = ns2
+  this % po       = po
+  this % ne       = fine % ne
+  this % ns1      = ns1
+  this % ns2      = ns2
+  this % smoother = fine % smoother
 
   ! elliptic operators .........................................................
 
@@ -172,7 +177,7 @@ subroutine SetTopLevelProblem_CI(this, lambda, nu, bc)
 end subroutine SetTopLevelProblem_CI
 
 !-------------------------------------------------------------------------------
-!> Initialize top-level problem with a combination of a constant isotropic
+!> Initialize fine-level problem with a combination of a constant isotropic
 !> diffusivity and a constant isotropic spectral diffusivity
 
 subroutine SetTopLevelProblem_CI_svv(this, lambda, nu, nu_svv, bc)
@@ -188,7 +193,7 @@ subroutine SetTopLevelProblem_CI_svv(this, lambda, nu, nu_svv, bc)
 end subroutine SetTopLevelProblem_CI_svv
 
 !-------------------------------------------------------------------------------
-!> Initialize top-level problem with variable isotropic diffusivity
+!> Initialize fine-level problem with variable isotropic diffusivity
 
 subroutine SetTopLevelProblem_VI(this, lambda, nu, bc)
   class(PMG_Level), intent(inout) :: this

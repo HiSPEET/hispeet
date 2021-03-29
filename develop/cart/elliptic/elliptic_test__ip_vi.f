@@ -70,7 +70,13 @@ program Elliptic_Test__IP_VI
 
   ! solution ...................................................................
 
-  integer   :: method  = 1       ! CG,, Schwarz, p-MG or p-MG/CG {1|2|3|4}
+  integer :: method = 1
+  ! 0  none
+  ! 1  CG
+  ! 2  Schwarz
+  ! 3  Schwarz-PCG
+  ! 4  p-MG
+  ! 5  p-MG/CG
 
   integer   :: i_max   = huge(1) ! max number of iterations/cycles
   real(RNP) :: r_red   = 1E-6    ! min residual reduction
@@ -78,10 +84,11 @@ program Elliptic_Test__IP_VI
   type(SchwarzOptions3D) :: schwarz_opt
   type(PMG_Options3D)    :: pmg_opt
 
-  namelist /solver/         method
-  namelist /solver_cg/      i_max, r_red
-  namelist /solver_schwarz/ i_max, r_red, schwarz_opt
-  namelist /solver_pmg/     pmg_opt
+  namelist /solver/             method
+  namelist /solver_cg/          i_max, r_red
+  namelist /solver_schwarz/     i_max, r_red, schwarz_opt
+  namelist /solver_schwarz_pcg/ i_max, r_red, schwarz_opt
+  namelist /solver_pmg/         pmg_opt
 
   ! MPI and OpenMP .............................................................
 
@@ -167,7 +174,9 @@ program Elliptic_Test__IP_VI
         read(prm, nml=solver_cg)
       case(2)
         read(prm, nml=solver_schwarz)
-      case(3,4)
+      case(3)
+        read(prm, nml=solver_schwarz_pcg)
+      case(4,5)
         read(prm, nml=solver_pmg)
         pmg_opt % po_top = po
       end select
@@ -295,7 +304,7 @@ program Elliptic_Test__IP_VI
 
   ! methods
   select case(method)
-  case(3,4)
+  case(4,5)
     pmg = PMG_Method3D(mesh, ip_opt, pmg_opt)
     call pmg % SetProblem(lambda, nu, bc)
   end select
@@ -385,12 +394,23 @@ program Elliptic_Test__IP_VI
     case(1)
       write(*,'(A,/)') 'IP/DG EllipticOperator: Conjugate Gradients'
     case(2)
-      write(*,'(A,/)') 'IP/DG EllipticOperator: Schwarz Method'
+      write(*,'(A)') 'IP/DG EllipticOperator: Schwarz Method'
+      write(*,'(2X,A,3(1X,I0),/)') 'no = ', elliptic_op % schwarz % no
     case(3)
-      write(*,'(A,/)') 'IP/DG EllipticOperator: p-Multigrid'
+      write(*,'(A)') 'IP/DG EllipticOperator: Schwarz-PCG Method'
+      write(*,'(2X,A,3(1X,I0),/)') 'no = ', elliptic_op % schwarz % no
     case(4)
+      write(*,'(A,/)') 'IP/DG EllipticOperator: p-Multigrid'
+    case(5)
       write(*,'(A,/)') 'IP/DG EllipticOperator: p-MG/CG'
+    case default
+      write(*,'(A,/)') 'skipping solver test'
     end select
+  end if
+
+  if (method == 0) then
+    call MPI_Finalize()
+    stop
   end if
 
   !$omp parallel
@@ -431,9 +451,11 @@ program Elliptic_Test__IP_VI
     call elliptic_op % ConjugateGradients(u, f, i_max, r_red, ni=ni)
   case(2) ! Schwarz method
     call elliptic_op % SchwarzMethod(u, f, i_max, r_red, ni=ni)
-  case(3) ! p-MG method
+  case(3) ! conjugate gradients
+    call elliptic_op % SchwarzPreConjugateGradients(u, f, i_max, r_red, ni=ni)
+  case(4) ! p-MG method
     call pmg % MG_Solver(u, f, ni=ni)
-  case(4) ! p-MG/CG method
+  case(5) ! p-MG/CG method
     call pmg % MG_CG_Solver(u, f, ni=ni)
   end select
 
@@ -494,37 +516,37 @@ program Elliptic_Test__IP_VI
                                 part   = mesh%part,       &
                                 n_part = mesh%n_part      )
 
-    !### CHECK
-    block
-      integer :: l, pl
-      real(RNP), allocatable :: xl(:,:,:,:,:), vl(:,:,:,:,:)
-      character(len=2) :: vl_names(4) = [ 'u ', 'f ', 'v ', 'nu' ]
-      select case(method)
-      case(3,4)
-        do l = 0, ubound(pmg % level,1)
-          pl = pmg % level(l) % po
-          write(plot_file, '(A,I0)') 'elliptic_test__ip_vi_', l
-          print '(2(A,I0))', 'level = ',l,': P_l = ', pl
-          allocate(xl(0:pl,0:pl,0:pl,mesh%ne,4))
-          allocate(vl(0:pl,0:pl,0:pl,mesh%ne,4))
-          call mesh % GetPoints(pl, 'GLL', xl)
-          vl(:,:,:,:,1) = pmg % level(l) % u
-          vl(:,:,:,:,2) = pmg % level(l) % f
-          vl(:,:,:,:,3) = pmg % level(l) % v
-          if (allocated(pmg % level(l) % elliptic_op % nu_vi)) then
-            vl(:,:,:,:,4) = pmg % level(l) % elliptic_op % nu_vi
-          else
-            vl(:,:,:,:,4) = 0
-          end if
-          call ExportVolumeDataToVTK( pl, mesh%ne, 4, 0, xl, vl, vl_names, &
-                                      file   = trim(plot_file),            &
-                                      part   = mesh%part,                  &
-                                      n_part = mesh%n_part                 )
-          deallocate(xl, vl)
-        end do
-      end select
-    end block
-    !### CHECK END
+!!!    !### CHECK
+!!!    block
+!!!      integer :: l, pl
+!!!      real(RNP), allocatable :: xl(:,:,:,:,:), vl(:,:,:,:,:)
+!!!      character(len=2) :: vl_names(4) = [ 'u ', 'f ', 'v ', 'nu' ]
+!!!      select case(method)
+!!!      case(3,4)
+!!!        do l = 0, ubound(pmg % level,1)
+!!!          pl = pmg % level(l) % po
+!!!          write(plot_file, '(A,I0)') 'elliptic_test__ip_vi_', l
+!!!          print '(2(A,I0))', 'level = ',l,': P_l = ', pl
+!!!          allocate(xl(0:pl,0:pl,0:pl,mesh%ne,4))
+!!!          allocate(vl(0:pl,0:pl,0:pl,mesh%ne,4))
+!!!          call mesh % GetPoints(pl, 'GLL', xl)
+!!!          vl(:,:,:,:,1) = pmg % level(l) % u
+!!!          vl(:,:,:,:,2) = pmg % level(l) % f
+!!!          vl(:,:,:,:,3) = pmg % level(l) % v
+!!!          if (allocated(pmg % level(l) % elliptic_op % nu_vi)) then
+!!!            vl(:,:,:,:,4) = pmg % level(l) % elliptic_op % nu_vi
+!!!          else
+!!!            vl(:,:,:,:,4) = 0
+!!!          end if
+!!!          call ExportVolumeDataToVTK( pl, mesh%ne, 4, 0, xl, vl, vl_names, &
+!!!                                      file   = trim(plot_file),            &
+!!!                                      part   = mesh%part,                  &
+!!!                                      n_part = mesh%n_part                 )
+!!!          deallocate(xl, vl)
+!!!        end do
+!!!      end select
+!!!    end block
+!!!    !### CHECK END
 
   end if
 
