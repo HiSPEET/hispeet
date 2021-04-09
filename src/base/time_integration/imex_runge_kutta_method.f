@@ -8,8 +8,8 @@
 !> This module provides IMEX Runge-Kutta methods of the form
 !>
 !>     c | a_im     c | a_ex
-!>     ––+––––--    ––+––––-
-!>       | bᵀ         | bᵀ
+!>     ––|––––---   ––|––––--
+!>       | b_imᵀ      | b_exᵀ
 !>
 !> where `a_im` is the diagonally implicit part and `a_ex` the explicit part.
 !> They all possess the first-same-as-last property, `c(1) = 0` and `c(ns) = 1`,
@@ -50,10 +50,11 @@ module IMEX_Runge_Kutta_Method
     character(len=80)      :: name    = ' ' !< name of RK method
     integer                :: n_stage = 0   !< number of stages
     integer                :: order   = 0   !< order of convergence
+    real(RNP), allocatable :: c(:)          !< RK nodes
+    real(RNP), allocatable :: b_im(:)       !< implicit RK weights
+    real(RNP), allocatable :: b_ex(:)       !< explicit RK weights
     real(RNP), allocatable :: a_im(:,:)     !< implicit RK matrix
     real(RNP), allocatable :: a_ex(:,:)     !< explicit RK matrix
-    real(RNP), allocatable :: b(:)          !< RK weights
-    real(RNP), allocatable :: c(:)          !< RK nodes
   contains
     procedure :: Init_IMEX_RK_Method
     procedure :: Show => Show_IMEX_RK_Method
@@ -89,7 +90,7 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
   integer,     optional, intent(in)    :: method !< RK scheme [1]
 
   integer :: method_
-  real(RHP), allocatable :: a_im(:,:), a_ex(:,:), b(:), c(:)
+  real(RHP), allocatable :: c(:), b_im(:), b_ex(:), a_im(:,:), a_ex(:,:)
 
   if (present(method)) then
     method_ = method
@@ -100,11 +101,11 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
   ! set up components ..........................................................
 
   this % n_stage = min(8, max(2, ns))
-
+  allocate( c    ( this%n_stage )              , source = 0.0_RHP )
+  allocate( b_im ( this%n_stage )              , source = 0.0_RHP )
+  allocate( b_ex ( this%n_stage )              , source = 0.0_RHP )
   allocate( a_im ( this%n_stage, this%n_stage ), source = 0.0_RHP )
   allocate( a_ex ( this%n_stage, this%n_stage ), source = 0.0_RHP )
-  allocate( b    ( this%n_stage )              , source = 0.0_RHP )
-  allocate( c    ( this%n_stage )              , source = 0.0_RHP )
 
   ! select method ..............................................................
 
@@ -116,38 +117,50 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
 
     case(1)
 
-      this % name = 'Euler backward-forward'
+      this % name  = 'Euler backward-forward'
       this % order = 1
 
-      c(2) = 1
-      b(2) = 1
+      c(2)    = 1
+
+      b_im(2) = 1
+      b_ex(1) = 1
 
       a_im(2,2) = 1
       a_ex(2,1) = 1
 
     case(2)
 
-      this % name = 'IMEXRK22MP - IMEX Mid-point rule'
-      this % order = 1
+      this % name  = 'IMEXRK22MP - IMEX mid-point rule'
+      this % order = 2
 
-      c(2) = 1._RHP / 2._RHP
-      b(2) = 1._RHP
+      c(2)    = 1._RHP / 2._RHP
+
+      b_im(2) = 1._RHP
+      b_ex(:) = b_im
 
       a_im(2,2) = 1._RHP / 2._RHP
       a_ex(2,1) = 1._RHP / 2._RHP
 
     case(3)
 
-      this % name = 'IMEXRK22TR - IMEX 2-stages trapezoidal-rule'
-      this % order = 1
+      this % name  = 'IMEXRK22TR - IMEX trapezoidal rule'
+      this % order = 2
 
       c(2) = 1
 
-      b(1) = 1._RHP / 2._RHP
-      b(2) = 1._RHP / 2._RHP
+      b_im(1) = 1._RHP / 2._RHP
+      b_im(2) = 1._RHP / 2._RHP
+
+      b_ex(:) = b_im
 
       a_im(2,2) = 1
       a_ex(2,1) = 1
+
+    case default
+
+      call Error( 'Init_IMEX_RK_Method',            &
+                  'requested method not available', &
+                  'IMEX_Runge_Kutta_Method'         )
 
     end select
 
@@ -157,59 +170,48 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
 
     case(1)
 
-      this % name = 'IMEXRKCB2 (Cavaglieri & Bewley, JCP 286, 2015)'
+      this % name  = 'IMEXRKCB2 (Cavaglieri & Bewley, JCP 286, 2015)'
       this % order = 2
 
       c(2) = 2._RHP / 5._RHP
       c(3) = 1._RHP
 
-      b(2) = 5._RHP / 6._RHP
-      b(3) = 1._RHP / 6._RHP
+      b_im(2) = 5._RHP / 6._RHP
+      b_im(3) = 1._RHP / 6._RHP
 
-      a_im(2,2) = 2._RHP / 5._RHP
-      a_im(3,:) = b
+      b_ex(:) = b_im
 
       a_ex(2,1) = 2._RHP / 5._RHP
       a_ex(3,2) = 1._RHP
 
+      a_im(2,2) = 2._RHP / 5._RHP
+      a_im(3,:) = b_im
+
     case(2)
 
-      this % name = 'IMEXRKCB3a (Cavaglieri & Bewley, JCP 286, 2015)'
-      this % order = 3
-
-      c(2) = 0.89255023293546865_RHP
-      c(3) = c(2) / (6 * c(2)**2 - 3 * c(2) + 1)
-
-      b(2) = ( 3 * c(2) - 1 ) / ( 6 * c(2)**2 )
-      b(3) = ( 6 * c(2)**2 - 3 * c(2) + 1 ) / (6 * c(2)**2)
-
-      a_im(2,2) = c(2)
-      a_im(3,3) = ( 1._RHP / 6._RHP - b(2) * c(2)**2 - b(3) * c(2) * c(3) ) &
-                / ( b(3) * ( c(3) - c(2) ) )
-      a_im(3,2) = a_im(3,3) - c(3)
-
-      a_ex(2,1) = c(2)
-      a_ex(3,2) = c(3)
-
-    case(3)
-
-      this % name = 'IMEX RK32E3'
+      this % name  = 'IMEXRK32TR - IMEX trapezoidal rule' ! Variant 2
       this % order = 2
 
-      c(2) = 1._RHP / 3._RHP
+      c(2) = 1._RHP
       c(3) = 1._RHP
 
-      b(2) = 3._RHP / 4._RHP
-      b(3) = 1._RHP / 4._RHP
+      b_im(1) = 1._RHP / 2._RHP
+      b_im(3) = 1._RHP / 2._RHP
 
-      a_im(2,2) = 1._RHP / 3._RHP
-      a_im(3,2) = 3._RHP / 4._RHP
-      a_im(3,3) = 1._RHP / 4._RHP
+      b_ex(1) = 1._RHP / 2._RHP
+      b_ex(2) = 1._RHP / 2._RHP
 
+      a_im(2,2) = 1._RHP
+      a_im(3,:) = b_im
 
-      a_ex(2,1) =  1._RHP
-      a_ex(3,1) = -1._RHP
-      a_ex(3,2) =  2._RHP
+      a_ex(2,1) = 1._RHP
+      a_ex(3,:) = b_ex
+
+    case default
+
+      call Error( 'Init_IMEX_RK_Method',            &
+                  'requested method not available', &
+                  'IMEX_Runge_Kutta_Method'         )
 
     end select
 
@@ -219,19 +221,21 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
 
     case(1)
 
-      this % name = 'IMEXRKCB3c (Cavaglieri & Bewley, JCP 286, 2015)'
+      this % name  = 'IMEXRKCB3c (Cavaglieri & Bewley, JCP 286, 2015)'
       this % order = 3
 
       c(2) = 337550982.9940_RHP / 452591907.6317_RHP
       c(3) =  27277862.3835_RHP / 103945477.8728_RHP
       c(4) =         1.0000_RHP
 
-      b(2) =  67348865.2607_RHP /     &
-             233403321.9546_RHP
-      b(3) =  49380121.9040_RHP /     &
-              85365302.6979_RHP
-      b(4) =  18481477.7513_RHP /     &
-             138966872.3319_RHP
+      b_im(2) =  67348865.2607_RHP /     &
+                233403321.9546_RHP
+      b_im(3) =  49380121.9040_RHP /     &
+                 85365302.6979_RHP
+      b_im(4) =  18481477.7513_RHP /     &
+                138966872.3319_RHP
+
+      b_ex    = b_im
 
       a_im(2,2) =     337550982.99400000000_RHP /     &
                       452591907.63170000000_RHP
@@ -240,14 +244,14 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
       a_im(3,3) =      56613830.78810000000_RHP /     &
                        91215372.11390000000_RHP
 
-      a_im(3,1) = b(1)
-      a_im(4,:) = b
+      a_im(3,1) = b_im(1)
+      a_im(4,:) = b_im
 
       a_ex(2,1) = c(2)
       a_ex(3,2) = c(3)
-      a_ex(3,1) = b(1)
-      a_ex(4,1) = b(1)
-      a_ex(4,2) = b(2)
+      a_ex(3,1) = b_ex(1)
+      a_ex(4,1) = b_ex(1)
+      a_ex(4,2) = b_ex(2)
       a_ex(4,3) = 166054456.6939_RHP /233403321.9546_RHP
 
    case(2)
@@ -259,53 +263,69 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
       c(3) =  1._RHP
       c(4) =  1._RHP
 
-      b(2) =  3._RHP / 4._RHP
-      b(3) = -1._RHP / 4._RHP
-      b(4) =  1._RHP / 2._RHP
+      b_im(2) =  3._RHP / 4._RHP
+      b_im(3) = -1._RHP / 4._RHP
+      b_im(4) =  1._RHP / 2._RHP
+
+      b_ex = b_im
 
       a_im(2,2) = 1._RHP / 3._RHP
       a_im(3,2) = 1._RHP / 2._RHP
       a_im(3,3) = 1._RHP / 2._RHP
-      a_im(4,:) = b
+      a_im(4,:) = b_im
 
       a_ex(2,1) = 1._RHP / 3._RHP
       a_ex(3,2) = 1._RHP
       a_ex(4,2) = 3._RHP / 4._RHP
       a_ex(4,3) = 1._RHP / 4._RHP
 
-    case(3)
-
-      this % name = 'IMEXRK43S2'
-      this % order = 3
-
-      c(2) = 2._RHP / 3._RHP
-      c(3) = 1._RHP / 3._RHP
-      c(4) = 1._RHP
-
-      b(3) = 3._RHP / 4._RHP
-      b(4) = 1._RHP / 4._RHP
-
-      a_ex(2,1) =  2._RHP / 3._RHP
-      a_ex(3,1) =  1._RHP / 4._RHP
-      a_ex(3,2) =  1._RHP / 12._RHP
-      a_ex(4,1) = -1._RHP / 2._RHP
-      a_ex(4,3) =  3._RHP / 2._RHP
-
-      a_im(2,2) =  2._RHP / 3._RHP
-      a_im(3,2) = -1._RHP / 6._RHP
-      a_im(3,3) =  1._RHP / 2._RHP
-      a_im(4,3) =  3._RHP / 4._RHP
-      a_im(4,4) =  1._RHP / 4._RHP
-
     case default
+
       call Error( 'Init_IMEX_RK_Method',            &
                   'requested method not available', &
                   'IMEX_Runge_Kutta_Method'         )
+
     end select
+
+  case(5)
+
+    this % name  = 'IMEXRK53 ARS443 (Ascher et al., ANM 25, 1997)'
+    this % order = 3
+
+    c(2) = 1._RHP / 2._RHP
+    c(3) = 2._RHP / 3._RHP
+    c(4) = 1._RHP / 2._RHP
+    c(5) = 1._RHP
+
+    b_im(2) =  3._RHP / 2._RHP
+    b_im(3) = -3._RHP / 2._RHP
+    b_im(4) =  1._RHP / 2._RHP
+    b_im(5) =  1._RHP / 2._RHP
+
+    b_ex(1) =  1._RHP / 4._RHP
+    b_ex(2) =  7._RHP / 4._RHP
+    b_ex(3) =  3._RHP / 4._RHP
+    b_ex(4) = -7._RHP / 4._RHP
+
+    a_im(2,2) =  1._RHP / 2._RHP
+    a_im(3,2) =  1._RHP / 6._RHP
+    a_im(3,3) =  1._RHP / 2._RHP
+    a_im(4,2) = -1._RHP / 2._RHP
+    a_im(4,3) =  1._RHP / 2._RHP
+    a_im(4,4) =  1._RHP / 2._RHP
+    a_im(5,:) =  b_im
+
+    a_ex(2,1) =  1._RHP /  2._RHP
+    a_ex(3,1) = 11._RHP / 18._RHP
+    a_ex(3,2) =  1._RHP / 18._RHP
+    a_ex(4,1) =  5._RHP /  6._RHP
+    a_ex(4,2) = -5._RHP /  6._RHP
+    a_ex(4,3) =  1._RHP /  2._RHP
+    a_ex(5,:) =  b_ex
 
   case(6)
 
-    this % name = 'IMEXRKCB4 (Cavaglieri & Bewley, JCP 286, 2015)'
+    this % name  = 'IMEXRKCB4 (Cavaglieri & Bewley, JCP 286, 2015)'
     this % order = 4
 
     c(1) = 0.0_RHP
@@ -315,57 +335,59 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
     c(5) = 1.0_RHP / 2.0_RHP
     c(6) = 1.0_RHP
 
-    b(1) =  23.204908458700_RHP  / 137.713063006300_RHP
-    b(2) =   0.322009889509_RHP  /   2.243393849156_RHP
-    b(3) = -19.510967278700_RHP  / 123.316554581700_RHP
-    b(4) = -34.058241676100_RHP  /  70.541883231900_RHP
-    b(5) =  46.339607566100_RHP  /  40.997214447700_RHP
-    b(6) =  32.317794329400_RHP  / 162.664658063300_RHP
+    b_im(1) =  23.204908458700_RHP  / 137.713063006300_RHP
+    b_im(2) =   0.322009889509_RHP  /   2.243393849156_RHP
+    b_im(3) = -19.510967278700_RHP  / 123.316554581700_RHP
+    b_im(4) = -34.058241676100_RHP  /  70.541883231900_RHP
+    b_im(5) =  46.339607566100_RHP  /  40.997214447700_RHP
+    b_im(6) =  32.317794329400_RHP  / 162.664658063300_RHP
+
+    b_ex = b_im
 
     ! A_im . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     a_im(2,1) =  1.0000000000_RHP /  8.0000000000_RHP
     a_im(3,1) = 21.6145252607_RHP / 96.1230882893_RHP
-    a_im(4,1) = b(1)
-    a_im(5,1) = b(1)
-    a_im(6,1) = b(1)
+    a_im(4,1) = b_im(1)
+    a_im(5,1) = b_im(1)
+    a_im(6,1) = b_im(1)
 
     a_im(2,2) =   1.0000000000_RHP /   8.0000000000_RHP
     a_im(3,2) =  25.7479850128_RHP / 114.3310606989_RHP
     a_im(4,2) = -38.1180097479_RHP / 127.6440792700_RHP
-    a_im(5,2) = b(2)
-    a_im(6,2) = b(2)
+    a_im(5,2) = b_im(2)
+    a_im(6,2) = b_im(2)
 
     a_im(3,3) =   3.0481561667_RHP / 10.1628412017_RHP
     a_im(4,3) =  -5.4660926949_RHP / 46.1115766612_RHP
     a_im(5,3) = -10.0836174740_RHP / 86.1952129159_RHP
-    a_im(6,3) = b(3)
+    a_im(6,3) = b_im(3)
 
     a_im(4,4) =  34.4309628413_RHP /  55.2073727558_RHP
     a_im(5,4) = -25.0423827953_RHP / 128.3875864443_RHP
-    a_im(6,4) = b(4)
+    a_im(6,4) = b_im(4)
 
     a_im(5,5) = 0.5_RHP
-    a_im(6,5) = b(5)
+    a_im(6,5) = b_im(5)
 
-    a_im(6,6) = b(6)
+    a_im(6,6) = b_im(6)
 
     ! A_ex . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     a_ex(2,1) =  1.0000000000_RHP /   4.0000000000_RHP
     a_ex(3,1) = 15.3985248130_RHP / 100.4999853329_RHP
-    a_ex(4,1) = b(1)
-    a_ex(5,1) = b(1)
-    a_ex(6,1) = b(1)
+    a_ex(4,1) = b_ex(1)
+    a_ex(5,1) = b_ex(1)
+    a_ex(6,1) = b_ex(1)
 
     a_ex(3,2) = 90.2825336800_RHP / 151.2825644809_RHP
     a_ex(4,2) =  9.9316866929_RHP /  82.0744730663_RHP
-    a_ex(5,2) = b(2)
-    a_ex(6,2) = b(2)
+    a_ex(5,2) = b_ex(2)
+    a_ex(6,2) = b_ex(2)
 
     a_ex(4,3) = 8.2888780751_RHP /  96.9573940619_RHP
     a_ex(5,3) = 5.7501241309_RHP /  76.5040883867_RHP
-    a_ex(6,3) = b(3)
+    a_ex(6,3) = b_ex(3)
 
     a_ex(5,4) =    7.6345938311_RHP /  67.6824576433_RHP
     a_ex(6,4) = -409.9309936455_RHP / 631.0162971841_RHP
@@ -374,7 +396,7 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
 
  case(8)
 
-    this % name = 'ARK5(4)8L[2]SA (Kennedy & Carpenter, Appl Numer Math 44, 2003)'
+    this % name  = 'ARK5(4)8L[2]SA (Kennedy & Carpenter, ANM 44, 2003)'
     this % order = 5
 
     c(1) =  0.0_RHP
@@ -386,14 +408,16 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
     c(7) =  3.0_RHP            /   5.0_RHP
     c(8) =  1.0_RHP
 
-    b(1) =  -87.2700587467_RHP   / 913.3579230613_RHP
-    b(2) =    0.0_RHP
-    b(3) =    0.0_RHP
-    b(4) =  223.482180632610_RHP /  95.558587375310_RHP
-    b(5) =  -11.433695189920_RHP /  81.418160029310_RHP
-    b(6) =  -39.379526789629_RHP /  19.018526304540_RHP
-    b(7) =   32.727382324388_RHP /  42.900044865799_RHP
-    b(8) =    4.1_RHP            /  20.0_RHP
+    b_im(1) =  -87.2700587467_RHP   / 913.3579230613_RHP
+    b_im(2) =    0.0_RHP
+    b_im(3) =    0.0_RHP
+    b_im(4) =  223.482180632610_RHP /  95.558587375310_RHP
+    b_im(5) =  -11.433695189920_RHP /  81.418160029310_RHP
+    b_im(6) =  -39.379526789629_RHP /  19.018526304540_RHP
+    b_im(7) =   32.727382324388_RHP /  42.900044865799_RHP
+    b_im(8) =    4.1_RHP            /  20.0_RHP
+
+    b_ex    = b_im
 
     ! A_im . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -474,16 +498,17 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
 
   end select
 
-
+  allocate( this % c    ( this%n_stage )               )
+  allocate( this % b_im ( this%n_stage )               )
+  allocate( this % b_ex ( this%n_stage )               )
   allocate( this % a_im ( this%n_stage, this%n_stage ) )
   allocate( this % a_ex ( this%n_stage, this%n_stage ) )
-  allocate( this % b    ( this%n_stage )               )
-  allocate( this % c    ( this%n_stage )               )
 
+  this % c    = real(c   , RNP)
+  this % b_im = real(b_im, RNP)
+  this % b_ex = real(b_ex, RNP)
   this % a_im = real(a_im, RNP)
   this % a_ex = real(a_ex, RNP)
-  this % b    = real(b   , RNP)
-  this % c    = real(c   , RNP)
 
 end subroutine Init_IMEX_RK_Method
 
@@ -493,10 +518,11 @@ end subroutine Init_IMEX_RK_Method
 subroutine Delete_IMEX_RK_Method(this)
   type(IMEX_RK_Method), intent(inout) :: this
 
+  if (allocated( this % c    )) deallocate( this % c    )
+  if (allocated( this % b_im )) deallocate( this % b_im )
+  if (allocated( this % b_ex )) deallocate( this % b_ex )
   if (allocated( this % a_im )) deallocate( this % a_im )
   if (allocated( this % a_ex )) deallocate( this % a_ex )
-  if (allocated( this % b    )) deallocate( this % b    )
-  if (allocated( this % c    )) deallocate( this % c    )
 
 end subroutine Delete_IMEX_RK_Method
 
@@ -528,14 +554,14 @@ subroutine Show_IMEX_RK_Method(this, unit)
     write(io,fmt_ca) this % c(i), this % a_im(i,1:i)
   end do
   write(io,'(2X,A)') repeat('-', 16 + 14*this%n_stage)
-  write(io,fmt_b) this % b
+  write(io,fmt_b) this % b_im
 
   write(io,'(/,2X,A,/)') 'explicit part'
   do i = 1, this%n_stage
     write(io,fmt_ca) this % c(i), this % a_ex(i,1:i-1)
   end do
   write(io,'(2X,A)') repeat('-', 16 + 14*this%n_stage)
-  write(io,fmt_b) this % b
+  write(io,fmt_b) this % b_ex
   write(io,*)
 
 end subroutine Show_IMEX_RK_Method

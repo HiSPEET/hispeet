@@ -84,6 +84,8 @@ program CG_ConvDiff_1D
   use CG_ConvDiff_1D__IMEX_BDF3
   use CG_ConvDiff_1D__IMEX_RK
   use CG_ConvDiff_1D__IMEX_Euler_SDC
+  use CG_ConvDiff_1D__RK_SDC
+  use CG_ConvDiff_1D__IMEX_TR_SDC
 
   implicit none
 
@@ -145,6 +147,8 @@ program CG_ConvDiff_1D
   type(SDC_Options)           :: sdc_opt      ! Euler SDC options
   namelist /sdc_parameters/      sdc_opt
 
+  type(RK_SDC_Method1D)       :: rk_sdc       ! IMEX RK method
+
   real(RNP), allocatable      :: M(:,:)       ! global mass matrix
 
   ! variables ..................................................................
@@ -188,11 +192,16 @@ program CG_ConvDiff_1D
     open(newunit=io, file=input_file)
     read(io, nml=problem_parameters)
     read(io, nml=discretization_parameters)
+
     select case (method)
     case(4)
       call Init_IMEX_RK(imex_rk, po, ne, io)
     case(5)
       call Init_Euler_SDC(sdc, io)
+    case(6)
+      call Init_RK_SDC(rk_sdc, po, ne, io)
+    case(7)
+      call Init_TR_SDC(sdc, io)
     end select
     rewind(io)
     call wave % New(input_file)
@@ -201,6 +210,7 @@ program CG_ConvDiff_1D
     call Error('ConvDiff_CG_SEM_1D', &
                'case file "' // trim(input_file) // '" not found')
   end if
+  write(*,'(/,A,1X,I0)') 'method =', method
 
   periodic = all(bc == 'P')
 
@@ -269,6 +279,13 @@ program CG_ConvDiff_1D
       case(5)
         call IMEX_Euler_SDC(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t, u0, u)
 
+      case(6)
+        call rk_sdc % TimeStep(eop, dx, dt, M, wave, v, nu, bc, x, t, u0, u)
+
+      case(7)
+        call IMEX_TR_SDC(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t, u0, u)
+
+
       end select
 
       t  = t + dt
@@ -293,8 +310,8 @@ program CG_ConvDiff_1D
   err_max = maxval(abs(err))
   err_2   = sqrt(sum(w * M * err**2))
 
-  write(*,'(9(A8,7X))') 't', 'dt', 'cfl', 'err_max', 'err_2'
-  write(*,'(9(ES12.5,3X))') t, dt, cfl, err_max, err_2
+  write(*,'(9(A8,7X))') '#      t', 'dt', 'cfl', 'err_max', 'err_2'
+  write(*,'(5(ES12.5,3X),A)') t, dt, cfl, err_max, err_2, '#last#'
 
   ! save results
   open(newunit=io, file=result_file)
@@ -378,22 +395,95 @@ contains
     type(SDC_Method), intent(inout) :: sdc !< SDC method
     integer, intent(in) :: io !< unit number of input file
 
-    integer   :: n_sub   =  1      ! number of subintervals (M)
-    integer   :: n_sweep =  0      ! max num correction sweeps (K)
-    integer   :: set     =  1      ! equidistant (1) or GLL (2) points
-    namelist /euler_sdc_parameters/ n_sub, n_sweep, set
+    integer   :: n_sub     =  1      ! number of subintervals (M)
+    integer   :: n_sweep   =  0      ! max num correction sweeps (K)
+    integer   :: point_set =  1      ! equidistant (1) or GLL (2) points
+    namelist /euler_sdc_parameters/ n_sub, n_sweep, point_set
 
-    type(SDC_Options) :: opt ! SDC options
+    type(SDC_Options) :: opt ! Euler-SDC options
 
     read(io, nml=euler_sdc_parameters)
 
-    opt = SDC_Options( n_sub   = n_sub,   &
-                       n_sweep = n_sweep, &
-                       set     = set      )
+    opt = SDC_Options( n_sub     = n_sub,       &
+                       n_sweep   = n_sweep,     &
+                       point_set = point_set    )
 
     sdc = SDC_Method(opt)
 
   end subroutine Init_Euler_SDC
+
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of the IMEX-RK-SDC method
+
+  subroutine Init_RK_SDC(rk_sdc, po, ne, io)
+    type(RK_SDC_Method1D), intent(inout) :: rk_sdc !< RK-SDC method
+    integer, intent(in) :: po !< polynomial order
+    integer, intent(in) :: ne !< number of elements
+    integer, intent(in) :: io !< unit number of input file
+
+    ! SDC parameters
+    integer   :: n_sub      =  1    ! number of subintervals (M)
+    integer   :: n_sweep    =  0    ! max num correction sweeps (K)
+    integer   :: point_set  =  2    ! equidistant (1) or GLL (2) points
+    namelist /rk_sdc_parameters/ n_sub, n_sweep, point_set
+
+    ! IMEX Runge-Kutta parameters
+    integer :: n_stage = 3       ! number of stages
+    integer :: method  = 1       ! RK method, if several with `ns`stages exist
+    logical :: show    = .false. ! print IMEX RK properties and coefficients
+    namelist /rk_sdc_parameters/ n_stage, method, show
+
+    type(SDC_Options) :: sdc_opt ! RK-SDC options
+
+    read(io, nml=rk_sdc_parameters)
+
+    sdc_opt = SDC_Options( n_sub     = n_sub,     &
+                           n_sweep   = n_sweep,   &
+                           point_set = point_set  )
+
+    rk_sdc = RK_SDC_Method1D(po, ne, sdc_opt, n_stage, method)
+
+    if (show) then
+      call rk_sdc % imex_rk % Show()
+    end if
+
+  end subroutine Init_RK_SDC
+
+ !-----------------------------------------------------------------------------
+ !> Initialization of the IMEX-TR-SDC method
+
+
+  subroutine Init_TR_SDC(sdc, io)
+    type(SDC_Method), intent(inout) :: sdc !< SDC method
+    integer, intent(in) :: io !< unit number of input file
+
+    ! TR-SDC parameters
+    integer   :: n_sub      =  1      ! number of subintervals (M)
+    integer   :: n_sweep    =  0      ! max num correction sweeps (K)
+    integer   :: point_set  =  2      ! equidistant (1) or GLL (2) points
+
+    logical :: show   = .false. ! print IMEX TR properties and coefficients
+
+    namelist /tr_sdc_parameters/ n_sub, n_sweep, point_set, show
+
+    type(SDC_Options) :: opt ! SDC options
+
+    read(io, nml=tr_sdc_parameters)
+
+    opt = SDC_Options( n_sub     = n_sub,     &
+                       n_sweep   = n_sweep,   &
+                       point_set = point_set  )
+
+    sdc = SDC_Method(opt)
+
+    !if (show) then
+     ! call sdc % Write()
+    !end if
+
+
+  end subroutine Init_TR_SDC
+
 
 !==============================================================================
 

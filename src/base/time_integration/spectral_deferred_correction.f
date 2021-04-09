@@ -71,6 +71,9 @@ module Spectral_Deferred_Correction
     real(RNP), allocatable :: w(:)    !< quadrature weights for [0, 1]
     real(RNP), allocatable :: ws(:,:) !< quadrature weights for [τᵢ₋₁,τᵢ]
 
+    real(RNP), allocatable, private :: x_gll(:) !< GLL nodes in [-1,1]
+    real(RNP), allocatable, private :: w_gll(:) !< GLL weights to x
+
   contains
 
     procedure :: Init_SDC_Method  =>  Init_SDC
@@ -155,8 +158,8 @@ contains
     this % point_set = max(1, min(2, opt % point_set))
 
     ! GLL points and weights in [-1,1]
-    allocate(x(0:n_sub), source = GLL_Points(n_sub))
-    allocate(w(0:n_sub), source = GLL_Weights(x))
+    allocate(this % x_gll(0:n_sub), source = GLL_Points(n_sub))
+    allocate(this % w_gll(0:n_sub), source = GLL_Weights(this % x_gll))
 
     ! points and quadrature weights in [0,1] ...................................
 
@@ -165,14 +168,14 @@ contains
       this % t(0:n_sub) = [ ZERO, (i*ONE/n_sub, i = 1,n_sub-1), ONE ]
       this % w(0:n_sub) = GaussLagrangeWeights(this% t)
     case default ! GLL
-      this % t(0:n_sub) = HALF * (x + ONE)
-      this % w(0:n_sub) = HALF * w
+      this % t(0:n_sub) = HALF * (this % x_gll + ONE)
+      this % w(0:n_sub) = HALF *  this % w_gll
     end select
 
     ! quadrature weights in [τᵢ₋₁,τᵢ] ..........................................
 
     do i = 1, n_sub
-      this % ws(:,i) = this % SubintervalWeights(this%t(i-1), this%t(i), x, w)
+      this % ws(:,i) = this % SubintervalWeights(this%t(i-1), this%t(i))
     end do
 
   end subroutine Init_SDC
@@ -248,12 +251,10 @@ contains
   !>
   !> where $$\tau_j$$ are the SDC points.
 
-  function SubintervalWeights(this, ta, tb, x, w) result(ws)
+  function SubintervalWeights(this, ta, tb) result(ws)
     class(SDC_Method), intent(in) :: this
     real(RNP), intent(in) :: ta               !< start of the subinterval
     real(RNP), intent(in) :: tb               !< end of the subinterval
-    real(RNP), intent(in) :: x(0:)            !< quadrature points in [-1,1]
-    real(RNP), intent(in) :: w(0:)            !< quadrature weights to x
     real(RNP)             :: ws(0:this%n_sub) !< weights
 
     real(RNP) :: delta, tk, yk
@@ -261,11 +262,10 @@ contains
 
     integer :: n_quad
 
-    n_quad = ubound(x,1)
+    associate(n_sub => this%n_sub, t => this%t, x => this%x_gll, w => this%w_gll)
 
-    associate(n_sub => this%n_sub, t => this % t)
-
-      delta = (tb - ta) * HALF
+      n_quad = ubound(x,1)
+      delta  = (tb - ta) * HALF
       do j = 0, n_sub
         ws(j) = 0
         do k = 0, n_quad

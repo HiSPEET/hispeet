@@ -47,8 +47,8 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
 
   type, extends(TimeIntegrator) :: TimeIntegrator_RungeKutta
     type(IMEX_RK_Method) :: imex_rk  !< IMEX Runge-Kutta method
-    integer :: diffusion = 2 !< method for computing diffusive RHS (F_d1)
-    integer :: assembly  = 1 !< method for constructing the final solution
+    integer :: diffusion   !< method for computing diffusive RHS (F_d1)
+    integer :: assembly    !< method for constructing the final solution
   contains
     procedure :: Init_TimeIntegrator_RungeKutta
     procedure :: Show => Show_TimeIntegrator_RungeKutta
@@ -148,12 +148,12 @@ contains
     call this % Init_TimeIntegrator(problem, flow_op, opt)
     this % name = 'IMEX Runge-Kutta method'
 
+    ! initialize RK method
+    call this % imex_rk % Init_IMEX_RK_Method(opt % n_stage, opt % method)
+
     ! specific settings
     this % diffusion = opt % diffusion
     this % assembly  = opt % assembly
-
-    ! initialize RK method
-    call this % imex_rk % Init_IMEX_RK_Method(opt % n_stage, opt % method)
 
   end subroutine Init_TimeIntegrator_RungeKutta
 
@@ -222,7 +222,8 @@ contains
              , a_im    => this % imex_rk % a_im    &
              , a_ex    => this % imex_rk % a_ex    &
              , c       => this % imex_rk % c       &
-             , b       => this % imex_rk % b       &
+             , b_im    => this % imex_rk % b_im    &
+             , b_ex    => this % imex_rk % b_ex    &
              , ns      => this % imex_rk % n_stage &
              , eop     => this % flow_op % eop_u   )
 
@@ -238,12 +239,11 @@ contains
         end if
       end if
 
-      if (allocated(F_c)) then
-        ! check if reuse last stage of previous step in stage 1
-        fsal = t == t_0 .and. c(ns) == ONE
-      else
+      ! check first-same-as-last condition
+      fsal = c(ns) == ONE .and. t == t_0 .and. allocated(F_c) !.and. .false.
+
+      if (.not. allocated(F_c)) then
         ! allocate new workspace
-        fsal = t == t_0 .and. c(ns) == ONE
         allocate(ts(1:ns))
         allocate(u_i, mold = u)
         allocate(F_c(size(u,1), size(u,2), size(u,3), size(u,4), size(u,5), ns))
@@ -326,11 +326,12 @@ contains
       case(1) ! starting from u(x,t₀)
 
         do i = 1, ns
-          tau = b(i) * dt
+          tau = b_ex(i) * dt
           call MergeArrays(ONE, u,    tau, F_c (:,:,:,:,:,i), multi=.true.)
-          call MergeArrays(ONE, u,    tau, F_d1(:,:,:,:,:,i), multi=.true.)
           call MergeArrays(ONE, u,    tau, F_d2(:,:,:,:,:,i), multi=.true.)
           call MergeArrays(ONE, u, d3*tau, F_d3(:,:,:,:,:,i), multi=.true.)
+          tau = b_im(i) * dt
+          call MergeArrays(ONE, u,    tau, F_d1(:,:,:,:,:,i), multi=.true.)
           call MergeArrays(ONE, u,    tau, F_p (:,:,:,:,:,i), multi=.true.)
           call MergeArrays(ONE, u,    tau, F_s (:,:,:,:,:,i), multi=.true.)
         end do
@@ -342,21 +343,19 @@ contains
         do i = 1, ns
 
           ! adjust implicit contributions
-          tau = (b(i) -  this % imex_rk % a_im(ns,i)) * dt
+          tau = (b_im(i) -  this % imex_rk % a_im(ns,i)) * dt
           if (abs(tau) > epsilon(ONE)) then
-            call MergeArrays(ONE, u,    tau, F_d1(:,:,:,:,:,i), multi=.true.)
-            call MergeArrays(ONE, u,    tau, F_d2(:,:,:,:,:,i), multi=.true.)
-            call MergeArrays(ONE, u, d3*tau, F_d3(:,:,:,:,:,i), multi=.true.)
-            call MergeArrays(ONE, u,    tau, F_p (:,:,:,:,:,i), multi=.true.)
-            call MergeArrays(ONE, u,    tau, F_s (:,:,:,:,:,i), multi=.true.)
+            call MergeArrays(ONE, u, tau, F_d1(:,:,:,:,:,i), multi=.true.)
+            call MergeArrays(ONE, u, tau, F_p (:,:,:,:,:,i), multi=.true.)
+            call MergeArrays(ONE, u, tau, F_s (:,:,:,:,:,i), multi=.true.)
           end if
 
-          if (i == ns) exit
-
           ! adjust explicit contributions
-          tau = (b(i) -  this % imex_rk % a_ex(ns,i)) * dt
+          tau = (b_ex(i) -  this % imex_rk % a_ex(ns,i)) * dt
           if (abs(tau) > epsilon(ONE)) then
             call MergeArrays(ONE, u,    tau, F_c (:,:,:,:,:,i), multi=.true.)
+            call MergeArrays(ONE, u,    tau, F_d2(:,:,:,:,:,i), multi=.true.)
+            call MergeArrays(ONE, u, d3*tau, F_d3(:,:,:,:,:,i), multi=.true.)
           end if
 
         end do
@@ -377,7 +376,7 @@ contains
       case(1)
         ! recompute pressure using F_p and F_s as workspace
         associate(F_v => F_p(:,:,:,:,:,1), w => F_s(:,:,:,:,:,1))
-          if (b(ns) /= ONE .and. problem % HasVariableProperties()) then
+          if (c(ns) /= ONE .and. problem % HasVariableProperties()) then
             call problem % GetDiffusivity(flow_op%x, t, u, nu)
           end if
           call TimeDerivative(problem, flow_op, t, u, nu=nu, chi=chi, F=F_v)
@@ -388,6 +387,10 @@ contains
       end select
 
     end associate
+
+    ! save final time for FSAL check ...........................................
+
+    t_0 = t
 
     ! clean up .................................................................
 

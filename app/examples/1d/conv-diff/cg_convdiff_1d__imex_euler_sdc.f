@@ -71,8 +71,10 @@ subroutine IMEX_Euler_SDC(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
   ne = ubound(u, 2)
   ns = sdc % n_sub
 
-  allocate(  ts (0:ns), source = sdc % IntermediateTimes(t0, dt)) ! {tᵢ}
-  allocate( dts (1:ns), source = ts(1:) - ts(0:ns-1))             ! {∆tᵢ}
+  allocate(  ts (0:ns)) ! {tᵢ}
+  allocate( dts (1:ns)) ! {∆tᵢ}
+  ts (0:ns) = sdc % IntermediateTimes(t0, dt)
+  dts(1:ns) = ts(1:) - ts(0:ns-1)
 
   allocate(  us (0:po, 1:ne, 0:ns), source = ZERO) ! {uᵢ}
   allocate(  F  (0:po, 1:ne, 0:ns), source = ZERO) ! {Fᵢ}

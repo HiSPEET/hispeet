@@ -121,13 +121,14 @@ subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
 
   allocate(f, mold = u)
 
-  associate( ns   => this % n_stage , b    => this % b     &
-           , a_im => this % a_im    , a_ex => this % a_ex  &
+  associate( ns   => this % n_stage                         &
+           , b_im => this % b_im    , b_ex => this % b_ex   &
+           , a_im => this % a_im    , a_ex => this % a_ex   &
            , F_im => this % F_im    , F_ex => this % F_ex  )
 
     ! stage 1 ..................................................................
 
-    if (first) then
+    if (first .or. this%c(ns) /= 1) then
       call GetDiffusionTerm(eop, dx, wave, v, nu, bc, x, t0, u0, F_im(:,:,1))
       call GetLinearConvectionTerm(eop, v, bc, u0, F_ex(:,:,1))
     else
@@ -169,7 +170,7 @@ subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
 
     f = 0
     do i = 1, ns
-      f = f + b(i) * (F_im(:,:,i) + F_ex(:,:,i))
+      f = f + b_im(i) * F_im(:,:,i) + b_ex(i) * F_ex(:,:,i)
     end do
 
     u = u0 + dt * f / M
