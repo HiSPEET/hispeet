@@ -45,16 +45,6 @@ module CART__ISP_Flow__Time_Integrator__Euler
   !>
   !> Options inherited from base class
   !>
-  !>   * `splitting` -- defines the splitting scheme used in the stages:      \n
-  !>        1: standard velocity correction with χ = -1                       \n
-  !>        2: rotational velocity correction with χ = -2                     \n
-  !>           and F_d3/2 removed after extrapolation                         \n
-  !>        3: "native" velocity correction with χ = 0                        \n
-  !>        4: velocity correction with χ = -1                                \n
-  !>           and F_d3 removed after extrapolation                           \n
-  !>        5: velocity correction with χ = -2                                \n
-  !>           and F_d3 removed after extrapolation
-  !>
   !>   * `project`                                                            \n
   !>        0: no additional projection step                                  \n
   !>        1: additional projection at the end of the time step
@@ -123,9 +113,11 @@ contains
     real(RNP), allocatable, save :: u_i  (:,:,:,:,:) ! intermediate solution
     real(RNP), allocatable, save :: nu   (:,:,:,:,:) ! variable diffusivity
     real(RNP), allocatable, save :: F_d1 (:,:,:,:,:) ! ∇·ν∇u
-    real(RNP), allocatable, save :: F_d3 (:,:,:,:,:) ! χ∇ν(∇·v)
+    real(RNP), allocatable, save :: F_d3 (:,:,:,:,:) ! -∇ν(∇·v)
     real(RNP), allocatable, save :: w    (:,:,:,:,:) ! workspace for u
     real(RNP), allocatable, save :: dp   (:,:,:,:)   ! pressure correction
+
+    real(RNP), parameter :: chi = -ONE
 
     real(RNP), save :: t_0
     integer :: i
@@ -135,8 +127,6 @@ contains
              , mesh    => this % flow_op % mesh   &
              , x       => this % flow_op % x      &
              , eop     => this % flow_op % eop_u  &
-             , chi     => this % chi              &
-             , cd3     => this % cd3              &
              , p       => u(:,:,:,:,4)            )
 
       ! initialization .........................................................
@@ -190,8 +180,8 @@ contains
       ! update boundary conditions
       call GetBoundaryValues(problem, mesh, flow_op%bv_x, t_0, flow_op%bv_u)
 
-      ! w = -∇⋅v₀v₀ + ∇⋅ν₀(∇v₀)ᵀ - χ∇(ν₀∇⋅v₀)     for v
-      ! w = -∇⋅v₀u₀                               for u \ (v,p)
+      ! w = -∇⋅v₀v₀ + ∇⋅ν₀(∇v₀)ᵀ - 2∇(ν₀∇⋅v₀)    for v
+      ! w = -∇⋅v₀u₀                              for u \ (v,p)
       call TimeDerivative( problem, flow_op, t_0  &
                          , u      = u             &
                          , chi    = chi           &
@@ -205,7 +195,8 @@ contains
       ! u' += ∆t w
       do i = 1, problem % nc
         if (i == 4) cycle
-        call MergeArrays(ONE, u_i(:,:,:,:,i), dt, w(:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i), dt, w   (:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i), dt, F_d3(:,:,:,:,i))
       end do
 
       ! implicit sources .......................................................
@@ -246,10 +237,9 @@ contains
       ! starting values and RHS for diffusion
       do i = 1, problem % nc
         if (i == 4) cycle
-!!!        call SetArray(u(:,:,:,:,i), u_i(:,:,:,:,i))
-        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt      , F_d1(:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, F_d1(:,:,:,:,i))
         if (i > 3) cycle
-        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt * cd3, F_d3(:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, F_d3(:,:,:,:,i))
       end do
 
 #ifdef CHECK

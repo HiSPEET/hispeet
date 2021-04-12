@@ -20,18 +20,6 @@ module CART__ISP_Flow__Time_Integrator
   !-----------------------------------------------------------------------------
   !> Abstract type of a one-step time integrator for incompressible flow
   !>
-  !> Predefined options
-  !>
-  !>   * `splitting` -- defines the splitting scheme used in the stages:     \n
-  !>        1: standard velocity correction with χ = -1                      \n
-  !>        2: rotational velocity correction with χ = -2                    \n
-  !>           and F_d3/2 removed after extrapolation                        \n
-  !>        3: "native" velocity correction with χ = 0                       \n
-  !>        4: velocity correction with χ = -1                               \n
-  !>           and F_d3 removed after extrapolation                          \n
-  !>        5: velocity correction with χ = -2                               \n
-  !>           and F_d3 removed after extrapolation
-  !>
   !>   * `project`                                                           \n
   !>        0: no additional projection step                                 \n
   !>        1: additional projection at the end of the time step             \n
@@ -49,13 +37,8 @@ module CART__ISP_Flow__Time_Integrator
     character(len=80) :: name = ''  !< time-integrator name
 
     ! options
-    integer :: splitting  = 2 !< selector for stage splitting scheme
     integer :: project    = 0 !< switch for additional projections
     integer :: pressure   = 0 !< switch for pressure recomputation
-
-    ! derived parameters
-    real(RNP) :: chi
-    real(RNP) :: cd3
 
   contains
     procedure, non_overridable :: Init_TimeIntegrator
@@ -86,7 +69,6 @@ module CART__ISP_Flow__Time_Integrator
   !> Base type for providing time integrator options
 
   type TimeIntegratorOptions
-    integer :: splitting  = 2 !< selector for stage splitting scheme
     integer :: project    = 0 !< switch for additional projections
     integer :: pressure   = 0 !< switch for pressure recomputation
   contains
@@ -112,29 +94,9 @@ contains
 
     ! options
     if (present(opt)) then
-      this % splitting  = opt % splitting
       this % project    = opt % project
       this % pressure   = opt % pressure
     end if
-
-    ! derived parameters
-    select case(this % splitting)
-    case(1)
-      this % chi = -1
-      this % cd3 =  0
-    case(2)
-      this % chi = -2
-      this % cd3 =  HALF
-    case(3)
-      this % chi =  0
-      this % cd3 =  0
-    case(4)
-      this % chi = -1
-      this % cd3 =  1
-    case(5)
-      this % chi = -2
-      this % cd3 =  1
-    end select
 
   end subroutine Init_TimeIntegrator
 
@@ -156,7 +118,6 @@ contains
     write(io,'(/,A)')       'TimeIntegrator settings'
     write(io,'(A,/)')       repeat('=',80)
     write(io,'(2X,A,T15,A)')  'name:'     , trim(this % name)
-    write(io,'(2X,A,T15,I0)') 'splitting:', this % splitting
     write(io,'(2X,A,T15,I0)') 'project:'  , this % project
     write(io,'(2X,A,T15,I0)') 'pressure:' , this % pressure
     write(io,*)
@@ -176,12 +137,11 @@ contains
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    type(MPI_Request) :: request(3)
+    type(MPI_Request) :: request(2)
     type(MPI_Status)  :: stat(size(request))
     integer :: n
 
     n = 1
-    call XMPI_Ibcast( this % splitting, root, comm, request(n) );  n = n + 1
     call XMPI_Ibcast( this % project  , root, comm, request(n) );  n = n + 1
     call XMPI_Ibcast( this % pressure , root, comm, request(n) )
 

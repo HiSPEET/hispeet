@@ -157,7 +157,6 @@ subroutine Init_RK_SDC_Method1D(this, po, ne, sdc_opt, n_stage, method)
 
   ! local variables ............................................................
 
-  real(RNP), allocatable :: x(:), w(:)
   real(RNP) :: t0, t1, ti
   integer   :: i, j, m
 
@@ -185,10 +184,6 @@ subroutine Init_RK_SDC_Method1D(this, po, ne, sdc_opt, n_stage, method)
     allocate(this % l_rk(0:n_sub, 1:n_stage, 1:n_sub), source = ZERO)
 
     ! weights for RK subinterval integrals .....................................
-
-    ! GLL points and weights in [-1,1]
-    allocate(x(0:n_sub), source = GLL_Points(n_sub))
-    allocate(w(0:n_sub), source = GLL_Weights(x))
 
     associate(imex_rk => this % imex_rk)
 

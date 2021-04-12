@@ -48,16 +48,6 @@ module CART__ISP_Flow__Time_Integrator__BDF2
   !>
   !> Options inherited from base class
   !>
-  !>   * `splitting` -- defines the splitting scheme used in the stages:      \n
-  !>        1: standard velocity correction with χ = -1                       \n
-  !>        2: rotational velocity correction with χ = -2                     \n
-  !>           and F_d3/2 removed after extrapolation                         \n
-  !>        3: "native" velocity correction with χ = 0                        \n
-  !>        4: velocity correction with χ = -1                                \n
-  !>           and F_d3 removed after extrapolation                           \n
-  !>        5: velocity correction with χ = -2                                \n
-  !>           and F_d3 removed after extrapolation
-  !>
   !>   * `project`                                                            \n
   !>        0: no additional projection step                                  \n
   !>        1: additional projection at the end of the time step
@@ -132,9 +122,11 @@ contains
     real(RNP), allocatable, save :: F_c  (:,:,:,:,:) ! ∇·vu
     real(RNP), allocatable, save :: F_d1 (:,:,:,:,:) ! ∇·ν∇u
     real(RNP), allocatable, save :: F_d2 (:,:,:,:,:) ! ∇·ν(∇u)ᵀ
-    real(RNP), allocatable, save :: F_d3 (:,:,:,:,:) ! χ∇ν(∇·v)
+    real(RNP), allocatable, save :: F_d3 (:,:,:,:,:) ! -∇ν(∇·v)
     real(RNP), allocatable, save :: dF   (:,:,:,:,:) ! ∆F
     real(RNP), allocatable, save :: w    (:,:,:,:,:) ! workspace for u
+
+    real(RNP), parameter :: chi = -ONE
 
     ! IMEX BDF2 coefficients
     real(RNP), parameter :: gamma_0 =  3 * HALF
@@ -148,7 +140,7 @@ contains
     logical,   save :: euler
 
     ! auxiliary
-    real(RNP) :: a0, a1, tau, tau_cd3, tau_s
+    real(RNP) :: a0, a1, tau, tau_s
     integer   :: np, ne, nc
     integer   :: c, e, i, j, k
 
@@ -161,8 +153,6 @@ contains
              , mesh    => this % flow_op % mesh   &
              , x       => this % flow_op % x      &
              , eop     => this % flow_op % eop_u  &
-             , chi     => this % chi              &
-             , cd3     => this % cd3              &
              , p       => u(:,:,:,:,4)            )
 
       ! initialization .........................................................
@@ -238,10 +228,9 @@ contains
 
       else ! BDF2 with u_1, F_c, F_d1, F_d2, F_d3 storing values from t₀-∆t
 
-        a0       =  alpha_0 / gamma_0
-        a1       =  alpha_1 / gamma_0
-        tau      =  dt / gamma_0 * beta_1
-        tau_cd3  =  tau*cd3
+        a0  =  alpha_0 / gamma_0
+        a1  =  alpha_1 / gamma_0
+        tau =  dt / gamma_0 * beta_1
 
         !$omp do collapse(2)
         do c = 1, 3
@@ -250,15 +239,15 @@ contains
           do j = 1, np
           do i = 1, np
 
-            u_i(i,j,k,e,c)  =  a0  *   u    (i,j,k,e,c) &
-                            +  a1  *   u_1  (i,j,k,e,c) &
-                            +  tau * ( F_c  (i,j,k,e,c) &
-                                     + F_d1 (i,j,k,e,c) &
-                                     + F_d2 (i,j,k,e,c) &
-                                     + F_d3 (i,j,k,e,c) )
+            u_i(i,j,k,e,c)  =  a0  *       u    (i,j,k,e,c) &
+                            +  a1  *       u_1  (i,j,k,e,c) &
+                            +  tau * (     F_c  (i,j,k,e,c) &
+                                     +     F_d1 (i,j,k,e,c) &
+                                     +     F_d2 (i,j,k,e,c) &
+                                     + 2 * F_d3 (i,j,k,e,c) )
 
-            dF(i,j,k,e,c)  =  tau     * F_d1(i,j,k,e,c)  &
-                           +  tau_cd3 * F_d3(i,j,k,e,c)
+            dF(i,j,k,e,c)  =  tau * F_d1(i,j,k,e,c)  &
+                           +  tau * F_d3(i,j,k,e,c)
 
           end do
           end do
@@ -312,7 +301,6 @@ contains
         tau   = dt / gamma_0 * beta_0
         tau_s = dt / gamma_0
       end if
-      tau_cd3 = tau*cd3
 
       !$omp do collapse(2)
       do c = 1, 3
@@ -321,16 +309,16 @@ contains
         do j = 1, np
         do i = 1, np
 
-          u_i(i,j,k,e,c)  =          u_i  (i,j,k,e,c)   &
-                          +  tau * ( F_c  (i,j,k,e,c)   &
-                                   + F_d1 (i,j,k,e,c)   &
-                                   + F_d2 (i,j,k,e,c)   &
-                                   + F_d3 (i,j,k,e,c) ) &
-                          +  tau_s * w    (i,j,k,e,c)
+          u_i(i,j,k,e,c)  =              u_i  (i,j,k,e,c)   &
+                          +  tau * (     F_c  (i,j,k,e,c)   &
+                                   +     F_d1 (i,j,k,e,c)   &
+                                   +     F_d2 (i,j,k,e,c)   &
+                                   + 2 * F_d3 (i,j,k,e,c) ) &
+                          +  tau_s *     w    (i,j,k,e,c)
 
-          dF(i,j,k,e,c)  =            dF   (i,j,k,e,c)  &
-                         +  tau     * F_d1 (i,j,k,e,c)  &
-                         +  tau_cd3 * F_d3 (i,j,k,e,c)
+          dF(i,j,k,e,c)  =        dF   (i,j,k,e,c)  &
+                         +  tau * F_d1 (i,j,k,e,c)  &
+                         +  tau * F_d3 (i,j,k,e,c)
 
         end do
         end do

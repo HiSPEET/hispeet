@@ -65,16 +65,6 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   !>
   !> Options inherited from base class
   !>
-  !>   * `splitting` -- defines the splitting scheme used in the stages:      \n
-  !>        1: standard velocity correction with χ = -1                       \n
-  !>        2: rotational velocity correction with χ = -2
-  !>           and F_d3/2 removed after extrapolation                         \n
-  !>        3: "native" velocity correction with χ = 0                        \n
-  !>        4: velocity correction with χ = -1
-  !>           and F_d3 removed after extrapolation                           \n
-  !>        5: velocity correction with χ = -2
-  !>           and F_d3 removed after extrapolation
-  !>
   !>   * `project`                                                            \n
   !>        0: no additional projection step                                  \n
   !>        1: additional projection at the end of the time step              \n
@@ -93,7 +83,8 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   !>             u' is the extrapolated solution,                             \n
   !>             u  is the stage solution,                                    \n
   !>             τ  = ∆t aⁱᵐ(i,i), and                                        \n
-  !>             ∆F = ∆t/τ ∑ⁱ⁻¹ [(aⁱᵐ - aᵉˣ)F_d1 - cd3 aᵉˣ F_d3)]             \n
+  !>             ∆F = ∆t/τ ∑ⁱ⁻¹ [(aⁱᵐ - aᵉˣ)F_d1 - aᵉˣ F_d3)]                 \n
+  !>           with F_d3 = -∇ν(∇⋅v)
   !>        3: employs
   !>             diffusion 1 for all, but the last stage, and
   !>             diffusion 2 for the latter
@@ -111,11 +102,16 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   type, extends(TimeIntegratorOptions) :: TimeIntegrator_RungeKutta_Options
     integer :: n_stage   = 3 !< number of stages
     integer :: method    = 1 !< RK method selector, if more than one exist
-    integer :: diffusion = 2 !< method for computing the diffusive RHS (F_d1)
+    integer :: diffusion = 3 !< method for computing the diffusive RHS (F_d1)
     integer :: assembly  = 1 !< method for constructing the final solution
   contains
     procedure :: Bcast => Bcast_TimeIntegrator_RungeKutta_Options
   end type TimeIntegrator_RungeKutta_Options
+
+  !-----------------------------------------------------------------------------
+  ! Constants
+
+  real(RNP), parameter :: chi = -ONE  !< scaling parameter of F_d3 = χ∇(ν∇⋅v)
 
 contains
 
@@ -209,14 +205,12 @@ contains
     logical,   save :: fsal
 
     ! auxiliary
-    real(RNP) :: tau, d3
+    real(RNP) :: tau
     integer   :: i, k
 
     associate( problem => this % problem           &
              , flow_op => this % flow_op           &
              , mesh    => this % flow_op % mesh    &
-             , chi     => this % chi               &
-             , cd3     => this % cd3               &
              , x       => this % flow_op % x       &
              , p       => u(:,:,:,:,4)             &
              , a_im    => this % imex_rk % a_im    &
@@ -224,7 +218,7 @@ contains
              , c       => this % imex_rk % c       &
              , b_im    => this % imex_rk % b_im    &
              , b_ex    => this % imex_rk % b_ex    &
-             , ns      => this % imex_rk % n_stage &
+             , n_stage => this % imex_rk % n_stage &
              , eop     => this % flow_op % eop_u   )
 
       ! initialization .........................................................
@@ -233,20 +227,20 @@ contains
 
       ! check for reusable workspace
       if (allocated(F_c)) then
-        if (any(shape(F_c) /= [shape(u),ns])) then
+        if (any(shape(F_c) /= [shape(u),n_stage])) then
           deallocate(ts, u_i, F_c, F_d1, F_d2, F_d3, F_p, F_s)
           if(allocated(nu))   deallocate(nu  )
         end if
       end if
 
       ! check first-same-as-last condition
-      fsal = c(ns) == ONE .and. t == t_0 .and. allocated(F_c) !.and. .false.
+      fsal = c(n_stage) == ONE .and. t == t_0 .and. allocated(F_c) !.and. .false.
 
       if (.not. allocated(F_c)) then
         ! allocate new workspace
-        allocate(ts(1:ns))
+        allocate(ts(1:n_stage))
         allocate(u_i, mold = u)
-        allocate(F_c(size(u,1), size(u,2), size(u,3), size(u,4), size(u,5), ns))
+        allocate(F_c(size(u,1), size(u,2), size(u,3), size(u,4), size(u,5), n_stage))
         allocate(F_d1, F_d2, F_d3, F_p, F_s, mold = F_c)
         if (problem % HasVariableProperties()) then
           allocate(nu, mold = u)
@@ -254,7 +248,7 @@ contains
       end if
 
       ! node times
-      do k = 1, ns
+      do k = 1, n_stage
         ts(k) = t + c(k) * dt
       end do
 
@@ -269,12 +263,12 @@ contains
       if (fsal) then
 
         ! reuse last stage of previous step
-        call SetArray( F_c (:,:,:,:,:,1), F_c (:,:,:,:,:,ns), multi = .true.)
-        call SetArray( F_d1(:,:,:,:,:,1), F_d1(:,:,:,:,:,ns), multi = .true.)
-        call SetArray( F_d2(:,:,:,:,:,1), F_d2(:,:,:,:,:,ns), multi = .true.)
-        call SetArray( F_d3(:,:,:,:,:,1), F_d3(:,:,:,:,:,ns), multi = .true.)
-        call SetArray( F_p (:,:,:,:,:,1), F_p (:,:,:,:,:,ns), multi = .true.)
-        call SetArray( F_s (:,:,:,:,:,1), F_s (:,:,:,:,:,ns), multi = .true.)
+        call SetArray(F_c (:,:,:,:,:,1), F_c (:,:,:,:,:,n_stage), multi = .true.)
+        call SetArray(F_d1(:,:,:,:,:,1), F_d1(:,:,:,:,:,n_stage), multi = .true.)
+        call SetArray(F_d2(:,:,:,:,:,1), F_d2(:,:,:,:,:,n_stage), multi = .true.)
+        call SetArray(F_d3(:,:,:,:,:,1), F_d3(:,:,:,:,:,n_stage), multi = .true.)
+        call SetArray(F_p (:,:,:,:,:,1), F_p (:,:,:,:,:,n_stage), multi = .true.)
+        call SetArray(F_s (:,:,:,:,:,1), F_s (:,:,:,:,:,n_stage), multi = .true.)
 
       else
 
@@ -296,71 +290,79 @@ contains
                            )
       end if
 
-      ! stages 2 to ns .........................................................
+      ! stages 2 to n_stage ....................................................
 
-      do i = 2, ns
+      do i = 2, n_stage
         select case(this % diffusion)
         case(1)
-          call RungeKuttaStage_d1( this, i, ts(i), dt, chi, cd3, nu, u, u_i &
-                                 , F_c, F_d1, F_d2, F_d3, F_p, F_s          )
+          call RungeKuttaStage_d1( this, i, ts(i), dt, nu, u, u_i  &
+                                 , F_c, F_d1, F_d2, F_d3, F_p, F_s )
         case(2)
-          call RungeKuttaStage_d2( this, i, ts(i), dt, chi, cd3, nu, u, u_i &
-                                 , F_c, F_d1, F_d2, F_d3, F_p, F_s          )
+          call RungeKuttaStage_d2( this, i, ts(i), dt, nu, u, u_i  &
+                                 , F_c, F_d1, F_d2, F_d3, F_p, F_s )
         case(3)
-          if (i < ns) then
-            call RungeKuttaStage_d1( this, i, ts(i), dt, chi, cd3, nu, u, u_i &
-                                   , F_c, F_d1, F_d2, F_d3, F_p, F_s          )
+          if (i < n_stage) then
+            call RungeKuttaStage_d1( this, i, ts(i), dt, nu, u, u_i  &
+                                   , F_c, F_d1, F_d2, F_d3, F_p, F_s )
           else
-            call RungeKuttaStage_d2( this, i, ts(i), dt, chi, cd3, nu, u, u_i &
-                                   , F_c, F_d1, F_d2, F_d3, F_p, F_s          )
+            call RungeKuttaStage_d2( this, i, ts(i), dt, nu, u, u_i  &
+                                   , F_c, F_d1, F_d2, F_d3, F_p, F_s )
           end if
         end select
       end do
 
       ! assembly ...............................................................
 
-      d3 = 1 - cd3
-
-      select case(this % assembly)
-
-      case(1) ! starting from u(x,t₀)
-
-        do i = 1, ns
-          tau = b_ex(i) * dt
-          call MergeArrays(ONE, u,    tau, F_c (:,:,:,:,:,i), multi=.true.)
-          call MergeArrays(ONE, u,    tau, F_d2(:,:,:,:,:,i), multi=.true.)
-          call MergeArrays(ONE, u, d3*tau, F_d3(:,:,:,:,:,i), multi=.true.)
-          tau = b_im(i) * dt
-          call MergeArrays(ONE, u,    tau, F_d1(:,:,:,:,:,i), multi=.true.)
-          call MergeArrays(ONE, u,    tau, F_p (:,:,:,:,:,i), multi=.true.)
-          call MergeArrays(ONE, u,    tau, F_s (:,:,:,:,:,i), multi=.true.)
-        end do
-
-      case default ! starting from final stage
+      if ( all(b_im ==  this % imex_rk % a_im(n_stage,:)) .and.   &
+           all(b_ex ==  this % imex_rk % a_ex(n_stage,:))       ) &
+      then
 
         call SetArray(u, u_i, multi=.true.)
 
-        do i = 1, ns
+      else
 
-          ! adjust implicit contributions
-          tau = (b_im(i) -  this % imex_rk % a_im(ns,i)) * dt
-          if (abs(tau) > epsilon(ONE)) then
+        select case(this % assembly)
+
+        case(1) ! starting from u(x,t₀)
+
+          do i = 1, n_stage
+            tau = b_ex(i) * dt
+            call MergeArrays(ONE, u, tau, F_c (:,:,:,:,:,i), multi=.true.)
+            call MergeArrays(ONE, u, tau, F_d2(:,:,:,:,:,i), multi=.true.)
+            call MergeArrays(ONE, u, tau, F_d3(:,:,:,:,:,i), multi=.true.)
+            tau = b_im(i) * dt
             call MergeArrays(ONE, u, tau, F_d1(:,:,:,:,:,i), multi=.true.)
             call MergeArrays(ONE, u, tau, F_p (:,:,:,:,:,i), multi=.true.)
             call MergeArrays(ONE, u, tau, F_s (:,:,:,:,:,i), multi=.true.)
-          end if
+          end do
 
-          ! adjust explicit contributions
-          tau = (b_ex(i) -  this % imex_rk % a_ex(ns,i)) * dt
-          if (abs(tau) > epsilon(ONE)) then
-            call MergeArrays(ONE, u,    tau, F_c (:,:,:,:,:,i), multi=.true.)
-            call MergeArrays(ONE, u,    tau, F_d2(:,:,:,:,:,i), multi=.true.)
-            call MergeArrays(ONE, u, d3*tau, F_d3(:,:,:,:,:,i), multi=.true.)
-          end if
+        case default ! starting from final stage
 
-        end do
+          call SetArray(u, u_i, multi=.true.)
 
-      end select
+          do i = 1, n_stage
+
+            ! adjust implicit contributions
+            tau = (b_im(i) -  this % imex_rk % a_im(n_stage,i)) * dt
+            if (abs(tau) > epsilon(ONE)) then
+              call MergeArrays(ONE, u, tau, F_d1(:,:,:,:,:,i), multi=.true.)
+              call MergeArrays(ONE, u, tau, F_p (:,:,:,:,:,i), multi=.true.)
+              call MergeArrays(ONE, u, tau, F_s (:,:,:,:,:,i), multi=.true.)
+            end if
+
+            ! adjust explicit contributions
+            tau = (b_ex(i) -  this % imex_rk % a_ex(n_stage,i)) * dt
+            if (abs(tau) > epsilon(ONE)) then
+              call MergeArrays(ONE, u, tau, F_c (:,:,:,:,:,i), multi=.true.)
+              call MergeArrays(ONE, u, tau, F_d2(:,:,:,:,:,i), multi=.true.)
+              call MergeArrays(ONE, u, tau, F_d3(:,:,:,:,:,i), multi=.true.)
+            end if
+
+          end do
+
+        end select
+
+      end if
 
       ! enforce continuity:  ∇²δp = ∇⋅ṽ/∆t, v + J(v) = ṽ - ∆t∇δp
       if (this % project > 0) then
@@ -376,7 +378,7 @@ contains
       case(1)
         ! recompute pressure using F_p and F_s as workspace
         associate(F_v => F_p(:,:,:,:,:,1), w => F_s(:,:,:,:,:,1))
-          if (c(ns) /= ONE .and. problem % HasVariableProperties()) then
+          if (c(n_stage) /= ONE .and. problem % HasVariableProperties()) then
             call problem % GetDiffusivity(flow_op%x, t, u, nu)
           end if
           call TimeDerivative(problem, flow_op, t, u, nu=nu, chi=chi, F=F_v)
@@ -420,8 +422,8 @@ contains
   !>   * F_d1(:,:,:,:,:,i) could be used as workspace, e.g. instead of f
   !> @endnote
 
-  subroutine RungeKuttaStage_d1( this, i, t, dt, chi, cd3, nu, u_0, u_i  &
-                               , F_c, F_d1, F_d2, F_d3, F_p, F_s         )
+  subroutine RungeKuttaStage_d1( this, i, t, dt, nu, u_0, u_i    &
+                               , F_c, F_d1, F_d2, F_d3, F_p, F_s )
 
     ! arguments ................................................................
 
@@ -429,8 +431,6 @@ contains
     integer,   intent(in)    :: i                 !< stage i
     real(RNP), intent(in)    :: t                 !< stage time tᵢ
     real(RNP), intent(in)    :: dt                !< time step width
-    real(RNP), intent(in)    :: chi               !< bulk diffusion parameter χ
-    real(RNP), intent(in)    :: cd3               !< factor for removal of F_d3
     real(RNP), intent(inout) :: nu  (:,:,:,:,:)   !< variable ν(x,t)
     real(RNP), intent(in)    :: u_0 (:,:,:,:,:)   !< u(x,t₀)
     real(RNP), intent(out)   :: u_i (:,:,:,:,:)   !< u(x,tᵢ)
@@ -469,7 +469,6 @@ contains
              , p       => u_i(:,:,:,:,4)           &
              , a_ex    => this % imex_rk % a_ex    &
              , a_im    => this % imex_rk % a_im    &
-             , ns      => this % imex_rk % n_stage &
              , eop     => this % flow_op % eop_u   &
              )
 
@@ -492,8 +491,8 @@ contains
             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_c (:,:,:,:,k,j))
             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
             if (k < 4) then
-              call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d2(:,:,:,:,k,j))
-              call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
+              call MergeArrays(ONE, u_i(:,:,:,:,k),   tau, F_d2(:,:,:,:,k,j))
+              call MergeArrays(ONE, u_i(:,:,:,:,k), 2*tau, F_d3(:,:,:,:,k,j))
             end if
           end if
 
@@ -527,7 +526,7 @@ contains
           call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u")
         end if
 
-        ! RHS: f = uᵢ + τ∆F = uᵢ + ∆t[ ∑ⁱ⁻¹(aⁱᵐ-aᵉˣ)F_d1 - cd3 ∑ⁱ⁻¹ aᵉˣF_d3 ]
+        ! RHS: f = uᵢ + τ∆F = uᵢ + ∆t[ ∑ⁱ⁻¹(aⁱᵐ-aᵉˣ)F_d1 - ∑ⁱ⁻¹ aᵉˣF_d3 ]
         do k = 1, problem % nc
           if (k == 4) cycle
           call SetArray(f(:,:,:,:,k), u_i(:,:,:,:,k))
@@ -536,7 +535,7 @@ contains
             if (tau /= 0) then
               call MergeArrays(ONE, f(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
             end if
-            tau = -cd3 * dt * a_ex(i,j)
+            tau = -dt * a_ex(i,j)
             if (tau /= 0 .and. k < 4) then
               call MergeArrays(ONE, f(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
             end if
@@ -602,8 +601,8 @@ contains
   !-----------------------------------------------------------------------------
   !> Executes one IMEX Runge-Kutta stage
 
-  subroutine RungeKuttaStage_d2( this, i, t, dt, chi, cd3, nu, u_0, u_i  &
-                               , F_c, F_d1, F_d2, F_d3, F_p, F_s         )
+  subroutine RungeKuttaStage_d2( this, i, t, dt, nu, u_0, u_i    &
+                               , F_c, F_d1, F_d2, F_d3, F_p, F_s )
 
     ! arguments ................................................................
 
@@ -611,8 +610,6 @@ contains
     integer,   intent(in)    :: i                 !< stage i
     real(RNP), intent(in)    :: t                 !< stage time tᵢ
     real(RNP), intent(in)    :: dt                !< time step width
-    real(RNP), intent(in)    :: chi               !< bulk diffusion parameter χ
-    real(RNP), intent(in)    :: cd3               !< factor for removal of F_d3
     real(RNP), intent(inout) :: nu  (:,:,:,:,:)   !< variable ν(x,t)
     real(RNP), intent(in)    :: u_0 (:,:,:,:,:)   !< u(x,t₀)
     real(RNP), intent(out)   :: u_i (:,:,:,:,:)   !< u(x,tᵢ)
@@ -651,7 +648,6 @@ contains
              , p       => u_i(:,:,:,:,4)           &
              , a_ex    => this % imex_rk % a_ex    &
              , a_im    => this % imex_rk % a_im    &
-             , ns      => this % imex_rk % n_stage &
              , eop     => this % flow_op % eop_u   &
              )
 
@@ -674,8 +670,8 @@ contains
             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_c (:,:,:,:,k,j))
             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
             if (k < 4) then
-              call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d2(:,:,:,:,k,j))
-              call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
+              call MergeArrays(ONE, u_i(:,:,:,:,k),   tau, F_d2(:,:,:,:,k,j))
+              call MergeArrays(ONE, u_i(:,:,:,:,k), 2*tau, F_d3(:,:,:,:,k,j))
             end if
           end if
 
@@ -696,23 +692,38 @@ contains
 
       ! initialize diffusive RHS ...............................................
 
+        ! RHS: f = uᵢ + τ∆F = uᵢ + ∆t[ ∑ⁱ⁻¹(aⁱᵐ-aᵉˣ)F_d1 - ∑ⁱ⁻¹ aᵉˣF_d3 ]
+        do k = 1, problem % nc
+          if (k == 4) cycle
+          call SetArray(f(:,:,:,:,k), u_i(:,:,:,:,k))
+          do j = 1, i-1
+            tau = dt * (a_im(i,j) - a_ex(i,j))
+            if (tau /= 0) then
+              call MergeArrays(ONE, f(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
+            end if
+            tau = -dt * a_ex(i,j)
+            if (tau /= 0 .and. k < 4) then
+              call MergeArrays(ONE, f(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
+            end if
+          end do
+        end do
+
       do k = 1, problem % nc
         if (k == 4) cycle
         call SetArray(f(:,:,:,:,k), ZERO)
 
         do j = 1, i-1
 
-          ! f = ∆t ∑ⁱ⁻¹ aⁱᵐ F_d1
-          tau = dt * a_im(i,j)
+          ! f = ∆t ∑ⁱ⁻¹ (aⁱᵐ - aᵉˣ) F_d1
+          tau = dt * (a_im(i,j) - a_ex(i,j))
           if (tau /= 0) then
             call MergeArrays(ONE, f(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
           end if
 
-          ! f = f - ∆t ∑ⁱ⁻¹ aᵉˣ(F_d1 + cd3 F_d3) = τ∆F
+          ! f = f - ∆t ∑ⁱ⁻¹ aᵉˣ F_d3
           tau = -dt * a_ex(i,j)
           if (tau /= 0 .and. k < 4) then
-            call MergeArrays(ONE, f(:,:,:,:,k), tau      , F_d1(:,:,:,:,k,j))
-            call MergeArrays(ONE, f(:,:,:,:,k), tau * cd3, F_d3(:,:,:,:,k,j))
+            call MergeArrays(ONE, f(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
           end if
 
         end do

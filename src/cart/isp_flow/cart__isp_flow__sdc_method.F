@@ -68,6 +68,11 @@ module CART__ISP_Flow__SDC_Method
     module procedure New_SDC_FlowMethod
   end interface
 
+  !-----------------------------------------------------------------------------
+  ! Constants
+
+  real(RNP), parameter :: chi = -ONE  !< scaling parameter of F_d3 = χ∇(ν∇⋅v)
+
 contains
 
   !=============================================================================
@@ -383,7 +388,7 @@ contains
                , w   => u_(:,:,:,:,:,1) &
                , p   => u (:,:,:,:,4)   )
         call TimeDerivative( this % problem, this % flow_op, t, u         &
-                           , nu = nu_i, chi = this%corrector%chi, F = F_v )
+                           , nu = nu_i, chi = chi, F = F_v )
         call ComputePressure( this % problem, this % flow_op, t, F_v, p, w )
       end associate
     end if

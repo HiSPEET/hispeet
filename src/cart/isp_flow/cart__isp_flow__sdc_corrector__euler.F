@@ -51,6 +51,11 @@ module CART__ISP_Flow__SDC_Corrector__Euler
   type, extends(SDC_CorrectorOptions) :: SDC_CorrectorOptions_Euler
   end type SDC_CorrectorOptions_Euler
 
+  !-----------------------------------------------------------------------------
+  ! Constants
+
+  real(RNP), parameter :: chi = -ONE  !< scaling parameter of F_d3 = χ∇(ν∇⋅v)
+
 contains
 
   !=============================================================================
@@ -133,32 +138,30 @@ contains
 
     ! RHS for high-order subintegrals ..........................................
 
-    call TimeDerivative( this % problem     &
-                       , this % flow_op     &
-                       , t                  &
-                       , u    = u           &
-                       , chi  = this % chi  &
-                       , nu   = nu_s        &
-                       , F    = F           &
-                       , F_c  = F_ex        )
+    call TimeDerivative( this % problem   &
+                       , this % flow_op   &
+                       , t                &
+                       , u    = u         &
+                       , chi  = chi       & ! multiply by 2 for original method !
+                       , nu   = nu_s      &
+                       , F    = F         &
+                       , F_c  = F_ex      )
 
     ! RHS for low-order part of corrector ......................................
 
-    call TimeDerivative( this % problem     &
-                       , this % flow_op     &
-                       , t                  &
-                       , u    = u           &
-                       , chi  = this % chi  &
-                       , nu   = nu_c        &
-                       , F_d1 = F_im        &
-                       , F_d2 = F_d2        &
-                       , F_d3 = F_d3        )
+    call TimeDerivative( this % problem   &
+                       , this % flow_op   &
+                       , t                &
+                       , u    = u         &
+                       , chi  = chi       &
+                       , nu   = nu_c      &
+                       , F_d1 = F_im      &
+                       , F_d2 = F_d2      &
+                       , F_d3 = F_d3      )
 
     do i = 1, 3
       call MergeArrays(ONE, F_ex(:,:,:,:,i), ONE, F_d2(:,:,:,:,i))
-      if (this % chi /= 0 .and. this%cd3 /= ONE ) then
-        call MergeArrays(ONE, F_ex(:,:,:,:,i), ONE-this%cd3, F_d3(:,:,:,:,i))
-      end if
+      call MergeArrays(ONE, F_ex(:,:,:,:,i), ONE, F_d3(:,:,:,:,i))
     end do
 
     !$omp single
@@ -205,7 +208,6 @@ contains
     associate( problem => this % problem          &
              , flow_op => this % flow_op          &
              , mesh    => this % flow_op % mesh   &
-             , cd3     => this % cd3              &
              , p       => u(:,:,:,:,4)            )
 
       ! initialization .........................................................
@@ -234,7 +236,7 @@ contains
                          , this % flow_op     &
                          , t_0                &
                          , u    = u           &
-                         , chi  = this % chi  &
+                         , chi  = chi         &
                          , nu   = nu          &
                          , F_d1 = F_im        &
                          , F_d3 = F_d3        )
@@ -250,8 +252,8 @@ contains
         call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, F_ex_0_old(:,:,:,:,i))
         call MergeArrays(ONE, u_i(:,:,:,:,i),  dt, F_im      (:,:,:,:,i))
         call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, F_im_old  (:,:,:,:,i))
-        if (i < 4 .and. this % chi /= 0) then
-          call MergeArrays(ONE, u_i(:,:,:,:,i), dt*this%cd3, F_d3(:,:,:,:,i))
+        if (i < 4) then
+          call MergeArrays(ONE, u_i(:,:,:,:,i), dt, F_d3(:,:,:,:,i))
         end if
       end do
 
@@ -270,8 +272,8 @@ contains
         if (i == 4) cycle
         call SetArray(u(:,:,:,:,i), u_i(:,:,:,:,i))
         call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, F_im(:,:,:,:,i))
-        if (i < 4 .and. this % cd3 /= 0) then
-          call MergeArrays(ONE, u_i(:,:,:,:,i), -dt*cd3, F_d3(:,:,:,:,i))
+        if (i < 4) then
+          call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, F_d3(:,:,:,:,i))
         end if
       end do
 

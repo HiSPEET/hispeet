@@ -28,12 +28,8 @@ module CART__ISP_Flow__SDC_Corrector
     character(len=80) :: name = ''  !< time-integrator name
 
     ! options
-    integer :: splitting  = 0 !< selector for splitting/div-stabilization
-    integer :: project    = 0 !< switch for additional projections
-
-    ! derived parameters
-    real(RNP) :: chi
-    real(RNP) :: cd3
+    integer :: project   !< switch for additional projections
+    integer :: pressure  !< switch for pressure recomputation: 0 off, 1 on
 
   contains
     procedure, non_overridable :: Init_SDC_Corrector
@@ -97,8 +93,8 @@ module CART__ISP_Flow__SDC_Corrector
   !> Base type for providing time SDC-corrector options
 
   type SDC_CorrectorOptions
-    integer :: splitting  = 2 !< selector for stage splitting scheme
     integer :: project    = 0 !< switch for additional projections
+    integer :: pressure   = 0 !< switch for pressure recomputation: 0 off, 1 on
   contains
     procedure :: Bcast => Bcast_SDC_Corrector_Options
   end type SDC_CorrectorOptions
@@ -122,28 +118,9 @@ contains
 
     ! options
     if (present(opt)) then
-      this % splitting  = opt % splitting
       this % project    = opt % project
+      this % pressure   = opt % pressure
     end if
-
-    ! derived parameters
-    select case(this % splitting)
-    case(1)
-      this % chi = -1
-      this % cd3 =  1
-    case(2)
-      this % chi = -2
-      this % cd3 =  HALF
-    case(3)
-      this % chi =  0
-      this % cd3 =  0
-    case(4)
-      this % chi = -1
-      this % cd3 =  1
-    case(5)
-      this % chi = -2
-      this % cd3 =  1
-    end select
 
   end subroutine Init_SDC_Corrector
 
@@ -165,8 +142,8 @@ contains
     write(io,'(/,A)')       'SDC_Corrector settings'
     write(io,'(A,/)')       repeat('=',80)
     write(io,'(2X,A,T15,A)')  'name:'     , trim(this % name)
-    write(io,'(2X,A,T15,I0)') 'splitting:', this % splitting
     write(io,'(2X,A,T15,I0)') 'project:'  , this % project
+    write(io,'(2X,A,T15,I0)') 'pressure:' , this % pressure
 
     ! append further settings in corresponding routines of derived types
 
@@ -184,14 +161,12 @@ contains
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
     type(MPI_Request) :: request(2)
-    type(MPI_Status)  :: stat(size(request))
     integer :: n
 
     n = 1
-    call XMPI_Ibcast( this % splitting, root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % project  , root, comm, request(n) )
-
-    call MPI_Waitall(n, request, stat)
+    call XMPI_Ibcast( this % project  , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % pressure , root, comm, request(n) )
+    call MPI_Waitall(n, request, MPI_STATUSES_IGNORE)
 
   end subroutine Bcast_SDC_Corrector_Options
 

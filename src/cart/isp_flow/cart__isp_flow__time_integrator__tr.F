@@ -51,16 +51,6 @@ module CART__ISP_Flow__Time_Integrator__TR
   !>
   !> Options inherited from base class
   !>
-  !>   * `splitting` -- defines the splitting scheme used in the stages:      \n
-  !>        1: standard velocity correction with χ = -1                       \n
-  !>        2: rotational velocity correction with χ = -2                     \n
-  !>           and F_d3/2 removed after extrapolation                         \n
-  !>        3: "native" velocity correction with χ = 0                        \n
-  !>        4: velocity correction with χ = -1                                \n
-  !>           and F_d3 removed after extrapolation                           \n
-  !>        5: velocity correction with χ = -2                                \n
-  !>           and F_d3 removed after extrapolation
-  !>
   !>   * `project`                                                            \n
   !>        0: no additional projection step                                  \n
   !>        1: additional projection at the end of the time step
@@ -174,9 +164,11 @@ contains
     real(RNP), allocatable, save :: F_0 (:,:,:,:,:) ! F - F_p at t₀
     real(RNP), allocatable, save :: F_1 (:,:,:,:,:) ! F - F_p at t₁ = t₀ + ∆t
     real(RNP), allocatable, save :: dF  (:,:,:,:,:) ! RHS correction for diffusion
-    real(RNP), allocatable, save :: F_d3(:,:,:,:,:) ! χ∇(ν∇⋅v)
+    real(RNP), allocatable, save :: F_d3(:,:,:,:,:) ! -∇(ν∇⋅v)
     real(RNP), allocatable, save :: nu  (:,:,:,:,:) ! variable diffusivity
     real(RNP), allocatable, save :: w   (:,:,:,:,:) ! workspace for u
+
+    real(RNP), parameter :: chi = -ONE
 
     real(RNP), save :: t_0
     integer :: i
@@ -186,8 +178,6 @@ contains
              , mesh    => this % flow_op % mesh   &
              , x       => this % flow_op % x      &
              , eop     => this % flow_op % eop_u  &
-             , chi     => this % chi              &
-             , cd3     => this % cd3              &
              , p       => u(:,:,:,:,4)            )
 
       !-------------------------------------------------------------------------
@@ -244,7 +234,8 @@ contains
       call SetArray(u_i, u, multi=.true.)
       do i = 1, problem % nc
         if (i == 4) cycle
-        call MergeArrays(ONE, u_i(:,:,:,:,i), dt, F_0(:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i), dt, F_0 (:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i), dt, F_d3(:,:,:,:,i))
       end do
 
       ! pressure and continuity ................................................
@@ -261,9 +252,9 @@ contains
       do i = 1, problem % nc
         if (i == 4) cycle
         call SetArray(u_1(:,:,:,:,i), u_i(:,:,:,:,i))
-        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt    , dF  (:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, dF  (:,:,:,:,i))
         if (i > 3) cycle
-        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt*cd3, F_d3(:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, F_d3(:,:,:,:,i))
       end do
 
       ! solve implicit diffusive part for u₂'''
@@ -290,22 +281,22 @@ contains
                          , F_d3 = w             &
                          )
 
-      ! save dF = F_d1(ν₁,u₁) + cd3 [(F_d3(ν₀,u₀) + F_d3(ν₁,u₁)]
-      if (chi /= 0 .and. cd3 /= 0) then
-        do i = 1, 3
-          call MergeArrays(ONE, dF(:,:,:,:,i), cd3, F_d3(:,:,:,:,i))
-          call MergeArrays(ONE, dF(:,:,:,:,i), cd3, w   (:,:,:,:,i))
-        end do
-      end if
+      ! save dF = F_d1(ν₁,u₁) + F_d3(ν₀,u₀) + F_d3(ν₁,u₁)
+      do i = 1, 3
+        call MergeArrays(ONE, dF(:,:,:,:,i), ONE, F_d3(:,:,:,:,i))
+        call MergeArrays(ONE, dF(:,:,:,:,i), ONE, w   (:,:,:,:,i))
+      end do
 
       ! implicit TR diffusion ..................................................
 
-      ! u₂' = u₀ + ∆t/2 [F_0 + F_1]
+      ! u₂' = u₀ + ∆t/2 [(F + F_d3)₀ + (F + F_d3)₁]
       do i = 1, problem % nc
         if (i == 4) cycle
         call SetArray(u_i(:,:,:,:,i), u(:,:,:,:,i))
-        call MergeArrays(ONE, u_i(:,:,:,:,i), dt/2, F_0(:,:,:,:,i))
-        call MergeArrays(ONE, u_i(:,:,:,:,i), dt/2, F_1(:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i), dt/2, F_0 (:,:,:,:,i)) ! F₀
+        call MergeArrays(ONE, u_i(:,:,:,:,i), dt/2, F_d3(:,:,:,:,i)) ! F_d3₀
+        call MergeArrays(ONE, u_i(:,:,:,:,i), dt/2, F_1 (:,:,:,:,i)) ! F₁
+        call MergeArrays(ONE, u_i(:,:,:,:,i), dt/2, w   (:,:,:,:,i)) ! F_d3₁
       end do
 
       ! pressure and continuity ................................................
