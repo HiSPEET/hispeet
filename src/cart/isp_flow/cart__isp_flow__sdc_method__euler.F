@@ -260,7 +260,7 @@ contains
 
       if (present(nu_sdc)) then
         nu_0 => nu_sdc(:,:,:,:,:,m-1)
-        nu   => nu_sdc(:,:,:,:,:,m-1)
+        nu   => nu_sdc(:,:,:,:,:,m  )
       else
         nu_0 => null()
         nu   => null()
