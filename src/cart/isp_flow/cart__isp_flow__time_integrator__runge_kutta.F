@@ -198,15 +198,14 @@ contains
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d1, F_d2, F_d3
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_p, F_s
     real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: nu
-    real(RNP), dimension(:)          , allocatable, save :: ts
 
     ! control
     real(RNP), save :: t_0 = -huge(ONE)
     logical,   save :: fsal
 
     ! auxiliary
-    real(RNP) :: tau
-    integer   :: i, k
+    real(RNP) :: t_i, tau
+    integer   :: i
 
     associate( problem => this % problem           &
              , flow_op => this % flow_op           &
@@ -228,8 +227,8 @@ contains
       ! check for reusable workspace
       if (allocated(F_c)) then
         if (any(shape(F_c) /= [shape(u),n_stage])) then
-          deallocate(ts, u_i, F_c, F_d1, F_d2, F_d3, F_p, F_s)
-          if(allocated(nu))   deallocate(nu  )
+          deallocate(u_i, F_c, F_d1, F_d2, F_d3, F_p, F_s)
+          if(allocated(nu))  deallocate(nu)
         end if
       end if
 
@@ -238,7 +237,6 @@ contains
 
       if (.not. allocated(F_c)) then
         ! allocate new workspace
-        allocate(ts(1:n_stage))
         allocate(u_i, mold = u)
         allocate(F_c(size(u,1), size(u,2), size(u,3), size(u,4), size(u,5), n_stage))
         allocate(F_d1, F_d2, F_d3, F_p, F_s, mold = F_c)
@@ -247,11 +245,6 @@ contains
         end if
       end if
 
-      ! node times
-      do k = 1, n_stage
-        ts(k) = t + c(k) * dt
-      end do
-
       ! time
       t_0 = t
       t   = t + dt
@@ -259,6 +252,8 @@ contains
       !$omp end single
 
       ! stage 1 ................................................................
+
+      t_i = t_0
 
       if (fsal) then
 
@@ -273,10 +268,10 @@ contains
       else
 
         if (problem % HasVariableProperties()) then
-          call problem % GetDiffusivity(flow_op%x, ts(1), u, nu)
+          call problem % GetDiffusivity(flow_op%x, t_i, u, nu)
         end if
 
-        call TimeDerivative( problem, flow_op, ts(1)    &
+        call TimeDerivative( problem, flow_op, t_i      &
                            , u    = u                   &
                            , p    = p                   &
                            , nu   = nu                  &
@@ -293,22 +288,14 @@ contains
       ! stages 2 to n_stage ....................................................
 
       do i = 2, n_stage
-        select case(this % diffusion)
-        case(1)
-          call RungeKuttaStage_d1( this, i, ts(i), dt, nu, u, u_i  &
+        t_i = t_0 + c(i) * dt
+        if (this%diffusion == 1 .or. this%diffusion == 3 .and. i < n_stage) then
+          call RungeKuttaStage_d1( this, i, t_i, dt, nu, u, u_i    &
                                  , F_c, F_d1, F_d2, F_d3, F_p, F_s )
-        case(2)
-          call RungeKuttaStage_d2( this, i, ts(i), dt, nu, u, u_i  &
+        else
+          call RungeKuttaStage_d2( this, i, t_i, dt, nu, u, u_i    &
                                  , F_c, F_d1, F_d2, F_d3, F_p, F_s )
-        case(3)
-          if (i < n_stage) then
-            call RungeKuttaStage_d1( this, i, ts(i), dt, nu, u, u_i  &
-                                   , F_c, F_d1, F_d2, F_d3, F_p, F_s )
-          else
-            call RungeKuttaStage_d2( this, i, ts(i), dt, nu, u, u_i  &
-                                   , F_c, F_d1, F_d2, F_d3, F_p, F_s )
-          end if
-        end select
+        end if
       end do
 
       ! assembly ...............................................................
@@ -402,7 +389,6 @@ contains
     end if
 
     !$omp single
-    if(allocated(ts   ))   deallocate(ts  )
     if(allocated(u_i  ))   deallocate(u_i )
     if(allocated(F_c  ))   deallocate(F_c )
     if(allocated(F_d1 ))   deallocate(F_d1)
@@ -437,7 +423,7 @@ contains
     real(RNP), intent(inout) :: F_c (:,:,:,:,:,:) !< F_c  = -∇⋅(vu)
     real(RNP), intent(inout) :: F_d1(:,:,:,:,:,:) !< F_d1 =  ∇⋅(ν∇u)
     real(RNP), intent(inout) :: F_d2(:,:,:,:,:,:) !< F_d2 =  ∇⋅(ν∇v)ᵀ
-    real(RNP), intent(inout) :: F_d3(:,:,:,:,:,:) !< F_d3 =  χ∇(ν∇⋅v)
+    real(RNP), intent(inout) :: F_d3(:,:,:,:,:,:) !< F_d3 = -∇(ν∇⋅v)
     real(RNP), intent(inout) :: F_p (:,:,:,:,:,:) !< F_p  = -∇p
     real(RNP), intent(inout) :: F_s (:,:,:,:,:,:) !< F_s  =  f(x,t)
 
@@ -616,7 +602,7 @@ contains
     real(RNP), intent(inout) :: F_c (:,:,:,:,:,:) !< F_c  = -∇⋅(vu)
     real(RNP), intent(inout) :: F_d1(:,:,:,:,:,:) !< F_d1 =  ∇⋅(ν∇u)
     real(RNP), intent(inout) :: F_d2(:,:,:,:,:,:) !< F_d2 =  ∇⋅(ν∇v)ᵀ
-    real(RNP), intent(inout) :: F_d3(:,:,:,:,:,:) !< F_d3 =  χ∇(ν∇⋅v)
+    real(RNP), intent(inout) :: F_d3(:,:,:,:,:,:) !< F_d3 = -∇(ν∇⋅v)
     real(RNP), intent(inout) :: F_p (:,:,:,:,:,:) !< F_p  = -∇p
     real(RNP), intent(inout) :: F_s (:,:,:,:,:,:) !< F_s  =  f(x,t)
 

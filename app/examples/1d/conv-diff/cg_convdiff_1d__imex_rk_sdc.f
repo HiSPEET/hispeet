@@ -79,7 +79,7 @@ module CG_ConvDiff_1D__RK_SDC
   !>                                        for subinterval \( (t_{m-1}, t_m) \)
   !>
   !> Given an object of the type `SDC_Method`, the weights correspond to its
-  !>  `ws` component.
+  !>  `w_sub` component.
   !>
   !> The result is stored in `S(0:po, 1:ne, 1:n_sub)`.
   !>
@@ -309,7 +309,7 @@ subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
     call GetRHS(wave, eop, dx, v, nu, bc, x, t_sdc, u_sdc, F_im_sdc, F_ex_sdc)
 
     ! compute SDC subinterval integrals
-    call Get_SDC_Subintegrals(dt, this%ws, F_im_sdc, F_ex_sdc, S_sdc)
+    call Get_SDC_Subintegrals(dt, this%w_sub, F_im_sdc, F_ex_sdc, S_sdc)
 
     ! for all subintervals: compute RK stage integrals
     call Get_RK_Subintegrals(dt, this%w_rk, F_im_sdc, F_ex_sdc, S_rk)
@@ -372,11 +372,11 @@ subroutine GetRHS(wave, eop, dx, v, nu, bc, x, t, u, F_im, F_ex)
 end subroutine GetRHS
 
 !-------------------------------------------------------------------------------
-!> Computes `S(:,:,i) = dt * sum_j [ (F_im(:,:,j) + F_ex(:,:,j)) * ws(j,i) ]`
+!> Computes `S(:,:,i) = dt * sum_j [ (F_im(:,:,j) + F_ex(:,:,j)) * w_sub(j,i) ]`
 
-subroutine Get_SDC_Subintegrals(dt, ws, F_im, F_ex, S)
+subroutine Get_SDC_Subintegrals(dt, w_sub, F_im, F_ex, S)
   real(RNP), intent(in)  :: dt           !< time step width
-  real(RNP), intent(in)  :: ws(0:,:)     !< weights
+  real(RNP), intent(in)  :: w_sub(0:,:)  !< weights
   real(RNP), intent(in)  :: F_im(:,:,0:) !< implicit RHS at SDC points
   real(RNP), intent(in)  :: F_ex(:,:,0:) !< explicit RHS at SDC points
   real(RNP), intent(out) :: S(:,:,:)     !< subinterval integrals
@@ -384,13 +384,13 @@ subroutine Get_SDC_Subintegrals(dt, ws, F_im, F_ex, S)
   integer :: n_sub
   integer :: j, m
 
-  n_sub = size(ws, 2)
+  n_sub = size(w_sub, 2)
 
   SDC_Subintervals: do m = 1, n_sub
 
     S(:,:,m) = 0
     do j = 0, n_sub
-      S(:,:,m) = S(:,:,m) + dt * (F_im(:,:,j) + F_ex(:,:,j)) * ws(j,m)
+      S(:,:,m) = S(:,:,m) + dt * (F_im(:,:,j) + F_ex(:,:,j)) * w_sub(j,m)
     end do
 
   end do SDC_Subintervals

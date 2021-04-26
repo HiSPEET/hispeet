@@ -41,9 +41,9 @@ program ISP_Flow__SDC_Test
   use CART__ISP_Flow__Time_Integrator__Euler       ! standalone Euler
   use CART__ISP_Flow__Time_Integrator__BDF2        ! standalone BDF2
   use CART__ISP_Flow__Time_Integrator__TR          ! standalone trapezodial rule
-  use CART__ISP_Flow__Time_Integrator__Runge_Kutta ! standalone Runge Kutta
-  use CART__ISP_Flow__SDC_Method                   ! SDC method
-  use CART__ISP_Flow__SDC_Corrector__Euler         ! SDC Euler-corrector
+  use CART__ISP_Flow__Time_Integrator__Runge_Kutta ! standalone Runge-Kutta
+  use CART__ISP_Flow__SDC_Method                   ! SDC base type
+  use CART__ISP_Flow__SDC_Method__Euler            ! SDC Euler method
 
   implicit none
 
@@ -119,8 +119,7 @@ program ISP_Flow__SDC_Test
   ! 3  TR
   ! 4  Runge-Kutta
   ! 5  SDC(Eu,Eu)
-  ! 6  SDC(TR,Eu)
-  ! 7  SDC(RK,Eu)
+  ! 6  SDC(RK,Eu)
 
   namelist /time_integration/ time_method
 
@@ -154,12 +153,9 @@ program ISP_Flow__SDC_Test
   namelist /time_integration/ sdc_orig_opt
 
   ! SDC
-  type(SDC_FlowMethod)  :: sdc
-  type(SDC_FlowOptions) :: sdc_opt
-  type(TimeIntegrator_Euler_Options)      :: pre_eu_opt
-  type(TimeIntegrator_RungeKutta_Options) :: pre_rk_opt
-  type(SDC_CorrectorOptions_Euler)        :: cor_eu_opt
-  namelist /time_integration/ sdc_opt, pre_eu_opt, pre_rk_opt, cor_eu_opt
+  class(Flow_SDC_Method), allocatable :: sdc
+  type(Flow_SDC_Options_Euler) :: sdc_opt_eu
+  namelist /time_integration/ sdc_opt_eu
 
   ! variables ..................................................................
 
@@ -188,10 +184,6 @@ program ISP_Flow__SDC_Test
 
   !-----------------------------------------------------------------------------
   ! initialization
-
-#ifdef CHECK
-  print '(A)', "*** ISP_Flow__SDC_Test *** #0"
-#endif
 
   ! MPI ........................................................................
 
@@ -277,16 +269,9 @@ program ISP_Flow__SDC_Test
   call tr_opt       % Bcast(0, comm)
   call rk_opt       % Bcast(0, comm)
   call sdc_orig_opt % Bcast(0, comm)
-  call sdc_opt      % Bcast(0, comm)
-  call pre_eu_opt   % Bcast(0, comm)
-  call pre_rk_opt   % Bcast(0, comm)
-  call cor_eu_opt   % Bcast(0, comm)
+  call sdc_opt_eu   % Bcast(0, comm)
 
   ! flow problem ...............................................................
-
-#ifdef CHECK
-  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #1  rank = ", rank
-#endif
 
   select case(flow_type)
   case('Channel')
@@ -317,10 +302,6 @@ program ISP_Flow__SDC_Test
 
   ! mesh .......................................................................
 
-#ifdef CHECK
-  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #2  rank = ", rank
-#endif
-
   ! origin and spacing
   xo = problem % x0
   dx = (problem % x1 - problem % x0) / (np * ep)
@@ -338,10 +319,6 @@ program ISP_Flow__SDC_Test
   call GenerateStructuredMesh(mesh, np, ep, xo, dx, periodic, comm)
 
   ! operators ..................................................................
-
-#ifdef CHECK
-  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #3  rank = ", rank
-#endif
 
   flow_op = FlowOperators( problem, mesh              &
                          , po_u, po_p, po_q, penalty  &
@@ -362,11 +339,9 @@ program ISP_Flow__SDC_Test
   case(4)
     time_integrator = TimeIntegrator_RungeKutta(problem, flow_op, rk_opt)
   case(5)
-    ! SDC(Eu,Eu)
-    sdc = SDC_FlowMethod(problem, flow_op, pre_eu_opt, cor_eu_opt, sdc_opt)
-  case(7)
-    ! SDC(RK,Eu)
-    sdc = SDC_FlowMethod(problem, flow_op, pre_rk_opt, cor_eu_opt, sdc_opt)
+    sdc = Flow_SDC_Method_Euler(problem, flow_op, eu_opt, sdc_opt_eu)
+  case(6)
+    sdc = Flow_SDC_Method_Euler(problem, flow_op, rk_opt, sdc_opt_eu)
   end select
 
   ! print time-integrator settings
@@ -380,10 +355,6 @@ program ISP_Flow__SDC_Test
   end if
 
   ! variables and initial values ...............................................
-
-#ifdef CHECK
-  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #4  rank = ", rank
-#endif
 
   !$omp parallel
 
@@ -403,12 +374,6 @@ program ISP_Flow__SDC_Test
 
   ! time stepping ..............................................................
 
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #5  rank = ", rank
-  !$omp end master
-#endif
-
   call SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
   !$omp master
   nt_max = min(nint((t_end - t)/ dt, IXL), nt_max)
@@ -418,12 +383,6 @@ program ISP_Flow__SDC_Test
 
   !-----------------------------------------------------------------------------
   ! Time integration
-
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #6  rank = ", rank
-  !$omp end master
-#endif
 
   failed = .false.
 
@@ -456,7 +415,7 @@ program ISP_Flow__SDC_Test
       call sdc_orig % TimeStep( problem, flow_op, t, dt, u, F, first, last)
     case(1:4)
       call time_integrator % TimeStep(t, dt, u, standby = .not. last)
-    case(5,7)
+    case(5:7)
       call sdc % TimeStep(t, dt, u, standby = .not. last )
     case default
       ! using old Euler as the fall-back
@@ -501,12 +460,6 @@ program ISP_Flow__SDC_Test
   !-----------------------------------------------------------------------------
   ! Save current solution
 
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #7  rank = ", rank
-  !$omp end master
-#endif
-
   call SaveFlowVariables(t, u, n_avg, q_avg)
 
   !-----------------------------------------------------------------------------
@@ -539,10 +492,6 @@ program ISP_Flow__SDC_Test
 
   !-----------------------------------------------------------------------------
   ! Finalization
-
-#ifdef CHECK
-  print '(A,G0)', "*** ISP_Flow__SDC_Test *** #8  rank = ", rank
-#endif
 
   call MPI_Finalize()
 
@@ -701,12 +650,6 @@ subroutine Evaluation(failed, last)
   logical   :: failed_, failed_nan, failed_max
   integer   :: e, i, j, k
 
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** Evaluation *** #0  rank = ", rank
-  !$omp end master
-#endif
-
   err_v_rms = -1
   err_p_rms = -1
   div_v_rms = -1
@@ -725,12 +668,6 @@ subroutine Evaluation(failed, last)
     call XMPI_Allreduce(n_loc, n, MPI_SUM, mesh%comm)
     !$omp end master
 
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** Evaluation *** #1  rank = ", rank
-  !$omp end master
-#endif
-
     ! exact solution and error .................................................
 
     if (problem % HasExactSolution()) then
@@ -740,12 +677,6 @@ subroutine Evaluation(failed, last)
       ! error
       call SetArray(err_u, u, multi=.true.)                 ! err_u = u
       call MergeArrays(ONE, err_u, -ONE, u_e, multi=.true.) ! err_u = err_u - u_e
-
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** Evaluation *** #2  rank = ", rank
-  !$omp end master
-#endif
 
       ! remove constant from pressure error
       call CalibrateArray(err_p, mesh%comm)
@@ -758,12 +689,6 @@ subroutine Evaluation(failed, last)
         err_v_rms = -1
         err_p_rms = -1
       end if
-
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** Evaluation *** #3  rank = ", rank
-  !$omp end master
-#endif
 
       ! max error
       !$omp master
@@ -784,22 +709,10 @@ subroutine Evaluation(failed, last)
 
     call WeakDivergence(mesh, eop%w, eop%D, u, div_v)
 
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** Evaluation *** #4  rank = ", rank
-  !$omp end master
-#endif
-
     ! rms divergence
     if (eval_rms) then
       div_v_rms = sqrt(ScalarProduct(div_v, div_v, mesh%comm) / n)
     end if
-
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** Evaluation *** #5  rank = ", rank
-  !$omp end master
-#endif
 
     ! max divergence
     !$omp master
@@ -810,12 +723,6 @@ subroutine Evaluation(failed, last)
       div_v_max = -1
     end if
     !$omp end master
-
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** Evaluation *** #6  rank = ", rank
-  !$omp end master
-#endif
 
     ! kinetic energy ...........................................................
 
@@ -843,12 +750,6 @@ subroutine Evaluation(failed, last)
     e_kin_loc = product(mesh%dx) / 16 * e_kin_loc
     call XMPI_Reduce(e_kin_loc, e_kin, MPI_SUM, 0, mesh%comm)
     !$omp end master
-
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** Evaluation *** #7  rank = ", rank
-  !$omp end master
-#endif
 
     ! dissipation -- for constant viscosity only ...............................
 
@@ -951,12 +852,6 @@ subroutine Evaluation(failed, last)
 
   ! print statistics ...........................................................
 
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** Evaluation *** #M  rank = ", rank
-  !$omp end master
-#endif
-
   !$omp master
   if (rank == 0) then
 
@@ -1023,12 +918,6 @@ subroutine Evaluation(failed, last)
     call XMPI_Allreduce(failed_, failed, MPI_LOR, mesh%comm)
   end if
   !$omp end master
-
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** Evaluation *** #X  rank = ", rank
-  !$omp end master
-#endif
 
 end subroutine Evaluation
 

@@ -25,47 +25,133 @@ module CART__ISP_Flow__SDC_Method
   use CART__ISP_Flow__Time_Integrator__Euler
   use CART__ISP_Flow__Time_Integrator__Runge_Kutta
 
-  use CART__ISP_Flow__SDC_Corrector
-  use CART__ISP_Flow__SDC_Corrector__Euler
-
   implicit none
   private
 
-  public :: SDC_FlowOptions
-  public :: SDC_FlowMethod
+  public :: Flow_SDC_Options
+  public :: Flow_SDC_Method
 
   !-----------------------------------------------------------------------------
   !> Type for providing SDC options
+  !>
+  !> Note
+  !>   - `project` and `pressure` do not affect corresponding predictor settings
 
-  type, extends(SDC_Options) :: SDC_FlowOptions
-    integer :: pressure  =  0  !< switch for pressure recomputation
+  type, extends(SDC_Options) :: Flow_SDC_Options
+    integer :: project  = 0 !< additional projections: 0 none, 1 final, 2 substep
+    integer :: pressure = 0 !< pressure recomputation: 0 none, 1 final, 2 substep
   contains
-    procedure :: Bcast => Bcast_SDC_FlowOptions
-  end type SDC_FlowOptions
+    procedure :: Bcast => Bcast_Flow_SDC_Options
+  end type Flow_SDC_Options
 
   !-----------------------------------------------------------------------------
   !> Modular SDC method with flexible choice of predictor and corrector
 
-  type, extends(SDC_Method) :: SDC_FlowMethod
-
-    integer :: pressure  =  0  !< switch for pressure recomputation
+  type, abstract, extends(SDC_Method) :: Flow_SDC_Method
 
     class(FlowProblem),    pointer     :: problem => null() !< flow problem
     class(FlowOperators),  pointer     :: flow_op => null() !< flow operators
     class(TimeIntegrator), allocatable :: predictor         !< predictor method
-    class(SDC_Corrector),  allocatable :: corrector         !< corrector method
+
+    ! corrector options
+    character(len=80) :: corrector_name = ''
+    integer :: project  !< additional projections: 0 none, 1 final, 2 substep
+    integer :: pressure !< pressure recomputation: 0 none, 1 final, 2 substep
 
   contains
 
-    procedure :: Init_SDC_FlowMethod
-    procedure :: Show => Show_SDC_FlowMethod
     procedure :: TimeStep
 
-  end type SDC_FlowMethod
+    procedure :: Init_Flow_SDC_Method !< common initialization
+    procedure :: Show_Flow_SDC_Method !< common settings output
 
-  ! overloading the constructor
-  interface SDC_FlowMethod
-    module procedure New_SDC_FlowMethod
+    procedure(CorrectorRHS ), deferred, private :: CorrectorRHS
+    procedure(CorrectorStep), deferred, private :: CorrectorStep
+
+  end type Flow_SDC_Method
+
+  abstract interface
+
+    !---------------------------------------------------------------------------
+    !> Computes RHS at the SDC nodes
+    !>
+    !> Input
+    !>
+    !>   - `t_sdc   (  0:n_sub)`    SDC time nodes
+    !>   - `nu_sdc  (…,0:n_sub)`    variable diffusivity
+    !>   - `u_sdc   (…,0:n_sub)`    solution variables
+    !>   - `m0                 `    time node to start with [0]
+    !>
+    !> Output
+    !>
+    !>   - `F_sdc    (…,m0:n_sub)`  RHS evaluated at SDC time nodes
+    !>   - `F_sdc_ex (…,m0:n_sub)`  explicit RHS of low-order scheme
+    !>   - `F_sdc_im (…,m0:n_sub)`  semi-/implicit RHS of low-order scheme
+    !>
+    !> Notes
+    !>
+    !>   - in case of constant diffusivity omit `nu_sdc`
+    !>   - the low-order RHS is computed only if `F_lo_ex` and `F_lo_im`
+    !>     are both present
+
+    subroutine CorrectorRHS( this, t_sdc, nu_sdc, u_sdc &
+                           , F_sdc, F_sdc_ex, F_sdc_im  &
+                           , m0                         )
+      import
+
+      class(Flow_SDC_Method),      intent(in)    :: this
+      real(RNP),                   intent(in)    :: t_sdc    (0:)
+      real(RNP), target, optional, intent(in)    :: nu_sdc   (:,:,:,:,:,0:)
+      real(RNP),                   intent(in)    :: u_sdc    (:,:,:,:,:,0:)
+      real(RNP),                   intent(inout) :: F_sdc    (:,:,:,:,:,0:)
+      real(RNP),         optional, intent(inout) :: F_sdc_ex (:,:,:,:,:,0:)
+      real(RNP),         optional, intent(inout) :: F_sdc_im (:,:,:,:,:,0:)
+      integer  ,         optional, intent(in)    :: m0
+
+    end subroutine CorrectorRHS
+
+    !---------------------------------------------------------------------------
+    !> Execution of a single correction step
+    !>
+    !> Input
+    !>
+    !>   - `m`                         SDC interval to process
+    !>   - `t_sdc        (  0:n_sub)`  SDC time nodes
+    !>   - `nu_sdc       (…,0:m-1)  `  diffusivity   after  k+1  iterations
+    !>   - `nu_sdc       (…,m:n_sub)`  diffusivity   after  k    iterations
+    !>   - `u_sdc        (…,0:m-1)  `  solution      after  k+1  iterations
+    !>   - `u_sdc        (…,m:n_sub)`  solution      after  k    iterations
+    !>   - `F_sdc        (…,0:n_sub)`  RHS           after  k    iterations
+    !>   - `F_sdc_ex     (…,0:n_sub)`  explicit RHS  after  k    iterations
+    !>   - `F_sdc_im     (…,0:n_sub)`  implicit RHS  after  k    iterations
+    !>   - `F_sdc_ex_new (…,0:m-1)  `  explicit RHS  after  k+1  iterations
+    !>   - `F_sdc_im_new (…,0:m-1)  `  implicit RHS  after  k+1  iterations
+    !>
+    !> Output
+    !>
+    !>   - `nu_sdc       (…,m)`        diffusivity   after  k+1  iterations
+    !>   - `u_sdc        (…,m)`        solution      after  k+1  iterations
+    !>   - `F_sdc_ex_new (…,m)`        explicit RHS  after  k+1  iterations
+    !>   - `F_sdc_im_new (…,m)`        implicit RHS  after  k+1  iterations
+
+    subroutine CorrectorStep( this, m, t_sdc, nu_sdc, u_sdc  &
+                            , F_sdc, F_sdc_ex, F_sdc_im      &
+                            , F_sdc_ex_new, F_sdc_im_new     )
+      import
+
+      class(Flow_SDC_Method),      intent(inout) :: this
+      integer  ,                   intent(in)    :: m
+      real(RNP),                   intent(in)    :: t_sdc        (0:)
+      real(RNP), target, optional, intent(inout) :: nu_sdc       (:,:,:,:,:,0:)
+      real(RNP),                   intent(inout) :: u_sdc        (:,:,:,:,:,0:)
+      real(RNP),                   intent(in)    :: F_sdc        (:,:,:,:,:,0:)
+      real(RNP),                   intent(in)    :: F_sdc_ex     (:,:,:,:,:,0:)
+      real(RNP),                   intent(in)    :: F_sdc_im     (:,:,:,:,:,0:)
+      real(RNP),                   intent(inout) :: F_sdc_ex_new (:,:,:,:,:,0:)
+      real(RNP),                   intent(inout) :: F_sdc_im_new (:,:,:,:,:,0:)
+
+    end subroutine CorrectorStep
+
   end interface
 
   !-----------------------------------------------------------------------------
@@ -81,58 +167,41 @@ contains
   !-----------------------------------------------------------------------------
   !> Broadcasting the IDP Flow SDC options
 
-  subroutine Bcast_SDC_FlowOptions(this, root, comm)
-    class(SDC_FlowOptions), intent(inout) :: this
+  subroutine Bcast_Flow_SDC_Options(this, root, comm)
+    class(Flow_SDC_Options), intent(inout) :: this
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
     call this % SDC_Options % Bcast(root, comm)
 
+    call XMPI_Bcast(this % project , root, comm)
     call XMPI_Bcast(this % pressure, root, comm)
 
-  end subroutine Bcast_SDC_FlowOptions
+  end subroutine Bcast_Flow_SDC_Options
 
   !=============================================================================
-  ! SDC_FlowMethod: type-bound procedures
+  ! Flow_SDC_Method: type-bound procedures
 
   !-----------------------------------------------------------------------------
-  !> Constructor for objects of type SDC_FlowMethod
+  !> Initialization of Flow_SDC_Method object
 
-  function New_SDC_FlowMethod(problem, flow_op, pre_opt, cor_opt, sdc_opt) &
-      result(this)
-
-    class(FlowProblem),   target, intent(in) :: problem !< flow problem
-    class(FlowOperators), target, intent(in) :: flow_op !< flow operators
-    class(TimeIntegratorOptions), intent(in) :: pre_opt !< predictor options
-    class(SDC_CorrectorOptions),  intent(in) :: cor_opt !< corrector method
-    class(SDC_FlowOptions),       intent(in) :: sdc_opt !< SDC options
-    type(SDC_FlowMethod) :: this
-
-    call Init_SDC_FlowMethod(this, problem, flow_op, pre_opt, cor_opt, sdc_opt)
-
-  end function New_SDC_FlowMethod
-
-  !-----------------------------------------------------------------------------
-  !> Initialization of SDC_FlowMethod object
-
-  subroutine Init_SDC_FlowMethod( this, problem, flow_op, pre_opt, cor_opt, &
-                                  sdc_opt                                   )
+  subroutine Init_Flow_SDC_Method(this, problem, flow_op, pre_opt, sdc_opt)
 
     ! arguments ................................................................
 
-    class(SDC_FlowMethod), intent(inout) :: this
+    class(Flow_SDC_Method), intent(inout) :: this
 
     class(FlowProblem),   target, intent(in) :: problem !< flow problem
     class(FlowOperators), target, intent(in) :: flow_op !< flow operators
     class(TimeIntegratorOptions), intent(in) :: pre_opt !< predictor options
-    class(SDC_CorrectorOptions),  intent(in) :: cor_opt !< corrector method
-    class(SDC_FlowOptions),       intent(in) :: sdc_opt !< SDC options
+    class(Flow_SDC_Options),      intent(in) :: sdc_opt !< SDC options
 
     ! options ..................................................................
 
     ! initialize base type
     call this % Init_SDC_Method(sdc_opt)
 
+    this % project  = sdc_opt % project
     this % pressure = sdc_opt % pressure
 
     ! problem and flow operators ...............................................
@@ -149,20 +218,13 @@ contains
       this % predictor = TimeIntegrator_RungeKutta(problem, flow_op, pre_opt)
     end select
 
-    ! corrector ................................................................
-
-    select type(cor_opt)
-    class is (SDC_CorrectorOptions_Euler)
-      this % corrector = SDC_Corrector_Euler(problem, flow_op, cor_opt)
-    end select
-
-  end subroutine Init_SDC_FlowMethod
+  end subroutine Init_Flow_SDC_Method
 
   !-----------------------------------------------------------------------------
-  !> Output of SDC_FlowMethod settings
+  !> Output of Flow_SDC_Method settings
 
-  subroutine Show_SDC_FlowMethod(this, unit)
-    class(SDC_FlowMethod), intent(in) :: this
+  subroutine Show_Flow_SDC_Method(this, unit)
+    class(Flow_SDC_Method), intent(in) :: this
     integer, optional, intent(in) :: unit  !< output unit
 
     integer :: io
@@ -175,12 +237,15 @@ contains
 
     call this % SDC_Method % Show(unit)
 
+    call this % predictor % Show(unit)
+
+    write(io,'(/,A)') 'Corrector settings'
+    write(io,'(A,/)') repeat('=',80)
+    write(io,'(2X,A,T15,A)')  'name:'     , trim(this % corrector_name)
+    write(io,'(2X,A,T15,I0)') 'project:'  , this % project
     write(io,'(2X,A,T15,I0)') 'pressure:' , this % pressure
 
-    call this % predictor % Show(unit)
-    call this % corrector % Show(unit)
-
-  end subroutine Show_SDC_FlowMethod
+  end subroutine Show_Flow_SDC_Method
 
   !-----------------------------------------------------------------------------
   !> SDC time step
@@ -189,7 +254,7 @@ contains
 
     ! arguments ................................................................
 
-    class(SDC_FlowMethod), intent(inout) :: this         !< (flow_op may change)
+    class(Flow_SDC_Method), intent(inout) :: this         !< (flow_op may change)
     real(RNP),             intent(inout) :: t            !< time
     real(RNP),             intent(in)    :: dt           !< time step size
     real(RNP),             intent(inout) :: u(:,:,:,:,:) !< solution
@@ -197,20 +262,17 @@ contains
 
     ! local variables  .........................................................
 
-    real(RNP), dimension(:),           allocatable, save :: t_, dt_
-    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: u_
-    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_ex_, F_im_
-    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_, S_
-    real(RNP), dimension(:,:,:,:,:),   allocatable, save :: F_ex_0_old
-    real(RNP), dimension(:,:,:,:,:),   allocatable, save :: F_im_0_old
-
-    real(RNP), allocatable, target, save :: nu_(:,:,:,:,:,:)
-    real(RNP), contiguous, pointer, save :: nu_0(:,:,:,:,:) => null()
-    real(RNP), contiguous, pointer, save :: nu_i(:,:,:,:,:) => null()
+    real(RNP), dimension(:),           allocatable, save :: t_sdc, dt_sdc
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: u_sdc, nu_sdc
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_sdc
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_sdc_ex
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_sdc_im
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_sdc_ex_new
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_sdc_im_new
 
     real(RNP) :: t_0
     integer   :: np, ne, nc, n_sub, n_sweep
-    integer   :: i, n
+    integer   :: m, n
 
     !---------------------------------------------------------------------------
     ! initialization
@@ -224,38 +286,34 @@ contains
 
     !$omp single
 
-    if (allocated(u_)) then
-      if (any(shape(u_) /= [np,np,np,ne,nc,n_sub])) then
-        deallocate(t_, dt_)
-        deallocate(u_, F_ex_, F_im_, F_, S_)
-        deallocate(F_ex_0_old, F_im_0_old)
-        if (allocated(nu_)) deallocate(nu_)
-        nu_0 => null()
-        nu_i => null()
+    if (allocated(u_sdc)) then
+      if (any(shape(u_sdc) /= [np,np,np,ne,nc,n_sub+1])) then
+        deallocate(t_sdc, dt_sdc)
+        deallocate(u_sdc, F_sdc, F_sdc_ex, F_sdc_im, F_sdc_ex_new, F_sdc_im_new)
+        if (allocated(nu_sdc)) deallocate(nu_sdc)
       end if
     end if
 
-    if (.not. allocated(u_)) then
+    if (.not. allocated(u_sdc)) then
 
-      allocate(t_  (0:n_sub))
-      allocate(dt_ (1:n_sub))
+      allocate(t_sdc  (0:n_sub))
+      allocate(dt_sdc (1:n_sub))
 
-      allocate(u_         (np,np,np,ne,nc,0:n_sub))
-      allocate(F_ex_      (np,np,np,ne,nc,0:n_sub))
-      allocate(F_im_      (np,np,np,ne,nc,0:n_sub))
-      allocate(F_         (np,np,np,ne,nc,0:n_sub))
-      allocate(S_         (np,np,np,ne,nc,1:n_sub))
-      allocate(F_ex_0_old (np,np,np,ne,nc))
-      allocate(F_im_0_old (np,np,np,ne,nc))
+      allocate(u_sdc        (np,np,np,ne,nc,0:n_sub))
+      allocate(F_sdc        (np,np,np,ne,nc,0:n_sub))
+      allocate(F_sdc_ex     (np,np,np,ne,nc,0:n_sub))
+      allocate(F_sdc_im     (np,np,np,ne,nc,0:n_sub))
+      allocate(F_sdc_ex_new (np,np,np,ne,nc,0:n_sub))
+      allocate(F_sdc_im_new (np,np,np,ne,nc,0:n_sub))
 
-      if (this % problem % HasVariableProperties()) then
-        allocate(nu_(np,np,np,ne,nc,0:n_sub))
+      if (this % problem % HasVariableProperties()) then ! or SGS model ?
+        allocate(nu_sdc(np,np,np,ne,nc,0:n_sub))
       end if
 
     end if
 
-    t_ (0:n_sub) = this % IntermediateTimes(t, dt)
-    dt_(1:n_sub) = t_(1:n_sub) - t_(0:n_sub-1)
+    t_sdc (0:n_sub) = this % IntermediateTimes(t, dt)
+    dt_sdc(1:n_sub) = t_sdc(1:n_sub) - t_sdc(0:n_sub-1)
 
     !$omp end single
 
@@ -263,12 +321,12 @@ contains
     ! predictor
 
     ! u⁰(t_0) = u(t_0)
-    call SetArray(u_(:,:,:,:,:,0), u(:,:,:,:,:), multi=.true.)
+    call SetArray(u_sdc(:,:,:,:,:,0), u(:,:,:,:,:), multi=.true.)
 
-    do i = 1, n_sub
-      t_0 = t_(i-1)
-      call SetArray(u_(:,:,:,:,:,i), u_(:,:,:,:,:,i-1), multi=.true.)
-      call this % predictor % TimeStep(t_0, dt_(i), u_(:,:,:,:,:,i))
+    do m = 1, n_sub
+      t_0 = t_sdc(m-1)
+      call SetArray(u_sdc(:,:,:,:,:,m), u_sdc(:,:,:,:,:,m-1), multi=.true.)
+      call this % predictor % TimeStep(t_0, dt_sdc(m), u_sdc(:,:,:,:,:,m))
     end do
 
     !---------------------------------------------------------------------------
@@ -278,98 +336,47 @@ contains
 
       ! prerequisites ..........................................................
 
-      do i = 0, n_sub
+      do m = 0, n_sub
 
         ! initialize variable diffusivity
-        if (allocated(nu_)) then
-          !$omp single
-          nu_0 => nu_(:,:,:,:,:,max(i-1,0))
-          nu_i => nu_(:,:,:,:,:,i)
-          !$omp end single
-          call this % problem %                  &
-                 GetDiffusivity( this%flow_op%x  &
-                               , t_(i)           &
-                               , u_(:,:,:,:,:,i) &
-                               , nu_i            )
+        if (allocated(nu_sdc)) then
+          if (this % problem % HasVariableProperties()) then
+
+            call this % problem %                      &
+                   GetDiffusivity( this%flow_op%x      &
+                                 , t_sdc (m)           &
+                                 , u_sdc (:,:,:,:,:,m) &
+                                 , nu_sdc(:,:,:,:,:,m) )
+          end if
+
         end if
 
-        ! RHS for corrector and subintegrals
-        call this % corrector %                           &
-               GetCorrectorRHS( t_(i)                     &
-                              , nu_c = nu_0               &
-                              , nu_s = nu_i               &
-                              , u    = u_   (:,:,:,:,:,i) &
-                              , F_ex = F_ex_(:,:,:,:,:,i) &
-                              , F_im = F_im_(:,:,:,:,:,i) &
-                              , F    = F_   (:,:,:,:,:,i) )
+        call this % CorrectorRHS(t_sdc, nu_sdc, u_sdc, F_sdc, F_sdc_ex, F_sdc_im)
+
       end do
+
+      ! these will never change ;)
+      call SetArray(F_sdc_ex_new(:,:,:,:,:,0), F_sdc_ex(:,:,:,:,:,0), multi=.true.)
+      call SetArray(F_sdc_im_new(:,:,:,:,:,0), F_sdc_im(:,:,:,:,:,0), multi=.true.)
 
       ! correction sweeps ......................................................
 
       Sweeps: do n = 1, n_sweep
 
-        ! subintegrals
-        do i = 1, n_sub
-          call SubIntegral(this, i, dt, F_, S_(:,:,:,:,:,i))
+        do m = 1, n_sub
+          call this % CorrectorStep( m, t_sdc, nu_sdc, u_sdc    &
+                                   , F_sdc, F_sdc_ex, F_sdc_im  &
+                                   , F_sdc_ex_new, F_sdc_im_new )
         end do
 
-        call SetArray(F_ex_0_old, F_ex_(:,:,:,:,:,0), multi=.true.)
-        call SetArray(F_im_0_old, F_im_(:,:,:,:,:,0), multi=.true.)
+        if (n == n_sweep) exit
 
-        do i = 1, n_sub
-
-          t_0 = t_(i-1)
-
-          ! initialize diffusivity with v(tᵢ₋₁)ᵏ⁺¹
-          if (allocated(nu_)) then
-            !$omp single
-            nu_0 => nu_(:,:,:,:,:,i-1)
-            nu_i => nu_(:,:,:,:,:,i)
-            !$omp end single
-            call SetArray(nu_i, nu_0)
-          end if
-
-          ! correction
-          call this % corrector %                                  &
-                 CorrectionStep( t          = t_0                  &
-                               , dt         = dt_(i)               &
-                               , F_ex_0_old = F_ex_0_old           &
-                               , F_ex_0     = F_ex_(:,:,:,:,:,i-1) &
-                               , F_ex_old   = F_ex_(:,:,:,:,:,i)   &
-                               , F_im_0_old = F_im_0_old           &
-                               , F_im_0     = F_im_(:,:,:,:,:,i-1) &
-                               , F_im_old   = F_im_(:,:,:,:,:,i)   &
-                               , S          = S_   (:,:,:,:,:,i)   &
-                               , u_0        = u_   (:,:,:,:,:,i-1) &
-                               , u          = u_   (:,:,:,:,:,i)   &
-                               , nu         = nu_i                 )
-
-          ! save old RHS
-          if (i < n_sub) then
-            call SetArray(F_ex_0_old, F_ex_(:,:,:,:,:,i), multi=.true.)
-            call SetArray(F_im_0_old, F_im_(:,:,:,:,:,i), multi=.true.)
-          end if
-
-          ! update variable diffusivity
-          if (associated(nu_i)) then
-            call this % problem %                  &
-                   GetDiffusivity( this%flow_op%x  &
-                                 , t_(i)           &
-                                 , u_(:,:,:,:,:,i) &
-                                 , nu_i            )
-          end if
-
-          ! update RHS
-          call this % corrector %                           &
-                 GetCorrectorRHS( t_(i)                     &
-                                , nu_c = nu_0               &
-                                , nu_s = nu_i               &
-                                , u    = u_   (:,:,:,:,:,i) &
-                                , F_ex = F_ex_(:,:,:,:,:,i) &
-                                , F_im = F_im_(:,:,:,:,:,i) &
-                                , F    = F_   (:,:,:,:,:,i) )
-
+        do m = 1, n_sub
+          call SetArray(F_sdc_ex(:,:,:,:,:,m), F_sdc_ex_new(:,:,:,:,:,m), multi=.true.)
+          call SetArray(F_sdc_im(:,:,:,:,:,m), F_sdc_im_new(:,:,:,:,:,m), multi=.true.)
         end do
+
+        call this % CorrectorRHS(t_sdc, nu_sdc, u_sdc, F_sdc, m0=1)
 
       end do Sweeps
 
@@ -381,15 +388,21 @@ contains
     t = t + dt
     !$omp end single
 
-    call SetArray(u, u_(:,:,:,:,:,n_sub), multi=.true.)
+    call SetArray(u, u_sdc(:,:,:,:,:,n_sub), multi=.true.)
 
-    if (this % pressure > 0) then
-      associate( F_v => u_(:,:,:,:,:,0) &
-               , w   => u_(:,:,:,:,:,1) &
-               , p   => u (:,:,:,:,4)   )
-        call TimeDerivative( this % problem, this % flow_op, t, u         &
-                           , nu = nu_i, chi = chi, F = F_v )
-        call ComputePressure( this % problem, this % flow_op, t, F_v, p, w )
+    ! optional pressure recomputation
+    if (this % pressure == 1) then
+      associate(p => u(:,:,:,:,4), F_v => F_sdc(:,:,:,:,:,0))
+        if (allocated(nu_sdc)) then
+          call TimeDerivative( this % problem, this % flow_op, t, u    &
+                             , nu = nu_sdc(:,:,:,:,:,n_sub), chi = chi &
+                             , F = F_v                                 )
+        else
+          call TimeDerivative( this % problem, this % flow_op, t, u    &
+                             , chi = chi, F = F_v                      )
+        end if
+        call ComputePressure( this % problem, this % flow_op, t, F_v, p &
+                            , w = F_sdc(:,:,:,:,:,1))
       end associate
     end if
 
@@ -403,44 +416,16 @@ contains
 
     !$omp barrier
     !$omp single
-    if (allocated(u_)) then
-      deallocate(t_, dt_)
-      deallocate(u_, F_ex_, F_im_, F_, S_)
-      deallocate(F_ex_0_old, F_im_0_old)
-      if (allocated(nu_)) then
-        deallocate(nu_)
+    if (allocated(u_sdc)) then
+      deallocate(t_sdc, dt_sdc, u_sdc)
+      deallocate(F_sdc, F_sdc_ex, F_sdc_im, F_sdc_ex_new, F_sdc_im_new)
+      if (allocated(nu_sdc)) then
+        deallocate(nu_sdc)
       end if
-      nu_0 => null()
-      nu_i => null()
     end if
     !$omp end single
 
   end subroutine TimeStep
-
-  !=============================================================================
-  ! SDC_FlowMethod: auxiliary procedures
-
-  !-----------------------------------------------------------------------------
-  !> Computes the integrals of the time derivative F over subintervals [tᵢ₋₁,tᵢ]
-
-  subroutine SubIntegral(sdc, m, dt, F, S)
-    class(SDC_FlowMethod), intent(in) :: sdc
-    integer,   intent(in)  :: m               !< interval ID, 0 < m <= sdc%n_sub
-    real(RNP), intent(in)  :: dt              !< length of the full time step
-    real(RNP), intent(in)  :: F(:,:,:,:,:,0:) !< integrand at intermediate times
-    real(RNP), intent(out) :: S(:,:,:,:,:)    !< result
-
-    integer :: i
-
-    ! S = 0
-    call SetArray(S, ZERO, multi=.true.)
-
-    ! S = dt * sum(ws(:,m) * F(*,:))
-    do i = 0, sdc%n_sub
-      call MergeArrays(ONE, S, dt * sdc%ws(i,m), F(:,:,:,:,:,i), multi=.true.)
-    end do
-
-  end subroutine SubIntegral
 
   !=============================================================================
 

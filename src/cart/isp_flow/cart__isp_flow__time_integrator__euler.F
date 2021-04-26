@@ -131,12 +131,6 @@ contains
 
       ! initialization .........................................................
 
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** TimeStep *** #1  rank = ", mesh%part
-  !$omp end master
-#endif
-
       !$omp single
 
       ! check for reusable workspace
@@ -168,21 +162,15 @@ contains
 
       ! explicit + extrapolated diffusive parts ................................
 
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** TimeStep *** #2  rank = ", mesh%part
-  !$omp end master
-#endif
-
       ! u' = u₀ ≡ u(x,t₀)
       call SetArray(u_i, u, multi=.true.)
 
       ! update boundary conditions
-      call GetBoundaryValues(problem, mesh, flow_op%bv_x, t_0, flow_op%bv_u)
+      call GetBoundaryValues(problem, mesh, flow_op%bv_x, t, flow_op%bv_u)
 
       ! w = -∇⋅v₀v₀ + ∇⋅ν₀(∇v₀)ᵀ - 2∇(ν₀∇⋅v₀)    for v
       ! w = -∇⋅v₀u₀                              for u \ (v,p)
-      call TimeDerivative( problem, flow_op, t_0  &
+      call TimeDerivative( problem, flow_op, t    &
                          , u      = u             &
                          , chi    = chi           &
                          , nu     = nu            &
@@ -199,37 +187,10 @@ contains
         call MergeArrays(ONE, u_i(:,:,:,:,i), dt, F_d3(:,:,:,:,i))
       end do
 
-      ! implicit sources .......................................................
-
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** TimeStep *** #3  rank = ", mesh%part
-  !$omp end master
-#endif
-
-      call problem % GetExternalSources(flow_op%x, t, w)
-
-      do i = 1, problem % nc
-        if (i == 4) cycle
-        call MergeArrays(ONE, u_i(:,:,:,:,i), dt, w(:,:,:,:,i))
-      end do
-
       ! pressure, continuity and diffusion .....................................
-
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** TimeStep *** #4  rank = ", mesh%part
-  !$omp end master
-#endif
 
       ! solve for p = p"
       call PressureSolver(problem, flow_op, dt, u_i, p, w)
-
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** TimeStep *** #5  rank = ", mesh%part
-  !$omp end master
-#endif
 
       ! v" = v' - 1/∆t ∇p" - J(v")
       call ProjectionStep(problem, flow_op, dt, p, u_i, w)
@@ -241,12 +202,6 @@ contains
         if (i > 3) cycle
         call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, F_d3(:,:,:,:,i))
       end do
-
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** TimeStep *** #6  rank = ", mesh%part
-  !$omp end master
-#endif
 
       ! solve implicit diffusive part for u'''
       call DiffusionStep(problem, flow_op, dt, f=u_i, u=u, w=w, nu=nu)
@@ -278,12 +233,6 @@ contains
     end associate
 
     ! clean-up .................................................................
-
-#ifdef CHECK
-  !$omp master
-  print '(A,G0)', "*** TimeStep *** #7  rank = ", mesh%part
-  !$omp end master
-#endif
 
     ! keep workspace in case of standby
     if (present(standby)) then

@@ -108,7 +108,7 @@ subroutine IMEX_Euler_SDC(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
     end do
 
     ! subinterval integrals: Sᵏ⁻¹(tᵢ) = F · wᵢ
-    call GetSubintegrals(dt, sdc%ws, F, S)
+    call GetSubintegrals(dt, sdc%w_sub, F, S)
 
     ! correction
     do i = 1, ns
@@ -132,18 +132,18 @@ end subroutine IMEX_Euler_SDC
 !-------------------------------------------------------------------------------
 !> Computes the integrals of the time derivative F over subintervals [tᵢ₋₁,tᵢ]
 
-subroutine GetSubintegrals(dt, ws, F, S)
-  real(RNP), intent(in)  :: dt        !< time step width
-  real(RNP), intent(in)  :: ws(:,:)   !< weights
-  real(RNP), intent(in)  :: F(:,:,:)  !< time derivatives
-  real(RNP), intent(out) :: S(:,:,:)  !< subinterval integrals
+subroutine GetSubintegrals(dt, w_sub, F, S)
+  real(RNP), intent(in)  :: dt         !< time step width
+  real(RNP), intent(in)  :: w_sub(:,:) !< weights
+  real(RNP), intent(in)  :: F(:,:,:)   !< time derivatives
+  real(RNP), intent(out) :: S(:,:,:)   !< subinterval integrals
 
   integer :: nm, ni
 
   nm = size(F,1) * size(F,2)
   ni = size(F,3) ! = size(w,1)
 
-  S = reshape(matmul(reshape(F,[nm,ni]), dt*ws), shape(S))
+  S = reshape(matmul(reshape(F,[nm,ni]), dt*w_sub), shape(S))
 
 end subroutine GetSubintegrals
 

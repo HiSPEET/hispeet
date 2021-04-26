@@ -92,8 +92,7 @@ set(ISP_FLOW isp_flow/cart__isp_flow__boundary_values.F
              isp_flow/cart__isp_flow__euler.F
              isp_flow/cart__isp_flow__sdc.F
              isp_flow/cart__isp_flow__sdc_method.F
-             isp_flow/cart__isp_flow__sdc_corrector.F
-             isp_flow/cart__isp_flow__sdc_corrector__euler.F
+             isp_flow/cart__isp_flow__sdc_method__euler.F
              )
 
 #===============================================================================

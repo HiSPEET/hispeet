@@ -57,9 +57,9 @@ module Spectral_Deferred_Correction
   !>      \sum_{j=0}^{M} w^s_{j,i}\, f(\tau_i)
   !>   \]
   !>
-  !> where the weights \(w^s_{j,i}\), denoted `ws(j,i)` in Fortran, are obtained
-  !> by application of the GLL quadrature with `M+1` points to the Lagrange
-  !> interpolant constructed from `f(τᵢ)`.
+  !> where the weights \(w^s_{j,i}\), denoted `w_sub(j,i)` in Fortran, are
+  !> obtained by application of the GLL quadrature with `M+1` points to the
+  !> Lagrange interpolant constructed from `f(τᵢ)`.
 
   type SDC_Method
 
@@ -67,9 +67,9 @@ module Spectral_Deferred_Correction
     integer :: n_sweep   = -1  !< max num correction sweeps (K)
     integer :: point_set = -1  !< equidistant (1) or GLL (2) points
 
-    real(RNP), allocatable :: t(:)    !< nodes τᵢ in [0,1]
-    real(RNP), allocatable :: w(:)    !< quadrature weights for [0, 1]
-    real(RNP), allocatable :: ws(:,:) !< quadrature weights for [τᵢ₋₁,τᵢ]
+    real(RNP), allocatable :: t(:)       !< nodes τᵢ in [0,1]
+    real(RNP), allocatable :: w(:)       !< quadrature weights for [0, 1]
+    real(RNP), allocatable :: w_sub(:,:) !< quadrature weights for [τᵢ₋₁,τᵢ]
 
     real(RNP), allocatable, private :: x_gll(:) !< GLL nodes in [-1,1]
     real(RNP), allocatable, private :: w_gll(:) !< GLL weights to x
@@ -137,21 +137,20 @@ contains
 
     ! local variables ..........................................................
 
-    real(RNP), allocatable :: x(:), w(:)
-    integer   :: i, n_sub
+    integer :: i, n_sub
 
     ! initialization ...........................................................
 
     n_sub = opt % n_sub
 
     if (this % n_sub > 0 .and. this % n_sub /= n_sub) then
-      deallocate(this % t )
-      deallocate(this % w )
-      deallocate(this % ws)
+      deallocate(this % t    )
+      deallocate(this % w    )
+      deallocate(this % w_sub)
     end if
-    if (.not. allocated(this % t )) allocate(this % t  (0:n_sub)        )
-    if (.not. allocated(this % w )) allocate(this % w  (0:n_sub)        )
-    if (.not. allocated(this % ws)) allocate(this % ws (0:n_sub, n_sub) )
+    if (.not. allocated(this % t ))    allocate(this % t     (0:n_sub)      )
+    if (.not. allocated(this % w ))    allocate(this % w     (0:n_sub)      )
+    if (.not. allocated(this % w_sub)) allocate(this % w_sub (0:n_sub, n_sub) )
 
     this % n_sub     = n_sub
     this % n_sweep   = max(0, opt % n_sweep)
@@ -175,7 +174,7 @@ contains
     ! quadrature weights in [τᵢ₋₁,τᵢ] ..........................................
 
     do i = 1, n_sub
-      this % ws(:,i) = this % SubintervalWeights(this%t(i-1), this%t(i))
+      this % w_sub(:,i) = this % SubintervalWeights(this%t(i-1), this%t(i))
     end do
 
   end subroutine Init_SDC
