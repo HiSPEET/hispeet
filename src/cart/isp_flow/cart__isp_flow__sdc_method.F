@@ -93,6 +93,8 @@ module CART__ISP_Flow__SDC_Method
     !>   - in case of constant diffusivity omit `nu_sdc`
     !>   - the low-order RHS is computed only if `F_lo_ex` and `F_lo_im`
     !>     are both present
+    !>   - the optional argument `m0` can be used to avoid the unnecessary
+    !>     recomputation of the RHS at `t_sdc(0)`
 
     subroutine CorrectorRHS( this, t_sdc, nu_sdc, u_sdc &
                            , F_sdc, F_sdc_ex, F_sdc_im  &
@@ -113,26 +115,29 @@ module CART__ISP_Flow__SDC_Method
     !---------------------------------------------------------------------------
     !> Execution of a single correction step
     !>
+    !> Assuming that the correction k+1 is performed on subinterval `m`, the
+    !> meaning of the arguments is as follows:
+    !>
     !> Input
     !>
     !>   - `m`                         SDC interval to process
     !>   - `t_sdc        (  0:n_sub)`  SDC time nodes
-    !>   - `nu_sdc       (…,0:m-1)  `  diffusivity   after  k+1  iterations
-    !>   - `nu_sdc       (…,m:n_sub)`  diffusivity   after  k    iterations
-    !>   - `u_sdc        (…,0:m-1)  `  solution      after  k+1  iterations
-    !>   - `u_sdc        (…,m:n_sub)`  solution      after  k    iterations
-    !>   - `F_sdc        (…,0:n_sub)`  RHS           after  k    iterations
-    !>   - `F_sdc_ex     (…,0:n_sub)`  explicit RHS  after  k    iterations
-    !>   - `F_sdc_im     (…,0:n_sub)`  implicit RHS  after  k    iterations
-    !>   - `F_sdc_ex_new (…,0:m-1)  `  explicit RHS  after  k+1  iterations
-    !>   - `F_sdc_im_new (…,0:m-1)  `  implicit RHS  after  k+1  iterations
+    !>   - `nu_sdc       (…,0:m-1)  `  diffusivity   after  k+1  corrections
+    !>   - `nu_sdc       (…,m:n_sub)`  diffusivity   after  k    corrections
+    !>   - `u_sdc        (…,0:m-1)  `  solution      after  k+1  corrections
+    !>   - `u_sdc        (…,m:n_sub)`  solution      after  k    corrections
+    !>   - `F_sdc        (…,0:n_sub)`  RHS           after  k    corrections
+    !>   - `F_sdc_ex     (…,0:n_sub)`  explicit RHS  after  k    corrections
+    !>   - `F_sdc_im     (…,0:n_sub)`  implicit RHS  after  k    corrections
+    !>   - `F_sdc_ex_new (…,0:m-1)  `  explicit RHS  after  k+1  corrections
+    !>   - `F_sdc_im_new (…,0:m-1)  `  implicit RHS  after  k+1  corrections
     !>
     !> Output
     !>
-    !>   - `nu_sdc       (…,m)`        diffusivity   after  k+1  iterations
-    !>   - `u_sdc        (…,m)`        solution      after  k+1  iterations
-    !>   - `F_sdc_ex_new (…,m)`        explicit RHS  after  k+1  iterations
-    !>   - `F_sdc_im_new (…,m)`        implicit RHS  after  k+1  iterations
+    !>   - `nu_sdc       (…,m)`        diffusivity   after  k+1  corrections
+    !>   - `u_sdc        (…,m)`        solution      after  k+1  corrections
+    !>   - `F_sdc_ex_new (…,m)`        explicit RHS  after  k+1  corrections
+    !>   - `F_sdc_im_new (…,m)`        implicit RHS  after  k+1  corrections
 
     subroutine CorrectorStep( this, m, t_sdc, nu_sdc, u_sdc  &
                             , F_sdc, F_sdc_ex, F_sdc_im      &

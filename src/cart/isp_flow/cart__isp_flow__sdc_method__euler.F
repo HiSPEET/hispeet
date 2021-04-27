@@ -165,11 +165,11 @@ contains
     nu => null()
     !$omp end single
 
-    do m = m0_, ubound(u_sdc,6)
+    do m = m0_, this % n_sub
 
       ! RHS for high-order sub-integrals .......................................
 
-      if (present(nu_sdc)) nu => nu_sdc (:,:,:,:,:,m)
+      if (present(nu_sdc)) nu => nu_sdc(:,:,:,:,:,m)
 
       call TimeDerivative( this % problem, this % flow_op &
                          , t   = t_sdc(m)                 &
@@ -183,7 +183,8 @@ contains
 
       if (present(F_sdc_ex) .and. present(F_sdc_im)) then
 
-        ! semi-implicit diffusion using ν(t(m-1))
+        ! semi-implicit diffusion using ν(t(m-1)) as required by the low-order
+        ! part of the corrector
         if (present(nu_sdc)) nu => nu_sdc(:,:,:,:,:,max(m-1,0))
 
         call TimeDerivative( this % problem, this % flow_op &
@@ -237,10 +238,11 @@ contains
     real(RNP), contiguous, pointer, save :: nu_0(:,:,:,:,:) ! νᵏ⁺¹(t(m-1))
     real(RNP), contiguous, pointer, save :: nu  (:,:,:,:,:) ! νᵏ⁺¹(t(m))
 
-    real(RNP) :: t, dt, tau
+    real(RNP) :: t_m, dt_m, dt
     integer   :: i
 
     associate( n_sub   => this % n_sub            &
+             , w_sub   => this % w_sub            &
              , problem => this % problem          &
              , flow_op => this % flow_op          &
              , mesh    => this % flow_op % mesh   &
@@ -266,49 +268,54 @@ contains
         nu   => null()
       end if
 
-      t  = t_sdc(m)
-      dt = t_sdc(m) - t_sdc(m-1)
+      t_m  = t_sdc(m)                   ! final time of the step
+      dt_m = t_sdc(m)     - t_sdc(m-1)  ! subinterval length
+      dt   = t_sdc(n_sub) - t_sdc(0)    ! full time step
 
       !$omp end single
 
       ! boundary conditions ....................................................
 
-      call GetBoundaryValues(problem, mesh, flow_op%bv_x, t, flow_op%bv_u)
+      call GetBoundaryValues(problem, mesh, flow_op%bv_x, t_m, flow_op%bv_u)
 
       ! explicit + extrapolated diffusive parts ................................
 
       ! compute F_im = F_d1(ν₀ᵏ⁺¹,uᵏ) and F_d3(ν₀ᵏ⁺¹,uᵏ)
-      call TimeDerivative( problem, flow_op, t, u = u, nu = nu_0, chi = chi &
-                         , F_d1 = F_im, F_d3 = F_d3                         )
+      call TimeDerivative( problem, flow_op, t_m, u = u, nu = nu_0, chi = chi &
+                         , F_d1 = F_im, F_d3 = F_d3                           )
 
       ! u' = u₀ + ∆t [ F^ex(t₀)ᵏ⁺¹    - F^ex(t₀)ᵏ
-      !              + F^im(ν₀ᵏ⁺¹,uᵏ) - F^im(ν₀ᵏ,uᵏ)
+      !              + F^im(ν₀ᵏ⁺¹,uᵏ) - F^im(ν₀ᵏ,uᵏ)  ! vanishes if ν constant
       !              + F_d3(ν₀ᵏ⁺¹,uᵏ) ]
       call SetArray(u_i, u_0, multi=.true.)
       do i = 1, problem % nc
         if (i == 4) cycle
-        call MergeArrays(ONE, u_i(:,:,:,:,i),  dt, F_sdc_ex_new (:,:,:,:,i,m-1))
-        call MergeArrays(ONE, u_i(:,:,:,:,i),  dt, F_im         (:,:,:,:,i))
-        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, F_sdc_ex     (:,:,:,:,i,m-1))
-        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, F_sdc_im     (:,:,:,:,i,m))
+        ! u' = u' + ∆t F^ex(t₀)ᵏ⁺¹, note: "new" ≙ k+1, t_sdc(m-1) ≙ t₀
+        call MergeArrays(ONE, u_i(:,:,:,:,i),  dt_m, F_sdc_ex_new (:,:,:,:,i,m-1))
+        ! u' = u' + ∆t F^im(ν₀ᵏ⁺¹,uᵏ), this is surrogate for F^im(ν₀ᵏ⁺¹,uᵏ⁺¹)
+        call MergeArrays(ONE, u_i(:,:,:,:,i),  dt_m, F_im         (:,:,:,:,i))
+        ! u' = u' + ∆t - F^ex(t₀)ᵏ, note: no "new" ≙ k, t_sdc(m-1) ≙ t₀
+        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt_m, F_sdc_ex     (:,:,:,:,i,m-1))
+        ! u' = u' + ∆t - F^im(ν₀ᵏ,uᵏ), note: no "new" ≙ k, t_sdc(m) ≙ t
+        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt_m, F_sdc_im     (:,:,:,:,i,m))
         if (i < 4) then
-          call MergeArrays(ONE, u_i(:,:,:,:,i), dt, F_d3(:,:,:,:,i))
+          ! note that there is no F_d3 for quantities other than velocity
+          call MergeArrays(ONE, u_i(:,:,:,:,i), dt_m, F_d3(:,:,:,:,i))
         end if
       end do
 
-      ! u' = u' + Sᵏ
+      ! u' = u' + Sᵏ, i.e. adding the spectral part Sᵏ = ∫F dt over subinterval m
       do i = 0, n_sub
-        tau = (t_sdc(n_sub) - t_sdc(0)) * this % w_sub(i,m)
-        call MergeArrays(ONE, u_i, tau, F_sdc(:,:,:,:,:,i), multi=.true.)
+        call MergeArrays(ONE, u_i, dt * w_sub(i,m), F_sdc(:,:,:,:,:,i), multi=.true.)
       end do
 
       ! projection .............................................................
 
       ! solve for p = p"
-      call PressureSolver(problem, flow_op, dt, u_i, p, w)
+      call PressureSolver(problem, flow_op, dt_m, u_i, p, w)
 
       ! v" = v' - 1/∆t ∇p" - J(v")
-      call ProjectionStep(problem, flow_op, dt, p, u_i, w)
+      call ProjectionStep(problem, flow_op, dt_m, p, u_i, w)
 
       ! diffusion ...............................................................
 
@@ -316,14 +323,14 @@ contains
       do i = 1, problem % nc
         if (i == 4) cycle
         call SetArray(u(:,:,:,:,i), u_i(:,:,:,:,i))
-        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, F_im(:,:,:,:,i))
+        call MergeArrays(ONE, u_i(:,:,:,:,i), -dt_m, F_im(:,:,:,:,i))
         if (i < 4) then
-          call MergeArrays(ONE, u_i(:,:,:,:,i), -dt, F_d3(:,:,:,:,i))
+          call MergeArrays(ONE, u_i(:,:,:,:,i), -dt_m, F_d3(:,:,:,:,i))
         end if
       end do
 
       ! solve u'''/∆t - ν(t₀)ᵏ⁺¹ u''' = u_i/∆t
-      call DiffusionStep(problem, flow_op, dt, f=u_i, u=u, w=w, nu=nu_0)
+      call DiffusionStep(problem, flow_op, dt_m, f=u_i, u=u, w=w, nu=nu_0)
 
       ! final projection .......................................................
 
@@ -331,21 +338,21 @@ contains
 
         ! p = p" + ∆p  with ∆p such that  ∇²∆p = ∆t ∇⋅(v''' - v) = 0
         call SetArray(dp, ZERO)
-        call PressureSolver(problem, flow_op, dt, u, dp, w)
+        call PressureSolver(problem, flow_op, dt_m, u, dp, w)
         call MergeArrays(ONE, p, ONE, dp)
 
         ! v = v''' - 1/∆t ∇p - J(v)
-        call ProjectionStep(problem, flow_op, dt, dp, u, w)
+        call ProjectionStep(problem, flow_op, dt_m, dp, u, w)
 
       end if
 
       ! RHS and diffusivity updates ............................................
 
-      call TimeDerivative( problem, flow_op, t, u = u, nu = nu_0, chi = chi &
-                         , F_c  = F_sdc_ex_new(:,:,:,:,:,m)                 &
-                         , F_d1 = F_sdc_im_new(:,:,:,:,:,m)                 &
-                         , F_d2 = w                                         &
-                         , F_d3 = F_d3                                      )
+      call TimeDerivative( problem, flow_op, t_m, u = u, nu = nu_0, chi = chi &
+                         , F_c  = F_sdc_ex_new(:,:,:,:,:,m)                   &
+                         , F_d1 = F_sdc_im_new(:,:,:,:,:,m)                   &
+                         , F_d2 = w                                           &
+                         , F_d3 = F_d3                                        )
 
       do i = 1, problem % nc
         if (i == 4) cycle
@@ -355,7 +362,7 @@ contains
       end do
 
       if (associated(nu)) then
-        call problem % GetDiffusivity(flow_op%x, t, u, nu)
+        call problem % GetDiffusivity(flow_op%x, t_m, u, nu)
       end if
 
       ! clean-up ...............................................................
