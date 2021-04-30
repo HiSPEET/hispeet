@@ -129,16 +129,8 @@ contains
       end if
 
       !$omp single
+      allocate(v(np,np,np,ne,nc))
       allocate(w(np,np,np,ne,nc))
-      if ( present(F_d ) .or. &
-           present(F_d1) .or. &
-           present(F_d2) .or. &
-           present(F_d3)      &
-         ) then
-        if (problem % HasVariableProperties() .and. .not. present(nu)) then
-          allocate(v, mold=w)
-        end if
-      end if
       !$omp end single
 
       ! external sources .......................................................
