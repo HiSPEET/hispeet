@@ -2,6 +2,14 @@
 !> author:   Joerg Stiller
 !> date:     2020/05/10
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> Remark
+!>   - for computing `F_sdc_im_new` there are two variants in `CorrectionStep`
+!>   - these variants must be (de)activated manually by switching the comments
+!>   - !1! refers to the simplified variant which neglects the final projection
+!>   - !2! is the original variant, accounting for the final projection
+!>   - !1! is faster and produces slightly less divergence
+!>   - !2! is slightly more accurate
 !===============================================================================
 
 module CART__ISP_Flow__SDC_Method__Euler
@@ -34,10 +42,12 @@ module CART__ISP_Flow__SDC_Method__Euler
 
   type, extends(Flow_SDC_Method) :: Flow_SDC_Method_Euler
   contains
-    procedure :: Init => Init_Flow_SDC_Method_Euler
+
     procedure :: Show => Show_Flow_SDC_Method_Euler
-    procedure, private :: CorrectorRHS
-    procedure, private :: CorrectorStep
+
+    procedure :: CorrectorRHS   ! should be private (fails with intel):
+    procedure :: CorrectorStep  !
+
   end type Flow_SDC_Method_Euler
 
   ! overloading the constructor
@@ -332,6 +342,9 @@ contains
       ! solve u'''/∆t - ν(t₀)ᵏ⁺¹ u''' = u_i/∆t
       call DiffusionStep(problem, flow_op, dt_m, f=u_i, u=u, w=w, nu=nu_0)
 
+!2!   call TimeDerivative( problem, flow_op, t_m, u = u, nu = nu_0, chi = chi &
+!2!                      , F_d1 = F_sdc_im_new(:,:,:,:,:,m)                   )
+
       ! final projection .......................................................
 
       if (this % project > 0) then
@@ -348,11 +361,16 @@ contains
 
       ! RHS and diffusivity updates ............................................
 
-      call TimeDerivative( problem, flow_op, t_m, u = u, nu = nu_0, chi = chi &
-                         , F_c  = F_sdc_ex_new(:,:,:,:,:,m)                   &
-                         , F_d1 = F_sdc_im_new(:,:,:,:,:,m)                   &
-                         , F_d2 = w                                           &
-                         , F_d3 = F_d3                                        )
+!2!   call TimeDerivative( problem, flow_op, t_m, u = u, nu = nu_0, chi = chi &
+!2!                      , F_c  = F_sdc_ex_new(:,:,:,:,:,m)                   &
+!2!                      , F_d2 = w                                           &
+!2!                      , F_d3 = F_d3                                        )
+
+      call TimeDerivative( problem, flow_op, t_m, u = u, nu = nu_0, chi = chi & !1!
+                         , F_c  = F_sdc_ex_new(:,:,:,:,:,m)                   & !1!
+                         , F_d1 = F_sdc_im_new(:,:,:,:,:,m)                   & !1!
+                         , F_d2 = w                                           & !1!
+                         , F_d3 = F_d3                                        ) !1!
 
       do i = 1, problem % nc
         if (i == 4) cycle
