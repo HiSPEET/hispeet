@@ -996,6 +996,8 @@ end subroutine LoadFlowVariables
 !> To allow for explicit prescription, any given dt > 0 will not be changed.
 
 subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
+  use Eigenproblems
+
   class(FlowProblem),   intent(in)    :: problem      !< flow problem
   class(FlowOperators), intent(in)    :: flow_op      !< flow operators
   real(RNP),            intent(in)    :: u(:,:,:,:,:) !< flow variables
@@ -1003,23 +1005,30 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
   real(RNP),            intent(in)    :: c_diff       !< max diffusion number
   real(RNP),            intent(inout) :: dt           !< time step size
 
-  real(RNP) :: dt_conv, dt_diff, cn, dn
-  real(RNP) :: v_max, v_max_loc
-  real(RNP) :: nu_max
+  complex(RDP), allocatable :: Lambda_A(:)
+  real(RDP)   , allocatable :: Lambda_L(:), A(:,:), L(:,:)
+
+  real(RNP) :: dt_conv_lmb, dt_conv_po
+  real(RNP) :: dt_diff_lmb, dt_diff_po
+  real(RNP) :: cn, dn, v_max, v_max_loc, nu_max, dx_min, h
 
   !$omp master
 
-  associate( mesh => flow_op % mesh &
-           , po   => flow_op % po_u &
-           , v1   => u(:,:,:,:,1)   &
-           , v2   => u(:,:,:,:,2)   &
-           , v3   => u(:,:,:,:,3)   )
+  associate( mesh => flow_op % mesh  &
+           , eop  => flow_op % eop_u &
+           , po   => flow_op % po_u  &
+           , v1   => u(:,:,:,:,1)    &
+           , v2   => u(:,:,:,:,2)    &
+           , v3   => u(:,:,:,:,3)    )
+
+    dx_min = minval(mesh % dx)
 
     ! convective time scale.....................................................
 
     if (problem % stokes) then
 
-      dt_conv = huge(dt_conv)
+      dt_conv_lmb = huge(dt_conv_lmb)
+      dt_conv_po  = huge(dt_conv_po)
 
     else
 
@@ -1033,7 +1042,18 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
       call XMPI_Reduce(v_max_loc, v_max, MPI_MAX, 0, mesh%comm)
 
       if (mesh %part == 0) then
-        dt_conv = minval(mesh % dx)/ (po * v_max)
+
+        ! time scale based on eigenvalues of the 1D convection operator
+        allocate(A(po,po), Lambda_A(po))
+        A = eop % D(1:,1:)
+        call SolveNonsymmetricEigenproblem(A, Lambda_A)
+        h = dx_min / (2 * maxval(abs(Lambda_A)))
+        dt_conv_lmb = h / v_max
+
+        ! time scale based on average point spacing
+        h = dx_min / po
+        dt_conv_po = h / v_max
+
       end if
 
     end if
@@ -1046,7 +1066,16 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
     end if
 
     if (mesh %part == 0) then
-      dt_diff = 1 / (2 * nu_max * po**2 * sum(1/(dx*dx)))
+
+      ! time scale based on eigenvalues of the 1D laplacian
+      allocate(L(po-1,po-1), Lambda_L(po-1))
+      L = eop % L(1:po-1,1:po-1)
+      call SolveSymmetricEigenproblem(L, Lambda_L)
+      dt_diff_lmb = 1 / (2 * nu_max * maxval(abs(Lambda_L)) * sum(3/(dx*dx)))
+
+      ! time scale based on average point spacing
+      dt_diff_po = 1 / (2 * nu_max * po**2 * sum(1/(dx*dx)))
+
     end if
 
     ! evaluation ...............................................................
@@ -1056,30 +1085,32 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
       if (dt <= 0) then
         dt = huge(dt)
         if (c_conv > 0 .and. .not. problem % stokes) then
-          dt = min(dt, c_conv * dt_conv)
+          dt = min(dt, c_conv * dt_conv_lmb)
         end if
         if (c_diff > 0) then
-          dt = min(dt, c_diff * dt_diff)
+          dt = min(dt, c_diff * dt_diff_lmb)
         end if
       end if
 
       if (.not. problem % stokes) then
-        cn = dt / dt_conv
-        write(*,'(A)',advance='NO') '# Courant number    C ='
+        cn = dt / dt_conv_lmb
+        write(*,'(A)', advance='NO') &
+          '# Courant   number  based on eigenvalues / mean spacing  C ='
         if (cn > 0.01 .and. cn < 100) then
-          write(*,'(F7.3)') cn
+          write(*,'(F7.3,A,F7.3)') cn, '  / ', dt / dt_conv_po
         else
-          write(*,'(ES10.3)') cn
+          write(*,'(ES10.3,A,ES10.3)') cn ,'  / ', dt / dt_conv_po
         end if
       end if
 
-      if (dt_diff > 0) then
-        dn = dt / dt_diff
-        write(*,'(A)',advance='NO') '# Diffusion number  D ='
+      if (dt_diff_lmb > 0) then
+        dn = dt / dt_diff_lmb
+        write(*,'(A)',advance='NO') &
+          '# Diffusion number  based on eigenvalues / mean spacing  D ='
         if (dn > 0.01 .and. dn < 100) then
-          write(*,'(F7.3)') dn
+          write(*,'(F7.3,A,F7.3)') dn, '  / ', dt / dt_diff_po
         else
-          write(*,'(ES10.3)') dn
+          write(*,'(ES10.3,A,ES10.3)') dn, dt / dt_diff_po
         end if
       end if
       write(*,*)
