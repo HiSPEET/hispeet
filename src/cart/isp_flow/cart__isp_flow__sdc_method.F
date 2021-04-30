@@ -61,12 +61,12 @@ module CART__ISP_Flow__SDC_Method
   contains
 
     procedure :: TimeStep
+    procedure :: Init_Flow_SDC_Method ! common initialization
+    procedure :: Show_Flow_SDC_Method ! common parameters output
 
-    procedure :: Init_Flow_SDC_Method !< common initialization
-    procedure :: Show_Flow_SDC_Method !< common settings output
-
-    procedure(CorrectorRHS ), deferred, private :: CorrectorRHS
-    procedure(CorrectorStep), deferred, private :: CorrectorStep
+    ! these should be private (fails with intel):
+    procedure(CorrectorRHS ), deferred :: CorrectorRHS
+    procedure(CorrectorStep), deferred :: CorrectorStep
 
   end type Flow_SDC_Method
 
