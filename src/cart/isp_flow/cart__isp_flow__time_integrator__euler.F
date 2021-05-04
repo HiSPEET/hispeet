@@ -177,7 +177,6 @@ contains
                          , F      = w             &
                          , F_d1   = F_d1          &
                          , F_d3   = F_d3          &
-                         , source = .false.       &
                          )
 
       ! u' += ∆t w

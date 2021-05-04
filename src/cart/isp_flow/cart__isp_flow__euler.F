@@ -76,6 +76,7 @@ subroutine EulerVC(problem, flow_op, t, dt, u_0, u, F, H, S)
 
   real(RNP) :: t_0
   integer   :: np, ne, nc
+  logical   :: corrector
 
   associate( mesh => flow_op % mesh  &
            , x    => flow_op % x     &
@@ -83,6 +84,8 @@ subroutine EulerVC(problem, flow_op, t, dt, u_0, u, F, H, S)
            , p    => u(:,:,:,:,4)    )
 
     ! initialization ...........................................................
+
+    corrector = present(H) .and. present(S)
 
     t_0 = t
     t   = t + dt
@@ -114,7 +117,7 @@ subroutine EulerVC(problem, flow_op, t, dt, u_0, u, F, H, S)
     call SetArray(u_i, u_0, multi=.true.)
 
     ! SDC: uᵢ' += Sᵢᵏ⁻¹ - Hᵢᵏ⁻¹
-    if (present(H) .and. present(S)) then
+    if (corrector) then
       call MergeArrays(ONE, u_i,  ONE, S, multi=.true.)
       call MergeArrays(ONE, u_i, -ONE, H, multi=.true.)
     end if
@@ -126,13 +129,14 @@ subroutine EulerVC(problem, flow_op, t, dt, u_0, u, F, H, S)
 
     ! w = -∇⋅vᵢ₋₁vᵢ₋₁ + ∇⋅ν₀(∇vᵢ₋₁)ᵀ - χ∇(ν₀∇⋅vᵢ₋₁)     for v
     ! w = -∇⋅vᵢ₋₁uᵢ₋₁                                   for u \ (v,p)
-     call TimeDerivative( problem, flow_op, t  &
-                        , u    = u_0           &
-                        , nu   = nu            &
-                        , F    = w             &
-                        , F_d1 = F_d1          &
-                        , F_d2 = F_d2          &
-                        , F_d3 = F_d3          &
+     call TimeDerivative( problem, flow_op, t      &
+                        , u      = u_0             &
+                        , nu     = nu              &
+                        , F      = w               &
+                        , F_d1   = F_d1            &
+                        , F_d2   = F_d2            &
+                        , F_d3   = F_d3            &
+                        , source = .not. corrector &
                         )
      call MergeArrays(ONE, w, -ONE, F_d1, multi =.true.)
 
