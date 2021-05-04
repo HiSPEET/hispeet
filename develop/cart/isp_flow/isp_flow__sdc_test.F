@@ -1071,10 +1071,10 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
       allocate(L(po-1,po-1), Lambda_L(po-1))
       L = eop % L(1:po-1,1:po-1)
       call SolveSymmetricEigenproblem(L, Lambda_L)
-      dt_diff_lmb = 1 / (2 * nu_max * maxval(abs(Lambda_L)) * sum(3/(dx*dx)))
+      dt_diff_lmb = 1 / (4 * nu_max * maxval(abs(Lambda_L)) * sum(1/(dx*dx)))
 
       ! time scale based on average point spacing
-      dt_diff_po = 1 / (2 * nu_max * po**2 * sum(1/(dx*dx)))
+      dt_diff_po = 1 / (4 * nu_max * po**2 * sum(1/(dx*dx)))
 
     end if
 
