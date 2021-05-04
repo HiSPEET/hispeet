@@ -267,6 +267,43 @@ contains
   !>
   !> Note: See parent type for argument description.
 
+!TODO! RK-SDC corrector notes:
+!TODO!   *  subinterval integral S
+!TODO!      •  computed on demand in RK stage i > 1
+!TODO!      •  realized in identical way as in Euler corrector
+!TODO!      •  FSAL property → S for assembly is identical to S in last stage
+!TODO!   *  G = F^{k+1} - F^k takes over the role of F
+!TODO!   *  for stage i
+!TODO!      •  G_rk_im(:,:,:,:,:,i) ≈ F_im^{k+1} - F_im^{k}
+!TODO!      •  G_rk_ex(:,:,:,:,:,i) ≈ F_ex^{k+1} - F_ex^{k}
+!TODO!   *  dimensions 1 to 5 of G_rk_im/ex identical to those of u_sdc
+!TODO!   *  RK stage 1 coincides with SDC node m-1:
+!TODO!      •  G_rk_im(*,1) = F_sdc_im_new(*,m-1) - F_sdc_im(*,m-1)
+!TODO!      •  G_rk_ex(*,1) = F_sdc_ex_new(*,m-1) - F_sdc_ex(*,m-1)
+!TODO!   *  RK stages i > 1
+!TODO!      •  initialization of G(*,i) with interpolated F_sdc_
+!TODO!           ‣  G_rk_im(*,i) = -F_rk_im ← interpolated from F_sdc_im
+!TODO!           ‣  G_rk_ex(*,i) = -F_rk_ex ← interpolated from F_sdc_ex
+!TODO!           ‣  no interpolation required in last stage
+!TODO!      •  proceed within the stage as usual
+!TODO!      •  at end of the stage compute
+!TODO!           ‣  F_rk_im = F_p + F_d1
+!TODO!           ‣  F_rk_ex = F_c + F_d2 + F_d3
+!TODO!      •  complete G(*,i)
+!TODO!           ‣  G_rk_im(*,i) = G_rk_im(*,i) + F_rk_im
+!TODO!           ‣  G_rk_ex(*,i) = G_rk_ex(*,i) + F_rk_ex
+!TODO!      •  if b == a(n_stage,:), i.e. no assembly
+!TODO!           ‣  F_sdc_im_new(*,m) = F_rk_im
+!TODO!           ‣  F_sdc_ex_new(*,m) = F_rk_ex
+!TODO!   *  if assembly is required
+!TODO!      •  compute solution
+!TODO!      •  recompute F_rk_im/ex
+!TODO!   *  return
+!TODO!      •  u_sdc        (*,m) = u
+!TODO!      •  nu_sdc       (*,m) = nu           (if required)
+!TODO!      •  F_sdc_im_new (*,m) = F_rk_im
+!TODO!      •  F_sdc_ex_new (*,m) = F_rk_ex
+
   subroutine CorrectorStep( this, m, t_sdc, nu_sdc, u_sdc &
                           , F_sdc, F_sdc_ex, F_sdc_im     &
                           , F_sdc_ex_new, F_sdc_im_new    )
@@ -282,15 +319,6 @@ contains
     real(RNP),                    intent(inout) :: F_sdc_ex_new (:,:,:,:,:,0:)
     real(RNP),                    intent(inout) :: F_sdc_im_new (:,:,:,:,:,0:)
 
-!TODO! internals
-!TODO!
-!TODO! F_ex_rk0  =  F_ex_sdc0  interpolated to RK nodes
-!TODO! F_im_rk0  =  F_im_sdc0  interpolated to RK nodes
-!TODO! S_rk0     =  current stage integral
-!TODO!           ≈  \int_{t_sdc(0)}^{t_rk(i)} (F^ex + F^im)ᵏ dt
-!TODO!
-!TODO!
-
     ! local variables  .........................................................
 
     real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: u_i
@@ -299,7 +327,6 @@ contains
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d1, F_d2, F_d3
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_p, F_s
     real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: nu
-!TODO! add storage for F_im/ex^k(*,i) ≈ F_im/ex^k at RK nodes
 
     real(RNP), save :: t_0 = -huge(ONE)
     logical,   save :: fsal
@@ -386,12 +413,14 @@ contains
                            )
       end if
 
+!TODO! interpolation of  F_im/ex^k(*,i)              using this%l_rk(:,:,i)
+
+
       ! stages 2 to n_stage ....................................................
 
       do i = 2, n_stage
         t_i = t_0 + c(i) * dt
 
-!TODO! add interpolation of  F_im/ex^k(*,i)              using this%l_rk(:,:,i)
 !TODO! add computation   of  S_i = \int_{t_0}^{t_i} F^k  using this%w_rk(:,:,i)
 !TODO! if t_i = t → S_i = S
 
