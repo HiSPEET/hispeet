@@ -284,10 +284,10 @@ contains
 !TODO!      •  initialization of G(*,i) with interpolated F_sdc_
 !TODO!           ‣  G_rk_im(*,i) = -F_rk_im ← interpolated from F_sdc_im
 !TODO!           ‣  G_rk_ex(*,i) = -F_rk_ex ← interpolated from F_sdc_ex
-!TODO!           ‣  no interpolation required in last stage
+!TODO!           ‣  no interpolation required in last stage if FSAL
 !TODO!      •  proceed within the stage as usual
 !TODO!      •  at end of the stage compute
-!TODO!           ‣  F_rk_im = F_p + F_d1
+!TODO!           ‣  F_rk_im = F_d1                    [+ F_p ???]
 !TODO!           ‣  F_rk_ex = F_c + F_d2 + F_d3
 !TODO!      •  complete G(*,i)
 !TODO!           ‣  G_rk_im(*,i) = G_rk_im(*,i) + F_rk_im

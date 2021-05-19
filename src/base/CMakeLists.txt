@@ -111,6 +111,7 @@ set ( MESH_3D mesh_3d/generic_mesh_3d.f
               mesh_3d/mesh_3d__partition__mp_importgenericmesh.f
               mesh_3d/mesh_3d__structured_indexing.f
               mesh_3d/mesh_3d__generate_regular_mesh.f
+              mesh_3d/mesh_3d__metrics.f
               )
 
 #===============================================================================

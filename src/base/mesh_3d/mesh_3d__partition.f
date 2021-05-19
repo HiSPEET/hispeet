@@ -124,10 +124,10 @@ module Mesh_3d__Partition
     !> Generates Gauss-Lobatto or Gauss points to all elements of a partition
 
     module subroutine GetPoints(mesh, po, basis, x)
-      class(Mesh3d_Partition), intent(in)  :: mesh         !< mesh parition
-      integer,                 intent(in)  :: po           !< polynomial order
-      character(len=*),        intent(in)  :: basis        !< 'GL' or 'GLL'
-      real(RNP), allocatable,  intent(out) :: x(:,:,:,:,:) !< mesh points
+      class(Mesh3d_Partition),    intent(in)  :: mesh  !< mesh parition
+      integer,                    intent(in)  :: po    !< polynomial order
+      character(len=*), optional, intent(in)  :: basis !< 'GL' or 'GLL' ['GLL']
+      real(RNP),     allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
     end subroutine GetPoints
 
     !---------------------------------------------------------------------------

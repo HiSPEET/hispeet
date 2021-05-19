@@ -243,9 +243,9 @@ subroutine New_TransferBuffer_X(this, mesh, np, nc, nl)
             call GeneratePointMask(element(m), this%np, this%nl, mask)
           end if
           e = element(m) % id
-          do k = 1, np(1)
+          do k = 1, np(3)
           do j = 1, np(2)
-          do i = 1, np(3)
+          do i = 1, np(1)
             if (mask(i,j,k)) then
               n = n + 1
               ! lexical mesh-point index
@@ -290,9 +290,9 @@ subroutine New_TransferBuffer_X(this, mesh, np, nc, nl)
             call GeneratePointMask(element(m), np, nl, mask)
           end if
           e = element(m) % id
-          do k = 1, np(1)
+          do k = 1, np(3)
           do j = 1, np(2)
-          do i = 1, np(3)
+          do i = 1, np(1)
             if (mask(i,j,k)) then
               n = n + 1
               ! lexical mesh-point index

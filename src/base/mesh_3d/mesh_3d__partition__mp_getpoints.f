@@ -21,10 +21,10 @@ contains
   !>   -  Lagrange polynomials to Gauss-Lobatto-Legendre points (basis = 'GLL')
 
   module subroutine GetPoints(mesh, po, basis, x)
-    class(Mesh3d_Partition), intent(in)  :: mesh         !< mesh parition
-    integer,                 intent(in)  :: po           !< polynomial order
-    character(len=*),        intent(in)  :: basis        !< 'GL' or 'GLL'
-    real(RNP), allocatable,  intent(out) :: x(:,:,:,:,:) !< mesh points
+    class(Mesh3d_Partition),    intent(in)  :: mesh  !< mesh parition
+    integer,                    intent(in)  :: po    !< polynomial order
+    character(len=*), optional, intent(in)  :: basis !< 'GL' or 'GLL' ['GLL']
+    real(RNP),     allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
 
     type(StandardOperators1D) :: sop
 

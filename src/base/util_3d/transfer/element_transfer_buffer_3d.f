@@ -453,7 +453,7 @@ contains
             end if
             e = element(m) % id
             do k = 1, np(3)
-            do j = 1, np(3)
+            do j = 1, np(2)
             do i = 1, np(1)
               if (mask(i,j,k)) then
                 n = n + 1
