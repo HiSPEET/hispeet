@@ -1,7 +1,7 @@
 program IP_Spectrum
   use Kind_Parameters, only: RNP, RDP
   use Eigenproblems,   only: SolveSymmetricEigenproblem
-  use IP_Element_Operators_1D
+  use IP_Element_Operators__1D
   implicit none
 
   character :: bc(2) = 'D'
@@ -15,7 +15,7 @@ program IP_Spectrum
 
   namelist /input/ bc, ne, po, lx, penalty, hybrid, write_a, write_v
 
-  type(IP_ElementOperators1D) :: eop
+  type(IP_ElementOperators_1D) :: eop
 
   real(RNP), allocatable :: Le(:,:,:) ! stiffness matrix, L(0:po,0:po,-1:1)
   real(RDP), allocatable :: A(:,:)    ! system matrix, A(na,na), na = (po+1)*ne
@@ -41,7 +41,7 @@ program IP_Spectrum
   np = po + 1
   na = np * ne
 
-  eop = IP_ElementOperators1D(po, penalty, hybrid)
+  eop = IP_ElementOperators_1D(po, penalty, hybrid)
 
   allocate(Le(0:po,0:po,-1:1))
   allocate(A(na,na), V(na,na), lambda(na))

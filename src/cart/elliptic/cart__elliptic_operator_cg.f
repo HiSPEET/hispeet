@@ -8,7 +8,7 @@
 
 module CART__Elliptic_Operator_CG
   use Kind_Parameters, only: RNP
-  use CG_Element_Operators_1D
+  use CG_Element_Operators__1D
   use CART__Elliptic_Operator
 
 ! remove if not needed with complete version
@@ -19,7 +19,7 @@ use CART__Boundary_Variable
   private
 
   type, extends(EllipticOperator3D) :: EllipticOperator3D_CG
-    type(CG_ElementOperators1D) :: eop !< 1D OPs for CG-SEM
+    type(CG_ElementOperators_1D) :: eop !< 1D OPs for CG-SEM
   contains
     procedure :: Apply
     procedure :: BcToRHS

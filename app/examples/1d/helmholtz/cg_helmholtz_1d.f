@@ -40,7 +40,7 @@
 program CG_Helmholtz_1D
   use Kind_Parameters,  only: RNP, IXL
   use Constants,        only: ONE, ZERO
-  use CG_Element_Operators_1D
+  use CG_Element_Operators__1D
   use CG_Utilities_1D
   use CG_Condensed_Solver_1D
   use Helmholtz_1D_Test_Cases
@@ -70,7 +70,7 @@ program CG_Helmholtz_1D
   namelist /solution_parameters/ po, ne, svv, method, r_max, i_max
 
   ! discrete variables and operators
-  type(CG_ElementOperators1D) :: eop       ! element operators
+  type(CG_ElementOperators_1D) :: eop       ! element operators
   real(RNP), allocatable      :: x(:,:)    ! mesh points
   real(RNP), allocatable      :: u(:,:)    ! discrete solution
   real(RNP), allocatable      :: f(:,:)    ! right hand side (RHS)
@@ -115,7 +115,7 @@ program CG_Helmholtz_1D
             s(0:po,ne), e(0:po,ne), w(0:po,ne)              )
 
   ! standard operators
-  eop = CG_ElementOperators1D(po, svv=svv)
+  eop = CG_ElementOperators_1D(po, svv=svv)
 
   ! mesh and point weights
   call GetMeshPoints(eop, -ONE, ONE, dx, x)
@@ -219,7 +219,7 @@ contains
 !> Element operators
 
 subroutine GetElementOperators(eop, dx, lambda, nu, nu_svv, Me, He)
-  class(CG_ElementOperators1D), intent(in) :: eop !< standard operators
+  class(CG_ElementOperators_1D), intent(in) :: eop !< standard operators
   real(RNP), intent(in)  :: dx        !< element length
   real(RNP), intent(in)  :: lambda    !< Helmholtz parameter
   real(RNP), intent(in)  :: nu        !< diffusivity

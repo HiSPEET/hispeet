@@ -1,10 +1,10 @@
 program OperatorSpectrum
   use Kind_Parameters, only: RDP
-  use CG_Element_Operators_1D
+  use CG_Element_Operators__1D
   use Eigenproblems
   implicit none
 
-  type(CG_ElementOperators1D), allocatable :: eop
+  type(CG_ElementOperators_1D), allocatable :: eop
   real(RDP),    allocatable :: S(:,:), Lambda_L(:)
   real(RDP),    allocatable :: A(:,:)
   complex(RDP), allocatable :: Lambda_A(:)
@@ -12,7 +12,7 @@ program OperatorSpectrum
   real(RDP) :: nu = 1
   integer :: i, nc, nd, po = 15
 
-  eop = CG_ElementOperators1D(po)
+  eop = CG_ElementOperators_1D(po)
 
   ! diffusion
   nd = po - 1
@@ -47,7 +47,7 @@ program OperatorSpectrum
     nd = po - 1
     nc = po
     allocate(eop, S(nd,nd), Lambda_L(nd), A(nc,nc), Lambda_A(nc))
-    eop = CG_ElementOperators1D(po)
+    eop = CG_ElementOperators_1D(po)
     call eop % Get_EllipticEigensystem(dx, nu, S, Lambda_L)
     do i = 1, nc
       A(i,:) = eop % D(i,1:)

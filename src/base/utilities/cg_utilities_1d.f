@@ -29,7 +29,7 @@
 module CG_Utilities_1D
   use Kind_Parameters,   only: RNP
   use Constants,         only: ONE, HALF
-  use Standard_Operators_1D
+  use Standard_Operators__1D
   implicit none
   private
 
@@ -52,7 +52,7 @@ contains
 !> Works with all nodal bases.
 
 subroutine GetMeshPoints(sop, a, b, dx, x)
-  class(StandardOperators1D), intent(in)  :: sop     !< standard operators
+  class(StandardOperators_1D), intent(in)  :: sop     !< standard operators
   real(RNP),                  intent(in)  :: a       !< left border
   real(RNP),                  intent(in)  :: b       !< right border
   real(RNP),                  intent(out) :: dx      !< element length
@@ -80,7 +80,7 @@ end subroutine GetMeshPoints
 !> Current version restricted to GLL bases.
 
 subroutine GetMassMatrix(sop, dx, M, periodic)
-  class(StandardOperators1D), intent(in)  :: sop      !< standard operators
+  class(StandardOperators_1D), intent(in)  :: sop      !< standard operators
   real(RNP),                  intent(in)  :: dx       !< element length
   real(RNP), contiguous,      intent(out) :: M(0:,:)  !< mass matrix
   logical,     optional,      intent(in)  :: periodic !< assume periodicity [F]

@@ -6,8 +6,8 @@
 
 submodule(Mesh_3d__Partition) MP_ImportGenericMesh
   use Execution_Control
-  use Standard_Operators_1D
-  use Embedded_Interpolation
+  use Standard_Operators__1D
+  use Embedded_Interpolation__1D
   use Generic_Mesh_3d
   use Mesh_3d__Element_Indexing, only: V_FACE, E_FACE
   implicit none
@@ -216,8 +216,8 @@ contains
     class(Mesh3d_Partition), intent(inout) :: mesh         !< mesh partition
     class(GenericMesh3d),    intent(in)    :: generic_mesh !< generic mesh
 
-    type(StandardOperators1D) :: sop
-    type(InterpolationOperator), allocatable :: iop(:)
+    type(StandardOperators_1D) :: sop
+    type(EmbeddedInterpolation_1D), allocatable :: iop(:)
     real(RNP), allocatable :: VI(:,:)
     integer :: d, e, pg, pg_max, pg_min, po
 
@@ -237,12 +237,12 @@ contains
     ! standard and interpolation operators
     mesh%p_geom = max(mesh%p_geom, pg_max)
     po  = mesh%p_geom
-    sop = StandardOperators1D(po)
+    sop = StandardOperators_1D(po)
     allocate(VI(0:po,0:po), iop(pg_min:pg_max))
     call sop % Get_Inverse_Legendre_VDM(VI)
     do pg = pg_min, pg_max
       if (pg == mesh%p_geom) cycle
-      iop(pg) = InterpolationOperator(StandardOperators1D(pg), sop%x)
+      iop(pg) = EmbeddedInterpolation_1D(StandardOperators_1D(pg), sop%x)
     end do
 
     ! element points and approximate cuboids ...................................
@@ -272,7 +272,7 @@ contains
     !> Interpolates element points from generic mesh element
 
     subroutine Interpolate(iop, xo, xi)
-      class(InterpolationOperator), intent(in)  :: iop
+      class(EmbeddedInterpolation_1D), intent(in)  :: iop
       real(RNP),                    intent(in)  :: xo(iop%no, iop%no, iop%no)
       real(RNP),                    intent(out) :: xi(iop%ni, iop%ni, iop%ni)
 

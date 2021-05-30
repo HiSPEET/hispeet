@@ -74,7 +74,7 @@ program CG_ConvDiff_1D
   use Kind_Parameters,   only: RNP, IXL
   use Constants,         only: ZERO, ONE
   use Execution_Control, only: Error
-  use CG_Element_Operators_1D
+  use CG_Element_Operators__1D
   use CG_Utilities_1D
   use Spectral_Deferred_Correction
   use Harmonic_Wave_Package
@@ -139,7 +139,7 @@ program CG_ConvDiff_1D
 
   ! operators ..................................................................
 
-  type(CG_ElementOperators1D) :: eop          ! element operators
+  type(CG_ElementOperators_1D) :: eop          ! element operators
 
   type(IMEX_RK_Method1D)      :: imex_rk      ! IMEX Runge-Kutta method
 
@@ -228,7 +228,7 @@ program CG_ConvDiff_1D
 
   ! mesh and operators .........................................................
 
-  eop = CG_ElementOperators1D(po)
+  eop = CG_ElementOperators_1D(po)
   call GetMeshPoints(eop, ZERO, ONE, dx, x)
   call GetMassMatrix(eop, dx, M, periodic)
   call GetPointWeights(w, periodic)

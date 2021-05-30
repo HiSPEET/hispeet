@@ -6,8 +6,8 @@
 
 program Validate__TPO__AAA_3d
   use Kind_Parameters, only: IXL, RNP
-  use TPO__AAA_3d
-  use TPO__AAA_3d__Gen
+  use TPO__AAA__3D
+  use TPO__AAA__3D__Gen
   use Array_Assignments
   implicit none
 

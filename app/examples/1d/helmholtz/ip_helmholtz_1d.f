@@ -23,7 +23,7 @@
 program IP_Helmholtz_1D
   use Kind_Parameters,  only: RNP, IXL
   use Constants,        only: ONE, TWO, ZERO
-  use IP_Element_Operators_1D
+  use IP_Element_Operators__1D
   use IP_Hybridized_Solver_1D
   use Helmholtz_1D_Test_Cases
 
@@ -41,13 +41,13 @@ program IP_Helmholtz_1D
   namelist /problem_parameters/ lambda, nu, nu_svv, test, bc
 
   ! solution parameters
-  type(IP_ElementOptions1D) :: eop_opt ! options for IP element operator
+  type(IP_ElementOptions_1D) :: eop_opt ! options for IP element operator
   integer                   :: ne = 10 ! number of elements
 
   namelist /solution_parameters/ eop_opt, ne
 
   ! discrete variables and operators
-  type(IP_ElementOperators1D) :: eop    ! element operators
+  type(IP_ElementOperators_1D) :: eop    ! element operators
   real(RNP), allocatable      :: x(:,:) ! mesh points
   real(RNP), allocatable      :: u(:,:) ! discrete solution
   real(RNP), allocatable      :: f(:,:) ! right hand side (RHS)
@@ -93,7 +93,7 @@ program IP_Helmholtz_1D
   n = size(u)
 
   ! standard operators
-  eop = IP_ElementOperators1D(eop_opt)
+  eop = IP_ElementOperators_1D(eop_opt)
 
   ! mesh
   dx = TWO / ne
@@ -159,7 +159,7 @@ contains
 !> Right hand side
 
 subroutine GetRHS(eop, dx, bc, x, f)
-  class(IP_ElementOperators1D), intent(in)  :: eop     !< IP-H element operators
+  class(IP_ElementOperators_1D), intent(in)  :: eop     !< IP-H element operators
   real(RNP),                    intent(in)  :: dx      !< element extension
   character,                    intent(in)  :: bc(2)   !< boundary conditions
   real(RNP),                    intent(in)  :: x(0:,:) !< mesh points

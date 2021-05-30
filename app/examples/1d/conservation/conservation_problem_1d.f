@@ -7,7 +7,7 @@
 module Conservation_Problem_1D
 
   use Kind_Parameters, only: RNP
-  use IP_Element_Operators_1D
+  use IP_Element_Operators__1D
   use DG_Utilities_1D
 
   implicit none
@@ -31,7 +31,7 @@ module Conservation_Problem_1D
 
     integer                     :: ne = -1 !< number of elements
     real(RNP)                   :: dx      !< element size
-    type(IP_ElementOperators1D) :: eop     !< IP-DG element operators
+    type(IP_ElementOperators_1D) :: eop     !< IP-DG element operators
     real(RNP), allocatable      :: x(:,:)  !< mesh points
 
     ! private control parameters ...............................................
@@ -133,10 +133,10 @@ contains
 
   subroutine SetSpaceDiscretization(problem, opt, ne)
     class(ConservationProblem1D), intent(inout) :: problem
-    class(IP_ElementOptions1D),   intent(in)    :: opt !< IP/DG-SEM options
+    class(IP_ElementOptions_1D),   intent(in)    :: opt !< IP/DG-SEM options
     integer,                      intent(in)    :: ne  !< number of elements
 
-    problem % eop = IP_ElementOperators1D(opt)
+    problem % eop = IP_ElementOperators_1D(opt)
     problem % ne  = ne
 
     if (allocated(problem % x)) then

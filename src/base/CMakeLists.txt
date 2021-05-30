@@ -52,15 +52,15 @@ include_directories( tensor_product/primitives/IxIxQt
                      tensor_product/primitives/CtxIxI )
 
 # parametrized operators
-include(cmake/tpo__aaa_3d.cmake)
-include(cmake/tpo__diagonal_3d.cmake)
-include(cmake/tpo__elliptic_3d.cmake)
-include(cmake/tpo__div_3d.cmake)
-include(cmake/tpo__rot_3d.cmake)
+include(cmake/tpo__aaa__3d.cmake)
+include(cmake/tpo__diagonal__3d.cmake)
+include(cmake/tpo__div__3d.cmake)
+include(cmake/tpo__elliptic__3d.cmake)
 include(cmake/tpo__grad_3d.cmake)
+include(cmake/tpo__rot_3d.cmake)
 include(cmake/tpo__rotrot_3d.cmake)
-include(cmake/tpo__spectral_3d.cmake)
 include(cmake/tpo__schwarz_3d.cmake)
+include(cmake/tpo__spectral_3d.cmake)
 
 # activate extra compile flags
 if (DEFINED Fortran_FLAGS_TPO)

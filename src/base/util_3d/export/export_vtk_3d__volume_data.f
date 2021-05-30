@@ -10,7 +10,7 @@ module Export_VTK_3d__Volume_Data
   use Gauss_Jacobi,    only: GLL_Points, GLL_Polynomial
   use C_Binding
   use VTK_Binding
-  use TPO__AAA_3d
+  use TPO__AAA__3D
   use Mesh_3d__Structured_Indexing
   implicit none
   private

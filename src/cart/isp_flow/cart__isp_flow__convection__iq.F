@@ -7,7 +7,7 @@
 module CART__ISP_Flow__Convection__IQ
 
   use Kind_Parameters, only: RNP
-  use TPO__AAA_3d
+  use TPO__AAA__3D
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Convection__EQ
 

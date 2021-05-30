@@ -27,7 +27,7 @@
 module CG_ConvDiff_1D__IMEX_Euler_SDC
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO
-  use CG_Element_Operators_1D
+  use CG_Element_Operators__1D
   use CG_Condensed_Solver_1D
   use CG_ConvDiff_1D__Utils
   use Harmonic_Wave_Package
@@ -44,7 +44,7 @@ contains
 
 subroutine IMEX_Euler_SDC(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
   class(SDC_Method),            intent(in)    :: sdc      !< SDC parameters
-  class(CG_ElementOperators1D), intent(in)    :: eop      !< element operators
+  class(CG_ElementOperators_1D), intent(in)    :: eop      !< element operators
   real(RNP),                    intent(in)    :: dx       !< element length
   real(RNP),                    intent(in)    :: dt       !< time step size ∆t
   real(RNP),                    intent(in)    :: M(0:,:)  !< global mass matrix
@@ -160,7 +160,7 @@ end subroutine GetSubintegrals
 !>     u   =  uᵏ(tᵢ)
 
 subroutine Propagator(eop, dx, M, wave, v, nu, bc, x, t0, dt, u0, u, H, S)
-  class(CG_ElementOperators1D), intent(in)    :: eop      !< element operators
+  class(CG_ElementOperators_1D), intent(in)    :: eop      !< element operators
   real(RNP),                    intent(in)    :: dx       !< element length
   real(RNP),                    intent(in)    :: M(0:,:)  !< global mass matrix
   class(HarmonicWavePackage),   intent(in)    :: wave     !< exact wave solution

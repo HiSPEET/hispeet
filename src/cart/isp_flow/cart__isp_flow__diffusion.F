@@ -9,7 +9,7 @@
 module CART__ISP_Flow__Diffusion
 
   use Kind_Parameters, only: RNP
-  use TPO__Diagonal_3d
+  use TPO__Diagonal__3D
   use ISP_Flow_Problem
   use CART__Boundary_Variable
   use CART__Elliptic_PMG

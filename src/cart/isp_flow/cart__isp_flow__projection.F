@@ -19,9 +19,9 @@ module CART__ISP_Flow__Projection
 
   use Array_Assignments
   use Array_Reductions
-  use Standard_Operators_1D
-  use TPO__Diagonal_3d
-  use TPO__Div_3d_R
+  use Standard_Operators__1D
+  use TPO__Diagonal__3D
+  use TPO__Div__3D_R
   use TPO__Grad_3d_R
 
   use ISP_Flow_Problem
@@ -91,7 +91,7 @@ contains
 
 subroutine ProjectionSolver(mesh, sop, dt, gamma, r_red, i_max, f, v)
   class(MeshPartition),       intent(in)    :: mesh         !< mesh partition
-  class(StandardOperators1D), intent(in)    :: sop          !< std SE operators
+  class(StandardOperators_1D), intent(in)    :: sop          !< std SE operators
   real(RNP),                  intent(in)    :: dt           !< time step size
   real(RNP),                  intent(in)    :: gamma        !< penalty factor
   real(RNP),                  intent(in)    :: r_red        !< min res reduction

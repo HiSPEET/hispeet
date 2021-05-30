@@ -7,9 +7,9 @@
 module CART__Elliptic_PMG_Level
   use Kind_Parameters, only: RNP
   use Gauss_Jacobi
-  use TPO__AAA_3d
-  use Standard_Operators_1D
-  use IP_Element_Operators_1D
+  use TPO__AAA__3D
+  use Standard_Operators__1D
+  use IP_Element_Operators__1D
   use CART__Mesh_Partition
   use CART__Schwarz_Operator
   use CART__Elliptic_Operator
@@ -81,7 +81,7 @@ subroutine Init_TopLevel_IP( this, ns1, ns2, smoother, mesh, &
   character,            intent(in)    :: smoother !< smoothing method
   class(MeshPartition), intent(in)    :: mesh     !< mesh partition
 
-  class(IP_ElementOptions1D), intent(in) :: ip_opt
+  class(IP_ElementOptions_1D), intent(in) :: ip_opt
   !< options for the IP/DG method, including polynomial order `po` and `penalty`
 
   class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
@@ -145,7 +145,7 @@ subroutine Init_CoarseLevel(this, po, ns1, ns2, fine, schwarz_opt, po_coarse)
 
      this % elliptic_op = EllipticOperator3D_IP(                        &
                               elliptic_op % mesh,                       &
-                              IP_ElementOptions1D(elliptic_op%eop, po), &
+                              IP_ElementOptions_1D(elliptic_op%eop, po), &
                               schwarz_opt                               )
   end select
 

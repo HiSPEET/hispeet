@@ -18,8 +18,8 @@ program Transition_TG_Post
   use Execution_Control
   use Array_Assignments
   use Array_Reductions
-  use Standard_Operators_1D
-  use Embedded_Interpolation_3D
+  use Standard_Operators__1D
+  use Embedded_Interpolation__3D
   use XMPI
 
   use ISP_Flow_Problem__Test_Suite
@@ -78,8 +78,8 @@ program Transition_TG_Post
 
   ! operators ..................................................................
 
-  type(StandardOperators1D)    , save :: standard_op
-  type(InterpolationOperator3D), save :: interpol_op
+  type(StandardOperators_1D)    , save :: standard_op
+  type(EmbeddedInterpolation_3D), save :: interpol_op
 
   type(C_PTR) :: plan
 
@@ -189,8 +189,8 @@ program Transition_TG_Post
     xi(i) = (TWO * i - ONE)/ni - ONE
   end do
 
-  standard_op = StandardOperators1D(po_u)
-  interpol_op = InterpolationOperator3D(standard_op, xi)
+  standard_op = StandardOperators_1D(po_u)
+  interpol_op = EmbeddedInterpolation_3D(standard_op, xi)
 
   allocate(vi(ni, ni, ni, ne, 3))
 

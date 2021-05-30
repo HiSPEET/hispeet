@@ -11,7 +11,7 @@ module CART__Elliptic_Operator_IP
   use Constants,         only: ZERO, ONE, HALF
   use Array_Assignments
   use Array_Reductions
-  use IP_Element_Operators_1D
+  use IP_Element_Operators__1D
   use XMPI, only: XMPI_Bcast
   use CART__Mesh_Partition
   use CART__Boundary_Variable
@@ -153,7 +153,7 @@ contains
 
 function New_Base(mesh, ip_opt, schwarz_opt) result(this)
   class(MeshPartition), target,      intent(in) :: mesh
-  class(IP_ElementOptions1D),        intent(in) :: ip_opt
+  class(IP_ElementOptions_1D),        intent(in) :: ip_opt
   class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
 
   type(EllipticOperator3D_IP) :: this
@@ -170,7 +170,7 @@ function New_CI(mesh, lambda, nu, bc, ip_opt, schwarz_opt) result(this)
   real(RNP),                         intent(in) :: lambda
   real(RNP),                         intent(in) :: nu
   character,                         intent(in) :: bc(:)
-  class(IP_ElementOptions1D),        intent(in) :: ip_opt
+  class(IP_ElementOptions_1D),        intent(in) :: ip_opt
   class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
 
   type(EllipticOperator3D_IP) :: this
@@ -191,7 +191,7 @@ function New_CI_svv(mesh, lambda, nu, nu_svv, bc, ip_opt, schwarz_opt) &
   real(RNP),                         intent(in) :: nu
   real(RNP),                         intent(in) :: nu_svv
   character,                         intent(in) :: bc(:)
-  class(IP_ElementOptions1D),        intent(in) :: ip_opt
+  class(IP_ElementOptions_1D),        intent(in) :: ip_opt
   class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
 
   type(EllipticOperator3D_IP) :: this
@@ -208,7 +208,7 @@ function New_VI(mesh, lambda, nu, bc, ip_opt, schwarz_opt) result(this)
   real(RNP),                         intent(in) :: lambda
   real(RNP),                         intent(in) :: nu(0:,0:,0:,:)
   character,                         intent(in) :: bc(:)
-  class(IP_ElementOptions1D),        intent(in) :: ip_opt
+  class(IP_ElementOptions_1D),        intent(in) :: ip_opt
   class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
 
   type(EllipticOperator3D_IP) :: this
@@ -226,12 +226,12 @@ end function New_VI
 subroutine Init_Base(this, mesh, ip_opt, schwarz_opt)
   class(EllipticOperator3D_IP),      intent(inout) :: this
   class(MeshPartition), target,      intent(in)    :: mesh
-  class(IP_ElementOptions1D),        intent(in)    :: ip_opt
+  class(IP_ElementOptions_1D),        intent(in)    :: ip_opt
   class(SchwarzOptions3D), optional, intent(in)    :: schwarz_opt
 
   this % mesh => mesh
 
-  allocate(this % eop, source = IP_ElementOperators1D(ip_opt))
+  allocate(this % eop, source = IP_ElementOperators_1D(ip_opt))
 
   if (present(schwarz_opt)) then
     this % schwarz = SchwarzOperator3D(schwarz_opt, this%eop)
@@ -248,7 +248,7 @@ subroutine Init_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
   real(RNP),                         intent(in)    :: lambda
   real(RNP),                         intent(in)    :: nu
   character,                         intent(in)    :: bc(:)
-  class(IP_ElementOptions1D),        intent(in)    :: ip_opt
+  class(IP_ElementOptions_1D),        intent(in)    :: ip_opt
   class(SchwarzOptions3D), optional, intent(in)    :: schwarz_opt
 
   call Init_Base(this, mesh, ip_opt, schwarz_opt)
@@ -267,7 +267,7 @@ subroutine Init_CI_svv(this, mesh, lambda, nu, nu_svv, bc, ip_opt, schwarz_opt)
   real(RNP),                         intent(in)    :: nu
   real(RNP),                         intent(in)    :: nu_svv
   character,                         intent(in)    :: bc(:)
-  class(IP_ElementOptions1D),        intent(in)    :: ip_opt
+  class(IP_ElementOptions_1D),        intent(in)    :: ip_opt
   class(SchwarzOptions3D), optional, intent(in)    :: schwarz_opt
 
   call Init_Base(this, mesh, ip_opt, schwarz_opt)
@@ -284,7 +284,7 @@ subroutine Init_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
   real(RNP),                         intent(in)    :: lambda
   real(RNP),                         intent(in)    :: nu(0:,0:,0:,:)
   character,                         intent(in)    :: bc(:)
-  class(IP_ElementOptions1D),        intent(in)    :: ip_opt
+  class(IP_ElementOptions_1D),        intent(in)    :: ip_opt
   class(SchwarzOptions3D), optional, intent(in)    :: schwarz_opt
 
   call Init_Base(this, mesh, ip_opt, schwarz_opt)

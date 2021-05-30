@@ -231,7 +231,7 @@ The next listing gives a comprehensive example.
   !>   * Lagrange polynomials to Gauss-Lobatto-Legendre points: `basis = 'GLL'`
   !>   * Lagrange polynomials to Gauss-Radau-Legendre points:   `basis = 'GRL'`
 
-  type, public :: StandardOperators1D
+  type, public :: StandardOperators_1D
     private
 
     ! public components
@@ -248,14 +248,14 @@ The next listing gives a comprehensive example.
 
   contains
 
-    procedure :: Init_StandardOperators1D ! type-bound procedures
+    procedure :: Init_StandardOperators_1D ! type-bound procedures
     procedure :: PolynomialOrder          ! are documented
     procedure :: InitLegendreVDM          ! separately
     procedure :: Has_Legendre_VDM         ! in the same way
     procedure :: Get_Legendre_VDM         ! as ordinary
     procedure :: Get_InverseLegendre_VDM  ! procedures
 
-  end type StandardOperators1D
+  end type StandardOperators_1D
 ```
 
 In this case, the default visibility is changed to `private`. Only components with the `public` attribute are accessible. These settings do not affect the type-bound procedures listed in the `contains` part. Their visibility follows identical rules, but must be declared separately.
@@ -343,6 +343,6 @@ New pecularities may occur with type extension. For example consider the type `M
 
 The child type inherits all components and, if defined, all type-bound procedures of the parent. It also possesses an inbuilt constructor similar to the parent. However, the user-defined constructor of the parent does not easily extend to the child. Instead a new, specific constructor must be provided. Nevertheless, it is possible to structure the parent constructor in such a way that it can be used to initialize the parent components within the child type. To see, how accomplish this, confer to the modules
 
-  - `Standard_Operators_1D`, providing parent type `StandardOperators1D`, and
-  - `CG_Element_Operators_1D`, defining child type `CG_ElementOperators1D`, or
-  - `IP_Element_Operators_1D`, defining child type `IP_ElementOperators1D`
+  - `Standard_Operators__1D`, providing parent type `StandardOperators_1D`, and
+  - `CG_Element_Operators__1D`, defining child type `CG_ElementOperators_1D`, or
+  - `IP_Element_Operators__1D`, defining child type `IP_ElementOperators_1D`

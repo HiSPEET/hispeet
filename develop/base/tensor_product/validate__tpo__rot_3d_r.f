@@ -6,7 +6,7 @@
 
 program Validate__TPO__Rot_3d_R
   use Kind_Parameters, only: IXL, RNP
-  use Standard_Operators_1D
+  use Standard_Operators__1D
   use TPO__Rot_3d_R
   use TPO__Rot_3d_R__Gen
   implicit none
@@ -24,7 +24,7 @@ program Validate__TPO__Rot_3d_R
 
   ! operators and variables ....................................................
 
-  type(StandardOperators1D) :: standard_op
+  type(StandardOperators_1D) :: standard_op
 
   real(RNP), dimension(:,:,:,:,:), allocatable :: u
   real(RNP), dimension(:,:,:,:,:), allocatable :: v, w
@@ -64,7 +64,7 @@ program Validate__TPO__Rot_3d_R
 
   ! operators ..................................................................
 
-  standard_op = StandardOperators1D(po)
+  standard_op = StandardOperators_1D(po)
 
   ! workspace ..................................................................
 

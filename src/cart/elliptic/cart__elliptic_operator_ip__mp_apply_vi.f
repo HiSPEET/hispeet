@@ -6,7 +6,7 @@
 
 submodule(CART__Elliptic_Operator_IP:MP_Apply) MP_Apply_VI
 
-  use TPO__Elliptic_3d_RLVI
+  use TPO__Elliptic__3D_RLVI
   use CART__Trace_Operator
   use CART__Normal_Trace_Operator
   implicit none
@@ -39,7 +39,7 @@ module subroutine Apply_VI(this, u, v)
   integer :: po, ne, np
 
   select type(eop => this % eop)
-  class is (IP_ElementOperators1D)
+  class is (IP_ElementOperators_1D)
 
     associate( mesh   => this % mesh,   &
                lambda => this % lambda, &
@@ -115,7 +115,7 @@ subroutine AddFluxes(mesh, eop, nu, nu_hat, J_u, A_q, v)
   ! arguments ..................................................................
 
   class(MeshPartition),         intent(in) :: mesh !< mesh partition
-  class(IP_ElementOperators1D), intent(in) :: eop  !< ID/DG element operators
+  class(IP_ElementOperators_1D), intent(in) :: eop  !< ID/DG element operators
 
   real(RNP), intent(in)    :: nu(0:,0:,0:,:)  !< diffusivity
   real(RNP), intent(in)    :: nu_hat(0:,0:,:) !< diffusivity @ faces

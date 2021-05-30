@@ -10,7 +10,7 @@ module CG_Condensed_Solver_1D
   use Kind_Parameters,  only: RNP
   use Constants,        only: ZERO
   use Linear_Equations, only: TridiagonalSolver, CyclicTridiagonalSolver
-  use CG_Element_Operators_1D
+  use CG_Element_Operators__1D
   implicit none
   private
 
@@ -28,7 +28,7 @@ contains
 
 subroutine CondensedEllipticSolver__w_svv( eop, dx, c, nu, nu_svv &
                                          , bc, f, u, standby      )
-  class(CG_ElementOperators1D), intent(in) :: eop !< element operators
+  class(CG_ElementOperators_1D), intent(in) :: eop !< element operators
   real(RNP), intent(in)    :: dx       !< element width
   real(RNP), intent(in)    :: c        !< coefficient of linear term
   real(RNP), intent(in)    :: nu       !< physical diffusivity
@@ -86,7 +86,7 @@ end subroutine CondensedEllipticSolver__w_svv
 !> Direct elliptic solver based on static condensation without SVV
 
 subroutine CondensedEllipticSolver__n_svv(eop, dx, c, nu, bc, f, u, standby)
-  class(CG_ElementOperators1D), intent(in) :: eop !< element operators
+  class(CG_ElementOperators_1D), intent(in) :: eop !< element operators
   real(RNP), intent(in)    :: dx       !< element width
   real(RNP), intent(in)    :: c        !< coefficient of linear term
   real(RNP), intent(in)    :: nu       !< physical diffusivity

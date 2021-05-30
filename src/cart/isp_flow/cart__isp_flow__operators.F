@@ -10,10 +10,10 @@ module CART__ISP_Flow__Operators
   use Constants,                 only: ZERO, ONE
   use XMPI
 
-  use Standard_Operators_1D
-  use IP_Element_Operators_1D
-  use Embedded_Interpolation_3D
-  use Projection_Operator_3D
+  use Standard_Operators__1D
+  use IP_Element_Operators__1D
+  use Embedded_Interpolation__3D
+  use Projection_Operator__3D
 
   use ISP_Flow_Problem
 
@@ -74,14 +74,14 @@ module CART__ISP_Flow__Operators
     type(BoundaryVariable), allocatable :: bv_x(:) !< boundary points
     type(BoundaryVariable), allocatable :: bv_u(:) !< boundary values
 
-    type(StandardOperators1D) :: eop_u !< element operators for u \ p
-    type(StandardOperators1D) :: eop_p !< element operators for p
-    type(StandardOperators1D) :: eop_q !< element operators for nonlinear terms
+    type(StandardOperators_1D) :: eop_u !< element operators for u \ p
+    type(StandardOperators_1D) :: eop_p !< element operators for p
+    type(StandardOperators_1D) :: eop_q !< element operators for nonlinear terms
 
-    type(ProjectionOperator3D)    :: pop_up !< projection    from po_u to po_p
-    type(InterpolationOperator3D) :: iop_up !< interpolation from po_u to po_p
-    type(InterpolationOperator3D) :: iop_uq !< interpolation from po_u to po_q
-    type(InterpolationOperator3D) :: iop_pu !< interpolation from po_p to po_u
+    type(ProjectionOperator_3D)    :: pop_up !< projection    from po_u to po_p
+    type(EmbeddedInterpolation_3D) :: iop_up !< interpolation from po_u to po_p
+    type(EmbeddedInterpolation_3D) :: iop_uq !< interpolation from po_u to po_q
+    type(EmbeddedInterpolation_3D) :: iop_pu !< interpolation from po_p to po_u
 
     type(PMG_Method3D) :: pmg_u !< p-MG/element operators for u \ p
     type(PMG_Method3D) :: pmg_p !< p-MG/element operators for p
@@ -199,10 +199,10 @@ contains
     this % po_p = min(po_p, po_u)
     this % po_q = po_q
 
-    this % eop_u = StandardOperators1D(this % po_u, svv = control%svv)
-    this % eop_p = StandardOperators1D(this % po_p)
+    this % eop_u = StandardOperators_1D(this % po_u, svv = control%svv)
+    this % eop_p = StandardOperators_1D(this % po_p)
     if (po_q /= po_u) then
-      this % eop_q = StandardOperators1D(po_q, no_vdm = .true.)
+      this % eop_q = StandardOperators_1D(po_q, no_vdm = .true.)
     end if
 
     this % mesh => mesh
@@ -215,14 +215,14 @@ contains
     end do
 
     this%pmg_u = PMG_Method3D( mesh,                                       &
-                               IP_ElementOptions1D( po      = this%po_u,   &
+                               IP_ElementOptions_1D( po      = this%po_u,   &
                                                     penalty = penalty,     &
                                                     svv     = control%svv  &
                                                   ),                       &
                                pmg_u_opt                                   )
 
     this%pmg_p = PMG_Method3D( mesh,                                       &
-                               IP_ElementOptions1D( po      = this%po_p,   &
+                               IP_ElementOptions_1D( po      = this%po_p,   &
                                                     penalty = penalty      &
                                                   ),                       &
                                pmg_p_opt                                   )
@@ -230,17 +230,17 @@ contains
     call this % pmg_p % SetProblem(lambda=ZERO, nu=ONE, bc=problem%bc(:,4))
 
     if (this % po_p /= this % po_u) then
-      this % pop_up = ProjectionOperator3D( this%eop_p,   &
+      this % pop_up = ProjectionOperator_3D( this%eop_p,   &
                                             this%eop_u%x, &
                                             this%eop_u%w, &
                                             mesh%dx       )
 
-      this % iop_up = InterpolationOperator3D( this%eop_u, this%eop_p%x )
-      this % iop_pu = InterpolationOperator3D( this%eop_p, this%eop_u%x )
+      this % iop_up = EmbeddedInterpolation_3D( this%eop_u, this%eop_p%x )
+      this % iop_pu = EmbeddedInterpolation_3D( this%eop_p, this%eop_u%x )
     end if
 
     if (po_q /= po_u) then
-      this % iop_uq = InterpolationOperator3D( this%eop_u, this%eop_q%x )
+      this % iop_uq = EmbeddedInterpolation_3D( this%eop_u, this%eop_q%x )
     end if
 
     this % control = control

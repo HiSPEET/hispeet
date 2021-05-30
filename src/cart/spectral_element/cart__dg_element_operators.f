@@ -13,7 +13,7 @@
 module CART__DG_Element_Operators
   use Kind_Parameters,   only: RNP
   use Execution_Control, only: Error
-  use IP_Element_Operators_1D
+  use IP_Element_Operators__1D
   implicit none
   private
 
@@ -22,7 +22,7 @@ module CART__DG_Element_Operators
   !-----------------------------------------------------------------------------
   !> Element operators for discontinuous cuboidal elements
 
-  type, extends(IP_ElementOperators1D) :: DG_ElementOperators3D
+  type, extends(IP_ElementOperators_1D) :: DG_ElementOperators3D
 
     real(RNP) :: dx(3) !< element extensions
     real(RNP) :: mu(3) !< penalty coefficients
@@ -45,14 +45,14 @@ subroutine Init_DG_ElementOperators3D(this, po, dx, penalty)
   real(RNP),           intent(in) :: dx(3)    !< element extensions
   real(RNP), optional, intent(in) :: penalty  !< penalty parameter > 1 [2]
 
-  type(IP_ElementOptions1D) :: opt
+  type(IP_ElementOptions_1D) :: opt
 
   opt % po = po
   if (present(penalty)) then
     opt % penalty = penalty
   end if
 
-  call this % Init_IP_ElementOperators1D(opt)
+  call this % Init_IP_ElementOperators_1D(opt)
 
   this % dx    = dx
   this % mu(1) = this % PenaltyFactor([dx(1), dx(1)])

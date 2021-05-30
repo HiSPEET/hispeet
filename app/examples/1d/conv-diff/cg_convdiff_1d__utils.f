@@ -20,7 +20,7 @@
 
 module CG_ConvDiff_1D__Utils
   use Kind_Parameters, only: RNP
-  use Standard_Operators_1D
+  use Standard_Operators__1D
   use Harmonic_Wave_Package
   use CG_Utilities_1D, only: Assembly
   implicit none
@@ -45,7 +45,7 @@ contains
 !> The result is returned as an element variable.
 
 subroutine GetLinearConvectionTerm(sop, v, bc, u, fc)
-  class(StandardOperators1D), intent(in)  :: sop      !< standard operators
+  class(StandardOperators_1D), intent(in)  :: sop      !< standard operators
   real(RNP),                  intent(in)  :: v        !< velocity
   character,                  intent(in)  :: bc(:)    !< left/right BC
   real(RNP),                  intent(in)  :: u (0:,:) !< solution
@@ -77,7 +77,7 @@ end subroutine GetLinearConvectionTerm
 !>     fdᵢ = -∫ ∂φᵢ/∂x nu ∂u/∂x dx  +  Neumann BC contributions
 
 subroutine GetDiffusionTerm(sop, dx, wave, v, nu, bc, x, t, u, fd)
-  class(StandardOperators1D), intent(in)  :: sop      !< standard operators
+  class(StandardOperators_1D), intent(in)  :: sop      !< standard operators
   real(RNP),                  intent(in)  :: dx       !< element length
   class(HarmonicWavePackage), intent(in)  :: wave     !< exact wave solution
   real(RNP),                  intent(in)  :: v        !< velocity
@@ -106,7 +106,7 @@ end subroutine GetDiffusionTerm
 !> Time derivative, F(t,u) = ∂u/∂t = M⁻¹ (-Cu - ν Lu + fᴺ(t))
 
 subroutine GetTimeDerivative(sop, dx, M, wave, v, nu, bc, x, t, u, F)
-  class(StandardOperators1D), intent(in)  :: sop     !< element operators
+  class(StandardOperators_1D), intent(in)  :: sop     !< element operators
   real(RNP),                  intent(in)  :: dx      !< element length
   real(RNP),                  intent(in)  :: M(0:,:) !< global mass matrix
   class(HarmonicWavePackage), intent(in)  :: wave    !< exact wave solution

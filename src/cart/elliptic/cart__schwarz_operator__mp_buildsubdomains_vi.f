@@ -14,7 +14,7 @@ contains
 
   module subroutine BuildSubdomains_VI(this, eop, mesh, lambda, nu, bc)
     class(SchwarzOperator3D),   intent(inout) :: this  !< Schwarz operator
-    class(StandardOperators1D), intent(in)    :: eop   !< 1D SE operators
+    class(StandardOperators_1D), intent(in)    :: eop   !< 1D SE operators
     class(MeshPartition),       intent(in)    :: mesh  !< mesh partition
     real(RNP), intent(in) :: lambda                    !< Helmholtz parameter
     real(RNP), intent(in) :: nu(0:,0:,0:,:)            !< diffusivity

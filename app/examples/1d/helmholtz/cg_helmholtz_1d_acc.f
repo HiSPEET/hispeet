@@ -37,7 +37,7 @@ program CG_Helmholtz_1D_Acc
   use Constants,        only: ZERO, ONE
   use Matrix_Operators, only: Inverse
   use Linear_Equations, only: TridiagonalSolver
-  use Standard_Operators_1D ! provides the SEM standard operators
+  use Standard_Operators__1D ! provides the SEM standard operators
   use CG_Utilities_1D
   use Helmholtz_1D_Test_Cases
 
@@ -62,7 +62,7 @@ program CG_Helmholtz_1D_Acc
   namelist /solution_parameters/ po, ne, r_max, i_max
 
   ! discrete variables and operators
-  type(StandardOperators1D) :: standard_op   ! standard element operators
+  type(StandardOperators_1D) :: standard_op   ! standard element operators
   real(RNP), allocatable    :: x(:,:)        ! mesh points
   real(RNP), allocatable    :: u(:,:)        ! discrete solution
   real(RNP), allocatable    :: f(:,:)        ! right hand side (RHS)
@@ -105,7 +105,7 @@ program CG_Helmholtz_1D_Acc
             s(0:po,ne), e(0:po,ne), w(0:po,ne)              )
 
   ! standard operators
-  standard_op = StandardOperators1D(po = po)
+  standard_op = StandardOperators_1D(po = po)
 
   ! check if problem is singular
   singular = lambda == 0 .and. all(bc == 'N')
@@ -255,7 +255,7 @@ contains
 !> Element operators
 
 subroutine GetElementOperators(standard_op, dx, lambda, Me, He)
-  class(StandardOperators1D), intent(in) :: standard_op !< standard operators
+  class(StandardOperators_1D), intent(in) :: standard_op !< standard operators
   real(RNP), intent(in)  :: dx        !< element length
   real(RNP), intent(in)  :: lambda    !< Helmholtz parameter
   real(RNP), intent(out) :: Me(0:)    !< element mass matrix (main diagonal)

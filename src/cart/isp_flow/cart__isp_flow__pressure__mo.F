@@ -11,7 +11,7 @@ module CART__ISP_Flow__Pressure__MO
   use Kind_Parameters, only: RNP
   use Constants,       only: ONE
   use Array_Assignments
-  use TPO__Diagonal_3d
+  use TPO__Diagonal__3D
   use ISP_Flow_Problem
   use CART__Mesh_Partition
   use CART__Boundary_Variable

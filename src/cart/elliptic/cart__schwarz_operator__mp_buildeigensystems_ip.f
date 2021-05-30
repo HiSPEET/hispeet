@@ -9,7 +9,7 @@
 submodule(CART__Schwarz_Operator) MP_BuildEigensystems_IP
   use Eigenproblems, only: SolveGeneralizedEigenproblem
   use Schwarz_Weighting
-  use IP_Element_Operators_1D
+  use IP_Element_Operators__1D
   implicit none
 
 contains
@@ -22,7 +22,7 @@ module subroutine BuildEigensystems_IP(this, eop)
   ! arguments ..................................................................
 
   class(SchwarzOperator3D),     intent(inout) :: this !< Schwarz operator
-  class(IP_ElementOperators1D), intent(in)    :: eop  !< IP-DG SE operators
+  class(IP_ElementOperators_1D), intent(in)    :: eop  !< IP-DG SE operators
 
   ! local variables ............................................................
 
@@ -147,7 +147,7 @@ end subroutine BuildEigensystems_IP
 !> order to avoid floating points exceptions when used as a divisor.
 
 subroutine GetSubdomainOperators(eop, svv_ratio, no, bc, Ws, S, V, W)
-  type(IP_ElementOperators1D), intent(in) :: eop !< IP-DG element operators
+  type(IP_ElementOperators_1D), intent(in) :: eop !< IP-DG element operators
   real(RNP),  intent(in)  :: svv_ratio    !< ν/(ν+νˢ)
   integer,    intent(in)  :: no           !< overlap
   character,  intent(in)  :: bc(2)        !< left/right boundary conditions

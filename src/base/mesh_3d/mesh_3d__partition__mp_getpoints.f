@@ -6,8 +6,8 @@
 
 submodule(Mesh_3d__Partition) MP_GetPoints
   use Constants, only: HALF
-  use Standard_Operators_1D
-  use Embedded_Interpolation_3D
+  use Standard_Operators__1D
+  use Embedded_Interpolation__3D
   implicit none
 
 contains
@@ -26,7 +26,7 @@ contains
     character(len=*), optional, intent(in)  :: basis !< 'GL' or 'GLL' ['GLL']
     real(RNP),     allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
 
-    type(StandardOperators1D) :: sop
+    type(StandardOperators_1D) :: sop
 
     !$omp single
     allocate(x(0:po, 0:po, 0:po, mesh%n_elem, 3))
@@ -34,7 +34,7 @@ contains
 
     if (mesh % n_elem < 1) return
 
-    sop = StandardOperators1D(po, basis, no_vdm = .true.)
+    sop = StandardOperators_1D(po, basis, no_vdm = .true.)
 
     if (mesh % regular) then
       call GetRegularMeshPoints(mesh, sop, x)
@@ -49,7 +49,7 @@ contains
 
   subroutine GetRegularMeshPoints(mesh, sop, x)
     class(Mesh3d_Partition),    intent(in)  :: mesh !< mesh parition
-    class(StandardOperators1D), intent(in)  :: sop  !< standard operators
+    class(StandardOperators_1D), intent(in)  :: sop  !< standard operators
     real(RNP), contiguous,      intent(out) :: x(0:,0:,0:,:,:) !< mesh points
 
     real(RNP), dimension(0:sop%po)   :: x1, x2, x3
@@ -100,14 +100,14 @@ contains
 
   subroutine GetDeformedMeshPoints(mesh, sop, x)
     class(Mesh3d_Partition),    intent(in)  :: mesh !< mesh parition
-    class(StandardOperators1D), intent(in)  :: sop  !< standard operators
+    class(StandardOperators_1D), intent(in)  :: sop  !< standard operators
     real(RNP), contiguous,      intent(out) :: x(0:,0:,0:,:,:) !< mesh points
 
-    type(StandardOperators1D) :: gop
-    type(InterpolationOperator3D) :: iop
+    type(StandardOperators_1D) :: gop
+    type(EmbeddedInterpolation_3D) :: iop
 
-    gop = StandardOperators1D(mesh % p_geom, basis = 'GLL', no_vdm = .true.)
-    iop = InterpolationOperator3D(gop, sop%x)
+    gop = StandardOperators_1D(mesh % p_geom, basis = 'GLL', no_vdm = .true.)
+    iop = EmbeddedInterpolation_3D(gop, sop%x)
 
     call iop % Apply(mesh % x_elem, x)
 

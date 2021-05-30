@@ -9,7 +9,7 @@
 module CART__CG_Element_Operators
   use Kind_Parameters,   only: RNP
   use Execution_Control, only: Error
-  use CG_Element_Operators_1D
+  use CG_Element_Operators__1D
   implicit none
   private
 
@@ -18,7 +18,7 @@ module CART__CG_Element_Operators
   !-----------------------------------------------------------------------------
   !> Element operators for continuous cuboidal elements
 
-  type, extends(CG_ElementOperators1D) :: CG_ElementOperators3D
+  type, extends(CG_ElementOperators_1D) :: CG_ElementOperators3D
 
     real(RNP) :: dx(3)  !< element extensions
 
@@ -39,7 +39,7 @@ subroutine Init_CG_ElementOperators3D(this, po, dx)
   integer,   intent(in) :: po           !< polynomial order
   real(RNP), intent(in) :: dx(3)        !< element extensions
 
-  call this % Init_CG_ElementOperators1D(CG_ElementOptions1D(po))
+  call this % Init_CG_ElementOperators_1D(CG_ElementOptions_1D(po))
   this % dx = dx
 
 end subroutine Init_CG_ElementOperators3D

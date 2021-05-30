@@ -35,7 +35,7 @@ module CG_ConvDiff_1D__RK_SDC
   use Gauss_Jacobi
   use Lagrange_Interpolation
   use CG_ConvDiff_1D__Utils
-  use CG_Element_Operators_1D
+  use CG_Element_Operators__1D
   use CG_Condensed_Solver_1D
   use IMEX_Runge_Kutta_Method
   use Harmonic_Wave_Package
@@ -225,7 +225,7 @@ end subroutine Init_RK_SDC_Method1D
 
 subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
   class(RK_SDC_Method1D),       intent(inout) :: this
-  class(CG_ElementOperators1D), intent(in)    :: eop      !< element operators
+  class(CG_ElementOperators_1D), intent(in)    :: eop      !< element operators
   real(RNP),                    intent(in)    :: dx       !< element length
   real(RNP),                    intent(in)    :: dt       !< time step size
   real(RNP),                    intent(in)    :: M(0:,:)  !< global mass matrix
@@ -350,7 +350,7 @@ end subroutine TimeStep
 subroutine GetRHS(wave, eop, dx, v, nu, bc, x, t, u, F_im, F_ex)
 
   class(HarmonicWavePackage),   intent(in) :: wave     !< exact wave solution
-  class(CG_ElementOperators1D), intent(in) :: eop      !< element operators
+  class(CG_ElementOperators_1D), intent(in) :: eop      !< element operators
 
   real(RNP), intent(in)  :: dx           !< element length
   real(RNP), intent(in)  :: v            !< convection velocity
@@ -477,7 +477,7 @@ subroutine Propagator( imex_rk, wave, eop, dx, M, v, nu, bc, x, t0, dt, u0, u, &
 
   class(IMEX_RK_Method),        intent(inout) :: imex_rk  !< IMEX RK method
   class(HarmonicWavePackage),   intent(in)    :: wave     !< exact wave solution
-  class(CG_ElementOperators1D), intent(in)    :: eop      !< element operators
+  class(CG_ElementOperators_1D), intent(in)    :: eop      !< element operators
 
   real(RNP), intent(in)  :: dx      !< element length
   real(RNP), intent(in)  :: M(0:,:) !< global mass matrix

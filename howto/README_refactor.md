@@ -1,4 +1,4 @@
-* `Standard_Operators_1D: StandardOperators1D`
+* `Standard_Operators__1D: StandardOperators_1D`
 
         % xi   →  % x
         % V    →  % GetVandermondeMatrix(V)

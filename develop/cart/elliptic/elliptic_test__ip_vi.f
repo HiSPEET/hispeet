@@ -12,10 +12,10 @@ program Elliptic_Test__IP_VI
   use Constants, only: PI, ZERO, ONE
   use Array_Assignments
   use Array_Reductions
-  use TPO__Diagonal_3d
+  use TPO__Diagonal__3D
   use OpenMP_Binding
   use XMPI
-  use IP_Element_Operators_1D
+  use IP_Element_Operators__1D
   use Export_Volume_Data_To_VTK
 
   use CART__Mesh_Partition
@@ -133,7 +133,7 @@ program Elliptic_Test__IP_VI
 
   ! auxiliary ..................................................................
 
-  type(IP_ElementOptions1D) :: ip_opt
+  type(IP_ElementOptions_1D) :: ip_opt
   type(BoundaryVariable) :: bv(6)
   real(RNP), allocatable :: grad_u(:,:,:,:,:)
   real(RNP) :: r_max, r_max_loc, r_l2, r_l2_0
@@ -264,7 +264,7 @@ program Elliptic_Test__IP_VI
 
   ! operators ..................................................................
 
-  ip_opt = IP_ElementOptions1D(po = po, penalty = penalty)
+  ip_opt = IP_ElementOptions_1D(po = po, penalty = penalty)
   elliptic_op = EllipticOperator3D_IP(mesh, lambda, nu, bc, ip_opt, schwarz_opt)
 
   !-----------------------------------------------------------------------------

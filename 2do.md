@@ -26,7 +26,7 @@
     - extension to hybridizable case
 * `src/cart/isp_flow/cart__isp_flow__operators.f`
     - extension to IP-H
-    - give `IP_ElementOptions1D` instead constructing them?
+    - give `IP_ElementOptions_1D` instead constructing them?
       e.g. for initialization of `pmg_u` and `pmg_p`
 * testing
 
