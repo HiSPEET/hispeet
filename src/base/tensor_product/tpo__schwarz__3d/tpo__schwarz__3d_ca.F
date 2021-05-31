@@ -4,10 +4,10 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Schwarz_3d_CA
+module TPO__Schwarz__3D_CA
   use Kind_Parameters, only: RNP
-  use TPO__Schwarz_3d_CA__Gen
-  use TPO__Schwarz_3d_CA__XSMM
+  use TPO__Schwarz__3D_CA__Gen
+  use TPO__Schwarz__3D_CA__XSMM
   implicit none
   private
 
@@ -47,4 +47,4 @@ contains
 
   !=============================================================================
 
-end module TPO__Schwarz_3d_CA
+end module TPO__Schwarz__3D_CA

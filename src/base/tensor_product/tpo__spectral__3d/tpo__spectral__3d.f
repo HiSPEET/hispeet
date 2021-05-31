@@ -27,9 +27,9 @@
 !> other than the default accelerator queue.
 !===============================================================================
 
-module TPO__Spectral_3d
-  use TPO__Spectral_3d_CI
-  use TPO__Spectral_3d_CA
+module TPO__Spectral__3D
+  use TPO__Spectral__3D_CI
+  use TPO__Spectral__3D_CA
   implicit none
   private
 
@@ -40,4 +40,4 @@ module TPO__Spectral_3d
     module procedure TPO_Spectral_CA ! (S₃ x S₂ x S₁) Λ (S₃ x S₂ x S₁)ᵀ
   end interface
 
-end module TPO__Spectral_3d
+end module TPO__Spectral__3D

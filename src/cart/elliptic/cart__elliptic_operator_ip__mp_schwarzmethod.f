@@ -8,8 +8,8 @@
 
 submodule(CART__Elliptic_Operator_IP) MP_SchwarzMethod
   use Execution_Control, only: Error
-  use TPO__Schwarz_3d_CA
-  use TPO__Schwarz_3d_CI
+  use TPO__Schwarz__3D_CA
+  use TPO__Schwarz__3D_CI
   use CART__Mesh_Partition
   use CART__Element_Transfer_Buffer
   implicit none

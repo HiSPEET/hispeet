@@ -59,8 +59,8 @@ include(cmake/tpo__elliptic__3d.cmake)
 include(cmake/tpo__grad__3d.cmake)
 include(cmake/tpo__rot__3d.cmake)
 include(cmake/tpo__rotrot__3d.cmake)
-include(cmake/tpo__schwarz_3d.cmake)
-include(cmake/tpo__spectral_3d.cmake)
+include(cmake/tpo__schwarz__3d.cmake)
+include(cmake/tpo__spectral__3d.cmake)
 
 # activate extra compile flags
 if (DEFINED Fortran_FLAGS_TPO)

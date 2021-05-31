@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Schwarz_3d_CI__XSMM
+module TPO__Schwarz__3D_CI__XSMM
 
 #ifdef __LIBXSMM__
 
@@ -106,7 +106,7 @@ contains
       c2 = cfg(2,l)
       c3 = cfg(3,l)
 
-      ! y = Sᵀ x I x I f .......................................................      
+      ! y = Sᵀ x I x I f .......................................................
       call LIBXSMM_DMMCall(xmm_3, f(:,:,:,l), S(:,:,c3) , y(:,:,:))
 
       ! z = I x Sᵀ x I y .......................................................
@@ -139,4 +139,4 @@ contains
 
 #endif
 
-end module TPO__Schwarz_3d_CI__XSMM
+end module TPO__Schwarz__3D_CI__XSMM

@@ -5,10 +5,10 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Spectral_3d_CA
+module TPO__Spectral__3D_CA
   use Kind_Parameters, only: RNP
-  use TPO__Spectral_3d_CA__Gen
-  use TPO__Spectral_3d_CA__XSMM
+  use TPO__Spectral__3D_CA__Gen
+  use TPO__Spectral__3D_CA__XSMM
   implicit none
   private
 
@@ -43,4 +43,4 @@ contains
 
   !=============================================================================
 
-end module TPO__Spectral_3d_CA
+end module TPO__Spectral__3D_CA

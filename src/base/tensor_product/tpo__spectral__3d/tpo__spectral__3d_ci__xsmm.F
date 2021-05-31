@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Spectral_3d_CI__XSMM
+module TPO__Spectral__3D_CI__XSMM
 
 #ifdef __LIBXSMM__
 
@@ -103,5 +103,5 @@ contains
 
 #endif
 
-end module TPO__Spectral_3d_CI__XSMM
+end module TPO__Spectral__3D_CI__XSMM
 

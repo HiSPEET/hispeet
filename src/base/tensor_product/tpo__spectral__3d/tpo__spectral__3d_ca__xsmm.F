@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Spectral_3d_CA__XSMM
+module TPO__Spectral__3D_CA__XSMM
 
 #ifdef __LIBXSMM__
 
@@ -38,7 +38,7 @@ contains
     real(RNP) :: z( size(S1,1), size(S2,1), size(S3,1) )
     real(RNP) :: tmp
     integer   :: n1, n2, n3, ne
-    integer   :: e, i, j, k, p    
+    integer   :: e, i, j, k, p
     real(RNP) :: S1_t (size(S1,1), size(S1,1) )
     real(RNP) :: S2_t (size(S2,1), size(S2,1) )
     real(RNP) :: S3_t (size(S3,1), size(S3,1) )
@@ -85,7 +85,7 @@ contains
       ! vᵉ = I x S₂ᵀ x I z .....................................................
       do k = 1, n3
         call LIBXSMM_DMMCall(xmm_2, z(:,:,k), S2(:,:), v(:,:,k,e))
-      end do      
+      end do
 
       ! z = I x I x S₁ᵀ vᵉ .....................................................
       call LIBXSMM_DMMCall(xmm_1, S1_t(:,:), v(:,:,:,e), z(:,:,:))
@@ -99,10 +99,10 @@ contains
       ! z = I x S₂ x I vᵉ ......................................................
       do k = 1, n3
         call LIBXSMM_DMMCall(xmm_2, v(:,:,k,e), S2_t(:,:), z(:,:,k))
-      end do     
-      
+      end do
+
       ! vᵉ = S₃ x I x I z ......................................................
-      call LIBXSMM_DMMCall(xmm_3, z(:,:,:), S3_t(:,:), v(:,:,:,e))      
+      call LIBXSMM_DMMCall(xmm_3, z(:,:,:), S3_t(:,:), v(:,:,:,e))
 
     end do
 
@@ -112,4 +112,4 @@ contains
 
 #endif
 
-end module TPO__Spectral_3d_CA__XSMM
+end module TPO__Spectral__3D_CA__XSMM

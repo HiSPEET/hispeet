@@ -4,10 +4,10 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-program Validate__TPO__Spectral_3d_CI
+program Validate__TPO__Spectral__3D_CI
   use Kind_Parameters, only: IXL, RNP
-  use TPO__Spectral_3d_CI
-  use TPO__Spectral_3d_CI__Gen
+  use TPO__Spectral__3D_CI
+  use TPO__Spectral__3D_CI__Gen
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -142,4 +142,4 @@ program Validate__TPO__Spectral_3d_CI
 
 !===============================================================================
 
-end program Validate__TPO__Spectral_3d_CI
+end program Validate__TPO__Spectral__3D_CI

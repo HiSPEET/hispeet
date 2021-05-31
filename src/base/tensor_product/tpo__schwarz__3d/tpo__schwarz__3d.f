@@ -42,9 +42,9 @@
 !>     accelerator queue.
 !===============================================================================
 
-module TPO__Schwarz_3d
-  use TPO__Schwarz_3d_CI
-  use TPO__Schwarz_3d_CA
+module TPO__Schwarz__3D
+  use TPO__Schwarz__3D_CI
+  use TPO__Schwarz__3D_CA
   implicit none
   private
 
@@ -55,4 +55,4 @@ module TPO__Schwarz_3d
     module procedure TPO_Schwarz_CA ! (W₃S₃ x W₂S₂ x W₁S₁) D⁻¹ (S₃ x S₂ x S₁)ᵀ
   end interface
 
-end module TPO__Schwarz_3d
+end module TPO__Schwarz__3D

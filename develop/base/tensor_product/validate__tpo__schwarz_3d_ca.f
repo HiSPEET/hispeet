@@ -4,13 +4,13 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-program Validate__TPO__Schwarz_3d_CA
+program Validate__TPO__Schwarz__3D_CA
   use Kind_Parameters,   only: IXL, RNP
   use Constants,         only: ZERO
   use Array_Assignments, only: SetArray
 
-  use TPO__Schwarz_3d_CA
-  use TPO__Schwarz_3d_CA__Gen
+  use TPO__Schwarz__3D_CA
+  use TPO__Schwarz__3D_CA__Gen
 
   implicit none
 
@@ -179,4 +179,4 @@ program Validate__TPO__Schwarz_3d_CA
 
 !===============================================================================
 
-end program Validate__TPO__Schwarz_3d_CA
+end program Validate__TPO__Schwarz__3D_CA

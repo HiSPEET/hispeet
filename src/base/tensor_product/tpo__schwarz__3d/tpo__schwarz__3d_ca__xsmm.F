@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Schwarz_3d_CA__XSMM
+module TPO__Schwarz__3D_CA__XSMM
 
 #ifdef __LIBXSMM__
 
@@ -91,7 +91,7 @@ contains
     do c = 1, nc
     do j = 1, n1
     do i = 1, n1
-      S1_t(j,i,c) = S1(i,j,c) 
+      S1_t(j,i,c) = S1(i,j,c)
     end do
     end do
     end do
@@ -131,20 +131,20 @@ contains
         call LIBXSMM_DMMCall(xmm_2, y(:,:,k), S2(:,:,c2), z(:,:,k))
       end do
 
-      ! y = I x I x S₁ᵀ z ......................................................      
+      ! y = I x I x S₁ᵀ z ......................................................
       call LIBXSMM_DMMCall(xmm_1, S1_t(:,:,c1), z(:,:,:) , y(:,:,:))
 
       ! y = D⁻¹ y
       y = D_inv(:,:,:,l) * y
 
       ! z = I x I x W₁S₁ y .....................................................
-      call LIBXSMM_DMMCall(xmm_1, WS1(:,:,c1), y(:,:,:) , z(:,:,:))     
+      call LIBXSMM_DMMCall(xmm_1, WS1(:,:,c1), y(:,:,:) , z(:,:,:))
 
       ! y = I x W₂S₂ x I z .....................................................
       do k = 1, n3
         call LIBXSMM_DMMCall(xmm_2, z(:,:,k), WS2_t(:,:,c2), y(:,:,k))
       end do
-      
+
       ! u = W₃S₃ x I x I y .....................................................
       call LIBXSMM_DMMCall(xmm_3, y(:,:,:), WS3_t(:,:,c3) , u(:,:,:,l))
 
@@ -157,4 +157,4 @@ contains
 
 #endif
 
-end module TPO__Schwarz_3d_CA__XSMM
+end module TPO__Schwarz__3D_CA__XSMM
