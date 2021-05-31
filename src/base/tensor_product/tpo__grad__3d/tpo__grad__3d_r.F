@@ -4,10 +4,10 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Grad_3d_R
+module TPO__Grad__3D_R
   use Kind_Parameters, only: RNP
-  use TPO__Grad_3d_R__Hand
-  use TPO__Grad_3d_R__XSMM
+  use TPO__Grad__3D_R__Hand
+  use TPO__Grad__3D_R__XSMM
   implicit none
   private
 
@@ -43,4 +43,4 @@ contains
 
   !=============================================================================
 
-end module TPO__Grad_3d_R
+end module TPO__Grad__3D_R

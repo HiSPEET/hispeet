@@ -4,11 +4,11 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-program Validate__TPO__RotRot_3d_R
+program Validate__TPO__RotRot__3D_R
   use Kind_Parameters, only: IXL, RNP
   use Standard_Operators__1D
-  use TPO__RotRot_3d_R
-  use TPO__RotRot_3d_R__Gen
+  use TPO__RotRot__3D_R
+  use TPO__RotRot__3D_R__Gen
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -212,4 +212,4 @@ program Validate__TPO__RotRot_3d_R
 
 !===============================================================================
 
-end program Validate__TPO__RotRot_3d_R
+end program Validate__TPO__RotRot__3D_R

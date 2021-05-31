@@ -1,13 +1,10 @@
 !> summary:  Generic rotation of a vector field: 3D Cartesian equidistant
 !> author:   Joerg Stiller, Erik Pfister
 !> date:     2017/01/19
-!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Generic rotation of a vector field: 3D Cartesian equidistant
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, German
 !===============================================================================
 
-
-module TPO__Rot_3d_R__Gen
+module TPO__Rot__3D_R__Gen
   use Kind_Parameters, only: RNP
   implicit none
   private
@@ -15,7 +12,6 @@ module TPO__Rot_3d_R__Gen
   public :: TPO_Rot_R_Gen
 
 contains
-
 
 subroutine TPO_Rot_R_Gen(np, ne, Ds, dx, u, v)
 
@@ -183,4 +179,4 @@ subroutine TPO_Rot_R_Gen(np, ne, Ds, dx, u, v)
 
 end subroutine TPO_Rot_R_Gen
 
-end module TPO__Rot_3d_R__Gen
+end module TPO__Rot__3D_R__Gen

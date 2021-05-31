@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Rot_3d_R__XSMM
+module TPO__Rot__3D_R__XSMM
 
 #ifdef __LIBXSMM__
 
@@ -103,4 +103,4 @@ contains
 
 #endif
 
-end module TPO__Rot_3d_R__XSMM
+end module TPO__Rot__3D_R__XSMM

@@ -4,9 +4,9 @@
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__RotRot_3d_R__Hand
+module TPO__RotRot__3D_R__Hand
   use Kind_Parameters, only: RNP
-  use TPO__RotRot_3d_R__Gen
+  use TPO__RotRot__3D_R__Gen
   implicit none
   private
 
@@ -110,103 +110,103 @@ contains
 # endif
 
 #define _NP_  2
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_  3
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_  4
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_  5
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_  6
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_  7
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 
 #ifndef __LIBXSMM__
 
 #define _NP_  8
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_  9
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 10
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 11
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 12
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 13
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 14
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 15
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 16
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 17
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 18
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 19
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 20
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 21
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 22
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 23
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 24
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 25
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 26
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 27
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 28
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 29
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 30
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 31
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 32
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 #define _NP_ 33
-#include "tpo__rotrot_3d_r__hand_kernel.f"
+#include "tpo__rotrot__3d_r__hand_kernel.f"
 #undef _NP_
 
 #endif
@@ -220,4 +220,4 @@ contains
 
 !===============================================================================
 
-end module TPO__RotRot_3d_R__Hand
+end module TPO__RotRot__3D_R__Hand

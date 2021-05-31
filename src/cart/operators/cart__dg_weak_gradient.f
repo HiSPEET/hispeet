@@ -8,7 +8,7 @@ module CART__DG_Weak_Gradient
 
   use Kind_Parameters, only: RNP
   use Standard_Operators__1D
-  use TPO__Grad_3d_R
+  use TPO__Grad__3D_R
   use CART__Mesh_Partition
   use CART__Boundary_Variable
   use CART__Trace_Operator

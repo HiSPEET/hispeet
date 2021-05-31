@@ -2,12 +2,9 @@
 !> author:   Joerg Stiller, Erik Pfister
 !> date:     2017/01/19
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Generic gradient of a vector field: 3D Cartesian equidistant
 !===============================================================================
 
-
-module TPO__Grad_3d_R__Gen
+module TPO__Grad__3D_R__Gen
   use Kind_Parameters, only: RNP
   implicit none
   private
@@ -15,7 +12,6 @@ module TPO__Grad_3d_R__Gen
   public :: TPO_Grad_R_Gen
 
 contains
-
 
 subroutine TPO_Grad_R_Gen(np, ne, Ds, dx, u, v)
 
@@ -118,4 +114,4 @@ subroutine TPO_Grad_R_Gen(np, ne, Ds, dx, u, v)
 
 end subroutine TPO_Grad_R_Gen
 
-end module TPO__Grad_3d_R__Gen
+end module TPO__Grad__3D_R__Gen

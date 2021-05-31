@@ -2,12 +2,9 @@
 !> author:   Joerg Stiller, Erik Pfister
 !> date:     2017/01/19
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Generic rotrot of a vector field: 3D Cartesian equidistant
 !===============================================================================
 
-
-module TPO__RotRot_3d_R__Gen
+module TPO__RotRot__3D_R__Gen
   use Kind_Parameters, only: RNP
   implicit none
   private
@@ -298,4 +295,4 @@ subroutine TPO_RotRot_R_Gen(np, ne, Ds, dx, u, v)
 
 end subroutine TPO_RotRot_R_Gen
 
-end module TPO__RotRot_3d_R__Gen
+end module TPO__RotRot__3D_R__Gen

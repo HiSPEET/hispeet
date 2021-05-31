@@ -18,7 +18,7 @@ program ISP_Flow__SDC_Test
   use Array_Reductions
   use Standard_Operators__1D
   use Execution_Control
-  use TPO__Grad_3d_R
+  use TPO__Grad__3D_R
   use Export_Volume_Data_To_VTK
   use OpenMP_Binding
   use XMPI
