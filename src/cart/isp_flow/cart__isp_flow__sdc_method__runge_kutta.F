@@ -425,17 +425,19 @@ contains
 !TODO! if t_i = t → S_i = S
 
         if (this%diffusion == 1 .or. this%diffusion == 3 .and. i < n_stage) then
-!TODO! modify to act as a corrector
+!TODO! modify to act as a corrector. ATTENTION: argument list needs to be adapted
           call RungeKuttaStage_d1( this, i, t_i, dt, nu, u, u_i, S_i  &
                                  , F_c, F_d1, F_d2, F_d3, F_p, F_s    )
         else
-!TODO! modify to act as a corrector
+!TODO! LATER: modify to act as a corrector
           call RungeKuttaStage_d2( this, i, t_i, dt, nu, u, u_i, S_i  &
                                  , F_c, F_d1, F_d2, F_d3, F_p, F_s    )
         end if
       end do
 
       ! assembly ...............................................................
+
+!TODO! Just look over this part, LATER: adapt as required
 
       if ( all(b_im ==  this % imex_rk % a_im(n_stage,:)) .and.   &
            all(b_ex ==  this % imex_rk % a_ex(n_stage,:))       ) &
@@ -544,11 +546,7 @@ contains
   end subroutine CorrectorStep
 
 !TODO! add corrector version of RungeKuttaStage_d1
-!TODO! add corrector version of RungeKuttaStage_2
-
-!TODO! add routine for interpolation of F_im/ex^k(*,i) using this%l_rk(:,:,i)
-!TODO! add routine for computing \int_{t_0}^{t_i} F^k  using this%w_rk(:,:,i)
-
+!TODO! start with routine from module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   !=============================================================================
 
 end module CART__ISP_Flow__SDC_Method__Runge_Kutta
