@@ -6,14 +6,14 @@ subroutine PROC(TPO_RotRot_R_Hand__,_NP_)(ne, Ds, dx, u, v)
   use Constants, only: ZERO, ONE
 
   integer,   intent(in)  :: ne                     !< num elements
-  real(RNP), intent(in)  :: Ds(_NP_,_NP_)          !< standard diff matrix
-  real(RNP), intent(in)  :: dx(3)                  !< element extensions
-  real(RNP), intent(in)  :: u(_NP_,_NP_,_NP_,ne,3) !< 3D vector field
-  real(RNP), intent(out) :: v(_NP_,_NP_,_NP_,ne,3) !< v = rot(rot(u))
+  real(RWP), intent(in)  :: Ds(_NP_,_NP_)          !< standard diff matrix
+  real(RWP), intent(in)  :: dx(3)                  !< element extensions
+  real(RWP), intent(in)  :: u(_NP_,_NP_,_NP_,ne,3) !< 3D vector field
+  real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne,3) !< v = rot(rot(u))
 
-  real(RNP) :: A(_NP_,_NP_), DA(_NP_,_NP_)
-  real(RNP) :: div_u(_NP_,_NP_,_NP_)
-  real(RNP) :: g(3)
+  real(RWP) :: A(_NP_,_NP_), DA(_NP_,_NP_)
+  real(RWP) :: div_u(_NP_,_NP_,_NP_)
+  real(RWP) :: g(3)
 
   integer :: e, i, j
 

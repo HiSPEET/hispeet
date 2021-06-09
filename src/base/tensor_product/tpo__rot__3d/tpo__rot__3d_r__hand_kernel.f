@@ -2,17 +2,17 @@
 !> Parametrized 3d rotation kernel using hand-crafted suboperators (RCLI)
 
 subroutine PROC(TPO_Rot_R_Hand__,_NP_)(ne, Ds, dx, u, v)
-  
-  use Constants, only: ZERO, ONE
-  
-  integer,   intent(in)  :: ne                     !< num elements
-  real(RNP), intent(in)  :: Ds(_NP_,_NP_)          !< standard diff matrix
-  real(RNP), intent(in)  :: dx(3)                  !< element extensions
-  real(RNP), intent(in)  :: u(_NP_,_NP_,_NP_,ne,3) !< 3D vector field
-  real(RNP), intent(out) :: v(_NP_,_NP_,_NP_,ne,3) !< element-wise rotation of u
 
-  real(RNP) :: A(_NP_,_NP_)
-  real(RNP) :: g(3)
+  use Constants, only: ZERO, ONE
+
+  integer,   intent(in)  :: ne                     !< num elements
+  real(RWP), intent(in)  :: Ds(_NP_,_NP_)          !< standard diff matrix
+  real(RWP), intent(in)  :: dx(3)                  !< element extensions
+  real(RWP), intent(in)  :: u(_NP_,_NP_,_NP_,ne,3) !< 3D vector field
+  real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne,3) !< element-wise rotation of u
+
+  real(RWP) :: A(_NP_,_NP_)
+  real(RWP) :: g(3)
 
   integer :: e
 
@@ -33,7 +33,7 @@ subroutine PROC(TPO_Rot_R_Hand__,_NP_)(ne, Ds, dx, u, v)
 
   !$omp do
   do e = 1, ne
-    
+
     ! v2 = du1/dx3
     v(:,:,:,e,2) = 0  ! avoid trouble with NaNs
     call PROC(QtxIxI__,_NP_)(A, g(3), ZERO, u(:,:,:,e,1), v(:,:,:,e,2))

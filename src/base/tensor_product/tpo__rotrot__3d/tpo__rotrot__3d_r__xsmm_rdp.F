@@ -4,41 +4,45 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__RotRot__3D_R__XSMM
+module TPO__RotRot__3D_R__XSMM_RDP
 
 #ifdef __LIBXSMM__
 
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RDP
   use LIBXSMM
   implicit none
   private
 
   public :: TPO_RotRot_R_XSMM
 
+  interface TPO_RotRot_R_XSMM
+    module procedure TPO_RotRot_R_XSMM_RDP
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
   !> 3D rotrot element operator based on LIBXSMM (R)
 
-  subroutine TPO_RotRot_R_XSMM(np, ne, Ds, dx, u, v)
+  subroutine TPO_RotRot_R_XSMM_RDP(np, ne, Ds, dx, u, v)
     integer,   intent(in)  :: np               !< num points per direction
     integer,   intent(in)  :: ne               !< num elements
-    real(RNP), intent(in)  :: Ds(np, np)       !< standard diff matrix
-    real(RNP), intent(in)  :: dx(3)            !< element extensions
-    real(RNP), intent(in)  :: u(np,np,np,ne,3) !< 3D vector field
-    real(RNP), intent(out) :: v(np,np,np,ne,3) !< v = rot(rot(u))
+    real(RDP), intent(in)  :: Ds(np, np)       !< standard diff matrix
+    real(RDP), intent(in)  :: dx(3)            !< element extensions
+    real(RDP), intent(in)  :: u(np,np,np,ne,3) !< 3D vector field
+    real(RDP), intent(out) :: v(np,np,np,ne,3) !< v = rot(rot(u))
 
     type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
 
-    real(RNP) :: Ds_1(np,np), DDs_1(np,np)
-    real(RNP) :: Ds_2t(np,np), Ds_3t(np,np)
-    real(RNP) :: DDs_2t(np,np), DDs_3t(np,np)
-    real(RNP) :: DDs_t(np,np)
-    real(RNP) :: div_u(np,np,np)
-    real(RNP), parameter :: alpha  = 1
-    real(RNP), parameter :: beta   = 1
+    real(RDP) :: Ds_1(np,np), DDs_1(np,np)
+    real(RDP) :: Ds_2t(np,np), Ds_3t(np,np)
+    real(RDP) :: DDs_2t(np,np), DDs_3t(np,np)
+    real(RDP) :: DDs_t(np,np)
+    real(RDP) :: div_u(np,np,np)
+    real(RDP), parameter :: alpha  = 1
+    real(RDP), parameter :: beta   = 1
 
-    real(RNP) :: g(3)
+    real(RDP) :: g(3)
     integer   :: e, i, j, k
 
     !-----------------------------------------------------------------------------
@@ -150,10 +154,10 @@ contains
 
     end do
 
-  end subroutine TPO_RotRot_R_XSMM
+  end subroutine TPO_RotRot_R_XSMM_RDP
 
   !=============================================================================
 
 #endif
 
-end module TPO__RotRot__3D_R__XSMM
+end module TPO__RotRot__3D_R__XSMM_RDP
