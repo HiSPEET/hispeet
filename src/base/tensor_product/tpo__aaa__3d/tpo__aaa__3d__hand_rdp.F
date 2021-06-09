@@ -1,11 +1,11 @@
-!> summary:   AxAxA kernel based on handcrafted kernels
+!> summary:   AxAxA kernel based on handcrafted kernels for real(RDP)
 !> author:    Joerg Stiller, Erik Pfister
 !> date:      2020/05/07
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__AAA__3D__Hand
-  use Kind_Parameters, only: RNP
+module TPO__AAA__3D__Hand_RDP
+  use Kind_Parameters, only: RWP => RDP
   use TPO__AAA__3D__Gen
   implicit none
   private
@@ -18,9 +18,9 @@ contains
   !> Elliptic element operator based on handcrafted kernels (RCLI)
 
   subroutine TPO_AAA_Hand(A, u, v)
-    real(RNP), intent(in)  :: A(:,:)     !< 1D operator
-    real(RNP), intent(in)  :: u(:,:,:,:) !< operand
-    real(RNP), intent(out) :: v(:,:,:,:) !< result
+    real(RWP), intent(in)  :: A(:,:)     !< 1D operator
+    real(RWP), intent(in)  :: u(:,:,:,:) !< operand
+    real(RWP), intent(out) :: v(:,:,:,:) !< result
 
     integer :: na1, na2, ne
 
@@ -486,4 +486,4 @@ contains
 
 !===============================================================================
 
-end module TPO__AAA__3D__Hand
+end module TPO__AAA__3D__Hand_RDP

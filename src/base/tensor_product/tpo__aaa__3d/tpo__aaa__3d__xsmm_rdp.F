@@ -1,41 +1,45 @@
-!> summary:   3d generic AxAxA operator using LIBXSMM
+!> summary:   3d generic AxAxA operator using LIBXSMM for real(RDP)
 !> author:    Erik Pfister, Joerg Stiller
 !> date:      2020/06/01
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__AAA__3D__XSMM
+module TPO__AAA__3D__XSMM_RDP
 
 #ifdef __LIBXSMM__
 
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RDP
   use LIBXSMM
   implicit none
   private
 
   public :: TPO_AAA_XSMM
 
+  interface TPO_AAA_XSMM
+    module procedure TPO_AAA_XSMM_RDP
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
   !> XSMM AxAxA operator
 
-  subroutine TPO_AAA_XSMM(A, u, v)
-    real(RNP), intent(in)  :: A(:,:)     !< 1D operator
-    real(RNP), intent(in)  :: u(:,:,:,:) !< operand
-    real(RNP), intent(out) :: v(:,:,:,:) !< result
-    real(RNP), parameter :: alpha  = 1
-    real(RNP), parameter :: beta   = 0
+  subroutine TPO_AAA_XSMM_RDP(A, u, v)
+    real(RDP), intent(in)  :: A(:,:)     !< 1D operator
+    real(RDP), intent(in)  :: u(:,:,:,:) !< operand
+    real(RDP), intent(out) :: v(:,:,:,:) !< result
+    real(RDP), parameter :: alpha  = 1
+    real(RDP), parameter :: beta   = 0
 
     !---------------------------------------------------------------------------
     ! local variables
 
     type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
 
-    real(RNP) :: At( size(A,2), size(A,1) )
-    real(RNP) :: z2( size(A,2), size(A,1), size(A,1))
-    real(RNP) :: z3( size(A,2), size(A,2), size(A,1))
-    real(RNP) :: tmp
+    real(RDP) :: At( size(A,2), size(A,1) )
+    real(RDP) :: z2( size(A,2), size(A,1), size(A,1))
+    real(RDP) :: z3( size(A,2), size(A,2), size(A,1))
+    real(RDP) :: tmp
     integer   :: na1, na2, ne
     integer   :: e, k
 
@@ -84,10 +88,10 @@ contains
 
     end do
 
-  end subroutine TPO_AAA_XSMM
+  end subroutine TPO_AAA_XSMM_RDP
 
   !=============================================================================
 
 #endif
 
-end module TPO__AAA__3D__XSMM
+end module TPO__AAA__3D__XSMM_RDP

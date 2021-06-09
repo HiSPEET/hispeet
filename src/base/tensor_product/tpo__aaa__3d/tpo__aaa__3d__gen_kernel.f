@@ -4,108 +4,95 @@
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__AAA__3D__Gen
-  use Kind_Parameters, only: _RWP_
-  implicit none
-  private
+!-----------------------------------------------------------------------------
+!> Generic AxAxA operator
 
-  public :: TPO_AAA_Gen
+subroutine TPO_AAA_Gen_RWP(A, u, v)
+  real(RWP), intent(in)  :: A(:,:)     !< 1D operator
+  real(RWP), intent(in)  :: u(:,:,:,:) !< operand
+  real(RWP), intent(out) :: v(:,:,:,:) !< result
 
-contains
+  !---------------------------------------------------------------------------
+  ! local variables
 
-  !-----------------------------------------------------------------------------
-  !> Generic AxAxA operator
+  real(RWP) :: At( size(A,2), size(A,1) )
+  real(RWP) :: z2( size(A,2), size(A,1), size(A,1))
+  real(RWP) :: z3( size(A,2), size(A,2), size(A,1))
+  real(RWP) :: tmp
+  integer   :: na1, na2, ne
+  integer   :: e, i, j, k, p
 
-  subroutine TPO_AAA_Gen(A, u, v)
-    real(_RWP_), intent(in)  :: A(:,:)     !< 1D operator
-    real(_RWP_), intent(in)  :: u(:,:,:,:) !< operand
-    real(_RWP_), intent(out) :: v(:,:,:,:) !< result
+  !---------------------------------------------------------------------------
+  ! initialization
 
-    !---------------------------------------------------------------------------
-    ! local variables
+  na1 = size(A,1)
+  na2 = size(A,2)
+  ne  = size(u,4)
 
-    real(_RWP_) :: At( size(A,2), size(A,1) )
-    real(_RWP_) :: z2( size(A,2), size(A,1), size(A,1))
-    real(_RWP_) :: z3( size(A,2), size(A,2), size(A,1))
-    real(_RWP_) :: tmp
-    integer   :: na1, na2, ne
-    integer   :: e, i, j, k, p
+  At = transpose(A)
 
-    !---------------------------------------------------------------------------
-    ! initialization
+  !---------------------------------------------------------------------------
+  ! evaluation
 
-    na1 = size(A,1)
-    na2 = size(A,2)
-    ne  = size(u,4)
+  !$acc data present(u,v) copyin(At)
+  !$acc parallel
+  !$acc loop gang worker private(z2,z3)
 
-    At = transpose(A)
+  !$omp do private(e)
+  do e = 1, ne
 
-    !---------------------------------------------------------------------------
-    ! evaluation
+    ! z3 = AxIxI u^e .........................................................
 
-    !$acc data present(u,v) copyin(At)
-    !$acc parallel
-    !$acc loop gang worker private(z2,z3)
-
-    !$omp do private(e)
-    do e = 1, ne
-
-      ! z3 = AxIxI u^e .........................................................
-
-      !$acc loop collapse(3) vector
-      do k = 1, na1
-      do j = 1, na2
-      !DIR$ SIMD
-      do i = 1, na2
-        tmp = 0
-        do p = 1, na2
-          tmp = tmp + At(p,k) * u(i,j,p,e)
-        end do
-        z3(i,j,k) = tmp
+    !$acc loop collapse(3) vector
+    do k = 1, na1
+    do j = 1, na2
+    !DIR$ SIMD
+    do i = 1, na2
+      tmp = 0
+      do p = 1, na2
+        tmp = tmp + At(p,k) * u(i,j,p,e)
       end do
-      end do
-      end do
-
-      ! z2 = IxAxI z3 ..........................................................
-
-      !$acc loop collapse(3) vector
-      do k = 1, na1
-      do j = 1, na1
-      !DIR$ SIMD
-      do i = 1, na2
-        tmp = 0
-        do p = 1, na2
-          tmp = tmp + At(p,j) * z3(i,p,k)
-        end do
-        z2(i,j,k) = tmp
-      end do
-      end do
-      end do
-
-      ! v^e = IxIxA z2 .........................................................
-
-      !$acc loop collapse(3) vector
-      do k = 1, na1
-      do j = 1, na1
-      !DIR$ SIMD
-      do i = 1, na1
-        tmp = 0
-        do p = 1, na2
-          tmp = tmp + At(p,i) * z2(p,j,k)
-        end do
-        v(i,j,k,e) = tmp
-      end do
-      end do
-      end do
-
+      z3(i,j,k) = tmp
     end do
-    !$omp end do
+    end do
+    end do
 
-    !$acc end parallel
-    !$acc end data
+    ! z2 = IxAxI z3 ..........................................................
 
-  end subroutine TPO_AAA_Gen
+    !$acc loop collapse(3) vector
+    do k = 1, na1
+    do j = 1, na1
+    !DIR$ SIMD
+    do i = 1, na2
+      tmp = 0
+      do p = 1, na2
+        tmp = tmp + At(p,j) * z3(i,p,k)
+      end do
+      z2(i,j,k) = tmp
+    end do
+    end do
+    end do
 
-  !=============================================================================
+    ! v^e = IxIxA z2 .........................................................
 
-end module TPO__AAA__3D__Gen
+    !$acc loop collapse(3) vector
+    do k = 1, na1
+    do j = 1, na1
+    !DIR$ SIMD
+    do i = 1, na1
+      tmp = 0
+      do p = 1, na2
+        tmp = tmp + At(p,i) * z2(p,j,k)
+      end do
+      v(i,j,k,e) = tmp
+    end do
+    end do
+    end do
+
+  end do
+  !$omp end do
+
+  !$acc end parallel
+  !$acc end data
+
+end subroutine TPO_AAA_Gen_RWP
