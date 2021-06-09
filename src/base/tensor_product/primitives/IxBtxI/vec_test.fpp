@@ -7,6 +7,7 @@
 #  define PROC(base_name,nb1,nb2) PASTE(base_name,nb1,nb2)
 # endif
 
+# define _RWP_ RNP
 # define _NB1_ 8
 # define _NB1_T4_ (_NB1_ / 4) * 4
 # define _NB2_ 16

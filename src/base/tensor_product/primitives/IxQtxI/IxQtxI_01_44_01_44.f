@@ -17,18 +17,18 @@
 
 subroutine PROC(IxQtxI__,_NQ_)(Q, alpha, beta, u, v)
   !$acc routine vector
-  real(RNP), intent(in)    :: Q(_NQ_,_NQ_)      !< square matrix
-  real(RNP), intent(in)    :: alpha             !< factor α
-  real(RNP), intent(in)    :: beta              !< factor β
-  real(RNP), intent(in)    :: u(_NQ_,_NQ_,_NQ_) !< operand
-  real(RNP), intent(inout) :: v(_NQ_,_NQ_,_NQ_) !< result
+  real(_RWP_), intent(in)    :: Q(_NQ_,_NQ_)      !< square matrix
+  real(_RWP_), intent(in)    :: alpha             !< factor α
+  real(_RWP_), intent(in)    :: beta              !< factor β
+  real(_RWP_), intent(in)    :: u(_NQ_,_NQ_,_NQ_) !< operand
+  real(_RWP_), intent(inout) :: v(_NQ_,_NQ_,_NQ_) !< result
 
   integer, parameter :: NQ_T4 = _NQ_T4_
 
-  real(RNP) :: tmp0, tmp1, tmp2, tmp3
+  real(_RWP_) :: tmp0, tmp1, tmp2, tmp3
   integer   :: i, j, k, p   ! loop counters
   integer   :: jb, pb       ! block counters
-  
+
   !$acc loop collapse(3)
   do k = 1, _NQ_
   do j = 1, _NQ_
@@ -89,7 +89,7 @@ subroutine PROC(IxQtxI__,_NQ_)(Q, alpha, beta, u, v)
 
   !$acc loop collapse(3) independent vector
   do k  = 1, _NQ_
-    do jb = 1, NQ_T4, 4 
+    do jb = 1, NQ_T4, 4
     do i  = 1, _NQ_
 
       v(i,jb  ,k) = alpha * Q(pb,jb  ) * u(i,pb,k) + v(i,jb  ,k)
@@ -126,7 +126,7 @@ subroutine PROC(IxQtxI__,_NQ_)(Q, alpha, beta, u, v)
 
   !$acc loop collapse(3) independent vector
   do k = 1, _NQ_
-    do jb = 1, NQ_T4, 4  
+    do jb = 1, NQ_T4, 4
     do i  = 1, _NQ_
 
       tmp0 =        Q(pb  ,jb  ) * u(i,pb  ,k)
@@ -155,7 +155,7 @@ subroutine PROC(IxQtxI__,_NQ_)(Q, alpha, beta, u, v)
   !$acc loop collapse(2) independent vector
   do k = 1, _NQ_
     do p = 1, _NQ_
-    do j = jb, jb+1  
+    do j = jb, jb+1
       do i = 1, _NQ_
 
         v(i,j,k) = alpha * Q(p,j) * u(i,p,k) + v(i,j,k)
@@ -173,7 +173,7 @@ subroutine PROC(IxQtxI__,_NQ_)(Q, alpha, beta, u, v)
 
   !$acc loop collapse(3) independent vector
   do k  = 1, _NQ_
-    do jb = 1, NQ_T4, 4  
+    do jb = 1, NQ_T4, 4
     do i  = 1, _NQ_
 
       tmp0 =        Q(pb  ,jb  ) * u(i,pb  ,k)
@@ -207,7 +207,7 @@ subroutine PROC(IxQtxI__,_NQ_)(Q, alpha, beta, u, v)
   !$acc loop collapse(2) independent vector
   do k = 1, _NQ_
     do p = 1, _NQ_
-    do j = jb, jb+2  
+    do j = jb, jb+2
       do i = 1, _NQ_
 
         v(i,j,k) = alpha * Q(p,j) * u(i,p,k) + v(i,j,k)

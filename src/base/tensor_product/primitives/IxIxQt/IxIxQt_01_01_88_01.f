@@ -11,11 +11,11 @@
 
 subroutine PROC(IxIxQt__,_NQ_)(Q, alpha, beta, u, v)
   !$acc routine vector
-  real(RNP), intent(in)    :: Q(_NQ_,_NQ_)      !< square matrix
-  real(RNP), intent(in)    :: alpha             !< factor α
-  real(RNP), intent(in)    :: beta              !< factor β
-  real(RNP), intent(in)    :: u(_NQ_,_NQ_,_NQ_) !< operand
-  real(RNP), intent(inout) :: v(_NQ_,_NQ_,_NQ_) !< result
+  real(_RWP_), intent(in)    :: Q(_NQ_,_NQ_)      !< square matrix
+  real(_RWP_), intent(in)    :: alpha             !< factor α
+  real(_RWP_), intent(in)    :: beta              !< factor β
+  real(_RWP_), intent(in)    :: u(_NQ_,_NQ_,_NQ_) !< operand
+  real(_RWP_), intent(inout) :: v(_NQ_,_NQ_,_NQ_) !< result
 
   integer, parameter :: NQ_T8 = _NQ_T8_
 
@@ -132,7 +132,7 @@ subroutine PROC(IxIxQt__,_NQ_)(Q, alpha, beta, u, v)
         v(ib+2,j,k) = alpha * Q(p,ib+2) * u(p,j,k) + v(ib+2,j,k)
         v(ib+3,j,k) = alpha * Q(p,ib+3) * u(p,j,k) + v(ib+3,j,k)
         v(ib+4,j,k) = alpha * Q(p,ib+4) * u(p,j,k) + v(ib+4,j,k)
-      
+
       end do
     end do
   end do

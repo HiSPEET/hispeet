@@ -13,13 +13,13 @@ subroutine PROC(IxBtxI__,_NB1_,_NB2_)(na, nc, B, alpha, beta, u, v)
   !$acc routine vector
   integer,   intent(in)    :: na              !< 1st dimension of u,v
   integer,   intent(in)    :: nc              !< 3rd dimension of u,v
-  real(RNP), intent(in)    :: B(_NB1_,_NB2_)  !< rectangular matrix
-  real(RNP), intent(in)    :: alpha           !< factor α
-  real(RNP), intent(in)    :: beta            !< factor β
-  real(RNP), intent(in)    :: u(na,_NB1_,nc)  !< operand
-  real(RNP), intent(inout) :: v(na,_NB2_,nc)  !< result
+  real(_RWP_), intent(in)    :: B(_NB1_,_NB2_)  !< rectangular matrix
+  real(_RWP_), intent(in)    :: alpha           !< factor α
+  real(_RWP_), intent(in)    :: beta            !< factor β
+  real(_RWP_), intent(in)    :: u(na,_NB1_,nc)  !< operand
+  real(_RWP_), intent(inout) :: v(na,_NB2_,nc)  !< result
 
-  real(RNP) :: tmp0, tmp1
+  real(_RWP_) :: tmp0, tmp1
   integer   :: i, j, k, p
 
 #if _NB2_T2_ > 0

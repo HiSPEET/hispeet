@@ -5,7 +5,7 @@
 !===============================================================================
 
 module TPO__AAA__3D__Gen
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: _RWP_
   implicit none
   private
 
@@ -17,17 +17,17 @@ contains
   !> Generic AxAxA operator
 
   subroutine TPO_AAA_Gen(A, u, v)
-    real(RNP), intent(in)  :: A(:,:)     !< 1D operator
-    real(RNP), intent(in)  :: u(:,:,:,:) !< operand
-    real(RNP), intent(out) :: v(:,:,:,:) !< result
+    real(_RWP_), intent(in)  :: A(:,:)     !< 1D operator
+    real(_RWP_), intent(in)  :: u(:,:,:,:) !< operand
+    real(_RWP_), intent(out) :: v(:,:,:,:) !< result
 
     !---------------------------------------------------------------------------
     ! local variables
 
-    real(RNP) :: At( size(A,2), size(A,1) )
-    real(RNP) :: z2( size(A,2), size(A,1), size(A,1))
-    real(RNP) :: z3( size(A,2), size(A,2), size(A,1))
-    real(RNP) :: tmp
+    real(_RWP_) :: At( size(A,2), size(A,1) )
+    real(_RWP_) :: z2( size(A,2), size(A,1), size(A,1))
+    real(_RWP_) :: z3( size(A,2), size(A,2), size(A,1))
+    real(_RWP_) :: tmp
     integer   :: na1, na2, ne
     integer   :: e, i, j, k, p
 

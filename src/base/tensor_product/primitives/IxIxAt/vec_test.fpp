@@ -7,6 +7,7 @@
 #  define PROC(base_name,na1,na2) PASTE(base_name,na1,na2)
 # endif
 
+# define _RWP_ RNP
 # define _NA1_ 8
 # define _NA2_ 16
 
