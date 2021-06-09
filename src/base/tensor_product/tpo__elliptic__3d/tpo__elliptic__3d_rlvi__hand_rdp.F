@@ -4,20 +4,24 @@
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Elliptic__3D_RLVI__Hand
-  use Kind_Parameters, only: RNP
+module TPO__Elliptic__3D_RLVI__Hand_RDP
+  use Kind_Parameters, only: RWP => RDP
   use TPO__Elliptic__3D_RLVI__Gen
   implicit none
   private
 
   public :: TPO_Elliptic_RLVI_Hand
 
+  interface TPO_Elliptic_RLVI_Hand
+    module procedure TPO_Elliptic_RLVI_Hand_RWP
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
   !> Elliptic element operator based on handcrafted kernels (RLVI)
 
-  subroutine TPO_Elliptic_RLVI_Hand(Ms, Ds, lambda, nu, dx, u, v)
+  subroutine TPO_Elliptic_RLVI_Hand_RWP(Ms, Ds, lambda, nu, dx, u, v)
     real(RNP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
     real(RNP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
     real(RNP), intent(in)  :: lambda      !< Helmholtz parameter
@@ -102,7 +106,7 @@ contains
       call TPO_Elliptic_RLVI_Gen(Ms, Ds, lambda, nu, dx, u, v)
     end select
 
-  end subroutine TPO_Elliptic_RLVI_Hand
+  end subroutine TPO_Elliptic_RLVI_Hand_RWP
 
 !===============================================================================
 ! operator routine
@@ -226,4 +230,4 @@ contains
 
 !===============================================================================
 
-end module TPO__Elliptic__3D_RLVI__Hand
+end module TPO__Elliptic__3D_RLVI__Hand_RDP

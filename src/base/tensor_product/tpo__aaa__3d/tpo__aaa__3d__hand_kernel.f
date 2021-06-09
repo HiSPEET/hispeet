@@ -3,15 +3,15 @@
 
 subroutine PROC(TPO_AxAxA_Hand__,_NA1_,_NA2_)(ne, A, u, v)
   integer,   intent(in)  :: ne                       !< num elements
-  real(RNP), intent(in)  :: A(_NA1_,_NA2_)           !< 1D operator
-  real(RNP), intent(in)  :: u(_NA2_,_NA2_,_NA2_,ne)  !< operand
-  real(RNP), intent(out) :: v(_NA1_,_NA1_,_NA1_,ne)  !< result
+  real(RWP), intent(in)  :: A(_NA1_,_NA2_)           !< 1D operator
+  real(RWP), intent(in)  :: u(_NA2_,_NA2_,_NA2_,ne)  !< operand
+  real(RWP), intent(out) :: v(_NA1_,_NA1_,_NA1_,ne)  !< result
 
-  real(RNP), parameter :: alpha = 1
-  real(RNP), parameter :: beta  = 0
-  real(RNP) :: At(_NA2_,_NA1_)
-  real(RNP) :: z2(_NA2_,_NA1_,_NA1_)
-  real(RNP) :: z3(_NA2_,_NA2_,_NA1_)
+  real(RWP), parameter :: alpha = 1
+  real(RWP), parameter :: beta  = 0
+  real(RWP) :: At(_NA2_,_NA1_)
+  real(RWP) :: z2(_NA2_,_NA1_,_NA1_)
+  real(RWP) :: z3(_NA2_,_NA2_,_NA1_)
 
   integer, parameter :: NA2_NA2 = _NA2_ * _NA2_
   integer :: e
@@ -34,7 +34,7 @@ subroutine PROC(TPO_AxAxA_Hand__,_NA1_,_NA2_)(ne, A, u, v)
 
   !$omp do
   do e = 1, ne
-    v(:,:,:,e) = 0  ! avoid trouble with NaNs 
+    v(:,:,:,e) = 0  ! avoid trouble with NaNs
     call PROC(CtxIxI__,_NA2_,_NA1_)(NA2_NA2, At, alpha, beta, u(:,:,:,e), z3)
     call PROC(IxBtxI__,_NA2_,_NA1_)(_NA2_, _NA1_, At, alpha, beta, z3, z2)
     call PROC(IxIxAt__,_NA2_,_NA1_)(_NA1_, _NA1_, At, alpha, beta, z2, v(:,:,:,e))

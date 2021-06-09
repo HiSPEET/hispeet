@@ -4,27 +4,31 @@
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Elliptic__3D_RLCI__Hand
-  use Kind_Parameters, only: RNP
+module TPO__Elliptic__3D_RLCI__Hand_RDP
+  use Kind_Parameters, only: RWP => RDP
   use TPO__Elliptic__3D_RLCI__Gen
   implicit none
   private
 
   public :: TPO_Elliptic_RLCI_Hand
 
+  interface TPO_Elliptic_RLCI_Hand
+    module procedure TPO_Elliptic_RLCI_Hand_RWP
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
   !> Elliptic element operator based on handcrafted kernels (RLCI)
 
-  subroutine TPO_Elliptic_RLCI_Hand(Ms, Ls, lambda, nu, dx, u, v)
-    real(RNP), intent(in)  :: Ms(:)      !< 1D standard mass matrix         (np)
-    real(RNP), intent(in)  :: Ls(:,:)    !< 1D standard stiffness matrix (np,np)
-    real(RNP), intent(in)  :: lambda     !< Helmholtz parameter
-    real(RNP), intent(in)  :: nu         !< diffusivity
-    real(RNP), intent(in)  :: dx(3)      !< element extensions
-    real(RNP), intent(in)  :: u(:,:,:,:) !< operand                (np,np,np,ne)
-    real(RNP), intent(out) :: v(:,:,:,:) !< result                 (np,np,np,ne)
+  subroutine TPO_Elliptic_RLCI_Hand_RWP(Ms, Ls, lambda, nu, dx, u, v)
+    real(RWP), intent(in)  :: Ms(:)      !< 1D standard mass matrix         (np)
+    real(RWP), intent(in)  :: Ls(:,:)    !< 1D standard stiffness matrix (np,np)
+    real(RWP), intent(in)  :: lambda     !< Helmholtz parameter
+    real(RWP), intent(in)  :: nu         !< diffusivity
+    real(RWP), intent(in)  :: dx(3)      !< element extensions
+    real(RWP), intent(in)  :: u(:,:,:,:) !< operand                (np,np,np,ne)
+    real(RWP), intent(out) :: v(:,:,:,:) !< result                 (np,np,np,ne)
 
     integer :: np, ne
 
@@ -102,7 +106,7 @@ contains
       call TPO_Elliptic_RLCI_Gen(Ms, Ls, lambda, nu, dx, u, v)
     end select
 
-  end subroutine TPO_Elliptic_RLCI_Hand
+  end subroutine TPO_Elliptic_RLCI_Hand_RWP
 
 !===============================================================================
 ! operator routine
@@ -226,4 +230,4 @@ contains
 
 !===============================================================================
 
-end module TPO__Elliptic__3D_RLCI__Hand
+end module TPO__Elliptic__3D_RLCI__Hand_RDP

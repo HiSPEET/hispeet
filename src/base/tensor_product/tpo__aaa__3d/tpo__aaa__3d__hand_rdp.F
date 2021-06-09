@@ -14,7 +14,7 @@ module TPO__AAA__3D__Hand_RDP
 
   interface TPO_AAA_Hand
     module procedure TPO_AAA_Hand_RWP
-  end interface TPO_AAA_Hand
+  end interface
 
 contains
 

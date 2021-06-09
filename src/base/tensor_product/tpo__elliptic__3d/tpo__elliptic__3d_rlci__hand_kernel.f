@@ -3,17 +3,17 @@
 
 subroutine PROC(TPO_Elliptic_RLCI_Hand__,_NP_)(ne, Ms, Ls, lambda, nu, dx, u, v)
   integer,   intent(in)  :: ne                   !< num elements
-  real(RNP), intent(in)  :: Ms(_NP_)             !< standard mass matrix
-  real(RNP), intent(in)  :: Ls(_NP_,_NP_)        !< standard stiffness matrix
-  real(RNP), intent(in)  :: lambda               !< Helmholtz parameter λ
-  real(RNP), intent(in)  :: nu                   !< diffusivity nu
-  real(RNP), intent(in)  :: dx(3)                !< element extensions
-  real(RNP), intent(in)  :: u(_NP_,_NP_,_NP_,ne) !< operand
-  real(RNP), intent(out) :: v(_NP_,_NP_,_NP_,ne) !< result
+  real(RWP), intent(in)  :: Ms(_NP_)             !< standard mass matrix
+  real(RWP), intent(in)  :: Ls(_NP_,_NP_)        !< standard stiffness matrix
+  real(RWP), intent(in)  :: lambda               !< Helmholtz parameter λ
+  real(RWP), intent(in)  :: nu                   !< diffusivity nu
+  real(RWP), intent(in)  :: dx(3)                !< element extensions
+  real(RWP), intent(in)  :: u(_NP_,_NP_,_NP_,ne) !< operand
+  real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne) !< result
 
-  real(RNP), parameter :: beta = 1
-  real(RNP) :: M(_NP_,_NP_,_NP_), M_u(_NP_,_NP_,_NP_), Lm(_NP_,_NP_)
-  real(RNP) :: c(3), tmp
+  real(RWP), parameter :: beta = 1
+  real(RWP) :: M(_NP_,_NP_,_NP_), M_u(_NP_,_NP_,_NP_), Lm(_NP_,_NP_)
+  real(RWP) :: c(3), tmp
 
   integer, parameter :: NP_E = _NP_**3
   integer :: e, i, j, k
@@ -68,11 +68,11 @@ contains
 
   subroutine SetOperands(lambda, M, u, M_u, v)
     !$acc routine vector
-    real(RNP), intent(in)  :: lambda
-    real(RNP), intent(in)  :: M   (NP_E)
-    real(RNP), intent(in)  :: u   (NP_E)
-    real(RNP), intent(out) :: M_u (NP_E)
-    real(RNP), intent(out) :: v   (NP_E)
+    real(RWP), intent(in)  :: lambda
+    real(RWP), intent(in)  :: M   (NP_E)
+    real(RWP), intent(in)  :: u   (NP_E)
+    real(RWP), intent(out) :: M_u (NP_E)
+    real(RWP), intent(out) :: v   (NP_E)
 
     integer :: l
 

@@ -3,23 +3,23 @@
 
 subroutine PROC(TPO_Elliptic_RLVI_Hand__,_NP_)(ne, Ms, Ds, lambda, nu, dx, u, v)
   integer,   intent(in)  :: ne                    !< num elements
-  real(RNP), intent(in)  :: Ms(_NP_)              !< 1D standard mass matrix
-  real(RNP), intent(in)  :: Ds(_NP_,_NP_)         !< 1D standard diff matrix
-  real(RNP), intent(in)  :: lambda                !< Helmholtz parameter
-  real(RNP), intent(in)  :: nu(_NP_,_NP_,_NP_,ne) !< diffusivity
-  real(RNP), intent(in)  :: dx(3)                 !< element extensions
-  real(RNP), intent(in)  :: u(_NP_,_NP_,_NP_,ne)  !< operand
-  real(RNP), intent(out) :: v(_NP_,_NP_,_NP_,ne)  !< result
+  real(RWP), intent(in)  :: Ms(_NP_)              !< 1D standard mass matrix
+  real(RWP), intent(in)  :: Ds(_NP_,_NP_)         !< 1D standard diff matrix
+  real(RWP), intent(in)  :: lambda                !< Helmholtz parameter
+  real(RWP), intent(in)  :: nu(_NP_,_NP_,_NP_,ne) !< diffusivity
+  real(RWP), intent(in)  :: dx(3)                 !< element extensions
+  real(RWP), intent(in)  :: u(_NP_,_NP_,_NP_,ne)  !< operand
+  real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne)  !< result
 
   !-----------------------------------------------------------------------------
   ! local variables
 
-  real(RNP), dimension(size(Ms), size(Ms), size(Ms)) :: M, M_u, z
-  real(RNP), dimension(size(Ms), size(Ms))           :: Ms_Ds, Msi_Dst
+  real(RWP), dimension(size(Ms), size(Ms), size(Ms)) :: M, M_u, z
+  real(RWP), dimension(size(Ms), size(Ms))           :: Ms_Ds, Msi_Dst
 
-  real(RNP), parameter :: ONE  = 1
-  real(RNP), parameter :: ZERO = 0
-  real(RNP) :: g(3), tmp
+  real(RWP), parameter :: ONE  = 1
+  real(RWP), parameter :: ZERO = 0
+  real(RWP) :: g(3), tmp
 
   integer, parameter :: NP_E = _NP_**3
   integer :: e, i, j, k
@@ -92,11 +92,11 @@ contains
 
   subroutine SetOperands(lambda, M, u, M_u, v)
     !$acc routine vector
-    real(RNP), intent(in)  :: lambda
-    real(RNP), intent(in)  :: M   (NP_E)
-    real(RNP), intent(in)  :: u   (NP_E)
-    real(RNP), intent(out) :: M_u (NP_E)
-    real(RNP), intent(out) :: v   (NP_E)
+    real(RWP), intent(in)  :: lambda
+    real(RWP), intent(in)  :: M   (NP_E)
+    real(RWP), intent(in)  :: u   (NP_E)
+    real(RWP), intent(out) :: M_u (NP_E)
+    real(RWP), intent(out) :: v   (NP_E)
 
     integer :: l
 
@@ -114,8 +114,8 @@ contains
 
   subroutine CompMult(z, nu)
     !$acc routine vector
-    real(RNP), intent(inout) :: z  (NP_E)
-    real(RNP), intent(in)    :: nu (NP_E)
+    real(RWP), intent(inout) :: z  (NP_E)
+    real(RWP), intent(in)    :: nu (NP_E)
 
     integer :: l
 

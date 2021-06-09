@@ -1,9 +1,9 @@
-!> summary:  3d generic AxAxA operator using LIBXSMM
+!> summary:  3d generic elliptic element operator (RLVI) using LIBXSMM
 !> author:   Joerg Stiller
 !> date:     2021/06/09
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__AAA__3D__XSMM
-  use TPO__AAA__3D__XSMM_RDP
-end module TPO__AAA__3D__XSMM
+module TPO__Elliptic__3D_RLVI__XSMM
+  use TPO__Elliptic__3D_RLVI__XSMM_RDP
+end module TPO__Elliptic__3D_RLVI__XSMM

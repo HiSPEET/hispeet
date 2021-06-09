@@ -1,48 +1,52 @@
-!> summary:  3d generic elliptic element operator (RLVI)
+!> summary:  3d generic elliptic element operator (RLVI) using LIBXSMM
 !> author:   Erik Pfister, Joerg Stiller
 !> date:     2020/06/08
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Elliptic__3D_RLVI__XSMM
+module TPO__Elliptic__3D_RLVI__XSMM_RDP
 
 #ifdef __LIBXSMM__
 
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RDP
   use LIBXSMM
   implicit none
   private
 
   public :: TPO_Elliptic_RLVI_XSMM
 
+  interface TPO_Elliptic_RLVI_XSMM
+    module procedure TPO_Elliptic_RLVI_XSMM_RDP
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
   !> Generic elliptic element operator (RLVI)
 
-  subroutine TPO_Elliptic_RLVI_XSMM(Ms, Ds, lambda, nu, dx, u, v)
-    real(RNP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
-    real(RNP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
-    real(RNP), intent(in)  :: lambda      !< Helmholtz parameter
-    real(RNP), intent(in)  :: nu(:,:,:,:) !< diffusivity           (np,np,np,ne)
-    real(RNP), intent(in)  :: dx(3)       !< element extensions
-    real(RNP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
-    real(RNP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
+  subroutine TPO_Elliptic_RLVI_XSMM_RDP(Ms, Ds, lambda, nu, dx, u, v)
+    real(RDP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
+    real(RDP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
+    real(RDP), intent(in)  :: lambda      !< Helmholtz parameter
+    real(RDP), intent(in)  :: nu(:,:,:,:) !< diffusivity           (np,np,np,ne)
+    real(RDP), intent(in)  :: dx(3)       !< element extensions
+    real(RDP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
+    real(RDP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
 
     type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
 
-    real(RNP), parameter :: alpha = 1
-    real(RNP), parameter :: beta  = 1
+    real(RDP), parameter :: alpha = 1
+    real(RDP), parameter :: beta  = 1
 
     !---------------------------------------------------------------------------
     ! local variables
 
-    real(RNP), dimension(size(Ms), size(Ms), size(Ms)) :: M, M_u, z
-    real(RNP), dimension(size(Ms), size(Ms))           :: Ms_Ds, Msi_Dst
-    real(RNP), dimension(size(Ms), size(Ms))           :: Ms_Ds_2, Ms_Ds_3
-    real(RNP), dimension(size(Ms), size(Ms))           :: Ms_Dst_1, Msi_Ds
+    real(RDP), dimension(size(Ms), size(Ms), size(Ms)) :: M, M_u, z
+    real(RDP), dimension(size(Ms), size(Ms))           :: Ms_Ds, Msi_Dst
+    real(RDP), dimension(size(Ms), size(Ms))           :: Ms_Ds_2, Ms_Ds_3
+    real(RDP), dimension(size(Ms), size(Ms))           :: Ms_Dst_1, Msi_Ds
 
-    real(RNP) :: g(3), tmp
+    real(RDP) :: g(3), tmp
     integer   :: np, ne
     integer   :: e, i, j, k, p
 
@@ -142,10 +146,10 @@ contains
     end do
     !$omp end do
 
-  end subroutine TPO_Elliptic_RLVI_XSMM
+  end subroutine TPO_Elliptic_RLVI_XSMM_RDP
 
   !=============================================================================
 
 #endif
 
-end module TPO__Elliptic__3D_RLVI__XSMM
+end module TPO__Elliptic__3D_RLVI__XSMM_RDP

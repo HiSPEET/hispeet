@@ -1,9 +1,9 @@
-!> summary:  3d generic AxAxA operator using LIBXSMM
+!> summary:  3D elliptic element operator using LIBXSSM (RLCI)
 !> author:   Joerg Stiller
 !> date:     2021/06/09
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__AAA__3D__XSMM
-  use TPO__AAA__3D__XSMM_RDP
-end module TPO__AAA__3D__XSMM
+module TPO__Elliptic__3D_RLCI__XSMM
+  use module TPO__Elliptic__3D_RLCI__XSMM_RDP
+end module TPO__Elliptic__3D_RLCI__XSMM
