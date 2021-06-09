@@ -7,7 +7,6 @@
 #  define PROC(base_name,nb1,nb2) PASTE(base_name,nb1,nb2)
 # endif
 
-# define _RWP_ RNP
 # define _NB1_ 8
 # define _NB1_T4_ (_NB1_ / 4) * 4
 # define _NB2_ 16
@@ -18,14 +17,14 @@
 
 program Vec_Test
   implicit none
-  integer, parameter :: RNP = kind(1D0)
+  integer, parameter :: RWP = kind(1D0)
   integer   :: na, nc, ne
   integer   :: i, k, e
-  real(RNP) :: B(_NB1_,_NB2_)
-  real(RNP) :: alpha = 1
-  real(RNP) :: beta  = 1
-  real(RNP), allocatable :: u(:,:,:,:), v(:,:,:,:), w(:,:,:,:)
-  real(RNP) :: error, nope, mflops, t0, t
+  real(RWP) :: B(_NB1_,_NB2_)
+  real(RWP) :: alpha = 1
+  real(RWP) :: beta  = 1
+  real(RWP), allocatable :: u(:,:,:,:), v(:,:,:,:), w(:,:,:,:)
+  real(RWP) :: error, nope, mflops, t0, t
 
   na = 8
   nc = 8

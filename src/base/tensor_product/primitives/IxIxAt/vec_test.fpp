@@ -7,20 +7,19 @@
 #  define PROC(base_name,na1,na2) PASTE(base_name,na1,na2)
 # endif
 
-# define _RWP_ RNP
 # define _NA1_ 8
 # define _NA2_ 16
 
 program Vec_Test
   implicit none
-  integer, parameter :: RNP = kind(1D0)
+  integer, parameter :: RWP = kind(1D0)
   integer   :: nb, nc, ne
   integer   :: j, k, e
-  real(RNP) :: A(_NA1_,_NA2_)
-  real(RNP) :: alpha = 1
-  real(RNP) :: beta  = 1
-  real(RNP), allocatable :: u(:,:,:,:), v(:,:,:,:), w(:,:,:,:)
-  real(RNP) :: error, nope, mflops, t0, t
+  real(RWP) :: A(_NA1_,_NA2_)
+  real(RWP) :: alpha = 1
+  real(RWP) :: beta  = 1
+  real(RWP), allocatable :: u(:,:,:,:), v(:,:,:,:), w(:,:,:,:)
+  real(RWP) :: error, nope, mflops, t0, t
 
   nb = 8
   nc = 8

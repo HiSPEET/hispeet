@@ -11,13 +11,13 @@ subroutine PROC(IxIxAt__,_NA1_,_NA2_)(nb, nc, A, alpha, beta, u, v)
   !$acc routine vector
   integer,   intent(in)    :: nb              !< 2nd dimension of u,v
   integer,   intent(in)    :: nc              !< 3rd dimension of u,v
-  real(_RWP_), intent(in)    :: A(_NA1_,_NA2_)  !< rectangular matrix
-  real(_RWP_), intent(in)    :: alpha           !< factor α
-  real(_RWP_), intent(in)    :: beta            !< factor β
-  real(_RWP_), intent(in)    :: u(_NA1_,nb,nc)  !< operand
-  real(_RWP_), intent(inout) :: v(_NA2_,nb,nc)  !< result
+  real(RWP), intent(in)    :: A(_NA1_,_NA2_)  !< rectangular matrix
+  real(RWP), intent(in)    :: alpha           !< factor α
+  real(RWP), intent(in)    :: beta            !< factor β
+  real(RWP), intent(in)    :: u(_NA1_,nb,nc)  !< operand
+  real(RWP), intent(inout) :: v(_NA2_,nb,nc)  !< result
 
-  real(_RWP_) :: tmp
+  real(RWP) :: tmp
   integer   :: i, j, k, p
 
   !$acc loop collapse(3) independent vector

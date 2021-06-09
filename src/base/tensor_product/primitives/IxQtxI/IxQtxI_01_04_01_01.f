@@ -11,15 +11,15 @@
 
 subroutine PROC(IxQtxI__,_NQ_)(Q, alpha, beta, u, v)
   !$acc routine vector
-  real(_RWP_), intent(in)    :: Q(_NQ_,_NQ_)      !< square matrix
-  real(_RWP_), intent(in)    :: alpha             !< factor α
-  real(_RWP_), intent(in)    :: beta              !< factor β
-  real(_RWP_), intent(in)    :: u(_NQ_,_NQ_,_NQ_) !< operand
-  real(_RWP_), intent(inout) :: v(_NQ_,_NQ_,_NQ_) !< result
+  real(RWP), intent(in)    :: Q(_NQ_,_NQ_)      !< square matrix
+  real(RWP), intent(in)    :: alpha             !< factor α
+  real(RWP), intent(in)    :: beta              !< factor β
+  real(RWP), intent(in)    :: u(_NQ_,_NQ_,_NQ_) !< operand
+  real(RWP), intent(inout) :: v(_NQ_,_NQ_,_NQ_) !< result
 
   integer, parameter :: NQ_T4 = _NQ_T4_
 
-  real(_RWP_) :: tmp0, tmp1, tmp2, tmp3
+  real(RWP) :: tmp0, tmp1, tmp2, tmp3
   integer   :: i, j, k, p
 
   !$acc loop collapse(3)
