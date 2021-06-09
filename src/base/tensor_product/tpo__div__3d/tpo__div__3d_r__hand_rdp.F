@@ -1,29 +1,33 @@
 !> summary:   Divergence element operator based on handcrafted kernels (R)
-!> author:    Erik Pfister
-!> date:      2020/03/20
+!> author:    Erik Pfister, Joerg Stiller
+!> date:      2020/03/20, revised 2021/06/09
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Div__3D_R__Hand
-  use Kind_Parameters, only: RNP
+module TPO__Div__3D_R__Hand_RDP
+  use Kind_Parameters, only: RWP => RDP
   use TPO__Div__3D_R__Gen
   implicit none
   private
 
   public :: TPO_Div_R_Hand
 
+  interface TPO_Div_R_Hand
+    module procedure TPO_Div_R_Hand_RWP
+  end interface TPO_Div_R_Hand
+
 contains
 
   !-----------------------------------------------------------------------------
   !> Divergence element operator based on handcrafted kernels (R)
 
-  subroutine TPO_Div_R_Hand(np, ne, Ds, dx, u, v)
+  subroutine TPO_Div_R_Hand_RWP(np, ne, Ds, dx, u, v)
     integer,   intent(in)  :: np               !< num points per direction
     integer,   intent(in)  :: ne               !< num elements
-    real(RNP), intent(in)  :: Ds(np,np)        !< standard diff matrix
-    real(RNP), intent(in)  :: dx(3)            !< element extensions
-    real(RNP), intent(in)  :: u(np,np,np,ne,3) !< 3D vector field
-    real(RNP), intent(out) :: v(np,np,np,ne)   !< element-wise divergence of u
+    real(RWP), intent(in)  :: Ds(np,np)        !< standard diff matrix
+    real(RWP), intent(in)  :: dx(3)            !< element extensions
+    real(RWP), intent(in)  :: u(np,np,np,ne,3) !< 3D vector field
+    real(RWP), intent(out) :: v(np,np,np,ne)   !< element-wise divergence of u
 
     select case(np)
     case( 2)
@@ -96,7 +100,7 @@ contains
       call TPO_Div_R_Gen(np, ne, Ds, dx, u, v)
     end select
 
-  end subroutine TPO_Div_R_Hand
+  end subroutine TPO_Div_R_Hand_RWP
 
 !===============================================================================
 ! operator routine
@@ -220,4 +224,4 @@ contains
 
 !===============================================================================
 
-end module TPO__Div__3D_R__Hand
+end module TPO__Div__3D_R__Hand_RDP

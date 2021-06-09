@@ -6,13 +6,13 @@ subroutine PROC(TPO_Div_R_Hand__,_NP_)(ne, Ds, dx, u, v)
   use Constants, only: ZERO, ONE
 
   integer,   intent(in)  :: ne                    !< num elements
-  real(RNP), intent(in)  :: Ds(_NP_,_NP_)         !< standard diff matrix
-  real(RNP), intent(in)  :: u(_NP_,_NP_,_NP_,ne,3)!< 3D vector field
-  real(RNP), intent(out) :: v(_NP_,_NP_,_NP_,ne) !< element-wise divergence of u
-  real(RNP), intent(in)  :: dx(3)                 !< element extensions
+  real(RWP), intent(in)  :: Ds(_NP_,_NP_)         !< standard diff matrix
+  real(RWP), intent(in)  :: u(_NP_,_NP_,_NP_,ne,3)!< 3D vector field
+  real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne) !< element-wise divergence of u
+  real(RWP), intent(in)  :: dx(3)                 !< element extensions
 
-  real(RNP) :: A(_NP_,_NP_)
-  real(RNP) :: g(3)
+  real(RWP) :: A(_NP_,_NP_)
+  real(RWP) :: g(3)
 
   integer :: e
 
@@ -33,12 +33,12 @@ subroutine PROC(TPO_Div_R_Hand__,_NP_)(ne, Ds, dx, u, v)
 
   !$omp do
   do e = 1, ne
-    
+
     v(:,:,:,e) = 0  ! avoid trouble with NaNs
 
     ! v is initialized   v = du1/dx1 (beta = 0)
     call PROC(IxIxQt__,_NP_)(A, g(1), ZERO , u(:,:,:,e,1), v(:,:,:,e))
-    ! v is added up with v+= du2/dx2 (beta = 1) 
+    ! v is added up with v+= du2/dx2 (beta = 1)
     call PROC(IxQtxI__,_NP_)(A, g(2), ONE  , u(:,:,:,e,2), v(:,:,:,e))
     ! v is added up with v+= du3/dx3 (beta = 1)
     call PROC(QtxIxI__,_NP_)(A, g(3), ONE  , u(:,:,:,e,3), v(:,:,:,e))

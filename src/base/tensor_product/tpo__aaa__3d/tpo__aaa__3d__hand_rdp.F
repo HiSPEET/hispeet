@@ -12,12 +12,16 @@ module TPO__AAA__3D__Hand_RDP
 
   public :: TPO_AAA_Hand
 
+  interface TPO_AAA_Hand
+    module procedure TPO_AAA_Hand_RWP
+  end interface TPO_AAA_Hand
+
 contains
 
   !-----------------------------------------------------------------------------
   !> Elliptic element operator based on handcrafted kernels (RCLI)
 
-  subroutine TPO_AAA_Hand(A, u, v)
+  subroutine TPO_AAA_Hand_RWP(A, u, v)
     real(RWP), intent(in)  :: A(:,:)     !< 1D operator
     real(RWP), intent(in)  :: u(:,:,:,:) !< operand
     real(RWP), intent(out) :: v(:,:,:,:) !< result
@@ -177,7 +181,7 @@ contains
 
   end if
 
-  end subroutine TPO_AAA_Hand
+  end subroutine TPO_AAA_Hand_RWP
 
 
 !===============================================================================
