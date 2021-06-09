@@ -6,13 +6,13 @@ subroutine PROC(TPO_Grad_R_Hand__,_NP_)(ne, Ds, dx, u, v)
   use Constants, only: ZERO
 
   integer,   intent(in)  :: ne                     !< num elements
-  real(RNP), intent(in)  :: Ds(_NP_,_NP_)          !< standard diff matrix
-  real(RNP), intent(in)  :: dx(3)                  !< element extensions
-  real(RNP), intent(in)  :: u(_NP_,_NP_,_NP_,ne)   !< 3D scalar field
-  real(RNP), intent(out) :: v(_NP_,_NP_,_NP_,ne,3) !< element-wise gradient of u
+  real(RWP), intent(in)  :: Ds(_NP_,_NP_)          !< standard diff matrix
+  real(RWP), intent(in)  :: dx(3)                  !< element extensions
+  real(RWP), intent(in)  :: u(_NP_,_NP_,_NP_,ne)   !< 3D scalar field
+  real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne,3) !< element-wise gradient of u
 
-  real(RNP) :: A(_NP_,_NP_)
-  real(RNP) :: g(3)
+  real(RWP) :: A(_NP_,_NP_)
+  real(RWP) :: g(3)
 
   integer :: e
 
@@ -33,7 +33,7 @@ subroutine PROC(TPO_Grad_R_Hand__,_NP_)(ne, Ds, dx, u, v)
 
   !$omp do
   do e = 1, ne
-    
+
     ! v1 = du/dx1
     v(:,:,:,e,1) = 0  ! avoid trouble with NaNs
     call PROC(IxIxQt__,_NP_)(A, g(1), ZERO, u(:,:,:,e), v(:,:,:,e,1))

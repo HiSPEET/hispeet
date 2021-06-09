@@ -4,20 +4,24 @@
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Grad__3D_R__Hand
-  use Kind_Parameters, only: RNP
+module TPO__Grad__3D_R__Hand_RDP
+  use Kind_Parameters, only: RWP => RDP
   use TPO__Grad__3D_R__Gen
   implicit none
   private
 
   public :: TPO_Grad_R_Hand
 
+  interface TPO_Grad_R_Hand
+    module procedure TPO_Grad_R_Hand_RWP
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
   !> Gradient element operator based on handcrafted kernels (R)
 
-  subroutine TPO_Grad_R_Hand(np, ne, Ds, dx, u, v)
+  subroutine TPO_Grad_R_Hand_RWP(np, ne, Ds, dx, u, v)
     integer,   intent(in)  :: np               !< num points per direction
     integer,   intent(in)  :: ne               !< num elements
     real(RNP), intent(in)  :: Ds(np,np)        !< standard diff matrix
@@ -96,7 +100,7 @@ contains
       call TPO_Grad_R_Gen(np, ne, Ds, dx, u, v)
     end select
 
-  end subroutine TPO_Grad_R_Hand
+  end subroutine TPO_Grad_R_Hand_RWP
 
 !===============================================================================
 ! operator routine
@@ -220,4 +224,4 @@ contains
 
 !===============================================================================
 
-end module TPO__Grad__3D_R__Hand
+end module TPO__Grad__3D_R__Hand_RDP
