@@ -22,13 +22,13 @@ contains
   !> Elliptic element operator based on handcrafted kernels (RLVI)
 
   subroutine TPO_Elliptic_RLVI_Hand_RWP(Ms, Ds, lambda, nu, dx, u, v)
-    real(RNP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
-    real(RNP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
-    real(RNP), intent(in)  :: lambda      !< Helmholtz parameter
-    real(RNP), intent(in)  :: nu(:,:,:,:) !< diffusivity           (np,np,np,ne)
-    real(RNP), intent(in)  :: dx(3)       !< element extensions
-    real(RNP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
-    real(RNP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
+    real(RWP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
+    real(RWP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
+    real(RWP), intent(in)  :: lambda      !< Helmholtz parameter
+    real(RWP), intent(in)  :: nu(:,:,:,:) !< diffusivity           (np,np,np,ne)
+    real(RWP), intent(in)  :: dx(3)       !< element extensions
+    real(RWP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
+    real(RWP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
 
     integer :: np, ne
 

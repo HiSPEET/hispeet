@@ -4,19 +4,19 @@
 subroutine PROC(TPO_Schwarz_CI_Hand__,_NP_)(nc, nd, S, W, cfg, D_inv, f, u)
   integer,   intent(in)  :: nc                       !< num configurations
   integer,   intent(in)  :: nd                       !< num subdomains
-  real(RNP), intent(in)  :: S(_NP_,_NP_,nc)          !< 1D eigenvectors
-  real(RNP), intent(in)  :: W(_NP_,nc)               !< 1D weights
+  real(RWP), intent(in)  :: S(_NP_,_NP_,nc)          !< 1D eigenvectors
+  real(RWP), intent(in)  :: W(_NP_,nc)               !< 1D weights
   integer,   intent(in)  :: cfg(:,:)                 !< subdomain configurations
-  real(RNP), intent(in)  :: D_inv(_NP_,_NP_,_NP_,nd) !< inverse 3D eigenvalues
-  real(RNP), intent(in)  :: f(_NP_,_NP_,_NP_,nd)     !< RHS
-  real(RNP), intent(out) :: u(_NP_,_NP_,_NP_,nd)     !< solution
+  real(RWP), intent(in)  :: D_inv(_NP_,_NP_,_NP_,nd) !< inverse 3D eigenvalues
+  real(RWP), intent(in)  :: f(_NP_,_NP_,_NP_,nd)     !< RHS
+  real(RWP), intent(out) :: u(_NP_,_NP_,_NP_,nd)     !< solution
 
-  real(RNP), parameter :: alpha = 1
-  real(RNP), parameter :: beta  = 0
+  real(RWP), parameter :: alpha = 1
+  real(RWP), parameter :: beta  = 0
 
-  real(RNP) :: WS_t ( _NP_, _NP_,  nc  )
-  real(RNP) :: y    ( _NP_, _NP_, _NP_ )
-  real(RNP) :: z    ( _NP_, _NP_, _NP_ )
+  real(RWP) :: WS_t ( _NP_, _NP_,  nc  )
+  real(RWP) :: y    ( _NP_, _NP_, _NP_ )
+  real(RWP) :: z    ( _NP_, _NP_, _NP_ )
 
   integer :: i, j, l
   integer :: c, c1, c2, c3

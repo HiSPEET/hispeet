@@ -5,7 +5,7 @@
 !===============================================================================
 
 module TPO__AAA__3D
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RDP
   use TPO__AAA__3D__Hand
   use TPO__AAA__3D__XSMM
   implicit none
@@ -13,16 +13,19 @@ module TPO__AAA__3D
 
   public :: TPO_AAA
 
+  interface TPO_AAA
+    module procedure TPO_AAA_RDP
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
   !> 3D AxAxA (interpolation) operator
 
-  subroutine TPO_AAA(A, u, v)
-    use Kind_Parameters,  only: RNP
-    real(RNP), intent(in)  :: A(:,:)     !< 1D operator
-    real(RNP), intent(in)  :: u(:,:,:,:) !< operand
-    real(RNP), intent(out) :: v(:,:,:,:) !< result
+  subroutine TPO_AAA_RDP(A, u, v)
+    real(RDP), intent(in)  :: A(:,:)     !< 1D operator
+    real(RDP), intent(in)  :: u(:,:,:,:) !< operand
+    real(RDP), intent(out) :: v(:,:,:,:) !< result
 
     integer :: np_max
 
@@ -40,7 +43,7 @@ contains
 
     end select
 
-  end subroutine TPO_AAA
+  end subroutine TPO_AAA_RDP
 
   !=============================================================================
 

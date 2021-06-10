@@ -4,24 +4,28 @@
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Spectral__3D_CI__Hand
-  use Kind_Parameters, only: RNP
+module TPO__Spectral__3D_CI__Hand_RDP
+  use Kind_Parameters, only: RWP => RDP
   use TPO__Spectral__3D_CI__Gen
   implicit none
   private
 
   public :: TPO_Spectral_CI_Hand
 
+  interface TPO_Spectral_CI_Hand
+    module procedure TPO_Spectral_CI_Hand_RWP
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
   !> Isotropic spectral operator based on handcrafted kernels (I)
 
-  subroutine TPO_Spectral_CI_Hand(S, Lambda, u, v)
-    real(RNP), intent(in)  :: S(:,:)        !< 1D eigenvectors
-    real(RNP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues
-    real(RNP), intent(in)  :: u(:,:,:,:)    !< operand
-    real(RNP), intent(out) :: v(:,:,:,:)    !< result
+  subroutine TPO_Spectral_CI_Hand_RWP(S, Lambda, u, v)
+    real(RDP), intent(in)  :: S(:,:)        !< 1D eigenvectors
+    real(RDP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues
+    real(RDP), intent(in)  :: u(:,:,:,:)    !< operand
+    real(RDP), intent(out) :: v(:,:,:,:)    !< result
 
     integer :: np, ne
 
@@ -99,7 +103,7 @@ contains
       call TPO_Spectral_CI_Gen(S, Lambda, u, v)
     end select
 
-  end subroutine TPO_Spectral_CI_Hand
+  end subroutine TPO_Spectral_CI_Hand_RWP
 
 !===============================================================================
 ! operator routine
@@ -223,4 +227,4 @@ contains
 
 !===============================================================================
 
-end module TPO__Spectral__3D_CI__Hand
+end module TPO__Spectral__3D_CI__Hand_RDP

@@ -4,44 +4,48 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Spectral__3D_CA__XSMM
+module TPO__Spectral__3D_CA__XSMM_RDP
 
 #ifdef __LIBXSMM__
 
   use LIBXSMM
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RDP
   implicit none
   private
 
   public :: TPO_Spectral_CA_XSMM
+
+  interface TPO_Spectral_CA_XSMM
+    module procedure TPO_Spectral_CA_XSMM_RDP
+  end interface
 
 contains
 
   !-----------------------------------------------------------------------------
   !> Generic procedure for evaluating  v = [(S₃ x S₂ x S₁) Λ (S₃ x S₂ x S₁)ᵀ] u
 
-  subroutine TPO_Spectral_CA_XSMM(S1, S2, S3, Lambda, u, v)
-    real(RNP), intent(in)  :: S1(:,:)       !< eigenvectors for dir 1: S₁(n1,n1)
-    real(RNP), intent(in)  :: S2(:,:)       !< eigenvectors for dir 2: S₂(n2,n2)
-    real(RNP), intent(in)  :: S3(:,:)       !< eigenvectors for dir 3: S₃(n3,n3)
-    real(RNP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues: Λ(n1,n2,n3)
-    real(RNP), intent(in)  :: u(:,:,:,:)    !< operand: u(n1.n2,n3,ne)
-    real(RNP), intent(out) :: v(:,:,:,:)    !< result:  v(n1,n2,n3,ne)
-    real(RNP), parameter :: alpha  = 1
-    real(RNP), parameter :: beta   = 0
+  subroutine TPO_Spectral_CA_XSMM_RDP(S1, S2, S3, Lambda, u, v)
+    real(RDP), intent(in)  :: S1(:,:)       !< eigenvectors for dir 1: S₁(n1,n1)
+    real(RDP), intent(in)  :: S2(:,:)       !< eigenvectors for dir 2: S₂(n2,n2)
+    real(RDP), intent(in)  :: S3(:,:)       !< eigenvectors for dir 3: S₃(n3,n3)
+    real(RDP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues: Λ(n1,n2,n3)
+    real(RDP), intent(in)  :: u(:,:,:,:)    !< operand: u(n1.n2,n3,ne)
+    real(RDP), intent(out) :: v(:,:,:,:)    !< result:  v(n1,n2,n3,ne)
+    real(RDP), parameter :: alpha  = 1
+    real(RDP), parameter :: beta   = 0
 
     !-----------------------------------------------------------------------------
     ! local variables
 
     type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
 
-    real(RNP) :: z( size(S1,1), size(S2,1), size(S3,1) )
-    real(RNP) :: tmp
+    real(RDP) :: z( size(S1,1), size(S2,1), size(S3,1) )
+    real(RDP) :: tmp
     integer   :: n1, n2, n3, ne
     integer   :: e, i, j, k, p
-    real(RNP) :: S1_t (size(S1,1), size(S1,1) )
-    real(RNP) :: S2_t (size(S2,1), size(S2,1) )
-    real(RNP) :: S3_t (size(S3,1), size(S3,1) )
+    real(RDP) :: S1_t (size(S1,1), size(S1,1) )
+    real(RDP) :: S2_t (size(S2,1), size(S2,1) )
+    real(RDP) :: S3_t (size(S3,1), size(S3,1) )
 
     !---------------------------------------------------------------------------
     ! initialization
@@ -106,10 +110,10 @@ contains
 
     end do
 
-  end subroutine TPO_Spectral_CA_XSMM
+  end subroutine TPO_Spectral_CA_XSMM_RDP
 
   !=============================================================================
 
 #endif
 
-end module TPO__Spectral__3D_CA__XSMM
+end module TPO__Spectral__3D_CA__XSMM_RDP

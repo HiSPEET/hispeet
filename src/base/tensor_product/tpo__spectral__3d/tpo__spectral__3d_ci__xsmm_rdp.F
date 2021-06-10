@@ -4,37 +4,41 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Spectral__3D_CI__XSMM
+module TPO__Spectral__3D_CI__XSMM_RDP
 
 #ifdef __LIBXSMM__
 
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RDP
   use LIBXSMM
   implicit none
   private
 
   public :: TPO_Spectral_CI_XSMM
 
+  interface TPO_Spectral_CI_XSMM
+    module procedure TPO_Spectral_CI_XSMM_RDP
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
   !> Generic procedure for evaluating  v = [(SxSxS) Λ (SxSxS)ᵀ] u
 
-  subroutine TPO_Spectral_CI_XSMM(S, Lambda, u, v)
-    real(RNP), intent(in)  :: S(:,:)        !< 1D eigenvectors
-    real(RNP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues
-    real(RNP), intent(in)  :: u(:,:,:,:)    !< operand
-    real(RNP), intent(out) :: v(:,:,:,:)    !< result
-    real(RNP), parameter :: alpha  = 1
-    real(RNP), parameter :: beta   = 0
+  subroutine TPO_Spectral_CI_XSMM_RDP(S, Lambda, u, v)
+    real(RDP), intent(in)  :: S(:,:)        !< 1D eigenvectors
+    real(RDP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues
+    real(RDP), intent(in)  :: u(:,:,:,:)    !< operand
+    real(RDP), intent(out) :: v(:,:,:,:)    !< result
+    real(RDP), parameter :: alpha  = 1
+    real(RDP), parameter :: beta   = 0
 
     !-----------------------------------------------------------------------------
     ! local variables
 
     type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
 
-    real(RNP) :: St( size(S,1), size(S,1) )
-    real(RNP) :: z ( size(S,1), size(S,1), size(S,1) )
+    real(RDP) :: St( size(S,1), size(S,1) )
+    real(RDP) :: z ( size(S,1), size(S,1), size(S,1) )
     integer   :: np, ne
     integer   :: e, k
 
@@ -97,11 +101,11 @@ contains
 
     end do
 
-  end subroutine TPO_Spectral_CI_XSMM
+  end subroutine TPO_Spectral_CI_XSMM_RDP
 
   !=============================================================================
 
 #endif
 
-end module TPO__Spectral__3D_CI__XSMM
+end module TPO__Spectral__3D_CI__XSMM_RDP
 

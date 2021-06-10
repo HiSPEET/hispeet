@@ -5,7 +5,7 @@
 !===============================================================================
 
 module TPO__Rot__3D_R
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RDP
   use TPO__Rot__3D_R__Hand
   use TPO__Rot__3D_R__XSMM
   implicit none
@@ -13,14 +13,17 @@ module TPO__Rot__3D_R
 
   public :: TPO_Rot_R
 
+  interface TPO_Rot_R
+    module procedure TPO_Rot_R_RDP
+  end interface
+
 contains
 
-  subroutine TPO_Rot_R(Ds, dx, u, v)
-    use Kind_Parameters,  only: RNP
-    real(RNP), intent(in)  :: Ds(:,:)          !< 1D standard stiffness matrix
-    real(RNP), intent(in)  :: dx(3)            !< element extensions
-    real(RNP), intent(in)  :: u(:,:,:,:,:)     !< 3D vector field
-    real(RNP), intent(out) :: v(:,:,:,:,:)     !< element-wise rotation of u
+  subroutine TPO_Rot_R_RDP(Ds, dx, u, v)
+    real(RDP), intent(in)  :: Ds(:,:)          !< 1D standard stiffness matrix
+    real(RDP), intent(in)  :: dx(3)            !< element extensions
+    real(RDP), intent(in)  :: u(:,:,:,:,:)     !< 3D vector field
+    real(RDP), intent(out) :: v(:,:,:,:,:)     !< element-wise rotation of u
 
     integer :: np, ne
 
@@ -39,7 +42,7 @@ contains
 
     end select
 
-  end subroutine TPO_Rot_R
+  end subroutine TPO_Rot_R_RDP
 
   !=============================================================================
 

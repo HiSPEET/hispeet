@@ -5,24 +5,27 @@
 !===============================================================================
 
 module TPO__Diagonal__3D_CI
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RDP
   use TPO__Diagonal__3D_CI__Gen
   implicit none
   private
 
   public :: TPO_Diagonal_CI
 
+  interface TPO_Diagonal_CI
+    module procedure TPO_Diagonal_CI_RDP
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
   !> 3D scaled constant isotropic diagonal operator, v = s DxDxD u
 
-  subroutine TPO_Diagonal_CI(s, D, u, v)
-    use Kind_Parameters,  only: RNP
-    real(RNP), intent(in)  :: s          !< scaling factor
-    real(RNP), intent(in)  :: D(:)       !< diagonal 1D operator
-    real(RNP), intent(in)  :: u(:,:,:,:) !< operand
-    real(RNP), intent(out) :: v(:,:,:,:) !< result
+  subroutine TPO_Diagonal_CI_RDP(s, D, u, v)
+    real(RDP), intent(in)  :: s          !< scaling factor
+    real(RDP), intent(in)  :: D(:)       !< diagonal 1D operator
+    real(RDP), intent(in)  :: u(:,:,:,:) !< operand
+    real(RDP), intent(out) :: v(:,:,:,:) !< result
 
     integer :: np, ne
 
@@ -31,7 +34,7 @@ contains
 
     call TPO_Diagonal_CI_Gen(np, ne, s, D, u, v)
 
-  end subroutine TPO_Diagonal_CI
+  end subroutine TPO_Diagonal_CI_RDP
 
   !=============================================================================
 

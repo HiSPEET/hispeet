@@ -5,13 +5,17 @@
 !===============================================================================
 
 module TPO__Elliptic__3D_RLCI
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RDP
   use TPO__Elliptic__3D_RLCI__Hand
   use TPO__Elliptic__3D_RLCI__XSMM
   implicit none
   private
 
   public :: TPO_Elliptic_RLCI
+
+  interface TPO_Elliptic_RLCI
+    module procedure TPO_Elliptic_RLCI_RDP
+  end interface
 
 contains
 
@@ -39,15 +43,14 @@ contains
   !> Ms and Ls are the 1D standard mass and stiffness matrices for polynomial
   !> order P = np-1, respectively, and dx(1:3) the element dimensions.
 
-  subroutine TPO_Elliptic_RLCI(Ms, Ls, lambda, nu, dx, u, v)
-    use Kind_Parameters,  only: RNP
-    real(RNP), intent(in)  :: Ms(:)      !< 1D standard mass matrix
-    real(RNP), intent(in)  :: Ls(:,:)    !< 1D standard stiffness matrix
-    real(RNP), intent(in)  :: lambda     !< Helmholtz parameter
-    real(RNP), intent(in)  :: nu         !< diffusivity
-    real(RNP), intent(in)  :: dx(3)      !< element extensions
-    real(RNP), intent(in)  :: u(:,:,:,:) !< operand
-    real(RNP), intent(out) :: v(:,:,:,:) !< result
+  subroutine TPO_Elliptic_RLCI_RDP(Ms, Ls, lambda, nu, dx, u, v)
+    real(RDP), intent(in)  :: Ms(:)      !< 1D standard mass matrix
+    real(RDP), intent(in)  :: Ls(:,:)    !< 1D standard stiffness matrix
+    real(RDP), intent(in)  :: lambda     !< Helmholtz parameter
+    real(RDP), intent(in)  :: nu         !< diffusivity
+    real(RDP), intent(in)  :: dx(3)      !< element extensions
+    real(RDP), intent(in)  :: u(:,:,:,:) !< operand
+    real(RDP), intent(out) :: v(:,:,:,:) !< result
 
     select case(size(Ms))
 
@@ -61,7 +64,7 @@ contains
 
     end select
 
-  end subroutine TPO_Elliptic_RLCI
+  end subroutine TPO_Elliptic_RLCI_RDP
 
   !=============================================================================
 

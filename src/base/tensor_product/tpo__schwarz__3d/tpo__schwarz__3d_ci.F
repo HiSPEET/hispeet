@@ -5,7 +5,7 @@
 !===============================================================================
 
 module TPO__Schwarz__3D_CI
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RDP
   use TPO__Schwarz__3D_CI__Hand
   use TPO__Schwarz__3D_CI__XSMM
   implicit none
@@ -13,18 +13,22 @@ module TPO__Schwarz__3D_CI
 
   public :: TPO_Schwarz_CI
 
+  interface TPO_Schwarz_CI
+    module procedure TPO_Schwarz_CI_RDP
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
   !> 3D constant isotropic operator
 
-  subroutine TPO_Schwarz_CI(S, W, cfg, D_inv, f, u)
-    real(RNP), intent(in)  :: S(:,:,:)       !< 1D eigenvectors
-    real(RNP), intent(in)  :: W(:,:)         !< 1D weights
+  subroutine TPO_Schwarz_CI_RDP(S, W, cfg, D_inv, f, u)
+    real(RDP), intent(in)  :: S(:,:,:)       !< 1D eigenvectors
+    real(RDP), intent(in)  :: W(:,:)         !< 1D weights
     integer,   intent(in)  :: cfg(:,:)       !< subdomain configurations
-    real(RNP), intent(in)  :: D_inv(:,:,:,:) !< inv. 3D eigenvalues
-    real(RNP), intent(in)  :: f(:,:,:,:)     !< RHS
-    real(RNP), intent(out) :: u(:,:,:,:)     !< solution
+    real(RDP), intent(in)  :: D_inv(:,:,:,:) !< inv. 3D eigenvalues
+    real(RDP), intent(in)  :: f(:,:,:,:)     !< RHS
+    real(RDP), intent(out) :: u(:,:,:,:)     !< solution
 
     select case(size(S,1))
 
@@ -38,7 +42,7 @@ contains
 
     end select
 
-  end subroutine TPO_Schwarz_CI
+  end subroutine TPO_Schwarz_CI_RDP
 
   !=============================================================================
 

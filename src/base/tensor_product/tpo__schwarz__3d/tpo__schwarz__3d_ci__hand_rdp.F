@@ -4,26 +4,30 @@
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Schwarz__3D_CI__Hand
-  use Kind_Parameters, only: RNP
+module TPO__Schwarz__3D_CI__Hand_RDP
+  use Kind_Parameters, only: RWP => RDP
   use TPO__Schwarz__3D_CI__Gen
   implicit none
   private
 
   public :: TPO_Schwarz_CI_Hand
 
+  interface TPO_Schwarz_CI_Hand
+    module procedure TPO_Schwarz_CI_Hand_RWP
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
   !> Isotropic schwarz operator based on handcrafted kernels (I)
 
-  subroutine TPO_Schwarz_CI_Hand(S, W, cfg, D_inv, f, u)
-    real(RNP), intent(in)  :: S(:,:,:)       !< 1D eigenvectors
-    real(RNP), intent(in)  :: W(:,:)         !< 1D weights
+  subroutine TPO_Schwarz_CI_Hand_RWP(S, W, cfg, D_inv, f, u)
+    real(RWP), intent(in)  :: S(:,:,:)       !< 1D eigenvectors
+    real(RWP), intent(in)  :: W(:,:)         !< 1D weights
     integer,   intent(in)  :: cfg(:,:)       !< subdomain configs
-    real(RNP), intent(in)  :: D_inv(:,:,:,:) !< inv. 3D eigenvals
-    real(RNP), intent(in)  :: f(:,:,:,:)     !< RHS
-    real(RNP), intent(out) :: u(:,:,:,:)     !< solution
+    real(RWP), intent(in)  :: D_inv(:,:,:,:) !< inv. 3D eigenvals
+    real(RWP), intent(in)  :: f(:,:,:,:)     !< RHS
+    real(RWP), intent(out) :: u(:,:,:,:)     !< solution
 
     integer :: nc, nd, np
 
@@ -102,7 +106,7 @@ contains
       call TPO_Schwarz_CI_Gen(S, W, cfg, D_inv, f, u)
     end select
 
-  end subroutine TPO_Schwarz_CI_Hand
+  end subroutine TPO_Schwarz_CI_Hand_RWP
 
 !===============================================================================
 ! operator routine
@@ -226,4 +230,4 @@ contains
 
 !===============================================================================
 
-end module TPO__Schwarz__3D_CI__Hand
+end module TPO__Schwarz__3D_CI__Hand_RDP

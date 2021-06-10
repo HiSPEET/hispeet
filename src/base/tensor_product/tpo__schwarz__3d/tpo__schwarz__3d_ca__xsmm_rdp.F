@@ -4,49 +4,53 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Schwarz__3D_CA__XSMM
+module TPO__Schwarz__3D_CA__XSMM_RDP
 
 #ifdef __LIBXSMM__
 
   use LIBXSMM
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RDP
   implicit none
   private
 
   public :: TPO_Schwarz_CA_XSMM
+
+  interface TPO_Schwarz_CA_XSMM
+    module procedure TPO_Schwarz_CA_XSMM_RDP
+  end interface
 
 contains
 
   !-----------------------------------------------------------------------------
   !> 3d generic anisotropic Schwarz operator
 
-  subroutine TPO_Schwarz_CA_XSMM(S1, S2, S3, W1, W2, W3, cfg, D_inv, f, u)
-    real(RNP), intent(in)  :: S1(:,:,:)      !< eigenvecs, dir 1   (n1,n1,nc)
-    real(RNP), intent(in)  :: S2(:,:,:)      !< eigenvecs, dir 2   (n2,n2,nc)
-    real(RNP), intent(in)  :: S3(:,:,:)      !< eigenvecs, dir 3   (n3,n3,nc)
-    real(RNP), intent(in)  :: W1(:,:)        !< weights,   dir 1   (n1,nc)
-    real(RNP), intent(in)  :: W2(:,:)        !< weights,   dir 2   (n2,nc)
-    real(RNP), intent(in)  :: W3(:,:)        !< weights,   dir 3   (n3,nc)
+  subroutine TPO_Schwarz_CA_XSMM_RDP(S1, S2, S3, W1, W2, W3, cfg, D_inv, f, u)
+    real(RDP), intent(in)  :: S1(:,:,:)      !< eigenvecs, dir 1   (n1,n1,nc)
+    real(RDP), intent(in)  :: S2(:,:,:)      !< eigenvecs, dir 2   (n2,n2,nc)
+    real(RDP), intent(in)  :: S3(:,:,:)      !< eigenvecs, dir 3   (n3,n3,nc)
+    real(RDP), intent(in)  :: W1(:,:)        !< weights,   dir 1   (n1,nc)
+    real(RDP), intent(in)  :: W2(:,:)        !< weights,   dir 2   (n2,nc)
+    real(RDP), intent(in)  :: W3(:,:)        !< weights,   dir 3   (n3,nc)
     integer,   intent(in)  :: cfg(:,:)       !< subdomain configs  (3,nd)
-    real(RNP), intent(in)  :: D_inv(:,:,:,:) !< inv 3D eigenvals   (n1,n2,n3,nd)
-    real(RNP), intent(in)  :: f(:,:,:,:)     !< RHS                (n1,n2,n3,nd)
-    real(RNP), intent(out) :: u(:,:,:,:)     !< solution           (n1,n2,n3,nd)
+    real(RDP), intent(in)  :: D_inv(:,:,:,:) !< inv 3D eigenvals   (n1,n2,n3,nd)
+    real(RDP), intent(in)  :: f(:,:,:,:)     !< RHS                (n1,n2,n3,nd)
+    real(RDP), intent(out) :: u(:,:,:,:)     !< solution           (n1,n2,n3,nd)
 
-    real(RNP), parameter :: alpha  = 1
-    real(RNP), parameter :: beta   = 0
+    real(RDP), parameter :: alpha  = 1
+    real(RDP), parameter :: beta   = 0
 
     !---------------------------------------------------------------------------
     ! local variables
 
     type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
 
-    real(RNP) :: S1_t  ( size(S1,2), size(S1,1), size(S1,3) )
-    real(RNP) :: WS1   ( size(S1,1), size(S1,2), size(S1,3) )
-    real(RNP) :: WS2_t ( size(S2,1), size(S2,2), size(S2,3) )
-    real(RNP) :: WS3_t ( size(S3,1), size(S3,2), size(S3,3) )
-    real(RNP) :: y     ( size(f ,1), size(f ,2), size(f ,3) )
-    real(RNP) :: z     ( size(f ,1), size(f ,2), size(f ,3) )
-    real(RNP) :: tmp
+    real(RDP) :: S1_t  ( size(S1,2), size(S1,1), size(S1,3) )
+    real(RDP) :: WS1   ( size(S1,1), size(S1,2), size(S1,3) )
+    real(RDP) :: WS2_t ( size(S2,1), size(S2,2), size(S2,3) )
+    real(RDP) :: WS3_t ( size(S3,1), size(S3,2), size(S3,3) )
+    real(RDP) :: y     ( size(f ,1), size(f ,2), size(f ,3) )
+    real(RDP) :: z     ( size(f ,1), size(f ,2), size(f ,3) )
+    real(RDP) :: tmp
 
     integer :: n1, n2, n3, nc, nd
     integer :: i, j, k, l, p
@@ -151,10 +155,10 @@ contains
     end do subdomains
     !$omp end do
 
-  end subroutine TPO_Schwarz_CA_XSMM
+  end subroutine TPO_Schwarz_CA_XSMM_RDP
 
   !=============================================================================
 
 #endif
 
-end module TPO__Schwarz__3D_CA__XSMM
+end module TPO__Schwarz__3D_CA__XSMM_RDP

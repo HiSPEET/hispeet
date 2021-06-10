@@ -5,7 +5,7 @@
 !===============================================================================
 
 module TPO__Grad__3D_R
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RDP
   use TPO__Grad__3D_R__Hand
   use TPO__Grad__3D_R__XSMM
   implicit none
@@ -13,14 +13,17 @@ module TPO__Grad__3D_R
 
   public :: TPO_Grad_R
 
+  interface TPO_Grad_R
+    module procedure TPO_Grad_R_RDP
+  end interface
+
 contains
 
-  subroutine TPO_Grad_R(Ds, dx, u, v)
-    use Kind_Parameters,  only: RNP
-    real(RNP), intent(in)  :: Ds(:,:)          !< 1D standard stiffness matrix
-    real(RNP), intent(in)  :: dx(3)            !< element extensions
-    real(RNP), intent(in)  :: u(:,:,:,:)       !< 3D Scalar Field
-    real(RNP), intent(out) :: v(:,:,:,:,:)     !< element-wise gradient of u
+  subroutine TPO_Grad_R_RDP(Ds, dx, u, v)
+    real(RDP), intent(in)  :: Ds(:,:)          !< 1D standard stiffness matrix
+    real(RDP), intent(in)  :: dx(3)            !< element extensions
+    real(RDP), intent(in)  :: u(:,:,:,:)       !< 3D Scalar Field
+    real(RDP), intent(out) :: v(:,:,:,:,:)     !< element-wise gradient of u
 
     integer :: np, ne
 
@@ -39,7 +42,7 @@ contains
 
     end select
 
-  end subroutine TPO_Grad_R
+  end subroutine TPO_Grad_R_RDP
 
   !=============================================================================
 

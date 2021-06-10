@@ -4,43 +4,47 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Schwarz__3D_CI__XSMM
+module TPO__Schwarz__3D_CI__XSMM_RDP
 
 #ifdef __LIBXSMM__
 
   use LIBXSMM
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RDP
   implicit none
   private
 
   public :: TPO_Schwarz_CI_XSMM
 
+  interface TPO_Schwarz_CI_XSMM
+    module procedure TPO_Schwarz_CI_XSMM_RDP
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
 
-  subroutine TPO_Schwarz_CI_XSMM(S, W, cfg, D_inv, f, u)
-    real(RNP), intent(in)  :: S(:,:,:)       !< 1D eigenvectors   (np,np,nc)
-    real(RNP), intent(in)  :: W(:,:)         !< 1D weights        (np,nc)
+  subroutine TPO_Schwarz_CI_XSMM_RDP(S, W, cfg, D_inv, f, u)
+    real(RDP), intent(in)  :: S(:,:,:)       !< 1D eigenvectors   (np,np,nc)
+    real(RDP), intent(in)  :: W(:,:)         !< 1D weights        (np,nc)
     integer,   intent(in)  :: cfg(:,:)       !< subdomain configs (3,nd)
-    real(RNP), intent(in)  :: D_inv(:,:,:,:) !< inv. 3D eigenvals (np,np,np,nd)
-    real(RNP), intent(in)  :: f(:,:,:,:)     !< RHS               (np,np,np,nd)
-    real(RNP), intent(out) :: u(:,:,:,:)     !< solution          (np,np,np,nd)
+    real(RDP), intent(in)  :: D_inv(:,:,:,:) !< inv. 3D eigenvals (np,np,np,nd)
+    real(RDP), intent(in)  :: f(:,:,:,:)     !< RHS               (np,np,np,nd)
+    real(RDP), intent(out) :: u(:,:,:,:)     !< solution          (np,np,np,nd)
 
-    real(RNP), parameter :: alpha  = 1
-    real(RNP), parameter :: beta   = 0
+    real(RDP), parameter :: alpha  = 1
+    real(RDP), parameter :: beta   = 0
 
     !-----------------------------------------------------------------------------
     ! local variables
 
     type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
 
-    real(RNP) :: S_t  ( size(S,2), size(S,1), size(S,3) )
-    real(RNP) :: WS   ( size(S,1), size(S,2), size(S,3) )
-    real(RNP) :: WS_t ( size(S,1), size(S,2), size(S,3) )
-    real(RNP) :: y    ( size(f,1), size(f,2), size(f,3) )
-    real(RNP) :: z    ( size(f,1), size(f,2), size(f,3) )
-    real(RNP) :: tmp
+    real(RDP) :: S_t  ( size(S,2), size(S,1), size(S,3) )
+    real(RDP) :: WS   ( size(S,1), size(S,2), size(S,3) )
+    real(RDP) :: WS_t ( size(S,1), size(S,2), size(S,3) )
+    real(RDP) :: y    ( size(f,1), size(f,2), size(f,3) )
+    real(RDP) :: z    ( size(f,1), size(f,2), size(f,3) )
+    real(RDP) :: tmp
 
     integer :: nc, nd, np
     integer :: i, j, k, l, p
@@ -133,10 +137,10 @@ contains
 
     end do subdomains
 
-  end subroutine TPO_Schwarz_CI_XSMM
+  end subroutine TPO_Schwarz_CI_XSMM_RDP
 
   !=============================================================================
 
 #endif
 
-end module TPO__Schwarz__3D_CI__XSMM
+end module TPO__Schwarz__3D_CI__XSMM_RDP

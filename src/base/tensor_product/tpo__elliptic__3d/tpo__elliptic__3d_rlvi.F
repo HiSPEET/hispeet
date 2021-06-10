@@ -5,13 +5,17 @@
 !===============================================================================
 
 module TPO__Elliptic__3D_RLVI
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RDP
   use TPO__Elliptic__3D_RLVI__Hand
   use TPO__Elliptic__3D_RLVI__XSMM
   implicit none
   private
 
   public :: TPO_Elliptic_RLVI
+
+  interface TPO_Elliptic_RLVI
+    module procedure TPO_Elliptic_RLVI_RDP
+  end interface
 
 contains
 
@@ -46,14 +50,14 @@ contains
   !>     g3 = dx(1) * dx(2) / (2 * dx(3))
   !>
 
-  subroutine TPO_Elliptic_RLVI(Ms, Ds, lambda, nu, dx, u, v)
-    real(RNP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
-    real(RNP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
-    real(RNP), intent(in)  :: lambda      !< Helmholtz parameter
-    real(RNP), intent(in)  :: nu(:,:,:,:) !< diffusivity           (np,np,np,ne)
-    real(RNP), intent(in)  :: dx(3)       !< element extensions
-    real(RNP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
-    real(RNP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
+  subroutine TPO_Elliptic_RLVI_RDP(Ms, Ds, lambda, nu, dx, u, v)
+    real(RDP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
+    real(RDP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
+    real(RDP), intent(in)  :: lambda      !< Helmholtz parameter
+    real(RDP), intent(in)  :: nu(:,:,:,:) !< diffusivity           (np,np,np,ne)
+    real(RDP), intent(in)  :: dx(3)       !< element extensions
+    real(RDP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
+    real(RDP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
 
     select case(size(Ms))
 
@@ -67,7 +71,7 @@ contains
 
     end select
 
-  end subroutine TPO_Elliptic_RLVI
+  end subroutine TPO_Elliptic_RLVI_RDP
 
   !=============================================================================
 

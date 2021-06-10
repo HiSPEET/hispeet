@@ -5,7 +5,7 @@
 !===============================================================================
 
 module TPO__Spectral__3D_CI
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RDP
   use TPO__Spectral__3D_CI__Hand
   use TPO__Spectral__3D_CI__XSMM
   implicit none
@@ -13,17 +13,20 @@ module TPO__Spectral__3D_CI
 
   public :: TPO_Spectral_CI
 
+  interface TPO_Spectral_CI
+    module procedure TPO_Spectral_CI_RDP
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
   !> 3D (SxSxS) Λ (SxSxS)ᵀ operator
 
-  subroutine TPO_Spectral_CI(S, Lambda, u, v)
-    use Kind_Parameters,  only: RNP
-    real(RNP), intent(in)  :: S(:,:)        !< 1D eigenvectors
-    real(RNP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues
-    real(RNP), intent(in)  :: u(:,:,:,:)    !< operand
-    real(RNP), intent(out) :: v(:,:,:,:)    !< result
+  subroutine TPO_Spectral_CI_RDP(S, Lambda, u, v)
+    real(RDP), intent(in)  :: S(:,:)        !< 1D eigenvectors
+    real(RDP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues
+    real(RDP), intent(in)  :: u(:,:,:,:)    !< operand
+    real(RDP), intent(out) :: v(:,:,:,:)    !< result
 
     select case(size(S,1))
 
@@ -37,7 +40,7 @@ contains
 
     end select
 
-  end subroutine TPO_Spectral_CI
+  end subroutine TPO_Spectral_CI_RDP
 
   !=============================================================================
 

@@ -3,16 +3,16 @@
 
 subroutine PROC(TPO_Spectral_CI_Hand__,_NP_)(ne, S, Lambda, u, v)
   integer,   intent(in)  :: ne                     !< num elements
-  real(RNP), intent(in)  :: S(_NP_,_NP_)           !< 1D eigenvectors
-  real(RNP), intent(in)  :: Lambda(_NP_,_NP_,_NP_) !< 3D eigenvalues
-  real(RNP), intent(in)  :: u(_NP_,_NP_,_NP_,ne)   !< operand
-  real(RNP), intent(out) :: v(_NP_,_NP_,_NP_,ne)   !< result
+  real(RWP), intent(in)  :: S(_NP_,_NP_)           !< 1D eigenvectors
+  real(RWP), intent(in)  :: Lambda(_NP_,_NP_,_NP_) !< 3D eigenvalues
+  real(RWP), intent(in)  :: u(_NP_,_NP_,_NP_,ne)   !< operand
+  real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne)   !< result
 
-  real(RNP), parameter :: alpha = 1
-  real(RNP), parameter :: beta  = 0
-  real(RNP) :: St(_NP_,_NP_)
-  real(RNP) :: z (_NP_,_NP_,_NP_)
-  real(RNP) :: tmp
+  real(RWP), parameter :: alpha = 1
+  real(RWP), parameter :: beta  = 0
+  real(RWP) :: St(_NP_,_NP_)
+  real(RWP) :: z (_NP_,_NP_,_NP_)
+  real(RWP) :: tmp
   integer   :: e, i, j, k, p
 
   !---------------------------------------------------------------------------

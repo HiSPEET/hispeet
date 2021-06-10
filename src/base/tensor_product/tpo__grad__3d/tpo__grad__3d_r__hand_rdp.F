@@ -24,10 +24,10 @@ contains
   subroutine TPO_Grad_R_Hand_RWP(np, ne, Ds, dx, u, v)
     integer,   intent(in)  :: np               !< num points per direction
     integer,   intent(in)  :: ne               !< num elements
-    real(RNP), intent(in)  :: Ds(np,np)        !< standard diff matrix
-    real(RNP), intent(in)  :: dx(3)            !< element extensions
-    real(RNP), intent(in)  :: u(np,np,np,ne)   !< 3D scalar field
-    real(RNP), intent(out) :: v(np,np,np,ne,3) !< element-wise gradient of u
+    real(RWP), intent(in)  :: Ds(np,np)        !< standard diff matrix
+    real(RWP), intent(in)  :: dx(3)            !< element extensions
+    real(RWP), intent(in)  :: u(np,np,np,ne)   !< 3D scalar field
+    real(RWP), intent(out) :: v(np,np,np,ne,3) !< element-wise gradient of u
 
     select case(np)
     case( 2)
