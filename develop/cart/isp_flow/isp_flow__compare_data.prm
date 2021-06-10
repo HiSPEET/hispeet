@@ -1,0 +1,6 @@
+&control
+  po            =     ! polynomial order
+  n_elem        =     ! number of elements per partition
+  ref_data_file = ''  ! restart files with reference data (*.fld)
+  tst_data_file = ''  ! restart files witj test data (*.fld)
+/
