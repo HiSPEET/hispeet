@@ -5,5 +5,6 @@
 !===============================================================================
 
 module TPO__Schwarz__3D_CI__XSMM
+  use TPO__Schwarz__3D_CI__XSMM_RSP
   use TPO__Schwarz__3D_CI__XSMM_RDP
 end module TPO__Schwarz__3D_CI__XSMM

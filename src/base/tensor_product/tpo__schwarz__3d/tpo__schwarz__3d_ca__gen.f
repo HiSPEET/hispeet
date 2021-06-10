@@ -5,5 +5,6 @@
 !===============================================================================
 
 module TPO__Schwarz__3D_CA__Gen
+  use TPO__Schwarz__3D_CA__Gen_RSP
   use TPO__Schwarz__3D_CA__Gen_RDP
 end module TPO__Schwarz__3D_CA__Gen

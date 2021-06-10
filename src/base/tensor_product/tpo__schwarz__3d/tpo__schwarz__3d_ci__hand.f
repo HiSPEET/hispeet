@@ -5,5 +5,6 @@
 !===============================================================================
 
 module TPO__Schwarz__3D_CI__Hand
+  use TPO__Schwarz__3D_CI__Hand_RSP
   use TPO__Schwarz__3D_CI__Hand_RDP
 end module TPO__Schwarz__3D_CI__Hand
