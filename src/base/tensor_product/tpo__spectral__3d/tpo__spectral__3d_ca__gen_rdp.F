@@ -17,6 +17,6 @@ module TPO__Spectral__3D_CA__Gen_RDP
 
 contains
 
-#include "tpo__spectral__3d_ca__hand_kernel.f"
+#include "tpo__spectral__3d_ca__gen_kernel.f"
 
 end module TPO__Spectral__3D_CA__Gen_RDP

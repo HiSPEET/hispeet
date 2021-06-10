@@ -124,12 +124,12 @@ program Validate__TPO__Schwarz__3D_CI
   !$omp parallel
   !$acc data copyin(S, W, cfg, D_inv, f) copyout(u) create(r)
 
-  call TPO_Schwarz_CI(S, W, cfg, D_inv, f, u)
+  call TPO_Schwarz(S, W, cfg, D_inv, f, u)
   !$acc wait
 
   call system_clock(count0, rate)
   do i = 1, nt
-    call TPO_Schwarz_CI(S, W, cfg, D_inv, f, u)
+    call TPO_Schwarz(S, W, cfg, D_inv, f, u)
     !$acc wait
   end do
   call system_clock(count)

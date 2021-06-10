@@ -13,7 +13,8 @@ module XMPI
   use XMPI__Integer_IXS
   use XMPI__Integer_IXL
   use XMPI__Logical
-  use XMPI__Real_RNP
+  use XMPI__Real_RSP
+  use XMPI__Real_RDP
 
   logical, private :: initialized = .false.
 

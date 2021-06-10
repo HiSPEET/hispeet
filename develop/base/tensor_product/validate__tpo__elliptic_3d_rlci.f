@@ -204,13 +204,13 @@ program Validate__TPO__Elliptic_3d_RLCI
     !$omp parallel
     !$acc data copyin(u) copyout(v)
 
-    call TPO_Elliptic_RLCI(Ms, Ls, lambda, nu, dx, u, v)
+    call TPO_Elliptic(Ms, Ls, lambda, nu, dx, u, v)
     !$acc wait
 
     call system_clock(count0, rate)
 
     do i = 1, nt
-      call TPO_Elliptic_RLCI(Ms, Ls, lambda, nu, dx, u, v)
+      call TPO_Elliptic(Ms, Ls, lambda, nu, dx, u, v)
       !$acc wait
     end do
 

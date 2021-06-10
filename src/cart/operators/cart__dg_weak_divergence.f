@@ -104,7 +104,7 @@ contains
 
     ! compute transposed divergence ............................................
 
-    call TPO_Div_R(Ds, mesh%dx, u, div_u)
+    call TPO_Div(Ds, mesh%dx, u, div_u)
 
     ! complete transfer ........................................................
 

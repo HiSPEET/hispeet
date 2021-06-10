@@ -100,7 +100,7 @@ module subroutine Apply_CI(this, u, v)
 
       ! apply element stiffness operator .......................................
 
-      call TPO_Elliptic_RLCI(eop%w, As, lambda, ONE, mesh%dx, u, v)
+      call TPO_Elliptic(eop%w, As, lambda, ONE, mesh%dx, u, v)
 
       ! finish generation of traces ............................................
 

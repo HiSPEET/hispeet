@@ -11,9 +11,9 @@ module TPO__RotRot__3D_R
   implicit none
   private
 
-  public :: TPO_RotRot_R
+  public :: TPO_RotRot
 
-  interface TPO_RotRot_R
+  interface TPO_RotRot
     module procedure TPO_RotRot_R_RDP
   end interface
 

@@ -11,9 +11,9 @@ module TPO__Spectral__3D_CI
   implicit none
   private
 
-  public :: TPO_Spectral_CI
+  public :: TPO_Spectral
 
-  interface TPO_Spectral_CI
+  interface TPO_Spectral
     module procedure TPO_Spectral_CI_RDP
   end interface
 

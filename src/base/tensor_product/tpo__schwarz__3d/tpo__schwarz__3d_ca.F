@@ -11,9 +11,9 @@ module TPO__Schwarz__3D_CA
   implicit none
   private
 
-  public :: TPO_Schwarz_CA
+  public :: TPO_Schwarz
 
-  interface TPO_Schwarz_CA
+  interface TPO_Schwarz
     module procedure TPO_Schwarz_CA_RDP
   end interface
 

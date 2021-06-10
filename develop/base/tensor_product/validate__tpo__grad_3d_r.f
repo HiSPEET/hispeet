@@ -173,12 +173,12 @@ program Validate__TPO__Grad__3D_R
     !$omp parallel
     !$acc data copyin(u) copyout(v)
 
-    call TPO_Grad_R(Ds, dx, u, v)
+    call TPO_Grad(Ds, dx, u, v)
     !$acc wait
 
     call system_clock(count0, rate)
     do i = 1, nt
-      call TPO_Grad_R(Ds, dx, u, v)
+      call TPO_Grad(Ds, dx, u, v)
       !$acc wait
     end do
 

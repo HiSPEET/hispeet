@@ -12,7 +12,7 @@ module TPO__Diagonal__3D
   public :: TPO_Diagonal
 
   interface TPO_Diagonal
-    module procedure TPO_Diagonal_CI
+    module procedure TPO_Diagonal_CI_RDP
   end interface
 
 end module TPO__Diagonal__3D

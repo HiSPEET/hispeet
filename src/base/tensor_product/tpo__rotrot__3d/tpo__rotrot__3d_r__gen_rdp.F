@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__RotRot__3D_R__Gen_RWP
+module TPO__RotRot__3D_R__Gen_RDP
   use Kind_Parameters, only: RWP => RDP
   implicit none
   private
@@ -19,4 +19,4 @@ contains
 
 #include "tpo__rotrot__3d_r__gen_kernel.f"
 
-end module TPO__RotRot__3D_R__Gen_RWP
+end module TPO__RotRot__3D_R__Gen_RDP

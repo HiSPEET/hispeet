@@ -30,14 +30,4 @@
 module TPO__Spectral__3D
   use TPO__Spectral__3D_CI
   use TPO__Spectral__3D_CA
-  implicit none
-  private
-
-  public :: TPO_Spectral
-
-  interface TPO_Spectral
-    module procedure TPO_Spectral_CI ! (S  x S  x S ) Λ (S  x S  x S )ᵀ
-    module procedure TPO_Spectral_CA ! (S₃ x S₂ x S₁) Λ (S₃ x S₂ x S₁)ᵀ
-  end interface
-
 end module TPO__Spectral__3D

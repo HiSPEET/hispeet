@@ -113,7 +113,7 @@ contains
 
     ! compute transposed gradient ..............................................
 
-    call TPO_Grad_R(Dm, mesh%dx, u, grad_u)
+    call TPO_Grad(Dm, mesh%dx, u, grad_u)
 
     ! complete transfer ........................................................
 

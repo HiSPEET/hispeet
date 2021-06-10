@@ -22,10 +22,10 @@ contains
   !> Isotropic spectral operator based on handcrafted kernels (I)
 
   subroutine TPO_Spectral_CI_Hand_RWP(S, Lambda, u, v)
-    real(RDP), intent(in)  :: S(:,:)        !< 1D eigenvectors
-    real(RDP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues
-    real(RDP), intent(in)  :: u(:,:,:,:)    !< operand
-    real(RDP), intent(out) :: v(:,:,:,:)    !< result
+    real(RWP), intent(in)  :: S(:,:)        !< 1D eigenvectors
+    real(RWP), intent(in)  :: Lambda(:,:,:) !< 3D eigenvalues
+    real(RWP), intent(in)  :: u(:,:,:,:)    !< operand
+    real(RWP), intent(out) :: v(:,:,:,:)    !< result
 
     integer :: np, ne
 

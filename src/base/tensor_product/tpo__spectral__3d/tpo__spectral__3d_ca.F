@@ -12,9 +12,9 @@ module TPO__Spectral__3D_CA
   implicit none
   private
 
-  public :: TPO_Spectral_CA
+  public :: TPO_Spectral
 
-  interface TPO_Spectral_CA
+  interface TPO_Spectral
     module procedure TPO_Spectral_CA_RDP
   end interface
 

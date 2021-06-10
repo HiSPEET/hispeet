@@ -280,8 +280,8 @@ contains
           call WeakGradient(mesh, Ms, Ds, v(:,:,:,:,c), g)
 !x! !!! save once loading q !!!
 !x!          call ScaleArray(g, nu(c), multi=.true.)
-!x!          call TPO_Div_R(Ds, mesh%dx, g, q)
-          call TPO_Div_R(nu(c) * Ds, mesh%dx, g, q)
+!x!          call TPO_Div(Ds, mesh%dx, g, q)
+          call TPO_Div(nu(c) * Ds, mesh%dx, g, q)
           if (present(F)) then
             call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
           end if
@@ -299,8 +299,8 @@ contains
         call WeakDivergence(mesh, Ms, Ds, v, q)
 !x! !!! save once loading q !!!
 !x!        call ScaleArray(q, sum(nu(1:3))/3)
-!x!        call TPO_Grad_R(Ds, mesh%dx, q, g)
-        call TPO_Grad_R(sum(nu(1:3))/3 * Ds, mesh%dx, q, g)
+!x!        call TPO_Grad(Ds, mesh%dx, q, g)
+        call TPO_Grad(sum(nu(1:3))/3 * Ds, mesh%dx, q, g)
         if (present(F)) then
           call MergeArrays(ONE, F(:,:,:,:,1:3), 1+chi, g, multi=.true.)
         end if
@@ -353,9 +353,9 @@ contains
 
       do c = 5, nc
 !x! !!! save once loading q !!!
-!x!        call TPO_Grad_R(Ds, mesh%dx, u(:,:,:,:,c), w)
+!x!        call TPO_Grad(Ds, mesh%dx, u(:,:,:,:,c), w)
 !x!        call ScaleArray(g, nu(c), multi=.true.)
-        call TPO_Grad_R(nu(c) * Ds, mesh%dx, u(:,:,:,:,c), w)
+        call TPO_Grad(nu(c) * Ds, mesh%dx, u(:,:,:,:,c), w)
         call WeakDivergence(mesh, Ms, Ds, g, q)
         if (present(F)) then
           call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
@@ -423,7 +423,7 @@ contains
         do c = 1, 3
           Bs = nu(c) * Ds + nu_svv(c) * Ds_svv
           ! computes the gradient scaled with the viscosity ν∇v + νˢQ∇v
-          call TPO_Grad_R(Bs, mesh%dx, v(:,:,:,:,c), g)
+          call TPO_Grad(Bs, mesh%dx, v(:,:,:,:,c), g)
           call WeakDivergence(mesh, Ms, Ds, g, q)
           if (present(F)) then
             call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
@@ -442,8 +442,8 @@ contains
         call WeakDivergence(mesh, Ms, Ds, v, q)
 !x! !!! save once loading q !!!
 !x!        call ScaleArray(q, sum(nu(1:3))/3)
-!x!        call TPO_Grad_R(Ds, mesh%dx, q, g)
-        call TPO_Grad_R(sum(nu(1:3))/3 * Ds, mesh%dx, q, g)
+!x!        call TPO_Grad(Ds, mesh%dx, q, g)
+        call TPO_Grad(sum(nu(1:3))/3 * Ds, mesh%dx, q, g)
         if (present(F)) then
           call MergeArrays(ONE, F(:,:,:,:,1:3), 1+chi, g, multi=.true.)
         end if
@@ -503,7 +503,7 @@ contains
       do c = 5, nc
         Bs = nu(c) * Ds + nu_svv(c) * Ds_svv
         ! computes the gradient scaled with the viscosity ν∇v + νˢQ∇v
-        call TPO_Grad_R(Bs(:,:), mesh%dx, u(:,:,:,:,c), w)
+        call TPO_Grad(Bs(:,:), mesh%dx, u(:,:,:,:,c), w)
         call WeakDivergence(mesh, Ms, Ds, g, q)
         if (present(F)) then
           call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
@@ -566,7 +566,7 @@ contains
 
     ! grad_v(d,c) = ∂ v_c / ∂ x_d,  i.e.  grad_v = ∇v
     do c = 1, 3
-      call TPO_Grad_R(Ds, mesh%dx, v(:,:,:,:,c), grad_v(:,:,:,:,:,c))
+      call TPO_Grad(Ds, mesh%dx, v(:,:,:,:,c), grad_v(:,:,:,:,:,c))
     end do
 
     associate(g => w(:,:,:,:,1:3), q => w(:,:,:,:,4))
@@ -713,7 +713,7 @@ contains
 
       do c = 5, nc
 
-        call TPO_Grad_R(Ds, mesh%dx, u(:,:,:,:,c), g)
+        call TPO_Grad(Ds, mesh%dx, u(:,:,:,:,c), g)
 
         do d = 1, 3
           !$omp do

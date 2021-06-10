@@ -102,13 +102,13 @@ program Validate__TPO__Spectral__3D_CI
   !$acc data copyin(u,S,Lambda) copyout(v) create(w)
   !$omp parallel
 
-  call TPO_Spectral_CI(S, Lambda, u, v)
+  call TPO_Spectral(S, Lambda, u, v)
   !$acc wait
 
   call system_clock(count0, rate)
 
   do i = 1, nt
-    call TPO_Spectral_CI(S, Lambda, u, v)
+    call TPO_Spectral(S, Lambda, u, v)
     !$acc wait
   end do
 

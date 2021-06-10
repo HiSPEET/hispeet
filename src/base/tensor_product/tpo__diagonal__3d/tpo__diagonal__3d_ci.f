@@ -10,11 +10,7 @@ module TPO__Diagonal__3D_CI
   implicit none
   private
 
-  public :: TPO_Diagonal_CI
-
-  interface TPO_Diagonal_CI
-    module procedure TPO_Diagonal_CI_RDP
-  end interface
+  public :: TPO_Diagonal_CI_RDP
 
 contains
 

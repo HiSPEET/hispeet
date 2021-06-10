@@ -17,6 +17,6 @@ module TPO__Div__3D_R__Gen_RDP
 
 contains
 
-#include "tpo__div__3d__gen_kernel.f"
+#include "tpo__div__3d_r__gen_kernel.f"
 
 end module TPO__Div__3D_R__Gen_RDP

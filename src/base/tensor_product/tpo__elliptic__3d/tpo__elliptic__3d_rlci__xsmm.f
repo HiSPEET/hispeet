@@ -5,5 +5,5 @@
 !===============================================================================
 
 module TPO__Elliptic__3D_RLCI__XSMM
-  use module TPO__Elliptic__3D_RLCI__XSMM_RDP
+  use TPO__Elliptic__3D_RLCI__XSMM_RDP
 end module TPO__Elliptic__3D_RLCI__XSMM

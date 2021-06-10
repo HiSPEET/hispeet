@@ -45,14 +45,4 @@
 module TPO__Schwarz__3D
   use TPO__Schwarz__3D_CI
   use TPO__Schwarz__3D_CA
-  implicit none
-  private
-
-  public :: TPO_Schwarz
-
-  interface TPO_Schwarz
-    module procedure TPO_Schwarz_CI ! (W S  x W S  x W S ) D⁻¹ (S  x S  x S )ᵀ
-    module procedure TPO_Schwarz_CA ! (W₃S₃ x W₂S₂ x W₁S₁) D⁻¹ (S₃ x S₂ x S₁)ᵀ
-  end interface
-
 end module TPO__Schwarz__3D

@@ -9,7 +9,7 @@ program Validate__TPO_Elliptic_RLVI
   use Standard_Operators__1D
   use TPO__Elliptic__3D_RLVI
   use TPO__Elliptic__3D_RLVI__Gen
-  
+
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -210,13 +210,13 @@ program Validate__TPO_Elliptic_RLVI
     !$omp parallel
     !$acc data copyin(nu, u) copyout(v)
 
-    call TPO_Elliptic_RLVI(Ms, Ds, lambda, nu, dx, u, v)
+    call TPO_Elliptic(Ms, Ds, lambda, nu, dx, u, v)
     !$acc wait
 
     call system_clock(count0, rate)
 
     do i = 1, nt
-      call TPO_Elliptic_RLVI(Ms, Ds, lambda, nu, dx, u, v)
+      call TPO_Elliptic(Ms, Ds, lambda, nu, dx, u, v)
       !$acc wait
     end do
 
