@@ -1,11 +1,11 @@
-!> summary:  Validation of 3d constant isotropic Schwarz TPO
+!> summary:  Validation of 3d constant isotropic Schwarz TPO for real(RSP)
 !> author:   Joerg Stiller
 !> date:     2020/06/03
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-program Validate__TPO__Schwarz__3D_CI
-  use Kind_Parameters,   only: IXL, RNP
+program Validate__TPO__Schwarz__3D_CI_RSP
+  use Kind_Parameters,   only: IXL, RDP, RSP
   use Constants,         only: ZERO
   use Array_Assignments, only: SetArray
 
@@ -28,20 +28,20 @@ program Validate__TPO__Schwarz__3D_CI
 
   ! operators and operands .....................................................
 
-  real(RNP), allocatable :: S(:,:,:), W(:,:)
-  real(RNP), allocatable :: D_inv(:,:,:,:)
+  real(RSP), allocatable :: S(:,:,:), W(:,:)
+  real(RSP), allocatable :: D_inv(:,:,:,:)
   integer,   allocatable :: cfg(:,:)
 
-  real(RNP), allocatable :: f(:,:,:,:), u(:,:,:,:), r(:,:,:,:)
+  real(RSP), allocatable :: f(:,:,:,:), u(:,:,:,:), r(:,:,:,:)
 
   ! auxiliary ..................................................................
 
   character(len=80) :: input_file = 'validate__tpo__schwarz_3d_ci.prm'
 
-  real(RNP) :: time
-  real(RNP) :: error_gen, mflops_gen, mlups_gen
-  real(RNP) :: error_opt, mflops_opt, mlups_opt
-  real(RNP) :: c(3)
+  real(RDP) :: time
+  real(RDP) :: error_gen, mflops_gen, mlups_gen
+  real(RDP) :: error_opt, mflops_opt, mlups_opt
+  real(RDP) :: c(3)
 
   logical :: exists
   integer :: nflop, nop, prm
@@ -73,11 +73,11 @@ program Validate__TPO__Schwarz__3D_CI
   do i = 1, nd
     call random_number(c)
     cfg(:,i) = max(1, min(nc, int(nc*c + 1)))
+    D_inv (:,:,:,i) = ZERO
+    u     (:,:,:,i) = ZERO
+    r     (:,:,:,i) = ZERO
+    f     (:,:,:,i) = ZERO
   end do
-  call SetArray(D_inv, ZERO)
-  call SetArray(u    , ZERO)
-  call SetArray(r    , ZERO)
-  call SetArray(f    , ZERO)
   !$omp end parallel
 
   call random_number(S)
@@ -110,7 +110,7 @@ program Validate__TPO__Schwarz__3D_CI
   !$acc end data
   !$omp end parallel
 
-  time = (count - count0) / real(rate, RNP) / nt
+  time = (count - count0) / real(rate, RDP) / nt
 
   error_gen  = maxval(abs(u - r))
   mflops_gen = 1E-6 / time * nd * nflop
@@ -137,7 +137,7 @@ program Validate__TPO__Schwarz__3D_CI
   !$acc end data
   !$omp end parallel
 
-  time = (count - count0) / real(rate, RNP) / nt
+  time = (count - count0) / real(rate, RDP) / nt
 
   error_opt  = maxval(abs(u - r))
   mflops_opt = 1E-6 / time * nd * nflop
@@ -146,7 +146,7 @@ program Validate__TPO__Schwarz__3D_CI
   !-----------------------------------------------------------------------------
   ! print results
 
-  write(*,'(/,A,/)') 'Constant isotropic Schwarz operator'
+  write(*,'(/,A,/)') 'Constant isotropic Schwarz operator, real(RSP)'
 
   write(*,'(3A)') '#                        ',   &
                   '   ------------ generic ------------',  &
@@ -163,4 +163,4 @@ program Validate__TPO__Schwarz__3D_CI
 
 !===============================================================================
 
-end program Validate__TPO__Schwarz__3D_CI
+end program Validate__TPO__Schwarz__3D_CI_RSP

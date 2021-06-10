@@ -44,7 +44,6 @@ contains
     real(RSP) :: WS_t ( size(S,1), size(S,2), size(S,3) )
     real(RSP) :: y    ( size(f,1), size(f,2), size(f,3) )
     real(RSP) :: z    ( size(f,1), size(f,2), size(f,3) )
-    real(RSP) :: tmp
 
     integer :: nc, nd, np
     integer :: i, j, k, l, p

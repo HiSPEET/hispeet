@@ -44,7 +44,6 @@ contains
     real(RDP) :: WS_t ( size(S,1), size(S,2), size(S,3) )
     real(RDP) :: y    ( size(f,1), size(f,2), size(f,3) )
     real(RDP) :: z    ( size(f,1), size(f,2), size(f,3) )
-    real(RDP) :: tmp
 
     integer :: nc, nd, np
     integer :: i, j, k, l, p

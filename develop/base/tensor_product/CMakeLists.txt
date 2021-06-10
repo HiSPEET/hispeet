@@ -100,10 +100,15 @@ configure_file( validate__tpo__spectral_3d_ca.prm
 #===============================================================================
 # TPO Schwarz CI
 
-add_executable( validate__tpo__schwarz_3d_ci
-                validate__tpo__schwarz_3d_ci.f )
+add_executable( validate__tpo__schwarz_3d_ci_rdp
+                validate__tpo__schwarz_3d_ci_rdp.f )
 
-target_link_libraries(validate__tpo__schwarz_3d_ci HiBase)
+target_link_libraries(validate__tpo__schwarz_3d_ci_rdp HiBase)
+
+add_executable( validate__tpo__schwarz_3d_ci_rsp
+                validate__tpo__schwarz_3d_ci_rsp.f )
+
+target_link_libraries(validate__tpo__schwarz_3d_ci_rsp HiBase)
 
 configure_file( validate__tpo__schwarz_3d_ci.prm
                 validate__tpo__schwarz_3d_ci.prm COPYONLY )
