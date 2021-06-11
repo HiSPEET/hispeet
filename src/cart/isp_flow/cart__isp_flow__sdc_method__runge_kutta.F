@@ -327,6 +327,11 @@ contains
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d1, F_d2, F_d3
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_p, F_s
     real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: nu
+    
+    !new    
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: G_rk_ex
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: G_rk_im 
+    !end new
 
     real(RNP), save :: t_0 = -huge(ONE)
     logical,   save :: fsal
@@ -376,7 +381,13 @@ contains
       ! time
       t_0 = t
       t   = t + dt
-
+      
+      !new
+      allocate(G_rk_ex, mold = u_sdc)
+      allocate(G_rk_im, mold = u_sdc)
+      !endnew
+      
+      
       !$omp end single
 
       ! stage 1 ................................................................
@@ -415,7 +426,11 @@ contains
 
 !TODO! interpolation of  F_im/ex^k(*,i)              using this%l_rk(:,:,i)
 
-
+       !new
+       G_rk_im(:,:,:,:,:,1) = F_sdc_im_new(:,:,:,:,:,m-1) - F_sdc_im(:,:,:,:,:,m-1)
+       G_rk_ex(:,:,:,:,:,1) = F_sdc_ex_new(:,:,:,:,:,m-1) - F_sdc_ex(:,:,:,:,:,m-1)
+       !endnew
+       
       ! stages 2 to n_stage ....................................................
 
       do i = 2, n_stage
@@ -424,13 +439,28 @@ contains
 !TODO! add computation   of  S_i = \int_{t_0}^{t_i} F^k  using this%w_rk(:,:,i)
 !TODO! if t_i = t → S_i = S
 
+!new
+!nicht fertig!
+     do l = 0, m     
+      G_rk_im(:,:,:,:,:,i) = L(l, t_i) *  F_sdc_im(:,:,:,:,:,l)   !wie machen die Interpolation
+      G_rk_ex(:,:,:,:,:,i) = L(l, t_i) *  F_sdc_ex(:,:,:,:,:,l)  
+     end do
+     
+     G_rk_im(:,:,:,:,:,i) = - G_rk_im(:,:,:,:,:,i)
+     G_rk_ex(:,:,:,:,:,i) = - G_rk_ex(:,:,:,:,:,i)
+!endnew
+
         if (this%diffusion == 1 .or. this%diffusion == 3 .and. i < n_stage) then
 !TODO! modify to act as a corrector. ATTENTION: argument list needs to be adapted
-          call RungeKuttaStage_d1( this, i, t_i, dt, nu, u, u_i, S_i  &
-                                 , F_c, F_d1, F_d2, F_d3, F_p, F_s    )
+!old        call RungeKuttaStage_d1( this, i, t_i, dt, nu, u, u_i, S_i  &
+!old                                 , F_c, F_d1, F_d2, F_d3, F_p, F_s    )
+          call RungeKuttaStage_d1( this, i, t_i, dt, nu, u, u_i &
+                                , F_c, F_d1, F_d2, F_d3, F_p, F_s    )
         else
 !TODO! LATER: modify to act as a corrector
-          call RungeKuttaStage_d2( this, i, t_i, dt, nu, u, u_i, S_i  &
+!old         call RungeKuttaStage_d2( this, i, t_i, dt, nu, u, u_i, S_i  &
+!old                                 , F_c, F_d1, F_d2, F_d3, F_p, F_s    )
+         call RungeKuttaStage_d2( this, i, t_i, dt, nu, u, u_i  &
                                  , F_c, F_d1, F_d2, F_d3, F_p, F_s    )
         end if
       end do
