@@ -252,7 +252,7 @@ For example, this is how `libxsmm` was included:
     git commit -m 'added libxsmm submodule'
 
 Note that the submodules must be manually intialized, see [Cloning](#cloning) above.
-Also you may wish to update the submodules from the external repository, e.g.
+To update the submodules from external repositories use
 
-    git submodule update
+    git submodule update --recursive --remote
 
