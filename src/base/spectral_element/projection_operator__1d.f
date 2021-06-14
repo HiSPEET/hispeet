@@ -99,19 +99,19 @@ subroutine Init_SX(this, eop, xq, wq, dx)
       case('GL ') ! Gauss-Legendre
         do k = 1, nq
         do i = 0, po
-          MA(i,k) = GL_Polynomial(i, xo, xq(k)) * wq(k)
+          MA(i,k) = GaussPolynomial(i, xo, xq(k)) * wq(k)
         end do
         end do
       case('GRL') ! Gauss-Radau-Legendre
         do k = 1, nq
         do i = 0, po
-          MA(i,k) = GRL_Polynomial(i, xo, xq(k)) * wq(k)
+          MA(i,k) = RadauPolynomial(i, xo, xq(k)) * wq(k)
         end do
         end do
       case default
         do k = 1, nq
         do i = 0, po
-          MA(i,k) = GLL_Polynomial(i, xo, xq(k)) * wq(k)
+          MA(i,k) = LobattoPolynomial(i, xo, xq(k)) * wq(k)
         end do
         end do
       end select

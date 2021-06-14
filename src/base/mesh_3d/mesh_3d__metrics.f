@@ -70,7 +70,7 @@ contains
   function New_Mesh3d_Metrics(mesh, po, basis) result(this)
     class(Mesh3d_Partition), target, intent(in) :: mesh  !< mesh partition
     integer,                         intent(in) :: po    !< polynomial order
-    character(len=*),      optional, intent(in) :: basis !< 'GL' or 'GLL' ['GLL']
+    character,             optional, intent(in) :: basis !< 'G' or 'L' ['L']
 
     type(Mesh3d_Metrics) :: this
 
@@ -87,7 +87,7 @@ contains
 
     class(Mesh3d_Partition), target, intent(in) :: mesh  !< mesh partition
     integer,                         intent(in) :: po    !< polynomial order
-    character(len=*),      optional, intent(in) :: basis !< 'GL' or 'GLL' ['GLL']
+    character,             optional, intent(in) :: basis !< 'G' or 'L' ['L']
 
     ! local variables ..........................................................
 

@@ -1,14 +1,12 @@
-!> summary:  Unit test for GL/GLL/GRL-Routines from the Gauss_Jacobi
+!> summary:  Unit test for Gauss/Lobatto/Radau-Routines from the Gauss_Jacobi
 !> author:   Susanne Stimpert, Joerg Stiller
 !> date:     2015/01/23
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Unit test for GL/GLL/GRL-Routines from the Gauss_Jacobi
-!>
-!> Test of the functions GL/GLL_Points, GL/GLL_Weights, GL/GLL_DiffMatrix and
-!> GL/GLL_Polynomial from the Gauss_Jacobi module in [-1, 1] with the polynomial
-!> degree p ranging from 1 to 15. TestFunc is a non-symmmetric polynomial test
-!> function of degree p which satisfies
+!> Test of the functions {Gauss|Lobatto}{Points|Weights|DiffMatrix|Polynomial}
+!> from the Gauss_Jacobi module in [-1, 1] with the polynomial degree p ranging
+!> from 1 to 15. TestFunc is a non-symmmetric polynomial test function of degree
+!> p which satisfies
 !>
 !>   *  \( TestFunc(-1, p) = TestFunc(1, p) = 0 \)  and
 !>
@@ -34,19 +32,19 @@ contains
 @test
 
 !-------------------------------------------------------------------------------
-!> Test of the functions GL_Points and GL_DiffMatrix
+!> Test of the functions GaussPoints and GaussDiffMatrix
 
-subroutine GL_Differentiation()
+subroutine GaussDifferentiation()
 
   integer :: p, i
   real(RNP), allocatable :: x(:), f(:), df(:), df_exact(:), d(:,:)
 
-  write(*,'(A)') 'Testing GL  differentiation'
+  write(*,'(A)') 'Testing Gauss differentiation'
 
   do p = 1, P_MAX
      allocate(x(0:p), f(0:p), df(0:p), df_exact(0:p), d(0:p, 0:p))
-     x = GL_Points(p)
-     d = GL_DiffMatrix(x)
+     x = GaussPoints(p)
+     d = GaussDiffMatrix(x)
 
      do i = 0, p
         f(i) = TestFunc(x(i), p)
@@ -63,24 +61,24 @@ subroutine GL_Differentiation()
      deallocate(x, f, df, df_exact, d)
   end do
 
-end subroutine GL_Differentiation
+end subroutine GaussDifferentiation
 
 @test
 
 !-------------------------------------------------------------------------------
-!> Test of the functions GLL_Points and GLL_DiffMatrix
+!> Test of the functions LobattoPoints and LobattoDiffMatrix
 
-subroutine GLL_Differentiation()
+subroutine LobattoDifferentiation()
 
   integer :: p, i
   real(RNP), allocatable :: x(:), f(:), df(:), df_exact(:), d(:,:)
 
-  write(*,'(A)') 'Testing GLL differentiation'
+  write(*,'(A)') 'Testing Lobatto differentiation'
 
   do p = 1, P_MAX
      allocate(x(0:p), f(0:p), df(0:p), df_exact(0:p), d(0:p, 0:p))
-     x = GLL_Points(p)
-     d = GLL_DiffMatrix(x)
+     x = LobattoPoints(p)
+     d = LobattoDiffMatrix(x)
 
      do i = 0, p
         f(i) = TestFunc(x(i), p)
@@ -97,24 +95,24 @@ subroutine GLL_Differentiation()
      deallocate(x, f, df, df_exact, d)
   end do
 
-end subroutine GLL_Differentiation
+end subroutine LobattoDifferentiation
 
 @test
 
 !-------------------------------------------------------------------------------
-!> Test of the functions GRL_Points and GRL_DiffMatrix
+!> Test of the functions RadauPoints and RadauDiffMatrix
 
-subroutine GRL_Differentiation()
+subroutine RadauDifferentiation()
 
   integer :: p, i
   real(RNP), allocatable :: x(:), f(:), df(:), df_exact(:), d(:,:)
 
-  write(*,'(A)') 'Testing GRL differentiation'
+  write(*,'(A)') 'Testing Radau differentiation'
 
   do p = 1, P_MAX
      allocate(x(0:p), f(0:p), df(0:p), df_exact(0:p), d(0:p, 0:p))
-     x = GRL_Points(p)
-     d = GRL_DiffMatrix(x)
+     x = RadauPoints(p)
+     d = RadauDiffMatrix(x)
 
      do i = 0, p
         f(i) = TestFunc(x(i), p)
@@ -131,25 +129,25 @@ subroutine GRL_Differentiation()
      deallocate(x, f, df, df_exact, d)
   end do
 
-end subroutine GRL_Differentiation
+end subroutine RadauDifferentiation
 
 @test
 
 !-------------------------------------------------------------------------------
-!> Test of the functions GL_Points and GL_Weights
+!> Test of the functions GaussPoints and GaussWeights
 
-subroutine GL_Integration()
+subroutine GaussIntegration()
 
   integer :: p, i
   real(RNP), allocatable :: x(:), w(:)
   real(RNP) :: Inum
 
-  write(*,'(A)') 'Testing GL  quadrature'
+  write(*,'(A)') 'Testing Gauss quadrature'
 
   do p = 1, P_MAX
      allocate(x(0:p), w(0:p))
-     x = GL_Points(p)
-     w = GL_weights(x)
+     x = GaussPoints(p)
+     w = GaussWeights(x)
 
      Inum = sum([ (TestFunc(x(i), p) * w(i), i = 0, p) ])
      deviation = abs(1 - Inum)
@@ -158,24 +156,24 @@ subroutine GL_Integration()
      deallocate(x, w)
   end do
 
-end subroutine GL_Integration
+end subroutine GaussIntegration
 
 @test
 
 !-------------------------------------------------------------------------------
-!> Test of the functions GLL_Points and GLL_Weights
+!> Test of the functions LobattoPoints and LobattoWeights
 
-subroutine GLL_Integration()
+subroutine LobattoIntegration()
   integer :: p, i
   real(RNP), allocatable :: x(:), w(:)
   real(RNP) :: Inum
 
-  write(*,'(A)') 'Testing GLL quadrature'
+  write(*,'(A)') 'Testing Lobatto quadrature'
 
   do p = 1, P_MAX
      allocate(x(0:p), w(0:p))
-     x = GLL_Points(p)
-     w = GLL_weights(x)
+     x = LobattoPoints(p)
+     w = Lobattoweights(x)
 
      Inum = sum([ (TestFunc(x(i), p) * w(i), i = 0, p) ])
      deviation = abs(1 - Inum)
@@ -184,25 +182,25 @@ subroutine GLL_Integration()
      deallocate(x, w)
   end do
 
-end subroutine GLL_Integration
+end subroutine LobattoIntegration
 
 @test
 
 !-------------------------------------------------------------------------------
-!> Test of the functions GRL_Points and GRL_Weights
+!> Test of the functions RadauPoints and RadauWeights
 
-subroutine GRL_Integration()
+subroutine RadauIntegration()
 
   integer :: p, i
   real(RNP), allocatable :: x(:), w(:)
   real(RNP) :: Inum
 
-  write(*,'(A)') 'Testing GRL quadrature'
+  write(*,'(A)') 'Testing Radau quadrature'
 
   do p = 1, P_MAX
      allocate(x(0:p), w(0:p))
-     x = GRL_Points(p)
-     w = GRL_weights(x)
+     x = RadauPoints(p)
+     w = Radauweights(x)
 
      Inum = sum([ (TestFunc(x(i), p) * w(i), i = 0, p) ])
      deviation = abs(1 - Inum)
@@ -211,28 +209,28 @@ subroutine GRL_Integration()
      deallocate(x, w)
   end do
 
-end subroutine GRL_Integration
+end subroutine RadauIntegration
 
 @test
 
 !-------------------------------------------------------------------------------
-!> Test of the functions GL_Points and GL_Polynomial
+!> Test of the functions GaussPoints and GaussPolynomial
 
-subroutine GL_Interpolation()
+subroutine GaussInterpolation()
   integer :: p, i
   real(RNP), allocatable :: x(:)
   real(RNP) :: f_int, x_int
 
-  write(*,'(A)') 'Testing GL  interpolation'
+  write(*,'(A)') 'Testing Gauss interpolation'
 
   do p = 1, P_MAX
      allocate(x(0:p))
-     x = GL_Points(p)
+     x = GaussPoints(p)
      x_int = THIRD * (TWO * x(p/2) + x(p/2 + 1))
 
      f_int = 0
      do i = 0, p
-        f_int = f_int + TestFunc(x(i), p) * GL_Polynomial(i, x, x_int)
+        f_int = f_int + TestFunc(x(i), p) * GaussPolynomial(i, x, x_int)
      end do
 
      deviation = abs(TestFunc(x_int, p) - f_int )
@@ -241,28 +239,28 @@ subroutine GL_Interpolation()
      deallocate(x)
   end do
 
-end subroutine GL_Interpolation
+end subroutine GaussInterpolation
 
 @test
 
 !-------------------------------------------------------------------------------
-!> Test of the functions GLL_Points and GLL_Polynomial
+!> Test of the functions LobattoPoints and LobattoPolynomial
 
-subroutine GLL_Interpolation()
+subroutine LobattoInterpolation()
   integer :: p, i
   real(RNP), allocatable :: x(:)
   real(RNP) :: f_int, x_int
 
-  write(*,'(A)') 'Testing GLL interpolation'
+  write(*,'(A)') 'Testing Lobatto interpolation'
 
   do p = 1, P_MAX
      allocate(x(0:p))
-     x = GLL_Points(p)
+     x = LobattoPoints(p)
      x_int = THIRD * (TWO * x(p/2) + x(p/2 + 1))
 
      f_int = 0
      do i = 0, p
-        f_int = f_int + TestFunc(x(i), p) * GLL_Polynomial(i, x, x_int)
+        f_int = f_int + TestFunc(x(i), p) * LobattoPolynomial(i, x, x_int)
      end do
 
      deviation = abs(TestFunc(x_int, p) - f_int)
@@ -271,28 +269,28 @@ subroutine GLL_Interpolation()
      deallocate(x)
   end do
 
-end subroutine GLL_Interpolation
+end subroutine LobattoInterpolation
 
 @test
 
 !-------------------------------------------------------------------------------
-!> Test of the functions GRL_Points and GRL_Polynomial
+!> Test of the functions RadauPoints and RadauPolynomial
 
-subroutine GRL_Interpolation()
+subroutine RadauInterpolation()
   integer :: p, i
   real(RNP), allocatable :: x(:)
   real(RNP) :: f_int, x_int
 
-  write(*,'(A)') 'Testing GRL interpolation'
+  write(*,'(A)') 'Testing Radau interpolation'
 
   do p = 1, P_MAX
      allocate(x(0:p))
-     x = GRL_Points(p)
+     x = RadauPoints(p)
      x_int = THIRD * (TWO * x(p/2) + x(p/2 + 1))
 
      f_int = 0
      do i = 0, p
-        f_int = f_int + TestFunc(x(i), p) * GRL_Polynomial(i, x, x_int)
+        f_int = f_int + TestFunc(x(i), p) * RadauPolynomial(i, x, x_int)
      end do
 
      deviation = abs(TestFunc(x_int, p) - f_int)
@@ -301,7 +299,7 @@ subroutine GRL_Interpolation()
      deallocate(x)
   end do
 
-end subroutine GRL_Interpolation
+end subroutine RadauInterpolation
 
 !===============================================================================
 ! test function

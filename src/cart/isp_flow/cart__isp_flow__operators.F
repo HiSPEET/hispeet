@@ -6,8 +6,8 @@
 
 module CART__ISP_Flow__Operators
 
-  use Kind_Parameters,           only: RNP
-  use Constants,                 only: ZERO, ONE
+  use Kind_Parameters, only: RNP
+  use Constants,       only: ZERO, ONE
   use XMPI
 
   use Standard_Operators__1D
@@ -206,7 +206,7 @@ contains
     end if
 
     this % mesh => mesh
-    call mesh % GetPoints(po_u, 'GLL', this % x)
+    call mesh % GetPoints(po_u, 'L', this % x)
     allocate(this % bv_x(mesh%n_boundary))
     allocate(this % bv_u(mesh%n_boundary))
     call GetBoundaryPoints(mesh, this % x, this % bv_x)

@@ -685,8 +685,8 @@ contains
     real(RNP), dimension(0 : mesh%p_geom) :: x1, x2, x3, ys
     integer :: e, i, j, k, r, s, t
 
-    ! GLL points transformed to [-1,0]
-    ys = (GLL_Points(mesh % p_geom) - 1) / 2
+    ! Lobatto points transformed to [-1,0]
+    ys = (LobattoPoints(mesh % p_geom) - 1) / 2
 
     associate( n1 => mesh % n_elem_1  &
              , n2 => mesh % n_elem_2  &

@@ -2,8 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2019/03/14
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>###   Spectral deferred correction base type
 !===============================================================================
 
 module Spectral_Deferred_Correction
@@ -27,7 +25,7 @@ module Spectral_Deferred_Correction
   !> subintervals `[τᵢ₋₁,τᵢ]`. Two choices exist for the  point set `{τᵢ}`:
   !>
   !>   1) the equidistant partition of `[0,1]`, or
-  !>   2) the Gauss-Legendre-Lobatto (GLL) points mapped to `[0,1]`.
+  !>   2) the Gauss-Legendre-Lobatto (L) points mapped to `[0,1]`.
   !>
   !> Within the type, `t(i) = τᵢ` represents the i-th point, `w(i) = wᵢ` the
   !> corresponding quadrature weight and `n_sub = M` the number of subintervals.
@@ -36,7 +34,7 @@ module Spectral_Deferred_Correction
   !>   \[ \int_{0}^{1} f d\tau \approx \sum_{i=0}^{M} w_i\, f(\tau_i) \]
   !>
   !> The quadrature will be exact for polynomials of degree `M` with equidistant
-  !> points and degree `2M-1` with GLL points.
+  !> points and degree `2M-1` with Lobatto points.
   !>
   !> Similarly, integrals over the subintervals `[τᵢ₋₁,τᵢ]` can be evaluated by
   !>
@@ -47,14 +45,14 @@ module Spectral_Deferred_Correction
   !>   \]
   !>
   !> where the weights \(w^s_{j,i}\), denoted `ws(j,i)` in Fortran, are obtained
-  !> by application of the GLL quadrature with `M+1` points to the Lagrange
+  !> by application of the Lobatto quadrature with `M+1` points to the Lagrange
   !> interpolant constructed from `f(τᵢ)`.
 
   type SDC_Method
 
     integer :: n_sub   = -1  !< number of subintervals (M)
     integer :: n_sweep = -1  !< max num correction sweeps (K)
-    integer :: set     = -1  !< equidistant (1) or GLL (2) points
+    integer :: set     = -1  !< equidistant (1) or Lobatto (2) points
 
     real(RNP), allocatable :: t(:)    !< nodes τᵢ in [0,1]
     real(RNP), allocatable :: w(:)    !< quadrature weights for [0, 1]
@@ -80,7 +78,7 @@ module Spectral_Deferred_Correction
   type SDC_Options
     integer :: n_sub   = 1  !< number of subintervals
     integer :: n_sweep = 0  !< max number of correction sweeps
-    integer :: set     = 2  !< equidistant (1) or GLL (2) points
+    integer :: set     = 2  !< equidistant (1) or Lobatto (2) points
   end type SDC_Options
 
 contains
@@ -128,9 +126,9 @@ subroutine Init_SDC(this, opt)
   this % n_sweep = max(0, opt % n_sweep)
   this % set     = max(1, min(2, opt % set))
 
-  ! GLL points and weights in [-1,1]
-  allocate(x(0:n_sub), source = GLL_Points(n_sub))
-  allocate(w(0:n_sub), source = GLL_Weights(x))
+  ! Lobatto points and weights in [-1,1]
+  allocate(x(0:n_sub), source = LobattoPoints(n_sub))
+  allocate(w(0:n_sub), source = LobattoWeights(x))
 
   ! points and quadrature weights in [0,1] .....................................
 
@@ -138,7 +136,7 @@ subroutine Init_SDC(this, opt)
   case(1) ! equidistant
     this % t(0:n_sub) = [ ZERO, (i*ONE/n_sub, i = 1,n_sub-1), ONE ]
     this % w(0:n_sub) = GaussLagrangeWeights(this% t)
-  case default ! GLL
+  case default ! Lobatto
     this % t(0:n_sub) = HALF * (x + ONE)
     this % w(0:n_sub) = HALF * w
   end select
@@ -152,16 +150,16 @@ subroutine Init_SDC(this, opt)
       do j = 0, n_sub
         ws_ji = 0
         do k = 0, n_sub
-          ! tk = τ(x(k)) = k-th GLL point mapped to [τᵢ₋₁,τᵢ]
+          ! tk = τ(x(k)) = k-th Lobatto point mapped to [τᵢ₋₁,τᵢ]
           tk  = t(i-1) + delta * (x(k) + 1)
           ! yk = value of j-th Lagrange polynomial at tk
           select case(this % set)
           case(1) ! use equidistant Lagrange polynomial in [0,1]
             yk = LagrangePolynomial(j, t, tk)
-          case default ! use GLL Lagrange polynomial in [-1,1]
-            yk = GLL_Polynomial(j, x, 2*tk-1)
+          case default ! use Lobatto Lagrange polynomial in [-1,1]
+            yk = LobattoPolynomial(j, x, 2*tk-1)
           end select
-          ! add contribution of k-th GLL point
+          ! add contribution of k-th Lobatto point
           ws_ji = ws_ji + w(k) * yk
         end do
         ! scale the weight to match the length of interval [τᵢ₋₁,τᵢ]
@@ -184,7 +182,7 @@ pure logical function HasEquidistantPoints(this)
 end function HasEquidistantPoints
 
 !-------------------------------------------------------------------------------
-!> Query if point set is based on Lobatto (GLL) points
+!> Query if point set is based on Lobatto (L) points
 
 pure logical function HasLobattoPoints(this)
   class(SDC_Method), intent(in) :: this

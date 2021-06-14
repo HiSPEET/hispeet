@@ -77,7 +77,7 @@ program Mesh3d_Import_Generic
     ! set up data ..............................................................
 
     if (test_avg .or. export_vtk) then
-      call mesh % GetPoints(po, 'GLL', x)
+      call mesh % GetPoints(po, 'L', x)
       allocate(v  (0:po, 0:po, 0:po, mesh%n_elem + mesh%n_ghost))
       allocate(var(0:po, 0:po, 0:po, mesh%n_elem, 2), source = ZERO)
       r(0:,0:,0:,1:) => var(:,:,:,:,1)

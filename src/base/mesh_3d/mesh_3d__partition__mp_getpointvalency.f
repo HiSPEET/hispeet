@@ -14,9 +14,9 @@ contains
   !>
   !> The valency of a point equals the number of adjoining mesh elements.
   !> This procedure assumes that the underlying point set includes the element
-  !> boundaries, whichis the case, e.g., for GLL points.
+  !> boundaries, whichis the case, e.g., for Lobatto points.
   !>
-  !> With interior sets like GL the valency is 1 for all points and, hence,
+  !> With interior sets like Gauss the valency is 1 for all points and, hence,
   !> does not need to be computed.
 
   module subroutine GetPointValency(mesh, v)

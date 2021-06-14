@@ -320,12 +320,12 @@ contains
     end subroutine Interpolate
 
     !---------------------------------------------------------------------------
-    !> Computes the constant and linear Legendre coefficients to given 3D GLL
-    !> coefficients
+    !> Computes the constant and linear Legendre coefficients to given 3D
+    !> Lobatto coefficients
 
     subroutine LinearFit(VI, x, y)
       real(RNP), intent(in)  :: VI(0:,0:)   !< Inverse Vandermonde matrix
-      real(RNP), intent(in)  :: x(0:,0:,0:) !< GLL coefficients
+      real(RNP), intent(in)  :: x(0:,0:,0:) !< Lobatto coefficients
       real(RNP), intent(out) :: y(0:3)      !< Legendre coefficients
 
       real(RNP) :: a(size(VI,1), size(VI,1)), b(size(VI,1)), c(0:1, 0:1, 0:1)

@@ -81,7 +81,7 @@ program Mesh3d_Explore
 
   if (test_avg) then
 
-    call mesh % GetPoints(po, 'GLL', x)
+    call mesh % GetPoints(po, 'L', x)
 
     allocate(v  (0:po, 0:po, 0:po, mesh%n_elem + mesh%n_ghost))
     allocate(var(0:po, 0:po, 0:po, mesh%n_elem, 2))

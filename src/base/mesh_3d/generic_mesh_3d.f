@@ -127,7 +127,7 @@ module Generic_Mesh_3d
   !>
   !> Supported basis functions:
   !>   * BEZIER_BERNSTEIN:  Bezier-form using Bernstein polynomials
-  !>   * GAUSS_LOBATTO:     GLL-based Lagrange polynomials (hexahedrons only)
+  !>   * GAUSS_LOBATTO:     Lobatto-based Lagrange polynomials (hexahedra only)
   !>
   !> Point numbering
   !>   * hexahedron: lexical numbering based on triple index
@@ -259,7 +259,7 @@ module Generic_Mesh_3d
   ! Basis functions for represention the element geometry
 
   integer, parameter :: BEZIER_BERNSTEIN_BASIS = 1 ! Bezier-Bernstein basis
-  integer, parameter :: GAUSS_LOBATTO_BASIS    = 2 ! GLL basis (hexahedra only)
+  integer, parameter :: GAUSS_LOBATTO_BASIS    = 2 ! Lagrangian (hexahedra only)
 
 contains
 

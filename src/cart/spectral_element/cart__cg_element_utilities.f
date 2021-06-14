@@ -5,7 +5,7 @@
 !>
 !>### Utilities for continuous cuboidal elements
 !>
-!> Provides common routines for GLL-based nodal CG-SEM, including
+!> Provides common routines for Lobatto-based nodal CG-SEM, including
 !>
 !>   *  computation of the global mass matrix (`GetMassMatrix`)  -- not yet
 !>   *  averaging of discontinuous data (`MakeContinuous`)       -- not yet
@@ -55,7 +55,7 @@ subroutine GetPointWeights(mesh, bc, w)
   po = ubound(v, 1)
 
   allocate(v(0:po,0:po,0:po,mesh%ne))
-  call mesh % GetPointValency('GLL', v)
+  call mesh % GetPointValency('L', v)
 
   ! weights based on valency ...................................................
 

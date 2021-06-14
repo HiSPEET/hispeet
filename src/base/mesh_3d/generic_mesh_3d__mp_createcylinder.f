@@ -49,7 +49,7 @@ contains
     nb = 3
 
     ! collocation points
-    xc = GLL_Points(po)
+    xc = LobattoPoints(po)
     np = size(xc)
 
     ! scaling factors

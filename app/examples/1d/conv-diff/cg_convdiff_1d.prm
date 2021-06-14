@@ -43,14 +43,14 @@ flying_start = T
 &euler_sdc_parameters
   n_sub         = 1   ! number of subintervals (M)
   n_sweep       = 0   ! max num correction sweeps (K)
-  point_set     = 2   ! equidistant (1) or GLL (2) points
+  point_set     = 2   ! equidistant (1) or Lobatto (2) points
 /
 ! required with method = 6 (IMEX Runge-Kutta SDC)
 &rk_sdc_parameters
   ! SDC
   n_sub     = 1   ! number of SDC subintervals (M)
   n_sweep   = 0   ! max num SDC correction sweeps (K)
-  point_set = 2   ! equidistant (1) or GLL (2) SDC points
+  point_set = 2   ! equidistant (1) or Lobatto (2) SDC points
   ! IMEX Runge-Kutta
   n_stage = 3   ! number of stages, ns ∈ {2,3,4,6,8}
   method  = 2   ! method ∈ {1,2}[1], effective only with s=4
@@ -61,5 +61,5 @@ flying_start = T
 &tr_sdc_parameters
   n_sub     = 3   ! number of subintervals (M)
   n_sweep   = 6   ! max num correction sweeps (K)
-  point_set = 2   ! equidistant (1) or GLL (2) points
+  point_set = 2   ! equidistant (1) or Lobatto (2) points
 /

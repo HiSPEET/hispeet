@@ -24,7 +24,7 @@ program Mesh3d_Import_Exodus
   call mesh % ImportGenericMesh(generic_mesh, comm = MPI_COMM_WORLD)
   call VerifyMesh3d(mesh, passed)
   write(*,'(A,G0,/)') 'VerifyMesh3d: passed = ', passed
-  call mesh % GetPoints(po, 'GLL', x)
+  call mesh % GetPoints(po, 'L', x)
   ne = mesh % n_elem
   allocate(s(0:po,0:po,0:po,ne,ns), source = ZERO)
   call ExportVTK_VolumeData( x, s                   &

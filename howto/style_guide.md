@@ -104,11 +104,11 @@ Optionally special environments such as `@note` or `@todo` can be appended to th
 !> Provides procedures for evaluating
 !>
 !>   *  the values, derivatives and zeros of Jacobi polynomials,
-!>   *  the Gauss-Legendre (GL) points and weights, and the related
+!>   *  the Gauss-Legendre (G) points and weights, and the related
 !>      Lagrange polynomials and their derivatives,
-!>   *  the Gauss-Lobatto-Legendre (GLL) points and weights, and the
+!>   *  the Gauss-Lobatto-Legendre (L) points and weights, and the
 !>      related Lagrange polynomials and their derivatives.
-!>   *  the left-sided Gauss-Radau-Legendre (GRL) points and weights,
+!>   *  the left-sided Gauss-Radau-Legendre (R) points and weights,
 !>      and the related Lagrange polynomials and their derivatives.
 !>
 !> Implementation follows G.E. Karniadakis & S.J. Sherwin,
@@ -227,9 +227,9 @@ The next listing gives a comprehensive example.
   !>
   !> Supports the following types of nodal base functions
   !>
-  !>   * Lagrange polynomials to Gauss-Legendre points:         `basis = 'GL'`
-  !>   * Lagrange polynomials to Gauss-Lobatto-Legendre points: `basis = 'GLL'`
-  !>   * Lagrange polynomials to Gauss-Radau-Legendre points:   `basis = 'GRL'`
+  !>   * Lagrange polynomials to Gauss-Legendre points:         `basis = 'G'`
+  !>   * Lagrange polynomials to Gauss-Lobatto-Legendre points: `basis = 'L'`
+  !>   * Lagrange polynomials to Gauss-Radau-Legendre points:   `basis = 'R'`
 
   type, public :: StandardOperators_1D
     private

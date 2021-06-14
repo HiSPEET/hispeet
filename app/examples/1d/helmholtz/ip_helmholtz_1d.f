@@ -16,7 +16,7 @@
 !>     2)  u = abs(x)^3
 !>
 !> Discretization is performed using the hybridized symmetric interior penalty
-!> method with a nodal (GLL) basis.
+!> method with a nodal (Lobatto) basis.
 !>
 !===============================================================================
 

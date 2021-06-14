@@ -1,4 +1,4 @@
-!> summary:  ISP flow: convective fluxes with independent GLL quadrature (Q≠P)
+!> summary:  ISP flow: convective fluxes with independent Lobatto quadrature (Q≠P)
 !> author:   Joerg Stiller
 !> date:     2018/06/12
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany

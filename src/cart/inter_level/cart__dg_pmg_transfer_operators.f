@@ -78,7 +78,7 @@ subroutine New_PMG_TransferOperators(this, pc, pf)
 
     do k = 0, pc
     do i = 0, pf
-      this % c2f_iop(i,k) = GLL_Polynomial(k, xc, xf(i))
+      this % c2f_iop(i,k) = LobattoPolynomial(k, xc, xf(i))
     end do
     end do
 
@@ -86,7 +86,7 @@ subroutine New_PMG_TransferOperators(this, pc, pf)
 
     do k = 0, pf
     do i = 0, pc
-      this % f2c_iop(i,k) = GLL_Polynomial(k, xf, xc(i))
+      this % f2c_iop(i,k) = LobattoPolynomial(k, xf, xc(i))
     end do
     end do
 

@@ -1,4 +1,4 @@
-!> summary:  ISP flow: convective fluxes using embedded GLL quadrature (Q=P)
+!> summary:  ISP flow: convective fluxes using embedded Lobatto quadrature (Q=P)
 !> author:   Joerg Stiller
 !> date:     2018/04/01
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany

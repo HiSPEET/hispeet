@@ -1,4 +1,4 @@
-!> \file       exercise_1.f 
+!> \file       exercise_1.f
 !> \brief      Code for polynomial interpolation, integration and derivation
 !> \author     Immo Huismann
 !> \date       2013/12/02
@@ -13,9 +13,9 @@
 !>
 !> The goal is as follows:
 !> i)  The parameters in the file 'input' poly sets the used polynomial family.
-!>     If poly == 1 then GLL polynomials should be used.
-!>     If poly == 2 then GL  polynomials should be used.
-!>     If poly == 3 then Lagrange polynomials with an equidistant mesh are to
+!>     If poly == 1 then Lobatto-based Lagrange polynomials should be used.
+!>     If poly == 2 then Gauss-based Lagrange  polynomials should be used.
+!>     If poly == 3 then Lagrange polynomials based on equidistant points are to
 !>     be used.
 !>
 !> ii) The parameter func should set the function to interpolate where one, two
@@ -30,7 +30,7 @@
 !> plot_exercise_1.m in the 'scripts' folder.
 !> The functionalities of the code are to be expanded as follows:
 !>
-!> 1)   Set the correct interpolation nodes (start with GLL),  and the
+!> 1)   Set the correct interpolation nodes (start with Lobatto),  and the
 !>      differentiation matrix, as well as the differentiation matrix.
 !>      The new nodes can be seen on the output created by the plot script, so
 !>      an easy verification is present.
@@ -58,12 +58,12 @@
 !>      Mind that integration weights need to be set for the equidistant
 !>      Lagrange integration, these can either be derived by using those from
 !>      the spline interpolation or from a coordinate transformation to the
-!>      GL-points.
+!>      Gauss points.
 !>
 !> While implementing these six parts mind the comments, most problems are
 !> explained in them. The formulas for interpolation, derivation and integration
 !> are present in the set of slides on the CFDII homepage.
-!>      
+!>
 !===============================================================================
 
 program Exercise_1
@@ -113,7 +113,7 @@ program Exercise_1
 
   ! allocate the variables for plotting purposes
   allocate(x_p(0:n), u_p(0:n), du_p(0:n), u_e(0:n), du_e(0:n))
-  
+
   ! compute the nodes for plotting
   do i=0, n
     x_p(i)  = -ONE + (TWO * i) / n
@@ -122,9 +122,10 @@ program Exercise_1
   ! set standard element variables .............................................
   ! The node locations, the integration weights and the differentation matrix
   ! are needed on the standard element.
-  ! For the GL- and GLL-polynomials functions are present in gauss_jacobi.f
+  ! For the Gauss- and Lobatto-Lagrange-polynomials functions are present in
+  ! gauss_jacobi.f
   ! For the general Lagrange polynomials they are in lagrange_polynomials.f
-  
+
   ! TODO 1 - Set the points used for the interpolation
   do i=0, po
     xi(i) = - 1 + (TWO * i) / po
@@ -140,10 +141,10 @@ program Exercise_1
 !!!!write(uni,*) [(LagrangePolynomial(i, xi, x_p(j)), j = 0, n)]
   end do
   close(uni)
-  
+
   !.............................................................................
   ! Interpolation of the funktion u(x) = func(x)
-  
+
   ! Calculation of the coefficients
   ! TODO 2 - Set the coefficients of the interpolant
   u_h = ZERO
@@ -151,7 +152,7 @@ program Exercise_1
   !.............................................................................
   ! Numerical integration of func on the interval [-1,1], comparison
   ! compare it to the analytical value
-  
+
   ! TODO 4 - calculate the numerical integral, set the analytical one
   integ_ana = ZERO
   integ     = ZERO
@@ -184,7 +185,7 @@ program Exercise_1
      u_e =     FuncThree(x_p)
     du_e = DiffFuncThree(x_p)
   end select
-  
+
   open(newunit=uni,file='output/e1_data')
   write(uni,*) po, poly, n, 0, 0
   do i = 1, n

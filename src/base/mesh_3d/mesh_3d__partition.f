@@ -27,7 +27,7 @@ module Mesh_3d__Partition
   !>
   !> All element domains are defined as Lagrange polynomials of degree `p_geom`.
   !> The array `x_elem(0:p_geom,0:p_geom,0:p_geom,l,1:3)` holds the Cartesian
-  !> coordinates at the GLL points in element `l`. For convenience, `x_cube`
+  !> coordinates at the Lobatto points in element `l`. For convenience, `x_cube`
   !> provides a cuboidal approximation to that element, which is given by
   !>
   !>       x(ξ,η,ζ) = x_cube(0,l,1:3)
@@ -81,7 +81,7 @@ module Mesh_3d__Partition
     type(Mesh3d_Link)    , allocatable :: link(:)     !< mesh links
 
     ! mesh element geometry
-    real(RNP), allocatable :: x_elem(:,:,:,:,:) !< element GLL points
+    real(RNP), allocatable :: x_elem(:,:,:,:,:) !< element Lobatto points
     real(RNP), allocatable :: x_cube(:,:,:)     !< approximate cuboids
 
     ! MPI
@@ -124,10 +124,10 @@ module Mesh_3d__Partition
     !> Generates Gauss-Lobatto or Gauss points to all elements of a partition
 
     module subroutine GetPoints(mesh, po, basis, x)
-      class(Mesh3d_Partition),    intent(in)  :: mesh  !< mesh parition
-      integer,                    intent(in)  :: po    !< polynomial order
-      character(len=*), optional, intent(in)  :: basis !< 'GL' or 'GLL' ['GLL']
-      real(RNP),     allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
+      class(Mesh3d_Partition), intent(in)  :: mesh  !< mesh parition
+      integer,                 intent(in)  :: po    !< polynomial order
+      character,     optional, intent(in)  :: basis !< 'G' or 'L' ['L']
+      real(RNP),  allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
     end subroutine GetPoints
 
     !---------------------------------------------------------------------------

@@ -7,7 +7,7 @@
 module Export_VTK_3d__Volume_Data
   use Kind_Parameters, only: RNP
   use Constants,       only: HALF
-  use Gauss_Jacobi,    only: GLL_Points, GLL_Polynomial
+  use Gauss_Jacobi,    only: LobattoPoints, LobattoPolynomial
   use C_Binding
   use VTK_Binding
   use TPO__AAA__3D
@@ -332,7 +332,7 @@ contains
     integer :: j, k, ni
 
     ni = size(xi)
-    xc = GLL_Points(po)
+    xc = LobattoPoints(po)
     xi(1::2) = xc
     xi(2::2) = HALF * (xc(0:po-1) + xc(1:po))
 
@@ -340,7 +340,7 @@ contains
 
     do k = 0, po
     do j = 1, ni
-      iop(j,k) = GLL_Polynomial(k, xc, xi(j))
+      iop(j,k) = LobattoPolynomial(k, xc, xi(j))
     end do
     end do
 

@@ -120,8 +120,8 @@ pure function GaussLagrangeWeights(xc) result(wc)
   q = n / 2
 
   ! Gauss points and weights in [-1,1]
-  allocate(xq(0:q), source = GL_Points(q))      ! xq = ξ
-  allocate(wq(0:q), source = GL_Weights(xq))    ! wq = w
+  allocate(xq(0:q), source = GaussPoints(q))      ! xq = ξ
+  allocate(wq(0:q), source = GaussWeights(xq))    ! wq = w
 
   ! evaluate Lagrange polynomials at Gauss points
   allocate(c(0:n,0:q))

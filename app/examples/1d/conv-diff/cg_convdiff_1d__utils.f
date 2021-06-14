@@ -14,7 +14,7 @@
 !> the continuous Galerkin spectral-element method.
 !>
 !> @note
-!> Implementation restricted to GLL Langrange basis
+!> Implementation restricted to Lobatto Langrange basis
 !> @endnote
 !===============================================================================
 

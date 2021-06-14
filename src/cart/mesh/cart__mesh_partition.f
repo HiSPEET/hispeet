@@ -86,7 +86,7 @@ module CART__Mesh_Partition
 
       class(MeshPartition),   intent(in)  :: mesh         !< mesh parition
       integer,                intent(in)  :: po           !< polynomial order
-      character(len=*),       intent(in)  :: basis        !< 'GL' or 'GLL'
+      character,              intent(in)  :: basis        !< 'G' or 'L'
       real(RNP), allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
 
     end subroutine GetPoints
@@ -98,7 +98,7 @@ module CART__Mesh_Partition
   interface
     module subroutine GetPointValency(mesh, basis, v)
       class(MeshPartition), intent(in)  :: mesh          !< mesh parition
-      character(len=*),     intent(in)  :: basis         !< 'GL' or 'GLL'
+      character,            intent(in)  :: basis         !< 'G' or 'L'
       integer,              intent(out) :: v(0:,0:,0:,:) !< point valency
     end subroutine GetPointValency
   end interface

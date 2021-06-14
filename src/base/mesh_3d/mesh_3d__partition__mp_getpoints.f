@@ -17,14 +17,14 @@ contains
   !>
   !> The routine provides the element points for one of the following bases:
   !>
-  !>   -  Lagrange polynomials to Gauss-Legendre points (basis = 'GL')
-  !>   -  Lagrange polynomials to Gauss-Lobatto-Legendre points (basis = 'GLL')
+  !>   -  Lagrange polynomials to Gauss-Legendre points (basis = 'G')
+  !>   -  Lagrange polynomials to Gauss-Lobatto-Legendre points (basis = 'L')
 
   module subroutine GetPoints(mesh, po, basis, x)
-    class(Mesh3d_Partition),    intent(in)  :: mesh  !< mesh parition
-    integer,                    intent(in)  :: po    !< polynomial order
-    character(len=*), optional, intent(in)  :: basis !< 'GL' or 'GLL' ['GLL']
-    real(RNP),     allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
+    class(Mesh3d_Partition), intent(in)  :: mesh  !< mesh parition
+    integer,                 intent(in)  :: po    !< polynomial order
+    character,     optional, intent(in)  :: basis !< 'G' or 'L' ['L']
+    real(RNP),  allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
 
     type(StandardOperators_1D) :: sop
 
@@ -106,7 +106,7 @@ contains
     type(StandardOperators_1D) :: gop
     type(EmbeddedInterpolation_3D) :: iop
 
-    gop = StandardOperators_1D(mesh % p_geom, basis = 'GLL', no_vdm = .true.)
+    gop = StandardOperators_1D(mesh % p_geom, basis = 'L', no_vdm = .true.)
     iop = EmbeddedInterpolation_3D(gop, sop%x)
 
     call iop % Apply(mesh % x_elem, x)

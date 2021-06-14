@@ -12,7 +12,7 @@
 !>     ∂u/∂t = -v ∂u/∂v + nu ∂²u/∂u² ≡ C(u) + D(u)
 !>
 !> in time. Spatial discretization is based on the continuous spectral-element
-!> method using nodal base functions along with GLL quadrature.
+!> method using nodal base functions along with Lobatto quadrature.
 !>
 !> Typical usage:
 !>

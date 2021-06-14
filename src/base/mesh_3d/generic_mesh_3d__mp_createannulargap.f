@@ -18,14 +18,14 @@ contains
   !> This routine generates an annular gap with inner radius `r0`, outer radius
   !> `r1` and height `h`. The mesh consists of `nr` elements in radial direction,
   !> `np` elements in azimuthal direction and `nz` elements in axial direction.
-  !> The polynomial degree of the GLL points is `po`. If `periodic == .true.`,
+  !> The polynomial degree of the Lobatto points is `po`. If `periodic == .true.`,
   !> axial periodicity is set.
   !>
-  !> The workflow to set the vertices and the GLL points is as following:
+  !> The workflow to set the vertices and the Lobatto points is as following:
   !>   - First the (nz+1)*(nr+1)*np vertices are set equidistantly in the unit
-  !>     cube [0, 1]^3. They are needed to set the GLL points in the subcubes.
-  !>   - In every subcube (po+1)^3 GLL points are initialized. In the same loop
-  !>     they are mapped to the cartesian coordinates in the gap.
+  !>     cube [0, 1]^3. They are needed to set the Lobatto points in the subcubes.
+  !>   - In every subcube (po+1)^3 Lobatto points are initialized. In the same
+  !>     loop they are mapped to the cartesian coordinates in the gap.
   !>   - At the end the vertex coordinates are transformed to the gap.
   !>                                         __________
   !>                                        /          \
@@ -60,7 +60,7 @@ contains
     integer   :: f                ! face counter
     integer   :: b                ! boundary ID
 
-    real(RNP) :: xc(0:po)         ! GLL points in [0,1]
+    real(RNP) :: xc(0:po)         ! Lobatto points in [0,1]
     real(RNP) :: x(3), x0(3)      ! position vectors
     real(RNP) :: cr, cp, cz       ! 1/np, 1/nr, 1/nz
 
@@ -79,8 +79,8 @@ contains
     cp = ONE / np
     cz = ONE / nz
 
-    ! GLL points in [0,1]
-    xc = HALF * (ONE + GLL_Points(po))
+    ! Lobatto points in [0,1]
+    xc = HALF * (ONE + LobattoPoints(po))
 
     ! allocate mesh components
     allocate(mesh%vertex(nv), mesh%element(ne), mesh%boundary(nb))

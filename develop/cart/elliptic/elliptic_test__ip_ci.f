@@ -248,7 +248,7 @@ program Elliptic_Test__IP_CI
 
   ! mesh partition and points
   call GenerateStructuredMesh(mesh, np, ep, xo, dx, periodic, comm)
-  call mesh % GetPoints(po, 'GLL', x)
+  call mesh % GetPoints(po, 'L', x)
 
   ! mesh variables
   call InitializeMeshVariables()
