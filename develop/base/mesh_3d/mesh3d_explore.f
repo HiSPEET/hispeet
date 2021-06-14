@@ -2,9 +2,9 @@ program Mesh3d_Explore
   use Kind_Parameters, only: RNP
   use Constants
   use XMPI
-  use Mesh_3d__Element
-  use Mesh_3d__Partition
-  use Mesh_3d__Generate_Regular_Mesh
+  use Mesh_Element__3D
+  use Mesh_Partition__3D
+  use Generate_Regular_Mesh__3D
   use Element_Transfer_Buffer_3d
   use Verify_Mesh_3d
   use Assembly_3d
@@ -27,7 +27,7 @@ program Mesh3d_Explore
   integer        :: rank                 ! local MPI rank
   integer        :: n_proc               ! number of MPI processes
 
-  type(Mesh3d_Partition) :: mesh         ! mesh partition
+  type(MeshPartition_3D) :: mesh         ! mesh partition
   real(RNP), allocatable :: x(:,:,:,:,:) ! mesh points
   real(RNP)              :: dx(3)        ! element spacing in directions 1:3
 
@@ -176,7 +176,7 @@ program Mesh3d_Explore
 contains
 
   subroutine ShowMeshProperties(mesh)
-    class(Mesh3d_Partition), intent(in) :: mesh
+    class(MeshPartition_3D), intent(in) :: mesh
 
     integer :: min_vert, max_vert
     integer :: min_edge, max_edge
@@ -235,7 +235,7 @@ contains
   end subroutine ShowMeshProperties
 
   subroutine ShowMeshElement(element)
-    class(Mesh3d_Element), intent(in) :: element
+    class(MeshElement_3D), intent(in) :: element
 
     integer :: i, j, j1, j2, k
 

@@ -4,9 +4,9 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !==============================================================================
 
-module Generic_Mesh_3d
+module Generic_Mesh__3D
   use Kind_Parameters
-  use Mesh_3d__Element_Indexing, only: V_FACE
+  use Mesh_Element_Indexing__3D, only: V_FACE
   implicit none
   private
 
@@ -30,10 +30,10 @@ module Generic_Mesh_3d
   !-----------------------------------------------------------------------------
   !> Structure defining a generic 3d mesh vertex
 
-  type, public :: GenericMesh3d_Vertex
+  type, public :: GenericMeshVertex_3D
     integer   :: id = 0 !< identifer
     real(RNP) :: x(3)   !< Cartesian coordinates
-  end type GenericMesh3d_Vertex
+  end type GenericMeshVertex_3D
 
   !-----------------------------------------------------------------------------
   !> Structure defining a generic 3d mesh element
@@ -50,7 +50,7 @@ module Generic_Mesh_3d
   !> The pyramid has a quadrilateral base, the wedge is a triangular prism.
   !>
   !> The leading entries of vertex comprise the IDs of the corresponding
-  !> vertices defined in GenericMesh3d, whereas the unused entries keep
+  !> vertices defined in GenericMesh_3D, whereas the unused entries keep
   !> their initial value of 0.
   !>
   !> Wedges, pyramids and tetrahedrons are numbered as follows:
@@ -90,7 +90,7 @@ module Generic_Mesh_3d
   !>     - face 5  <-->  vertices 1, 2, 3, 4  <-->  zeta = -1
   !>     - face 6  <-->  vertices 5, 6, 7, 8  <-->  zeta =  1
   !>
-  !>     (encoded in V_FACE adopted from Mesh_3d__Element_Indexing)
+  !>     (encoded in V_FACE adopted from Mesh_Element_Indexing__3D)
   !>
   !> In rotational, mode face nodes are numbered about the external normal:
   !>
@@ -132,33 +132,33 @@ module Generic_Mesh_3d
   !> Point numbering
   !>   * hexahedron: lexical numbering based on triple index
 
-  type, public :: GenericMesh3d_Element
+  type, public :: GenericMeshElement_3D
     integer :: id        = 0          !< identifer
     integer :: typ       = 0          !< element type
     integer :: vertex(8) = 0          !< vertex indices (not IDs!)
     integer :: basis     = 0          !< type of basis functions
     integer :: order     = 0          !< polynomial order
     real(RNP), allocatable :: x(:,:)  !< control/collocation points, x(:,1:3)
-  end type GenericMesh3d_Element
+  end type GenericMeshElement_3D
 
   !-----------------------------------------------------------------------------
   !> Structure for accessing a generic 3d mesh element face
 
-  type, public :: GenericMesh3d_ElementFace
+  type, public :: GenericMeshElementFace_3D
     integer :: element_id    !< element ID
     integer :: element_face  !< element face
-  end type GenericMesh3d_ElementFace
+  end type GenericMeshElementFace_3D
 
   !-----------------------------------------------------------------------------
   !> Structure defining a generic 3d mesh boundary
 
-  type, public :: GenericMesh3d_Boundary
+  type, public :: GenericMeshBoundary_3D
     integer           :: id   = 0     !< identifer
     character(len=80) :: name = ''    !< boundary name
     integer           :: coupled = 0  !< ID of coupled boundary, 0 if none
     integer           :: polarity = 0 !< position WRT to periodic direction
-    type(GenericMesh3d_ElementFace), allocatable :: face(:) !< element faces
-  end type GenericMesh3d_Boundary
+    type(GenericMeshElementFace_3D), allocatable :: face(:) !< element faces
+  end type GenericMeshBoundary_3D
 
   !-----------------------------------------------------------------------------
   !> Structure defining a generic 3d mesh
@@ -192,13 +192,13 @@ module Generic_Mesh_3d
   !> Compliance to these conventions is the precondition for constructing
   !> mappings between coupled mesh vertices on a purely topological basis.
 
-  type, public :: GenericMesh3d
+  type, public :: GenericMesh_3D
     ! attributes
     integer :: numbering = 0  !< hexahedron numbering scheme
     ! components
-    type(GenericMesh3d_Vertex),   allocatable :: vertex(:)    !< vertices
-    type(GenericMesh3d_Element),  allocatable :: element(:)   !< elements
-    type(GenericMesh3d_Boundary), allocatable :: boundary(:)  !< boundaries
+    type(GenericMeshVertex_3D),   allocatable :: vertex(:)    !< vertices
+    type(GenericMeshElement_3D),  allocatable :: element(:)   !< elements
+    type(GenericMeshBoundary_3D), allocatable :: boundary(:)  !< boundaries
   contains
     ! type-bound procedures
     procedure :: SwitchToLexicalNumbering
@@ -206,7 +206,7 @@ module Generic_Mesh_3d
     procedure :: GenerateConsistentVertexIDs
     procedure :: CreateCylinder
     procedure :: CreateAnnularGap
-  end type GenericMesh3d
+  end type GenericMesh_3D
 
   interface
 
@@ -214,7 +214,7 @@ module Generic_Mesh_3d
     !> Creates a generic mesh for a cylinder
 
     module subroutine CreateCylinder(mesh, nr, nz, po, periodic)
-      class(GenericMesh3d), intent(out) :: mesh  !< cylindrical 3d mesh
+      class(GenericMesh_3D), intent(out) :: mesh  !< cylindrical 3d mesh
       integer, intent(in) :: nr  !< num intervals in radial section
       integer, intent(in) :: nz  !< num intervals in axial  direction
       integer, intent(in) :: po  !< polynomial order of mesh elements
@@ -225,7 +225,7 @@ module Generic_Mesh_3d
     !> Creates a generic mesh for an annular gap
 
     module subroutine CreateAnnularGap(mesh, r0, r1, h, nr, np, nz, po, periodic)
-      class(GenericMesh3d), intent(out) :: mesh  !< cylindrical 3d mesh
+      class(GenericMesh_3D), intent(out) :: mesh  !< cylindrical 3d mesh
       real(RNP), intent(in) :: r0  !< inner radius
       real(RNP), intent(in) :: r1  !< outer radius
       real(RNP), intent(in) :: h   !< height
@@ -267,7 +267,7 @@ contains
   !> Transforms hexahedra to lexical numbering scheme
 
   subroutine SwitchToLexicalNumbering(mesh)
-    class(GenericMesh3d), intent(inout) :: mesh
+    class(GenericMesh_3D), intent(inout) :: mesh
 
     integer :: b, i, k
 
@@ -317,7 +317,7 @@ contains
   !> Transforms hexahedra to rotational numbering scheme
 
   subroutine SwitchToRotationalNumbering(mesh)
-    class(GenericMesh3d), intent(inout) :: mesh
+    class(GenericMesh_3D), intent(inout) :: mesh
 
     integer :: b, i, k
 
@@ -368,7 +368,7 @@ contains
   !> vertices.
 
   subroutine GenerateConsistentVertexIDs(mesh)
-    class(GenericMesh3d), intent(inout) :: mesh
+    class(GenericMesh_3D), intent(inout) :: mesh
 
     integer :: i, k
     integer :: b, lb, fb
@@ -408,4 +408,4 @@ contains
 
   !=============================================================================
 
-end module Generic_Mesh_3d
+end module Generic_Mesh__3D

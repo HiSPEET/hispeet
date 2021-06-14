@@ -42,7 +42,7 @@
 !>
 !===============================================================================
 
-module Mesh_3d__Element_Indexing
+module Mesh_Element_Indexing__3D
   implicit none
   private
 
@@ -292,4 +292,4 @@ contains
 
   !=============================================================================
 
-end module Mesh_3d__Element_Indexing
+end module Mesh_Element_Indexing__3D

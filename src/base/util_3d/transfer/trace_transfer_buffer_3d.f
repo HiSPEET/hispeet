@@ -10,7 +10,7 @@ module Trace_Transfer_Buffer_3d
   use Constants        , only: ZERO
   use Execution_Control, only: Error
   use XMPI
-  use Mesh_3d__Partition
+  use Mesh_Partition__3D
 
   implicit none
   private
@@ -110,7 +110,7 @@ contains
   !> Create a new trace transfer buffer for a single real variable
 
   function New_TransferBuffer_RS(mesh, v) result(this)
-    type(Mesh3d_Partition), intent(in) :: mesh        !< mesh partition
+    type(MeshPartition_3D), intent(in) :: mesh        !< mesh partition
     real(RNP),              intent(in) :: v(:,:,:,:)  !< trace variable
     type(TraceTransferBuffer3d) :: this
 
@@ -127,7 +127,7 @@ contains
   !> Create a new trace transfer buffer for an array of real variables
 
   function New_TransferBuffer_RA(mesh, v) result(this)
-    type(Mesh3d_Partition), intent(in) :: mesh          !< mesh partition
+    type(MeshPartition_3D), intent(in) :: mesh          !< mesh partition
     real(RNP),              intent(in) :: v(:,:,:,:,:)  !< trace variable
     type(TraceTransferBuffer3d) :: this
 
@@ -145,7 +145,7 @@ contains
 
   subroutine Init_X(this, mesh, np, nc, lb)
     class(TraceTransferBuffer3d), intent(inout) :: this  !< buffer
-    type(Mesh3d_Partition),       intent(in)    :: mesh  !< mesh partition
+    type(MeshPartition_3D),       intent(in)    :: mesh  !< mesh partition
     integer,                      intent(in)    :: np    !< num points/face
     integer,                      intent(in)    :: nc    !< num components
     integer,                      intent(out)   :: lb    !< buffer length
@@ -223,7 +223,7 @@ contains
 
   subroutine Transfer_RS(this, mesh, v, tag)
     class(TraceTransferBuffer3d), asynchronous, intent(inout) :: this !< buffer
-    type(Mesh3d_Partition), intent(in) :: mesh       !< mesh partition
+    type(MeshPartition_3D), intent(in) :: mesh       !< mesh partition
     real(RNP),              intent(in) :: v(:,:,:,:) !< trace variable
     integer,                intent(in) :: tag        !< message tag
 
@@ -236,7 +236,7 @@ contains
 
   subroutine Transfer_RA(this, mesh, v, tag)
     class(TraceTransferBuffer3d), asynchronous, intent(inout) :: this !< buffer
-    type(Mesh3d_Partition), intent(in) :: mesh         !< mesh partition
+    type(MeshPartition_3D), intent(in) :: mesh         !< mesh partition
     real(RNP),              intent(in) :: v(:,:,:,:,:) !< trace variable
     integer,                intent(in) :: tag          !< message tag
 
@@ -249,7 +249,7 @@ contains
 
   subroutine Transfer_RX(this, mesh, v, tag)
     class(TraceTransferBuffer3d), asynchronous, intent(inout) :: this
-    type(Mesh3d_Partition), intent(in) :: mesh
+    type(MeshPartition_3D), intent(in) :: mesh
     real(RNP),              intent(in) :: v(this%np, 2, mesh%n_face, this%nc)
     integer,                intent(in) :: tag
 
@@ -343,7 +343,7 @@ contains
 
   subroutine Merge_RS(this, mesh, v, alpha, beta)
     class(TraceTransferBuffer3d), intent(inout) :: this !< buffer
-    type(Mesh3d_Partition), intent(in)    :: mesh       !< mesh partition
+    type(MeshPartition_3D), intent(in)    :: mesh       !< mesh partition
     real(RNP),              intent(inout) :: v(:,:,:,:) !< face variable
     real(RNP),    optional, intent(in)    :: alpha      !< coeff of v  [1]
     real(RNP),    optional, intent(in)    :: beta       !< coeff of vb [1]
@@ -357,7 +357,7 @@ contains
 
   subroutine Merge_RA(this, mesh, v, alpha, beta)
     class(TraceTransferBuffer3d), intent(inout) :: this !< buffer
-    type(Mesh3d_Partition), intent(in)    :: mesh         !< mesh partition
+    type(MeshPartition_3D), intent(in)    :: mesh         !< mesh partition
     real(RNP),              intent(inout) :: v(:,:,:,:,:) !< face variable
     real(RNP),    optional, intent(in)    :: alpha        !< coeff of v  [1]
     real(RNP),    optional, intent(in)    :: beta         !< coeff of vb [1]
@@ -375,7 +375,7 @@ contains
 
   subroutine Merge_RX(this, mesh, v, alpha, beta)
     class(TraceTransferBuffer3d), intent(inout) :: this
-    type(Mesh3d_Partition), intent(in) :: mesh
+    type(MeshPartition_3D), intent(in) :: mesh
     real(RNP), intent(inout) :: v(this%np, 2, mesh%n_face, this%nc)
     real(RNP), optional, intent(in) :: alpha
     real(RNP), optional, intent(in) :: beta

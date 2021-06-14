@@ -13,7 +13,7 @@ module Export_Volume_Data_To_VTK
   use C_Binding
   use VTK_Binding
   use TPO__AAA__3D
-  use Structured_Mesh  ! adapt vertex numbering when switching to Mesh_3d__Structured_Indexing
+  use Structured_Mesh  ! adapt vertex numbering when switching to Mesh_Structured_Indexing__3D
   implicit none
   private
 

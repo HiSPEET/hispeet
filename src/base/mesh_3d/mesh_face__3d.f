@@ -4,11 +4,11 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Mesh_3d__Face
+module Mesh_Face__3D
   implicit none
   private
 
-  public :: Mesh3d_Face
+  public :: MeshFace_3D
 
   !-----------------------------------------------------------------------------
   !> Adjacent mesh element data
@@ -25,8 +25,8 @@ module Mesh_3d__Face
   !> according to the normal direction of the face. In case of a structured mesh
   !> the latter coincides with the corresponding coordinate direction.
 
-  type Mesh3d_Face
+  type MeshFace_3D
     type(AdjacentElement) :: element(2) !< adjacent elements, including ghosts
-  end type Mesh3d_Face
+  end type MeshFace_3D
 
-end module Mesh_3d__Face
+end module Mesh_Face__3D

@@ -4,11 +4,11 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Mesh_3d__Boundary
+module Mesh_Boundary__3D
   implicit none
   private
 
-  public :: Mesh3d_Boundary
+  public :: MeshBoundary_3D
 
   !-----------------------------------------------------------------------------
   !> Adjacent mesh face data
@@ -29,10 +29,10 @@ module Mesh_3d__Boundary
   !-----------------------------------------------------------------------------
   !> 3d mesh boundary face
 
-  type Mesh_3d_BoundaryFace
+  type MeshBoundaryFace_3D
     type(AdjacentFace)    :: mesh_face    !< adjacent mesh face
     type(AdjacentElement) :: mesh_element !< adjacent mesh element
-  end type Mesh_3d_BoundaryFace
+  end type MeshBoundaryFace_3D
 
   !-----------------------------------------------------------------------------
   !> Mesh boundary
@@ -59,7 +59,7 @@ module Mesh_3d__Boundary
   !> local mesh face and the element face adjoining a given boundary face.
   !> Once initialized, the number of local boundary faces is stored in `n_face`.
 
-  type Mesh3d_Boundary
+  type MeshBoundary_3D
 
     integer           :: id       =  0  !< boundary identifier
     character(len=80) :: name     = ''  !< name
@@ -67,37 +67,37 @@ module Mesh_3d__Boundary
     integer           :: polarity =  0  !< position WRT to periodic direction
     integer           :: n_face   = -1  !< number of faces
 
-    type(Mesh_3d_BoundaryFace), allocatable :: face(:) !< boundary faces
+    type(MeshBoundaryFace_3D), allocatable :: face(:) !< boundary faces
 
-  end type Mesh3d_Boundary
+  end type MeshBoundary_3D
 
   ! constructor
-  interface Mesh3d_Boundary
-    module procedure New_Mesh3d_Boundary
+  interface MeshBoundary_3D
+    module procedure New_MeshBoundary_3D
   end interface
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Constructor for Mesh3d_Boundary
+  !> Constructor for MeshBoundary_3D
 
-  function New_Mesh3d_Boundary(id, name, coupled, polarity, n_face) result(this)
+  function New_MeshBoundary_3D(id, name, coupled, polarity, n_face) result(this)
     integer,           intent(in) :: id       !< identifier
     character(len=*),  intent(in) :: name     !< name
     integer, optional, intent(in) :: coupled  !< ID coupled boundary, 0 if none
     integer, optional, intent(in) :: polarity !< pos WRT to periodic direction
     integer, optional, intent(in) :: n_face   !< number of faces
-    type(Mesh3d_Boundary)         :: this     !< 3d mesh boundary object
+    type(MeshBoundary_3D)         :: this     !< 3d mesh boundary object
 
-    call Init_Mesh3d_Boundary(this, id, name, coupled, polarity, n_face)
+    call Init_MeshBoundary_3D(this, id, name, coupled, polarity, n_face)
 
-  end function New_Mesh3d_Boundary
+  end function New_MeshBoundary_3D
 
   !-----------------------------------------------------------------------------
   !> Initialize a new 3d mesh boundary
 
-  subroutine Init_Mesh3d_Boundary(this, id, name, coupled, polarity, n_face)
-    class(Mesh3d_Boundary), intent(inout) :: this !< 3d mesh boundary object
+  subroutine Init_MeshBoundary_3D(this, id, name, coupled, polarity, n_face)
+    class(MeshBoundary_3D), intent(inout) :: this !< 3d mesh boundary object
     integer,           intent(in) :: id       !< identifier
     character(len=*),  intent(in) :: name     !< name
     integer, optional, intent(in) :: coupled  !< ID coupled boundary, 0 if none
@@ -117,8 +117,8 @@ contains
       allocate(this%face(n_face))
     end if
 
-  end subroutine Init_Mesh3d_Boundary
+  end subroutine Init_MeshBoundary_3D
 
   !=============================================================================
 
-end module Mesh_3d__Boundary
+end module Mesh_Boundary__3D

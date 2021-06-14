@@ -11,7 +11,7 @@ module Import_Exodus_3d
   use C_Binding
   use Execution_Control
   use Exodus_Binding
-  use Generic_Mesh_3d
+  use Generic_Mesh__3D
   implicit none
   private
 
@@ -20,11 +20,11 @@ module Import_Exodus_3d
 contains
 
   !-----------------------------------------------------------------------------
-  !> Reads the mesh from file and converts it to a GenericMesh3d object
+  !> Reads the mesh from file and converts it to a GenericMesh_3D object
 
   subroutine ImportExodus3d(file, mesh)
     character(len=*),     intent(in)  :: file !< Exodus file
-    class(GenericMesh3d), intent(out) :: mesh !< output mesh
+    class(GenericMesh_3D), intent(out) :: mesh !< output mesh
 
     ! Exodus interface .........................................................
 

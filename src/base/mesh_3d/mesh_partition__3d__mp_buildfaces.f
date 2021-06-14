@@ -4,9 +4,9 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(Mesh_3d__Partition) MP_BuildFaces
+submodule(Mesh_Partition__3D) MP_BuildFaces
   use Quick_Sort
-  use Mesh_3d__Element_Indexing, only: V_FACE, E_FACE
+  use Mesh_Element_Indexing__3D, only: V_FACE, E_FACE
   implicit none
 
 contains
@@ -28,7 +28,7 @@ contains
   !>   - mesh % element % face % rotation
 
   module subroutine BuildFaces(mesh)
-    class(Mesh3d_Partition), intent(inout) :: mesh !< mesh partition
+    class(MeshPartition_3D), intent(inout) :: mesh !< mesh partition
 
     ! local data ...............................................................
 

@@ -56,7 +56,7 @@
 !>
 !===============================================================================
 
-module Mesh_3d__Structured_Indexing
+module Mesh_Structured_Indexing__3D
   use Kind_Parameters, only: IXL
   implicit none
   private
@@ -415,4 +415,4 @@ contains
 
   !=============================================================================
 
-end module Mesh_3d__Structured_Indexing
+end module Mesh_Structured_Indexing__3D

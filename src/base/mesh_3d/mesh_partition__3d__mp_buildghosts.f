@@ -4,9 +4,9 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(Mesh_3d__Partition) MP_BuildGhosts
+submodule(Mesh_Partition__3D) MP_BuildGhosts
   use Element_Transfer_Buffer_3d
-  use Mesh_3d__Element_Indexing
+  use Mesh_Element_Indexing__3D
   implicit none
 
 contains
@@ -35,7 +35,7 @@ contains
   !>      is the corresponding mesh vertex,
 
   module subroutine BuildGhosts(mesh)
-    class(Mesh3d_Partition), intent(inout) :: mesh !< local partition
+    class(MeshPartition_3D), intent(inout) :: mesh !< local partition
 
     type(ElementTransferBuffer3d), asynchronous, allocatable :: global_id_buf
     type(ElementTransferBuffer3d), asynchronous, allocatable :: orientation_buf

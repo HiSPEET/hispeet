@@ -11,7 +11,7 @@ module Export_VTK_3d__Volume_Data
   use C_Binding
   use VTK_Binding
   use TPO__AAA__3D
-  use Mesh_3d__Structured_Indexing
+  use Mesh_Structured_Indexing__3D
   implicit none
   private
 

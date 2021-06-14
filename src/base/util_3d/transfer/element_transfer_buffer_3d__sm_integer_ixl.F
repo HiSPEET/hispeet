@@ -20,7 +20,7 @@ contains
 
   module function New_TransferBuffer_IXL_S(mesh, v, nl) result(this)
     type(ElementTransferBuffer3d) :: this
-    type(Mesh3d_Partition),          intent(in) :: mesh  !< mesh partition
+    type(MeshPartition_3D),          intent(in) :: mesh  !< mesh partition
     integer(IK), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
     integer,               optional, intent(in) :: nl(3) !< number of layers
 
@@ -44,7 +44,7 @@ contains
 
   module function New_TransferBuffer_IXL_A(mesh, v, nl) result(this)
     type(ElementTransferBuffer3d) :: this
-    type(Mesh3d_Partition),            intent(in) :: mesh  !< mesh partition
+    type(MeshPartition_3D),            intent(in) :: mesh  !< mesh partition
     integer(IK), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variables
     integer,                 optional, intent(in) :: nl(3) !< number of layers
 
@@ -72,7 +72,7 @@ contains
 
   module subroutine Transfer_IXL_S(this, mesh, v, tag)
     class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
-    type(Mesh3d_Partition),          intent(in) :: mesh  !< mesh partition
+    type(MeshPartition_3D),          intent(in) :: mesh  !< mesh partition
     integer(IK), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
     integer,                         intent(in) :: tag   !< message tag
 
@@ -85,7 +85,7 @@ contains
 
   module subroutine Transfer_IXL_A(this, mesh, v, tag)
     class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
-    type(Mesh3d_Partition),            intent(in) :: mesh  !< mesh partition
+    type(MeshPartition_3D),            intent(in) :: mesh  !< mesh partition
     integer(IK), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variable
     integer,                           intent(in) :: tag   !< message tag
 

@@ -1,4 +1,4 @@
-module Mesh_3d__Generate_Regular_Mesh
+module Generate_Regular_Mesh__3D
 
   use Kind_Parameters  , only: IXL, IXS, RNP
   use Constants        , only: ZERO, HALF
@@ -6,11 +6,11 @@ module Mesh_3d__Generate_Regular_Mesh
   use Gauss_Jacobi
   use XMPI
 
-  use Mesh_3d__Boundary
-  use Mesh_3d__Element
-  use Mesh_3d__Element_Indexing
-  use Mesh_3d__Partition
-  use Mesh_3d__Structured_Indexing
+  use Mesh_Boundary__3D
+  use Mesh_Element__3D
+  use Mesh_Element_Indexing__3D
+  use Mesh_Partition__3D
+  use Mesh_Structured_Indexing__3D
   implicit none
   private
 
@@ -20,7 +20,7 @@ contains
 
   subroutine GenerateRegularMesh(mesh, np, ep, xo, dx, periodic, comm, pg)
 
-    type(Mesh3d_Partition), intent(out) :: mesh !< local partition
+    type(MeshPartition_3D), intent(out) :: mesh !< local partition
     integer,   intent(in) :: np(3)       !< num partitions in directions 1:3
     integer,   intent(in) :: ep(3)       !< elements per partition and direction
     real(RNP), intent(in) :: xo(3)       !< corner closest to -infinity
@@ -67,7 +67,7 @@ contains
       part = rank
     else
       ! create empty partition
-      mesh = Mesh3d_Partition( p_geom, n_bound, n_part &
+      mesh = MeshPartition_3D( p_geom, n_bound, n_part &
                              , comm       =  comm      &
                              , structured = .true.     &
                              , regular    = .true.     &
@@ -138,7 +138,7 @@ contains
 
   subroutine GenerateRegularElements(mesh, np, ep, periodic, self, i0, j0, k0)
 
-    class(Mesh3d_Partition), intent(inout) :: mesh  !< local partition
+    class(MeshPartition_3D), intent(inout) :: mesh  !< local partition
     integer, intent(in)  :: np(3)       !< num partitions in directions 1:3
     integer, intent(in)  :: ep(3)       !< num elements per partition and dir.
     logical, intent(in)  :: periodic(3) !< set true for periodic directions
@@ -152,7 +152,7 @@ contains
     integer      :: ips, jps, kps      ! shifted partition indices
     integer      :: i, e, l, r, s, t
 
-    type(Mesh3d_ElementNeighbor) :: neighbor(26)
+    type(MeshElementNeighbor_3D) :: neighbor(26)
 
     ! prerequisites ............................................................
 
@@ -238,7 +238,7 @@ contains
 
         ! neighbors and boundaries .............................................
 
-        neighbor = Mesh3d_ElementNeighbor()
+        neighbor = MeshElementNeighbor_3D()
 
         do t = -1, 1  ! ζ
         do s = -1, 1  ! η
@@ -406,7 +406,7 @@ contains
 
   subroutine GenerateRegularFaces(mesh, self)
 
-    class(Mesh3d_Partition), intent(inout) :: mesh  !< local partition
+    class(MeshPartition_3D), intent(inout) :: mesh  !< local partition
     logical, intent(in) :: self(3) !< indicator wether linked to itself
 
     integer :: i, j, k, l
@@ -526,7 +526,7 @@ contains
 
   subroutine GenerateRegularMeshBoundaries(mesh, periodic, self)
 
-    class(Mesh3d_Partition), intent(inout) :: mesh !< local partition
+    class(MeshPartition_3D), intent(inout) :: mesh !< local partition
     logical, intent(in) :: periodic(3) !< indicator of periodic directions
     logical, intent(in) :: self(3)     !< indicator wether linked to itself
 
@@ -566,7 +566,7 @@ contains
 
       b = 1
       i = 1
-      boundary(b) = Mesh3d_Boundary(b, 'west', coupled(b), polarity(b), n2*n3)
+      boundary(b) = MeshBoundary_3D(b, 'west', coupled(b), polarity(b), n2*n3)
       f = 1
       do k = 1, n3
       do j = 1, n2
@@ -584,7 +584,7 @@ contains
 
       b = 2
       i = n1
-      boundary(b) = Mesh3d_Boundary(b, 'east', coupled(b), polarity(b), n2*n3)
+      boundary(b) = MeshBoundary_3D(b, 'east', coupled(b), polarity(b), n2*n3)
       f = 1
       do k = 1, n3
       do j = 1, n2
@@ -602,7 +602,7 @@ contains
 
       b = 3
       j = 1
-      boundary(b) = Mesh3d_Boundary(b, 'south', coupled(b), polarity(b), n1*n3)
+      boundary(b) = MeshBoundary_3D(b, 'south', coupled(b), polarity(b), n1*n3)
       f = 1
       do k = 1, n3
       do i = 1, n1
@@ -620,7 +620,7 @@ contains
 
       b = 4
       j = n2
-      boundary(b) = Mesh3d_Boundary(b, 'north', coupled(b), polarity(b), n1*n3)
+      boundary(b) = MeshBoundary_3D(b, 'north', coupled(b), polarity(b), n1*n3)
       f = 1
       do k = 1, n3
       do i = 1, n1
@@ -638,7 +638,7 @@ contains
 
       b = 5
       k = 1
-      boundary(b) = Mesh3d_Boundary(b, 'bottom', coupled(b), polarity(b), n1*n2)
+      boundary(b) = MeshBoundary_3D(b, 'bottom', coupled(b), polarity(b), n1*n2)
       f = 1
       do j = 1, n2
       do i = 1, n1
@@ -656,7 +656,7 @@ contains
 
       b = 6
       k = n3
-      boundary(b) = Mesh3d_Boundary(b, 'top', coupled(b), polarity(b), n1*n2)
+      boundary(b) = MeshBoundary_3D(b, 'top', coupled(b), polarity(b), n1*n2)
       f = 1
       do j = 1, n2
       do i = 1, n1
@@ -678,7 +678,7 @@ contains
   !> Creates the element domains and their cuboid approximations
 
   subroutine GenerateRegularElementDomains(mesh, xo, i0, j0, k0)
-    class(Mesh3d_Partition), intent(inout) :: mesh  !< local partition
+    class(MeshPartition_3D), intent(inout) :: mesh  !< local partition
     real(RNP), intent(in) :: xo(3)      !< corner closest to -∞
     integer  , intent(in) :: i0, j0, k0 !< element offsets WRT global numbering
 
@@ -734,4 +734,4 @@ contains
 
   !=============================================================================
 
-end module Mesh_3d__Generate_Regular_Mesh
+end module Generate_Regular_Mesh__3D

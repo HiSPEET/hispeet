@@ -1,9 +1,9 @@
 
-  type Mesh3d_Variable
-    class(Mesh3d_Metrics),  pointer :: metrics
+  type MeshVariable_3D
+    class(MeshMetrics_3D),  pointer :: metrics
     real(RNP), contiguous,  pointer :: value(:,:,:,:,:)      ! (0:po,0:po,0:po,n_elem,n_comp)
     real(RNP), allocatable, private :: storage(:,:,:,:,:)
-  end type Mesh3d_Variable
+  end type MeshVariable_3D
 
 ! Remarks + issues:
 ! - original if storage is allocated
@@ -12,19 +12,19 @@
 ! – easy access to values, e.g: v(0:,0:,0:,1:,1:) => var % val(:,:,:,:,1:3)
 ! - extended types: scalar, vector
 ! - whether/how to include BC ?
-    type(Mesh3d_BoundaryCondition), allocatable :: bcond(:)
+    type(MeshBoundaryCondition_3D), allocatable :: bcond(:)
 
-  type Mesh3d_BoundaryVariable
+  type MeshBoundaryVariable_3D
     real(RNP), contiguous,  pointer :: value(:,:,:,:)      ! (0:po,0:po,n_bface,n_comp)
     real(RNP), allocatable, private :: storage(:,:,:,:)
-  end type Mesh3d_BoundaryVariable
+  end type MeshBoundaryVariable_3D
 
-  type, extends(Mesh3d_BoundaryVariable) :: Mesh3d_BoundaryCondition
+  type, extends(MeshBoundaryVariable_3D) :: MeshBoundaryCondition_3D
     character :: typ
-  end type Mesh3d_BoundaryCondition
+  end type MeshBoundaryCondition_3D
 
 ! Remarks
-! - independent boundary variables required or always part of Mesh3d_Variable ?
+! - independent boundary variables required or always part of MeshVariable_3D ?
 ! - visible or private ?
 ! - default: same number of components as mesh variable
 

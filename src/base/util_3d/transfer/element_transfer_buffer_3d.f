@@ -12,8 +12,8 @@ module Element_Transfer_Buffer_3d
   use Constants        , only: ZERO, ONE
   use Execution_Control, only: Error
   use XMPI
-  use Mesh_3d__Link
-  use Mesh_3d__Partition
+  use Mesh_Link__3D
+  use Mesh_Partition__3D
 
   implicit none
   private
@@ -143,7 +143,7 @@ module Element_Transfer_Buffer_3d
 
     module function New_TransferBuffer_IDK_S(mesh, v, nl) result(this)
       type(ElementTransferBuffer3d) :: this
-      type(Mesh3d_Partition),      intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),      intent(in) :: mesh  !< mesh partition
       integer, dimension(:,:,:,:), intent(in) :: v     !< mesh variable
       integer,           optional, intent(in) :: nl(3) !< number of layers
     end function New_TransferBuffer_IDK_S
@@ -153,7 +153,7 @@ module Element_Transfer_Buffer_3d
 
     module function New_TransferBuffer_IDK_A(mesh, v, nl) result(this)
       type(ElementTransferBuffer3d) :: this
-      type(Mesh3d_Partition),        intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),        intent(in) :: mesh  !< mesh partition
       integer, dimension(:,:,:,:,:), intent(in) :: v     !< mesh variables
       integer,             optional, intent(in) :: nl(3) !< number of layers
     end function New_TransferBuffer_IDK_A
@@ -163,7 +163,7 @@ module Element_Transfer_Buffer_3d
 
     module function New_TransferBuffer_IXS_S(mesh, v, nl) result(this)
       type(ElementTransferBuffer3d) :: this
-      type(Mesh3d_Partition),           intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),           intent(in) :: mesh  !< mesh partition
       integer(IXS), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
       integer,                optional, intent(in) :: nl(3) !< number of layers
     end function New_TransferBuffer_IXS_S
@@ -173,7 +173,7 @@ module Element_Transfer_Buffer_3d
 
     module function New_TransferBuffer_IXS_A(mesh, v, nl) result(this)
       type(ElementTransferBuffer3d) :: this
-      type(Mesh3d_Partition),             intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),             intent(in) :: mesh  !< mesh partition
       integer(IXS), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variables
       integer,                  optional, intent(in) :: nl(3) !< number of layers
     end function New_TransferBuffer_IXS_A
@@ -183,7 +183,7 @@ module Element_Transfer_Buffer_3d
 
     module function New_TransferBuffer_IXL_S(mesh, v, nl) result(this)
       type(ElementTransferBuffer3d) :: this
-      type(Mesh3d_Partition),           intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),           intent(in) :: mesh  !< mesh partition
       integer(IXL), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
       integer,                optional, intent(in) :: nl(3) !< number of layers
     end function New_TransferBuffer_IXL_S
@@ -193,7 +193,7 @@ module Element_Transfer_Buffer_3d
 
     module function New_TransferBuffer_IXL_A(mesh, v, nl) result(this)
       type(ElementTransferBuffer3d) :: this
-      type(Mesh3d_Partition),             intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),             intent(in) :: mesh  !< mesh partition
       integer(IXL), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variables
       integer,                  optional, intent(in) :: nl(3) !< number of layers
     end function New_TransferBuffer_IXL_A
@@ -203,7 +203,7 @@ module Element_Transfer_Buffer_3d
 
     module function New_TransferBuffer_RNP_S(mesh, v, nl) result(this)
       type(ElementTransferBuffer3d) :: this
-      type(Mesh3d_Partition),        intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),        intent(in) :: mesh  !< mesh partition
       real(RNP), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
       integer,             optional, intent(in) :: nl(3) !< number of layers
     end function New_TransferBuffer_RNP_S
@@ -213,7 +213,7 @@ module Element_Transfer_Buffer_3d
 
     module function New_TransferBuffer_RNP_A(mesh, v, nl) result(this)
       type(ElementTransferBuffer3d) :: this
-      type(Mesh3d_Partition),          intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),          intent(in) :: mesh  !< mesh partition
       real(RNP), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variables
       integer,               optional, intent(in) :: nl(3) !< number of layers
     end function New_TransferBuffer_RNP_A
@@ -230,7 +230,7 @@ module Element_Transfer_Buffer_3d
 
     module subroutine Transfer_IDK_S(this, mesh, v, tag)
       class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
-      type(Mesh3d_Partition),      intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),      intent(in) :: mesh  !< mesh partition
       integer, dimension(:,:,:,:), intent(in) :: v     !< mesh variable
       integer,                     intent(in) :: tag   !< message tag
     end subroutine Transfer_IDK_S
@@ -240,7 +240,7 @@ module Element_Transfer_Buffer_3d
 
     module subroutine Transfer_IDK_A(this, mesh, v, tag)
       class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
-      type(Mesh3d_Partition),        intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),        intent(in) :: mesh  !< mesh partition
       integer, dimension(:,:,:,:,:), intent(in) :: v     !< mesh variable
       integer,                       intent(in) :: tag   !< message tag
     end subroutine Transfer_IDK_A
@@ -250,7 +250,7 @@ module Element_Transfer_Buffer_3d
 
     module subroutine Transfer_IXS_S(this, mesh, v, tag)
       class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
-      type(Mesh3d_Partition),           intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),           intent(in) :: mesh  !< mesh partition
       integer(IXS), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
       integer,                          intent(in) :: tag   !< message tag
     end subroutine Transfer_IXS_S
@@ -260,7 +260,7 @@ module Element_Transfer_Buffer_3d
 
     module subroutine Transfer_IXS_A(this, mesh, v, tag)
       class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
-      type(Mesh3d_Partition),             intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),             intent(in) :: mesh  !< mesh partition
       integer(IXS), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variable
       integer,                            intent(in) :: tag   !< message tag
     end subroutine Transfer_IXS_A
@@ -270,7 +270,7 @@ module Element_Transfer_Buffer_3d
 
     module subroutine Transfer_IXL_S(this, mesh, v, tag)
       class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
-      type(Mesh3d_Partition),           intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),           intent(in) :: mesh  !< mesh partition
       integer(IXL), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
       integer,                          intent(in) :: tag   !< message tag
     end subroutine Transfer_IXL_S
@@ -280,7 +280,7 @@ module Element_Transfer_Buffer_3d
 
     module subroutine Transfer_IXL_A(this, mesh, v, tag)
       class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
-      type(Mesh3d_Partition),             intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),             intent(in) :: mesh  !< mesh partition
       integer(IXL), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variable
       integer,                            intent(in) :: tag   !< message tag
     end subroutine Transfer_IXL_A
@@ -290,7 +290,7 @@ module Element_Transfer_Buffer_3d
 
     module subroutine Transfer_RNP_S(this, mesh, v, tag)
       class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
-      type(Mesh3d_Partition),        intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),        intent(in) :: mesh  !< mesh partition
       real(RNP), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
       integer,                       intent(in) :: tag   !< message tag
     end subroutine Transfer_RNP_S
@@ -300,7 +300,7 @@ module Element_Transfer_Buffer_3d
 
     module subroutine Transfer_RNP_A(this, mesh, v, tag)
       class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
-      type(Mesh3d_Partition),          intent(in) :: mesh  !< mesh partition
+      type(MeshPartition_3D),          intent(in) :: mesh  !< mesh partition
       real(RNP), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variable
       integer,                         intent(in) :: tag   !< message tag
     end subroutine Transfer_RNP_A
@@ -403,7 +403,7 @@ contains
 
   subroutine Init_ElementTransferBuffer3d_Shared(this, mesh, np, nl)
     class(ElementTransferBuffer3d), intent(inout) :: this !< buffer
-    type(Mesh3d_Partition), intent(in) :: mesh  !< mesh partition
+    type(MeshPartition_3D), intent(in) :: mesh  !< mesh partition
     integer,                intent(in) :: np(3) !< points per direction
     integer,      optional, intent(in) :: nl(3) !< number of layers
 
@@ -531,7 +531,7 @@ contains
   !> Generates a mask of points subjected to transfer operations
 
   pure subroutine GeneratePointMask(link, np, nl, mask)
-    class(Mesh3d_ElementLink), intent(in)  :: link !< element link
+    class(MeshElementLink_3D), intent(in)  :: link !< element link
     integer, intent(in)  :: np(3)       !< points per direction
     integer, intent(in)  :: nl(3)       !< point layers per direction
     logical, intent(out) :: mask(:,:,:) !< mask of linked points

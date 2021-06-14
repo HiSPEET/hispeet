@@ -4,28 +4,28 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Mesh_3d__Element
+module Mesh_Element__3D
   use Kind_Parameters, only: IXL, IXS, RNP
-  use Mesh_3d__Element_Indexing
+  use Mesh_Element_Indexing__3D
   implicit none
   private
 
-  public :: Mesh3d_Element
-  public :: Mesh3d_ElementVertex
-  public :: Mesh3d_ElementEdge
-  public :: Mesh3d_ElementFace
-  public :: Mesh3d_ElementNeighbor
+  public :: MeshElement_3D
+  public :: MeshElementVertex_3D
+  public :: MeshElementEdge_3D
+  public :: MeshElementFace_3D
+  public :: MeshElementNeighbor_3D
 
   !-----------------------------------------------------------------------------
   !> Element vertex data
 
-  type Mesh3d_ElementVertex
+  type MeshElementVertex_3D
     integer      :: id         = -1 !< local mesh vertex ID
     integer(IXS) :: n_neighbor =  0 !< number of neighbor elements
     integer(IXS) :: i_neighbor =  0 !< first entry in `neighbor` list
     integer(IXS) :: rank       =  0 !< rank among local EV ref to same mesh vert
     integer(IXS) :: val        =  0 !< vertex valency
-  end type Mesh3d_ElementVertex
+  end type MeshElementVertex_3D
 
   !-----------------------------------------------------------------------------
   !> Element edge data
@@ -38,7 +38,7 @@ module Mesh_3d__Element
   !>       1         | none
   !>      -1         | flip
 
-  type Mesh3d_ElementEdge
+  type MeshElementEdge_3D
     integer      :: id          = -1 !< local mesh edge ID
     integer(IXS) :: orientation =  1 !< orientation against mesh edge
     integer(IXS) :: n_neighbor  =  0 !< number of neighbor elements
@@ -49,7 +49,7 @@ module Mesh_3d__Element
     generic :: AlignWithMesh    => AlignEdgeData_IDK, AlignEdgeData_RNP
     generic :: AlignWithElement => AlignEdgeData_IDK, AlignEdgeData_RNP
     procedure, private :: AlignEdgeData_IDK, AlignEdgeData_RNP
-  end type Mesh3d_ElementEdge
+  end type MeshElementEdge_3D
 
   !-----------------------------------------------------------------------------
   !> Element face data
@@ -58,7 +58,7 @@ module Mesh_3d__Element
   !> the element face with the mesh face. In case of negative normal orientation,
   !> the face must be flipped before rotating.
 
-  type Mesh3d_ElementFace
+  type MeshElementFace_3D
     integer      :: id         = -1 !< local mesh face ID
     integer      :: boundary   = -1 !< mesh boundary ID, if > 0
     integer(IXS) :: normal     =  1 !< normal orientation against mesh face (±1)
@@ -77,7 +77,7 @@ module Mesh_3d__Element
     procedure, private :: AlignWithMeshFace_IDK, AlignWithElementFace_IDK
     procedure, private :: AlignWithMeshFace_IXS, AlignWithElementFace_IXS
     procedure, private :: AlignWithMeshFace_RNP, AlignWithElementFace_RNP
-  end type Mesh3d_ElementFace
+  end type MeshElementFace_3D
 
   !-----------------------------------------------------------------------------
   !> Neighbor element properties
@@ -93,11 +93,11 @@ module Mesh_3d__Element
   !> @note
   !> Before creating mesh links, `id` refers to the neighbor's home partition.
 
-  type Mesh3d_ElementNeighbor
+  type MeshElementNeighbor_3D
     integer :: id   = -1 !< local ID of neighbor element, including ghosts
     integer :: part = -1 !< partition owning the neighbor
     integer :: cc   = -1 !< coupled neighbor component
-  end type Mesh3d_ElementNeighbor
+  end type MeshElementNeighbor_3D
 
   !-----------------------------------------------------------------------------
   !> 3D mesh element
@@ -149,18 +149,18 @@ module Mesh_3d__Element
   !>
   !>
 
-  type Mesh3d_Element
+  type MeshElement_3D
 
     integer(IXL) :: global_id = -1  !< global element ID
     integer      :: local_id  = -1  !< local  element ID
 
-    type(Mesh3d_ElementVertex)  :: vertex(8)  !< vertex data
-    type(Mesh3d_ElementEdge)    :: edge(12)   !< edge data
-    type(Mesh3d_ElementFace)    :: face(6)    !< face data
+    type(MeshElementVertex_3D)  :: vertex(8)  !< vertex data
+    type(MeshElementEdge_3D)    :: edge(12)   !< edge data
+    type(MeshElementFace_3D)    :: face(6)    !< face data
 
-    type(Mesh3d_ElementNeighbor), allocatable :: neighbor(:) !< neighbor data
+    type(MeshElementNeighbor_3D), allocatable :: neighbor(:) !< neighbor data
 
-  end type Mesh3d_Element
+  end type MeshElement_3D
 
 contains
 
@@ -174,7 +174,7 @@ contains
   !> Switch edge data between element and mesh orientations -- integer scalar
 
   pure subroutine AlignEdgeData_IDK(edge, v, va)
-    class(Mesh3d_ElementEdge), intent(in) :: edge  !< mesh element edge
+    class(MeshElementEdge_3D), intent(in) :: edge  !< mesh element edge
     integer, intent(in)  :: v(:)  !< given edge data
     integer, intent(out) :: va(:) !< aligned edge data
 
@@ -193,7 +193,7 @@ contains
   !> Switch edge data between element and mesh orientations -- real(RNP) scalar
 
   pure subroutine AlignEdgeData_RNP(edge, v, va)
-    class(Mesh3d_ElementEdge), intent(in) :: edge  !< mesh element edge
+    class(MeshElementEdge_3D), intent(in) :: edge  !< mesh element edge
     real(RNP), intent(in)  :: v(:)  !< given edge data
     real(RNP), intent(out) :: va(:) !< aligned edge data
 
@@ -217,7 +217,7 @@ contains
   !> Transforms face data from element to mesh orientation -- integer scalar
 
   pure subroutine AlignWithMeshFace_IDK(face, ve, vm)
-    class(Mesh3d_ElementFace), intent(in) :: face  !< mesh element face
+    class(MeshElementFace_3D), intent(in) :: face  !< mesh element face
     integer, intent(in)  :: ve(:,:)  !< element face data
     integer, intent(out) :: vm(:,:)  !< mesh face data
 
@@ -256,7 +256,7 @@ contains
   !> Transforms face data from element to mesh orientation -- integer scalar
 
   pure subroutine AlignWithMeshFace_IXS(face, ve, vm)
-    class(Mesh3d_ElementFace), intent(in) :: face  !< mesh element face
+    class(MeshElementFace_3D), intent(in) :: face  !< mesh element face
     integer(IXS), intent(in)  :: ve(:,:)  !< element face data
     integer(IXS), intent(out) :: vm(:,:)  !< mesh face data
 
@@ -295,7 +295,7 @@ contains
   !> Transforms face data from element to mesh orientation -- real(RNP) scalar
 
   pure subroutine AlignWithMeshFace_RNP(face, ve, vm)
-    class(Mesh3d_ElementFace), intent(in) :: face  !< mesh element face
+    class(MeshElementFace_3D), intent(in) :: face  !< mesh element face
     real(RNP), intent(in)  :: ve(:,:)  !< element face data
     real(RNP), intent(out) :: vm(:,:)  !< mesh face data
 
@@ -334,7 +334,7 @@ contains
   !> Transforms face data from mesh to element orientation -- integer scalar
 
   pure subroutine AlignWithElementFace_IDK(face, vm, ve)
-    class(Mesh3d_ElementFace), intent(in) :: face  !< mesh element face
+    class(MeshElementFace_3D), intent(in) :: face  !< mesh element face
     integer, intent(in)  :: vm(:,:)  !< mesh face data
     integer, intent(out) :: ve(:,:)  !< element face data
 
@@ -373,7 +373,7 @@ contains
   !> Transforms face data from mesh to element orientation -- integer scalar
 
   pure subroutine AlignWithElementFace_IXS(face, vm, ve)
-    class(Mesh3d_ElementFace), intent(in) :: face  !< mesh element face
+    class(MeshElementFace_3D), intent(in) :: face  !< mesh element face
     integer(IXS), intent(in)  :: vm(:,:)  !< mesh face data
     integer(IXS), intent(out) :: ve(:,:)  !< element face data
 
@@ -412,7 +412,7 @@ contains
   !> Transforms face data from mesh to element orientation -- real(RNP) scalar
 
   pure subroutine AlignWithElementFace_RNP(face, vm, ve)
-    class(Mesh3d_ElementFace), intent(in) :: face  !< mesh element face
+    class(MeshElementFace_3D), intent(in) :: face  !< mesh element face
     real(RNP), intent(in)  :: vm(:,:)  !< mesh face data
     real(RNP), intent(out) :: ve(:,:)  !< element face data
 
@@ -449,4 +449,4 @@ contains
 
   !=============================================================================
 
-end module Mesh_3d__Element
+end module Mesh_Element__3D

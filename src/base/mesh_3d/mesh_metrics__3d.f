@@ -8,14 +8,14 @@
 !>   *  OpenMP parallelization
 !===============================================================================
 
-module Mesh_3d__Metrics
+module Mesh_Metrics__3D
   use Kind_Parameters, only: RNP
   use Standard_Operators__1D
-  use Mesh_3d__Partition
+  use Mesh_Partition__3D
   implicit none
   private
 
-  public :: Mesh3d_Metrics
+  public :: MeshMetrics_3D
 
   !-----------------------------------------------------------------------------
   !> 3D mesh metrics
@@ -44,8 +44,8 @@ module Mesh_3d__Metrics
   !>   -  `n      (l,m,f,e,:)`  : unit normal vector n = (∂x/∂τ₁ × ∂x/∂τ₂)/a
   !>   -  `Ji_n_a (l,m,f,e,:)`  : J⁻¹⋅n
 
-  type Mesh3d_Metrics
-    class(Mesh3d_Partition), pointer :: mesh     !< related mesh partition
+  type MeshMetrics_3D
+    class(MeshPartition_3D), pointer :: mesh     !< related mesh partition
     type(StandardOperators_1D) :: standard_op     !< standard element operators
     real(RNP), allocatable :: x    (:,:,:,:,:)   !< mesh points
     real(RNP), allocatable :: Jm   (:,:,:,:,:,:) !< Jacobian matrix
@@ -55,37 +55,37 @@ module Mesh_3d__Metrics
     real(RNP), allocatable :: a    (:,:,:,:)     !< area coefficient
     real(RNP), allocatable :: n    (:,:,:,:,:)   !< unit normal vector
     real(RNP), allocatable :: Ji_n (:,:,:,:,:)   !< J⁻¹⋅n
-  end type Mesh3d_Metrics
+  end type MeshMetrics_3D
 
   ! constructor
-  interface Mesh3d_Metrics
-    module procedure New_Mesh3d_Metrics
+  interface MeshMetrics_3D
+    module procedure New_MeshMetrics_3D
   end interface
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Mesh3d_Metrics constructor
+  !> MeshMetrics_3D constructor
 
-  function New_Mesh3d_Metrics(mesh, po, basis) result(this)
-    class(Mesh3d_Partition), target, intent(in) :: mesh  !< mesh partition
+  function New_MeshMetrics_3D(mesh, po, basis) result(this)
+    class(MeshPartition_3D), target, intent(in) :: mesh  !< mesh partition
     integer,                         intent(in) :: po    !< polynomial order
     character,             optional, intent(in) :: basis !< 'G' or 'L' ['L']
 
-    type(Mesh3d_Metrics) :: this
+    type(MeshMetrics_3D) :: this
 
-    call Init_Mesh3d_Metrics(this, mesh, po, basis)
+    call Init_MeshMetrics_3D(this, mesh, po, basis)
 
-  end function New_Mesh3d_Metrics
+  end function New_MeshMetrics_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of mesh metrics
 
-  subroutine Init_Mesh3d_Metrics(this, mesh, po, basis)
+  subroutine Init_MeshMetrics_3D(this, mesh, po, basis)
 
-    class(Mesh3d_Metrics), intent(inout) :: this
+    class(MeshMetrics_3D), intent(inout) :: this
 
-    class(Mesh3d_Partition), target, intent(in) :: mesh  !< mesh partition
+    class(MeshPartition_3D), target, intent(in) :: mesh  !< mesh partition
     integer,                         intent(in) :: po    !< polynomial order
     character,             optional, intent(in) :: basis !< 'G' or 'L' ['L']
 
@@ -306,7 +306,7 @@ contains
 
     deallocate(grad_x)
 
-  end subroutine Init_Mesh3d_Metrics
+  end subroutine Init_MeshMetrics_3D
 
   !-----------------------------------------------------------------------------
   !> Standard element gradient -- to be replaced by optimized TPO routine
@@ -352,4 +352,4 @@ contains
 
   !=============================================================================
 
-end module Mesh_3d__Metrics
+end module Mesh_Metrics__3D

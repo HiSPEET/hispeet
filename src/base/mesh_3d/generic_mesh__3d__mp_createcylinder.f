@@ -7,7 +7,7 @@
 !>   – nonuniform element spacing
 !==============================================================================
 
-submodule(Generic_Mesh_3d) MP_CreateCylinder
+submodule(Generic_Mesh__3D) MP_CreateCylinder
   use Constants
   use Gauss_Jacobi
   implicit none
@@ -30,7 +30,7 @@ contains
   !> Restriction: nz = 1 or nz ≥ 3 in the periodic case.
 
   module subroutine CreateCylinder(mesh, nr, nz, po, periodic)
-    class(GenericMesh3d), intent(out) :: mesh  !< cylindrical 3d mesh
+    class(GenericMesh_3D), intent(out) :: mesh  !< cylindrical 3d mesh
     integer, intent(in) :: nr  !< num intervals in radial section
     integer, intent(in) :: nz  !< num intervals in axial  direction
     integer, intent(in) :: po  !< polynomial order of mesh elements

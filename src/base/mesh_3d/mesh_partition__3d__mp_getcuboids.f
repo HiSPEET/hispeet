@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(Mesh_3d__Partition) MP_GetCuboids
+submodule(Mesh_Partition__3D) MP_GetCuboids
   implicit none
 
 contains
@@ -13,7 +13,7 @@ contains
   !> Generates linear mesh points based on the approximate cuboids
 
   module subroutine GetCuboids(mesh, x)
-    class(Mesh3d_Partition), intent(in)  :: mesh         !< mesh partition
+    class(MeshPartition_3D), intent(in)  :: mesh         !< mesh partition
     real(RNP), allocatable,  intent(out) :: x(:,:,:,:,:) !< mesh points
 
     integer :: d, e, i, j, k

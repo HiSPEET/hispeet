@@ -6,8 +6,8 @@
 
 module Verify_Mesh_3d
 
-  use Mesh_3d__Partition
-  use Mesh_3d__Element
+  use Mesh_Partition__3D
+  use Mesh_Element__3D
 
   implicit none
   private
@@ -20,7 +20,7 @@ contains
   !> 3D mesh data verification procedure
 
   subroutine VerifyMesh3d(mesh, passed)
-    type(Mesh3d_Partition), intent(in)  :: mesh !< mesh partition
+    type(MeshPartition_3D), intent(in)  :: mesh !< mesh partition
     logical,                intent(out) :: passed !< test result
 
     logical :: con_passed
@@ -35,7 +35,7 @@ contains
   !> Test of local element connectivity
 
   subroutine ElementConnectivityTest(mesh, passed)
-    type(Mesh3d_Partition), intent(in)  :: mesh   !< mesh partition
+    type(MeshPartition_3D), intent(in)  :: mesh   !< mesh partition
     logical,                intent(out) :: passed !< test result
 
     integer :: e, i, j, k, l, n
@@ -123,7 +123,7 @@ contains
   !> Face matching test
 
   logical function FaceMatch(element, ef, ml) result(match)
-    class(Mesh3d_Element), intent(in) :: element !< given element
+    class(MeshElement_3D), intent(in) :: element !< given element
     integer, intent(in) :: ef !< coupled element face
     integer, intent(in) :: ml !< mesh element ID to match
 
@@ -144,7 +144,7 @@ contains
   !> Edge matching test
 
   logical function EdgeMatch(element, ee, ml) result(match)
-    class(Mesh3d_Element), intent(in) :: element !< given element
+    class(MeshElement_3D), intent(in) :: element !< given element
     integer, intent(in) :: ee !< coupled element edge
     integer, intent(in) :: ml !< mesh element ID to match
 
@@ -165,7 +165,7 @@ contains
   !> Vertex matching test
 
   logical function VertexMatch(element, ev, ml) result(match)
-    class(Mesh3d_Element), intent(in) :: element !< given element
+    class(MeshElement_3D), intent(in) :: element !< given element
     integer, intent(in) :: ev !< coupled element vertex
     integer, intent(in) :: ml !< mesh element ID to match
 

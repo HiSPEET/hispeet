@@ -5,8 +5,8 @@
 !===============================================================================
 
 submodule(Assembly_3d)  SM_U0
-  use Mesh_3d__Element
-  use Mesh_3d__Element_Indexing
+  use Mesh_Element__3D
+  use Mesh_Element_Indexing__3D
   implicit none
 
 contains
@@ -16,7 +16,7 @@ contains
 
   module subroutine Assembly3d_U0(mesh, u, u_buf, avg)
     !> mesh partition
-    class(Mesh3d_Partition), intent(in)    :: mesh
+    class(MeshPartition_3D), intent(in)    :: mesh
     !> mesh variable, including ghost entries
     real(RNP), intent(inout) :: u(:,:,:,:)
     !> MPI transfer buffer
@@ -80,7 +80,7 @@ contains
   subroutine ExtractTraces( element, u, u_face, u_edge, u_vert &
                           , m_face , m_edge, m_vert            )
 
-    class(Mesh3d_Element), intent(in)    :: element(:)
+    class(MeshElement_3D), intent(in)    :: element(:)
     real(RNP)            , intent(in)    :: u(0:,0:,0:,:)
     real(RNP)            , intent(inout) :: u_face(:,:,:,:)
     real(RNP)            , intent(inout) :: u_edge(:,:,:)
@@ -225,7 +225,7 @@ contains
 
   subroutine DistributeSkeletonData(element, u, u_face, u_edge, u_vert)
 
-    class(Mesh3d_Element), intent(in) :: element(:)
+    class(MeshElement_3D), intent(in) :: element(:)
     real(RNP), intent(inout) :: u(0:,0:,0:,:)
     real(RNP), intent(in)    :: u_face(:,:,:,:)
     real(RNP), intent(in)    :: u_edge(:,:,:)

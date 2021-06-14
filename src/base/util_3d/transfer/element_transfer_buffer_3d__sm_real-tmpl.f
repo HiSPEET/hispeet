@@ -7,7 +7,7 @@
     ! arguments ................................................................
 
     class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
-    type(Mesh3d_Partition), intent(in) :: mesh  !< mesh partition
+    type(MeshPartition_3D), intent(in) :: mesh  !< mesh partition
     real(RK),               intent(in) :: v     !< mesh variable
     integer,                intent(in) :: v_ne  !< size of v in element dimension
     integer,                intent(in) :: tag   !< message tag

@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !==============================================================================
 
-submodule(Generic_Mesh_3d) MP_CreateAnnularGap
+submodule(Generic_Mesh__3D) MP_CreateAnnularGap
   use Constants
   use Gauss_Jacobi
   use Execution_Control
@@ -42,7 +42,7 @@ contains
   !> Restriction: np ≥ 3
 
   module subroutine CreateAnnularGap(mesh, r0, r1, h, nr, np, nz, po, periodic)
-    class(GenericMesh3d), intent(out) :: mesh  !< cylindrical 3d mesh
+    class(GenericMesh_3D), intent(out) :: mesh  !< cylindrical 3d mesh
     real(RNP), intent(in) :: r0 !< inner radius
     real(RNP), intent(in) :: r1 !< outer radius
     real(RNP), intent(in) :: h  !< height

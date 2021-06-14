@@ -2,8 +2,8 @@ program Mesh3d_Import_Generic
   use Kind_Parameters
   use Constants
   use XMPI
-  use Generic_Mesh_3d
-  use Mesh_3d__Partition
+  use Generic_Mesh__3D
+  use Mesh_Partition__3D
   use Element_Transfer_Buffer_3d
   use Verify_Mesh_3d
   use Assembly_3d
@@ -29,8 +29,8 @@ program Mesh3d_Import_Generic
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
   integer :: rank
 
-  type(GenericMesh3d)    :: generic_mesh
-  type(Mesh3d_Partition) :: mesh
+  type(GenericMesh_3D)    :: generic_mesh
+  type(MeshPartition_3D) :: mesh
   real(RNP), allocatable :: x(:,:,:,:,:)
 
   real(RNP), allocatable, target :: var(:,:,:,:,:)

@@ -8,7 +8,7 @@ module Assembly_3d
   use Kind_Parameters, only: RNP
   use Constants      , only: ONE
   use Execution_Control
-  use Mesh_3d__Partition
+  use Mesh_Partition__3D
   use Element_Transfer_Buffer_3d
   implicit none
   private
@@ -26,7 +26,7 @@ module Assembly_3d
 
     module subroutine Assembly3d_U0(mesh, u, u_buf, avg)
       !> mesh partition
-      class(Mesh3d_Partition), intent(in)    :: mesh
+      class(MeshPartition_3D), intent(in)    :: mesh
       !> mesh variable, including ghost entries
       real(RNP), intent(inout) :: u(:,:,:,:)
       !> MPI transfer buffer
@@ -44,7 +44,7 @@ contains
 
   subroutine Assembly3d_0(mesh, u, u_buf, avg)
     !> mesh partition
-    class(Mesh3d_Partition), intent(in)    :: mesh
+    class(MeshPartition_3D), intent(in)    :: mesh
     !> mesh variable, including ghost entries
     real(RNP), intent(inout) :: u(:,:,:,:)
     !> MPI transfer buffer

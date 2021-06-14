@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(Mesh_3d__Partition) MP_GetPoints
+submodule(Mesh_Partition__3D) MP_GetPoints
   use Constants, only: HALF
   use Standard_Operators__1D
   use Embedded_Interpolation__3D
@@ -21,7 +21,7 @@ contains
   !>   -  Lagrange polynomials to Gauss-Lobatto-Legendre points (basis = 'L')
 
   module subroutine GetPoints(mesh, po, basis, x)
-    class(Mesh3d_Partition), intent(in)  :: mesh  !< mesh parition
+    class(MeshPartition_3D), intent(in)  :: mesh  !< mesh parition
     integer,                 intent(in)  :: po    !< polynomial order
     character,     optional, intent(in)  :: basis !< 'G' or 'L' ['L']
     real(RNP),  allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
@@ -48,7 +48,7 @@ contains
   !> Generates points for a regular mesh
 
   subroutine GetRegularMeshPoints(mesh, sop, x)
-    class(Mesh3d_Partition),    intent(in)  :: mesh !< mesh parition
+    class(MeshPartition_3D),    intent(in)  :: mesh !< mesh parition
     class(StandardOperators_1D), intent(in)  :: sop  !< standard operators
     real(RNP), contiguous,      intent(out) :: x(0:,0:,0:,:,:) !< mesh points
 
@@ -99,7 +99,7 @@ contains
   !> Generates points for a nonuniform mesh
 
   subroutine GetDeformedMeshPoints(mesh, sop, x)
-    class(Mesh3d_Partition),    intent(in)  :: mesh !< mesh parition
+    class(MeshPartition_3D),    intent(in)  :: mesh !< mesh parition
     class(StandardOperators_1D), intent(in)  :: sop  !< standard operators
     real(RNP), contiguous,      intent(out) :: x(0:,0:,0:,:,:) !< mesh points
 
