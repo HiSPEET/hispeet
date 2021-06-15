@@ -21,7 +21,7 @@
 module ISP_Flow_Problem__Channel
 
   use Kind_Parameters,   only: RNP
-  use Constants,         only: ZERO, ONE, TWO, HALF, PI
+  use Constants,         only: ZERO, ONE, TWO, PI
   use Execution_Control
   use Array_Assignments
   use XMPI
@@ -215,7 +215,7 @@ contains
     real(RNP), intent(out) :: f(:,:,:,:,:) !< external sources
 
     ! f₁ = (u_τ)² / (2δ)
-    call SetArray(f(:,:,:,:,1 ), HALF / problem % delta ** 3)
+    call SetArray(f(:,:,:,:,1 ), ONE / problem % delta ** 3)
     call SetArray(f(:,:,:,:,2:), ZERO, multi=.true.)
 
     ! silence the compiler ;)
