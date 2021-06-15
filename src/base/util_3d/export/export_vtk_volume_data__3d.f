@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Export_VTK_3d__Volume_Data
+module Export_VTK_Volume_Data__3D
   use Kind_Parameters, only: RNP
   use Constants,       only: HALF
   use Gauss_Jacobi,    only: LobattoPoints, LobattoPolynomial
@@ -506,4 +506,4 @@ contains
 
   !=============================================================================
 
-end module Export_VTK_3d__Volume_Data
+end module Export_VTK_Volume_Data__3D

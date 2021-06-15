@@ -117,20 +117,21 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
 #===============================================================================
 # util_3d
 
-set( UTIL_3D util_3d/export/export_vtk_3d__volume_data.f
-             util_3d/transfer/element_transfer_buffer_3d.f
-             util_3d/transfer/element_transfer_buffer_3d__sm_integer_idk.F
-             util_3d/transfer/element_transfer_buffer_3d__sm_integer_ixs.F
-             util_3d/transfer/element_transfer_buffer_3d__sm_integer_ixl.F
-             util_3d/transfer/element_transfer_buffer_3d__sm_real_rnp.F
-             util_3d/transfer/trace_transfer_buffer_3d.f
-             util_3d/ops/assembly_3d.f
-             util_3d/ops/assembly_3d__sm_u0.f
-             util_3d/verification/verify_mesh_3d.f
+set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
+             util_3d/transfer/element_transfer_buffer__3d.f
+             util_3d/transfer/element_transfer_buffer__3d__sm_integer_idk.F
+             util_3d/transfer/element_transfer_buffer__3d__sm_integer_ixs.F
+             util_3d/transfer/element_transfer_buffer__3d__sm_integer_ixl.F
+             util_3d/transfer/element_transfer_buffer__3d__sm_real_rdp.F
+             util_3d/transfer/element_transfer_buffer__3d__sm_real_rsp.F
+             util_3d/transfer/trace_transfer_buffer__3d.f
+             util_3d/ops/assembly__3d.f
+             util_3d/ops/assembly__3d__sm_0u.f
+             util_3d/verification/verify_mesh__3d.f
              )
 
 if (Exodus_FOUND)
-    set (UTIL_3D ${UTIL_3D} util_3d/import/import_exodus_3d.f)
+    set (UTIL_3D ${UTIL_3D} util_3d/import/import_exodus__3d.f)
 endif ()
 
 #===============================================================================

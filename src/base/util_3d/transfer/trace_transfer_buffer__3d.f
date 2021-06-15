@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Trace_Transfer_Buffer_3d
+module Trace_Transfer_Buffer__3D
 
   use Kind_Parameters  , only: RNP
   use Constants        , only: ZERO
@@ -15,7 +15,7 @@ module Trace_Transfer_Buffer_3d
   implicit none
   private
 
-  public :: TraceTransferBuffer3d
+  public :: TraceTransferBuffer_3D
 
   !-----------------------------------------------------------------------------
   !> Auxiliary structure for keeping linked face data and metadata
@@ -47,10 +47,10 @@ module Trace_Transfer_Buffer_3d
   !>    -  the `asynchronous` attribute is required for non-blocking MPI send
   !>       and receive operations in `Transfer`
   !>
-  !>         type(TraceTransferBuffer3d), asynchronous :: trace_buf
+  !>         type(TraceTransferBuffer_3D), asynchronous :: trace_buf
   !>         ...
   !>         ! create and fill buffer, start transfer
-  !>         trace_buf = TraceTransferBuffer3d(mesh, v)
+  !>         trace_buf = TraceTransferBuffer_3D(mesh, v)
   !>         call trace_buf % Transfer(mesh, v, tag)
   !>         ...
   !>         ! possibly perform some computations to hide communication costs
@@ -64,10 +64,10 @@ module Trace_Transfer_Buffer_3d
   !>    -  it must be `allocatable` and (de)allocated explicitly to ensure
   !>       correct finalization and, thus, release of component storage
   !>
-  !>         type(TraceTransferBuffer3d), asynchronous, allocatable, save :: trace_buf
+  !>         type(TraceTransferBuffer_3D), asynchronous, allocatable, save :: trace_buf
   !>         ...
   !>         !$omp master
-  !>         trace_buf = TraceTransferBuffer3d(mesh, v)
+  !>         trace_buf = TraceTransferBuffer_3D(mesh, v)
   !>         !$omp master
   !>         !$omp barrier
   !>         ...
@@ -80,7 +80,7 @@ module Trace_Transfer_Buffer_3d
   !>         deallocate(trace_buf)
   !>         !$omp end master
 
-  type TraceTransferBuffer3d
+  type TraceTransferBuffer_3D
     integer :: np = 0                   !< number of points per face
     integer :: nc = 0                   !< number of components (variables)
     integer, allocatable    :: start(:) !< message start addresses
@@ -96,10 +96,10 @@ module Trace_Transfer_Buffer_3d
     generic,   public  :: Merge => Merge_RS, Merge_RA
     procedure, private :: Merge_RS, Merge_RA
 
-  end type TraceTransferBuffer3d
+  end type TraceTransferBuffer_3D
 
   ! constructor interface
-  interface TraceTransferBuffer3d
+  interface TraceTransferBuffer_3D
     module procedure New_TransferBuffer_RS
     module procedure New_TransferBuffer_RA
   end interface
@@ -112,7 +112,7 @@ contains
   function New_TransferBuffer_RS(mesh, v) result(this)
     type(MeshPartition_3D), intent(in) :: mesh        !< mesh partition
     real(RNP),              intent(in) :: v(:,:,:,:)  !< trace variable
-    type(TraceTransferBuffer3d) :: this
+    type(TraceTransferBuffer_3D) :: this
 
     integer :: lb
 
@@ -129,7 +129,7 @@ contains
   function New_TransferBuffer_RA(mesh, v) result(this)
     type(MeshPartition_3D), intent(in) :: mesh          !< mesh partition
     real(RNP),              intent(in) :: v(:,:,:,:,:)  !< trace variable
-    type(TraceTransferBuffer3d) :: this
+    type(TraceTransferBuffer_3D) :: this
 
     integer :: lb
 
@@ -144,11 +144,11 @@ contains
   !> Common initialization of trace transfer buffers
 
   subroutine Init_X(this, mesh, np, nc, lb)
-    class(TraceTransferBuffer3d), intent(inout) :: this  !< buffer
-    type(MeshPartition_3D),       intent(in)    :: mesh  !< mesh partition
-    integer,                      intent(in)    :: np    !< num points/face
-    integer,                      intent(in)    :: nc    !< num components
-    integer,                      intent(out)   :: lb    !< buffer length
+    class(TraceTransferBuffer_3D), intent(inout) :: this  !< buffer
+    type(MeshPartition_3D),        intent(in)    :: mesh  !< mesh partition
+    integer,                       intent(in)    :: np    !< num points/face
+    integer,                       intent(in)    :: nc    !< num components
+    integer,                       intent(out)   :: lb    !< buffer length
 
     integer :: nl, nf
     integer :: i, j
@@ -222,7 +222,7 @@ contains
   !> with `n1*n2 = this%np`
 
   subroutine Transfer_RS(this, mesh, v, tag)
-    class(TraceTransferBuffer3d), asynchronous, intent(inout) :: this !< buffer
+    class(TraceTransferBuffer_3D), asynchronous, intent(inout) :: this !< buffer
     type(MeshPartition_3D), intent(in) :: mesh       !< mesh partition
     real(RNP),              intent(in) :: v(:,:,:,:) !< trace variable
     integer,                intent(in) :: tag        !< message tag
@@ -235,7 +235,7 @@ contains
   !> Extract and transfer buffer -- array of real variables
 
   subroutine Transfer_RA(this, mesh, v, tag)
-    class(TraceTransferBuffer3d), asynchronous, intent(inout) :: this !< buffer
+    class(TraceTransferBuffer_3D), asynchronous, intent(inout) :: this !< buffer
     type(MeshPartition_3D), intent(in) :: mesh         !< mesh partition
     real(RNP),              intent(in) :: v(:,:,:,:,:) !< trace variable
     integer,                intent(in) :: tag          !< message tag
@@ -248,7 +248,7 @@ contains
   !> Extract and transfer buffer -- real eXplicit
 
   subroutine Transfer_RX(this, mesh, v, tag)
-    class(TraceTransferBuffer3d), asynchronous, intent(inout) :: this
+    class(TraceTransferBuffer_3D), asynchronous, intent(inout) :: this
     type(MeshPartition_3D), intent(in) :: mesh
     real(RNP),              intent(in) :: v(this%np, 2, mesh%n_face, this%nc)
     integer,                intent(in) :: tag
@@ -342,7 +342,7 @@ contains
   !> Wait receive to complete and merge real buffer -- single variable
 
   subroutine Merge_RS(this, mesh, v, alpha, beta)
-    class(TraceTransferBuffer3d), intent(inout) :: this !< buffer
+    class(TraceTransferBuffer_3D), intent(inout) :: this !< buffer
     type(MeshPartition_3D), intent(in)    :: mesh       !< mesh partition
     real(RNP),              intent(inout) :: v(:,:,:,:) !< face variable
     real(RNP),    optional, intent(in)    :: alpha      !< coeff of v  [1]
@@ -356,7 +356,7 @@ contains
   !> Wait receive to complete and merge real buffer -- array of variables
 
   subroutine Merge_RA(this, mesh, v, alpha, beta)
-    class(TraceTransferBuffer3d), intent(inout) :: this !< buffer
+    class(TraceTransferBuffer_3D), intent(inout) :: this !< buffer
     type(MeshPartition_3D), intent(in)    :: mesh         !< mesh partition
     real(RNP),              intent(inout) :: v(:,:,:,:,:) !< face variable
     real(RNP),    optional, intent(in)    :: alpha        !< coeff of v  [1]
@@ -374,7 +374,7 @@ contains
   !>    `v  =  alpha * v  +  beta * vb`
 
   subroutine Merge_RX(this, mesh, v, alpha, beta)
-    class(TraceTransferBuffer3d), intent(inout) :: this
+    class(TraceTransferBuffer_3D), intent(inout) :: this
     type(MeshPartition_3D), intent(in) :: mesh
     real(RNP), intent(inout) :: v(this%np, 2, mesh%n_face, this%nc)
     real(RNP), optional, intent(in) :: alpha
@@ -481,4 +481,4 @@ contains
 
   !=============================================================================
 
-end module Trace_Transfer_Buffer_3d
+end module Trace_Transfer_Buffer__3D

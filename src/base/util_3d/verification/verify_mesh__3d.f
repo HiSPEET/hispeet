@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Verify_Mesh_3d
+module Verify_Mesh__3D
 
   use Mesh_Partition__3D
   use Mesh_Element__3D
@@ -12,14 +12,14 @@ module Verify_Mesh_3d
   implicit none
   private
 
-  public :: VerifyMesh3d
+  public :: VerifyMesh_3D
 
 contains
 
   !-----------------------------------------------------------------------------
   !> 3D mesh data verification procedure
 
-  subroutine VerifyMesh3d(mesh, passed)
+  subroutine VerifyMesh_3D(mesh, passed)
     type(MeshPartition_3D), intent(in)  :: mesh !< mesh partition
     logical,                intent(out) :: passed !< test result
 
@@ -29,7 +29,7 @@ contains
 
     passed = con_passed
 
-  end subroutine VerifyMesh3d
+  end subroutine VerifyMesh_3D
 
   !-----------------------------------------------------------------------------
   !> Test of local element connectivity
@@ -187,5 +187,5 @@ contains
 
   !=============================================================================
 
-end module Verify_Mesh_3d
+end module Verify_Mesh__3D
 

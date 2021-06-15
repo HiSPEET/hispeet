@@ -1,16 +1,16 @@
 
   !-----------------------------------------------------------------------------
-  !> Send master data to ghosts and receive own ghost data -- integer eXplicit
+  !> Send master data to ghosts and receive own ghost data -- real eXplicit
 
-  subroutine Transfer_IX(this, mesh, v, v_ne, tag)
+  subroutine Transfer_RX(this, mesh, v, v_ne, tag)
 
     ! arguments ................................................................
 
-    class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
-    type(MeshPartition_3D), intent(in) :: mesh !< mesh partition
-    integer(IK),            intent(in) :: v    !< mesh variable
-    integer,                intent(in) :: v_ne !< size of v in element dimension
-    integer,                intent(in) :: tag  !< message tag
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: this
+    type(MeshPartition_3D), intent(in) :: mesh  !< mesh partition
+    real(RK),               intent(in) :: v     !< mesh variable
+    integer,                intent(in) :: v_ne  !< size of v in element dimension
+    integer,                intent(in) :: tag   !< message tag
 
     dimension :: v(this%np(1), this%np(2), this%np(3), v_ne, this%nc)
 
@@ -23,14 +23,14 @@
 
     !$omp master
     if (v_ne < this%ne) then
-      call Error('Transfer_IX','size(v,4) < this%ne')
+      call Error('Transfer_RX','size(v,4) < this%ne')
     end if
     !$omp end master
 
     ! extract and send master data .............................................
 
     select type (vb => this % master % buf)
-    type is (integer(IK))
+    type is (real(RK))
 
       call CopyToBuffer( nn   = size(this%master%node)  &
                        , nm   = size(v) / this%nc       &
@@ -57,8 +57,8 @@
 
     ! receive master data ......................................................
 
-    select type (vb => this % ghost % buf)
-    type is (integer(IK))
+    select type (vb => this % master % buf)
+    type is (real(RK))
 
       !$omp master
       do i = 1, size(mesh%link)
@@ -79,12 +79,12 @@
   contains
 
     subroutine CopyToBuffer(nn, nm, nc, node, v, vb)
-      integer    , intent(in)  :: nn
-      integer    , intent(in)  :: nm
-      integer    , intent(in)  :: nc
-      integer    , intent(in)  :: node(nn)
-      integer(IK), intent(in)  :: v(nm,nc)
-      integer(IK), intent(out) :: vb(nn,nc)
+      integer,  intent(in)  :: nn
+      integer,  intent(in)  :: nm
+      integer,  intent(in)  :: nc
+      integer,  intent(in)  :: node(nn)
+      real(RK), intent(in)  :: v(nm,nc)
+      real(RK), intent(out) :: vb(nn,nc)
 
       integer :: i, j
 
@@ -97,30 +97,30 @@
 
     end subroutine CopyToBuffer
 
-  end subroutine Transfer_IX
+  end subroutine Transfer_RX
 
   !-----------------------------------------------------------------------------
-  !> Complete receive and merge buffer into ghost data -- integer eXplicit
+  !> Complete receive and merge buffer into ghost data -- real eXplicit
   !>
   !> Denoting the buffer with `vb`, the following operation will be executed:
   !>
   !>       v  =  alpha * v  +  beta * vb
 
-  subroutine Merge_IX(this, v, alpha, beta)
+  subroutine Merge_RX(this, v, alpha, beta)
 
     ! arguments ................................................................
 
-    class(ElementTransferBuffer3d), intent(inout) :: this
-    integer(IK),       intent(inout) :: v      !< mesh variable
-    integer, optional, intent(in)    :: alpha  !< coeff of v  [1]
-    integer, optional, intent(in)    :: beta   !< coeff of vb [1]
+    class(ElementTransferBuffer_3D), intent(inout) :: this
+    real(RK),           intent(inout) :: v      !< mesh variable
+    real(RK), optional, intent(in)    :: alpha  !< coeff of v  [1]
+    real(RK), optional, intent(in)    :: beta   !< coeff of vb [1]
 
     dimension :: v(this%np(1), this%np(2), this%np(3), this%ne+this%ng, this%nc)
 
     ! internal data ............................................................
 
-    integer :: a, b
-    integer :: ng, nm
+    real(RK) :: a, b
+    integer  :: ng, nm
 
     ! wait for receive to complete .............................................
 
@@ -134,21 +134,21 @@
 
     ! merge buffer .............................................................
 
-    select type (vb => this % ghost % buf)
-    type is (integer(IK))
+    select type (vb => this % master % buf)
+    type is (real(RK))
 
       if (size(vb) == 0) return
 
       if (present(alpha)) then
         a = alpha
       else
-        a = 0
+        a = ZERO
       end if
 
       if (present(beta)) then
         b = beta
       else
-        b = 1
+        b = ONE
       end if
 
       call MergeBuffer( nn   = size(this%ghost%node)  &
@@ -164,17 +164,17 @@
   contains
 
     subroutine MergeBuffer(nn, nm, nc, node, a, b, vb, v)
-      integer    , intent(in)    :: nn
-      integer    , intent(in)    :: nm
-      integer    , intent(in)    :: nc
-      integer    , intent(in)    :: node(nn)
-      integer    , intent(in)    :: a, b
-      integer(IK), intent(in)    :: vb(nn,nc)
-      integer(IK), intent(inout) :: v(nm,nc)
+      integer , intent(in)    :: nn
+      integer , intent(in)    :: nm
+      integer , intent(in)    :: nc
+      integer , intent(in)    :: node(nn)
+      real(RK), intent(in)    :: a, b
+      real(RK), intent(in)    :: vb(nn,nc)
+      real(RK), intent(inout) :: v(nm,nc)
 
       integer :: i, j
 
-      if (a /= 0) then
+      if (a /= ZERO) then
 
         !$omp do collapse(2) private(i,j)
         do j = 1, nc
@@ -196,4 +196,4 @@
 
     end subroutine MergeBuffer
 
-  end subroutine Merge_IX
+  end subroutine Merge_RX

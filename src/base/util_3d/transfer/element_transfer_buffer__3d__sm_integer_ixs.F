@@ -4,8 +4,8 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(Element_Transfer_Buffer_3d) SM_Integer_IXS
-  use Element_Transfer_Buffer_3d
+submodule(Element_Transfer_Buffer__3D) SM_Integer_IXS
+  use Element_Transfer_Buffer__3D
   implicit none
 
    integer, parameter :: IK = IXS
@@ -13,13 +13,13 @@ submodule(Element_Transfer_Buffer_3d) SM_Integer_IXS
 contains
 
   !=============================================================================
-  ! ElementTransferBuffer3d: constructor functions
+  ! ElementTransferBuffer_3D: constructor functions
 
   !-----------------------------------------------------------------------------
   !> New element transfer buffer for a single integer variable
 
   module function New_TransferBuffer_IXS_S(mesh, v, nl) result(this)
-    type(ElementTransferBuffer3d) :: this
+    type(ElementTransferBuffer_3D) :: this
     type(MeshPartition_3D),          intent(in) :: mesh  !< mesh partition
     integer(IK), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
     integer,               optional, intent(in) :: nl(3) !< number of layers
@@ -30,7 +30,7 @@ contains
     np(2) = size(v,2)
     np(3) = size(v,3)
 
-    call Init_ElementTransferBuffer3d_Shared(this, mesh, np, nl)
+    call Init_ElementTransferBuffer_Shared_3D(this, mesh, np, nl)
 
     this % nc = 1
 
@@ -43,7 +43,7 @@ contains
   !> New element transfer buffer for an array of integer variables
 
   module function New_TransferBuffer_IXS_A(mesh, v, nl) result(this)
-    type(ElementTransferBuffer3d) :: this
+    type(ElementTransferBuffer_3D) :: this
     type(MeshPartition_3D),            intent(in) :: mesh  !< mesh partition
     integer(IK), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variables
     integer,                 optional, intent(in) :: nl(3) !< number of layers
@@ -55,7 +55,7 @@ contains
     np(3) = size(v,3)
     nc    = size(v,5)
 
-    call Init_ElementTransferBuffer3d_Shared(this, mesh, np, nl)
+    call Init_ElementTransferBuffer_Shared_3D(this, mesh, np, nl)
 
     this % nc = nc
 
@@ -65,13 +65,13 @@ contains
   end function New_TransferBuffer_IXS_A
 
   !=============================================================================
-  ! ElementTransferBuffer3d: transfer procedures
+  ! ElementTransferBuffer_3D: transfer procedures
 
   !----------------------------------------------------------------------------
   !> Send master data to ghosts and receive own ghost data -- integer scalar
 
   module subroutine Transfer_IXS_S(this, mesh, v, tag)
-    class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: this
     type(MeshPartition_3D),          intent(in) :: mesh  !< mesh partition
     integer(IK), dimension(:,:,:,:), intent(in) :: v     !< mesh variable
     integer,                         intent(in) :: tag   !< message tag
@@ -84,7 +84,7 @@ contains
   !> Send master data to ghosts and receive own ghost data -- integer array
 
   module subroutine Transfer_IXS_A(this, mesh, v, tag)
-    class(ElementTransferBuffer3d), asynchronous, intent(inout) :: this
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: this
     type(MeshPartition_3D),            intent(in) :: mesh  !< mesh partition
     integer(IK), dimension(:,:,:,:,:), intent(in) :: v     !< mesh variable
     integer,                           intent(in) :: tag   !< message tag
@@ -94,7 +94,7 @@ contains
   end subroutine Transfer_IXS_A
 
   !=============================================================================
-  ! ElementTransferBuffer3d: merge procedures
+  ! ElementTransferBuffer_3D: merge procedures
 
   !-----------------------------------------------------------------------------
   !> Complete receive and merge buffer into ghost data -- integer scalar
@@ -111,7 +111,7 @@ contains
   !>    *  `ng` is the number of ghost elements
 
   module subroutine Merge_IXS_S(this, v, alpha, beta)
-    class(ElementTransferBuffer3d) , intent(inout) :: this
+    class(ElementTransferBuffer_3D), intent(inout) :: this
     integer(IK), dimension(:,:,:,:), intent(inout) :: v     !< mesh variable
     integer,               optional, intent(in)    :: alpha !< coeff of v  [0]
     integer,               optional, intent(in)    :: beta  !< coeff of vb [1]
@@ -120,7 +120,7 @@ contains
     if (size(v,4) /= this%ne + this%ng) then
       call Error( 'Merge_IXS_S'                    &
                 , 'size(v,4) /= this%ne + this%ng' &
-                , 'Element_Transfer_Buffer_3d'     )
+                , 'Element_Transfer_Buffer__3D'    )
     end if
     !$omp end master
 
@@ -144,7 +144,7 @@ contains
   !>    *  `nc` is the number of components, as in `this%nc`
 
   module subroutine Merge_IXS_A(this, v, alpha, beta)
-    class(ElementTransferBuffer3d)   , intent(inout) :: this
+    class(ElementTransferBuffer_3D)  , intent(inout) :: this
     integer(IK), dimension(:,:,:,:,:), intent(inout) :: v     !< mesh variable
     integer,                 optional, intent(in)    :: alpha !< coeff of v  [0]
     integer,                 optional, intent(in)    :: beta  !< coeff of vb [1]
@@ -153,7 +153,7 @@ contains
     if (size(v,4) /= this%ne + this%ng) then
       call Error( 'Merge_IXS_A'                    &
                 , 'size(v,4) /= this%ne + this%ng' &
-                , 'Element_Transfer_Buffer_3d'     )
+                , 'Element_Transfer_Buffer__3D'    )
     end if
     !$omp end master
 
@@ -164,7 +164,7 @@ contains
   !=============================================================================
   ! Templated procedures Transfer_IX and Merge_IX
 
-# include "element_transfer_buffer_3d__sm_integer-tmpl.f"
+# include "element_transfer_buffer__3d__sm_integer-tmpl.f"
 
   !=============================================================================
 

@@ -7,7 +7,7 @@
 !> This version is restricted to hexahedral elements.
 !===============================================================================
 
-module Import_Exodus_3d
+module Import_Exodus__3D
   use C_Binding
   use Execution_Control
   use Exodus_Binding
@@ -319,4 +319,4 @@ contains
 
   !=============================================================================
 
-end module Import_Exodus_3d
+end module Import_Exodus__3D

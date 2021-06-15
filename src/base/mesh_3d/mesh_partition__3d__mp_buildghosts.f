@@ -5,7 +5,7 @@
 !===============================================================================
 
 submodule(Mesh_Partition__3D) MP_BuildGhosts
-  use Element_Transfer_Buffer_3d
+  use Element_Transfer_Buffer__3D
   use Mesh_Element_Indexing__3D
   implicit none
 
@@ -37,8 +37,8 @@ contains
   module subroutine BuildGhosts(mesh)
     class(MeshPartition_3D), intent(inout) :: mesh !< local partition
 
-    type(ElementTransferBuffer3d), asynchronous, allocatable :: global_id_buf
-    type(ElementTransferBuffer3d), asynchronous, allocatable :: orientation_buf
+    type(ElementTransferBuffer_3D), asynchronous, allocatable :: global_id_buf
+    type(ElementTransferBuffer_3D), asynchronous, allocatable :: orientation_buf
     integer(IXL), allocatable :: global_id(:,:,:,:)
     integer(IXS), allocatable :: orientation(:,:,:,:)
 
@@ -55,9 +55,9 @@ contains
 
     ! these could be two OpenMP tasks
     allocate(global_id( 1, 1, 1, mesh%n_elem + mesh%n_ghost ))
-    global_id_buf = ElementTransferBuffer3d(mesh, global_id)
+    global_id_buf = ElementTransferBuffer_3D(mesh, global_id)
     allocate(orientation( 24, 1, 1, mesh%n_elem + mesh%n_ghost ))
-    orientation_buf = ElementTransferBuffer3d(mesh, orientation)
+    orientation_buf = ElementTransferBuffer_3D(mesh, orientation)
 
     ! transfer global ID and orientation .......................................
 

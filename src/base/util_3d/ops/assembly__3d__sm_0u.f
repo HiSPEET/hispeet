@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(Assembly_3d)  SM_U0
+submodule(Assembly__3D)  SM_0U
   use Mesh_Element__3D
   use Mesh_Element_Indexing__3D
   implicit none
@@ -14,13 +14,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Unstructured assembly and, optionally, averaging of a scalar variable
 
-  module subroutine Assembly3d_U0(mesh, u, u_buf, avg)
+  module subroutine Assembly_3D_0U(mesh, u, u_buf, avg)
     !> mesh partition
     class(MeshPartition_3D), intent(in)    :: mesh
     !> mesh variable, including ghost entries
     real(RNP), intent(inout) :: u(:,:,:,:)
     !> MPI transfer buffer
-    class(ElementTransferBuffer3d), asynchronous, intent(inout) :: u_buf
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: u_buf
     !> switch for averaging over element boundaries [F]
     logical, optional, intent(in) :: avg
 
@@ -72,7 +72,7 @@ contains
     deallocate(m_vert, u_vert)
     !$omp end master
 
-  end subroutine Assembly3d_U0
+  end subroutine Assembly_3D_0U
 
   !-----------------------------------------------------------------------------
   !> Extraction of scalar element boundary data
@@ -285,4 +285,4 @@ contains
 
   !=============================================================================
 
-end submodule SM_U0
+end submodule SM_0U

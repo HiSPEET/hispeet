@@ -5,9 +5,9 @@ program Mesh3d_Explore
   use Mesh_Element__3D
   use Mesh_Partition__3D
   use Generate_Regular_Mesh__3D
-  use Element_Transfer_Buffer_3d
-  use Verify_Mesh_3d
-  use Assembly_3d
+  use Element_Transfer_Buffer__3D
+  use Verify_Mesh__3D
+  use Assembly__3D
   implicit none
 
   character(len=*), parameter :: input_file = 'mesh3d_explore.prm'
@@ -36,7 +36,7 @@ program Mesh3d_Explore
   real(RNP), pointer             :: r(:,:,:,:)     ! reference variable
   real(RNP), pointer             :: e(:,:,:,:)     ! error
 
-  type(ElementTransferBuffer3d), asynchronous, allocatable :: v_buf
+  type(ElementTransferBuffer_3D), asynchronous, allocatable :: v_buf
 
   real(RNP) :: kappa(3), y(3), err, err_loc
   logical   :: passed, all_passed
@@ -71,10 +71,10 @@ program Mesh3d_Explore
   ! verification ...............................................................
 
   call GenerateRegularMesh(mesh, np, ep, xo, dx, periodic, comm, pg)
-  call VerifyMesh3d(mesh, passed)
+  call VerifyMesh_3D(mesh, passed)
   call XMPI_Reduce(passed, all_passed, MPI_LAND, 0, comm)
   if (rank == 0) then
-    write(*,'(/,A,G0)') 'VerifyMesh3d: passed = ', all_passed
+    write(*,'(/,A,G0)') 'VerifyMesh_3D: passed = ', all_passed
   end if
 
   ! averaging test .............................................................
@@ -104,8 +104,8 @@ program Mesh3d_Explore
       end do
     end do
 
-    v_buf = ElementTransferBuffer3d(mesh, v)
-    call Assembly3d(mesh, v, v_buf, avg=.true.)
+    v_buf = ElementTransferBuffer_3D(mesh, v)
+    call Assembly_3D(mesh, v, v_buf, avg=.true.)
 
     err_loc = 0
     do l = 1, mesh%n_elem
