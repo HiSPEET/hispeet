@@ -46,7 +46,7 @@ module Mesh_Metrics__3D
 
   type MeshMetrics_3D
     class(MeshPartition_3D), pointer :: mesh     !< related mesh partition
-    type(StandardOperators_1D) :: standard_op     !< standard element operators
+    type(StandardOperators_1D) :: standard_op    !< standard element operators
     real(RNP), allocatable :: x    (:,:,:,:,:)   !< mesh points
     real(RNP), allocatable :: Jm   (:,:,:,:,:,:) !< Jacobian matrix
     real(RNP), allocatable :: Ji   (:,:,:,:,:,:) !< Jacobian matrix inverse
