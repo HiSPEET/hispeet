@@ -210,7 +210,7 @@ contains
   subroutine CorrectorRHS( this, t_sdc, nu_sdc, u_sdc &
                          , F_sdc, F_sdc_ex, F_sdc_im  &
                          , m0                         )
-    class(Flow_SDC_Method_Euler), intent(in)    :: this
+    class(Flow_SDC_Method_RungeKutta), intent(in) :: this
     real(RNP),                    intent(in)    :: t_sdc    (0:)
     real(RNP), target, optional,  intent(in)    :: nu_sdc   (:,:,:,:,:,0:)
     real(RNP),                    intent(in)    :: u_sdc    (:,:,:,:,:,0:)
@@ -308,7 +308,7 @@ contains
                           , F_sdc, F_sdc_ex, F_sdc_im     &
                           , F_sdc_ex_new, F_sdc_im_new    )
 
-    class(Flow_SDC_Method_Euler), intent(inout) :: this
+    class(Flow_SDC_Method_RungeKutta), intent(inout) :: this
     integer  ,                    intent(in)    :: m
     real(RNP),                    intent(in)    :: t_sdc        (0:)
     real(RNP), target, optional,  intent(inout) :: nu_sdc       (:,:,:,:,:,0:)
@@ -323,30 +323,29 @@ contains
 
     real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: u_i
     real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: S_i
-
-!TODO! which of following are really needed ?
-    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_c  !new2: needed by corrector_stage
-    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d1, F_d2, F_d3 !new2: needed
-    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_p, F_s !new2: not needed?
-    real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: nu   !new2: not needed?
-
-    !new
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: G_ex
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: G_im
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d3
     !end new
 
-    real(RNP), save :: t_0 = -huge(ONE)
+!?!    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_c  !new2: needed by corrector_stage
+!?!    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d1, F_d2 !new2: needed
+!?!    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_p, F_s !new2: not needed?
+!?!    real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: nu   !new2: not needed?
+
+    real(RNP), save :: t_1 = -huge(ONE)
     logical,   save :: fsal
 
     ! auxiliary
     real(RNP) :: t_i, tau, dt
+    integer   :: nc, ne, np
     integer   :: i, l
 
     associate( problem => this % problem           &
              , flow_op => this % flow_op           &
              , mesh    => this % flow_op % mesh    &
              , x       => this % flow_op % x       &
-             , u_0     => u_sdc(:,:,:,:,:,m-1)     &
+             , u_1     => u_sdc(:,:,:,:,:,m-1)     & ! v₁ = v_{m-1}^{k+1}
              , p       => u_sdc(:,:,:,:,4,m)       &
              , a_im    => this % imex_rk % a_im    &
              , a_ex    => this % imex_rk % a_ex    &
@@ -360,60 +359,67 @@ contains
 
       ! initialization .........................................................
 
-      !$omp single
+      ! dimensions
+      np = size(u_1,1)  ! elements points per direction
+      ne = size(u_1,4)  ! number of local elements
+      nc = size(u_1,5)  ! number of solution components
 
-      ! check for reusable workspace
-!TODO! needs to updated
-      if (allocated(F_c)) then
-        if (any(shape(F_c) /= [shape(u_0),n_stage])) then
-          deallocate(u_i, S_i, F_c, F_d1, F_d2, F_d3, F_p, F_s)  ! G_ex, G_im ?
-          if(allocated(nu))  deallocate(nu)
-        end if
-      end if
+!?!      !$omp single
+!?!
+!?!      ! check for reusable workspace
+!?!!TODO! needs to updated
+!?!      if (allocated(F_c)) then
+!?!        if (any(shape(F_c) /= [shape(u_1),n_stage])) then
+!?!          deallocate(u_i, S_i, F_c, F_d1, F_d2, F_d3, F_p, F_s)  ! G_ex, G_im ?
+!?!          if(allocated(nu))  deallocate(nu)
+!?!        end if
+!?!      end if
+!?!
+!?!      ! check first-same-as-last condition
+!?!      fsal = c(n_stage) == ONE .and. t == t_1 .and. allocated(F_c)
+!?!
+!?!      if (.not. allocated(F_c)) then
+!?!        ! allocate new workspace
+        allocate(u_i, mold = u_1)
+        allocate(S_i, mold = u_1)
+        allocate(G_ex(np, np, np, ne, nc, n_stage))
+        allocate(G_im, mold = G_ex)
+        allocate(F_d3, mold = G_ex)
+!?!     allocate(F_c(size(u_1,1), size(u_1,2), size(u_1,3), size(u_1,4), size(u_1,5), n_stage))
+!?!     allocate(F_d1, F_d2, F_d3, F_p, F_s, mold = F_c)
 
-      ! check first-same-as-last condition
-      fsal = c(n_stage) == ONE .and. t == t_0 .and. allocated(F_c)
-
-      if (.not. allocated(F_c)) then
-        ! allocate new workspace
-        allocate(u_i, mold = u_0)
-        allocate(S_i, mold = u_0)
-        allocate(F_c(size(u_0,1), size(u_0,2), size(u_0,3), size(u_0,4), size(u_0,5), n_stage))
-        allocate(F_d1, F_d2, F_d3, F_p, F_s, mold = F_c)
-        !new
-        allocate(G_ex, mold = F_c)
-        allocate(G_im, mold = F_c)
-        !endnew
         if (problem % HasVariableProperties()) then
-          allocate(nu, mold = u_0)
+          allocate(nu, mold = u_1)
         end if
-      end if
+!?!      end if
 
       ! time
-      t_0 = t_sdc(m-1)
+      t_1 = t_sdc(m-1)
       dt  = t_sdc(m) - t_sdc(m-1)
-!?!   t   = t + dt  ! needed ?  !new2: not needed, if 566 right
 
       !$omp end single
 
       ! stage 1 ................................................................
 
-      t_i = t_0
+      t_i = t_1
 
-      if (fsal) then
+!?!      if (fsal) then
+!?!
+!?!        ! reuse last stage of previous step
+!?!!TODO! which of following are really needed ?
+!?!        call SetArray(F_c (:,:,:,:,:,1), F_c (:,:,:,:,:,n_stage), multi = .true.)
+!?!        call SetArray(F_d1(:,:,:,:,:,1), F_d1(:,:,:,:,:,n_stage), multi = .true.)
+!?!        call SetArray(F_d2(:,:,:,:,:,1), F_d2(:,:,:,:,:,n_stage), multi = .true.)
+!?!        call SetArray(F_d3(:,:,:,:,:,1), F_d3(:,:,:,:,:,n_stage), multi = .true.)
+!?!        call SetArray(F_p (:,:,:,:,:,1), F_p (:,:,:,:,:,n_stage), multi = .true.)
+!?!        call SetArray(F_s (:,:,:,:,:,1), F_s (:,:,:,:,:,n_stage), multi = .true.)
+!?!
+!?!!TODO! question: can G_ex and G_im also be reused ?
+!?!
+!?!      else
 
-        ! reuse last stage of previous step
-!TODO! which of following are really needed ?
-        call SetArray(F_c (:,:,:,:,:,1), F_c (:,:,:,:,:,n_stage), multi = .true.)
-        call SetArray(F_d1(:,:,:,:,:,1), F_d1(:,:,:,:,:,n_stage), multi = .true.)
-        call SetArray(F_d2(:,:,:,:,:,1), F_d2(:,:,:,:,:,n_stage), multi = .true.)
-        call SetArray(F_d3(:,:,:,:,:,1), F_d3(:,:,:,:,:,n_stage), multi = .true.)
-        call SetArray(F_p (:,:,:,:,:,1), F_p (:,:,:,:,:,n_stage), multi = .true.)
-        call SetArray(F_s (:,:,:,:,:,1), F_s (:,:,:,:,:,n_stage), multi = .true.)
-
-!TODO! question: can G_ex and G_im also be reused ?
-
-      else
+        G_im(:,:,:,:,:,1) = F_sdc_im_new(:,:,:,:,:,m-1) - F_sdc_im(:,:,:,:,:,m-1)
+        G_ex(:,:,:,:,:,1) = F_sdc_ex_new(:,:,:,:,:,m-1) - F_sdc_ex(:,:,:,:,:,m-1)
 
         if (problem % HasVariableProperties()) then
           call problem % GetDiffusivity(flow_op%x, t_i, u, nu)
@@ -421,61 +427,35 @@ contains
 
         call TimeDerivative( problem, flow_op, t_i      &
                            , u    = u                   &
-                           , p    = p                   &
                            , nu   = nu                  &
                            , chi  = chi                 &
-                           , F_c  = F_c  (:,:,:,:,:,1)  &
-                           , F_d1 = F_d1 (:,:,:,:,:,1)  &
-                           , F_d2 = F_d2 (:,:,:,:,:,1)  &
                            , F_d3 = F_d3 (:,:,:,:,:,1)  &
-                           , F_p  = F_p  (:,:,:,:,:,1)  &
-                           , F_s  = F_s  (:,:,:,:,:,1)  &
                            )
-      end if
 
-!TODO! interpolation of  F_im/ex^k(*,i)              using this%l_rk(:,:,i)
-
-       !new
-       G_im(:,:,:,:,:,1) = F_sdc_im_new(:,:,:,:,:,m-1) - F_sdc_im(:,:,:,:,:,m-1)
-       G_ex(:,:,:,:,:,1) = F_sdc_ex_new(:,:,:,:,:,m-1) - F_sdc_ex(:,:,:,:,:,m-1)
-       !endnew
-       
-       !new2
-       F_d3_sdc(:,:,:,:,:,1) = F_d3(:,:,:,:,:,1)  ! ???
-       !endnew2
+!?!      end if
 
       ! stages 2 to n_stage ....................................................
 
       do i = 2, n_stage
 
-        t_i = t_0 + c(i) * dt
+        t_i = t_1 + c(i) * dt
 
-!TODO! add computation   of  S_i = \int_{t_0}^{t_i} F^k  using this%w_rk(:,:,i)
-!TODO! if t_i = t → S_i = S
         S_i = w_rk(0,i,m) * F_sdc(:,:,:,:,:,0)
         do l = 1, this % n_sub
           S_i = S_i + w_rk(l,i,m) * F_sdc(:,:,:,:,:,l)
         end do
-!new
-!nicht fertig!
+
+        G_ex = -l_rk(0,i,m) * F_sdc_ex(:,:,:,:,:,0)
+        do l = 1, this % n_sub
+          G_ex = G_ex - l_rk(l,i,m) * F_sdc_ex(:,:,:,:,:,l)
+        end do
+
         G_im = -l_rk(0,i,m) * F_sdc_im(:,:,:,:,:,0)
         do l = 1, this % n_sub
           G_im = G_im - l_rk(l,i,m) * F_sdc_im(:,:,:,:,:,l)
         end do
 
-!TODO!  G_ex = ...
-!endnew
-
-!new2
-       G_ex = -l_rk(0,i,m) * F_sdc_ex(:,:,:,:,:,0)
-       do l = 1, this % n_sub
-         G_ex = G_ex - l_rk(l,i,m) * F_sdc_ex(:,:,:,:,:,l)
-       end do
-
-!endnew2
-
-!TODO! needs to be further adapted ?
-        call CorrectorStage(this, i, t_i, dt, nu, u_0, u_i, S_i, G_im, G_ex, F_d3)
+        call CorrectorStage(this, i, t_i, dt, nu, u_1, u_i, S_i, G_im, G_ex, F_d3)
 
       end do
 
@@ -565,15 +545,9 @@ contains
     end associate
 
     ! save final time for FSAL check ...........................................
-    
-    !alt
-    !t_0 = t 
-    !endalt
-    
-    !new2
-    t_0 = t_sdc(m)
-    !endnew2
-    
+
+    t_1 = t_sdc(m)
+
     ! clean up .................................................................
 
     ! keep workspace in case of standby
@@ -595,42 +569,138 @@ contains
 
   end subroutine CorrectorStep
 
-  subroutine CorrectorStage(this, i, t_i, dt, nu, u_0, u_i, S_i, G_im, G_ex, F_d3)
+
+
+  subroutine CorrectorStage(this, i, t_i, dt, nu, u_1, u_i, S_i, G_im, G_ex, F_d3)
 !TODO! 1) complete argument list based on algorithm and on declarations in CorrectorStep
 !TODO! 2) expand step by step based on algorithm using RungeKuttaStage_d1 as a model
 !TODO! 3) add local declarations as required, e.g:
-    real(RNP), allocatable, save :: F_d1 (:,:,:,:,:)  !?  is local
-    allocate(F_d1, mold = u_i)                        !?  etc. !new2 mold F_d3?
-    
-    
+
      ! arguments ................................................................
-     
-     class(TimeIntegrator_RungeKutta), intent(inout) :: this
-     integer,              intent(in)    :: i                 !< stage i
-     real(RNP),            intent(in)    :: t_i                 !< stage time tᵢ
-     real(RNP),            intent(in)    :: dt                !< time step width
-     real(RNP), optional,  intent(inout) :: nu  (:,:,:,:,:)   !< variable ν(x,t)
-     real(RNP),            intent(in)    :: u_0 (:,:,:,:,0:)   !< u(x,t₀)
-     real(RNP),            intent(inout) :: u_i (:,:,:,:,0:)   !< u(x,tᵢ)
-     real(RNP),            intent(inout) :: F_d3(:,:,:,:,0:) !< F_d3 = -∇(ν∇⋅v)
-     real(RNP),            intent(inout) :: G_im(:,:,:,:,0:) 
-     real(RNP),            intent(inout) :: G_ex(:,:,:,:,0:) 
-     real(RNP),            intent(inout) :: S_i(:,:,:,:,0:) 
+
+     class(Flow_SDC_Method_RungeKutta), intent(inout) :: this
+     integer,   intent(in)    :: i                !< stage i
+     real(RNP), intent(in)    :: t_i              !< stage time tᵢ
+     real(RNP), intent(in)    :: dt               !< time step width
+     real(RNP), intent(inout) :: nu  (:,:,:,:,:)  !< variable ν(x,t)
+     real(RNP), intent(in)    :: u_1 (:,:,:,:,:)  !< u(x,t₁)
+     real(RNP), intent(out)   :: u_i (:,:,:,:,:)  !< u(x,tᵢ)
+     real(RNP), intent(in)    :: S_i (:,:,:,:)
+     real(RNP), intent(inout) :: F_d3(:,:,:,:,:)  !< F_d3 = χ∇(ν∇⋅v)
+     real(RNP), intent(inout) :: G_im(:,:,:,:,:)
+     real(RNP), intent(inout) :: G_ex(:,:,:,:,:)
+
+     optional :: nu
 
      ! local variables...........................................................
-     
-     real(RNP), allocatable, save :: F_d1 (:,:,:,:,:)  
-     allocate(F_d1, mold = F_d3)                        
-    
-     real(RNP), allocatable, save :: F_d2 (:,:,:,:,:)  
-     allocate(F_d2, mold = F_d3)
-    
+
+!?!    real(RNP), allocatable, save :: F_d1 (:,:,:,:,:)  !?  is local
+!?!     real(RNP), allocatable, save :: F_d2 (:,:,:,:,:)
+
+!todo: complete
 
 
+     ! workspace ................................................................
 
+!todo: complete
+!?!    allocate(F_d1, mold = u_i)                        !?  etc. !new2 mold F_d3?
+!?!     allocate(F_d1, mold = F_d3)
+!?!     allocate(F_d2, mold = F_d3)
 
+     ! ..........................................................................
 
-   
+     associate( problem => this % problem           &
+              , flow_op => this % flow_op           &
+              , mesh    => this % flow_op % mesh    &
+              , psi     => u_i(:,:,:,:,4)           &
+              , a_ex    => this % imex_rk % a_ex    &
+              , a_im    => this % imex_rk % a_im    &
+              , eop     => this % flow_op % eop_u   &
+              )
+
+       ! initialization .........................................................
+
+       call GetBoundaryValues(problem, mesh, flow_op % bv_x, t_i, flow_op % bv_u)
+
+       ! extrapolation ...........................................................
+
+       ! u' = u₁ + S_i + ∆t ∑ⁱ⁻¹ aᵉˣ(G_ex + G_im + F_d3)
+       call SetArray(u_i, u_1, multi=.true.)
+
+       do k = 1, problem % nc
+         if (k == 4) cycle ! skip pressure
+
+         call MergeArrays(ONE, u_i(:,:,:,:,k), ONE, S_i (:,:,:,:,k))
+
+         do j = 1, i-1
+           tau = dt * a_ex(i,j)
+           if (tau /= 0) then
+             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, G_ex(:,:,:,:,k,j))
+!todo: complete
+           end if
+         end do
+       end do
+
+       ! projection: u_i ← u", psi ← ψ" .........................................
+
+       call PressureSolver(problem, flow_op, ONE, u_i, psi, w) ! ∇²ψ" = ∇⋅v'
+       call ProjectionStep(problem, flow_op, ONE, psi, u_i, w) ! v"+J(v") = v'-∇ψ"
+
+       ! diffusion: u_i ← u''' ..................................................
+
+       if (present(nu) .or. any(problem % nu_ref > 0)) then
+
+         ! update diffusivity
+         if (present(nu)) then
+           call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u")
+         end if
+
+         ! RHS: q = uᵢ + ∆t[ ∑ⁱ⁻¹(aⁱᵐ-aᵉˣ)G_im - ∑ⁱ⁻¹ aᵉˣF_d3 ]
+         do k = 1, problem % nc
+           if (k == 4) cycle
+           call SetArray(q(:,:,:,:,k), u_i(:,:,:,:,k))
+           do j = 1, i-1
+             tau = dt * (a_im(i,j) - a_ex(i,j))
+             if (tau /= 0) then
+               call MergeArrays(ONE, q(:,:,:,:,k), tau, G_im(:,:,:,:,k,j))
+             end if
+             tau = -dt * a_ex(i,j)
+             if (tau /= 0 .and. k < 4) then
+               call MergeArrays(ONE, q(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
+             end if
+           end do
+         end do
+
+         ! uᵢ/τ - ∇⋅(ν∇uᵢ) = f/τ,  τ = ∆t aⁱᵐ(i,i)
+         tau = dt * a_im(i,i)
+         call DiffusionStep(problem, flow_op, tau, q, u_i, w, nu)
+
+        end if
+
+        ! update G and F_d3 ....................................................
+
+        call TimeDerivative( problem, flow_op, t_i     &
+                           , u_i  = u_i                &
+                           , nu   = nu                 &
+                           , chi  = chi                &
+                           , F_c  = F_c  (:,:,:,:,:)   &
+                           , F_d1 = F_d1 (:,:,:,:,:)   &
+                           , F_d2 = F_d2 (:,:,:,:,:)   &
+                           , F_d3 = F_d3 (:,:,:,:,:,i) &
+                           )
+
+        ! G_im(*,i) += F_d1
+        call MergeArrays(ONE, G_im(:,:,:,:,:,i), ONE, F_d1, multi=.true.)
+
+        ! G_ex(*,i) += F_c + F_d2 + F_d3
+!todo: complete
+
+     end associate
+
+     ! clean up .................................................................
+
+!todo: complete
+
   end subroutine CorrectorStage
 
 !   subroutine RungeKuttaStage_d1( this, i, t, dt, nu, u_0, u_i    &
@@ -650,9 +720,9 @@ contains
 !    real(RNP), intent(inout) :: F_d2(:,:,:,:,:,:) !< F_d2 =  ∇⋅(ν∇v)ᵀ
 !    real(RNP), intent(inout) :: F_d3(:,:,:,:,:,:) !< F_d3 = -∇(ν∇⋅v)
 !    real(RNP), intent(inout) :: F_p (:,:,:,:,:,:) !< F_p  = -∇p
-!    real(RNP), intent(inout) :: F_s (:,:,:,:,:,:) !< F_s  =  f(x,t) 
-     
-        
+!    real(RNP), intent(inout) :: F_s (:,:,:,:,:,:) !< F_s  =  f(x,t)
+
+
 !     optional :: nu
 !
 !     ! local variables...........................................................
