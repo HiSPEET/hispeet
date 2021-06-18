@@ -16,7 +16,7 @@
 !>     u = abs(x)^3
 !>
 !> Discretization is performed using continuous nodal spectral elements based
-!> on GLL points. The conjugate gradient (CG) method is used as the solver.
+!> on Lobatto points. The conjugate gradient (CG) method is used as the solver.
 !>
 !> Implementation largely follows the approach described in the course "Höhere
 !> Numerische Strömungsmechanik" given at TU Dresden in 2016/17. The CG method

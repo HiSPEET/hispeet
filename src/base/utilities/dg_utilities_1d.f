@@ -5,7 +5,7 @@
 !>
 !>### Discontinuous 1D spectral element utilities
 !>
-!> Provides common routines for GLL-based nodal DG-SEM, including
+!> Provides common routines for Lobatto-based nodal DG-SEM, including
 !>
 !>   *  mesh generation (`GetMeshPoints`)
 !>
@@ -60,7 +60,7 @@ contains
       !$omp do
       do k = 1, ne
          xe = a + (k - HALF) * dx      ! element midpoint
-         x(:,k) = xe + HALF * dx * xi  ! transformed GLL points
+         x(:,k) = xe + HALF * dx * xi  ! transformed Lobatto points
       end do
     end associate
 

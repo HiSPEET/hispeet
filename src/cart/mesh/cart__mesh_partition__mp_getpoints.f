@@ -18,13 +18,13 @@ contains
 !>
 !> The routine provides the element points for one of the following bases:
 !>
-!>   *  Lagrange polynomials to Gauss-Legendre points (basis = 'GL')
-!>   *  Lagrange polynomials to Gauss-Lobatto-Legendre points (basis = 'GLL')
+!>   *  Lagrange polynomials to Gauss-Legendre points (basis = 'G')
+!>   *  Lagrange polynomials to Gauss-Lobatto-Legendre points (basis = 'L')
 
 module subroutine GetPoints(mesh, po, basis, x)
   class(MeshPartition),   intent(in)  :: mesh         !< mesh parition
   integer,                intent(in)  :: po           !< polynomial order
-  character(len=*),       intent(in)  :: basis        !< 'GL' or 'GLL'
+  character,              intent(in)  :: basis        !< 'G' or 'L'
   real(RNP), allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
 
   type(StandardOperators_1D) :: sop

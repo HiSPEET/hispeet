@@ -34,10 +34,10 @@ module CART__ISP_Flow__SDC
     integer   :: n_sub   = -1         !< number of subintervals
     integer   :: n_sweep = -1         !< max num correction sweeps
 
-    real(RNP), allocatable :: xi(:)   !< GLL points
-    real(RNP), allocatable :: d0(:)   !< GLL diff operator for starting time
-    real(RNP), allocatable :: xs(:,:) !< subinterval GLL points
-    real(RNP), allocatable :: ws(:,:) !< subinterval GLL weights
+    real(RNP), allocatable :: xi(:)   !< Lobatto points
+    real(RNP), allocatable :: d0(:)   !< Lobatto diff operator for starting time
+    real(RNP), allocatable :: xs(:,:) !< subinterval Lobatto points
+    real(RNP), allocatable :: ws(:,:) !< subinterval Lobatto weights
 
   contains
 
@@ -161,10 +161,10 @@ subroutine Init_SDC(sdc, Predictor, Corrector, opt)
   if (allocated(sdc % xs)) deallocate(sdc % xs)
   if (allocated(sdc % ws)) deallocate(sdc % ws)
 
-  ! GLL points, weights and diff matrix
-  allocate(x(0:n_sub), source = GLL_Points(n_sub))
-  allocate(w(0:n_sub), source = GLL_Weights(x))
-  allocate(D(0:n_sub, 0:n_sub), source = GLL_DiffMatrix(x))
+  ! Lobatto points, weights and diff matrix
+  allocate(x(0:n_sub), source = LobattoPoints(n_sub))
+  allocate(w(0:n_sub), source = LobattoWeights(x))
+  allocate(D(0:n_sub, 0:n_sub), source = LobattoDiffMatrix(x))
 
   ! storage
   allocate(sdc % xs(0:n_sub, n_sub))
@@ -183,7 +183,7 @@ subroutine Init_SDC(sdc, Predictor, Corrector, opt)
     sdc % n_sweep = sdc % n_sub
   end if
 
-  ! subinterval GLL points
+  ! subinterval Lobatto points
   do j = 1, n_sub
   do i = 0, n_sub
     sdc % xs(i,j) = x(j-1) + HALF * (x(j) - x(j-1)) * (x(i) + 1)
@@ -195,16 +195,16 @@ subroutine Init_SDC(sdc, Predictor, Corrector, opt)
   do i = 0, n_sub
     tmp = 0
     do k = 0, n_sub
-      tmp = tmp + w(k) * GLL_Polynomial(i, x, sdc%xs(k,j))
+      tmp = tmp + w(k) * LobattoPolynomial(i, x, sdc%xs(k,j))
     end do
     sdc % ws(i,j) = tmp
   end do
   end do
 
-  ! GLL points
+  ! Lobatto points
   call move_alloc(x, sdc % xi)
 
-  ! GLL diff operator for starting time
+  ! Lobatto diff operator for starting time
   allocate(sdc % d0(0:n_sub), source = D(0,:))
 
 end subroutine Init_SDC

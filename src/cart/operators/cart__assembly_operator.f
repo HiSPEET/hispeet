@@ -1,9 +1,7 @@
-!> summary:  Assembly of continuous GLL element contributions
+!> summary:  Assembly of continuous Lobatto element contributions
 !> author:   Joerg Stiller
 !> date:     2018/10/28
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Assembly of continuous GLL element contributions
 !===============================================================================
 
 module CART__Assembly_Operator
@@ -19,7 +17,7 @@ module CART__Assembly_Operator
   public :: AssemblyOperator
 
   !-----------------------------------------------------------------------------
-  !> Type for assembling GLL element contributions
+  !> Type for assembling Lobatto element contributions
   !>
   !>
   !>

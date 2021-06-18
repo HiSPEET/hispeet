@@ -250,7 +250,7 @@ program Elliptic_Test__IP_VI
 
   ! mesh partition and points
   call GenerateStructuredMesh(mesh, np, ep, xo, dx, periodic, comm)
-  call mesh % GetPoints(po, 'GLL', x)
+  call mesh % GetPoints(po, 'L', x)
 
   ! mesh variables
   call InitializeMeshVariables()
@@ -529,7 +529,7 @@ program Elliptic_Test__IP_VI
 !!!          print '(2(A,I0))', 'level = ',l,': P_l = ', pl
 !!!          allocate(xl(0:pl,0:pl,0:pl,mesh%ne,4))
 !!!          allocate(vl(0:pl,0:pl,0:pl,mesh%ne,4))
-!!!          call mesh % GetPoints(pl, 'GLL', xl)
+!!!          call mesh % GetPoints(pl, 'L', xl)
 !!!          vl(:,:,:,:,1) = pmg % level(l) % u
 !!!          vl(:,:,:,:,2) = pmg % level(l) % f
 !!!          vl(:,:,:,:,3) = pmg % level(l) % v

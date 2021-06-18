@@ -15,14 +15,14 @@ contains
 !> Computes the valency of mesh points
 !>
 !> The valency of a point equals the number of mesh elements sharing this point.
-!> In the GL case, every point belongs to only one element and, hence, has a
-!> valency of 1. In the GLL case, the points are shared across faces, edges and
-!> vertices. As a result, the valency of mesh points can range between 1 and 8.
-
+!> In the Gauss case, every point belongs to only one element and, hence, has a
+!> valency of 1. In the Lobatto case, the points are shared across faces, edges
+!> and vertices. As a result, the valency of mesh points can range between 1 and
+!> 8.
 
 module subroutine GetPointValency(mesh, basis, v)
   class(MeshPartition), intent(in)  :: mesh          !< mesh parition
-  character(len=*),     intent(in)  :: basis         !< 'GL' or 'GLL'
+  character,            intent(in)  :: basis         !< 'G' or 'L'
   integer,              intent(out) :: v(0:,0:,0:,:) !< point valency
 
   integer :: e, i, j, k, P
@@ -43,9 +43,9 @@ module subroutine GetPointValency(mesh, basis, v)
     end do
   end do
 
-  ! GLL point valency ..........................................................
+  ! Lobatto point valency ......................................................
 
-  if (basis == 'GLL') then
+  if (basis == 'L') then
 
     do e = 1, mesh%ne
 

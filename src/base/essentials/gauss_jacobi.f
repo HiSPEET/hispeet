@@ -8,11 +8,11 @@
 !> Provides procedures for evaluating
 !>
 !>   *  the values, derivatives and zeros of Jacobi polynomials,
-!>   *  the Gauss-Legendre (GL) points and weights, and the related
+!>   *  the Gauss-Legendre (G) points and weights, and the related
 !>      Lagrange polynomials and their derivatives,
-!>   *  the Gauss-Lobatto-Legendre (GLL) points and weights, and the
+!>   *  the Gauss-Lobatto-Legendre (L) points and weights, and the
 !>      related Lagrange polynomials and their derivatives.
-!>   *  the left-sided Gauss-Radau-Legendre (GRL) points and weights,
+!>   *  the left-sided Gauss-Radau-Legendre (R) points and weights,
 !>      and the related Lagrange polynomials and their derivatives.
 !>
 !> Implementation follows G.E. Karniadakis & S.J. Sherwin,
@@ -29,23 +29,23 @@ module Gauss_Jacobi
   public :: JacobiPolynomialDerivative
   public :: JacobiPolynomialZeros
 
-  public :: GL_Points
-  public :: GL_Weights
-  public :: GL_Polynomial
-  public :: GL_PolynomialDerivative
-  public :: GL_DiffMatrix
+  public :: GaussPoints
+  public :: GaussWeights
+  public :: GaussPolynomial
+  public :: GaussPolynomialDerivative
+  public :: GaussDiffMatrix
 
-  public :: GLL_Points
-  public :: GLL_Weights
-  public :: GLL_Polynomial
-  public :: GLL_PolynomialDerivative
-  public :: GLL_DiffMatrix
+  public :: LobattoPoints
+  public :: LobattoWeights
+  public :: LobattoPolynomial
+  public :: LobattoPolynomialDerivative
+  public :: LobattoDiffMatrix
 
-  public :: GRL_Points
-  public :: GRL_Weights
-  public :: GRL_Polynomial
-  public :: GRL_PolynomialDerivative
-  public :: GRL_DiffMatrix
+  public :: RadauPoints
+  public :: RadauWeights
+  public :: RadauPolynomial
+  public :: RadauPolynomialDerivative
+  public :: RadauDiffMatrix
 
   !> Mininmal admissible distance distance to collocation points.
   !> If the distance of a given point falls below `TOL`, the closest
@@ -147,18 +147,18 @@ contains
   !-----------------------------------------------------------------------------
   !> Gauss-Legendre quadrature points of degree q in [-1,1]
 
-  pure function GL_Points(q) result(x)
+  pure function GaussPoints(q) result(x)
     integer, intent(in) :: q       !< degree of the quadrature polynomial
     real(RNP)           :: x(0:q)  !< quadrature points
 
     x = JacobiPolynomialZeros(ZERO, ZERO, n=q+1)
 
-  end function GL_Points
+  end function GaussPoints
 
   !-----------------------------------------------------------------------------
   !> Quadrature weights related to the Gauss-Legendre points x(0:q)
 
-  pure function GL_Weights(x) result(w)
+  pure function GaussWeights(x) result(w)
     real(RNP), intent(in) :: x(0:)            !< quadrature points
     real(RNP)             :: w(0:ubound(x,1)) !< quadrature weights
 
@@ -169,12 +169,12 @@ contains
       w(i) = 2/((1-x(i)**2) * JacobiPolynomialDerivative(ZERO,ZERO,q+1,x(i))**2)
     end forall
 
-  end function GL_Weights
+  end function GaussWeights
 
   !-----------------------------------------------------------------------------
   !> Lagrange polynomial l_k to Gauss-Legendre points xi(0:n)
 
-  pure function GL_Polynomial(k, xi, x) result(y)
+  pure function GaussPolynomial(k, xi, x) result(y)
     integer,   intent(in) :: k       !< polynomial ID, 0 <= k <= q = ubound(x,1)
     real(RNP), intent(in) :: xi(0:)  !< Gauss-Legendre points
     real(RNP), intent(in) :: x       !< position in [-1, 1]
@@ -190,12 +190,12 @@ contains
         / (JacobiPolynomialDerivative(ZERO, ZERO, q+1, xi(k)) * (x-xi(k)))
     end if
 
-  end function GL_Polynomial
+  end function GaussPolynomial
 
   !-----------------------------------------------------------------------------
-  !> Derivative of the GL Lagrange polynomial l_k at the p-th GL point
+  !> Derivative of the Gauss Lagrange polynomial l_k at the p-th Gauss point
 
-  pure function GL_PolynomialDerivative(k, xi, p) result(dy)
+  pure function GaussPolynomialDerivative(k, xi, p) result(dy)
     integer,   intent(in) :: k       !< polynomial ID, 0 <= k <= q = ubound(x,1)
     real(RNP), intent(in) :: xi(0:)  !< Gauss-Legendre points
     integer,   intent(in) :: p       !< point ID, 0 <= p <= q
@@ -211,28 +211,28 @@ contains
          / (JacobiPolynomialDerivative(ZERO, ZERO, q+1, xi(k)) * (xi(p)-xi(k)))
     end if
 
-  end function GL_PolynomialDerivative
+  end function GaussPolynomialDerivative
 
   !-----------------------------------------------------------------------------
   !> Returns the Gauss-Legendre differentiation matrix
   !>
-  !> Let xi(0:q) denote the GL points of degree q and l_j(x) the Lagrange
+  !> Let xi(0:q) denote the Gauss points of degree q and l_j(x) the Lagrange
   !> polynomial associated with xi(j). The colllocation differentiation matrix
   !> is then defined as
   !>
   !>     D(i,j) = l_j'(xi(i))    for 0 <= i,j <= q
 
-  pure function GL_DiffMatrix(xi) result(D)
-    real(RNP), intent(in) :: xi(0:)                !< GL points
-    real(RNP) :: D(0:ubound(xi,1),0:ubound(xi,1))  !< GL differentiation matrix
+  pure function GaussDiffMatrix(xi) result(D)
+    real(RNP), intent(in) :: xi(0:)                !< Gauss points
+    real(RNP) :: D(0:ubound(xi,1),0:ubound(xi,1))  !< Gauss diff matrix
 
     integer :: i, j
 
     forall(i = 0:ubound(xi,1), j = 0:ubound(xi,1))
-      D(i,j) = GL_PolynomialDerivative(j, xi, i)
+      D(i,j) = GaussPolynomialDerivative(j, xi, i)
     end forall
 
-  end function GL_DiffMatrix
+  end function GaussDiffMatrix
 
   !=============================================================================
   ! Gauss-Lobatto-Legendre quadrature and related Lagrangre polynomials
@@ -240,7 +240,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Gauss-Lobatto-Legendre quadrature points of degree q
 
-  pure function GLL_Points(q) result(x)
+  pure function LobattoPoints(q) result(x)
     integer, intent(in) :: q       !< degree of the quadrature polynomial
     real(RNP)           :: x(0:q)  !< quadrature points
 
@@ -248,12 +248,12 @@ contains
     x(1:q-1) =  JacobiPolynomialZeros(ONE, ONE, n=q-1)
     x(q)     =  1
 
-  end function GLL_Points
+  end function LobattoPoints
 
   !-----------------------------------------------------------------------------
   !> Quadrature weights at Gauss-Lobatto-Legendre points x(0:q)
 
-  pure function GLL_Weights(x) result(w)
+  pure function LobattoWeights(x) result(w)
     real(RNP), intent(in) :: x(0:)             !< quadrature points
     real(RNP)             :: w(0:ubound(x,1))  !< quadrature weights
 
@@ -264,12 +264,12 @@ contains
       w(i) = 2 / (q*(q+1) * JacobiPolynomial(ZERO, ZERO, q, x(i))**2)
     end forall
 
-  end function GLL_Weights
+  end function LobattoWeights
 
   !-----------------------------------------------------------------------------
   !> Lagrange polynomial l_k to Gauss-Lobatto-Legendre points xi(0:n)
 
-  pure function GLL_Polynomial(k, xi, x) result(y)
+  pure function LobattoPolynomial(k, xi, x) result(y)
     integer,   intent(in) :: k       !< polynomial ID, 0 <= k <= q = ubound(x,1)
     real(RNP), intent(in) :: xi(0:)  !< Gauss-Lobatto-Legendre points
     real(RNP), intent(in) :: x       !< position in [-1, 1]
@@ -285,12 +285,12 @@ contains
         / (q*(q+1) * JacobiPolynomial(ZERO, ZERO, q, xi(k)) * (x-xi(k)))
     end if
 
-  end function GLL_Polynomial
+  end function LobattoPolynomial
 
   !-----------------------------------------------------------------------------
-  !> Derivative of the GLL Lagrange polynomial l_k at the p-th GLL point
+  !> Derivative of the Lobatto Lagrange polynomial l_k at the p-th Lobatto point
 
-  pure function GLL_PolynomialDerivative(k, xi, p) result(dy)
+  pure function LobattoPolynomialDerivative(k, xi, p) result(dy)
     integer,   intent(in) :: k       !< polynomial ID, 0 <= k <= q = ubound(x,1)
     real(RNP), intent(in) :: xi(0:)  !< Gauss-Lobatto-Legendre points
     integer,   intent(in) :: p       !< point ID, 0 <= p <= q
@@ -307,28 +307,28 @@ contains
          / (JacobiPolynomial(ZERO, ZERO, q, xi(k)) * (xi(p)-xi(k)))
     end if
 
-  end function GLL_PolynomialDerivative
+  end function LobattoPolynomialDerivative
 
   !-----------------------------------------------------------------------------
   !> Returns the Gauss-Lobatto-Legendre differentiation matrix
   !>
-  !> Let xi(0:q) denote the GLL points of degree q and l_j(x) the Lagrange
+  !> Let xi(0:q) denote the Lobatto points of degree q and l_j(x) the Lagrange
   !> polynomial associated with xi(j). The colllocation differentiation matrix
   !> is then defined as
   !>
   !>     D(i,j) = l_j'(xi(i))    for 0 <= i,j <= q
 
-  pure function GLL_DiffMatrix(xi) result(D)
-    real(RNP), intent(in) :: xi(0:)                !< GLL points
-    real(RNP) :: D(0:ubound(xi,1),0:ubound(xi,1))  !< GLL differentiation matrix
+  pure function LobattoDiffMatrix(xi) result(D)
+    real(RNP), intent(in) :: xi(0:)                !< Lobatto points
+    real(RNP) :: D(0:ubound(xi,1),0:ubound(xi,1))  !< Lobatto diff matrix
 
     integer :: i, j
 
     forall(i = 0:ubound(xi,1), j = 0:ubound(xi,1))
-      D(i,j) = GLL_PolynomialDerivative(j, xi, i)
+      D(i,j) = LobattoPolynomialDerivative(j, xi, i)
     end forall
 
-  end function GLL_DiffMatrix
+  end function LobattoDiffMatrix
 
   !=============================================================================
   ! Gauss-Radau-Legendre quadrature and related Lagrangre polynomials
@@ -336,19 +336,19 @@ contains
   !-----------------------------------------------------------------------------
   !> Left-sided Gauss-Radau-Legendre quadrature points of degree q
 
-  pure function GRL_Points(q) result(x)
+  pure function RadauPoints(q) result(x)
     integer, intent(in) :: q       !< degree of the quadrature polynomial
     real(RNP)           :: x(0:q)  !< quadrature points
 
     x(0)   = -1
     x(1:q) =  JacobiPolynomialZeros(ZERO, ONE, n=q)
 
-  end function GRL_Points
+  end function RadauPoints
 
   !-----------------------------------------------------------------------------
   !> Quadrature weights at Gauss-Radau-Legendre points x(0:q)
 
-  pure function GRL_Weights(x) result(w)
+  pure function RadauWeights(x) result(w)
     real(RNP), intent(in) :: x(0:)             !< quadrature points
     real(RNP)             :: w(0:ubound(x,1))  !< quadrature weights
 
@@ -359,12 +359,12 @@ contains
       w(i) = (1 - x(i)) / ((q+1) * JacobiPolynomial(ZERO, ZERO, q, x(i)))**2
     end forall
 
-  end function GRL_Weights
+  end function RadauWeights
 
   !-----------------------------------------------------------------------------
   !> Lagrange polynomial l_k to Gauss-Radau-Legendre points xi(0:n)
 
-  pure function GRL_Polynomial(k, xi, x) result(y)
+  pure function RadauPolynomial(k, xi, x) result(y)
     integer,   intent(in) :: k       !< polynomial ID, 0 <= k <= q = ubound(x,1)
     real(RNP), intent(in) :: xi(0:)  !< Gauss-Radau-Legendre points
     real(RNP), intent(in) :: x       !< position in [-1, 1]
@@ -383,12 +383,12 @@ contains
           )
     end if
 
-  end function GRL_Polynomial
+  end function RadauPolynomial
 
   !-----------------------------------------------------------------------------
-  !> Derivative of the GRL Lagrange polynomial l_k at the p-th GL point
+  !> Derivative of the Radau Lagrange polynomial l_k at the p-th Radau point
 
-  pure function GRL_PolynomialDerivative(k, xi, p) result(dy)
+  pure function RadauPolynomialDerivative(k, xi, p) result(dy)
     integer,   intent(in) :: k       !< polynomial ID, 0 <= k <= q = ubound(x,1)
     real(RNP), intent(in) :: xi(0:)  !< Gauss-Radau-Legendre points
     integer,   intent(in) :: p       !< point ID, 0 <= p <= q
@@ -404,28 +404,28 @@ contains
          / (JacobiPolynomial(ZERO, ZERO, q, xi(k)) * (1 - xi(p)) * (xi(p)-xi(k)))
     end if
 
-  end function GRL_PolynomialDerivative
+  end function RadauPolynomialDerivative
 
   !-----------------------------------------------------------------------------
   !> Returns the Gauss-Radau-Legendre differentiation matrix
   !>
-  !> Let xi(0:q) denote the GLL points of degree q and l_j(x) the Lagrange
+  !> Let xi(0:q) denote the Lobatto points of degree q and l_j(x) the Lagrange
   !> polynomial associated with xi(j). The colllocation differentiation matrix
   !> is then defined as
   !>
   !>     D(i,j) = l_j'(xi(i))    for 0 <= i,j <= q
 
-  pure function GRL_DiffMatrix(xi) result(D)
-    real(RNP), intent(in) :: xi(0:)                !< GRL points
-    real(RNP) :: D(0:ubound(xi,1),0:ubound(xi,1))  !< GRL differentiation matrix
+  pure function RadauDiffMatrix(xi) result(D)
+    real(RNP), intent(in) :: xi(0:)                !< Radau points
+    real(RNP) :: D(0:ubound(xi,1),0:ubound(xi,1))  !< Radau diff matrix
 
     integer :: i, j
 
     forall(i = 0:ubound(xi,1), j = 0:ubound(xi,1))
-      D(i,j) = GRL_PolynomialDerivative(j, xi, i)
+      D(i,j) = RadauPolynomialDerivative(j, xi, i)
     end forall
 
-  end function GRL_DiffMatrix
+  end function RadauDiffMatrix
 
   !=============================================================================
 

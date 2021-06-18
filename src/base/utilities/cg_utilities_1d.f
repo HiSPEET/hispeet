@@ -5,7 +5,7 @@
 !>
 !>### Continuous 1D spectral element utilities
 !>
-!> Provides common routines for GLL-based nodal CG-SEM, including
+!> Provides common routines for Lobatto-based nodal CG-SEM, including
 !>
 !>   *  mesh generation (`GetMeshPoints`)
 !>   *  computation of the global mass matrix (`GetMassMatrix`)
@@ -68,7 +68,7 @@ subroutine GetMeshPoints(sop, a, b, dx, x)
     !$omp do
     do k = 1, ne
        xe = a + (k - HALF) * dx      ! element midpoint
-       x(:,k) = xe + HALF * dx * xi  ! transformed GLL points
+       x(:,k) = xe + HALF * dx * xi  ! transformed Lobatto points
     end do
   end associate
 
@@ -77,7 +77,7 @@ end subroutine GetMeshPoints
 !-------------------------------------------------------------------------------
 !> Returns the diagonal global mass matrix distributed to element points
 !>
-!> Current version restricted to GLL bases.
+!> Current version restricted to Lobatto bases.
 
 subroutine GetMassMatrix(sop, dx, M, periodic)
   class(StandardOperators_1D), intent(in)  :: sop      !< standard operators
@@ -98,7 +98,7 @@ end subroutine GetMassMatrix
 !-------------------------------------------------------------------------------
 !> Average variable over element boundaries
 !>
-!> Current version restricted to GLL bases.
+!> Current version restricted to Lobatto bases.
 
 subroutine MakeContinuous(u, periodic)
   real(RNP), contiguous, intent(inout) :: u(0:,:)  !< element contributions

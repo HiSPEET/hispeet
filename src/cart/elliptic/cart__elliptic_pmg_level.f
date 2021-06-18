@@ -363,7 +363,7 @@ subroutine Build_C2F_TransferOps(this, fine)
   allocate(this % p2f_op(0:pf, 0:pc))
   do k = 0, pc
   do i = 0, pf
-    this % p2f_op(i,k) = GLL_Polynomial(k, xc, xf(i))
+    this % p2f_op(i,k) = LobattoPolynomial(k, xc, xf(i))
   end do
   end do
 
@@ -386,14 +386,14 @@ subroutine Build_F2C_TransferOps(this, pc)
 
   pf = this % po
   xf = this % elliptic_op % eop % x
-  xc = GLL_Points(pc)
+  xc = LobattoPoints(pc)
 
   ! interpolation to child level ...............................................
 
   allocate(this % i2c_op(0:pc,0:pf))
   do k = 0, pf
   do i = 0, pc
-    this % i2c_op(i,k) = GLL_Polynomial(k, xf, xc(i))
+    this % i2c_op(i,k) = LobattoPolynomial(k, xf, xc(i))
   end do
   end do
 
@@ -402,7 +402,7 @@ subroutine Build_F2C_TransferOps(this, pc)
   allocate(this % r2c_op(0:pc,0:pf))
   do k = 0, pf
   do i = 0, pc
-    this % r2c_op(i,k) = GLL_Polynomial(i, xc, xf(k))
+    this % r2c_op(i,k) = LobattoPolynomial(i, xc, xf(k))
   end do
   end do
 

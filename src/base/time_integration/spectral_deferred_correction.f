@@ -26,7 +26,7 @@ module Spectral_Deferred_Correction
   type SDC_Options
     integer :: n_sub     = 1  !< number of subintervals
     integer :: n_sweep   = 0  !< max number of correction sweeps
-    integer :: point_set = 2  !< equidistant (1) or GLL (2) points
+    integer :: point_set = 2  !< equidistant (1) or Lobatto (2) points
   contains
     procedure :: Bcast => Bcast_SDC_Options
   end type SDC_Options
@@ -38,7 +38,7 @@ module Spectral_Deferred_Correction
   !> subintervals `[τᵢ₋₁,τᵢ]`. Two choices exist for the  point set `{τᵢ}`:
   !>
   !>   1. the equidistant partition of `[0,1]`, or
-  !>   2. the Gauss-Legendre-Lobatto (GLL) points mapped to `[0,1]`.
+  !>   2. the Gauss-Legendre-Lobatto (G) points mapped to `[0,1]`.
   !>
   !> Within the type, `t(i) = τᵢ` represents the i-th point, `w(i) = wᵢ` the
   !> corresponding quadrature weight and `n_sub = M` the number of subintervals.
@@ -47,7 +47,7 @@ module Spectral_Deferred_Correction
   !>   \[ \int_{0}^{1} f d\tau \approx \sum_{i=0}^{M} w_i\, f(\tau_i) \]
   !>
   !> The quadrature will be exact for polynomials of degree `M` with equidistant
-  !> points and degree `2M-1` with GLL points.
+  !> points and degree `2M-1` with Lobatto points.
   !>
   !> Similarly, integrals over the subintervals `[τᵢ₋₁,τᵢ]` can be evaluated by
   !>
@@ -58,21 +58,21 @@ module Spectral_Deferred_Correction
   !>   \]
   !>
   !> where the weights \(w^s_{j,i}\), denoted `w_sub(j,i)` in Fortran, are
-  !> obtained by application of the GLL quadrature with `M+1` points to the
-  !> Lagrange interpolant constructed from `f(τᵢ)`.
+  !> obtained by application of the Lobatto quadrature with `M+1` points to
+  !> the Lagrange interpolant constructed from `f(τᵢ)`.
 
   type SDC_Method
 
     integer :: n_sub     = -1  !< number of subintervals (M)
     integer :: n_sweep   = -1  !< max num correction sweeps (K)
-    integer :: point_set = -1  !< equidistant (1) or GLL (2) points
+    integer :: point_set = -1  !< equidistant (1) or Lobatto (2) points
 
     real(RNP), allocatable :: t(:)       !< nodes τᵢ in [0,1]
     real(RNP), allocatable :: w(:)       !< quadrature weights for [0, 1]
     real(RNP), allocatable :: w_sub(:,:) !< quadrature weights for [τᵢ₋₁,τᵢ]
 
-    real(RNP), allocatable, private :: x_gll(:) !< GLL nodes in [-1,1]
-    real(RNP), allocatable, private :: w_gll(:) !< GLL weights to x
+    real(RNP), allocatable, private :: x_gll(:) !< Lobatto nodes in [-1,1]
+    real(RNP), allocatable, private :: w_gll(:) !< Lobatto weights to x
 
   contains
 
@@ -156,9 +156,9 @@ contains
     this % n_sweep   = max(0, opt % n_sweep)
     this % point_set = max(1, min(2, opt % point_set))
 
-    ! GLL points and weights in [-1,1]
-    allocate(this % x_gll(0:n_sub), source = GLL_Points(n_sub))
-    allocate(this % w_gll(0:n_sub), source = GLL_Weights(this % x_gll))
+    ! Lobatto points and weights in [-1,1]
+    allocate(this % x_gll(0:n_sub), source = LobattoPoints(n_sub))
+    allocate(this % w_gll(0:n_sub), source = LobattoWeights(this % x_gll))
 
     ! points and quadrature weights in [0,1] ...................................
 
@@ -166,7 +166,7 @@ contains
     case(1) ! equidistant
       this % t(0:n_sub) = [ ZERO, (i*ONE/n_sub, i = 1,n_sub-1), ONE ]
       this % w(0:n_sub) = GaussLagrangeWeights(this% t)
-    case default ! GLL
+    case default ! Lobatto
       this % t(0:n_sub) = HALF * (this % x_gll + ONE)
       this % w(0:n_sub) = HALF *  this % w_gll
     end select
@@ -213,7 +213,7 @@ contains
   end function HasEquidistantPoints
 
   !-----------------------------------------------------------------------------
-  !> Query if point set is based on Lobatto (GLL) points
+  !> Query if point set is based on Lobatto (G) points
 
   pure logical function HasLobattoPoints(this)
     class(SDC_Method), intent(in) :: this
@@ -272,7 +272,7 @@ contains
           tk  = ta + delta * (x(k) + 1)
           ! yk = value of j-th Lagrange polynomial to SDC points t(:) at tk
           yk = LagrangePolynomial(j, t, tk)
-          ! add contribution of k-th GLL point
+          ! add contribution of k-th Lobatto point
           ws(j) = ws(j) + w(k) * yk
         end do
         ! scale the weight to match the length of interval [τa,τb]

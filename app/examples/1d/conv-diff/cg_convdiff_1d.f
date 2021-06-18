@@ -19,7 +19,7 @@
 !>     u(x,t) = ∑ᵢ aᵢ sin[2πkᵢ/lw (x - sᵢ - vt)] exp[-(2πkᵢ)² nu t]
 !>
 !> Spatial discretization is based on the continuous Galerkin spectral-element
-!> using nodal base functions and GLL quadrature.
+!> using nodal base functions and Lobatto quadrature.
 !>
 !> The following methods are available for time integration:
 !>
@@ -397,7 +397,7 @@ contains
 
     integer   :: n_sub     =  1      ! number of subintervals (M)
     integer   :: n_sweep   =  0      ! max num correction sweeps (K)
-    integer   :: point_set =  1      ! equidistant (1) or GLL (2) points
+    integer   :: point_set =  1      ! equidistant (1) or Lobatto (2) points
     namelist /euler_sdc_parameters/ n_sub, n_sweep, point_set
 
     type(SDC_Options) :: opt ! Euler-SDC options
@@ -425,7 +425,7 @@ contains
     ! SDC parameters
     integer   :: n_sub      =  1    ! number of subintervals (M)
     integer   :: n_sweep    =  0    ! max num correction sweeps (K)
-    integer   :: point_set  =  2    ! equidistant (1) or GLL (2) points
+    integer   :: point_set  =  2    ! equidistant (1) or Lobatto (2) points
     namelist /rk_sdc_parameters/ n_sub, n_sweep, point_set
 
     ! IMEX Runge-Kutta parameters
@@ -461,7 +461,7 @@ contains
     ! TR-SDC parameters
     integer   :: n_sub      =  1      ! number of subintervals (M)
     integer   :: n_sweep    =  0      ! max num correction sweeps (K)
-    integer   :: point_set  =  2      ! equidistant (1) or GLL (2) points
+    integer   :: point_set  =  2      ! equidistant (1) or Lobatto (2) points
 
     logical :: show   = .false. ! print IMEX TR properties and coefficients
 

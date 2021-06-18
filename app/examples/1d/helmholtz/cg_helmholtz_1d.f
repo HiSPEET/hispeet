@@ -16,7 +16,7 @@
 !>     2)  u = abs(x)^3
 !>
 !> Discretization is performed using continuous nodal spectral elements based on
-!> GLL points. Available solution methods are
+!> Lobatto points. Available solution methods are
 !>
 !>   *  Conjugate gradients (CG)
 !>   *  Static condensation + tridiagonal Gauss elimination (SC+GE)

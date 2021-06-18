@@ -2,12 +2,12 @@ program Mesh3d_Import_Generic
   use Kind_Parameters
   use Constants
   use XMPI
-  use Generic_Mesh_3d
-  use Mesh_3d__Partition
-  use Element_Transfer_Buffer_3d
-  use Verify_Mesh_3d
-  use Assembly_3d
-  use Export_VTK_3d__Volume_Data
+  use Generic_Mesh__3D
+  use Mesh_Partition__3D
+  use Element_Transfer_Buffer__3D
+  use Verify_Mesh__3D
+  use Assembly__3D
+  use Export_VTK_Volume_Data__3D
   implicit none
 
   character(len=*), parameter :: input_file = 'mesh3d_import_generic.prm'
@@ -29,8 +29,8 @@ program Mesh3d_Import_Generic
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
   integer :: rank
 
-  type(GenericMesh3d)    :: generic_mesh
-  type(Mesh3d_Partition) :: mesh
+  type(GenericMesh_3D)    :: generic_mesh
+  type(MeshPartition_3D) :: mesh
   real(RNP), allocatable :: x(:,:,:,:,:)
 
   real(RNP), allocatable, target :: var(:,:,:,:,:)
@@ -38,7 +38,7 @@ program Mesh3d_Import_Generic
   real(RNP), pointer             :: r(:,:,:,:)     ! reference variable
   real(RNP), pointer             :: e(:,:,:,:)     ! error
 
-  type(ElementTransferBuffer3d), asynchronous, allocatable :: v_buf
+  type(ElementTransferBuffer_3D), asynchronous, allocatable :: v_buf
 
   real(RNP) :: kappa(3), y(3), err
   logical   :: passed
@@ -71,13 +71,13 @@ program Mesh3d_Import_Generic
 
     call mesh % ImportGenericMesh(generic_mesh, comm = comm)
 
-    call VerifyMesh3d(mesh, passed)
-    write(*,'(/,A,G0,/)') 'VerifyMesh3d: passed = ', passed
+    call VerifyMesh_3D(mesh, passed)
+    write(*,'(/,A,G0,/)') 'VerifyMesh_3D: passed = ', passed
 
     ! set up data ..............................................................
 
     if (test_avg .or. export_vtk) then
-      call mesh % GetPoints(po, 'GLL', x)
+      call mesh % GetPoints(po, 'L', x)
       allocate(v  (0:po, 0:po, 0:po, mesh%n_elem + mesh%n_ghost))
       allocate(var(0:po, 0:po, 0:po, mesh%n_elem, 2), source = ZERO)
       r(0:,0:,0:,1:) => var(:,:,:,:,1)
@@ -104,8 +104,8 @@ program Mesh3d_Import_Generic
         end do
       end do
 
-      v_buf = ElementTransferBuffer3d(mesh, v)
-      call Assembly3d(mesh, v, v_buf, avg=.true.)
+      v_buf = ElementTransferBuffer_3D(mesh, v)
+      call Assembly_3D(mesh, v, v_buf, avg=.true.)
 
       err = 0
       do l = 1, mesh%n_elem
