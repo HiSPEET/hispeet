@@ -325,10 +325,10 @@ contains
     real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: S_i
 
 !TODO! which of following are really needed ?
-    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_c
-    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d1, F_d2, F_d3
-    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_p, F_s
-    real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: nu
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_c  !new2: needed by corrector_stage
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d1, F_d2, F_d3 !new2: needed
+    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_p, F_s !new2: not needed?
+    real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: nu   !new2: not needed?
 
     !new
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: G_ex
@@ -392,7 +392,7 @@ contains
       ! time
       t_0 = t_sdc(m-1)
       dt  = t_sdc(m) - t_sdc(m-1)
-!?!   t   = t + dt  ! needed ?
+!?!   t   = t + dt  ! needed ?  !new2: not needed, if 566 right
 
       !$omp end single
 
@@ -439,6 +439,10 @@ contains
        G_im(:,:,:,:,:,1) = F_sdc_im_new(:,:,:,:,:,m-1) - F_sdc_im(:,:,:,:,:,m-1)
        G_ex(:,:,:,:,:,1) = F_sdc_ex_new(:,:,:,:,:,m-1) - F_sdc_ex(:,:,:,:,:,m-1)
        !endnew
+       
+       !new2
+       F_d3_sdc(:,:,:,:,:,1) = F_d3(:,:,:,:,:,1)  ! ???
+       !endnew2
 
       ! stages 2 to n_stage ....................................................
 
@@ -451,7 +455,7 @@ contains
         S_i = w_rk(0,i,m) * F_sdc(:,:,:,:,:,0)
         do l = 1, this % n_sub
           S_i = S_i + w_rk(l,i,m) * F_sdc(:,:,:,:,:,l)
-        end o
+        end do
 !new
 !nicht fertig!
         G_im = -l_rk(0,i,m) * F_sdc_im(:,:,:,:,:,0)
@@ -461,6 +465,14 @@ contains
 
 !TODO!  G_ex = ...
 !endnew
+
+!new2
+       G_ex = -l_rk(0,i,m) * F_sdc_ex(:,:,:,:,:,0)
+       do l = 1, this % n_sub
+         G_ex = G_ex - l_rk(l,i,m) * F_sdc_ex(:,:,:,:,:,l)
+       end do
+
+!endnew2
 
 !TODO! needs to be further adapted ?
         call CorrectorStage(this, i, t_i, dt, nu, u_0, u_i, S_i, G_im, G_ex, F_d3)
@@ -553,9 +565,15 @@ contains
     end associate
 
     ! save final time for FSAL check ...........................................
-
-    t_0 = t
-
+    
+    !alt
+    !t_0 = t 
+    !endalt
+    
+    !new2
+    t_0 = t_sdc(m)
+    !endnew2
+    
     ! clean up .................................................................
 
     ! keep workspace in case of standby
@@ -582,29 +600,59 @@ contains
 !TODO! 2) expand step by step based on algorithm using RungeKuttaStage_d1 as a model
 !TODO! 3) add local declarations as required, e.g:
     real(RNP), allocatable, save :: F_d1 (:,:,:,:,:)  !?  is local
-    allocate(F_d1, mold = u_i)                        !?  etc.
+    allocate(F_d1, mold = u_i)                        !?  etc. !new2 mold F_d3?
+    
+    
+     ! arguments ................................................................
+     
+     class(TimeIntegrator_RungeKutta), intent(inout) :: this
+     integer,              intent(in)    :: i                 !< stage i
+     real(RNP),            intent(in)    :: t_i                 !< stage time tᵢ
+     real(RNP),            intent(in)    :: dt                !< time step width
+     real(RNP), optional,  intent(inout) :: nu  (:,:,:,:,:)   !< variable ν(x,t)
+     real(RNP),            intent(in)    :: u_0 (:,:,:,:,0:)   !< u(x,t₀)
+     real(RNP),            intent(inout) :: u_i (:,:,:,:,0:)   !< u(x,tᵢ)
+     real(RNP),            intent(inout) :: F_d3(:,:,:,:,0:) !< F_d3 = -∇(ν∇⋅v)
+     real(RNP),            intent(inout) :: G_im(:,:,:,:,0:) 
+     real(RNP),            intent(inout) :: G_ex(:,:,:,:,0:) 
+     real(RNP),            intent(inout) :: S_i(:,:,:,:,0:) 
 
+     ! local variables...........................................................
+     
+     real(RNP), allocatable, save :: F_d1 (:,:,:,:,:)  
+     allocate(F_d1, mold = F_d3)                        
+    
+     real(RNP), allocatable, save :: F_d2 (:,:,:,:,:)  
+     allocate(F_d2, mold = F_d3)
+    
+
+
+
+
+
+   
   end subroutine CorrectorStage
 
 !   subroutine RungeKuttaStage_d1( this, i, t, dt, nu, u_0, u_i    &
 !                                , F_c, F_d1, F_d2, F_d3, F_p, F_s )
 !
-!     ! arguments ................................................................
-!
-!     class(TimeIntegrator_RungeKutta), intent(inout) :: this
-!     integer,   intent(in)    :: i                 !< stage i
-!     real(RNP), intent(in)    :: t                 !< stage time tᵢ
-!     real(RNP), intent(in)    :: dt                !< time step width
-!     real(RNP), intent(inout) :: nu  (:,:,:,:,:)   !< variable ν(x,t)
-!     real(RNP), intent(in)    :: u_0 (:,:,:,:,:)   !< u(x,t₀)
-!     real(RNP), intent(out)   :: u_i (:,:,:,:,:)   !< u(x,tᵢ)
-!     real(RNP), intent(inout) :: F_c (:,:,:,:,:,:) !< F_c  = -∇⋅(vu)
-!     real(RNP), intent(inout) :: F_d1(:,:,:,:,:,:) !< F_d1 =  ∇⋅(ν∇u)
-!     real(RNP), intent(inout) :: F_d2(:,:,:,:,:,:) !< F_d2 =  ∇⋅(ν∇v)ᵀ
-!     real(RNP), intent(inout) :: F_d3(:,:,:,:,:,:) !< F_d3 = -∇(ν∇⋅v)
-!     real(RNP), intent(inout) :: F_p (:,:,:,:,:,:) !< F_p  = -∇p
-!     real(RNP), intent(inout) :: F_s (:,:,:,:,:,:) !< F_s  =  f(x,t)
-!
+    ! arguments ................................................................
+
+!    class(TimeIntegrator_RungeKutta), intent(inout) :: this
+!    integer,   intent(in)    :: i                 !< stage i
+!    real(RNP), intent(in)    :: t                 !< stage time tᵢ
+!    real(RNP), intent(in)    :: dt                !< time step width
+!    real(RNP), intent(inout) :: nu  (:,:,:,:,:)   !< variable ν(x,t)
+!    real(RNP), intent(in)    :: u_0 (:,:,:,:,:)   !< u(x,t₀)
+!    real(RNP), intent(out)   :: u_i (:,:,:,:,:)   !< u(x,tᵢ)
+!    real(RNP), intent(inout) :: F_c (:,:,:,:,:,:) !< F_c  = -∇⋅(vu)
+!    real(RNP), intent(inout) :: F_d1(:,:,:,:,:,:) !< F_d1 =  ∇⋅(ν∇u)
+!    real(RNP), intent(inout) :: F_d2(:,:,:,:,:,:) !< F_d2 =  ∇⋅(ν∇v)ᵀ
+!    real(RNP), intent(inout) :: F_d3(:,:,:,:,:,:) !< F_d3 = -∇(ν∇⋅v)
+!    real(RNP), intent(inout) :: F_p (:,:,:,:,:,:) !< F_p  = -∇p
+!    real(RNP), intent(inout) :: F_s (:,:,:,:,:,:) !< F_s  =  f(x,t) 
+     
+        
 !     optional :: nu
 !
 !     ! local variables...........................................................
