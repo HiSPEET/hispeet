@@ -309,15 +309,15 @@ contains
                           , F_sdc_ex_new, F_sdc_im_new    )
 
     class(Flow_SDC_Method_RungeKutta), intent(inout) :: this
-    integer  ,                    intent(in)    :: m
-    real(RNP),                    intent(in)    :: t_sdc        (0:)
-    real(RNP), target, optional,  intent(inout) :: nu_sdc       (:,:,:,:,:,0:)
-    real(RNP),                    intent(inout) :: u_sdc        (:,:,:,:,:,0:)
-    real(RNP),                    intent(in)    :: F_sdc        (:,:,:,:,:,0:)
-    real(RNP),                    intent(in)    :: F_sdc_ex     (:,:,:,:,:,0:)
-    real(RNP),                    intent(in)    :: F_sdc_im     (:,:,:,:,:,0:)
-    real(RNP),                    intent(inout) :: F_sdc_ex_new (:,:,:,:,:,0:)
-    real(RNP),                    intent(inout) :: F_sdc_im_new (:,:,:,:,:,0:)
+    integer  ,                   intent(in)    :: m
+    real(RNP),                   intent(in)    :: t_sdc        (0:)
+    real(RNP), target, optional, intent(inout) :: nu_sdc       (:,:,:,:,:,0:)
+    real(RNP),                   intent(inout) :: u_sdc        (:,:,:,:,:,0:)
+    real(RNP),                   intent(in)    :: F_sdc        (:,:,:,:,:,0:)
+    real(RNP),                   intent(in)    :: F_sdc_ex     (:,:,:,:,:,0:)
+    real(RNP),                   intent(in)    :: F_sdc_im     (:,:,:,:,:,0:)
+    real(RNP),                   intent(inout) :: F_sdc_ex_new (:,:,:,:,:,0:)
+    real(RNP),                   intent(inout) :: F_sdc_im_new (:,:,:,:,:,0:)
 
     ! local variables  .........................................................
 
@@ -326,12 +326,8 @@ contains
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: G_ex
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: G_im
     real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d3
-    !end new
 
-!?!    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_c  !new2: needed by corrector_stage
-!?!    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_d1, F_d2 !new2: needed
-!?!    real(RNP), dimension(:,:,:,:,:,:), allocatable, save :: F_p, F_s !new2: not needed?
-!?!    real(RNP), dimension(:,:,:,:,:)  , allocatable, save :: nu   !new2: not needed?
+    real(RNP), dimension(:,:,:,:,:), contiguous, pointer, save :: nu_i
 
     real(RNP), save :: t_1 = -huge(ONE)
     logical,   save :: fsal
@@ -345,7 +341,7 @@ contains
              , flow_op => this % flow_op           &
              , mesh    => this % flow_op % mesh    &
              , x       => this % flow_op % x       &
-             , u_1     => u_sdc(:,:,:,:,:,m-1)     & ! v₁ = v_{m-1}^{k+1}
+             , u_1     => u_sdc(:,:,:,:,:,m-1)     & ! u₁ = u_{m-1}^{k+1}
              , p       => u_sdc(:,:,:,:,4,m)       &
              , a_im    => this % imex_rk % a_im    &
              , a_ex    => this % imex_rk % a_ex    &
@@ -385,11 +381,11 @@ contains
         allocate(G_ex(np, np, np, ne, nc, n_stage))
         allocate(G_im, mold = G_ex)
         allocate(F_d3, mold = G_ex)
-!?!     allocate(F_c(size(u_1,1), size(u_1,2), size(u_1,3), size(u_1,4), size(u_1,5), n_stage))
-!?!     allocate(F_d1, F_d2, F_d3, F_p, F_s, mold = F_c)
 
-        if (problem % HasVariableProperties()) then
-          allocate(nu, mold = u_1)
+        if (presen(nu_sdc)) then
+          nu_i => nu_sdc(:,:,:,:,:,m)
+        else
+          nu_i => null()
         end if
 !?!      end if
 
@@ -421,13 +417,13 @@ contains
         G_im(:,:,:,:,:,1) = F_sdc_im_new(:,:,:,:,:,m-1) - F_sdc_im(:,:,:,:,:,m-1)
         G_ex(:,:,:,:,:,1) = F_sdc_ex_new(:,:,:,:,:,m-1) - F_sdc_ex(:,:,:,:,:,m-1)
 
-        if (problem % HasVariableProperties()) then
-          call problem % GetDiffusivity(flow_op%x, t_i, u, nu)
+        if (associated(nu_i)) then
+          call problem % GetDiffusivity(flow_op%x, t_i, u_1, nu_i)
         end if
 
         call TimeDerivative( problem, flow_op, t_i      &
-                           , u    = u                   &
-                           , nu   = nu                  &
+                           , u    = u_1                 &
+                           , nu   = nu_i                &
                            , chi  = chi                 &
                            , F_d3 = F_d3 (:,:,:,:,:,1)  &
                            )
@@ -455,92 +451,84 @@ contains
           G_im = G_im - l_rk(l,i,m) * F_sdc_im(:,:,:,:,:,l)
         end do
 
-        call CorrectorStage(this, i, t_i, dt, nu, u_1, u_i, S_i, G_im, G_ex, F_d3)
+        call CorrectorStage(this, i, t_i, dt, nu_i, u_1, u_i, S_i, G_im, G_ex, F_d3)
 
       end do
 
       ! assembly ...............................................................
 
-!TODO! *** LATER *** adapt as required
+!TODO: Corrector algorithm, lines 14-19,  S_m − \tilde S_i
+! idea: if c_s /= 1   (not FSAL)
+!    1)  u = u - S_i
+!    2)  u = w_sdc(0,i) * F_sdc(:,:,:,:,:,0)
+!        do l = 0, this % n_sub
+!          u = u + w_sdc(l,i) * F_sdc(:,:,:,:,:,l)
+!        end do
 
-      if ( all(b_im ==  this % imex_rk % a_im(n_stage,:)) .and.   &
-           all(b_ex ==  this % imex_rk % a_ex(n_stage,:))       ) &
-      then
 
-        call SetArray(u, u_i, multi=.true.)
+!TODO! Corrector algorithm, 19:  G part
+! idea: structure can be adopted from 648-662
 
-      else
-
-        select case(this % assembly)
-
-        case(1) ! starting from u(x,t₀)
-
-!TODO! add corrector contributions including F_im/ex^k and S^k
-          do i = 1, n_stage
-            tau = b_ex(i) * dt
-            call MergeArrays(ONE, u, tau, F_c (:,:,:,:,:,i), multi=.true.)
-            call MergeArrays(ONE, u, tau, F_d2(:,:,:,:,:,i), multi=.true.)
-            call MergeArrays(ONE, u, tau, F_d3(:,:,:,:,:,i), multi=.true.)
-            tau = b_im(i) * dt
-            call MergeArrays(ONE, u, tau, F_d1(:,:,:,:,:,i), multi=.true.)
-            call MergeArrays(ONE, u, tau, F_p (:,:,:,:,:,i), multi=.true.)
-            call MergeArrays(ONE, u, tau, F_s (:,:,:,:,:,i), multi=.true.)
-          end do
-
-        case default ! starting from final stage
-
-          call SetArray(u, u_i, multi=.true.)
-
-          do i = 1, n_stage
-
-!TODO! add corrector contributions including F_im/ex^k and S^k
-            ! adjust implicit contributions
-            tau = (b_im(i) -  this % imex_rk % a_im(n_stage,i)) * dt
-            if (abs(tau) > epsilon(ONE)) then
-              call MergeArrays(ONE, u, tau, F_d1(:,:,:,:,:,i), multi=.true.)
-              call MergeArrays(ONE, u, tau, F_p (:,:,:,:,:,i), multi=.true.)
-              call MergeArrays(ONE, u, tau, F_s (:,:,:,:,:,i), multi=.true.)
-            end if
-
-            ! adjust explicit contributions
-            tau = (b_ex(i) -  this % imex_rk % a_ex(n_stage,i)) * dt
-            if (abs(tau) > epsilon(ONE)) then
-              call MergeArrays(ONE, u, tau, F_c (:,:,:,:,:,i), multi=.true.)
-              call MergeArrays(ONE, u, tau, F_d2(:,:,:,:,:,i), multi=.true.)
-              call MergeArrays(ONE, u, tau, F_d3(:,:,:,:,:,i), multi=.true.)
-            end if
-
-          end do
-
-        end select
-
-      end if
-
-!TODO! revise if necessary
-      ! enforce continuity:  ∇²δp = ∇⋅ṽ/∆t, v + J(v) = ṽ - ∆t∇δp
-      if (this % project > 0) then
-        associate(dp => F_p(:,:,:,:,4,1), w => F_s(:,:,:,:,:,1))
-          call PressureSolver(problem, flow_op, dt, u, dp, w=w)
-          call ProjectionStep(problem, flow_op, dt, dp, u, w=w)
-        end associate
-      end if
-
-      ! pressure ...............................................................
-
-!TODO! revise if necessary
-      select case(this % pressure)
-      case(1)
-        ! recompute pressure using F_p and F_s as workspace
-        associate(F_v => F_p(:,:,:,:,:,1), w => F_s(:,:,:,:,:,1))
-          if (c(n_stage) /= ONE .and. problem % HasVariableProperties()) then
-            call problem % GetDiffusivity(flow_op%x, t, u, nu)
-          end if
-          call TimeDerivative(problem, flow_op, t, u, nu=nu, chi=chi, F=F_v)
-          call ComputePressure(problem, flow_op, t, F_v, p, w)
-        end associate
-      case default
-        call SetArray(p, u_i(:,:,:,:,4))
-      end select
+!?!       if ( all(b_im ==  this % imex_rk % a_im(n_stage,:)) .and.   &
+!?!            all(b_ex ==  this % imex_rk % a_ex(n_stage,:))       ) &
+!?!       then
+!?!
+!?!         call SetArray(u, u_i, multi=.true.)
+!?!
+!?!       else
+!?!
+!?!
+!?!           call SetArray(u, u_i, multi=.true.)
+!?!
+!?!           do i = 1, n_stage
+!?!
+!?! !TODO! add corrector contributions including F_im/ex^k and S^k
+!?!             ! adjust implicit contributions
+!?!             tau = (b_im(i) -  this % imex_rk % a_im(n_stage,i)) * dt
+!?!             if (abs(tau) > epsilon(ONE)) then
+!?!               call MergeArrays(ONE, u, tau, F_d1(:,:,:,:,:,i), multi=.true.)
+!?!               call MergeArrays(ONE, u, tau, F_p (:,:,:,:,:,i), multi=.true.)
+!?!               call MergeArrays(ONE, u, tau, F_s (:,:,:,:,:,i), multi=.true.)
+!?!             end if
+!?!
+!?!             ! adjust explicit contributions
+!?!             tau = (b_ex(i) -  this % imex_rk % a_ex(n_stage,i)) * dt
+!?!             if (abs(tau) > epsilon(ONE)) then
+!?!               call MergeArrays(ONE, u, tau, F_c (:,:,:,:,:,i), multi=.true.)
+!?!               call MergeArrays(ONE, u, tau, F_d2(:,:,:,:,:,i), multi=.true.)
+!?!               call MergeArrays(ONE, u, tau, F_d3(:,:,:,:,:,i), multi=.true.)
+!?!             end if
+!?!
+!?!           end do
+!?!
+!?!       end if
+!?!
+!TODO! Corrector algorithm, 20-23:  projection
+! idea: adopt from 636-637, use p instead of psi, replace dt by ONE here
+!?!      ! enforce continuity:  ∇²δp = ∇⋅ṽ/∆t, v + J(v) = ṽ - ∆t∇δp
+!?!      if (this % project > 0) then
+!?!        associate(dp => F_p(:,:,:,:,4,1), w => F_s(:,:,:,:,:,1))
+!?!          call PressureSolver(problem, flow_op, dt, u, dp, w=w)
+!?!          call ProjectionStep(problem, flow_op, dt, dp, u, w=w)
+!?!        end associate
+!?!      end if
+!?!
+!?!      ! pressure ...............................................................
+!?!
+!?!!TODO! HERE: p is real pressure, retain dt
+!?!      select case(this % pressure)
+!?!      case(1)
+!?!        ! recompute pressure using F_p and F_s as workspace
+!?!        associate(F_v => F_p(:,:,:,:,:,1), w => F_s(:,:,:,:,:,1))
+!?!          if (c(n_stage) /= ONE .and. problem % HasVariableProperties()) then
+!?!            call problem % GetDiffusivity(flow_op%x, t, u, nu)
+!?!          end if
+!?!          call TimeDerivative(problem, flow_op, t, u, nu=nu, chi=chi, F=F_v)
+!?!          call ComputePressure(problem, flow_op, t, F_v, p, w)
+!?!        end associate
+!?!      case default
+!?!        call SetArray(p, u_i(:,:,:,:,4))
+!?!      end select
 
     end associate
 
@@ -555,347 +543,170 @@ contains
       if (standby) return
     end if
 
-    !$omp single
-    if(allocated(u_i  ))   deallocate(u_i )
-    if(allocated(S_i  ))   deallocate(S_i )
-    if(allocated(F_c  ))   deallocate(F_c )
-    if(allocated(F_d1 ))   deallocate(F_d1)
-    if(allocated(F_d2 ))   deallocate(F_d2)
-    if(allocated(F_d3 ))   deallocate(F_d3)
-    if(allocated(F_p  ))   deallocate(F_p )
-    if(allocated(F_s  ))   deallocate(F_s )
-    if(allocated(nu   ))   deallocate(nu  )
-    !$omp end single
+!todo: revisee
+!    !$omp single
+!    if(allocated(u_i  ))   deallocate(u_i )
+!    if(allocated(S_i  ))   deallocate(S_i )
+!    if(allocated(F_c  ))   deallocate(F_c )
+!    if(allocated(F_d1 ))   deallocate(F_d1)
+!    if(allocated(F_d2 ))   deallocate(F_d2)
+!    if(allocated(F_d3 ))   deallocate(F_d3)
+!    if(allocated(F_p  ))   deallocate(F_p )
+!    if(allocated(F_s  ))   deallocate(F_s )
+!    if(allocated(nu   ))   deallocate(nu  )
+!    !$omp end single
 
   end subroutine CorrectorStep
 
 
 
   subroutine CorrectorStage(this, i, t_i, dt, nu, u_1, u_i, S_i, G_im, G_ex, F_d3)
-!TODO! 1) complete argument list based on algorithm and on declarations in CorrectorStep
-!TODO! 2) expand step by step based on algorithm using RungeKuttaStage_d1 as a model
-!TODO! 3) add local declarations as required, e.g:
 
-     ! arguments ................................................................
-
-     class(Flow_SDC_Method_RungeKutta), intent(inout) :: this
-     integer,   intent(in)    :: i                !< stage i
-     real(RNP), intent(in)    :: t_i              !< stage time tᵢ
-     real(RNP), intent(in)    :: dt               !< time step width
-     real(RNP), intent(inout) :: nu  (:,:,:,:,:)  !< variable ν(x,t)
-     real(RNP), intent(in)    :: u_1 (:,:,:,:,:)  !< u(x,t₁)
-     real(RNP), intent(out)   :: u_i (:,:,:,:,:)  !< u(x,tᵢ)
-     real(RNP), intent(in)    :: S_i (:,:,:,:)
-     real(RNP), intent(inout) :: F_d3(:,:,:,:,:)  !< F_d3 = χ∇(ν∇⋅v)
-     real(RNP), intent(inout) :: G_im(:,:,:,:,:)
-     real(RNP), intent(inout) :: G_ex(:,:,:,:,:)
-
-     optional :: nu
-
-     ! local variables...........................................................
-
-!?!    real(RNP), allocatable, save :: F_d1 (:,:,:,:,:)  !?  is local
-!?!     real(RNP), allocatable, save :: F_d2 (:,:,:,:,:)
-
-!todo: complete
-
-
-     ! workspace ................................................................
-
-!todo: complete
-!?!    allocate(F_d1, mold = u_i)                        !?  etc. !new2 mold F_d3?
-!?!     allocate(F_d1, mold = F_d3)
-!?!     allocate(F_d2, mold = F_d3)
-
-     integer :: k
-     real(RNP) :: tau
-     ! q ?
-     ! w ?
-     
-
-     ! ..........................................................................
-
-     associate( problem => this % problem           &
-              , flow_op => this % flow_op           &
-              , mesh    => this % flow_op % mesh    &
-              , psi     => u_i(:,:,:,:,4)           &
-              , a_ex    => this % imex_rk % a_ex    &
-              , a_im    => this % imex_rk % a_im    &
-              , eop     => this % flow_op % eop_u   &
-              )
-
-       ! initialization .........................................................
-
-       call GetBoundaryValues(problem, mesh, flow_op % bv_x, t_i, flow_op % bv_u)
-
-       ! extrapolation ...........................................................
-
-       ! u' = u₁ + S_i + ∆t ∑ⁱ⁻¹ aᵉˣ(G_ex + G_im + F_d3)
-       call SetArray(u_i, u_1, multi=.true.)
-
-       do k = 1, problem % nc
-         if (k == 4) cycle ! skip pressure
-
-         call MergeArrays(ONE, u_i(:,:,:,:,k), ONE, S_i (:,:,:,:,k))
-
-         do j = 1, i-1
-           tau = dt * a_ex(i,j)
-           if (tau /= 0) then
-             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, G_ex(:,:,:,:,k,j))
-!todo: complete
-             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, G_im(:,:,:,:,k,j))
-             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
-           end if
-         end do
-       end do
-
-       ! projection: u_i ← u", psi ← ψ" .........................................
-
-       call PressureSolver(problem, flow_op, ONE, u_i, psi, w) ! ∇²ψ" = ∇⋅v'
-       call ProjectionStep(problem, flow_op, ONE, psi, u_i, w) ! v"+J(v") = v'-∇ψ"
-
-       ! diffusion: u_i ← u''' ..................................................
-
-       if (present(nu) .or. any(problem % nu_ref > 0)) then
-
-         ! update diffusivity
-         if (present(nu)) then
-           call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u")
-         end if
-
-         ! RHS: q = uᵢ + ∆t[ ∑ⁱ⁻¹(aⁱᵐ-aᵉˣ)G_im - ∑ⁱ⁻¹ aᵉˣF_d3 ]
-         do k = 1, problem % nc
-           if (k == 4) cycle
-           call SetArray(q(:,:,:,:,k), u_i(:,:,:,:,k))
-           do j = 1, i-1
-             tau = dt * (a_im(i,j) - a_ex(i,j))
-             if (tau /= 0) then
-               call MergeArrays(ONE, q(:,:,:,:,k), tau, G_im(:,:,:,:,k,j))
-             end if
-             tau = -dt * a_ex(i,j)
-             if (tau /= 0 .and. k < 4) then
-               call MergeArrays(ONE, q(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
-             end if
-           end do
-         end do
-
-         ! uᵢ/τ - ∇⋅(ν∇uᵢ) = f/τ,  τ = ∆t aⁱᵐ(i,i)
-         tau = dt * a_im(i,i)
-         call DiffusionStep(problem, flow_op, tau, q, u_i, w, nu)
-
-        end if
-
-        ! update G and F_d3 ....................................................
-
-        call TimeDerivative( problem, flow_op, t_i     &
-                           , u_i  = u_i                &
-                           , nu   = nu                 &
-                           , chi  = chi                &
-                           , F_c  = F_c  (:,:,:,:,:)   &
-                           , F_d1 = F_d1 (:,:,:,:,:)   &
-                           , F_d2 = F_d2 (:,:,:,:,:)   &
-                           , F_d3 = F_d3 (:,:,:,:,:,i) &
-                           )
-
-        ! G_im(*,i) += F_d1
-        call MergeArrays(ONE, G_im(:,:,:,:,:,i), ONE, F_d1, multi=.true.)
-
-        ! G_ex(*,i) += F_c + F_d2 + F_d3
-        call MergeArrays(ONE, G_ex(:,:,:,:,:,i), ONE, F_c, multi=.true.)
-        call MergeArrays(ONE, G_im(:,:,:,:,:,i), ONE, F_d2, multi=.true.)
-        call MergeArrays(ONE, G_im(:,:,:,:,:,i), ONE, F_d3, multi=.true.)
-
-     end associate
-
-     ! clean up .................................................................
-
-!todo: complete
-
-  end subroutine CorrectorStage
-
-!   subroutine RungeKuttaStage_d1( this, i, t, dt, nu, u_0, u_i    &
-!                                , F_c, F_d1, F_d2, F_d3, F_p, F_s )
-!
     ! arguments ................................................................
 
-!    class(TimeIntegrator_RungeKutta), intent(inout) :: this
-!    integer,   intent(in)    :: i                 !< stage i
-!    real(RNP), intent(in)    :: t                 !< stage time tᵢ
-!    real(RNP), intent(in)    :: dt                !< time step width
-!    real(RNP), intent(inout) :: nu  (:,:,:,:,:)   !< variable ν(x,t)
-!    real(RNP), intent(in)    :: u_0 (:,:,:,:,:)   !< u(x,t₀)
-!    real(RNP), intent(out)   :: u_i (:,:,:,:,:)   !< u(x,tᵢ)
-!    real(RNP), intent(inout) :: F_c (:,:,:,:,:,:) !< F_c  = -∇⋅(vu)
-!    real(RNP), intent(inout) :: F_d1(:,:,:,:,:,:) !< F_d1 =  ∇⋅(ν∇u)
-!    real(RNP), intent(inout) :: F_d2(:,:,:,:,:,:) !< F_d2 =  ∇⋅(ν∇v)ᵀ
-!    real(RNP), intent(inout) :: F_d3(:,:,:,:,:,:) !< F_d3 = -∇(ν∇⋅v)
-!    real(RNP), intent(inout) :: F_p (:,:,:,:,:,:) !< F_p  = -∇p
-!    real(RNP), intent(inout) :: F_s (:,:,:,:,:,:) !< F_s  =  f(x,t)
+    class(Flow_SDC_Method_RungeKutta), intent(inout) :: this
+    integer,   intent(in)    :: i                !< stage i
+    real(RNP), intent(in)    :: t_i              !< stage time tᵢ
+    real(RNP), intent(in)    :: dt               !< time step width
+    real(RNP), intent(inout) :: nu_i(:,:,:,:,:)  !< variable ν(x,tᵢ)
+    real(RNP), intent(in)    :: u_1 (:,:,:,:,:)  !< u(x,t₁)
+    real(RNP), intent(out)   :: u_i (:,:,:,:,:)  !< u(x,tᵢ)
+    real(RNP), intent(in)    :: S_i (:,:,:,:)
+    real(RNP), intent(inout) :: F_d3(:,:,:,:,:)  !< F_d3 = χ∇(ν∇⋅v)
+    real(RNP), intent(inout) :: G_im(:,:,:,:,:)
+    real(RNP), intent(inout) :: G_ex(:,:,:,:,:)
+
+    optional :: nu
+
+    ! local variables...........................................................
+
+    real(RNP), dimension(:,:,:,:,:), allocatable, save :: F_c, F_d1, F_d2, q, w
+
+    real(RNP) :: tau
+    integer :: k
+
+    ! workspace ................................................................
+
+    !$omp single
+    allocate(F_c , mold = u_1)
+    allocate(F_d1, mold = u_1)
+    allocate(F_d2, mold = u_1)
+    allocate(q   , mold = u_1)
+    allocate(w   , mold = u_1)
+    !$omp end single
 
 
-!     optional :: nu
-!
-!     ! local variables...........................................................
-!
-!     real(RNP), allocatable, save :: f (:,:,:,:,:)
-!     real(RNP), allocatable, save :: w (:,:,:,:,:)
-!     real(RNP), allocatable, save :: dp(:,:,:,:  )
-!
-!     real(RNP) :: tau
-!     integer   :: j, k
-!
-!     ! workspace ................................................................
-!
-!     !$omp single
-!     allocate(f , mold = u_0)
-!     allocate(w , mold = u_0)
-!     allocate(dp, mold = u_0(:,:,:,:,4))
-!     !$omp end single
-!
-!     ! ..........................................................................
-!
-!     associate( problem => this % problem           &
-!              , flow_op => this % flow_op           &
-!              , mesh    => this % flow_op % mesh    &
-!              , x       => this % flow_op % x       &
-!              , p       => u_i(:,:,:,:,4)           &
-!              , a_ex    => this % imex_rk % a_ex    &
-!              , a_im    => this % imex_rk % a_im    &
-!              , eop     => this % flow_op % eop_u   &
-!              )
-!
-!       ! initialization .........................................................
-!
-!       call GetBoundaryValues(problem, mesh, flow_op % bv_x, t, flow_op % bv_u)
-!       call problem % GetExternalSources(flow_op%x, t, F_s(:,:,:,:,:,i))
-!       call SetArray(u_i, u_0, multi=.true.)
-!
-!       ! extrapolation: u_i ← u' ................................................
-!TODO! This corresponds to line 3 in CorrectorStage algorithm
-!
-!       ! u' = u₀ + ∆t ∑ⁱ⁻¹ [aᵉˣ(F_c + F_d) + aⁱᵐ F_p] + ∆t ∑ⁱ aⁱᵐ F_s
-!
-!       do k = 1, problem % nc
-!         if (k == 4) cycle ! skip pressure
-!         do j = 1, i-1
-!
-!           tau = dt * a_ex(i,j)
-!           if (tau /= 0) then
-!             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_c (:,:,:,:,k,j))
-!             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
-!             if (k < 4) then
-!               call MergeArrays(ONE, u_i(:,:,:,:,k),   tau, F_d2(:,:,:,:,k,j))
-!               call MergeArrays(ONE, u_i(:,:,:,:,k), 2*tau, F_d3(:,:,:,:,k,j))
-!             end if
-!           end if
-!
-!           tau = dt * a_im(i,j)
-!           if (tau /= 0) then
-!             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_p (:,:,:,:,k,j))
-!             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_s (:,:,:,:,k,j))
-!           end if
-!
-!         end do
-!       end do
-!
-!       tau = dt * a_im(i,i)
-!       do k = 1, problem % nc
-!         if (k == 4) cycle ! skip pressure
-!         call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_s (:,:,:,:,k,i))
-!       end do
-!
-!       ! projection: u_i ← u", p ← p" ...........................................
-!TODO! This corresponds to lines 4-5 in CorrectorStage algorithm
-!
-!       tau = dt * a_im(i,i)
-!       call PressureSolver(problem, flow_op, tau, u_i, p, w) ! ∇²p" = ∇⋅v'/τ
-!       call ProjectionStep(problem, flow_op, tau, p, u_i, w) ! v"+J(v") = v'-τ∇p"
-!
-!       ! diffusion: u_i ← u''' ..................................................
-!TODO! This corresponds to line 6 in CorrectorStage algorithm
-!
-!       if (present(nu) .or. any(problem % nu_ref > 0)) then
-!
-!         ! update diffusivity
-!         if (present(nu)) then
-!           call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u")
-!         end if
-!
-!TODO! This corresponds to line 7 in CorrectorStage algorithm
-!         ! RHS: f = uᵢ + τ∆F = uᵢ + ∆t[ ∑ⁱ⁻¹(aⁱᵐ-aᵉˣ)F_d1 - ∑ⁱ⁻¹ aᵉˣF_d3 ]
-!         do k = 1, problem % nc
-!           if (k == 4) cycle
-!           call SetArray(f(:,:,:,:,k), u_i(:,:,:,:,k))
-!           do j = 1, i-1
-!             tau = dt * (a_im(i,j) - a_ex(i,j))
-!             if (tau /= 0) then
-!               call MergeArrays(ONE, f(:,:,:,:,k), tau, F_d1(:,:,:,:,k,j))
-!             end if
-!             tau = -dt * a_ex(i,j)
-!             if (tau /= 0 .and. k < 4) then
-!               call MergeArrays(ONE, f(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
-!             end if
-!           end do
-!         end do
-!
-!TODO! This corresponds to line 8 in CorrectorStage algorithm
-!         ! uᵢ/τ - ∇⋅(ν∇uᵢ) = f/τ
-!         tau = dt * a_im(i,i)
-!         call DiffusionStep(problem, flow_op, tau, f, u_i, w, nu)
-!
-!       end if
-!
-!       ! final projection: u_i ← u ..............................................
-!
-!       if (this % project > 1) then
-!
-!         tau = dt * a_im(i,i)
-!
-!         ! ∇²δp = ∇⋅v'''/τ
-!         call SetArray(dp, ZERO)
-!         call PressureSolver(problem, flow_op, tau, u_i, dp, w)
-!         call MergeArrays(ONE, p, ONE, dp)
-!
-!         ! v + J(v) = v''' - 1/τ ∇p
-!         call ProjectionStep(problem, flow_op, tau, dp, u_i(:,:,:,:,1:3), w)
-!
-!       end if
-!
-!       ! RHS contributions ......................................................
-!TODO! This corresponds to lines 9-11 in CorrectorStage algorithm
-!
-!       if (present(nu)) then
-!         if (problem % HasVariableProperties()) then
-!           call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u)
-!         end if
-!       end if
-!
-!       ! contributions to time derivative
-!       call TimeDerivative( problem, flow_op, t        &
-!                          , u    = u_i                 &
-!                          , p    = p                   &
-!                          , nu   = nu                  &
-!                          , chi  = chi                 &
-!                          , F_c  = F_c  (:,:,:,:,:,i)  &
-!                          , F_d1 = F_d1 (:,:,:,:,:,i)  &
-!                          , F_d2 = F_d2 (:,:,:,:,:,i)  &
-!                          , F_d3 = F_d3 (:,:,:,:,:,i)  &
-!                          , F_p  = F_p  (:,:,:,:,:,i)  &
-!                          )
-!
-!     end associate
-!
-!     ! clean up .................................................................
-!
+    ! ..........................................................................
+
+    associate( problem => this % problem           &
+             , flow_op => this % flow_op           &
+             , mesh    => this % flow_op % mesh    &
+             , psi     => u_i(:,:,:,:,4)           &
+             , a_ex    => this % imex_rk % a_ex    &
+             , a_im    => this % imex_rk % a_im    &
+             , eop     => this % flow_op % eop_u   &
+             )
+
+      ! initialization .........................................................
+
+      call GetBoundaryValues(problem, mesh, flow_op % bv_x, t_i, flow_op % bv_u)
+
+      ! extrapolation ...........................................................
+
+      ! u' = u₁ + S_i + ∆t ∑ⁱ⁻¹ aᵉˣ(G_ex + G_im + F_d3)
+      call SetArray(u_i, u_1, multi=.true.)
+
+      do k = 1, problem % nc
+        if (k == 4) cycle ! skip pressure
+
+        call MergeArrays(ONE, u_i(:,:,:,:,k), ONE, S_i (:,:,:,:,k))
+
+        do j = 1, i-1
+          tau = dt * a_ex(i,j)
+          if (tau /= 0) then
+            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, G_ex(:,:,:,:,k,j))
+            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, G_im(:,:,:,:,k,j))
+            call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
+          end if
+        end do
+      end do
+
+      ! projection: u_i ← u", psi ← ψ" .........................................
+
+      call PressureSolver(problem, flow_op, ONE, u_i, psi, w) ! ∇²ψ" = ∇⋅v'
+      call ProjectionStep(problem, flow_op, ONE, psi, u_i, w) ! v"+J(v") = v'-∇ψ"
+
+      ! diffusion: u_i ← u''' ..................................................
+
+      if (present(nu_i) .or. any(problem % nu_ref > 0)) then
+
+        ! update diffusivity
+        if (present(nu_i)) then
+          call problem % GetDiffusivity(flow_op%x, t, u_i, nu_i) ! νᵢ = ν(x,tᵢ,u")
+        end if
+
+        ! RHS: q = uᵢ + ∆t[ ∑ⁱ⁻¹(aⁱᵐ-aᵉˣ)G_im - ∑ⁱ⁻¹ aᵉˣF_d3 ]
+        do k = 1, problem % nc
+          if (k == 4) cycle
+          call SetArray(q(:,:,:,:,k), u_i(:,:,:,:,k))
+          do j = 1, i-1
+            tau = dt * (a_im(i,j) - a_ex(i,j))
+            if (tau /= 0) then
+              call MergeArrays(ONE, q(:,:,:,:,k), tau, G_im(:,:,:,:,k,j))
+            end if
+            tau = -dt * a_ex(i,j)
+            if (tau /= 0 .and. k < 4) then
+              call MergeArrays(ONE, q(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
+            end if
+          end do
+        end do
+
+        ! uᵢ/τ - ∇⋅(ν∇uᵢ) = f/τ,  τ = ∆t aⁱᵐ(i,i)
+        tau = dt * a_im(i,i)
+        call DiffusionStep(problem, flow_op, tau, q, u_i, w, nu_i)
+
+       end if
+
+      ! update G and F_d3 ....................................................
+
+      ! NOTE: recomputation of nu -- can possibly be saved (need to check)
+      if (present(nu_i)) then
+        if (problem % HasVariableProperties()) then
+          call problem % GetDiffusivity(flow_op%x, t, u_i, nu_i) ! νᵢ = ν(x,tᵢ,u)
+        end if
+      end if
+
+      call TimeDerivative( problem, flow_op, t_i     &
+                         , u_i  = u_i                &
+                         , nu   = nu_i               &
+                         , chi  = chi                &
+                         , F_c  = F_c  (:,:,:,:,:)   &
+                         , F_d1 = F_d1 (:,:,:,:,:)   &
+                         , F_d2 = F_d2 (:,:,:,:,:)   &
+                         , F_d3 = F_d3 (:,:,:,:,:,i) &
+                         )
+
+       ! G_im(*,i) += F_d1
+       call MergeArrays(ONE, G_im(:,:,:,:,:,i), ONE, F_d1, multi=.true.)
+
+       ! G_ex(*,i) += F_c + F_d2 + F_d3
+       call MergeArrays(ONE, G_ex(:,:,:,:,:,i), ONE, F_c, multi=.true.)
+       call MergeArrays(ONE, G_im(:,:,:,:,:,i), ONE, F_d2, multi=.true.)
+       call MergeArrays(ONE, G_im(:,:,:,:,:,i), ONE, F_d3, multi=.true.)
+
+    end associate
+
+    ! clean up .................................................................
+
+!todo: complete
 !     !$omp barrier
 !     !$omp single
 !     if (allocated(f )) deallocate(f )
 !     if (allocated(w )) deallocate(w )
 !     if (allocated(dp)) deallocate(dp)
 !     !$omp end single
-!
-!   end subroutine RungeKuttaStage_d1
 
+  end subroutine CorrectorStage
 
   !=============================================================================
 
