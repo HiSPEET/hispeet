@@ -607,6 +607,12 @@ contains
 !?!     allocate(F_d1, mold = F_d3)
 !?!     allocate(F_d2, mold = F_d3)
 
+     integer :: k
+     real(RNP) :: tau
+     ! q ?
+     ! w ?
+     
+
      ! ..........................................................................
 
      associate( problem => this % problem           &
@@ -637,6 +643,8 @@ contains
            if (tau /= 0) then
              call MergeArrays(ONE, u_i(:,:,:,:,k), tau, G_ex(:,:,:,:,k,j))
 !todo: complete
+             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, G_im(:,:,:,:,k,j))
+             call MergeArrays(ONE, u_i(:,:,:,:,k), tau, F_d3(:,:,:,:,k,j))
            end if
          end do
        end do
@@ -693,7 +701,9 @@ contains
         call MergeArrays(ONE, G_im(:,:,:,:,:,i), ONE, F_d1, multi=.true.)
 
         ! G_ex(*,i) += F_c + F_d2 + F_d3
-!todo: complete
+        call MergeArrays(ONE, G_ex(:,:,:,:,:,i), ONE, F_c, multi=.true.)
+        call MergeArrays(ONE, G_im(:,:,:,:,:,i), ONE, F_d2, multi=.true.)
+        call MergeArrays(ONE, G_im(:,:,:,:,:,i), ONE, F_d3, multi=.true.)
 
      end associate
 
