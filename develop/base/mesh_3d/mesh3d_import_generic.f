@@ -4,6 +4,7 @@ program Mesh3d_Import_Generic
   use XMPI
   use Generic_Mesh__3D
   use Mesh_Partition__3D
+  use Spectral_Element_Mesh__3D
   use Element_Transfer_Buffer__3D
   use Verify_Mesh__3D
   use Assembly__3D
@@ -29,24 +30,27 @@ program Mesh3d_Import_Generic
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
   integer :: rank
 
-  type(GenericMesh_3D)    :: generic_mesh
+  type(GenericMesh_3D)   :: generic_mesh
   type(MeshPartition_3D) :: mesh
-  real(RNP), allocatable :: x(:,:,:,:,:)
+  type(SpectralElementMesh_3D) :: se_mesh
 
   real(RNP), allocatable, target :: var(:,:,:,:,:)
+  real(RNP), allocatable         :: x(:,:,:,:,:)
   real(RNP), allocatable         :: v(:,:,:,:)     ! test variable
   real(RNP), pointer             :: r(:,:,:,:)     ! reference variable
   real(RNP), pointer             :: e(:,:,:,:)     ! error
 
   type(ElementTransferBuffer_3D), asynchronous, allocatable :: v_buf
 
+  real(RNP), allocatable :: area(:)
+  real(RNP) :: vol
   real(RNP) :: kappa(3), y(3), err
   logical   :: passed
   integer   :: io
   integer   :: i, j, k, l
   integer   :: i_err, j_err, k_err, l_err
 
-  call MPI_Init()
+  call Init_MPI_Binding()
   call MPI_Comm_rank(comm, rank)
 
   if (rank == 0) then
@@ -73,6 +77,20 @@ program Mesh3d_Import_Generic
 
     call VerifyMesh_3D(mesh, passed)
     write(*,'(/,A,G0,/)') 'VerifyMesh_3D: passed = ', passed
+
+    ! spectral element functionality ...........................................
+
+    se_mesh = SpectralElementMesh_3D(mesh, po)
+
+    allocate(area(mesh % n_bound))
+    call se_mesh % GetVolume(vol)
+    call se_mesh % GetSurfaceAreas(area)
+
+    write(*,'(A)') 'Spectral element mesh'
+    write(*,'(2X,A,G0)') 'volume  = ', vol
+    do i = 1, mesh % n_bound
+      write(*,'(2X,A,I0,A,G0)') 'area(',i,') = ', area(i)
+    end do
 
     ! set up data ..............................................................
 
