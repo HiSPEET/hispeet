@@ -46,11 +46,11 @@ contains
     allocate(mesh % boundary( mesh%n_bound ))
     do i = 1, mesh % n_bound
       mesh % boundary(i) = MeshBoundary_3D( i                                   &
-                             , name     = generic_mesh % boundary(i) % name     &
-                             , coupled  = generic_mesh % boundary(i) % coupled  &
-                             , polarity = generic_mesh % boundary(i) % polarity )
+                            , name     = generic_mesh % boundary(i) % name      &
+                            , coupled  = generic_mesh % boundary(i) % coupled   &
+                            , polarity = generic_mesh % boundary(i) % polarity  &
+                            , n_face   = size(generic_mesh % boundary(i) % face))
     end do
-
 
     call ImportElements(mesh, generic_mesh)
 
@@ -125,8 +125,6 @@ contains
 
       associate( mb => mesh % boundary(b)         &
                , gb => generic_mesh % boundary(b) )
-
-        allocate(mb % face(mb % n_face))
 
         do i = 1, mb % n_face
 
