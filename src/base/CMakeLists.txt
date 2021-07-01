@@ -112,6 +112,7 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
               mesh_3d/structured_mesh_indexing__3d.f
               mesh_3d/generate_regular_mesh__3d.f
               mesh_3d/mesh_metrics__3d.f
+              mesh_3d/spectral_element_mesh__3d.f
               )
 
 #===============================================================================
