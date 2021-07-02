@@ -3,7 +3,7 @@ program Mesh3d_Import_Generic
   use Constants
   use XMPI
   use Generic_Mesh__3D
-  use Mesh_Partition__3D
+  use Mesh__3D
   use Spectral_Element_Mesh__3D
   use Element_Transfer_Buffer__3D
   use Verify_Mesh__3D
@@ -31,7 +31,7 @@ program Mesh3d_Import_Generic
   integer :: rank
 
   type(GenericMesh_3D)   :: generic_mesh
-  type(MeshPartition_3D) :: mesh
+  type(Mesh_3D) :: mesh
   type(SpectralElementMesh_3D) :: se_mesh
 
   real(RNP), allocatable, target :: var(:,:,:,:,:)

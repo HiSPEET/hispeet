@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(Mesh_Partition__3D) MP_IdentifyRanks
+submodule(Mesh__3D) MP_IdentifyRanks
   implicit none
 
 contains
@@ -26,7 +26,7 @@ contains
   !>   - mesh % element % vertex % {rank, val}
 
   module subroutine IdentifyRanks(mesh)
-    class(MeshPartition_3D), intent(inout) :: mesh !< mesh partition
+    class(Mesh_3D), intent(inout) :: mesh !< mesh partition
 
     integer, allocatable :: m_vert(:), m_edge(:), m_face(:)
     integer :: max_vert_val, max_edge_val

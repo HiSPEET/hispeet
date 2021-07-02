@@ -6,7 +6,7 @@
 
 module Verify_Mesh__3D
 
-  use Mesh_Partition__3D
+  use Mesh__3D
   use Mesh_Element__3D
 
   implicit none
@@ -20,7 +20,7 @@ contains
   !> 3D mesh data verification procedure
 
   subroutine VerifyMesh_3D(mesh, passed)
-    type(MeshPartition_3D), intent(in)  :: mesh !< mesh partition
+    type(Mesh_3D), intent(in)  :: mesh !< mesh partition
     logical,                intent(out) :: passed !< test result
 
     logical :: con_passed
@@ -35,7 +35,7 @@ contains
   !> Test of local element connectivity
 
   subroutine ElementConnectivityTest(mesh, passed)
-    type(MeshPartition_3D), intent(in)  :: mesh   !< mesh partition
+    type(Mesh_3D), intent(in)  :: mesh   !< mesh partition
     logical,                intent(out) :: passed !< test result
 
     integer :: e, i, j, k, l, n

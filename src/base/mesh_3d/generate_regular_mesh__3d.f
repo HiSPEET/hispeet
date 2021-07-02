@@ -9,7 +9,7 @@ module Generate_Regular_Mesh__3D
   use Mesh_Boundary__3D
   use Mesh_Element__3D
   use Mesh_Element_Indexing__3D
-  use Mesh_Partition__3D
+  use Mesh__3D
   use Mesh_Structured_Indexing__3D
   implicit none
   private
@@ -20,7 +20,7 @@ contains
 
   subroutine GenerateRegularMesh(mesh, np, ep, xo, dx, periodic, comm, pg)
 
-    type(MeshPartition_3D), intent(out) :: mesh !< local partition
+    type(Mesh_3D), intent(out) :: mesh !< local partition
     integer,   intent(in) :: np(3)       !< num partitions in directions 1:3
     integer,   intent(in) :: ep(3)       !< elements per partition and direction
     real(RNP), intent(in) :: xo(3)       !< corner closest to -infinity
@@ -67,11 +67,11 @@ contains
       part = rank
     else
       ! create empty partition
-      mesh = MeshPartition_3D( p_geom, n_bound, n_part &
-                             , comm       =  comm      &
-                             , structured = .true.     &
-                             , regular    = .true.     &
-                             , dx         =  dx        )
+      mesh = Mesh_3D( p_geom, n_bound, n_part &
+                    , comm       =  comm      &
+                    , structured = .true.     &
+                    , regular    = .true.     &
+                    , dx         =  dx        )
       return
     end if
 
@@ -138,7 +138,7 @@ contains
 
   subroutine GenerateRegularElements(mesh, np, ep, periodic, self, i0, j0, k0)
 
-    class(MeshPartition_3D), intent(inout) :: mesh  !< local partition
+    class(Mesh_3D), intent(inout) :: mesh  !< local partition
     integer, intent(in)  :: np(3)       !< num partitions in directions 1:3
     integer, intent(in)  :: ep(3)       !< num elements per partition and dir.
     logical, intent(in)  :: periodic(3) !< set true for periodic directions
@@ -406,7 +406,7 @@ contains
 
   subroutine GenerateRegularFaces(mesh, self)
 
-    class(MeshPartition_3D), intent(inout) :: mesh  !< local partition
+    class(Mesh_3D), intent(inout) :: mesh  !< local partition
     logical, intent(in) :: self(3) !< indicator wether linked to itself
 
     integer :: i, j, k, l
@@ -526,7 +526,7 @@ contains
 
   subroutine GenerateRegularMeshBoundaries(mesh, periodic, self)
 
-    class(MeshPartition_3D), intent(inout) :: mesh !< local partition
+    class(Mesh_3D), intent(inout) :: mesh !< local partition
     logical, intent(in) :: periodic(3) !< indicator of periodic directions
     logical, intent(in) :: self(3)     !< indicator wether linked to itself
 
@@ -678,7 +678,7 @@ contains
   !> Creates the element domains and their cuboid approximations
 
   subroutine GenerateRegularElementDomains(mesh, xo, i0, j0, k0)
-    class(MeshPartition_3D), intent(inout) :: mesh  !< local partition
+    class(Mesh_3D), intent(inout) :: mesh  !< local partition
     real(RNP), intent(in) :: xo(3)      !< corner closest to -∞
     integer  , intent(in) :: i0, j0, k0 !< element offsets WRT global numbering
 

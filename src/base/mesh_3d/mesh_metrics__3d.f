@@ -10,7 +10,7 @@
 module Mesh_Metrics__3D
   use Kind_Parameters, only: RNP
   use Standard_Operators__1D
-  use Mesh_Partition__3D
+  use Mesh__3D
   implicit none
   private
 
@@ -69,13 +69,13 @@ contains
   !-----------------------------------------------------------------------------
   !> MeshMetrics_3D constructor
 
-  function New_MeshMetrics_3D(mesh, se_op) result(this)
-    class(MeshPartition_3D),     intent(in)    :: mesh  !< mesh partition
-    class(StandardOperators_1D), intent(in)    :: se_op !< standard element ops
+  function New_MeshMetrics_3D(mesh, std_op) result(this)
+    class(Mesh_3D),              intent(in) :: mesh   !< mesh partition
+    class(StandardOperators_1D), intent(in) :: std_op !< standard element ops
 
     type(MeshMetrics_3D) :: this
 
-    call Init_MeshMetrics_3D(this, mesh, se_op)
+    call Init_MeshMetrics_3D(this, mesh, std_op)
 
   end function New_MeshMetrics_3D
 
@@ -85,10 +85,10 @@ contains
   !> Note that for a regular mesh the metric coefficients are constant and hence
   !> generated only for the first element.
 
-  subroutine Init_MeshMetrics_3D(this, mesh, se_op)
+  subroutine Init_MeshMetrics_3D(this, mesh, std_op)
     class(MeshMetrics_3D),       intent(inout) :: this
-    class(MeshPartition_3D),     intent(in)    :: mesh  !< mesh partition
-    class(StandardOperators_1D), intent(in)    :: se_op !< standard element ops
+    class(Mesh_3D),              intent(in)    :: mesh   !< mesh partition
+    class(StandardOperators_1D), intent(in)    :: std_op !< standard element ops
 
     ! local variables ..........................................................
 
@@ -96,11 +96,11 @@ contains
     real(RNP) :: a, c, Jd, Jm(3,3), Ji(3,3), n(3)
     integer   :: e, f, i, j, k, p, q, np, ne
 
-    associate(po => se_op % po)
+    associate(po => std_op % po)
 
       ! basic initialization ...................................................
 
-      call mesh % GetPoints(po, se_op % basis, this % x)
+      call mesh % GetPoints(po, std_op % basis, this % x)
 
       if (mesh % regular) then
         ne = 1
@@ -121,7 +121,7 @@ contains
       allocate(Ds_t(0:po,0:po), grad_x(0:po,0:po,0:po,3,3))
       np = po + 1
 
-      Ds_t = transpose(se_op % D)
+      Ds_t = transpose(std_op % D)
 
       !$omp do
       do e = 1, ne

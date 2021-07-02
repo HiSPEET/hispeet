@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(Mesh_Partition__3D) MP_IdentifyEdges
+submodule(Mesh__3D) MP_IdentifyEdges
   use Quick_Sort
   use Mesh_Element_Indexing__3D
   implicit none
@@ -23,7 +23,7 @@ contains
   !>   - mesh % element % edge % orientation
 
   module subroutine IdentifyEdges(mesh)
-    class(MeshPartition_3D), intent(inout) :: mesh !< mesh partition
+    class(Mesh_3D), intent(inout) :: mesh !< mesh partition
 
     ! local data ...............................................................
 

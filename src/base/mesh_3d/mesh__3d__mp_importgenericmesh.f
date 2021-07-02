@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(Mesh_Partition__3D) MP_ImportGenericMesh
+submodule(Mesh__3D) MP_ImportGenericMesh
   use Execution_Control
   use Standard_Operators__1D
   use Embedded_Interpolation__1D
@@ -18,7 +18,7 @@ contains
   !> Import a generic 3d mesh
 
   module subroutine ImportGenericMesh(mesh, generic_mesh, comm)
-    class(MeshPartition_3D), intent(out) :: mesh         !< mesh partition
+    class(Mesh_3D), intent(out) :: mesh         !< mesh partition
     class(GenericMesh_3D),   intent(in)  :: generic_mesh !< generic mesh
     type(MPI_Comm),          intent(in)  :: comm         !< MPI communicator
 
@@ -73,7 +73,7 @@ contains
   !> IDs from then generic mesh.
 
   subroutine ImportElements(mesh, generic_mesh)
-    class(MeshPartition_3D), intent(inout) :: mesh         !< mesh partition
+    class(Mesh_3D), intent(inout) :: mesh         !< mesh partition
     class(GenericMesh_3D),    intent(in)    :: generic_mesh !< generic mesh
 
     integer :: b, i, j, k, n
@@ -116,7 +116,7 @@ contains
   !> Import of boundary faces
 
   subroutine ImportBoundaryFaces(mesh, generic_mesh)
-    class(MeshPartition_3D), intent(inout) :: mesh         !< mesh partition
+    class(Mesh_3D), intent(inout) :: mesh         !< mesh partition
     class(GenericMesh_3D),    intent(in)    :: generic_mesh !< generic mesh
 
     integer :: b, e, f, i, j, s
@@ -156,8 +156,8 @@ contains
   !> Import of mesh boundaries
 
   subroutine ImportBoundaries(mesh, generic_mesh)
-    class(MeshPartition_3D), intent(inout) :: mesh         !< mesh partition
-    class(GenericMesh_3D),    intent(in)    :: generic_mesh !< generic mesh
+    class(Mesh_3D),        intent(inout) :: mesh         !< mesh partition
+    class(GenericMesh_3D), intent(in)    :: generic_mesh !< generic mesh
 
     integer :: b, e, f, i, j, s
 
@@ -211,8 +211,8 @@ contains
   !> Import of element domains
 
   subroutine ImportElementDomains(mesh, generic_mesh)
-    class(MeshPartition_3D), intent(inout) :: mesh         !< mesh partition
-    class(GenericMesh_3D),    intent(in)    :: generic_mesh !< generic mesh
+    class(Mesh_3D),        intent(inout) :: mesh         !< mesh partition
+    class(GenericMesh_3D), intent(in)    :: generic_mesh !< generic mesh
 
     type(StandardOperators_1D) :: sop
     type(EmbeddedInterpolation_1D), allocatable :: iop(:)
@@ -352,7 +352,7 @@ contains
   !> Identification of neighbor elements
 
   subroutine IdentifyNeighbors(mesh)
-    class(MeshPartition_3D), intent(inout) :: mesh !< mesh partition
+    class(Mesh_3D), intent(inout) :: mesh !< mesh partition
 
     integer, allocatable :: ne_face(:)     ! num elements per face
     integer, allocatable :: ne_edge(:)     ! num elements per edge

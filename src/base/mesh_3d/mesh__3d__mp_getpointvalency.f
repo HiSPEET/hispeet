@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(Mesh_Partition__3D) MP_GetPointValency
+submodule(Mesh__3D) MP_GetPointValency
   implicit none
 
 contains
@@ -20,8 +20,8 @@ contains
   !> does not need to be computed.
 
   module subroutine GetPointValency(mesh, v)
-    class(MeshPartition_3D), intent(in)  :: mesh          !< mesh parition
-    integer,                 intent(out) :: v(0:,0:,0:,:) !< point valency
+    class(Mesh_3D), intent(in)  :: mesh          !< mesh parition
+    integer,        intent(out) :: v(0:,0:,0:,:) !< point valency
 
     integer :: e, po
 

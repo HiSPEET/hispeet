@@ -1,4 +1,4 @@
-!> summary:  3D spectral mesh
+!> summary:  3D spectral element mesh
 !> author:   Joerg Stiller
 !> date:     2021/06/29
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -9,7 +9,7 @@ module Spectral_Element_Mesh__3D
   use Constants      , only: ZERO
   use XMPI
   use Standard_Operators__1D
-  use Mesh_Partition__3D
+  use Mesh__3D
   use Mesh_Metrics__3D
   implicit none
   private
@@ -17,12 +17,12 @@ module Spectral_Element_Mesh__3D
   public :: SpectralElementMesh_3D
 
   !-----------------------------------------------------------------------------
-  !> 3D spectral mesh
+  !> 3D spectral element mesh
 
   type SpectralElementMesh_3D
-    class(MeshPartition_3D), pointer :: mesh    !< mesh partition
-    type(StandardOperators_1D)       :: se_op   !< standard element operators
-    type(MeshMetrics_3D)             :: metrics !< mesh points and metrics
+    class(Mesh_3D), pointer    :: mesh    !< mesh partition
+    type(StandardOperators_1D) :: std_op  !< standard element operators
+    type(MeshMetrics_3D)       :: metrics !< mesh points and metrics
   contains
     procedure :: Init_SpectralElementMesh_3D
     procedure :: GetVolume
@@ -37,12 +37,12 @@ module Spectral_Element_Mesh__3D
 contains
 
   !-----------------------------------------------------------------------------
-  !> 3D spectral mesh constructor
+  !> 3D spectral element mesh constructor
 
   function New_SpectralElementMesh_3D(mesh, po, basis) result(this)
-    class(MeshPartition_3D), target, intent(in)  :: mesh  !< mesh partition
-    integer,                         intent(in)  :: po    !< polynomial order
-    character,             optional, intent(in)  :: basis !< 'G' or 'L' ['L']
+    class(Mesh_3D), target, intent(in) :: mesh  !< mesh partition
+    integer,                intent(in) :: po    !< polynomial order
+    character,    optional, intent(in) :: basis !< 'G' or 'L' ['L']
 
     type(SpectralElementMesh_3D) :: this
 
@@ -51,17 +51,17 @@ contains
   end function New_SpectralElementMesh_3D
 
   !-----------------------------------------------------------------------------
-  !> 3D spectral mesh initialization
+  !> 3D spectral element mesh initialization
 
   subroutine Init_SpectralElementMesh_3D(this, mesh, po, basis)
     class(SpectralElementMesh_3D), intent(inout) :: this
-    class(MeshPartition_3D), target, intent(in)  :: mesh    !< mesh partition
-    integer,                         intent(in)  :: po      !< polynomial order
-    character,             optional, intent(in)  :: basis   !< 'G' or 'L' ['L']
+    class(Mesh_3D),        target, intent(in)    :: mesh  !< mesh partition
+    integer,                       intent(in)    :: po    !< polynomial order
+    character,           optional, intent(in)    :: basis !< 'G' or 'L' ['L']
 
     this % mesh    => mesh
-    this % se_op   =  StandardOperators_1D(po, basis)
-    this % metrics =  MeshMetrics_3D(mesh, this % se_op)
+    this % std_op  =  StandardOperators_1D(po, basis)
+    this % metrics =  MeshMetrics_3D(mesh, this % std_op)
 
   end subroutine Init_SpectralElementMesh_3D
 
@@ -76,9 +76,9 @@ contains
     real(RNP), allocatable :: www(:,:,:)
     integer :: e, i, j, k
 
-    associate( mesh  => this % mesh         &
-             , se_op => this % se_op        &
-             , Jd    => this % metrics % Jd )
+    associate( mesh   => this % mesh         &
+             , std_op => this % std_op       &
+             , Jd     => this % metrics % Jd )
 
       if (mesh % regular) then
 
@@ -89,11 +89,11 @@ contains
       else
 
         ! precompute 3D quadrature weights
-        allocate(www(0:se_op%po, 0:se_op%po, 0:se_op%po))
-        do k = 0, se_op%po
-        do j = 0, se_op%po
-        do i = 0, se_op%po
-          www(i,j,k) = se_op % w(i) * se_op % w(j) * se_op % w(k)
+        allocate(www(0:std_op%po, 0:std_op%po, 0:std_op%po))
+        do k = 0, std_op%po
+        do j = 0, std_op%po
+        do i = 0, std_op%po
+          www(i,j,k) = std_op % w(i) * std_op % w(j) * std_op % w(k)
         end do
         end do
         end do
@@ -194,17 +194,17 @@ contains
     real(RNP), allocatable :: ww(:,:)
     integer :: b, e, f, i, j, s
 
-    associate( mesh  => this % mesh        &
-             , se_op => this % se_op       &
-             , a     => this % metrics % a )
+    associate( mesh   => this % mesh        &
+             , std_op => this % std_op      &
+             , a      => this % metrics % a )
 
       ! initialization .........................................................
 
       ! precompute 2D quadrature weights
-      allocate(ww(0:se_op%po, 0:se_op%po))
-      do j = 0, se_op%po
-      do i = 0, se_op%po
-        ww(i,j) = se_op % w(i) * se_op % w(j)
+      allocate(ww(0:std_op%po, 0:std_op%po))
+      do j = 0, std_op%po
+      do i = 0, std_op%po
+        ww(i,j) = std_op % w(i) * std_op % w(j)
       end do
       end do
 
