@@ -376,6 +376,14 @@ contains
 !?!
 !?!      if (.not. allocated(F_c)) then
 !?!        ! allocate new workspace
+
+
+
+
+!new
+fsal = c(n_stage) == ONE .and. t_i == t_1 .and. allocated(F_c) !F_c?
+!endnew
+
         allocate(u_i, mold = u_1)
         allocate(S_i, mold = u_1)
         allocate(G_ex(np, np, np, ne, nc, n_stage))
@@ -394,6 +402,14 @@ contains
       dt  = t_sdc(m) - t_sdc(m-1)
 
       !$omp end single
+
+   !new
+
+   do m = 1, n_sub
+   this % w_sdc(:,m) = this % SubintervalWeights(t_sdc(m), t_sdc(m-1))  !to be alloc
+   end do
+
+  !endnew
 
       ! stage 1 ................................................................
 
@@ -465,6 +481,27 @@ contains
 !          u = u + w_sdc(l,i) * F_sdc(:,:,:,:,:,l)
 !        end do
 
+!new
+
+    if (.not. fsal) then
+    
+   
+    
+      !1) u = u - S_i    
+      
+      u = u - S_i
+      
+      !2)
+      call MergeArrays(ONE, u, ONE, w_sdc(0,i) * F_sdc(:,:,:,:,:,0), multi=.true.) !w_sdc not declared yet
+      
+      do l = 0, this % n_sub
+         call MergeArrays(ONE, u, ONE, w_sdc(l,i) * F_sdc(:,:,:,:,:,l), multi=.true.)
+      end do
+
+      u = u - S_i ! because of line 19
+
+    end if
+!endnew
 
 !TODO! Corrector algorithm, 19:  G part
 ! idea: structure can be adopted from 648-662
@@ -502,6 +539,24 @@ contains
 !?!           end do
 !?!
 !?!       end if
+
+!new
+
+   do i = 1, n_stage
+   
+     tau = (b_im(i) - a_im(n_stage,i)) * dt
+     call MergeArrays(ONE, u, tau, G_im (:,:,:,:,:,i), multi=.true.)
+
+     tau = (b_ex(i) - a_ex(n_stage,i)) * dt
+     call MergeArrays(ONE, u, tau, G_ex (:,:,:,:,:,i), multi=.true.)
+
+   end do
+
+!epsilon?
+
+!endnew
+
+
 !?!
 !TODO! Corrector algorithm, 20-23:  projection
 ! idea: adopt from 636-637, use p instead of psi, replace dt by ONE here
