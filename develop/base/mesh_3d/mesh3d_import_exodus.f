@@ -4,7 +4,7 @@ program Mesh3d_Import_Exodus
   use XMPI
   use Generic_Mesh__3D
   use Import_Exodus__3D
-  use Mesh_Partition__3D
+  use Mesh__3D
   use Verify_Mesh__3D
   use Export_VTK_Volume_Data__3D
   implicit none
@@ -12,7 +12,7 @@ program Mesh3d_Import_Exodus
   character(len=80) :: exodus_file = 'exodus/naca_0012.e'
 
   type(GenericMesh_3D) :: generic_mesh
-  type(MeshPartition_3D) :: mesh
+  type(Mesh_3D) :: mesh
   real(RNP), allocatable :: x(:,:,:,:,:)
   real(RNP), allocatable :: s(:,:,:,:,:)
   integer :: po = 1, ne, ns = 1

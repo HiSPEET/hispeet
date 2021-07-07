@@ -5,7 +5,7 @@
 !>
 !> @note
 !>   * The real MPI type should be generated with `MPI_Type_create_f90_real`.
-!>     As this fails with Intel's MPI, a workaround must be used :( 
+!>     As this fails with Intel's MPI, a workaround must be used :(
 !==============================================================================
 
 module MPI_Binding
@@ -23,7 +23,7 @@ module MPI_Binding
     MPI_INTEGER_IXL, & !< MPI data type matching integer(IXL)
     MPI_REAL_RSP,    & !< MPI data type matching real(RDP)
     MPI_REAL_RDP,    & !< MPI data type matching real(RDP)
-    MPI_REAL_RHP,    & !< MPI data type matching real(RHP) 
+    MPI_REAL_RHP,    & !< MPI data type matching real(RHP)
     MPI_REAL_RNP       !< MPI data type matching real(RNP)
 
   !-----------------------------------------------------------------------------
@@ -98,7 +98,7 @@ subroutine Init_MPI_Binding()
   case(RHP)
     MPI_REAL_RNP = MPI_REAL_RHP
   end select
-  
+
   initialized = .true.
 
 end subroutine Init_MPI_Binding

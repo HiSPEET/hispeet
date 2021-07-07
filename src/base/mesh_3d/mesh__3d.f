@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Mesh_Partition__3D
+module Mesh__3D
   use Kind_Parameters, only: IXL, IXS, RNP
   use XMPI
   use Mesh_Face__3D
@@ -14,7 +14,7 @@ module Mesh_Partition__3D
   implicit none
   private
 
-  public :: MeshPartition_3D
+  public :: Mesh_3D
 
   !-----------------------------------------------------------------------------
   !> 3D mesh partition type
@@ -37,7 +37,7 @@ module Mesh_Partition__3D
   !>
   !> with `-1 ≤ ξ,η,ζ ≤ 1`.
 
-  type MeshPartition_3D
+  type Mesh_3D
 
     ! global attributes ........................................................
 
@@ -103,10 +103,10 @@ module Mesh_Partition__3D
     ! import/export
     procedure :: ImportGenericMesh
 
-  end type MeshPartition_3D
+  end type Mesh_3D
 
   ! constructor
-  interface MeshPartition_3D
+  interface Mesh_3D
     module procedure EmptyMeshPartition
   end interface
 
@@ -116,15 +116,15 @@ module Mesh_Partition__3D
     !> Generates Cuboid points to all elements of a partition
 
     module subroutine GetCuboids(mesh, x)
-      class(MeshPartition_3D), intent(in)  :: mesh         !< mesh parition
-      real(RNP), allocatable,  intent(out) :: x(:,:,:,:,:) !< mesh points
+      class(Mesh_3D),         intent(in)  :: mesh         !< mesh parition
+      real(RNP), allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
     end subroutine GetCuboids
 
     !---------------------------------------------------------------------------
     !> Generates Gauss-Lobatto or Gauss points to all elements of a partition
 
     module subroutine GetPoints(mesh, po, basis, x)
-      class(MeshPartition_3D), intent(in)  :: mesh  !< mesh parition
+      class(Mesh_3D), intent(in)  :: mesh  !< mesh parition
       integer,                 intent(in)  :: po    !< polynomial order
       character,     optional, intent(in)  :: basis !< 'G' or 'L' ['L']
       real(RNP),  allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
@@ -134,43 +134,43 @@ module Mesh_Partition__3D
     !> Computes the valency of mesh points
 
     module subroutine GetPointValency(mesh, v)
-      class(MeshPartition_3D), intent(in)  :: mesh          !< mesh parition
-      integer,                 intent(out) :: v(0:,0:,0:,:) !< point valency
+      class(Mesh_3D), intent(in)  :: mesh          !< mesh parition
+      integer,        intent(out) :: v(0:,0:,0:,:) !< point valency
     end subroutine GetPointValency
 
     !---------------------------------------------------------------------------
     !> Identification of mesh edges
 
     module subroutine IdentifyEdges(mesh)
-      class(MeshPartition_3D), intent(inout) :: mesh !< mesh partition
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
     end subroutine IdentifyEdges
 
     !---------------------------------------------------------------------------
     !> Generation of mesh faces
 
     module subroutine BuildFaces(mesh)
-      class(MeshPartition_3D), intent(inout) :: mesh !< mesh partition
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
     end subroutine BuildFaces
 
     !---------------------------------------------------------------------------
     !> Identification of primary element components
 
     module subroutine IdentifyRanks(mesh)
-      class(MeshPartition_3D), intent(inout) :: mesh !< mesh partition
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
     end subroutine IdentifyRanks
 
     !---------------------------------------------------------------------------
     !> Generation of mesh links from global element neighbor information
 
     module subroutine BuildLinks(mesh)
-      class(MeshPartition_3D), intent(inout) :: mesh !< local partition
+      class(Mesh_3D), intent(inout) :: mesh !< local partition
     end subroutine BuildLinks
 
     !---------------------------------------------------------------------------
     !> Generation of ghost elements
 
     module subroutine BuildGhosts(mesh)
-      class(MeshPartition_3D), intent(inout) :: mesh !< local partition
+      class(Mesh_3D), intent(inout) :: mesh !< local partition
     end subroutine BuildGhosts
 
     !---------------------------------------------------------------------------
@@ -178,9 +178,9 @@ module Mesh_Partition__3D
 
     module subroutine ImportGenericMesh(mesh, generic_mesh, comm)
       use Generic_Mesh__3D
-      class(MeshPartition_3D), intent(out) :: mesh         !< mesh partition
-      class(GenericMesh_3D),    intent(in)  :: generic_mesh !< generic mesh
-      type(MPI_Comm),          intent(in)  :: comm         !< MPI communicator
+      class(Mesh_3D),        intent(out) :: mesh         !< mesh partition
+      class(GenericMesh_3D), intent(in)  :: generic_mesh !< generic mesh
+      type(MPI_Comm),        intent(in)  :: comm         !< MPI communicator
     end subroutine ImportGenericMesh
 
   end interface
@@ -201,7 +201,7 @@ contains
     logical  , optional, intent(in)  :: regular
     real(RNP), optional, intent(in)  :: dx(3)
 
-    type(MeshPartition_3D) :: mesh
+    type(Mesh_3D) :: mesh
 
     mesh % p_geom  = p_geom
     mesh % n_bound = n_bound
@@ -221,4 +221,4 @@ contains
 
   !=============================================================================
 
-end module Mesh_Partition__3D
+end module Mesh__3D

@@ -99,19 +99,20 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
               mesh_3d/mesh_element_indexing__3d.f
               mesh_3d/mesh_face__3d.f
               mesh_3d/mesh_link__3d.f
-              mesh_3d/mesh_partition__3d.f
-              mesh_3d/mesh_partition__3d__mp_buildfaces.f
-              mesh_3d/mesh_partition__3d__mp_buildghosts.f
-              mesh_3d/mesh_partition__3d__mp_buildlinks.f
-              mesh_3d/mesh_partition__3d__mp_getcuboids.f
-              mesh_3d/mesh_partition__3d__mp_getpoints.f
-              mesh_3d/mesh_partition__3d__mp_getpointvalency.f
-              mesh_3d/mesh_partition__3d__mp_identifyedges.f
-              mesh_3d/mesh_partition__3d__mp_identifyranks.f
-              mesh_3d/mesh_partition__3d__mp_importgenericmesh.f
+              mesh_3d/mesh__3d.f
+              mesh_3d/mesh__3d__mp_buildfaces.f
+              mesh_3d/mesh__3d__mp_buildghosts.f
+              mesh_3d/mesh__3d__mp_buildlinks.f
+              mesh_3d/mesh__3d__mp_getcuboids.f
+              mesh_3d/mesh__3d__mp_getpoints.f
+              mesh_3d/mesh__3d__mp_getpointvalency.f
+              mesh_3d/mesh__3d__mp_identifyedges.f
+              mesh_3d/mesh__3d__mp_identifyranks.f
+              mesh_3d/mesh__3d__mp_importgenericmesh.f
               mesh_3d/structured_mesh_indexing__3d.f
               mesh_3d/generate_regular_mesh__3d.f
               mesh_3d/mesh_metrics__3d.f
+              mesh_3d/spectral_element_mesh__3d.f
               )
 
 #===============================================================================

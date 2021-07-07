@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(Mesh_Partition__3D) MP_BuildLinks
+submodule(Mesh__3D) MP_BuildLinks
 
   use Quick_Sort
   implicit none
@@ -29,7 +29,7 @@ contains
   !>     is completed by inserting the ghost ID of adjacent remote elements
 
   module subroutine BuildLinks(mesh)
-    class(MeshPartition_3D), intent(inout) :: mesh !< local partition
+    class(Mesh_3D), intent(inout) :: mesh !< local partition
 
     integer, allocatable :: nf(:), nm(:), ng(:), og(:)
     integer, allocatable :: link_face(:,:)

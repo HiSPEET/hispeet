@@ -5,13 +5,12 @@
 !>
 !> @todo
 !>   *  replace `TPO_Grad_S` by optimized external procedure
-!>   *  OpenMP parallelization
 !===============================================================================
 
 module Mesh_Metrics__3D
   use Kind_Parameters, only: RNP
   use Standard_Operators__1D
-  use Mesh_Partition__3D
+  use Mesh__3D
   implicit none
   private
 
@@ -19,6 +18,10 @@ module Mesh_Metrics__3D
 
   !-----------------------------------------------------------------------------
   !> 3D mesh metrics
+  !>
+  !> Provides the mesh points and metric coefficients for all elements of the
+  !> given partition. If the mesh is regular, the coefficients are constant
+  !> and, therefore, generated only for the first element.
   !>
   !> ### Components referring to points 'i,j,k' in element `e`
   !>
@@ -37,7 +40,6 @@ module Mesh_Metrics__3D
   !>       G(... , 5) = G₂₃
   !>       G(... , 6) = G₃₃
   !>
-  !>
   !> ### Components referring to points 'l,m' on face `f` of element `e`
   !>
   !>   -  `a      (l,m,f,e)  `  : area coefficient a =|∂x/∂τ₁ × ∂x/∂τ₂|
@@ -45,8 +47,6 @@ module Mesh_Metrics__3D
   !>   -  `Ji_n_a (l,m,f,e,:)`  : J⁻¹⋅n
 
   type MeshMetrics_3D
-    class(MeshPartition_3D), pointer :: mesh     !< related mesh partition
-    type(StandardOperators_1D) :: standard_op    !< standard element operators
     real(RNP), allocatable :: x    (:,:,:,:,:)   !< mesh points
     real(RNP), allocatable :: Jm   (:,:,:,:,:,:) !< Jacobian matrix
     real(RNP), allocatable :: Ji   (:,:,:,:,:,:) !< Jacobian matrix inverse
@@ -55,6 +55,8 @@ module Mesh_Metrics__3D
     real(RNP), allocatable :: a    (:,:,:,:)     !< area coefficient
     real(RNP), allocatable :: n    (:,:,:,:,:)   !< unit normal vector
     real(RNP), allocatable :: Ji_n (:,:,:,:,:)   !< J⁻¹⋅n
+  contains
+    procedure :: Init_MeshMetrics_3D
   end type MeshMetrics_3D
 
   ! constructor
@@ -67,64 +69,68 @@ contains
   !-----------------------------------------------------------------------------
   !> MeshMetrics_3D constructor
 
-  function New_MeshMetrics_3D(mesh, po, basis) result(this)
-    class(MeshPartition_3D), target, intent(in) :: mesh  !< mesh partition
-    integer,                         intent(in) :: po    !< polynomial order
-    character,             optional, intent(in) :: basis !< 'G' or 'L' ['L']
+  function New_MeshMetrics_3D(mesh, std_op) result(this)
+    class(Mesh_3D),              intent(in) :: mesh   !< mesh partition
+    class(StandardOperators_1D), intent(in) :: std_op !< standard element ops
 
     type(MeshMetrics_3D) :: this
 
-    call Init_MeshMetrics_3D(this, mesh, po, basis)
+    call Init_MeshMetrics_3D(this, mesh, std_op)
 
   end function New_MeshMetrics_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of mesh metrics
+  !>
+  !> Note that for a regular mesh the metric coefficients are constant and hence
+  !> generated only for the first element.
 
-  subroutine Init_MeshMetrics_3D(this, mesh, po, basis)
-
-    class(MeshMetrics_3D), intent(inout) :: this
-
-    class(MeshPartition_3D), target, intent(in) :: mesh  !< mesh partition
-    integer,                         intent(in) :: po    !< polynomial order
-    character,             optional, intent(in) :: basis !< 'G' or 'L' ['L']
+  subroutine Init_MeshMetrics_3D(this, mesh, std_op)
+    class(MeshMetrics_3D),       intent(inout) :: this
+    class(Mesh_3D),              intent(in)    :: mesh   !< mesh partition
+    class(StandardOperators_1D), intent(in)    :: std_op !< standard element ops
 
     ! local variables ..........................................................
 
     real(RNP), allocatable :: Ds_t(:,:), grad_x(:,:,:,:,:)
     real(RNP) :: a, c, Jd, Jm(3,3), Ji(3,3), n(3)
-    integer   :: e, f, i, j, k, p, q, np
+    integer   :: e, f, i, j, k, p, q, np, ne
 
-    ! basic initialization .....................................................
+    associate(po => std_op % po)
 
-    this % mesh => mesh
-    this % standard_op = StandardOperators_1D(po, basis)
-    call mesh % GetPoints(po, basis, this % x)
+      ! basic initialization ...................................................
 
-    allocate( this % Jm (0:po,0:po,0:po,mesh%n_elem,3,3) )
-    allocate( this % Ji (0:po,0:po,0:po,mesh%n_elem,3,3) )
-    allocate( this % Jd (0:po,0:po,0:po,mesh%n_elem)     )
-    allocate( this % G  (0:po,0:po,0:po,mesh%n_elem,6)   )
+      call mesh % GetPoints(po, std_op % basis, this % x)
 
-    allocate( this % a    (0:po,0:po,6,mesh%n_elem)   )
-    allocate( this % n    (0:po,0:po,6,mesh%n_elem,3) )
-    allocate( this % Ji_n (0:po,0:po,6,mesh%n_elem,3) )
+      if (mesh % regular) then
+        ne = 1
+      else
+        ne = mesh % n_elem
+      end if
 
-    ! auxiliary data
-    allocate(Ds_t(0:po,0:po), grad_x(0:po,0:po,0:po,3,3))
-    np = po + 1
+      allocate( this % Jm (0:po,0:po,0:po,ne,3,3) )
+      allocate( this % Ji (0:po,0:po,0:po,ne,3,3) )
+      allocate( this % Jd (0:po,0:po,0:po,ne)     )
+      allocate( this % G  (0:po,0:po,0:po,ne,6)   )
 
-    associate(Ds => this % standard_op % D)
+      allocate( this % a    (0:po,0:po,6,ne)   )
+      allocate( this % n    (0:po,0:po,6,ne,3) )
+      allocate( this % Ji_n (0:po,0:po,6,ne,3) )
 
-      Ds_t = transpose(Ds)
+      ! auxiliary data
+      allocate(Ds_t(0:po,0:po), grad_x(0:po,0:po,0:po,3,3))
+      np = po + 1
 
-      do e = 1, mesh % n_elem
+      Ds_t = transpose(std_op % D)
+
+      !$omp do
+      do e = 1, ne
 
         ! grad_x = dx/dξ .......................................................
 
-        call TPO_Grad_S(np, Ds, Ds_t, this % x(:,:,:,e,1), grad_x(:,:,:,:,1))
-        call TPO_Grad_S(np, Ds, Ds_t, this % x(:,:,:,e,2), grad_x(:,:,:,:,2))
-        call TPO_Grad_S(np, Ds, Ds_t, this % x(:,:,:,e,3), grad_x(:,:,:,:,3))
+        call TPO_Grad_S(np, Ds_t, this % x(:,:,:,e,1), grad_x(:,:,:,:,1))
+        call TPO_Grad_S(np, Ds_t, this % x(:,:,:,e,2), grad_x(:,:,:,:,2))
+        call TPO_Grad_S(np, Ds_t, this % x(:,:,:,e,3), grad_x(:,:,:,:,3))
 
         ! volume metrics .......................................................
 
@@ -300,20 +306,19 @@ contains
 
       end do
 
+      ! finalization ...........................................................
+
+      deallocate(grad_x)
+
     end associate
-
-    ! finalization .............................................................
-
-    deallocate(grad_x)
 
   end subroutine Init_MeshMetrics_3D
 
   !-----------------------------------------------------------------------------
   !> Standard element gradient -- to be replaced by optimized TPO routine
 
-  subroutine TPO_Grad_S(np, Ds, Ds_t, u, v)
+  subroutine TPO_Grad_S(np, Ds_t, u, v)
     integer,   intent(in)  :: np             !< num points per direction
-    real(RNP), intent(in)  :: Ds  (np, np)   !< standard diff matrix
     real(RNP), intent(in)  :: Ds_t(np, np)   !< transposed standard diff matrix
     real(RNP), intent(in)  :: u (np,np,np)   !< scalar element variable
     real(RNP), intent(out) :: v (np,np,np,3) !< gradient of u
@@ -342,7 +347,7 @@ contains
     do i = 1, np
       v(i,j,k,3) = 0
       do p = 1, np
-        v(i,j,k,3) =  v(i,j,k,3) + Ds_t(p,j) * u(i,j,p)
+        v(i,j,k,3) =  v(i,j,k,3) + Ds_t(p,k) * u(i,j,p)
       end do
     end do
     end do
