@@ -634,12 +634,12 @@ subroutine Evaluation(failed, last)
   ! local variables ............................................................
 
   ! shared with OpenMP
-  real(RNP), save :: err_v_max = -1, err_v_loc
-  real(RNP), save :: err_p_max = -1, err_p_loc
-  real(RNP), save :: div_v_max = -1, div_v_loc
-  real(RNP), save :: e_kin     = -1, e_kin_loc
-  real(RNP), save :: eps       = -1, eps_loc
-  real(RNP), save :: eps_svv   = -1, eps_svv_loc
+  real(RNP), save :: err_v_max = -1, err_v_loc   = 0
+  real(RNP), save :: err_p_max = -1, err_p_loc   = 0
+  real(RNP), save :: div_v_max = -1, div_v_loc   = 0
+  real(RNP), save :: e_kin     = -1, e_kin_loc   = 0
+  real(RNP), save :: eps       = -1, eps_loc     = 0
+  real(RNP), save :: eps_svv   = -1, eps_svv_loc = 0
   integer,   save :: n         = -1, n_loc
   logical,   save :: head = .true.
 
@@ -726,12 +726,8 @@ subroutine Evaluation(failed, last)
 
     ! kinetic energy ...........................................................
 
-    !$omp master
-    e_kin_loc = 0
-    !$omp end master
-
     associate(po => eop%po, Ms => eop%w)
-      !$omp do reduction(+:e_kin_loc)
+      !$omp do reduction(+:e_kin_loc) schedule(static)
       do e = 1, size(u,4)
         do k = 0, po
         do j = 0, po
@@ -749,6 +745,7 @@ subroutine Evaluation(failed, last)
     !$omp master
     e_kin_loc = product(mesh%dx) / 16 * e_kin_loc
     call XMPI_Reduce(e_kin_loc, e_kin, MPI_SUM, 0, mesh%comm)
+    e_kin_loc = 0
     !$omp end master
 
     ! dissipation -- for constant viscosity only ...............................
@@ -777,10 +774,7 @@ subroutine Evaluation(failed, last)
           call TPO_Grad( eop%D, mesh%dx, u(:,:,:,:,3), grad_v(:,:,:,:,1:3,3) )
 
           ! local element contributions to physical dissipation
-          !$omp master
-          eps_loc = 0
-          !$omp end master
-          !$omp do reduction(+:eps_loc)
+          !$omp do reduction(+:eps_loc) schedule(static)
           do e = 1, ne
             do k = 0, po
             do j = 0, po
@@ -795,6 +789,7 @@ subroutine Evaluation(failed, last)
           !$omp master
           eps_loc = product(mesh%dx)/8 * eps_loc
           call XMPI_Reduce(eps_loc, eps, MPI_SUM, 0, mesh%comm)
+          eps_loc = 0
           !$omp end master
 
           ! SVV dissipation  . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -817,14 +812,14 @@ subroutine Evaluation(failed, last)
             call TPO_Grad(Ds_svv, mesh%dx, u(:,:,:,:,3), grad_v(:,:,:,:,1:3,3))
 
             ! local element contributions to SVV dissipation
-            eps_svv_loc = 0
-            !$omp do reduction(+:eps_svv_loc)
+            !$omp do reduction(+:eps_svv_loc) schedule(static)
             do e = 1, ne
               do k = 0, po
               do j = 0, po
               do i = 0, po
-                eps_svv_loc = eps_svv_loc + Ms(i)*Ms(j)*Ms(k) * nu_svv *   &
-                                            sum(grad_v(i,j,k,e,:,:)**2)
+                eps_svv_loc = eps_svv_loc &
+                            + Ms(i)*Ms(j)*Ms(k) * nu_svv &
+                            * sum(grad_v(i,j,k,e,:,:)**2)
               end do
               end do
               end do
@@ -833,6 +828,7 @@ subroutine Evaluation(failed, last)
             !$omp master
             eps_svv_loc = product(mesh%dx)/8 * eps_svv_loc
             call XMPI_Reduce(eps_svv_loc, eps_svv, MPI_SUM, 0, mesh%comm)
+            eps_svv_loc = 0
             !$omp end master
           end if
           !$omp master

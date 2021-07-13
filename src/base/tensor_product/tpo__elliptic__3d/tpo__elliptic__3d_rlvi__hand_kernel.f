@@ -1,13 +1,13 @@
 !-------------------------------------------------------------------------------
 !> 3d generic elliptic element operator using hand-crafted suboperators (RLVI)
 
-subroutine PROC(TPO_Elliptic_RLVI_Hand__,_NP_)(ne, Ms, Ds, lambda, nu, dx, u, v)
+subroutine PROC(TPO_Elliptic_RLVI_Hand__,_NP_)(ne, Ms, Ds, dx, lambda, nu, u, v)
   integer,   intent(in)  :: ne                    !< num elements
   real(RWP), intent(in)  :: Ms(_NP_)              !< 1D standard mass matrix
   real(RWP), intent(in)  :: Ds(_NP_,_NP_)         !< 1D standard diff matrix
+  real(RWP), intent(in)  :: dx(3)                 !< element extensions
   real(RWP), intent(in)  :: lambda                !< Helmholtz parameter
   real(RWP), intent(in)  :: nu(_NP_,_NP_,_NP_,ne) !< diffusivity
-  real(RWP), intent(in)  :: dx(3)                 !< element extensions
   real(RWP), intent(in)  :: u(_NP_,_NP_,_NP_,ne)  !< operand
   real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne)  !< result
 

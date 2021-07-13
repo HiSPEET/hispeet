@@ -72,8 +72,8 @@ contains
     class(SpectralElementMesh_3D), intent(in) :: this
     real(RNP), intent(out) :: vol !< volume, should be PRIVATE with OpenMP
 
-    real(RNP), save :: v_loc, v_glob
     real(RNP), allocatable :: www(:,:,:)
+    real(RNP), save :: v_loc, v_glob
     integer :: e, i, j, k
 
     associate( mesh   => this % mesh         &
@@ -98,13 +98,13 @@ contains
         end do
         end do
 
-        !$omp master
+        !$omp single
         v_loc = ZERO
-        !$omp end master
+        !$omp end single
 
         !$omp do reduction(+:v_loc) schedule(static)
         do e = 1, mesh % n_elem
-          v_loc = v_loc + sum(www *  Jd(:,:,:,e))
+          v_loc = v_loc + sum(www * Jd(:,:,:,e))
         end do
 
       end if
@@ -112,6 +112,7 @@ contains
       !$omp master
       call XMPI_Allreduce(v_loc, v_glob, MPI_SUM, mesh % comm)
       !$omp end master
+      !$omp barrier
 
       vol = v_glob
 
@@ -173,6 +174,7 @@ contains
 
       area = a_glob
 
+      !$omp barrier
       !$omp master
       deallocate(a_loc, a_glob)
       !$omp end master
@@ -189,9 +191,8 @@ contains
     real(RNP), intent(out) :: area(this%mesh%n_bound) !< surface areas
 
     real(RNP), allocatable, save :: a_loc(:), a_glob(:)
-    real(RNP), save :: a_sum
-
     real(RNP), allocatable :: ww(:,:)
+    real(RNP) :: a_priv
     integer :: b, e, f, i, j, s
 
     associate( mesh   => this % mesh        &
@@ -199,6 +200,12 @@ contains
              , a      => this % metrics % a )
 
       ! initialization .........................................................
+
+      !$omp master
+      allocate(a_loc (mesh % n_bound), source = ZERO)
+      allocate(a_glob(mesh % n_bound))
+      !$omp end master
+      !$omp barrier
 
       ! precompute 2D quadrature weights
       allocate(ww(0:std_op%po, 0:std_op%po))
@@ -208,25 +215,20 @@ contains
       end do
       end do
 
-      ! setup of shared reduction variables
-      !$omp master
-      allocate(a_loc (mesh % n_bound))
-      allocate(a_glob(mesh % n_bound))
-      !$omp end master
-
       ! local contributions ....................................................
 
       do b = 1, mesh % n_bound
-        a_sum = 0
-        !$omp do reduction(+:a_sum) schedule(static)
+        a_priv = ZERO
+        !$omp do schedule(static)
         do f = 1, mesh % boundary(b) % n_face
           e = mesh % boundary(b) % face(f) % mesh_element % id   ! element ID
           s = mesh % boundary(b) % face(f) % mesh_element % face ! element side
-          a_sum = a_sum + sum(ww * a(:,:,s,e))
+          a_priv = a_priv + sum(ww * a(:,:,s,e))
         end do
-        !$omp single
-        a_loc(b) = a_sum
-        !$omp end single
+        !$omp end do nowait
+        !$omp atomic
+        a_loc(b) = a_loc(b) + a_priv
+        !$omp barrier
       end do
 
       ! computation and assignment of global result ............................
@@ -234,11 +236,13 @@ contains
       !$omp master
       call XMPI_Allreduce(a_loc, a_glob, MPI_SUM, mesh % comm)
       !$omp end master
+      !$omp barrier
 
       area = a_glob
 
       ! clean-up ...............................................................
 
+      !$omp barrier
       !$omp master
       deallocate(a_loc, a_glob)
       !$omp end master

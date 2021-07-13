@@ -179,13 +179,13 @@ program Validate__TPO_Elliptic_RLVI
     !$omp parallel
     !$acc data copyin(nu, u) copyout(v)
 
-    call TPO_Elliptic_RLVI_Gen(Ms, Ds, lambda, nu, dx, u, v)
+    call TPO_Elliptic_RLVI_Gen(Ms, Ds, dx, lambda, nu, u, v)
     !$acc wait
 
     call system_clock(count0, rate)
 
     do i = 1, nt
-      call TPO_Elliptic_RLVI_Gen(Ms, Ds, lambda, nu, dx, u, v)
+      call TPO_Elliptic_RLVI_Gen(Ms, Ds, dx, lambda, nu, u, v)
       !$acc wait
     end do
 
@@ -210,13 +210,13 @@ program Validate__TPO_Elliptic_RLVI
     !$omp parallel
     !$acc data copyin(nu, u) copyout(v)
 
-    call TPO_Elliptic(Ms, Ds, lambda, nu, dx, u, v)
+    call TPO_Elliptic(Ms, Ds, dx, lambda, nu, u, v)
     !$acc wait
 
     call system_clock(count0, rate)
 
     do i = 1, nt
-      call TPO_Elliptic(Ms, Ds, lambda, nu, dx, u, v)
+      call TPO_Elliptic(Ms, Ds, dx, lambda, nu, u, v)
       !$acc wait
     end do
 

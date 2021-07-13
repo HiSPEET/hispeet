@@ -552,13 +552,11 @@ subroutine CalibrateArray_X(ne, a, comm)
   type(MPI_Comm), optional, intent(in)    :: comm  !< MPI communicator
 
   ! local variables, some declared save to become shared with OpenMP
-  real(RNP), save :: s_loc, s_glob, a_mean
+  real(RNP), save :: s_loc = 0, s_glob = 0, a_mean
   integer :: n_loc, n_glob
   integer :: i
 
   ! mean value .................................................................
-
-  s_loc = 0
 
   !$omp do reduction(+:s_loc)
   !$acc data present(a)
@@ -571,26 +569,23 @@ subroutine CalibrateArray_X(ne, a, comm)
   ! OpenACC:
   ! Note that the reduction variable is automatically updated on the host!
 
+  !$omp master
   if (present(comm)) then
-
-    !$omp master
     n_loc = ne
     call MPI_Allreduce(n_loc, n_glob, 1, MPI_INTEGER , MPI_SUM, comm)
     call MPI_Allreduce(s_loc, s_glob, 1, MPI_REAL_RNP, MPI_SUM, comm)
     a_mean = s_glob / n_glob
-    !$omp end master
-    !$omp barrier
-
   else
-
     a_mean = s_loc / max(ne, 1)
-
   end if
+  s_loc = 0
+  !$omp end master
+  !$omp barrier
 
   ! remove mean value ..........................................................
 
-  !$omp do
   !$acc parallel loop present(a)
+  !$omp do
   do i = 1, ne
     a(i) = a(i) - a_mean
   end do

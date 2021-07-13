@@ -1,13 +1,13 @@
 !-------------------------------------------------------------------------------
 !> Parametrized 3d elliptic kernel using hand-crafted suboperators (RLCI)
 
-subroutine PROC(TPO_Elliptic_RLCI_Hand__,_NP_)(ne, Ms, Ls, lambda, nu, dx, u, v)
+subroutine PROC(TPO_Elliptic_RLCI_Hand__,_NP_)(ne, Ms, Ls, dx, lambda, nu, u, v)
   integer,   intent(in)  :: ne                   !< num elements
   real(RWP), intent(in)  :: Ms(_NP_)             !< standard mass matrix
   real(RWP), intent(in)  :: Ls(_NP_,_NP_)        !< standard stiffness matrix
+  real(RWP), intent(in)  :: dx(3)                !< element extensions
   real(RWP), intent(in)  :: lambda               !< Helmholtz parameter λ
   real(RWP), intent(in)  :: nu                   !< diffusivity nu
-  real(RWP), intent(in)  :: dx(3)                !< element extensions
   real(RWP), intent(in)  :: u(_NP_,_NP_,_NP_,ne) !< operand
   real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne) !< result
 

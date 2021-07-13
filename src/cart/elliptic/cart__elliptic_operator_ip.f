@@ -380,9 +380,12 @@ subroutine ConjugateGradients(this, u, f, i_max, r_red, r_max, ni)
       call this % Apply(p, q)
 
       pq = ScalarProduct(p, q, mesh%comm)
+!print '(A,G0)', 'rr_old = ', rr_old
+!print '(A,G0)', 'pq1 = ', pq
       pq = sign(max(abs(pq),eps), pq)
+!print '(A,G0)', 'pq2 = ', pq
       alpha = rr_old / pq
-
+!print '(A,G0)', 'alpha = ', alpha
       call MergeArrays(ONE, u,  alpha, p)  !?! nowait in case mod(i,50) /= 0
 
       if (mod(i,50) == 0) then

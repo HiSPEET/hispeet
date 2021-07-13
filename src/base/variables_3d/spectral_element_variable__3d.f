@@ -6,6 +6,8 @@
 
 module Spectral_Element_Variable__3D
   use Kind_Parameters, only: RNP
+  use Constants      , only: ZERO
+  use XMPI
   use Spectral_Element_Mesh__3D
   implicit none
   private
@@ -14,30 +16,329 @@ module Spectral_Element_Variable__3D
 
   !-----------------------------------------------------------------------------
   !> 3D spectral element variable
+  !>
+  !> Base type for keeping a set of variables on a spectral element mesh.
+  !> The mesh, including the standard operators and metric coefficients, is
+  !> provided by the pointer `sem` and can be shared with other entities.
+  !> The variables are accessed through `val(0:po,0:po,0:po,ne,nc)`, where
+  !> `po` is the polynomial order, `ne` the number of elements and `nc` the
+  !> number of components. Depending on the creation of the spectral element
+  !> variable, the values can be stored in its own `mem` component or refer
+  !> to the `mem` component of another instance.
 
   type SpectralElementVariable_3D
-    class(SpectralElementMesh_3D), pointer :: se_mesh
-    real(RNP), contiguous,  pointer :: value(:,:,:,:,:)  ! (0:po,0:po,0:po,n_elem,n_comp)
-    real(RNP), allocatable, private :: storage(:,:,:,:,:)
+    class(SpectralElementMesh_3D), pointer :: sem     !< spectral element mesh
+    real(RNP), contiguous,  pointer :: val(:,:,:,:,:) !< accessable values
+    real(RNP), allocatable, private :: mem(:,:,:,:,:) !< memory allocated to val
+  contains
+    procedure :: Init_SpectralElementVariable_3D
+    procedure :: GetSlice
+    procedure :: GetVolumeIntegrals
+    procedure :: GetSurfaceIntegrals
   end type SpectralElementVariable_3D
 
-! Remarks + issues:
-! - original if storage is allocated
-! - boundary conditions optional
-! - extract slice (subset) as new variable
-! – easy access to values, e.g: v(0:,0:,0:,1:,1:) => var % val(:,:,:,:,1:3)
-! - extended types: scalar, vector
-! - whether/how to include BC ?
+  ! constructor
+  interface SpectralElementVariable_3D
+    module procedure New_SpectralElementVariable_3D
+  end interface
 
 contains
 
   !-----------------------------------------------------------------------------
+  !> 3D spectral element variable constructor
+
+  function New_SpectralElementVariable_3D(sem, nc) result(this)
+    class(SpectralElementMesh_3D), target, intent(in) :: sem
+    integer, intent(in) :: nc  !< number of components
+    type(SpectralElementVariable_3D) :: this
+
+    call Init_SpectralElementVariable_3D(this, sem, nc)
+
+  end function New_SpectralElementVariable_3D
+
+  !-----------------------------------------------------------------------------
   !> 3D spectral element variable initialization
 
-  subroutine Init_SpectralElementVariable_3D(this, se_mesh)
-    class(SpectralElementVariable_3D), intent(inout) :: this
+  subroutine Init_SpectralElementVariable_3D(this, sem, nc)
+    class(SpectralElementVariable_3D), target, intent(inout) :: this
+    class(SpectralElementMesh_3D)    , target, intent(in)    :: sem
+    integer, intent(in) :: nc  !< number of components
+
+    associate(po => sem % std_op % po)
+
+      if (allocated(this % mem)) then
+        deallocate(this % mem)
+      end if
+      allocate(this % mem(0:po, 0:po, 0:po, sem%mesh%n_elem, nc))
+
+      this % sem => sem
+      this % val(0:,0:,0:,1:,1:) => this % mem
+
+    end associate
 
   end subroutine Init_SpectralElementVariable_3D
+
+  !-----------------------------------------------------------------------------
+  !> Create a new spectral element variable as a slice of the given one
+  !>
+  !> The values of the new variable refer to `this%val` if `copy = F` or absent.
+  !> If `copy = T` they are stored in fresh memory, i.e. `slice%mem`.
+  !> In an OpenMP parallel section the routine is executed only by the master
+  !> thread.
+
+  subroutine GetSlice(this, slice, first, last, copy)
+    class(SpectralElementVariable_3D), target, intent(in)    :: this
+    class(SpectralElementVariable_3D), target, intent(inout) :: slice
+    integer,           intent(in) :: first !< first component of slice
+    integer,           intent(in) :: last  !< last component of slice
+    logical, optional, intent(in) :: copy  !< copy into fresh memory [F]
+
+    integer :: c1, c2
+
+    !$omp master
+
+    slice % val => null()
+
+    c1 = max(min(first, size(this%val, 5)), 1)
+    c2 = max(min(last , size(this%val, 5)), 0)
+
+    if (present(copy)) then
+      if (copy) then
+        slice % mem = this % val(:,:,:,:,c1:c2)
+        slice % val(0:,0:,0:,1:,1:) => slice % mem
+      end if
+    end if
+
+    if (.not. associated(this % val)) then
+      slice % val(0:,0:,0:,1:,1:) => this % val(:,:,:,:,c1:c2)
+      if (allocated(slice % mem)) then
+        deallocate(slice % mem)
+      end if
+    end if
+
+    !$omp end master
+
+  end subroutine GetSlice
+
+  !-----------------------------------------------------------------------------
+  !> TBP for computing the volume integrals of the components
+
+  subroutine GetVolumeIntegrals(this, vi)
+    class(SpectralElementVariable_3D), intent(in) :: this
+    real(RNP), intent(out) :: vi(size(this%val,5))
+    !< volume integrals of spectral element variable components
+
+    real(RNP), allocatable, save :: vi_loc(:), vi_glob(:)
+    real(RNP), allocatable :: vi_priv(:), www(:,:,:)
+    real(RNP) :: Jd0
+    integer   :: c, e, i, j, k, po, ne, nc
+
+    associate( mesh   => this % sem % mesh          &
+             , std_op => this % sem % std_op        &
+             , Jd     => this % sem % metrics % Jd  &
+             , val    => this % val           )
+
+      ! dimensions
+      po = std_op % po    ! polynomial order
+      ne = mesh % n_elem  ! number of local elements
+      nc = size(vi)       ! number of components
+
+      allocate(vi_priv(nc), source = ZERO)
+
+      !$omp master
+      allocate(vi_loc (nc), source = ZERO)
+      allocate(vi_glob(nc), source = ZERO)
+      !$omp end master
+      !$omp barrier
+
+      ! precompute 3D quadrature weights
+      allocate(www(0:po, 0:po, 0:po))
+      do k = 0, po
+      do j = 0, po
+      do i = 0, po
+        www(i,j,k) = std_op % w(i) * std_op % w(j) * std_op % w(k)
+      end do
+      end do
+      end do
+
+      if (mesh % regular) then
+
+        Jd0 = product(mesh % dx) / 8
+
+        !$omp do schedule(static)
+        do e = 1, mesh % n_elem
+          do c = 1, nc
+            vi_priv(c) = vi_priv(c) + Jd0 * sum(www * val(:,:,:,e,c))
+          end do
+        end do
+        !$omp end do nowait
+
+      else
+
+        !$omp do schedule(static)
+        do e = 1, mesh % n_elem
+          do c = 1, nc
+            vi_priv(c) = vi_priv(c) + sum(www * Jd(:,:,:,e) * val(:,:,:,e,c))
+          end do
+        end do
+        !$omp end do nowait
+
+      end if
+
+      !$omp critical
+      vi_loc = vi_loc + vi_priv
+      !$omp end critical
+      !$omp barrier
+
+      !$omp master
+      call XMPI_Allreduce(vi_loc, vi_glob, MPI_SUM, mesh % comm)
+      !$omp end master
+      !$omp barrier
+
+      vi = vi_glob
+
+      !$omp barrier
+      !$omp master
+      deallocate(vi_loc, vi_glob)
+      !$omp end master
+
+    end associate
+
+  end subroutine GetVolumeIntegrals
+
+  !-----------------------------------------------------------------------------
+  !> TBP for computing the surface integrals of the components
+
+  subroutine GetSurfaceIntegrals(this, si, mask)
+    class(SpectralElementVariable_3D), intent(in) :: this
+    real(RNP), intent(out) :: si(size(this%val,5),this%sem%mesh%n_bound)
+    !< volume integrals of spectral element variable components
+    logical, optional, intent(in) :: mask(this%sem%mesh%n_bound)
+    !< set T/F for boundary surfaces to be in/excluded [T]
+
+    real(RNP), allocatable, save :: si_loc(:,:), si_glob(:,:)
+    real(RNP), allocatable :: si_priv(:,:), ww(:,:)
+    real(RNP) :: a0(6)
+    logical   :: skip(this%sem%mesh%n_bound)
+    integer   :: b, c, e, f, i, j, s
+    integer   :: po, nb, nc
+
+    if (present(mask)) then
+      skip = .not. mask
+    else
+      skip = .false.
+    end if
+
+    associate( mesh   => this % sem % mesh         &
+             , std_op => this % sem % std_op       &
+             , a      => this % sem % metrics % a  &
+             , val    => this % val                )
+
+      ! dimensions
+      po = std_op % po  ! polynomial order
+      nc = size(si,1)   ! number of components
+      nb = size(si,2)   ! number of boundaries
+
+      allocate(si_priv(nc,nb), source = ZERO)
+
+      !$omp master
+      allocate(si_loc (nc,nb), source = ZERO)
+      allocate(si_glob(nc,nb), source = ZERO)
+      !$omp end master
+      !$omp barrier
+
+      ! 2D quadrature weights
+      allocate(ww(0:po, 0:po))
+      do j = 0, po
+      do i = 0, po
+        ww(i,j) = std_op % w(i) * std_op % w(j)
+      end do
+      end do
+
+      ! local contributions ....................................................
+
+      if (mesh % regular) then
+
+        a0(1:2) = mesh % dx(2) * mesh % dx(3) / 4
+        a0(3:4) = mesh % dx(3) * mesh % dx(1) / 4
+        a0(5:6) = mesh % dx(1) * mesh % dx(2) / 4
+
+        do b = 1, nb
+          if (skip(b)) cycle
+          !$omp do schedule(static)
+          do f = 1, mesh % boundary(b) % n_face
+            e = mesh % boundary(b) % face(f) % mesh_element % id   ! element ID
+            s = mesh % boundary(b) % face(f) % mesh_element % face ! element side
+            do c = 1, nc
+              select case(s)
+              case(1)
+                si_priv(c,b) = si_priv(c,b) + a0(s) * sum(ww * val(0,:,:,e,c))
+              case(2)
+                si_priv(c,b) = si_priv(c,b) + a0(s) * sum(ww * val(po,:,:,e,c))
+              case(3)
+                si_priv(c,b) = si_priv(c,b) + a0(s) * sum(ww * val(:,0,:,e,c))
+              case(4)
+                si_priv(c,b) = si_priv(c,b) + a0(s) * sum(ww * val(:,po,:,e,c))
+              case(5)
+                si_priv(c,b) = si_priv(c,b) + a0(s) * sum(ww * val(:,:,0,e,c))
+              case(6)
+                si_priv(c,b) = si_priv(c,b) + a0(s) * sum(ww * val(:,:,po,e,c))
+              end select
+            end do
+          end do
+          !$omp end do nowait
+        end do
+
+      else
+
+        do b = 1, nb
+          if (skip(b)) cycle
+          !$omp do schedule(static)
+          do f = 1, mesh % boundary(b) % n_face
+            e = mesh % boundary(b) % face(f) % mesh_element % id   ! element ID
+            s = mesh % boundary(b) % face(f) % mesh_element % face ! element side
+            do c = 1, nc
+              select case(s)
+              case(1)
+                si_priv(c,b) = si_priv(c,b) + sum(ww * a(:,:,s,e) * val(0,:,:,e,c))
+              case(2)
+                si_priv(c,b) = si_priv(c,b) + sum(ww * a(:,:,s,e) * val(po,:,:,e,c))
+              case(3)
+                si_priv(c,b) = si_priv(c,b) + sum(ww * a(:,:,s,e) * val(:,0,:,e,c))
+              case(4)
+                si_priv(c,b) = si_priv(c,b) + sum(ww * a(:,:,s,e) * val(:,po,:,e,c))
+              case(5)
+                si_priv(c,b) = si_priv(c,b) + sum(ww * a(:,:,s,e) * val(:,:,0,e,c))
+              case(6)
+                si_priv(c,b) = si_priv(c,b) + sum(ww * a(:,:,s,e) * val(:,:,po,e,c))
+              end select
+            end do
+          end do
+          !$omp end do nowait
+        end do
+
+      end if
+
+      !$omp critical
+      si_loc = si_loc + si_priv
+      !$omp end critical
+      !$omp barrier
+
+      !$omp master
+      call XMPI_Allreduce(si_loc, si_glob, MPI_SUM, mesh % comm)
+      !$omp end master
+      !$omp barrier
+
+      si = si_glob
+
+      !$omp barrier
+      !$omp master
+      deallocate(si_loc, si_glob)
+      !$omp end master
+
+    end associate
+
+  end subroutine GetSurfaceIntegrals
 
   !=============================================================================
 

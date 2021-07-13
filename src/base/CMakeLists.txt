@@ -136,6 +136,11 @@ if (Exodus_FOUND)
 endif ()
 
 #===============================================================================
+# variables_3d
+
+set( VARIABLES_3D variables_3d/spectral_element_variable__3d.f )
+
+#===============================================================================
 # base library
 
 set(BASE_SRC ${ESSENTIALS}
@@ -149,6 +154,7 @@ set(BASE_SRC ${ESSENTIALS}
              ${MESH}
              ${MESH_3D}
              ${UTIL_3D}
+             ${VARIABLES_3D}
              )
 
 add_library(HiBase ${BASE_SRC})

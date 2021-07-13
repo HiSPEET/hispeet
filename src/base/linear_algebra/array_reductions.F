@@ -91,14 +91,10 @@ contains
     type(MPI_Comm), optional, intent(in) :: comm !< MPI communicator
 
     ! local variables declared save to become shared with OpenMP
-    real(RNP), save :: r_loc, r_glob
+    real(RNP), save :: r_loc = 0, r_glob = 0
     integer  :: i
 
     ! local contribution .......................................................
-
-    !$omp master
-    r_loc = 0
-    !$omp end master
 
     !$acc data present(a)
     !$acc parallel loop reduction(+:r_loc)
@@ -113,20 +109,17 @@ contains
 
     ! global result ............................................................
 
+    !$omp master
     if (present(comm)) then
-
-      !$omp master
       call MPI_Allreduce(r_loc, r_glob, 1, MPI_REAL_RNP, MPI_SUM, comm)
-      !$omp end master
-      !$omp barrier
-
-      r = r_glob
-
     else
-
-      r = r_loc
-
+      r_glob = r_loc
     end if
+    r_loc = 0
+    !$omp end master
+    !$omp barrier
+
+    r = r_glob
 
   end function SumOfElements_X
 
@@ -233,9 +226,10 @@ contains
 
     ! local contribution .......................................................
 
-    !$omp master
+    ! skipping initialization with _OPENMP defined failed in some cases
+    !$omp single
     r_loc = 0
-    !$omp end master
+    !$omp end single
 
     r_priv = 0
 
@@ -243,7 +237,7 @@ contains
     do i = 1, n
       r_priv = r_priv + a(i) * b(i)
     end do
-    ! nowait potentially dangerous here, since r_loc=0 might be late
+    !$omp end do nowait
 
     !$omp atomic
     r_loc = r_loc + r_priv
@@ -251,20 +245,16 @@ contains
 
     ! global result ............................................................
 
+    !$omp master
     if (present(comm)) then
-
-      !$omp master
       call MPI_Allreduce(r_loc, r_glob, 1, MPI_REAL_RNP, MPI_SUM, comm)
-      !$omp end master
-      !$omp barrier
-
-      r = r_glob
-
     else
-
-      r = r_loc
-
+      r_glob = r_loc
     end if
+    !$omp end master
+    !$omp barrier
+
+    r = r_glob
 
   end function ScalarProduct_X
 
@@ -278,14 +268,10 @@ contains
     type(MPI_Comm), optional, intent(in) :: comm !< MPI communicator
 
     ! local variables declared save to become shared with OpenMP
-    real(RNP), save :: r_loc, r_glob
+    real(RNP), save :: r_loc = 0, r_glob = 0
     integer :: i
 
     ! local contribution .......................................................
-
-    !$omp master
-    r_loc = 0
-    !$omp end master
 
     !$omp do reduction(+:r_loc) private(i)
     do i = 1, n
@@ -294,20 +280,17 @@ contains
 
     ! global result ............................................................
 
+    !$omp master
     if (present(comm)) then
-
-      !$omp master
       call MPI_Allreduce(r_loc, r_glob, 1, MPI_REAL_RNP, MPI_SUM, comm)
-      !$omp end master
-      !$omp barrier
-
-      r = r_glob
-
     else
-
-      r = r_loc
-
+      r_glob = r_loc
     end if
+    r_loc = 0
+    !$omp end master
+    !$omp barrier
+
+    r = r_glob
 
   end function ScalarProduct_X
 
@@ -423,9 +406,10 @@ contains
 
     ! local contribution .......................................................
 
-    !$omp master
+    ! skipping initialization with _OPENMP defined failed in some cases
+    !$omp single
     r_loc = 0
-    !$omp end master
+    !$omp end single
 
     r_priv = 0
 
@@ -433,7 +417,7 @@ contains
     do i = 1, n
       r_priv = r_priv + w(i) * a(i) * b(i)
     end do
-    ! nowait potentially dangerous here, since r_loc=0 might be late
+    !$omp end do nowait
 
     !$omp atomic
     r_loc = r_loc + r_priv
@@ -441,20 +425,16 @@ contains
 
     ! global result ............................................................
 
+    !$omp master
     if (present(comm)) then
-
-      !$omp master
       call MPI_Allreduce(r_loc, r_glob, 1, MPI_REAL_RNP, MPI_SUM, comm)
-      !$omp end master
-      !$omp barrier
-
-      r = r_glob
-
     else
-
-      r = r_loc
-
+      r_glob = r_loc
     end if
+    !$omp end master
+    !$omp barrier
+
+    r = r_glob
 
   end function WeightedScalarProduct_X
 
@@ -469,14 +449,10 @@ contains
     type(MPI_Comm), optional, intent(in) :: comm !< MPI communicator
 
     ! local variables declared save to become shared with OpenMP
-    real(RNP), save :: r_loc, r_glob
+    real(RNP), save :: r_loc = 0, r_glob = 0
     integer  :: i
 
     ! local contribution .......................................................
-
-    !$omp master
-    r_loc = 0
-    !$omp end master
 
     !$omp do reduction(+:r_loc) private(i)
     do i = 1, n
@@ -485,20 +461,17 @@ contains
 
     ! global result ............................................................
 
+    !$omp master
     if (present(comm)) then
-
-      !$omp master
       call MPI_Allreduce(r_loc, r_glob, 1, MPI_REAL_RNP, MPI_SUM, comm)
-      !$omp end master
-      !$omp barrier
-
-      r = r_glob
-
     else
-
-      r = r_loc
-
+      r_glob = r_loc
     end if
+    r_loc = 0
+    !$omp end master
+    !$omp barrier
+
+    r = r_glob
 
   end function WeightedScalarProduct_X
 

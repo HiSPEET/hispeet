@@ -86,7 +86,7 @@ module subroutine Apply_CI(this, u, v)
 
       ! apply element diffusion operator .......................................
 
-      call TPO_Elliptic(eop%w, As, lambda, ONE, mesh%dx, u, v)
+      call TPO_Elliptic(eop%w, As, mesh%dx, lambda, ONE, u, v)
 
       ! finish generation of traces ............................................
 

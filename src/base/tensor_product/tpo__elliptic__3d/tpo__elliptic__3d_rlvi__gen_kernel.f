@@ -4,12 +4,12 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-subroutine TPO_Elliptic_RLVI_Gen_RWP(Ms, Ds, lambda, nu, dx, u, v)
+subroutine TPO_Elliptic_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v)
   real(RWP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
   real(RWP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
+  real(RWP), intent(in)  :: dx(3)       !< element extensions
   real(RWP), intent(in)  :: lambda      !< Helmholtz parameter
   real(RWP), intent(in)  :: nu(:,:,:,:) !< diffusivity           (np,np,np,ne)
-  real(RWP), intent(in)  :: dx(3)       !< element extensions
   real(RWP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
   real(RWP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
 

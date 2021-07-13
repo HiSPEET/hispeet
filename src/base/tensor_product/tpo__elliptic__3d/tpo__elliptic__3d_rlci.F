@@ -43,12 +43,12 @@ contains
   !> Ms and Ls are the 1D standard mass and stiffness matrices for polynomial
   !> order P = np-1, respectively, and dx(1:3) the element dimensions.
 
-  subroutine TPO_Elliptic_RLCI_RDP(Ms, Ls, lambda, nu, dx, u, v)
+  subroutine TPO_Elliptic_RLCI_RDP(Ms, Ls, dx, lambda, nu, u, v)
     real(RDP), intent(in)  :: Ms(:)      !< 1D standard mass matrix
     real(RDP), intent(in)  :: Ls(:,:)    !< 1D standard stiffness matrix
+    real(RDP), intent(in)  :: dx(3)      !< element extensions
     real(RDP), intent(in)  :: lambda     !< Helmholtz parameter
     real(RDP), intent(in)  :: nu         !< diffusivity
-    real(RDP), intent(in)  :: dx(3)      !< element extensions
     real(RDP), intent(in)  :: u(:,:,:,:) !< operand
     real(RDP), intent(out) :: v(:,:,:,:) !< result
 
@@ -56,11 +56,11 @@ contains
 
 #ifdef __LIBXSMM__
     case(8:)
-      call TPO_Elliptic_RLCI_XSMM(Ms, Ls, lambda, nu, dx, u, v)
+      call TPO_Elliptic_RLCI_XSMM(Ms, Ls, dx, lambda, nu, u, v)
 #endif
 
     case default
-      call TPO_Elliptic_RLCI_Hand(Ms, Ls, lambda, nu, dx, u, v)
+      call TPO_Elliptic_RLCI_Hand(Ms, Ls, dx, lambda, nu, u, v)
 
     end select
 

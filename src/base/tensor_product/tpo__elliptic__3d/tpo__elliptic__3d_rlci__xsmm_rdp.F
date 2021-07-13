@@ -24,12 +24,12 @@ contains
   !-----------------------------------------------------------------------------
   !> 3D elliptic element operator based on LIBXSMM (RLCI)
 
-  subroutine TPO_Elliptic_RLCI_XSMM_RDP(Ms, Ls, lambda, nu, dx, u, v)
+  subroutine TPO_Elliptic_RLCI_XSMM_RDP(Ms, Ls, dx, lambda, nu, u, v)
     real(RDP), intent(in)  :: Ms(:)      !< 1D standard mass matrix         (np)
     real(RDP), intent(in)  :: Ls(:,:)    !< 1D standard stiffness matrix (np,np)
+    real(RDP), intent(in)  :: dx(3)      !< element extensions
     real(RDP), intent(in)  :: lambda     !< Helmholtz parameter
     real(RDP), intent(in)  :: nu         !< diffusivity
-    real(RDP), intent(in)  :: dx(3)      !< element extensions
     real(RDP), intent(in)  :: u(:,:,:,:) !< operand                (np,np,np,ne)
     real(RDP), intent(out) :: v(:,:,:,:) !< result                 (np,np,np,ne)
 

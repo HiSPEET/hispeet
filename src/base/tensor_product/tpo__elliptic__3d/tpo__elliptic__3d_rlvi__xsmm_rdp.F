@@ -24,12 +24,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Generic elliptic element operator (RLVI)
 
-  subroutine TPO_Elliptic_RLVI_XSMM_RDP(Ms, Ds, lambda, nu, dx, u, v)
+  subroutine TPO_Elliptic_RLVI_XSMM_RDP(Ms, Ds, dx, lambda, nu, u, v)
     real(RDP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
     real(RDP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
     real(RDP), intent(in)  :: lambda      !< Helmholtz parameter
-    real(RDP), intent(in)  :: nu(:,:,:,:) !< diffusivity           (np,np,np,ne)
     real(RDP), intent(in)  :: dx(3)       !< element extensions
+    real(RDP), intent(in)  :: nu(:,:,:,:) !< diffusivity           (np,np,np,ne)
     real(RDP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
     real(RDP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
 

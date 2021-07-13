@@ -65,6 +65,7 @@ module XMPI__Real_RDP
   interface XMPI_Reduce
     module procedure ReduceX00
     module procedure ReduceX11
+    module procedure ReduceX22
   end interface XMPI_Reduce
 
   !-----------------------------------------------------------------------------
@@ -73,6 +74,7 @@ module XMPI__Real_RDP
   interface XMPI_Allreduce
     module procedure AllreduceX00
     module procedure AllreduceX11
+    module procedure AllreduceX22
   end interface XMPI_Allreduce
 
 contains
@@ -363,6 +365,20 @@ subroutine ReduceX11(sendbuf, recvbuf, op, root, comm)
 
 end subroutine ReduceX11
 
+!-------------------------------------------------------------------------------
+!> Reduce for 2D/2D send/receive buffers
+
+subroutine ReduceX22(sendbuf, recvbuf, op, root, comm)
+  real(RDP),      intent(in)    :: sendbuf(:,:) !< send buffer
+  real(RDP),      intent(inout) :: recvbuf(:,:) !< receive buffer
+  type(MPI_Op),   intent(in)    :: op           !< reduce operation
+  integer,        intent(in)    :: root         !< rank of root
+  type(MPI_Comm), intent(in)    :: comm         !< communicator
+
+  call MPI_Reduce(sendbuf, recvbuf, size(sendbuf), MPI_REAL_RDP, op, root, comm)
+
+end subroutine ReduceX22
+
 !===============================================================================
 ! MPI_Allreduce
 
@@ -391,6 +407,19 @@ subroutine AllreduceX11(sendbuf, recvbuf, op, comm)
   call MPI_Allreduce(sendbuf, recvbuf, size(sendbuf), MPI_REAL_RDP, op, comm)
 
 end subroutine AllreduceX11
+
+!-------------------------------------------------------------------------------
+!> Allreduce for 2D/2D send/receive buffers
+
+subroutine AllreduceX22(sendbuf, recvbuf, op, comm)
+  real(RDP),      intent(in)    :: sendbuf(:,:) !< send buffer
+  real(RDP),      intent(inout) :: recvbuf(:,:) !< receive buffer
+  type(MPI_Op),   intent(in)    :: op           !< reduce operation
+  type(MPI_Comm), intent(in)    :: comm         !< communicator
+
+  call MPI_Allreduce(sendbuf, recvbuf, size(sendbuf), MPI_REAL_RDP, op, comm)
+
+end subroutine AllreduceX22
 
 !===============================================================================
 
