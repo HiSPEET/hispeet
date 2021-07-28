@@ -430,6 +430,8 @@ program ISP_Flow__SDC_Test
       end associate
     end if
 
+    call TemporalAveraging
+
   end do
 
   if (rank == 0) then
@@ -607,15 +609,15 @@ subroutine InitializeMeshVariables()
   i = i + 2
   if (average) then
     q_avg(0:, 0:, 0:, 1:, 1:) => var(:,:,:,:,i+1:i+9)
-    name_var(i+1) = '< v_1 >'
-    name_var(i+2) = '< v_2 >'
-    name_var(i+3) = '< v_3 >'
-    name_var(i+4) = '< v_1 v_1 >'
-    name_var(i+5) = '< v_1 v_2 >'
-    name_var(i+6) = '< v_1 v_3 >'
-    name_var(i+7) = '< v_2 v_2 >'
-    name_var(i+8) = '< v_2 v_3 >'
-    name_var(i+9) = '< v_3 v_3 >'
+    name_var(i+1) = 'v_1__avg'
+    name_var(i+2) = 'v_2__avg'
+    name_var(i+3) = 'v_3__avg'
+    name_var(i+4) = 'v_1_v_1__avg'
+    name_var(i+5) = 'v_1_v_2__avg'
+    name_var(i+6) = 'v_1_v_3__avg'
+    name_var(i+7) = 'v_2_v_2__avg'
+    name_var(i+8) = 'v_2_v_3__avg'
+    name_var(i+9) = 'v_3_v_3__avg'
   else
     q_avg => null()
   end if
@@ -924,7 +926,7 @@ subroutine SaveFlowVariables(t, u, n_avg, q_avg)
   real(RNP),           intent(in) :: t                !< time
   real(RNP),           intent(in) :: u(:,:,:,:,:)     !< flow variables
   integer  ,           intent(in) :: n_avg            !< current num averages
-  real(RNP), optional, intent(in) :: q_avg(:,:,:,:,:) !< averaged quantities
+  real(RNP), optional, intent(in) :: q_avg(:,:,:,:,:) !< time-averaged quantities
 
   integer :: unit
   character(len=100) :: file
@@ -954,7 +956,7 @@ subroutine LoadFlowVariables(t, u, n_avg, q_avg)
   real(RNP),           intent(out) :: t                !< time
   real(RNP),           intent(out) :: u(:,:,:,:,:)     !< flow variables
   integer  ,           intent(out) :: n_avg            !< current num averages
-  real(RNP), optional, intent(out) :: q_avg(:,:,:,:,:) !< averaged quantities
+  real(RNP), optional, intent(out) :: q_avg(:,:,:,:,:) !< time-averaged quantities
 
   integer :: unit, ios
   character(len=100) :: file

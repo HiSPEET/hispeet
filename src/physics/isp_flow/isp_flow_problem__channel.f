@@ -1,5 +1,5 @@
 !> summary:  3D turbulent channel flow
-!> author:   Joerg Stiller
+!> author:   Joerg Stiller, Janis Kaminski
 !> date:     2020/08/09
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
@@ -21,7 +21,7 @@
 module ISP_Flow_Problem__Channel
 
   use Kind_Parameters,   only: RNP
-  use Constants,         only: ZERO, ONE, TWO, PI
+  use Constants,         only: ZERO, ONE, PI
   use Execution_Control
   use Array_Assignments
   use XMPI
@@ -115,7 +115,7 @@ contains
 
     ! default BC (pressure is ignored)
     allocate(bc(6, problem % nc), source = 'P')
-    bc(3:4,:) = 'D' ! bottom and top wall
+    bc(5:6,:) = 'D' ! bottom and top wall
 
     if (rank == 0 .and. exists) then
       read(prm, nml=parameters)
@@ -139,11 +139,11 @@ contains
     problem % re_t            =  re_t
     problem % delta           =  h / 2
     problem % alpha           =  alpha
-    problem % v_ref           =  13.26 / h * re_t**(ONE/7) ! v_bulk (Dean 1978)
+    problem % v_ref           =  14.64 / h * re_t**(ONE/7) ! v_bulk (Dean 1978)
     problem % nu_ref(1:3)     =  ONE   / re_t
     problem % nu_svv_ref(1:3) =  r_svv / re_t
     problem % x0              =  ZERO
-    problem % x1              = [l, h, w]
+    problem % x1              = [l, w, h]
 
     call move_alloc(bc, problem % bc)
     call problem % GeneratePressureBC()
@@ -162,7 +162,7 @@ contains
 
     n = size(x(:,:,:,:,1))
 
-    call GetInitialVelocity(problem, n, x(:,:,:,:,2), u(:,:,:,:,1:3))
+    call GetInitialVelocity(problem, n, x(:,:,:,:,3), u(:,:,:,:,1:3))
 
     ! remaining variables get zero
     do m = 4, size(u,5)
@@ -214,7 +214,7 @@ contains
     real(RNP), intent(in)  :: t            !< time
     real(RNP), intent(out) :: f(:,:,:,:,:) !< external sources
 
-    ! f₁ = (u_τ)² / (2δ)
+    ! f₁ = (u_τ)² / δ
     call SetArray(f(:,:,:,:,1 ), ONE / problem % delta ** 3)
     call SetArray(f(:,:,:,:,2:), ZERO, multi=.true.)
 
@@ -229,13 +229,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Velocity
 
-  subroutine GetInitialVelocity(problem, n, y, v)
+  subroutine GetInitialVelocity(problem, n, z, v)
     class(FlowProblem_Channel), intent(in) :: problem
     integer,   intent(in)  :: n      !< number of points
-    real(RNP), intent(in)  :: y(n)   !< y-coordinate of points
+    real(RNP), intent(in)  :: z(n)   !< z-coordinate of points
     real(RNP), intent(out) :: v(n,3) !< velocity at mesh points
 
-    real(RNP) :: a, yh
+    real(RNP) :: a, zh
     integer   :: i
 
     associate( u_m  => problem % v_ref )
@@ -243,22 +243,23 @@ contains
       call SetArray(v, ZERO, multi = .true.)
 
       ! initialize v with random numbers in the range [0,1)
+      call random_seed()     ! initialize with system generated seed
       call random_number(v)
 
       ! rescale random values to ±α u_m and add linear profile to v₁
       !$omp do
       do i = 1, n
 
-        yh = y(i) / (2 * problem % delta)
+        zh = z(i) / (2 * problem % delta)
 
         ! eliminate fluctuations on the wall
-        if (min(yh, 1-yh) < epsilon(yh)) then
+        if (min(zh, 1-zh) < epsilon(zh)) then
           a = 0
         else
           a = problem % alpha * u_m
         end if
 
-        v(i,1) = a * (2*v(i,1) - 1)  +  6 * u_m * (1 - yh) * yh
+        v(i,1) = a * (2*v(i,1) - 1)  +  6 * u_m * (1 - zh) * zh
         v(i,2) = a * (2*v(i,2) - 1)
         v(i,3) = a * (2*v(i,3) - 1)
 

@@ -1,0 +1,6 @@
+&control
+  flow_case    =  'channel'
+  solver_file  =  'isp_flow__sdc_test'
+  use_symm     =  T
+/
+
