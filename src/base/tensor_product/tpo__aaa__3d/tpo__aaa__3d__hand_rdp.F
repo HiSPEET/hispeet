@@ -19,7 +19,7 @@ module TPO__AAA__3D__Hand_RDP
 contains
 
   !-----------------------------------------------------------------------------
-  !> Elliptic element operator based on handcrafted kernels (RCLI)
+  !> element diffusion operator based on handcrafted kernels (RCLI)
 
   subroutine TPO_AAA_Hand_RWP(A, u, v)
     real(RWP), intent(in)  :: A(:,:)     !< 1D operator

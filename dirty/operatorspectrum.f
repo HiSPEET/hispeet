@@ -1,6 +1,6 @@
 program OperatorSpectrum
   use Kind_Parameters, only: RDP
-  use CG_Element_Operators__1D
+  use CG__Element_Operators__1D
   use Eigenproblems
   implicit none
 

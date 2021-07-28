@@ -1,7 +1,7 @@
 !-------------------------------------------------------------------------------
-!> 3d generic elliptic element operator using hand-crafted suboperators (RLVI)
+!> 3d generic element diffusion operator using hand-crafted suboperators (RLVI)
 
-subroutine PROC(TPO_Elliptic_RLVI_Hand__,_NP_)(ne, Ms, Ds, dx, lambda, nu, u, v)
+subroutine PROC(TPO_Diffusion_RLVI_Hand__,_NP_)(ne, Ms, Ds, dx, lambda, nu, u, v)
   integer,   intent(in)  :: ne                    !< num elements
   real(RWP), intent(in)  :: Ms(_NP_)              !< 1D standard mass matrix
   real(RWP), intent(in)  :: Ds(_NP_,_NP_)         !< 1D standard diff matrix
@@ -127,4 +127,4 @@ contains
 
   end subroutine CompMult
 
-end subroutine PROC(TPO_Elliptic_RLVI_Hand__,_NP_)
+end subroutine PROC(TPO_Diffusion_RLVI_Hand__,_NP_)

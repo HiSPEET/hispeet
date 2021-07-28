@@ -1,15 +1,14 @@
-!> summary:  Validation of the tensor-product operator for 3d variable diffusion
-!> author:   Joerg Stiller
-!> date:     2018/12/08
+!> summary:  Validation of the tensor-product operator for 3d diffusion
+!> author:   Joerg Stiller, Erik Pfister
+!> date:     2017/01/27
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-program Validate__TPO_Elliptic_RLVI
+program Validate__TPO__Diffusion_3d_RLCI
   use Kind_Parameters, only: IXL, RNP
   use Standard_Operators__1D
-  use TPO__Elliptic__3D_RLVI
-  use TPO__Elliptic__3D_RLVI__Gen
-
+  use TPO__Diffusion__3D_RLCI
+  use TPO__Diffusion__3D_RLCI__Gen
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -22,14 +21,15 @@ program Validate__TPO_Elliptic_RLVI
   integer :: nt = 1   ! number of test runs
 
   real(RNP) :: lambda = 1  ! Helmholtz parameter
+  real(RNP) :: nu     = 1  ! diffusivity
 
-  namelist /input/ po, ne, nt, lambda
+  namelist /input/ po, ne, nt, lambda, nu
 
   ! operators and variables ....................................................
 
   type(StandardOperators_1D) :: standard_op
 
-  real(RNP), dimension(:,:,:,:), allocatable :: nu, u, v, w
+  real(RNP), dimension(:,:,:,:), allocatable :: u, v, w
   real(RNP), dimension(:,:,:),   allocatable :: dx_u, dy_u, dz_u
   real(RNP), dimension(:),       allocatable :: x, y, z
 
@@ -51,9 +51,9 @@ program Validate__TPO_Elliptic_RLVI
 
   ! read test parameters .......................................................
 
-  inquire(file='validate__tpo__elliptic_3d_rlvi.prm', exist=exists)
+  inquire(file='validate__TPO__Diffusion_3d_rlci.prm', exist=exists)
   if (exists) then
-    open(newunit=prm, file='validate__tpo__elliptic_3d_rlvi.prm')
+    open(newunit=prm, file='validate__TPO__Diffusion_3d_rlci.prm')
     read(prm, nml=input)
     close(prm)
   end if
@@ -62,17 +62,16 @@ program Validate__TPO_Elliptic_RLVI
   np = po + 1
 
   ! problem dimensions
-  nflop = np**3 * (12*np + 14)
+  nflop = np**3 * (6*np + 8)
   npop  = np**3
 
   ! operators ..................................................................
 
-  standard_op = StandardOperators_1D(po)
+   standard_op = StandardOperators_1D(po)
 
   ! workspace ..................................................................
 
-  allocate(nu(0:po,0:po,0:po,ne), &
-            u(0:po,0:po,0:po,ne), &
+  allocate( u(0:po,0:po,0:po,ne), &
             v(0:po,0:po,0:po,ne), &
             w(0:po,0:po,0:po,ne)  )
 
@@ -108,11 +107,6 @@ program Validate__TPO_Elliptic_RLVI
       x = x0 + xs
       y = y0 + xs
       z = z0 + xs
-
-      ! diffusivity ............................................................
-
-      call random_number(nu(:,:,:,e))
-      nu(:,:,:,e) = nu(:,:,:,e) + 2
 
       ! operand ................................................................
 
@@ -153,14 +147,14 @@ program Validate__TPO_Elliptic_RLVI
       do j = 0, po
       do i = 0, po
 
-        w(i,j,k,e)                                                             &
+        w(i,j,k,e)                                                        &
 
-          = lambda * Ms(i) * Ms(j) * Ms(k) * u(i,j,k,e)                        &
+          =  lambda * Ms(i) * Ms(j) * Ms(k) * u(i,j,k,e)                  &
 
-          + ( Ms(j) * Ms(k) * sum(Ms(:) * Ds(:,i) * nu(:,j,k,e) * dx_u(:,j,k)) &
-            + Ms(i) * Ms(k) * sum(Ms(:) * Ds(:,j) * nu(i,:,k,e) * dy_u(i,:,k)) &
-            + Ms(i) * Ms(j) * sum(Ms(:) * Ds(:,k) * nu(i,j,:,e) * dz_u(i,j,:)) &
-            )
+          +  nu * ( Ms(j) * Ms(k) * sum( Ms(:) * Ds(:,i) * dx_u(:,j,k) )  &
+                  + Ms(i) * Ms(k) * sum( Ms(:) * Ds(:,j) * dy_u(i,:,k) )  &
+                  + Ms(i) * Ms(j) * sum( Ms(:) * Ds(:,k) * dz_u(i,j,:) )  &
+                  )
 
       end do
       end do
@@ -171,21 +165,21 @@ program Validate__TPO_Elliptic_RLVI
   end associate
 
   !-----------------------------------------------------------------------------
-  ! test generic procedure
+  ! test generic operator
 
   associate( Ms => standard_op % w,  &
-             Ds => standard_op % D   )
+             Ls => standard_op % L   )
 
     !$omp parallel
-    !$acc data copyin(nu, u) copyout(v)
+    !$acc data copyin(u) copyout(v)
 
-    call TPO_Elliptic_RLVI_Gen(Ms, Ds, dx, lambda, nu, u, v)
+    call TPO_Diffusion_RLCI_Gen(Ms, Ls, dx, lambda, nu, u, v)
     !$acc wait
 
     call system_clock(count0, rate)
 
     do i = 1, nt
-      call TPO_Elliptic_RLVI_Gen(Ms, Ds, dx, lambda, nu, u, v)
+      call TPO_Diffusion_RLCI_Gen(Ms, Ls, dx, lambda, nu, u, v)
       !$acc wait
     end do
 
@@ -202,21 +196,21 @@ program Validate__TPO_Elliptic_RLVI
   mlups_gen  = 1E-6 / time * ne * npop
 
   !-----------------------------------------------------------------------------
-  ! test optimized procedure
+  ! test optimized operator
 
   associate( Ms => standard_op % w,  &
-             Ds => standard_op % D   )
+             Ls => standard_op % L   )
 
     !$omp parallel
-    !$acc data copyin(nu, u) copyout(v)
+    !$acc data copyin(u) copyout(v)
 
-    call TPO_Elliptic(Ms, Ds, dx, lambda, nu, u, v)
+    call TPO_Diffusion(Ms, Ls, dx, lambda, nu, u, v)
     !$acc wait
 
     call system_clock(count0, rate)
 
     do i = 1, nt
-      call TPO_Elliptic(Ms, Ds, dx, lambda, nu, u, v)
+      call TPO_Diffusion(Ms, Ls, dx, lambda, nu, u, v)
       !$acc wait
     end do
 
@@ -240,9 +234,10 @@ program Validate__TPO_Elliptic_RLVI
   write(*,'(3A)') '#                        ',             &
                   '   ------ generic operator --------',   &
                   '   ------ optimized operator ------'
+
   write(*,'(3A)') '#  np        ne        nt    ',         &
                   '   error     MFLOP/s      MLUP/s    ',  &
-                  '   error     MFLOP/s      MLUP/s'
+                  '   error     MFLOP/s      MLUP/s    '
 
   write(*,'(I5,2(2X,I8))',  advance='NO') np, ne, nt
   write(*,'(3(2X,ES10.3))', advance='NO') error_gen, mflops_gen, mlups_gen
@@ -251,4 +246,4 @@ program Validate__TPO_Elliptic_RLVI
 
 !===============================================================================
 
-end program Validate__TPO_Elliptic_RLVI
+end program Validate__TPO__Diffusion_3d_RLCI

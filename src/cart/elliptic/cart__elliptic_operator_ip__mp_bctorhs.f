@@ -79,7 +79,7 @@ subroutine BcToRHS_CI(this, bv, c, f)
 
     ! penalties
     select type(eop => this % eop)
-    class is (IP_ElementOperators_1D)
+    class is (DG_ElementOperators_1D)
       mu(1) = eop % PenaltyFactor(dx(1))
       mu(2) = eop % PenaltyFactor(dx(2))
       mu(3) = eop % PenaltyFactor(dx(3))
@@ -262,7 +262,7 @@ subroutine BcToRHS_VI(this, bv, c, f)
 
       ! penalties
       select type(eop => this % eop)
-      class is (IP_ElementOperators_1D)
+      class is (DG_ElementOperators_1D)
         mu(1) = eop % PenaltyFactor(dx(1))
         mu(2) = eop % PenaltyFactor(dx(2))
         mu(3) = eop % PenaltyFactor(dx(3))

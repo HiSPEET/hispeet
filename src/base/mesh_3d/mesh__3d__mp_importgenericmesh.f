@@ -18,9 +18,9 @@ contains
   !> Import a generic 3d mesh
 
   module subroutine ImportGenericMesh(mesh, generic_mesh, comm)
-    class(Mesh_3D), intent(out) :: mesh         !< mesh partition
-    class(GenericMesh_3D),   intent(in)  :: generic_mesh !< generic mesh
-    type(MPI_Comm),          intent(in)  :: comm         !< MPI communicator
+    class(Mesh_3D),        intent(out) :: mesh         !< mesh partition
+    class(GenericMesh_3D), intent(in)  :: generic_mesh !< generic mesh
+    type(MPI_Comm),        intent(in)  :: comm         !< MPI communicator
 
     integer :: i, rank
 

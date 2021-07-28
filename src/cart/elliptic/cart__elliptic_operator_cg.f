@@ -8,7 +8,7 @@
 
 module CART__Elliptic_Operator_CG
   use Kind_Parameters, only: RNP
-  use CG_Element_Operators__1D
+  use CG__Element_Operators__1D
   use CART__Elliptic_Operator
 
 ! remove if not needed with complete version

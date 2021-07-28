@@ -27,7 +27,7 @@ module subroutine Init_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
   character,                    intent(in)    :: bc(:)  !< boundary conditions
 
   !> options for the IP/DG method, including polynomial order `po` and `penalty`
-  class(IP_ElementOptions_1D), intent(in) :: ip_opt
+  class(DG_ElementOptions_1D), intent(in) :: ip_opt
 
   !> options for the Schwarz method
   class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
@@ -39,7 +39,7 @@ module subroutine Init_CI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
   this % nu_ci  =  nu
   this % bc     =  bc
 
-  allocate(this % eop, source = IP_ElementOperators_1D(ip_opt))
+  allocate(this % eop, source = DG_ElementOperators_1D(ip_opt))
 
   ! Schwarz method .............................................................
 
@@ -67,7 +67,7 @@ real(RNP),                    intent(in)    :: nu_svv !< SVV diffusivity
 character,                    intent(in)    :: bc(:)  !< boundary conditions
 
 !> options for the IP/DG method, including polynomial order `po` and `penalty`
-class(IP_ElementOptions_1D), intent(in) :: ip_opt
+class(DG_ElementOptions_1D), intent(in) :: ip_opt
 
 !> options for the Schwarz method
 class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
@@ -80,7 +80,7 @@ this % nu_ci     =  nu
 this % nu_ci_svv =  nu_svv
 this % bc        =  bc
 
-allocate(this % eop, source = IP_ElementOperators_1D(ip_opt))
+allocate(this % eop, source = DG_ElementOperators_1D(ip_opt))
 
 ! Schwarz method .............................................................
 
@@ -105,7 +105,7 @@ module subroutine Init_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
   character, intent(in) :: bc(:)                       !< boundary conditions
 
   !> options for the IP/DG method, including polynomial order `po` and `penalty`
-  class(IP_ElementOptions_1D), intent(in) :: ip_opt
+  class(DG_ElementOptions_1D), intent(in) :: ip_opt
 
   !> options for the Schwarz method
   class(SchwarzOptions3D), optional, intent(in) :: schwarz_opt
@@ -122,7 +122,7 @@ module subroutine Init_VI(this, mesh, lambda, nu, bc, ip_opt, schwarz_opt)
   this % lambda =  lambda
   this % bc     =  bc
 
-  allocate(this % eop, source = IP_ElementOperators_1D(ip_opt))
+  allocate(this % eop, source = DG_ElementOperators_1D(ip_opt))
 
   po = this % eop % po
 

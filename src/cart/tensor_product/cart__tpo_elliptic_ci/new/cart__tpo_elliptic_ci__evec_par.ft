@@ -1,9 +1,9 @@
-!> summary:  Elliptic element operator: 3D Cartesian equidistant, EVec
+!> summary:  element diffusion operator: 3D Cartesian equidistant, EVec
 !> author:   Erik Pfister, Joerg Stiller
 !> date:     2019/10/01
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Elliptic element operator: 3D Cartesian equidistant, generic
+!>### element diffusion operator: 3D Cartesian equidistant, generic
 !>
 !>   * vectorization over elements
 !===============================================================================

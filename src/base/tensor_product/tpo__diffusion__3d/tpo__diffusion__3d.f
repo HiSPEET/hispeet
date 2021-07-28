@@ -1,10 +1,10 @@
-!> summary:  3D elliptic element operators
+!> summary:  3D element diffusion operators
 !> author:   Joerg Stiller
 !> date:     2020/05/29
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Elliptic__3D
-  use TPO__Elliptic__3D_RLCI
-  use TPO__Elliptic__3D_RLVI
-end module TPO__Elliptic__3D
+module TPO__Diffusion__3D
+  use TPO__Diffusion__3D_RLCI
+  use TPO__Diffusion__3D_RLVI
+end module TPO__Diffusion__3D

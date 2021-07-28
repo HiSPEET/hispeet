@@ -17,8 +17,8 @@ tmpl_dir = args.tmpl + '/'
 dest_dir = args.dest + '/'
 shared_dir = args.shared + '/'
 
-operator  = 'CART__TPO_Elliptic_VI'
-procedure = 'procedure(TPO_Elliptic_VI_Proc)'
+operator  = 'CART__TPO_Diffusion_VI'
+procedure = 'procedure(TPO_Diffusion_VI_Proc)'
 
 module    = operator.lower()
 dest_proc = dest_dir + module + '__var.F'

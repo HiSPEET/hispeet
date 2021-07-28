@@ -1,10 +1,10 @@
-!> summary:  3D elliptic element operator using LIBXSSM (RLCI) for real(RDP)
+!> summary:  3D element diffusion operator using LIBXSSM (RLCI) for real(RDP)
 !> author:   Erik Pfister, Joerg Stiller
 !> date:     2019/11/06
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Elliptic__3D_RLCI__XSMM_RDP
+module TPO__Diffusion__3D_RLCI__XSMM_RDP
 
 #ifdef __LIBXSMM__
 
@@ -13,18 +13,18 @@ module TPO__Elliptic__3D_RLCI__XSMM_RDP
   implicit none
   private
 
-  public :: TPO_Elliptic_RLCI_XSMM
+  public :: TPO_Diffusion_RLCI_XSMM
 
-  interface TPO_Elliptic_RLCI_XSMM
-    module procedure TPO_Elliptic_RLCI_XSMM_RDP
+  interface TPO_Diffusion_RLCI_XSMM
+    module procedure TPO_Diffusion_RLCI_XSMM_RDP
   end interface
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> 3D elliptic element operator based on LIBXSMM (RLCI)
+  !> 3D element diffusion operator based on LIBXSMM (RLCI)
 
-  subroutine TPO_Elliptic_RLCI_XSMM_RDP(Ms, Ls, dx, lambda, nu, u, v)
+  subroutine TPO_Diffusion_RLCI_XSMM_RDP(Ms, Ls, dx, lambda, nu, u, v)
     real(RDP), intent(in)  :: Ms(:)      !< 1D standard mass matrix         (np)
     real(RDP), intent(in)  :: Ls(:,:)    !< 1D standard stiffness matrix (np,np)
     real(RDP), intent(in)  :: dx(3)      !< element extensions
@@ -86,7 +86,7 @@ contains
                 libxsmm_available(xmm_2) .and.  &
                 libxsmm_available(xmm_3)        ) ) then
 
-      stop "TPO_Elliptic_RLCI_XSMM: LIBXSMM_Dispatch failed"
+      stop "TPO_Diffusion_RLCI_XSMM: LIBXSMM_Dispatch failed"
 
     end if
     !$omp end master
@@ -121,10 +121,10 @@ contains
 
     end do
 
-  end subroutine TPO_Elliptic_RLCI_XSMM_RDP
+  end subroutine TPO_Diffusion_RLCI_XSMM_RDP
 
   !=============================================================================
 
 #endif
 
-end module TPO__Elliptic__3D_RLCI__XSMM_RDP
+end module TPO__Diffusion__3D_RLCI__XSMM_RDP

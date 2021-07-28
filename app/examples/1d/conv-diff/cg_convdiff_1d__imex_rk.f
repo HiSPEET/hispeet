@@ -32,7 +32,7 @@
 module CG_ConvDiff_1D__IMEX_RK
   use Kind_Parameters, only: RNP
   use CG_ConvDiff_1D__Utils
-  use CG_Element_Operators__1D
+  use CG__Element_Operators__1D
   use CG_Condensed_Solver_1D
   use IMEX_Runge_Kutta_Method
   use Harmonic_Wave_Package

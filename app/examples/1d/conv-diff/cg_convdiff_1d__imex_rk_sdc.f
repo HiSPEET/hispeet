@@ -35,7 +35,7 @@ module CG_ConvDiff_1D__RK_SDC
   use Gauss_Jacobi
   use Lagrange_Interpolation
   use CG_ConvDiff_1D__Utils
-  use CG_Element_Operators__1D
+  use CG__Element_Operators__1D
   use CG_Condensed_Solver_1D
   use IMEX_Runge_Kutta_Method
   use Harmonic_Wave_Package

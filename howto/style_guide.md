@@ -344,5 +344,5 @@ New pecularities may occur with type extension. For example consider the type `M
 The child type inherits all components and, if defined, all type-bound procedures of the parent. It also possesses an inbuilt constructor similar to the parent. However, the user-defined constructor of the parent does not easily extend to the child. Instead a new, specific constructor must be provided. Nevertheless, it is possible to structure the parent constructor in such a way that it can be used to initialize the parent components within the child type. To see, how accomplish this, confer to the modules
 
   - `Standard_Operators__1D`, providing parent type `StandardOperators_1D`, and
-  - `CG_Element_Operators__1D`, defining child type `CG_ElementOperators_1D`, or
-  - `IP_Element_Operators__1D`, defining child type `IP_ElementOperators_1D`
+  - `CG__Element_Operators__1D`, defining child type `CG_ElementOperators_1D`, or
+  - `DG__Element_Operators__1D`, defining child type `DG_ElementOperators_1D`

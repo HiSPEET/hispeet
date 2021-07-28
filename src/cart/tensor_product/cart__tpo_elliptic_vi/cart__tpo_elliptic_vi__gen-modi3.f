@@ -1,9 +1,9 @@
-!> summary:  Elliptic element operator with variable diffusivity: generic
+!> summary:  element diffusion operator with variable diffusivity: generic
 !> author:   Karl Schoppmann, Joerg Stiller
 !> date:     2018/11/20
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Elliptic element operator with variable diffusivity: generic
+!>### element diffusion operator with variable diffusivity: generic
 !>
 !>
 !> @note
@@ -13,7 +13,7 @@
 !> @endnote
 !===============================================================================
 
-subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
+subroutine CART__TPO_Diffusion_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
 
   !-----------------------------------------------------------------------------
   ! modules
@@ -181,4 +181,4 @@ subroutine CART__TPO_Elliptic_VI__gen(np, ne, Ms, Ds, lambda, nu, dx, u, v)
 
 !===============================================================================
 
-end subroutine CART__TPO_Elliptic_VI__gen
+end subroutine CART__TPO_Diffusion_VI__gen

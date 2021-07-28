@@ -1,9 +1,9 @@
-!> summary:   Elliptic element operator based on handcrafted kernels (RLVI)
+!> summary:   element diffusion operator based on handcrafted kernels (RLCI)
 !> author:    Joerg Stiller
 !> date:      2021/06/09
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Elliptic__3D_RLVI__Hand
-  use TPO__Elliptic__3D_RLVI__Hand_RDP
-end module TPO__Elliptic__3D_RLVI__Hand
+module TPO__Diffusion__3D_RLCI__Hand
+  use TPO__Diffusion__3D_RLCI__Hand_RDP
+end module TPO__Diffusion__3D_RLCI__Hand

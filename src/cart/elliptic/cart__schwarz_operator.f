@@ -8,7 +8,7 @@ module CART__Schwarz_Operator
   use Kind_Parameters, only: RNP
   use Constants
   use Standard_Operators__1D
-  use IP_Element_Operators__1D
+  use DG__Element_Operators__1D
   use XMPI
   use CART__Mesh_Partition
 
@@ -213,10 +213,10 @@ module CART__Schwarz_Operator
     !> Build 1D eigensystems for IP/DG-SEM
 
     module subroutine BuildEigensystems_IP(this, eop)
-      use IP_Element_Operators__1D
+      use DG__Element_Operators__1D
 
       class(SchwarzOperator3D),     intent(inout) :: this !< Schwarz operator
-      class(IP_ElementOperators_1D), intent(in)    :: eop  !< IP-DG SE operators
+      class(DG_ElementOperators_1D), intent(in)    :: eop  !< IP-DG SE operators
 
     end subroutine BuildEigensystems_IP
 
@@ -335,7 +335,7 @@ subroutine Init_Base(this, opt, eop)
 
   this%opt = opt
   select type(eop)
-  class is(IP_ElementOperators_1D)
+  class is(DG_ElementOperators_1D)
     call BuildEigensystems_IP(this, eop)
   end select
 
@@ -439,7 +439,7 @@ subroutine SetProblem_CI_svv(this, eop, mesh, lambda, nu, nu_svv, bc)
     this%svv_ratio = svv_ratio
 
     select type(eop)
-    class is(IP_ElementOperators_1D)
+    class is(DG_ElementOperators_1D)
       call BuildEigensystems_IP(this, eop)
     end select
   end if

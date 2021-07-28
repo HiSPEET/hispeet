@@ -6,7 +6,7 @@
 
 submodule(CART__Elliptic_Operator_IP:MP_Apply) MP_Apply_VI
 
-  use TPO__Elliptic__3D_RLVI
+  use TPO__Diffusion__3D_RLVI
   use CART__Trace_Operator
   use CART__Normal_Trace_Operator
   implicit none
@@ -39,7 +39,7 @@ module subroutine Apply_VI(this, u, v)
   integer :: po, ne, np
 
   select type(eop => this % eop)
-  class is (IP_ElementOperators_1D)
+  class is (DG_ElementOperators_1D)
 
     associate( mesh   => this % mesh,   &
                lambda => this % lambda, &
@@ -77,7 +77,7 @@ module subroutine Apply_VI(this, u, v)
 
       ! apply element stiffness operator .......................................
 
-      call TPO_Elliptic(eop%w, eop%D, mesh%dx, lambda, nu, u, v)
+      call TPO_Diffusion(eop%w, eop%D, mesh%dx, lambda, nu, u, v)
 
       ! finish generation of traces ............................................
 
@@ -115,7 +115,7 @@ subroutine AddFluxes(mesh, eop, nu, nu_hat, J_u, A_q, v)
   ! arguments ..................................................................
 
   class(MeshPartition),         intent(in) :: mesh !< mesh partition
-  class(IP_ElementOperators_1D), intent(in) :: eop  !< ID/DG element operators
+  class(DG_ElementOperators_1D), intent(in) :: eop  !< ID/DG element operators
 
   real(RNP), intent(in)    :: nu(0:,0:,0:,:)  !< diffusivity
   real(RNP), intent(in)    :: nu_hat(0:,0:,:) !< diffusivity @ faces

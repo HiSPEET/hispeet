@@ -1,28 +1,28 @@
-!> summary:  3D Cartesian elliptic operator with constant isotropic diffusivity
+!> summary:  3D Cartesian diffusion operator with constant isotropic diffusivity
 !> author:   Joerg Stiller
 !> date:     2020/06/03
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Elliptic__3D_RLCI
+module TPO__Diffusion__3D_RLCI
   use Kind_Parameters, only: RDP
-  use TPO__Elliptic__3D_RLCI__Hand
-  use TPO__Elliptic__3D_RLCI__XSMM
+  use TPO__Diffusion__3D_RLCI__Hand
+  use TPO__Diffusion__3D_RLCI__XSMM
   implicit none
   private
 
-  public :: TPO_Elliptic
+  public :: TPO_Diffusion
 
-  interface TPO_Elliptic
-    module procedure TPO_Elliptic_RLCI_RDP
+  interface TPO_Diffusion
+    module procedure TPO_Diffusion_RLCI_RDP
   end interface
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> 3D elliptic element operator for scalars
+  !> 3D element diffusion operator for scalars
   !>
-  !> The procedure evaluates the elliptic operator with constant coefficients
+  !> The procedure evaluates the diffusion operator with constant coefficients
   !> lambda and nu for equidistant 3D Cartesian elements. Given the scalar
   !> variable u(1:np,1:np,1:np,1:ne), the result is computed as
   !>
@@ -43,7 +43,7 @@ contains
   !> Ms and Ls are the 1D standard mass and stiffness matrices for polynomial
   !> order P = np-1, respectively, and dx(1:3) the element dimensions.
 
-  subroutine TPO_Elliptic_RLCI_RDP(Ms, Ls, dx, lambda, nu, u, v)
+  subroutine TPO_Diffusion_RLCI_RDP(Ms, Ls, dx, lambda, nu, u, v)
     real(RDP), intent(in)  :: Ms(:)      !< 1D standard mass matrix
     real(RDP), intent(in)  :: Ls(:,:)    !< 1D standard stiffness matrix
     real(RDP), intent(in)  :: dx(3)      !< element extensions
@@ -56,16 +56,16 @@ contains
 
 #ifdef __LIBXSMM__
     case(8:)
-      call TPO_Elliptic_RLCI_XSMM(Ms, Ls, dx, lambda, nu, u, v)
+      call TPO_Diffusion_RLCI_XSMM(Ms, Ls, dx, lambda, nu, u, v)
 #endif
 
     case default
-      call TPO_Elliptic_RLCI_Hand(Ms, Ls, dx, lambda, nu, u, v)
+      call TPO_Diffusion_RLCI_Hand(Ms, Ls, dx, lambda, nu, u, v)
 
     end select
 
-  end subroutine TPO_Elliptic_RLCI_RDP
+  end subroutine TPO_Diffusion_RLCI_RDP
 
   !=============================================================================
 
-end module TPO__Elliptic__3D_RLCI
+end module TPO__Diffusion__3D_RLCI

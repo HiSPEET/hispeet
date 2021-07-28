@@ -1,7 +1,7 @@
 !-------------------------------------------------------------------------------
-!> Parametrized 3d elliptic kernel using hand-crafted suboperators (RLCI)
+!> Parametrized 3d diffusion kernel using hand-crafted suboperators (RLCI)
 
-subroutine PROC(TPO_Elliptic_RLCI_Hand__,_NP_)(ne, Ms, Ls, dx, lambda, nu, u, v)
+subroutine PROC(TPO_Diffusion_RLCI_Hand__,_NP_)(ne, Ms, Ls, dx, lambda, nu, u, v)
   integer,   intent(in)  :: ne                   !< num elements
   real(RWP), intent(in)  :: Ms(_NP_)             !< standard mass matrix
   real(RWP), intent(in)  :: Ls(_NP_,_NP_)        !< standard stiffness matrix
@@ -87,4 +87,4 @@ contains
 
   !-----------------------------------------------------------------------------
 
-end subroutine PROC(TPO_Elliptic_RLCI_Hand__,_NP_)
+end subroutine PROC(TPO_Diffusion_RLCI_Hand__,_NP_)

@@ -74,7 +74,7 @@ program CG_ConvDiff_1D
   use Kind_Parameters,   only: RNP, IXL
   use Constants,         only: ZERO, ONE
   use Execution_Control, only: Error
-  use CG_Element_Operators__1D
+  use CG__Element_Operators__1D
   use CG_Utilities_1D
   use Spectral_Deferred_Correction
   use Harmonic_Wave_Package

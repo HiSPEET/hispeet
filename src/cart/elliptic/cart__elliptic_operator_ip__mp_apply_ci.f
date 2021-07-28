@@ -8,7 +8,7 @@
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP:MP_Apply) MP_Apply_CI
-  use TPO__Elliptic__3D_RLCI
+  use TPO__Diffusion__3D_RLCI
   use CART__Trace_Transfer_Buffer
   implicit none
 
@@ -41,7 +41,7 @@ module subroutine Apply_CI(this, u, v)
   real(RNP) :: nu_svv
 
   select type(eop => this % eop)
-  class is (IP_ElementOperators_1D)
+  class is (DG_ElementOperators_1D)
 
     associate(mesh => this % mesh, lambda => this % lambda, nu => this % nu_ci)
 
@@ -86,7 +86,7 @@ module subroutine Apply_CI(this, u, v)
 
       ! apply element diffusion operator .......................................
 
-      call TPO_Elliptic(eop%w, As, mesh%dx, lambda, ONE, u, v)
+      call TPO_Diffusion(eop%w, As, mesh%dx, lambda, ONE, u, v)
 
       ! finish generation of traces ............................................
 
@@ -119,7 +119,7 @@ subroutine AddFluxes(mesh, eop, Bs, nu, nu_svv, tr_u, tr_qn, v)
   ! arguments ..................................................................
 
   class(MeshPartition),         intent(in) :: mesh !< mesh partition
-  class(IP_ElementOperators_1D), intent(in) :: eop  !< ID/DG element operators
+  class(DG_ElementOperators_1D), intent(in) :: eop  !< ID/DG element operators
 
   real(RNP), intent(in)    :: Bs(0:,0:)        !< 1D standard "flux" operator
   real(RNP), intent(in)    :: nu               !< diffusivity

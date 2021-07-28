@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module IP_Element_Operators__1D
+module DG__Element_Operators__1D
   use Kind_Parameters,   only: RNP
   use Constants,         only: ZERO, ONE
   use Execution_Control, only: Error
@@ -14,8 +14,8 @@ module IP_Element_Operators__1D
   implicit none
   private
 
-  public :: IP_ElementOperators_1D
-  public :: IP_ElementOptions_1D
+  public :: DG_ElementOperators_1D
+  public :: DG_ElementOptions_1D
 
   !-----------------------------------------------------------------------------
   !> Element operators for the symmetric interior penalty IP/DG-SEM
@@ -34,12 +34,12 @@ module IP_Element_Operators__1D
   !> where `Aᵢᵢ` and `Mᵢᵢ` the standard diffusion matrix and the standard
   !> diagonal mass matrix restricted to the interior points.
 
-  type, extends(StandardOperators_1D) :: IP_ElementOperators_1D
+  type, extends(StandardOperators_1D) :: DG_ElementOperators_1D
     real(RNP) :: penalty = 2       !< penalty parameter > 1
     logical   :: hybrid  = .false. !< switch to hybridized method
   contains
 
-    procedure :: Init_IP_ElementOperators_1D
+    procedure :: Init_DG_ElementOperators_1D
 
     generic :: PenaltyFactor => PenaltyFactor_NE, PenaltyFactor_EQ
     procedure, private :: PenaltyFactor_NE
@@ -65,26 +65,26 @@ module IP_Element_Operators__1D
     procedure, private :: Get_EllipticSuboperators__w_svv
     procedure, private :: Get_EllipticSuboperators__n_svv
 
-  end type IP_ElementOperators_1D
+  end type DG_ElementOperators_1D
 
   ! constructor interface
-  interface IP_ElementOperators_1D
-    module procedure New_IP_ElementOperators_1D__f
-    module procedure New_IP_ElementOperators_1D__b
+  interface DG_ElementOperators_1D
+    module procedure New_DG_ElementOperators_1D__f
+    module procedure New_DG_ElementOperators_1D__b
   end interface
 
   !-----------------------------------------------------------------------------
-  !> Options for IP_ElementOperators_1D
+  !> Options for DG_ElementOperators_1D
 
-  type, extends(StandardOperatorOptions_1D) :: IP_ElementOptions_1D
+  type, extends(StandardOperatorOptions_1D) :: DG_ElementOptions_1D
     real(RNP) :: penalty    =  2       !< penalty parameter > 1
     logical   :: hybrid     = .false.  !< switch to hybridized method
   contains
     procedure :: Bcast => Bcast_IP_ElementOptions1D
-  end type IP_ElementOptions_1D
+  end type DG_ElementOptions_1D
 
   ! constructor interface
-  interface IP_ElementOptions_1D
+  interface DG_ElementOptions_1D
     module procedure New_IP_ElementOptions1D_o
   end interface
 
@@ -94,9 +94,9 @@ contains
 ! Constructors
 
 !-------------------------------------------------------------------------------
-!> Constructor for IP_ElementOperators_1D -- flat interface
+!> Constructor for DG_ElementOperators_1D -- flat interface
 
-function New_IP_ElementOperators_1D__f( po, penalty, hybrid     &
+function New_DG_ElementOperators_1D__f( po, penalty, hybrid     &
                                       , no_vdm, svv, po_cut_svv ) result(this)
   integer,             intent(in) :: po         !< polynomial order
   real(RNP), optional, intent(in) :: penalty    !< penalty parameter > 1     [2]
@@ -105,8 +105,8 @@ function New_IP_ElementOperators_1D__f( po, penalty, hybrid     &
   logical,   optional, intent(in) :: svv        !< activate SVV model        [F]
   integer,   optional, intent(in) :: po_cut_svv !< cutoff PO for SVV model  [-∞]
 
-  type(IP_ElementOperators_1D) :: this
-  type(IP_ElementOptions_1D)   :: opt
+  type(DG_ElementOperators_1D) :: this
+  type(DG_ElementOptions_1D)   :: opt
 
   opt % po = po
   if (present(penalty   )) opt % penalty    = penalty
@@ -115,43 +115,43 @@ function New_IP_ElementOperators_1D__f( po, penalty, hybrid     &
   if (present(svv       )) opt % svv        = svv
   if (present(po_cut_svv)) opt % po_cut_svv = po_cut_svv
 
-  call Init_IP_ElementOperators_1D(this, opt)
+  call Init_DG_ElementOperators_1D(this, opt)
 
-end function New_IP_ElementOperators_1D__f
+end function New_DG_ElementOperators_1D__f
 
 !-------------------------------------------------------------------------------
-!> Constructor for IP_ElementOperators_1D -- bundled arguments
+!> Constructor for DG_ElementOperators_1D -- bundled arguments
 
-function New_IP_ElementOperators_1D__b(opt) result(this)
-  type(IP_ElementOptions_1D), intent(in) :: opt
-  type(IP_ElementOperators_1D) :: this
+function New_DG_ElementOperators_1D__b(opt) result(this)
+  type(DG_ElementOptions_1D), intent(in) :: opt
+  type(DG_ElementOperators_1D) :: this
 
-  call Init_IP_ElementOperators_1D(this, opt)
+  call Init_DG_ElementOperators_1D(this, opt)
 
-end function New_IP_ElementOperators_1D__b
+end function New_DG_ElementOperators_1D__b
 
 !===============================================================================
-! IP_ElementOperators_1D type-bound procedures
+! DG_ElementOperators_1D type-bound procedures
 
 !-------------------------------------------------------------------------------
 !> Initialization
 
-subroutine Init_IP_ElementOperators_1D(this, opt)
-  class(IP_ElementOperators_1D), intent(inout) :: this
-  class(IP_ElementOptions_1D),   intent(in)    :: opt
+subroutine Init_DG_ElementOperators_1D(this, opt)
+  class(DG_ElementOperators_1D), intent(inout) :: this
+  class(DG_ElementOptions_1D),   intent(in)    :: opt
 
   call this % Init_StandardOperators_1D(opt)
 
   this % penalty = opt % penalty
   this % hybrid  = opt % hybrid
 
-end subroutine Init_IP_ElementOperators_1D
+end subroutine Init_DG_ElementOperators_1D
 
 !-------------------------------------------------------------------------------
 !> Penalty factor for non-equidistant spacing
 
 real(RNP) function PenaltyFactor_NE(this, dx) result(mu)
-  class(IP_ElementOperators_1D), intent(in) :: this
+  class(DG_ElementOperators_1D), intent(in) :: this
   real(RNP), intent(in) :: dx(2)  !< element extensions
 
   mu = this%penalty/4 * this%po * (this%po + 1) * (1/dx(1) + 1/dx(2))
@@ -162,7 +162,7 @@ end function PenaltyFactor_NE
 !> Penalty factor for equidistant spacing
 
 real(RNP) function PenaltyFactor_EQ(this, dx) result(mu)
-  class(IP_ElementOperators_1D), intent(in) :: this
+  class(DG_ElementOperators_1D), intent(in) :: this
   real(RNP), intent(in) :: dx  !< element extension
 
   mu = this%penalty/4 * this%po * (this%po + 1) * 2/dx
@@ -210,7 +210,7 @@ end function PenaltyFactor_EQ
 !> respectively.
 
 subroutine Get_DiffusionMatrix__w_svv(this, dx, bc, nu, nu_svv, Ae, form)
-  class(IP_ElementOperators_1D), intent(in) :: this
+  class(DG_ElementOperators_1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
   character, intent(in)  :: bc(2)         !< l/r boundary type {' ','D','N','P'}
   real(RNP), intent(in)  :: nu            !< diffusivity
@@ -428,7 +428,7 @@ end subroutine Get_DiffusionMatrix__w_svv
 !> the product of diffusivity and the element stiffness matrix without SVV.
 
 subroutine Get_DiffusionMatrix__n_svv(this, dx, bc, nu, Ae, form)
-  class(IP_ElementOperators_1D), intent(in) :: this
+  class(DG_ElementOperators_1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
   character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N','P'}
   real(RNP), intent(in)  :: nu            !< diffusivity
@@ -443,7 +443,7 @@ end subroutine Get_DiffusionMatrix__n_svv
 !> Returns the 1D element stiffness matrix for the interior penalty DGM
 
 subroutine Get_StiffnessMatrix(this, dx, bc, Le, form)
-  class(IP_ElementOperators_1D), intent(in) :: this
+  class(DG_ElementOperators_1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)      !< element extensions
   character, intent(in)  :: bc(2)         !< boundary conditions {'','D','N','P'}
   real(RNP), intent(out) :: Le(0:,0:,-1:) !< regular stiffness matrix
@@ -475,7 +475,7 @@ end subroutine Get_StiffnessMatrix
 !> `Lᵢᵢ` and `Lˢᵢᵢ` are the corresponding interior stiffness matrices
 
 subroutine Get_EllipticEigensystem__w_svv(this, dx, bc, nu, nu_svv, S, Lambda)
-  class(IP_ElementOperators_1D), intent(in) :: this
+  class(DG_ElementOperators_1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)   !< element extensions
   character, intent(in)  :: bc(2)      !< boundary conditions {'','D','N','P'}
   real(RNP), intent(in)  :: nu         !< diffusivity
@@ -488,7 +488,7 @@ subroutine Get_EllipticEigensystem__w_svv(this, dx, bc, nu, nu_svv, S, Lambda)
   if (.not. this%hybrid) then
     call Error( 'Get_EllipticEigensystem',            &
                 'available only for hybridizable IP', &
-                'IP_Element_Operators__1D'             )
+                'DG__Element_Operators__1D'             )
   end if
 
   ! hybrid element operators
@@ -511,7 +511,7 @@ end subroutine Get_EllipticEigensystem__w_svv
 !> without SVV
 
 subroutine Get_EllipticEigensystem__n_svv(this, dx, bc, nu, S, Lambda)
-  class(IP_ElementOperators_1D), intent(in) :: this
+  class(DG_ElementOperators_1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)   !< element extensions
   character, intent(in)  :: bc(2)      !< boundary conditions {'','D','N','P'}
   real(RNP), intent(in)  :: nu         !< diffusivity
@@ -530,7 +530,7 @@ end subroutine Get_EllipticEigensystem__n_svv
 
 subroutine Get_EllipticSuboperators__w_svv( this, dx, bc, c, nu, nu_svv &
                                           , Aib, Aii_inv                )
-  class(IP_ElementOperators_1D), intent(in) :: this
+  class(DG_ElementOperators_1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)       !< element extensions
   character, intent(in)  :: bc(2)          !< boundary conds {'','D','N','P'}
   real(RNP), intent(in)  :: c              !< coefficient of linear term
@@ -612,7 +612,7 @@ end subroutine Get_EllipticSuboperators__w_svv
 !> Computes operators for hybrid IP/DG-SEM diffusion problem without SVV
 
 subroutine Get_EllipticSuboperators__n_svv(this, dx, bc, c, nu, Aib, Aii_inv)
-  class(IP_ElementOperators_1D), intent(in) :: this
+  class(DG_ElementOperators_1D), intent(in) :: this
   real(RNP), intent(in)  :: dx(-1:1)       !< element extensions
   character, intent(in)  :: bc(2)          !< boundary conds {'','D','N','P'}
   real(RNP), intent(in)  :: c              !< coefficient of linear term
@@ -625,16 +625,16 @@ subroutine Get_EllipticSuboperators__n_svv(this, dx, bc, c, nu, Aib, Aii_inv)
 end subroutine Get_EllipticSuboperators__n_svv
 
 !===============================================================================
-! IP_ElementOptions_1D constructors and type-bound procedures
+! DG_ElementOptions_1D constructors and type-bound procedures
 
 !-------------------------------------------------------------------------------
-!> IP_ElementOptions_1D from given operators, optionally overriding the order
+!> DG_ElementOptions_1D from given operators, optionally overriding the order
 
 function New_IP_ElementOptions1D_o(eop, po) result(this)
   class(StandardOperators_1D), intent(in) :: eop !< element operators
   integer,          optional, intent(in) :: po  !< polynomial order
 
-  type(IP_ElementOptions_1D) :: this
+  type(DG_ElementOptions_1D) :: this
 
   if (present(po)) then
     this % po = po
@@ -643,7 +643,7 @@ function New_IP_ElementOptions1D_o(eop, po) result(this)
   end if
 
   select type(eop)
-  class is(IP_ElementOperators_1D)
+  class is(DG_ElementOperators_1D)
     this % penalty = eop % penalty
     this % hybrid  = eop % hybrid
   end select
@@ -653,10 +653,10 @@ function New_IP_ElementOptions1D_o(eop, po) result(this)
 end function New_IP_ElementOptions1D_o
 
 !-------------------------------------------------------------------------------
-!> Extension of MPI_Bcast to objects of type IP_ElementOptions_1D
+!> Extension of MPI_Bcast to objects of type DG_ElementOptions_1D
 
 subroutine Bcast_IP_ElementOptions1D(this, root, comm)
-  class(IP_ElementOptions_1D), intent(inout) :: this
+  class(DG_ElementOptions_1D), intent(inout) :: this
   integer,                    intent(in)    :: root !< rank of broadcast root
   type(MPI_Comm),             intent(in)    :: comm !< MPI communicator
 
@@ -669,4 +669,4 @@ end subroutine Bcast_IP_ElementOptions1D
 
 !===============================================================================
 
-end module IP_Element_Operators__1D
+end module DG__Element_Operators__1D

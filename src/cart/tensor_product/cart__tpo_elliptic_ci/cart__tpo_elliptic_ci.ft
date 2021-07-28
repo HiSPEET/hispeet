@@ -6,20 +6,20 @@
 !>### 3D Cartesian elliptic operator with constant isotropic diffusivity
 !===============================================================================
 
-module CART__TPO_Elliptic_CI
+module CART__TPO_Diffusion_CI
   use Kind_Parameters, only: RNP
   implicit none
   private
 
-  public :: TPO_Elliptic_CI_Proc    ! procedure interface
-  public :: TPO_Elliptic_CI_Assign  ! procedure assignment
-  public :: TPO_Elliptic_CI_Eval    ! operator evaluation
+  public :: TPO_Diffusion_CI_Proc    ! procedure interface
+  public :: TPO_Diffusion_CI_Assign  ! procedure assignment
+  public :: TPO_Diffusion_CI_Eval    ! operator evaluation
 
 
   abstract interface
 
     !---------------------------------------------------------------------------
-    !> Abstract interface to the 3D elliptic element operator for scalars
+    !> Abstract interface to the 3D element diffusion operator for scalars
     !>
     !> The procedure evaluates the elliptic operator with constant coefficients
     !> lambda and nu for equidistant 3D Cartesian elements. Given the scalar
@@ -46,7 +46,7 @@ module CART__TPO_Elliptic_CI
     !> must be followed by an "acc wait" before accessing u or v from CPU or
     !> other than the default accelerator queue.
 
-    subroutine TPO_Elliptic_CI_Proc(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+    subroutine TPO_Diffusion_CI_Proc(np, ne, Ms, Ls, lambda, nu, dx, u, v)
       use Kind_Parameters,  only: RNP
       integer,   intent(in)  :: np             !< number of points per direction
       integer,   intent(in)  :: ne             !< number of elements
@@ -57,25 +57,25 @@ module CART__TPO_Elliptic_CI
       real(RNP), intent(in)  :: dx(3)          !< element extensions
       real(RNP), intent(in)  :: u(np,np,np,ne) !< operand
       real(RNP), intent(out) :: v(np,np,np,ne) !< result
-    end subroutine TPO_Elliptic_CI_Proc
+    end subroutine TPO_Diffusion_CI_Proc
 
   end interface
 
 contains
 
 !-------------------------------------------------------------------------------
-!> Assignment of an elliptic element operator procedure for given dimension
+!> Assignment of an element diffusion operator procedure for given dimension
 
-subroutine TPO_Elliptic_CI_Assign(np, Proc)
+subroutine TPO_Diffusion_CI_Assign(np, Proc)
   integer, intent(in)  :: np  !< number of points per direction
-  procedure(TPO_Elliptic_CI_Proc), pointer, intent(out) :: Proc
+  procedure(TPO_Diffusion_CI_Proc), pointer, intent(out) :: Proc
 
   ! external procedures ........................................................
 
-  procedure(TPO_Elliptic_CI_Proc) :: CART__TPO_Elliptic_CI__gen
-  procedure(TPO_Elliptic_CI_Proc) :: CART__TPO_Elliptic_CI__gen_2
-  procedure(TPO_Elliptic_CI_Proc) :: CART__TPO_Elliptic_CI__gen_3
-  procedure(TPO_Elliptic_CI_Proc) :: CART__TPO_Elliptic_CI__gen_4
+  procedure(TPO_Diffusion_CI_Proc) :: CART__TPO_Diffusion_CI__gen
+  procedure(TPO_Diffusion_CI_Proc) :: CART__TPO_Diffusion_CI__gen_2
+  procedure(TPO_Diffusion_CI_Proc) :: CART__TPO_Diffusion_CI__gen_3
+  procedure(TPO_Diffusion_CI_Proc) :: CART__TPO_Diffusion_CI__gen_4
 
   ! initialization .............................................................
 
@@ -88,22 +88,22 @@ subroutine TPO_Elliptic_CI_Assign(np, Proc)
   if (.not. associated(Proc)) then
     select case(abs(np))
     case(2)
-      Proc => CART__TPO_Elliptic_CI__gen_2
+      Proc => CART__TPO_Diffusion_CI__gen_2
     case(3)
-      Proc => CART__TPO_Elliptic_CI__gen_3
+      Proc => CART__TPO_Diffusion_CI__gen_3
     case(4)
-      Proc => CART__TPO_Elliptic_CI__gen_4
+      Proc => CART__TPO_Diffusion_CI__gen_4
     case default
-      Proc => CART__TPO_Elliptic_CI__gen
+      Proc => CART__TPO_Diffusion_CI__gen
     end select
   end if
 
-end subroutine TPO_Elliptic_CI_Assign
+end subroutine TPO_Diffusion_CI_Assign
 
 !-------------------------------------------------------------------------------
-!> Evaluation of the elliptic element operator
+!> Evaluation of the element diffusion operator
 
-subroutine TPO_Elliptic_CI_Eval(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+subroutine TPO_Diffusion_CI_Eval(np, ne, Ms, Ls, lambda, nu, dx, u, v)
   integer,   intent(in)  :: np             !< number of points per direction
   integer,   intent(in)  :: ne             !< number of elements
   real(RNP), intent(in)  :: Ms(np)         !< 1D standard mass matrix
@@ -114,13 +114,13 @@ subroutine TPO_Elliptic_CI_Eval(np, ne, Ms, Ls, lambda, nu, dx, u, v)
   real(RNP), intent(in)  :: u(np,np,np,ne) !< operand
   real(RNP), intent(out) :: v(np,np,np,ne) !< result
 
-  procedure(TPO_Elliptic_CI_Proc), pointer :: Proc
+  procedure(TPO_Diffusion_CI_Proc), pointer :: Proc
 
-  call TPO_Elliptic_CI_Assign(np, Proc)
+  call TPO_Diffusion_CI_Assign(np, Proc)
   call Proc(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 
-end subroutine TPO_Elliptic_CI_Eval
+end subroutine TPO_Diffusion_CI_Eval
 
 !===============================================================================
 
-end module CART__TPO_Elliptic_CI
+end module CART__TPO_Diffusion_CI

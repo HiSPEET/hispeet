@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module CG_Element_Operators__1D
+module CG__Element_Operators__1D
   use Kind_Parameters, only: RNP
   use Constants,       only: ONE, ZERO
   use Eigenproblems,   only: SolveGeneralizedEigenproblem
@@ -355,4 +355,4 @@ end subroutine Bcast_CG_ElementOptions1D
 
 !===============================================================================
 
-end module CG_Element_Operators__1D
+end module CG__Element_Operators__1D

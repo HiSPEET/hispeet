@@ -1,10 +1,10 @@
-!> summary:  3d generic elliptic element operator (RLVI)
+!> summary:  3d generic element diffusion operator (RLVI)
 !> author:   Karl Schoppmann, Joerg Stiller
 !> date:     2018/11/20
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-subroutine TPO_Elliptic_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v)
+subroutine TPO_Diffusion_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v)
   real(RWP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
   real(RWP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
   real(RWP), intent(in)  :: dx(3)       !< element extensions
@@ -170,4 +170,4 @@ subroutine TPO_Elliptic_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v)
   !$acc end parallel
   !$acc end data
 
-end subroutine TPO_Elliptic_RLVI_Gen_RWP
+end subroutine TPO_Diffusion_RLVI_Gen_RWP

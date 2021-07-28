@@ -1,28 +1,28 @@
-!> summary:  3D Cartesian elliptic operator with variable isotropic diffusivity
+!> summary:  3D Cartesian diffusion operator with variable isotropic diffusivity
 !> author:   Joerg Stiller
 !> date:     2020/06/03
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Elliptic__3D_RLVI
+module TPO__Diffusion__3D_RLVI
   use Kind_Parameters, only: RDP
-  use TPO__Elliptic__3D_RLVI__Hand
-  use TPO__Elliptic__3D_RLVI__XSMM
+  use TPO__Diffusion__3D_RLVI__Hand
+  use TPO__Diffusion__3D_RLVI__XSMM
   implicit none
   private
 
-  public :: TPO_Elliptic
+  public :: TPO_Diffusion
 
-  interface TPO_Elliptic
-    module procedure TPO_Elliptic_RLVI_RDP
+  interface TPO_Diffusion
+    module procedure TPO_Diffusion_RLVI_RDP
   end interface
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> 3D elliptic element operator for scalars
+  !> 3D element diffusion operator for scalars
   !>
-  !> The procedure evaluates the elliptic operator with constant lambda and
+  !> The procedure evaluates the diffusion operator with constant lambda and
   !> variable nu for equidistant 3D Cartesian elements. Given the scalar
   !> variable u(1:np,1:np,1:np,1:ne), the result is computed as
   !>
@@ -50,7 +50,7 @@ contains
   !>     g3 = dx(1) * dx(2) / (2 * dx(3))
   !>
 
-  subroutine TPO_Elliptic_RLVI_RDP(Ms, Ds, dx, lambda, nu, u, v)
+  subroutine TPO_Diffusion_RLVI_RDP(Ms, Ds, dx, lambda, nu, u, v)
     real(RDP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
     real(RDP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
     real(RDP), intent(in)  :: dx(3)       !< element extensions
@@ -63,16 +63,16 @@ contains
 
 #ifdef __LIBXSMM__
     case(8:)
-      call TPO_Elliptic_RLVI_XSMM(Ms, Ds, dx, lambda, nu, u, v)
+      call TPO_Diffusion_RLVI_XSMM(Ms, Ds, dx, lambda, nu, u, v)
 #endif
 
     case default
-      call TPO_Elliptic_RLVI_Hand(Ms, Ds, dx, lambda, nu, u, v)
+      call TPO_Diffusion_RLVI_Hand(Ms, Ds, dx, lambda, nu, u, v)
 
     end select
 
-  end subroutine TPO_Elliptic_RLVI_RDP
+  end subroutine TPO_Diffusion_RLVI_RDP
 
   !=============================================================================
 
-end module TPO__Elliptic__3D_RLVI
+end module TPO__Diffusion__3D_RLVI

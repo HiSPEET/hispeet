@@ -1,10 +1,10 @@
-!> summary:   3d generic elliptic element operator (RLCI)
+!> summary:   3d generic element diffusion operator (RLCI)
 !> author:    Jörg Stiller
 !> date:      2019/12/06
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-subroutine TPO_Elliptic_RLCI_Gen_RWP(Ms, Ls, dx, lambda, nu, u, v)
+subroutine TPO_Diffusion_RLCI_Gen_RWP(Ms, Ls, dx, lambda, nu, u, v)
   real(RWP), intent(in)  :: Ms(:)      !< 1D standard mass matrix         (np)
   real(RWP), intent(in)  :: Ls(:,:)    !< 1D standard stiffness matrix (np,np)
   real(RWP), intent(in)  :: dx(3)      !< element extensions
@@ -122,4 +122,4 @@ subroutine TPO_Elliptic_RLCI_Gen_RWP(Ms, Ls, dx, lambda, nu, u, v)
   !$acc end parallel
   !$acc end data
 
-end subroutine TPO_Elliptic_RLCI_Gen_RWP
+end subroutine TPO_Diffusion_RLCI_Gen_RWP

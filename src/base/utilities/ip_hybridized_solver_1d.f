@@ -10,7 +10,7 @@ module IP_Hybridized_Solver_1D
   use Kind_Parameters,  only: RNP
   use Constants,        only: ZERO
   use Linear_Equations, only: TridiagonalSolver, CyclicTridiagonalSolver
-  use IP_Element_Operators__1D
+  use DG__Element_Operators__1D
   implicit none
   private
 
@@ -28,7 +28,7 @@ contains
 
 subroutine HybridEllipticSolver__w_svv( eop, dx, c, nu, nu_svv &
                                       , bc, f, u, standby      )
-  class(IP_ElementOperators_1D), intent(in) :: eop !< element operators
+  class(DG_ElementOperators_1D), intent(in) :: eop !< element operators
   real(RNP), intent(in)  :: dx       !< element width
   real(RNP), intent(in)  :: c        !< coefficient of linear term
   real(RNP), intent(in)  :: nu       !< diffusivity
@@ -110,7 +110,7 @@ end subroutine HybridEllipticSolver__w_svv
 !> Direct elliptic solver based on hybridization without SVV
 
 subroutine HybridEllipticSolver__n_svv(eop, dx, c, nu, bc, f, u, standby)
-  class(IP_ElementOperators_1D), intent(in) :: eop !< element operators
+  class(DG_ElementOperators_1D), intent(in) :: eop !< element operators
   real(RNP), intent(in)  :: dx       !< element width
   real(RNP), intent(in)  :: c        !< coefficient of linear term
   real(RNP), intent(in)  :: nu       !< diffusivity

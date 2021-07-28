@@ -2,13 +2,13 @@
 program DG_Conservation_1D
   use Kind_Parameters
   use Constants
-  use IP_Element_Operators__1D
+  use DG__Element_Operators__1D
   use Scalar_Problem_1D
   use Burgers_Problem_1D__Breaking_Wave
   implicit none
 
   class(ScalarProblem1D), allocatable :: problem
-  type(IP_ElementOptions_1D) :: dg_opt
+  type(DG_ElementOptions_1D) :: dg_opt
   real(RNP), allocatable    :: u(:,:,:)   ! discrete solution
 
   integer   :: po         =  15
@@ -38,7 +38,7 @@ program DG_Conservation_1D
     close(prm)
   end if
 
-  dg_opt = IP_ElementOptions_1D( po         = po         &
+  dg_opt = DG_ElementOptions_1D( po         = po         &
                               , penalty    = penalty    &
                               , hybrid     = .true.     &
                               , svv        = svv        &

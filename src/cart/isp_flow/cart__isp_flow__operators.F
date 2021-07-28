@@ -11,7 +11,7 @@ module CART__ISP_Flow__Operators
   use XMPI
 
   use Standard_Operators__1D
-  use IP_Element_Operators__1D
+  use DG__Element_Operators__1D
   use Embedded_Interpolation__3D
   use Projection_Operator__3D
 
@@ -215,14 +215,14 @@ contains
     end do
 
     this%pmg_u = PMG_Method3D( mesh,                                       &
-                               IP_ElementOptions_1D( po      = this%po_u,   &
+                               DG_ElementOptions_1D( po      = this%po_u,   &
                                                     penalty = penalty,     &
                                                     svv     = control%svv  &
                                                   ),                       &
                                pmg_u_opt                                   )
 
     this%pmg_p = PMG_Method3D( mesh,                                       &
-                               IP_ElementOptions_1D( po      = this%po_p,   &
+                               DG_ElementOptions_1D( po      = this%po_p,   &
                                                     penalty = penalty      &
                                                   ),                       &
                                pmg_p_opt                                   )

@@ -10,7 +10,7 @@ module CG_Condensed_Solver_1D
   use Kind_Parameters,  only: RNP
   use Constants,        only: ZERO
   use Linear_Equations, only: TridiagonalSolver, CyclicTridiagonalSolver
-  use CG_Element_Operators__1D
+  use CG__Element_Operators__1D
   implicit none
   private
 

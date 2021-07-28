@@ -55,7 +55,7 @@ include_directories( tensor_product/primitives/IxIxQt
 include(cmake/tpo__aaa__3d.cmake)
 include(cmake/tpo__diagonal__3d.cmake)
 include(cmake/tpo__div__3d.cmake)
-include(cmake/tpo__elliptic__3d.cmake)
+include(cmake/tpo__diffusion__3d.cmake)
 include(cmake/tpo__grad__3d.cmake)
 include(cmake/tpo__rot__3d.cmake)
 include(cmake/tpo__rotrot__3d.cmake)

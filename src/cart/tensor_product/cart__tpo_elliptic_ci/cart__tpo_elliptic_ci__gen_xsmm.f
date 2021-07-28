@@ -1,14 +1,14 @@
-!> summary:  Elliptic element operator: 3D Cartesian equidistant, LIBXSMM
+!> summary:  element diffusion operator: 3D Cartesian equidistant, LIBXSMM
 !> author:   Erik Pfister, Joerg Stiller
 !> date:     2019/09/23
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Elliptic element operator: 3D Cartesian equidistant, LIBXSMM
+!>### element diffusion operator: 3D Cartesian equidistant, LIBXSMM
 !>
 !> (add documentation here)
 !===============================================================================
 
-subroutine CART__TPO_Elliptic_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v)
+subroutine CART__TPO_Diffusion_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 
   !-----------------------------------------------------------------------------
   ! modules
@@ -85,7 +85,7 @@ subroutine CART__TPO_Elliptic_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v)
                LIBXSMM_Available(xmm_2) .and. &
                LIBXSMM_Available(xmm_3) )     ) then
                
-		stop "CART__TPO_Elliptic_CI__gen_xsmm: LIBXSMM_Dispatch failed"
+		stop "CART__TPO_Diffusion_CI__gen_xsmm: LIBXSMM_Dispatch failed"
 
   end if
   !$omp end master
@@ -127,4 +127,4 @@ subroutine CART__TPO_Elliptic_CI__gen_xsmm(np, ne, Ms, Ls, lambda, nu, dx, u, v)
 
 !===============================================================================
 
-end subroutine CART__TPO_Elliptic_CI__gen_xsmm
+end subroutine CART__TPO_Diffusion_CI__gen_xsmm

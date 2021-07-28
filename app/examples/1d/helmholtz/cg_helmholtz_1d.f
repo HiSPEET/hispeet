@@ -40,7 +40,7 @@
 program CG_Helmholtz_1D
   use Kind_Parameters,  only: RNP, IXL
   use Constants,        only: ONE, ZERO
-  use CG_Element_Operators__1D
+  use CG__Element_Operators__1D
   use CG_Utilities_1D
   use CG_Condensed_Solver_1D
   use Helmholtz_1D_Test_Cases
