@@ -71,7 +71,7 @@ program Validate__TPO_Diffusion_DLCI
   real(RNP) :: error_gen = 0, mflops_gen = -1, mlups_gen = -1
   real(RNP) :: error_opt = 0, mflops_opt = -1, mlups_opt = -1
 
-  integer :: np, nflop, npop
+  integer :: npop, nflop
   integer :: p, pm1, pm2
 
   integer(IXL) :: count, count0, rate
@@ -90,15 +90,6 @@ program Validate__TPO_Diffusion_DLCI
   read(io, nml = input)
   close(io)
 
-  ! test parameters ............................................................
-
-  ! operator dimension
-  np = po + 1
-
-  ! problem dimensions
-  nflop = np**3 * (12*np + 14)
-  npop  = np**3
-
   ! create and import generic mesh .............................................
 
   select case(conf)
@@ -107,6 +98,12 @@ program Validate__TPO_Diffusion_DLCI
   case default
     call generic_mesh % CreateCylinder(nr, nz, po, periodic)
   end select
+
+  ! test parameters ............................................................
+
+  ! problem dimensions
+  npop  = (po+1)**3                  ! number of operands per element
+  nflop = npop * (12*(po+1) + 34)    ! number of FLOPs per element
 
   ! verification ...............................................................
 
@@ -307,7 +304,7 @@ program Validate__TPO_Diffusion_DLCI
                   '   error     MFLOP/s      MLUP/s    ',  &
                   '   error     MFLOP/s      MLUP/s'
   !x_elem(0:p_geom,0:p_geom,0:p_geom,l,1:3)
-  write(*,'(I5,2(2X,I8))',  advance='NO') np, ne, nt
+  write(*,'(I5,2(2X,I8))',  advance='NO') po+1, ne, nt
   write(*,'(3(2X,ES10.3))', advance='NO') error_gen, mflops_gen, mlups_gen
   write(*,'(3(2X,ES10.3))') error_opt, mflops_opt, mlups_opt
   write(*,*)
