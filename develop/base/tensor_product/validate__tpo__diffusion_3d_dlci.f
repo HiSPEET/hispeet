@@ -37,12 +37,12 @@ program Validate__TPO_Diffusion_DLCI
   integer   :: nz       = 3       ! num elements in axial     direction
   integer   :: po       = 3       ! polynomial order of mesh elements
   integer   :: nt       = 1       ! number of test loops
-  logical   :: periodic = .true.  ! switch for axial periodicity
-  logical   :: ex_grad  = .false. ! compare with exact or approximate gradient
+  logical   :: periodic = .false. ! switch for axial periodicity
+  logical   :: exact    = .false. ! compare with exact or approximate gradient
   real(RNP) :: lambda   = 1       ! Helmholtz parameter
   real(RNP) :: nu       = 1       ! diffusivity
 
-  namelist/input/ conf, nt, r0, r1, h, nr, np, nz, po, ex_grad, lambda, nu
+  namelist/input/ conf, nt, r0, r1, h, nr, np, nz, po, exact, lambda, nu
 
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
   integer :: rank
@@ -181,7 +181,7 @@ program Validate__TPO_Diffusion_DLCI
 
         ! gradient .............................................................
 
-        if (ex_grad) then  ! exact
+        if (exact) then  ! exact
 
           dx_u  =  p    *  x(i,j,k,e,1) ** pm1  *  x(i,j,k,e,2) ** pm1  &
                 +  pm1  *  x(i,j,k,e,3) ** p    *  x(i,j,k,e,1) ** pm2
