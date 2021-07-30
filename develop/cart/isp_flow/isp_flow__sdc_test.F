@@ -1108,7 +1108,7 @@ subroutine SetTimeStep(problem, flow_op, u, c_conv, c_diff, dt)
         if (dn > 0.01 .and. dn < 100) then
           write(*,'(F7.3,A,F7.3)') dn, '  / ', dt / dt_diff_po
         else
-          write(*,'(ES10.3,A,ES10.3)') dn, dt / dt_diff_po
+          write(*,'(ES10.3,A,ES10.3)') dn, '  / ', dt / dt_diff_po
         end if
       end if
       write(*,*)

@@ -192,9 +192,9 @@ contains
           allocate(Ds_svv(0:po, 0:po))
           call flow_op % eop_u % Get_SVV_StandardDiffMatrix(Ds_svv(:,:))
           call DiffTimeDeriv_Velocity_CI_svv( mesh, Ms, Ds, Ds_svv     &
-                                            , nu, nu_svv, chi, u, w    &
+                                            , nu, nu_svv, chi_, u, w   &
                                             , F, F_d, F_d1, F_d2, F_d3 )
-          call DiffTimeDeriv_Scalars_CI_svv ( mesh, Ms, Ds, Ds_svv     &
+         call DiffTimeDeriv_Scalars_CI_svv ( mesh, Ms, Ds, Ds_svv     &
                                             , nu, nu_svv, u, w         &
                                             , F, F_d1                  )
         end associate
@@ -278,9 +278,6 @@ contains
       if (present(F) .or. present(F_d) .or. present(F_d1)) then
         do c = 1, 3
           call WeakGradient(mesh, Ms, Ds, v(:,:,:,:,c), g)
-!x! !!! save once loading q !!!
-!x!          call ScaleArray(g, nu(c), multi=.true.)
-!x!          call TPO_Div(Ds, mesh%dx, g, q)
           call TPO_Div(nu(c) * Ds, mesh%dx, g, q)
           if (present(F)) then
             call MergeArrays(ONE, F(:,:,:,:,c), ONE, q)
@@ -297,9 +294,6 @@ contains
       ! F_d2 and F_d3
       if (present(F) .or. present(F_d) .or. present(F_d2) .or. present(F_d3)) then
         call WeakDivergence(mesh, Ms, Ds, v, q)
-!x! !!! save once loading q !!!
-!x!        call ScaleArray(q, sum(nu(1:3))/3)
-!x!        call TPO_Grad(Ds, mesh%dx, q, g)
         call TPO_Grad(sum(nu(1:3))/3 * Ds, mesh%dx, q, g)
         if (present(F)) then
           call MergeArrays(ONE, F(:,:,:,:,1:3), 1+chi, g, multi=.true.)

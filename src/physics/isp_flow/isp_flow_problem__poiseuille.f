@@ -83,9 +83,10 @@ contains
     real(RNP) :: alpha  = 0       ! max relative perturbation
     real(RNP) :: l      = 2       ! channel length
     real(RNP) :: w      = 2       ! channel width
+    real(RNP) :: r_svv  = 0       ! relative SVV amplitude, r_svv = ν_svv / ν
     character, allocatable :: bc(:,:)
 
-    namelist /parameters/ stokes, re, alpha, l, w, bc
+    namelist /parameters/ stokes, re, alpha, l, w, r_svv, bc
 
     logical :: exists
     integer :: prm, rank
@@ -133,6 +134,7 @@ contains
       call XMPI_Bcast(alpha , 0, comm)
       call XMPI_Bcast(l     , 0, comm)
       call XMPI_Bcast(w     , 0, comm)
+      call XMPI_Bcast(r_svv , 0, comm)
       call XMPI_Bcast(bc    , 0, comm)
     end if
 
@@ -145,6 +147,7 @@ contains
     problem % alpha           =  alpha
     problem % v_ref           =  ONE
     problem % nu_ref(1:3)     =  ONE   / re
+    problem % nu_svv_ref(1:3) =  r_svv / re
     problem % x0              =  ZERO
     problem % x1              =  [l, TWO, w]
 
