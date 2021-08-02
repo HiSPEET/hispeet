@@ -183,7 +183,7 @@ program Validate__TPO_Diffusion_DLCI
           dx_u  =  p    *  x(i,j,k,e,1) ** pm1  *  x(i,j,k,e,2) ** pm1  &
                 +  pm1  *  x(i,j,k,e,3) ** p    *  x(i,j,k,e,1) ** pm2
 
-          dy_u  =  p    *  x(i,j,k,e,2) ** pm1  *  x(i,j,k,e,3) ** pm2  &
+          dy_u  =  p    *  x(i,j,k,e,2) ** pm1  *  x(i,j,k,e,3) ** pm1  &
                 +  pm1  *  x(i,j,k,e,1) ** p    *  x(i,j,k,e,2) ** pm2
 
           dz_u  =  p    *  x(i,j,k,e,3) ** pm1  *  x(i,j,k,e,1) ** pm1  &
