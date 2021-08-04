@@ -68,12 +68,13 @@ module Mesh_Element__3D
     integer(IXS) :: rank       =  0 !< rank among local EF ref to same mesh face
     integer(IXS) :: val        =  0 !< face valency
   contains
-    generic :: AlignWithMesh    => AlignWithMeshFace_IDK, &
-                                   AlignWithMeshFace_IXS, &
-                                   AlignWithMeshFace_RNP
-    generic :: AlignWithElement => AlignWithElementFace_IDK, &
-                                   AlignWithElementFace_IXS, &
-                                   AlignWithElementFace_RNP
+    procedure :: Side             =>  MeshFaceSide
+    generic   :: AlignWithMesh    =>  AlignWithMeshFace_IDK, &
+                                      AlignWithMeshFace_IXS, &
+                                      AlignWithMeshFace_RNP
+    generic   :: AlignWithElement =>  AlignWithElementFace_IDK, &
+                                      AlignWithElementFace_IXS, &
+                                      AlignWithElementFace_RNP
     procedure, private :: AlignWithMeshFace_IDK, AlignWithElementFace_IDK
     procedure, private :: AlignWithMeshFace_IXS, AlignWithElementFace_IXS
     procedure, private :: AlignWithMeshFace_RNP, AlignWithElementFace_RNP
@@ -211,7 +212,16 @@ contains
   end subroutine AlignEdgeData_RNP
 
   !=============================================================================
-  ! Face alignment procedures
+  ! MeshElementFace_3D procedures
+
+  !-----------------------------------------------------------------------------
+  !> Touched side of the adjacent mesh face
+
+  pure integer function MeshFaceSide(face)
+    class(MeshElementFace_3D), intent(in) :: face  !< mesh element face
+    integer, parameter :: side(-1:1) = [2,0,1]
+    MeshFaceSide = side(face % normal)
+  end function MeshFaceSide
 
   !-----------------------------------------------------------------------------
   !> Transforms face data from element to mesh orientation -- integer scalar
