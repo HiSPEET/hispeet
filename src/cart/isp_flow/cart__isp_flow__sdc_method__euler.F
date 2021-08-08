@@ -26,6 +26,7 @@ module CART__ISP_Flow__SDC_Method__Euler
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Pressure
   use CART__ISP_Flow__Projection
+  use CART__ISP_Flow__SGS_Diffusivity
   use CART__ISP_Flow__Time_Derivative
   use CART__ISP_Flow__Time_Integrator
 
@@ -380,7 +381,10 @@ contains
       end do
 
       if (associated(nu)) then
-        call problem % GetDiffusivity(flow_op%x, t_m, u, nu)
+        call problem % GetDiffusivity(flow_op%x, t_m, u, nu)  ! ν_phy
+        if (flow_op % control % sgs > 0) then                 !
+          call Add_SGS_Diffusivity(flow_op, u, nu)            ! ν_sgs
+        end if
       end if
 
       ! clean-up ...............................................................

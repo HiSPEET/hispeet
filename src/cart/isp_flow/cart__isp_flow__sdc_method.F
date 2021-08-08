@@ -19,6 +19,7 @@ module CART__ISP_Flow__SDC_Method
 
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Pressure
+  use CART__ISP_Flow__SGS_Diffusivity
   use CART__ISP_Flow__Time_Derivative
 
   use CART__ISP_Flow__Time_Integrator
@@ -260,10 +261,10 @@ contains
     ! arguments ................................................................
 
     class(Flow_SDC_Method), intent(inout) :: this         !< (flow_op may change)
-    real(RNP),             intent(inout) :: t            !< time
-    real(RNP),             intent(in)    :: dt           !< time step size
-    real(RNP),             intent(inout) :: u(:,:,:,:,:) !< solution
-    logical,     optional, intent(in)    :: standby      !< reuse workspace [F]
+    real(RNP),              intent(inout) :: t            !< time
+    real(RNP),              intent(in)    :: dt           !< time step size
+    real(RNP),              intent(inout) :: u(:,:,:,:,:) !< solution
+    logical,      optional, intent(in)    :: standby      !< reuse workspace [F]
 
     ! local variables  .........................................................
 
@@ -311,7 +312,8 @@ contains
       allocate(F_sdc_ex_new (np,np,np,ne,nc,0:n_sub))
       allocate(F_sdc_im_new (np,np,np,ne,nc,0:n_sub))
 
-      if (this % problem % HasVariableProperties()) then ! or SGS model ?
+      if ( this % problem % HasVariableProperties() .or. &
+           this % flow_op % control % sgs > 0            ) then
         allocate(nu_sdc(np,np,np,ne,nc,0:n_sub))
       end if
 
@@ -352,6 +354,14 @@ contains
                                  , t_sdc (m)           &
                                  , u_sdc (:,:,:,:,:,m) &
                                  , nu_sdc(:,:,:,:,:,m) )
+
+            if (this % flow_op % control % sgs > 0) then
+              call Add_SGS_Diffusivity( this%flow_op        &
+                                      , u_sdc (:,:,:,:,:,m) &
+                                      , nu_sdc(:,:,:,:,:,m) )
+          end if
+
+
           end if
 
         end if

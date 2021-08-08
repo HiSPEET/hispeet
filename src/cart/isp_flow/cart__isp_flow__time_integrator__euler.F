@@ -16,6 +16,7 @@ module CART__ISP_Flow__Time_Integrator__Euler
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Pressure
   use CART__ISP_Flow__Projection
+  use CART__ISP_Flow__SGS_Diffusivity
   use CART__ISP_Flow__Time_Derivative
   use CART__ISP_Flow__Time_Integrator
 
@@ -145,7 +146,9 @@ contains
       if (.not. allocated(u_i)) then
         allocate(u_i, F_d1, F_d3, w, mold = u)
         allocate(dp, mold = p)
-        if (problem % HasVariableProperties()) then
+        if ( problem % HasVariableProperties() .or.   &
+             flow_op % control % sgs > 0            ) &
+        then
           allocate(nu, mold = u)
         end if
       end if
@@ -155,9 +158,18 @@ contains
 
       !$omp end single
 
-      ! nu = ν₀ = ν(x,t₀,u₀)
-      if (problem % HasVariableProperties()) then
+      ! variable and/or SGS viscosity ..........................................
+
+      if (allocated(nu)) then
+
+        ! nu = ν₀ = ν(x,t₀,u₀)
         call problem % GetDiffusivity(flow_op%x, t_0, u, nu)
+
+        ! add SGS viscosity
+        if (flow_op % control % sgs > 0) then
+          call Add_SGS_Diffusivity(flow_op, u, nu)
+        end if
+
       end if
 
       ! explicit + extrapolated diffusive parts ................................
@@ -221,8 +233,12 @@ contains
       ! pressure ...............................................................
 
       if (this % pressure > 0) then
-        if (problem % HasVariableProperties()) then
+        ! molecular + SGS viscosity
+        if (allocated(nu)) then
           call problem % GetDiffusivity(flow_op%x, t, u, nu)
+          if (flow_op % control % sgs > 0) then
+            call Add_SGS_Diffusivity(flow_op, u, nu)
+          end if
         end if
         ! recompute pressure using F_d1 as workspace for F_v
         call TimeDerivative(problem, flow_op, t, u, nu=nu, chi=chi, F=F_d1)

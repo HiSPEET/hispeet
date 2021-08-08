@@ -204,7 +204,8 @@ contains
 
       !$omp end single
 
-      ! variable and/or SGS viscosity
+      ! variable and/or SGS viscosity ..........................................
+
       if (allocated(nu)) then
 
         ! molecular viscosity,  nu = ν(*,t₀)
@@ -223,6 +224,7 @@ contains
           call MergeArrays(beta_0, nu_x, beta_1, nu_1, multi = .true.)
         end if
         call SetArray(nu_1, nu, multi = .true.)
+
       end if
 
       ! boundary conditions ....................................................

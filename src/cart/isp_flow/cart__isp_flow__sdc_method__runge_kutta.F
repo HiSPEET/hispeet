@@ -2,6 +2,8 @@
 !> author:   Joerg Stiller
 !> date:     2021/04/10
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!> @todo
+!>   - integration of SGS model
 !===============================================================================
 
 module CART__ISP_Flow__SDC_Method__Runge_Kutta
@@ -484,16 +486,16 @@ fsal = c(n_stage) == ONE .and. t_i == t_1 .and. allocated(F_c) !F_c?
 !new
 
     if (.not. fsal) then
-    
-   
-    
-      !1) u = u - S_i    
-      
+
+
+
+      !1) u = u - S_i
+
       u = u - S_i
-      
+
       !2)
       call MergeArrays(ONE, u, ONE, w_sdc(0,i) * F_sdc(:,:,:,:,:,0), multi=.true.) !w_sdc not declared yet
-      
+
       do l = 0, this % n_sub
          call MergeArrays(ONE, u, ONE, w_sdc(l,i) * F_sdc(:,:,:,:,:,l), multi=.true.)
       end do
@@ -543,7 +545,7 @@ fsal = c(n_stage) == ONE .and. t_i == t_1 .and. allocated(F_c) !F_c?
 !new
 
    do i = 1, n_stage
-   
+
      tau = (b_im(i) - a_im(n_stage,i)) * dt
      call MergeArrays(ONE, u, tau, G_im (:,:,:,:,:,i), multi=.true.)
 
