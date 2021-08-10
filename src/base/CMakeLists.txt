@@ -148,6 +148,9 @@ set( VARIABLES_3D variables_3d/spectral_element_variable__3d.f
 
 set( DIFFUSION_3D diffusion_3d/dg__diffusion_operator__3d.f
                   diffusion_3d/dg__diffusion_operator__3d__mp_setdiffusivity.f
+                  diffusion_3d/dg__diffusion_operator__3d__mp_apply.f
+                  diffusion_3d/dg__diffusion_operator__3d__mp_apply_rc.f
+                  diffusion_3d/dg__diffusion_operator__3d__mp_apply_rv.f
                   )
 
 #===============================================================================

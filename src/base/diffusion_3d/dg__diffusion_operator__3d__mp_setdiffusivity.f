@@ -27,7 +27,7 @@ contains
     end if
 
     if (allocated(this % nu_pv)) deallocate(this % nu_pv)
-    if (allocated(this % nu_mx)) deallocate(this % nu_mx)
+    if (allocated(this % nu_mf)) deallocate(this % nu_mf)
 
   end subroutine SetDiffusivity_C
 
@@ -60,11 +60,11 @@ contains
       this % nu_pv = nu_p
     end if
 
-    if (allocated(this % nu_mx)) then
-      if (any(shape(this % nu_mx) /= [po+1,po+1,nf])) deallocate(this % nu_mx)
+    if (allocated(this % nu_mf)) then
+      if (any(shape(this % nu_mf) /= [po+1,po+1,nf])) deallocate(this % nu_mf)
     end if
-    if (.not. allocated(this % nu_mx)) then
-      allocate(this % nu_mx(0:po,0:po,nf))
+    if (.not. allocated(this % nu_mf)) then
+      allocate(this % nu_mf(0:po,0:po,nf))
     end if
 
     allocate(tr_nu(0:po,0:po,2,nf))
@@ -78,7 +78,7 @@ contains
     ! determine maximum face diffusivitiy
     !$omp do
     do f = 1, nf
-      this % nu_mx(:,:,f) = max(tr_nu(:,:,1,f), tr_nu(:,:,2,f))
+      this % nu_mf(:,:,f) = max(tr_nu(:,:,1,f), tr_nu(:,:,2,f))
     end do
 
     !$omp master

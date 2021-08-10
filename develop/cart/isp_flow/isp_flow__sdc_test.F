@@ -120,6 +120,7 @@ program ISP_Flow__SDC_Test
   ! 4  Runge-Kutta
   ! 5  SDC(Eu,Eu)
   ! 6  SDC(RK,Eu)
+  ! 7  SDC(RK,RK)
 
   namelist /time_integration/ time_method
 

@@ -150,7 +150,7 @@ module CART__ISP_Flow__SDC_Method
       real(RNP),                   intent(in)    :: t_sdc        (0:)
       real(RNP), target, optional, intent(inout) :: nu_sdc       (:,:,:,:,:,0:)
       real(RNP),                   intent(inout) :: u_sdc        (:,:,:,:,:,0:)
-      real(RNP),                   intent(in)    :: F_sdc        (:,:,:,:,:,0:)
+      real(RNP),                   intent(inout) :: F_sdc        (:,:,:,:,:,0:)
       real(RNP),                   intent(in)    :: F_sdc_ex     (:,:,:,:,:,0:)
       real(RNP),                   intent(in)    :: F_sdc_im     (:,:,:,:,:,0:)
       real(RNP),                   intent(inout) :: F_sdc_ex_new (:,:,:,:,:,0:)
@@ -359,11 +359,9 @@ contains
               call Add_SGS_Diffusivity( this%flow_op        &
                                       , u_sdc (:,:,:,:,:,m) &
                                       , nu_sdc(:,:,:,:,:,m) )
+            end if
+
           end if
-
-
-          end if
-
         end if
 
         call this % CorrectorRHS(t_sdc, nu_sdc, u_sdc, F_sdc, F_sdc_ex, F_sdc_im)
@@ -390,8 +388,6 @@ contains
           call SetArray(F_sdc_ex(:,:,:,:,:,m), F_sdc_ex_new(:,:,:,:,:,m), multi=.true.)
           call SetArray(F_sdc_im(:,:,:,:,:,m), F_sdc_im_new(:,:,:,:,:,m), multi=.true.)
         end do
-
-        call this % CorrectorRHS(t_sdc, nu_sdc, u_sdc, F_sdc, m0=1)
 
       end do Sweeps
 
