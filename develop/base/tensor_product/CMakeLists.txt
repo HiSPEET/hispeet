@@ -21,6 +21,18 @@ configure_file( validate__tpo__div_3d_r.prm
                 validate__tpo__div_3d_r.prm COPYONLY )
 
 #===============================================================================
+# TPO Div
+
+add_executable( validate__tpo__div_3d_d
+                validate__tpo__div_3d_d.f )
+
+target_link_libraries(validate__tpo__div_3d_d HiBase)
+
+configure_file( validate__tpo__div_3d_d.prm
+                validate__tpo__div_3d_d.prm COPYONLY )
+
+
+#===============================================================================
 # TPO Grad
 
 add_executable( validate__tpo__grad_3d_r

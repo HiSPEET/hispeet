@@ -1,0 +1,11 @@
+&input
+  conf   = 1     ! configuration: 1 cylinder, 2 annular gap
+  nt     = 1     ! number of test runs
+! r0     = 0.5   ! inner radius  (annular gap only)
+! r1     = 1     ! outer radius
+! h      = 2     ! height
+  nr     = 3     ! num elements in radial    direction
+  np     = 3     ! num elements in azimuthal direction ≥ 3 (gap only)
+  nz     = 3     ! num elements in axial
+  po     = 3     ! polynomial order of mesh elements
+/
