@@ -1,6 +1,6 @@
 !> summary:  Validation of the curvilinear TPO for 3d variable diffusion
 !> author:   Jerome Michel, Joerg Stiller
-!> date:     2021/07/17
+!> date:     2021/08/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
@@ -21,6 +21,7 @@ program Validate__TPO_Diffusion_DLCI
   use Assembly__3D
   use Export_VTK_Volume_Data__3D
 
+  use TPO__Diffusion__3D_DLCI__XSMM
 
   implicit none
 
@@ -268,28 +269,28 @@ program Validate__TPO_Diffusion_DLCI
     mflops_gen = 1E-6 / time * ne * nflop
     mlups_gen  = 1E-6 / time * ne * npop
 
-!!    !---------------------------------------------------------------------------
-!!    ! test optimized procedure
-!!
-!!    !$omp parallel
-!!
-!!    call TPO_Diffusion(Ms, Ds, lambda, nu, dx, u, v)
-!!
-!!    call system_clock(count0, rate)
-!!
-!!    do i = 1, nt
-!!      call TPO_Diffusion(Ms, Ds, lambda, nu, dx, u, v)
-!!    end do
-!!
-!!    call system_clock(count)
-!!
-!!    !$omp end parallel
-!!
-!!    time = (count - count0) / real(rate, RNP) / nt
-!!
-!!    error_opt  = maxval(abs(v - w))
-!!    mflops_opt = 1E-6 / time * ne * nflop
-!!    mlups_opt  = 1E-6 / time * ne * npop
+    !---------------------------------------------------------------------------
+    ! test optimized procedure
+
+    !$omp parallel
+
+    call TPO_Diffusion_DLCI_XSMM(Ms, Ds, Jd, G, lambda, nu, u, v)
+
+    call system_clock(count0, rate)
+
+    do i = 1, nt
+      call TPO_Diffusion_DLCI_XSMM(Ms, Ds, Jd, G, lambda, nu, u, v)
+    end do
+
+    call system_clock(count)
+
+    !$omp end parallel
+
+    time = (count - count0) / real(rate, RNP) / nt
+
+    error_opt  = maxval(abs(v - w))
+    mflops_opt = 1E-6 / time * ne * nflop
+    mlups_opt  = 1E-6 / time * ne * npop
 
   end associate
 

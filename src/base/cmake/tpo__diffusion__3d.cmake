@@ -19,4 +19,6 @@ set(TENSOR_PRODUCT ${TENSOR_PRODUCT}
                    ${TPO__DIFFUSION__3D_DIR}/tpo__diffusion__3d_rlvi__xsmm_rdp.F
                    ${TPO__DIFFUSION__3D_DIR}/tpo__diffusion__3d_dlci__gen.f
                    ${TPO__DIFFUSION__3D_DIR}/tpo__diffusion__3d_dlci__gen_rdp.F
+                   ${TPO__DIFFUSION__3D_DIR}/tpo__diffusion__3d_dlci__xsmm.f
+                   ${TPO__DIFFUSION__3D_DIR}/tpo__diffusion__3d_dlci__xsmm_rdp.F
                    )

@@ -10,4 +10,6 @@ set(TENSOR_PRODUCT ${TENSOR_PRODUCT}
                    ${TPO__GRAD__3D_DIR}/tpo__grad__3d_r__hand_rdp.F
                    ${TPO__GRAD__3D_DIR}/tpo__grad__3d_r__xsmm.f
                    ${TPO__GRAD__3D_DIR}/tpo__grad__3d_r__xsmm_rdp.F
-                   )
+		               ${TPO__GRAD__3D_DIR}/tpo__grad__3d_d__xsmm.f
+		               ${TPO__GRAD__3D_DIR}/tpo__grad__3d_d__xsmm_rdp.F
+		               )

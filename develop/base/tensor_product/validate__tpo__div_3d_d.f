@@ -1,6 +1,6 @@
 !> summary:  Validation of the curvilinear tensor-product divergence operator
 !> author:   Jerome Michel, Jörg Stiller, Erik Pfister
-!> date:     2021/08/17
+!> date:     2021/08/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
@@ -19,6 +19,7 @@ program Validate__TPO__Div_3d_D
   use Assembly__3D
   use Export_VTK_Volume_Data__3D
 
+  use TPO__Div__3D_D__XSMM_RDP
 
   implicit none
 
@@ -40,10 +41,7 @@ program Validate__TPO__Div_3d_D
   logical   :: periodic = .false. ! switch for axial periodicity
 
 
-
-
-
-  namelist/input/ conf, nt, r0, r1, h, nr, np, nz, po!, exact
+  namelist/input/ conf, nt, r0, r1, h, nr, np, nz, po
 
 
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
@@ -58,7 +56,7 @@ program Validate__TPO__Div_3d_D
   real(RNP) :: vol
   logical   :: passed
   integer   :: io
-  integer   :: e, i, j, k, l, ne
+  integer   :: e, i, j, k, ne
 
   ! operators and variables ....................................................
 
@@ -69,11 +67,11 @@ program Validate__TPO__Div_3d_D
 
 
   real(RNP) :: time
-  real(RNP) :: error_gen, mflops_gen, mlups_gen
-  real(RNP) :: error_opt, mflops_opt, mlups_opt
+  real(RNP) :: error_gen = 0, mflops_gen = -1, mlups_gen = -1
+  real(RNP) :: error_opt = 0, mflops_opt = -1, mlups_opt = -1
 
 
-  integer :: nflop, npop, prm
+  integer :: nflop, npop
   integer :: p, pm1
 
 
@@ -107,8 +105,8 @@ program Validate__TPO__Div_3d_D
   !np = po + 1
 
   ! problem dimensions
-  nflop = np**3 * (6*np + 5)
-  npop  = np**3
+  nflop = (po+1)**3 * (6*(po+1) + 5)
+  npop  = (po+1)**3
 
   ! verification ...............................................................
   call mesh % ImportGenericMesh(generic_mesh, comm = comm)
@@ -213,7 +211,7 @@ program Validate__TPO__Div_3d_D
     !$acc end data
     !$omp end parallel
 
-  end associate
+  !end associate
 
   time = (count - count0) / real(rate, RNP) / nt
 
@@ -225,23 +223,33 @@ program Validate__TPO__Div_3d_D
   ! test optimized procedure
 
   !
-  !  !$omp parallel
-  !  !$acc data copyin(u) copyout(v)
+    !$omp parallel
+    !$acc data copyin(u) copyout(v)
 
-  !  call TPO_Div(Ds, dx, u, v)
-  !  !$acc wait
+    call TPO_Div_D_XSMM(po+1, ne, Ds, Ji, u, v)
+    !$acc wait
 
-  !  call system_clock(count0, rate)
-  !  do i = 1, nt
-  !    call TPO_Div(Ds, dx, u, v)
-  !    !$acc wait
-  !  end do
+    call system_clock(count0, rate)
+    do i = 1, nt
+      call TPO_Div_D_XSMM(po+1, ne, Ds, Ji, u, v)
+      !$acc wait
+    end do
 
-  !  call system_clock(count)
-  !  !$acc end data
-  !  !$omp end parallel
-
-
+    call system_clock(count)
+    !$acc end data
+    !$omp end parallel
+    open(1, file = 'data1.dat', status='replace')
+    do e = 1,ne
+    do k = 1,po+1
+    do j = 1,po+1
+    do i = 1,po+1
+       write(1,*) v(i,j,k,e)-w(i,j,k,e), v(i,j,k,e), w(i,j,k,e)
+    end do
+    end do
+    end do
+    end do
+    close(1)
+  end associate
 
 
   time = (count - count0) / real(rate, RNP) / nt

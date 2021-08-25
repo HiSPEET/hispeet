@@ -1,6 +1,6 @@
 !> summary:  Validation of the tensor-product gradient operator
-!> author:   Jörg Stiller, Erik Pfister
-!> date:     2020/03/24
+!> author:   Jerome Michel, Jörg Stiller, Erik Pfister
+!> date:     2021/08/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
@@ -18,6 +18,8 @@ program Validate__TPO__Grad__3D_D
   use Verify_Mesh__3D
   use Assembly__3D
   use Export_VTK_Volume_Data__3D
+
+  use TPO__Grad__3D_D__XSMM_RDP
 
 
   implicit none
@@ -41,8 +43,6 @@ program Validate__TPO__Grad__3D_D
   logical   :: exact    = .false. ! compare with exact or approximate gradient
 
 
-
-
   namelist/input/ conf, nt, r0, r1, h, nr, np, nz, po, exact
 
 
@@ -58,7 +58,7 @@ program Validate__TPO__Grad__3D_D
   real(RNP) :: vol
   logical   :: passed
   integer   :: io
-  integer   :: e, i, j, k, l, ne
+  integer   :: e, i, j, k, ne
 
 
   ! operators and variables ....................................................
@@ -72,10 +72,9 @@ program Validate__TPO__Grad__3D_D
   real(RNP) :: d1_u, d2_u, d3_u
   real(RNP) :: time = 0
   real(RNP) :: error_gen = 0, mflops_gen = -1, mlups_gen = -1
-  real(RNP) :: error_gen1 = 0, error_gen2 = 0
   real(RNP) :: error_opt = 0, mflops_opt = -1, mlups_opt = -1
 
-  integer :: nflop, npop, prm
+  integer :: nflop, npop
   integer :: p, pm1, pm2
 
 
@@ -243,30 +242,11 @@ program Validate__TPO__Grad__3D_D
     !$omp end parallel
 
 
-
-  !open(1, file = 'data1.dat', status='replace')
-  !open(2, file = 'data2.dat', status='replace')
-  !do e = 1, ne
-  !do k = 0, po
-  !do j = 0, po
-  !do i = 0, po
-
-  !      write(1,*) v(i,j,k,e,1)-w(i,j,k,e,1),v(i,j,k,e,2)-w(i,j,k,e,2),v(i,j,k,e,3)-w(i,j,k,e,3)
-  !      write(2,*) w(i,j,k,e,1),v(i,j,k,e,1),w(i,j,k,e,2),v(i,j,k,e,2),w(i,j,k,e,3),v(i,j,k,e,3)
-  !end do
-  !end do
-  !end do
-  !end do
-  !close(1)
-  !close(2)
-
-  end associate
+  !end associate
 
   time = (count - count0) / real(rate, RNP) / nt
 
-  error_gen  =  maxval(abs(v(:,:,:,:,1) - w(:,:,:,:,1)))
-  error_gen1  = maxval(abs(v(:,:,:,:,2) - w(:,:,:,:,2)))
-  error_gen2  = maxval(abs(v(:,:,:,:,3) - w(:,:,:,:,3)))
+  error_gen = maxval(abs(v - w))
   mflops_gen = 1E-6 / time * ne * nflop
   mlups_gen  = 1E-6 / time * ne * npop
 
@@ -275,29 +255,29 @@ program Validate__TPO__Grad__3D_D
 
   !associate( Ds => standard_op % D )
 
-  !  !$omp parallel
-  !  !$acc data copyin(u) copyout(v)
+    !$omp parallel
+    !$acc data copyin(u) copyout(v)
 
-  !  call TPO_Grad(Ds, dx, u, v)
-  !  !$acc wait
+    call TPO_Grad_D_XSMM(po+1, ne, Ds, Ji, u, v)
+    !$acc wait
 
-  !  call system_clock(count0, rate)
-  !  do i = 1, nt
-  !    call TPO_Grad(Ds, dx, u, v)
-  !    !$acc wait
-  !  end do
+    call system_clock(count0, rate)
+    do i = 1, nt
+      call TPO_Grad_D_XSMM(po+1, ne, Ds, Ji, u, v)
+      !$acc wait
+    end do
 
-  !  call system_clock(count)
-  !  !$acc end data
-  !  !$omp end parallel
+    call system_clock(count)
+    !$acc end data
+    !$omp end parallel
 
-  !end associate
+  end associate
 
-  !time = (count - count0) / real(rate, RNP) / nt
+  time = (count - count0) / real(rate, RNP) / nt
 
-  !error_opt  = maxval(abs(v - w))
-  !mflops_opt = 1E-6 / time * ne * nflop
-  !mlups_opt  = 1E-6 / time * ne * npop
+  error_opt  = maxval(abs(v - w))
+  mflops_opt = 1E-6 / time * ne * nflop
+  mlups_opt  = 1E-6 / time * ne * npop
 
 
   !-----------------------------------------------------------------------------
@@ -314,7 +294,6 @@ program Validate__TPO__Grad__3D_D
   write(*,'(I5,2(2X,I8))',  advance='NO') po+1, ne, nt
   write(*,'(3(2X,ES10.3))', advance='NO') error_gen, mflops_gen, mlups_gen
   write(*,'(3(2X,ES10.3))') error_opt, mflops_opt, mlups_opt
-  write(*,'(3(2X,ES10.3))') error_gen,error_gen1,error_gen2
   write(*,*)
 
 end if
