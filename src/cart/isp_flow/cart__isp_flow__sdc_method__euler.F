@@ -299,6 +299,7 @@ contains
       !              + F^im(ν₀ᵏ⁺¹,uᵏ) - F^im(ν₀ᵏ,uᵏ)  ! vanishes if ν constant
       !              + F_d3(ν₀ᵏ⁺¹,uᵏ) ]
       call SetArray(u_i, u_0, multi=.true.)
+
       do i = 1, problem % nc
         if (i == 4) cycle
         ! u' = u' + ∆t F^ex(t₀)ᵏ⁺¹, note: "new" ≙ k+1, t_sdc(m-1) ≙ t₀
@@ -333,7 +334,7 @@ contains
       ! starting values and RHS for diffusion
       do i = 1, problem % nc
         if (i == 4) cycle
-        call SetArray(u(:,:,:,:,i), u_i(:,:,:,:,i))
+        call SetArray(u(:,:,:,:,i), u_i(:,:,:,:,i))        
         call MergeArrays(ONE, u_i(:,:,:,:,i), -dt_m, F_im(:,:,:,:,i))
         if (i < 4) then
           call MergeArrays(ONE, u_i(:,:,:,:,i), -dt_m, F_d3(:,:,:,:,i))
