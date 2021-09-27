@@ -19,7 +19,7 @@ program Validate__TPO__Div_3d_D
   use Assembly__3D
   use Export_VTK_Volume_Data__3D
 
-  use TPO__Div__3D_D__XSMM_RDP
+  use TPO__Div__3D_D__XSMM_RDP        !divergence operator for all elements
 
   implicit none
 
@@ -38,6 +38,7 @@ program Validate__TPO__Div_3d_D
   integer   :: nz       = 3       ! num elements in axial     direction
   integer   :: po       = 3       ! polynomial order of mesh elements
   integer   :: nt       = 1       ! number of test loops
+
   logical   :: periodic = .false. ! switch for axial periodicity
 
 
@@ -105,7 +106,7 @@ program Validate__TPO__Div_3d_D
   !np = po + 1
 
   ! problem dimensions
-  nflop = (po+1)**3 * (6*(po+1) + 5)
+  nflop = (po+1)**3 * (18*(po+1) + 17)
   npop  = (po+1)**3
 
   ! verification ...............................................................
@@ -147,11 +148,11 @@ program Validate__TPO__Div_3d_D
   !-----------------------------------------------------------------------------
   ! operand und exact result
 
-  associate( Ms => standard_op % w        &
-           , Ds => standard_op % D        &
-           , x  => se_mesh % metrics % x  &
-           , Ji => se_mesh % metrics % Ji &
-           , Jd => se_mesh % metrics % Jd)
+  associate( Ms   => standard_op % w              &
+           , Ds   => standard_op % D              &
+           , x    => se_mesh % metrics % x        &
+           , Ji   => se_mesh % metrics % Ji       &
+           , Jd   => se_mesh % metrics % Jd)
 
     do e = 1, ne
 
@@ -222,7 +223,7 @@ program Validate__TPO__Div_3d_D
   !-----------------------------------------------------------------------------
   ! test optimized procedure
 
-  !
+
     !$omp parallel
     !$acc data copyin(u) copyout(v)
 
@@ -238,17 +239,9 @@ program Validate__TPO__Div_3d_D
     call system_clock(count)
     !$acc end data
     !$omp end parallel
-    open(1, file = 'data1.dat', status='replace')
-    do e = 1,ne
-    do k = 1,po+1
-    do j = 1,po+1
-    do i = 1,po+1
-       write(1,*) v(i,j,k,e)-w(i,j,k,e), v(i,j,k,e), w(i,j,k,e)
-    end do
-    end do
-    end do
-    end do
-    close(1)
+
+
+
   end associate
 
 
@@ -274,7 +267,6 @@ program Validate__TPO__Div_3d_D
   write(*,'(3(2X,ES10.3))', advance='NO') error_gen, mflops_gen, mlups_gen
   write(*,'(3(2X,ES10.3))') error_opt, mflops_opt, mlups_opt
   write(*,*)
-
 
 end if
 

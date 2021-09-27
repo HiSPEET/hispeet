@@ -38,34 +38,23 @@ contains
     real(RDP), parameter :: alpha  = 1
     real(RDP), parameter :: beta   = 0
 
-    real(RDP) :: Ds_1(np,np)
-    real(RDP) :: Ds_2t(np,np), Ds_3t(np, np)
+    real(RDP) :: Ds_t(np,np)
+
 
     real(RDP), dimension(np,np,np) :: r,s,t
 
     integer   :: e, k
 
     !-----------------------------------------------------------------------------
+    ! intialization
 
-    ! metric coefficients
-
-    Ds_1  = Ds
-    Ds_2t = transpose(Ds)
-    Ds_3t = transpose(Ds)
+    Ds_t  = transpose(Ds)
 
     ! XSMM dispatch
     !$omp master
     call LIBXSMM_Dispatch(xmm_1, np   , np**2, np, alpha=alpha, beta=beta)
     call LIBXSMM_Dispatch(xmm_2, np   , np   , np, alpha=alpha, beta=beta)
     call LIBXSMM_Dispatch(xmm_3, np**2, np   , np, alpha=alpha, beta=beta)
-
-    if (.not. ( libxsmm_available(xmm_1) .and.  &
-                libxsmm_available(xmm_2) .and.  &
-                libxsmm_available(xmm_3)        ) ) then
-
-      stop "TPO_Grad_D_XSMM: LIBXSMM_Dispatch failed"
-
-    end if
     !$omp end master
     !$omp barrier
 
@@ -77,15 +66,15 @@ contains
 
 
       ! v1 = du/dx1
-      call LIBXSMM_DMMCall(xmm_1, Ds_1, u(:,:,:,e) , r(:,:,:))
+      call LIBXSMM_DMMCall(xmm_1, Ds, u(:,:,:,e) , r)
 
       ! v2 = du/dx2
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e), Ds_2t, s(:,:,k))
+        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e), Ds_t, s(:,:,k))
       end do
 
       ! v3 = du/dx3
-      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e), Ds_3t, t(:,:,:))
+      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e), Ds_t, t)
 
 
       ! is there a faster way?

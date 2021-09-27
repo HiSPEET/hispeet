@@ -40,7 +40,7 @@ contains
     real(RDP) :: Ds_1(np,np)
     real(RDP) :: Ds_2t(np,np), Ds_3t(np, np)
 
-    real(RDP), dimension(np,np,np) :: r, s, t
+    real(RDP), dimension(np,np,np) :: r, s, t, w
 
     integer   :: e, k
 
@@ -56,14 +56,6 @@ contains
     call LIBXSMM_Dispatch(xmm_1, np   , np**2, np, alpha=alpha, beta=beta)
     call LIBXSMM_Dispatch(xmm_2, np   , np   , np, alpha=alpha, beta=beta)
     call LIBXSMM_Dispatch(xmm_3, np**2, np   , np, alpha=alpha, beta=beta)
-
-    if (.not. ( libxsmm_available(xmm_1) .and.  &
-                libxsmm_available(xmm_2) .and.  &
-                libxsmm_available(xmm_3)        ) ) then
-
-      stop "TPO_Div_D_XSMM: LIBXSMM_Dispatch failed"
-
-    end if
     !$omp end master
     !$omp barrier
 
@@ -73,17 +65,10 @@ contains
     !$omp do
     do e = 1, ne
 
-      v(:,:,:,e) = 0
-
-
       ! direction 1
 
-      r = 0;
-      s = 0;
-      t = 0;
-
       ! r = du1/dx1
-      call LIBXSMM_DMMCall(xmm_1, Ds_1, u(:,:,:,e,1) , r(:,:,:))
+      call LIBXSMM_DMMCall(xmm_1, Ds_1, u(:,:,:,e,1) , r)
 
       ! s= du1/dx2
       do k = 1, np
@@ -91,24 +76,20 @@ contains
       end do
 
       ! t= du1/dx3
-      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,1), Ds_3t, t(:,:,:))
+      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,1), Ds_3t, t)
 
 
       ! consider SIMD vectorization using !$omp simd or LIBXSMM
 
-      v(:,:,:,e) =  r(:,:,:) * Ji(:,:,:,e,1,1) &
-                  + s(:,:,:) * Ji(:,:,:,e,2,1) &
-                  + t(:,:,:) * Ji(:,:,:,e,3,1)
+      w =  r(:,:,:) * Ji(:,:,:,e,1,1) &
+         + s(:,:,:) * Ji(:,:,:,e,2,1) &
+         + t(:,:,:) * Ji(:,:,:,e,3,1)
 
 
       ! direction 2
 
-      r = 0;
-      s = 0;
-      t = 0;
-
       ! r = du2/dx1
-      call LIBXSMM_DMMCall(xmm_1, Ds_1, u(:,:,:,e,2) , r(:,:,:))
+      call LIBXSMM_DMMCall(xmm_1, Ds_1, u(:,:,:,e,2) , r)
 
       ! s= du2/dx2
       do k = 1, np
@@ -116,24 +97,20 @@ contains
       end do
 
       ! t= du2/dx3
-      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,2), Ds_3t, t(:,:,:))
+      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,2), Ds_3t, t)
 
 
       ! consider SIMD vectorization using !$omp simd or LIBXSMM
 
-      v(:,:,:,e) = v(:,:,:,e) + r(:,:,:) * Ji(:,:,:,e,1,2) &
-                              + s(:,:,:) * Ji(:,:,:,e,2,2) &
-                              + t(:,:,:) * Ji(:,:,:,e,3,2)
+      w = w + r(:,:,:) * Ji(:,:,:,e,1,2) &
+            + s(:,:,:) * Ji(:,:,:,e,2,2) &
+            + t(:,:,:) * Ji(:,:,:,e,3,2)
 
 
       ! direction 3
 
-      r = 0;
-      s = 0;
-      t = 0;
-
       ! r= du3/dx1
-      call LIBXSMM_DMMCall(xmm_1, Ds_1, u(:,:,:,e,3) , r(:,:,:))
+      call LIBXSMM_DMMCall(xmm_1, Ds_1, u(:,:,:,e,3) , r)
 
       ! s= du3/dx2
       do k = 1, np
@@ -141,15 +118,16 @@ contains
       end do
 
       ! t= du3/dx3
-      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,3), Ds_3t, t(:,:,:))
+      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,3), Ds_3t, t)
 
 
       ! consider SIMD vectorization using !$omp simd or LIBXSMM
 
-      v(:,:,:,e) = v(:,:,:,e) + r(:,:,:) * Ji(:,:,:,e,1,3) &
-                              + s(:,:,:) * Ji(:,:,:,e,2,3) &
-                              + t(:,:,:) * Ji(:,:,:,e,3,3)
+      w = w + r(:,:,:) * Ji(:,:,:,e,1,3) &
+            + s(:,:,:) * Ji(:,:,:,e,2,3) &
+            + t(:,:,:) * Ji(:,:,:,e,3,3)
 
+      v(:,:,:,e) = w
 
     end do
 

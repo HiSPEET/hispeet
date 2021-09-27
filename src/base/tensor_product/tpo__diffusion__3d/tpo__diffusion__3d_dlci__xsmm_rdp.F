@@ -34,15 +34,15 @@ contains
     real(RDP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
     real(RDP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
 
-    type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
+    type(LIBXSMM_DMMFunction), save :: xmm_set_1, xmm_set_2, xmm_set_3
+    type(LIBXSMM_DMMFunction), save :: xmm_add_1, xmm_add_2, xmm_add_3
 
-    real(RDP), parameter :: alpha = 1
-    real(RDP), parameter :: beta  = 1
+    real(RDP), parameter :: ONE  = 1
+    real(RDP), parameter :: ZERO = 0
 
     real(RDP), dimension(size(Ms), size(Ms), size(Ms)) :: M, r, s, t, z
 
-    real(RDP), dimension(size(Ms), size(Ms)) :: Ds_1, Ds_2t, Ds_3t
-    real(RDP), dimension(size(Ms), size(Ms)) :: Ds_1t, Ds_2, Ds_3
+    real(RDP), dimension(size(Ms), size(Ms)) :: Ds_t
 
     integer   :: np, ne
     integer   :: e, i, j, k
@@ -64,31 +64,17 @@ contains
 
 
     ! initialize operators
-
-    ! first derivatives
-    Ds_1 = Ds
-    Ds_2t = transpose(Ds)
-    Ds_3t = transpose(Ds)
-
-    ! second derivatives
-    Ds_1t = transpose(Ds)
-    Ds_2 = Ds
-    Ds_3 = Ds
+    Ds_t = transpose(Ds)
 
 
     ! XSMM dispatch
     !$omp master
-    call LIBXSMM_Dispatch(xmm_1, np   , np**2, np, alpha=alpha, beta=beta)
-    call LIBXSMM_Dispatch(xmm_2, np   , np   , np, alpha=alpha, beta=beta)
-    call LIBXSMM_Dispatch(xmm_3, np**2, np   , np, alpha=alpha, beta=beta)
-
-    if (.not. ( libxsmm_available(xmm_1) .and.  &
-                libxsmm_available(xmm_2) .and.  &
-                libxsmm_available(xmm_3)        ) ) then
-
-      stop "TPO_Diffusion_DLCI_XSMM: LIBXSMM_Dispatch failed"
-
-    end if
+    call LIBXSMM_Dispatch(xmm_set_1, np   , np**2, np, alpha=ONE, beta=ZERO)
+    call LIBXSMM_Dispatch(xmm_add_1, np   , np**2, np, alpha=ONE, beta=ONE )
+    call LIBXSMM_Dispatch(xmm_set_2, np   , np   , np, alpha=ONE, beta=ZERO)
+    call LIBXSMM_Dispatch(xmm_add_2, np   , np   , np, alpha=ONE, beta=ONE )
+    call LIBXSMM_Dispatch(xmm_set_3, np**2, np   , np, alpha=ONE, beta=ZERO)
+    call LIBXSMM_Dispatch(xmm_add_3, np**2, np   , np, alpha=ONE, beta=ONE )
     !$omp end master
     !$omp barrier
 
@@ -107,24 +93,18 @@ contains
       end do
       end do
 
-      r(:,:,:) = 0
-      s(:,:,:) = 0
-      t(:,:,:) = 0
-
       ! first derivatives
 
-      call LIBXSMM_DMMCall(xmm_1, Ds_1, u(:,:,:,e), r(:,:,:))
+      call LIBXSMM_DMMCall(xmm_set_1, Ds, u(:,:,:,e), r(:,:,:))
 
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e), Ds_2t, s(:,:,k))
+        call LIBXSMM_DMMCall(xmm_set_2, u(:,:,k,e), Ds_t, s(:,:,k))
       end do
 
-      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e), Ds_3t, t(:,:,:))
+      call LIBXSMM_DMMCall(xmm_set_3, u(:,:,:,e), Ds_t, t(:,:,:))
 
 
       ! second derivative direction 1 and application of metric terms
-
-      z(:,:,:) = 0
 
       do k = 1, np
       do j = 1, np
@@ -136,12 +116,10 @@ contains
       end do
       end do
 
-      call LIBXSMM_DMMCall(xmm_1, Ds_1t, z(:,:,:), v(:,:,:,e))
+      call LIBXSMM_DMMCall(xmm_add_1, Ds_t, z(:,:,:), v(:,:,:,e))
 
 
       ! second derivative direction 2 and application of metric terms
-
-      z(:,:,:) = 0
 
       do k = 1, np
       do j = 1, np
@@ -154,13 +132,11 @@ contains
       end do
 
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_2, z(:,:,k), Ds_2, v(:,:,k,e))
+        call LIBXSMM_DMMCall(xmm_add_2, z(:,:,k), Ds, v(:,:,k,e))
       end do
 
 
       ! second derivative direction 3 and application of metric terms
-
-      z(:,:,:) = 0
 
       do k = 1, np
       do j = 1, np
@@ -172,7 +148,7 @@ contains
       end do
       end do
 
-      call LIBXSMM_DMMCall(xmm_3, z(:,:,:), Ds_3, v(:,:,:,e))
+      call LIBXSMM_DMMCall(xmm_add_3, z(:,:,:), Ds, v(:,:,:,e))
 
 
     end do

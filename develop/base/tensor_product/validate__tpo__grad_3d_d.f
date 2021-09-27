@@ -108,7 +108,7 @@ program Validate__TPO__Grad__3D_D
   !np = po + 1
 
   ! problem dimensions
-  nflop = (po+1)**3 * (6*po + 3)
+  nflop = (po+1)**3 * (6*po + 15)
   npop  = (po+1)**3
 
   ! verification ...............................................................
@@ -242,8 +242,6 @@ program Validate__TPO__Grad__3D_D
     !$omp end parallel
 
 
-  !end associate
-
   time = (count - count0) / real(rate, RNP) / nt
 
   error_gen = maxval(abs(v - w))
@@ -253,7 +251,6 @@ program Validate__TPO__Grad__3D_D
   !-----------------------------------------------------------------------------
   ! test optimized procedure
 
-  !associate( Ds => standard_op % D )
 
     !$omp parallel
     !$acc data copyin(u) copyout(v)
@@ -271,7 +268,10 @@ program Validate__TPO__Grad__3D_D
     !$acc end data
     !$omp end parallel
 
+
+
   end associate
+
 
   time = (count - count0) / real(rate, RNP) / nt
 

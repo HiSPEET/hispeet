@@ -67,7 +67,6 @@ program Validate__TPO_Diffusion_DLCI
 
   real(RNP) :: dx_u, dy_u, dz_u, d1_u, d2_u, d3_u
 
-  real(RNP) :: dx(3) = 2
   real(RNP) :: time  = 0
   real(RNP) :: error_gen = 0, mflops_gen = -1, mlups_gen = -1
   real(RNP) :: error_opt = 0, mflops_opt = -1, mlups_opt = -1
@@ -104,7 +103,8 @@ program Validate__TPO_Diffusion_DLCI
 
   ! problem dimensions
   npop  = (po+1)**3                  ! number of operands per element
-  nflop = npop * (12*(po+1) + 34)    ! number of FLOPs per element
+  nflop = npop * (12*(po+1) + 29)   ! number of FLOPs per element
+
 
   ! verification ...............................................................
 
