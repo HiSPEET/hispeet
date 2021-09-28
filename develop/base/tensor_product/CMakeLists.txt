@@ -161,11 +161,16 @@ configure_file( validate__tpo__schwarz_3d_ca.prm
 # Scripts
 
 file( COPY scripts/validate__tpo.sh
+           scripts/validate__tpo_d.sh
+           scripts/validate__tpo_d_full.sh
            scripts/validate__tpo__aaa_3d.tmpl
            scripts/validate__tpo__div_3d_r.tmpl
+           scripts/validate__tpo__div_3d_d.tmpl
            scripts/validate__tpo__diffusion_3d_rlci.tmpl
            scripts/validate__tpo__diffusion_3d_rlvi.tmpl
+           scripts/validate__tpo__diffusion_3d_dlci.tmpl
            scripts/validate__tpo__grad_3d_r.tmpl
+           scripts/validate__tpo__grad_3d_d.tmpl
            scripts/validate__tpo__rot_3d_r.tmpl
            scripts/validate__tpo__rotrot_3d_r.tmpl
            scripts/validate__tpo__schwarz_3d_ca.tmpl
