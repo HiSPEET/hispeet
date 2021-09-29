@@ -1,0 +1,7 @@
+&input
+! po = 3
+! no = 1
+  rotation = 0,0,0
+! periodic = F,F,F
+/
+
