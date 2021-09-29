@@ -26,9 +26,9 @@ module CART__ISP_Flow__SDC_Method__Runge_Kutta
   use CART__ISP_Flow__Time_Integrator
 
   use CART__ISP_Flow__SDC_Method
-  
+
   use IEEE_Arithmetic
-    
+
   implicit none
   private
 
@@ -65,7 +65,7 @@ module CART__ISP_Flow__SDC_Method__Runge_Kutta
   !> Type for providing Runge-Kutta SDC-corrector options (none, so far)
 
   type, extends(Flow_SDC_Options) :: Flow_SDC_Options_RungeKutta
-    integer :: n_stage   = 3 !< number of stages   
+    integer :: n_stage   = 3 !< number of stages
     integer :: method    = 1 !< RK method selector, if more than one exist
   end type Flow_SDC_Options_RungeKutta
 
@@ -108,7 +108,7 @@ contains
 
     real(RNP) :: t0, t1, ti
     integer   :: i, j, m
-    
+
     ! parent type ..............................................................
 
     call this % Init_Flow_SDC_Method(problem, flow_op, pre_opt, sdc_opt)
@@ -327,7 +327,7 @@ contains
     ! auxiliary
     real(RNP) :: t_i, t_m, tau, dt
  !compare to EU Corrector: dt -> dt_m, dt_sdc -> dt
- real(RNP) :: dt_sdc 
+ real(RNP) :: dt_sdc
     integer   :: nc, ne, np
     integer   :: i, l
 
@@ -400,7 +400,7 @@ contains
     ! print *, "there is nan"
     ! end if
 
-     
+
        t_i = t_sdc(m-1) + c(i) * dt
        dt_sdc = t_sdc(this % n_sub) - t_sdc(0)
        S_i = dt_sdc * w_rk(0,i,m) * F_sdc(:,:,:,:,:,0)
@@ -411,16 +411,16 @@ contains
         G_ex(:,:,:,:,:,i) = -l_rk(0,i,m) * F_sdc_ex(:,:,:,:,:,0)
         do l = 1, this % n_sub
           G_ex(:,:,:,:,:,i) = G_ex(:,:,:,:,:,i) - l_rk(l,i,m) * F_sdc_ex(:,:,:,:,:,l)
-        end do  
-    
+        end do
+
         G_im(:,:,:,:,:,i) = -l_rk(0,i,m) * F_sdc_im(:,:,:,:,:,0)
         do l = 1, this % n_sub
           G_im(:,:,:,:,:,i) = G_im(:,:,:,:,:,i) - l_rk(l,i,m) * F_sdc_im(:,:,:,:,:,l)
         end do
-           
+
         call CorrectorStage( this, i, t_i, dt, nu_i, u_1, u_i, S_i &
                            , G_im, G_ex, F_d3                      )
-                           
+
       end do
 
       ! assembly ...............................................................
@@ -506,8 +506,6 @@ contains
     if(allocated(F_d3))   deallocate(F_d3)
     !$omp end single
 
-
-
   end subroutine CorrectorStep
 
 
@@ -567,7 +565,7 @@ contains
 
       ! u' = u₁ + S_i + ∆t ∑ⁱ⁻¹ aᵉˣ(G_ex + G_im + F_d3)
       call SetArray(u_i, u_1, multi=.true.)
-      
+
       do k = 1, problem % nc
         if (k == 4) cycle ! skip pressure
         call MergeArrays(ONE, u_i(:,:,:,:,k), ONE, S_i(:,:,:,:,k))
@@ -610,7 +608,7 @@ contains
             end if
           end do
         end do
-       
+
         ! uᵢ/τ - ∇⋅(ν∇uᵢ) = f/τ,  τ = ∆t aⁱᵐ(i,i)
         tau = dt * a_im(i,i)
         call DiffusionStep(problem, flow_op, tau, q, u_i, w, nu_i)
