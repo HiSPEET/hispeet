@@ -44,6 +44,7 @@ program ISP_Flow__SDC_Test
   use CART__ISP_Flow__Time_Integrator__Runge_Kutta ! standalone Runge-Kutta
   use CART__ISP_Flow__SDC_Method                   ! SDC base type
   use CART__ISP_Flow__SDC_Method__Euler            ! SDC Euler method
+  use CART__ISP_Flow__SDC_Method__Runge_Kutta      ! SDC Runge Kutta method
 
   implicit none
 
@@ -156,7 +157,8 @@ program ISP_Flow__SDC_Test
   ! SDC
   class(Flow_SDC_Method), allocatable :: sdc
   type(Flow_SDC_Options_Euler) :: sdc_opt_eu
-  namelist /time_integration/ sdc_opt_eu
+  type(Flow_SDC_Options_RungeKutta) :: sdc_opt_rk
+  namelist /time_integration/ sdc_opt_eu, sdc_opt_rk
 
   ! variables ..................................................................
 
@@ -343,6 +345,8 @@ program ISP_Flow__SDC_Test
     sdc = Flow_SDC_Method_Euler(problem, flow_op, eu_opt, sdc_opt_eu)
   case(6)
     sdc = Flow_SDC_Method_Euler(problem, flow_op, rk_opt, sdc_opt_eu)
+  case(7)
+    sdc = Flow_SDC_Method_RungeKutta(problem, flow_op, rk_opt, sdc_opt_rk) 
   end select
 
   ! print time-integrator settings
