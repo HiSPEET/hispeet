@@ -33,3 +33,15 @@ if (Exodus_FOUND)
     file( COPY exodus DESTINATION . )
 
 endif ()
+
+#===============================================================================
+# mesh3d_test_orientation
+
+add_executable( mesh3d_test_orientation
+                mesh3d_test_orientation.f )
+
+target_link_libraries(mesh3d_test_orientation HiBase)
+
+configure_file( mesh3d_test_orientation.prm
+                mesh3d_test_orientation.prm COPYONLY )
+

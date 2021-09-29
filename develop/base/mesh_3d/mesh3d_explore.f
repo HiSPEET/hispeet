@@ -258,13 +258,13 @@ contains
     write(*,'(A,99(1X,I5))') 'n_neighbor  =', size(element%neighbor)
     write(*,*)
     k = 0
-    do i = 1, 8
-      j1 = element % vertex(i) % i_neighbor
-      j2 = element % vertex(i) % n_neighbor + j1 - 1
+    do i = 1, 6
+      j1 = element % face(i) % i_neighbor
+      j2 = element % face(i) % n_neighbor + j1 - 1
       do j = j1, j2
         k  = k + 1
-        write(*,'(I4,A,I3,A,3I5)') k, '  vertex', i, '  id,part,cc =', &
-                                   element % neighbor(j)
+        write(*,'(I4,A,I3,A,4I5)') k, '  face  ', i, &
+            '  id,part,component,orientation =', element % neighbor(j)
       end do
     end do
     do i = 1, 12
@@ -272,17 +272,17 @@ contains
       j2 = element % edge(i) % n_neighbor + j1 - 1
       do j = j1, j2
         k  = k + 1
-        write(*,'(I4,A,I3,A,3I5)') k, '  edge  ', i, '  id,part,cc =', &
-                                   element % neighbor(j)
+        write(*,'(I4,A,I3,A,4I5)') k, '  edge  ', i, &
+            '  id,part,component,orientation =', element % neighbor(j)
       end do
     end do
-    do i = 1, 6
-      j1 = element % face(i) % i_neighbor
-      j2 = element % face(i) % n_neighbor + j1 - 1
+    do i = 1, 8
+      j1 = element % vertex(i) % i_neighbor
+      j2 = element % vertex(i) % n_neighbor + j1 - 1
       do j = j1, j2
         k  = k + 1
-        write(*,'(I4,A,I3,A,3I5)') k, '  face  ', i, '  id,part,cc =', &
-                                   element % neighbor(j)
+        write(*,'(I4,A,I3,A,4I5)') k, '  vertex', i, &
+            '  id,part,component,orientation =', element % neighbor(j)
       end do
     end do
 

@@ -127,7 +127,7 @@ contains
               associate(ghost => mesh % ghost(g))
 
                 ! identify corresponding ghost face
-                f = element % neighbor(j) % cc
+                f = ElementFaceID(element % neighbor(j) % component)
 
                 ! local element face IDs at position ξ₁=i and ξ₂=j
                 lfi(-1,-1) = element % vertex( V_FACE(1,k) ) % id
@@ -182,7 +182,7 @@ contains
               associate(ghost => mesh % ghost(g))
 
                 ! identify corresponding ghost edge
-                e = element % neighbor(j) % cc
+                e = ElementEdgeID(element % neighbor(j) % component)
 
                 ! get element edge mesh IDs at position ξ=i
                 lei(-1) = element % vertex( V_EDGE(1,k) ) % id
@@ -217,7 +217,7 @@ contains
             g = m - mesh % n_elem
             if (g > 0) then
               associate(ghost => mesh % ghost(g))
-                v = element % neighbor(j) % cc
+                v = ElementVertexID(element % neighbor(j) % component)
                 ghost % vertex(v) % id  = element % vertex(k) % id
               end associate
             end if

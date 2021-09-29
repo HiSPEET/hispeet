@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !==============================================================================
 
-submodule(Generic_Mesh__3D) MP_CreateAnnularGap
+submodule(Generic_Mesh__3D) MP_CreateAnnulus
   use Constants
   use Gauss_Jacobi
   use Execution_Control
@@ -18,12 +18,12 @@ contains
   !> This routine generates an annular gap with inner radius `r0`, outer radius
   !> `r1` and height `h`. The mesh consists of `nr` elements in radial direction,
   !> `np` elements in azimuthal direction and `nz` elements in axial direction.
-  !> The polynomial degree of the Lobatto points is `po`. If `periodic == .true.`,
-  !> axial periodicity is set.
+  !> The polynomial degree of the Lobatto points is `po`.
+  !> Passing `periodic == .true.` implies axial periodicity.
   !>
   !> The workflow to set the vertices and the Lobatto points is as following:
   !>   - First the (nz+1)*(nr+1)*np vertices are set equidistantly in the unit
-  !>     cube [0, 1]^3. They are needed to set the Lobatto points in the subcubes.
+  !>     cube [0,1]^3. They are needed to set the Lobatto points in the subcubes.
   !>   - In every subcube (po+1)^3 Lobatto points are initialized. In the same
   !>     loop they are mapped to the cartesian coordinates in the gap.
   !>   - At the end the vertex coordinates are transformed to the gap.
@@ -41,7 +41,7 @@ contains
   !>
   !> Restriction: np ≥ 3
 
-  module subroutine CreateAnnularGap(mesh, r0, r1, h, nr, np, nz, po, periodic)
+  module subroutine CreateAnnulus(mesh, r0, r1, h, nr, np, nz, po, periodic)
     class(GenericMesh_3D), intent(out) :: mesh  !< cylindrical 3d mesh
     real(RNP), intent(in) :: r0 !< inner radius
     real(RNP), intent(in) :: r1 !< outer radius
@@ -67,7 +67,7 @@ contains
     ! prerequisites ...........................................................
 
     if (np < 3) then
-      call Error('CreateAnnularGap', 'np ≥ 3 is required')
+      call Error('CreateAnnulus', 'np ≥ 3 is required')
     end if
 
     ! number of vertices, elements and boundaries
@@ -94,7 +94,7 @@ contains
     do j = 0, np-1
     do i = 0, nr
       v = VertexIndex(i, j, k, nr, np)
-      mesh%vertex(v)%x  = [ i*cr, j*cp, k*cz ]
+      mesh%vertex(v)%x = [ i*cr, j*cp, k*cz ]
     end do
     end do
     end do
@@ -126,8 +126,8 @@ contains
       allocate(mesh%element(l)%x((po+1)**3, 3))
       x0 = mesh%vertex(mesh%element(l)%vertex(1)) % x ! coordinates of vertex 1
       do r = 0, po
-      do p = 0, po
       do q = 0, po
+      do p = 0, po
         v = 1 + p + (po+1) * (q + (po+1) * r)     ! linear point index
         x = x0 + [ cr*xc(p), cp*xc(q), cz*xc(r) ] ! point in unit cube
         call MapToGap(x, r0, r1, h)               ! map to annular gap
@@ -220,7 +220,7 @@ contains
 
     call mesh % GenerateConsistentVertexIDs()
 
-  end subroutine CreateAnnularGap
+  end subroutine CreateAnnulus
 
   !------------------------------------------------------------------------------
   !> Linear vertex index based on lexical ordering
@@ -276,4 +276,4 @@ contains
 
   !=============================================================================
 
-end submodule MP_CreateAnnularGap
+end submodule MP_CreateAnnulus

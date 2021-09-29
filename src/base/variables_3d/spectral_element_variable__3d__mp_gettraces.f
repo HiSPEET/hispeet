@@ -2,39 +2,50 @@
 !> author:   Joerg Stiller
 !> date:     2021/8/05
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!> @todo
-!>   - check if OpenMP parallelization makes sense
 !===============================================================================
 
 submodule(Spectral_Element_Variable__3D) MP_GetTraces
   use Mesh__3D
-  use Trace_Transfer_Buffer__3D
+  use Element_Face_Transfer_Buffer__3D
   implicit none
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Extract the traces of SEV components on mesh faces
+  !> Extract the traces of SEV components as an element-face variable aligned
+  !> with mesh faces
   !>
-  !> The traces are shaped as `tr_val(np,np,2,nf,nc)` where
-  !>    - `np` is the number of element points per direction, i.e. `po+1`
-  !>    - `nf` is the number of local mesh faces
-  !>    - `nc` is the number of components, i.e. `size(this%val,5)`
+  !> The traces are stored as element-face variables. If `aligned`is passed `T`
+  !> they are aligned with the mesh faces, otherwise with the element faces.
+  !> Traces of remote elements are stored in their ghost entries. Therefore,
+  !> the trace values must be dimensioned as `tr_val(np,np,6,nl+ng,nc)`, where
+  !>
+  !>   - `np` is the number of element values per direction
+  !>   - `nl` is the number of local elements, i.e. `this%sem%mesh%n_elem`
+  !>   - `ng` is the number of ghost elements, i.e. `this%sem%mesh%n_ghost`
+  !>   - `nc` is the number of components
 
-  module subroutine GetTraces(this, tr_val)
+  module subroutine GetTraces(this, tr_val, align)
     class(SpectralElementVariable_3D), intent(in) :: this
-    real(RNP), intent(out) :: tr_val(:,:,:,:,:) !< trace of val
+    real(RNP), intent(inout) :: tr_val(:,:,:,:,:) !< trace of val
+    logical, optional, intent(in) :: align !< align traces with mesh face [F]
 
-    type(TraceTransferBuffer_3D), asynchronous, allocatable, save :: trace_buf
-    integer :: c, e, i, f(6), s(6), nc, o, p
+    type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: tr_buf
+    integer :: c, e, nc, o, p
+    logical :: as_is
+
+    if (present(align)) then
+      as_is = .not. align
+    else
+      as_is = .true.
+    end if
 
     associate(mesh => this % sem % mesh, val => this % val)
 
       ! initialization .........................................................
 
       !$omp master
-      trace_buf = TraceTransferBuffer_3D(mesh, tr_val)
+      tr_buf = ElementFaceTransferBuffer_3D(mesh, tr_val)
       !$omp master
       !$omp barrier
 
@@ -48,28 +59,23 @@ contains
       do e = 1, mesh % n_elem
         associate(face => mesh % element(e) % face)
 
-          do i = 1, 6
-            f(i) = face(i) % id      ! mesh face adjacent to element face i
-            s(i) = face(i) % Side()  ! mesh face side that is touched {1,2}
-          end do
-
-          if (mesh % structured) then
+          if (as_is .or. mesh % structured) then
             do c = 1, nc
-              tr_val(:,:,s(1),f(1),c) = val(o,:,:,e,c)
-              tr_val(:,:,s(2),f(2),c) = val(p,:,:,e,c)
-              tr_val(:,:,s(3),f(3),c) = val(:,p,:,e,c)
-              tr_val(:,:,s(4),f(4),c) = val(:,p,:,e,c)
-              tr_val(:,:,s(5),f(5),c) = val(:,:,o,e,c)
-              tr_val(:,:,s(6),f(6),c) = val(:,:,p,e,c)
+              tr_val(:,:,1,e,c) = val(o,:,:,e,c)
+              tr_val(:,:,2,e,c) = val(p,:,:,e,c)
+              tr_val(:,:,3,e,c) = val(:,p,:,e,c)
+              tr_val(:,:,4,e,c) = val(:,p,:,e,c)
+              tr_val(:,:,5,e,c) = val(:,:,o,e,c)
+              tr_val(:,:,6,e,c) = val(:,:,p,e,c)
             end do
           else
             do c = 1, nc
-              call face(1) % AlignWithMesh(val(o,:,:,e,c), tr_val(:,:,s(1),f(1),c))
-              call face(2) % AlignWithMesh(val(p,:,:,e,c), tr_val(:,:,s(2),f(2),c))
-              call face(3) % AlignWithMesh(val(:,p,:,e,c), tr_val(:,:,s(3),f(3),c))
-              call face(4) % AlignWithMesh(val(:,p,:,e,c), tr_val(:,:,s(4),f(4),c))
-              call face(5) % AlignWithMesh(val(:,:,o,e,c), tr_val(:,:,s(5),f(5),c))
-              call face(6) % AlignWithMesh(val(:,:,p,e,c), tr_val(:,:,s(6),f(6),c))
+              call face(1) % AlignWithMesh(val(o,:,:,e,c), tr_val(:,:,1,e,c))
+              call face(2) % AlignWithMesh(val(p,:,:,e,c), tr_val(:,:,2,e,c))
+              call face(3) % AlignWithMesh(val(:,p,:,e,c), tr_val(:,:,3,e,c))
+              call face(4) % AlignWithMesh(val(:,p,:,e,c), tr_val(:,:,4,e,c))
+              call face(5) % AlignWithMesh(val(:,:,o,e,c), tr_val(:,:,5,e,c))
+              call face(6) % AlignWithMesh(val(:,:,p,e,c), tr_val(:,:,6,e,c))
             end do
           end if
 
@@ -78,12 +84,12 @@ contains
 
       ! transfer to/from adjoining partitions ..................................
 
-      call trace_buf % Transfer(mesh, tr_val, tag=100)
-      call trace_buf % Merge(mesh, tr_val, alpha=ZERO, beta=ONE)
+      call tr_buf % Transfer(mesh, tr_val, tag=100)
+      call tr_buf % Merge(tr_val)
 
       !$omp barrier
       !$omp master
-      deallocate(trace_buf)
+      deallocate(tr_buf)
       !$omp end master
 
     end associate

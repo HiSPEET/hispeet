@@ -72,9 +72,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Extract the trace of the scalar
 
-  subroutine GetTrace(this, tr_val)
+  subroutine GetTrace(this, tr_val, align)
     class(SpectralElementScalar_3D), intent(in) :: this
-    real(RNP), intent(out) :: tr_val(:,:,:,:) !< trace of the scalar
+    real(RNP), intent(inout) :: tr_val(:,:,:,:) !< trace of the scalar
+    logical, optional, intent(in) :: align !< align traces with mesh face [F]
 
     real(RNP), pointer, save :: tr_all(:,:,:,:,:)
 
@@ -82,7 +83,7 @@ contains
     call MapTrace(size(tr_val,1), size(tr_val,4), tr_s=tr_val, tr_a=tr_all)
     !$omp end single
 
-    call this % GetTraces(tr_all)
+    call this % GetTraces(tr_all, align)
 
   end subroutine GetTrace
 
@@ -105,12 +106,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Map scalar to array trace
 
-  subroutine MapTrace(np, nf, tr_s, tr_a)
-    integer, intent(in) :: np, nf
-    real(RNP), target , intent(in)  :: tr_s(np*np*2*nf)
+  subroutine MapTrace(np, ne, tr_s, tr_a)
+    integer, intent(in) :: np, ne
+    real(RNP), target , intent(in)  :: tr_s(np*np*6*ne)
     real(RNP), pointer, intent(out) :: tr_a(:,:,:,:,:)
 
-    tr_a(1:np,1:np,1:2,1:nf,1:1) => tr_s
+    tr_a(1:np,1:np,1:6,1:ne,1:1) => tr_s
 
   end subroutine MapTrace
 

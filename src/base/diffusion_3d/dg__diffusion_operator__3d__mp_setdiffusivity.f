@@ -40,13 +40,16 @@ contains
 
     type(SpectralElementScalar_3D), allocatable, save :: se_nu
     real(RNP), allocatable, save :: tr_nu(:,:,:,:)
-    integer :: f, ne, nf, po
+    integer :: i, ne, nf, ng, po
+
+    ! initialization ...........................................................
 
     this % nu_pc  = 0
     this % nu_sc  = 0
 
     po = this % sem % std_op % po
     ne = this % sem % mesh % n_elem
+    ng = this % sem % mesh % n_ghost
     nf = this % sem % mesh % n_face
 
     !$omp master
@@ -67,7 +70,9 @@ contains
       allocate(this % nu_mf(0:po,0:po,nf))
     end if
 
-    allocate(tr_nu(0:po,0:po,2,nf))
+    ! trace of variable diffusivity ............................................
+
+    allocate(tr_nu(0:po,0:po,6,ne+ng))
     se_nu = SpectralElementScalar_3D(this % sem, this % nu_pv)
 
     !$omp end master
@@ -75,10 +80,22 @@ contains
     ! apply tracing procedure of scalar SE variable
     call se_nu % GetTrace(tr_nu)
 
-    ! determine maximum face diffusivitiy
+    ! maximum face diffusivity .................................................
+
     !$omp do
-    do f = 1, nf
-      this % nu_mf(:,:,f) = max(tr_nu(:,:,1,f), tr_nu(:,:,2,f))
+    do i = 1, nf
+      associate(elem => this % sem % mesh % face(i) % element)
+        if (elem(1) % id > 0) then
+          if (elem(2) % id > 0) then
+            this % nu_mf(:,:,i) = max( tr_nu(:,:, elem(1)%face, elem(1)%id) &
+                                     , tr_nu(:,:, elem(2)%face, elem(2)%id) )
+          else
+            this % nu_mf(:,:,i) = tr_nu(:,:, elem(1)%face, elem(1)%id)
+          end if
+        else
+          this % nu_mf(:,:,i) = tr_nu(:,:, elem(2)%face, elem(2)%id)
+        end if
+      end associate
     end do
 
     !$omp master

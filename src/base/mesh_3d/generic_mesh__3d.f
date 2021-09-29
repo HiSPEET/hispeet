@@ -6,7 +6,7 @@
 
 module Generic_Mesh__3D
   use Kind_Parameters
-  use Mesh_Element_Indexing__3D, only: V_FACE
+  use Mesh_Element_Indexing__3D
   implicit none
   private
 
@@ -29,9 +29,14 @@ module Generic_Mesh__3D
 
   !-----------------------------------------------------------------------------
   !> Structure defining a generic 3d mesh vertex
+  !>
+  !> In the non-periodic case, `id` equals the index of the vertex in the
+  !> encompassing mesh data structure. In the periodic case, the latter may
+  !> contain separate entries for coupled vertices which, however, must have
+  !> the same identifier.
 
   type, public :: GenericMeshVertex_3D
-    integer   :: id = 0 !< identifer
+    integer   :: id = 0 !< identfier
     real(RNP) :: x(3)   !< Cartesian coordinates
   end type GenericMeshVertex_3D
 
@@ -138,7 +143,7 @@ module Generic_Mesh__3D
     integer :: vertex(8) = 0          !< vertex indices (not IDs!)
     integer :: basis     = 0          !< type of basis functions
     integer :: order     = 0          !< polynomial order
-    real(RNP), allocatable :: x(:,:)  !< control/collocation points, x(:,1:3)
+    real(RNP), allocatable :: x(:,:)  !< control/collocation points, x(1:,1:3)
   end type GenericMeshElement_3D
 
   !-----------------------------------------------------------------------------
@@ -205,7 +210,9 @@ module Generic_Mesh__3D
     procedure :: SwitchToRotationalNumbering
     procedure :: GenerateConsistentVertexIDs
     procedure :: CreateCylinder
-    procedure :: CreateAnnularGap
+    procedure :: CreateAnnulus
+    procedure :: CreateDiamonds
+    procedure :: CreateOneRotated
   end type GenericMesh_3D
 
   interface
@@ -213,18 +220,20 @@ module Generic_Mesh__3D
     !---------------------------------------------------------------------------
     !> Creates a generic mesh for a cylinder
 
-    module subroutine CreateCylinder(mesh, nr, nz, po, periodic)
+    module subroutine CreateCylinder(mesh, r, h, nr, nz, po, periodic)
       class(GenericMesh_3D), intent(out) :: mesh  !< cylindrical 3d mesh
-      integer, intent(in) :: nr  !< num intervals in radial section
-      integer, intent(in) :: nz  !< num intervals in axial  direction
-      integer, intent(in) :: po  !< polynomial order of mesh elements
-      logical, intent(in) :: periodic !< switch for axial periodicity
+      real(RNP), intent(in) :: r   !< cylinder radius
+      real(RNP), intent(in) :: h   !< cylinder height (axial extension)
+      integer,   intent(in) :: nr  !< num intervals in radial section
+      integer,   intent(in) :: nz  !< num intervals in axial  direction
+      integer,   intent(in) :: po  !< polynomial order of mesh elements
+      logical,   intent(in) :: periodic !< switch for axial periodicity
     end subroutine CreateCylinder
 
     !---------------------------------------------------------------------------
     !> Creates a generic mesh for an annular gap
 
-    module subroutine CreateAnnularGap(mesh, r0, r1, h, nr, np, nz, po, periodic)
+    module subroutine CreateAnnulus(mesh, r0, r1, h, nr, np, nz, po, periodic)
       class(GenericMesh_3D), intent(out) :: mesh  !< cylindrical 3d mesh
       real(RNP), intent(in) :: r0  !< inner radius
       real(RNP), intent(in) :: r1  !< outer radius
@@ -234,7 +243,33 @@ module Generic_Mesh__3D
       integer,   intent(in) :: nz  !< num elements in axial     (z)   direction
       integer,   intent(in) :: po  !< polynomial order of mesh elements
       logical,   intent(in) :: periodic !< switch for axial periodicity
-    end subroutine CreateAnnularGap
+    end subroutine CreateAnnulus
+
+    !---------------------------------------------------------------------------
+    !> Creates a generic mesh of cells, each containing a rhombic "diamond"
+    !> element surrounded by four trapezoidal elements.
+
+    module subroutine CreateDiamonds(mesh, lx, ly, lz, nx, ny, nz, po, periodic)
+      class(GenericMesh_3D), intent(out) :: mesh  !< "diamond" mesh
+      real(RNP), intent(in) :: lx  !< domain length in x-direction
+      real(RNP), intent(in) :: ly  !< domain length in y-direction
+      real(RNP), intent(in) :: lz  !< domain length in z-direction
+      integer,   intent(in) :: nx  !< number of cells in x-direction
+      integer,   intent(in) :: ny  !< number of cells in y-direction
+      integer,   intent(in) :: nz  !< number of elements in z-direction
+      integer,   intent(in) :: po  !< polynomial order of mesh elements
+      logical,   intent(in) :: periodic(3) !< F/T for non/periodic directions
+    end subroutine CreateDiamonds
+
+    !---------------------------------------------------------------------------
+    !> Creates a 3x3x3 Cartesian mesh with the center element rotated
+
+    module subroutine CreateOneRotated(mesh, po, rotation, periodic)
+      class(GenericMesh_3D), intent(out) :: mesh  !< "diamond" mesh
+      integer, intent(in) :: po          !< polynomial order of mesh elements
+      integer, intent(in) :: rotation(3) !< rotation applied to center element
+      logical, intent(in) :: periodic(3) !< F/T for non/periodic directions
+    end subroutine CreateOneRotated
 
   end interface
 

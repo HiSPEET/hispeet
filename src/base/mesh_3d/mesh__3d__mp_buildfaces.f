@@ -21,8 +21,8 @@ contains
   !> Generates
   !>   - mesh % n_face
   !>   - mesh % face
-  !>   - mesh % face % element % id
-  !>   - mesh % face % element % face
+  !>   - mesh % face % element_id
+  !>   - mesh % face % element_face
   !>   - mesh % element % face % id
   !>   - mesh % element % face % normal
   !>   - mesh % element % face % rotation
@@ -150,11 +150,11 @@ contains
     integer, intent(out) :: p(4) !< permutation: e(p(i)) ≤ e(p(j)) if i < j
 
     p = [1,2,3,4]
-    if (e(1) > e(2)) p([1,2]) = p([2,1])
-    if (e(3) > e(4)) p([3,4]) = p([4,3])
-    if (e(1) > e(3)) p([1,3]) = p([3,1])
-    if (e(2) > e(4)) p([2,4]) = p([4,2])
-    if (e(2) > e(3)) p([2,3]) = p([3,2])
+    if (e(p(1)) > e(p(2))) p([1,2]) = p([2,1])
+    if (e(p(3)) > e(p(4))) p([3,4]) = p([4,3])
+    if (e(p(1)) > e(p(3))) p([1,3]) = p([3,1])
+    if (e(p(2)) > e(p(4))) p([2,4]) = p([4,2])
+    if (e(p(2)) > e(p(3))) p([2,3]) = p([3,2])
 
   end subroutine SortFaceEdges
 

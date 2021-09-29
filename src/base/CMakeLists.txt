@@ -92,8 +92,10 @@ file(GLOB MESH mesh/*.f)
 # mesh_3d
 
 set ( MESH_3D mesh_3d/generic_mesh__3d.f
-              mesh_3d/generic_mesh__3d__mp_createannulargap.f
+              mesh_3d/generic_mesh__3d__mp_createannulus.f
               mesh_3d/generic_mesh__3d__mp_createcylinder.f
+              mesh_3d/generic_mesh__3d__mp_creatediamonds.f
+              mesh_3d/generic_mesh__3d__mp_createonerotated.f
               mesh_3d/mesh_boundary__3d.f
               mesh_3d/mesh_element__3d.f
               mesh_3d/mesh_element_indexing__3d.f
@@ -108,6 +110,7 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
               mesh_3d/mesh__3d__mp_getpointvalency.f
               mesh_3d/mesh__3d__mp_identifyedges.f
               mesh_3d/mesh__3d__mp_identifyranks.f
+              mesh_3d/mesh__3d__mp_identifyelementneighbors.f
               mesh_3d/mesh__3d__mp_importgenericmesh.f
               mesh_3d/structured_mesh_indexing__3d.f
               mesh_3d/generate_regular_mesh__3d.f
@@ -125,6 +128,8 @@ set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/transfer/element_transfer_buffer__3d__sm_integer_ixl.F
              util_3d/transfer/element_transfer_buffer__3d__sm_real_rdp.F
              util_3d/transfer/element_transfer_buffer__3d__sm_real_rsp.F
+             util_3d/transfer/element_face_transfer_buffer__3d.f
+             util_3d/transfer/element_face_transfer_buffer__3d__sm_real_rdp.F
              util_3d/transfer/trace_transfer_buffer__3d.f
              util_3d/ops/assembly__3d.f
              util_3d/ops/assembly__3d__sm_0u.f

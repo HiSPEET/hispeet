@@ -18,6 +18,19 @@ module Mesh_Element__3D
 
   !-----------------------------------------------------------------------------
   !> Element vertex data
+  !>
+  !> The orientation flag `o_neighbor` indicates the direction of the neighbor
+  !> parallel to the ξ direction of the current element. This feature is only
+  !> available for regular vertices enclosed by 8 elements. In other cases
+  !> `o_neighbor` is set to 0.
+  !>
+  !> The `rank` component provides an ordering of all element vertices referring
+  !> to the same mesh vertex. Typically the former belong to differen elements.
+  !> However, due to periodicity, several vertices of one element may coincide
+  !> with the same mesh vertex.
+  !>
+  !> The `valency` equals the total number of element vertices sharing the
+  !> corresponding mesh vertex.
 
   type MeshElementVertex_3D
     integer      :: id         = -1 !< local mesh vertex ID
@@ -85,8 +98,7 @@ module Mesh_Element__3D
   !>
   !> The neighbor element properties are usually accessed through the components
   !> of a given element. Every component is coupled to a neighbor component of
-  !> identical type. Thus, if the component is a face, then `cc` refers to the
-  !> coupled element face of the neighbor, etc.
+  !> identical type.
   !> If `part` coincides with the present partition, then `id` refers to a local
   !> element. Otherwise it corresponds to the ghost of a remote neighbor and can
   !> be used to access corresponding data.
@@ -95,9 +107,10 @@ module Mesh_Element__3D
   !> Before creating mesh links, `id` refers to the neighbor's home partition.
 
   type MeshElementNeighbor_3D
-    integer :: id   = -1 !< local ID of neighbor element, including ghosts
-    integer :: part = -1 !< partition owning the neighbor
-    integer :: cc   = -1 !< coupled neighbor component
+    integer      :: id   = -1 !< local ID of neighbor element, including ghosts
+    integer      :: part = -1 !< partition owning the neighbor
+    integer(IXS) :: component   = -1 !< coupled component {1:26}
+    integer(IXS) :: orientation = -1 !< neighbor orientation
   end type MeshElementNeighbor_3D
 
   !-----------------------------------------------------------------------------

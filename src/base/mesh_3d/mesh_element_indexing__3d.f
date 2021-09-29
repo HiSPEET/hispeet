@@ -43,6 +43,7 @@
 !===============================================================================
 
 module Mesh_Element_Indexing__3D
+  use Kind_Parameters, only: IXS
   implicit none
   private
 
@@ -156,22 +157,26 @@ module Mesh_Element_Indexing__3D
   ! Generic interfaces
 
   interface ElementComponentType
-    module procedure :: ElementComponentType_L
+    module procedure :: ElementComponentType_L_IDK
+    module procedure :: ElementComponentType_L_IXS
     module procedure :: ElementComponentType_T
   end interface
 
   interface ElementFaceID
-    module procedure :: ElementFaceID_L
+    module procedure :: ElementFaceID_L_IDK
+    module procedure :: ElementFaceID_L_IXS
     module procedure :: ElementFaceID_T
   end interface
 
   interface ElementEdgeID
-    module procedure :: ElementEdgeID_L
+    module procedure :: ElementEdgeID_L_IDK
+    module procedure :: ElementEdgeID_L_IXS
     module procedure :: ElementEdgeID_T
   end interface
 
   interface ElementVertexID
-    module procedure :: ElementVertexID_L
+    module procedure :: ElementVertexID_L_IDK
+    module procedure :: ElementVertexID_L_IXS
     module procedure :: ElementVertexID_T
   end interface
 
@@ -196,7 +201,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Returns the component type for given component index
 
-  pure integer function ElementComponentType_L(l) result(typ)
+  pure integer function ElementComponentType_L_IDK(l) result(typ)
     integer, intent(in) :: l !< component index
 
     select case(l)
@@ -210,7 +215,26 @@ contains
       typ = IS_VERTEX
     end select
 
-  end function ElementComponentType_L
+  end function ElementComponentType_L_IDK
+
+  !-----------------------------------------------------------------------------
+  !> Returns the component type for given component index
+
+  pure integer function ElementComponentType_L_IXS(l) result(typ)
+    integer(IXS), intent(in) :: l !< component index
+
+    select case(l)
+    case(0)
+      typ = IS_VOLUME
+    case(1:6)
+      typ = IS_FACE
+    case(7:18)
+      typ = IS_EDGE
+    case default ! 19:26
+      typ = IS_VERTEX
+    end select
+
+  end function ElementComponentType_L_IXS
 
   !-----------------------------------------------------------------------------
   !> Returns the component type for given triple position index
@@ -220,19 +244,29 @@ contains
     integer, intent(in) :: j !< position in direction 2,  -1 <= j <= 1
     integer, intent(in) :: k !< position in direction 3,  -1 <= k <= 1
 
-    typ = ElementComponentType_L(L_POS(i,j,k))
+    typ = ElementComponentType(L_POS(i,j,k))
 
   end function ElementComponentType_T
 
   !-----------------------------------------------------------------------------
   !> Returns the element face `f` associated with component index `l`
 
-  pure integer function ElementFaceID_L(l) result(f)
+  pure integer function ElementFaceID_L_IDK(l) result(f)
     integer, intent(in) :: l !< component index
 
     f = l
 
-  end function ElementFaceID_L
+  end function ElementFaceID_L_IDK
+
+  !-----------------------------------------------------------------------------
+  !> Returns the element face `f` associated with component index `l`
+
+  pure integer function ElementFaceID_L_IXS(l) result(f)
+    integer(IXS), intent(in) :: l !< component index
+
+    f = l
+
+  end function ElementFaceID_L_IXS
 
   !-----------------------------------------------------------------------------
   !> Returns the element face `f` associated with position `(i,j,k)`
@@ -249,12 +283,22 @@ contains
   !-----------------------------------------------------------------------------
   !> Returns the element edge `e` associated with component index `l`
 
-  pure integer function ElementEdgeID_L(l) result(e)
+  pure integer function ElementEdgeID_L_IDK(l) result(e)
     integer, intent(in) :: l !< component index
 
     e = l - 6
 
-  end function ElementEdgeID_L
+  end function ElementEdgeID_L_IDK
+
+  !-----------------------------------------------------------------------------
+  !> Returns the element edge `e` associated with component index `l`
+
+  pure integer function ElementEdgeID_L_IXS(l) result(e)
+    integer(IXS), intent(in) :: l !< component index
+
+    e = l - 6
+
+  end function ElementEdgeID_L_IXS
 
   !-----------------------------------------------------------------------------
   !> Returns the element edge `e` associated with position `(i,j,k)`
@@ -271,12 +315,22 @@ contains
   !-----------------------------------------------------------------------------
   !> Returns the element vertex `v` associated with component index `l`
 
-  pure integer function ElementVertexID_L(l) result(v)
+  pure integer function ElementVertexID_L_IDK(l) result(v)
     integer, intent(in) :: l !< component index
 
     v = l - 18
 
-  end function ElementVertexID_L
+  end function ElementVertexID_L_IDK
+
+  !-----------------------------------------------------------------------------
+  !> Returns the element vertex `v` associated with component index `l`
+
+  pure integer function ElementVertexID_L_IXS(l) result(v)
+    integer(IXS), intent(in) :: l !< component index
+
+    v = l - 18
+
+  end function ElementVertexID_L_IXS
 
   !-----------------------------------------------------------------------------
   !> Returns the element vertex `v` associated with position `(i,j,k)`

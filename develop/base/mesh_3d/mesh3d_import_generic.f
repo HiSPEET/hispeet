@@ -12,25 +12,34 @@ program Mesh3d_Import_Generic
   implicit none
 
   character(len=*), parameter :: input_file = 'mesh3d_import_generic.prm'
-  integer   :: conf = 1   ! configuration (1 cylinder, 2 annular gap)
+
+  integer :: config = 1 ! configuration (1 cylinder, 2 annular gap, 3 diamonds)
+  logical :: test_avg   = .false. ! perform averaging test
+  logical :: export_vtk = .false. ! generate VTK file
+  namelist/control/ config, test_avg, export_vtk
+
   real(RNP) :: r0   = 0.5 ! inner radius  (annular gap only)
   real(RNP) :: r1   = 1   ! outer radius
   real(RNP) :: h    = 2   ! height = axial extension
+  real(RNP) :: lx   = 1   ! domain length in x-direction
+  real(RNP) :: ly   = 1   ! domain length in y-direction
+  real(RNP) :: lz   = 1   ! domain length in z-direction
+  integer   :: nx   = 2   ! num cells in x-direction
+  integer   :: ny   = 2   ! num cells in y-direction
+  integer   :: nz   = 2   ! num elements in z-/axial  direction
   integer   :: nr   = 2   ! num elements in radial    direction
   integer   :: np   = 4   ! num elements in azimuthal direction ≥ 3 (gap only)
-  integer   :: nz   = 3   ! num elements in axial     direction ≠ 2 if periodic
   integer   :: po   = 3   ! polynomial order of mesh elements
-  logical   :: periodic = .true. ! switch for axial periodicity
-  namelist/input/ conf, r0, r1, h, nr, np, nz, po, periodic
+  logical   :: periodic(3) = .false. ! F/T for non/periodic directions
 
-  logical   :: test_avg   = .false. ! perform averaging test
-  logical   :: export_vtk = .false. ! generate VTK file
-  namelist/control/ test_avg, export_vtk
+  namelist/cylinder/ nr, nz, po, periodic
+  namelist/annulus/  r0, r1, h, nr, np, nz, po, periodic
+  namelist/diamonds/ lx, ly, lz, nx, ny, nz, po, periodic
 
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
   integer :: rank
 
-  type(GenericMesh_3D)   :: generic_mesh
+  type(GenericMesh_3D) :: generic_mesh
   type(Mesh_3D) :: mesh
   type(SpectralElementMesh_3D) :: se_mesh
 
@@ -58,17 +67,26 @@ program Mesh3d_Import_Generic
     ! read parameters ..........................................................
 
     open(newunit = io, file = input_file)
-    read(io, nml = input)
     read(io, nml = control)
+    select case(config)
+    case(1)
+      read(io, nml = cylinder)
+    case(2)
+      read(io, nml = annulus)
+    case(3)
+      read(io, nml = diamonds)
+    end select
     close(io)
 
     ! create and import generic mesh ...........................................
 
-    select case(conf)
+    select case(config)
     case(2)
-      call generic_mesh % CreateAnnularGap(r0, r1, h, nr, np, nz, po, periodic)
+      call generic_mesh % CreateAnnulus(r0, r1, h, nr, np, nz, po, periodic(3))
+    case(3)
+      call generic_mesh % CreateDiamonds(lx, ly, lz, nx, ny, nz, po, periodic)
     case default
-      call generic_mesh % CreateCylinder(nr, nz, po, periodic)
+      call generic_mesh % CreateCylinder(r1, h, nr, nz, po, periodic(3))
     end select
 
     ! verification .............................................................

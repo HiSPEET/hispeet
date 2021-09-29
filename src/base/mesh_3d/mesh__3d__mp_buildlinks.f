@@ -36,7 +36,7 @@ contains
     integer, allocatable :: link_master(:,:,:)
     integer, allocatable :: link_ghost(:,:)
     integer, allocatable :: map(:), perm(:)
-    integer :: cc, e, f, i, j, j1, j2, k, l, m, n, p, q, r, s
+    integer :: c, e, f, i, j, j1, j2, k, l, m, n, p, q, r, s
 
     !---------------------------------------------------------------------------
     ! Initialization
@@ -385,26 +385,28 @@ contains
 
         ghost % id = l
         element % neighbor(j) % id = l
-        cc = element % neighbor(j) % cc
 
         if (i > 18) then ! vertex
-          ghost % vertex(cc) = 1
+          c = ElementVertexID(element % neighbor(j) % component)
+          ghost % vertex(c) = 1
 
         else if (i > 6) then ! edge
-          ghost % edge(cc) = 1
+          c = ElementEdgeID(element % neighbor(j) % component)
+          ghost % edge(c) = 1
 
         else ! face
-          ghost % face(cc) = 1
+          c = ElementFaceID(element % neighbor(j) % component)
+          ghost % face(c) = 1
           m = mod(i,2)
           f = element % face(i) % id
           if (       m == 1 .and. element % face(i) % normal > 0    &
                .or.  m == 0 .and. element % face(i) % normal < 0  ) &
           then
             mesh % face(f) % element(1) % id   = l
-            mesh % face(f) % element(1) % face = cc
+            mesh % face(f) % element(1) % face = c
           else
             mesh % face(f) % element(2) % id   = l
-            mesh % face(f) % element(2) % face = cc
+            mesh % face(f) % element(2) % face = c
           end if
 
         end if
