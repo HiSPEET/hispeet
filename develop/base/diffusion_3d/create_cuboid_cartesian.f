@@ -36,11 +36,11 @@ contains
     integer   :: ep(3) = 2             ! elements per partition and direction
     logical   :: periodic(3) = .false. !  F/T for non/periodic directions
 
-    namelist/cuboid_cartesian/ xo, lx, np, ep, periodic
+    namelist/cuboid_cartesian_prm/ xo, lx, np, ep, periodic
 
     ! auxiliary variables ......................................................
 
-    integer   :: mpi_rank
+    integer   :: rank
     integer   :: io
     real(RNP) :: dx(3)                 ! element spacing in directions 1:3
 
@@ -48,11 +48,11 @@ contains
 
     ! initialization ...........................................................
 
-    call MPI_Comm_rank(comm, mpi_rank)
+    call MPI_Comm_rank(comm, rank)
 
-    if (mpi_rank == 0) then
+    if (rank == 0) then
       open(newunit = io, file = input)
-      read(io, nml = cuboid_cartesian)
+      read(io, nml = cuboid_cartesian_prm)
       close(io)
     end if
 

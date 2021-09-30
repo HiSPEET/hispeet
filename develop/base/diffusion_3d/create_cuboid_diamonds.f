@@ -38,11 +38,11 @@ contains
     integer   :: nz = 2                ! number of elements in z-direction
     logical   :: periodic(3) = .false. ! F/T for non/periodic directions
 
-    namelist/cuboid_diamonds/ lx, ly, lz, nx, ny, nz, periodic
+    namelist/cuboid_diamonds_prm/ lx, ly, lz, nx, ny, nz, periodic
 
     ! auxiliary variables ......................................................
 
-    integer   :: mpi_rank
+    integer   :: rank
     integer   :: io
 
     type(GenericMesh_3D) :: generic_mesh
@@ -50,11 +50,11 @@ contains
 
     ! initialization ...........................................................
 
-    call MPI_Comm_rank(comm, mpi_rank)
+    call MPI_Comm_rank(comm, rank)
 
-    if (mpi_rank == 0) then
+    if (rank == 0) then
       open(newunit = io, file = input)
-      read(io, nml = cuboid_diamonds)
+      read(io, nml = cuboid_diamonds_prm)
       close(io)
     end if
 

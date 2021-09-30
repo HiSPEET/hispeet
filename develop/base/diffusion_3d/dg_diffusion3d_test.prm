@@ -1,14 +1,20 @@
-&control
+&control_prm
 /
 
-&cuboid_cartesian
+&problem_prm
 /
 
-&cuboid_diamonds
+&dicretization_prm
 /
 
-&cylinder
+&cuboid_cartesian_prm
 /
 
-&annulus
+&cuboid_diamonds_prm
+/
+
+&cylinder_prm
+/
+
+&annulus_prm
 /

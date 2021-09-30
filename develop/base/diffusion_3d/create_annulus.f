@@ -42,7 +42,7 @@ contains
 
     ! auxiliary variables ......................................................
 
-    integer   :: mpi_rank
+    integer   :: rank
     integer   :: io
 
     type(GenericMesh_3D) :: generic_mesh
@@ -50,9 +50,9 @@ contains
 
     ! initialization ...........................................................
 
-    call MPI_Comm_rank(comm, mpi_rank)
+    call MPI_Comm_rank(comm, rank)
 
-    if (mpi_rank == 0) then
+    if (rank == 0) then
       open(newunit = io, file = input)
       read(io, nml = annulus)
       close(io)

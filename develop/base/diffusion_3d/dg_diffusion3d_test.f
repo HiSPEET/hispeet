@@ -1,14 +1,26 @@
 program DG_Diffusion3D_Test
   use Kind_Parameters
   use Constants
+  use OpenMP_Binding
   use XMPI
   use Spectral_Element_Mesh__3D
   use Export_VTK_Volume_Data__3D
+
   use Create_Cuboid_Cartesian
   use Create_Cuboid_Diamonds
   use Create_Cylinder
   use Create_Annulus
+
+  use Elliptic_Problem
+  use Elliptic_Problem__Simple_1D
+  use Elliptic_Problem__Simple_2D
+  use Elliptic_Problem__Simple_3D
+  use Elliptic_Problem__Knotty
+
   implicit none
+
+  !-----------------------------------------------------------------------------
+  ! Declarations
 
   ! control parameters .........................................................
 
@@ -23,148 +35,186 @@ program DG_Diffusion3D_Test
   !   4  annular domain                                                    (u+d)
   ! configuration > 1 currently available only with one MPI process
 
-  integer :: pg = 1               ! polynomial degree of geometry description
-  integer :: po = 7               ! polynomial degree of spectral elements
   logical :: export_vtk = .false. ! generate VTK files
 
-  namelist/control/ config, pg, po, export_vtk
+  namelist/control_prm/ config, export_vtk
 
-  ! MPI variables ..............................................................
+  ! problem parameters .........................................................
 
-  type(MPI_Comm) :: comm = MPI_COMM_WORLD
-  integer :: mpi_rank
-  integer :: mpi_size
+  integer :: test_case   = 3       ! set 1/2/3 for simple 1/2/3d or 4 for knotty
+  logical :: variable_nu = .false. ! set T/F for variable/constant ν
+
+  namelist/problem_prm/ test_case, variable_nu
+
+  ! NOTE:
+  !   -  spectral diffusivity  (nu_s) available in case of constant ν only
+  !   -  fluctuation amplitude (nu_1) ignored   in case of constant ν
+
+  real(RNP) :: lambda = 0     ! Helmholtz parameter
+  real(RNP) :: nu_0   = 1     ! diffusivity mean value ν₀
+  real(RNP) :: nu_1   = 0     ! diffusivity fluctuation amplitude ν₁
+  real(RNP) :: nu_s   = 0     ! spectral  diffusivity amplitude
+  real(RNP) :: d_nu   = 0     ! diffusivity fluctuation phase shift
+  integer   :: k_nu   = 1     ! diffusivity fluctuation wave number
+  integer   :: k_u    = 1     ! solution wave number
+
+  namelist/problem_prm/ lambda, nu_0, nu_1, nu_s, d_nu, k_nu, k_u
+
+  ! discretization parameters ..................................................
+
+  ! NOTE: domain and mesh parameters are set via test case
+
+  integer   :: pg      = 1    ! polynomial degree of geometry description
+  integer   :: po      = 7    ! polynomial degree of spectral elements
+  real(RNP) :: penalty = 2    ! penalty parameter > 1
+
+  namelist/dicretization_prm/ pg, po, penalty
+
+  ! MPI and OpenMP variables ...................................................
+
+  type(MPI_Comm) :: comm      ! MPI communicator
+  integer        :: rank      ! local MPI rank
+  integer        :: n_proc    ! number of MPI processes
+  integer        :: n_thread  ! number of OpenMP threads
 
   ! problem variables ..........................................................
 
   type(SpectralElementMesh_3D) :: sem
 
+  class(EllipticProblem), allocatable :: problem
+
+  real(RNP), allocatable, target :: var(:,:,:,:,:)
+  real(RNP), pointer :: s (:,:,:,:)  ! exact solution
+  real(RNP), pointer :: u (:,:,:,:)  ! approximate solution
+  real(RNP), pointer :: nu(:,:,:,:)  ! diffusivity
+  real(RNP), pointer :: f (:,:,:,:)  ! RHS
+  real(RNP), pointer :: r (:,:,:,:)  ! residual
+  real(RNP), pointer :: e (:,:,:,:)  ! error
+
+
   ! auxiliary variables ........................................................
 
   integer :: io
+  integer :: n_bound, n_elem, n_var
 
-!?!  real(RNP), allocatable, target :: var(:,:,:,:,:)
-!?!  real(RNP), allocatable         :: x(:,:,:,:,:)
-!?!  real(RNP), allocatable         :: v(:,:,:,:)     ! test variable
-!?!  real(RNP), pointer             :: r(:,:,:,:)     ! reference variable
-!?!  real(RNP), pointer             :: e(:,:,:,:)     ! error
-!?!
-!?!  type(ElementTransferBuffer_3D), asynchronous, allocatable :: v_buf
-!?!
-!?!  real(RNP), allocatable :: area(:)
-!?!  real(RNP) :: vol
-!?!  real(RNP) :: kappa(3), y(3), err
-!?!  logical   :: passed
-!?!  integer   :: i, j, k, l
-!?!  integer   :: i_err, j_err, k_err, l_err
-!?!
+  !-----------------------------------------------------------------------------
+  ! Initialization
 
-  ! initialization .............................................................
+  ! MPI and OpenMP .............................................................
 
-  call Init_MPI_Binding()
-  call MPI_Comm_rank(comm, mpi_rank)
-  call MPI_Comm_size(comm, mpi_size)
+  call XMPI_Init()
+
+  comm = MPI_COMM_WORLD
+  call MPI_Comm_rank(comm, rank)
+  call MPI_Comm_size(comm, n_proc)
+
+  !$omp parallel
+  n_thread = OMP_Num_Threads()
+  !$omp end parallel
+
+  ! parameters .................................................................
 
   ! read control parameters
-  if (mpi_rank == 0) then
+  if (rank == 0) then
     open(newunit = io, file = input)
-    read(io, nml = control)
+    read(io, nml = control_prm)
+    read(io, nml = problem_prm)
+    read(io, nml = dicretization_prm)
     close(io)
 
-    if (mpi_size > 1) config = 1  ! so far
+    if (n_proc > 1) config = 1  ! so far
   end if
 
-  call XMPI_Bcast(config    , 0, comm)
-  call XMPI_Bcast(pg        , 0, comm)
-  call XMPI_Bcast(po        , 0, comm)
-  call XMPI_Bcast(export_vtk, 0, comm)
+  ! globalize control parameters
+  call XMPI_Bcast( config      , 0, comm )
+  call XMPI_Bcast( export_vtk  , 0, comm )
 
-  ! create spectral element mesh
+  ! globalize problem parameters
+  call XMPI_Bcast( test_case   , 0, comm )
+  call XMPI_Bcast( variable_nu , 0, comm )
+  call XMPI_Bcast( lambda      , 0, comm )
+  call XMPI_Bcast( nu_0        , 0, comm )
+  call XMPI_Bcast( nu_1        , 0, comm )
+  call XMPI_Bcast( nu_s        , 0, comm )
+  call XMPI_Bcast( d_nu        , 0, comm )
+  call XMPI_Bcast( k_nu        , 0, comm )
+  call XMPI_Bcast( k_u         , 0, comm )
+
+  ! globalize discretization parameters
+  call XMPI_Bcast( pg          , 0, comm )
+  call XMPI_Bcast( po          , 0, comm )
+  call XMPI_Bcast( penalty     , 0, comm )
+
+  ! mesh .......................................................................
+
   select case(config)
   case(2)
-    call CreateCuboidDiamonds(comm, input, pg, po, sem)
+    call CreateCuboidDiamonds( comm, input, pg, po, sem )
   case(3)
-    call CreateCylinder(comm, input, pg, po, sem)
+    call CreateCylinder( comm, input, pg, po, sem )
   case(4)
-    call CreateAnnulus(comm, input, pg, po, sem)
+    call CreateAnnulus( comm, input, pg, po, sem )
   case default
-    call CreateCuboidCartesian(comm, input, pg, po, sem)
+    call CreateCuboidCartesian( comm, input, pg, po, sem )
   end select
 
-  ! finalization ...............................................................
+  ! problem ....................................................................
 
-  call MPI_Finalize()
+  select case(test_case)
+  case(1)
+    allocate(EllipticProblem_Simple1D :: problem)
+  case(2)
+    allocate(EllipticProblem_Simple2D :: problem)
+  case(3)
+    allocate(EllipticProblem_Simple3D :: problem)
+  case default
+    allocate(EllipticProblem_Knotty   :: problem)
+  end select
 
+  call problem % SetProblem(lambda, nu_0, nu_1, d_nu, k_nu, k_u)
 
-!?!
-!?!    se_mesh = SpectralElementMesh_3D(mesh, po)
-!?!
-!?!    allocate(area(mesh % n_bound))
+  ! variables ..................................................................
+
+  n_elem  = sem % mesh % n_elem
+  n_bound = sem % mesh % n_bound
+  n_var   = 6
+
+  allocate(var(0:po,0:po,0:po,1:n_elem,1:n_var))
+
+  s (0:,0:,0:,1:) => var(:,:,:,:,1)
+  u (0:,0:,0:,1:) => var(:,:,:,:,2)
+  nu(0:,0:,0:,1:) => var(:,:,:,:,3)
+  f (0:,0:,0:,1:) => var(:,:,:,:,4)
+  r (0:,0:,0:,1:) => var(:,:,:,:,5)
+  e (0:,0:,0:,1:) => var(:,:,:,:,6)
+
+  ! solution and RHS ...........................................................
+
+  associate(x => sem % metrics % x)
+
+    ! exact solution
+    call problem % GetExactSolution(x, s)
+
+    ! r = λ u - ∇·(ν ∇u)
+    call problem % GetSource(x, r)
+
+    ! f = M r
+    ! TBD: DG_Projection
+
+  end associate
+
+  !-----------------------------------------------------------------------------
+  ! ...
+
+!?!    allocate(area(n_bound))
 !?!    call se_mesh % GetVolume(vol)
 !?!    call se_mesh % GetSurfaceAreas(area)
-!?!
 !?!    write(*,'(A)') 'Spectral element mesh'
 !?!    write(*,'(2X,A,G0)') 'volume  = ', vol
 !?!    do i = 1, mesh % n_bound
 !?!      write(*,'(2X,A,I0,A,G0)') 'area(',i,') = ', area(i)
 !?!    end do
-!?!
-!?!    ! set up data ..............................................................
-!?!
-!?!    if (test_avg .or. export_vtk) then
-!?!      call mesh % GetPoints(po, 'L', x)
-!?!      allocate(v  (0:po, 0:po, 0:po, mesh%n_elem + mesh%n_ghost))
-!?!      allocate(var(0:po, 0:po, 0:po, mesh%n_elem, 2), source = ZERO)
-!?!      r(0:,0:,0:,1:) => var(:,:,:,:,1)
-!?!      e(0:,0:,0:,1:) => var(:,:,:,:,2)
-!?!    end if
-!?!
-!?!    ! averaging test ...........................................................
-!?!
-!?!    if (test_avg) then
-!?!
-!?!      kappa = 2 * PI / h
-!?!
-!?!      do l = 1, mesh%n_elem
-!?!        do k = 0, po
-!?!        do j = 0, po
-!?!        do i = 0, po
-!?!          y(1) = x(i,j,k,l,1)
-!?!          y(2) = x(i,j,k,l,2)
-!?!          y(3) = x(i,j,k,l,3)
-!?!          r(i,j,k,l) = cos(sum(kappa * y))
-!?!          v(i,j,k,l) = r(i,j,k,l)
-!?!        end do
-!?!        end do
-!?!        end do
-!?!      end do
-!?!
-!?!      v_buf = ElementTransferBuffer_3D(mesh, v)
-!?!      call Assembly_3D(mesh, v, v_buf, avg=.true.)
-!?!
-!?!      err = 0
-!?!      do l = 1, mesh%n_elem
-!?!        do k = 0, po
-!?!        do j = 0, po
-!?!        do i = 0, po
-!?!          e(i,j,k,l) = v(i,j,k,l) - r(i,j,k,l)
-!?!          if (abs(e(i,j,k,l)) > err) then
-!?!            err   = abs(e(i,j,k,l))
-!?!            i_err = i
-!?!            j_err = j
-!?!            k_err = k
-!?!            l_err = l
-!?!          end if
-!?!        end do
-!?!        end do
-!?!        end do
-!?!      end do
-!?!      write(*,'(A,ES10.3,A,4I5)') 'Average over element boundaries: err = ', &
-!?!                                  err, ' at ', i_err, j_err, k_err, l_err
-!?!    end if
-!?!
-!?!    ! export mesh and data .....................................................
-!?!
+
 !?!    if (export_vtk) then
 !?!      call ExportVTK_VolumeData( x, var                  &
 !?!                               , sname  = ['r','e']      &
@@ -172,21 +222,17 @@ program DG_Diffusion3D_Test
 !?!                               , part   = mesh % part    &
 !?!                               , n_part = mesh % n_part  )
 !?!
-!?!      call mesh % GetCuboids(x)
-!?!      call ExportVTK_VolumeData( x                       &
-!?!                               , file   = 'cuboid_mesh'  &
-!?!                               , part   = mesh % part    &
-!?!                               , n_part = mesh % n_part  )
-!?!
 !?!    end if
-!?!
-!?!  end if
+
+  !-----------------------------------------------------------------------------
+  ! Finalization
+
+  call MPI_Finalize()
 
 contains
 
   !-----------------------------------------------------------------------------
   !>
   !=============================================================================
-
 
 end program DG_Diffusion3D_Test

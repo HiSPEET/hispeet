@@ -36,11 +36,11 @@ contains
     integer   :: nz   = 2           ! num elements in axial  direction
     logical   :: periodic = .false. ! F/T for non/periodicity in axial direction
 
-    namelist/cylinder/ r, h, nr, nz, periodic
+    namelist/cylinder_prm/ r, h, nr, nz, periodic
 
     ! auxiliary variables ......................................................
 
-    integer   :: mpi_rank
+    integer   :: rank
     integer   :: io
 
     type(GenericMesh_3D) :: generic_mesh
@@ -48,11 +48,11 @@ contains
 
     ! initialization ...........................................................
 
-    call MPI_Comm_rank(comm, mpi_rank)
+    call MPI_Comm_rank(comm, rank)
 
-    if (mpi_rank == 0) then
+    if (rank == 0) then
       open(newunit = io, file = input)
-      read(io, nml = cylinder)
+      read(io, nml = cylinder_prm)
       close(io)
     end if
 
