@@ -29,15 +29,17 @@ contains
   !>
   !> Restriction: nz = 1 or nz ≥ 3 in the periodic case.
 
-  module subroutine CreateCylinder(mesh, nr, nz, po, periodic)
+  module subroutine CreateCylinder(mesh, r, h, nr, nz, po, periodic)
     class(GenericMesh_3D), intent(out) :: mesh  !< cylindrical 3d mesh
-    integer, intent(in) :: nr  !< num intervals in radial section
-    integer, intent(in) :: nz  !< num intervals in axial  direction
-    integer, intent(in) :: po  !< polynomial order of mesh elements
-    logical, intent(in) :: periodic !< switch for axial periodicity
+    real(RNP), intent(in) :: r   !< cylinder radius
+    real(RNP), intent(in) :: h   !< cylinder height (axial extension)
+    integer,   intent(in) :: nr  !< num intervals in radial section
+    integer,   intent(in) :: nz  !< num intervals in axial  direction
+    integer,   intent(in) :: po  !< polynomial order of mesh elements
+    logical,   intent(in) :: periodic !< switch for axial periodicity
 
     integer   :: nv, ne, nb, np
-    integer   :: i, j, k, l, d, p, q, r, f
+    integer   :: i, j, k, l, d, f, m, n, o
     real(RNP) :: xc(0:po), cr, cz
     real(RNP) :: xi, eta, zeta
 
@@ -69,12 +71,12 @@ contains
       ! subdomain 1: inner quadrangle
       do concurrent (i=0:nr, j=0:nr)
         mesh%vertex(LinearVertexIndex(1, i, j, k, nr))%x = &
-            PointCoordinates(1, 2*cr*i-1, 2*cr*j-1, zeta)
+            PointCoordinates(1, 2*cr*i-1, 2*cr*j-1, zeta, r, h)
       end do
       ! subdomains 2-5: ring sections
       do concurrent (i=1:nr, j=1:nr, d=2:5)
         mesh%vertex(LinearVertexIndex(d, i, j, k, nr))%x = &
-            PointCoordinates(d, 2*cr*i-1, 2*cr*j-1, zeta)
+            PointCoordinates(d, 2*cr*i-1, 2*cr*j-1, zeta, r, h)
       end do
     end do
 
@@ -107,9 +109,9 @@ contains
       xi   = cr * (2*i - 1)  -  1
       eta  = cr * (2*j - 1)  -  1
       zeta = cz * (2*k - 1)  -  1
-      do concurrent (p=0:po, q=0:po, r=0:po)
-        mesh%element(l)%x(1 + p + np*(q + np*r),:) = &
-            PointCoordinates(d, xi+cr*xc(p), eta+cr*xc(q), zeta+cz*xc(r))
+      do concurrent (m=0:po, n=0:po, o=0:po)
+        mesh%element(l)%x(1 + m + np*(n + np*o),:) = &
+            PointCoordinates(d, xi+cr*xc(m), eta+cr*xc(n), zeta+cz*xc(o), r, h)
       end do
     end do
     end do
@@ -304,11 +306,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Point coordinates in the cylinder with radius 1 and axis (∓1,0,0)
 
-  pure function PointCoordinates(d, xi, eta, zeta) result(x)
+  pure function PointCoordinates(d, xi, eta, zeta, r, h) result(x)
     integer,   intent(in) :: d    !< subdomain, 1 <= d <= 5
     real(RNP), intent(in) :: xi   !< first coordinate,  -1 <= xi   <= 1
     real(RNP), intent(in) :: eta  !< second coordinate, -1 <= eta  <= 1
     real(RNP), intent(in) :: zeta !< third coordinate,  -1 <= zeta <= 1
+    real(RNP), intent(in) :: r    !< cylinder radius
+    real(RNP), intent(in) :: h    !< cylinder height
     real(RNP) :: x(3)
 
     ! local variables ..........................................................
@@ -378,6 +382,11 @@ contains
     case default
       x = 0
     end select
+
+    ! scale to cylinder radius and height
+    x(1) = r   * x(1)
+    x(2) = r   * x(2)
+    x(3) = h/2 * x(3)
 
   contains
 

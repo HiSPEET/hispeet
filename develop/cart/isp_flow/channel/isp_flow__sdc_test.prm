@@ -10,12 +10,26 @@
   eval_eps      =  F
   average       =  F
 !
-  flow_op_control%chi            = -2     ! [-1]
-  flow_op_control%div_penalty    =  0     ! [1]
-  flow_op_control%div_coeff      =  1     ! [1]
-  flow_op_control%div_i_max      =  100   ! [10]
-  flow_op_control%div_final      =  F     ! [T]
-  flow_op_control%svv            =  T     ! [F]
+  flow_op_control%chi            = -2       ! [-1]
+!
+! *** activate in case of continuity problems:
+! flow_op_control%div_penalty    =  1       ! [1]
+! flow_op_control%div_coeff      =  1       ! [1]
+! flow_op_control%div_i_max      =  100     ! [10]
+!
+! *** can be helpful in case of variable or turbulent viscosity:
+! flow_op_control%div_final      =  F       ! [T]
+!
+! *** activate for use with SVV:
+! flow_op_control%svv            =  T       ! [F]
+!
+! *** activate for use with Sigma model:
+! flow_op_control%sgs            =  1 
+! flow_op_control%sgs_coeff      =  1.35    ! adjust when using static model
+! flow_op_control%sgs_dyn        = .true.   ! recommended
+! flow_op_control%sgs_dyn_po_c   =  0       ! [0: auto]
+! flow_op_control%sgs_smooth     = .false   ! worth trying
+! flow_op_control%sgs_smooth_wt  =  0.005   ! decrease when CFL ≫ 0.1
 /
 
 ! using 12 elements of degree 16 in y-direction yields y⁺ ≈ 0.4 for Re_τ = 1180

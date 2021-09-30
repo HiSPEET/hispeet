@@ -8,6 +8,7 @@ module Verify_Mesh__3D
 
   use Mesh__3D
   use Mesh_Element__3D
+  use Mesh_Element_Indexing__3D
 
   implicit none
   private
@@ -38,7 +39,7 @@ contains
     type(Mesh_3D), intent(in)  :: mesh   !< mesh partition
     logical,                intent(out) :: passed !< test result
 
-    integer :: e, i, j, k, l, n
+    integer :: c, e, i, j, k, l, n
 
     passed = .true.
 
@@ -55,11 +56,12 @@ contains
           do j = i, i+n-1
             l = neighbor(j) % id
             if (l > 0 .and. l <= mesh % n_elem) then
-              passed = FaceMatch(mesh%element(l), neighbor(j)%cc, e)
+              c = ElementFaceID(neighbor(j) % component)
+              passed = FaceMatch(mesh%element(l), c, e)
               if (.not. passed) then
                 write(*,'(99G0)') '*** part ', mesh%part,': no match between ', &
                                   'element ', e, ', face ', k, ' and ',         &
-                                  'element ', l, ', face ', neighbor(j)%cc
+                                  'element ', l, ', face ', c
               end if
             else if (l < 0 .or. l > mesh%n_elem + mesh%n_ghost) then
               passed = .false.
@@ -77,11 +79,12 @@ contains
           do j = i, i+n-1
             l = neighbor(j) % id
             if (l > 0 .and. l <= mesh % n_elem) then
-              passed = EdgeMatch(mesh%element(l), neighbor(j)%cc, e)
+              c = ElementEdgeID(neighbor(j) % component)
+              passed = EdgeMatch(mesh%element(l), c, e)
               if (.not. passed) then
                 write(*,'(99G0)') '*** part ', mesh%part,': no match between ', &
                                   'element ', e, ', edge ', k, ' and ',         &
-                                  'element ', l, ', edge ', neighbor(j)%cc
+                                  'element ', l, ', edge ', c
               end if
             else if (l < 0 .or. l > mesh%n_elem + mesh%n_ghost) then
               passed = .false.
@@ -99,11 +102,12 @@ contains
           do j = i, i+n-1
             l = neighbor(j) % id
             if (l > 0 .and. l <= mesh % n_elem) then
-              passed = VertexMatch(mesh%element(l), neighbor(j)%cc, e)
+              c = ElementVertexID(neighbor(j) % component)
+              passed = VertexMatch(mesh%element(l), c, e)
               if (.not. passed) then
                 write(*,'(99G0)') '*** part ', mesh%part,': no match between ',  &
                                   'element ', e, ', vertex ', k, ' and ',        &
-                                  'element ', l, ', vertex ', neighbor(j)%cc
+                                  'element ', l, ', vertex ', c
               end if
             else if (l < 0 .or. l > mesh%n_elem + mesh%n_ghost) then
               passed = .false.

@@ -7,10 +7,10 @@
     ! arguments ................................................................
 
     class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: this
-    type(Mesh_3D), intent(in) :: mesh !< mesh partition
-    integer(IK),            intent(in) :: v    !< mesh variable
-    integer,                intent(in) :: v_ne !< size of v in element dimension
-    integer,                intent(in) :: tag  !< message tag
+    class(Mesh_3D), intent(in) :: mesh !< mesh partition
+    integer(IK),    intent(in) :: v    !< mesh variable
+    integer,        intent(in) :: v_ne !< size of v in element dimension
+    integer,        intent(in) :: tag  !< message tag
 
     dimension :: v(this%np(1), this%np(2), this%np(3), v_ne, this%nc)
 
@@ -26,6 +26,27 @@
       call Error('Transfer_IX','size(v,4) < this%ne')
     end if
     !$omp end master
+
+    ! receive master data ......................................................
+
+    select type (vb => this % ghost % buf)
+    type is (integer(IK))
+
+      !$omp master
+      do i = 1, size(mesh%link)
+        source = mesh % link(i) % part
+        m = this % ghost % start(i)
+        l = this % ghost % len(i)
+        if (l > 0) then
+          call XMPI_Irecv( vb(m:m+l-1), source, tag, mesh%comm &
+                         , this%ghost%request(i)               )
+        else
+          this%ghost%request(i) = MPI_REQUEST_NULL
+        end if
+      end do
+      !$omp end master
+
+    end select
 
     ! extract and send master data .............................................
 
@@ -49,27 +70,6 @@
                          , this%master%request(i)            )
         else
           this%master%request(i) = MPI_REQUEST_NULL
-        end if
-      end do
-      !$omp end master
-
-    end select
-
-    ! receive master data ......................................................
-
-    select type (vb => this % ghost % buf)
-    type is (integer(IK))
-
-      !$omp master
-      do i = 1, size(mesh%link)
-        source = mesh % link(i) % part
-        m = this % ghost % start(i)
-        l = this % ghost % len(i)
-        if (l > 0) then
-          call XMPI_Irecv( vb(m:m+l-1), source, tag, mesh%comm &
-                         , this%ghost%request(i)              )
-        else
-          this%ghost%request(i) = MPI_REQUEST_NULL
         end if
       end do
       !$omp end master
@@ -101,25 +101,18 @@
 
   !-----------------------------------------------------------------------------
   !> Complete receive and merge buffer into ghost data -- integer eXplicit
-  !>
-  !> Denoting the buffer with `vb`, the following operation will be executed:
-  !>
-  !>       v  =  alpha * v  +  beta * vb
 
-  subroutine Merge_IX(this, v, alpha, beta)
+  subroutine Merge_IX(this, v)
 
     ! arguments ................................................................
 
     class(ElementTransferBuffer_3D), intent(inout) :: this
-    integer(IK),       intent(inout) :: v      !< mesh variable
-    integer, optional, intent(in)    :: alpha  !< coeff of v  [1]
-    integer, optional, intent(in)    :: beta   !< coeff of vb [1]
+    integer(IK), intent(inout) :: v !< mesh variable
 
     dimension :: v(this%np(1), this%np(2), this%np(3), this%ne+this%ng, this%nc)
 
     ! internal data ............................................................
 
-    integer :: a, b
     integer :: ng, nm
 
     ! wait for receive to complete .............................................
@@ -139,60 +132,32 @@
 
       if (size(vb) == 0) return
 
-      if (present(alpha)) then
-        a = alpha
-      else
-        a = 0
-      end if
-
-      if (present(beta)) then
-        b = beta
-      else
-        b = 1
-      end if
-
       call MergeBuffer( nn   = size(this%ghost%node)  &
                       , nm   = size(v) / this % nc    &
                       , nc   = this % nc              &
                       , node = this % ghost % node    &
-                      , a    = a                      &
-                      , b    = b                      &
                       , vb   = vb                     &
                       , v    = v                      )
     end select
 
   contains
 
-    subroutine MergeBuffer(nn, nm, nc, node, a, b, vb, v)
+    subroutine MergeBuffer(nn, nm, nc, node, vb, v)
       integer    , intent(in)    :: nn
       integer    , intent(in)    :: nm
       integer    , intent(in)    :: nc
       integer    , intent(in)    :: node(nn)
-      integer    , intent(in)    :: a, b
       integer(IK), intent(in)    :: vb(nn,nc)
       integer(IK), intent(inout) :: v(nm,nc)
 
       integer :: i, j
 
-      if (a /= 0) then
-
-        !$omp do collapse(2) private(i,j)
-        do j = 1, nc
-        do i = 1, nn
-          v(node(i), j) = a * v(node(i), j)  +  b * vb(i,j)
-        end do
-        end do
-
-      else
-
-        !$omp do collapse(2) private(i,j)
-        do j = 1, nc
-        do i = 1, nn
-          v(node(i), j) = b * vb(i,j)
-        end do
-        end do
-
-      end if
+      !$omp do collapse(2) private(i,j)
+      do j = 1, nc
+      do i = 1, nn
+        v(node(i), j) = vb(i,j)
+      end do
+      end do
 
     end subroutine MergeBuffer
 

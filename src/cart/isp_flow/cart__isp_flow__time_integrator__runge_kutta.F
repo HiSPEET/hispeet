@@ -32,6 +32,7 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Pressure
   use CART__ISP_Flow__Projection
+  use CART__ISP_Flow__SGS_Diffusivity
   use CART__ISP_Flow__Time_Derivative
   use CART__ISP_Flow__Time_Integrator
   use CART__DG_Weak_Gradient
@@ -202,6 +203,7 @@ contains
     ! control
     real(RNP), save :: t_0 = -huge(ONE)
     logical,   save :: fsal
+    logical,   save :: variable_nu
 
     ! auxiliary
     real(RNP) :: t_i, tau
@@ -233,14 +235,20 @@ contains
       end if
 
       ! check first-same-as-last condition
-      fsal = c(n_stage) == ONE .and. t == t_0 .and. allocated(F_c) !.and. .false.
+      fsal = c(n_stage) == ONE .and. t == t_0 .and. allocated(F_c)
+      ! deactivate FSAL if the SGS model is called only at stage 1
+      fsal = fsal .and. flow_op % control % sgs /= 1
+
+      ! check for variable diffusivity
+      variable_nu = problem % HasVariableProperties() .or. &
+                    flow_op % control % sgs > 0
 
       if (.not. allocated(F_c)) then
         ! allocate new workspace
         allocate(u_i, mold = u)
         allocate(F_c(size(u,1), size(u,2), size(u,3), size(u,4), size(u,5), n_stage))
         allocate(F_d1, F_d2, F_d3, F_p, F_s, mold = F_c)
-        if (problem % HasVariableProperties()) then
+        if (variable_nu) then
           allocate(nu, mold = u)
         end if
       end if
@@ -267,8 +275,11 @@ contains
 
       else
 
-        if (problem % HasVariableProperties()) then
-          call problem % GetDiffusivity(flow_op%x, t_i, u, nu)
+        if (variable_nu) then
+          call problem % GetDiffusivity(flow_op%x, t_i, u, nu)  ! ν_phy
+          if (flow_op % control % sgs > 0) then                 !
+            call Add_SGS_Diffusivity(flow_op, u, nu)            ! ν_sgs
+          end if
         end if
 
         call TimeDerivative( problem, flow_op, t_i      &
@@ -365,8 +376,11 @@ contains
       case(1)
         ! recompute pressure using F_p and F_s as workspace
         associate(F_v => F_p(:,:,:,:,:,1), w => F_s(:,:,:,:,:,1))
-          if (c(n_stage) /= ONE .and. problem % HasVariableProperties()) then
+          if (c(n_stage) /= ONE .and. variable_nu) then
             call problem % GetDiffusivity(flow_op%x, t, u, nu)
+            if (flow_op % control % sgs > 0) then
+              call Add_SGS_Diffusivity(flow_op, u, nu)
+            end if
           end if
           call TimeDerivative(problem, flow_op, t, u, nu=nu, chi=chi, F=F_v)
           call ComputePressure(problem, flow_op, t, F_v, p, w)
@@ -436,6 +450,7 @@ contains
     real(RNP), allocatable, save :: dp(:,:,:,:  )
 
     real(RNP) :: tau
+    logical   :: update_nu
     integer   :: j, k
 
     ! workspace ................................................................
@@ -463,6 +478,10 @@ contains
       call GetBoundaryValues(problem, mesh, flow_op % bv_x, t, flow_op % bv_u)
       call problem % GetExternalSources(flow_op%x, t, F_s(:,:,:,:,:,i))
       call SetArray(u_i, u_0, multi=.true.)
+
+      ! check if diffusivity needs to be updated
+      update_nu = problem % HasVariableProperties() .or. &
+                  flow_op % control % sgs > 1
 
       ! extrapolation: u_i ← u' ................................................
 
@@ -507,9 +526,11 @@ contains
 
       if (present(nu) .or. any(problem % nu_ref > 0)) then
 
-        ! update diffusivity
-        if (present(nu)) then
-          call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u")
+         if (update_nu) then
+          call problem % GetDiffusivity(flow_op%x, t, u_i, nu)
+          if (flow_op % control % sgs > 0) then
+            call Add_SGS_Diffusivity(flow_op, u_i, nu)
+          end if
         end if
 
         ! RHS: f = uᵢ + τ∆F = uᵢ + ∆t[ ∑ⁱ⁻¹(aⁱᵐ-aᵉˣ)F_d1 - ∑ⁱ⁻¹ aᵉˣF_d3 ]
@@ -552,9 +573,10 @@ contains
 
       ! RHS contributions ......................................................
 
-      if (present(nu)) then
-        if (problem % HasVariableProperties()) then
-          call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u)
+      if (update_nu) then
+        call problem % GetDiffusivity(flow_op%x, t, u_i, nu)
+        if (flow_op % control % sgs > 0) then
+          call Add_SGS_Diffusivity(flow_op, u_i, nu)
         end if
       end if
 
@@ -615,6 +637,7 @@ contains
     real(RNP), allocatable, save :: dp(:,:,:,:  )
 
     real(RNP) :: tau
+    logical   :: update_nu
     integer   :: j, k
 
     ! workspace ................................................................
@@ -642,6 +665,10 @@ contains
       call GetBoundaryValues(problem, mesh, flow_op % bv_x, t, flow_op % bv_u)
       call problem % GetExternalSources(flow_op%x, t, F_s(:,:,:,:,:,i))
       call SetArray(u_i, u_0, multi=.true.)
+
+      ! check if diffusivity needs to be updated
+      update_nu = problem % HasVariableProperties() .or. &
+                  flow_op % control % sgs > 1
 
       ! extrapolation: u_i ← u' ................................................
 
@@ -731,9 +758,11 @@ contains
 
       if (present(nu) .or. any(problem % nu_ref > 0)) then
 
-        ! update diffusivity
-        if (present(nu)) then
-          call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u")
+        if (update_nu) then
+          call problem % GetDiffusivity(flow_op%x, t, u_i, nu)
+          if (flow_op % control % sgs > 0) then
+            call Add_SGS_Diffusivity(flow_op, u_i, nu)
+          end if
         end if
 
         ! RHS: f =  u_i + f  = uᵢ + τ∆F
@@ -766,9 +795,11 @@ contains
 
       ! RHS contributions ......................................................
 
-      if (present(nu)) then
-        if (problem % HasVariableProperties()) then
-          call problem % GetDiffusivity(flow_op%x, t, u_i, nu) ! ν = ν(x,t,u)
+      ! update ν if required
+      if (update_nu) then
+        call problem % GetDiffusivity(flow_op%x, t, u_i, nu)
+        if (flow_op % control % sgs > 0) then
+          call Add_SGS_Diffusivity(flow_op, u_i, nu)
         end if
       end if
 

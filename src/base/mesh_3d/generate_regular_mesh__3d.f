@@ -10,7 +10,7 @@ module Generate_Regular_Mesh__3D
   use Mesh_Element__3D
   use Mesh_Element_Indexing__3D
   use Mesh__3D
-  use Mesh_Structured_Indexing__3D
+  use Structured_Mesh_Indexing__3D
   implicit none
   private
 
@@ -354,15 +354,9 @@ contains
           ! neighbor element home partition ID
           neighbor(i) % part = LexicalIndex(ips,jps,kps,1,1,1,np(1),np(2),np(3)) - 1
 
-          ! neighbor element component
-          select case(ElementComponentType(r,s,t))
-          case(IS_FACE)
-            neighbor(i) % cc = ElementFaceID(-r,-s,-t)
-          case(IS_EDGE)
-            neighbor(i) % cc = ElementEdgeID(-r,-s,-t)
-          case(IS_VERTEX)
-            neighbor(i) % cc = ElementVertexID(-r,-s,-t)
-          end select
+          ! neighbor element coupled component and orientation
+          neighbor(i) % component = ElementComponentIndex(-r,-s,-t)
+          neighbor(i) % orientation = 12 ! always aligned
 
         end do
         end do

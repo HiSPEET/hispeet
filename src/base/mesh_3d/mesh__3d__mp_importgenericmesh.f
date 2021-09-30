@@ -9,8 +9,19 @@ submodule(Mesh__3D) MP_ImportGenericMesh
   use Standard_Operators__1D
   use Embedded_Interpolation__1D
   use Generic_Mesh__3D
-  use Mesh_Element_Indexing__3D, only: V_FACE, E_FACE
+  use Mesh_Element_Indexing__3D
   implicit none
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Identification of neighbor elements
+
+    module subroutine IdentifyElementNeighbors(mesh)
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
+    end subroutine IdentifyElementNeighbors
+
+  end interface
 
 contains
 
@@ -33,6 +44,8 @@ contains
       call Error('ImportGenericMesh', 'Lexical numbering is required')
     else if (any(generic_mesh % element%typ /= HEXAHEDRAL_ELEMENT)) then
       call Error('ImportGenericMesh', 'Only hexahedral elements supported')
+    else
+      write(*,'(/,A)') 'importing generic mesh'
     end if
 
     mesh % n_bound     =  size(generic_mesh % boundary)
@@ -59,10 +72,16 @@ contains
 
     call ImportBoundaryFaces  (mesh, generic_mesh)
     call ImportElementDomains (mesh, generic_mesh)
+    call IdentifyElementNeighbors (mesh)
 
     call mesh % BuildLinks()
     call mesh % BuildGhosts()
     call mesh % IdentifyRanks()
+
+    write(*,'(T2,9(G0,1X))') 'number of elements:   ', mesh % n_elem
+    write(*,'(T2,9(G0,1X))') 'number of faces:      ', mesh % n_face
+    write(*,'(T2,9(G0,1X))') 'number of vertices:   ', mesh % n_vert
+    write(*,'(T2,9(G0,1X))') 'number of boundaries: ', mesh % n_bound
 
   end subroutine ImportGenericMesh
 
@@ -73,8 +92,8 @@ contains
   !> IDs from then generic mesh.
 
   subroutine ImportElements(mesh, generic_mesh)
-    class(Mesh_3D), intent(inout) :: mesh         !< mesh partition
-    class(GenericMesh_3D),    intent(in)    :: generic_mesh !< generic mesh
+    class(Mesh_3D),        intent(inout) :: mesh         !< mesh partition
+    class(GenericMesh_3D), intent(in)    :: generic_mesh !< generic mesh
 
     integer :: b, i, j, k, n
 
@@ -116,8 +135,8 @@ contains
   !> Import of boundary faces
 
   subroutine ImportBoundaryFaces(mesh, generic_mesh)
-    class(Mesh_3D), intent(inout) :: mesh         !< mesh partition
-    class(GenericMesh_3D),    intent(in)    :: generic_mesh !< generic mesh
+    class(Mesh_3D),        intent(inout) :: mesh         !< mesh partition
+    class(GenericMesh_3D), intent(in)    :: generic_mesh !< generic mesh
 
     integer :: b, e, f, i, j, s
 
@@ -271,8 +290,8 @@ contains
 
     subroutine Interpolate(iop, xo, xi)
       class(EmbeddedInterpolation_1D), intent(in)  :: iop
-      real(RNP),                    intent(in)  :: xo(iop%no, iop%no, iop%no)
-      real(RNP),                    intent(out) :: xi(iop%ni, iop%ni, iop%ni)
+      real(RNP),                       intent(in)  :: xo(iop%no, iop%no, iop%no)
+      real(RNP),                       intent(out) :: xi(iop%ni, iop%ni, iop%ni)
 
       real(RNP) :: z1(iop%ni, iop%no, iop%no)
       real(RNP) :: z2(iop%ni, iop%ni, iop%no)
@@ -347,173 +366,6 @@ contains
     end subroutine LinearFit
 
   end subroutine ImportElementDomains
-
-  !-----------------------------------------------------------------------------
-  !> Identification of neighbor elements
-
-  subroutine IdentifyNeighbors(mesh)
-    class(Mesh_3D), intent(inout) :: mesh !< mesh partition
-
-    integer, allocatable :: ne_face(:)     ! num elements per face
-    integer, allocatable :: ne_edge(:)     ! num elements per edge
-    integer, allocatable :: ne_vert(:)     ! num elements per vertex
-
-    integer, allocatable :: nl_face(:)     ! num local elements per face
-    integer, allocatable :: nl_edge(:)     ! num local elements per edge
-    integer, allocatable :: nl_vert(:)     ! num local elements per vertex
-
-    type NeighborElement
-      integer :: id = 0  !< ID
-      integer :: cc = 0  !< coupled neighbor component (face, edge or vertex)
-    end type NeighborElement
-
-    ! adjoining elements
-    type(NeighborElement), allocatable :: elem_face(:,:) ! per face
-    type(NeighborElement), allocatable :: elem_edge(:,:) ! per edge
-    type(NeighborElement), allocatable :: elem_vert(:,:) ! per vertex
-
-    integer :: f(6), e(12), v(8)
-    integer :: i, j, k, l, m
-
-    !---------------------------------------------------------------------------
-    ! count number of adjoining elements for each vertex, edge and face
-
-    ! local elements ...........................................................
-
-    allocate(nl_face(mesh % n_face), source = 0)
-    allocate(nl_edge(mesh % n_edge), source = 0)
-    allocate(nl_vert(mesh % n_vert), source = 0)
-
-    do l = 1, mesh % n_elem
-
-      f = mesh % element(l) % face   % id
-      e = mesh % element(l) % edge   % id
-      v = mesh % element(l) % vertex % id
-
-      nl_face(f) = nl_face(f) + 1
-      nl_edge(e) = nl_edge(e) + 1
-      nl_vert(v) = nl_vert(v) + 1
-
-    end do
-
-    !---------------------------------------------------------------------------
-    ! establish lists of adjoining elements
-
-    allocate(elem_face(maxval(nl_face), mesh%n_face))
-    allocate(elem_edge(maxval(nl_edge), mesh%n_edge))
-    allocate(elem_vert(maxval(nl_vert), mesh%n_vert))
-
-    allocate(ne_face(mesh % n_face), source = 0)
-    allocate(ne_edge(mesh % n_edge), source = 0)
-    allocate(ne_vert(mesh % n_vert), source = 0)
-
-    ! local neighbors ..........................................................
-
-    do l = 1, mesh % n_elem
-
-      f = mesh % element(l) % face   % id
-      e = mesh % element(l) % edge   % id
-      v = mesh % element(l) % vertex % id
-
-      ne_face(f) = ne_face(f) + 1
-      ne_edge(e) = ne_edge(e) + 1
-      ne_vert(v) = ne_vert(v) + 1
-
-      do j = 1, 6
-        elem_face(ne_face(f(j)), f(j)) = NeighborElement(l, j)
-      end do
-      do j = 1, 12
-        elem_edge(ne_edge(e(j)), e(j)) = NeighborElement(l, j)
-      end do
-      do j = 1, 8
-        elem_vert(ne_vert(v(j)), v(j)) = NeighborElement(l, j)
-      end do
-
-    end do
-
-    !---------------------------------------------------------------------------
-    ! identify element neighbors
-
-    do l = 1, mesh % n_elem
-      associate(element => mesh % element(l))
-
-        f = element % face   % id
-        e = element % edge   % id
-        v = element % vertex % id
-
-        ! count and allocate neighbors
-        i = -26  ! offset, accounting for self-references by own components
-        do j = 1, 6
-          i = i + ne_face(f(j))
-        end do
-        do j = 1, 12
-          i = i + ne_edge(e(j))
-        end do
-        do j = 1, 8
-          i = i + ne_vert(v(j))
-        end do
-        allocate(element % neighbor(i))
-
-        i = 0
-
-        ! faces
-        do j = 1, 6
-          element % face(j) % i_neighbor = i + 1
-          m = f(j)
-          ! local neighbors
-          do k = 1, ne_face(m)
-
-            if (elem_face(k,m) % id == l .and. k <= nl_face(m)) then
-              cycle ! skip self-reference
-            end if
-
-            i = i + 1
-            element % neighbor(i) % id   = elem_face(k,m) % id
-            element % neighbor(i) % cc   = elem_face(k,m) % cc
-            element % neighbor(i) % part = 0
-          end do
-        end do
-
-        ! edges
-        do j = 1, 12
-          element % edge(j) % i_neighbor = i + 1
-          m = e(j)
-          ! local neighbors
-          do k = 1, nl_edge(m)
-
-            if (elem_edge(k,m) % id == l .and. k <= nl_edge(m)) then
-              cycle ! skip self-reference
-            end if
-
-            i = i + 1
-            element % neighbor(i) % id   = elem_edge(k,m) % id
-            element % neighbor(i) % cc   = elem_edge(k,m) % cc
-            element % neighbor(i) % part = 0
-          end do
-        end do
-
-        ! vertices
-        do j = 1, 8
-          element % vertex(j) % i_neighbor = i + 1
-          m = v(j)
-          ! local neighbors
-          do k = 1, nl_vert(m)
-
-            if (elem_vert(k,m) % id == l .and. k <= nl_vert(m)) then
-              cycle ! skip self-reference
-            end if
-
-            i = i + 1
-            element % neighbor(i) % id   = elem_vert(k,m) % id
-            element % neighbor(i) % cc   = elem_vert(k,m) % cc
-            element % neighbor(i) % part = 0
-          end do
-        end do
-
-      end associate
-    end do
-
-  end subroutine IdentifyNeighbors
 
   !=============================================================================
 

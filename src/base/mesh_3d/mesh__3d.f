@@ -11,6 +11,7 @@ module Mesh__3D
   use Mesh_Element__3D
   use Mesh_Boundary__3D
   use Mesh_Link__3D
+  use Mesh_Element_Indexing__3D
   implicit none
   private
 

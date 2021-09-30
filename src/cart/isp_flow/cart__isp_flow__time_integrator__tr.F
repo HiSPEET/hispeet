@@ -18,6 +18,7 @@ module CART__ISP_Flow__Time_Integrator__TR
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Pressure
   use CART__ISP_Flow__Projection
+  use CART__ISP_Flow__SGS_Diffusivity
   use CART__ISP_Flow__Time_Derivative
   use CART__ISP_Flow__Time_Integrator
 
@@ -196,7 +197,9 @@ contains
       ! allocate new workspace, if necessary
       if (.not. allocated(u_i)) then
         allocate(u_i, u_1, F_0, F_1, dF, F_d3, w, mold = u)
-        if (problem % HasVariableProperties()) then
+        if ( problem % HasVariableProperties() .or.   &
+             flow_op % control % sgs > 0            ) &
+        then
           allocate(nu, mold = u)
         end if
       end if
@@ -215,9 +218,13 @@ contains
 
       ! FW Euler skipping pressure .............................................
 
-      ! nu = ν₀ = ν(x,t₀,u₀)
-      if (problem % HasVariableProperties()) then
+      if (allocated(nu)) then
+        ! molecular viscosity,  nu = ν(*,t₀)
         call problem % GetDiffusivity(flow_op%x, t_0, u, nu)
+        ! add SGS viscosity
+        if (flow_op % control % sgs > 0) then
+          call Add_SGS_Diffusivity(flow_op, u, nu)
+        end if
       end if
 
       ! F_0 = [F_c + F_d + F_s](x,t₀,ν₀,u₀), u_i = F_d3(ν₀,u₀)
@@ -266,9 +273,15 @@ contains
 
       ! explicit trapezoidal rule skipping pressure  ...........................
 
-      ! nu = ν₁ = ν(x,t₁,u₁)
-      if (problem % HasVariableProperties()) then
+      ! recompute ν₁ = ν(x,t₁,u₁) if required
+      if ( problem % HasVariableProperties() .or.   &! ν_phy is variable
+           flow_op % control % sgs > 1            ) &! ν_sgs must be updated
+      then
         call problem % GetDiffusivity(flow_op%x, t, u_1, nu)
+        ! add SGS viscosity, required even if no ν_sgs update requested
+        if (flow_op % control % sgs > 0) then
+          call Add_SGS_Diffusivity(flow_op, u_1, nu)
+        end if
       end if
 
       ! F_1 = [F_c + F_d + F_s](x,t₁,ν₁,u₁)
@@ -337,8 +350,12 @@ contains
       ! pressure ...............................................................
 
       if (this % pressure > 0) then
-        if (problem % HasVariableProperties()) then
+        ! molecular + SGS viscosity
+        if (allocated(nu)) then
           call problem % GetDiffusivity(flow_op%x, t, u, nu)
+          if (flow_op % control % sgs > 0) then
+            call Add_SGS_Diffusivity(flow_op, u, nu)
+          end if
         end if
         ! recompute pressure using F_1 as workspace for F_v
         call TimeDerivative(problem, flow_op, t, u, nu=nu, chi=chi, F=F_1)

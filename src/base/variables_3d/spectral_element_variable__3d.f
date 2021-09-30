@@ -5,8 +5,8 @@
 !===============================================================================
 
 module Spectral_Element_Variable__3D
-  use Kind_Parameters, only: RNP
-  use Constants      , only: ZERO
+  use Kind_Parameters  , only: RNP
+  use Constants        , only: ZERO, ONE
   use XMPI
   use Spectral_Element_Mesh__3D
   implicit none
@@ -35,11 +35,30 @@ module Spectral_Element_Variable__3D
     procedure :: GetSlice
     procedure :: GetVolumeIntegrals
     procedure :: GetSurfaceIntegrals
+    procedure :: GetTraces
   end type SpectralElementVariable_3D
 
   ! constructor
   interface SpectralElementVariable_3D
     module procedure New_SpectralElementVariable_3D
+    module procedure WrapArray
+  end interface
+
+  !=============================================================================
+  ! Interfaces to separate module variables
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Extract the traces of SEV components as an element-face variable aligned
+    !> with mesh faces
+
+    module subroutine GetTraces(this, tr_val, align)
+      class(SpectralElementVariable_3D), intent(in) :: this
+      real(RNP), intent(inout) :: tr_val(:,:,:,:,:) !< trace of val
+      logical, optional, intent(in) :: align !< align traces with mesh face [F]
+    end subroutine GetTraces
+
   end interface
 
 contains
@@ -55,6 +74,19 @@ contains
     call Init_SpectralElementVariable_3D(this, sem, nc)
 
   end function New_SpectralElementVariable_3D
+
+  !-----------------------------------------------------------------------------
+  !> Wrap array mesh variable into spectral element variable
+
+  function WrapArray(sem, u) result(this)
+    class(SpectralElementMesh_3D), target, intent(in) :: sem
+    real(RNP), contiguous, target, intent(in) :: u(:,:,:,:,:)
+    type(SpectralElementVariable_3D) :: this
+
+    this % sem                  =>  sem
+    this % val(0:,0:,0:,1:,1:)  =>  u
+
+  end function WrapArray
 
   !-----------------------------------------------------------------------------
   !> 3D spectral element variable initialization

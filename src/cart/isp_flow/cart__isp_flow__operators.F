@@ -53,6 +53,17 @@ module CART__ISP_Flow__Operators
 
     logical   :: svv           = .false. !< switch for the SVV model
 
+    ! provisional control of sub-grid scale model
+    integer   :: sgs           =  0      !< switch for SGS model {0,1,2}
+                                         !! 0  none
+                                         !! 1  sigma, ν evaluated once per step
+                                         !! 2  sigma, ν evaluated every substep
+    real(RNP) :: sgs_coeff     =  1.35   !< static SGS scaling constant
+    logical   :: sgs_dyn       = .false. !< switch for dynamic procedure
+    integer   :: sgs_dyn_po_c  =  0      !< filter cut-off degree (0: auto)
+    logical   :: sgs_smooth    = .false. !< apply temporal smoothing
+    real(RNP) :: sgs_smooth_wt =  0.005  !< weight for temporal smoothing (0,1)
+
   contains
 
     procedure ::  Bcast => Bcast_FlowOpControl
@@ -109,19 +120,25 @@ contains
     integer,              intent(in)    :: root !< rank of broadcast root
     type(MPI_Comm),       intent(in)    :: comm !< MPI communicator
 
-    type(MPI_Request) :: request(8)
+    type(MPI_Request) :: request(14)
     type(MPI_Status)  :: stat(size(request))
     integer :: n
 
     n = 1
-    call XMPI_Ibcast( this % chi        , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % div_penalty, root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % div_coeff  , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % div_r_red  , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % div_i_max  , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % div_final  , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % monitor    , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % svv        , root, comm, request(n) )
+    call XMPI_Ibcast( this % chi          , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % div_penalty  , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % div_coeff    , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % div_r_red    , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % div_i_max    , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % div_final    , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % monitor      , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % svv          , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % sgs          , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % sgs_coeff    , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % sgs_dyn      , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % sgs_dyn_po_c , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % sgs_smooth   , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % sgs_smooth_wt, root, comm, request(n) )
 
     call MPI_Waitall(n, request, stat)
 
@@ -195,11 +212,18 @@ contains
 
     ! initialization of components .............................................
 
+    this % control = control
+
+    ! disable SVV in case of variable molecular or turbulent diffusivity
+    if (problem % HasVariableProperties() .or. control % sgs > 0) then
+      this % control % svv = .false.
+    end if
+
     this % po_u = po_u
     this % po_p = min(po_p, po_u)
     this % po_q = po_q
 
-    this % eop_u = StandardOperators_1D(this % po_u, svv = control%svv)
+    this % eop_u = StandardOperators_1D(this % po_u, svv = this%control%svv)
     this % eop_p = StandardOperators_1D(this % po_p)
     if (po_q /= po_u) then
       this % eop_q = StandardOperators_1D(po_q, no_vdm = .true.)
@@ -214,26 +238,26 @@ contains
       this % bv_u(b) = BoundaryVariable(mesh, po_u, b, problem%bc(b,:))
     end do
 
-    this%pmg_u = PMG_Method3D( mesh,                                       &
-                               DG_ElementOptions_1D( po      = this%po_u,   &
-                                                    penalty = penalty,     &
-                                                    svv     = control%svv  &
-                                                  ),                       &
-                               pmg_u_opt                                   )
+    this%pmg_u = PMG_Method3D( mesh,                                            &
+                               DG_ElementOptions_1D( po      = this%po_u,       &
+                                                     penalty = penalty,         &
+                                                     svv     = this%control%svv &
+                                                   ),                           &
+                               pmg_u_opt                                        )
 
-    this%pmg_p = PMG_Method3D( mesh,                                       &
+    this%pmg_p = PMG_Method3D( mesh,                                        &
                                DG_ElementOptions_1D( po      = this%po_p,   &
-                                                    penalty = penalty      &
-                                                  ),                       &
-                               pmg_p_opt                                   )
+                                                     penalty = penalty      &
+                                                   ),                       &
+                               pmg_p_opt                                    )
 
     call this % pmg_p % SetProblem(lambda=ZERO, nu=ONE, bc=problem%bc(:,4))
 
     if (this % po_p /= this % po_u) then
       this % pop_up = ProjectionOperator_3D( this%eop_p,   &
-                                            this%eop_u%x, &
-                                            this%eop_u%w, &
-                                            mesh%dx       )
+                                             this%eop_u%x, &
+                                             this%eop_u%w, &
+                                             mesh%dx       )
 
       this % iop_up = EmbeddedInterpolation_3D( this%eop_u, this%eop_p%x )
       this % iop_pu = EmbeddedInterpolation_3D( this%eop_p, this%eop_u%x )
@@ -243,12 +267,10 @@ contains
       this % iop_uq = EmbeddedInterpolation_3D( this%eop_u, this%eop_q%x )
     end if
 
-    this % control = control
-
     ! control output ...........................................................
 
     !$omp single
-    if (control%monitor > 0 .and. mesh%part == 0) then
+    if (this%control%monitor > 0 .and. mesh%part == 0) then
       associate( pl_u => this % pmg_u % level % po &
                , pl_p => this % pmg_p % level % po )
 

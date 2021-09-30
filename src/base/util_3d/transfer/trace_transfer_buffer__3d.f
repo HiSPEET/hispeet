@@ -111,7 +111,7 @@ contains
 
   function New_TransferBuffer_RS(mesh, v) result(this)
     type(Mesh_3D), intent(in) :: mesh        !< mesh partition
-    real(RNP),              intent(in) :: v(:,:,:,:)  !< trace variable
+    real(RNP),     intent(in) :: v(:,:,:,:)  !< trace variable
     type(TraceTransferBuffer_3D) :: this
 
     integer :: lb
@@ -128,7 +128,7 @@ contains
 
   function New_TransferBuffer_RA(mesh, v) result(this)
     type(Mesh_3D), intent(in) :: mesh          !< mesh partition
-    real(RNP),              intent(in) :: v(:,:,:,:,:)  !< trace variable
+    real(RNP),     intent(in) :: v(:,:,:,:,:)  !< trace variable
     type(TraceTransferBuffer_3D) :: this
 
     integer :: lb
@@ -145,7 +145,7 @@ contains
 
   subroutine Init_X(this, mesh, np, nc, lb)
     class(TraceTransferBuffer_3D), intent(inout) :: this  !< buffer
-    type(Mesh_3D),        intent(in)    :: mesh  !< mesh partition
+    type(Mesh_3D),                 intent(in)    :: mesh  !< mesh partition
     integer,                       intent(in)    :: np    !< num points/face
     integer,                       intent(in)    :: nc    !< num components
     integer,                       intent(out)   :: lb    !< buffer length
@@ -224,8 +224,8 @@ contains
   subroutine Transfer_RS(this, mesh, v, tag)
     class(TraceTransferBuffer_3D), asynchronous, intent(inout) :: this !< buffer
     type(Mesh_3D), intent(in) :: mesh       !< mesh partition
-    real(RNP),              intent(in) :: v(:,:,:,:) !< trace variable
-    integer,                intent(in) :: tag        !< message tag
+    real(RNP),     intent(in) :: v(:,:,:,:) !< trace variable
+    integer,       intent(in) :: tag        !< message tag
 
     call Transfer_RX(this, mesh, v, tag)
 
@@ -237,8 +237,8 @@ contains
   subroutine Transfer_RA(this, mesh, v, tag)
     class(TraceTransferBuffer_3D), asynchronous, intent(inout) :: this !< buffer
     type(Mesh_3D), intent(in) :: mesh         !< mesh partition
-    real(RNP),              intent(in) :: v(:,:,:,:,:) !< trace variable
-    integer,                intent(in) :: tag          !< message tag
+    real(RNP),     intent(in) :: v(:,:,:,:,:) !< trace variable
+    integer,       intent(in) :: tag          !< message tag
 
     call Transfer_RX(this, mesh, v, tag)
 
@@ -250,8 +250,8 @@ contains
   subroutine Transfer_RX(this, mesh, v, tag)
     class(TraceTransferBuffer_3D), asynchronous, intent(inout) :: this
     type(Mesh_3D), intent(in) :: mesh
-    real(RNP),              intent(in) :: v(this%np, 2, mesh%n_face, this%nc)
-    integer,                intent(in) :: tag
+    real(RNP),     intent(in) :: v(this%np, 2, mesh%n_face, this%nc)
+    integer,       intent(in) :: tag
 
     integer :: i, l, m, part
     integer :: b1, s1
@@ -343,7 +343,7 @@ contains
 
   subroutine Merge_RS(this, mesh, v, alpha, beta)
     class(TraceTransferBuffer_3D), intent(inout) :: this !< buffer
-    type(Mesh_3D), intent(in)    :: mesh       !< mesh partition
+    type(Mesh_3D),          intent(in)    :: mesh       !< mesh partition
     real(RNP),              intent(inout) :: v(:,:,:,:) !< face variable
     real(RNP),    optional, intent(in)    :: alpha      !< coeff of v  [1]
     real(RNP),    optional, intent(in)    :: beta       !< coeff of vb [1]
@@ -357,7 +357,7 @@ contains
 
   subroutine Merge_RA(this, mesh, v, alpha, beta)
     class(TraceTransferBuffer_3D), intent(inout) :: this !< buffer
-    type(Mesh_3D), intent(in)    :: mesh         !< mesh partition
+    type(Mesh_3D),          intent(in)    :: mesh         !< mesh partition
     real(RNP),              intent(inout) :: v(:,:,:,:,:) !< face variable
     real(RNP),    optional, intent(in)    :: alpha        !< coeff of v  [1]
     real(RNP),    optional, intent(in)    :: beta         !< coeff of vb [1]

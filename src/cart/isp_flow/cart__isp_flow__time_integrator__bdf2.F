@@ -19,6 +19,7 @@ module CART__ISP_Flow__Time_Integrator__BDF2
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Pressure
   use CART__ISP_Flow__Projection
+  use CART__ISP_Flow__SGS_Diffusivity
   use CART__ISP_Flow__Time_Derivative
   use CART__ISP_Flow__Time_Integrator
 
@@ -188,7 +189,9 @@ contains
         allocate( dF   , mold = u )
         allocate( w    , mold = u )
 
-        if (problem % HasVariableProperties()) then
+        if ( problem % HasVariableProperties() .or.   &
+             flow_op % control % sgs > 0            ) &
+        then
           allocate( nu   , mold = u )
           allocate( nu_1 , mold = u )
           allocate( nu_x , mold = u )
@@ -201,10 +204,18 @@ contains
 
       !$omp end single
 
-      ! variable viscosity
-      if (problem % HasVariableProperties()) then
-        ! nu = ν(*,t₀)
+      ! variable and/or SGS viscosity ..........................................
+
+      if (allocated(nu)) then
+
+        ! molecular viscosity,  nu = ν(*,t₀)
         call problem % GetDiffusivity(flow_op%x, t_0, u, nu)
+
+        ! add SGS viscosity
+        if (flow_op % control % sgs > 0) then
+          call Add_SGS_Diffusivity(flow_op, u, nu)
+        end if
+
         ! nu_x ≈ ν(*,t₀+∆t)
         if (euler) then
           call SetArray(nu_x, nu, multi = .true.)
@@ -213,6 +224,7 @@ contains
           call MergeArrays(beta_0, nu_x, beta_1, nu_1, multi = .true.)
         end if
         call SetArray(nu_1, nu, multi = .true.)
+
       end if
 
       ! boundary conditions ....................................................
@@ -389,12 +401,19 @@ contains
       ! pressure ...............................................................
 
       if (this % pressure > 0) then
-        if (problem % HasVariableProperties()) then
+
+        ! molecular + SGS viscosity
+        if (allocated(nu)) then
           call problem % GetDiffusivity(flow_op%x, t, u, nu)
+          if (flow_op % control % sgs > 0) then
+            call Add_SGS_Diffusivity(flow_op, u, nu)
+          end if
         end if
+
         ! recompute pressure using dF as workspace for F_v
         call TimeDerivative(problem, flow_op, t, u, nu=nu, chi=chi, F=dF)
         call ComputePressure(problem, flow_op, t, dF, p, w)
+
       end if
 
     end associate

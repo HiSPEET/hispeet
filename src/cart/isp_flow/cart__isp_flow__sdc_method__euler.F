@@ -26,6 +26,7 @@ module CART__ISP_Flow__SDC_Method__Euler
   use CART__ISP_Flow__Operators
   use CART__ISP_Flow__Pressure
   use CART__ISP_Flow__Projection
+  use CART__ISP_Flow__SGS_Diffusivity
   use CART__ISP_Flow__Time_Derivative
   use CART__ISP_Flow__Time_Integrator
 
@@ -231,7 +232,7 @@ contains
     real(RNP),                    intent(in)    :: t_sdc        (0:)
     real(RNP), target, optional,  intent(inout) :: nu_sdc       (:,:,:,:,:,0:)
     real(RNP),                    intent(inout) :: u_sdc        (:,:,:,:,:,0:)
-    real(RNP),                    intent(in)    :: F_sdc        (:,:,:,:,:,0:)
+    real(RNP),                    intent(inout) :: F_sdc        (:,:,:,:,:,0:)
     real(RNP),                    intent(in)    :: F_sdc_ex     (:,:,:,:,:,0:)
     real(RNP),                    intent(in)    :: F_sdc_im     (:,:,:,:,:,0:)
     real(RNP),                    intent(inout) :: F_sdc_ex_new (:,:,:,:,:,0:)
@@ -380,8 +381,14 @@ contains
       end do
 
       if (associated(nu)) then
-        call problem % GetDiffusivity(flow_op%x, t_m, u, nu)
+        call problem % GetDiffusivity(flow_op%x, t_m, u, nu)  ! ν_phy
+        if (flow_op % control % sgs > 0) then                 !
+          call Add_SGS_Diffusivity(flow_op, u, nu)            ! ν_sgs
+        end if
       end if
+
+      call TimeDerivative( problem, flow_op, t_m, u = u, nu = nu_0, chi = chi &
+                         , F  = F_sdc(:,:,:,:,:,m) )
 
       ! clean-up ...............................................................
 

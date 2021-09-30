@@ -66,7 +66,7 @@ contains
         if (present(nu)) then
           call pmg % SetProblem(1/dt, nu(:,:,:,:,c), bc(:,c))
         else
-          if (allocated(problem%nu_svv_ref)) then
+          if (flow_op%control%svv .and. allocated(problem%nu_svv_ref)) then
             call pmg % SetProblem(1/dt,                  &
                                   problem%nu_ref(c),     &
                                   problem%nu_svv_ref(c), &
