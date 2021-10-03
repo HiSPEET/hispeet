@@ -257,10 +257,17 @@ contains
         associate(element => mesh % element(e))
 
           ! identify the neighbor elements and their adjoining faces
-          en = element % face % i_neighbor
-          where(en > 0) ! assumes i_neighbor ≥ iff neighbor exists (including ghosts)
-            fn = element % neighbor(en) % component
-          end where
+          do k = 1, 6
+            i = element % face(k) % i_neighbor
+            if (i > 0) then
+              ! assumes i_neighbor ≥ 0, iff neighbor exists (including ghosts)
+              en(k) = element % neighbor(i) % id
+              fn(k) = element % neighbor(i) % component
+            else
+              en(k) = 0
+              fn(k) = 0
+            end if
+          end do
 
           ! direction 1: v = v + Mf₁ (-[ϕ]₁{(ν+νˢQ)∇u}₁ - {(ν+νˢQ)∇ϕ}₁[u]₁
           !                           + μ⟨ν+νˢ⟩[ϕ]₁[u]₁)
