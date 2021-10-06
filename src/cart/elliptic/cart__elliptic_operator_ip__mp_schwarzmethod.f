@@ -179,8 +179,6 @@ subroutine RestrictToSubdomains(mesh, no, buf_v, v, vs)
 
   po = ubound(v,1)
 
-!opt!  call SetArray(vs, ZERO)
-
   ! offsets of subdomain point indices
   is0 = no(1) + 1;  is1 = po + is0
   js0 = no(2) + 1;  js1 = po + js0
@@ -199,6 +197,10 @@ subroutine RestrictToSubdomains(mesh, no, buf_v, v, vs)
 
   !$omp do
   do e = 1, mesh%ne
+
+    ! make sure that no NANs remain in parts for which no neighbor data exists
+    vs(:,:,:,e) = 0
+
     do k = 0, po
     do j = 0, po
     do i = 0, po
@@ -206,6 +208,7 @@ subroutine RestrictToSubdomains(mesh, no, buf_v, v, vs)
     end do
     end do
     end do
+
   end do
 
   ! assign remote data to ghosts ...............................................
@@ -215,9 +218,7 @@ subroutine RestrictToSubdomains(mesh, no, buf_v, v, vs)
 
   ! fill overlap regions .......................................................
 
-  ! offsets of subdomain point indices
-  ! is0, js0, ks0 = 0 : not used
-  ! is1, js1, ks1     : unchanged
+  ! offsets of subdomain point indices remain unchanged (is0, ... ks1)
 
   ! offsets of element point indices
   ie0 = -1;  ie1 = po - no(1)
