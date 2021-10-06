@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-subroutine TPO_Diffusion_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v)
+subroutine TPO_Diffusion_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v, ub, qb)
   real(RWP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
   real(RWP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
   real(RWP), intent(in)  :: dx(3)       !< element extensions
@@ -13,21 +13,28 @@ subroutine TPO_Diffusion_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v)
   real(RWP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
   real(RWP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
 
-  !---------------------------------------------------------------------------
+  real(RWP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values
+  real(RWP), optional, intent(inout) :: qb(:,:,:,:) !< element boundary fluxes
+
+  !-----------------------------------------------------------------------------
   ! local variables
 
-  real(RWP), dimension(size(Ms), size(Ms), size(Ms)) :: M, M_u, z
-  real(RWP), dimension(size(Ms), size(Ms))           :: Ms_Ds, Msi_Dst
+  real(RWP), dimension(size(Ms), size(Ms), size(Ms)) :: M, M_nu, z
+  real(RWP), dimension(size(Ms), size(Ms))           :: Ds_t
 
   real(RWP) :: g(3), tmp
   integer   :: np, ne
   integer   :: e, i, j, k, p
 
-  !---------------------------------------------------------------------------
+  logical :: get_traces
+
+  !-----------------------------------------------------------------------------
   ! initialization
 
   np = size(Ms)
   ne = size(u,4)
+
+  get_traces = present(ub) .and. present(qb)
 
   ! element mass matrix
   tmp = product(dx) / 8
@@ -39,135 +46,180 @@ subroutine TPO_Diffusion_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v)
   end do
   end do
 
-  ! modified differentiation operators
-  !! to optimize cache use, the operators are used in transposed form
-  !! to save loads, both operators are computed in one loop-nest
-  do j = 1, np
-  do i = 1, np
-    Ms_Ds   (i,j) = Ms(i) * Ds(i,j)  ! = Ms Ds     =  [ (Ms Ds)ᵀ ]ᵀ
-    Msi_Dst (i,j) = Ds(j,i) / Ms(i)  ! = Ms⁻¹ Dsᵀ  =  [  Ds Ms⁻¹ ]ᵀ
-  end do
-  end do
-
   ! coefficients
   g = 4 / dx**2
 
-  !---------------------------------------------------------------------------
-  ! evaluation
+  ! initialize operators
+  Ds_t = transpose(Ds)
 
-  !$acc data present(u,v) copyin(g,M,Ms_Ds,Msi_Dst)
-  !$acc parallel
-  !$acc loop gang worker private(M_u)
+  !-----------------------------------------------------------------------------
+  ! evaluation
 
   !$omp do private(e)
   do e = 1, ne
 
-    ! M_u = Mᵉuᵉ, vᵉ = λ M uᵉ ................................................
+    ! vᵉ = λ Mᵉ uᵉ, M_nu = Mᵉνᵉ ................................................
 
-    !$acc loop collapse(3) independent vector
     do k = 1, np
     do j = 1, np
     do i = 1, np
-      M_u(i,j,k) = M(i,j,k) * u(i,j,k,e)
-      v(i,j,k,e) = lambda * M_u(i,j,k)
+      v(i,j,k,e) = lambda * M(i,j,k) * u(i,j,k,e)
+      M_nu(i,j,k) = M(i,j,k) * nu(i,j,k,e)
     end do
     end do
     end do
 
     ! direction 1 ............................................................
 
-    ! z = [νᵉ] [I x I x (Mˢ)⁻¹(Dˢ)ᵀ)] Mᵉuᵉ
-    !$acc loop collapse(3) independent vector
+    ! z = [I x I x Dˢ] uᵉ
     do k = 1, np
     do j = 1, np
     do i = 1, np
       tmp = 0
       do p = 1, np
-        tmp = tmp + Msi_Dst(p,i) * M_u(p,j,k)
+        tmp = tmp + Ds_t(p,i) * u(p,j,k,e)
       end do
-      z(i,j,k) = nu(i,j,k,e) * tmp
+      z(i,j,k) = tmp
     end do
     end do
     end do
 
-    ! vᵉ += g₁ [I x I x (MˢDˢ)ᵀ] z
-    !$acc loop collapse(3) independent vector
+    if (get_traces) then
+      ! ub = u       @ Γ₁ + Γ₂
+      ! qb = n⋅ν∇u   @ Γ₁ + Γ₂
+      do k = 1, np
+      do j = 1, np
+        ub(j,k,1,e) =  u( 1,j,k,e)
+        ub(j,k,2,e) =  u(np,j,k,e)
+        qb(j,k,1,e) = -2/dx(1) * nu( 1,j,k,e) * z( 1,j,k)
+        qb(j,k,2,e) =  2/dx(1) * nu(np,j,k,e) * z(np,j,k)
+      end do
+      end do
+    end if
+
+    ! z = g₁ [νᵉMᵉ] z
+    do k = 1, np
+    do j = 1, np
+    do i = 1, np
+      z(i,j,k) = g(1) * M_nu(i,j,k) * z(i,j,k)
+    end do
+    end do
+    end do
+
+    ! vᵉ += [I x I x (Dˢ)ᵀ] z
     do k = 1, np
     do j = 1, np
     do i = 1, np
       tmp = 0
       do p = 1, np
-        tmp = tmp + Ms_Ds(p,i) * z(p,j,k)
+        tmp = tmp + Ds(p,i) * z(p,j,k)
       end do
-      v(i,j,k,e) = v(i,j,k,e) + g(1) * tmp
+      v(i,j,k,e) = v(i,j,k,e) + tmp
     end do
     end do
     end do
 
     ! direction 2 ............................................................
 
-    ! z = [νᵉ] [I x (Mˢ)⁻¹(Dˢ)ᵀ x I] Mᵉuᵉ
-    !$acc loop collapse(3) independent vector
+    ! z = [I x Dˢ x I] uᵉ
     do k = 1, np
     do j = 1, np
     do i = 1, np
       tmp = 0
       do p = 1, np
-        tmp = tmp + Msi_Dst(p,j) * M_u(i,p,k)
+        tmp = tmp + Ds_t(p,j) * u(i,p,k,e)
       end do
-      z(i,j,k) = nu(i,j,k,e) * tmp
+      z(i,j,k) = tmp
     end do
     end do
     end do
 
-    ! vᵉ += g₂ [I x (MˢDˢ)ᵀ x I] z
-    !$acc loop collapse(3) independent vector
+    if (get_traces) then
+      ! ub = u       @ Γ₃ + Γ₃
+      ! qb = n⋅ν∇u   @ Γ₄ + Γ₄
+      do k = 1, np
+      do i = 1, np
+        ub(i,k,3,e) =  u(i, 1,k,e)
+        ub(i,k,4,e) =  u(i,np,k,e)
+        qb(i,k,3,e) = -2/dx(2) * nu(i, 1,k,e) * z(i, 1,k)
+        qb(i,k,4,e) =  2/dx(2) * nu(i,np,k,e) * z(i,np,k)
+      end do
+      end do
+    end if
+
+    ! z = g₂ [νᵉMᵉ] z
+    do k = 1, np
+    do j = 1, np
+    do i = 1, np
+      z(i,j,k) = g(2) * M_nu(i,j,k) * z(i,j,k)
+    end do
+    end do
+    end do
+
+    ! vᵉ += [I x (Dˢ)ᵀ x I] z
     do k = 1, np
     do j = 1, np
     do i = 1, np
       tmp = 0
       do p = 1, np
-        tmp = tmp + Ms_Ds(p,j) * z(i,p,k)
+        tmp = tmp + Ds(p,j) * z(i,p,k)
       end do
-      v(i,j,k,e) = v(i,j,k,e) + g(2) * tmp
+      v(i,j,k,e) = v(i,j,k,e) + tmp
     end do
     end do
     end do
 
     ! direction 3 ............................................................
 
-    ! z = [νᵉ] [(Mˢ)⁻¹(Dˢ)ᵀ x I x I] Mᵉuᵉ
-    !$acc loop collapse(3) independent vector
+    ! z = [Dˢ x I x I] uᵉ
     do k = 1, np
     do j = 1, np
     do i = 1, np
       tmp = 0
       do p = 1, np
-        tmp = tmp + Msi_Dst(p,k) * M_u(i,j,p)
+        tmp = tmp + Ds_t(p,k) * u(i,j,p,e)
       end do
-      z(i,j,k) = nu(i,j,k,e) * tmp
+      z(i,j,k) = tmp
     end do
     end do
     end do
 
-    ! vᵉ += g₃ [(MˢDˢ)ᵀ x I x I] z
-    !$acc loop collapse(3) independent vector
+    if (get_traces) then
+      ! ub = u       @ Γ₅ + Γ₅
+      ! qb = n⋅ν∇u   @ Γ₆ + Γ₆
+      do j = 1, np
+      do i = 1, np
+        ub(i,j,5,e) =  u(i,j, 1,e)
+        ub(i,j,6,e) =  u(i,j,np,e)
+        qb(i,j,5,e) = -2/dx(3) * nu(i,j, 1,e) * z(i,j, 1)
+        qb(i,j,6,e) =  2/dx(3) * nu(i,j,np,e) * z(i,j,np)
+      end do
+      end do
+    end if
+
+    ! z = g₃ [νᵉMᵉ] z
+    do k = 1, np
+    do j = 1, np
+    do i = 1, np
+      z(i,j,k) = g(3) * M_nu(i,j,k) * z(i,j,k)
+    end do
+    end do
+    end do
+
+    ! vᵉ += [(Dˢ)ᵀ x I x I] z
     do k = 1, np
     do j = 1, np
     do i = 1, np
       tmp = 0
       do p = 1, np
-        tmp = tmp + Ms_Ds(p,k) * z(i,j,p)
+        tmp = tmp + Ds(p,k) * z(i,j,p)
       end do
-      v(i,j,k,e) = v(i,j,k,e) + g(3) * tmp
+      v(i,j,k,e) = v(i,j,k,e) + tmp
     end do
     end do
     end do
 
   end do
   !$omp end do
-
-  !$acc end parallel
-  !$acc end data
 
 end subroutine TPO_Diffusion_RLVI_Gen_RWP

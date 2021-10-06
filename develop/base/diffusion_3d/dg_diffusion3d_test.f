@@ -145,6 +145,7 @@ program DG_Diffusion3D_Test
 
   ! globalize control parameters
   call XMPI_Bcast( config          , 0, comm )
+  call XMPI_Bcast( n_test          , 0, comm )
   call XMPI_Bcast( export_vtk      , 0, comm )
 
   ! globalize problem parameters
@@ -289,8 +290,9 @@ program DG_Diffusion3D_Test
   !$omp end master
 
   do i = 1, n_test
-    call diffusion_op % Apply(u, r)    ! r = A u
-    call MergeArrays(ONE, r, -ONE, f)  ! r = r - f
+    call diffusion_op % Apply(u, r, f)    ! r = A u
+!    call diffusion_op % Apply(u, r)    ! r = A u
+!    call MergeArrays(ONE, r, -ONE, f)  ! r = r - f
   end do
 
   !$omp master
@@ -310,14 +312,11 @@ program DG_Diffusion3D_Test
   call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, comm)
 
   if (rank == 0) then
+    time = (time - time0) / n_test
     write(*,'(T3,A,T11,ES10.3)') 'r_L2  =', r_l2
     write(*,'(T3,A,T11,ES10.3)') 'r_max =', r_max
     write(*,'(T3,A,T11,ES10.3)') 't/DOF =', time / dof
     write(*,'(T3,A,T11,ES10.3)') 'DOF/t =', dof / time
-  end if
-
-  if (rank == 0) then
-    time = (time - time0) / n_test
   end if
 
   !-----------------------------------------------------------------------------

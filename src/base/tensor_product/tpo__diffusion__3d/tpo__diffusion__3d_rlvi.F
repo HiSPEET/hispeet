@@ -50,7 +50,7 @@ contains
   !>     g3 = dx(1) * dx(2) / (2 * dx(3))
   !>
 
-  subroutine TPO_Diffusion_RLVI_RDP(Ms, Ds, dx, lambda, nu, u, v)
+  subroutine TPO_Diffusion_RLVI_RDP(Ms, Ds, dx, lambda, nu, u, v, ub, qb)
     real(RDP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
     real(RDP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
     real(RDP), intent(in)  :: dx(3)       !< element extensions
@@ -59,15 +59,18 @@ contains
     real(RDP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
     real(RDP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
 
+    real(RDP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values
+    real(RDP), optional, intent(inout) :: qb(:,:,:,:) !< element boundary fluxes
+
     select case(size(Ms))
 
 #ifdef __LIBXSMM__
     case(8:)
-      call TPO_Diffusion_RLVI_XSMM(Ms, Ds, dx, lambda, nu, u, v)
+      call TPO_Diffusion_RLVI_XSMM(Ms, Ds, dx, lambda, nu, u, v, ub, qb)
 #endif
 
     case default
-      call TPO_Diffusion_RLVI_Hand(Ms, Ds, dx, lambda, nu, u, v)
+      call TPO_Diffusion_RLVI_Hand(Ms, Ds, dx, lambda, nu, u, v, ub, qb)
 
     end select
 

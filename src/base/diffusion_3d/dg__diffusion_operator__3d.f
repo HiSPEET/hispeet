@@ -69,10 +69,11 @@ contains
     !---------------------------------------------------------------------------
     !> Application of the diffusion operator
 
-    module subroutine Apply(this, u, v)
+    module subroutine Apply(this, u, v, f)
       class(DG_DiffusionOperator_3D), intent(in) :: this
       real(RNP), intent(in)  :: u(:,:,:,:) !< operand
       real(RNP), intent(out) :: v(:,:,:,:) !< result
+      real(RNP), intent(in), optional :: f(:,:,:,:) !< RHS
     end subroutine Apply
 
   end interface

@@ -15,10 +15,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Application with regular (equidistant cuboidal) mesh
 
-  module subroutine Apply_RV(this, u, v)
+  module subroutine Apply_RV(this, u, v, f)
     class(DG_DiffusionOperator_3D), intent(in) :: this
     real(RNP), intent(in)  :: u(:,:,:,:) !< operand
     real(RNP), intent(out) :: v(:,:,:,:) !< result
+    real(RNP), intent(in), optional :: f(:,:,:,:) !< RHS
 
     ! local variables ..........................................................
 
@@ -50,22 +51,15 @@ contains
       !$omp end master
       !$omp barrier
 
-      ! start generation of traces .............................................
-
-      ! initialize, compute and transfer face normal fluxes qn
-       call GetLocalTraces(np, ne, eop%D, mesh%dx, nu, u &
-                          , tr_u  = tr(:,:,:,:,1)        &
-                          , tr_qn = tr(:,:,:,:,2)        )
-
-      ! start transfer of fluxes to/from remote neighbors
-      call tr_buf % Transfer(mesh, tr, tag=1000)
-
       ! apply element diffusion operator .......................................
 
-      call TPO_Diffusion(eop%w, eop%D, mesh%dx, lambda, nu, u, v)
+      call TPO_Diffusion( eop%w, eop%D, mesh%dx, lambda, nu, u, v &
+                        , ub = tr(:,:,:,:,1)                      &
+                        , qb = tr(:,:,:,:,2)                      )
 
-      ! finish generation of traces ............................................
+      ! transfer traces ........................................................
 
+      call tr_buf % Transfer(mesh, tr, tag=1000)
       call tr_buf % Merge(tr)
 
       call ApplyBoundaryConditions( mesh, this%bc          &
@@ -77,6 +71,7 @@ contains
       call AddFluxes( mesh, eop, nu, nu_mf  &
                     , tr_u  = tr(:,:,:,:,1) &
                     , tr_qn = tr(:,:,:,:,2) &
+                    , f     = f             &
                     , v     = v             )
 
       ! clean-up ...............................................................
@@ -90,124 +85,21 @@ contains
   end subroutine Apply_RV
 
   !-----------------------------------------------------------------------------
-  !> Elementwise computation of diffusive fluxes parallel to face normals
-  !>
-  !> Computes the normal components of ν∇u for all element boundary points.
-  !> Entries corresponding to interior points or tangential components are
-  !> set to zero.
+  !> Compute & add fluxes through element boundaries and, optionally, apply RHS
 
-  subroutine GetLocalTraces(np, ne, Ds, dx, nu, u, tr_u, tr_qn)
-    integer,   intent(in)    :: np              !< num points per direction
-    integer,   intent(in)    :: ne              !< num elements
-    real(RNP), intent(in)    :: Ds(np,np)       !< 1D standard diff operator
-    real(RNP), intent(in)    :: dx(3)           !< element extensions
-    real(RNP), intent(in)    :: nu(np,np,np,ne) !< diffusivity
-    real(RNP), intent(in)    :: u(np,np,np,ne)  !< 3D scalar field
-    real(RNP), intent(inout) :: tr_u (:,:,:,:)  !< solution traces
-    real(RNP), intent(inout) :: tr_qn(:,:,:,:)  !< normal flux traces
-
-    real(RNP) :: Ds_f(2,np)
-    real(RNP) :: g(3), tmp1, tmp2
-    integer   :: e, i, j, k, m
-
-    ! initialization ...........................................................
-
-    ! transposed normal differentiation operators for first and last point
-    Ds_f(1,:) = -Ds( 1,:)  ! first
-    Ds_f(2,:) =  Ds(np,:)  ! last
-
-    ! metric coefficients
-    g = 2 / dx
-
-    !$acc data present(u,q) copyin(Ds_f,g)
-    !$acc parallel
-    !$acc loop gang worker
-
-    !$omp do private(e)
-    do e = 1, ne
-
-      ! face 1+2: qn = ∓ν ∂u/∂x1 ...............................................
-
-      !$acc loop collapse(2) vector
-      do k = 1, np
-      do j = 1, np
-
-        tmp1 = 0
-        tmp2 = 0
-        do m = 1, np
-          tmp1 = tmp1 + Ds_f(1,m) * u(m,j,k,e)
-          tmp2 = tmp2 + Ds_f(2,m) * u(m,j,k,e)
-        end do
-        tr_u (j,k,1,e) = u( 1,j,k,e)
-        tr_u (j,k,2,e) = u(np,j,k,e)
-        tr_qn(j,k,1,e) = g(1) * nu( 1,j,k,e) * tmp1
-        tr_qn(j,k,2,e) = g(1) * nu(np,j,k,e) * tmp2
-
-      end do
-      end do
-
-      ! face 3+4: qn = ∓ν ∂u/∂x2 ...............................................
-
-      !$acc loop collapse(2) vector
-      do k = 1, np
-      do i = 1, np
-
-        tmp1 = 0
-        tmp2 = 0
-        do m = 1, np
-          tmp1 = tmp1 + Ds_f(1,m) * u(i,m,k,e)
-          tmp2 = tmp2 + Ds_f(2,m) * u(i,m,k,e)
-        end do
-        tr_u (i,k,3,e) = u(i, 1,k,e)
-        tr_u (i,k,4,e) = u(i,np,k,e)
-        tr_qn(i,k,3,e) = g(2) * nu(i, 1,k,e) * tmp1
-        tr_qn(i,k,4,e) = g(2) * nu(i,np,k,e) * tmp2
-
-      end do
-      end do
-
-      ! face 5+6: qn = ∓ν ∂u/∂x3 ...............................................
-
-      !$acc loop collapse(2) vector
-      do j = 1, np
-      do i = 1, np
-
-        tmp1 = 0
-        tmp2 = 0
-        do m = 1, np
-          tmp1 = tmp1 + Ds_f(1,m) * u(i,j,m,e)
-          tmp2 = tmp2 + Ds_f(2,m) * u(i,j,m,e)
-        end do
-        tr_u (i,j,5,e) = u(i,j, 1,e)
-        tr_u (i,j,6,e) = u(i,j,np,e)
-        tr_qn(i,j,5,e) = g(3) * nu(i,j, 1,e) * tmp1
-        tr_qn(i,j,6,e) = g(3) * nu(i,j,np,e) * tmp2
-
-      end do
-      end do
-
-    end do
-
-    !$acc end parallel
-    !$acc end data
-
-  end subroutine GetLocalTraces
-
-  !-----------------------------------------------------------------------------
-  !> Compute and add fluxes through element boundaries
-
-  subroutine AddFluxes(mesh, eop, nu, nu_mf, tr_u, tr_qn, v)
+  subroutine AddFluxes(mesh, eop, nu, nu_mf, tr_u, tr_qn, f, v)
 
     ! arguments ................................................................
 
     class(Mesh_3D), intent(in) :: mesh !< mesh partition
     class(DG_ElementOperators_1D), intent(in) :: eop  !< ID-DG element operators
 
-    real(RNP), intent(in)    :: nu(0:,0:,0:,:)   !< diffusivity
-    real(RNP), intent(in)    :: nu_mf(0:,0:,:)   !< max diffusivity @ faces
-    real(RNP), intent(in)    :: tr_u (0:,0:,:,:) !< u nᵢ @ element faces
-    real(RNP), intent(in)    :: tr_qn(0:,0:,:,:) !< q_n  @ element faces
-    real(RNP), intent(inout) :: v(0:,0:,0:,:)    !< result
+    real(RNP), intent(in) :: nu(0:,0:,0:,:)   !< diffusivity
+    real(RNP), intent(in) :: nu_mf(0:,0:,:)   !< max diffusivity @ faces
+    real(RNP), intent(in) :: tr_u (0:,0:,:,:) !< u nᵢ @ element faces
+    real(RNP), intent(in) :: tr_qn(0:,0:,:,:) !< q_n  @ element faces
+    real(RNP), optional, intent(in) :: f(0:,0:,0:,:) !< RHS
+    real(RNP), intent(inout) :: v(0:,0:,0:,:) !< result
 
     ! local variables ..........................................................
 
@@ -217,6 +109,7 @@ contains
     real(RNP) :: g(3), mu(3)
     real(RNP) :: cd_0, cd_P, cp_0, cp_P
     integer   :: i, j, k, e, en(6), fn(6)
+    logical   :: present_f
 
     associate( P  => eop  % po, &
                Ms => eop  % w,  &
@@ -247,6 +140,8 @@ contains
       mu(1) = eop % PenaltyFactor(dx(1))
       mu(2) = eop % PenaltyFactor(dx(2))
       mu(3) = eop % PenaltyFactor(dx(3))
+
+      present_f = present(f)
 
       ! add fluxes .............................................................
 
@@ -372,6 +267,16 @@ contains
             end do
           end do
           end do
+
+          if (present_f) then
+            do k = 0, P
+            do j = 0, P
+            do i = 0, P
+              v(i,j,k,e) = v(i,j,k,e) - f(i,j,k,e)
+            end do
+            end do
+            end do
+          end if
 
         end associate
       end do

@@ -24,7 +24,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Generic element diffusion operator (RLVI)
 
-  subroutine TPO_Diffusion_RLVI_XSMM_RDP(Ms, Ds, dx, lambda, nu, u, v)
+  subroutine TPO_Diffusion_RLVI_XSMM_RDP(Ms, Ds, dx, lambda, nu, u, v, ub, qb)
     real(RDP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
     real(RDP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
     real(RDP), intent(in)  :: lambda      !< Helmholtz parameter
@@ -33,28 +33,34 @@ contains
     real(RDP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
     real(RDP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
 
-    type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
+    real(RDP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values
+    real(RDP), optional, intent(inout) :: qb(:,:,:,:) !< element boundary fluxes
 
-    real(RDP), parameter :: alpha = 1
-    real(RDP), parameter :: beta  = 1
+    type(LIBXSMM_DMMFunction), save :: xmm_set_1, xmm_set_2, xmm_set_3
+    type(LIBXSMM_DMMFunction), save :: xmm_add_1, xmm_add_2, xmm_add_3
+
+    real(RDP), parameter :: ZERO = 0
+    real(RDP), parameter :: ONE  = 1
 
     !---------------------------------------------------------------------------
     ! local variables
 
-    real(RDP), dimension(size(Ms), size(Ms), size(Ms)) :: M, M_u, z
-    real(RDP), dimension(size(Ms), size(Ms))           :: Ms_Ds, Msi_Dst
-    real(RDP), dimension(size(Ms), size(Ms))           :: Ms_Ds_2, Ms_Ds_3
-    real(RDP), dimension(size(Ms), size(Ms))           :: Ms_Dst_1, Msi_Ds
+    real(RDP), dimension(size(Ms), size(Ms), size(Ms)) :: M, M_nu, z
+    real(RDP), dimension(size(Ms), size(Ms)) :: Ds_t
 
     real(RDP) :: g(3), tmp
     integer   :: np, ne
-    integer   :: e, i, j, k, p
+    integer   :: e, i, j, k
+
+    logical :: get_traces
 
     !---------------------------------------------------------------------------
     ! initialization
 
     np = size(Ms)
     ne = size(u,4)
+
+    get_traces = present(ub) .and. present(qb)
 
     ! element mass matrix
     tmp = product(dx) / 8
@@ -66,39 +72,25 @@ contains
     end do
     end do
 
-    ! modified differentiation operators
-    !! to optimize cache use, the operators are used in transposed form
-    !! to save loads, both operators are computed in one loop-nest
-    do j = 1, np
-    do i = 1, np
-      Ms_Ds   (i,j) = Ms(i) * Ds(i,j)  ! = Ms Ds     =  [ (Ms Ds)ᵀ ]ᵀ
-      Msi_Dst (i,j) = Ds(j,i) / Ms(i)  ! = Ms⁻¹ Dsᵀ  =  [  Ds Ms⁻¹ ]ᵀ
-    end do
-    end do
-
-    ! coefficients
+    ! metric coefficients
     g = 4 / dx**2
 
-    Ms_Ds_2   = g(2) * Ms_Ds
-    Ms_Ds_3   = g(3) * Ms_Ds
-    Ms_Dst_1  = g(1) * transpose(Ms_Ds)
-    Msi_Ds    =        transpose(Msi_Dst)
+    ! initialize operators
+    Ds_t = transpose(Ds)
 
     ! XSMM dispatch
     !$omp master
-    call LIBXSMM_Dispatch(xmm_1, np   , np**2, np, alpha=alpha, beta=beta)
-    call LIBXSMM_Dispatch(xmm_2, np   , np   , np, alpha=alpha, beta=beta)
-    call LIBXSMM_Dispatch(xmm_3, np**2, np   , np, alpha=alpha, beta=beta)
-
-    if (.not. ( libxsmm_available(xmm_1) .and.  &
-                libxsmm_available(xmm_2) .and.  &
-                libxsmm_available(xmm_3)        ) ) then
-
-      stop "TPO_Diffusion_RLCI_XSMM: LIBXSMM_Dispatch failed"
-
-    end if
+    call LIBXSMM_Dispatch(xmm_set_1, np   , np**2, np, alpha=ONE, beta=ZERO)
+    call LIBXSMM_Dispatch(xmm_add_1, np   , np**2, np, alpha=ONE, beta=ONE )
+    call LIBXSMM_Dispatch(xmm_set_2, np   , np   , np, alpha=ONE, beta=ZERO)
+    call LIBXSMM_Dispatch(xmm_add_2, np   , np   , np, alpha=ONE, beta=ONE )
+    call LIBXSMM_Dispatch(xmm_set_3, np**2, np   , np, alpha=ONE, beta=ZERO)
+    call LIBXSMM_Dispatch(xmm_add_3, np**2, np   , np, alpha=ONE, beta=ONE )
     !$omp end master
     !$omp barrier
+
+    ! coefficients
+    g = 4 / dx**2
 
     !---------------------------------------------------------------------------
     ! evaluation
@@ -106,42 +98,105 @@ contains
     !$omp do private(e)
     do e = 1, ne
 
-      ! M_u = Mᵉuᵉ, vᵉ = λ M uᵉ ................................................
+      ! vᵉ = λ Mᵉ uᵉ, M_nu = Mᵉνᵉ ..............................................
 
       do k = 1, np
       do j = 1, np
       do i = 1, np
-        M_u(i,j,k) = M(i,j,k) * u(i,j,k,e)
-        v(i,j,k,e) = lambda * M_u(i,j,k)
+        v(i,j,k,e) = lambda * M(i,j,k) * u(i,j,k,e)
+        M_nu(i,j,k) = M(i,j,k) * nu(i,j,k,e)
       end do
       end do
       end do
 
       ! direction 1 ............................................................
-      z(:,:,:) = 0
-      ! vᵉ += g₁ [I x I x (MˢDˢ)ᵀ] [νᵉ] [I x I x (Mˢ)⁻¹(Dˢ)ᵀ)] Mᵉuᵉ
-      call LIBXSMM_DMMCall(xmm_1, Msi_Ds(:,:), M_u(:,:,:), z(:,:,:))
-      z = nu(:,:,:,e) * z
-      call LIBXSMM_DMMCall(xmm_1, Ms_Dst_1(:,:) , z(:,:,:), v(:,:,:,e))
+
+      ! z = [I x I x Dˢ] uᵉ
+      call LIBXSMM_DMMCall(xmm_set_1, Ds, u(:,:,:,e), z)
+
+      if (get_traces) then
+        ! ub = u       @ Γ₁ + Γ₂
+        ! qb = n⋅ν∇u   @ Γ₁ + Γ₂
+        do k = 1, np
+        do j = 1, np
+          ub(j,k,1,e) =  u( 1,j,k,e)
+          ub(j,k,2,e) =  u(np,j,k,e)
+          qb(j,k,1,e) = -2/dx(1) * nu( 1,j,k,e) * z( 1,j,k)
+          qb(j,k,2,e) =  2/dx(1) * nu(np,j,k,e) * z(np,j,k)
+        end do
+        end do
+      end if
+
+      ! z = g₁ [νᵉMᵉ] z
+      do k = 1, np
+      do j = 1, np
+      do i = 1, np
+        z(i,j,k) = g(1) * M_nu(i,j,k) * z(i,j,k)
+      end do
+      end do
+      end do
+
+      ! vᵉ += [I x I x (Dˢ)ᵀ] z
+      call LIBXSMM_DMMCall(xmm_add_1, Ds_t, z, v(:,:,:,e))
 
       ! direction 2 ............................................................
-      z(:,:,:) = 0
-      ! vᵉ += g₂ [I x (MˢDˢ)ᵀ x I] [νᵉ] [I x (Mˢ)⁻¹(Dˢ)ᵀ x I] Mᵉuᵉ
+
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_2, M_u(:,:,k), Msi_Dst(:,:), z(:,:,k))
-      end do
-      z = nu(:,:,:,e) * z
-      do k = 1, np
-        call LIBXSMM_DMMCall(xmm_2, z(:,:,k), Ms_Ds_2(:,:), v(:,:,k,e))
+
+        ! z = [I x Dˢ x I] uᵉ
+        call LIBXSMM_DMMCall(xmm_set_2, u(:,:,k,e), Ds_t, z(:,:,k))
+
+        if (get_traces) then
+         ! ub = u       @ Γ₃ + Γ₃
+         ! qb = n⋅ν∇u   @ Γ₄ + Γ₄
+         do i = 1, np
+            ub(i,k,3,e) =  u(i, 1,k,e)
+            ub(i,k,4,e) =  u(i,np,k,e)
+            qb(i,k,3,e) = -2/dx(2) * nu(i, 1,k,e) * z(i, 1,k)
+            qb(i,k,4,e) =  2/dx(2) * nu(i,np,k,e) * z(i,np,k)
+          end do
+        end if
+
+        ! z = g₂ [νᵉMᵉ] z
+        do j = 1, np
+        do i = 1, np
+          z(i,j,k) = g(2) * M_nu(i,j,k) * z(i,j,k)
+        end do
+        end do
+
+        ! vᵉ += [I x (Dˢ)ᵀ x I] z
+        call LIBXSMM_DMMCall(xmm_add_2, z(:,:,k), Ds, v(:,:,k,e))
       end do
 
       ! direction 3 ............................................................
-      z(:,:,:) = 0
-      ! vᵉ += g₃ [(MˢDˢ)ᵀ x I x I] [νᵉ] [(Mˢ)⁻¹(Dˢ)ᵀ x I x I] Mᵉuᵉ
-      ! z = [νᵉ] [(Mˢ)⁻¹(Dˢ)ᵀ x I x I] Mᵉuᵉ
-      call LIBXSMM_DMMCall(xmm_3, M_u(:,:,:), Msi_Dst(:,:), z(:,:,:))
-      z = nu(:,:,:,e) * z
-      call LIBXSMM_DMMCall(xmm_3, z(:,:,:), Ms_Ds_3(:,:), v(:,:,:,e))
+
+      ! z = [Dˢ x I x I] uᵉ
+      call LIBXSMM_DMMCall(xmm_set_3, u(:,:,:,e), Ds_t, z)
+
+      if (get_traces) then
+        ! ub = u       @ Γ₅ + Γ₅
+        ! qb = n⋅ν∇u   @ Γ₆ + Γ₆
+        do j = 1, np
+        do i = 1, np
+          ub(i,j,5,e) =  u(i,j, 1,e)
+          ub(i,j,6,e) =  u(i,j,np,e)
+          qb(i,j,5,e) = -2/dx(3) * nu(i,j, 1,e) * z(i,j, 1)
+          qb(i,j,6,e) =  2/dx(3) * nu(i,j,np,e) * z(i,j,np)
+        end do
+        end do
+      end if
+
+      ! z = g₃ [νᵉMᵉ] z
+      do k = 1, np
+      do j = 1, np
+      do i = 1, np
+        z(i,j,k) = g(3) * M_nu(i,j,k) * z(i,j,k)
+      end do
+      end do
+      end do
+
+      ! vᵉ += [(Dˢ)ᵀ x I x I] z
+      call LIBXSMM_DMMCall(xmm_add_3, z, Ds, v(:,:,:,e))
 
     end do
     !$omp end do

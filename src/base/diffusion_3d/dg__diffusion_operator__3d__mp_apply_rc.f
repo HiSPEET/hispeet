@@ -15,10 +15,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Application with regular (equidistant cuboidal) mesh
 
-  module subroutine Apply_RC(this, u, v)
+  module subroutine Apply_RC(this, u, v, f)
     class(DG_DiffusionOperator_3D), intent(in) :: this
     real(RNP), intent(in)  :: u(:,:,:,:) !< operand
     real(RNP), intent(out) :: v(:,:,:,:) !< result
+    real(RNP), intent(in), optional :: f(:,:,:,:) !< RHS
 
     ! local variables ..........................................................
 
@@ -95,6 +96,7 @@ contains
       call AddFluxes( mesh, eop, Bs, nu_p, nu_s &
                     , tr_u  = tr(:,:,:,:,1)     &
                     , tr_qn = tr(:,:,:,:,2)     &
+                    , f     = f                 &
                     , v     = v                 )
 
       ! clean-up ...............................................................
@@ -211,21 +213,22 @@ contains
   end subroutine GetLocalTraces
 
   !-----------------------------------------------------------------------------
-  !> Compute and add fluxes through element boundaries
+  !> Compute & add fluxes through element boundaries and, optionally, apply RHS
 
-  subroutine AddFluxes(mesh, eop, Bs, nu_p, nu_s, tr_u, tr_qn, v)
+  subroutine AddFluxes(mesh, eop, Bs, nu_p, nu_s, tr_u, tr_qn, f, v)
 
     ! arguments ................................................................
 
     class(Mesh_3D), intent(in) :: mesh !< mesh partition
     class(DG_ElementOperators_1D), intent(in) :: eop  !< ID-DG element operators
 
-    real(RNP), intent(in)    :: Bs(0:,0:)        !< 1D standard "flux" operator
-    real(RNP), intent(in)    :: nu_p             !< diffusivity
-    real(RNP), intent(in)    :: nu_s             !< spectral diffusivity
-    real(RNP), intent(in)    :: tr_u (0:,0:,:,:) !< u nᵢ @ element faces
-    real(RNP), intent(in)    :: tr_qn(0:,0:,:,:) !< q_n  @ element faces
-    real(RNP), intent(inout) :: v(0:,0:,0:,:)    !< result
+    real(RNP), intent(in) :: Bs(0:,0:)        !< 1D standard "flux" operator
+    real(RNP), intent(in) :: nu_p             !< diffusivity
+    real(RNP), intent(in) :: nu_s             !< spectral diffusivity
+    real(RNP), intent(in) :: tr_u (0:,0:,:,:) !< u nᵢ @ element faces
+    real(RNP), intent(in) :: tr_qn(0:,0:,:,:) !< q_n  @ element faces
+    real(RNP), optional, intent(in) :: f(0:,0:,0:,:) !< RHS
+    real(RNP), intent(inout) :: v(0:,0:,0:,:) !< result
 
     ! local variables ..........................................................
 
@@ -235,6 +238,7 @@ contains
     real(RNP) :: g(3), mu(3)
     real(RNP) :: cd_0, cd_P, cp_0, cp_P
     integer   :: i, j, k, e, en(6), fn(6)
+    logical   :: present_f
 
     associate( P  => eop  % po, &
                Ms => eop  % w,  &
@@ -264,6 +268,8 @@ contains
       mu(1) = eop % PenaltyFactor(dx(1))
       mu(2) = eop % PenaltyFactor(dx(2))
       mu(3) = eop % PenaltyFactor(dx(3))
+
+      present_f = present(f)
 
       ! add fluxes .............................................................
 
@@ -385,6 +391,16 @@ contains
         end do
         end do
         end do
+
+        if (present_f) then
+          do k = 0, P
+          do j = 0, P
+          do i = 0, P
+            v(i,j,k,e) = v(i,j,k,e) - f(i,j,k,e)
+          end do
+          end do
+          end do
+        end if
 
       end do
 
