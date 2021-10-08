@@ -34,13 +34,14 @@ submodule(DG__Diffusion_Operator__3D) MP_Apply
     end subroutine Apply_RV
 
     !---------------------------------------------------------------------------
-    !> Application with irregular (deformed) mesh
+    !> Application with irregular (deformed) mesh and constant diffusivity
 
-!!    module subroutine Apply_D(this, u, v)
-!!      class(DG_DiffusionOperator_3D), intent(in) :: this
-!!      real(RNP), intent(in)  :: u(:,:,:,:) !< operand
-!!      real(RNP), intent(out) :: v(:,:,:,:) !< result
-!!    end subroutine Apply_D
+    module subroutine Apply_DC(this, u, v, f)
+      class(DG_DiffusionOperator_3D), intent(in) :: this
+      real(RNP), intent(in)  :: u(:,:,:,:) !< operand
+      real(RNP), intent(out) :: v(:,:,:,:) !< result
+      real(RNP), intent(in), optional :: f(:,:,:,:) !< RHS
+    end subroutine Apply_DC
 
   end interface
 

@@ -37,6 +37,16 @@ module Mesh__3D
   !>                + x_cube(3,l,1:3) ζ
   !>
   !> with `-1 ≤ ξ,η,ζ ≤ 1`.
+  !>
+  !> The array `dx_mean(1:6,l)` provides the harmonic mean spacing across the
+  !> element faces based on the adjoining cuboids. Given the normal spacings
+  !> `dx₁` and `dx₂` of the cuboids adjacent to a given face, the mean spacing
+  !> is defined as
+  !>
+  !>       dx_mean = 2 / (1/dx₁ + 1/dx₂)
+  !>
+  !> The spacing is a unique property of the shared mesh face, but is stored
+  !> element-wise for convenience.
 
   type Mesh_3D
 
@@ -84,6 +94,7 @@ module Mesh__3D
     ! mesh element geometry
     real(RNP), allocatable :: x_elem(:,:,:,:,:) !< element Lobatto points
     real(RNP), allocatable :: x_cube(:,:,:)     !< approximate cuboids
+    real(RNP), allocatable :: dx_mean(:,:)      !< mean spacing across faces
 
     ! MPI
     type(MPI_Comm) :: comm  !< communicator
