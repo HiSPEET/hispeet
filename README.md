@@ -14,11 +14,12 @@ and, ideally,
 - Paraview for visualization
 - FFTW for some postprocessing tools.
 
-See here how to set up [Git](./wiki/git.md) and how to configure [Ubuntu](./wiki/ubuntu.md) or macOS for use with _HiSPEET_.
+See here how to set up [Git](./howto/wiki/git.md) and how to configure [Ubuntu](./howto/wiki/ubuntu.md) or macOS for use with _HiSPEET_.
 
 ## Download
 
-_HiSPEET_ can be obtained via [anonymous access](https://fusionforge.zih.tu-dresden.de/scm/?group_id=747)  from the ZIH FusionForge server
+*needs to be revised*
+_HiSPEET_ can be obtained via [anonymous access](https://fusionforge.zih.tu-dresden.de/ scm/?group_id=747)  from the ZIH FusionForge server
 
      git clone https://scm.fusionforge.zih.tu-dresden.de/anonscm/git/hispeet/hispeet.git
 
@@ -35,7 +36,7 @@ Building _HiSPEET_ requires a suitable computing environment. Often it is suffic
       export CXX=mpicxx
       export FC=mpifort
 
-If your system offers different sets of compilers and MPI implementations, it is advisable to configure the environment for choosing the right one. See [environment](./wiki/environment) wiki for details and examples.
+If your system offers different sets of compilers and MPI implementations, it is advisable to configure the environment for choosing the right one. See [environment](./howto/wiki/environment) wiki for details and examples.
 
 ## Building
 
@@ -53,7 +54,7 @@ Note that all files are generated in the build directory, while the source direc
       cmake -D OpenMP=1 ..
       make
 
-For further options see the [build](./wiki/build) wiki.
+For further options see the [build](./howto/wiki/build) wiki.
 
 ## Running
 
