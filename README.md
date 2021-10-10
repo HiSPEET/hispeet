@@ -14,16 +14,15 @@ and, ideally,
 - Paraview for visualization
 - FFTW for some postprocessing tools.
 
-See here how to set up [Git](./howto/wiki/git.md) and how to configure [Ubuntu](./howto/wiki/ubuntu.md) or macOS for use with _HiSPEET_.
+See here how to configure [Ubuntu](./howto/wiki/ubuntu.md) for use with _HiSPEET_. Further configuration hints are found under `howto/configuration`.
 
 ## Download
 
-*needs to be revised*
-_HiSPEET_ can be obtained via [anonymous access](https://fusionforge.zih.tu-dresden.de/ scm/?group_id=747)  from the ZIH FusionForge server
+_HiSPEET_ can be downloaded from the GitLab server of TU Chemnitz via
 
-     git clone https://scm.fusionforge.zih.tu-dresden.de/anonscm/git/hispeet/hispeet.git
+     git clone https://gitlab.hrz.tu-chemnitz.de/jstiller--tu-dresden.de/hispeet.git
 
-This creates a clone of the git repository in the directory `hispeet`.  Next initialize the external libraries which are incorporated as submodules
+This creates a clone of the git repository in the directory `hispeet`. Next initialize the external libraries which are incorporated as submodules:
 
       cd hispeet
       git submodule update --init
@@ -36,11 +35,11 @@ Building _HiSPEET_ requires a suitable computing environment. Often it is suffic
       export CXX=mpicxx
       export FC=mpifort
 
-If your system offers different sets of compilers and MPI implementations, it is advisable to configure the environment for choosing the right one. See [environment](./howto/wiki/environment) wiki for details and examples.
+If your system offers different sets of compilers and MPI implementations, it is advisable to configure the environment for choosing the right one. See the directory `howto/environment` for examples.
 
 ## Building
 
-For building _HiSPEET_ create a build directory and issue the `cmake` and `make` command from there
+For building _HiSPEET_ create a build directory and issue the `cmake` and `make` command from there, e.g:
 
       mkdir build
       cd build
