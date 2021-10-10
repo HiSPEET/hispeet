@@ -14,7 +14,7 @@ and, ideally,
 - Paraview for visualization
 - FFTW for some postprocessing tools.
 
-See here how to configure [Ubuntu](./howto/wiki/ubuntu.md) for use with _HiSPEET_. Further configuration hints are found under `howto/configuration`.
+See here how to configure [Ubuntu](./howto/wiki/ubuntu.md) for use with _HiSPEET_. 
 
 ## Download
 
