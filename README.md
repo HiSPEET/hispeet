@@ -20,7 +20,7 @@ See here how to configure [Ubuntu](./howto/wiki/ubuntu.md) for use with _HiSPEET
 
 _HiSPEET_ can be downloaded from the GitLab server of TU Chemnitz via
 
-     git clone https://gitlab.hrz.tu-chemnitz.de/jstiller--tu-dresden.de/hispeet.git
+     git clone https://gitlab.hrz.tu-chemnitz.de/hispeet/hispeet.git
 
 This creates a clone of the git repository in the directory `hispeet`. Next initialize the external libraries which are incorporated as submodules:
 
