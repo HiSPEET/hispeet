@@ -46,7 +46,7 @@ contains
 
       !$omp master
       tr_buf = ElementFaceTransferBuffer_3D(mesh, tr_val)
-      !$omp master
+      !$omp end master
       !$omp barrier
 
       nc = size(tr_val,5)

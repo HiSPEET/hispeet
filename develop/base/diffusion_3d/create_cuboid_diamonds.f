@@ -10,7 +10,6 @@ module Create_Cuboid_Diamonds
   use XMPI
   use Mesh__3D
   use Generic_Mesh__3D
-  use Spectral_Element_Mesh__3D
   implicit none
   private
 
@@ -21,12 +20,15 @@ contains
   !-----------------------------------------------------------------------------
   !> Creation of a cuboid domain with unstructured "diamond" mesh
 
-  subroutine CreateCuboidDiamonds(comm, input, pg, po, sem)
-    type(MPI_Comm),   intent(in)  :: comm  !< MPI communicator
-    character(len=*), intent(in)  :: input !< input file
-    integer,          intent(in)  :: pg    !< polynomial order of geometry
-    integer,          intent(in)  :: po    !< polynomial order of elements
-    type(SpectralElementMesh_3D), intent(out) :: sem !< spectral-element mesh
+  subroutine CreateCuboidDiamonds(comm, input, pg, mesh, bc)
+
+    ! arguments ................................................................
+
+    type(MPI_Comm),         intent(in)  :: comm  !< MPI communicator
+    character(len=*),       intent(in)  :: input !< input file
+    integer,                intent(in)  :: pg    !< polynomial order of geometry
+    type(Mesh_3D),          intent(out) :: mesh  !< spectral-element mesh
+    character, allocatable, intent(out) :: bc(:) !< boundary conditions
 
     ! input parameters .........................................................
 
@@ -36,42 +38,45 @@ contains
     integer   :: nx = 2                ! number of cells in x-direction
     integer   :: ny = 2                ! number of cells in y-direction
     integer   :: nz = 2                ! number of elements in z-direction
-    logical   :: periodic(3) = .false. ! F/T for non/periodic directions
 
-    namelist/cuboid_diamonds_prm/ lx, ly, lz, nx, ny, nz, periodic
+    namelist/cuboid_diamonds_prm/ lx, ly, lz, nx, ny, nz, bc
 
     ! auxiliary variables ......................................................
 
-    integer   :: rank
-    integer   :: io
+    integer :: rank
+    integer :: io
+    integer :: nb = 6      ! num boundaries {west,east,north,south,bottom,top}
+    logical :: periodic(3) ! F/T for non/periodic directions
 
     type(GenericMesh_3D) :: generic_mesh
-    type(Mesh_3D)        :: mesh
 
     ! initialization ...........................................................
 
     call MPI_Comm_rank(comm, rank)
 
+    allocate(bc(nb), source = 'P')
     if (rank == 0) then
       open(newunit = io, file = input)
       read(io, nml = cuboid_diamonds_prm)
       close(io)
     end if
 
-    call XMPI_Bcast(lx      , 0, comm)
-    call XMPI_Bcast(ly      , 0, comm)
-    call XMPI_Bcast(lz      , 0, comm)
-    call XMPI_Bcast(nx      , 0, comm)
-    call XMPI_Bcast(ny      , 0, comm)
-    call XMPI_Bcast(nz      , 0, comm)
-    call XMPI_Bcast(periodic, 0, comm)
+    call XMPI_Bcast(lx, 0, comm)
+    call XMPI_Bcast(ly, 0, comm)
+    call XMPI_Bcast(lz, 0, comm)
+    call XMPI_Bcast(nx, 0, comm)
+    call XMPI_Bcast(ny, 0, comm)
+    call XMPI_Bcast(nz, 0, comm)
+    call XMPI_Bcast(bc, 0, comm)
+
+    periodic(1) = all(bc(1:2) == 'P')
+    periodic(2) = all(bc(3:4) == 'P')
+    periodic(3) = all(bc(5:6) == 'P')
 
     ! create mesh ..............................................................
 
     call generic_mesh % CreateDiamonds(lx, ly, lz, nx, ny, nz, pg, periodic)
     call mesh % ImportGenericMesh(generic_mesh, comm = comm)
-
-    sem = SpectralElementMesh_3D(mesh, po)
 
   end subroutine CreateCuboidDiamonds
 

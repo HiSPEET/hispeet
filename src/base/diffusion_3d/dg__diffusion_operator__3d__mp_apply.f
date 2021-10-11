@@ -16,29 +16,32 @@ submodule(DG__Diffusion_Operator__3D) MP_Apply
     !---------------------------------------------------------------------------
     !> Application with regular mesh and constant diffusivity
 
-    module subroutine Apply_RC(this, u, v)
+    module subroutine Apply_RC(this, u, v, f)
       class(DG_DiffusionOperator_3D), intent(in) :: this
       real(RNP), intent(in)  :: u(:,:,:,:) !< operand
       real(RNP), intent(out) :: v(:,:,:,:) !< result
+      real(RNP), intent(in), optional :: f(:,:,:,:) !< RHS
     end subroutine Apply_RC
 
     !---------------------------------------------------------------------------
     !> Application with regular mesh and variable diffusivity
 
-    module subroutine Apply_RV(this, u, v)
+    module subroutine Apply_RV(this, u, v, f)
       class(DG_DiffusionOperator_3D), intent(in) :: this
       real(RNP), intent(in)  :: u(:,:,:,:) !< operand
       real(RNP), intent(out) :: v(:,:,:,:) !< result
+      real(RNP), intent(in), optional :: f(:,:,:,:) !< RHS
     end subroutine Apply_RV
 
     !---------------------------------------------------------------------------
-    !> Application with irregular (deformed) mesh
+    !> Application with irregular (deformed) mesh and constant diffusivity
 
-!!    module subroutine Apply_D(this, u, v)
-!!      class(DG_DiffusionOperator_3D), intent(in) :: this
-!!      real(RNP), intent(in)  :: u(:,:,:,:) !< operand
-!!      real(RNP), intent(out) :: v(:,:,:,:) !< result
-!!    end subroutine Apply_D
+    module subroutine Apply_DC(this, u, v, f)
+      class(DG_DiffusionOperator_3D), intent(in) :: this
+      real(RNP), intent(in)  :: u(:,:,:,:) !< operand
+      real(RNP), intent(out) :: v(:,:,:,:) !< result
+      real(RNP), intent(in), optional :: f(:,:,:,:) !< RHS
+    end subroutine Apply_DC
 
   end interface
 
@@ -47,18 +50,19 @@ contains
   !-----------------------------------------------------------------------------
   !> Application of the diffusion operator
 
-  module subroutine Apply(this, u, v)
+  module subroutine Apply(this, u, v, f)
     class(DG_DiffusionOperator_3D), intent(in) :: this
     real(RNP), intent(in)  :: u(:,:,:,:) !< operand
     real(RNP), intent(out) :: v(:,:,:,:) !< result
+    real(RNP), intent(in), optional :: f(:,:,:,:) !< RHS
 
     if (this % sem % mesh % regular) then
       if (allocated(this % nu_pv)) then
         ! regular variable
-        call Apply_RV(this, u, v)
+        call Apply_RV(this, u, v, f)
       else
         ! regular constant
-        call Apply_RC(this, u, v)
+        call Apply_RC(this, u, v, f)
       end if
 !!  else
 !!    call Apply_D(this, u, v)

@@ -124,7 +124,7 @@ module CART__Elliptic_PMG
     module subroutine Init_IP( this, mesh, ip_opt, pmg_opt )
       class(PMG_Method3D),          intent(inout) :: this
       class(MeshPartition), target, intent(in)    :: mesh    !< mesh partition
-      class(DG_ElementOptions_1D),   intent(in)    :: ip_opt  !< IP/DG options
+      class(DG_ElementOptions_1D),  intent(in)    :: ip_opt  !< IP/DG options
       class(PMG_Options3D),         intent(in)    :: pmg_opt !< PMG options
     end subroutine Init_IP
 
@@ -172,7 +172,7 @@ contains
 
 type(PMG_Method3D) function New_IP(mesh, ip_opt, pmg_opt) result(this)
   class(MeshPartition), target, intent(in) :: mesh    !< mesh partition
-  class(DG_ElementOptions_1D),   intent(in) :: ip_opt  !< IP/DG options
+  class(DG_ElementOptions_1D),  intent(in) :: ip_opt  !< IP/DG options
   class(PMG_Options3D),         intent(in) :: pmg_opt !< PMG options
 
   call Init_IP(this, mesh, ip_opt, pmg_opt)

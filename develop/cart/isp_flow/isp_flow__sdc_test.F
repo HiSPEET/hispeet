@@ -346,7 +346,7 @@ program ISP_Flow__SDC_Test
   case(6)
     sdc = Flow_SDC_Method_Euler(problem, flow_op, rk_opt, sdc_opt_eu)
   case(7)
-    sdc = Flow_SDC_Method_RungeKutta(problem, flow_op, rk_opt, sdc_opt_rk) 
+    sdc = Flow_SDC_Method_RungeKutta(problem, flow_op, rk_opt, sdc_opt_rk)
   end select
 
   ! print time-integrator settings

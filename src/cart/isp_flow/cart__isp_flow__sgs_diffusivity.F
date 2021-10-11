@@ -177,6 +177,7 @@ contains
     allocate(dc_Sf, mold = L    )
     allocate(LM(np,np,np)       )
     allocate(MM, mold = LM      )
+    !$omp end single
 
     ! step 1: construct the filter matrix ......................................
     if (.not. allocated(F_c)) then
@@ -193,7 +194,7 @@ contains
     end do
 
     ! u_i*u_j, u_i(filtered)*u_j(filtered) matrix
-    uc_uc   = 0
+    uc_uc = 0
     uf_uf = 0
 
     ! The matrices uc_uc, uf_uf, uuf, S, S_f, d_S, d_S_f, L, M, LM, MM are
@@ -533,8 +534,6 @@ contains
     end do
     end do
     end do
-    !$omp end do
-
 
   end subroutine TPO_AAA_ele
 
