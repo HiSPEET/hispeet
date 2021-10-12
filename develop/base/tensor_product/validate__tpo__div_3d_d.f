@@ -97,9 +97,9 @@ program Validate__TPO__Div_3d_D
 
   select case(conf)
   case(2)
-    call generic_mesh % CreateAnnularGap(r0, r1, h, nr, np, nz, po, periodic)
+    call generic_mesh % CreateAnnulus(r0, r1, h, nr, np, nz, po, periodic)
   case default
-    call generic_mesh % CreateCylinder(nr, nz, po, periodic)
+    call generic_mesh % CreateCylinder(r1, h, nr, nz, po, periodic)
   end select
 
   ! operator dimension
