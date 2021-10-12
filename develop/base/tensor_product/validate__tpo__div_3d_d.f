@@ -7,7 +7,7 @@
 program Validate__TPO__Div_3d_D
   use Kind_Parameters
   use Standard_Operators__1D
-  !use TPO__Div__3D_R
+  use TPO__Div__3D_D
   use TPO__Div__3D_D__Gen
   use Constants
   use XMPI
@@ -18,8 +18,7 @@ program Validate__TPO__Div_3d_D
   use Verify_Mesh__3D
   use Assembly__3D
   use Export_VTK_Volume_Data__3D
-
-  use TPO__Div__3D_D__XSMM_RDP        !divergence operator for all elements
+  
 
   implicit none
 
@@ -227,12 +226,12 @@ program Validate__TPO__Div_3d_D
     !$omp parallel
     !$acc data copyin(u) copyout(v)
 
-    call TPO_Div_D_XSMM(po+1, ne, Ds, Ji, u, v)
+    call TPO_Div_D(Ds, Ji, u, v)
     !$acc wait
 
     call system_clock(count0, rate)
     do i = 1, nt
-      call TPO_Div_D_XSMM(po+1, ne, Ds, Ji, u, v)
+      call TPO_Div_D(Ds, Ji, u, v)
       !$acc wait
     end do
 
