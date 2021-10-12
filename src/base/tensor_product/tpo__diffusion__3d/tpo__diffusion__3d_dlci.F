@@ -1,19 +1,19 @@
 !> summary: 3D curvilinear diffusion operator with constant isotropic diffusivity
 !> author:  Jerome Michel, Joerg Stiller
-!> date:    2020/06/03
+!> date:    2021/10/12
 !> license: Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
 module TPO__Diffusion__3D_DLCI
   use Kind_Parameters, only: RDP
-  use TPO__Diffusion__3D_RLVI__Hand
-  use TPO__Diffusion__3D_RLVI__XSMM
+  use TPO__Diffusion__3D_DLCI__Hand
+  use TPO__Diffusion__3D_DLCI__XSMM
   implicit none
   private
 
-  public :: TPO_Diffusion
+  public :: TPO_Diffusion_D
 
-  interface TPO_Diffusion
+  interface TPO_Diffusion_D
     module procedure TPO_Diffusion_DLCI_RDP
   end interface
 
@@ -23,41 +23,22 @@ contains
   !> 3D element diffusion operator for scalars
   !>
   !> The procedure evaluates the diffusion operator with constant lambda and
-  !> variable nu for equidistant 3D Cartesian elements. Given the scalar
+  !> nu for deformed 3D elements. Given the scalar
   !> variable u(1:np,1:np,1:np,1:ne), the result is computed as
-  !>
-  !>     v(i,j,k,e)
-  !>
-  !>       = g0 * lambda * Ms(i) * Ms(j) * Ms(k) * u(i,j,k,e)
-  !>
-  !>       + g1 * Ms(j) * Ms(k)
-  !>            * sum( nu(:,j,k) * Ms(:) * Ds(:,i) * matmul(Ds, u(:,j,k,e)) )
-  !>
-  !>       + g2 * Ms(k) * Ms(i)
-  !>            * sum( nu(i,:,k) * Ms(:) * Ds(:,j) * matmul(Ds, u(i,:,k,e)) )
-  !>
-  !>       + g3 * Ms(i) * Ms(j)
-  !>            * sum( nu(i,j,:) * Ms(:) * Ds(:,k) * matmul(Ds, u(i,j,:,e)) )
-  !>
+  !>   .......
+  !>   .......
   !> for each point (i,j,k) in every element e.
   !>
   !> Ms and Ds are the 1D standard mass and differention matrices for polynomial
-  !> order P = np-1, respectively, dx(1:3) the element dimensions, and
-  !>
-  !>     g0 = dx(1) * dx(2) * dx(3) / 8
-  !>     g1 = dx(2) * dx(3) / (2 * dx(1))
-  !>     g2 = dx(3) * dx(1) / (2 * dx(2))
-  !>     g3 = dx(1) * dx(2) / (2 * dx(3))
-  !>
+  !> order P = np-1, respectively
 
-  subroutine TPO_Diffusion_DLCI_RDP(Ms, Ds, lambda, nu, dx, u, v)
+  subroutine TPO_Diffusion_DLCI_RDP(Ms, Ds, Jd, G, lambda, nu, u, v)
     real(RDP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
     real(RDP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
+    real(RDP), intent(in)  :: Jd(:,:,:,:) !< Jacobian determinant  (np,np,np,ne)
+    real(RDP), intent(in)  :: G(:,:,:,:,:)!< Laplacian metrics
     real(RDP), intent(in)  :: lambda      !< Helmholtz parameter
     real(RDP), intent(in)  :: nu          !< diffusivity
-    !real(RWP), intent(in)  :: Jd(:,:,:,:) !< Jacobian determinant (np,np,np,ne)
-    !real(RWP), intent(in)  :: G(:,:,:,:,:)!< Laplacian metrics
-    real(RDP), intent(in)  :: dx(3)       !< element extensions
     real(RDP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
     real(RDP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
 
@@ -65,12 +46,13 @@ contains
 
 #ifdef __LIBXSMM__
     case(8:)
-      call TPO_Diffusion_DLVI_XSMM(Ms, Ds, lambda, nu, dx, u, v)
+      call TPO_Diffusion_DLCI_XSMM(Ms, Ds, Jd, G, lambda, nu, u, v)
+      write(*,*) "xsmm"
 #endif
 
     case default
-      call TPO_Diffusion_DLVI_Hand(Ms, Ds, lambda, nu, dx, u, v)
-
+      call TPO_Diffusion_DLCI_Hand(Ms, Ds, Jd, G, lambda, nu, u, v)
+      write(*,*) "hand"
     end select
 
   end subroutine TPO_Diffusion_DLCI_RDP

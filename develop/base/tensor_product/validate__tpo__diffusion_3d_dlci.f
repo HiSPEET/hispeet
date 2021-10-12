@@ -8,7 +8,7 @@ program Validate__TPO_Diffusion_DLCI
 ! validate
   use Kind_Parameters
   use Standard_Operators__1D
-!!  use TPO__Diffusion__3D_DLCI
+  use TPO__Diffusion__3D_DLCI
   use TPO__Diffusion__3D_DLCI__Gen
 ! mesh
   use Constants
@@ -21,7 +21,7 @@ program Validate__TPO_Diffusion_DLCI
   use Assembly__3D
   use Export_VTK_Volume_Data__3D
 
-  use TPO__Diffusion__3D_DLCI__XSMM
+  !use TPO__Diffusion__3D_DLCI__XSMM
 
   implicit none
 
@@ -274,12 +274,12 @@ program Validate__TPO_Diffusion_DLCI
 
     !$omp parallel
 
-    call TPO_Diffusion_DLCI_XSMM(Ms, Ds, Jd, G, lambda, nu, u, v)
+    call TPO_Diffusion_D(Ms, Ds, Jd, G, lambda, nu, u, v)
 
     call system_clock(count0, rate)
 
     do i = 1, nt
-      call TPO_Diffusion_DLCI_XSMM(Ms, Ds, Jd, G, lambda, nu, u, v)
+      call TPO_Diffusion_D(Ms, Ds, Jd, G, lambda, nu, u, v)
     end do
 
     call system_clock(count)
