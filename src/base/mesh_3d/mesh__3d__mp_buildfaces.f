@@ -6,7 +6,6 @@
 
 submodule(Mesh__3D) MP_BuildFaces
   use Quick_Sort
-  use Mesh_Element_Indexing__3D, only: V_FACE, E_FACE
   implicit none
 
 contains
