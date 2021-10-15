@@ -1,0 +1,6 @@
+&input_sem_basics
+  po   = 7
+  n    = 200
+  poly = 1
+  func = 1
+/
