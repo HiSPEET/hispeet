@@ -669,7 +669,7 @@ contains
   end subroutine GenerateRegularMeshBoundaries
 
   !-----------------------------------------------------------------------------
-  !> Creates the element domains and their cuboid approximations
+  !> Creates element domains, cuboid approximations and mean face-normal spacing
 
   subroutine GenerateRegularElementDomains(mesh, xo, i0, j0, k0)
     class(Mesh_3D), intent(inout) :: mesh  !< local partition
@@ -688,8 +688,9 @@ contains
              , pg => mesh % p_geom    &
              , dx => mesh % dx        )
 
-      allocate(mesh % x_elem(0:pg, 0:pg, 0:pg, mesh%n_elem, 1:3))
+      allocate(mesh % x_elem(0:pg, 0:pg, 0:pg, 1:mesh%n_elem, 1:3))
       allocate(mesh % x_cube(0:3, 1:mesh%n_elem, 1:3))
+      allocate(mesh % dx_mean(1:6, 1:mesh%n_elem))
 
       do k = 1, n3
       do j = 1, n2
@@ -717,6 +718,9 @@ contains
         mesh % x_cube(:,e,1) = HALF * [ x1(0) + x1(pg), dx(1), ZERO , ZERO  ]
         mesh % x_cube(:,e,2) = HALF * [ x2(0) + x2(pg), ZERO , dx(2), ZERO  ]
         mesh % x_cube(:,e,3) = HALF * [ x3(0) + x3(pg), ZERO , ZERO , dx(3) ]
+
+        ! mean spacing normal to faces
+        mesh % dx_mean(:,e) = dx([1,1,2,2,3,3])
 
       end do
       end do

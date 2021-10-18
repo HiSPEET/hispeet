@@ -49,7 +49,7 @@ program DG_Diffusion3D_Test
   ! problem parameters .........................................................
 
   integer :: test_case  = 3            ! set 1/2/3/4 for simple_1/2/3d or knotty
-  logical :: has_variable_nu = .true. ! set T/F for variable/constant ν
+  logical :: has_variable_nu = .false. ! set T/F for variable/constant ν
   logical :: has_spectral_nu = .false. ! set T/F to use/discard spectral ν
 
   namelist/problem_prm/ test_case, has_variable_nu, has_spectral_nu
@@ -61,7 +61,7 @@ program DG_Diffusion3D_Test
   real(RNP) :: lambda = 0     ! Helmholtz parameter
   real(RNP) :: nu_0   = 1     ! diffusivity mean value ν₀
   real(RNP) :: nu_1   = 0     ! diffusivity fluctuation amplitude ν₁
-  real(RNP) :: nu_s   = 0     ! spectral diffusivity amplitude
+  real(RNP) :: nu_s   = 0.1   ! spectral diffusivity amplitude
   real(RNP) :: d_nu   = 0     ! diffusivity fluctuation phase shift
   integer   :: k_nu   = 1     ! diffusivity fluctuation wave number
   integer   :: k_u    = 1     ! solution wave number
@@ -139,7 +139,13 @@ program DG_Diffusion3D_Test
     read(io, nml = dicretization_prm)
     close(io)
 
-    has_spectral_nu = has_spectral_nu .and. nu_s > 0 .and. .not. has_variable_nu
+    if (has_variable_nu) then
+      has_spectral_nu = .false.
+      nu_s = 0
+    else
+      has_spectral_nu = has_spectral_nu .and. nu_s > 0
+      nu_1 = 0
+    end if
 
   end if
 
@@ -182,6 +188,9 @@ program DG_Diffusion3D_Test
     config_name = 'Cuboidal domain with Cartesian mesh'
   end select
 
+!### CHECK
+mesh % regular = .false.
+!### CHECK END
   sem = SpectralElementMesh_3D(mesh, po)
 
   ! problem ....................................................................
@@ -233,9 +242,9 @@ program DG_Diffusion3D_Test
     ! project source:  f = M r
     !***TBD***! call TG_Projection(sem, r, f)
     !***TBD***! workaround for regular mesh:
-    if (sem % mesh % regular) then
+!    if (sem % mesh % regular) then
       call TPO_Diagonal(product(sem%mesh%dx)/8, sem%std_op%w, r, f)
-    end if
+!    end if
 
     ! apply boundary values:  f = f + f_bc
     !***TBD***!
@@ -290,9 +299,9 @@ program DG_Diffusion3D_Test
   !$omp end master
 
   do i = 1, n_test
-    call diffusion_op % Apply(u, r, f)    ! r = A u
-!    call diffusion_op % Apply(u, r)    ! r = A u
-!    call MergeArrays(ONE, r, -ONE, f)  ! r = r - f
+    call diffusion_op % Apply(u, r, f)  ! r = A u - f
+!   call diffusion_op % Apply(u, r)     ! r = A u
+!   call MergeArrays(ONE, r, -ONE, f)   ! r = r - f
   end do
 
   !$omp master
@@ -312,11 +321,13 @@ program DG_Diffusion3D_Test
   call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, comm)
 
   if (rank == 0) then
-    time = (time - time0) / n_test
     write(*,'(T3,A,T11,ES10.3)') 'r_L2  =', r_l2
     write(*,'(T3,A,T11,ES10.3)') 'r_max =', r_max
-    write(*,'(T3,A,T11,ES10.3)') 't/DOF =', time / dof
-    write(*,'(T3,A,T11,ES10.3)') 'DOF/t =', dof / time
+    if (n_test > 0) then
+      time = (time - time0) / n_test
+      write(*,'(T3,A,T11,ES10.3)') 't/DOF =', time / dof
+      write(*,'(T3,A,T11,ES10.3)') 'DOF/t =', dof / time
+    end if
   end if
 
   !-----------------------------------------------------------------------------

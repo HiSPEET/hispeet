@@ -6,6 +6,7 @@
 
 submodule(DG__Diffusion_Operator__3D) MP_Apply
   use Mesh__3D
+  use Mesh_Element__3D
   implicit none
 
   !=============================================================================
@@ -64,8 +65,9 @@ contains
         ! regular constant
         call Apply_RC(this, u, v, f)
       end if
-!!  else
-!!    call Apply_D(this, u, v)
+    else
+      ! deformed constant
+      call Apply_DC(this, u, v, f)
     end if
 
   end subroutine Apply
@@ -76,36 +78,27 @@ contains
   !-----------------------------------------------------------------------------
   !> Compose element-boundary fluxes from flux traces for homogeneous BC
 
-  subroutine GetElementBoundaryFluxes( e, f, l, m, np, normal, tr_u, tr_qn, &
-                                       Ju, Aq)
-    integer,   intent(in)  :: e                !< element ID
-    integer,   intent(in)  :: f                !< element face
-    integer,   intent(in)  :: l                !< neighbor element ID
-    integer,   intent(in)  :: m                !< neighbor element face
-    integer,   intent(in)  :: np               !< num points per direction
-    integer,   intent(in)  :: normal           !< normal direction = n⋅eᵢ = ±1
-    real(RNP), intent(in)  :: tr_u (np,np,6,*) !< u nᵢ @ element faces
-    real(RNP), intent(in)  :: tr_qn(np,np,6,*) !< q_n  @ element faces
-    real(RNP), intent(out) :: Ju(np,np)        !< jump [u]ᵢ without BC
-    real(RNP), intent(out) :: Aq(np,np)        !< average flux {q_n}ᵢ without BC
+  subroutine GetElementBoundaryFluxes(element, e, f, tr_u, tr_qn, Ju, Aq)
+    class(MeshElement_3D), intent(in)  :: element        !< element
+    integer,               intent(in)  :: e              !< element ID
+    integer,               intent(in)  :: f              !< element face
+    real(RNP), contiguous, intent(in)  :: tr_u (:,:,:,:) !< u   @ element faces
+    real(RNP), contiguous, intent(in)  :: tr_qn(:,:,:,:) !< q_n @ element faces
+    real(RNP), contiguous, intent(out) :: Ju(:,:) !< normal jump n⋅[u]  w/o BC
+    real(RNP), contiguous, intent(out) :: Aq(:,:) !< average flux n⋅{q} w/o BC
 
-    integer :: i, j
+    integer :: i, l, m
 
-    if (l > 0) then ! neighbor exists
-      do j = 1, np
-      do i = 1, np
-        Ju(i,j) = normal *        (tr_u (i,j,f,e) - tr_u (i,j,m,l))
-        Aq(i,j) = normal * HALF * (tr_qn(i,j,f,e) - tr_qn(i,j,m,l))
-      end do
-      end do
-    else ! on boundaries
-      do j = 1, np
-      do i = 1, np
-        Ju(i,j) = normal * tr_u (i,j,f,e)
-        Aq(i,j) = normal * tr_qn(i,j,f,e)
-      end do
-      end do
-    end if
+    i = element % face(f) % i_neighbor
+    if (i > 0) then
+      l = element % neighbor(i) % id
+      m = element % neighbor(i) % component
+      Ju = (tr_u (:,:,f,e) - tr_u (:,:,m,l))
+      Aq = (tr_qn(:,:,f,e) - tr_qn(:,:,m,l)) * HALF
+    else
+      Ju = tr_u (:,:,f,e)
+      Aq = tr_qn(:,:,f,e)
+   end if
 
   end subroutine GetElementBoundaryFluxes
 

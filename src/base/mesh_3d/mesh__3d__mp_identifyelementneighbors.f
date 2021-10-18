@@ -869,7 +869,7 @@ contains
     ! preliminaries ............................................................
 
     ! check for regularity
-    if ( element % vertex(v) % n_neighbor /= 1 .and.          &
+    if ( element % vertex(v) % n_neighbor /= 1 .or.           &
          any(element % face(F_VERT(:,v)) % n_neighbor /= 1) ) &
     then
       VertexNeighborOrientation = 0

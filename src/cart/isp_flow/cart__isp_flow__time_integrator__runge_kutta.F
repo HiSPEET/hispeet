@@ -48,8 +48,9 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
 
   type, extends(TimeIntegrator) :: TimeIntegrator_RungeKutta
     type(IMEX_RK_Method) :: imex_rk  !< IMEX Runge-Kutta method
-    integer :: diffusion   !< method for computing diffusive RHS (F_d1)
-    integer :: assembly    !< method for constructing the final solution
+    integer :: diffusion !< method for computing diffusive RHS (F_d1)
+    integer :: assembly  !< method for constructing the final solution
+    logical :: update    !< activate intermediate updates of variable ν
   contains
     procedure :: Init_TimeIntegrator_RungeKutta
     procedure :: Show => Show_TimeIntegrator_RungeKutta
@@ -105,6 +106,7 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
     integer :: method    = 1 !< RK method selector, if more than one exist
     integer :: diffusion = 3 !< method for computing the diffusive RHS (F_d1)
     integer :: assembly  = 1 !< method for constructing the final solution
+    logical :: update    = .false. !< activate updates of variable ν
   contains
     procedure :: Bcast => Bcast_TimeIntegrator_RungeKutta_Options
   end type TimeIntegrator_RungeKutta_Options
@@ -151,6 +153,7 @@ contains
     ! specific settings
     this % diffusion = opt % diffusion
     this % assembly  = opt % assembly
+    this % update    = opt % update
 
   end subroutine Init_TimeIntegrator_RungeKutta
 
@@ -176,6 +179,7 @@ contains
     write(io,'(A,/)')         repeat('-',80)
     write(io,'(2X,A,T15,I0)') 'diffusion:', this % diffusion
     write(io,'(2X,A,T15,I0)') 'assembly:',  this % assembly
+    write(io,'(2X,A,T15,G0)') 'update:',    this % update
 
     ! show IMEX RK settings
     call this % imex_rk % Show(unit)
@@ -450,7 +454,7 @@ contains
     real(RNP), allocatable, save :: dp(:,:,:,:  )
 
     real(RNP) :: tau
-    logical   :: update_nu
+    logical   :: variable_nu
     integer   :: j, k
 
     ! workspace ................................................................
@@ -479,9 +483,9 @@ contains
       call problem % GetExternalSources(flow_op%x, t, F_s(:,:,:,:,:,i))
       call SetArray(u_i, u_0, multi=.true.)
 
-      ! check if diffusivity needs to be updated
-      update_nu = problem % HasVariableProperties() .or. &
-                  flow_op % control % sgs > 1
+      ! check for variable diffusivity
+      variable_nu = problem % HasVariableProperties() .or. &
+                    flow_op % control % sgs > 1
 
       ! extrapolation: u_i ← u' ................................................
 
@@ -526,7 +530,7 @@ contains
 
       if (present(nu) .or. any(problem % nu_ref > 0)) then
 
-         if (update_nu) then
+         if (variable_nu) then
           call problem % GetDiffusivity(flow_op%x, t, u_i, nu)
           if (flow_op % control % sgs > 0) then
             call Add_SGS_Diffusivity(flow_op, u_i, nu)
@@ -573,7 +577,7 @@ contains
 
       ! RHS contributions ......................................................
 
-      if (update_nu) then
+      if (variable_nu .and. this % update) then
         call problem % GetDiffusivity(flow_op%x, t, u_i, nu)
         if (flow_op % control % sgs > 0) then
           call Add_SGS_Diffusivity(flow_op, u_i, nu)
@@ -637,7 +641,7 @@ contains
     real(RNP), allocatable, save :: dp(:,:,:,:  )
 
     real(RNP) :: tau
-    logical   :: update_nu
+    logical   :: variable_nu
     integer   :: j, k
 
     ! workspace ................................................................
@@ -666,8 +670,8 @@ contains
       call problem % GetExternalSources(flow_op%x, t, F_s(:,:,:,:,:,i))
       call SetArray(u_i, u_0, multi=.true.)
 
-      ! check if diffusivity needs to be updated
-      update_nu = problem % HasVariableProperties() .or. &
+      ! check for variable diffusivity
+      variable_nu = problem % HasVariableProperties() .or. &
                   flow_op % control % sgs > 1
 
       ! extrapolation: u_i ← u' ................................................
@@ -758,7 +762,7 @@ contains
 
       if (present(nu) .or. any(problem % nu_ref > 0)) then
 
-        if (update_nu) then
+        if (variable_nu) then
           call problem % GetDiffusivity(flow_op%x, t, u_i, nu)
           if (flow_op % control % sgs > 0) then
             call Add_SGS_Diffusivity(flow_op, u_i, nu)
@@ -796,7 +800,7 @@ contains
       ! RHS contributions ......................................................
 
       ! update ν if required
-      if (update_nu) then
+      if (variable_nu .and. this % update) then
         call problem % GetDiffusivity(flow_op%x, t, u_i, nu)
         if (flow_op % control % sgs > 0) then
           call Add_SGS_Diffusivity(flow_op, u_i, nu)
@@ -849,7 +853,7 @@ contains
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    type(MPI_Request) :: request(4)
+    type(MPI_Request) :: request(5)
     type(MPI_Status)  :: stat(size(request))
     integer :: n
 
@@ -860,7 +864,8 @@ contains
     call XMPI_Ibcast( this % n_stage  , root, comm, request(n) );  n = n + 1
     call XMPI_Ibcast( this % method   , root, comm, request(n) );  n = n + 1
     call XMPI_Ibcast( this % diffusion, root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % assembly , root, comm, request(n) )
+    call XMPI_Ibcast( this % assembly , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % update   , root, comm, request(n) )
 
     call MPI_Waitall(n, request, stat)
 
