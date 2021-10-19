@@ -5,11 +5,12 @@
 !===============================================================================
 
 submodule(Mesh__3D) MP_ImportGenericMesh
+  use Constants
   use Execution_Control
   use Standard_Operators__1D
   use Embedded_Interpolation__1D
   use Generic_Mesh__3D
-  use Mesh_Element_Indexing__3D
+  use Element_Transfer_Buffer__3D
   implicit none
 
   interface
@@ -77,6 +78,8 @@ contains
     call mesh % BuildLinks()
     call mesh % BuildGhosts()
     call mesh % IdentifyRanks()
+
+    call ComputeMeanSpacing (mesh)
 
     write(*,'(T2,9(G0,1X))') 'number of elements:   ', mesh % n_elem
     write(*,'(T2,9(G0,1X))') 'number of faces:      ', mesh % n_face
@@ -366,6 +369,81 @@ contains
     end subroutine LinearFit
 
   end subroutine ImportElementDomains
+
+  !-----------------------------------------------------------------------------
+  !> Computes the mean spacing normal to faces
+
+  subroutine ComputeMeanSpacing(mesh)
+    class(Mesh_3D), intent(inout) :: mesh !< mesh partition
+
+    type(ElementTransferBuffer_3D), asynchronous :: buf_dx_cube
+    real(RNP), allocatable :: dx_cube(:,:,:,:)
+    real(RNP), allocatable :: dx_mean(:,:)
+
+    integer :: e, f, i, n
+
+    allocate(dx_mean(6, mesh%n_elem))
+    allocate(dx_cube(3, 1, 1, mesh%n_elem + mesh%n_ghost))
+
+    ! local cuboid spacing in ξ, η and ζ directions
+    associate(x_cube => mesh % x_cube)
+      do e = 1, mesh % n_elem
+      do i = 1, 3
+        dx_cube(i,1,1,e) = HALF * sqrt( x_cube(i,e,1)**2 &
+                                      + x_cube(i,e,2)**2 &
+                                      + x_cube(i,e,3)**2 )
+      end do
+      end do
+    end associate
+
+    ! transfer cuboid spacing to ghosts
+    buf_dx_cube = ElementTransferBuffer_3D(mesh, dx_cube)
+    call buf_dx_cube % Transfer(mesh, dx_cube, 1000)
+    call buf_dx_cube % Merge(dx_cube)
+
+    ! compute mean normal spacing
+    do e = 1, mesh % n_elem
+      associate(element => mesh % element(e))
+        do f = 1, 6
+
+          select case(f)
+          case(1,2)
+            dx_mean(f,e) = dx_cube(1,1,1,e)
+          case(3,4)
+            dx_mean(f,e) = dx_cube(2,1,1,e)
+          case default
+            dx_mean(f,e) = dx_cube(3,1,1,e)
+          end select
+
+          i = element % face(f) % i_neighbor
+
+          if (i > 0) then
+
+            n = element % neighbor(i) % id
+            if (n == e) cycle
+
+            select case(element % neighbor(i) % component) ! neighbor face
+            case(1,2)
+              dx_mean(f,e) = 2 / (1/dx_mean(f,e) + 1/dx_cube(1,1,1,n))
+            case(3,4)
+              dx_mean(f,e) = 2 / (1/dx_mean(f,e) + 1/dx_cube(2,1,1,n))
+            case default
+              dx_mean(f,e) = 2 / (1/dx_mean(f,e) + 1/dx_cube(3,1,1,n))
+            end select
+
+          end if
+
+        end do
+      end associate
+    end do
+
+    ! assign result
+    call move_alloc(dx_mean, mesh % dx_mean)
+
+    ! clean-up
+    deallocate(dx_cube)
+
+  end subroutine ComputeMeanSpacing
 
   !=============================================================================
 

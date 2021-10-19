@@ -156,6 +156,7 @@ set( DIFFUSION_3D diffusion_3d/dg__diffusion_operator__3d.f
                   diffusion_3d/dg__diffusion_operator__3d__mp_apply.f
                   diffusion_3d/dg__diffusion_operator__3d__mp_apply_rc.f
                   diffusion_3d/dg__diffusion_operator__3d__mp_apply_rv.f
+                  diffusion_3d/dg__diffusion_operator__3d__mp_apply_dc.f
                   )
 
 #===============================================================================
