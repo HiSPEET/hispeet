@@ -11,9 +11,9 @@ module TPO__Diffusion__3D_DLCI
   implicit none
   private
 
-  public :: TPO_Diffusion_D
+  public :: TPO_Diffusion
 
-  interface TPO_Diffusion_D
+  interface TPO_Diffusion
     module procedure TPO_Diffusion_DLCI_RDP
   end interface
 
@@ -47,12 +47,10 @@ contains
 #ifdef __LIBXSMM__
     case(8:)
       call TPO_Diffusion_DLCI_XSMM(Ms, Ds, Jd, G, lambda, nu, u, v)
-      write(*,*) "xsmm"
 #endif
 
     case default
       call TPO_Diffusion_DLCI_Hand(Ms, Ds, Jd, G, lambda, nu, u, v)
-      write(*,*) "hand"
     end select
 
   end subroutine TPO_Diffusion_DLCI_RDP

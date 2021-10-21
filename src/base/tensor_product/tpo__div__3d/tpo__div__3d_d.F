@@ -11,9 +11,9 @@ module TPO__Div__3D_D
   implicit none
   private
 
-  public :: TPO_Div_D
+  public :: TPO_Div
 
-  interface TPO_Div_D
+  interface TPO_Div
     module procedure TPO_Div_D_RDP
   end interface
 

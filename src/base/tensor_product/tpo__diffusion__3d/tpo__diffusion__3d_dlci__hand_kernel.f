@@ -15,6 +15,7 @@ subroutine PROC(TPO_Diffusion_DLCI_Hand__,_NP_) &
 
   real(RWP), parameter :: ONE = 1
   real(RWP), parameter :: ZERO = 0
+
   real(RWP) :: M(_NP_,_NP_,_NP_), z(_NP_,_NP_,_NP_)
   real(RWP) :: r(_NP_,_NP_,_NP_), s(_NP_,_NP_,_NP_), t(_NP_,_NP_,_NP_)
 
@@ -25,6 +26,10 @@ subroutine PROC(TPO_Diffusion_DLCI_Hand__,_NP_) &
 
   !-----------------------------------------------------------------------------
   ! initialization
+
+  r = 0   ! avoid trouble with NaNs
+  s = 0   ! avoid trouble with NaNs
+  t = 0   ! avoid trouble with NaNs
 
   Ds_t = transpose(Ds)
 
@@ -37,13 +42,8 @@ subroutine PROC(TPO_Diffusion_DLCI_Hand__,_NP_) &
     end do
     end do
 
-
   !---------------------------------------------------------------------------
   ! evaluation
-
-  !$acc data present(u,v) copyin(c,M,Lm)
-  !$acc parallel
-  !$acc loop gang worker private(M_u)
 
   !$omp do
   do e = 1, ne
@@ -58,12 +58,11 @@ subroutine PROC(TPO_Diffusion_DLCI_Hand__,_NP_) &
     end do
 
     ! first derivatives
-    r(:,:,:) = 0   ! avoid trouble with NaNs
-    call PROC(IxIxQt__,_NP_)(Ds_t, ONE, ZERO, u(:,:,:,e), r(:,:,:))
-    s(:,:,:) = 0   ! avoid trouble with NaNs
-    call PROC(IxQtxI__,_NP_)(Ds_t, ONE, ZERO, u(:,:,:,e), s(:,:,:))
-    t(:,:,:) = 0   ! avoid trouble with NaNs
-    call PROC(QtxIxI__,_NP_)(Ds_t, ONE, ZERO, u(:,:,:,e), t(:,:,:))
+
+    call PROC(IxIxQt__,_NP_)(Ds_t, ONE, ZERO, u(:,:,:,e), r)
+    call PROC(IxQtxI__,_NP_)(Ds_t, ONE, ZERO, u(:,:,:,e), s)
+    call PROC(QtxIxI__,_NP_)(Ds_t, ONE, ZERO, u(:,:,:,e), t)
+
 
     ! second derivative direction 1 and application of metric terms
 
@@ -78,6 +77,7 @@ subroutine PROC(TPO_Diffusion_DLCI_Hand__,_NP_) &
     end do
 
     call PROC(IxIxQt__,_NP_)(Ds, ONE, ONE, z(:,:,:), v(:,:,:,e))
+
 
     ! second derivative direction 2 and application of metric terms
 
@@ -110,10 +110,6 @@ subroutine PROC(TPO_Diffusion_DLCI_Hand__,_NP_) &
 
 
   end do
-
-  !$acc end parallel
-  !$acc end data
-
 
 
   !-----------------------------------------------------------------------------

@@ -18,7 +18,7 @@ program Validate__TPO__Div_3d_D
   use Verify_Mesh__3D
   use Assembly__3D
   use Export_VTK_Volume_Data__3D
-  
+
 
   implicit none
 
@@ -226,12 +226,12 @@ program Validate__TPO__Div_3d_D
     !$omp parallel
     !$acc data copyin(u) copyout(v)
 
-    call TPO_Div_D(Ds, Ji, u, v)
+    call TPO_Div(Ds, Ji, u, v)
     !$acc wait
 
     call system_clock(count0, rate)
     do i = 1, nt
-      call TPO_Div_D(Ds, Ji, u, v)
+      call TPO_Div(Ds, Ji, u, v)
       !$acc wait
     end do
 

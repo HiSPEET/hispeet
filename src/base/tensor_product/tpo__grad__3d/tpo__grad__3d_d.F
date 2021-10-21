@@ -11,9 +11,9 @@ module TPO__Grad__3D_D
   implicit none
   private
 
-  public :: TPO_Grad_D  !< consider tpo__grad__3d that switches R/D
+  public :: TPO_Grad  !< consider tpo__grad__3d that switches R/D
 
-  interface TPO_Grad_D
+  interface TPO_Grad
     module procedure TPO_Grad_D_RDP
   end interface
 

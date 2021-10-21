@@ -13,7 +13,7 @@ subroutine PROC(TPO_Div_D_Hand__,_NP_)(ne, Ds, Ji, u, v)
 
   real(RWP) :: r(_NP_,_NP_,_NP_)
   real(RWP) :: s(_NP_,_NP_,_NP_)
-  real(RWP) :: t(_NP_,_NP_,_NP_)  
+  real(RWP) :: t(_NP_,_NP_,_NP_)
 
   real(RWP) :: w(_NP_,_NP_,_NP_)
 
@@ -26,70 +26,62 @@ subroutine PROC(TPO_Div_D_Hand__,_NP_)(ne, Ds, Ji, u, v)
 
   A = transpose(Ds)
 
+  r = 0   ! avoid trouble with NaNs
+  s = 0   ! avoid trouble with NaNs
+  t = 0   ! avoid trouble with NaNs
+
+  v = 0  ! avoid trouble with NaNs
+  w = 0  ! avoid trouble with NaNs
+
   !---------------------------------------------------------------------------
   ! evaluation
-
-  !$acc data present(u,v) copyin(c,M,Lm)
-  !$acc parallel
-  !$acc loop gang worker private(M_u)
 
   !$omp do
   do e = 1, ne
 
-    v(:,:,:,e) = 0  ! avoid trouble with NaNs
-    w(:,:,:)   = 0  ! avoid trouble with NaNs
     ! direction 1
 
     ! r = du1/dx1
-    r(:,:,:) = 0   ! avoid trouble with NaNs
-    call PROC(IxIxQt__,_NP_)(A, ONE, ZERO , u(:,:,:,e,1), r(:,:,:))
+    call PROC(IxIxQt__,_NP_)(A, ONE, ZERO , u(:,:,:,e,1), r)
     ! s = du1/dx2
-    s(:,:,:) = 0   ! avoid trouble with NaNs
-    call PROC(IxQtxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,1), s(:,:,:))
+    call PROC(IxQtxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,1), s)
     ! t = du1/dx3
-    t(:,:,:) = 0   ! avoid trouble with NaNs
-    call PROC(QtxIxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,1), t(:,:,:))
+    call PROC(QtxIxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,1), t)
 
 
-    w =  r(:,:,:) * Ji(:,:,:,e,1,1) &
-       + s(:,:,:) * Ji(:,:,:,e,2,1) &
-       + t(:,:,:) * Ji(:,:,:,e,3,1)
+    w =  r * Ji(:,:,:,e,1,1) &
+       + s * Ji(:,:,:,e,2,1) &
+       + t * Ji(:,:,:,e,3,1)
 
 
     ! direction 2
 
     ! r = du2/dx1
-    r(:,:,:) = 0   ! avoid trouble with NaNs
-    call PROC(IxIxQt__,_NP_)(A, ONE, ZERO , u(:,:,:,e,2), r(:,:,:))
+    call PROC(IxIxQt__,_NP_)(A, ONE, ZERO , u(:,:,:,e,2), r)
     ! s = du2/dx2
-    s(:,:,:) = 0   ! avoid trouble with NaNs
-    call PROC(IxQtxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,2), s(:,:,:))
+    call PROC(IxQtxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,2), s)
     ! t = du2/dx3
-    t(:,:,:) = 0   ! avoid trouble with NaNs
-    call PROC(QtxIxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,2), t(:,:,:))
+    call PROC(QtxIxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,2), t)
 
 
-    w = w + r(:,:,:) * Ji(:,:,:,e,1,2) &
-          + s(:,:,:) * Ji(:,:,:,e,2,2) &
-          + t(:,:,:) * Ji(:,:,:,e,3,2)
+    w = w + r * Ji(:,:,:,e,1,2) &
+          + s * Ji(:,:,:,e,2,2) &
+          + t * Ji(:,:,:,e,3,2)
 
 
     ! direction 3
 
     ! r = du3/dx1
-    r(:,:,:) = 0   ! avoid trouble with NaNs
-    call PROC(IxIxQt__,_NP_)(A, ONE, ZERO , u(:,:,:,e,3), r(:,:,:))
+    call PROC(IxIxQt__,_NP_)(A, ONE, ZERO , u(:,:,:,e,3), r)
     ! s = du3/dx2
-    s(:,:,:) = 0   ! avoid trouble with NaNs
-    call PROC(IxQtxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,3), s(:,:,:))
+    call PROC(IxQtxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,3), s)
     ! t = du3/dx3
-    t(:,:,:) = 0   ! avoid trouble with NaNs
-    call PROC(QtxIxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,3), t(:,:,:))
+    call PROC(QtxIxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,3), t)
 
 
-    w = w + r(:,:,:) * Ji(:,:,:,e,1,3) &
-          + s(:,:,:) * Ji(:,:,:,e,2,3) &
-          + t(:,:,:) * Ji(:,:,:,e,3,3)
+    w = w + r * Ji(:,:,:,e,1,3) &
+          + s * Ji(:,:,:,e,2,3) &
+          + t * Ji(:,:,:,e,3,3)
 
 
     v(:,:,:,e) = w

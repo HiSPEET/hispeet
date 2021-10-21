@@ -274,12 +274,12 @@ program Validate__TPO_Diffusion_DLCI
 
     !$omp parallel
 
-    call TPO_Diffusion_D(Ms, Ds, Jd, G, lambda, nu, u, v)
+    call TPO_Diffusion(Ms, Ds, Jd, G, lambda, nu, u, v)
 
     call system_clock(count0, rate)
 
     do i = 1, nt
-      call TPO_Diffusion_D(Ms, Ds, Jd, G, lambda, nu, u, v)
+      call TPO_Diffusion(Ms, Ds, Jd, G, lambda, nu, u, v)
     end do
 
     call system_clock(count)
