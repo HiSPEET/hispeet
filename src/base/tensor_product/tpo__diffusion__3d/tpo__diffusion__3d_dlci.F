@@ -32,7 +32,8 @@ contains
   !> Ms and Ds are the 1D standard mass and differention matrices for polynomial
   !> order P = np-1, respectively
 
-  subroutine TPO_Diffusion_DLCI_RDP(Ms, Ds, Jd, G, lambda, nu, u, v)
+  subroutine TPO_Diffusion_DLCI_RDP(Ms, Ds, Jd, G, lambda, nu, u, v, &
+                                    Ji_n, ub, qb)
     real(RDP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
     real(RDP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
     real(RDP), intent(in)  :: Jd(:,:,:,:) !< Jacobian determinant  (np,np,np,ne)
@@ -42,15 +43,21 @@ contains
     real(RDP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
     real(RDP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
 
+    real(RDP), optional, intent(in)    :: Ji_n(:,:,:,:,:) !< J⁻¹⋅n @ elem faces
+    real(RDP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values
+    real(RDP), optional, intent(inout) :: qb(:,:,:,:) !< element boundary fluxes
+
     select case(size(Ms))
 
 #ifdef __LIBXSMM__
     case(8:)
-      call TPO_Diffusion_DLCI_XSMM(Ms, Ds, Jd, G, lambda, nu, u, v)
+      call TPO_Diffusion_DLCI_XSMM(Ms, Ds, Jd, G, lambda, nu, u, v, &
+                                   Ji_n, ub, qb)
 #endif
 
     case default
-      call TPO_Diffusion_DLCI_Hand(Ms, Ds, Jd, G, lambda, nu, u, v)
+      call TPO_Diffusion_DLCI_Hand(Ms, Ds, Jd, G, lambda, nu, u, v, &
+                                   Ji_n, ub, qb)
     end select
 
   end subroutine TPO_Diffusion_DLCI_RDP

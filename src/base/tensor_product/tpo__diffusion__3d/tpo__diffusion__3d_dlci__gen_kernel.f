@@ -4,7 +4,8 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v)
+subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v, &
+                                      Ji_n, ub, qb)
   real(RWP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
   real(RWP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
   real(RWP), intent(in)  :: Jd(:,:,:,:) !< Jacobian determinant  (np,np,np,ne)
@@ -14,6 +15,10 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v)
   real(RWP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
   real(RWP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
 
+  real(RWP), optional, intent(in)    :: Ji_n(:,:,:,:,:) !< J⁻¹⋅n @ elem faces
+  real(RWP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values
+  real(RWP), optional, intent(inout) :: qb(:,:,:,:) !< element boundary fluxes
+
   !---------------------------------------------------------------------------
   ! local variables
 
@@ -21,13 +26,16 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v)
 
   real(RWP) :: tmp
   integer   :: np, ne
-  integer   :: e, i, j, k, p
+  integer   :: e, f, i, j, k, p
+  logical   :: get_traces
 
   !---------------------------------------------------------------------------
   ! initialization
 
   np = size(Ms)
   ne = size(u,4)
+
+  get_traces = present(Ji_n) .and. present(ub) .and. present(qb)
 
   ! element mass matrix
 
@@ -45,7 +53,7 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v)
   !$omp do private(e)
   do e = 1, ne
 
-    ! lambda M u .....................................................
+    ! lambda M Jd u .....................................................
 
     do k = 1, np
     do j = 1, np
@@ -55,7 +63,9 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v)
     end do
     end do
 
-    ! direction 1: r = ν(MxMxD)u ...............................................
+    ! standard derivatives of  uᵉ ..............................................
+
+    ! direction 1: r = [I x I x Dˢ] uᵉ
 
     do k = 1, np
     do j = 1, np
@@ -69,9 +79,8 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v)
     end do
     end do
 
-    ! direction 2: s = ν(MxDxM)u ...............................................
+    ! direction 2: s = [I x Dˢ x I] uᵉ
 
-    !$acc loop collapse(3) independent vector
     do k = 1, np
     do j = 1, np
     do i = 1, np
@@ -84,7 +93,7 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v)
     end do
     end do
 
-    ! direction 3: t = ν(DxMxM)u ...............................................
+    ! direction 3: t = [Dˢ x I x I] uᵉ
 
     do k = 1, np
     do j = 1, np
@@ -98,8 +107,61 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v)
     end do
     end do
 
-    ! application of metric terms and second differentiation
-    ! direction 1 ..............................................................
+    ! traces on element boundary ...............................................
+
+    if (get_traces) then
+
+      ! ub = u,  qb = n⋅ν∇u  @ Γ₁ ∪ Γ₂
+
+      i = 1
+      do f = 1, 2
+        do k = 1, np
+        do j = 1, np
+          ub(j,k,f,e) = u(i,j,k,e)
+          qb(j,k,f,e) = nu * ( Ji_n(j,k,f,e,1) * r(i,j,k) &
+                             + Ji_n(j,k,f,e,2) * s(i,j,k) &
+                             + Ji_n(j,k,f,e,3) * t(i,j,k) )
+        end do
+        end do
+        i = np
+      end do
+
+      ! ub = u,  qb = n⋅ν∇u  @ Γ₃ ∪ Γ₄
+
+      j = 1
+      do f = 3, 4
+        do k = 1, np
+        do i = 1, np
+          ub(i,k,f,e) = u(i,j,k,e)
+          qb(i,k,f,e) = nu * ( Ji_n(i,k,f,e,1) * r(i,j,k) &
+                             + Ji_n(i,k,f,e,2) * s(i,j,k) &
+                             + Ji_n(i,k,f,e,3) * t(i,j,k) )
+        end do
+        end do
+        j = np
+      end do
+
+      ! ub = u,  qb = n⋅ν∇u  @ Γ₅ ∪ Γ₆
+
+      k = 1
+      do f = 5, 6
+        do j = 1, np
+        do i = 1, np
+          ub(i,j,f,e) = u(i,j,k,e)
+          qb(i,j,f,e) = nu * ( Ji_n(i,j,f,e,1) * r(i,j,k) &
+                             + Ji_n(i,j,f,e,2) * s(i,j,k) &
+                             + Ji_n(i,j,f,e,3) * t(i,j,k) )
+        end do
+        end do
+        k = np
+      end do
+
+    end if
+
+    ! application of metric terms and second differentiation ...................
+    ! completion: v += ∇ˢ⋅(ν M G ⋅ ∇ˢuᵉ)
+
+    ! direction 1:  z = ν M G(1,:) ⋅ ∇ˢuᵉ ......................................
 
     do k = 1, np
     do j = 1, np
@@ -111,7 +173,7 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v)
     end do
     end do
 
-    ! vᵉ += g₁ [I x I x (MˢDˢ)ᵀ] z
+    ! vᵉ += [I x I x (Dˢ)ᵀ] z
     do k = 1, np
     do j = 1, np
     do i = 1, np
@@ -124,7 +186,7 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v)
     end do
     end do
 
-    ! direction 2 ............................................................
+    ! direction 2: z = ν M G(2,:) ⋅ ∇ˢuᵉ .......................................
 
     do k = 1, np
     do j = 1, np
@@ -136,7 +198,7 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v)
     end do
     end do
 
-    ! vᵉ += g₂ [I x (MˢDˢ)ᵀ x I] z   ????
+    ! vᵉ += [I x (Dˢ)ᵀ x I] z
     do k = 1, np
     do j = 1, np
     do i = 1, np
@@ -149,7 +211,7 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v)
     end do
     end do
 
-    ! direction 3 ............................................................
+    ! direction 3: z = ν M G(3,:) ⋅ ∇ˢuᵉ .......................................
 
     do k = 1, np
     do j = 1, np
@@ -161,7 +223,7 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v)
     end do
     end do
 
-    ! vᵉ += g₃ [(MˢDˢ)ᵀ x I x I] z
+    ! vᵉ += [(Dˢ)ᵀ x I x I] z
     do k = 1, np
     do j = 1, np
     do i = 1, np
