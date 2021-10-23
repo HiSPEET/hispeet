@@ -114,8 +114,8 @@ program Validate__TPO__Div_3d_D
 
   se_mesh = SpectralElementMesh_3D(mesh, po)
   allocate(area(mesh % n_bound))
-  call se_mesh % GetVolume(vol)
-  call se_mesh % GetSurfaceAreas(area)
+  call se_mesh % Get_Volume(vol)
+  call se_mesh % Get_SurfaceAreas(area)
 
   write(*,'(A)') 'Spectral element mesh'
   write(*,'(2X,A,G0)') 'volume  = ', vol

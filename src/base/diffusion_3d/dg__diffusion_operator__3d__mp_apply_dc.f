@@ -60,8 +60,8 @@ contains
 
       ! apply element diffusion operator .......................................
 
-      call TPO_Diffusion_DLCI_Gen_RWP( &
-                          eop%w, eop%D, Jd, G, lambda, nu, u, v &
+!     call TPO_Diffusion_DLCI_Gen_RWP( &
+      call TPO_Diffusion( eop%w, eop%D, Jd, G, lambda, nu, u, v &
                         , Ji_n                                  &
                         , ub = tr(:,:,:,:,1)                    &
                         , qb = tr(:,:,:,:,2)                    )

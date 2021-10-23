@@ -75,6 +75,7 @@ program Validate__TPO__Grad__3D_D
 
   !-----------------------------------------------------------------------------
   ! initialization
+
   call XMPI_Init()
 
   call MPI_Comm_rank(comm, rank)
@@ -112,8 +113,8 @@ program Validate__TPO__Grad__3D_D
 
   se_mesh = SpectralElementMesh_3D(mesh, po)
   allocate(area(mesh % n_bound))
-  call se_mesh % GetVolume(vol)
-  call se_mesh % GetSurfaceAreas(area)
+  call se_mesh % Get_Volume(vol)
+  call se_mesh % Get_SurfaceAreas(area)
 
   write(*,'(A)') 'Spectral element mesh'
   write(*,'(2X,A,G0)') 'volume  = ', vol
