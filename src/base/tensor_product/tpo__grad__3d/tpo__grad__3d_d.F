@@ -11,7 +11,7 @@ module TPO__Grad__3D_D
   implicit none
   private
 
-  public :: TPO_Grad  !< consider tpo__grad__3d that switches R/D
+  public :: TPO_Grad
 
   interface TPO_Grad
     module procedure TPO_Grad_D_RDP
@@ -20,10 +20,10 @@ module TPO__Grad__3D_D
 contains
 
   subroutine TPO_Grad_D_RDP(Ds, Ji, u, v)
-    real(RDP), intent(in)  :: Ds(:,:)          !< 1D standard stiffness matrix
-    real(RDP), intent(in)  :: Ji(:,:,:,:,:,:)  !< inverse Jacobi matrix
-    real(RDP), intent(in)  :: u(:,:,:,:)       !< 3D Scalar Field
-    real(RDP), intent(out) :: v(:,:,:,:,:)     !< element-wise gradient of u
+    real(RDP), intent(in)  :: Ds(:,:)         !< 1D standard stiffness matrix
+    real(RDP), intent(in)  :: Ji(:,:,:,:,:,:) !< inverse Jacobi matrix
+    real(RDP), intent(in)  :: u(:,:,:,:)      !< 3D Scalar Field
+    real(RDP), intent(out) :: v(:,:,:,:,:)    !< element-wise gradient of u
 
     integer :: np, ne
 

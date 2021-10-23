@@ -1,5 +1,5 @@
 !> summary:  3D divergence element operator using LIBXSMM for real(RDP) (D)
-!> author:   Jerome Michel,Erik Pfister
+!> author:   Jerome Michel, Joerg Stiller
 !> date:     2021/08/17
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
@@ -37,19 +37,16 @@ contains
     real(RDP), parameter :: alpha  = 1
     real(RDP), parameter :: beta   = 0
 
-    real(RDP) :: Ds_1(np,np)
-    real(RDP) :: Ds_2t(np,np), Ds_3t(np, np)
+    real(RDP) :: Ds_t(np,np)
 
     real(RDP), dimension(np,np,np) :: r, s, t, w
 
-    integer   :: e, k
+    integer :: e, k
 
     !-----------------------------------------------------------------------------
-    ! metric coefficients
+    ! Initialization
 
-    Ds_1  = Ds
-    Ds_2t = transpose(Ds)
-    Ds_3t = transpose(Ds)
+    Ds_t = transpose(Ds)
 
     ! XSMM dispatch
     !$omp master
@@ -60,72 +57,61 @@ contains
     !$omp barrier
 
     !---------------------------------------------------------------------------
-    ! evaluation
+    ! Evaluation
 
     !$omp do
     do e = 1, ne
 
-      ! direction 1
+      ! direction 1 ............................................................
 
-      ! r = du1/dx1
-      call LIBXSMM_DMMCall(xmm_1, Ds_1, u(:,:,:,e,1) , r)
+      ! r = ∂u₁/∂ξ
+      call LIBXSMM_DMMCall(xmm_1, Ds, u(:,:,:,e,1), r)
 
-      ! s= du1/dx2
+      ! s = ∂u₁/∂η
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,1), Ds_2t, s(:,:,k))
+        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,1), Ds_t, s(:,:,k))
       end do
 
-      ! t= du1/dx3
-      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,1), Ds_3t, t)
+      ! t = ∂u₁/∂ζ
+      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,1), Ds_t, t)
 
+      w = r * Ji(:,:,:,e,1,1) &
+        + s * Ji(:,:,:,e,2,1) &
+        + t * Ji(:,:,:,e,3,1)
 
-      ! consider SIMD vectorization using !$omp simd or LIBXSMM
+      ! direction 2 ............................................................
 
-      w =  r(:,:,:) * Ji(:,:,:,e,1,1) &
-         + s(:,:,:) * Ji(:,:,:,e,2,1) &
-         + t(:,:,:) * Ji(:,:,:,e,3,1)
+      ! r = ∂u₂/∂ξ
+      call LIBXSMM_DMMCall(xmm_1, Ds, u(:,:,:,e,2), r)
 
-
-      ! direction 2
-
-      ! r = du2/dx1
-      call LIBXSMM_DMMCall(xmm_1, Ds_1, u(:,:,:,e,2) , r)
-
-      ! s= du2/dx2
+      ! s = ∂u₂/∂η
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,2), Ds_2t, s(:,:,k))
+        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,2), Ds_t, s(:,:,k))
       end do
 
-      ! t= du2/dx3
-      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,2), Ds_3t, t)
+      ! t = ∂u₂/∂ζ
+      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,2), Ds_t, t)
 
+      w = w + r * Ji(:,:,:,e,1,2) &
+            + s * Ji(:,:,:,e,2,2) &
+            + t * Ji(:,:,:,e,3,2)
 
-      ! consider SIMD vectorization using !$omp simd or LIBXSMM
+      ! direction 3 ............................................................
 
-      w = w + r(:,:,:) * Ji(:,:,:,e,1,2) &
-            + s(:,:,:) * Ji(:,:,:,e,2,2) &
-            + t(:,:,:) * Ji(:,:,:,e,3,2)
+      ! r = ∂u₃/∂ξ
+      call LIBXSMM_DMMCall(xmm_1, Ds, u(:,:,:,e,3), r)
 
-
-      ! direction 3
-
-      ! r= du3/dx1
-      call LIBXSMM_DMMCall(xmm_1, Ds_1, u(:,:,:,e,3) , r)
-
-      ! s= du3/dx2
+      ! s = ∂u₂/∂η
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,3), Ds_2t, s(:,:,k))
+        call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e,3), Ds_t, s(:,:,k))
       end do
 
-      ! t= du3/dx3
-      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,3), Ds_3t, t)
+      ! t = ∂u₂/∂ζ
+      call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e,3), Ds_t, t)
 
-
-      ! consider SIMD vectorization using !$omp simd or LIBXSMM
-
-      w = w + r(:,:,:) * Ji(:,:,:,e,1,3) &
-            + s(:,:,:) * Ji(:,:,:,e,2,3) &
-            + t(:,:,:) * Ji(:,:,:,e,3,3)
+      w = w + r * Ji(:,:,:,e,1,3) &
+            + s * Ji(:,:,:,e,2,3) &
+            + t * Ji(:,:,:,e,3,3)
 
       v(:,:,:,e) = w
 

@@ -1,4 +1,4 @@
-!> summary: 3D curvilinear diffusion operator with constant isotropic diffusivity
+!> summary: 3D curvilinear diffusion operator with const isotropic diffusivity
 !> author:  Jerome Michel, Joerg Stiller
 !> date:    2021/10/12
 !> license: Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -34,14 +34,15 @@ contains
 
   subroutine TPO_Diffusion_DLCI_RDP(Ms, Ds, Jd, G, lambda, nu, u, v, &
                                     Ji_n, ub, qb)
-    real(RDP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
-    real(RDP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
-    real(RDP), intent(in)  :: Jd(:,:,:,:) !< Jacobian determinant  (np,np,np,ne)
-    real(RDP), intent(in)  :: G(:,:,:,:,:)!< Laplacian metrics
-    real(RDP), intent(in)  :: lambda      !< Helmholtz parameter
-    real(RDP), intent(in)  :: nu          !< diffusivity
-    real(RDP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
-    real(RDP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
+
+    real(RDP), intent(in)  :: Ms(:)        !< 1D standard mass matrix       (np)
+    real(RDP), intent(in)  :: Ds(:,:)      !< 1D standard diff matrix    (np,np)
+    real(RDP), intent(in)  :: Jd(:,:,:,:)  !< Jacobian determinant (np,np,np,ne)
+    real(RDP), intent(in)  :: G(:,:,:,:,:) !< Laplacian metrics
+    real(RDP), intent(in)  :: lambda       !< Helmholtz parameter
+    real(RDP), intent(in)  :: nu           !< diffusivity
+    real(RDP), intent(in)  :: u(:,:,:,:)   !< operand              (np,np,np,ne)
+    real(RDP), intent(out) :: v(:,:,:,:)   !< result               (np,np,np,ne)
 
     real(RDP), optional, intent(in)    :: Ji_n(:,:,:,:,:) !< J⁻¹⋅n @ elem faces
     real(RDP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values

@@ -25,7 +25,8 @@ program Validate__TPO__Div_3d_D
   !-----------------------------------------------------------------------------
   ! declarations
 
-  ! input parameters ............................................................
+  ! input parameters ...........................................................
+
   character(len=*), parameter :: &
          input_file     = 'validate__tpo__div_3d_d.prm'
   integer   :: conf     = 1       ! configuration (1 cylinder, 2 annular gap)
@@ -40,9 +41,7 @@ program Validate__TPO__Div_3d_D
 
   logical   :: periodic = .false. ! switch for axial periodicity
 
-
   namelist/input/ conf, nt, r0, r1, h, nr, np, nz, po
-
 
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
   integer :: rank
@@ -50,7 +49,6 @@ program Validate__TPO__Div_3d_D
   type(GenericMesh_3D)         :: generic_mesh
   type(Mesh_3D)                :: mesh
   type(SpectralElementMesh_3D) :: se_mesh
-
 
   real(RNP), allocatable :: area(:)
   real(RNP) :: vol
@@ -70,15 +68,14 @@ program Validate__TPO__Div_3d_D
   real(RNP) :: error_gen = 0, mflops_gen = -1, mlups_gen = -1
   real(RNP) :: error_opt = 0, mflops_opt = -1, mlups_opt = -1
 
-
   integer :: nflop, npop
   integer :: p, pm1
-
 
   integer(IXL) :: count, count0, rate
 
   !-----------------------------------------------------------------------------
   ! initialization
+
   call XMPI_Init()
 
   call MPI_Comm_rank(comm, rank)
@@ -86,7 +83,6 @@ program Validate__TPO__Div_3d_D
   if (rank == 0) then ! derzeit noch keine Partitionierung => rank = 0
 
   ! read test parameters .......................................................
-
 
   open(newunit = io, file = input_file)
   read(io, nml = input)
@@ -109,6 +105,7 @@ program Validate__TPO__Div_3d_D
   npop  = (po+1)**3
 
   ! verification ...............................................................
+
   call mesh % ImportGenericMesh(generic_mesh, comm = comm)
   call VerifyMesh_3D(mesh, passed)
   write(*,'(/,A,G0,/)') 'VerifyMesh3d: passed = ', passed
@@ -131,12 +128,11 @@ program Validate__TPO__Div_3d_D
   standard_op = StandardOperators_1D(po)
 
   ! workspace ..................................................................
-  ne =  mesh%n_elem
+  ne = mesh%n_elem
 
-  allocate( u(0:po,0:po,0:po,ne,3), &
-            v(0:po,0:po,0:po,ne),   &
-            w(0:po,0:po,0:po,ne)    )
-
+  allocate( u(0:po,0:po,0:po,ne,3) &
+          , v(0:po,0:po,0:po,ne)   &
+          , w(0:po,0:po,0:po,ne)   )
 
   ! order of test function .....................................................
 
@@ -147,15 +143,13 @@ program Validate__TPO__Div_3d_D
   !-----------------------------------------------------------------------------
   ! operand und exact result
 
-  associate( Ms   => standard_op % w              &
-           , Ds   => standard_op % D              &
-           , x    => se_mesh % metrics % x        &
-           , Ji   => se_mesh % metrics % Ji       &
-           , Jd   => se_mesh % metrics % Jd)
+  associate( Ms   => standard_op % w        &
+           , Ds   => standard_op % D        &
+           , x    => se_mesh % metrics % x  &
+           , Ji   => se_mesh % metrics % Ji &
+           , Jd   => se_mesh % metrics % Jd )
 
     do e = 1, ne
-
-
 
       ! operand ................................................................
 
@@ -181,75 +175,56 @@ program Validate__TPO__Div_3d_D
                    +  p * ( x(i,j,k,e,2) ** pm1 * x(i,j,k,e,3) ** pm1) &
                    +  p * ( x(i,j,k,e,3) ** pm1 * x(i,j,k,e,1) ** pm1)
 
-
       end do
       end do
       end do
 
     end do
 
-
-
-  !-----------------------------------------------------------------------------
-  ! test generic procedure
-
+    !---------------------------------------------------------------------------
+    ! test generic procedure
 
     !$omp parallel
-    !$acc data copyin(u) copyout(v)
 
     call TPO_Div_D_Gen(po+1, ne, Ds, Ji, u, v)
-    !$acc wait
 
     call system_clock(count0, rate)
 
     do i = 1, nt
-    call TPO_Div_D_Gen(po+1, ne, Ds, Ji, u, v)
-    !$acc wait
+      call TPO_Div_D_Gen(po+1, ne, Ds, Ji, u, v)
     end do
 
     call system_clock(count)
-    !$acc end data
     !$omp end parallel
 
-  !end associate
+    time = (count - count0) / real(rate, RNP) / nt
 
-  time = (count - count0) / real(rate, RNP) / nt
+    error_gen  = maxval(abs(v - w))
+    mflops_gen = 1E-6 / time * ne * nflop
+    mlups_gen  = 1E-6 / time * ne * npop
 
-  error_gen  = maxval(abs(v - w))
-  mflops_gen = 1E-6 / time * ne * nflop
-  mlups_gen  = 1E-6 / time * ne * npop
-
-  !-----------------------------------------------------------------------------
-  ! test optimized procedure
-
+    !---------------------------------------------------------------------------
+    ! test optimized procedure
 
     !$omp parallel
-    !$acc data copyin(u) copyout(v)
 
     call TPO_Div(Ds, Ji, u, v)
-    !$acc wait
 
     call system_clock(count0, rate)
     do i = 1, nt
       call TPO_Div(Ds, Ji, u, v)
-      !$acc wait
     end do
 
     call system_clock(count)
-    !$acc end data
     !$omp end parallel
 
+    time = (count - count0) / real(rate, RNP) / nt
 
+    error_opt  = maxval(abs(v - w))
+    mflops_opt = 1E-6 / time * ne * nflop
+    mlups_opt  = 1E-6 / time * ne * npop
 
   end associate
-
-
-  time = (count - count0) / real(rate, RNP) / nt
-
-  error_opt  = maxval(abs(v - w))
-  mflops_opt = 1E-6 / time * ne * nflop
-  mlups_opt  = 1E-6 / time * ne * npop
-
 
   !-----------------------------------------------------------------------------
   ! print results
@@ -267,9 +242,10 @@ program Validate__TPO__Div_3d_D
   write(*,'(3(2X,ES10.3))') error_opt, mflops_opt, mlups_opt
   write(*,*)
 
-end if
+  end if
 
-call MPI_Finalize()
-!===============================================================================
+  call MPI_Finalize()
+
+  !=============================================================================
 
 end program Validate__TPO__Div_3d_D

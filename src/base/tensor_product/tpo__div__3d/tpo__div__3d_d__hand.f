@@ -1,5 +1,5 @@
 !> summary:   Divergence element operator based on handcrafted kernels (D)
-!> author:    Jerome Michel, Erik Pfister
+!> author:    Jerome Michel
 !> date:      2021/10/12
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================

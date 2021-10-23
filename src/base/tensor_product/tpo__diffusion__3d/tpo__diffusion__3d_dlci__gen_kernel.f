@@ -6,10 +6,11 @@
 
 subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v, &
                                       Ji_n, ub, qb)
+
   real(RWP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
   real(RWP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
   real(RWP), intent(in)  :: Jd(:,:,:,:) !< Jacobian determinant  (np,np,np,ne)
-  real(RWP), intent(in)  :: G(:,:,:,:,:)!< Laplacian metrics     (np,np,np,ne,6)
+  real(RWP), intent(in)  :: G(:,:,:,:,:)!< Laplacian metrics   (np,np,np,ne,6)
   real(RWP), intent(in)  :: lambda      !< Helmholtz parameter
   real(RWP), intent(in)  :: nu          !< diffusivity
   real(RWP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
@@ -37,8 +38,7 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v, &
 
   get_traces = present(Ji_n) .and. present(ub) .and. present(qb)
 
-  ! element mass matrix
-
+  ! 3D standard mass matrix
   do k = 1, np
   do j = 1, np
   do i = 1, np
@@ -47,13 +47,13 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v, &
   end do
   end do
 
-  !---------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! evaluation
 
   !$omp do private(e)
   do e = 1, ne
 
-    ! lambda M Jd u .....................................................
+    ! v = λ M Jd u .............................................................
 
     do k = 1, np
     do j = 1, np

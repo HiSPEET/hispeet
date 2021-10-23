@@ -1,5 +1,5 @@
 !> summary:   Gradient element operator based on handcrafted kernels (D)
-!> author:    Jerome Michel, Erik Pfister
+!> author:    Jerome Michel
 !> date:      2021/10/12
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
@@ -22,12 +22,12 @@ contains
   !> Gradient element operator based on handcrafted kernels (R)
 
   subroutine TPO_Grad_D_Hand_RWP(np, ne, Ds, Ji, u, v)
-    integer,   intent(in)  :: np                   !< num points per direction
-    integer,   intent(in)  :: ne                   !< num elements
-    real(RWP), intent(in)  :: Ds(np,np)            !< standard diff matrix
-    real(RWP), intent(in)  :: Ji(np,np,np,ne,3,3)  !< inverse Jacobi matrix
-    real(RWP), intent(in)  :: u(np,np,np,ne)       !< 3D scalar field
-    real(RWP), intent(out) :: v(np,np,np,ne,3)     !< element-wise gradient of u
+    integer,   intent(in)  :: np                  !< num points per direction
+    integer,   intent(in)  :: ne                  !< num elements
+    real(RWP), intent(in)  :: Ds(np,np)           !< standard diff matrix
+    real(RWP), intent(in)  :: Ji(np,np,np,ne,3,3) !< inverse Jacobi matrix
+    real(RWP), intent(in)  :: u(np,np,np,ne)      !< 3D scalar field
+    real(RWP), intent(out) :: v(np,np,np,ne,3)    !< element-wise gradient of u
 
     select case(np)
     case( 2)

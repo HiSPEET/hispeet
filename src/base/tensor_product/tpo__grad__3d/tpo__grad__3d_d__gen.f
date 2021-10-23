@@ -1,5 +1,5 @@
 !> summary:  Generic gradient of a vector field: 3D Cartesian curvilinear
-!> author:   Joerg Stiller
+!> author:   Jerome Michel, Joerg Stiller
 !> date:     2021/016/09
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================

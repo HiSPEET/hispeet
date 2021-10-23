@@ -19,28 +19,28 @@ subroutine PROC(TPO_Grad_D_Hand__,_NP_)(ne, Ds, Ji, u, v)
 
   integer :: e
 
-
   !-----------------------------------------------------------------------------
   ! initialization
 
   A = transpose(Ds)
 
-  r = 0   ! avoid trouble with NaNs and memory warnings
-  s = 0   ! avoid trouble with NaNs and memory warnings
-  t = 0   ! avoid trouble with NaNs and memory warnings
+  r = 0  ! avoid trouble with NaNs and memory warnings
+  s = 0  ! avoid trouble with NaNs and memory warnings
+  t = 0  ! avoid trouble with NaNs and memory warnings
 
-  !---------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! evaluation
 
   !$omp do
   do e = 1, ne
 
+    ! [r,s,t]ᵀ = ∇ˢu ...........................................................
+
     call PROC(IxIxQt__,_NP_)(A, ONE, ZERO, u(:,:,:,e), r)
-
     call PROC(IxQtxI__,_NP_)(A, ONE, ZERO, u(:,:,:,e), s)
-
     call PROC(QtxIxI__,_NP_)(A, ONE, ZERO, u(:,:,:,e), t)
 
+    ! v = J⁻ᵀ ⋅ [r,s,t]^T ......................................................
 
     v(:,:,:,e,1) = r * Ji(:,:,:,e,1,1) + &
                    s * Ji(:,:,:,e,2,1) + &
@@ -55,7 +55,6 @@ subroutine PROC(TPO_Grad_D_Hand__,_NP_)(ne, Ds, Ji, u, v)
                    t * Ji(:,:,:,e,3,3)
 
   end do
-
 
   !-----------------------------------------------------------------------------
 

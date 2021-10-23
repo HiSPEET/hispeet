@@ -1,5 +1,5 @@
 !> summary:   element diffusion operator based on handcrafted kernels (DLCI)
-!> author:    Jerome Michel, Joerg Stiller, Erik Pfister
+!> author:    Jerome Michel, Joerg Stiller
 !> date:      2021/10/12
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
@@ -23,14 +23,15 @@ contains
 
   subroutine TPO_Diffusion_DLCI_Hand_RWP(Ms, Ds, Jd, G, lambda, nu, u, v, &
                                          Ji_n, ub, qb)
-    real(RWP), intent(in)  :: Ms(:)      !< 1D standard mass matrix         (np)
-    real(RWP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
-    real(RWP), intent(in)  :: Jd(:,:,:,:) !< Jacobian determinant  (np,np,np,ne)
-    real(RWP), intent(in)  :: G(:,:,:,:,:)!< Laplacian metrics
-    real(RWP), intent(in)  :: lambda     !< Helmholtz parameter
-    real(RWP), intent(in)  :: nu         !< diffusivity
-    real(RWP), intent(in)  :: u(:,:,:,:) !< operand                (np,np,np,ne)
-    real(RWP), intent(out) :: v(:,:,:,:) !< result                 (np,np,np,ne)
+
+    real(RWP), intent(in)  :: Ms(:)        !< 1D standard mass matrix       (np)
+    real(RWP), intent(in)  :: Ds(:,:)      !< 1D standard diff matrix    (np,np)
+    real(RWP), intent(in)  :: Jd(:,:,:,:)  !< Jacobian determinant (np,np,np,ne)
+    real(RWP), intent(in)  :: G(:,:,:,:,:) !< Laplacian metrics
+    real(RWP), intent(in)  :: lambda       !< Helmholtz parameter
+    real(RWP), intent(in)  :: nu           !< diffusivity
+    real(RWP), intent(in)  :: u(:,:,:,:)   !< operand              (np,np,np,ne)
+    real(RWP), intent(out) :: v(:,:,:,:)   !< result               (np,np,np,ne)
 
     real(RWP), optional, intent(in)    :: Ji_n(:,:,:,:,:) !< J⁻¹⋅n @ elem faces
     real(RWP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values

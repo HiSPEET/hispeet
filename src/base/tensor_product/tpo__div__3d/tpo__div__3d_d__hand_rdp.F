@@ -1,5 +1,5 @@
 !> summary:   Divergence element operator based on handcrafted kernels (D)
-!> author:    Jerome Michel, Erik Pfister, Joerg Stiller
+!> author:    Jerome Michel, Joerg Stiller
 !> date:      2021/10/12
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
@@ -26,8 +26,8 @@ contains
     integer,   intent(in)  :: ne                  !< num elements
     real(RWP), intent(in)  :: Ds(np,np)           !< standard diff matrix
     real(RWP), intent(in)  :: Ji(np,np,np,ne,3,3) !< inverse Jacobi matrix
-    real(RWP), intent(in)  :: u(np,np,np,ne,3)   !< 3D vector field
-    real(RWP), intent(out) :: v(np,np,np,ne)     !< element-wise divergence of u
+    real(RWP), intent(in)  :: u(np,np,np,ne,3)    !< 3D vector field
+    real(RWP), intent(out) :: v(np,np,np,ne)      !< element-wise divergence of u
 
     select case(np)
     case( 2)

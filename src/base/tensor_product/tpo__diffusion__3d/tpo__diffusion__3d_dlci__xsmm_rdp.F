@@ -1,5 +1,5 @@
 !> summary:  3D element diffusion operator using LIBXSMM (DLCI) for real(RDP)
-!> author:   Jerome Michel, Erik Pfister, Joerg Stiller
+!> author:   Jerome Michel, Joerg Stiller
 !> date:     2021/08/19
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
@@ -26,14 +26,15 @@ contains
 
   subroutine TPO_Diffusion_DLCI_XSMM_RDP(Ms, Ds, Jd, G, lambda, nu, u, v, &
                                          Ji_n, ub, qb)
-    real(RDP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
-    real(RDP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
-    real(RDP), intent(in)  :: Jd(:,:,:,:) !< Jacobian determinant  (np,np,np,ne)
-    real(RDP), intent(in)  :: G(:,:,:,:,:)!< Laplacian metrics   (np,np,np,ne,6)
-    real(RDP), intent(in)  :: lambda      !< Helmholtz parameter
-    real(RDP), intent(in)  :: nu          !< diffusivity
-    real(RDP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
-    real(RDP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
+
+    real(RDP), intent(in)  :: Ms(:)        !< 1D standard mass matrix       (np)
+    real(RDP), intent(in)  :: Ds(:,:)      !< 1D standard diff matrix    (np,np)
+    real(RDP), intent(in)  :: Jd(:,:,:,:)  !< Jacobian determinant (np,np,np,ne)
+    real(RDP), intent(in)  :: G(:,:,:,:,:) !< Laplacian metrics  (np,np,np,ne,6)
+    real(RDP), intent(in)  :: lambda       !< Helmholtz parameter
+    real(RDP), intent(in)  :: nu           !< diffusivity
+    real(RDP), intent(in)  :: u(:,:,:,:)   !< operand              (np,np,np,ne)
+    real(RDP), intent(out) :: v(:,:,:,:)   !< result               (np,np,np,ne)
 
     real(RDP), optional, intent(in)    :: Ji_n(:,:,:,:,:) !< J⁻¹⋅n @ elem faces
     real(RDP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values
@@ -61,8 +62,7 @@ contains
 
     get_traces = present(Ji_n) .and. present(ub) .and. present(qb)
 
-    ! element mass matrix
-
+    ! 3D standard mass matrix
     do k = 1, np
     do j = 1, np
     do i = 1, np
@@ -93,7 +93,7 @@ contains
     !$omp do
     do e = 1, ne
 
-      ! lambda M Jd u ..........................................................
+      ! v = λ M Jd u ...........................................................
 
       do k = 1, np
       do j = 1, np
@@ -103,7 +103,7 @@ contains
       end do
       end do
 
-      ! standard derivatives of  uᵉ ..............................................
+      ! standard derivatives of uᵉ .............................................
 
       call LIBXSMM_DMMCall(xmm_set_1, Ds, u(:,:,:,e), r(:,:,:))
 
@@ -113,8 +113,7 @@ contains
 
       call LIBXSMM_DMMCall(xmm_set_3, u(:,:,:,e), Ds_t, t(:,:,:))
 
-
-      ! traces on element boundary ...............................................
+      ! traces on element boundary .............................................
 
       if (get_traces) then
 
@@ -165,11 +164,10 @@ contains
 
       end if
 
-
-      ! application of metric terms and second differentiation ...................
+      ! application of metric terms and second differentiation .................
       ! completion: v += ∇ˢ⋅(ν M G ⋅ ∇ˢuᵉ)
 
-      ! direction 1:  z = ν M G(1,:) ⋅ ∇ˢuᵉ ......................................
+      ! direction 1:  z = ν M G(1,:) ⋅ ∇ˢuᵉ ....................................
 
       do k = 1, np
       do j = 1, np
@@ -185,7 +183,7 @@ contains
       call LIBXSMM_DMMCall(xmm_add_1, Ds_t, z(:,:,:), v(:,:,:,e))
 
 
-      ! direction 2: z = ν M G(2,:) ⋅ ∇ˢuᵉ .......................................
+      ! direction 2: z = ν M G(2,:) ⋅ ∇ˢuᵉ .....................................
 
       do k = 1, np
       do j = 1, np
@@ -203,7 +201,7 @@ contains
       end do
 
 
-      ! direction 3: z = ν M G(3,:) ⋅ ∇ˢuᵉ .......................................
+      ! direction 3: z = ν M G(3,:) ⋅ ∇ˢuᵉ .....................................
 
       do k = 1, np
       do j = 1, np

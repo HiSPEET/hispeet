@@ -1,5 +1,5 @@
 !> summary:  Generic gradient of a vector field: 3D Cartesian equidistant
-!> author:   Joerg Stiller, Erik Pfister
+!> author:   Jerome Michel, Joerg Stiller
 !> date:     2017/01/19
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================

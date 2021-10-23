@@ -25,7 +25,8 @@ program Validate__TPO__Grad__3D_D
   !-----------------------------------------------------------------------------
   ! declarations
 
-  ! input parameters ............................................................
+  ! input parameters ...........................................................
+
   character(len=*), parameter :: &
          input_file     = 'validate__tpo__grad_3d_d.prm'
   integer   :: conf     = 1       ! configuration (1 cylinder, 2 annular gap)
@@ -40,9 +41,7 @@ program Validate__TPO__Grad__3D_D
   logical   :: periodic = .false. ! switch for axial periodicity
   logical   :: exact    = .false. ! compare with exact or approximate gradient
 
-
   namelist/input/ conf, nt, r0, r1, h, nr, np, nz, po, exact
-
 
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
   integer :: rank
@@ -51,13 +50,11 @@ program Validate__TPO__Grad__3D_D
   type(Mesh_3D)                :: mesh
   type(SpectralElementMesh_3D) :: se_mesh
 
-
   real(RNP), allocatable :: area(:)
   real(RNP) :: vol
   logical   :: passed
   integer   :: io
   integer   :: e, i, j, k, ne
-
 
   ! operators and variables ....................................................
 
@@ -66,7 +63,6 @@ program Validate__TPO__Grad__3D_D
   real(RNP), dimension(:,:,:,:),   allocatable :: u
   real(RNP), dimension(:,:,:,:,:), allocatable :: v, w
 
-
   real(RNP) :: d1_u, d2_u, d3_u
   real(RNP) :: time = 0
   real(RNP) :: error_gen = 0, mflops_gen = -1, mlups_gen = -1
@@ -74,7 +70,6 @@ program Validate__TPO__Grad__3D_D
 
   integer :: nflop, npop
   integer :: p, pm1, pm2
-
 
   integer(IXL) :: count, count0, rate
 
@@ -88,10 +83,9 @@ program Validate__TPO__Grad__3D_D
 
   ! read test parameters .......................................................
 
-
-    open(newunit = io, file = input_file)
-    read(io, nml = input)
-    close(io)
+  open(newunit = io, file = input_file)
+  read(io, nml = input)
+  close(io)
 
   ! create and import generic mesh .............................................
 
@@ -132,14 +126,12 @@ program Validate__TPO__Grad__3D_D
   standard_op = StandardOperators_1D(po)
 
   ! workspace ..................................................................
-  ne =  mesh%n_elem
 
+  ne = mesh%n_elem
 
-  allocate( u(0:po,0:po,0:po,ne),   &
-            v(0:po,0:po,0:po,ne,3), &
-            w(0:po,0:po,0:po,ne,3)  )
-
-
+  allocate( u(0:po,0:po,0:po,ne)   &
+          , v(0:po,0:po,0:po,ne,3) &
+          , w(0:po,0:po,0:po,ne,3) )
 
   ! order of test function .....................................................
 
@@ -151,15 +143,12 @@ program Validate__TPO__Grad__3D_D
   !-----------------------------------------------------------------------------
   ! operand und exact result
 
-
   associate( Ms => standard_op % w        &
            , Ds => standard_op % D        &
            , x  => se_mesh % metrics % x  &
            , Ji => se_mesh % metrics % Ji)
 
     do e = 1, ne
-
-
 
       ! operand ................................................................
 
@@ -207,7 +196,7 @@ program Validate__TPO__Grad__3D_D
           w(i,j,k,e,3) = d1_u * Ji(i,j,k,e,1,3) &
                        + d2_u * Ji(i,j,k,e,2,3) &
                        + d3_u * Ji(i,j,k,e,3,3)
-        endif
+        end if
 
       end do
       end do
@@ -215,15 +204,10 @@ program Validate__TPO__Grad__3D_D
 
     end do
 
-
-
-  !-----------------------------------------------------------------------------
-  ! test generic procedure
-
-
+    !---------------------------------------------------------------------------
+    ! test generic procedure
 
     !$omp parallel
-    !$acc data copyin(u) copyout(v)
 
     call TPO_Grad_D_Gen(po+1, ne, Ds, Ji, u, v)
     !$acc wait
@@ -236,19 +220,15 @@ program Validate__TPO__Grad__3D_D
     end do
 
     call system_clock(count)
-    !$acc end data
-    !$omp end parallel
 
+    time = (count - count0) / real(rate, RNP) / nt
 
-  time = (count - count0) / real(rate, RNP) / nt
+    error_gen  = maxval(abs(v - w))
+    mflops_gen = 1E-6 / time * ne * nflop
+    mlups_gen  = 1E-6 / time * ne * npop
 
-  error_gen = maxval(abs(v - w))
-  mflops_gen = 1E-6 / time * ne * nflop
-  mlups_gen  = 1E-6 / time * ne * npop
-
-  !-----------------------------------------------------------------------------
-  ! test optimized procedure
-
+    !---------------------------------------------------------------------------
+    ! test optimized procedure
 
     !$omp parallel
     !$acc data copyin(u) copyout(v)
@@ -266,17 +246,13 @@ program Validate__TPO__Grad__3D_D
     !$acc end data
     !$omp end parallel
 
+    time = (count - count0) / real(rate, RNP) / nt
 
+    error_opt  = maxval(abs(v - w))
+    mflops_opt = 1E-6 / time * ne * nflop
+    mlups_opt  = 1E-6 / time * ne * npop
 
   end associate
-
-
-  time = (count - count0) / real(rate, RNP) / nt
-
-  error_opt  = maxval(abs(v - w))
-  mflops_opt = 1E-6 / time * ne * nflop
-  mlups_opt  = 1E-6 / time * ne * npop
-
 
   !-----------------------------------------------------------------------------
   ! print results
@@ -294,9 +270,10 @@ program Validate__TPO__Grad__3D_D
   write(*,'(3(2X,ES10.3))') error_opt, mflops_opt, mlups_opt
   write(*,*)
 
-end if
+  end if
 
-call MPI_Finalize()
-!===============================================================================
+  call MPI_Finalize()
+
+  !=============================================================================
 
 end program Validate__TPO__Grad__3D_D

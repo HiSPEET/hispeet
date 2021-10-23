@@ -1,5 +1,5 @@
 !> summary:  3D gradient element operator using LIBXSMM (D)
-!> author:   Jerome Michel, Erik Pfister
+!> author:   Jerome Michel
 !> date:     2021/08/17
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
@@ -13,7 +13,6 @@ module TPO__Grad__3D_D__XSMM_RDP
   implicit none
   private
 
-  ! like this? if use directly, maybe not needed
   public :: TPO_Grad_D_XSMM
 
   interface TPO_Grad_D_XSMM
@@ -40,10 +39,9 @@ contains
 
     real(RDP) :: Ds_t(np,np)
 
+    real(RDP), dimension(np,np,np) :: r, s, t
 
-    real(RDP), dimension(np,np,np) :: r,s,t
-
-    integer   :: e, k
+    integer :: e, k
 
     !-----------------------------------------------------------------------------
     ! intialization
@@ -64,31 +62,28 @@ contains
     !$omp do
     do e = 1, ne
 
+      ! r = ∂u/∂ξ
+      call LIBXSMM_DMMCall(xmm_1, Ds, u(:,:,:,e), r)
 
-      ! v1 = du/dx1
-      call LIBXSMM_DMMCall(xmm_1, Ds, u(:,:,:,e) , r)
-
-      ! v2 = du/dx2
+      ! s = ∂u/∂η
       do k = 1, np
         call LIBXSMM_DMMCall(xmm_2, u(:,:,k,e), Ds_t, s(:,:,k))
       end do
 
-      ! v3 = du/dx3
+      ! t = ∂u/∂ζ
       call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e), Ds_t, t)
 
+      v(:,:,:,e,1) = r * Ji(:,:,:,e,1,1) &
+                   + s * Ji(:,:,:,e,2,1) &
+                   + t * Ji(:,:,:,e,3,1)
 
-      ! is there a faster way?
-      v(:,:,:,e,1) = r(:,:,:) * Ji(:,:,:,e,1,1) + &
-                     s(:,:,:) * Ji(:,:,:,e,2,1) + &
-                     t(:,:,:) * Ji(:,:,:,e,3,1)
+      v(:,:,:,e,2) = r * Ji(:,:,:,e,1,2) &
+                   + s * Ji(:,:,:,e,2,2) &
+                   + t * Ji(:,:,:,e,3,2)
 
-      v(:,:,:,e,2) = r(:,:,:) * Ji(:,:,:,e,1,2) + &
-                     s(:,:,:) * Ji(:,:,:,e,2,2) + &
-                     t(:,:,:) * Ji(:,:,:,e,3,2)
-
-      v(:,:,:,e,3) = r(:,:,:) * Ji(:,:,:,e,1,3) + &
-                     s(:,:,:) * Ji(:,:,:,e,2,3) + &
-                     t(:,:,:) * Ji(:,:,:,e,3,3)
+      v(:,:,:,e,3) = r * Ji(:,:,:,e,1,3) &
+                   + s * Ji(:,:,:,e,2,3) &
+                   + t * Ji(:,:,:,e,3,3)
 
     end do
 

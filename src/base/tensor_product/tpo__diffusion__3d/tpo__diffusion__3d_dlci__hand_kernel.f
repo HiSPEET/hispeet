@@ -2,7 +2,8 @@
 !> Parametrized 3d diffusion kernel using hand-crafted suboperators (RLCI)
 
 subroutine PROC(TPO_Diffusion_DLCI_Hand__,_NP_) &
-  (ne, Ms, Ds, Jd, G, lambda, nu, u, v, Ji_n, ub, qb)
+    (ne, Ms, Ds, Jd, G, lambda, nu, u, v, Ji_n, ub, qb)
+
   integer,   intent(in)  :: ne                     !< num elements
   real(RWP), intent(in)  :: Ms(_NP_)               !< standard mass matrix
   real(RWP), intent(in)  :: Ds(_NP_,_NP_)          !< 1D standard diff matrix
@@ -17,7 +18,7 @@ subroutine PROC(TPO_Diffusion_DLCI_Hand__,_NP_) &
   real(RWP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values
   real(RWP), optional, intent(inout) :: qb(:,:,:,:) !< element boundary fluxes
 
-  real(RWP), parameter :: ONE = 1
+  real(RWP), parameter :: ONE  = 1
   real(RWP), parameter :: ZERO = 0
 
   real(RWP) :: M(_NP_,_NP_,_NP_), z(_NP_,_NP_,_NP_)
@@ -40,7 +41,7 @@ subroutine PROC(TPO_Diffusion_DLCI_Hand__,_NP_) &
 
   get_traces = present(Ji_n) .and. present(ub) .and. present(qb)
 
-  ! element mass matrix
+  ! 3D standard mass matrix
   do k = 1, _NP_
   do j = 1, _NP_
   do i = 1, _NP_
@@ -49,13 +50,14 @@ subroutine PROC(TPO_Diffusion_DLCI_Hand__,_NP_) &
   end do
   end do
 
-  !---------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! evaluation
 
   !$omp do
   do e = 1, ne
 
-    ! lambda M Jd u ............................................................
+    ! v = λ M Jd u .............................................................
+
     do k = 1, _NP_
     do j = 1, _NP_
     do i = 1, _NP_
@@ -172,10 +174,6 @@ subroutine PROC(TPO_Diffusion_DLCI_Hand__,_NP_) &
     ! vᵉ += [(Dˢ)ᵀ x I x I] z
     call PROC(QtxIxI__,_NP_)(Ds, ONE, ONE, z(:,:,:), v(:,:,:,e))
 
-
   end do
-
-
-  !-----------------------------------------------------------------------------
 
 end subroutine PROC(TPO_Diffusion_DLCI_Hand__,_NP_)

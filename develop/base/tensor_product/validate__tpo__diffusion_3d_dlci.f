@@ -82,7 +82,7 @@ program Validate__TPO_Diffusion_DLCI
 
   call MPI_Comm_rank(comm, rank)
 
-  if (rank == 0) then !derzeit noch keine Partitionierung => rank = 0
+  if (rank == 0) then ! derzeit noch keine Partitionierung => rank = 0
 
   ! read test parameters .......................................................
 
@@ -102,9 +102,8 @@ program Validate__TPO_Diffusion_DLCI
   ! test parameters ............................................................
 
   ! problem dimensions
-  npop  = (po+1)**3                  ! number of operands per element
+  npop  = (po+1)**3                 ! number of operands per element
   nflop = npop * (12*(po+1) + 29)   ! number of FLOPs per element
-
 
   ! verification ...............................................................
 
@@ -304,17 +303,15 @@ program Validate__TPO_Diffusion_DLCI
   write(*,'(3A)') '#  np        ne        nt    ',         &
                   '   error     MFLOP/s      MLUP/s    ',  &
                   '   error     MFLOP/s      MLUP/s'
-  !x_elem(0:p_geom,0:p_geom,0:p_geom,l,1:3)
   write(*,'(I5,2(2X,I8))',  advance='NO') po+1, ne, nt
   write(*,'(3(2X,ES10.3))', advance='NO') error_gen, mflops_gen, mlups_gen
   write(*,'(3(2X,ES10.3))') error_opt, mflops_opt, mlups_opt
   write(*,*)
 
+  end if
 
-end if
+  call MPI_Finalize()
 
-call MPI_Finalize()
-
-!===============================================================================
+  !=============================================================================
 
 end program Validate__TPO_Diffusion_DLCI

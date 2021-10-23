@@ -20,10 +20,10 @@ module TPO__Div__3D_D
 contains
 
   subroutine TPO_Div_D_RDP(Ds, Ji, u, v)
-    real(RDP), intent(in)  :: Ds(:,:)          !< 1D standard stiffness matrix
-    real(RDP), intent(in)  :: Ji(:,:,:,:,:,:)  !< inverse Jacobi matrix
-    real(RDP), intent(in)  :: u(:,:,:,:,:)     !< 3D vector field
-    real(RDP), intent(out) :: v(:,:,:,:)       !< element-wise divergence of u
+    real(RDP), intent(in)  :: Ds(:,:)         !< 1D standard stiffness matrix
+    real(RDP), intent(in)  :: Ji(:,:,:,:,:,:) !< inverse Jacobi matrix
+    real(RDP), intent(in)  :: u(:,:,:,:,:)    !< 3D vector field
+    real(RDP), intent(out) :: v(:,:,:,:)      !< element-wise divergence of u
 
     integer :: np, ne
 
