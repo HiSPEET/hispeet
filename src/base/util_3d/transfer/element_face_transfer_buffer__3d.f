@@ -31,9 +31,66 @@ module Element_Face_Transfer_Buffer__3D
     type(MPI_Request), allocatable :: request(:)   !< requests
   end type ElementFaceTransferData
 
-
   !-----------------------------------------------------------------------------
+  !> Type for transferring face data from master to ghost elements
   !>
+  !> The type supports two flavors of mesh variables
+  !>
+  !>    -  single variable of the shape `v(np,np,6,ne+ng)`
+  !>    -  variable arrays of the shape `v(np,np,6,ne+ng,nc)`
+  !>
+  !> where `v` is of type
+  !>
+  !>    -  `real(RDP)`  (others may be added on demand)
+  !>
+  !> and
+  !>
+  !>    -  `np` is the number of element points per direction
+  !>    -  `ne` is the number of local elements, i.e. `mesh % n_elem`
+  !>    -  `ng` is the number of ghost elements, i.e. `mesh % n_ghost`
+  !>    -  `nc` is the number of components/variables (auto-detected)
+  !>
+  !> The third dimension of `v` refers to the element faces.
+  !> It is recommended to pass the variable arguments always in the shape
+  !> given above, though the ghost entries are needed only for `Merge`.
+  !>
+  !> Use with single thread (no OpenMP):
+  !>
+  !>    -  the `asynchronous` attribute is required for non-blocking MPI send
+  !>       and receive operations in `Transfer`
+  !>
+  !>         type(ElementFaceTransferBuffer_3D), asynchronous :: buf
+  !>         ...
+  !>         ! create and fill buffer, start transfer
+  !>         buf = ElementFaceTransferBuffer_3D(mesh, v)
+  !>         call buf % Transfer(mesh, v, tag)
+  !>         ...
+  !>         ! possibly perform some computations to hide communication costs
+  !>         ...
+  !>         ! merge received master data into ghosts and finish transfer
+  !>         call buf % Merge(v)
+  !>
+  !> Use with OpenMP:
+  !>
+  !>    -  the buffer must be declared `save` to be shared among the threads
+  !>    -  it must be `allocatable` and (de)allocated explicitly to ensure
+  !>       correct finalization and, thus, release of component storage
+  !>
+  !>         type(ElementFaceTransferBuffer_3D), &
+  !>             asynchronous, allocatable, save :: buf
+  !>         ...
+  !>         !$omp master
+  !>         buf = ElementFaceTransferBuffer_3D(mesh, v)
+  !>         !$omp end master
+  !>         !$omp barrier
+  !>         ...
+  !>         call buf % Transfer(mesh, v, tag)
+  !>         ...
+  !>         call buf % Merge(v)
+  !>         ...
+  !>         !$omp master
+  !>         deallocate(buf)
+  !>         !$omp end master
 
   type ElementFaceTransferBuffer_3D
     integer :: np = 0                      !< number of points per direction

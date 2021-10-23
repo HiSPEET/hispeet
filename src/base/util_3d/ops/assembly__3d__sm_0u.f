@@ -257,26 +257,26 @@ contains
         if (q < 1) cycle
 
         ! edge data
-        call edge( 1) % AlignWithElement(u_edge(:,1, edge( 1)%id), u(1:q,0,0,l))
-        call edge( 2) % AlignWithElement(u_edge(:,1, edge( 2)%id), u(1:q,p,0,l))
-        call edge( 3) % AlignWithElement(u_edge(:,1, edge( 3)%id), u(1:q,0,p,l))
-        call edge( 4) % AlignWithElement(u_edge(:,1, edge( 4)%id), u(1:q,p,p,l))
-        call edge( 5) % AlignWithElement(u_edge(:,1, edge( 5)%id), u(0,1:q,0,l))
-        call edge( 6) % AlignWithElement(u_edge(:,1, edge( 6)%id), u(p,1:q,0,l))
-        call edge( 7) % AlignWithElement(u_edge(:,1, edge( 7)%id), u(0,1:q,p,l))
-        call edge( 8) % AlignWithElement(u_edge(:,1, edge( 8)%id), u(p,1:q,p,l))
-        call edge( 9) % AlignWithElement(u_edge(:,1, edge( 9)%id), u(0,0,1:q,l))
-        call edge(10) % AlignWithElement(u_edge(:,1, edge(10)%id), u(p,0,1:q,l))
-        call edge(11) % AlignWithElement(u_edge(:,1, edge(11)%id), u(0,p,1:q,l))
-        call edge(12) % AlignWithElement(u_edge(:,1, edge(12)%id), u(p,p,1:q,l))
+        call edge( 1) % AlignFromMesh(u_edge(:,1, edge( 1)%id), u(1:q,0,0,l))
+        call edge( 2) % AlignFromMesh(u_edge(:,1, edge( 2)%id), u(1:q,p,0,l))
+        call edge( 3) % AlignFromMesh(u_edge(:,1, edge( 3)%id), u(1:q,0,p,l))
+        call edge( 4) % AlignFromMesh(u_edge(:,1, edge( 4)%id), u(1:q,p,p,l))
+        call edge( 5) % AlignFromMesh(u_edge(:,1, edge( 5)%id), u(0,1:q,0,l))
+        call edge( 6) % AlignFromMesh(u_edge(:,1, edge( 6)%id), u(p,1:q,0,l))
+        call edge( 7) % AlignFromMesh(u_edge(:,1, edge( 7)%id), u(0,1:q,p,l))
+        call edge( 8) % AlignFromMesh(u_edge(:,1, edge( 8)%id), u(p,1:q,p,l))
+        call edge( 9) % AlignFromMesh(u_edge(:,1, edge( 9)%id), u(0,0,1:q,l))
+        call edge(10) % AlignFromMesh(u_edge(:,1, edge(10)%id), u(p,0,1:q,l))
+        call edge(11) % AlignFromMesh(u_edge(:,1, edge(11)%id), u(0,p,1:q,l))
+        call edge(12) % AlignFromMesh(u_edge(:,1, edge(12)%id), u(p,p,1:q,l))
 
         ! face data
-        call face(1) % AlignWithElement(u_face(:,:,1, face(1)%id), u(0,1:q,1:q,l))
-        call face(2) % AlignWithElement(u_face(:,:,1, face(2)%id), u(p,1:q,1:q,l))
-        call face(3) % AlignWithElement(u_face(:,:,1, face(3)%id), u(1:q,0,1:q,l))
-        call face(4) % AlignWithElement(u_face(:,:,1, face(4)%id), u(1:q,p,1:q,l))
-        call face(5) % AlignWithElement(u_face(:,:,1, face(5)%id), u(1:q,1:q,0,l))
-        call face(6) % AlignWithElement(u_face(:,:,1, face(6)%id), u(1:q,1:q,p,l))
+        call face(1) % AlignFromMesh(u_face(:,:,1, face(1)%id), u(0,1:q,1:q,l))
+        call face(2) % AlignFromMesh(u_face(:,:,1, face(2)%id), u(p,1:q,1:q,l))
+        call face(3) % AlignFromMesh(u_face(:,:,1, face(3)%id), u(1:q,0,1:q,l))
+        call face(4) % AlignFromMesh(u_face(:,:,1, face(4)%id), u(1:q,p,1:q,l))
+        call face(5) % AlignFromMesh(u_face(:,:,1, face(5)%id), u(1:q,1:q,0,l))
+        call face(6) % AlignFromMesh(u_face(:,:,1, face(6)%id), u(1:q,1:q,p,l))
 
       end associate
     end do

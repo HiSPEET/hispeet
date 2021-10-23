@@ -37,7 +37,10 @@ contains
     integer   :: np(3) = 1     ! number of partitions per direction
     integer   :: ep(3) = 2     ! elements per partition and direction
 
-    namelist/cuboid_cartesian_prm/ xo, lx, np, ep, bc
+    logical   :: regular    = .true. ! define mesh to be (not) regular
+    logical   :: structured = .true. ! define mesh to be (un)structured
+
+    namelist/cuboid_cartesian_prm/ xo, lx, np, ep, bc, regular, structured
 
     ! auxiliary variables ......................................................
 
@@ -64,6 +67,9 @@ contains
     call XMPI_Bcast(ep, 0, comm)
     call XMPI_Bcast(bc, 0, comm)
 
+    call XMPI_Bcast(regular   , 0, comm)
+    call XMPI_Bcast(structured, 0, comm)
+
     periodic(1) = all(bc(1:2) == 'P')
     periodic(2) = all(bc(3:4) == 'P')
     periodic(3) = all(bc(5:6) == 'P')
@@ -73,6 +79,9 @@ contains
     ! create mesh ..............................................................
 
     call GenerateRegularMesh(mesh, np, ep, xo, dx, periodic, comm, pg)
+
+    mesh % regular = regular
+    mesh % structured = structured
 
   end subroutine CreateCuboidCartesian
 

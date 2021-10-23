@@ -2,12 +2,19 @@
 !> author:   Yang Liu, Martina Grotteschi, Joerg Stiller
 !> date:     2020/11/06
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @note
+!>   Placement of dynamic procedure in element-based routine problematic
+!>     - inefficient memory usage
+!>     - allocation and deallocation of identical workspace for each element
+!>     - major revision required for parallelization with OpenMP
+!>
 !===============================================================================
 
 module CART__ISP_Flow__SGS_Diffusivity
 
   use Kind_Parameters, only: RNP
-  use Constants      , only: ONE, THIRD, ZERO, HALF
+  use Constants      , only: ZERO, ONE, HALF, THIRD
   use Array_Assignments
 
   use ISP_Flow_SGS__Sigma_Model
@@ -35,10 +42,12 @@ contains
     real(RNP), contiguous, intent(inout) :: nu(:,:,:,:,:) !< diffusivity
 
     real(RNP), allocatable, save :: grad_v(:,:,:,:,:,:) ! velocity gradient
-    real(RNP), allocatable       :: c_sigma(:)          ! model constant
+    real(RNP), allocatable, save :: c_sigma(:)          ! model constant
 
-    integer   :: np, ne
-    integer   :: i
+    integer :: np, ne
+    integer :: i
+
+    !$omp master
 
     np = size(u,1) ! number of element points per direction
     ne = size(u,4) ! number of elements
@@ -49,19 +58,16 @@ contains
 
       ! velocity gradient ......................................................
 
-      !$omp single
       allocate(grad_v(np,np,np,ne,1:3,1:3))
       allocate(c_sigma(ne))
-      !$omp end single
 
       ! compute velocity gradient, grad_v(:,:,:,:,1:3,i) = ∇vᵢ
       do i = 1, 3
-        ! test these two candidates
         call TPO_Grad(eop%D, mesh%dx, u(:,:,:,:,i), grad_v(:,:,:,:,:,i))
-       !call WeakGradient(mesh, eop%w, eop%D, u(:,:,:,:,i), grad_v(:,:,:,:,:,i))
       end do
 
-      ! Evaluation of model constant ...........................................
+      ! evaluation of model constant ...........................................
+
       if (flow_op % control % sgs_dyn) then
         ! evaluate the dynamic model constant
         call GetDynamicCoefficient(flow_op, u, grad_v, c_sigma)
@@ -79,6 +85,9 @@ contains
       deallocate(c_sigma)
 
     end associate
+
+    !$omp end master
+    !$omp barrier
 
   end subroutine Add_SGS_Diffusivity
 
@@ -101,7 +110,6 @@ contains
 
     delta   = product(dx / max(np-1,1))**THIRD  ! mean point spacing
 
-    !$omp do
     do e = 1, ne
       do k = 1, np
       do j = 1, np
@@ -162,7 +170,6 @@ contains
     allocate(Ms(np))
     Ms = flow_op%eop_u%w
 
-    !$omp single
     allocate(uf, mold = u       )
     allocate(uc_uc(np,np,np,1:6))
     allocate(uf_uf, mold = uc_uc)
@@ -177,7 +184,6 @@ contains
     allocate(dc_Sf, mold = L    )
     allocate(LM(np,np,np)       )
     allocate(MM, mold = LM      )
-    !$omp end single
 
     ! step 1: construct the filter matrix ......................................
     if (.not. allocated(F_c)) then
@@ -263,7 +269,7 @@ contains
       call TPO_AAA_ele(F_c, dc_Sc(:,:,:,i), dc_Sf(:,:,:,i))
     end do
 
-    ! step 3: calculate terms L (already done), M ........................
+    ! step 3: calculate terms L (already done), M ..............................
 
     !delta and deltaf
     delta  = product(mesh%dx / max(np-1,1))**THIRD
@@ -412,7 +418,7 @@ contains
         call EvalCSigma(  flow_op             &
                         , u(:,:,:,i,:)        &
                         , grad_v(:,:,:,i,:,:) &
-                        , c_sigma(i)            )
+                        , c_sigma(i)          )
       end do
 
     end if
@@ -498,7 +504,6 @@ contains
     At = transpose(A)
 
     ! evaluation
-    !$omp do
     do k = 1, na1
     do j = 1, na2
     do i = 1, na2

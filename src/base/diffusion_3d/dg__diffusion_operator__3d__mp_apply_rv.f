@@ -109,7 +109,7 @@ contains
     real(RNP) :: g(3), mu(3)
     real(RNP) :: cd_0, cd_P, cp_0, cp_P
     integer   :: i, j, k, e
-    logical   :: present_f
+    logical   :: present_f, struct
 
     associate( P  => eop  % po, &
                Ms => eop  % w,  &
@@ -142,6 +142,7 @@ contains
       mu(3) = eop % PenaltyFactor(dx(3))
 
       present_f = present(f)
+      struct    = mesh % structured
 
       ! add fluxes .............................................................
 
@@ -167,8 +168,8 @@ contains
           !   [u]₁   = jmp( u (j,k,f₂) )
           !   {ν∇u}₁ = avg( q₁(j,k,f₂) )
 
-          call GetElementBoundaryFluxes(element, e, 1, tr_u, tr_qn, Ju_0, Aq_0)
-          call GetElementBoundaryFluxes(element, e, 2, tr_u, tr_qn, Ju_P, Aq_P)
+          call GetElementBoundaryFluxes(element,struct,e,1,tr_u,tr_qn,Ju_0,Aq_0)
+          call GetElementBoundaryFluxes(element,struct,e,2,tr_u,tr_qn,Ju_P,Aq_P)
 
           do k = 0, P
           do j = 0, P
@@ -191,8 +192,8 @@ contains
 
           ! direction 2: v = v + Mf₂ (-[ϕ]₂{ν∇u}₂ - {ν∇ϕ}₂[u]₂ + μν[ϕ]₂[u]₂)
 
-          call GetElementBoundaryFluxes(element, e, 3, tr_u, tr_qn, Ju_0, Aq_0)
-          call GetElementBoundaryFluxes(element, e, 4, tr_u, tr_qn, Ju_P, Aq_P)
+          call GetElementBoundaryFluxes(element,struct,e,3,tr_u,tr_qn,Ju_0,Aq_0)
+          call GetElementBoundaryFluxes(element,struct,e,4,tr_u,tr_qn,Ju_P,Aq_P)
 
           do k = 0, P
           do i = 0, P
@@ -215,8 +216,8 @@ contains
 
           ! direction 3: v = v + Mf₃ (-[ϕ]₃{ν∇u}₃ - {ν∇ϕ}₃[u]₃ + μν[ϕ]₃[u]₃)
 
-          call GetElementBoundaryFluxes(element, e, 5, tr_u, tr_qn, Ju_0, Aq_0)
-          call GetElementBoundaryFluxes(element, e, 6, tr_u, tr_qn, Ju_P, Aq_P)
+          call GetElementBoundaryFluxes(element,struct,e,5,tr_u,tr_qn,Ju_0,Aq_0)
+          call GetElementBoundaryFluxes(element,struct,e,6,tr_u,tr_qn,Ju_P,Aq_P)
 
           do j = 0, P
           do i = 0, P

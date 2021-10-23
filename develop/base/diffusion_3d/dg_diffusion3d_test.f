@@ -105,6 +105,8 @@ program DG_Diffusion3D_Test
   real(RNP), pointer, contiguous :: r (:,:,:,:)  ! residual
   real(RNP), pointer, contiguous :: e (:,:,:,:)  ! error
 
+  real(RNP), allocatable :: mm(:,:,:,:) ! diagonal mass matrix
+
   ! auxiliary variables ........................................................
 
   character(len=80) :: config_name = '', test_case_name = ''
@@ -188,9 +190,6 @@ program DG_Diffusion3D_Test
     config_name = 'Cuboidal domain with Cartesian mesh'
   end select
 
-!### CHECK
-mesh % regular = .false.
-!### CHECK END
   sem = SpectralElementMesh_3D(mesh, po)
 
   ! problem ....................................................................
@@ -227,6 +226,9 @@ mesh % regular = .false.
   r (0:,0:,0:,1:) => var(:,:,:,:,5)
   e (0:,0:,0:,1:) => var(:,:,:,:,6)
 
+  allocate(mm(0:po,0:po,0:po,1:n_elem))
+  call sem % Get_DG_DiagonalMassMatrix(mm)
+
   ! solution and RHS ...........................................................
 
   associate(x => sem % metrics % x)
@@ -240,11 +242,7 @@ mesh % regular = .false.
     call problem % GetSource(x, r)
 
     ! project source:  f = M r
-    !***TBD***! call TG_Projection(sem, r, f)
-    !***TBD***! workaround for regular mesh:
-!    if (sem % mesh % regular) then
-      call TPO_Diagonal(product(sem%mesh%dx)/8, sem%std_op%w, r, f)
-!    end if
+    f = mm * r
 
     ! apply boundary values:  f = f + f_bc
     !***TBD***!

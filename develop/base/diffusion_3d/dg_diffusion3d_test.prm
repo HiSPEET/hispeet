@@ -8,6 +8,8 @@
 /
 
 &cuboid_cartesian_prm
+! regular    = F ! mimic irregular mesh (elements deformed or of different size)
+! structured = F ! mimic unstructured mesh
 /
 
 &cuboid_diamonds_prm

@@ -26,7 +26,7 @@ module Assembly__3D
 
     module subroutine Assembly_3D_0U(mesh, u, u_buf, avg)
       !> mesh partition
-      class(Mesh_3D), intent(in)    :: mesh
+      class(Mesh_3D), intent(in) :: mesh
       !> mesh variable, including ghost entries
       real(RNP), intent(inout) :: u(:,:,:,:)
       !> MPI transfer buffer
@@ -44,7 +44,7 @@ contains
 
   subroutine Assembly_3D_0(mesh, u, u_buf, avg)
     !> mesh partition
-    class(Mesh_3D), intent(in)    :: mesh
+    class(Mesh_3D), intent(in) :: mesh
     !> mesh variable, including ghost entries
     real(RNP), intent(inout) :: u(:,:,:,:)
     !> MPI transfer buffer

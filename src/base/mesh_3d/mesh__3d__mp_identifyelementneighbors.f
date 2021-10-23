@@ -981,7 +981,7 @@ contains
 
   pure integer function AdjoiningEdge(element, n) result(e)
     class(MeshElement_3D), intent(in) :: element  !< mesh element
-    integer,               intent(in) :: n        !< neighbor element ID
+    integer,               intent(in) :: n        !< vertex neighbor element ID
 
     integer :: i, i1, i2, j
 

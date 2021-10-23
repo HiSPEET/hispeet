@@ -25,8 +25,9 @@ module Spectral_Element_Mesh__3D
     type(MeshMetrics_3D)       :: metrics !< mesh points and metrics
   contains
     procedure :: Init_SpectralElementMesh_3D
-    procedure :: GetVolume
-    procedure :: GetSurfaceAreas
+    procedure :: Get_Volume
+    procedure :: Get_SurfaceAreas
+    procedure :: Get_DG_DiagonalMassMatrix
   end type SpectralElementMesh_3D
 
   ! constructor interface
@@ -68,7 +69,7 @@ contains
   !-----------------------------------------------------------------------------
   !> TBP for computing the volume of the computational domain
 
-  subroutine GetVolume(this, vol)
+  subroutine Get_Volume(this, vol)
     class(SpectralElementMesh_3D), intent(in) :: this
     real(RNP), intent(out) :: vol !< volume, should be PRIVATE with OpenMP
 
@@ -118,29 +119,29 @@ contains
 
     end associate
 
-  end subroutine GetVolume
+  end subroutine Get_Volume
 
   !-----------------------------------------------------------------------------
   !> TBP for computing the areas of the boundary surfaces
 
-  subroutine GetSurfaceAreas(this, area)
+  subroutine Get_SurfaceAreas(this, area)
     class(SpectralElementMesh_3D), intent(in) :: this
     real(RNP), intent(out) :: area(:) !< areas, should be PRIVATE with OpenMP
 
     if (.not. associated(this % mesh)) then
       area = -1
     else if (this % mesh % regular) then
-      call GetSurfaceAreas_R(this, area)
+      call Get_SurfaceAreas_R(this, area)
     else
-      call GetSurfaceAreas_G(this, area)
+      call Get_SurfaceAreas_G(this, area)
     end if
 
-  end subroutine GetSurfaceAreas
+  end subroutine Get_SurfaceAreas
 
   !-----------------------------------------------------------------------------
   !> Computation of the surface areas for a regular mesh
 
-  subroutine GetSurfaceAreas_R(this, area)
+  subroutine Get_SurfaceAreas_R(this, area)
     class(SpectralElementMesh_3D), intent(in) :: this
     real(RNP), intent(out) :: area(this%mesh%n_bound) !< surface areas
 
@@ -181,12 +182,12 @@ contains
 
     end associate
 
-  end subroutine GetSurfaceAreas_R
+  end subroutine Get_SurfaceAreas_R
 
   !-----------------------------------------------------------------------------
   !> Computation of the surface areas for a general mesh
 
-  subroutine GetSurfaceAreas_G(this, area)
+  subroutine Get_SurfaceAreas_G(this, area)
     class(SpectralElementMesh_3D), intent(in) :: this
     real(RNP), intent(out) :: area(this%mesh%n_bound) !< surface areas
 
@@ -249,7 +250,49 @@ contains
 
     end associate
 
-  end subroutine GetSurfaceAreas_G
+  end subroutine Get_SurfaceAreas_G
+
+  !-----------------------------------------------------------------------------
+  !> TBP to compute the quadrature-based diagonal mass matrix for DG-SEM
+
+  subroutine Get_DG_DiagonalMassMatrix(this, mm)
+    class(SpectralElementMesh_3D), intent(in) :: this
+    real(RNP), intent(out) :: mm(:,:,:,:) !< diagonal entries of mass matrix
+
+    real(RNP), allocatable :: www(:,:,:)
+    integer :: e, i, j, k
+
+    associate( mesh   => this % mesh         &
+             , std_op => this % std_op       &
+             , Jd     => this % metrics % Jd )
+
+      allocate(www(0:std_op%po, 0:std_op%po, 0:std_op%po))
+      do k = 0, std_op%po
+      do j = 0, std_op%po
+      do i = 0, std_op%po
+        www(i,j,k) = std_op % w(i) * std_op % w(j) * std_op % w(k)
+      end do
+      end do
+      end do
+
+      if (mesh % regular) then
+
+        !$omp do
+        do e = 1, mesh % n_elem
+          mm(:,:,:,e) = www * Jd(:,:,:,1)
+        end do
+
+      else
+
+        !$omp do
+        do e = 1, mesh % n_elem
+          mm(:,:,:,e) = www * Jd(:,:,:,e)
+        end do
+
+      end if
+    end associate
+
+  end subroutine Get_DG_DiagonalMassMatrix
 
   !=============================================================================
 

@@ -146,7 +146,7 @@ contains
                 else if ( element % face(k) % normal   == 1 .and. &
                           element % face(k) % rotation == 0 ) then
                   ! local element face is aligned with mesh face
-                  call ghost % face(f) % AlignWithELement(lfi, gfi)
+                  call ghost % face(f) % AlignFromMesh(lfi, gfi)
                 else
                   ! ghost face is aligned with mesh face
                   call element % face(k) % AlignWithMesh(lfi, gfi)

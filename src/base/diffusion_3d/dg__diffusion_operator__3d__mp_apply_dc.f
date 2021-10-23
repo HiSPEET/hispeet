@@ -118,7 +118,7 @@ contains
     real(RNP), dimension(0:eop%po, 0:eop%po)    :: Mf, Aq, Ju
     real(RNP) :: mu_nu, tmp
     integer   :: e, i, j, k, l, m
-    logical   :: present_f
+    logical   :: present_f, struct
 
     associate( P  => eop % po, &
                Ms => eop % w,  &
@@ -134,6 +134,7 @@ contains
       end do
 
       present_f = present(f)
+      struct    = mesh % structured
 
       ! add fluxes .............................................................
 
@@ -146,7 +147,7 @@ contains
           do l = 1, 2
 
             ! Ju = n·[u], Aq = n·{ν∇u}
-            call GetElementBoundaryFluxes(element, e, l, tr_u, tr_qn, Ju, Aq)
+            call GetElementBoundaryFluxes(element,struct,e,l,tr_u,tr_qn,Ju,Aq)
 
             mu_nu = eop % PenaltyFactor(mesh % dx_mean(l,e)) * nu
 
@@ -183,7 +184,7 @@ contains
 
           do l = 3, 4
 
-            call GetElementBoundaryFluxes(element, e, l, tr_u, tr_qn, Ju, Aq)
+            call GetElementBoundaryFluxes(element,struct,e,l,tr_u,tr_qn,Ju,Aq)
             mu_nu = eop % PenaltyFactor(mesh % dx_mean(l,e)) * nu
             j = (l-3) * P
 
@@ -218,7 +219,7 @@ contains
 
           do l = 5, 6
 
-            call GetElementBoundaryFluxes(element, e, l, tr_u, tr_qn, Ju, Aq)
+            call GetElementBoundaryFluxes(element,struct,e,l,tr_u,tr_qn,Ju,Aq)
             mu_nu = eop % PenaltyFactor(mesh % dx_mean(l,e)) * nu
             k = (l-5) * P
 

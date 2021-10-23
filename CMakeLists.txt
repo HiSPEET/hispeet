@@ -11,7 +11,7 @@
 #     -D CMAKE_BUILD_TYPE=⟨Release|Check|Debug⟩
 #         Release:  default build type
 #         Check:    similar to Release, with additional runtime checks
-#         Debug:    enables debugging, may fail with some compilers (Intel)
+#         Debug:    enables debugging, may fail with some case
 #
 #     -D OPT=⟨n⟩
 #         overrides preset optimization level to -On
@@ -59,7 +59,6 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 
 set(MPI_SKIP_COMPILER_WRAPPER TRUE)
 set(MPI_SKIP_GUESSING         TRUE)
-#find_package(MPI REQUIRED)
 find_package(MPI)
 if (NOT MPI_Fortran_HAVE_F08_MODULE)
     message(FATAL_ERROR "MPI does not have MPI_F08 module")
@@ -85,10 +84,9 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif ()
 
-# Flags for checkingh
+# Flags for checking
 if (CMAKE_BUILD_TYPE MATCHES "Check")
     add_compile_definitions(CHECK)
-    add_compile_definitions(OMP_SERIAL_SCALARPRODUCT)
 endif ()
 
 # Preprocessor settings for debugging
@@ -102,12 +100,10 @@ endif ()
 
 if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-form -Wall")
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Wno-conversion")
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Wno-c-binding-type")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-form")
 
-    set(CMAKE_Fortran_FLAGS_CHECK "-fcheck=all -fbacktrace")
-    set(CMAKE_Fortran_FLAGS_DEBUG "-fcheck=all -fbacktrace -g")
+    set(CMAKE_Fortran_FLAGS_CHECK "-Wall -fcheck=all -fbacktrace")
+    set(CMAKE_Fortran_FLAGS_DEBUG "-Wall -fcheck=all -fbacktrace -g")
 
     if (OPT)
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O${OPT}")
@@ -120,10 +116,9 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
 
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -free -heap-arrays -warn all")
-    #set(CMAKE_Fortran_FLAGS_CHECK   "-CA -traceback -fpe0 -ftrapuv")
-    set(CMAKE_Fortran_FLAGS_CHECK   "-CA -traceback -fpe0")
-    set(CMAKE_Fortran_FLAGS_DEBUG   "-CA -traceback -fpe0 -ftrapuv -g -gsplit-dwarf")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -free -heap-arrays")
+    set(CMAKE_Fortran_FLAGS_CHECK   "-warn all -CA -traceback -fpe0")
+    set(CMAKE_Fortran_FLAGS_DEBUG   "-warn all -CA -traceback -fpe0 -ftrapuv -g -gsplit-dwarf")
     set(CMAKE_Fortran_FLAGS_RELEASE "-ip" )
 
     if (OPT)
@@ -146,15 +141,14 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
 
 elseif (CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
 
-    string(JOIN \  CMAKE_Fortran_FLAGS
-           ${CMAKE_Fortran_FLAGS}
-           -Mfree -Minform=inform
-           -Mbackslash
-           -Minfo=inline
-           -Minline=maxsize:250
-           -Mvect=simd
-           -Munroll
-          )
+    set(CMAKE_Fortran_FLAGS ${CMAKE_Fortran_FLAGS}
+                            "-Mfree -Minform=inform"
+                            "-Mbackslash"
+                            "-Minfo=inline"
+                            "-Minline=maxsize:250"
+                            "-Mvect=simd"
+                            "-Munroll"
+                            )
 
     set(CMAKE_Fortran_FLAGS_DEBUG   "-g")
     set(CMAKE_Fortran_FLAGS_CHECK   "-Mbounds")

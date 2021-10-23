@@ -12,7 +12,7 @@
 module ISP_Flow_SGS__Sigma_Model
 
   use Kind_Parameters, only: RNP
-  use Constants      , only: HALF, ZERO, ONE, TWO, THIRD, PI
+  use Constants      , only: ZERO, ONE, TWO, HALF, THIRD, PI
   implicit none
   private
 
@@ -91,7 +91,7 @@ contains
 
     else
 
-      alpha_2 = i_1**3 / 27 - i_1*i_2/6 + i_3/TWO
+      alpha_2 = i_1**3 / 27 - i_1*i_2/6 + i_3*HALF
 
       a = alpha_2 / sqrt(alpha_1**3)      ! compute the argument of alpha_3
       a = sign(ONE, a) * min(abs(a), ONE) ! avoide invalid input for acos function

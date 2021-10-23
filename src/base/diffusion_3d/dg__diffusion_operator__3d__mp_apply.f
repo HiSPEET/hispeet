@@ -78,10 +78,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Compose element-boundary fluxes from flux traces for homogeneous BC
 
-  subroutine GetElementBoundaryFluxes(element, e, f, tr_u, tr_qn, Ju, Aq)
-    class(MeshElement_3D), intent(in)  :: element        !< element
-    integer,               intent(in)  :: e              !< element ID
-    integer,               intent(in)  :: f              !< element face
+  subroutine GetElementBoundaryFluxes(element, struct, e, f, tr_u, tr_qn, Ju, Aq)
+
+    class(MeshElement_3D), intent(in)  :: element !< element
+    logical,               intent(in)  :: struct  !< F/T for un/structured mesh
+    integer,               intent(in)  :: e       !< element ID
+    integer,               intent(in)  :: f       !< element face
     real(RNP), contiguous, intent(in)  :: tr_u (:,:,:,:) !< u   @ element faces
     real(RNP), contiguous, intent(in)  :: tr_qn(:,:,:,:) !< q_n @ element faces
     real(RNP), contiguous, intent(out) :: Ju(:,:) !< normal jump n⋅[u]  w/o BC
@@ -93,8 +95,15 @@ contains
     if (i > 0) then
       l = element % neighbor(i) % id
       m = element % neighbor(i) % component
-      Ju = (tr_u (:,:,f,e) - tr_u (:,:,m,l))
-      Aq = (tr_qn(:,:,f,e) - tr_qn(:,:,m,l)) * HALF
+      if (struct) then
+        Ju = (tr_u (:,:,f,e) - tr_u (:,:,m,l))
+        Aq = (tr_qn(:,:,f,e) - tr_qn(:,:,m,l)) * HALF
+      else
+        call element % AlignFromNeighborFace(f, i, tr_u (:,:,m,l), Ju)
+        call element % AlignFromNeighborFace(f, i, tr_qn(:,:,m,l), Aq)
+        Ju = (tr_u (:,:,f,e) - Ju)
+        Aq = (tr_qn(:,:,f,e) - Aq) * HALF
+      end if
     else
       Ju = tr_u (:,:,f,e)
       Aq = tr_qn(:,:,f,e)
