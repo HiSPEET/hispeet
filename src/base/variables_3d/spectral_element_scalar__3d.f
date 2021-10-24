@@ -1,6 +1,6 @@
 !> summary:  3D spectral element scalar variable
 !> author:   Joerg Stiller
-!> date:     2021/7/01
+!> date:     2021/07/01
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 

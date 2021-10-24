@@ -1,6 +1,6 @@
 !> summary:  3D spectral element variable: TBP for extracting traces
 !> author:   Joerg Stiller
-!> date:     2021/8/05
+!> date:     2021/08/05
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
