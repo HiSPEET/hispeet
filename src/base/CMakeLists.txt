@@ -146,6 +146,7 @@ endif ()
 set( VARIABLES_3D variables_3d/spectral_element_variable__3d.f
                   variables_3d/spectral_element_variable__3d__mp_gettraces.f
                   variables_3d/spectral_element_scalar__3d.f
+                  variables_3d/spectral_element_boundary_variable__3d.f
                   )
 
 #===============================================================================

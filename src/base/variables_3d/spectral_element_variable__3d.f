@@ -8,6 +8,7 @@ module Spectral_Element_Variable__3D
   use Kind_Parameters, only: RNP
   use Constants      , only: ZERO, ONE
   use XMPI
+  use Execution_Control
   use Spectral_Element_Mesh__3D
   implicit none
   private
@@ -133,6 +134,11 @@ contains
 
     c1 = max(min(first, size(this%val, 5)), 1)
     c2 = max(min(last , size(this%val, 5)), 0)
+
+    if (c1 /= first .or. c2 /= last) then
+      call Error( 'GetSlice', 'section exceeds bounds', &
+                  'Spectral_Element_Variable__3D'       )
+    end if
 
     if (present(copy)) then
       if (copy) then
