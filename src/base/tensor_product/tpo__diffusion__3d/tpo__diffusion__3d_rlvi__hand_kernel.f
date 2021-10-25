@@ -1,7 +1,9 @@
 !-------------------------------------------------------------------------------
 !> 3d generic element diffusion operator using hand-crafted suboperators (RLVI)
 
-subroutine PROC(TPO_Diffusion_RLVI_Hand__,_NP_)(ne, Ms, Ds, dx, lambda, nu, u, v, ub, qb)
+subroutine PROC(TPO_Diffusion_RLVI_Hand__,_NP_) &
+    (ne, Ms, Ds, dx, lambda, nu, u, v, ub, qb)
+
   integer,   intent(in)  :: ne                    !< num elements
   real(RWP), intent(in)  :: Ms(_NP_)              !< 1D standard mass matrix
   real(RWP), intent(in)  :: Ds(_NP_,_NP_)         !< 1D standard diff matrix
@@ -98,8 +100,8 @@ subroutine PROC(TPO_Diffusion_RLVI_Hand__,_NP_)(ne, Ms, Ds, dx, lambda, nu, u, v
     call PROC(IxQtxI__,_NP_)(Ds_t, ONE, ZERO, u(:,:,:,e), z)
 
     if (get_traces) then
-      ! ub = u       @ Γ₃ + Γ₃
-      ! qb = n⋅ν∇u   @ Γ₄ + Γ₄
+      ! ub = u       @ Γ₃ + Γ₄
+      ! qb = n⋅ν∇u   @ Γ₃ + Γ₄
       do k = 1, _NP_
       do i = 1, _NP_
         ub(i,k,3,e) =  u(i,  1 ,k,e)
@@ -128,8 +130,8 @@ subroutine PROC(TPO_Diffusion_RLVI_Hand__,_NP_)(ne, Ms, Ds, dx, lambda, nu, u, v
     call PROC(QtxIxI__,_NP_)(Ds_t, ONE, ZERO, u(:,:,:,e), z)
 
     if (get_traces) then
-      ! ub = u       @ Γ₅ + Γ₅
-      ! qb = n⋅ν∇u   @ Γ₆ + Γ₆
+      ! ub = u       @ Γ₅ + Γ₆
+      ! qb = n⋅ν∇u   @ Γ₅ + Γ₆
       do j = 1, _NP_
       do i = 1, _NP_
         ub(i,j,5,e) =  u(i,j,  1 ,e)

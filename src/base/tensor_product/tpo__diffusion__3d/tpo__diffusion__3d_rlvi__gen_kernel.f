@@ -135,8 +135,8 @@ subroutine TPO_Diffusion_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v, ub, qb)
     end do
 
     if (get_traces) then
-      ! ub = u       @ Γ₃ + Γ₃
-      ! qb = n⋅ν∇u   @ Γ₄ + Γ₄
+      ! ub = u       @ Γ₃ + Γ₄
+      ! qb = n⋅ν∇u   @ Γ₃ + Γ₄
       do k = 1, np
       do i = 1, np
         ub(i,k,3,e) =  u(i, 1,k,e)
@@ -185,8 +185,8 @@ subroutine TPO_Diffusion_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v, ub, qb)
     end do
 
     if (get_traces) then
-      ! ub = u       @ Γ₅ + Γ₅
-      ! qb = n⋅ν∇u   @ Γ₆ + Γ₆
+      ! ub = u       @ Γ₅ + Γ₆
+      ! qb = n⋅ν∇u   @ Γ₅ + Γ₆
       do j = 1, np
       do i = 1, np
         ub(i,j,5,e) =  u(i,j, 1,e)

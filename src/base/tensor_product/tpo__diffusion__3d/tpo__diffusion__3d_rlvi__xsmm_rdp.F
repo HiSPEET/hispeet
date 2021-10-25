@@ -51,8 +51,7 @@ contains
     real(RDP) :: g(3), tmp
     integer   :: np, ne
     integer   :: e, i, j, k
-
-    logical :: get_traces
+    logical   :: get_traces
 
     !---------------------------------------------------------------------------
     ! initialization
@@ -147,8 +146,8 @@ contains
         call LIBXSMM_DMMCall(xmm_set_2, u(:,:,k,e), Ds_t, z(:,:,k))
 
         if (get_traces) then
-         ! ub = u       @ Γ₃ + Γ₃
-         ! qb = n⋅ν∇u   @ Γ₄ + Γ₄
+         ! ub = u       @ Γ₃ + Γ₄
+         ! qb = n⋅ν∇u   @ Γ₃ + Γ₄
          do i = 1, np
             ub(i,k,3,e) =  u(i, 1,k,e)
             ub(i,k,4,e) =  u(i,np,k,e)
@@ -174,8 +173,8 @@ contains
       call LIBXSMM_DMMCall(xmm_set_3, u(:,:,:,e), Ds_t, z)
 
       if (get_traces) then
-        ! ub = u       @ Γ₅ + Γ₅
-        ! qb = n⋅ν∇u   @ Γ₆ + Γ₆
+        ! ub = u       @ Γ₅ + Γ₆
+        ! qb = n⋅ν∇u   @ Γ₅ + Γ₆
         do j = 1, np
         do i = 1, np
           ub(i,j,5,e) =  u(i,j, 1,e)

@@ -69,22 +69,15 @@ contains
       !$omp end master
       !$omp barrier
 
-      ! start generation of traces .............................................
-
-      ! provide local traces of solution u and normal diffusive flux qn
-      call GetLocalTraces( np, ne, Bs, mesh%dx, u &
-                         , tr_u  = tr(:,:,:,:,1)  &
-                         , tr_qn = tr(:,:,:,:,2)  )
-
-      ! start transfer of fluxes to/from remote neighbors
-      call tr_buf % Transfer(mesh, tr, tag=1000)
-
       ! apply element diffusion operator .......................................
 
-      call TPO_Diffusion(eop%w, As, mesh%dx, lambda, ONE, u, v)
+      call TPO_Diffusion(eop%w, As, mesh%dx, lambda, ONE, u, v, Bs &
+                        , ub = tr(:,:,:,:,1)                       &
+                        , qb = tr(:,:,:,:,2)                       )
 
-      ! finish generation of traces ............................................
+      ! transfer traces ........................................................
 
+      call tr_buf % Transfer(mesh, tr, tag=1000)
       call tr_buf % Merge(tr)
 
       call ApplyBoundaryConditions( mesh, this%bc          &
@@ -108,109 +101,6 @@ contains
     end associate
 
   end subroutine Apply_RC
-
-  !-----------------------------------------------------------------------------
-  !> Elementwise computation of diffusive fluxes parallel to face normals
-  !>
-  !> Computes the normal components of (ν+νˢQ) ∇u for all element boundary
-  !> points. Entries corresponding to interior points or tangential components
-  !> are set to zero.
-
-  subroutine GetLocalTraces(np, ne, Bs, dx, u, tr_u, tr_qn)
-    integer,   intent(in)    :: np             !< num points per direction
-    integer,   intent(in)    :: ne             !< num elements
-    real(RNP), intent(in)    :: Bs(np,np)      !< 1D standard "flux" operator
-    real(RNP), intent(in)    :: dx(3)          !< element extensions
-    real(RNP), intent(in)    :: u(np,np,np,ne) !< 3D scalar field
-    real(RNP), intent(inout) :: tr_u (:,:,:,:) !< solution traces
-    real(RNP), intent(inout) :: tr_qn(:,:,:,:) !< normal flux traces
-
-    real(RNP) :: Bs_f(2,np)
-    real(RNP) :: g(3), tmp1, tmp2
-    integer   :: e, i, j, k, m
-
-    ! initialization ...........................................................
-
-    ! transposed normal differentiation operators for first and last point
-    Bs_f(1,:) = -Bs( 1,:)  ! first
-    Bs_f(2,:) =  Bs(np,:)  ! last
-
-    ! metric coefficients
-    g = 2 / dx
-
-    !$acc data present(u,q) copyin(Bs_f,g)
-    !$acc parallel
-    !$acc loop gang worker
-
-    !$omp do private(e)
-    do e = 1, ne
-
-      ! face 1+2: qn = ∓(ν+νˢQ) ∂u/∂x1 .........................................
-
-      !$acc loop collapse(2) vector
-      do k = 1, np
-      do j = 1, np
-
-        tmp1 = 0
-        tmp2 = 0
-        do m = 1, np
-          tmp1 = tmp1 + Bs_f(1,m) * u(m,j,k,e)
-          tmp2 = tmp2 + Bs_f(2,m) * u(m,j,k,e)
-        end do
-        tr_u (j,k,1,e) = u( 1,j,k,e)
-        tr_u (j,k,2,e) = u(np,j,k,e)
-        tr_qn(j,k,1,e) = g(1) * tmp1
-        tr_qn(j,k,2,e) = g(1) * tmp2
-
-      end do
-      end do
-
-      ! face 3+4: qn = ∓(ν+νˢQ) ∂u/∂x2 .........................................
-
-      !$acc loop collapse(2) vector
-      do k = 1, np
-      do i = 1, np
-
-        tmp1 = 0
-        tmp2 = 0
-        do m = 1, np
-          tmp1 = tmp1 + Bs_f(1,m) * u(i,m,k,e)
-          tmp2 = tmp2 + Bs_f(2,m) * u(i,m,k,e)
-        end do
-        tr_u (i,k,3,e) = u(i, 1,k,e)
-        tr_u (i,k,4,e) = u(i,np,k,e)
-        tr_qn(i,k,3,e) = g(2) * tmp1
-        tr_qn(i,k,4,e) = g(2) * tmp2
-
-      end do
-      end do
-
-      ! face 5+6: qn = ∓(ν+νˢQ) ∂u/∂x3 .........................................
-
-      !$acc loop collapse(2) vector
-      do j = 1, np
-      do i = 1, np
-
-        tmp1 = 0
-        tmp2 = 0
-        do m = 1, np
-          tmp1 = tmp1 + Bs_f(1,m) * u(i,j,m,e)
-          tmp2 = tmp2 + Bs_f(2,m) * u(i,j,m,e)
-        end do
-        tr_u (i,j,5,e) = u(i,j, 1,e)
-        tr_u (i,j,6,e) = u(i,j,np,e)
-        tr_qn(i,j,5,e) = g(3) * tmp1
-        tr_qn(i,j,6,e) = g(3) * tmp2
-
-      end do
-      end do
-
-    end do
-
-    !$acc end parallel
-    !$acc end data
-
-  end subroutine GetLocalTraces
 
   !-----------------------------------------------------------------------------
   !> Compute & add fluxes through element boundaries and, optionally, apply RHS
