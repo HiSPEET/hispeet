@@ -266,7 +266,9 @@ pure subroutine GetNodeLocations(h, xi, x)
   ! Currently an equidistant mesh is used, but Lobatto points inside each element
   ! are desired
   do k = 1, n_ele
-    x(:,k) = h * (k - 1) + (xi + 1) / 2 * h - 1
+    do i = 0, po
+      x(i,k) = h * (k - 1) + h / po * i - 1
+    end do
   end do
 
 end subroutine GetNodeLocations
