@@ -152,21 +152,28 @@ contains
       do e = 1, mesh % n_elem
         associate(element => mesh % element(e))
 
-          ! direction 1: v = v + Mf₁ (-[ϕ]₁{ν∇u}₁ - {ν∇ϕ}₁[u]₁ + μν[ϕ]₁[u]₁)
+          ! direction 1
           !
-          ! where, with ϕ = ℓ_ijk, at  ξ = -1
+          !   v = v - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₁
+          !         - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₂
           !
-          !   [ϕ]₁   = -delta_0(i)
-          !   {ν∇ϕ}₁ = g(1) * Ds(0,i)
-          !   [u]₁   = jmp( u (j,k,f₁) )
-          !   {ν∇u}₁ = avg( q₁(j,k,f₁) )
+          ! with
           !
-          ! and, at  ξ = +1
+          !   𝜑 = \ell_i(ξ) \ell_j(η) \ell_k(ζ)
           !
-          !   [ϕ]₁   = delta_P(i)
-          !   {ν∇ϕ}₁ = g(1) * Ds(P,i)
-          !   [u]₁   = jmp( u (j,k,f₂) )
-          !   {ν∇u}₁ = avg( q₁(j,k,f₂) )
+          ! at face 1 (ξ = -1)
+          !
+          !   n⋅[𝜑]   =  δ(0,i)                         =  delta_0(i)
+          !   n⋅{ν∇𝜑} = -1/∆x Bs(0,i)                   = -g(1) * Bs(0,i)
+          !   n⋅[u]   =  (   u⁻(j,k) -    u⁺(j,k))₁     =  Ju_0(j,k)
+          !   n⋅{ν∇u} =  (n⁻⋅q⁻(j,k) - n⁺⋅q⁺(j,k))₁ / 2 =  Aq_0(j,k)
+          !
+          ! and at face 2 (ξ = +1)
+          !
+          !   n⋅[𝜑]   =  δ(P,i)                         =  delta_P(i)
+          !   n⋅{ν∇𝜑} =  1/∆x Bs(P,i)                   =  g(1) * Bs(P,i)
+          !   n⋅[u]   =  (   u⁻(j,k) -    u⁺(j,k))₂     =  Ju_P(j,k)
+          !   n⋅{ν∇u} =  (n⁻⋅q⁻(j,k) - n⁺⋅q⁺(j,k))₂ / 2 =  Aq_P(j,k)
 
           call GetElementBoundaryFluxes(element,struct,e,1,tr_u,tr_qn,Ju_0,Aq_0)
           call GetElementBoundaryFluxes(element,struct,e,2,tr_u,tr_qn,Ju_P,Aq_P)
@@ -175,7 +182,7 @@ contains
           do j = 0, P
 
             cd_0 = -nu(0,j,k,e) * g(1)
-            cd_P = -nu(P,j,k,e) * g(1)
+            cd_P =  nu(P,j,k,e) * g(1)
             cp_0 = -nu_mf(j, k, element%face(1)%id) * mu(1)
             cp_P = -nu_mf(j, k, element%face(2)%id) * mu(1)
 
@@ -190,7 +197,8 @@ contains
           end do
           end do
 
-          ! direction 2: v = v + Mf₂ (-[ϕ]₂{ν∇u}₂ - {ν∇ϕ}₂[u]₂ + μν[ϕ]₂[u]₂)
+          ! v = v - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₃
+          !       - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₄
 
           call GetElementBoundaryFluxes(element,struct,e,3,tr_u,tr_qn,Ju_0,Aq_0)
           call GetElementBoundaryFluxes(element,struct,e,4,tr_u,tr_qn,Ju_P,Aq_P)
@@ -199,7 +207,7 @@ contains
           do i = 0, P
 
             cd_0 = -nu(i,0,k,e) * g(2)
-            cd_P = -nu(i,P,k,e) * g(2)
+            cd_P =  nu(i,P,k,e) * g(2)
             cp_0 = -nu_mf(i, k, element%face(3)%id) * mu(2)
             cp_P = -nu_mf(i, k, element%face(4)%id) * mu(2)
 
@@ -214,7 +222,8 @@ contains
           end do
           end do
 
-          ! direction 3: v = v + Mf₃ (-[ϕ]₃{ν∇u}₃ - {ν∇ϕ}₃[u]₃ + μν[ϕ]₃[u]₃)
+          ! v = v - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₅
+          !       - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₆
 
           call GetElementBoundaryFluxes(element,struct,e,5,tr_u,tr_qn,Ju_0,Aq_0)
           call GetElementBoundaryFluxes(element,struct,e,6,tr_u,tr_qn,Ju_P,Aq_P)
@@ -223,7 +232,7 @@ contains
           do i = 0, P
 
             cd_0 = -nu(i,j,0,e) * g(3)
-            cd_P = -nu(i,j,P,e) * g(3)
+            cd_P =  nu(i,j,P,e) * g(3)
             cp_0 = -nu_mf(i, j, element%face(5)%id) * mu(3)
             cp_P = -nu_mf(i, j, element%face(6)%id) * mu(3)
 

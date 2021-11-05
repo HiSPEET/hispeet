@@ -114,10 +114,10 @@ contains
 
     ! local variables ..........................................................
 
-    real(RNP), dimension(0:eop%po, 0:eop%po, 3) :: B
+    real(RNP), dimension(0:eop%po, 0:eop%po, 3) :: Cu
     real(RNP), dimension(0:eop%po, 0:eop%po)    :: Mf, Aq, Ju
     real(RNP) :: mu_nu, tmp
-    integer   :: e, i, j, k, l, m
+    integer   :: e, i, j, k, m, n
     logical   :: present_f, struct
 
     associate( P  => eop % po, &
@@ -144,36 +144,36 @@ contains
 
           ! faces 1+2 (west + east)  . . . . . . . . . . . . . . . . . . . . . .
 
-          do l = 1, 2
+          do m = 1, 2
 
             ! Ju = n·[u], Aq = n·{ν∇u}
-            call GetElementBoundaryFluxes(element,struct,e,l,tr_u,tr_qn,Ju,Aq)
+            call GetElementBoundaryFluxes(element,struct,e,m,tr_u,tr_qn,Ju,Aq)
 
-            mu_nu = eop % PenaltyFactor(mesh % dx_mean(l,e)) * nu
+            mu_nu = eop % PenaltyFactor(mesh % dx_mean(m,e)) * nu
 
-            i = (l-1) * P
+            i = (m-1) * P
 
             do k = 0, P
             do j = 0, P
-              tmp = HALF * nu * a(j,k,l,e) * Ju(j,k)
-              B(j,k,1) = tmp * Ji_n(j,k,l,e,1)
-              B(j,k,2) = tmp * Ji_n(j,k,l,e,2)
-              B(j,k,3) = tmp * Ji_n(j,k,l,e,3)
+              tmp = Mf(j,k) * HALF * nu * a(j,k,m,e) * Ju(j,k)
+              Cu(j,k,1) = tmp * Ji_n(j,k,m,e,1)
+              Cu(j,k,2) = tmp * Ji_n(j,k,m,e,2)
+              Cu(j,k,3) = tmp * Ji_n(j,k,m,e,3)
             end do
             end do
 
             do k = 0, P
             do j = 0, P
 
-              do m = 0, P
-                v(m,j,k,e) = v(m,j,k,e) - Mf(j,k) * Ds(i,m) * B(j,k,1)
+              do n = 0, P
+                v(n,j,k,e) = v(n,j,k,e) - Ds(i,n) * Cu(j,k,1)
               end do
 
-              tmp = a(j,k,l,e) * (Aq(j,k) - mu_nu * Ju(j,k))
-              do m = 0, P
-                tmp = tmp + Ds(m,j) * B(m,k,2) + Ds(m,k) * B(j,m,3)
+              tmp = Mf(j,k) * a(j,k,m,e) * (Aq(j,k) - mu_nu * Ju(j,k))
+              do n = 0, P
+                tmp = tmp + Ds(n,j) * Cu(n,k,2) + Ds(n,k) * Cu(j,n,3)
               end do
-              v(i,j,k,e) = v(i,j,k,e) - Mf(j,k) * tmp
+              v(i,j,k,e) = v(i,j,k,e) - tmp
 
             end do
             end do
@@ -182,33 +182,33 @@ contains
 
           ! faces 3+4 (south + north)  . . . . . . . . . . . . . . . . . . . . .
 
-          do l = 3, 4
+          do m = 3, 4
 
-            call GetElementBoundaryFluxes(element,struct,e,l,tr_u,tr_qn,Ju,Aq)
-            mu_nu = eop % PenaltyFactor(mesh % dx_mean(l,e)) * nu
-            j = (l-3) * P
+            call GetElementBoundaryFluxes(element,struct,e,m,tr_u,tr_qn,Ju,Aq)
+            mu_nu = eop % PenaltyFactor(mesh % dx_mean(m,e)) * nu
+            j = (m-3) * P
 
             do k = 0, P
             do i = 0, P
-              tmp = HALF * nu * a(i,k,l,e) * Ju(i,k)
-              B(i,k,1) = tmp * Ji_n(i,k,l,e,1)
-              B(i,k,2) = tmp * Ji_n(i,k,l,e,2)
-              B(i,k,3) = tmp * Ji_n(i,k,l,e,3)
+              tmp = Mf(i,k) * HALF * nu * a(i,k,m,e) * Ju(i,k)
+              Cu(i,k,1) = tmp * Ji_n(i,k,m,e,1)
+              Cu(i,k,2) = tmp * Ji_n(i,k,m,e,2)
+              Cu(i,k,3) = tmp * Ji_n(i,k,m,e,3)
             end do
             end do
 
             do k = 0, P
             do i = 0, P
 
-              do m = 0, P
-                v(i,m,k,e) = v(i,m,k,e) - Mf(i,k) * Ds(j,m) * B(i,k,2)
+              do n = 0, P
+                v(i,n,k,e) = v(i,n,k,e) - Ds(j,n) * Cu(i,k,2)
               end do
 
-              tmp = a(i,k,l,e) * (Aq(i,k) - mu_nu * Ju(i,k))
-              do m = 0, P
-                tmp = tmp + Ds(m,i) * B(m,k,1) + Ds(m,k) * B(i,m,3)
+              tmp = Mf(i,k) * a(i,k,m,e) * (Aq(i,k) - mu_nu * Ju(i,k))
+              do n = 0, P
+                tmp = tmp + Ds(n,i) * Cu(n,k,1) + Ds(n,k) * Cu(i,n,3)
               end do
-              v(i,j,k,e) = v(i,j,k,e) - Mf(i,k) * tmp
+              v(i,j,k,e) = v(i,j,k,e) - tmp
 
             end do
             end do
@@ -217,33 +217,33 @@ contains
 
           ! faces 5+6 (bottom + top) . . . . . . . . . . . . . . . . . . . . . .
 
-          do l = 5, 6
+          do m = 5, 6
 
-            call GetElementBoundaryFluxes(element,struct,e,l,tr_u,tr_qn,Ju,Aq)
-            mu_nu = eop % PenaltyFactor(mesh % dx_mean(l,e)) * nu
-            k = (l-5) * P
+            call GetElementBoundaryFluxes(element,struct,e,m,tr_u,tr_qn,Ju,Aq)
+            mu_nu = eop % PenaltyFactor(mesh % dx_mean(m,e)) * nu
+            k = (m-5) * P
 
             do j = 0, P
             do i = 0, P
-              tmp = HALF * nu * a(i,j,l,e) * Ju(i,j)
-              B(i,j,1) = tmp * Ji_n(i,j,l,e,1)
-              B(i,j,2) = tmp * Ji_n(i,j,l,e,2)
-              B(i,j,3) = tmp * Ji_n(i,j,l,e,3)
+              tmp = Mf(i,j) * HALF * nu * a(i,j,m,e) * Ju(i,j)
+              Cu(i,j,1) = tmp * Ji_n(i,j,m,e,1)
+              Cu(i,j,2) = tmp * Ji_n(i,j,m,e,2)
+              Cu(i,j,3) = tmp * Ji_n(i,j,m,e,3)
             end do
             end do
 
             do j = 0, P
             do i = 0, P
 
-              do m = 0, P
-                v(i,j,m,e) = v(i,j,m,e) - Mf(i,j) * Ds(k,m) * B(i,j,3)
+              do n = 0, P
+                v(i,j,n,e) = v(i,j,n,e) - Ds(k,n) * Cu(i,j,3)
               end do
 
-              tmp = a(i,j,l,e) * (Aq(i,j) - mu_nu * Ju(i,j))
-              do m = 0, P
-                tmp = tmp + Ds(m,i) * B(m,j,1) + Ds(m,j) * B(i,m,2)
+              tmp = Mf(i,j) * a(i,j,m,e) * (Aq(i,j) - mu_nu * Ju(i,j))
+              do n = 0, P
+                tmp = tmp + Ds(n,i) * Cu(n,j,1) + Ds(n,j) * Cu(i,n,2)
               end do
-              v(i,j,k,e) = v(i,j,k,e) - Mf(i,j) * tmp
+              v(i,j,k,e) = v(i,j,k,e) - tmp
 
             end do
             end do

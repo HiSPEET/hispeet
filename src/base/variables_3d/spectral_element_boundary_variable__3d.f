@@ -6,19 +6,14 @@
 
 module Spectral_Element_Boundary_Variable__3D
   use Kind_Parameters, only: RNP
+  use Mesh_Boundary__3D
   use Spectral_Element_Mesh__3D
+  use Spectral_Element_Variable__3D
+  use Spectral_Element_Vector__3D
   implicit none
   private
 
   public :: SpectralElementBoundaryVariable_3D
-
-  !-----------------------------------------------------------------------------
-  !> Type for keeping the spectral element data associated with one boundary
-
-  type SpectralElementBoundaryData_3D
-    real(RNP), contiguous,  pointer :: val(:,:,:,:) !< accessable values
-    real(RNP), allocatable, private :: mem(:,:,:,:) !< memory allocated to val
-  end type SpectralElementBoundaryData_3D
 
   !-----------------------------------------------------------------------------
   !> 3D spectral element boundary variable
@@ -26,125 +21,148 @@ module Spectral_Element_Boundary_Variable__3D
   !> Base type for keeping a set of variables on the boundaries of a spectral
   !> element mesh. The mesh, standard operators and metric coefficients are
   !> provided by the pointer `sem`, which can be shared with other entities.
-  !> The variables are accessed through
+  !> The constructor and the `GetSlice` procedure are elemental and can be used
+  !> to create scalar variable on one boundary or an array boundary variables,
+  !> e.g.
   !>
-  !>     bnd(1:nb) % val(0:po,0:po,1:nf,1:nc),
+  !>       class(SpectralElementMesh_3d) :: sem
+  !>       type(SpectralElementBoundaryVariable_3D), allocatable :: sebv(:)
+  !>       type(SpectralElementBoundaryVariable_3D) :: sebs
+  !>
+  !>       associate(boundary => sem % mesh boundary)
+  !>
+  !>         ! create an array with 4 components for all boundaries
+  !>         sebv = SpectralElementBoundaryVariable_3D(sem, boundary, nc = 4)
+  !>
+  !>         ! create a slice containing components 1:2 for boundary b
+  !>         call sebv(3) % GetSlice(sebs, first=1, last=2)
+  !>
+  !>       end associate
+  !>
+  !> The values of an array defined for all boundaries are accessed via
+  !>
+  !>       sebv(b) % val(0:po,0:po,1:nf,1:nc),
   !>
   !> where
   !>
-  !>   - `nb` is the number of boundaries,
+  !>   - `b ` is the boundary ID,
   !>   - `po` the polynomial order,
   !>   - `nf` the number of faces, and
   !>   - `nc` the number of components.
   !>
-  !> The first three of these dimensions correspond to the spectral element
-  !> mesh `sem`, which implies that `nb` is generally different for each
-  !> boundary, whereas `po` is constant.
-  !> In the current implementation, `nc` is identical for all boundaries.
+  !> Note that `po` is identical for all boundaries, while `nf` is not.
+  !> The number of components `nc` can be equal or different, depending
+  !> on the creation of the variable.
   !>
-  !> Depending on the creation of the boundary variable, the values `val` in
-  !> `bnd` can be stored in its own `mem` component or refer to the `mem`
-  !> component of another instance.
+  !> If the variable is initialized with the constructor, new memory is
+  !> allocated in `mem` for storing the values.
+  !> Variables generated via `GetSlice`are linke to the source by default
+  !> and may get lost if the latter is deleted. Passing `copy = T` causes
+  !> the values to copied into fresh memory which removes this risk.
 
   type SpectralElementBoundaryVariable_3D
     class(SpectralElementMesh_3D), pointer :: sem
-    class(SpectralElementBoundaryData_3D), allocatable :: bnd(:)
+    real(RNP), contiguous,  pointer :: val(:,:,:,:) !< accessable values
+    real(RNP), allocatable, private :: mem(:,:,:,:) !< memory allocated to val
   contains
-    procedure :: Init_SpectralElementBoundaryVariable_3D => Init_SEBV_nc0
+    procedure :: Init_SpectralElementBoundaryVariable_3D => Init_SEBV
     procedure :: GetSlice
+    procedure :: Extract
+    procedure :: ExtractNormalComponent
   end type SpectralElementBoundaryVariable_3D
 
   ! constructor
   interface SpectralElementBoundaryVariable_3D
-    module procedure New_SEBV_nc0
+    module procedure New_Scratch
+    module procedure New_Slice
   end interface
 
 contains
 
-  !-----------------------------------------------------------------------------
-  !> 3D spectral element boundary variable constructor
+  !=============================================================================
+  ! Constructors
 
-  function New_SEBV_nc0(sem, nc) result(this)
+  !-----------------------------------------------------------------------------
+  !> New 3D spectral element boundary variable generated from scratch
+
+  impure elemental function New_Scratch(sem, boundary, nc) result(this)
     class(SpectralElementMesh_3D), target, intent(in) :: sem
-    integer, intent(in) :: nc  !< number of components
+    class(MeshBoundary_3D), intent(in) :: boundary
+    integer, intent(in) :: nc
     type(SpectralElementBoundaryVariable_3D) :: this
 
-    call Init_SEBV_nc0(this, sem, nc)
+    call Init_SEBV(this, sem, boundary, nc)
 
-  end function New_SEBV_nc0
+  end function New_Scratch
+
+  !-----------------------------------------------------------------------------
+  !> New 3D spectral element boundary variable generated from slice
+
+  impure elemental function New_Slice(sebv, first, last, copy) result(this)
+    class(SpectralElementBoundaryVariable_3D), target, intent(in) :: sebv
+    integer,           intent(in) :: first !< first component of slice
+    integer,           intent(in) :: last  !< last component of slice
+    logical, optional, intent(in) :: copy  !< copy into fresh memory [F]
+    type(SpectralElementBoundaryVariable_3D) :: this
+
+    call sebv % GetSlice(this, first, last, copy)
+
+  end function New_Slice
+
+  !=============================================================================
+  ! Initializers
 
   !-----------------------------------------------------------------------------
   !> 3D spectral element boundary variable initialization
 
-  subroutine Init_SEBV_nc0(this, sem, nc)
+  impure elemental subroutine Init_SEBV(this, sem, boundary, nc, reuse)
     class(SpectralElementBoundaryVariable_3D), target, intent(inout) :: this
     class(SpectralElementMesh_3D), target, intent(in) :: sem
-    integer, intent(in) :: nc  !< number of components
+    class(MeshBoundary_3D), intent(in) :: boundary
+    integer, intent(in) :: nc
+    logical, optional, intent(in) :: reuse ! keep matching `val` [F]
 
-    integer :: b
+    integer :: po, nf
+    logical :: reuse_
 
-    associate(mesh => sem % mesh, po => sem % std_op % po)
+    po = sem % std_op % po
+    nf = boundary % n_face
 
-      if (allocated(this % bnd)) then
-        deallocate(this % bnd)
-      end if
+    if (present(reuse)) then
+      reuse_ = reuse .and. associated(this%val)
+    else
+      reuse_ = .false.
+    end if
 
-      this % sem => sem
+    if (reuse_) then
+      if (all(shape(this%val) == [po+1,po+1,nf,nc])) return
+    end if
 
-      allocate(SpectralElementBoundaryData_3D :: this % bnd(mesh % n_bound))
+    if (allocated(this % mem)) deallocate(this % mem)
+    allocate(this % mem(0:po, 0:po, nf, nc))
+    this % val(0:,0:,1:,1:) => this % mem
+    this % sem              => sem
 
-      do b = 1, mesh % n_bound
-        allocate(this % bnd(b) % mem(0:po, 0:po, mesh%boundary(b)%n_face, nc))
-        this % bnd(b) % val(0:,0:,1:,1:) => this % bnd(b) % mem
-      end do
-
-    end associate
-
-  end subroutine Init_SEBV_nc0
+  end subroutine Init_SEBV
 
   !-----------------------------------------------------------------------------
   !> Create a new spectral element boundary variable as a slice of the given one
   !>
-  !> The values of the new variable refer to `this%bnd%val` if `copy` is false
-  !> or absent. Otherwise they are stored in fresh memory, i.e. `slice%bnd%mem`.
+  !> The values of the new variable refer to `this % val` if `copy` is false
+  !> or absent. Otherwise they are stored in fresh memory, i.e. `slice % mem`.
   !> In an OpenMP parallel section the routine is executed only by the master
   !> thread.
 
-  subroutine GetSlice(this, slice, first, last, copy)
-    class(SpectralElementBoundaryVariable_3D), target, intent(in)    :: this
+  impure elemental subroutine GetSlice(this, slice, first, last, copy)
+    class(SpectralElementBoundaryVariable_3D), target, intent(in) :: this
     class(SpectralElementBoundaryVariable_3D), target, intent(inout) :: slice
     integer,           intent(in) :: first !< first component of slice
     integer,           intent(in) :: last  !< last component of slice
     logical, optional, intent(in) :: copy  !< copy into fresh memory [F]
 
-    integer :: b, c1, c2, nb
     logical :: copy_
 
     !$omp master
-
-    ! preliminaries ...........................................................
-
-    nb = this % sem % mesh % n_bound
-
-    c1 = first
-    c2 = last
-    do b = 1, nb
-      c1 = max(min(c1, size(this%bnd(b)%val, 4)), 1)
-      c2 = max(min(c2, size(this%bnd(b)%val, 4)), 0)
-    end do
-
-    if (c1 /= first .or. c2 /= last) then
-      call Error( 'GetSlice', 'section exceeds bounds',    &
-                  'Spectral_Element_Boundary_Variable__3D' )
-    end if
-
-    if (allocated(slice % bnd)) then
-      if (size(slice % bnd) /= nb) deallocate(slice % bnd)
-    end if
-
-    if (.not. allocated(slice % bnd)) then
-      allocate(slice % bnd(nb))
-    end if
 
     if (present(copy)) then
       copy_ = copy
@@ -152,29 +170,226 @@ contains
       copy_ = .false.
     end if
 
-    ! slice ....................................................................
-
-    do b = 1, nb
-
-      slice % bnd(b) % val => null()
-
-      if (copy_) then
-        slice % bnd(b) % mem = this % bnd(b) % val(:,:,:,c1:c2)
-        slice % bnd(b) % val(0:,0:,1:,1:) => slice % bnd(b) % mem
-      end if
-
-      if (.not. associated(this % bnd(b) % val)) then
-        slice % bnd(b) % val(0:,0:,1:,1:) => this % bnd(b) % val(:,:,:,c1:c2)
-        if (allocated(slice % bnd(b) % mem)) then
-          deallocate(slice % bnd(b) % mem)
-        end if
-      end if
-
-    end do
+    if (copy_) then
+      slice % mem = this % val(:,:,:,first:last)
+      slice % val(0:,0:,1:,1:) => slice % mem
+    else
+      slice % val(0:,0:,1:,1:) => this % val(:,:,:,first:last)
+      if (allocated(slice % mem)) deallocate(slice % mem)
+    end if
 
     !$omp end master
 
   end subroutine GetSlice
+
+  !=============================================================================
+  ! Extraction
+
+  !-----------------------------------------------------------------------------
+  !> Extract boundary variable from spectral-element variable
+
+  impure elemental subroutine Extract(this, sev, boundary)
+    class(SpectralElementBoundaryVariable_3D), target, intent(inout) :: this
+    class(SpectralElementVariable_3D), intent(in) :: sev
+    class(MeshBoundary_3D), intent(in) :: boundary
+
+    integer :: c, e, f, i, j, k, m, nc, po
+
+    associate(v => sev % val)
+
+      po = ubound(v,1)
+      nc = ubound(v,5)
+
+      !$omp master
+      call Init_SEBV(this, sev % sem, boundary, nc, reuse = .true.)
+      !$omp end master
+      !$omp barrier
+
+      associate(vb => this % val)
+
+        !$omp do
+        do f = 1, boundary % n_face
+
+          e = boundary % face(f) % mesh_element % id
+          m = boundary % face(f) % mesh_element % face
+
+          select case(m)
+
+          case(1,2)
+            i = (m - 1) * po
+            do c = 1, nc
+            do k = 0, po
+            do j = 0, po
+              vb(j,k,f,c) = v(i,j,k,e,c)
+            end do
+            end do
+            end do
+
+          case(3,4)
+            j = (m - 3) * po
+            do c = 1, nc
+            do i = 0, po
+            do k = 0, po
+              vb(i,k,f,c) = v(i,j,k,e,c)
+            end do
+            end do
+            end do
+
+          case(5,6)
+            k = (m - 5) * po
+            do c = 1, nc
+            do i = 0, po
+            do j = 0, po
+              vb(i,j,f,c) = v(i,j,k,e,c)
+            end do
+            end do
+            end do
+
+          end select
+
+        end do
+      end associate
+    end associate
+
+  end subroutine Extract
+
+  !-----------------------------------------------------------------------------
+  !> Extract the normal component of a spectral-element vector
+
+  impure elemental subroutine ExtractNormalComponent(this, sev, boundary)
+    class(SpectralElementBoundaryVariable_3D), target, intent(inout) :: this
+    class(SpectralElementVector_3D), intent(in) :: sev
+    class(MeshBoundary_3D), intent(in) :: boundary
+
+    !$omp master
+    call Init_SEBV(this, sev % sem, boundary, nc = 1, reuse = .true.)
+    !$omp end master
+    !$omp barrier
+
+    if (this % sem % mesh % regular) then
+      call ExtractNormalComponent_R(this, sev, boundary)
+    else
+      call ExtractNormalComponent_D(this, sev, boundary)
+    end if
+
+  end subroutine ExtractNormalComponent
+
+  !-----------------------------------------------------------------------------
+  !> Extract the normal component of a spectral-element vector: regular mesh
+
+  impure elemental subroutine ExtractNormalComponent_R(this, sev, boundary)
+    class(SpectralElementBoundaryVariable_3D), target, intent(inout) :: this
+    class(SpectralElementVector_3D), intent(in) :: sev
+    class(MeshBoundary_3D), intent(in) :: boundary
+
+    integer :: e, f, i, j, k, m, n, po
+
+    associate(v => sev % val, vb_n => this % val)
+
+      po = ubound(v,1)
+
+      !$omp do
+      do f = 1, boundary % n_face
+
+        e = boundary % face(f) % mesh_element % id
+        m = boundary % face(f) % mesh_element % face
+
+        select case(m)
+
+        case(1,2)
+          i = (m - 1) * po
+          n = (m - 1) * 2 - 1
+          do k = 0, po
+          do j = 0, po
+            vb_n(j,k,f,1) = n * v(i,j,k,e,1)
+          end do
+          end do
+
+        case(3,4)
+          j = (m - 3) * po
+          n = (m - 3) * 2 - 1
+          do i = 0, po
+          do k = 0, po
+            vb_n(i,k,f,1) = n * v(i,j,k,e,2)
+          end do
+          end do
+
+        case(5,6)
+          k = (m - 5) * po
+          n = (m - 5) * 2 - 1
+          do i = 0, po
+          do j = 0, po
+            vb_n(i,j,f,1) = n * v(i,j,k,e,3)
+          end do
+          end do
+
+        end select
+
+      end do
+    end associate
+
+  end subroutine ExtractNormalComponent_R
+
+  !-----------------------------------------------------------------------------
+  !> Extract the normal component of a spectral-element vector: deformed mesh
+
+  impure elemental subroutine ExtractNormalComponent_D(this, sev, boundary)
+    class(SpectralElementBoundaryVariable_3D), target, intent(inout) :: this
+    class(SpectralElementVector_3D), intent(in) :: sev
+    class(MeshBoundary_3D), intent(in) :: boundary
+
+    integer :: e, f, i, j, k, m, po
+
+    associate( n    => sev  % sem % metrics % n &
+             , v    => sev  % val               &
+             , vb_n => this % val               )
+
+      po = ubound(v,1)
+
+      !$omp do
+      do f = 1, boundary % n_face
+
+        e = boundary % face(f) % mesh_element % id
+        m = boundary % face(f) % mesh_element % face
+
+        select case(m)
+
+        case(1,2)
+          i = (m - 1) * po
+          do k = 0, po
+          do j = 0, po
+            vb_n(j,k,f,1) = n(j,k,m,e,1) * v(i,j,k,e,1) &
+                          + n(j,k,m,e,2) * v(i,j,k,e,2) &
+                          + n(j,k,m,e,3) * v(i,j,k,e,3)
+          end do
+          end do
+
+        case(3,4)
+          j = (m - 3) * po
+          do i = 0, po
+          do k = 0, po
+            vb_n(i,k,f,1) = n(i,k,m,e,1) * v(i,j,k,e,1) &
+                          + n(i,k,m,e,2) * v(i,j,k,e,2) &
+                          + n(i,k,m,e,3) * v(i,j,k,e,3)
+          end do
+          end do
+
+        case(5,6)
+          k = (m - 5) * po
+          do i = 0, po
+          do j = 0, po
+            vb_n(i,j,f,1) = n(i,j,m,e,1) * v(i,j,k,e,1) &
+                          + n(i,j,m,e,2) * v(i,j,k,e,2) &
+                          + n(i,j,m,e,3) * v(i,j,k,e,3)
+          end do
+          end do
+
+        end select
+
+      end do
+    end associate
+
+  end subroutine ExtractNormalComponent_D
 
   !=============================================================================
 

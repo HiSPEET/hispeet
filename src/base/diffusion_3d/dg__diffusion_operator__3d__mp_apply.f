@@ -116,15 +116,15 @@ contains
   !>
   !> On Dirichlet boundaries (bc = 'D'):
   !>
-  !>   – interior solution contributes twice: [u]ᵢ = 2u⁻
-  !>   - du/dn is extrapolated from interior: {q}ᵢ = qᵢ⁻
+  !>   – interior solution contributes twice:  n⋅[u] = 2u⁻    - 2u_b
+  !>   - q⁺ is extrapolated from interior:     n⋅{q} = n⋅q⁻
   !>
   !> and on Neumann boundaries (bc = 'N'):
   !>
-  !>   – solution is extrapolated from interior: [u]ᵢ = 0
-  !>   - du/dn is reflected from interior:       {q}ᵢ = 0
+  !>   – u⁺ is extrapolated from interior:     n⋅[u] = 0
+  !>   - q⁺ is reflected from interior:        n⋅{q} = 0      +  q_b
   !>
-  !> where `i` is the coordinate direction parallel to the face normal.
+  !> where the contributions of u_b and q_b are assigned to the RHS.
 
   subroutine ApplyBoundaryConditions(mesh, bc, tr_u, tr_qn)
     class(Mesh_3D), intent(in)    :: mesh           !< mesh partition
@@ -149,7 +149,6 @@ contains
           !$omp end do nowait
 
         case('N') ! Neumann
-          ! Neumann: du/dn does not contribute, [u] = 0 due to extrapolation
           !$omp do
           do l = 1, size(boundary_face)
             e = boundary_face(l) % mesh_element % id    ! mesh element

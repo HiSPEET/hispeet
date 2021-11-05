@@ -9,6 +9,7 @@ module DG__Diffusion_Operator__3D
   use Constants      , only: ZERO, ONE, HALF
   use DG__Element_Operators__1D
   use Spectral_Element_Mesh__3D
+  use Spectral_Element_Boundary_Variable__3D
 
   !-----------------------------------------------------------------------------
   !> Base type for scalar diffusion operators for 3D DG-SEM
@@ -29,8 +30,7 @@ contains
     generic   :: Init_DG_DiffusionOperator_3D  =>  Init_C0, Init_CC, Init_V
     generic   :: SetDiffusivity  =>  SetDiffusivity_C, SetDiffusivity_V
     procedure :: Apply
-!!  procedure :: BcToRHS
-!!  procedure :: Residual
+    procedure :: AddBC
 
     procedure, private :: Init_C0, Init_CC, Init_V
     procedure, private :: SetDiffusivity_C, SetDiffusivity_V
@@ -75,6 +75,37 @@ contains
       real(RNP), intent(out) :: v(:,:,:,:) !< result
       real(RNP), intent(in), optional :: f(:,:,:,:) !< RHS
     end subroutine Apply
+
+    !---------------------------------------------------------------------------
+    !> Addition of BC to the RHS for regular mesh and constant ν
+    !>
+    !> `bv` is a boundary variable which contains the Dirichlet or Neumann
+    !> boundary values four each boundary. These values are applied to the
+    !> right hand side `f` according boundary type specified in `this % bc`.
+
+    module subroutine AddBC_RC(this, bv, f)
+      class(DG_DiffusionOperator_3D), intent(in) :: this
+      class(SpectralElementBoundaryVariable_3D), target, intent(in) :: bv(:)
+      real(RNP), intent(inout) :: f(:,:,:,:)
+    end subroutine AddBC_RC
+
+    !-----------------------------------------------------------------------------
+    !> Addition of BC to the RHS for regular mesh and variable ν
+
+    module subroutine AddBC_RV(this, bv, f)
+      class(DG_DiffusionOperator_3D), intent(in) :: this
+      class(SpectralElementBoundaryVariable_3D), target, intent(in) :: bv(:)
+      real(RNP), intent(inout) :: f(:,:,:,:)
+    end subroutine AddBC_RV
+
+    !---------------------------------------------------------------------------
+    !> Addition of BC to the RHS for deformed mesh and constant ν
+
+    module subroutine AddBC_DC(this, bv, f)
+      class(DG_DiffusionOperator_3D), intent(in) :: this
+      class(SpectralElementBoundaryVariable_3D), target, intent(in) :: bv(:)
+      real(RNP), intent(inout) :: f(:,:,:,:)
+    end subroutine AddBC_DC
 
   end interface
 
@@ -187,6 +218,33 @@ contains
     call this % SetDiffusivity(nu_p)
 
   end subroutine Init_V
+
+  !-----------------------------------------------------------------------------
+  !> Addition of boundary conditions to the right hande side
+  !>
+  !> `bv` is a boundary variable which contains the Dirichlet or Neumann
+  !> boundary values four each boundary. These values are applied to the
+  !> right hand side `f` according boundary type specified in `this % bc`.
+
+  subroutine AddBC(this, bv, f)
+    class(DG_DiffusionOperator_3D), intent(in) :: this
+    class(SpectralElementBoundaryVariable_3D), target, intent(in) :: bv(:)
+    real(RNP), intent(inout) :: f(:,:,:,:)
+
+    if (this % sem % mesh % regular) then
+      if (allocated(this % nu_pv)) then
+        ! regular variable
+        call AddBC_RV(this, bv, f)
+      else
+        ! regular constant
+        call AddBC_RC(this, bv, f)
+      end if
+    else
+      ! deformed constant
+      call AddBC_DC(this, bv, f)
+    end if
+
+  end subroutine AddBC
 
   !=============================================================================
 

@@ -118,7 +118,7 @@ subroutine AddFluxes(mesh, eop, Bs, nu, nu_svv, tr_u, tr_qn, v)
 
   ! arguments ..................................................................
 
-  class(MeshPartition),         intent(in) :: mesh !< mesh partition
+  class(MeshPartition),          intent(in) :: mesh !< mesh partition
   class(DG_ElementOperators_1D), intent(in) :: eop  !< ID/DG element operators
 
   real(RNP), intent(in)    :: Bs(0:,0:)        !< 1D standard "flux" operator

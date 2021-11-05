@@ -9,6 +9,9 @@ program DG_Diffusion3D_Test
   use TPO__Diagonal__3D
   use Mesh__3D
   use Spectral_Element_Mesh__3D
+  use Spectral_Element_Scalar__3D
+  use Spectral_Element_Vector__3D
+  use Spectral_Element_Boundary_Variable__3D
   use Export_VTK_Volume_Data__3D
   use DG__Diffusion_Operator__3D
 
@@ -105,9 +108,14 @@ program DG_Diffusion3D_Test
   real(RNP), pointer, contiguous :: r (:,:,:,:)  ! residual
   real(RNP), pointer, contiguous :: e (:,:,:,:)  ! error
 
-  real(RNP), allocatable :: mm(:,:,:,:) ! diagonal mass matrix
+  real(RNP), allocatable :: mm (:,:,:,:)     ! diagonal mass matrix
+  real(RNP), allocatable :: q  (:,:,:,:,:)   ! flux vector
 
   ! auxiliary variables ........................................................
+
+  type(SpectralElementScalar_3D) :: se_u
+  type(SpectralElementVector_3D) :: se_q
+  type(SpectralElementBoundaryVariable_3D), allocatable :: se_bv(:)
 
   character(len=80) :: config_name = '', test_case_name = ''
   real(RDP) :: time, time0
@@ -226,17 +234,27 @@ program DG_Diffusion3D_Test
   r (0:,0:,0:,1:) => var(:,:,:,:,5)
   e (0:,0:,0:,1:) => var(:,:,:,:,6)
 
-  allocate(mm(0:po,0:po,0:po,1:n_elem))
+  allocate(mm (0:po,0:po,0:po,1:n_elem)     )
+  allocate(q  (0:po,0:po,0:po,1:n_elem,1:3) )
+
   call sem % Get_DG_DiagonalMassMatrix(mm)
+
+  se_u  = SpectralElementScalar_3D(sem, u)
+  se_q  = SpectralElementVector_3D(sem, q)
+  se_bv = SpectralElementBoundaryVariable_3D(sem, sem%mesh%boundary, nc = 1)
 
   ! solution and RHS ...........................................................
 
   associate(x => sem % metrics % x)
 
-    ! exact solution and diffusivity
-    call problem % GetExactSolution(x, s)
-    call problem % GetDiffusivity(x, nu)
+    ! exact solution, diffusivity and flux vector
+    call problem % GetExactSolution (x, s)
+    call problem % GetDiffusivity   (x, nu)
+    call problem % GetExactGradient (x, q)
     u = s
+    q(:,:,:,:,1) = nu * q(:,:,:,:,1)
+    q(:,:,:,:,2) = nu * q(:,:,:,:,2)
+    q(:,:,:,:,3) = nu * q(:,:,:,:,3)
 
     ! r = λ u - ∇·(ν ∇u)
     call problem % GetSource(x, r)
@@ -244,8 +262,16 @@ program DG_Diffusion3D_Test
     ! project source:  f = M r
     f = mm * r
 
-    ! apply boundary values:  f = f + f_bc
-    !***TBD***!
+    ! extract and apply boundary conditions
+    do i = 1, n_bound
+      select case(diffusion_op % bc(i))
+      case('D')
+        call se_bv(i) % Extract(se_u, sem % mesh % boundary(i))
+      case('N')
+        call se_bv(i) % ExtractNormalComponent(se_q, sem % mesh % boundary(i))
+      end select
+    end do
+    call diffusion_op % AddBC(se_bv, f)
 
   end associate
 

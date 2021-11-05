@@ -125,8 +125,7 @@ contains
     real(RNP), dimension(0:eop%po, 0:eop%po) :: Mf1, Mf2, Mf3
     real(RNP), dimension(0:eop%po, 0:eop%po) :: Aq_0, Aq_P, Ju_0, Ju_P
     real(RNP), dimension(0:eop%po)           :: delta_0, delta_P
-    real(RNP) :: g(3), mu(3)
-    real(RNP) :: cd_0, cd_P, cp_0, cp_P
+    real(RNP) :: g(3), mu(3), cp
     integer   :: i, j, k, e
     logical   :: present_f, struct
 
@@ -170,88 +169,85 @@ contains
       do e = 1, mesh % n_elem
         associate(element => mesh % element(e))
 
-          ! direction 1: v = v + Mf₁ (-[ϕ]₁{(ν+νˢQ)∇u}₁ - {(ν+νˢQ)∇ϕ}₁[u]₁
-          !                           + μ⟨ν+νˢ⟩[ϕ]₁[u]₁)
+          ! direction 1
           !
-          ! where, with ϕ = ℓ_ijk, at  ξ = -1
+          !   v = v - Mf ([𝜑]⋅{(ν+νˢQ)∇u} + ({(ν+νˢQ)∇𝜑} - μ(ν+νˢ)[𝜑])⋅[u])₁
+          !         - Mf ([𝜑]⋅{(ν+νˢQ)∇u} + ({(ν+νˢQ)∇𝜑} - μ(ν+νˢ)[𝜑])⋅[u])₂
           !
-          !   [ϕ]₁         = -delta_0(i)
-          !   {(ν+νˢQ)∇ϕ}₁ = g(1) * Bs(0,i)
-          !   [u]₁         = jmp( u (j,k,f₁) )
-          !   {(ν+νˢQ)∇u}₁ = avg( q₁(j,k,f₁) )
+          ! with
           !
-          ! and, at  ξ = +1
+          !   𝜑 = \ell_i(ξ) \ell_j(η) \ell_k(ζ)
           !
-          !   [ϕ]₁         = delta_P(i)
-          !   {(ν+νˢQ)∇ϕ}₁ = g(1) * Bs(P,i)
-          !   [u]₁         = jmp( u (j,k,f₂) )
-          !   {(ν+νˢQ)∇u}₁ = avg( q₁(j,k,f₂) )
+          ! at face 1 (ξ = -1)
+          !
+          !   n⋅[𝜑]         =  δ(0,i)                         =  delta_0(i)
+          !   n⋅{(ν+νˢQ)∇𝜑} = -1/∆x Bs(0,i)                   = -g(1) * Bs(0,i)
+          !   n⋅[u]         =  (   u⁻(j,k) -    u⁺(j,k))₁     =  Ju_0(j,k)
+          !   n⋅{(ν+νˢQ)∇u} =  (n⁻⋅q⁻(j,k) - n⁺⋅q⁺(j,k))₁ / 2 =  Aq_0(j,k)
+          !
+          ! and at face 2 (ξ = +1)
+          !
+          !   n⋅[𝜑]         =  δ(P,i)                         =  delta_P(i)
+          !   n⋅{(ν+νˢQ)∇𝜑} =  1/∆x Bs(P,i)                   =  g(1) * Bs(P,i)
+          !   n⋅[u]         =  (   u⁻(j,k) -    u⁺(j,k))₂     =  Ju_P(j,k)
+          !   n⋅{(ν+νˢQ)∇u} =  (n⁻⋅q⁻(j,k) - n⁺⋅q⁺(j,k))₂ / 2 =  Aq_P(j,k)
 
           call GetElementBoundaryFluxes(element,struct,e,1,tr_u,tr_qn,Ju_0,Aq_0)
           call GetElementBoundaryFluxes(element,struct,e,2,tr_u,tr_qn,Ju_P,Aq_P)
 
-          cd_0 = -g(1)
-          cd_P = -g(1)
-          cp_0 = -(nu_p + nu_s) * mu(1)
-          cp_P = -(nu_p + nu_s) * mu(1)
+          cp = -(nu_p + nu_s) * mu(1)
 
           do k = 0, P
           do j = 0, P
           do i = 0, P
 
-            v(i,j,k,e) = v(i,j,k,e)                                           &
-              - Mf1(j,k) * ( delta_0(i) * Aq_0(j,k)                           &
-                           + delta_P(i) * Aq_P(j,k)                           &
-                           + (cd_0 * Bs(0,i) + cp_0 * delta_0(i)) * Ju_0(j,k) &
-                           + (cd_P * Bs(P,i) + cp_P * delta_P(i)) * Ju_P(j,k) )
+            v(i,j,k,e) = v(i,j,k,e)                                          &
+              - Mf1(j,k) * ( delta_0(i) * Aq_0(j,k)                          &
+                           + delta_P(i) * Aq_P(j,k)                          &
+                           + (-g(1) * Bs(0,i) + cp * delta_0(i)) * Ju_0(j,k) &
+                           + ( g(1) * Bs(P,i) + cp * delta_P(i)) * Ju_P(j,k) )
           end do
           end do
           end do
 
-          ! direction 2: v = v + Mf₂ (-[ϕ]₂{(ν+νˢQ)∇u}₂ - {(ν+νˢQ)∇ϕ}₂[u]₂
-          !                           + μ⟨ν+νˢ⟩[ϕ]₂[u]₂)
+          ! v = v - Mf ([𝜑]⋅{(ν+νˢQ)∇u} + ({(ν+νˢQ)∇𝜑} - μ(ν+νˢ)[𝜑])⋅[u])₃
+          !       - Mf ([𝜑]⋅{(ν+νˢQ)∇u} + ({(ν+νˢQ)∇𝜑} - μ(ν+νˢ)[𝜑])⋅[u])₄
 
           call GetElementBoundaryFluxes(element,struct,e,3,tr_u,tr_qn,Ju_0,Aq_0)
           call GetElementBoundaryFluxes(element,struct,e,4,tr_u,tr_qn,Ju_P,Aq_P)
 
-          cd_0 = -g(2)
-          cd_P = -g(2)
-          cp_0 = -(nu_p + nu_s) * mu(2)
-          cp_P = -(nu_p + nu_s) * mu(2)
+          cp = -(nu_p + nu_s) * mu(2)
 
           do k = 0, P
           do j = 0, P
           do i = 0, P
 
-            v(i,j,k,e) = v(i,j,k,e)                                           &
-              - Mf2(i,k) * ( delta_0(j) * Aq_0(i,k)                           &
-                           + delta_P(j) * Aq_P(i,k)                           &
-                           + (cd_0 * Bs(0,j) + cp_0 * delta_0(j)) * Ju_0(i,k) &
-                           + (cd_P * Bs(P,j) + cp_P * delta_P(j)) * Ju_P(i,k) )
+            v(i,j,k,e) = v(i,j,k,e)                                          &
+              - Mf2(i,k) * ( delta_0(j) * Aq_0(i,k)                          &
+                           + delta_P(j) * Aq_P(i,k)                          &
+                           + (-g(2) * Bs(0,j) + cp * delta_0(j)) * Ju_0(i,k) &
+                           + ( g(2) * Bs(P,j) + cp * delta_P(j)) * Ju_P(i,k) )
           end do
           end do
           end do
 
-          ! direction 3: v = v + Mf₃ (-[ϕ]₃{(ν+νˢQ)∇u}₃ - {(ν+νˢQ)∇ϕ}₃[u]₃
-          !                           + μ⟨ν+νˢ⟩[ϕ]₃[u]₃)
+          ! v = v - Mf ([𝜑]⋅{(ν+νˢQ)∇u} + ({(ν+νˢQ)∇𝜑} - μ(ν+νˢ)[𝜑])⋅[u])₅
+          !       - Mf ([𝜑]⋅{(ν+νˢQ)∇u} + ({(ν+νˢQ)∇𝜑} - μ(ν+νˢ)[𝜑])⋅[u])₆
 
           call GetElementBoundaryFluxes(element,struct,e,5,tr_u,tr_qn,Ju_0,Aq_0)
           call GetElementBoundaryFluxes(element,struct,e,6,tr_u,tr_qn,Ju_P,Aq_P)
 
-          cd_0 = -g(3)
-          cd_P = -g(3)
-          cp_0 = -(nu_p + nu_s) * mu(3)
-          cp_P = -(nu_p + nu_s) * mu(3)
+          cp = -(nu_p + nu_s) * mu(3)
 
           do k = 0, P
           do j = 0, P
           do i = 0, P
 
-            v(i,j,k,e) = v(i,j,k,e)                                           &
-              - Mf3(i,j) * ( delta_0(k) * Aq_0(i,j)                           &
-                           + delta_P(k) * Aq_P(i,j)                           &
-                           + (cd_0 * Bs(0,k) + cp_0 * delta_0(k)) * Ju_0(i,j) &
-                           + (cd_P * Bs(P,k) + cp_P * delta_P(k)) * Ju_P(i,j) )
+            v(i,j,k,e) = v(i,j,k,e)                                          &
+              - Mf3(i,j) * ( delta_0(k) * Aq_0(i,j)                          &
+                           + delta_P(k) * Aq_P(i,j)                          &
+                           + (-g(3) * Bs(0,k) + cp * delta_0(k)) * Ju_0(i,j) &
+                           + ( g(3) * Bs(P,k) + cp * delta_P(k)) * Ju_P(i,j) )
           end do
           end do
           end do
