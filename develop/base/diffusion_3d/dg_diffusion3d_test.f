@@ -264,14 +264,13 @@ program DG_Diffusion3D_Test
 
     ! extract and apply boundary conditions
     do i = 1, n_bound
-      select case(diffusion_op % bc(i))
+      select case(bc(i))
       case('D')
         call se_bv(i) % Extract(se_u, sem % mesh % boundary(i))
       case('N')
         call se_bv(i) % ExtractNormalComponent(se_q, sem % mesh % boundary(i))
       end select
     end do
-    call diffusion_op % AddBC(se_bv, f)
 
   end associate
 
@@ -286,6 +285,9 @@ program DG_Diffusion3D_Test
   else
     diffusion_op = DG_DiffusionOperator_3D(sem, dg_opt, lambda, nu_0, bc)
   end if
+
+  ! apply boundary conditions to RHS
+  call diffusion_op % AddBC(se_bv, f)
 
   ! info .......................................................................
 

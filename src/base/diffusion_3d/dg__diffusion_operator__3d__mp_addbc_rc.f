@@ -24,7 +24,7 @@ contains
   module subroutine AddBC_RC(this, bv, f)
     class(DG_DiffusionOperator_3D), intent(in) :: this
     class(SpectralElementBoundaryVariable_3D), target, intent(in) :: bv(:)
-    real(RNP), intent(inout) :: f(:,:,:,:)
+    real(RNP), intent(inout) :: f(0:,0:,0:,:)
 
     ! local variables ..........................................................
 

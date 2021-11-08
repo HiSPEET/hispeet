@@ -37,7 +37,7 @@ contains
     integer,   intent(in) :: ny  !< number of cells in y-direction
     integer,   intent(in) :: nz  !< number of elements in z-direction
     integer,   intent(in) :: po  !< polynomial order of mesh elements
-    logical,   intent(in) :: periodic(3) !< F/T for non/periodic directions
+    logical,   intent(in) :: periodic !< F/T for non/periodic z-direction
 
     logical,   allocatable :: vm(:,:,:,:) ! mask indicating orinal vertices
     integer,   allocatable :: vc(:,:,:,:) ! cell-vertex indices
@@ -46,12 +46,8 @@ contains
     integer   :: ne        ! number of elements
     integer   :: nb        ! number of boundaries
     real(RNP) :: dx(3)     ! cell dimensions
-    real(RNP) :: xs(0:po)  ! Lobatto points in [0,1]
 
-    real(RNP), dimension(3) :: x000, x100, x010, x110, x001, x101, x011, x111
-    real(RNP), dimension(3) :: x00, x10, x01, x11, x0, x1
-
-    integer :: b, e, f, i, j, k, l, r, p, q, v
+    integer :: b, e, f, i, j, k, l, v
 
     ! prerequisites ...........................................................
 
@@ -60,10 +56,7 @@ contains
     nb = 6
 
     ! cell dimensions
-    dx = [ lx/nx, ly/nx, lz/nz ]
-
-    ! Lobatto points in [0,1]
-    xs = HALF * (ONE + LobattoPoints(po))
+    dx = [ lx/nx, ly/ny, lz/nz ]
 
     ! set lexical numbering
     mesh%numbering = LEXICAL_NUMBERING
@@ -72,6 +65,7 @@ contains
 
     allocate(vc(1:10, 1:nx, 1:ny, 0:nz))
     allocate(vm(1:10, 1:nx, 1:ny, 0:nz))
+
     call IdentifyVertices(periodic, vm, vc, nv)
 
     allocate(mesh % vertex(nv))
@@ -104,49 +98,9 @@ contains
 
       e = ElementIndex(l, i, j, k, nx, ny)
 
-      associate(element => mesh % element(e))
-
-        element % id = e
-        element % vertex = ElementVertexIDs(l, i, j, k, vc)
-
-        allocate(element % x((po+1)**3, 3))
-
-        ! element vertices
-        x000 = mesh % vertex(element % vertex(1)) % x
-        x100 = mesh % vertex(element % vertex(2)) % x
-        x010 = mesh % vertex(element % vertex(3)) % x
-        x110 = mesh % vertex(element % vertex(4)) % x
-        x001 = mesh % vertex(element % vertex(5)) % x
-        x101 = mesh % vertex(element % vertex(6)) % x
-        x011 = mesh % vertex(element % vertex(7)) % x
-        x111 = mesh % vertex(element % vertex(8)) % x
-
-        ! interpolation of collocation points
-        do r = 0, po
-        do q = 0, po
-        do p = 0, po
-
-          ! linear point index
-          v = 1 + p + (po+1) * (q + (po+1) * r)
-
-          ! trilinear interpolation: direction 1
-          x00  =  x000 * (1 - xs(p))  +  x100 * xs(p)
-          x01  =  x001 * (1 - xs(p))  +  x101 * xs(p)
-          x10  =  x010 * (1 - xs(p))  +  x110 * xs(p)
-          x11  =  x011 * (1 - xs(p))  +  x111 * xs(p)
-
-          ! trilinear interpolation: direction 2
-          x0  =  x00 * (1 - xs(q))  +  x10 * xs(q)
-          x1  =  x01 * (1 - xs(q))  +  x11 * xs(q)
-
-          ! trilinear interpolation: direction 3
-          element % x(v,:)  =  x0 * (1 - xs(r))  +  x1 * xs(r)
-
-        end do
-        end do
-        end do
-
-      end associate
+      mesh % element(e) % id     = e
+      mesh % element(e) % vertex = ElementVertexIDs(l, i, j, k, vc)
+      mesh % element(e) % x      = ElementPoints(l, i, j, k, po, dx)
 
     end do
     end do
@@ -260,16 +214,12 @@ contains
     end do
 
     ! identify coupled boundaries and their polarity
-    do i = 1, 3
-      if (periodic(i)) then
-        j = 2 * i - 1
-        k = 2 * i
-        mesh%boundary(j) % coupled  =  k
-        mesh%boundary(j) % polarity = -i
-        mesh%boundary(k) % coupled  =  j
-        mesh%boundary(k) % polarity =  i
-      end if
-    end do
+    if (periodic) then
+      mesh%boundary(5) % coupled  =  6
+      mesh%boundary(5) % polarity = -3
+      mesh%boundary(6) % coupled  =  5
+      mesh%boundary(6) % polarity =  3
+    end if
 
   end subroutine CreateDiamonds
 
@@ -284,7 +234,7 @@ contains
   !> adopt their index from the corresponding original vertex.
 
   subroutine IdentifyVertices(periodic, vm, vc, nv)
-    logical, intent(in)  :: periodic(3)     !< F/T for non/periodic directions
+    logical, intent(in)  :: periodic        !< F/T for non/periodic z-direction
     logical, intent(out) :: vm(1:,1:,1:,0:) !< T/F for original/copy vertices
     integer, intent(out) :: vc(1:,1:,1:,0:) !< global cell vertex IDs (l,i,j,k)
     integer, intent(out) :: nv              !< number of original vertices
@@ -309,22 +259,8 @@ contains
     vm(2,:,2:,:) = .false.
     vm(3,:,2:,:) = .false.
 
-    ! unmask x-periodic vertices
-    if (periodic(1)) then
-      vm( 3,nx,:,:) = .false.
-      vm( 7,nx,:,:) = .false.
-      vm(10,nx,:,:) = .false.
-    end if
-
-    ! unmask y-periodic vertices
-    if (periodic(2)) then
-      vm( 8,:,ny,:) = .false.
-      vm( 9,:,ny,:) = .false.
-      vm(10,:,ny,:) = .false.
-    end if
-
     ! unmask z-periodic vertices
-    if (periodic(3)) then
+    if (periodic) then
       vm(:,:,:,nz) = .false.
     end if
 
@@ -356,22 +292,8 @@ contains
     vc(2,:,2:,:) = vc( 9,:,:ny-1,:)
     vc(3,:,2:,:) = vc(10,:,:ny-1,:)
 
-    ! identify x-periodic vertices
-    if (periodic(1)) then
-      vc( 3,nx,:,:) = vc(1,1,:,:)
-      vc( 7,nx,:,:) = vc(4,1,:,:)
-      vc(10,nx,:,:) = vc(8,1,:,:)
-    end if
-
-    ! identify y-periodic vertices
-    if (periodic(2)) then
-      vc( 8,:,ny,:) = vc(1,:,1,:)
-      vc( 9,:,ny,:) = vc(2,:,1,:)
-      vc(10,:,ny,:) = vc(3,:,1,:)
-    end if
-
     ! identify z-periodic vertices
-    if (periodic(3)) then
+    if (periodic) then
       vc(:,:,:,nz) = vc(:,:,:,0)
     end if
 
@@ -474,6 +396,75 @@ contains
     end select
 
   end function ElementVertexIDs
+
+  !-----------------------------------------------------------------------------
+  !> Returns the Lobatto points of element `l` in cell `i,j,k`
+
+  pure function ElementPoints(l, i, j, k, po, dx) result(x)
+    integer,   intent(in) :: l        !< element ID within cell
+    integer,   intent(in) :: i, j, k  !< triple cell ID
+    integer,   intent(in) :: po       !< polynomial order of mesh element
+    real(RNP), intent(in) :: dx(3)    !< cell extensions in x,y,z-directions
+    real(RNP) :: x((po+1)**3, 3)
+
+    real(RNP), dimension(3) :: x000, x100, x010, x110, x001, x101, x011, x111
+    real(RNP), dimension(3) :: x00, x10, x01, x11, x0, x1
+    real(RNP) :: xs(0:po)
+    integer   :: m(4)
+    integer   :: r, p, q, v
+
+    ! Lobatto points in [0,1]
+    xs = HALF * (ONE + LobattoPoints(po))
+
+    select case(l)
+    case(1)
+      m = [1,2,4,5]
+    case(2)
+      m = [2,3,5,7]
+    case(3)
+      m = [4,6,8,9]
+    case(4)
+      m = [6,7,9,10]
+    case default ! 5
+      m = [4,5,6,7]
+    end select
+
+    ! element vertex coordinates
+    x000 = VertexCoordinates( m(1), i, j, k-1, dx )
+    x100 = VertexCoordinates( m(2), i, j, k-1, dx )
+    x010 = VertexCoordinates( m(3), i, j, k-1, dx )
+    x110 = VertexCoordinates( m(4), i, j, k-1, dx )
+    x001 = VertexCoordinates( m(1), i, j, k  , dx )
+    x101 = VertexCoordinates( m(2), i, j, k  , dx )
+    x011 = VertexCoordinates( m(3), i, j, k  , dx )
+    x111 = VertexCoordinates( m(4), i, j, k  , dx )
+
+    ! interpolation to collocation points
+    do r = 0, po
+    do q = 0, po
+    do p = 0, po
+
+      ! linear point index
+      v = 1 + p + (po+1) * (q + (po+1) * r)
+
+      ! trilinear interpolation: direction 1
+      x00  =  x000 * (1 - xs(p))  +  x100 * xs(p)
+      x01  =  x001 * (1 - xs(p))  +  x101 * xs(p)
+      x10  =  x010 * (1 - xs(p))  +  x110 * xs(p)
+      x11  =  x011 * (1 - xs(p))  +  x111 * xs(p)
+
+      ! trilinear interpolation: direction 2
+      x0  =  x00 * (1 - xs(q))  +  x10 * xs(q)
+      x1  =  x01 * (1 - xs(q))  +  x11 * xs(q)
+
+      ! trilinear interpolation: direction 3
+      x(v,:)  =  x0 * (1 - xs(r))  +  x1 * xs(r)
+
+    end do
+    end do
+    end do
+
+  end function ElementPoints
 
   !============================================================================
 

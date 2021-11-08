@@ -30,7 +30,7 @@ program Mesh3d_Import_Generic
   integer   :: nr   = 2   ! num elements in radial    direction
   integer   :: np   = 4   ! num elements in azimuthal direction ≥ 3 (gap only)
   integer   :: po   = 3   ! polynomial order of mesh elements
-  logical   :: periodic(3) = .false. ! F/T for non/periodic directions
+  logical   :: periodic = .false. ! F/T for non/periodic z-/axial direction
 
   namelist/cylinder/ nr, nz, po, periodic
   namelist/annulus/  r0, r1, h, nr, np, nz, po, periodic
@@ -82,11 +82,11 @@ program Mesh3d_Import_Generic
 
     select case(config)
     case(2)
-      call generic_mesh % CreateAnnulus(r0, r1, h, nr, np, nz, po, periodic(3))
+      call generic_mesh % CreateAnnulus(r0, r1, h, nr, np, nz, po, periodic)
     case(3)
       call generic_mesh % CreateDiamonds(lx, ly, lz, nx, ny, nz, po, periodic)
     case default
-      call generic_mesh % CreateCylinder(r1, h, nr, nz, po, periodic(3))
+      call generic_mesh % CreateCylinder(r1, h, nr, nz, po, periodic)
     end select
 
     ! verification .............................................................

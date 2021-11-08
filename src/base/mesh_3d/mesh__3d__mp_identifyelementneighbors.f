@@ -35,10 +35,15 @@ contains
 
     type(MeshElementNeighbor_3D), allocatable :: neighbor(:)
 
+    ! opposite element faces, edges and vertices
+    integer, parameter :: opp_face( 6) = [ 2, 1, 4, 3, 6, 5 ]
+    integer, parameter :: opp_edge(12) = [ 4, 3, 2, 1, 8, 7, 6, 5, 12, 11, 10, 9 ]
+    integer, parameter :: opp_vert( 8) = [ 8, 7, 6, 5, 4, 3, 2, 1 ]
+
     logical, allocatable :: mask(:)
     logical :: right
     integer :: f(6), e(12), v(8)
-    integer :: i, i1, i2, j, k, l, m, n, ne, nf, nn, step
+    integer :: i, i1, i2, j, k, l, m, n, ne, nf, nn, self, step
 
     !---------------------------------------------------------------------------
     ! count number of adjoining elements for each vertex, edge and face
@@ -55,9 +60,17 @@ contains
       e = mesh % element(l) % edge   % id
       v = mesh % element(l) % vertex % id
 
-      nl_face(f) = nl_face(f) + 1
-      nl_edge(e) = nl_edge(e) + 1
-      nl_vert(v) = nl_vert(v) + 1
+      do i = 1, 6
+        nl_face(f(i)) = nl_face(f(i)) + 1
+      end do
+
+      do i = 1, 12
+        nl_edge(e(i)) = nl_edge(e(i)) + 1
+      end do
+
+      do i = 1, 8
+        nl_vert(v(i)) = nl_vert(v(i)) + 1
+      end do
 
     end do
 
@@ -69,7 +82,7 @@ contains
     allocate(elem_vert(maxval(nl_vert), mesh%n_vert))
 
     ! workspace based on upper bound for number of neighbors
-    nn = 8 * (maxval(nl_vert) - 1)
+    nn = 8 * maxval(nl_vert)
     allocate(neighbor(nn), mask(nn))
 
     ! counters
@@ -85,17 +98,18 @@ contains
       e = mesh % element(l) % edge   % id
       v = mesh % element(l) % vertex % id
 
-      ne_face(f) = ne_face(f) + 1
-      ne_edge(e) = ne_edge(e) + 1
-      ne_vert(v) = ne_vert(v) + 1
-
       do j = 1, 6
+        ne_face(f(j)) = ne_face(f(j)) + 1
         elem_face(ne_face(f(j)), f(j)) = NeighborElement(l, int(j, IXS))
       end do
+
       do j = 1, 12
+        ne_edge(e(j)) = ne_edge(e(j)) + 1
         elem_edge(ne_edge(e(j)), e(j)) = NeighborElement(l, int(j+6, IXS))
       end do
+
       do j = 1, 8
+        ne_vert(v(j)) = ne_vert(v(j)) + 1
         elem_vert(ne_vert(v(j)), v(j)) = NeighborElement(l, int(j+18, IXS))
       end do
 
@@ -121,10 +135,16 @@ contains
           associate(face => element % face(j))
             face % i_neighbor = i + 1
             face % n_neighbor = 0
+            self = 0
             m = f(j)
             do k = 1, nl_face(m)
 
-              if (elem_face(k,m) % id == l) cycle ! skip self-reference
+              ! accept self-reference if opposite face is matching
+              if (elem_face(k,m) % id == l) then
+                self = self + 1
+                if (self /= 2) cycle ! skip first occurence
+                if (element % face(opp_face(j)) % id /= face % id) cycle
+              end if
 
               i = i + 1
               neighbor(i) % id        = elem_face(k,m) % id
@@ -147,12 +167,17 @@ contains
           associate(edge => element % edge(j))
             edge % i_neighbor = i + 1
             edge % n_neighbor = 0
+            self = 0
             m = e(j)
 
             EDGE_NEIGHBORS: do k = 1, nl_edge(m)
 
-              ! skip self-reference
-              if (elem_edge(k,m) % id == l) cycle EDGE_NEIGHBORS
+              ! accept self-reference if opposite edge is matching
+              if (elem_edge(k,m) % id == l) then
+                self = self + 1
+                if (self /= 2) cycle ! skip first occurence
+                if (element % edge(opp_edge(j)) % id /= edge % id) cycle
+              end if
 
               ! skip face neighbors
               do n = 1, nf
@@ -179,12 +204,17 @@ contains
           associate(vertex => element % vertex(j))
             vertex % i_neighbor = i + 1
             vertex % n_neighbor = 0
+            self = 0
             m = v(j)
 
             VERTEX_NEIGHBORS: do k = 1, nl_vert(m)
 
-              ! skip self-reference
-              if (elem_vert(k,m) % id == l) cycle VERTEX_NEIGHBORS
+              ! accept self-reference if opposite vertex is matching
+              if (elem_vert(k,m) % id == l) then
+                self = self + 1
+                if (self /= 2) cycle ! skip first occurence
+                if (element % vertex(opp_vert(j)) % id /= vertex % id) cycle
+              end if
 
               ! skip face and edge neighbors
               do n = 1, nf+ne

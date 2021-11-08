@@ -24,7 +24,7 @@ contains
   module subroutine AddBC_DC(this, bv, f)
     class(DG_DiffusionOperator_3D), intent(in) :: this
     class(SpectralElementBoundaryVariable_3D), target, intent(in) :: bv(:)
-    real(RNP), intent(inout) :: f(:,:,:,:)
+    real(RNP), intent(inout) :: f(0:,0:,0:,:)
 
     ! local variables ..........................................................
 
@@ -84,9 +84,9 @@ contains
                 do k = 0, P
                 do j = 0, P
                   tmp = -Mfs(j,k) * nu * a(j,k,m,e) * ub(j,k,l)
-                  Cu(j,k,1) = tmp * Ji_n(j,k,l,e,1)
-                  Cu(j,k,2) = tmp * Ji_n(j,k,l,e,2)
-                  Cu(j,k,3) = tmp * Ji_n(j,k,l,e,3)
+                  Cu(j,k,1) = tmp * Ji_n(j,k,m,e,1)
+                  Cu(j,k,2) = tmp * Ji_n(j,k,m,e,2)
+                  Cu(j,k,3) = tmp * Ji_n(j,k,m,e,3)
                 end do
                 end do
 
@@ -113,9 +113,9 @@ contains
                 do k = 0, P
                 do i = 0, P
                   tmp = -Mfs(i,k) * nu * a(i,k,m,e) * ub(i,k,l)
-                  Cu(i,k,1) = tmp * Ji_n(i,k,l,e,1)
-                  Cu(i,k,2) = tmp * Ji_n(i,k,l,e,2)
-                  Cu(i,k,3) = tmp * Ji_n(i,k,l,e,3)
+                  Cu(i,k,1) = tmp * Ji_n(i,k,m,e,1)
+                  Cu(i,k,2) = tmp * Ji_n(i,k,m,e,2)
+                  Cu(i,k,3) = tmp * Ji_n(i,k,m,e,3)
                 end do
                 end do
 
@@ -142,9 +142,9 @@ contains
                 do j = 0, P
                 do i = 0, P
                   tmp = -Mfs(i,j) * nu * a(i,j,m,e) * ub(i,j,l)
-                  Cu(i,j,1) = tmp * Ji_n(i,j,l,e,1)
-                  Cu(i,j,2) = tmp * Ji_n(i,j,l,e,2)
-                  Cu(i,j,3) = tmp * Ji_n(i,j,l,e,3)
+                  Cu(i,j,1) = tmp * Ji_n(i,j,m,e,1)
+                  Cu(i,j,2) = tmp * Ji_n(i,j,m,e,2)
+                  Cu(i,j,3) = tmp * Ji_n(i,j,m,e,3)
                 end do
                 end do
 

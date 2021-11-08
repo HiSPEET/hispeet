@@ -45,8 +45,8 @@ contains
 
     integer :: rank
     integer :: io
-    integer :: nb = 6      ! num boundaries {west,east,north,south,bottom,top}
-    logical :: periodic(3) ! F/T for non/periodic directions
+    integer :: nb = 6   ! num boundaries {west,east,north,south,bottom,top}
+    logical :: periodic ! F/T for non/periodic z-direction
 
     type(GenericMesh_3D) :: generic_mesh
 
@@ -54,7 +54,7 @@ contains
 
     call MPI_Comm_rank(comm, rank)
 
-    allocate(bc(nb), source = 'P')
+    allocate(bc(nb), source = 'D')
     if (rank == 0) then
       open(newunit = io, file = input)
       read(io, nml = cuboid_diamonds_prm)
@@ -69,9 +69,7 @@ contains
     call XMPI_Bcast(nz, 0, comm)
     call XMPI_Bcast(bc, 0, comm)
 
-    periodic(1) = all(bc(1:2) == 'P')
-    periodic(2) = all(bc(3:4) == 'P')
-    periodic(3) = all(bc(5:6) == 'P')
+    periodic = all(bc(5:6) == 'P')
 
     ! create mesh ..............................................................
 

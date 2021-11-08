@@ -258,7 +258,7 @@ module Generic_Mesh__3D
       integer,   intent(in) :: ny  !< number of cells in y-direction
       integer,   intent(in) :: nz  !< number of elements in z-direction
       integer,   intent(in) :: po  !< polynomial order of mesh elements
-      logical,   intent(in) :: periodic(3) !< F/T for non/periodic directions
+      logical,   intent(in) :: periodic !< F/T for non/periodic z-direction
     end subroutine CreateDiamonds
 
     !---------------------------------------------------------------------------

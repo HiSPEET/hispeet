@@ -5,30 +5,30 @@
 /
 
 &cylinder
-! nr = 1           ! num elements in radial direction
-! nz = 1           ! num elements in axial direction
-! po = 3           ! polynomial order of mesh elements
-! periodic(3) = T  ! switch for axial periodicity
+! nr = 1        ! num elements in radial direction
+! nz = 1        ! num elements in axial direction
+! po = 3        ! polynomial order of mesh elements
+! periodic = T  ! switch for axial periodicity
 /
 
 &annulus
-! r0 = 0.5         ! inner radius
-! r1 = 1           ! outer radius
-! h  = 2           ! height
-! nr = 1           ! num elements in radial    direction
-! np = 3           ! num elements in azimuthal direction ≥ 3
-! nz = 1           ! num elements in axial     direction
-! po = 3           ! polynomial order of mesh elements
-! periodic(3) = T  ! switch for axial periodicity
+! r0 = 0.5      ! inner radius
+! r1 = 1        ! outer radius
+! h  = 2        ! height
+! nr = 1        ! num elements in radial    direction
+! np = 3        ! num elements in azimuthal direction ≥ 3
+! nz = 1        ! num elements in axial     direction
+! po = 3        ! polynomial order of mesh elements
+! periodic = T  ! switch for axial periodicity
 /
 
 &diamonds
-! lx = 1           ! domain length in x-direction
-! ly = 1           ! domain length in y-direction
-! lz = 1           ! domain length in z-direction
-! nx = 1           ! number of cells in x-direction
-! ny = 1           ! number of cells in y-direction
-! nz = 2           ! number of elements in z-direction
-! po = 1           ! polynomial order of mesh elements
-! periodic = F,F,F ! F/T for non/periodic direction
+! lx = 1        ! domain length in x-direction
+! ly = 1        ! domain length in y-direction
+! lz = 1        ! domain length in z-direction
+! nx = 1        ! number of cells in x-direction
+! ny = 1        ! number of cells in y-direction
+! nz = 2        ! number of elements in z-direction
+! po = 1        ! polynomial order of mesh elements
+! periodic = T  ! switch for z-periodicity
 /
