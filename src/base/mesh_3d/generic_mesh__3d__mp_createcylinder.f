@@ -109,9 +109,13 @@ contains
       xi   = cr * (2*i - 1)  -  1
       eta  = cr * (2*j - 1)  -  1
       zeta = cz * (2*k - 1)  -  1
-      do concurrent (m=0:po, n=0:po, o=0:po)
+      do o = 0, po
+      do n = 0, po
+      do m = 0, po
         mesh%element(l)%x(1 + m + np*(n + np*o),:) = &
             PointCoordinates(d, xi+cr*xc(m), eta+cr*xc(n), zeta+cz*xc(o), r, h)
+      end do
+      end do
       end do
     end do
     end do
