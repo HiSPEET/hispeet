@@ -211,16 +211,20 @@ program Validate__TPO__Grad__3D_D
     !$omp parallel
 
     call TPO_Grad_D_Gen(po+1, ne, Ds, Ji, u, v)
-    !$acc wait
 
+    !$omp master
     call system_clock(count0, rate)
+    !$omp end master
 
     do i = 1, nt
-    call TPO_Grad_D_Gen(po+1, ne, Ds, Ji, u, v)
-    !$acc wait
+      call TPO_Grad_D_Gen(po+1, ne, Ds, Ji, u, v)
     end do
 
+    !$omp master
     call system_clock(count)
+    !$omp end master
+
+    !$omp end parallel
 
     time = (count - count0) / real(rate, RNP) / nt
 
@@ -232,19 +236,22 @@ program Validate__TPO__Grad__3D_D
     ! test optimized procedure
 
     !$omp parallel
-    !$acc data copyin(u) copyout(v)
 
     call TPO_Grad(Ds, Ji, u, v)
     !$acc wait
 
+    !$omp master
     call system_clock(count0, rate)
+    !$omp end master
+
     do i = 1, nt
       call TPO_Grad(Ds, Ji, u, v)
-      !$acc wait
     end do
 
+    !$omp master
     call system_clock(count)
-    !$acc end data
+    !$omp end master
+
     !$omp end parallel
 
     time = (count - count0) / real(rate, RNP) / nt
