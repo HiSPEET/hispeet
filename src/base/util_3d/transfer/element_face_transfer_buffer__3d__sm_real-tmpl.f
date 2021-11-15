@@ -18,6 +18,26 @@
 
     integer :: c, e, f, f1, f2, i, l
 
+    ! receive remote data ......................................................
+
+    select type (vb => this % recv % buf)
+    type is (real(RK))
+      !$omp master
+      f1 = 1
+      do l = 1, size(mesh%link)
+        if (mesh % link(l) % n_face > 0) then
+          f2 = f1 + mesh % link(l) % n_face - 1
+          call XMPI_Irecv( vb(:,:,:,f1:f2), mesh%link(l)%part, tag &
+                         , mesh%comm , this%recv%request(l)        )
+        else
+          this%recv%request(l) = MPI_REQUEST_NULL
+        end if
+      end do
+      !$omp end master
+    end select
+
+    ! extract and send local data ..............................................
+
     select type (vb => this % send % buf)
     type is (real(RK))
 
@@ -26,15 +46,6 @@
       do l = 1, size(mesh%link)
         if (mesh % link(l) % n_face > 0) then
           f2 = f1 + mesh % link(l) % n_face - 1
-
-          ! receive remote data ................................................
-
-          !$omp master
-          call XMPI_Irecv( vb(:,:,:,f1:f2), mesh%link(l)%part, tag &
-                         , mesh%comm , this%recv%request(l)        )
-          !$omp end master
-
-          ! extract local data .................................................
 
           if (this%nc == 1) then
             !$omp do
@@ -52,8 +63,6 @@
             end do
           end if
 
-          ! send local data ....................................................
-
           !$omp master
           call XMPI_Isend( vb(:,:,:,f1:f2), mesh%link(l)%part, tag &
                          , mesh%comm , this%send%request(l)        )
@@ -61,8 +70,9 @@
           f1 = f2 + 1
 
         else
-          this%recv%request(l) = MPI_REQUEST_NULL
+          !$omp master
           this%send%request(l) = MPI_REQUEST_NULL
+          !$omp end master
         end if
       end do
 
