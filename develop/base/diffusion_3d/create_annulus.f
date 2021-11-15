@@ -54,7 +54,7 @@ contains
 
     call MPI_Comm_rank(comm, rank)
 
-    allocate(bc(nb), source = 'P')
+    allocate(bc(nb), source = 'D')
     if (rank == 0) then
       open(newunit = io, file = input)
       read(io, nml = annulus)

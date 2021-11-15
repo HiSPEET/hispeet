@@ -75,14 +75,14 @@ contains
                         , ub = tr(:,:,:,:,1)                       &
                         , qb = tr(:,:,:,:,2)                       )
 
-      ! transfer traces ........................................................
+      ! transfer traces and apply boundary conditions ..........................
 
       call tr_buf % Transfer(mesh, tr, tag=1000)
-      call tr_buf % Merge(tr)
 
       call ApplyBoundaryConditions( mesh, this%bc          &
                                   , tr_u  = tr(:,:,:,:,1)  &
                                   , tr_qn = tr(:,:,:,:,2)  )
+      call tr_buf % Merge(tr)
 
       ! add fluxes .............................................................
 

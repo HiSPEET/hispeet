@@ -133,7 +133,6 @@ contains
 
               end select
             end do
-            !$omp end do nowait
 
           case('N')
 
@@ -177,13 +176,11 @@ contains
 
               end select
             end do
-            !$omp end do nowait
 
           end select
 
         end associate Boundary_Faces
       end do Boundaries
-      !$omp barrier
 
     end associate
 
