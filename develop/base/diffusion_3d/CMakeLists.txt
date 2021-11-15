@@ -19,3 +19,6 @@ target_link_libraries(dg_diffusion3d_test HiBase)
 configure_file( dg_diffusion3d_test.prm
                 dg_diffusion3d_test.prm COPYONLY )
 
+configure_file( dg_diffusion3d_test.slurm
+                dg_diffusion3d_test.slurm COPYONLY )
+
