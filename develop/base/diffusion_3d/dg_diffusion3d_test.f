@@ -1,8 +1,18 @@
+!> summary:  Validation of DG diffusion operator and solvers
+!> author:   Joerg Stiller
+!> date:     2021/10/01
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> If present, the first argument of the invoking command will be interpreted
+!> as the base name of the control file. If omitted, the program looks for
+!> `dg_diffusion3d_test.prm`.
+!===============================================================================
 program DG_Diffusion3D_Test
   use Kind_Parameters
   use Constants
   use OpenMP_Binding
   use XMPI
+  use Execution_Control
   use Array_Assignments
   use Array_Reductions
 
@@ -33,8 +43,9 @@ program DG_Diffusion3D_Test
 
   ! control parameters .........................................................
 
-  character(len=*), parameter :: input = 'dg_diffusion3d_test.prm'
-  ! input file
+  ! input file (*.prm)
+  character(len=*), parameter :: input_default = 'dg_diffusion3d_test'
+  character(len=80) :: input_file
 
   integer :: config = 1
   ! configuration (u/s = un/structured, r = regular, d = deformed)
@@ -120,7 +131,9 @@ program DG_Diffusion3D_Test
   character(len=80) :: config_name = '', test_case_name = ''
   real(RDP) :: time, time0
   real(RNP) :: r_l2, r_max, r_max_loc
-  integer   :: io, n_bound, n_elem, n_var
+  logical   :: exists
+  integer   :: io, stat
+  integer   :: n_bound, n_elem, n_var
   integer   :: n_elem_tot, dof
   integer   :: i
 
@@ -143,11 +156,29 @@ program DG_Diffusion3D_Test
 
   ! read control parameters
   if (rank == 0) then
-    open(newunit = io, file = input)
-    read(io, nml = control_prm)
-    read(io, nml = problem_prm)
-    read(io, nml = dicretization_prm)
-    close(io)
+
+    write(*,'(/,A)') repeat('=',80)
+    write(*,'(A)') 'Validation of DG diffusion operator and solvers'
+    write(*,*)
+
+    call get_command_argument(1, input_file, status=stat)
+    if (stat /= 0 .or. len_trim(input_file) == 0) then
+      input_file = input_default
+    end if
+    input_file = trim(input_file) // '.prm'
+
+    inquire(file=trim(input_file), exist=exists)
+    if (exists) then
+      write(*,'(2X,A)') 'reading ' // trim(input_file)
+      open(newunit = io, file = input_file)
+      read(io, nml = control_prm)
+      read(io, nml = problem_prm)
+      read(io, nml = dicretization_prm)
+      close(io)
+    else
+       call Warning( 'DG_Diffusion3D_Test', 'input file "'//trim(input_file)// &
+                     '" not found, using defaults' )
+    end if
 
     if (has_variable_nu) then
       has_spectral_nu = .false.
@@ -185,16 +216,16 @@ program DG_Diffusion3D_Test
 
   select case(config)
   case(2)
-    call CreateCuboidDiamonds( comm, input, pg, mesh, bc )
+    call CreateCuboidDiamonds( comm, input_file, pg, mesh, bc )
     config_name = 'Cuboidal domain with unstructured "diamond" mesh'
   case(3)
-    call CreateCylinder( comm, input, pg, mesh, bc )
+    call CreateCylinder( comm, input_file, pg, mesh, bc )
     config_name = 'Cylindrical domain with unstructured mesh'
   case(4)
-    call CreateAnnulus( comm, input, pg, mesh, bc )
+    call CreateAnnulus( comm, input_file, pg, mesh, bc )
     config_name = 'Annular domain with unstructured mesh'
   case default
-    call CreateCuboidCartesian( comm, input, pg, mesh, bc )
+    call CreateCuboidCartesian( comm, input_file, pg, mesh, bc )
     config_name = 'Cuboidal domain with Cartesian mesh'
   end select
 
