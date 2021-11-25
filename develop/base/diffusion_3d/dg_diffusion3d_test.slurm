@@ -39,6 +39,7 @@ fi
 export KMP_AFFINITY=compact,1,0
 
 # 1 process using 1 cpu
+sed -e "s/<po>/1/g" dg_diffusion3d_test.tmpl > dg_diffusion3d_test.prm
 OMP_NUM_THREADS=1  srun -n 1 ./dg_diffusion3d_test
 OMP_NUM_THREADS=2  srun -n 1 ./dg_diffusion3d_test
 OMP_NUM_THREADS=4  srun -n 1 ./dg_diffusion3d_test
@@ -46,6 +47,7 @@ OMP_NUM_THREADS=8  srun -n 1 ./dg_diffusion3d_test
 OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK srun -n 1 ./dg_diffusion3d_test
 
 # 2 processes, each using 1 cpu
+sed -e "s/<po>/2/g" dg_diffusion3d_test.tmpl > dg_diffusion3d_test.prm
 OMP_NUM_THREADS=1  srun -n 2 ./dg_diffusion3d_test
 OMP_NUM_THREADS=2  srun -n 2 ./dg_diffusion3d_test
 OMP_NUM_THREADS=4  srun -n 2 ./dg_diffusion3d_test

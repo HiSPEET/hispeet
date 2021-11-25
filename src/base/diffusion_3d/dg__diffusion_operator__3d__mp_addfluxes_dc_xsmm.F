@@ -43,7 +43,6 @@ contains
     real(RNP), dimension(0:eop%po, 0:eop%po)    :: Mf, Ds_t, Aq, Ju
     real(RNP), dimension(0:eop%po, 0:eop%po, 2) :: Ct, Ds_Ct
     real(RNP), dimension(0:eop%po, 0:eop%po, 6) :: Cn
-    real(RNP) :: alpha = 1, beta = 0
     real(RNP) :: mu_nu, tmp
     integer   :: e, i, j, k, m, n
     logical   :: present_f, struct
@@ -61,9 +60,9 @@ contains
       k = m
       select case(RNP)
       case(RSP)
-        call DispatchKernel_SDP(xmm, m, n, k, alpha = alpha, beta = beta)
+        call DispatchKernel_SDP(xmm, m, n, k, alpha = 1E0, beta = 0E0)
       case(RDP)
-        call DispatchKernel_RDP(xmm, m, n, k, alpha = alpha, beta = beta)
+        call DispatchKernel_RDP(xmm, m, n, k, alpha = 1D0, beta = 0D0)
       case default
         call Error( 'AddFluxes_XSMM'                                  &
                   , 'Precision not supported'                         &
