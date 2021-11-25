@@ -36,7 +36,7 @@ contains
 
   module subroutine SetDiffusivity_V(this, nu_p)
     class(DG_DiffusionOperator_3D), intent(inout) :: this
-    real(RNP), intent(in) :: nu_p(:,:,:,:)  !< physical diffusivity
+    real(RNP), contiguous, intent(in) :: nu_p(:,:,:,:)  !< physical diffusivity
 
     type(SpectralElementScalar_3D), allocatable, save :: se_nu
     real(RNP), allocatable, save :: tr_nu(:,:,:,:)

@@ -15,7 +15,7 @@
 ##SBATCH --cpu-freq=highm1                    # CPU frequency in kHz
 
 #SBATCH --partition=haswell                   # partition
-#SBATCH --mem=60000                           # memory per node in MB
+#SBATCH --mem=0                               # memory per node in MB (0 = all)
 
 #SBATCH --time=00-00:30:00                    # dd-hh:mm:ss
 ##SBATCH --exclusive                          # don't share nodes with others
@@ -37,11 +37,17 @@ fi
 # Execution
 
 export KMP_AFFINITY=compact,1,0
-#export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
-OMP_NUM_THREADS=1  srun ./dg_diffusion3d_test
-OMP_NUM_THREADS=2  srun ./dg_diffusion3d_test
-OMP_NUM_THREADS=4  srun ./dg_diffusion3d_test
-OMP_NUM_THREADS=8  srun ./dg_diffusion3d_test
-OMP_NUM_THREADS=12 srun ./dg_diffusion3d_test
+# 1 process using 1 cpu
+OMP_NUM_THREADS=1  srun -n 1 ./dg_diffusion3d_test
+OMP_NUM_THREADS=2  srun -n 1 ./dg_diffusion3d_test
+OMP_NUM_THREADS=4  srun -n 1 ./dg_diffusion3d_test
+OMP_NUM_THREADS=8  srun -n 1 ./dg_diffusion3d_test
+OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK srun -n 1 ./dg_diffusion3d_test
 
+# 2 processes, each using 1 cpu
+OMP_NUM_THREADS=1  srun -n 2 ./dg_diffusion3d_test
+OMP_NUM_THREADS=2  srun -n 2 ./dg_diffusion3d_test
+OMP_NUM_THREADS=4  srun -n 2 ./dg_diffusion3d_test
+OMP_NUM_THREADS=8  srun -n 2 ./dg_diffusion3d_test
+OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK srun -n 2 ./dg_diffusion3d_test
