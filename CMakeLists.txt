@@ -16,6 +16,10 @@
 #     -D OPT=⟨n⟩
 #         overrides preset optimization level to -On
 #
+#     -D REPORT=⟨0|1⟩
+#         0:  do not generate optimization report (default)
+#         1:  generate optimization report (only with Intel, so far)
+#
 #     -D SKIP_LIBXSMM=⟨0|1⟩
 #         0:  use LIBXSMM if available (default)
 #         1:  do not use LIBXSMM
@@ -126,6 +130,10 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     else (OPT)
         set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O3" )
     endif (OPT)
+
+    if (REPORT)
+        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -qopt-report=4")
+    endif (REPORT)
 
     if (CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -diag-disable=cpu-dispatch")

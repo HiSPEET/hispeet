@@ -39,9 +39,9 @@ submodule(DG__Diffusion_Operator__3D) MP_Apply
 
     module subroutine Apply_DC(this, u, v, f)
       class(DG_DiffusionOperator_3D), intent(in) :: this
-      real(RNP), intent(in)  :: u(:,:,:,:) !< operand
-      real(RNP), intent(out) :: v(:,:,:,:) !< result
-      real(RNP), intent(in), optional :: f(:,:,:,:) !< RHS
+      real(RNP), contiguous, intent(in)  :: u(:,:,:,:) !< operand
+      real(RNP), contiguous, intent(out) :: v(:,:,:,:) !< result
+      real(RNP), contiguous, intent(in), optional :: f(:,:,:,:) !< RHS
     end subroutine Apply_DC
 
   end interface
@@ -53,9 +53,9 @@ contains
 
   module subroutine Apply(this, u, v, f)
     class(DG_DiffusionOperator_3D), intent(in) :: this
-    real(RNP), intent(in)  :: u(:,:,:,:) !< operand
-    real(RNP), intent(out) :: v(:,:,:,:) !< result
-    real(RNP), intent(in), optional :: f(:,:,:,:) !< RHS
+    real(RNP), contiguous, intent(in)  :: u(:,:,:,:) !< operand
+    real(RNP), contiguous, intent(out) :: v(:,:,:,:) !< result
+    real(RNP), contiguous, intent(in), optional :: f(:,:,:,:) !< RHS
 
     if (this % sem % mesh % regular) then
       if (allocated(this % nu_pv)) then
@@ -131,6 +131,8 @@ contains
     character,      intent(in)    :: bc(:)          !< boundary conditions
     real(RNP),      intent(inout) :: tr_u (:,:,:,:) !< trace of u
     real(RNP),      intent(inout) :: tr_qn(:,:,:,:) !< trace of ν du/dn
+
+    contiguous :: tr_u, tr_qn
 
     integer :: b, e, f, l
 
