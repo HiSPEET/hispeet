@@ -19,9 +19,9 @@ submodule(DG__Diffusion_Operator__3D) MP_Apply
 
     module subroutine Apply_RC(this, u, v, f)
       class(DG_DiffusionOperator_3D), intent(in) :: this
-      real(RNP), intent(in)  :: u(:,:,:,:) !< operand
-      real(RNP), intent(out) :: v(:,:,:,:) !< result
-      real(RNP), intent(in), optional :: f(:,:,:,:) !< RHS
+      real(RNP), contiguous, intent(in)  :: u(:,:,:,:) !< operand
+      real(RNP), contiguous, intent(out) :: v(:,:,:,:) !< result
+      real(RNP), contiguous, intent(in), optional :: f(:,:,:,:) !< RHS
     end subroutine Apply_RC
 
     !---------------------------------------------------------------------------
@@ -29,9 +29,9 @@ submodule(DG__Diffusion_Operator__3D) MP_Apply
 
     module subroutine Apply_RV(this, u, v, f)
       class(DG_DiffusionOperator_3D), intent(in) :: this
-      real(RNP), intent(in)  :: u(:,:,:,:) !< operand
-      real(RNP), intent(out) :: v(:,:,:,:) !< result
-      real(RNP), intent(in), optional :: f(:,:,:,:) !< RHS
+      real(RNP), contiguous, intent(in)  :: u(:,:,:,:) !< operand
+      real(RNP), contiguous, intent(out) :: v(:,:,:,:) !< result
+      real(RNP), contiguous, intent(in), optional :: f(:,:,:,:) !< RHS
     end subroutine Apply_RV
 
     !---------------------------------------------------------------------------
@@ -127,12 +127,10 @@ contains
   !> where the contributions of u_b and q_b are assigned to the RHS.
 
   subroutine ApplyBoundaryConditions(mesh, bc, tr_u, tr_qn)
-    class(Mesh_3D), intent(in)    :: mesh           !< mesh partition
-    character,      intent(in)    :: bc(:)          !< boundary conditions
-    real(RNP),      intent(inout) :: tr_u (:,:,:,:) !< trace of u
-    real(RNP),      intent(inout) :: tr_qn(:,:,:,:) !< trace of ν du/dn
-
-    contiguous :: tr_u, tr_qn
+    class(Mesh_3D), intent(in) :: mesh   !< mesh partition
+    character,      intent(in) :: bc(:)  !< boundary conditions
+    real(RNP), contiguous, intent(inout) :: tr_u (:,:,:,:) !< trace of u
+    real(RNP), contiguous, intent(inout) :: tr_qn(:,:,:,:) !< trace of ν du/dn
 
     integer :: b, e, f, l
 

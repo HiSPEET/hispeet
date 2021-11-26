@@ -151,9 +151,9 @@ contains
   function New_V(sem, dg_opt, lambda, nu_p, bc) result(this)
     class(SpectralElementMesh_3D), target, intent(in) :: sem
     class(DG_ElementOptions_1D), intent(in) :: dg_opt
-    real(RNP), intent(in) :: lambda        !< Helmholtz parameter
-    real(RNP), intent(in) :: nu_p(:,:,:,:) !< variable physical diffusivity
-    character, intent(in) :: bc(:)         !< BC {'D','N','P'}
+    real(RNP),             intent(in) :: lambda        !< Helmholtz parameter
+    real(RNP), contiguous, intent(in) :: nu_p(:,:,:,:) !< variable physical ν
+    character,             intent(in) :: bc(:)         !< BC {'D','N','P'}
     type(DG_DiffusionOperator_3D) :: this
 
     call Init_V(this, sem, dg_opt, lambda, nu_p, bc)

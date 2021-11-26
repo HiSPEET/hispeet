@@ -47,7 +47,7 @@ submodule(DG__Diffusion_Operator__3D:MP_Apply) MP_Apply_DC
       real(RNP), contiguous, optional, intent(in)    :: f(0:,0:,0:,:)
     end subroutine AddFluxes_DC_XSMM
 
-  end interface !!
+  end interface
 
 contains
 
@@ -127,11 +127,11 @@ contains
                               , f     = f              &
                               , v     = v              )
 #else
-         call AddFluxes_DC_Gen ( mesh, eop, a, Ji_n, nu &
-                               , tr_u  = tr(:,:,:,:,1)  &
-                               , tr_qn = tr(:,:,:,:,2)  &
-                               , f     = f              &
-                               , v     = v              )
+       call AddFluxes_DC_Gen ( mesh, eop, a, Ji_n, nu &
+                             , tr_u  = tr(:,:,:,:,1)  &
+                             , tr_qn = tr(:,:,:,:,2)  &
+                             , f     = f              &
+                             , v     = v              )
 #endif
 
       end select

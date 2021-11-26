@@ -17,19 +17,17 @@ contains
 
     ! arguments ................................................................
 
-    class(Mesh_3D), intent(in) :: mesh !< mesh partition
-    class(DG_ElementOperators_1D), intent(in) :: eop !< ID-DG element operators
+    class(Mesh_3D),                intent(in) :: mesh !< mesh partition
+    class(DG_ElementOperators_1D), intent(in) :: eop  !< ID-DG element operators
 
-    real(RNP), intent(in)    :: a(0:,0:,:,:)      !< area coeff @ element faces
-    real(RNP), intent(in)    :: Ji_n(0:,0:,:,:,:) !< J⁻¹⋅n      @ element faces
-    real(RNP), intent(in)    :: nu                !< diffusivity
-    real(RNP), intent(in)    :: tr_u (0:,0:,:,:)  !< u nᵢ       @ element faces
-    real(RNP), intent(in)    :: tr_qn(0:,0:,:,:)  !< q_n        @ element faces
-    real(RNP), intent(inout) :: v(0:,0:,0:,:)     !< result
+    real(RNP), contiguous, intent(in) :: a(0:,0:,:,:)      !< area coeff @ element faces
+    real(RNP), contiguous, intent(in) :: Ji_n(0:,0:,:,:,:) !< J⁻¹⋅n      @ element faces
+    real(RNP),             intent(in) :: nu                !< diffusivity
+    real(RNP), contiguous, intent(in) :: tr_u (0:,0:,:,:)  !< u nᵢ       @ element faces
+    real(RNP), contiguous, intent(in) :: tr_qn(0:,0:,:,:)  !< q_n        @ element faces
+    real(RNP), contiguous, intent(inout) :: v(0:,0:,0:,:)  !< result
 
-    real(RNP), optional, intent(in) :: f(0:,0:,0:,:) !< RHS
-
-    contiguous :: a, Ji_n, tr_u, tr_qn, f, v
+    real(RNP), contiguous, optional, intent(in) :: f(0:,0:,0:,:) !< RHS
 
     ! local variables ..........................................................
 
@@ -119,7 +117,7 @@ contains
             do k = 0, P
             do i = 0, P
               tmp = Mf(i,k) * HALF * nu * a(i,k,m,e) * Ju(i,k)
-              Cn(j,k,m) = tmp * Ji_n(i,k,m,e,2)
+              Cn(i,k,m) = tmp * Ji_n(i,k,m,e,2)
               Ct(i,k,1) = tmp * Ji_n(i,k,m,e,1)
               Ct(k,i,2) = tmp * Ji_n(i,k,m,e,3)
             end do
@@ -157,7 +155,7 @@ contains
             do j = 0, P
             do i = 0, P
               tmp = Mf(i,j) * HALF * nu * a(i,j,m,e) * Ju(i,j)
-              Cn(j,k,m) = tmp * Ji_n(i,j,m,e,3)
+              Cn(i,j,m) = tmp * Ji_n(i,j,m,e,3)
               Ct(i,j,1) = tmp * Ji_n(i,j,m,e,1)
               Ct(j,i,2) = tmp * Ji_n(i,j,m,e,2)
             end do
