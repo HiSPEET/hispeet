@@ -29,6 +29,7 @@
           f2 = f1 + mesh % link(l) % n_face - 1
           call XMPI_Irecv( vb(:,:,:,f1:f2), mesh%link(l)%part, tag &
                          , mesh%comm , this%recv%request(l)        )
+          f1 = f2 + 1
         else
           this%recv%request(l) = MPI_REQUEST_NULL
         end if
