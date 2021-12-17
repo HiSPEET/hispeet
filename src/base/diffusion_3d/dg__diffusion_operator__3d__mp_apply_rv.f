@@ -3,6 +3,9 @@
 !> author:   Joerg Stiller
 !> date:     2021/08/09
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @todo
+!>   - speedup by restructuring similar to DC version
 !===============================================================================
 
 submodule(DG__Diffusion_Operator__3D:MP_Apply) MP_Apply_RV
@@ -17,9 +20,9 @@ contains
 
   module subroutine Apply_RV(this, u, v, f)
     class(DG_DiffusionOperator_3D), intent(in) :: this
-    real(RNP), intent(in)  :: u(:,:,:,:) !< operand
-    real(RNP), intent(out) :: v(:,:,:,:) !< result
-    real(RNP), intent(in), optional :: f(:,:,:,:) !< RHS
+    real(RNP), contiguous, intent(in)  :: u(:,:,:,:) !< operand
+    real(RNP), contiguous, intent(out) :: v(:,:,:,:) !< result
+    real(RNP), contiguous, intent(in), optional :: f(:,:,:,:) !< RHS
 
     ! local variables ..........................................................
 
@@ -91,15 +94,15 @@ contains
 
     ! arguments ................................................................
 
-    class(Mesh_3D), intent(in) :: mesh !< mesh partition
+    class(Mesh_3D),                intent(in) :: mesh !< mesh partition
     class(DG_ElementOperators_1D), intent(in) :: eop  !< ID-DG element operators
 
-    real(RNP), intent(in) :: nu(0:,0:,0:,:)   !< diffusivity
-    real(RNP), intent(in) :: nu_mf(0:,0:,:)   !< max diffusivity @ faces
-    real(RNP), intent(in) :: tr_u (0:,0:,:,:) !< u nᵢ @ element faces
-    real(RNP), intent(in) :: tr_qn(0:,0:,:,:) !< q_n  @ element faces
-    real(RNP), optional, intent(in) :: f(0:,0:,0:,:) !< RHS
-    real(RNP), intent(inout) :: v(0:,0:,0:,:) !< result
+    real(RNP), contiguous, intent(in) :: nu(0:,0:,0:,:)   !< diffusivity
+    real(RNP), contiguous, intent(in) :: nu_mf(0:,0:,:)   !< max diffusivity @ faces
+    real(RNP), contiguous, intent(in) :: tr_u (0:,0:,:,:) !< u nᵢ @ element faces
+    real(RNP), contiguous, intent(in) :: tr_qn(0:,0:,:,:) !< q_n  @ element faces
+    real(RNP), contiguous, optional, intent(in)    :: f(0:,0:,0:,:) !< RHS
+    real(RNP), contiguous,           intent(inout) :: v(0:,0:,0:,:) !< result
 
     ! local variables ..........................................................
 

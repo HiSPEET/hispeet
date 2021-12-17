@@ -22,3 +22,6 @@ configure_file( dg_diffusion3d_test.prm
 configure_file( dg_diffusion3d_test.slurm
                 dg_diffusion3d_test.slurm COPYONLY )
 
+configure_file( dg_diffusion3d_test.tmpl
+                dg_diffusion3d_test.tmpl COPYONLY )
+

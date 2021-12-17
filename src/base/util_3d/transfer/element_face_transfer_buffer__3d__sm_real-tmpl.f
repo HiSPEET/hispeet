@@ -29,6 +29,7 @@
           f2 = f1 + mesh % link(l) % n_face - 1
           call XMPI_Irecv( vb(:,:,:,f1:f2), mesh%link(l)%part, tag &
                          , mesh%comm , this%recv%request(l)        )
+          f1 = f2 + 1
         else
           this%recv%request(l) = MPI_REQUEST_NULL
         end if
@@ -41,40 +42,39 @@
     select type (vb => this % send % buf)
     type is (real(RK))
 
-      f1 = 1
+      if (this%nc == 1) then
 
+        !$omp do
+        do i = 1, this % nf
+          vb(:,:,1,i) = v(:,:, this%send%face(i), this%send%element(i), 1)
+        end do
+
+      else
+
+        !$omp do
+        do i = 1, this % nf
+          e = this % send % element(i)
+          f = this % send % face(i)
+          do c = 1, this % nc
+            vb(:,:,c,i) = v(:,:,f,e,c)
+          end do
+        end do
+
+      end if
+
+      !$omp master
+      f1 = 1
       do l = 1, size(mesh%link)
         if (mesh % link(l) % n_face > 0) then
           f2 = f1 + mesh % link(l) % n_face - 1
-
-          if (this%nc == 1) then
-            !$omp do
-            do i = f1, f2
-              vb(:,:,1,i) = v(:,:, this%send%face(i), this%send%element(i), 1)
-            end do
-          else
-            !$omp do
-            do i = f1, f2
-              e = this % send % element(i)
-              f = this % send % face(i)
-              do c = 1, this % nc
-                vb(:,:,c,i) = v(:,:,f,e,c)
-              end do
-            end do
-          end if
-
-          !$omp master
           call XMPI_Isend( vb(:,:,:,f1:f2), mesh%link(l)%part, tag &
                          , mesh%comm , this%send%request(l)        )
-          !$omp end master
           f1 = f2 + 1
-
         else
-          !$omp master
           this%send%request(l) = MPI_REQUEST_NULL
-          !$omp end master
         end if
       end do
+      !$omp end master
 
     end select
 
@@ -94,14 +94,13 @@
 
     ! internal data ............................................................
 
-    integer :: c, e, f, i, n
+    integer :: c, e, f, i, n_req
 
     ! wait for receive to complete .............................................
 
     !$omp master
-    n = size(this % recv % request)
-    call MPI_Waitall(n, this % recv % request, MPI_STATUSES_IGNORE)
-    call MPI_Waitall(n, this % send % request, MPI_STATUSES_IGNORE)
+    n_req = size(this % recv % request)
+    call MPI_Waitall(n_req, this % recv % request, MPI_STATUSES_IGNORE)
     !$omp end master
     !$omp barrier
 
@@ -129,5 +128,9 @@
       end if
 
     end select
+
+    !$omp master
+    call MPI_Waitall(n_req, this % send % request, MPI_STATUSES_IGNORE)
+    !$omp end master
 
   end subroutine Merge_RX

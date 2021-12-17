@@ -5,7 +5,7 @@
 !===============================================================================
 
 module DG__Diffusion_Operator__3D
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RNP, RDP, RSP
   use Constants      , only: ZERO, ONE, HALF
   use DG__Element_Operators__1D
   use Spectral_Element_Mesh__3D
@@ -63,7 +63,7 @@ contains
 
     module subroutine SetDiffusivity_V(this, nu_p)
       class(DG_DiffusionOperator_3D), intent(inout) :: this
-      real(RNP), intent(in) :: nu_p(:,:,:,:) !< physical diffusivity
+      real(RNP), contiguous, intent(in) :: nu_p(:,:,:,:) !< physical diffusivity
     end subroutine SetDiffusivity_V
 
     !---------------------------------------------------------------------------
@@ -71,9 +71,9 @@ contains
 
     module subroutine Apply(this, u, v, f)
       class(DG_DiffusionOperator_3D), intent(in) :: this
-      real(RNP), intent(in)  :: u(:,:,:,:) !< operand
-      real(RNP), intent(out) :: v(:,:,:,:) !< result
-      real(RNP), intent(in), optional :: f(:,:,:,:) !< RHS
+      real(RNP), contiguous, intent(in)  :: u(:,:,:,:) !< operand
+      real(RNP), contiguous, intent(out) :: v(:,:,:,:) !< result
+      real(RNP), contiguous, intent(in), optional :: f(:,:,:,:) !< RHS
     end subroutine Apply
 
     !---------------------------------------------------------------------------
@@ -86,7 +86,7 @@ contains
     module subroutine AddBC_RC(this, bv, f)
       class(DG_DiffusionOperator_3D), intent(in) :: this
       class(SpectralElementBoundaryVariable_3D), target, intent(in) :: bv(:)
-      real(RNP), intent(inout) :: f(:,:,:,:)
+      real(RNP), contiguous, intent(inout) :: f(:,:,:,:)
     end subroutine AddBC_RC
 
     !-----------------------------------------------------------------------------
@@ -95,7 +95,7 @@ contains
     module subroutine AddBC_RV(this, bv, f)
       class(DG_DiffusionOperator_3D), intent(in) :: this
       class(SpectralElementBoundaryVariable_3D), target, intent(in) :: bv(:)
-      real(RNP), intent(inout) :: f(:,:,:,:)
+      real(RNP), contiguous, intent(inout) :: f(:,:,:,:)
     end subroutine AddBC_RV
 
     !---------------------------------------------------------------------------
@@ -104,7 +104,7 @@ contains
     module subroutine AddBC_DC(this, bv, f)
       class(DG_DiffusionOperator_3D), intent(in) :: this
       class(SpectralElementBoundaryVariable_3D), target, intent(in) :: bv(:)
-      real(RNP), intent(inout) :: f(:,:,:,:)
+      real(RNP), contiguous, intent(inout) :: f(:,:,:,:)
     end subroutine AddBC_DC
 
   end interface
@@ -151,9 +151,9 @@ contains
   function New_V(sem, dg_opt, lambda, nu_p, bc) result(this)
     class(SpectralElementMesh_3D), target, intent(in) :: sem
     class(DG_ElementOptions_1D), intent(in) :: dg_opt
-    real(RNP), intent(in) :: lambda        !< Helmholtz parameter
-    real(RNP), intent(in) :: nu_p(:,:,:,:) !< variable physical diffusivity
-    character, intent(in) :: bc(:)         !< BC {'D','N','P'}
+    real(RNP),             intent(in) :: lambda        !< Helmholtz parameter
+    real(RNP), contiguous, intent(in) :: nu_p(:,:,:,:) !< variable physical ν
+    character,             intent(in) :: bc(:)         !< BC {'D','N','P'}
     type(DG_DiffusionOperator_3D) :: this
 
     call Init_V(this, sem, dg_opt, lambda, nu_p, bc)
@@ -229,7 +229,7 @@ contains
   subroutine AddBC(this, bv, f)
     class(DG_DiffusionOperator_3D), intent(in) :: this
     class(SpectralElementBoundaryVariable_3D), target, intent(in) :: bv(:)
-    real(RNP), intent(inout) :: f(:,:,:,:)
+    real(RNP), contiguous, intent(inout) :: f(:,:,:,:)
 
     if (this % sem % mesh % regular) then
       if (allocated(this % nu_pv)) then
