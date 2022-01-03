@@ -61,6 +61,7 @@ include(cmake/tpo__rot__3d.cmake)
 include(cmake/tpo__rotrot__3d.cmake)
 include(cmake/tpo__schwarz__3d.cmake)
 include(cmake/tpo__spectral__3d.cmake)
+include(cmake/tpo__stress__3d.cmake)
 
 # activate extra compile flags
 if (DEFINED Fortran_FLAGS_TPO)
