@@ -272,7 +272,7 @@ pure subroutine LU_Solver1(C, p, B)
   do i = n, 1, -1
      X(i) = (X(i) - dot_product(C(i,i+1:n), X(i+1:n)))/C(i,i)
   end do
-  B = X
+  B = real(X, kind=RNP)
 
 end subroutine LU_Solver1
 

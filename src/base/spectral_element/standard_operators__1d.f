@@ -30,7 +30,7 @@ module Standard_Operators__1D
     private
 
     ! public components
-    character(len=3)      , public :: basis   !< basis type
+    character             , public :: basis   !< basis type
     integer               , public :: po = -1 !< polynomial order
     real(RNP), allocatable, public :: x(:)    !< collocation points
     real(RNP), allocatable, public :: w(:)    !< quadrature weights
@@ -317,8 +317,8 @@ contains
   !> Initializes SVV operators
 
   subroutine Init_SVV(this, po_cut)
-    class(StandardOperators_1D), intent(inout) :: this   !< standard operators
-    integer,                    intent(in)    :: po_cut !< cut-off polynomial degree
+    class(StandardOperators_1D), intent(inout) :: this !< standard operators
+    integer, intent(in) :: po_cut !< cut-off polynomial degree
 
     real(RNP), allocatable :: Q_hat(:,:) ! SVV filter coefficients
 
