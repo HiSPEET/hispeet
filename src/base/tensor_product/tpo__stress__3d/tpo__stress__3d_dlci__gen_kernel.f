@@ -4,8 +4,8 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-subroutine TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, eta, chi, v, &
-                                   fv, v_b, tau_b                  )
+subroutine TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, eta, zeta, v, &
+                                   fv, v_b, tau_b                   )
 
   real(RWP), contiguous, intent(in) :: Ms(:)
   !< 1D diagonal standard mass matrix (np)
@@ -25,8 +25,8 @@ subroutine TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, eta, chi, v, &
   real(RWP), intent(in)  :: eta
   !< shear viscosity or modulus η
 
-  real(RWP), intent(in)  :: chi
-  !< normalized first Lamé parameter, χ = λ/η; Stokes hypothesis: χ = -2/3
+  real(RWP), intent(in)  :: zeta
+  !< bulk viscosity or modulus ζ
 
   real(RWP), contiguous, intent(in)  :: v(:,:,:,:,:)
   !< velocity or displacement (np,np,np,ne,3)
@@ -40,7 +40,7 @@ subroutine TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, eta, chi, v, &
   real(RWP), contiguous, intent(out) :: tau_b(:,:,:,:,:)
   !< stress normal to element boundary fluxes, tau_b = n⁻⋅τ⁻ (np,np,6,ne,3)
 
-  !---------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! local variables
 
   ! linear index of deformation tensor
@@ -48,23 +48,26 @@ subroutine TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, eta, chi, v, &
                                             2, 4, 5,         &
                                             3, 5, 6 ], [3,3] )
 
-  real(RWP), parameter :: HALF = 0.5_RWP
+  real(RWP), parameter :: HALF      = 0.5_RWP
+  real(RWP), parameter :: TWO_THIRD = 2.0_RWP / 3.0_RWP
 
   real(RWP), dimension(size(Ms), size(Ms), size(Ms))    :: M
   real(RWP), dimension(size(Ms), size(Ms), size(Ms), 3) :: w, z
   real(RWP), dimension(size(Ms), size(Ms), size(Ms), 6) :: tau
 
-  real(RWP) :: dv(3), def_v(6), chi_div_v
+  real(RWP) :: chi, chi_div_v, dv(3), def_v(6)
   real(RWP) :: tmp
   integer   :: np, ne
   integer   :: c, e, f, i, j, k, p
   integer   :: l1c, l2c, l3c, lc1, lc2, lc3
 
-  !---------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! initialization
 
   np = size(Ms)
   ne = size(v,4)
+
+  chi = zeta - TWO_THIRD * eta
 
   !-----------------------------------------------------------------------------
   ! evaluation
@@ -180,12 +183,12 @@ subroutine TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, eta, chi, v, &
 
       chi_div_v = chi * HALF * (def_v(1) + def_v(4) + def_v(6)) !  χ ∇⋅v
 
-      tau(i,j,k,1) = eta * (def_v(1) + chi_div_v) !  τ₁₁
-      tau(i,j,k,2) = eta *  def_v(2)              !  τ₁₂ = τ₂₁
-      tau(i,j,k,3) = eta *  def_v(3)              !  τ₁₃ = τ₃₁
-      tau(i,j,k,4) = eta * (def_v(4) + chi_div_v) !  τ₂₂
-      tau(i,j,k,5) = eta *  def_v(5)              !  τ₂₃ = τ₃₂
-      tau(i,j,k,6) = eta * (def_v(6) + chi_div_v) !  τ₃₃
+      tau(i,j,k,1) = eta * def_v(1) + chi_div_v  ! τ₁₁
+      tau(i,j,k,2) = eta * def_v(2)              ! τ₁₂ = τ₂₁
+      tau(i,j,k,3) = eta * def_v(3)              ! τ₁₃ = τ₃₁
+      tau(i,j,k,4) = eta * def_v(4) + chi_div_v  ! τ₂₂
+      tau(i,j,k,5) = eta * def_v(5)              ! τ₂₃ = τ₃₂
+      tau(i,j,k,6) = eta * def_v(6) + chi_div_v  ! τ₃₃
 
     end do
     end do

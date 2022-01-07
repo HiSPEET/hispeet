@@ -23,7 +23,7 @@ contains
   !-----------------------------------------------------------------------------
   !> 3D element stress operator
 
-  subroutine TPO_Stress_DLCI_RDP(Ms, Ds, Jd, Ji, n, eta, chi, v, fv, v_b, tau_b)
+  subroutine TPO_Stress_DLCI_RDP(Ms, Ds, Jd, Ji, n, eta, zeta, v, fv, v_b, tau_b)
 
     real(RDP), contiguous, intent(in) :: Ms(:)
     !< 1D diagonal standard mass matrix (np)
@@ -43,8 +43,8 @@ contains
     real(RDP), intent(in)  :: eta
     !< shear viscosity or modulus η
 
-    real(RDP), intent(in)  :: chi
-    !< normalized first Lamé parameter, χ = λ/η; Stokes hypothesis: χ = -2/3
+    real(RDP), intent(in)  :: zeta
+    !< bulk viscosity or modulus ζ
 
     real(RDP), contiguous, intent(in)  :: v(:,:,:,:,:)
     !< velocity or displacement (np,np,np,ne,3)
@@ -59,7 +59,7 @@ contains
     !< stress normal to element boundary fluxes, tau_b = n⁻⋅τ⁻
 
     ! workaround
-    call TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, eta, chi, v, &
+    call TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, eta, zeta, v, &
                                  fv, v_b, tau_b)
 
   end subroutine TPO_Stress_DLCI_RDP
