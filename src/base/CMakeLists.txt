@@ -134,6 +134,7 @@ set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/transfer/trace_transfer_buffer__3d.f
              util_3d/ops/assembly__3d.f
              util_3d/ops/assembly__3d__sm_0u.f
+             util_3d/ops/convert_traces__3d.f
              util_3d/verification/verify_mesh__3d.f
              )
 
