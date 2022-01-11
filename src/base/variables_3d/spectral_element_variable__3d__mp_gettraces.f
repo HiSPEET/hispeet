@@ -27,7 +27,7 @@ contains
 
   module subroutine GetTraces(this, tr_val, align)
     class(SpectralElementVariable_3D), intent(in) :: this
-    real(RNP), intent(inout) :: tr_val(:,:,:,:,:) !< trace of val
+    real(RNP), contiguous, intent(inout) :: tr_val(:,:,:,:,:) !< trace of val
     logical, optional, intent(in) :: align !< align traces with mesh face [F]
 
     type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: tr_buf
@@ -94,7 +94,7 @@ contains
 
     end associate
 
-  end subroutine GetTraces
+   end subroutine GetTraces
 
   !=============================================================================
 
