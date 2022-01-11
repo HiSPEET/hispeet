@@ -57,7 +57,7 @@ module Spectral_Element_Variable__3D
 
     module subroutine GetTraces(this, tr_val, align)
       class(SpectralElementVariable_3D), intent(in) :: this
-      real(RNP), intent(inout) :: tr_val(:,:,:,:,:) !< trace of val
+      real(RNP), contiguous, intent(inout) :: tr_val(:,:,:,:,:) !< trace of val
       logical, optional, intent(in) :: align !< align traces with mesh face [F]
     end subroutine GetTraces
 
