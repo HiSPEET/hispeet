@@ -238,7 +238,7 @@ contains
     integer(C_INT), intent(in), optional, target :: flags
     integer(C_INT), intent(in), optional, target :: prefetch
 
-    call LIBXSMM_XMMDispatch( kernel, LIBXSMM_GEMM_PRECISION_F64 &
+    call LIBXSMM_XMMDispatch( kernel, LIBXSMM_DATATYPE_F32       &
                             , m, n, k                            &
                             , c_loc(lda), c_loc(ldb), c_loc(ldc) &
                             , c_loc(alpha), c_loc(beta)          &
@@ -259,7 +259,7 @@ contains
     integer(C_INT), intent(in), optional, target :: flags
     integer(C_INT), intent(in), optional, target :: prefetch
 
-    call LIBXSMM_XMMDispatch( kernel, LIBXSMM_GEMM_PRECISION_F64 &
+    call LIBXSMM_XMMDispatch( kernel, LIBXSMM_DATATYPE_F64       &
                             , m, n, k                            &
                             , c_loc(lda), c_loc(ldb), c_loc(ldc) &
                             , c_loc(alpha), c_loc(beta)          &

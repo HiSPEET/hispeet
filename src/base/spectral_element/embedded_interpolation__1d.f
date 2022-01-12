@@ -34,79 +34,80 @@ module Embedded_Interpolation__1D
 
 contains
 
-!===============================================================================
-! Constructors
+  !=============================================================================
+  ! Constructors
 
-!-------------------------------------------------------------------------------
-!> New EmbeddedInterpolation_1D from 1D standard operators and interpolation points
+  !-----------------------------------------------------------------------------
+  !> New EmbeddedInterpolation_1D from 1D standard operators and interpolation
+  !> points
 
-type(EmbeddedInterpolation_1D) function New_SX(eop, xi) result(this)
-  class(StandardOperators_1D), intent(in) :: eop    !< standard operators
-  real(RNP),                  intent(in) :: xi(0:) !< points in [-1,1]
+  type(EmbeddedInterpolation_1D) function New_SX(eop, xi) result(this)
+    class(StandardOperators_1D), intent(in) :: eop    !< standard operators
+    real(RNP),                   intent(in) :: xi(0:) !< points in [-1,1]
 
-  call Init_SX(this, eop, xi)
+    call Init_SX(this, eop, xi)
 
-end function New_SX
+  end function New_SX
 
-!===============================================================================
-! Type-bound procedures
+  !=============================================================================
+  ! Type-bound procedures
 
-!-------------------------------------------------------------------------------
-!> Initialization for given 1D standard operators and interpolation points
+  !-----------------------------------------------------------------------------
+  !> Initialization for given 1D standard operators and interpolation points
 
-subroutine Init_SX(this, eop, xi)
-  class(EmbeddedInterpolation_1D), intent(inout) :: this
-  class(StandardOperators_1D),   intent(in)    :: eop    !< standard operators
-  real(RNP),                    intent(in)    :: xi(0:) !< points in [-1,1]
+  subroutine Init_SX(this, eop, xi)
+    class(EmbeddedInterpolation_1D), intent(inout) :: this
+    class(StandardOperators_1D), intent(in) :: eop    !< standard operators
+    real(RNP),                   intent(in) :: xi(0:) !< points in [-1,1]
 
-  integer :: j, k, pi
+    integer :: j, k, pi
 
-  if (this % no > 0) call Delete_InterpolationOperator(this)
+    if (this % no > 0) call Delete_InterpolationOperator(this)
 
-  associate(po => eop%po, xo => eop%x)
+    associate(po => eop%po, xo => eop%x)
 
-    pi = ubound(xi,1)
+      pi = ubound(xi,1)
 
-    this % no = size(xo)
-    this % ni = size(xi)
+      this % no = size(xo)
+      this % ni = size(xi)
 
-    allocate(this % A(0:pi,0:po))
+      allocate(this % A(0:pi,0:po))
 
-    select case(eop % basis)
-    case('GL ') ! Gauss-Legendre
-      do k = 0, po
-      do j = 0, pi
-        this % A(j,k) = GaussPolynomial(k, xo, xi(j))
-      end do
-      end do
-    case('GRL') ! Gauss-Radau-Legendre
-      do k = 0, po
-      do j = 0, pi
-        this % A(j,k) = RadauPolynomial(k, xo, xi(j))
-      end do
-      end do
-    case default
-      do k = 0, po
-      do j = 0, pi
-        this % A(j,k) = LobattoPolynomial(k, xo, xi(j))
-      end do
-      end do
-    end select
+      select case(eop % basis)
+      case('G') ! Gauss
+        do k = 0, po
+        do j = 0, pi
+          this % A(j,k) = GaussPolynomial(k, xo, xi(j))
+        end do
+        end do
+      case('R') ! Radau
+        do k = 0, po
+        do j = 0, pi
+          this % A(j,k) = RadauPolynomial(k, xo, xi(j))
+        end do
+        end do
+      case default ! Lobatto
+        do k = 0, po
+        do j = 0, pi
+          this % A(j,k) = LobattoPolynomial(k, xo, xi(j))
+        end do
+        end do
+      end select
 
-  end associate
+    end associate
 
-end subroutine Init_SX
+  end subroutine Init_SX
 
-!-------------------------------------------------------------------------------
-!> Delete EmbeddedInterpolation_1D object
+  !-----------------------------------------------------------------------------
+  !> Delete EmbeddedInterpolation_1D object
 
-subroutine Delete_InterpolationOperator(this)
-  class(EmbeddedInterpolation_1D), intent(inout) :: this
+  subroutine Delete_InterpolationOperator(this)
+    class(EmbeddedInterpolation_1D), intent(inout) :: this
 
-  if (allocated(this % A)) deallocate(this % A)
+    if (allocated(this % A)) deallocate(this % A)
 
-end subroutine Delete_InterpolationOperator
+  end subroutine Delete_InterpolationOperator
 
-!===============================================================================
+  !=============================================================================
 
 end module Embedded_Interpolation__1D
