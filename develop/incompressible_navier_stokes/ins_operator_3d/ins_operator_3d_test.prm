@@ -1,0 +1,38 @@
+&control_prm
+  flow_problem =  'Vortex_TG'
+  problem_file =  'vortex_tg'
+  comp_domain  =  1
+!
+  ins_options%chi      = -2
+  ins_options%opt_v%po =  8 
+  ins_options%opt_p%po =  7 
+  ins_options%opt_q%po =  12 
+!
+  export_vtk = T
+/
+
+&cuboid_cartesian_prm
+  regular    = F ! mimic irregular mesh (elements deformed or of different size)
+  structured = F ! mimic unstructured mesh
+  xo = 3*-0.5
+  lx = 3*1
+  np = 1,1,1
+  ep = 2,2,2
+! pg = 1
+! periodic = 3*F
+/
+
+&cuboid_diamonds_prm
+! pg = 1
+! periodic = F
+/
+
+&cylinder_prm
+! pg = 3
+! periodic = F
+/
+
+&annulus_prm
+! pg = 3
+! periodic = F
+/
