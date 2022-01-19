@@ -44,7 +44,8 @@ module INS__Operator__3D
 
   contains
 
-    procedure :: Init_INS_Operator_3D
+    generic :: Init => Init_INS_Operator_3D
+    procedure, private :: Init_INS_Operator_3D
 
   end type INS_Operator_3D
 
@@ -74,7 +75,7 @@ contains
   !> Constructor of INS_Operator_3D
 
   type(INS_Operator_3D) function New_INS_Operator_3D(opt, mesh) result(this)
-    class(INS_Options_3D), intent(in) :: opt !< options
+    type(INS_Options_3D), intent(in) :: opt !< options
     type(Mesh_3D), intent(in) :: mesh !< local mesh partition, will be copied
 
     call Init_INS_Operator_3D(this, opt, mesh)
@@ -86,7 +87,7 @@ contains
 
   subroutine Init_INS_Operator_3D(this, opt, mesh)
     class(INS_Operator_3D) , intent(inout) :: this !< new Navier-Stokes operator
-    class(INS_Options_3D)  , intent(in)    :: opt  !< options
+    type(INS_Options_3D)   , intent(in)    :: opt  !< options
     type(Mesh_3D), optional, intent(in)    :: mesh !< local mesh partition
 
     this % chi = opt % chi
@@ -107,11 +108,13 @@ contains
                  'INS__Operator__3D')
     end if
 
-    this % sem_v = SpectralElementMesh_3D(mesh, this%eop_v%po)
-    this % sem_p = SpectralElementMesh_3D(mesh, this%eop_p%po)
+    this % sem_v = SpectralElementMesh_3D(this % mesh, this % eop_v % po)
+    this % sem_p = SpectralElementMesh_3D(this % mesh, this % eop_p % po)
 
     if (this%sop_q%po /= this%eop_v%po .or. this%sop_q%basis /= 'L' ) then
-      this%sem_q = SpectralElementMesh_3D(mesh, this%sop_q%po, this%sop_q%basis)
+      this%sem_q = SpectralElementMesh_3D( this % mesh          &
+                                         , this % sop_q % po    &
+                                         , this % sop_q % basis )
     end if
 
   end subroutine Init_INS_Operator_3D
