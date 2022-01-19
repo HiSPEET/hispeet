@@ -53,6 +53,7 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v, &
   !$omp do private(e)
   do e = 1, ne
 
+! put at the end and make optional
     ! v = λ M Jd u .............................................................
 
     do k = 1, np
