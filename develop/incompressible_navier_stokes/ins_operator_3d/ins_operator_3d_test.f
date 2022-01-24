@@ -26,6 +26,8 @@ program INS_Operator_3D_Test
   use Export_VTK_Volume_Data__3D
   use DG__Diffusion_Operator__3D
 
+  use TPO__INS_Convection__3D_D__Gen
+
   use INS__Problem__3D
   use INS__Problem__3D__Vortex_TG
   use INS__Problem__3D__Variable_Viscosity
@@ -254,7 +256,7 @@ program INS_Operator_3D_Test
   allocate(w  (0:po,0:po,0:po,1:n_elem,1:4) )
 
   allocate(um (0:po,0:po,1:6,1:n_elem+n_ghost,1:4), source = ZERO )
-  allocate(up (0:po,0:po,0:6,1:n_elem        ,1:4), source = ZERO )
+  allocate(up (0:po,0:po,1:6,1:n_elem        ,1:4), source = ZERO )
 
   call ins_op % sem_v % Get_DG_DiagonalMassMatrix(mm)
 
@@ -287,6 +289,28 @@ program INS_Operator_3D_Test
   end associate
 
   ! convection term: F_c = -∇·vv ...............................................
+
+  associate(metrics => ins_op % sem_q % metrics)
+
+    call TPO_INS_Convection_D_Gen( nv   = ins_op % eop_v % po + 1  &
+                                 , nq   = ins_op % sop_q % po + 1  &
+                                 , ne   = n_elem                   &
+                                 , D_v  = ins_op % eop_v  % D      &
+                                 , I_vq = ins_op % iop_vq % A      &
+                                 , w_q  = ins_op % sop_q  % w      &
+                                 , Jd_q = metrics % Jd             &
+                                 , Ji_q = metrics % Ji             &
+                                 , a_q  = metrics % a              &
+                                 , n_q  = metrics % n              &
+                                 , v    = v                        &
+                                 , vp   = up(:,:,:,:,1:3)          &
+                                 , F_c  = w (:,:,:,:,1:3)          )
+  end associate
+
+
+  do i = 1,3
+    F_ch(:,:,:,:,i) = w(:,:,:,:,i) / mm
+  end do
 
   ! pressure term: F_p = -∇p ...................................................
 

@@ -133,7 +133,7 @@ contains
     ! parameters ...............................................................
 
     ! default BC (pressure is ignored)
-    allocate(bc_v(problem % nc), source = 'D')
+    allocate(bc_v(nb), source = 'D')
 
     if (rank == 0) then
 

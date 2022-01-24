@@ -63,7 +63,7 @@ contains
             do c = 1, nc
               tr_val(:,:,1,e,c) = val(o,:,:,e,c)
               tr_val(:,:,2,e,c) = val(p,:,:,e,c)
-              tr_val(:,:,3,e,c) = val(:,p,:,e,c)
+              tr_val(:,:,3,e,c) = val(:,o,:,e,c)
               tr_val(:,:,4,e,c) = val(:,p,:,e,c)
               tr_val(:,:,5,e,c) = val(:,:,o,e,c)
               tr_val(:,:,6,e,c) = val(:,:,p,e,c)
@@ -72,7 +72,7 @@ contains
             do c = 1, nc
               call face(1) % AlignWithMesh(val(o,:,:,e,c), tr_val(:,:,1,e,c))
               call face(2) % AlignWithMesh(val(p,:,:,e,c), tr_val(:,:,2,e,c))
-              call face(3) % AlignWithMesh(val(:,p,:,e,c), tr_val(:,:,3,e,c))
+              call face(3) % AlignWithMesh(val(:,o,:,e,c), tr_val(:,:,3,e,c))
               call face(4) % AlignWithMesh(val(:,p,:,e,c), tr_val(:,:,4,e,c))
               call face(5) % AlignWithMesh(val(:,:,o,e,c), tr_val(:,:,5,e,c))
               call face(6) % AlignWithMesh(val(:,:,p,e,c), tr_val(:,:,6,e,c))

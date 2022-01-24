@@ -1,12 +1,15 @@
 &control_prm
-  flow_problem =  'Vortex_TG'
-  problem_file =  'vortex_tg'
-  comp_domain  =  1
+! flow_problem =  'Vortex_TG'
+! problem_file =  'vortex_tg'
+  flow_problem =  'VariableViscosity'
+  problem_file =  'variable_viscosity'
+  comp_domain  =  3
 !
   ins_options%chi      = -2
-  ins_options%opt_v%po =  8 
-  ins_options%opt_p%po =  7 
-  ins_options%opt_q%po =  12 
+  ins_options%opt_v%po =  7 
+  ins_options%opt_p%po =  3 
+  ins_options%opt_q%po = 11
+  ins_options%opt_q%basis = 'L'
 !
   export_vtk = T
 /
@@ -17,7 +20,7 @@
   xo = 3*-0.5
   lx = 3*1
   np = 1,1,1
-  ep = 2,2,2
+  ep = 3*2
 ! pg = 1
 ! periodic = 3*F
 /
@@ -28,7 +31,9 @@
 /
 
 &cylinder_prm
-! pg = 3
+  r  = 0.5
+  h  = 1.0 
+  pg = 15
 ! periodic = F
 /
 

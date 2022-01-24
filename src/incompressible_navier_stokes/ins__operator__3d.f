@@ -108,14 +108,11 @@ contains
                  'INS__Operator__3D')
     end if
 
-    this % sem_v = SpectralElementMesh_3D(this % mesh, this % eop_v % po)
-    this % sem_p = SpectralElementMesh_3D(this % mesh, this % eop_p % po)
-
-    if (this%sop_q%po /= this%eop_v%po .or. this%sop_q%basis /= 'L' ) then
-      this%sem_q = SpectralElementMesh_3D( this % mesh          &
+    this % sem_v = SpectralElementMesh_3D( this % mesh, this % eop_v % po )
+    this % sem_p = SpectralElementMesh_3D( this % mesh, this % eop_p % po )
+    this % sem_q = SpectralElementMesh_3D( this % mesh          &
                                          , this % sop_q % po    &
                                          , this % sop_q % basis )
-    end if
 
   end subroutine Init_INS_Operator_3D
 
