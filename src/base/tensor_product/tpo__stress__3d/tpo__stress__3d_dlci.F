@@ -23,7 +23,7 @@ contains
   !-----------------------------------------------------------------------------
   !> 3D element stress operator
 
-  subroutine TPO_Stress_DLCI_RDP(Ms, Ds, Jd, Ji, n, eta, zeta, v, fv, v_b, tau_b)
+  subroutine TPO_Stress_DLCI_RDP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
 
     real(RDP), contiguous, intent(in) :: Ms(:)
     !< 1D diagonal standard mass matrix (np)
@@ -40,11 +40,11 @@ contains
     real(RDP), contiguous, intent(in)  :: n(:,:,:,:,:)
     !< unit normal vector at element boundary faces (np,np,6,ne,3)
 
-    real(RDP), intent(in)  :: eta
-    !< shear viscosity or modulus η
-
     real(RDP), intent(in)  :: zeta
     !< bulk viscosity or modulus ζ
+
+    real(RDP), intent(in)  :: eta
+    !< shear viscosity or modulus η
 
     real(RDP), contiguous, intent(in)  :: v(:,:,:,:,:)
     !< velocity or displacement (np,np,np,ne,3)
@@ -52,15 +52,14 @@ contains
     real(RDP), contiguous, intent(out) :: fv(:,:,:,:,:)
     !< element volume contribution to stress operator (np,np,np,ne,3)
 
-    real(RDP), contiguous, intent(out) :: v_b(:,:,:,:)
-    !< element boundary values of velocity or displacement (np,np,6,ne,3)
+    real(RDP), contiguous, optional, intent(out) :: vb(:,:,:,:,:)
+    !< element boundary values of velocity or displacement (np,np,6,ne+ng,3),
 
-    real(RDP), contiguous, intent(out) :: tau_b(:,:,:,:)
-    !< stress normal to element boundary fluxes, tau_b = n⁻⋅τ⁻
+    real(RDP), contiguous, optional, intent(out) :: sb(:,:,:,:,:)
+    !< stress normal to element boundary fluxes, sb = n⁻⋅τ⁻ (np,np,6,ne+ng,3)
 
     ! workaround
-    call TPO_Stress_DLCI_Gen_RWP(Ms, Ds, Jd, Ji, n, eta, zeta, v, &
-                                 fv, v_b, tau_b)
+    call TPO_Stress_DLCI_Gen(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
 
   end subroutine TPO_Stress_DLCI_RDP
 

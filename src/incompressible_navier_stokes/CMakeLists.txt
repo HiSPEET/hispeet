@@ -3,6 +3,7 @@
 
 add_library(HiIncompressibleNS 
             ins__operator__3d.f
+            ins__operator__3d__mp_getdiffusionterm_dc.f
             ins__problem__3d.f
             ins__problem__3d__vortex_tg.f
             ins__problem__3d__variable_viscosity.f

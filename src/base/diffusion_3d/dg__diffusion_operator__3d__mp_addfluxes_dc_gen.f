@@ -68,9 +68,7 @@ contains
 
             ! Ju = n·[u], Aq = n·{ν∇u}
             call GetElementBoundaryFluxes(element,struct,e,m,tr_u,tr_qn,Ju,Aq)
-
             mu_nu = eop % PenaltyFactor(mesh % dx_mean(m,e)) * nu
-
             i = (m-1) * P
 
             ! normal and tangential contributions of jumps

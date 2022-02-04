@@ -1,0 +1,45 @@
+&control_prm
+! flow_problem =  'Vortex_TG'
+! problem_file =  'vortex_tg'
+  flow_problem =  'VariableViscosity'
+  problem_file =  'variable_viscosity'
+  comp_domain  =  3
+!
+! ins_options%mu = -2
+  ins_options%opt_v%StandardOperatorOptions_1D%po =  7 ! %StandardOperatorOptions_1D
+  ins_options%opt_p%StandardOperatorOptions_1D%po =  3 ! because of ifort bug
+  ins_options%opt_q%po = 11
+  ins_options%opt_q%basis = 'L'
+!
+  export_vtk = T
+/
+
+&cuboid_cartesian_prm
+  regular    = F ! mimic irregular mesh (elements deformed or of different size)
+  structured = F ! mimic unstructured mesh
+  xo = 3*-0.5
+  lx = 3*1
+  np = 1,1,1
+  ep = 3*2
+! pg = 1
+! periodic = 3*F
+/
+
+&cuboid_diamonds_prm
+! pg = 1
+! periodic = F
+/
+
+&cylinder_prm
+  r  = 0.5
+  h  = 1.0 
+  nr = 2
+  nz = 2 
+  pg = 15
+! periodic = F
+/
+
+&annulus_prm
+! pg = 3
+! periodic = F
+/

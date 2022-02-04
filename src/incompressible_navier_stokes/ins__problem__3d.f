@@ -55,7 +55,7 @@ module INS__Problem__3D
 
     procedure :: GetExactSolution
     procedure :: GetExactTimeDerivative
-    procedure :: GetExactConvectionTerm
+    procedure :: GetExactConvectiveTerm
     procedure :: GetExactPressureTerm
     procedure :: GetExactDiffusiveTerm
 
@@ -241,7 +241,7 @@ contains
   !---------------------------------------------------------------------------
   !> Dummy procedure for exact convection term, F_c = -[∇⋅vv,0]
 
-  subroutine GetExactConvectionTerm(problem, x, t, F_c)
+  subroutine GetExactConvectiveTerm(problem, x, t, F_c)
     class(INS_Problem_3D), intent(in) :: problem
     real(RNP), intent(in)  :: x(:,:,:,:,:)   !< mesh points
     real(RNP), intent(in)  :: t              !< time
@@ -249,7 +249,7 @@ contains
 
     call SetArray(F_c, ZERO, multi=.true.)
 
-  end subroutine GetExactConvectionTerm
+  end subroutine GetExactConvectiveTerm
 
   !---------------------------------------------------------------------------
   !> Dummy procedure for exact pressure term, F_p = [-∇p,0]

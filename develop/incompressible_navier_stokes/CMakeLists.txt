@@ -1,0 +1,1 @@
+add_subdirectory(ins_operator_3d)

@@ -6,6 +6,7 @@
 
 module INS__Operator__3D
   use Kind_Parameters
+  use Constants
   use Execution_Control
   use XMPI
 
@@ -27,7 +28,7 @@ module INS__Operator__3D
 
   type INS_Operator_3D
 
-    real(RNP) :: chi !< non-dimensional first Lamé coefficient
+    real(RNP) :: mu !< bulk viscosity, μ = ζ/ρ
 
     type(DG_ElementOperators_1D) :: eop_v !< DG operators for v
     type(DG_ElementOperators_1D) :: eop_p !< DG operators for p
@@ -44,7 +45,11 @@ module INS__Operator__3D
 
   contains
 
-    procedure :: Init_INS_Operator_3D
+    generic :: Init => Init_INS_Operator_3D
+    procedure, private :: Init_INS_Operator_3D
+
+    generic :: GetDiffusionTerm => GetDiffusionTerm_C
+    procedure, private :: GetDiffusionTerm_C
 
   end type INS_Operator_3D
 
@@ -57,13 +62,33 @@ module INS__Operator__3D
   !> Options for INS_Operator_3D initialization
 
   type INS_Options_3D
-    real(RNP) :: chi = -2 !< non-dimensional first Lamé coefficient
+    real(RNP) :: mu = -2 !< bulk viscosity, μ = ζ/ρ
     type(DG_ElementOptions_1D) :: opt_v !< DG operator options for v
     type(DG_ElementOptions_1D) :: opt_p !< DG operator options for p
     type(StandardOperatorOptions_1D) :: opt_q !< quadrature opts for convection
   contains
     procedure :: Bcast => Bcast_INS_Options_3D
   end type INS_Options_3D
+
+  !=============================================================================
+  ! Module procedures
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Diffusion term with constant viscosity on irregular (deformed) mesh
+
+    module subroutine GetDiffusionTerm_DC(this, bc, nu, v, vp, sp, F_d)
+      class(INS_Operator_3D), intent(in)    :: this
+      character,              intent(in)    :: bc(:)
+      real(RNP),              intent(in)    :: nu
+      real(RNP), contiguous,  intent(in)    :: v(:,:,:,:,:)
+      real(RNP), contiguous,  intent(inout) :: vp(:,:,:,:,:)
+      real(RNP), contiguous,  intent(inout) :: sp(:,:,:,:,:)
+      real(RNP), contiguous,  intent(out)   :: F_d(:,:,:,:,:)
+    end subroutine GetDiffusionTerm_DC
+
+  end interface
 
 contains
 
@@ -74,7 +99,7 @@ contains
   !> Constructor of INS_Operator_3D
 
   type(INS_Operator_3D) function New_INS_Operator_3D(opt, mesh) result(this)
-    class(INS_Options_3D), intent(in) :: opt !< options
+    type(INS_Options_3D), intent(in) :: opt !< options
     type(Mesh_3D), intent(in) :: mesh !< local mesh partition, will be copied
 
     call Init_INS_Operator_3D(this, opt, mesh)
@@ -86,10 +111,10 @@ contains
 
   subroutine Init_INS_Operator_3D(this, opt, mesh)
     class(INS_Operator_3D) , intent(inout) :: this !< new Navier-Stokes operator
-    class(INS_Options_3D)  , intent(in)    :: opt  !< options
+    type(INS_Options_3D)   , intent(in)    :: opt  !< options
     type(Mesh_3D), optional, intent(in)    :: mesh !< local mesh partition
 
-    this % chi = opt % chi
+    this % mu = opt % mu
 
     this % eop_v = DG_ElementOperators_1D(opt % opt_v)
     this % eop_p = DG_ElementOperators_1D(opt % opt_p)
@@ -107,14 +132,52 @@ contains
                  'INS__Operator__3D')
     end if
 
-    this % sem_v = SpectralElementMesh_3D(mesh, this%eop_v%po)
-    this % sem_p = SpectralElementMesh_3D(mesh, this%eop_p%po)
-
-    if (this%sop_q%po /= this%eop_v%po .or. this%sop_q%basis /= 'L' ) then
-      this%sem_q = SpectralElementMesh_3D(mesh, this%sop_q%po, this%sop_q%basis)
-    end if
+    this % sem_v = SpectralElementMesh_3D( this % mesh, this % eop_v % po )
+    this % sem_p = SpectralElementMesh_3D( this % mesh, this % eop_p % po )
+    this % sem_q = SpectralElementMesh_3D( this % mesh          &
+                                         , this % sop_q % po    &
+                                         , this % sop_q % basis )
 
   end subroutine Init_INS_Operator_3D
+
+  !-----------------------------------------------------------------------------
+  !> Diffusion term with constant viscosity
+
+  subroutine GetDiffusionTerm_C(this, bc, nu, v, vp, sp, F_d)
+
+    class(INS_Operator_3D), intent(in) :: this
+    !< incompressible Navier-Stokes operator
+
+    character, intent(in) :: bc(:)
+    !< boundary conditions ∈ {'D','P'}
+
+    real(RNP), intent(in) :: nu
+    !< kinematic shear viscosity
+
+    real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
+    !< velocity (np,np,np,ne,3)
+
+    real(RNP), contiguous, intent(inout) :: vp(:,:,:,:,:)
+    !< exterior velocity traces (np,np,6,ne,3)
+    !<   - in:  v   at Dirichlet faces, nn⋅v at free-slip faces, undefined else
+    !<   - out: v⁺  at all element faces
+
+    real(RNP), contiguous, intent(inout) :: sp(:,:,:,:,:)
+    !< viscous flux traces (np,np,6,ne,3)
+    !<   - in:  s  = n⋅τ   at free-slip or traction faces, undefined else
+    !<   - out: s⁺ = n⋅τ⁺  at all element faces
+
+    real(RNP), contiguous, intent(out) :: F_d(:,:,:,:,:)
+    !< diffusion term (np,np,np,ne,3)
+
+    if (this % mesh % regular) then
+      ! not implemented yet
+      F_d = 0
+    else
+      call GetDiffusionTerm_DC(this, bc, nu, v, vp, sp, F_d)
+    end if
+
+  end subroutine GetDiffusionTerm_C
 
   !=============================================================================
   ! Type-bound procedures of INS_Options_3D
@@ -127,7 +190,7 @@ contains
     integer,               intent(in)    :: root !< rank of broadcast root
     type(MPI_Comm),        intent(in)    :: comm !< MPI communicator
 
-    call XMPI_Bcast(this % chi, root, comm)
+    call XMPI_Bcast(this % mu, root, comm)
 
     call this % opt_v % Bcast(root, comm)
     call this % opt_p % Bcast(root, comm)
