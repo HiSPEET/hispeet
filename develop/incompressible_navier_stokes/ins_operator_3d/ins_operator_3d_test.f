@@ -110,6 +110,7 @@ program INS_Operator_3D_Test
   real(RNP), allocatable :: mm(:,:,:,:)    ! diagonal mass matrix
   real(RNP), allocatable :: um(:,:,:,:,:)  ! interior traces u⁻
   real(RNP), allocatable :: up(:,:,:,:,:)  ! exterior traces u⁺
+  real(RNP), allocatable :: sp(:,:,:,:,:)  ! exterior traces s⁺ = n⋅τ⁺
   real(RNP), allocatable :: w(:,:,:,:,:)   ! workspace
 
   ! auxiliaries ................................................................
@@ -257,6 +258,7 @@ program INS_Operator_3D_Test
 
   allocate(um (0:po,0:po,1:6,1:n_elem+n_ghost,1:4), source = ZERO )
   allocate(up (0:po,0:po,1:6,1:n_elem        ,1:4), source = ZERO )
+  allocate(sp (0:po,0:po,1:6,1:n_elem        ,1:3), source = ZERO )
 
   call ins_op % sem_v % Get_DG_DiagonalMassMatrix(mm)
 
@@ -307,8 +309,7 @@ program INS_Operator_3D_Test
                                  , F_c  = w (:,:,:,:,1:3)          )
   end associate
 
-
-  do i = 1,3
+  do i = 1, 3
     F_ch(:,:,:,:,i) = w(:,:,:,:,i) / mm
   end do
 
@@ -343,6 +344,13 @@ program INS_Operator_3D_Test
 
   ! viscous term, complete: F_d = ∇·τ ..........................................
 
+  call ins_op % GetDiffusionTerm( problem % bc_v   &
+                                , problem % nu_ref &
+                                , v, up, sp, w     )
+
+  do i = 1, 3
+    F_dh(:,:,:,:,i) = w(:,:,:,:,i) / mm
+  end do
 
   ! info .......................................................................
 

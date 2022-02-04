@@ -5,9 +5,9 @@
   problem_file =  'variable_viscosity'
   comp_domain  =  3
 !
-  ins_options%chi      = -2
-  ins_options%opt_v%po =  7 
-  ins_options%opt_p%po =  3 
+! ins_options%mu = -2
+  ins_options%opt_v%StandardOperatorOptions_1D%po =  7 ! %StandardOperatorOptions_1D
+  ins_options%opt_p%StandardOperatorOptions_1D%po =  3 ! because of ifort bug
   ins_options%opt_q%po = 11
   ins_options%opt_q%basis = 'L'
 !
@@ -33,6 +33,8 @@
 &cylinder_prm
   r  = 0.5
   h  = 1.0 
+  nr = 2
+  nz = 2 
   pg = 15
 ! periodic = F
 /
