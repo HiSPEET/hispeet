@@ -61,8 +61,8 @@ module Spectral_Element_Boundary_Variable__3D
   !> the values to copied into fresh memory which removes this risk.
 
   type SpectralElementBoundaryVariable_3D
-    class(SpectralElementMesh_3D), pointer :: sem
-    real(RNP), contiguous,  pointer :: val(:,:,:,:) !< accessable values
+    class(SpectralElementMesh_3D), pointer :: sem !< spectral element mesh
+    real(RNP), contiguous,  pointer :: val(:,:,:,:) => null() !< value access
     real(RNP), allocatable, private :: mem(:,:,:,:) !< memory allocated to val
   contains
     procedure :: Init_SpectralElementBoundaryVariable_3D => Init_SEBV

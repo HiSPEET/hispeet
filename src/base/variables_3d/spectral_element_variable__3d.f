@@ -28,8 +28,8 @@ module Spectral_Element_Variable__3D
   !> to the `mem` component of another instance.
 
   type SpectralElementVariable_3D
-    class(SpectralElementMesh_3D), pointer :: sem     !< spectral element mesh
-    real(RNP), contiguous,  pointer :: val(:,:,:,:,:) !< accessable values
+    class(SpectralElementMesh_3D), pointer :: sem !< spectral element mesh
+    real(RNP), contiguous,  pointer :: val(:,:,:,:,:) => null() !< value access
     real(RNP), allocatable, private :: mem(:,:,:,:,:) !< memory allocated to val
   contains
     procedure :: Init_SpectralElementVariable_3D
