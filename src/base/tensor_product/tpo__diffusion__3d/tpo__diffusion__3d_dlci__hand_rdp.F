@@ -37,6 +37,8 @@ contains
     real(RWP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values
     real(RWP), optional, intent(inout) :: qb(:,:,:,:) !< element boundary fluxes
 
+    contiguous :: Ms, Ds, Jd, G, u, v, Ji_n, ub, qb
+
     integer :: np, ne
 
     np = size(Ms)
@@ -126,7 +128,7 @@ contains
       call TPO_Diffusion_DLCI_Hand__28 (ne, Ms, Ds, Jd, G, lambda, nu, u, v, &
                                         Ji_n, ub, qb)
     case(29)
-      call TPO_Diffusion_DLCI_Hand__29 (ne, Ms, Ds, Jd, G, lambda, nu, u, v), &
+      call TPO_Diffusion_DLCI_Hand__29 (ne, Ms, Ds, Jd, G, lambda, nu, u, v, &
                                         Ji_n, ub, qb)
     case(30)
       call TPO_Diffusion_DLCI_Hand__30 (ne, Ms, Ds, Jd, G, lambda, nu, u, v, &

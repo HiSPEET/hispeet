@@ -39,8 +39,8 @@ contains
 
     real(RNP), contiguous, intent(inout) :: sp(:,:,:,:,:)
     !< viscous flux traces (np,np,6,ne,3)
-    !<   - in:  s  = n⋅τ   at free-slip or traction faces, undefined else
-    !<   - out: s⁺ = n⋅τ⁺  at all element faces
+    !<   - in:  s  =  n⋅τ   at free-slip or traction faces, undefined else
+    !<   - out: s⁺ = -n⋅τ⁺  at all element faces, since n⁺ = -n
 
     real(RNP), contiguous, intent(out) :: F_d(:,:,:,:,:)
     !< diffusion term (np,np,np,ne,3)

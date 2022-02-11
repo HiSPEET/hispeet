@@ -24,7 +24,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Generic element diffusion operator (RLVI)
 
-  subroutine TPO_Diffusion_RLVI_XSMM_RDP(Ms, Ds, dx, lambda, nu, u, v, ub, qb)
+  subroutine TPO_Diffusion_RLVI_XSMM_RDP( Ms, Ds, dx, lambda &
+                                        , nu,  u,  v         &
+                                        , nub, ub, qb        )
+
     real(RDP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
     real(RDP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
     real(RDP), intent(in)  :: lambda      !< Helmholtz parameter
@@ -33,17 +36,20 @@ contains
     real(RDP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
     real(RDP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
 
-    real(RDP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values
-    real(RDP), optional, intent(inout) :: qb(:,:,:,:) !< element boundary fluxes
+    real(RDP), optional, intent(inout) :: nub(:,:,:,:) !< ν at element boundary
+    real(RDP), optional, intent(inout) :: ub (:,:,:,:) !< u at element boundary
+    real(RDP), optional, intent(inout) :: qb (:,:,:,:) !< element boundary flux
+
+    contiguous :: Ms, Ds, nu, u, v, nub, ub, qb
+
+    !---------------------------------------------------------------------------
+    ! local variables
 
     type(LIBXSMM_DMMFunction), save :: xmm_set_1, xmm_set_2, xmm_set_3
     type(LIBXSMM_DMMFunction), save :: xmm_add_1, xmm_add_2, xmm_add_3
 
     real(RDP), parameter :: ZERO = 0
     real(RDP), parameter :: ONE  = 1
-
-    !---------------------------------------------------------------------------
-    ! local variables
 
     real(RDP), dimension(size(Ms), size(Ms), size(Ms)) :: M, M_nu, z
     real(RDP), dimension(size(Ms), size(Ms)) :: Ds_t
@@ -59,7 +65,7 @@ contains
     np = size(Ms)
     ne = size(u,4)
 
-    get_traces = present(ub) .and. present(qb)
+    get_traces = present(nub) .and. present(ub) .and. present(qb)
 
     ! element mass matrix
     tmp = product(dx) / 8
@@ -114,14 +120,15 @@ contains
       call LIBXSMM_DMMCall(xmm_set_1, Ds, u(:,:,:,e), z)
 
       if (get_traces) then
-        ! ub = u       @ Γ₁ + Γ₂
-        ! qb = n⋅ν∇u   @ Γ₁ + Γ₂
+        ! nub = ν;  ub = u;  qb = n⋅ν∇u   @ Γ₁ + Γ₂
         do k = 1, np
         do j = 1, np
-          ub(j,k,1,e) =  u( 1,j,k,e)
-          ub(j,k,2,e) =  u(np,j,k,e)
-          qb(j,k,1,e) = -2/dx(1) * nu( 1,j,k,e) * z( 1,j,k)
-          qb(j,k,2,e) =  2/dx(1) * nu(np,j,k,e) * z(np,j,k)
+          nub(j,k,1,e) =  nu( 1,j,k,e)
+          nub(j,k,2,e) =  nu(np,j,k,e)
+          ub (j,k,1,e) =  u ( 1,j,k,e)
+          ub (j,k,2,e) =  u (np,j,k,e)
+          qb (j,k,1,e) = -2/dx(1) * nu( 1,j,k,e) * z( 1,j,k)
+          qb (j,k,2,e) =  2/dx(1) * nu(np,j,k,e) * z(np,j,k)
         end do
         end do
       end if
@@ -146,13 +153,14 @@ contains
         call LIBXSMM_DMMCall(xmm_set_2, u(:,:,k,e), Ds_t, z(:,:,k))
 
         if (get_traces) then
-         ! ub = u       @ Γ₃ + Γ₄
-         ! qb = n⋅ν∇u   @ Γ₃ + Γ₄
+         ! nub = ν;  ub = u;  qb = n⋅ν∇u  @ Γ₃ + Γ₄
          do i = 1, np
-            ub(i,k,3,e) =  u(i, 1,k,e)
-            ub(i,k,4,e) =  u(i,np,k,e)
-            qb(i,k,3,e) = -2/dx(2) * nu(i, 1,k,e) * z(i, 1,k)
-            qb(i,k,4,e) =  2/dx(2) * nu(i,np,k,e) * z(i,np,k)
+            nub(i,k,3,e) =  nu(i, 1,k,e)
+            nub(i,k,4,e) =  nu(i,np,k,e)
+            ub (i,k,3,e) =  u (i, 1,k,e)
+            ub (i,k,4,e) =  u (i,np,k,e)
+            qb (i,k,3,e) = -2/dx(2) * nu(i, 1,k,e) * z(i, 1,k)
+            qb (i,k,4,e) =  2/dx(2) * nu(i,np,k,e) * z(i,np,k)
           end do
         end if
 
@@ -173,14 +181,15 @@ contains
       call LIBXSMM_DMMCall(xmm_set_3, u(:,:,:,e), Ds_t, z)
 
       if (get_traces) then
-        ! ub = u       @ Γ₅ + Γ₆
-        ! qb = n⋅ν∇u   @ Γ₅ + Γ₆
+        ! nub = ν;  ub = u;  qb = n⋅ν∇u   @ Γ₅ + Γ₆
         do j = 1, np
         do i = 1, np
-          ub(i,j,5,e) =  u(i,j, 1,e)
-          ub(i,j,6,e) =  u(i,j,np,e)
-          qb(i,j,5,e) = -2/dx(3) * nu(i,j, 1,e) * z(i,j, 1)
-          qb(i,j,6,e) =  2/dx(3) * nu(i,j,np,e) * z(i,j,np)
+          nub(i,j,5,e) =  nu(i,j, 1,e)
+          nub(i,j,6,e) =  nu(i,j,np,e)
+          ub (i,j,5,e) =  u (i,j, 1,e)
+          ub (i,j,6,e) =  u (i,j,np,e)
+          qb (i,j,5,e) = -2/dx(3) * nu(i,j, 1,e) * z(i,j, 1)
+          qb (i,j,6,e) =  2/dx(3) * nu(i,j,np,e) * z(i,j,np)
         end do
         end do
       end if

@@ -64,11 +64,14 @@ module Spectral_Element_Boundary_Variable__3D
     class(SpectralElementMesh_3D), pointer :: sem !< spectral element mesh
     real(RNP), contiguous,  pointer :: val(:,:,:,:) => null() !< value access
     real(RNP), allocatable, private :: mem(:,:,:,:) !< memory allocated to val
+    integer :: bid = -1 !< associated mesh boundary identifier
   contains
     procedure :: Init_SpectralElementBoundaryVariable_3D => Init_SEBV
     procedure :: GetSlice
     procedure :: Extract
     procedure :: ExtractNormalComponent
+    generic   :: CopyToElementFaceVariable => CopyToEFV_S, CopyToEFV_A
+    procedure, private :: CopyToEFV_S, CopyToEFV_A
   end type SpectralElementBoundaryVariable_3D
 
   ! constructor
@@ -134,6 +137,8 @@ contains
       reuse_ = .false.
     end if
 
+    this % bid = boundary % id
+
     if (reuse_) then
       if (all(shape(this%val) == [po+1,po+1,nf,nc])) return
     end if
@@ -177,6 +182,8 @@ contains
       slice % val(0:,0:,1:,1:) => this % val(:,:,:,first:last)
       if (allocated(slice % mem)) deallocate(slice % mem)
     end if
+
+    slice % bid = this % bid
 
     !$omp end master
 
@@ -228,8 +235,8 @@ contains
           case(3,4)
             j = (m - 3) * po
             do c = 1, nc
-            do i = 0, po
             do k = 0, po
+            do i = 0, po
               vb(i,k,f,c) = v(i,j,k,e,c)
             end do
             end do
@@ -238,8 +245,8 @@ contains
           case(5,6)
             k = (m - 5) * po
             do c = 1, nc
-            do i = 0, po
             do j = 0, po
+            do i = 0, po
               vb(i,j,f,c) = v(i,j,k,e,c)
             end do
             end do
@@ -308,8 +315,8 @@ contains
         case(3,4)
           j = (m - 3) * po
           n = (m - 3) * 2 - 1
-          do i = 0, po
           do k = 0, po
+          do i = 0, po
             vb_n(i,k,f,1) = n * v(i,j,k,e,2)
           end do
           end do
@@ -317,8 +324,8 @@ contains
         case(5,6)
           k = (m - 5) * po
           n = (m - 5) * 2 - 1
-          do i = 0, po
           do j = 0, po
+          do i = 0, po
             vb_n(i,j,f,1) = n * v(i,j,k,e,3)
           end do
           end do
@@ -366,8 +373,8 @@ contains
 
         case(3,4)
           j = (m - 3) * po
-          do i = 0, po
           do k = 0, po
+          do i = 0, po
             vb_n(i,k,f,1) = n(i,k,m,e,1) * v(i,j,k,e,1) &
                           + n(i,k,m,e,2) * v(i,j,k,e,2) &
                           + n(i,k,m,e,3) * v(i,j,k,e,3)
@@ -376,8 +383,8 @@ contains
 
         case(5,6)
           k = (m - 5) * po
-          do i = 0, po
           do j = 0, po
+          do i = 0, po
             vb_n(i,j,f,1) = n(i,j,m,e,1) * v(i,j,k,e,1) &
                           + n(i,j,m,e,2) * v(i,j,k,e,2) &
                           + n(i,j,m,e,3) * v(i,j,k,e,3)
@@ -390,6 +397,63 @@ contains
     end associate
 
   end subroutine ExtractNormalComponent_D
+
+  !=============================================================================
+  ! Copy boundary values to element-face variable
+
+   !-----------------------------------------------------------------------------
+   !> Copy first component of boundary variable to scalar element-face variable
+
+  subroutine CopyToEFV_S(this, v)
+    class(SpectralElementBoundaryVariable_3D), intent(in) :: this
+    real(RNP), intent(inout) :: v(:,:,:,:)
+
+    integer :: f, e, m
+
+    associate(boundary => this % sem % mesh % boundary(this % bid))
+
+      !$omp do
+      do f = 1, boundary % n_face
+
+        e = boundary % face(f) % mesh_element % id
+        m = boundary % face(f) % mesh_element % face
+
+        v(:,:,m,e) = this % val(:,:,f,1)
+
+      end do
+
+    end associate
+
+  end subroutine CopyToEFV_S
+
+  !-----------------------------------------------------------------------------
+  !> Copy boundary variable to matching array-valued element-face variable
+
+  subroutine CopyToEFV_A(this, v)
+    class(SpectralElementBoundaryVariable_3D), intent(in) :: this
+    real(RNP), intent(inout) :: v(:,:,:,:,:)
+
+    integer :: c, e, f, m, nc
+
+    nc = size(this % val, 4)
+
+    associate(boundary => this % sem % mesh % boundary(this % bid))
+
+      !$omp do
+      do f = 1, boundary % n_face
+
+        e = boundary % face(f) % mesh_element % id
+        m = boundary % face(f) % mesh_element % face
+
+        do c = 1, nc
+          v(:,:,m,e,c) = this % val(:,:,f,c)
+        end do
+
+      end do
+
+    end associate
+
+  end subroutine CopyToEFV_A
 
   !=============================================================================
 

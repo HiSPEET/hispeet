@@ -318,7 +318,7 @@ program DG_Diffusion3D_Test
   end if
 
   ! apply boundary conditions to RHS
-  call diffusion_op % AddBC(se_bv, f)
+!!!  call diffusion_op % AddBC(se_bv, f)
 
   ! info .......................................................................
 
@@ -356,7 +356,7 @@ program DG_Diffusion3D_Test
   !$omp end master
 
   do i = 1, n_test
-    call diffusion_op % Apply(u, r, f)  ! r = A u - f
+    call diffusion_op % Apply(u, r, f, se_bv)  ! r = A u - f
 !   call diffusion_op % Apply(u, r)     ! r = A u
 !   call MergeArrays(ONE, r, -ONE, f)   ! r = r - f
   end do

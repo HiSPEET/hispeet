@@ -2,7 +2,7 @@
 !> 3d generic element diffusion operator using hand-crafted suboperators (RLVI)
 
 subroutine PROC(TPO_Diffusion_RLVI_Hand__,_NP_) &
-    (ne, Ms, Ds, dx, lambda, nu, u, v, ub, qb)
+    (ne, Ms, Ds, dx, lambda, nu, u, v, nub, ub, qb)
 
   integer,   intent(in)  :: ne                    !< num elements
   real(RWP), intent(in)  :: Ms(_NP_)              !< 1D standard mass matrix
@@ -13,8 +13,9 @@ subroutine PROC(TPO_Diffusion_RLVI_Hand__,_NP_) &
   real(RWP), intent(in)  :: u(_NP_,_NP_,_NP_,ne)  !< operand
   real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne)  !< result
 
-  real(RWP), optional, intent(inout) :: ub(_NP_,_NP_,6,ne) !< elem bound values
-  real(RWP), optional, intent(inout) :: qb(_NP_,_NP_,6,ne) !< elem bound fluxes
+  real(RWP), optional, intent(inout) :: nub(_NP_,_NP_,6,ne) !< ν at elem bound
+  real(RWP), optional, intent(inout) :: ub (_NP_,_NP_,6,ne) !< u at elem bound
+  real(RWP), optional, intent(inout) :: qb (_NP_,_NP_,6,ne) !< elem bound flux
 
   !-----------------------------------------------------------------------------
   ! local variables
@@ -33,7 +34,7 @@ subroutine PROC(TPO_Diffusion_RLVI_Hand__,_NP_) &
   !-----------------------------------------------------------------------------
   ! initialization
 
-  get_traces = present(ub) .and. present(qb)
+  get_traces = present(nub) .and. present(ub) .and. present(qb)
 
   ! element mass matrix
   tmp = product(dx) / 8
@@ -70,14 +71,15 @@ subroutine PROC(TPO_Diffusion_RLVI_Hand__,_NP_) &
     call PROC(IxIxQt__,_NP_)(Ds_t, ONE, ZERO, u(:,:,:,e), z)
 
     if (get_traces) then
-      ! ub = u       @ Γ₁ + Γ₂
-      ! qb = n⋅ν∇u   @ Γ₁ + Γ₂
+      ! nub = ν;  ub = u;  qb = n⋅ν∇u   @ Γ₁ + Γ₂
       do k = 1, _NP_
       do j = 1, _NP_
-        ub(j,k,1,e) =  u(  1 ,j,k,e)
-        ub(j,k,2,e) =  u(_NP_,j,k,e)
-        qb(j,k,1,e) = -2/dx(1) * nu(  1 ,j,k,e) * z(  1 ,j,k)
-        qb(j,k,2,e) =  2/dx(1) * nu(_NP_,j,k,e) * z(_NP_,j,k)
+        nub(j,k,1,e) =  nu(  1 ,j,k,e)
+        nub(j,k,2,e) =  nu(_NP_,j,k,e)
+        ub (j,k,1,e) =  u (  1 ,j,k,e)
+        ub (j,k,2,e) =  u (_NP_,j,k,e)
+        qb (j,k,1,e) = -2/dx(1) * nu(  1 ,j,k,e) * z(  1 ,j,k)
+        qb (j,k,2,e) =  2/dx(1) * nu(_NP_,j,k,e) * z(_NP_,j,k)
       end do
       end do
     end if
@@ -100,14 +102,15 @@ subroutine PROC(TPO_Diffusion_RLVI_Hand__,_NP_) &
     call PROC(IxQtxI__,_NP_)(Ds_t, ONE, ZERO, u(:,:,:,e), z)
 
     if (get_traces) then
-      ! ub = u       @ Γ₃ + Γ₄
-      ! qb = n⋅ν∇u   @ Γ₃ + Γ₄
+      ! nub = ν;  ub = u;  qb = n⋅ν∇u   @ Γ₃ + Γ₄
       do k = 1, _NP_
       do i = 1, _NP_
-        ub(i,k,3,e) =  u(i,  1 ,k,e)
-        ub(i,k,4,e) =  u(i,_NP_,k,e)
-        qb(i,k,3,e) = -2/dx(2) * nu(i,  1 ,k,e) * z(i,  1 ,k)
-        qb(i,k,4,e) =  2/dx(2) * nu(i,_NP_,k,e) * z(i,_NP_,k)
+        nub(i,k,3,e) =  nu(i,  1 ,k,e)
+        nub(i,k,4,e) =  nu(i,_NP_,k,e)
+        ub (i,k,3,e) =  u (i,  1 ,k,e)
+        ub (i,k,4,e) =  u (i,_NP_,k,e)
+        qb (i,k,3,e) = -2/dx(2) * nu(i,  1 ,k,e) * z(i,  1 ,k)
+        qb (i,k,4,e) =  2/dx(2) * nu(i,_NP_,k,e) * z(i,_NP_,k)
       end do
       end do
     end if
@@ -130,14 +133,15 @@ subroutine PROC(TPO_Diffusion_RLVI_Hand__,_NP_) &
     call PROC(QtxIxI__,_NP_)(Ds_t, ONE, ZERO, u(:,:,:,e), z)
 
     if (get_traces) then
-      ! ub = u       @ Γ₅ + Γ₆
-      ! qb = n⋅ν∇u   @ Γ₅ + Γ₆
+      ! nub = ν;  ub = u;  qb = n⋅ν∇u    @ Γ₅ + Γ₆
       do j = 1, _NP_
       do i = 1, _NP_
-        ub(i,j,5,e) =  u(i,j,  1 ,e)
-        ub(i,j,6,e) =  u(i,j,_NP_,e)
-        qb(i,j,5,e) = -2/dx(3) * nu(i,j,  1 ,e) * z(i,j,  1 )
-        qb(i,j,6,e) =  2/dx(3) * nu(i,j,_NP_,e) * z(i,j,_NP_)
+        nub(i,j,5,e) =  nu(i,j,  1 ,e)
+        nub(i,j,6,e) =  nu(i,j,_NP_,e)
+        ub (i,j,5,e) =  u (i,j,  1 ,e)
+        ub (i,j,6,e) =  u (i,j,_NP_,e)
+        qb (i,j,5,e) = -2/dx(3) * nu(i,j,  1 ,e) * z(i,j,  1 )
+        qb (i,j,6,e) =  2/dx(3) * nu(i,j,_NP_,e) * z(i,j,_NP_)
       end do
       end do
     end if

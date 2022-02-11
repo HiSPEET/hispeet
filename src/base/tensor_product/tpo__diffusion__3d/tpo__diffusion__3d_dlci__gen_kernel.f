@@ -20,8 +20,12 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v, &
   real(RWP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values
   real(RWP), optional, intent(inout) :: qb(:,:,:,:) !< element boundary fluxes
 
+  contiguous :: Ms, Ds, Jd, G, u, v, Ji_n, ub, qb
+
   !---------------------------------------------------------------------------
   ! local variables
+
+  real(RWP), parameter :: ZERO = 0
 
   real(RWP), dimension(size(Ms), size(Ms), size(Ms)) :: M, r, s, t, z
 
@@ -53,16 +57,25 @@ subroutine TPO_Diffusion_DLCI_Gen_RWP(Ms, Ds, Jd, G, lambda, nu, u, v, &
   !$omp do private(e)
   do e = 1, ne
 
-! put at the end and make optional
     ! v = λ M Jd u .............................................................
 
-    do k = 1, np
-    do j = 1, np
-    do i = 1, np
-      v(i,j,k,e) = lambda * M(i,j,k) * Jd(i,j,k,e) * u(i,j,k,e)
-    end do
-    end do
-    end do
+    if (lambda == ZERO) then
+      do k = 1, np
+      do j = 1, np
+      do i = 1, np
+        v(i,j,k,e) = ZERO
+      end do
+      end do
+      end do
+    else
+      do k = 1, np
+      do j = 1, np
+      do i = 1, np
+        v(i,j,k,e) = lambda * M(i,j,k) * Jd(i,j,k,e) * u(i,j,k,e)
+      end do
+      end do
+      end do
+    end if
 
     ! standard derivatives of  uᵉ ..............................................
 

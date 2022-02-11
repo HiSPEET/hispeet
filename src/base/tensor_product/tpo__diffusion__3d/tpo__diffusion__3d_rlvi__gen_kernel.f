@@ -4,7 +4,10 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-subroutine TPO_Diffusion_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v, ub, qb)
+subroutine TPO_Diffusion_RLVI_Gen_RWP( Ms, Ds, dx, lambda &
+                                     , nu,  u,  v         &
+                                     , nub, ub, qb        )
+
   real(RWP), intent(in)  :: Ms(:)       !< 1D standard mass matrix        (np)
   real(RWP), intent(in)  :: Ds(:,:)     !< 1D standard diff matrix     (np,np)
   real(RWP), intent(in)  :: dx(3)       !< element extensions
@@ -13,8 +16,11 @@ subroutine TPO_Diffusion_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v, ub, qb)
   real(RWP), intent(in)  :: u(:,:,:,:)  !< operand               (np,np,np,ne)
   real(RWP), intent(out) :: v(:,:,:,:)  !< result                (np,np,np,ne)
 
-  real(RWP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values
-  real(RWP), optional, intent(inout) :: qb(:,:,:,:) !< element boundary fluxes
+  real(RWP), optional, intent(inout) :: nub(:,:,:,:) !< ν at element boundary
+  real(RWP), optional, intent(inout) :: ub (:,:,:,:) !< u at element boundary
+  real(RWP), optional, intent(inout) :: qb (:,:,:,:) !< element boundary flux
+
+  contiguous :: Ms, Ds, nu, u, v, nub, ub, qb
 
   !-----------------------------------------------------------------------------
   ! local variables
@@ -34,7 +40,7 @@ subroutine TPO_Diffusion_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v, ub, qb)
   np = size(Ms)
   ne = size(u,4)
 
-  get_traces = present(ub) .and. present(qb)
+  get_traces = present(nub) .and. present(ub) .and. present(qb)
 
   ! element mass matrix
   tmp = product(dx) / 8
@@ -85,14 +91,15 @@ subroutine TPO_Diffusion_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v, ub, qb)
     end do
 
     if (get_traces) then
-      ! ub = u       @ Γ₁ + Γ₂
-      ! qb = n⋅ν∇u   @ Γ₁ + Γ₂
+      ! nub = ν;  ub = u;  qb = n⋅ν∇u   @ Γ₁ + Γ₂
       do k = 1, np
       do j = 1, np
-        ub(j,k,1,e) =  u( 1,j,k,e)
-        ub(j,k,2,e) =  u(np,j,k,e)
-        qb(j,k,1,e) = -2/dx(1) * nu( 1,j,k,e) * z( 1,j,k)
-        qb(j,k,2,e) =  2/dx(1) * nu(np,j,k,e) * z(np,j,k)
+        nub(j,k,1,e) =  nu( 1,j,k,e)
+        nub(j,k,2,e) =  nu(np,j,k,e)
+        ub (j,k,1,e) =  u ( 1,j,k,e)
+        ub (j,k,2,e) =  u (np,j,k,e)
+        qb (j,k,1,e) = -2/dx(1) * nu( 1,j,k,e) * z( 1,j,k)
+        qb (j,k,2,e) =  2/dx(1) * nu(np,j,k,e) * z(np,j,k)
       end do
       end do
     end if
@@ -135,14 +142,15 @@ subroutine TPO_Diffusion_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v, ub, qb)
     end do
 
     if (get_traces) then
-      ! ub = u       @ Γ₃ + Γ₄
-      ! qb = n⋅ν∇u   @ Γ₃ + Γ₄
+      ! nub = ν;  ub = u;  qb = n⋅ν∇u   @ Γ₃ + Γ₄
       do k = 1, np
       do i = 1, np
-        ub(i,k,3,e) =  u(i, 1,k,e)
-        ub(i,k,4,e) =  u(i,np,k,e)
-        qb(i,k,3,e) = -2/dx(2) * nu(i, 1,k,e) * z(i, 1,k)
-        qb(i,k,4,e) =  2/dx(2) * nu(i,np,k,e) * z(i,np,k)
+        nub(i,k,3,e) =  nu(i, 1,k,e)
+        nub(i,k,4,e) =  nu(i,np,k,e)
+        ub (i,k,3,e) =  u (i, 1,k,e)
+        ub (i,k,4,e) =  u (i,np,k,e)
+        qb (i,k,3,e) = -2/dx(2) * nu(i, 1,k,e) * z(i, 1,k)
+        qb (i,k,4,e) =  2/dx(2) * nu(i,np,k,e) * z(i,np,k)
       end do
       end do
     end if
@@ -185,14 +193,15 @@ subroutine TPO_Diffusion_RLVI_Gen_RWP(Ms, Ds, dx, lambda, nu, u, v, ub, qb)
     end do
 
     if (get_traces) then
-      ! ub = u       @ Γ₅ + Γ₆
-      ! qb = n⋅ν∇u   @ Γ₅ + Γ₆
+      ! nub = ν;  ub = u;  qb = n⋅ν∇u   @ Γ₅ + Γ₆
       do j = 1, np
       do i = 1, np
-        ub(i,j,5,e) =  u(i,j, 1,e)
-        ub(i,j,6,e) =  u(i,j,np,e)
-        qb(i,j,5,e) = -2/dx(3) * nu(i,j, 1,e) * z(i,j, 1)
-        qb(i,j,6,e) =  2/dx(3) * nu(i,j,np,e) * z(i,j,np)
+        nub(i,j,5,e) =  nu(i,j, 1,e)
+        nub(i,j,6,e) =  nu(i,j,np,e)
+        ub (i,j,5,e) =  u (i,j, 1,e)
+        ub (i,j,6,e) =  u (i,j,np,e)
+        qb (i,j,5,e) = -2/dx(3) * nu(i,j, 1,e) * z(i,j, 1)
+        qb (i,j,6,e) =  2/dx(3) * nu(i,j,np,e) * z(i,j,np)
       end do
       end do
     end if

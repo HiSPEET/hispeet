@@ -48,6 +48,8 @@ contains
     real(RDP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values
     real(RDP), optional, intent(inout) :: qb(:,:,:,:) !< element boundary fluxes
 
+    contiguous :: Ms, Ds, Jd, G, u, v, Ji_n, ub, qb
+
     select case(size(Ms))
 
 #ifdef __LIBXSMM__

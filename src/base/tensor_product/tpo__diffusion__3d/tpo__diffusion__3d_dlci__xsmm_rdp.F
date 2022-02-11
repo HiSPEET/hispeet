@@ -40,6 +40,11 @@ contains
     real(RDP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values
     real(RDP), optional, intent(inout) :: qb(:,:,:,:) !< element boundary fluxes
 
+    contiguous :: Ms, Ds, Jd, G, u, v, Ji_n, ub, qb
+
+    !---------------------------------------------------------------------------
+    ! local variables
+
     type(LIBXSMM_DMMFunction), save :: xmm_set_1, xmm_set_2, xmm_set_3
     type(LIBXSMM_DMMFunction), save :: xmm_add_1, xmm_add_2, xmm_add_3
 
@@ -95,13 +100,23 @@ contains
 
       ! v = λ M Jd u ...........................................................
 
-      do k = 1, np
-      do j = 1, np
-      do i = 1, np
-        v(i,j,k,e) = lambda * M(i,j,k) * Jd(i,j,k,e) * u(i,j,k,e)
-      end do
-      end do
-      end do
+      if (lambda == ZERO) then
+        do k = 1, np
+        do j = 1, np
+        do i = 1, np
+          v(i,j,k,e) = ZERO
+        end do
+        end do
+        end do
+      else
+        do k = 1, np
+        do j = 1, np
+        do i = 1, np
+          v(i,j,k,e) = lambda * M(i,j,k) * Jd(i,j,k,e) * u(i,j,k,e)
+        end do
+        end do
+        end do
+      end if
 
       ! standard derivatives of uᵉ .............................................
 

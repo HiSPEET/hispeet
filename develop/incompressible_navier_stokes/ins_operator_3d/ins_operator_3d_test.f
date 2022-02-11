@@ -333,8 +333,8 @@ program INS_Operator_3D_Test
       ! store boundary contribution in f and compute residual r
       f = 0
       call sebv_u % GetSlice(sebv_vi, first=i, last=i)
-      call diffusion_op % AddBC(sebv_vi, f)
-      call diffusion_op % Apply(v(:,:,:,:,i), r, f)  ! r = -M ∇·(ν ∇vᵢ)
+!!!      call diffusion_op % AddBC(sebv_vi, f)
+      call diffusion_op % Apply(v(:,:,:,:,i), r, f, sebv_vi) ! r = -M ∇·(ν ∇vᵢ)
 
       ! compute nodal values
       F_dh(:,:,:,:,i) = -r / mm
@@ -344,13 +344,13 @@ program INS_Operator_3D_Test
 
   ! viscous term, complete: F_d = ∇·τ ..........................................
 
-  call ins_op % GetDiffusionTerm( problem % bc_v   &
-                                , problem % nu_ref &
-                                , v, up, sp, w     )
-
-  do i = 1, 3
-    F_dh(:,:,:,:,i) = w(:,:,:,:,i) / mm
-  end do
+!  call ins_op % GetDiffusionTerm( problem % bc_v   &
+!                                , problem % nu_ref &
+!                                , v, up, sp, w     )
+!
+!  do i = 1, 3
+!    F_dh(:,:,:,:,i) = w(:,:,:,:,i) / mm
+!  end do
 
   ! info .......................................................................
 

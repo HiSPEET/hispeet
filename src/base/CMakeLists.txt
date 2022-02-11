@@ -162,13 +162,13 @@ set( DIFFUSION_3D diffusion_3d/dg__diffusion_operator__3d.f
                   diffusion_3d/dg__diffusion_operator__3d__mp_apply_rc.f
                   diffusion_3d/dg__diffusion_operator__3d__mp_apply_rv.f
                   diffusion_3d/dg__diffusion_operator__3d__mp_apply_dc.F
-                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_rc.f
-                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_rv.f
-                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_dc.f
-                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_dc.f
                   diffusion_3d/dg__diffusion_operator__3d__mp_addfluxes_dc_gen.f
                   diffusion_3d/dg__diffusion_operator__3d__mp_addfluxes_dc_xsmm.F
                   )
+
+#                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_rc.f
+#                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_rv.f
+#                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_dc.f
 
 #===============================================================================
 # base library

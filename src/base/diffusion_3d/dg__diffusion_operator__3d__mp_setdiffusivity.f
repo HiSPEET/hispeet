@@ -27,7 +27,6 @@ contains
     end if
 
     if (allocated(this % nu_pv)) deallocate(this % nu_pv)
-    if (allocated(this % nu_mf)) deallocate(this % nu_mf)
 
   end subroutine SetDiffusivity_C
 
@@ -38,9 +37,7 @@ contains
     class(DG_DiffusionOperator_3D), intent(inout) :: this
     real(RNP), contiguous, intent(in) :: nu_p(:,:,:,:)  !< physical diffusivity
 
-    type(SpectralElementScalar_3D), allocatable, save :: se_nu
-    real(RNP), allocatable, save :: tr_nu(:,:,:,:)
-    integer :: i, ne, nf, ng, po
+    integer :: ne, po
 
     ! initialization ...........................................................
 
@@ -49,8 +46,6 @@ contains
 
     po = this % sem % std_op % po
     ne = this % sem % mesh % n_elem
-    ng = this % sem % mesh % n_ghost
-    nf = this % sem % mesh % n_face
 
     !$omp master
 
@@ -63,43 +58,6 @@ contains
       this % nu_pv = nu_p
     end if
 
-    if (allocated(this % nu_mf)) then
-      if (any(shape(this % nu_mf) /= [po+1,po+1,nf])) deallocate(this % nu_mf)
-    end if
-    if (.not. allocated(this % nu_mf)) then
-      allocate(this % nu_mf(0:po,0:po,nf))
-    end if
-
-    ! trace of variable diffusivity ............................................
-
-    allocate(tr_nu(0:po,0:po,6,ne+ng))
-    se_nu = SpectralElementScalar_3D(this % sem, this % nu_pv)
-
-    !$omp end master
-
-    ! apply tracing procedure of scalar SE variable
-    call se_nu % GetTrace(tr_nu)
-
-    ! maximum face diffusivity .................................................
-
-    !$omp do
-    do i = 1, nf
-      associate(elem => this % sem % mesh % face(i) % element)
-        if (elem(1) % id > 0) then
-          if (elem(2) % id > 0) then
-            this % nu_mf(:,:,i) = max( tr_nu(:,:, elem(1)%face, elem(1)%id) &
-                                     , tr_nu(:,:, elem(2)%face, elem(2)%id) )
-          else
-            this % nu_mf(:,:,i) = tr_nu(:,:, elem(1)%face, elem(1)%id)
-          end if
-        else
-          this % nu_mf(:,:,i) = tr_nu(:,:, elem(2)%face, elem(2)%id)
-        end if
-      end associate
-    end do
-
-    !$omp master
-    deallocate(se_nu, tr_nu)
     !$omp end master
 
   end subroutine SetDiffusivity_V
