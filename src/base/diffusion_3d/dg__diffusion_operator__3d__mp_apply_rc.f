@@ -81,11 +81,9 @@ contains
 
       call tr_buf % Transfer(mesh, tr, tag=1000)
 
-      if (present(bv)) then
-        call EnforceBoundaryConditions( this, bv              &
-                                      , jmp_u = tr(:,:,:,:,1) &
-                                      , avg_q = tr(:,:,:,:,2) )
-      end if
+      call EnforceBoundaryConditions( this, bv              &
+                                    , jmp_u = tr(:,:,:,:,1) &
+                                    , avg_q = tr(:,:,:,:,2) )
 
       call tr_buf % Merge(tr)
 

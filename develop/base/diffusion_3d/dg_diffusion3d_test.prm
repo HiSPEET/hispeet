@@ -1,6 +1,7 @@
 &control_prm
   config = 1
   n_test = 10
+! plot_file = 'dg_diffusion_3d_test'
 /
 
 &problem_prm
@@ -16,14 +17,22 @@
   structured = F ! mimic unstructured mesh
   bc = 6*'D'
   np = 1,1,1
-  ep = 6,6,6
+  ep = 3*1
 /
 
 &cuboid_diamonds_prm
 /
 
 &cylinder_prm
+  r = 0.5
+  h = 0.5
 /
 
 &annulus_prm
+/
+
+&solver_prm
+  method = 0
+  i_max  = 1
+  r_red  = 1E-3
 /

@@ -99,7 +99,7 @@ contains
   !>
   !>   - Dirichlet boundaries (bc = 'D'):
   !>
-  !>          jmp_u  ←  n⋅[u]  =  2 u_b - 2 u⁻
+  !>          jmp_u  ←  n⋅[u]  =  2(u⁻ - u_b)
   !>          avg_q  ←  n⋅{q}  =  n⋅q⁻            (unchanged)
   !>
   !>   - Neumann boundaries (bc = 'N'):
@@ -109,45 +109,63 @@ contains
 
   subroutine EnforceBoundaryConditions(diffusion_op, bv, jmp_u, avg_q)
     class(DG_DiffusionOperator_3D), intent(in) :: diffusion_op
-    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:)
+    class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
     real(RNP), contiguous, intent(inout) :: jmp_u(:,:,:,:) !< trace of u
     real(RNP), contiguous, intent(inout) :: avg_q(:,:,:,:) !< trace of ν du/dn
 
+    logical :: has_bv
     integer :: b, e, f, l
+
+    has_bv = present(bv)
 
     associate(boundary => diffusion_op % sem % mesh % boundary)
 
       do b = 1, size(boundary)
 
+
         select case(diffusion_op % bc(b))
 
-        case('D')
+        case('D')  ! avg_q remains unchanged !
 
-          !$omp do
-          do l = 1, boundary(b) % n_face
-
-            e = boundary(b) % face(l) % mesh_element % id
-            f = boundary(b) % face(l) % mesh_element % face
-
-            jmp_u(:,:,f,e) = 2 * (bv(b) % val(:,:,l,1) - jmp_u (:,:,f,e))
-
-          end do
-          !$omp end do nowait
-
+          if (has_bv) then
+            !$omp do
+            do l = 1, boundary(b) % n_face
+              e = boundary(b) % face(l) % mesh_element % id
+              f = boundary(b) % face(l) % mesh_element % face
+              jmp_u(:,:,f,e) = 2 * (jmp_u (:,:,f,e) - bv(b) % val(:,:,l,1))
+            end do
+            !$omp end do nowait
+          else
+            !$omp do
+            do l = 1, boundary(b) % n_face
+              e = boundary(b) % face(l) % mesh_element % id
+              f = boundary(b) % face(l) % mesh_element % face
+              jmp_u(:,:,f,e) = 2 * jmp_u (:,:,f,e)
+            end do
+            !$omp end do nowait
+          end if
 
         case('N')
 
-          !$omp do
-          do l = 1, boundary(b) % n_face
-
-            e = boundary(b) % face(l) % mesh_element % id
-            f = boundary(b) % face(l) % mesh_element % face
-
-            jmp_u(:,:,f,e) = 0
-            avg_q(:,:,f,e) = bv(b) % val(:,:,l,1)
-
-          end do
-          !$omp end do nowait
+          if (has_bv) then
+            !$omp do
+            do l = 1, boundary(b) % n_face
+              e = boundary(b) % face(l) % mesh_element % id
+              f = boundary(b) % face(l) % mesh_element % face
+              jmp_u(:,:,f,e) = ZERO
+              avg_q(:,:,f,e) = bv(b) % val(:,:,l,1)
+            end do
+            !$omp end do nowait
+          else
+            !$omp do
+            do l = 1, boundary(b) % n_face
+              e = boundary(b) % face(l) % mesh_element % id
+              f = boundary(b) % face(l) % mesh_element % face
+              jmp_u(:,:,f,e) = ZERO
+              avg_q(:,:,f,e) = ZERO
+            end do
+            !$omp end do nowait
+          end if
 
         end select
 

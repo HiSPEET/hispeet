@@ -45,7 +45,8 @@ program DG_Diffusion3D_Test
 
   ! input file (*.prm)
   character(len=*), parameter :: input_default = 'dg_diffusion3d_test'
-  character(len=80) :: input_file
+  character(len=80) :: input_file = ''
+  character(len=80) :: plot_file  = ''
 
   integer :: config = 1
   ! configuration (u/s = un/structured, r = regular, d = deformed)
@@ -56,9 +57,8 @@ program DG_Diffusion3D_Test
   ! configuration > 1 currently available only with one MPI process
 
   integer :: n_test = 1            ! repetitions of consistency test
-  logical :: export_vtk = .false.  ! generate VTK files
 
-  namelist/control_prm/ config, n_test, export_vtk
+  namelist/control_prm/ config, n_test, plot_file
 
   ! problem parameters .........................................................
 
@@ -95,6 +95,18 @@ program DG_Diffusion3D_Test
 
   namelist/dicretization_prm/ pg, po, penalty
 
+  ! solution ...................................................................
+
+  integer :: method = 1
+  ! 0  none
+  ! 1  CG
+  ! 2  Schwarz (later)
+
+  integer   :: i_max   = 1    ! max number of iterations/cycles
+  real(RNP) :: r_red   = 1E-3 ! min residual reduction
+
+  namelist /solver_prm/ method, i_max, r_red
+
   ! MPI and OpenMP variables ...................................................
 
   type(MPI_Comm) :: comm      ! MPI communicator
@@ -112,6 +124,8 @@ program DG_Diffusion3D_Test
   class(EllipticProblem), allocatable :: problem
 
   real(RNP), allocatable, target :: var(:,:,:,:,:)
+  character(len=80), allocatable :: var_names(:)
+
   real(RNP), pointer, contiguous :: s (:,:,:,:)  ! exact solution
   real(RNP), pointer, contiguous :: u (:,:,:,:)  ! approximate solution
   real(RNP), pointer, contiguous :: nu(:,:,:,:)  ! diffusivity
@@ -130,12 +144,14 @@ program DG_Diffusion3D_Test
 
   character(len=80) :: config_name = '', test_case_name = ''
   real(RDP) :: time, time0
-  real(RNP) :: r_l2, r_max, r_max_loc
+  real(RNP) :: r_max, r_max_loc, r_l2, r_l2_0
+  real(RNP) :: e_min, e_min_loc
+  real(RNP) :: e_max, e_max_loc
   logical   :: exists
   integer   :: io, stat
   integer   :: n_bound, n_elem, n_var
   integer   :: n_elem_tot, dof
-  integer   :: i
+  integer   :: i, ni
 
   !-----------------------------------------------------------------------------
   ! Initialization
@@ -174,6 +190,7 @@ program DG_Diffusion3D_Test
       read(io, nml = control_prm)
       read(io, nml = problem_prm)
       read(io, nml = dicretization_prm)
+      read(io, nml = solver_prm)
       close(io)
     else
        call Warning( 'DG_Diffusion3D_Test', 'input file "'//trim(input_file)// &
@@ -193,7 +210,7 @@ program DG_Diffusion3D_Test
   ! globalize control parameters
   call XMPI_Bcast( config          , 0, comm )
   call XMPI_Bcast( n_test          , 0, comm )
-  call XMPI_Bcast( export_vtk      , 0, comm )
+  call XMPI_Bcast( plot_file       , 0, comm )
 
   ! globalize problem parameters
   call XMPI_Bcast( test_case       , 0, comm )
@@ -211,6 +228,11 @@ program DG_Diffusion3D_Test
   call XMPI_Bcast( pg              , 0, comm )
   call XMPI_Bcast( po              , 0, comm )
   call XMPI_Bcast( penalty         , 0, comm )
+
+  ! globalize solver parameters
+  call XMPI_Bcast( method          , 0, comm )
+  call XMPI_Bcast( i_max           , 0, comm )
+  call XMPI_Bcast( r_red           , 0, comm )
 
   ! mesh .......................................................................
 
@@ -250,11 +272,32 @@ program DG_Diffusion3D_Test
 
   call problem % SetProblem(lambda, nu_0, nu_1, d_nu, k_nu, k_u)
 
-  ! variables ..................................................................
+  ! info .......................................................................
 
   n_elem  = sem % mesh % n_elem
   n_bound = sem % mesh % n_bound
-  n_var   = 6
+
+  call XMPI_Reduce(n_elem, n_elem_tot, MPI_SUM, 0, comm)
+
+  dof = n_elem_tot * (po+1)**3
+
+  if (rank == 0) then
+    write(*,'(/,A,/)') 'DG Diffusion Test'
+    write(*,'(T3,A,T25,9(G0,X))') 'configuration:',config,' ',trim(config_name)
+    write(*,'(T3,A,T25,9(G0,X))') 'test case:',test_case,' ',trim(test_case_name)
+    write(*,'(T3,A,T25,9(G0,X))') 'spectral diffusivity:', has_spectral_nu
+    write(*,'(T3,A,T25,9(G0,X))') 'variable diffusivity:', has_variable_nu
+    write(*,'(T3,A,T25,9(G0,X))') 'boundary conditions:' , bc
+    write(*,'(T3,A,T25,9(G0,X))') 'number of processes:' , n_proc
+    write(*,'(T3,A,T25,9(G0,X))') 'number of threads:'   , n_thread
+    write(*,'(T3,A,T25,9(G0,X))') 'number of elements:'  , n_elem_tot
+    write(*,'(T3,A,T25,9(G0,X))') 'polynomial order:'    , po
+    write(*,'(T3,A,T25,9(G0,X))') 'degrees of freedom:'  , dof
+  end if
+
+  ! variables ..................................................................
+
+  n_var = 6
 
   allocate(var(0:po,0:po,0:po,1:n_elem,1:n_var), source = ZERO)
 
@@ -264,6 +307,8 @@ program DG_Diffusion3D_Test
   f (0:,0:,0:,1:) => var(:,:,:,:,4)
   r (0:,0:,0:,1:) => var(:,:,:,:,5)
   e (0:,0:,0:,1:) => var(:,:,:,:,6)
+
+  var_names = [ 's ', 'u ', 'nu', 'f ', 'r ', 'e ' ]
 
   allocate(mm (0:po,0:po,0:po,1:n_elem)     )
   allocate(q  (0:po,0:po,0:po,1:n_elem,1:3) )
@@ -320,25 +365,6 @@ program DG_Diffusion3D_Test
   ! apply boundary conditions to RHS
 !!!  call diffusion_op % AddBC(se_bv, f)
 
-  ! info .......................................................................
-
-  call XMPI_Reduce(n_elem, n_elem_tot, MPI_SUM, 0, comm)
-  dof = n_elem_tot * (po+1)**3
-
-  if (rank == 0) then
-    write(*,'(/,A,/)') 'DG Diffusion Test'
-    write(*,'(T3,A,T25,9(G0,X))') 'configuration:',config,' ',trim(config_name)
-    write(*,'(T3,A,T25,9(G0,X))') 'test case:',test_case,' ',trim(test_case_name)
-    write(*,'(T3,A,T25,9(G0,X))') 'spectral diffusivity:', has_spectral_nu
-    write(*,'(T3,A,T25,9(G0,X))') 'variable diffusivity:', has_variable_nu
-    write(*,'(T3,A,T25,9(G0,X))') 'boundary conditions:' , bc
-    write(*,'(T3,A,T25,9(G0,X))') 'number of processes:' , n_proc
-    write(*,'(T3,A,T25,9(G0,X))') 'number of threads:'   , n_thread
-    write(*,'(T3,A,T25,9(G0,X))') 'number of elements:'  , n_elem_tot
-    write(*,'(T3,A,T25,9(G0,X))') 'polynomial order:'    , po
-    write(*,'(T3,A,T25,9(G0,X))') 'degrees of freedom:'  , dof
-  end if
-
   !-----------------------------------------------------------------------------
   ! Consistency test
 
@@ -356,9 +382,7 @@ program DG_Diffusion3D_Test
   !$omp end master
 
   do i = 1, n_test
-    call diffusion_op % Apply(u, r, f, se_bv)  ! r = A u - f
-!   call diffusion_op % Apply(u, r)     ! r = A u
-!   call MergeArrays(ONE, r, -ONE, f)   ! r = r - f
+    call diffusion_op % Apply(u, r, f, se_bv)
   end do
 
   !$omp master
@@ -388,25 +412,101 @@ program DG_Diffusion3D_Test
   end if
 
   !-----------------------------------------------------------------------------
-  ! ...
+  ! Solver test
 
-!?!    allocate(area(n_bound))
-!?!    call se_mesh % GetVolume(vol)
-!?!    call se_mesh % GetSurfaceAreas(area)
-!?!    write(*,'(A)') 'Spectral element mesh'
-!?!    write(*,'(2X,A,G0)') 'volume  = ', vol
-!?!    do i = 1, mesh % n_bound
-!?!      write(*,'(2X,A,I0,A,G0)') 'area(',i,') = ', area(i)
-!?!    end do
+  if (rank == 0) then
+    select case(method)
+    case(1)
+      write(*,'(/,A,/)') 'Conjugate Gradient Method'
+    case default
+      write(*,'(/,A,/)') 'Skipping solver test'
+    end select
+  end if
 
-!?!    if (export_vtk) then
-!?!      call ExportVTK_VolumeData( x, var                  &
-!?!                               , sname  = ['r','e']      &
-!?!                               , file   = 'element_mesh' &
-!?!                               , part   = mesh % part    &
-!?!                               , n_part = mesh % n_part  )
-!?!
-!?!    end if
+  if (method > 0) then
+    !$omp parallel
+
+    call SetArray(u, ZERO)
+    call diffusion_op % Apply(u, r, f, se_bv)
+    r_l2_0 = ScalarProduct(r, r, mesh%comm)
+    r_l2_0 = sqrt(r_l2_0)
+
+    !$omp master
+    if (mesh%part >= 0) then
+      r_max_loc = maxval(abs(r))
+    else
+      r_max_loc =  0
+    end if
+    call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
+    if (rank == 0) then
+      write(*,'(A)') 'initial residual:'
+      write(*,'(T3,A,T11,ES10.3)') 'r_L2  =', r_l2_0
+      write(*,'(T3,A,T11,ES10.3)') 'r_max =', r_max
+      time0 = MPI_Wtime()
+    end if
+    !$omp end master
+
+    select case(method)
+    case(1) ! conjugate gradients
+      call diffusion_op % CG_Method(u, f, se_bv, i_max, r_red, ni=ni)
+    end select
+
+    !$omp master
+    if (rank == 0) then
+      time = MPI_Wtime()
+      time = time - time0
+    end if
+    !$omp end master
+
+    call diffusion_op % Apply(u, r, f, se_bv)
+    r_l2 = ScalarProduct(r, r, mesh%comm)
+    r_l2 = sqrt(r_l2)
+
+    !$omp end parallel
+
+    if (mesh%part >= 0) then
+      r_max_loc = maxval(abs(r))
+      e = u - s
+      e_min_loc = minval(e)
+      e_max_loc = maxval(e)
+    else
+      r_max_loc =  0
+      e_min_loc = -huge(ONE)
+      e_max_loc =  huge(ONE)
+    end if
+    call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
+    call XMPI_Reduce(e_min_loc, e_min, MPI_MIN, 0, mesh%comm)
+    call XMPI_Reduce(e_max_loc, e_max, MPI_MAX, 0, mesh%comm)
+
+    if (rank == 0) then
+      write(*,'(/,T3,A)')            'solution:'
+      write(*,'(T3,A,T11,1X,I0)')    'ni    =', ni
+      write(*,'(T3,A,T11,ES10.3)')   'r_L2  =', r_l2
+      write(*,'(T3,A,T11,ES10.3)')   'r_max =', r_max
+      write(*,'(T3,A,T11,ES10.3)')   'e_max =', (e_max - e_min)/2
+      if (ni > 0) then
+        write(*,'(T3,A,T11,ES10.3)') '-lg ρ =', log10(r_l2_0 / r_l2) / ni
+      end if
+      write(*,'(/,T3,A)')            'performance:'
+      write(*,'(T3,A,T11,ES10.3)')   'time     =', time
+      write(*,'(T3,A,T11,ES10.3)')   'time/DOF =', time / dof
+      write(*,'(T3,A,T11,ES10.3)')   'DOF/time =', dof / time
+      write(*,*)
+    end if
+
+  end if
+
+  !-----------------------------------------------------------------------------
+  ! Plot file
+
+  if (len_trim(plot_file) > 0 .and. mesh%part >= 0) then
+    call ExportVTK_VolumeData( sem % metrics % x        &
+                             , s      = var             &
+                             , sname  = var_names       &
+                             , file   = trim(plot_file) &
+                             , part   = mesh % part     &
+                             , n_part = mesh % n_part   )
+  end if
 
   !-----------------------------------------------------------------------------
   ! Finalization
