@@ -216,7 +216,7 @@ module CART__Schwarz_Operator
       use DG__Element_Operators__1D
 
       class(SchwarzOperator3D),     intent(inout) :: this !< Schwarz operator
-      class(DG_ElementOperators_1D), intent(in)    :: eop  !< IP-DG SE operators
+      class(DG_ElementOperators_1D), intent(in)   :: eop  !< IP-DG SE operators
 
     end subroutine BuildEigensystems_IP
 
