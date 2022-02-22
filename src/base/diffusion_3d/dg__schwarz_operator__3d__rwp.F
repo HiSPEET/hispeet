@@ -12,14 +12,91 @@
 
   contains
 
+    procedure :: InitOperators
+    procedure :: InitSubdomains_CI
+    procedure :: InitSubdomains_CS
+    procedure :: InitSubdomains_VI
+
   end type DG_SchwarzOperator_3D_RWP
+
+  ! constructor interface
+  interface DG_SchwarzOperator_3D_RWP
+    module procedure New_CI
+    module procedure New_CS
+    module procedure New_VI
+  end interface
 
 contains
 
   !-----------------------------------------------------------------------------
+  !> Constructor with constant physical diffusivity
+
+  function New_CI(eop, no, weighting, mesh, lambda, nu, bc) result(this)
+
+    class(DG_ElementOperators_1D), intent(in) :: eop !< DG element operators
+    integer,        intent(in) :: no        !< number of overlapped points
+    integer,        intent(in) :: weighting !< weighting method {0,1,3,5,7,9}
+    class(Mesh_3D), intent(in) :: mesh      !< mesh partition
+    real(RNP),      intent(in) :: lambda    !< Helmholtz parameter
+    real(RNP),      intent(in) :: nu        !< physical diffusivity
+    character,      intent(in) :: bc(:)     !< BC {'D','N','P'}
+
+    type(DG_SchwarzOperator_3D_RWP) :: this
+
+    call this % InitOperators(eop, no, weighting)
+    call this % InitSubdomains(mesh, lambda, nu, bc)
+
+  end function New_CI
+
+  !-----------------------------------------------------------------------------
+  !> Constructor with constant physical and spectral diffusivities
+
+  function New_CS(eop, no, weighting, mesh, lambda, nu, nu_svv, bc) result(this)
+
+    class(DG_ElementOperators_1D), intent(in) :: eop !< DG element operators
+    integer,        intent(in) :: no        !< number of overlapped points
+    integer,        intent(in) :: weighting !< weighting method {0,1,3,5,7,9}
+    class(Mesh_3D), intent(in) :: mesh      !< mesh partition
+    real(RNP),      intent(in) :: lambda    !< Helmholtz parameter
+    real(RNP),      intent(in) :: nu        !< physical diffusivity
+    real(RNP),      intent(in) :: nu_svv    !< spectral diffusivity
+    character,      intent(in) :: bc(:)     !< BC {'D','N','P'}
+
+    type(DG_SchwarzOperator_3D_RWP) :: this
+
+    real(RNP) :: svv
+
+    svv = nu_svv / (nu + nu_svv)
+
+    call this % InitOperators(eop, no, weighting, svv)
+    call this % InitSubdomains(mesh, lambda, nu, nu_svv, bc)
+
+  end function New_CS
+
+  !-----------------------------------------------------------------------------
+  !> Constructor with variable diffusivity
+
+  function New_VI(eop, no, weighting, mesh, lambda, nu, bc) result(this)
+
+    class(DG_ElementOperators_1D), intent(in) :: eop !< DG element operators
+    integer,        intent(in) :: no          !< number of overlapped points
+    integer,        intent(in) :: weighting   !< weighting method {0,1,3,5,7,9}
+    class(Mesh_3D), intent(in) :: mesh        !< mesh partition
+    real(RNP),      intent(in) :: lambda      !< Helmholtz parameter
+    real(RNP),      intent(in) :: nu(:,:,:,:) !< diffusivity
+    character,      intent(in) :: bc(:)       !< BC {'D','N','P'}
+
+    type(DG_SchwarzOperator_3D_RWP) :: this
+
+    call this % InitOperators(eop, no, weighting)
+    call this % InitSubdomains(eop, mesh, lambda, nu, bc)
+
+  end function New_VI
+
+  !-----------------------------------------------------------------------------
   !> Build the 1D eigenvalues, eigenvectors and weights
 
-  subroutine Init_SubdomainOperators(this, eop, no, weighting, svv)
+  subroutine InitOperators(this, eop, no, weighting, svv)
     class(DG_SchwarzOperator_3D_RWP), intent(inout) :: this
     class(DG_ElementOperators_1D), intent(in) :: eop !< DG-SE operators
     integer,   intent(in) :: no        !< number of overlapped points
@@ -70,14 +147,14 @@ contains
       bc(1) = DG_SCHWARZ_BC_3D(i)
       bc(2) = DG_SCHWARZ_BC_3D(j)
 
-      call ComputeSubdomainOperators( eop, svv, this%no, bc, Ws &
-                                    , S  = this % S(:,:,k)      &
-                                    , V  = this % V(:,k)        &
-                                    , W  = this % W(:,k)        )
+      call ComputeGenericOperators( eop, svv, this%no, bc, Ws &
+                                  , S  = this % S(:,:,k)      &
+                                  , V  = this % V(:,k)        &
+                                  , W  = this % W(:,k)        )
     end do
     end do
 
-  end subroutine Init_SubdomainOperators
+  end subroutine InitOperators
 
   !-----------------------------------------------------------------------------
   !> Computes the eigenvectors, eigenvalues and weights for a 1D subdomain
@@ -93,7 +170,7 @@ contains
   !> Although no exterior node layers exist at boundaries, the corresponding
   !> entries are retained for regularity and set to `0`.
 
-  subroutine ComputeSubdomainOperators(eop, svv, no, bc, Ws, S, V, W)
+  subroutine ComputeGenericOperators(eop, svv, no, bc, Ws, S, V, W)
     class(DG_ElementOperators_1D), intent(in) :: eop !< IP-DG element operators
     real(RNP),  intent(in), optional :: svv !< ratio νˢ/(ν + νˢ) [0]
     integer,    intent(in)  :: no           !< overlap
@@ -119,7 +196,7 @@ contains
     allocate(Le_bc(0:po,0:po,-1:1))
 
     if (present(svv)) then
-      nu_svv = max(min(svv, ONE), ZERO)
+      nu_svv = svv
     else
       nu_svv = ZERO
     end if
@@ -315,22 +392,37 @@ contains
 
     end associate
 
-  end subroutine ComputeSubdomainOperators
+  end subroutine ComputeGenericOperators
 
   !-----------------------------------------------------------------------------
-  !> Set subdomain configurations and inverse 3D eigenvalues: constant isotropic
+  !> Set subdomain configurations and eigenvalues: const isotropic w/o SVV
 
- subroutine Init_SubdomainConfigurations_CI(this, mesh, lambda, nu, bc)
+  subroutine InitSubdomains_CI(this, mesh, lambda, nu, bc)
     class(DG_SchwarzOperator_3D_RWP), intent(inout) :: this
     class(Mesh_3D), intent(in) :: mesh   !< mesh partition
     real(RNP),      intent(in) :: lambda !< Helmholtz parameter
-    real(RNP),      intent(in) :: nu     !< diffusivity
+    real(RNP),      intent(in) :: nu     !< physical diffusivity
+    character,      intent(in) :: bc(:)  !< BC {'D','N','P'}
+
+    call InitSubdomains_CS(this, mesh, lambda, nu, ZERO, bc)
+
+  end subroutine InitSubdomains_CI
+
+  !-----------------------------------------------------------------------------
+  !> Set subdomain configurations and eigenvalues: const isotropic with SVV
+
+  subroutine InitSubdomains_CS(this, mesh, lambda, nu, nu_svv, bc)
+    class(DG_SchwarzOperator_3D_RWP), intent(inout) :: this
+    class(Mesh_3D), intent(in) :: mesh   !< mesh partition
+    real(RNP),      intent(in) :: lambda !< Helmholtz parameter
+    real(RNP),      intent(in) :: nu     !< physical diffusivity
+    real(RNP),      intent(in) :: nu_svv !< spectral diffusivity
     character,      intent(in) :: bc(:)  !< BC {'D','N','P'}
 
     character :: bc_face(size(bc))
     real(RNP) :: dx(3), dy(3), dz(3)
     real(RNP) :: l1, l2, l3, lmb
-    real(RNP) :: g0, g1, g2, g3
+    real(RNP) :: g0, g1, g2, g3, nu_0
     integer   :: e, i, j, k, ns
     integer   :: cfg(3)
 
@@ -348,6 +440,8 @@ contains
 
     !$omp end master
     !$omp barrier
+
+    nu_0 = nu + nu_svv
 
     ! cfg and D_inv ............................................................
 
@@ -393,9 +487,9 @@ contains
           if (W(i,cfg(1)) > 0 .and. W(j,cfg(2)) > 0 .and. W(k,cfg(3)) > 0) then
 
             ! eigenvalues of approximate 3D subproblem
-            lmb = lambda * g0  + nu * ( g1 * V(i, cfg(1)) &
-                                      + g2 * V(j, cfg(2)) &
-                                      + g3 * V(k, cfg(3)) )
+            lmb = lambda * g0  + nu_0 * ( g1 * V(i, cfg(1)) &
+                                        + g2 * V(j, cfg(2)) &
+                                        + g3 * V(k, cfg(3)) )
 
             D_inv(i,j,k,e) = real(ONE / lmb, kind = RWP)
 
@@ -413,18 +507,18 @@ contains
 
     end associate
 
-  end subroutine Init_SubdomainConfigurations_CI
+  end subroutine InitSubdomains_CS
 
   !-----------------------------------------------------------------------------
-  !> Set subdomain configurations and inverse 3D eigenvalues: variable isotropic
+  !> Set subdomain configurations and eigenvalues: variable isotropic
 
- subroutine Init_SubdomainConfigurations_VI(this, eop, mesh, lambda, nu, bc)
+  subroutine InitSubdomains_VI(this, eop, mesh, lambda, nu, bc)
     class(DG_SchwarzOperator_3D_RWP), intent(inout) :: this
-    class(StandardOperators_1D), intent(in) :: eop !< standard element operators
-    class(Mesh_3D), intent(in) :: mesh             !< mesh partition
-    real(RNP),      intent(in) :: lambda           !< Helmholtz parameter
-    real(RNP),      intent(in) :: nu(0:,0:,0:,:)   !< diffusivity
-    character,      intent(in) :: bc(:)            !< BC {'D','N','P'}
+    class(DG_ElementOperators_1D), intent(in) :: eop !< DG element operators
+    class(Mesh_3D), intent(in) :: mesh               !< mesh partition
+    real(RNP),      intent(in) :: lambda             !< Helmholtz parameter
+    real(RNP),      intent(in) :: nu(0:,0:,0:,:)     !< physical diffusivity
+    character,      intent(in) :: bc(:)              !< BC {'D','N','P'}
 
     character :: bc_face(size(bc))
     real(RNP) :: A(0:eop%po, 0:eop%po, 0:eop%po)
@@ -533,6 +627,6 @@ contains
 
     end associate
 
-  end subroutine Init_SubdomainConfigurations_VI
+  end subroutine InitSubdomains_VI
 
   !=============================================================================
