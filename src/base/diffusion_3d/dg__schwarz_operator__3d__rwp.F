@@ -26,6 +26,37 @@
     module procedure New_VI
   end interface
 
+  !=============================================================================
+  ! External module procedures
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Restrict a structured mesh variable `v` to subdomains
+
+    module subroutine Restrict_S(this, mesh, buf_v, v, vs)
+      class(DG_SchwarzOperator_3D_RWP), intent(in) :: this
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_v
+      class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
+      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< extended mesh variable
+      real(RWP),      intent(out)   :: vs(:,:,:,:)   !< restricted variable
+    end subroutine Restrict_S
+
+    !---------------------------------------------------------------------------
+    !> Restrict an unstructured mesh variable `v` to subdomains
+
+    module subroutine Restrict_U(this, mesh, buf_v, v, vs)
+      class(DG_SchwarzOperator_3D_RWP), intent(in) :: this
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_v
+      class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
+      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< extended mesh variable
+      real(RWP),      intent(out)   :: vs(:,:,:,:)   !< restricted variable
+    end subroutine Restrict_U
+
+  end interface
+
+  !=============================================================================
+
 contains
 
   !-----------------------------------------------------------------------------

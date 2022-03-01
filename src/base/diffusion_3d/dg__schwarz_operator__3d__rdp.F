@@ -10,6 +10,8 @@ module DG__Schwarz_Operator__3D__RDP
   use Constants
   use Schwarz_Weighting
   use Mesh__3D
+  use Mesh_Element__3D
+  use Element_Transfer_Buffer__3D
   use DG__Element_Operators__1D
   use DG__Schwarz_Operator__3D__Base
   implicit none

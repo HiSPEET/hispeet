@@ -167,6 +167,8 @@ set( DIFFUSION_3D diffusion_3d/dg__diffusion_operator__3d.f
                   diffusion_3d/dg__schwarz_operator__3d.f
                   diffusion_3d/dg__schwarz_operator__3d__base.f
                   diffusion_3d/dg__schwarz_operator__3d__rdp.F
+                  diffusion_3d/dg__schwarz_operator__3d__rdp__mp_restrict_s.F
+                  diffusion_3d/dg__schwarz_operator__3d__rdp__mp_restrict_u.F
                   )
 
 #                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_rc.f
