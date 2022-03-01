@@ -16,6 +16,8 @@ module Mesh_Element__3D
   public :: MeshElementFace_3D
   public :: MeshElementNeighbor_3D
 
+  public :: TransformIndexRange
+
   !-----------------------------------------------------------------------------
   !> Element vertex data
   !>
@@ -500,7 +502,7 @@ contains
   pure subroutine AlignFromNeighborFace(element, f, n, vn, ve)
     class(MeshElement_3D), intent(in) :: element  !< mesh element
     integer,   intent(in)  :: f        !< element face ID
-    integer,   intent(iN)  :: n        !< element neighbor ID
+    integer,   intent(in)  :: n        !< element neighbor ID
     real(RNP), intent(in)  :: vn(:,:)  !< neighbor face data
     real(RNP), intent(out) :: ve(:,:)  !< element face data
 
@@ -570,6 +572,132 @@ contains
     end select
 
   end subroutine AlignFromNeighborFace
+
+  !-----------------------------------------------------------------------------
+  !> Transforms the given triple index range into a rotated coordinate system
+
+  pure subroutine TransformIndexRange(orientation, ni, o0, oi, t0, ti)
+
+    integer(IXS), intent(in) :: orientation !< orientation of transformed coords
+    integer, intent(in)  :: ni      !< number of items per direction
+    integer, intent(in)  :: o0      !< start of original indices
+    integer, intent(in)  :: oi(2,3) !< original index range
+    integer, intent(in)  :: t0      !< start of transformed indices
+    integer, intent(out) :: ti(2,3) !< transformed index range
+
+    integer :: o(2,3)
+
+    ! remove offset from original indices
+    o = oi - o0
+
+    ! transformed indices
+    select case(orientation)
+
+    case(12_IXS) ! 1 →  1, 2 →  2:  (  1,  2,  3) ← (  1,  2,  3)
+      ti(:,1) = t0 + o(:,1)
+      ti(:,2) = t0 + o(:,2)
+      ti(:,3) = t0 + o(:,3)
+    case(13_IXS) ! 1 →  1, 2 →  3:  (  1,  2,  3) ← (  1, -3,  2)
+      ti(:,1) = t0 + o(:,1)
+      ti(:,2) = t0 - o(:,3) + ni
+      ti(:,3) = t0 + o(:,2)
+    case(15_IXS) ! 1 →  1, 2 → -2:  (  1,  2,  3) ← (  1, -2, -3)
+      ti(:,1) = t0 + o(:,1)
+      ti(:,2) = t0 - o(:,2) + ni
+      ti(:,3) = t0 - o(:,3) + ni
+    case(16_IXS) ! 1 →  1, 2 → -3:  (  1,  2,  3) ← (  1,  3, -2)
+      ti(:,1) = t0 + o(:,1)
+      ti(:,2) = t0 + o(:,3)
+      ti(:,3) = t0 - o(:,2) + ni
+
+    case(21_IXS) ! 1 →  2, 2 →  1:  (  1,  2,  3) ← (  2,  1, -3)
+      ti(:,1) = t0 + o(:,2)
+      ti(:,2) = t0 + o(:,1)
+      ti(:,3) = t0 - o(:,3) + ni
+    case(23_IXS) ! 1 →  2, 2 →  3:  (  1,  2,  3) ← (  3,  1,  2)
+      ti(:,1) = t0 + o(:,3)
+      ti(:,2) = t0 + o(:,1)
+      ti(:,3) = t0 + o(:,2)
+    case(24_IXS) ! 1 →  2, 2 → -1:  (  1,  2,  3) ← ( -2,  1,  3)
+      ti(:,1) = t0 - o(:,2) + ni
+      ti(:,2) = t0 + o(:,1)
+      ti(:,3) = t0 + o(:,3)
+    case(26_IXS) ! 1 →  2, 2 → -3:  (  1,  2,  3) ← ( -3,  1, -2)
+      ti(:,1) = t0 - o(:,3) + ni
+      ti(:,2) = t0 + o(:,1)
+      ti(:,3) = t0 - o(:,2) + ni
+
+    case(31_IXS) ! 1 →  3, 2 →  1:  (  1,  2,  3) ← (  2,  3,  1)
+      ti(:,1) = t0 + o(:,2)
+      ti(:,2) = t0 + o(:,3)
+      ti(:,3) = t0 + o(:,1)
+    case(32_IXS) ! 1 →  3, 2 →  2:  (  1,  2,  3) ← ( -3,  2,  1)
+      ti(:,1) = t0 - o(:,3) + ni
+      ti(:,2) = t0 + o(:,2)
+      ti(:,3) = t0 + o(:,1)
+    case(34_IXS) ! 1 →  3, 2 → -1:  (  1,  2,  3) ← ( -2, -3,  1)
+      ti(:,1) = t0 - o(:,2) + ni
+      ti(:,2) = t0 - o(:,3) + ni
+      ti(:,3) = t0 + o(:,1)
+    case(35_IXS) ! 1 →  3, 2 → -2:  (  1,  2,  3) ← (  3, -2,  1)
+      ti(:,1) = t0 + o(:,3)
+      ti(:,2) = t0 - o(:,2) + ni
+      ti(:,3) = t0 + o(:,1)
+
+    case(42_IXS) ! 1 → -1, 2 →  2:  (  1,  2,  3) ← ( -1,  2, -3)
+      ti(:,1) = t0 - o(:,1) + ni
+      ti(:,2) = t0 + o(:,2)
+      ti(:,3) = t0 - o(:,3) + ni
+    case(43_IXS) ! 1 → -1, 2 →  3:  (  1,  2,  3) ← ( -1,  3,  2)
+      ti(:,1) = t0 - o(:,1) + ni
+      ti(:,2) = t0 + o(:,3)
+      ti(:,3) = t0 + o(:,2)
+    case(45_IXS) ! 1 → -1, 2 → -2:  (  1,  2,  3) ← ( -1, -2,  3)
+      ti(:,1) = t0 - o(:,1) + ni
+      ti(:,2) = t0 - o(:,2) + ni
+      ti(:,3) = t0 + o(:,3)
+    case(46_IXS) ! 1 → -1, 2 → -3:  (  1,  2,  3) ← ( -1, -3, -2)
+      ti(:,1) = t0 - o(:,1) + ni
+      ti(:,2) = t0 - o(:,3) + ni
+      ti(:,3) = t0 - o(:,2) + ni
+
+    case(51_IXS) ! 1 → -2, 2 →  1:  (  1,  2,  3) ← (  2, -1,  3)
+      ti(:,1) = t0 + o(:,2)
+      ti(:,2) = t0 - o(:,1) + ni
+      ti(:,3) = t0 + o(:,3)
+    case(53_IXS) ! 1 → -2, 2 →  3:  (  1,  2,  3) ← ( -3, -1,  2)
+      ti(:,1) = t0 - o(:,3) + ni
+      ti(:,2) = t0 - o(:,1) + ni
+      ti(:,3) = t0 + o(:,2)
+    case(54_IXS) ! 1 → -2, 2 → -1:  (  1,  2,  3) ← ( -2, -1, -3)
+      ti(:,1) = t0 - o(:,2) + ni
+      ti(:,2) = t0 - o(:,1) + ni
+      ti(:,3) = t0 - o(:,3) + ni
+    case(56_IXS) ! 1 → -2, 2 → -3:  (  1,  2,  3) ← (  3, -1, -2)
+      ti(:,1) = t0 + o(:,3)
+      ti(:,2) = t0 - o(:,1) + ni
+      ti(:,3) = t0 - o(:,2) + ni
+
+    case(61_IXS) ! 1 → -3, 2 →  1:  (  1,  2,  3) ← (  2, -3, -1)
+      ti(:,1) = t0 + o(:,2)
+      ti(:,2) = t0 - o(:,3) + ni
+      ti(:,3) = t0 - o(:,1) + ni
+    case(62_IXS) ! 1 → -3, 2 →  2:  (  2,  1,  3) ← (  2,  3, -1)
+      ti(:,1) = t0 + o(:,3)
+      ti(:,2) = t0 + o(:,2)
+      ti(:,3) = t0 - o(:,1) + ni
+    case(64_IXS) ! 1 → -3, 2 → -1:  (  1,  2,  3) ← ( -2,  3, -1)
+      ti(:,1) = t0 - o(:,2) + ni
+      ti(:,2) = t0 + o(:,3)
+      ti(:,3) = t0 - o(:,1) + ni
+    case(65_IXS) ! 1 → -3, 2 → -2:  (  1,  2,  3) ← ( -3, -2, -1)
+      ti(:,1) = t0 - o(:,3) + ni
+      ti(:,2) = t0 - o(:,2) + ni
+      ti(:,3) = t0 - o(:,1) + ni
+
+    end select
+
+  end subroutine TransformIndexRange
 
   !=============================================================================
 
