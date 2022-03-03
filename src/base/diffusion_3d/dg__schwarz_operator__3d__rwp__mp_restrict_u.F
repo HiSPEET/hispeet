@@ -18,8 +18,10 @@
     real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< extended mesh variable
     real(RWP),      intent(out)   :: vs(:,:,:,:)   !< restricted variable
 
+    real(RWP) :: ve(size(v,1)), vv
+
     integer(IXS) :: orientation
-    integer :: c0, c1, e, i, j, k, l, m, nn, np
+    integer :: c0, c1, e, i, j, k, l, m, n, nn, np
     integer :: s1, s2, s3, t1, t2, t3
     integer :: oi(2,3), ti(2,3)
 
@@ -56,10 +58,6 @@
       call buf_v % Merge(v)
 
       ! fill overlap regions ...................................................
-
-!!!      ! offsets of element point indices
-!!!      o0 = -1
-!!!      o1 = po - no
 
       !$omp do
       do e = 1, mesh % n_elem
@@ -236,13 +234,11 @@
 
           ! edge  1: (x1  , south, bottom)
           nn = element(e) % edge( 1) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % edge( 1) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ 0       , po     ]  ! original index range
               oi(:,2) = [ np - no , po     ]  ! valid for
@@ -254,6 +250,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 1, no
                   do i = 0, po
@@ -266,23 +263,23 @@
               end do
 
             else
-!### identify neighbor edge
-!### identify wether to flip or not
-!### put info and data into routine
-!### extract end possibly flip 1D edge data
-!### assign the edge data
+
+              n = m + nn - 1
+              call CollectEdgeData( element(e) % neighbor(m:n), element, &
+                                    element(e) % edge( 1) % orientation, &
+                                    v, ve                                )
+              vs(c0 : c0 + po, no, no, e) = real(ve, RWP)
+
             end if
-          end select
+          end if
 
           ! edge  2: (x1  , north, bottom)
           nn = element(e) % edge( 2) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % edge( 2) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ 0       , po     ]  ! original index range
               oi(:,2) = [ 0       , no - 1 ]  ! valid for
@@ -294,6 +291,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 1, no
                   do i = 0, po
@@ -304,18 +302,25 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectEdgeData( element(e) % neighbor(m:n), element, &
+                                    element(e) % edge( 2) % orientation, &
+                                    v, ve                                )
+              vs(c0 : c0 + po, c1 + 1, no, e) = real(ve, RWP)
+
             end if
-          end select
+          end if
 
           ! edge  3: (x1  , south, top   )
           nn = element(e) % edge( 3) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % edge( 3) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ 0       , po     ]  ! original index range
               oi(:,2) = [ np - no , po     ]  ! valid for
@@ -327,6 +332,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 1, no
                   do i = 0, po
@@ -337,18 +343,25 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectEdgeData( element(e) % neighbor(m:n), element, &
+                                    element(e) % edge( 3) % orientation, &
+                                    v, ve                                )
+              vs(c0 : c0 + po, no, c1 + 1, e) = real(ve, RWP)
+
             end if
-          end select
+          end if
 
           ! edge  4: (x1  , north, top   )
           nn = element(e) % edge( 4) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % edge( 4) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ 0       , po     ]  ! original index range
               oi(:,2) = [ 0       , no - 1 ]  ! valid for
@@ -360,6 +373,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 1, no
                   do i = 0, po
@@ -370,18 +384,23 @@
                 end do
                 t3 = t3 + s3
               end do
+
+              n = m + nn - 1
+              call CollectEdgeData( element(e) % neighbor(m:n), element, &
+                                    element(e) % edge( 4) % orientation, &
+                                    v, ve                                )
+              vs(c0 : c0 + po, c1 + 1, c1 + 1, e) = real(ve, RWP)
+
             end if
-          end select
+          end if
 
           ! edge  5: (west, x2   , bottom)
           nn = element(e) % edge( 5) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % edge( 5) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ np - no , po     ]  ! original index range
               oi(:,2) = [ 0       , po     ]  ! valid for
@@ -393,6 +412,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 0, po
                   do i = 1, no
@@ -403,18 +423,25 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectEdgeData( element(e) % neighbor(m:n), element, &
+                                    element(e) % edge( 5) % orientation, &
+                                    v, ve                                )
+              vs(no, c0 : c0 + po, no, e) = real(ve, RWP)
+
             end if
-          end select
+          end if
 
           ! edge  6: (east, x2   , bottom)
           nn = element(e) % edge( 6) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % edge( 6) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ 0       , no - 1 ]  ! original index range
               oi(:,2) = [ 0       , po     ]  ! valid for
@@ -426,6 +453,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 0, po
                   do i = 1, no
@@ -436,18 +464,25 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectEdgeData( element(e) % neighbor(m:n), element, &
+                                    element(e) % edge( 6) % orientation, &
+                                    v, ve                                )
+              vs(c1 + 1, c0 : c0 + po, no, e) = real(ve, RWP)
+
             end if
-          end select
+          end if
 
           ! edge  7: (west, x2   , top   )
           nn = element(e) % edge( 7) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % edge( 7) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ np - no , po     ]  ! original index range
               oi(:,2) = [ 0       , po     ]  ! valid for
@@ -459,6 +494,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 0, po
                   do i = 1, no
@@ -469,18 +505,25 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectEdgeData( element(e) % neighbor(m:n), element, &
+                                    element(e) % edge( 7) % orientation, &
+                                    v, ve                                )
+              vs(no, c0 : c0 + po, c1 + 1, e) = real(ve, RWP)
+
             end if
-          end select
+          end if
 
           ! edge  8: (east, x2   , top   )
           nn = element(e) % edge( 8) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % edge( 8) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ 0       , no - 1 ]  ! original index range
               oi(:,2) = [ 0       , po     ]  ! valid for
@@ -492,6 +535,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 0, po
                   do i = 1, no
@@ -502,18 +546,25 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectEdgeData( element(e) % neighbor(m:n), element, &
+                                    element(e) % edge( 8) % orientation, &
+                                    v, ve                                )
+              vs(c1 + 1, c0 : c0 + po, c1 + 1, e) = real(ve, RWP)
+
             end if
-          end select
+          end if
 
           ! edge  9: (west, south, x3    )
           nn = element(e) % edge( 9) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % edge( 9) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ np - no , po     ]  ! original index range
               oi(:,2) = [ np - no , po     ]  ! valid for
@@ -525,6 +576,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 0, po
                 do j = 1, no
                   do i = 1, no
@@ -535,18 +587,25 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectEdgeData( element(e) % neighbor(m:n), element, &
+                                    element(e) % edge( 9) % orientation, &
+                                    v, ve                                )
+              vs(no, no, c0 : c0 + po, e) = real(ve, RWP)
+
             end if
-          end select
+          end if
 
           ! edge 10: (east, south, x3    )
           nn = element(e) % edge(10) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % edge(10) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ 0       , no - 1 ]  ! original index range
               oi(:,2) = [ np - no , po     ]  ! valid for
@@ -558,6 +617,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 0, po
                 do j = 1, no
                   do i = 1, no
@@ -568,18 +628,25 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectEdgeData( element(e) % neighbor(m:n), element, &
+                                    element(e) % edge(10) % orientation, &
+                                    v, ve                                )
+              vs(c1 + 1, no, c0 : c0 + po, e) = real(ve, RWP)
+
             end if
-          end select
+          end if
 
           ! edge 11: (west, north, x3    )
           nn = element(e) % edge(11) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % edge(11) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ np - no , po     ]  ! original index range
               oi(:,2) = [ 0       , no - 1 ]  ! valid for
@@ -591,6 +658,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 0, po
                 do j = 1, no
                   do i = 1, no
@@ -601,18 +669,25 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectEdgeData( element(e) % neighbor(m:n), element, &
+                                    element(e) % edge(11) % orientation, &
+                                    v, ve                                )
+              vs(no, c1 + 1, c0 : c0 + po, e) = real(ve, RWP)
+
             end if
-          end select
+          end if
 
           ! edge 12: (east, north, x3    )
           nn = element(e) % edge(12) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % edge(12) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ 0       , no - 1 ]  ! original index range
               oi(:,2) = [ 0       , no - 1 ]  ! valid for
@@ -624,6 +699,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 0, po
                 do j = 1, no
                   do i = 1, no
@@ -634,18 +710,25 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectEdgeData( element(e) % neighbor(m:n), element, &
+                                    element(e) % edge(12) % orientation, &
+                                    v, ve                                )
+              vs(c1 + 1, c1 + 1, c0 : c0 + po, e) = real(ve, RWP)
+
             end if
-          end select
+          end if
 
           ! vertex 1: (west, south, bottom)
           nn = element(e) % vertex(1) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % vertex(1) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ np - no , po     ]  ! original index range
               oi(:,2) = [ np - no , po     ]  ! valid for
@@ -657,6 +740,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 1, no
                   do i = 1, no
@@ -667,18 +751,23 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectVertexData(element(e)%neighbor(m:n), v, vv)
+              vs(no, no, no, e) = real(vv, RWP)
+
             end if
-          end select
+          end if
 
           ! vertex 2: (east, south, bottom)
           nn = element(e) % vertex(2) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % vertex(2) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ 0       , no - 1 ]  ! original index range
               oi(:,2) = [ np - no , po     ]  ! valid for
@@ -690,6 +779,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 1, no
                   do i = 1, no
@@ -700,18 +790,23 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectVertexData(element(e)%neighbor(m:n), v, vv)
+              vs(c1 + 1, no, no, e) = real(vv, RWP)
+
             end if
-          end select
+          end if
 
           ! vertex 3: (west, north, bottom)
           nn = element(e) % vertex(3) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % vertex(3) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ np - no , po     ]  ! original index range
               oi(:,2) = [ 0       , no - 1 ]  ! valid for
@@ -723,6 +818,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 1, no
                   do i = 1, no
@@ -733,18 +829,23 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectVertexData(element(e)%neighbor(m:n), v, vv)
+              vs(no, c1 + 1, no, e) = real(vv, RWP)
+
             end if
-          end select
+          end if
 
           ! vertex 4: (east, north, bottom)
           nn = element(e) % vertex(4) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % vertex(4) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ 0       , no - 1 ]  ! original index range
               oi(:,2) = [ 0       , no - 1 ]  ! valid for
@@ -756,6 +857,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 1, no
                   do i = 1, no
@@ -766,18 +868,23 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectVertexData(element(e)%neighbor(m:n), v, vv)
+              vs(c1 + 1, c1 + 1, no, e) = real(vv, RWP)
+
             end if
-          end select
+          end if
 
           ! vertex 5: (west, south, top   )
           nn = element(e) % vertex(5) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % vertex(5) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ np - no , po     ]  ! original index range
               oi(:,2) = [ np - no , po     ]  ! valid for
@@ -789,6 +896,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 1, no
                   do i = 1, no
@@ -799,18 +907,23 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectVertexData(element(e)%neighbor(m:n), v, vv)
+              vs(no, no, c1 + 1, e) = real(vv, RWP)
+
             end if
-          end select
+          end if
 
           ! vertex 6: (east, south, top   )
           nn = element(e) % vertex(6) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % vertex(6) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ 0       , no - 1 ]  ! original index range
               oi(:,2) = [ np - no , po     ]  ! valid for
@@ -822,6 +935,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 1, no
                   do i = 1, no
@@ -832,18 +946,23 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectVertexData(element(e)%neighbor(m:n), v, vv)
+              vs(c1 + 1, no, c1 + 1, e) = real(vv, RWP)
+
             end if
-          end select
+          end if
 
           ! vertex 7: (west, north, top   )
           nn = element(e) % vertex(7) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % vertex(7) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ np - no , po     ]  ! original index range
               oi(:,2) = [ 0       , no - 1 ]  ! valid for
@@ -855,6 +974,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 1, no
                   do i = 1, no
@@ -865,18 +985,23 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectVertexData(element(e)%neighbor(m:n), v, vv)
+              vs(no, c1 + 1, c1 + 1, e) = real(vv, RWP)
+
             end if
-          end select
+          end if
 
           ! vertex 8: (east, north, top   )
           nn = element(e) % vertex(8) % n_neighbor
-          select case(nn)
-          case(1)
+          if (nn > 0) then
             m = element(e) % vertex(8) % i_neighbor
-            l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            if (orientation > 0_IXS) then
+            if (nn == 1 .and. orientation > 0_IXS) then
 
               oi(:,1) = [ 0       , no - 1 ]  ! original index range
               oi(:,2) = [ 0       , no - 1 ]  ! valid for
@@ -888,6 +1013,7 @@
               t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
               t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
 
+              l = element(e) % neighbor(m) % id
               do k = 1, no
                 do j = 1, no
                   do i = 1, no
@@ -898,8 +1024,15 @@
                 end do
                 t3 = t3 + s3
               end do
+
+            else
+
+              n = m + nn - 1
+              call CollectVertexData(element(e)%neighbor(m:n), v, vv)
+              vs(c1 + 1, c1 + 1, c1 + 1, e) = real(vv, RWP)
+
             end if
-          end select
+          end if
 
         end associate
       end do
@@ -907,3 +1040,112 @@
     end associate
 
   end subroutine Restrict_U
+
+  !-----------------------------------------------------------------------------
+  !> Collect, align and average neighbor edge data
+
+  pure subroutine CollectEdgeData(neighbor, element, o, v, ve)
+    class(MeshElementNeighbor_3D), intent(in)  :: neighbor(:)
+    class(MeshElement_3D),         intent(in)  :: element(:)
+    integer(IXS),                  intent(in)  :: o
+    real(RNP),                     intent(in)  :: v(:,:,:,:)
+    real(RNP),                     intent(out) :: ve(:)
+
+    real(RNP) :: vn(size(ve))
+    integer :: nn, np
+    integer :: e, l, n
+
+    nn = size(neighbor)
+    np = size(ve)
+
+    ve = 0
+
+    do n = 1, nn
+
+      l = neighbor(n) % id
+      e = neighbor(n) % component - 6
+
+      select case(e)
+      case( 1)
+        vn = v( :, 1, 1,l)
+      case( 2)
+        vn = v( :,np, 1,l)
+      case( 3)
+        vn = v( :, 1,np,l)
+      case( 4)
+        vn = v( :,np,np,l)
+      case( 5)
+        vn = v( 1, :, 1,l)
+      case( 6)
+        vn = v(np, :, 1,l)
+      case( 7)
+        vn = v( 1, :,np,l)
+      case( 8)
+        vn = v(np, :,np,l)
+      case( 9)
+        vn = v( 1, 1, :,l)
+      case(10)
+        vn = v(np, 1, :,l)
+      case(11)
+        vn = v( 1,np, :,l)
+      case(12)
+        vn = v(np,np, :,l)
+      end select
+
+      if (element(l) % edge(e) % orientation == o) then
+        ve = ve + vn
+      else
+        ve = ve + vn(np:1:-1)
+      end if
+
+    end do
+
+    ve = ONE/nn * ve
+
+  end subroutine CollectEdgeData
+
+  !-----------------------------------------------------------------------------
+  !> Collect and average neighbor vertex data
+
+  pure subroutine CollectVertexData(neighbor, v, vv)
+    class(MeshElementNeighbor_3D), intent(in)  :: neighbor(:)
+    real(RNP),                     intent(in)  :: v(:,:,:,:)
+    real(RNP),                     intent(out) :: vv
+
+    integer :: nn, np
+    integer :: k, l, n
+
+    nn = size(neighbor)
+    np = size(v,1)
+
+    vv = 0
+
+    do n = 1, nn
+
+      l = neighbor(n) % id
+      k = neighbor(n) % component - 18
+
+      select case(k)
+      case( 1)
+        vv = vv + v( 1, 1, 1,l)
+      case( 2)
+        vv = vv + v(np, 1, 1,l)
+      case( 3)
+        vv = vv + v( 1,np, 1,l)
+      case( 4)
+        vv = vv + v(np,np, 1,l)
+      case( 5)
+        vv = vv + v( 1, 1,np,l)
+      case( 6)
+        vv = vv + v(np, 1,np,l)
+      case( 7)
+        vv = vv + v( 1,np,np,l)
+      case( 8)
+        vv = vv + v(np,np,np,l)
+      end select
+
+    end do
+
+    vv = ONE/nn * vv
+
+  end subroutine CollectVertexData
