@@ -7,6 +7,7 @@
 module DG__Schwarz_Operator__3D
   use Kind_Parameters
   use Constants
+  use Eigenproblems, only: SolveGeneralizedEigenproblem
   use Schwarz_Weighting
   use DG__Element_Operators__1D
   use Mesh__3D

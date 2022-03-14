@@ -14,7 +14,7 @@ module DG__Diffusion_Operator__3D
   use Array_Reductions                           ! CG_Method
   use XMPI, only: XMPI_Bcast                     !
   use DG__Element_Operators__1D
-! use DG__Schwarz_Operator__3D
+  use DG__Schwarz_Operator__3D
   use Spectral_Element_Mesh__3D
   use Spectral_Element_Boundary_Variable__3D
 
@@ -30,7 +30,7 @@ module DG__Diffusion_Operator__3D
     real(RNP), allocatable :: nu_pv(:,:,:,:) !< variable physical diffusivity
     character, allocatable :: bc(:)          !< boundary conditions {P,D,N}
     type(DG_ElementOperators_1D) :: eop
-!   class(DG_SchwarzOperator_3D), allocatable :: schwarz
+    class(DG_SchwarzOperator_3D), allocatable :: schwarz
 
 contains
 
@@ -176,22 +176,23 @@ contains
   !-----------------------------------------------------------------------------
   !> Initialization with constant physical diffusivity
 
-  subroutine Init_C0(this, sem, dg_opt, lambda, nu_p, bc)
+  subroutine Init_C0(this, sem, dg_opt, lambda, nu_p, bc, schwarz_opt)
     class(DG_DiffusionOperator_3D), intent(inout) :: this
     class(SpectralElementMesh_3D), target, intent(in) :: sem
     class(DG_ElementOptions_1D), intent(in) :: dg_opt
     real(RNP), intent(in) :: lambda !< Helmholtz parameter
     real(RNP), intent(in) :: nu_p   !< physical diffusivity
     character, intent(in) :: bc(:)  !< BC {'D','N','P'}
+    class(DG_SchwarzOptions_3D), optional :: schwarz_opt
 
-    call Init_CC(this, sem, dg_opt, lambda, nu_p, ZERO, bc)
+    call Init_CC(this, sem, dg_opt, lambda, nu_p, ZERO, bc, schwarz_opt)
 
   end subroutine Init_C0
 
   !-----------------------------------------------------------------------------
   !> Initialization with constant physical and spectral diffusivities
 
-  subroutine Init_CC(this, sem, dg_opt, lambda, nu_p, nu_s, bc)!, schwarz_opt)
+  subroutine Init_CC(this, sem, dg_opt, lambda, nu_p, nu_s, bc, schwarz_opt)
     class(DG_DiffusionOperator_3D), intent(inout) :: this
     class(SpectralElementMesh_3D), target, intent(in) :: sem
     class(DG_ElementOptions_1D), intent(in) :: dg_opt
@@ -199,7 +200,7 @@ contains
     real(RNP), intent(in) :: nu_p   !< physical diffusivity
     real(RNP), intent(in) :: nu_s   !< spectral diffusivity [0]
     character, intent(in) :: bc(:)  !< BC {'D','N','P'}
-!   class(DG_SchwarzOptions_3D), optional :: schwarz_opt
+    class(DG_SchwarzOptions_3D), optional :: schwarz_opt
 
     this % sem     => sem
     this % eop     =  DG_ElementOperators_1D(dg_opt)
@@ -208,18 +209,24 @@ contains
 
     call this % SetDiffusivity(nu_p, nu_s)
 
+    if (present(schwarz_opt)) then
+      this % schwarz = DG_SchwarzOperator_3D( schwarz_opt, this%eop, sem%mesh &
+                                            , lambda, nu_p, nu_s, bc          )
+    end if
+
   end subroutine Init_CC
 
   !-----------------------------------------------------------------------------
   !> Initialization with variable physical diffusivity
 
-  subroutine Init_V(this, sem, dg_opt, lambda, nu_p, bc)
+  subroutine Init_V(this, sem, dg_opt, lambda, nu_p, bc, schwarz_opt)
     class(DG_DiffusionOperator_3D), intent(inout) :: this
     class(SpectralElementMesh_3D), target, intent(in) :: sem
     class(DG_ElementOptions_1D), intent(in) :: dg_opt
     real(RNP), intent(in) :: lambda        !< Helmholtz parameter
     real(RNP), intent(in) :: nu_p(:,:,:,:) !< variable physical diffusivity
     character, intent(in) :: bc(:)         !< BC {'D','N','P'}
+    class(DG_SchwarzOptions_3D), optional :: schwarz_opt
 
     this % sem     => sem
     this % eop     =  DG_ElementOperators_1D(dg_opt)
@@ -227,6 +234,11 @@ contains
     this % bc      =  bc
 
     call this % SetDiffusivity(nu_p)
+
+    if (present(schwarz_opt)) then
+      this % schwarz = DG_SchwarzOperator_3D( schwarz_opt, this%eop, sem%mesh &
+                                            , lambda, nu_p, bc                )
+    end if
 
   end subroutine Init_V
 
