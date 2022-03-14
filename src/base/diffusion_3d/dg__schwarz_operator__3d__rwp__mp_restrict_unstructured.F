@@ -18,7 +18,7 @@
     real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< extended mesh variable
     real(RWP),      intent(out)   :: vs(:,:,:,:)   !< restricted variable
 
-    real(RWP) :: ve(size(v,1)), vv
+    real(RNP) :: ve(size(v,1)), vv
 
     integer(IXS) :: orientation
     integer :: c0, c1, e, i, j, k, l, m, n, nn, np

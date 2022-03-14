@@ -19,7 +19,7 @@
     real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
     real(RWP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
 
-    real(RWP) :: ve(size(v,1)), vv
+    real(RNP) :: ve(size(v,1)), vv
 
     integer(IXS) :: orientation
     integer :: e, i, j, k, l, m, n, np, ns
@@ -1107,9 +1107,9 @@
     integer(IXS),                  intent(in)  :: o
     integer,                       intent(in)  :: no
     real(RWP),                     intent(in)  :: vs(:,:,:,:)
-    real(RWP),                     intent(out) :: ve(:)
+    real(RNP),                     intent(out) :: ve(:)
 
-    real(RWP) :: vn(size(ve))
+    real(RNP) :: vn(size(ve))
     integer :: nn, np
     integer :: i0, ip
     integer :: e, l, n
@@ -1172,7 +1172,7 @@
     class(MeshElementNeighbor_3D), intent(in)  :: neighbor(:)
     integer,                       intent(in)  :: no
     real(RWP),                     intent(in)  :: vs(:,:,:,:)
-    real(RWP),                     intent(out) :: vv
+    real(RNP),                     intent(out) :: vv
 
     integer :: i0, ip, nn
     integer :: k, l, n

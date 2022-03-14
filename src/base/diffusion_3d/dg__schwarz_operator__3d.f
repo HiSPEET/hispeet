@@ -170,22 +170,22 @@ module DG__Schwarz_Operator__3D
 
   contains
 
-    generic :: SetDomains => SetDomains_CI, SetDomains_CS, SetDomains_VI
-    procedure, private :: SetDomains_CI, SetDomains_CS, SetDomains_VI
+    generic :: SetDomains => SetDomains_C0, SetDomains_CC, SetDomains_V
+    procedure, private :: SetDomains_C0, SetDomains_CC, SetDomains_V
 
-    generic :: RestrictResidual => RestrictResidual_RDP
-    procedure, private :: RestrictResidual_RDP
+    generic :: RestrictResidual => RestrictResidual_RDP, RestrictResidual_RSP
+    procedure, private :: RestrictResidual_RDP, RestrictResidual_RSP
 
-    generic :: MergeCorrections => MergeCorrections_RDP
-    procedure, private :: MergeCorrections_RDP
+    generic :: MergeCorrections => MergeCorrections_RDP, MergeCorrections_RSP
+    procedure, private :: MergeCorrections_RDP ,MergeCorrections_RSP
 
   end type DG_SchwarzOperator_3D
 
   ! constructor interface
   interface DG_SchwarzOperator_3D
-    module procedure New_CI
-    module procedure New_CS
-    module procedure New_VI
+    module procedure New_C0
+    module procedure New_CC
+    module procedure New_V
   end interface
 
   !=============================================================================
@@ -234,12 +234,58 @@ module DG__Schwarz_Operator__3D
 
   end interface
 
+  !=============================================================================
+  ! Interfaces to double precision submodule procedures
+
+  interface
+
+    module subroutine Restrict_Structured_RSP(this, mesh, buf_v, v, vs)
+      class(DG_SchwarzOperator_3D), intent(in) :: this
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_v
+      class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
+      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< extended mesh variable
+      real(RSP),      intent(out)   :: vs(:,:,:,:)   !< restricted variable
+    end subroutine Restrict_Structured_RSP
+
+    module subroutine Restrict_Unstructured_RSP(this, mesh, buf_v, v, vs)
+      class(DG_SchwarzOperator_3D), intent(in) :: this
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_v
+      class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
+      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< extended mesh variable
+      real(RSP),      intent(out)   :: vs(:,:,:,:)   !< restricted variable
+    end subroutine Restrict_Unstructured_RSP
+
+    module subroutine Merge_Core_RSP(this, mesh, vs, v)
+      class(DG_SchwarzOperator_3D), intent(in) :: this
+      class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
+      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
+      real(RSP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
+    end subroutine Merge_Core_RSP
+
+    module subroutine Merge_Structured_RSP(this, mesh, buf_vs, vs, v)
+      class(DG_SchwarzOperator_3D), intent(in) :: this
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
+      class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
+      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
+      real(RSP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
+    end subroutine Merge_Structured_RSP
+
+    module subroutine Merge_Unstructured_RSP(this, mesh, buf_vs, vs, v)
+      class(DG_SchwarzOperator_3D), intent(in) :: this
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
+      class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
+      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
+      real(RSP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
+    end subroutine Merge_Unstructured_RSP
+
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
   !> Constructor with constant physical diffusivity
 
-  function New_CI(opt, eop, mesh, lambda, nu, bc) result(this)
+  function New_C0(opt, eop, mesh, lambda, nu, bc) result(this)
     class(DG_SchwarzOptions_3D),   intent(in) :: opt !< operator options
     class(DG_ElementOperators_1D), intent(in) :: eop !< DG element operators
     class(Mesh_3D), intent(in) :: mesh      !< mesh partition
@@ -250,14 +296,14 @@ contains
     type(DG_SchwarzOperator_3D) :: this
 
     call InitSchwarzOperator(this, opt, eop, mesh)
-    call SetDomains_CI(this, mesh, lambda, nu, bc)
+    call SetDomains_C0(this, mesh, lambda, nu, bc)
 
-  end function New_CI
+  end function New_C0
 
   !-----------------------------------------------------------------------------
   !> Constructor with constant physical and spectral diffusivities
 
-  function New_CS(opt, eop, mesh, lambda, nu, nu_svv, bc) result(this)
+  function New_CC(opt, eop, mesh, lambda, nu, nu_svv, bc) result(this)
     class(DG_SchwarzOptions_3D),   intent(in) :: opt !< operator options
     class(DG_ElementOperators_1D), intent(in) :: eop !< DG element operators
     class(Mesh_3D), intent(in) :: mesh      !< mesh partition
@@ -273,14 +319,14 @@ contains
     svv = nu_svv / (nu + nu_svv)
 
     call InitSchwarzOperator(this, opt, eop, mesh, svv)
-    call SetDomains_CS(this, mesh, lambda, nu, nu_svv, bc)
+    call SetDomains_CC(this, mesh, lambda, nu, nu_svv, bc)
 
-  end function New_CS
+  end function New_CC
 
   !-----------------------------------------------------------------------------
   !> Constructor with variable diffusivity
 
-  function New_VI(opt, eop, mesh, lambda, nu, bc) result(this)
+  function New_V(opt, eop, mesh, lambda, nu, bc) result(this)
     class(DG_SchwarzOptions_3D),   intent(in) :: opt !< operator options
     class(DG_ElementOperators_1D), intent(in) :: eop !< DG element operators
     class(Mesh_3D), intent(in) :: mesh        !< mesh partition
@@ -291,9 +337,9 @@ contains
     type(DG_SchwarzOperator_3D) :: this
 
     call InitSchwarzOperator(this, opt, eop, mesh)
-    call SetDomains_VI(this, eop, mesh, lambda, nu, bc)
+    call SetDomains_V(this, eop, mesh, lambda, nu, bc)
 
-  end function New_VI
+  end function New_V
 
   !-----------------------------------------------------------------------------
   !> Build the 1D eigenvalues, eigenvectors and weights
@@ -633,7 +679,7 @@ contains
   !-----------------------------------------------------------------------------
   !> (Re)Set subdomain configurations and eigenvalues: const isotropic w/o SVV
 
-  subroutine SetDomains_CI(this, mesh, lambda, nu, bc)
+  subroutine SetDomains_C0(this, mesh, lambda, nu, bc)
     class(DG_SchwarzOperator_3D), intent(inout) :: this
     class(Mesh_3D), intent(in) :: mesh   !< mesh partition
     real(RNP),      intent(in) :: lambda !< Helmholtz parameter
@@ -647,12 +693,12 @@ contains
      call SetDomain(this, mesh, lambda, nu, bc, e)
     end do
 
-  end subroutine SetDomains_CI
+  end subroutine SetDomains_C0
 
   !-----------------------------------------------------------------------------
   !> (Re)Set subdomain configurations and eigenvalues: const isotropic with SVV
 
-  subroutine SetDomains_CS(this, mesh, lambda, nu, nu_svv, bc)
+  subroutine SetDomains_CC(this, mesh, lambda, nu, nu_svv, bc)
     class(DG_SchwarzOperator_3D), intent(inout) :: this
     class(Mesh_3D), intent(in) :: mesh   !< mesh partition
     real(RNP),      intent(in) :: lambda !< Helmholtz parameter
@@ -667,12 +713,12 @@ contains
      call SetDomain(this, mesh, lambda, nu + nu_svv, bc, e)
     end do
 
-  end subroutine SetDomains_CS
+  end subroutine SetDomains_CC
 
   !-----------------------------------------------------------------------------
   !> Set subdomain configurations and eigenvalues: variable isotropic
 
-  subroutine SetDomains_VI(this, eop, mesh, lambda, nu, bc)
+  subroutine SetDomains_V(this, eop, mesh, lambda, nu, bc)
     class(DG_SchwarzOperator_3D), intent(inout) :: this
     class(DG_ElementOperators_1D), intent(in) :: eop !< DG element operators
     class(Mesh_3D), intent(in) :: mesh               !< mesh partition
@@ -711,7 +757,7 @@ contains
 
     end do
 
-  end subroutine SetDomains_VI
+  end subroutine SetDomains_V
 
   !-----------------------------------------------------------------------------
   !> Set subdomain boundary conditions and inverse 3D eigenvalues
@@ -854,6 +900,44 @@ contains
     end if
 
   end subroutine MergeCorrections_RDP
+
+  !-----------------------------------------------------------------------------
+  !> Restrict mesh variable to subdomains -- single precision
+
+  module subroutine RestrictResidual_RSP(this, mesh, buf_v, v, vs)
+    class(DG_SchwarzOperator_3D), intent(in) :: this
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_v
+    class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
+    real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< extended mesh variable
+    real(RSP),      intent(out)   :: vs(:,:,:,:)   !< restricted variable
+
+    if (mesh % structured) then
+      call Restrict_Structured_RSP(this, mesh, buf_v, v, vs)
+    else
+      call Restrict_Unstructured_RSP(this, mesh, buf_v, v, vs)
+    end if
+
+  end subroutine RestrictResidual_RSP
+
+  !-----------------------------------------------------------------------------
+  !> Merge subdomain contributions into mesh variable -- single precision
+
+  module subroutine MergeCorrections_RSP(this, mesh, buf_vs, vs, v)
+    class(DG_SchwarzOperator_3D), intent(in) :: this
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
+    class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
+    real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
+    real(RSP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
+
+    if (this % restrictive) then ! merge core regions only
+      call Merge_Core_RSP(this, mesh, vs, v)
+    else if (mesh % structured) then
+      call Merge_Structured_RSP(this, mesh, buf_vs, vs, v)
+    else
+      call Merge_Unstructured_RSP(this, mesh, buf_vs, vs, v)
+    end if
+
+  end subroutine MergeCorrections_RSP
 
   !=============================================================================
   ! Utilities
