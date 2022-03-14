@@ -862,7 +862,7 @@ contains
   !> The mesh variable must be dimensioned as `v(0:po,0:po,0:po,ne+ng)`, where
   !> `ne` is the number of local elements and `ng` the number of ghosts.
 
-  module subroutine RestrictResidual_RDP(this, mesh, buf_v, v, vs)
+  subroutine RestrictResidual_RDP(this, mesh, buf_v, v, vs)
     class(DG_SchwarzOperator_3D), intent(in) :: this
     class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_v
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
@@ -884,7 +884,7 @@ contains
   !> `ns` is the numbeer of subdomain points per direction, `ne` the number of
   !> local elements and `ng` the number of ghosts.
 
-  module subroutine MergeCorrections_RDP(this, mesh, buf_vs, vs, v)
+  subroutine MergeCorrections_RDP(this, mesh, buf_vs, vs, v)
     class(DG_SchwarzOperator_3D), intent(in) :: this
     class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
@@ -904,7 +904,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Restrict mesh variable to subdomains -- single precision
 
-  module subroutine RestrictResidual_RSP(this, mesh, buf_v, v, vs)
+  subroutine RestrictResidual_RSP(this, mesh, buf_v, v, vs)
     class(DG_SchwarzOperator_3D), intent(in) :: this
     class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_v
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
@@ -922,7 +922,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Merge subdomain contributions into mesh variable -- single precision
 
-  module subroutine MergeCorrections_RSP(this, mesh, buf_vs, vs, v)
+  subroutine MergeCorrections_RSP(this, mesh, buf_vs, vs, v)
     class(DG_SchwarzOperator_3D), intent(in) :: this
     class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition

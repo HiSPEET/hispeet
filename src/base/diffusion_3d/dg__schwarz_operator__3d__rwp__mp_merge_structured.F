@@ -9,10 +9,10 @@
   !>   4. Merge `vs` from local and ghost overlap regions into `v`
   !>
   !> The subdomain variable must be dimensioned as `v(ns,ns,ns,ne+ng)`, where
-  !> `ns` is the numbeer of subdomain points per direction, `ne` the number of
+  !> `ns` is the number of subdomain points per direction, `ne` the number of
   !> local elements and `ng` the number of ghosts.
 
-  module subroutine Merge_S(this, mesh, buf_vs, vs, v)
+  module subroutine Merge_Structured(this, mesh, buf_vs, vs, v)
     class(DG_SchwarzOperator_3D), intent(in) :: this
     class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
@@ -428,4 +428,4 @@
 
     end associate
 
-  end subroutine Merge_S
+  end subroutine Merge_Structured

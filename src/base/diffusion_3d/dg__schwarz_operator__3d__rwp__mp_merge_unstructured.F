@@ -9,7 +9,7 @@
   !>   4. Merge `vs` from local and ghost overlap regions into `v`
   !>
   !> The subdomain variable must be dimensioned as `v(ns,ns,ns,ne+ng)`, where
-  !> `ns` is the numbeer of subdomain points per direction, `ne` the number of
+  !> `ns` is the number of subdomain points per direction, `ne` the number of
   !> local elements and `ng` the number of ghosts.
 
   module subroutine Merge_Unstructured(this, mesh, buf_vs, vs, v)
