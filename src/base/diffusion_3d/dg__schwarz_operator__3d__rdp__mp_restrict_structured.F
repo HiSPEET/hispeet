@@ -4,11 +4,13 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule (DG__Schwarz_Operator__3D__RDP) MP_Restrict_S
+submodule (DG__Schwarz_Operator__3D) MP_Restrict_Structured_RDP
+
+  integer, parameter :: RWP = RDP
+
 contains
 
-#define  DG_SchwarzOperator_3D_RWP DG_SchwarzOperator_3D_RDP
-#include "dg__schwarz_operator__3d__rwp__mp_restrict_s.F"
-#undef   DG_SchwarzOperator_3D_RWP
+#define  Restrict_Structured Restrict_Structured_RDP
+#include "dg__schwarz_operator__3d__rwp__mp_restrict_structured.F"
 
-end submodule MP_Restrict_S
+end submodule MP_Restrict_Structured_RDP

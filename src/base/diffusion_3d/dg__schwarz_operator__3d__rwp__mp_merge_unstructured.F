@@ -12,8 +12,8 @@
   !> `ns` is the numbeer of subdomain points per direction, `ne` the number of
   !> local elements and `ng` the number of ghosts.
 
-  module subroutine Merge_U(this, mesh, buf_vs, vs, v)
-    class(DG_SchwarzOperator_3D_RWP), intent(in) :: this
+  module subroutine Merge_Unstructured(this, mesh, buf_vs, vs, v)
+    class(DG_SchwarzOperator_3D), intent(in) :: this
     class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
     real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
@@ -1096,7 +1096,7 @@
 
     end associate
 
-  end subroutine Merge_U
+  end subroutine Merge_Unstructured
 
   !-----------------------------------------------------------------------------
   !> Collect, align and average neighbor edge data

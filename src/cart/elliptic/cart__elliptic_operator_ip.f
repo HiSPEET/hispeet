@@ -226,7 +226,7 @@ end function New_VI
 subroutine Init_Base(this, mesh, ip_opt, schwarz_opt)
   class(EllipticOperator3D_IP),      intent(inout) :: this
   class(MeshPartition), target,      intent(in)    :: mesh
-  class(DG_ElementOptions_1D),        intent(in)    :: ip_opt
+  class(DG_ElementOptions_1D),       intent(in)    :: ip_opt
   class(SchwarzOptions3D), optional, intent(in)    :: schwarz_opt
 
   this % mesh => mesh

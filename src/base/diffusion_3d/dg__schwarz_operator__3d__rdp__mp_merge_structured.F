@@ -4,11 +4,14 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule (DG__Schwarz_Operator__3D__RDP) MP_Merge_S
+submodule (DG__Schwarz_Operator__3D) MP_Merge_Structured_RDP
+
+  integer, parameter :: RWP = RDP
+
 contains
 
-#define  DG_SchwarzOperator_3D_RWP DG_SchwarzOperator_3D_RDP
-#include "dg__schwarz_operator__3d__rwp__mp_merge_s.F"
-#undef   DG_SchwarzOperator_3D_RWP
+#define  Merge_Structured Merge_Structured_RDP
+#include "dg__schwarz_operator__3d__rwp__mp_merge_structured.F"
+#undef   Merge_Structured
 
-end submodule MP_Merge_S
+end submodule MP_Merge_Structured_RDP

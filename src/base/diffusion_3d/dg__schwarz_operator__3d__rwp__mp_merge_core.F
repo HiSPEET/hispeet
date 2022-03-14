@@ -1,8 +1,8 @@
   !-----------------------------------------------------------------------------
   !>  Merge of subdomain core contributions into mesh variable
 
-  module subroutine Merge_C(this, mesh, vs, v)
-    class(DG_SchwarzOperator_3D_RWP), intent(in) :: this
+  module subroutine Merge_Core(this, mesh, vs, v)
+    class(DG_SchwarzOperator_3D), intent(in) :: this
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
     real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
     real(RWP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
@@ -28,4 +28,4 @@
 
     end associate
 
-  end subroutine Merge_C
+  end subroutine Merge_Core

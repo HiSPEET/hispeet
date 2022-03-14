@@ -1,23 +1,22 @@
   !-----------------------------------------------------------------------------
-  !> Merge subdomain contributions into structured mesh variable
+  !> Restrict a structured mesh variable `v` to subdomains
   !>
   !> The strategy is as a follows:
   !>
-  !>   1. Send `vs` from linked local elements to ghosts in remote partitions
-  !>   2. Add `vs` from subdomain core regions to `v`
+  !>   1. Send `v` from linked local elements to ghosts in remote partitions
+  !>   2. Assign `v` to subdomain core regions, i.e. 1:1 copy to `vs`
   !>   3. Merge received remote data into ghosts
-  !>   4. Merge `vs` from local and ghost overlap regions into `v`
+  !>   4. Copy local and ghost data to overlap zones of subdomains
   !>
-  !> The subdomain variable must be dimensioned as `v(ns,ns,ns,ne+ng)`, where
-  !> `ns` is the numbeer of subdomain points per direction, `ne` the number of
-  !> local elements and `ng` the number of ghosts.
+  !> The mesh variable must be dimensioned as `v(0:po,0:po,0:po,ne+ng)`, where
+  !> `ne` is the number of local elements and `ng` the number of ghosts.
 
-  module subroutine Merge_S(this, mesh, buf_vs, vs, v)
-    class(DG_SchwarzOperator_3D_RWP), intent(in) :: this
-    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
+  module subroutine Restrict_Structured(this, mesh, buf_v, v, vs)
+    class(DG_SchwarzOperator_3D), intent(in) :: this
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_v
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-    real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
-    real(RWP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
+    real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< extended mesh variable
+    real(RWP),      intent(out)   :: vs(:,:,:,:)   !< restricted variable
 
     integer :: e, i, j, k, l, m
     integer :: c0, c1, o0, o1
@@ -26,9 +25,9 @@
 
       ! start transfer .........................................................
 
-      call buf_vs % Transfer(mesh, vs, tag=2000)
+      call buf_v % Transfer(mesh, v, tag=1000)
 
-      ! core regions ...........................................................
+      ! assign core regions ....................................................
 
       ! indices of first and last core points within subdomain
       c0 = no + 1
@@ -36,20 +35,25 @@
 
       !$omp do
       do e = 1, mesh % n_elem
+
+        ! ensure that no NANs remain in parts for which no neighbor data exists
+        vs(:,:,:,e) = 0
+
         do k = 0, po
         do j = 0, po
         do i = 0, po
-          v(i,j,k,e) = v(i,j,k,e) + vs(c0 + i, c0 + j, c0 + k, e)
+          vs(c0 + i, c0 + j, c0 + k, e) = real(v(i,j,k,e), RWP)
         end do
         end do
         end do
+
       end do
 
       ! merge remote data to ghosts ............................................
 
-      call buf_vs % Merge(vs)
+      call buf_v % Merge(v)
 
-      ! overlap regions ........................................................
+      ! fill overlap regions ...................................................
 
       ! offsets of element point indices
       o0 = -1
@@ -66,8 +70,7 @@
             do k = 0, po
             do j = 0, po
             do i = 1, no
-              v(o0 + i, j, k, e) = v (o0 + i,      j,      k, e) &
-                                 + vs(c1 + i, c0 + j, c0 + k, l)
+              vs(i, c0 + j, c0 + k, e) = real(v(o1 + i, j, k, l), RWP)
             end do
             end do
             end do
@@ -80,8 +83,7 @@
             do k = 0, po
             do j = 0, po
             do i = 1, no
-              v(o1 + i, j, k, e) = v (o1 + i,      j,      k, e) &
-                                 + vs(     i, c0 + j, c0 + k, l)
+              vs(c1 + i, c0 + j, c0 + k, e) = real(v(o0 + i, j, k, l), RWP)
             end do
             end do
             end do
@@ -94,8 +96,7 @@
             do k = 0, po
             do j = 1, no
             do i = 0, po
-              v(i, o0 + j, k, e) = v (     i, o0 + j,      k, e) &
-                                 + vs(c0 + i, c1 + j, c0 + k, l)
+              vs(c0 + i, j, c0 + k, e) = real(v(i, o1 + j, k, l), RWP)
             end do
             end do
             end do
@@ -108,8 +109,7 @@
             do k = 0, po
             do j = 1, no
             do i = 0, po
-              v(i, o1 + j, k, e) = v (     i, o1 + j,      k, e) &
-                                 + vs(c0 + i,      j, c0 + k, l)
+              vs(c0 + i, c1 + j, c0 + k, e) = real(v(i, o0 + j, k, l), RWP)
             end do
             end do
             end do
@@ -122,8 +122,7 @@
             do k = 1, no
             do j = 0, po
             do i = 0, po
-              v(i, j, o0 + k, e) = v (     i,      j, o0 + k, e) &
-                                 + vs(c0 + i, c0 + j, c1 + k, l)
+              vs(c0 + i, c0 + j, k, e) = real(v(i, j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -136,8 +135,7 @@
             do k = 1, no
             do j = 0, po
             do i = 0, po
-              v(i, j, o1 + k, e) = v (     i,      j, o1 + k, e) &
-                                 + vs(c0 + i, c0 + j,      k, l)
+              vs(c0 + i, c0 + j, c1 + k, e) = real(v(i, j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -150,8 +148,7 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              v(i, o0 + j, o0 + k, e) = v (     i, o0 + j, o0 + k, e) &
-                                      + vs(c0 + i, c1 + j, c1 + k, l)
+              vs(c0 + i, j, k, e) = real(v(i, o1 + j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -164,8 +161,7 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              v(i, o1 + j, o0 + k, e) = v (     i, o1 + j, o0 + k, e) &
-                                      + vs(c0 + i,      j, c1 + k, l)
+              vs(c0 + i, c1 + j, k, e) = real(v(i, o0 + j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -178,8 +174,7 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              v(i, o0 + j, o1 + k, e) = v (     i, o0 + j, o1 + k, e) &
-                                      + vs(c0 + i, c1 + j,      k, l)
+              vs(c0 + i, j, c1 + k, e) = real(v(i, o1 + j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -192,8 +187,7 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              v(i, o1 + j, o1 + k, e) = v (     i, o1 + j, o1 + k, e) &
-                                      + vs(c0 + i,      j,      k, l)
+              vs(c0 + i, c1 + j, c1 + k, e) = real(v(i, o0 + j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -206,8 +200,7 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              v(o0 + i, j, o0 + k, e) = v (o0 + i,      j, o0 + k, e) &
-                                      + vs(c1 + i, c0 + j, c1 + k, l)
+              vs(i, c0 + j, k, e) = real(v(o1 + i, j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -220,8 +213,7 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              v(o1 + i, j, o0 + k, e) = v (o1 + i,      j, o0 + k, e) &
-                                      + vs(     i, c0 + j, c1 + k, l)
+              vs(c1 + i, c0 + j, k, e) = real(v(o0 + i, j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -234,8 +226,7 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              v(o0 + i, j, o1 + k, e) = v (o0 + i,      j, o1 + k, e) &
-                                      + vs(c1 + i, c0 + j,      k, l)
+              vs(i, c0 + j, c1 + k, e) = real(v(o1 + i, j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -248,8 +239,7 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              v(o1 + i, j, o1 + k, e) = v (o1 + i,      j, o1 + k, e) &
-                                      + vs(     i, c0 + j,      k, l)
+              vs(c1 + i, c0 + j, c1 + k, e) = real(v(o0 + i, j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -262,8 +252,7 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              v(o0 + i, o0 + j, k, e) = v (o0 + i, o0 + j,      k, e) &
-                                      + vs(c1 + i, c1 + j, c0 + k, l)
+              vs(i, j, c0 + k, e) = real(v(o1 + i, o1 + j, k, l), RWP)
             end do
             end do
             end do
@@ -276,8 +265,7 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              v(o1 + i, o0 + j, k, e) = v (o1 + i, o0 + j,      k, e) &
-                                      + vs(     i, c1 + j, c0 + k, l)
+              vs(c1 + i, j, c0 + k, e) = real(v(o0 + i, o1 + j, k, l), RWP)
             end do
             end do
             end do
@@ -290,8 +278,7 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              v(o0 + i, o1 + j, k, e) = v (o0 + i, o1 + j,      k, e) &
-                                      + vs(c1 + i,      j, c0 + k, l)
+              vs(i, c1 + j, c0 + k, e) = real(v(o1 + i, o0 + j, k, l), RWP)
             end do
             end do
             end do
@@ -304,8 +291,7 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              v(o1 + i, o1 + j, k, e) = v (o1 + i, o1 + j,      k, e) &
-                                      + vs(     i,      j, c0 + k, l)
+              vs(c1 + i, c1 + j, c0 + k, e) = real(v(o0 + i, o0 + j, k, l), RWP)
             end do
             end do
             end do
@@ -318,8 +304,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o0 + i, o0 + j, o0 + k, e) = v (o0 + i, o0 + j, o0 + k, e) &
-                                           + vs(c1 + i, c1 + j, c1 + k, l)
+              vs(i, j, k, e) = real(v(o1 + i, o1 + j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -332,8 +317,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o1 + i, o0 + j, o0 + k, e) = v (o1 + i, o0 + j, o0 + k, e) &
-                                           + vs(     i, c1 + j, c1 + k, l)
+              vs(c1 + i, j, k, e) = real(v(o0 + i, o1 + j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -346,8 +330,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o0 + i, o1 + j, o0 + k, e) = v (o0 + i, o1 + j, o0 + k, e) &
-                                           + vs(c1 + i,      j, c1 + k, l)
+              vs(i, c1 + j, k, e) = real(v(o1 + i, o0 + j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -360,8 +343,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o1 + i, o1 + j, o0 + k, e) = v (o1 + i, o1 + j, o0 + k, e) &
-                                           + vs(     i,      j, c1 + k, l)
+              vs(c1 + i, c1 + j, k, e) = real(v(o0 + i, o0 + j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -374,8 +356,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o0 + i, o0 + j, o1 + k, e) = v (o0 + i, o0 + j, o1 + k, e) &
-                                           + vs(c1 + i, c1 + j,      k, l)
+              vs(i, j, c1 + k, e) = real(v(o1 + i, o1 + j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -388,8 +369,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o1 + i, o0 + j, o1 + k, e) = v (o1 + i, o0 + j, o1 + k, e) &
-                                           + vs(     i, c1 + j,      k, l)
+              vs(c1 + i, j, c1 + k, e) = real(v(o0 + i, o1 + j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -402,8 +382,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o0 + i, o1 + j, o1 + k, e) = v (o0 + i, o1 + j, o1 + k, e) &
-                                           + vs(c1 + i,      j,      k, l)
+              vs(i, c1 + j, c1 + k, e) = real(v(o1 + i, o0 + j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -416,8 +395,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o1 + i, o1 + j, o1 + k, e) = v (o1 + i, o1 + j, o1 + k, e) &
-                                           + vs(     i,      j,      k, l)
+              vs(c1 + i, c1 + j, c1 + k, e) = real(v(o0 + i, o0 + j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -428,4 +406,4 @@
 
     end associate
 
-  end subroutine Merge_S
+  end subroutine Restrict_Structured

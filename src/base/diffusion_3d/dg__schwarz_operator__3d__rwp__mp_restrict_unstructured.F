@@ -11,8 +11,8 @@
   !> The mesh variable must be dimensioned as `v(0:po,0:po,0:po,ne+ng)`, where
   !> `ne` is the number of local elements and `ng` the number of ghosts.
 
-  module subroutine Restrict_U(this, mesh, buf_v, v, vs)
-    class(DG_SchwarzOperator_3D_RWP), intent(in) :: this
+  module subroutine Restrict_Unstructured(this, mesh, buf_v, v, vs)
+    class(DG_SchwarzOperator_3D), intent(in) :: this
     class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_v
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
     real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< extended mesh variable
@@ -1039,7 +1039,7 @@
 
     end associate
 
-  end subroutine Restrict_U
+  end subroutine Restrict_Unstructured
 
   !-----------------------------------------------------------------------------
   !> Collect, align and average neighbor edge data
