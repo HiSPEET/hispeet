@@ -587,12 +587,6 @@ contains
       ns = np + 2*no
       nl = no
 
-print *, 'np =', np
-print *, 'ne =', ne
-print *, 'ng =', ng
-print *, 'no =', no
-print *, 'ns =', ns
-
       if (no < 1) then
         if (mesh % part == 0) then
           !$omp master

@@ -1,11 +1,12 @@
 &control_prm
   config = 3
   n_test = 10
-! plot_file = 'dg_diffusion_3d_test'
+  plot_file = 'dg_diffusion_3d_test'
 !
-! schwarz_test_file = 'dg_diffusion_3d_test_schwarz'
-! schwarz_test_part =  0
-! schwarz_test_elem = 23
+  schwarz_test_file = 'dg_diffusion_3d_test_schwarz'
+  schwarz_test_part =  0
+  schwarz_test_elem = 14   ! one rotated
+! schwarz_test_elem = 23   ! cylinder
 /
 
 &problem_prm
@@ -27,9 +28,9 @@
 /
 
 &cuboid_onerotated_prm
-! rotation(3) = 0,0,0 ! x/y/z-rotation of center element
-! periodic(3) = F,F,F ! F/T for non/periodic directions
-! pg = 3              ! polynomial order of geometry
+  rotation = 1,2,3 ! x/y/z-rotation of center element
+! periodic = F,F,F ! F/T for non/periodic directions
+! pg = 3           ! polynomial order of geometry
 /
 
 &cylinder_prm
