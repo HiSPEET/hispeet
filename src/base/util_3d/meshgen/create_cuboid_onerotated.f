@@ -1,10 +1,10 @@
-!> summary:  Creation of a annular domain with an unstructured mesh
+!> summary:  Creation of a 3x3x3 cuboid with a rotated center element
 !> author:   Joerg Stiller
-!> date:     2021/09/29
+!> date:     2022/03/20
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Create_Annulus
+module Create_Cuboid_OneRotated
   use Kind_Parameters
   use Constants
   use XMPI
@@ -13,14 +13,14 @@ module Create_Annulus
   implicit none
   private
 
-  public :: CreateAnnulus
+  public :: CreateCuboidOneRotated
 
 contains
 
   !-----------------------------------------------------------------------------
   !> Creation of a cylindrical domain with an unstructured mesh
 
-  subroutine CreateAnnulus(comm, input, mesh)
+  subroutine CreateCuboidOneRotated(comm, input, mesh)
 
     ! arguments ................................................................
 
@@ -30,21 +30,16 @@ contains
 
     ! input parameters .........................................................
 
-    real(RNP) :: r0 = 0.8*PI        ! inner radius
-    real(RNP) :: r1 = 1.0*PI        ! outer radius
-    real(RNP) :: h  = 2.0*PI        ! height = axial extension
-    integer   :: nr = 2             ! num elements in radial direction
-    integer   :: np = 4             ! num elements in azimuthal direction ≥ 3
-    integer   :: nz = 4             ! num elements in axial  direction
-    integer   :: pg = 3             ! polynomial order of geometry
-    logical   :: periodic = .false. ! switch for periodicity in axial direction
+    integer :: rotation(3) = 0       ! x/y/z-rotation of center element
+    logical :: periodic(3) = .false. ! F/T for non/periodic directions
+    integer :: pg = 3                ! polynomial order of geometry
 
-    namelist/annulus/ r0, r1, h, nr, np, nz, pg, periodic
+    namelist/cuboid_onerotated_prm/ rotation, periodic, pg
 
     ! auxiliary variables ......................................................
 
-    integer   :: rank
-    integer   :: io
+    integer :: rank
+    integer :: io
 
     type(GenericMesh_3D) :: generic_mesh
 
@@ -54,27 +49,21 @@ contains
 
     if (rank == 0) then
       open(newunit = io, file = input)
-      read(io, nml = annulus)
+      read(io, nml = cuboid_onerotated_prm)
       close(io)
     end if
 
-    call XMPI_Bcast(r0, 0, comm)
-    call XMPI_Bcast(r1, 0, comm)
-    call XMPI_Bcast(h , 0, comm)
-    call XMPI_Bcast(nr, 0, comm)
-    call XMPI_Bcast(np, 0, comm)
-    call XMPI_Bcast(nz, 0, comm)
-    call XMPI_Bcast(pg, 0, comm)
-
+    call XMPI_Bcast(rotation, 0, comm)
     call XMPI_Bcast(periodic, 0, comm)
+    call XMPI_Bcast(pg      , 0, comm)
 
     ! create mesh ..............................................................
 
-    call generic_mesh % CreateAnnulus(r0, r1, h, nr, np, nz, pg, periodic)
+    call generic_mesh % CreateOneRotated(pg, rotation, periodic)
     call mesh % ImportGenericMesh(generic_mesh, comm = comm)
 
-  end subroutine CreateAnnulus
+  end subroutine CreateCuboidOneRotated
 
   !=============================================================================
 
-end module Create_Annulus
+end module Create_Cuboid_OneRotated
