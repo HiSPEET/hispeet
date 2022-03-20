@@ -7,6 +7,7 @@
 module DG__Schwarz_Operator__3D
   use Kind_Parameters
   use Constants
+  use XMPI
   use Eigenproblems, only: SolveGeneralizedEigenproblem
   use Schwarz_Weighting
   use DG__Element_Operators__1D
@@ -36,6 +37,8 @@ module DG__Schwarz_Operator__3D
     integer :: wp = RDP      !< working precision {RDP,RSP}
     integer :: no = 1        !< number of overlapped points
     integer :: weighting = 5 !< weighting method {0,1,3,5,7,9}
+  contains
+    procedure :: Bcast => Bcast_DG_SchwarzOptions_3D
   end type DG_SchwarzOptions_3D
 
   !-----------------------------------------------------------------------------
@@ -282,6 +285,26 @@ module DG__Schwarz_Operator__3D
   end interface
 
 contains
+
+  !=============================================================================
+  ! Type-bound procedures of DG_SchwarzOptions_3D
+
+  !-----------------------------------------------------------------------------
+  !> MPI_Bcast for objects of type DG_SchwarzOptions_3D
+
+   subroutine Bcast_DG_SchwarzOptions_3D(this, root, comm)
+    class(DG_SchwarzOptions_3D), intent(inout) :: this
+    integer,        intent(in) :: root !< rank of broadcast root
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
+
+    call XMPI_Bcast(this % wp        , root, comm)
+    call XMPI_Bcast(this % no        , root, comm)
+    call XMPI_Bcast(this % weighting , root, comm)
+
+  end subroutine Bcast_DG_SchwarzOptions_3D
+
+  !=============================================================================
+  ! Type-bound procedures of DG_SchwarzOperator_3D
 
   !-----------------------------------------------------------------------------
   !> Constructor with constant physical diffusivity
@@ -796,9 +819,9 @@ contains
     this % cfg(3,e) = c3
 
     ! extensions of the corresponding cuboid
-    dx = 2 * mesh % x_cube(:,e,1) ! dx(i) = ∂x/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
-    dy = 2 * mesh % x_cube(:,e,2) ! dy(i) = ∂y/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
-    dz = 2 * mesh % x_cube(:,e,3) ! dz(i) = ∂z/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
+    dx = 2 * mesh % x_cube(1:3,e,1) ! dx(i) = ∂x/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
+    dy = 2 * mesh % x_cube(1:3,e,2) ! dy(i) = ∂y/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
+    dz = 2 * mesh % x_cube(1:3,e,3) ! dz(i) = ∂z/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
     l1 = sqrt(dx(1)**2 + dy(1)**2 + dz(1)**2) ! ξ₁ = ξ  extension
     l2 = sqrt(dx(2)**2 + dy(2)**2 + dz(2)**2) ! ξ₂ = η  extension
     l3 = sqrt(dx(3)**2 + dy(3)**2 + dz(3)**2) ! ξ₃ = ζ  extension

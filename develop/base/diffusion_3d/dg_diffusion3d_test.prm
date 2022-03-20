@@ -1,21 +1,24 @@
 &control_prm
-  config = 1
+  config = 3
   n_test = 10
 ! plot_file = 'dg_diffusion_3d_test'
+!
+! schwarz_test_file = 'dg_diffusion_3d_test_schwarz'
+! schwarz_test_part =  0
+! schwarz_test_elem = 23
 /
 
 &problem_prm
+! bc = ...
 /
 
 &dicretization_prm
-  pg = 15
-  po = 15
+  po = 5
 /
 
 &cuboid_cartesian_prm
   regular    = F ! mimic irregular mesh (elements deformed or of different size)
   structured = F ! mimic unstructured mesh
-  bc = 6*'D'
   np = 1,1,1
   ep = 3*1
 /
@@ -23,9 +26,17 @@
 &cuboid_diamonds_prm
 /
 
+&cuboid_onerotated_prm
+! rotation(3) = 0,0,0 ! x/y/z-rotation of center element
+! periodic(3) = F,F,F ! F/T for non/periodic directions
+! pg = 3              ! polynomial order of geometry
+/
+
 &cylinder_prm
-  r = 0.5
-  h = 0.5
+  r  = 0.5
+  h  = 0.5
+  nz = 3
+  pg = 5
 /
 
 &annulus_prm
@@ -35,4 +46,5 @@
   method = 0
   i_max  = 1
   r_red  = 1E-3
+  schwarz_opt%no = 2
 /

@@ -127,46 +127,52 @@ contains
   !-----------------------------------------------------------------------------
   !> New diffusion operator with constant physical diffusivity
 
-  function New_C0(sem, dg_opt, lambda, nu_p, bc) result(this)
+  function New_C0(sem, dg_opt, lambda, nu_p, bc, schwarz_opt) result(this)
     class(SpectralElementMesh_3D), target, intent(in) :: sem
     class(DG_ElementOptions_1D), intent(in) :: dg_opt
     real(RNP), intent(in) :: lambda !< Helmholtz parameter
     real(RNP), intent(in) :: nu_p   !< physical diffusivity
     character, intent(in) :: bc(:)  !< BC {'D','N','P'}
+    class(DG_SchwarzOptions_3D), optional, intent(in) :: schwarz_opt
+
     type(DG_DiffusionOperator_3D) :: this
 
-    call Init_CC(this, sem, dg_opt, lambda, nu_p, ZERO, bc)
+    call Init_CC(this, sem, dg_opt, lambda, nu_p, ZERO, bc, schwarz_opt)
 
   end function New_C0
 
   !-----------------------------------------------------------------------------
   !> New diffusion operator with constant physical and spectral diffusivities
 
-  function New_CC(sem, dg_opt, lambda, nu_p, nu_s, bc) result(this)
+  function New_CC(sem, dg_opt, lambda, nu_p, nu_s, bc, schwarz_opt) result(this)
     class(SpectralElementMesh_3D), target, intent(in) :: sem
     class(DG_ElementOptions_1D), intent(in) :: dg_opt
     real(RNP), intent(in) :: lambda !< Helmholtz parameter
     real(RNP), intent(in) :: nu_p   !< physical diffusivity
     real(RNP), intent(in) :: nu_s   !< spectral diffusivity [0]
     character, intent(in) :: bc(:)  !< BC {'D','N','P'}
+    class(DG_SchwarzOptions_3D), optional, intent(in) :: schwarz_opt
+
     type(DG_DiffusionOperator_3D) :: this
 
-    call Init_CC(this, sem, dg_opt, lambda, nu_p, nu_s, bc)
+    call Init_CC(this, sem, dg_opt, lambda, nu_p, nu_s, bc, schwarz_opt)
 
   end function New_CC
 
   !-----------------------------------------------------------------------------
   !> New diffusion operator with variable physical diffusivity
 
-  function New_V(sem, dg_opt, lambda, nu_p, bc) result(this)
+  function New_V(sem, dg_opt, lambda, nu_p, bc, schwarz_opt) result(this)
     class(SpectralElementMesh_3D), target, intent(in) :: sem
     class(DG_ElementOptions_1D), intent(in) :: dg_opt
     real(RNP),             intent(in) :: lambda        !< Helmholtz parameter
     real(RNP), contiguous, intent(in) :: nu_p(:,:,:,:) !< variable physical ν
     character,             intent(in) :: bc(:)         !< BC {'D','N','P'}
+    class(DG_SchwarzOptions_3D), optional, intent(in) :: schwarz_opt
+
     type(DG_DiffusionOperator_3D) :: this
 
-    call Init_V(this, sem, dg_opt, lambda, nu_p, bc)
+    call Init_V(this, sem, dg_opt, lambda, nu_p, bc, schwarz_opt)
 
   end function New_V
 
@@ -183,7 +189,7 @@ contains
     real(RNP), intent(in) :: lambda !< Helmholtz parameter
     real(RNP), intent(in) :: nu_p   !< physical diffusivity
     character, intent(in) :: bc(:)  !< BC {'D','N','P'}
-    class(DG_SchwarzOptions_3D), optional :: schwarz_opt
+    class(DG_SchwarzOptions_3D), optional, intent(in) :: schwarz_opt
 
     call Init_CC(this, sem, dg_opt, lambda, nu_p, ZERO, bc, schwarz_opt)
 
@@ -200,7 +206,7 @@ contains
     real(RNP), intent(in) :: nu_p   !< physical diffusivity
     real(RNP), intent(in) :: nu_s   !< spectral diffusivity [0]
     character, intent(in) :: bc(:)  !< BC {'D','N','P'}
-    class(DG_SchwarzOptions_3D), optional :: schwarz_opt
+    class(DG_SchwarzOptions_3D), optional, intent(in) :: schwarz_opt
 
     this % sem     => sem
     this % eop     =  DG_ElementOperators_1D(dg_opt)
@@ -226,7 +232,7 @@ contains
     real(RNP), intent(in) :: lambda        !< Helmholtz parameter
     real(RNP), intent(in) :: nu_p(:,:,:,:) !< variable physical diffusivity
     character, intent(in) :: bc(:)         !< BC {'D','N','P'}
-    class(DG_SchwarzOptions_3D), optional :: schwarz_opt
+    class(DG_SchwarzOptions_3D), optional, intent(in) :: schwarz_opt
 
     this % sem     => sem
     this % eop     =  DG_ElementOperators_1D(dg_opt)

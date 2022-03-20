@@ -125,6 +125,11 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
 
 set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/export/export_vtk_schwarz_domain__3d.f
+             util_3d/meshgen/create_annulus.f
+             util_3d/meshgen/create_cuboid_cartesian.f
+             util_3d/meshgen/create_cuboid_diamonds.f
+             util_3d/meshgen/create_cuboid_onerotated.f
+             util_3d/meshgen/create_cylinder.f
              util_3d/transfer/element_transfer_buffer__3d.f
              util_3d/transfer/element_transfer_buffer__3d__sm_integer_idk.F
              util_3d/transfer/element_transfer_buffer__3d__sm_integer_ixs.F

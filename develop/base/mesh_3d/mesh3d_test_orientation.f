@@ -13,11 +13,10 @@ program Mesh3d_Test_Orientation
   character(len=*), parameter :: input_file = 'mesh3d_test_orientation.prm'
 
   integer :: po          = 3       ! polynomial order of mesh elements
-  integer :: no          = 1       ! overlapped node layers, no ≤ po+1
   integer :: rotation(3) = 0       ! x/y/z-rotation of center element
   logical :: periodic(3) = .false. ! F/T for non/periodic directions
   logical :: export_vtk  = .true.  ! generate VTK file
-  namelist/input/ po, no, rotation, periodic, export_vtk
+  namelist/input/ po, rotation, periodic, export_vtk
 
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
   integer :: rank
@@ -46,8 +45,6 @@ program Mesh3d_Test_Orientation
     open(newunit = io, file = input_file)
     read(io, nml = input)
     close(io)
-
-    no = max(min(no, po+1), 0)
 
     std_op = StandardOperators_1D(po, basis='L')
 

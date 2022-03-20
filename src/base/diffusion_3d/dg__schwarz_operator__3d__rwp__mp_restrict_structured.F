@@ -25,7 +25,9 @@
 
       ! start transfer .........................................................
 
-      call buf_v % Transfer(mesh, v, tag=1000)
+      if (no > 0) then
+        call buf_v % Transfer(mesh, v, tag=1000)
+      end if
 
       ! assign core regions ....................................................
 
@@ -51,7 +53,11 @@
 
       ! merge remote data to ghosts ............................................
 
-      call buf_v % Merge(v)
+      if (no > 0) then
+        call buf_v % Merge(v)
+      else
+        return
+      end if
 
       ! fill overlap regions ...................................................
 

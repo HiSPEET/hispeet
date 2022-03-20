@@ -21,21 +21,28 @@
     real(RNP) :: ve(size(v,1)), vv
 
     integer(IXS) :: orientation
-    integer :: c0, c1, e, i, j, k, l, m, n, nn, np
-    integer :: s1, s2, s3, t1, t2, t3
-    integer :: oi(2,3), ti(2,3)
+    integer :: e, i, j, k, l, m, n
+    integer :: lo, ro, nn, np
+    integer :: ii, jj, kk
+    integer :: c0, c1, o(3), s(3,3), t(3)
 
     associate(po => this%po, no => this%no)
 
       ! start transfer .........................................................
 
-      call buf_v % Transfer(mesh, v, tag=1000)
+      np = po + 1       ! number of element   points per direction
+
+      lo = no - 1       ! last  point of left  element overlap zone
+      ro = po - lo      ! first point of right element overlap zone
+
+      c0 = no + 1       ! first subdomain point inside core
+      c1 = c0 + np      ! first subdomain point behind core
+
+      if (no > 0) then
+        call buf_v % Transfer(mesh, v, tag=1000)
+      end if
 
       ! assign core regions ....................................................
-
-      np = po + 1    ! number of element points per direction
-      c0 = no + 1    ! index of first core point within subdomain
-      c1 = c0 + po   ! index of last  core point within subdomain
 
       !$omp do
       do e = 1, mesh % n_elem
@@ -55,7 +62,11 @@
 
       ! merge remote data to ghosts ............................................
 
-      call buf_v % Merge(v)
+      if (no > 0) then
+        call buf_v % Merge(v)
+      else
+        return
+      end if
 
       ! fill overlap regions ...................................................
 
@@ -69,26 +80,17 @@
             l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            oi(:,1) = [ np - no , po ]  ! original index range
-            oi(:,2) = [ 0       , po ]  ! valid for
-            oi(:,3) = [ 0       , po ]  ! aligned neighbor
-
-            call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-            ! transformed start indices and strides
-            t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-            t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-            t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
+            o = [ ro,  0,  0 ]
+            call TransformIndex(orientation, np, 0, o, 0, t, s)
             do k = 0, po
-              do j = 0, po
-                do i = 1, no
-                  vs(i, c0 + j, c0 + k, e) = real(v(t1, t2, t3, l), RWP)
-                  t1 = t1 + s1
-                end do
-                t2 = t2 + s2
-              end do
-              t3 = t3 + s3
+            do j = 0, po
+            do i = 0, lo
+              ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+              jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+              kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+              vs(1 + i, c0 + j, c0 + k, e) = real(v(ii, jj, kk, l), RWP)
+            end do
+            end do
             end do
           end if
 
@@ -98,25 +100,17 @@
             l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            oi(:,1) = [ 0 , no - 1 ]  ! original index range
-            oi(:,2) = [ 0 , po     ]  ! valid for
-            oi(:,3) = [ 0 , po     ]  ! aligned neighbor
-
-            call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-            t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-            t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-            t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
+            o = [  0,  0,  0 ]
+            call TransformIndex(orientation, np, 0, o, 0, t, s)
             do k = 0, po
-              do j = 0, po
-                do i = 1, no
-                  vs(c1 + i, c0 + j, c0 + k, e) = real(v(t1, t2, t3, l), RWP)
-                  t1 = t1 + s1
-                end do
-                t2 = t2 + s2
-              end do
-              t3 = t3 + s3
+            do j = 0, po
+            do i = 0, lo
+              ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+              jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+              kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+              vs(c1 + i, c0 + j, c0 + k, e) = real(v(ii, jj, kk, l), RWP)
+            end do
+            end do
             end do
           end if
 
@@ -126,25 +120,17 @@
             l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            oi(:,1) = [ 0       , po ]  ! original index range
-            oi(:,2) = [ np - no , po ]  ! valid for
-            oi(:,3) = [ 0       , po ]  ! aligned neighbor
-
-            call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-            t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-            t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-            t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
+            o = [  0, ro,  0 ]
+            call TransformIndex(orientation, np, 0, o, 0, t, s)
             do k = 0, po
-              do j = 1, no
-                do i = 0, po
-                  vs(c0 + i, j, c0 + k, e) = real(v(t1, t2, t3, l), RWP)
-                  t1 = t1 + s1
-                end do
-                t2 = t2 + s2
-              end do
-              t3 = t3 + s3
+            do j = 0, lo
+            do i = 0, po
+              ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+              jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+              kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+              vs(c0 + i, 1 + j, c0 + k, e) = real(v(ii, jj, kk, l), RWP)
+            end do
+            end do
             end do
           end if
 
@@ -154,25 +140,17 @@
             l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            oi(:,1) = [ 0 , po     ]  ! original index range
-            oi(:,2) = [ 0 , no - 1 ]  ! valid for
-            oi(:,3) = [ 0 , po     ]  ! aligned neighbor
-
-            call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-            t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-            t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-            t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
+            o = [  0,  0,  0 ]
+            call TransformIndex(orientation, np, 0, o, 0, t, s)
             do k = 0, po
-              do j = 1, no
-                do i = 0, po
-                  vs(c0 + i, c1 + j, c0 + k, e) = real(v(t1, t2, t3, l), RWP)
-                  t1 = t1 + s1
-                end do
-                t2 = t2 + s2
-              end do
-              t3 = t3 + s3
+            do j = 0, lo
+            do i = 0, po
+              ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+              jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+              kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+              vs(c0 + i, c1 + j, c0 + k, e) = real(v(ii, jj, kk, l), RWP)
+            end do
+            end do
             end do
           end if
 
@@ -182,25 +160,17 @@
             l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            oi(:,1) = [ 0       , po ]  ! original index range
-            oi(:,2) = [ 0       , po ]  ! valid for
-            oi(:,3) = [ np - no , po ]  ! aligned neighbor
-
-            call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-            t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-            t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-            t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
-            do k = 1, no
-              do j = 0, po
-                do i = 0, po
-                  vs(c0 + i, c0 + j, k, e) = real(v(t1, t2, t3, l), RWP)
-                  t1 = t1 + s1
-                end do
-                t2 = t2 + s2
-              end do
-              t3 = t3 + s3
+            o = [  0,  0, ro ]
+            call TransformIndex(orientation, np, 0, o, 0, t, s)
+            do k = 0, lo
+            do j = 0, po
+            do i = 0, po
+              ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+              jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+              kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+              vs(c0 + i, c0 + j, 1 + k, e) = real(v(ii, jj, kk, l), RWP)
+            end do
+            end do
             end do
           end if
 
@@ -210,25 +180,17 @@
             l = element(e) % neighbor(m) % id
             orientation = element(e) % neighbor(m) % orientation
 
-            oi(:,1) = [ 0 , po     ]  ! original index range
-            oi(:,2) = [ 0 , po     ]  ! valid for
-            oi(:,3) = [ 0 , no - 1 ]  ! aligned neighbor
-
-            call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-            t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-            t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-            t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
-            do k = 1, no
-              do j = 0, po
-                do i = 0, po
-                  vs(c0 + i, c0 + j, c1 + k, e) = real(v(t1, t2, t3, l), RWP)
-                  t1 = t1 + s1
-                end do
-                t2 = t2 + s2
-              end do
-              t3 = t3 + s3
+            o = [  0,  0,  0 ]
+            call TransformIndex(orientation, np, 0, o, 0, t, s)
+            do k = 0, lo
+            do j = 0, po
+            do i = 0, po
+              ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+              jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+              kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+              vs(c0 + i, c0 + j, c1 + k, e) = real(v(ii, jj, kk, l), RWP)
+            end do
+            end do
             end do
           end if
 
@@ -240,26 +202,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ 0       , po     ]  ! original index range
-              oi(:,2) = [ np - no , po     ]  ! valid for
-              oi(:,3) = [ np - no , po     ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 1, no
-                  do i = 0, po
-                    vs(c0 + i, j, k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [  0, ro, ro ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, lo
+              do i = 0, po
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(c0 + i, 1 + j, 1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -281,26 +235,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ 0       , po     ]  ! original index range
-              oi(:,2) = [ 0       , no - 1 ]  ! valid for
-              oi(:,3) = [ np - no , po     ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 1, no
-                  do i = 0, po
-                    vs(c0 + i, c1 + j, k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [  0,  0, ro ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, lo
+              do i = 0, po
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(c0 + i, c1 + j, 1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -322,26 +268,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ 0       , po     ]  ! original index range
-              oi(:,2) = [ np - no , po     ]  ! valid for
-              oi(:,3) = [ 0       , no - 1 ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 1, no
-                  do i = 0, po
-                    vs(c0 + i, j, c1 + k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [  0, ro,  0 ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, lo
+              do i = 0, po
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(c0 + i, 1 + j, c1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -363,26 +301,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ 0       , po     ]  ! original index range
-              oi(:,2) = [ 0       , no - 1 ]  ! valid for
-              oi(:,3) = [ 0       , no - 1 ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 1, no
-                  do i = 0, po
-                    vs(c0 + i, c1 + j, c1 + k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [  0,  0,  0 ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, lo
+              do i = 0, po
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(c0 + i, c1 + j, c1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
               n = m + nn - 1
@@ -402,26 +332,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ np - no , po     ]  ! original index range
-              oi(:,2) = [ 0       , po     ]  ! valid for
-              oi(:,3) = [ np - no , po     ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 0, po
-                  do i = 1, no
-                    vs(i, c0 + j, k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [ ro,  0, ro ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, po
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(1 + i, c0 + j, 1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -443,26 +365,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ 0       , no - 1 ]  ! original index range
-              oi(:,2) = [ 0       , po     ]  ! valid for
-              oi(:,3) = [ np - no , po     ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 0, po
-                  do i = 1, no
-                    vs(c1 + i, c0 + j, k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [  0,  0, ro ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, po
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(c1 + i, c0 + j, 1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -484,26 +398,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ np - no , po     ]  ! original index range
-              oi(:,2) = [ 0       , po     ]  ! valid for
-              oi(:,3) = [ 0       , no - 1 ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 0, po
-                  do i = 1, no
-                    vs(i, c0 + j, c1 + k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [ ro,  0,  0 ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, po
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(1 + i, c0 + j, c1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -525,26 +431,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ 0       , no - 1 ]  ! original index range
-              oi(:,2) = [ 0       , po     ]  ! valid for
-              oi(:,3) = [ 0       , no - 1 ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 0, po
-                  do i = 1, no
-                    vs(c1 + i, c0 + j, c1 + k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [  0,  0,  0 ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, po
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(c1 + i, c0 + j, c1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -566,26 +464,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ np - no , po     ]  ! original index range
-              oi(:,2) = [ np - no , po     ]  ! valid for
-              oi(:,3) = [ 0       , po     ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
+              o = [ ro, ro,  0 ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
               do k = 0, po
-                do j = 1, no
-                  do i = 1, no
-                    vs(i, j, c0 + k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              do j = 0, lo
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(1 + i, 1 + j, c0 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -607,26 +497,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ 0       , no - 1 ]  ! original index range
-              oi(:,2) = [ np - no , po     ]  ! valid for
-              oi(:,3) = [ 0       , po     ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
+              o = [  0, ro,  0 ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
               do k = 0, po
-                do j = 1, no
-                  do i = 1, no
-                    vs(c1 + i, j, c0 + k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              do j = 0, lo
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(c1 + i, 1 + j, c0 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -648,26 +530,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ np - no , po     ]  ! original index range
-              oi(:,2) = [ 0       , no - 1 ]  ! valid for
-              oi(:,3) = [ 0       , po     ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
+              o = [ ro,  0,  0 ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
               do k = 0, po
-                do j = 1, no
-                  do i = 1, no
-                    vs(i, c1 + j, c0 + k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              do j = 0, lo
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(1 + i, c1 + j, c0 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -689,26 +563,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ 0       , no - 1 ]  ! original index range
-              oi(:,2) = [ 0       , no - 1 ]  ! valid for
-              oi(:,3) = [ 0       , po     ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
+              o = [  0,  0,  0 ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
               do k = 0, po
-                do j = 1, no
-                  do i = 1, no
-                    vs(c1 + i, c1 + j, c0 + k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              do j = 0, lo
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(c1 + i, c1 + j, c0 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -730,26 +596,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ np - no , po     ]  ! original index range
-              oi(:,2) = [ np - no , po     ]  ! valid for
-              oi(:,3) = [ np - no , po     ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 1, no
-                  do i = 1, no
-                    vs(i, j, k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [ ro, ro, ro ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, lo
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(1 + i, 1 + j, 1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -769,26 +627,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ 0       , no - 1 ]  ! original index range
-              oi(:,2) = [ np - no , po     ]  ! valid for
-              oi(:,3) = [ np - no , po     ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 1, no
-                  do i = 1, no
-                    vs(c1 + i, j, k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [  0, ro, ro ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, lo
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(c1 + i, 1 + j, 1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -808,26 +658,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ np - no , po     ]  ! original index range
-              oi(:,2) = [ 0       , no - 1 ]  ! valid for
-              oi(:,3) = [ np - no , po     ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 1, no
-                  do i = 1, no
-                    vs(i, c1 + j, k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [ ro,  0, ro ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, lo
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(1 + i, c1 + j, 1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -847,26 +689,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ 0       , no - 1 ]  ! original index range
-              oi(:,2) = [ 0       , no - 1 ]  ! valid for
-              oi(:,3) = [ np - no , po     ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 1, no
-                  do i = 1, no
-                    vs(c1 + i, c1 + j, k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [  0,  0, ro ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, lo
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(c1 + i, c1 + j, 1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -886,26 +720,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ np - no , po     ]  ! original index range
-              oi(:,2) = [ np - no , po     ]  ! valid for
-              oi(:,3) = [ 0       , no - 1 ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 1, no
-                  do i = 1, no
-                    vs(i, j, c1 + k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [ ro, ro,  0 ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, lo
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(1 + i, 1 + j, c1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -925,26 +751,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ 0       , no - 1 ]  ! original index range
-              oi(:,2) = [ np - no , po     ]  ! valid for
-              oi(:,3) = [ 0       , no - 1 ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 1, no
-                  do i = 1, no
-                    vs(c1 + i, j, c1 + k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [  0, ro,  0 ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, lo
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(c1 + i, 1 + j, c1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -964,26 +782,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ np - no , po     ]  ! original index range
-              oi(:,2) = [ 0       , no - 1 ]  ! valid for
-              oi(:,3) = [ 0       , no - 1 ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 1, no
-                  do i = 1, no
-                    vs(i, c1 + j, c1 + k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [ ro,  0,  0 ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, lo
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(1 + i, c1 + j, c1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
@@ -1003,26 +813,18 @@
 
             if (nn == 1 .and. orientation > 0_IXS) then
 
-              oi(:,1) = [ 0       , no - 1 ]  ! original index range
-              oi(:,2) = [ 0       , no - 1 ]  ! valid for
-              oi(:,3) = [ 0       , no - 1 ]  ! aligned neighbor
-
-              call TransformIndexRange(orientation, np, 0, oi, 0, ti)
-
-              t1 = ti(1,1);  s1 = sign(1, ti(2,1) - ti(1,1))
-              t2 = ti(1,2);  s2 = sign(1, ti(2,2) - ti(1,2))
-              t3 = ti(1,3);  s3 = sign(1, ti(2,3) - ti(1,3))
-
               l = element(e) % neighbor(m) % id
-              do k = 1, no
-                do j = 1, no
-                  do i = 1, no
-                    vs(c1 + i, c1 + j, c1 + k, e) = real(v(t1, t2, t3, l), RWP)
-                    t1 = t1 + s1
-                  end do
-                  t2 = t2 + s2
-                end do
-                t3 = t3 + s3
+              o = [  0,  0,  0 ]
+              call TransformIndex(orientation, np, 0, o, 0, t, s)
+              do k = 0, lo
+              do j = 0, lo
+              do i = 0, lo
+                ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
+                jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
+                kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
+                vs(c1 + i, c1 + j, c1 + k, e) = real(v(ii, jj, kk, l), RWP)
+              end do
+              end do
               end do
 
             else
