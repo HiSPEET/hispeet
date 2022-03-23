@@ -3,23 +3,23 @@
   !>
   !> The strategy is as a follows:
   !>
-  !>  1. Send `vs` from linked local elements to ghosts in remote partitions
-  !>   2. Add `vs` from subdomain core regions to `v`
+  !>   1. Send `us` from linked local elements to ghosts in remote partitions
+  !>   2. Add `us` from subdomain core regions to `u`
   !>   3. Merge received remote data into ghosts
-  !>   4. Merge `vs` from local and ghost overlap regions into `v`
+  !>   4. Merge `us` from local and ghost overlap regions into `u`
   !>
-  !> The subdomain variable must be dimensioned as `v(ns,ns,ns,ne+ng)`, where
+  !> The subdomain variable must be dimensioned as `u(ns,ns,ns,ne+ng)`, where
   !> `ns` is the number of subdomain points per direction, `ne` the number of
   !> local elements and `ng` the number of ghosts.
 
-  module subroutine Merge_Unstructured(this, mesh, buf_vs, vs, v)
+  module subroutine Merge_Unstructured(this, mesh, buf_us, us, u)
     class(DG_SchwarzOperator_3D), intent(in) :: this
-    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_us
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-    real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
-    real(RWP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
+    real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< subdomain solutions
+    real(RWP),      intent(inout) :: us(:,:,:,:)   !< mesh variable
 
-    real(RNP) :: ve(size(v,1)), vv
+    real(RNP) :: ue(size(u,1)), uv
 
     integer(IXS) :: orientation
     integer :: e, i, j, k, l, m, n
@@ -43,7 +43,7 @@
       ! start transfer .........................................................
 
       if (no > 0) then
-        call buf_vs % Transfer(mesh, vs, tag=2000)
+        call buf_us % Transfer(mesh, us, tag=2000)
       end if
 
       ! core regions ...........................................................
@@ -55,7 +55,7 @@
         do k = 0, po
         do j = 0, po
         do i = 0, po
-          v(i,j,k,e) = v(i,j,k,e) + vs(c0 + i, c0 + j, c0 + k, e)
+          u(i,j,k,e) = u(i,j,k,e) + us(c0 + i, c0 + j, c0 + k, e)
         end do
         end do
         end do
@@ -64,19 +64,19 @@
       ! merge remote data to ghosts ............................................
 
       if (no > 0) then
-        call buf_vs % Merge(vs)
+        call buf_us % Merge(us)
       else
         return
       end if
 
       ! overlap regions ........................................................
 
-      merge_edge   = .true.
-      merge_vertex = .true.
-
       !$omp do
       do e = 1, mesh % n_elem
         associate(element => mesh % element)
+
+          merge_edge   = .true.
+          merge_vertex = .true.
 
           ! face 1: ξ = -1 <--> west
           m = element(e) % face(1) % i_neighbor
@@ -92,7 +92,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              v(i, j, k, e) = v(i, j, k, e) + vs(ii, jj, kk, l)
+              u(i, j, k, e) = u(i, j, k, e) + us(ii, jj, kk, l)
             end do
             end do
             end do
@@ -116,7 +116,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              v(ro + i, j, k, e) = v(ro + i, j, k, e) + vs(ii, jj, kk, l)
+              u(ro + i, j, k, e) = u(ro + i, j, k, e) + us(ii, jj, kk, l)
             end do
             end do
             end do
@@ -140,7 +140,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              v(i, j, k, e) = v(i, j, k, e) + vs(ii, jj, kk, l)
+              u(i, j, k, e) = u(i, j, k, e) + us(ii, jj, kk, l)
             end do
             end do
             end do
@@ -164,7 +164,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              v(i, ro + j, k, e) = v(i, ro + j, k, e) + vs(ii, jj, kk, l)
+              u(i, ro + j, k, e) = u(i, ro + j, k, e) + us(ii, jj, kk, l)
             end do
             end do
             end do
@@ -188,7 +188,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              v(i, j, k, e) = v(i, j, k, e) + vs(ii, jj, kk, l)
+              u(i, j, k, e) = u(i, j, k, e) + us(ii, jj, kk, l)
             end do
             end do
             end do
@@ -212,7 +212,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              v(i, j, ro + k, e) = v(i, j, ro + k, e) + vs(ii, jj, kk, l)
+              u(i, j, ro + k, e) = u(i, j, ro + k, e) + us(ii, jj, kk, l)
             end do
             end do
             end do
@@ -239,7 +239,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(i, j, k, e) = v(i, j, k, e) + vs(ii, jj, kk, l)
+                u(i, j, k, e) = u(i, j, k, e) + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -249,8 +249,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 1) % orientation, &
-                                    no, vs, ve                           )
-              v( :,  0,  0, e) = v( :,  0,  0, e) + ve
+                                    no, us, ue                           )
+              u( :,  0,  0, e) = u( :,  0,  0, e) + ue
 
             end if
           end if
@@ -272,8 +272,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(i, ro + j, k, e) = v(i, ro + j, k, e) &
-                                   + vs(ii, jj, kk, l)
+                u(i, ro + j, k, e) = u(i, ro + j, k, e) &
+                                   + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -283,8 +283,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 2) % orientation, &
-                                    no, vs, ve                           )
-              v( :, po,  0, e) = v( :, po,  0, e) + ve
+                                    no, us, ue                           )
+              u( :, po,  0, e) = u( :, po,  0, e) + ue
 
             end if
           end if
@@ -306,8 +306,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(i, j, ro + k, e) = v(i, j, ro + k, e) &
-                                   + vs(ii, jj, kk, l)
+                u(i, j, ro + k, e) = u(i, j, ro + k, e) &
+                                   + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -317,8 +317,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 3) % orientation, &
-                                    no, vs, ve                           )
-              v( :,  0, po, e) = v( :,  0, po, e) + ve
+                                    no, us, ue                           )
+              u( :,  0, po, e) = u( :,  0, po, e) + ue
 
             end if
           end if
@@ -340,8 +340,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(i, ro + j, ro + k, e) = v(i, ro + j, ro + k, e) &
-                                        + vs(ii, jj, kk, l)
+                u(i, ro + j, ro + k, e) = u(i, ro + j, ro + k, e) &
+                                        + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -349,8 +349,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 4) % orientation, &
-                                    no, vs, ve                           )
-              v( :, po, po, e) = v( :, po, po, e) + ve
+                                    no, us, ue                           )
+              u( :, po, po, e) = u( :, po, po, e) + ue
 
             end if
           end if
@@ -372,8 +372,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(i, j, k, e) = v(i, j, k, e) &
-                              + vs(ii, jj, kk, l)
+                u(i, j, k, e) = u(i, j, k, e) &
+                              + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -383,8 +383,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 5) % orientation, &
-                                    no, vs, ve                           )
-              v(  0, :,  0, e) = v(  0, :,  0, e) + ve
+                                    no, us, ue                           )
+              u(  0, :,  0, e) = u(  0, :,  0, e) + ue
 
             end if
           end if
@@ -406,8 +406,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(ro + i, j, k, e) = v(ro + i, j, k, e) &
-                                   + vs(ii, jj, kk, l)
+                u(ro + i, j, k, e) = u(ro + i, j, k, e) &
+                                   + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -417,8 +417,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 6) % orientation, &
-                                    no, vs, ve                           )
-              v( po, :,  0, e) = v( po, :,  0, e) + ve
+                                    no, us, ue                           )
+              u( po, :,  0, e) = u( po, :,  0, e) + ue
 
             end if
           end if
@@ -440,8 +440,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(i, j, ro + k, e) = v(i, j, ro + k, e) &
-                                   + vs(ii, jj, kk, l)
+                u(i, j, ro + k, e) = u(i, j, ro + k, e) &
+                                   + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -451,8 +451,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 7) % orientation, &
-                                    no, vs, ve                           )
-              v(  0, :, po, e) = v(  0, :, po, e) + ve
+                                    no, us, ue                           )
+              u(  0, :, po, e) = u(  0, :, po, e) + ue
 
             end if
           end if
@@ -474,8 +474,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(ro + i, j, ro + k, e) = v(ro + i, j, ro + k, e) &
-                                        + vs(ii, jj, kk, l)
+                u(ro + i, j, ro + k, e) = u(ro + i, j, ro + k, e) &
+                                        + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -485,8 +485,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 8) % orientation, &
-                                    no, vs, ve                           )
-              v( po, :, po, e) = v( po, :, po, e) + ve
+                                    no, us, ue                           )
+              u( po, :, po, e) = u( po, :, po, e) + ue
 
             end if
           end if
@@ -508,8 +508,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(i, j, k, e) = v(i, j, k, e) &
-                              + vs(ii, jj, kk, l)
+                u(i, j, k, e) = u(i, j, k, e) &
+                              + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -519,8 +519,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 9) % orientation, &
-                                    no, vs, ve                           )
-              v(  0,  0, :, e) = v(  0,  0, :, e) + ve
+                                    no, us, ue                           )
+              u(  0,  0, :, e) = u(  0,  0, :, e) + ue
 
             end if
           end if
@@ -542,8 +542,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(ro + i, j, k, e) = v(ro + i, j, k, e) &
-                                   + vs(ii, jj, kk, l)
+                u(ro + i, j, k, e) = u(ro + i, j, k, e) &
+                                   + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -553,8 +553,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge(10) % orientation, &
-                                    no, vs, ve                           )
-              v( po,  0, :, e) = v( po,  0, :, e) + ve
+                                    no, us, ue                           )
+              u( po,  0, :, e) = u( po,  0, :, e) + ue
 
             end if
           end if
@@ -576,8 +576,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(i, ro + j, k, e) = v(i, ro + j, k, e) &
-                                   + vs(ii, jj, kk, l)
+                u(i, ro + j, k, e) = u(i, ro + j, k, e) &
+                                   + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -587,8 +587,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge(11) % orientation, &
-                                    no, vs, ve                           )
-              v(  0, po, :, e) = v(  0, po, :, e) + ve
+                                    no, us, ue                           )
+              u(  0, po, :, e) = u(  0, po, :, e) + ue
 
             end if
           end if
@@ -610,8 +610,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(ro + i, ro + j, k, e) = v(ro + i, ro + j, k, e) &
-                                        + vs(ii, jj, kk, l)
+                u(ro + i, ro + j, k, e) = u(ro + i, ro + j, k, e) &
+                                        + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -621,8 +621,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge(12) % orientation, &
-                                    no, vs, ve                           )
-              v( po, po, :, e) = v( po, po, :, e) + ve
+                                    no, us, ue                           )
+              u( po, po, :, e) = u( po, po, :, e) + ue
 
             end if
           end if
@@ -644,8 +644,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(i, j, k, e) = v(i, j, k, e) &
-                              + vs(ii, jj, kk, l)
+                u(i, j, k, e) = u(i, j, k, e) &
+                              + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -653,8 +653,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), no, vs, vv)
-              v(  0,  0,  0, e) = v(  0,  0,  0, e) + vv
+              call CollectVertexData(element(e)%neighbor(m:n), no, us, uv)
+              u(  0,  0,  0, e) = u(  0,  0,  0, e) + uv
 
             end if
           end if
@@ -676,8 +676,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(ro + i, j, k, e) = v(ro + i, j, k, e) &
-                                   + vs(ii, jj, kk, l)
+                u(ro + i, j, k, e) = u(ro + i, j, k, e) &
+                                   + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -685,8 +685,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), no, vs, vv)
-              v( po,  0,  0, e) = v( po,  0,  0, e) + vv
+              call CollectVertexData(element(e)%neighbor(m:n), no, us, uv)
+              u( po,  0,  0, e) = u( po,  0,  0, e) + uv
 
             end if
           end if
@@ -708,8 +708,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(i, ro + j, k, e) = v(i, ro + j, k, e) &
-                                   + vs(ii, jj, kk, l)
+                u(i, ro + j, k, e) = u(i, ro + j, k, e) &
+                                   + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -717,8 +717,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), no, vs, vv)
-              v(  0, po,  0, e) = v(  0, po,  0, e) + vv
+              call CollectVertexData(element(e)%neighbor(m:n), no, us, uv)
+              u(  0, po,  0, e) = u(  0, po,  0, e) + uv
 
             end if
           end if
@@ -740,8 +740,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(ro + i, ro + j, k, e) = v(ro + i, ro + j, k, e) &
-                                        + vs(ii, jj, kk, l)
+                u(ro + i, ro + j, k, e) = u(ro + i, ro + j, k, e) &
+                                        + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -749,8 +749,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), no, vs, vv)
-              v( po, po,  0, e) = v( po, po,  0, e) + vv
+              call CollectVertexData(element(e)%neighbor(m:n), no, us, uv)
+              u( po, po,  0, e) = u( po, po,  0, e) + uv
 
             end if
           end if
@@ -772,8 +772,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(i, j, ro + k, e) = v(i, j, ro + k, e) &
-                                   + vs(ii, jj, kk, l)
+                u(i, j, ro + k, e) = u(i, j, ro + k, e) &
+                                   + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -781,8 +781,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), no, vs, vv)
-              v(  0,  0, po, e) = v(  0,  0, po, e) + vv
+              call CollectVertexData(element(e)%neighbor(m:n), no, us, uv)
+              u(  0,  0, po, e) = u(  0,  0, po, e) + uv
 
             end if
           end if
@@ -804,8 +804,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(ro + i, j, ro + k, e) = v(ro + i, j, ro + k, e) &
-                                        + vs(ii, jj, kk, l)
+                u(ro + i, j, ro + k, e) = u(ro + i, j, ro + k, e) &
+                                        + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -813,8 +813,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), no, vs, vv)
-              v( po,  0, po, e) = v( po,  0, po, e) + vv
+              call CollectVertexData(element(e)%neighbor(m:n), no, us, uv)
+              u( po,  0, po, e) = u( po,  0, po, e) + uv
 
             end if
           end if
@@ -836,8 +836,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(i, ro + j, ro + k, e) = v(i, ro + j, ro + k, e) &
-                                        + vs(ii, jj, kk, l)
+                u(i, ro + j, ro + k, e) = u(i, ro + j, ro + k, e) &
+                                        + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -845,8 +845,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), no, vs, vv)
-              v(  0, po, po, e) = v(  0, po, po, e) + vv
+              call CollectVertexData(element(e)%neighbor(m:n), no, us, uv)
+              u(  0, po, po, e) = u(  0, po, po, e) + uv
 
             end if
           end if
@@ -868,8 +868,8 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                v(ro + i, ro + j, ro + k, e) = v(ro + i, ro + j, ro + k, e) &
-                                             + vs(ii, jj, kk, l)
+                u(ro + i, ro + j, ro + k, e) = u(ro + i, ro + j, ro + k, e) &
+                                             + us(ii, jj, kk, l)
               end do
               end do
               end do
@@ -877,8 +877,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), no, vs, vv)
-              v( po, po, po, e) = v( po, po, po, e) + vv
+              call CollectVertexData(element(e)%neighbor(m:n), no, us, uv)
+              u( po, po, po, e) = u( po, po, po, e) + uv
 
             end if
           end if
@@ -893,25 +893,25 @@
   !-----------------------------------------------------------------------------
   !> Collect, align and average neighbor edge data
 
-  pure subroutine CollectEdgeData(neighbor, element, o, no, vs, ve)
+  pure subroutine CollectEdgeData(neighbor, element, o, no, us, ue)
     class(MeshElementNeighbor_3D), intent(in)  :: neighbor(:)
     class(MeshElement_3D),         intent(in)  :: element(:)
     integer(IXS),                  intent(in)  :: o
     integer,                       intent(in)  :: no
-    real(RWP),                     intent(in)  :: vs(:,:,:,:)
-    real(RNP),                     intent(out) :: ve(:)
+    real(RWP),                     intent(in)  :: us(:,:,:,:)
+    real(RNP),                     intent(out) :: ue(:)
 
-    real(RNP) :: vn(size(ve))
+    real(RNP) :: un(size(ue))
     integer :: nn, np
     integer :: i0, ip
     integer :: e, l, n
 
     nn = size(neighbor)
-    np = size(ve)
+    np = size(ue)
     i0 = no + 1
     ip = no + np
 
-    ve = 0
+    ue = 0
 
     do n = 1, nn
 
@@ -920,60 +920,60 @@
 
       select case(e)
       case( 1)
-        vn = vs( i0:ip, i0, i0, l)
+        un = us( i0:ip, i0, i0, l)
       case( 2)
-        vn = vs( i0:ip, ip, i0, l)
+        un = us( i0:ip, ip, i0, l)
       case( 3)
-        vn = vs( i0:ip, i0, ip, l)
+        un = us( i0:ip, i0, ip, l)
       case( 4)
-        vn = vs( i0:ip, ip, ip, l)
+        un = us( i0:ip, ip, ip, l)
       case( 5)
-        vn = vs( i0, i0:ip, i0, l)
+        un = us( i0, i0:ip, i0, l)
       case( 6)
-        vn = vs( ip, i0:ip, i0, l)
+        un = us( ip, i0:ip, i0, l)
       case( 7)
-        vn = vs( i0, i0:ip, ip, l)
+        un = us( i0, i0:ip, ip, l)
       case( 8)
-        vn = vs( ip, i0:ip, ip, l)
+        un = us( ip, i0:ip, ip, l)
       case( 9)
-        vn = vs( i0, i0, i0:ip, l)
+        un = us( i0, i0, i0:ip, l)
       case(10)
-        vn = vs( ip, i0, i0:ip, l)
+        un = us( ip, i0, i0:ip, l)
       case(11)
-        vn = vs( i0, ip, i0:ip, l)
+        un = us( i0, ip, i0:ip, l)
       case(12)
-        vn = vs( ip, ip, i0:ip, l)
+        un = us( ip, ip, i0:ip, l)
       end select
 
       if (element(l) % edge(e) % orientation == o) then
-        ve = ve + vn
+        ue = ue + un
       else
-        ve = ve + vn(np:1:-1)
+        ue = ue + un(np:1:-1)
       end if
 
     end do
 
-    ve = ONE/nn * ve
+    ue = ONE/nn * ue
 
   end subroutine CollectEdgeData
 
   !-----------------------------------------------------------------------------
   !> Collect and average neighbor vertex data
 
-  pure subroutine CollectVertexData(neighbor, no, vs, vv)
+  pure subroutine CollectVertexData(neighbor, no, us, uv)
     class(MeshElementNeighbor_3D), intent(in)  :: neighbor(:)
     integer,                       intent(in)  :: no
-    real(RWP),                     intent(in)  :: vs(:,:,:,:)
-    real(RNP),                     intent(out) :: vv
+    real(RWP),                     intent(in)  :: us(:,:,:,:)
+    real(RNP),                     intent(out) :: uv
 
     integer :: i0, ip, nn
     integer :: k, l, n
 
     nn = size(neighbor)
     i0 = no + 1
-    ip = size(vs,1) - no
+    ip = size(us,1) - no
 
-    vv = 0
+    uv = 0
 
     do n = 1, nn
 
@@ -982,25 +982,25 @@
 
       select case(k)
       case( 1)
-        vv = vv + vs( i0, i0, i0, l)
+        uv = uv + us( i0, i0, i0, l)
       case( 2)
-        vv = vv + vs( ip, i0, i0, l)
+        uv = uv + us( ip, i0, i0, l)
       case( 3)
-        vv = vv + vs( i0, ip, i0, l)
+        uv = uv + us( i0, ip, i0, l)
       case( 4)
-        vv = vv + vs( ip, ip, i0, l)
+        uv = uv + us( ip, ip, i0, l)
       case( 5)
-        vv = vv + vs( i0, i0, ip, l)
+        uv = uv + us( i0, i0, ip, l)
       case( 6)
-        vv = vv + vs( ip, i0, ip, l)
+        uv = uv + us( ip, i0, ip, l)
       case( 7)
-        vv = vv + vs( i0, ip, ip, l)
+        uv = uv + us( i0, ip, ip, l)
       case( 8)
-        vv = vv + vs( ip, ip, ip, l)
+        uv = uv + us( ip, ip, ip, l)
       end select
 
     end do
 
-    vv = ONE/nn * vv
+    uv = ONE/nn * uv
 
   end subroutine CollectVertexData

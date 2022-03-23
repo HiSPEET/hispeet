@@ -3,21 +3,21 @@
   !>
   !> The strategy is as a follows:
   !>
-  !>   1. Send `vs` from linked local elements to ghosts in remote partitions
-  !>   2. Add `vs` from subdomain core regions to `v`
+  !>   1. Send `us` from linked local elements to ghosts in remote partitions
+  !>   2. Add `us` from subdomain core regions to `u`
   !>   3. Merge received remote data into ghosts
-  !>   4. Merge `vs` from local and ghost overlap regions into `v`
+  !>   4. Merge `us` from local and ghost overlap regions into `u`
   !>
-  !> The subdomain variable must be dimensioned as `v(ns,ns,ns,ne+ng)`, where
+  !> The subdomain variable must be dimensioned as `u(ns,ns,ns,ne+ng)`, where
   !> `ns` is the number of subdomain points per direction, `ne` the number of
   !> local elements and `ng` the number of ghosts.
 
-  module subroutine Merge_Structured(this, mesh, buf_vs, vs, v)
+  module subroutine Merge_Structured(this, mesh, buf_us, us, u)
     class(DG_SchwarzOperator_3D), intent(in) :: this
-    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_us
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-    real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
-    real(RWP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
+    real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< subdomain solutions
+    real(RWP),      intent(inout) :: us(:,:,:,:)   !< mesh variable
 
     integer :: e, i, j, k, l, m
     integer :: c0, c1, o0, o1
@@ -27,7 +27,7 @@
       ! start transfer .........................................................
 
       if (no > 0) then
-        call buf_vs % Transfer(mesh, vs, tag=2000)
+        call buf_us % Transfer(mesh, us, tag=2000)
       end if
 
       ! core regions ...........................................................
@@ -41,7 +41,7 @@
         do k = 0, po
         do j = 0, po
         do i = 0, po
-          v(i,j,k,e) = v(i,j,k,e) + vs(c0 + i, c0 + j, c0 + k, e)
+          u(i,j,k,e) = u(i,j,k,e) + us(c0 + i, c0 + j, c0 + k, e)
         end do
         end do
         end do
@@ -50,7 +50,7 @@
       ! merge remote data to ghosts ............................................
 
       if (no > 0) then
-        call buf_vs % Merge(vs)
+        call buf_us % Merge(us)
       else
         return
       end if
@@ -72,8 +72,8 @@
             do k = 0, po
             do j = 0, po
             do i = 1, no
-              v(o0 + i, j, k, e) = v (o0 + i,      j,      k, e) &
-                                 + vs(c1 + i, c0 + j, c0 + k, l)
+              u(o0 + i, j, k, e) = u (o0 + i,      j,      k, e) &
+                                 + us(c1 + i, c0 + j, c0 + k, l)
             end do
             end do
             end do
@@ -86,8 +86,8 @@
             do k = 0, po
             do j = 0, po
             do i = 1, no
-              v(o1 + i, j, k, e) = v (o1 + i,      j,      k, e) &
-                                 + vs(     i, c0 + j, c0 + k, l)
+              u(o1 + i, j, k, e) = u (o1 + i,      j,      k, e) &
+                                 + us(     i, c0 + j, c0 + k, l)
             end do
             end do
             end do
@@ -100,8 +100,8 @@
             do k = 0, po
             do j = 1, no
             do i = 0, po
-              v(i, o0 + j, k, e) = v (     i, o0 + j,      k, e) &
-                                 + vs(c0 + i, c1 + j, c0 + k, l)
+              u(i, o0 + j, k, e) = u (     i, o0 + j,      k, e) &
+                                 + us(c0 + i, c1 + j, c0 + k, l)
             end do
             end do
             end do
@@ -114,8 +114,8 @@
             do k = 0, po
             do j = 1, no
             do i = 0, po
-              v(i, o1 + j, k, e) = v (     i, o1 + j,      k, e) &
-                                 + vs(c0 + i,      j, c0 + k, l)
+              u(i, o1 + j, k, e) = u (     i, o1 + j,      k, e) &
+                                 + us(c0 + i,      j, c0 + k, l)
             end do
             end do
             end do
@@ -128,8 +128,8 @@
             do k = 1, no
             do j = 0, po
             do i = 0, po
-              v(i, j, o0 + k, e) = v (     i,      j, o0 + k, e) &
-                                 + vs(c0 + i, c0 + j, c1 + k, l)
+              u(i, j, o0 + k, e) = u (     i,      j, o0 + k, e) &
+                                 + us(c0 + i, c0 + j, c1 + k, l)
             end do
             end do
             end do
@@ -142,8 +142,8 @@
             do k = 1, no
             do j = 0, po
             do i = 0, po
-              v(i, j, o1 + k, e) = v (     i,      j, o1 + k, e) &
-                                 + vs(c0 + i, c0 + j,      k, l)
+              u(i, j, o1 + k, e) = u (     i,      j, o1 + k, e) &
+                                 + us(c0 + i, c0 + j,      k, l)
             end do
             end do
             end do
@@ -156,8 +156,8 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              v(i, o0 + j, o0 + k, e) = v (     i, o0 + j, o0 + k, e) &
-                                      + vs(c0 + i, c1 + j, c1 + k, l)
+              u(i, o0 + j, o0 + k, e) = u (     i, o0 + j, o0 + k, e) &
+                                      + us(c0 + i, c1 + j, c1 + k, l)
             end do
             end do
             end do
@@ -170,8 +170,8 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              v(i, o1 + j, o0 + k, e) = v (     i, o1 + j, o0 + k, e) &
-                                      + vs(c0 + i,      j, c1 + k, l)
+              u(i, o1 + j, o0 + k, e) = u (     i, o1 + j, o0 + k, e) &
+                                      + us(c0 + i,      j, c1 + k, l)
             end do
             end do
             end do
@@ -184,8 +184,8 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              v(i, o0 + j, o1 + k, e) = v (     i, o0 + j, o1 + k, e) &
-                                      + vs(c0 + i, c1 + j,      k, l)
+              u(i, o0 + j, o1 + k, e) = u (     i, o0 + j, o1 + k, e) &
+                                      + us(c0 + i, c1 + j,      k, l)
             end do
             end do
             end do
@@ -198,8 +198,8 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              v(i, o1 + j, o1 + k, e) = v (     i, o1 + j, o1 + k, e) &
-                                      + vs(c0 + i,      j,      k, l)
+              u(i, o1 + j, o1 + k, e) = u (     i, o1 + j, o1 + k, e) &
+                                      + us(c0 + i,      j,      k, l)
             end do
             end do
             end do
@@ -212,8 +212,8 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              v(o0 + i, j, o0 + k, e) = v (o0 + i,      j, o0 + k, e) &
-                                      + vs(c1 + i, c0 + j, c1 + k, l)
+              u(o0 + i, j, o0 + k, e) = u (o0 + i,      j, o0 + k, e) &
+                                      + us(c1 + i, c0 + j, c1 + k, l)
             end do
             end do
             end do
@@ -226,8 +226,8 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              v(o1 + i, j, o0 + k, e) = v (o1 + i,      j, o0 + k, e) &
-                                      + vs(     i, c0 + j, c1 + k, l)
+              u(o1 + i, j, o0 + k, e) = u (o1 + i,      j, o0 + k, e) &
+                                      + us(     i, c0 + j, c1 + k, l)
             end do
             end do
             end do
@@ -240,8 +240,8 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              v(o0 + i, j, o1 + k, e) = v (o0 + i,      j, o1 + k, e) &
-                                      + vs(c1 + i, c0 + j,      k, l)
+              u(o0 + i, j, o1 + k, e) = u (o0 + i,      j, o1 + k, e) &
+                                      + us(c1 + i, c0 + j,      k, l)
             end do
             end do
             end do
@@ -254,8 +254,8 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              v(o1 + i, j, o1 + k, e) = v (o1 + i,      j, o1 + k, e) &
-                                      + vs(     i, c0 + j,      k, l)
+              u(o1 + i, j, o1 + k, e) = u (o1 + i,      j, o1 + k, e) &
+                                      + us(     i, c0 + j,      k, l)
             end do
             end do
             end do
@@ -268,8 +268,8 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              v(o0 + i, o0 + j, k, e) = v (o0 + i, o0 + j,      k, e) &
-                                      + vs(c1 + i, c1 + j, c0 + k, l)
+              u(o0 + i, o0 + j, k, e) = u (o0 + i, o0 + j,      k, e) &
+                                      + us(c1 + i, c1 + j, c0 + k, l)
             end do
             end do
             end do
@@ -282,8 +282,8 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              v(o1 + i, o0 + j, k, e) = v (o1 + i, o0 + j,      k, e) &
-                                      + vs(     i, c1 + j, c0 + k, l)
+              u(o1 + i, o0 + j, k, e) = u (o1 + i, o0 + j,      k, e) &
+                                      + us(     i, c1 + j, c0 + k, l)
             end do
             end do
             end do
@@ -296,8 +296,8 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              v(o0 + i, o1 + j, k, e) = v (o0 + i, o1 + j,      k, e) &
-                                      + vs(c1 + i,      j, c0 + k, l)
+              u(o0 + i, o1 + j, k, e) = u (o0 + i, o1 + j,      k, e) &
+                                      + us(c1 + i,      j, c0 + k, l)
             end do
             end do
             end do
@@ -310,8 +310,8 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              v(o1 + i, o1 + j, k, e) = v (o1 + i, o1 + j,      k, e) &
-                                      + vs(     i,      j, c0 + k, l)
+              u(o1 + i, o1 + j, k, e) = u (o1 + i, o1 + j,      k, e) &
+                                      + us(     i,      j, c0 + k, l)
             end do
             end do
             end do
@@ -324,8 +324,8 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o0 + i, o0 + j, o0 + k, e) = v (o0 + i, o0 + j, o0 + k, e) &
-                                           + vs(c1 + i, c1 + j, c1 + k, l)
+              u(o0 + i, o0 + j, o0 + k, e) = u (o0 + i, o0 + j, o0 + k, e) &
+                                           + us(c1 + i, c1 + j, c1 + k, l)
             end do
             end do
             end do
@@ -338,8 +338,8 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o1 + i, o0 + j, o0 + k, e) = v (o1 + i, o0 + j, o0 + k, e) &
-                                           + vs(     i, c1 + j, c1 + k, l)
+              u(o1 + i, o0 + j, o0 + k, e) = u (o1 + i, o0 + j, o0 + k, e) &
+                                           + us(     i, c1 + j, c1 + k, l)
             end do
             end do
             end do
@@ -352,8 +352,8 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o0 + i, o1 + j, o0 + k, e) = v (o0 + i, o1 + j, o0 + k, e) &
-                                           + vs(c1 + i,      j, c1 + k, l)
+              u(o0 + i, o1 + j, o0 + k, e) = u (o0 + i, o1 + j, o0 + k, e) &
+                                           + us(c1 + i,      j, c1 + k, l)
             end do
             end do
             end do
@@ -366,8 +366,8 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o1 + i, o1 + j, o0 + k, e) = v (o1 + i, o1 + j, o0 + k, e) &
-                                           + vs(     i,      j, c1 + k, l)
+              u(o1 + i, o1 + j, o0 + k, e) = u (o1 + i, o1 + j, o0 + k, e) &
+                                           + us(     i,      j, c1 + k, l)
             end do
             end do
             end do
@@ -380,8 +380,8 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o0 + i, o0 + j, o1 + k, e) = v (o0 + i, o0 + j, o1 + k, e) &
-                                           + vs(c1 + i, c1 + j,      k, l)
+              u(o0 + i, o0 + j, o1 + k, e) = u (o0 + i, o0 + j, o1 + k, e) &
+                                           + us(c1 + i, c1 + j,      k, l)
             end do
             end do
             end do
@@ -394,8 +394,8 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o1 + i, o0 + j, o1 + k, e) = v (o1 + i, o0 + j, o1 + k, e) &
-                                           + vs(     i, c1 + j,      k, l)
+              u(o1 + i, o0 + j, o1 + k, e) = u (o1 + i, o0 + j, o1 + k, e) &
+                                           + us(     i, c1 + j,      k, l)
             end do
             end do
             end do
@@ -408,8 +408,8 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o0 + i, o1 + j, o1 + k, e) = v (o0 + i, o1 + j, o1 + k, e) &
-                                           + vs(c1 + i,      j,      k, l)
+              u(o0 + i, o1 + j, o1 + k, e) = u (o0 + i, o1 + j, o1 + k, e) &
+                                           + us(c1 + i,      j,      k, l)
             end do
             end do
             end do
@@ -422,8 +422,8 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              v(o1 + i, o1 + j, o1 + k, e) = v (o1 + i, o1 + j, o1 + k, e) &
-                                           + vs(     i,      j,      k, l)
+              u(o1 + i, o1 + j, o1 + k, e) = u (o1 + i, o1 + j, o1 + k, e) &
+                                           + us(     i,      j,      k, l)
             end do
             end do
             end do

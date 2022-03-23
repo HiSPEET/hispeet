@@ -12,9 +12,11 @@ module DG__Diffusion_Operator__3D
   use Constants      , only: ZERO, ONE, HALF
   use Array_Assignments                          ! required by
   use Array_Reductions                           ! CG_Method
+  use TPO__Schwarz__3D_CI
   use XMPI, only: XMPI_Bcast                     !
   use DG__Element_Operators__1D
   use DG__Schwarz_Operator__3D
+  use Element_Transfer_Buffer__3D
   use Spectral_Element_Mesh__3D
   use Spectral_Element_Boundary_Variable__3D
 
@@ -39,6 +41,7 @@ contains
     procedure :: Apply
 !   procedure :: AddBC
     procedure :: CG_Method
+    procedure :: Schwarz_Method
 
     procedure, private :: Init_C0, Init_CC, Init_V
     procedure, private :: SetDiffusivity_C, SetDiffusivity_V
@@ -248,7 +251,6 @@ contains
 
   end subroutine Init_V
 
-
   !-----------------------------------------------------------------------------
   !> Conjugate gradient method, modified for r = Au - f
 
@@ -372,6 +374,173 @@ contains
     end associate
 
   end subroutine CG_Method
+
+  !-----------------------------------------------------------------------------
+  !> Element-centered overlapping Schwarz method
+
+  subroutine Schwarz_Method(this, u, f, bv, i_max, r_red, r_max, standby, ni)
+
+    class(DG_DiffusionOperator_3D), intent(in) :: this
+    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:) !< BC
+    real(RNP),           intent(inout) :: u(:,:,:,:) !< approximate solution
+    real(RNP),           intent(in)    :: f(:,:,:,:) !< right hand side
+    integer,             intent(in)    :: i_max      !< max num iterations
+    real(RNP), optional, intent(in)    :: r_red      !< min residual reduction
+    real(RNP), optional, intent(in)    :: r_max      !< max admissible residual
+    logical,   optional, intent(in)    :: standby    !< reuse workspace [F]
+    integer,   optional, intent(out)   :: ni         !< executed num iterations
+
+    contiguous :: u, f
+
+    ! local variables ..........................................................
+
+    real(RNP), allocatable, save :: r(:,:,:,:)     ! residual, including ghosts
+
+    real(RDP), allocatable, save :: us_dp(:,:,:,:) ! solution of subsystems
+    real(RDP), allocatable, save :: fs_dp(:,:,:,:) ! RHS of subsystems
+
+    real(RSP), allocatable, save :: us_sp(:,:,:,:) ! solution of subsystems
+    real(RSP), allocatable, save :: fs_sp(:,:,:,:) ! RHS of subsystems
+
+    type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_r
+    type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_us
+
+    real(RNP), save :: rr_term
+    logical  , save :: converged
+
+    integer   :: wp = -1  ! working precision
+    integer   :: no = -1  ! overlap
+    integer   :: np = -1  ! element points per direction
+    integer   :: ns = -1  ! subdomain points per direction
+
+    integer   :: i, ne, ng, nl(3) = -1
+    logical   :: reuse
+    real(RNP) :: rr
+
+    associate(mesh => this % sem % mesh, schwarz => this % schwarz)
+
+      ! initialization .........................................................
+
+      ne = mesh % n_elem
+      ng = mesh % n_ghost
+
+      ! check for reusable workspace
+      reuse = allocated(r) .and. wp == schwarz % wp .and. no == schwarz % no
+      if (reuse) then
+        reuse = size(r,1) == size(u,1) .and. size(r,4) == ne+ng
+      end if
+
+      !$omp master
+
+      if (.not. reuse) then
+
+        if (allocated( r      )) deallocate( r      )
+        if (allocated( us_dp  )) deallocate( us_dp  )
+        if (allocated( fs_dp  )) deallocate( fs_dp  )
+        if (allocated( us_sp  )) deallocate( us_sp  )
+        if (allocated( fs_sp  )) deallocate( fs_sp  )
+        if (allocated( buf_r  )) deallocate( buf_r  )
+        if (allocated( buf_us )) deallocate( buf_us )
+
+        wp = schwarz % wp
+        no = schwarz % no
+        np = this % eop % po + 1
+
+        nl = no
+        ns = np + 2*no
+
+        allocate(r(np, np, np, ne+ng), source = ZERO)
+
+        if (wp == RSP) then
+          allocate(us_sp(ns, ns, ns, ne+ng), source = 0E0)
+          allocate(fs_sp(ns, ns, ns, ne)   , source = 0E0)
+          buf_us = ElementTransferBuffer_3D(mesh, us_sp, nl)
+        else
+          allocate(us_dp(ns, ns, ns, ne+ng), source = 0D0)
+          allocate(fs_dp(ns, ns, ns, ne)   , source = 0D0)
+          buf_us = ElementTransferBuffer_3D(mesh, us_dp, nl)
+        end if
+        buf_r = ElementTransferBuffer_3D(mesh, r, nl)
+
+      end if
+
+      ! termination condition
+      if (present(r_max)) then
+        rr_term = max(ZERO, r_max)**2
+      else
+        rr_term = ZERO
+      end if
+
+      !$omp end master
+      !$omp barrier
+
+      ! Schwarz iterations .....................................................
+
+      do i = 1, i_max
+
+        call this % Apply(u, r(:,:,:,:ne), f, bv)
+
+        ! termination check
+        if (present(r_red)) then
+          rr = ScalarProduct(r(:,:,:,:ne), r(:,:,:,:ne), mesh%comm)
+          !$omp master
+          if (mesh%part == 0) then
+            if (i == 1) then
+              rr_term  = max(rr_term, max(ZERO, sqrt(rr) * r_red)**2)
+            end if
+            converged = rr <= rr_term
+          end if
+          call XMPI_Bcast(converged, root=0, comm=mesh%comm)
+          !$omp end master
+          !$omp barrier
+        end if
+        if (converged) exit
+
+        select case(wp)
+        case(RSP)
+          call schwarz % RestrictResidual(mesh, buf_r, r, fs_sp)
+          call TPO_Schwarz( schwarz % ops_sp % S      &
+                          , schwarz % ops_sp % W      &
+                          , schwarz % cfg             &
+                          , schwarz % ops_sp % D_inv  &
+                          , fs_sp                     &
+                          , us_sp                     )
+          call schwarz % MergeCorrections(mesh, buf_us, us_sp, u)
+        case default
+          call schwarz % RestrictResidual(mesh, buf_r, r, fs_dp)
+          call TPO_Schwarz( schwarz % ops_dp % S      &
+                          , schwarz % ops_dp % W      &
+                          , schwarz % cfg             &
+                          , schwarz % ops_dp % D_inv  &
+                          , fs_dp                     &
+                          , us_dp                     )
+          call schwarz % MergeCorrections(mesh, buf_us, us_dp, u)
+        end select
+
+      end do
+
+      if (present(ni)) ni = min(i, i_max)
+
+      ! clean-up ...............................................................
+
+      ! keep workspace in case of standby
+      if (present(standby)) then
+        if (standby) return
+      end if
+
+      !$omp master
+      if (allocated( r      )) deallocate( r      )
+      if (allocated( us_dp  )) deallocate( us_dp  )
+      if (allocated( fs_dp  )) deallocate( fs_dp  )
+      if (allocated( us_sp  )) deallocate( us_sp  )
+      if (allocated( fs_sp  )) deallocate( fs_sp  )
+      if (allocated( buf_r  )) deallocate( buf_r  )
+      if (allocated( buf_us )) deallocate( buf_us )
+      !$omp end master
+
+    end associate
+
+  end subroutine Schwarz_Method
 
 !?!  !-----------------------------------------------------------------------------
 !?!  !> Addition of boundary conditions to the right hande side

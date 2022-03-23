@@ -199,43 +199,43 @@ module DG__Schwarz_Operator__3D
 
   interface
 
-    module subroutine Restrict_Structured_RDP(this, mesh, buf_v, v, vs)
+    module subroutine Restrict_Structured_RDP(this, mesh, buf_u, u, us)
       class(DG_SchwarzOperator_3D), intent(in) :: this
-      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_v
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
       class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< extended mesh variable
-      real(RDP),      intent(out)   :: vs(:,:,:,:)   !< restricted variable
+      real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< extended mesh variable
+      real(RDP),      intent(out)   :: us(:,:,:,:)   !< restricted variable
     end subroutine Restrict_Structured_RDP
 
-    module subroutine Restrict_Unstructured_RDP(this, mesh, buf_v, v, vs)
+    module subroutine Restrict_Unstructured_RDP(this, mesh, buf_u, u, us)
       class(DG_SchwarzOperator_3D), intent(in) :: this
-      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_v
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
       class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< extended mesh variable
-      real(RDP),      intent(out)   :: vs(:,:,:,:)   !< restricted variable
+      real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< extended mesh variable
+      real(RDP),      intent(out)   :: us(:,:,:,:)   !< restricted variable
     end subroutine Restrict_Unstructured_RDP
 
-    module subroutine Merge_Core_RDP(this, mesh, vs, v)
+    module subroutine Merge_Core_RDP(this, mesh, us, u)
       class(DG_SchwarzOperator_3D), intent(in) :: this
       class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
-      real(RDP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
+      real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< subdomain solutions
+      real(RDP),      intent(inout) :: us(:,:,:,:)   !< mesh variable
     end subroutine Merge_Core_RDP
 
-    module subroutine Merge_Structured_RDP(this, mesh, buf_vs, vs, v)
+    module subroutine Merge_Structured_RDP(this, mesh, buf_us, us, u)
       class(DG_SchwarzOperator_3D), intent(in) :: this
-      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_us
       class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
-      real(RDP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
+      real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< subdomain solutions
+      real(RDP),      intent(inout) :: us(:,:,:,:)   !< mesh variable
     end subroutine Merge_Structured_RDP
 
-    module subroutine Merge_Unstructured_RDP(this, mesh, buf_vs, vs, v)
+    module subroutine Merge_Unstructured_RDP(this, mesh, buf_us, us, u)
       class(DG_SchwarzOperator_3D), intent(in) :: this
-      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_us
       class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
-      real(RDP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
+      real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< subdomain solutions
+      real(RDP),      intent(inout) :: us(:,:,:,:)   !< mesh variable
     end subroutine Merge_Unstructured_RDP
 
   end interface
@@ -245,43 +245,43 @@ module DG__Schwarz_Operator__3D
 
   interface
 
-    module subroutine Restrict_Structured_RSP(this, mesh, buf_v, v, vs)
+    module subroutine Restrict_Structured_RSP(this, mesh, buf_u, u, us)
       class(DG_SchwarzOperator_3D), intent(in) :: this
-      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_v
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
       class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< extended mesh variable
-      real(RSP),      intent(out)   :: vs(:,:,:,:)   !< restricted variable
+      real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< extended mesh variable
+      real(RSP),      intent(out)   :: us(:,:,:,:)   !< restricted variable
     end subroutine Restrict_Structured_RSP
 
-    module subroutine Restrict_Unstructured_RSP(this, mesh, buf_v, v, vs)
+    module subroutine Restrict_Unstructured_RSP(this, mesh, buf_u, u, us)
       class(DG_SchwarzOperator_3D), intent(in) :: this
-      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_v
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
       class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< extended mesh variable
-      real(RSP),      intent(out)   :: vs(:,:,:,:)   !< restricted variable
+      real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< extended mesh variable
+      real(RSP),      intent(out)   :: us(:,:,:,:)   !< restricted variable
     end subroutine Restrict_Unstructured_RSP
 
-    module subroutine Merge_Core_RSP(this, mesh, vs, v)
+    module subroutine Merge_Core_RSP(this, mesh, us, u)
       class(DG_SchwarzOperator_3D), intent(in) :: this
       class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
-      real(RSP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
+      real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< subdomain solutions
+      real(RSP),      intent(inout) :: us(:,:,:,:)   !< mesh variable
     end subroutine Merge_Core_RSP
 
-    module subroutine Merge_Structured_RSP(this, mesh, buf_vs, vs, v)
+    module subroutine Merge_Structured_RSP(this, mesh, buf_us, us, u)
       class(DG_SchwarzOperator_3D), intent(in) :: this
-      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_us
       class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
-      real(RSP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
+      real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< subdomain solutions
+      real(RSP),      intent(inout) :: us(:,:,:,:)   !< mesh variable
     end subroutine Merge_Structured_RSP
 
-    module subroutine Merge_Unstructured_RSP(this, mesh, buf_vs, vs, v)
+    module subroutine Merge_Unstructured_RSP(this, mesh, buf_us, us, u)
       class(DG_SchwarzOperator_3D), intent(in) :: this
-      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_us
       class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-      real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
-      real(RSP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
+      real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< subdomain solutions
+      real(RSP),      intent(inout) :: us(:,:,:,:)   !< mesh variable
     end subroutine Merge_Unstructured_RSP
 
   end interface
@@ -887,20 +887,20 @@ contains
   !-----------------------------------------------------------------------------
   !> Restrict mesh variable to subdomains -- double precision
   !>
-  !> The mesh variable must be dimensioned as `v(0:po,0:po,0:po,ne+ng)`, where
+  !> The mesh variable must be dimensioned as `u(0:po,0:po,0:po,ne+ng)`, where
   !> `ne` is the number of local elements and `ng` the number of ghosts.
 
-  subroutine RestrictResidual_RDP(this, mesh, buf_v, v, vs)
+  subroutine RestrictResidual_RDP(this, mesh, buf_u, u, us)
     class(DG_SchwarzOperator_3D), intent(in) :: this
-    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_v
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-    real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< extended mesh variable
-    real(RDP),      intent(out)   :: vs(:,:,:,:)   !< restricted variable
+    real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< extended mesh variable
+    real(RDP),      intent(out)   :: us(:,:,:,:)   !< restricted variable
 
     if (mesh % structured) then
-      call Restrict_Structured_RDP(this, mesh, buf_v, v, vs)
+      call Restrict_Structured_RDP(this, mesh, buf_u, u, us)
     else
-      call Restrict_Unstructured_RDP(this, mesh, buf_v, v, vs)
+      call Restrict_Unstructured_RDP(this, mesh, buf_u, u, us)
     end if
 
   end subroutine RestrictResidual_RDP
@@ -908,23 +908,23 @@ contains
   !-----------------------------------------------------------------------------
   !> Merge subdomain contributions into mesh variable -- double precision
   !>
-  !> The subdomain variable must be dimensioned as `v(ns,ns,ns,ne+ng)`, where
+  !> The subdomain variable must be dimensioned as `u(ns,ns,ns,ne+ng)`, where
   !> `ns` is the numbeer of subdomain points per direction, `ne` the number of
   !> local elements and `ng` the number of ghosts.
 
-  subroutine MergeCorrections_RDP(this, mesh, buf_vs, vs, v)
+  subroutine MergeCorrections_RDP(this, mesh, buf_us, us, u)
     class(DG_SchwarzOperator_3D), intent(in) :: this
-    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_us
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-    real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
-    real(RDP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
+    real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< subdomain solutions
+    real(RDP),      intent(inout) :: us(:,:,:,:)   !< mesh variable
 
     if (this % restrictive) then ! merge core regions only
-      call Merge_Core_RDP(this, mesh, vs, v)
+      call Merge_Core_RDP(this, mesh, us, u)
     else if (mesh % structured) then
-      call Merge_Structured_RDP(this, mesh, buf_vs, vs, v)
+      call Merge_Structured_RDP(this, mesh, buf_us, us, u)
     else
-      call Merge_Unstructured_RDP(this, mesh, buf_vs, vs, v)
+      call Merge_Unstructured_RDP(this, mesh, buf_us, us, u)
     end if
 
   end subroutine MergeCorrections_RDP
@@ -932,17 +932,17 @@ contains
   !-----------------------------------------------------------------------------
   !> Restrict mesh variable to subdomains -- single precision
 
-  subroutine RestrictResidual_RSP(this, mesh, buf_v, v, vs)
+  subroutine RestrictResidual_RSP(this, mesh, buf_u, u, us)
     class(DG_SchwarzOperator_3D), intent(in) :: this
-    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_v
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-    real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< extended mesh variable
-    real(RSP),      intent(out)   :: vs(:,:,:,:)   !< restricted variable
+    real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< extended mesh variable
+    real(RSP),      intent(out)   :: us(:,:,:,:)   !< restricted variable
 
     if (mesh % structured) then
-      call Restrict_Structured_RSP(this, mesh, buf_v, v, vs)
+      call Restrict_Structured_RSP(this, mesh, buf_u, u, us)
     else
-      call Restrict_Unstructured_RSP(this, mesh, buf_v, v, vs)
+      call Restrict_Unstructured_RSP(this, mesh, buf_u, u, us)
     end if
 
   end subroutine RestrictResidual_RSP
@@ -950,19 +950,19 @@ contains
   !-----------------------------------------------------------------------------
   !> Merge subdomain contributions into mesh variable -- single precision
 
-  subroutine MergeCorrections_RSP(this, mesh, buf_vs, vs, v)
+  subroutine MergeCorrections_RSP(this, mesh, buf_us, us, u)
     class(DG_SchwarzOperator_3D), intent(in) :: this
-    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_vs
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_us
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-    real(RNP),      intent(inout) :: v(0:,0:,0:,:) !< subdomain solutions
-    real(RSP),      intent(inout) :: vs(:,:,:,:)   !< mesh variable
+    real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< subdomain solutions
+    real(RSP),      intent(inout) :: us(:,:,:,:)   !< mesh variable
 
     if (this % restrictive) then ! merge core regions only
-      call Merge_Core_RSP(this, mesh, vs, v)
+      call Merge_Core_RSP(this, mesh, us, u)
     else if (mesh % structured) then
-      call Merge_Structured_RSP(this, mesh, buf_vs, vs, v)
+      call Merge_Structured_RSP(this, mesh, buf_us, us, u)
     else
-      call Merge_Unstructured_RSP(this, mesh, buf_vs, vs, v)
+      call Merge_Unstructured_RSP(this, mesh, buf_us, us, u)
     end if
 
   end subroutine MergeCorrections_RSP
