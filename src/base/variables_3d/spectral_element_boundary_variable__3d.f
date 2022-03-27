@@ -118,33 +118,21 @@ contains
   !-----------------------------------------------------------------------------
   !> 3D spectral element boundary variable initialization
 
-  impure elemental subroutine Init_SEBV(this, sem, boundary, nc, reuse)
+  impure elemental subroutine Init_SEBV(this, sem, boundary, nc)
     class(SpectralElementBoundaryVariable_3D), target, intent(inout) :: this
     class(SpectralElementMesh_3D), target, intent(in) :: sem
     class(MeshBoundary_3D), intent(in) :: boundary
     integer, intent(in) :: nc
-    logical, optional, intent(in) :: reuse ! keep matching `val` [F]
 
     integer :: po, nf
-    logical :: reuse_
 
     po = sem % std_op % po
     nf = boundary % n_face
 
-    if (present(reuse)) then
-      reuse_ = reuse .and. associated(this%val)
-    else
-      reuse_ = .false.
-    end if
-
-    this % bid = boundary % id
-
-    if (reuse_) then
-      if (all(shape(this%val) == [po+1,po+1,nf,nc])) return
-    end if
-
     if (allocated(this % mem)) deallocate(this % mem)
     allocate(this % mem(0:po, 0:po, nf, nc))
+
+    this % bid = boundary % id
     this % val(0:,0:,1:,1:) => this % mem
     this % sem              => sem
 
@@ -194,6 +182,8 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Extract boundary variable from spectral-element variable
+  !>
+  !> `this` must be properly initialized on input!
 
   impure elemental subroutine Extract(this, sev, boundary)
     class(SpectralElementBoundaryVariable_3D), target, intent(inout) :: this
@@ -202,76 +192,65 @@ contains
 
     integer :: c, e, f, i, j, k, m, nc, po
 
-    associate(v => sev % val)
+    associate(v => sev % val, vb => this % val)
 
       po = ubound(v,1)
       nc = ubound(v,5)
 
-      !$omp master
-      call Init_SEBV(this, sev % sem, boundary, nc, reuse = .true.)
-      !$omp end master
-      !$omp barrier
+      !$omp do
+      do f = 1, boundary % n_face
 
-      associate(vb => this % val)
+        e = boundary % face(f) % mesh_element % id
+        m = boundary % face(f) % mesh_element % face
 
-        !$omp do
-        do f = 1, boundary % n_face
+        select case(m)
 
-          e = boundary % face(f) % mesh_element % id
-          m = boundary % face(f) % mesh_element % face
+        case(1,2)
+          i = (m - 1) * po
+          do c = 1, nc
+          do k = 0, po
+          do j = 0, po
+            vb(j,k,f,c) = v(i,j,k,e,c)
+          end do
+          end do
+          end do
 
-          select case(m)
+        case(3,4)
+          j = (m - 3) * po
+          do c = 1, nc
+          do k = 0, po
+          do i = 0, po
+            vb(i,k,f,c) = v(i,j,k,e,c)
+          end do
+          end do
+          end do
 
-          case(1,2)
-            i = (m - 1) * po
-            do c = 1, nc
-            do k = 0, po
-            do j = 0, po
-              vb(j,k,f,c) = v(i,j,k,e,c)
-            end do
-            end do
-            end do
-
-          case(3,4)
-            j = (m - 3) * po
-            do c = 1, nc
-            do k = 0, po
-            do i = 0, po
-              vb(i,k,f,c) = v(i,j,k,e,c)
-            end do
-            end do
-            end do
-
-          case(5,6)
-            k = (m - 5) * po
-            do c = 1, nc
-            do j = 0, po
-            do i = 0, po
-              vb(i,j,f,c) = v(i,j,k,e,c)
-            end do
-            end do
+        case(5,6)
+          k = (m - 5) * po
+          do c = 1, nc
+          do j = 0, po
+          do i = 0, po
+            vb(i,j,f,c) = v(i,j,k,e,c)
+          end do
+          end do
             end do
 
-          end select
+        end select
 
-        end do
-      end associate
+      end do
     end associate
 
   end subroutine Extract
 
   !-----------------------------------------------------------------------------
   !> Extract the normal component of a spectral-element vector
+  !>
+  !> `this` must be properly initialized on input!
 
   impure elemental subroutine ExtractNormalComponent(this, sev, boundary)
     class(SpectralElementBoundaryVariable_3D), target, intent(inout) :: this
     class(SpectralElementVector_3D), intent(in) :: sev
     class(MeshBoundary_3D), intent(in) :: boundary
-
-    !$omp master
-    call Init_SEBV(this, sev % sem, boundary, nc = 1, reuse = .true.)
-    !$omp end master
-    !$omp barrier
 
     if (this % sem % mesh % regular) then
       call ExtractNormalComponent_R(this, sev, boundary)

@@ -23,8 +23,7 @@
 
     integer(IXS) :: orientation
     integer :: e, i, j, k, l, m, n
-    integer :: lo, ro, nn, np, ns
-    integer :: ii, jj, kk
+    integer :: ii, jj, kk, nn, np, ns
     integer :: c0, c1, lo, ro
     integer :: o(3), s(3,3), t(3)
     logical :: merge_edge(12), merge_vertex(8)

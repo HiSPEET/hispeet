@@ -30,11 +30,13 @@ contains
 
     ! input parameters .........................................................
 
-    integer :: rotation(3) = 0       ! x/y/z-rotation of center element
-    logical :: periodic(3) = .false. ! F/T for non/periodic directions
-    integer :: pg = 3                ! polynomial order of geometry
+    real(RNP) :: xo(3) = 0             ! corner closest to -infinity
+    real(RNP) :: lx(3) = 2*PI          ! domain extensions
+    integer   :: pg = 3                ! polynomial order of geometry
+    integer   :: rotation(3) = 0       ! x/y/z-rotation of center element
+    logical   :: periodic(3) = .false. ! F/T for non/periodic directions
 
-    namelist/cuboid_onerotated_prm/ rotation, periodic, pg
+    namelist/cuboid_onerotated_prm/ xo, lx, pg, rotation, periodic
 
     ! auxiliary variables ......................................................
 
@@ -53,13 +55,15 @@ contains
       close(io)
     end if
 
+    call XMPI_Bcast(xo      , 0, comm)
+    call XMPI_Bcast(lx      , 0, comm)
+    call XMPI_Bcast(pg      , 0, comm)
     call XMPI_Bcast(rotation, 0, comm)
     call XMPI_Bcast(periodic, 0, comm)
-    call XMPI_Bcast(pg      , 0, comm)
 
     ! create mesh ..............................................................
 
-    call generic_mesh % CreateOneRotated(pg, rotation, periodic)
+    call generic_mesh % CreateOneRotated(xo, lx, pg, rotation, periodic)
     call mesh % ImportGenericMesh(generic_mesh, comm = comm)
 
   end subroutine CreateCuboidOneRotated

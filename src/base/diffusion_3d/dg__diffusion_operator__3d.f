@@ -10,6 +10,7 @@
 module DG__Diffusion_Operator__3D
   use Kind_Parameters, only: RNP, RDP, RSP
   use Constants      , only: ZERO, ONE, HALF
+  use Execution_Control
   use Array_Assignments                          ! required by
   use Array_Reductions                           ! CG_Method
   use TPO__Schwarz__3D_CI
@@ -498,7 +499,7 @@ contains
 
         select case(wp)
         case(RSP)
-          call schwarz % RestrictResidual(mesh, buf_r, r, fs_sp)
+          call schwarz % RestrictResidual(mesh, buf_r, r, fs_sp, sgn = -1)
           call TPO_Schwarz( schwarz % ops_sp % S      &
                           , schwarz % ops_sp % W      &
                           , schwarz % cfg             &
@@ -507,7 +508,7 @@ contains
                           , us_sp                     )
           call schwarz % MergeCorrections(mesh, buf_us, us_sp, u)
         case default
-          call schwarz % RestrictResidual(mesh, buf_r, r, fs_dp)
+          call schwarz % RestrictResidual(mesh, buf_r, r, fs_dp, sgn = -1)
           call TPO_Schwarz( schwarz % ops_dp % S      &
                           , schwarz % ops_dp % W      &
                           , schwarz % cfg             &

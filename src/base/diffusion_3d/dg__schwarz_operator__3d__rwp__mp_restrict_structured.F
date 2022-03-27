@@ -1,32 +1,40 @@
   !-----------------------------------------------------------------------------
-  !> Restrict a structured mesh variable `u` to subdomains
+  !> Restrict a structured mesh variable `r` to subdomains
   !>
   !> The strategy is as a follows:
   !>
-  !>   1. Send `u` from linked local elements to ghosts in remote partitions
-  !>   2. Assign `u` to subdomain core regions, i.e. 1:1 copy to `us`
+  !>   1. Send `r` from linked local elements to ghosts in remote partitions
+  !>   2. Assign `r` to subdomain core regions, i.e. 1:1 copy to `rs`
   !>   3. Merge received remote data into ghosts
   !>   4. Copy local and ghost data to overlap zones of subdomains
   !>
-  !> The mesh variable must be dimensioned as `u(0:po,0:po,0:po,ne+ng)`, where
+  !> The mesh variable must be dimensioned as `r(0:po,0:po,0:po,ne+ng)`, where
   !> `ne` is the number of local elements and `ng` the number of ghosts.
 
-  module subroutine Restrict_Structured(this, mesh, buf_u, u, us)
+  module subroutine Restrict_Structured(this, mesh, buf_r, r, rs, sgn)
     class(DG_SchwarzOperator_3D), intent(in) :: this
-    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_r
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-    real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< extended mesh variable
-    real(RWP),      intent(out)   :: us(:,:,:,:)   !< restricted variable
+    real(RNP),      intent(inout) :: r(0:,0:,0:,:) !< extended mesh variable
+    real(RWP),      intent(out)   :: rs(:,:,:,:)   !< restricted variable
+    integer, optional, intent(in) :: sgn           !< sign of `r` {+1,-1} [+1]
 
-    integer :: e, i, j, k, l, m
-    integer :: c0, c1, o0, o1
+    real(RWP) :: c_sgn
+    integer   :: e, i, j, k, l, m
+    integer   :: c0, c1, o0, o1
+
+    if (present(sgn)) then
+      c_sgn = sgn
+    else
+      c_sgn = 1
+    end if
 
     associate(po => this%po, no => this%no)
 
       ! start transfer .........................................................
 
       if (no > 0) then
-        call buf_u % Transfer(mesh, u, tag=1000)
+        call buf_r % Transfer(mesh, r, tag=1000)
       end if
 
       ! assign core regions ....................................................
@@ -39,12 +47,12 @@
       do e = 1, mesh % n_elem
 
         ! ensure that no NANs remain in parts for which no neighbor data exists
-        us(:,:,:,e) = 0
+        rs(:,:,:,e) = 0
 
         do k = 0, po
         do j = 0, po
         do i = 0, po
-          us(c0 + i, c0 + j, c0 + k, e) = real(u(i,j,k,e), RWP)
+          rs(c0 + i, c0 + j, c0 + k, e) = c_sgn * real(r(i,j,k,e), RWP)
         end do
         end do
         end do
@@ -54,7 +62,7 @@
       ! merge remote data to ghosts ............................................
 
       if (no > 0) then
-        call buf_u % Merge(u)
+        call buf_r % Merge(r)
       else
         return
       end if
@@ -76,7 +84,7 @@
             do k = 0, po
             do j = 0, po
             do i = 1, no
-              us(i, c0 + j, c0 + k, e) = real(u(o1 + i, j, k, l), RWP)
+              rs(i, c0 + j, c0 + k, e) = c_sgn * real(r(o1 + i, j, k, l), RWP)
             end do
             end do
             end do
@@ -89,7 +97,7 @@
             do k = 0, po
             do j = 0, po
             do i = 1, no
-              us(c1 + i, c0 + j, c0 + k, e) = real(u(o0 + i, j, k, l), RWP)
+              rs(c1 + i, c0 + j, c0 + k, e) = c_sgn * real(r(o0 + i, j, k, l), RWP)
             end do
             end do
             end do
@@ -102,7 +110,7 @@
             do k = 0, po
             do j = 1, no
             do i = 0, po
-              us(c0 + i, j, c0 + k, e) = real(u(i, o1 + j, k, l), RWP)
+              rs(c0 + i, j, c0 + k, e) = c_sgn * real(r(i, o1 + j, k, l), RWP)
             end do
             end do
             end do
@@ -115,7 +123,7 @@
             do k = 0, po
             do j = 1, no
             do i = 0, po
-              us(c0 + i, c1 + j, c0 + k, e) = real(u(i, o0 + j, k, l), RWP)
+              rs(c0 + i, c1 + j, c0 + k, e) = c_sgn * real(r(i, o0 + j, k, l), RWP)
             end do
             end do
             end do
@@ -128,7 +136,7 @@
             do k = 1, no
             do j = 0, po
             do i = 0, po
-              us(c0 + i, c0 + j, k, e) = real(u(i, j, o1 + k, l), RWP)
+              rs(c0 + i, c0 + j, k, e) = c_sgn * real(r(i, j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -141,7 +149,7 @@
             do k = 1, no
             do j = 0, po
             do i = 0, po
-              us(c0 + i, c0 + j, c1 + k, e) = real(u(i, j, o0 + k, l), RWP)
+              rs(c0 + i, c0 + j, c1 + k, e) = c_sgn * real(r(i, j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -154,7 +162,7 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              us(c0 + i, j, k, e) = real(u(i, o1 + j, o1 + k, l), RWP)
+              rs(c0 + i, j, k, e) = c_sgn * real(r(i, o1 + j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -167,7 +175,7 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              us(c0 + i, c1 + j, k, e) = real(u(i, o0 + j, o1 + k, l), RWP)
+              rs(c0 + i, c1 + j, k, e) = c_sgn * real(r(i, o0 + j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -180,7 +188,7 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              us(c0 + i, j, c1 + k, e) = real(u(i, o1 + j, o0 + k, l), RWP)
+              rs(c0 + i, j, c1 + k, e) = c_sgn * real(r(i, o1 + j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -193,7 +201,7 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              us(c0 + i, c1 + j, c1 + k, e) = real(u(i, o0 + j, o0 + k, l), RWP)
+              rs(c0 + i, c1 + j, c1 + k, e) = c_sgn * real(r(i, o0 + j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -206,7 +214,7 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              us(i, c0 + j, k, e) = real(u(o1 + i, j, o1 + k, l), RWP)
+              rs(i, c0 + j, k, e) = c_sgn * real(r(o1 + i, j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -219,7 +227,7 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              us(c1 + i, c0 + j, k, e) = real(u(o0 + i, j, o1 + k, l), RWP)
+              rs(c1 + i, c0 + j, k, e) = c_sgn * real(r(o0 + i, j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -232,7 +240,7 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              us(i, c0 + j, c1 + k, e) = real(u(o1 + i, j, o0 + k, l), RWP)
+              rs(i, c0 + j, c1 + k, e) = c_sgn * real(r(o1 + i, j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -245,7 +253,7 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              us(c1 + i, c0 + j, c1 + k, e) = real(u(o0 + i, j, o0 + k, l), RWP)
+              rs(c1 + i, c0 + j, c1 + k, e) = c_sgn * real(r(o0 + i, j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -258,7 +266,7 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              us(i, j, c0 + k, e) = real(u(o1 + i, o1 + j, k, l), RWP)
+              rs(i, j, c0 + k, e) = c_sgn * real(r(o1 + i, o1 + j, k, l), RWP)
             end do
             end do
             end do
@@ -271,7 +279,7 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              us(c1 + i, j, c0 + k, e) = real(u(o0 + i, o1 + j, k, l), RWP)
+              rs(c1 + i, j, c0 + k, e) = c_sgn * real(r(o0 + i, o1 + j, k, l), RWP)
             end do
             end do
             end do
@@ -284,7 +292,7 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              us(i, c1 + j, c0 + k, e) = real(u(o1 + i, o0 + j, k, l), RWP)
+              rs(i, c1 + j, c0 + k, e) = c_sgn * real(r(o1 + i, o0 + j, k, l), RWP)
             end do
             end do
             end do
@@ -297,7 +305,7 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              us(c1 + i, c1 + j, c0 + k, e) = real(u(o0 + i, o0 + j, k, l), RWP)
+              rs(c1 + i, c1 + j, c0 + k, e) = c_sgn * real(r(o0 + i, o0 + j, k, l), RWP)
             end do
             end do
             end do
@@ -310,7 +318,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              us(i, j, k, e) = real(u(o1 + i, o1 + j, o1 + k, l), RWP)
+              rs(i, j, k, e) = c_sgn * real(r(o1 + i, o1 + j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -323,7 +331,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              us(c1 + i, j, k, e) = real(u(o0 + i, o1 + j, o1 + k, l), RWP)
+              rs(c1 + i, j, k, e) = c_sgn * real(r(o0 + i, o1 + j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -336,7 +344,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              us(i, c1 + j, k, e) = real(u(o1 + i, o0 + j, o1 + k, l), RWP)
+              rs(i, c1 + j, k, e) = c_sgn * real(r(o1 + i, o0 + j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -349,7 +357,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              us(c1 + i, c1 + j, k, e) = real(u(o0 + i, o0 + j, o1 + k, l), RWP)
+              rs(c1 + i, c1 + j, k, e) = c_sgn * real(r(o0 + i, o0 + j, o1 + k, l), RWP)
             end do
             end do
             end do
@@ -362,7 +370,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              us(i, j, c1 + k, e) = real(u(o1 + i, o1 + j, o0 + k, l), RWP)
+              rs(i, j, c1 + k, e) = c_sgn * real(r(o1 + i, o1 + j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -375,7 +383,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              us(c1 + i, j, c1 + k, e) = real(u(o0 + i, o1 + j, o0 + k, l), RWP)
+              rs(c1 + i, j, c1 + k, e) = c_sgn * real(r(o0 + i, o1 + j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -388,7 +396,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              us(i, c1 + j, c1 + k, e) = real(u(o1 + i, o0 + j, o0 + k, l), RWP)
+              rs(i, c1 + j, c1 + k, e) = c_sgn * real(r(o1 + i, o0 + j, o0 + k, l), RWP)
             end do
             end do
             end do
@@ -401,7 +409,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              us(c1 + i, c1 + j, c1 + k, e) = real(u(o0 + i, o0 + j, o0 + k, l), RWP)
+              rs(c1 + i, c1 + j, c1 + k, e) = c_sgn * real(r(o0 + i, o0 + j, o0 + k, l), RWP)
             end do
             end do
             end do

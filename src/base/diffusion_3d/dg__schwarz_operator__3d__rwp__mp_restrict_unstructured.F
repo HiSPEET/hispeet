@@ -1,24 +1,26 @@
   !-----------------------------------------------------------------------------
-  !> Restrict an unstructured mesh variable `u` to subdomains
+  !> Restrict an unstructured mesh variable `r` to subdomains
   !>
   !> The strategy is as a follows:
   !>
-  !>   1. Send `u` from linked local elements to ghosts in remote partitions
-  !>   2. Assign `u` to subdomain core regions, i.e. 1:1 copy to `us`
+  !>   1. Send `r` from linked local elements to ghosts in remote partitions
+  !>   2. Assign `r` to subdomain core regions, i.e. 1:1 copy to `rs`
   !>   3. Merge received remote data into ghosts
   !>   4. Copy local and ghost data to overlap zones of subdomains
   !>
-  !> The mesh variable must be dimensioned as `u(0:po,0:po,0:po,ne+ng)`, where
+  !> The mesh variable must be dimensioned as `r(0:po,0:po,0:po,ne+ng)`, where
   !> `ne` is the number of local elements and `ng` the number of ghosts.
 
-  module subroutine Restrict_Unstructured(this, mesh, buf_u, u, us)
+  module subroutine Restrict_Unstructured(this, mesh, buf_r, r, rs, sgn)
     class(DG_SchwarzOperator_3D), intent(in) :: this
-    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_r
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-    real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< extended mesh variable
-    real(RWP),      intent(out)   :: us(:,:,:,:)   !< restricted variable
+    real(RNP),      intent(inout) :: r(0:,0:,0:,:) !< extended mesh variable
+    real(RWP),      intent(out)   :: rs(:,:,:,:)   !< restricted variable
+    integer, optional, intent(in) :: sgn           !< sign of `r` {+1,-1} [+1]
 
-    real(RNP) :: ue(size(u,1)), uv
+    real(RNP) :: re(size(r,1)), rv
+    real(RWP) :: c_sgn
 
     integer(IXS) :: orientation
     integer :: e, i, j, k, l, m, n
@@ -26,6 +28,12 @@
     integer :: ii, jj, kk
     integer :: c0, c1, o(3), s(3,3), t(3)
     integer :: fill_edge(12), fill_vertex(8)
+
+    if (present(sgn)) then
+      c_sgn = sgn
+    else
+      c_sgn = 1
+    end if
 
     associate(po => this%po, no => this%no)
 
@@ -40,7 +48,7 @@
       c1 = c0 + np      ! first subdomain point behind core
 
       if (no > 0) then
-        call buf_u % Transfer(mesh, u, tag=1000)
+        call buf_r % Transfer(mesh, r, tag=1000)
       end if
 
       ! assign core regions ....................................................
@@ -49,12 +57,12 @@
       do e = 1, mesh % n_elem
 
         ! initialization and removal of NANs
-        us(:,:,:,e) = 0
+        rs(:,:,:,e) = 0
 
         do k = 0, po
         do j = 0, po
         do i = 0, po
-          us(c0 + i, c0 + j, c0 + k, e) = real(u(i,j,k,e), RWP)
+          rs(c0 + i, c0 + j, c0 + k, e) = c_sgn * real(r(i,j,k,e), RWP)
         end do
         end do
         end do
@@ -64,7 +72,7 @@
       ! merge remote data to ghosts ............................................
 
       if (no > 0) then
-        call buf_u % Merge(u)
+        call buf_r % Merge(r)
       else
         return
       end if
@@ -92,7 +100,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              us(1 + i, c0 + j, c0 + k, e) = real(u(ii, jj, kk, l), RWP)
+              rs(1 + i, c0 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
             end do
             end do
             end do
@@ -116,7 +124,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              us(c1 + i, c0 + j, c0 + k, e) = real(u(ii, jj, kk, l), RWP)
+              rs(c1 + i, c0 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
             end do
             end do
             end do
@@ -140,7 +148,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              us(c0 + i, 1 + j, c0 + k, e) = real(u(ii, jj, kk, l), RWP)
+              rs(c0 + i, 1 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
             end do
             end do
             end do
@@ -164,7 +172,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              us(c0 + i, c1 + j, c0 + k, e) = real(u(ii, jj, kk, l), RWP)
+              rs(c0 + i, c1 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
             end do
             end do
             end do
@@ -188,7 +196,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              us(c0 + i, c0 + j, 1 + k, e) = real(u(ii, jj, kk, l), RWP)
+              rs(c0 + i, c0 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
             end do
             end do
             end do
@@ -212,7 +220,7 @@
               ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
               jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
               kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-              us(c0 + i, c0 + j, c1 + k, e) = real(u(ii, jj, kk, l), RWP)
+              rs(c0 + i, c0 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
             end do
             end do
             end do
@@ -239,7 +247,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(c0 + i, 1 + j, 1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(c0 + i, 1 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -250,8 +258,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 1) % orientation, &
-                                    u, ue                                )
-              us(c0 : c0 + po, no, no, e) = real(ue, RWP)
+                                    r, re                                )
+              rs(c0 : c0 + po, no, no, e) = c_sgn * real(re, RWP)
               fill_edge(1) = min(fill_edge(1), 1)
 
             end if
@@ -274,7 +282,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(c0 + i, c1 + j, 1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(c0 + i, c1 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -285,8 +293,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 2) % orientation, &
-                                    u, ue                                )
-              us(c0 : c0 + po, c1 + 1, no, e) = real(ue, RWP)
+                                    r, re                                )
+              rs(c0 : c0 + po, c1 + 1, no, e) = c_sgn * real(re, RWP)
               fill_edge(2) = min(fill_edge(2), 1)
 
             end if
@@ -309,7 +317,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(c0 + i, 1 + j, c1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(c0 + i, 1 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -320,8 +328,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 3) % orientation, &
-                                    u, ue                                )
-              us(c0 : c0 + po, no, c1 + 1, e) = real(ue, RWP)
+                                    r, re                                )
+              rs(c0 : c0 + po, no, c1 + 1, e) = c_sgn * real(re, RWP)
               fill_edge(3) = min(fill_edge(3), 1)
 
             end if
@@ -344,7 +352,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(c0 + i, c1 + j, c1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(c0 + i, c1 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -353,8 +361,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 4) % orientation, &
-                                    u, ue                                )
-              us(c0 : c0 + po, c1 + 1, c1 + 1, e) = real(ue, RWP)
+                                    r, re                                )
+              rs(c0 : c0 + po, c1 + 1, c1 + 1, e) = c_sgn * real(re, RWP)
               fill_edge(4) = min(fill_edge(4), 1)
 
             end if
@@ -377,7 +385,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(1 + i, c0 + j, 1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(1 + i, c0 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -388,8 +396,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 5) % orientation, &
-                                    u, ue                                )
-              us(no, c0 : c0 + po, no, e) = real(ue, RWP)
+                                    r, re                                )
+              rs(no, c0 : c0 + po, no, e) = c_sgn * real(re, RWP)
               fill_edge(5) = min(fill_edge(5), 1)
 
             end if
@@ -412,7 +420,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(c1 + i, c0 + j, 1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(c1 + i, c0 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -423,8 +431,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 6) % orientation, &
-                                    u, ue                                )
-              us(c1 + 1, c0 : c0 + po, no, e) = real(ue, RWP)
+                                    r, re                                )
+              rs(c1 + 1, c0 : c0 + po, no, e) = c_sgn * real(re, RWP)
               fill_edge(6) = min(fill_edge(6), 1)
 
             end if
@@ -447,7 +455,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(1 + i, c0 + j, c1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(1 + i, c0 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -458,8 +466,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 7) % orientation, &
-                                    u, ue                                )
-              us(no, c0 : c0 + po, c1 + 1, e) = real(ue, RWP)
+                                    r, re                                )
+              rs(no, c0 : c0 + po, c1 + 1, e) = c_sgn * real(re, RWP)
               fill_edge(7) = min(fill_edge(7), 1)
 
             end if
@@ -482,7 +490,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(c1 + i, c0 + j, c1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(c1 + i, c0 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -493,8 +501,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 8) % orientation, &
-                                    u, ue                                )
-              us(c1 + 1, c0 : c0 + po, c1 + 1, e) = real(ue, RWP)
+                                    r, re                                )
+              rs(c1 + 1, c0 : c0 + po, c1 + 1, e) = c_sgn * real(re, RWP)
               fill_edge(8) = min(fill_edge(8), 1)
 
             end if
@@ -517,7 +525,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(1 + i, 1 + j, c0 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(1 + i, 1 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -528,8 +536,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 9) % orientation, &
-                                    u, ue                                )
-              us(no, no, c0 : c0 + po, e) = real(ue, RWP)
+                                    r, re                                )
+              rs(no, no, c0 : c0 + po, e) = c_sgn * real(re, RWP)
               fill_edge(9) = min(fill_edge(9), 1)
 
             end if
@@ -552,7 +560,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(c1 + i, 1 + j, c0 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(c1 + i, 1 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -563,8 +571,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge(10) % orientation, &
-                                    u, ue                                )
-              us(c1 + 1, no, c0 : c0 + po, e) = real(ue, RWP)
+                                    r, re                                )
+              rs(c1 + 1, no, c0 : c0 + po, e) = c_sgn * real(re, RWP)
               fill_edge(10) = min(fill_edge(10), 1)
 
             end if
@@ -587,7 +595,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(1 + i, c1 + j, c0 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(1 + i, c1 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -598,8 +606,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge(11) % orientation, &
-                                    u, ue                                )
-              us(no, c1 + 1, c0 : c0 + po, e) = real(ue, RWP)
+                                    r, re                                )
+              rs(no, c1 + 1, c0 : c0 + po, e) = c_sgn * real(re, RWP)
               fill_edge(11) = min(fill_edge(11), 1)
 
             end if
@@ -622,7 +630,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(c1 + i, c1 + j, c0 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(c1 + i, c1 + j, c0 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -633,8 +641,8 @@
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge(12) % orientation, &
-                                    u, ue                                )
-              us(c1 + 1, c1 + 1, c0 : c0 + po, e) = real(ue, RWP)
+                                    r, re                                )
+              rs(c1 + 1, c1 + 1, c0 : c0 + po, e) = c_sgn * real(re, RWP)
               fill_edge(12) = min(fill_edge(12), 1)
 
             end if
@@ -657,7 +665,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(1 + i, 1 + j, 1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(1 + i, 1 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -666,8 +674,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), u, uv)
-              us(no, no, no, e) = real(uv, RWP)
+              call CollectVertexData(element(e)%neighbor(m:n), r, rv)
+              rs(no, no, no, e) = c_sgn * real(rv, RWP)
               fill_vertex(1) = min(fill_vertex(1), 1)
 
             end if
@@ -690,7 +698,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(c1 + i, 1 + j, 1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(c1 + i, 1 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -699,8 +707,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), u, uv)
-              us(c1 + 1, no, no, e) = real(uv, RWP)
+              call CollectVertexData(element(e)%neighbor(m:n), r, rv)
+              rs(c1 + 1, no, no, e) = c_sgn * real(rv, RWP)
               fill_vertex(2) = min(fill_vertex(2), 1)
 
             end if
@@ -723,7 +731,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(1 + i, c1 + j, 1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(1 + i, c1 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -732,8 +740,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), u, uv)
-              us(no, c1 + 1, no, e) = real(uv, RWP)
+              call CollectVertexData(element(e)%neighbor(m:n), r, rv)
+              rs(no, c1 + 1, no, e) = c_sgn * real(rv, RWP)
               fill_vertex(3) = min(fill_vertex(3), 1)
 
             end if
@@ -756,7 +764,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(c1 + i, c1 + j, 1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(c1 + i, c1 + j, 1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -765,8 +773,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), u, uv)
-              us(c1 + 1, c1 + 1, no, e) = real(uv, RWP)
+              call CollectVertexData(element(e)%neighbor(m:n), r, rv)
+              rs(c1 + 1, c1 + 1, no, e) = c_sgn * real(rv, RWP)
               fill_vertex(4) = min(fill_vertex(4), 1)
 
             end if
@@ -789,7 +797,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(1 + i, 1 + j, c1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(1 + i, 1 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -798,8 +806,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), u, uv)
-              us(no, no, c1 + 1, e) = real(uv, RWP)
+              call CollectVertexData(element(e)%neighbor(m:n), r, rv)
+              rs(no, no, c1 + 1, e) = c_sgn * real(rv, RWP)
               fill_vertex(5) = min(fill_vertex(5), 1)
 
             end if
@@ -822,7 +830,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(c1 + i, 1 + j, c1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(c1 + i, 1 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -831,8 +839,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), u, uv)
-              us(c1 + 1, no, c1 + 1, e) = real(uv, RWP)
+              call CollectVertexData(element(e)%neighbor(m:n), r, rv)
+              rs(c1 + 1, no, c1 + 1, e) = c_sgn * real(rv, RWP)
               fill_vertex(6) = min(fill_vertex(6), 1)
 
             end if
@@ -855,7 +863,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(1 + i, c1 + j, c1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(1 + i, c1 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -864,8 +872,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), u, uv)
-              us(no, c1 + 1, c1 + 1, e) = real(uv, RWP)
+              call CollectVertexData(element(e)%neighbor(m:n), r, rv)
+              rs(no, c1 + 1, c1 + 1, e) = c_sgn * real(rv, RWP)
               fill_vertex(7) = min(fill_vertex(7), 1)
 
             end if
@@ -888,7 +896,7 @@
                 ii = t(1) + s(1,1) * i + s(2,1) * j + s(3,1) * k
                 jj = t(2) + s(1,2) * i + s(2,2) * j + s(3,2) * k
                 kk = t(3) + s(1,3) * i + s(2,3) * j + s(3,3) * k
-                us(c1 + i, c1 + j, c1 + k, e) = real(u(ii, jj, kk, l), RWP)
+                rs(c1 + i, c1 + j, c1 + k, e) = c_sgn * real(r(ii, jj, kk, l), RWP)
               end do
               end do
               end do
@@ -897,8 +905,8 @@
             else
 
               n = m + nn - 1
-              call CollectVertexData(element(e)%neighbor(m:n), u, uv)
-              us(c1 + 1, c1 + 1, c1 + 1, e) = real(uv, RWP)
+              call CollectVertexData(element(e)%neighbor(m:n), r, rv)
+              rs(c1 + 1, c1 + 1, c1 + 1, e) = c_sgn * real(rv, RWP)
               fill_vertex(8) = min(fill_vertex(8), 1)
 
             end if
@@ -906,7 +914,7 @@
 
           ! fill irregular overlap zones if requested
           if (this % fill) then
-            call FillIrregularZones(no, fill_edge, fill_vertex, us(:,:,:,e))
+            call FillIrregularZones(no, fill_edge, fill_vertex, rs(:,:,:,e))
           end if
 
         end associate
@@ -919,21 +927,21 @@
   !-----------------------------------------------------------------------------
   !> Collect, align and average neighbor edge data
 
-  pure subroutine CollectEdgeData(neighbor, element, o, u, ue)
+  pure subroutine CollectEdgeData(neighbor, element, o, r, re)
     class(MeshElementNeighbor_3D), intent(in)  :: neighbor(:)
     class(MeshElement_3D),         intent(in)  :: element(:)
     integer(IXS),                  intent(in)  :: o
-    real(RNP),                     intent(in)  :: u(:,:,:,:)
-    real(RNP),                     intent(out) :: ue(:)
+    real(RNP),                     intent(in)  :: r(:,:,:,:)
+    real(RNP),                     intent(out) :: re(:)
 
-    real(RNP) :: un(size(ue))
+    real(RNP) :: rn(size(re))
     integer :: nn, np
     integer :: e, l, n
 
     nn = size(neighbor)
-    np = size(ue)
+    np = size(re)
 
-    ue = 0
+    re = 0
 
     do n = 1, nn
 
@@ -942,58 +950,58 @@
 
       select case(e)
       case( 1)
-        un = u( :, 1, 1,l)
+        rn = r( :, 1, 1,l)
       case( 2)
-        un = u( :,np, 1,l)
+        rn = r( :,np, 1,l)
       case( 3)
-        un = u( :, 1,np,l)
+        rn = r( :, 1,np,l)
       case( 4)
-        un = u( :,np,np,l)
+        rn = r( :,np,np,l)
       case( 5)
-        un = u( 1, :, 1,l)
+        rn = r( 1, :, 1,l)
       case( 6)
-        un = u(np, :, 1,l)
+        rn = r(np, :, 1,l)
       case( 7)
-        un = u( 1, :,np,l)
+        rn = r( 1, :,np,l)
       case( 8)
-        un = u(np, :,np,l)
+        rn = r(np, :,np,l)
       case( 9)
-        un = u( 1, 1, :,l)
+        rn = r( 1, 1, :,l)
       case(10)
-        un = u(np, 1, :,l)
+        rn = r(np, 1, :,l)
       case(11)
-        un = u( 1,np, :,l)
+        rn = r( 1,np, :,l)
       case(12)
-        un = u(np,np, :,l)
+        rn = r(np,np, :,l)
       end select
 
       if (element(l) % edge(e) % orientation == o) then
-        ue = ue + un
+        re = re + rn
       else
-        ue = ue + un(np:1:-1)
+        re = re + rn(np:1:-1)
       end if
 
     end do
 
-    ue = ONE/nn * ue
+    re = ONE/nn * re
 
   end subroutine CollectEdgeData
 
   !-----------------------------------------------------------------------------
   !> Collect and average neighbor vertex data
 
-  pure subroutine CollectVertexData(neighbor, u, uv)
+  pure subroutine CollectVertexData(neighbor, r, rv)
     class(MeshElementNeighbor_3D), intent(in)  :: neighbor(:)
-    real(RNP),                     intent(in)  :: u(:,:,:,:)
-    real(RNP),                     intent(out) :: uv
+    real(RNP),                     intent(in)  :: r(:,:,:,:)
+    real(RNP),                     intent(out) :: rv
 
     integer :: nn, np
     integer :: k, l, n
 
     nn = size(neighbor)
-    np = size(u,1)
+    np = size(r,1)
 
-    uv = 0
+    rv = 0
 
     do n = 1, nn
 
@@ -1002,37 +1010,37 @@
 
       select case(k)
       case( 1)
-        uv = uv + u( 1, 1, 1,l)
+        rv = rv + r( 1, 1, 1,l)
       case( 2)
-        uv = uv + u(np, 1, 1,l)
+        rv = rv + r(np, 1, 1,l)
       case( 3)
-        uv = uv + u( 1,np, 1,l)
+        rv = rv + r( 1,np, 1,l)
       case( 4)
-        uv = uv + u(np,np, 1,l)
+        rv = rv + r(np,np, 1,l)
       case( 5)
-        uv = uv + u( 1, 1,np,l)
+        rv = rv + r( 1, 1,np,l)
       case( 6)
-        uv = uv + u(np, 1,np,l)
+        rv = rv + r(np, 1,np,l)
       case( 7)
-        uv = uv + u( 1,np,np,l)
+        rv = rv + r( 1,np,np,l)
       case( 8)
-        uv = uv + u(np,np,np,l)
+        rv = rv + r(np,np,np,l)
       end select
 
     end do
 
-    uv = ONE/nn * uv
+    rv = ONE/nn * rv
 
   end subroutine CollectVertexData
 
   !-----------------------------------------------------------------------------
   !> Fill irregular overlap zones by interpolation
 
-  pure subroutine FillIrregularZones(no, fill_edge, fill_vertex, us)
+  pure subroutine FillIrregularZones(no, fill_edge, fill_vertex, rs)
     integer, intent(in) :: no             !< overlap
     integer, intent(in) :: fill_edge(12)  !< edge   type  {0,1,2}
     integer, intent(in) :: fill_vertex(8) !< vertex type  {0,1,2}
-    real(RWP), contiguous, intent(inout) :: us(:,:,:) !< subdomain variable
+    real(RWP), contiguous, intent(inout) :: rs(:,:,:) !< subdomain variable
 
     integer   :: lc, lo, rc, ro, ns
     integer   :: i, i0, j, j0, k, k0
@@ -1040,7 +1048,7 @@
 
     if (no < 1) return
 
-    ns = size(us,1)
+    ns = size(rs,1)
     lo = no         ! end of left overlap zone
     lc = no + 1     ! leftmost  core point
     rc = ns - no    ! rightmost core point
@@ -1048,11 +1056,11 @@
 
     EDGE_1: if (fill_edge( 1) > 0) then
       ! adopt from core
-      if (fill_edge( 1) > 1) us(lc:rc,lo,lo) = us(lc:rc,lc,lc)
+      if (fill_edge( 1) > 1) rs(lc:rc,lo,lo) = rs(lc:rc,lc,lc)
       if (no == 1) exit EDGE_1
       ! adopt from face overlap zones
-      us(lc:rc,  1: lo-1,     lo  ) = us(lc:rc,  1: lo-1,     lc  )
-      us(lc:rc,     lo  ,  1: lo-1) = us(lc:rc,     lc  ,  1: lo-1)
+      rs(lc:rc,  1: lo-1,     lo  ) = rs(lc:rc,  1: lo-1,     lc  )
+      rs(lc:rc,     lo  ,  1: lo-1) = rs(lc:rc,     lc  ,  1: lo-1)
       ! interpolate remaining points
       j0 = lo
       k0 = lo
@@ -1061,7 +1069,7 @@
       do i = lc  , rc
         c2 = 1 / real(abs(k - k0), RWP)
         c3 = 1 / real(abs(j - j0), RWP)
-        us(i,j,k) = (c2 * us(i,j,k0) + c3 * us(i,j0,k)) / (c2 + c3)
+        rs(i,j,k) = (c2 * rs(i,j,k0) + c3 * rs(i,j0,k)) / (c2 + c3)
       end do
       end do
       end do
@@ -1069,11 +1077,11 @@
 
     EDGE_2: if (fill_edge( 2) > 0) then
       ! adopt from core
-      if (fill_edge( 2) > 1) us(lc:rc,ro,lo) = us(lc:rc,rc,lc)
+      if (fill_edge( 2) > 1) rs(lc:rc,ro,lo) = rs(lc:rc,rc,lc)
       if (no == 1) exit EDGE_2
       ! adopt from face overlap zones
-      us(lc:rc, ro+1: ns,     lo  ) = us(lc:rc, ro+1: ns,     lc  )
-      us(lc:rc, ro      ,  1: lo-1) = us(lc:rc, rc      ,  1: lo-1)
+      rs(lc:rc, ro+1: ns,     lo  ) = rs(lc:rc, ro+1: ns,     lc  )
+      rs(lc:rc, ro      ,  1: lo-1) = rs(lc:rc, rc      ,  1: lo-1)
       ! interpolate remaining points
       j0 = ro
       k0 = lo
@@ -1082,7 +1090,7 @@
       do i = lc  , rc
         c2 = 1 / real(abs(k - k0), RWP)
         c3 = 1 / real(abs(j - j0), RWP)
-        us(i,j,k) = (c2 * us(i,j,k0) + c3 * us(i,j0,k)) / (c2 + c3)
+        rs(i,j,k) = (c2 * rs(i,j,k0) + c3 * rs(i,j0,k)) / (c2 + c3)
       end do
       end do
       end do
@@ -1090,11 +1098,11 @@
 
     EDGE_3: if (fill_edge( 3) > 0) then
       ! adopt from core
-      if (fill_edge( 3) > 1) us(lc:rc,lo,ro) = us(lc:rc,lc,rc)
+      if (fill_edge( 3) > 1) rs(lc:rc,lo,ro) = rs(lc:rc,lc,rc)
       if (no == 1) exit EDGE_3
       ! adopt from face overlap zones
-      us(lc:rc,  1: lo-1, ro      ) = us(lc:rc,  1: lo-1, rc      )
-      us(lc:rc,     lo  , ro+1: ns) = us(lc:rc,     lc  , ro+1: ns)
+      rs(lc:rc,  1: lo-1, ro      ) = rs(lc:rc,  1: lo-1, rc      )
+      rs(lc:rc,     lo  , ro+1: ns) = rs(lc:rc,     lc  , ro+1: ns)
       ! interpolate remaining points
       j0 = lo
       k0 = ro
@@ -1103,7 +1111,7 @@
       do i = lc  , rc
         c2 = 1 / real(abs(k - k0), RWP)
         c3 = 1 / real(abs(j - j0), RWP)
-        us(i,j,k) = (c2 * us(i,j,k0) + c3 * us(i,j0,k)) / (c2 + c3)
+        rs(i,j,k) = (c2 * rs(i,j,k0) + c3 * rs(i,j0,k)) / (c2 + c3)
       end do
       end do
       end do
@@ -1111,11 +1119,11 @@
 
     EDGE_4: if (fill_edge( 4) > 0) then
       ! adopt from core
-      if (fill_edge( 4) > 1) us(lc:rc,ro,ro) = us(lc:rc,rc,rc)
+      if (fill_edge( 4) > 1) rs(lc:rc,ro,ro) = rs(lc:rc,rc,rc)
       if (no == 1) exit EDGE_4
       ! adopt from face overlap zones
-      us(lc:rc, ro+1: ns, ro      ) = us(lc:rc, ro+1: ns, rc      )
-      us(lc:rc, ro      , ro+1: ns) = us(lc:rc, rc      , ro+1: ns)
+      rs(lc:rc, ro+1: ns, ro      ) = rs(lc:rc, ro+1: ns, rc      )
+      rs(lc:rc, ro      , ro+1: ns) = rs(lc:rc, rc      , ro+1: ns)
       ! interpolate remaining points
       j0 = ro
       k0 = ro
@@ -1124,7 +1132,7 @@
       do i = lc  , rc
         c2 = 1 / real(abs(k - k0), RWP)
         c3 = 1 / real(abs(j - j0), RWP)
-        us(i,j,k) = (c2 * us(i,j,k0) + c3 * us(i,j0,k)) / (c2 + c3)
+        rs(i,j,k) = (c2 * rs(i,j,k0) + c3 * rs(i,j0,k)) / (c2 + c3)
       end do
       end do
       end do
@@ -1132,11 +1140,11 @@
 
     EDGE_5: if (fill_edge( 5) > 0) then
       ! adopt from core
-      if (fill_edge( 5) > 1) us(lo,lc:rc,lo) = us(lc,lc:rc,lc)
+      if (fill_edge( 5) > 1) rs(lo,lc:rc,lo) = rs(lc,lc:rc,lc)
       if (no == 1) exit EDGE_5
       ! adopt from face overlap zones
-      us( 1: lo-1, lc:rc,     lo  ) = us( 1: lo-1, lc:rc,     lc  )
-      us(    lo  , lc:rc,  1: lo-1) = us(    lc  , lc:rc,  1: lo-1)
+      rs( 1: lo-1, lc:rc,     lo  ) = rs( 1: lo-1, lc:rc,     lc  )
+      rs(    lo  , lc:rc,  1: lo-1) = rs(    lc  , lc:rc,  1: lo-1)
       ! interpolate remaining points
       i0 = lo
       k0 = lo
@@ -1145,7 +1153,7 @@
       do i = lo-1,  1, -1
         c1 = 1 / real(abs(k - k0), RWP)
         c3 = 1 / real(abs(i - i0), RWP)
-        us(i,j,k) = (c1 * us(i,j,k0) + c3 * us(i0,j,k)) / (c1 + c3)
+        rs(i,j,k) = (c1 * rs(i,j,k0) + c3 * rs(i0,j,k)) / (c1 + c3)
       end do
       end do
       end do
@@ -1153,11 +1161,11 @@
 
     EDGE_6: if (fill_edge( 6) > 0) then
       ! adopt from core
-      if (fill_edge( 6) > 1) us(ro,lc:rc,lo) = us(rc,lc:rc,lc)
+      if (fill_edge( 6) > 1) rs(ro,lc:rc,lo) = rs(rc,lc:rc,lc)
       if (no == 1) exit EDGE_6
       ! adopt from face overlap zones
-      us(ro+1: ns, lc:rc,     lo  ) = us(ro+1: ns, lc:rc,     lc  )
-      us(ro      , lc:rc,  1: lo-1) = us(rc      , lc:rc,  1: lo-1)
+      rs(ro+1: ns, lc:rc,     lo  ) = rs(ro+1: ns, lc:rc,     lc  )
+      rs(ro      , lc:rc,  1: lo-1) = rs(rc      , lc:rc,  1: lo-1)
       ! interpolate remaining points
       i0 = ro
       k0 = lo
@@ -1166,7 +1174,7 @@
       do i = ro+1, ns,  1
         c1 = 1 / real(abs(k - k0), RWP)
         c3 = 1 / real(abs(i - i0), RWP)
-        us(i,j,k) = (c1 * us(i,j,k0) + c3 * us(i0,j,k)) / (c1 + c3)
+        rs(i,j,k) = (c1 * rs(i,j,k0) + c3 * rs(i0,j,k)) / (c1 + c3)
       end do
       end do
       end do
@@ -1174,11 +1182,11 @@
 
     EDGE_7: if (fill_edge( 7) > 0) then
       ! adopt from core
-      if (fill_edge( 7) > 1) us(lo,lc:rc,ro) = us(lc,lc:rc,rc)
+      if (fill_edge( 7) > 1) rs(lo,lc:rc,ro) = rs(lc,lc:rc,rc)
       if (no == 1) exit EDGE_7
       ! adopt from face overlap zones
-      us( 1: lo-1, lc:rc, ro      ) = us( 1: lo-1, lc:rc, rc      )
-      us(    lo  , lc:rc, ro+1: ns) = us(    lc  , lc:rc, ro+1: ns)
+      rs( 1: lo-1, lc:rc, ro      ) = rs( 1: lo-1, lc:rc, rc      )
+      rs(    lo  , lc:rc, ro+1: ns) = rs(    lc  , lc:rc, ro+1: ns)
       ! interpolate remaining points
       i0 = lo
       k0 = ro
@@ -1187,7 +1195,7 @@
       do i = lo-1,  1, -1
         c1 = 1 / real(abs(k - k0), RWP)
         c3 = 1 / real(abs(i - i0), RWP)
-        us(i,j,k) = (c1 * us(i,j,k0) + c3 * us(i0,j,k)) / (c1 + c3)
+        rs(i,j,k) = (c1 * rs(i,j,k0) + c3 * rs(i0,j,k)) / (c1 + c3)
       end do
       end do
       end do
@@ -1195,11 +1203,11 @@
 
     EDGE_8: if (fill_edge( 8) > 0) then
       ! adopt from core
-      if (fill_edge( 8) > 1) us(ro,lc:rc,ro) = us(rc,lc:rc,rc)
+      if (fill_edge( 8) > 1) rs(ro,lc:rc,ro) = rs(rc,lc:rc,rc)
       if (no == 1) exit EDGE_8
       ! adopt from face overlap zones
-      us(ro+1: ns, lc:rc, ro      ) = us(ro+1: ns, lc:rc, rc      )
-      us(ro      , lc:rc, ro+1: ns) = us(rc      , lc:rc, ro+1: ns)
+      rs(ro+1: ns, lc:rc, ro      ) = rs(ro+1: ns, lc:rc, rc      )
+      rs(ro      , lc:rc, ro+1: ns) = rs(rc      , lc:rc, ro+1: ns)
       ! interpolate remaining points
       i0 = ro
       k0 = ro
@@ -1208,7 +1216,7 @@
       do i = ro+1, ns,  1
         c1 = 1 / real(abs(k - k0), RWP)
         c3 = 1 / real(abs(i - i0), RWP)
-        us(i,j,k) = (c1 * us(i,j,k0) + c3 * us(i0,j,k)) / (c1 + c3)
+        rs(i,j,k) = (c1 * rs(i,j,k0) + c3 * rs(i0,j,k)) / (c1 + c3)
       end do
       end do
       end do
@@ -1216,11 +1224,11 @@
 
     EDGE_9: if (fill_edge( 9) > 0) then
       ! adopt from core
-      if (fill_edge( 9) > 1) us(lo,lo,lc:rc) = us(lc,lc,lc:rc)
+      if (fill_edge( 9) > 1) rs(lo,lo,lc:rc) = rs(lc,lc,lc:rc)
       if (no == 1) exit EDGE_9
       ! adopt from face overlap zones
-      us( 1: lo-1,     lo  , lc:rc) = us( 1: lo-1,     lc  , lc:rc)
-      us(    lo  ,  1: lo-1, lc:rc) = us(    lc  ,  1: lo-1, lc:rc)
+      rs( 1: lo-1,     lo  , lc:rc) = rs( 1: lo-1,     lc  , lc:rc)
+      rs(    lo  ,  1: lo-1, lc:rc) = rs(    lc  ,  1: lo-1, lc:rc)
       ! interpolate remaining points
       i0 = lo
       j0 = lo
@@ -1229,7 +1237,7 @@
       do i = lo-1,  1, -1
         c1 = 1 / real(abs(j - j0), RWP)
         c2 = 1 / real(abs(i - i0), RWP)
-        us(i,j,k) = (c1 * us(i,j0,k) + c2 * us(i0,j,k)) / (c1 + c2)
+        rs(i,j,k) = (c1 * rs(i,j0,k) + c2 * rs(i0,j,k)) / (c1 + c2)
       end do
       end do
       end do
@@ -1237,11 +1245,11 @@
 
     EDGE_10: if (fill_edge(10) > 0) then
       ! adopt from core
-      if (fill_edge(10) > 1) us(ro,lo,lc:rc) = us(rc,lc,lc:rc)
+      if (fill_edge(10) > 1) rs(ro,lo,lc:rc) = rs(rc,lc,lc:rc)
       if (no == 1) exit EDGE_10
       ! adopt from face overlap zones
-      us(ro+1: ns,     lo  , lc:rc) = us(ro+1: ns,     lc  , lc:rc)
-      us(ro      ,  1: lo-1, lc:rc) = us(rc      ,  1: lo-1, lc:rc)
+      rs(ro+1: ns,     lo  , lc:rc) = rs(ro+1: ns,     lc  , lc:rc)
+      rs(ro      ,  1: lo-1, lc:rc) = rs(rc      ,  1: lo-1, lc:rc)
       ! interpolate remaining points
       i0 = ro
       j0 = lo
@@ -1250,7 +1258,7 @@
       do i = ro+1, ns,  1
         c1 = 1 / real(abs(j - j0), RWP)
         c2 = 1 / real(abs(i - i0), RWP)
-        us(i,j,k) = (c1 * us(i,j0,k) + c2 * us(i0,j,k)) / (c1 + c2)
+        rs(i,j,k) = (c1 * rs(i,j0,k) + c2 * rs(i0,j,k)) / (c1 + c2)
       end do
       end do
       end do
@@ -1258,11 +1266,11 @@
 
     EDGE_11: if (fill_edge(11) > 0) then
       ! adopt from core
-      if (fill_edge(11) > 1) us(lo,ro,lc:rc) = us(lc,rc,lc:rc)
+      if (fill_edge(11) > 1) rs(lo,ro,lc:rc) = rs(lc,rc,lc:rc)
       if (no == 1) exit EDGE_11
       ! adopt from face overlap zones
-      us( 1: lo-1, ro      , lc:rc) = us( 1: lo-1, rc      , lc:rc)
-      us(    lo  , ro+1: ns, lc:rc) = us(    lc  , ro+1: ns, lc:rc)
+      rs( 1: lo-1, ro      , lc:rc) = rs( 1: lo-1, rc      , lc:rc)
+      rs(    lo  , ro+1: ns, lc:rc) = rs(    lc  , ro+1: ns, lc:rc)
       ! interpolate remaining points
       i0 = lo
       j0 = ro
@@ -1271,7 +1279,7 @@
       do i = lo-1,  1, -1
         c1 = 1 / real(abs(j - j0), RWP)
         c2 = 1 / real(abs(i - i0), RWP)
-        us(i,j,k) = (c1 * us(i,j0,k) + c2 * us(i0,j,k)) / (c1 + c2)
+        rs(i,j,k) = (c1 * rs(i,j0,k) + c2 * rs(i0,j,k)) / (c1 + c2)
       end do
       end do
       end do
@@ -1279,11 +1287,11 @@
 
     EDGE_12: if (fill_edge(12) > 0) then
       ! adopt from core
-      if (fill_edge(12) > 1) us(ro,ro,lc:rc) = us(rc,rc,lc:rc)
+      if (fill_edge(12) > 1) rs(ro,ro,lc:rc) = rs(rc,rc,lc:rc)
       if (no == 1) exit EDGE_12
       ! adopt from face overlap zones
-      us(ro+1: ns, ro      , lc:rc) = us(ro+1: ns, rc      , lc:rc)
-      us(ro      , ro+1: ns, lc:rc) = us(rc      , ro+1: ns, lc:rc)
+      rs(ro+1: ns, ro      , lc:rc) = rs(ro+1: ns, rc      , lc:rc)
+      rs(ro      , ro+1: ns, lc:rc) = rs(rc      , ro+1: ns, lc:rc)
       ! interpolate remaining points
       i0 = ro
       j0 = ro
@@ -1292,7 +1300,7 @@
       do i = ro+1, ns,  1
         c1 = 1 / real(abs(j - j0), RWP)
         c2 = 1 / real(abs(i - i0), RWP)
-        us(i,j,k) = (c1 * us(i,j0,k) + c2 * us(i0,j,k)) / (c1 + c2)
+        rs(i,j,k) = (c1 * rs(i,j0,k) + c2 * rs(i0,j,k)) / (c1 + c2)
       end do
       end do
       end do
@@ -1300,16 +1308,16 @@
 
     VERTEX_1: if (fill_vertex(1) > 0) then
       ! adopt from core
-      if (fill_vertex(1) > 1) us(lo,lo,lo) = us(lc,lc,lc)
+      if (fill_vertex(1) > 1) rs(lo,lo,lo) = rs(lc,lc,lc)
       if (no == 1) exit VERTEX_1
       ! adopt from face overlap zones
-      us(  1:lo-1,    lo  ,    lo  ) = us(  1:lo-1,    lc  ,    lc  )
-      us(    lo  ,  1:lo-1,    lo  ) = us(    lc  ,  1:lo-1,    lc  )
-      us(    lo  ,    lo  ,  1:lo-1) = us(    lc  ,    lc  ,  1:lo-1)
+      rs(  1:lo-1,    lo  ,    lo  ) = rs(  1:lo-1,    lc  ,    lc  )
+      rs(    lo  ,  1:lo-1,    lo  ) = rs(    lc  ,  1:lo-1,    lc  )
+      rs(    lo  ,    lo  ,  1:lo-1) = rs(    lc  ,    lc  ,  1:lo-1)
       ! adopt from edge overlap zones
-      us(  1:lo-1,  1:lo-1,    lo  ) = us(  1:lo-1,  1:lo-1,    lc  )
-      us(  1:lo-1,    lo  ,  1:lo-1) = us(  1:lo-1,    lc  ,  1:lo-1)
-      us(    lo  ,  1:lo-1,  1:lo-1) = us(    lc  ,  1:lo-1,  1:lo-1)
+      rs(  1:lo-1,  1:lo-1,    lo  ) = rs(  1:lo-1,  1:lo-1,    lc  )
+      rs(  1:lo-1,    lo  ,  1:lo-1) = rs(  1:lo-1,    lc  ,  1:lo-1)
+      rs(    lo  ,  1:lo-1,  1:lo-1) = rs(    lc  ,  1:lo-1,  1:lo-1)
       ! interpolate remaining points
       i0 = lo
       j0 = lo
@@ -1320,7 +1328,7 @@
         c1 = 1 / sqrt(real((j - j0)**2 + (k - k0)**2, RWP))
         c2 = 1 / sqrt(real((i - i0)**2 + (k - k0)**2, RWP))
         c3 = 1 / sqrt(real((i - i0)**2 + (j - j0)**2, RWP))
-        us(i,j,k) = (c1* us(i,j0,k0) + c2 * us(i0,j,k0) + c3 * us(i0,j0,k)) / (c1+c2+c3)
+        rs(i,j,k) = (c1* rs(i,j0,k0) + c2 * rs(i0,j,k0) + c3 * rs(i0,j0,k)) / (c1+c2+c3)
       end do
       end do
       end do
@@ -1328,16 +1336,16 @@
 
     VERTEX_2: if (fill_vertex(2) > 0) then
       ! adopt from core
-      if (fill_vertex(2) > 1) us(ro,lo,lo) = us(rc,lc,lc)
+      if (fill_vertex(2) > 1) rs(ro,lo,lo) = rs(rc,lc,lc)
       if (no == 1) exit VERTEX_2
       ! adopt from face overlap zones
-      us( ro+1:ns,    lo  ,    lo  ) = us( ro+1:ns,    lc  ,    lc  )
-      us( ro     ,  1:lo-1,    lo  ) = us( rc     ,  1:lo-1,    lc  )
-      us( ro     ,    lo  ,  1:lo-1) = us( rc     ,    lc  ,  1:lo-1)
+      rs( ro+1:ns,    lo  ,    lo  ) = rs( ro+1:ns,    lc  ,    lc  )
+      rs( ro     ,  1:lo-1,    lo  ) = rs( rc     ,  1:lo-1,    lc  )
+      rs( ro     ,    lo  ,  1:lo-1) = rs( rc     ,    lc  ,  1:lo-1)
       ! adopt from edge overlap zones
-      us( ro+1:ns,  1:lo-1,    lo  ) = us( ro+1:ns,  1:lo-1,    lc  )
-      us( ro+1:ns,    lo  ,  1:lo-1) = us( ro+1:ns,    lc  ,  1:lo-1)
-      us( ro     ,  1:lo-1,  1:lo-1) = us( rc     ,  1:lo-1,  1:lo-1)
+      rs( ro+1:ns,  1:lo-1,    lo  ) = rs( ro+1:ns,  1:lo-1,    lc  )
+      rs( ro+1:ns,    lo  ,  1:lo-1) = rs( ro+1:ns,    lc  ,  1:lo-1)
+      rs( ro     ,  1:lo-1,  1:lo-1) = rs( rc     ,  1:lo-1,  1:lo-1)
       ! interpolate remaining points
       i0 = ro
       j0 = lo
@@ -1348,7 +1356,7 @@
         c1 = 1 / sqrt(real((j - j0)**2 + (k - k0)**2, RWP))
         c2 = 1 / sqrt(real((i - i0)**2 + (k - k0)**2, RWP))
         c3 = 1 / sqrt(real((i - i0)**2 + (j - j0)**2, RWP))
-        us(i,j,k) = (c1* us(i,j0,k0) + c2 * us(i0,j,k0) + c3 * us(i0,j0,k)) / (c1+c2+c3)
+        rs(i,j,k) = (c1* rs(i,j0,k0) + c2 * rs(i0,j,k0) + c3 * rs(i0,j0,k)) / (c1+c2+c3)
       end do
       end do
       end do
@@ -1356,16 +1364,16 @@
 
     VERTEX_3: if (fill_vertex(3) > 0) then
       ! adopt from core
-      if (fill_vertex(3) > 1) us(lo,ro,lo) = us(lc,rc,lc)
+      if (fill_vertex(3) > 1) rs(lo,ro,lo) = rs(lc,rc,lc)
       if (no == 1) exit VERTEX_3
       ! adopt from face overlap zones
-      us(    lo  , ro+1:ns,    lo  ) = us(    lc  , ro+1:ns,    lc  )
-      us(  1:lo-1, ro     ,    lo  ) = us(  1:lo-1, rc     ,    lc  )
-      us(    lo  , ro     ,  1:lo-1) = us(    lc  , rc     ,  1:lo-1)
+      rs(    lo  , ro+1:ns,    lo  ) = rs(    lc  , ro+1:ns,    lc  )
+      rs(  1:lo-1, ro     ,    lo  ) = rs(  1:lo-1, rc     ,    lc  )
+      rs(    lo  , ro     ,  1:lo-1) = rs(    lc  , rc     ,  1:lo-1)
       ! adopt from edge overlap zones
-      us(  1:lo-1, ro+1:ns,    lo  ) = us(  1:lo-1, ro+1:ns,    lc  )
-      us(  1:lo-1, ro     ,  1:lo-1) = us(  1:lo-1, rc     ,  1:lo-1)
-      us(    lo  , ro+1:ns,  1:lo-1) = us(    lc  , ro+1:ns,  1:lo-1)
+      rs(  1:lo-1, ro+1:ns,    lo  ) = rs(  1:lo-1, ro+1:ns,    lc  )
+      rs(  1:lo-1, ro     ,  1:lo-1) = rs(  1:lo-1, rc     ,  1:lo-1)
+      rs(    lo  , ro+1:ns,  1:lo-1) = rs(    lc  , ro+1:ns,  1:lo-1)
       ! interpolate remaining points
       i0 = lo
       j0 = ro
@@ -1376,7 +1384,7 @@
         c1 = 1 / sqrt(real((j - j0)**2 + (k - k0)**2, RWP))
         c2 = 1 / sqrt(real((i - i0)**2 + (k - k0)**2, RWP))
         c3 = 1 / sqrt(real((i - i0)**2 + (j - j0)**2, RWP))
-        us(i,j,k) = (c1* us(i,j0,k0) + c2 * us(i0,j,k0) + c3 * us(i0,j0,k)) / (c1+c2+c3)
+        rs(i,j,k) = (c1* rs(i,j0,k0) + c2 * rs(i0,j,k0) + c3 * rs(i0,j0,k)) / (c1+c2+c3)
       end do
       end do
       end do
@@ -1384,16 +1392,16 @@
 
     VERTEX_4: if (fill_vertex(4) > 0) then
       ! adopt from core
-      if (fill_vertex(4) > 1) us(ro,ro,lo) = us(rc,rc,lc)
+      if (fill_vertex(4) > 1) rs(ro,ro,lo) = rs(rc,rc,lc)
       if (no == 1) exit VERTEX_4
       ! adopt from face overlap zones
-      us( ro     , ro+1:ns,    lo  ) = us( rc     , ro+1:ns,    lc  )
-      us( ro+1:ns, ro     ,    lo  ) = us( ro+1:ns, rc     ,    lc  )
-      us( ro     , ro     ,  1:lo-1) = us( rc     , rc     ,  1:lo-1)
+      rs( ro     , ro+1:ns,    lo  ) = rs( rc     , ro+1:ns,    lc  )
+      rs( ro+1:ns, ro     ,    lo  ) = rs( ro+1:ns, rc     ,    lc  )
+      rs( ro     , ro     ,  1:lo-1) = rs( rc     , rc     ,  1:lo-1)
       ! adopt from edge overlap zones
-      us( ro+1:ns, ro+1:ns,    lo  ) = us( ro+1:ns, ro+1:ns,    lc  )
-      us( ro+1:ns, ro     ,  1:lo-1) = us( ro+1:ns, rc     ,  1:lo-1)
-      us( ro     , ro+1:ns,  1:lo-1) = us( rc     , ro+1:ns,  1:lo-1)
+      rs( ro+1:ns, ro+1:ns,    lo  ) = rs( ro+1:ns, ro+1:ns,    lc  )
+      rs( ro+1:ns, ro     ,  1:lo-1) = rs( ro+1:ns, rc     ,  1:lo-1)
+      rs( ro     , ro+1:ns,  1:lo-1) = rs( rc     , ro+1:ns,  1:lo-1)
       ! interpolate remaining points
       i0 = ro
       j0 = ro
@@ -1404,7 +1412,7 @@
         c1 = 1 / sqrt(real((j - j0)**2 + (k - k0)**2, RWP))
         c2 = 1 / sqrt(real((i - i0)**2 + (k - k0)**2, RWP))
         c3 = 1 / sqrt(real((i - i0)**2 + (j - j0)**2, RWP))
-        us(i,j,k) = (c1* us(i,j0,k0) + c2 * us(i0,j,k0) + c3 * us(i0,j0,k)) / (c1+c2+c3)
+        rs(i,j,k) = (c1* rs(i,j0,k0) + c2 * rs(i0,j,k0) + c3 * rs(i0,j0,k)) / (c1+c2+c3)
       end do
       end do
       end do
@@ -1412,16 +1420,16 @@
 
     VERTEX_5: if (fill_vertex(5) > 0) then
       ! adopt from core
-      if (fill_vertex(5) > 1) us(lo,lo,ro) = us(lc,lc,rc)
+      if (fill_vertex(5) > 1) rs(lo,lo,ro) = rs(lc,lc,rc)
       if (no == 1) exit VERTEX_5
       ! adopt from face overlap zones
-      us(  1:lo-1,    lo  , ro     ) = us(  1:lo-1,    lc  , rc     )
-      us(    lo  ,  1:lo-1, ro     ) = us(    lc  ,  1:lo-1, rc     )
-      us(    lo  ,    lo  , ro+1:ns) = us(    lc  ,    lc  , ro+1:ns)
+      rs(  1:lo-1,    lo  , ro     ) = rs(  1:lo-1,    lc  , rc     )
+      rs(    lo  ,  1:lo-1, ro     ) = rs(    lc  ,  1:lo-1, rc     )
+      rs(    lo  ,    lo  , ro+1:ns) = rs(    lc  ,    lc  , ro+1:ns)
       ! adopt from edge overlap zones
-      us(  1:lo-1,  1:lo-1, ro     ) = us(  1:lo-1,  1:lo-1, rc     )
-      us(  1:lo-1,    lo  , ro+1:ns) = us(  1:lo-1,    lc  , ro+1:ns)
-      us(    lo  ,  1:lo-1, ro+1:ns) = us(    lc  ,  1:lo-1, ro+1:ns)
+      rs(  1:lo-1,  1:lo-1, ro     ) = rs(  1:lo-1,  1:lo-1, rc     )
+      rs(  1:lo-1,    lo  , ro+1:ns) = rs(  1:lo-1,    lc  , ro+1:ns)
+      rs(    lo  ,  1:lo-1, ro+1:ns) = rs(    lc  ,  1:lo-1, ro+1:ns)
       ! interpolate remaining points
       i0 = lo
       j0 = lo
@@ -1432,7 +1440,7 @@
         c1 = 1 / sqrt(real((j - j0)**2 + (k - k0)**2, RWP))
         c2 = 1 / sqrt(real((i - i0)**2 + (k - k0)**2, RWP))
         c3 = 1 / sqrt(real((i - i0)**2 + (j - j0)**2, RWP))
-        us(i,j,k) = (c1* us(i,j0,k0) + c2 * us(i0,j,k0) + c3 * us(i0,j0,k)) / (c1+c2+c3)
+        rs(i,j,k) = (c1* rs(i,j0,k0) + c2 * rs(i0,j,k0) + c3 * rs(i0,j0,k)) / (c1+c2+c3)
       end do
       end do
       end do
@@ -1440,16 +1448,16 @@
 
     VERTEX_6: if (fill_vertex(6) > 0) then
       ! adopt from core
-      if (fill_vertex(6) > 1) us(ro,lo,ro) = us(rc,lc,rc)
+      if (fill_vertex(6) > 1) rs(ro,lo,ro) = rs(rc,lc,rc)
       if (no == 1) exit VERTEX_6
       ! adopt from face overlap zones
-      us( ro+1:ns,    lo  , ro     ) = us( ro+1:ns,    lc  , rc     )
-      us( ro     ,  1:lo-1, ro     ) = us( rc     ,  1:lo-1, rc     )
-      us( ro     ,    lo  , ro+1:ns) = us( rc     ,    lc  , ro+1:ns)
+      rs( ro+1:ns,    lo  , ro     ) = rs( ro+1:ns,    lc  , rc     )
+      rs( ro     ,  1:lo-1, ro     ) = rs( rc     ,  1:lo-1, rc     )
+      rs( ro     ,    lo  , ro+1:ns) = rs( rc     ,    lc  , ro+1:ns)
       ! adopt from edge overlap zones
-      us( ro+1:ns,  1:lo-1, ro     ) = us( ro+1:ns,  1:lo-1, rc     )
-      us( ro+1:ns,    lo  , ro+1:ns) = us( ro+1:ns,    lc  , ro+1:ns)
-      us( ro     ,  1:lo-1, ro+1:ns) = us( rc     ,  1:lo-1, ro+1:ns)
+      rs( ro+1:ns,  1:lo-1, ro     ) = rs( ro+1:ns,  1:lo-1, rc     )
+      rs( ro+1:ns,    lo  , ro+1:ns) = rs( ro+1:ns,    lc  , ro+1:ns)
+      rs( ro     ,  1:lo-1, ro+1:ns) = rs( rc     ,  1:lo-1, ro+1:ns)
       ! interpolate remaining points
       i0 = ro
       j0 = lo
@@ -1460,7 +1468,7 @@
         c1 = 1 / sqrt(real((j - j0)**2 + (k - k0)**2, RWP))
         c2 = 1 / sqrt(real((i - i0)**2 + (k - k0)**2, RWP))
         c3 = 1 / sqrt(real((i - i0)**2 + (j - j0)**2, RWP))
-        us(i,j,k) = (c1* us(i,j0,k0) + c2 * us(i0,j,k0) + c3 * us(i0,j0,k)) / (c1+c2+c3)
+        rs(i,j,k) = (c1* rs(i,j0,k0) + c2 * rs(i0,j,k0) + c3 * rs(i0,j0,k)) / (c1+c2+c3)
       end do
       end do
       end do
@@ -1468,16 +1476,16 @@
 
     VERTEX_7: if (fill_vertex(7) > 0) then
       ! adopt from core
-      if (fill_vertex(7) > 1) us(lo,ro,ro) = us(lc,rc,rc)
+      if (fill_vertex(7) > 1) rs(lo,ro,ro) = rs(lc,rc,rc)
       if (no == 1) exit VERTEX_7
       ! adopt from face overlap zones
-      us(    lo  , ro+1:ns, ro     ) = us(    lc  , ro+1:ns, rc     )
-      us(  1:lo-1, ro     , ro     ) = us(  1:lo-1, rc     , rc     )
-      us(    lo  , ro     , ro+1:ns) = us(    lc  , rc     , ro+1:ns)
+      rs(    lo  , ro+1:ns, ro     ) = rs(    lc  , ro+1:ns, rc     )
+      rs(  1:lo-1, ro     , ro     ) = rs(  1:lo-1, rc     , rc     )
+      rs(    lo  , ro     , ro+1:ns) = rs(    lc  , rc     , ro+1:ns)
       ! adopt from edge overlap zones
-      us(  1:lo-1, ro+1:ns, ro     ) = us(  1:lo-1, ro+1:ns, rc     )
-      us(  1:lo-1, ro     , ro+1:ns) = us(  1:lo-1, rc     , ro+1:ns)
-      us(    lo  , ro+1:ns, ro+1:ns) = us(    lc  , ro+1:ns, ro+1:ns)
+      rs(  1:lo-1, ro+1:ns, ro     ) = rs(  1:lo-1, ro+1:ns, rc     )
+      rs(  1:lo-1, ro     , ro+1:ns) = rs(  1:lo-1, rc     , ro+1:ns)
+      rs(    lo  , ro+1:ns, ro+1:ns) = rs(    lc  , ro+1:ns, ro+1:ns)
       ! interpolate remaining points
       i0 = lo
       j0 = ro
@@ -1488,7 +1496,7 @@
         c1 = 1 / sqrt(real((j - j0)**2 + (k - k0)**2, RWP))
         c2 = 1 / sqrt(real((i - i0)**2 + (k - k0)**2, RWP))
         c3 = 1 / sqrt(real((i - i0)**2 + (j - j0)**2, RWP))
-        us(i,j,k) = (c1* us(i,j0,k0) + c2 * us(i0,j,k0) + c3 * us(i0,j0,k)) / (c1+c2+c3)
+        rs(i,j,k) = (c1* rs(i,j0,k0) + c2 * rs(i0,j,k0) + c3 * rs(i0,j0,k)) / (c1+c2+c3)
       end do
       end do
       end do
@@ -1496,16 +1504,16 @@
 
     VERTEX_8: if (fill_vertex(8) > 0) then
       ! adopt from core
-      if (fill_vertex(8) > 1) us(ro,ro,ro) = us(rc,rc,rc)
+      if (fill_vertex(8) > 1) rs(ro,ro,ro) = rs(rc,rc,rc)
       if (no == 1) exit VERTEX_8
       ! adopt from face overlap zones
-      us( ro     , ro+1:ns, ro     ) = us( rc     , ro+1:ns, rc     )
-      us( ro+1:ns, ro     , ro     ) = us( ro+1:ns, rc     , rc     )
-      us( ro     , ro     , ro+1:ns) = us( rc     , rc     , ro+1:ns)
+      rs( ro     , ro+1:ns, ro     ) = rs( rc     , ro+1:ns, rc     )
+      rs( ro+1:ns, ro     , ro     ) = rs( ro+1:ns, rc     , rc     )
+      rs( ro     , ro     , ro+1:ns) = rs( rc     , rc     , ro+1:ns)
       ! adopt from edge overlap zones
-      us( ro+1:ns, ro+1:ns, ro     ) = us( ro+1:ns, ro+1:ns, rc     )
-      us( ro+1:ns, ro     , ro+1:ns) = us( ro+1:ns, rc     , ro+1:ns)
-      us( ro     , ro+1:ns, ro+1:ns) = us( rc     , ro+1:ns, ro+1:ns)
+      rs( ro+1:ns, ro+1:ns, ro     ) = rs( ro+1:ns, ro+1:ns, rc     )
+      rs( ro+1:ns, ro     , ro+1:ns) = rs( ro+1:ns, rc     , ro+1:ns)
+      rs( ro     , ro+1:ns, ro+1:ns) = rs( rc     , ro+1:ns, ro+1:ns)
       ! interpolate remaining points
       i0 = ro
       j0 = ro
@@ -1516,7 +1524,7 @@
         c1 = 1 / sqrt(real((j - j0)**2 + (k - k0)**2, RWP))
         c2 = 1 / sqrt(real((i - i0)**2 + (k - k0)**2, RWP))
         c3 = 1 / sqrt(real((i - i0)**2 + (j - j0)**2, RWP))
-        us(i,j,k) = (c1* us(i,j0,k0) + c2 * us(i0,j,k0) + c3 * us(i0,j0,k)) / (c1+c2+c3)
+        rs(i,j,k) = (c1* rs(i,j0,k0) + c2 * rs(i0,j,k0) + c3 * rs(i0,j0,k)) / (c1+c2+c3)
       end do
       end do
       end do

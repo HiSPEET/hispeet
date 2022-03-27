@@ -199,20 +199,22 @@ module DG__Schwarz_Operator__3D
 
   interface
 
-    module subroutine Restrict_Structured_RDP(this, mesh, buf_u, u, us)
+    module subroutine Restrict_Structured_RDP(this, mesh, buf_r, r, rs, sgn)
       class(DG_SchwarzOperator_3D), intent(in) :: this
-      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_r
       class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-      real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< extended mesh variable
-      real(RDP),      intent(out)   :: us(:,:,:,:)   !< restricted variable
+      real(RNP),      intent(inout) :: r(0:,0:,0:,:) !< extended mesh variable
+      real(RDP),      intent(out)   :: rs(:,:,:,:)   !< restricted variable
+      integer, optional, intent(in) :: sgn           !< sign of `r` {+1,-1} [+1]
     end subroutine Restrict_Structured_RDP
 
-    module subroutine Restrict_Unstructured_RDP(this, mesh, buf_u, u, us)
+    module subroutine Restrict_Unstructured_RDP(this, mesh, buf_r, r, rs, sgn)
       class(DG_SchwarzOperator_3D), intent(in) :: this
-      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_r
       class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-      real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< extended mesh variable
-      real(RDP),      intent(out)   :: us(:,:,:,:)   !< restricted variable
+      real(RNP),      intent(inout) :: r(0:,0:,0:,:) !< extended mesh variable
+      real(RDP),      intent(out)   :: rs(:,:,:,:)   !< restricted variable
+      integer, optional, intent(in) :: sgn           !< sign of `r` {+1,-1} [+1]
     end subroutine Restrict_Unstructured_RDP
 
     module subroutine Merge_Core_RDP(this, mesh, us, u)
@@ -245,20 +247,22 @@ module DG__Schwarz_Operator__3D
 
   interface
 
-    module subroutine Restrict_Structured_RSP(this, mesh, buf_u, u, us)
+    module subroutine Restrict_Structured_RSP(this, mesh, buf_r, r, rs, sgn)
       class(DG_SchwarzOperator_3D), intent(in) :: this
-      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_r
       class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-      real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< extended mesh variable
-      real(RSP),      intent(out)   :: us(:,:,:,:)   !< restricted variable
+      real(RNP),      intent(inout) :: r(0:,0:,0:,:) !< extended mesh variable
+      real(RSP),      intent(out)   :: rs(:,:,:,:)   !< restricted variable
+      integer, optional, intent(in) :: sgn           !< sign of `r` {+1,-1} [+1]
     end subroutine Restrict_Structured_RSP
 
-    module subroutine Restrict_Unstructured_RSP(this, mesh, buf_u, u, us)
+    module subroutine Restrict_Unstructured_RSP(this, mesh, buf_r, r, rs, sgn)
       class(DG_SchwarzOperator_3D), intent(in) :: this
-      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_r
       class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-      real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< extended mesh variable
-      real(RSP),      intent(out)   :: us(:,:,:,:)   !< restricted variable
+      real(RNP),      intent(inout) :: r(0:,0:,0:,:) !< extended mesh variable
+      real(RSP),      intent(out)   :: rs(:,:,:,:)   !< restricted variable
+      integer, optional, intent(in) :: sgn           !< sign of `r` {+1,-1} [+1]
     end subroutine Restrict_Unstructured_RSP
 
     module subroutine Merge_Core_RSP(this, mesh, us, u)
@@ -344,7 +348,6 @@ contains
     real(RNP) :: svv
 
     svv = nu_svv / (nu + nu_svv)
-
     call InitSchwarzOperator(this, opt, eop, mesh, svv)
     call SetDomains_CC(this, mesh, lambda, nu, nu_svv, bc)
 
@@ -523,7 +526,7 @@ contains
     V = 0
     W = 0
 
-    associate(Ms => eop % W)
+    associate(Ms => eop % w)
 
       if (all(bc == ' ')) then
 
@@ -887,20 +890,21 @@ contains
   !-----------------------------------------------------------------------------
   !> Restrict mesh variable to subdomains -- double precision
   !>
-  !> The mesh variable must be dimensioned as `u(0:po,0:po,0:po,ne+ng)`, where
+  !> The mesh variable must be dimensioned as `r(0:po,0:po,0:po,ne+ng)`, where
   !> `ne` is the number of local elements and `ng` the number of ghosts.
 
-  subroutine RestrictResidual_RDP(this, mesh, buf_u, u, us)
+  subroutine RestrictResidual_RDP(this, mesh, buf_r, r, rs, sgn)
     class(DG_SchwarzOperator_3D), intent(in) :: this
-    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_r
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-    real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< extended mesh variable
-    real(RDP),      intent(out)   :: us(:,:,:,:)   !< restricted variable
+    real(RNP),      intent(inout) :: r(0:,0:,0:,:) !< extended mesh variable
+    real(RDP),      intent(out)   :: rs(:,:,:,:)   !< restricted variable
+    integer, optional, intent(in) :: sgn           !< sign of `r` {+1,-1} [+1]
 
     if (mesh % structured) then
-      call Restrict_Structured_RDP(this, mesh, buf_u, u, us)
+      call Restrict_Structured_RDP(this, mesh, buf_r, r, rs, sgn)
     else
-      call Restrict_Unstructured_RDP(this, mesh, buf_u, u, us)
+      call Restrict_Unstructured_RDP(this, mesh, buf_r, r, rs, sgn)
     end if
 
   end subroutine RestrictResidual_RDP
@@ -932,17 +936,18 @@ contains
   !-----------------------------------------------------------------------------
   !> Restrict mesh variable to subdomains -- single precision
 
-  subroutine RestrictResidual_RSP(this, mesh, buf_u, u, us)
+  subroutine RestrictResidual_RSP(this, mesh, buf_r, r, rs, sgn)
     class(DG_SchwarzOperator_3D), intent(in) :: this
-    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_r
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-    real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< extended mesh variable
-    real(RSP),      intent(out)   :: us(:,:,:,:)   !< restricted variable
+    real(RNP),      intent(inout) :: r(0:,0:,0:,:) !< extended mesh variable
+    real(RSP),      intent(out)   :: rs(:,:,:,:)   !< restricted variable
+    integer, optional, intent(in) :: sgn           !< sign of `r` {+1,-1} [+1]
 
     if (mesh % structured) then
-      call Restrict_Structured_RSP(this, mesh, buf_u, u, us)
+      call Restrict_Structured_RSP(this, mesh, buf_r, r, rs, sgn)
     else
-      call Restrict_Unstructured_RSP(this, mesh, buf_u, u, us)
+      call Restrict_Unstructured_RSP(this, mesh, buf_r, r, rs, sgn)
     end if
 
   end subroutine RestrictResidual_RSP

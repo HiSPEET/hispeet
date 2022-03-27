@@ -109,7 +109,7 @@ program DG_Diffusion3D_Test
   integer :: method = 1
   ! 0  none
   ! 1  CG
-  ! 2  Schwarz (later)
+  ! 2  Schwarz
 
   integer   :: i_max   = 1    ! max number of iterations/cycles
   real(RNP) :: r_red   = 1E-3 ! min residual reduction
@@ -375,6 +375,11 @@ program DG_Diffusion3D_Test
         call se_bv(i) % ExtractNormalComponent(se_q, sem % mesh % boundary(i))
       end select
     end do
+!### CHECK
+do i = 1, size(se_bv)
+print '(9G0)', '#0 max|se_bv(',i,')%val| = ', maxval(abs(se_bv(i)%val))
+end do
+!### CHECK END
 
   end associate
 
@@ -392,6 +397,11 @@ program DG_Diffusion3D_Test
     diffusion_op = DG_DiffusionOperator_3D( sem, dg_opt, lambda, nu_0, &
                                             bc, schwarz_opt )
   end if
+!### CHECK
+do i = 1, size(se_bv)
+print '(9G0)', '#1 max|se_bv(',i,')%val| = ', maxval(abs(se_bv(i)%val))
+end do
+!### CHECK END
 
   ! apply boundary conditions to RHS
 !!!  call diffusion_op % AddBC(se_bv, f)
@@ -415,6 +425,11 @@ program DG_Diffusion3D_Test
   do i = 1, n_test
     call diffusion_op % Apply(u, r, f, se_bv)
   end do
+!### CHECK
+do i = 1, size(se_bv)
+print '(9G0)', '#2 max|se_bv(',i,')%val| = ', maxval(abs(se_bv(i)%val))
+end do
+!### CHECK END
 
   !$omp master
   if (rank == 0) time = MPI_Wtime()
@@ -449,6 +464,8 @@ program DG_Diffusion3D_Test
     select case(method)
     case(1)
       write(*,'(/,A,/)') 'Conjugate Gradient Method'
+    case(2)
+      write(*,'(/,A,/)') 'Additive Schwarz Method'
     case default
       write(*,'(/,A,/)') 'Skipping solver test'
     end select
@@ -480,6 +497,8 @@ program DG_Diffusion3D_Test
     select case(method)
     case(1) ! conjugate gradients
       call diffusion_op % CG_Method(u, f, se_bv, i_max, r_red, ni=ni)
+    case(2) ! additive Schwarz
+      call diffusion_op % Schwarz_Method(u, f, se_bv, i_max, r_red, ni=ni)
     end select
 
     !$omp master
@@ -516,7 +535,7 @@ program DG_Diffusion3D_Test
       write(*,'(T3,A,T11,ES10.3)')   'r_max =', r_max
       write(*,'(T3,A,T11,ES10.3)')   'e_max =', (e_max - e_min)/2
       if (ni > 0) then
-        write(*,'(T3,A,T11,ES10.3)') '-lg ρ =', log10(r_l2_0 / r_l2) / ni
+        write(*,'(T3,A,T12,ES10.3)') '-lg ρ =', log10(r_l2_0 / r_l2) / ni
       end if
       write(*,'(/,T3,A)')            'performance:'
       write(*,'(T3,A,T11,ES10.3)')   'time     =', time
