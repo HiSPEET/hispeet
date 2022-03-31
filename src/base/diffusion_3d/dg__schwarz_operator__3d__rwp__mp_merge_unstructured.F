@@ -345,6 +345,8 @@
               end do
               end do
 
+            else
+
               n = m + nn - 1
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 4) % orientation, &

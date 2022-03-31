@@ -58,7 +58,7 @@ contains
       k = m
       select case(RNP)
       case(RSP)
-        call DispatchKernel_SDP(xmm, m, n, k, alpha = 1E0, beta = 0E0)
+        call DispatchKernel_RSP(xmm, m, n, k, alpha = 1E0, beta = 0E0)
       case(RDP)
         call DispatchKernel_RDP(xmm, m, n, k, alpha = 1D0, beta = 0D0)
       case default
@@ -232,7 +232,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Routine for dispatching a single precision XSMM kernel
 
-  subroutine DispatchKernel_SDP( kernel, m, n, k, lda, ldb, ldc, alpha, beta &
+  subroutine DispatchKernel_RSP( kernel, m, n, k, lda, ldb, ldc, alpha, beta &
                                , flags, prefetch )
 
     type(C_FunPtr), intent(out) :: kernel
@@ -248,7 +248,7 @@ contains
                             , c_loc(alpha), c_loc(beta)          &
                             , c_loc(flags), c_loc(prefetch)      )
 
-  end subroutine DispatchKernel_SDP
+  end subroutine DispatchKernel_RSP
 
   !-----------------------------------------------------------------------------
   !> Routine for dispatching a double precision XSMM kernel

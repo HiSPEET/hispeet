@@ -390,9 +390,9 @@ contains
     associate(x_cube => mesh % x_cube)
       do e = 1, mesh % n_elem
       do i = 1, 3
-        dx_cube(i,1,1,e) = HALF * sqrt( x_cube(i,e,1)**2 &
-                                      + x_cube(i,e,2)**2 &
-                                      + x_cube(i,e,3)**2 )
+        dx_cube(i,1,1,e) = 2 * sqrt( x_cube(i,e,1)**2 &
+                                   + x_cube(i,e,2)**2 &
+                                   + x_cube(i,e,3)**2 )
       end do
       end do
     end associate

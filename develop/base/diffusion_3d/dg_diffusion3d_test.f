@@ -51,6 +51,7 @@ program DG_Diffusion3D_Test
   character(len=*), parameter :: input_default = 'dg_diffusion3d_test'
   character(len=80) :: input_file = ''
   character(len=80) :: plot_file  = ''
+  logical :: plot_subdiv = .true.
 
   integer :: config = 1
   ! configuration (u/s = un/structured, r = regular, d = deformed)
@@ -63,7 +64,7 @@ program DG_Diffusion3D_Test
 
   integer :: n_test = 1            ! repetitions of consistency test
 
-  namelist/control_prm/ config, n_test, plot_file
+  namelist/control_prm/ config, n_test, plot_file, plot_subdiv
 
   character(len=80) :: schwarz_test_file = '' ! Schwarz test plot file
   integer :: schwarz_test_part = 0            ! Schwarz test partition
@@ -375,11 +376,6 @@ program DG_Diffusion3D_Test
         call se_bv(i) % ExtractNormalComponent(se_q, sem % mesh % boundary(i))
       end select
     end do
-!### CHECK
-do i = 1, size(se_bv)
-print '(9G0)', '#0 max|se_bv(',i,')%val| = ', maxval(abs(se_bv(i)%val))
-end do
-!### CHECK END
 
   end associate
 
@@ -397,11 +393,6 @@ end do
     diffusion_op = DG_DiffusionOperator_3D( sem, dg_opt, lambda, nu_0, &
                                             bc, schwarz_opt )
   end if
-!### CHECK
-do i = 1, size(se_bv)
-print '(9G0)', '#1 max|se_bv(',i,')%val| = ', maxval(abs(se_bv(i)%val))
-end do
-!### CHECK END
 
   ! apply boundary conditions to RHS
 !!!  call diffusion_op % AddBC(se_bv, f)
@@ -425,11 +416,6 @@ end do
   do i = 1, n_test
     call diffusion_op % Apply(u, r, f, se_bv)
   end do
-!### CHECK
-do i = 1, size(se_bv)
-print '(9G0)', '#2 max|se_bv(',i,')%val| = ', maxval(abs(se_bv(i)%val))
-end do
-!### CHECK END
 
   !$omp master
   if (rank == 0) time = MPI_Wtime()
@@ -560,7 +546,8 @@ end do
                              , sname  = var_names       &
                              , file   = trim(plot_file) &
                              , part   = mesh % part     &
-                             , n_part = mesh % n_part   )
+                             , n_part = mesh % n_part   &
+                             , subdiv = plot_subdiv     )
   end if
 
   call SchwarzTest( diffusion_op, u   &
@@ -640,10 +627,8 @@ contains
 
       x_cube = mesh % x_cube(0:3,e,1:3)
       !$omp master
-      if (schwarz % wp == RDP) then
+      if (schwarz % wp == RNP) then
         call ExportVTK_SchwarzDomain(x_cube, xi, us_dp(:,:,:,e), file)
-      else
-        call ExportVTK_SchwarzDomain(x_cube, xi, us_sp(:,:,:,e), file)
       end if
       deallocate(u_ext, us_dp, us_sp, buf_u)
       !$omp end master
