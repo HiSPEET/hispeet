@@ -108,7 +108,7 @@ contains
 
     end select
 
-    call ExportVTK_VolumeData(x, s=v, sname=['v'], file=file)
+    call ExportVTK_VolumeData(x, s=v, sname=['v'], file=file, subdiv = .false.)
 
     !$omp end master
 
