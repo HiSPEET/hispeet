@@ -850,8 +850,8 @@ contains
         do k = 1, ns
         do j = 1, ns
         do i = 1, ns
-          if (W(i,c1) > 0 .and. W(j,c2) > 0 .and. W(k,c3) > 0) then
-            lmb = g0 + g1 * V(i,c1) + g2 * V(j,c2) + g3 * V(k,c3)
+          lmb = g0 + g1 * V(i,c1) + g2 * V(j,c2) + g3 * V(k,c3)
+          if (lmb > epsilon(lmb)) then
             D_inv(i,j,k,e) = real(1 / lmb, RDP)
           else
             D_inv(i,j,k,e) = 0
@@ -871,8 +871,8 @@ contains
         do k = 1, ns
         do j = 1, ns
         do i = 1, ns
-          if (W(i,c1) > 0 .and. W(j,c2) > 0 .and. W(k,c3) > 0) then
-            lmb = g0 + g1 * V(i,c1) + g2 * V(j,c2) + g3 * V(k,c3)
+          lmb = g0 + g1 * V(i,c1) + g2 * V(j,c2) + g3 * V(k,c3)
+          if (lmb > epsilon(lmb)) then
             D_inv(i,j,k,e) = real(1 / lmb, RSP)
           else
             D_inv(i,j,k,e) = 0

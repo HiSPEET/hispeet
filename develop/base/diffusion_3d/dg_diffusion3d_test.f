@@ -550,7 +550,7 @@ program DG_Diffusion3D_Test
                              , subdiv = plot_subdiv     )
   end if
 
-  call SchwarzTest( diffusion_op, u   &
+  call SchwarzTest( diffusion_op, r   &
                   , schwarz_test_part &
                   , schwarz_test_elem &
                   , schwarz_test_file )
@@ -565,18 +565,18 @@ contains
   !-----------------------------------------------------------------------------
   !>
 
-  subroutine SchwarzTest(diffusion_op, u, part, e, file)
+  subroutine SchwarzTest(diffusion_op, r, part, e, file)
     class(DG_DiffusionOperator_3D), intent(in) :: diffusion_op
-    real(RNP),        intent(in) :: u(:,:,:,:) !< mesh variable
+    real(RNP),        intent(in) :: r(:,:,:,:) !< mesh variable
     integer,          intent(in) :: part       !< selected partition
     integer,          intent(in) :: e          !< selected element
     character(len=*), intent(in) :: file       !< plotfile
 
-    type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_u
-    type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_us
-    real(RNP), allocatable, save :: u_ext(:,:,:,:)
-    real(RDP), allocatable, save :: us_dp(:,:,:,:)
-    real(RSP), allocatable, save :: us_sp(:,:,:,:)
+    type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_r
+    type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_rs
+    real(RNP), allocatable, save :: r_ext(:,:,:,:)
+    real(RDP), allocatable, save :: rs_dp(:,:,:,:)
+    real(RSP), allocatable, save :: rs_sp(:,:,:,:)
     real(RNP) :: x_cube(0:3,3)
     integer :: np, ne, ng, no, ns, nl(3)
 
@@ -603,22 +603,22 @@ contains
       end if
 
       !$omp master
-      allocate(u_ext(np, np, np, ne+ng), source = ZERO)
-      u_ext(:,:,:,1:ne) = u
-      buf_u = ElementTransferBuffer_3D(mesh, u_ext, nl)
-      allocate(us_dp(ns, ns, ns, ne+ng), source = 0D0)
-      allocate(us_sp(ns, ns, ns, ne+ng), source = 0E0)
+      allocate(r_ext(np, np, np, ne+ng), source = ZERO)
+      r_ext(:,:,:,1:ne) = r
+      buf_r = ElementTransferBuffer_3D(mesh, r_ext, nl)
+      allocate(rs_dp(ns, ns, ns, ne+ng), source = 0D0)
+      allocate(rs_sp(ns, ns, ns, ne+ng), source = 0E0)
       !$omp end master
       !$omp barrier
 
       if (schwarz % wp == RDP) then
-        call schwarz % RestrictResidual(mesh, buf_u, u_ext, us_dp)
-        buf_us = ElementTransferBuffer_3D(mesh, us_dp, nl)
-        call schwarz % MergeCorrections(mesh, buf_us, us_dp, u_ext)
+        call schwarz % RestrictResidual(mesh, buf_r, r_ext, rs_dp)
+        buf_rs = ElementTransferBuffer_3D(mesh, rs_dp, nl)
+        call schwarz % MergeCorrections(mesh, buf_rs, rs_dp, r_ext)
       else if (schwarz % wp == RSP) then
-        call schwarz % RestrictResidual(mesh, buf_u, u_ext, us_sp)
-        buf_us = ElementTransferBuffer_3D(mesh, us_sp, nl)
-        call schwarz % MergeCorrections(mesh, buf_us, us_sp, u_ext)
+        call schwarz % RestrictResidual(mesh, buf_r, r_ext, rs_sp)
+        buf_rs = ElementTransferBuffer_3D(mesh, rs_sp, nl)
+        call schwarz % MergeCorrections(mesh, buf_rs, rs_sp, r_ext)
       else
         return
       end if
@@ -628,9 +628,9 @@ contains
       x_cube = mesh % x_cube(0:3,e,1:3)
       !$omp master
       if (schwarz % wp == RNP) then
-        call ExportVTK_SchwarzDomain(x_cube, xi, us_dp(:,:,:,e), file)
+        call ExportVTK_SchwarzDomain(x_cube, xi, rs_dp(:,:,:,e), file)
       end if
-      deallocate(u_ext, us_dp, us_sp, buf_u)
+      deallocate(r_ext, rs_dp, rs_sp, buf_r)
       !$omp end master
       !$omp barrier
 

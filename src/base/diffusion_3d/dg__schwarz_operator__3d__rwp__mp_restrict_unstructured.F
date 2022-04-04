@@ -294,7 +294,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 2) % orientation, &
                                     r, re                                )
-              rs(c0 : c0 + po, c1 + 1, no, e) = c_sgn * real(re, RWP)
+              rs(c0 : c0 + po, c1, no, e) = c_sgn * real(re, RWP)
               fill_edge(2) = min(fill_edge(2), 1)
 
             end if
@@ -329,7 +329,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 3) % orientation, &
                                     r, re                                )
-              rs(c0 : c0 + po, no, c1 + 1, e) = c_sgn * real(re, RWP)
+              rs(c0 : c0 + po, no, c1, e) = c_sgn * real(re, RWP)
               fill_edge(3) = min(fill_edge(3), 1)
 
             end if
@@ -364,7 +364,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 4) % orientation, &
                                     r, re                                )
-              rs(c0 : c0 + po, c1 + 1, c1 + 1, e) = c_sgn * real(re, RWP)
+              rs(c0 : c0 + po, c1, c1, e) = c_sgn * real(re, RWP)
               fill_edge(4) = min(fill_edge(4), 1)
 
             end if
@@ -434,7 +434,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 6) % orientation, &
                                     r, re                                )
-              rs(c1 + 1, c0 : c0 + po, no, e) = c_sgn * real(re, RWP)
+              rs(c1, c0 : c0 + po, no, e) = c_sgn * real(re, RWP)
               fill_edge(6) = min(fill_edge(6), 1)
 
             end if
@@ -469,7 +469,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 7) % orientation, &
                                     r, re                                )
-              rs(no, c0 : c0 + po, c1 + 1, e) = c_sgn * real(re, RWP)
+              rs(no, c0 : c0 + po, c1, e) = c_sgn * real(re, RWP)
               fill_edge(7) = min(fill_edge(7), 1)
 
             end if
@@ -504,7 +504,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge( 8) % orientation, &
                                     r, re                                )
-              rs(c1 + 1, c0 : c0 + po, c1 + 1, e) = c_sgn * real(re, RWP)
+              rs(c1, c0 : c0 + po, c1, e) = c_sgn * real(re, RWP)
               fill_edge(8) = min(fill_edge(8), 1)
 
             end if
@@ -574,7 +574,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge(10) % orientation, &
                                     r, re                                )
-              rs(c1 + 1, no, c0 : c0 + po, e) = c_sgn * real(re, RWP)
+              rs(c1, no, c0 : c0 + po, e) = c_sgn * real(re, RWP)
               fill_edge(10) = min(fill_edge(10), 1)
 
             end if
@@ -609,7 +609,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge(11) % orientation, &
                                     r, re                                )
-              rs(no, c1 + 1, c0 : c0 + po, e) = c_sgn * real(re, RWP)
+              rs(no, c1, c0 : c0 + po, e) = c_sgn * real(re, RWP)
               fill_edge(11) = min(fill_edge(11), 1)
 
             end if
@@ -644,7 +644,7 @@
               call CollectEdgeData( element(e) % neighbor(m:n), element, &
                                     element(e) % edge(12) % orientation, &
                                     r, re                                )
-              rs(c1 + 1, c1 + 1, c0 : c0 + po, e) = c_sgn * real(re, RWP)
+              rs(c1, c1, c0 : c0 + po, e) = c_sgn * real(re, RWP)
               fill_edge(12) = min(fill_edge(12), 1)
 
             end if
@@ -710,7 +710,7 @@
 
               n = m + nn - 1
               call CollectVertexData(element(e)%neighbor(m:n), r, rv)
-              rs(c1 + 1, no, no, e) = c_sgn * real(rv, RWP)
+              rs(c1, no, no, e) = c_sgn * real(rv, RWP)
               fill_vertex(2) = min(fill_vertex(2), 1)
 
             end if
@@ -743,7 +743,7 @@
 
               n = m + nn - 1
               call CollectVertexData(element(e)%neighbor(m:n), r, rv)
-              rs(no, c1 + 1, no, e) = c_sgn * real(rv, RWP)
+              rs(no, c1, no, e) = c_sgn * real(rv, RWP)
               fill_vertex(3) = min(fill_vertex(3), 1)
 
             end if
@@ -776,7 +776,7 @@
 
               n = m + nn - 1
               call CollectVertexData(element(e)%neighbor(m:n), r, rv)
-              rs(c1 + 1, c1 + 1, no, e) = c_sgn * real(rv, RWP)
+              rs(c1, c1, no, e) = c_sgn * real(rv, RWP)
               fill_vertex(4) = min(fill_vertex(4), 1)
 
             end if
@@ -809,7 +809,7 @@
 
               n = m + nn - 1
               call CollectVertexData(element(e)%neighbor(m:n), r, rv)
-              rs(no, no, c1 + 1, e) = c_sgn * real(rv, RWP)
+              rs(no, no, c1, e) = c_sgn * real(rv, RWP)
               fill_vertex(5) = min(fill_vertex(5), 1)
 
             end if
@@ -842,7 +842,7 @@
 
               n = m + nn - 1
               call CollectVertexData(element(e)%neighbor(m:n), r, rv)
-              rs(c1 + 1, no, c1 + 1, e) = c_sgn * real(rv, RWP)
+              rs(c1, no, c1, e) = c_sgn * real(rv, RWP)
               fill_vertex(6) = min(fill_vertex(6), 1)
 
             end if
@@ -875,7 +875,7 @@
 
               n = m + nn - 1
               call CollectVertexData(element(e)%neighbor(m:n), r, rv)
-              rs(no, c1 + 1, c1 + 1, e) = c_sgn * real(rv, RWP)
+              rs(no, c1, c1, e) = c_sgn * real(rv, RWP)
               fill_vertex(7) = min(fill_vertex(7), 1)
 
             end if
@@ -908,7 +908,7 @@
 
               n = m + nn - 1
               call CollectVertexData(element(e)%neighbor(m:n), r, rv)
-              rs(c1 + 1, c1 + 1, c1 + 1, e) = c_sgn * real(rv, RWP)
+              rs(c1, c1, c1, e) = c_sgn * real(rv, RWP)
               fill_vertex(8) = min(fill_vertex(8), 1)
 
             end if
