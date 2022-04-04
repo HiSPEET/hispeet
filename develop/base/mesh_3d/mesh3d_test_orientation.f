@@ -12,12 +12,13 @@ program Mesh3d_Test_Orientation
 
   character(len=*), parameter :: input_file = 'mesh3d_test_orientation.prm'
 
-  integer :: po          = 3       ! polynomial order of mesh elements
-  integer :: no          = 1       ! overlapped node layers, no ≤ po+1
-  integer :: rotation(3) = 0       ! x/y/z-rotation of center element
-  logical :: periodic(3) = .false. ! F/T for non/periodic directions
-  logical :: export_vtk  = .true.  ! generate VTK file
-  namelist/input/ po, no, rotation, periodic, export_vtk
+  real(RNP) :: xo(3)       = 0       ! corner closest to -infinity
+  real(RNP) :: lx(3)       = 1       ! domain extensions
+  integer   :: po          = 3       ! polynomial order of mesh elements
+  integer   :: rotation(3) = 0       ! x/y/z-rotation of center element
+  logical   :: periodic(3) = .false. ! F/T for non/periodic directions
+  logical   :: export_vtk  = .true.  ! generate VTK file
+  namelist/input/ xo, lx, po, rotation, periodic, export_vtk
 
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
   integer :: rank
@@ -30,7 +31,6 @@ program Mesh3d_Test_Orientation
   real(RNP), allocatable  :: x(:,:,:,:,:)  ! element point coordinates
 ! real(RNP), allocatable  :: v(:,:,:,:)    ! test variable
   real(RNP), pointer      :: xi(:,:,:,:,:) ! element point std coordinates
-! real(RNP) :: dx = THIRD
   character(len=80) :: stdin
   logical   :: passed
   integer   :: io
@@ -47,13 +47,11 @@ program Mesh3d_Test_Orientation
     read(io, nml = input)
     close(io)
 
-    no = max(min(no, po+1), 0)
-
     std_op = StandardOperators_1D(po, basis='L')
 
     ! create and import generic mesh ...........................................
 
-    call generic_mesh % CreateOneRotated(po, rotation, periodic)
+    call generic_mesh % CreateOneRotated(xo, lx, po, rotation, periodic)
     call mesh % ImportGenericMesh(generic_mesh, comm = comm)
 
     ! verification .............................................................

@@ -14,9 +14,9 @@ subroutine PROC(TPO_Diffusion_DLCI_Hand__,_NP_) &
   real(RWP), intent(in)  :: u(_NP_,_NP_,_NP_,ne)   !< operand
   real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne)   !< result
 
-  real(RWP), optional, intent(in)    :: Ji_n(:,:,:,:,:) !< J⁻¹⋅n @ elem faces
-  real(RWP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values
-  real(RWP), optional, intent(inout) :: qb(:,:,:,:) !< element boundary fluxes
+  real(RWP), optional, intent(in)    :: Ji_n(_NP_,_NP_,6,ne,3) !< J⁻¹⋅n @ elem faces
+  real(RWP), optional, intent(inout) :: ub(_NP_,_NP_,6,ne) !< element boundary values
+  real(RWP), optional, intent(inout) :: qb(_NP_,_NP_,6,ne) !< element boundary fluxes
 
   real(RWP), parameter :: ONE  = 1
   real(RWP), parameter :: ZERO = 0
@@ -58,13 +58,23 @@ subroutine PROC(TPO_Diffusion_DLCI_Hand__,_NP_) &
 
     ! v = λ M Jd u .............................................................
 
-    do k = 1, _NP_
-    do j = 1, _NP_
-    do i = 1, _NP_
-      v(i,j,k,e) = lambda * M(i,j,k) * Jd(i,j,k,e) * u(i,j,k,e)
-    end do
-    end do
-    end do
+    if (lambda == ZERO) then
+      do k = 1, _NP_
+      do j = 1, _NP_
+      do i = 1, _NP_
+        v(i,j,k,e) = ZERO
+      end do
+      end do
+      end do
+    else
+      do k = 1, _NP_
+      do j = 1, _NP_
+      do i = 1, _NP_
+        v(i,j,k,e) = lambda * M(i,j,k) * Jd(i,j,k,e) * u(i,j,k,e)
+      end do
+      end do
+      end do
+    end if
 
     ! standard derivatives of uᵉ ...............................................
 

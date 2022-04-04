@@ -3,10 +3,6 @@
 
 add_executable( dg_diffusion3d_test
                 dg_diffusion3d_test.f
-                create_cuboid_cartesian.f
-                create_cuboid_diamonds.f
-                create_cylinder.f
-                create_annulus.f 
                 elliptic_problem.f
                 elliptic_problem__knotty.f
                 elliptic_problem__simple_1d.f

@@ -17,31 +17,37 @@ submodule(DG__Diffusion_Operator__3D) MP_Apply
     !---------------------------------------------------------------------------
     !> Application with regular mesh and constant diffusivity
 
-    module subroutine Apply_RC(this, u, v, f)
-      class(DG_DiffusionOperator_3D), intent(in) :: this
-      real(RNP), contiguous, intent(in)  :: u(:,:,:,:) !< operand
-      real(RNP), contiguous, intent(out) :: v(:,:,:,:) !< result
-      real(RNP), contiguous, intent(in), optional :: f(:,:,:,:) !< RHS
+    module subroutine Apply_RC(this, u, r, f, bv)
+      class(DG_DiffusionOperator_3D),  intent(in)  :: this
+      real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
+      real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
+      real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
+      class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
+      !< boundary values
     end subroutine Apply_RC
 
     !---------------------------------------------------------------------------
     !> Application with regular mesh and variable diffusivity
 
-    module subroutine Apply_RV(this, u, v, f)
-      class(DG_DiffusionOperator_3D), intent(in) :: this
-      real(RNP), contiguous, intent(in)  :: u(:,:,:,:) !< operand
-      real(RNP), contiguous, intent(out) :: v(:,:,:,:) !< result
-      real(RNP), contiguous, intent(in), optional :: f(:,:,:,:) !< RHS
+    module subroutine Apply_RV(this, u, r, f, bv)
+      class(DG_DiffusionOperator_3D),  intent(in)  :: this
+      real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
+      real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
+      real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
+      class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
+      !< boundary values
     end subroutine Apply_RV
 
     !---------------------------------------------------------------------------
     !> Application with irregular (deformed) mesh and constant diffusivity
 
-    module subroutine Apply_DC(this, u, v, f)
-      class(DG_DiffusionOperator_3D), intent(in) :: this
-      real(RNP), contiguous, intent(in)  :: u(:,:,:,:) !< operand
-      real(RNP), contiguous, intent(out) :: v(:,:,:,:) !< result
-      real(RNP), contiguous, intent(in), optional :: f(:,:,:,:) !< RHS
+    module subroutine Apply_DC(this, u, r, f, bv)
+      class(DG_DiffusionOperator_3D),  intent(in)  :: this
+      real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
+      real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
+      real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
+      class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
+      !< boundary values
     end subroutine Apply_DC
 
   end interface
@@ -51,23 +57,25 @@ contains
   !-----------------------------------------------------------------------------
   !> Application of the diffusion operator
 
-  module subroutine Apply(this, u, v, f)
-    class(DG_DiffusionOperator_3D), intent(in) :: this
-    real(RNP), contiguous, intent(in)  :: u(:,:,:,:) !< operand
-    real(RNP), contiguous, intent(out) :: v(:,:,:,:) !< result
-    real(RNP), contiguous, intent(in), optional :: f(:,:,:,:) !< RHS
+  module subroutine Apply(this, u, r, f, bv)
+    class(DG_DiffusionOperator_3D),  intent(in)  :: this
+    real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
+    real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
+    real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
+    class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
+    !< boundary values
 
     if (this % sem % mesh % regular) then
       if (allocated(this % nu_pv)) then
         ! regular variable
-        call Apply_RV(this, u, v, f)
+        call Apply_RV(this, u, r, f, bv)
       else
         ! regular constant
-        call Apply_RC(this, u, v, f)
+        call Apply_RC(this, u, r, f, bv)
       end if
     else
       ! deformed constant
-      call Apply_DC(this, u, v, f)
+      call Apply_DC(this, u, r, f, bv)
     end if
 
   end subroutine Apply
@@ -76,95 +84,97 @@ contains
   ! Shared procedures
 
   !-----------------------------------------------------------------------------
-  !> Compose element-boundary fluxes from flux traces for homogeneous BC
-
-  subroutine GetElementBoundaryFluxes(element, struct, e, f, tr_u, tr_qn, Ju, Aq)
-
-    class(MeshElement_3D), intent(in)  :: element !< element
-    logical,               intent(in)  :: struct  !< F/T for un/structured mesh
-    integer,               intent(in)  :: e       !< element ID
-    integer,               intent(in)  :: f       !< element face
-    real(RNP), contiguous, intent(in)  :: tr_u (:,:,:,:) !< u   @ element faces
-    real(RNP), contiguous, intent(in)  :: tr_qn(:,:,:,:) !< q_n @ element faces
-    real(RNP), contiguous, intent(out) :: Ju(:,:) !< normal jump n⋅[u]  w/o BC
-    real(RNP), contiguous, intent(out) :: Aq(:,:) !< average flux n⋅{q} w/o BC
-
-    integer :: i, l, m
-
-    i = element % face(f) % i_neighbor
-    if (i > 0) then
-      l = element % neighbor(i) % id
-      m = element % neighbor(i) % component
-      if (struct) then
-        Ju = (tr_u (:,:,f,e) - tr_u (:,:,m,l))
-        Aq = (tr_qn(:,:,f,e) - tr_qn(:,:,m,l)) * HALF
-      else
-        call element % AlignFromNeighborFace(f, i, tr_u (:,:,m,l), Ju)
-        call element % AlignFromNeighborFace(f, i, tr_qn(:,:,m,l), Aq)
-        Ju = (tr_u (:,:,f,e) - Ju)
-        Aq = (tr_qn(:,:,f,e) - Aq) * HALF
-      end if
-    else
-      Ju = tr_u (:,:,f,e)
-      Aq = tr_qn(:,:,f,e)
-   end if
-
-  end subroutine GetElementBoundaryFluxes
-
-  !-----------------------------------------------------------------------------
-  !> Modify boundary traces to yield correct contribution to the operator
+  !> Weak enforcement of boundary conditions
   !>
-  !> On Dirichlet boundaries (bc = 'D'):
+  !> Input:
   !>
-  !>   – interior solution contributes twice:  n⋅[u] = 2u⁻    - 2u_b
-  !>   - q⁺ is extrapolated from interior:     n⋅{q} = n⋅q⁻
+  !>   - `bv`     Dirichlet or Neumann boundary values in component 1
+  !>   - `jmp_u`  u⁻    on boundary element faces
+  !>   - `avg_q`  n⋅q⁻  on boundary element faces
   !>
-  !> and on Neumann boundaries (bc = 'N'):
+  !> Interior and ghost face entries `jmp_u` and `avg_q` will be ignored and
+  !> remain unchanged.
   !>
-  !>   – u⁺ is extrapolated from interior:     n⋅[u] = 0
-  !>   - q⁺ is reflected from interior:        n⋅{q} = 0      +  q_b
+  !> On output, the boundary conditions are applied as follows:
   !>
-  !> where the contributions of u_b and q_b are assigned to the RHS.
+  !>   - Dirichlet boundaries (bc = 'D'):
+  !>
+  !>          jmp_u  ←  n⋅[u]  =  2(u⁻ - u_b)
+  !>          avg_q  ←  n⋅{q}  =  n⋅q⁻            (unchanged)
+  !>
+  !>   - Neumann boundaries (bc = 'N'):
+  !>
+  !>          jmp_u  ←  n⋅[u]  =  0
+  !>          avg_q  ←  n⋅{q}  =  q_b
 
-  subroutine ApplyBoundaryConditions(mesh, bc, tr_u, tr_qn)
-    class(Mesh_3D), intent(in) :: mesh   !< mesh partition
-    character,      intent(in) :: bc(:)  !< boundary conditions
-    real(RNP), contiguous, intent(inout) :: tr_u (:,:,:,:) !< trace of u
-    real(RNP), contiguous, intent(inout) :: tr_qn(:,:,:,:) !< trace of ν du/dn
+  subroutine EnforceBoundaryConditions(diffusion_op, bv, jmp_u, avg_q)
+    class(DG_DiffusionOperator_3D), intent(in) :: diffusion_op
+    class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
+    real(RNP), contiguous, intent(inout) :: jmp_u(:,:,:,:) !< trace of u
+    real(RNP), contiguous, intent(inout) :: avg_q(:,:,:,:) !< trace of ν du/dn
 
+    logical :: has_bv
     integer :: b, e, f, l
 
-    do b = 1, size(bc)
-      associate(boundary_face => mesh % boundary(b) % face)
+    has_bv = present(bv)
 
-        select case(bc(b))
+    associate(boundary => diffusion_op % sem % mesh % boundary)
 
-        case('D') ! Dirichlet
-          !$omp do
-          do l = 1, size(boundary_face)
-            e = boundary_face(l) % mesh_element % id    ! mesh element
-            f = boundary_face(l) % mesh_element % face  ! element face
-            tr_u (:,:,f,e) = 2 * tr_u (:,:,f,e)
-          end do
-          !$omp end do nowait
+      do b = 1, size(boundary)
 
-        case('N') ! Neumann
-          !$omp do
-          do l = 1, size(boundary_face)
-            e = boundary_face(l) % mesh_element % id    ! mesh element
-            f = boundary_face(l) % mesh_element % face  ! element face
-            tr_u (:,:,f,e) = 0
-            tr_qn(:,:,f,e) = 0
-          end do
-          !$omp end do nowait
+
+        select case(diffusion_op % bc(b))
+
+        case('D')  ! avg_q remains unchanged !
+
+          if (has_bv) then
+            !$omp do
+            do l = 1, boundary(b) % n_face
+              e = boundary(b) % face(l) % mesh_element % id
+              f = boundary(b) % face(l) % mesh_element % face
+              jmp_u(:,:,f,e) = 2 * (jmp_u (:,:,f,e) - bv(b) % val(:,:,l,1))
+            end do
+            !$omp end do nowait
+          else
+            !$omp do
+            do l = 1, boundary(b) % n_face
+              e = boundary(b) % face(l) % mesh_element % id
+              f = boundary(b) % face(l) % mesh_element % face
+              jmp_u(:,:,f,e) = 2 * jmp_u (:,:,f,e)
+            end do
+            !$omp end do nowait
+          end if
+
+        case('N')
+
+          if (has_bv) then
+            !$omp do
+            do l = 1, boundary(b) % n_face
+              e = boundary(b) % face(l) % mesh_element % id
+              f = boundary(b) % face(l) % mesh_element % face
+              jmp_u(:,:,f,e) = ZERO
+              avg_q(:,:,f,e) = bv(b) % val(:,:,l,1)
+            end do
+            !$omp end do nowait
+          else
+            !$omp do
+            do l = 1, boundary(b) % n_face
+              e = boundary(b) % face(l) % mesh_element % id
+              f = boundary(b) % face(l) % mesh_element % face
+              jmp_u(:,:,f,e) = ZERO
+              avg_q(:,:,f,e) = ZERO
+            end do
+            !$omp end do nowait
+          end if
 
         end select
-      end associate
-    end do
 
-    !$omp barrier
+      end do
+     !$omp barrier
 
-  end subroutine ApplyBoundaryConditions
+    end associate
+
+  end subroutine EnforceBoundaryConditions
 
   !=============================================================================
 

@@ -16,6 +16,8 @@ module Mesh_Element__3D
   public :: MeshElementFace_3D
   public :: MeshElementNeighbor_3D
 
+  public :: TransformIndex
+
   !-----------------------------------------------------------------------------
   !> Element vertex data
   !>
@@ -500,7 +502,7 @@ contains
   pure subroutine AlignFromNeighborFace(element, f, n, vn, ve)
     class(MeshElement_3D), intent(in) :: element  !< mesh element
     integer,   intent(in)  :: f        !< element face ID
-    integer,   intent(iN)  :: n        !< element neighbor ID
+    integer,   intent(in)  :: n        !< element neighbor ID
     real(RNP), intent(in)  :: vn(:,:)  !< neighbor face data
     real(RNP), intent(out) :: ve(:,:)  !< element face data
 
@@ -570,6 +572,134 @@ contains
     end select
 
   end subroutine AlignFromNeighborFace
+
+  !-----------------------------------------------------------------------------
+  !> Transforms the given triple index range into a rotated coordinate system
+
+  pure subroutine TransformIndex( orientation, n, o0, o, t0, t, s)
+
+    integer(IXS), intent(in) :: orientation  !< orientation of transformed coords
+    integer, intent(in)  :: n                !< number of items per direction
+    integer, intent(in)  :: o0               !< start of original indices
+    integer, intent(in)  :: o(3)             !< original indices
+    integer, intent(in)  :: t0               !< start of transformed indices
+    integer, intent(out) :: t(3)             !< transformed indices
+    integer, intent(out), optional :: s(3,3) !< strides of transformed indices
+
+    integer :: m, s_(3,3)
+
+    m = n - 1
+
+    ! transformed indices
+    select case(orientation)
+
+    case(12_IXS) ! 1 →  1, 2 →  2:  (  1,  2,  3) ← (  1,  2,  3)
+      t(1) = t0 + (o(1) - o0)     ;  s_(:,1) = [  1,  0,  0 ]
+      t(2) = t0 + (o(2) - o0)     ;  s_(:,2) = [  0,  1,  0]
+      t(3) = t0 + (o(3) - o0)     ;  s_(:,3) = [  0,  0,  1]
+    case(13_IXS) ! 1 →  1, 2 →  3:  (  1,  2,  3) ← (  1, -3,  2)
+      t(1) = t0 + (o(1) - o0)     ;  s_(:,1) = [  1,  0,  0 ]
+      t(2) = t0 - (o(3) - o0) + m ;  s_(:,2) = [  0,  0, -1 ]
+      t(3) = t0 + (o(2) - o0)     ;  s_(:,3) = [  0,  1,  0]
+    case(15_IXS) ! 1 →  1, 2 → -2:  (  1,  2,  3) ← (  1, -2, -3)
+      t(1) = t0 + (o(1) - o0)     ;  s_(:,1) = [  1,  0,  0 ]
+      t(2) = t0 - (o(2) - o0) + m ;  s_(:,2) = [  0, -1,  0 ]
+      t(3) = t0 - (o(3) - o0) + m ;  s_(:,3) = [  0,  0, -1]
+    case(16_IXS) ! 1 →  1, 2 → -3:  (  1,  2,  3) ← (  1,  3, -2)
+      t(1) = t0 + (o(1) - o0)     ;  s_(:,1) = [  1,  0,  0 ]
+      t(2) = t0 + (o(3) - o0)     ;  s_(:,2) = [  0,  0,  1 ]
+      t(3) = t0 - (o(2) - o0) + m ;  s_(:,3) = [  0, -1,  0 ]
+
+    case(21_IXS) ! 1 →  2, 2 →  1:  (  1,  2,  3) ← (  2,  1, -3)
+      t(1) = t0 + (o(2) - o0)     ;  s_(:,1) = [  0,  1,  0 ]
+      t(2) = t0 + (o(1) - o0)     ;  s_(:,2) = [  1,  0,  0 ]
+      t(3) = t0 - (o(3) - o0) + m ;  s_(:,3) = [  0,  0, -1 ]
+    case(23_IXS) ! 1 →  2, 2 →  3:  (  1,  2,  3) ← (  3,  1,  2)
+      t(1) = t0 + (o(3) - o0)     ;  s_(:,1) = [  0,  0,  1 ]
+      t(2) = t0 + (o(1) - o0)     ;  s_(:,2) = [  1,  0,  0 ]
+      t(3) = t0 + (o(2) - o0)     ;  s_(:,3) = [  0,  1,  0 ]
+    case(24_IXS) ! 1 →  2, 2 → -1:  (  1,  2,  3) ← ( -2,  1,  3)
+      t(1) = t0 - (o(2) - o0) + m ;  s_(:,1) = [  0, -1,  0 ]
+      t(2) = t0 + (o(1) - o0)     ;  s_(:,2) = [  1,  0,  0 ]
+      t(3) = t0 + (o(3) - o0)     ;  s_(:,3) = [  0,  0,  1 ]
+    case(26_IXS) ! 1 →  2, 2 → -3:  (  1,  2,  3) ← ( -3,  1, -2)
+      t(1) = t0 - (o(3) - o0) + m ;  s_(:,1) = [  0,  0, -1 ]
+      t(2) = t0 + (o(1) - o0)     ;  s_(:,2) = [  1,  0,  0 ]
+      t(3) = t0 - (o(2) - o0) + m ;  s_(:,3) = [  0, -1,  0 ]
+
+    case(31_IXS) ! 1 →  3, 2 →  1:  (  1,  2,  3) ← (  2,  3,  1)
+      t(1) = t0 + (o(2) - o0)     ;  s_(:,1) = [  0,  1,  0 ]
+      t(2) = t0 + (o(3) - o0)     ;  s_(:,2) = [  0,  0,  1 ]
+      t(3) = t0 + (o(1) - o0)     ;  s_(:,3) = [  1,  0,  0 ]
+    case(32_IXS) ! 1 →  3, 2 →  2:  (  1,  2,  3) ← ( -3,  2,  1)
+      t(1) = t0 - (o(3) - o0) + m ;  s_(:,1) = [  0,  0, -1 ]
+      t(2) = t0 + (o(2) - o0)     ;  s_(:,2) = [  0,  1,  0 ]
+      t(3) = t0 + (o(1) - o0)     ;  s_(:,3) = [  1,  0,  0 ]
+    case(34_IXS) ! 1 →  3, 2 → -1:  (  1,  2,  3) ← ( -2, -3,  1)
+      t(1) = t0 - (o(2) - o0) + m ;  s_(:,1) = [  0, -1,  0 ]
+      t(2) = t0 - (o(3) - o0) + m ;  s_(:,2) = [  0,  0, -1 ]
+      t(3) = t0 + (o(1) - o0)     ;  s_(:,3) = [  1,  0,  0 ]
+    case(35_IXS) ! 1 →  3, 2 → -2:  (  1,  2,  3) ← (  3, -2,  1)
+      t(1) = t0 + (o(3) - o0)     ;  s_(:,1) = [  0,  0,  1 ]
+      t(2) = t0 - (o(2) - o0) + m ;  s_(:,2) = [  0, -1,  0 ]
+      t(3) = t0 + (o(1) - o0)     ;  s_(:,3) = [  1,  0,  0 ]
+
+    case(42_IXS) ! 1 → -1, 2 →  2:  (  1,  2,  3) ← ( -1,  2, -3)
+      t(1) = t0 - (o(1) - o0) + m ;  s_(:,1) = [ -1,  0,  0 ]
+      t(2) = t0 + (o(2) - o0)     ;  s_(:,2) = [  0,  1,  0 ]
+      t(3) = t0 - (o(3) - o0) + m ;  s_(:,3) = [  0,  0, -1 ]
+    case(43_IXS) ! 1 → -1, 2 →  3:  (  1,  2,  3) ← ( -1,  3,  2)
+      t(1) = t0 - (o(1) - o0) + m ;  s_(:,1) = [ -1,  0,  0 ]
+      t(2) = t0 + (o(3) - o0)     ;  s_(:,2) = [  0,  0,  1 ]
+      t(3) = t0 + (o(2) - o0)     ;  s_(:,3) = [  0,  1,  0 ]
+    case(45_IXS) ! 1 → -1, 2 → -2:  (  1,  2,  3) ← ( -1, -2,  3)
+      t(1) = t0 - (o(1) - o0) + m ;  s_(:,1) = [ -1,  0,  0 ]
+      t(2) = t0 - (o(2) - o0) + m ;  s_(:,2) = [  0, -1,  0 ]
+      t(3) = t0 + (o(3) - o0)     ;  s_(:,3) = [  0,  0,  1 ]
+    case(46_IXS) ! 1 → -1, 2 → -3:  (  1,  2,  3) ← ( -1, -3, -2)
+      t(1) = t0 - (o(1) - o0) + m ;  s_(:,1) = [ -1,  0,  0 ]
+      t(2) = t0 - (o(3) - o0) + m ;  s_(:,2) = [  0,  0, -1 ]
+      t(3) = t0 - (o(2) - o0) + m ;  s_(:,3) = [  0, -1,  0 ]
+
+    case(51_IXS) ! 1 → -2, 2 →  1:  (  1,  2,  3) ← (  2, -1,  3)
+      t(1) = t0 + (o(2) - o0)     ;  s_(:,1) = [  0,  1,  0 ]
+      t(2) = t0 - (o(1) - o0) + m ;  s_(:,2) = [ -1,  0,  0 ]
+      t(3) = t0 + (o(3) - o0)     ;  s_(:,3) = [  0,  0,  1 ]
+    case(53_IXS) ! 1 → -2, 2 →  3:  (  1,  2,  3) ← ( -3, -1,  2)
+      t(1) = t0 - (o(3) - o0) + m ;  s_(:,1) = [  0,  0, -1 ]
+      t(2) = t0 - (o(1) - o0) + m ;  s_(:,2) = [ -1,  0,  0 ]
+      t(3) = t0 + (o(2) - o0)     ;  s_(:,3) = [  0,  1,  0 ]
+    case(54_IXS) ! 1 → -2, 2 → -1:  (  1,  2,  3) ← ( -2, -1, -3)
+      t(1) = t0 - (o(2) - o0) + m ;  s_(:,1) = [  0, -1,  0 ]
+      t(2) = t0 - (o(1) - o0) + m ;  s_(:,2) = [ -1,  0,  0 ]
+      t(3) = t0 - (o(3) - o0) + m ;  s_(:,3) = [  0,  0, -1 ]
+    case(56_IXS) ! 1 → -2, 2 → -3:  (  1,  2,  3) ← (  3, -1, -2)
+      t(1) = t0 + (o(3) - o0)     ;  s_(:,1) = [  0,  0,  1 ]
+      t(2) = t0 - (o(1) - o0) + m ;  s_(:,2) = [ -1,  0,  0 ]
+      t(3) = t0 - (o(2) - o0) + m ;  s_(:,3) = [  0, -1,  0 ]
+
+    case(61_IXS) ! 1 → -3, 2 →  1:  (  1,  2,  3) ← (  2, -3, -1)
+      t(1) = t0 + (o(2) - o0)     ;  s_(:,1) = [  0,  1,  0 ]
+      t(2) = t0 - (o(3) - o0) + m ;  s_(:,2) = [  0,  0, -1 ]
+      t(3) = t0 - (o(1) - o0) + m ;  s_(:,3) = [ -1,  0,  0 ]
+    case(62_IXS) ! 1 → -3, 2 →  2:  (  1,  2,  3) ← (  3,  2, -1)
+      t(1) = t0 + (o(3) - o0)     ;  s_(:,1) = [  0,  0,  1 ]
+      t(2) = t0 + (o(2) - o0)     ;  s_(:,2) = [  0,  1,  0 ]
+      t(3) = t0 - (o(1) - o0) + m ;  s_(:,3) = [ -1,  0,  0 ]
+    case(64_IXS) ! 1 → -3, 2 → -1:  (  1,  2,  3) ← ( -2,  3, -1)
+      t(1) = t0 - (o(2) - o0) + m ;  s_(:,1) = [  0, -1,  0 ]
+      t(2) = t0 + (o(3) - o0)     ;  s_(:,2) = [  0,  0,  1 ]
+      t(3) = t0 - (o(1) - o0) + m ;  s_(:,3) = [ -1,  0,  0 ]
+    case(65_IXS) ! 1 → -3, 2 → -2:  (  1,  2,  3) ← ( -3, -2, -1)
+      t(1) = t0 - (o(3) - o0) + m ;  s_(:,1) = [  0,  0, -1 ]
+      t(2) = t0 - (o(2) - o0) + m ;  s_(:,2) = [  0, -1,  0 ]
+      t(3) = t0 - (o(1) - o0) + m ;  s_(:,3) = [ -1,  0,  0 ]
+
+    end select
+
+    if (present(s)) s = s_
+
+  end subroutine TransformIndex
 
   !=============================================================================
 

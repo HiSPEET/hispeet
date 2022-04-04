@@ -3,10 +3,6 @@
 
 add_executable( ins_operator_3d_test
                 ins_operator_3d_test.f
-                create_cuboid_cartesian.f
-                create_cuboid_diamonds.f
-                create_cylinder.f
-                create_annulus.f
               )
 
 target_link_libraries(ins_operator_3d_test HiIncompressibleNS)

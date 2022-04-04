@@ -264,11 +264,13 @@ module Generic_Mesh__3D
     !---------------------------------------------------------------------------
     !> Creates a 3x3x3 Cartesian mesh with the center element rotated
 
-    module subroutine CreateOneRotated(mesh, po, rotation, periodic)
+    module subroutine CreateOneRotated(mesh, xo, lx, po, rotation, periodic)
       class(GenericMesh_3D), intent(out) :: mesh  !< "diamond" mesh
-      integer, intent(in) :: po          !< polynomial order of mesh elements
-      integer, intent(in) :: rotation(3) !< rotation applied to center element
-      logical, intent(in) :: periodic(3) !< F/T for non/periodic directions
+      real(RNP), intent(in) :: xo(3)       !< corner closest to -infinity
+      real(RNP), intent(in) :: lx(3)       !< domain extensions
+      integer,   intent(in) :: po          !< polynomial order of mesh elements
+      integer,   intent(in) :: rotation(3) !< rotation applied to center element
+      logical,   intent(in) :: periodic(3) !< F/T for non/periodic directions
     end subroutine CreateOneRotated
 
   end interface

@@ -34,6 +34,8 @@ contains
     real(RWP), optional, intent(inout) :: ub(:,:,:,:) !< element boundary values
     real(RWP), optional, intent(inout) :: qb(:,:,:,:) !< element boundary fluxes
 
+    contiguous :: Ms, Ls, u, v, Ds, ub, qb
+
     integer :: np, ne
 
     np = size(Ms)
