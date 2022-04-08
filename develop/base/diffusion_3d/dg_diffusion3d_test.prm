@@ -36,7 +36,8 @@
 
 &cylinder_prm
   r  = 0.5
-  h  = 0.5
+  h  = 1.0
+  nr = 2
   nz = 3
   pg = 5
 /

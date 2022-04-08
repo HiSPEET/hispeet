@@ -407,7 +407,7 @@ contains
     this % no = no
     this % nc = nc
     this % fill = opt % fill
-    this % restrictive = opt % weighting == 9 ! top-hat weighting !
+    this % restrictive = opt % weighting == 9 .or. no == 0
 
     if (allocated(this % cfg)) deallocate(this % cfg)
 
