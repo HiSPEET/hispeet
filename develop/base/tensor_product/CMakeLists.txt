@@ -48,6 +48,18 @@ configure_file( validate__tpo__grad_3d_d.prm
                 validate__tpo__grad_3d_d.prm COPYONLY )
 
 #===============================================================================
+# TPO INS_Convection
+
+add_executable( validate__tpo__ins_convection_3d_d
+                validate__tpo__ins_convection_3d_d.f )
+
+target_link_libraries(validate__tpo__ins_convection_3d_d HiBase HiIncNS)
+
+configure_file( validate__tpo__ins_convection_3d_d.prm
+                validate__tpo__ins_convection_3d_d.prm COPYONLY )
+
+
+#===============================================================================
 # TPO Rot
 
 add_executable( validate__tpo__rot_3d_r
@@ -154,12 +166,19 @@ configure_file( validate__tpo__schwarz_3d_ca.prm
 #===============================================================================
 # Scripts
 
-file( COPY scripts/validate__tpo.sh
+file( COPY scripts/omp_auto.sh
+           scripts/validate__tpo_r.sh
+           scripts/validate__tpo_d.sh
+           scripts/validate__tpo_d_conv.sh
            scripts/validate__tpo__aaa_3d.tmpl
+           scripts/validate__tpo__div_3d_d.tmpl
            scripts/validate__tpo__div_3d_r.tmpl
+           scripts/validate__tpo__diffusion_3d_dlci.tmpl
            scripts/validate__tpo__diffusion_3d_rlci.tmpl
            scripts/validate__tpo__diffusion_3d_rlvi.tmpl
+           scripts/validate__tpo__grad_3d_d.tmpl
            scripts/validate__tpo__grad_3d_r.tmpl
+           scripts/validate__tpo__ins_convection_3d_d.tmpl
            scripts/validate__tpo__rot_3d_r.tmpl
            scripts/validate__tpo__rotrot_3d_r.tmpl
            scripts/validate__tpo__schwarz_3d_ca.tmpl
@@ -171,14 +190,10 @@ file( COPY scripts/validate__tpo.sh
 
 if (Slurm_FOUND)
 
-  if (OpenMP)
-      set(RUN_SCRIPT scripts/validate__tpo_omp.slurm)
-  elseif (OpenACC)
-      set(RUN_SCRIPT scripts/validate__tpo_acc.slurm)
-  else ()
-      set(RUN_SCRIPT scripts/validate__tpo_seq.slurm)
-  endif ()
+    set(RUN_SCRIPT_R scripts/validate__tpo_r.slurm)
+    set(RUN_SCRIPT_D scripts/validate__tpo_d.slurm)
 
-  configure_file(${RUN_SCRIPT} validate__tpo.slurm)
+    configure_file(${RUN_SCRIPT_R} validate__tpo_r.slurm)
+    configure_file(${RUN_SCRIPT_D} validate__tpo_d.slurm)
 
 endif (Slurm_FOUND)

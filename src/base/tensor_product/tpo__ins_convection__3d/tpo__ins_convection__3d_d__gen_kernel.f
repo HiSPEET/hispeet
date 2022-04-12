@@ -64,24 +64,6 @@ subroutine TPO_INS_Convection_D_Gen_RWP &
   else
     D_vq   = D_v
   end if
-!### CHECK
-!print *, 'interpolate =', interpolate
-!print *, 'lobatto     =', lobatto
-!print *, 'nv =', nv
-!print *, 'nq =', nq
-!print *, 'ne =', ne
-!print *, 'max|D_v|'    , maxval(abs(D_v))
-!print *, 'max|D_vq|'   , maxval(abs(D_vq))
-!print *, 'max|Ji(1,1)|', maxval(abs(Ji_q(:,:,:,:,1,1)))
-!print *, 'max|Ji(1,2)|', maxval(abs(Ji_q(:,:,:,:,1,2)))
-!print *, 'max|Ji(1,3)|', maxval(abs(Ji_q(:,:,:,:,1,3)))
-!print *, 'max|Ji(2,1)|', maxval(abs(Ji_q(:,:,:,:,2,1)))
-!print *, 'max|Ji(2,2)|', maxval(abs(Ji_q(:,:,:,:,2,2)))
-!print *, 'max|Ji(2,3)|', maxval(abs(Ji_q(:,:,:,:,2,3)))
-!print *, 'max|Ji(3,1)|', maxval(abs(Ji_q(:,:,:,:,3,1)))
-!print *, 'max|Ji(3,2)|', maxval(abs(Ji_q(:,:,:,:,3,2)))
-!print *, 'max|Ji(3,3)|', maxval(abs(Ji_q(:,:,:,:,3,3)))
-!### CHECK END
 
   !$omp do
   Elements: do e = 1, ne
@@ -212,17 +194,6 @@ subroutine TPO_INS_Convection_D_Gen_RWP &
     end do
     end do
     end do
-!### CHECK
-!print *, 'max|M_Ji_vv(1,1)|', maxval(abs(M_Ji_vv(:,:,:,1,1)))
-!print *, 'max|M_Ji_vv(1,2)|', maxval(abs(M_Ji_vv(:,:,:,1,2)))
-!print *, 'max|M_Ji_vv(1,3)|', maxval(abs(M_Ji_vv(:,:,:,1,3)))
-!print *, 'max|M_Ji_vv(2,1)|', maxval(abs(M_Ji_vv(:,:,:,2,1)))
-!print *, 'max|M_Ji_vv(2,2)|', maxval(abs(M_Ji_vv(:,:,:,2,2)))
-!print *, 'max|M_Ji_vv(2,3)|', maxval(abs(M_Ji_vv(:,:,:,2,3)))
-!print *, 'max|M_Ji_vv(3,1)|', maxval(abs(M_Ji_vv(:,:,:,3,1)))
-!print *, 'max|M_Ji_vv(3,2)|', maxval(abs(M_Ji_vv(:,:,:,3,2)))
-!print *, 'max|M_Ji_vv(3,3)|', maxval(abs(M_Ji_vv(:,:,:,3,3)))
-!### CHECK END
 
     if (interpolate) then
 
@@ -960,11 +931,6 @@ subroutine TPO_INS_Convection_D_Gen_RWP &
 
     end do Faces_5_and_6
 
-!### CHECK
-! print *, 'max|F_c(e,1)|', maxval(abs(F_c(:,:,:,e,1)))
-! print *, 'max|F_c(e,2)|', maxval(abs(F_c(:,:,:,e,2)))
-! print *, 'max|F_c(e,3)|', maxval(abs(F_c(:,:,:,e,3)))
-!### CHECK END
   end do Elements
 
 end subroutine TPO_INS_Convection_D_Gen_RWP
