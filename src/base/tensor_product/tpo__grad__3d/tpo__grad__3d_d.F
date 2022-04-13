@@ -33,7 +33,7 @@ contains
     select case(np)
 
 #ifdef __LIBXSMM__
-    case(8:)
+    case(5:)
       call TPO_Grad_D_XSMM(np, ne, Ds, Ji, u, v)
 #endif
 

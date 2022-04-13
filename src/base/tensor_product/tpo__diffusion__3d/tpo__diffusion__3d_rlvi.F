@@ -72,7 +72,7 @@ contains
     select case(size(Ms))
 
 #ifdef __LIBXSMM__
-    case(8:)
+    case(7:)
       call TPO_Diffusion_RLVI_XSMM(Ms, Ds, dx, lambda, nu, u, v, nub, ub, qb)
 #endif
 
