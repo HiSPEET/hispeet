@@ -121,6 +121,7 @@ program INS_Operator_3D_Test
 
   character(len=80) :: domain_name = ''
 ! real(RDP) :: time, time0
+  real(RNP) :: e_c, e_d, e_d1, d_d1
   logical   :: exists
   integer   :: io, stat
   integer   :: n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po
@@ -262,6 +263,25 @@ program INS_Operator_3D_Test
 
   call ins_op % sem_v % Get_DG_DiagonalMassMatrix(mm)
 
+  ! info .......................................................................
+
+  call XMPI_Reduce(n_elem, n_elem_tot, MPI_SUM, 0, comm)
+  n_point = n_elem_tot * (po+1)**3
+
+  if (rank == 0) then
+    write(*,'(/,A)') 'initialization of operators'
+    write(*,'(T3,A,T30,9(G0,X))') 'problem:', trim(flow_problem)
+    write(*,'(T3,A,T30,9(G0,X))') 'domain:',  trim(domain_name)
+    write(*,'(T3,A,T30,9(G0,X))') 'boundary conditions:'  , problem % bc_v
+    write(*,'(T3,A,T30,9(G0,X))') 'number of processes:'  , n_proc
+    write(*,'(T3,A,T30,9(G0,X))') 'number of threads:'    , n_thread
+    write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of v:', ins_op % eop_v % po
+    write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of p:', ins_op % eop_p % po
+    write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature order:', ins_op % sop_q % po
+    write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature type:' , ins_op % sop_q % basis
+    write(*,'(T3,A,T30,9(G0,X))') 'number of mesh points:', n_point
+  end if
+
   ! exact solution and terms ...................................................
 
   associate(x => ins_op % sem_v % metrics % x)
@@ -313,11 +333,29 @@ program INS_Operator_3D_Test
     F_ch(:,:,:,:,i) = w(:,:,:,:,i) / mm
   end do
 
-  ! pressure term: F_p = -∇p ...................................................
+  ! error
+  w(:,:,:,:,1:3) = F_ch - F_ce
+  e_c = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), ins_op % mesh % comm)
+  e_c = sqrt(e_c / n_point)
 
-  ! viscous term, diffusion part: F_d1 = ∇·(ν ∇v) ..............................
-
+  ! viscous term: F_d = ∇·τ ....................................................
   ! so far ν is constant and boundaries are periodic of have Dirichlet BC
+
+  call ins_op % GetDiffusionTerm( problem % bc_v   &
+                                , problem % nu_ref &
+                                , v, up, sp, w     )
+
+  do i = 1, 3
+    F_dh(:,:,:,:,i) = w(:,:,:,:,i) / mm
+  end do
+
+  ! error
+  w(:,:,:,:,1:3) = F_dh - F_de
+  e_d = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), ins_op % mesh % comm)
+  e_d = sqrt(e_d / n_point)
+
+  ! diffusion part: w = ∇·(ν ∇v) ...............................................
+  ! using F_ph as workspace for F_d1h
 
   diffusion_op = DG_DiffusionOperator_3D( sem    = ins_op % sem_v      &
                                         , dg_opt = ins_options % opt_v &
@@ -327,98 +365,43 @@ program INS_Operator_3D_Test
 
   allocate(sebv_vi(n_bound))
 
-  do i = 1, 3
-    associate(r => w(:,:,:,:,i), f => w(:,:,:,:,4))
+  associate(r => w(:,:,:,:,1), f => w(:,:,:,:,4))
+    do i = 1, 3
 
       ! store boundary contribution in f and compute residual r
       f = 0
       call sebv_u % GetSlice(sebv_vi, first=i, last=i)
-!!!      call diffusion_op % AddBC(sebv_vi, f)
       call diffusion_op % Apply(v(:,:,:,:,i), r, f, sebv_vi) ! r = -M ∇·(ν ∇vᵢ)
 
       ! compute nodal values
-      F_dh(:,:,:,:,i) = -r / mm
+      F_ph(:,:,:,:,i) = -r / mm
 
-    end associate
-  end do
+    end do
+  end associate
 
-  ! viscous term, complete: F_d = ∇·τ ..........................................
+  ! error (if ν is constant)
+  w(:,:,:,:,1:3) = F_ph - F_de
+  e_d1 = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), ins_op % mesh % comm)
+  e_d1 = sqrt(e_d1 / n_point)
 
-!  call ins_op % GetDiffusionTerm( problem % bc_v   &
-!                                , problem % nu_ref &
-!                                , v, up, sp, w     )
-!
-!  do i = 1, 3
-!    F_dh(:,:,:,:,i) = w(:,:,:,:,i) / mm
-!  end do
+  ! deviation between F_dh and F_d1h
+  w(:,:,:,:,1:3) = F_ph - F_dh
+  d_d1 = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), ins_op % mesh % comm)
+  d_d1 = sqrt(d_d1 / n_point)
 
-  ! info .......................................................................
+  ! pressure term: F_p = -∇p ...................................................
 
-  call XMPI_Reduce(n_elem, n_elem_tot, MPI_SUM, 0, comm)
-  n_point = n_elem_tot * (po+1)**3
+  !-----------------------------------------------------------------------------
+  ! Result info
 
   if (rank == 0) then
+    write(*,'(/,A)') 'operator evaluation'
+    write(*,'(T3,A,T30,ES12.5)') 'convection          ε_c  =', e_c
+    write(*,'(T3,A,T30,ES12.5)') 'diffusion           ε_d  =', e_d
+    write(*,'(T3,A,T30,ES12.5)') '                    ε_d1 =', e_d1
+    write(*,'(T3,A,T30,ES12.5)') '                    δ_d1 =', d_d1
     write(*,*)
-    write(*,'(T3,A,T30,9(G0,X))') 'problem:', trim(flow_problem)
-    write(*,'(T3,A,T30,9(G0,X))') 'domain:',  trim(domain_name)
-    write(*,'(T3,A,T30,9(G0,X))') 'boundary conditions:'  , problem % bc_v
-    write(*,'(T3,A,T30,9(G0,X))') 'number of processes:'  , n_proc
-    write(*,'(T3,A,T30,9(G0,X))') 'number of threads:'    , n_thread
-    write(*,'(T3,A,T30,9(G0,X))') 'number of elements:'   , n_elem_tot
-    write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of v:', ins_op % eop_v % po
-    write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of p:', ins_op % eop_p % po
-    write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature order:', ins_op % sop_q % po
-    write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature type:' , ins_op % sop_q % basis
-    write(*,'(T3,A,T30,9(G0,X))') 'number of mesh points:', n_point
   end if
-
-!?!  !-----------------------------------------------------------------------------
-!?!  ! Consistency test
-!?!
-!?!  if (rank == 0) then
-!?!    write(*,'(/,A,/)') 'Consistency'
-!?!  end if
-!?!
-!?!  !$omp parallel
-!?!
-!?!  ! setup call
-!?!  call diffusion_op % Apply(u, r)
-!?!
-!?!  !$omp master
-!?!  if (rank == 0) time0 = MPI_Wtime()
-!?!  !$omp end master
-!?!
-!?!  do i = 1, n_test
-!?!    call diffusion_op % Apply(u, r, f)  ! r = A u - f
-!?!!   call diffusion_op % Apply(u, r)     ! r = A u
-!?!!   call MergeArrays(ONE, r, -ONE, f)   ! r = r - f
-!?!  end do
-!?!
-!?!  !$omp master
-!?!  if (rank == 0) time = MPI_Wtime()
-!?!  !$omp end master
-!?!
-!?!  r_l2 = ScalarProduct(r, r, comm)
-!?!  r_l2 = sqrt(r_l2)
-!?!
-!?!  !$omp end parallel
-!?!
-!?!  if (sem % mesh % part >= 0) then
-!?!    r_max_loc = maxval(abs(r))
-!?!  else
-!?!    r_max_loc = 0
-!?!  end if
-!?!  call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, comm)
-!?!
-!?!  if (rank == 0) then
-!?!    write(*,'(T3,A,T11,ES10.3)') 'r_L2  =', r_l2
-!?!    write(*,'(T3,A,T11,ES10.3)') 'r_max =', r_max
-!?!    if (n_test > 0) then
-!?!      time = (time - time0) / n_test
-!?!      write(*,'(T3,A,T11,ES10.3)') 't/DOF =', time / dof
-!?!      write(*,'(T3,A,T11,ES10.3)') 'DOF/t =', dof / time
-!?!    end if
-!?!  end if
 
   !-----------------------------------------------------------------------------
   ! Write plot files
