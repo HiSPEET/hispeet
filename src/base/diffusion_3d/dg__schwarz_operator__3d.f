@@ -37,7 +37,6 @@ module DG__Schwarz_Operator__3D
     integer :: wp = RDP       !< working precision {RDP,RSP}
     integer :: no = 1         !< number of overlapped points
     integer :: weighting = 5  !< weighting method {0,1,3,5,7,9}
-    logical :: fill = .false. !< switch to autofill irregular overlap zones
   contains
     procedure :: Bcast => Bcast_DG_SchwarzOptions_3D
   end type DG_SchwarzOptions_3D
@@ -167,7 +166,6 @@ module DG__Schwarz_Operator__3D
     integer :: po = -1     !< polynomial order
     integer :: no = -1     !< number of overlapped layers
     integer :: nc = -1     !< number of 1D configurations
-    logical :: fill        !< switch to autofill irregular overlap zones
     logical :: restrictive !< T/F for ex/including neighbor results
 
     integer, allocatable :: cfg(:,:) !< subdomain configurations (nc,*)
@@ -306,7 +304,6 @@ contains
     call XMPI_Bcast(this % wp        , root, comm)
     call XMPI_Bcast(this % no        , root, comm)
     call XMPI_Bcast(this % weighting , root, comm)
-    call XMPI_Bcast(this % fill      , root, comm)
 
   end subroutine Bcast_DG_SchwarzOptions_3D
 
@@ -406,7 +403,6 @@ contains
     this % po = po
     this % no = no
     this % nc = nc
-    this % fill = opt % fill
     this % restrictive = opt % weighting == 9 .or. no == 0
 
     if (allocated(this % cfg)) deallocate(this % cfg)
