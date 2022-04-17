@@ -81,11 +81,11 @@ contains
 
     call ComputeMeanSpacing (mesh)
 
-    write(*,'(T2,9(G0,1X))') 'number of elements:   ', mesh % n_elem
-    write(*,'(T2,9(G0,1X))') 'number of faces:      ', mesh % n_face
-    write(*,'(T2,9(G0,1X))') 'number of edges:      ', mesh % n_edge
-    write(*,'(T2,9(G0,1X))') 'number of vertices:   ', mesh % n_vert
-    write(*,'(T2,9(G0,1X))') 'number of boundaries: ', mesh % n_bound
+    write(*,'(T3,A,T30,9(G0,1X))') 'number of elements:   ', mesh % n_elem
+    write(*,'(T3,A,T30,9(G0,1X))') 'number of faces:      ', mesh % n_face
+    write(*,'(T3,A,T30,9(G0,1X))') 'number of edges:      ', mesh % n_edge
+    write(*,'(T3,A,T30,9(G0,1X))') 'number of vertices:   ', mesh % n_vert
+    write(*,'(T3,A,T30,9(G0,1X))') 'number of boundaries: ', mesh % n_bound
 
   end subroutine ImportGenericMesh
 
