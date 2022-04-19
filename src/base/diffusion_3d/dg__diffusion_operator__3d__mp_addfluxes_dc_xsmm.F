@@ -237,10 +237,10 @@ contains
 
     type(C_FunPtr), intent(out) :: kernel
     integer(LIBXSMM_BLASINT_KIND), intent(in) :: m, n, k
-    integer(LIBXSMM_BLASINT_KIND), intent(in), optional, target :: lda, ldb, ldc
-    real(C_FLOAT),  intent(in), optional, target :: alpha, beta
-    integer(C_INT), intent(in), optional, target :: flags
-    integer(C_INT), intent(in), optional, target :: prefetch
+    integer(LIBXSMM_BLASINT_KIND), target, optional, intent(in) :: lda, ldb, ldc
+    real(C_FLOAT),  target, optional, intent(in) :: alpha, beta
+    integer(C_INT), target, optional, intent(in) :: flags
+    integer(C_INT), target, optional, intent(in) :: prefetch
 
     call LIBXSMM_XMMDispatch( kernel, LIBXSMM_DATATYPE_F32       &
                             , m, n, k                            &
@@ -259,9 +259,9 @@ contains
     type(C_FunPtr), intent(out) :: kernel
     integer(LIBXSMM_BLASINT_KIND), intent(in) :: m, n, k
     integer(LIBXSMM_BLASINT_KIND), intent(in), optional, target :: lda, ldb, ldc
-    real(C_DOUBLE), intent(in), optional, target :: alpha, beta
-    integer(C_INT), intent(in), optional, target :: flags
-    integer(C_INT), intent(in), optional, target :: prefetch
+    real(C_DOUBLE), target, optional, intent(in) :: alpha, beta
+    integer(C_INT), target, optional, intent(in) :: flags
+    integer(C_INT), target, optional, intent(in) :: prefetch
 
     call LIBXSMM_XMMDispatch( kernel, LIBXSMM_DATATYPE_F64       &
                             , m, n, k                            &
