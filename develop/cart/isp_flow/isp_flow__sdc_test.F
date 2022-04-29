@@ -776,9 +776,9 @@ subroutine Evaluation(failed, last)
           ! physical dissipation . . . . . . . . . . . . . . . . . . . . . . . .
 
           ! element velocity gradient
-          call TPO_Grad( eop%D, mesh%dx, u(:,:,:,:,1), grad_v(:,:,:,:,1:3,1) )
-          call TPO_Grad( eop%D, mesh%dx, u(:,:,:,:,2), grad_v(:,:,:,:,1:3,2) )
-          call TPO_Grad( eop%D, mesh%dx, u(:,:,:,:,3), grad_v(:,:,:,:,1:3,3) )
+          call TPO_Grad(eop%w, eop%D, mesh%dx, u(:,:,:,:,1), v=grad_v(:,:,:,:,1:3,1))
+          call TPO_Grad(eop%w, eop%D, mesh%dx, u(:,:,:,:,2), v=grad_v(:,:,:,:,1:3,2))
+          call TPO_Grad(eop%w, eop%D, mesh%dx, u(:,:,:,:,3), v=grad_v(:,:,:,:,1:3,3))
 
           ! local element contributions to physical dissipation
           !$omp do reduction(+:eps_loc) schedule(static)
@@ -814,9 +814,9 @@ subroutine Evaluation(failed, last)
             end if
 
             ! element velocity gradient based on modified diff matrix
-            call TPO_Grad(Ds_svv, mesh%dx, u(:,:,:,:,1), grad_v(:,:,:,:,1:3,1))
-            call TPO_Grad(Ds_svv, mesh%dx, u(:,:,:,:,2), grad_v(:,:,:,:,1:3,2))
-            call TPO_Grad(Ds_svv, mesh%dx, u(:,:,:,:,3), grad_v(:,:,:,:,1:3,3))
+            call TPO_Grad(eop%w, Ds_svv, mesh%dx, u(:,:,:,:,1), v=grad_v(:,:,:,:,1:3,1))
+            call TPO_Grad(eop%w, Ds_svv, mesh%dx, u(:,:,:,:,2), v=grad_v(:,:,:,:,1:3,2))
+            call TPO_Grad(eop%w, Ds_svv, mesh%dx, u(:,:,:,:,3), v=grad_v(:,:,:,:,1:3,3))
 
             ! local element contributions to SVV dissipation
             !$omp do reduction(+:eps_svv_loc) schedule(static)

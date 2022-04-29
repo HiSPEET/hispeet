@@ -3,7 +3,7 @@
 
 add_library(HiIncNS 
             ins__operator__3d.f
-            ins__operator__3d__mp_getdiffusionterm_dc.f
+            ins__operator__3d__mp_getdiffusionterm_dc.F
             ins__problem__3d.f
             ins__problem__3d__vortex_tg.f
             ins__problem__3d__variable_viscosity.f

@@ -1,28 +1,45 @@
 !-------------------------------------------------------------------------------
 !> Parametrized 3d divergence kernel using hand-crafted suboperators (D)
 
-subroutine PROC(TPO_Div_D_Hand__,_NP_)(ne, Ds, Ji, u, v)
-
-  use Constants, only: ZERO, ONE
-
+subroutine PROC(TPO_Div_D_Hand__,_NP_)(ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
   integer,   intent(in)  :: ne                        !< num elements
+  real(RWP), intent(in)  :: Ms(_NP_)                  !< 1D standard mass matrix
   real(RWP), intent(in)  :: Ds(_NP_,_NP_)             !< standard diff matrix
+  real(RWP), intent(in)  :: Jd(_NP_,_NP_,_NP_,ne)     !< element Jacobian determinant
   real(RWP), intent(in)  :: Ji(_NP_,_NP_,_NP_,ne,3,3) !< inverse Jacobi matrix
+  real(RWP), intent(in)  :: a(_NP_,_NP_,6,ne)         !< face area coefficients
+  real(RWP), intent(in)  :: n(_NP_,_NP_,6,ne,3)       !< face unit normal vectors
   real(RWP), intent(in)  :: u(_NP_,_NP_,_NP_,ne,3)    !< 3D vector field
-  real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne) !< element-wise divergence of u
+  real(RWP), intent(in)  :: up(_NP_,_NP_,6,ne,3)      !< exterior traces u⁺ at faces
+  real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne)      !< divergence of u
+
+  optional :: Ms, Jd, a, n, up
+
+  !-----------------------------------------------------------------------------
+  ! local variables
+
+  real(RWP), parameter :: ZERO = 0, ONE = 1
 
   real(RWP) :: r(_NP_,_NP_,_NP_)
   real(RWP) :: s(_NP_,_NP_,_NP_)
   real(RWP) :: t(_NP_,_NP_,_NP_)
   real(RWP) :: w(_NP_,_NP_,_NP_)
-  real(RWP) :: A(_NP_,_NP_)
+  real(RWP) :: Ds_t(_NP_,_NP_)
 
-  integer :: e
+  real(RWP) :: c
+  integer   :: e, f, i, j, k
+  logical   :: fluxes
 
   !-----------------------------------------------------------------------------
   ! initialization
 
-  A = transpose(Ds)
+  fluxes = present(Ms) .and. &
+           present(Jd) .and. &
+           present(a)  .and. &
+           present(n)  .and. &
+           present(up)
+
+  Ds_t = transpose(Ds)
 
   r = 0  ! avoid trouble with NaNs
   s = 0  ! avoid trouble with NaNs
@@ -38,11 +55,11 @@ subroutine PROC(TPO_Div_D_Hand__,_NP_)(ne, Ds, Ji, u, v)
     ! direction 1 ..............................................................
 
     ! r = ∂u₁/∂ξ
-    call PROC(IxIxQt__,_NP_)(A, ONE, ZERO , u(:,:,:,e,1), r)
+    call PROC(IxIxQt__,_NP_)(Ds_t, ONE, ZERO , u(:,:,:,e,1), r)
     ! s = ∂u₁/∂η
-    call PROC(IxQtxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,1), s)
+    call PROC(IxQtxI__,_NP_)(Ds_t, ONE, ZERO , u(:,:,:,e,1), s)
     ! t = ∂u₁/∂ζ
-    call PROC(QtxIxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,1), t)
+    call PROC(QtxIxI__,_NP_)(Ds_t, ONE, ZERO , u(:,:,:,e,1), t)
 
     w = r * Ji(:,:,:,e,1,1) &
       + s * Ji(:,:,:,e,2,1) &
@@ -51,11 +68,11 @@ subroutine PROC(TPO_Div_D_Hand__,_NP_)(ne, Ds, Ji, u, v)
     ! direction 2 ..............................................................
 
     ! r = ∂u₂/∂ξ
-    call PROC(IxIxQt__,_NP_)(A, ONE, ZERO , u(:,:,:,e,2), r)
+    call PROC(IxIxQt__,_NP_)(Ds_t, ONE, ZERO , u(:,:,:,e,2), r)
     ! s = ∂u₂/∂η
-    call PROC(IxQtxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,2), s)
+    call PROC(IxQtxI__,_NP_)(Ds_t, ONE, ZERO , u(:,:,:,e,2), s)
     ! t = ∂u₂/∂ζ
-    call PROC(QtxIxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,2), t)
+    call PROC(QtxIxI__,_NP_)(Ds_t, ONE, ZERO , u(:,:,:,e,2), t)
 
     w = w + r * Ji(:,:,:,e,1,2) &
           + s * Ji(:,:,:,e,2,2) &
@@ -64,18 +81,65 @@ subroutine PROC(TPO_Div_D_Hand__,_NP_)(ne, Ds, Ji, u, v)
     ! direction 3 ..............................................................
 
     ! r = ∂u₃/∂ξ
-    call PROC(IxIxQt__,_NP_)(A, ONE, ZERO , u(:,:,:,e,3), r)
+    call PROC(IxIxQt__,_NP_)(Ds_t, ONE, ZERO , u(:,:,:,e,3), r)
     ! s = ∂u₃/∂η
-    call PROC(IxQtxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,3), s)
+    call PROC(IxQtxI__,_NP_)(Ds_t, ONE, ZERO , u(:,:,:,e,3), s)
     ! t = ∂u₃/∂ζ
-    call PROC(QtxIxI__,_NP_)(A, ONE, ZERO , u(:,:,:,e,3), t)
-
+    call PROC(QtxIxI__,_NP_)(Ds_t, ONE, ZERO , u(:,:,:,e,3), t)
 
     w = w + r * Ji(:,:,:,e,1,3) &
           + s * Ji(:,:,:,e,2,3) &
           + t * Ji(:,:,:,e,3,3)
 
     v(:,:,:,e) = w
+
+    ! fluxes ...................................................................
+
+    if (fluxes) then
+
+      ! faces 1 and 2
+      do f = 1, 2
+        i = 1 + (_NP_ - 1) * (f - 1)
+        do k = 1, _NP_
+        do j = 1, _NP_
+          c = a(j,k,f,e) / (2 * Ms(i ) * Jd(i,j,k,e))
+          v(i,j,k,e) = v(i,j,k,e)                                         &
+                     + c * n(j,k,f,e,1) * (up(j,k,f,e,1) - u(i,j,k,e,1))  &
+                     + c * n(j,k,f,e,2) * (up(j,k,f,e,2) - u(i,j,k,e,2))  &
+                     + c * n(j,k,f,e,3) * (up(j,k,f,e,3) - u(i,j,k,e,3))
+        end do
+        end do
+      end do
+
+      ! faces 3 and 4
+      do f = 3, 4
+        j = 1 + (_NP_ - 1) * (f - 3)
+        do k = 1, _NP_
+        do i = 1, _NP_
+          c = a(i,k,f,e) / (2 * Ms(j) * Jd(i,j,k,e))
+          v(i,j,k,e) = v(i,j,k,e)                                         &
+                     + c * n(i,k,f,e,1) * (up(i,k,f,e,1) - u(i,j,k,e,1))  &
+                     + c * n(i,k,f,e,2) * (up(i,k,f,e,2) - u(i,j,k,e,2))  &
+                     + c * n(i,k,f,e,3) * (up(i,k,f,e,3) - u(i,j,k,e,3))
+        end do
+        end do
+      end do
+
+      ! faces 5 and 6
+      do f = 5, 6
+        k = 1 + (_NP_ - 1) * (f - 5)
+        do j = 1, _NP_
+        do i = 1, _NP_
+          c = a(i,j,f,e) / (2 * Ms(k) * Jd(i,j,k,e))
+          v(i,j,k,e) = v(i,j,k,e)                                         &
+                     + c * n(i,j,f,e,1) * (up(i,j,f,e,1) - u(i,j,k,e,1))  &
+                     + c * n(i,j,f,e,2) * (up(i,j,f,e,2) - u(i,j,k,e,2))  &
+                     + c * n(i,j,f,e,3) * (up(i,j,f,e,3) - u(i,j,k,e,3))
+        end do
+        end do
+      end do
+
+    end if
 
   end do
 

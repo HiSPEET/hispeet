@@ -19,11 +19,18 @@ module TPO__Div__3D_R
 
 contains
 
-  subroutine TPO_Div_R_RDP(Ds, dx, u, v)
-    real(RDP), intent(in)  :: Ds(:,:)          !< 1D standard stiffness matrix
-    real(RDP), intent(in)  :: dx(3)            !< element extensions
-    real(RDP), intent(in)  :: u(:,:,:,:,:)     !< 3D vector field
-    real(RDP), intent(out) :: v(:,:,:,:)       !< element-wise divergence of u
+  !-----------------------------------------------------------------------------
+  !> 3D divergence element operator (R)
+
+  subroutine TPO_Div_R_RDP(Ms, Ds, dx, u, up, v)
+    real(RDP), intent(in)  :: Ms(:)         !< 1D standard mass matrix
+    real(RDP), intent(in)  :: Ds(:,:)       !< 1D standard stiffness matrix
+    real(RDP), intent(in)  :: dx(3)         !< element extensions
+    real(RDP), intent(in)  :: u(:,:,:,:,:)  !< 3D vector field
+    real(RDP), intent(in)  :: up(:,:,:,:,:) !< exterior traces u⁺ at faces
+    real(RDP), intent(out) :: v(:,:,:,:)    !< divergence of u
+
+    optional :: Ms, up
 
     integer :: np, ne
 
@@ -34,11 +41,11 @@ contains
 
 #ifdef __LIBXSMM__
     case(4:)
-      call TPO_Div_R_XSMM(np, ne, Ds, dx, u, v)
+      call TPO_Div_R_XSMM(np, ne, Ms, Ds, dx, u, up, v)
 #endif
 
     case default
-      call TPO_Div_R_Hand(np, ne, Ds, dx, u, v)
+      call TPO_Div_R_Hand(np, ne, Ms, Ds, dx, u, up, v)
 
     end select
 

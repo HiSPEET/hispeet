@@ -147,7 +147,8 @@ program Validate__TPO__Grad__3D_D
   associate( Ms => standard_op % w        &
            , Ds => standard_op % D        &
            , x  => se_mesh % metrics % x  &
-           , Ji => se_mesh % metrics % Ji)
+           , Jd => se_mesh % metrics % Jd &
+           , Ji => se_mesh % metrics % Ji )
 
     do e = 1, ne
 
@@ -210,14 +211,14 @@ program Validate__TPO__Grad__3D_D
 
     !$omp parallel
 
-    call TPO_Grad_D_Gen(po+1, ne, Ds, Ji, u, v)
+    call TPO_Grad_D_Gen(po+1, ne, Ms, Ds, Jd, Ji, u=u, v=v)
 
     !$omp master
     call system_clock(count0, rate)
     !$omp end master
 
     do i = 1, nt
-      call TPO_Grad_D_Gen(po+1, ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Gen(po+1, ne, Ms, Ds, Jd, Ji, u=u, v=v)
     end do
 
     !$omp master
@@ -237,7 +238,7 @@ program Validate__TPO__Grad__3D_D
 
     !$omp parallel
 
-    call TPO_Grad(Ds, Ji, u, v)
+    call TPO_Grad(Ms, Ds, Jd, Ji, u=u, v=v)
     !$acc wait
 
     !$omp master
@@ -245,7 +246,7 @@ program Validate__TPO__Grad__3D_D
     !$omp end master
 
     do i = 1, nt
-      call TPO_Grad(Ds, Ji, u, v)
+      call TPO_Grad(Ms, Ds, Jd, Ji, u=u, v=v)
     end do
 
     !$omp master

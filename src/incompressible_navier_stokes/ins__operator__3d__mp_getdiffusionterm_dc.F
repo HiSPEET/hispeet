@@ -5,6 +5,12 @@
 !===============================================================================
 
 submodule(INS__Operator__3D) MP_GetDiffusionTerm_DC
+
+#ifdef __LIBXSMM__
+  use LIBXSMM
+#endif
+
+  use C_Binding
   use TPO__Stress__3D
   use Mesh_Element__3D
   use Element_Face_Transfer_Buffer__3D
@@ -166,7 +172,9 @@ contains
 
     ! local variables ..........................................................
 
-    real(RNP), dimension(0:P, 0:P)       :: M_f
+    type(C_FunPtr), save :: xmm
+
+    real(RNP), dimension(0:P, 0:P)       :: M_f, Ds_t
     real(RNP), dimension(0:P, 0:P, 3)    :: C0
     real(RNP), dimension(0:P, 0:P, 2, 3) :: Ct, Ds_Ct
     real(RNP), dimension(0:P, 0:P, 6, 3) :: Cn
@@ -174,6 +182,23 @@ contains
     real(RNP) :: tmp
     integer   :: c, e, f, i, j, k
     logical   :: struct
+
+#ifdef __LIBXSMM__
+
+    !$omp single
+    select case(RNP)
+    case(RSP)
+      call DispatchKernel_RSP(xmm, P)
+    case(RDP)
+      call DispatchKernel_RDP(xmm, P)
+    case default
+      call Error( 'AddFluxes'                                &
+                , 'Precision not supported'                  &
+                , 'INS__Operator__3D:MP_GetDiffusionTerm_DC' )
+    end select
+    !$omp end single
+
+#endif
 
     associate(Ms => eop % w, Ds => eop % D)
 
@@ -189,6 +214,8 @@ contains
         M_f(i,j) = Ms(i) * Ms(j)
       end do
       end do
+
+      Ds_t = transpose(Ds)
 
       !$omp do
       do e = 1, mesh % n_elem
@@ -262,7 +289,11 @@ contains
           case(2)
             call TangentialDerivatives(2, Ds, Ct, Ds_Ct)
           case default
+#ifdef __LIBXSMM__
+            call LIBXSMM_XMMCall(xmm, Ds_t, Ct, Ds_Ct)
+#else
             call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
+#endif
           end select
 
           do c = 1, 3
@@ -348,7 +379,11 @@ contains
           case(2)
             call TangentialDerivatives(2, Ds, Ct, Ds_Ct)
           case default
+#ifdef __LIBXSMM__
+            call LIBXSMM_XMMCall(xmm, Ds_t, Ct, Ds_Ct)
+#else
             call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
+#endif
           end select
 
           do c = 1, 3
@@ -434,7 +469,11 @@ contains
           case(2)
             call TangentialDerivatives(2, Ds, Ct, Ds_Ct)
           case default
+#ifdef __LIBXSMM__
+            call LIBXSMM_XMMCall(xmm, Ds_t, Ct, Ds_Ct)
+#else
             call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
+#endif
           end select
 
           do c = 1, 3
@@ -600,6 +639,62 @@ contains
     end do
 
   end subroutine TangentialDerivatives
+
+#ifdef __LIBXSMM__
+
+  !-----------------------------------------------------------------------------
+  !> Routine for dispatching a single precision XSMM kernel
+
+  subroutine DispatchKernel_RSP(kernel, P, lda, ldb, ldc, flags, prefetch)
+
+    type(C_FunPtr), intent(out) :: kernel
+    integer, intent(in) :: P
+    integer(LIBXSMM_BLASINT_KIND), target, optional, intent(in) :: lda, ldb, ldc
+    integer(C_INT), target, optional, intent(in) :: flags
+    integer(C_INT), target, optional, intent(in) :: prefetch
+
+    integer(LIBXSMM_BLASINT_KIND) :: m, n, k
+    real(C_FLOAT), target :: alpha = 1, beta = 0
+
+    m = P + 1
+    n = m * 6
+    k = m
+
+    call LIBXSMM_XMMDispatch( kernel, LIBXSMM_DATATYPE_F32       &
+                            , m, n, k                            &
+                            , c_loc(lda), c_loc(ldb), c_loc(ldc) &
+                            , c_loc(alpha), c_loc(beta)          &
+                            , c_loc(flags), c_loc(prefetch)      )
+
+  end subroutine DispatchKernel_RSP
+
+  !-----------------------------------------------------------------------------
+  !> Routine for dispatching a double precision XSMM kernel
+
+  subroutine DispatchKernel_RDP(kernel, P, lda, ldb, ldc, flags, prefetch)
+
+    type(C_FunPtr), intent(out) :: kernel
+    integer, intent(in) :: P
+    integer(LIBXSMM_BLASINT_KIND), intent(in), optional, target :: lda, ldb, ldc
+    integer(C_INT), target, optional, intent(in) :: flags
+    integer(C_INT), target, optional, intent(in) :: prefetch
+
+    integer(LIBXSMM_BLASINT_KIND) :: m, n, k
+    real(C_DOUBLE), target :: alpha = 1, beta = 0
+
+    m = P + 1
+    n = m * 6
+    k = m
+
+    call LIBXSMM_XMMDispatch( kernel, LIBXSMM_DATATYPE_F64       &
+                            , m, n, k                            &
+                            , c_loc(lda), c_loc(ldb), c_loc(ldc) &
+                            , c_loc(alpha), c_loc(beta)          &
+                            , c_loc(flags), c_loc(prefetch)      )
+
+  end subroutine DispatchKernel_RDP
+
+#endif
 
   !=============================================================================
 

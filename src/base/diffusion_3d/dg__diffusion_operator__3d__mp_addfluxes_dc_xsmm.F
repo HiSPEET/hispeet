@@ -42,7 +42,7 @@ contains
     real(RNP), dimension(0:eop%po, 0:eop%po, 2) :: Ct, Ds_Ct
     real(RNP), dimension(0:eop%po, 0:eop%po, 6) :: Cn
     real(RNP) :: mu_nu, tmp
-    integer   :: e, i, j, k, m, n
+    integer   :: e, i, j, k, m
     logical   :: present_f, struct
 
     associate( P  => eop % po, &
@@ -50,24 +50,20 @@ contains
 
       ! auxiliaries ............................................................
 
-      !$omp master
+      !$omp single
 
       ! dispatch XSMM kernel
-      m = P + 1
-      n = m * 2
-      k = m
       select case(RNP)
       case(RSP)
-        call DispatchKernel_RSP(xmm, m, n, k, alpha = 1E0, beta = 0E0)
+        call DispatchKernel_RSP(xmm, P)
       case(RDP)
-        call DispatchKernel_RDP(xmm, m, n, k, alpha = 1D0, beta = 0D0)
+        call DispatchKernel_RDP(xmm, P)
       case default
         call Error( 'AddFluxes_XSMM'                                  &
                   , 'Precision not supported'                         &
                   , 'DG__Diffusion_Operator__3D:MP_AddFLuxes_DC_XSMM' )
       end select
-      !$omp end master
-      !$omp barrier
+      !$omp end single
 
       ! face standard mass matrix
       do j = 0, P
@@ -232,15 +228,20 @@ contains
   !-----------------------------------------------------------------------------
   !> Routine for dispatching a single precision XSMM kernel
 
-  subroutine DispatchKernel_RSP( kernel, m, n, k, lda, ldb, ldc, alpha, beta &
-                               , flags, prefetch )
+  subroutine DispatchKernel_RSP(kernel, P, lda, ldb, ldc, flags, prefetch)
 
     type(C_FunPtr), intent(out) :: kernel
-    integer(LIBXSMM_BLASINT_KIND), intent(in) :: m, n, k
+    integer, intent(in) :: P
     integer(LIBXSMM_BLASINT_KIND), target, optional, intent(in) :: lda, ldb, ldc
-    real(C_FLOAT),  target, optional, intent(in) :: alpha, beta
     integer(C_INT), target, optional, intent(in) :: flags
     integer(C_INT), target, optional, intent(in) :: prefetch
+
+    integer(LIBXSMM_BLASINT_KIND) :: m, n, k
+    real(C_FLOAT), target :: alpha = 1, beta = 0
+
+    m = P + 1
+    n = m * 2
+    k = m
 
     call LIBXSMM_XMMDispatch( kernel, LIBXSMM_DATATYPE_F32       &
                             , m, n, k                            &
@@ -253,15 +254,20 @@ contains
   !-----------------------------------------------------------------------------
   !> Routine for dispatching a double precision XSMM kernel
 
-  subroutine DispatchKernel_RDP( kernel, m, n, k, lda, ldb, ldc, alpha, beta &
-                               , flags, prefetch )
+  subroutine DispatchKernel_RDP(kernel, P, lda, ldb, ldc, flags, prefetch)
 
     type(C_FunPtr), intent(out) :: kernel
-    integer(LIBXSMM_BLASINT_KIND), intent(in) :: m, n, k
+    integer, intent(in) :: P
     integer(LIBXSMM_BLASINT_KIND), intent(in), optional, target :: lda, ldb, ldc
-    real(C_DOUBLE), target, optional, intent(in) :: alpha, beta
     integer(C_INT), target, optional, intent(in) :: flags
     integer(C_INT), target, optional, intent(in) :: prefetch
+
+    integer(LIBXSMM_BLASINT_KIND) :: m, n, k
+    real(C_DOUBLE), target :: alpha = 1, beta = 0
+
+    m = P + 1
+    n = m * 2
+    k = m
 
     call LIBXSMM_XMMDispatch( kernel, LIBXSMM_DATATYPE_F64       &
                             , m, n, k                            &
