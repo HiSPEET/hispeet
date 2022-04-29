@@ -82,15 +82,19 @@ contains
       ! element volume contributions ...........................................
 
 !### CHECK
+!$omp master
 !time0 = MPI_Wtime()
+!$omp end master
 !### CHECK END
       call TPO_Stress( eop%w, eop%D, Jd, Ji, n, mu, nu, v &
                      , fv = F_d                           &
                      , vb = tr(:,:,:,:,1:3)               &
                      , sb = tr(:,:,:,:,4:6)               )
 !### CHECK
+!$omp master
 !time = MPI_Wtime()
 !print *, 'TPO_Stress: t = ', time - time0
+!$omp end master
 !### CHECK END
 
       ! transfer traces ........................................................
