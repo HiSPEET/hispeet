@@ -5,7 +5,7 @@ add_executable( ins_operator_3d_test
                 ins_operator_3d_test.f
               )
 
-target_link_libraries(ins_operator_3d_test HiIncompressibleNS)
+target_link_libraries(ins_operator_3d_test HiIncNS)
 
 file( COPY
           ins_operator_3d_test.prm

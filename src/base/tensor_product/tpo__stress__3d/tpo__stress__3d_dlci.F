@@ -7,8 +7,8 @@
 module TPO__Stress__3D_DLCI
   use Kind_Parameters, only: RDP
 ! use TPO__Stress__3D_DLCI__Hand
-! use TPO__Stress__3D_DLCI__XSMM
-  use TPO__Stress__3D_DLCI__Gen ! workaround until the upper two become available
+  use TPO__Stress__3D_DLCI__Gen ! workaround until the upper becomes available
+  use TPO__Stress__3D_DLCI__XSMM
   implicit none
   private
 
@@ -58,8 +58,16 @@ contains
     real(RDP), contiguous, optional, intent(out) :: sb(:,:,:,:,:)
     !< stress normal to element boundary fluxes, sb = n⁻⋅τ⁻ (np,np,6,ne+ng,3)
 
-    ! workaround
-    call TPO_Stress_DLCI_Gen(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
+    select case(size(Ms))
+
+#ifdef __LIBXSMM__
+    case(3:)
+      call TPO_Stress_DLCI_XSMM(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
+#endif
+
+    case default
+      call TPO_Stress_DLCI_Gen(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
+    end select
 
   end subroutine TPO_Stress_DLCI_RDP
 

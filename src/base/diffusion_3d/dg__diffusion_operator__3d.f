@@ -43,6 +43,7 @@ contains
 !   procedure :: AddBC
     procedure :: CG_Method
     procedure :: Schwarz_Method
+    procedure :: SchwarzPCG_Method
 
     procedure, private :: Init_C0, Init_CC, Init_V
     procedure, private :: SetDiffusivity_C, SetDiffusivity_V
@@ -341,14 +342,9 @@ contains
         call this % Apply(p, q)
 
         pq = ScalarProduct(p, q, mesh%comm)
-!print '(A,G0)', 'rr_old = ', rr_old
-!print '(A,G0)', 'pq1 = ', pq
         pq = sign(max(abs(pq),eps), pq)
-!print '(A,G0)', 'pq2 = ', pq
         alpha = rr_old / pq
-!print '(A,G0)', 'alpha = ', alpha
         call MergeArrays(ONE, u, -alpha, p)
-!was!   call MergeArrays(ONE, u, alpha, p)
 
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
@@ -382,9 +378,12 @@ contains
   subroutine Schwarz_Method(this, u, f, bv, i_max, r_red, r_max, standby, ni)
 
     class(DG_DiffusionOperator_3D), intent(in) :: this
-    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:) !< BC
     real(RNP),           intent(inout) :: u(:,:,:,:) !< approximate solution
     real(RNP),           intent(in)    :: f(:,:,:,:) !< right hand side
+
+    class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
+    !< boundary values [homogeneous]
+
     integer,             intent(in)    :: i_max      !< max num iterations
     real(RNP), optional, intent(in)    :: r_red      !< min residual reduction
     real(RNP), optional, intent(in)    :: r_max      !< max admissible residual
@@ -542,6 +541,153 @@ contains
     end associate
 
   end subroutine Schwarz_Method
+
+  !-----------------------------------------------------------------------------
+  !> Schwarz-preconditioned conjugate gradient method
+
+  subroutine SchwarzPCG_Method(this, u, f, bv, i_max, r_red, r_max, ni)
+
+    class(DG_DiffusionOperator_3D), intent(in) :: this
+    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:) !< BC
+    real(RNP),           intent(inout) :: u(:,:,:,:) !< approximate solution
+    real(RNP),           intent(in)    :: f(:,:,:,:) !< right hand side
+    integer,             intent(in)    :: i_max      !< max num iterations
+    real(RNP), optional, intent(in)    :: r_red      !< min residual reduction
+    real(RNP), optional, intent(in)    :: r_max      !< max admissible residual
+    integer,   optional, intent(out)   :: ni         !< executed num iterations
+
+    contiguous :: u, f
+
+    ! local variables ..........................................................
+
+    real(RNP), dimension(:,:,:,:), allocatable, save :: r, p, q, s, z
+    real(RNP), save :: rr_term
+    logical  , save :: converged
+
+    real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
+    real(RNP) :: alpha, beta, delta, rr !, rr_old
+    logical   :: check_convergence, singular
+    integer   :: i, i_max_
+
+    ! initialization ...........................................................
+
+    associate(mesh => this % sem % mesh)
+
+      ! work space
+      !$omp master
+      allocate(r, mold = u)
+      allocate(p, mold = u)
+      allocate(q, mold = u)
+      allocate(s, mold = u)
+      allocate(z, mold = u)
+      !$omp end master
+      !$omp barrier
+
+      check_convergence = present(r_red) .or. present(r_max)
+      singular = abs(this%lambda) < epsilon(ONE) .and. all(this%bc /= 'D')
+
+      ! initial residual .......................................................
+
+      ! r = Au - f
+      call this % Apply(u, r, f, bv)
+      if (singular) then
+        call CalibrateArray(r, mesh%comm)
+      end if
+
+      ! termination conditions
+      if (check_convergence) then
+        rr = ScalarProduct(r, r, mesh%comm)
+        !$omp master
+        if (present(r_red)) then
+          rr_term  = max(ZERO, sqrt(rr) * r_red)**2
+        else
+          rr_term = 0
+        end if
+        if (present(r_max)) then
+          rr_term = max(rr_term, max(ZERO, r_max)**2)
+        end if
+        converged = rr <= rr_term
+        call XMPI_Bcast(converged, root=0, comm=mesh%comm)
+        !$omp end master
+        !$omp barrier
+      else
+        !$omp master
+        converged = .false.
+        !$omp end master
+        !$omp barrier
+      end if
+
+      if (converged) then
+        i_max_ = 0
+        i      = 0
+      else
+        i_max_ = i_max
+      end if
+
+      ! iteration ...............................................................
+
+      do i = 1, i_max_
+
+        ! Schwarz preconditioner, z = (Aˢ)⁻¹ (Au - f) with homogeneous BC
+        call SetArray(z, ZERO)
+        call this % Schwarz_Method(z, r, i_max = 1, standby = i < i_max_)
+
+        ! set/update search vector
+        if (i == 1) then
+          if (singular) then
+            call CalibrateArray(z, mesh%comm)
+          end if
+          call SetArray(p, z)                               ! p = z
+        else
+          call SetArray(q, r)                               ! q = r
+          call MergeArrays(ONE, q, -ONE, s)                 ! q = r - s
+          beta = ScalarProduct(q, z, mesh%comm) / delta
+          call MergeArrays(beta, p, ONE, z)                 ! p = beta p + z
+        end if
+
+        ! save old residual
+        call SetArray(s, r)
+
+        ! correction
+        call this % Apply(p, q)
+        delta = ScalarProduct(r, z, mesh%comm)
+        alpha = delta / ScalarProduct(p, q, mesh%comm)
+        call MergeArrays(ONE, u, -alpha, p)
+
+        if (mod(i,50) == 0) then
+          ! compute true residual to get rid of round-off errors
+          call this % Apply(u, r, f, bv)
+          if (singular) then
+            call CalibrateArray(r, mesh%comm)
+          end if
+        else
+          call MergeArrays(ONE, r, -alpha, q)
+        end if
+
+        if (check_convergence) then
+          rr = ScalarProduct(r, r, mesh%comm)
+          !$omp master
+          converged = rr <= rr_term
+          call XMPI_Bcast(converged, root=0, comm=mesh%comm)
+          !$omp end master
+          !$omp barrier
+        end if
+
+        if (converged .or. i == i_max_) exit
+
+      end do
+
+      ! finalization ...........................................................
+
+      if (present(ni)) ni = i
+
+      !$omp master
+      deallocate(p, q, r, s, z)
+      !$omp end master
+
+    end associate
+
+  end subroutine SchwarzPCG_Method
 
 !?!  !-----------------------------------------------------------------------------
 !?!  !> Addition of boundary conditions to the right hande side

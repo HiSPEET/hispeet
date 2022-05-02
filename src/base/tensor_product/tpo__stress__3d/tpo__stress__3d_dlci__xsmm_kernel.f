@@ -4,12 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !> @todo
-!>   - add argument lambda
-!>   - replace argument v  by u = [  v,  p ]
-!>   - replace argument fv by r = [ rw, rq ]
-!>   - replace argument vp by up
-!>   - add (optional?) argument f
-!>   - move RSP/RDP DispatchKernels routines into enclosing modules
+!>   ? add argument lambda
 !>
 !===============================================================================
 
@@ -57,13 +52,13 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
   ! LIBXSMM kernel handles
   type(C_FunPtr), save :: xmm_grad(3), xmm_div(3)
 
-  real(RDP), dimension(size(Ms), size(Ms))                 :: Ds_t
+  real(RWP), dimension(size(Ms), size(Ms))                 :: Ds_t
   real(RWP), dimension(size(Ms), size(Ms), size(Ms))       :: M
   real(RWP), dimension(size(Ms), size(Ms), size(Ms), 3)    :: w, z
   real(RWP), dimension(size(Ms), size(Ms), size(Ms), 3, 3) :: tau
 
-  real(RWP) :: chi, dv(3), tmp
-  integer   :: c, e, f, i, j, k, p, np, ne
+  real(RWP) :: chi, dv(3)
+  integer   :: c, e, f, i, j, k, np, ne
   logical   :: get_traces
 
   !-----------------------------------------------------------------------------
@@ -80,7 +75,14 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
 
   ! XSMM kernel dispatch
   !$omp master
-  call DispatchKernels(xmm_grad, xmm_div, np)
+  select case(RWP)
+  case(kind(1E0))
+    call DispatchKernels_RSP(xmm_grad, xmm_div, np)
+  case(kind(1D0))
+    call DispatchKernels_RDP(xmm_grad, xmm_div, np)
+  case default
+    error stop '*** TPO_Stress_DLCI_XSMM_RWP: no match for RWP'
+  end select
   !$omp end master
   !$omp barrier
 
@@ -107,11 +109,11 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
     do c = 1, 3
 
       ! standard derivatives of vc
-      call LIBXSMM_DMMCall(xmm_grad(1), Ds, v(:,:,:,e,c), w(:,:,:,1))
+      call LIBXSMM_XMMCall(xmm_grad(1), Ds, v(:,:,:,e,c), w(:,:,:,1))
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_grad(2), v(:,:,k,e,v), Ds_t, w(:,:,k,2))
+        call LIBXSMM_XMMCall(xmm_grad(2), v(:,:,k,e,c), Ds_t, w(:,:,k,2))
       end do
-      call LIBXSMM_DMMCall(xmm_grad(3), v(:,:,:,e,c), Ds_t, w(:,:,:,3))
+      call LIBXSMM_XMMCall(xmm_grad(3), v(:,:,:,e,c), Ds_t, w(:,:,:,3))
 
       ! tau = η(∇v + ∇vᵀ) + χ∇⋅v
       do k = 1, np
@@ -171,7 +173,7 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
     end do
 
     ! z = [I x I x (Dˢ)ᵀ] w
-    call LIBXSMM_DMMCall(xmm_div(1), Ds_t, w, z)
+    call LIBXSMM_XMMCall(xmm_div(1), Ds_t, w, z)
 
     ! w = M ΣᵣJ⁻¹(2,r)⋅τ(r,1:3), exploiting symmetry of τ
     do k = 1, np
@@ -196,7 +198,7 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
     ! z += [I x (Dˢ)ᵀ x I] w
     do c = 1, 3
       do k = 1, np
-        call LIBXSMM_DMMCall(xmm_div(2), w(:,:,k,c), Ds, z(:,:,k,c))
+        call LIBXSMM_XMMCall(xmm_div(2), w(:,:,k,c), Ds, z(:,:,k,c))
       end do
     end do
 
@@ -222,7 +224,7 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
 
     ! z += [(Dˢ)ᵀ x I x I] w
     do c = 1, 3
-      call LIBXSMM_DMMCall(xmm_div(3), w(:,:,:,c), Ds, z(:,:,:,c))
+      call LIBXSMM_XMMCall(xmm_div(3), w(:,:,:,c), Ds, z(:,:,:,c))
     end do
 
     ! fv = -z
@@ -331,17 +333,17 @@ subroutine TPO_Stress_DLCI_XSMM_RWP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
 contains
 
   !-----------------------------------------------------------------------------
-  !> Routine for dispatching a single precision XSMM kernel
+  !> Routine for dispatching single precision XSMM kernels
 
-  subroutine DispatchKernels( xmm_grad, xmm_div, np          &
-                            , lda, ldb, ldc, flags, prefetch )
+  subroutine DispatchKernels_RSP( xmm_grad, xmm_div, np          &
+                                , lda, ldb, ldc, flags, prefetch )
 
     type(C_FunPtr)               , intent(out) :: xmm_grad (3)
     type(C_FunPtr)               , intent(out) :: xmm_div  (3)
     integer(LIBXSMM_BLASINT_KIND), intent(in)  :: np
-    integer(LIBXSMM_BLASINT_KIND), intent(in), target, optional :: lda, ldb, ldc
-    integer(C_INT)               , intent(in), target, optional :: flags
-    integer(C_INT)               , intent(in), target, optional :: prefetch
+    integer(LIBXSMM_BLASINT_KIND), target, optional, intent(in) :: lda, ldb, ldc
+    integer(C_INT)               , target, optional, intent(in) :: flags
+    integer(C_INT)               , target, optional, intent(in) :: prefetch
 
     real(C_FLOAT), target :: ZERO, ONE
     integer(LIBXSMM_BLASINT_KIND) :: np2
@@ -386,20 +388,20 @@ contains
                             , c_loc(ONE), c_loc(ONE)             &
                             , c_loc(flags), c_loc(prefetch)      )
 
-  end subroutine DispatchKernels
+  end subroutine DispatchKernels_RSP
 
   !-----------------------------------------------------------------------------
-  !> Routine for dispatching a double precision XSMM kernel
+  !> Routine for dispatching double precision XSMM kernels
 
-  subroutine DispatchKernels( xmm_grad, xmm_div, np          &
-                            , lda, ldb, ldc, flags, prefetch )
+  subroutine DispatchKernels_RDP( xmm_grad, xmm_div, np          &
+                                , lda, ldb, ldc, flags, prefetch )
 
     type(C_FunPtr)               , intent(out) :: xmm_grad (3)
     type(C_FunPtr)               , intent(out) :: xmm_div  (3)
     integer(LIBXSMM_BLASINT_KIND), intent(in)  :: np
-    integer(LIBXSMM_BLASINT_KIND), intent(in), target, optional :: lda, ldb, ldc
-    integer(C_INT)               , intent(in), target, optional :: flags
-    integer(C_INT)               , intent(in), target, optional :: prefetch
+    integer(LIBXSMM_BLASINT_KIND), target, optional, intent(in) :: lda, ldb, ldc
+    integer(C_INT)               , target, optional, intent(in) :: flags
+    integer(C_INT)               , target, optional, intent(in) :: prefetch
 
     real(C_DOUBLE), target :: ZERO, ONE
     integer(LIBXSMM_BLASINT_KIND) :: np2
@@ -444,7 +446,7 @@ contains
                             , c_loc(ONE), c_loc(ONE)             &
                             , c_loc(flags), c_loc(prefetch)      )
 
-  end subroutine DispatchKernels
+  end subroutine DispatchKernels_RDP
 
   !-----------------------------------------------------------------------------
 

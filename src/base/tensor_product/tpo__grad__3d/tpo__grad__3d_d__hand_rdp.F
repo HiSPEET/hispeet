@@ -19,85 +19,92 @@ module TPO__Grad__3D_D__Hand_RDP
 contains
 
   !-----------------------------------------------------------------------------
-  !> Gradient element operator based on handcrafted kernels (R)
+  !> Gradient element operator based on handcrafted kernels (D)
 
-  subroutine TPO_Grad_D_Hand_RWP(np, ne, Ds, Ji, u, v)
+  subroutine TPO_Grad_D_Hand_RWP(np, ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     integer,   intent(in)  :: np                  !< num points per direction
     integer,   intent(in)  :: ne                  !< num elements
-    real(RWP), intent(in)  :: Ds(np,np)           !< standard diff matrix
+    real(RWP), intent(in)  :: Ms(np)              !< 1D standard mass matrix
+    real(RWP), intent(in)  :: Ds(np,np)           !< 1D standard diff matrix
+    real(RWP), intent(in)  :: Jd(np,np,np,ne)     !< element Jacobian determinant
     real(RWP), intent(in)  :: Ji(np,np,np,ne,3,3) !< inverse Jacobi matrix
-    real(RWP), intent(in)  :: u(np,np,np,ne)      !< 3D scalar field
+    real(RWP), intent(in)  :: a(np,np,6,ne)       !< face area coefficients
+    real(RWP), intent(in)  :: n(np,np,6,ne,3)     !< face unit normal vectors
+    real(RWP), intent(in)  :: u(np,np,np,ne)      !< 3D scalar field u
+    real(RWP), intent(in)  :: up(np,np,6,ne)      !< exterior traces u⁺ at faces
     real(RWP), intent(out) :: v(np,np,np,ne,3)    !< element-wise gradient of u
+
+    optional :: Ms, Jd, a, n, up
 
     select case(np)
     case( 2)
-      call TPO_Grad_D_Hand__2  (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__2  (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case( 3)
-      call TPO_Grad_D_Hand__3  (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__3  (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case( 4)
-      call TPO_Grad_D_Hand__4  (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__4  (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case( 5)
-      call TPO_Grad_D_Hand__5  (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__5  (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case( 6)
-      call TPO_Grad_D_Hand__6  (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__6  (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case( 7)
-      call TPO_Grad_D_Hand__7  (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__7  (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
 #ifndef __LIBXSMM__
     case( 8)
-      call TPO_Grad_D_Hand__8  (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__8  (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case( 9)
-      call TPO_Grad_D_Hand__9  (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__9  (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(10)
-      call TPO_Grad_D_Hand__10 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__10 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(11)
-      call TPO_Grad_D_Hand__11 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__11 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(12)
-      call TPO_Grad_D_Hand__12 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__12 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(13)
-      call TPO_Grad_D_Hand__13 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__13 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(14)
-      call TPO_Grad_D_Hand__14 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__14 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(15)
-      call TPO_Grad_D_Hand__15 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__15 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(16)
-      call TPO_Grad_D_Hand__16 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__16 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(17)
-      call TPO_Grad_D_Hand__17 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__17 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(18)
-      call TPO_Grad_D_Hand__18 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__18 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(19)
-      call TPO_Grad_D_Hand__19 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__19 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(20)
-      call TPO_Grad_D_Hand__20 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__20 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(21)
-      call TPO_Grad_D_Hand__21 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__21 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(22)
-      call TPO_Grad_D_Hand__22 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__22 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(23)
-      call TPO_Grad_D_Hand__23 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__23 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(24)
-      call TPO_Grad_D_Hand__24 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__24 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(25)
-      call TPO_Grad_D_Hand__25 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__25 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(26)
-      call TPO_Grad_D_Hand__26 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__26 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(27)
-      call TPO_Grad_D_Hand__27 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__27 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(28)
-      call TPO_Grad_D_Hand__28 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__28 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(29)
-      call TPO_Grad_D_Hand__29 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__29 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(30)
-      call TPO_Grad_D_Hand__30 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__30 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(31)
-      call TPO_Grad_D_Hand__31 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__31 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(32)
-      call TPO_Grad_D_Hand__32 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__32 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     case(33)
-      call TPO_Grad_D_Hand__33 (ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Hand__33 (ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
 #endif
     case default
-      call TPO_Grad_D_Gen(np, ne, Ds, Ji, u, v)
+      call TPO_Grad_D_Gen(np, ne, Ms, Ds, Jd, Ji, a, n, u, up, v)
     end select
 
   end subroutine TPO_Grad_D_Hand_RWP

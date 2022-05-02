@@ -137,13 +137,13 @@ program Validate__TPO__Div_3d_R
     !$omp parallel
     !$acc data copyin(u) copyout(v)
 
-    call TPO_Div_R_Gen(np, ne, Ds, dx, u, v)
+    call TPO_Div_R_Gen(np, ne, Ds=Ds, dx=dx, u=u, v=v)
     !$acc wait
 
     call system_clock(count0, rate)
 
     do i = 1, nt
-    call TPO_Div_R_Gen(np, ne, Ds, dx, u, v)  
+    call TPO_Div_R_Gen(np, ne, Ds=Ds, dx=dx, u=u, v=v)
     !$acc wait
     end do
 
@@ -167,12 +167,12 @@ program Validate__TPO__Div_3d_R
     !$omp parallel
     !$acc data copyin(u) copyout(v)
 
-    call TPO_Div(Ds, dx, u, v)
+    call TPO_Div(Ds=Ds, dx=dx, u=u, v=v)
     !$acc wait
 
     call system_clock(count0, rate)
     do i = 1, nt
-      call TPO_Div(Ds, dx, u, v)
+      call TPO_Div(Ds=Ds, dx=dx, u=u, v=v)
       !$acc wait
     end do
 

@@ -111,6 +111,7 @@ program DG_Diffusion3D_Test
   ! 0  none
   ! 1  CG
   ! 2  Schwarz
+  ! 3  Schwarz-preconditioned CG
 
   integer   :: i_max   = 1    ! max number of iterations/cycles
   real(RNP) :: r_red   = 1E-3 ! min residual reduction
@@ -452,6 +453,8 @@ program DG_Diffusion3D_Test
       write(*,'(/,A,/)') 'Conjugate Gradient Method'
     case(2)
       write(*,'(/,A,/)') 'Additive Schwarz Method'
+    case(3)
+      write(*,'(/,A,/)') 'Schwarz-preconditioned Conjugate Gradient Method'
     case default
       write(*,'(/,A,/)') 'Skipping solver test'
     end select
@@ -485,6 +488,8 @@ program DG_Diffusion3D_Test
       call diffusion_op % CG_Method(u, f, se_bv, i_max, r_red, ni=ni)
     case(2) ! additive Schwarz
       call diffusion_op % Schwarz_Method(u, f, se_bv, i_max, r_red, ni=ni)
+    case(3) ! additive Schwarz
+      call diffusion_op % SchwarzPCG_Method(u, f, se_bv, i_max, r_red, ni=ni)
     end select
 
     !$omp master

@@ -61,7 +61,7 @@ contains
     select case(size(Ms))
 
 #ifdef __LIBXSMM__
-    case(8:)
+    case(5:)
       call TPO_Diffusion_RLCI_XSMM(Ms, Ls, dx, lambda, nu, u, v, Ds, ub, qb)
 #endif
 

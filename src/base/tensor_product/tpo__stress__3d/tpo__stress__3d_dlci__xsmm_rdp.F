@@ -5,7 +5,11 @@
 !===============================================================================
 
 module TPO__Stress__3D_DLCI__XSMM_RDP
+
+#ifdef __LIBXSMM__
+
   use Kind_Parameters, only: RWP => RDP
+  use LIBXSMM
   implicit none
   private
 
@@ -18,5 +22,7 @@ module TPO__Stress__3D_DLCI__XSMM_RDP
 contains
 
 #include "tpo__stress__3d_dlci__xsmm_kernel.f"
+
+#endif
 
 end module TPO__Stress__3D_DLCI__XSMM_RDP

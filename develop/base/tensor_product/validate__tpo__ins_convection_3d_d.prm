@@ -7,6 +7,7 @@
   nr     = 3     ! num elements in radial    direction
   np     = 3     ! num elements in azimuthal direction ≥ 3 (gap only)
   nz     = 3     ! num elements in axial
-  po     = 3     ! polynomial order of mesh elements
-! exact  = T     ! compare with exact (T) or approximate gradient [F]
+  po_g   = 3     ! geometriy polynomial order
+  po_v   = 8     ! polynomial order of mesh elements (velocity)
+  po_q   = 12    ! polynomial order of mesh elements (convection)
 /
