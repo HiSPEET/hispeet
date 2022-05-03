@@ -58,6 +58,7 @@ module Mesh__3D
     ! local attributes .........................................................
 
     integer :: part       = -1       !< partition ID
+    integer :: parent     = -1       !< parent partition, if any
     logical :: structured = .false.  !< T if mapping to structured mesh exists
     logical :: regular    = .false.  !< T if equidistant Cartesian
 

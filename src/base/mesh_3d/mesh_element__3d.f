@@ -133,6 +133,20 @@ module Mesh_Element__3D
   end type MeshElementNeighbor_3D
 
   !-----------------------------------------------------------------------------
+  !> Element adaptation information
+  !>
+  !> Note that the parent partition is not given because it is identical for all
+  !> local elements.
+
+  type MeshElementAdaptation_3D
+    integer      :: parent_id  = -1 !< parent element ID
+    integer(IXS) :: refinement = -1 !< refinement type: -1,0,1 = none,copy,full
+    integer      :: child_part = -1 !< partition of child elements
+    integer      :: child_id   = -1 !< first child element ID
+    integer(IXS) :: mark       = -1 !< adaptation mark
+  end type MeshElementAdaptation_3D
+
+  !-----------------------------------------------------------------------------
   !> 3D mesh element
   !>
   !> ### Numbering
@@ -192,6 +206,7 @@ module Mesh_Element__3D
     type(MeshElementFace_3D)    :: face(6)    !< face data
 
     type(MeshElementNeighbor_3D), allocatable :: neighbor(:) !< neighbor data
+    type(MeshElementAdaptation_3D) :: adaptation !< adaptation info
 
   contains
 
