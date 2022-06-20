@@ -822,12 +822,14 @@ contains
     this % cfg(3,e) = c3
 
     ! extensions of the corresponding cuboid
-    dx = 2 * mesh % x_cube(1:3,e,1) ! dx(i) = ∂x/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
-    dy = 2 * mesh % x_cube(1:3,e,2) ! dy(i) = ∂y/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
-    dz = 2 * mesh % x_cube(1:3,e,3) ! dz(i) = ∂z/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
-    l1 = sqrt(dx(1)**2 + dy(1)**2 + dz(1)**2) ! ξ₁ = ξ  extension
-    l2 = sqrt(dx(2)**2 + dy(2)**2 + dz(2)**2) ! ξ₂ = η  extension
-    l3 = sqrt(dx(3)**2 + dy(3)**2 + dz(3)**2) ! ξ₃ = ζ  extension
+    associate(x_c => mesh % element(e) % geometry % x_c)
+      dx = 2 * x_c(1:3,1) ! dx(i) = ∂x/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
+      dy = 2 * x_c(1:3,2) ! dy(i) = ∂y/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
+      dz = 2 * x_c(1:3,3) ! dz(i) = ∂z/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
+      l1 = sqrt(dx(1)**2 + dy(1)**2 + dz(1)**2) ! ξ₁ = ξ  extension
+      l2 = sqrt(dx(2)**2 + dy(2)**2 + dz(2)**2) ! ξ₂ = η  extension
+      l3 = sqrt(dx(3)**2 + dy(3)**2 + dz(3)**2) ! ξ₃ = ζ  extension
+    end associate
 
     ! coefficients
     g0 = l1 * l2 * l3 * lambda

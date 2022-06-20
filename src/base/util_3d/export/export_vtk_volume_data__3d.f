@@ -25,11 +25,11 @@ contains
   !> It is assumed that the mesh points are the element Lobatto nodes.
   !>
   !> In case of partitioned (multi-piece) data, the partition ID, part, and the
-  !> number of partitions, n_part, must be given. The partitions are numbered
-  !> from 0 to n_part-1. Partition 0 writes the PVTU (parallel unstructured mesh)
-  !> file.
+  !> number of partitions, n_parts, must be given. The partitions are numbered
+  !> from 0 to n_parts-1. Partition 0 writes the parallel unstructured mesh file
+  !> (PVTU).
 
-  subroutine ExportVTK_VolumeData(x, s, sname, v, vname, file, part, n_part, &
+  subroutine ExportVTK_VolumeData(x, s, sname, v, vname, file, part, n_parts, &
                                   subdiv)
 
     ! mesh element collocation points
@@ -46,10 +46,10 @@ contains
     optional :: v, vname
 
     ! output control
-    character(len=*),  intent(in) :: file   !< VTK output file
-    integer, optional, intent(in) :: part   !< partition (piece)
-    integer, optional, intent(in) :: n_part !< number of partitions (pieces)
-    logical, optional, intent(in) :: subdiv !< apply quadratic subdivision [auto]
+    character(len=*),  intent(in) :: file    !< VTK output file
+    integer, optional, intent(in) :: part    !< partition (piece)
+    integer, optional, intent(in) :: n_parts !< number of partitions (pieces)
+    logical, optional, intent(in) :: subdiv  !< T: quadratic subdivision [auto]
 
     ! VTK data .................................................................
 
@@ -70,6 +70,16 @@ contains
     character(len=80) :: tag
 
     ! initialization ...........................................................
+
+    if (present(part)) then
+      if (part < 0) then
+        return ! skip empty partition
+      else
+        write(tag, fmt='(A2,I0)') '_p', part
+      end if
+    else
+      tag = ''
+    end if
 
     po = ubound(x,1)
     ne = ubound(x,4)
@@ -99,12 +109,6 @@ contains
       end if
     else
       interpolation_order = 2
-    end if
-
-    if (present(part)) then
-      write(tag, fmt='(A2,I0)') '_p', part
-    else
-      tag = ''
     end if
 
     ! set up VTK file ..........................................................
@@ -186,7 +190,7 @@ contains
 
     ! PVTU file ................................................................
 
-    if (present(part) .and. present(n_part)) then
+    if (present(part) .and. present(n_parts)) then
       if (part == 0) then
         call Write_PVTU_File
       end if
@@ -236,7 +240,7 @@ contains
       write(pvtu,'(4X,A)') '</PPoints>'
 
       ! piece sources
-      do k = 0, n_part-1
+      do k = 0, n_parts-1
         write(pvtu,'(4X,3A,I0,A)') '<Piece Source="',trim(file),'_p',k,'.vtu"/>'
       end do
 

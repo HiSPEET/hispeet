@@ -68,7 +68,7 @@ contains
 
             ! jmp_u = n·[u], avg_q = n·{ν∇u}
             call GetBoundaryFluxes(element, struct, e, m, tr, jmp_u, avg_q)
-            mu_nu = eop % PenaltyFactor(mesh % dx_mean(m,e)) * nu
+            mu_nu = eop % PenaltyFactor(element % geometry % dx_m(m)) * nu
             i = (m-1) * P
 
             ! normal and tangential contributions of jumps
@@ -111,7 +111,7 @@ contains
           do m = 3, 4
 
             call GetBoundaryFluxes(element, struct, e, m, tr, jmp_u, avg_q)
-            mu_nu = eop % PenaltyFactor(mesh % dx_mean(m,e)) * nu
+            mu_nu = eop % PenaltyFactor(element % geometry % dx_m(m)) * nu
             j = (m-3) * P
 
             do k = 0, P
@@ -151,7 +151,7 @@ contains
           do m = 5, 6
 
             call GetBoundaryFluxes(element, struct, e, m, tr, jmp_u, avg_q)
-            mu_nu = eop % PenaltyFactor(mesh % dx_mean(m,e)) * nu
+            mu_nu = eop % PenaltyFactor(element % geometry % dx_m(m)) * nu
             k = (m-5) * P
 
             do j = 0, P

@@ -1,7 +1,12 @@
-!> summary:  Identification of neighbor element orientations
+!> summary:  Identification of neighbor elements
 !> author:   Joerg Stiller
 !> date:     2021/09/14
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @note
+!>   - works with unpartitioned mesh only
+!>   - edge neighbor sorting seems to be obsolete
+!>
 !===============================================================================
 
 submodule(Mesh__3D:MP_ImportGenericMesh) MP_IdentifyElementNeighbors

@@ -20,19 +20,18 @@ contains
 
   subroutine GenerateRegularMesh(mesh, np, ep, xo, dx, periodic, comm, pg)
 
-    type(Mesh_3D), intent(out) :: mesh !< local partition
+    type(Mesh_3D), intent(out) :: mesh   !< local partition
     integer,   intent(in) :: np(3)       !< num partitions in directions 1:3
     integer,   intent(in) :: ep(3)       !< elements per partition and direction
     real(RNP), intent(in) :: xo(3)       !< corner closest to -infinity
     real(RNP), intent(in) :: dx(3)       !< mesh spacing per direction
     logical,   intent(in) :: periodic(3) !< set true for periodic directions
-    type(MPI_Comm), intent(in) :: comm   !< MPI communicator
+    type(MPI_Comm), intent(in) :: comm   !< MPI "world" communicator
     integer, optional, intent(in) :: pg  !< polynomial order of geometry [1]
 
     ! local variables ..........................................................
 
-    integer :: part          ! partition ID
-    integer :: n_part        ! number of non-empty partitions
+    integer :: n_parts       ! number of non-empty partitions
     integer :: n_bound       ! number of external boundaries
     integer :: p_geom        ! polynomial order of element geometry
     integer :: n1, n2, n3    ! local mesh dimensions
@@ -49,9 +48,9 @@ contains
     call MPI_Comm_rank(comm, rank)
 
     ! number of partitions
-    n_part = product(np)
-    if (n_part > comm_size .and. rank == 0) then
-      call Error('GenerateRegularMesh', 'n_part > MPI communicator size')
+    n_parts = product(np)
+    if (n_parts > comm_size .and. rank == 0) then
+      call Error('GenerateRegularMesh', 'n_parts > MPI communicator size')
     end if
 
     if (present(pg)) then
@@ -62,18 +61,35 @@ contains
 
     n_bound = 6
 
-    ! partition ID
-    if (rank < n_part) then
-      part = rank
+    ! attributes and partitioning
+    if (rank < n_parts) then
+
+      ! active partition
+      mesh % n_bound     =  n_bound
+      mesh % n_parts     =  n_parts
+      mesh % structured  =  .true.
+      mesh % regular     =  .true.
+      mesh % comm_world  =  comm
+      mesh % proc        =  rank
+      mesh % part        =  rank
+
     else
-      ! create empty partition
-      mesh = Mesh_3D( p_geom, n_bound, n_part &
-                    , comm       =  comm      &
-                    , structured = .true.     &
-                    , regular    = .true.     &
-                    , dx         =  dx        )
-      return
+
+      ! empty partition
+      mesh = Mesh_3D( MeshAttributes_3D( n_bound    = n_bound   &
+                                       , n_parts    = n_parts   &
+                                       , structured = .true.    &
+                                       , regular    = .true.  ) &
+                    , comm                                      )
     end if
+
+    ! intracommunicator between active partitions
+    call mesh % BuildCommunicator()
+
+    ! skip the rest for empty partitions
+    if (rank >= n_parts) return
+
+    ! mesh dimensions and properties ...........................................
 
     ! local mesh dimensions
     n1 = ep(1)
@@ -83,23 +99,16 @@ contains
     ! indicator wether linked to itself
     self = periodic .and. np == 1
 
-    ! mesh attributes and properties ...........................................
-
     mesh % n_vert     =  NumberOfVertices (n1, n2, n3, self)
     mesh % n_edge     =  NumberOfEdges    (n1, n2, n3, self)
     mesh % n_face     =  NumberOfFaces    (n1, n2, n3, self)
     mesh % n_elem     =  NumberOfElements (n1, n2, n3)
     mesh % p_geom     =  p_geom
-    mesh % n_bound    =  n_bound
-    mesh % n_part     =  n_part
-    mesh % part       =  part
 
-    mesh % structured = .true.
+    ! structured mesh dimensions
     mesh % n_elem_1   =  n1
     mesh % n_elem_2   =  n2
     mesh % n_elem_3   =  n3
-
-    mesh % regular    = .true.
 
     if (periodic(1)) then
       mesh % n_face_1 =  n1    * n2 * n3
@@ -119,11 +128,10 @@ contains
       mesh % n_face_3 = (n3+1) * n1 * n2
     end if
 
-    mesh % dx    =  dx
-    mesh % comm  =  comm
+    mesh % dx = dx
 
     call GenerateRegularElements(mesh, np, ep, periodic, self, i0, j0, k0)
-    call GenerateRegularElementDomains(mesh, xo, i0, j0, k0)
+    call GenerateRegularElementGeometry(mesh, xo, i0, j0, k0)
     call GenerateRegularFaces(mesh, self)
     call GenerateRegularMeshBoundaries(mesh, periodic, self)
 
@@ -355,7 +363,7 @@ contains
           neighbor(i) % part = LexicalIndex(ips,jps,kps,1,1,1,np(1),np(2),np(3)) - 1
 
           ! neighbor element coupled component and orientation
-          neighbor(i) % component = ElementComponentIndex(-r,-s,-t)
+          neighbor(i) % component = int(ElementComponentIndex(-r,-s,-t), IXS)
           neighbor(i) % orientation = 12 ! always aligned
 
         end do
@@ -527,7 +535,7 @@ contains
     integer :: b, e, f, i, j, k, l
     integer :: coupled(6), polarity(6)
 
-    allocate(mesh % boundary(6))
+    ! preliminaries ............................................................
 
     coupled  = 0
     polarity = 0
@@ -550,6 +558,20 @@ contains
       polarity(6) =  3
     end if
 
+    allocate(mesh % boundary(6))
+
+    ! boundary attributes ......................................................
+
+    mesh % boundary(1) = MeshBoundary_3D('west'  , 1, coupled(1), polarity(1))
+    mesh % boundary(2) = MeshBoundary_3D('east'  , 2, coupled(2), polarity(2))
+    mesh % boundary(3) = MeshBoundary_3D('south' , 3, coupled(3), polarity(3))
+    mesh % boundary(4) = MeshBoundary_3D('north' , 4, coupled(4), polarity(4))
+    mesh % boundary(5) = MeshBoundary_3D('bottom', 5, coupled(5), polarity(5))
+    mesh % boundary(6) = MeshBoundary_3D('top'   , 6, coupled(6), polarity(6))
+
+    if (mesh%part < 0) return
+
+    ! faces ....................................................................
 
     associate( boundary => mesh % boundary  &
              , element  => mesh % element   &
@@ -557,158 +579,136 @@ contains
              , n2       => mesh % n_elem_2  &
              , n3       => mesh % n_elem_3  )
 
+      ! west ...................................................................
 
-      if (mesh%part < 0) then
+      b = 1
+      e = LexicalElementIndex(1, 1, 1, n1, n2)
+      if (element(e) % face(b) % boundary == b) then
+        boundary(b) % n_face = n2*n3
+        allocate(boundary(b) % face(boundary(b) % n_face))
+        i = 1
+        f = 1
+        do k = 1, n3
+        do j = 1, n2
+          e = LexicalElementIndex(i, j, k, n1, n2)
+          l = LexicalFaceIndex(i-1, j, k, 1, n1, n2, n3, self)
+          boundary(b) % face(f) % mesh_face    % id   = l
+          boundary(b) % face(f) % mesh_face    % side = 2
+          boundary(b) % face(f) % mesh_element % id   = e
+          boundary(b) % face(f) % mesh_element % face = b
+          f = f + 1
+        end do
+        end do
+      end if
 
-        ! empty partition ......................................................
+      ! east ...................................................................
 
-        boundary(1) = MeshBoundary_3D(1, 'west'  , coupled(1), polarity(1), 0)
-        boundary(2) = MeshBoundary_3D(2, 'east'  , coupled(2), polarity(2), 0)
-        boundary(3) = MeshBoundary_3D(3, 'south' , coupled(3), polarity(3), 0)
-        boundary(4) = MeshBoundary_3D(4, 'north' , coupled(4), polarity(4), 0)
-        boundary(5) = MeshBoundary_3D(5, 'bottom', coupled(5), polarity(5), 0)
-        boundary(6) = MeshBoundary_3D(6, 'top'   , coupled(6), polarity(6), 0)
+      b = 2
+      e = LexicalElementIndex(n1, 1, 1, n1, n2)
+      if (element(e) % face(b) % boundary == b) then
+        boundary(b) % n_face = n2*n3
+        allocate(boundary(b) % face(boundary(b) % n_face))
+        i = n1
+        f = 1
+        do k = 1, n3
+        do j = 1, n2
+          e = LexicalElementIndex(i, j, k, n1, n2)
+          l = LexicalFaceIndex(i, j, k, 1, n1, n2, n3, self)
+          boundary(b) % face(f) % mesh_face    % id   = l
+          boundary(b) % face(f) % mesh_face    % side = 1
+          boundary(b) % face(f) % mesh_element % id   = e
+          boundary(b) % face(f) % mesh_element % face = b
+          f = f + 1
+        end do
+        end do
+      end if
 
-      else
+      ! south ..................................................................
 
-        ! west .................................................................
+      b = 3
+      e = LexicalElementIndex(1, 1, 1, n1, n2)
+      if (element(e) % face(b) % boundary == b) then
+        boundary(b) % n_face = n1*n3
+        allocate(boundary(b) % face(boundary(b) % n_face))
+        j = 1
+        f = 1
+        do k = 1, n3
+        do i = 1, n1
+          e = LexicalElementIndex(i, j, k, n1, n2)
+          l = LexicalFaceIndex(i, j-1, k, 2, n1, n2, n3, self)
+          boundary(b) % face(f) % mesh_face    % id   = l
+          boundary(b) % face(f) % mesh_face    % side = 2
+          boundary(b) % face(f) % mesh_element % id   = e
+          boundary(b) % face(f) % mesh_element % face = b
+          f = f + 1
+        end do
+        end do
+      end if
 
-        b = 1
-        e = LexicalElementIndex(1, 1, 1, n1, n2)
-        if (element(e) % face(b) % boundary == b) then
-          boundary(b) = MeshBoundary_3D(b, 'west', coupled(b), polarity(b), n2*n3)
-          i = 1
-          f = 1
-          do k = 1, n3
-          do j = 1, n2
-            e = LexicalElementIndex(i, j, k, n1, n2)
-            l = LexicalFaceIndex(i-1, j, k, 1, n1, n2, n3, self)
-            boundary(b) % face(f) % mesh_face    % id   = l
-            boundary(b) % face(f) % mesh_face    % side = 2
-            boundary(b) % face(f) % mesh_element % id   = e
-            boundary(b) % face(f) % mesh_element % face = b
-            f = f + 1
-          end do
-          end do
-        else
-          boundary(b) = MeshBoundary_3D(b, 'west', coupled(b), polarity(b), 0)
-        end if
+      ! north ..................................................................
 
-        ! east .................................................................
+      b = 4
+      e = LexicalElementIndex(1, n2, 1, n1, n2)
+      if (element(e) % face(b) % boundary == b) then
+        boundary(b) % n_face = n1*n3
+        allocate(boundary(b) % face(boundary(b) % n_face))
+        j = n2
+        f = 1
+        do k = 1, n3
+        do i = 1, n1
+          e = LexicalElementIndex(i, j, k, n1, n2)
+          l = LexicalFaceIndex(i, j, k, 2, n1, n2, n3, self)
+          boundary(b) % face(f) % mesh_face    % id   = l
+          boundary(b) % face(f) % mesh_face    % side = 1
+          boundary(b) % face(f) % mesh_element % id   = e
+          boundary(b) % face(f) % mesh_element % face = b
+          f = f + 1
+        end do
+        end do
+      end if
 
-        b = 2
-        e = LexicalElementIndex(n1, 1, 1, n1, n2)
-        if (element(e) % face(b) % boundary == b) then
-          boundary(b) = MeshBoundary_3D(b, 'east', coupled(b), polarity(b), n2*n3)
-          i = n1
-          f = 1
-          do k = 1, n3
-          do j = 1, n2
-            e = LexicalElementIndex(i, j, k, n1, n2)
-            l = LexicalFaceIndex(i, j, k, 1, n1, n2, n3, self)
-            boundary(b) % face(f) % mesh_face    % id   = l
-            boundary(b) % face(f) % mesh_face    % side = 1
-            boundary(b) % face(f) % mesh_element % id   = e
-            boundary(b) % face(f) % mesh_element % face = b
-            f = f + 1
-          end do
-          end do
-        else
-          boundary(b) = MeshBoundary_3D(b, 'east', coupled(b), polarity(b), 0)
-        end if
+      ! bottom .................................................................
 
-        ! south ................................................................
+      b = 5
+      e = LexicalElementIndex(1, 1, 1, n1, n2)
+      if (element(e) % face(b) % boundary == b) then
+        boundary(b) % n_face = n1*n2
+        allocate(boundary(b) % face(boundary(b) % n_face))
+        k = 1
+        f = 1
+        do j = 1, n2
+        do i = 1, n1
+          e = LexicalElementIndex(i, j, k, n1, n2)
+          l = LexicalFaceIndex(i, j, k-1, 3, n1, n2, n3, self)
+          boundary(b) % face(f) % mesh_face    % id   = l
+          boundary(b) % face(f) % mesh_face    % side = 2
+          boundary(b) % face(f) % mesh_element % id   = e
+          boundary(b) % face(f) % mesh_element % face = b
+          f = f + 1
+        end do
+        end do
+      end if
 
-        b = 3
-        e = LexicalElementIndex(1, 1, 1, n1, n2)
-        if (element(e) % face(b) % boundary == b) then
-          boundary(b) = MeshBoundary_3D(b, 'south', coupled(b), polarity(b), n1*n3)
-          j = 1
-          f = 1
-          do k = 1, n3
-          do i = 1, n1
-            e = LexicalElementIndex(i, j, k, n1, n2)
-            l = LexicalFaceIndex(i, j-1, k, 2, n1, n2, n3, self)
-            boundary(b) % face(f) % mesh_face    % id   = l
-            boundary(b) % face(f) % mesh_face    % side = 2
-            boundary(b) % face(f) % mesh_element % id   = e
-            boundary(b) % face(f) % mesh_element % face = b
-            f = f + 1
-          end do
-          end do
-        else
-          boundary(b) = MeshBoundary_3D(b, 'south', coupled(b), polarity(b), 0)
-        end if
+      ! top ....................................................................
 
-        ! north ................................................................
-
-        b = 4
-        e = LexicalElementIndex(1, n2, 1, n1, n2)
-        if (element(e) % face(b) % boundary == b) then
-          boundary(b) = MeshBoundary_3D(b, 'north', coupled(b), polarity(b), n1*n3)
-          j = n2
-          f = 1
-          do k = 1, n3
-          do i = 1, n1
-            e = LexicalElementIndex(i, j, k, n1, n2)
-            l = LexicalFaceIndex(i, j, k, 2, n1, n2, n3, self)
-            boundary(b) % face(f) % mesh_face    % id   = l
-            boundary(b) % face(f) % mesh_face    % side = 1
-            boundary(b) % face(f) % mesh_element % id   = e
-            boundary(b) % face(f) % mesh_element % face = b
-            f = f + 1
-          end do
-          end do
-        else
-          boundary(b) = MeshBoundary_3D(b, 'north', coupled(b), polarity(b), 0)
-        end if
-
-        ! bottom ...............................................................
-
-        b = 5
-        e = LexicalElementIndex(1, 1, 1, n1, n2)
-        if (element(e) % face(b) % boundary == b) then
-          boundary(b) = MeshBoundary_3D(b, 'bottom', coupled(b), polarity(b), n1*n2)
-          k = 1
-          f = 1
-          do j = 1, n2
-          do i = 1, n1
-            e = LexicalElementIndex(i, j, k, n1, n2)
-            l = LexicalFaceIndex(i, j, k-1, 3, n1, n2, n3, self)
-            boundary(b) % face(f) % mesh_face    % id   = l
-            boundary(b) % face(f) % mesh_face    % side = 2
-            boundary(b) % face(f) % mesh_element % id   = e
-            boundary(b) % face(f) % mesh_element % face = b
-            f = f + 1
-          end do
-          end do
-        else
-          boundary(b) = MeshBoundary_3D(b, 'bottom', coupled(b), polarity(b), 0)
-        end if
-
-        ! top ....................................................................
-
-        b = 6
-        e = LexicalElementIndex(1, 1, n3, n1, n2)
-        if (element(e) % face(b) % boundary == b) then
-          boundary(b) = MeshBoundary_3D(b, 'top', coupled(b), polarity(b), n1*n2)
-          k = n3
-          f = 1
-          do j = 1, n2
-          do i = 1, n1
-            e = LexicalElementIndex(i, j, k, n1, n2)
-            l = LexicalFaceIndex(i, j, k, 3, n1, n2, n3, self)
-            boundary(b) % face(f) % mesh_face    % id   = l
-            boundary(b) % face(f) % mesh_face    % side = 1
-            boundary(b) % face(f) % mesh_element % id   = e
-            boundary(b) % face(f) % mesh_element % face = b
-            f = f + 1
-          end do
-          end do
-        else
-          boundary(b) = MeshBoundary_3D(b, 'top', coupled(b), polarity(b), 0)
-        end if
-
+      b = 6
+      e = LexicalElementIndex(1, 1, n3, n1, n2)
+      if (element(e) % face(b) % boundary == b) then
+        boundary(b) % n_face = n1*n2
+        allocate(boundary(b) % face(boundary(b) % n_face))
+        k = n3
+        f = 1
+        do j = 1, n2
+        do i = 1, n1
+          e = LexicalElementIndex(i, j, k, n1, n2)
+          l = LexicalFaceIndex(i, j, k, 3, n1, n2, n3, self)
+          boundary(b) % face(f) % mesh_face    % id   = l
+          boundary(b) % face(f) % mesh_face    % side = 1
+          boundary(b) % face(f) % mesh_element % id   = e
+          boundary(b) % face(f) % mesh_element % face = b
+          f = f + 1
+        end do
+        end do
       end if
 
     end associate
@@ -718,7 +718,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Creates element domains, cuboid approximations and mean face-normal spacing
 
-  subroutine GenerateRegularElementDomains(mesh, xo, i0, j0, k0)
+  subroutine GenerateRegularElementGeometry(mesh, xo, i0, j0, k0)
     class(Mesh_3D), intent(inout) :: mesh  !< local partition
     real(RNP), intent(in) :: xo(3)      !< corner closest to -∞
     integer  , intent(in) :: i0, j0, k0 !< element offsets WRT global numbering
@@ -726,48 +726,48 @@ contains
     real(RNP), dimension(0 : mesh%p_geom) :: x1, x2, x3, ys
     integer :: e, i, j, k, r, s, t
 
-    ! Lobatto points transformed to [-1,0]
-    ys = (LobattoPoints(mesh % p_geom) - 1) / 2
+    associate(po => mesh % p_geom, dx => mesh % dx)
 
-    associate( n1 => mesh % n_elem_1  &
-             , n2 => mesh % n_elem_2  &
-             , n3 => mesh % n_elem_3  &
-             , pg => mesh % p_geom    &
-             , dx => mesh % dx        )
+      ! Lobatto points transformed to [-1,0]
+      ys = (LobattoPoints(po) - 1) / 2
 
-      allocate(mesh % x_elem(0:pg, 0:pg, 0:pg, 1:mesh%n_elem, 1:3))
-      allocate(mesh % x_cube(0:3, 1:mesh%n_elem, 1:3))
-      allocate(mesh % dx_mean(1:6, 1:mesh%n_elem))
+      do k = 1, mesh % n_elem_3
+      do j = 1, mesh % n_elem_2
+      do i = 1, mesh % n_elem_1
 
-      do k = 1, n3
-      do j = 1, n2
-      do i = 1, n1
+        e = LexicalElementIndex(i, j, k, mesh % n_elem_1, mesh % n_elem_2)
 
-        e = LexicalElementIndex(i, j, k, n1, n2)
+        associate(geometry => mesh % element(e) % geometry)
 
-        ! 1D point distributions
-        x1 = xo(1) + (i0 + i + ys) * dx(1)
-        x2 = xo(2) + (j0 + j + ys) * dx(2)
-        x3 = xo(3) + (k0 + k + ys) * dx(3)
+          ! degree
+          geometry % po = po
 
-        ! element points
-        do t = 0, pg
-        do s = 0, pg
-        do r = 0, pg
-          mesh % x_elem(r,s,t,e,1) = x1(r)
-          mesh % x_elem(r,s,t,e,2) = x2(s)
-          mesh % x_elem(r,s,t,e,3) = x3(t)
-        end do
-        end do
-        end do
+          ! 1D point distributions
+          x1 = xo(1) + (i0 + i + ys) * dx(1)
+          x2 = xo(2) + (j0 + j + ys) * dx(2)
+          x3 = xo(3) + (k0 + k + ys) * dx(3)
 
-        ! cuboid
-        mesh % x_cube(:,e,1) = HALF * [ x1(0) + x1(pg), dx(1), ZERO , ZERO  ]
-        mesh % x_cube(:,e,2) = HALF * [ x2(0) + x2(pg), ZERO , dx(2), ZERO  ]
-        mesh % x_cube(:,e,3) = HALF * [ x3(0) + x3(pg), ZERO , ZERO , dx(3) ]
+          ! element points
+          allocate(geometry % x_e(0:po, 0:po, 0:po, 1:3))
+          do t = 0, po
+          do s = 0, po
+          do r = 0, po
+            geometry % x_e(r,s,t,1) = x1(r)
+            geometry % x_e(r,s,t,2) = x2(s)
+            geometry % x_e(r,s,t,3) = x3(t)
+          end do
+          end do
+          end do
 
-        ! mean spacing normal to faces
-        mesh % dx_mean(:,e) = dx([1,1,2,2,3,3])
+          ! cuboid
+          geometry % x_c(0:3,1) = HALF * [ x1(0) + x1(po), dx(1), ZERO , ZERO  ]
+          geometry % x_c(0:3,2) = HALF * [ x2(0) + x2(po), ZERO , dx(2), ZERO  ]
+          geometry % x_c(0:3,3) = HALF * [ x3(0) + x3(po), ZERO , ZERO , dx(3) ]
+
+          ! mean spacing normal to faces
+          geometry % dx_m = dx([1,1,2,2,3,3])
+
+        end associate
 
       end do
       end do
@@ -775,7 +775,7 @@ contains
 
     end associate
 
-  end subroutine GenerateRegularElementDomains
+  end subroutine GenerateRegularElementGeometry
 
   !=============================================================================
 

@@ -16,6 +16,7 @@ module Mesh__3D
   private
 
   public :: Mesh_3D
+  public :: MeshAttributes_3D
 
   !-----------------------------------------------------------------------------
   !> 3D mesh partition type
@@ -23,62 +24,51 @@ module Mesh__3D
   !> ### Ghost elements
   !>
   !> The ghost elements stored in `ghost(1:n_ghost)` ...
-  !>
-  !> ### Element geometry
-  !>
-  !> All element domains are defined as Lagrange polynomials of degree `p_geom`.
-  !> The array `x_elem(0:p_geom,0:p_geom,0:p_geom,l,1:3)` holds the Cartesian
-  !> coordinates at the Lobatto points in element `l`. For convenience, `x_cube`
-  !> provides a cuboidal approximation to that element, which is given by
-  !>
-  !>       x(ξ,η,ζ) = x_cube(0,l,1:3)
-  !>                + x_cube(1,l,1:3) ξ
-  !>                + x_cube(2,l,1:3) η
-  !>                + x_cube(3,l,1:3) ζ
-  !>
-  !> with `-1 ≤ ξ,η,ζ ≤ 1`.
-  !>
-  !> The array `dx_mean(1:6,l)` provides the harmonic mean spacing across the
-  !> element faces based on the adjoining cuboids. Given the normal spacings
-  !> `dx₁` and `dx₂` of the cuboids adjacent to a given face, the mean spacing
-  !> is defined as
-  !>
-  !>       dx_mean = 2 / (1/dx₁ + 1/dx₂)
-  !>
-  !> The spacing is a unique property of the shared mesh face, but is stored
-  !> element-wise for convenience.
 
   type Mesh_3D
 
-    ! global attributes ........................................................
+    ! attributes ...............................................................
 
     integer :: n_bound = 0           !< number of domain boundaries
-    integer :: n_part  = 0           !< number of non-empty partitions
+    integer :: n_parts = 0           !< number of non-empty partitions
 
-    ! local attributes .........................................................
-
-    integer :: part       = -1       !< partition ID
-    integer :: parent     = -1       !< parent partition, if any
     logical :: structured = .false.  !< T if mapping to structured mesh exists
     logical :: regular    = .false.  !< T if equidistant Cartesian
 
-    ! dimensions
+    logical :: is_root    = .true.   !< T if root (bottom) level mesh
+    logical :: is_top     = .true.   !< T if top level mesh
+
+    ! MPI ......................................................................
+
+    type(MPI_Comm) :: comm_world     !< communicator covering all processes
+    type(MPI_Comm) :: comm_parts     !< communicator covering active partitions
+
+    integer :: proc = -1             !< process    =  ID in comm_world ≥ 0
+    integer :: part = -1             !< partition  =  ID in comm_parts ≥ 0
+
+    integer, allocatable :: proc_part(:) !< map from comm_parts to comm_world
+
+    ! dimensions ...............................................................
+
     integer :: n_vert  = 0           !< number of mesh vertices
     integer :: n_edge  = 0           !< number of mesh edges
     integer :: n_face  = 0           !< number of mesh faces
     integer :: n_elem  = 0           !< number of mesh elements
     integer :: n_ghost = 0           !< number of ghost elements
-    integer :: p_geom  = 0           !< polynomial order of element geometry
+    integer :: n_link  = 0           !< number of mesh links
+    integer :: p_geom  = 0           !< max polynomial order of element geometry
 
     integer :: max_vert_val = 0      !< maximum vertex valency
     integer :: max_edge_val = 0      !< maximum edge valency
 
-    ! structured mesh properties
+    ! structured mesh properties ...............................................
+
     integer :: n_elem_1 = 0          !< number of elements in direction 1
     integer :: n_elem_2 = 0          !< number of elements in direction 2
     integer :: n_elem_3 = 0          !< number of elements in direction 3
 
-    ! regular mesh properties
+    ! regular mesh properties ..................................................
+
     integer   :: n_face_1 =  0       !< number of faces normal to direction 1
     integer   :: n_face_2 =  0       !< number of faces normal to direction 2
     integer   :: n_face_3 =  0       !< number of faces normal to direction 3
@@ -92,26 +82,22 @@ module Mesh__3D
     type(MeshBoundary_3D), allocatable :: boundary(:) !< mesh boundaries
     type(MeshLink_3D)    , allocatable :: link(:)     !< mesh links
 
-    ! mesh element geometry
-    real(RNP), allocatable :: x_elem(:,:,:,:,:) !< element Lobatto points
-    real(RNP), allocatable :: x_cube(:,:,:)     !< approximate cuboids
-    real(RNP), allocatable :: dx_mean(:,:)      !< mean spacing across faces
-
-    ! MPI
-    type(MPI_Comm) :: comm  !< communicator
-
   contains
+
+    procedure :: Init_Mesh_3D
 
     procedure :: GetCuboids
     procedure :: GetPoints
     procedure :: GetPointValency
 
     ! automatic identification and generation of components
+    procedure :: BuildCommunicator
+    procedure :: BuildFaces
+    procedure :: BuildGhosts
+    procedure :: BuildLinks
+    procedure :: BuildCuboids
     procedure :: IdentifyEdges
     procedure :: IdentifyRanks
-    procedure :: BuildFaces
-    procedure :: BuildLinks
-    procedure :: BuildGhosts
 
     ! import/export
     procedure :: ImportGenericMesh
@@ -125,8 +111,11 @@ module Mesh__3D
 
   interface
 
+    !===========================================================================
+    ! Service routines
+
     !---------------------------------------------------------------------------
-    !> Generates Cuboid points to all elements of a partition
+    !> Returns cuboid points to all elements of a partition
 
     module subroutine GetCuboids(mesh, x)
       class(Mesh_3D),         intent(in)  :: mesh         !< mesh parition
@@ -151,33 +140,22 @@ module Mesh__3D
       integer,        intent(out) :: v(0:,0:,0:,:) !< point valency
     end subroutine GetPointValency
 
-    !---------------------------------------------------------------------------
-    !> Identification of mesh edges
+    !===========================================================================
+    ! Routines for constructing mesh components
 
-    module subroutine IdentifyEdges(mesh)
+    !---------------------------------------------------------------------------
+    !> Build communicator between active partitions
+
+    module subroutine BuildCommunicator(mesh)
       class(Mesh_3D), intent(inout) :: mesh !< mesh partition
-    end subroutine IdentifyEdges
+    end subroutine BuildCommunicator
 
     !---------------------------------------------------------------------------
-    !> Generation of mesh faces
+    !> Generation of approximate cuboids
 
-    module subroutine BuildFaces(mesh)
-      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
-    end subroutine BuildFaces
-
-    !---------------------------------------------------------------------------
-    !> Identification of primary element components
-
-    module subroutine IdentifyRanks(mesh)
-      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
-    end subroutine IdentifyRanks
-
-    !---------------------------------------------------------------------------
-    !> Generation of mesh links from global element neighbor information
-
-    module subroutine BuildLinks(mesh)
-      class(Mesh_3D), intent(inout) :: mesh !< local partition
-    end subroutine BuildLinks
+    module subroutine BuildCuboids(mesh)
+      class(Mesh_3D), intent(inout)  :: mesh !< mesh partition
+    end subroutine BuildCuboids
 
     !---------------------------------------------------------------------------
     !> Generation of ghost elements
@@ -187,50 +165,183 @@ module Mesh__3D
     end subroutine BuildGhosts
 
     !---------------------------------------------------------------------------
-    !> Import a generic 3d mesh
+    !> Generation of mesh faces
+
+    module subroutine BuildFaces(mesh)
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
+    end subroutine BuildFaces
+
+    !---------------------------------------------------------------------------
+    !> Generation of mesh links from global element neighbor information
+
+    module subroutine BuildLinks(mesh)
+      class(Mesh_3D), intent(inout) :: mesh !< local partition
+    end subroutine BuildLinks
+
+    !---------------------------------------------------------------------------
+    !> Identification of mesh edges
+
+    module subroutine IdentifyEdges(mesh)
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
+    end subroutine IdentifyEdges
+
+    !---------------------------------------------------------------------------
+    !> Identification of primary element components
+
+    module subroutine IdentifyRanks(mesh)
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
+    end subroutine IdentifyRanks
+
+    !---------------------------------------------------------------------------
+    !> Import a generic 3D mesh
 
     module subroutine ImportGenericMesh(mesh, generic_mesh, comm)
       use Generic_Mesh__3D
       class(Mesh_3D),        intent(out) :: mesh         !< mesh partition
       class(GenericMesh_3D), intent(in)  :: generic_mesh !< generic mesh
-      type(MPI_Comm),        intent(in)  :: comm         !< MPI communicator
+      type(MPI_Comm),        intent(in)  :: comm         !< "world" communicator
     end subroutine ImportGenericMesh
 
   end interface
 
+  !-----------------------------------------------------------------------------
+  !> Type for collecting and transmitting the mesh attributes
+
+  type MeshAttributes_3D
+
+    integer :: n_bound    = 0        !< number of domain boundaries
+    integer :: n_parts    = 0        !< number of non-empty partitions
+    logical :: structured = .false.  !< T if mapping to structured mesh exists
+    logical :: regular    = .false.  !< T if equidistant Cartesian
+    logical :: is_root    = .true.   !< T if root (bottom) level mesh
+    logical :: is_top     = .true.   !< T if top level mesh
+
+    type(MeshBoundaryAttributes_3D), allocatable :: boundary(:)
+
+  contains
+    procedure :: Bcast => Bcast_MeshAttributes_3D
+  end type MeshAttributes_3D
+
+  ! constructor
+  interface MeshAttributes_3D
+    module procedure ExtractMeshAttributes
+  end interface
+
 contains
 
+  !=============================================================================
+  ! Mesh_3D constructor and type-bound procedures
+
   !-----------------------------------------------------------------------------
-  !> Creates an empty 3d mesh partition
+  !> Creates an empty 3D mesh partition
 
-  function EmptyMeshPartition( p_geom, n_bound, n_part, comm &
-                             , structured, regular, dx       ) result(mesh)
+  function EmptyMeshPartition(attrib, comm) result(this)
+    class(MeshAttributes_3D), intent(in) :: attrib !< mesh attributes
+    type(MPI_Comm),           intent(in) :: comm   !< "world" communicator
+    type(Mesh_3D) :: this
 
-    integer,             intent(in)  :: p_geom
-    integer,             intent(in)  :: n_bound
-    integer,             intent(in)  :: n_part
-    type(MPI_Comm),      intent(in)  :: comm
-    logical  , optional, intent(in)  :: structured
-    logical  , optional, intent(in)  :: regular
-    real(RNP), optional, intent(in)  :: dx(3)
-
-    type(Mesh_3D) :: mesh
-
-    mesh % p_geom  = p_geom
-    mesh % n_bound = n_bound
-    mesh % n_part  = n_part
-    mesh % comm    = comm
-
-    if (present(structured)) mesh % structured = structured
-    if (present(regular))    mesh % regular    = regular
-    if (present(dx))         mesh % dx         = dx
-
-    allocate( mesh % face     (0) )
-    allocate( mesh % element  (0) )
-    allocate( mesh % boundary (0) )
-    allocate( mesh % link     (0) )
+    call Init_Mesh_3D(this, attrib, comm)
 
   end function EmptyMeshPartition
+
+  !-----------------------------------------------------------------------------
+  !> Basic initialization of a 3D mesh partition
+
+  subroutine Init_Mesh_3D(this, attrib, comm)
+    class(Mesh_3D),           intent(inout) :: this
+    class(MeshAttributes_3D), intent(in)    :: attrib !< mesh attributes
+    type(MPI_Comm),           intent(in)    :: comm   !< "world" communicator
+
+    integer :: b
+
+    this % n_bound    = attrib % n_bound
+    this % n_parts    = attrib % n_parts
+    this % structured = attrib % structured
+    this % regular    = attrib % regular
+    this % is_root    = attrib % is_root
+    this % is_top     = attrib % is_top
+
+    allocate(this % boundary( this%n_bound ))
+    do b = 1, this % n_bound
+      this % boundary(b) = MeshBoundary_3D(attrib % boundary(b))
+    end do
+
+    this % comm_world = comm
+
+    call MPI_Comm_rank(comm, this % proc)
+
+  end subroutine Init_Mesh_3D
+
+  !=============================================================================
+  ! MeshAttributes_3D constructor and type-bound procedures
+
+  !-----------------------------------------------------------------------------
+  !> Creates attributes by extraction from existing mesh partition
+
+  function ExtractMeshAttributes(mesh) result(attrib)
+    class(Mesh_3D), intent(in) :: mesh
+    type(MeshAttributes_3D) :: attrib
+
+    attrib % n_bound    = mesh % n_bound
+    attrib % n_parts    = mesh % n_parts
+    attrib % structured = mesh % structured
+    attrib % regular    = mesh % regular
+    attrib % is_root    = mesh % is_root
+    attrib % is_top     = mesh % is_top
+
+    attrib % boundary = MeshBoundaryAttributes_3D(mesh % boundary)
+
+  end function ExtractMeshAttributes
+
+  !-----------------------------------------------------------------------------
+  !> Broadcast mesh attributes
+
+  subroutine Bcast_MeshAttributes_3D(this, root, comm)
+    class(MeshAttributes_3D), intent(inout) :: this
+    integer       , intent(in) :: root !< MPI root process
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
+
+    integer :: attrib_int(2), b
+    logical :: attrib_log(4)
+
+    ! mesh attributes ..........................................................
+
+    attrib_int(1) = this % n_bound
+    attrib_int(2) = this % n_parts
+
+    attrib_log(1) = this % structured
+    attrib_log(2) = this % regular
+    attrib_log(3) = this % is_root
+    attrib_log(4) = this % is_top
+
+    call XMPI_Bcast(attrib_int, root, comm)
+    call XMPI_Bcast(attrib_log, root, comm)
+
+    this % n_bound    = attrib_int(1)
+    this % n_parts    = attrib_int(2)
+
+    this % structured = attrib_log(1)
+    this % regular    = attrib_log(2)
+    this % is_root    = attrib_log(3)
+    this % is_top     = attrib_log(4)
+
+    ! boundary attributes ......................................................
+
+    if (allocated(this % boundary)) then
+      if (size(this % boundary) /= this % n_bound) then
+        deallocate(this % boundary)
+      end if
+    end if
+
+    if (.not. allocated(this % boundary)) then
+      allocate(this % boundary( this%n_bound ))
+    end if
+
+    do b = 1, this % n_bound
+      call this % boundary(b) % Bcast(root, comm)
+    end do
+
+  end subroutine Bcast_MeshAttributes_3D
 
   !=============================================================================
 

@@ -465,6 +465,16 @@ contains
 
     ! setup ....................................................................
 
+    ! reset and return in case of empty partition
+    if (mesh % part < 0) then
+      this % np = 0
+      this % ne = 0
+      this % ng = 0
+      this % nc = 0
+      this % nl = 0
+      return
+    end if
+
     this % np = np
     this % ne = mesh % n_elem
     this % ng = mesh % n_ghost

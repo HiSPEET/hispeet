@@ -104,6 +104,8 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
               mesh_3d/mesh_face__3d.f
               mesh_3d/mesh_link__3d.f
               mesh_3d/mesh__3d.f
+              mesh_3d/mesh__3d__mp_buildcommunicator.f
+              mesh_3d/mesh__3d__mp_buildcuboids.f
               mesh_3d/mesh__3d__mp_buildfaces.f
               mesh_3d/mesh__3d__mp_buildghosts.f
               mesh_3d/mesh__3d__mp_buildlinks.f
@@ -120,16 +122,13 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
               mesh_3d/spectral_element_mesh__3d.f
               )
 
+
+
 #===============================================================================
 # util_3d
 
 set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/export/export_vtk_schwarz_domain__3d.f
-             util_3d/meshgen/create_annulus.f
-             util_3d/meshgen/create_cuboid_cartesian.f
-             util_3d/meshgen/create_cuboid_diamonds.f
-             util_3d/meshgen/create_cuboid_onerotated.f
-             util_3d/meshgen/create_cylinder.f
              util_3d/transfer/element_transfer_buffer__3d.f
              util_3d/transfer/element_transfer_buffer__3d__sm_integer_idk.F
              util_3d/transfer/element_transfer_buffer__3d__sm_integer_ixs.F
@@ -138,12 +137,20 @@ set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/transfer/element_transfer_buffer__3d__sm_real_rsp.F
              util_3d/transfer/element_face_transfer_buffer__3d.f
              util_3d/transfer/element_face_transfer_buffer__3d__sm_real_rdp.F
-             util_3d/transfer/trace_transfer_buffer__3d.f
+             util_3d/meshgen/create_annulus.f
+             util_3d/meshgen/create_cuboid_cartesian.f
+             util_3d/meshgen/create_cuboid_diamonds.f
+             util_3d/meshgen/create_cuboid_onerotated.f
+             util_3d/meshgen/create_cylinder.f
              util_3d/ops/assembly__3d.f
              util_3d/ops/assembly__3d__sm_0u.f
              util_3d/ops/convert_traces__3d.f
              util_3d/verification/verify_mesh__3d.f
+             util_3d/adaptation/partition_root_mesh.F
              )
+
+# obsolete:
+#              util_3d/transfer/trace_transfer_buffer__3d.f
 
 if (Exodus_FOUND)
     set (UTIL_3D ${UTIL_3D} util_3d/import/import_exodus__3d.f)
@@ -184,9 +191,10 @@ set( DIFFUSION_3D diffusion_3d/dg__diffusion_operator__3d.f
                   )
 
 
-#                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_rc.f
-#                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_rv.f
-#                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_dc.f
+# obsolete:
+# diffusion_3d/dg__diffusion_operator__3d__mp_addbc_rc.f
+# diffusion_3d/dg__diffusion_operator__3d__mp_addbc_rv.f
+# diffusion_3d/dg__diffusion_operator__3d__mp_addbc_dc.f
 
 #===============================================================================
 # base library

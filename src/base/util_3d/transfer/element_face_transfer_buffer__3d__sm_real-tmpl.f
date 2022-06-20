@@ -28,7 +28,7 @@
         if (mesh % link(l) % n_face > 0) then
           f2 = f1 + mesh % link(l) % n_face - 1
           call XMPI_Irecv( vb(:,:,:,f1:f2), mesh%link(l)%part, tag &
-                         , mesh%comm , this%recv%request(l)        )
+                         , mesh%comm_parts, this%recv%request(l)   )
           f1 = f2 + 1
         else
           this%recv%request(l) = MPI_REQUEST_NULL
@@ -68,7 +68,7 @@
         if (mesh % link(l) % n_face > 0) then
           f2 = f1 + mesh % link(l) % n_face - 1
           call XMPI_Isend( vb(:,:,:,f1:f2), mesh%link(l)%part, tag &
-                         , mesh%comm , this%send%request(l)        )
+                         , mesh%comm_parts, this%send%request(l)   )
           f1 = f2 + 1
         else
           this%send%request(l) = MPI_REQUEST_NULL
@@ -132,5 +132,6 @@
     !$omp master
     call MPI_Waitall(n_req, this % send % request, MPI_STATUSES_IGNORE)
     !$omp end master
+    !$omp barrier
 
   end subroutine Merge_RX

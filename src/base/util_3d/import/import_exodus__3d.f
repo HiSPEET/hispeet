@@ -23,7 +23,7 @@ contains
   !> Reads the mesh from file and converts it to a GenericMesh_3D object
 
   subroutine ImportExodus3d(file, mesh)
-    character(len=*),     intent(in)  :: file !< Exodus file
+    character(len=*),      intent(in)  :: file !< Exodus file
     class(GenericMesh_3D), intent(out) :: mesh !< output mesh
 
     ! Exodus interface .........................................................

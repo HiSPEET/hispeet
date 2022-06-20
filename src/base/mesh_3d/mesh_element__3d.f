@@ -134,17 +134,46 @@ module Mesh_Element__3D
 
   !-----------------------------------------------------------------------------
   !> Element adaptation information
-  !>
-  !> Note that the parent partition is not given because it is identical for all
-  !> local elements.
 
   type MeshElementAdaptation_3D
-    integer      :: parent_id  = -1 !< parent element ID
-    integer(IXS) :: refinement = -1 !< refinement type: -1,0,1 = none,copy,full
-    integer      :: child_part = -1 !< partition of child elements
-    integer      :: child_id   = -1 !< first child element ID
-    integer(IXS) :: mark       = -1 !< adaptation mark
+    integer      :: parent_proc = -1 !< parent partition ID in comm_world
+    integer      :: parent_id   = -1 !< parent element ID
+    integer      :: child_proc  = -1 !< child partition ID in comm_world
+    integer      :: child_id    = -1 !< first child element ID
+    integer(IXS) :: refinement  = -1 !< refinement type: -1,0,1 = none,copy,full
+    integer(IXS) :: levels      = -1 !< number of subdivision levels
+    integer(IXS) :: mark        = -1 !< adaptation mark (targeted refinement)
   end type MeshElementAdaptation_3D
+
+  !-----------------------------------------------------------------------------
+  !> Element geometry data
+  !>
+  !> The element shape is defined by the Lobatto points `x_e(0:po,0:po,0:po,3)`,
+  !> where `po` is the order of the corresponding Lagrange polynomials.
+  !> Transforming the Lagrange form into a Legendre series and restricting the
+  !> latter to the trilinear part yields the approximate cuboid, which is given
+  !> by
+  !>
+  !>       x(ξ,η,ζ,:) = x_c(0,:) + x_c(1,:) ξ + x_c(2,:) η + x_c(3,:) ζ
+  !>
+  !> with `-1 ≤ ξ,η,ζ ≤ 1`.
+  !>
+  !> The array `dx_m` provides the harmonic mean spacing across the element
+  !> faces based on the corresponding cuboids. Given the normal spacings `dx₁`
+  !> and `dx₂` of the cuboids adjacent to a given face, the mean spacing is
+  !> defined as
+  !>
+  !>       dx_me = 2 / (1/dx₁ + 1/dx₂)
+  !>
+  !> Note that mean spacing is a unique property of the shared mesh face, which
+  !> is stored element-wise for convenience.
+
+  type MeshElementGeometry_3D
+    integer                :: po           !< polynomial order
+    real(RNP), allocatable :: x_e(:,:,:,:) !< element Lobatto points
+    real(RNP)              :: x_c(0:3,1:3) !< corresponding cuboid
+    real(RNP)              :: dx_m(6)      !< mean element spacing across faces
+  end type MeshElementGeometry_3D
 
   !-----------------------------------------------------------------------------
   !> 3D mesh element
@@ -206,7 +235,9 @@ module Mesh_Element__3D
     type(MeshElementFace_3D)    :: face(6)    !< face data
 
     type(MeshElementNeighbor_3D), allocatable :: neighbor(:) !< neighbor data
+
     type(MeshElementAdaptation_3D) :: adaptation !< adaptation info
+    type(MeshElementGeometry_3D)   :: geometry   !< geometry data
 
   contains
 

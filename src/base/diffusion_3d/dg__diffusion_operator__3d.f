@@ -280,6 +280,9 @@ contains
     logical   :: singular
     integer   :: i
 
+    ! skip empty partition
+    if (this % sem % mesh % part < 0) return
+
     ! initialization ...........................................................
 
     associate(mesh => this % sem % mesh)
@@ -298,11 +301,11 @@ contains
 
       call this % Apply(u, r, f, bv)
       if (singular) then
-        call CalibrateArray(r, mesh%comm)
+        call CalibrateArray(r, mesh%comm_parts)
       end if
       call SetArray(p, r)
 
-      rr = ScalarProduct(r, r, mesh%comm)
+      rr = ScalarProduct(r, r, mesh%comm_parts)
 
       !$omp single
       if (present(r_red)) then
@@ -328,7 +331,7 @@ contains
         if (mesh%part == 0) then
           converged = rr <= rr_term
         end if
-        call XMPI_Bcast(converged, root=0, comm=mesh%comm)
+        call XMPI_Bcast(converged, root=0, comm=mesh%comm_parts)
         !$omp end master
         !$omp barrier
 
@@ -341,7 +344,7 @@ contains
         ! operator application with no source and homogeneous BC
         call this % Apply(p, q)
 
-        pq = ScalarProduct(p, q, mesh%comm)
+        pq = ScalarProduct(p, q, mesh%comm_parts)
         pq = sign(max(abs(pq),eps), pq)
         alpha = rr_old / pq
         call MergeArrays(ONE, u, -alpha, p)
@@ -350,13 +353,13 @@ contains
           ! compute true residual to get rid of round-off errors
           call this % Apply(u, r, f, bv)
           if (singular) then
-            call CalibrateArray(r, mesh%comm)
+            call CalibrateArray(r, mesh%comm_parts)
           end if
         else
           call MergeArrays(ONE, r, -alpha, q)
         end if
 
-        rr = ScalarProduct(r, r, mesh%comm)
+        rr = ScalarProduct(r, r, mesh%comm_parts)
 
         call  MergeArrays(rr/rr_old, p, ONE, r)
 
@@ -416,6 +419,9 @@ contains
     integer   :: i, ne, ng, nl(3) = -1
     logical   :: reuse
     real(RNP) :: rr
+
+    ! skip empty partition
+    if (this % sem % mesh % part < 0) return
 
     associate(mesh => this % sem % mesh, schwarz => this % schwarz)
 
@@ -482,7 +488,7 @@ contains
 
         ! termination check
         if (present(r_red)) then
-          rr = ScalarProduct(r(:,:,:,:ne), r(:,:,:,:ne), mesh%comm)
+          rr = ScalarProduct(r(:,:,:,:ne), r(:,:,:,:ne), mesh%comm_parts)
           !$omp master
           if (mesh%part == 0) then
             if (i == 1) then
@@ -490,7 +496,7 @@ contains
             end if
             converged = rr <= rr_term
           end if
-          call XMPI_Bcast(converged, root=0, comm=mesh%comm)
+          call XMPI_Bcast(converged, root=0, comm=mesh%comm_parts)
           !$omp end master
           !$omp barrier
         end if
@@ -569,6 +575,9 @@ contains
     logical   :: check_convergence, singular
     integer   :: i, i_max_
 
+    ! skip empty partition
+    if (this % sem % mesh % part < 0) return
+
     ! initialization ...........................................................
 
     associate(mesh => this % sem % mesh)
@@ -591,12 +600,12 @@ contains
       ! r = Au - f
       call this % Apply(u, r, f, bv)
       if (singular) then
-        call CalibrateArray(r, mesh%comm)
+        call CalibrateArray(r, mesh%comm_parts)
       end if
 
       ! termination conditions
       if (check_convergence) then
-        rr = ScalarProduct(r, r, mesh%comm)
+        rr = ScalarProduct(r, r, mesh%comm_parts)
         !$omp master
         if (present(r_red)) then
           rr_term  = max(ZERO, sqrt(rr) * r_red)**2
@@ -607,7 +616,7 @@ contains
           rr_term = max(rr_term, max(ZERO, r_max)**2)
         end if
         converged = rr <= rr_term
-        call XMPI_Bcast(converged, root=0, comm=mesh%comm)
+        call XMPI_Bcast(converged, root=0, comm=mesh%comm_parts)
         !$omp end master
         !$omp barrier
       else
@@ -635,14 +644,14 @@ contains
         ! set/update search vector
         if (i == 1) then
           if (singular) then
-            call CalibrateArray(z, mesh%comm)
+            call CalibrateArray(z, mesh%comm_parts)
           end if
-          call SetArray(p, z)                               ! p = z
+          call SetArray(p, z)                                 ! p = z
         else
-          call SetArray(q, r)                               ! q = r
-          call MergeArrays(ONE, q, -ONE, s)                 ! q = r - s
-          beta = ScalarProduct(q, z, mesh%comm) / delta
-          call MergeArrays(beta, p, ONE, z)                 ! p = beta p + z
+          call SetArray(q, r)                                 ! q = r
+          call MergeArrays(ONE, q, -ONE, s)                   ! q = r - s
+          beta = ScalarProduct(q, z, mesh%comm_parts) / delta
+          call MergeArrays(beta, p, ONE, z)                   ! p = beta p + z
         end if
 
         ! save old residual
@@ -650,25 +659,25 @@ contains
 
         ! correction
         call this % Apply(p, q)
-        delta = ScalarProduct(r, z, mesh%comm)
-        alpha = delta / ScalarProduct(p, q, mesh%comm)
+        delta = ScalarProduct(r, z, mesh%comm_parts)
+        alpha = delta / ScalarProduct(p, q, mesh%comm_parts)
         call MergeArrays(ONE, u, -alpha, p)
 
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
           call this % Apply(u, r, f, bv)
           if (singular) then
-            call CalibrateArray(r, mesh%comm)
+            call CalibrateArray(r, mesh%comm_parts)
           end if
         else
           call MergeArrays(ONE, r, -alpha, q)
         end if
 
         if (check_convergence) then
-          rr = ScalarProduct(r, r, mesh%comm)
+          rr = ScalarProduct(r, r, mesh%comm_parts)
           !$omp master
           converged = rr <= rr_term
-          call XMPI_Bcast(converged, root=0, comm=mesh%comm)
+          call XMPI_Bcast(converged, root=0, comm=mesh%comm_parts)
           !$omp end master
           !$omp barrier
         end if

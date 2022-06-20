@@ -140,7 +140,7 @@ program Mesh3d_Explore
 
   do
     if (rank == 0) then
-      write(*,'(/,A,I0,A)',advance='NO') 'partition: ', mesh%n_part,' > part = '
+      write(*,'(/,A,I0,A)',advance='NO') 'partition: ', mesh%n_parts,' > part = '
       read(*,*) part
     end if
     call XMPI_Bcast(part, 0, comm)
@@ -193,7 +193,7 @@ contains
     write(*,'(A,3(1X,G0))') 'n_ghost    =', mesh % n_ghost
     write(*,'(A,3(1X,G0))') 'p_geom     =', mesh % p_geom
     write(*,'(A,3(1X,G0))') 'n_bound    =', mesh % n_bound
-    write(*,'(A,3(1X,G0))') 'n_part     =', mesh % n_part
+    write(*,'(A,3(1X,G0))') 'n_part     =', mesh % n_parts
     write(*,'(A,3(1X,G0))') 'part       =', mesh % part
     write(*,'(A,3(1X,G0))') 'structured =', mesh % structured
     write(*,'(A,3(1X,G0))') 'regular    =', mesh % regular

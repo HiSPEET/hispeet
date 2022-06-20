@@ -199,6 +199,9 @@ contains
 
     integer :: i, f, l, m, nl
 
+    ! skip empty partition
+    if (mesh % part < 0) return
+
     this % ne = mesh % n_elem
     this % ng = mesh % n_ghost
     this % nf = sum( mesh % link % n_face )

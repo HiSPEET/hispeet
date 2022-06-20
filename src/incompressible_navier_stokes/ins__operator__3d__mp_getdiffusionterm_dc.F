@@ -223,296 +223,295 @@ contains
 
       !$omp do
       do e = 1, mesh % n_elem
+        associate(element => mesh % element(e))
 
-        ! faces 1+2 (west + east) ..............................................
+          ! faces 1+2 (west + east) ............................................
 
-        do f = 1, 2
+          do f = 1, 2
 
-          i = (f - 1) * P
+            i = (f - 1) * P
 
-          call GetExteriorTraces( P, mesh % element(e), struct &
-                                , bc, e, f, n, vm, sm, vp, sp  )
+            call GetExteriorTraces(P, element, struct, bc, e,f,n, vm,sm, vp,sp)
 
-          cip = eop % PenaltyFactor(mesh % dx_mean(f,e))
+            cip = eop % PenaltyFactor(element % geometry % dx_m(f))
 
-          do k = 0, P
-          do j = 0, P
+            do k = 0, P
+            do j = 0, P
 
-            n1 = n(j,k,f,e,1)
-            n2 = n(j,k,f,e,2)
-            n3 = n(j,k,f,e,3)
+              n1 = n(j,k,f,e,1)
+              n2 = n(j,k,f,e,2)
+              n3 = n(j,k,f,e,3)
 
-            dv1 = vm(j,k,f,e,1) - vp(j,k,f,e,1)
-            dv2 = vm(j,k,f,e,2) - vp(j,k,f,e,2)
-            dv3 = vm(j,k,f,e,3) - vp(j,k,f,e,3)
+              dv1 = vm(j,k,f,e,1) - vp(j,k,f,e,1)
+              dv2 = vm(j,k,f,e,2) - vp(j,k,f,e,2)
+              dv3 = vm(j,k,f,e,3) - vp(j,k,f,e,3)
 
-            tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3 )
+              tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3 )
 
-            tau(1,1) = nu * 2 * n1 * dv1 + tmp
-            tau(2,2) = nu * 2 * n2 * dv2 + tmp
-            tau(3,3) = nu * 2 * n3 * dv3 + tmp
+              tau(1,1) = nu * 2 * n1 * dv1 + tmp
+              tau(2,2) = nu * 2 * n2 * dv2 + tmp
+              tau(3,3) = nu * 2 * n3 * dv3 + tmp
 
-            tau(1,2) = nu * (n1 * dv2 + n2 * dv1)
-            tau(2,3) = nu * (n2 * dv3 + n3 * dv2)
-            tau(3,1) = nu * (n3 * dv1 + n1 * dv3)
+              tau(1,2) = nu * (n1 * dv2 + n2 * dv1)
+              tau(2,3) = nu * (n2 * dv3 + n3 * dv2)
+              tau(3,1) = nu * (n3 * dv1 + n1 * dv3)
 
-            tau(2,1) = tau(1,2)
-            tau(1,3) = tau(3,1)
-            tau(3,2) = tau(2,3)
+              tau(2,1) = tau(1,2)
+              tau(1,3) = tau(3,1)
+              tau(3,2) = tau(2,3)
 
-            tmp = HALF * M_f(j,k) * a(j,k,f,e)
+              tmp = HALF * M_f(j,k) * a(j,k,f,e)
 
-            do c = 1, 3
+              do c = 1, 3
 
-              Cn(j,k,f,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
-                                  + Ji(i,j,k,e,1,2) * tau(2,c) &
-                                  + Ji(i,j,k,e,1,3) * tau(3,c) )
+                Cn(j,k,f,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
+                                    + Ji(i,j,k,e,1,2) * tau(2,c) &
+                                    + Ji(i,j,k,e,1,3) * tau(3,c) )
 
-              Ct(j,k,1,c) = tmp * ( Ji(i,j,k,e,2,1) * tau(1,c) &
-                                  + Ji(i,j,k,e,2,2) * tau(2,c) &
-                                  + Ji(i,j,k,e,2,3) * tau(3,c) )
+                Ct(j,k,1,c) = tmp * ( Ji(i,j,k,e,2,1) * tau(1,c) &
+                                    + Ji(i,j,k,e,2,2) * tau(2,c) &
+                                    + Ji(i,j,k,e,2,3) * tau(3,c) )
 
-              Ct(k,j,2,c) = tmp * ( Ji(i,j,k,e,3,1) * tau(1,c) & ! first two  !
-                                  + Ji(i,j,k,e,3,2) * tau(2,c) & ! directions !
-                                  + Ji(i,j,k,e,3,3) * tau(3,c) ) ! transposed !
+                Ct(k,j,2,c) = tmp * ( Ji(i,j,k,e,3,1) * tau(1,c) & ! first two
+                                    + Ji(i,j,k,e,3,2) * tau(2,c) & ! directions
+                                    + Ji(i,j,k,e,3,3) * tau(3,c) ) ! transposed
 
-              C0(j,k,c)   = tmp * ( sm(j,k,f,e,c)               &
-                                  - sp(j,k,f,e,c)               &
-                                  - 2 * cip * ( n1 * tau(1,c)   &
-                                              + n2 * tau(2,c)   &
-                                              + n3 * tau(3,c) ) )
+                C0(j,k,c)   = tmp * ( sm(j,k,f,e,c)               &
+                                    - sp(j,k,f,e,c)               &
+                                    - 2 * cip * ( n1 * tau(1,c)   &
+                                                + n2 * tau(2,c)   &
+                                                + n3 * tau(3,c) ) )
+
+              end do
 
             end do
+            end do
 
-          end do
-          end do
-
-          select case(P)
-          case(1)
-            call TangentialDerivatives(1, Ds, Ct, Ds_Ct)
-          case(2)
-            call TangentialDerivatives(2, Ds, Ct, Ds_Ct)
-          case default
+            select case(P)
+            case(1)
+              call TangentialDerivatives(1, Ds, Ct, Ds_Ct)
+            case(2)
+              call TangentialDerivatives(2, Ds, Ct, Ds_Ct)
+            case default
 #ifdef __LIBXSMM__
-            call LIBXSMM_XMMCall(xmm, Ds_t, Ct, Ds_Ct)
+              call LIBXSMM_XMMCall(xmm, Ds_t, Ct, Ds_Ct)
 #else
-            call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
+              call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
 #endif
-          end select
+            end select
+
+            do c = 1, 3
+              do k = 0, P
+              do j = 0, P
+
+                F_d(i,j,k,e,c) = F_d(i,j,k,e,c)  &
+                               + Ds_Ct(j,k,1,c)  &
+                               + Ds_Ct(k,j,2,c)  &
+                               + C0(j,k,c)
+              end do
+              end do
+            end do
+
+          end do ! faces 1+2
+
+          ! faces 3+4 (south + north) ............................................
+
+          do f = 3, 4
+
+            j = (f - 3) * P
+
+            call GetExteriorTraces(P, element, struct, bc, e,f,n, vm,sm, vp,sp)
+
+            cip = eop % PenaltyFactor(element % geometry % dx_m(f))
+
+            do k = 0, P
+            do i = 0, P
+
+              n1 = n(i,k,f,e,1)
+              n2 = n(i,k,f,e,2)
+              n3 = n(i,k,f,e,3)
+
+              dv1 = vm(i,k,f,e,1) - vp(i,k,f,e,1)
+              dv2 = vm(i,k,f,e,2) - vp(i,k,f,e,2)
+              dv3 = vm(i,k,f,e,3) - vp(i,k,f,e,3)
+
+              tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3 )
+
+              tau(1,1) = nu * 2 * n1 * dv1 + tmp
+              tau(2,2) = nu * 2 * n2 * dv2 + tmp
+              tau(3,3) = nu * 2 * n3 * dv3 + tmp
+
+              tau(1,2) = nu * (n1 * dv2 + n2 * dv1)
+              tau(2,3) = nu * (n2 * dv3 + n3 * dv2)
+              tau(3,1) = nu * (n3 * dv1 + n1 * dv3)
+
+              tau(2,1) = tau(1,2)
+              tau(1,3) = tau(3,1)
+              tau(3,2) = tau(2,3)
+
+              tmp = HALF * M_f(i,k) * a(i,k,f,e)
+
+              do c = 1, 3
+
+                Cn(i,k,f,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
+                                    + Ji(i,j,k,e,1,2) * tau(2,c) &
+                                    + Ji(i,j,k,e,1,3) * tau(3,c) )
+
+                Ct(i,k,1,c) = tmp * ( Ji(i,j,k,e,2,1) * tau(1,c) &
+                                    + Ji(i,j,k,e,2,2) * tau(2,c) &
+                                    + Ji(i,j,k,e,2,3) * tau(3,c) )
+
+                Ct(k,i,2,c) = tmp * ( Ji(i,j,k,e,3,1) * tau(1,c) & ! first two
+                                    + Ji(i,j,k,e,3,2) * tau(2,c) & ! directions
+                                    + Ji(i,j,k,e,3,3) * tau(3,c) ) ! transposed
+
+                C0(i,k,c)   = tmp * ( sm(i,k,f,e,c)               &
+                                    - sp(i,k,f,e,c)               &
+                                    - 2 * cip * ( n1 * tau(1,c)   &
+                                                + n2 * tau(2,c)   &
+                                                + n3 * tau(3,c) ) )
+
+              end do
+
+            end do
+            end do
+
+            select case(P)
+            case(1)
+              call TangentialDerivatives(1, Ds, Ct, Ds_Ct)
+            case(2)
+              call TangentialDerivatives(2, Ds, Ct, Ds_Ct)
+            case default
+#ifdef __LIBXSMM__
+              call LIBXSMM_XMMCall(xmm, Ds_t, Ct, Ds_Ct)
+#else
+              call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
+#endif
+            end select
+
+            do c = 1, 3
+              do k = 0, P
+              do i = 0, P
+
+                F_d(i,j,k,e,c) = F_d(i,j,k,e,c)  &
+                               + Ds_Ct(i,k,1,c)  &
+                               + Ds_Ct(k,i,2,c)  &
+                               + C0(i,k,c)
+              end do
+              end do
+            end do
+
+          end do ! faces 3+4
+
+          ! faces 5+6 (top + bottom) ...........................................
+
+          do f = 5, 6
+
+            k = (f - 5) * P
+
+            call GetExteriorTraces(P, element, struct, bc, e,f,n, vm,sm, vp,sp)
+
+            cip = eop % PenaltyFactor(element % geometry % dx_m(f))
+
+            do j = 0, P
+            do i = 0, P
+
+              n1 = n(i,j,f,e,1)
+              n2 = n(i,j,f,e,2)
+              n3 = n(i,j,f,e,3)
+
+              dv1 = vm(i,j,f,e,1) - vp(i,j,f,e,1)
+              dv2 = vm(i,j,f,e,2) - vp(i,j,f,e,2)
+              dv3 = vm(i,j,f,e,3) - vp(i,j,f,e,3)
+
+              tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3 )
+
+              tau(1,1) = nu * 2 * n1 * dv1 + tmp
+              tau(2,2) = nu * 2 * n2 * dv2 + tmp
+              tau(3,3) = nu * 2 * n3 * dv3 + tmp
+
+              tau(1,2) = nu * (n1 * dv2 + n2 * dv1)
+              tau(2,3) = nu * (n2 * dv3 + n3 * dv2)
+              tau(3,1) = nu * (n3 * dv1 + n1 * dv3)
+
+              tau(2,1) = tau(1,2)
+              tau(1,3) = tau(3,1)
+              tau(3,2) = tau(2,3)
+
+              tmp = HALF * M_f(i,j) * a(i,j,f,e)
+
+              do c = 1, 3
+
+                Cn(i,j,f,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
+                                    + Ji(i,j,k,e,1,2) * tau(2,c) &
+                                    + Ji(i,j,k,e,1,3) * tau(3,c) )
+
+                Ct(i,j,1,c) = tmp * ( Ji(i,j,k,e,2,1) * tau(1,c) &
+                                    + Ji(i,j,k,e,2,2) * tau(2,c) &
+                                    + Ji(i,j,k,e,2,3) * tau(3,c) )
+
+                Ct(j,i,2,c) = tmp * ( Ji(i,j,k,e,3,1) * tau(1,c) & ! first two
+                                    + Ji(i,j,k,e,3,2) * tau(2,c) & ! directions
+                                    + Ji(i,j,k,e,3,3) * tau(3,c) ) ! transposed
+
+                C0(i,j,c)   = tmp * ( sm(i,j,f,e,c)               &
+                                    - sp(i,j,f,e,c)               &
+                                    - 2 * cip * ( n1 * tau(1,c)   &
+                                                + n2 * tau(2,c)   &
+                                                + n3 * tau(3,c) ) )
+
+              end do
+
+            end do
+            end do
+
+            select case(P)
+            case(1)
+              call TangentialDerivatives(1, Ds, Ct, Ds_Ct)
+            case(2)
+              call TangentialDerivatives(2, Ds, Ct, Ds_Ct)
+            case default
+#ifdef __LIBXSMM__
+              call LIBXSMM_XMMCall(xmm, Ds_t, Ct, Ds_Ct)
+#else
+              call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
+#endif
+            end select
+
+            do c = 1, 3
+              do j = 0, P
+              do i = 0, P
+
+                F_d(i,j,k,e,c) = F_d(i,j,k,e,c)  &
+                               + Ds_Ct(i,j,1,c)  &
+                               + Ds_Ct(j,i,2,c)  &
+                               + C0(i,j,c)
+              end do
+              end do
+            end do
+
+          end do ! faces 5+6
+
+         ! contributions to all points ...........................................
 
           do c = 1, 3
             do k = 0, P
             do j = 0, P
-
-              F_d(i,j,k,e,c) = F_d(i,j,k,e,c)  &
-                             + Ds_Ct(j,k,1,c)  &
-                             + Ds_Ct(k,j,2,c)  &
-                             + C0(j,k,c)
-            end do
-            end do
-          end do
-
-        end do ! faces 1+2
-
-        ! faces 3+4 (south + north) ............................................
-
-        do f = 3, 4
-
-          j = (f - 3) * P
-
-          call GetExteriorTraces( P, mesh % element(e), struct &
-                                , bc, e, f, n, vm, sm, vp, sp  )
-
-          cip = eop % PenaltyFactor(mesh % dx_mean(f,e))
-
-          do k = 0, P
-          do i = 0, P
-
-            n1 = n(i,k,f,e,1)
-            n2 = n(i,k,f,e,2)
-            n3 = n(i,k,f,e,3)
-
-            dv1 = vm(i,k,f,e,1) - vp(i,k,f,e,1)
-            dv2 = vm(i,k,f,e,2) - vp(i,k,f,e,2)
-            dv3 = vm(i,k,f,e,3) - vp(i,k,f,e,3)
-
-            tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3 )
-
-            tau(1,1) = nu * 2 * n1 * dv1 + tmp
-            tau(2,2) = nu * 2 * n2 * dv2 + tmp
-            tau(3,3) = nu * 2 * n3 * dv3 + tmp
-
-            tau(1,2) = nu * (n1 * dv2 + n2 * dv1)
-            tau(2,3) = nu * (n2 * dv3 + n3 * dv2)
-            tau(3,1) = nu * (n3 * dv1 + n1 * dv3)
-
-            tau(2,1) = tau(1,2)
-            tau(1,3) = tau(3,1)
-            tau(3,2) = tau(2,3)
-
-            tmp = HALF * M_f(i,k) * a(i,k,f,e)
-
-            do c = 1, 3
-
-              Cn(i,k,f,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
-                                  + Ji(i,j,k,e,1,2) * tau(2,c) &
-                                  + Ji(i,j,k,e,1,3) * tau(3,c) )
-
-              Ct(i,k,1,c) = tmp * ( Ji(i,j,k,e,2,1) * tau(1,c) &
-                                  + Ji(i,j,k,e,2,2) * tau(2,c) &
-                                  + Ji(i,j,k,e,2,3) * tau(3,c) )
-
-              Ct(k,i,2,c) = tmp * ( Ji(i,j,k,e,3,1) * tau(1,c) & ! first two  !
-                                  + Ji(i,j,k,e,3,2) * tau(2,c) & ! directions !
-                                  + Ji(i,j,k,e,3,3) * tau(3,c) ) ! transposed !
-
-              C0(i,k,c)   = tmp * ( sm(i,k,f,e,c)               &
-                                  - sp(i,k,f,e,c)               &
-                                  - 2 * cip * ( n1 * tau(1,c)   &
-                                              + n2 * tau(2,c)   &
-                                              + n3 * tau(3,c) ) )
-
-            end do
-
-          end do
-          end do
-
-          select case(P)
-          case(1)
-            call TangentialDerivatives(1, Ds, Ct, Ds_Ct)
-          case(2)
-            call TangentialDerivatives(2, Ds, Ct, Ds_Ct)
-          case default
-#ifdef __LIBXSMM__
-            call LIBXSMM_XMMCall(xmm, Ds_t, Ct, Ds_Ct)
-#else
-            call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
-#endif
-          end select
-
-          do c = 1, 3
-            do k = 0, P
             do i = 0, P
-
-              F_d(i,j,k,e,c) = F_d(i,j,k,e,c)  &
-                             + Ds_Ct(i,k,1,c)  &
-                             + Ds_Ct(k,i,2,c)  &
-                             + C0(i,k,c)
+              F_d(i,j,k,e,c) = F_d(i,j,k,e,c)           &
+                             - ( Ds(0,i) * Cn(j,k,1,c)  &
+                               + Ds(P,i) * Cn(j,k,2,c)  &
+                               + Ds(0,j) * Cn(i,k,3,c)  &
+                               + Ds(P,j) * Cn(i,k,4,c)  &
+                               + Ds(0,k) * Cn(i,j,5,c)  &
+                               + Ds(P,k) * Cn(i,j,6,c)  &
+                               )
             end do
-            end do
-          end do
-
-        end do ! faces 3+4
-
-        ! faces 5+6 (top + bottom) .............................................
-
-        do f = 5, 6
-
-          k = (f - 5) * P
-
-          call GetExteriorTraces( P, mesh % element(e), struct &
-                                , bc, e, f, n, vm, sm, vp, sp  )
-
-          cip = eop % PenaltyFactor(mesh % dx_mean(f,e))
-
-          do j = 0, P
-          do i = 0, P
-
-            n1 = n(i,j,f,e,1)
-            n2 = n(i,j,f,e,2)
-            n3 = n(i,j,f,e,3)
-
-            dv1 = vm(i,j,f,e,1) - vp(i,j,f,e,1)
-            dv2 = vm(i,j,f,e,2) - vp(i,j,f,e,2)
-            dv3 = vm(i,j,f,e,3) - vp(i,j,f,e,3)
-
-            tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3 )
-
-            tau(1,1) = nu * 2 * n1 * dv1 + tmp
-            tau(2,2) = nu * 2 * n2 * dv2 + tmp
-            tau(3,3) = nu * 2 * n3 * dv3 + tmp
-
-            tau(1,2) = nu * (n1 * dv2 + n2 * dv1)
-            tau(2,3) = nu * (n2 * dv3 + n3 * dv2)
-            tau(3,1) = nu * (n3 * dv1 + n1 * dv3)
-
-            tau(2,1) = tau(1,2)
-            tau(1,3) = tau(3,1)
-            tau(3,2) = tau(2,3)
-
-            tmp = HALF * M_f(i,j) * a(i,j,f,e)
-
-            do c = 1, 3
-
-              Cn(i,j,f,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
-                                  + Ji(i,j,k,e,1,2) * tau(2,c) &
-                                  + Ji(i,j,k,e,1,3) * tau(3,c) )
-
-              Ct(i,j,1,c) = tmp * ( Ji(i,j,k,e,2,1) * tau(1,c) &
-                                  + Ji(i,j,k,e,2,2) * tau(2,c) &
-                                  + Ji(i,j,k,e,2,3) * tau(3,c) )
-
-              Ct(j,i,2,c) = tmp * ( Ji(i,j,k,e,3,1) * tau(1,c) & ! first two  !
-                                  + Ji(i,j,k,e,3,2) * tau(2,c) & ! directions !
-                                  + Ji(i,j,k,e,3,3) * tau(3,c) ) ! transposed !
-
-              C0(i,j,c)   = tmp * ( sm(i,j,f,e,c)               &
-                                  - sp(i,j,f,e,c)               &
-                                  - 2 * cip * ( n1 * tau(1,c)   &
-                                              + n2 * tau(2,c)   &
-                                              + n3 * tau(3,c) ) )
-
-            end do
-
-          end do
-          end do
-
-          select case(P)
-          case(1)
-            call TangentialDerivatives(1, Ds, Ct, Ds_Ct)
-          case(2)
-            call TangentialDerivatives(2, Ds, Ct, Ds_Ct)
-          case default
-#ifdef __LIBXSMM__
-            call LIBXSMM_XMMCall(xmm, Ds_t, Ct, Ds_Ct)
-#else
-            call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
-#endif
-          end select
-
-          do c = 1, 3
-            do j = 0, P
-            do i = 0, P
-
-              F_d(i,j,k,e,c) = F_d(i,j,k,e,c)  &
-                             + Ds_Ct(i,j,1,c)  &
-                             + Ds_Ct(j,i,2,c)  &
-                             + C0(i,j,c)
             end do
             end do
           end do
 
-        end do ! faces 5+6
-
-       ! contributions to all points ...........................................
-
-        do c = 1, 3
-          do k = 0, P
-          do j = 0, P
-          do i = 0, P
-            F_d(i,j,k,e,c) = F_d(i,j,k,e,c)           &
-                           - ( Ds(0,i) * Cn(j,k,1,c)  &
-                             + Ds(P,i) * Cn(j,k,2,c)  &
-                             + Ds(0,j) * Cn(i,k,3,c)  &
-                             + Ds(P,j) * Cn(i,k,4,c)  &
-                             + Ds(0,k) * Cn(i,j,5,c)  &
-                             + Ds(P,k) * Cn(i,j,6,c)  &
-                             )
-          end do
-          end do
-          end do
-        end do
-
+        end associate
       end do
     end associate
 

@@ -46,7 +46,7 @@ contains
       return
     end if
 
-    p = mesh%n_part - 1
+    p = mesh%n_parts - 1
 
     allocate(nf(0:p), source = 0)
     allocate(nm(0:p), source = 0)
@@ -284,11 +284,11 @@ contains
 
     n = count(nf > 0 .or. nm > 0 .or. ng > 0)
 
-    allocate(map(0:mesh%n_part-1), source = -1)
+    allocate(map(0:mesh%n_parts-1), source = -1)
     allocate(mesh%link(n))
 
     k = 0
-    do p = 0, mesh%n_part - 1
+    do p = 0, mesh%n_parts - 1
       if (nf(p) > 0 .or. nm(p) > 0 .or. ng(p) > 0) then
         k = k + 1
         map(p) = k
@@ -355,7 +355,7 @@ contains
 
     ! offsets for numbering
     og(0) = mesh % n_elem
-    do p = 1, mesh % n_part - 1
+    do p = 1, mesh % n_parts - 1
       og(p) = og(p-1) + ng(p-1)
     end do
 

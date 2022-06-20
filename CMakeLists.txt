@@ -106,8 +106,8 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-form")
 
-    set(CMAKE_Fortran_FLAGS_CHECK "-Wall -fcheck=all -fbacktrace")
-    set(CMAKE_Fortran_FLAGS_DEBUG "-Wall -fcheck=all -fbacktrace -g")
+    set(CMAKE_Fortran_FLAGS_CHECK "-Wall -Wno-c-binding-type -fcheck=all -fbacktrace")
+    set(CMAKE_Fortran_FLAGS_DEBUG "-Wall -Wno-c-binding-type -fcheck=all -fbacktrace -g")
 
     if (OPT)
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O${OPT}")

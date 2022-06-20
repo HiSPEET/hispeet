@@ -463,24 +463,27 @@ program DG_Diffusion3D_Test
   if (method > 0) then
     !$omp parallel
 
-    call SetArray(u, ZERO)
-    call diffusion_op % Apply(u, r, f, se_bv)
-    r_l2_0 = ScalarProduct(r, r, mesh%comm)
-    r_l2_0 = sqrt(r_l2_0)
+    if (mesh%part >= 0) then
+
+      call SetArray(u, ZERO)
+      call diffusion_op % Apply(u, r, f, se_bv)
+      r_l2_0 = ScalarProduct(r, r, mesh%comm_parts)
+      r_l2_0 = sqrt(r_l2_0)
+
+      !$omp master
+      r_max_loc = maxval(abs(r))
+      call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm_parts)
+      if (mesh % part == 0) then
+        write(*,'(A)') 'initial residual:'
+        write(*,'(T3,A,T11,ES10.3)') 'r_L2  =', r_l2_0
+        write(*,'(T3,A,T11,ES10.3)') 'r_max =', r_max
+      end if
+      !$omp end master
+
+    end if
 
     !$omp master
-    if (mesh%part >= 0) then
-      r_max_loc = maxval(abs(r))
-    else
-      r_max_loc =  0
-    end if
-    call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
-    if (rank == 0) then
-      write(*,'(A)') 'initial residual:'
-      write(*,'(T3,A,T11,ES10.3)') 'r_L2  =', r_l2_0
-      write(*,'(T3,A,T11,ES10.3)') 'r_max =', r_max
-      time0 = MPI_Wtime()
-    end if
+    time0 = MPI_Wtime()
     !$omp end master
 
     select case(method)
@@ -493,46 +496,46 @@ program DG_Diffusion3D_Test
     end select
 
     !$omp master
-    if (rank == 0) then
+    if (mesh % part == 0) then
       time = MPI_Wtime()
       time = time - time0
     end if
     !$omp end master
 
     call diffusion_op % Apply(u, r, f, se_bv)
-    r_l2 = ScalarProduct(r, r, mesh%comm)
-    r_l2 = sqrt(r_l2)
 
     !$omp end parallel
 
     if (mesh%part >= 0) then
+
+      r_l2 = ScalarProduct(r, r, mesh%comm_parts)
+      r_l2 = sqrt(r_l2)
+
       r_max_loc = maxval(abs(r))
       e = u - s
       e_min_loc = minval(e)
       e_max_loc = maxval(e)
-    else
-      r_max_loc =  0
-      e_min_loc = -huge(ONE)
-      e_max_loc =  huge(ONE)
-    end if
-    call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
-    call XMPI_Reduce(e_min_loc, e_min, MPI_MIN, 0, mesh%comm)
-    call XMPI_Reduce(e_max_loc, e_max, MPI_MAX, 0, mesh%comm)
 
-    if (rank == 0) then
-      write(*,'(/,T3,A)')            'solution:'
-      write(*,'(T3,A,T11,1X,I0)')    'ni    =', ni
-      write(*,'(T3,A,T11,ES10.3)')   'r_L2  =', r_l2
-      write(*,'(T3,A,T11,ES10.3)')   'r_max =', r_max
-      write(*,'(T3,A,T11,ES10.3)')   'e_max =', (e_max - e_min)/2
-      if (ni > 0) then
-        write(*,'(T3,A,T12,ES10.3)') '-lg ρ =', log10(r_l2_0 / r_l2) / ni
+      call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm_parts)
+      call XMPI_Reduce(e_min_loc, e_min, MPI_MIN, 0, mesh%comm_parts)
+      call XMPI_Reduce(e_max_loc, e_max, MPI_MAX, 0, mesh%comm_parts)
+
+      if (rank == 0) then
+        write(*,'(/,T3,A)')            'solution:'
+        write(*,'(T3,A,T11,1X,I0)')    'ni    =', ni
+        write(*,'(T3,A,T11,ES10.3)')   'r_L2  =', r_l2
+        write(*,'(T3,A,T11,ES10.3)')   'r_max =', r_max
+        write(*,'(T3,A,T11,ES10.3)')   'e_max =', (e_max - e_min)/2
+        if (ni > 0) then
+          write(*,'(T3,A,T12,ES10.3)') '-lg ρ =', log10(r_l2_0 / r_l2) / ni
+        end if
+        write(*,'(/,T3,A)')            'performance:'
+        write(*,'(T3,A,T11,ES10.3)')   'time     =', time
+        write(*,'(T3,A,T11,ES10.3)')   'time/DOF =', time / dof
+        write(*,'(T3,A,T11,ES10.3)')   'DOF/time =', dof / time
+        write(*,*)
       end if
-      write(*,'(/,T3,A)')            'performance:'
-      write(*,'(T3,A,T11,ES10.3)')   'time     =', time
-      write(*,'(T3,A,T11,ES10.3)')   'time/DOF =', time / dof
-      write(*,'(T3,A,T11,ES10.3)')   'DOF/time =', dof / time
-      write(*,*)
+
     end if
 
   end if
@@ -540,19 +543,21 @@ program DG_Diffusion3D_Test
   !-----------------------------------------------------------------------------
   ! Plot files
 
-  do i = 1, mesh % n_elem
-    part(:,:,:,i) = mesh % part
-    elem(:,:,:,i) = i
-  end do
-
   if (len_trim(plot_file) > 0 .and. mesh%part >= 0) then
-    call ExportVTK_VolumeData( sem % metrics % x        &
-                             , s      = var             &
-                             , sname  = var_names       &
-                             , file   = trim(plot_file) &
-                             , part   = mesh % part     &
-                             , n_part = mesh % n_part   &
-                             , subdiv = plot_subdiv     )
+
+    do i = 1, mesh % n_elem
+      part(:,:,:,i) = mesh % part
+      elem(:,:,:,i) = i
+    end do
+
+    call ExportVTK_VolumeData( sem % metrics % x         &
+                             , s       = var             &
+                             , sname   = var_names       &
+                             , file    = trim(plot_file) &
+                             , part    = mesh % part     &
+                             , n_parts = mesh % n_parts  &
+                             , subdiv  = plot_subdiv     )
+
   end if
 
   call SchwarzTest( diffusion_op, r   &
@@ -582,7 +587,6 @@ contains
     real(RNP), allocatable, save :: r_ext(:,:,:,:)
     real(RDP), allocatable, save :: rs_dp(:,:,:,:)
     real(RSP), allocatable, save :: rs_sp(:,:,:,:)
-    real(RNP) :: x_cube(0:3,3)
     integer :: np, ne, ng, no, ns, nl(3)
 
     if (len_trim(file) == 0) return
@@ -630,10 +634,10 @@ contains
 
       if (part /= mesh % part .or. e < 1 .or. e > ne) return
 
-      x_cube = mesh % x_cube(0:3,e,1:3)
       !$omp master
       if (schwarz % wp == RNP) then
-        call ExportVTK_SchwarzDomain(x_cube, xi, rs_dp(:,:,:,e), file)
+        call ExportVTK_SchwarzDomain( mesh % element(e) % geometry % x_c &
+                                    , xi, rs_dp(:,:,:,e), file           )
       end if
       deallocate(r_ext, rs_dp, rs_sp, buf_r)
       !$omp end master

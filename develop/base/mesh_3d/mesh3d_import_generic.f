@@ -9,6 +9,9 @@ program Mesh3d_Import_Generic
   use Verify_Mesh__3D
   use Assembly__3D
   use Export_VTK_Volume_Data__3D
+!### CHECK
+  use Partition_Root_Mesh
+!### CHECK END
   implicit none
 
   character(len=*), parameter :: input_file = 'mesh3d_import_generic.prm'
@@ -54,10 +57,15 @@ program Mesh3d_Import_Generic
   real(RNP), allocatable :: area(:)
   real(RNP) :: vol
   real(RNP) :: kappa(3), y(3), err
-  logical   :: passed
+  logical   :: passed = .false.
   integer   :: io
   integer   :: i, j, k, l
   integer   :: i_err, j_err, k_err, l_err
+
+!### CHECK
+  integer :: n_proc, weight(4), method
+  integer, allocatable :: tp(:)
+!### CHECK END
 
   call Init_MPI_Binding()
   call MPI_Comm_rank(comm, rank)
@@ -78,7 +86,7 @@ program Mesh3d_Import_Generic
     end select
     close(io)
 
-    ! create and import generic mesh ...........................................
+    ! create generic mesh ......................................................
 
     select case(config)
     case(2)
@@ -89,99 +97,119 @@ program Mesh3d_Import_Generic
       call generic_mesh % CreateCylinder(r1, h, nr, nz, po, periodic)
     end select
 
+  end if
+
+  ! import generic mesh ........................................................
+
     ! verification .............................................................
 
     call mesh % ImportGenericMesh(generic_mesh, comm = comm)
+!    call VerifyMesh_3D(mesh, passed)
+    write(*,'(/,A,G0,/)') 'verification of imported mesh: passed = ', passed
 
-    call VerifyMesh_3D(mesh, passed)
-    write(*,'(/,A,G0,/)') 'VerifyMesh_3D: passed = ', passed
+!?!
+!?!    ! spectral element functionality ...........................................
+!?!
+!?!    se_mesh = SpectralElementMesh_3D(mesh, po)
+!?!
+!?!    allocate(area(mesh % n_bound))
+!?!    call se_mesh % Get_Volume(vol)
+!?!    call se_mesh % Get_SurfaceAreas(area)
+!?!
+!?!    write(*,'(A)') 'Spectral element mesh'
+!?!    write(*,'(2X,A,G0)') 'volume  = ', vol
+!?!    do i = 1, mesh % n_bound
+!?!      write(*,'(2X,A,I0,A,G0)') 'area(',i,') = ', area(i)
+!?!    end do
+!?!
+!?!    ! set up data ..............................................................
+!?!
+!?!    if (test_avg .or. export_vtk) then
+!?!      call mesh % GetPoints(po, 'L', x)
+!?!      allocate(v  (0:po, 0:po, 0:po, mesh%n_elem + mesh%n_ghost))
+!?!      allocate(var(0:po, 0:po, 0:po, mesh%n_elem, 2), source = ZERO)
+!?!      r(0:,0:,0:,1:) => var(:,:,:,:,1)
+!?!      e(0:,0:,0:,1:) => var(:,:,:,:,2)
+!?!    end if
+!?!
+!?!    ! averaging test ...........................................................
+!?!
+!?!    if (test_avg) then
+!?!
+!?!      kappa = 2 * PI / h
+!?!
+!?!      do l = 1, mesh%n_elem
+!?!        do k = 0, po
+!?!        do j = 0, po
+!?!        do i = 0, po
+!?!          y(1) = x(i,j,k,l,1)
+!?!          y(2) = x(i,j,k,l,2)
+!?!          y(3) = x(i,j,k,l,3)
+!?!          r(i,j,k,l) = cos(sum(kappa * y))
+!?!          v(i,j,k,l) = r(i,j,k,l)
+!?!        end do
+!?!        end do
+!?!        end do
+!?!      end do
+!?!
+!?!      v_buf = ElementTransferBuffer_3D(mesh, v)
+!?!      call Assembly_3D(mesh, v, v_buf, avg=.true.)
+!?!
+!?!      err = 0
+!?!      do l = 1, mesh%n_elem
+!?!        do k = 0, po
+!?!        do j = 0, po
+!?!        do i = 0, po
+!?!          e(i,j,k,l) = v(i,j,k,l) - r(i,j,k,l)
+!?!          if (abs(e(i,j,k,l)) > err) then
+!?!            err   = abs(e(i,j,k,l))
+!?!            i_err = i
+!?!            j_err = j
+!?!            k_err = k
+!?!            l_err = l
+!?!          end if
+!?!        end do
+!?!        end do
+!?!        end do
+!?!      end do
+!?!      write(*,'(A,ES10.3,A,4I5)') 'Average over element boundaries: err = ', &
+!?!                                  err, ' at ', i_err, j_err, k_err, l_err
+!?!    end if
+!?!
+!?!    ! export mesh and data .....................................................
+!?!
+!?!    if (export_vtk) then
+!?!      call ExportVTK_VolumeData( x, var                   &
+!?!                               , sname   = ['r','e']      &
+!?!                               , file    = 'element_mesh' &
+!?!                               , part    = mesh % part    &
+!?!                               , n_parts = mesh % n_parts )
+!?!
+!?!      call mesh % GetCuboids(x)
+!?!      call ExportVTK_VolumeData( x                        &
+!?!                               , file    = 'cuboid_mesh'  &
+!?!                               , part    = mesh % part    &
+!?!                               , n_parts = mesh % n_parts )
+!?!
+!?!    end if
 
-    ! spectral element functionality ...........................................
-
-    se_mesh = SpectralElementMesh_3D(mesh, po)
-
-    allocate(area(mesh % n_bound))
-    call se_mesh % Get_Volume(vol)
-    call se_mesh % Get_SurfaceAreas(area)
-
-    write(*,'(A)') 'Spectral element mesh'
-    write(*,'(2X,A,G0)') 'volume  = ', vol
-    do i = 1, mesh % n_bound
-      write(*,'(2X,A,I0,A,G0)') 'area(',i,') = ', area(i)
-    end do
-
-    ! set up data ..............................................................
-
-    if (test_avg .or. export_vtk) then
-      call mesh % GetPoints(po, 'L', x)
-      allocate(v  (0:po, 0:po, 0:po, mesh%n_elem + mesh%n_ghost))
-      allocate(var(0:po, 0:po, 0:po, mesh%n_elem, 2), source = ZERO)
-      r(0:,0:,0:,1:) => var(:,:,:,:,1)
-      e(0:,0:,0:,1:) => var(:,:,:,:,2)
-    end if
-
-    ! averaging test ...........................................................
-
-    if (test_avg) then
-
-      kappa = 2 * PI / h
-
-      do l = 1, mesh%n_elem
-        do k = 0, po
-        do j = 0, po
-        do i = 0, po
-          y(1) = x(i,j,k,l,1)
-          y(2) = x(i,j,k,l,2)
-          y(3) = x(i,j,k,l,3)
-          r(i,j,k,l) = cos(sum(kappa * y))
-          v(i,j,k,l) = r(i,j,k,l)
-        end do
-        end do
-        end do
-      end do
-
-      v_buf = ElementTransferBuffer_3D(mesh, v)
-      call Assembly_3D(mesh, v, v_buf, avg=.true.)
-
-      err = 0
-      do l = 1, mesh%n_elem
-        do k = 0, po
-        do j = 0, po
-        do i = 0, po
-          e(i,j,k,l) = v(i,j,k,l) - r(i,j,k,l)
-          if (abs(e(i,j,k,l)) > err) then
-            err   = abs(e(i,j,k,l))
-            i_err = i
-            j_err = j
-            k_err = k
-            l_err = l
-          end if
-        end do
-        end do
-        end do
-      end do
-      write(*,'(A,ES10.3,A,4I5)') 'Average over element boundaries: err = ', &
-                                  err, ' at ', i_err, j_err, k_err, l_err
-    end if
-
-    ! export mesh and data .....................................................
-
-    if (export_vtk) then
-      call ExportVTK_VolumeData( x, var                  &
-                               , sname  = ['r','e']      &
-                               , file   = 'element_mesh' &
-                               , part   = mesh % part    &
-                               , n_part = mesh % n_part  )
-
-      call mesh % GetCuboids(x)
-      call ExportVTK_VolumeData( x                       &
-                               , file   = 'cuboid_mesh'  &
-                               , part   = mesh % part    &
-                               , n_part = mesh % n_part  )
-
-    end if
-
+!### CHECK
+  call MPI_Barrier(comm)
+  call MPI_Comm_size(comm, n_proc)
+  print '(9(G0,1X))', 'rank =', rank, ', proc    =', mesh % proc
+  print '(9(G0,1X))', 'rank =', rank, ', part    =', mesh % part
+  print '(9(G0,1X))', 'rank =', rank, ', n_parts =', mesh % n_parts
+  print '(9(G0,1X))', 'rank =', rank, ', n_bound =', mesh % n_bound
+  print '(9(G0,1X))', 'rank =', rank, ', n_elem  =', mesh % n_elem
+  method = 1
+  weight = [ 1, 0, 0, 0 ]
+  allocate(tp(mesh%n_elem), source = -1)
+  if (mesh % part >= 0) then
+    call ComputeTargetPartitions(mesh, 3, weight, method, tp)
+  ! call ComputeTargetPartitions(mesh, n_proc, weight, method, tp)
+    print '(99(G0,1X))', 'rank =', rank, ', tp =', tp
   end if
+!### CHECK END
 
   call MPI_Finalize()
 

@@ -81,14 +81,21 @@ contains
 
   !-----------------------------------------------------------------------------
   !> TBP for computing the volume integral of the scalar
+  !>
+  !> The otional argument `scope` allows to modify the scope of collective MPI
+  !> operations. If it is absent or equal `'parts'`, the latter are restricted
+  !> to the active partitions governed by `this%sem%mesh%comm_parts`.
+  !> Passing `scope = 'world'` selects `this%sem%mesh%comm_world` and thus
+  !> includes the inactive (empty) partitions.
 
-  subroutine GetVolumeIntegral(this, vi)
+  subroutine GetVolumeIntegral(this, vi, scope)
     class(SpectralElementScalar_3D), intent(in) :: this
     real(RNP), intent(out) :: vi !< volume integral
+    character(len=*), optional, intent(in) :: scope !< scope of collect MPI ops
 
     real(RNP) :: vi_all(1)
 
-    call this % GetVolumeIntegrals(vi_all)
+    call this % GetVolumeIntegrals(vi_all, scope)
     vi = vi_all(1)
 
   end subroutine GetVolumeIntegral

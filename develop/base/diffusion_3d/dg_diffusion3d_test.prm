@@ -1,9 +1,9 @@
 &control_prm
   config = 3
   n_test = 10
-  plot_file = 'dg_diffusion_3d_test'
+  plot_file = 'dg_diffusion3d_test'
 !
-! schwarz_test_file = 'dg_diffusion_3d_test_schwarz'
+! schwarz_test_file = 'dg_diffusion3d_test_schwarz'
 ! schwarz_test_part =  0
 ! schwarz_test_elem = 14   ! one rotated
 ! schwarz_test_elem = 23   ! cylinder

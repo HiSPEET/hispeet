@@ -33,6 +33,9 @@ contains
 
     this % nc = 1
 
+    ! skip the rest for empty partitions
+    if (mesh % part < 0) return
+
     allocate(integer(IK) :: this % master % buf(size(this % master % node)))
     allocate(integer(IK) :: this % ghost  % buf(size(this % ghost  % node)))
 
@@ -48,6 +51,9 @@ contains
     integer, optional, intent(in) :: nl(3)        !< number of layers
 
     integer :: np(3), nc
+
+    ! skip empty partition
+    if (mesh % part < 0) return
 
     np(1) = size(v,1)
     np(2) = size(v,2)
@@ -75,6 +81,9 @@ contains
     integer(IK),    intent(in) :: v(:,:,:,:) !< mesh variable
     integer,        intent(in) :: tag        !< message tag
 
+    ! skip empty partition
+    if (this % ne <= 0) return
+
     call Transfer_IX(this, mesh, v, size(v,4), tag)
 
   end subroutine Transfer_IDK_S
@@ -87,6 +96,9 @@ contains
     class(Mesh_3D), intent(in) :: mesh         !< mesh partition
     integer(IK),    intent(in) :: v(:,:,:,:,:) !< mesh variable
     integer,        intent(in) :: tag          !< message tag
+
+    ! skip empty partition
+    if (this % ne <= 0) return
 
     call Transfer_IX(this, mesh, v, size(v,4), tag)
 
@@ -108,6 +120,9 @@ contains
   module subroutine Merge_IDK_S(this, v)
     class(ElementTransferBuffer_3D), intent(inout) :: this
     integer(IK), intent(inout) :: v(:,:,:,:) !< mesh variable
+
+    ! skip empty partition
+    if (this % ne <= 0) return
 
     !$omp master
     if (size(v,4) /= this%ne + this%ng) then
@@ -135,6 +150,9 @@ contains
   module subroutine Merge_IDK_A(this, v)
     class(ElementTransferBuffer_3D)  , intent(inout) :: this
     integer(IK), intent(inout) :: v(:,:,:,:,:) !< mesh variable
+
+    ! skip empty partition
+    if (this % ne <= 0) return
 
     !$omp master
     if (size(v,4) /= this%ne + this%ng) then
