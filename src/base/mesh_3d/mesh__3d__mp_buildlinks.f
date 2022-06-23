@@ -15,7 +15,7 @@ contains
   !> Generation of mesh links from global element neighbor information
   !>
   !> On entry, the mesh elements must be complete and `mesh%element%neighbor%id`
-  !> set to the home-partition ID of the neighbors.
+  !> set to the local ID of the neighbors within their home-partitions.
   !>
   !> Using this information
   !>

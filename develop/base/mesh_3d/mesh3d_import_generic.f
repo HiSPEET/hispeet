@@ -63,8 +63,10 @@ program Mesh3d_Import_Generic
   integer   :: i_err, j_err, k_err, l_err
 
 !### CHECK
-  integer :: n_proc, weight(4), method
-  integer, allocatable :: tp(:)
+  type(PartitioningOptions) :: part_opt
+  integer, allocatable :: tp_elem(:), id_elem(:)
+  integer, asynchronous, allocatable :: ne_part(:)
+  integer :: n_proc
 !### CHECK END
 
   call Init_MPI_Binding()
@@ -201,13 +203,13 @@ program Mesh3d_Import_Generic
   print '(9(G0,1X))', 'rank =', rank, ', n_parts =', mesh % n_parts
   print '(9(G0,1X))', 'rank =', rank, ', n_bound =', mesh % n_bound
   print '(9(G0,1X))', 'rank =', rank, ', n_elem  =', mesh % n_elem
-  method = 1
-  weight = [ 1, 0, 0, 0 ]
-  allocate(tp(mesh%n_elem), source = -1)
+  allocate(tp_elem( mesh%n_elem + mesh%n_ghost ), source = -1)
+  allocate(id_elem( mesh%n_elem + mesh%n_ghost ), source = -1)
+  allocate(ne_part( 0:n_proc-1                 ), source = -1)
   if (mesh % part >= 0) then
-    call ComputeTargetPartitions(mesh, 3, weight, method, tp)
-  ! call ComputeTargetPartitions(mesh, n_proc, weight, method, tp)
-    print '(99(G0,1X))', 'rank =', rank, ', tp =', tp
+    call ComputePartitions(mesh, part_opt, n_proc, tp_elem, id_elem, ne_part)
+    print '(A,I3,A,(99I3))', 'part =', mesh%part, ', tp_elem =', tp_elem
+    print '(A,I3,A,(99I3))', 'part =', mesh%part, ', id_elem =', id_elem
   end if
 !### CHECK END
 

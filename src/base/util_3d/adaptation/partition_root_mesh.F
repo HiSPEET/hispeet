@@ -3,37 +3,123 @@ module Partition_Root_Mesh
   use Mesh__3D
   use Element_Transfer_Buffer__3D
 
+  implicit none
+  private
+
+  public :: ComputePartitions
+  public :: PartitioningOptions
+
+  type PartitioningOptions
+    integer :: method    = 1         !< weighting method
+    integer :: weight(4) = [1,0,0,0] !< element and connectivity weights
+  contains
+    procedure :: Bcast => Bcast_PartitioningOptions
+  end type PartitioningOptions
+
 contains
 
-  ! module
-  subroutine ComputeTargetPartitions(mesh, n_parts, weight, method, tp)
-    class(Mesh_3D), intent(in) :: mesh  !< local mesh partition
-    integer, intent(in)  :: n_parts     !< requested number of partitions
-    integer, intent(in)  :: weight(4)   !< element and connectivity weights
-    integer, intent(in)  :: method      !< element weighting method
-    integer, intent(out) :: tp(mesh%n_elem) !< element target partitions
+  !=============================================================================
+  ! PartitioningOptions: type-bound procedures
 
-    ! so far
-    call ParMETIS_Partitioner(mesh, n_parts, weight, method, tp)
+  subroutine Bcast_PartitioningOptions(opt, root, comm)
+    class(PartitioningOptions), intent(inout) :: opt !< options
+    integer       , intent(in) :: root !< rank root process
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-  end subroutine ComputeTargetPartitions
+    call XMPI_Bcast(opt % method , root, comm)
+    call XMPI_Bcast(opt % weight , root, comm)
+
+  end subroutine Bcast_PartitioningOptions
+
+  !=============================================================================
+  ! Partitioning routines
 
   !-----------------------------------------------------------------------------
-  !> Partitioning with ParMETIS
+  !> Computes the new target partitions and element IDs
   !>
   !> @note
   !>   Runs only on the master thread with OpenMP
 
-  subroutine ParMETIS_Partitioner(mesh, n_parts, weight, method, tp)
+  subroutine ComputePartitions(mesh, opt, n_parts, tp_elem, id_elem, ne_part)
+
+    ! arguments ................................................................
+
+    class(Mesh_3D), intent(in) :: mesh
+    !< local mesh partition
+
+    class(PartitioningOptions), intent(in) :: opt
+    !< partitioning options
+
+    integer, intent(in) :: n_parts
+    !< number of target partitions
+
+    integer, intent(out) :: tp_elem(1:mesh%n_elem+mesh%n_ghost)
+    !< element target partitions
+
+    integer, intent(out) :: id_elem(1:mesh%n_elem+mesh%n_ghost)
+    !< element IDs in target partitions
+
+    integer, asynchronous, intent(out) :: ne_part(0:n_parts-1)
+    !< number of elements contributed to target partitions
+
+    ! internal variables .......................................................
+
+    integer, contiguous, pointer :: tp_elem_(:)
+    integer, contiguous, pointer :: id_elem_(:)
+    integer, allocatable, target :: elem_val(:,:,:,:,:)
+    type(ElementTransferBuffer_3D), asynchronous :: elem_buf
+
+    !---------------------------------------------------------------------------
+    !$omp master
+
+    ! workspace ................................................................
+
+    allocate(elem_val(1, 1, 1, mesh%n_elem + mesh%n_ghost, 2), source = -1)
+
+    elem_buf =  ElementTransferBuffer_3D(mesh, elem_val)
+    tp_elem_ => elem_val(1,1,1,:,1)
+    id_elem_ => elem_val(1,1,1,:,2)
+
+    ! target partitions ........................................................
+
+    call ParMETIS_Partitioner(mesh, opt, n_parts, tp_elem_)
+
+    ! element distribution .....................................................
+
+    call ComputeElementDistribution(mesh, n_parts, tp_elem_, id_elem_, ne_part)
+
+    call elem_buf % Transfer(mesh, elem_val, tag = 1000)
+    call elem_buf % Merge(elem_val)
+
+    ! assign results ...........................................................
+
+    tp_elem = tp_elem_
+    id_elem = id_elem_
+
+    !---------------------------------------------------------------------------
+    !$omp end master
+
+  end subroutine ComputePartitions
+
+  !-----------------------------------------------------------------------------
+  !> Partitioning with ParMETIS
+
+  subroutine ParMETIS_Partitioner(mesh, opt, n_parts, tp_elem)
     use ParMETIS_Binding
 
     ! arguments ................................................................
 
-    class(Mesh_3D), intent(in) :: mesh  !< local mesh partition
-    integer, intent(in)  :: n_parts     !< requested number of partitions
-    integer, intent(in)  :: weight(4)   !< element and connectivity weights
-    integer, intent(in)  :: method      !< element weighting method
-    integer, intent(out) :: tp(mesh%n_elem) !< element target partitions
+    class(Mesh_3D), intent(in) :: mesh
+    !< local mesh partition
+
+    class(PartitioningOptions), intent(in) :: opt
+    !< partitioning options
+
+    integer, intent(in)  :: n_parts
+    !< number of target partitions
+
+    integer, intent(out) :: tp_elem(:)
+    !< element target partitions
 
     ! local variables ..........................................................
 
@@ -53,14 +139,15 @@ contains
 
     type(ElementTransferBuffer_3D), asynchronous :: buf_vtxid
 
-    integer :: e, i, j, k, m
+    integer :: e, i, j, k, m, n
 
     !$omp master
 
     associate( comm   => mesh % comm_parts &
              , i_proc => mesh % part       & ! i_proc = present partition ID
              , n_proc => mesh % n_parts    & ! n_proc = present num partitions
-             , n_elem => mesh % n_elem     )
+             , n_elem => mesh % n_elem     &
+             , weight => opt  % weight     )
 
       ! initialization .........................................................
 
@@ -73,7 +160,7 @@ contains
 
       ! element weighting
       if (weight(1) > 0) then
-        select case(method)
+        select case(opt % method)
         case(2)
           ncon = 2
         case(3)
@@ -261,12 +348,107 @@ contains
 
       ! result .................................................................
 
-      tp = part
+      tp_elem = part
 
     end associate
 
     !$omp end master
 
   end subroutine ParMETIS_Partitioner
+
+  !-----------------------------------------------------------------------------
+  !> Compute element IDs in their target partitions
+
+  subroutine ComputeElementDistribution(mesh, n_parts, tp_elem, id_elem, ne_part)
+    class(Mesh_3D), intent(in) :: mesh  !< local mesh partition
+    integer, intent(in)  :: n_parts     !< number of target partitions
+    integer, intent(in)  :: tp_elem(1:) !< element target partitions
+    integer, intent(out) :: id_elem(1:) !< element IDs in target partition
+    integer, intent(out) :: ne_part(0:) !< element IDs in target partition
+
+    integer, allocatable, asynchronous :: id_part(:)
+
+    integer :: e, p
+
+    !$omp master
+
+
+    allocate(id_part(0:n_parts-1))
+
+    ne_part = 0
+    do e = 1, mesh % n_elem
+      ne_part(tp_elem(e)) = ne_part(tp_elem(e)) + 1
+    end do
+
+    call ComputeElementOffsets(mesh, ne_part, id_part)
+
+    do e = 1, mesh % n_elem
+      p = tp_elem(e)               ! fetch target partition
+      id_part(p) = id_part(p) + 1  ! increment element counter
+      id_elem(e) = id_part(p)      ! set element ID in target partition
+    end do
+
+    !$omp end master
+
+  end subroutine ComputeElementDistribution
+
+  !-----------------------------------------------------------------------------
+  !> Computes the offsets for numbering the redistributed elements
+
+  subroutine ComputeElementOffsets(mesh, ne_part, id_part)
+    class(Mesh_3D), intent(in) :: mesh
+    integer, asynchronous, intent(in)  :: ne_part(0:)
+    integer, asynchronous, intent(out) :: id_part(0:)
+
+    type(MPI_Win) :: window
+    integer(MPI_ADDRESS_KIND) :: integer_extent, lb
+    integer(MPI_ADDRESS_KIND) :: buf_size
+    integer(MPI_ADDRESS_KIND) :: target_disp = 0
+    integer :: disp_unit
+    integer :: i, np
+
+    ! preliminaries ............................................................
+
+    np = size(ne_part)
+
+    ! create MPI window ........................................................
+
+    call MPI_Type_get_extent(MPI_INTEGER, lb, integer_extent)
+    buf_size  = integer_extent * np
+    disp_unit = int(integer_extent)
+
+    call MPI_Win_create( base       =  id_part            &
+                       , size       =  buf_size           &
+                       , disp_unit  =  disp_unit          &
+                       , info       =  MPI_INFO_NULL      &
+                       , comm       =  mesh % comm_parts  &
+                       , win        =  window             )
+
+    ! compute offsets via accumulation .........................................
+
+    id_part = 0
+
+    call MPI_Win_fence(MPI_MODE_NOSTORE + MPI_MODE_NOPRECEDE, window)
+
+    do i = mesh%part + 1, mesh%n_parts - 1
+      call MPI_Accumulate( origin_addr     = ne_part       &
+                         , origin_count    = np            &
+                         , origin_datatype = MPI_INTEGER   &
+                         , target_rank     = i             &
+                         , target_disp     = target_disp   &
+                         , target_count    = np            &
+                         , target_datatype = MPI_INTEGER   &
+                         , op              = MPI_SUM       &
+                         , win             = window        )
+    end do
+
+    call MPI_Win_fence( MPI_MODE_NOSTORE + MPI_MODE_NOPUT + MPI_MODE_NOSUCCEED &
+                      , window )
+
+    call MPI_Win_free(window)
+
+  end subroutine ComputeElementOffsets
+
+  !=============================================================================
 
 end module Partition_Root_Mesh
