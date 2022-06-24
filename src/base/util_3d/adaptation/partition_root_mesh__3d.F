@@ -1,4 +1,4 @@
-module Partition_Root_Mesh
+module Partition_Root_Mesh__3D
   use XMPI
   use Mesh__3D
   use Element_Transfer_Buffer__3D
@@ -6,23 +6,23 @@ module Partition_Root_Mesh
   implicit none
   private
 
-  public :: ComputePartitions
-  public :: PartitioningOptions
+  public :: ComputePartitions_3D
+  public :: PartitioningOptions_3D
 
-  type PartitioningOptions
+  type PartitioningOptions_3D
     integer :: method    = 1         !< weighting method
     integer :: weight(4) = [1,0,0,0] !< element and connectivity weights
   contains
     procedure :: Bcast => Bcast_PartitioningOptions
-  end type PartitioningOptions
+  end type PartitioningOptions_3D
 
 contains
 
   !=============================================================================
-  ! PartitioningOptions: type-bound procedures
+  ! PartitioningOptions_3D: type-bound procedures
 
   subroutine Bcast_PartitioningOptions(opt, root, comm)
-    class(PartitioningOptions), intent(inout) :: opt !< options
+    class(PartitioningOptions_3D), intent(inout) :: opt !< options
     integer       , intent(in) :: root !< rank root process
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
@@ -40,14 +40,14 @@ contains
   !> @note
   !>   Runs only on the master thread with OpenMP
 
-  subroutine ComputePartitions(mesh, opt, n_parts, tp_elem, id_elem, ne_part)
+  subroutine ComputePartitions_3D(mesh, opt, n_parts, tp_elem, id_elem, ne_part)
 
     ! arguments ................................................................
 
     class(Mesh_3D), intent(in) :: mesh
     !< local mesh partition
 
-    class(PartitioningOptions), intent(in) :: opt
+    class(PartitioningOptions_3D), intent(in) :: opt
     !< partitioning options
 
     integer, intent(in) :: n_parts
@@ -99,7 +99,7 @@ contains
     !---------------------------------------------------------------------------
     !$omp end master
 
-  end subroutine ComputePartitions
+  end subroutine ComputePartitions_3D
 
   !-----------------------------------------------------------------------------
   !> Partitioning with ParMETIS
@@ -112,7 +112,7 @@ contains
     class(Mesh_3D), intent(in) :: mesh
     !< local mesh partition
 
-    class(PartitioningOptions), intent(in) :: opt
+    class(PartitioningOptions_3D), intent(in) :: opt
     !< partitioning options
 
     integer, intent(in)  :: n_parts
@@ -451,4 +451,4 @@ contains
 
   !=============================================================================
 
-end module Partition_Root_Mesh
+end module Partition_Root_Mesh__3D

@@ -10,7 +10,7 @@ program Mesh3d_Import_Generic
   use Assembly__3D
   use Export_VTK_Volume_Data__3D
 !### CHECK
-  use Partition_Root_Mesh
+  use Partition_Root_Mesh__3D
 !### CHECK END
   implicit none
 
@@ -63,7 +63,7 @@ program Mesh3d_Import_Generic
   integer   :: i_err, j_err, k_err, l_err
 
 !### CHECK
-  type(PartitioningOptions) :: part_opt
+  type(PartitioningOptions_3D) :: part_opt
   integer, allocatable :: tp_elem(:), id_elem(:)
   integer, asynchronous, allocatable :: ne_part(:)
   integer :: n_proc
@@ -207,7 +207,7 @@ program Mesh3d_Import_Generic
   allocate(id_elem( mesh%n_elem + mesh%n_ghost ), source = -1)
   allocate(ne_part( 0:n_proc-1                 ), source = -1)
   if (mesh % part >= 0) then
-    call ComputePartitions(mesh, part_opt, n_proc, tp_elem, id_elem, ne_part)
+    call ComputePartitions_3D(mesh, part_opt, n_proc, tp_elem, id_elem, ne_part)
     print '(A,I3,A,(99I3))', 'part =', mesh%part, ', tp_elem =', tp_elem
     print '(A,I3,A,(99I3))', 'part =', mesh%part, ', id_elem =', id_elem
   end if
