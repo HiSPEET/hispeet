@@ -100,6 +100,7 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
               mesh_3d/generic_mesh__3d__mp_createonerotated.f
               mesh_3d/mesh_boundary__3d.f
               mesh_3d/mesh_element__3d.f
+              mesh_3d/mesh_element__3d__sm_mpi.f
               mesh_3d/mesh_element_indexing__3d.f
               mesh_3d/mesh_face__3d.f
               mesh_3d/mesh_link__3d.f
@@ -146,6 +147,7 @@ set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/ops/assembly__3d__sm_0u.f
              util_3d/ops/convert_traces__3d.f
              util_3d/verification/verify_mesh__3d.f
+             util_3d/adaptation/element_distribution_data__3d.f
              util_3d/adaptation/partition_root_mesh__3d.F
              )
 

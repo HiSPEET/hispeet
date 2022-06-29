@@ -116,8 +116,8 @@ contains
   !-----------------------------------------------------------------------------
   !> Import of mesh elements
   !>
-  !> Allocates the elements, sets global and local IDs, and adopts the vertex
-  !> IDs from then generic mesh.
+  !> Allocates the elements, sets local IDs, and adopts the vertex IDs from the
+  !> generic mesh.
 
   subroutine ImportElements(mesh, generic_mesh)
     class(Mesh_3D),        intent(inout) :: mesh         !< mesh partition
@@ -132,8 +132,7 @@ contains
 
     n = 0
     do i = 1, mesh % n_elem
-      mesh % element(i) % global_id = i
-      mesh % element(i) % local_id  = i
+      mesh % element(i) % id = i
       do j = 1, 8
         k = generic_mesh % vertex( generic_mesh % element(i) % vertex(j) ) % id
         mesh % element(i) % vertex(j) % id = k

@@ -11,6 +11,7 @@ program Mesh3d_Import_Generic
   use Export_VTK_Volume_Data__3D
 !### CHECK
   use Partition_Root_Mesh__3D
+  use Mesh_Element__3D
 !### CHECK END
   implicit none
 
@@ -67,6 +68,9 @@ program Mesh3d_Import_Generic
   integer, allocatable :: tp_elem(:), id_elem(:)
   integer, asynchronous, allocatable :: ne_part(:)
   integer :: n_proc
+
+  type(MPI_Datatype) :: MPI_MeshElement_3D
+  type(MeshElement_3D), allocatable :: element(:)
 !### CHECK END
 
   call Init_MPI_Binding()
@@ -207,9 +211,47 @@ program Mesh3d_Import_Generic
   allocate(id_elem( mesh%n_elem + mesh%n_ghost ), source = -1)
   allocate(ne_part( 0:n_proc-1                 ), source = -1)
   if (mesh % part >= 0) then
-    call ComputePartitions_3D(mesh, part_opt, n_proc, tp_elem, id_elem, ne_part)
+    call ComputePartitions(mesh, part_opt, n_proc, tp_elem, id_elem, ne_part)
     print '(A,I3,A,(99I3))', 'part =', mesh%part, ', tp_elem =', tp_elem
     print '(A,I3,A,(99I3))', 'part =', mesh%part, ', id_elem =', id_elem
+  end if
+
+  call Get_MPI_MeshElement_3D(MPI_MeshElement_3D)
+  if (n_proc > 1) then
+
+    if (mesh % proc == 0) then
+      call MPI_Send(mesh%n_elem, 1, MPI_INTEGER, 1, 10, comm)
+    else if  (mesh % proc == 1) then
+      call MPI_Recv(l, 1, MPI_INTEGER, 0, 10, comm, MPI_STATUS_IGNORE)
+      allocate(element(l))
+      print '(99G0)', 'proc = ', 1, ': prepared to receive ',l,' elements'
+    end if
+
+    if (mesh % proc == 0) then
+      call MPI_Send(mesh%element(1)%id, mesh%n_elem, MPI_MeshElement_3D, 1, 20, comm)
+    else if  (mesh % proc == 1) then
+      call MPI_Recv(element(1)%id, l, MPI_MeshElement_3D, 0, 20, comm, MPI_STATUS_IGNORE)
+    end if
+
+    call MPI_Barrier(comm)
+
+    i = 1
+    if (mesh % proc == 0) then
+      print '(99G0)'     , 'proc 0: element(',i,')'
+      print '(99(G0,1X))', 'proc 0:   id                    =', mesh % element(i) % id
+      print '(99(G0,1X))', 'proc 0:   face(8) % n_neighbor  =', mesh % element(i) % face(6) % n_neighbor
+      print '(99(G0,1X))', 'proc 0:   geometry % po         =', mesh % element(i) % geometry % po
+      print '(99(G0,1X))', 'proc 0:   geometry % dx_m       =', mesh % element(i) % geometry % dx_m
+    else if  (mesh % proc == 1) then
+      print '(99G0)'     , 'proc 1: element(',i,')'
+      print '(99(G0,1X))', 'proc 1:   id                    =', element(i) % id
+      print '(99(G0,1X))', 'proc 1:   face(8) % n_neighbor  =', element(i) % face(6) % n_neighbor
+      print '(99(G0,1X))', 'proc 1:   geometry % po         =', element(i) % geometry % po
+      print '(99(G0,1X))', 'proc 1:   geometry % dx_m       =', element(i) % geometry % dx_m
+    end if
+
+    call MPI_Barrier(comm)
+
   end if
 !### CHECK END
 

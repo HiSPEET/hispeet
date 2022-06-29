@@ -2,12 +2,16 @@ module Partition_Root_Mesh__3D
   use XMPI
   use Mesh__3D
   use Element_Transfer_Buffer__3D
+  use Element_Distribution_Data__3D
 
   implicit none
   private
 
-  public :: ComputePartitions_3D
   public :: PartitioningOptions_3D
+
+!## CHECK
+public :: ComputePartitions
+!## CHECK END
 
   type PartitioningOptions_3D
     integer :: method    = 1         !< weighting method
@@ -40,7 +44,7 @@ contains
   !> @note
   !>   Runs only on the master thread with OpenMP
 
-  subroutine ComputePartitions_3D(mesh, opt, n_parts, tp_elem, id_elem, ne_part)
+  subroutine ComputePartitions(mesh, opt, n_parts, tp_elem, id_elem, ne_part)
 
     ! arguments ................................................................
 
@@ -99,7 +103,7 @@ contains
     !---------------------------------------------------------------------------
     !$omp end master
 
-  end subroutine ComputePartitions_3D
+  end subroutine ComputePartitions
 
   !-----------------------------------------------------------------------------
   !> Partitioning with ParMETIS
@@ -135,7 +139,7 @@ contains
 
     integer, allocatable :: n_elem_proc(:)   ! num elements per process
     integer, allocatable, target :: vtxid(:) ! graph vertex IDs
-    integer, pointer :: var_vtxid(:,:,:,:) ! maps vtxid to element variable
+    integer, pointer :: var_vtxid(:,:,:,:)   ! maps vtxid to element variable
 
     type(ElementTransferBuffer_3D), asynchronous :: buf_vtxid
 
@@ -372,7 +376,6 @@ contains
 
     !$omp master
 
-
     allocate(id_part(0:n_parts-1))
 
     ne_part = 0
@@ -448,6 +451,143 @@ contains
     call MPI_Win_free(window)
 
   end subroutine ComputeElementOffsets
+
+  !=============================================================================
+  ! Distribution routines
+
+  !-----------------------------------------------------------------------------
+  !> Build element distribution data
+
+  subroutine BuildDistributionData( mesh, n_parts, tp_elem, id_elem, ne_part, &
+                                    proc_part, dist_data )
+
+    ! arguments ................................................................
+
+    class(Mesh_3D), intent(in) :: mesh
+    !< local mesh partition
+
+    integer, intent(in) :: n_parts
+    !< number of target partitions
+
+    integer, intent(in) :: tp_elem(1:mesh%n_elem+mesh%n_ghost)
+    !< element target partitions
+
+    integer, intent(in) :: id_elem(1:mesh%n_elem+mesh%n_ghost)
+    !< element IDs in target partitions
+
+    integer, intent(in) :: ne_part(0:n_parts-1)
+    !< number of elements contributed to target partitions
+
+    integer, optional, intent(in) :: proc_part(0:n_parts-1)
+    !< maps partition ID to precess ID in `mesh%comm_world` [identity]
+
+    type(ElementDistributionData_3D), intent(out) :: dist_data(0:n_parts-1)
+    !< local element distribution data being prepared for sending
+
+    ! internal variables .......................................................
+
+    integer :: ie_part(0:n_parts-1)  ! element counters
+    integer :: in_part(0:n_parts-1)  ! neighbor counters
+    integer :: ip_part(0:n_parts-1)  ! element point counters
+
+    integer :: e, i, j, nn, np, tp
+
+    if (mesh % part < 0) return
+
+    !---------------------------------------------------------------------------
+    !$omp master
+
+    ! MPI and dimensions .......................................................
+
+    ! basic initialization
+    do tp = 0, n_parts-1
+      dist_data(tp) % proc       = tp
+      dist_data(tp) % comm       = mesh % comm_world
+      dist_data(tp) % n_element  = ne_part(tp)
+      dist_data(tp) % n_neighbor = 0
+      dist_data(tp) % n_point    = 0
+    end do
+
+    ! optional transformation of part IDs to process IDs
+    if (present(proc_part)) then
+      dist_data % proc = proc_part( dist_data % proc )
+    end if
+
+    ! counting neighbors and element points
+    do e = 1, mesh % n_elem
+
+      tp = tp_elem(e)
+      nn = size(mesh % element(e) % neighbor)
+      np = size(mesh % element(e) % geometry % x_e, 1)
+
+      dist_data(tp) % n_neighbor  =  dist_data(tp) % n_neighbor  +  nn
+      dist_data(tp) % n_point     =  dist_data(tp) % n_point     +  np
+
+    end do
+
+    ! built components .........................................................
+
+    ! allocate components
+    do tp = 0, n_parts-1
+      associate(dd => dist_data(tp))
+        allocate( dd % element              ( dd % n_element  ) )
+        allocate( dd % neighbor_id          ( dd % n_neighbor ) )
+        allocate( dd % neighbor_part        ( dd % n_neighbor ) )
+        allocate( dd % neighbor_component   ( dd % n_neighbor ) )
+        allocate( dd % neighbor_orientation ( dd % n_neighbor ) )
+        allocate( dd % x_e                  ( dd % n_point, 3 ) )
+      end associate
+    end do
+
+    ! initialize counters
+    ie_part = 0
+    in_part = 0
+    ip_part = 0
+
+    ! extract and transform element data
+    do e = 1, mesh % n_elem
+      tp = tp_elem(e)
+      associate(element => mesh % element(e), dd => dist_data(tp))
+
+        ! static element components
+        i = ie_part(tp) + 1
+        dd % element(i) % id              = id_elem(e)
+        dd % element(i) % vertex          = element % vertex
+        dd % element(i) % edge            = element % edge
+        dd % element(i) % face            = element % face
+        dd % element(i) % adaptation      = element % adaptation
+        dd % element(i) % geometry % po   = element % geometry % po
+        dd % element(i) % geometry % x_c  = element % geometry % x_c
+        dd % element(i) % geometry % dx_m = element % geometry % dx_m
+        ie_part(tp) = i
+
+        ! neighbor data
+        i  = in_part(tp)
+        nn = size(element % neighbor)
+        do j = 1, nn
+          i = i + 1
+          dd % neighbor_id          (i) = id_elem( element%neighbor(j)% id   )
+          dd % neighbor_part        (i) = tp_elem( element%neighbor(j)% part )
+          dd % neighbor_component   (i) = element % neighbor(j) % component
+          dd % neighbor_orientation (i) = element % neighbor(j) % orientation
+        end do
+        in_part(tp) = i
+
+        ! element points
+        i  = ip_part(tp)
+        np = size(element % geometry % x_e, 1)
+        dd % x_e(i+1:i+np, 1) = reshape(element % geometry % x_e(:,:,:,1), [np])
+        dd % x_e(i+1:i+np, 2) = reshape(element % geometry % x_e(:,:,:,2), [np])
+        dd % x_e(i+1:i+np, 3) = reshape(element % geometry % x_e(:,:,:,3), [np])
+        ip_part(tp) = i + np
+
+      end associate
+    end do
+
+    !---------------------------------------------------------------------------
+    !$omp end master
+
+  end subroutine BuildDistributionData
 
   !=============================================================================
 

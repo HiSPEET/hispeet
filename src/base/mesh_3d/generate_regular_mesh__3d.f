@@ -1,6 +1,6 @@
 module Generate_Regular_Mesh__3D
 
-  use Kind_Parameters  , only: IXL, IXS, RNP
+  use Kind_Parameters  , only: IXS, RNP
   use Constants        , only: ZERO, HALF
   use Execution_Control, only: Error
   use Gauss_Jacobi
@@ -153,19 +153,15 @@ contains
     logical, intent(in)  :: self(3)     !< indicator wether linked to itself
     integer, intent(out) :: i0, j0, k0  !< element offsets WRT global numbering
 
-    integer(IXL) :: ig, jg, kg, ng(3)  ! global elements indices and counts
-    integer      :: ie, je, ke         ! local element indices
-    integer      :: ip, jp, kp         ! partion triple index
-    integer      :: ies, jes, kes      ! shifted element indices
-    integer      :: ips, jps, kps      ! shifted partition indices
-    integer      :: i, e, l, r, s, t
+    integer :: ie, je, ke         ! local element indices
+    integer :: ip, jp, kp         ! partion triple index
+    integer :: ies, jes, kes      ! shifted element indices
+    integer :: ips, jps, kps      ! shifted partition indices
+    integer :: i, e, l, r, s, t
 
     type(MeshElementNeighbor_3D) :: neighbor(26)
 
     ! prerequisites ............................................................
-
-    ! global mesh dimensions
-    ng = np * ep
 
     call TripleIndex(ip, jp, kp, 1, 1, 1, np(1), np(2), l=mesh%part+1)
 
@@ -191,12 +187,7 @@ contains
 
         e = LexicalElementIndex(ie, je, ke, n1, n2)
 
-        ig = i0 + ie
-        jg = j0 + je
-        kg = k0 + ke
-
-        element(e) % global_id = LexicalElementIndex(ig, jg, kg, ng(1), ng(2))
-        element(e) % local_id  = e
+        element(e) % id = e
 
         ! element vertices .....................................................
 

@@ -18,12 +18,9 @@ contains
   !> information, the ghosts are created in `mesh % ghost(1:n_ghost)` and
   !> initialized as follows:
   !>
-  !>   - `ghost % global_id` :
-  !>      is the global ID of the corresponding mesh element
-  !>
-  !>   - `ghost % local_id` :
+  !>   - `ghost % id` :
   !>      is the virtual element ID in the local mesh partition. It holds
-  !>      `ghost(i) % local_id = mesh % n_elem + i`
+  !>      `ghost(i) % id = mesh % n_elem + i`
   !>
   !>   - `ghost % face % id` :
   !>      is the corresponding mesh face,
@@ -37,9 +34,7 @@ contains
   module subroutine BuildGhosts(mesh)
     class(Mesh_3D), intent(inout) :: mesh !< local partition
 
-    type(ElementTransferBuffer_3D), asynchronous, allocatable :: global_id_buf
     type(ElementTransferBuffer_3D), asynchronous, allocatable :: orientation_buf
-    integer(IXL), allocatable :: global_id(:,:,:,:)
     integer(IXS), allocatable :: orientation(:,:,:,:)
 
     integer :: lfi(-1:1,-1:1), gfi(-1:1,-1:1), lei(-1:1)
@@ -53,17 +48,12 @@ contains
     allocate(mesh % ghost(mesh % n_ghost))
     if (mesh % n_ghost == 0) return
 
-    ! these could be two OpenMP tasks
-    allocate(global_id( 1, 1, 1, mesh%n_elem + mesh%n_ghost ))
-    global_id_buf = ElementTransferBuffer_3D(mesh, global_id)
     allocate(orientation( 24, 1, 1, mesh%n_elem + mesh%n_ghost ))
     orientation_buf = ElementTransferBuffer_3D(mesh, orientation)
 
-    ! transfer global ID and orientation .......................................
+    ! transfer and orientation .................................................
 
     do l = 1, mesh % n_elem
-
-      global_id(1,1,1,l) = mesh % element(l) % global_id
 
       do k = 1, 6
         orientation(2*k-1,1,1,l) = mesh % element(l) % face(k) % normal
@@ -76,10 +66,7 @@ contains
 
     end do
 
-    call global_id_buf   % Transfer(mesh, global_id  , tag=100)
     call orientation_buf % Transfer(mesh, orientation, tag=200)
-
-    call global_id_buf   % Merge(global_id)
     call orientation_buf % Merge(orientation)
 
     ! assign received data to ghosts ...........................................
@@ -90,8 +77,7 @@ contains
 
         l = mesh % n_elem + g
 
-        mesh % ghost(g) % global_id = global_id(1,1,1,l)
-        mesh % ghost(g) % local_id  = l
+        mesh % ghost(g) % id  = l
 
         ! faces
         do k = 1, 6

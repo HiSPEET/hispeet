@@ -219,8 +219,8 @@ contains
         max_edge = max( max_edge, maxval(element % edge   % id) )
         min_face = min( min_face, minval(element % face   % id) )
         max_face = max( max_face, maxval(element % face   % id) )
-        min_elem = min( min_elem, element % local_id )
-        max_elem = max( max_elem, element % local_id )
+        min_elem = min( min_elem, element % id )
+        max_elem = max( max_elem, element % id )
         min_n_nb = min( min_n_nb, size(element % neighbor) )
         max_n_nb = max( max_n_nb, size(element % neighbor) )
       end associate
@@ -240,8 +240,7 @@ contains
     integer :: i, j, j1, j2, k
 
     write(*,*)
-    write(*,'(A,99(1X,I5))') 'global_id     =', element%global_id
-    write(*,'(A,99(1X,I5))') 'local_id      =', element%local_id
+    write(*,'(A,99(1X,I5))') 'id            =', element%id
     write(*,'(A,99(1X,I5))') 'vertex % id   =', element%vertex%id
     write(*,'(A,99(1X,I5))') 'vertex % rank =', element%vertex%rank
     write(*,'(A,99(1X,I5))') 'vertex % val  =', element%vertex%val

@@ -2,10 +2,15 @@
 !> author:   Joerg Stiller
 !> date:     2020/11/12
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @remark
+!>    Always update `Get_MPI_MeshElement_3D` when changing  `MeshElement_3D` or
+!>    any of the subordinate types!
 !===============================================================================
 
 module Mesh_Element__3D
-  use Kind_Parameters, only: IXL, IXS, RNP
+  use Kind_Parameters, only: IXS, RNP
+  use XMPI
   use Mesh_Element_Indexing__3D
   implicit none
   private
@@ -15,8 +20,11 @@ module Mesh_Element__3D
   public :: MeshElementEdge_3D
   public :: MeshElementFace_3D
   public :: MeshElementNeighbor_3D
+  public :: MeshElementAdaptation_3D
+  public :: MeshElementGeometry_3D
 
   public :: TransformIndex
+  public :: Get_MPI_MeshElement_3D
 
   !-----------------------------------------------------------------------------
   !> Element vertex data
@@ -227,8 +235,7 @@ module Mesh_Element__3D
 
   type MeshElement_3D
 
-    integer(IXL) :: global_id = -1  !< global element ID
-    integer      :: local_id  = -1  !< local  element ID
+    integer :: id = -1  !< local  element ID
 
     type(MeshElementVertex_3D)  :: vertex(8)  !< vertex data
     type(MeshElementEdge_3D)    :: edge(12)   !< edge data
@@ -244,6 +251,28 @@ module Mesh_Element__3D
     procedure :: AlignFromNeighborFace
 
   end type MeshElement_3D
+
+  !=============================================================================
+  ! Interfaces to submodule procedures
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Get MPI data type for mesh elements
+    !>
+    !> The datatype allows to transfer the static components of elements, e.g.
+    !>
+    !>     type(MeshElement_3D) :: element(n)
+    !>     type(MPI_Datatype)   :: MPI_MeshElement_3D
+    !>     ...
+    !>     call Get_MPI_MeshElement_3D(MPI_MeshElement_3D)
+    !>     call MPI_Send(element(1)%id, n, MPI_MeshElement_3D, dest, tag, comm)
+
+    module subroutine Get_MPI_MeshElement_3D( MPI_MeshElement_3D )
+      type(MPI_Datatype), intent(out) :: MPI_MeshElement_3D
+    end subroutine Get_MPI_MeshElement_3D
+
+  end interface
 
 contains
 
