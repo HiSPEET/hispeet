@@ -80,7 +80,7 @@ contains
     !$omp master
     associate(dest => this%proc, comm => this%comm, req_dat => this%req_dat)
 
-      if (dest >= 0) then
+      if (this % n_element > 0) then
 
         call Get_MPI_MeshElement_3D(MPI_MeshElement_3D)
 
@@ -156,11 +156,11 @@ contains
     associate( source => this%proc, req_dim => this%req_dim &
              , comm   => this%comm, req_dat => this%req_dat )
 
-      if (source >= 0) then
+      call Get_MPI_MeshElement_3D(MPI_MeshElement_3D)
 
-        call Get_MPI_MeshElement_3D(MPI_MeshElement_3D)
+      call MPI_Waitall(size(req_dim), req_dim, MPI_STATUSES_IGNORE)
 
-        call MPI_Waitall(size(req_dim), req_dim, MPI_STATUSES_IGNORE)
+      if (this % n_element > 0) then
 
         allocate( this % element              ( this % n_element  ) )
         allocate( this % neighbor_id          ( this % n_neighbor ) )

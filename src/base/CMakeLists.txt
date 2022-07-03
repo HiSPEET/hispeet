@@ -147,8 +147,9 @@ set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/ops/assembly__3d__sm_0u.f
              util_3d/ops/convert_traces__3d.f
              util_3d/verification/verify_mesh__3d.f
+             util_3d/adaptation/element_distribution_map__3d.f
              util_3d/adaptation/element_distribution_data__3d.f
-             util_3d/adaptation/partition_root_mesh__3d.F
+             util_3d/adaptation/root_mesh_partitioning__3d.F
              )
 
 # obsolete:
