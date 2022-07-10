@@ -20,9 +20,9 @@ module Element_Distribution_Data__3D
     type(MPI_Request)  :: req_dat(6)  !< MPI request for data arrays
 
     ! dimensions
-    integer :: n_element  = -1        !< number of elements
-    integer :: n_neighbor = -1        !< number of neighbors
-    integer :: n_point    = -1        !< number of element points
+    integer :: n_element  = 0         !< number of elements
+    integer :: n_neighbor = 0         !< number of neighbors
+    integer :: n_point    = 0         !< number of element points
 
     ! static element components
     type(MeshElement_3D), allocatable :: element(:)      !< static components

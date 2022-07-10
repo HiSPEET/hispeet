@@ -50,17 +50,27 @@ contains
     ! internal variables .......................................................
 
     type(ElementDistributionData_3D), allocatable :: send_data(:)
-    type(ElementDistributionData_3D), allocatable :: rcev_data(:)
+    type(ElementDistributionData_3D), allocatable :: recv_data(:)
 
-    integer :: i, p
+    integer :: i
 
     !---------------------------------------------------------------------------
     !$omp master
+
+!### CHECK
+print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  0'
+call MPI_Barrier(old_mesh % comm_world)
+!### CHECK END
 
     ! prepare new partitions ...................................................
 
     call new_mesh % Init_Mesh_3D( MeshAttributes_3D(old_mesh) &
                                 , old_mesh%comm_world         )
+
+!### CHECK
+print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  1'
+call MPI_Barrier(old_mesh % comm_world)
+!### CHECK END
 
     new_mesh % n_parts = opt % n_parts
 
@@ -71,11 +81,21 @@ contains
 
     call new_mesh % BuildCommunicator()
 
+!### CHECK
+print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  2'
+call MPI_Barrier(old_mesh % comm_world)
+!### CHECK END
+
     ! build distribution map ...................................................
 
     if (old_mesh % part >= 0) then
       call BuildDistributionMap(opt, old_mesh, map)
     end if
+
+!### CHECK
+print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  3'
+call MPI_Barrier(old_mesh % comm_world)
+!### CHECK END
 
     ! distribute element data ..................................................
 
@@ -85,14 +105,25 @@ contains
       call BuildDistributionData(old_mesh, new_mesh, map, send_data)
     end if
 
+!### CHECK
+print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  4'
+print '(9(G0,1X))', 'proc =',old_mesh%proc,' old_mesh % proc_active =', old_mesh % proc_active
+call MPI_Barrier(old_mesh % comm_world)
+!### CHECK END
+
     ! prepare receive data
     if (new_mesh % part >= 0) then
       allocate(recv_data(0:old_mesh%n_parts-1))
       do i = 0, old_mesh%n_parts-1
-        recv_data(i) % proc = old_mesh % proc_part(i)
-        recv_data(i) % comm = old_mesh % old_mesh % comm_world
+        recv_data(i) % proc = old_mesh % proc_active(i)
+        recv_data(i) % comm = old_mesh % comm_world
       end do
     end if
+
+!### CHECK
+print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  5'
+call MPI_Barrier(old_mesh % comm_world)
+!### CHECK END
 
     ! send dimensions (skip local part)
     if (old_mesh % part >= 0) then
@@ -104,11 +135,16 @@ contains
 
     ! receive dimensions (skip local part)
     if (new_mesh % part >= 0) then
-      do i = 0, new_mesh%n_parts-1
+      do i = 0, old_mesh%n_parts-1
         if (recv_data(i) % proc == old_mesh % proc) cycle
         call recv_data(i) % Recv_Dimensions()
       end do
     end if
+
+!### CHECK
+print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  6'
+call MPI_Barrier(old_mesh % comm_world)
+!### CHECK END
 
     ! send data (skip local part)
     if (old_mesh % part >= 0) then
@@ -120,11 +156,16 @@ contains
 
     ! receive data (skip local part)
     if (new_mesh % part >= 0) then
-      do i = 0, new_mesh%n_parts-1
+      do i = 0, old_mesh%n_parts-1
         if (recv_data(i) % proc == old_mesh % proc) cycle
         call recv_data(i) % Recv_Data()
       end do
     end if
+
+!### CHECK
+print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  7'
+call MPI_Barrier(old_mesh % comm_world)
+!### CHECK END
 
     ! finalize transfer
     if (old_mesh % part >= 0) then
@@ -134,15 +175,36 @@ contains
       end do
     end if
     if (new_mesh % part >= 0) then
-      do i = 0, new_mesh%n_parts-1
+      do i = 0, old_mesh%n_parts-1
         if (recv_data(i) % proc == old_mesh % proc) cycle
         call recv_data(i) % Recv_Finish()
       end do
     end if
 
-    ! assign received element data
+!### CHECK
+print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  8'
+call MPI_Barrier(old_mesh % comm_world)
+!### CHECK END
+
+    ! assign element data ......................................................
+
+    ! number of new elements
+    if (old_mesh % part >= 0) then
+      new_mesh % n_elem = sum(recv_data % n_element) &
+                        + send_data(old_mesh % part) % n_element
+    else
+      new_mesh % n_elem = sum(recv_data % n_element)
+    end if
+
+    allocate(new_mesh % element(new_mesh % n_elem))
+
+!### CHECK
+print '(9(G0,1X))', 'new_mesh: part =',new_mesh%part,', n_elem =',new_mesh%n_elem
+!### CHECK END
+
+    ! assign received data
     if (new_mesh % part >= 0) then
-      do i = 0, new_mesh%n_parts-1
+      do i = 0, old_mesh%n_parts-1
         if (recv_data(i) % proc /= old_mesh % proc) then
           call AssignDistributionData(new_mesh, recv_data(i))
         else
@@ -182,7 +244,7 @@ contains
     end if
 
     ! distribution map, assuming identity for proc_part
-    map = ElementDistributionMap_3D(old_mesh, n_parts, tp_elem)
+    map = ElementDistributionMap_3D(old_mesh, opt%n_parts, tp_elem)
 
   end subroutine BuildDistributionMap
 
@@ -475,7 +537,7 @@ contains
 
       tp = map % tp_elem(l)
       nn = size(old_mesh % element(l) % neighbor)
-      np = size(old_mesh % element(l) % geometry % x_e, 1)
+      np = (old_mesh % element(l) % geometry % po + 1) ** 3
 
       dist_data(tp) % n_neighbor  =  dist_data(tp) % n_neighbor  +  nn
       dist_data(tp) % n_point     =  dist_data(tp) % n_point     +  np
@@ -526,10 +588,10 @@ contains
           nn = size(neighbor)
           do i = 1, nn
             cn = cn + 1
-            dd % neighbor_id          (cn) = map % id_elem( neighbor(i)% id   )
-            dd % neighbor_part        (cn) = map % tp_elem( neighbor(i)% part )
-            dd % neighbor_component   (cn) = neighbor(j) % component
-            dd % neighbor_orientation (cn) = neighbor(j) % orientation
+            dd % neighbor_id          (cn) = map % id_elem( neighbor(i)% id )
+            dd % neighbor_part        (cn) = map % tp_elem( neighbor(i)% id )
+            dd % neighbor_component   (cn) = neighbor(i) % component
+            dd % neighbor_orientation (cn) = neighbor(i) % orientation
           end do
           cn_part(tp) = cn
         end associate

@@ -46,7 +46,8 @@ module Mesh__3D
     integer :: proc = -1             !< process    =  ID in comm_world ≥ 0
     integer :: part = -1             !< partition  =  ID in comm_parts ≥ 0
 
-    integer, allocatable :: proc_part(:) !< map from comm_parts to comm_world
+    integer, allocatable :: proc_active(:) !< list of active processes
+    integer, pointer     :: proc_part(:)   !< map from partition to process IDs
 
     ! dimensions ...............................................................
 
@@ -147,7 +148,7 @@ module Mesh__3D
     !> Build communicator between active partitions
 
     module subroutine BuildCommunicator(mesh)
-      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
+      class(Mesh_3D), target, intent(inout) :: mesh !< mesh partition
     end subroutine BuildCommunicator
 
     !---------------------------------------------------------------------------

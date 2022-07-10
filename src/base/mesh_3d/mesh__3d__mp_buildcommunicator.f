@@ -13,48 +13,80 @@ contains
   !> Build communicator between active partitions
 
   module subroutine BuildCommunicator(mesh)
-    class(Mesh_3D), intent(inout) :: mesh !< mesh partition
+    class(Mesh_3D), target, intent(inout) :: mesh !< mesh partition
 
-    type(MPI_Comm)  :: comm_active
-    type(MPI_Group) :: group_world
-    type(MPI_Group) :: group_parts
-    integer, allocatable :: parts(:)
-    integer :: active, n_parts
+    type(MPI_Comm)  :: comm_split
+    type(MPI_Group) :: group_world, group_split, group_active
+    integer, allocatable :: ranks(:)
+    integer :: active
     integer :: i
 
-    ! distinguish between active and inactive processes
-    if (mesh % part >= 0) then
-      active = 1
-    else
-      active = 0
-    end if
+    associate( comm_world => mesh % comm_world &
+             , n_parts    => mesh % n_parts    )
 
-    ! split world communicator into active and inactive processes
-    call MPI_Comm_split(mesh%comm_world, active, mesh%proc, comm_active)
+      ! preparations ...........................................................
 
-    if (active > 0) then
+      ! prepare list of active processes
+      allocate(mesh % proc_active(0:n_parts-1))
 
-      mesh % comm_parts = comm_active
+      ! distinguish between active and inactive processes
+      if (mesh % part >= 0) then
+        active = 1
+      else
+        active = 0
+      end if
 
-      ! build map from partition to world communicator
-      n_parts = mesh % n_parts
-      allocate(mesh % proc_part(0:n_parts-1), parts(0:n_parts-1))
+      ! array for selection of group ranks
+      allocate(ranks(0:n_parts-1))
       do i = 0, n_parts-1
-        parts(i) = i
+        ranks(i) = i
       end do
-      call MPI_Comm_group(mesh % comm_world, group_world)
-      call MPI_Comm_group(mesh % comm_parts, group_parts)
-      call MPI_Group_translate_ranks( group_parts, n_parts, parts,  &
-                                      group_world, mesh % proc_part )
-      call MPI_Group_free(group_world)
-      call MPI_Group_free(group_parts)
 
-    else
+      ! split world communicator into active and inactive processes
+      call MPI_Comm_split(comm_world, active, mesh%part, comm_split)
 
-      mesh % comm_parts = MPI_COMM_NULL
-      call MPI_Comm_free(comm_active)
+      ! identify associated groups
+      call MPI_Comm_group(comm_world, group_world) ! identical for all
+      call MPI_Comm_group(comm_split, group_split) ! differs between in/active
 
-    end if
+      if (active > 0) then
+
+        ! communicator and maps for active processes ...........................
+
+        ! intra-partition communicator
+        mesh % comm_parts = comm_split
+
+        ! list of active processes within comm_world
+        call MPI_Group_translate_ranks( group_split, n_parts, ranks     &
+                                      , group_world, mesh % proc_active )
+
+        mesh % proc_part(0:) => mesh % proc_active
+
+        call MPI_Group_free(group_world)
+        call MPI_Group_free(group_split)
+
+      else
+
+        ! communicator and maps for inactive process ...........................
+
+        ! deactivate intra-partition
+        mesh % comm_parts = MPI_COMM_NULL
+
+        ! list of active processes within comm_world
+        call MPI_Group_difference(group_world, group_split, group_active )
+        call MPI_Group_translate_ranks( group_active, n_parts, ranks  &
+                                      , group_world, mesh % proc_active )
+
+        mesh % proc_part => null()
+
+        call MPI_Comm_free(comm_split)
+        call MPI_Group_free(group_world)
+        call MPI_Group_free(group_split)
+        call MPI_Group_free(group_active)
+
+      end if
+
+    end associate
 
   end subroutine BuildCommunicator
 
