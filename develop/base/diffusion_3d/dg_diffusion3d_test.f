@@ -18,11 +18,13 @@ program DG_Diffusion3D_Test
 
   use TPO__Diagonal__3D
   use Mesh__3D
+  use Element_Transfer_Buffer__3D
+  use Element_Distribution_Map__3D
+  use Partition_Root_Mesh__3D
   use Spectral_Element_Mesh__3D
   use Spectral_Element_Scalar__3D
   use Spectral_Element_Vector__3D
   use Spectral_Element_Boundary_Variable__3D
-  use Element_Transfer_Buffer__3D
   use DG__Schwarz_Operator__3D
   use DG__Diffusion_Operator__3D
   use Export_VTK_Volume_Data__3D
@@ -113,31 +115,45 @@ program DG_Diffusion3D_Test
   ! 2  Schwarz
   ! 3  Schwarz-preconditioned CG
 
-  integer   :: i_max   = 1    ! max number of iterations/cycles
-  real(RNP) :: r_red   = 1E-3 ! min residual reduction
+  integer   :: i_max  = 1    ! max number of iterations/cycles
+  real(RNP) :: r_red  = 1E-3 ! min residual reduction
   type(DG_SchwarzOptions_3D) :: schwarz_opt
 
   namelist /solver_prm/ method, i_max, r_red, schwarz_opt
 
   ! MPI and OpenMP variables ...................................................
 
-  type(MPI_Comm) :: comm      ! MPI communicator
-  integer        :: rank      ! local MPI rank
-  integer        :: n_proc    ! number of MPI processes
-  integer        :: n_thread  ! number of OpenMP threads
+  type(MPI_Comm) :: comm     ! MPI communicator
+  integer        :: rank     ! local MPI rank
+  integer        :: n_proc   ! number of MPI processes
+  integer        :: n_thread ! number of OpenMP threads
 
-  ! problem variables ..........................................................
+  ! mesh and variables .........................................................
 
+  ! partitioning
+  logical :: repartition = .false.
+  type(RootMeshPartitioningOptions_3D) :: part_opt
+  type(ElementDistributionMap_3D)      :: part_map
+  type(Mesh_3D), allocatable           :: orig_mesh
+
+  namelist /partition_prm/ repartition, part_opt
+
+  ! mesh and spectral elements
   type(Mesh_3D)                 :: mesh
   type(SpectralElementMesh_3D)  :: sem
+
+  ! discrete operators
   type(DG_ElementOptions_1D)    :: dg_opt
   type(DG_DiffusionOperator_3D) :: diffusion_op
 
+  ! problem
   class(EllipticProblem), allocatable :: problem
 
+  ! space and names for variables
   real(RNP), allocatable, target :: var(:,:,:,:,:)
   character(len=80), allocatable :: var_names(:)
 
+  ! variables
   real(RNP), pointer, contiguous :: s   (:,:,:,:)  ! exact solution
   real(RNP), pointer, contiguous :: u   (:,:,:,:)  ! approximate solution
   real(RNP), pointer, contiguous :: nu  (:,:,:,:)  ! diffusivity
@@ -147,6 +163,7 @@ program DG_Diffusion3D_Test
   real(RNP), pointer, contiguous :: part(:,:,:,:)  ! partition ID
   real(RNP), pointer, contiguous :: elem(:,:,:,:)  ! local element ID
 
+  ! work arrays
   real(RNP), allocatable :: mm (:,:,:,:)     ! diagonal mass matrix
   real(RNP), allocatable :: q  (:,:,:,:,:)   ! flux vector
 
@@ -208,6 +225,7 @@ program DG_Diffusion3D_Test
       read(io, nml = problem_prm)
       read(io, nml = dicretization_prm)
       read(io, nml = solver_prm)
+      read(io, nml = partition_prm)
       close(io)
     else
        call Warning( 'DG_Diffusion3D_Test', 'input file "'//trim(input_file)// &
@@ -221,6 +239,8 @@ program DG_Diffusion3D_Test
       has_spectral_nu = has_spectral_nu .and. nu_s > 0
       nu_1 = 0
     end if
+
+    part_opt % n_parts = min(part_opt%n_parts, n_proc)
 
   end if
 
@@ -255,25 +275,43 @@ program DG_Diffusion3D_Test
   call XMPI_Bcast( r_red , 0, comm )
   call schwarz_opt % Bcast(0, comm)
 
-  ! mesh .......................................................................
+  ! globalize partitioning parameters
+  call XMPI_Bcast( repartition, 0, comm )
+  call part_opt % Bcast( 0, comm )
+
+  ! mesh generation ............................................................
+
+  allocate(orig_mesh)
 
   select case(config)
   case(2)
-    call CreateCuboidDiamonds( comm, input_file, mesh)
+    call CreateCuboidDiamonds(comm, input_file, orig_mesh)
     config_name = 'Cuboidal domain with unstructured "diamond" mesh'
   case(3)
-    call CreateCuboidOneRotated( comm, input_file, mesh)
+    call CreateCuboidOneRotated(comm, input_file, orig_mesh)
     config_name = 'Cuboidal domain with 3x3x3 elements and rotated center'
   case(4)
-    call CreateCylinder( comm, input_file, mesh)
+    call CreateCylinder(comm, input_file, orig_mesh)
     config_name = 'Cylindrical domain with unstructured mesh'
   case(5)
-    call CreateAnnulus( comm, input_file, mesh)
+    call CreateAnnulus(comm, input_file, orig_mesh)
     config_name = 'Annular domain with unstructured mesh'
   case default
-    call CreateCuboidCartesian( comm, input_file, mesh)
+    call CreateCuboidCartesian(comm, input_file, orig_mesh)
     config_name = 'Cuboidal domain with Cartesian mesh'
   end select
+
+  ! partitioning and spectral elements .........................................
+
+  if (repartition) then
+    call RootMeshPartitioning_3D(part_opt, orig_mesh, mesh, part_map)
+  else
+    mesh = orig_mesh
+  end if
+
+  deallocate(orig_mesh)
+
+  ! spectral element mesh ......................................................
 
   sem = SpectralElementMesh_3D(mesh, po)
 
