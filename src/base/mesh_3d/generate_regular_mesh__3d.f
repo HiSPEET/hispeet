@@ -99,35 +99,18 @@ contains
     ! indicator wether linked to itself
     self = periodic .and. np == 1
 
-    mesh % n_vert     =  NumberOfVertices (n1, n2, n3, self)
-    mesh % n_edge     =  NumberOfEdges    (n1, n2, n3, self)
-    mesh % n_face     =  NumberOfFaces    (n1, n2, n3, self)
-    mesh % n_elem     =  NumberOfElements (n1, n2, n3)
-    mesh % p_geom     =  p_geom
+    mesh % n_vert = NumberOfVertices (n1, n2, n3, self)
+    mesh % n_edge = NumberOfEdges    (n1, n2, n3, self)
+    mesh % n_face = NumberOfFaces    (n1, n2, n3, self)
+    mesh % n_elem = NumberOfElements (n1, n2, n3)
+    mesh % p_geom = p_geom
 
     ! structured mesh dimensions
-    mesh % n_elem_1   =  n1
-    mesh % n_elem_2   =  n2
-    mesh % n_elem_3   =  n3
+    mesh % n_elem_1 = n1
+    mesh % n_elem_2 = n2
+    mesh % n_elem_3 = n3
 
-    if (periodic(1)) then
-      mesh % n_face_1 =  n1    * n2 * n3
-    else
-      mesh % n_face_1 = (n1+1) * n2 * n3
-    end if
-
-    if (periodic(2)) then
-      mesh % n_face_2 =  n2    * n3 * n1
-    else
-      mesh % n_face_2 = (n2+1) * n3 * n1
-    end if
-
-    if (periodic(3)) then
-      mesh % n_face_3 =  n3    * n1 * n2
-    else
-      mesh % n_face_3 = (n3+1) * n1 * n2
-    end if
-
+    ! regular mesh spacing
     mesh % dx = dx
 
     call GenerateRegularElements(mesh, np, ep, periodic, self, i0, j0, k0)
@@ -523,7 +506,7 @@ contains
     logical, intent(in) :: periodic(3) !< indicator of periodic directions
     logical, intent(in) :: self(3)     !< indicator wether linked to itself
 
-    integer :: b, e, f, i, j, k, l
+    integer :: b, e, f, i, j, k
     integer :: coupled(6), polarity(6)
 
     ! preliminaries ............................................................
@@ -582,9 +565,6 @@ contains
         do k = 1, n3
         do j = 1, n2
           e = LexicalElementIndex(i, j, k, n1, n2)
-          l = LexicalFaceIndex(i-1, j, k, 1, n1, n2, n3, self)
-          boundary(b) % face(f) % mesh_face    % id   = l
-          boundary(b) % face(f) % mesh_face    % side = 2
           boundary(b) % face(f) % mesh_element % id   = e
           boundary(b) % face(f) % mesh_element % face = b
           f = f + 1
@@ -604,9 +584,6 @@ contains
         do k = 1, n3
         do j = 1, n2
           e = LexicalElementIndex(i, j, k, n1, n2)
-          l = LexicalFaceIndex(i, j, k, 1, n1, n2, n3, self)
-          boundary(b) % face(f) % mesh_face    % id   = l
-          boundary(b) % face(f) % mesh_face    % side = 1
           boundary(b) % face(f) % mesh_element % id   = e
           boundary(b) % face(f) % mesh_element % face = b
           f = f + 1
@@ -626,9 +603,6 @@ contains
         do k = 1, n3
         do i = 1, n1
           e = LexicalElementIndex(i, j, k, n1, n2)
-          l = LexicalFaceIndex(i, j-1, k, 2, n1, n2, n3, self)
-          boundary(b) % face(f) % mesh_face    % id   = l
-          boundary(b) % face(f) % mesh_face    % side = 2
           boundary(b) % face(f) % mesh_element % id   = e
           boundary(b) % face(f) % mesh_element % face = b
           f = f + 1
@@ -648,9 +622,6 @@ contains
         do k = 1, n3
         do i = 1, n1
           e = LexicalElementIndex(i, j, k, n1, n2)
-          l = LexicalFaceIndex(i, j, k, 2, n1, n2, n3, self)
-          boundary(b) % face(f) % mesh_face    % id   = l
-          boundary(b) % face(f) % mesh_face    % side = 1
           boundary(b) % face(f) % mesh_element % id   = e
           boundary(b) % face(f) % mesh_element % face = b
           f = f + 1
@@ -670,9 +641,6 @@ contains
         do j = 1, n2
         do i = 1, n1
           e = LexicalElementIndex(i, j, k, n1, n2)
-          l = LexicalFaceIndex(i, j, k-1, 3, n1, n2, n3, self)
-          boundary(b) % face(f) % mesh_face    % id   = l
-          boundary(b) % face(f) % mesh_face    % side = 2
           boundary(b) % face(f) % mesh_element % id   = e
           boundary(b) % face(f) % mesh_element % face = b
           f = f + 1
@@ -692,9 +660,6 @@ contains
         do j = 1, n2
         do i = 1, n1
           e = LexicalElementIndex(i, j, k, n1, n2)
-          l = LexicalFaceIndex(i, j, k, 3, n1, n2, n3, self)
-          boundary(b) % face(f) % mesh_face    % id   = l
-          boundary(b) % face(f) % mesh_face    % side = 1
           boundary(b) % face(f) % mesh_element % id   = e
           boundary(b) % face(f) % mesh_element % face = b
           f = f + 1

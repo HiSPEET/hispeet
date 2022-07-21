@@ -40,11 +40,17 @@ contains
 
     !---------------------------------------------------------------------------
     ! Initialization
+!### CHECK
+print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  0'
+!### CHECK END
 
     if (mesh%part < 0) then
       allocate(mesh%link(0))
       return
     end if
+!### CHECK
+print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  1'
+!### CHECK END
 
     p = mesh%n_parts - 1
 
@@ -107,6 +113,9 @@ contains
 
       end associate
     end do
+!### CHECK
+print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  2: nf =', nf
+!### CHECK END
 
     ! sort linked faces according to
     !   1) remote partition ID
@@ -193,6 +202,9 @@ contains
 
       end associate
     end do
+!### CHECK
+print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  2: nm =', nm
+!### CHECK END
 
     ! ghost elements ...........................................................
 
@@ -276,6 +288,9 @@ contains
         s = r
       end if
     end do
+!### CHECK
+print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  2: ng =', ng
+!### CHECK END
 
     !---------------------------------------------------------------------------
     ! generate links
@@ -286,6 +301,7 @@ contains
 
     allocate(map(0:mesh%n_parts-1), source = -1)
     allocate(mesh%link(n))
+    mesh % n_link = n
 
     k = 0
     do p = 0, mesh%n_parts - 1
@@ -414,6 +430,9 @@ contains
       end associate
 
     end do
+!### CHECK
+print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  X'
+!### CHECK END
 
   end subroutine BuildLinks
 

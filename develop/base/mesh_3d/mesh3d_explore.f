@@ -200,9 +200,6 @@ contains
     write(*,'(A,3(1X,G0))') 'n_elem_1   =', mesh % n_elem_1
     write(*,'(A,3(1X,G0))') 'n_elem_2   =', mesh % n_elem_2
     write(*,'(A,3(1X,G0))') 'n_elem_3   =', mesh % n_elem_3
-    write(*,'(A,3(1X,G0))') 'n_face_1   =', mesh % n_face_1
-    write(*,'(A,3(1X,G0))') 'n_face_2   =', mesh % n_face_2
-    write(*,'(A,3(1X,G0))') 'n_face_3   =', mesh % n_face_3
     write(*,'(A,3(1X,G0))') 'dx         =', mesh % dx
 
     min_vert = huge(1);  max_vert = -huge(1)

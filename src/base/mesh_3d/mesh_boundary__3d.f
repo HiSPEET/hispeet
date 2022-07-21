@@ -13,14 +13,6 @@ module Mesh_Boundary__3D
   public :: MeshBoundaryAttributes_3D
 
   !-----------------------------------------------------------------------------
-  !> Adjacent mesh face data
-
-  type AdjacentFace
-    integer :: id   = 0 !< mesh face ID
-    integer :: side = 0 !< corresponding side of the face {1,2}
-  end type AdjacentFace
-
-  !-----------------------------------------------------------------------------
   !> Adjacent mesh element data
 
   type AdjacentElement
@@ -32,7 +24,6 @@ module Mesh_Boundary__3D
   !> 3d mesh boundary face
 
   type MeshBoundaryFace_3D
-    type(AdjacentFace)    :: mesh_face    !< adjacent mesh face
     type(AdjacentElement) :: mesh_element !< adjacent mesh element
   end type MeshBoundaryFace_3D
 

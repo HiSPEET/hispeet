@@ -206,6 +206,46 @@ program Mesh3d_Import_Generic
   print '(9(G0,1X))', 'rank =', rank, ', n_elem  =', mesh % n_elem
   part_opt % n_parts = n_proc
   call RootMeshPartitioning_3D(part_opt, mesh, new_mesh, part_map)
+  call MPI_Barrier(comm)
+  call MPI_Comm_size(comm, n_proc)
+  print '(9(G0,1X))', 'rank =', rank, ', n_parts  =', new_mesh % n_parts
+  print '(9(G0,1X))', 'rank =', rank, ', n_bound  =', new_mesh % n_bound
+  print '(9(G0,1X))', 'rank =', rank, ', n_vert   =', new_mesh % n_vert
+  print '(9(G0,1X))', 'rank =', rank, ', n_edge   =', new_mesh % n_edge
+  print '(9(G0,1X))', 'rank =', rank, ', n_face   =', new_mesh % n_face
+  print '(9(G0,1X))', 'rank =', rank, ', n_elem   =', new_mesh % n_elem
+  print '(9(G0,1X))', 'rank =', rank, ', n_ghost  =', new_mesh % n_ghost
+  print '(9(G0,1X))', 'rank =', rank, ', n_link   =', new_mesh % n_link
+  block
+    integer :: min_vid, min_eid, min_fid, min_lid
+    integer :: max_vid, max_eid, max_fid, max_lid
+    min_vid =  huge(1)
+    min_eid =  huge(1)
+    min_fid =  huge(1)
+    min_lid =  huge(1)
+    max_vid = -huge(1)
+    max_eid = -huge(1)
+    max_fid = -huge(1)
+    max_lid = -huge(1)
+    do l = 1, new_mesh % n_elem
+      min_vid = min(min_vid, minval(new_mesh % element(l) % vertex % id))
+      min_eid = min(min_eid, minval(new_mesh % element(l) % edge   % id))
+      min_fid = min(min_fid, minval(new_mesh % element(l) % face   % id))
+      min_lid = min(min_lid,        new_mesh % element(l) % id          )
+      max_vid = max(max_vid, maxval(new_mesh % element(l) % vertex % id))
+      max_eid = max(max_eid, maxval(new_mesh % element(l) % edge   % id))
+      max_fid = max(max_fid, maxval(new_mesh % element(l) % face   % id))
+      max_lid = max(max_lid,        new_mesh % element(l) % id          )
+    end do
+    print '(9(G0,1X))', 'rank =', rank, ', min_vid =', min_vid
+    print '(9(G0,1X))', 'rank =', rank, ', min_eid =', min_eid
+    print '(9(G0,1X))', 'rank =', rank, ', min_fid =', min_fid
+    print '(9(G0,1X))', 'rank =', rank, ', min_lid =', min_lid
+    print '(9(G0,1X))', 'rank =', rank, ', max_vid =', max_vid
+    print '(9(G0,1X))', 'rank =', rank, ', max_eid =', max_eid
+    print '(9(G0,1X))', 'rank =', rank, ', max_fid =', max_fid
+    print '(9(G0,1X))', 'rank =', rank, ', max_lid =', max_lid
+  end block
 ! call MPI_Barrier(comm)
 !### CHECK END
 

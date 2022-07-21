@@ -166,7 +166,7 @@ contains
     class(Mesh_3D),        intent(inout) :: mesh         !< mesh partition
     class(GenericMesh_3D), intent(in)    :: generic_mesh !< generic mesh
 
-    integer :: b, e, f, i, j, s
+    integer :: b, e, i, j
 
     do b = 1, size(generic_mesh%boundary)
 
@@ -180,17 +180,6 @@ contains
 
           e = generic_boundary % face(i) % element_id   ! corresp element ID
           j = generic_boundary % face(i) % element_face ! corresp element face
-          f = mesh % element(e) % face(j) % id          ! corresp mesh face ID
-
-          ! side of the mesh face on which the boundary is located
-          if (mesh % face(f) % element(1) % id == e) then
-            s = 2
-          else
-            s = 1
-          end if
-
-          mesh_boundary % face(i) % mesh_face % id   = f
-          mesh_boundary % face(i) % mesh_face % side = s
 
           mesh_boundary % face(i) % mesh_element % id   = e
           mesh_boundary % face(i) % mesh_element % face = j

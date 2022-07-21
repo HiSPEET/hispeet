@@ -29,14 +29,16 @@ module Mesh__3D
 
     ! attributes ...............................................................
 
-    integer :: n_bound = 0           !< number of domain boundaries
-    integer :: n_parts = 0           !< number of non-empty partitions
+    integer :: n_bound    = 0        !< number of domain boundaries
+    integer :: n_parts    = 0        !< number of non-empty partitions
 
     logical :: structured = .false.  !< T if mapping to structured mesh exists
     logical :: regular    = .false.  !< T if equidistant Cartesian
 
     logical :: is_root    = .true.   !< T if root (bottom) level mesh
     logical :: is_top     = .true.   !< T if top level mesh
+
+    real(RNP) :: dx(3)    =  0       !< regular mesh spacing in directions 1:3
 
     ! MPI ......................................................................
 
@@ -62,18 +64,10 @@ module Mesh__3D
     integer :: max_vert_val = 0      !< maximum vertex valency
     integer :: max_edge_val = 0      !< maximum edge valency
 
-    ! structured mesh properties ...............................................
-
+    ! structured mesh only
     integer :: n_elem_1 = 0          !< number of elements in direction 1
     integer :: n_elem_2 = 0          !< number of elements in direction 2
     integer :: n_elem_3 = 0          !< number of elements in direction 3
-
-    ! regular mesh properties ..................................................
-
-    integer   :: n_face_1 =  0       !< number of faces normal to direction 1
-    integer   :: n_face_2 =  0       !< number of faces normal to direction 2
-    integer   :: n_face_3 =  0       !< number of faces normal to direction 3
-    real(RNP) :: dx(3)    = -1       !< mesh element spacing in directions 1:3
 
     ! mesh components and links ................................................
 
@@ -94,9 +88,11 @@ module Mesh__3D
     ! automatic identification and generation of components
     procedure :: BuildCommunicator
     procedure :: BuildFaces
+    procedure :: BuildBoundaryFaces
     procedure :: BuildGhosts
     procedure :: BuildLinks
     procedure :: BuildCuboids
+    procedure :: IdentifyVertices
     procedure :: IdentifyEdges
     procedure :: IdentifyRanks
 
@@ -127,7 +123,7 @@ module Mesh__3D
     !> Generates Gauss-Lobatto or Gauss points to all elements of a partition
 
     module subroutine GetPoints(mesh, po, basis, x)
-      class(Mesh_3D), intent(in)  :: mesh  !< mesh parition
+      class(Mesh_3D),          intent(in)  :: mesh  !< mesh parition
       integer,                 intent(in)  :: po    !< polynomial order
       character,     optional, intent(in)  :: basis !< 'G' or 'L' ['L']
       real(RNP),  allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
@@ -173,6 +169,13 @@ module Mesh__3D
     end subroutine BuildFaces
 
     !---------------------------------------------------------------------------
+    !> Generation of boundary faces
+
+    module subroutine BuildBoundaryFaces(mesh)
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
+    end subroutine BuildBoundaryFaces
+
+    !---------------------------------------------------------------------------
     !> Generation of mesh links from global element neighbor information
 
     module subroutine BuildLinks(mesh)
@@ -180,7 +183,14 @@ module Mesh__3D
     end subroutine BuildLinks
 
     !---------------------------------------------------------------------------
-    !> Identification of mesh edges
+    !> Identification of mesh vertices
+
+    module subroutine IdentifyVertices(mesh)
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
+    end subroutine IdentifyVertices
+
+    !---------------------------------------------------------------------------
+    !> Generation of mesh edges using vertex IDs
 
     module subroutine IdentifyEdges(mesh)
       class(Mesh_3D), intent(inout) :: mesh !< mesh partition
@@ -212,10 +222,12 @@ module Mesh__3D
 
     integer :: n_bound    = 0        !< number of domain boundaries
     integer :: n_parts    = 0        !< number of non-empty partitions
+    integer :: p_geom     = 0        !< max polynomial order of element geometry
     logical :: structured = .false.  !< T if mapping to structured mesh exists
     logical :: regular    = .false.  !< T if equidistant Cartesian
     logical :: is_root    = .true.   !< T if root (bottom) level mesh
     logical :: is_top     = .true.   !< T if top level mesh
+    real(RNP) :: dx(3)    =  0       !< regular mesh spacing in directions 1:3
 
     type(MeshBoundaryAttributes_3D), allocatable :: boundary(:)
 
@@ -257,10 +269,12 @@ contains
 
     this % n_bound    = attrib % n_bound
     this % n_parts    = attrib % n_parts
+    this % p_geom     = attrib % p_geom
     this % structured = attrib % structured
     this % regular    = attrib % regular
     this % is_root    = attrib % is_root
     this % is_top     = attrib % is_top
+    this % dx         = attrib % dx
 
     allocate(this % boundary( this%n_bound ))
     do b = 1, this % n_bound
@@ -285,10 +299,12 @@ contains
 
     attrib % n_bound    = mesh % n_bound
     attrib % n_parts    = mesh % n_parts
+    attrib % p_geom     = mesh % p_geom
     attrib % structured = mesh % structured
     attrib % regular    = mesh % regular
     attrib % is_root    = mesh % is_root
     attrib % is_top     = mesh % is_top
+    attrib % dx         = mesh % dx
 
     attrib % boundary = MeshBoundaryAttributes_3D(mesh % boundary)
 
@@ -302,13 +318,14 @@ contains
     integer       , intent(in) :: root !< MPI root process
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    integer :: attrib_int(2), b
+    integer :: attrib_int(3), b
     logical :: attrib_log(4)
 
     ! mesh attributes ..........................................................
 
     attrib_int(1) = this % n_bound
     attrib_int(2) = this % n_parts
+    attrib_int(3) = this % p_geom
 
     attrib_log(1) = this % structured
     attrib_log(2) = this % regular
@@ -320,11 +337,14 @@ contains
 
     this % n_bound    = attrib_int(1)
     this % n_parts    = attrib_int(2)
+    this % p_geom     = attrib_int(3)
 
     this % structured = attrib_log(1)
     this % regular    = attrib_log(2)
     this % is_root    = attrib_log(3)
     this % is_top     = attrib_log(4)
+
+    call XMPI_Bcast(this % dx, root, comm)
 
     ! boundary attributes ......................................................
 

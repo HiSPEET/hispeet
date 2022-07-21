@@ -29,7 +29,7 @@
 
     ! receive master data ......................................................
 
-    select type (vb => this % master % buf)
+    select type (vb => this % ghost % buf)
     type is (real(RK))
 
       !$omp master
@@ -129,7 +129,7 @@
 
     ! merge buffer .............................................................
 
-    select type (vb => this % master % buf)
+    select type (vb => this % ghost % buf) ! ORIG, but wrong?
     type is (real(RK))
 
       if (size(vb) == 0) return

@@ -99,12 +99,13 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
               mesh_3d/generic_mesh__3d__mp_creatediamonds.f
               mesh_3d/generic_mesh__3d__mp_createonerotated.f
               mesh_3d/mesh_boundary__3d.f
-              mesh_3d/mesh_element__3d.f
+              mesh_3d/mesh_element__3d.F
               mesh_3d/mesh_element__3d__sm_mpi.f
               mesh_3d/mesh_element_indexing__3d.f
               mesh_3d/mesh_face__3d.f
               mesh_3d/mesh_link__3d.f
               mesh_3d/mesh__3d.f
+              mesh_3d/mesh__3d__mp_buildboundaryfaces.f
               mesh_3d/mesh__3d__mp_buildcommunicator.f
               mesh_3d/mesh__3d__mp_buildcuboids.f
               mesh_3d/mesh__3d__mp_buildfaces.f
@@ -113,6 +114,7 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
               mesh_3d/mesh__3d__mp_getcuboids.f
               mesh_3d/mesh__3d__mp_getpoints.f
               mesh_3d/mesh__3d__mp_getpointvalency.f
+              mesh_3d/mesh__3d__mp_identifyvertices.f
               mesh_3d/mesh__3d__mp_identifyedges.f
               mesh_3d/mesh__3d__mp_identifyranks.f
               mesh_3d/mesh__3d__mp_identifyelementneighbors.f
@@ -122,8 +124,6 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
               mesh_3d/mesh_metrics__3d.f
               mesh_3d/spectral_element_mesh__3d.f
               )
-
-
 
 #===============================================================================
 # util_3d

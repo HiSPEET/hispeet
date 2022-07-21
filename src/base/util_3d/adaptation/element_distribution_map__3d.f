@@ -17,9 +17,9 @@ module Element_Distribution_Map__3D
   !> number of target partitions to which the data will be distributed.
   !> Using these parameters, the array components are dimensioned as follows
   !>
-  !>     tp_elem   (1 : n_elem  + n_ghost)
-  !>     id_elem   (1 : n_elem  + n_ghost)
-  !>     ne_part   (0 : n_parts - 1      )
+  !>     tp_elem  (1 : n_elem  + n_ghost)
+  !>     id_elem  (1 : n_elem  + n_ghost)
+  !>     ne_part  (0 : n_parts - 1      )
   !>
   !> The target partitions are numbered contiguously from `0` t0 `n_parts-1`.
   !> For elements that are not distributed, `tp_elem` is set to `-1` and

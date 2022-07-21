@@ -52,25 +52,18 @@ contains
     type(ElementDistributionData_3D), allocatable :: send_data(:)
     type(ElementDistributionData_3D), allocatable :: recv_data(:)
 
+    type(MeshAttributes_3D) :: attrib
     integer :: i
 
     !---------------------------------------------------------------------------
     !$omp master
 
-!### CHECK
-print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  0'
-call MPI_Barrier(old_mesh % comm_world)
-!### CHECK END
-
     ! prepare new partitions ...................................................
 
-    call new_mesh % Init_Mesh_3D( MeshAttributes_3D(old_mesh) &
-                                , old_mesh%comm_world         )
+    attrib = MeshAttributes_3D(old_mesh)  ! adopt attributes from old mesh
+    attrib % structured = .false.         ! new mesh is always unstructured
 
-!### CHECK
-print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  1'
-call MPI_Barrier(old_mesh % comm_world)
-!### CHECK END
+    call new_mesh % Init_Mesh_3D(attrib, old_mesh % comm_world)
 
     new_mesh % n_parts = opt % n_parts
 
@@ -81,21 +74,11 @@ call MPI_Barrier(old_mesh % comm_world)
 
     call new_mesh % BuildCommunicator()
 
-!### CHECK
-print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  2'
-call MPI_Barrier(old_mesh % comm_world)
-!### CHECK END
-
     ! build distribution map ...................................................
 
     if (old_mesh % part >= 0) then
       call BuildDistributionMap(opt, old_mesh, map)
     end if
-
-!### CHECK
-print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  3'
-call MPI_Barrier(old_mesh % comm_world)
-!### CHECK END
 
     ! distribute element data ..................................................
 
@@ -105,12 +88,6 @@ call MPI_Barrier(old_mesh % comm_world)
       call BuildDistributionData(old_mesh, new_mesh, map, send_data)
     end if
 
-!### CHECK
-print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  4'
-print '(9(G0,1X))', 'proc =',old_mesh%proc,' old_mesh % proc_active =', old_mesh % proc_active
-call MPI_Barrier(old_mesh % comm_world)
-!### CHECK END
-
     ! prepare receive data
     if (new_mesh % part >= 0) then
       allocate(recv_data(0:old_mesh%n_parts-1))
@@ -119,11 +96,6 @@ call MPI_Barrier(old_mesh % comm_world)
         recv_data(i) % comm = old_mesh % comm_world
       end do
     end if
-
-!### CHECK
-print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  5'
-call MPI_Barrier(old_mesh % comm_world)
-!### CHECK END
 
     ! send dimensions (skip local part)
     if (old_mesh % part >= 0) then
@@ -141,11 +113,6 @@ call MPI_Barrier(old_mesh % comm_world)
       end do
     end if
 
-!### CHECK
-print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  6'
-call MPI_Barrier(old_mesh % comm_world)
-!### CHECK END
-
     ! send data (skip local part)
     if (old_mesh % part >= 0) then
       do i = 0, new_mesh%n_parts-1
@@ -162,11 +129,6 @@ call MPI_Barrier(old_mesh % comm_world)
       end do
     end if
 
-!### CHECK
-print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  7'
-call MPI_Barrier(old_mesh % comm_world)
-!### CHECK END
-
     ! finalize transfer
     if (old_mesh % part >= 0) then
       do i = 0, new_mesh%n_parts-1
@@ -181,11 +143,6 @@ call MPI_Barrier(old_mesh % comm_world)
       end do
     end if
 
-!### CHECK
-print '(9(G0,1X))', 'proc =',old_mesh%proc,' HELLO  8'
-call MPI_Barrier(old_mesh % comm_world)
-!### CHECK END
-
     ! assign element data ......................................................
 
     ! number of new elements
@@ -198,10 +155,6 @@ call MPI_Barrier(old_mesh % comm_world)
 
     allocate(new_mesh % element(new_mesh % n_elem))
 
-!### CHECK
-print '(9(G0,1X))', 'new_mesh: part =',new_mesh%part,', n_elem =',new_mesh%n_elem
-!### CHECK END
-
     ! assign received data
     if (new_mesh % part >= 0) then
       do i = 0, old_mesh%n_parts-1
@@ -212,6 +165,17 @@ print '(9(G0,1X))', 'new_mesh: part =',new_mesh%part,', n_elem =',new_mesh%n_ele
         end if
       end do
     end if
+
+    ! complete mesh.............................................................
+
+    call new_mesh % IdentifyVertices()
+    call new_mesh % IdentifyEdges()
+    call new_mesh % BuildFaces()
+    call new_mesh % BuildBoundaryFaces()
+    call new_mesh % BuildLinks()
+    call new_mesh % BuildGhosts()
+    call new_mesh % BuildCuboids()
+    call new_mesh % IdentifyRanks()
 
     !---------------------------------------------------------------------------
     !$omp end master
