@@ -42,32 +42,32 @@ module Mesh__3D
 
     ! MPI ......................................................................
 
-    type(MPI_Comm) :: comm_world     !< communicator covering all processes
-    type(MPI_Comm) :: comm_parts     !< communicator covering active partitions
+    type(MPI_Comm) :: comm_world = MPI_COMM_NULL !< global communicator
+    type(MPI_Comm) :: comm_parts = MPI_COMM_NULL !< active parts communicator
 
-    integer :: proc = -1             !< process    =  ID in comm_world ≥ 0
-    integer :: part = -1             !< partition  =  ID in comm_parts ≥ 0
+    integer :: proc = -1 !< process    =  ID in comm_world ≥ 0
+    integer :: part = -1 !< partition  =  ID in comm_parts ≥ 0
 
     integer, allocatable :: proc_active(:) !< list of active processes
     integer, pointer     :: proc_part(:)   !< map from partition to process IDs
 
     ! dimensions ...............................................................
 
-    integer :: n_vert  = 0           !< number of mesh vertices
-    integer :: n_edge  = 0           !< number of mesh edges
-    integer :: n_face  = 0           !< number of mesh faces
-    integer :: n_elem  = 0           !< number of mesh elements
-    integer :: n_ghost = 0           !< number of ghost elements
-    integer :: n_link  = 0           !< number of mesh links
-    integer :: p_geom  = 0           !< max polynomial order of element geometry
+    integer :: n_vert  = 0        !< number of mesh vertices
+    integer :: n_edge  = 0        !< number of mesh edges
+    integer :: n_face  = 0        !< number of mesh faces
+    integer :: n_elem  = 0        !< number of mesh elements
+    integer :: n_ghost = 0        !< number of ghost elements
+    integer :: n_link  = 0        !< number of mesh links
+    integer :: p_geom  = 0        !< max polynomial order of element geometry
 
-    integer :: max_vert_val = 0      !< maximum vertex valency
-    integer :: max_edge_val = 0      !< maximum edge valency
+    integer :: max_vert_val = 0   !< maximum vertex valency
+    integer :: max_edge_val = 0   !< maximum edge valency
 
     ! structured mesh only
-    integer :: n_elem_1 = 0          !< number of elements in direction 1
-    integer :: n_elem_2 = 0          !< number of elements in direction 2
-    integer :: n_elem_3 = 0          !< number of elements in direction 3
+    integer :: n_elem_1 = 0       !< number of elements in direction 1
+    integer :: n_elem_2 = 0       !< number of elements in direction 2
+    integer :: n_elem_3 = 0       !< number of elements in direction 3
 
     ! mesh components and links ................................................
 
