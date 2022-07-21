@@ -32,11 +32,11 @@ contains
     ! local variables ..........................................................
 
     integer :: n_parts       ! number of non-empty partitions
-    integer :: n_bound       ! number of external boundaries
-    integer :: p_geom        ! polynomial order of element geometry
     integer :: n1, n2, n3    ! local mesh dimensions
     integer :: i0, j0, k0    ! element offsets WRT global numbering
     logical :: self(3)       ! indicator wether linked to itself
+
+    type(MeshAttributes_3D) :: attrib
 
     ! MPI
     integer :: comm_size
@@ -53,74 +53,71 @@ contains
       call Error('GenerateRegularMesh', 'n_parts > MPI communicator size')
     end if
 
-    if (present(pg)) then
-      p_geom = pg
-    else
-      p_geom = 1
-    end if
-
-    n_bound = 6
-
-    ! attributes and partitioning
     if (rank < n_parts) then
 
-      ! active partition
-      mesh % n_bound     =  n_bound
+      ! essential attributes ...................................................
+
+      mesh % n_bound     =  6
       mesh % n_parts     =  n_parts
       mesh % structured  =  .true.
       mesh % regular     =  .true.
       mesh % comm_world  =  comm
       mesh % proc        =  rank
       mesh % part        =  rank
+      mesh % dx          =  dx
 
-    else
+      if (present(pg)) then
+        mesh % p_geom = pg
+      else
+        mesh % p_geom = 1
+      end if
 
-      ! empty partition
-      mesh = Mesh_3D( MeshAttributes_3D( n_bound    = n_bound   &
-                                       , n_parts    = n_parts   &
-                                       , structured = .true.    &
-                                       , regular    = .true.  ) &
-                    , comm                                      )
+      ! dimensions .............................................................
+
+      ! local mesh dimensions
+      n1 = ep(1)
+      n2 = ep(2)
+      n3 = ep(3)
+
+      ! indicator wether linked to itself
+      self = periodic .and. np == 1
+
+      mesh % n_vert = NumberOfVertices (n1, n2, n3, self)
+      mesh % n_edge = NumberOfEdges    (n1, n2, n3, self)
+      mesh % n_face = NumberOfFaces    (n1, n2, n3, self)
+      mesh % n_elem = NumberOfElements (n1, n2, n3)
+
+      ! structured mesh dimensions
+      mesh % n_elem_1 = n1
+      mesh % n_elem_2 = n2
+      mesh % n_elem_3 = n3
+
+      ! components .............................................................
+
+      call GenerateRegularElements(mesh, np, ep, periodic, self, i0, j0, k0)
+      call GenerateRegularElementGeometry(mesh, xo, i0, j0, k0)
+      call GenerateRegularFaces(mesh, self)
+      call GenerateRegularMeshBoundaries(mesh, periodic)
+
+      call mesh % BuildLinks()
+      call mesh % BuildGhosts()
+      call mesh % IdentifyRanks()
+
     end if
 
-    ! intracommunicator between active partitions
+    ! empty partitions, comm_parts and proc maps  ..............................
+
+    if (rank == 0) then
+      attrib = MeshAttributes_3D(mesh)
+    end if
+
+    call attrib % Bcast(0, comm)
+
+    if (rank >= n_parts) then
+      mesh = Mesh_3D(attrib, comm)
+    end if
+
     call mesh % BuildCommunicator()
-
-    ! skip the rest for empty partitions
-    if (rank >= n_parts) return
-
-    ! mesh dimensions and properties ...........................................
-
-    ! local mesh dimensions
-    n1 = ep(1)
-    n2 = ep(2)
-    n3 = ep(3)
-
-    ! indicator wether linked to itself
-    self = periodic .and. np == 1
-
-    mesh % n_vert = NumberOfVertices (n1, n2, n3, self)
-    mesh % n_edge = NumberOfEdges    (n1, n2, n3, self)
-    mesh % n_face = NumberOfFaces    (n1, n2, n3, self)
-    mesh % n_elem = NumberOfElements (n1, n2, n3)
-    mesh % p_geom = p_geom
-
-    ! structured mesh dimensions
-    mesh % n_elem_1 = n1
-    mesh % n_elem_2 = n2
-    mesh % n_elem_3 = n3
-
-    ! regular mesh spacing
-    mesh % dx = dx
-
-    call GenerateRegularElements(mesh, np, ep, periodic, self, i0, j0, k0)
-    call GenerateRegularElementGeometry(mesh, xo, i0, j0, k0)
-    call GenerateRegularFaces(mesh, self)
-    call GenerateRegularMeshBoundaries(mesh, periodic, self)
-
-    call mesh % BuildLinks()
-    call mesh % BuildGhosts()
-    call mesh % IdentifyRanks()
 
   end subroutine GenerateRegularMesh
 
@@ -500,11 +497,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Creates the boundaries of a structured mesh partition
 
-  subroutine GenerateRegularMeshBoundaries(mesh, periodic, self)
+  subroutine GenerateRegularMeshBoundaries(mesh, periodic)
 
     class(Mesh_3D), intent(inout) :: mesh !< local partition
     logical, intent(in) :: periodic(3) !< indicator of periodic directions
-    logical, intent(in) :: self(3)     !< indicator wether linked to itself
 
     integer :: b, e, f, i, j, k
     integer :: coupled(6), polarity(6)
