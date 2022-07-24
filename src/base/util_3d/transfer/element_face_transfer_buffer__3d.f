@@ -205,6 +205,11 @@ contains
     this % ne = mesh % n_elem
     this % ng = mesh % n_ghost
     this % nf = sum( mesh % link % n_face )
+!### CHECK
+print '(99(G0,1X))', '### part ',mesh%part,': this%ne =',this%ne
+print '(99(G0,1X))', '### part ',mesh%part,': this%ng =',this%ng
+print '(99(G0,1X))', '### part ',mesh%part,': this%nf =',this%nf
+!### CHECK END
 
     allocate(this % send % element( this % nf ))
     allocate(this % send % face   ( this % nf ))
@@ -233,7 +238,19 @@ contains
           send % element(i) = face(f) % element(2) % id
           send % face(i)    = face(f) % element(2) % face
         end if
-        i = i + 1
+!### CHECK
+if (f < 1 .or. send%face(i) < 1 .or. recv%face(i) < 1) then
+print '(99(G0,1X))', '### part ',mesh%part,': i, l, f            =',i, l, f
+print '(99(G0,1X))', '### part ',mesh%part,': recv % element(i)  =',recv % element(i)
+print '(99(G0,1X))', '### part ',mesh%part,': recv % face(i)     =',recv % face(i)
+print '(99(G0,1X))', '### part ',mesh%part,': send % element(i)  =',send % element(i)
+print '(99(G0,1X))', '### part ',mesh%part,': send % face(i)     =',send % face(i)
+print '(99(G0,1X))', '### part ',mesh%part,': face(f)%element(1) =',face(f)%element(1)
+print '(99(G0,1X))', '### part ',mesh%part,': face(f)%element(2) =',face(f)%element(2)
+stop "*** MISMATCH in Init_ElementFaceTransferBuffer_Shared_3D"
+end if
+!### CHECK END
+       i = i + 1
       end do
       end do
 

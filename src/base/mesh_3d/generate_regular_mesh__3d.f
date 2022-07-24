@@ -42,7 +42,8 @@ contains
     integer :: comm_size
     integer :: rank
 
-    ! initialization ...........................................................
+    !---------------------------------------------------------------------------
+    ! initialization
 
     call MPI_Comm_size(comm, comm_size)
     call MPI_Comm_rank(comm, rank)
@@ -52,6 +53,9 @@ contains
     if (n_parts > comm_size .and. rank == 0) then
       call Error('GenerateRegularMesh', 'n_parts > MPI communicator size')
     end if
+
+    !---------------------------------------------------------------------------
+    ! active partitions: essentials
 
     if (rank < n_parts) then
 
@@ -92,20 +96,17 @@ contains
       mesh % n_elem_2 = n2
       mesh % n_elem_3 = n3
 
-      ! components .............................................................
+      ! elements, faces and boundaries .........................................
 
       call GenerateRegularElements(mesh, np, ep, periodic, self, i0, j0, k0)
       call GenerateRegularElementGeometry(mesh, xo, i0, j0, k0)
       call GenerateRegularFaces(mesh, self)
       call GenerateRegularMeshBoundaries(mesh, periodic)
 
-      call mesh % BuildLinks()
-      call mesh % BuildGhosts()
-      call mesh % IdentifyRanks()
-
     end if
 
-    ! empty partitions, comm_parts and proc maps  ..............................
+    !---------------------------------------------------------------------------
+    ! comms, maps and empty partitions
 
     if (rank == 0) then
       attrib = MeshAttributes_3D(mesh)
@@ -118,6 +119,17 @@ contains
     end if
 
     call mesh % BuildCommunicator()
+
+    !---------------------------------------------------------------------------
+    ! active partitions: remaining components
+
+    if (rank < n_parts) then
+
+      call mesh % BuildLinks()
+      call mesh % BuildGhosts()
+      call mesh % IdentifyRanks()
+
+    end if
 
   end subroutine GenerateRegularMesh
 

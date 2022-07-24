@@ -31,7 +31,7 @@ contains
 
     ! local data ...............................................................
 
-    integer :: element_face(5, 6*size(mesh%element))
+    integer :: element_face(5, 6 * mesh % n_elem)
     ! encoding:
     ! - element_face(1,:) :  edge 1 \
     ! - element_face(2,:) :  edge 2  } sorted according to mesh edge IDs
@@ -49,7 +49,7 @@ contains
 
     ! extract element faces
     j = 0
-    do i = 1, size(mesh%element)
+    do i = 1, mesh % n_elem
       associate(element => mesh % element(i))
         do k = 1, 6
           e = element % edge(E_FACE(:,k)) % id
@@ -103,7 +103,7 @@ contains
       l1 = element_face(4,i) ! mesh element ID
       f1 = element_face(5,i) ! mesh element face
       select case(f1)
-      case(1:3)
+      case(1,3,5)
         s = 2   ! side 2: element in positive normal direction
       case default
         s = 1   ! side 1: element in negative normal direction
@@ -113,6 +113,12 @@ contains
       mesh % element(l1) % face(f1)   % id       = k
       mesh % element(l1) % face(f1)   % normal   = 1
       mesh % element(l1) % face(f1)   % rotation = 0
+!### CHECK
+if (mesh%part == 0 .and. mesh%n_elem < 64 .and. k == 5) then
+print '(99(G0,1X))', '$$$ part ',mesh%part,': i, j, k =',i, j, k
+print '(99(G0,1X))', '$$$ part ',mesh%part,': element_face(:,i) =',element_face(:,i)
+end if
+!### CHECK END
 
       ! second adjacent element, if any
       if (j - i == 2) then
@@ -126,11 +132,9 @@ contains
         mesh % face(k)     % element(s) % id   = l2
         mesh % face(k)     % element(s) % face = f2
         mesh % element(l2) % face(f2)   % id   = k
-        call ElementFaceOrientation(                                      &
-               fv       = mesh % element(l1) % vertex(V_FACE(:,f1)) % id, &
-               ev       = mesh % element(l2) % vertex(V_FACE(:,f2)) % id, &
-               normal   = mesh % element(l2) % face(f2) % normal,         &
-               rotation = mesh % element(l2) % face(f2) % rotation        )
+        call mesh % element(l2) % face(f2) % SetOrientation(         &
+               efv = mesh % element(l2) % vertex(V_FACE(:,f2)) % id, &
+               mfv = mesh % element(l1) % vertex(V_FACE(:,f1)) % id  )
 
       end if
 
@@ -156,57 +160,6 @@ contains
     if (e(p(2)) > e(p(3))) p([2,3]) = p([3,2])
 
   end subroutine SortFaceEdges
-
-  !-----------------------------------------------------------------------------
-  !> Identification of element face orientation
-
-  pure subroutine ElementFaceOrientation(fv, ev, normal, rotation)
-    integer,      intent(in)  :: fv(4)    !< mesh face vertices
-    integer,      intent(in)  :: ev(4)    !< corresponding mesh element vertices
-    integer(IXS), intent(out) :: normal   !< normal orientation against mesh face
-    integer(IXS), intent(out) :: rotation !< 1/4-rotation to align with mesh face
-
-    ! identify normal orientation and rotation .................................
-
-    if (fv(1) == ev(1)) then
-      if (fv(2) == ev(2)) then
-        normal   =  1
-        rotation =  0
-      else
-        normal   = -1
-        rotation =  3
-      end if
-
-    else if (fv(1) == ev(2)) then
-      if (fv(2) == ev(4)) then
-        normal   =  1
-        rotation =  1
-      else
-        normal   = -1
-        rotation =  2
-      end if
-
-    else if (fv(1) == ev(4)) then
-      if (fv(2) == ev(3)) then
-        normal   =  1
-        rotation =  2
-      else
-        normal   = -1
-        rotation =  1
-      end if
-
-    else ! fv(1) == ev(3)
-      if (fv(2) == ev(1)) then
-        normal   =  1
-        rotation =  3
-      else
-        normal   = -1
-        rotation =  0
-      end if
-
-    end if
-
-  end subroutine ElementFaceOrientation
 
   !=============================================================================
 

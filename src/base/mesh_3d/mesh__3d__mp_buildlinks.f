@@ -5,7 +5,6 @@
 !===============================================================================
 
 submodule(Mesh__3D) MP_BuildLinks
-
   use Quick_Sort
   implicit none
 
@@ -36,21 +35,15 @@ contains
     integer, allocatable :: link_master(:,:,:)
     integer, allocatable :: link_ghost(:,:)
     integer, allocatable :: map(:), perm(:)
-    integer :: c, e, f, i, j, j1, j2, k, l, m, n, p, q, r, s
+    integer :: c, e, f, i, j, j1, j2, k, l, n, p, q, r, s
 
     !---------------------------------------------------------------------------
     ! Initialization
-!### CHECK
-print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  0'
-!### CHECK END
 
     if (mesh%part < 0) then
       allocate(mesh%link(0))
       return
     end if
-!### CHECK
-print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  1'
-!### CHECK END
 
     p = mesh%n_parts - 1
 
@@ -71,9 +64,10 @@ print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  1'
 
     ! link_face(1,:) : remote partition ID
     ! link_face(2,:) : adjacent element ID from lowest rank partition
-    ! link_face(3,:) : local face ID
+    ! link_face(3,:) : adjacent element face ID from lowest rank partition
+    ! link_face(4,:) : local face ID
 
-    allocate(link_face(3, mesh%n_face), source = -1)
+    allocate(link_face(4, mesh%n_face), source = -1)
 
     ! identify and count
     k = 0
@@ -102,25 +96,25 @@ print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  1'
           ! store adjacent element ID and face from lowest rank partition
           if (p <= mesh%part) then
             link_face(2,k) = element % neighbor(j) % id
+            link_face(3,k) = element % neighbor(j) % component
           else
             link_face(2,k) = e
+            link_face(3,k) = i
           end if
 
           ! store local face ID
-          link_face(3,k) = element % face(i) % id
+          link_face(4,k) = element % face(i) % id
 
         end do
 
       end associate
     end do
-!### CHECK
-print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  2: nf =', nf
-!### CHECK END
 
     ! sort linked faces according to
     !   1) remote partition ID
     !   2) element ID
-    call SortPairs(link_face(:,1:k))
+    !   3) element face ID
+    call SortTriplets(link_face(:,1:k))
 
     ! identify master elements and number of ghosts ............................
 
@@ -202,9 +196,6 @@ print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  2: nf =', nf
 
       end associate
     end do
-!### CHECK
-print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  2: nm =', nm
-!### CHECK END
 
     ! ghost elements ...........................................................
 
@@ -288,9 +279,6 @@ print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  2: nm =', nm
         s = r
       end if
     end do
-!### CHECK
-print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  2: ng =', ng
-!### CHECK END
 
     !---------------------------------------------------------------------------
     ! generate links
@@ -326,7 +314,7 @@ print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  2: ng =', ng
       p = link_face(1,i)
       if (p < 0) exit
       nf(p) = nf(p) + 1
-      mesh % link(map(p)) % face( nf(p) ) = link_face(3,i)
+      mesh % link(map(p)) % face( nf(p) ) = link_face(4,i)
     end do
 
     ! master elements ..........................................................
@@ -413,26 +401,30 @@ print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  2: ng =', ng
         else ! face
           c = ElementFaceID(element % neighbor(j) % component)
           ghost % face(c) = 1
-          m = mod(i,2)
           f = element % face(i) % id
-          if (       m == 1 .and. element % face(i) % normal > 0    &
-               .or.  m == 0 .and. element % face(i) % normal < 0  ) &
-          then
-            mesh % face(f) % element(1) % id   = l
-            mesh % face(f) % element(1) % face = c
-          else
+
+          select case(element % MeshFaceSide(i))
+          case(1) ! element on side 1, ghost on side 2
             mesh % face(f) % element(2) % id   = l
             mesh % face(f) % element(2) % face = c
-          end if
+          case default ! element on side 2, ghost on side 1
+            mesh % face(f) % element(1) % id   = l
+            mesh % face(f) % element(1) % face = c
+          end select
+!### CHECK
+if (mesh%part == 0 .and. mesh%n_elem < 2 .and. f == 4) then
+print '(99(G0,1X))', '§§§ part ',mesh%part,': e, i, f, l, c =',e, i, f, l, c
+print '(99(G0,1X))', '§§§ part ',mesh%part,': element % face(i) % normal  =',element % face(i) % normal
+print '(99(G0,1X))', '§§§ part ',mesh%part,': mesh % face(f) % element(1) =',mesh % face(f) % element(1)
+print '(99(G0,1X))', '§§§ part ',mesh%part,': mesh % face(f) % element(2) =',mesh % face(f) % element(2)
+end if
+!### CHECK END
 
         end if
 
       end associate
 
     end do
-!### CHECK
-print '(9(G0,1X))', 'proc =',mesh%proc,' LINKS  X'
-!### CHECK END
 
   end subroutine BuildLinks
 

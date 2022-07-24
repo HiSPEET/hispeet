@@ -44,7 +44,7 @@ contains
 
     ! extract element edges, orientation = 1 (aligned) by definition
     k = 0
-    do l = 1, size(mesh%element)
+    do l = 1, mesh % n_elem
       associate(element => mesh % element(l))
 
         ! element vertex polarity
