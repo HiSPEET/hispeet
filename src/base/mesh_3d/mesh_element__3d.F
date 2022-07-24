@@ -29,18 +29,19 @@ module Mesh_Element__3D
   !-----------------------------------------------------------------------------
   !> Element vertex data
   !>
-  !> The orientation flag `o_neighbor` indicates the direction of the neighbor
-  !> parallel to the ξ direction of the current element. This feature is only
-  !> available for regular vertices enclosed by 8 elements. In other cases
-  !> `o_neighbor` is set to 0.
-  !>
   !> The `rank` component provides an ordering of all element vertices referring
   !> to the same mesh vertex. Typically the former belong to differen elements.
   !> However, due to periodicity, several vertices of one element may coincide
   !> with the same mesh vertex.
   !>
-  !> The `valency` equals the total number of element vertices sharing the
+  !> The valency `val` equals the total number of element vertices sharing the
   !> corresponding mesh vertex.
+  !>
+  !> Ghost element vertices coinciding with local vertices are provided with the
+  !> following components
+  !>   - `id`
+  !>   - `rank`
+  !>   - `val`
 
   type MeshElementVertex_3D
     integer      :: id         = -1 !< local mesh vertex ID
@@ -60,6 +61,13 @@ module Mesh_Element__3D
   !>     ------------|-----------------
   !>       1         | none
   !>      -1         | flip
+  !>
+  !> Ghost element edges coinciding with local edges are provided with the
+  !> following components
+  !>   - `id`
+  !>   - `orientation`
+  !>   - `rank`
+  !>   - `val`
 
   type MeshElementEdge_3D
     integer      :: id          = -1 !< local mesh edge ID
@@ -80,6 +88,14 @@ module Mesh_Element__3D
   !> With `rotation` specifies the number of quarter rotations required to align
   !> the element face with the mesh face. In case of negative normal orientation,
   !> the face must be flipped before rotating.
+  !>
+  !> Ghost element faces coinciding with local faces are provided with the
+  !> following components
+  !>   - `id`
+  !>   - `normal`
+  !>   - `rotation`
+  !>   - `rank`
+  !>   - `val`
 
   type MeshElementFace_3D
     integer      :: id         = -1 !< local mesh face ID
@@ -91,13 +107,13 @@ module Mesh_Element__3D
     integer(IXS) :: rank       =  0 !< rank among local EF ref to same mesh face
     integer(IXS) :: val        =  0 !< face valency
   contains
-    procedure :: Side          =>  MeshFaceSide
-    generic   :: AlignWithMesh =>  AlignWithMeshFace_IDK, &
-                                   AlignWithMeshFace_IXS, &
-                                   AlignWithMeshFace_RNP
-    generic   :: AlignFromMesh =>  AlignFromMeshFace_IDK, &
-                                   AlignFromMeshFace_IXS, &
-                                   AlignFromMeshFace_RNP
+    procedure :: SetOrientation =>  Set_FaceOrientation
+    generic   :: AlignWithMesh  =>  AlignWithMeshFace_IDK, &
+                                    AlignWithMeshFace_IXS, &
+                                    AlignWithMeshFace_RNP
+    generic   :: AlignFromMesh  =>  AlignFromMeshFace_IDK, &
+                                    AlignFromMeshFace_IXS, &
+                                    AlignFromMeshFace_RNP
     procedure, private :: AlignWithMeshFace_IDK, AlignFromMeshFace_IDK
     procedure, private :: AlignWithMeshFace_IXS, AlignFromMeshFace_IXS
     procedure, private :: AlignWithMeshFace_RNP, AlignFromMeshFace_RNP
@@ -231,7 +247,12 @@ module Mesh_Element__3D
   !>
   !> ### Ghost element mode
   !>
+  !> Ghost elements are equipped with a reduced set of information for all
+  !> faces, edges and vertices that coincide with local entities.
+  !> A detailed description of the provided data is given in the documentation
+  !> of the corresponding data types.
   !>
+  !> No neighbor and geometry data is available for ghosts.
 
   type MeshElement_3D
 
@@ -248,7 +269,8 @@ module Mesh_Element__3D
 
   contains
 
-    procedure :: NeigborEdgeIsAligned
+   procedure :: MeshFaceSide
+   procedure :: NeigborEdgeIsAligned
 
     generic   :: AlignFromNeighborEdge => AlignFromNeighborEdge_IDK, &
                                           AlignFromNeighborEdge_RNP
@@ -256,10 +278,21 @@ module Mesh_Element__3D
     generic   :: AlignFromNeighborFace => AlignFromNeighborFace_IDK, &
                                           AlignFromNeighborFace_RNP
 
+    generic   :: AlignWithNeighborEdge => AlignWithNeighborEdge_IDK, &
+                                          AlignWithNeighborEdge_RNP
+
+    generic   :: AlignWithNeighborFace => AlignWithNeighborFace_IDK, &
+                                          AlignFromNeighborFace_RNP
+
     procedure, private :: AlignFromNeighborEdge_IDK
     procedure, private :: AlignFromNeighborEdge_RNP
     procedure, private :: AlignFromNeighborFace_IDK
     procedure, private :: AlignFromNeighborFace_RNP
+
+    procedure, private :: AlignWithNeighborEdge_IDK
+    procedure, private :: AlignWithNeighborEdge_RNP
+    procedure, private :: AlignWithNeighborFace_IDK
+    procedure, private :: AlignWithNeighborFace_RNP
 
   end type MeshElement_3D
 
@@ -337,13 +370,56 @@ contains
   ! MeshElementFace_3D procedures
 
   !-----------------------------------------------------------------------------
-  !> Touched side of the adjacent mesh face
+  !> Set element face normal and rotation with respect to mesh face
 
-  pure integer function MeshFaceSide(face)
-    class(MeshElementFace_3D), intent(in) :: face  !< mesh element face
-    integer, parameter :: side(-1:1) = [2,0,1]
-    MeshFaceSide = side(face % normal)
-  end function MeshFaceSide
+  pure subroutine Set_FaceOrientation(this, efv, mfv)
+    class(MeshElementFace_3D), intent(inout) :: this
+    integer, intent(in) :: efv(4) !< element-face vertex IDs
+    integer, intent(in) :: mfv(4) !< mesh-face vertex IDs
+
+    associate(normal => this % normal, rotation => this % rotation)
+
+      if (mfv(1) == efv(1)) then
+        if (mfv(2) == efv(2)) then
+          normal   =  1
+          rotation =  0
+        else
+          normal   = -1
+          rotation =  3
+        end if
+
+      else if (mfv(1) == efv(2)) then
+        if (mfv(2) == efv(4)) then
+          normal   =  1
+          rotation =  1
+        else
+          normal   = -1
+          rotation =  2
+        end if
+
+      else if (mfv(1) == efv(4)) then
+        if (mfv(2) == efv(3)) then
+          normal   =  1
+          rotation =  2
+        else
+          normal   = -1
+          rotation =  1
+        end if
+
+      else ! mfv(1) == efv(3)
+        if (mfv(2) == efv(1)) then
+          normal   =  1
+          rotation =  3
+        else
+          normal   = -1
+          rotation =  0
+        end if
+
+      end if
+
+    end associate
+
+  end subroutine Set_FaceOrientation
 
   !-----------------------------------------------------------------------------
   !> Transforms face data from element to mesh orientation -- integer scalar
@@ -419,6 +495,22 @@ contains
 
   !=============================================================================
   ! MeshElement_3D procedures
+
+  !-----------------------------------------------------------------------------
+  !> Side of the adjacent mesh face on which the element is located
+
+  pure integer function MeshFaceSide(element, f) result(side)
+   class(MeshElement_3D), intent(in) :: element !< mesh element
+   integer, intent(in) :: f  !< element face ID
+
+   select case(f * element%face(f)%normal)
+   case(1, 3, 5, -2, -4, -6) ! mesh face normal points into element
+     side = 2
+   case default
+     side = 1
+   end select
+
+  end function MeshFaceSide
 
   !-----------------------------------------------------------------------------
   !> Checks if the neighbor is aligned to given element edge
@@ -535,6 +627,80 @@ contains
 #include "mesh__3d__mp_alignfromneighborface-body.f"
 
   end subroutine AlignFromNeighborFace_RNP
+
+  !-----------------------------------------------------------------------------
+  !> Transforms element edge data to neighbor orientation -- integer scalar
+
+  pure subroutine AlignWithNeighborEdge_IDK(element, e, n, ve, vn)
+    class(MeshElement_3D), intent(in) :: element  !< mesh element
+    integer, intent(in)  :: e     !< element edge ID
+    integer, intent(in)  :: n     !< element neighbor ID
+    integer, intent(in)  :: ve(:) !< element edge data
+    integer, intent(out) :: vn(:) !< neighbor edge data
+
+    integer :: i, m
+
+    if (element % NeigborEdgeIsAligned(e, n)) then
+      vn = ve
+    else
+      m = size(vn)
+      do i = 1, m
+        vn(m+1-i) = ve(i)
+      end do
+    end if
+
+  end subroutine AlignWithNeighborEdge_IDK
+
+  !-----------------------------------------------------------------------------
+  !> Transforms element edge data to neighbor orientation -- real(RNP) scalar
+
+  pure subroutine AlignWithNeighborEdge_RNP(element, e, n, ve, vn)
+    class(MeshElement_3D), intent(in) :: element  !< mesh element
+    integer  , intent(in)  :: e     !< element edge ID
+    integer  , intent(in)  :: n     !< element neighbor ID
+    real(RNP), intent(in)  :: ve(:) !< element edge data
+    real(RNP), intent(out) :: vn(:) !< neighbor edge data
+
+    integer :: i, m
+
+    if (element % NeigborEdgeIsAligned(e, n)) then
+      vn = ve
+    else
+      m = size(vn)
+      do i = 1, m
+        vn(m+1-i) = ve(i)
+      end do
+    end if
+
+  end subroutine AlignWithNeighborEdge_RNP
+
+  !-----------------------------------------------------------------------------
+  !> Transforms neighbor face data to element orientation -- integer scalar
+
+  pure subroutine AlignWithNeighborFace_IDK(element, f, n, ve, vn)
+    class(MeshElement_3D), intent(in) :: element  !< mesh element
+    integer, intent(in)  :: f        !< element face ID
+    integer, intent(in)  :: n        !< element neighbor ID
+    integer, intent(in)  :: ve(:,:)  !< element face data
+    integer, intent(out) :: vn(:,:)  !< neighbor face data
+
+#include "mesh__3d__mp_alignwithneighborface-body.f"
+
+  end subroutine AlignWithNeighborFace_IDK
+
+  !-----------------------------------------------------------------------------
+  !> Transforms neighbor face data to element orientation -- real(RNP) scalar
+
+  pure subroutine AlignWithNeighborFace_RNP(element, f, n, ve, vn)
+    class(MeshElement_3D), intent(in) :: element  !< mesh element
+    integer,   intent(in)  :: f        !< element face ID
+    integer,   intent(in)  :: n        !< element neighbor ID
+    real(RNP), intent(in)  :: ve(:,:)  !< element face data
+    real(RNP), intent(out) :: vn(:,:)  !< neighbor face data
+
+#include "mesh__3d__mp_alignwithneighborface-body.f"
+
+  end subroutine AlignWithNeighborFace_RNP
 
   !-----------------------------------------------------------------------------
   !> Transforms the given triple index range into a rotated coordinate system
