@@ -174,30 +174,30 @@ end if
 
     ! complete mesh.............................................................
 !### CHECK
-block
-integer :: c, e, f, l, n, p
-if (new_mesh%part == 0) then
-  e = 8
-  f = 2
-  associate(element => new_mesh%element(e))
-    n = element%face(f)%i_neighbor
-    p = element%neighbor(n)%part
-    l = element%neighbor(n)%id
-    c = element%neighbor(n)%component
-    print '(99(G0,1X))', '&&& #1 part 0:','e,f,n,p,l,c =',e,f,n,p,l,c
-  end associate
-else if (new_mesh%part == 1) then
-  e = 2
-  f = 1
-  associate(element => new_mesh%element(e))
-    n = element%face(f)%i_neighbor
-    p = element%neighbor(n)%part
-    l = element%neighbor(n)%id
-    c = element%neighbor(n)%component
-    print '(99(G0,1X))', '&&& #1 part 1:','e,f,n,p,l,c =',e,f,n,p,l,c
-  end associate
-end if
-end block
+!block
+!integer :: c, e, f, l, n, p
+!if (new_mesh%part == 0) then
+!  e = 8
+!  f = 2
+!  associate(element => new_mesh%element(e))
+!    n = element%face(f)%i_neighbor
+!    p = element%neighbor(n)%part
+!    l = element%neighbor(n)%id
+!    c = element%neighbor(n)%component
+!    print '(99(G0,1X))', '&&& #1 part 0:','e,f,n,p,l,c =',e,f,n,p,l,c
+!  end associate
+!else if (new_mesh%part == 1) then
+!  e = 2
+!  f = 1
+!  associate(element => new_mesh%element(e))
+!    n = element%face(f)%i_neighbor
+!    p = element%neighbor(n)%part
+!    l = element%neighbor(n)%id
+!    c = element%neighbor(n)%component
+!    print '(99(G0,1X))', '&&& #1 part 1:','e,f,n,p,l,c =',e,f,n,p,l,c
+!  end associate
+!end if
+!end block
 !### CHECK END
 
     call new_mesh % IdentifyVertices()
@@ -209,62 +209,62 @@ end block
     call new_mesh % BuildCuboids()
     call new_mesh % IdentifyRanks()
 !### CHECK
-block
-integer :: c, e, f, g, l, n, o, p
-if (new_mesh%part == 0) then
-  e = 8
-  f = 2
-  associate(element => new_mesh%element(e))
-    n = element%face(f)%i_neighbor
-    p = element%neighbor(n)%part
-    l = element%neighbor(n)%id
-    g = l - new_mesh%n_ghost
-    c = element%neighbor(n)%component
-    o = element%neighbor(n)%orientation
-    print '(99(G0,1X))', '&&& #2 part 0:','n_ghost         =',new_mesh%n_ghost
-    print '(99(G0,1X))', '&&& #2 part 0:','n_link          =',new_mesh%n_link
-    print '(99(G0,1X))', '&&& #2 part 0:','e,f,n,p,l,g,c,o =',e,f,n,p,l,g,c,o
-    print '(99(G0,1X))', '&&& #2 part 0:','link%n_master   =',new_mesh%link(1)%n_master
-    print '(99(G0,1X))', '&&& #2 part 0:','link%n_ghost    =',new_mesh%link(1)%n_ghost
-    print '(99(G0,1X))', '&&& #2 part 0:','link%master%id  =',new_mesh%link(1)%master%id
-    print '(99(G0,1X))', '&&& #2 part 0:','link%ghost%id   =',new_mesh%link(1)%ghost%id
-    print '(99(G0,1X))', '&&& #2 part 0:','master(8)%id    =',new_mesh%link(1)%master(8)%id
-    print '(99(G0,1X))', '&&& #2 part 0:','master(8)%vert  =',new_mesh%link(1)%master(8)%vertex
-    print '(99(G0,1X))', '&&& #2 part 0:','master(8)%edge  =',new_mesh%link(1)%master(8)%edge
-    print '(99(G0,1X))', '&&& #2 part 0:','master(8)%face  =',new_mesh%link(1)%master(8)%face
-    print '(99(G0,1X))', '&&& #2 part 0:','ghost (2)%id    =',new_mesh%link(1)%ghost (2)%id
-    print '(99(G0,1X))', '&&& #2 part 0:','ghost (2)%vert  =',new_mesh%link(1)%ghost (2)%vertex
-    print '(99(G0,1X))', '&&& #2 part 0:','ghost (2)%edge  =',new_mesh%link(1)%ghost (2)%edge
-    print '(99(G0,1X))', '&&& #2 part 0:','ghost (2)%face  =',new_mesh%link(1)%ghost (2)%face
-  end associate
-else if (new_mesh%part == 1) then
-  e = 2
-  f = 1
-  associate(element => new_mesh%element(e))
-    n = element%face(f)%i_neighbor
-    p = element%neighbor(n)%part
-    l = element%neighbor(n)%id
-    g = l - new_mesh%n_ghost
-    c = element%neighbor(n)%component
-    o = element%neighbor(n)%orientation
-    print '(99(G0,1X))', '&&& #2 part 1:','n_ghost         =',new_mesh%n_ghost
-    print '(99(G0,1X))', '&&& #2 part 1:','n_link          =',new_mesh%n_link
-    print '(99(G0,1X))', '&&& #2 part 1:','e,f,n,p,l,g,c,o =',e,f,n,p,l,g,c,o
-    print '(99(G0,1X))', '&&& #2 part 1:','link%n_master   =',new_mesh%link(1)%n_master
-    print '(99(G0,1X))', '&&& #2 part 1:','link%n_ghost    =',new_mesh%link(1)%n_ghost
-    print '(99(G0,1X))', '&&& #2 part 1:','link%master%id  =',new_mesh%link(1)%master%id
-    print '(99(G0,1X))', '&&& #2 part 1:','link%ghost%id   =',new_mesh%link(1)%ghost%id
-    print '(99(G0,1X))', '&&& #2 part 1:','master(2)%id    =',new_mesh%link(1)%master(2)%id
-    print '(99(G0,1X))', '&&& #2 part 1:','master(2)%vert  =',new_mesh%link(1)%master(2)%vertex
-    print '(99(G0,1X))', '&&& #2 part 1:','master(2)%edge  =',new_mesh%link(1)%master(2)%edge
-    print '(99(G0,1X))', '&&& #2 part 1:','master(2)%face  =',new_mesh%link(1)%master(2)%face
-    print '(99(G0,1X))', '&&& #2 part 1:','ghost (8)%id    =',new_mesh%link(1)%ghost (8)%id
-    print '(99(G0,1X))', '&&& #2 part 1:','ghost (8)%vert  =',new_mesh%link(1)%ghost (8)%vertex
-    print '(99(G0,1X))', '&&& #2 part 1:','ghost (8)%edge  =',new_mesh%link(1)%ghost (8)%edge
-    print '(99(G0,1X))', '&&& #2 part 1:','ghost (8)%face  =',new_mesh%link(1)%ghost (8)%face
-  end associate
-end if
-end block
+!block
+!integer :: c, e, f, g, l, n, o, p
+!if (new_mesh%part == 0) then
+!  e = 8
+!  f = 2
+!  associate(element => new_mesh%element(e))
+!    n = element%face(f)%i_neighbor
+!    p = element%neighbor(n)%part
+!    l = element%neighbor(n)%id
+!    g = l - new_mesh%n_ghost
+!    c = element%neighbor(n)%component
+!    o = element%neighbor(n)%orientation
+!    print '(99(G0,1X))', '&&& #2 part 0:','n_ghost         =',new_mesh%n_ghost
+!    print '(99(G0,1X))', '&&& #2 part 0:','n_link          =',new_mesh%n_link
+!    print '(99(G0,1X))', '&&& #2 part 0:','e,f,n,p,l,g,c,o =',e,f,n,p,l,g,c,o
+!    print '(99(G0,1X))', '&&& #2 part 0:','link%n_master   =',new_mesh%link(1)%n_master
+!    print '(99(G0,1X))', '&&& #2 part 0:','link%n_ghost    =',new_mesh%link(1)%n_ghost
+!    print '(99(G0,1X))', '&&& #2 part 0:','link%master%id  =',new_mesh%link(1)%master%id
+!    print '(99(G0,1X))', '&&& #2 part 0:','link%ghost%id   =',new_mesh%link(1)%ghost%id
+!    print '(99(G0,1X))', '&&& #2 part 0:','master(8)%id    =',new_mesh%link(1)%master(8)%id
+!    print '(99(G0,1X))', '&&& #2 part 0:','master(8)%vert  =',new_mesh%link(1)%master(8)%vertex
+!    print '(99(G0,1X))', '&&& #2 part 0:','master(8)%edge  =',new_mesh%link(1)%master(8)%edge
+!    print '(99(G0,1X))', '&&& #2 part 0:','master(8)%face  =',new_mesh%link(1)%master(8)%face
+!    print '(99(G0,1X))', '&&& #2 part 0:','ghost (2)%id    =',new_mesh%link(1)%ghost (2)%id
+!    print '(99(G0,1X))', '&&& #2 part 0:','ghost (2)%vert  =',new_mesh%link(1)%ghost (2)%vertex
+!    print '(99(G0,1X))', '&&& #2 part 0:','ghost (2)%edge  =',new_mesh%link(1)%ghost (2)%edge
+!    print '(99(G0,1X))', '&&& #2 part 0:','ghost (2)%face  =',new_mesh%link(1)%ghost (2)%face
+!  end associate
+!else if (new_mesh%part == 1) then
+!  e = 2
+!  f = 1
+!  associate(element => new_mesh%element(e))
+!    n = element%face(f)%i_neighbor
+!    p = element%neighbor(n)%part
+!    l = element%neighbor(n)%id
+!    g = l - new_mesh%n_ghost
+!    c = element%neighbor(n)%component
+!    o = element%neighbor(n)%orientation
+!    print '(99(G0,1X))', '&&& #2 part 1:','n_ghost         =',new_mesh%n_ghost
+!    print '(99(G0,1X))', '&&& #2 part 1:','n_link          =',new_mesh%n_link
+!    print '(99(G0,1X))', '&&& #2 part 1:','e,f,n,p,l,g,c,o =',e,f,n,p,l,g,c,o
+!    print '(99(G0,1X))', '&&& #2 part 1:','link%n_master   =',new_mesh%link(1)%n_master
+!    print '(99(G0,1X))', '&&& #2 part 1:','link%n_ghost    =',new_mesh%link(1)%n_ghost
+!    print '(99(G0,1X))', '&&& #2 part 1:','link%master%id  =',new_mesh%link(1)%master%id
+!    print '(99(G0,1X))', '&&& #2 part 1:','link%ghost%id   =',new_mesh%link(1)%ghost%id
+!    print '(99(G0,1X))', '&&& #2 part 1:','master(2)%id    =',new_mesh%link(1)%master(2)%id
+!    print '(99(G0,1X))', '&&& #2 part 1:','master(2)%vert  =',new_mesh%link(1)%master(2)%vertex
+!    print '(99(G0,1X))', '&&& #2 part 1:','master(2)%edge  =',new_mesh%link(1)%master(2)%edge
+!    print '(99(G0,1X))', '&&& #2 part 1:','master(2)%face  =',new_mesh%link(1)%master(2)%face
+!    print '(99(G0,1X))', '&&& #2 part 1:','ghost (8)%id    =',new_mesh%link(1)%ghost (8)%id
+!    print '(99(G0,1X))', '&&& #2 part 1:','ghost (8)%vert  =',new_mesh%link(1)%ghost (8)%vertex
+!    print '(99(G0,1X))', '&&& #2 part 1:','ghost (8)%edge  =',new_mesh%link(1)%ghost (8)%edge
+!    print '(99(G0,1X))', '&&& #2 part 1:','ghost (8)%face  =',new_mesh%link(1)%ghost (8)%face
+!  end associate
+!end if
+!end block
 !### CHECK END
 
     !---------------------------------------------------------------------------

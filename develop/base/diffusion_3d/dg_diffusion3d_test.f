@@ -388,7 +388,7 @@ program DG_Diffusion3D_Test
   se_bv = SpectralElementBoundaryVariable_3D(sem, sem%mesh%boundary, nc = 1)
 
 !### CHECK
-call VerifyPartitions(sem, u)
+!call VerifyPartitions(sem, u)
 !STOP "******************** CHECK ********************"
 !### CHECK END
 
@@ -439,7 +439,7 @@ call VerifyPartitions(sem, u)
   end if
 
   ! apply boundary conditions to RHS
-!!!  call diffusion_op % AddBC(se_bv, f)
+!!!  call diffusion_op % AddBC(se_bv, f) !!! no longer required‚
 
   !-----------------------------------------------------------------------------
   ! Consistency test
