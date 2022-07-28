@@ -79,12 +79,6 @@ contains
     if (old_mesh % part >= 0) then
       call BuildDistributionMap(opt, old_mesh, map)
     end if
-!### CHECK
-if (old_mesh % part == 0) then
-print '(99(G0,1X))', '&&& part ',old_mesh%part,': opt % n_parts =',opt%n_parts
-print '(99(G0,1X))', '&&& part ',old_mesh%part,': map % tp_elem =',map%tp_elem
-end if
-!### CHECK END
 
     ! distribute element data ..................................................
 
@@ -173,32 +167,6 @@ end if
     end if
 
     ! complete mesh.............................................................
-!### CHECK
-!block
-!integer :: c, e, f, l, n, p
-!if (new_mesh%part == 0) then
-!  e = 8
-!  f = 2
-!  associate(element => new_mesh%element(e))
-!    n = element%face(f)%i_neighbor
-!    p = element%neighbor(n)%part
-!    l = element%neighbor(n)%id
-!    c = element%neighbor(n)%component
-!    print '(99(G0,1X))', '&&& #1 part 0:','e,f,n,p,l,c =',e,f,n,p,l,c
-!  end associate
-!else if (new_mesh%part == 1) then
-!  e = 2
-!  f = 1
-!  associate(element => new_mesh%element(e))
-!    n = element%face(f)%i_neighbor
-!    p = element%neighbor(n)%part
-!    l = element%neighbor(n)%id
-!    c = element%neighbor(n)%component
-!    print '(99(G0,1X))', '&&& #1 part 1:','e,f,n,p,l,c =',e,f,n,p,l,c
-!  end associate
-!end if
-!end block
-!### CHECK END
 
     call new_mesh % IdentifyVertices()
     call new_mesh % IdentifyEdges()
@@ -208,64 +176,6 @@ end if
     call new_mesh % BuildGhosts()
     call new_mesh % BuildCuboids()
     call new_mesh % IdentifyRanks()
-!### CHECK
-!block
-!integer :: c, e, f, g, l, n, o, p
-!if (new_mesh%part == 0) then
-!  e = 8
-!  f = 2
-!  associate(element => new_mesh%element(e))
-!    n = element%face(f)%i_neighbor
-!    p = element%neighbor(n)%part
-!    l = element%neighbor(n)%id
-!    g = l - new_mesh%n_ghost
-!    c = element%neighbor(n)%component
-!    o = element%neighbor(n)%orientation
-!    print '(99(G0,1X))', '&&& #2 part 0:','n_ghost         =',new_mesh%n_ghost
-!    print '(99(G0,1X))', '&&& #2 part 0:','n_link          =',new_mesh%n_link
-!    print '(99(G0,1X))', '&&& #2 part 0:','e,f,n,p,l,g,c,o =',e,f,n,p,l,g,c,o
-!    print '(99(G0,1X))', '&&& #2 part 0:','link%n_master   =',new_mesh%link(1)%n_master
-!    print '(99(G0,1X))', '&&& #2 part 0:','link%n_ghost    =',new_mesh%link(1)%n_ghost
-!    print '(99(G0,1X))', '&&& #2 part 0:','link%master%id  =',new_mesh%link(1)%master%id
-!    print '(99(G0,1X))', '&&& #2 part 0:','link%ghost%id   =',new_mesh%link(1)%ghost%id
-!    print '(99(G0,1X))', '&&& #2 part 0:','master(8)%id    =',new_mesh%link(1)%master(8)%id
-!    print '(99(G0,1X))', '&&& #2 part 0:','master(8)%vert  =',new_mesh%link(1)%master(8)%vertex
-!    print '(99(G0,1X))', '&&& #2 part 0:','master(8)%edge  =',new_mesh%link(1)%master(8)%edge
-!    print '(99(G0,1X))', '&&& #2 part 0:','master(8)%face  =',new_mesh%link(1)%master(8)%face
-!    print '(99(G0,1X))', '&&& #2 part 0:','ghost (2)%id    =',new_mesh%link(1)%ghost (2)%id
-!    print '(99(G0,1X))', '&&& #2 part 0:','ghost (2)%vert  =',new_mesh%link(1)%ghost (2)%vertex
-!    print '(99(G0,1X))', '&&& #2 part 0:','ghost (2)%edge  =',new_mesh%link(1)%ghost (2)%edge
-!    print '(99(G0,1X))', '&&& #2 part 0:','ghost (2)%face  =',new_mesh%link(1)%ghost (2)%face
-!  end associate
-!else if (new_mesh%part == 1) then
-!  e = 2
-!  f = 1
-!  associate(element => new_mesh%element(e))
-!    n = element%face(f)%i_neighbor
-!    p = element%neighbor(n)%part
-!    l = element%neighbor(n)%id
-!    g = l - new_mesh%n_ghost
-!    c = element%neighbor(n)%component
-!    o = element%neighbor(n)%orientation
-!    print '(99(G0,1X))', '&&& #2 part 1:','n_ghost         =',new_mesh%n_ghost
-!    print '(99(G0,1X))', '&&& #2 part 1:','n_link          =',new_mesh%n_link
-!    print '(99(G0,1X))', '&&& #2 part 1:','e,f,n,p,l,g,c,o =',e,f,n,p,l,g,c,o
-!    print '(99(G0,1X))', '&&& #2 part 1:','link%n_master   =',new_mesh%link(1)%n_master
-!    print '(99(G0,1X))', '&&& #2 part 1:','link%n_ghost    =',new_mesh%link(1)%n_ghost
-!    print '(99(G0,1X))', '&&& #2 part 1:','link%master%id  =',new_mesh%link(1)%master%id
-!    print '(99(G0,1X))', '&&& #2 part 1:','link%ghost%id   =',new_mesh%link(1)%ghost%id
-!    print '(99(G0,1X))', '&&& #2 part 1:','master(2)%id    =',new_mesh%link(1)%master(2)%id
-!    print '(99(G0,1X))', '&&& #2 part 1:','master(2)%vert  =',new_mesh%link(1)%master(2)%vertex
-!    print '(99(G0,1X))', '&&& #2 part 1:','master(2)%edge  =',new_mesh%link(1)%master(2)%edge
-!    print '(99(G0,1X))', '&&& #2 part 1:','master(2)%face  =',new_mesh%link(1)%master(2)%face
-!    print '(99(G0,1X))', '&&& #2 part 1:','ghost (8)%id    =',new_mesh%link(1)%ghost (8)%id
-!    print '(99(G0,1X))', '&&& #2 part 1:','ghost (8)%vert  =',new_mesh%link(1)%ghost (8)%vertex
-!    print '(99(G0,1X))', '&&& #2 part 1:','ghost (8)%edge  =',new_mesh%link(1)%ghost (8)%edge
-!    print '(99(G0,1X))', '&&& #2 part 1:','ghost (8)%face  =',new_mesh%link(1)%ghost (8)%face
-!  end associate
-!end if
-!end block
-!### CHECK END
 
     !---------------------------------------------------------------------------
     !$omp end master
@@ -312,7 +222,7 @@ end if
 
     class(RootMeshPartitioningOptions_3D), intent(in) :: opt
     class(Mesh_3D), intent(in) :: old_mesh
-    integer, intent(out) :: tp_elem(:) !< element target partitions
+    integer, intent(inout) :: tp_elem(:) !< element target partitions
 
     ! internal variables .......................................................
 
@@ -326,11 +236,11 @@ end if
     real(METIS_REAL_T),   allocatable :: ubvec(:)
     integer(METIS_IDX_T), allocatable :: part(:)
 
-    integer, allocatable :: nvtx_proc(:)     ! num graph vertices per process
-    integer, allocatable, target :: vtxid(:) ! graph vertex IDs
-    integer, pointer :: var_vtxid(:,:,:,:)   ! maps vtxid to element variable
+    integer, allocatable :: nvtx_proc(:)        ! num graph vertices per process
+    integer, allocatable, target :: vtx_elem(:) ! graph vertex IDs
+    integer, pointer :: var_vtx_elem(:,:,:,:)   ! maps o element variable
 
-    type(ElementTransferBuffer_3D), asynchronous :: buf_vtxid
+    type(ElementTransferBuffer_3D), asynchronous :: buf_vtx_elem
 
     integer :: e, i, j, k, m, n
 
@@ -341,7 +251,6 @@ end if
              , proc   => old_mesh % part        &
              , nproc  => old_mesh % n_parts     &
              , nvtx   => old_mesh % n_elem      &
-             , nghost => old_mesh % n_ghost     &
              , weight => opt % weight           )
 
       ! initialization .........................................................
@@ -355,15 +264,13 @@ end if
 
       ! element weighting
       if (weight(1) > 0) then
+        wgtflag = 2 ! activate vertex constraints
         select case(opt % method)
+        case(1)
+          ncon = 1  ! consider only child level
         case(2)
-          ncon = 2
-        case(3)
-          ncon = 3
-        case default
-          ncon = 1
+          ncon = 2  ! consider also higher level descendants
         end select
-        wgtflag = 2
       end if
 
       ! adjacency weighting
@@ -383,12 +290,12 @@ end if
       allocate( part    ( 0:nvtx-1             ) )
 
       ! auxiliary arrays
-      allocate( nvtx_proc ( 0:nproc-1     ) )
-      allocate( vtxid     ( 1:nvtx+nghost ) )
+      allocate( nvtx_proc ( 0:nproc-1               ) )
+      allocate( vtx_elem  ( 1:nvtx+old_mesh%n_ghost ) )
 
       ! graph vertex ID element variable and transfer buffer
-      var_vtxid(1:1, 1:1, 1:1, 1:size(vtxid)) => vtxid
-      buf_vtxid = ElementTransferBuffer_3D(old_mesh, var_vtxid)
+      var_vtx_elem(1:1, 1:1, 1:1, 1:size(vtx_elem)) => vtx_elem
+      buf_vtx_elem = ElementTransferBuffer_3D(old_mesh, var_vtx_elem)
 
       if (ncon > 0) then
         ubvec  = 1.05          ! tolerances for multi-constraint weighting
@@ -412,12 +319,12 @@ end if
       ! graph vertex ID of local elements
       m = vtxdist(proc) - 1
       do e = 1, nvtx
-        vtxid(e) = e + m
+        vtx_elem(e) = e + m
       end do
 
       ! transfer graph vertex IDs to ghosts
-      call buf_vtxid % Transfer(old_mesh, var_vtxid, tag=1000)
-      call buf_vtxid % Merge(var_vtxid)
+      call buf_vtx_elem % Transfer(old_mesh, var_vtx_elem, tag=1000)
+      call buf_vtx_elem % Merge(var_vtx_elem)
 
       ! graph vertex weights and adjacency offsets .............................
 
@@ -428,47 +335,42 @@ end if
 
           i = e - 1
 
-          if (ncon > 0) then
-            vwgt(0, i) = weight(1)
-            if (ncon > 1) then
-              select case(element % adaptation % mark)
-              case(0)
-                vwgt(1, i) = weight(1)
-              case(1)
-                vwgt(1, i) = weight(1) * 8
-              case default
-                vwgt(1, i) = 0
-              end select
-              if (ncon > 2) then
-                select case(element % adaptation % levels)
-                case(2)
-                  i = 64    ! = 8^2
-                case(3)
-                  i = 576   ! = 8^2 + 8^3
-                case(4:)
-                  i = 4672  ! = 8^2 + 8^3 + 8^4
-                case default
-                  i = 0
-                end select
-                vwgt(2, i) = weight(1) * i
-              end if
-            end if
-          end if
+          select case(ncon)
+          case(1)
+            vwgt(0,i) = weight(1)
+          case(2)
+            select case(element % adaptation % mark)
+            case(1)
+              m = 8     ! = 8^1
+            case(2)
+              m = 64    ! = 8^2
+            case(3)
+              m = 576   ! = 8^2 + 8^3
+            case(4:)
+              m = 4672  ! = 8^2 + 8^3 + 8^4
+            case default
+              m = 0
+            end select
+            vwgt(0,i) = weight(1)
+            vwgt(1,i) = weight(1) * m
+          end select
 
-          xadj(e) = xadj(e-1)
+          i = i + 1
+
+          xadj(i) = xadj(i-1)
           do k = 1, 6
-            xadj(e) = xadj(e) + element % face(k) % n_neighbor
+            xadj(i) = xadj(i) + element % face(k) % n_neighbor
           end do
 
           if (weight(3) > 0) then ! include element-edge neighbors
             do k = 1, 12
-              xadj(e) = xadj(e) + element % edge(k) % n_neighbor
+              xadj(i) = xadj(i) + element % edge(k) % n_neighbor
             end do
           end if
 
           if (weight(4) > 0) then ! include element-vertex neighbors
             do k = 1, 8
-              xadj(e) = xadj(e) + element % vertex(k) % n_neighbor
+              xadj(i) = xadj(i) + element % vertex(k) % n_neighbor
             end do
           end if
 
@@ -496,7 +398,7 @@ end if
             if (n < 0) cycle
             i = element % face(k) % i_neighbor
             do j = i, i+n
-              adjncy(m) = vtxid(element % neighbor(j) % id)
+              adjncy(m) = vtx_elem(element % neighbor(j) % id)
               if (weight(2) > 0) then
                 adjwgt(m) = weight(2)
               end if
@@ -511,7 +413,7 @@ end if
               if (n < 0) cycle
               i = element % edge(k) % i_neighbor
               do j = i, i+n
-                adjncy(m) = vtxid(element % neighbor(j) % id)
+                adjncy(m) = vtx_elem(element % neighbor(j) % id)
                 adjwgt(m) = weight(3)
                 m = m + 1
               end do
@@ -525,7 +427,7 @@ end if
               if (n < 0) cycle
               i = element % vertex(k) % i_neighbor
               do j = i, i+n
-                adjncy(m) = vtxid(element % neighbor(j) % id)
+                adjncy(m) = vtx_elem(element % neighbor(j) % id)
                 adjwgt(m) = weight(4)
                 m = m + 1
               end do
