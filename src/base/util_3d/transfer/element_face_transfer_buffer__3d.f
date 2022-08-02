@@ -25,8 +25,8 @@ module Element_Face_Transfer_Buffer__3D
   !> Auxiliary structure for keeping linked element-face data and metadata
 
   type ElementFaceTransferData
-    integer,           allocatable :: element(:)   !< coupled lement ID
-    integer,           allocatable :: face(:)      !< coupled lement face
+    integer,           allocatable :: element(:)   !< coupled element ID
+    integer,           allocatable :: face(:)      !< coupled element face
     class(*),          allocatable :: buf(:,:,:,:) !< message buffer
     type(MPI_Request), allocatable :: request(:)   !< requests
   end type ElementFaceTransferData
@@ -197,7 +197,7 @@ contains
     class(ElementFaceTransferBuffer_3D), intent(inout) :: this !< buffer
     class(Mesh_3D), intent(in) :: mesh !< mesh partition
 
-    integer :: i, f, l, m, nl
+    integer :: e, i, j, f, l, m
 
     ! skip empty partition
     if (mesh % part < 0) return
@@ -205,59 +205,39 @@ contains
     this % ne = mesh % n_elem
     this % ng = mesh % n_ghost
     this % nf = sum( mesh % link % n_face )
-!### CHECK
-print '(99(G0,1X))', '### part ',mesh%part,': this%ne =',this%ne
-print '(99(G0,1X))', '### part ',mesh%part,': this%ng =',this%ng
-print '(99(G0,1X))', '### part ',mesh%part,': this%nf =',this%nf
-!### CHECK END
 
     allocate(this % send % element( this % nf ))
     allocate(this % send % face   ( this % nf ))
     allocate(this % recv % element( this % nf ))
     allocate(this % recv % face   ( this % nf ))
 
-    nl = size(mesh%link)
-
-    associate(send => this % send, recv => this % recv, face => mesh % face)
+    associate(send => this % send, recv => this % recv)
 
       ! set side to linked face IDs
       i = 1
-      do l = 1, nl
+      do l = 1, mesh % n_link
       do m = 1, mesh % link(l) % n_face
-        f = mesh % link(l) % face(m)
-        if (face(f) % element(1) % id <= mesh % n_elem) then
-          ! element on side 1 is local
-          send % element(i) = face(f) % element(1) % id
-          send % face(i)    = face(f) % element(1) % face
-          recv % element(i) = face(f) % element(2) % id
-          recv % face(i)    = face(f) % element(2) % face
-        else
-          ! element on side 1 is remote
-          recv % element(i) = face(f) % element(1) % id
-          recv % face(i)    = face(f) % element(1) % face
-          send % element(i) = face(f) % element(2) % id
-          send % face(i)    = face(f) % element(2) % face
-        end if
-!### CHECK
-if (f < 1 .or. send%face(i) < 1 .or. recv%face(i) < 1) then
-print '(99(G0,1X))', '### part ',mesh%part,': i, l, f            =',i, l, f
-print '(99(G0,1X))', '### part ',mesh%part,': recv % element(i)  =',recv % element(i)
-print '(99(G0,1X))', '### part ',mesh%part,': recv % face(i)     =',recv % face(i)
-print '(99(G0,1X))', '### part ',mesh%part,': send % element(i)  =',send % element(i)
-print '(99(G0,1X))', '### part ',mesh%part,': send % face(i)     =',send % face(i)
-print '(99(G0,1X))', '### part ',mesh%part,': face(f)%element(1) =',face(f)%element(1)
-print '(99(G0,1X))', '### part ',mesh%part,': face(f)%element(2) =',face(f)%element(2)
-stop "*** MISMATCH in Init_ElementFaceTransferBuffer_Shared_3D"
-end if
-!### CHECK END
-       i = i + 1
+        associate(face => mesh % link(l) % face(m))
+          e = face % element_id
+          f = face % element_face
+          associate(element => mesh % element(e))
+            j = element % face(f) % i_neighbor ! > 0: must exist
+            ! local element
+            send % element(i) = e
+            send % face(i)    = f
+            ! remote element
+            recv % element(i) = element % neighbor(j) % id
+            recv % face(i)    = element % neighbor(j) % component
+          end associate
+        end associate
+        i = i + 1
       end do
       end do
 
     end associate
 
-    allocate(this % send % request(nl))
-    allocate(this % recv % request(nl))
+    allocate(this % send % request(mesh % n_link))
+    allocate(this % recv % request(mesh % n_link))
 
   end subroutine Init_ElementFaceTransferBuffer_Shared_3D
 

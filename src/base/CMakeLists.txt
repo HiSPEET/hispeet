@@ -152,9 +152,6 @@ set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/adaptation/root_mesh_partitioning__3d.F
              )
 
-# obsolete:
-#              util_3d/transfer/trace_transfer_buffer__3d.f
-
 if (Exodus_FOUND)
     set (UTIL_3D ${UTIL_3D} util_3d/import/import_exodus__3d.f)
 endif ()
@@ -192,12 +189,6 @@ set( DIFFUSION_3D diffusion_3d/dg__diffusion_operator__3d.f
                   diffusion_3d/dg__schwarz_operator__3d__rsp__mp_restrict_structured.F
                   diffusion_3d/dg__schwarz_operator__3d__rsp__mp_restrict_unstructured.F
                   )
-
-
-# obsolete:
-# diffusion_3d/dg__diffusion_operator__3d__mp_addbc_rc.f
-# diffusion_3d/dg__diffusion_operator__3d__mp_addbc_rv.f
-# diffusion_3d/dg__diffusion_operator__3d__mp_addbc_dc.f
 
 #===============================================================================
 # base library

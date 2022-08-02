@@ -113,12 +113,6 @@ contains
       mesh % element(l1) % face(f1)   % id       = k
       mesh % element(l1) % face(f1)   % normal   = 1
       mesh % element(l1) % face(f1)   % rotation = 0
-!### CHECK
-if (mesh%part == 0 .and. mesh%n_elem < 64 .and. k == 5) then
-print '(99(G0,1X))', '$$$ part ',mesh%part,': i, j, k =',i, j, k
-print '(99(G0,1X))', '$$$ part ',mesh%part,': element_face(:,i) =',element_face(:,i)
-end if
-!### CHECK END
 
       ! second adjacent element, if any
       if (j - i == 2) then

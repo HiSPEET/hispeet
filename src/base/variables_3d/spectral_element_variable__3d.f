@@ -369,8 +369,8 @@ contains
           if (skip(b)) cycle
           !$omp do schedule(static)
           do f = 1, mesh % boundary(b) % n_face
-            e = mesh % boundary(b) % face(f) % mesh_element % id   ! element ID
-            s = mesh % boundary(b) % face(f) % mesh_element % face ! element side
+            e = mesh % boundary(b) % face(f) % element_id   ! element ID
+            s = mesh % boundary(b) % face(f) % element_face ! element side
             do c = 1, nc
               select case(s)
               case(1)
@@ -397,8 +397,8 @@ contains
           if (skip(b)) cycle
           !$omp do schedule(static)
           do f = 1, mesh % boundary(b) % n_face
-            e = mesh % boundary(b) % face(f) % mesh_element % id   ! element ID
-            s = mesh % boundary(b) % face(f) % mesh_element % face ! element side
+            e = mesh % boundary(b) % face(f) % element_id   ! element ID
+            s = mesh % boundary(b) % face(f) % element_face ! element side
             do c = 1, nc
               select case(s)
               case(1)

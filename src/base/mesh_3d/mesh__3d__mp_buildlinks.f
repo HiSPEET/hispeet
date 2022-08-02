@@ -65,9 +65,10 @@ contains
     ! link_face(1,:) : remote partition ID
     ! link_face(2,:) : adjacent element ID from lowest rank partition
     ! link_face(3,:) : adjacent element face ID from lowest rank partition
-    ! link_face(4,:) : local face ID
+    ! link_face(4,:) : adjacent local element ID
+    ! link_face(5,:) : adjacent local element face ID
 
-    allocate(link_face(4, mesh%n_face), source = -1)
+    allocate(link_face(5, mesh%n_face), source = -1)
 
     ! identify and count
     k = 0
@@ -94,7 +95,7 @@ contains
           link_face(1,k) = p
 
           ! store adjacent element ID and face from lowest rank partition
-          if (p <= mesh%part) then
+          if (p < mesh%part) then
             link_face(2,k) = element % neighbor(j) % id
             link_face(3,k) = element % neighbor(j) % component
           else
@@ -102,8 +103,9 @@ contains
             link_face(3,k) = i
           end if
 
-          ! store local face ID
-          link_face(4,k) = element % face(i) % id
+          ! store local element and element face ID
+          link_face(4,k) = e
+          link_face(5,k) = i
 
         end do
 
@@ -312,9 +314,10 @@ contains
 
     do i = 1, mesh % n_face
       p = link_face(1,i)
-      if (p < 0) exit
+      if (p < 0) cycle
       nf(p) = nf(p) + 1
-      mesh % link(map(p)) % face( nf(p) ) = link_face(4,i)
+      mesh % link(map(p)) % face( nf(p) ) % element_id   = link_face(4,i)
+      mesh % link(map(p)) % face( nf(p) ) % element_face = link_face(5,i)
     end do
 
     ! master elements ..........................................................
@@ -411,14 +414,6 @@ contains
             mesh % face(f) % element(1) % id   = l
             mesh % face(f) % element(1) % face = c
           end select
-!### CHECK
-if (mesh%part == 0 .and. mesh%n_elem < 2 .and. f == 4) then
-print '(99(G0,1X))', '§§§ part ',mesh%part,': e, i, f, l, c =',e, i, f, l, c
-print '(99(G0,1X))', '§§§ part ',mesh%part,': element % face(i) % normal  =',element % face(i) % normal
-print '(99(G0,1X))', '§§§ part ',mesh%part,': mesh % face(f) % element(1) =',mesh % face(f) % element(1)
-print '(99(G0,1X))', '§§§ part ',mesh%part,': mesh % face(f) % element(2) =',mesh % face(f) % element(2)
-end if
-!### CHECK END
 
         end if
 

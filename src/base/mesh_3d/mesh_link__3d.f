@@ -13,6 +13,14 @@ module Mesh_Link__3D
   public :: MeshElementLink_3D
 
   !-----------------------------------------------------------------------------
+  !> Face linking information
+
+  type MeshFaceLink_3D
+    integer :: element_id   = 0  !< local element ID
+    integer :: element_face = 0  !< linked element face (1:6)
+  end type MeshFaceLink_3D
+
+  !-----------------------------------------------------------------------------
   !> Element linking information
   !>
   !> The structure may refer to a local element or a virtual "ghost" element.
@@ -33,19 +41,16 @@ module Mesh_Link__3D
   !>
   !> Provides the following lists:
   !>
-  !>   - `face`: the IDs of faces linked with partition `part`
+  !>   - `face  `: element faces linked with partition `part`
   !>   - `master`: link to local elements with a ghost in partition `part`
-  !>   - `ghost` : link to ghost elements with their master in partition `part`
-  !>
-  !> Note that `coupled_face` is empty unless `part` refers to the local
-  !> partition.
+  !>   - `ghost `: link to ghost elements with their master in partition `part`
 
   type MeshLink_3D
-    integer :: part     = -1        !< remote partition ID
-    integer :: n_face   =  0        !< number of linked faces
-    integer :: n_master =  0        !< number of master elements
-    integer :: n_ghost  =  0        !< number of ghost elements
-    integer, allocatable :: face(:) !< list of linked faces
+    integer :: part     = -1  !< remote partition ID
+    integer :: n_face   =  0  !< number of linked faces
+    integer :: n_master =  0  !< number of master elements
+    integer :: n_ghost  =  0  !< number of ghost elements
+    type(MeshFaceLink_3D   ), allocatable :: face(:)   !< linked faces
     type(MeshElementLink_3D), allocatable :: master(:) !< master elements
     type(MeshElementLink_3D), allocatable :: ghost(:)  !< ghost elements
   end type MeshLink_3D

@@ -181,8 +181,8 @@ contains
           e = generic_boundary % face(i) % element_id   ! corresp element ID
           j = generic_boundary % face(i) % element_face ! corresp element face
 
-          mesh_boundary % face(i) % mesh_element % id   = e
-          mesh_boundary % face(i) % mesh_element % face = j
+          mesh_boundary % face(i) % element_id   = e
+          mesh_boundary % face(i) % element_face = j
 
         end do
 

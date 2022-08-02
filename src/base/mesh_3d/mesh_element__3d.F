@@ -165,8 +165,7 @@ module Mesh_Element__3D
     integer      :: child_proc  = -1 !< child partition ID in comm_world
     integer      :: child_id    = -1 !< first child element ID
     integer(IXS) :: refinement  = -1 !< refinement type: -1,0,1 = none,copy,full
-    integer(IXS) :: levels      = -1 !< number of subdivision levels
-    integer(IXS) :: mark        = -1 !< adaptation mark (targeted refinement)
+    integer(IXS) :: mark        = -1 !< adaptation mark
   end type MeshElementAdaptation_3D
 
   !-----------------------------------------------------------------------------

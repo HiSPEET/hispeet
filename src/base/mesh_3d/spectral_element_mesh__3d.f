@@ -212,7 +212,7 @@ contains
         do b = 1, mesh % n_bound
           do f = 1, mesh % boundary(b) % n_face
             a_loc(b) = a_loc(b) &
-                     + a_face(mesh % boundary(b) % face(f) % mesh_element % face)
+                     + a_face(mesh % boundary(b) % face(f) % element_face)
           end do
         end do
 
@@ -281,8 +281,8 @@ contains
           a_priv = ZERO
           !$omp do schedule(static)
           do f = 1, mesh % boundary(b) % n_face
-            e = mesh % boundary(b) % face(f) % mesh_element % id   ! element ID
-            s = mesh % boundary(b) % face(f) % mesh_element % face ! element side
+            e = mesh % boundary(b) % face(f) % element_id   ! element ID
+            s = mesh % boundary(b) % face(f) % element_face ! element side
             a_priv = a_priv + sum(ww * a(:,:,s,e))
           end do
           !$omp end do nowait

@@ -60,8 +60,8 @@ contains
           b = face(i) % boundary
           if (b > 0) then
             f_bound(b) = f_bound(b) + 1
-            mesh % boundary(b) % face(f_bound(b)) % mesh_element % id   = e
-            mesh % boundary(b) % face(f_bound(b)) % mesh_element % face = i
+            mesh % boundary(b) % face(f_bound(b)) % element_id   = e
+            mesh % boundary(b) % face(f_bound(b)) % element_face = i
           end if
         end do
       end associate

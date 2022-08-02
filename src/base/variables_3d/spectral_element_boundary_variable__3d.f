@@ -200,8 +200,8 @@ contains
       !$omp do
       do f = 1, boundary % n_face
 
-        e = boundary % face(f) % mesh_element % id
-        m = boundary % face(f) % mesh_element % face
+        e = boundary % face(f) % element_id
+        m = boundary % face(f) % element_face
 
         select case(m)
 
@@ -277,8 +277,8 @@ contains
       !$omp do
       do f = 1, boundary % n_face
 
-        e = boundary % face(f) % mesh_element % id
-        m = boundary % face(f) % mesh_element % face
+        e = boundary % face(f) % element_id
+        m = boundary % face(f) % element_face
 
         select case(m)
 
@@ -335,8 +335,8 @@ contains
       !$omp do
       do f = 1, boundary % n_face
 
-        e = boundary % face(f) % mesh_element % id
-        m = boundary % face(f) % mesh_element % face
+        e = boundary % face(f) % element_id
+        m = boundary % face(f) % element_face
 
         select case(m)
 
@@ -394,8 +394,8 @@ contains
       !$omp do
       do f = 1, boundary % n_face
 
-        e = boundary % face(f) % mesh_element % id
-        m = boundary % face(f) % mesh_element % face
+        e = boundary % face(f) % element_id
+        m = boundary % face(f) % element_face
 
         v(:,:,m,e) = this % val(:,:,f,1)
 
@@ -421,8 +421,8 @@ contains
       !$omp do
       do f = 1, boundary % n_face
 
-        e = boundary % face(f) % mesh_element % id
-        m = boundary % face(f) % mesh_element % face
+        e = boundary % face(f) % element_id
+        m = boundary % face(f) % element_face
 
         do c = 1, nc
           v(:,:,m,e,c) = this % val(:,:,f,c)

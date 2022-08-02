@@ -130,16 +130,16 @@ contains
           if (has_bv) then
             !$omp do
             do l = 1, boundary(b) % n_face
-              e = boundary(b) % face(l) % mesh_element % id
-              f = boundary(b) % face(l) % mesh_element % face
+              e = boundary(b) % face(l) % element_id
+              f = boundary(b) % face(l) % element_face
               jmp_u(:,:,f,e) = 2 * (jmp_u (:,:,f,e) - bv(b) % val(:,:,l,1))
             end do
             !$omp end do nowait
           else
             !$omp do
             do l = 1, boundary(b) % n_face
-              e = boundary(b) % face(l) % mesh_element % id
-              f = boundary(b) % face(l) % mesh_element % face
+              e = boundary(b) % face(l) % element_id
+              f = boundary(b) % face(l) % element_face
               jmp_u(:,:,f,e) = 2 * jmp_u (:,:,f,e)
             end do
             !$omp end do nowait
@@ -150,8 +150,8 @@ contains
           if (has_bv) then
             !$omp do
             do l = 1, boundary(b) % n_face
-              e = boundary(b) % face(l) % mesh_element % id
-              f = boundary(b) % face(l) % mesh_element % face
+              e = boundary(b) % face(l) % element_id
+              f = boundary(b) % face(l) % element_face
               jmp_u(:,:,f,e) = ZERO
               avg_q(:,:,f,e) = bv(b) % val(:,:,l,1)
             end do
@@ -159,8 +159,8 @@ contains
           else
             !$omp do
             do l = 1, boundary(b) % n_face
-              e = boundary(b) % face(l) % mesh_element % id
-              f = boundary(b) % face(l) % mesh_element % face
+              e = boundary(b) % face(l) % element_id
+              f = boundary(b) % face(l) % element_face
               jmp_u(:,:,f,e) = ZERO
               avg_q(:,:,f,e) = ZERO
             end do

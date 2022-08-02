@@ -573,8 +573,8 @@ contains
         do k = 1, n3
         do j = 1, n2
           e = LexicalElementIndex(i, j, k, n1, n2)
-          boundary(b) % face(f) % mesh_element % id   = e
-          boundary(b) % face(f) % mesh_element % face = b
+          boundary(b) % face(f) % element_id   = e
+          boundary(b) % face(f) % element_face = b
           f = f + 1
         end do
         end do
@@ -592,8 +592,8 @@ contains
         do k = 1, n3
         do j = 1, n2
           e = LexicalElementIndex(i, j, k, n1, n2)
-          boundary(b) % face(f) % mesh_element % id   = e
-          boundary(b) % face(f) % mesh_element % face = b
+          boundary(b) % face(f) % element_id   = e
+          boundary(b) % face(f) % element_face = b
           f = f + 1
         end do
         end do
@@ -611,8 +611,8 @@ contains
         do k = 1, n3
         do i = 1, n1
           e = LexicalElementIndex(i, j, k, n1, n2)
-          boundary(b) % face(f) % mesh_element % id   = e
-          boundary(b) % face(f) % mesh_element % face = b
+          boundary(b) % face(f) % element_id   = e
+          boundary(b) % face(f) % element_face = b
           f = f + 1
         end do
         end do
@@ -630,8 +630,8 @@ contains
         do k = 1, n3
         do i = 1, n1
           e = LexicalElementIndex(i, j, k, n1, n2)
-          boundary(b) % face(f) % mesh_element % id   = e
-          boundary(b) % face(f) % mesh_element % face = b
+          boundary(b) % face(f) % element_id   = e
+          boundary(b) % face(f) % element_face = b
           f = f + 1
         end do
         end do
@@ -649,8 +649,8 @@ contains
         do j = 1, n2
         do i = 1, n1
           e = LexicalElementIndex(i, j, k, n1, n2)
-          boundary(b) % face(f) % mesh_element % id   = e
-          boundary(b) % face(f) % mesh_element % face = b
+          boundary(b) % face(f) % element_id   = e
+          boundary(b) % face(f) % element_face = b
           f = f + 1
         end do
         end do
@@ -668,8 +668,8 @@ contains
         do j = 1, n2
         do i = 1, n1
           e = LexicalElementIndex(i, j, k, n1, n2)
-          boundary(b) % face(f) % mesh_element % id   = e
-          boundary(b) % face(f) % mesh_element % face = b
+          boundary(b) % face(f) % element_id   = e
+          boundary(b) % face(f) % element_face = b
           f = f + 1
         end do
         end do
