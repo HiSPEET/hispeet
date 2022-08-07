@@ -72,7 +72,7 @@ module Spectral_Deferred_Correction
     real(RNP), allocatable :: w_sub(:,:) !< quadrature weights for [τᵢ₋₁,τᵢ]
 
     real(RNP), allocatable, private :: x_gll(:) !< Lobatto nodes in [-1,1]
-    real(RNP), allocatable, private :: w_gll(:) !< Lobatto weights to x
+    real(RNP), allocatable, private :: w_gll(:) !< Lobatto weights to x_gll
 
   contains
 

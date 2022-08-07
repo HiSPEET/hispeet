@@ -343,10 +343,10 @@ contains
 
       ! prerequisites ..........................................................
 
-      do m = 0, n_sub
-
+      if (allocated(nu_sdc)) then
         ! initialize variable diffusivity
-        if (allocated(nu_sdc)) then
+        do m = 0, n_sub
+
           if (this % problem % HasVariableProperties()) then
 
             call this % problem %                      &
@@ -362,11 +362,11 @@ contains
             end if
 
           end if
-        end if
 
-        call this % CorrectorRHS(t_sdc, nu_sdc, u_sdc, F_sdc, F_sdc_ex, F_sdc_im)
+        end do
+      end if
 
-      end do
+      call this % CorrectorRHS(t_sdc, nu_sdc, u_sdc, F_sdc, F_sdc_ex, F_sdc_im)
 
       ! these will never change ;)
       call SetArray(F_sdc_ex_new(:,:,:,:,:,0), F_sdc_ex(:,:,:,:,:,0), multi=.true.)
