@@ -23,7 +23,7 @@ print("Accuracy evaluation of ", method,"\n")
 print("  subintervals     =", ns)
 print("  predictor stages =", sp)
 print("  corrector stages =", sc)
-print("  corrector sweeps =", sc)
+print("  corrector sweeps =", nc)
 print("  works units      =", nw, "\n")
 
 # scaled 1e-05 -----------------------------------------------------------------
@@ -45,8 +45,8 @@ plt.legend(lines, labels)
 ax.set_xlim([-0.12, 0.12])
 ax.set_ylim([ 0.00, 0.13])
 
-plt.xlabel("Re($\lambda$)")
-plt.ylabel("Im($\lambda$)")
+plt.xlabel("Re($z_{\mathrm{s}}$)")
+plt.ylabel("Im($z_{\mathrm{s}}$)")
 
 fig1.savefig("accuracy-05_"+method+".pdf")
 
@@ -58,16 +58,16 @@ fig2, ax = plt.subplots()
 diag = plt.contour( x, y, e, levels=[1.e-10], colors='red' 
                   , linestyles='-', linewidths= 0.75 ) 
 
-lines  = [ diag.collections[0]]
-labels = ['BHR3' ]
+lines  = [ diag.collections[0] ]
+labels = [ method ]
 
 plt.legend(lines, labels)
 
 ax.set_xlim([-0.012, 0.012])
 ax.set_ylim([ 0.000, 0.013])
 
-plt.xlabel("Re($\lambda$)")
-plt.ylabel("Im($\lambda$)")
+plt.xlabel("Re($z_{\mathrm{s}}$)")
+plt.ylabel("Im($z_{\mathrm{s}}$)")
 
 fig2.savefig("accuracy-10_"+method+".pdf")
 

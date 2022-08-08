@@ -23,7 +23,7 @@ print("Stability evaluation of ", method,"\n")
 print("  subintervals     =", ns)
 print("  predictor stages =", sp)
 print("  corrector stages =", sc)
-print("  corrector sweeps =", sc)
+print("  corrector sweeps =", nc)
 print("  works units      =", nw, "\n")
 
 # unscaled ---------------------------------------------------------------------
@@ -37,7 +37,7 @@ fig1, ax = plt.subplots()
 diag = plt.contour( x, y, a, levels=[1], colors='red' 
                   , linestyles='-', linewidths= 0.75 ) 
 
-lines  = [ diag.collections[0] 
+lines  = [ diag.collections[0] ]
 labels = [ method ]
 
 plt.legend(lines, labels)
@@ -45,8 +45,8 @@ plt.legend(lines, labels)
 ax.set_xlim([-10, 2])
 ax.set_ylim([  0, 8])
 
-plt.xlabel("Re($\lambda$)")
-plt.ylabel("Im($\lambda$)")
+plt.xlabel("Re($z$)")
+plt.ylabel("Im($z$)")
 
 fig1.savefig("stability_"+method+".pdf")
 
@@ -65,8 +65,8 @@ plt.legend(lines, labels)
 ax.set_xlim([-0.6, 0.2])
 ax.set_ylim([ 0.0, 1.6])
 
-plt.xlabel("Re($\lambda$)")
-plt.ylabel("Im($\lambda$)")
+plt.xlabel("Re($z_{\mathrm{s}}$)")
+plt.ylabel("Im($z_{\mathrm{s}}$)")
 
 fig2.savefig("stability-scaled_"+method+".pdf")
 

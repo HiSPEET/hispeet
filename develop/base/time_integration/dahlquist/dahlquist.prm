@@ -43,18 +43,39 @@
 
   ! test parameters ............................................................
 
-! c_min =   0  ! min convective CFL number            ! for stability
-! c_max =  10  ! max convective CFL number            !
-! d_min =  -5  ! min diffusion number                 !
-! d_max =  10  ! max diffusion number                 !
-! nc    = 400  ! num intervals along imaginary axis   ! 
-! nd    = 400  ! num intervals along real axis        ! 
+  c_min =     0  ! min convective CFL number            ! for stability
+  c_max =    10  ! max convective CFL number            !
+  d_min =   -10  ! min diffusion number                 !
+  d_max =    10  ! max diffusion number                 !
+  nc    =  1000  ! num intervals along imaginary axis   !
+  nd    =  2000  ! num intervals along real axis        !
 
-  c_min =   0  ! min convective CFL number            ! for accuracy
-  c_max =   4  ! max convective CFL number            !
-  d_min =  -2  ! min diffusion number                 !
-  d_max =   2  ! max diffusion number                 !
-  nc    = 1600  ! num intervals along imaginary axis   ! 
-  nd    = 1600  ! num intervals along real axis        ! 
+! c_min =     0  ! min convective CFL number            ! accuracy 1e-05 with
+! c_max =   0.8  ! max convective CFL number            ! TR, CB2, CB3c,
+! d_min =  -0.4  ! min diffusion number                 ! ARS3, BHR3
+! d_max =   0.4  ! max diffusion number                 !
+! nc    =  1000  ! num intervals along imaginary axis   !
+! nd    =  1000  ! num intervals along real axis        !
+
+! c_min =     0  ! min convective CFL number            ! accuracy 1e-05 with
+! c_max =   1.0  ! max convective CFL number            ! CB4
+! d_min =  -1.0  ! min diffusion number                 !
+! d_max =   1.0  ! max diffusion number                 !
+! nc    =  1000  ! num intervals along imaginary axis   !
+! nd    =  1000  ! num intervals along real axis        !
+
+! c_min =     0  ! min convective CFL number            ! accuracy 1e-10 with
+! c_max =  0.04  ! max convective CFL number            ! TR, CB2, CB3c,
+! d_min = -0.02  ! min diffusion number                 ! ARS3, BHR3
+! d_max =  0.02  ! max diffusion number                 !
+! nc    =  1000  ! num intervals along imaginary axis   !
+! nd    =  1000  ! num intervals along real axis        !
+
+! c_min =     0  ! min convective CFL number            ! accuracy 1e-10 with
+! c_max =   0.1  ! max convective CFL number            ! CB4
+! d_min =  -0.1  ! min diffusion number                 !
+! d_max =   0.1  ! max diffusion number                 !
+! nc    =  1000  ! num intervals along imaginary axis   !
+! nd    =  1000  ! num intervals along real axis        !
 
 /
