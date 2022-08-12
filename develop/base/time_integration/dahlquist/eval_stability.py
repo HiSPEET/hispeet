@@ -54,7 +54,7 @@ fig1.savefig("stability_"+method+".pdf")
 
 fig2, ax = plt.subplots()
 
-diag = plt.contour( x/(s-1), y/(s-1), a, levels=[1], colors='red' 
+diag = plt.contour( x/nw, y/nw, a, levels=[1], colors='red' 
                   , linestyles='-', linewidths= 0.75 ) 
 
 lines  = [ diag.collections[0] ]
