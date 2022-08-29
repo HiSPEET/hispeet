@@ -69,34 +69,34 @@ contains
   end subroutine Show_DQ_TimeIntegrator_Euler
 
   !-----------------------------------------------------------------------------
-  !> Performs an IMEX Euler step: z₁ = z₀ + ∆t (iλᵢ z₀ + λᵣ z₁)
+  !> Performs an IMEX Euler step: u₁ = u₀ + ∆t (iλᵢ u₀ + λᵣ u₁)
 
-  subroutine TimeStep(this, lambda, dt, z)
+  subroutine TimeStep(this, lambda, dt, u)
     class(DQ_TimeIntegrator_Euler), intent(inout) :: this
     real(RNP),    intent(in)    :: dt      !< step size ∆t
     complex(RNP), intent(in)    :: lambda  !< ...
-    complex(RNP), intent(inout) :: z       !< z(t) → z(t+ ∆t)
+    complex(RNP), intent(inout) :: u       !< u(t) → u(t+ ∆t)
 
     select case(this%impl)
 
     case(0)
 
-      ! explicit Euler step: z₁ = z₀ + ∆t λ z₀ .................................
+      ! explicit Euler step: u₁ = u₀ + ∆t λ u₀ .................................
 
-      z = z + dt * lambda * z
+      u = u + dt * lambda * u
 
-    case(2)
+    case(1)
 
-      ! implicit Euler step: z₁ = z₀ + ∆t λ z₀ .................................
+      ! implicit Euler step: u₁ = u₀ + ∆t λ u₀ .................................
 
-      z = z / (ONE - dt * lambda)
+      u = u / (ONE - dt * lambda)
 
     case default
 
-      ! IMEX Euler step: z₁ = z₀ + ∆t λ z₀ .....................................
+      ! IMEX Euler step: u₁ = u₀ + ∆t λ u₀ .....................................
 
-      z = z + dt * (ZERO, ONE) * lambda%im * z  ! explicit convection with i λᵢ
-      z = z / (ONE - dt * lambda%re)            ! implicit diffusion with λᵣ
+      u = u + dt * (ZERO, ONE) * lambda%im * u  ! explicit convection with i λᵢ
+      u = u / (ONE - dt * lambda%re)            ! implicit diffusion with λᵣ
 
     end select
 

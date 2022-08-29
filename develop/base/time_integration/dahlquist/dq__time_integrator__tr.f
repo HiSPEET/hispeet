@@ -71,14 +71,14 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs an IMEX TR step
 
-  subroutine TimeStep(this, lambda, dt, z)
+  subroutine TimeStep(this, lambda, dt, u)
     class(DQ_TimeIntegrator_TR), intent(inout) :: this
     real(RNP),    intent(in)    :: dt      !< step size ∆t
     complex(RNP), intent(in)    :: lambda  !< ...
-    complex(RNP), intent(inout) :: z       !< z(t) → z(t+ ∆t)
+    complex(RNP), intent(inout) :: u       !< u(t) → u(t+ ∆t)
 
     complex(RNP), parameter :: i = (ZERO, ONE)
-    complex(RNP):: z1, z2, z3
+    complex(RNP):: u1, u2, u3
 
     select case(this%impl)
 
@@ -86,29 +86,29 @@ contains
 
       ! explicit TR ............................................................
 
-      z1 = z
-      z2 = z + dt * lambda * z1
-      z  = z + dt * HALF * lambda * (z1 + z2)
+      u1 = u
+      u2 = u + dt * lambda * u1
+      u  = u + dt * HALF * lambda * (u1 + u2)
 
-    case(2)
+    case(1)
 
       ! implicit TR ............................................................
 
-      z = (z + dt * HALF * lambda * z) / (ONE - dt * HALF * lambda)
+      u = (u + dt * HALF * lambda * u) / (ONE - dt * HALF * lambda)
 
     case default
 
       ! IMEX TR ................................................................
 
-      z1 = z
+      u1 = u
 
-      z2 = z  + dt * i * lambda%im * z1
-      z2 = z2 / (ONE - dt * lambda%re)
+      u2 = u  + dt * i * lambda%im * u1
+      u2 = u2 / (ONE - dt * lambda%re)
 
-      z3 = z  + dt * HALF * (lambda * z1 + i * lambda%im * z2 )
-      z3 = z3 / (ONE - dt * HALF * lambda%re)
+      u3 = u  + dt * HALF * (lambda * u1 + i * lambda%im * u2 )
+      u3 = u3 / (ONE - dt * HALF * lambda%re)
 
-      z = z3
+      u = u3
 
     end select
 

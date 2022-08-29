@@ -30,7 +30,7 @@ module DQ__SDC__Method
   !> Type for providing SDC options
 
   type, extends(SDC_Options) :: DQ_SDC_Options
-    integer :: impl = 1  !< 0 = explicit, 1 = IMEX, 2 = implicit
+    integer :: impl = 2  !< 0: explicit, 1: implicit, 2/default: IMEX
   end type DQ_SDC_Options
 
   !-----------------------------------------------------------------------------
@@ -41,15 +41,15 @@ module DQ__SDC__Method
     class(DQ_TimeIntegrator), allocatable :: predictor !< predictor method
 
     character(len=80) :: corrector_name = ''
-    integer :: impl !< 0/1/2 switch to explicit/IMEX/implicit corrector
+    integer :: impl !< switch to explicit/implicit/IMEX corrector (0/1/2)
 
   contains
 
     procedure, non_overridable :: Init_DQ_SDC_Method
     procedure, non_overridable :: Show_DQ_SDC_Method
     procedure :: TimeStep
-    procedure(CorrectorRHS ),  deferred :: CorrectorRHS
-    procedure(CorrectorStep),  deferred :: CorrectorStep
+    procedure(CorrectorRHS ), deferred :: CorrectorRHS
+    procedure(CorrectorStep), deferred :: CorrectorStep
 
   end type DQ_SDC_Method
 
@@ -57,12 +57,14 @@ module DQ__SDC__Method
 
   !-----------------------------------------------------------------------------
   !> Computes F_ex and F_im as defined in the corrector and F for subintegrals
-  elemental subroutine CorrectorRHS(this, lambda, z, F_ex, F_im)
+
+  elemental subroutine CorrectorRHS(this, lambda, tau, u, F_ex, F_im)
     import
 
     class(DQ_SDC_Method), intent(in) :: this
     complex(RNP), intent(in)  :: lambda !< λ
-    complex(RNP), intent(in)  :: z      !< z
+    real   (RNP), intent(in)  :: tau    !< step width
+    complex(RNP), intent(in)  :: u      !< u
     complex(RNP), intent(out) :: F_ex   !< explicit RHS for corrector
     complex(RNP), intent(out) :: F_im   !< implicit RHS for corrector
 
@@ -70,7 +72,7 @@ module DQ__SDC__Method
 
   !-----------------------------------------------------------------------------
   !> Execution of a single correction step
-  subroutine CorrectorStep( this, lambda, m, t, z  &
+  subroutine CorrectorStep( this, lambda, m, t, u  &
                           , F_ex_old, F_ex         &
                           , F_im_old, F_im         )
   import
@@ -79,7 +81,7 @@ module DQ__SDC__Method
     complex(RNP), intent(in)    :: lambda        !< λ
     integer     , intent(in)    :: m             !< current SDC interval index
     real   (RNP), intent(in)    :: t(0:)         !< SDC time nodes
-    complex(RNP), intent(inout) :: z(0:)         !< z(0:m-1) = zᵏ⁺¹, z(m)=zᵏ → zᵏ⁺¹ , z(m+1:) = zᵏ
+    complex(RNP), intent(inout) :: u(0:)         !< u(0:m-1) = uᵏ⁺¹, u(m)=uᵏ → uᵏ⁺¹ , u(m+1:) = uᵏ
     complex(RNP), intent(in)    :: F_ex_old(0:)  !< F^exᵏ
     complex(RNP), intent(in)    :: F_im_old(0:)  !< F^imᵏ
     complex(RNP), intent(inout) :: F_ex(0:)      !< F^exᵏ⁺¹, inout: F_ex(0:m-1), out: F_ex(m)
@@ -159,20 +161,20 @@ contains
   !-----------------------------------------------------------------------------
   !> SDC time step
 
-  subroutine TimeStep(this, lambda, dt, z)
+  subroutine TimeStep(this, lambda, dt, u)
 
     ! arguments ................................................................
 
     class(DQ_SDC_Method), intent(inout) :: this
     real(RNP),    intent(in)    :: dt      !< step size ∆t
     complex(RNP), intent(in)    :: lambda  !< ...
-    complex(RNP), intent(inout) :: z       !< z(t) → z(t+ ∆t)
+    complex(RNP), intent(inout) :: u       !< u(t) → u(t+ ∆t)
 
     ! local variables  .........................................................
 
     real(RNP)   , dimension(:), allocatable :: t_     ! [tᵢ]
     real(RNP)   , dimension(:), allocatable :: dt_    ! [∆tᵢ]
-    complex(RNP), dimension(:), allocatable :: z_     ! [zᵢ]
+    complex(RNP), dimension(:), allocatable :: u_     ! [uᵢ]
     complex(RNP), dimension(:), allocatable :: F_ex_  ! [F_exᵢ]
     complex(RNP), dimension(:), allocatable :: F_im_  ! [F_imᵢ]
     complex(RNP), dimension(:), allocatable :: F_ex_old
@@ -188,26 +190,27 @@ contains
     n_sweep = this % n_sweep
 
     allocate(t_    (0:n_sub))
-    allocate(dt_   (1:n_sub))
-    allocate(z_    (0:n_sub))
+    allocate(dt_   (0:n_sub))
+    allocate(u_    (0:n_sub))
     allocate(F_ex_ (0:n_sub))
     allocate(F_im_ (0:n_sub))
 
     allocate(F_ex_old (0:n_sub))
     allocate(F_im_old (0:n_sub))
 
-    t_  = this % IntermediateTimes(ZERO, dt)
-    dt_ = t_(1:n_sub) - t_(0:n_sub-1)
+    t_ = this % IntermediateTimes(ZERO, dt)
+    dt_(1:n_sub) = t_(1:n_sub) - t_(0:n_sub-1)
+    dt_(0) = dt_(1) ! required only for CorrectorRHS
 
     !---------------------------------------------------------------------------
     ! predictor
 
-    ! z⁰(t_0) = z(t_0)
-    z_(0) = z
+    ! u⁰(t_0) = u(t_0)
+    u_(0) = u
 
     do i = 1, n_sub
-      z_(i) = z_(i-1)
-      call this % predictor % TimeStep(lambda, dt_(i), z_(i))
+      u_(i) = u_(i-1)
+      call this % predictor % TimeStep(lambda, dt_(i), u_(i))
     end do
 
     !---------------------------------------------------------------------------
@@ -219,7 +222,8 @@ contains
 
       ! RHS for corrector and subintegrals
       call this % CorrectorRHS( lambda             &
-                              , z       = z_       &
+                              , tau     = dt_      &
+                              , u       = u_       &
                               , F_ex    = F_ex_old &
                               , F_im    = F_im_old )
 
@@ -235,7 +239,7 @@ contains
           call this % CorrectorStep( lambda                  &
                                    , m          = i          &
                                    , t          = t_         &
-                                   , z          = z_         &
+                                   , u          = u_         &
                                    , F_ex_old   = F_ex_old   &
                                    , F_ex       = F_ex_      &
                                    , F_im_old   = F_im_old   &
@@ -253,7 +257,7 @@ contains
 
     ! result ...................................................................
 
-    z = z_(n_sub)
+    u = u_(n_sub)
 
   end subroutine TimeStep
 

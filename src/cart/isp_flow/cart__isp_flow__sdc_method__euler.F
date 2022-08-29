@@ -10,6 +10,9 @@
 !>   - !2! is the original variant, accounting for the final projection
 !>   - !1! is faster and produces slightly less divergence
 !>   - !2! is slightly more accurate
+!>
+!> @todo
+!>   - improve data reuse
 !===============================================================================
 
 module CART__ISP_Flow__SDC_Method__Euler
@@ -232,7 +235,7 @@ contains
     real(RNP),                    intent(in)    :: t_sdc        (0:)
     real(RNP), target, optional,  intent(inout) :: nu_sdc       (:,:,:,:,:,0:)
     real(RNP),                    intent(inout) :: u_sdc        (:,:,:,:,:,0:)
-    real(RNP),                    intent(in)    :: F_sdc        (:,:,:,:,:,0:) !!! new !!!
+    real(RNP),                    intent(in)    :: F_sdc        (:,:,:,:,:,0:)
     real(RNP),                    intent(in)    :: F_sdc_ex     (:,:,:,:,:,0:)
     real(RNP),                    intent(in)    :: F_sdc_im     (:,:,:,:,:,0:)
     real(RNP),                    intent(inout) :: F_sdc_ex_new (:,:,:,:,:,0:)
@@ -386,10 +389,6 @@ contains
           call Add_SGS_Diffusivity(flow_op, u, nu)            ! ν_sgs
         end if
       end if
-
-!x! !!! F_sdc from previous sweep overridden though still needed !!!
-!x!   call TimeDerivative( problem, flow_op, t_m, u = u, nu = nu_0, chi = chi &
-!x!                      , F  = F_sdc(:,:,:,:,:,m) )
 
       ! clean-up ...............................................................
 

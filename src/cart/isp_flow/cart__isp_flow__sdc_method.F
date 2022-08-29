@@ -2,6 +2,9 @@
 !> author:   Joerg Stiller
 !> date:     2020/05/14
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @todo
+!>   - improve data reuse
 !===============================================================================
 
 module CART__ISP_Flow__SDC_Method
@@ -385,7 +388,7 @@ contains
         if (n == n_sweep) exit
 
         do m = 1, n_sub
-          call this % CorrectorRHS(t_sdc, nu_sdc, u_sdc, F_sdc)  !!! new !!!
+          call this % CorrectorRHS(t_sdc, nu_sdc, u_sdc, F_sdc)
           call SetArray(F_sdc_ex(:,:,:,:,:,m), F_sdc_ex_new(:,:,:,:,:,m), multi=.true.)
           call SetArray(F_sdc_im(:,:,:,:,:,m), F_sdc_im_new(:,:,:,:,:,m), multi=.true.)
         end do

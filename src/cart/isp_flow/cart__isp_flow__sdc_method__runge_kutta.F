@@ -4,6 +4,8 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !> @todo
 !>   - integration of SGS model
+!>   - revise naming and style
+!>   - improve data reuse
 !===============================================================================
 
 module CART__ISP_Flow__SDC_Method__Runge_Kutta
@@ -307,7 +309,7 @@ contains
     real(RNP),                   intent(in)    :: t_sdc        (0:)
     real(RNP), target, optional, intent(inout) :: nu_sdc       (:,:,:,:,:,0:)
     real(RNP),                   intent(inout) :: u_sdc        (:,:,:,:,:,0:)
-    real(RNP),                   intent(in)    :: F_sdc        (:,:,:,:,:,0:) !!! new !!!
+    real(RNP),                   intent(in)    :: F_sdc        (:,:,:,:,:,0:)
     real(RNP),                   intent(in)    :: F_sdc_ex     (:,:,:,:,:,0:)
     real(RNP),                   intent(in)    :: F_sdc_im     (:,:,:,:,:,0:)
     real(RNP),                   intent(inout) :: F_sdc_ex_new (:,:,:,:,:,0:)

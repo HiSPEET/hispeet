@@ -11,7 +11,7 @@ method = "sdc_eu-eu_35"
 ns = 3
 # standalone or predictor method stages
 sp = 2
-# standalone or predictor method stages
+# standalone or corrector method stages
 sc = 2
 # number of correction sweeps
 nc = 5
@@ -37,6 +37,9 @@ fig1, ax = plt.subplots()
 diag = plt.contour( x, y, a, levels=[1], colors='red' 
                   , linestyles='-', linewidths= 0.75 ) 
 
+#diag = plt.contourf( x, y, a, levels=[0,1,10], colors=['green','yellow','red'] 
+#                  , linestyles='-', linewidths= 0.75, extend='both' ) 
+
 lines  = [ diag.collections[0] ]
 labels = [ method ]
 
@@ -47,6 +50,7 @@ ax.set_ylim([  0, 8])
 
 plt.xlabel("Re($z$)")
 plt.ylabel("Im($z$)")
+#plt.grid(which='both', axis='y')
 
 fig1.savefig("stability_"+method+".pdf")
 

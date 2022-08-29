@@ -100,19 +100,19 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs an RK time step
 
-  subroutine TimeStep(this, lambda, dt, z)
+  subroutine TimeStep(this, lambda, dt, u)
     class(DQ_TimeIntegrator_RK), intent(inout) :: this
     real(RNP),    intent(in)    :: dt      !< step size ∆t
     complex(RNP), intent(in)    :: lambda  !< ...
-    complex(RNP), intent(inout) :: z       !< z(t) → z(t+ ∆t)
+    complex(RNP), intent(inout) :: u       !< u(t) → u(t+ ∆t)
 
     select case(this%impl)
     case(0)
-      call TimeStep_EX(this, lambda, dt, z)
-    case(2)
-      call TimeStep_IM(this, lambda, dt, z)
+      call TimeStep_EX(this, lambda, dt, u)
+    case(1)
+      call TimeStep_IM(this, lambda, dt, u)
     case default
-      call TimeStep_IMEX(this, lambda, dt, z)
+      call TimeStep_IMEX(this, lambda, dt, u)
     end select
 
   end subroutine TimeStep
@@ -120,13 +120,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs an IMEX RK step
 
-  subroutine TimeStep_IMEX(this, lambda, dt, z)
+  subroutine TimeStep_IMEX(this, lambda, dt, u)
     class(DQ_TimeIntegrator_RK), intent(inout) :: this
     real(RNP),    intent(in)    :: dt      !< step size ∆t
     complex(RNP), intent(in)    :: lambda  !< ...
-    complex(RNP), intent(inout) :: z       !< z(t) → z(t+ ∆t)
+    complex(RNP), intent(inout) :: u       !< u(t) → u(t+ ∆t)
 
-    complex(RNP), allocatable :: z_s(:)  ! stage solutions
+    complex(RNP), allocatable :: u_s(:)  ! stage solutions
     integer :: i, j
 
     associate( a_im    => this % imex_rk % a_im    &
@@ -137,29 +137,29 @@ contains
 
       ! initialization .........................................................
 
-      allocate(z_s(ns))
+      allocate(u_s(ns))
 
       ! stage 1 ................................................................
 
-      z_s(1) = z
+      u_s(1) = u
 
       ! stages 2:ns ............................................................
 
       do i = 2, ns
-        z_s(i) = z
+        u_s(i) = u
         do j = 1, i-1
-          z_s(i) = z_s(i)                                             &
-                 + dt * a_ex(i,j) * (ZERO, ONE) * lambda%im * z_s(j)  &
-                 + dt * a_im(i,j) *               lambda%re * z_s(j)
+          u_s(i) = u_s(i)                                             &
+                 + dt * a_ex(i,j) * (ZERO, ONE) * lambda%im * u_s(j)  &
+                 + dt * a_im(i,j) *               lambda%re * u_s(j)
         end do
-        z_s(i) = z_s(i) / (ONE - dt * a_im(i,i) * lambda%re)
+        u_s(i) = u_s(i) / (ONE - dt * a_im(i,i) * lambda%re)
       end do
 
       ! assembly ...............................................................
 
       do i = 1, ns
-        z = z + dt * b_ex(i) * (ZERO, ONE) * lambda%im * z_s(i)  &
-              + dt * b_im(i) *               lambda%re * z_s(i)
+        u = u + dt * b_ex(i) * (ZERO, ONE) * lambda%im * u_s(i)  &
+              + dt * b_im(i) *               lambda%re * u_s(i)
       end do
 
     end associate
@@ -169,13 +169,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs an implicit RK step
 
-  subroutine TimeStep_IM(this, lambda, dt, z)
+  subroutine TimeStep_IM(this, lambda, dt, u)
     class(DQ_TimeIntegrator_RK), intent(inout) :: this
     real(RNP),    intent(in)    :: dt      !< step size ∆t
     complex(RNP), intent(in)    :: lambda  !< ...
-    complex(RNP), intent(inout) :: z       !< z(t) → z(t+ ∆t)
+    complex(RNP), intent(inout) :: u       !< u(t) → u(t+ ∆t)
 
-    complex(RNP), allocatable :: z_s(:)  ! stage solutions
+    complex(RNP), allocatable :: u_s(:)  ! stage solutions
     integer :: i, j
 
     associate( a_im  => this % imex_rk % a_im    &
@@ -184,26 +184,26 @@ contains
 
       ! initialization .........................................................
 
-      allocate(z_s(ns))
+      allocate(u_s(ns))
 
       ! stage 1 ................................................................
 
-      z_s(1) = z
+      u_s(1) = u
 
       ! stages 2:ns ............................................................
 
       do i = 2, ns
-        z_s(i) = z
+        u_s(i) = u
         do j = 1, i-1
-          z_s(i) = z_s(i) + dt * a_im(i,j) * lambda * z_s(j)
+          u_s(i) = u_s(i) + dt * a_im(i,j) * lambda * u_s(j)
         end do
-        z_s(i) = z_s(i) / (ONE - dt * a_im(i,i) * lambda)
+        u_s(i) = u_s(i) / (ONE - dt * a_im(i,i) * lambda)
       end do
 
       ! assembly ...............................................................
 
       do i = 1, ns
-        z = z + dt * b_im(i) * lambda * z_s(i)
+        u = u + dt * b_im(i) * lambda * u_s(i)
       end do
 
     end associate
@@ -213,13 +213,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs a single explicit RK step
 
-  subroutine TimeStep_EX(this, lambda, dt, z)
+  subroutine TimeStep_EX(this, lambda, dt, u)
     class(DQ_TimeIntegrator_RK), intent(inout) :: this
     real(RNP),    intent(in)    :: dt      !< step size ∆t
     complex(RNP), intent(in)    :: lambda  !< ...
-    complex(RNP), intent(inout) :: z       !< z(t) → z(t+ ∆t)
+    complex(RNP), intent(inout) :: u       !< u(t) → u(t+ ∆t)
 
-    complex(RNP), allocatable :: z_s(:)  ! stage solutions
+    complex(RNP), allocatable :: u_s(:)  ! stage solutions
     integer :: i, j
 
     associate( a_ex  => this % imex_rk % a_ex    &
@@ -228,25 +228,25 @@ contains
 
       ! initialization .........................................................
 
-      allocate(z_s(ns))
+      allocate(u_s(ns))
 
       ! stage 1 ................................................................
 
-      z_s(1) = z
+      u_s(1) = u
 
       ! stages 2:ns ............................................................
 
       do i = 2, ns
-        z_s(i) = z
+        u_s(i) = u
         do j = 1, i-1
-          z_s(i) = z_s(i) + dt * a_ex(i,j) * lambda * z_s(j)
+          u_s(i) = u_s(i) + dt * a_ex(i,j) * lambda * u_s(j)
         end do
       end do
 
       ! assembly ...............................................................
 
       do i = 1, ns
-        z = z + dt * b_ex(i) * lambda * z_s(i)
+        u = u + dt * b_ex(i) * lambda * u_s(i)
       end do
 
     end associate

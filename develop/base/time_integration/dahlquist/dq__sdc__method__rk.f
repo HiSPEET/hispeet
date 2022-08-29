@@ -144,10 +144,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Computes F_ex and F_im as defined in the corrector and F for subintegrals
 
-  elemental subroutine CorrectorRHS(this, lambda, z, F_ex, F_im)
+  elemental subroutine CorrectorRHS(this, lambda, tau, u, F_ex, F_im)
     class(DQ_SDC_Method_RK), intent(in) :: this
     complex(RNP), intent(in)  :: lambda !< λ
-    complex(RNP), intent(in)  :: z      !< z
+    real   (RNP), intent(in)  :: tau    !< step width (not used)
+    complex(RNP), intent(in)  :: u      !< u
     complex(RNP), intent(out) :: F_ex   !< explicit RHS for corrector
     complex(RNP), intent(out) :: F_im   !< implicit RHS for corrector
 
@@ -157,24 +158,27 @@ contains
 
     case(0) ! explicit
       F_im = 0
-      F_ex = lambda * z
+      F_ex = lambda * u
 
-    case(2) ! implicit
-      F_im = lambda * z
+    case(1) ! implicit
+      F_im = lambda * u
       F_ex = 0
 
     case default ! IMEX
-      F_im =     lambda % re * z
-      F_ex = i * lambda % im * z
+      F_im =     lambda % re * u
+      F_ex = i * lambda % im * u
 
     end select
+
+    ! avoid compiler warnings
+    if (tau == ZERO) return
 
   end subroutine CorrectorRHS
 
   !-----------------------------------------------------------------------------
   !> Execution of a single correction step
 
-  subroutine CorrectorStep( this, lambda, m, t, z    &
+  subroutine CorrectorStep( this, lambda, m, t, u    &
                            , F_ex_old, F_ex          &
                            , F_im_old, F_im          )
 
@@ -182,7 +186,7 @@ contains
     complex(RNP), intent(in)    :: lambda        !< λ
     integer     , intent(in)    :: m             !< current SDC interval index
     real   (RNP), intent(in)    :: t(0:)         !< SDC time nodes
-    complex(RNP), intent(inout) :: z(0:)         !< z(0:m-1) = zᵏ⁺¹, z(m)=zᵏ → zᵏ⁺¹ , z(m+1:) = zᵏ
+    complex(RNP), intent(inout) :: u(0:)         !< u(0:m-1) = uᵏ⁺¹, u(m)=uᵏ → uᵏ⁺¹ , u(m+1:) = uᵏ
     complex(RNP), intent(in)    :: F_ex_old(0:)  !< F^exᵏ
     complex(RNP), intent(inout) :: F_ex(0:)      !< F^exᵏ⁺¹, inout: F_ex(0:m-1), out: F_ex(m)
     complex(RNP), intent(in)    :: F_im_old(0:)  !< F^imᵏ
@@ -191,7 +195,7 @@ contains
     complex(RNP), allocatable :: G_im(:)
     complex(RNP), allocatable :: G_ex(:)
     complex(RNP) :: S, t0, t1, ti, dt, dt_sub
-    complex(RNP) :: S_rk, F_ex_rk, F_im_rk, z_rk
+    complex(RNP) :: S_rk, F_ex_rk, F_im_rk, u_rk
 
     integer :: i, j
 
@@ -230,7 +234,7 @@ contains
 
         ti = t0 + dt_sub * c(i)
 
-        z_rk    = z(m-1)
+        u_rk    = u(m-1)
         S_rk    = 0
         G_ex(i) = 0
         G_im(i) = 0
@@ -242,29 +246,29 @@ contains
         end do
 
         do j = 1, i-1 ! explicit correction
-          z_rk = z_rk + dt_sub * ( a_ex(i,j) * G_ex(j) )
+          u_rk = u_rk + dt_sub * ( a_ex(i,j) * G_ex(j) )
         end do
 
         do j = 1, i   ! implicit correction
-          z_rk = z_rk + dt_sub * ( a_im(i,j) * G_im(j) )
+          u_rk = u_rk + dt_sub * ( a_im(i,j) * G_im(j) )
         end do
 
-        z_rk = z_rk + S_rk
+        u_rk = u_rk + S_rk
 
         select case(impl) ! solve implicit equation
 
         case(0) ! explicit (identity)
-          z_rk = z_rk
+          u_rk = u_rk
 
-        case(2) ! implicit
-          z_rk = z_rk / (ONE - dt_sub * a_im(i,i) * lambda)
+        case(1) ! implicit
+          u_rk = u_rk / (ONE - dt_sub * a_im(i,i) * lambda)
 
         case default ! IMEX
-          z_rk = z_rk / (ONE - dt_sub * a_im(i,i) * lambda%re)
+          u_rk = u_rk / (ONE - dt_sub * a_im(i,i) * lambda%re)
 
         end select
 
-        call CorrectorRHS(this, lambda, z_rk, F_ex_rk, F_im_rk)
+        call this % CorrectorRHS(lambda, ZERO, u_rk, F_ex_rk, F_im_rk)
         G_ex(i) = G_ex(i) + F_ex_rk
         G_im(i) = G_im(i) + F_im_rk
 
@@ -275,7 +279,7 @@ contains
       if (all(b_im == a_im(n_stage,:)) .and. all(b_ex == a_ex(n_stage,:))) then
 
         ! globally stiffly accurate method: already done
-        z(m) = z_rk
+        u(m) = u_rk
 
       else
 
@@ -286,20 +290,20 @@ contains
         end do
 
         ! assembly
-        z_rk = z_rk - S_rk
+        u_rk = u_rk - S_rk
         do i = 1, n_stage
-          z_rk = z_rk + dt_sub * ( (b_ex(i) - a_ex(n_stage,i)) * G_ex(i) &
+          u_rk = u_rk + dt_sub * ( (b_ex(i) - a_ex(n_stage,i)) * G_ex(i) &
                                  + (b_im(i) - a_im(n_stage,i)) * G_im(i) )
         end do
 
-        z(m) = z_rk + S
+        u(m) = u_rk + S
 
       end if
 
       ! update RHS .............................................................
 
-      call this % CorrectorRHS( lambda         &
-                              , z    = z   (m) &
+      call this % CorrectorRHS( lambda, ZERO   &
+                              , u    = u   (m) &
                               , F_ex = F_ex(m) &
                               , F_im = F_im(m) )
 

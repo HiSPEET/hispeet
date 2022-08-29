@@ -5,7 +5,8 @@
   ! standalone or predictor method
   time_method = 1 ! 1  Euler
                   ! 2  Trapezoidal rule
-                  ! 3  Runge-Kutta
+                  ! 3  Implicit streamline diffusion
+                  ! 4  Runge-Kutta (default)
 
   ! SDC method
   sdc_method  = 1 ! 0  none (use standalone time integrator)
@@ -19,6 +20,10 @@
 
   ! Trapezoidal rule
   tint_opt_tr%impl    = 1  ! 0/1/2: explicit/IMEX/implicit
+
+  ! implicit streamline diffusion
+! tint_opt_isd%order  = 1  ! theoretical order of convergence {1,2} [1]
+! tint_opt_isd%method = 1  ! 1: MP, 2: TR, default: TR/MP, for order 2 only
 
   ! Runge-Kutta
   tint_opt_rk%impl    = 1  ! 0/1/2: explicit/IMEX/implicit

@@ -51,8 +51,9 @@ program Dahlquist
   use Constants,       only: ZERO, ONE
   use DQ__Time_Integrator
   use DQ__Time_Integrator__Euler
-  use DQ__Time_Integrator__RK
   use DQ__Time_Integrator__TR
+  use DQ__Time_Integrator__ISD
+  use DQ__Time_Integrator__RK
   use DQ__SDc__Method
   use DQ__SDc__Method__Euler
   use DQ__SDc__Method__RK
@@ -62,7 +63,8 @@ program Dahlquist
   integer :: time_method = 1 ! standalone or predictor method
                              ! 1  Euler
                              ! 2  Trapezoidal rule
-                             ! 3  Runge-Kutta
+                             ! 3  Implicit streamline diffusion
+                             ! 4  Runge-Kutta
 
   integer :: sdc_method  = 0 ! SDC method
                              ! 0  none (use standalone time integrator)
@@ -73,11 +75,12 @@ program Dahlquist
 
   ! standalone time-integrator or predictor
   class(DQ_TimeIntegrator), allocatable :: tint
-  type(DQ_TimeIntegrator_Options_Euler) :: tint_opt_eu ! options for Euler
-  type(DQ_TimeIntegrator_Options_TR)    :: tint_opt_tr ! options for TR
-  type(DQ_TimeIntegrator_Options_RK)    :: tint_opt_rk ! options for RK
+  type(DQ_TimeIntegrator_Options_Euler) :: tint_opt_eu  ! options for Euler
+  type(DQ_TimeIntegrator_Options_TR)    :: tint_opt_tr  ! options for TR
+  type(DQ_TimeIntegrator_Options_ISD)   :: tint_opt_isd ! options for ISD
+  type(DQ_TimeIntegrator_Options_RK)    :: tint_opt_rk  ! options for RK
 
-  namelist /input/ tint_opt_eu, tint_opt_tr, tint_opt_rk
+  namelist /input/ tint_opt_eu, tint_opt_tr, tint_opt_isd, tint_opt_rk
 
   ! SDC
   class(DQ_SDc_Method), allocatable :: sdc
@@ -149,6 +152,8 @@ program Dahlquist
     case(2)
       tint = DQ_TimeIntegrator_TR(tint_opt_tr)
     case(3)
+      tint = DQ_TimeIntegrator_ISD(tint_opt_isd)
+    case default
       tint = DQ_TimeIntegrator_RK(tint_opt_rk)
     end select
 
@@ -222,7 +227,7 @@ program Dahlquist
   open(newunit=io, file = 'amplification.dat')
   do j = 0, nc
     do i = 0, nd
-      write(io, '(ES12.5,1X)', advance='NO') a(i,j)
+      write(io, '(ES16.8E3,1X)', advance='NO') a(i,j)
     end do
     write(io,*)
   end do
@@ -232,8 +237,7 @@ program Dahlquist
   open(newunit=io, file = 'error.dat')
   do j = 0, nc
     do i = 0, nd
-    ! write(io, '(ES17.10,1X)', advance='NO') e(i,j)
-      write(io, '(ES12.5,1X)', advance='NO') e(i,j)
+      write(io, '(ES16.8E3,1X)', advance='NO') e(i,j)
     end do
     write(io,*)
   end do

@@ -78,10 +78,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Computes F_ex and F_im as defined in the corrector and F for subintegrals
 
-  elemental subroutine CorrectorRHS(this, lambda, z, F_ex, F_im)
+  elemental subroutine CorrectorRHS(this, lambda, tau, u, F_ex, F_im)
     class(DQ_SDC_Method_Euler), intent(in) :: this
     complex(RNP), intent(in)  :: lambda !< λ
-    complex(RNP), intent(in)  :: z      !< z
+    real   (RNP), intent(in)  :: tau    !< step width (not used)
+    complex(RNP), intent(in)  :: u      !< u
     complex(RNP), intent(out) :: F_ex   !< explicit RHS for corrector
     complex(RNP), intent(out) :: F_im   !< implicit RHS for corrector
 
@@ -91,15 +92,19 @@ contains
 
     case(0) ! explicit
       F_im = 0
-      F_ex = lambda * z
+      F_ex = lambda * u
 
-    case(2) ! implicit
-      F_im = lambda * z
+    case(1) ! implicit
+      F_im = lambda * u
       F_ex = 0
 
+    case(3) ! IMEX streamline-diffusion
+      F_im = (lambda % re - tau * lambda % im ** 2) * u
+      F_ex = i * lambda % im * u
+
     case default ! IMEX
-      F_im =     lambda % re * z
-      F_ex = i * lambda % im * z
+      F_im =     lambda % re * u
+      F_ex = i * lambda % im * u
 
     end select
 
@@ -108,7 +113,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Execution of a single correction step
 
-  subroutine CorrectorStep( this, lambda, m, t, z &
+  subroutine CorrectorStep( this, lambda, m, t, u &
                           , F_ex_old, F_ex        &
                           , F_im_old, F_im        )
 
@@ -116,7 +121,7 @@ contains
     complex(RNP), intent(in)    :: lambda        !< λ
     integer     , intent(in)    :: m             !< current SDC interval index
     real   (RNP), intent(in)    :: t(0:)         !< SDC time nodes
-    complex(RNP), intent(inout) :: z(0:)         !< z(0:m-1) = zᵏ⁺¹, z(m)=zᵏ → zᵏ⁺¹ , z(m+1:) = zᵏ
+    complex(RNP), intent(inout) :: u(0:)         !< u(0:m-1) = uᵏ⁺¹, u(m)=uᵏ → uᵏ⁺¹ , u(m+1:) = uᵏ
     complex(RNP), intent(in)    :: F_ex_old(0:)  !< F^exᵏ
     complex(RNP), intent(inout) :: F_ex(0:)      !< F^exᵏ⁺¹, inout: F_ex(0:m-1), out: F_ex(m)
     complex(RNP), intent(in)    :: F_im_old(0:)  !< F^imᵏ
@@ -145,8 +150,8 @@ contains
         S = S + delta * ( F_im_old(i) + F_ex_old(i) ) * w_sub(i,m)
       end do
 
-      ! z' = z₀ + Sᵏ
-      z(m) = z(m-1) + S
+      ! u' = u₀ + Sᵏ
+      u(m) = u(m-1) + S
 
     end associate
 
@@ -155,19 +160,23 @@ contains
     select case(this % impl)
 
     case(0) ! explicit
-      z(m) = z(m) + dt * (F_ex(m-1) - F_ex_old(m-1))
-    case(2) ! implicit
-      z(m) = (z(m) - dt * F_im_old(m)) / (ONE - dt * lambda)
+      u(m) = u(m) + dt * (F_ex(m-1) - F_ex_old(m-1))
+    case(1) ! implicit
+      u(m) = (u(m) - dt * F_im_old(m)) / (ONE - dt * lambda)
+    case(3) ! IMEX-SD
+      u(m) = u(m) + dt * (F_ex(m-1) - F_ex_old(m-1) - F_im_old(m))
+      u(m) = u(m) / (ONE - dt * lambda%re + (dt * lambda%im)**2)
     case default ! IMEX
-      z(m) = z(m) + dt * (F_ex(m-1) - F_ex_old(m-1) - F_im_old(m))
-      z(m) = z(m) / (ONE - dt * lambda%re)
+      u(m) = u(m) + dt * (F_ex(m-1) - F_ex_old(m-1) - F_im_old(m))
+      u(m) = u(m) / (ONE - dt * lambda%re)
     end select
 
     ! update RHS
-    call this % CorrectorRHS( lambda           &
-                            , z    = z   (m:m) &
-                            , F_ex = F_ex(m:m) &
-                            , F_im = F_im(m:m) )
+    call this % CorrectorRHS( lambda         &
+                            , tau  = dt      &
+                            , u    = u   (m) &
+                            , F_ex = F_ex(m) &
+                            , F_im = F_im(m) )
 
   end subroutine CorrectorStep
 

@@ -15,7 +15,7 @@ module DQ__Time_Integrator
   type, abstract :: DQ_TimeIntegrator
 
     character(len=80) :: name = ''  !< time-integrator name
-    integer :: impl !< 0/1/2 switch to explicit/IMEX/implicit corrector
+    integer :: impl !< switch to explicit/implicit/IMEX corrector (0/1/default)
 
   contains
 
@@ -30,12 +30,12 @@ module DQ__Time_Integrator
     !---------------------------------------------------------------------------
     !> Execution of a single time step
 
-    subroutine TimeStep(this, lambda, dt, z)
+    subroutine TimeStep(this, lambda, dt, u)
       import
       class(DQ_TimeIntegrator), intent(inout) :: this
       real(RNP),    intent(in)    :: dt      !< step size ∆t
       complex(RNP), intent(in)    :: lambda  !< ...
-      complex(RNP), intent(inout) :: z       !< z(t) → z(t+ ∆t)
+      complex(RNP), intent(inout) :: u       !< u(t) → u(t+ ∆t)
     end subroutine TimeStep
 
   end interface
@@ -44,7 +44,7 @@ module DQ__Time_Integrator
   !> Base type for providing time integrator options
 
   type DQ_TimeIntegratorOptions
-    integer :: impl = 1  !< 0 = explicit, 1 = IMEX, 2 = implicit
+    integer :: impl = 2  !< 0: explicit, 1: implicit, default:  IMEX
   end type DQ_TimeIntegratorOptions
 
 contains
