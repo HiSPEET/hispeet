@@ -17,6 +17,7 @@ module DQ__SDC__Method
 
   use DQ__Time_Integrator
   use DQ__Time_Integrator__Euler
+  use DQ__Time_Integrator__ISD
   use DQ__Time_Integrator__TR
   use DQ__Time_Integrator__RK
 
@@ -55,39 +56,40 @@ module DQ__SDC__Method
 
   abstract interface
 
-  !-----------------------------------------------------------------------------
-  !> Computes F_ex and F_im as defined in the corrector and F for subintegrals
+    !---------------------------------------------------------------------------
+    !> Computes F_ex and F_im as defined in the corrector
 
-  elemental subroutine CorrectorRHS(this, lambda, tau, u, F_ex, F_im)
-    import
+    elemental subroutine CorrectorRHS(this, lambda, dt, u, F_ex, F_im)
+      import
 
-    class(DQ_SDC_Method), intent(in) :: this
-    complex(RNP), intent(in)  :: lambda !< λ
-    real   (RNP), intent(in)  :: tau    !< step width
-    complex(RNP), intent(in)  :: u      !< u
-    complex(RNP), intent(out) :: F_ex   !< explicit RHS for corrector
-    complex(RNP), intent(out) :: F_im   !< implicit RHS for corrector
+      class(DQ_SDC_Method), intent(in) :: this
+      complex(RNP), intent(in)  :: lambda !< λ
+      real   (RNP), intent(in)  :: dt     !< step size, used with ISD only
+      complex(RNP), intent(in)  :: u      !< u
+      complex(RNP), intent(out) :: F_ex   !< explicit RHS for corrector
+      complex(RNP), intent(out) :: F_im   !< implicit RHS for corrector
 
-   end subroutine CorrectorRHS
+     end subroutine CorrectorRHS
 
-  !-----------------------------------------------------------------------------
-  !> Execution of a single correction step
-  subroutine CorrectorStep( this, lambda, m, t, u  &
-                          , F_ex_old, F_ex         &
-                          , F_im_old, F_im         )
-  import
+    !---------------------------------------------------------------------------
+    !> Execution of a single correction step
 
-    class(DQ_SDC_Method), intent(inout) :: this
-    complex(RNP), intent(in)    :: lambda        !< λ
-    integer     , intent(in)    :: m             !< current SDC interval index
-    real   (RNP), intent(in)    :: t(0:)         !< SDC time nodes
-    complex(RNP), intent(inout) :: u(0:)         !< u(0:m-1) = uᵏ⁺¹, u(m)=uᵏ → uᵏ⁺¹ , u(m+1:) = uᵏ
-    complex(RNP), intent(in)    :: F_ex_old(0:)  !< F^exᵏ
-    complex(RNP), intent(in)    :: F_im_old(0:)  !< F^imᵏ
-    complex(RNP), intent(inout) :: F_ex(0:)      !< F^exᵏ⁺¹, inout: F_ex(0:m-1), out: F_ex(m)
-    complex(RNP), intent(inout) :: F_im(0:)      !< F^imᵏ⁺¹, like F^exᵏ⁺¹
+    subroutine CorrectorStep( this, lambda, m, t, u , F      &
+                            , F_ex, F_im, F_ex_new, F_im_new )
+      import
 
-   end subroutine CorrectorStep
+      class(DQ_SDC_Method), intent(inout) :: this
+      complex(RNP), intent(in)    :: lambda       !< λ
+      integer     , intent(in)    :: m            !< current SDC interval index
+      real   (RNP), intent(in)    :: t(0:)        !< SDC time nodes
+      complex(RNP), intent(inout) :: u(0:)        !< uᵏ⁺¹(:m-1),uᵏ→uᵏ⁺¹(m),uᵏ(m+1:)
+      complex(RNP), intent(in)    :: F(0:)        !< Fᵏ
+      complex(RNP), intent(in)    :: F_ex(0:)     !< F_exᵏ
+      complex(RNP), intent(in)    :: F_im(0:)     !< F_imᵏ
+      complex(RNP), intent(inout) :: F_ex_new(0:) !< F_exᵏ⁺¹(0:m-1) → F_exᵏ⁺¹(0:m)
+      complex(RNP), intent(inout) :: F_im_new(0:) !< F_imᵏ⁺¹(0:m-1) → F_imᵏ⁺¹(0:m)
+
+     end subroutine CorrectorStep
 
   end interface
 
@@ -120,6 +122,8 @@ contains
       this % predictor = DQ_TimeIntegrator_Euler(pre_opt)
     class is (DQ_TimeIntegrator_Options_TR)
       this % predictor = DQ_TimeIntegrator_TR(pre_opt)
+    class is (DQ_TimeIntegrator_Options_ISD)
+      this % predictor = DQ_TimeIntegrator_ISD(pre_opt)
     class is (DQ_TimeIntegrator_Options_RK)
       this % predictor = DQ_TimeIntegrator_RK(pre_opt)
     end select
@@ -172,13 +176,14 @@ contains
 
     ! local variables  .........................................................
 
-    real(RNP)   , dimension(:), allocatable :: t_     ! [tᵢ]
-    real(RNP)   , dimension(:), allocatable :: dt_    ! [∆tᵢ]
-    complex(RNP), dimension(:), allocatable :: u_     ! [uᵢ]
-    complex(RNP), dimension(:), allocatable :: F_ex_  ! [F_exᵢ]
-    complex(RNP), dimension(:), allocatable :: F_im_  ! [F_imᵢ]
-    complex(RNP), dimension(:), allocatable :: F_ex_old
-    complex(RNP), dimension(:), allocatable :: F_im_old
+    real(RNP)   , dimension(:), allocatable :: t_        ! [tᵢ]
+    real(RNP)   , dimension(:), allocatable :: dt_       ! [∆tᵢ]
+    complex(RNP), dimension(:), allocatable :: u_        ! [uᵢ]
+    complex(RNP), dimension(:), allocatable :: F_        ! [Fᵢ]ᵏ
+    complex(RNP), dimension(:), allocatable :: F_ex_     ! [F_exᵢ]ᵏ
+    complex(RNP), dimension(:), allocatable :: F_im_     ! [F_imᵢ]ᵏ
+    complex(RNP), dimension(:), allocatable :: F_ex_new  ! [F_exᵢ]ᵏ⁺¹
+    complex(RNP), dimension(:), allocatable :: F_im_new  ! [F_imᵢ]ᵏ⁺¹
 
     integer :: n_sub, n_sweep
     integer :: i, n
@@ -189,18 +194,19 @@ contains
     n_sub   = this % n_sub
     n_sweep = this % n_sweep
 
-    allocate(t_    (0:n_sub))
-    allocate(dt_   (0:n_sub))
-    allocate(u_    (0:n_sub))
-    allocate(F_ex_ (0:n_sub))
-    allocate(F_im_ (0:n_sub))
+    allocate(t_       (0:n_sub))
+    allocate(dt_      (0:n_sub))
+    allocate(u_       (0:n_sub))
+    allocate(F_       (0:n_sub))
+    allocate(F_ex_    (0:n_sub))
+    allocate(F_im_    (0:n_sub))
+    allocate(F_ex_new (0:n_sub))
+    allocate(F_im_new (0:n_sub))
 
-    allocate(F_ex_old (0:n_sub))
-    allocate(F_im_old (0:n_sub))
+    t_  = this % IntermediateTimes(ZERO, dt)
 
-    t_ = this % IntermediateTimes(ZERO, dt)
+    dt_(0)       = 0 ! never used !
     dt_(1:n_sub) = t_(1:n_sub) - t_(0:n_sub-1)
-    dt_(0) = dt_(1) ! required only for CorrectorRHS
 
     !---------------------------------------------------------------------------
     ! predictor
@@ -220,15 +226,13 @@ contains
 
       ! prerequisites ..........................................................
 
-      ! RHS for corrector and subintegrals
-      call this % CorrectorRHS( lambda             &
-                              , tau     = dt_      &
-                              , u       = u_       &
-                              , F_ex    = F_ex_old &
-                              , F_im    = F_im_old )
+      ! RHS for high-order quadrature
+      F_ = lambda * u_
 
-      F_ex_(0) = F_ex_old(0)
-      F_im_(0) = F_im_old(0)
+      ! RHS for corrector
+      call this % CorrectorRHS(lambda, dt_, u_, F_ex_, F_im_)
+      F_ex_new(0) = F_ex_(0)
+      F_im_new(0) = F_im_(0)
 
       ! correction sweeps ......................................................
 
@@ -236,20 +240,22 @@ contains
 
         do i = 1, n_sub
 
-          call this % CorrectorStep( lambda                  &
-                                   , m          = i          &
-                                   , t          = t_         &
-                                   , u          = u_         &
-                                   , F_ex_old   = F_ex_old   &
-                                   , F_ex       = F_ex_      &
-                                   , F_im_old   = F_im_old   &
-                                   , F_im       = F_im_      )
+          call this % CorrectorStep( lambda              &
+                                   , m        = i        &
+                                   , t        = t_       &
+                                   , u        = u_       &
+                                   , F        = F_       &
+                                   , F_ex     = F_ex_    &
+                                   , F_im     = F_im_    &
+                                   , F_ex_new = F_ex_new &
+                                   , F_im_new = F_im_new )
         end do
 
         if (n == n_sweep) exit
 
-        F_ex_old(1:n_sub) = F_ex_(1:n_sub)
-        F_im_old(1:n_sub) = F_im_(1:n_sub)
+        F_(1:n_sub) = lambda * u_(1:n_sub)
+        F_ex_(1:n_sub) = F_ex_new(1:n_sub)
+        F_im_(1:n_sub) = F_im_new(1:n_sub)
 
       end do Sweeps
 

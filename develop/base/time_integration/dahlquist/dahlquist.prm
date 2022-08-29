@@ -11,22 +11,23 @@
   ! SDC method
   sdc_method  = 1 ! 0  none (use standalone time integrator)
                   ! 1  based on Euler
+                  ! 2  based on ISD of order 1
                   ! 3  based on Runge-Kutta (default)
 
   ! standalone integrator and predictor options ................................
 
   ! Euler
-  tint_opt_eu%impl    = 1  ! 0/1/2: explicit/IMEX/implicit
+  tint_opt_eu%impl    = 2  ! 0/1/2: explicit/implicit/IMEX
 
   ! Trapezoidal rule
-  tint_opt_tr%impl    = 1  ! 0/1/2: explicit/IMEX/implicit
+  tint_opt_tr%impl    = 2  ! 0/1/2: explicit/implicit/IMEX
 
   ! implicit streamline diffusion
-! tint_opt_isd%order  = 1  ! theoretical order of convergence {1,2} [1]
-! tint_opt_isd%method = 1  ! 1: MP, 2: TR, default: TR/MP, for order 2 only
+! tint_opt_sd%order  = 1  ! theoretical order of convergence {1,2} [1]
+! tint_opt_sd%method = 1  ! 1: MP, 2: TR, default: TR/MP, for order 2 only
 
   ! Runge-Kutta
-  tint_opt_rk%impl    = 1  ! 0/1/2: explicit/IMEX/implicit
+  tint_opt_rk%impl    = 1  ! 0/1/2: explicit/implicit/IMEX
   tint_opt_rk%n_stage = 4  ! number of stages
   tint_opt_rk%method  = 2  ! RK method selector, if more than one exist
 
@@ -36,13 +37,18 @@
   sdc_opt_eu%n_sub     = 3  ! number of subintervals
   sdc_opt_eu%n_sweep   = 5  ! max number of correction sweeps
   sdc_opt_eu%point_set = 2  ! equidistant (1) or Lobatto (2) points
-  sdc_opt_eu%impl      = 1  ! 0/1/2: explicit/IMEX/implicit
+  sdc_opt_eu%impl      = 2  ! 0/1/2: explicit/implicit/IMEX
+
+  ! SDC based on ISD
+  sdc_opt_sd%n_sub     = 3  ! number of subintervals
+  sdc_opt_sd%n_sweep   = 5  ! max number of correction sweeps
+  sdc_opt_sd%point_set = 2  ! equidistant (1) or Lobatto (2) points
 
   ! SDC based on Runge-Kutta
   sdc_opt_rk%n_sub     = 3  ! number of subintervals
   sdc_opt_rk%n_sweep   = 5  ! max number of correction sweeps
   sdc_opt_rk%point_set = 2  ! equidistant (1) or Lobatto (2) points
-  sdc_opt_rk%impl      = 1  ! 0/1/2: explicit/IMEX/implicit
+  sdc_opt_rk%impl      = 2  ! 0/1/2: explicit/implicit/IMEX
   sdc_opt_rk%n_stage   = 4  !< number of stages of the RK corrector
   sdc_opt_rk%method    = 2  !< RK method selector, if more than one exist
 

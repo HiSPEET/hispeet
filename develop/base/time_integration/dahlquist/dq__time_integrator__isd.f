@@ -69,7 +69,7 @@ contains
         this % name = 'ISD IMEX midpoint rule'
       case(2)
         this % name = 'ISD IMEX trapezoidal rule'
-      case(3)
+      case default
         this % name = 'ISD IMEX trapezoidal/midpoint rule'
       end select
     end select

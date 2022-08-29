@@ -7,6 +7,7 @@ add_executable( dahlquist
                 dq__time_integrator__tr.f
                 dq__sdc__method.f
                 dq__sdc__method__euler.f
+                dq__sdc__method__isd.f
                 dq__sdc__method__rk.f
               )
               
@@ -19,4 +20,3 @@ file( COPY
            eval_accuracy.py
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR} )
-                      

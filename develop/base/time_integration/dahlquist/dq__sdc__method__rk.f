@@ -133,7 +133,7 @@ contains
     end if
 
     ! show parent settings
-    call this % Show_DQ_SDC_Method()
+    call this % Show_DQ_SDC_Method(unit)
 
     ! show IMEX RK settings
     write(io,'(/,A)')  'IMEX RK method:'
@@ -142,12 +142,12 @@ contains
   end subroutine Show_DQ_SDC_Method_RK
 
   !-----------------------------------------------------------------------------
-  !> Computes F_ex and F_im as defined in the corrector and F for subintegrals
+  !> Computes F_ex and F_im as defined in the correctors
 
-  elemental subroutine CorrectorRHS(this, lambda, tau, u, F_ex, F_im)
+  elemental subroutine CorrectorRHS(this, lambda, dt, u, F_ex, F_im)
     class(DQ_SDC_Method_RK), intent(in) :: this
     complex(RNP), intent(in)  :: lambda !< λ
-    real   (RNP), intent(in)  :: tau    !< step width (not used)
+    real   (RNP), intent(in)  :: dt     !< step size, used with ISD only
     complex(RNP), intent(in)  :: u      !< u
     complex(RNP), intent(out) :: F_ex   !< explicit RHS for corrector
     complex(RNP), intent(out) :: F_im   !< implicit RHS for corrector
@@ -170,32 +170,31 @@ contains
 
     end select
 
-    ! avoid compiler warnings
-    if (tau == ZERO) return
+    if (dt > 0) return  ! just to avoid compiler warnings !
 
   end subroutine CorrectorRHS
 
   !-----------------------------------------------------------------------------
   !> Execution of a single correction step
 
-  subroutine CorrectorStep( this, lambda, m, t, u    &
-                           , F_ex_old, F_ex          &
-                           , F_im_old, F_im          )
+  subroutine CorrectorStep( this, lambda, m, t, u , F      &
+                          , F_ex, F_im, F_ex_new, F_im_new )
 
     class(DQ_SDC_Method_RK), intent(inout) :: this
-    complex(RNP), intent(in)    :: lambda        !< λ
-    integer     , intent(in)    :: m             !< current SDC interval index
-    real   (RNP), intent(in)    :: t(0:)         !< SDC time nodes
-    complex(RNP), intent(inout) :: u(0:)         !< u(0:m-1) = uᵏ⁺¹, u(m)=uᵏ → uᵏ⁺¹ , u(m+1:) = uᵏ
-    complex(RNP), intent(in)    :: F_ex_old(0:)  !< F^exᵏ
-    complex(RNP), intent(inout) :: F_ex(0:)      !< F^exᵏ⁺¹, inout: F_ex(0:m-1), out: F_ex(m)
-    complex(RNP), intent(in)    :: F_im_old(0:)  !< F^imᵏ
-    complex(RNP), intent(inout) :: F_im(0:)      !< F^imᵏ⁺¹, like F^exᵏ⁺¹
+    complex(RNP), intent(in)    :: lambda       !< λ
+    integer     , intent(in)    :: m            !< current SDC interval index
+    real   (RNP), intent(in)    :: t(0:)        !< SDC time nodes
+    complex(RNP), intent(inout) :: u(0:)        !< uᵏ⁺¹(:m-1),uᵏ→uᵏ⁺¹(m),uᵏ(m+1:)
+    complex(RNP), intent(in)    :: F(0:)        !< Fᵏ
+    complex(RNP), intent(in)    :: F_ex(0:)     !< F_exᵏ
+    complex(RNP), intent(in)    :: F_im(0:)     !< F_imᵏ
+    complex(RNP), intent(inout) :: F_ex_new(0:) !< F_exᵏ⁺¹(0:m-1) → F_exᵏ⁺¹(0:m)
+    complex(RNP), intent(inout) :: F_im_new(0:) !< F_imᵏ⁺¹(0:m-1) → F_imᵏ⁺¹(0:m)
 
     complex(RNP), allocatable :: G_im(:)
     complex(RNP), allocatable :: G_ex(:)
-    complex(RNP) :: S, t0, t1, ti, dt, dt_sub
-    complex(RNP) :: S_rk, F_ex_rk, F_im_rk, u_rk
+    complex(RNP) :: S, S_rk, F_ex_rk, F_im_rk, u_rk
+    real   (RNP) :: t0, t1, ti, dt, dt_sub
 
     integer :: i, j
 
@@ -225,10 +224,10 @@ contains
 
       ! stage 1 ................................................................
 
-      G_im(1) = F_im(m-1) - F_im_old(m-1)
-      G_ex(1) = F_ex(m-1) - F_ex_old(m-1)
+      G_im(1) = F_im_new(m-1) - F_im(m-1)
+      G_ex(1) = F_ex_new(m-1) - F_ex(m-1)
 
-      ! stages 2:n_stage ............................................................
+      ! stages 2:n_stage .......................................................
 
       do i = 2, n_stage
 
@@ -240,9 +239,9 @@ contains
         G_im(i) = 0
 
         do j = 0, this % n_sub
-          S_rk    = S_rk + dt * (F_im_old(j) + F_ex_old(j)) * w_rk(j,i,m)
-          G_ex(i) = G_ex(i) - l_rk(j,i,m) * F_ex_old(j)
-          G_im(i) = G_im(i) - l_rk(j,i,m) * F_im_old(j)
+          S_rk    = S_rk + dt * F(j) * w_rk(j,i,m)
+          G_ex(i) = G_ex(i) - l_rk(j,i,m) * F_ex(j)
+          G_im(i) = G_im(i) - l_rk(j,i,m) * F_im(j)
         end do
 
         do j = 1, i-1 ! explicit correction
@@ -268,7 +267,7 @@ contains
 
         end select
 
-        call this % CorrectorRHS(lambda, ZERO, u_rk, F_ex_rk, F_im_rk)
+        call this % CorrectorRHS(lambda, dt_sub,  u_rk, F_ex_rk, F_im_rk)
         G_ex(i) = G_ex(i) + F_ex_rk
         G_im(i) = G_im(i) + F_im_rk
 
@@ -286,7 +285,7 @@ contains
         ! SDC subinterval integral
         S = 0
         do i = 0, n_sub
-          S = S + dt * ( F_im_old(i) + F_ex_old(i) ) * w_sub(i,m)
+          S = S + dt * F(i) * w_sub(i,m)
         end do
 
         ! assembly
@@ -302,10 +301,7 @@ contains
 
       ! update RHS .............................................................
 
-      call this % CorrectorRHS( lambda, ZERO   &
-                              , u    = u   (m) &
-                              , F_ex = F_ex(m) &
-                              , F_im = F_im(m) )
+      call this % CorrectorRHS(lambda, dt, u(m), F_ex_new(m), F_im_new(m))
 
     end associate
 

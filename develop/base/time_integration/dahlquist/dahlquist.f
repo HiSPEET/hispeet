@@ -54,9 +54,10 @@ program Dahlquist
   use DQ__Time_Integrator__TR
   use DQ__Time_Integrator__ISD
   use DQ__Time_Integrator__RK
-  use DQ__SDc__Method
-  use DQ__SDc__Method__Euler
-  use DQ__SDc__Method__RK
+  use DQ__SDC__Method
+  use DQ__SDC__Method__Euler
+  use DQ__SDC__Method__ISD
+  use DQ__SDC__Method__RK
 
   implicit none
 
@@ -69,25 +70,27 @@ program Dahlquist
   integer :: sdc_method  = 0 ! SDC method
                              ! 0  none (use standalone time integrator)
                              ! 1  based on Euler
+                             ! 2  based on ISD of order 1
                              ! 3  based on Runge-Kutta (default)
 
   namelist /input/ time_method, sdc_method
 
   ! standalone time-integrator or predictor
   class(DQ_TimeIntegrator), allocatable :: tint
-  type(DQ_TimeIntegrator_Options_Euler) :: tint_opt_eu  ! options for Euler
-  type(DQ_TimeIntegrator_Options_TR)    :: tint_opt_tr  ! options for TR
-  type(DQ_TimeIntegrator_Options_ISD)   :: tint_opt_isd ! options for ISD
-  type(DQ_TimeIntegrator_Options_RK)    :: tint_opt_rk  ! options for RK
+  type(DQ_TimeIntegrator_Options_Euler) :: tint_opt_eu ! options for Euler
+  type(DQ_TimeIntegrator_Options_TR)    :: tint_opt_tr ! options for TR
+  type(DQ_TimeIntegrator_Options_ISD)   :: tint_opt_sd ! options for ISD
+  type(DQ_TimeIntegrator_Options_RK)    :: tint_opt_rk ! options for RK
 
-  namelist /input/ tint_opt_eu, tint_opt_tr, tint_opt_isd, tint_opt_rk
+  namelist /input/ tint_opt_eu, tint_opt_tr, tint_opt_sd, tint_opt_rk
 
   ! SDC
   class(DQ_SDc_Method), allocatable :: sdc
   type(DQ_SDc_Options_Euler)        :: sdc_opt_eu ! options for Euler-based SDC
+  type(DQ_SDc_Options_ISD)          :: sdc_opt_sd ! options for ISD-based SDC
   type(DQ_SDc_Options_RK)           :: sdc_opt_rk ! options for RK-based SDC
 
-  namelist /input/ sdc_opt_eu, sdc_opt_rk
+  namelist /input/ sdc_opt_eu, sdc_opt_sd, sdc_opt_rk
 
   real(RNP) :: c_min =   0  ! min CFL number
   real(RNP) :: c_max =  10  ! max CFL number
@@ -152,7 +155,7 @@ program Dahlquist
     case(2)
       tint = DQ_TimeIntegrator_TR(tint_opt_tr)
     case(3)
-      tint = DQ_TimeIntegrator_ISD(tint_opt_isd)
+      tint = DQ_TimeIntegrator_ISD(tint_opt_sd)
     case default
       tint = DQ_TimeIntegrator_RK(tint_opt_rk)
     end select
@@ -164,7 +167,21 @@ program Dahlquist
     case(2)
       sdc = DQ_SDC_Method_Euler(tint_opt_tr, sdc_opt_eu)
     case(3)
+      sdc = DQ_SDC_Method_Euler(tint_opt_sd, sdc_opt_eu)
+    case default
       sdc = DQ_SDC_Method_Euler(tint_opt_rk, sdc_opt_eu)
+    end select
+
+  case(2) ! SDC based on ISD
+    select case(time_method)
+    case(1)
+      sdc = DQ_SDC_Method_ISD(tint_opt_eu, sdc_opt_sd)
+    case(2)
+      sdc = DQ_SDC_Method_ISD(tint_opt_tr, sdc_opt_sd)
+    case(3)
+      sdc = DQ_SDC_Method_ISD(tint_opt_sd, sdc_opt_sd)
+    case default
+      sdc = DQ_SDC_Method_ISD(tint_opt_rk, sdc_opt_sd)
     end select
 
   case default ! SDC based on Runge-Kutta
@@ -174,6 +191,8 @@ program Dahlquist
     case(2)
       sdc = DQ_SDC_Method_RK(tint_opt_tr, sdc_opt_rk)
     case(3)
+      sdc = DQ_SDC_Method_RK(tint_opt_sd, sdc_opt_rk)
+    case default
       sdc = DQ_SDC_Method_RK(tint_opt_rk, sdc_opt_rk)
     end select
 

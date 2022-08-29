@@ -1,4 +1,4 @@
-module DQ__SDC__Method__Euler
+module DQ__SDC__Method__ISD
   use Kind_Parameters, only: RNP
   use Constants,       only: ONE, ZERO
   use DQ__Time_Integrator
@@ -7,79 +7,79 @@ module DQ__SDC__Method__Euler
   implicit none
   private
 
-  public :: DQ_SDC_Method_Euler
-  public :: DQ_SDC_Options_Euler
+  public :: DQ_SDC_Method_ISD
+  public :: DQ_SDC_Options_ISD
 
   !-----------------------------------------------------------------------------
-  !> IMEX Euler SDC ...
+  !> IMEX ISD SDC ...
 
-  type, extends(DQ_SDC_Method) :: DQ_SDC_Method_Euler
+  type, extends(DQ_SDC_Method) :: DQ_SDC_Method_ISD
   contains
-    procedure :: Init_DQ_SDC_Method_Euler
-    procedure :: Show => Show_DQ_SDC_Method_Euler
+    procedure :: Init_DQ_SDC_Method_ISD
+    procedure :: Show => Show_DQ_SDC_Method_ISD
     procedure :: CorrectorRHS
     procedure :: CorrectorStep
-  end type DQ_SDC_Method_Euler
+  end type DQ_SDC_Method_ISD
 
   ! overloading the constructor
-  interface DQ_SDC_Method_Euler
-    module procedure New_DQ_SDC_Method_Euler
+  interface DQ_SDC_Method_ISD
+    module procedure New_DQ_SDC_Method_ISD
   end interface
 
   !-----------------------------------------------------------------------------
-  !> Type for providing SDC-Euler options
+  !> Type for providing SDC-ISD options
 
-  type, extends(DQ_SDC_Options) :: DQ_SDC_Options_Euler
-  end type DQ_SDC_Options_Euler
+  type, extends(DQ_SDC_Options) :: DQ_SDC_Options_ISD
+  end type DQ_SDC_Options_ISD
 
 contains
 
   !=============================================================================
-  ! SDC_Corrector_Euler: type-bound procedures
+  ! SDC_Corrector_ISD: type-bound procedures
 
   !-----------------------------------------------------------------------------
-  !> Constructor for objects of type SDC_Corrector_Euler
+  !> Constructor for objects of type SDC_Corrector_ISD
 
-  function New_DQ_SDC_Method_Euler(pre_opt, sdc_opt) result(this)
+  function New_DQ_SDC_Method_ISD(pre_opt, sdc_opt) result(this)
     class(DQ_TimeIntegratorOptions), intent(in) :: pre_opt !< predictor options
-    class(DQ_SDC_Options_Euler),     intent(in) :: sdc_opt !< SDC options
-    type(DQ_SDC_Method_Euler) :: this
+    class(DQ_SDC_Options_ISD),       intent(in) :: sdc_opt !< SDC options
+    type(DQ_SDC_Method_ISD) :: this
 
-    call Init_DQ_SDC_Method_Euler(this, pre_opt, sdc_opt)
+    call Init_DQ_SDC_Method_ISD(this, pre_opt, sdc_opt)
 
-  end function New_DQ_SDC_Method_Euler
+  end function New_DQ_SDC_Method_ISD
 
   !-----------------------------------------------------------------------------
-  !> Initialization of a SDC_Corrector_Euler object
+  !> Initialization of a SDC_Corrector_ISD object
 
-  subroutine Init_DQ_SDC_Method_Euler(this, pre_opt, sdc_opt)
-    class(DQ_SDC_Method_Euler),      intent(inout) :: this
+  subroutine Init_DQ_SDC_Method_ISD(this, pre_opt, sdc_opt)
+    class(DQ_SDC_Method_ISD),        intent(inout) :: this
     class(DQ_TimeIntegratorOptions), intent(in) :: pre_opt !< predictor options
-    class(DQ_SDC_Options_Euler),     intent(in) :: sdc_opt !< SDC options
+    class(DQ_SDC_Options_ISD),       intent(in) :: sdc_opt !< SDC options
 
     ! intialize parent type
     call this % Init_DQ_SDC_Method(pre_opt, sdc_opt)
 
-    this % corrector_name = 'IMEX Euler method'
+    this % corrector_name = 'ISD IMEX method of order 1'
 
-  end subroutine Init_DQ_SDC_Method_Euler
+  end subroutine Init_DQ_SDC_Method_ISD
 
   !-----------------------------------------------------------------------------
-  !> Output of SDC_Corrector_Euler settings
+  !> Output of SDC_Corrector_ISD settings
 
-  subroutine Show_DQ_SDC_Method_Euler(this, unit)
-    class(DQ_SDC_Method_Euler), intent(in) :: this
+  subroutine Show_DQ_SDC_Method_ISD(this, unit)
+    class(DQ_SDC_Method_ISD), intent(in) :: this
     integer, optional, intent(in) :: unit  !< output unit
 
     call this % Show_DQ_SDC_Method(unit)
 
-  end subroutine Show_DQ_SDC_Method_Euler
+  end subroutine Show_DQ_SDC_Method_ISD
 
   !-----------------------------------------------------------------------------
   !> Computes F_ex and F_im as defined in the corrector
 
   elemental subroutine CorrectorRHS(this, lambda, dt, u, F_ex, F_im)
-    class(DQ_SDC_Method_Euler), intent(in) :: this
+    class(DQ_SDC_Method_ISD), intent(in) :: this
     complex(RNP), intent(in)  :: lambda !< λ
     real   (RNP), intent(in)  :: dt     !< step size, used with ISD only
     complex(RNP), intent(in)  :: u      !< u
@@ -88,23 +88,10 @@ contains
 
     complex(RNP), parameter :: i = (ZERO, ONE)
 
-    select case (this % impl)
+    F_im = (lambda % re - dt * lambda % im ** 2) * u
+    F_ex = i * lambda % im * u
 
-    case(0) ! explicit
-      F_im = 0
-      F_ex = lambda * u
-
-    case(1) ! implicit
-      F_im = lambda * u
-      F_ex = 0
-
-    case default ! IMEX
-      F_im =     lambda % re * u
-      F_ex = i * lambda % im * u
-
-    end select
-
-    if (dt > 0) return  ! just to avoid compiler warnings !
+    if (this % impl == 0) return ! just to avoid compiler warning !
 
   end subroutine CorrectorRHS
 
@@ -114,7 +101,7 @@ contains
   subroutine CorrectorStep( this, lambda, m, t, u , F      &
                           , F_ex, F_im, F_ex_new, F_im_new )
 
-    class(DQ_SDC_Method_Euler), intent(inout) :: this
+    class(DQ_SDC_Method_ISD), intent(inout) :: this
     complex(RNP), intent(in)    :: lambda       !< λ
     integer     , intent(in)    :: m            !< current SDC interval index
     real   (RNP), intent(in)    :: t(0:)        !< SDC time nodes
@@ -155,19 +142,8 @@ contains
 
     ! correction ..............................................................
 
-    select case(this % impl)
-
-    case(0) ! explicit
-      u(m) = u(m) + dt * (F_ex_new(m-1) - F_ex(m-1))
-    case(1) ! implicit
-      u(m) = (u(m) - dt * F_im(m)) / (ONE - dt * lambda)
-    case(3) ! IMEX-SD
-      u(m) = u(m) + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
-      u(m) = u(m) / (ONE - dt * lambda%re + (dt * lambda%im)**2)
-    case default ! IMEX
-      u(m) = u(m) + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
-      u(m) = u(m) / (ONE - dt * lambda%re)
-    end select
+    u(m) = u(m) + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
+    u(m) = u(m) / (ONE - dt * lambda%re + (dt * lambda%im)**2)
 
     ! update RHS
     call this % CorrectorRHS(lambda, dt, u(m), F_ex_new(m), F_im_new(m))
@@ -176,4 +152,4 @@ contains
 
   !=============================================================================
 
-end module DQ__SDC__Method__Euler
+end module DQ__SDC__Method__ISD
