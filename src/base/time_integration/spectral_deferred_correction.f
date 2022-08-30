@@ -165,7 +165,7 @@ contains
     select case(this % point_set)
     case(1) ! equidistant
       this % t(0:n_sub) = [ ZERO, (i*ONE/n_sub, i = 1,n_sub-1), ONE ]
-      this % w(0:n_sub) = GaussLagrangeWeights(this% t)
+      this % w(0:n_sub) = GaussLagrangeWeights(this % t)
     case default ! Lobatto
       this % t(0:n_sub) = HALF * (this % x_gll + ONE)
       this % w(0:n_sub) = HALF *  this % w_gll

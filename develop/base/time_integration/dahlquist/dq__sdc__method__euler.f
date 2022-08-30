@@ -98,7 +98,7 @@ contains
       F_im = lambda * u
       F_ex = 0
 
-    case default ! IMEX
+    case(2) ! IMEX
       F_im =     lambda % re * u
       F_ex = i * lambda % im * u
 
@@ -127,10 +127,12 @@ contains
 
     ! auxiliary variables .....................................................
 
-    complex(RNP) :: S
+    complex(RNP), parameter :: i = (ZERO, ONE)
+
+    complex(RNP) :: S, u1, u2
     real(RNP)    :: t0, t1, dt
     real(RNP)    :: delta
-    integer      :: i
+    integer      :: j
 
     ! initialization ..........................................................
 
@@ -144,12 +146,12 @@ contains
 
       delta = t(n_sub) - t(0)
       S = 0
-      do i = 0, n_sub
-        S = S + delta * F(i) * w_sub(i,m)
+      do j = 0, n_sub
+        S = S + delta * F(j) * w_sub(j,m)
       end do
 
       ! u' = u₀ + Sᵏ
-      u(m) = u(m-1) + S
+      u1 = u(m-1) + S
 
     end associate
 
@@ -158,16 +160,19 @@ contains
     select case(this % impl)
 
     case(0) ! explicit
-      u(m) = u(m) + dt * (F_ex_new(m-1) - F_ex(m-1))
+      u2 = u1 + dt * (F_ex_new(m-1) - F_ex(m-1))
     case(1) ! implicit
-      u(m) = (u(m) - dt * F_im(m)) / (ONE - dt * lambda)
-    case(3) ! IMEX-SD
-      u(m) = u(m) + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
-      u(m) = u(m) / (ONE - dt * lambda%re + (dt * lambda%im)**2)
-    case default ! IMEX
-      u(m) = u(m) + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
-      u(m) = u(m) / (ONE - dt * lambda%re)
+      u2 = (u1 - dt * F_im(m)) / (ONE - dt * lambda)
+    case(2) ! IMEX
+      u1 = u1 + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
+      u2 = u1 / (ONE - dt * lambda%re)
+    case(3) ! IMEX partitioned
+      u2 = u1 + dt * (F_ex_new(m-1) - F_ex(m-1) + F_im_new(m-1) - F_im(m-1))
+      u2 = u1 + dt * (i * lambda%im * u2 - F_ex(m) - F_im(m))
+      u2 = u2 / (ONE - dt * lambda%re)
     end select
+
+    u(m) = u2
 
     ! update RHS
     call this % CorrectorRHS(lambda, dt, u(m), F_ex_new(m), F_im_new(m))

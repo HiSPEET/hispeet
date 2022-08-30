@@ -114,7 +114,7 @@ contains
 
     ! auxiliary variables .....................................................
 
-    complex(RNP) :: S
+    complex(RNP) :: S, u1, u2
     real(RNP)    :: t0, t1, dt
     real(RNP)    :: delta
     integer      :: i
@@ -136,14 +136,16 @@ contains
       end do
 
       ! u' = u₀ + Sᵏ
-      u(m) = u(m-1) + S
+      u1 = u(m-1) + S
 
     end associate
 
     ! correction ..............................................................
 
-    u(m) = u(m) + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
-    u(m) = u(m) / (ONE - dt * lambda%re + (dt * lambda%im)**2)
+    u1 = u1 + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
+    u2 = u1 / (ONE - dt * lambda%re + (dt * lambda%im)**2)
+
+    u(m) = u2
 
     ! update RHS
     call this % CorrectorRHS(lambda, dt, u(m), F_ex_new(m), F_im_new(m))
