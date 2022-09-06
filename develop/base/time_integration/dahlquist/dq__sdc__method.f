@@ -158,7 +158,8 @@ contains
 
     call this % predictor % Show(unit)
 
-    write(*,'(/,A,T15,A)')  'Corrector:' , trim(this % corrector_name)
+    write(io,'(/,A)') 'Corrector settings'
+    write(io,'(A,/)') repeat('=',80)
 
   end subroutine Show_DQ_SDC_Method
 

@@ -1,4 +1,7 @@
 module DQ__SDC__Method__ISD
+
+  use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
+
   use Kind_Parameters, only: RNP
   use Constants,       only: ONE, ZERO
   use DQ__Time_Integrator
@@ -71,7 +74,17 @@ contains
     class(DQ_SDC_Method_ISD), intent(in) :: this
     integer, optional, intent(in) :: unit  !< output unit
 
+    integer :: io
+
+    if (present(unit)) then
+      io = unit
+    else
+      io = OUTPUT_UNIT
+    end if
+
     call this % Show_DQ_SDC_Method(unit)
+
+    write(io,'(2X,A,T15,G0)') 'name:', this % corrector_name
 
   end subroutine Show_DQ_SDC_Method_ISD
 

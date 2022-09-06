@@ -82,8 +82,6 @@ contains
 
     write(io,'(/,A)') 'DQ_TimeIntegrator settings'
     write(io,'(A,/)') repeat('=',80)
-    write(io,'(2X,A,T15,A)')  'name:', trim(this % name)
-    write(io,*)
 
     ! append further settings in corresponding routines of derived types
 

@@ -89,11 +89,10 @@ contains
     ! show parent settings
     call this % Show_DQ_TimeIntegrator(unit)
 
-    write(io,'(A)')           'DQ_TimeIntegrator_RungeKutta settings'
-    write(io,'(A,/)')         repeat('-',80)
-
     ! show IMEX RK settings
     call this % imex_rk % Show(unit)
+
+    write(io,'(2X,A,T15,G0)')  'impl:', this % impl
 
   end subroutine Show_DQ_TimeIntegrator_RK
 

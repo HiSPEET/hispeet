@@ -136,7 +136,6 @@ contains
     call this % Show_DQ_SDC_Method(unit)
 
     ! show IMEX RK settings
-    write(io,'(/,A)')  'IMEX RK method:'
     call this % imex_rk % Show(unit)
 
   end subroutine Show_DQ_SDC_Method_RK

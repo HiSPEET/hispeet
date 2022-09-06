@@ -1,4 +1,7 @@
 module DQ__Time_Integrator__ISD
+
+  use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
+
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE, THREE, HALF
   use DQ__Time_Integrator
@@ -83,8 +86,19 @@ contains
     class(DQ_TimeIntegrator_ISD), intent(in) :: this
     integer, optional, intent(in) :: unit  !< output unit
 
+    integer :: io
+
+    if (present(unit)) then
+      io = unit
+    else
+      io = OUTPUT_UNIT
+    end if
+
     ! show parent settings
     call this % Show_DQ_TimeIntegrator(unit)
+
+    write(io,'(2X,A,T15,G0)')  'name:' , trim(this % name)
+    write(io,'(2X,A,T15,G0)')  'order:', this % impl
 
   end subroutine Show_DQ_TimeIntegrator_ISD
 
