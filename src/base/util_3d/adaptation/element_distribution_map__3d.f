@@ -11,57 +11,53 @@ module Element_Distribution_Map__3D
   !-----------------------------------------------------------------------------
   !> Map defining the redistribution of local element data
   !>
-  !> The map implicitly refers to an existing partition `mesh`. It is assumed
-  !> that `n_elem = mesh % n_elem`, whereas `n_ghost = mesh % n_ghost` if the
-  !> ghosts are included and `n_ghost = 0` otherwise. `n_parts` defines the
-  !> number of target partitions to which the data will be distributed.
-  !> Using these parameters, the array components are dimensioned as follows
+  !> The map refers to the elements and ghosts of the `mesh` that was given at
+  !> instantiation. Hence
   !>
-  !>     tp_elem  (1 : n_elem  + n_ghost)
-  !>     id_elem  (1 : n_elem  + n_ghost)
-  !>     ne_part  (0 : n_parts - 1      )
+  !>     n_elem  = mesh % n_elem
+  !>     n_ghost = mesh % n_ghost
   !>
-  !> The target partitions are numbered contiguously from `0` t0 `n_parts-1`.
-  !> For elements that are not distributed, `tp_elem` is set to `-1` and
-  !> `id_elem` to `0`.
+  !> whereas `n_parts` is the number of new partitions and generally different
+  !> from `mesh%n_parts`. The dimensions and the meaning of the array components
+  !> are as follows:
+  !>
+  !>  – `tp_elem(1:n_elem + n_ghost)` with
+  !>       *  `tp_elem(1:n_elem) `    target partition of the local elements
+  !>       *  `tp_elem(n_elem+1:)`    target partition of the ghosts' masters
+  !>
+  !>
+  !>  – `id_elem(1:n_elem + n_ghost)` with
+  !>       *  `tid_elem(1:n_elem) `   element IDs in target partition
+  !>       *  `tid_elem(n_elem+1:)`   ghosts' master IDs in target partition
+  !>
+  !>  - `ne_part(0:n_parts-1)` number of elements contributed to the new
+  !>     partitions, ghosts are not counted
+  !>
+  !> For elements or ghosts `e` with no target partition are set as follows
+  !>
+  !>     tp_elem(e) = -1
+  !>     id_elem(e) =  0
 
   type ElementDistributionMap_3D
-    integer :: n_parts = 0               !< num target partitions
-    integer :: n_elem  = 0               !< num elements
-    integer :: n_ghost = 0               !< num ghosts
-    integer, allocatable :: tp_elem(:)   !< element target partitions
-    integer, allocatable :: id_elem(:)   !< element IDs in target partitions
-    integer, allocatable :: ne_part(:)   !< num elements targeted to partition
+    integer :: n_parts = 0             !< num target partitions
+    integer :: n_elem  = 0             !< num elements
+    integer :: n_ghost = 0             !< num ghosts
+    integer, allocatable :: tp_elem(:) !< element target partitions
+    integer, allocatable :: id_elem(:) !< element IDs in target partitions
+    integer, allocatable :: ne_part(:) !< num elements targeted to partition (0:)
   end type ElementDistributionMap_3D
 
   ! constructor
   interface ElementDistributionMap_3D
-    procedure New_Map_NG
-    procedure New_Map_WG
+    procedure New_Map
   end interface
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> New distribution map with no ghost contributions
+  !> New distribution map
 
-  function New_Map_NG(comm_parts, n_parts, tp_elem, n_ghost) result(this)
-
-    type(ElementDistributionMap_3D) :: this
-
-    type(MPI_Comm), intent(in) :: comm_parts
-    integer, intent(in) :: n_parts    !< number of new partitions
-    integer, intent(in) :: tp_elem(:) !< target partitions of new elements
-    integer, optional, intent(in) :: n_ghost !< number of ghosts [0]
-
-    call BuildMap_NG(this, comm_parts, n_parts, tp_elem, n_ghost)
-
-  end function New_Map_NG
-
-  !-----------------------------------------------------------------------------
-  !> New distribution map with no ghost contributions
-
-  function New_Map_WG(mesh, n_parts, tp_elem) result(this)
+  function New_Map(mesh, n_parts, tp_elem) result(this)
 
     type(ElementDistributionMap_3D) :: this
 
@@ -69,37 +65,31 @@ contains
     integer, intent(in) :: n_parts
     integer, intent(in) :: tp_elem(:)
 
-    call BuildMap_WG(this, mesh, n_parts, tp_elem)
+    call BuildMap(this, mesh, n_parts, tp_elem)
 
-  end function New_Map_WG
+  end function New_Map
 
   !-----------------------------------------------------------------------------
-  !> Build distribution map with no ghost contributions
+  !> Build distribution map including ghost contributions
 
-  subroutine BuildMap_NG(this, comm_parts, n_parts, tp_elem, n_ghost)
-
-    class(ElementDistributionMap_3D), intent(inout) :: this
-    type(MPI_Comm), intent(in) :: comm_parts !< old partitions' communicator
-    integer, intent(in) :: n_parts    !< number of new partitions
-    integer, intent(in) :: tp_elem(:) !< target partitions of new elements
-    integer, optional, intent(in) :: n_ghost !< number of ghosts [0]
+  subroutine BuildMap(this, mesh, n_parts, tp_elem)
+    class(ElementDistributionMap_3D), target, intent(inout) :: this
+    class(Mesh_3D), intent(in) :: mesh
+    integer, intent(in) :: n_parts
+    integer, intent(in) :: tp_elem(mesh%n_elem + mesh%n_ghost)
 
     ! internal variables .......................................................
 
+    type(ElementTransferBuffer_3D), allocatable, asynchronous :: id_elem_buf
+    integer, contiguous , pointer :: id_elem_val(:,:,:,:)
     integer :: id_part(0:n_parts-1)
     integer :: i, p
 
     ! basic initialization .....................................................
 
     this % n_parts = n_parts
-    if (present(n_ghost)) then
-      this % n_elem  = size(tp_elem) - n_ghost
-      this % n_ghost = n_ghost
-    else
-      this % n_elem  = size(tp_elem)
-      this % n_ghost = 0
-    end if
-
+    this % n_elem  = mesh % n_elem
+    this % n_ghost = mesh % n_ghost
     this % tp_elem = tp_elem
     this % tp_elem = max(this % tp_elem, -1)
 
@@ -120,7 +110,7 @@ contains
 
     ! IDs of local elements in their target partitions .........................
 
-    call ComputeElementOffsets(comm_parts, this%ne_part, id_part)
+    call ComputeElementOffsets(mesh%comm_parts, this%ne_part, id_part)
 
     do i = 1, this % n_elem
       p = tp_elem(i)
@@ -129,26 +119,6 @@ contains
         this % id_elem(i) = id_part(p) ! element ID in new partition
       end if
     end do
-
-  end subroutine BuildMap_NG
-
-  !-----------------------------------------------------------------------------
-  !> Build distribution map with ghost contributions
-
-  subroutine BuildMap_WG(this, mesh, n_parts, tp_elem)
-    class(ElementDistributionMap_3D), target, intent(inout) :: this
-    class(Mesh_3D), intent(in) :: mesh
-    integer, intent(in) :: n_parts
-    integer, intent(in) :: tp_elem(:)
-
-    ! internal variables .......................................................
-
-    type(ElementTransferBuffer_3D), allocatable, asynchronous :: id_elem_buf
-    integer, contiguous , pointer :: id_elem_val(:,:,:,:)
-
-    ! basic initialization .....................................................
-
-    call BuildMap_NG( this, mesh%comm_parts, n_parts, tp_elem, mesh%n_ghost)
 
     ! IDs of the ghosts' masters in their target partition .....................
 
@@ -159,7 +129,7 @@ contains
       call id_elem_buf % Merge(id_elem_val)
     end if
 
-  end subroutine BuildMap_WG
+  end subroutine BuildMap
 
   !-----------------------------------------------------------------------------
   !> Computes the offsets for numbering the redistributed elements
