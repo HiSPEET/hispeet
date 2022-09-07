@@ -48,9 +48,6 @@ include(ExternalProject)
 # path to CMake modules
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 
-# path to Python packages
-set(PYTHONPATH ${PROJECT_SOURCE_DIR}/bin)
-
 # directories for generated libraries and archives
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)

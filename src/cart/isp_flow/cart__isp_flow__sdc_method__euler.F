@@ -10,6 +10,9 @@
 !>   - !2! is the original variant, accounting for the final projection
 !>   - !1! is faster and produces slightly less divergence
 !>   - !2! is slightly more accurate
+!>
+!> @todo
+!>   - improve data reuse
 !===============================================================================
 
 module CART__ISP_Flow__SDC_Method__Euler
@@ -130,16 +133,16 @@ contains
   !>
   !> Input
   !>
-  !>   - `t_sdc   (  0:n_sub)`    SDC time nodes
-  !>   - `nu_sdc  (…,0:n_sub)`    variable diffusivity
-  !>   - `u_sdc   (…,0:n_sub)`    solution variables
-  !>   - `m0                 `    time node to start with [0]
+  !>   - `t_sdc   (  0:n_sub)`     SDC time nodes
+  !>   - `nu_sdc  (…,0:n_sub)`     variable diffusivity
+  !>   - `u_sdc   (…,0:n_sub)`     solution variables
+  !>   - `m0                 `     time node to start with [0]
   !>
   !> Output
   !>
-  !>   - `F_sdc    (…,m0:n_sub)`  RHS evaluated at SDC time nodes
-  !>   - `F_sdc_ex (…,m0:n_sub)`  explicit RHS of low-order scheme
-  !>   - `F_sdc_im (…,m0:n_sub)`  semi-implicit RHS of low-order scheme
+  !>   - `F_sdc    (…,m,0:n_sub)`  RHS evaluated at SDC time nodes
+  !>   - `F_sdc_ex (…,m,0:n_sub)`  explicit RHS of low-order scheme
+  !>   - `F_sdc_im (…,m,0:n_sub)`  semi-implicit RHS of low-order scheme
   !>
   !> Notes
   !>
@@ -232,7 +235,7 @@ contains
     real(RNP),                    intent(in)    :: t_sdc        (0:)
     real(RNP), target, optional,  intent(inout) :: nu_sdc       (:,:,:,:,:,0:)
     real(RNP),                    intent(inout) :: u_sdc        (:,:,:,:,:,0:)
-    real(RNP),                    intent(inout) :: F_sdc        (:,:,:,:,:,0:)
+    real(RNP),                    intent(in)    :: F_sdc        (:,:,:,:,:,0:)
     real(RNP),                    intent(in)    :: F_sdc_ex     (:,:,:,:,:,0:)
     real(RNP),                    intent(in)    :: F_sdc_im     (:,:,:,:,:,0:)
     real(RNP),                    intent(inout) :: F_sdc_ex_new (:,:,:,:,:,0:)
@@ -386,9 +389,6 @@ contains
           call Add_SGS_Diffusivity(flow_op, u, nu)            ! ν_sgs
         end if
       end if
-
-      call TimeDerivative( problem, flow_op, t_m, u = u, nu = nu_0, chi = chi &
-                         , F  = F_sdc(:,:,:,:,:,m) )
 
       ! clean-up ...............................................................
 

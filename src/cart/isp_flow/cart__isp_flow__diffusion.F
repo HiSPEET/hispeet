@@ -9,6 +9,7 @@
 module CART__ISP_Flow__Diffusion
 
   use Kind_Parameters, only: RNP
+  use Array_Reductions
   use TPO__Diagonal__3D
   use ISP_Flow_Problem
   use CART__Boundary_Variable
@@ -83,8 +84,34 @@ contains
         ! add boundary contributions
         call pmg % BcToRHS(flow_op%bv_u, c, fc)
 
-        ! solve
-        call pmg % MG_CG_Solver(u(:,:,:,:,c), fc, ni, r_2, i_max)
+        if (size(pmg%level) > 1) then
+          ! use multigrid solver
+          call pmg % MG_CG_Solver(u(:,:,:,:,c), fc, ni, r_2, i_max)
+        else
+          ! use single grid solver
+          associate( elliptic_op => pmg % level(0) % elliptic_op &
+                   , r           => pmg % level(0) % v           &
+                   , i_max       => pmg % i0_max                 &
+                   , r_red       => pmg % r0_red                 &
+                   , r_max       => pmg % r0_max                 )
+
+            select case(pmg % solver)
+            case('S')
+              call elliptic_op % SchwarzMethod  &
+                                     (u(:,:,:,:,c), fc, i_max, r_red, r_max, ni)
+            case('C')
+              call elliptic_op % ConjugateGradients &
+                                     (u(:,:,:,:,c), fc, i_max, r_red, r_max, ni)
+            case('P')
+              call elliptic_op % SchwarzPreConjugateGradients &
+                                     (u(:,:,:,:,c), fc, i_max, r_red, r_max, ni)
+            end select
+            if (flow_op % control % monitor > 0) then
+              call elliptic_op % Residual(u(:,:,:,:,c), fc, r)
+              r_2 = sqrt(ScalarProduct(r, r, mesh%comm))
+            end if
+          end associate
+        end if
 
         ! monitoring
         !$omp single
