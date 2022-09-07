@@ -2,6 +2,9 @@
 !> author:   Joerg Stiller
 !> date:     2020/05/14
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @todo
+!>   - improve data reuse
 !===============================================================================
 
 module CART__ISP_Flow__SDC_Method
@@ -150,7 +153,7 @@ module CART__ISP_Flow__SDC_Method
       real(RNP),                   intent(in)    :: t_sdc        (0:)
       real(RNP), target, optional, intent(inout) :: nu_sdc       (:,:,:,:,:,0:)
       real(RNP),                   intent(inout) :: u_sdc        (:,:,:,:,:,0:)
-      real(RNP),                   intent(inout) :: F_sdc        (:,:,:,:,:,0:)
+      real(RNP),                   intent(in)    :: F_sdc        (:,:,:,:,:,0:)
       real(RNP),                   intent(in)    :: F_sdc_ex     (:,:,:,:,:,0:)
       real(RNP),                   intent(in)    :: F_sdc_im     (:,:,:,:,:,0:)
       real(RNP),                   intent(inout) :: F_sdc_ex_new (:,:,:,:,:,0:)
@@ -343,10 +346,10 @@ contains
 
       ! prerequisites ..........................................................
 
-      do m = 0, n_sub
-
+      if (allocated(nu_sdc)) then
         ! initialize variable diffusivity
-        if (allocated(nu_sdc)) then
+        do m = 0, n_sub
+
           if (this % problem % HasVariableProperties()) then
 
             call this % problem %                      &
@@ -362,11 +365,11 @@ contains
             end if
 
           end if
-        end if
 
-        call this % CorrectorRHS(t_sdc, nu_sdc, u_sdc, F_sdc, F_sdc_ex, F_sdc_im)
+        end do
+      end if
 
-      end do
+      call this % CorrectorRHS(t_sdc, nu_sdc, u_sdc, F_sdc, F_sdc_ex, F_sdc_im)
 
       ! these will never change ;)
       call SetArray(F_sdc_ex_new(:,:,:,:,:,0), F_sdc_ex(:,:,:,:,:,0), multi=.true.)
@@ -385,6 +388,7 @@ contains
         if (n == n_sweep) exit
 
         do m = 1, n_sub
+          call this % CorrectorRHS(t_sdc, nu_sdc, u_sdc, F_sdc)
           call SetArray(F_sdc_ex(:,:,:,:,:,m), F_sdc_ex_new(:,:,:,:,:,m), multi=.true.)
           call SetArray(F_sdc_im(:,:,:,:,:,m), F_sdc_im_new(:,:,:,:,:,m), multi=.true.)
         end do

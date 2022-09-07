@@ -4,6 +4,8 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !> @todo
 !>   - integration of SGS model
+!>   - revise naming and style
+!>   - improve data reuse
 !===============================================================================
 
 module CART__ISP_Flow__SDC_Method__Runge_Kutta
@@ -186,16 +188,16 @@ contains
   !>
   !> Input
   !>
-  !>   - `t_sdc   (  0:n_sub)`    SDC time nodes
-  !>   - `nu_sdc  (…,0:n_sub)`    variable diffusivity
-  !>   - `u_sdc   (…,0:n_sub)`    solution variables
-  !>   - `m0                 `    time node to start with [0]
+  !>   - `t_sdc   (  0:n_sub)`     SDC time nodes
+  !>   - `nu_sdc  (…,0:n_sub)`     variable diffusivity
+  !>   - `u_sdc   (…,0:n_sub)`     solution variables
+  !>   - `m0                 `     time node to start with [0]
   !>
   !> Output
   !>
-  !>   - `F_sdc    (…,m0:n_sub)`  RHS evaluated at SDC time nodes
-  !>   - `F_sdc_ex (…,m0:n_sub)`  explicit RHS of low-order scheme
-  !>   - `F_sdc_im (…,m0:n_sub)`  semi-implicit RHS of low-order scheme
+  !>   - `F_sdc    (…,m,0:n_sub)`  RHS evaluated at SDC time nodes
+  !>   - `F_sdc_ex (…,m,0:n_sub)`  explicit RHS of low-order scheme
+  !>   - `F_sdc_im (…,m,0:n_sub)`  semi-implicit RHS of low-order scheme
   !>
   !> Notes
   !>
@@ -307,7 +309,7 @@ contains
     real(RNP),                   intent(in)    :: t_sdc        (0:)
     real(RNP), target, optional, intent(inout) :: nu_sdc       (:,:,:,:,:,0:)
     real(RNP),                   intent(inout) :: u_sdc        (:,:,:,:,:,0:)
-    real(RNP),                   intent(inout) :: F_sdc        (:,:,:,:,:,0:)
+    real(RNP),                   intent(in)    :: F_sdc        (:,:,:,:,:,0:)
     real(RNP),                   intent(in)    :: F_sdc_ex     (:,:,:,:,:,0:)
     real(RNP),                   intent(in)    :: F_sdc_im     (:,:,:,:,:,0:)
     real(RNP),                   intent(inout) :: F_sdc_ex_new (:,:,:,:,:,0:)
@@ -481,7 +483,6 @@ contains
       ! RHS contributions, using F_d3 as workspace
 
       call TimeDerivative( problem, flow_op, t_m, u = u_i, nu = nu_i, chi = chi &
-                         , F    = F_sdc(:,:,:,:,:,m)                            &
                          , F_c  = F_sdc_ex_new(:,:,:,:,:,m)                     &
                          , F_d1 = F_sdc_im_new(:,:,:,:,:,m)                     &
                          , F_d2 = F_d3(:,:,:,:,:,1)                             &
@@ -507,8 +508,6 @@ contains
     !$omp end single
 
   end subroutine CorrectorStep
-
-
 
   subroutine CorrectorStage(this, i, t_i, dt, nu_i, u_1, u_i, S_i, G_im, G_ex, F_d3)
 

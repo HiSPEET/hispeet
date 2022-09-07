@@ -289,44 +289,150 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
 
   case(5)
 
-    this % name  = 'IMEXRK53 ARS443 (Ascher et al., ANM 25, 1997)'
-    this % order = 3
+    select case(method_)
 
-    c(2) = 1._RHP / 2._RHP
-    c(3) = 2._RHP / 3._RHP
-    c(4) = 1._RHP / 2._RHP
-    c(5) = 1._RHP
+    case(1)
 
-    b_im(2) =  3._RHP / 2._RHP
-    b_im(3) = -3._RHP / 2._RHP
-    b_im(4) =  1._RHP / 2._RHP
-    b_im(5) =  1._RHP / 2._RHP
+      this % name  = 'IMEXRK53 ARS443 (Ascher et al., ANM 25, 1997)'
+      this % order = 3
 
-    b_ex(1) =  1._RHP / 4._RHP
-    b_ex(2) =  7._RHP / 4._RHP
-    b_ex(3) =  3._RHP / 4._RHP
-    b_ex(4) = -7._RHP / 4._RHP
+      c(2) = 1._RHP / 2._RHP
+      c(3) = 2._RHP / 3._RHP
+      c(4) = 1._RHP / 2._RHP
+      c(5) = 1._RHP
 
-    a_im(2,2) =  1._RHP / 2._RHP
-    a_im(3,2) =  1._RHP / 6._RHP
-    a_im(3,3) =  1._RHP / 2._RHP
-    a_im(4,2) = -1._RHP / 2._RHP
-    a_im(4,3) =  1._RHP / 2._RHP
-    a_im(4,4) =  1._RHP / 2._RHP
-    a_im(5,:) =  b_im
+      b_im(2) =  3._RHP / 2._RHP
+      b_im(3) = -3._RHP / 2._RHP
+      b_im(4) =  1._RHP / 2._RHP
+      b_im(5) =  1._RHP / 2._RHP
 
-    a_ex(2,1) =  1._RHP /  2._RHP
-    a_ex(3,1) = 11._RHP / 18._RHP
-    a_ex(3,2) =  1._RHP / 18._RHP
-    a_ex(4,1) =  5._RHP /  6._RHP
-    a_ex(4,2) = -5._RHP /  6._RHP
-    a_ex(4,3) =  1._RHP /  2._RHP
-    a_ex(5,:) =  b_ex
+      b_ex(1) =  1._RHP / 4._RHP
+      b_ex(2) =  7._RHP / 4._RHP
+      b_ex(3) =  3._RHP / 4._RHP
+      b_ex(4) = -7._RHP / 4._RHP
+
+      a_im(2,2) =  1._RHP / 2._RHP
+      a_im(3,2) =  1._RHP / 6._RHP
+      a_im(3,3) =  1._RHP / 2._RHP
+      a_im(4,2) = -1._RHP / 2._RHP
+      a_im(4,3) =  1._RHP / 2._RHP
+      a_im(4,4) =  1._RHP / 2._RHP
+      a_im(5,:) =  b_im
+
+      a_ex(2,1) =  1._RHP /  2._RHP
+      a_ex(3,1) = 11._RHP / 18._RHP
+      a_ex(3,2) =  1._RHP / 18._RHP
+      a_ex(4,1) =  5._RHP /  6._RHP
+      a_ex(4,2) = -5._RHP /  6._RHP
+      a_ex(4,3) =  1._RHP /  2._RHP
+      a_ex(5,:) =  b_ex
+
+    case(2)
+
+      this % name  = 'BHR(5,5,3) (Boscarino, ANM 59, 2009)'
+      this % order = 3
+
+      block
+
+        real(RHP), parameter :: gamma = 0.435866521508482_RHP
+
+        ! c  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+        ! Following private the communication with Sebastiano Boscarino
+        ! c(3) = 2*gamma is set to avoid inconsistency with a_ex(3,1) + a_ex(3,2)
+
+        c(2) = 2 * gamma
+        c(3) = 2 * gamma
+
+      ! c(3) =  902905985686._RHP &  ! value given
+      !      / 1035759735069._RHP    ! in the paper
+
+        c(4) = 2684624._RHP &
+             / 1147171._RHP
+
+        c(5) = 1
+
+        ! b  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+        b_im(1) =  48769850233674.0678603511_RHP &
+                / 118115963692818.5920260208_RHP
+
+        b_im(3) =  30298776308118.4622639300143137943089_RHP &
+                / 153535994420329.3318639180129368156500_RHP
+
+        b_im(4) = -10523592833510.0616072938218863_RHP &
+                / 228255445206466.1756575727198000_RHP
+
+        b_im(5) =  gamma
+
+        b_ex(:) =  b_im(:)
+
+        ! A_im . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+        a_im(2,1) = gamma
+        a_im(2,2) = gamma
+        a_im(3,1) = gamma
+        a_im(3,3) = gamma
+        a_im(4,4) = gamma
+
+      ! Following private the communication with Sebastiano Boscarino
+      ! a_im(3,2) = 0 is set to avoid inconsistency with c(3)
+
+      ! a_im(3,2) =             -31.733082319927313_RHP & ! value given
+      !           / 455705377221960.889379854647102_RHP   ! in the paper
+
+        a_im(4,1) = -30123785410849.22027361996761794919360516301377809610_RHP &
+                  / 451233940565852.69977907753045030512597955897345819349_RHP
+
+        a_im(4,2) =             -62.865589297807153294268_RHP &
+                  / 102559673441610.672305587327019095047_RHP
+
+        a_im(4,3) = 418769796920855.299603146267001414900945214277000_RHP &
+                  / 212454360385257.708555954598099874818603217167139_RHP
+
+        a_im(5,:) = b_im(:)
+
+        ! A_ex . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+        a_ex(2,1) = gamma * 2
+        a_ex(3,1) = gamma
+        a_ex(3,2) = gamma
+
+        a_ex(4,1) = -475883375220285.986033264_RHP &
+                 /  594112726933437.845704163_RHP
+
+        a_ex(4,2) =  0
+
+        a_ex(4,3) =  186623344982202.6827708736_RHP &
+                 /   59411272693343.7845704163_RHP
+
+        a_ex(5,1) =   62828845818073.169585635881686091391737610308247_RHP &
+                 /  176112910684412.105319781630311686343715753056000_RHP
+
+        a_ex(5,2) = -b_im(3)
+
+        a_ex(5,3) =  262315887293043.739337088563996093207_RHP &
+                 /  297427554730376.353252081786906492000_RHP
+
+        a_ex(5,4) =  -9876182318941.76581438124717087_RHP &
+                  / 238773376602029.69319526901856000_RHP
+
+      end block
+
+    case default
+
+      call Error( 'Init_IMEX_RK_Method',            &
+                  'requested method not available', &
+                  'IMEX_Runge_Kutta_Method'         )
+
+    end select
 
   case(6)
 
     this % name  = 'IMEXRKCB4 (Cavaglieri & Bewley, JCP 286, 2015)'
     this % order = 4
+
+    ! c  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     c(1) = 0.0_RHP
     c(2) = 1.0_RHP / 4.0_RHP
@@ -334,6 +440,8 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
     c(4) = 3.0_RHP / 8.0_RHP
     c(5) = 1.0_RHP / 2.0_RHP
     c(6) = 1.0_RHP
+
+    ! b  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     b_im(1) =  23.204908458700_RHP  / 137.713063006300_RHP
     b_im(2) =   0.322009889509_RHP  /   2.243393849156_RHP

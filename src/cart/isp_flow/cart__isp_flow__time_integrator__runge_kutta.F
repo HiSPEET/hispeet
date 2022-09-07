@@ -65,20 +65,28 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   !-----------------------------------------------------------------------------
   !> Type for providing Runge-Kutta time-integrator options
   !>
-  !> Options inherited from base class
+  !>### Options inherited from base class
   !>
-  !>   * `project`                                                            \n
+  !>   - `project`                                                            \n
   !>        0: no additional projection step                                  \n
   !>        1: additional projection at the end of the time step              \n
   !>        2: additional projection at the end of each stage
   !>
-  !>   * `pressure`
+  !>   - `pressure`
   !>        0: return pressure as computed                                    \n
   !>        1: recompute pressure at the end of the time step
   !>
-  !> Further options
+  !>### Options for initializing the IMEX_RK_Method
   !>
-  !>   * `diffusion`                                                          \n
+  !>   - `n_stage` -- defines the number of stages of the Runge-Kutta method
+  !>
+  !>   - `method`  -- selector among RK methods with `n_stage` stages
+  !>
+  !>### Further options
+  !>
+  !> Don't change these unless you are know what you are doing!
+  !>
+  !>   - `diffusion`                                                          \n
   !>        1: compute diffusive RHS from stage solution: F_d1(ν,u)           \n
   !>        2: compute diffusive RHS as F_d1 = [u - (u' + τ∆F)]/τ - F_p,      \n
   !>           where                                                          \n
@@ -91,15 +99,9 @@ module CART__ISP_Flow__Time_Integrator__Runge_Kutta
   !>             diffusion 1 for all, but the last stage, and
   !>             diffusion 2 for the latter
   !>
-  !>   * `assembly`                                                           \n
+  !>   - `assembly`                                                           \n
   !>        1: starting from u(x,t₀)                                          \n
   !>        2: starting from last stage
-  !>
-  !> Options for initializing the IMEX_RK_Method
-  !>
-  !>   * `n_stage` -- defines the number of stages of the Runge-Kutta method
-  !>
-  !>   * `method`  -- selector among RK methods with `n_stage` stages
 
   type, extends(TimeIntegratorOptions) :: TimeIntegrator_RungeKutta_Options
     integer :: n_stage   = 3 !< number of stages
