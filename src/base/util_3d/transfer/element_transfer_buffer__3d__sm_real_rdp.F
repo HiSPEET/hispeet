@@ -25,6 +25,9 @@ contains
 
     integer :: np(3)
 
+    ! skip empty partition
+    if (mesh % part < 0) return
+
     np(1) = size(v,1)
     np(2) = size(v,2)
     np(3) = size(v,3)
@@ -48,6 +51,9 @@ contains
     integer, optional, intent(in) :: nl(3)        !< number of layers
 
     integer :: np(3), nc
+
+    ! skip empty partition
+    if (mesh % part < 0) return
 
     np(1) = size(v,1)
     np(2) = size(v,2)
@@ -75,6 +81,9 @@ contains
     real(RDP),      intent(in) :: v(:,:,:,:) !< mesh variable
     integer,        intent(in) :: tag        !< message tag
 
+    ! skip empty partition
+    if (this % ne <= 0) return
+
     call Transfer_RX(this, mesh, v, size(v,4), tag)
 
   end subroutine Transfer_RDP_S
@@ -87,6 +96,9 @@ contains
     class(Mesh_3D), intent(in) :: mesh         !< mesh partition
     real(RDP),      intent(in) :: v(:,:,:,:,:) !< mesh variable
     integer,        intent(in) :: tag          !< message tag
+
+    ! skip empty partition
+    if (this % ne <= 0) return
 
     call Transfer_RX(this, mesh, v, size(v,4), tag)
 
@@ -108,6 +120,9 @@ contains
   module subroutine Merge_RDP_S(this, v)
     class(ElementTransferBuffer_3D), intent(inout) :: this
     real(RDP), intent(inout) :: v(:,:,:,:) !< mesh variable
+
+    ! skip empty partition
+    if (this % ne <= 0) return
 
     !$omp master
     if (size(v,4) /= this%ne + this%ng) then
@@ -135,6 +150,9 @@ contains
   module subroutine Merge_RDP_A(this, v)
     class(ElementTransferBuffer_3D), intent(inout) :: this
     real(RDP), intent(inout) :: v(:,:,:,:,:) !< mesh variable
+
+    ! skip empty partition
+    if (this % ne <= 0) return
 
     !$omp master
     if (size(v,4) /= this%ne + this%ng) then

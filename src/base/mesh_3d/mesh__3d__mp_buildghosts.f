@@ -5,8 +5,6 @@
 !===============================================================================
 
 submodule(Mesh__3D) MP_BuildGhosts
-  use Element_Transfer_Buffer__3D
-  use Mesh_Element_Indexing__3D
   implicit none
 
 contains
@@ -18,12 +16,9 @@ contains
   !> information, the ghosts are created in `mesh % ghost(1:n_ghost)` and
   !> initialized as follows:
   !>
-  !>   - `ghost % global_id` :
-  !>      is the global ID of the corresponding mesh element
-  !>
-  !>   - `ghost % local_id` :
+  !>   - `ghost % id` :
   !>      is the virtual element ID in the local mesh partition. It holds
-  !>      `ghost(i) % local_id = mesh % n_elem + i`
+  !>      `ghost(i) % id = mesh % n_elem + i`
   !>
   !>   - `ghost % face % id` :
   !>      is the corresponding mesh face,
@@ -37,11 +32,6 @@ contains
   module subroutine BuildGhosts(mesh)
     class(Mesh_3D), intent(inout) :: mesh !< local partition
 
-    type(ElementTransferBuffer_3D), asynchronous, allocatable :: global_id_buf
-    type(ElementTransferBuffer_3D), asynchronous, allocatable :: orientation_buf
-    integer(IXL), allocatable :: global_id(:,:,:,:)
-    integer(IXS), allocatable :: orientation(:,:,:,:)
-
     integer :: lfi(-1:1,-1:1), gfi(-1:1,-1:1), lei(-1:1)
     integer :: e, f, g, i, j, k, l, m, n, v
 
@@ -53,62 +43,8 @@ contains
     allocate(mesh % ghost(mesh % n_ghost))
     if (mesh % n_ghost == 0) return
 
-    ! these could be two OpenMP tasks
-    allocate(global_id( 1, 1, 1, mesh%n_elem + mesh%n_ghost ))
-    global_id_buf = ElementTransferBuffer_3D(mesh, global_id)
-    allocate(orientation( 24, 1, 1, mesh%n_elem + mesh%n_ghost ))
-    orientation_buf = ElementTransferBuffer_3D(mesh, orientation)
-
-    ! transfer global ID and orientation .......................................
-
-    do l = 1, mesh % n_elem
-
-      global_id(1,1,1,l) = mesh % element(l) % global_id
-
-      do k = 1, 6
-        orientation(2*k-1,1,1,l) = mesh % element(l) % face(k) % normal
-        orientation(2*k  ,1,1,l) = mesh % element(l) % face(k) % rotation
-      end do
-
-      do k = 1, 12
-        orientation(k+12,1,1,l) = mesh % element(l) % edge(k) % orientation
-      end do
-
-    end do
-
-    call global_id_buf   % Transfer(mesh, global_id  , tag=100)
-    call orientation_buf % Transfer(mesh, orientation, tag=200)
-
-    call global_id_buf   % Merge(global_id)
-    call orientation_buf % Merge(orientation)
-
-    ! assign received data to ghosts ...........................................
-
-    do g = 1, mesh % n_ghost
-      associate( face => mesh % ghost(g) % face &
-               , edge => mesh % ghost(g) % edge )
-
-        l = mesh % n_elem + g
-
-        mesh % ghost(g) % global_id = global_id(1,1,1,l)
-        mesh % ghost(g) % local_id  = l
-
-        ! faces
-        do k = 1, 6
-          face(k) % normal   = orientation(2*k-1,1,1,l)
-          face(k) % rotation = orientation(2*k  ,1,1,l)
-        end do
-
-        ! edges
-        do k = 1, 12
-          edge(k) % orientation = orientation(k+12,1,1,l)
-        end do
-
-      end associate
-    end do
-
     !---------------------------------------------------------------------------
-    ! copy face, edge and vertex IDs to elements to adjoining ghosts
+    ! copy face, edge and vertex IDs from elements to adjoining ghosts
 
     do l = 1, mesh % n_elem
       associate(element => mesh % element(l))
@@ -129,7 +65,7 @@ contains
                 ! identify corresponding ghost face
                 f = ElementFaceID(element % neighbor(j) % component)
 
-                ! local element face IDs at position ξ₁=i and ξ₂=j
+                ! local element-face component IDs at position ξ₁=i and ξ₂=j
                 lfi(-1,-1) = element % vertex( V_FACE(1,k) ) % id
                 lfi( 0,-1) = element % edge  ( E_FACE(1,k) ) % id
                 lfi( 1,-1) = element % vertex( V_FACE(2,k) ) % id
@@ -143,25 +79,26 @@ contains
                 ! transform ID arrays to ghost face orientation
                 if (mesh % structured) then
                   gfi = lfi
-                else if ( element % face(k) % normal   == 1 .and. &
-                          element % face(k) % rotation == 0 ) then
-                  ! local element face is aligned with mesh face
-                  call ghost % face(f) % AlignFromMesh(lfi, gfi)
                 else
-                  ! ghost face is aligned with mesh face
-                  call element % face(k) % AlignWithMesh(lfi, gfi)
+                  call element % AlignWithNeighborFace(k, j, lfi, gfi)
                 end if
 
                 ! set ghost face IDs and ranks
-                ghost % vertex( V_FACE(1,f) ) % id   = gfi(-1,-1)
-                ghost % edge  ( E_FACE(1,f) ) % id   = gfi( 0,-1)
-                ghost % vertex( V_FACE(2,f) ) % id   = gfi( 1,-1)
-                ghost % edge  ( E_FACE(3,f) ) % id   = gfi(-1, 0)
-                ghost % face  (          f  ) % id   = gfi( 0, 0)
-                ghost % edge  ( E_FACE(4,f) ) % id   = gfi( 1, 0)
-                ghost % vertex( V_FACE(3,f) ) % id   = gfi(-1, 1)
-                ghost % edge  ( E_FACE(2,f) ) % id   = gfi( 0, 1)
-                ghost % vertex( V_FACE(4,f) ) % id   = gfi( 1, 1)
+                ghost % vertex( V_FACE(1,f) ) % id = gfi(-1,-1)
+                ghost % edge  ( E_FACE(1,f) ) % id = gfi( 0,-1)
+                ghost % vertex( V_FACE(2,f) ) % id = gfi( 1,-1)
+                ghost % edge  ( E_FACE(3,f) ) % id = gfi(-1, 0)
+                ghost % face  (          f  ) % id = gfi( 0, 0)
+                ghost % edge  ( E_FACE(4,f) ) % id = gfi( 1, 0)
+                ghost % vertex( V_FACE(3,f) ) % id = gfi(-1, 1)
+                ghost % edge  ( E_FACE(2,f) ) % id = gfi( 0, 1)
+                ghost % vertex( V_FACE(4,f) ) % id = gfi( 1, 1)
+
+                ! ghost face orientation, exploiting that the local element
+                ! is aligned with the mesh face by construction
+                call ghost % face(f) % SetOrientation(           &
+                       efv = ghost   % vertex(V_FACE(:,f)) % id, &
+                       mfv = element % vertex(V_FACE(:,k)) % id  )
 
               end associate
             end if
@@ -189,17 +126,18 @@ contains
                 lei( 0) = element % edge  (          k  ) % id
                 lei( 1) = element % vertex( V_EDGE(2,k) ) % id
 
-                ! copy IDs and ranks
-                if ( mesh % structured    .or.                                  &
-                     element%edge(k)%orientation == ghost%edge(e)%orientation ) &
+                ! copy IDs and assign edge orientation
+                if (mesh % structured .or. element % NeigborEdgeIsAligned(k,j)) &
                 then
-                  ghost % vertex( V_EDGE(1,e) ) % id   = lei(-1)
-                  ghost % edge  (          e  ) % id   = lei( 0)
-                  ghost % vertex( V_EDGE(2,e) ) % id   = lei( 1)
+                  ghost % vertex( V_EDGE(1,e) ) % id = lei(-1)
+                  ghost % vertex( V_EDGE(2,e) ) % id = lei( 1)
+                  ghost % edge(e) % id          =  lei( 0)
+                  ghost % edge(e) % orientation =  element % edge(k) % orientation
                 else
-                  ghost % vertex( V_EDGE(1,e) ) % id   = lei( 1)
-                  ghost % edge  (          e  ) % id   = lei( 0)
-                  ghost % vertex( V_EDGE(2,e) ) % id   = lei(-1)
+                  ghost % vertex( V_EDGE(1,e) ) % id = lei( 1)
+                  ghost % vertex( V_EDGE(2,e) ) % id = lei(-1)
+                  ghost % edge(e) % id          =  lei( 0)
+                  ghost % edge(e) % orientation = -element % edge(k) % orientation
                 end if
 
               end associate

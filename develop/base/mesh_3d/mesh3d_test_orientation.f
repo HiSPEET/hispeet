@@ -37,9 +37,13 @@ program Mesh3d_Test_Orientation
   integer   :: l, m, n
 
   call Init_MPI_Binding()
-  call MPI_Comm_rank(comm, rank)
+  call MPI_Comm_rank(MPI_COMM_WORLD, rank)
 
   if (rank == 0) then
+
+    ! set communicator to run tests on rank 0 only .............................
+
+    comm = MPI_COMM_SELF
 
     ! read parameters ..........................................................
 
@@ -126,11 +130,11 @@ program Mesh3d_Test_Orientation
     ! export mesh and data .....................................................
 
     if (export_vtk) then
-      call ExportVTK_VolumeData( x, var                       &
-                               , sname  = ['xi1','xi2','xi3'] &
-                               , file   = 'element_mesh'      &
-                               , part   = mesh % part         &
-                               , n_part = mesh % n_part       )
+      call ExportVTK_VolumeData( x, var                        &
+                               , sname   = ['xi1','xi2','xi3'] &
+                               , file    = 'element_mesh'      &
+                               , part    = mesh % part         &
+                               , n_parts = mesh % n_parts      )
     end if
 
   end if

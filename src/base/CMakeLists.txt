@@ -99,17 +99,22 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
               mesh_3d/generic_mesh__3d__mp_creatediamonds.f
               mesh_3d/generic_mesh__3d__mp_createonerotated.f
               mesh_3d/mesh_boundary__3d.f
-              mesh_3d/mesh_element__3d.f
+              mesh_3d/mesh_element__3d.F
+              mesh_3d/mesh_element__3d__sm_mpi.f
               mesh_3d/mesh_element_indexing__3d.f
               mesh_3d/mesh_face__3d.f
               mesh_3d/mesh_link__3d.f
               mesh_3d/mesh__3d.f
+              mesh_3d/mesh__3d__mp_buildboundaryfaces.f
+              mesh_3d/mesh__3d__mp_buildcommunicator.f
+              mesh_3d/mesh__3d__mp_buildcuboids.f
               mesh_3d/mesh__3d__mp_buildfaces.f
               mesh_3d/mesh__3d__mp_buildghosts.f
               mesh_3d/mesh__3d__mp_buildlinks.f
               mesh_3d/mesh__3d__mp_getcuboids.f
               mesh_3d/mesh__3d__mp_getpoints.f
               mesh_3d/mesh__3d__mp_getpointvalency.f
+              mesh_3d/mesh__3d__mp_identifyvertices.f
               mesh_3d/mesh__3d__mp_identifyedges.f
               mesh_3d/mesh__3d__mp_identifyranks.f
               mesh_3d/mesh__3d__mp_identifyelementneighbors.f
@@ -125,11 +130,6 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
 
 set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/export/export_vtk_schwarz_domain__3d.f
-             util_3d/meshgen/create_annulus.f
-             util_3d/meshgen/create_cuboid_cartesian.f
-             util_3d/meshgen/create_cuboid_diamonds.f
-             util_3d/meshgen/create_cuboid_onerotated.f
-             util_3d/meshgen/create_cylinder.f
              util_3d/transfer/element_transfer_buffer__3d.f
              util_3d/transfer/element_transfer_buffer__3d__sm_integer_idk.F
              util_3d/transfer/element_transfer_buffer__3d__sm_integer_ixs.F
@@ -138,11 +138,18 @@ set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/transfer/element_transfer_buffer__3d__sm_real_rsp.F
              util_3d/transfer/element_face_transfer_buffer__3d.f
              util_3d/transfer/element_face_transfer_buffer__3d__sm_real_rdp.F
-             util_3d/transfer/trace_transfer_buffer__3d.f
+             util_3d/meshgen/create_annulus.f
+             util_3d/meshgen/create_cuboid_cartesian.f
+             util_3d/meshgen/create_cuboid_diamonds.f
+             util_3d/meshgen/create_cuboid_onerotated.f
+             util_3d/meshgen/create_cylinder.f
              util_3d/ops/assembly__3d.f
              util_3d/ops/assembly__3d__sm_0u.f
              util_3d/ops/convert_traces__3d.f
              util_3d/verification/verify_mesh__3d.f
+             util_3d/adaptation/element_distribution_map__3d.f
+             util_3d/adaptation/element_distribution_data__3d.f
+             util_3d/adaptation/root_mesh_partitioning__3d.F
              )
 
 if (Exodus_FOUND)
@@ -182,11 +189,6 @@ set( DIFFUSION_3D diffusion_3d/dg__diffusion_operator__3d.f
                   diffusion_3d/dg__schwarz_operator__3d__rsp__mp_restrict_structured.F
                   diffusion_3d/dg__schwarz_operator__3d__rsp__mp_restrict_unstructured.F
                   )
-
-
-#                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_rc.f
-#                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_rv.f
-#                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_dc.f
 
 #===============================================================================
 # base library

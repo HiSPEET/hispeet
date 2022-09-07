@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(Assembly__3D)  SM_0U
+submodule(Assembly__3D) SM_0U
   use Mesh_Element__3D
   use Mesh_Element_Indexing__3D
   implicit none
@@ -100,7 +100,7 @@ contains
                , edge   => element(i) % edge   &
                , vertex => element(i) % vertex )
 
-        l = element(i) % local_id
+        l = element(i) % id
 
         ! vertex data
         if (vertex(1)%rank > 0) u_vert(vertex(1)%rank, vertex(1)%id) = u(0,0,0,l)
@@ -242,7 +242,7 @@ contains
                , edge   => element(i) % edge   &
                , vertex => element(i) % vertex )
 
-        l = element(i) % local_id
+        l = element(i) % id
 
         ! vertex data
         u(0,0,0,l) = u_vert(1, vertex(1)%id)

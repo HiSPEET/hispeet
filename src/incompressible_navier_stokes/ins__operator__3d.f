@@ -126,7 +126,7 @@ contains
 
     if (present(mesh)) then
       this % mesh = mesh
-    else if (this % mesh % n_part < 1) then
+    else if (this % mesh % n_parts < 1) then
       call Error('Init_INS_Operator_3D', &
                  'this%mesh must be initialized or argument mesh given', &
                  'INS__Operator__3D')

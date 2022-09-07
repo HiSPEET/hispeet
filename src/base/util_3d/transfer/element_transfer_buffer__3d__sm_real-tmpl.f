@@ -29,7 +29,7 @@
 
     ! receive master data ......................................................
 
-    select type (vb => this % master % buf)
+    select type (vb => this % ghost % buf)
     type is (real(RK))
 
       !$omp master
@@ -38,8 +38,9 @@
         m = this % ghost % start(i)
         l = this % ghost % len(i)
         if (l > 0) then
-          call XMPI_Irecv( vb(m:m+l-1), source, tag, mesh%comm &
-                         , this%ghost%request(i)               )
+          call XMPI_Irecv( vb(m:m+l-1), source, tag &
+                         , mesh%comm_parts          &
+                         , this%ghost%request(i)    )
         else
           this%ghost%request(i) = MPI_REQUEST_NULL
         end if
@@ -66,8 +67,9 @@
         m = this % master % start(i)
         l = this % master % len(i)
         if (l > 0) then
-          call XMPI_Isend( vb(m:m+l-1), dest, tag, mesh%comm &
-                         , this%master%request(i)            )
+          call XMPI_Isend( vb(m:m+l-1), dest, tag &
+                         , mesh%comm_parts        &
+                         , this%master%request(i) )
         else
           this%master%request(i) = MPI_REQUEST_NULL
         end if
@@ -127,7 +129,7 @@
 
     ! merge buffer .............................................................
 
-    select type (vb => this % master % buf)
+    select type (vb => this % ghost % buf) ! ORIG, but wrong?
     type is (real(RK))
 
       if (size(vb) == 0) return

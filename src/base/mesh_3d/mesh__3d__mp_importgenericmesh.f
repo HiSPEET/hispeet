@@ -7,10 +7,7 @@
 submodule(Mesh__3D) MP_ImportGenericMesh
   use Constants
   use Execution_Control
-  use Standard_Operators__1D
-  use Embedded_Interpolation__1D
   use Generic_Mesh__3D
-  use Element_Transfer_Buffer__3D
   implicit none
 
   interface
@@ -34,66 +31,93 @@ contains
     class(GenericMesh_3D), intent(in)  :: generic_mesh !< generic mesh
     type(MPI_Comm),        intent(in)  :: comm         !< MPI communicator
 
+    type(MeshAttributes_3D) :: attrib
     integer :: i, rank
 
     call MPI_Comm_rank(comm, rank)
-    if (rank > 0) return
 
-    ! check prerequisites ......................................................
+    if (rank == 0) then
 
-    if (generic_mesh % numbering /= LEXICAL_NUMBERING) then
-      call Error('ImportGenericMesh', 'Lexical numbering is required')
-    else if (any(generic_mesh % element%typ /= HEXAHEDRAL_ELEMENT)) then
-      call Error('ImportGenericMesh', 'Only hexahedral elements supported')
-    else
-      write(*,'(/,A)') 'importing generic mesh'
+      ! check prerequisites ....................................................
+
+      if (generic_mesh % numbering /= LEXICAL_NUMBERING) then
+        call Error('ImportGenericMesh', 'Lexical numbering is required')
+      else if (any(generic_mesh % element%typ /= HEXAHEDRAL_ELEMENT)) then
+        call Error('ImportGenericMesh', 'Only hexahedral elements supported')
+      else
+        write(*,'(/,A)') 'importing generic mesh'
+      end if
+
+      ! basic initialization ...................................................
+
+      mesh % n_bound     =  size(generic_mesh % boundary)
+      mesh % n_parts     =  1
+
+      mesh % structured  = .false.
+      mesh % regular     = .false.
+
+      mesh % comm_world  =  comm
+      mesh % proc        =  0
+      mesh % part        =  0
+
+      allocate(mesh % boundary( mesh%n_bound ))
+      do i = 1, mesh % n_bound
+        mesh % boundary(i) % name     = generic_mesh % boundary(i) % name
+        mesh % boundary(i) % id       = i
+        mesh % boundary(i) % coupled  = generic_mesh % boundary(i) % coupled
+        mesh % boundary(i) % polarity = generic_mesh % boundary(i) % polarity
+      end do
+
+      ! mesh components ........................................................
+
+      call ImportElements(mesh, generic_mesh)
+
+      call mesh % IdentifyEdges()
+      call mesh % BuildFaces()
+
+      call ImportBoundaryFaces(mesh, generic_mesh)
+      call ImportElementDomains(mesh, generic_mesh)
+      call IdentifyElementNeighbors(mesh)
+
+      call mesh % BuildLinks()
+      call mesh % BuildGhosts()
+      call mesh % BuildCuboids()
+      call mesh % IdentifyRanks()
+
     end if
 
-    mesh % n_bound     =  size(generic_mesh % boundary)
-    mesh % n_elem      =  size(generic_mesh % element)
-    mesh % n_part      =  1
-    mesh % part        =  0
-    mesh % structured  = .false.
-    mesh % regular     = .false.
-    mesh % comm        =  comm
+    ! empty partitions and intracommunicator ...................................
 
-    allocate(mesh % boundary( mesh%n_bound ))
-    do i = 1, mesh % n_bound
-      mesh % boundary(i) = MeshBoundary_3D( i                                   &
-                            , name     = generic_mesh % boundary(i) % name      &
-                            , coupled  = generic_mesh % boundary(i) % coupled   &
-                            , polarity = generic_mesh % boundary(i) % polarity  &
-                            , n_face   = size(generic_mesh % boundary(i) % face))
-    end do
+    if (rank == 0) then
+      attrib = MeshAttributes_3D(mesh)
+    end if
 
-    call ImportElements(mesh, generic_mesh)
+    call attrib % Bcast(0, comm)
 
-    call mesh % IdentifyEdges()
-    call mesh % BuildFaces()
+    if (rank > 0) then
+      call mesh % Init_Mesh_3D(attrib, comm)
+    end if
 
-    call ImportBoundaryFaces  (mesh, generic_mesh)
-    call ImportElementDomains (mesh, generic_mesh)
-    call IdentifyElementNeighbors (mesh)
+    ! intracommunicator between active partitions
+    call mesh % BuildCommunicator()
 
-    call mesh % BuildLinks()
-    call mesh % BuildGhosts()
-    call mesh % IdentifyRanks()
+    ! print info ...............................................................
 
-    call ComputeMeanSpacing (mesh)
-
-    write(*,'(T3,A,T30,9(G0,1X))') 'number of elements:   ', mesh % n_elem
-    write(*,'(T3,A,T30,9(G0,1X))') 'number of faces:      ', mesh % n_face
-    write(*,'(T3,A,T30,9(G0,1X))') 'number of edges:      ', mesh % n_edge
-    write(*,'(T3,A,T30,9(G0,1X))') 'number of vertices:   ', mesh % n_vert
-    write(*,'(T3,A,T30,9(G0,1X))') 'number of boundaries: ', mesh % n_bound
+    if (rank == 0) then
+      write(*,'(T3,A,T30,9(G0,1X))') 'number of elements:   ', mesh % n_elem
+      write(*,'(T3,A,T30,9(G0,1X))') 'number of faces:      ', mesh % n_face
+      write(*,'(T3,A,T30,9(G0,1X))') 'number of edges:      ', mesh % n_edge
+      write(*,'(T3,A,T30,9(G0,1X))') 'number of vertices:   ', mesh % n_vert
+      write(*,'(T3,A,T30,9(G0,1X))') 'number of boundaries: ', mesh % n_bound
+    end if
 
   end subroutine ImportGenericMesh
 
   !-----------------------------------------------------------------------------
   !> Import of mesh elements
   !>
-  !> Allocates the elements, sets global and local IDs, and adopts the vertex
-  !> IDs from then generic mesh.
+  !> Allocates the elements, sets local IDs, and adopts the vertex IDs from the
+  !> generic mesh.
 
   subroutine ImportElements(mesh, generic_mesh)
     class(Mesh_3D),        intent(inout) :: mesh         !< mesh partition
@@ -101,14 +125,14 @@ contains
 
     integer :: b, i, j, k, n
 
+    mesh % n_elem = size(generic_mesh % element)
     allocate(mesh % element( mesh % n_elem ))
 
     ! element and vertex IDs ...................................................
 
     n = 0
     do i = 1, mesh % n_elem
-      mesh % element(i) % global_id = i
-      mesh % element(i) % local_id  = i
+      mesh % element(i) % id = i
       do j = 1, 8
         k = generic_mesh % vertex( generic_mesh % element(i) % vertex(j) ) % id
         mesh % element(i) % vertex(j) % id = k
@@ -142,31 +166,23 @@ contains
     class(Mesh_3D),        intent(inout) :: mesh         !< mesh partition
     class(GenericMesh_3D), intent(in)    :: generic_mesh !< generic mesh
 
-    integer :: b, e, f, i, j, s
+    integer :: b, e, i, j
 
     do b = 1, size(generic_mesh%boundary)
 
-      associate( mb => mesh % boundary(b)         &
-               , gb => generic_mesh % boundary(b) )
+      associate( generic_boundary => generic_mesh % boundary(b) &
+               , mesh_boundary    => mesh % boundary(b)         )
 
-        do i = 1, mb % n_face
+        mesh_boundary % n_face = size(generic_boundary % face)
+        allocate(mesh_boundary % face(mesh_boundary % n_face))
 
-          e = gb % face(i) % element_id         ! corresponding element ID
-          j = gb % face(i) % element_face       ! corresponding element face
-          f = mesh % element(e) % face(j) % id  ! corresponding mesh face ID
+        do i = 1, mesh_boundary % n_face
 
-          ! side of the mesh face on which the boundary is located
-          if (mesh % face(f) % element(1) % id == e) then
-            s = 2
-          else
-            s = 1
-          end if
+          e = generic_boundary % face(i) % element_id   ! corresp element ID
+          j = generic_boundary % face(i) % element_face ! corresp element face
 
-          mb % face(i) % mesh_face % id   = f
-          mb % face(i) % mesh_face % side = s
-
-          mb % face(i) % mesh_element % id   = e
-          mb % face(i) % mesh_element % face = j
+          mesh_boundary % face(i) % element_id   = e
+          mesh_boundary % face(i) % element_face = j
 
         end do
 
@@ -176,275 +192,40 @@ contains
   end subroutine ImportBoundaryFaces
 
   !-----------------------------------------------------------------------------
-  !> Import of mesh boundaries
-
-  subroutine ImportBoundaries(mesh, generic_mesh)
-    class(Mesh_3D),        intent(inout) :: mesh         !< mesh partition
-    class(GenericMesh_3D), intent(in)    :: generic_mesh !< generic mesh
-
-    integer :: b, e, f, i, j, s
-
-    ! prerequisites ..............................................................
-
-    mesh % n_bound = size(generic_mesh % boundary)
-
-    allocate(mesh % boundary(mesh%n_bound))
-
-    ! create mesh boundaries ...................................................
-
-    do b = 1, size(generic_mesh%boundary)
-
-      associate( mb => mesh % boundary(b)         &
-               , gb => generic_mesh % boundary(b) )
-
-        mb % id      = b
-        mb % name    = gb % name
-        mb % n_face  = size(gb % face)
-        mb % coupled = gb % coupled
-
-        allocate(mb % face(mb % n_face))
-
-        do i = 1, mb % n_face
-
-          e = gb % face(i) % element_id         ! corresponding element ID
-          j = gb % face(i) % element_face       ! corresponding element face
-          f = mesh % element(e) % face(j) % id  ! corresponding mesh face ID
-
-          ! side of the mesh face on which the boundary is located
-          if (mesh % face(f) % element(1) % id == e) then
-            s = 2
-          else
-            s = 1
-          end if
-
-          mb % face(i) % mesh_face % id   = f
-          mb % face(i) % mesh_face % side = s
-
-          mb % face(i) % mesh_element % id   = e
-          mb % face(i) % mesh_element % face = j
-
-        end do
-
-      end associate
-    end do
-
-  end subroutine ImportBoundaries
-
-  !-----------------------------------------------------------------------------
   !> Import of element domains
 
   subroutine ImportElementDomains(mesh, generic_mesh)
     class(Mesh_3D),        intent(inout) :: mesh         !< mesh partition
     class(GenericMesh_3D), intent(in)    :: generic_mesh !< generic mesh
 
-    type(StandardOperators_1D) :: sop
-    type(EmbeddedInterpolation_1D), allocatable :: iop(:)
-    real(RNP), allocatable :: VI(:,:)
-    integer :: d, e, pg, pg_max, pg_min, po
+    integer :: e
 
     ! preliminaries ............................................................
 
-    ! min/max order of element geometry representation
-    pg_min = huge(pg_min)
-    pg_max = 0
+    mesh % p_geom = -1
     do e = 1, size(generic_mesh % element)
-      pg_min = min(pg_min, generic_mesh % element(e) % order)
-      pg_max = max(pg_max, generic_mesh % element(e) % order)
       if (generic_mesh % element(e) % basis /= GAUSS_LOBATTO_BASIS) then
         call Error('ImportElementDomains', 'basis not supported')
       end if
+      mesh % p_geom = max(mesh % p_geom, generic_mesh % element(e) % order)
     end do
 
-    ! standard and interpolation operators
-    mesh%p_geom = max(mesh%p_geom, pg_max)
-    po  = mesh%p_geom
-    sop = StandardOperators_1D(po)
-    allocate(VI(0:po,0:po), iop(pg_min:pg_max))
-    call sop % Get_Inverse_Legendre_VDM(VI)
-    do pg = pg_min, pg_max
-      if (pg == mesh%p_geom) cycle
-      iop(pg) = EmbeddedInterpolation_1D(StandardOperators_1D(pg), sop%x)
-    end do
+    ! element degree and points ................................................
 
-    ! element points and approximate cuboids ...................................
-
-    allocate(mesh % x_elem(0:po, 0:po, 0:po, mesh%n_elem, 3))
-    allocate(mesh % x_cube(0:3, mesh%n_elem, 3))
     do e = 1, mesh % n_elem
-      associate(xg => generic_mesh % element(e) % x)
-        pg = generic_mesh % element(e) % order
-        do d = 1, 3
+      associate( geometry => mesh % element(e) % geometry &
+               , po => generic_mesh % element(e) % order  &
+               , xg => generic_mesh % element(e) % x      )
 
-          if (pg == po) then
-            mesh % x_elem(:,:,:,e,d) = reshape(xg(:,d), [po+1,po+1,po+1])
-          else
-            call Interpolate(iop(pg), xg(:,d), mesh%x_elem(:,:,:,e,d))
-          end if
+        allocate(geometry % x_e(0:po, 0:po, 0:po, 1:3))
 
-          call LinearFit(VI, mesh%x_elem(:,:,:,e,d), mesh%x_cube(:,e,d))
+        geometry % po = po
+        geometry % x_e(0:po,0:po,0:po,1:3) = reshape(xg, [po+1,po+1,po+1,3])
 
-        end do
       end associate
     end do
-
-  contains
-
-    !---------------------------------------------------------------------------
-    !> Interpolates element points from generic mesh element
-
-    subroutine Interpolate(iop, xo, xi)
-      class(EmbeddedInterpolation_1D), intent(in)  :: iop
-      real(RNP),                       intent(in)  :: xo(iop%no, iop%no, iop%no)
-      real(RNP),                       intent(out) :: xi(iop%ni, iop%ni, iop%ni)
-
-      real(RNP) :: z1(iop%ni, iop%no, iop%no)
-      real(RNP) :: z2(iop%ni, iop%ni, iop%no)
-
-      integer :: i, j, k, p
-
-      ! interpolation in direction 1
-      do k = 1, iop%no
-      do j = 1, iop%no
-      do i = 1, iop%ni
-        z1(i,j,k) = 0
-        do p = 1, iop%no
-          z1(i,j,k) = z1(i,j,k) + iop%A(i,p) * xo(p,j,k)
-        end do
-      end do
-      end do
-      end do
-
-      ! interpolation in direction 2
-      do k = 1, iop%no
-      do j = 1, iop%ni
-      do i = 1, iop%ni
-        z2(i,j,k) = 0
-        do p = 1, iop%no
-          z2(i,j,k) = z2(i,j,k) + iop%A(j,p) * z1(i,p,k)
-        end do
-      end do
-      end do
-      end do
-
-      ! interpolation in direction 3
-      do k = 1, iop%ni
-      do j = 1, iop%ni
-      do i = 1, iop%ni
-        xi(i,j,k) = 0
-        do p = 1, iop%no
-          xi(i,j,k) = xi(i,j,k) + iop%A(k,p) * z1(i,j,p)
-        end do
-      end do
-      end do
-      end do
-
-    end subroutine Interpolate
-
-    !---------------------------------------------------------------------------
-    !> Computes the constant and linear Legendre coefficients to given 3D
-    !> Lobatto coefficients
-
-    subroutine LinearFit(VI, x, y)
-      real(RNP), intent(in)  :: VI(0:,0:)   !< Inverse Vandermonde matrix
-      real(RNP), intent(in)  :: x(0:,0:,0:) !< Lobatto coefficients
-      real(RNP), intent(out) :: y(0:3)      !< Legendre coefficients
-
-      real(RNP) :: a(size(VI,1), size(VI,1)), b(size(VI,1)), c(0:1, 0:1, 0:1)
-      integer   :: i, j, k, n
-
-      n = size(VI,1)
-
-      do i = 0, 1
-        a = reshape(matmul(VI(i,:), reshape(x, [n,n*n])), [n,n])
-
-        do j = 0, 1
-          b = matmul(VI(j,:), a)
-          do k = 0, 1
-            c(i,j,k) = dot_product(VI(k,:), b)
-          end do
-        end do
-      end do
-
-      y = [ c(0,0,0), c(1,0,0), c(0,1,0), c(0,0,1) ]
-
-    end subroutine LinearFit
 
   end subroutine ImportElementDomains
-
-  !-----------------------------------------------------------------------------
-  !> Computes the mean spacing normal to faces
-
-  subroutine ComputeMeanSpacing(mesh)
-    class(Mesh_3D), intent(inout) :: mesh !< mesh partition
-
-    type(ElementTransferBuffer_3D), asynchronous :: buf_dx_cube
-    real(RNP), allocatable :: dx_cube(:,:,:,:)
-    real(RNP), allocatable :: dx_mean(:,:)
-
-    integer :: e, f, i, n
-
-    allocate(dx_mean(6, mesh%n_elem))
-    allocate(dx_cube(3, 1, 1, mesh%n_elem + mesh%n_ghost))
-
-    ! local cuboid spacing in ξ, η and ζ directions
-    associate(x_cube => mesh % x_cube)
-      do e = 1, mesh % n_elem
-      do i = 1, 3
-        dx_cube(i,1,1,e) = 2 * sqrt( x_cube(i,e,1)**2 &
-                                   + x_cube(i,e,2)**2 &
-                                   + x_cube(i,e,3)**2 )
-      end do
-      end do
-    end associate
-
-    ! transfer cuboid spacing to ghosts
-    buf_dx_cube = ElementTransferBuffer_3D(mesh, dx_cube)
-    call buf_dx_cube % Transfer(mesh, dx_cube, 1000)
-    call buf_dx_cube % Merge(dx_cube)
-
-    ! compute mean normal spacing
-    do e = 1, mesh % n_elem
-      associate(element => mesh % element(e))
-        do f = 1, 6
-
-          select case(f)
-          case(1,2)
-            dx_mean(f,e) = dx_cube(1,1,1,e)
-          case(3,4)
-            dx_mean(f,e) = dx_cube(2,1,1,e)
-          case default
-            dx_mean(f,e) = dx_cube(3,1,1,e)
-          end select
-
-          i = element % face(f) % i_neighbor
-
-          if (i > 0) then
-
-            n = element % neighbor(i) % id
-            if (n == e) cycle
-
-            select case(element % neighbor(i) % component) ! neighbor face
-            case(1,2)
-              dx_mean(f,e) = 2 / (1/dx_mean(f,e) + 1/dx_cube(1,1,1,n))
-            case(3,4)
-              dx_mean(f,e) = 2 / (1/dx_mean(f,e) + 1/dx_cube(2,1,1,n))
-            case default
-              dx_mean(f,e) = 2 / (1/dx_mean(f,e) + 1/dx_cube(3,1,1,n))
-            end select
-
-          end if
-
-        end do
-      end associate
-    end do
-
-    ! assign result
-    call move_alloc(dx_mean, mesh % dx_mean)
-
-    ! clean-up
-    deallocate(dx_cube)
-
-  end subroutine ComputeMeanSpacing
 
   !=============================================================================
 

@@ -27,11 +27,11 @@ program Mesh3d_Import_Exodus
   call mesh % GetPoints(po, 'L', x)
   ne = mesh % n_elem
   allocate(s(0:po,0:po,0:po,ne,ns), source = ZERO)
-  call ExportVTK_VolumeData( x, s                   &
-                           , sname  = ['s']         &
-                           , file   = 'naca_0012'   &
-                           , part   = mesh % part   &
-                           , n_part = mesh % n_part )
+  call ExportVTK_VolumeData( x, s                     &
+                           , sname   = ['s']          &
+                           , file    = 'naca_0012'    &
+                           , part    = mesh % part    &
+                           , n_parts = mesh % n_parts )
   call MPI_Finalize()
 
 end program Mesh3d_Import_Exodus

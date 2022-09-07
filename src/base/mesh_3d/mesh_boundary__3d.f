@@ -5,33 +5,19 @@
 !===============================================================================
 
 module Mesh_Boundary__3D
+  use XMPI
   implicit none
   private
 
   public :: MeshBoundary_3D
-
-  !-----------------------------------------------------------------------------
-  !> Adjacent mesh face data
-
-  type AdjacentFace
-    integer :: id   = 0 !< mesh face ID
-    integer :: side = 0 !< corresponding side of the face {1,2}
-  end type AdjacentFace
-
-  !-----------------------------------------------------------------------------
-  !> Adjacent mesh element data
-
-  type AdjacentElement
-    integer :: id   = 0 !< element ID
-    integer :: face = 0 !< corresponding face of the element {1:6}
-  end type AdjacentElement
+  public :: MeshBoundaryAttributes_3D
 
   !-----------------------------------------------------------------------------
   !> 3d mesh boundary face
 
   type MeshBoundaryFace_3D
-    type(AdjacentFace)    :: mesh_face    !< adjacent mesh face
-    type(AdjacentElement) :: mesh_element !< adjacent mesh element
+    integer :: element_id   = 0 !< local element ID
+    integer :: element_face = 0 !< adjacent face of the element {1:6}
   end type MeshBoundaryFace_3D
 
   !-----------------------------------------------------------------------------
@@ -43,8 +29,8 @@ module Mesh_Boundary__3D
   !> properties and, therefore, are same in all mesh partitions even if they
   !> do not share any part of the boundary.
   !> The numeric identifier `id` equals the index in the `boundary` component
-  !> of the related `Mesh3D_Partition` object, whereas `name` represents a
-  !> textual label.
+  !> of the related `Mesh_3D` object, whereas `name` represents a textual label.
+  !>
   !> Periodicity is supported via the `coupled` and `polarity` components.
   !> While the former specifies the ID of the coupled boundary, the latter
   !> allows to identify their relative location respective to the pertinent
@@ -61,11 +47,11 @@ module Mesh_Boundary__3D
 
   type MeshBoundary_3D
 
-    integer           :: id       =  0  !< boundary identifier
     character(len=80) :: name     = ''  !< name
+    integer           :: id       =  0  !< boundary identifier
     integer           :: coupled  =  0  !< ID of coupled boundary, 0 if none
     integer           :: polarity =  0  !< position WRT to periodic direction
-    integer           :: n_face   = -1  !< number of faces
+    integer           :: n_face   =  0  !< number of faces
 
     type(MeshBoundaryFace_3D), allocatable :: face(:) !< boundary faces
 
@@ -76,48 +62,98 @@ module Mesh_Boundary__3D
     module procedure New_MeshBoundary_3D
   end interface
 
+  !-----------------------------------------------------------------------------
+  !> Type for collecting and transmitting the mesh boundary attributes
+
+  type MeshBoundaryAttributes_3D
+    character(len=80) :: name     = ''  !< name
+    integer           :: id       =  0  !< boundary identifier
+    integer           :: coupled  =  0  !< ID of coupled boundary, 0 if none
+    integer           :: polarity =  0  !< position WRT to periodic direction
+  contains
+    procedure :: Bcast => Bcast_MeshBoundaryAttributes_3D
+  end type MeshBoundaryAttributes_3D
+
+  ! constructor
+  interface MeshBoundaryAttributes_3D
+    module procedure ExtractBoundaryAttributes
+  end interface
+
 contains
+
+  !=============================================================================
+  ! MeshBoundary_3D constructor and type-bound procedures
 
   !-----------------------------------------------------------------------------
   !> Constructor for MeshBoundary_3D
 
-  function New_MeshBoundary_3D(id, name, coupled, polarity, n_face) result(this)
-    integer,           intent(in) :: id       !< identifier
-    character(len=*),  intent(in) :: name     !< name
-    integer, optional, intent(in) :: coupled  !< ID coupled boundary, 0 if none
-    integer, optional, intent(in) :: polarity !< pos WRT to periodic direction
-    integer, optional, intent(in) :: n_face   !< number of faces
-    type(MeshBoundary_3D)         :: this     !< 3d mesh boundary object
+  function New_MeshBoundary_3D(attrib, n_face) result(this)
+    class(MeshBoundaryAttributes_3D), intent(in) :: attrib !< attributes
+    type(MeshBoundary_3D) :: this !< 3d mesh boundary object
+    integer, optional, intent(in) :: n_face !< number of mesh faces [-1]
 
-    call Init_MeshBoundary_3D(this, id, name, coupled, polarity, n_face)
+    call Init_MeshBoundary_3D(this, attrib, n_face)
 
   end function New_MeshBoundary_3D
 
   !-----------------------------------------------------------------------------
   !> Initialize a new 3d mesh boundary
 
-  subroutine Init_MeshBoundary_3D(this, id, name, coupled, polarity, n_face)
+  subroutine Init_MeshBoundary_3D(this, attrib, n_face)
     class(MeshBoundary_3D), intent(inout) :: this !< 3d mesh boundary object
-    integer,           intent(in) :: id       !< identifier
-    character(len=*),  intent(in) :: name     !< name
-    integer, optional, intent(in) :: coupled  !< ID coupled boundary, 0 if none
-    integer, optional, intent(in) :: polarity !< pos WRT to periodic direction
-    integer, optional, intent(in) :: n_face   !< number of faces
+    class(MeshBoundaryAttributes_3D), intent(in) :: attrib !< attributes
+    integer, optional, intent(in) :: n_face !< number of mesh faces [-1]
 
     if (allocated(this%face)) deallocate(this%face)
 
-    this % id      = id
-    this % name    = name
-
-    if (present(coupled )) this % coupled  = coupled
-    if (present(polarity)) this % polarity = polarity
+    this % name      =  attrib % name
+    this % id        =  attrib % id
+    this % coupled   =  attrib % coupled
+    this % polarity  =  attrib % polarity
 
     if (present(n_face)) then
-      this % n_face  = n_face
-      allocate(this%face(n_face))
+      allocate(this % face( n_face ))
     end if
 
   end subroutine Init_MeshBoundary_3D
+
+  !=============================================================================
+  ! MeshBoundaryAttributes_3D constructor and type-bound procedures
+
+  elemental function ExtractBoundaryAttributes(boundary) result(this)
+    class(MeshBoundary_3D), intent(in) :: boundary
+    type(MeshBoundaryAttributes_3D) :: this
+
+    this % name      =  boundary % name
+    this % id        =  boundary % id
+    this % coupled   =  boundary % coupled
+    this % polarity  =  boundary % polarity
+
+  end function ExtractBoundaryAttributes
+
+  !-----------------------------------------------------------------------------
+  !> Broadcast mesh boundary attributes
+
+  subroutine Bcast_MeshBoundaryAttributes_3D(this, root, comm)
+    class(MeshBoundaryAttributes_3D), intent(inout) :: this
+    integer       , intent(in) :: root !< MPI root process
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
+
+    integer :: attrib_int(3)
+
+    call XMPI_Bcast(this % name, root, comm)
+
+    attrib_int(1) = this % id
+    attrib_int(2) = this % coupled
+    attrib_int(3) = this % polarity
+
+    call XMPI_Bcast(attrib_int, root, comm)
+
+    this % id       = attrib_int(1)
+    this % coupled  = attrib_int(2)
+    this % polarity = attrib_int(3)
+
+  end subroutine Bcast_MeshBoundaryAttributes_3D
 
   !=============================================================================
 

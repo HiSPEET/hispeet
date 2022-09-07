@@ -22,7 +22,7 @@ contains
 
   subroutine VerifyMesh_3D(mesh, passed)
     type(Mesh_3D), intent(in)  :: mesh !< mesh partition
-    logical,                intent(out) :: passed !< test result
+    logical,       intent(out) :: passed !< test result
 
     logical :: con_passed
 
@@ -37,7 +37,7 @@ contains
 
   subroutine ElementConnectivityTest(mesh, passed)
     type(Mesh_3D), intent(in)  :: mesh   !< mesh partition
-    logical,                intent(out) :: passed !< test result
+    logical,       intent(out) :: passed !< test result
 
     integer :: c, e, i, j, k, l, n
 

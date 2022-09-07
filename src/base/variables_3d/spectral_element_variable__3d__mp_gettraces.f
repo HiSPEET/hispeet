@@ -15,7 +15,7 @@ contains
   !> Extract the traces of SEV components as an element-face variable aligned
   !> with mesh faces
   !>
-  !> The traces are stored as element-face variables. If `aligned`is passed `T`
+  !> The traces are stored as element-face variables. If `align` is passed `T`
   !> they are aligned with the mesh faces, otherwise with the element faces.
   !> Traces of remote elements are stored in their ghost entries. Therefore,
   !> the trace values must be dimensioned as `tr_val(np,np,6,nl+ng,nc)`, where
@@ -87,7 +87,6 @@ contains
       call tr_buf % Transfer(mesh, tr_val, tag=100)
       call tr_buf % Merge(tr_val)
 
-      !$omp barrier
       !$omp master
       deallocate(tr_buf)
       !$omp end master

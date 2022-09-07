@@ -5,7 +5,6 @@
 !===============================================================================
 
 submodule(Mesh__3D) MP_BuildLinks
-
   use Quick_Sort
   implicit none
 
@@ -15,7 +14,7 @@ contains
   !> Generation of mesh links from global element neighbor information
   !>
   !> On entry, the mesh elements must be complete and `mesh%element%neighbor%id`
-  !> set to the home-partition ID of the neighbors.
+  !> set to the local ID of the neighbors within their home-partitions.
   !>
   !> Using this information
   !>
@@ -36,7 +35,7 @@ contains
     integer, allocatable :: link_master(:,:,:)
     integer, allocatable :: link_ghost(:,:)
     integer, allocatable :: map(:), perm(:)
-    integer :: c, e, f, i, j, j1, j2, k, l, m, n, p, q, r, s
+    integer :: c, e, f, i, j, j1, j2, k, l, n, p, q, r, s
 
     !---------------------------------------------------------------------------
     ! Initialization
@@ -46,7 +45,7 @@ contains
       return
     end if
 
-    p = mesh%n_part - 1
+    p = mesh%n_parts - 1
 
     allocate(nf(0:p), source = 0)
     allocate(nm(0:p), source = 0)
@@ -65,9 +64,11 @@ contains
 
     ! link_face(1,:) : remote partition ID
     ! link_face(2,:) : adjacent element ID from lowest rank partition
-    ! link_face(3,:) : local face ID
+    ! link_face(3,:) : adjacent element face ID from lowest rank partition
+    ! link_face(4,:) : adjacent local element ID
+    ! link_face(5,:) : adjacent local element face ID
 
-    allocate(link_face(3, mesh%n_face), source = -1)
+    allocate(link_face(5, mesh%n_face), source = -1)
 
     ! identify and count
     k = 0
@@ -94,14 +95,17 @@ contains
           link_face(1,k) = p
 
           ! store adjacent element ID and face from lowest rank partition
-          if (p <= mesh%part) then
+          if (p < mesh%part) then
             link_face(2,k) = element % neighbor(j) % id
+            link_face(3,k) = element % neighbor(j) % component
           else
             link_face(2,k) = e
+            link_face(3,k) = i
           end if
 
-          ! store local face ID
-          link_face(3,k) = element % face(i) % id
+          ! store local element and element face ID
+          link_face(4,k) = e
+          link_face(5,k) = i
 
         end do
 
@@ -111,7 +115,8 @@ contains
     ! sort linked faces according to
     !   1) remote partition ID
     !   2) element ID
-    call SortPairs(link_face(:,1:k))
+    !   3) element face ID
+    call SortTriplets(link_face(:,1:k))
 
     ! identify master elements and number of ghosts ............................
 
@@ -284,11 +289,12 @@ contains
 
     n = count(nf > 0 .or. nm > 0 .or. ng > 0)
 
-    allocate(map(0:mesh%n_part-1), source = -1)
+    allocate(map(0:mesh%n_parts-1), source = -1)
     allocate(mesh%link(n))
+    mesh % n_link = n
 
     k = 0
-    do p = 0, mesh%n_part - 1
+    do p = 0, mesh%n_parts - 1
       if (nf(p) > 0 .or. nm(p) > 0 .or. ng(p) > 0) then
         k = k + 1
         map(p) = k
@@ -308,9 +314,10 @@ contains
 
     do i = 1, mesh % n_face
       p = link_face(1,i)
-      if (p < 0) exit
+      if (p < 0) cycle
       nf(p) = nf(p) + 1
-      mesh % link(map(p)) % face( nf(p) ) = link_face(3,i)
+      mesh % link(map(p)) % face( nf(p) ) % element_id   = link_face(4,i)
+      mesh % link(map(p)) % face( nf(p) ) % element_face = link_face(5,i)
     end do
 
     ! master elements ..........................................................
@@ -355,7 +362,7 @@ contains
 
     ! offsets for numbering
     og(0) = mesh % n_elem
-    do p = 1, mesh % n_part - 1
+    do p = 1, mesh % n_parts - 1
       og(p) = og(p-1) + ng(p-1)
     end do
 
@@ -397,17 +404,16 @@ contains
         else ! face
           c = ElementFaceID(element % neighbor(j) % component)
           ghost % face(c) = 1
-          m = mod(i,2)
           f = element % face(i) % id
-          if (       m == 1 .and. element % face(i) % normal > 0    &
-               .or.  m == 0 .and. element % face(i) % normal < 0  ) &
-          then
-            mesh % face(f) % element(1) % id   = l
-            mesh % face(f) % element(1) % face = c
-          else
+
+          select case(element % MeshFaceSide(i))
+          case(1) ! element on side 1, ghost on side 2
             mesh % face(f) % element(2) % id   = l
             mesh % face(f) % element(2) % face = c
-          end if
+          case default ! element on side 2, ghost on side 1
+            mesh % face(f) % element(1) % id   = l
+            mesh % face(f) % element(1) % face = c
+          end select
 
         end if
 

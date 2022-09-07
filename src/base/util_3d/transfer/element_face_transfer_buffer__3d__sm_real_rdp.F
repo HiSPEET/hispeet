@@ -27,6 +27,9 @@ contains
 
     call Init_ElementFaceTransferBuffer_Shared_3D(this, mesh)
 
+    ! skip empty partition
+    if (this % ne <= 0) return
+
     allocate(real(RDP) :: this % send % buf(this%np, this%np, this%nc, this%nf))
     allocate(real(RDP) :: this % recv % buf(this%np, this%np, this%nc, this%nf))
 
@@ -45,6 +48,9 @@ contains
 
     call Init_ElementFaceTransferBuffer_Shared_3D(this, mesh)
 
+    ! skip empty partition
+    if (this % ne <= 0) return
+
     allocate(real(RDP) :: this % send % buf(this%np, this%np, this%nc, this%nf))
     allocate(real(RDP) :: this % recv % buf(this%np, this%np, this%nc, this%nf))
 
@@ -62,6 +68,9 @@ contains
     real(RDP),      intent(in) :: v(:,:,:,:) !< element-face variable
     integer,        intent(in) :: tag        !< message tag
 
+    ! skip empty partition
+    if (this % ne <= 0) return
+
     call Transfer_RX(this, mesh, v, size(v,4), tag)
 
   end subroutine Transfer_RDP_S
@@ -74,6 +83,9 @@ contains
     class(Mesh_3D), intent(in) :: mesh         !< mesh partition
     real(RDP),      intent(in) :: v(:,:,:,:,:) !< element-face variable
     integer,        intent(in) :: tag          !< message tag
+
+    ! skip empty partition
+    if (this % ne <= 0) return
 
     call Transfer_RX(this, mesh, v, size(v,4), tag)
 
@@ -88,6 +100,9 @@ contains
   module subroutine Merge_RDP_S(this, v)
     class(ElementFaceTransferBuffer_3D), intent(inout) :: this
     real(RDP), intent(inout) :: v(:,:,:,:) !< element-face variable
+
+    ! skip empty partition
+    if (this % ne <= 0) return
 
     !$omp master
     if (size(v,4) /= this%ne + this%ng) then
@@ -107,6 +122,9 @@ contains
   module subroutine Merge_RDP_A(this, v)
     class(ElementFaceTransferBuffer_3D), intent(inout) :: this
     real(RDP), intent(inout) :: v(:,:,:,:,:) !< element-face variable
+
+    ! skip empty partition
+    if (this % ne <= 0) return
 
     !$omp master
     if (size(v,4) /= this%ne + this%ng) then

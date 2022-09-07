@@ -140,7 +140,7 @@ program Mesh3d_Explore
 
   do
     if (rank == 0) then
-      write(*,'(/,A,I0,A)',advance='NO') 'partition: ', mesh%n_part,' > part = '
+      write(*,'(/,A,I0,A)',advance='NO') 'partition: ', mesh%n_parts,' > part = '
       read(*,*) part
     end if
     call XMPI_Bcast(part, 0, comm)
@@ -193,16 +193,13 @@ contains
     write(*,'(A,3(1X,G0))') 'n_ghost    =', mesh % n_ghost
     write(*,'(A,3(1X,G0))') 'p_geom     =', mesh % p_geom
     write(*,'(A,3(1X,G0))') 'n_bound    =', mesh % n_bound
-    write(*,'(A,3(1X,G0))') 'n_part     =', mesh % n_part
+    write(*,'(A,3(1X,G0))') 'n_part     =', mesh % n_parts
     write(*,'(A,3(1X,G0))') 'part       =', mesh % part
     write(*,'(A,3(1X,G0))') 'structured =', mesh % structured
     write(*,'(A,3(1X,G0))') 'regular    =', mesh % regular
     write(*,'(A,3(1X,G0))') 'n_elem_1   =', mesh % n_elem_1
     write(*,'(A,3(1X,G0))') 'n_elem_2   =', mesh % n_elem_2
     write(*,'(A,3(1X,G0))') 'n_elem_3   =', mesh % n_elem_3
-    write(*,'(A,3(1X,G0))') 'n_face_1   =', mesh % n_face_1
-    write(*,'(A,3(1X,G0))') 'n_face_2   =', mesh % n_face_2
-    write(*,'(A,3(1X,G0))') 'n_face_3   =', mesh % n_face_3
     write(*,'(A,3(1X,G0))') 'dx         =', mesh % dx
 
     min_vert = huge(1);  max_vert = -huge(1)
@@ -219,8 +216,8 @@ contains
         max_edge = max( max_edge, maxval(element % edge   % id) )
         min_face = min( min_face, minval(element % face   % id) )
         max_face = max( max_face, maxval(element % face   % id) )
-        min_elem = min( min_elem, element % local_id )
-        max_elem = max( max_elem, element % local_id )
+        min_elem = min( min_elem, element % id )
+        max_elem = max( max_elem, element % id )
         min_n_nb = min( min_n_nb, size(element % neighbor) )
         max_n_nb = max( max_n_nb, size(element % neighbor) )
       end associate
@@ -240,8 +237,7 @@ contains
     integer :: i, j, j1, j2, k
 
     write(*,*)
-    write(*,'(A,99(1X,I5))') 'global_id     =', element%global_id
-    write(*,'(A,99(1X,I5))') 'local_id      =', element%local_id
+    write(*,'(A,99(1X,I5))') 'id            =', element%id
     write(*,'(A,99(1X,I5))') 'vertex % id   =', element%vertex%id
     write(*,'(A,99(1X,I5))') 'vertex % rank =', element%vertex%rank
     write(*,'(A,99(1X,I5))') 'vertex % val  =', element%vertex%val

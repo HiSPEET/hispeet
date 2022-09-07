@@ -183,15 +183,19 @@ program INS_Operator_3D_Test
     call CreateCuboidDiamonds(comm, input_file, ins_op % mesh)
     domain_name = 'Cuboidal domain with unstructured "diamond" mesh'
   case(3)
-    call CreateCylinder( comm, input_file, ins_op % mesh)
+    call CreateCylinder(comm, input_file, ins_op % mesh)
     domain_name = 'Cylindrical domain with unstructured mesh'
   case(4)
-    call CreateAnnulus( comm, input_file, ins_op % mesh)
+    call CreateAnnulus(comm, input_file, ins_op % mesh)
     domain_name = 'Annular domain with unstructured mesh'
   case default
     call CreateCuboidCartesian(comm, input_file, ins_op % mesh)
     domain_name = 'Cuboidal domain with Cartesian mesh'
   end select
+
+  ! operators ..................................................................
+
+  call ins_op % Init(ins_options)
 
   n_elem  = ins_op % mesh % n_elem
   n_ghost = ins_op % mesh % n_ghost
@@ -219,10 +223,6 @@ program INS_Operator_3D_Test
       end if
     end if
   end do
-
-  ! operators ..................................................................
-
-  call ins_op % Init(ins_options)
 
   ! variables ..................................................................
 
@@ -335,7 +335,7 @@ program INS_Operator_3D_Test
 
   ! error
   w(:,:,:,:,1:3) = F_ch - F_ce
-  e_c = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), ins_op % mesh % comm)
+  e_c = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), comm)
   e_c = sqrt(e_c / n_point)
 
   ! viscous term: F_d = ∇·τ ....................................................
@@ -351,7 +351,7 @@ program INS_Operator_3D_Test
 
   ! error
   w(:,:,:,:,1:3) = F_dh - F_de
-  e_d = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), ins_op % mesh % comm)
+  e_d = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), comm)
   e_d = sqrt(e_d / n_point)
 
   ! diffusion part: w = ∇·(ν ∇v) ...............................................
@@ -381,12 +381,12 @@ program INS_Operator_3D_Test
 
   ! error (if ν is constant)
   w(:,:,:,:,1:3) = F_ph - F_de
-  e_d1 = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), ins_op % mesh % comm)
+  e_d1 = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), comm)
   e_d1 = sqrt(e_d1 / n_point)
 
   ! deviation between F_dh and F_d1h
   w(:,:,:,:,1:3) = F_ph - F_dh
-  d_d1 = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), ins_op % mesh % comm)
+  d_d1 = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), comm)
   d_d1 = sqrt(d_d1 / n_point)
 
   ! pressure term: F_p = -∇p ...................................................
@@ -407,12 +407,12 @@ program INS_Operator_3D_Test
   ! Write plot files
 
   if (export_vtk) then
-    call ExportVTK_VolumeData( x      = ins_op % sem_v % metrics % x &
-                             , s      = var                          &
-                             , sname  = var_name                     &
-                             , file   = 'ins_operator_3d_test'       &
-                             , part   = ins_op % mesh % part         &
-                             , n_part = ins_op % mesh % n_part       )
+    call ExportVTK_VolumeData( x       = ins_op % sem_v % metrics % x &
+                             , s       = var                          &
+                             , sname   = var_name                     &
+                             , file    = 'ins_operator_3d_test'       &
+                             , part    = ins_op % mesh % part         &
+                             , n_parts = ins_op % mesh % n_parts      )
   end if
 
   !-----------------------------------------------------------------------------

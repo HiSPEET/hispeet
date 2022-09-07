@@ -18,11 +18,13 @@ program DG_Diffusion3D_Test
 
   use TPO__Diagonal__3D
   use Mesh__3D
+  use Element_Transfer_Buffer__3D
+  use Element_Distribution_Map__3D
+  use Partition_Root_Mesh__3D
   use Spectral_Element_Mesh__3D
   use Spectral_Element_Scalar__3D
   use Spectral_Element_Vector__3D
   use Spectral_Element_Boundary_Variable__3D
-  use Element_Transfer_Buffer__3D
   use DG__Schwarz_Operator__3D
   use DG__Diffusion_Operator__3D
   use Export_VTK_Volume_Data__3D
@@ -113,31 +115,45 @@ program DG_Diffusion3D_Test
   ! 2  Schwarz
   ! 3  Schwarz-preconditioned CG
 
-  integer   :: i_max   = 1    ! max number of iterations/cycles
-  real(RNP) :: r_red   = 1E-3 ! min residual reduction
+  integer   :: i_max  = 1    ! max number of iterations/cycles
+  real(RNP) :: r_red  = 1E-3 ! min residual reduction
   type(DG_SchwarzOptions_3D) :: schwarz_opt
 
   namelist /solver_prm/ method, i_max, r_red, schwarz_opt
 
   ! MPI and OpenMP variables ...................................................
 
-  type(MPI_Comm) :: comm      ! MPI communicator
-  integer        :: rank      ! local MPI rank
-  integer        :: n_proc    ! number of MPI processes
-  integer        :: n_thread  ! number of OpenMP threads
+  type(MPI_Comm) :: comm     ! MPI communicator
+  integer        :: rank     ! local MPI rank
+  integer        :: n_proc   ! number of MPI processes
+  integer        :: n_thread ! number of OpenMP threads
 
-  ! problem variables ..........................................................
+  ! mesh and variables .........................................................
 
+  ! partitioning
+  logical :: repartition = .false.
+  type(RootMeshPartitioningOptions_3D) :: part_opt
+  type(ElementDistributionMap_3D)      :: part_map
+  type(Mesh_3D), allocatable           :: orig_mesh
+
+  namelist /partition_prm/ repartition, part_opt
+
+  ! mesh and spectral elements
   type(Mesh_3D)                 :: mesh
   type(SpectralElementMesh_3D)  :: sem
+
+  ! discrete operators
   type(DG_ElementOptions_1D)    :: dg_opt
   type(DG_DiffusionOperator_3D) :: diffusion_op
 
+  ! problem
   class(EllipticProblem), allocatable :: problem
 
+  ! space and names for variables
   real(RNP), allocatable, target :: var(:,:,:,:,:)
   character(len=80), allocatable :: var_names(:)
 
+  ! variables
   real(RNP), pointer, contiguous :: s   (:,:,:,:)  ! exact solution
   real(RNP), pointer, contiguous :: u   (:,:,:,:)  ! approximate solution
   real(RNP), pointer, contiguous :: nu  (:,:,:,:)  ! diffusivity
@@ -147,6 +163,7 @@ program DG_Diffusion3D_Test
   real(RNP), pointer, contiguous :: part(:,:,:,:)  ! partition ID
   real(RNP), pointer, contiguous :: elem(:,:,:,:)  ! local element ID
 
+  ! work arrays
   real(RNP), allocatable :: mm (:,:,:,:)     ! diagonal mass matrix
   real(RNP), allocatable :: q  (:,:,:,:,:)   ! flux vector
 
@@ -208,6 +225,7 @@ program DG_Diffusion3D_Test
       read(io, nml = problem_prm)
       read(io, nml = dicretization_prm)
       read(io, nml = solver_prm)
+      read(io, nml = partition_prm)
       close(io)
     else
        call Warning( 'DG_Diffusion3D_Test', 'input file "'//trim(input_file)// &
@@ -221,6 +239,8 @@ program DG_Diffusion3D_Test
       has_spectral_nu = has_spectral_nu .and. nu_s > 0
       nu_1 = 0
     end if
+
+    part_opt % n_parts = min(part_opt%n_parts, n_proc)
 
   end if
 
@@ -255,25 +275,43 @@ program DG_Diffusion3D_Test
   call XMPI_Bcast( r_red , 0, comm )
   call schwarz_opt % Bcast(0, comm)
 
-  ! mesh .......................................................................
+  ! globalize partitioning parameters
+  call XMPI_Bcast( repartition, 0, comm )
+  call part_opt % Bcast( 0, comm )
+
+  ! mesh generation ............................................................
+
+  allocate(orig_mesh)
 
   select case(config)
   case(2)
-    call CreateCuboidDiamonds( comm, input_file, mesh)
+    call CreateCuboidDiamonds(comm, input_file, orig_mesh)
     config_name = 'Cuboidal domain with unstructured "diamond" mesh'
   case(3)
-    call CreateCuboidOneRotated( comm, input_file, mesh)
+    call CreateCuboidOneRotated(comm, input_file, orig_mesh)
     config_name = 'Cuboidal domain with 3x3x3 elements and rotated center'
   case(4)
-    call CreateCylinder( comm, input_file, mesh)
+    call CreateCylinder(comm, input_file, orig_mesh)
     config_name = 'Cylindrical domain with unstructured mesh'
   case(5)
-    call CreateAnnulus( comm, input_file, mesh)
+    call CreateAnnulus(comm, input_file, orig_mesh)
     config_name = 'Annular domain with unstructured mesh'
   case default
-    call CreateCuboidCartesian( comm, input_file, mesh)
+    call CreateCuboidCartesian(comm, input_file, orig_mesh)
     config_name = 'Cuboidal domain with Cartesian mesh'
   end select
+
+  ! partitioning and spectral elements .........................................
+
+  if (repartition) then
+    call RootMeshPartitioning_3D(part_opt, orig_mesh, mesh, part_map)
+  else
+    mesh = orig_mesh
+  end if
+
+  deallocate(orig_mesh)
+
+  ! spectral element mesh ......................................................
 
   sem = SpectralElementMesh_3D(mesh, po)
 
@@ -349,6 +387,11 @@ program DG_Diffusion3D_Test
   se_q  = SpectralElementVector_3D(sem, q)
   se_bv = SpectralElementBoundaryVariable_3D(sem, sem%mesh%boundary, nc = 1)
 
+!### CHECK
+!call VerifyPartitions(sem, u)
+!STOP "******************** CHECK ********************"
+!### CHECK END
+
   ! solution and RHS ...........................................................
 
   associate(x => sem % metrics % x)
@@ -396,7 +439,7 @@ program DG_Diffusion3D_Test
   end if
 
   ! apply boundary conditions to RHS
-!!!  call diffusion_op % AddBC(se_bv, f)
+!!!  call diffusion_op % AddBC(se_bv, f) !!! no longer required‚
 
   !-----------------------------------------------------------------------------
   ! Consistency test
@@ -463,24 +506,27 @@ program DG_Diffusion3D_Test
   if (method > 0) then
     !$omp parallel
 
-    call SetArray(u, ZERO)
-    call diffusion_op % Apply(u, r, f, se_bv)
-    r_l2_0 = ScalarProduct(r, r, mesh%comm)
-    r_l2_0 = sqrt(r_l2_0)
+    if (mesh%part >= 0) then
+
+      call SetArray(u, ZERO)
+      call diffusion_op % Apply(u, r, f, se_bv)
+      r_l2_0 = ScalarProduct(r, r, mesh%comm_parts)
+      r_l2_0 = sqrt(r_l2_0)
+
+      !$omp master
+      r_max_loc = maxval(abs(r))
+      call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm_parts)
+      if (mesh % part == 0) then
+        write(*,'(A)') 'initial residual:'
+        write(*,'(T3,A,T11,ES10.3)') 'r_L2  =', r_l2_0
+        write(*,'(T3,A,T11,ES10.3)') 'r_max =', r_max
+      end if
+      !$omp end master
+
+    end if
 
     !$omp master
-    if (mesh%part >= 0) then
-      r_max_loc = maxval(abs(r))
-    else
-      r_max_loc =  0
-    end if
-    call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
-    if (rank == 0) then
-      write(*,'(A)') 'initial residual:'
-      write(*,'(T3,A,T11,ES10.3)') 'r_L2  =', r_l2_0
-      write(*,'(T3,A,T11,ES10.3)') 'r_max =', r_max
-      time0 = MPI_Wtime()
-    end if
+    time0 = MPI_Wtime()
     !$omp end master
 
     select case(method)
@@ -493,46 +539,46 @@ program DG_Diffusion3D_Test
     end select
 
     !$omp master
-    if (rank == 0) then
+    if (mesh % part == 0) then
       time = MPI_Wtime()
       time = time - time0
     end if
     !$omp end master
 
     call diffusion_op % Apply(u, r, f, se_bv)
-    r_l2 = ScalarProduct(r, r, mesh%comm)
-    r_l2 = sqrt(r_l2)
 
     !$omp end parallel
 
     if (mesh%part >= 0) then
+
+      r_l2 = ScalarProduct(r, r, mesh%comm_parts)
+      r_l2 = sqrt(r_l2)
+
       r_max_loc = maxval(abs(r))
       e = u - s
       e_min_loc = minval(e)
       e_max_loc = maxval(e)
-    else
-      r_max_loc =  0
-      e_min_loc = -huge(ONE)
-      e_max_loc =  huge(ONE)
-    end if
-    call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm)
-    call XMPI_Reduce(e_min_loc, e_min, MPI_MIN, 0, mesh%comm)
-    call XMPI_Reduce(e_max_loc, e_max, MPI_MAX, 0, mesh%comm)
 
-    if (rank == 0) then
-      write(*,'(/,T3,A)')            'solution:'
-      write(*,'(T3,A,T11,1X,I0)')    'ni    =', ni
-      write(*,'(T3,A,T11,ES10.3)')   'r_L2  =', r_l2
-      write(*,'(T3,A,T11,ES10.3)')   'r_max =', r_max
-      write(*,'(T3,A,T11,ES10.3)')   'e_max =', (e_max - e_min)/2
-      if (ni > 0) then
-        write(*,'(T3,A,T12,ES10.3)') '-lg ρ =', log10(r_l2_0 / r_l2) / ni
+      call XMPI_Reduce(r_max_loc, r_max, MPI_MAX, 0, mesh%comm_parts)
+      call XMPI_Reduce(e_min_loc, e_min, MPI_MIN, 0, mesh%comm_parts)
+      call XMPI_Reduce(e_max_loc, e_max, MPI_MAX, 0, mesh%comm_parts)
+
+      if (rank == 0) then
+        write(*,'(/,T3,A)')            'solution:'
+        write(*,'(T3,A,T11,1X,I0)')    'ni    =', ni
+        write(*,'(T3,A,T11,ES10.3)')   'r_L2  =', r_l2
+        write(*,'(T3,A,T11,ES10.3)')   'r_max =', r_max
+        write(*,'(T3,A,T11,ES10.3)')   'e_max =', (e_max - e_min)/2
+        if (ni > 0) then
+          write(*,'(T3,A,T12,ES10.3)') '-lg ρ =', log10(r_l2_0 / r_l2) / ni
+        end if
+        write(*,'(/,T3,A)')            'performance:'
+        write(*,'(T3,A,T11,ES10.3)')   'time     =', time
+        write(*,'(T3,A,T11,ES10.3)')   'time/DOF =', time / dof
+        write(*,'(T3,A,T11,ES10.3)')   'DOF/time =', dof / time
+        write(*,*)
       end if
-      write(*,'(/,T3,A)')            'performance:'
-      write(*,'(T3,A,T11,ES10.3)')   'time     =', time
-      write(*,'(T3,A,T11,ES10.3)')   'time/DOF =', time / dof
-      write(*,'(T3,A,T11,ES10.3)')   'DOF/time =', dof / time
-      write(*,*)
+
     end if
 
   end if
@@ -540,19 +586,21 @@ program DG_Diffusion3D_Test
   !-----------------------------------------------------------------------------
   ! Plot files
 
-  do i = 1, mesh % n_elem
-    part(:,:,:,i) = mesh % part
-    elem(:,:,:,i) = i
-  end do
-
   if (len_trim(plot_file) > 0 .and. mesh%part >= 0) then
-    call ExportVTK_VolumeData( sem % metrics % x        &
-                             , s      = var             &
-                             , sname  = var_names       &
-                             , file   = trim(plot_file) &
-                             , part   = mesh % part     &
-                             , n_part = mesh % n_part   &
-                             , subdiv = plot_subdiv     )
+
+    do i = 1, mesh % n_elem
+      part(:,:,:,i) = mesh % part
+      elem(:,:,:,i) = i
+    end do
+
+    call ExportVTK_VolumeData( sem % metrics % x         &
+                             , s       = var             &
+                             , sname   = var_names       &
+                             , file    = trim(plot_file) &
+                             , part    = mesh % part     &
+                             , n_parts = mesh % n_parts  &
+                             , subdiv  = plot_subdiv     )
+
   end if
 
   call SchwarzTest( diffusion_op, r   &
@@ -582,7 +630,6 @@ contains
     real(RNP), allocatable, save :: r_ext(:,:,:,:)
     real(RDP), allocatable, save :: rs_dp(:,:,:,:)
     real(RSP), allocatable, save :: rs_sp(:,:,:,:)
-    real(RNP) :: x_cube(0:3,3)
     integer :: np, ne, ng, no, ns, nl(3)
 
     if (len_trim(file) == 0) return
@@ -630,10 +677,10 @@ contains
 
       if (part /= mesh % part .or. e < 1 .or. e > ne) return
 
-      x_cube = mesh % x_cube(0:3,e,1:3)
       !$omp master
       if (schwarz % wp == RNP) then
-        call ExportVTK_SchwarzDomain(x_cube, xi, rs_dp(:,:,:,e), file)
+        call ExportVTK_SchwarzDomain( mesh % element(e) % geometry % x_c &
+                                    , xi, rs_dp(:,:,:,e), file           )
       end if
       deallocate(r_ext, rs_dp, rs_sp, buf_r)
       !$omp end master
@@ -642,6 +689,89 @@ contains
     end associate
 
   end subroutine SchwarzTest
+
+  !-----------------------------------------------------------------------------
+
+  subroutine VerifyPartitions(sem, u)
+    use Element_Face_Transfer_Buffer__3D
+    type(SpectralElementMesh_3D), intent(in) :: sem
+    real(RNP), contiguous, intent(inout) :: u(0:,0:,0:,1:)
+
+    type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: tr_buf
+    real(RNP), allocatable, save :: tr(:,:,:,:) ! traces of u
+    real(RNP), allocatable :: ue(:,:), un(:,:), du(:,:)
+    real(RNP), parameter :: tol = 1e-6
+    integer :: po, ne, ng
+    integer :: d = 2
+    integer :: e, f, i, l, m
+
+    associate(mesh => sem % mesh)
+      po = ubound(u,1)
+      ne = mesh % n_elem
+      ng = mesh % n_ghost
+
+      allocate(ue(0:po, 0:po))
+      allocate(un(0:po, 0:po))
+      allocate(du(0:po, 0:po))
+
+      allocate(tr(0:po, 0:po, 6, ne+ng))
+      tr_buf = ElementFaceTransferBuffer_3D(sem%mesh, tr)
+
+      u = sem % metrics % x(:,:,:,:,d)
+
+      do e = 1, ne
+        tr(:,:,1,e) = u( 0,:,:,e)
+        tr(:,:,2,e) = u(po,:,:,e)
+        tr(:,:,3,e) = u(:, 0,:,e)
+        tr(:,:,4,e) = u(:,po,:,e)
+        tr(:,:,5,e) = u(:,:, 0,e)
+        tr(:,:,6,e) = u(:,:,po,e)
+      end do
+
+      call tr_buf % Transfer(mesh, tr, tag=1000)
+      call tr_buf % Merge(tr)
+
+      do e = 1, ne
+        associate(element => mesh % element(e))
+          do f = 1, 6
+            i = element % face(f) % i_neighbor
+            if (i > 0) then
+              l = element % neighbor(i) % id
+              m = element % neighbor(i) % component
+              call element % AlignFromNeighborFace(f, i, tr(:,:,m,l), un)
+              select case(f)
+              case(1)
+                ue = u( 0,:,:,e)
+              case(2)
+                ue = u(po,:,:,e)
+              case(3)
+                ue = u(:, 0,:,e)
+              case(4)
+                ue = u(:,po,:,e)
+              case(5)
+                ue = u(:,:, 0,e)
+              case(6)
+                ue = u(:,:,po,e)
+              end select
+              du = un - ue
+              if (maxval(abs(du)) > tol) then
+                print '(99(G0,1X))', '!!! part',mesh%part,': |du| > tol', &
+                  '@ e,f,i,l,m =',e,f,i,l,m
+                if (size(du) <= 9) then
+                  print '(3(G0,1X),9(ES9.2,1X))', '!!! part',mesh%part,': ue =',ue
+                  print '(3(G0,1X),9(ES9.2,1X))', '!!! part',mesh%part,': un =',un
+                  print '(3(G0,1X),9(ES9.2,1X))', '!!! part',mesh%part,': du =',du
+                  print '(3(G0,1X),9(ES9.2,1X))', '!!! part',mesh%part,': tr =',tr(:,:,m,l)
+                end if
+              end if
+            end if
+          end do
+        end associate
+      end do
+
+      deallocate(tr, tr_buf)
+    end associate
+  end subroutine VerifyPartitions
 
   !=============================================================================
 

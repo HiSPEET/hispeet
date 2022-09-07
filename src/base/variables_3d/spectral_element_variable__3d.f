@@ -184,16 +184,34 @@ contains
 
   !-----------------------------------------------------------------------------
   !> TBP for computing the volume integrals of the components
+  !>
+  !> The otional argument `scope` allows to modify the scope of collective MPI
+  !> operations. If it is absent or equal `'parts'`, the latter are restricted
+  !> to the active partitions governed by `this%sem%mesh%comm_parts`.
+  !> Passing `scope = 'world'` selects `this%sem%mesh%comm_world` and thus
+  !> includes the inactive (empty) partitions.
 
-  subroutine GetVolumeIntegrals(this, vi)
+  subroutine GetVolumeIntegrals(this, vi, scope)
     class(SpectralElementVariable_3D), intent(in) :: this
     real(RNP), intent(out) :: vi(size(this%val,5))
     !< volume integrals of spectral element variable components
+    character(len=*), optional, intent(in) :: scope
+    !< scope of collective MPI operations
 
+    type(MPI_Comm), save :: comm
     real(RNP), allocatable, save :: vi_loc(:), vi_glob(:)
     real(RNP), allocatable :: vi_priv(:), www(:,:,:)
     real(RNP) :: Jd0
     integer   :: c, e, i, j, k, po, ne, nc
+
+    !$omp master
+    comm = this % sem % mesh % comm_parts
+    if (present(scope)) then
+      if (scope == 'world') then
+        comm = this % sem % mesh % comm_world
+      end if
+    end if
+    !$omp end master
 
     associate( mesh   => this % sem % mesh          &
              , std_op => this % sem % std_op        &
@@ -213,47 +231,51 @@ contains
       !$omp end master
       !$omp barrier
 
-      ! precompute 3D quadrature weights
-      allocate(www(0:po, 0:po, 0:po))
-      do k = 0, po
-      do j = 0, po
-      do i = 0, po
-        www(i,j,k) = std_op % w(i) * std_op % w(j) * std_op % w(k)
-      end do
-      end do
-      end do
+      ACTIVE: if (mesh % part >= 0) then
 
-      if (mesh % regular) then
-
-        Jd0 = product(mesh % dx) / 8
-
-        !$omp do schedule(static)
-        do e = 1, mesh % n_elem
-          do c = 1, nc
-            vi_priv(c) = vi_priv(c) + Jd0 * sum(www * val(:,:,:,e,c))
-          end do
+        ! precompute 3D quadrature weights
+        allocate(www(0:po, 0:po, 0:po))
+        do k = 0, po
+        do j = 0, po
+        do i = 0, po
+          www(i,j,k) = std_op % w(i) * std_op % w(j) * std_op % w(k)
         end do
-        !$omp end do nowait
-
-      else
-
-        !$omp do schedule(static)
-        do e = 1, mesh % n_elem
-          do c = 1, nc
-            vi_priv(c) = vi_priv(c) + sum(www * Jd(:,:,:,e) * val(:,:,:,e,c))
-          end do
         end do
-        !$omp end do nowait
+        end do
 
-      end if
+        if (mesh % regular) then
 
-      !$omp critical
-      vi_loc = vi_loc + vi_priv
-      !$omp end critical
-      !$omp barrier
+          Jd0 = product(mesh % dx) / 8
+
+          !$omp do schedule(static)
+          do e = 1, mesh % n_elem
+            do c = 1, nc
+              vi_priv(c) = vi_priv(c) + Jd0 * sum(www * val(:,:,:,e,c))
+            end do
+          end do
+          !$omp end do nowait
+
+        else
+
+          !$omp do schedule(static)
+          do e = 1, mesh % n_elem
+            do c = 1, nc
+              vi_priv(c) = vi_priv(c) + sum(www * Jd(:,:,:,e) * val(:,:,:,e,c))
+            end do
+          end do
+          !$omp end do nowait
+
+        end if
+
+        !$omp critical
+        vi_loc = vi_loc + vi_priv
+        !$omp end critical
+        !$omp barrier
+
+      end if ACTIVE
 
       !$omp master
-      call XMPI_Allreduce(vi_loc, vi_glob, MPI_SUM, mesh % comm)
+      call XMPI_Allreduce(vi_loc, vi_glob, MPI_SUM, comm)
       !$omp end master
       !$omp barrier
 
@@ -270,14 +292,23 @@ contains
 
   !-----------------------------------------------------------------------------
   !> TBP for computing the surface integrals of the components
+  !>
+  !> The otional argument `scope` allows to modify the scope of collective MPI
+  !> operations. If it is absent or equal `'parts'`, the latter are restricted
+  !> to the active partitions governed by `this%sem%mesh%comm_parts`.
+  !> Passing `scope = 'world'` selects `this%sem%mesh%comm_world` and thus
+  !> includes the inactive (empty) partitions.
 
-  subroutine GetSurfaceIntegrals(this, si, mask)
+  subroutine GetSurfaceIntegrals(this, si, mask, scope)
     class(SpectralElementVariable_3D), intent(in) :: this
     real(RNP), intent(out) :: si(size(this%val,5),this%sem%mesh%n_bound)
     !< volume integrals of spectral element variable components
     logical, optional, intent(in) :: mask(this%sem%mesh%n_bound)
     !< set T/F for boundary surfaces to be in/excluded [T]
+    character(len=*), optional, intent(in) :: scope
+    !< scope of collective MPI operations
 
+    type(MPI_Comm), save :: comm
     real(RNP), allocatable, save :: si_loc(:,:), si_glob(:,:)
     real(RNP), allocatable :: si_priv(:,:), ww(:,:)
     real(RNP) :: a0(6)
@@ -290,6 +321,15 @@ contains
     else
       skip = .false.
     end if
+
+    !$omp master
+    comm = this % sem % mesh % comm_parts
+    if (present(scope)) then
+      if (scope == 'world') then
+        comm = this % sem % mesh % comm_world
+      end if
+    end if
+    !$omp end master
 
     associate( mesh   => this % sem % mesh         &
              , std_op => this % sem % std_op       &
@@ -329,8 +369,8 @@ contains
           if (skip(b)) cycle
           !$omp do schedule(static)
           do f = 1, mesh % boundary(b) % n_face
-            e = mesh % boundary(b) % face(f) % mesh_element % id   ! element ID
-            s = mesh % boundary(b) % face(f) % mesh_element % face ! element side
+            e = mesh % boundary(b) % face(f) % element_id   ! element ID
+            s = mesh % boundary(b) % face(f) % element_face ! element side
             do c = 1, nc
               select case(s)
               case(1)
@@ -357,8 +397,8 @@ contains
           if (skip(b)) cycle
           !$omp do schedule(static)
           do f = 1, mesh % boundary(b) % n_face
-            e = mesh % boundary(b) % face(f) % mesh_element % id   ! element ID
-            s = mesh % boundary(b) % face(f) % mesh_element % face ! element side
+            e = mesh % boundary(b) % face(f) % element_id   ! element ID
+            s = mesh % boundary(b) % face(f) % element_face ! element side
             do c = 1, nc
               select case(s)
               case(1)
@@ -387,7 +427,7 @@ contains
       !$omp barrier
 
       !$omp master
-      call XMPI_Allreduce(si_loc, si_glob, MPI_SUM, mesh % comm)
+      call XMPI_Allreduce(si_loc, si_glob, MPI_SUM, comm)
       !$omp end master
       !$omp barrier
 
