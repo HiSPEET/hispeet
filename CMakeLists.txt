@@ -28,6 +28,8 @@
 #         0:  compile without OpenMP (default)
 #         1:  compile with OpenMP
 #
+#     The following flag has no effect, since OpenACC is disabled
+#
 #     -D OpenACC=⟨0|1⟩
 #         0:  compile without OpenACC (default)
 #         1:  compile with OpenACC
@@ -54,6 +56,13 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 
 #===============================================================================
 # Prerequisites
+
+#-------------------------------------------------------------------------------
+# OpenMP
+
+if (OpenMP OR NOT SKIP_LIBXSMM)
+   find_package(OpenMP REQUIRED)
+endif ()
 
 #-------------------------------------------------------------------------------
 # MPI
@@ -173,53 +182,54 @@ endif ()
 # OpenMP
 
 if (OpenMP)
-    find_package(OpenMP REQUIRED)
     set(CMAKE_C_FLAGS          "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS        "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     set(CMAKE_Fortran_FLAGS    "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+elseif (NOT SKIP_LIBXSMM)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif (OpenMP)
 
 #-------------------------------------------------------------------------------
-# OpenACC
+# OpenACC (disabled)
 
-if (OpenACC)
-
-    # LIBXSMM is not used
-    set(SKIP_LIBXSMM "1")
-
-    ## using CMake module -- not working :(
-    ## find_package(OpenACC REQUIRED)
-
-    if (NOT DEFINED OpenACC_ACCEL_TARGET)
-        set(OpenACC_ACCEL_TARGET "tesla:kepler+")
-    endif ()
-
-    # Fortran and C compiler IDs must match to avoid problems with linker
-    if ( CMAKE_Fortran_COMPILER_ID MATCHES "PGI" AND
-         CMAKE_C_COMPILER_ID       MATCHES "PGI" )
-
-        set( OpenACC_C_FLAGS
-             "-acc -Minfo=accel -Minline=3 -ta=${OpenACC_ACCEL_TARGET}" )
-
-        set( OpenACC_Fortran_FLAGS
-             "-acc -Minfo=accel -Minline=3 -ta=${OpenACC_ACCEL_TARGET}" )
-
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Mcuda -lcublas")
-
-        set(OpenACC_FOUND TRUE)
-        message (STATUS "Found OpenACC (PGI)")
-
-    else ()
-        message(FATAL_ERROR "Could NOT find OpenACC")
-    endif ()
-
-    # Add OpenACC compiler flags ()
-    set(CMAKE_C_FLAGS       "${CMAKE_C_FLAGS} ${OpenACC_C_FLAGS}")
-    set(CMAKE_CXX_FLAGS     "${CMAKE_CXX_FLAGS} ${OpenACC_CXX_FLAGS}")
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenACC_Fortran_FLAGS}")
-
-endif (OpenACC)
+#if (OpenACC)
+#
+#    # LIBXSMM is not used
+#    set(SKIP_LIBXSMM "1")
+#
+#    ## using CMake module -- not working :(
+#    ## find_package(OpenACC REQUIRED)
+#
+#    if (NOT DEFINED OpenACC_ACCEL_TARGET)
+#        set(OpenACC_ACCEL_TARGET "tesla:kepler+")
+#    endif ()
+#
+#    # Fortran and C compiler IDs must match to avoid problems with linker
+#    if ( CMAKE_Fortran_COMPILER_ID MATCHES "PGI" AND
+#         CMAKE_C_COMPILER_ID       MATCHES "PGI" )
+#
+#        set( OpenACC_C_FLAGS
+#             "-acc -Minfo=accel -Minline=3 -ta=${OpenACC_ACCEL_TARGET}" )
+#
+#        set( OpenACC_Fortran_FLAGS
+#             "-acc -Minfo=accel -Minline=3 -ta=${OpenACC_ACCEL_TARGET}" )
+#
+#        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Mcuda -lcublas")
+#
+#        set(OpenACC_FOUND TRUE)
+#        message (STATUS "Found OpenACC (PGI)")
+#
+#    else ()
+#        message(FATAL_ERROR "Could NOT find OpenACC")
+#    endif ()
+#
+#    # Add OpenACC compiler flags ()
+#    set(CMAKE_C_FLAGS       "${CMAKE_C_FLAGS} ${OpenACC_C_FLAGS}")
+#    set(CMAKE_CXX_FLAGS     "${CMAKE_CXX_FLAGS} ${OpenACC_CXX_FLAGS}")
+#    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenACC_Fortran_FLAGS}")
+#
+#endif (OpenACC)
 
 #===============================================================================
 # External libraries
