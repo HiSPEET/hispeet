@@ -29,8 +29,8 @@ program INS_Operator_3D_Test
   use TPO__INS_Convection__3D_D__Gen
 
   use INS__Problem__3D
-  use INS__Problem__3D__Vortex_TG
-  use INS__Problem__3D__Variable_Viscosity
+  use INS__Problem__Vortex_TG__3D
+  use INS__Problem__Variable_Viscosity__3D
   use INS__Operator__3D
 
   use Create_Cuboid_Cartesian
@@ -205,9 +205,9 @@ program INS_Operator_3D_Test
 
   select case(flow_problem)
   case('Vortex_TG')
-    allocate(INS_Problem_3D_Vortex_TG         :: problem)
+    allocate(INS_Problem_Vortex_TG_3D         :: problem)
   case default
-    allocate(INS_Problem_3D_VariableViscosity :: problem)
+    allocate(INS_Problem_VariableViscosity_3D :: problem)
   end select
 
   call problem % SetProblem(n_bound, problem_file, comm)
@@ -339,7 +339,7 @@ program INS_Operator_3D_Test
   e_c = sqrt(e_c / n_point)
 
   ! viscous term: F_d = ∇·τ ....................................................
-  ! so far ν is constant and boundaries are periodic of have Dirichlet BC
+  ! so far ν is constant and boundaries are periodic or have Dirichlet BC
 
   call ins_op % GetDiffusionTerm( problem % bc_v   &
                                 , problem % nu_ref &

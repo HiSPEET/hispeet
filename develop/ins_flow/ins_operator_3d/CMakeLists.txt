@@ -5,7 +5,7 @@ add_executable( ins_operator_3d_test
                 ins_operator_3d_test.f
               )
 
-target_link_libraries(ins_operator_3d_test HiIncNS)
+target_link_libraries(ins_operator_3d_test HiINSFlow)
 
 file( COPY
           ins_operator_3d_test.prm

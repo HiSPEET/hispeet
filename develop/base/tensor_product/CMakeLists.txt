@@ -53,7 +53,7 @@ configure_file( validate__tpo__grad_3d_d.prm
 add_executable( validate__tpo__ins_convection_3d_d
                 validate__tpo__ins_convection_3d_d.f )
 
-target_link_libraries(validate__tpo__ins_convection_3d_d HiBase HiIncNS)
+target_link_libraries(validate__tpo__ins_convection_3d_d HiBase HiINSFlow)
 
 configure_file( validate__tpo__ins_convection_3d_d.prm
                 validate__tpo__ins_convection_3d_d.prm COPYONLY )

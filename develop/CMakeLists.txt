@@ -1,3 +1,4 @@
 add_subdirectory(base)
+add_subdirectory(ins_flow)
+
 add_subdirectory(cart)
-add_subdirectory(incompressible_navier_stokes)
