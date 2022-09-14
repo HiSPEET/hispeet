@@ -16,6 +16,7 @@ module INS__Operator__3D
 
   use Mesh__3D
   use Spectral_Element_Mesh__3D
+  use Spectral_Element_Boundary_Variable__3D
 
   implicit none
   private
@@ -47,6 +48,8 @@ module INS__Operator__3D
 
     generic :: Init => Init_INS_Operator_3D
     procedure, private :: Init_INS_Operator_3D
+
+    procedure :: SetVelocityBC
 
     generic :: GetDiffusionTerm => GetDiffusionTerm_C
     procedure, private :: GetDiffusionTerm_C ! diffusion with constant viscosity
@@ -139,6 +142,52 @@ contains
                                          , this % sop_q % basis )
 
   end subroutine Init_INS_Operator_3D
+
+  !-----------------------------------------------------------------------------
+  !> Apply the velocity boundary conditions
+  !>
+  !> The boundary variable `bv` is expected to contain the velocity boundary
+  !> conditions in the first three components. Velocity values will be injected
+  !> into `v_ef` and stresses into `s_ef`, if present.
+  !>
+  !> The element face variables must be dimensioned as
+  !>
+  !>     v_ef(np,np,6,nl,3)
+  !>     s_ef(np,np,6,nl,3)
+  !>
+  !>  where `np` is the number of velocity element points per direction and
+  !>  `nl` is the number of elements, possibly including the ghosts.
+  !>
+  !> @note
+  !> So far, only Dirichlet conditions ('D') are supported.
+
+  subroutine SetVelocityBC(this, bc, bv, v_ef, s_ef)
+    class(INS_Operator_3D) , intent(in) :: this
+    !< Navier-Stokes operator
+    character, intent(in) :: bc(:)
+    !< velocity boundary condition type per boundary
+    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:)
+    !< boundary values
+    real(RNP), optional, intent(inout) :: v_ef(:,:,:,:,:)
+    !< velocity on element faces
+    real(RNP), optional, intent(inout) :: s_ef(:,:,:,:,:)
+    !< stress vector on element faces
+
+    integer :: b
+
+    if (present(vt)) then
+      do b = 1, this % mesh % n_bound
+        if (bc(b) == 'D') then
+          bv(b) % CopyToElementFaceVariable(v_ef)
+        end if
+      end do
+    end if
+
+    if (present(st)) then
+      return ! nothing to do yet
+    end if
+
+  end subroutine SetVelocityBC
 
   !-----------------------------------------------------------------------------
   !> Diffusion term with constant viscosity
