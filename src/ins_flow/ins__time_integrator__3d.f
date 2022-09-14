@@ -21,7 +21,7 @@ module INS__Time_Integrator__3D
   type, abstract :: INS_TimeIntegrator_3D
 
     class(INS_Problem_3D),  pointer :: problem => null() !< flow problem
-    class(INS_Operator_3D), pointer :: flow_op => null() !< flow operators
+    class(INS_Operator_3D), pointer :: ins_op  => null() !< INS operators
 
     character(len=80) :: name = ''  !< time-integrator name
 
@@ -40,10 +40,10 @@ module INS__Time_Integrator__3D
     subroutine TimeStep(this, t, dt, u, standby)
       import
       class(INS_TimeIntegrator_3D), intent(inout) :: this
-      real(RNP),         intent(inout) :: t            !< time t₀ → t
-      real(RNP),         intent(in)    :: dt           !< step size ∆t = t-t₀
-      real(RNP),         intent(inout) :: u(:,:,:,:,:) !< u(x,t₀) → u(x,t)
-      logical, optional, intent(in)    :: standby      !< reuse workspace
+      real(RNP), intent(inout) :: t  !< time t₀ → t
+      real(RNP), intent(in)    :: dt !< step size ∆t = t-t₀
+      real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:) !< u(x,t₀) → u(x,t)
+      logical, optional, intent(in) :: standby !< reuse workspace T/F [F]
     end subroutine TimeStep
 
   end interface
@@ -64,14 +64,14 @@ contains
   !-----------------------------------------------------------------------------
   !> Initialization of TimeIntegrator object
 
-  subroutine Init_INS_TimeIntegrator_3D(this, problem, flow_op, opt)
+  subroutine Init_INS_TimeIntegrator_3D(this, problem, ins_op, opt)
     class(INS_TimeIntegrator_3D),                  intent(inout) :: this
     class(INS_Problem_3D),                 target, intent(in)    :: problem
-    class(INS_Operator_3D),                target, intent(in)    :: flow_op
+    class(INS_Operator_3D),                target, intent(in)    :: ins_op
     class(INS_TimeIntegratorOptions_3D), optional, intent(in)    :: opt
 
     this % problem => problem
-    this % flow_op => flow_op
+    this % ins_op  => ins_op
 
     ! options
     if (present(opt)) then

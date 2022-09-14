@@ -8,7 +8,7 @@ add_library(HiINSFlow
             ins__problem__vortex_tg__3d.f
             ins__problem__variable_viscosity__3d.f
             ins__time_integrator__3d.f
-            ins__time_integrator__3d.f
+            ins__time_integrator__euler__3d.f
             )
 
 set_property(TARGET HiINSFlow
