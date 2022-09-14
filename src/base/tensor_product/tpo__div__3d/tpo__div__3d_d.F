@@ -1,5 +1,5 @@
 !> summary:  3D Cartesian divergence operator
-!> author:   Jerome Michel, Erik Pfister
+!> author:   Jerome Michel, Joerg Stiller
 !> date:     2021/10/12
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================

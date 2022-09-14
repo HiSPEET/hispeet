@@ -52,8 +52,7 @@ module Spectral_Element_Variable__3D
   interface
 
     !---------------------------------------------------------------------------
-    !> Extract the traces of SEV components as an element-face variable aligned
-    !> with mesh faces
+    !> Extract the traces of SEV components as an element-face variable
 
     module subroutine GetTraces(this, tr_val, align)
       class(SpectralElementVariable_3D), intent(in) :: this
