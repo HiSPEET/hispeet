@@ -147,7 +147,7 @@ contains
   !> Apply the velocity boundary conditions
   !>
   !> The boundary variable `bv` is expected to contain the velocity boundary
-  !> conditions in the first three components. Velocity values will be injected
+  !> values in the first three components. Velocity values will be injected
   !> into `v_ef` and stresses into `s_ef`, if present.
   !>
   !> The element face variables must be dimensioned as
@@ -165,7 +165,7 @@ contains
     class(INS_Operator_3D) , intent(in) :: this
     !< Navier-Stokes operator
     character, intent(in) :: bc(:)
-    !< velocity boundary condition type per boundary
+    !< boundary condition types
     class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:)
     !< boundary values
     real(RNP), optional, intent(inout) :: v_ef(:,:,:,:,:)
@@ -175,15 +175,15 @@ contains
 
     integer :: b
 
-    if (present(vt)) then
+    if (present(v_ef)) then
       do b = 1, this % mesh % n_bound
         if (bc(b) == 'D') then
-          bv(b) % CopyToElementFaceVariable(v_ef)
+          call bv(b) % CopyToElementFaceVariable(v_ef)
         end if
       end do
     end if
 
-    if (present(st)) then
+    if (present(s_ef)) then
       return ! nothing to do yet
     end if
 

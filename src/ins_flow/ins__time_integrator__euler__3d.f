@@ -60,7 +60,7 @@ contains
 
     call Init_INS_TimeIntegrator_Euler_3D(this, problem, ins_op, opt)
 
-  end function New_TimeIntegrator_Euler
+  end function New_INS_TimeIntegrator_Euler_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of a INS_TimeIntegrator_Euler_3D object
@@ -187,13 +187,13 @@ contains
                                     , problem % nu_ref &
                                     , v, vp, sp, F_d   )
       !$omp do
-      do e = 1, ne
+      do e = 1, n_elem
         do k = 1, np
         do j = 1, np
         do i = 1, np
-          F_d(i,j,k,e,1) = inv_mm(i,j,k,e) * F_d(i,j,k,e,1)
-          F_d(i,j,k,e,2) = inv_mm(i,j,k,e) * F_d(i,j,k,e,2)
-          F_d(i,j,k,e,3) = inv_mm(i,j,k,e) * F_d(i,j,k,e,3)
+          F_d(i,j,k,e,1) = inv_M(i,j,k,e) * F_d(i,j,k,e,1)
+          F_d(i,j,k,e,2) = inv_M(i,j,k,e) * F_d(i,j,k,e,2)
+          F_d(i,j,k,e,3) = inv_M(i,j,k,e) * F_d(i,j,k,e,3)
         end do
         end do
         end do
@@ -218,13 +218,13 @@ contains
                                  , vp   = vp (:,:,:,:,1:3)         &
                                  , F_c  = F_c(:,:,:,:,1:3)         )
           !$omp do
-          do e = 1, ne
+          do e = 1, n_elem
             do k = 1, np
             do j = 1, np
             do i = 1, np
-              F_c(i,j,k,e,1) = inv_mm(i,j,k) * F_c(i,j,k,e,1)
-              F_c(i,j,k,e,2) = inv_mm(i,j,k) * F_c(i,j,k,e,2)
-              F_c(i,j,k,e,3) = inv_mm(i,j,k) * F_c(i,j,k,e,3)
+              F_c(i,j,k,e,1) = inv_M(i,j,k,e) * F_c(i,j,k,e,1)
+              F_c(i,j,k,e,2) = inv_M(i,j,k,e) * F_c(i,j,k,e,2)
+              F_c(i,j,k,e,3) = inv_M(i,j,k,e) * F_c(i,j,k,e,3)
             end do
             end do
             end do
@@ -236,7 +236,7 @@ contains
 
       !$omp do collapse(2)
       do d = 1, 3
-      do e = 1, ne
+      do e = 1, n_elem
 
         ! intermediate velocity
         do k = 1, np
@@ -314,7 +314,7 @@ contains
       ! finalization ...........................................................
 
       !$omp master
-      deallocate(inv_M, vp, sp, F_d, v_i, w, bv_v)
+      deallocate(inv_M, F_d, v_i, vm, vp, sp, w)
       deallocate(vm_buf)
       !$omp end master
 
