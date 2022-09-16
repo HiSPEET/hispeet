@@ -135,8 +135,7 @@ contains
     ! type(SpectralElementBoundaryVariable_3D), allocatable, save :: bv_v(:,:)
 
     ! options
-    logical :: eval_conv   = .true.  ! compute F_c
-    logical :: div_with_bc = .true.  ! compute divergence using essential BCs
+    logical :: eval_conv = .true.  ! compute F_c
 
     ! auxiliary
     real(RNP) :: inv_mm
@@ -234,6 +233,9 @@ contains
 
       ! extrapolation step, neglecting pressure ................................
 
+      ! the inner traces of the intermediate velocity are needed in the next
+      ! step, but are extracted here to save memory bandwidth
+
       !$omp do collapse(2)
       do d = 1, 3
       do e = 1, n_elem
@@ -272,23 +274,13 @@ contains
       end do
       end do
 
-      ! generate outer traces ..................................................
+      ! divergence of intermediate velocity ....................................
 
-      ! start transfer of inner traces
-      call vm_buf % Transfer(mesh, vm, tag=100)
-
-      ! optionally inject the boundary values
-      if (div_with_bc) then
-        call ins_op % SetVelocityBC(problem % bc_v, bv_v, vm)
-      end if
-
-      ! finalize transfer and merge remote inner traces
-      call vm_buf % Merge(vm)
-
-      ! convert inner to outer traces such that vp = v_i⁺
-      call ConvertTraces(mesh, vm, vp)
-
-      ! divergence and pressure .................................................
+      ! generate outer traces
+      call vm_buf % Transfer(mesh, vm, tag=100)           ! transfer traces
+      call ins_op % SetVelocityBC(problem%bc_v, bv_v, vm) ! set boundary values
+      call vm_buf % Merge(vm)                             ! merge remote traces
+      call ConvertTraces(mesh, vm, vp)                    ! vm → vp = v_i⁺
 
       ! divergence of intermediate velocity
       call TPO_Div( Ms = ins_op % eop_v % w            &
