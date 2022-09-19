@@ -1,0 +1,68 @@
+&control_prm
+  config = 4
+  n_test = 1  ! 10
+  plot_file = 'dg_elliptic_3d_test'
+!
+! schwarz_test_file = 'dg_elliptic_3d_test_schwarz'
+! schwarz_test_part =  0
+! schwarz_test_elem = 14   ! one rotated
+! schwarz_test_elem = 23   ! cylinder
+/
+
+&problem_prm
+! bc = ...
+/
+
+&dicretization_prm
+  po = 7
+/
+
+&solver_prm
+! method:
+! 0  none
+! 1  CG
+! 2  Schwarz
+! 3  Schwarz-preconditioned CG
+  method = 3
+  i_max  = 5
+  r_red  = 1E-3
+  schwarz_opt%no = 3
+/
+
+&partition_prm
+  repartition = T
+  part_opt%n_parts = 2
+/
+
+! config = 1
+&cuboid_cartesian_prm
+! regular    = F ! mimic irregular mesh (elements deformed or of different size)
+! structured = F ! mimic unstructured mesh
+  np = 1,1,2
+  ep = 4,4,2
+/
+
+! config = 2
+&cuboid_diamonds_prm
+/
+
+! config = 3
+&cuboid_onerotated_prm
+! rotation = 3*0   ! x/y/z-rotation of center element
+  rotation = 1,2,3 ! x/y/z-rotation of center element
+! periodic = F,F,F ! F/T for non/periodic directions
+! pg = 3           ! polynomial order of geometry
+/
+
+! config = 4
+&cylinder_prm
+  r  = 0.5
+  h  = 1.0
+  nr = 2
+  nz = 3
+  pg = 5
+/
+
+! config = 5
+&annulus_prm
+/

@@ -1,69 +1,78 @@
 submodule(INS__Time_Integrator__3D) MP_PressureSolver
+  use TPO__AAA__3D
+  implicit none
 
 contains
 
-  subroutine PressureSolver(this, dt, div_F_v, bv_v, v_0, p, w)
+  subroutine PressureSolver(this, dt, bv_v, v, f_v, p_v)
     class(INS_TimeIntegrator_3D), intent(in) :: this
+    !< time integration method
     real(RNP), intent(in) :: dt
-    real(RNP), contiguous, intent(in) :: v_0(:,:,:,:,:)
-    real(RNP), contiguous, intent(in) :: div_F_v(:,:,:,:)
+    !< time step, possibly scaled by a factor
     class(SpectralElementBoundaryVariable_3D),intent(in) :: bv_v(:)
-    real(RNP), contiguous, intent(inout) :: p(:,:,:,:)
-    !< pressure (nv,nv,nv,n_elem)
-    real(RNP), contiguous, intent(inout) :: w(:,:,:,:,:)
-    !< workspace (nv,nv,nv,n_elem,3)
+    !< velocity boundary conditions
+    real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
+    !< preliminary velocity
+    real(RNP), contiguous, intent(in) :: f_v(:,:,:,:)
+    !< source at velocity points
+    real(RNP), contiguous, intent(inout) :: p_v(:,:,:,:)
+    !< pressure at velocity points
 
+    ! internal variables .......................................................
+
+    real(RNP), allocatable, save :: p(:,:,:,:) ! pressure at p-points
+    real(RNP), allocatable, save :: f(:,:,:,:) ! source at p-points
     class(SpectralElementBoundaryVariable_3D), allocatable, save :: bv_p(:)
+    ! pressure boundary values at p-points
 
-    character, allocatable :: bc_p(:)
+    character, allocatable :: bc_p(:) ! pressure boundary conditions
+    logical :: mixed_order
     integer :: b
 
-    associate( bc_v    => this % problem % bc_v          &
-             , sem_p   => this % ins_op % sem_p          &
-             , n_bound => this % ins_op % mesh % n_bound &
-             )
+    associate( bc_v    => this % problem % bc_v       &
+             , po_v    => this % ins_op % eop_v % po  &
+             , po_p    => this % ins_op % eop_p % po  &
+             , sem_p   => this % ins_op % sem_p       &
+             , mesh    => this % ins_op % mesh        )
 
       ! initialization .........................................................
 
+      mixed_order = po_p /= po_v
+
       !$omp master
-      bv_p = SpectralElementBoundaryVariable_3D
+      allocate(p(0:po_p, 0:po_p, 0:po_p, 1:mesh%n_elem))
+      if (mixed_order) then
+        allocate(f, mold = p)
+      end if
+      bv_p = SpectralElementBoundaryVariable_3D(sem_p, mesh%boundary, nc=1)
       !$omp end master
       !$omp barrier
 
+      allocate(bc_p(mesh%n_bound))
+
       ! build pressure BC ......................................................
 
-      ! 1) precompute (v_0 - F_v)/dt on Dirichlet faces
-      ! 2) extract normal component
-      ! 3) apply 2D interpolation
-      !
-      ! x) interpolate RHS, remove constant
-      ! y) solve
-      ! z) interpolate result
+      call BuildPressureBC(this, dt, bv_v, v, bc_p, bv_p)
 
+      ! solve ..................................................................
 
-      allocate(bc_p(n_bound))
+      if (mixed_order) then
 
-      do b = 1, n_bound
-        select case(bc_v)
-        case('D')
-          bc_p(b) = 'N'
-        case('P')
-          bc_p(b) = 'P'
-        end select
-      end do
+        call TPO_AAA(this % ins_op % iop_vp % A, f_v, f)
+        ! solve ...
+        call TPO_AAA(this % ins_op % iop_pv % A, p, p_v)
 
-    ! compute boundary conditions
-    !   - difference to BC
-    !   – extract normal component
-    !   – interpolate
-    !   -
-
-
+      else
+        ! solve ...
+      end if
 
       ! finalization ...........................................................
 
       !$omp master
-      deallocate(bv_p)
+      deallocate(bv_p, p)
+      if (mixed_order) then
+        deallocate(f)
+      end if
       !$omp end master
 
     end associate
@@ -73,13 +82,19 @@ contains
   !-----------------------------------------------------------------------------
   !>
 
-  subroutine BuildPressureBC(ins_ti, dt, v, bv_v, bv_p, bc_p)
+  subroutine BuildPressureBC(ins_ti, dt, bv_v, v, bc_p, bv_p)
     class(INS_TimeIntegrator_3D), intent(in) :: ins_ti
+    !< time integration method
     real(RNP), intent(in) :: dt
-    real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
+    !< time step, possibly scaled by a factor
     class(SpectralElementBoundaryVariable_3D), intent(in) :: bv_v(:)
-    class(SpectralElementBoundaryVariable_3D), intent(inout) :: bv_p(:)
+    !< velocity boundary values
+    real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
+    !< preliminary velocity
     character, intent(out) :: bc_p
+    !< pressure boundary conditions
+    class(SpectralElementBoundaryVariable_3D), intent(inout) :: bv_p(:)
+    !< pressure boundary values
 
     integer :: b
 
@@ -124,20 +139,20 @@ contains
   subroutine PressureBC_NormalVelocity_R(boundary, dt, A, v, vb, hp)
     class(MeshBoundary_3D), intent(in)  :: boundary
     real(RNP),              intent(in)  :: dt
-    real(RNP),              intent(in)  :: A(0:,0:)
+    real(RNP),              intent(in)  :: A (0:,0:)
     real(RNP), contiguous,  intent(in)  :: v (0:,0:,0:,:,:)
     real(RNP), contiguous,  intent(in)  :: vb(0:,0:,:,:)
     real(RNP), contiguous,  intent(out) :: hp(0:,0:,:)
 
     real(RNP), allocatable :: hv(:,:), w(:,:)
     real(RNP) :: c
-    integer :: pp, pv
+    integer :: po_p, po_v
     integer :: f, i, j, k, m
 
-    pv = ubound(vb, 1)
-    pp = ubound(hp, 1)
+    po_v = ubound(vb, 1)
+    po_p = ubound(hp, 1)
 
-    allocate(hv(0:pv,0:pv), w(0:pp,0:pv))
+    allocate(hv(0:po_v,0:po_v), w(0:po_p,0:po_v))
 
     c = 1 / dt
 
@@ -150,38 +165,38 @@ contains
       select case(m)
 
       case(1,2)
-        i = (m - 1) * pv
+        i = (m - 1) * po_v
         n = (m - 1) * 2 - 1
-        do k = 0, pv
-        do j = 0, pv
+        do k = 0, po_v
+        do j = 0, po_v
           hv(j,k) = c * n * (v(i,j,k,e,1) - vb(j,k,f,1))
         end do
         end do
 
       case(3,4)
-        j = (m - 3) * pv
+        j = (m - 3) * po_v
         n = (m - 3) * 2 - 1
-        do k = 0, pv
-        do i = 0, pv
+        do k = 0, po_v
+        do i = 0, po_v
           hv(i,k) = c * n * (v(i,j,k,e,2) - vb(i,k,f,2))
         end do
         end do
 
       case(5,6)
-        k = (m - 5) * pv
+        k = (m - 5) * po_v
         n = (m - 5) * 2 - 1
-        do j = 0, pv
-        do i = 0, pv
+        do j = 0, po_v
+        do i = 0, po_v
           hv(i,j) = c * n * (v(i,j,k,e,3) - vb(i,j,f,3))
         end do
         end do
 
       end select
 
-      if (pv == pp) then
+      if (po_v == po_p) then
         hp(:,:,f) = hv
       else
-        call InterpolateToPressureSpace(pv, pp, A, hv, hp(:,:,f), w)
+        call InterpolateToPressureSpace(po_v, po_p, A, hv, hp(:,:,f), w)
       end if
 
     end do
@@ -191,24 +206,24 @@ contains
   !-----------------------------------------------------------------------------
   !> Build pressure BC from normal velocity conditions -- deformed mesh
 
-  subroutine ressureBC_NormalVelocity_D(boundary, dt, A, n, v, vb, hp)
-    class(MeshBoundary_3D), intent(in) :: boundary
-    real(RNP),             intent(in)  :: dt
-    real(RNP),             intent(in)  :: A(0:,0:)
-    real(RNP), contiguous, intent(in)  :: n (0:,0:,:,:,:)
-    real(RNP), contiguous, intent(in)  :: v (0:,0:,0:,:,:)
-    real(RNP), contiguous, intent(in)  :: vb(0:,0:,:,:)
-    real(RNP), contiguous, intent(out) :: hp(0:,0:,:)
+  subroutine PressureBC_NormalVelocity_D(boundary, dt, A, n, v, vb, hp)
+    class(MeshBoundary_3D), intent(in)  :: boundary
+    real(RNP),              intent(in)  :: dt
+    real(RNP),              intent(in)  :: A (0:,0:)
+    real(RNP), contiguous,  intent(in)  :: n (0:,0:,:,:,:)
+    real(RNP), contiguous,  intent(in)  :: v (0:,0:,0:,:,:)
+    real(RNP), contiguous,  intent(in)  :: vb(0:,0:,:,:)
+    real(RNP), contiguous,  intent(out) :: hp(0:,0:,:)
 
     real(RNP), allocatable :: hv(:,:), w(:,:)
     real(RNP) :: c
-    integer :: pp, pv
+    integer :: po_p, po_v
     integer :: f, i, j, k, m
 
-    pv = ubound(vb, 1)
-    pp = ubound(hp, 1)
+    po_v = ubound(vb, 1)
+    po_p = ubound(hp, 1)
 
-    allocate(hv(0:pv,0:pv), w(0:pp,0:pv))
+    allocate(hv(0:po_v,0:po_v), w(0:po_p,0:po_v))
 
     c = 1 / dt
 
@@ -221,9 +236,9 @@ contains
       select case(m)
 
       case(1,2)
-        i = (m - 1) * pv
-        do k = 0, pv
-        do j = 0, pv
+        i = (m - 1) * po_v
+        do k = 0, po_v
+        do j = 0, po_v
           hv(j,k) = c * ( n(j,k,m,e,1) * (v(i,j,k,e,1) - vb(j,k,f,1)) &
                         + n(j,k,m,e,2) * (v(i,j,k,e,2) - vb(j,k,f,2)) &
                         + n(j,k,m,e,3) * (v(i,j,k,e,3) - vb(j,k,f,3)) )
@@ -231,9 +246,9 @@ contains
         end do
 
       case(3,4)
-        j = (m - 3) * pv
-        do k = 0, pv
-        do i = 0, pv
+        j = (m - 3) * po_v
+        do k = 0, po_v
+        do i = 0, po_v
           hv(i,k) = c * ( n(i,k,m,e,1) * (v(i,j,k,e,1) - vb(i,k,f,1)) &
                         + n(i,k,m,e,2) * (v(i,j,k,e,2) - vb(i,k,f,2)) &
                         + n(i,k,m,e,3) * (v(i,j,k,e,3) - vb(i,k,f,3)) )
@@ -241,9 +256,9 @@ contains
         end do
 
       case(5,6)
-        k = (m - 5) * pv
-        do j = 0, pv
-        do i = 0, pv
+        k = (m - 5) * po_v
+        do j = 0, po_v
+        do i = 0, po_v
           hv(i,j) = c * ( n(i,j,m,e,1) * (v(i,j,k,e,1) - vb(i,j,f,1)) &
                         + n(i,j,m,e,2) * (v(i,j,k,e,2) - vb(i,j,f,2)) &
                         + n(i,j,m,e,3) * (v(i,j,k,e,3) - vb(i,j,f,3)) )
@@ -252,10 +267,10 @@ contains
 
       end select
 
-      if (pv == pp) then
+      if (po_v == po_p) then
         hp(:,:,f) = hv
       else
-        call InterpolateToPressureSpace(pv, pp, A, hv, hp(:,:,f), w)
+        call InterpolateToPressureSpace(po_v, po_p, A, hv, hp(:,:,f), w)
       end if
 
     end do
@@ -265,22 +280,22 @@ contains
   !-----------------------------------------------------------------------------
   !> Interpolate face data from velocity into pressure space
 
-  pure subroutine InterpolateToPressureSpace(pv, pp, A, uv, up, w)
-    integer,   intent(in)    :: pv            !< polynomial order of velocity
-    integer,   intent(in)    :: pp            !< polynomial order of pressure
-    real(RNP), intent(in)    :: A (0:pp,0:pv) !< 1D interpolation operator
-    real(RNP), intent(in)    :: uv(0:pv,0:pv) !< variable in velocity space
-    real(RNP), intent(out)   :: up(0:pp,0:pp) !< variable in pressure space
-    real(RNP), intent(inout) :: w (0:pp,0:pv) !< workspace
+  pure subroutine InterpolateToPressureSpace(po_v, po_p, A, uv, up, w)
+    integer,   intent(in)    :: po_v              !< polynomial order of velocity
+    integer,   intent(in)    :: po_p              !< polynomial order of pressure
+    real(RNP), intent(in)    :: A (0:po_p,0:po_v) !< 1D interpolation operator
+    real(RNP), intent(in)    :: uv(0:po_v,0:po_v) !< variable in velocity space
+    real(RNP), intent(out)   :: up(0:po_p,0:po_p) !< variable in pressure space
+    real(RNP), intent(inout) :: w (0:po_p,0:po_v) !< workspace
 
     real(RNP) :: tmp
     integer   :: i, j, k
 
     ! direction 1
-    do j = 0, pv
-    do i = 0, pp
+    do j = 0, po_v
+    do i = 0, po_p
       tmp = 0
-      do k = 0, pv
+      do k = 0, po_v
         tmp = tmp + A(i,k) * uv(k,j)
       end do
       w(i,j) = tmp
@@ -288,10 +303,10 @@ contains
     end do
 
     ! direction 2
-    do j = 0, pp
-    do i = 0, pp
+    do j = 0, po_p
+    do i = 0, po_p
       tmp = 0
-      do k = 0, pv
+      do k = 0, po_v
         tmp = tmp + A(j,k) * w(i,k)
       end do
       up(i,j) = tmp

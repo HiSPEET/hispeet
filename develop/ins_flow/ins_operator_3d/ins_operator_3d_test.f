@@ -24,7 +24,7 @@ program INS_Operator_3D_Test
   use Spectral_Element_Variable__3D
   use Spectral_Element_Boundary_Variable__3D
   use Export_VTK_Volume_Data__3D
-  use DG__Diffusion_Operator__3D
+  use DG__Elliptic_Operator__3D
 
   use TPO__INS_Convection__3D_D__Gen
 
@@ -90,7 +90,7 @@ program INS_Operator_3D_Test
   type(INS_Operator_3D) :: ins_op
   ! incompressible Navier-Stokes operator
 
-  type(DG_DiffusionOperator_3D) :: diffusion_op
+  type(DG_EllipticOperator_3D) :: elliptic_op
 
   real(RNP) :: t = 0 ! problem time
 
@@ -357,11 +357,11 @@ program INS_Operator_3D_Test
   ! diffusion part: w = ∇·(ν ∇v) ...............................................
   ! using F_ph as workspace for F_d1h
 
-  diffusion_op = DG_DiffusionOperator_3D( sem    = ins_op % sem_v      &
-                                        , dg_opt = ins_options % opt_v &
-                                        , lambda = ZERO                &
-                                        , nu_p   = problem % nu_ref    &
-                                        , bc     = problem % bc_v      )
+  elliptic_op = DG_EllipticOperator_3D( sem    = ins_op % sem_v      &
+                                      , dg_opt = ins_options % opt_v &
+                                      , lambda = ZERO                &
+                                      , nu_p   = problem % nu_ref    &
+                                      , bc     = problem % bc_v      )
 
   allocate(sebv_vi(n_bound))
 
@@ -371,7 +371,7 @@ program INS_Operator_3D_Test
       ! store boundary contribution in f and compute residual r
       f = 0
       call sebv_u % GetSlice(sebv_vi, first=i, last=i)
-      call diffusion_op % Apply(v(:,:,:,:,i), r, f, sebv_vi) ! r = -M ∇·(ν ∇vᵢ)
+      call elliptic_op % Apply(v(:,:,:,:,i), r, f, sebv_vi) ! r = -M ∇·(ν ∇vᵢ)
 
       ! compute nodal values
       F_ph(:,:,:,:,i) = -r / mm

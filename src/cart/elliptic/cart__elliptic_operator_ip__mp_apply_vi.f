@@ -6,7 +6,7 @@
 
 submodule(CART__Elliptic_Operator_IP:MP_Apply) MP_Apply_VI
 
-  use TPO__Diffusion__3D_RLVI
+  use TPO__Elliptic__3D_RLVI
   use CART__Trace_Operator
   use CART__Normal_Trace_Operator
   implicit none
@@ -77,7 +77,7 @@ module subroutine Apply_VI(this, u, v)
 
       ! apply element stiffness operator .......................................
 
-      call TPO_Diffusion(eop%w, eop%D, mesh%dx, lambda, nu, u, v)
+      call TPO_Elliptic(eop%w, eop%D, mesh%dx, lambda, nu, u, v)
 
       ! finish generation of traces ............................................
 

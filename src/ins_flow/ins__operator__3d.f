@@ -11,8 +11,9 @@ module INS__Operator__3D
   use XMPI
 
   use Standard_Operators__1D
-  use DG__Element_Operators__1D
   use Embedded_Interpolation__1D
+  use DG__Element_Operators__1D
+  use DG__Elliptic_Operator__3D
 
   use Mesh__3D
   use Spectral_Element_Mesh__3D
@@ -43,6 +44,9 @@ module INS__Operator__3D
     type(SpectralElementMesh_3D) :: sem_v !< mesh + metrics for v
     type(SpectralElementMesh_3D) :: sem_p !< mesh + metrics for p
     type(SpectralElementMesh_3D) :: sem_q !< mesh + metrics for convection
+
+!?  type(DG_EllipticnOperator_3D) :: diff_op_p | pressure_op
+!< pressure laplacian operator
 
   contains
 
@@ -144,46 +148,46 @@ contains
   end subroutine Init_INS_Operator_3D
 
   !-----------------------------------------------------------------------------
-  !> Apply the velocity boundary conditions
+  !> Inject the velocity boundary conditions into trace variables
   !>
-  !> The boundary variable `bv` is expected to contain the velocity boundary
+  !> The boundary variable `bv_v` is expected to contain the velocity boundary
   !> values in the first three components. Velocity values will be injected
-  !> into `v_ef` and stresses into `s_ef`, if present.
+  !> into `tr_v` and stresses into `tr_s`, if present.
   !>
-  !> The element face variables must be dimensioned as
+  !> The traces are stored as element face variables defined as
   !>
-  !>     v_ef(np,np,6,nl,3)
-  !>     s_ef(np,np,6,nl,3)
+  !>     tr_v(np,np,6,nl,3)
+  !>     tr_s(np,np,6,nl,3)
   !>
-  !>  where `np` is the number of velocity element points per direction and
-  !>  `nl` is the number of elements, possibly including the ghosts.
+  !> where `np` is the number of velocity element points per direction and
+  !> `nl` is the number of elements, possibly including the ghosts.
   !>
   !> @note
   !> So far, only Dirichlet conditions ('D') are supported.
 
-  subroutine SetVelocityBC(this, bc, bv, v_ef, s_ef)
+  subroutine SetVelocityBC(this, bc_v, bv_v, tr_v, tr_s)
     class(INS_Operator_3D) , intent(in) :: this
     !< Navier-Stokes operator
-    character, intent(in) :: bc(:)
+    character, intent(in) :: bc_v(:)
     !< boundary condition types
-    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:)
+    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv_v(:)
     !< boundary values
-    real(RNP), optional, intent(inout) :: v_ef(:,:,:,:,:)
+    real(RNP), optional, intent(inout) :: tr_v(:,:,:,:,:)
     !< velocity on element faces
-    real(RNP), optional, intent(inout) :: s_ef(:,:,:,:,:)
+    real(RNP), optional, intent(inout) :: tr_s(:,:,:,:,:)
     !< stress vector on element faces
 
     integer :: b
 
-    if (present(v_ef)) then
+    if (present(tr_v)) then
       do b = 1, this % mesh % n_bound
-        if (bc(b) == 'D') then
-          call bv(b) % CopyToElementFaceVariable(v_ef)
+        if (bc_v(b) == 'D') then
+          call bv_v(b) % CopyToElementFaceVariable(tr_v)
         end if
       end do
     end if
 
-    if (present(s_ef)) then
+    if (present(tr_s)) then
       return ! nothing to do yet
     end if
 

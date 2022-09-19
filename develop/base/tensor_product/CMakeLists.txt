@@ -82,37 +82,37 @@ configure_file( validate__tpo__rotrot_3d_r.prm
                 validate__tpo__rotrot_3d_r.prm COPYONLY )
 
 #===============================================================================
-# TPO Diffusion RLCI
+# TPO Elliptic RLCI
 
-add_executable( validate__tpo__diffusion_3d_rlci
-                validate__tpo__diffusion_3d_rlci.f )
+add_executable( validate__tpo__elliptic_3d_rlci
+                validate__tpo__elliptic_3d_rlci.f )
 
-target_link_libraries(validate__tpo__diffusion_3d_rlci HiBase)
+target_link_libraries(validate__tpo__elliptic_3d_rlci HiBase)
 
-configure_file( validate__tpo__diffusion_3d_rlci.prm
-                validate__tpo__diffusion_3d_rlci.prm COPYONLY )
-
-#===============================================================================
-# TPO Diffusion RLVI
-
-add_executable( validate__tpo__diffusion_3d_rlvi
-                validate__tpo__diffusion_3d_rlvi.f )
-
-target_link_libraries(validate__tpo__diffusion_3d_rlvi HiBase)
-
-configure_file( validate__tpo__diffusion_3d_rlvi.prm
-                validate__tpo__diffusion_3d_rlvi.prm COPYONLY )
+configure_file( validate__tpo__elliptic_3d_rlci.prm
+                validate__tpo__elliptic_3d_rlci.prm COPYONLY )
 
 #===============================================================================
-# TPO Diffusion DLCI
+# TPO Elliptic RLVI
 
-add_executable( validate__tpo__diffusion_3d_dlci
-                validate__tpo__diffusion_3d_dlci.f )
+add_executable( validate__tpo__elliptic_3d_rlvi
+                validate__tpo__elliptic_3d_rlvi.f )
 
-target_link_libraries(validate__tpo__diffusion_3d_dlci HiBase)
+target_link_libraries(validate__tpo__elliptic_3d_rlvi HiBase)
 
-configure_file( validate__tpo__diffusion_3d_dlci.prm
-                validate__tpo__diffusion_3d_dlci.prm COPYONLY )
+configure_file( validate__tpo__elliptic_3d_rlvi.prm
+                validate__tpo__elliptic_3d_rlvi.prm COPYONLY )
+
+#===============================================================================
+# TPO Elliptic DLCI
+
+add_executable( validate__tpo__elliptic_3d_dlci
+                validate__tpo__elliptic_3d_dlci.f )
+
+target_link_libraries(validate__tpo__elliptic_3d_dlci HiBase)
+
+configure_file( validate__tpo__elliptic_3d_dlci.prm
+                validate__tpo__elliptic_3d_dlci.prm COPYONLY )
 
 #===============================================================================
 # TPO Spectral CI
@@ -173,9 +173,9 @@ file( COPY scripts/omp_auto.sh
            scripts/validate__tpo__aaa_3d.tmpl
            scripts/validate__tpo__div_3d_d.tmpl
            scripts/validate__tpo__div_3d_r.tmpl
-           scripts/validate__tpo__diffusion_3d_dlci.tmpl
-           scripts/validate__tpo__diffusion_3d_rlci.tmpl
-           scripts/validate__tpo__diffusion_3d_rlvi.tmpl
+           scripts/validate__tpo__elliptic_3d_dlci.tmpl
+           scripts/validate__tpo__elliptic_3d_rlci.tmpl
+           scripts/validate__tpo__elliptic_3d_rlvi.tmpl
            scripts/validate__tpo__grad_3d_d.tmpl
            scripts/validate__tpo__grad_3d_r.tmpl
            scripts/validate__tpo__ins_convection_3d_d.tmpl

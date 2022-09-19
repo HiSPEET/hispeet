@@ -55,7 +55,7 @@ include_directories( tensor_product/primitives/IxIxQt
 include(cmake/tpo__aaa__3d.cmake)
 include(cmake/tpo__diagonal__3d.cmake)
 include(cmake/tpo__div__3d.cmake)
-include(cmake/tpo__diffusion__3d.cmake)
+include(cmake/tpo__elliptic__3d.cmake)
 include(cmake/tpo__grad__3d.cmake)
 include(cmake/tpo__ins_convection__3d.cmake)
 include(cmake/tpo__rot__3d.cmake)
@@ -167,28 +167,28 @@ set( VARIABLES_3D variables_3d/spectral_element_variable__3d.f
                   )
 
 #===============================================================================
-# variables_3d
+# elliptic_3d
 
-set( DIFFUSION_3D diffusion_3d/dg__diffusion_operator__3d.f
-                  diffusion_3d/dg__diffusion_operator__3d__mp_setdiffusivity.f
-                  diffusion_3d/dg__diffusion_operator__3d__mp_apply.f
-                  diffusion_3d/dg__diffusion_operator__3d__mp_apply_rc.f
-                  diffusion_3d/dg__diffusion_operator__3d__mp_apply_rv.f
-                  diffusion_3d/dg__diffusion_operator__3d__mp_apply_dc.F
-                  diffusion_3d/dg__diffusion_operator__3d__mp_addfluxes_dc_gen.f
-                  diffusion_3d/dg__diffusion_operator__3d__mp_addfluxes_dc_xsmm.F
-                  diffusion_3d/dg__schwarz_operator__3d.f
-                  diffusion_3d/dg__schwarz_operator__3d__rdp__mp_merge_core.F
-                  diffusion_3d/dg__schwarz_operator__3d__rdp__mp_merge_structured.F
-                  diffusion_3d/dg__schwarz_operator__3d__rdp__mp_merge_unstructured.F
-                  diffusion_3d/dg__schwarz_operator__3d__rdp__mp_restrict_structured.F
-                  diffusion_3d/dg__schwarz_operator__3d__rdp__mp_restrict_unstructured.F
-                  diffusion_3d/dg__schwarz_operator__3d__rsp__mp_merge_core.F
-                  diffusion_3d/dg__schwarz_operator__3d__rsp__mp_merge_structured.F
-                  diffusion_3d/dg__schwarz_operator__3d__rsp__mp_merge_unstructured.F
-                  diffusion_3d/dg__schwarz_operator__3d__rsp__mp_restrict_structured.F
-                  diffusion_3d/dg__schwarz_operator__3d__rsp__mp_restrict_unstructured.F
-                  )
+set( ELLIPTIC_3D elliptic_3d/dg__elliptic_operator__3d.f
+                 elliptic_3d/dg__elliptic_operator__3d__mp_setdiffusivity.f
+                 elliptic_3d/dg__elliptic_operator__3d__mp_apply.f
+                 elliptic_3d/dg__elliptic_operator__3d__mp_apply_rc.f
+                 elliptic_3d/dg__elliptic_operator__3d__mp_apply_rv.f
+                 elliptic_3d/dg__elliptic_operator__3d__mp_apply_dc.F
+                 elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_gen.f
+                 elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_xsmm.F
+                 elliptic_3d/dg__schwarz_operator__3d.f
+                 elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_core.F
+                 elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_structured.F
+                 elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_unstructured.F
+                 elliptic_3d/dg__schwarz_operator__3d__rdp__mp_restrict_structured.F
+                 elliptic_3d/dg__schwarz_operator__3d__rdp__mp_restrict_unstructured.F
+                 elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_core.F
+                 elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_structured.F
+                 elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_unstructured.F
+                 elliptic_3d/dg__schwarz_operator__3d__rsp__mp_restrict_structured.F
+                 elliptic_3d/dg__schwarz_operator__3d__rsp__mp_restrict_unstructured.F
+                 )
 
 #===============================================================================
 # base library
@@ -205,7 +205,7 @@ set(BASE_SRC ${ESSENTIALS}
              ${MESH_3D}
              ${UTIL_3D}
              ${VARIABLES_3D}
-             ${DIFFUSION_3D}
+             ${ELLIPTIC_3D}
              )
 
 add_library(HiBase ${BASE_SRC})

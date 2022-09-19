@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# ==============================================================================
+# SLURM script for DG elliptic 3D test -- hybrid
+# ------------------------------------------------------------------------------
+
+# Take care that the number of tasks matches the number of partitions defined in 
+# `dg_elliptic_3d.prm`
+
+#SBATCH --account=p_hispeet                   # project
+#SBATCH --nodes=1                             # number of nodes
+#SBATCH --ntasks=2                            # max number of MPI processes
+#SBATCH --ntasks-per-socket=1                 # max num MPI proc per socket
+#SBATCH --cpus-per-task=12                    # number of cores per process
+##SBATCH --cpu-freq=highm1                    # CPU frequency in kHz
+
+#SBATCH --partition=haswell                   # partition
+#SBATCH --mem=0                               # memory per node in MB (0 = all)
+
+#SBATCH --time=00-00:30:00                    # dd-hh:mm:ss
+##SBATCH --exclusive                          # don't share nodes with others
+#SBATCH --job-name=dg_elliptic_3d_test        # sensible job name
+#SBATCH --output=dg_elliptic_3d_test_%j.out
+
+# ------------------------------------------------------------------------------
+
+if [ X"$SLURM_STEP_ID" = "X" -a X"$SLURM_PROCID" = "X"0 ]
+then
+  echo ""
+  echo "SLURM_JOB_ID        = $SLURM_JOB_ID"
+  echo "SLURM_JOB_PARTITION = $SLURM_JOB_PARTITION"
+  echo "SLURM_JOB_NODELIST  = $SLURM_JOB_NODELIST"
+  echo ""
+fi
+
+# ------------------------------------------------------------------------------
+# Execution
+
+export KMP_AFFINITY=compact,1,0
+
+# 1 process using 1 cpu
+sed -e "s/<np>/1/g" dg_elliptic_3d_test.tmpl > dg_elliptic_3d_test.prm
+OMP_NUM_THREADS=1  srun -n 1 ./dg_elliptic_3d_test
+OMP_NUM_THREADS=2  srun -n 1 ./dg_elliptic_3d_test
+OMP_NUM_THREADS=4  srun -n 1 ./dg_elliptic_3d_test
+OMP_NUM_THREADS=8  srun -n 1 ./dg_elliptic_3d_test
+OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK srun -n 1 ./dg_elliptic_3d_test
+
+# 2 processes, each using 1 cpu
+sed -e "s/<np>/2/g" dg_elliptic_3d_test.tmpl > dg_elliptic_3d_test.prm
+OMP_NUM_THREADS=1  srun -n 2 ./dg_elliptic_3d_test
+OMP_NUM_THREADS=2  srun -n 2 ./dg_elliptic_3d_test
+OMP_NUM_THREADS=4  srun -n 2 ./dg_elliptic_3d_test
+OMP_NUM_THREADS=8  srun -n 2 ./dg_elliptic_3d_test
+OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK srun -n 2 ./dg_elliptic_3d_test

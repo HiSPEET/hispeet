@@ -8,7 +8,7 @@
 !===============================================================================
 
 submodule(CART__Elliptic_Operator_IP:MP_Apply) MP_Apply_CI
-  use TPO__Diffusion__3D_RLCI
+  use TPO__Elliptic__3D_RLCI
   use CART__Trace_Transfer_Buffer
   implicit none
 
@@ -86,7 +86,7 @@ module subroutine Apply_CI(this, u, v)
 
       ! apply element diffusion operator .......................................
 
-      call TPO_Diffusion(eop%w, As, mesh%dx, lambda, ONE, u, v)
+      call TPO_Elliptic(eop%w, As, mesh%dx, lambda, ONE, u, v)
 
       ! finish generation of traces ............................................
 
