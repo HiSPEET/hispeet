@@ -6,11 +6,8 @@
 !> If present, the first argument of the invoking command will be interpreted
 !> as the base name of the control file. If omitted, the program looks for
 !> `ins_operator_test.prm`.
-!>
-!> @todo
-!>   - Extension to variable viscosity
-!>   - Extension to free-slip boundary conditions
 !===============================================================================
+
 program INS_Operator_3D_Test
   use Kind_Parameters
   use Constants
@@ -20,6 +17,7 @@ program INS_Operator_3D_Test
   use Array_Assignments
   use Array_Reductions
 
+  use Mesh__3D
   use Convert_Traces__3D
   use Spectral_Element_Variable__3D
   use Spectral_Element_Boundary_Variable__3D
@@ -178,28 +176,28 @@ program INS_Operator_3D_Test
 
   ! mesh .......................................................................
 
-  select case(comp_domain)
-  case(2)
-    call CreateCuboidDiamonds(comm, input_file, ins_op % mesh)
-    domain_name = 'Cuboidal domain with unstructured "diamond" mesh'
-  case(3)
-    call CreateCylinder(comm, input_file, ins_op % mesh)
-    domain_name = 'Cylindrical domain with unstructured mesh'
-  case(4)
-    call CreateAnnulus(comm, input_file, ins_op % mesh)
-    domain_name = 'Annular domain with unstructured mesh'
-  case default
-    call CreateCuboidCartesian(comm, input_file, ins_op % mesh)
-    domain_name = 'Cuboidal domain with Cartesian mesh'
-  end select
+  associate(mesh => ins_op % mesh)
 
-  ! operators ..................................................................
+    select case(comp_domain)
+    case(2)
+      call CreateCuboidDiamonds(comm, input_file, ins_op % mesh)
+      domain_name = 'Cuboidal domain with unstructured "diamond" mesh'
+    case(3)
+      call CreateCylinder(comm, input_file, ins_op % mesh)
+      domain_name = 'Cylindrical domain with unstructured mesh'
+    case(4)
+      call CreateAnnulus(comm, input_file, ins_op % mesh)
+      domain_name = 'Annular domain with unstructured mesh'
+    case default
+      call CreateCuboidCartesian(comm, input_file, ins_op % mesh)
+      domain_name = 'Cuboidal domain with Cartesian mesh'
+    end select
 
-  call ins_op % Init(ins_options)
+    n_elem  = mesh % n_elem
+    n_ghost = mesh % n_ghost
+    n_bound = mesh % n_bound
 
-  n_elem  = ins_op % mesh % n_elem
-  n_ghost = ins_op % mesh % n_ghost
-  n_bound = ins_op % mesh % n_bound
+  end associate
 
   ! problem ....................................................................
 
@@ -223,6 +221,10 @@ program INS_Operator_3D_Test
       end if
     end if
   end do
+
+  ! operators ..................................................................
+
+  call ins_op % Init(ins_options, problem)
 
   ! variables ..................................................................
 
@@ -358,7 +360,7 @@ program INS_Operator_3D_Test
   ! using F_ph as workspace for F_d1h
 
   elliptic_op = DG_EllipticOperator_3D( sem    = ins_op % sem_v      &
-                                      , dg_opt = ins_options % opt_v &
+                                      , dg_opt = ins_options % eop_v &
                                       , lambda = ZERO                &
                                       , nu_p   = problem % nu_ref    &
                                       , bc     = problem % bc_v      )

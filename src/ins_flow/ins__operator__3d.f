@@ -14,10 +14,13 @@ module INS__Operator__3D
   use Embedded_Interpolation__1D
   use DG__Element_Operators__1D
   use DG__Elliptic_Operator__3D
+  use DG__Schwarz_Operator__3D
 
   use Mesh__3D
   use Spectral_Element_Mesh__3D
   use Spectral_Element_Boundary_Variable__3D
+
+  use INS__Problem__3D
 
   implicit none
   private
@@ -45,8 +48,7 @@ module INS__Operator__3D
     type(SpectralElementMesh_3D) :: sem_p !< mesh + metrics for p
     type(SpectralElementMesh_3D) :: sem_q !< mesh + metrics for convection
 
-!?  type(DG_EllipticnOperator_3D) :: diff_op_p | pressure_op
-!< pressure laplacian operator
+    type(DG_EllipticOperator_3D) :: pressure_op !< DG operator and solver for p
 
   contains
 
@@ -70,9 +72,10 @@ module INS__Operator__3D
 
   type INS_Options_3D
     real(RNP) :: mu = -2 !< bulk viscosity, μ = ζ/ρ
-    type(DG_ElementOptions_1D) :: opt_v !< DG operator options for v
-    type(DG_ElementOptions_1D) :: opt_p !< DG operator options for p
-    type(StandardOperatorOptions_1D) :: opt_q !< quadrature opts for convection
+    type(DG_ElementOptions_1D) :: eop_v !< DG operator options for v
+    type(DG_ElementOptions_1D) :: eop_p !< DG operator options for p
+    type(StandardOperatorOptions_1D) :: sop_q !< quadrature opts for convection
+    type(DG_SchwarzOptions_3D) :: schwarz_p !< Schwarz options for p-solver
   contains
     procedure :: Bcast => Bcast_INS_Options_3D
   end type INS_Options_3D
@@ -105,27 +108,33 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor of INS_Operator_3D
 
-  type(INS_Operator_3D) function New_INS_Operator_3D(opt, mesh) result(this)
-    type(INS_Options_3D), intent(in) :: opt !< options
+  function New_INS_Operator_3D(opt, problem, mesh) result(this)
+    class(INS_Options_3D), intent(in) :: opt     !< options
+    class(INS_Problem_3D), intent(in) :: problem !< INS flow problem
     type(Mesh_3D), intent(in) :: mesh !< local mesh partition, will be copied
+    type(INS_Operator_3D) :: this
 
-    call Init_INS_Operator_3D(this, opt, mesh)
+    call Init_INS_Operator_3D(this, opt, problem, mesh)
 
   end function New_INS_Operator_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of INS_Operator_3D
 
-  subroutine Init_INS_Operator_3D(this, opt, mesh)
-    class(INS_Operator_3D) , intent(inout) :: this !< new Navier-Stokes operator
-    type(INS_Options_3D)   , intent(in)    :: opt  !< options
-    type(Mesh_3D), optional, intent(in)    :: mesh !< local mesh partition
+  subroutine Init_INS_Operator_3D(this, opt, problem, mesh)
+    class(INS_Operator_3D),  intent(inout) :: this    !< new INS operator
+    class(INS_Options_3D),   intent(in)    :: opt     !< options
+    class(INS_Problem_3D),   intent(in)    :: problem !< INS flow problem
+    type(Mesh_3D), optional, intent(in)    :: mesh    !< local mesh partition
+
+    character, allocatable :: bc_p(:)
+    integer :: b
 
     this % mu = opt % mu
 
-    this % eop_v = DG_ElementOperators_1D(opt % opt_v)
-    this % eop_p = DG_ElementOperators_1D(opt % opt_p)
-    this % sop_q = StandardOperators_1D  (opt % opt_q)
+    this % eop_v = DG_ElementOperators_1D(opt % eop_v)
+    this % eop_p = DG_ElementOperators_1D(opt % eop_p)
+    this % sop_q = StandardOperators_1D  (opt % sop_q)
 
     this % iop_vp = EmbeddedInterpolation_1D(this % eop_v, this % eop_p % x)
     this % iop_vq = EmbeddedInterpolation_1D(this % eop_v, this % sop_q % x)
@@ -144,6 +153,25 @@ contains
     this % sem_q = SpectralElementMesh_3D( this % mesh          &
                                          , this % sop_q % po    &
                                          , this % sop_q % basis )
+
+    ! pressure BC
+    allocate(bc_p(this % mesh % n_bound), source = '')
+    do b = 1, size(bc_p)
+      select case(problem % bc_v(b))
+      case('D')
+        bc_p(b) = 'N'
+      case('P')
+        bc_p(b) = 'P'
+      end select
+    end do
+
+    ! pressure operator
+    this % pressure_op = DG_EllipticOperator_3D( sem         = this%sem_p    &
+                                               , dg_opt      = opt%eop_p     &
+                                               , lambda      = ZERO          &
+                                               , nu_p        = ONE           &
+                                               , bc          = bc_p          &
+                                               , schwarz_opt = opt%schwarz_p )
 
   end subroutine Init_INS_Operator_3D
 
@@ -245,9 +273,10 @@ contains
 
     call XMPI_Bcast(this % mu, root, comm)
 
-    call this % opt_v % Bcast(root, comm)
-    call this % opt_p % Bcast(root, comm)
-    call this % opt_q % Bcast(root, comm)
+    call this % eop_v     % Bcast(root, comm)
+    call this % eop_p     % Bcast(root, comm)
+    call this % sop_q     % Bcast(root, comm)
+    call this % schwarz_p % Bcast(root, comm)
 
   end subroutine Bcast_INS_Options_3D
 
