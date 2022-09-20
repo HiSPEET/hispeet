@@ -1,22 +1,33 @@
-submodule(INS__Time_Integrator__3D) MP_PressureSolver
+submodule(INS__Operator__3D) MP_PressureSolver
   use TPO__AAA__3D
+  use Mesh_Boundary__3D
   implicit none
 
 contains
 
-  subroutine PressureSolver(this, dt, bv_v, v, f_v, p_v)
-    class(INS_TimeIntegrator_3D), intent(in) :: this
-    !< time integration method
-    real(RNP), intent(in) :: dt
-    !< time step, possibly scaled by a factor
-    class(SpectralElementBoundaryVariable_3D),intent(in) :: bv_v(:)
-    !< velocity boundary conditions
-    real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
-    !< preliminary velocity
-    real(RNP), contiguous, intent(in) :: f_v(:,:,:,:)
-    !< source at velocity points
-    real(RNP), contiguous, intent(inout) :: p_v(:,:,:,:)
-    !< pressure at velocity points
+  !-----------------------------------------------------------------------------
+  !> Projection-based pressure solver
+
+  module subroutine PressureSolver( this, cs, bv_v, v, f_v, p_v &
+                                  , i_max, r_red, r_max, ni     )
+
+    ! arguments ................................................................
+
+    class(INS_Operator_3D), intent(in) :: this !< INS operator
+
+    real(RNP), intent(in) :: cs !< scaling dactor, usually ~ 1/dt
+
+    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv_v(:)
+    !< velocity boundary values
+
+    real(RNP), contiguous, intent(in)    :: v(:,:,:,:,:) !< preliminary velocity
+    real(RNP), contiguous, intent(in)    :: f_v(:,:,:,:) !< source at v-points
+    real(RNP), contiguous, intent(inout) :: p_v(:,:,:,:) !< pressure at v-points
+
+    integer,               intent(in)    :: i_max  !< max num iterations
+    real(RNP),   optional, intent(in)    :: r_red  !< min residual reduction
+    real(RNP),   optional, intent(in)    :: r_max  !< max admissible residual
+    integer,     optional, intent(out)   :: ni     !< executed num iterations
 
     ! internal variables .......................................................
 
@@ -27,13 +38,12 @@ contains
 
     character, allocatable :: bc_p(:) ! pressure boundary conditions
     logical :: mixed_order
-    integer :: b
 
-    associate( bc_v    => this % problem % bc_v       &
-             , po_v    => this % ins_op % eop_v % po  &
-             , po_p    => this % ins_op % eop_p % po  &
-             , sem_p   => this % ins_op % sem_p       &
-             , mesh    => this % ins_op % mesh        )
+    associate( po_v        => this % eop_v % po  &
+             , po_p        => this % eop_p % po  &
+             , sem_p       => this % sem_p       &
+             , mesh        => this % mesh        &
+             , pressure_op => this % pressure_op )
 
       ! initialization .........................................................
 
@@ -52,18 +62,17 @@ contains
 
       ! build pressure BC ......................................................
 
-      call BuildPressureBC(this, dt, bv_v, v, bc_p, bv_p)
+      call BuildPressureBC(this, cs, v, bv_v, bv_p)
 
       ! solve ..................................................................
 
       if (mixed_order) then
-
-        call TPO_AAA(this % ins_op % iop_vp % A, f_v, f)
-        ! solve ...
-        call TPO_AAA(this % ins_op % iop_pv % A, p, p_v)
-
+        call TPO_AAA(this % iop_vp % A, f_v, f)
+        call pressure_op % SchwarzPCG_Method(p, f, bv_p, i_max, r_red, r_max, ni)
+        call TPO_AAA(this % iop_pv % A, p, p_v)
       else
-        ! solve ...
+        call pressure_op % SchwarzPCG_Method(p_v, f_v, bv_p, i_max, r_red, &
+                                             r_max, ni )
       end if
 
       ! finalization ...........................................................
@@ -77,84 +86,68 @@ contains
 
     end associate
 
-  end subroutine PressureSolver_MO
+  end subroutine PressureSolver
 
   !-----------------------------------------------------------------------------
-  !>
+  !> Build pressure boundary conditions
 
-  subroutine BuildPressureBC(ins_ti, dt, bv_v, v, bc_p, bv_p)
-    class(INS_TimeIntegrator_3D), intent(in) :: ins_ti
+  subroutine BuildPressureBC(ins_op, cs, v, bv_v, bv_p)
+    class(INS_Operator_3D), intent(in) :: ins_op
     !< time integration method
-    real(RNP), intent(in) :: dt
-    !< time step, possibly scaled by a factor
-    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv_v(:)
-    !< velocity boundary values
+    real(RNP), intent(in) :: cs
+    !< !< scaling dactor, usually ~ 1/dt
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< preliminary velocity
-    character, intent(out) :: bc_p
-    !< pressure boundary conditions
+    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv_v(:)
+    !< velocity boundary values
     class(SpectralElementBoundaryVariable_3D), intent(inout) :: bv_p(:)
     !< pressure boundary values
 
     integer :: b
 
-    associate( problem => ins_ti % problem &
-             , ins_op  => ins_ti % ins_op  )
+    do b = 1, ins_op % mesh % n_bound
 
-      do b = 1, ins_op % mesh % n_bound
+      select case(ins_op % pressure_op % bc(b))
 
-        select case(problem % bc_v(b))
+      case('N')
+        associate( boundary => ins_op % mesh % boundary(b)  &
+                 , A        => ins_op % iop_vp % A          &
+                 , n        => ins_op % sem_v % metrics % n &
+                 , vb       => bv_v(b) % val(:,:,:,1:3)     &
+                 , hp       => bv_p(b) % val(:,:,:,1)       )
 
-        case('D') ! Dirichlet conditions for normal velocity ...................
+          if (ins_op % mesh % regular) then
+            call PressureBC_NormalVelocity_R(boundary, cs, A, v, vb, hp)
+          else
+            call PressureBC_NormalVelocity_D(boundary, cs, A, n, v, vb, hp)
+          end if
+        end associate
 
-          bc_p(b) = 'N'
+      end select
 
-          associate( boundary => ins_op % mesh % boundary(b)  &
-                   , A        => ins_op % iop_vp % A          &
-                   , n        => ins_op % sem_v % metrics % n &
-                   , vb       => bv_v(b) % val(:,:,:,1:3)     &
-                   , hp       => bv_p(b) % val(:,:,:,1)       )
-
-            if (mesh % regular) then
-              call PressureBC_NormalVelocity_R(boundary, dt, A, v, vb, hp)
-            else
-              call PressureBC_NormalVelocity_D(boundary, dt, A, n, v, vb, hp)
-            end if
-          end associate
-
-        case('P') ! periodic conditions ........................................
-
-          bc_p(b) = 'P'
-
-        end select
-
-      end do
-    end associate
+    end do
 
   end subroutine BuildPressureBC
 
   !-----------------------------------------------------------------------------
   !> Build pressure BC from normal velocity conditions -- regular mesh
 
-  subroutine PressureBC_NormalVelocity_R(boundary, dt, A, v, vb, hp)
+  subroutine PressureBC_NormalVelocity_R(boundary, cs, A, v, vb, hp)
     class(MeshBoundary_3D), intent(in)  :: boundary
-    real(RNP),              intent(in)  :: dt
+    real(RNP),              intent(in)  :: cs
     real(RNP),              intent(in)  :: A (0:,0:)
     real(RNP), contiguous,  intent(in)  :: v (0:,0:,0:,:,:)
     real(RNP), contiguous,  intent(in)  :: vb(0:,0:,:,:)
     real(RNP), contiguous,  intent(out) :: hp(0:,0:,:)
 
     real(RNP), allocatable :: hv(:,:), w(:,:)
-    real(RNP) :: c
     integer :: po_p, po_v
-    integer :: f, i, j, k, m
+    integer :: e, f, i, j, k, m, n
 
     po_v = ubound(vb, 1)
     po_p = ubound(hp, 1)
 
     allocate(hv(0:po_v,0:po_v), w(0:po_p,0:po_v))
-
-    c = 1 / dt
 
     !$omp do
     do f = 1, boundary % n_face
@@ -169,7 +162,7 @@ contains
         n = (m - 1) * 2 - 1
         do k = 0, po_v
         do j = 0, po_v
-          hv(j,k) = c * n * (v(i,j,k,e,1) - vb(j,k,f,1))
+          hv(j,k) = cs * n * (v(i,j,k,e,1) - vb(j,k,f,1))
         end do
         end do
 
@@ -178,7 +171,7 @@ contains
         n = (m - 3) * 2 - 1
         do k = 0, po_v
         do i = 0, po_v
-          hv(i,k) = c * n * (v(i,j,k,e,2) - vb(i,k,f,2))
+          hv(i,k) = cs * n * (v(i,j,k,e,2) - vb(i,k,f,2))
         end do
         end do
 
@@ -187,7 +180,7 @@ contains
         n = (m - 5) * 2 - 1
         do j = 0, po_v
         do i = 0, po_v
-          hv(i,j) = c * n * (v(i,j,k,e,3) - vb(i,j,f,3))
+          hv(i,j) = cs * n * (v(i,j,k,e,3) - vb(i,j,f,3))
         end do
         end do
 
@@ -206,9 +199,9 @@ contains
   !-----------------------------------------------------------------------------
   !> Build pressure BC from normal velocity conditions -- deformed mesh
 
-  subroutine PressureBC_NormalVelocity_D(boundary, dt, A, n, v, vb, hp)
+  subroutine PressureBC_NormalVelocity_D(boundary, cs, A, n, v, vb, hp)
     class(MeshBoundary_3D), intent(in)  :: boundary
-    real(RNP),              intent(in)  :: dt
+    real(RNP),              intent(in)  :: cs
     real(RNP),              intent(in)  :: A (0:,0:)
     real(RNP), contiguous,  intent(in)  :: n (0:,0:,:,:,:)
     real(RNP), contiguous,  intent(in)  :: v (0:,0:,0:,:,:)
@@ -216,16 +209,13 @@ contains
     real(RNP), contiguous,  intent(out) :: hp(0:,0:,:)
 
     real(RNP), allocatable :: hv(:,:), w(:,:)
-    real(RNP) :: c
     integer :: po_p, po_v
-    integer :: f, i, j, k, m
+    integer :: e, f, i, j, k, m
 
     po_v = ubound(vb, 1)
     po_p = ubound(hp, 1)
 
     allocate(hv(0:po_v,0:po_v), w(0:po_p,0:po_v))
-
-    c = 1 / dt
 
     !$omp do
     do f = 1, boundary % n_face
@@ -239,9 +229,9 @@ contains
         i = (m - 1) * po_v
         do k = 0, po_v
         do j = 0, po_v
-          hv(j,k) = c * ( n(j,k,m,e,1) * (v(i,j,k,e,1) - vb(j,k,f,1)) &
-                        + n(j,k,m,e,2) * (v(i,j,k,e,2) - vb(j,k,f,2)) &
-                        + n(j,k,m,e,3) * (v(i,j,k,e,3) - vb(j,k,f,3)) )
+          hv(j,k) = cs * ( n(j,k,m,e,1) * (v(i,j,k,e,1) - vb(j,k,f,1)) &
+                         + n(j,k,m,e,2) * (v(i,j,k,e,2) - vb(j,k,f,2)) &
+                         + n(j,k,m,e,3) * (v(i,j,k,e,3) - vb(j,k,f,3)) )
         end do
         end do
 
@@ -249,9 +239,9 @@ contains
         j = (m - 3) * po_v
         do k = 0, po_v
         do i = 0, po_v
-          hv(i,k) = c * ( n(i,k,m,e,1) * (v(i,j,k,e,1) - vb(i,k,f,1)) &
-                        + n(i,k,m,e,2) * (v(i,j,k,e,2) - vb(i,k,f,2)) &
-                        + n(i,k,m,e,3) * (v(i,j,k,e,3) - vb(i,k,f,3)) )
+          hv(i,k) = cs * ( n(i,k,m,e,1) * (v(i,j,k,e,1) - vb(i,k,f,1)) &
+                         + n(i,k,m,e,2) * (v(i,j,k,e,2) - vb(i,k,f,2)) &
+                         + n(i,k,m,e,3) * (v(i,j,k,e,3) - vb(i,k,f,3)) )
         end do
         end do
 
@@ -259,9 +249,9 @@ contains
         k = (m - 5) * po_v
         do j = 0, po_v
         do i = 0, po_v
-          hv(i,j) = c * ( n(i,j,m,e,1) * (v(i,j,k,e,1) - vb(i,j,f,1)) &
-                        + n(i,j,m,e,2) * (v(i,j,k,e,2) - vb(i,j,f,2)) &
-                        + n(i,j,m,e,3) * (v(i,j,k,e,3) - vb(i,j,f,3)) )
+          hv(i,j) = cs * ( n(i,j,m,e,1) * (v(i,j,k,e,1) - vb(i,j,f,1)) &
+                         + n(i,j,m,e,2) * (v(i,j,k,e,2) - vb(i,j,f,2)) &
+                         + n(i,j,m,e,3) * (v(i,j,k,e,3) - vb(i,j,f,3)) )
         end do
         end do
 

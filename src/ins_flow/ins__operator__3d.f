@@ -35,6 +35,8 @@ module INS__Operator__3D
 
     real(RNP) :: mu !< bulk viscosity, μ = ζ/ρ, may be variable in future
 
+    character, allocatable :: bc_v(:) !< velocity BC, copied from problem
+
     type(DG_ElementOperators_1D) :: eop_v !< DG operators for v
     type(DG_ElementOperators_1D) :: eop_p !< DG operators for p
     type(StandardOperators_1D)   :: sop_q !< quadrature ops for convection
@@ -56,6 +58,7 @@ module INS__Operator__3D
     procedure, private :: Init_INS_Operator_3D
 
     procedure :: SetVelocityBC
+    procedure :: PressureSolver
 
     generic :: GetDiffusionTerm => GetDiffusionTerm_C
     procedure, private :: GetDiffusionTerm_C ! diffusion with constant viscosity
@@ -84,6 +87,25 @@ module INS__Operator__3D
   ! Module procedures
 
   interface
+
+    !---------------------------------------------------------------------------
+    !> Projection-based pressure solver
+
+    module subroutine PressureSolver( this, cs, bv_v, v, f_v, p_v &
+                                    , i_max, r_red, r_max, ni     )
+
+      class(INS_Operator_3D),                    intent(in)    :: this
+      real(RNP),                                 intent(in)    :: cs
+      class(SpectralElementBoundaryVariable_3D), intent(in)    :: bv_v(:)
+      real(RNP), contiguous,                     intent(in)    :: v(:,:,:,:,:)
+      real(RNP), contiguous,                     intent(in)    :: f_v(:,:,:,:)
+      real(RNP), contiguous,                     intent(inout) :: p_v(:,:,:,:)
+      integer,                                   intent(in)    :: i_max
+      real(RNP),                       optional, intent(in)    :: r_red
+      real(RNP),                       optional, intent(in)    :: r_max
+      integer,                         optional, intent(out)   :: ni
+
+    end subroutine PressureSolver
 
     !---------------------------------------------------------------------------
     !> Diffusion term with constant viscosity on irregular (deformed) mesh
@@ -132,6 +154,7 @@ contains
 
     this % mu = opt % mu
 
+    this % bc_v  = problem % bc_v
     this % eop_v = DG_ElementOperators_1D(opt % eop_v)
     this % eop_p = DG_ElementOperators_1D(opt % eop_p)
     this % sop_q = StandardOperators_1D  (opt % sop_q)
@@ -157,7 +180,7 @@ contains
     ! pressure BC
     allocate(bc_p(this % mesh % n_bound), source = '')
     do b = 1, size(bc_p)
-      select case(problem % bc_v(b))
+      select case(this % bc_v(b))
       case('D')
         bc_p(b) = 'N'
       case('P')
