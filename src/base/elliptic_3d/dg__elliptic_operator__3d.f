@@ -40,7 +40,6 @@ contains
     generic   :: Init_DG_EllipticOperator_3D  =>  Init_C0, Init_CC, Init_V
     generic   :: SetDiffusivity  =>  SetDiffusivity_C, SetDiffusivity_V
     procedure :: Apply
-!   procedure :: AddBC
     procedure :: CG_Method
     procedure :: Schwarz_Method
     procedure :: SchwarzPCG_Method
