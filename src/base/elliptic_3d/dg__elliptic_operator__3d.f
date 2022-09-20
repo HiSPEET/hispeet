@@ -91,37 +91,6 @@ contains
       !< boundary values
     end subroutine Apply
 
-!?!    !---------------------------------------------------------------------------
-!?!    !> Addition of BC to the RHS for regular mesh and constant ν
-!?!    !>
-!?!    !> `bv` is a boundary variable which contains the Dirichlet or Neumann
-!?!    !> boundary values four each boundary. These values are applied to the
-!?!    !> right hand side `f` according boundary type specified in `this % bc`.
-!?!
-!?!    module subroutine AddBC_RC(this, bv, f)
-!?!      class(DG_EllipticOperator_3D), intent(in) :: this
-!?!      class(SpectralElementBoundaryVariable_3D), target, intent(in) :: bv(:)
-!?!      real(RNP), contiguous, intent(inout) :: f(:,:,:,:)
-!?!    end subroutine AddBC_RC
-!?!
-!?!    !-----------------------------------------------------------------------------
-!?!    !> Addition of BC to the RHS for regular mesh and variable ν
-!?!
-!?!    module subroutine AddBC_RV(this, bv, f)
-!?!      class(DG_EllipticOperator_3D), intent(in) :: this
-!?!      class(SpectralElementBoundaryVariable_3D), target, intent(in) :: bv(:)
-!?!      real(RNP), contiguous, intent(inout) :: f(:,:,:,:)
-!?!    end subroutine AddBC_RV
-!?!
-!?!    !---------------------------------------------------------------------------
-!?!    !> Addition of BC to the RHS for deformed mesh and constant ν
-!?!
-!?!    module subroutine AddBC_DC(this, bv, f)
-!?!      class(DG_EllipticOperator_3D), intent(in) :: this
-!?!      class(SpectralElementBoundaryVariable_3D), target, intent(in) :: bv(:)
-!?!      real(RNP), contiguous, intent(inout) :: f(:,:,:,:)
-!?!    end subroutine AddBC_DC
-
   end interface
 
 contains
