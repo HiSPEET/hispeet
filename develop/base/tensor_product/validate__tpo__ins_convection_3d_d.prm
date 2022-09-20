@@ -1,13 +1,7 @@
 &input
-  conf   = 1     ! configuration: 1 cylinder, 2 annular gap
-  nt     = 1     ! number of test runs
-! r0     = 0.5   ! inner radius  (annular gap only)
-! r1     = 1     ! outer radius
-! h      = 2     ! height
-  nr     = 3     ! num elements in radial    direction
-  np     = 3     ! num elements in azimuthal direction ≥ 3 (gap only)
-  nz     = 3     ! num elements in axial
-  po_g   = 3     ! geometriy polynomial order
-  po_v   = 8     ! polynomial order of mesh elements (velocity)
-  po_q   = 12    ! polynomial order of mesh elements (convection)
+  po_v    = 7    ! polynomial order of velocity
+  po_q    = 11   ! polynomial order used for quadrature
+  ne      = 1024 ! number of elements
+  nt      = 1    ! number of test runs
+! one2one = T    ! T/F to perform/skip interpolation [T]
 /
