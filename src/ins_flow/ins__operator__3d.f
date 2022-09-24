@@ -36,6 +36,7 @@ module INS__Operator__3D
     real(RNP) :: mu !< bulk viscosity, μ = ζ/ρ, may be variable in future
 
     character, allocatable :: bc_v(:) !< velocity BC, copied from problem
+    character, allocatable :: bc_p(:) !< pressure BC
 
     type(DG_ElementOperators_1D) :: eop_v !< DG operators for v
     type(DG_ElementOperators_1D) :: eop_p !< DG operators for p
@@ -50,7 +51,7 @@ module INS__Operator__3D
     type(SpectralElementMesh_3D) :: sem_p !< mesh + metrics for p
     type(SpectralElementMesh_3D) :: sem_q !< mesh + metrics for convection
 
-    type(DG_EllipticOperator_3D) :: pressure_op !< DG operator and solver for p
+    type(DG_EllipticOperator_3D) :: laplacian_p !< Negative ∆ on p points
 
   contains
 
@@ -91,15 +92,16 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Projection-based pressure solver
 
-    module subroutine PressureSolver( this, cs, bv_v, v, f_v, p_v &
-                                    , i_max, r_red, r_max, ni     )
+    module subroutine PressureSolver( this, tau, bv_v, v, f, bv_p, p &
+                                    , i_max, r_red, r_max, ni        )
 
       class(INS_Operator_3D),                    intent(in)    :: this
-      real(RNP),                                 intent(in)    :: cs
+      real(RNP),                                 intent(in)    :: tau
       class(SpectralElementBoundaryVariable_3D), intent(in)    :: bv_v(:)
       real(RNP), contiguous,                     intent(in)    :: v(:,:,:,:,:)
-      real(RNP), contiguous,                     intent(in)    :: f_v(:,:,:,:)
-      real(RNP), contiguous,                     intent(inout) :: p_v(:,:,:,:)
+      real(RNP), contiguous,                     intent(in)    :: f(:,:,:,:)
+      class(SpectralElementBoundaryVariable_3D), intent(inout) :: bv_p(:)
+      real(RNP), contiguous,                     intent(inout) :: p(:,:,:,:)
       integer,                                   intent(in)    :: i_max
       real(RNP),                       optional, intent(in)    :: r_red
       real(RNP),                       optional, intent(in)    :: r_max
@@ -149,7 +151,6 @@ contains
     class(INS_Problem_3D),   intent(in)    :: problem !< INS flow problem
     type(Mesh_3D), optional, intent(in)    :: mesh    !< local mesh partition
 
-    character, allocatable :: bc_p(:)
     integer :: b
 
     this % mu = opt % mu
@@ -178,22 +179,22 @@ contains
                                          , this % sop_q % basis )
 
     ! pressure BC
-    allocate(bc_p(this % mesh % n_bound), source = '')
-    do b = 1, size(bc_p)
+    allocate(this % bc_p(this % mesh % n_bound), source = '')
+    do b = 1, size(this % bc_p)
       select case(this % bc_v(b))
       case('D')
-        bc_p(b) = 'N'
+        this % bc_p(b) = 'N'
       case('P')
-        bc_p(b) = 'P'
+        this % bc_p(b) = 'P'
       end select
     end do
 
     ! pressure operator
-    this % pressure_op = DG_EllipticOperator_3D( sem         = this%sem_p    &
+    this % laplacian_p = DG_EllipticOperator_3D( sem         = this%sem_p    &
                                                , dg_opt      = opt%eop_p     &
                                                , lambda      = ZERO          &
                                                , nu_p        = ONE           &
-                                               , bc          = bc_p          &
+                                               , bc          = this % bc_p   &
                                                , schwarz_opt = opt%schwarz_p )
 
   end subroutine Init_INS_Operator_3D
