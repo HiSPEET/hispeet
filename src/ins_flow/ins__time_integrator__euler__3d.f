@@ -280,7 +280,7 @@ contains
       call vm_buf % Transfer(mesh, vm, tag=100)           ! transfer traces
       call ins_op % SetVelocityBC(problem%bc_v, bv_v, vm) ! set boundary values
       call vm_buf % Merge(vm)                             ! merge remote traces
-      call ConvertTraces(mesh, vm, vp)                    ! vm → vp = v_i⁺
+      call ConvertInnerToOuterTraces(mesh, vm, vp)        ! vm → vp = v_i⁺
 
       ! divergence of intermediate velocity
       call TPO_Div( Ms = ins_op % eop_v % w            &

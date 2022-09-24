@@ -304,7 +304,7 @@ program INS_Operator_3D_Test
 
     ! traces
     call sev_u % GetTraces(um)
-    call ConvertTraces(mesh, um, up)
+    call ConvertInnerToOuterTraces(mesh, um, up)
 
     ! extract boundary values
     sebv_u = SpectralElementBoundaryVariable_3D(sem, mesh % boundary, nc = 4)

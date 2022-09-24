@@ -19,7 +19,7 @@ contains
   !> the traces of remote elements, they must be present in the corresponding
   !> ghost entries of `um`.
 
-  subroutine ConvertTraces(mesh, um, up)
+  subroutine ConvertInnerToOuterTraces(mesh, um, up)
     class(Mesh_3D), intent(in) :: mesh
     real(RNP), contiguous, intent(in)  :: um(:,:,:,:,:) !< u⁻
     real(RNP), contiguous, intent(out) :: up(:,:,:,:,:) !< u⁺
@@ -49,7 +49,7 @@ contains
       end associate
     end do
 
-  end subroutine ConvertTraces
+  end subroutine ConvertInnerToOuterTraces
 
   !=============================================================================
 
