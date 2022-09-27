@@ -16,7 +16,7 @@ contains
   !> Application with regular (equidistant cuboidal) mesh
 
   module subroutine Apply_RC(this, u, r, f, bv)
-    class(DG_EllipticOperator_3D),  intent(in)  :: this
+    class(DG_EllipticOperator_3D),   intent(in)  :: this
     real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
     real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
     real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS

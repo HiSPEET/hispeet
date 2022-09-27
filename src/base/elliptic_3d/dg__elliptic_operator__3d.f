@@ -82,7 +82,7 @@ contains
     !> Application of the diffusion operator
 
     module subroutine Apply(this, u, r, f, bv)
-      class(DG_EllipticOperator_3D),  intent(in)  :: this
+      class(DG_EllipticOperator_3D),   intent(in)  :: this
       real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
       real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
       real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
@@ -665,33 +665,6 @@ contains
     end associate
 
   end subroutine SchwarzPCG_Method
-
-!?!  !-----------------------------------------------------------------------------
-!?!  !> Addition of boundary conditions to the right hande side
-!?!  !>
-!?!  !> `bv` is a boundary variable which contains the Dirichlet or Neumann
-!?!  !> boundary values four each boundary. These values are applied to the
-!?!  !> right hand side `f` according boundary type specified in `this % bc`.
-!?!
-!?!  subroutine AddBC(this, bv, f)
-!?!    class(DG_EllipticOperator_3D), intent(in) :: this
-!?!    class(SpectralElementBoundaryVariable_3D), target, intent(in) :: bv(:)
-!?!    real(RNP), contiguous, intent(inout) :: f(:,:,:,:)
-!?!
-!?!    if (this % sem % mesh % regular) then
-!?!      if (allocated(this % nu_pv)) then
-!?!        ! regular variable
-!?!        call AddBC_RV(this, bv, f)
-!?!      else
-!?!        ! regular constant
-!?!        call AddBC_RC(this, bv, f)
-!?!      end if
-!?!    else
-!?!      ! deformed constant
-!?!      call AddBC_DC(this, bv, f)
-!?!    end if
-!?!
-!?!  end subroutine AddBC
 
   !=============================================================================
 

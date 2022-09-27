@@ -18,7 +18,7 @@ submodule(DG__Elliptic_Operator__3D) MP_Apply
     !> Application with regular mesh and constant diffusivity
 
     module subroutine Apply_RC(this, u, r, f, bv)
-      class(DG_EllipticOperator_3D),  intent(in)  :: this
+      class(DG_EllipticOperator_3D),   intent(in)  :: this
       real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
       real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
       real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
@@ -30,7 +30,7 @@ submodule(DG__Elliptic_Operator__3D) MP_Apply
     !> Application with regular mesh and variable diffusivity
 
     module subroutine Apply_RV(this, u, r, f, bv)
-      class(DG_EllipticOperator_3D),  intent(in)  :: this
+      class(DG_EllipticOperator_3D),   intent(in)  :: this
       real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
       real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
       real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
@@ -42,7 +42,7 @@ submodule(DG__Elliptic_Operator__3D) MP_Apply
     !> Application with irregular (deformed) mesh and constant diffusivity
 
     module subroutine Apply_DC(this, u, r, f, bv)
-      class(DG_EllipticOperator_3D),  intent(in)  :: this
+      class(DG_EllipticOperator_3D),   intent(in)  :: this
       real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
       real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
       real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
@@ -58,7 +58,7 @@ contains
   !> Application of the diffusion operator
 
   module subroutine Apply(this, u, r, f, bv)
-    class(DG_EllipticOperator_3D),  intent(in)  :: this
+    class(DG_EllipticOperator_3D),   intent(in)  :: this
     real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
     real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
     real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
