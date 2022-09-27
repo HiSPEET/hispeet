@@ -180,11 +180,9 @@ contains
       ! viscous term: F_d = ∇·τ ................................................
       ! so far ν is constant and boundaries are periodic or have Dirichlet BC
 
-      call ins_op % SetVelocityBC(problem % bc_v, bv_v, vp, sp)
+      call ins_op % SetVelocityBC(bv_v, vp, sp)
+      call ins_op % GetDiffusionTerm(problem % nu_ref, v, vp, sp, F_d)
 
-      call ins_op % GetDiffusionTerm( problem % bc_v   &
-                                    , problem % nu_ref &
-                                    , v, vp, sp, F_d   )
       !$omp do
       do e = 1, n_elem
         do k = 1, np
@@ -277,10 +275,10 @@ contains
       ! divergence of intermediate velocity ....................................
 
       ! generate outer traces
-      call vm_buf % Transfer(mesh, vm, tag=100)           ! transfer traces
-      call ins_op % SetVelocityBC(problem%bc_v, bv_v, vm) ! set boundary values
-      call vm_buf % Merge(vm)                             ! merge remote traces
-      call ConvertInnerToOuterTraces(mesh, vm, vp)        ! vm → vp = v_i⁺
+      call vm_buf % Transfer(mesh, vm, tag=100)    ! transfer traces
+      call ins_op % SetVelocityBC(bv_v, vm)        ! set boundary values
+      call vm_buf % Merge(vm)                      ! merge remote traces
+      call ConvertInnerToOuterTraces(mesh, vm, vp) ! vm → vp = v_i⁺
 
       ! divergence of intermediate velocity
       call TPO_Div( Ms = ins_op % eop_v % w            &

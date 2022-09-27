@@ -99,7 +99,7 @@ contains
       call vm_buf % Transfer(mesh, vm, tag=100)
 
       ! inject velocity boundary conditions into boundary traces
-      call ins_op % SetVelocityBC(ins_op % bc_v, bv_v, vm)
+      call ins_op % SetVelocityBC(bv_v, vm)
 
       ! merge received traces in to ghost entries
       call vm_buf % Merge(vm)

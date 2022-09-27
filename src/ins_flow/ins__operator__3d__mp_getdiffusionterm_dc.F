@@ -23,14 +23,16 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Diffusion term with constant viscosity on irregular (deformed) mesh
+  !>
+  !> The diffusion term `F_d` comprises the viscous contributions to the weak
+  !> form of the momentum equation including the boundary conditions.
+  !> For homogeneous conditions pass `vp = sp = 0`.
+  !> To obtain the node values, apply the inverse mass matrix to `F_d`.
 
-  module subroutine GetDiffusionTerm_DC(this, bc, nu, v, vp, sp, F_d)
+  module subroutine GetDiffusionTerm_DC(this, nu, v, vp, sp, F_d)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
-
-    character, intent(in) :: bc(:)
-    !< boundary conditions ∈ {'D','P'}
 
     real(RNP), intent(in) :: nu
     !< kinematic shear viscosity
@@ -68,6 +70,7 @@ contains
              , a      => this % sem_v % metrics % a  &
              , n      => this % sem_v % metrics % n  &
              , eop    => this % eop_v                &
+             , bc     => this % bc_v                 &
              , mu     => this % mu                   )
 
       ! initialization .........................................................
@@ -112,7 +115,7 @@ contains
                            , sp = sp               &
                            , F_d = F_d             )
 
-      ! clean-up ...............................................................
+      ! cleanup ................................................................
 
       !$omp master
       deallocate(tr, tr_buf)
