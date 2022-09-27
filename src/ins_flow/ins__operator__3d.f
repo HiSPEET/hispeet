@@ -2,6 +2,10 @@
 !> author:   Joerg Stiller
 !> date:     2021/12/30
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @todo
+!>   - clean (generic) treatment of different cases, i.e. regular and deformed
+!>     meshes as well as constant and variable viscosity etc.
 !===============================================================================
 
 module INS__Operator__3D
@@ -62,7 +66,10 @@ module INS__Operator__3D
     procedure :: PressureSolver
 
     generic :: GetDiffusionTerm => GetDiffusionTerm_C
-    procedure, private :: GetDiffusionTerm_C ! diffusion with constant viscosity
+    procedure, private :: GetDiffusionTerm_C
+
+    generic :: GetDiffusionResidual => GetDiffusionResidual_C
+    procedure, private :: GetDiffusionResidual_C
 
   end type INS_Operator_3D
 
@@ -112,15 +119,27 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion term with constant viscosity on irregular (deformed) mesh
 
-    module subroutine GetDiffusionTerm_DC(this, bc, nu, v, vp, sp, F_d)
+    module subroutine GetDiffusionTerm_DC(this, nu, v, vp, sp, F_d)
       class(INS_Operator_3D), intent(in)    :: this
-      character,              intent(in)    :: bc(:)
       real(RNP),              intent(in)    :: nu
       real(RNP), contiguous,  intent(in)    :: v(:,:,:,:,:)
       real(RNP), contiguous,  intent(inout) :: vp(:,:,:,:,:)
       real(RNP), contiguous,  intent(inout) :: sp(:,:,:,:,:)
       real(RNP), contiguous,  intent(out)   :: F_d(:,:,:,:,:)
     end subroutine GetDiffusionTerm_DC
+
+    !---------------------------------------------------------------------------
+    !> Diffusion residual with constant viscosity
+
+    module subroutine GetDiffusionResidual_C(this, lambda, nu, v, r, f, bv_v)
+      class(INS_Operator_3D), intent(in)  :: this
+      real(RNP),              intent(in)  :: lambda
+      real(RNP),              intent(in)  :: nu
+      real(RNP), contiguous,  intent(in)  :: v(:,:,:,:,:)
+      real(RNP), contiguous,  intent(out) :: r(:,:,:,:,:)
+      real(RNP), contiguous, optional, intent(in) :: f(:,:,:,:,:)
+      class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv_v(:)
+    end subroutine GetDiffusionResidual_C
 
   end interface
 
@@ -217,11 +236,9 @@ contains
   !> @note
   !> So far, only Dirichlet conditions ('D') are supported.
 
-  subroutine SetVelocityBC(this, bc_v, bv_v, tr_v, tr_s)
+  subroutine SetVelocityBC(this, bv_v, tr_v, tr_s)
     class(INS_Operator_3D) , intent(in) :: this
     !< Navier-Stokes operator
-    character, intent(in) :: bc_v(:)
-    !< boundary condition types
     class(SpectralElementBoundaryVariable_3D), intent(in) :: bv_v(:)
     !< boundary values
     real(RNP), optional, intent(inout) :: tr_v(:,:,:,:,:)
@@ -233,7 +250,7 @@ contains
 
     if (present(tr_v)) then
       do b = 1, this % mesh % n_bound
-        if (bc_v(b) == 'D') then
+        if (this % bc_v(b) == 'D') then
           call bv_v(b) % CopyToElementFaceVariable(tr_v)
         end if
       end do
@@ -248,13 +265,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Diffusion term with constant viscosity
 
-  subroutine GetDiffusionTerm_C(this, bc, nu, v, vp, sp, F_d)
+  subroutine GetDiffusionTerm_C(this, nu, v, vp, sp, F_d)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
-
-    character, intent(in) :: bc(:)
-    !< boundary conditions ∈ {'D','P'}
 
     real(RNP), intent(in) :: nu
     !< kinematic shear viscosity
@@ -279,7 +293,7 @@ contains
       ! not implemented yet
       F_d = 0
     else
-      call GetDiffusionTerm_DC(this, bc, nu, v, vp, sp, F_d)
+      call GetDiffusionTerm_DC(this, nu, v, vp, sp, F_d)
     end if
 
   end subroutine GetDiffusionTerm_C
