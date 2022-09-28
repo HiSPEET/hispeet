@@ -3,8 +3,9 @@
 !> date:     2021/08/02
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!> @remark
-!> TBP for adding BC to the RHS was removed but can be reactivated on demand
+!> @todo
+!>   - The iterators (CG, Schwarz, SchwarzPCG) return no correct value for `ni`
+!>     when called from empty partition
 !===============================================================================
 
 module DG__Elliptic_Operator__3D
@@ -237,7 +238,7 @@ contains
 
     contiguous :: u, f
 
-    ! local variables ..........................................................
+    ! internal variables .......................................................
 
     real(RNP), dimension(:,:,:,:), allocatable, save :: r, p, q
     real(RNP), save :: rr_term
@@ -495,7 +496,7 @@ contains
 
       if (present(ni)) ni = min(i, i_max)
 
-      ! clean-up ...............................................................
+      ! cleanup ................................................................
 
       ! keep workspace in case of standby
       if (present(standby)) then
@@ -532,25 +533,24 @@ contains
 
     contiguous :: u, f
 
-    ! local variables ..........................................................
+    ! internal variables .......................................................
 
     real(RNP), dimension(:,:,:,:), allocatable, save :: r, p, q, s, z
     real(RNP), save :: rr_term
     logical  , save :: converged
 
     real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
-    real(RNP) :: alpha, beta, delta, rr !, rr_old
+    real(RNP) :: alpha, beta, delta, rr
     logical   :: check_convergence, singular
     integer   :: i, i_max_
 
     ! skip empty partition
     if (this % sem % mesh % part < 0) return
 
-    ! initialization ...........................................................
-
     associate(mesh => this % sem % mesh)
 
-      ! work space
+      ! initialization .........................................................
+
       !$omp master
       allocate(r, mold = u)
       allocate(p, mold = u)
