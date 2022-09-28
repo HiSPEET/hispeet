@@ -15,7 +15,7 @@ contains
   !> Computes the DG-SEM residual of  of the viscous diffusion term including
   !> the implicit part of the discretized time derivative, i.e.,
   !>
-  !>     r = Fd(v, vb, sb) - λMv + Mf
+  !>     r = Fd(v, vb, sb) - Mv/τ + Mf
   !>
   !> where `Fd` is the weak form of the diffusion term for the given velocity
   !> `v` and boundary values `vb`, `sb` extracted from the boundary variable
@@ -26,16 +26,13 @@ contains
   !> Omitting `f` and `bv_v` results in the application of the homogeneous
   !> operator.
 
-  module subroutine GetDiffusionResidual_C(this, lambda, nu, v, r, f, bv_v)
+  module subroutine GetDiffusionResidual_C(this, tau, v, r, f, bv_v)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
 
-    real(RNP), intent(in) :: lambda
-    !< λ, coefficient of the linear term
-
-    real(RNP), intent(in) :: nu
-    !< ν, kinematic shear viscosity
+    real(RNP), intent(in) :: tau
+    !< τ, effective time step width
 
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)
@@ -55,8 +52,9 @@ contains
     real(RNP), allocatable, save :: vp(:,:,:,:,:) ! velocity traces v⁺
     real(RNP), allocatable, save :: sp(:,:,:,:,:) ! viscous flux traces s⁺
 
-    integer :: np
-    integer :: d, e, i, j, k
+    real(RNP) :: lmb
+    integer   :: np
+    integer   :: d, e, i, j, k
 
     associate(mesh => this % sem_v % mesh)
 
@@ -77,9 +75,11 @@ contains
         call this % SetVelocityBC(bv_v, vp, sp)
       end if
 
+      lmb = 1 / tau
+
       ! compute residual .......................................................
 
-      call this % GetDiffusionTerm(nu, v, vp, sp, r)
+      call this % GetDiffusionTerm(v, vp, sp, r)
 
       if (present(f)) then
         !$omp do
@@ -89,7 +89,7 @@ contains
           do i = 1, np
             do d = 1, 3
               r(i,j,k,e,d) = r(i,j,k,e,d) &
-                           + M(i,j,k,e) * (f(i,j,k,e,d) - lambda * v(i,j,k,e,d))
+                           + M(i,j,k,e) * (f(i,j,k,e,d) - lmb * v(i,j,k,e,d))
             end do
           end do
           end do
@@ -102,7 +102,7 @@ contains
           do j = 1, np
           do i = 1, np
             do d = 1, 3
-              r(i,j,k,e,d) = r(i,j,k,e,d) - lambda * M(i,j,k,e) * v(i,j,k,e,d)
+              r(i,j,k,e,d) = r(i,j,k,e,d) - lmb * M(i,j,k,e) * v(i,j,k,e,d)
             end do
           end do
           end do

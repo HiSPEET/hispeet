@@ -29,13 +29,10 @@ contains
   !> For homogeneous conditions pass `vp = sp = 0`.
   !> To obtain the node values, apply the inverse mass matrix to `F_d`.
 
-  module subroutine GetDiffusionTerm_DC(this, nu, v, vp, sp, F_d)
+  module subroutine GetDiffusionTerm_DC(this, v, vp, sp, F_d)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
-
-    real(RNP), intent(in) :: nu
-    !< kinematic shear viscosity
 
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< velocity (np,np,np,ne,3)
@@ -71,7 +68,8 @@ contains
              , n      => this % sem_v % metrics % n  &
              , eop    => this % eop_v                &
              , bc     => this % bc_v                 &
-             , mu     => this % mu                   )
+             , mu     => this % mu_0                 &
+             , nu     => this % nu_0                 )
 
       ! initialization .........................................................
 
@@ -702,6 +700,6 @@ contains
 
 #endif
 
-  !=============================================================================
+    !=============================================================================
 
 end submodule MP_GetDiffusionTerm_DC

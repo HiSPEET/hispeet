@@ -37,7 +37,8 @@ module INS__Operator__3D
 
   type INS_Operator_3D
 
-    real(RNP) :: mu !< bulk viscosity, μ = ζ/ρ, may be variable in future
+    real(RNP) :: mu_0 !< bulk viscosity,  μ = ζ/ρ
+    real(RNP) :: nu_0 !< shear viscosity, ν = η/ρ
 
     character, allocatable :: bc_v(:) !< velocity BC, copied from problem
     character, allocatable :: bc_p(:) !< pressure BC
@@ -55,7 +56,8 @@ module INS__Operator__3D
     type(SpectralElementMesh_3D) :: sem_p !< mesh + metrics for p
     type(SpectralElementMesh_3D) :: sem_q !< mesh + metrics for convection
 
-    type(DG_EllipticOperator_3D) :: laplacian_p !< Negative ∆ on p points
+    type(DG_EllipticOperator_3D) :: laplacian_p  !< negative Laplacian for p
+    type(DG_SchwarzOperator_3D)  :: schwarz_v(3) !< Schwarz operators for v
 
   contains
 
@@ -82,7 +84,7 @@ module INS__Operator__3D
   !> Options for INS_Operator_3D initialization
 
   type INS_Options_3D
-    real(RNP) :: mu = -2 !< bulk viscosity, μ = ζ/ρ
+    real(RNP) :: mu_0 = -2 !< bulk viscosity,  μ = ζ/ρ
     type(DG_ElementOptions_1D) :: eop_v !< DG operator options for v
     type(DG_ElementOptions_1D) :: eop_p !< DG operator options for p
     type(StandardOperatorOptions_1D) :: sop_q !< quadrature opts for convection
@@ -119,9 +121,8 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion term with constant viscosity on irregular (deformed) mesh
 
-    module subroutine GetDiffusionTerm_DC(this, nu, v, vp, sp, F_d)
+    module subroutine GetDiffusionTerm_DC(this, v, vp, sp, F_d)
       class(INS_Operator_3D), intent(in)    :: this
-      real(RNP),              intent(in)    :: nu
       real(RNP), contiguous,  intent(in)    :: v(:,:,:,:,:)
       real(RNP), contiguous,  intent(inout) :: vp(:,:,:,:,:)
       real(RNP), contiguous,  intent(inout) :: sp(:,:,:,:,:)
@@ -131,10 +132,9 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion residual with constant viscosity
 
-    module subroutine GetDiffusionResidual_C(this, lambda, nu, v, r, f, bv_v)
+    module subroutine GetDiffusionResidual_C(this, tau, v, r, f, bv_v)
       class(INS_Operator_3D), intent(in)  :: this
-      real(RNP),              intent(in)  :: lambda
-      real(RNP),              intent(in)  :: nu
+      real(RNP),              intent(in)  :: tau
       real(RNP), contiguous,  intent(in)  :: v(:,:,:,:,:)
       real(RNP), contiguous,  intent(out) :: r(:,:,:,:,:)
       real(RNP), contiguous, optional, intent(in) :: f(:,:,:,:,:)
@@ -172,9 +172,10 @@ contains
 
     integer :: b
 
-    this % mu = opt % mu
+    this % mu_0 = opt % mu_0
+    this % nu_0 = problem % nu_0
+    this % bc_v = problem % bc_v
 
-    this % bc_v  = problem % bc_v
     this % eop_v = DG_ElementOperators_1D(opt % eop_v)
     this % eop_p = DG_ElementOperators_1D(opt % eop_p)
     this % sop_q = StandardOperators_1D  (opt % sop_q)
@@ -265,13 +266,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Diffusion term with constant viscosity
 
-  subroutine GetDiffusionTerm_C(this, nu, v, vp, sp, F_d)
+  subroutine GetDiffusionTerm_C(this, v, vp, sp, F_d)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
-
-    real(RNP), intent(in) :: nu
-    !< kinematic shear viscosity
 
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< velocity (np,np,np,ne,3)
@@ -293,7 +291,7 @@ contains
       ! not implemented yet
       F_d = 0
     else
-      call GetDiffusionTerm_DC(this, nu, v, vp, sp, F_d)
+      call GetDiffusionTerm_DC(this, v, vp, sp, F_d)
     end if
 
   end subroutine GetDiffusionTerm_C
@@ -309,7 +307,7 @@ contains
     integer,               intent(in)    :: root !< rank of broadcast root
     type(MPI_Comm),        intent(in)    :: comm !< MPI communicator
 
-    call XMPI_Bcast(this % mu, root, comm)
+    call XMPI_Bcast(this % mu_0, root, comm)
 
     call this % eop_v     % Bcast(root, comm)
     call this % eop_p     % Bcast(root, comm)
