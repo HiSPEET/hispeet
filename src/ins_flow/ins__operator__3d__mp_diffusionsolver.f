@@ -4,14 +4,15 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !> @todo
-!>   - variable viscosity
-!>   - standby option?
-!>   - consistent handling of empty partitions
+!>   - adjust Schwarz operator if τ or ν changed -- externally or internally?
+!>   - enable variable viscosity
+!>   - add standby option?
+!>   - ensure consistent handling of empty partitions
 !===============================================================================
 
 submodule(INS__Operator__3D) MP_DiffusionSolver
-! use Array_Assignments
-! use Array_Reductions
+  use Array_Assignments
+  use Array_Reductions
   implicit none
 
 contains
@@ -50,13 +51,12 @@ contains
     real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
     real(RNP) :: alpha, beta, delta, pq, rr
     logical   :: check_convergence
-    integer   :: d, i, i_max_
+    integer   :: i, i_max_
 
     ! skip empty partition
     if (this % mesh % part < 0) return
 
-    associate( mesh      => this % mesh      &
-             , schwarz_v => this % schwarz_v )
+    associate(mesh => this % mesh)
 
       ! initialization .........................................................
 
@@ -70,10 +70,6 @@ contains
       !$omp barrier
 
       check_convergence = present(r_red) .or. present(r_max)
-
-      ! update Schwarz operators
-      !!! TBD               !!!
-      !!! lambda = 1 / tau  !!!
 
       ! initial residual
       call this % GetDiffusionResidual(tau, v, r, f, bv_v)
@@ -112,14 +108,7 @@ contains
 
       do i = 1, i_max_
 
-        ! Schwarz preconditioner, based on component-wise Helmholtz problems
-        call SetArray(z, ZERO, multi = .true.)
-        do d = 1, 3
-          call schwarz_v(d) % Schwarz_Method( z(:,:,:,:,d)         &
-                                            , r(:,:,:,:,d)         &
-                                            , i_max   = 1          &
-                                            , standby = i < i_max_ )
-        end do
+        call Schwarz_Preconditioner(this, z, r, standby = i < i_max_)
 
         ! set/update search vector
         if (i == 1) then
@@ -139,13 +128,13 @@ contains
         delta = ScalarProduct(r, z, mesh%comm_parts)
         pq    = ScalarProduct(p, q, mesh%comm_parts)
         alpha = delta / pq
-        call MergeArrays(ONE, v, -alpha, p, multi = .true.)
+        call MergeArrays(ONE, v, alpha, p, multi = .true.)
 
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
           call this % GetDiffusionResidual(tau, v, r, f, bv_v)
         else
-          call MergeArrays(ONE, r, -alpha, q, multi = .true.)
+          call MergeArrays(ONE, r, alpha, q, multi = .true.)
         end if
 
         if (check_convergence) then
@@ -172,6 +161,153 @@ contains
     end associate
 
   end subroutine DiffusionSolver
+
+  !-----------------------------------------------------------------------------
+  !> Element-centered overlapping Schwarz preconditioner
+  !>
+  !> Performs a single Schwarz sweep for each velocity component. In order to
+  !> accomodate different boundary conditions, an individual Schwarz operator
+  !> is used for each component. However, for efficiency reasons, the overlap
+  !> is assumed to be the same in all cases.
+
+  subroutine Schwarz_Preconditioner(ins_op, z, r, standby)
+
+    class(INS_Operator_3D), intent(in)    :: ins_op       !< INS DG operator
+    real(RNP), contiguous,  intent(inout) :: z(:,:,:,:,:) !< correction
+    real(RNP), contiguous,  intent(in)    :: r(:,:,:,:,:) !< residual
+    logical, intent(in) :: standby !< switch for reusing workspace
+
+    ! local variables ..........................................................
+
+    real(RNP), allocatable, save :: rg(:,:,:,:)    ! residual with ghost entries
+
+    real(RDP), allocatable, save :: zs_dp(:,:,:,:) ! solution of subsystems
+    real(RDP), allocatable, save :: rs_dp(:,:,:,:) ! RHS of subsystems
+
+    real(RSP), allocatable, save :: zs_sp(:,:,:,:) ! solution of subsystems
+    real(RSP), allocatable, save :: rs_sp(:,:,:,:) ! RHS of subsystems
+
+    type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_rg
+    type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_zs
+
+    ! parameters saved for reuse
+    integer :: np = -1  ! number of element points per direction
+    integer :: ne = -1  ! number of elements
+    integer :: ng = -1  ! number of ghosts
+    integer :: no = -1  ! overlap
+    integer :: wp = -1  ! working precision
+
+    integer :: d, nl(3), ns
+    logical :: reuse
+
+    associate(mesh => ins_op % mesh, schwarz_v => ins_op % schwarz_v)
+
+      ! initialization .........................................................
+
+      !$omp master
+
+      reuse = np == size(z,1)           .and. &
+              ne == mesh % n_elem       .and. &
+              ng == mesh % n_ghost      .and. &
+              no == schwarz_v(1) % no   .and. &
+              wp == schwarz_v(1) % wp
+
+      if (.not. reuse) then
+
+        if (allocated( rg     )) deallocate( rg     )
+        if (allocated( zs_dp  )) deallocate( zs_dp  )
+        if (allocated( rs_dp  )) deallocate( rs_dp  )
+        if (allocated( zs_sp  )) deallocate( zs_sp  )
+        if (allocated( rs_sp  )) deallocate( rs_sp  )
+        if (allocated( buf_rg )) deallocate( buf_rg )
+        if (allocated( buf_zs )) deallocate( buf_zs )
+
+        np = size(z,1)
+        ne = mesh % n_elem
+        ng = mesh % n_ghost
+        no = schwarz_v(1) % no
+        wp = schwarz_v(1) % wp
+
+        nl = no
+        ns = np + 2*no
+
+        allocate(rg(ns, ns, ns, ne+ng), source = ZERO)
+        buf_rg = ElementTransferBuffer_3D(mesh, rg, nl)
+
+        if (wp == RSP) then
+          allocate(zs_sp(ns, ns, ns, ne+ng), source = 0E0)
+          allocate(rs_sp(ns, ns, ns, ne)   , source = 0E0)
+          buf_zs = ElementTransferBuffer_3D(mesh, zs_sp, nl)
+        else
+          allocate(zs_dp(ns, ns, ns, ne+ng), source = 0D0)
+          allocate(rs_dp(ns, ns, ns, ne),    source = 0D0)
+          buf_zs = ElementTransferBuffer_3D(mesh, zs_dp, nl)
+        end if
+
+      end if
+
+      !$omp end master
+
+      call SetArray(z, ZERO, multi = .true.)
+
+      ! Schwarz sweeps .........................................................
+
+      do d = 1, 3
+
+        call SetArray(rg(:,:,:,:ne), r(:,:,:,:,d))
+
+        select case(wp)
+
+        case(RSP)
+          call schwarz_v(d) % RestrictResidual(mesh, buf_rg, rg, rs_sp)
+          call TPO_Schwarz( schwarz_v(d) % ops_sp % S      &
+                          , schwarz_v(d) % ops_sp % W      &
+                          , schwarz_v(d) % cfg             &
+                          , schwarz_v(d) % ops_sp % D_inv  &
+                          , rs_sp                          &
+                          , zs_sp                          )
+          call schwarz_v(d) % MergeCorrections(mesh, buf_zs, zs_sp, z(:,:,:,:,d))
+
+        case default
+          call schwarz_v(d) % RestrictResidual(mesh, buf_rg, rg, rs_dp)
+          call TPO_Schwarz( schwarz_v(d) % ops_dp % S      &
+                          , schwarz_v(d) % ops_dp % W      &
+                          , schwarz_v(d) % cfg             &
+                          , schwarz_v(d) % ops_dp % D_inv  &
+                          , rs_dp                          &
+                          , zs_dp                          )
+          call schwarz_v(d) % MergeCorrections(mesh, buf_zs, zs_dp, z(:,:,:,:,d))
+
+        end select
+
+      end do
+
+      ! cleanup ................................................................
+
+      ! keep workspace in case of standby
+      if (standby) return
+
+      !$omp master
+
+      if (allocated( rg     )) deallocate( rg     )
+      if (allocated( zs_dp  )) deallocate( zs_dp  )
+      if (allocated( rs_dp  )) deallocate( rs_dp  )
+      if (allocated( zs_sp  )) deallocate( zs_sp  )
+      if (allocated( rs_sp  )) deallocate( rs_sp  )
+      if (allocated( buf_rg )) deallocate( buf_rg )
+      if (allocated( buf_zs )) deallocate( buf_zs )
+
+      np = -1
+      ne = -1
+      ng = -1
+      no = -1
+      wp = -1
+
+      !$omp end master
+
+    end associate
+
+  end subroutine Schwarz_Preconditioner
 
   !=============================================================================
 

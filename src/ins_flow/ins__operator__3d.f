@@ -73,6 +73,8 @@ module INS__Operator__3D
     generic :: GetDiffusionResidual => GetDiffusionResidual_C
     procedure, private :: GetDiffusionResidual_C
 
+    procedure :: DiffusionSolver
+
   end type INS_Operator_3D
 
   ! constructor interface
@@ -141,6 +143,24 @@ module INS__Operator__3D
       class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv_v(:)
     end subroutine GetDiffusionResidual_C
 
+    !---------------------------------------------------------------------------
+    !> Diffusion solver
+
+    module subroutine DiffusionSolver( this, tau, f, bv_v, v   &
+                                     , i_max, r_red, r_max, ni )
+
+      class(INS_Operator_3D),                    intent(in)    :: this
+      real(RNP),                                 intent(in)    :: tau
+      real(RNP), contiguous,                     intent(in)    :: f(:,:,:,:,:)
+      class(SpectralElementBoundaryVariable_3D), intent(in)    :: bv_v(:)
+      real(RNP), contiguous,                     intent(inout) :: v(:,:,:,:,:)
+      integer,                                   intent(in)    :: i_max
+      real(RNP),                       optional, intent(in)    :: r_red
+      real(RNP),                       optional, intent(in)    :: r_max
+      integer,                         optional, intent(out)   :: ni
+
+    end subroutine DiffusionSolver
+
   end interface
 
 contains
@@ -173,7 +193,7 @@ contains
     integer :: b
 
     this % mu_0 = opt % mu_0
-    this % nu_0 = problem % nu_0
+    this % nu_0 = problem % nu_ref
     this % bc_v = problem % bc_v
 
     this % eop_v = DG_ElementOperators_1D(opt % eop_v)

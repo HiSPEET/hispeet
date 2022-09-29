@@ -241,7 +241,7 @@ module DG__Schwarz_Operator__3D
   end interface
 
   !=============================================================================
-  ! Interfaces to double precision submodule procedures
+  ! Interfaces to single precision submodule procedures
 
   interface
 

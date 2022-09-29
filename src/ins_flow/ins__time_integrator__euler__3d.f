@@ -181,7 +181,7 @@ contains
       ! so far ν is constant and boundaries are periodic or have Dirichlet BC
 
       call ins_op % SetVelocityBC(bv_v, vp, sp)
-      call ins_op % GetDiffusionTerm(problem % nu_ref, v, vp, sp, F_d)
+      call ins_op % GetDiffusionTerm(v, vp, sp, F_d)
 
       !$omp do
       do e = 1, n_elem

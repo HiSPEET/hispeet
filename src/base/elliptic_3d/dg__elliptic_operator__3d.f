@@ -80,7 +80,7 @@ contains
     end subroutine SetDiffusivity_V
 
     !---------------------------------------------------------------------------
-    !> Application of the diffusion operator
+    !> Application of the diffusion operator, r = Au - f
 
     module subroutine Apply(this, u, r, f, bv)
       class(DG_EllipticOperator_3D),   intent(in)  :: this
