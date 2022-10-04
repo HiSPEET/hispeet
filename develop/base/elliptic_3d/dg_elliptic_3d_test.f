@@ -78,25 +78,24 @@ program DG_Elliptic_3D_Test
 
   integer :: test_case  = 3            ! set 1/2/3/4 for simple_1/2/3d or knotty
   logical :: has_variable_nu = .false. ! set T/F for variable/constant ν
-  logical :: has_spectral_nu = .false. ! set T/F to use/discard spectral ν
 
-  namelist/problem_prm/ test_case, has_variable_nu, has_spectral_nu
+  namelist/problem_prm/ test_case, has_variable_nu
 
   ! NOTE:
-  !   -  spectral diffusivity  (nu_s) available in case of constant ν only
-  !   -  fluctuation amplitude (nu_1) ignored   in case of constant ν
+  !   -  spectral diffusivity available in case of constant ν only
+  !   -  fluctuation amplitude ν₁ ignored in case of constant ν
 
   real(RNP) :: lambda = 0         ! Helmholtz parameter
   real(RNP) :: nu_0   = 1         ! diffusivity mean value ν₀
   real(RNP) :: nu_1   = 0         ! diffusivity fluctuation amplitude ν₁
-  real(RNP) :: nu_s   = 0.1       ! spectral diffusivity amplitude
+  real(RNP) :: r_nu_s = 0         ! relative spectral diffusivity
   real(RNP) :: d_nu   = 0         ! diffusivity fluctuation phase shift
   integer   :: k_nu   = 1         ! diffusivity fluctuation wave number
   integer   :: k_u    = 1         ! solution wave number
   integer   :: n_bound_max = 100  ! max number of boundaries
   character, allocatable :: bc(:) ! boundary conditions {'D','N','P'} ['D']
 
-  namelist/problem_prm/ lambda, nu_0, nu_1, nu_s, d_nu, k_nu, k_u, bc
+  namelist/problem_prm/ lambda, nu_0, nu_1, r_nu_s, d_nu, k_nu, k_u, bc
 
   ! discretization parameters ..................................................
 
@@ -171,7 +170,7 @@ program DG_Elliptic_3D_Test
 
   type(SpectralElementScalar_3D) :: se_u
   type(SpectralElementVector_3D) :: se_q
-  type(SpectralElementBoundaryVariable_3D), allocatable :: se_bv(:)
+  type(SpectralElementBoundaryVariable_3D), allocatable :: bv_u(:)
 
   character(len=80) :: config_name = '', test_case_name = ''
   real(RDP) :: time, time0
@@ -233,10 +232,8 @@ program DG_Elliptic_3D_Test
     end if
 
     if (has_variable_nu) then
-      has_spectral_nu = .false.
-      nu_s = 0
+      r_nu_s = 0
     else
-      has_spectral_nu = has_spectral_nu .and. nu_s > 0
       nu_1 = 0
     end if
 
@@ -255,11 +252,10 @@ program DG_Elliptic_3D_Test
   ! globalize problem parameters
   call XMPI_Bcast( test_case      , 0, comm )
   call XMPI_Bcast( has_variable_nu, 0, comm )
-  call XMPI_Bcast( has_spectral_nu, 0, comm )
   call XMPI_Bcast( lambda         , 0, comm )
   call XMPI_Bcast( nu_0           , 0, comm )
   call XMPI_Bcast( nu_1           , 0, comm )
-  call XMPI_Bcast( nu_s           , 0, comm )
+  call XMPI_Bcast( r_nu_s         , 0, comm )
   call XMPI_Bcast( d_nu           , 0, comm )
   call XMPI_Bcast( k_nu           , 0, comm )
   call XMPI_Bcast( k_u            , 0, comm )
@@ -350,7 +346,7 @@ program DG_Elliptic_3D_Test
     write(*,'(/,A,/)') 'DG Elliptic Test 3D'
     write(*,'(T3,A,T25,9(G0,X))') 'configuration:',config,' ',trim(config_name)
     write(*,'(T3,A,T25,9(G0,X))') 'test case:',test_case,' ',trim(test_case_name)
-    write(*,'(T3,A,T25,9(G0,X))') 'spectral diffusivity:', has_spectral_nu
+    write(*,'(T3,A,T25,9(G0,X))') 'spectral diffusivity:', r_nu_s > 0
     write(*,'(T3,A,T25,9(G0,X))') 'variable diffusivity:', has_variable_nu
     write(*,'(T3,A,T25,9(G0,X))') 'boundary conditions:' , bc
     write(*,'(T3,A,T25,9(G0,X))') 'number of processes:' , n_proc
@@ -385,12 +381,7 @@ program DG_Elliptic_3D_Test
 
   se_u  = SpectralElementScalar_3D(sem, u)
   se_q  = SpectralElementVector_3D(sem, q)
-  se_bv = SpectralElementBoundaryVariable_3D(sem, sem%mesh%boundary, nc = 1)
-
-!### CHECK
-!call VerifyPartitions(sem, u)
-!STOP "******************** CHECK ********************"
-!### CHECK END
+  bv_u = SpectralElementBoundaryVariable_3D(sem, sem%mesh%boundary, nc = 1)
 
   ! solution and RHS ...........................................................
 
@@ -415,9 +406,9 @@ program DG_Elliptic_3D_Test
     do i = 1, n_bound
       select case(bc(i))
       case('D')
-        call se_bv(i) % Extract(se_u, sem % mesh % boundary(i))
+        call bv_u(i) % Extract(se_u, sem % mesh % boundary(i))
       case('N')
-        call se_bv(i) % ExtractNormalComponent(se_q, sem % mesh % boundary(i))
+        call bv_u(i) % ExtractNormalComponent(se_q, sem % mesh % boundary(i))
       end select
     end do
 
@@ -425,21 +416,14 @@ program DG_Elliptic_3D_Test
 
   ! operators ..................................................................
 
-  dg_opt = DG_ElementOptions_1D(po, svv = has_spectral_nu, penalty = penalty)
 
-  if (has_variable_nu) then
-    elliptic_op = DG_EllipticOperator_3D( sem, dg_opt, lambda, nu, &
-                                            bc, schwarz_opt )
-  else if (has_spectral_nu) then
-    elliptic_op = DG_EllipticOperator_3D( sem, dg_opt, lambda, nu_0, nu_s, &
-                                            bc, schwarz_opt )
+  if (r_nu_s > 0) then
+    dg_opt = DG_ElementOptions_1D(po, svv = .true., penalty = penalty)
+    elliptic_op = DG_EllipticOperator_3D(sem, dg_opt, schwarz_opt, bc, r_nu_s)
   else
-    elliptic_op = DG_EllipticOperator_3D( sem, dg_opt, lambda, nu_0, &
-                                            bc, schwarz_opt )
+    dg_opt = DG_ElementOptions_1D(po, svv = .false., penalty = penalty)
+    elliptic_op = DG_EllipticOperator_3D(sem, dg_opt, schwarz_opt, bc)
   end if
-
-  ! apply boundary conditions to RHS
-!!!  call elliptic_op % AddBC(se_bv, f) !!! no longer required‚
 
   !-----------------------------------------------------------------------------
   ! Consistency test
@@ -451,14 +435,22 @@ program DG_Elliptic_3D_Test
   !$omp parallel
 
   ! setup call
-  call elliptic_op % Apply(u, r)
+  if (has_variable_nu) then
+    call elliptic_op % Apply(lambda, nu, u, r, f, bv_u)
+  else
+    call elliptic_op % Apply(lambda, nu_0, u, r, f, bv_u)
+  end if
 
   !$omp master
   if (rank == 0) time0 = MPI_Wtime()
   !$omp end master
 
   do i = 1, n_test
-    call elliptic_op % Apply(u, r, f, se_bv)
+    if (has_variable_nu) then
+      call elliptic_op % Apply(lambda, nu, u, r, f, bv_u)
+    else
+      call elliptic_op % Apply(lambda, nu_0, u, r, f, bv_u)
+    end if
   end do
 
   !$omp master
@@ -509,7 +501,13 @@ program DG_Elliptic_3D_Test
     if (mesh%part >= 0) then
 
       call SetArray(u, ZERO)
-      call elliptic_op % Apply(u, r, f, se_bv)
+
+      if (has_variable_nu) then
+        call elliptic_op % Apply(lambda, nu, u, r, f, bv_u)
+      else
+        call elliptic_op % Apply(lambda, nu_0, u, r, f, bv_u)
+      end if
+
       r_l2_0 = ScalarProduct(r, r, mesh%comm_parts)
       r_l2_0 = sqrt(r_l2_0)
 
@@ -529,23 +527,45 @@ program DG_Elliptic_3D_Test
     time0 = MPI_Wtime()
     !$omp end master
 
-    select case(method)
-    case(1) ! conjugate gradients
-      call elliptic_op % CG_Method(u, f, se_bv, i_max, r_red, ni=ni)
-    case(2) ! additive Schwarz
-      call elliptic_op % Schwarz_Method(u, f, se_bv, i_max, r_red, ni=ni)
-    case(3) ! additive Schwarz
-      call elliptic_op % SchwarzPCG_Method(u, f, se_bv, i_max, r_red, ni=ni)
-    end select
+    ! solver
+    if (has_variable_nu) then
+      select case(method)
+      case(1) ! conjugate gradient method
+        call elliptic_op % &
+                 CG_Method(lambda, nu, u, f, bv_u, i_max, r_red, ni=ni)
+      case(2) ! additive Schwarz method
+        call elliptic_op % &
+                 Schwarz_Method(lambda, nu, u, f, bv_u, i_max, r_red, ni=ni)
+      case(3) ! Schwarz-preconditioned conjugate gradient method
+        call elliptic_op % &
+                 SchwarzPCG_Method(lambda, nu, u, f, bv_u, i_max, r_red, ni=ni)
+      end select
+    else
+      select case(method)
+      case(1) ! conjugate gradient method
+        call elliptic_op % &
+                 CG_Method(lambda, nu_0, u, f, bv_u, i_max, r_red, ni=ni)
+      case(2) ! additive Schwarz method
+        call elliptic_op % &
+                 Schwarz_Method(lambda, nu_0, u, f, bv_u, i_max, r_red, ni=ni)
+      case(3) ! Schwarz-preconditioned conjugate gradient method
+        call elliptic_op % &
+                 SchwarzPCG_Method(lambda, nu_0, u, f, bv_u, i_max, r_red, ni=ni)
+      end select
+    end if
 
     !$omp master
     if (mesh % part == 0) then
-      time = MPI_Wtime()
-      time = time - time0
+      time = MPI_Wtime() - time0
     end if
     !$omp end master
 
-    call elliptic_op % Apply(u, r, f, se_bv)
+    ! final residual
+    if (has_variable_nu) then
+      call elliptic_op % Apply(lambda, nu, u, r, f, bv_u)
+    else
+      call elliptic_op % Apply(lambda, nu_0, u, r, f, bv_u)
+    end if
 
     !$omp end parallel
 

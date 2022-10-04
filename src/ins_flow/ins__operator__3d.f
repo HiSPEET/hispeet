@@ -73,7 +73,7 @@ module INS__Operator__3D
     generic :: GetDiffusionResidual => GetDiffusionResidual_C
     procedure, private :: GetDiffusionResidual_C
 
-    procedure :: DiffusionSolver
+!!  procedure :: DiffusionSolver
 
   end type INS_Operator_3D
 
@@ -146,20 +146,20 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion solver
 
-    module subroutine DiffusionSolver( this, tau, f, bv_v, v   &
-                                     , i_max, r_red, r_max, ni )
-
-      class(INS_Operator_3D),                    intent(in)    :: this
-      real(RNP),                                 intent(in)    :: tau
-      real(RNP), contiguous,                     intent(in)    :: f(:,:,:,:,:)
-      class(SpectralElementBoundaryVariable_3D), intent(in)    :: bv_v(:)
-      real(RNP), contiguous,                     intent(inout) :: v(:,:,:,:,:)
-      integer,                                   intent(in)    :: i_max
-      real(RNP),                       optional, intent(in)    :: r_red
-      real(RNP),                       optional, intent(in)    :: r_max
-      integer,                         optional, intent(out)   :: ni
-
-    end subroutine DiffusionSolver
+!!  module subroutine DiffusionSolver( this, tau, f, bv_v, v   &
+!!                                   , i_max, r_red, r_max, ni )
+!!
+!!    class(INS_Operator_3D),                    intent(in)    :: this
+!!    real(RNP),                                 intent(in)    :: tau
+!!    real(RNP), contiguous,                     intent(in)    :: f(:,:,:,:,:)
+!!    class(SpectralElementBoundaryVariable_3D), intent(in)    :: bv_v(:)
+!!    real(RNP), contiguous,                     intent(inout) :: v(:,:,:,:,:)
+!!    integer,                                   intent(in)    :: i_max
+!!    real(RNP),                       optional, intent(in)    :: r_red
+!!    real(RNP),                       optional, intent(in)    :: r_max
+!!    integer,                         optional, intent(out)   :: ni
+!!
+!!  end subroutine DiffusionSolver
 
   end interface
 
@@ -232,10 +232,8 @@ contains
     ! pressure operator
     this % laplacian_p = DG_EllipticOperator_3D( sem         = this%sem_p    &
                                                , dg_opt      = opt%eop_p     &
-                                               , lambda      = ZERO          &
-                                               , nu_p        = ONE           &
-                                               , bc          = this % bc_p   &
-                                               , schwarz_opt = opt%schwarz_p )
+                                               , schwarz_opt = opt%schwarz_p &
+                                               , bc          = this % bc_p   )
 
   end subroutine Init_INS_Operator_3D
 

@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Schwarz__3D_CI__XSMM_RDP
+module TPO__Schwarz__3D_I__XSMM_RDP
 
 #ifdef __LIBXSMM__
 
@@ -13,23 +13,26 @@ module TPO__Schwarz__3D_CI__XSMM_RDP
   implicit none
   private
 
-  public :: TPO_Schwarz_CI_XSMM
+  public :: TPO_Schwarz_I_XSMM
 
-  interface TPO_Schwarz_CI_XSMM
-    module procedure TPO_Schwarz_CI_XSMM_RDP
+  interface TPO_Schwarz_I_XSMM
+    module procedure TPO_Schwarz_I_XSMM_RDP
   end interface
 
 contains
 
   !-----------------------------------------------------------------------------
 
-  subroutine TPO_Schwarz_CI_XSMM_RDP(S, W, cfg, D_inv, f, u)
-    real(RDP), intent(in)  :: S(:,:,:)       !< 1D eigenvectors   (np,np,nc)
-    real(RDP), intent(in)  :: W(:,:)         !< 1D weights        (np,nc)
-    integer,   intent(in)  :: cfg(:,:)       !< subdomain configs (3,nd)
-    real(RDP), intent(in)  :: D_inv(:,:,:,:) !< inv. 3D eigenvals (np,np,np,nd)
-    real(RDP), intent(in)  :: f(:,:,:,:)     !< RHS               (np,np,np,nd)
-    real(RDP), intent(out) :: u(:,:,:,:)     !< solution          (np,np,np,nd)
+  subroutine TPO_Schwarz_I_XSMM_RDP(S, V, W, g, cfg, lambda, nu, f, u)
+    real(RDP), intent(in)  :: S(:,:,:)       !< 1D eigenvectors
+    real(RDP), intent(in)  :: V(:,:)         !< 1D eigenvalues
+    real(RDP), intent(in)  :: W(:,:)         !< 1D weights
+    real(RDP), intent(in)  :: g(:,:)         !< metrics
+    integer,   intent(in)  :: cfg(:,:)       !< subdomain configs
+    real(RDP), intent(in)  :: lambda         !< λ
+    real(RDP), intent(in)  :: nu(:)          !< ν + νˢ
+    real(RDP), intent(in)  :: f(:,:,:,:)     !< RHS
+    real(RDP), intent(out) :: u(:,:,:,:)     !< solution
 
     real(RDP), parameter :: alpha  = 1
     real(RDP), parameter :: beta   = 0
@@ -44,6 +47,7 @@ contains
     real(RDP) :: WS_t ( size(S,1), size(S,2), size(S,3) )
     real(RDP) :: y    ( size(f,1), size(f,2), size(f,3) )
     real(RDP) :: z    ( size(f,1), size(f,2), size(f,3) )
+    real(RDP) :: a1, a2, a3, a4
 
     integer :: nc, nd, np
     integer :: i, j, k, l, p
@@ -109,6 +113,12 @@ contains
       c2 = cfg(2,l)
       c3 = cfg(3,l)
 
+      ! coefficients
+      a1 = g(1,l) * nu(l)
+      a2 = g(2,l) * nu(l)
+      a3 = g(3,l) * nu(l)
+      a4 = g(4,l) * lambda
+
       ! y = Sᵀ x I x I f .......................................................
       call LIBXSMM_DMMCall(xmm_3, f(:,:,:,l), S(:,:,c3) , y(:,:,:))
 
@@ -121,7 +131,13 @@ contains
       call LIBXSMM_DMMCall(xmm_1, S_t(:,:,c1), z(:,:,:) , y(:,:,:))
 
       ! y = D⁻¹ y
-      y = D_inv(:,:,:,l) * y
+      do k = 1, np
+      do j = 1, np
+      do i = 1, np
+        y(i,j,k) = y(i,j,k) / (a1 * V(i,c1) + a2 * V(j,c2) + a3 * V(k,c3) + a4)
+      end do
+      end do
+      end do
 
       ! z = I x I x WS y .......................................................
       call LIBXSMM_DMMCall(xmm_1, WS(:,:,c1), y(:,:,:) , z(:,:,:))
@@ -136,10 +152,10 @@ contains
 
     end do subdomains
 
-  end subroutine TPO_Schwarz_CI_XSMM_RDP
+  end subroutine TPO_Schwarz_I_XSMM_RDP
 
   !=============================================================================
 
 #endif
 
-end module TPO__Schwarz__3D_CI__XSMM_RDP
+end module TPO__Schwarz__3D_I__XSMM_RDP

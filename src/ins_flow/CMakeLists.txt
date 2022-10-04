@@ -3,7 +3,6 @@
 
 add_library(HiINSFlow
             ins__operator__3d.f
-            ins__operator__3d__mp_diffusionsolver.f
             ins__operator__3d__mp_getdiffusionterm_dc.F
             ins__operator__3d__mp_getdiffusionresidual_c.f
             ins__operator__3d__mp_pressuresolver.f
@@ -13,6 +12,8 @@ add_library(HiINSFlow
             ins__time_integrator__3d.f
             ins__time_integrator__euler__3d.f
             )
+
+#           ins__operator__3d__mp_diffusionsolver.f
 
 set_property(TARGET HiINSFlow
              PROPERTY Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules)

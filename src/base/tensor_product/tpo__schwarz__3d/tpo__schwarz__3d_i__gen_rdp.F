@@ -4,19 +4,19 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Schwarz__3D_CI__Gen_RDP
+module TPO__Schwarz__3D_I__Gen_RDP
   use Kind_Parameters, only: RWP => RDP
   implicit none
   private
 
-  public :: TPO_Schwarz_CI_Gen
+  public :: TPO_Schwarz_I_Gen
 
-  interface TPO_Schwarz_CI_Gen
-    module procedure TPO_Schwarz_CI_Gen_RWP
+  interface TPO_Schwarz_I_Gen
+    module procedure TPO_Schwarz_I_Gen_RWP
   end interface
 
 contains
 
-#include "tpo__schwarz__3d_ci__gen_kernel.f"
+#include "tpo__schwarz__3d_i__gen_kernel.f"
 
-end module TPO__Schwarz__3D_CI__Gen_RDP
+end module TPO__Schwarz__3D_I__Gen_RDP

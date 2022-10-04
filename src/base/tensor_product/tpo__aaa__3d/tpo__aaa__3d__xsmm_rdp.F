@@ -39,7 +39,6 @@ contains
     real(RDP) :: At( size(A,2), size(A,1) )
     real(RDP) :: z2( size(A,2), size(A,1), size(A,1))
     real(RDP) :: z3( size(A,2), size(A,2), size(A,1))
-    real(RDP) :: tmp
     integer   :: na1, na2, ne
     integer   :: e, k
 

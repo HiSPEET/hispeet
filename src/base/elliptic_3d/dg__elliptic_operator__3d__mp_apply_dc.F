@@ -5,9 +5,11 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(DG__Elliptic_Operator__3D:MP_Apply) MP_Apply_DC
+submodule(DG__Elliptic_Operator__3D) MP_Apply_DC
   use TPO__Elliptic__3D
   use Mesh_Metrics__3D
+  use Mesh_Element__3D
+  use Mesh__3D
   use Element_Face_Transfer_Buffer__3D
   implicit none
 
@@ -51,8 +53,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Application with irregular (deformed) mesh and constant diffusivity
 
-  module subroutine Apply_DC(this, u, r, f, bv)
+  module subroutine Apply_DC(this, lambda, nu, u, r, f, bv)
     class(DG_EllipticOperator_3D),   intent(in)  :: this
+    real(RNP),                       intent(in)  :: lambda     !< λ
+    real(RNP),                       intent(in)  :: nu         !< ν
     real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
     real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
     real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
@@ -69,14 +73,12 @@ contains
 
     integer :: po, ne, ng, np
 
-    associate( mesh   => this % sem % mesh           &
-             , Jd     => this % sem % metrics % Jd   &
-             , G      => this % sem % metrics % G    &
-             , a      => this % sem % metrics % a    &
-             , Ji_n   => this % sem % metrics % Ji_n &
-             , lambda => this % lambda               &
-             , nu     => this % nu_pc                &
-             , eop    => this % eop                  )
+    associate( mesh => this % sem % mesh           &
+             , Jd   => this % sem % metrics % Jd   &
+             , G    => this % sem % metrics % G    &
+             , a    => this % sem % metrics % a    &
+             , Ji_n => this % sem % metrics % Ji_n &
+             , eop  => this % eop                  )
 
       ! initialization .........................................................
 
@@ -94,10 +96,11 @@ contains
 
       ! apply element diffusion operator .......................................
 
-      call TPO_Elliptic( eop%w, eop%D, Jd, G, lambda, nu, u, r &
-                       , Ji_n                                  &
-                       , ub = tr(:,:,:,:,1)                    &
-                       , qb = tr(:,:,:,:,2)                    )
+      call TPO_Elliptic( eop%w, eop%D, Jd, G & !  As r may contain ghost entries
+                       , lambda, nu, u       & !  it is explicitly restricted to
+                       , r(:,:,:,:ne), Ji_n  & !  local elements since no proper
+                       , ub = tr(:,:,:,:,1)  & !  bound checking is performed in
+                       , qb = tr(:,:,:,:,2)  ) !  TPO_Elliptic.
 
       ! transfer traces and apply boundary conditions ..........................
 

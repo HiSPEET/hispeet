@@ -4,17 +4,24 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-subroutine TPO_Schwarz_CA_Gen_RWP(S1, S2, S3, W1, W2, W3, cfg, D_inv, f, u)
-  real(RWP), intent(in)  :: S1(:,:,:)      !< eigenvecs, dir 1   (n1,n1,nc)
-  real(RWP), intent(in)  :: S2(:,:,:)      !< eigenvecs, dir 2   (n2,n2,nc)
-  real(RWP), intent(in)  :: S3(:,:,:)      !< eigenvecs, dir 3   (n3,n3,nc)
-  real(RWP), intent(in)  :: W1(:,:)        !< weights,   dir 1   (n1,nc)
-  real(RWP), intent(in)  :: W2(:,:)        !< weights,   dir 2   (n2,nc)
-  real(RWP), intent(in)  :: W3(:,:)        !< weights,   dir 3   (n3,nc)
-  integer,   intent(in)  :: cfg(:,:)       !< subdomain configs  (3,nd)
-  real(RWP), intent(in)  :: D_inv(:,:,:,:) !< inv 3D eigenvals   (n1,n2,n3,nd)
-  real(RWP), intent(in)  :: f(:,:,:,:)     !< RHS                (n1,n2,n3,nd)
-  real(RWP), intent(out) :: u(:,:,:,:)     !< solution           (n1,n2,n3,nd)
+subroutine TPO_Schwarz_A_Gen_RWP( S1, S2, S3, V1, V2, V3, W1, W2, W3, g, cfg, &
+                                  lambda, nu, f, u                            )
+
+  real(RWP), intent(in)  :: S1(:,:,:)  !< eigenvecs, dir 1   (n1,n1,nc)
+  real(RWP), intent(in)  :: S2(:,:,:)  !< eigenvecs, dir 2   (n2,n2,nc)
+  real(RWP), intent(in)  :: S3(:,:,:)  !< eigenvecs, dir 3   (n3,n3,nc)
+  real(RWP), intent(in)  :: V1(:,:)    !< eigenvals, dir 1   (n1,nc)
+  real(RWP), intent(in)  :: V2(:,:)    !< eigenvals, dir 2   (n2,nc)
+  real(RWP), intent(in)  :: V3(:,:)    !< eigenvals, dir 3   (n3,nc)
+  real(RWP), intent(in)  :: W1(:,:)    !< weights,   dir 1   (n1,nc)
+  real(RWP), intent(in)  :: W2(:,:)    !< weights,   dir 2   (n2,nc)
+  real(RWP), intent(in)  :: W3(:,:)    !< weights,   dir 3   (n3,nc)
+  real(RWP), intent(in)  :: g(:,:)     !< metrics            (4,nd)
+  integer,   intent(in)  :: cfg(:,:)   !< subdomain configs  (3,nd)
+  real(RWP), intent(in)  :: lambda     !< λ
+  real(RWP), intent(in)  :: nu(:)      !< ν + νˢ             (nd)
+  real(RWP), intent(in)  :: f(:,:,:,:) !< RHS                (n1,n2,n3,nd)
+  real(RWP), intent(out) :: u(:,:,:,:) !< solution           (n1,n2,n3,nd)
 
   !---------------------------------------------------------------------------
   ! local variables
@@ -24,7 +31,7 @@ subroutine TPO_Schwarz_CA_Gen_RWP(S1, S2, S3, W1, W2, W3, cfg, D_inv, f, u)
   real(RWP) :: WS3_t ( size(S3,1), size(S3,2), size(S3,3) )
   real(RWP) :: y     ( size(f ,1), size(f ,2), size(f ,3) )
   real(RWP) :: z     ( size(f ,1), size(f ,2), size(f ,3) )
-  real(RWP) :: tmp
+  real(RWP) :: a1, a2, a3, a4, tmp
 
   integer :: n1, n2, n3, nc, nd
   integer :: i, j, k, l, p
@@ -85,6 +92,12 @@ subroutine TPO_Schwarz_CA_Gen_RWP(S1, S2, S3, W1, W2, W3, cfg, D_inv, f, u)
     c2 = cfg(2,l)
     c3 = cfg(3,l)
 
+    ! coefficients
+    a1 = g(1,l) * nu(l)
+    a2 = g(2,l) * nu(l)
+    a3 = g(3,l) * nu(l)
+    a4 = g(4,l) * lambda
+
     ! y = S₃ᵀ x I x I f ......................................................
 
     !$acc loop collapse(3) vector
@@ -128,7 +141,7 @@ subroutine TPO_Schwarz_CA_Gen_RWP(S1, S2, S3, W1, W2, W3, cfg, D_inv, f, u)
         do p = 1, n1
           tmp = tmp + S1(p,i,c1) * z(p,j,k)
         end do
-        y(i,j,k) = tmp * D_inv(i,j,k,l)
+        y(i,j,k) = tmp / (a1 * V1(i,c1) + a2 * V2(j,c2) + a3 * V3(k,c3) + a4)
       end do
     end do
     end do
@@ -187,4 +200,4 @@ subroutine TPO_Schwarz_CA_Gen_RWP(S1, S2, S3, W1, W2, W3, cfg, D_inv, f, u)
   !$acc end parallel
   !$acc end data
 
-end subroutine TPO_Schwarz_CA_Gen_RWP
+end subroutine TPO_Schwarz_A_Gen_RWP

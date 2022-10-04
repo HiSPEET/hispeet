@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Schwarz__3D_CA__XSMM_RSP
+module TPO__Schwarz__3D_A__XSMM_RSP
 
 #ifdef __LIBXSMM__
 
@@ -13,10 +13,10 @@ module TPO__Schwarz__3D_CA__XSMM_RSP
   implicit none
   private
 
-  public :: TPO_Schwarz_CA_XSMM
+  public :: TPO_Schwarz_A_XSMM
 
-  interface TPO_Schwarz_CA_XSMM
-    module procedure TPO_Schwarz_CA_XSMM_RSP
+  interface TPO_Schwarz_A_XSMM
+    module procedure TPO_Schwarz_A_XSMM_RSP
   end interface
 
 contains
@@ -24,17 +24,24 @@ contains
   !-----------------------------------------------------------------------------
   !> 3d generic anisotropic Schwarz operator
 
-  subroutine TPO_Schwarz_CA_XSMM_RSP(S1, S2, S3, W1, W2, W3, cfg, D_inv, f, u)
-    real(RSP), intent(in)  :: S1(:,:,:)      !< eigenvecs, dir 1   (n1,n1,nc)
-    real(RSP), intent(in)  :: S2(:,:,:)      !< eigenvecs, dir 2   (n2,n2,nc)
-    real(RSP), intent(in)  :: S3(:,:,:)      !< eigenvecs, dir 3   (n3,n3,nc)
-    real(RSP), intent(in)  :: W1(:,:)        !< weights,   dir 1   (n1,nc)
-    real(RSP), intent(in)  :: W2(:,:)        !< weights,   dir 2   (n2,nc)
-    real(RSP), intent(in)  :: W3(:,:)        !< weights,   dir 3   (n3,nc)
-    integer,   intent(in)  :: cfg(:,:)       !< subdomain configs  (3,nd)
-    real(RSP), intent(in)  :: D_inv(:,:,:,:) !< inv 3D eigenvals   (n1,n2,n3,nd)
-    real(RSP), intent(in)  :: f(:,:,:,:)     !< RHS                (n1,n2,n3,nd)
-    real(RSP), intent(out) :: u(:,:,:,:)     !< solution           (n1,n2,n3,nd)
+  subroutine TPO_Schwarz_A_XSMM_RSP( S1, S2, S3, V1, V2, V3, W1, W2, W3, g, &
+                                     cfg, lambda, nu, f, u                  )
+
+    real(RSP), intent(in)  :: S1(:,:,:)  !< eigenvecs, dir 1   (n1,n1,nc)
+    real(RSP), intent(in)  :: S2(:,:,:)  !< eigenvecs, dir 2   (n2,n2,nc)
+    real(RSP), intent(in)  :: S3(:,:,:)  !< eigenvecs, dir 3   (n3,n3,nc)
+    real(RSP), intent(in)  :: V1(:,:)    !< eigenvals, dir 1   (n1,nc)
+    real(RSP), intent(in)  :: V2(:,:)    !< eigenvals, dir 2   (n2,nc)
+    real(RSP), intent(in)  :: V3(:,:)    !< eigenvals, dir 3   (n3,nc)
+    real(RSP), intent(in)  :: W1(:,:)    !< weights,   dir 1   (n1,nc)
+    real(RSP), intent(in)  :: W2(:,:)    !< weights,   dir 2   (n2,nc)
+    real(RSP), intent(in)  :: W3(:,:)    !< weights,   dir 3   (n3,nc)
+    real(RSP), intent(in)  :: g(:,:)     !< metrics            (4,nd)
+    integer,   intent(in)  :: cfg(:,:)   !< subdomain configs  (3,nd)
+    real(RSP), intent(in)  :: lambda     !< λ
+    real(RSP), intent(in)  :: nu(:)      !< ν + νˢ             (nd)
+    real(RSP), intent(in)  :: f(:,:,:,:) !< RHS                (n1,n2,n3,nd)
+    real(RSP), intent(out) :: u(:,:,:,:) !< solution           (n1,n2,n3,nd)
 
     real(RSP), parameter :: alpha  = 1
     real(RSP), parameter :: beta   = 0
@@ -50,10 +57,10 @@ contains
     real(RSP) :: WS3_t ( size(S3,1), size(S3,2), size(S3,3) )
     real(RSP) :: y     ( size(f ,1), size(f ,2), size(f ,3) )
     real(RSP) :: z     ( size(f ,1), size(f ,2), size(f ,3) )
-    real(RSP) :: tmp
+    real(RSP) :: a1, a2, a3, a4
 
     integer :: n1, n2, n3, nc, nd
-    integer :: i, j, k, l, p
+    integer :: i, j, k, l
     integer :: c, c1, c2, c3
 
     !-----------------------------------------------------------------------------
@@ -127,6 +134,12 @@ contains
       c2 = cfg(2,l)
       c3 = cfg(3,l)
 
+      ! coefficients
+      a1 = g(1,l) * nu(l)
+      a2 = g(2,l) * nu(l)
+      a3 = g(3,l) * nu(l)
+      a4 = g(4,l) * lambda
+
       ! y = S₃ᵀ x I x I f ......................................................
       call LIBXSMM_SMMCall(xmm_3, f(:,:,:,l), S3(:,:,c3) , y(:,:,:))
 
@@ -139,7 +152,13 @@ contains
       call LIBXSMM_SMMCall(xmm_1, S1_t(:,:,c1), z(:,:,:) , y(:,:,:))
 
       ! y = D⁻¹ y
-      y = D_inv(:,:,:,l) * y
+      do k = 1, n3
+      do j = 1, n2
+      do i = 1, n1
+        y(i,j,k) = y(i,j,k) / (a1 * V1(i,c1) + a2 * V2(j,c2) + a3 * V3(k,c3) + a4)
+      end do
+      end do
+      end do
 
       ! z = I x I x W₁S₁ y .....................................................
       call LIBXSMM_SMMCall(xmm_1, WS1(:,:,c1), y(:,:,:) , z(:,:,:))
@@ -155,10 +174,10 @@ contains
     end do subdomains
     !$omp end do
 
-  end subroutine TPO_Schwarz_CA_XSMM_RSP
+  end subroutine TPO_Schwarz_A_XSMM_RSP
 
   !=============================================================================
 
 #endif
 
-end module TPO__Schwarz__3D_CA__XSMM_RSP
+end module TPO__Schwarz__3D_A__XSMM_RSP

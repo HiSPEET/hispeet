@@ -40,9 +40,8 @@ contains
     type(LIBXSMM_DMMFunction), save :: xmm_1, xmm_2, xmm_3
 
     real(RDP) :: z( size(S1,1), size(S2,1), size(S3,1) )
-    real(RDP) :: tmp
     integer   :: n1, n2, n3, ne
-    integer   :: e, i, j, k, p
+    integer   :: e, k
     real(RDP) :: S1_t (size(S1,1), size(S1,1) )
     real(RDP) :: S2_t (size(S2,1), size(S2,1) )
     real(RDP) :: S3_t (size(S3,1), size(S3,1) )

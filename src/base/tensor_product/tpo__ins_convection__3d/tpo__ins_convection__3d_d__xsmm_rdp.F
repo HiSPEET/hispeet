@@ -63,15 +63,14 @@ contains
     real(RDP) :: z2(nq,nq,nv)
     real(RDP) :: ff(nq,nq,3)
     real(RDP) :: zd(nv,nv,nv)
-    real(RDP) :: zz(nq,nv)
 
 
     real(RDP) :: v1v1, v1v2, v1v3, v2v2, v2v3, v3v3
     real(RDP) :: vm_1, vm_2, vm_3, vm_n
     real(RDP) :: vp_1, vp_2, vp_3, vp_n
-    real(RDP) :: cf, vn, tmp
+    real(RDP) :: cf, vn
 
-    integer   :: c, e, f, i, j, k, p
+    integer   :: c, e, f, i, j, k
     integer   :: iv, iq, jv, jq, kv, kq
 
 

@@ -45,20 +45,20 @@ module DG__Schwarz_Operator__3D
   !> Schwarz suboperators with single precision
 
   type SuboperatorsSP
-    real(RSP), allocatable :: S(:,:,:)       !< eigenvectors per config
-    real(RSP), allocatable :: V(:,:)         !< eigenvalues  per config
-    real(RSP), allocatable :: W(:,:)         !< weights      per config
-    real(RSP), allocatable :: D_inv(:,:,:,:) !< inverse 3D eigenvalues
+    real(RSP), allocatable :: S(:,:,:) !< eigenvectors per config
+    real(RSP), allocatable :: V(:,:)   !< eigenvalues  per config
+    real(RSP), allocatable :: W(:,:)   !< weights      per config
+    real(RSP), allocatable :: g(:,:)   !< metric coefficients g(4,e)
   end type SuboperatorsSP
 
   !-----------------------------------------------------------------------------
   !> Schwarz suboperators with double precision
 
   type SuboperatorsDP
-    real(RDP), allocatable :: S(:,:,:)       !< eigenvectors per config
-    real(RDP), allocatable :: V(:,:)         !< eigenvalues  per config
-    real(RDP), allocatable :: W(:,:)         !< weights      per config
-    real(RDP), allocatable :: D_inv(:,:,:,:) !< inverse 3D eigenvalues
+    real(RDP), allocatable :: S(:,:,:) !< eigenvectors per config
+    real(RDP), allocatable :: V(:,:)   !< eigenvalues  per config
+    real(RDP), allocatable :: W(:,:)   !< weights      per config
+    real(RDP), allocatable :: g(:,:)   !< metric coefficients g(4,e)
   end type SuboperatorsDP
 
   !-----------------------------------------------------------------------------
@@ -72,45 +72,36 @@ module DG__Schwarz_Operator__3D
   !> The Schwarz operator is the inverse of the truncated diffusion operator,
   !> which is given in tensor-product form by
   !>
-  !>     A  =  c0 M x M x M
-  !>        +  c1 M x M x L
-  !>        +  c2 M x L x M
-  !>        +  c3 L x M x M
+  !>     A  =  g₁ M x M x L (ν + νˢ)
+  !>        +  g₂ M x L x M (ν + νˢ)
+  !>        +  g₃ L x M x M (ν + νˢ)
+  !>        +  g₄ M x M x M λ
   !>
-  !> where `M` is the 1D mass matrix and `L` the corresponding stiffness matrix.
-  !> These operators are normalized to unit mesh spacing and, thus, depend only
-  !> on the following parameters
+  !> where `M` is the 1D mass matrix, `L` the corresponding stiffness matrix,
+  !> λ the Helmholtz parameter and ν, νˢ the physical and spectral diffusivity
+  !> coefficients with a fixed ratio νˢ/(ν + νˢ).  The operators `M` and `L`
+  !> are normalized to unit mesh spacing and depend on the following parameters
   !>
-  !>   -  polynomial order and, possibly, further discretization parameters
+  !>   -  polynomial order
+  !>   –  further discretization parameters such as penalty factors
   !>   -  number of overlapped points `no`
-  !>   -  Helmholtz and diffusion coefficients
   !>   -  boundary conditions.
   !>
-  !> In the case with spectral vanishing viscosity (SVV), the stiffness matrices
-  !> are defined as
+  !> The element extensions `∆x` are incorporated into the metric coefficients
   !>
-  !>     L1 = A1 / (nu + nu_svv)
+  !>     g₁ = ∆x₂ * ∆x₃ / ∆x₁
+  !>     g₂ = ∆x₃ * ∆x₁ / ∆x₂
+  !>     g₃ = ∆x₁ * ∆x₂ / ∆x₃
+  !>     g₄ = ∆x₁ * ∆x₂ * ∆x₃
   !>
-  !> where `A1` is the 1D element diffusion matrix for `dx=1` etc.
+  !> The element-boundary configuration `cfg(d,e)` describes the conditions at
+  !> the element faces for each standard direction `d`:
   !>
-  !> The effect of element extensions `dx` is incorporated into the coefficients
-  !>
-  !>     c0 = dx(1) * dx(2) * dx(3) * lambda
-  !>     c1 = dx(2) * dx(3) / dx(1) * (nu + nu_svv)
-  !>     c2 = dx(3) * dx(1) / dx(2) * (nu + nu_svv)
-  !>     c3 = dx(1) * dx(2) / dx(3) * (nu + nu_svv)
-  !>
-  !> where `lambda` represents the Helmholtz parameter λ, `nu` the physical
-  !> diffusivity ν and `nu_svv` the spectral viscosity amplitude νˢ.
-  !>
-  !> The element-boundary configuration describes the conditions at the element
-  !> faces:
-  !>
-  !>   *  In the standard configuration, the element is completely enclosed by
+  !>   -  In the standard configuration, the element is completely enclosed by
   !>      adjoining elements and, hence, every everywhere coated by the layer
   !>      of overlapped points.
   !>
-  !>   *  In boundary configurations, one or more element faces coincide with
+  !>   -  In boundary configurations, one or more element faces coincide with
   !>      the boundary of the computational domain. At those faces, the
   !>      Helmholtz operator is modified according to the boundary conditions,
   !>      and no exterior points are adopted to the Schwarz subdomain.
@@ -130,23 +121,27 @@ module DG__Schwarz_Operator__3D
   !>
   !> For computing the inverse operator, a generalized 1D eigenvalue problem is
   !> solved for every configuration in each coordinate direction, yielding the
-  !> matrices of right eigenvectors `S1`, `S2`, `S3` and the diagonal matrices
-  !> of eigenvalues `Λ1`, `Λ2`, `Λ3` such that
+  !> matrices of right eigenvectors `S₁`, `S₂`, `S₃` and the diagonal matrices
+  !> of eigenvalues `Λ₁`, `Λ₂`, `Λ₃` such that
   !>
-  !>     S1ᵀ L1 S1 = Λ1
-  !>     S1ᵀ M1 S1 = I1
+  !>     S₁ᵀ L₁ S₁ = Λ₁
+  !>     S₁ᵀ M₁ S₁ = I₁
   !>
-  !> where `I1` ist the matching unit matrix etc.
-  !> The inverse Helmholtz operator can be expressed in the tensor-product form
+  !> where `I₁` ist the matching unit matrix etc. The inverse Helmholtz operator
+  !> can be then expressed in the tensor-product form
   !>
-  !>     A⁻¹  =  (S3 x S2 x S1 D⁻¹ (S3ᵀ x S2ᵀ x S1ᵀ)
+  !>     A⁻¹  =  (S₃ x S₂ x S₁ D⁻¹ (S₃ᵀ x S₂ᵀ x S₁ᵀ)
   !>
   !> with the diagonal matrix
   !>
-  !>     D  =  c0 I3 x I2 x I1
-  !>        +  c1 I3 x I2 x Λ1
-  !>        +  c2 I3 x Λ2 x I1
-  !>        +  c3 Λ3 x I2 x I1
+  !>     D  =  g₁ I₃ x I₂ x Λ₁ (ν + νˢ)
+  !>        +  g₂ I₃ x Λ₂ x I₁ (ν + νˢ)
+  !>        +  g₃ Λ₃ x I₂ x I₁ (ν + νˢ)
+  !>        +  g₄ I₃ x I₂ x I₁ λ
+  !>
+  !> As λ, ν and νˢ can vary, `D⁻¹` is not stored, but computed on the fly using
+  !> the metric coefficients and the 1D eigenvalues, which are kept within the
+  !> operator.
   !>
   !> Before assembling the global correction to an approximate solution, the
   !> subdomain correction is weighted according to
@@ -155,9 +150,9 @@ module DG__Schwarz_Operator__3D
   !>
   !> The weights form a diagonal tensor-product matrix
   !>
-  !>     W = W3 x W2 x W1
+  !>     W = W₃ x W₂ x W₁
   !>
-  !> with 1D distributions `W1`, `W2`, `W3` depending on the element-boundary
+  !> with 1D distributions `W₁`, `W₂`, `W₃` depending on the element-boundary
   !> configuration.
 
   type DG_SchwarzOperator_3D
@@ -174,9 +169,6 @@ module DG__Schwarz_Operator__3D
 
   contains
 
-    generic :: SetDomains => SetDomains_C0, SetDomains_CC, SetDomains_V
-    procedure, private :: SetDomains_C0, SetDomains_CC, SetDomains_V
-
     generic :: RestrictResidual => RestrictResidual_RDP, RestrictResidual_RSP
     procedure, private :: RestrictResidual_RDP, RestrictResidual_RSP
 
@@ -187,9 +179,7 @@ module DG__Schwarz_Operator__3D
 
   ! constructor interface
   interface DG_SchwarzOperator_3D
-    module procedure New_C0
-    module procedure New_CC
-    module procedure New_V
+    module procedure New_DG_SchwarzOperator_3D
   end interface
 
   !=============================================================================
@@ -311,72 +301,31 @@ contains
   ! Type-bound procedures of DG_SchwarzOperator_3D
 
   !-----------------------------------------------------------------------------
-  !> Constructor with constant physical diffusivity
+  !> Constructor
 
-  function New_C0(opt, eop, mesh, lambda, nu, bc) result(this)
-    class(DG_SchwarzOptions_3D),   intent(in) :: opt !< operator options
-    class(DG_ElementOperators_1D), intent(in) :: eop !< DG element operators
-    class(Mesh_3D), intent(in) :: mesh      !< mesh partition
-    real(RNP),      intent(in) :: lambda    !< Helmholtz parameter
-    real(RNP),      intent(in) :: nu        !< physical diffusivity
-    character,      intent(in) :: bc(:)     !< BC {'D','N','P'}
-
-    type(DG_SchwarzOperator_3D) :: this
-
-    call InitSchwarzOperator(this, opt, eop, mesh)
-    call SetDomains_C0(this, mesh, lambda, nu, bc)
-
-  end function New_C0
-
-  !-----------------------------------------------------------------------------
-  !> Constructor with constant physical and spectral diffusivities
-
-  function New_CC(opt, eop, mesh, lambda, nu, nu_svv, bc) result(this)
-    class(DG_SchwarzOptions_3D),   intent(in) :: opt !< operator options
-    class(DG_ElementOperators_1D), intent(in) :: eop !< DG element operators
-    class(Mesh_3D), intent(in) :: mesh      !< mesh partition
-    real(RNP),      intent(in) :: lambda    !< Helmholtz parameter
-    real(RNP),      intent(in) :: nu        !< physical diffusivity
-    real(RNP),      intent(in) :: nu_svv    !< spectral diffusivity
-    character,      intent(in) :: bc(:)     !< BC {'D','N','P'}
+  function New_DG_SchwarzOperator_3D(opt, eop, mesh, bc, r_nu_s) result(this)
+    class(DG_SchwarzOptions_3D),   intent(in) :: opt    !< operator options
+    class(DG_ElementOperators_1D), intent(in) :: eop    !< DG element operators
+    class(Mesh_3D),                intent(in) :: mesh   !< mesh partition
+    character,                     intent(in) :: bc(:)  !< BC {'D','N','P'}
+    real(RNP),           optional, intent(in) :: r_nu_s !< ratio νˢ/(ν + νˢ) [0]
 
     type(DG_SchwarzOperator_3D) :: this
 
-    real(RNP) :: svv
+    call InitSchwarzOperator (this, opt, eop, mesh, r_nu_s)
+    call InitSchwarzDomains  (this, mesh, bc)
 
-    svv = nu_svv / (nu + nu_svv)
-    call InitSchwarzOperator(this, opt, eop, mesh, svv)
-    call SetDomains_CC(this, mesh, lambda, nu, nu_svv, bc)
-
-  end function New_CC
-
-  !-----------------------------------------------------------------------------
-  !> Constructor with variable diffusivity
-
-  function New_V(opt, eop, mesh, lambda, nu, bc) result(this)
-    class(DG_SchwarzOptions_3D),   intent(in) :: opt !< operator options
-    class(DG_ElementOperators_1D), intent(in) :: eop !< DG element operators
-    class(Mesh_3D), intent(in) :: mesh        !< mesh partition
-    real(RNP),      intent(in) :: lambda      !< Helmholtz parameter
-    real(RNP),      intent(in) :: nu(:,:,:,:) !< diffusivity
-    character,      intent(in) :: bc(:)       !< BC {'D','N','P'}
-
-    type(DG_SchwarzOperator_3D) :: this
-
-    call InitSchwarzOperator(this, opt, eop, mesh)
-    call SetDomains_V(this, eop, mesh, lambda, nu, bc)
-
-  end function New_V
+  end function New_DG_SchwarzOperator_3D
 
   !-----------------------------------------------------------------------------
   !> Build the 1D eigenvalues, eigenvectors and weights
 
-  subroutine InitSchwarzOperator(this, opt, eop, mesh, svv)
-    class(DG_SchwarzOperator_3D), intent(inout) :: this
-    class(DG_SchwarzOptions_3D), intent(in) :: opt
-    class(DG_ElementOperators_1D), intent(in) :: eop
-    class(Mesh_3D), intent(in) :: mesh
-    real(RNP), intent(in), optional :: svv !< ratio νˢ/(ν + νˢ)
+  subroutine InitSchwarzOperator(this, opt, eop, mesh, r_nu_s)
+    class(DG_SchwarzOperator_3D),  intent(inout) :: this
+    class(DG_SchwarzOptions_3D),   intent(in) :: opt    !< operator options
+    class(DG_ElementOperators_1D), intent(in) :: eop    !< DG element operators
+    class(Mesh_3D),                intent(in) :: mesh   !< mesh partition
+    real(RNP),           optional, intent(in) :: r_nu_s !< ratio νˢ/(ν+νˢ) [0]
 
     ! local variables ..........................................................
 
@@ -407,30 +356,30 @@ contains
 
     if (allocated(this % cfg)) deallocate(this % cfg)
 
-    if (allocated(this % ops_dp % S    )) deallocate(this % ops_dp % S    )
-    if (allocated(this % ops_dp % V    )) deallocate(this % ops_dp % V    )
-    if (allocated(this % ops_dp % W    )) deallocate(this % ops_dp % W    )
-    if (allocated(this % ops_dp % D_inv)) deallocate(this % ops_dp % D_inv)
+    if (allocated( this % ops_dp % S )) deallocate( this % ops_dp % S )
+    if (allocated( this % ops_dp % V )) deallocate( this % ops_dp % V )
+    if (allocated( this % ops_dp % W )) deallocate( this % ops_dp % W )
+    if (allocated( this % ops_dp % g )) deallocate( this % ops_dp % g )
 
-    if (allocated(this % ops_sp % S    )) deallocate(this % ops_sp % S    )
-    if (allocated(this % ops_sp % V    )) deallocate(this % ops_sp % V    )
-    if (allocated(this % ops_sp % W    )) deallocate(this % ops_sp % W    )
-    if (allocated(this % ops_sp % D_inv)) deallocate(this % ops_sp % D_inv)
+    if (allocated( this % ops_sp % S )) deallocate( this % ops_sp % S )
+    if (allocated( this % ops_sp % V )) deallocate( this % ops_sp % V )
+    if (allocated( this % ops_sp % W )) deallocate( this % ops_sp % W )
+    if (allocated( this % ops_sp % g )) deallocate( this % ops_sp % g )
 
     allocate(this % cfg(3,ne))
 
     if (opt % wp == RSP) then
       this % wp = RSP
-      allocate(this % ops_sp % S(ns,ns,nc), source = 0E0)
-      allocate(this % ops_sp % V(ns,nc)   , source = 1E0)
-      allocate(this % ops_sp % W(ns,nc)   , source = 0E0)
-      allocate(this % ops_sp % D_inv(ns,ns,ns,ne))
+      allocate( this % ops_sp % S(ns,ns,nc), source = 0E0 )
+      allocate( this % ops_sp % V(ns,nc)   , source = 1E0 )
+      allocate( this % ops_sp % W(ns,nc)   , source = 0E0 )
+      allocate( this % ops_sp % g(4,ne)                   )
     else
       this % wp = RDP
-      allocate(this % ops_dp % S(ns,ns,nc), source = 0D0)
-      allocate(this % ops_dp % V(ns,nc)   , source = 1D0)
-      allocate(this % ops_dp % W(ns,nc)   , source = 0D0)
-      allocate(this % ops_dp % D_inv(ns,ns,ns,ne))
+      allocate( this % ops_dp % S(ns,ns,nc), source = 0D0 )
+      allocate( this % ops_dp % V(ns,nc)   , source = 1D0 )
+      allocate( this % ops_dp % W(ns,nc)   , source = 0D0 )
+      allocate( this % ops_dp % g(4,ne)                   )
     end if
 
     !$omp end single
@@ -448,7 +397,7 @@ contains
       bc(1) = DG_SCHWARZ_BC_3D(i)
       bc(2) = DG_SCHWARZ_BC_3D(j)
 
-      call InitSuboperators(eop, svv, this%no, bc, Ws, S, V, W)
+      call InitSuboperators(eop, this%no, bc, Ws, S, V, W, r_nu_s)
 
       if (this % wp == RDP) then
         this % ops_dp % S(:,:,k) = S
@@ -479,22 +428,22 @@ contains
   !> Although no exterior node layers exist at boundaries, the corresponding
   !> entries are retained for regularity and set to `0`.
 
-  subroutine InitSuboperators(eop, svv, no, bc, Ws, S, V, W)
+  subroutine InitSuboperators(eop, no, bc, Ws, S, V, W, r_nu_s)
     class(DG_ElementOperators_1D), intent(in) :: eop !< IP-DG element operators
-    real(RNP),  intent(in), optional :: svv !< ratio νˢ/(ν + νˢ) [0]
-    integer,    intent(in)  :: no           !< overlap
-    character,  intent(in)  :: bc(2)        !< left/right boundary conditions
-    real(RNP),  intent(in)  :: Ws(-no:)     !< standard weights
-    real(RDP),  intent(out) :: S(-no:,-no:) !< subdomain eigenvectors
-    real(RDP),  intent(out) :: V(-no:)      !< subdomain eigenvalues
-    real(RDP),  intent(out) :: W(-no:)      !< subdomain weights
+    integer,   intent(in)  :: no              !< overlap
+    character, intent(in)  :: bc(2)           !< left/right boundary conditions
+    real(RNP), intent(in)  :: Ws(-no:)        !< standard weights
+    real(RDP), intent(out) :: S(-no:,-no:)    !< subdomain eigenvectors
+    real(RDP), intent(out) :: V(-no:)         !< subdomain eigenvalues
+    real(RDP), intent(out) :: W(-no:)         !< subdomain weights
+    real(RNP), optional, intent(in) :: r_nu_s !< ratio νˢ/(ν + νˢ) [0]
 
     character, parameter   :: ii(2) = [ ' ', ' ' ]
     real(RNP), parameter   :: dx(-1:1) = 1
     real(RNP), allocatable :: Le_ii(:,:,:), Le_bc(:,:,:)
     real(RDP), allocatable :: Ld(:,:), Md(:), Sd(:,:), vd(:)
 
-    real(RNP) :: nu, nu_svv
+    real(RNP) :: nu, nu_s
     integer   :: po, np
     integer   :: k
 
@@ -504,18 +453,18 @@ contains
     allocate(Le_ii(0:po,0:po,-1:1))
     allocate(Le_bc(0:po,0:po,-1:1))
 
-    if (present(svv)) then
-      nu_svv = svv
+    if (present(r_nu_s)) then
+      nu_s = r_nu_s
     else
-      nu_svv = ZERO
+      nu_s = ZERO
     end if
-    nu = max(ONE - nu_svv, ZERO)
+    nu = max(ONE - nu_s, ZERO)
 
     ! stiffness matrix for interior element with dx=1, bc = ii
-    call eop % Get_DiffusionMatrix(dx, ii, nu, nu_svv, Ae = Le_ii)
+    call eop % Get_DiffusionMatrix(dx, ii, nu, nu_s, Ae = Le_ii)
 
     ! stiffness matrix for given boundary conditions
-    call eop % Get_DiffusionMatrix(dx, bc, nu, nu_svv, Ae = Le_bc)
+    call eop % Get_DiffusionMatrix(dx, bc, nu, nu_s, Ae = Le_bc)
 
     ! initialization of eigenvectors S, eigenvalues V and weights W
     S = 0
@@ -704,186 +653,66 @@ contains
   end subroutine InitSuboperators
 
   !-----------------------------------------------------------------------------
-  !> (Re)Set subdomain configurations and eigenvalues: const isotropic w/o SVV
+  !> Build subdomain configurations and metrics
 
-  subroutine SetDomains_C0(this, mesh, lambda, nu, bc)
+  subroutine InitSchwarzDomains(this, mesh, bc)
     class(DG_SchwarzOperator_3D), intent(inout) :: this
     class(Mesh_3D), intent(in) :: mesh   !< mesh partition
-    real(RNP),      intent(in) :: lambda !< Helmholtz parameter
-    real(RNP),      intent(in) :: nu     !< physical diffusivity
     character,      intent(in) :: bc(:)  !< BC {'D','N','P'}
-
-    integer :: e
-
-    !$omp do
-    do e = 1, mesh % n_elem
-     call SetDomain(this, mesh, lambda, nu, bc, e)
-    end do
-
-  end subroutine SetDomains_C0
-
-  !-----------------------------------------------------------------------------
-  !> (Re)Set subdomain configurations and eigenvalues: const isotropic with SVV
-
-  subroutine SetDomains_CC(this, mesh, lambda, nu, nu_svv, bc)
-    class(DG_SchwarzOperator_3D), intent(inout) :: this
-    class(Mesh_3D), intent(in) :: mesh   !< mesh partition
-    real(RNP),      intent(in) :: lambda !< Helmholtz parameter
-    real(RNP),      intent(in) :: nu     !< physical diffusivity
-    real(RNP),      intent(in) :: nu_svv !< spectral diffusivity
-    character,      intent(in) :: bc(:)  !< BC {'D','N','P'}
-
-    integer :: e
-
-    !$omp do
-    do e = 1, mesh % n_elem
-     call SetDomain(this, mesh, lambda, nu + nu_svv, bc, e)
-    end do
-
-  end subroutine SetDomains_CC
-
-  !-----------------------------------------------------------------------------
-  !> Set subdomain configurations and eigenvalues: variable isotropic
-
-  subroutine SetDomains_V(this, eop, mesh, lambda, nu, bc)
-    class(DG_SchwarzOperator_3D), intent(inout) :: this
-    class(DG_ElementOperators_1D), intent(in) :: eop !< DG element operators
-    class(Mesh_3D), intent(in) :: mesh               !< mesh partition
-    real(RNP),      intent(in) :: lambda             !< Helmholtz parameter
-    real(RNP),      intent(in) :: nu(0:,0:,0:,:)     !< physical diffusivity
-    character,      intent(in) :: bc(:)              !< BC {'D','N','P'}
-
-    real(RNP) :: A(0:eop%po, 0:eop%po, 0:eop%po), nu_0
-    integer   :: e, i, j, k
-
-    ! averaging operator
-    do k = 0, eop % po
-    do j = 0, eop % po
-    do i = 0, eop % po
-      A(i,j,k) = ONE/8 * eop%w(i) * eop%w(j) * eop%w(k)
-    end do
-    end do
-    end do
-
-    ! cfg and D_inv ............................................................
-
-    !$omp do
-    do e = 1, mesh % n_elem
-
-      ! average diffusivity
-      nu_0 = 0
-      do k = 0, eop % po
-      do j = 0, eop % po
-      do i = 0, eop % po
-        nu_0 = nu_0 + A(i,j,k) * nu(i,j,k,e)
-      end do
-      end do
-      end do
-
-      call SetDomain(this, mesh, lambda, nu_0, bc, e)
-
-    end do
-
-  end subroutine SetDomains_V
-
-  !-----------------------------------------------------------------------------
-  !> Set subdomain boundary conditions and inverse 3D eigenvalues
-
-  pure subroutine SetDomain(this, mesh, lambda, nu, bc, e)
-    class(DG_SchwarzOperator_3D), intent(inout) :: this
-    class(Mesh_3D), intent(in) :: mesh   !< mesh partition
-    real(RNP),      intent(in) :: lambda !< Helmholtz parameter
-    real(RNP),      intent(in) :: nu     !< average diffusivity
-    character,      intent(in) :: bc(:)  !< BC {'D','N','P'}
-    integer,        intent(in) :: e      !< element ID
 
     character :: bc_face(6)
     real(RNP) :: dx(3), dy(3), dz(3)
-    real(RNP) :: l1, l2, l3, lmb
-    real(RNP) :: g0, g1, g2, g3
-    integer   :: c1, c2, c3, i, j, k, ns
+    real(RNP) :: l1, l2, l3
+    integer   :: c1, c2, c3
+    integer   :: e, i, j
 
-    ! get element face boundary conditions
-    do i = 1, 6
-      j = mesh % element(e) % face(i) % boundary
-      if (j > 0) then
-        bc_face(i) = bc(j)
+    !$omp do
+    do e = 1, mesh % n_elem
+
+      ! get element face boundary conditions
+      do i = 1, 6
+        j = mesh % element(e) % face(i) % boundary
+        if (j > 0) then
+          bc_face(i) = bc(j)
+        else
+          bc_face(i) = ''
+        end if
+      end do
+
+      ! set subdomain configuration
+      c1 = ConfigurationID( bc_face(1:2) )
+      c2 = ConfigurationID( bc_face(3:4) )
+      c3 = ConfigurationID( bc_face(5:6) )
+      this % cfg(1,e) = c1
+      this % cfg(2,e) = c2
+      this % cfg(3,e) = c3
+
+      ! extensions of the corresponding cuboid
+      associate(x_c => mesh % element(e) % geometry % x_c)
+        dx = 2 * x_c(1:3,1) ! dx(i) = ∂x/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
+        dy = 2 * x_c(1:3,2) ! dy(i) = ∂y/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
+        dz = 2 * x_c(1:3,3) ! dz(i) = ∂z/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
+        l1 = sqrt(dx(1)**2 + dy(1)**2 + dz(1)**2) ! ξ₁ = ξ  extension
+        l2 = sqrt(dx(2)**2 + dy(2)**2 + dz(2)**2) ! ξ₂ = η  extension
+        l3 = sqrt(dx(3)**2 + dy(3)**2 + dz(3)**2) ! ξ₃ = ζ  extension
+      end associate
+
+      ! metric coefficients
+      if (this % wp == RSP) then
+        this % ops_sp % g(1,e) = real(l2 * l3 / l1 , RSP)
+        this % ops_sp % g(2,e) = real(l3 * l1 / l2 , RSP)
+        this % ops_sp % g(3,e) = real(l1 * l2 / l3 , RSP)
+        this % ops_sp % g(4,e) = real(l1 * l2 * l3 , RSP)
       else
-        bc_face(i) = ''
+        this % ops_dp % g(1,e) = real(l2 * l3 / l1 , RDP)
+        this % ops_dp % g(2,e) = real(l3 * l1 / l2 , RDP)
+        this % ops_dp % g(3,e) = real(l1 * l2 / l3 , RDP)
+        this % ops_dp % g(4,e) = real(l1 * l2 * l3 , RDP)
       end if
+
     end do
 
-    ! set subdomain configuration
-    c1 = ConfigurationID( bc_face(1:2) )
-    c2 = ConfigurationID( bc_face(3:4) )
-    c3 = ConfigurationID( bc_face(5:6) )
-    this % cfg(1,e) = c1
-    this % cfg(2,e) = c2
-    this % cfg(3,e) = c3
-
-    ! extensions of the corresponding cuboid
-    associate(x_c => mesh % element(e) % geometry % x_c)
-      dx = 2 * x_c(1:3,1) ! dx(i) = ∂x/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
-      dy = 2 * x_c(1:3,2) ! dy(i) = ∂y/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
-      dz = 2 * x_c(1:3,3) ! dz(i) = ∂z/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
-      l1 = sqrt(dx(1)**2 + dy(1)**2 + dz(1)**2) ! ξ₁ = ξ  extension
-      l2 = sqrt(dx(2)**2 + dy(2)**2 + dz(2)**2) ! ξ₂ = η  extension
-      l3 = sqrt(dx(3)**2 + dy(3)**2 + dz(3)**2) ! ξ₃ = ζ  extension
-    end associate
-
-    ! coefficients
-    g0 = l1 * l2 * l3 * lambda
-    g1 = l2 * l3 / l1 * nu
-    g2 = l3 * l1 / l2 * nu
-    g3 = l1 * l2 / l3 * nu
-
-    ns = 2 * this % no + this  % po + 1
-
-    ! set inverse 3D eigenvalues
-    if (this % wp == RDP) then
-      associate( V     => this % ops_dp % V,    &
-                 W     => this % ops_dp % W,    &
-                 D_inv => this % ops_dp % D_inv )
-
-        do k = 1, ns
-        do j = 1, ns
-        do i = 1, ns
-          lmb = g0 + g1 * V(i,c1) + g2 * V(j,c2) + g3 * V(k,c3)
-          if (lmb > epsilon(lmb)) then
-            D_inv(i,j,k,e) = real(1 / lmb, RDP)
-          else
-            D_inv(i,j,k,e) = 0
-          end if
-        end do
-        end do
-        end do
-
-      end associate
-
-    else
-
-      associate( V     => this % ops_sp % V,    &
-                 W     => this % ops_sp % W,    &
-                 D_inv => this % ops_sp % D_inv )
-
-        do k = 1, ns
-        do j = 1, ns
-        do i = 1, ns
-          lmb = g0 + g1 * V(i,c1) + g2 * V(j,c2) + g3 * V(k,c3)
-          if (lmb > epsilon(lmb)) then
-            D_inv(i,j,k,e) = real(1 / lmb, RSP)
-          else
-            D_inv(i,j,k,e) = 0
-          end if
-        end do
-        end do
-        end do
-
-      end associate
-
-    end if
-
-  end subroutine SetDomain
+  end subroutine InitSchwarzDomains
 
   !-----------------------------------------------------------------------------
   !> Restrict mesh variable to subdomains -- double precision

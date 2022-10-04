@@ -1,13 +1,16 @@
 !-------------------------------------------------------------------------------
 !> Parametrized 3d isotropic Schwarz kernel using hand-crafted suboperators
 
-subroutine PROC(TPO_Schwarz_CI_Hand__,_NP_)(nc, nd, S, W, cfg, D_inv, f, u)
+subroutine PROC(TPO_Schwarz_I_Hand__,_NP_)(nc, nd, S, V, W, g, cfg, lambda, nu, f, u)
   integer,   intent(in)  :: nc                       !< num configurations
   integer,   intent(in)  :: nd                       !< num subdomains
   real(RWP), intent(in)  :: S(_NP_,_NP_,nc)          !< 1D eigenvectors
+  real(RWP), intent(in)  :: V(_NP_,nc)               !< 1D eigenvalues
   real(RWP), intent(in)  :: W(_NP_,nc)               !< 1D weights
-  integer,   intent(in)  :: cfg(:,:)                 !< subdomain configurations
-  real(RWP), intent(in)  :: D_inv(_NP_,_NP_,_NP_,nd) !< inverse 3D eigenvalues
+  real(RWP), intent(in)  :: g(4,nd)                  !< metrics
+  integer,   intent(in)  :: cfg(3,nd)                !< subdomain configurations
+  real(RWP), intent(in)  :: lambda                   !< λ
+  real(RWP), intent(in)  :: nu(nd)                   !< ν + νˢ
   real(RWP), intent(in)  :: f(_NP_,_NP_,_NP_,nd)     !< RHS
   real(RWP), intent(out) :: u(_NP_,_NP_,_NP_,nd)     !< solution
 
@@ -17,8 +20,9 @@ subroutine PROC(TPO_Schwarz_CI_Hand__,_NP_)(nc, nd, S, W, cfg, D_inv, f, u)
   real(RWP) :: WS_t ( _NP_, _NP_,  nc  )
   real(RWP) :: y    ( _NP_, _NP_, _NP_ )
   real(RWP) :: z    ( _NP_, _NP_, _NP_ )
+  real(RWP) :: a1, a2, a3, a4
 
-  integer :: i, j, l
+  integer :: i, j, k, l
   integer :: c, c1, c2, c3
 
   !---------------------------------------------------------------------------
@@ -52,6 +56,12 @@ subroutine PROC(TPO_Schwarz_CI_Hand__,_NP_)(nc, nd, S, W, cfg, D_inv, f, u)
     c2 = cfg(2,l)
     c3 = cfg(3,l)
 
+    ! coefficients
+    a1 = g(1,l) * nu(l)
+    a2 = g(2,l) * nu(l)
+    a3 = g(3,l) * nu(l)
+    a4 = g(4,l) * lambda
+
     ! y = Sᵀ x I x I uᵉ
     call PROC(QtxIxI__,_NP_)(S(:,:,c3), alpha, beta, f(:,:,:,l), y)
 
@@ -62,7 +72,13 @@ subroutine PROC(TPO_Schwarz_CI_Hand__,_NP_)(nc, nd, S, W, cfg, D_inv, f, u)
     call PROC(IxIxQt__,_NP_)(S(:,:,c1), alpha, beta, z, y)
 
     ! y = D⁻¹ y
-    y = D_inv(:,:,:,l) * y
+    do k = 1, _NP_
+    do j = 1, _NP_
+    do i = 1, _NP_
+      y(i,j,k) = y(i,j,k) / (a1 * V(i,c1) + a2 * V(j,c2) + a3 * V(k,c3) + a4)
+    end do
+    end do
+    end do
 
     ! z = I x I x WS y
     call PROC(IxIxQt__,_NP_)(WS_t(:,:,c1), alpha, beta, y, z)
@@ -79,4 +95,4 @@ subroutine PROC(TPO_Schwarz_CI_Hand__,_NP_)(nc, nd, S, W, cfg, D_inv, f, u)
   !$acc end parallel
   !$acc end data
 
-end subroutine PROC(TPO_Schwarz_CI_Hand__,_NP_)
+end subroutine PROC(TPO_Schwarz_I_Hand__,_NP_)

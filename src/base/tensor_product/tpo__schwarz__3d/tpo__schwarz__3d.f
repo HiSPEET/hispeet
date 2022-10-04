@@ -33,16 +33,9 @@
 !> is given for each possible 1D boundary configuration. The boundary
 !> configurations can differ from element, as specified in the parameter
 !> `cfg`.
-!>
-!> When compiled with OpenACC and run on a GPU,
-!>
-!>   * cfg, D_inv, f and u must be present on the device, and
-!>   * any call to this procedure must be followed by an "acc wait"
-!>     before accessing f or u from CPU or another than the default
-!>     accelerator queue.
 !===============================================================================
 
 module TPO__Schwarz__3D
-  use TPO__Schwarz__3D_CI
-  use TPO__Schwarz__3D_CA
+  use TPO__Schwarz__3D_I
+  use TPO__Schwarz__3D_A
 end module TPO__Schwarz__3D

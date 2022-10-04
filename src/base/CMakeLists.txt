@@ -53,6 +53,7 @@ include_directories( tensor_product/primitives/IxIxQt
 
 # parametrized operators
 include(cmake/tpo__aaa__3d.cmake)
+include(cmake/tpo__average__3d.cmake)
 include(cmake/tpo__diagonal__3d.cmake)
 include(cmake/tpo__div__3d.cmake)
 include(cmake/tpo__elliptic__3d.cmake)
@@ -170,13 +171,14 @@ set( VARIABLES_3D variables_3d/spectral_element_variable__3d.f
 # elliptic_3d
 
 set( ELLIPTIC_3D elliptic_3d/dg__elliptic_operator__3d.f
-                 elliptic_3d/dg__elliptic_operator__3d__mp_setdiffusivity.f
-                 elliptic_3d/dg__elliptic_operator__3d__mp_apply.f
                  elliptic_3d/dg__elliptic_operator__3d__mp_apply_rc.f
                  elliptic_3d/dg__elliptic_operator__3d__mp_apply_rv.f
                  elliptic_3d/dg__elliptic_operator__3d__mp_apply_dc.F
                  elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_gen.f
                  elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_xsmm.F
+                 elliptic_3d/dg__elliptic_operator__3d__mp_cg_method_x.f
+                 elliptic_3d/dg__elliptic_operator__3d__mp_schwarz_method_x.f
+                 elliptic_3d/dg__elliptic_operator__3d__mp_schwarzpcg_method_x.f
                  elliptic_3d/dg__schwarz_operator__3d.f
                  elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_core.F
                  elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_structured.F

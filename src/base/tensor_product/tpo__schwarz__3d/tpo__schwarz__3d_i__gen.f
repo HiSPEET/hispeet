@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Schwarz__3D_CI__Gen
-  use TPO__Schwarz__3D_CI__Gen_RSP
-  use TPO__Schwarz__3D_CI__Gen_RDP
-end module TPO__Schwarz__3D_CI__Gen
+module TPO__Schwarz__3D_I__Gen
+  use TPO__Schwarz__3D_I__Gen_RSP
+  use TPO__Schwarz__3D_I__Gen_RDP
+end module TPO__Schwarz__3D_I__Gen

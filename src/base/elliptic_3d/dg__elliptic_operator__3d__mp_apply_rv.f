@@ -5,8 +5,10 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(DG__Elliptic_Operator__3D:MP_Apply) MP_Apply_RV
+submodule(DG__Elliptic_Operator__3D) MP_Apply_RV
   use TPO__Elliptic__3D
+  use Mesh_Element__3D
+  use Mesh__3D
   use Element_Face_Transfer_Buffer__3D
   implicit none
 
@@ -15,11 +17,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Application with regular (equidistant cuboidal) mesh
 
-  module subroutine Apply_RV(this, u, r, f, bv)
+  module subroutine Apply_RV(this, lambda, nu, u, r, f, bv)
     class(DG_EllipticOperator_3D),   intent(in)  :: this
-    real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
-    real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
-    real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
+    real(RNP),                       intent(in)  :: lambda      !< λ
+    real(RNP), contiguous,           intent(in)  :: nu(:,:,:,:) !< ν
+    real(RNP), contiguous,           intent(in)  :: u (:,:,:,:) !< operand
+    real(RNP), contiguous,           intent(out) :: r (:,:,:,:) !< result
+    real(RNP), contiguous, optional, intent(in)  :: f (:,:,:,:) !< RHS
     class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
     !< boundary values
 
@@ -33,10 +37,8 @@ contains
 
     integer :: po, ne, ng, np
 
-    associate( mesh   => this % sem % mesh &
-             , lambda => this % lambda     &
-             , nu     => this % nu_pv      &
-             , eop    => this % eop        )
+    associate( mesh => this % sem % mesh &
+             , eop  => this % eop        )
 
       ! initialization .........................................................
 
@@ -54,10 +56,12 @@ contains
 
       ! apply element diffusion operator .......................................
 
-      call TPO_Elliptic( eop%w, eop%D, mesh%dx, lambda, nu, u, r &
-                        , nub = tr(:,:,:,:,1)                     &
-                        , ub  = tr(:,:,:,:,2)                     &
-                        , qb  = tr(:,:,:,:,3)                     )
+      call TPO_Elliptic( eop%w, eop%D, mesh%dx & ! As r may contain ghost entries
+                       , lambda, nu, u         & ! it is explicitly restricted to
+                       , r(:,:,:,:ne)          & ! local elements since no proper
+                       , nub = tr(:,:,:,:,1)   & ! bound checking is performed in
+                       , ub  = tr(:,:,:,:,2)   & ! TPO_Elliptic.
+                       , qb  = tr(:,:,:,:,3)   )
 
       ! transfer traces and apply boundary conditions ..........................
 

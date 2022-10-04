@@ -4,11 +4,14 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-subroutine TPO_Schwarz_CI_Gen_RWP(S, W, cfg, D_inv, f, u)
+subroutine TPO_Schwarz_I_Gen_RWP(S, V, W, g, cfg, lambda, nu, f, u)
   real(RWP), intent(in)  :: S(:,:,:)       !< 1D eigenvectors   (np,np,nc)
+  real(RWP), intent(in)  :: V(:,:)         !< 1D eigenvalues    (np,nc)
   real(RWP), intent(in)  :: W(:,:)         !< 1D weights        (np,nc)
+  real(RWP), intent(in)  :: g(:,:)         !< metrics           (4,nd)
   integer,   intent(in)  :: cfg(:,:)       !< subdomain configs (3,nd)
-  real(RWP), intent(in)  :: D_inv(:,:,:,:) !< inv. 3D eigenvals (np,np,np,nd)
+  real(RWP), intent(in)  :: lambda         !< λ
+  real(RWP), intent(in)  :: nu(:)          !< ν + νˢ            (nd)
   real(RWP), intent(in)  :: f(:,:,:,:)     !< RHS               (np,np,np,nd)
   real(RWP), intent(out) :: u(:,:,:,:)     !< solution          (np,np,np,nd)
 
@@ -18,7 +21,7 @@ subroutine TPO_Schwarz_CI_Gen_RWP(S, W, cfg, D_inv, f, u)
   real(RWP) :: WS_t ( size(S,1), size(S,2), size(S,3) )
   real(RWP) :: y    ( size(f,1), size(f,2), size(f,3) )
   real(RWP) :: z    ( size(f,1), size(f,2), size(f,3) )
-  real(RWP) :: tmp
+  real(RWP) :: a1, a2, a3, a4, tmp
 
   integer :: nc, nd, np
   integer :: i, j, k, l, p
@@ -54,6 +57,12 @@ subroutine TPO_Schwarz_CI_Gen_RWP(S, W, cfg, D_inv, f, u)
     c1 = cfg(1,l)
     c2 = cfg(2,l)
     c3 = cfg(3,l)
+
+    ! coefficients
+    a1 = g(1,l) * nu(l)
+    a2 = g(2,l) * nu(l)
+    a3 = g(3,l) * nu(l)
+    a4 = g(4,l) * lambda
 
     ! y = Sᵀ x I x I f .......................................................
 
@@ -98,7 +107,7 @@ subroutine TPO_Schwarz_CI_Gen_RWP(S, W, cfg, D_inv, f, u)
         do p = 1, np
           tmp = tmp + S(p,i,c1) * z(p,j,k)
         end do
-        y(i,j,k) = tmp * D_inv(i,j,k,l)
+        y(i,j,k) = tmp / (a1 * V(i,c1) + a2 * V(j,c2) + a3 * V(k,c3) + a4)
       end do
     end do
     end do
@@ -156,4 +165,4 @@ subroutine TPO_Schwarz_CI_Gen_RWP(S, W, cfg, D_inv, f, u)
   !$acc end parallel
   !$acc end data
 
-end subroutine TPO_Schwarz_CI_Gen_RWP
+end subroutine TPO_Schwarz_I_Gen_RWP

@@ -72,11 +72,17 @@ contains
       ! solve ..................................................................
 
       if (mixed_order) then
+        ! interpolate source to orer pq
         call TPO_AAA(this % iop_vp % A, f, g)
-        call Solver % SchwarzPCG_Method(q, g, bv_q, i_max, r_red, r_max, ni)
+        ! apply Schwarz-PCG with λ=0 and ν=1
+        call Solver % SchwarzPCG_Method(ZERO, ONE, q, g, bv_q, &
+                                        i_max, r_red, r_max, ni)
+        ! interpolate result to orer po
         call TPO_AAA(this % iop_pv % A, q, p)
       else
-        call Solver % SchwarzPCG_Method(p, f, bv_p, i_max, r_red, r_max, ni)
+        ! apply Schwarz-PCG with λ=0 and ν=1
+        call Solver % SchwarzPCG_Method(ZERO, ONE, p, f, bv_p, &
+                                        i_max, r_red, r_max, ni)
       end if
 
       ! finalization ...........................................................

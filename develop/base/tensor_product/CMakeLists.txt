@@ -137,31 +137,31 @@ configure_file( validate__tpo__spectral_3d_ca.prm
                 validate__tpo__spectral_3d_ca.prm COPYONLY )
 
 #===============================================================================
-# TPO Schwarz CI
+# TPO Schwarz Isotropic
 
-add_executable( validate__tpo__schwarz_3d_ci_rdp
-                validate__tpo__schwarz_3d_ci_rdp.f )
+add_executable( validate__tpo__schwarz_3d_i_rdp
+                validate__tpo__schwarz_3d_i_rdp.f )
 
-target_link_libraries(validate__tpo__schwarz_3d_ci_rdp HiBase)
+target_link_libraries(validate__tpo__schwarz_3d_i_rdp HiBase)
 
-add_executable( validate__tpo__schwarz_3d_ci_rsp
-                validate__tpo__schwarz_3d_ci_rsp.f )
+add_executable( validate__tpo__schwarz_3d_i_rsp
+                validate__tpo__schwarz_3d_i_rsp.f )
 
-target_link_libraries(validate__tpo__schwarz_3d_ci_rsp HiBase)
+target_link_libraries(validate__tpo__schwarz_3d_i_rsp HiBase)
 
-configure_file( validate__tpo__schwarz_3d_ci.prm
-                validate__tpo__schwarz_3d_ci.prm COPYONLY )
+configure_file( validate__tpo__schwarz_3d_i.prm
+                validate__tpo__schwarz_3d_i.prm COPYONLY )
 
 #===============================================================================
-# TPO Schwarz CA
+# TPO Schwarz Anisotropic
 
-add_executable( validate__tpo__schwarz_3d_ca
-                validate__tpo__schwarz_3d_ca.f )
+add_executable( validate__tpo__schwarz_3d_a
+                validate__tpo__schwarz_3d_a.f )
 
-target_link_libraries(validate__tpo__schwarz_3d_ca HiBase)
+target_link_libraries(validate__tpo__schwarz_3d_a HiBase)
 
-configure_file( validate__tpo__schwarz_3d_ca.prm
-                validate__tpo__schwarz_3d_ca.prm COPYONLY )
+configure_file( validate__tpo__schwarz_3d_a.prm
+                validate__tpo__schwarz_3d_a.prm COPYONLY )
 
 #===============================================================================
 # Scripts
@@ -181,8 +181,8 @@ file( COPY scripts/omp_auto.sh
            scripts/validate__tpo__ins_convection_3d_d.tmpl
            scripts/validate__tpo__rot_3d_r.tmpl
            scripts/validate__tpo__rotrot_3d_r.tmpl
-           scripts/validate__tpo__schwarz_3d_ca.tmpl
-           scripts/validate__tpo__schwarz_3d_ci.tmpl
+           scripts/validate__tpo__schwarz_3d_a.tmpl
+           scripts/validate__tpo__schwarz_3d_i.tmpl
            scripts/validate__tpo__spectral_3d_ca.tmpl
            scripts/validate__tpo__spectral_3d_ci.tmpl
       DESTINATION

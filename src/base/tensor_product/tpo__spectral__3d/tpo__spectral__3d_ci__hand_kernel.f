@@ -12,8 +12,7 @@ subroutine PROC(TPO_Spectral_CI_Hand__,_NP_)(ne, S, Lambda, u, v)
   real(RWP), parameter :: beta  = 0
   real(RWP) :: St(_NP_,_NP_)
   real(RWP) :: z (_NP_,_NP_,_NP_)
-  real(RWP) :: tmp
-  integer   :: e, i, j, k, p
+  integer   :: e
 
   !---------------------------------------------------------------------------
   ! initialization

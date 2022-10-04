@@ -4,13 +4,12 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-program Validate__TPO__Schwarz__3D_CI_RSP
+program Validate__TPO__Schwarz__3D_I_RSP
   use Kind_Parameters,   only: IXL, RDP, RSP
-  use Constants,         only: ZERO
   use Array_Assignments, only: SetArray
 
-  use TPO__Schwarz__3D_CI
-  use TPO__Schwarz__3D_CI__Gen
+  use TPO__Schwarz__3D_I
+  use TPO__Schwarz__3D_I__Gen
 
   implicit none
 
@@ -28,15 +27,14 @@ program Validate__TPO__Schwarz__3D_CI_RSP
 
   ! operators and operands .....................................................
 
-  real(RSP), allocatable :: S(:,:,:), W(:,:)
-  real(RSP), allocatable :: D_inv(:,:,:,:)
+  real(RSP) :: lambda = 1
+  real(RSP), allocatable :: f(:,:,:,:), r(:,:,:,:), u(:,:,:,:), nu(:)
+  real(RSP), allocatable :: S(:,:,:), V(:,:), W(:,:), g(:,:)
   integer,   allocatable :: cfg(:,:)
-
-  real(RSP), allocatable :: f(:,:,:,:), u(:,:,:,:), r(:,:,:,:)
 
   ! auxiliary ..................................................................
 
-  character(len=80) :: input_file = 'validate__tpo__schwarz_3d_ci.prm'
+  character(len=80) :: input_file = 'validate__tpo__schwarz_3d_i.prm'
 
   real(RDP) :: time
   real(RDP) :: error_gen, mflops_gen, mlups_gen
@@ -63,51 +61,53 @@ program Validate__TPO__Schwarz__3D_CI_RSP
 
   ! operators and operands .....................................................
 
-  allocate(S(np,np,nc), W(np,nc))
+  allocate(f(np,np,np,nd))
+  allocate(u, r, mold = f)
+  allocate(S(np,np,nc), V(np,nc), W(np,nc), g(4,nd), nu(nd))
   allocate(cfg(3,nd))
-  allocate(D_inv(np,np,np,nd))
-  allocate(f, u, r, mold = D_inv)
 
   !$omp parallel
   !$omp do
   do i = 1, nd
     call random_number(c)
     cfg(:,i) = max(1, min(nc, int(nc*c + 1)))
-    D_inv (:,:,:,i) = ZERO
-    u     (:,:,:,i) = ZERO
-    r     (:,:,:,i) = ZERO
-    f     (:,:,:,i) = ZERO
+    u(:,:,:,i) = 0
+    r(:,:,:,i) = 0
+    f(:,:,:,i) = 0
   end do
   !$omp end parallel
 
   call random_number(S)
+  call random_number(V)
   call random_number(W)
-  call random_number(D_inv)
+  call random_number(g)
   call random_number(f)
+  call random_number(nu)
+
+  ! enforce positivity
+  V  = V  + 1
+  g  = g  + 1
+  nu = nu + 1
 
   ! problem dimensions .........................................................
 
-  nop   = np **3
-  nflop = nop * (12*np + 1)
+  nop   = np ** 3
+  nflop = nop * (12*np + 7) + 4
 
   !-----------------------------------------------------------------------------
   ! test of generic implementation
 
   !$omp parallel
-  !$acc data copyin(S, W, cfg, D_inv, f) copyout(u) create(r)
 
   ! r = reference result
-  call TPO_Schwarz_CI_Gen(S, W, cfg, D_inv, f, r)
-  !$acc wait
+  call TPO_Schwarz_I_Gen(S, V, W, g, cfg, lambda, nu, f, r)
 
   call system_clock(count0, rate)
   do i = 1, nt
-    call TPO_Schwarz_CI_Gen(S, W, cfg, D_inv, f, u)
-    !$acc wait
+    call TPO_Schwarz_I_Gen(S, V, W, g, cfg, lambda, nu, f, u)
   end do
   call system_clock(count)
 
-  !$acc end data
   !$omp end parallel
 
   time = (count - count0) / real(rate, RDP) / nt
@@ -122,19 +122,15 @@ program Validate__TPO__Schwarz__3D_CI_RSP
   call random_number(u)
 
   !$omp parallel
-  !$acc data copyin(S, W, cfg, D_inv, f) copyout(u) create(r)
 
-  call TPO_Schwarz(S, W, cfg, D_inv, f, u)
-  !$acc wait
+  call TPO_Schwarz(S, V, W, g, cfg, lambda, nu, f, u)
 
   call system_clock(count0, rate)
   do i = 1, nt
-    call TPO_Schwarz(S, W, cfg, D_inv, f, u)
-    !$acc wait
+    call TPO_Schwarz(S, V, W, g, cfg, lambda, nu, f, u)
   end do
   call system_clock(count)
 
-  !$acc end data
   !$omp end parallel
 
   time = (count - count0) / real(rate, RDP) / nt
@@ -163,4 +159,4 @@ program Validate__TPO__Schwarz__3D_CI_RSP
 
 !===============================================================================
 
-end program Validate__TPO__Schwarz__3D_CI_RSP
+end program Validate__TPO__Schwarz__3D_I_RSP

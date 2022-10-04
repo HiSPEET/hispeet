@@ -5,8 +5,10 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(DG__Elliptic_Operator__3D:MP_Apply) MP_Apply_RC
+submodule(DG__Elliptic_Operator__3D) MP_Apply_RC
   use TPO__Elliptic__3D
+  use Mesh_Element__3D
+  use Mesh__3D
   use Element_Face_Transfer_Buffer__3D
   implicit none
 
@@ -15,8 +17,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Application with regular (equidistant cuboidal) mesh
 
-  module subroutine Apply_RC(this, u, r, f, bv)
+  module subroutine Apply_RC(this, lambda, nu, u, r, f, bv)
     class(DG_EllipticOperator_3D),   intent(in)  :: this
+    real(RNP),                       intent(in)  :: lambda     !< λ
+    real(RNP),                       intent(in)  :: nu         !< ν
     real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
     real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
     real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
@@ -35,13 +39,11 @@ contains
     real(RNP) :: As(0:this%eop%po, 0:this%eop%po) ! diffusion Dᵀ(ν+νˢQ)D
     real(RNP) :: Bs(0:this%eop%po, 0:this%eop%po) ! "flux" (ν+νˢQ)D
 
+    real(RNP) :: nu_p, nu_s
     integer   :: po, ne, ng, np
 
-    associate( mesh   => this % sem % mesh &
-             , lambda => this % lambda     &
-             , nu_p   => this % nu_pc      &
-             , nu_s   => this % nu_sc      &
-             , eop    => this % eop        )
+    associate( mesh => this % sem % mesh &
+             , eop  => this % eop        )
 
       ! initialization .........................................................
 
@@ -49,6 +51,14 @@ contains
       ne = mesh % n_elem
       ng = mesh % n_ghost
       np = po + 1
+
+      if (this % r_nu_s < 1) then
+        nu_p = nu
+        nu_s = this % SpectralDiffusivity(nu)
+      else
+        nu_p = 0
+        nu_s = nu
+      end if
 
       ! computation of 1D standard diffusion and standard flux operator
       if (nu_s > 0) then
@@ -73,9 +83,11 @@ contains
 
       ! apply element diffusion operator .......................................
 
-      call TPO_Elliptic(eop%w, As, mesh%dx, lambda, ONE, u, r, Bs &
-                        , ub = tr(:,:,:,:,1)                       &
-                        , qb = tr(:,:,:,:,2)                       )
+      call TPO_Elliptic( eop%w, As, mesh%dx & !  As r may contain ghost entries
+                       , lambda, ONE, u     & !  it is explicitly restricted to
+                       , r(:,:,:,:ne), Bs   & !  local elements since no proper
+                       , ub = tr(:,:,:,:,1) & !  bound checking is performed in
+                       , qb = tr(:,:,:,:,2) ) !  TPO_Elliptic.
 
       ! transfer traces and apply boundary conditions ..........................
 
