@@ -23,6 +23,7 @@ program INS_Operator_3D_Test
   use Spectral_Element_Boundary_Variable__3D
   use Export_VTK_Volume_Data__3D
   use DG__Elliptic_Operator__3D
+  use DG__Schwarz_Operator__3D
 
   use TPO__INS_Convection__3D_D__Gen
 
@@ -114,8 +115,8 @@ program INS_Operator_3D_Test
   ! auxiliaries ................................................................
 
   type(SpectralElementVariable_3D) :: sev_u
-  type(SpectralElementBoundaryVariable_3D), allocatable :: sebv_u(:)
-  type(SpectralElementBoundaryVariable_3D), allocatable :: sebv_vi(:)
+  type(SpectralElementBoundaryVariable_3D), allocatable :: bv_u(:)
+  type(SpectralElementBoundaryVariable_3D), allocatable :: bv_vi(:)
 
   character(len=80) :: domain_name = ''
 ! real(RDP) :: time, time0
@@ -307,8 +308,8 @@ program INS_Operator_3D_Test
     call ConvertInnerToOuterTraces(mesh, um, up)
 
     ! extract boundary values
-    sebv_u = SpectralElementBoundaryVariable_3D(sem, mesh % boundary, nc = 4)
-    call sebv_u % Extract(sev_u, mesh % boundary)
+    bv_u = SpectralElementBoundaryVariable_3D(sem, mesh % boundary, nc = 4)
+    call bv_u % Extract(sev_u, mesh % boundary)
 
   end associate
 
@@ -357,22 +358,21 @@ program INS_Operator_3D_Test
   ! diffusion part: w = ∇·(ν ∇v) ...............................................
   ! using F_ph as workspace for F_d1h
 
-  elliptic_op = DG_EllipticOperator_3D( sem    = ins_op % sem_v      &
-                                      , dg_opt = ins_options % eop_v &
-                                      , lambda = ZERO                &
-                                      , nu_p   = problem % nu_ref    &
-                                      , bc     = problem % bc_v      )
+  elliptic_op = DG_EllipticOperator_3D( sem         = ins_op % sem_v          &
+                                      , dg_opt      = ins_options % eop_v     &
+                                      , schwarz_opt = DG_SchwarzOptions_3D()  &
+                                      , bc          = ins_op % bc_v           )
 
-  allocate(sebv_vi(n_bound))
+  allocate(bv_vi(n_bound))
 
   associate(r => w(:,:,:,:,1), f => w(:,:,:,:,4))
     do i = 1, 3
 
       ! store boundary contribution in f and compute residual r
       f = 0
-      call sebv_u % GetSlice(sebv_vi, first=i, last=i)
-      call elliptic_op % Apply(v(:,:,:,:,i), r, f, sebv_vi) ! r = -M ∇·(ν ∇vᵢ)
-
+      call bv_u % GetSlice(bv_vi, first=i, last=i)
+      ! r = -M ∇·(ν ∇vᵢ)
+      call elliptic_op % Residual(ZERO, problem%nu_ref, f, bv_vi, v(:,:,:,:,i), r)
       ! compute nodal values
       F_ph(:,:,:,:,i) = -r / mm
 

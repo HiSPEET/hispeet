@@ -36,6 +36,9 @@ module DG__Elliptic_Operator__3D
     generic :: Apply => Apply_C, Apply_V
     procedure, private :: Apply_C, Apply_V
 
+    generic :: Residual => Residual_C, Residual_V
+    procedure, private :: Residual_C, Residual_V
+
     generic :: CG_Method => CG_Method_C, CG_Method_V
     procedure, private :: CG_Method_C, CG_Method_V
 
@@ -61,9 +64,9 @@ module DG__Elliptic_Operator__3D
   interface
 
     !---------------------------------------------------------------------------
-    !> Application with regular mesh and constant ν
+    !> Evaluation with regular mesh and constant ν
 
-    module subroutine Apply_RC(this, lambda, nu, u, r, f, bv)
+    module subroutine Eval_RC(this, lambda, nu, u, r, f, bv)
       class(DG_EllipticOperator_3D),   intent(in)  :: this
       real(RNP),                       intent(in)  :: lambda     !< λ
       real(RNP),                       intent(in)  :: nu         !< ν
@@ -71,12 +74,12 @@ module DG__Elliptic_Operator__3D
       real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
       real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
       class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
-    end subroutine Apply_RC
+    end subroutine Eval_RC
 
     !---------------------------------------------------------------------------
-    !> Application with regular mesh and variable ν
+    !> Evaluation with regular mesh and variable ν
 
-    module subroutine Apply_RV(this, lambda, nu, u, r, f, bv)
+    module subroutine Eval_RV(this, lambda, nu, u, r, f, bv)
       class(DG_EllipticOperator_3D),   intent(in)  :: this
       real(RNP),                       intent(in)  :: lambda      !< λ
       real(RNP), contiguous,           intent(in)  :: nu(:,:,:,:) !< ν
@@ -84,12 +87,12 @@ module DG__Elliptic_Operator__3D
       real(RNP), contiguous,           intent(out) :: r (:,:,:,:) !< result
       real(RNP), contiguous, optional, intent(in)  :: f (:,:,:,:) !< RHS
       class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
-    end subroutine Apply_RV
+    end subroutine Eval_RV
 
     !---------------------------------------------------------------------------
-    !> Application with deformed mesh and constant ν
+    !> Evaluation with deformed mesh and constant ν
 
-    module subroutine Apply_DC(this, lambda, nu, u, r, f, bv)
+    module subroutine Eval_DC(this, lambda, nu, u, r, f, bv)
       class(DG_EllipticOperator_3D),   intent(in)  :: this
       real(RNP),                       intent(in)  :: lambda     !< λ
       real(RNP),                       intent(in)  :: nu         !< ν
@@ -97,7 +100,7 @@ module DG__Elliptic_Operator__3D
       real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
       real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
       class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
-    end subroutine Apply_DC
+    end subroutine Eval_DC
 
     !---------------------------------------------------------------------------
     !> Conjugate gradient method with either constant or variable ν
@@ -206,50 +209,88 @@ contains
   end subroutine Init_DG_EllipticOperator_3D
 
   !=============================================================================
-  ! Application of the diffusion operator, r = Au - f
+  ! Application of the homogeneous elliptic operator, r = Au with bv = 0
 
   !-----------------------------------------------------------------------------
   !> Application of the diffusion operator with constant diffusivity
 
-  subroutine Apply_C(this, lambda, nu, u, r, f, bv)
+  subroutine Apply_C(this, lambda, nu, u, r)
     class(DG_EllipticOperator_3D),   intent(in)  :: this
     real(RNP),                       intent(in)  :: lambda     !< λ
     real(RNP),                       intent(in)  :: nu         !< ν
     real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
     real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
-    real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
-    class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
-    !< boundary values
 
     if (this % sem % mesh % regular) then
-      call Apply_RC(this, lambda, nu, u, r, f, bv)
+      call Eval_RC(this, lambda, nu, u, r)
     else
-      call Apply_DC(this, lambda, nu, u, r, f, bv)
+      call Eval_DC(this, lambda, nu, u, r)
     end if
 
   end subroutine Apply_C
 
   !-----------------------------------------------------------------------------
-  !> Application of the diffusion operator with variable diffusivity
+  !> Application of the elliptic operator with variable diffusivity
 
-  subroutine Apply_V(this, lambda, nu, u, r, f, bv)
+  subroutine Apply_V(this, lambda, nu, u, r)
     class(DG_EllipticOperator_3D),   intent(in)  :: this
     real(RNP),                       intent(in)  :: lambda      !< λ
     real(RNP), contiguous,           intent(in)  :: nu(:,:,:,:) !< ν
     real(RNP), contiguous,           intent(in)  :: u (:,:,:,:) !< operand
     real(RNP), contiguous,           intent(out) :: r (:,:,:,:) !< result
-    real(RNP), contiguous, optional, intent(in)  :: f (:,:,:,:) !< RHS
-    class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
-    !< boundary values
 
     if (this % sem % mesh % regular) then
-      call Apply_RV(this, lambda, nu, u, r, f, bv)
+      call Eval_RV(this, lambda, nu, u, r)
     else
     ! NOT YET SUPPORTED
-    ! call Apply_DV(this, lambda, nu, u, r, f, bv)
+    ! call Eval_DV(this, lambda, nu, u, r)
     end if
 
   end subroutine Apply_V
+
+  !=============================================================================
+  ! Residual of the elliptic equation, r = Au - f
+
+  !-----------------------------------------------------------------------------
+  !> Residual for constant diffusivity
+
+  subroutine Residual_C(this, lambda, nu, f, bv, u, r)
+    class(DG_EllipticOperator_3D), intent(in)  :: this
+    real(RNP),                     intent(in)  :: lambda           !< λ
+    real(RNP),                     intent(in)  :: nu               !< ν
+    real(RNP), contiguous,         intent(in)  :: f(:,:,:,:)       !< RHS
+    real(RNP), contiguous,         intent(in)  :: u(:,:,:,:)       !< operand
+    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:) !< bnd values
+    real(RNP), contiguous,         intent(out) :: r(:,:,:,:)       !< result
+
+    if (this % sem % mesh % regular) then
+      call Eval_RC(this, lambda, nu, u, r, f, bv)
+    else
+      call Eval_DC(this, lambda, nu, u, r, f, bv)
+    end if
+
+  end subroutine Residual_C
+
+  !-----------------------------------------------------------------------------
+  !> Residual for variable diffusivity
+
+  subroutine Residual_V(this, lambda, nu, f, bv, u, r)
+    class(DG_EllipticOperator_3D), intent(in)  :: this
+    real(RNP),                     intent(in)  :: lambda           !< λ
+    real(RNP), contiguous,         intent(in)  :: nu(:,:,:,:)      !< ν
+    real(RNP), contiguous,         intent(in)  :: u (:,:,:,:)      !< operand
+    real(RNP), contiguous,         intent(in)  :: f (:,:,:,:)      !< RHS
+    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:) !< bnd values
+    real(RNP), contiguous,         intent(out) :: r (:,:,:,:)      !< result
+
+    if (this % sem % mesh % regular) then
+      call Eval_RV(this, lambda, nu, u, r, f, bv)
+    else
+    ! NOT YET SUPPORTED
+    ! call Eval_DV(this, lambda, nu, u, r, f, bv)
+    end if
+
+  end subroutine Residual_V
 
   !-----------------------------------------------------------------------------
   !> Conjugate gradient method with constant ν

@@ -63,9 +63,9 @@ contains
       ! initial residual .......................................................
 
       if (present(nu_c)) then
-        call this % Apply(lambda, nu_c, u, r, f, bv)
+        call this % Residual(lambda, nu_c, f, bv, u, r)
       else
-        call this % Apply(lambda, nu_v, u, r, f, bv)
+        call this % Residual(lambda, nu_v, f, bv, u, r)
       end if
 
       if (singular) then
@@ -120,14 +120,14 @@ contains
         pq = ScalarProduct(p, q, mesh%comm_parts)
         pq = sign(max(abs(pq),eps), pq)
         alpha = rr_old / pq
-        call MergeArrays(ONE, u, -alpha, p)
+        call MergeArrays(ONE, u, alpha, p)
 
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
           if (present(nu_c)) then
-            call this % Apply(lambda, nu_c, u, r, f, bv)
+            call this % Residual(lambda, nu_c, f, bv, u, r)
           else
-            call this % Apply(lambda, nu_v, u, r, f, bv)
+            call this % Residual(lambda, nu_v, f, bv, u, r)
           end if
           if (singular) then
             call CalibrateArray(r, mesh%comm_parts)

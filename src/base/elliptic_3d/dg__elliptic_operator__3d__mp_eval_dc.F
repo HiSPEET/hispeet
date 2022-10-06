@@ -1,11 +1,11 @@
-!> summary:  3D DG elliptic operator: application with deformed mesh and
+!> summary:  3D DG elliptic operator: evaluation with deformed mesh and
 !>           constant diffusivity
 !> author:   Joerg Stiller
 !> date:     2021/10/6
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(DG__Elliptic_Operator__3D) MP_Apply_DC
+submodule(DG__Elliptic_Operator__3D) MP_Eval_DC
   use TPO__Elliptic__3D
   use Mesh_Metrics__3D
   use Mesh_Element__3D
@@ -51,9 +51,13 @@ submodule(DG__Elliptic_Operator__3D) MP_Apply_DC
 contains
 
   !-----------------------------------------------------------------------------
-  !> Application with irregular (deformed) mesh and constant diffusivity
+  !> Evaluation with irregular (deformed) mesh and constant diffusivity
+  !>
+  !> Usage
+  !>   1) `f` and `bv` given:  computation of the residual, `r = f - Au`
+  !>   2) `f` and `bv` absent: evaluation of the homogeneous operator, `r = Au`
 
-  module subroutine Apply_DC(this, lambda, nu, u, r, f, bv)
+  module subroutine Eval_DC(this, lambda, nu, u, r, f, bv)
     class(DG_EllipticOperator_3D),   intent(in)  :: this
     real(RNP),                       intent(in)  :: lambda     !< λ
     real(RNP),                       intent(in)  :: nu         !< ν
@@ -133,7 +137,7 @@ contains
 
     end associate
 
-  end subroutine Apply_DC
+  end subroutine Eval_DC
 
   !=============================================================================
   ! Shared procedures
@@ -177,4 +181,4 @@ contains
 
   !=============================================================================
 
-end submodule MP_Apply_DC
+end submodule MP_Eval_DC

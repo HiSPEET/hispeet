@@ -1,11 +1,11 @@
-!> summary:  3D DG elliptic operator: application with regular mesh and
+!> summary:  3D DG elliptic operator: evaluation with regular mesh and
 !>           variable diffusivity
 !> author:   Joerg Stiller
 !> date:     2021/08/09
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(DG__Elliptic_Operator__3D) MP_Apply_RV
+submodule(DG__Elliptic_Operator__3D) MP_Eval_RV
   use TPO__Elliptic__3D
   use Mesh_Element__3D
   use Mesh__3D
@@ -15,9 +15,13 @@ submodule(DG__Elliptic_Operator__3D) MP_Apply_RV
 contains
 
   !-----------------------------------------------------------------------------
-  !> Application with regular (equidistant cuboidal) mesh
+  !> Evaluation with regular (equidistant cuboidal) mesh
+  !>
+  !> Usage
+  !>   1) `f` and `bv` given:  computation of the residual, `r = f - Au`
+  !>   2) `f` and `bv` absent: evaluation of the homogeneous operator, `r = Au`
 
-  module subroutine Apply_RV(this, lambda, nu, u, r, f, bv)
+  module subroutine Eval_RV(this, lambda, nu, u, r, f, bv)
     class(DG_EllipticOperator_3D),   intent(in)  :: this
     real(RNP),                       intent(in)  :: lambda      !< λ
     real(RNP), contiguous,           intent(in)  :: nu(:,:,:,:) !< ν
@@ -85,7 +89,7 @@ contains
 
     end associate
 
-  end subroutine Apply_RV
+  end subroutine Eval_RV
 
   !-----------------------------------------------------------------------------
   !> Compute & add fluxes through element boundaries and, optionally, apply RHS
@@ -111,7 +115,7 @@ contains
     real(RNP) :: g(3), mu(3)
     real(RNP) :: cd_0, cd_P, cp_0, cp_P
     integer   :: i, j, k, e
-    logical   :: present_f, struct
+    logical   :: residual, struct
 
     associate( P  => eop  % po, &
                Ms => eop  % w,  &
@@ -143,8 +147,8 @@ contains
       mu(2) = eop % PenaltyFactor(dx(2))
       mu(3) = eop % PenaltyFactor(dx(3))
 
-      present_f = present(f)
-      struct    = mesh % structured
+      residual = present(f)
+      struct   = mesh % structured
 
       ! add fluxes .............................................................
 
@@ -249,11 +253,12 @@ contains
           end do
           end do
 
-          if (present_f) then
+          if (residual) then
+            ! r = f - Au
             do k = 0, P
             do j = 0, P
             do i = 0, P
-              r(i,j,k,e) = r(i,j,k,e) - f(i,j,k,e)
+              r(i,j,k,e) = f(i,j,k,e) - r(i,j,k,e)
             end do
             end do
             end do
@@ -310,4 +315,4 @@ contains
 
   !=============================================================================
 
-end submodule MP_Apply_RV
+end submodule MP_Eval_RV

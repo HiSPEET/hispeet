@@ -128,10 +128,11 @@ contains
 
       do i = 1, i_max
 
+        ! residual
         if (present(nu_c)) then
-          call this % Apply(lambda, nu_c, u, r, f, bv)
+          call this % Residual(lambda, nu_c, f, bv, u, r)
         else
-          call this % Apply(lambda, nu_v, u, r, f, bv)
+          call this % Residual(lambda, nu_v, f, bv, u, r)
         end if
 
         ! termination check
@@ -153,7 +154,7 @@ contains
         ! Schwarz sweep
         select case(wp)
         case(RSP)
-          call schwarz % RestrictResidual(mesh, buf_r, r, fs_sp, sgn = -1)
+          call schwarz % RestrictResidual(mesh, buf_r, r, fs_sp)
           call TPO_Schwarz( schwarz % ops_sp % S      &
                           , schwarz % ops_sp % V      &
                           , schwarz % ops_sp % W      &
@@ -165,7 +166,7 @@ contains
                           , us_sp                     )
           call schwarz % MergeCorrections(mesh, buf_us, us_sp, u)
         case default
-          call schwarz % RestrictResidual(mesh, buf_r, r, fs_dp, sgn = -1)
+          call schwarz % RestrictResidual(mesh, buf_r, r, fs_dp)
           call TPO_Schwarz( schwarz % ops_dp % S      &
                           , schwarz % ops_dp % V      &
                           , schwarz % ops_dp % W      &

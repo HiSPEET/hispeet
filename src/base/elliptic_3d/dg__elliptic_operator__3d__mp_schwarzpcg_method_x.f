@@ -1,4 +1,4 @@
-!> summary:  3D DG elliptic operator: Schwarz-preconditioned CG method
+!> summary:  3D DG elliptic operator: IPCG with Schwarz preconditioner
 !> author:   Joerg Stiller
 !> date:     2022/10/03
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -15,7 +15,10 @@ submodule(DG__Elliptic_Operator__3D) MP_SchwarzPCG_Method_X
 contains
 
   !-----------------------------------------------------------------------------
-  !> Schwarz-preconditioned CG method with either constant or variable ν
+  !> Inexact Schwarz-preconditioned CG method with either constant or variable ν
+  !>
+  !> This routine implements the IPCG method proposed in: G. Golub & Q. Ye,
+  !> SIAM J. Sci. Comput. 21(4):1305-1320, 1999
 
   module subroutine SchwarzPCG_Method_X( this, lambda, nu_c, nu_v, u, f, bv &
                                        , i_max, r_red, r_max, ni            )
@@ -34,8 +37,17 @@ contains
 
     ! internal variables .......................................................
 
-    real(RNP), dimension(:,:,:,:), allocatable, save :: r, p, q, s, z
+    ! residual with ghost entries
+    real(RNP), allocatable, target, save :: rg(:,:,:,:)
+
+    ! residual with no ghost entries
+    real(RNP), pointer, save :: r(:,:,:,:)
+
+    ! work arrays
+    real(RNP), dimension(:,:,:,:), allocatable, save :: p, q, s, z
     real(RNP), dimension(:),       allocatable, save :: nu_avg
+
+    ! control
     real(RNP), save :: rr_term
     logical  , save :: converged
 
@@ -43,16 +55,16 @@ contains
     real(RDP) :: lambda_dp                         ! Helmholtz parameter
     real(RDP), allocatable, save :: nu_dp(:)       ! subdomain diffusivities
     real(RDP), allocatable, save :: fs_dp(:,:,:,:) ! RHS of subsystems
-    real(RDP), allocatable, save :: us_dp(:,:,:,:) ! solution of subsystems
+    real(RDP), allocatable, save :: zs_dp(:,:,:,:) ! solution of subsystems
 
     ! auxiliaries for the SP Schwarz preconditioner
     real(RSP) :: lambda_sp                         ! Helmholtz parameter
     real(RSP), allocatable, save :: nu_sp(:)       ! subdomain diffusivities
     real(RSP), allocatable, save :: fs_sp(:,:,:,:) ! RHS of subsystems
-    real(RSP), allocatable, save :: us_sp(:,:,:,:) ! solution of subsystems
+    real(RSP), allocatable, save :: zs_sp(:,:,:,:) ! solution of subsystems
 
-    type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_r
-    type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_us
+    type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_rg
+    type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_zs
 
     real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
     real(RNP) :: alpha, beta, delta, rr
@@ -84,20 +96,22 @@ contains
       allocate(q, mold = u)
       allocate(s, mold = u)
       allocate(z, mold = u)
-      allocate(nu_avg(ne))
-      allocate(r(np, np, np, ne+ng), source = ZERO)
 
-      buf_r = ElementTransferBuffer_3D(mesh, r, nl)
+      allocate(nu_avg(ne))
+
+      allocate(rg(np, np, np, ne+ng), source = ZERO)
+      buf_rg = ElementTransferBuffer_3D(mesh, r, nl)
+      r => rg(:,:,:,1:ne)
 
       select case(wp)
       case(RSP)
         allocate(fs_sp(ns, ns, ns, ne)   , source = 0E0)
-        allocate(us_sp(ns, ns, ns, ne+ng), source = 0E0)
-        buf_us = ElementTransferBuffer_3D(mesh, us_sp, nl)
+        allocate(zs_sp(ns, ns, ns, ne+ng), source = 0E0)
+        buf_zs = ElementTransferBuffer_3D(mesh, zs_sp, nl)
       case default
         allocate(fs_dp(ns, ns, ns, ne)   , source = 0D0)
-        allocate(us_dp(ns, ns, ns, ne+ng), source = 0D0)
-        buf_us = ElementTransferBuffer_3D(mesh, us_dp, nl)
+        allocate(zs_dp(ns, ns, ns, ne+ng), source = 0D0)
+        buf_zs = ElementTransferBuffer_3D(mesh, zs_dp, nl)
       end select
 
       !$omp end master
@@ -129,11 +143,11 @@ contains
 
       ! initial residual .......................................................
 
-      ! r = Au - f
+      ! r = f - Au
       if (present(nu_c)) then
-        call this % Apply(lambda, nu_c, u, r, f, bv)
+        call this % Residual(lambda, nu_c, f, bv, u, r)
       else
-        call this % Apply(lambda, nu_v, u, r, f, bv)
+        call this % Residual(lambda, nu_v, f, bv, u, r)
       end if
       if (singular) then
         call CalibrateArray(r, mesh%comm_parts)
@@ -174,9 +188,10 @@ contains
       do i = 1, i_max_
 
         ! Schwarz preconditioner, z = (Aˢ)⁻¹ r
+        call SetArray(z, ZERO)
         select case(wp)
         case(RSP)
-          call schwarz % RestrictResidual(mesh, buf_r, r, fs_sp, sgn = -1)
+          call schwarz % RestrictResidual(mesh, buf_rg, rg, fs_sp)
           call TPO_Schwarz( schwarz % ops_sp % S      &
                           , schwarz % ops_sp % V      &
                           , schwarz % ops_sp % W      &
@@ -185,10 +200,10 @@ contains
                           , lambda_sp                 &
                           , nu_sp                     &
                           , fs_sp                     &
-                          , us_sp                     )
-          call schwarz % MergeCorrections(mesh, buf_us, us_sp, z)
+                          , zs_sp                     )
+          call schwarz % MergeCorrections(mesh, buf_zs, zs_sp, z)
         case default
-          call schwarz % RestrictResidual(mesh, buf_r, r, fs_dp, sgn = -1)
+          call schwarz % RestrictResidual(mesh, buf_rg, rg, fs_dp)
           call TPO_Schwarz( schwarz % ops_dp % S      &
                           , schwarz % ops_dp % V      &
                           , schwarz % ops_dp % W      &
@@ -197,8 +212,8 @@ contains
                           , lambda_dp                 &
                           , nu_dp                     &
                           , fs_dp                     &
-                          , us_dp                     )
-          call schwarz % MergeCorrections(mesh, buf_us, us_dp, z)
+                          , zs_dp                     )
+          call schwarz % MergeCorrections(mesh, buf_zs, zs_dp, z)
         end select
 
         ! set/update search vector
@@ -227,16 +242,15 @@ contains
         ! correction
         delta = ScalarProduct(r, z, mesh%comm_parts)
         alpha = delta / ScalarProduct(p, q, mesh%comm_parts)
-        call MergeArrays(ONE, u, -alpha, p)
+        call MergeArrays(ONE, u, alpha, p)
 
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
           if (present(nu_c)) then
-            call this % Apply(lambda, nu_c, u, r, f, bv)
+            call this % Residual(lambda, nu_c, f, bv, u, r)
           else
-            call this % Apply(lambda, nu_v, u, r, f, bv)
+            call this % Residual(lambda, nu_v, f, bv, u, r)
           end if
-
           if (singular) then
             call CalibrateArray(r, mesh%comm_parts)
           end if
@@ -262,12 +276,14 @@ contains
       if (present(ni)) ni = i
 
       !$omp master
-      deallocate(buf_r, buf_us, nu_avg, p, q, r, s, z,)
+      deallocate(p, q, s, z)
+      deallocate(nu_avg, rg)
+      deallocate(buf_rg, buf_zs)
       select case(wp)
       case(RSP)
-        deallocate(nu_sp, fs_sp, us_sp)
+        deallocate(nu_sp, fs_sp, zs_sp)
       case default
-        deallocate(nu_dp, fs_dp, us_dp)
+        deallocate(nu_dp, fs_dp, zs_dp)
       end select
       !$omp end master
 

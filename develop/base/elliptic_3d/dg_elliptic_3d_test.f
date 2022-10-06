@@ -436,9 +436,9 @@ program DG_Elliptic_3D_Test
 
   ! setup call
   if (has_variable_nu) then
-    call elliptic_op % Apply(lambda, nu, u, r, f, bv_u)
+    call elliptic_op % Residual(lambda, nu, f, bv_u, u, r)
   else
-    call elliptic_op % Apply(lambda, nu_0, u, r, f, bv_u)
+    call elliptic_op % Residual(lambda, nu_0, f, bv_u, u, r)
   end if
 
   !$omp master
@@ -447,9 +447,9 @@ program DG_Elliptic_3D_Test
 
   do i = 1, n_test
     if (has_variable_nu) then
-      call elliptic_op % Apply(lambda, nu, u, r, f, bv_u)
+      call elliptic_op % Residual(lambda, nu, f, bv_u, u, r)
     else
-      call elliptic_op % Apply(lambda, nu_0, u, r, f, bv_u)
+      call elliptic_op % Residual(lambda, nu_0, f, bv_u, u, r)
     end if
   end do
 
@@ -503,9 +503,9 @@ program DG_Elliptic_3D_Test
       call SetArray(u, ZERO)
 
       if (has_variable_nu) then
-        call elliptic_op % Apply(lambda, nu, u, r, f, bv_u)
+        call elliptic_op % Residual(lambda, nu, f, bv_u, u, r)
       else
-        call elliptic_op % Apply(lambda, nu_0, u, r, f, bv_u)
+        call elliptic_op % Residual(lambda, nu_0, f, bv_u, u, r)
       end if
 
       r_l2_0 = ScalarProduct(r, r, mesh%comm_parts)
@@ -562,9 +562,9 @@ program DG_Elliptic_3D_Test
 
     ! final residual
     if (has_variable_nu) then
-      call elliptic_op % Apply(lambda, nu, u, r, f, bv_u)
+      call elliptic_op % Residual(lambda, nu, f, bv_u, u, r)
     else
-      call elliptic_op % Apply(lambda, nu_0, u, r, f, bv_u)
+      call elliptic_op % Residual(lambda, nu_0, f, bv_u, u, r)
     end if
 
     !$omp end parallel

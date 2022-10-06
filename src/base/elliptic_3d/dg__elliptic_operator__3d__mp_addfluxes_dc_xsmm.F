@@ -5,7 +5,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(DG__Elliptic_Operator__3D:MP_Apply_DC) MP_AddFluxes_DC_XSMM
+submodule(DG__Elliptic_Operator__3D:MP_Eval_DC) MP_AddFluxes_DC_XSMM
 
 #ifdef __LIBXSMM__
 
@@ -43,7 +43,7 @@ contains
     real(RNP), dimension(0:eop%po, 0:eop%po, 6) :: Cn
     real(RNP) :: mu_nu, tmp
     integer   :: e, i, j, k, m
-    logical   :: present_f, struct
+    logical   :: residual, struct
 
     associate( P  => eop % po, &
                Ms => eop % w   )
@@ -74,8 +74,8 @@ contains
 
       Ds_t = transpose(eop % D)
 
-      present_f = present(f)
-      struct    = mesh % structured
+      residual = present(f)
+      struct   = mesh % structured
 
       ! add fluxes .............................................................
 
@@ -185,23 +185,24 @@ contains
 
           end do
 
-          if (present_f) then
+          if (residual) then
+            ! r = f - Au
             do k = 0, P
             do j = 0, P
             do i = 0, P
-              r(i,j,k,e) = r(i,j,k,e)               &
-                         - ( Ds_t(i,0) * Cn(j,k,1)  &
-                           + Ds_t(i,P) * Cn(j,k,2)  &
-                           + Ds_t(j,0) * Cn(i,k,3)  &
-                           + Ds_t(j,P) * Cn(i,k,4)  &
-                           + Ds_t(k,0) * Cn(i,j,5)  &
-                           + Ds_t(k,P) * Cn(i,j,6)  &
-                           + f(i,j,k,e)             &
-                           )
+              r(i,j,k,e) = Ds_t(i,0) * Cn(j,k,1)  &
+                         + Ds_t(i,P) * Cn(j,k,2)  &
+                         + Ds_t(j,0) * Cn(i,k,3)  &
+                         + Ds_t(j,P) * Cn(i,k,4)  &
+                         + Ds_t(k,0) * Cn(i,j,5)  &
+                         + Ds_t(k,P) * Cn(i,j,6)  &
+                         + f(i,j,k,e)             &
+                         - r(i,j,k,e)
             end do
             end do
             end do
           else
+            ! r = Au
             do k = 0, P
             do j = 0, P
             do i = 0, P
