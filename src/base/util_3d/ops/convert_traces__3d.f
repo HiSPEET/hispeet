@@ -8,18 +8,54 @@ module Convert_Traces__3D
   use Kind_Parameters, only: RNP
   use Mesh__3D
   implicit none
+  private
+
+  public :: ConvertInnerToOuterTraces
+
+  interface ConvertInnerToOuterTraces
+    module procedure ConvertInnerToOuterTraces_S
+    module procedure ConvertInnerToOuterTraces_A
+  end interface
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Converts interior traces u⁻ to exterior traces u⁺
+  !> Converts interior traces u⁻ to exterior traces u⁺ -- scalar version
   !>
   !> This routine converts the interior traces `u⁻ = um` into exterior traces
   !> `u⁺ = up`. Both are aligned with the element faces. In order to transfer
   !> the traces of remote elements, they must be present in the corresponding
   !> ghost entries of `um`.
 
-  subroutine ConvertInnerToOuterTraces(mesh, um, up)
+  subroutine ConvertInnerToOuterTraces_S(mesh, um, up)
+    class(Mesh_3D), intent(in) :: mesh
+    real(RNP), contiguous, intent(in)  :: um(:,:,:,:) !< u⁻
+    real(RNP), contiguous, intent(out) :: up(:,:,:,:) !< u⁺
+
+    integer :: e, i, f, l, m
+
+    !$omp do
+    do e = 1, mesh % n_elem
+      associate(element => mesh % element(e))
+        do f = 1, 6
+          i = element % face(f) % i_neighbor
+          if (i > 0) then ! adopt trace from neighbor
+            l = element % neighbor(i) % id
+            m = element % neighbor(i) % component
+            call element % AlignFromNeighborFace(f, i, um(:,:,m,l), up(:,:,f,e))
+          else ! no neighbor
+            up(:,:,f,e) = um(:,:,f,e)
+          end if
+        end do
+      end associate
+    end do
+
+  end subroutine ConvertInnerToOuterTraces_S
+
+  !-----------------------------------------------------------------------------
+  !> Converts interior traces u⁻ to exterior traces u⁺ -- array version
+
+  subroutine ConvertInnerToOuterTraces_A(mesh, um, up)
     class(Mesh_3D), intent(in) :: mesh
     real(RNP), contiguous, intent(in)  :: um(:,:,:,:,:) !< u⁻
     real(RNP), contiguous, intent(out) :: up(:,:,:,:,:) !< u⁺
@@ -49,7 +85,7 @@ contains
       end associate
     end do
 
-  end subroutine ConvertInnerToOuterTraces
+  end subroutine ConvertInnerToOuterTraces_A
 
   !=============================================================================
 
