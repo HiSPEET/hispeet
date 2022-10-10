@@ -134,10 +134,10 @@ real(RNP) :: r_max_p = 1E-12
                , div_v => w(:,:,:,:,4)             )
 
         ! generate outer traces of intermediate velocity
-        call vm_buf % Transfer(mesh, vm, tag=100) ! transfer v⁻ from masters
-        call ins_op % SetVelocityBC(bv_v, vm)     ! set boundary values
-        call vm_buf % Merge(vm)                   ! merge received traces
-        call InnerToOuterTraces(mesh, vm, vp)     ! vm → vp = v⁺
+        call vm_buf % Transfer(mesh, vm, tag=100)    ! transfer v⁻ from masters
+        call ins_op % SetVelocityBC(bv_v, vm)        ! set boundary values
+        call vm_buf % Merge(vm)                      ! merge received traces
+        call ConvertInnerToOuterTraces(mesh, vm, vp) ! vm → vp = v⁺
 
         ! divergence of intermediate velocity
         if (mesh % regular) then
@@ -159,9 +159,9 @@ real(RNP) :: r_max_p = 1E-12
                , grad_p => w(:,:,:,:,1:3)           )
 
         ! generate outer traces of pressure -- preliminary assuming Neumann BC
-        call pm_buf % Transfer(mesh, vp, tag=100) ! transfer p⁻ from masters
-        call pm_buf % Merge(pm)                   ! merge received traces
-        call InnerToOuterTraces(mesh, pm, pp)     ! pm → pp = p⁺
+        call pm_buf % Transfer(mesh, vp, tag=100)    ! transfer p⁻ from masters
+        call pm_buf % Merge(pm)                      ! merge received traces
+        call ConvertInnerToOuterTraces(mesh, pm, pp) ! pm → pp = p⁺
 
         ! pressure gradient
         if (mesh % regular) then
