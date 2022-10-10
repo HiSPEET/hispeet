@@ -70,10 +70,13 @@ module INS__Operator__3D
     generic :: GetDiffusionTerm => GetDiffusionTerm_C
     procedure, private :: GetDiffusionTerm_C
 
+    generic :: ApplyDiffusionOperator => ApplyDiffusionOperator_C
+    procedure, private :: ApplyDiffusionOperator_C
+
     generic :: GetDiffusionResidual => GetDiffusionResidual_C
     procedure, private :: GetDiffusionResidual_C
 
-!!  procedure :: DiffusionSolver
+    procedure :: DiffusionSolver
 
   end type INS_Operator_3D
 
@@ -132,34 +135,44 @@ module INS__Operator__3D
     end subroutine GetDiffusionTerm_DC
 
     !---------------------------------------------------------------------------
-    !> Diffusion residual with constant viscosity
+    !> Homogeneous diffusion operator with constant viscosity
 
-    module subroutine GetDiffusionResidual_C(this, tau, v, r, f, bv_v)
+    module subroutine ApplyDiffusionOperator_C(this, tau, v, r)
       class(INS_Operator_3D), intent(in)  :: this
       real(RNP),              intent(in)  :: tau
       real(RNP), contiguous,  intent(in)  :: v(:,:,:,:,:)
       real(RNP), contiguous,  intent(out) :: r(:,:,:,:,:)
-      real(RNP), contiguous, optional, intent(in) :: f(:,:,:,:,:)
-      class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv_v(:)
+    end subroutine ApplyDiffusionOperator_C
+
+    !---------------------------------------------------------------------------
+    !> Diffusion residual with constant viscosity
+
+    module subroutine GetDiffusionResidual_C(this, tau, f, bv_v, v, r)
+      class(INS_Operator_3D), intent(in)  :: this
+      real(RNP),              intent(in)  :: tau
+      real(RNP), contiguous, intent(in)   :: f(:,:,:,:,:)
+      class(SpectralElementBoundaryVariable_3D), intent(in) :: bv_v(:)
+      real(RNP), contiguous,  intent(in)  :: v(:,:,:,:,:)
+      real(RNP), contiguous,  intent(out) :: r(:,:,:,:,:)
     end subroutine GetDiffusionResidual_C
 
     !---------------------------------------------------------------------------
     !> Diffusion solver
 
-!!  module subroutine DiffusionSolver( this, tau, f, bv_v, v   &
-!!                                   , i_max, r_red, r_max, ni )
-!!
-!!    class(INS_Operator_3D),                    intent(in)    :: this
-!!    real(RNP),                                 intent(in)    :: tau
-!!    real(RNP), contiguous,                     intent(in)    :: f(:,:,:,:,:)
-!!    class(SpectralElementBoundaryVariable_3D), intent(in)    :: bv_v(:)
-!!    real(RNP), contiguous,                     intent(inout) :: v(:,:,:,:,:)
-!!    integer,                                   intent(in)    :: i_max
-!!    real(RNP),                       optional, intent(in)    :: r_red
-!!    real(RNP),                       optional, intent(in)    :: r_max
-!!    integer,                         optional, intent(out)   :: ni
-!!
-!!  end subroutine DiffusionSolver
+    module subroutine DiffusionSolver( this, tau, f, bv_v, v   &
+                                     , i_max, r_red, r_max, ni )
+
+      class(INS_Operator_3D),                    intent(in)    :: this
+      real(RNP),                                 intent(in)    :: tau
+      real(RNP), contiguous,                     intent(in)    :: f(:,:,:,:,:)
+      class(SpectralElementBoundaryVariable_3D), intent(in)    :: bv_v(:)
+      real(RNP), contiguous,                     intent(inout) :: v(:,:,:,:,:)
+      integer,                                   intent(in)    :: i_max
+      real(RNP),                       optional, intent(in)    :: r_red
+      real(RNP),                       optional, intent(in)    :: r_max
+      integer,                         optional, intent(out)   :: ni
+
+    end subroutine DiffusionSolver
 
   end interface
 

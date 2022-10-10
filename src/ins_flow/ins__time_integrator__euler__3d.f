@@ -275,10 +275,10 @@ contains
       ! divergence of intermediate velocity ....................................
 
       ! generate outer traces
-      call vm_buf % Transfer(mesh, vm, tag=100)    ! transfer traces
-      call ins_op % SetVelocityBC(bv_v, vm)        ! set boundary values
-      call vm_buf % Merge(vm)                      ! merge remote traces
-      call ConvertInnerToOuterTraces(mesh, vm, vp) ! vm → vp = v_i⁺
+      call vm_buf % Transfer(mesh, vm, tag=100) ! transfer traces
+      call ins_op % SetVelocityBC(bv_v, vm)     ! set boundary values
+      call vm_buf % Merge(vm)                   ! merge remote traces
+      call InnerToOuterTraces(mesh, vm, vp)     ! vm → vp = v_i⁺
 
       ! divergence of intermediate velocity
       call TPO_Div( Ms = ins_op % eop_v % w            &
