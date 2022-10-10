@@ -105,10 +105,12 @@ contains
 
       select case(wp)
       case(RSP)
+        allocate(nu_sp(ne))
         allocate(fs_sp(ns, ns, ns, ne)   , source = 0E0)
         allocate(zs_sp(ns, ns, ns, ne+ng), source = 0E0)
         buf_zs = ElementTransferBuffer_3D(mesh, zs_sp, nl)
       case default
+        allocate(nu_dp(ne))
         allocate(fs_dp(ns, ns, ns, ne)   , source = 0D0)
         allocate(zs_dp(ns, ns, ns, ne+ng), source = 0D0)
         buf_zs = ElementTransferBuffer_3D(mesh, zs_dp, nl)
@@ -129,16 +131,18 @@ contains
         call TPO_Average(ONE/8, eop%w, nu_v, nu_avg)
       end if
 
-      !$omp master
       select case(wp)
       case(RSP)
         lambda_sp = real(lambda, RSP)
-        nu_sp     = real(nu_avg, RSP)
+        !$omp workshare
+        nu_sp = real(nu_avg, RSP)
+        !$omp workshare nowait
       case default
         lambda_dp = real(lambda, RDP)
-        nu_dp     = real(nu_avg, RDP)
+        !$omp workshare
+        nu_dp = real(nu_avg, RDP)
+        !$omp workshare nowait
       end select
-      !$omp end master
       ! omp barrier not needed because Apply is blocking
 
       ! initial residual .......................................................
@@ -192,27 +196,27 @@ contains
         select case(wp)
         case(RSP)
           call schwarz % RestrictResidual(mesh, buf_rg, rg, fs_sp)
-          call TPO_Schwarz( schwarz % ops_sp % S      &
-                          , schwarz % ops_sp % V      &
-                          , schwarz % ops_sp % W      &
-                          , schwarz % ops_sp % g      &
-                          , schwarz % cfg             &
-                          , lambda_sp                 &
-                          , nu_sp                     &
-                          , fs_sp                     &
-                          , zs_sp                     )
+          call TPO_Schwarz( schwarz % ops_sp % S  &
+                          , schwarz % ops_sp % V  &
+                          , schwarz % ops_sp % W  &
+                          , schwarz % ops_sp % g  &
+                          , schwarz % cfg         &
+                          , lambda_sp             &
+                          , nu_sp                 &
+                          , fs_sp                 &
+                          , zs_sp                 )
           call schwarz % MergeCorrections(mesh, buf_zs, zs_sp, z)
         case default
           call schwarz % RestrictResidual(mesh, buf_rg, rg, fs_dp)
-          call TPO_Schwarz( schwarz % ops_dp % S      &
-                          , schwarz % ops_dp % V      &
-                          , schwarz % ops_dp % W      &
-                          , schwarz % ops_dp % g      &
-                          , schwarz % cfg             &
-                          , lambda_dp                 &
-                          , nu_dp                     &
-                          , fs_dp                     &
-                          , zs_dp                     )
+          call TPO_Schwarz( schwarz % ops_dp % S  &
+                          , schwarz % ops_dp % V  &
+                          , schwarz % ops_dp % W  &
+                          , schwarz % ops_dp % g  &
+                          , schwarz % cfg         &
+                          , lambda_dp             &
+                          , nu_dp                 &
+                          , fs_dp                 &
+                          , zs_dp                 )
           call schwarz % MergeCorrections(mesh, buf_zs, zs_dp, z)
         end select
 
