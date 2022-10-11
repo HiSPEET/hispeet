@@ -4,6 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !> @todo
+!>   - validate
 !>   - revise interface
 !>   - add standby mode
 !===============================================================================
@@ -22,7 +23,12 @@ contains
   !-----------------------------------------------------------------------------
   !>
 
-  module subroutine ProjectionStep(this, tau, v_0, F_c, F_d, Q, bv_u, u)
+  module subroutine ProjectionStep( this, tau, v_0, F_c, F_d, Q, bv_u, u &
+                                  , i_max_p, i_max_v, r_red, r_max       )
+
+
+    ! arguments ................................................................
+
     class(INS_TimeIntegrator_3D), intent(in) :: this
     real(RNP), intent(in) :: tau
     real(RNP), contiguous, intent(in) :: v_0(:,:,:,:,:)
@@ -32,12 +38,12 @@ contains
     class(SpectralElementBoundaryVariable_3D), intent(inout) :: bv_u(:)
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
 
-    ! internal variables .......................................................
+    integer :: i_max_p !< max num iterations of pressure solver
+    integer :: i_max_v !< max num iterations of viscous diffusion solver
+    real(RNP), optional :: r_red !< minimum L² residual reduction to reach
+    real(RNP), optional :: r_max !< maximum L² residual allowed
 
-!### input arguments to be incorporated
-integer   :: i_max_p = 4
-real(RNP) :: r_red_p = 1E-6
-real(RNP) :: r_max_p = 1E-12
+    ! internal variables .......................................................
 
     real(RNP), allocatable, save :: pm (:,:,:,:)   ! inner pressure traces p⁻
     real(RNP), allocatable, save :: pp (:,:,:,:)   ! outer pressure traces p⁺
@@ -63,6 +69,8 @@ real(RNP) :: r_max_p = 1E-12
 
       ! Initialization .........................................................
 
+      np = size(v,1)
+
       !$omp master
 
       allocate( pm (np, np,  6, n_elem + n_ghost   ), source = ZERO )
@@ -81,8 +89,6 @@ real(RNP) :: r_max_p = 1E-12
 
       !$omp end master
       !$omp barrier
-
-      np = size(v,1)
 
       ! Extrapolation step .....................................................
 
@@ -129,9 +135,7 @@ real(RNP) :: r_max_p = 1E-12
 
       ! pressure computation ...................................................
 
-      associate( eop   => ins_op % eop_v           &
-               , met   => ins_op % sem_v % metrics &
-               , div_v => w(:,:,:,:,4)             )
+      associate(div_v => w(:,:,:,:,4))
 
         ! generate outer traces of intermediate velocity
         call vm_buf % Transfer(mesh, vm, tag=100)    ! transfer v⁻ from masters
@@ -140,23 +144,17 @@ real(RNP) :: r_max_p = 1E-12
         call ConvertInnerToOuterTraces(mesh, vm, vp) ! vm → vp = v⁺
 
         ! divergence of intermediate velocity
-        if (mesh % regular) then
-          call TPO_Div(eop%w, eop%D, mesh%dx, v, vp, div_v)
-        else
-          call TPO_Div(eop%w, eop%D, met%Jd, met%Ji, met%a, met%n, v, vp, div_v)
-        end if
+        call TPO_Div(ins_op % eop_v, ins_op % sem_v, v, vp, div_v)
 
         ! solve pressure equation
         call ins_op % PressureSolver( tau, bv_v, v, div_v, bv_p, p &
-                                    , i_max_p, r_red_p, r_max_p    )
+                                    , i_max_p, r_red, r_max        )
 
       end associate
 
       ! pressure correction ....................................................
 
-      associate( eop    => ins_op % eop_v           &
-               , met    => ins_op % sem_v % metrics &
-               , grad_p => w(:,:,:,:,1:3)           )
+      associate(grad_p => w(:,:,:,:,1:3))
 
         ! generate outer traces of pressure -- preliminary assuming Neumann BC
         call pm_buf % Transfer(mesh, vp, tag=100)    ! transfer p⁻ from masters
@@ -164,18 +162,33 @@ real(RNP) :: r_max_p = 1E-12
         call ConvertInnerToOuterTraces(mesh, pm, pp) ! pm → pp = p⁺
 
         ! pressure gradient
-        if (mesh % regular) then
-          call TPO_Grad(eop%w, eop%D, mesh%dx, p, pp, grad_p)
-        else
-          call TPO_Grad(eop%w, eop%D, met%Jd, met%Ji, met%a, met%n, p, pp, grad_p)
-        end if
+        call TPO_Grad(ins_op % eop_v, ins_op % sem_v, p, pp, grad_p)
 
         ! correction: v = v - τ∇p
         call MergeArrays(ONE, v, -tau, grad_p, multi=.true.)
 
       end associate
-?
+
       ! diffusive correction ...................................................
+
+      associate(f => w(:,:,:,:,1:3))
+
+        !$omp do collapse(2)
+        do d = 1, 3
+        do e = 1, mesh % n_elem
+          do k = 1, np
+          do j = 1, np
+          do i = 1, np
+            f(i,j,k,e,d) = 1/tau * v(i,j,k,e,d) - F_d(i,j,k,e,d)
+          end do
+          end do
+          end do
+        end do
+        end do
+
+        call ins_op % DiffusionSolver(tau, f, bv_v, v, i_max_v, r_red, r_max)
+
+      end associate
 
       ! cleanup ................................................................
 
