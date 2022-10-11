@@ -4,8 +4,8 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !> @todo
-!>   - clean (generic) treatment of different cases, i.e. regular and deformed
-!>     meshes as well as constant and variable viscosity etc.
+!>   - clean treatment of cases: regular/deformed mesh, constant/variable ν
+!>   - extension of velocity boundary conditions
 !===============================================================================
 
 module INS__Operator__3D
@@ -94,6 +94,7 @@ module INS__Operator__3D
     type(DG_ElementOptions_1D) :: eop_p !< DG operator options for p
     type(StandardOperatorOptions_1D) :: sop_q !< quadrature opts for convection
     type(DG_SchwarzOptions_3D) :: schwarz_p !< Schwarz options for p-solver
+    type(DG_SchwarzOptions_3D) :: schwarz_v !< Schwarz options for v-solver
   contains
     procedure :: Bcast => Bcast_INS_Options_3D
   end type INS_Options_3D
@@ -203,7 +204,7 @@ contains
     class(INS_Problem_3D),   intent(in)    :: problem !< INS flow problem
     type(Mesh_3D), optional, intent(in)    :: mesh    !< local mesh partition
 
-    integer :: b
+    integer :: b, d
 
     this % mu_0 = opt % mu_0
     this % nu_0 = problem % nu_ref
@@ -243,10 +244,18 @@ contains
     end do
 
     ! pressure operator
-    this % laplacian_p = DG_EllipticOperator_3D( sem         = this%sem_p    &
-                                               , dg_opt      = opt%eop_p     &
-                                               , schwarz_opt = opt%schwarz_p &
-                                               , bc          = this % bc_p   )
+    this % laplacian_p = DG_EllipticOperator_3D( sem         = this % sem_p     &
+                                               , dg_opt      = opt  % eop_p     &
+                                               , schwarz_opt = opt  % schwarz_p &
+                                               , bc          = this % bc_p      )
+
+    ! Schwarz operators for the viscous diffusion solver
+    do d = 1, 3
+      this % schwarz_v(d) = DG_SchwarzOperator_3D( opt  % schwarz_v &
+                                                 , this % eop_v     &
+                                                 , this % mesh      &
+                                                 , this % bc_v      )
+    end do
 
   end subroutine Init_INS_Operator_3D
 
@@ -344,6 +353,7 @@ contains
     call this % eop_p     % Bcast(root, comm)
     call this % sop_q     % Bcast(root, comm)
     call this % schwarz_p % Bcast(root, comm)
+    call this % schwarz_v % Bcast(root, comm)
 
   end subroutine Bcast_INS_Options_3D
 
