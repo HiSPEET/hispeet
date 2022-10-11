@@ -119,7 +119,10 @@ contains
       !$omp end master
       !$omp barrier
 
-      check_convergence = present(r_red) .or. present(r_max)
+      check_convergence = .false.
+      if (present(r_red)) check_convergence = r_red > 0
+      if (present(r_max)) check_convergence = r_max > 0 .or. check_convergence
+
       singular = abs(lambda) < epsilon(ONE) .and. all(this%bc /= 'D')
 
       ! coefficients ...........................................................

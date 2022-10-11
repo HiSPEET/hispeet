@@ -53,11 +53,12 @@ contains
     type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_r
     type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_us
 
-    real(RNP), save :: rr_term
+    real(RNP), save :: rr_term, rr_red
     logical  , save :: converged
 
-    integer   :: i, ne, ng, nl(3), no, np, ns, wp
     real(RNP) :: rr
+    integer   :: i, ne, ng, nl(3), no, np, ns, wp
+    logical   :: check_convergence
 
     ! skip empty partition
     if (this % sem % mesh % part < 0) return
@@ -67,6 +68,10 @@ contains
              , schwarz => this % schwarz    )
 
       ! initialization .........................................................
+
+      check_convergence = .false.
+      if (present(r_red)) check_convergence = r_red > 0
+      if (present(r_max)) check_convergence = r_max > 0 .or. check_convergence
 
       ne = mesh % n_elem
       ng = mesh % n_ghost
@@ -94,10 +99,19 @@ contains
       buf_r = ElementTransferBuffer_3D(mesh, r, nl)
 
       ! termination condition
-      if (present(r_max)) then
-        rr_term = max(ZERO, r_max)**2
+      if (check_convergence) then
+        if (present(r_max)) then
+          rr_term = r_max ** 2
+        else
+          rr_term = ZERO
+        end if
+        if (present(r_red)) then
+          rr_red = r_red ** 2
+        else
+          rr_red = ZERO
+        end if
       else
-        rr_term = ZERO
+        converged = .false.
       end if
 
       !$omp end master
@@ -136,12 +150,12 @@ contains
         end if
 
         ! termination check
-        if (present(r_red)) then
+        if (check_convergence) then
           rr = ScalarProduct(r(:,:,:,:ne), r(:,:,:,:ne), mesh%comm_parts)
           !$omp master
           if (mesh%part == 0) then
             if (i == 1) then
-              rr_term  = max(rr_term, max(ZERO, sqrt(rr) * r_red)**2)
+              rr_term  = max(rr_term, rr * rr_red)
             end if
             converged = rr <= rr_term
           end if

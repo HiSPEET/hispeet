@@ -76,14 +76,9 @@ contains
       rr = ScalarProduct(r, r, mesh%comm_parts)
 
       !$omp single
-      if (present(r_red)) then
-        rr_term  = max(ZERO, sqrt(rr) * r_red)**2
-        if (present(r_max)) then
-          rr_term = max(rr_term, max(ZERO, r_max)**2)
-        end if
-      else
-        rr_term = 0
-      end if
+      rr_term = 0
+      if (present(r_red)) rr_term = rr * max(ZERO, r_red)**2
+      if (present(r_max)) rr_term = max(rr_term, max(ZERO, r_max)**2)
       !$omp end single
 
       rr_old = 0
