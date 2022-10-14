@@ -7,4 +7,5 @@
 module TPO__Diffusion__3D
   use TPO__Diffusion__3D_RLCI
   use TPO__Diffusion__3D_RLVI
+  use TPO__Diffusion__3D_DLCI
 end module TPO__Diffusion__3D

@@ -33,7 +33,7 @@ module CART__Elliptic_Operator
     character, allocatable :: bc(:)          !< boundary conditions {P,D,N}
 
     class(StandardOperators_1D), allocatable :: eop     !< standard SE operators
-    type(SchwarzOperator3D),    allocatable :: schwarz !< Schwarz operator
+    type(SchwarzOperator3D),     allocatable :: schwarz !< Schwarz operator
 
   contains
 

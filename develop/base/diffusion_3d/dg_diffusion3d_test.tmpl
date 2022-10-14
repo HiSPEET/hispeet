@@ -1,0 +1,29 @@
+&control_prm
+  config = 1
+  n_test = 10
+/
+
+&problem_prm
+/
+
+&dicretization_prm
+  pg = 15
+  po = 15
+/
+
+&cuboid_cartesian_prm
+  regular    = F ! mimic irregular mesh (elements deformed or of different size)
+  structured = F ! mimic unstructured mesh
+  bc = 6*'D'
+  np = 1,1,<np>
+  ep = 3*11
+/
+
+&cuboid_diamonds_prm
+/
+
+&cylinder_prm
+/
+
+&annulus_prm
+/

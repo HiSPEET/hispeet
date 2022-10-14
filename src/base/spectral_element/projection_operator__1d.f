@@ -48,103 +48,104 @@ module Projection_Operator__1D
 
 contains
 
-!===============================================================================
-! Constructors
+  !=============================================================================
+  ! Constructors
 
-!-------------------------------------------------------------------------------
-!> New ProjectionOperator_1D from 1D standard operators and interpolation points
+  !-----------------------------------------------------------------------------
+  !> New ProjectionOperator_1D from 1D standard operators and interpolation
+  !> points
 
-type(ProjectionOperator_1D) function New_SX(eop, xq, wq, dx) result(this)
-  class(StandardOperators_1D), intent(in) :: eop   !< standard operators
-  real(RNP),                  intent(in) :: xq(:) !< quadrature points
-  real(RNP),                  intent(in) :: wq(:) !< quadrature weights
-  real(RNP),                  intent(in) :: dx    !< element length
+  type(ProjectionOperator_1D) function New_SX(eop, xq, wq, dx) result(this)
+    class(StandardOperators_1D), intent(in) :: eop !< standard operators
+    real(RNP), intent(in) :: xq(:) !< quadrature points
+    real(RNP), intent(in) :: wq(:) !< quadrature weights
+    real(RNP), intent(in) :: dx    !< element length
 
-  call Init_SX(this, eop, xq, wq, dx)
+    call Init_SX(this, eop, xq, wq, dx)
 
-end function New_SX
+  end function New_SX
 
-!===============================================================================
-! Type-bound procedures
+  !=============================================================================
+  ! Type-bound procedures
 
-!-------------------------------------------------------------------------------
-!> Initialization
+  !-----------------------------------------------------------------------------
+  !> Initialization
 
-subroutine Init_SX(this, eop, xq, wq, dx)
-  class(ProjectionOperator_1D),  intent(inout) :: this
-  class(StandardOperators_1D), intent(in)    :: eop   !< standard operators
-  real(RNP),                  intent(in)    :: xq(:) !< quadrature points
-  real(RNP),                  intent(in)    :: wq(:) !< quadrature weights
-  real(RNP),                  intent(in)    :: dx    !< element length
+  subroutine Init_SX(this, eop, xq, wq, dx)
+    class(ProjectionOperator_1D),  intent(inout) :: this
+    class(StandardOperators_1D), intent(in) :: eop !< standard operators
+    real(RNP), intent(in) :: xq(:) !< quadrature points
+    real(RNP), intent(in) :: wq(:) !< quadrature weights
+    real(RNP), intent(in) :: dx    !< element length
 
-  real(RNP), allocatable :: VL(:,:)
-  integer :: i, k, nq
+    real(RNP), allocatable :: VL(:,:)
+    integer :: i, k, nq
 
-  if (this % nq > 0) call Delete_ProjectionOperator(this)
+    if (this % nq > 0) call Delete_ProjectionOperator(this)
 
-  associate(po => eop%po, xo => eop%x)
+    associate(po => eop%po, xo => eop%x)
 
-    nq = size(xq)
+      nq = size(xq)
 
-    this % nq = nq
-    this % np = po + 1
+      this % nq = nq
+      this % np = po + 1
 
-    allocate(this % A (0:po,1:nq))
-    allocate(this % MA(0:po,1:nq))
+      allocate(this % A (0:po,1:nq))
+      allocate(this % MA(0:po,1:nq))
 
-    associate(A => this%A, MA => this%MA)
+      associate(A => this%A, MA => this%MA)
 
-      ! mass-weighted L2 projection operator for standard element
-      select case(eop % basis)
-      case('GL ') ! Gauss-Legendre
+        ! mass-weighted L2 projection operator for standard element
+        select case(eop % basis)
+        case('G') ! Gauss
+          do k = 1, nq
+          do i = 0, po
+            MA(i,k) = GaussPolynomial(i, xo, xq(k)) * wq(k)
+          end do
+          end do
+        case('R') ! Radau
+          do k = 1, nq
+          do i = 0, po
+            MA(i,k) = RadauPolynomial(i, xo, xq(k)) * wq(k)
+          end do
+          end do
+        case default ! Lobatto
+          do k = 1, nq
+          do i = 0, po
+            MA(i,k) = LobattoPolynomial(i, xo, xq(k)) * wq(k)
+          end do
+          end do
+        end select
+
+        ! L2 projection operator
+        allocate(VL(0:po,0:po))
+        call eop % Get_Legendre_VDM(VL)
+        A = matmul(transpose(VL), MA)
         do k = 1, nq
         do i = 0, po
-          MA(i,k) = GaussPolynomial(i, xo, xq(k)) * wq(k)
+          A(i,k) = (i + HALF) * A(i,k)
         end do
         end do
-      case('GRL') ! Gauss-Radau-Legendre
-        do k = 1, nq
-        do i = 0, po
-          MA(i,k) = RadauPolynomial(i, xo, xq(k)) * wq(k)
-        end do
-        end do
-      case default
-        do k = 1, nq
-        do i = 0, po
-          MA(i,k) = LobattoPolynomial(i, xo, xq(k)) * wq(k)
-        end do
-        end do
-      end select
+        A = matmul(VL, A)
 
-      ! L2 projection operator
-      allocate(VL(0:po,0:po))
-      call eop % Get_Legendre_VDM(VL)
-      A = matmul(transpose(VL), MA)
-      do k = 1, nq
-      do i = 0, po
-        A(i,k) = (i + HALF) * A(i,k)
-      end do
-      end do
-      A = matmul(VL, A)
+        ! mass-weighted L2 projection operator for physical element
+        MA = HALF * dx * MA
 
-      ! mass-weighted L2 projection operator for physical element
-      MA = HALF * dx * MA
-
+      end associate
     end associate
-  end associate
 
-end subroutine Init_SX
+  end subroutine Init_SX
 
-!-------------------------------------------------------------------------------
-!> Delete ProjectionOperator_1D object
+  !-----------------------------------------------------------------------------
+  !> Delete ProjectionOperator_1D object
 
-subroutine Delete_ProjectionOperator(this)
-  class(ProjectionOperator_1D), intent(inout) :: this
+  subroutine Delete_ProjectionOperator(this)
+    class(ProjectionOperator_1D), intent(inout) :: this
 
-  if (allocated(this % MA)) deallocate(this % MA)
+    if (allocated(this % MA)) deallocate(this % MA)
 
-end subroutine Delete_ProjectionOperator
+  end subroutine Delete_ProjectionOperator
 
-!===============================================================================
+  !=============================================================================
 
 end module Projection_Operator__1D

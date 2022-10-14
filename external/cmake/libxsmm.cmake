@@ -6,6 +6,7 @@ if (NOT SKIP_LIBXSMM)
   set( LIBXSMM_LIB_DIR       "${LIBXSMM_SRC_DIR}/lib"                 )
   set( LIBXSMM_MODULE        "${LIBXSMM_SRC_DIR}/include/libxsmm.mod" )
   set( LIBXSMM_LIBRARIES     "${LIBXSMM_SRC_DIR}/lib/libxsmmf.a"
+                             "${LIBXSMM_SRC_DIR}/lib/libxsmmext.a"
                              "${LIBXSMM_SRC_DIR}/lib/libxsmm.a"       ) 
   set( LIBXSMM_INCLUDE_DIRS  "${LIBXSMM_SRC_DIR}/include"             )    
 
@@ -19,6 +20,7 @@ if (NOT SKIP_LIBXSMM)
   ExternalProject_Add(LIBXSMM 
       PREFIX               ${CMAKE_CURRENT_BINARY_DIR}/external
       GIT_REPOSITORY       ${CMAKE_CURRENT_SOURCE_DIR}/external/libxsmm
+      GIT_TAG              "main"
       UPDATE_DISCONNECTED  TRUE
       CONFIGURE_COMMAND    ""
       BUILD_COMMAND        test -d ${LIBXSMM_LIB_DIR} || make OMP=0 BLAS=0

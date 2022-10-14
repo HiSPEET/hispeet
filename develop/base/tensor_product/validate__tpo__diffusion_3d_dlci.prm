@@ -1,5 +1,5 @@
 &input
-  conf   = 2     ! configuration: 1 cylinder, 2 annular gap
+  conf   = 1     ! configuration: 1 cylinder, 2 annular gap
   nt     = 1     ! number of test runs
 ! r0     = 0.5   ! inner radius  (annular gap only)
 ! r1     = 1     ! outer radius

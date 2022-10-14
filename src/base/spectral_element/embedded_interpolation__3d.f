@@ -32,51 +32,52 @@ module Embedded_Interpolation__3D
 
 contains
 
-!===============================================================================
-! Constructor
+  !=============================================================================
+  ! Constructor
 
-!-------------------------------------------------------------------------------
-!> New EmbeddedInterpolation_1D from 1D standard operators and interpolation points
+  !-----------------------------------------------------------------------------
+  !> New EmbeddedInterpolation_1D from 1D standard operators and interpolation
+  !> points
 
-type(EmbeddedInterpolation_3D) function New_SX(eop, xi) result(this)
-  class(StandardOperators_1D), intent(in) :: eop    !< standard operators
-  real(RNP),                  intent(in) :: xi(0:) !< points in [-1,1]
+  type(EmbeddedInterpolation_3D) function New_SX(eop, xi) result(this)
+    class(StandardOperators_1D), intent(in) :: eop !< standard operators
+    real(RNP), intent(in) :: xi(0:) !< points in [-1,1]
 
-  call this % Init_EmbeddedInterpolation_1D(eop, xi)
+    call this % Init_EmbeddedInterpolation_1D(eop, xi)
 
-end function New_SX
+  end function New_SX
 
-!===============================================================================
-! Type-bound procedures
+  !=============================================================================
+  ! Type-bound procedures
 
-!-------------------------------------------------------------------------------
-!> Interpolation of scalar variables
+  !-----------------------------------------------------------------------------
+  !> Interpolation of scalar variables
 
-subroutine Interpolate_S(this, uo, ui)
-  class(EmbeddedInterpolation_3D), intent(in) :: this
-  real(RNP), intent(in)  :: uo(:,:,:,:) !< original mesh variable
-  real(RNP), intent(out) :: ui(:,:,:,:) !< interpolated mesh variable
+  subroutine Interpolate_S(this, uo, ui)
+    class(EmbeddedInterpolation_3D), intent(in) :: this
+    real(RNP), intent(in)  :: uo(:,:,:,:) !< original mesh variable
+    real(RNP), intent(out) :: ui(:,:,:,:) !< interpolated mesh variable
 
-  call TPO_AAA(this%A, uo, ui)
+    call TPO_AAA(this%A, uo, ui)
 
-end subroutine Interpolate_S
+  end subroutine Interpolate_S
 
-!-------------------------------------------------------------------------------
-!> Interpolation of array variables
+  !-----------------------------------------------------------------------------
+  !> Interpolation of array variables
 
-subroutine Interpolate_A(this, uo, ui)
-  class(EmbeddedInterpolation_3D), intent(in) :: this
-  real(RNP), intent(in)  :: uo(:,:,:,:,:) !< original mesh variable
-  real(RNP), intent(out) :: ui(:,:,:,:,:) !< interpolated mesh variable
+  subroutine Interpolate_A(this, uo, ui)
+    class(EmbeddedInterpolation_3D), intent(in) :: this
+    real(RNP), intent(in)  :: uo(:,:,:,:,:) !< original mesh variable
+    real(RNP), intent(out) :: ui(:,:,:,:,:) !< interpolated mesh variable
 
-  integer :: c
+    integer :: c
 
-  do c = 1, size(uo,5)
-    call TPO_AAA(this%A, uo(:,:,:,:,c), ui(:,:,:,:,c))
-  end do
+    do c = 1, size(uo,5)
+      call TPO_AAA(this%A, uo(:,:,:,:,c), ui(:,:,:,:,c))
+    end do
 
-end subroutine Interpolate_A
+  end subroutine Interpolate_A
 
-!===============================================================================
+  !=============================================================================
 
 end module Embedded_Interpolation__3D

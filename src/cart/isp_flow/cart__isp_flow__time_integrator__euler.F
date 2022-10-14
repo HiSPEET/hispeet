@@ -2,6 +2,9 @@
 !> author:   Joerg Stiller
 !> date:     2020/03/05
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @todo
+!>   - improve data reuse
 !===============================================================================
 
 module CART__ISP_Flow__Time_Integrator__Euler
@@ -73,7 +76,7 @@ contains
   end function New_TimeIntegrator_Euler
 
   !-----------------------------------------------------------------------------
-  !> Initialization of a Init_TimeIntegrator_Euler object
+  !> Initialization of a TimeIntegrator_Euler object
 
   subroutine Init_TimeIntegrator_Euler(this, problem, flow_op, opt)
     class(TimeIntegrator_Euler),                   intent(inout) :: this

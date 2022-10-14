@@ -38,57 +38,57 @@ module Projection_Operator__3D
 
 contains
 
-!===============================================================================
-! Constructor
+  !=============================================================================
+  ! Constructor
 
-!-------------------------------------------------------------------------------
-!> New ProjectionOperator_3D
+  !-----------------------------------------------------------------------------
+  !> New ProjectionOperator_3D
 
-type(ProjectionOperator_3D) function New_SX(eop, xq, wq, dx) result(this)
-  class(StandardOperators_1D), intent(in) :: eop   !< standard operators
-  real(RNP),                  intent(in) :: xq(:) !< quadrature points
-  real(RNP),                  intent(in) :: wq(:) !< quadrature weights
-  real(RNP),                  intent(in) :: dx(3) !< element extensions
+  type(ProjectionOperator_3D) function New_SX(eop, xq, wq, dx) result(this)
+    class(StandardOperators_1D), intent(in) :: eop !< standard operators
+    real(RNP), intent(in) :: xq(:) !< quadrature points
+    real(RNP), intent(in) :: wq(:) !< quadrature weights
+    real(RNP), intent(in) :: dx(3) !< element extensions
 
-  real(RNP) :: dx_m
+    real(RNP) :: dx_m
 
-  dx_m = product(dx) ** THIRD
+    dx_m = product(dx) ** THIRD
 
-  call this % Init_ProjectionOperator_1D(eop, xq, wq, dx_m)
+    call this % Init_ProjectionOperator_1D(eop, xq, wq, dx_m)
 
-end function New_SX
+  end function New_SX
 
-!===============================================================================
-! Type-bound procedures
+  !=============================================================================
+  ! Type-bound procedures
 
-!-------------------------------------------------------------------------------
-!> Projection of scalar variables
+  !-----------------------------------------------------------------------------
+  !> Projection of scalar variables
 
-subroutine Project_S(this, uq, up)
-  class(ProjectionOperator_3D), intent(in) :: this
-  real(RNP), intent(in)  :: uq(:,:,:,:) !< mesh variable at quadrature points
-  real(RNP), intent(out) :: up(:,:,:,:) !< projected mesh variable
+  subroutine Project_S(this, uq, up)
+    class(ProjectionOperator_3D), intent(in) :: this
+    real(RNP), intent(in)  :: uq(:,:,:,:) !< mesh variable at quadrature points
+    real(RNP), intent(out) :: up(:,:,:,:) !< projected mesh variable
 
-  call TPO_AAA(this%MA, uq, up)
+    call TPO_AAA(this%MA, uq, up)
 
-end subroutine Project_S
+  end subroutine Project_S
 
-!-------------------------------------------------------------------------------
-!> Projection of array variables
+  !-----------------------------------------------------------------------------
+  !> Projection of array variables
 
-subroutine Project_A(this, uq, up)
-  class(ProjectionOperator_3D), intent(in) :: this
-  real(RNP), intent(in)  :: uq(:,:,:,:,:) !< mesh variable at quadrature points
-  real(RNP), intent(out) :: up(:,:,:,:,:) !< projected mesh variable
+  subroutine Project_A(this, uq, up)
+    class(ProjectionOperator_3D), intent(in) :: this
+    real(RNP), intent(in)  :: uq(:,:,:,:,:) !< variable at quadrature points
+    real(RNP), intent(out) :: up(:,:,:,:,:) !< projected variable
 
-  integer :: c
+    integer :: c
 
-  do c = 1, size(uq,5)
-    call TPO_AAA(this%MA, uq(:,:,:,:,c), up(:,:,:,:,c))
-  end do
+    do c = 1, size(uq,5)
+      call TPO_AAA(this%MA, uq(:,:,:,:,c), up(:,:,:,:,c))
+    end do
 
-end subroutine Project_A
+  end subroutine Project_A
 
-!===============================================================================
+  !=============================================================================
 
 end module Projection_Operator__3D

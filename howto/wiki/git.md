@@ -76,29 +76,13 @@ This is how the HiSPEET repository was created :smile:
      # add and commit only the modified and deleted files.
      git commit -a
 
-## Cloning _HiSPEET_ from FusionForge <a name="cloning"></a>
+## Cloning _HiSPEET_ from GitLab <a name="cloning"></a>
 
-For clone HiSPEET via anonymous access from ZIH [FusionForge](https://fusionforge.zih.tu-dresden.de) use
+_HiSPEET_ can be downloaded from the GitLab server of TU Chemnitz via
 
-     git clone https://scm.fusionforge.zih.tu-dresden.de/anonscm/git/hispeet/hispeet.git
+     git clone https://gitlab.hrz.tu-chemnitz.de/hispeet/hispeet.git
 
-This will create the directory hispeet containing a copy of the repository.
-
-If you are already  _HiSPEET_ project member:
-
-- login to FusionForge and go to the [SCM menu](https://fusionforge.zih.tu-dresden.de/scm/?group_id=747).
-
-- under __Devoper Access__ chose "via smart HTTP"
-
-- copy the clone command to your shell's command line and add the target directory, e.g.
-
-  ```
-  git clone https://<name>@scm.fusionforge.zih.tu-dresden.de/authscm/<name>git/hispeet/hispeet.git <target>
-  ```
-
-  where `<name>` corresponds to your FusionForge user ID and `<target>` to the target directory. Skipping the latter results in cloning to the default directory (`hispeet`).
-
-Finally, change to the repo and initialize the git-submodules, e.g.
+This creates a clone of the git repository in the directory `hispeet`. Next initialize the external libraries which are incorporated as submodules:
 
       cd hispeet
       git submodule update --init
@@ -255,4 +239,6 @@ Note that the submodules must be manually intialized, see [Cloning](#cloning) ab
 To update the submodules from external repositories use
 
     git submodule update --recursive --remote
+
+For more details on submodules confer the [Git Book](https://git-scm.com/book/en/Git-Tools-Submodules).
 

@@ -16,6 +16,8 @@ module Mesh_Element__3D
   public :: MeshElementFace_3D
   public :: MeshElementNeighbor_3D
 
+  public :: TransformIndex
+
   !-----------------------------------------------------------------------------
   !> Element vertex data
   !>
@@ -59,8 +61,8 @@ module Mesh_Element__3D
     integer(IXS) :: rank        =  0 !< rank among local EE ref to same mesh edge
     integer(IXS) :: val         =  0 !< edge valency
   contains
-    generic :: AlignWithMesh    => AlignEdgeData_IDK, AlignEdgeData_RNP
-    generic :: AlignWithElement => AlignEdgeData_IDK, AlignEdgeData_RNP
+    generic :: AlignWithMesh => AlignEdgeData_IDK, AlignEdgeData_RNP
+    generic :: AlignFromMesh => AlignEdgeData_IDK, AlignEdgeData_RNP
     procedure, private :: AlignEdgeData_IDK, AlignEdgeData_RNP
   end type MeshElementEdge_3D
 
@@ -81,16 +83,16 @@ module Mesh_Element__3D
     integer(IXS) :: rank       =  0 !< rank among local EF ref to same mesh face
     integer(IXS) :: val        =  0 !< face valency
   contains
-    procedure :: Side             =>  MeshFaceSide
-    generic   :: AlignWithMesh    =>  AlignWithMeshFace_IDK, &
-                                      AlignWithMeshFace_IXS, &
-                                      AlignWithMeshFace_RNP
-    generic   :: AlignWithElement =>  AlignWithElementFace_IDK, &
-                                      AlignWithElementFace_IXS, &
-                                      AlignWithElementFace_RNP
-    procedure, private :: AlignWithMeshFace_IDK, AlignWithElementFace_IDK
-    procedure, private :: AlignWithMeshFace_IXS, AlignWithElementFace_IXS
-    procedure, private :: AlignWithMeshFace_RNP, AlignWithElementFace_RNP
+    procedure :: Side          =>  MeshFaceSide
+    generic   :: AlignWithMesh =>  AlignWithMeshFace_IDK, &
+                                   AlignWithMeshFace_IXS, &
+                                   AlignWithMeshFace_RNP
+    generic   :: AlignFromMesh =>  AlignFromMeshFace_IDK, &
+                                   AlignFromMeshFace_IXS, &
+                                   AlignFromMeshFace_RNP
+    procedure, private :: AlignWithMeshFace_IDK, AlignFromMeshFace_IDK
+    procedure, private :: AlignWithMeshFace_IXS, AlignFromMeshFace_IXS
+    procedure, private :: AlignWithMeshFace_RNP, AlignFromMeshFace_RNP
   end type MeshElementFace_3D
 
   !-----------------------------------------------------------------------------
@@ -102,6 +104,23 @@ module Mesh_Element__3D
   !> If `part` coincides with the present partition, then `id` refers to a local
   !> element. Otherwise it corresponds to the ghost of a remote neighbor and can
   !> be used to access corresponding data.
+  !>
+  !> The `orientation` component encodes the encodes the alignment of the
+  !> coordinate system of the neighboring element as follows
+  !>
+  !>       orientation = 10 * d1 + d2
+  !>
+  !> where d1 and d2 indicate which neighbor directions are aligned with the
+  !> ξ and η directions of the given element:
+  !>
+  !>     value | direction
+  !>     ------|-----------
+  !>       1   |   +ξ
+  !>       2   |   +η
+  !>       3   |   +ζ
+  !>       4   |   -ξ
+  !>       5   |   -η
+  !>       6   |   -ζ
   !>
   !> @note
   !> Before creating mesh links, `id` refers to the neighbor's home partition.
@@ -135,29 +154,29 @@ module Mesh_Element__3D
   !>
   !>         index |  vertices |  direction
   !>         ------|-----------|-----------
-  !>           1   |  1, 2     |  xi
-  !>           2   |  3, 4     |  xi
-  !>           3   |  5, 6     |  xi
-  !>           4   |  7, 8     |  xi
-  !>           5   |  1, 3     |  eta
-  !>           6   |  2, 4     |  eta
-  !>           7   |  5, 7     |  eta
-  !>           8   |  6, 8     |  eta
-  !>           9   |  1, 5     |  zeta
-  !>          10   |  2, 6     |  zeta
-  !>          11   |  3, 7     |  zeta
-  !>          12   |  4, 8     |  zeta
+  !>           1   |  1, 2     |  ξ
+  !>           2   |  3, 4     |  ξ
+  !>           3   |  5, 6     |  ξ
+  !>           4   |  7, 8     |  ξ
+  !>           5   |  1, 3     |  η
+  !>           6   |  2, 4     |  η
+  !>           7   |  5, 7     |  η
+  !>           8   |  6, 8     |  η
+  !>           9   |  1, 5     |  ζ
+  !>          10   |  2, 6     |  ζ
+  !>          11   |  3, 7     |  ζ
+  !>          12   |  4, 8     |  ζ
   !>
   !>   - faces:
   !>
   !>         index |  vertices    |  edges          |  normal direction
   !>         ------|--------------|-----------------|------------------
-  !>           1   |  1, 3, 5, 7  |  5,  7,  9, 11  |  xi
-  !>           2   |  2, 4, 6, 8  |  6,  8, 10, 12  |  xi
-  !>           3   |  1, 2, 5, 6  |  1,  3,  9, 10  |  eta
-  !>           4   |  3, 4, 7, 8  |  2,  4, 11, 12  |  eta
-  !>           5   |  1, 2, 3, 4  |  1,  2,  5,  6  |  zeta
-  !>           6   |  5, 6, 7, 8  |  3,  4,  7,  8  |  zeta
+  !>           1   |  1, 3, 5, 7  |  5,  7,  9, 11  |  ξ
+  !>           2   |  2, 4, 6, 8  |  6,  8, 10, 12  |  ξ
+  !>           3   |  1, 2, 5, 6  |  1,  3,  9, 10  |  η
+  !>           4   |  3, 4, 7, 8  |  2,  4, 11, 12  |  η
+  !>           5   |  1, 2, 3, 4  |  1,  2,  5,  6  |  ζ
+  !>           6   |  5, 6, 7, 8  |  3,  4,  7,  8  |  ζ
   !>
   !> ### Ghost element mode
   !>
@@ -173,6 +192,10 @@ module Mesh_Element__3D
     type(MeshElementFace_3D)    :: face(6)    !< face data
 
     type(MeshElementNeighbor_3D), allocatable :: neighbor(:) !< neighbor data
+
+  contains
+
+    procedure :: AlignFromNeighborFace
 
   end type MeshElement_3D
 
@@ -192,13 +215,13 @@ contains
     integer, intent(in)  :: v(:)  !< given edge data
     integer, intent(out) :: va(:) !< aligned edge data
 
-    integer :: i, np
+    integer :: i, m
 
     if (edge%orientation == 1_IXS) then ! edges aligned
       va = v
     else ! element and mesh edges have reverse orientation
-      np = size(v,1)
-      forall(i=1:np) va(np+1-i) = v(i)
+      m = size(v,1)
+      forall(i=1:m) va(m+1-i) = v(i)
     end if
 
   end subroutine AlignEdgeData_IDK
@@ -211,14 +234,14 @@ contains
     real(RNP), intent(in)  :: v(:)  !< given edge data
     real(RNP), intent(out) :: va(:) !< aligned edge data
 
-    integer :: i, np
+    integer :: i, m
 
     if (edge%orientation == 1_IXS) then ! edges aligned
       va = v
     else ! element and mesh edges have reverse orientation
-      np = size(v,1)
-      do i = 1, np
-        va(np+1-i) = v(i)
+      m = size(v,1)
+      do i = 1, m
+        va(m+1-i) = v(i)
       end do
     end if
 
@@ -244,32 +267,32 @@ contains
     integer, intent(in)  :: ve(:,:)  !< element face data
     integer, intent(out) :: vm(:,:)  !< mesh face data
 
-    integer :: i, j, l, np
+    integer :: i, j, l, m
 
-    np = size(ve,1)
-    l  = np + 1
+    m = size(ve,1)
+    l = m + 1
 
     if (face % normal == 1_IXS) then
       select case(face % rotation)
       case(0_IXS)
         vm = ve
       case(1_IXS)
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-j,   i)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(l-j,   i)
       case(2_IXS)
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-i, l-j)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(l-i, l-j)
       case default
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(  j, l-i)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(  j, l-i)
       end select
     else
       select case(face % rotation)
       case(0_IXS)
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(  i, l-j)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(  i, l-j)
       case(1_IXS)
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-j, l-i)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(l-j, l-i)
       case(2_IXS)
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-i,   j)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(l-i,   j)
       case default
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(  j,   i)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(  j,   i)
       end select
     end if
 
@@ -283,32 +306,32 @@ contains
     integer(IXS), intent(in)  :: ve(:,:)  !< element face data
     integer(IXS), intent(out) :: vm(:,:)  !< mesh face data
 
-    integer :: i, j, l, np
+    integer :: i, j, l, m
 
-    np = size(ve,1)
-    l  = np + 1
+    m = size(ve,1)
+    l = m + 1
 
     if (face % normal == 1_IXS) then
       select case(face % rotation)
       case(0_IXS)
         vm = ve
       case(1_IXS)
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-j,   i)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(l-j,   i)
       case(2_IXS)
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-i, l-j)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(l-i, l-j)
       case default
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(  j, l-i)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(  j, l-i)
       end select
     else
       select case(face % rotation)
       case(0_IXS)
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(  i, l-j)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(  i, l-j)
       case(1_IXS)
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-j, l-i)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(l-j, l-i)
       case(2_IXS)
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-i,   j)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(l-i,   j)
       case default
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(  j,   i)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(  j,   i)
       end select
     end if
 
@@ -322,32 +345,32 @@ contains
     real(RNP), intent(in)  :: ve(:,:)  !< element face data
     real(RNP), intent(out) :: vm(:,:)  !< mesh face data
 
-    integer :: i, j, l, np
+    integer :: i, j, l, m
 
-    np = size(ve,1)
-    l  = np + 1
+    m = size(ve,1)
+    l = m + 1
 
     if (face % normal == 1_IXS) then
       select case(face % rotation)
       case(0_IXS)
         vm = ve
       case(1_IXS)
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-j,   i)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(l-j,   i)
       case(2_IXS)
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-i, l-j)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(l-i, l-j)
       case default
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(  j, l-i)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(  j, l-i)
       end select
     else
       select case(face % rotation)
       case(0_IXS)
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(  i, l-j)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(  i, l-j)
       case(1_IXS)
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-j, l-i)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(l-j, l-i)
       case(2_IXS)
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(l-i,   j)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(l-i,   j)
       case default
-        forall (i=1:np, j=1:np)  vm(i,j) = ve(  j,   i)
+        forall (i=1:m, j=1:m)  vm(i,j) = ve(  j,   i)
       end select
     end if
 
@@ -356,119 +379,327 @@ contains
   !-----------------------------------------------------------------------------
   !> Transforms face data from mesh to element orientation -- integer scalar
 
-  pure subroutine AlignWithElementFace_IDK(face, vm, ve)
+  pure subroutine AlignFromMeshFace_IDK(face, vm, ve)
     class(MeshElementFace_3D), intent(in) :: face  !< mesh element face
     integer, intent(in)  :: vm(:,:)  !< mesh face data
     integer, intent(out) :: ve(:,:)  !< element face data
 
-    integer :: i, j, l, np
+    integer :: i, j, l, m
 
-    np = size(vm,1)
-    l  = np + 1
+    m = size(vm,1)
+    l = m + 1
 
     if (face % normal == 1_IXS) then
       select case(face % rotation)
       case(0_IXS)
         ve = vm
       case(1_IXS)
-        forall (i=1:np, j=1:np)  ve(l-j,   i) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(l-j,   i) = vm(i,j)
       case(2_IXS)
-        forall (i=1:np, j=1:np)  ve(l-i, l-j) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(l-i, l-j) = vm(i,j)
       case default
-        forall (i=1:np, j=1:np)  ve(  j, l-i) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(  j, l-i) = vm(i,j)
       end select
     else
       select case(face % rotation)
       case(0_IXS)
-        forall (i=1:np, j=1:np)  ve(  i, l-j) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(  i, l-j) = vm(i,j)
       case(1_IXS)
-        forall (i=1:np, j=1:np)  ve(l-j, l-i) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(l-j, l-i) = vm(i,j)
       case(2_IXS)
-        forall (i=1:np, j=1:np)  ve(l-i,   j) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(l-i,   j) = vm(i,j)
       case default
-        forall (i=1:np, j=1:np)  ve(  j,   i) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(  j,   i) = vm(i,j)
       end select
     end if
 
-  end subroutine AlignWithElementFace_IDK
+  end subroutine AlignFromMeshFace_IDK
 
   !-----------------------------------------------------------------------------
   !> Transforms face data from mesh to element orientation -- integer scalar
 
-  pure subroutine AlignWithElementFace_IXS(face, vm, ve)
+  pure subroutine AlignFromMeshFace_IXS(face, vm, ve)
     class(MeshElementFace_3D), intent(in) :: face  !< mesh element face
     integer(IXS), intent(in)  :: vm(:,:)  !< mesh face data
     integer(IXS), intent(out) :: ve(:,:)  !< element face data
 
-    integer :: i, j, l, np
+    integer :: i, j, l, m
 
-    np = size(vm,1)
-    l  = np + 1
+    m = size(vm,1)
+    l = m + 1
 
     if (face % normal == 1_IXS) then
       select case(face % rotation)
       case(0_IXS)
         ve = vm
       case(1_IXS)
-        forall (i=1:np, j=1:np)  ve(l-j,   i) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(l-j,   i) = vm(i,j)
       case(2_IXS)
-        forall (i=1:np, j=1:np)  ve(l-i, l-j) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(l-i, l-j) = vm(i,j)
       case default
-        forall (i=1:np, j=1:np)  ve(  j, l-i) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(  j, l-i) = vm(i,j)
       end select
     else
       select case(face % rotation)
       case(0_IXS)
-        forall (i=1:np, j=1:np)  ve(  i, l-j) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(  i, l-j) = vm(i,j)
       case(1_IXS)
-        forall (i=1:np, j=1:np)  ve(l-j, l-i) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(l-j, l-i) = vm(i,j)
       case(2_IXS)
-        forall (i=1:np, j=1:np)  ve(l-i,   j) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(l-i,   j) = vm(i,j)
       case default
-        forall (i=1:np, j=1:np)  ve(  j,   i) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(  j,   i) = vm(i,j)
       end select
     end if
 
-  end subroutine AlignWithElementFace_IXS
+  end subroutine AlignFromMeshFace_IXS
 
   !-----------------------------------------------------------------------------
   !> Transforms face data from mesh to element orientation -- real(RNP) scalar
 
-  pure subroutine AlignWithElementFace_RNP(face, vm, ve)
+  pure subroutine AlignFromMeshFace_RNP(face, vm, ve)
     class(MeshElementFace_3D), intent(in) :: face  !< mesh element face
     real(RNP), intent(in)  :: vm(:,:)  !< mesh face data
     real(RNP), intent(out) :: ve(:,:)  !< element face data
 
-    integer :: i, j, l, np
+    integer :: i, j, l, m
 
-    np = size(vm,1)
-    l  = np + 1
+    m = size(vm,1)
+    l = m + 1
 
     if (face % normal == 1_IXS) then
       select case(face % rotation)
       case(0_IXS)
         ve = vm
       case(1_IXS)
-        forall (i=1:np, j=1:np)  ve(l-j,   i) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(l-j,   i) = vm(i,j)
       case(2_IXS)
-        forall (i=1:np, j=1:np)  ve(l-i, l-j) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(l-i, l-j) = vm(i,j)
       case default
-        forall (i=1:np, j=1:np)  ve(  j, l-i) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(  j, l-i) = vm(i,j)
       end select
     else
       select case(face % rotation)
       case(0_IXS)
-        forall (i=1:np, j=1:np)  ve(  i, l-j) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(  i, l-j) = vm(i,j)
       case(1_IXS)
-        forall (i=1:np, j=1:np)  ve(l-j, l-i) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(l-j, l-i) = vm(i,j)
       case(2_IXS)
-        forall (i=1:np, j=1:np)  ve(l-i,   j) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(l-i,   j) = vm(i,j)
       case default
-        forall (i=1:np, j=1:np)  ve(  j,   i) = vm(i,j)
+        forall (i=1:m, j=1:m)  ve(  j,   i) = vm(i,j)
       end select
     end if
 
-  end subroutine AlignWithElementFace_RNP
+  end subroutine AlignFromMeshFace_RNP
+
+  !=============================================================================
+  ! MeshElement_3D procedures
+
+  !-----------------------------------------------------------------------------
+  !> Transforms neighbor face data to element orientation
+
+  pure subroutine AlignFromNeighborFace(element, f, n, vn, ve)
+    class(MeshElement_3D), intent(in) :: element  !< mesh element
+    integer,   intent(in)  :: f        !< element face ID
+    integer,   intent(in)  :: n        !< element neighbor ID
+    real(RNP), intent(in)  :: vn(:,:)  !< neighbor face data
+    real(RNP), intent(out) :: ve(:,:)  !< element face data
+
+    integer :: i, j, l, m
+
+    m = size(vn,1)
+    l = m + 1
+
+    select case(f)
+    case(1,2)
+      select case(element % neighbor(n) % orientation)
+      case(12_IXS, 31_IXS, 51_IXS)
+        ve = vn
+      case(16_IXS, 35_IXS, 56_IXS)
+        forall (i=1:m, j=1:m)  ve(l-j,   i) = vn(i,j)
+      case(15_IXS, 34_IXS, 54_IXS)
+        forall (i=1:m, j=1:m)  ve(l-i, l-j) = vn(i,j)
+      case(13_IXS, 32_IXS, 53_IXS)
+        forall (i=1:m, j=1:m)  ve(  j, l-i) = vn(i,j)
+      case(42_IXS, 61_IXS, 21_IXS)
+        forall (i=1:m, j=1:m)  ve(  i, l-j) = vn(i,j)
+      case(46_IXS, 65_IXS, 26_IXS)
+        forall (i=1:m, j=1:m)  ve(l-j, l-i) = vn(i,j)
+      case(45_IXS, 64_IXS, 24_IXS)
+        forall (i=1:m, j=1:m)  ve(l-i,   j) = vn(i,j)
+      case default ! 43_IXS, 62_IXS, 23_IXS
+        forall (i=1:m, j=1:m)  ve(  j,   i) = vn(i,j)
+      end select
+    case(3,4)
+      select case(element % neighbor(n) % orientation)
+      case(12_IXS, 16_IXS, 24_IXS)
+        ve = vn
+      case(62_IXS, 56_IXS, 64_IXS)
+        forall (i=1:m, j=1:m)  ve(l-j,   i) = vn(i,j)
+      case(42_IXS, 46_IXS, 54_IXS)
+        forall (i=1:m, j=1:m)  ve(l-i, l-j) = vn(i,j)
+      case(32_IXS, 26_IXS, 34_IXS)
+        forall (i=1:m, j=1:m)  ve(  j, l-i) = vn(i,j)
+      case(15_IXS, 13_IXS, 21_IXS)
+        forall (i=1:m, j=1:m)  ve(  i, l-j) = vn(i,j)
+      case(35_IXS, 23_IXS, 31_IXS)
+        forall (i=1:m, j=1:m)  ve(l-j, l-i) = vn(i,j)
+      case(45_IXS, 43_IXS, 51_IXS)
+        forall (i=1:m, j=1:m)  ve(l-i,   j) = vn(i,j)
+      case default ! 65_IXS, 53_IXS, 61_IXS
+        forall (i=1:m, j=1:m)  ve(  j,   i) = vn(i,j)
+      end select
+    case default ! 5,6
+      select case(element % neighbor(n) % orientation)
+      case(12_IXS, 13_IXS, 23_IXS)
+        ve = vn
+      case(51_IXS, 61_IXS, 62_IXS)
+        forall (i=1:m, j=1:m)  ve(l-j,   i) = vn(i,j)
+      case(45_IXS, 46_IXS, 56_IXS)
+        forall (i=1:m, j=1:m)  ve(l-i, l-j) = vn(i,j)
+      case(24_IXS, 34_IXS, 35_IXS)
+        forall (i=1:m, j=1:m)  ve(  j, l-i) = vn(i,j)
+      case(15_IXS, 16_IXS, 26_IXS)
+        forall (i=1:m, j=1:m)  ve(  i, l-j) = vn(i,j)
+      case(21_IXS, 31_IXS, 32_IXS)
+        forall (i=1:m, j=1:m)  ve(l-j, l-i) = vn(i,j)
+      case(42_IXS, 43_IXS, 53_IXS)
+        forall (i=1:m, j=1:m)  ve(l-i,   j) = vn(i,j)
+      case default ! 54_IXS, 64_IXS, 65_IXS
+        forall (i=1:m, j=1:m)  ve(  j,   i) = vn(i,j)
+      end select
+    end select
+
+  end subroutine AlignFromNeighborFace
+
+  !-----------------------------------------------------------------------------
+  !> Transforms the given triple index range into a rotated coordinate system
+
+  pure subroutine TransformIndex( orientation, n, o0, o, t0, t, s)
+
+    integer(IXS), intent(in) :: orientation  !< orientation of transformed coords
+    integer, intent(in)  :: n                !< number of items per direction
+    integer, intent(in)  :: o0               !< start of original indices
+    integer, intent(in)  :: o(3)             !< original indices
+    integer, intent(in)  :: t0               !< start of transformed indices
+    integer, intent(out) :: t(3)             !< transformed indices
+    integer, intent(out), optional :: s(3,3) !< strides of transformed indices
+
+    integer :: m, s_(3,3)
+
+    m = n - 1
+
+    ! transformed indices
+    select case(orientation)
+
+    case(12_IXS) ! 1 →  1, 2 →  2:  (  1,  2,  3) ← (  1,  2,  3)
+      t(1) = t0 + (o(1) - o0)     ;  s_(:,1) = [  1,  0,  0 ]
+      t(2) = t0 + (o(2) - o0)     ;  s_(:,2) = [  0,  1,  0]
+      t(3) = t0 + (o(3) - o0)     ;  s_(:,3) = [  0,  0,  1]
+    case(13_IXS) ! 1 →  1, 2 →  3:  (  1,  2,  3) ← (  1, -3,  2)
+      t(1) = t0 + (o(1) - o0)     ;  s_(:,1) = [  1,  0,  0 ]
+      t(2) = t0 - (o(3) - o0) + m ;  s_(:,2) = [  0,  0, -1 ]
+      t(3) = t0 + (o(2) - o0)     ;  s_(:,3) = [  0,  1,  0]
+    case(15_IXS) ! 1 →  1, 2 → -2:  (  1,  2,  3) ← (  1, -2, -3)
+      t(1) = t0 + (o(1) - o0)     ;  s_(:,1) = [  1,  0,  0 ]
+      t(2) = t0 - (o(2) - o0) + m ;  s_(:,2) = [  0, -1,  0 ]
+      t(3) = t0 - (o(3) - o0) + m ;  s_(:,3) = [  0,  0, -1]
+    case(16_IXS) ! 1 →  1, 2 → -3:  (  1,  2,  3) ← (  1,  3, -2)
+      t(1) = t0 + (o(1) - o0)     ;  s_(:,1) = [  1,  0,  0 ]
+      t(2) = t0 + (o(3) - o0)     ;  s_(:,2) = [  0,  0,  1 ]
+      t(3) = t0 - (o(2) - o0) + m ;  s_(:,3) = [  0, -1,  0 ]
+
+    case(21_IXS) ! 1 →  2, 2 →  1:  (  1,  2,  3) ← (  2,  1, -3)
+      t(1) = t0 + (o(2) - o0)     ;  s_(:,1) = [  0,  1,  0 ]
+      t(2) = t0 + (o(1) - o0)     ;  s_(:,2) = [  1,  0,  0 ]
+      t(3) = t0 - (o(3) - o0) + m ;  s_(:,3) = [  0,  0, -1 ]
+    case(23_IXS) ! 1 →  2, 2 →  3:  (  1,  2,  3) ← (  3,  1,  2)
+      t(1) = t0 + (o(3) - o0)     ;  s_(:,1) = [  0,  0,  1 ]
+      t(2) = t0 + (o(1) - o0)     ;  s_(:,2) = [  1,  0,  0 ]
+      t(3) = t0 + (o(2) - o0)     ;  s_(:,3) = [  0,  1,  0 ]
+    case(24_IXS) ! 1 →  2, 2 → -1:  (  1,  2,  3) ← ( -2,  1,  3)
+      t(1) = t0 - (o(2) - o0) + m ;  s_(:,1) = [  0, -1,  0 ]
+      t(2) = t0 + (o(1) - o0)     ;  s_(:,2) = [  1,  0,  0 ]
+      t(3) = t0 + (o(3) - o0)     ;  s_(:,3) = [  0,  0,  1 ]
+    case(26_IXS) ! 1 →  2, 2 → -3:  (  1,  2,  3) ← ( -3,  1, -2)
+      t(1) = t0 - (o(3) - o0) + m ;  s_(:,1) = [  0,  0, -1 ]
+      t(2) = t0 + (o(1) - o0)     ;  s_(:,2) = [  1,  0,  0 ]
+      t(3) = t0 - (o(2) - o0) + m ;  s_(:,3) = [  0, -1,  0 ]
+
+    case(31_IXS) ! 1 →  3, 2 →  1:  (  1,  2,  3) ← (  2,  3,  1)
+      t(1) = t0 + (o(2) - o0)     ;  s_(:,1) = [  0,  1,  0 ]
+      t(2) = t0 + (o(3) - o0)     ;  s_(:,2) = [  0,  0,  1 ]
+      t(3) = t0 + (o(1) - o0)     ;  s_(:,3) = [  1,  0,  0 ]
+    case(32_IXS) ! 1 →  3, 2 →  2:  (  1,  2,  3) ← ( -3,  2,  1)
+      t(1) = t0 - (o(3) - o0) + m ;  s_(:,1) = [  0,  0, -1 ]
+      t(2) = t0 + (o(2) - o0)     ;  s_(:,2) = [  0,  1,  0 ]
+      t(3) = t0 + (o(1) - o0)     ;  s_(:,3) = [  1,  0,  0 ]
+    case(34_IXS) ! 1 →  3, 2 → -1:  (  1,  2,  3) ← ( -2, -3,  1)
+      t(1) = t0 - (o(2) - o0) + m ;  s_(:,1) = [  0, -1,  0 ]
+      t(2) = t0 - (o(3) - o0) + m ;  s_(:,2) = [  0,  0, -1 ]
+      t(3) = t0 + (o(1) - o0)     ;  s_(:,3) = [  1,  0,  0 ]
+    case(35_IXS) ! 1 →  3, 2 → -2:  (  1,  2,  3) ← (  3, -2,  1)
+      t(1) = t0 + (o(3) - o0)     ;  s_(:,1) = [  0,  0,  1 ]
+      t(2) = t0 - (o(2) - o0) + m ;  s_(:,2) = [  0, -1,  0 ]
+      t(3) = t0 + (o(1) - o0)     ;  s_(:,3) = [  1,  0,  0 ]
+
+    case(42_IXS) ! 1 → -1, 2 →  2:  (  1,  2,  3) ← ( -1,  2, -3)
+      t(1) = t0 - (o(1) - o0) + m ;  s_(:,1) = [ -1,  0,  0 ]
+      t(2) = t0 + (o(2) - o0)     ;  s_(:,2) = [  0,  1,  0 ]
+      t(3) = t0 - (o(3) - o0) + m ;  s_(:,3) = [  0,  0, -1 ]
+    case(43_IXS) ! 1 → -1, 2 →  3:  (  1,  2,  3) ← ( -1,  3,  2)
+      t(1) = t0 - (o(1) - o0) + m ;  s_(:,1) = [ -1,  0,  0 ]
+      t(2) = t0 + (o(3) - o0)     ;  s_(:,2) = [  0,  0,  1 ]
+      t(3) = t0 + (o(2) - o0)     ;  s_(:,3) = [  0,  1,  0 ]
+    case(45_IXS) ! 1 → -1, 2 → -2:  (  1,  2,  3) ← ( -1, -2,  3)
+      t(1) = t0 - (o(1) - o0) + m ;  s_(:,1) = [ -1,  0,  0 ]
+      t(2) = t0 - (o(2) - o0) + m ;  s_(:,2) = [  0, -1,  0 ]
+      t(3) = t0 + (o(3) - o0)     ;  s_(:,3) = [  0,  0,  1 ]
+    case(46_IXS) ! 1 → -1, 2 → -3:  (  1,  2,  3) ← ( -1, -3, -2)
+      t(1) = t0 - (o(1) - o0) + m ;  s_(:,1) = [ -1,  0,  0 ]
+      t(2) = t0 - (o(3) - o0) + m ;  s_(:,2) = [  0,  0, -1 ]
+      t(3) = t0 - (o(2) - o0) + m ;  s_(:,3) = [  0, -1,  0 ]
+
+    case(51_IXS) ! 1 → -2, 2 →  1:  (  1,  2,  3) ← (  2, -1,  3)
+      t(1) = t0 + (o(2) - o0)     ;  s_(:,1) = [  0,  1,  0 ]
+      t(2) = t0 - (o(1) - o0) + m ;  s_(:,2) = [ -1,  0,  0 ]
+      t(3) = t0 + (o(3) - o0)     ;  s_(:,3) = [  0,  0,  1 ]
+    case(53_IXS) ! 1 → -2, 2 →  3:  (  1,  2,  3) ← ( -3, -1,  2)
+      t(1) = t0 - (o(3) - o0) + m ;  s_(:,1) = [  0,  0, -1 ]
+      t(2) = t0 - (o(1) - o0) + m ;  s_(:,2) = [ -1,  0,  0 ]
+      t(3) = t0 + (o(2) - o0)     ;  s_(:,3) = [  0,  1,  0 ]
+    case(54_IXS) ! 1 → -2, 2 → -1:  (  1,  2,  3) ← ( -2, -1, -3)
+      t(1) = t0 - (o(2) - o0) + m ;  s_(:,1) = [  0, -1,  0 ]
+      t(2) = t0 - (o(1) - o0) + m ;  s_(:,2) = [ -1,  0,  0 ]
+      t(3) = t0 - (o(3) - o0) + m ;  s_(:,3) = [  0,  0, -1 ]
+    case(56_IXS) ! 1 → -2, 2 → -3:  (  1,  2,  3) ← (  3, -1, -2)
+      t(1) = t0 + (o(3) - o0)     ;  s_(:,1) = [  0,  0,  1 ]
+      t(2) = t0 - (o(1) - o0) + m ;  s_(:,2) = [ -1,  0,  0 ]
+      t(3) = t0 - (o(2) - o0) + m ;  s_(:,3) = [  0, -1,  0 ]
+
+    case(61_IXS) ! 1 → -3, 2 →  1:  (  1,  2,  3) ← (  2, -3, -1)
+      t(1) = t0 + (o(2) - o0)     ;  s_(:,1) = [  0,  1,  0 ]
+      t(2) = t0 - (o(3) - o0) + m ;  s_(:,2) = [  0,  0, -1 ]
+      t(3) = t0 - (o(1) - o0) + m ;  s_(:,3) = [ -1,  0,  0 ]
+    case(62_IXS) ! 1 → -3, 2 →  2:  (  1,  2,  3) ← (  3,  2, -1)
+      t(1) = t0 + (o(3) - o0)     ;  s_(:,1) = [  0,  0,  1 ]
+      t(2) = t0 + (o(2) - o0)     ;  s_(:,2) = [  0,  1,  0 ]
+      t(3) = t0 - (o(1) - o0) + m ;  s_(:,3) = [ -1,  0,  0 ]
+    case(64_IXS) ! 1 → -3, 2 → -1:  (  1,  2,  3) ← ( -2,  3, -1)
+      t(1) = t0 - (o(2) - o0) + m ;  s_(:,1) = [  0, -1,  0 ]
+      t(2) = t0 + (o(3) - o0)     ;  s_(:,2) = [  0,  0,  1 ]
+      t(3) = t0 - (o(1) - o0) + m ;  s_(:,3) = [ -1,  0,  0 ]
+    case(65_IXS) ! 1 → -3, 2 → -2:  (  1,  2,  3) ← ( -3, -2, -1)
+      t(1) = t0 - (o(3) - o0) + m ;  s_(:,1) = [  0,  0, -1 ]
+      t(2) = t0 - (o(2) - o0) + m ;  s_(:,2) = [  0, -1,  0 ]
+      t(3) = t0 - (o(1) - o0) + m ;  s_(:,3) = [ -1,  0,  0 ]
+
+    end select
+
+    if (present(s)) s = s_
+
+  end subroutine TransformIndex
 
   !=============================================================================
 

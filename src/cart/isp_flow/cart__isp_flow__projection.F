@@ -285,10 +285,10 @@ subroutine DivergencePenalty(mesh, Ms, Ds, gamma, v, w)
   end do
 
   ! divergence
-  call TPO_Div(Ds, mesh%dx, v, div_v)
+  call TPO_Div(Ms, Ds, mesh%dx, u=v, v=div_v)
 
   ! transposed gradient with zero boundary flux, including penalty factor
-  call TPO_Grad(Dt, mesh%dx, div_v, w)
+  call TPO_Grad(Ms, Dt, mesh%dx, div_v, v=w)
   call ScaleArray(w(:,:,:,:,1:3), gamma)
 
   ! element-boundary contributions  ............................................

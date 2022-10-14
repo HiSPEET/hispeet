@@ -14,11 +14,11 @@ Installing _HiSPEET_ on Ubuntu 20 requires the packages
 - python3-matplotlib
 - python3-numpy
 - libopenblas-dev
+- libfftw3-mpi3
 
 The following packages are optional but strongly recommended
 
 - lmod
-- libfftw3-mpi3
 - paraview
 - kate
 

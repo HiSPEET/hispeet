@@ -1,6 +1,6 @@
 !> summary:  Validation of the curvilinear TPO for 3d variable diffusion
 !> author:   Jerome Michel, Joerg Stiller
-!> date:     2021/07/17
+!> date:     2021/08/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
@@ -8,7 +8,7 @@ program Validate__TPO_Diffusion_DLCI
 ! validate
   use Kind_Parameters
   use Standard_Operators__1D
-!!  use TPO__Diffusion__3D_DLCI
+  use TPO__Diffusion__3D_DLCI
   use TPO__Diffusion__3D_DLCI__Gen
 ! mesh
   use Constants
@@ -21,6 +21,7 @@ program Validate__TPO_Diffusion_DLCI
   use Assembly__3D
   use Export_VTK_Volume_Data__3D
 
+  !use TPO__Diffusion__3D_DLCI__XSMM
 
   implicit none
 
@@ -66,7 +67,6 @@ program Validate__TPO_Diffusion_DLCI
 
   real(RNP) :: dx_u, dy_u, dz_u, d1_u, d2_u, d3_u
 
-  real(RNP) :: dx(3) = 2
   real(RNP) :: time  = 0
   real(RNP) :: error_gen = 0, mflops_gen = -1, mlups_gen = -1
   real(RNP) :: error_opt = 0, mflops_opt = -1, mlups_opt = -1
@@ -82,7 +82,7 @@ program Validate__TPO_Diffusion_DLCI
 
   call MPI_Comm_rank(comm, rank)
 
-  if (rank == 0) then !derzeit noch keine Partitionierung => rank = 0
+  if (rank == 0) then ! derzeit noch keine Partitionierung => rank = 0
 
   ! read test parameters .......................................................
 
@@ -102,8 +102,8 @@ program Validate__TPO_Diffusion_DLCI
   ! test parameters ............................................................
 
   ! problem dimensions
-  npop  = (po+1)**3                  ! number of operands per element
-  nflop = npop * (12*(po+1) + 34)    ! number of FLOPs per element
+  npop  = (po+1)**3                 ! number of operands per element
+  nflop = npop * (12*(po+1) + 29)   ! number of FLOPs per element
 
   ! verification ...............................................................
 
@@ -116,8 +116,8 @@ program Validate__TPO_Diffusion_DLCI
 
   se_mesh = SpectralElementMesh_3D(mesh, po)
   allocate(area(mesh % n_bound))
-  call se_mesh % GetVolume(vol)
-  call se_mesh % GetSurfaceAreas(area)
+  call se_mesh % Get_Volume(vol)
+  call se_mesh % Get_SurfaceAreas(area)
 
   write(*,'(A)') 'Spectral element mesh'
   write(*,'(2X,A,G0)') 'volume  = ', vol
@@ -268,28 +268,28 @@ program Validate__TPO_Diffusion_DLCI
     mflops_gen = 1E-6 / time * ne * nflop
     mlups_gen  = 1E-6 / time * ne * npop
 
-!!    !---------------------------------------------------------------------------
-!!    ! test optimized procedure
-!!
-!!    !$omp parallel
-!!
-!!    call TPO_Diffusion(Ms, Ds, lambda, nu, dx, u, v)
-!!
-!!    call system_clock(count0, rate)
-!!
-!!    do i = 1, nt
-!!      call TPO_Diffusion(Ms, Ds, lambda, nu, dx, u, v)
-!!    end do
-!!
-!!    call system_clock(count)
-!!
-!!    !$omp end parallel
-!!
-!!    time = (count - count0) / real(rate, RNP) / nt
-!!
-!!    error_opt  = maxval(abs(v - w))
-!!    mflops_opt = 1E-6 / time * ne * nflop
-!!    mlups_opt  = 1E-6 / time * ne * npop
+    !---------------------------------------------------------------------------
+    ! test optimized procedure
+
+    !$omp parallel
+
+    call TPO_Diffusion(Ms, Ds, Jd, G, lambda, nu, u, v)
+
+    call system_clock(count0, rate)
+
+    do i = 1, nt
+      call TPO_Diffusion(Ms, Ds, Jd, G, lambda, nu, u, v)
+    end do
+
+    call system_clock(count)
+
+    !$omp end parallel
+
+    time = (count - count0) / real(rate, RNP) / nt
+
+    error_opt  = maxval(abs(v - w))
+    mflops_opt = 1E-6 / time * ne * nflop
+    mlups_opt  = 1E-6 / time * ne * npop
 
   end associate
 
@@ -303,17 +303,15 @@ program Validate__TPO_Diffusion_DLCI
   write(*,'(3A)') '#  np        ne        nt    ',         &
                   '   error     MFLOP/s      MLUP/s    ',  &
                   '   error     MFLOP/s      MLUP/s'
-  !x_elem(0:p_geom,0:p_geom,0:p_geom,l,1:3)
   write(*,'(I5,2(2X,I8))',  advance='NO') po+1, ne, nt
   write(*,'(3(2X,ES10.3))', advance='NO') error_gen, mflops_gen, mlups_gen
   write(*,'(3(2X,ES10.3))') error_opt, mflops_opt, mlups_opt
   write(*,*)
 
+  end if
 
-end if
+  call MPI_Finalize()
 
-call MPI_Finalize()
-
-!===============================================================================
+  !=============================================================================
 
 end program Validate__TPO_Diffusion_DLCI

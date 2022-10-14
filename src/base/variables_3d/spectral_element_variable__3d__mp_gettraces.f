@@ -1,6 +1,6 @@
 !> summary:  3D spectral element variable: TBP for extracting traces
 !> author:   Joerg Stiller
-!> date:     2021/8/05
+!> date:     2021/08/05
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
@@ -27,7 +27,7 @@ contains
 
   module subroutine GetTraces(this, tr_val, align)
     class(SpectralElementVariable_3D), intent(in) :: this
-    real(RNP), intent(inout) :: tr_val(:,:,:,:,:) !< trace of val
+    real(RNP), contiguous, intent(inout) :: tr_val(:,:,:,:,:) !< trace of val
     logical, optional, intent(in) :: align !< align traces with mesh face [F]
 
     type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: tr_buf
@@ -63,7 +63,7 @@ contains
             do c = 1, nc
               tr_val(:,:,1,e,c) = val(o,:,:,e,c)
               tr_val(:,:,2,e,c) = val(p,:,:,e,c)
-              tr_val(:,:,3,e,c) = val(:,p,:,e,c)
+              tr_val(:,:,3,e,c) = val(:,o,:,e,c)
               tr_val(:,:,4,e,c) = val(:,p,:,e,c)
               tr_val(:,:,5,e,c) = val(:,:,o,e,c)
               tr_val(:,:,6,e,c) = val(:,:,p,e,c)
@@ -72,7 +72,7 @@ contains
             do c = 1, nc
               call face(1) % AlignWithMesh(val(o,:,:,e,c), tr_val(:,:,1,e,c))
               call face(2) % AlignWithMesh(val(p,:,:,e,c), tr_val(:,:,2,e,c))
-              call face(3) % AlignWithMesh(val(:,p,:,e,c), tr_val(:,:,3,e,c))
+              call face(3) % AlignWithMesh(val(:,o,:,e,c), tr_val(:,:,3,e,c))
               call face(4) % AlignWithMesh(val(:,p,:,e,c), tr_val(:,:,4,e,c))
               call face(5) % AlignWithMesh(val(:,:,o,e,c), tr_val(:,:,5,e,c))
               call face(6) % AlignWithMesh(val(:,:,p,e,c), tr_val(:,:,6,e,c))
@@ -94,7 +94,7 @@ contains
 
     end associate
 
-  end subroutine GetTraces
+   end subroutine GetTraces
 
   !=============================================================================
 

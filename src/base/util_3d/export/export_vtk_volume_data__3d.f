@@ -22,12 +22,15 @@ contains
   !-----------------------------------------------------------------------------
   !> Export elements and variables of mesh partition into VTK XML file.
   !>
+  !> It is assumed that the mesh points are the element Lobatto nodes.
+  !>
   !> In case of partitioned (multi-piece) data, the partition ID, part, and the
   !> number of partitions, n_part, must be given. The partitions are numbered
   !> from 0 to n_part-1. Partition 0 writes the PVTU (parallel unstructured mesh)
   !> file.
 
-  subroutine ExportVTK_VolumeData(x, s, sname, v, vname, file, part, n_part)
+  subroutine ExportVTK_VolumeData(x, s, sname, v, vname, file, part, n_part, &
+                                  subdiv)
 
     ! mesh element collocation points
     real(RNP), intent(in) :: x(0:,0:,0:,:,:) !< mesh points [0:po,0:po,0:po,ne,3]
@@ -46,6 +49,7 @@ contains
     character(len=*),  intent(in) :: file   !< VTK output file
     integer, optional, intent(in) :: part   !< partition (piece)
     integer, optional, intent(in) :: n_part !< number of partitions (pieces)
+    logical, optional, intent(in) :: subdiv !< apply quadratic subdivision [auto]
 
     ! VTK data .................................................................
 
@@ -83,12 +87,18 @@ contains
     end if
 
     ! automatic selection of interpolation order
-    if (po == 1) then
-      interpolation_order = 1
-    else if (po > 1) then
-      interpolation_order = 2
-    else
+    if (po < 1) then
       return
+    else if (po == 1) then
+      interpolation_order = 1
+    else if (present(subdiv)) then
+      if (subdiv) then
+        interpolation_order = 2
+      else
+        interpolation_order = 1
+      end if
+    else
+      interpolation_order = 2
     end if
 
     if (present(part)) then

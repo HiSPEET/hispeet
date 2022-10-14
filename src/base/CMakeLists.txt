@@ -57,10 +57,12 @@ include(cmake/tpo__diagonal__3d.cmake)
 include(cmake/tpo__div__3d.cmake)
 include(cmake/tpo__diffusion__3d.cmake)
 include(cmake/tpo__grad__3d.cmake)
+include(cmake/tpo__ins_convection__3d.cmake)
 include(cmake/tpo__rot__3d.cmake)
 include(cmake/tpo__rotrot__3d.cmake)
 include(cmake/tpo__schwarz__3d.cmake)
 include(cmake/tpo__spectral__3d.cmake)
+include(cmake/tpo__stress__3d.cmake)
 
 # activate extra compile flags
 if (DEFINED Fortran_FLAGS_TPO)
@@ -122,6 +124,12 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
 # util_3d
 
 set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
+             util_3d/export/export_vtk_schwarz_domain__3d.f
+             util_3d/meshgen/create_annulus.f
+             util_3d/meshgen/create_cuboid_cartesian.f
+             util_3d/meshgen/create_cuboid_diamonds.f
+             util_3d/meshgen/create_cuboid_onerotated.f
+             util_3d/meshgen/create_cylinder.f
              util_3d/transfer/element_transfer_buffer__3d.f
              util_3d/transfer/element_transfer_buffer__3d__sm_integer_idk.F
              util_3d/transfer/element_transfer_buffer__3d__sm_integer_ixs.F
@@ -133,6 +141,7 @@ set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/transfer/trace_transfer_buffer__3d.f
              util_3d/ops/assembly__3d.f
              util_3d/ops/assembly__3d__sm_0u.f
+             util_3d/ops/convert_traces__3d.f
              util_3d/verification/verify_mesh__3d.f
              )
 
@@ -146,6 +155,8 @@ endif ()
 set( VARIABLES_3D variables_3d/spectral_element_variable__3d.f
                   variables_3d/spectral_element_variable__3d__mp_gettraces.f
                   variables_3d/spectral_element_scalar__3d.f
+                  variables_3d/spectral_element_vector__3d.f
+                  variables_3d/spectral_element_boundary_variable__3d.f
                   )
 
 #===============================================================================
@@ -156,7 +167,26 @@ set( DIFFUSION_3D diffusion_3d/dg__diffusion_operator__3d.f
                   diffusion_3d/dg__diffusion_operator__3d__mp_apply.f
                   diffusion_3d/dg__diffusion_operator__3d__mp_apply_rc.f
                   diffusion_3d/dg__diffusion_operator__3d__mp_apply_rv.f
+                  diffusion_3d/dg__diffusion_operator__3d__mp_apply_dc.F
+                  diffusion_3d/dg__diffusion_operator__3d__mp_addfluxes_dc_gen.f
+                  diffusion_3d/dg__diffusion_operator__3d__mp_addfluxes_dc_xsmm.F
+                  diffusion_3d/dg__schwarz_operator__3d.f
+                  diffusion_3d/dg__schwarz_operator__3d__rdp__mp_merge_core.F
+                  diffusion_3d/dg__schwarz_operator__3d__rdp__mp_merge_structured.F
+                  diffusion_3d/dg__schwarz_operator__3d__rdp__mp_merge_unstructured.F
+                  diffusion_3d/dg__schwarz_operator__3d__rdp__mp_restrict_structured.F
+                  diffusion_3d/dg__schwarz_operator__3d__rdp__mp_restrict_unstructured.F
+                  diffusion_3d/dg__schwarz_operator__3d__rsp__mp_merge_core.F
+                  diffusion_3d/dg__schwarz_operator__3d__rsp__mp_merge_structured.F
+                  diffusion_3d/dg__schwarz_operator__3d__rsp__mp_merge_unstructured.F
+                  diffusion_3d/dg__schwarz_operator__3d__rsp__mp_restrict_structured.F
+                  diffusion_3d/dg__schwarz_operator__3d__rsp__mp_restrict_unstructured.F
                   )
+
+
+#                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_rc.f
+#                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_rv.f
+#                  diffusion_3d/dg__diffusion_operator__3d__mp_addbc_dc.f
 
 #===============================================================================
 # base library

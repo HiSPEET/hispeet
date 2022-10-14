@@ -1,53 +1,99 @@
 !-------------------------------------------------------------------------------
 !> Parametrized 3d gradient kernel using hand-crafted suboperators (RCLI)
 
-subroutine PROC(TPO_Grad_R_Hand__,_NP_)(ne, Ds, dx, u, v)
-
-  use Constants, only: ZERO
-
+subroutine PROC(TPO_Grad_R_Hand__,_NP_)(ne, Ms, Ds, dx, u, up, v)
   integer,   intent(in)  :: ne                     !< num elements
+  real(RWP), intent(in)  :: Ms(_NP_)               !< 1D standard mass matrix
   real(RWP), intent(in)  :: Ds(_NP_,_NP_)          !< standard diff matrix
   real(RWP), intent(in)  :: dx(3)                  !< element extensions
   real(RWP), intent(in)  :: u(_NP_,_NP_,_NP_,ne)   !< 3D scalar field
+  real(RWP), intent(in)  :: up(_NP_,_NP_,6,ne)     !< exterior traces u⁺ at faces
   real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne,3) !< element-wise gradient of u
 
-  real(RWP) :: A(_NP_,_NP_)
-  real(RWP) :: g(3)
+  optional :: Ms, up
 
-  integer :: e
+  !-----------------------------------------------------------------------------
+  ! local variables
+
+  real(RWP), parameter :: ZERO = 0
+  real(RWP) :: Ds_t(_NP_,_NP_)
+  real(RWP) :: g(3), tmp
+  integer   :: e, f, i, j, k, n
+  logical   :: fluxes
 
   !-----------------------------------------------------------------------------
   ! initialization
 
-  A = transpose(Ds)
+  fluxes = present(Ms) .and. present(up)
+
+  Ds_t = transpose(Ds)
 
   ! metric coefficients
-  g = 2 / dx
+  g  = 2 / dx
 
   !---------------------------------------------------------------------------
   ! evaluation
-
-  !$acc data present(u,v) copyin(c,M,Lm)
-  !$acc parallel
-  !$acc loop gang worker private(M_u)
 
   !$omp do
   do e = 1, ne
 
     ! v1 = du/dx1
     v(:,:,:,e,1) = 0  ! avoid trouble with NaNs
-    call PROC(IxIxQt__,_NP_)(A, g(1), ZERO, u(:,:,:,e), v(:,:,:,e,1))
+    call PROC(IxIxQt__,_NP_)(Ds_t, g(1), ZERO, u(:,:,:,e), v(:,:,:,e,1))
     ! v2 = du/dx2
     v(:,:,:,e,2) = 0  ! avoid trouble with NaNs
-    call PROC(IxQtxI__,_NP_)(A, g(2), ZERO, u(:,:,:,e), v(:,:,:,e,2))
+    call PROC(IxQtxI__,_NP_)(Ds_t, g(2), ZERO, u(:,:,:,e), v(:,:,:,e,2))
     ! v3 = du/dx3
     v(:,:,:,e,3) = 0  ! avoid trouble with NaNs
-    call PROC(QtxIxI__,_NP_)(A, g(3), ZERO, u(:,:,:,e), v(:,:,:,e,3))
+    call PROC(QtxIxI__,_NP_)(Ds_t, g(3), ZERO, u(:,:,:,e), v(:,:,:,e,3))
+
+    if (fluxes) then
+
+      ! faces 1 and 2
+      i =  1
+      n = -1
+      do f = 1, 2
+        tmp = n / (dx(1) * Ms(i))
+        do k = 1, _NP_
+        do j = 1, _NP_
+          v(i,j,k,e,1) = v(i,j,k,e,1) + tmp * (up(j,k,f,e) - u(i,j,k,e))
+        end do
+        end do
+        i = _NP_
+        n = 1
+      end do
+
+      ! faces 3 and 4
+      j =  1
+      n = -1
+      do f = 3, 4
+        tmp = n / (dx(2) * Ms(j))
+        do k = 1, _NP_
+        do i = 1, _NP_
+          v(i,j,k,e,2) = v(i,j,k,e,2) + tmp * (up(i,k,f,e) - u(i,j,k,e))
+        end do
+        end do
+        j = _NP_
+        n = 1
+      end do
+
+      ! faces 5 and 6
+      k =  1
+      n = -1
+      do f = 5, 6
+        tmp = n / (dx(3) * Ms(k))
+        do j = 1, _NP_
+        do i = 1, _NP_
+          v(i,j,k,e,3) = v(i,j,k,e,3) + tmp * (up(i,j,f,e) - u(i,j,k,e))
+        end do
+        end do
+        k = _NP_
+        n = 1
+      end do
+
+    end if
 
   end do
-
-  !$acc end parallel
-  !$acc end data
 
   !-----------------------------------------------------------------------------
 

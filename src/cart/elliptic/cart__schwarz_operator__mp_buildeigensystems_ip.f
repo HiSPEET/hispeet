@@ -21,7 +21,7 @@ module subroutine BuildEigensystems_IP(this, eop)
 
   ! arguments ..................................................................
 
-  class(SchwarzOperator3D),     intent(inout) :: this !< Schwarz operator
+  class(SchwarzOperator3D),      intent(inout) :: this !< Schwarz operator
   class(DG_ElementOperators_1D), intent(in)    :: eop  !< IP-DG SE operators
 
   ! local variables ............................................................

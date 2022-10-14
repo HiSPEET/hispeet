@@ -19,11 +19,13 @@ contains
   !> After creating a structured mesh, the center element is rotated
   !> `rotation(i)` times about axes `i=1,2,3`, one after the other.
 
-  module subroutine CreateOneRotated(mesh, po, rotation, periodic)
-    class(GenericMesh_3D), intent(out) :: mesh  !< "diamond" mesh
-    integer, intent(in) :: po          !< polynomial order of mesh elements
-    integer, intent(in) :: rotation(3) !< rotation applied to center element
-    logical, intent(in) :: periodic(3) !< F/T for non/periodic directions
+  module subroutine CreateOneRotated(mesh, xo, lx, po, rotation, periodic)
+    class(GenericMesh_3D), intent(out) :: mesh  !< unstructured regular mesh
+    real(RNP), intent(in) :: xo(3)       !< corner closest to -infinity
+    real(RNP), intent(in) :: lx(3)       !< domain extensions
+    integer,   intent(in) :: po          !< polynomial order of mesh elements
+    integer,   intent(in) :: rotation(3) !< rotation applied to center element
+    logical,   intent(in) :: periodic(3) !< F/T for non/periodic directions
 
     ! local variables
     integer   :: nv, ne, nb       ! number of vertices, elements and boundaries
@@ -32,14 +34,17 @@ contains
     integer   :: v                ! linear vertex index
     integer   :: f                ! face counter
     integer   :: b                ! boundary ID
+    real(RNP) :: dx(3)            ! element extensions
     real(RNP) :: xc(0:po)         ! Lobatto points in [0,1]
-    real(RNP) :: x0(3)            ! position vector
+    real(RNP) :: x1(3)            ! position vector
 
     ! prerequisites ...........................................................
 
     nv = 4 ** 3
     ne = 3 ** 3
     nb = 6
+
+    dx = THIRD * lx
 
     ! Lobatto points in [0,1]
     xc = HALF * (ONE + LobattoPoints(po))
@@ -57,7 +62,7 @@ contains
     do i = 0, 3
       v = LexicalVertexIndex(i, j, k, 3, 3)
       mesh % vertex(v) % id = LexicalVertexIndex(i, j, k, 3, 3, 3, periodic)
-      mesh % vertex(v) % x  = THIRD * [ i, j, k ]
+      mesh % vertex(v) % x  = xo + dx * [ i, j, k ]
     end do
     end do
     end do
@@ -87,14 +92,14 @@ contains
 
       ! element collocation points
       allocate(mesh%element(l)%x((po+1)**3, 3))
-      x0 = mesh%vertex(mesh%element(l)%vertex(1)) % x ! coordinates of vertex 1
+      x1 = mesh%vertex(mesh%element(l)%vertex(1)) % x ! coordinates of vertex 1
       do r = 0, po
       do q = 0, po
       do p = 0, po
         v = 1 + p + (po+1) * (q + (po+1) * r) ! linear point index
-        mesh%element(l) % x(v,1) = x0(1) + THIRD * xc(p)
-        mesh%element(l) % x(v,2) = x0(2) + THIRD * xc(q)
-        mesh%element(l) % x(v,3) = x0(3) + THIRD * xc(r)
+        mesh%element(l) % x(v,1) = x1(1) + dx(1) * xc(p)
+        mesh%element(l) % x(v,2) = x1(2) + dx(2) * xc(q)
+        mesh%element(l) % x(v,3) = x1(3) + dx(3) * xc(r)
       end do
       end do
       end do

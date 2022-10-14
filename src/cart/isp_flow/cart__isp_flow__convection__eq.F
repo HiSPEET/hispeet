@@ -28,7 +28,7 @@ contains
     ! arguments ................................................................
 
     class(MeshPartition),        intent(in)  :: mesh    !< mesh partition
-    class(StandardOperators_1D),  intent(in)  :: sop     !< standard operators
+    class(StandardOperators_1D), intent(in)  :: sop     !< standard operators
     real(RNP),                   intent(in)  :: u       !< flow variables
     real(RNP),                   intent(out) :: div_f   !< flux divergence
 
@@ -86,7 +86,7 @@ contains
         end do
       end do
 
-      call TPO_Div(Ds=sop%D, dx=mesh%dx, u=fc, v=div_f(:,:,:,:,c))
+      call TPO_Div(Ms=sop%w, Ds=sop%D, dx=mesh%dx, u=fc, v=div_f(:,:,:,:,c))
 
     end do
 

@@ -1,7 +1,9 @@
 !-------------------------------------------------------------------------------
 !> Parametrized 3d diffusion kernel using hand-crafted suboperators (RLCI)
 
-subroutine PROC(TPO_Diffusion_RLCI_Hand__,_NP_)(ne, Ms, Ls, dx, lambda, nu, u, v)
+subroutine PROC(TPO_Diffusion_RLCI_Hand__,_NP_) &
+    (ne, Ms, Ls, dx, lambda, nu, u, v, Ds, ub, qb)
+
   integer,   intent(in)  :: ne                   !< num elements
   real(RWP), intent(in)  :: Ms(_NP_)             !< standard mass matrix
   real(RWP), intent(in)  :: Ls(_NP_,_NP_)        !< standard stiffness matrix
@@ -11,12 +13,21 @@ subroutine PROC(TPO_Diffusion_RLCI_Hand__,_NP_)(ne, Ms, Ls, dx, lambda, nu, u, v
   real(RWP), intent(in)  :: u(_NP_,_NP_,_NP_,ne) !< operand
   real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne) !< result
 
+  real(RWP), optional, intent(in)    :: Ds(_NP_,_NP_)      !< 1D std diff matrix
+  real(RWP), optional, intent(inout) :: ub(_NP_,_NP_,6,ne) !< elem bound values
+  real(RWP), optional, intent(inout) :: qb(_NP_,_NP_,6,ne) !< elem bound fluxes
+
+  !-----------------------------------------------------------------------------
+  ! local variables
+
   real(RWP), parameter :: beta = 1
   real(RWP) :: M(_NP_,_NP_,_NP_), M_u(_NP_,_NP_,_NP_), Lm(_NP_,_NP_)
-  real(RWP) :: c(3), tmp
+  real(RWP) :: Bs1(_NP_), Bs2(_NP_)
+  real(RWP) :: c(3), tmp, tmp1, tmp2
 
   integer, parameter :: NP_E = _NP_**3
-  integer :: e, i, j, k
+  integer :: e, i, j, k, p
+  logical :: get_traces
 
   !-----------------------------------------------------------------------------
   ! initialization
@@ -41,10 +52,18 @@ subroutine PROC(TPO_Diffusion_RLCI_Hand__,_NP_)(ne, Ms, Ls, dx, lambda, nu, u, v
   ! coefficients
   c = 4 * nu / dx**2
 
+  ! handling of boundary traces
+  get_traces = present(Ds) .and. present(ub) .and. present(qb)
+
+  if (get_traces) then
+    Bs1 = -nu * Ds( 1  ,:)  ! n⋅νDˢ @ "left" boundary
+    Bs2 =  nu * Ds(_NP_,:)  ! n⋅νDˢ @ "right" boundary
+  end if
+
   !---------------------------------------------------------------------------
   ! evaluation
 
-  !$acc data present(u,v) copyin(c,M,Lm)
+  !$acc data present(u,v) copyin(c,M,Lm,Bs1,Bs2)
   !$acc parallel
   !$acc loop gang worker private(M_u)
 
@@ -55,6 +74,60 @@ subroutine PROC(TPO_Diffusion_RLCI_Hand__,_NP_)(ne, Ms, Ls, dx, lambda, nu, u, v
     call PROC(IxIxQt__,_NP_)(Lm, c(1), beta, M_u, v(:,:,:,e))
     call PROC(IxQtxI__,_NP_)(Lm, c(2), beta, M_u, v(:,:,:,e))
     call PROC(QtxIxI__,_NP_)(Lm, c(3), beta, M_u, v(:,:,:,e))
+
+    ! extract/compute traces ...................................................
+
+    if (get_traces) then
+
+      ! ub = u, n⋅ν∇u  @ Γ₁ + Γ₂
+      do k = 1, _NP_
+      do j = 1, _NP_
+        tmp1 = 0
+        tmp2 = 0
+        do p = 1, _NP_
+          tmp1 = tmp1 + Bs1(p) * u(p,j,k,e)
+          tmp2 = tmp2 + Bs2(p) * u(p,j,k,e)
+        end do
+        ub(j,k,1,e) = u( 1  ,j,k,e)
+        ub(j,k,2,e) = u(_NP_,j,k,e)
+        qb(j,k,1,e) = 2/dx(1) * tmp1
+        qb(j,k,2,e) = 2/dx(1) * tmp2
+      end do
+      end do
+
+      ! ub = u, n⋅ν∇u  @ Γ₃ + Γ₄
+      do k = 1, _NP_
+      do i = 1, _NP_
+        tmp1 = 0
+        tmp2 = 0
+        do p = 1, _NP_
+          tmp1 = tmp1 + Bs1(p) * u(i,p,k,e)
+          tmp2 = tmp2 + Bs2(p) * u(i,p,k,e)
+        end do
+        ub(i,k,3,e) = u(i, 1  ,k,e)
+        ub(i,k,4,e) = u(i,_NP_,k,e)
+        qb(i,k,3,e) = 2/dx(2) * tmp1
+        qb(i,k,4,e) = 2/dx(2) * tmp2
+      end do
+      end do
+
+      ! ub = u, n⋅ν∇u  @ Γ₅ + Γ₆
+      do j = 1, _NP_
+      do i = 1, _NP_
+        tmp1 = 0
+        tmp2 = 0
+        do p = 1, _NP_
+          tmp1 = tmp1 + Bs1(p) * u(i,j,p,e)
+          tmp2 = tmp2 + Bs2(p) * u(i,j,p,e)
+        end do
+        ub(i,j,5,e) = u(i,j, 1  ,e)
+        ub(i,j,6,e) = u(i,j,_NP_,e)
+        qb(i,j,5,e) = 2/dx(3) * tmp1
+        qb(i,j,6,e) = 2/dx(3) * tmp2
+      end do
+      end do
+
+    end if
 
   end do
 

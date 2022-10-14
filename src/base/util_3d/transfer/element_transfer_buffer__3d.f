@@ -59,13 +59,12 @@ module Element_Transfer_Buffer__3D
   !> and
   !>
   !>    -  `np(1:3)` is the number of element or region points per direction
-  !>    -  `ne` is the number of local elements, i.e. `mesh%ne`
-  !>    -  `ng` is the number of ghost elements, i.e. `mesh%ng`
-  !>    -  `nc` is the number of components (variables)
+  !>    -  `ne` is the number of local elements, i.e. `mesh % n_elem`
+  !>    -  `ng` is the number of ghost elements, i.e. `mesh % n_ghost`
+  !>    -  `nc` is the number of components/variables (auto-detected)
   !>
   !> It is recommended to pass the variable arguments always in the shape
-  !> given above, though the ghost entries are not used and can be omitted
-  !> in certain cases.
+  !> given above, though the ghost entries are needed only for `Merge`.
   !>
   !> Use with single thread (no OpenMP):
   !>

@@ -123,7 +123,7 @@ contains
 
       Ds_t = transpose(std_op % D)
 
-      !$omp do
+      !!$omp do -- not yet
       do e = 1, ne
 
         ! grad_x = dx/dξ .......................................................

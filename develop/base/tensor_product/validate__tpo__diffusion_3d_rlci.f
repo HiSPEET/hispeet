@@ -51,9 +51,9 @@ program Validate__TPO__Diffusion_3d_RLCI
 
   ! read test parameters .......................................................
 
-  inquire(file='validate__TPO__Diffusion_3d_rlci.prm', exist=exists)
+  inquire(file='validate__tpo__diffusion_3d_rlci.prm', exist=exists)
   if (exists) then
-    open(newunit=prm, file='validate__TPO__Diffusion_3d_rlci.prm')
+    open(newunit=prm, file='validate__tpo__diffusion_3d_rlci.prm')
     read(prm, nml=input)
     close(prm)
   end if

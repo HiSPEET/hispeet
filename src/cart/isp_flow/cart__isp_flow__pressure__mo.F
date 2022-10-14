@@ -11,6 +11,7 @@ module CART__ISP_Flow__Pressure__MO
   use Kind_Parameters, only: RNP
   use Constants,       only: ONE
   use Array_Assignments
+  use Array_Reductions
   use TPO__Diagonal__3D
   use ISP_Flow_Problem
   use CART__Mesh_Partition
@@ -105,7 +106,31 @@ contains
       ! pressure ...............................................................
 
       ! compute
-      call pmg % MG_CG_Solver(q, f, ni, r_2, i_max)
+      if (size(pmg%level) > 1) then
+        ! use multigrid solver
+        call pmg % MG_CG_Solver(q, f, ni, r_2, i_max)
+      else
+        ! use single grid solver
+        associate( elliptic_op => pmg % level(0) % elliptic_op &
+                 , r           => pmg % level(0) % v           &
+                 , i_max       => pmg % i0_max                 &
+                 , r_red       => pmg % r0_red                 &
+                 , r_max       => pmg % r0_max                 )
+
+          select case(pmg % solver)
+          case('S')
+            call elliptic_op % SchwarzMethod(q, f, i_max, r_red, r_max, ni)
+          case('C')
+            call elliptic_op % ConjugateGradients(q, f, i_max, r_red, r_max, ni)
+          case('P')
+            call elliptic_op % SchwarzPreConjugateGradients(q, f, i_max, r_red, r_max, ni)
+          end select
+          if (flow_op % control % monitor > 0) then
+            call elliptic_op % Residual(q, f, r)
+            r_2 = sqrt(ScalarProduct(r, r, mesh%comm))
+          end if
+        end associate
+      end if
 
       ! monitoring
       !$omp single
@@ -213,7 +238,31 @@ contains
       ! pressure ...............................................................
 
       ! compute
-      call pmg % MG_CG_Solver(q, f, ni, r_2, i_max)
+      if (size(pmg%level) > 1) then
+        ! use multigrid solver
+        call pmg % MG_CG_Solver(q, f, ni, r_2, i_max)
+      else
+        ! use single grid solver
+        associate( elliptic_op => pmg % level(0) % elliptic_op &
+                 , r           => pmg % level(0) % v           &
+                 , i_max       => pmg % i0_max                 &
+                 , r_red       => pmg % r0_red                 &
+                 , r_max       => pmg % r0_max                 )
+
+          select case(pmg % solver)
+          case('S')
+            call elliptic_op % SchwarzMethod(q, f, i_max, r_red, r_max, ni)
+          case('C')
+            call elliptic_op % ConjugateGradients(q, f, i_max, r_red, r_max, ni)
+          case('P')
+            call elliptic_op % SchwarzPreConjugateGradients(q, f, i_max, r_red, r_max, ni)
+          end select
+          if (flow_op % control % monitor > 0) then
+            call elliptic_op % Residual(q, f, r)
+            r_2 = sqrt(ScalarProduct(r, r, mesh%comm))
+          end if
+        end associate
+      end if
 
       ! monitoring
       !$omp single
