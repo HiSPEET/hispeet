@@ -56,6 +56,13 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 # Prerequisites
 
 #-------------------------------------------------------------------------------
+# OpenMP
+
+if (OpenMP OR NOT SKIP_LIBXSMM)
+   find_package(OpenMP REQUIRED)
+endif ()
+
+#-------------------------------------------------------------------------------
 # MPI
 
 set(MPI_SKIP_COMPILER_WRAPPER TRUE)
@@ -103,8 +110,8 @@ if (CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-form")
 
-    set(CMAKE_Fortran_FLAGS_CHECK "-Wall -fcheck=all -fbacktrace")
-    set(CMAKE_Fortran_FLAGS_DEBUG "-Wall -fcheck=all -fbacktrace -g")
+    set(CMAKE_Fortran_FLAGS_CHECK "-Wall -Wno-c-binding-type -fcheck=all -fbacktrace")
+    set(CMAKE_Fortran_FLAGS_DEBUG "-Wall -Wno-c-binding-type -fcheck=all -fbacktrace -g")
 
     if (OPT)
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O${OPT}")
@@ -173,10 +180,11 @@ endif ()
 # OpenMP
 
 if (OpenMP)
-    find_package(OpenMP REQUIRED)
     set(CMAKE_C_FLAGS          "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS        "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     set(CMAKE_Fortran_FLAGS    "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+elseif (NOT SKIP_LIBXSMM)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif (OpenMP)
 

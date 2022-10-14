@@ -6,6 +6,7 @@ if (NOT SKIP_LIBXSMM)
   set( LIBXSMM_LIB_DIR       "${LIBXSMM_SRC_DIR}/lib"                 )
   set( LIBXSMM_MODULE        "${LIBXSMM_SRC_DIR}/include/libxsmm.mod" )
   set( LIBXSMM_LIBRARIES     "${LIBXSMM_SRC_DIR}/lib/libxsmmf.a"
+                             "${LIBXSMM_SRC_DIR}/lib/libxsmmext.a"
                              "${LIBXSMM_SRC_DIR}/lib/libxsmm.a"       ) 
   set( LIBXSMM_INCLUDE_DIRS  "${LIBXSMM_SRC_DIR}/include"             )    
 
