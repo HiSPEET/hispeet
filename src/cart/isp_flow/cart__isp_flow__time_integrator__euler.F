@@ -76,7 +76,7 @@ contains
   end function New_TimeIntegrator_Euler
 
   !-----------------------------------------------------------------------------
-  !> Initialization of a Init_TimeIntegrator_Euler object
+  !> Initialization of a TimeIntegrator_Euler object
 
   subroutine Init_TimeIntegrator_Euler(this, problem, flow_op, opt)
     class(TimeIntegrator_Euler),                   intent(inout) :: this
