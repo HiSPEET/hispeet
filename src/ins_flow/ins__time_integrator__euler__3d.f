@@ -9,7 +9,7 @@ module INS__Time_Integrator__Euler__3D
   use Constants
   use XMPI
 
-  use Convert_Traces__3D
+  use Trace_Operators__3D
   use Element_Face_Transfer_Buffer__3D
   use Spectral_Element_Boundary_Variable__3D
 
@@ -129,7 +129,7 @@ contains
     real(RNP), allocatable, save :: sp (:,:,:,:,:) ! outer viscous flux traces s⁺
     real(RNP), allocatable, save :: w  (:,:,:,:,:) ! work
 
-    type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: vm_buf
+    type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_vm
 
     ! handle for velocity component boundary values
     ! type(SpectralElementBoundaryVariable_3D), allocatable, save :: bv_v(:,:)
@@ -168,7 +168,7 @@ contains
       allocate( vp    (np, np, 6, n_elem          , 3), source = ZERO )
       allocate( sp    (np, np, 6, n_elem          , 3), source = ZERO )
 
-      vm_buf = ElementFaceTransferBuffer_3D(mesh, vm)
+      buf_vm = ElementFaceTransferBuffer_3D(mesh, vm)
 
       !$omp end master
       !$omp barrier
@@ -275,10 +275,10 @@ contains
       ! divergence of intermediate velocity ....................................
 
       ! generate outer traces
-      call vm_buf % Transfer(mesh, vm, tag=100) ! transfer traces
-      call ins_op % SetVelocityBC(bv_v, vm)     ! set boundary values
-      call vm_buf % Merge(vm)                   ! merge remote traces
-      call InnerToOuterTraces(mesh, vm, vp)     ! vm → vp = v_i⁺
+      call buf_vm % Transfer(mesh, vm, tag=100)        ! transfer traces
+      call ins_op % SetVelocityBC(bv_v, vm)            ! set boundary values
+      call buf_vm % Merge(vm)                          ! merge remote traces
+      call ConvertInnerToOuterTraces_3D(mesh, vm, vp)  ! vm → vp = v_i⁺
 
       ! divergence of intermediate velocity
       call TPO_Div( Ms = ins_op % eop_v % w            &
@@ -305,7 +305,7 @@ contains
 
       !$omp master
       deallocate(inv_M, F_d, v_i, vm, vp, sp, w)
-      deallocate(vm_buf)
+      deallocate(buf_vm)
       !$omp end master
 
     end associate

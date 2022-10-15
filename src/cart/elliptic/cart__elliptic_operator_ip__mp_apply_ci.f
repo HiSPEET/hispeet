@@ -26,8 +26,8 @@ module subroutine Apply_CI(this, u, v)
   ! local variables ............................................................
 
   ! trace operators
-  type(TraceTransferBuffer), asynchronous, allocatable, save ::  u_trace_buf
-  type(TraceTransferBuffer), asynchronous, allocatable, save :: qn_trace_buf
+  type(TraceTransferBuffer), asynchronous, allocatable, save ::  buf_tr_u
+  type(TraceTransferBuffer), asynchronous, allocatable, save :: buf_tr_qn
 
   ! trace variables
   real(RNP), allocatable, save :: tr_u (:,:,:,:)
@@ -72,8 +72,8 @@ module subroutine Apply_CI(this, u, v)
       !$omp master                                                            !1
       allocate(tr_u(0:po, 0:po, 2, mesh%nf))                                  !1
       allocate(tr_qn, mold=tr_u)                                              !1
-      u_trace_buf  = TraceTransferBuffer(mesh, tr_u)                          !1
-      qn_trace_buf = TraceTransferBuffer(mesh, tr_qn)                         !1
+      buf_tr_u  = TraceTransferBuffer(mesh, tr_u)                             !1
+      buf_tr_qn = TraceTransferBuffer(mesh, tr_qn)                            !1
       !$omp end master                                                        !1
       !$omp barrier                                                           !1
 
@@ -81,8 +81,8 @@ module subroutine Apply_CI(this, u, v)
 
       ! initialize, compute and transfer face normal fluxes qn
       call GetLocalTraces(mesh, np, ne, nf, Bs, mesh%dx, u, tr_u, tr_qn)      !3
-      call  u_trace_buf % Transfer(mesh, tr_u , tag=1000)                     !9
-      call qn_trace_buf % Transfer(mesh, tr_qn, tag=2000)                     !9
+      call buf_tr_u  % Transfer(mesh, tr_u , tag=1000)                        !9
+      call buf_tr_qn % Transfer(mesh, tr_qn, tag=2000)                        !9
 
       ! apply element diffusion operator .......................................
 
@@ -90,8 +90,8 @@ module subroutine Apply_CI(this, u, v)
 
       ! finish generation of traces ............................................
 
-      call  u_trace_buf % Merge(mesh, tr_u , alpha = ZERO, beta = ONE )       !9
-      call qn_trace_buf % Merge(mesh, tr_qn, alpha = ZERO, beta = ONE)        !9
+      call buf_tr_u  % Merge(mesh, tr_u , alpha = ZERO, beta = ONE )          !9
+      call buf_tr_qn % Merge(mesh, tr_qn, alpha = ZERO, beta = ONE)           !9
 
       call ApplyBoundaryConditions(mesh, this%bc, tr_u, tr_qn)                !5
 
@@ -103,7 +103,7 @@ module subroutine Apply_CI(this, u, v)
 
       !$omp master                                                            !1
       deallocate(tr_u, tr_qn)                                                 !1
-      deallocate(u_trace_buf, qn_trace_buf)                                   !1
+      deallocate(buf_tr_u, buf_tr_qn)                                         !1
       !$omp end master
 
     end associate

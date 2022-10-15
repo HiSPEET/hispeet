@@ -24,13 +24,13 @@ module Assembly__3D
     !---------------------------------------------------------------------------
     !> Unstructured assembly and, optionally, averaging of a scalar variable
 
-    module subroutine Assembly_3D_0U(mesh, u, u_buf, avg)
+    module subroutine Assembly_3D_0U(mesh, u, buf_u, avg)
       !> mesh partition
       class(Mesh_3D), intent(in) :: mesh
       !> mesh variable, including ghost entries
       real(RNP), intent(inout) :: u(:,:,:,:)
       !> MPI transfer buffer
-      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: u_buf
+      class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
       !> switch for averaging over element boundaries [F]
       logical, optional, intent(in) :: avg
     end subroutine Assembly_3D_0U
@@ -42,13 +42,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Assembly and, optionally, averaging of a scalar variable
 
-  subroutine Assembly_3D_0(mesh, u, u_buf, avg)
+  subroutine Assembly_3D_0(mesh, u, buf_u, avg)
     !> mesh partition
     class(Mesh_3D), intent(in) :: mesh
     !> mesh variable, including ghost entries
     real(RNP), intent(inout) :: u(:,:,:,:)
     !> MPI transfer buffer
-    type(ElementTransferBuffer_3D), asynchronous, intent(inout) :: u_buf
+    type(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
     !> switch for averaging over element boundaries [F]
     logical, optional, intent(in) :: avg
 
@@ -59,7 +59,7 @@ contains
     !$omp end master
 
     ! insert special treatment of structured case here
-    call Assembly_3D_0U(mesh, u, u_buf, avg)
+    call Assembly_3D_0U(mesh, u, buf_u, avg)
 
   end subroutine Assembly_3D_0
 
