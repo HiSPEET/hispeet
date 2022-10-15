@@ -24,7 +24,6 @@ module Spectral_Element_Scalar__3D
   type, extends(SpectralElementVariable_3D) :: SpectralElementScalar_3D
   contains
     procedure :: GetVolumeIntegral
-    procedure :: GetTrace
   end type SpectralElementScalar_3D
 
   ! constructor
@@ -100,24 +99,6 @@ contains
 
   end subroutine GetVolumeIntegral
 
-  !-----------------------------------------------------------------------------
-  !> Extract the trace of the scalar
-
-  subroutine GetTrace(this, tr_val, align)
-    class(SpectralElementScalar_3D), intent(in) :: this
-    real(RNP), intent(inout) :: tr_val(:,:,:,:) !< trace of the scalar
-    logical, optional, intent(in) :: align !< align traces with mesh face [F]
-
-    real(RNP), pointer, save :: tr_all(:,:,:,:,:)
-
-    !$omp single
-    call MapTrace(size(tr_val,1), size(tr_val,4), tr_s=tr_val, tr_a=tr_all)
-    !$omp end single
-
-    call this % GetTraces(tr_all, align)
-
-  end subroutine GetTrace
-
   !=============================================================================
   ! Helpers
 
@@ -133,18 +114,6 @@ contains
     a(0:po,0:po,0:po,1:ne,1:1) => s
 
   end subroutine MapVariable
-
-  !-----------------------------------------------------------------------------
-  !> Map scalar to array trace
-
-  subroutine MapTrace(np, ne, tr_s, tr_a)
-    integer, intent(in) :: np, ne
-    real(RNP), target , intent(in)  :: tr_s(np*np*6*ne)
-    real(RNP), pointer, intent(out) :: tr_a(:,:,:,:,:)
-
-    tr_a(1:np,1:np,1:6,1:ne,1:1) => tr_s
-
-  end subroutine MapTrace
 
   !=============================================================================
 

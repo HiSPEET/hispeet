@@ -149,7 +149,7 @@ set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/meshgen/create_cylinder.f
              util_3d/ops/assembly__3d.f
              util_3d/ops/assembly__3d__sm_0u.f
-             util_3d/ops/convert_traces__3d.f
+             util_3d/ops/trace_operators__3d.f
              util_3d/verification/verify_mesh__3d.f
              util_3d/adaptation/element_distribution_map__3d.f
              util_3d/adaptation/element_distribution_data__3d.f
@@ -164,7 +164,6 @@ endif ()
 # variables_3d
 
 set( VARIABLES_3D variables_3d/spectral_element_variable__3d.f
-                  variables_3d/spectral_element_variable__3d__mp_gettraces.f
                   variables_3d/spectral_element_scalar__3d.f
                   variables_3d/spectral_element_vector__3d.f
                   variables_3d/spectral_element_boundary_variable__3d.f

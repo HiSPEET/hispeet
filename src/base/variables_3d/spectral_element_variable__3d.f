@@ -36,7 +36,6 @@ module Spectral_Element_Variable__3D
     procedure :: GetSlice
     procedure :: GetVolumeIntegrals
     procedure :: GetSurfaceIntegrals
-    procedure :: GetTraces
   end type SpectralElementVariable_3D
 
   ! constructor
@@ -44,22 +43,6 @@ module Spectral_Element_Variable__3D
     module procedure New_Scratch
     module procedure New_Slice
     module procedure New_Wrap
-  end interface
-
-  !=============================================================================
-  ! Interfaces to separate module procedures
-
-  interface
-
-    !---------------------------------------------------------------------------
-    !> Extract the traces of SEV components as an element-face variable
-
-    module subroutine GetTraces(this, tr_val, align)
-      class(SpectralElementVariable_3D), intent(in) :: this
-      real(RNP), contiguous, intent(inout) :: tr_val(:,:,:,:,:) !< trace of val
-      logical, optional, intent(in) :: align !< align traces with mesh face [F]
-    end subroutine GetTraces
-
   end interface
 
 contains
