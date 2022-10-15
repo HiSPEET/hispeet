@@ -53,7 +53,7 @@ program Mesh3d_Import_Generic
   real(RNP), pointer             :: r(:,:,:,:)     ! reference variable
   real(RNP), pointer             :: e(:,:,:,:)     ! error
 
-  type(ElementTransferBuffer_3D), asynchronous, allocatable :: v_buf
+  type(ElementTransferBuffer_3D), asynchronous, allocatable :: buf_v
 
   real(RNP), allocatable :: area(:)
   real(RNP) :: vol
@@ -155,8 +155,8 @@ program Mesh3d_Import_Generic
 !?!        end do
 !?!      end do
 !?!
-!?!      v_buf = ElementTransferBuffer_3D(mesh, v)
-!?!      call Assembly_3D(mesh, v, v_buf, avg=.true.)
+!?!      buf_v = ElementTransferBuffer_3D(mesh, v)
+!?!      call Assembly_3D(mesh, v, buf_v, avg=.true.)
 !?!
 !?!      err = 0
 !?!      do l = 1, mesh%n_elem

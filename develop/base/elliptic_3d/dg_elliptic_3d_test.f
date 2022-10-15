@@ -717,7 +717,7 @@ contains
     type(SpectralElementMesh_3D), intent(in) :: sem
     real(RNP), contiguous, intent(inout) :: u(0:,0:,0:,1:)
 
-    type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: tr_buf
+    type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_tr
     real(RNP), allocatable, save :: tr(:,:,:,:) ! traces of u
     real(RNP), allocatable :: ue(:,:), un(:,:), du(:,:)
     real(RNP), parameter :: tol = 1e-6
@@ -735,7 +735,7 @@ contains
       allocate(du(0:po, 0:po))
 
       allocate(tr(0:po, 0:po, 6, ne+ng))
-      tr_buf = ElementFaceTransferBuffer_3D(sem%mesh, tr)
+      buf_tr = ElementFaceTransferBuffer_3D(sem%mesh, tr)
 
       u = sem % metrics % x(:,:,:,:,d)
 
@@ -748,8 +748,8 @@ contains
         tr(:,:,6,e) = u(:,:,po,e)
       end do
 
-      call tr_buf % Transfer(mesh, tr, tag=1000)
-      call tr_buf % Merge(tr)
+      call buf_tr % Transfer(mesh, tr, tag=1000)
+      call buf_tr % Merge(tr)
 
       do e = 1, ne
         associate(element => mesh % element(e))
@@ -789,7 +789,7 @@ contains
         end associate
       end do
 
-      deallocate(tr, tr_buf)
+      deallocate(tr, buf_tr)
     end associate
   end subroutine VerifyPartitions
 

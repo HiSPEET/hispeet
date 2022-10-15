@@ -36,7 +36,7 @@ program Mesh3d_Explore
   real(RNP), pointer             :: r(:,:,:,:)     ! reference variable
   real(RNP), pointer             :: e(:,:,:,:)     ! error
 
-  type(ElementTransferBuffer_3D), asynchronous, allocatable :: v_buf
+  type(ElementTransferBuffer_3D), asynchronous, allocatable :: buf_v
 
   real(RNP) :: kappa(3), y(3), err, err_loc
   logical   :: passed, all_passed
@@ -104,8 +104,8 @@ program Mesh3d_Explore
       end do
     end do
 
-    v_buf = ElementTransferBuffer_3D(mesh, v)
-    call Assembly_3D(mesh, v, v_buf, avg=.true.)
+    buf_v = ElementTransferBuffer_3D(mesh, v)
+    call Assembly_3D(mesh, v, buf_v, avg=.true.)
 
     err_loc = 0
     do l = 1, mesh%n_elem
