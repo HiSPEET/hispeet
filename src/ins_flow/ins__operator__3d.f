@@ -292,7 +292,7 @@ contains
     if (present(tr_v)) then
       do b = 1, this % mesh % n_bound
         if (this % bc_v(b) == 'D') then
-          call bv_v(b) % CopyToElementFaceVariable(tr_v)
+          call bv_v(b) % CopyToTraceVariable(tr_v)
         end if
       end do
     end if

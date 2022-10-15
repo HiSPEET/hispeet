@@ -77,8 +77,8 @@ module Spectral_Element_Boundary_Variable__3D
 
     procedure :: ExtractNormalComponent
 
-    generic :: CopyToElementFaceVariable => CopyToEFV_S, CopyToEFV_A
-    procedure, private :: CopyToEFV_S, CopyToEFV_A
+    generic :: CopyToTraceVariable => CopyToTraceVar_S, CopyToTraceVar_A
+    procedure, private :: CopyToTraceVar_S, CopyToTraceVar_A
 
   end type SpectralElementBoundaryVariable_3D
 
@@ -444,7 +444,7 @@ contains
    !-----------------------------------------------------------------------------
    !> Copy first component of boundary variable to scalar element-face variable
 
-  subroutine CopyToEFV_S(this, v)
+  subroutine CopyToTraceVar_S(this, v)
     class(SpectralElementBoundaryVariable_3D), intent(in) :: this
     real(RNP), intent(inout) :: v(:,:,:,:)
 
@@ -464,12 +464,12 @@ contains
 
     end associate
 
-  end subroutine CopyToEFV_S
+  end subroutine CopyToTraceVar_S
 
   !-----------------------------------------------------------------------------
   !> Copy boundary variable to matching array-valued element-face variable
 
-  subroutine CopyToEFV_A(this, v)
+  subroutine CopyToTraceVar_A(this, v)
     class(SpectralElementBoundaryVariable_3D), intent(in) :: this
     real(RNP), intent(inout) :: v(:,:,:,:,:)
 
@@ -493,7 +493,7 @@ contains
 
     end associate
 
-  end subroutine CopyToEFV_A
+  end subroutine CopyToTraceVar_A
 
   !=============================================================================
 
