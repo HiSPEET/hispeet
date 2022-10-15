@@ -56,7 +56,7 @@ contains
 !### CHECK END
 
     ! trace transfer buffers operators
-    type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: tr_buf
+    type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_tr
 
     ! trace variables
     real(RNP), allocatable, save :: tr(:,:,:,:,:) ! traces of v and n⋅τ
@@ -76,7 +76,7 @@ contains
       ! workspace and operators
       !$omp master
       allocate(tr(0:eop%po, 0:eop%po, 6, mesh%n_elem + mesh%n_ghost,6))
-      tr_buf = ElementFaceTransferBuffer_3D(mesh, tr)
+      buf_tr = ElementFaceTransferBuffer_3D(mesh, tr)
       !$omp end master
       !$omp barrier
 
@@ -100,8 +100,8 @@ contains
 
       ! transfer traces ........................................................
 
-      call tr_buf % Transfer(mesh, tr, tag=1000)
-      call tr_buf % Merge(tr)
+      call buf_tr % Transfer(mesh, tr, tag=1000)
+      call buf_tr % Merge(tr)
 
       ! add fluxes .............................................................
 
@@ -116,7 +116,7 @@ contains
       ! cleanup ................................................................
 
       !$omp master
-      deallocate(tr, tr_buf)
+      deallocate(tr, buf_tr)
       !$omp end master
 
     end associate

@@ -34,7 +34,7 @@ contains
     ! local variables ..........................................................
 
     ! trace transfer buffers operators
-    type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: tr_buf
+    type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_tr
 
     ! trace variables
     real(RNP), allocatable, save :: tr(:,:,:,:,:) ! traces of u and q_n
@@ -81,7 +81,7 @@ contains
       ! workspace and operators
       !$omp master
       allocate(tr(0:po, 0:po, 6, ne+ng,2))
-      tr_buf = ElementFaceTransferBuffer_3D(mesh, tr)
+      buf_tr = ElementFaceTransferBuffer_3D(mesh, tr)
       !$omp end master
       !$omp barrier
 
@@ -95,13 +95,13 @@ contains
 
       ! transfer traces and apply boundary conditions ..........................
 
-      call tr_buf % Transfer(mesh, tr, tag=1000)
+      call buf_tr % Transfer(mesh, tr, tag=1000)
 
       call EnforceBoundaryConditions( this, bv              &
                                     , jmp_u = tr(:,:,:,:,1) &
                                     , avg_q = tr(:,:,:,:,2) )
 
-      call tr_buf % Merge(tr)
+      call buf_tr % Merge(tr)
 
       ! add fluxes .............................................................
 
@@ -110,7 +110,7 @@ contains
       ! clean-up ...............................................................
 
       !$omp master
-      deallocate(tr, tr_buf)
+      deallocate(tr, buf_tr)
       !$omp end master
 
     end associate

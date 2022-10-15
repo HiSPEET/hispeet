@@ -14,13 +14,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Unstructured assembly and, optionally, averaging of a scalar variable
 
-  module subroutine Assembly_3D_0U(mesh, u, u_buf, avg)
+  module subroutine Assembly_3D_0U(mesh, u, buf_u, avg)
     !> mesh partition
     class(Mesh_3D), intent(in)    :: mesh
     !> mesh variable, including ghost entries
     real(RNP), intent(inout) :: u(:,:,:,:)
     !> MPI transfer buffer
-    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: u_buf
+    class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_u
     !> switch for averaging over element boundaries [F]
     logical, optional, intent(in) :: avg
 
@@ -41,7 +41,7 @@ contains
 
     ! start transfer of ghost data .............................................
 
-    call u_buf % Transfer(mesh, u, tag=10303)
+    call buf_u % Transfer(mesh, u, tag=10303)
 
     ! extract contributions of local elements ..................................
 
@@ -50,7 +50,7 @@ contains
 
     ! finish transfer and inject ghost data ....................................
 
-    call u_buf % Merge(u)
+    call buf_u % Merge(u)
 
     ! extract contributions data of ghost elements .............................
 

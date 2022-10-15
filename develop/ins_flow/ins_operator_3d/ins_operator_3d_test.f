@@ -18,7 +18,7 @@ program INS_Operator_3D_Test
   use Array_Reductions
 
   use Mesh__3D
-  use Convert_Traces__3D
+  use Trace_Operators__3D
   use Spectral_Element_Variable__3D
   use Spectral_Element_Boundary_Variable__3D
   use Export_VTK_Volume_Data__3D
@@ -107,14 +107,12 @@ program INS_Operator_3D_Test
   real(RNP), pointer, contiguous :: F_ph(:,:,:,:,:) ! approx F_p = -∇p
 
   real(RNP), allocatable :: mm(:,:,:,:)    ! diagonal mass matrix
-  real(RNP), allocatable :: um(:,:,:,:,:)  ! interior traces u⁻
   real(RNP), allocatable :: up(:,:,:,:,:)  ! exterior traces u⁺
   real(RNP), allocatable :: sp(:,:,:,:,:)  ! exterior traces s⁺ = n⋅τ⁺
   real(RNP), allocatable :: w(:,:,:,:,:)   ! workspace
 
   ! auxiliaries ................................................................
 
-  type(SpectralElementVariable_3D) :: sev_u
   type(SpectralElementBoundaryVariable_3D), allocatable :: bv_u(:)
   type(SpectralElementBoundaryVariable_3D), allocatable :: bv_vi(:)
 
@@ -260,7 +258,6 @@ program INS_Operator_3D_Test
   allocate(mm (0:po,0:po,0:po,1:n_elem)     )
   allocate(w  (0:po,0:po,0:po,1:n_elem,1:4) )
 
-  allocate(um (0:po,0:po,1:6,1:n_elem+n_ghost,1:4), source = ZERO )
   allocate(up (0:po,0:po,1:6,1:n_elem        ,1:4), source = ZERO )
   allocate(sp (0:po,0:po,1:6,1:n_elem        ,1:3), source = ZERO )
 
@@ -300,16 +297,14 @@ program INS_Operator_3D_Test
 
   associate(sem => ins_op % sem_v, mesh => ins_op % mesh)
 
-    ! wrap solution in spectral element variable
-    sev_u  = SpectralElementVariable_3D(sem, u)
+    ! outer traces u⁺
+    call GetOuterTraces_3D(mesh, u, up)
 
-    ! traces
-    call sev_u % GetTraces(um)
-    call ConvertInnerToOuterTraces(mesh, um, up)
-
-    ! extract boundary values
+    ! boundary values
     bv_u = SpectralElementBoundaryVariable_3D(sem, mesh % boundary, nc = 4)
-    call bv_u % Extract(sev_u, mesh % boundary)
+    do i = 1, mesh % n_bound
+      call bv_u(i) % Extract(u, mesh % boundary(i))
+    end do
 
   end associate
 
