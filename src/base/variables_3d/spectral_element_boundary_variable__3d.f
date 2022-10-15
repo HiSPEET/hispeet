@@ -61,17 +61,25 @@ module Spectral_Element_Boundary_Variable__3D
   !> the values to copied into fresh memory which removes this risk.
 
   type SpectralElementBoundaryVariable_3D
+
     class(SpectralElementMesh_3D), pointer :: sem !< spectral element mesh
     real(RNP), contiguous,  pointer :: val(:,:,:,:) => null() !< value access
     real(RNP), allocatable, private :: mem(:,:,:,:) !< memory allocated to val
     integer :: bid = -1 !< associated mesh boundary identifier
+
   contains
+
     procedure :: Init_SpectralElementBoundaryVariable_3D => Init_SEBV
     procedure :: GetSlice
-    procedure :: Extract
+
+    generic :: Extract => Extract_SEV, Extract_MVA, Extract_MVS
+    procedure, private :: Extract_SEV, Extract_MVA, Extract_MVS
+
     procedure :: ExtractNormalComponent
-    generic   :: CopyToElementFaceVariable => CopyToEFV_S, CopyToEFV_A
+
+    generic :: CopyToElementFaceVariable => CopyToEFV_S, CopyToEFV_A
     procedure, private :: CopyToEFV_S, CopyToEFV_A
+
   end type SpectralElementBoundaryVariable_3D
 
   ! constructor
@@ -185,14 +193,36 @@ contains
   !>
   !> `this` must be properly initialized on input!
 
-  impure elemental subroutine Extract(this, sev, boundary)
+  impure elemental subroutine Extract_SEV(this, sev, boundary)
     class(SpectralElementBoundaryVariable_3D), target, intent(inout) :: this
     class(SpectralElementVariable_3D), intent(in) :: sev
     class(MeshBoundary_3D), intent(in) :: boundary
 
+    associate(v => sev % val, vb => this % val)
+
+      if (size(v,5) > 1) then
+        call Extract_MVA(this, v, boundary)
+      else
+        call Extract_MVS(this, v(:,:,:,:,1), boundary)
+      end if
+
+    end associate
+
+  end subroutine Extract_SEV
+
+  !-----------------------------------------------------------------------------
+  !> Extract boundary variable from array-valued mesh variable
+  !>
+  !> `this` must be properly initialized on input!
+
+  subroutine Extract_MVA(this, v, boundary)
+    class(SpectralElementBoundaryVariable_3D), target, intent(inout) :: this
+    real(RNP), contiguous,  intent(in) :: v(0:,0:,0:,:,:)
+    class(MeshBoundary_3D), intent(in) :: boundary
+
     integer :: c, e, f, i, j, k, m, nc, po
 
-    associate(v => sev % val, vb => this % val)
+    associate(vb => this % val)
 
       po = ubound(v,1)
       nc = ubound(v,5)
@@ -208,39 +238,70 @@ contains
         case(1,2)
           i = (m - 1) * po
           do c = 1, nc
-          do k = 0, po
-          do j = 0, po
-            vb(j,k,f,c) = v(i,j,k,e,c)
-          end do
-          end do
+            vb(:,:,f,c) = v(i,:,:,e,c)
           end do
 
         case(3,4)
           j = (m - 3) * po
           do c = 1, nc
-          do k = 0, po
-          do i = 0, po
-            vb(i,k,f,c) = v(i,j,k,e,c)
-          end do
-          end do
+            vb(:,:,f,c) = v(:,j,:,e,c)
           end do
 
         case(5,6)
           k = (m - 5) * po
           do c = 1, nc
-          do j = 0, po
-          do i = 0, po
-            vb(i,j,f,c) = v(i,j,k,e,c)
+            vb(:,:,f,c) = v(:,:,k,e,c)
           end do
-          end do
-            end do
 
         end select
 
       end do
     end associate
 
-  end subroutine Extract
+  end subroutine Extract_MVA
+
+  !-----------------------------------------------------------------------------
+  !> Extract boundary variable from scalar mesh variable
+  !>
+  !> `this` must be properly initialized on input!
+
+  subroutine Extract_MVS(this, v, boundary)
+    class(SpectralElementBoundaryVariable_3D), target, intent(inout) :: this
+    real(RNP), contiguous, intent(in) :: v(0:,0:,0:,:)
+    class(MeshBoundary_3D), intent(in) :: boundary
+
+    integer :: e, f, i, j, k, m, po
+
+    associate(vb => this % val)
+
+      po = ubound(v,1)
+
+      !$omp do
+      do f = 1, boundary % n_face
+
+        e = boundary % face(f) % element_id
+        m = boundary % face(f) % element_face
+
+        select case(m)
+
+        case(1,2)
+          i = (m - 1) * po
+          vb(:,:,f,1) = v(i,:,:,e)
+
+        case(3,4)
+          j = (m - 3) * po
+          vb(:,:,f,1) = v(:,j,:,e)
+
+        case(5,6)
+          k = (m - 5) * po
+          vb(:,:,f,1) = v(:,:,k,e)
+
+        end select
+
+      end do
+    end associate
+
+  end subroutine Extract_MVS
 
   !-----------------------------------------------------------------------------
   !> Extract the normal component of a spectral-element vector
