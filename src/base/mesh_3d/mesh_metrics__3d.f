@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !> @todo
-!>   *  replace `TPO_Grad_S` by optimized external procedure
+!>   - more efficient (separate) treatment of regular meshes
 !===============================================================================
 
 module Mesh_Metrics__3D
@@ -20,8 +20,7 @@ module Mesh_Metrics__3D
   !> 3D mesh metrics
   !>
   !> Provides the mesh points and metric coefficients for all elements of the
-  !> given partition. If the mesh is regular, the coefficients are constant
-  !> and, therefore, generated only for the first element.
+  !> given partition.
   !>
   !> ### Components referring to points 'i,j,k' in element `e`
   !>
@@ -81,9 +80,6 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Initialization of mesh metrics
-  !>
-  !> Note that for a regular mesh the metric coefficients are constant and hence
-  !> generated only for the first element.
 
   subroutine Init_MeshMetrics_3D(this, mesh, std_op)
     class(MeshMetrics_3D),       intent(inout) :: this
@@ -92,7 +88,7 @@ contains
 
     ! local variables ..........................................................
 
-    real(RNP), allocatable :: Ds_t(:,:), grad_x(:,:,:,:,:)
+    real(RNP), allocatable :: Dt(:,:), grad_x(:,:,:,:,:)
     real(RNP) :: a, c, Jd, Jm(3,3), Ji(3,3), n(3)
     integer   :: e, f, i, j, k, p, q, np, ne
 
@@ -100,13 +96,10 @@ contains
 
       ! basic initialization ...................................................
 
-      call mesh % GetPoints(po, std_op % basis, this % x)
+      np = po + 1
+      ne = mesh % n_elem
 
-      if (mesh % regular) then
-        ne = 1
-      else
-        ne = mesh % n_elem
-      end if
+      call mesh % GetPoints(po, std_op % basis, this % x)
 
       allocate( this % Jm (0:po,0:po,0:po,ne,3,3) )
       allocate( this % Ji (0:po,0:po,0:po,ne,3,3) )
@@ -118,19 +111,18 @@ contains
       allocate( this % Ji_n (0:po,0:po,6,ne,3) )
 
       ! auxiliary data
-      allocate(Ds_t(0:po,0:po), grad_x(0:po,0:po,0:po,3,3))
-      np = po + 1
+      allocate(Dt(0:po,0:po), grad_x(0:po,0:po,0:po,3,3))
 
-      Ds_t = transpose(std_op % D)
+      Dt = transpose(std_op % D)
 
-      !!$omp do -- not yet
+      !$omp do
       do e = 1, ne
 
         ! grad_x = dx/dξ .......................................................
 
-        call TPO_Grad_S(np, Ds_t, this % x(:,:,:,e,1), grad_x(:,:,:,:,1))
-        call TPO_Grad_S(np, Ds_t, this % x(:,:,:,e,2), grad_x(:,:,:,:,2))
-        call TPO_Grad_S(np, Ds_t, this % x(:,:,:,e,3), grad_x(:,:,:,:,3))
+        call TPO_Grad_X(np, Dt, this % x(:,:,:,e,1), grad_x(:,:,:,:,1))
+        call TPO_Grad_X(np, Dt, this % x(:,:,:,e,2), grad_x(:,:,:,:,2))
+        call TPO_Grad_X(np, Dt, this % x(:,:,:,e,3), grad_x(:,:,:,:,3))
 
         ! volume metrics .......................................................
 
@@ -315,13 +307,13 @@ contains
   end subroutine Init_MeshMetrics_3D
 
   !-----------------------------------------------------------------------------
-  !> Standard element gradient -- to be replaced by optimized TPO routine
+  !> Standard element gradient
 
-  subroutine TPO_Grad_S(np, Ds_t, u, v)
-    integer,   intent(in)  :: np             !< num points per direction
-    real(RNP), intent(in)  :: Ds_t(np, np)   !< transposed standard diff matrix
-    real(RNP), intent(in)  :: u (np,np,np)   !< scalar element variable
-    real(RNP), intent(out) :: v (np,np,np,3) !< gradient of u
+  pure subroutine TPO_Grad_X(np, Dt, x, g)
+    integer,   intent(in)  :: np            !< num points per direction
+    real(RNP), intent(in)  :: Dt(np,np)     !< transposed standard diff matrix
+    real(RNP), intent(in)  :: x(np,np,np)   !< scalar element variable
+    real(RNP), intent(out) :: g(np,np,np,3) !< gradient of x
 
     integer :: i, j, k, p
 
@@ -330,11 +322,11 @@ contains
     do k = 1, np
     do j = 1, np
     do i = 1, np
-      v(i,j,k,1) = 0
-      v(i,j,k,2) = 0
+      g(i,j,k,1) = 0
+      g(i,j,k,2) = 0
       do p = 1, np
-        v(i,j,k,1) = v(i,j,k,1) + Ds_t(p,i) * u(p,j,k)
-        v(i,j,k,2) = v(i,j,k,2) + Ds_t(p,j) * u(i,p,k)
+        g(i,j,k,1) = g(i,j,k,1) + Dt(p,i) * x(p,j,k)
+        g(i,j,k,2) = g(i,j,k,2) + Dt(p,j) * x(i,p,k)
       end do
     end do
     end do
@@ -345,15 +337,15 @@ contains
     do k = 1, np
     do j = 1, np
     do i = 1, np
-      v(i,j,k,3) = 0
+      g(i,j,k,3) = 0
       do p = 1, np
-        v(i,j,k,3) =  v(i,j,k,3) + Ds_t(p,k) * u(i,j,p)
+        g(i,j,k,3) =  g(i,j,k,3) + Dt(p,k) * x(i,j,p)
       end do
     end do
     end do
     end do
 
-  end subroutine TPO_Grad_S
+  end subroutine TPO_Grad_X
 
   !=============================================================================
 
