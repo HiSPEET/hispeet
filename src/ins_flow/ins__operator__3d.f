@@ -14,6 +14,8 @@ module INS__Operator__3D
   use Execution_Control
   use XMPI
 
+  use TPO__INS_Convection__3D
+
   use Standard_Operators__1D
   use Embedded_Interpolation__1D
   use DG__Element_Operators__1D
@@ -61,22 +63,18 @@ module INS__Operator__3D
 
   contains
 
-    generic :: Init => Init_INS_Operator_3D
-    procedure, private :: Init_INS_Operator_3D
-
+    procedure :: Init_INS_Operator_3D
     procedure :: SetVelocityBC
     procedure :: PressureSolver
-
-    generic :: GetDiffusionTerm => GetDiffusionTerm_C
-    procedure, private :: GetDiffusionTerm_C
-
-    generic :: ApplyDiffusionOperator => ApplyDiffusionOperator_C
-    procedure, private :: ApplyDiffusionOperator_C
-
-    generic :: GetDiffusionResidual => GetDiffusionResidual_C
-    procedure, private :: GetDiffusionResidual_C
-
+    procedure :: GetConvectionTerm
+    generic   :: GetDiffusionTerm       => GetDiffusionTerm_C
+    generic   :: ApplyDiffusionOperator => ApplyDiffusionOperator_C
+    generic   :: GetDiffusionResidual   => GetDiffusionResidual_C
     procedure :: DiffusionSolver
+
+    procedure, private :: GetDiffusionTerm_C
+    procedure, private :: ApplyDiffusionOperator_C
+    procedure, private :: GetDiffusionResidual_C
 
   end type INS_Operator_3D
 
@@ -306,6 +304,35 @@ contains
   !-----------------------------------------------------------------------------
   !> Diffusion term with constant viscosity
 
+  subroutine GetConvectionTerm(this, v, vp, F_c)
+    class(INS_Operator_3D), intent(in) :: this
+    real(RNP), contiguous, intent(in)  :: v(:,:,:,:,:)   !< velocity
+    real(RNP), contiguous, intent(in)  :: vp(:,:,:,:,:)  !< outer velocity v⁺
+    real(RNP), contiguous, intent(out) :: F_c(:,:,:,:,:) !< convection term
+
+!   if (this % mesh % regular) then
+!     not implemented yet
+!   else
+      call TPO_INS_Convection( nv   = this % eop_v % po + 1       &
+                             , nq   = this % sop_q % po + 1       &
+                             , ne   = this % mesh % n_elem        &
+                             , D_v  = this % eop_v  % D           &
+                             , I_vq = this % iop_vq % A           &
+                             , w_q  = this % sop_q  % w           &
+                             , Jd_q = this % sem_q % metrics % Jd &
+                             , Ji_q = this % sem_q % metrics % Ji &
+                             , a_q  = this % sem_q % metrics % a  &
+                             , n_q  = this % sem_q % metrics % n  &
+                             , v    = v                           &
+                             , vp   = vp                          &
+                             , F_c  = F_c                         )
+!   end if
+
+  end subroutine GetConvectionTerm
+
+  !-----------------------------------------------------------------------------
+  !> Diffusion term with constant viscosity
+
   subroutine GetDiffusionTerm_C(this, v, vp, sp, F_d)
 
     class(INS_Operator_3D), intent(in) :: this
@@ -327,12 +354,11 @@ contains
     real(RNP), contiguous, intent(out) :: F_d(:,:,:,:,:)
     !< diffusion term (np,np,np,ne,3)
 
-    if (this % mesh % regular) then
-      ! not implemented yet
-      F_d = 0
-    else
+!   if (this % mesh % regular) then
+!     not implemented yet
+!   else
       call GetDiffusionTerm_DC(this, v, vp, sp, F_d)
-    end if
+!   end if
 
   end subroutine GetDiffusionTerm_C
 
