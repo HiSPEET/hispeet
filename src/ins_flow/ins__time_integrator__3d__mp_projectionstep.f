@@ -7,6 +7,7 @@
 !>   - validate
 !>   - revise interface
 !>   - add standby mode
+!>   - possibly find a better name
 !===============================================================================
 
 submodule (INS__Time_Integrator__3D) MP_ProjectionStep
@@ -30,13 +31,23 @@ contains
     ! arguments ................................................................
 
     class(INS_TimeIntegrator_3D), intent(in) :: this
+
     real(RNP), intent(in) :: tau
+    !< τ, effective time step width
     real(RNP), contiguous, intent(in) :: v_0(:,:,:,:,:)
+    !< v₀, effective initial value of velocity
     real(RNP), contiguous, intent(in) :: F_c(:,:,:,:,:)
+    !< convective term at final time t
     real(RNP), contiguous, intent(in) :: F_d(:,:,:,:,:)
-    real(RNP), contiguous, intent(in) :: Q  (:,:,:,:,:)
+    !< diffusion term at final time t
+    real(RNP), contiguous, intent(in) :: Q(:,:,:,:,:)
+    !< sources at time t, older contributions and possibly correction terms
     class(SpectralElementBoundaryVariable_3D), intent(inout) :: bv_u(:)
-    real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
+    !< boundary values at final time t
+    !!   - for velocity, to be given in components 1-3 on input, and
+    !!   - for pressure, returned in component 4 on output
+    real(RNP), contiguous, intent(out) :: u(:,:,:,:,:)
+    !< u = [v, p], velocity and pressure at final time u
 
     integer :: i_max_p !< max num iterations of pressure solver
     integer :: i_max_v !< max num iterations of viscous diffusion solver
