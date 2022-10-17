@@ -28,6 +28,10 @@ module INS__Time_Integrator__Euler__3D
   !> Euler method for incompressible flows
 
   type, extends(INS_TimeIntegrator_3D) :: INS_TimeIntegrator_Euler_3D
+    integer   :: i_max_p !< max num p-iterations   in projection step
+    integer   :: i_max_v !< max num v-iterations   in projection step
+    real(RNP) :: r_red   !< min residual reduction in projection step, if > 0
+    real(RNP) :: r_max   !< max residual to reach  in projection step, if > 0
   contains
     procedure, non_overridable :: Init_INS_TimeIntegrator_Euler_3D
     procedure :: TimeStep
@@ -43,6 +47,12 @@ module INS__Time_Integrator__Euler__3D
 
   type, extends(INS_TimeIntegratorOptions_3D) :: &
     INS_TimeIntegrator_Euler_Options_3D
+    integer   :: i_max_p = 5 !< max num p-iterations   in projection step
+    integer   :: i_max_v = 2 !< max num v-iterations   in projection step
+    real(RNP) :: r_red   = 0 !< min residual reduction in projection step, if > 0
+    real(RNP) :: r_max   = 0 !< max residual to reach  in projection step, if > 0
+  contains
+    procedure :: Bcast => Bcast_INS_TimeIntegrator_Euler_3D
   end type INS_TimeIntegrator_Euler_Options_3D
 
 contains
@@ -71,7 +81,12 @@ contains
 
     ! intialize parent type
     call this % Init_INS_TimeIntegrator_3D(problem, ins_op, opt)
-    this % name = 'Euler method'
+
+    this % name    = 'Euler method'
+    this % i_max_p = opt % i_max_p
+    this % i_max_v = opt % i_max_v
+    this % r_red   = opt % r_red
+    this % r_max   = opt % r_max
 
   end subroutine Init_INS_TimeIntegrator_Euler_3D
 
@@ -151,7 +166,7 @@ contains
       ! viscous and convective RHS .............................................
       ! so far ν is constant and boundaries are periodic or have Dirichlet BC
 
-      call ins_op % SetVelocityBC(bv_v, vp, sp)
+      call ins_op % SetVelocityBC(bv_u, vp, sp)
       call ins_op % GetDiffusionTerm(v, vp, sp, F_d)
       call ins_op % GetConvectionTerm(v, vp, F_c)
 
@@ -165,8 +180,9 @@ contains
 
       ! extrapolation-projection-diffusion step ................................
 
-      call this % ProjectionStep( tau, v_0, F_c, F_d, Q, bv_u, u &
-                                , i_max_p, i_max_v, r_red, r_max )
+      call this % ProjectionStep( dt, v_0, F_c, F_d, Q, bv_u, u  &
+                                , this % i_max_p, this % i_max_v &
+                                , this % r_red  , this % r_max   )
 
       ! cleanup ................................................................
 
@@ -181,6 +197,34 @@ contains
     end associate
 
   end subroutine TimeStep
+
+  !=============================================================================
+  ! TBP of INS_TimeIntegrator_Euler_Options_3D
+
+
+  !-----------------------------------------------------------------------------
+  !> MPI broadcasting of Euler time-integrator options
+
+  subroutine Bcast_INS_TimeIntegrator_Euler_3D(this, root, comm)
+    class(INS_TimeIntegrator_Euler_Options_3D), intent(inout) :: this
+    integer,        intent(in) :: root !< rank of broadcast root
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
+
+    type(MPI_Request) :: request(4)
+    type(MPI_Status)  :: stat(size(request))
+    integer :: n
+
+    call this % INS_TimeIntegratorOptions_3D % Bcast(root, comm)
+
+    n = 1
+    call XMPI_Ibcast( this % i_max_p, root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % i_max_v, root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % r_red  , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % r_max  , root, comm, request(n) )
+
+    call MPI_Waitall( n, request, stat )
+
+  end subroutine Bcast_INS_TimeIntegrator_Euler_3D
 
   !=============================================================================
 
