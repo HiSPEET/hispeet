@@ -163,10 +163,10 @@ endif ()
 #===============================================================================
 # variables_3d
 
-set( VARIABLES_3D variables_3d/spectral_element_variable__3d.f
-                  variables_3d/spectral_element_scalar__3d.f
-                  variables_3d/spectral_element_vector__3d.f
-                  variables_3d/spectral_element_boundary_variable__3d.f
+set( VARIABLES_3D variables_3d/sem__variable__3d.f
+                  variables_3d/sem__scalar__3d.f
+                  variables_3d/sem__vector__3d.f
+                  variables_3d/sem__boundary_variable__3d.f
                   )
 
 #===============================================================================

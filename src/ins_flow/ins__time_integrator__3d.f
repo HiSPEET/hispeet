@@ -8,6 +8,7 @@ module INS__Time_Integrator__3D
   use Kind_Parameters
   use Constants
   use XMPI
+  use SEM__Boundary_Variable__3D
   use INS__Problem__3D
   use INS__Operator__3D
   implicit none
@@ -27,9 +28,41 @@ module INS__Time_Integrator__3D
     character(len=80) :: name = ''  !< time-integrator name
 
   contains
-    procedure, non_overridable :: Init_INS_TimeIntegrator_3D
+    procedure, non_overridable    :: Init_INS_TimeIntegrator_3D
+    procedure                     :: ProjectionStep
     procedure(TimeStep), deferred :: TimeStep
   end type INS_TimeIntegrator_3D
+
+  !=============================================================================
+  ! external module procedures
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> extrapolation-projection-diffusion step for incompressible flow
+
+    module subroutine ProjectionStep( this, tau, v_0, F_c, F_d, Q, bv_u, u &
+                                    , i_max_p, i_max_v, r_red, r_max       )
+
+      class(INS_TimeIntegrator_3D),   intent(in)    :: this
+      real(RNP),                      intent(in)    :: tau
+      real(RNP), contiguous,          intent(in)    :: v_0(:,:,:,:,:)
+      real(RNP), contiguous,          intent(in)    :: F_c(:,:,:,:,:)
+      real(RNP), contiguous,          intent(in)    :: F_d(:,:,:,:,:)
+      real(RNP), contiguous,          intent(in)    :: Q(:,:,:,:,:)
+      class(SEM_BoundaryVariable_3D), intent(inout) :: bv_u(:)
+      real(RNP), contiguous,          intent(out)   :: u(:,:,:,:,:)
+      integer,                        intent(in)    :: i_max_p
+      integer,                        intent(in)    :: i_max_v
+      real(RNP),            optional, intent(in)    :: r_red
+      real(RNP),            optional, intent(in)    :: r_max
+
+    end subroutine ProjectionStep
+
+  end interface
+
+  !=============================================================================
+  ! deferred module procedures
 
   abstract interface
 

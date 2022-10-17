@@ -4,14 +4,14 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Spectral_Element_Scalar__3D
+module SEM__Scalar__3D
   use Kind_Parameters, only: RNP
   use Spectral_Element_Mesh__3D
-  use Spectral_Element_Variable__3D
+  use SEM__Variable__3D
   implicit none
   private
 
-  public :: SpectralElementScalar_3D
+  public :: SEM_Scalar_3D
 
   !-----------------------------------------------------------------------------
   !> 3D spectral element scalar variable
@@ -21,13 +21,13 @@ module Spectral_Element_Scalar__3D
   !> and can be created using either from scratch, by slicing a spectral element
   !> variable or by wrapping a scalar mesh variable.
 
-  type, extends(SpectralElementVariable_3D) :: SpectralElementScalar_3D
+  type, extends(SEM_Variable_3D) :: SEM_Scalar_3D
   contains
     procedure :: GetVolumeIntegral
-  end type SpectralElementScalar_3D
+  end type SEM_Scalar_3D
 
   ! constructor
-  interface SpectralElementScalar_3D
+  interface SEM_Scalar_3D
     module procedure New_Scratch
     module procedure New_Slice
     module procedure New_Wrap
@@ -43,9 +43,9 @@ contains
 
   function New_Scratch(sem) result(this)
     class(SpectralElementMesh_3D), target, intent(in) :: sem
-    type(SpectralElementScalar_3D) :: this
+    type(SEM_Scalar_3D) :: this
 
-    call this % Init_SpectralElementVariable_3D(sem, nc = 1)
+    call this % Init_SEM_Variable_3D(sem, nc = 1)
 
   end function New_Scratch
 
@@ -53,10 +53,10 @@ contains
   !> New spectral element scalar generated from slice
 
   function New_Slice(sev, comp, copy) result(this)
-    class(SpectralElementVariable_3D), target, intent(in)  :: sev
+    class(SEM_Variable_3D), target, intent(in)  :: sev
     integer,           intent(in) :: comp !< selected component
     logical, optional, intent(in) :: copy !< copy into fresh memory [F]
-    type(SpectralElementScalar_3D) :: this
+    type(SEM_Scalar_3D) :: this
 
     call sev % GetSlice(this, comp, comp, copy)
 
@@ -68,7 +68,7 @@ contains
   function New_Wrap(sem, u) result(this)
     class(SpectralElementMesh_3D), target, intent(in) :: sem
     real(RNP), contiguous, intent(in) :: u(0:,0:,0:,:)
-    type(SpectralElementScalar_3D) :: this
+    type(SEM_Scalar_3D) :: this
 
     this % sem => sem
     call MapVariable(sem % std_op % po, sem % mesh % n_elem, u, this % val)
@@ -88,7 +88,7 @@ contains
   !> includes the inactive (empty) partitions.
 
   subroutine GetVolumeIntegral(this, vi, scope)
-    class(SpectralElementScalar_3D), intent(in) :: this
+    class(SEM_Scalar_3D), intent(in) :: this
     real(RNP), intent(out) :: vi !< volume integral
     character(len=*), optional, intent(in) :: scope !< scope of collect MPI ops
 
@@ -117,4 +117,4 @@ contains
 
   !=============================================================================
 
-end module Spectral_Element_Scalar__3D
+end module SEM__Scalar__3D

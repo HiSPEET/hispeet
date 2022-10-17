@@ -7,14 +7,12 @@
 module INS__Time_Integrator__Euler__3D
   use Kind_Parameters
   use Constants
+  use Array_Assignments
   use XMPI
 
   use Trace_Operators__3D
   use Element_Face_Transfer_Buffer__3D
-  use Spectral_Element_Boundary_Variable__3D
-
-  use TPO__Div__3D_D             ! replace with generic module once available
-  use TPO__INS_Convection__3D
+  use SEM__Boundary_Variable__3D
 
   use INS__Time_Integrator__3D
   use INS__Problem__3D
@@ -94,16 +92,19 @@ contains
     real(RNP), allocatable, save :: F_c(:,:,:,:,:) ! convection term
     real(RNP), allocatable, save :: F_d(:,:,:,:,:) ! viscous diffusion term
     real(RNP), allocatable, save :: Q  (:,:,:,:,:) ! source term
+    real(RNP), allocatable, save :: vp (:,:,:,:,:) ! outer velocity traces v⁺
+    real(RNP), allocatable, save :: sp (:,:,:,:,:) ! outer viscous flux traces s⁺
 
     ! boundary points and values
-    type(SpectralElementBoundaryVariable_3D), allocatable, save :: bv_x, bv_u
+    type(SEM_BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:)
 
     integer :: b, e, d, np
 
     associate( problem => this % problem        &
              , ins_op  => this % ins_op         &
              , mesh    => this % ins_op % mesh  &
-             , sem_v   => this % ins_op % sem_v )
+             , sem_v   => this % ins_op % sem_v &
+             , v       => u(:,:,:,:,1:3)        )
 
       ! initialization .........................................................
 
@@ -115,8 +116,10 @@ contains
       allocate( F_c   (np, np, np, mesh % n_elem, 3), source = ZERO )
       allocate( F_d   (np, np, np, mesh % n_elem, 3), source = ZERO )
       allocate( Q     (np, np, np, mesh % n_elem, 3), source = ZERO )
-      bv_x = SpectralElementBoundaryVariable_3D(sem_v, mesh % boundary, nc = 3)
-      bv_u = SpectralElementBoundaryVariable_3D(sem_v, mesh % boundary, nc = 4)
+      allocate( vp    (np, np,  6, mesh % n_elem, 3), source = ZERO )
+      allocate( sp    (np, np,  6, mesh % n_elem, 3), source = ZERO )
+      bv_x = SEM_BoundaryVariable_3D(sem_v, mesh % boundary, nc = 3)
+      bv_u = SEM_BoundaryVariable_3D(sem_v, mesh % boundary, nc = 4)
       !$omp end master
       !$omp barrier
 
@@ -127,7 +130,7 @@ contains
       !$omp end workshare  !?! nowait
 
       ! initial velocity
-      call SetArray(v0, u(:,:,:,:,1:3), multi = .true.)
+      call SetArray(v_0, v, multi = .true.)
 
       ! final time
       t = t + dt
@@ -141,7 +144,7 @@ contains
       ! also think about reusing
 
       do b = 1, mesh % n_bound
-        call bv_x(b) % Extract(sem_v % x, mesh % boundary(b))
+        call bv_x(b) % Extract(sem_v % metrics % x, mesh % boundary(b))
         call problem % GetBoundaryValues(b, bv_x(b) % val, t, bv_u(b) % val)
       end do
 
@@ -153,7 +156,7 @@ contains
       call ins_op % GetConvectionTerm(v, vp, F_c)
 
       !$omp do
-      do e = 1, n_elem
+      do e = 1, mesh % n_elem
         do d = 1, 3
           F_c(:,:,:,e,d) = inv_M(:,:,:,e) * F_c(:,:,:,e,d)
           F_d(:,:,:,e,d) = inv_M(:,:,:,e) * F_d(:,:,:,e,d)
@@ -172,7 +175,7 @@ contains
       end if
 
       !$omp master
-      deallocate(inv_M, v_0, F_c, F_d, Q)
+      deallocate(inv_M, v_0, F_c, F_d, Q, vp, sp)
       !$omp end master
 
     end associate

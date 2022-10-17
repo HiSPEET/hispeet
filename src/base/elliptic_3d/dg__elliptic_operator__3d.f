@@ -16,7 +16,7 @@ module DG__Elliptic_Operator__3D
   use DG__Element_Operators__1D
   use DG__Schwarz_Operator__3D
   use Spectral_Element_Mesh__3D
-  use Spectral_Element_Boundary_Variable__3D
+  use SEM__Boundary_Variable__3D
 
   !-----------------------------------------------------------------------------
   !> Base type for scalar diffusion operators for 3D DG-SEM
@@ -73,7 +73,7 @@ module DG__Elliptic_Operator__3D
       real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
       real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
       real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
-      class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
+      class(SEM_BoundaryVariable_3D), optional, intent(in) :: bv(:)
     end subroutine Eval_RC
 
     !---------------------------------------------------------------------------
@@ -86,7 +86,7 @@ module DG__Elliptic_Operator__3D
       real(RNP), contiguous,           intent(in)  :: u (:,:,:,:) !< operand
       real(RNP), contiguous,           intent(out) :: r (:,:,:,:) !< result
       real(RNP), contiguous, optional, intent(in)  :: f (:,:,:,:) !< RHS
-      class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
+      class(SEM_BoundaryVariable_3D), optional, intent(in) :: bv(:)
     end subroutine Eval_RV
 
     !---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ module DG__Elliptic_Operator__3D
       real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
       real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
       real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
-      class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
+      class(SEM_BoundaryVariable_3D), optional, intent(in) :: bv(:)
     end subroutine Eval_DC
 
     !---------------------------------------------------------------------------
@@ -108,17 +108,17 @@ module DG__Elliptic_Operator__3D
     module subroutine CG_Method_X( this, lambda, nu_c, nu_v, u, f, bv &
                                  , i_max, r_red, r_max, ni            )
 
-      class(DG_EllipticOperator_3D),             intent(in)    :: this
-      real(RNP),                                 intent(in)    :: lambda
-      real(RNP),                       optional, intent(in)    :: nu_c
-      real(RNP), contiguous,           optional, intent(in)    :: nu_v(:,:,:,:)
-      real(RNP), contiguous,                     intent(inout) :: u(:,:,:,:)
-      real(RNP), contiguous,                     intent(in)    :: f(:,:,:,:)
-      class(SpectralElementBoundaryVariable_3D), intent(in)    :: bv(:)
-      integer,                                   intent(in)    :: i_max
-      real(RNP),                       optional, intent(in)    :: r_red
-      real(RNP),                       optional, intent(in)    :: r_max
-      integer,                         optional, intent(out)   :: ni
+      class(DG_EllipticOperator_3D),   intent(in)    :: this
+      real(RNP),                       intent(in)    :: lambda
+      real(RNP),             optional, intent(in)    :: nu_c
+      real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:)
+      real(RNP), contiguous,           intent(inout) :: u(:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: f(:,:,:,:)
+      class(SEM_BoundaryVariable_3D),  intent(in)    :: bv(:)
+      integer,                         intent(in)    :: i_max
+      real(RNP),             optional, intent(in)    :: r_red
+      real(RNP),             optional, intent(in)    :: r_max
+      integer,               optional, intent(out)   :: ni
 
     end subroutine CG_Method_X
 
@@ -128,17 +128,17 @@ module DG__Elliptic_Operator__3D
     module subroutine Schwarz_Method_X( this, lambda, nu_c, nu_v, u, f, bv &
                                       , i_max, r_red, r_max, ni            )
 
-      class(DG_EllipticOperator_3D),             intent(in)    :: this
-      real(RNP),                                 intent(in)    :: lambda
-      real(RNP),                       optional, intent(in)    :: nu_c
-      real(RNP), contiguous,           optional, intent(in)    :: nu_v(:,:,:,:)
-      real(RNP), contiguous,                     intent(inout) :: u(:,:,:,:)
-      real(RNP), contiguous,                     intent(in)    :: f(:,:,:,:)
-      class(SpectralElementBoundaryVariable_3D), intent(in)    :: bv(:)
-      integer,                                   intent(in)    :: i_max
-      real(RNP),                       optional, intent(in)    :: r_red
-      real(RNP),                       optional, intent(in)    :: r_max
-      integer,                         optional, intent(out)   :: ni
+      class(DG_EllipticOperator_3D),   intent(in)    :: this
+      real(RNP),                       intent(in)    :: lambda
+      real(RNP),             optional, intent(in)    :: nu_c
+      real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:)
+      real(RNP), contiguous,           intent(inout) :: u(:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: f(:,:,:,:)
+      class(SEM_BoundaryVariable_3D),  intent(in)    :: bv(:)
+      integer,                         intent(in)    :: i_max
+      real(RNP),             optional, intent(in)    :: r_red
+      real(RNP),             optional, intent(in)    :: r_max
+      integer,               optional, intent(out)   :: ni
 
     end subroutine Schwarz_Method_X
 
@@ -148,17 +148,17 @@ module DG__Elliptic_Operator__3D
     module subroutine SchwarzPCG_Method_X( this, lambda, nu_c, nu_v, u, f, bv &
                                          , i_max, r_red, r_max, ni            )
 
-      class(DG_EllipticOperator_3D),             intent(in)    :: this
-      real(RNP),                                 intent(in)    :: lambda
-      real(RNP),                       optional, intent(in)    :: nu_c
-      real(RNP), contiguous,           optional, intent(in)    :: nu_v(:,:,:,:)
-      real(RNP), contiguous,                     intent(inout) :: u(:,:,:,:)
-      real(RNP), contiguous,                     intent(in)    :: f(:,:,:,:)
-      class(SpectralElementBoundaryVariable_3D), intent(in)    :: bv(:)
-      integer,                                   intent(in)    :: i_max
-      real(RNP),                       optional, intent(in)    :: r_red
-      real(RNP),                       optional, intent(in)    :: r_max
-      integer,                         optional, intent(out)   :: ni
+      class(DG_EllipticOperator_3D),   intent(in)    :: this
+      real(RNP),                       intent(in)    :: lambda
+      real(RNP),             optional, intent(in)    :: nu_c
+      real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:)
+      real(RNP), contiguous,           intent(inout) :: u(:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: f(:,:,:,:)
+      class(SEM_BoundaryVariable_3D),  intent(in)    :: bv(:)
+      integer,                         intent(in)    :: i_max
+      real(RNP),             optional, intent(in)    :: r_red
+      real(RNP),             optional, intent(in)    :: r_max
+      integer,               optional, intent(out)   :: ni
 
     end subroutine SchwarzPCG_Method_X
 
@@ -255,13 +255,13 @@ contains
   !> Residual for constant diffusivity
 
   subroutine Residual_C(this, lambda, nu, f, bv, u, r)
-    class(DG_EllipticOperator_3D), intent(in)  :: this
-    real(RNP),                     intent(in)  :: lambda           !< λ
-    real(RNP),                     intent(in)  :: nu               !< ν
-    real(RNP), contiguous,         intent(in)  :: f(:,:,:,:)       !< RHS
-    real(RNP), contiguous,         intent(in)  :: u(:,:,:,:)       !< operand
-    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:) !< bnd values
-    real(RNP), contiguous,         intent(out) :: r(:,:,:,:)       !< result
+    class(DG_EllipticOperator_3D),  intent(in)  :: this
+    real(RNP),                      intent(in)  :: lambda     !< λ
+    real(RNP),                      intent(in)  :: nu         !< ν
+    real(RNP), contiguous,          intent(in)  :: f(:,:,:,:) !< RHS
+    real(RNP), contiguous,          intent(in)  :: u(:,:,:,:) !< operand
+    class(SEM_BoundaryVariable_3D), intent(in)  :: bv(:)      !< boundary values
+    real(RNP), contiguous,          intent(out) :: r(:,:,:,:) !< result
 
     if (this % sem % mesh % regular) then
       call Eval_RC(this, lambda, nu, u, r, f, bv)
@@ -275,13 +275,13 @@ contains
   !> Residual for variable diffusivity
 
   subroutine Residual_V(this, lambda, nu, f, bv, u, r)
-    class(DG_EllipticOperator_3D), intent(in)  :: this
-    real(RNP),                     intent(in)  :: lambda           !< λ
-    real(RNP), contiguous,         intent(in)  :: nu(:,:,:,:)      !< ν
-    real(RNP), contiguous,         intent(in)  :: u (:,:,:,:)      !< operand
-    real(RNP), contiguous,         intent(in)  :: f (:,:,:,:)      !< RHS
-    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:) !< bnd values
-    real(RNP), contiguous,         intent(out) :: r (:,:,:,:)      !< result
+    class(DG_EllipticOperator_3D),  intent(in)  :: this
+    real(RNP),                      intent(in)  :: lambda      !< λ
+    real(RNP), contiguous,          intent(in)  :: nu(:,:,:,:) !< ν
+    real(RNP), contiguous,          intent(in)  :: u (:,:,:,:) !< operand
+    real(RNP), contiguous,          intent(in)  :: f (:,:,:,:) !< RHS
+    class(SEM_BoundaryVariable_3D), intent(in)  :: bv(:)       !< boundary values
+    real(RNP), contiguous,          intent(out) :: r (:,:,:,:) !< result
 
     if (this % sem % mesh % regular) then
       call Eval_RV(this, lambda, nu, u, r, f, bv)
@@ -305,7 +305,7 @@ contains
     real(RNP), contiguous, intent(in)    :: f(:,:,:,:) !< right hand side
 
     !> boundary values matching the specified conditions
-    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:)
+    class(SEM_BoundaryVariable_3D), intent(in) :: bv(:)
 
     integer,             intent(in)    :: i_max  !< max num iterations
     real(RNP), optional, intent(in)    :: r_red  !< min residual reduction
@@ -330,7 +330,7 @@ contains
     real(RNP), contiguous, intent(in)    :: f (:,:,:,:) !< right hand side
 
     !> boundary values matching the specified conditions
-    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:)
+    class(SEM_BoundaryVariable_3D), intent(in) :: bv(:)
 
     integer,             intent(in)    :: i_max  !< max num iterations
     real(RNP), optional, intent(in)    :: r_red  !< min residual reduction
@@ -356,7 +356,7 @@ contains
     real(RNP), contiguous, intent(in)    :: f(:,:,:,:) !< right hand side
 
     !> boundary values matching the specified conditions
-    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:)
+    class(SEM_BoundaryVariable_3D), intent(in) :: bv(:)
 
     integer,             intent(in)    :: i_max  !< max num iterations
     real(RNP), optional, intent(in)    :: r_red  !< min residual reduction
@@ -382,7 +382,7 @@ contains
     real(RNP), contiguous, intent(in)    :: f (:,:,:,:) !< right hand side
 
     !> boundary values matching the specified conditions
-    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:)
+    class(SEM_BoundaryVariable_3D), intent(in) :: bv(:)
 
     integer,             intent(in)    :: i_max  !< max num iterations
     real(RNP), optional, intent(in)    :: r_red  !< min residual reduction
@@ -404,11 +404,11 @@ contains
                                 , i_max, r_red, r_max, ni    )
 
     class(DG_EllipticOperator_3D), intent(in) :: this
-    real(RNP),             intent(in)    :: lambda     !< λ
-    real(RNP),             intent(in)    :: nu         !< ν
-    real(RNP), contiguous, intent(inout) :: u(:,:,:,:) !< approximate solution
-    real(RNP), contiguous, intent(in)    :: f(:,:,:,:) !< right hand side
-    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:) !< BC
+    real(RNP),             intent(in)    :: lambda      !< λ
+    real(RNP),             intent(in)    :: nu          !< ν
+    real(RNP), contiguous, intent(inout) :: u(:,:,:,:)  !< approximate solution
+    real(RNP), contiguous, intent(in)    :: f(:,:,:,:)  !< right hand side
+    class(SEM_BoundaryVariable_3D), intent(in) :: bv(:) !< BC
     integer,               intent(in)    :: i_max   !< max num iterations
     real(RNP),   optional, intent(in)    :: r_red   !< min residual reduction
     real(RNP),   optional, intent(in)    :: r_max   !< max admissible residual
@@ -431,7 +431,7 @@ contains
     real(RNP), contiguous, intent(in)    :: nu(:,:,:,:) !< ν
     real(RNP), contiguous, intent(inout) :: u (:,:,:,:) !< approximate solution
     real(RNP), contiguous, intent(in)    :: f (:,:,:,:) !< right hand side
-    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv(:) !< BC
+    class(SEM_BoundaryVariable_3D), intent(in) :: bv(:) !< BC
     integer,               intent(in)    :: i_max   !< max num iterations
     real(RNP),   optional, intent(in)    :: r_red   !< min residual reduction
     real(RNP),   optional, intent(in)    :: r_max   !< max admissible residual
@@ -506,7 +506,7 @@ contains
 
   subroutine EnforceBoundaryConditions(diffusion_op, bv, jmp_u, avg_q)
     class(DG_EllipticOperator_3D), intent(in) :: diffusion_op
-    class(SpectralElementBoundaryVariable_3D), optional, intent(in) :: bv(:)
+    class(SEM_BoundaryVariable_3D), optional, intent(in) :: bv(:)
     real(RNP), contiguous, intent(inout) :: jmp_u(:,:,:,:) !< trace of u
     real(RNP), contiguous, intent(inout) :: avg_q(:,:,:,:) !< trace of ν du/dn
 

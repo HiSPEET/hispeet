@@ -4,14 +4,14 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Spectral_Element_Vector__3D
+module SEM__Vector__3D
   use Kind_Parameters, only: RNP
   use Spectral_Element_Mesh__3D
-  use Spectral_Element_Variable__3D
+  use SEM__Variable__3D
   implicit none
   private
 
-  public :: SpectralElementVector_3D
+  public :: SEM_Vector_3D
 
   !-----------------------------------------------------------------------------
   !> 3D spectral element vector variable
@@ -21,11 +21,11 @@ module Spectral_Element_Vector__3D
   !> and can be created using either from scratch, by slicing a spectral element
   !> variable or by wrapping a mesh variable.
 
-  type, extends(SpectralElementVariable_3D) :: SpectralElementVector_3D
-  end type SpectralElementVector_3D
+  type, extends(SEM_Variable_3D) :: SEM_Vector_3D
+  end type SEM_Vector_3D
 
   ! constructor
-  interface SpectralElementVector_3D
+  interface SEM_Vector_3D
     module procedure New_Scratch
     module procedure New_Slice
     module procedure New_Wrap
@@ -41,9 +41,9 @@ contains
 
   function New_Scratch(sem) result(this)
     class(SpectralElementMesh_3D), target, intent(in) :: sem
-    type(SpectralElementVector_3D) :: this
+    type(SEM_Vector_3D) :: this
 
-    call this % Init_SpectralElementVariable_3D(sem, nc = 3)
+    call this % Init_SEM_Variable_3D(sem, nc = 3)
 
   end function New_Scratch
 
@@ -51,10 +51,10 @@ contains
   !> New spectral element vector generated from slice
 
   function New_Slice(sev, first, copy) result(this)
-    class(SpectralElementVariable_3D), target, intent(in)  :: sev
+    class(SEM_Variable_3D), target, intent(in)  :: sev
     integer,           intent(in) :: first !< first component of slice
     logical, optional, intent(in) :: copy  !< copy into fresh memory [F]
-    type(SpectralElementVector_3D) :: this
+    type(SEM_Vector_3D) :: this
 
     call sev % GetSlice(this, first, first+2, copy)
 
@@ -66,7 +66,7 @@ contains
   function New_Wrap(sem, u) result(this)
     class(SpectralElementMesh_3D), target, intent(in) :: sem
     real(RNP), contiguous, target, intent(in) :: u(:,:,:,:,:)
-    type(SpectralElementVector_3D) :: this
+    type(SEM_Vector_3D) :: this
 
     this % sem                  =>  sem
     this % val(0:,0:,0:,1:,1:)  =>  u(:,:,:,:,:3)
@@ -75,4 +75,4 @@ contains
 
   !=============================================================================
 
-end module Spectral_Element_Vector__3D
+end module SEM__Vector__3D

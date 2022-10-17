@@ -17,13 +17,13 @@ contains
 
     real(RNP), intent(in) :: tau !<  effective time step width
 
-    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv_v(:)
+    class(SEM_BoundaryVariable_3D), intent(in) :: bv_v(:)
     !< velocity boundary values
 
     real(RNP), contiguous, intent(in)    :: v(:,:,:,:,:) !< preliminary velocity
     real(RNP), contiguous, intent(in)    :: f(:,:,:,:)   !< source at v-points
 
-    class(SpectralElementBoundaryVariable_3D), intent(inout) :: bv_p(:)
+    class(SEM_BoundaryVariable_3D), intent(inout) :: bv_p(:)
     !< pressure boundary values at p-points
 
     real(RNP), contiguous, intent(inout) :: p(:,:,:,:) !< pressure at v-points
@@ -38,7 +38,7 @@ contains
     real(RNP), allocatable, save :: q(:,:,:,:) ! pressure at p-points
     real(RNP), allocatable, save :: g(:,:,:,:) ! source at p-points
 
-    class(SpectralElementBoundaryVariable_3D), allocatable, save :: bv_q(:)
+    class(SEM_BoundaryVariable_3D), allocatable, save :: bv_q(:)
     ! pressure boundary values at p-points
 
     logical   :: mixed_order
@@ -60,7 +60,7 @@ contains
       if (mixed_order) then
         allocate(q(0:pq, 0:pq, 0:pq, 1:mesh%n_elem))
         allocate(g, mold = q)
-        bv_q = SpectralElementBoundaryVariable_3D(sem_p, mesh%boundary, nc=1)
+        bv_q = SEM_BoundaryVariable_3D(sem_p, mesh%boundary, nc=1)
       end if
       !$omp end master
       !$omp barrier
@@ -107,11 +107,11 @@ contains
     !< !< scaling dactor, usually ~ 1/dt
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< preliminary velocity
-    class(SpectralElementBoundaryVariable_3D), intent(in) :: bv_v(:)
+    class(SEM_BoundaryVariable_3D), intent(in) :: bv_v(:)
     !< velocity boundary values
-    class(SpectralElementBoundaryVariable_3D), intent(inout) :: bv_p(:)
+    class(SEM_BoundaryVariable_3D), intent(inout) :: bv_p(:)
     !< pressure boundary values on v-points
-    class(SpectralElementBoundaryVariable_3D), optional, intent(inout) :: bv_q(:)
+    class(SEM_BoundaryVariable_3D), optional, intent(inout) :: bv_q(:)
     !< pressure boundary values on p-points
 
     real(RNP), contiguous, pointer :: vb(:,:,:,:), hp(:,:,:), hq(:,:,:)

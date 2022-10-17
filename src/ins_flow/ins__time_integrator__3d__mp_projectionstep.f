@@ -1,4 +1,4 @@
-!> summary:  Generic projection-diffusion step for incompressible flows
+!> summary:  Generic projection-diffusion step for incompressible flow
 !> author:   Joerg Stiller
 !> date:     2022/09/24
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -16,13 +16,12 @@ submodule (INS__Time_Integrator__3D) MP_ProjectionStep
   use TPO__Grad__3D
   use Trace_Operators__3D
   use Element_Face_Transfer_Buffer__3D
-  use Spectral_Element_Boundary_Variable__3D
   implicit none
 
 contains
 
   !-----------------------------------------------------------------------------
-  !>
+  !> extrapolation-projection-diffusion step for incompressible flow
 
   module subroutine ProjectionStep( this, tau, v_0, F_c, F_d, Q, bv_u, u &
                                   , i_max_p, i_max_v, r_red, r_max       )
@@ -42,17 +41,17 @@ contains
     !< diffusion term at final time t
     real(RNP), contiguous, intent(in) :: Q(:,:,:,:,:)
     !< sources at time t, older contributions and possibly correction terms
-    class(SpectralElementBoundaryVariable_3D), intent(inout) :: bv_u(:)
+    class(SEM_BoundaryVariable_3D), intent(inout) :: bv_u(:)
     !< boundary values at final time t
     !!   - for velocity, to be given in components 1-3 on input, and
     !!   - for pressure, returned in component 4 on output
     real(RNP), contiguous, intent(out) :: u(:,:,:,:,:)
     !< u = [v, p], velocity and pressure at final time u
 
-    integer :: i_max_p !< max num iterations of pressure solver
-    integer :: i_max_v !< max num iterations of viscous diffusion solver
-    real(RNP), optional :: r_red !< minimum L² residual reduction to reach
-    real(RNP), optional :: r_max !< maximum L² residual allowed
+    integer, intent(in) :: i_max_p !< max num iterations of pressure solver
+    integer, intent(in) :: i_max_v !< max num iterations of diffusion solver
+    real(RNP), optional, intent(in) :: r_red !< min L² residual reduction to reach
+    real(RNP), optional, intent(in) :: r_max !< max L² residual allowed
 
     ! internal variables .......................................................
 
@@ -63,8 +62,8 @@ contains
 
     type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_vm
 
-    type(SpectralElementBoundaryVariable_3D), allocatable, save :: bv_v(:)
-    type(SpectralElementBoundaryVariable_3D), allocatable, save :: bv_p(:)
+    type(SEM_BoundaryVariable_3D), allocatable, save :: bv_v(:)
+    type(SEM_BoundaryVariable_3D), allocatable, save :: bv_p(:)
 
     integer :: np
     integer :: d, e

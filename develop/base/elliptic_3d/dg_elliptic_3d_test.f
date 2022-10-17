@@ -22,9 +22,9 @@ program DG_Elliptic_3D_Test
   use Element_Distribution_Map__3D
   use Partition_Root_Mesh__3D
   use Spectral_Element_Mesh__3D
-  use Spectral_Element_Scalar__3D
-  use Spectral_Element_Vector__3D
-  use Spectral_Element_Boundary_Variable__3D
+  use SEM__Scalar__3D
+  use SEM__Vector__3D
+  use SEM__Boundary_Variable__3D
   use DG__Schwarz_Operator__3D
   use DG__Elliptic_Operator__3D
   use Export_VTK_Volume_Data__3D
@@ -168,9 +168,9 @@ program DG_Elliptic_3D_Test
 
   ! auxiliary variables ........................................................
 
-  type(SpectralElementScalar_3D) :: se_u
-  type(SpectralElementVector_3D) :: se_q
-  type(SpectralElementBoundaryVariable_3D), allocatable :: bv_u(:)
+  type(SEM_Scalar_3D) :: se_u
+  type(SEM_Vector_3D) :: se_q
+  type(SEM_BoundaryVariable_3D), allocatable :: bv_u(:)
 
   character(len=80) :: config_name = '', test_case_name = ''
   real(RDP) :: time, time0
@@ -379,9 +379,9 @@ program DG_Elliptic_3D_Test
 
   call sem % Get_DG_DiagonalMassMatrix(mm)
 
-  se_u  = SpectralElementScalar_3D(sem, u)
-  se_q  = SpectralElementVector_3D(sem, q)
-  bv_u = SpectralElementBoundaryVariable_3D(sem, sem%mesh%boundary, nc = 1)
+  se_u = SEM_Scalar_3D(sem, u)
+  se_q = SEM_Vector_3D(sem, q)
+  bv_u = SEM_BoundaryVariable_3D(sem, sem%mesh%boundary, nc = 1)
 
   ! solution and RHS ...........................................................
 

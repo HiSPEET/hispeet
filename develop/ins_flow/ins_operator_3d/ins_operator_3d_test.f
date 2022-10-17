@@ -19,8 +19,7 @@ program INS_Operator_3D_Test
 
   use Mesh__3D
   use Trace_Operators__3D
-  use Spectral_Element_Variable__3D
-  use Spectral_Element_Boundary_Variable__3D
+  use SEM__Boundary_Variable__3D
   use Export_VTK_Volume_Data__3D
   use DG__Elliptic_Operator__3D
   use DG__Schwarz_Operator__3D
@@ -113,8 +112,8 @@ program INS_Operator_3D_Test
 
   ! auxiliaries ................................................................
 
-  type(SpectralElementBoundaryVariable_3D), allocatable :: bv_u(:)
-  type(SpectralElementBoundaryVariable_3D), allocatable :: bv_vi(:)
+  type(SEM_BoundaryVariable_3D), allocatable :: bv_u(:)
+  type(SEM_BoundaryVariable_3D), allocatable :: bv_vi(:)
 
   character(len=80) :: domain_name = ''
 ! real(RDP) :: time, time0
@@ -301,7 +300,7 @@ program INS_Operator_3D_Test
     call GetOuterTraces_3D(mesh, u, up)
 
     ! boundary values
-    bv_u = SpectralElementBoundaryVariable_3D(sem, mesh % boundary, nc = 4)
+    bv_u = SEM_BoundaryVariable_3D(sem, mesh % boundary, nc = 4)
     do i = 1, mesh % n_bound
       call bv_u(i) % Extract(u, mesh % boundary(i))
     end do

@@ -23,17 +23,17 @@ contains
   module subroutine Schwarz_Method_X( this, lambda, nu_c, nu_v, u, f, bv &
                                     , i_max, r_red, r_max, ni            )
 
-    class(DG_EllipticOperator_3D),             intent(in)    :: this
-    real(RNP),                                 intent(in)    :: lambda
-    real(RNP),                       optional, intent(in)    :: nu_c
-    real(RNP), contiguous,           optional, intent(in)    :: nu_v(:,:,:,:)
-    real(RNP), contiguous,                     intent(inout) :: u(:,:,:,:)
-    real(RNP), contiguous,                     intent(in)    :: f(:,:,:,:)
-    class(SpectralElementBoundaryVariable_3D), intent(in)    :: bv(:)
-    integer,                                   intent(in)    :: i_max
-    real(RNP),                       optional, intent(in)    :: r_red
-    real(RNP),                       optional, intent(in)    :: r_max
-    integer,                         optional, intent(out)   :: ni
+    class(DG_EllipticOperator_3D),   intent(in)    :: this
+    real(RNP),                       intent(in)    :: lambda
+    real(RNP),             optional, intent(in)    :: nu_c
+    real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:)
+    real(RNP), contiguous,           intent(inout) :: u(:,:,:,:)
+    real(RNP), contiguous,           intent(in)    :: f(:,:,:,:)
+    class(SEM_BoundaryVariable_3D),  intent(in)    :: bv(:)
+    integer,                         intent(in)    :: i_max
+    real(RNP),             optional, intent(in)    :: r_red
+    real(RNP),             optional, intent(in)    :: r_max
+    integer,               optional, intent(out)   :: ni
 
     ! local variables ..........................................................
 

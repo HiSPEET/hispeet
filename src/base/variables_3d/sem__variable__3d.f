@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Spectral_Element_Variable__3D
+module SEM__Variable__3D
   use Kind_Parameters, only: RNP
   use Constants      , only: ZERO, ONE
   use XMPI
@@ -13,7 +13,7 @@ module Spectral_Element_Variable__3D
   implicit none
   private
 
-  public :: SpectralElementVariable_3D
+  public :: SEM_Variable_3D
 
   !-----------------------------------------------------------------------------
   !> 3D spectral element variable
@@ -27,19 +27,19 @@ module Spectral_Element_Variable__3D
   !> variable, the values can be stored in its own `mem` component or refer
   !> to the `mem` component of another instance.
 
-  type SpectralElementVariable_3D
+  type SEM_Variable_3D
     class(SpectralElementMesh_3D), pointer :: sem !< spectral element mesh
     real(RNP), contiguous,  pointer :: val(:,:,:,:,:) => null() !< value access
     real(RNP), allocatable, private :: mem(:,:,:,:,:) !< memory allocated to val
   contains
-    procedure :: Init_SpectralElementVariable_3D
+    procedure :: Init_SEM_Variable_3D
     procedure :: GetSlice
     procedure :: GetVolumeIntegrals
     procedure :: GetSurfaceIntegrals
-  end type SpectralElementVariable_3D
+  end type SEM_Variable_3D
 
   ! constructor
-  interface SpectralElementVariable_3D
+  interface SEM_Variable_3D
     module procedure New_Scratch
     module procedure New_Slice
     module procedure New_Wrap
@@ -56,9 +56,9 @@ contains
   function New_Scratch(sem, nc) result(this)
     class(SpectralElementMesh_3D), target, intent(in) :: sem
     integer, intent(in) :: nc  !< number of components
-    type(SpectralElementVariable_3D) :: this
+    type(SEM_Variable_3D) :: this
 
-    call Init_SpectralElementVariable_3D(this, sem, nc)
+    call Init_SEM_Variable_3D(this, sem, nc)
 
   end function New_Scratch
 
@@ -66,11 +66,11 @@ contains
   !> New spectral element variable generated from slice
 
   function New_Slice(sev, first, last, copy) result(this)
-    class(SpectralElementVariable_3D), target, intent(in)  :: sev
+    class(SEM_Variable_3D), target, intent(in)  :: sev
     integer,           intent(in) :: first !< first component of slice
     integer,           intent(in) :: last  !< last component of slice
     logical, optional, intent(in) :: copy  !< copy into fresh memory [F]
-    type(SpectralElementVariable_3D) :: this
+    type(SEM_Variable_3D) :: this
 
     call sev % GetSlice(this, first, last, copy)
 
@@ -82,7 +82,7 @@ contains
   function New_Wrap(sem, u) result(this)
     class(SpectralElementMesh_3D), target, intent(in) :: sem
     real(RNP), contiguous, target, intent(in) :: u(:,:,:,:,:)
-    type(SpectralElementVariable_3D) :: this
+    type(SEM_Variable_3D) :: this
 
     this % sem                  =>  sem
     this % val(0:,0:,0:,1:,1:)  =>  u
@@ -95,8 +95,8 @@ contains
   !-----------------------------------------------------------------------------
   !> 3D spectral element variable initialization
 
-  subroutine Init_SpectralElementVariable_3D(this, sem, nc)
-    class(SpectralElementVariable_3D), target, intent(inout) :: this
+  subroutine Init_SEM_Variable_3D(this, sem, nc)
+    class(SEM_Variable_3D), target, intent(inout) :: this
     class(SpectralElementMesh_3D)    , target, intent(in)    :: sem
     integer, intent(in) :: nc  !< number of components
 
@@ -112,7 +112,7 @@ contains
 
     end associate
 
-  end subroutine Init_SpectralElementVariable_3D
+  end subroutine Init_SEM_Variable_3D
 
   !-----------------------------------------------------------------------------
   !> Create a new spectral element variable as a slice of the given one
@@ -123,8 +123,8 @@ contains
   !> thread.
 
   subroutine GetSlice(this, slice, first, last, copy)
-    class(SpectralElementVariable_3D), target, intent(in)    :: this
-    class(SpectralElementVariable_3D), target, intent(inout) :: slice
+    class(SEM_Variable_3D), target, intent(in)    :: this
+    class(SEM_Variable_3D), target, intent(inout) :: slice
     integer,           intent(in) :: first !< first component of slice
     integer,           intent(in) :: last  !< last component of slice
     logical, optional, intent(in) :: copy  !< copy into fresh memory [F]
@@ -139,8 +139,7 @@ contains
     c2 = max(min(last , size(this%val, 5)), 0)
 
     if (c1 /= first .or. c2 /= last) then
-      call Error( 'GetSlice', 'section exceeds bounds', &
-                  'Spectral_Element_Variable__3D'       )
+      call Error('GetSlice', 'section exceeds bounds', 'SEM__Variable__3D')
     end if
 
     if (present(copy)) then
@@ -174,7 +173,7 @@ contains
   !> includes the inactive (empty) partitions.
 
   subroutine GetVolumeIntegrals(this, vi, scope)
-    class(SpectralElementVariable_3D), intent(in) :: this
+    class(SEM_Variable_3D), intent(in) :: this
     real(RNP), intent(out) :: vi(size(this%val,5))
     !< volume integrals of spectral element variable components
     character(len=*), optional, intent(in) :: scope
@@ -198,7 +197,7 @@ contains
     associate( mesh   => this % sem % mesh          &
              , std_op => this % sem % std_op        &
              , Jd     => this % sem % metrics % Jd  &
-             , val    => this % val           )
+             , val    => this % val                 )
 
       ! dimensions
       po = std_op % po    ! polynomial order
@@ -282,7 +281,7 @@ contains
   !> includes the inactive (empty) partitions.
 
   subroutine GetSurfaceIntegrals(this, si, mask, scope)
-    class(SpectralElementVariable_3D), intent(in) :: this
+    class(SEM_Variable_3D), intent(in) :: this
     real(RNP), intent(out) :: si(size(this%val,5),this%sem%mesh%n_bound)
     !< volume integrals of spectral element variable components
     logical, optional, intent(in) :: mask(this%sem%mesh%n_bound)
@@ -426,4 +425,4 @@ contains
 
   !=============================================================================
 
-end module Spectral_Element_Variable__3D
+end module SEM__Variable__3D
