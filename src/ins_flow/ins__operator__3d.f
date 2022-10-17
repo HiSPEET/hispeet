@@ -63,6 +63,7 @@ module INS__Operator__3D
 
   contains
 
+    generic   :: Init => Init_INS_Operator_3D
     procedure :: Init_INS_Operator_3D
     procedure :: SetVelocityBC
     procedure :: PressureSolver
