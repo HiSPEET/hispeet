@@ -62,7 +62,7 @@ program INS_Operator_3D_Test
   character(len=80) :: problem_file = 'vortex_tg'
   ! file containing the problem parameters (*.prm)
 
-  integer :: comp_domain = 1
+  integer :: flow_domain = 1
   ! computational domain (u/s = un/structured, r = regular, d = deformed)
   !   1  cuboidal domain with Cartesian mesh                               (s+r)
   !   2  cuboidal domain with unstructured "diamond" mesh                  (u+d)
@@ -70,10 +70,10 @@ program INS_Operator_3D_Test
   !   4  annular domain                                                    (u+d)
   ! configuration > 1 currently available only with one MPI process
 
-  type(INS_Options_3D) :: ins_options
+  type(INS_OperatorOptions_3D) :: ins_op_opts
   ! options for the incompressible Navier-Stokes operator
 
-  namelist/control_prm/ flow_problem, problem_file, comp_domain, ins_options
+  namelist/control_prm/ flow_problem, problem_file, flow_domain, ins_op_opts
 
   integer :: n_test = 1            ! repetitions of performance test
   logical :: export_vtk = .false.  ! generate VTK files
@@ -169,14 +169,14 @@ program INS_Operator_3D_Test
   ! globalize control parameters
   call XMPI_Bcast(flow_problem, 0, comm)
   call XMPI_Bcast(problem_file, 0, comm)
-  call XMPI_Bcast(comp_domain , 0, comm)
-  call ins_options % Bcast(0, comm)
+  call XMPI_Bcast(flow_domain , 0, comm)
+  call ins_op_opts % Bcast(0, comm)
 
   ! mesh .......................................................................
 
   associate(mesh => ins_op % mesh)
 
-    select case(comp_domain)
+    select case(flow_domain)
     case(2)
       call CreateCuboidDiamonds(comm, input_file, ins_op % mesh)
       domain_name = 'Cuboidal domain with unstructured "diamond" mesh'
@@ -222,7 +222,7 @@ program INS_Operator_3D_Test
 
   ! operators ..................................................................
 
-  call ins_op % Init(ins_options, problem)
+  call ins_op % Init(ins_op_opts, problem)
 
   ! variables ..................................................................
 
@@ -353,7 +353,7 @@ program INS_Operator_3D_Test
   ! using F_ph as workspace for F_d1h
 
   elliptic_op = DG_EllipticOperator_3D( sem         = ins_op % sem_v          &
-                                      , dg_opt      = ins_options % eop_v     &
+                                      , dg_opt      = ins_op_opts % eop_v     &
                                       , schwarz_opt = DG_SchwarzOptions_3D()  &
                                       , bc          = ins_op % bc_v           )
 

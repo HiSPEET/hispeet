@@ -32,7 +32,7 @@ module INS__Operator__3D
   private
 
   public :: INS_Operator_3D
-  public :: INS_Options_3D
+  public :: INS_OperatorOptions_3D
 
   !-----------------------------------------------------------------------------
   !> DG-SEM mesh and operators for incompressible Navier-Stokes problems
@@ -87,7 +87,7 @@ module INS__Operator__3D
   !-----------------------------------------------------------------------------
   !> Options for INS_Operator_3D initialization
 
-  type INS_Options_3D
+  type INS_OperatorOptions_3D
     real(RNP) :: mu_0 = -2 !< bulk viscosity,  μ = ζ/ρ
     type(DG_ElementOptions_1D) :: eop_v !< DG operator options for v
     type(DG_ElementOptions_1D) :: eop_p !< DG operator options for p
@@ -95,8 +95,8 @@ module INS__Operator__3D
     type(DG_SchwarzOptions_3D) :: schwarz_p !< Schwarz options for p-solver
     type(DG_SchwarzOptions_3D) :: schwarz_v !< Schwarz options for v-solver
   contains
-    procedure :: Bcast => Bcast_INS_Options_3D
-  end type INS_Options_3D
+    procedure :: Bcast => Bcast_INS_OperatorOptions_3D
+  end type INS_OperatorOptions_3D
 
   !=============================================================================
   ! Module procedures
@@ -185,7 +185,7 @@ contains
   !> Constructor of INS_Operator_3D
 
   function New_INS_Operator_3D(opt, problem, mesh) result(this)
-    class(INS_Options_3D), intent(in) :: opt     !< options
+    class(INS_OperatorOptions_3D), intent(in) :: opt !< options
     class(INS_Problem_3D), intent(in) :: problem !< INS flow problem
     type(Mesh_3D), intent(in) :: mesh !< local mesh partition, will be copied
     type(INS_Operator_3D) :: this
@@ -198,10 +198,10 @@ contains
   !> Initialization of INS_Operator_3D
 
   subroutine Init_INS_Operator_3D(this, opt, problem, mesh)
-    class(INS_Operator_3D),  intent(inout) :: this    !< new INS operator
-    class(INS_Options_3D),   intent(in)    :: opt     !< options
-    class(INS_Problem_3D),   intent(in)    :: problem !< INS flow problem
-    type(Mesh_3D), optional, intent(in)    :: mesh    !< local mesh partition
+    class(INS_Operator_3D),        intent(inout) :: this    !< new INS operator
+    class(INS_OperatorOptions_3D), intent(in)    :: opt     !< options
+    class(INS_Problem_3D),         intent(in)    :: problem !< INS flow problem
+    type(Mesh_3D),       optional, intent(in)    :: mesh    !< mesh partition
 
     integer :: b, d
 
@@ -364,15 +364,15 @@ contains
   end subroutine GetDiffusionTerm_C
 
   !=============================================================================
-  ! Type-bound procedures of INS_Options_3D
+  ! Type-bound procedures of INS_OperatorOptions_3D
 
   !-----------------------------------------------------------------------------
-  !> MPI_Bcast for objects of type INS_Options_3D
+  !> MPI_Bcast for objects of type INS_OperatorOptions_3D
 
-   subroutine Bcast_INS_Options_3D(this, root, comm)
-    class(INS_Options_3D), intent(inout) :: this
-    integer,               intent(in)    :: root !< rank of broadcast root
-    type(MPI_Comm),        intent(in)    :: comm !< MPI communicator
+   subroutine Bcast_INS_OperatorOptions_3D(this, root, comm)
+    class(INS_OperatorOptions_3D), intent(inout) :: this
+    integer,        intent(in) :: root !< rank of broadcast root
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
     call XMPI_Bcast(this % mu_0, root, comm)
 
@@ -382,7 +382,7 @@ contains
     call this % schwarz_p % Bcast(root, comm)
     call this % schwarz_v % Bcast(root, comm)
 
-  end subroutine Bcast_INS_Options_3D
+  end subroutine Bcast_INS_OperatorOptions_3D
 
   !=============================================================================
 
