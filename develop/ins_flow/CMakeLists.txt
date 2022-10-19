@@ -1,1 +1,2 @@
 add_subdirectory(ins_operator_3d)
+add_subdirectory(ins_timeintegrator_3d)
