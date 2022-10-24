@@ -11,8 +11,8 @@ set(BINDINGS bindings/c_binding.f
              bindings/mpi_binding.F
              bindings/vtk_wrapper.c
              bindings/vtk_binding.f
-             bindings/fftw_binding.f
              )
+#            bindings/fftw_binding.f
 
 if (ParMETIS_FOUND)
     list(APPEND BINDINGS bindings/parmetis_wrapper.c
