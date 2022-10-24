@@ -48,7 +48,7 @@ contains
   !>   - `ne` is the number of local elements, i.e. `mesh % n_elem`
   !>   - `ng` is the number of ghost elements, i.e. `mesh % n_ghost`
 
-  module subroutine GetInnerTraces_S(mesh, u, um, align)
+  subroutine GetInnerTraces_S(mesh, u, um, align)
     class(Mesh_3D),        intent(in)    :: mesh
     real(RNP), contiguous, intent(in)    :: u (:,:,:,:) !< u
     real(RNP), contiguous, intent(inout) :: um(:,:,:,:) !< u⁻ with ghosts

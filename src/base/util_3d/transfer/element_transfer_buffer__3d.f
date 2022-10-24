@@ -465,8 +465,8 @@ contains
 
     ! setup ....................................................................
 
-    ! reset and return in case of empty partition
-    if (mesh % part < 0) then
+    ! reset and return in case that there are no linked partitions
+    if (size(mesh % link) < 1) then
       this % np = 0
       this % ne = 0
       this % ng = 0

@@ -2,7 +2,7 @@
 
 # With Intel use MKL
 if (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -mkl=sequential")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -qmkl=sequential")
     set(LAPACK_FOUND TRUE)
     message(STATUS "Found LAPACK: using MKL")
 

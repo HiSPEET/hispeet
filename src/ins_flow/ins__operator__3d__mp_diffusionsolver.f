@@ -56,6 +56,8 @@ contains
     logical   :: check_convergence
     integer   :: i, i_max_
 
+    if (i_max < 1) return
+
     ! skip empty partition
     if (this % mesh % part < 0) return
 

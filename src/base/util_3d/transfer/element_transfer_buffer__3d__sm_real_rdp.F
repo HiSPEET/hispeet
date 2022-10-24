@@ -36,6 +36,7 @@ contains
 
     this % nc = 1
 
+    if (this % ng < 1) return
     allocate(real(RDP) :: this % master % buf(size(this % master % node)))
     allocate(real(RDP) :: this % ghost  % buf(size(this % ghost  % node)))
 
@@ -64,6 +65,7 @@ contains
 
     this % nc = nc
 
+    if (this % ng < 1) return
     allocate(real(RDP) :: this % master % buf(size(this % master % node) * nc))
     allocate(real(RDP) :: this % ghost  % buf(size(this % ghost  % node) * nc))
 
@@ -81,8 +83,7 @@ contains
     real(RDP),      intent(in) :: v(:,:,:,:) !< mesh variable
     integer,        intent(in) :: tag        !< message tag
 
-    ! skip empty partition
-    if (this % ne <= 0) return
+    if (this % ng < 1) return
 
     call Transfer_RX(this, mesh, v, size(v,4), tag)
 
@@ -96,11 +97,22 @@ contains
     class(Mesh_3D), intent(in) :: mesh         !< mesh partition
     real(RDP),      intent(in) :: v(:,:,:,:,:) !< mesh variable
     integer,        intent(in) :: tag          !< message tag
+!### CHECK
+print *, '?? 00'
+!### CHECK END
 
-    ! skip empty partition
-    if (this % ne <= 0) return
+    if (this % ng < 1) return
+!### CHECK
+print *, '?? 01'
+!print *, '? 01, allocated(mesh % link) =', allocated(mesh % link)
+!print *, '? 01, lbound   (mesh % link) =', lbound(mesh % link)
+!print *, '? 01, ubound   (mesh % link) =', ubound(mesh % link)
+!### CHECK END
 
     call Transfer_RX(this, mesh, v, size(v,4), tag)
+!### CHECK
+print *, '?? XX'
+!### CHECK END
 
   end subroutine Transfer_RDP_A
 
@@ -121,8 +133,7 @@ contains
     class(ElementTransferBuffer_3D), intent(inout) :: this
     real(RDP), intent(inout) :: v(:,:,:,:) !< mesh variable
 
-    ! skip empty partition
-    if (this % ne <= 0) return
+    if (this % ng < 1) return
 
     !$omp master
     if (size(v,4) /= this%ne + this%ng) then
@@ -151,8 +162,7 @@ contains
     class(ElementTransferBuffer_3D), intent(inout) :: this
     real(RDP), intent(inout) :: v(:,:,:,:,:) !< mesh variable
 
-    ! skip empty partition
-    if (this % ne <= 0) return
+    if (this % ng < 1) return
 
     !$omp master
     if (size(v,4) /= this%ne + this%ng) then

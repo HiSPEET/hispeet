@@ -72,6 +72,11 @@ contains
              , nu     => this % nu_0                 )
 
       ! initialization .........................................................
+!### CHECK
+print *, '? 01, allocated(mesh % link) =', allocated(mesh % link)
+print *, '? 01, lbound   (mesh % link) =', lbound(mesh % link)
+print *, '? 01, ubound   (mesh % link) =', ubound(mesh % link)
+!### CHECK END
 
       ! workspace and operators
       !$omp master
@@ -79,6 +84,9 @@ contains
       buf_tr = ElementFaceTransferBuffer_3D(mesh, tr)
       !$omp end master
       !$omp barrier
+!### CHECK
+print *, '? 02, allocated(buf_tr) =', allocated(buf_tr)
+!### CHECK END
 
       ! element volume contributions ...........................................
 
@@ -97,11 +105,21 @@ contains
 !print *, 'TPO_Stress: t = ', time - time0
 !$omp end master
 !### CHECK END
+!### CHECK
+print *, '? 03, shape(tr)   =', shape(tr)
+print *, '? 03, buf_tr % ng =', buf_tr % ng
+!### CHECK END
 
       ! transfer traces ........................................................
 
       call buf_tr % Transfer(mesh, tr, tag=1000)
+!### CHECK
+print *, '? 04'
+!### CHECK END
       call buf_tr % Merge(tr)
+!### CHECK
+print *, '? 05'
+!### CHECK END
 
       ! add fluxes .............................................................
 
@@ -112,12 +130,18 @@ contains
                            , vp = vp               &
                            , sp = sp               &
                            , F_d = F_d             )
+!### CHECK
+print *, '? 06'
+!### CHECK END
 
       ! cleanup ................................................................
 
       !$omp master
       deallocate(tr, buf_tr)
       !$omp end master
+!### CHECK
+print *, '? XX'
+!### CHECK END
 
     end associate
 

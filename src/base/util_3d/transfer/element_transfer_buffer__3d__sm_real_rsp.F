@@ -36,6 +36,7 @@ contains
 
     this % nc = 1
 
+    if (this % ng < 1) return
     allocate(real(RSP) :: this % master % buf(size(this % master % node)))
     allocate(real(RSP) :: this % ghost  % buf(size(this % ghost  % node)))
 
@@ -64,6 +65,7 @@ contains
 
     this % nc = nc
 
+    if (this % ng < 1) return
     allocate(real(RSP) :: this % master % buf(size(this % master % node) * nc))
     allocate(real(RSP) :: this % ghost  % buf(size(this % ghost  % node) * nc))
 
@@ -81,8 +83,7 @@ contains
     real(RSP),      intent(in) :: v(:,:,:,:) !< mesh variable
     integer,        intent(in) :: tag        !< message tag
 
-    ! skip empty partition
-    if (this % ne <= 0) return
+    if (this % ng < 1) return
 
     call Transfer_RX(this, mesh, v, size(v,4), tag)
 
@@ -97,8 +98,7 @@ contains
     real(RSP),      intent(in) :: v(:,:,:,:,:) !< mesh variable
     integer,        intent(in) :: tag          !< message tag
 
-    ! skip empty partition
-    if (this % ne <= 0) return
+    if (this % ng < 1) return
 
     call Transfer_RX(this, mesh, v, size(v,4), tag)
 
@@ -121,8 +121,7 @@ contains
     class(ElementTransferBuffer_3D), intent(inout) :: this
     real(RSP), intent(inout) :: v(:,:,:,:)  !< mesh variable
 
-    ! skip empty partition
-    if (this % ne <= 0) return
+    if (this % ng < 1) return
 
     !$omp master
     if (size(v,4) /= this%ne + this%ng) then
@@ -151,8 +150,7 @@ contains
     class(ElementTransferBuffer_3D), intent(inout) :: this
     real(RSP), intent(inout) :: v(:,:,:,:,:)  !< mesh variable
 
-    ! skip empty partition
-    if (this % ne <= 0) return
+    if (this % ng < 1) return
 
     !$omp master
     if (size(v,4) /= this%ne + this%ng) then

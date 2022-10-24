@@ -64,26 +64,42 @@ contains
       end if
       !$omp end master
       !$omp barrier
+!### CHECK
+if (mixed_order) then
+block
+integer :: b = 1
+print *, '* 01, shape(mesh%boundary) =', shape(mesh%boundary)
+print *, '* 01, associated(sem_p % mesh) =', associated(sem_p % mesh)
+print *, '* 01, allocated(sem_p % mesh % boundary) =', allocated(sem_p % mesh % boundary)
+print *, '* 01, allocated(this % sem_p % mesh % boundary) =', allocated(this % sem_p % mesh % boundary)
+print *, '* 01, associated(bv_q(b) % sem) =', associated(bv_q(b) % sem)
+print *, '* 01, associated(bv_q(b) % sem) =', associated(bv_q(b) % sem)
+print *, '* 01, associated(bv_q(b) % sem % mesh) =', associated(bv_q(b) % sem % mesh)
+print *, '* 01, allocated(bv_q(b) % sem % mesh % boundary) =', allocated(bv_q(b) % sem % mesh % boundary)
+print *, '* 01, shape(bv_q(b) % sem % mesh % boundary) =', shape(bv_q(b) % sem % mesh % boundary)
+end block
+end if
+!### CHECK END
 
       ! build pressure BC ......................................................
 
-      call BuildPressureBC(this, cs, v, bv_v, bv_p, bv_q)
-
-      ! solve ..................................................................
-
-      if (mixed_order) then
-        ! interpolate source to orer pq
-        call TPO_AAA(this % iop_vp % A, f, g)
-        ! apply Schwarz-PCG with λ=0 and ν=1
-        call Solver % SchwarzPCG_Method(ZERO, ONE, q, g, bv_q, &
-                                        i_max, r_red, r_max, ni)
-        ! interpolate result to orer po
-        call TPO_AAA(this % iop_pv % A, q, p)
-      else
-        ! apply Schwarz-PCG with λ=0 and ν=1
-        call Solver % SchwarzPCG_Method(ZERO, ONE, p, f, bv_p, &
-                                        i_max, r_red, r_max, ni)
-      end if
+!!       call BuildPressureBC(this, cs, v, bv_v, bv_p, bv_q)
+!!
+!!       ! solve ..................................................................
+!!
+!!       if (mixed_order) then
+!!         ! interpolate source to orer pq
+!!         call TPO_AAA(this % iop_vp % A, f, g)
+!!         ! apply Schwarz-PCG with λ=0 and ν=1
+!!         call Solver % SchwarzPCG_Method(ZERO, ONE, q, g, bv_q, &
+!!                                         i_max, r_red, r_max, ni)
+!!         ! interpolate result to orer po
+!!         call TPO_AAA(this % iop_pv % A, q, p)
+!!       else
+!!         ! apply Schwarz-PCG with λ=0 and ν=1
+!!         call Solver % SchwarzPCG_Method(ZERO, ONE, p, f, bv_p, &
+!!                                         i_max, r_red, r_max, ni)
+!!       end if
 
       ! finalization ...........................................................
 

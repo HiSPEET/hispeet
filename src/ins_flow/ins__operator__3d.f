@@ -232,13 +232,15 @@ contains
                                          , this % sop_q % basis )
 
     ! pressure BC
-    allocate(this % bc_p(this % mesh % n_bound), source = '')
+    allocate(this % bc_p(this % mesh % n_bound))
     do b = 1, size(this % bc_p)
       select case(this % bc_v(b))
       case('D')
         this % bc_p(b) = 'N'
       case('P')
         this % bc_p(b) = 'P'
+      case default
+        this % bc_p(b) = ''
       end select
     end do
 
@@ -287,11 +289,23 @@ contains
     !< stress vector on element faces
 
     integer :: b
+!### CHECK
+print *, '## 00'
+!### CHECK END
 
     if (present(tr_v)) then
       do b = 1, this % mesh % n_bound
         if (this % bc_v(b) == 'D') then
+!### CHECK
+print *, '## 01, b =', b
+print *, '## 01, associated(bv_v(b)%val) =', associated(bv_v(b)%val)
+print *, '## 01, lbound(bv_v(b)%val) =', lbound(bv_v(b)%val)
+print *, '## 01, ubound(bv_v(b)%val) =', ubound(bv_v(b)%val)
+!### CHECK END
           call bv_v(b) % CopyToTraceVariable(tr_v)
+!### CHECK
+print *, '## 02, b =', b
+!### CHECK END
         end if
       end do
     end if
@@ -299,6 +313,9 @@ contains
     if (present(tr_s)) then
       return ! nothing to do yet
     end if
+!### CHECK
+print *, '## XX'
+!### CHECK END
 
   end subroutine SetVelocityBC
 

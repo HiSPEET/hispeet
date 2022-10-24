@@ -1,15 +1,22 @@
 &control_prm
-! flow_problem =  'Vortex_TG'
-! problem_file =  'vortex_tg'
-  flow_problem =  'VariableViscosity'
-  problem_file =  'variable_viscosity'
-  flow_domain  =  3
+  flow_problem =  'Vortex_TG'
+  problem_file =  'vortex_tg'
+! flow_problem =  'VariableViscosity'
+! problem_file =  'variable_viscosity'
+  flow_domain  =  1
 !
 ! ins_op_opts%mu = -2
   ins_op_opts%eop_v%StandardOperatorOptions_1D%po =  7 ! %StandardOperatorOptions_1D
   ins_op_opts%eop_p%StandardOperatorOptions_1D%po =  6 ! required with ifort < 2021.7
   ins_op_opts%sop_q%po = 11
   ins_op_opts%sop_q%basis = 'L'
+!
+  ins_ti_euler_opts%i_max_p = 10
+  ins_ti_euler_opts%i_max_v = 0
+!
+  t_end  = 0.1
+  dt     = 1E-5
+  nt_max = 1
 !
 ! export_vtk = T
 /
