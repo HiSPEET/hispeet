@@ -26,7 +26,7 @@ contains
     real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:)
     real(RNP), contiguous,           intent(inout) :: u(:,:,:,:)
     real(RNP), contiguous,           intent(in)    :: f(:,:,:,:)
-    class(SEM_BoundaryVariable_3D),  intent(in)    :: bv(:)
+    class(BoundaryVariable_3D),      intent(in)    :: bv(:)
     integer,                         intent(in)    :: i_max
     real(RNP),             optional, intent(in)    :: r_red
     real(RNP),             optional, intent(in)    :: r_max

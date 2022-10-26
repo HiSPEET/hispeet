@@ -19,7 +19,7 @@ program INS_Operator_3D_Test
 
   use Mesh__3D
   use Trace_Operators__3D
-  use SEM__Boundary_Variable__3D
+  use Boundary_Variable__3D
   use Export_VTK_Volume_Data__3D
   use DG__Elliptic_Operator__3D
   use DG__Schwarz_Operator__3D
@@ -112,8 +112,8 @@ program INS_Operator_3D_Test
 
   ! auxiliaries ................................................................
 
-  type(SEM_BoundaryVariable_3D), allocatable :: bv_u(:)
-  type(SEM_BoundaryVariable_3D), allocatable :: bv_vi(:)
+  type(BoundaryVariable_3D), allocatable :: bv_u(:)
+  type(BoundaryVariable_3D), allocatable :: bv_vi(:)
 
   character(len=80) :: domain_name = ''
 ! real(RDP) :: time, time0
@@ -121,7 +121,7 @@ program INS_Operator_3D_Test
   logical   :: exists
   integer   :: io, stat
   integer   :: n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po
-  integer   :: i
+  integer   :: b, i
 
   !-----------------------------------------------------------------------------
   ! Initialization
@@ -300,9 +300,10 @@ program INS_Operator_3D_Test
     call GetOuterTraces_3D(mesh, u, up)
 
     ! boundary values
-    bv_u = SEM_BoundaryVariable_3D(sem, mesh % boundary, nc = 4)
+    allocate(bv_u(mesh % n_bound))
     do i = 1, mesh % n_bound
-      call bv_u(i) % Extract(u, mesh % boundary(i))
+      bv_u(i) = BoundaryVariable_3D(mesh % boundary(i), po, nc = 4)
+      call bv_u(i) % Extract(u)
     end do
 
   end associate
@@ -362,9 +363,10 @@ program INS_Operator_3D_Test
   associate(r => w(:,:,:,:,1), f => w(:,:,:,:,4))
     do i = 1, 3
 
-      ! store boundary contribution in f and compute residual r
       f = 0
-      call bv_u % GetSlice(bv_vi, first=i, last=i)
+      do b = 1, n_bound
+        call bv_u(b) % GetSlice(bv_vi(b), first=i, last=i)
+      end do
       ! r = -M ∇·(ν ∇vᵢ)
       call elliptic_op % Residual(ZERO, problem%nu_ref, f, bv_vi, v(:,:,:,:,i), r)
       ! compute nodal values

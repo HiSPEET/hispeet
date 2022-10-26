@@ -24,7 +24,7 @@ module INS__Operator__3D
 
   use Mesh__3D
   use Spectral_Element_Mesh__3D
-  use SEM__Boundary_Variable__3D
+  use Boundary_Variable__3D
 
   use INS__Problem__3D
 
@@ -109,17 +109,17 @@ module INS__Operator__3D
     module subroutine PressureSolver( this, tau, bv_v, v, f, bv_p, p &
                                     , i_max, r_red, r_max, ni        )
 
-      class(INS_Operator_3D),         intent(in)    :: this
-      real(RNP),                      intent(in)    :: tau
-      class(SEM_BoundaryVariable_3D), intent(in)    :: bv_v(:)
-      real(RNP), contiguous,          intent(in)    :: v(:,:,:,:,:)
-      real(RNP), contiguous,          intent(in)    :: f(:,:,:,:)
-      class(SEM_BoundaryVariable_3D), intent(inout) :: bv_p(:)
-      real(RNP), contiguous,          intent(inout) :: p(:,:,:,:)
-      integer,                        intent(in)    :: i_max
-      real(RNP),            optional, intent(in)    :: r_red
-      real(RNP),            optional, intent(in)    :: r_max
-      integer,              optional, intent(out)   :: ni
+      class(INS_Operator_3D),     intent(in)    :: this
+      real(RNP),                  intent(in)    :: tau
+      class(BoundaryVariable_3D), intent(in)    :: bv_v(:)
+      real(RNP), contiguous,      intent(in)    :: v(:,:,:,:,:)
+      real(RNP), contiguous,      intent(in)    :: f(:,:,:,:)
+      class(BoundaryVariable_3D), intent(inout) :: bv_p(:)
+      real(RNP), contiguous,      intent(inout) :: p(:,:,:,:)
+      integer,                    intent(in)    :: i_max
+      real(RNP),        optional, intent(in)    :: r_red
+      real(RNP),        optional, intent(in)    :: r_max
+      integer,          optional, intent(out)   :: ni
 
     end subroutine PressureSolver
 
@@ -148,12 +148,12 @@ module INS__Operator__3D
     !> Diffusion residual with constant viscosity
 
     module subroutine GetDiffusionResidual_C(this, tau, f, bv_v, v, r)
-      class(INS_Operator_3D),         intent(in)  :: this
-      real(RNP),                      intent(in)  :: tau
-      real(RNP), contiguous,          intent(in)  :: f(:,:,:,:,:)
-      class(SEM_BoundaryVariable_3D), intent(in)  :: bv_v(:)
-      real(RNP), contiguous,          intent(in)  :: v(:,:,:,:,:)
-      real(RNP), contiguous,          intent(out) :: r(:,:,:,:,:)
+      class(INS_Operator_3D),     intent(in)  :: this
+      real(RNP),                  intent(in)  :: tau
+      real(RNP), contiguous,      intent(in)  :: f(:,:,:,:,:)
+      class(BoundaryVariable_3D), intent(in)  :: bv_v(:)
+      real(RNP), contiguous,      intent(in)  :: v(:,:,:,:,:)
+      real(RNP), contiguous,      intent(out) :: r(:,:,:,:,:)
     end subroutine GetDiffusionResidual_C
 
     !---------------------------------------------------------------------------
@@ -162,15 +162,15 @@ module INS__Operator__3D
     module subroutine DiffusionSolver( this, tau, f, bv_v, v   &
                                      , i_max, r_red, r_max, ni )
 
-      class(INS_Operator_3D),         intent(in)    :: this
-      real(RNP),                      intent(in)    :: tau
-      real(RNP), contiguous,          intent(in)    :: f(:,:,:,:,:)
-      class(SEM_BoundaryVariable_3D), intent(in)    :: bv_v(:)
-      real(RNP), contiguous,          intent(inout) :: v(:,:,:,:,:)
-      integer,                        intent(in)    :: i_max
-      real(RNP),            optional, intent(in)    :: r_red
-      real(RNP),            optional, intent(in)    :: r_max
-      integer,              optional, intent(out)   :: ni
+      class(INS_Operator_3D),     intent(in)    :: this
+      real(RNP),                  intent(in)    :: tau
+      real(RNP), contiguous,      intent(in)    :: f(:,:,:,:,:)
+      class(BoundaryVariable_3D), intent(in)    :: bv_v(:)
+      real(RNP), contiguous,      intent(inout) :: v(:,:,:,:,:)
+      integer,                    intent(in)    :: i_max
+      real(RNP),        optional, intent(in)    :: r_red
+      real(RNP),        optional, intent(in)    :: r_max
+      integer,          optional, intent(out)   :: ni
 
     end subroutine DiffusionSolver
 
@@ -281,7 +281,7 @@ contains
   subroutine SetVelocityBC(this, bv_v, tr_v, tr_s)
     class(INS_Operator_3D) , intent(in) :: this
     !< Navier-Stokes operator
-    class(SEM_BoundaryVariable_3D), intent(in) :: bv_v(:)
+    class(BoundaryVariable_3D), intent(in) :: bv_v(:)
     !< boundary values
     real(RNP), optional, intent(inout) :: tr_v(:,:,:,:,:)
     !< velocity on element faces

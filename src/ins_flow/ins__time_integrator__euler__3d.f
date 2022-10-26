@@ -12,7 +12,7 @@ module INS__Time_Integrator__Euler__3D
 
   use Trace_Operators__3D
   use Element_Face_Transfer_Buffer__3D
-  use SEM__Boundary_Variable__3D
+  use Boundary_Variable__3D
 
   use INS__Time_Integrator__3D
   use INS__Problem__3D
@@ -111,9 +111,9 @@ contains
     real(RNP), allocatable, save :: sp (:,:,:,:,:) ! outer viscous flux traces s⁺
 
     ! boundary points and values
-    type(SEM_BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:), bv_v(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:), bv_v(:)
 
-    integer :: b, e, d, np
+    integer :: b, e, d, np, po
 !### CHECK
 print *, '# 00'
 !### CHECK END
@@ -126,9 +126,11 @@ print *, '# 00'
 
       ! initialization .........................................................
 
-      np = ins_op % eop_v % po + 1  ! = size(u,1)
+      po = ins_op % eop_v % po
+      np = po + 1
 
       !$omp master
+
       allocate( inv_M (np, np, np, mesh % n_elem   ), source = ZERO )
       allocate( v_0   (np, np, np, mesh % n_elem, 3), source = ZERO )
       allocate( F_c   (np, np, np, mesh % n_elem, 3), source = ZERO )
@@ -136,32 +138,21 @@ print *, '# 00'
       allocate( Q     (np, np, np, mesh % n_elem, 3), source = ZERO )
       allocate( vp    (np, np,  6, mesh % n_elem, 3), source = ZERO )
       allocate( sp    (np, np,  6, mesh % n_elem, 3), source = ZERO )
-      bv_x = SEM_BoundaryVariable_3D(sem_v, mesh % boundary, nc = 3)
-      bv_u = SEM_BoundaryVariable_3D(sem_v, mesh % boundary, nc = 4)
-      bv_v = SEM_BoundaryVariable_3D(bv_u, first=1, last=3)
+
+      allocate(bv_x(mesh % n_bound))
+      allocate(bv_u(mesh % n_bound))
+      allocate(bv_v(mesh % n_bound))
+      do b = 1, mesh % n_bound
+        bv_x(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 3)
+        bv_u(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 4)
+        bv_v(b) = BoundaryVariable_3D(bv_u(b), first=1, last=3)
+      end do
+
       !$omp end master
       !$omp barrier
+
 !### CHECK
 print *, '# 01'
-print *, '# 01, shape(this % ins_op % mesh % boundary)   =', shape(this % ins_op % mesh % boundary)
-print *, '# 01, size(bv_x)                               =',  size(bv_x)
-print *, '# 01, size(bv_u)                               =',  size(bv_u)
-print *, '# 01, size(bv_v)                               =',  size(bv_v)
-do b = 1, mesh % n_bound
-print *, '# 01, b ========================================', b
-print *, '# 01, associated(bv_x(b) % val)                =', associated(bv_x(b) % val)
-print *, '# 01, associated(bv_x(b) % sem)                =', associated(bv_x(b) % sem)
-print *, '# 01, associated(bv_x(b) % sem % mesh)         =', associated(bv_x(b) % sem % mesh)
-print *, '# 01, shape(bv_x(b) % sem % mesh % boundary)   =', shape(bv_x(b) % sem % mesh % boundary)
-print *, '# 01, associated(bv_u(b) % val)                =', associated(bv_u(b) % val)
-print *, '# 01, associated(bv_u(b) % sem)                =', associated(bv_u(b) % sem)
-print *, '# 01, associated(bv_u(b) % sem % mesh)         =', associated(bv_u(b) % sem % mesh)
-print *, '# 01, shape(bv_u(b) % sem % mesh % boundary)   =', shape(bv_u(b) % sem % mesh % boundary)
-print *, '# 01, associated(bv_v(b) % val)                =', associated(bv_v(b) % val)
-print *, '# 01, associated(bv_v(b) % sem)                =', associated(bv_v(b) % sem)
-print *, '# 01, associated(bv_v(b) % sem % mesh)         =', associated(bv_v(b) % sem % mesh)
-print *, '# 01, shape(bv_v(b) % sem % mesh % boundary)   =', shape(bv_v(b) % sem % mesh % boundary)
-end do
 !### CHECK END
 
       ! inverse diagonal mass matrix
@@ -188,55 +179,20 @@ print *, '# 03'
       call problem % GetExternalSources(sem_v % metrics % x, t, Q)
 !### CHECK
 print *, '# 04'
-do b = 1, mesh % n_bound
-print *, '# 04, b ========================================', b
-print *, '# 04, associated(bv_x(b) % val)                =', associated(bv_x(b) % val)
-print *, '# 04, associated(bv_x(b) % sem)                =', associated(bv_x(b) % sem)
-print *, '# 04, associated(bv_x(b) % sem % mesh)         =', associated(bv_x(b) % sem % mesh)
-print *, '# 04, shape(bv_x(b) % sem % mesh % boundary)   =', shape(bv_x(b) % sem % mesh % boundary)
-print *, '# 04, associated(bv_u(b) % val)                =', associated(bv_u(b) % val)
-print *, '# 04, associated(bv_u(b) % sem)                =', associated(bv_u(b) % sem)
-print *, '# 04, associated(bv_u(b) % sem % mesh)         =', associated(bv_u(b) % sem % mesh)
-print *, '# 04, shape(bv_u(b) % sem % mesh % boundary)   =', shape(bv_u(b) % sem % mesh % boundary)
-print *, '# 04, associated(bv_v(b) % val)                =', associated(bv_v(b) % val)
-print *, '# 04, associated(bv_v(b) % sem)                =', associated(bv_v(b) % sem)
-print *, '# 04, associated(bv_v(b) % sem % mesh)         =', associated(bv_v(b) % sem % mesh)
-print *, '# 04, shape(bv_v(b) % sem % mesh % boundary)   =', shape(bv_v(b) % sem % mesh % boundary)
-end do
 !### CHECK END
 
       ! boundary values ........................................................
       ! also think about reusing
 
       do b = 1, mesh % n_bound
-        call bv_x(b) % Extract(sem_v % metrics % x, mesh % boundary(b))
 !### CHECK
-print *, '# 04+, b ========================================', b
-print *, '# 04+, associated(bv_x(b) % val)                =', associated(bv_x(b) % val)
-print *, '# 04+, associated(bv_x(b) % sem)                =', associated(bv_x(b) % sem)
-print *, '# 04+, associated(bv_x(b) % sem % mesh)         =', associated(bv_x(b) % sem % mesh)
-print *, '# 04+, shape(bv_x(b) % sem % mesh % boundary)   =', shape(bv_x(b) % sem % mesh % boundary)
-print *, '# 04+, associated(bv_u(b) % val)                =', associated(bv_u(b) % val)
-print *, '# 04+, associated(bv_u(b) % sem)                =', associated(bv_u(b) % sem)
-print *, '# 04+, associated(bv_u(b) % sem % mesh)         =', associated(bv_u(b) % sem % mesh)
-print *, '# 04+, shape(bv_u(b) % sem % mesh % boundary)   =', shape(bv_u(b) % sem % mesh % boundary)
+print *, '# 05'
 !### CHECK END
+        call bv_x(b) % Extract(sem_v % metrics % x)
         call problem % GetBoundaryValues(b, bv_x(b) % val, t, bv_u(b) % val)
       end do
 !### CHECK
-print *, '# 05'
-print *, '# 05, shape(this % ins_op % mesh % boundary)   =', shape(this % ins_op % mesh % boundary)
-do b = 1, size(bv_u)
-print *, '# 05, b ==========================================', b
-print *, '# 05, associated(bv_u(b) % sem)                  =', associated(bv_u(b) % sem)
-print *, '# 05, associated(bv_u(b) % sem % mesh)           =', associated(bv_u(b) % sem % mesh)
-print *, '# 05, shape(bv_u(b) % sem % mesh % boundary)     =', shape(bv_u(b) % sem % mesh % boundary)
-print *, '# 05, allocated(bv_u(b) % sem % mesh % boundary) =', allocated(bv_u(b) % sem % mesh % boundary)
-print *, '# 05, associated(bv_v(b) % sem)                  =', associated(bv_v(b) % sem)
-print *, '# 05, associated(bv_v(b) % sem % mesh)           =', associated(bv_v(b) % sem % mesh)
-print *, '# 05, shape(bv_v(b) % sem % mesh % boundary)     =', shape(bv_v(b) % sem % mesh % boundary)
-print *, '# 05, allocated(bv_v(b) % sem % mesh % boundary) =', allocated(bv_v(b) % sem % mesh % boundary)
-end do
+print *, '# 06'
 !### CHECK END
 
 
@@ -245,23 +201,15 @@ end do
 
       call ins_op % SetVelocityBC(bv_v, vp, sp)
 !### CHECK
-print *, '# 06'
-b = 1
-print *, '# 06, shape(this % ins_op % mesh % boundary)   =', shape(this % ins_op % mesh % boundary)
-print *, '# 06, associated(bv_u(b) % sem)                =', associated(bv_u(b) % sem)
-print *, '# 06, associated(bv_u(b) % sem % mesh)         =', associated(bv_u(b) % sem % mesh)
-print *, '# 06, shape(bv_u(b) % sem % mesh % boundary)   =', shape(bv_u(b) % sem % mesh % boundary)
-print *, '# 06, associated(bv_v(b) % sem)                =', associated(bv_v(b) % sem)
-print *, '# 06, associated(bv_v(b) % sem % mesh)         =', associated(bv_v(b) % sem % mesh)
-print *, '# 06, shape(bv_v(b) % sem % mesh % boundary)   =', shape(bv_v(b) % sem % mesh % boundary)
+print *, '# 07'
 !### CHECK END
 !###!      call ins_op % GetDiffusionTerm(v, vp, sp, F_d)
 !### CHECK
-print *, '# 07'
+print *, '# 08'
 !### CHECK END
 !###!      call ins_op % GetConvectionTerm(v, vp, F_c)
 !### CHECK
-print *, '# 08'
+print *, '# 09'
 !### CHECK END
 
       !$omp do
@@ -272,15 +220,7 @@ print *, '# 08'
         end do
       end do
 !### CHECK
-print *, '# 09'
-b = 1
-print *, '# 09, shape(this % ins_op % mesh % boundary)   =', shape(this % ins_op % mesh % boundary)
-print *, '# 09, associated(bv_u(b) % sem)                =', associated(bv_u(b) % sem)
-print *, '# 09, associated(bv_u(b) % sem % mesh)         =', associated(bv_u(b) % sem % mesh)
-print *, '# 09, shape(bv_u(b) % sem % mesh % boundary)   =', shape(bv_u(b) % sem % mesh % boundary)
-print *, '# 09, associated(bv_v(b) % sem)                =', associated(bv_v(b) % sem)
-print *, '# 09, associated(bv_v(b) % sem % mesh)         =', associated(bv_v(b) % sem % mesh)
-print *, '# 09, shape(bv_v(b) % sem % mesh % boundary)   =', shape(bv_v(b) % sem % mesh % boundary)
+print *, '# 10'
 !### CHECK END
 
       ! extrapolation-projection-diffusion step ................................
@@ -289,18 +229,18 @@ print *, '# 09, shape(bv_v(b) % sem % mesh % boundary)   =', shape(bv_v(b) % sem
                                 , this % i_max_p, this % i_max_v &
                                 , this % r_red  , this % r_max   )
 !### CHECK
-print *, '# 10'
+print *, '# 11'
 !### CHECK END
 
-      ! cleanup ................................................................
-
-      if (present(standby)) then
-        if (standby) return
-      end if
-
-      !$omp master
-      deallocate(inv_M, v_0, F_c, F_d, Q, vp, sp)
-      !$omp end master
+!!       ! cleanup ................................................................
+!!
+!!       if (present(standby)) then
+!!         if (standby) return
+!!       end if
+!!
+!!       !$omp master
+!!       deallocate(inv_M, v_0, F_c, F_d, Q, vp, sp)
+!!       !$omp end master
 
     end associate
 !### CHECK

@@ -34,7 +34,7 @@ contains
     real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
     !< sources, f(np,np,np,ne,3)
 
-    class(SEM_BoundaryVariable_3D), intent(in) :: bv_v(:)
+    class(BoundaryVariable_3D), intent(in) :: bv_v(:)
     !< velocity boundary values, bv_v(nb)
 
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)

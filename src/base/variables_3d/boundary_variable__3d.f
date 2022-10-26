@@ -1,45 +1,23 @@
-!> summary:  3D spectral element boundary variable
+!> summary:  3D boundary variable
 !> author:   Joerg Stiller
-!> date:     2021/10/25
+!> date:     2022/10/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module SEM__Boundary_Variable__3D
+module Boundary_Variable__3D
   use Kind_Parameters, only: RNP
   use Mesh_Boundary__3D
   use Spectral_Element_Mesh__3D
-  use SEM__Variable__3D
-  use SEM__Vector__3D
   implicit none
   private
 
-  public :: SEM_BoundaryVariable_3D
+  public :: BoundaryVariable_3D
 
   !-----------------------------------------------------------------------------
-  !> 3D spectral element boundary variable
+  !> 3D boundary variable
   !>
   !> Base type for keeping a set of variables on the boundaries of a spectral
-  !> element mesh. The mesh, standard operators and metric coefficients are
-  !> provided by the pointer `sem`, which can be shared with other entities.
-  !> The constructor and the `GetSlice` procedure are elemental and can be used
-  !> to create scalar variable on one boundary or an array boundary variables,
-  !> e.g.
-  !>
-  !>       class(SpectralElementMesh_3d) :: sem
-  !>       type(SEM_BoundaryVariable_3D), allocatable :: bv(:)
-  !>       type(SEM_BoundaryVariable_3D) :: sebs
-  !>
-  !>       associate(boundary => sem % mesh boundary)
-  !>
-  !>         ! create an array with 4 components for all boundaries
-  !>         bv = SEM_BoundaryVariable_3D(sem, boundary, nc = 4)
-  !>
-  !>         ! create a slice containing components 1:2 for boundary b
-  !>         call bv(3) % GetSlice(sebs, first=1, last=2)
-  !>
-  !>       end associate
-  !>
-  !> The values of an array defined for all boundaries are accessed via
+  !> element mesh. The boundary values are accessed via
   !>
   !>       bv(b) % val(0:po,0:po,1:nf,1:nc),
   !>
@@ -51,8 +29,7 @@ module SEM__Boundary_Variable__3D
   !>   - `nc` the number of components.
   !>
   !> Note that `po` is identical for all boundaries, while `nf` is not.
-  !> The number of components `nc` can be equal or different, depending
-  !> on the creation of the variable.
+  !> The number of components `nc` can be equal or different.
   !>
   !> If the variable is initialized with the constructor, new memory is
   !> allocated in `mem` for storing the values.
@@ -60,31 +37,29 @@ module SEM__Boundary_Variable__3D
   !> and may get lost if the latter is deleted. Passing `copy = T` causes
   !> the values to copied into fresh memory which removes this risk.
 
-  type SEM_BoundaryVariable_3D
+  type BoundaryVariable_3D
 
-    class(SpectralElementMesh_3D), pointer :: sem => null()
+    class(MeshBoundary_3D), pointer :: boundary => null()
     real(RNP), contiguous,  pointer :: val(:,:,:,:) => null() !< value access
     real(RNP), allocatable, private :: mem(:,:,:,:) !< memory allocated to val
-    integer :: bid = -1 !< associated mesh boundary identifier
 
   contains
 
-    procedure :: Init_SEM_BoundaryVariable_3D => Init_SEM_BV
+    procedure :: Init_BoundaryVariable_3D
     procedure :: GetSlice
 
-    generic :: Extract => Extract_SEV, Extract_MVA, Extract_MVS
-    generic :: Extract => Extract_MVA, Extract_MVS
-    procedure, private :: Extract_SEV, Extract_MVA, Extract_MVS
+    generic :: Extract => Extract_A, Extract_S
+    procedure, private :: Extract_A, Extract_S
 
     procedure :: ExtractNormalComponent
 
     generic :: CopyToTraceVariable => CopyToTraceVar_S, CopyToTraceVar_A
     procedure, private :: CopyToTraceVar_S, CopyToTraceVar_A
 
-  end type SEM_BoundaryVariable_3D
+  end type BoundaryVariable_3D
 
   ! constructor
-  interface SEM_BoundaryVariable_3D
+  interface BoundaryVariable_3D
     module procedure New_Scratch
     module procedure New_Slice
   end interface
@@ -95,27 +70,27 @@ contains
   ! Constructors
 
   !-----------------------------------------------------------------------------
-  !> New 3D spectral element boundary variable generated from scratch
+  !> New 3D boundary variable generated from scratch
 
-  impure elemental function New_Scratch(sem, boundary, nc) result(this)
-    class(SpectralElementMesh_3D), intent(in) :: sem
-    class(MeshBoundary_3D), intent(in) :: boundary
+  function New_Scratch(boundary, po, nc) result(this)
+    class(MeshBoundary_3D), target, intent(in) :: boundary
+    integer, intent(in) :: po
     integer, intent(in) :: nc
-    type(SEM_BoundaryVariable_3D) :: this
+    type(BoundaryVariable_3D) :: this
 
-    call Init_SEM_BV(this, sem, boundary, nc)
+    call Init_BoundaryVariable_3D(this, boundary, po, nc)
 
   end function New_Scratch
 
   !-----------------------------------------------------------------------------
-  !> New 3D spectral element boundary variable generated from slice
+  !> New 3D boundary variable generated from slice
 
-  impure elemental function New_Slice(bv, first, last, copy) result(this)
-    class(SEM_BoundaryVariable_3D), intent(in) :: bv
+  function New_Slice(bv, first, last, copy) result(this)
+    class(BoundaryVariable_3D), intent(in) :: bv
     integer,           intent(in) :: first !< first component of slice
     integer,           intent(in) :: last  !< last component of slice
     logical, optional, intent(in) :: copy  !< copy into fresh memory [F]
-    type(SEM_BoundaryVariable_3D) :: this
+    type(BoundaryVariable_3D) :: this
 
     call bv % GetSlice(this, first, last, copy)
 
@@ -125,39 +100,33 @@ contains
   ! Initializers
 
   !-----------------------------------------------------------------------------
-  !> 3D spectral element boundary variable initialization
+  !> 3D boundary variable initialization
 
-  impure elemental subroutine Init_SEM_BV(this, sem, boundary, nc)
-    class(SEM_BoundaryVariable_3D), target, intent(inout) :: this
-    class(SpectralElementMesh_3D),  target, intent(in)    :: sem
-    class(MeshBoundary_3D), intent(in) :: boundary
+  subroutine Init_BoundaryVariable_3D(this, boundary, po, nc)
+    class(BoundaryVariable_3D), target, intent(inout) :: this
+    class(MeshBoundary_3D), target, intent(in) :: boundary
+    integer, intent(in) :: po
     integer, intent(in) :: nc
 
-    integer :: po, nf
-
-    po = sem % std_op % po
-    nf = boundary % n_face
-
     if (allocated(this % mem)) deallocate(this % mem)
-    allocate(this % mem(0:po, 0:po, nf, nc))
+    allocate(this % mem(0:po, 0:po, boundary%n_face, nc))
 
-    this % bid = boundary % id
+    this % boundary         => boundary
     this % val(0:,0:,1:,1:) => this % mem
-    this % sem              => sem
 
-  end subroutine Init_SEM_BV
+  end subroutine Init_BoundaryVariable_3D
 
   !-----------------------------------------------------------------------------
-  !> Create a new spectral element boundary variable as a slice of the given one
+  !> Create a new boundary variable as a slice of the given one
   !>
   !> The values of the new variable refer to `this % val` if `copy` is false
   !> or absent. Otherwise they are stored in fresh memory, i.e. `slice % mem`.
   !> In an OpenMP parallel section the routine is executed only by the master
   !> thread.
 
-  impure elemental subroutine GetSlice(this, slice, first, last, copy)
-    class(SEM_BoundaryVariable_3D), intent(in) :: this
-    class(SEM_BoundaryVariable_3D), target, intent(inout) :: slice
+  subroutine GetSlice(this, slice, first, last, copy)
+    class(BoundaryVariable_3D), target, intent(in) :: this
+    class(BoundaryVariable_3D), target, intent(inout) :: slice
     integer,           intent(in) :: first !< first component of slice
     integer,           intent(in) :: last  !< last component of slice
     logical, optional, intent(in) :: copy  !< copy into fresh memory [F]
@@ -166,8 +135,7 @@ contains
 
     !$omp master
 
-    slice % sem => this % sem
-    slice % bid =  this % bid
+    slice % boundary => this % boundary
 
     if (present(copy)) then
       copy_ = copy
@@ -191,36 +159,13 @@ contains
   ! Extraction
 
   !-----------------------------------------------------------------------------
-  !> Extract boundary variable from spectral-element variable
-  !>
-  !> `this` must be properly initialized on input!
-
-  impure elemental subroutine Extract_SEV(this, sev, boundary)
-    class(SEM_BoundaryVariable_3D), intent(inout) :: this
-    class(SEM_Variable_3D), intent(in) :: sev
-    class(MeshBoundary_3D), intent(in) :: boundary
-
-    associate(v => sev % val, vb => this % val)
-
-      if (size(v,5) > 1) then
-        call Extract_MVA(this, v, boundary)
-      else
-        call Extract_MVS(this, v(:,:,:,:,1), boundary)
-      end if
-
-    end associate
-
-  end subroutine Extract_SEV
-
-  !-----------------------------------------------------------------------------
   !> Extract boundary variable from array-valued mesh variable
   !>
   !> `this` must be properly initialized on input!
 
-  subroutine Extract_MVA(this, v, boundary)
-    class(SEM_BoundaryVariable_3D), target, intent(inout) :: this
+  subroutine Extract_A(this, v)
+    class(BoundaryVariable_3D), intent(inout) :: this
     real(RNP), contiguous, target, intent(in) :: v(0:,0:,0:,:,:)
-    class(MeshBoundary_3D), intent(in) :: boundary
 
     integer :: c, e, f, i, j, k, m, nc, po
 
@@ -230,10 +175,10 @@ contains
       nc = ubound(v,5)
 
       !$omp do
-      do f = 1, boundary % n_face
+      do f = 1, this % boundary % n_face
 
-        e = boundary % face(f) % element_id
-        m = boundary % face(f) % element_face
+        e = this % boundary % face(f) % element_id
+        m = this % boundary % face(f) % element_face
 
         select case(m)
 
@@ -272,17 +217,16 @@ contains
       end do
     end associate
 
-  end subroutine Extract_MVA
+  end subroutine Extract_A
 
   !-----------------------------------------------------------------------------
   !> Extract boundary variable from scalar mesh variable
   !>
   !> `this` must be properly initialized on input!
 
-  subroutine Extract_MVS(this, v, boundary)
-    class(SEM_BoundaryVariable_3D), intent(inout) :: this
-    real(RNP), contiguous, intent(in) :: v(0:,0:,0:,:)
-    class(MeshBoundary_3D), intent(in) :: boundary
+  subroutine Extract_S(this, v)
+    class(BoundaryVariable_3D), intent(inout) :: this
+    real(RNP), contiguous, target, intent(in) :: v(0:,0:,0:,:)
 
     integer :: e, f, i, j, k, m, po
 
@@ -291,69 +235,80 @@ contains
       po = ubound(v,1)
 
       !$omp do
-      do f = 1, boundary % n_face
+      do f = 1, this % boundary % n_face
 
-        e = boundary % face(f) % element_id
-        m = boundary % face(f) % element_face
+        e = this % boundary % face(f) % element_id
+        m = this % boundary % face(f) % element_face
 
         select case(m)
 
         case(1,2)
           i = (m - 1) * po
-          vb(:,:,f,1) = v(i,:,:,e)
+          do k = 0, po
+          do j = 0, po
+            vb(j,k,f,1) = v(i,j,k,e)
+          end do
+          end do
 
         case(3,4)
           j = (m - 3) * po
-          vb(:,:,f,1) = v(:,j,:,e)
+          do k = 0, po
+          do i = 0, po
+            vb(i,k,f,1) = v(i,j,k,e)
+          end do
+          end do
 
         case(5,6)
           k = (m - 5) * po
-          vb(:,:,f,1) = v(:,:,k,e)
+          do j = 0, po
+          do i = 0, po
+            vb(i,j,f,1) = v(i,j,k,e)
+          end do
+          end do
 
         end select
 
       end do
     end associate
 
-  end subroutine Extract_MVS
+  end subroutine Extract_S
 
   !-----------------------------------------------------------------------------
   !> Extract the normal component of a spectral-element vector
   !>
   !> `this` must be properly initialized on input!
 
-  impure elemental subroutine ExtractNormalComponent(this, sev, boundary)
-    class(SEM_BoundaryVariable_3D), intent(inout) :: this
-    class(SEM_Vector_3D), intent(in) :: sev
-    class(MeshBoundary_3D), intent(in) :: boundary
+  subroutine ExtractNormalComponent(this, sem, v)
+    class(BoundaryVariable_3D), intent(inout) :: this
+    class(SpectralElementMesh_3D), intent(in) :: sem
+    real(RNP), contiguous, target, intent(in) :: v(0:,0:,0:,:,:)
 
-    if (this % sem % mesh % regular) then
-      call ExtractNormalComponent_R(this, sev, boundary)
+    if (sem % mesh % regular) then
+      call ExtractNormalComponent_R(this, v)
     else
-      call ExtractNormalComponent_D(this, sev, boundary)
+      call ExtractNormalComponent_D(this, sem, v)
     end if
 
   end subroutine ExtractNormalComponent
 
   !-----------------------------------------------------------------------------
-  !> Extract the normal component of a spectral-element vector: regular mesh
+  !> Extract the normal component of a vector: regular mesh
 
-  impure elemental subroutine ExtractNormalComponent_R(this, sev, boundary)
-    class(SEM_BoundaryVariable_3D), intent(inout) :: this
-    class(SEM_Vector_3D), intent(in) :: sev
-    class(MeshBoundary_3D), intent(in) :: boundary
+  subroutine ExtractNormalComponent_R(this, v)
+    class(BoundaryVariable_3D), intent(inout) :: this
+    real(RNP), contiguous, target, intent(in) :: v(0:,0:,0:,:,:)
 
     integer :: e, f, i, j, k, m, n, po
 
-    associate(v => sev % val, vb_n => this % val)
+    associate(vb_n => this % val)
 
       po = ubound(v,1)
 
       !$omp do
-      do f = 1, boundary % n_face
+      do f = 1, this % boundary % n_face
 
-        e = boundary % face(f) % element_id
-        m = boundary % face(f) % element_face
+        e = this % boundary % face(f) % element_id
+        m = this % boundary % face(f) % element_face
 
         select case(m)
 
@@ -392,26 +347,24 @@ contains
   end subroutine ExtractNormalComponent_R
 
   !-----------------------------------------------------------------------------
-  !> Extract the normal component of a spectral-element vector: deformed mesh
+  !> Extract the normal component of a vector: deformed mesh
 
-  impure elemental subroutine ExtractNormalComponent_D(this, sev, boundary)
-    class(SEM_BoundaryVariable_3D), target, intent(inout) :: this
-    class(SEM_Vector_3D), intent(in) :: sev
-    class(MeshBoundary_3D), intent(in) :: boundary
+  subroutine ExtractNormalComponent_D(this, sem, v)
+    class(BoundaryVariable_3D), intent(inout) :: this
+    class(SpectralElementMesh_3D), intent(in) :: sem
+    real(RNP), contiguous, target, intent(in) :: v(0:,0:,0:,:,:)
 
     integer :: e, f, i, j, k, m, po
 
-    associate( n    => sev  % sem % metrics % n &
-             , v    => sev  % val               &
-             , vb_n => this % val               )
+    associate(vb_n => this % val, n => sem % metrics % n)
 
       po = ubound(v,1)
 
       !$omp do
-      do f = 1, boundary % n_face
+      do f = 1, this % boundary % n_face
 
-        e = boundary % face(f) % element_id
-        m = boundary % face(f) % element_face
+        e = this % boundary % face(f) % element_id
+        m = this % boundary % face(f) % element_face
 
         select case(m)
 
@@ -455,28 +408,24 @@ contains
   !=============================================================================
   ! Copy boundary values to element-face variable
 
-   !-----------------------------------------------------------------------------
-   !> Copy first component of boundary variable to scalar element-face variable
+  !-----------------------------------------------------------------------------
+  !> Copy first component of boundary variable to scalar element-face variable
 
   subroutine CopyToTraceVar_S(this, v)
-    class(SEM_BoundaryVariable_3D), intent(in) :: this
+    class(BoundaryVariable_3D), intent(in) :: this
     real(RNP), intent(inout) :: v(:,:,:,:)
 
     integer :: f, e, m
 
-    associate(boundary => this % sem % mesh % boundary(this % bid))
+    !$omp do
+    do f = 1, this % boundary % n_face
 
-      !$omp do
-      do f = 1, boundary % n_face
+      e = this % boundary % face(f) % element_id
+      m = this % boundary % face(f) % element_face
 
-        e = boundary % face(f) % element_id
-        m = boundary % face(f) % element_face
+      v(:,:,m,e) = this % val(:,:,f,1)
 
-        v(:,:,m,e) = this % val(:,:,f,1)
-
-      end do
-
-    end associate
+    end do
 
   end subroutine CopyToTraceVar_S
 
@@ -484,51 +433,27 @@ contains
   !> Copy boundary variable to matching array-valued element-face variable
 
   subroutine CopyToTraceVar_A(this, v)
-    class(SEM_BoundaryVariable_3D), intent(in) :: this
+    class(BoundaryVariable_3D), intent(in) :: this
     real(RNP), intent(inout) :: v(:,:,:,:,:)
 
     integer :: c, e, f, m, nc
-!### CHECK
-print *, '### 00'
-!### CHECK END
 
     nc = size(this % val, 4)
-!### CHECK
-print *, '### 01, nc =', nc
-print *, '### 01, this % bid =', this % bid
-print *, '### 01, associated(this % sem) =', associated(this % sem)
-print *, '### 01, associated(this % sem % mesh) =', associated(this % sem % mesh)
-print *, '### 01, allocated(this % sem % mesh % boundary) =', allocated(this % sem % mesh % boundary)
-print *, '### 01, shape(this % sem % mesh % boundary) =', shape(this % sem % mesh % boundary)
-!### CHECK END
 
-    associate(boundary => this % sem % mesh % boundary(this % bid))
-!### CHECK
-print *, '### 02, this % bid =', this % bid
-print *, '### 02, this % sem % mesh % boundary(this % bid) % n_face =',this % sem % mesh % boundary(this % bid) % n_face
-print *, '### 02, boundary % n_face =',boundary % n_face
-print *, '*********************************'
-!### CHECK END
+    !$omp do
+    do f = 1, this % boundary % n_face
 
-      !$omp do
-      do f = 1, boundary % n_face
+      e = this % boundary % face(f) % element_id
+      m = this % boundary % face(f) % element_face
 
-        e = boundary % face(f) % element_id
-        m = boundary % face(f) % element_face
-
-        do c = 1, nc
-          v(:,:,m,e,c) = this % val(:,:,f,c)
-        end do
-
+      do c = 1, nc
+        v(:,:,m,e,c) = this % val(:,:,f,c)
       end do
 
-    end associate
-!### CHECK
-print *, '### XX'
-!### CHECK END
+    end do
 
   end subroutine CopyToTraceVar_A
 
   !=============================================================================
 
-end module SEM__Boundary_Variable__3D
+end module Boundary_Variable__3D

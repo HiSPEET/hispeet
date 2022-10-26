@@ -41,7 +41,7 @@ contains
     !< diffusion term at final time t
     real(RNP), contiguous, intent(in) :: Q(:,:,:,:,:)
     !< sources at time t, older contributions and possibly correction terms
-    class(SEM_BoundaryVariable_3D), intent(inout) :: bv_u(:)
+    class(BoundaryVariable_3D), intent(inout) :: bv_u(:)
     !< boundary values at final time t
     !!   - for velocity, to be given in components 1-3 on input, and
     !!   - for pressure, returned in component 4 on output
@@ -62,11 +62,11 @@ contains
 
     type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_vm
 
-    type(SEM_BoundaryVariable_3D), allocatable, save :: bv_v(:)
-    type(SEM_BoundaryVariable_3D), allocatable, save :: bv_p(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_v(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_p(:)
 
     integer :: np
-    integer :: d, e
+    integer :: b, d, e
 
     associate( ins_op  => this % ins_op                   &
              , mesh    => this % ins_op % mesh            &
@@ -92,26 +92,16 @@ print *, '§ 00'
       buf_vm = ElementFaceTransferBuffer_3D(mesh, vm)
 
       ! handles for velocity and pressure boundary values, based on pointers
-      bv_v = SEM_BoundaryVariable_3D(bv_u, first=1, last=3)
-      bv_p = SEM_BoundaryVariable_3D(bv_u, first=4, last=4)
-
+      allocate(bv_v( mesh%n_bound ))
+      allocate(bv_p( mesh%n_bound ))
+      do b = 1, mesh % n_bound
+        bv_v(b) = BoundaryVariable_3D(bv_u(b), first=1, last=3)
+        bv_p(b) = BoundaryVariable_3D(bv_u(b), first=4, last=4)
+      end do
       !$omp end master
       !$omp barrier
 !### CHECK
-block
-integer :: b = 1
 print *, '§ 01'
-print *, '§ 01, associated(bv_u(b) % sem) =', associated(bv_u(b) % sem)
-print *, '§ 01, associated(bv_u(b) % sem % mesh) =', associated(bv_u(b) % sem % mesh)
-print *, '§ 01, allocated(bv_u(b) % sem % mesh % boundary) =', allocated(bv_u(b) % sem % mesh % boundary)
-print *, '§ 01, shape(bv_u(b) % sem % mesh % boundary) =', shape(bv_u(b) % sem % mesh % boundary)
-print *, '§ 01, associated(bv_v(b) % sem) =', associated(bv_v(b) % sem)
-print *, '§ 01, associated(bv_v(b) % sem % mesh) =', associated(bv_v(b) % sem % mesh)
-print *, '§ 01, allocated(bv_v(b) % sem % mesh % boundary) =', allocated(bv_v(b) % sem % mesh % boundary)
-print *, '§ 01, shape(bv_v(b) % sem % mesh % boundary) =', shape(bv_v(b) % sem % mesh % boundary)
-print *, '§ 01, allocated(this % ins_op % sem_p % mesh % boundary) =', allocated(this % ins_op % sem_p % mesh % boundary)
-print *, '§ 01, shape(this % ins_op % sem_p % mesh % boundary) =', shape(this % ins_op % sem_p % mesh % boundary)
-end block
 !### CHECK END
 
       ! Extrapolation step .....................................................

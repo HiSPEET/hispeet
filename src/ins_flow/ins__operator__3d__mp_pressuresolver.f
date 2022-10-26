@@ -17,13 +17,13 @@ contains
 
     real(RNP), intent(in) :: tau !<  effective time step width
 
-    class(SEM_BoundaryVariable_3D), intent(in) :: bv_v(:)
+    class(BoundaryVariable_3D), intent(in) :: bv_v(:)
     !< velocity boundary values
 
     real(RNP), contiguous, intent(in)    :: v(:,:,:,:,:) !< preliminary velocity
     real(RNP), contiguous, intent(in)    :: f(:,:,:,:)   !< source at v-points
 
-    class(SEM_BoundaryVariable_3D), intent(inout) :: bv_p(:)
+    class(BoundaryVariable_3D), intent(inout) :: bv_p(:)
     !< pressure boundary values at p-points
 
     real(RNP), contiguous, intent(inout) :: p(:,:,:,:) !< pressure at v-points
@@ -38,16 +38,19 @@ contains
     real(RNP), allocatable, save :: q(:,:,:,:) ! pressure at p-points
     real(RNP), allocatable, save :: g(:,:,:,:) ! source at p-points
 
-    class(SEM_BoundaryVariable_3D), allocatable, save :: bv_q(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_q(:)
     ! pressure boundary values at p-points
 
     logical   :: mixed_order
     real(RNP) :: cs
+    integer   :: b
+!### CHECK
+print *, '§§PS 01'
+!### CHECK END
 
     associate( po     => this % eop_v % po  &
              , pq     => this % eop_p % po  &
              , mesh   => this % mesh        &
-             , sem_p  => this % sem_p       &
              , Solver => this % laplacian_p &
              , bc_p   => this % bc_p        )
 
@@ -60,46 +63,48 @@ contains
       if (mixed_order) then
         allocate(q(0:pq, 0:pq, 0:pq, 1:mesh%n_elem))
         allocate(g, mold = q)
-        bv_q = SEM_BoundaryVariable_3D(sem_p, mesh%boundary, nc=1)
+        allocate(bv_q(mesh % n_bound))
+        do b = 1, mesh % n_bound
+          bv_q(b) = BoundaryVariable_3D(mesh%boundary(b), pq, nc=1)
+        end do
       end if
       !$omp end master
       !$omp barrier
 !### CHECK
-if (mixed_order) then
-block
-integer :: b = 1
-print *, '* 01, shape(mesh%boundary) =', shape(mesh%boundary)
-print *, '* 01, associated(sem_p % mesh) =', associated(sem_p % mesh)
-print *, '* 01, allocated(sem_p % mesh % boundary) =', allocated(sem_p % mesh % boundary)
-print *, '* 01, allocated(this % sem_p % mesh % boundary) =', allocated(this % sem_p % mesh % boundary)
-print *, '* 01, associated(bv_q(b) % sem) =', associated(bv_q(b) % sem)
-print *, '* 01, associated(bv_q(b) % sem) =', associated(bv_q(b) % sem)
-print *, '* 01, associated(bv_q(b) % sem % mesh) =', associated(bv_q(b) % sem % mesh)
-print *, '* 01, allocated(bv_q(b) % sem % mesh % boundary) =', allocated(bv_q(b) % sem % mesh % boundary)
-print *, '* 01, shape(bv_q(b) % sem % mesh % boundary) =', shape(bv_q(b) % sem % mesh % boundary)
-end block
-end if
+print *, '§§PS 02'
 !### CHECK END
 
       ! build pressure BC ......................................................
 
-!!       call BuildPressureBC(this, cs, v, bv_v, bv_p, bv_q)
-!!
-!!       ! solve ..................................................................
-!!
-!!       if (mixed_order) then
-!!         ! interpolate source to orer pq
-!!         call TPO_AAA(this % iop_vp % A, f, g)
-!!         ! apply Schwarz-PCG with λ=0 and ν=1
-!!         call Solver % SchwarzPCG_Method(ZERO, ONE, q, g, bv_q, &
-!!                                         i_max, r_red, r_max, ni)
-!!         ! interpolate result to orer po
-!!         call TPO_AAA(this % iop_pv % A, q, p)
-!!       else
-!!         ! apply Schwarz-PCG with λ=0 and ν=1
-!!         call Solver % SchwarzPCG_Method(ZERO, ONE, p, f, bv_p, &
-!!                                         i_max, r_red, r_max, ni)
-!!       end if
+      call BuildPressureBC(this, cs, v, bv_v, bv_p, bv_q)
+!### CHECK
+print *, '§§PS 03'
+!### CHECK END
+
+      ! solve ..................................................................
+
+      if (mixed_order) then
+        ! interpolate source to orer pq
+        call TPO_AAA(this % iop_vp % A, f, g)
+!### CHECK
+print *, '§§PS 04a1'
+!### CHECK END
+        ! apply Schwarz-PCG with λ=0 and ν=1
+        call Solver % SchwarzPCG_Method(ZERO, ONE, q, g, bv_q, &
+                                        i_max, r_red, r_max, ni)
+!### CHECK
+print *, '§§PS 04a2'
+!### CHECK END
+        ! interpolate result to orer po
+        call TPO_AAA(this % iop_pv % A, q, p)
+      else
+        ! apply Schwarz-PCG with λ=0 and ν=1
+        call Solver % SchwarzPCG_Method(ZERO, ONE, p, f, bv_p, &
+                                        i_max, r_red, r_max, ni)
+      end if
+!### CHECK
+print *, '§§PS 04'
+!### CHECK END
 
       ! finalization ...........................................................
 
@@ -123,11 +128,11 @@ end if
     !< !< scaling dactor, usually ~ 1/dt
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< preliminary velocity
-    class(SEM_BoundaryVariable_3D), intent(in) :: bv_v(:)
+    class(BoundaryVariable_3D), intent(in) :: bv_v(:)
     !< velocity boundary values
-    class(SEM_BoundaryVariable_3D), intent(inout) :: bv_p(:)
+    class(BoundaryVariable_3D), intent(inout) :: bv_p(:)
     !< pressure boundary values on v-points
-    class(SEM_BoundaryVariable_3D), optional, intent(inout) :: bv_q(:)
+    class(BoundaryVariable_3D), optional, intent(inout) :: bv_q(:)
     !< pressure boundary values on p-points
 
     real(RNP), contiguous, pointer :: vb(:,:,:,:), hp(:,:,:), hq(:,:,:)

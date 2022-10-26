@@ -84,31 +84,31 @@ program INS_TimeIntegrator_3D_Test
 
   ! operators and variables ....................................................
 
-  type(Mesh_3D) :: mesh
+  type(Mesh_3D), save :: mesh
 
-  class(INS_Problem_3D), allocatable :: problem
+  class(INS_Problem_3D), allocatable, save :: problem
   ! flow problem
 
-  type(INS_Operator_3D) :: ins_op
+  type(INS_Operator_3D), save :: ins_op
   ! incompressible Navier-Stokes operator
 
-  class(INS_TimeIntegrator_3D), allocatable :: ins_ti
+  class(INS_TimeIntegrator_3D), allocatable, save :: ins_ti
   ! incompressible Navier-Stokes time integrator
 
   real(RNP) :: t = 0 ! problem time
 
-  real(RNP), allocatable, target :: var(:,:,:,:,:)
-  character(len=20), allocatable :: var_name(:)
+  real(RNP), allocatable, target, save :: var(:,:,:,:,:)
+  character(len=20), allocatable, save :: var_name(:)
 
-  real(RNP), pointer, contiguous :: u(:,:,:,:,:)    ! u = [v, p]
-  real(RNP), pointer, contiguous :: v(:,:,:,:,:)    ! velocity
-  real(RNP), pointer, contiguous :: p(:,:,:,:)      ! pressure
+  real(RNP), pointer, contiguous, save :: u(:,:,:,:,:)    ! u = [v, p]
+  real(RNP), pointer, contiguous, save :: v(:,:,:,:,:)    ! velocity
+  real(RNP), pointer, contiguous, save :: p(:,:,:,:)      ! pressure
 
-  real(RNP), pointer, contiguous :: u_ex(:,:,:,:,:) ! u_ex = [v_ex, p_ex]
-  real(RNP), pointer, contiguous :: v_ex(:,:,:,:,:) ! exact velocity
-  real(RNP), pointer, contiguous :: p_ex(:,:,:,:)   ! exact pressure
+  real(RNP), pointer, contiguous, save :: u_ex(:,:,:,:,:) ! u_ex = [v_ex, p_ex]
+  real(RNP), pointer, contiguous, save :: v_ex(:,:,:,:,:) ! exact velocity
+  real(RNP), pointer, contiguous, save :: p_ex(:,:,:,:)   ! exact pressure
 
-   real(RNP), allocatable :: w(:,:,:,:,:)   ! workspace
+   real(RNP), allocatable, save :: w(:,:,:,:,:)   ! workspace
 
   ! auxiliaries ................................................................
 
@@ -240,16 +240,17 @@ print *, '$ 02, allocated(mesh % boundary)                  =', allocated(mesh %
 print *, '$ 02, allocated(ins_op % mesh % boundary)         =', allocated(ins_op % mesh % boundary)
 print *, '$ 02, allocated(ins_op % sem_v % mesh % boundary) =', allocated(ins_op % sem_v % mesh % boundary)
 print *, '$ 02, allocated(ins_op % sem_p % mesh % boundary) =', allocated(ins_op % sem_p % mesh % boundary)
-print *, '$ 02, shape(ins_op % sem_v % mesh % boundary)     =', shape(ins_op % sem_v % mesh % boundary)
 !### CHECK END
 
   ! time integrator: up to now only Euler
   ins_ti = INS_TimeIntegrator_Euler_3D(problem, ins_op, ins_ti_euler_opts)
 !### CHECK
+print *, '$ 03'
 print *, '$ 03, shape(mesh % boundary)                   =', shape(mesh % boundary)
 print *, '$ 03, shape(ins_op % mesh % boundary)          =', shape(ins_op % mesh % boundary)
+print *, '$ 03, shape(ins_op % sem_v % mesh % boundary)  =', shape(ins_op % sem_v % mesh % boundary)
 print *, '$ 03, shape(ins_ti % ins_op % mesh % boundary) =', shape(ins_ti % ins_op % mesh % boundary)
-print *, '$ 03, shape(ins_ti % ins_op % sem_p % mesh % boundary) =', shape(ins_ti % ins_op % sem_p % mesh % boundary)
+print *, '$ 03, shape(ins_ti % ins_op % sem_v % mesh % boundary) =', shape(ins_ti % ins_op % sem_p % mesh % boundary)
 !### CHECK END
 
   ! variables ..................................................................
@@ -303,7 +304,6 @@ print *, '$ 04'
   call problem % GetExactSolution(ins_op % sem_v % metrics % x, t, u)
 !### CHECK
 print *, '$ 05'
-print *, '$ 05, allocated(ins_ti % ins_op % sem_p % mesh % boundary) =', allocated(ins_ti % ins_op % sem_p % mesh % boundary)
 !### CHECK END
 
   do nt = 1, nt_max
@@ -313,7 +313,6 @@ print *, '$ 05, allocated(ins_ti % ins_op % sem_p % mesh % boundary) =', allocat
   nt = min(nt, nt_max)
 !### CHECK
 print *, '$ 06'
-print *, '$ 06, allocated(ins_ti % ins_op % sem_p % mesh % boundary) =', allocated(ins_ti % ins_op % sem_p % mesh % boundary)
 !### CHECK END
 
   !-----------------------------------------------------------------------------

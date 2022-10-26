@@ -28,7 +28,7 @@ contains
     real(RNP), contiguous,           intent(in)  :: u (:,:,:,:) !< operand
     real(RNP), contiguous,           intent(out) :: r (:,:,:,:) !< result
     real(RNP), contiguous, optional, intent(in)  :: f (:,:,:,:) !< RHS
-    class(SEM_BoundaryVariable_3D), optional, intent(in) :: bv(:)
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
     !< boundary values
 
     ! local variables ..........................................................
