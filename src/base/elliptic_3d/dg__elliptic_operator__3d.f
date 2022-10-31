@@ -511,8 +511,8 @@ contains
   !>          jmp_u  ←  n⋅[u]  =  0
   !>          avg_q  ←  n⋅{q}  =  q_b
 
-  subroutine EnforceBoundaryConditions(diffusion_op, bv, jmp_u, avg_q)
-    class(DG_EllipticOperator_3D), intent(in) :: diffusion_op
+  subroutine EnforceBoundaryConditions(elliptic_op, bv, jmp_u, avg_q)
+    class(DG_EllipticOperator_3D), intent(in) :: elliptic_op
     class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
     real(RNP), contiguous, intent(inout) :: jmp_u(:,:,:,:) !< trace of u
     real(RNP), contiguous, intent(inout) :: avg_q(:,:,:,:) !< trace of ν du/dn
@@ -520,15 +520,15 @@ contains
     logical :: has_bv
     integer :: b, e, f, l
 
-    if (diffusion_op % sem % mesh % n_bound < 1) return
+    if (elliptic_op % sem % mesh % n_bound < 1) return
 
     has_bv = present(bv)
 
-    associate(boundary => diffusion_op % sem % mesh % boundary)
+    associate(boundary => elliptic_op % sem % mesh % boundary)
 
       do b = 1, size(boundary)
 
-        select case(diffusion_op % bc(b))
+        select case(elliptic_op % bc(b))
 
         case('D')  ! avg_q remains unchanged !
 
