@@ -200,11 +200,18 @@ contains
     character,                             intent(in)    :: bc(:)
     real(RNP),                   optional, intent(in)    :: r_nu_s !< [0]
 
-    this % sem      => sem
-    this % eop      =  DG_ElementOperators_1D(dg_opt)
-    this % bc       =  bc
-    this % schwarz  =  DG_SchwarzOperator_3D(schwarz_opt, this%eop, sem%mesh, &
-                                             bc, r_nu_s)
+    this % sem => sem
+    this % eop =  DG_ElementOperators_1D(dg_opt)
+    this % bc  =  bc
+
+    if (present(r_nu_s)) then
+      this % r_nu_s = r_nu_s
+    else
+      this % r_nu_s = 0
+    end if
+
+    this % schwarz  =  DG_SchwarzOperator_3D( schwarz_opt, this%eop, sem%mesh &
+                                            , bc, this%r_nu_s                 )
 
   end subroutine Init_DG_EllipticOperator_3D
 
@@ -512,6 +519,8 @@ contains
 
     logical :: has_bv
     integer :: b, e, f, l
+
+    if (diffusion_op % sem % mesh % n_bound < 1) return
 
     has_bv = present(bv)
 
