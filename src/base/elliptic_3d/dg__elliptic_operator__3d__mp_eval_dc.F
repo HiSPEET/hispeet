@@ -77,6 +77,8 @@ contains
 
     integer :: po, ne, ng, np
 
+    if (this % sem % mesh % part < 0) return
+
     associate( mesh => this % sem % mesh           &
              , Jd   => this % sem % metrics % Jd   &
              , G    => this % sem % metrics % G    &

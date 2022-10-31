@@ -41,6 +41,8 @@ contains
 
     integer :: po, ne, ng, np
 
+    if (this % sem % mesh % part < 0) return
+
     associate( mesh => this % sem % mesh &
              , eop  => this % eop        )
 
