@@ -25,6 +25,9 @@ contains
 
     integer :: np(3)
 
+    if (mesh % part   < 0) return
+    if (mesh % n_link < 1) return
+
     np(1) = size(v,1)
     np(2) = size(v,2)
     np(3) = size(v,3)
@@ -33,10 +36,6 @@ contains
 
     this % nc = 1
 
-    ! skip the rest for empty partitions
-    if (mesh % part < 0) return
-
-    if (this % ng < 1) return
     allocate(integer(IK) :: this % master % buf(size(this % master % node)))
     allocate(integer(IK) :: this % ghost  % buf(size(this % ghost  % node)))
 
@@ -53,8 +52,8 @@ contains
 
     integer :: np(3), nc
 
-    ! skip empty partition
-    if (mesh % part < 0) return
+    if (mesh % part   < 0) return
+    if (mesh % n_link < 1) return
 
     np(1) = size(v,1)
     np(2) = size(v,2)
@@ -65,7 +64,6 @@ contains
 
     this % nc = nc
 
-    if (this % ng < 1) return
     allocate(integer(IK) :: this % master % buf(size(this % master % node) * nc))
     allocate(integer(IK) :: this % ghost  % buf(size(this % ghost  % node) * nc))
 

@@ -25,8 +25,8 @@ contains
 
     integer :: np(3)
 
-    ! skip empty partition
-    if (mesh % part < 0) return
+    if (mesh % part   < 0) return
+    if (mesh % n_link < 1) return
 
     np(1) = size(v,1)
     np(2) = size(v,2)
@@ -36,7 +36,6 @@ contains
 
     this % nc = 1
 
-    if (this % ng < 1) return
     allocate(real(RDP) :: this % master % buf(size(this % master % node)))
     allocate(real(RDP) :: this % ghost  % buf(size(this % ghost  % node)))
 
@@ -53,8 +52,8 @@ contains
 
     integer :: np(3), nc
 
-    ! skip empty partition
-    if (mesh % part < 0) return
+    if (mesh % part   < 0) return
+    if (mesh % n_link < 1) return
 
     np(1) = size(v,1)
     np(2) = size(v,2)
@@ -65,7 +64,6 @@ contains
 
     this % nc = nc
 
-    if (this % ng < 1) return
     allocate(real(RDP) :: this % master % buf(size(this % master % node) * nc))
     allocate(real(RDP) :: this % ghost  % buf(size(this % ghost  % node) * nc))
 
@@ -97,22 +95,10 @@ contains
     class(Mesh_3D), intent(in) :: mesh         !< mesh partition
     real(RDP),      intent(in) :: v(:,:,:,:,:) !< mesh variable
     integer,        intent(in) :: tag          !< message tag
-!### CHECK
-print *, '?? 00'
-!### CHECK END
 
     if (this % ng < 1) return
-!### CHECK
-print *, '?? 01'
-!print *, '? 01, allocated(mesh % link) =', allocated(mesh % link)
-!print *, '? 01, lbound   (mesh % link) =', lbound(mesh % link)
-!print *, '? 01, ubound   (mesh % link) =', ubound(mesh % link)
-!### CHECK END
 
     call Transfer_RX(this, mesh, v, size(v,4), tag)
-!### CHECK
-print *, '?? XX'
-!### CHECK END
 
   end subroutine Transfer_RDP_A
 

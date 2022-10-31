@@ -466,7 +466,7 @@ contains
     ! setup ....................................................................
 
     ! reset and return in case that there are no linked partitions
-    if (size(mesh % link) < 1) then
+    if (mesh % n_link < 1) then
       this % np = 0
       this % ne = 0
       this % ng = 0
@@ -497,13 +497,13 @@ contains
 
     ! master element data ........................................................
 
-    allocate(this % master % start( size(mesh%link) ))
-    allocate(this % master % len  ( size(mesh%link) ))
+    allocate(this % master % start( mesh % n_link ))
+    allocate(this % master % len  ( mesh % n_link ))
 
     associate(start => this%master%start, len => this%master%len)
 
       n = 0
-      do l = 1, size(mesh%link)
+      do l = 1, mesh % n_link
 
         associate(element => mesh%link(l)%master)
           do m = 1, size(element)
@@ -535,19 +535,19 @@ contains
       end do
 
       allocate( this % master % node(n), source = node(1:n) )
-      allocate( this % master % request(size(mesh%link))    )
+      allocate( this % master % request(mesh % n_link)    )
 
     end associate
 
     ! ghost element data .......................................................
 
-    allocate(this % ghost % start( size(mesh%link) ))
-    allocate(this % ghost % len  ( size(mesh%link) ))
+    allocate(this % ghost % start( mesh % n_link ))
+    allocate(this % ghost % len  ( mesh % n_link ))
 
     associate(start => this%ghost%start, len => this%ghost%len)
 
       n = 0
-      do l = 1, size(mesh%link)
+      do l = 1, mesh % n_link
 
         associate(element => mesh%link(l)%ghost)
           do m = 1, size(element)
@@ -580,7 +580,7 @@ contains
       end do
 
       allocate( this % ghost % node(n), source = node(1:n) )
-      allocate( this % ghost % request(size(mesh%link)) )
+      allocate( this % ghost % request(mesh % n_link) )
 
     end associate
 

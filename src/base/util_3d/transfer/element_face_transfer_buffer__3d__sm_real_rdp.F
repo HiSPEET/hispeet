@@ -27,8 +27,7 @@ contains
 
     call Init_ElementFaceTransferBuffer_Shared_3D(this, mesh)
 
-    ! skip empty partition
-    if (this % ne <= 0) return
+    if (this % nf <= 0) return ! no linked faces
 
     allocate(real(RDP) :: this % send % buf(this%np, this%np, this%nc, this%nf))
     allocate(real(RDP) :: this % recv % buf(this%np, this%np, this%nc, this%nf))
@@ -48,8 +47,7 @@ contains
 
     call Init_ElementFaceTransferBuffer_Shared_3D(this, mesh)
 
-    ! skip empty partition
-    if (this % ne <= 0) return
+    if (this % nf <= 0) return ! no linked faces
 
     allocate(real(RDP) :: this % send % buf(this%np, this%np, this%nc, this%nf))
     allocate(real(RDP) :: this % recv % buf(this%np, this%np, this%nc, this%nf))
@@ -68,8 +66,7 @@ contains
     real(RDP),      intent(in) :: v(:,:,:,:) !< element-face variable
     integer,        intent(in) :: tag        !< message tag
 
-    ! skip empty partition
-    if (this % ne <= 0) return
+    if (this % nf <= 0) return ! no linked faces
 
     call Transfer_RX(this, mesh, v, size(v,4), tag)
 
@@ -84,8 +81,7 @@ contains
     real(RDP),      intent(in) :: v(:,:,:,:,:) !< element-face variable
     integer,        intent(in) :: tag          !< message tag
 
-    ! skip empty partition
-    if (this % ne <= 0) return
+    if (this % nf <= 0) return ! no linked faces
 
     call Transfer_RX(this, mesh, v, size(v,4), tag)
 
@@ -101,8 +97,7 @@ contains
     class(ElementFaceTransferBuffer_3D), intent(inout) :: this
     real(RDP), intent(inout) :: v(:,:,:,:) !< element-face variable
 
-    ! skip empty partition
-    if (this % ne <= 0) return
+    if (this % nf <= 0) return ! no linked faces
 
     !$omp master
     if (size(v,4) /= this%ne + this%ng) then
@@ -123,8 +118,7 @@ contains
     class(ElementFaceTransferBuffer_3D), intent(inout) :: this
     real(RDP), intent(inout) :: v(:,:,:,:,:) !< element-face variable
 
-    ! skip empty partition
-    if (this % ne <= 0) return
+    if (this % nf <= 0) return ! no linked faces
 
     !$omp master
     if (size(v,4) /= this%ne + this%ng) then

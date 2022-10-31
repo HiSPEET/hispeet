@@ -199,8 +199,8 @@ contains
 
     integer :: e, i, j, f, l, m
 
-    ! skip empty partition
-    if (mesh % part < 0) return
+    if (mesh % part   < 0) return  ! inactive
+    if (mesh % n_link < 1) return  ! no links
 
     this % ne = mesh % n_elem
     this % ng = mesh % n_ghost

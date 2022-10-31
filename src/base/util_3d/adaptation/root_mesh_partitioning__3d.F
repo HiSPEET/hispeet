@@ -143,6 +143,9 @@ contains
       end do
     end if
 
+    ! nothing more to do if new partition is empty
+    if (new_mesh % part < 0) return
+
     ! assign element data ......................................................
 
     ! number of new elements
