@@ -1,7 +1,7 @@
 &control_prm
   config = 4
-  n_test = 1  ! 10
-  plot_file = 'dg_elliptic_3d_test'
+  n_test = 1
+  plot_file = 'dg_elliptic_3d_test_simple'
 !
 ! schwarz_test_file = 'dg_elliptic_3d_test_schwarz'
 ! schwarz_test_part =  0
@@ -10,7 +10,8 @@
 /
 
 &problem_prm
-! bc = ...
+  test_case = 2
+! bc = 6*'P'
 /
 
 &dicretization_prm
@@ -40,6 +41,7 @@
 ! structured = F ! mimic unstructured mesh
   np = 1,1,2
   ep = 4,4,2
+! periodic = 3*T
 /
 
 ! config = 2
@@ -60,9 +62,10 @@
   h  = 1.0
   nr = 2
   nz = 3
-  pg = 5
+  pg = 7
 /
 
 ! config = 5
 &annulus_prm
+  pg = 7
 /

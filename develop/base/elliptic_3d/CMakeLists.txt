@@ -8,12 +8,19 @@ add_executable( dg_elliptic_3d_test
                 elliptic_problem__simple_1d.f
                 elliptic_problem__simple_2d.f
                 elliptic_problem__simple_3d.f
+                elliptic_problem__tgv_pressure.f
               )
 
 target_link_libraries(dg_elliptic_3d_test HiBase)
 
-configure_file( dg_elliptic_3d_test.prm
-                dg_elliptic_3d_test.prm COPYONLY )
+configure_file( dg_elliptic_3d_test_simple.prm
+                dg_elliptic_3d_test_simple.prm COPYONLY )
+
+configure_file( dg_elliptic_3d_test_knotty.prm
+                dg_elliptic_3d_test_knotty.prm COPYONLY )
+
+configure_file( dg_elliptic_3d_test_tgv_pressure.prm
+                dg_elliptic_3d_test_tgv_pressure.prm COPYONLY )
 
 configure_file( dg_elliptic_3d_test.slurm
                 dg_elliptic_3d_test.slurm COPYONLY )

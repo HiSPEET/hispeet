@@ -41,6 +41,7 @@ program DG_Elliptic_3D_Test
   use Elliptic_Problem__Simple_2D
   use Elliptic_Problem__Simple_3D
   use Elliptic_Problem__Knotty
+  use Elliptic_Problem__TGV_Pressure
 
   implicit none
 
@@ -76,8 +77,8 @@ program DG_Elliptic_3D_Test
 
   ! problem parameters .........................................................
 
-  integer :: test_case  = 3            ! set 1/2/3/4 for simple_1/2/3d or knotty
-  logical :: has_variable_nu = .false. ! set T/F for variable/constant ν
+  integer :: test_case = 3 ! 1/2/3/4/5: simple_1/2/3d / knotty / TGV pressure
+  logical :: has_variable_nu = .false. ! T/F: variable/constant ν
 
   namelist/problem_prm/ test_case, has_variable_nu
 
@@ -138,7 +139,7 @@ program DG_Elliptic_3D_Test
   namelist /partition_prm/ repartition, part_opt
 
   ! mesh and spectral elements
-  type(Mesh_3D)                 :: mesh
+  type(Mesh_3D), allocatable    :: mesh
   type(SpectralElementMesh_3D)  :: sem
 
   ! discrete operators
@@ -300,12 +301,11 @@ program DG_Elliptic_3D_Test
   ! partitioning and spectral elements .........................................
 
   if (repartition) then
+    allocate(mesh)
     call RootMeshPartitioning_3D(part_opt, orig_mesh, mesh, part_map)
   else
-    mesh = orig_mesh
+    call move_alloc(orig_mesh, mesh)
   end if
-
-  deallocate(orig_mesh)
 
   ! spectral element mesh ......................................................
 
@@ -323,15 +323,29 @@ program DG_Elliptic_3D_Test
   case(3)
     allocate(EllipticProblem_Simple3D :: problem)
     test_case_name = 'Simple 3D'
-  case default
-    allocate(EllipticProblem_Knotty   :: problem)
+  case(4)
+    allocate(EllipticProblem_Knotty :: problem)
     test_case_name = 'Knotty'
+  case default
+    allocate(EllipticProblem_TGV_Pressure :: problem)
+    test_case_name = 'TGV_Pressure'
   end select
 
   call problem % SetProblem(lambda, nu_0, nu_1, d_nu, k_nu, k_u)
 
   ! adjust boundary conditions
   bc = bc(1 : mesh % n_bound)
+  do i = 1, mesh % n_bound
+    if (mesh % boundary(i) % coupled > 0) then
+      if (bc(i) /= 'P') then
+        if (rank == 0) then
+          write(*,'(A,I0)') '  *** enforcing periodic BC on coupled boundary ',i
+        end if
+        bc(i) = 'P'
+      end if
+    end if
+  end do
+
 
   ! info .......................................................................
 
@@ -615,6 +629,10 @@ program DG_Elliptic_3D_Test
       part(:,:,:,i) = mesh % part
       elem(:,:,:,i) = i
     end do
+
+
+call problem % GetExactSolution (sem % metrics % x, s)
+
 
     call ExportVTK_VolumeData( sem % metrics % x         &
                              , s       = var             &
