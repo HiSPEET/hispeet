@@ -41,7 +41,7 @@ contains
     real(RNP), allocatable, target, save :: rg(:,:,:,:)
 
     ! residual with no ghost entries
-    real(RNP), pointer, save :: r(:,:,:,:)
+    real(RNP), contiguous, pointer, save :: r(:,:,:,:)
 
     ! work arrays
     real(RNP), dimension(:,:,:,:), allocatable, save :: p, q, s, z
@@ -73,7 +73,10 @@ contains
     integer   :: i, i_max_
 
     ! skip empty partition
-    if (this % sem % mesh % part < 0) return
+    if (this % sem % mesh % part < 0) then
+      if (present(ni)) ni = -1
+      return
+    end if
 
 
     associate( mesh    => this % sem % mesh &
@@ -100,7 +103,7 @@ contains
       allocate(nu_avg(ne))
 
       allocate(rg(np, np, np, ne+ng), source = ZERO)
-      buf_rg = ElementTransferBuffer_3D(mesh, r, nl)
+      buf_rg = ElementTransferBuffer_3D(mesh, rg, nl)
       r => rg(:,:,:,1:ne)
 
       select case(wp)

@@ -61,7 +61,10 @@ contains
     logical   :: check_convergence
 
     ! skip empty partition
-    if (this % sem % mesh % part < 0) return
+    if (this % sem % mesh % part < 0) then
+      if (present(ni)) ni = -1
+      return
+    end if
 
     associate( mesh    => this % sem % mesh &
              , eop     => this % eop        &

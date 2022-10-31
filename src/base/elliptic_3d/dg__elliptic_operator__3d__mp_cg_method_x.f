@@ -44,7 +44,10 @@ contains
     integer   :: i
 
     ! skip empty partition
-    if (this % sem % mesh % part < 0) return
+    if (this % sem % mesh % part < 0) then
+      if (present(ni)) ni = -1
+      return
+    end if
 
     ! initialization ...........................................................
 
