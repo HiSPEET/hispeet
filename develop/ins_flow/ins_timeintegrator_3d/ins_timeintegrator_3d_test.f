@@ -48,6 +48,7 @@ program INS_TimeIntegrator_3D_Test
 
   character(len=*), parameter :: default_case = 'ins_timeintegrator_3d_test'
   character(len=80) :: flow_case
+  character(len=80) :: case_file
   ! input file (*.prm)
 
   character(len=80) :: flow_problem = 'Vortex_TG'
@@ -84,8 +85,6 @@ program INS_TimeIntegrator_3D_Test
 
   ! operators and variables ....................................................
 
-  type(Mesh_3D), save :: mesh
-
   class(INS_Problem_3D), allocatable, save :: problem
   ! flow problem
 
@@ -108,7 +107,7 @@ program INS_TimeIntegrator_3D_Test
   real(RNP), pointer, contiguous, save :: v_ex(:,:,:,:,:) ! exact velocity
   real(RNP), pointer, contiguous, save :: p_ex(:,:,:,:)   ! exact pressure
 
-   real(RNP), allocatable, save :: w(:,:,:,:,:)   ! workspace
+  real(RNP), allocatable, save :: w (:,:,:,:,:)   ! workspace
 
   ! auxiliaries ................................................................
 
@@ -126,9 +125,6 @@ program INS_TimeIntegrator_3D_Test
   ! MPI and OpenMP .............................................................
 
   call XMPI_Init()
-!### CHECK
-print *, '$ 00'
-!### CHECK END
 
   comm = MPI_COMM_WORLD
   call MPI_Comm_rank(comm, rank)
@@ -154,23 +150,24 @@ print *, '$ 00'
     if (stat /= 0 .or. len_trim(flow_case) == 0) then
       flow_case = default_case
     end if
-    flow_case = trim(flow_case) // '.prm'
+    case_file = trim(flow_case) // '.prm'
 
-    inquire(file=trim(flow_case), exist=exists)
+    inquire(file=case_file, exist=exists)
     if (exists) then
-      write(*,'(2X,A)') 'reading ' // trim(flow_case)
-      open(newunit = io, file = flow_case)
+      write(*,'(2X,A)') 'reading ' // trim(case_file)
+      open(newunit = io, file = case_file)
       read(io, nml = control_prm)
       close(io)
     else
        call Error( 'INS_Operator_3D_Test', &
-                   'input file "' // trim(flow_case) // '" not found' )
+                   'input file "' // trim(case_file) // '" not found' )
     end if
 
   end if
 
   ! globalize control parameters
   call XMPI_Bcast(flow_case   , 0, comm)
+  call XMPI_Bcast(case_file   , 0, comm)
   call XMPI_Bcast(flow_problem, 0, comm)
   call XMPI_Bcast(flow_domain , 0, comm)
   call XMPI_Bcast(problem_file, 0, comm)
@@ -187,25 +184,22 @@ print *, '$ 00'
 
   select case(flow_domain)
   case(2)
-    call CreateCuboidDiamonds(comm, flow_case, mesh)
+    call CreateCuboidDiamonds(comm, case_file, ins_op % mesh)
     domain_name = 'Cuboidal domain with unstructured "diamond" mesh'
   case(3)
-    call CreateCylinder(comm, flow_case, mesh)
+    call CreateCylinder(comm, case_file, ins_op % mesh)
     domain_name = 'Cylindrical domain with unstructured mesh'
   case(4)
-    call CreateAnnulus(comm, flow_case, mesh)
+    call CreateAnnulus(comm, case_file, ins_op % mesh)
     domain_name = 'Annular domain with unstructured mesh'
   case default
-    call CreateCuboidCartesian(comm, flow_case, mesh)
+    call CreateCuboidCartesian(comm, case_file, ins_op % mesh)
     domain_name = 'Cuboidal domain with Cartesian mesh'
   end select
 
-  n_elem  = mesh % n_elem
-  n_ghost = mesh % n_ghost
-  n_bound = mesh % n_bound
-!### CHECK
-print *, '$ 01'
-!### CHECK END
+  n_elem  = ins_op % mesh % n_elem
+  n_ghost = ins_op % mesh % n_ghost
+  n_bound = ins_op % mesh % n_bound
 
   ! problem ....................................................................
 
@@ -220,7 +214,7 @@ print *, '$ 01'
 
   ! check & fix boundary conditions
   do i = 1, n_bound
-    if (mesh % boundary(i) % coupled > 0) then
+    if (ins_op % mesh % boundary(i) % coupled > 0) then
       if (problem % bc_v(i) /= 'P') then
         if (rank == 0) then
           write(*,'(A,I0)') '  *** enforcing periodic BC on coupled boundary ',i
@@ -232,26 +226,11 @@ print *, '$ 01'
 
   ! operators ..................................................................
 
-  ! Navier-Stokes operator, mesh will be copied
-  ins_op = INS_Operator_3D(ins_op_opts, problem, mesh)
-!### CHECK
-print *, '$ 02'
-print *, '$ 02, allocated(mesh % boundary)                  =', allocated(mesh % boundary)
-print *, '$ 02, allocated(ins_op % mesh % boundary)         =', allocated(ins_op % mesh % boundary)
-print *, '$ 02, allocated(ins_op % sem_v % mesh % boundary) =', allocated(ins_op % sem_v % mesh % boundary)
-print *, '$ 02, allocated(ins_op % sem_p % mesh % boundary) =', allocated(ins_op % sem_p % mesh % boundary)
-!### CHECK END
+  ! Navier-Stokes operator
+  call ins_op % Init(ins_op_opts, problem)
 
   ! time integrator: up to now only Euler
   ins_ti = INS_TimeIntegrator_Euler_3D(problem, ins_op, ins_ti_euler_opts)
-!### CHECK
-print *, '$ 03'
-print *, '$ 03, shape(mesh % boundary)                   =', shape(mesh % boundary)
-print *, '$ 03, shape(ins_op % mesh % boundary)          =', shape(ins_op % mesh % boundary)
-print *, '$ 03, shape(ins_op % sem_v % mesh % boundary)  =', shape(ins_op % sem_v % mesh % boundary)
-print *, '$ 03, shape(ins_ti % ins_op % mesh % boundary) =', shape(ins_ti % ins_op % mesh % boundary)
-print *, '$ 03, shape(ins_ti % ins_op % sem_v % mesh % boundary) =', shape(ins_ti % ins_op % sem_p % mesh % boundary)
-!### CHECK END
 
   ! variables ..................................................................
 
@@ -292,9 +271,6 @@ print *, '$ 03, shape(ins_ti % ins_op % sem_v % mesh % boundary) =', shape(ins_t
     write(*,'(T3,A,T30,9(G0,X))') 'number of mesh points:', n_point
     write(*,'(T3,A,T30,9(G0,X))') 'time step size:'       , dt
   end if
-!### CHECK
-print *, '$ 04'
-!### CHECK END
 
   !-----------------------------------------------------------------------------
   ! Time integration
@@ -302,67 +278,58 @@ print *, '$ 04'
   ! initial conditions
 
   call problem % GetExactSolution(ins_op % sem_v % metrics % x, t, u)
-!### CHECK
-print *, '$ 05'
-!### CHECK END
 
   do nt = 1, nt_max
     call ins_ti % TimeStep(t, dt, u)
     if (t >= t_end) exit
   end do
   nt = min(nt, nt_max)
-!### CHECK
-print *, '$ 06'
-!### CHECK END
 
   !-----------------------------------------------------------------------------
   ! evaluation
 
-  if (mesh % part >= 0) then
+  if (ins_op % mesh % part >= 0) then
 
     call problem % GetExactSolution(ins_op % sem_v % metrics % x, t, u_ex)
 
     ! calibrate pressure to zero mean value
-    call CalibrateArray(p   , comm=mesh%comm_parts)
-    call CalibrateArray(p_ex, comm=mesh%comm_parts)
+    call CalibrateArray(p   , comm=ins_op % mesh % comm_parts)
+    call CalibrateArray(p_ex, comm=ins_op % mesh % comm_parts)
 
     ! w = u - u_ex,
     call SetArray(w, u, multi=.true.)
     call MergeArrays(ONE, w, -ONE, u_ex, multi=.true.)
 
-    e_v = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), mesh%comm_parts)
+    e_v = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), ins_op % mesh % comm_parts)
     e_v = sqrt(e_v / n_point)
 
-    e_p = ScalarProduct(w(:,:,:,:,4), w(:,:,:,:,4), mesh%comm_parts)
+    e_p = ScalarProduct(w(:,:,:,:,4), w(:,:,:,:,4), ins_op % mesh % comm_parts)
     e_p = sqrt(e_p / n_point)
 
   end if
 
-  if (mesh % part == 0) then
+  if (ins_op % mesh % part == 0) then
     write(*,'(/,A)') 'time integration'
     write(*,'(T3,A,T29,ES12.5)') 'final time          t    =', t
     write(*,'(T3,A,T30,ES12.5)') 'velocity error      ε_v  =', e_v
-    write(*,'(T3,A,T30,ES12.5)') 'diffusion           ε_p  =', e_p
+    write(*,'(T3,A,T30,ES12.5)') 'pressure error      ε_p  =', e_p
     write(*,*)
   end if
 
   !-----------------------------------------------------------------------------
   ! Write plot files
 
-  if (export_vtk .and. mesh%part >= 0) then
+  if (export_vtk .and. ins_op % mesh%part >= 0) then
     call ExportVTK_VolumeData( x       = ins_op % sem_v % metrics % x &
                              , s       = var                          &
                              , sname   = var_name                     &
                              , file    = flow_case                    &
-                             , part    = mesh % part                  &
-                             , n_parts = mesh % n_parts               )
+                             , part    = ins_op % mesh % part         &
+                             , n_parts = ins_op % mesh % n_parts      )
   end if
 
   !-----------------------------------------------------------------------------
   ! Finalization
-!### CHECK
-print *, '$ XX'
-!### CHECK END
 
   call MPI_Finalize()
 
