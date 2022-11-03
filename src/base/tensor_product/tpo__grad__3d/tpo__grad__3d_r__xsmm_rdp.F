@@ -95,53 +95,53 @@ contains
       ! v3 = du/dx3
       call LIBXSMM_DMMCall(xmm_3, u(:,:,:,e), Ds_3t, v(:,:,:,e,3))
 
+      if (fluxes) then
+
+        ! faces 1 and 2
+        i =  1
+        n = -1
+        do f = 1, 2
+          tmp = n / (dx(1) * Ms(i))
+          do k = 1, np
+          do j = 1, np
+            v(i,j,k,e,1) = v(i,j,k,e,1) + tmp * (up(j,k,f,e) - u(i,j,k,e))
+          end do
+          end do
+          i = np
+          n = 1
+        end do
+
+        ! faces 3 and 4
+        j =  1
+        n = -1
+        do f = 3, 4
+          tmp = n / (dx(2) * Ms(j))
+          do k = 1, np
+          do i = 1, np
+            v(i,j,k,e,2) = v(i,j,k,e,2) + tmp * (up(i,k,f,e) - u(i,j,k,e))
+          end do
+          end do
+          j = np
+          n = 1
+        end do
+
+        ! faces 5 and 6
+        k =  1
+        n = -1
+        do f = 5, 6
+          tmp = n / (dx(3) * Ms(k))
+          do j = 1, np
+          do i = 1, np
+            v(i,j,k,e,3) = v(i,j,k,e,3) + tmp * (up(i,j,f,e) - u(i,j,k,e))
+          end do
+          end do
+          k = np
+          n = 1
+        end do
+
+      end if
+
     end do
-
-    if (fluxes) then
-
-      ! faces 1 and 2
-      i =  1
-      n = -1
-      do f = 1, 2
-        tmp = n / (dx(1) * Ms(i))
-        do k = 1, np
-        do j = 1, np
-          v(i,j,k,e,1) = v(i,j,k,e,1) + tmp * (up(j,k,f,e) - u(i,j,k,e))
-        end do
-        end do
-        i = np
-        n = 1
-      end do
-
-      ! faces 3 and 4
-      j =  1
-      n = -1
-      do f = 3, 4
-        tmp = n / (dx(2) * Ms(j))
-        do k = 1, np
-        do i = 1, np
-          v(i,j,k,e,2) = v(i,j,k,e,2) + tmp * (up(i,k,f,e) - u(i,j,k,e))
-        end do
-        end do
-        j = np
-        n = 1
-      end do
-
-      ! faces 5 and 6
-      k =  1
-      n = -1
-      do f = 5, 6
-        tmp = n / (dx(3) * Ms(k))
-        do j = 1, np
-        do i = 1, np
-          v(i,j,k,e,3) = v(i,j,k,e,3) + tmp * (up(i,j,f,e) - u(i,j,k,e))
-        end do
-        end do
-        k = np
-        n = 1
-      end do
-
-    end if
 
   end subroutine TPO_Grad_R_XSMM_RDP
 
