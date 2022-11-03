@@ -24,6 +24,7 @@ program INS_Operator_3D_Test
   use DG__Elliptic_Operator__3D
   use DG__Schwarz_Operator__3D
 
+  use TPO__Div__3D
   use TPO__INS_Convection__3D_D__Gen
 
   use INS__Problem__3D
@@ -75,10 +76,13 @@ program INS_Operator_3D_Test
 
   namelist/control_prm/ flow_problem, problem_file, flow_domain, ins_op_opts
 
-  integer :: n_test = 1            ! repetitions of performance test
-  logical :: export_vtk = .false.  ! generate VTK files
+  integer   :: n_test = 1            ! repetitions of performance test
+  integer   :: i_max  = 10
+  real(RNP) :: r_red  = -1
+  real(RNP) :: r_max  = -1
+  logical   :: export_vtk = .false.  ! generate VTK files
 
-  namelist/control_prm/ n_test, export_vtk
+  namelist/control_prm/ n_test, i_max, r_red, r_max, export_vtk
 
   ! operators and variables ....................................................
 
@@ -104,6 +108,7 @@ program INS_Operator_3D_Test
   real(RNP), pointer, contiguous :: F_ch(:,:,:,:,:) ! approx F_c = -∇⋅vv
   real(RNP), pointer, contiguous :: F_dh(:,:,:,:,:) ! approx F_d =  ∇⋅τ
   real(RNP), pointer, contiguous :: F_ph(:,:,:,:,:) ! approx F_p = -∇p
+  real(RNP), pointer, contiguous :: p_h(:,:,:,:)    ! approx p
 
   real(RNP), allocatable :: mm(:,:,:,:)    ! diagonal mass matrix
   real(RNP), allocatable :: up(:,:,:,:,:)  ! exterior traces u⁺
@@ -114,13 +119,14 @@ program INS_Operator_3D_Test
 
   type(BoundaryVariable_3D), allocatable :: bv_u(:)
   type(BoundaryVariable_3D), allocatable :: bv_vi(:)
+  type(BoundaryVariable_3D), allocatable :: bv_p(:)
 
   character(len=80) :: domain_name = ''
 ! real(RDP) :: time, time0
   real(RNP) :: e_c, e_d, e_d1, d_d1
   logical   :: exists
   integer   :: io, stat
-  integer   :: n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po
+  integer   :: n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po, pq
   integer   :: b, i
 
   !-----------------------------------------------------------------------------
@@ -227,7 +233,8 @@ program INS_Operator_3D_Test
   ! variables ..................................................................
 
   po = ins_op % eop_v % po
-  n_var = 22
+  pq = ins_op % eop_p % po
+  n_var = 23
 
   allocate(var(0:po,0:po,0:po,1:n_elem,1:n_var), source = ZERO)
   allocate(var_name(1:n_var))
@@ -253,6 +260,10 @@ program INS_Operator_3D_Test
   var_name(14:22) = [ 'F_ch_x', 'F_ch_y', 'F_ch_z' &
                     , 'F_dh_x', 'F_dh_y', 'F_dh_z' &
                     , 'F_ph_x', 'F_ph_y', 'F_ph_z' ]
+
+  p_h(0:,0:,0:,1:)  =>  var(:,:,:,:,23)
+
+  var_name(23) = 'p_h'
 
   allocate(mm (0:po,0:po,0:po,1:n_elem)     )
   allocate(w  (0:po,0:po,0:po,1:n_elem,1:4) )
@@ -367,10 +378,10 @@ program INS_Operator_3D_Test
       do b = 1, n_bound
         call bv_u(b) % GetSlice(bv_vi(b), first=i, last=i)
       end do
-      ! r = -M ∇·(ν ∇vᵢ)
+      ! r = M ∇·(ν ∇vᵢ)
       call elliptic_op % Residual(ZERO, problem%nu_ref, f, bv_vi, v(:,:,:,:,i), r)
       ! compute nodal values
-      F_ph(:,:,:,:,i) = -r / mm
+      F_ph(:,:,:,:,i) = r / mm
 
     end do
   end associate
@@ -385,7 +396,37 @@ program INS_Operator_3D_Test
   d_d1 = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), comm)
   d_d1 = sqrt(d_d1 / n_point)
 
-  ! pressure term: F_p = -∇p ...................................................
+  ! pressure ...................................................................
+
+  if (all(ins_op%bc_v == 'P')) then
+  associate( mesh   => ins_op % mesh &
+           , div_Fc => F_ph(:,:,:,:,1)  )
+!### CHECK
+print '(99(G0,1X))', '#### min/max(F_c) =', minval(F_ch), maxval(F_ch)
+!### CHECK END
+
+    call GetOuterTraces_3D(mesh, F_ch, up(:,:,:,:,1:3))
+    call TPO_Div(ins_op % eop_v, ins_op % sem_v, F_ch, up(:,:,:,:,1:3), div_Fc)
+!### CHECK
+print '(99(G0,1X))', '#### min/max(div_Fc) =', minval(div_Fc), maxval(div_Fc)
+!### CHECK END
+    div_Fc = -mm * div_Fc
+!### CHECK
+print '(99(G0,1X))', '#### min/max(-M div_Fc) =', minval(div_Fc), maxval(div_Fc)
+!### CHECK END
+
+    allocate(bv_p(n_bound))
+    do b = 1, n_bound
+      call bv_u(b) % GetSlice(bv_p(b), first=4, last=4)
+    end do
+
+    if (pq == pq) then
+      call ins_op % laplacian_p % &
+             SchwarzPCG_Method(ZERO, ONE, p_h, div_Fc, bv_p, i_max, r_red, r_max)
+    end if
+
+  end associate
+  end if
 
   !-----------------------------------------------------------------------------
   ! Result info
