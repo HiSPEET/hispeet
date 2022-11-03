@@ -508,7 +508,7 @@ contains
     real(RNP), intent(in)  :: nu        !< kinematic viscosity
     real(RNP), intent(in)  :: vt(3)     !< translation velocity
     real(RNP), intent(in)  :: xt(3)     !< initial displacement
-    real(RNP), intent(out) :: F_p(n,3)  !< convection term, -v · ∇v
+    real(RNP), intent(out) :: F_p(n,3)  !< pressure term, -∇p
 
     real(RNP) :: a, c, phi1, phi2
     integer   :: i
