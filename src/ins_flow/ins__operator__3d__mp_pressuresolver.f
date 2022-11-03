@@ -35,24 +35,23 @@ contains
 
     ! internal variables .......................................................
 
-    real(RNP), allocatable, save :: q(:,:,:,:) ! pressure at p-points
-    real(RNP), allocatable, save :: g(:,:,:,:) ! source at p-points
+    real(RNP), allocatable, save :: mm(:,:,:,:) ! pressure mass matrix
+    real(RNP), allocatable, save :: g (:,:,:,:) ! source at p-points
+    real(RNP), allocatable, save :: q (:,:,:,:) ! pressure at p-points
 
     type(BoundaryVariable_3D), allocatable, save :: bv_q(:)
     ! pressure boundary values at p-points
 
     logical   :: mixed_order
     real(RNP) :: cs
-    integer   :: b
-!### CHECK
-print *, '§§PS 01'
-!### CHECK END
+    integer   :: b, e
 
-    associate( po     => this % eop_v % po  &
-             , pq     => this % eop_p % po  &
-             , mesh   => this % mesh        &
-             , Solver => this % laplacian_p &
-             , bc_p   => this % bc_p        )
+    associate( po          => this % eop_v % po  &
+             , pq          => this % eop_p % po  &
+             , mesh        => this % mesh        &
+             , bc_p        => this % bc_p        &
+             , sem_p       => this % sem_p       &
+             , laplacian_p => this % laplacian_p )
 
       ! initialization .........................................................
 
@@ -60,9 +59,10 @@ print *, '§§PS 01'
       cs = 1 / tau
 
       !$omp master
+      allocate(mm(0:pq, 0:pq, 0:pq, 1:mesh%n_elem))
+      allocate(g, mold = mm)
       if (mixed_order) then
-        allocate(q(0:pq, 0:pq, 0:pq, 1:mesh%n_elem))
-        allocate(g, mold = q)
+        allocate(q, mold = mm)
         allocate(bv_q(mesh % n_bound))
         do b = 1, mesh % n_bound
           bv_q(b) = BoundaryVariable_3D(mesh%boundary(b), pq, nc=1)
@@ -70,47 +70,46 @@ print *, '§§PS 01'
       end if
       !$omp end master
       !$omp barrier
-!### CHECK
-print *, '§§PS 02'
-!### CHECK END
+
+      call sem_p % Get_DG_DiagonalMassMatrix(mm)
 
       ! build pressure BC ......................................................
 
       call BuildPressureBC(this, cs, v, bv_v, bv_p, bv_q)
-!### CHECK
-print *, '§§PS 03'
-!### CHECK END
 
       ! solve ..................................................................
 
       if (mixed_order) then
-        ! interpolate source to orer pq
+        ! interpolate current approximation and source to order pq
+        call TPO_AAA(this % iop_vp % A, p, q)
         call TPO_AAA(this % iop_vp % A, f, g)
-!### CHECK
-print *, '§§PS 04a1'
-!### CHECK END
+        ! apply mass matrix and time scale to source
+        !$omp do
+        do e = 1, mesh % n_elem
+          g(:,:,:,e) = -cs * mm(:,:,:,e) * g(:,:,:,e)
+        end do
         ! apply Schwarz-PCG with λ=0 and ν=1
-        call Solver % SchwarzPCG_Method(ZERO, ONE, q, g, bv_q, &
-                                        i_max, r_red, r_max, ni)
-!### CHECK
-print *, '§§PS 04a2'
-!### CHECK END
-        ! interpolate result to orer po
+        call laplacian_p % SchwarzPCG_Method( ZERO, ONE, q, g, bv_q   &
+                                            , i_max, r_red, r_max, ni )
+        ! interpolate result to order po
         call TPO_AAA(this % iop_pv % A, q, p)
       else
+        ! apply mass matrix and time scale to source
+        !$omp do
+        do e = 1, mesh % n_elem
+          g(:,:,:,e) = -cs * mm(:,:,:,e) * f(:,:,:,e)
+        end do
         ! apply Schwarz-PCG with λ=0 and ν=1
-        call Solver % SchwarzPCG_Method(ZERO, ONE, p, f, bv_p, &
-                                        i_max, r_red, r_max, ni)
+        call laplacian_p % SchwarzPCG_Method( ZERO, ONE, p, g, bv_p   &
+                                            , i_max, r_red, r_max, ni )
       end if
-!### CHECK
-print *, '§§PS 04'
-!### CHECK END
 
       ! finalization ...........................................................
 
       !$omp master
+      deallocate(mm, g)
       if (mixed_order) then
-        deallocate(q, g, bv_q)
+        deallocate(q, bv_q)
       end if
       !$omp end master
 

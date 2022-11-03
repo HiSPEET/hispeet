@@ -75,10 +75,7 @@ contains
              , v       => u(:,:,:,:,1:3)                  &
              , p       => u(:,:,:,:,4)                    )
 
-      ! Initialization .........................................................
-!### CHECK
-print *, '§ 00'
-!### CHECK END
+      ! initialization .........................................................
 
       np = size(v,1)
 
@@ -100,11 +97,8 @@ print *, '§ 00'
       end do
       !$omp end master
       !$omp barrier
-!### CHECK
-print *, '§ 01'
-!### CHECK END
 
-      ! Extrapolation step .....................................................
+      ! extrapolation step .....................................................
 
       ! Computes the intermediate velocity v' = v₀ + τ(Fc + Fd + Q) and extracts
       ! the inner traces v'⁻ needed in the next step.
@@ -114,9 +108,9 @@ print *, '§ 01'
       do e = 1, mesh % n_elem
 
         ! intermediate velocity v = v'
-         v(:,:,:,e,d) = v_0(:,:,:,e,d) + tau * ( F_c(:,:,:,e,d) &
-                                               + F_d(:,:,:,e,d) &
-                                               + Q  (:,:,:,e,d) )
+        v(:,:,:,e,d) = v_0(:,:,:,e,d) + tau * ( F_c(:,:,:,e,d) &
+                                              + F_d(:,:,:,e,d) &
+                                              + Q  (:,:,:,e,d) )
 
         ! inner traces: vm = v'⁻
         vm(:,:,1,e,d) = v( 1,:,:,e,d)
@@ -128,56 +122,23 @@ print *, '§ 01'
 
       end do
       end do
-!### CHECK
-print *, '§ 02'
-print *, '§ 02, allocated(this % ins_op % sem_p % mesh % boundary) =', allocated(this % ins_op % sem_p % mesh % boundary)
-print *, '§ 02, shape(this % ins_op % sem_p % mesh % boundary) =', shape(this % ins_op % sem_p % mesh % boundary)
-!### CHECK END
 
       ! pressure computation ...................................................
 
       associate(div_v => w(:,:,:,:,4))
 
         ! generate outer traces of intermediate velocity
-!!         call buf_vm % Transfer(mesh, vm, tag=100)       ! transfer v⁻ from masters
- !### CHECK
-print *, '§ 03'
-print *, '§ 03, allocated(this % ins_op % sem_p % mesh % boundary) =', allocated(this % ins_op % sem_p % mesh % boundary)
-print *, '§ 03, shape(this % ins_op % sem_p % mesh % boundary) =', shape(this % ins_op % sem_p % mesh % boundary)
-!### CHECK END
+        call buf_vm % Transfer(mesh, vm, tag=100)       ! transfer v⁻ from masters
         call ins_op % SetVelocityBC(bv_v, vm)           ! set boundary values
-!### CHECK
-print *, '§ 04'
-print *, '§ 04, allocated(this % ins_op % sem_p % mesh % boundary) =', allocated(this % ins_op % sem_p % mesh % boundary)
-print *, '§ 04, shape(this % ins_op % sem_p % mesh % boundary) =', shape(this % ins_op % sem_p % mesh % boundary)
-!### CHECK END
-!!         call buf_vm % Merge(vm)                         ! merge received traces
-!### CHECK
-print *, '§ 05'
-print *, '§ 05, allocated(this % ins_op % sem_p % mesh % boundary) =', allocated(this % ins_op % sem_p % mesh % boundary)
-print *, '§ 05, shape(this % ins_op % sem_p % mesh % boundary) =', shape(this % ins_op % sem_p % mesh % boundary)
-!### CHECK END
+        call buf_vm % Merge(vm)                         ! merge received traces
         call ConvertInnerToOuterTraces_3D(mesh, vm, vp) ! vm → vp = v⁺
-!### CHECK
-print *, '§ 06'
-print *, '§ 06, allocated(this % ins_op % sem_p % mesh % boundary) =', allocated(this % ins_op % sem_p % mesh % boundary)
-print *, '§ 06, shape(this % ins_op % sem_p % mesh % boundary) =', shape(this % ins_op % sem_p % mesh % boundary)
-!### CHECK END
 
         ! divergence of intermediate velocity
-!!         call TPO_Div(ins_op % eop_v, ins_op % sem_v, v, vp, div_v)
-!### CHECK
-print *, '§ 07'
-print *, '§ 07, allocated(this % ins_op % sem_p % mesh % boundary) =', allocated(this % ins_op % sem_p % mesh % boundary)
-print *, '§ 07, shape(this % ins_op % sem_p % mesh % boundary) =', shape(this % ins_op % sem_p % mesh % boundary)
-!### CHECK END
+         call TPO_Div(ins_op % eop_v, ins_op % sem_v, v, vp, div_v)
 
         ! solve pressure equation
         call ins_op % PressureSolver( tau, bv_v, v, div_v, bv_p, p &
                                     , i_max_p, r_red, r_max        )
-!### CHECK
-print *, '§ 08'
-!### CHECK END
 
       end associate
 
@@ -186,22 +147,13 @@ print *, '§ 08'
       associate(grad_p => w(:,:,:,:,1:3))
 
         ! generate outer traces of pressure -- sufficient for Neumann BC
-!!         call GetOuterTraces_3D(mesh, p, pp)
-!### CHECK
-print *, '§ 09'
-!### CHECK END
+        call GetOuterTraces_3D(mesh, p, pp)
 
         ! pressure gradient
-!!         call TPO_Grad(ins_op % eop_v, ins_op % sem_v, p, pp, grad_p)
-!### CHECK
-print *, '§ 10'
-!### CHECK END
+        call TPO_Grad(ins_op % eop_v, ins_op % sem_v, p, pp, grad_p)
 
         ! correction: v = v - τ∇p
-!!         call MergeArrays(ONE, v, -tau, grad_p, multi=.true.)
-!### CHECK
-print *, '§ 11'
-!### CHECK END
+        call MergeArrays(ONE, v, -tau, grad_p, multi=.true.)
 
       end associate
 
@@ -210,19 +162,13 @@ print *, '§ 11'
       associate(f => w(:,:,:,:,1:3))
 
         !$omp do collapse(2)
-        do d = 1, 3
         do e = 1, mesh % n_elem
-          f(:,:,:,e,d) = 1/tau * v(:,:,:,e,d) - F_d(:,:,:,e,d)
+          do d = 1, 3
+            f(:,:,:,e,d) = 1/tau * v(:,:,:,e,d) - F_d(:,:,:,e,d)
+          end do
         end do
-        end do
-!### CHECK
-print *, '§ 12'
-!### CHECK END
 
-!!         call ins_op % DiffusionSolver(tau, f, bv_v, v, i_max_v, r_red, r_max)
-!### CHECK
-print *, '§ 13'
-!### CHECK END
+         call ins_op % DiffusionSolver(tau, f, bv_v, v, i_max_v, r_red, r_max)
 
       end associate
 
@@ -234,9 +180,6 @@ print *, '§ 13'
       deallocate(buf_vm)
       deallocate(bv_v, bv_p)
       !$omp end master
-!### CHECK
-print *, '§ XX'
-!### CHECK END
 
     end associate
 

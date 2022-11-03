@@ -102,21 +102,18 @@ contains
 
     ! internal variables .......................................................
 
-    real(RNP), allocatable, save :: inv_M(:,:,:,:) ! inverse diagonal mass matrix
-    real(RNP), allocatable, save :: v_0(:,:,:,:,:) ! initial velocity
-    real(RNP), allocatable, save :: F_c(:,:,:,:,:) ! convection term
-    real(RNP), allocatable, save :: F_d(:,:,:,:,:) ! viscous diffusion term
-    real(RNP), allocatable, save :: Q  (:,:,:,:,:) ! source term
-    real(RNP), allocatable, save :: vp (:,:,:,:,:) ! outer velocity traces v⁺
-    real(RNP), allocatable, save :: sp (:,:,:,:,:) ! outer viscous flux traces s⁺
+    real(RNP), allocatable, save :: inv_mm(:,:,:,:) ! inverse diagonal mass matrix
+    real(RNP), allocatable, save :: v_0(:,:,:,:,:)  ! initial velocity
+    real(RNP), allocatable, save :: F_c(:,:,:,:,:)  ! convection term
+    real(RNP), allocatable, save :: F_d(:,:,:,:,:)  ! viscous diffusion term
+    real(RNP), allocatable, save :: Q  (:,:,:,:,:)  ! source term
+    real(RNP), allocatable, save :: vp (:,:,:,:,:)  ! outer velocity traces v⁺
+    real(RNP), allocatable, save :: sp (:,:,:,:,:)  ! outer viscous flux traces s⁺
 
     ! boundary points and values
     type(BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:), bv_v(:)
 
     integer :: b, e, d, np, po
-!### CHECK
-print *, '# 00'
-!### CHECK END
 
     associate( problem => this % problem        &
              , ins_op  => this % ins_op         &
@@ -131,13 +128,13 @@ print *, '# 00'
 
       !$omp master
 
-      allocate( inv_M (np, np, np, mesh % n_elem   ), source = ZERO )
-      allocate( v_0   (np, np, np, mesh % n_elem, 3), source = ZERO )
-      allocate( F_c   (np, np, np, mesh % n_elem, 3), source = ZERO )
-      allocate( F_d   (np, np, np, mesh % n_elem, 3), source = ZERO )
-      allocate( Q     (np, np, np, mesh % n_elem, 3), source = ZERO )
-      allocate( vp    (np, np,  6, mesh % n_elem, 3), source = ZERO )
-      allocate( sp    (np, np,  6, mesh % n_elem, 3), source = ZERO )
+      allocate( inv_mm (np, np, np, mesh % n_elem   ), source = ZERO )
+      allocate( v_0    (np, np, np, mesh % n_elem, 3), source = ZERO )
+      allocate( F_c    (np, np, np, mesh % n_elem, 3), source = ZERO )
+      allocate( F_d    (np, np, np, mesh % n_elem, 3), source = ZERO )
+      allocate( Q      (np, np, np, mesh % n_elem, 3), source = ZERO )
+      allocate( vp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
+      allocate( sp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
 
       allocate(bv_x(mesh % n_bound))
       allocate(bv_u(mesh % n_bound))
@@ -151,24 +148,14 @@ print *, '# 00'
       !$omp end master
       !$omp barrier
 
-!### CHECK
-print *, '# 01'
-!### CHECK END
-
       ! inverse diagonal mass matrix
-      call sem_v % Get_DG_DiagonalMassMatrix(inv_M)
+      call sem_v % Get_DG_DiagonalMassMatrix(inv_mm)
       !$omp workshare
-      inv_M = 1 / inv_M
+      inv_mm = 1 / inv_mm
       !$omp end workshare nowait
-!### CHECK
-print *, '# 02'
-!### CHECK END
 
       ! initial velocity
       call SetArray(v_0, v, multi = .true.)
-!### CHECK
-print *, '# 03'
-!### CHECK END
 
       ! final time
       t = t + dt
@@ -177,75 +164,48 @@ print *, '# 03'
       ! think about reusing
 
       call problem % GetExternalSources(sem_v % metrics % x, t, Q)
-!### CHECK
-print *, '# 04'
-!### CHECK END
 
       ! boundary values ........................................................
       ! also think about reusing
 
       do b = 1, mesh % n_bound
-!### CHECK
-print *, '# 05'
-!### CHECK END
         call bv_x(b) % Extract(sem_v % metrics % x)
         call problem % GetBoundaryValues(b, bv_x(b) % val, t, bv_u(b) % val)
       end do
-!### CHECK
-print *, '# 06'
-!### CHECK END
-
 
       ! viscous and convective RHS .............................................
       ! so far ν is constant and boundaries are periodic or have Dirichlet BC
 
       call ins_op % SetVelocityBC(bv_v, vp, sp)
-!### CHECK
-print *, '# 07'
-!### CHECK END
-!###!      call ins_op % GetDiffusionTerm(v, vp, sp, F_d)
-!### CHECK
-print *, '# 08'
-!### CHECK END
-!###!      call ins_op % GetConvectionTerm(v, vp, F_c)
-!### CHECK
-print *, '# 09'
-!### CHECK END
+      call ins_op % GetDiffusionTerm(v, vp, sp, F_d)
+      call ins_op % GetConvectionTerm(v, vp, F_c)
 
       !$omp do
       do e = 1, mesh % n_elem
         do d = 1, 3
-          F_c(:,:,:,e,d) = inv_M(:,:,:,e) * F_c(:,:,:,e,d)
-          F_d(:,:,:,e,d) = inv_M(:,:,:,e) * F_d(:,:,:,e,d)
+          F_c(:,:,:,e,d) = inv_mm(:,:,:,e) * F_c(:,:,:,e,d)
+          F_d(:,:,:,e,d) = inv_mm(:,:,:,e) * F_d(:,:,:,e,d)
         end do
       end do
-!### CHECK
-print *, '# 10'
-!### CHECK END
 
       ! extrapolation-projection-diffusion step ................................
 
       call this % ProjectionStep( dt, v_0, F_c, F_d, Q, bv_u, u  &
                                 , this % i_max_p, this % i_max_v &
                                 , this % r_red  , this % r_max   )
-!### CHECK
-print *, '# 11'
-!### CHECK END
 
-!!       ! cleanup ................................................................
-!!
-!!       if (present(standby)) then
-!!         if (standby) return
-!!       end if
-!!
-!!       !$omp master
-!!       deallocate(inv_M, v_0, F_c, F_d, Q, vp, sp)
-!!       !$omp end master
+      ! cleanup ................................................................
+
+      if (present(standby)) then
+        if (standby) return
+      end if
+
+      !$omp master
+      deallocate(inv_mm, v_0, F_c, F_d, Q, vp, sp)
+      deallocate(bv_x, bv_u, bv_v)
+      !$omp end master
 
     end associate
-!### CHECK
-print *, '# XX'
-!### CHECK END
 
   end subroutine TimeStep
 

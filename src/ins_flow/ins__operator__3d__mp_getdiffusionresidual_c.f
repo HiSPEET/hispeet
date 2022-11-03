@@ -45,13 +45,13 @@ contains
 
     ! local variables ..........................................................
 
-    real(RNP), allocatable, save :: M(:,:,:,:)    ! diagonal mass matrix
+    real(RNP), allocatable, save :: mm(:,:,:,:)   ! diagonal mass matrix M
     real(RNP), allocatable, save :: vp(:,:,:,:,:) ! velocity traces v⁺
     real(RNP), allocatable, save :: sp(:,:,:,:,:) ! viscous flux traces s⁺
 
     real(RNP) :: lambda
     integer   :: np
-    integer   :: d, e, i, j, k
+    integer   :: d, e
 
     associate(mesh => this % sem_v % mesh)
 
@@ -60,13 +60,13 @@ contains
       np = size(v,1)
 
       !$omp master
-      allocate( M  (np, np, np, mesh%n_elem) )
+      allocate( mm (np, np, np, mesh%n_elem) )
       allocate( vp (np, np,  6, mesh%n_elem, 3), source = ZERO )
       allocate( sp (np, np,  6, mesh%n_elem, 3), source = ZERO )
       !$omp end master
       !$omp barrier
 
-      call this % sem_v % Get_DG_DiagonalMassMatrix(M)
+      call this % sem_v % Get_DG_DiagonalMassMatrix(mm)
 
       call this % SetVelocityBC(bv_v, vp, sp)
       lambda = 1 / tau
@@ -75,24 +75,18 @@ contains
 
       call this % GetDiffusionTerm(v, vp, sp, r)
 
-      !$omp do
+      !$omp do collapse(2)
       do e = 1, mesh % n_elem
-        do k = 1, np
-        do j = 1, np
-        do i = 1, np
-          do d = 1, 3
-            r(i,j,k,e,d) = r(i,j,k,e,d) &
-                         + M(i,j,k,e) * (f(i,j,k,e,d) - lambda * v(i,j,k,e,d))
-          end do
-        end do
-        end do
+        do d = 1, 3
+          r(:,:,:,e,d) = r(:,:,:,e,d) &
+                       + mm(:,:,:,e) * (f(:,:,:,e,d) - lambda * v(:,:,:,e,d))
         end do
       end do
 
       ! cleanup ................................................................
 
       !$omp master
-      deallocate(M, vp, sp)
+      deallocate(mm, vp, sp)
       !$omp end master
 
     end associate

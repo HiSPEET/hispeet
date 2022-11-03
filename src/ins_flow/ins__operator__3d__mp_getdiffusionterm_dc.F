@@ -14,9 +14,6 @@ submodule(INS__Operator__3D) MP_GetDiffusionTerm_DC
   use TPO__Stress__3D
   use Mesh_Element__3D
   use Element_Face_Transfer_Buffer__3D
-!### CHECK
-!use MPI_F08
-!### CHECK END
   implicit none
 
 contains
@@ -51,9 +48,6 @@ contains
     !< diffusion term (np,np,np,ne,3)
 
     ! local variables ..........................................................
-!### CHECK
-!real(RNP) :: time, time0
-!### CHECK END
 
     ! trace transfer buffers operators
     type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_tr
@@ -72,11 +66,6 @@ contains
              , nu     => this % nu_0                 )
 
       ! initialization .........................................................
-!### CHECK
-print *, '? 01, allocated(mesh % link) =', allocated(mesh % link)
-print *, '? 01, lbound   (mesh % link) =', lbound(mesh % link)
-print *, '? 01, ubound   (mesh % link) =', ubound(mesh % link)
-!### CHECK END
 
       ! workspace and operators
       !$omp master
@@ -84,42 +73,18 @@ print *, '? 01, ubound   (mesh % link) =', ubound(mesh % link)
       buf_tr = ElementFaceTransferBuffer_3D(mesh, tr)
       !$omp end master
       !$omp barrier
-!### CHECK
-print *, '? 02, allocated(buf_tr) =', allocated(buf_tr)
-!### CHECK END
 
       ! element volume contributions ...........................................
 
-!### CHECK
-!$omp master
-!time0 = MPI_Wtime()
-!$omp end master
-!### CHECK END
       call TPO_Stress( eop%w, eop%D, Jd, Ji, n, mu, nu, v &
                      , fv = F_d                           &
                      , vb = tr(:,:,:,:,1:3)               &
                      , sb = tr(:,:,:,:,4:6)               )
-!### CHECK
-!$omp master
-!time = MPI_Wtime()
-!print *, 'TPO_Stress: t = ', time - time0
-!$omp end master
-!### CHECK END
-!### CHECK
-print *, '? 03, shape(tr)   =', shape(tr)
-print *, '? 03, buf_tr % ng =', buf_tr % ng
-!### CHECK END
 
       ! transfer traces ........................................................
 
       call buf_tr % Transfer(mesh, tr, tag=1000)
-!### CHECK
-print *, '? 04'
-!### CHECK END
       call buf_tr % Merge(tr)
-!### CHECK
-print *, '? 05'
-!### CHECK END
 
       ! add fluxes .............................................................
 
@@ -130,18 +95,12 @@ print *, '? 05'
                            , vp = vp               &
                            , sp = sp               &
                            , F_d = F_d             )
-!### CHECK
-print *, '? 06'
-!### CHECK END
 
       ! cleanup ................................................................
 
       !$omp master
       deallocate(tr, buf_tr)
       !$omp end master
-!### CHECK
-print *, '? XX'
-!### CHECK END
 
     end associate
 
