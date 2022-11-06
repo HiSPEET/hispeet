@@ -88,7 +88,7 @@ module INS__Operator__3D
   !> Options for INS_Operator_3D initialization
 
   type INS_OperatorOptions_3D
-    real(RNP) :: mu_0 = -2 !< bulk viscosity,  μ = ζ/ρ
+    real(RNP) :: mu_0 = 0 !< bulk viscosity,  μ = ζ/ρ
     type(DG_ElementOptions_1D) :: eop_v !< DG operator options for v
     type(DG_ElementOptions_1D) :: eop_p !< DG operator options for p
     type(StandardOperatorOptions_1D) :: sop_q !< quadrature opts for convection
