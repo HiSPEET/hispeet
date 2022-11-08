@@ -46,7 +46,7 @@ contains
 
     ! internal variables .......................................................
 
-    real(RNP), dimension(:,:,:,:,:), allocatable, save :: r, p, q, s, z
+    real(RNP), dimension(:,:,:,:,:), allocatable, save :: p, q, r, s, z
     real(RNP), dimension(:),         allocatable, save :: nu_avg
     real(RNP), save :: rr_term
     logical  , save :: converged
@@ -178,6 +178,7 @@ print '(99(G0,1X))', '#Diffusion >>> i =',i,',  |r| =', sqrt(rr)
 
       !$omp master
       deallocate(p, q, r, s, z)
+      deallocate(nu_avg)
       !$omp end master
 
     end associate
@@ -245,8 +246,10 @@ print '(99(G0,1X))', '#Diffusion >>> i =',i,',  |r| =', sqrt(rr)
       if (.not. reuse) then
 
         if (allocated( rg     )) deallocate( rg     )
+        if (allocated( nu_dp  )) deallocate( nu_dp  )
         if (allocated( zs_dp  )) deallocate( zs_dp  )
         if (allocated( rs_dp  )) deallocate( rs_dp  )
+        if (allocated( nu_sp  )) deallocate( nu_sp  )
         if (allocated( zs_sp  )) deallocate( zs_sp  )
         if (allocated( rs_sp  )) deallocate( rs_sp  )
         if (allocated( buf_rg )) deallocate( buf_rg )
