@@ -114,7 +114,7 @@ program INS_TimeIntegrator_3D_Test
   character(len=80) :: domain_name = ''
 ! real(RDP) :: time, time0
   real(RNP) :: e_p, e_v
-  logical   :: exists
+  logical   :: exists, last
   integer   :: io, stat
   integer   :: n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po
   integer   :: i, nt
@@ -280,10 +280,10 @@ program INS_TimeIntegrator_3D_Test
   call problem % GetExactSolution(ins_op % sem_v % metrics % x, t, u)
 
   do nt = 1, nt_max
-    call ins_ti % TimeStep(t, dt, u)
-    if (t >= t_end) exit
+    last = t + dt >= t_end .or. nt == nt_max
+    call ins_ti % TimeStep(t, dt, u, standby = .not. last)
+    if (last) exit
   end do
-  nt = min(nt, nt_max)
 
   !-----------------------------------------------------------------------------
   ! evaluation
