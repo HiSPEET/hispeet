@@ -137,7 +137,8 @@ contains
     real(RNP), parameter :: beta_1  = -1
 
     ! control
-    real(RNP), save :: t_0, t_1 = -huge(ONE)
+    real(RNP), save :: t_0 = -huge(ONE)
+    real(RNP), save :: t_1 = -huge(ONE)
     logical,   save :: euler
 
     ! auxiliary
@@ -174,7 +175,7 @@ contains
 
       if (allocated(u_1)) then
 
-        euler = abs(t_1 + dt - t) > epsilon(ONE)
+        euler = t_0 /= t .or. abs(t_1 + dt - t) > epsilon(ONE)
 
       else
 
