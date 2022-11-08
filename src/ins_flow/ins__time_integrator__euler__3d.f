@@ -2,6 +2,9 @@
 !> author:   Joerg Stiller
 !> date:     2022/09/09
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @note
+!>   - The present version implements the IMEX Euler method
 !===============================================================================
 
 module INS__Time_Integrator__Euler__3D
@@ -113,6 +116,11 @@ contains
     ! boundary points and values
     type(BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:), bv_v(:)
 
+    ! control
+    real(RNP), save :: t_0 = -huge(ONE)
+    logical,   save :: fresh
+
+    ! auxiliary
     integer :: b, e, d, np, po
 
     associate( problem => this % problem        &
@@ -128,22 +136,43 @@ contains
 
       !$omp master
 
-      allocate( inv_mm (np, np, np, mesh % n_elem   ), source = ZERO )
-      allocate( v_0    (np, np, np, mesh % n_elem, 3), source = ZERO )
-      allocate( F_c    (np, np, np, mesh % n_elem, 3), source = ZERO )
-      allocate( F_d    (np, np, np, mesh % n_elem, 3), source = ZERO )
-      allocate( Q      (np, np, np, mesh % n_elem, 3), source = ZERO )
-      allocate( vp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
-      allocate( sp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
+      if (allocated(v_0)) then
+        if (any(shape(v_0) /= shape(v))) then
+          deallocate(inv_mm, v_0, F_c, F_d, Q, vp, sp)
+          deallocate(bv_x, bv_u, bv_v)
+        end if
+      end if
 
-      allocate(bv_x(mesh % n_bound))
-      allocate(bv_u(mesh % n_bound))
-      allocate(bv_v(mesh % n_bound))
-      do b = 1, mesh % n_bound
-        bv_x(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 3)
-        bv_u(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 4)
-        bv_v(b) = BoundaryVariable_3D(bv_u(b), first=1, last=3)
-      end do
+      if (allocated(v_0)) then
+
+        fresh = abs(t_0 - t) > epsilon(ONE)
+
+      else
+
+        fresh = .true.
+
+        allocate( inv_mm (np, np, np, mesh % n_elem   ), source = ZERO )
+        allocate( v_0    (np, np, np, mesh % n_elem, 3), source = ZERO )
+        allocate( F_c    (np, np, np, mesh % n_elem, 3), source = ZERO )
+        allocate( F_d    (np, np, np, mesh % n_elem, 3), source = ZERO )
+        allocate( Q      (np, np, np, mesh % n_elem, 3), source = ZERO )
+        allocate( vp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
+        allocate( sp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
+
+        allocate(bv_x (mesh % n_bound) )
+        allocate(bv_u (mesh % n_bound) )
+        allocate(bv_v (mesh % n_bound) )
+        do b = 1, mesh % n_bound
+          bv_u(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 4)
+          bv_v(b) = BoundaryVariable_3D(bv_u(b), first=1, last=3)
+          bv_x(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 3)
+          call bv_x(b) % Extract(sem_v % metrics % x)
+        end do
+
+      end if
+
+      t_0 = t
+      t   = t + dt
 
       !$omp end master
       !$omp barrier
@@ -154,31 +183,28 @@ contains
       inv_mm = 1 / inv_mm
       !$omp end workshare nowait
 
-      ! initial velocity
-      call SetArray(v_0, v, multi = .true.)
+      ! convective terms at time t₀ ............................................
 
-      ! final time
-      t = t + dt
+      if (fresh) then
+        do b = 1, mesh % n_bound
+          call problem % GetBoundaryValues(b, bv_x(b) % val, t_0, bv_u(b) % val)
+        end do
+        call GetOuterTraces_3D(mesh, v, vp)
+        call ins_op % SetVelocityBC(bv_v, vp, sp)
+      end if
 
-      ! sources ................................................................
-      ! think about reusing
+      call ins_op % GetConvectionTerm(v, vp, F_c)
 
-      call problem % GetExternalSources(sem_v % metrics % x, t, Q)
-
-      ! boundary values ........................................................
-      ! also think about reusing
-
-      do b = 1, mesh % n_bound
-        call bv_x(b) % Extract(sem_v % metrics % x)
-        call problem % GetBoundaryValues(b, bv_x(b) % val, t, bv_u(b) % val)
-      end do
-
-      ! viscous and convective RHS .............................................
+      ! viscous diffusion term at time t .......................................
       ! so far ν is constant and boundaries are periodic or have Dirichlet BC
 
+      do b = 1, mesh % n_bound
+        call problem % GetBoundaryValues(b, bv_x(b) % val, t, bv_u(b) % val)
+      end do
       call ins_op % SetVelocityBC(bv_v, vp, sp)
       call ins_op % GetDiffusionTerm(v, vp, sp, F_d)
-      call ins_op % GetConvectionTerm(v, vp, F_c)
+
+      ! viscous and convective RHS .............................................
 
       !$omp do
       do e = 1, mesh % n_elem
@@ -187,6 +213,14 @@ contains
           F_d(:,:,:,e,d) = inv_mm(:,:,:,e) * F_d(:,:,:,e,d)
         end do
       end do
+
+      ! sources at time t ......................................................
+
+      call problem % GetExternalSources(sem_v % metrics % x, t, Q)
+
+      ! initial velocity .......................................................
+
+      call SetArray(v_0, v, multi = .true.)
 
       ! extrapolation-projection-diffusion step ................................
 
