@@ -26,6 +26,7 @@ program INS_TimeIntegrator_3D_Test
   use INS__Operator__3D
   use INS__Time_Integrator__3D
   use INS__Time_Integrator__Euler__3D
+  use INS__Time_Integrator__BDF2__3D
 
   use Create_Cuboid_Cartesian
   use Create_Cuboid_Diamonds
@@ -68,13 +69,17 @@ program INS_TimeIntegrator_3D_Test
 
   namelist/control_prm/ flow_problem, problem_file, flow_domain
 
+  integer :: time_method = 1
+  ! 1  Euler
+  ! 2  BDF2
+
+  namelist/control_prm/ time_method
+
   type(INS_OperatorOptions_3D) :: ins_op_opts
-  ! options for the incompressible Navier-Stokes operator
-
   type(INS_TimeIntegrator_Euler_Options_3D) :: ins_ti_euler_opts
-  ! options for the Euler time integrator
+  type(INS_TimeIntegrator_BDF2_Options_3D)  :: ins_ti_bdf2_opts
 
-  namelist/control_prm/ ins_op_opts, ins_ti_euler_opts
+  namelist/control_prm/ ins_op_opts, ins_ti_euler_opts, ins_ti_bdf2_opts
 
   real(RNP) :: t_end      = 1        ! final time
   real(RNP) :: dt         = 1        ! time step size
@@ -169,8 +174,9 @@ program INS_TimeIntegrator_3D_Test
   call XMPI_Bcast(flow_case   , 0, comm)
   call XMPI_Bcast(case_file   , 0, comm)
   call XMPI_Bcast(flow_problem, 0, comm)
-  call XMPI_Bcast(flow_domain , 0, comm)
   call XMPI_Bcast(problem_file, 0, comm)
+  call XMPI_Bcast(flow_domain , 0, comm)
+  call XMPI_Bcast(time_method , 0, comm)
   call XMPI_Bcast(t_end       , 0, comm)
   call XMPI_Bcast(dt          , 0, comm)
   call XMPI_Bcast(nt_max      , 0, comm)
@@ -179,6 +185,7 @@ program INS_TimeIntegrator_3D_Test
   ! globalize options
   call ins_op_opts       % Bcast(0, comm)
   call ins_ti_euler_opts % Bcast(0, comm)
+  call ins_ti_bdf2_opts  % Bcast(0, comm)
 
   ! mesh .......................................................................
 
@@ -230,7 +237,12 @@ program INS_TimeIntegrator_3D_Test
   call ins_op % Init(ins_op_opts, problem)
 
   ! time integrator: up to now only Euler
-  ins_ti = INS_TimeIntegrator_Euler_3D(problem, ins_op, ins_ti_euler_opts)
+  select case(time_method)
+  case(1)
+    ins_ti = INS_TimeIntegrator_Euler_3D(problem, ins_op, ins_ti_euler_opts)
+  case(2)
+    ins_ti = INS_TimeIntegrator_BDF2_3D(problem, ins_op, ins_ti_bdf2_opts)
+  end select
 
   ! variables ..................................................................
 
@@ -269,6 +281,7 @@ program INS_TimeIntegrator_3D_Test
     write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature order:', ins_op % sop_q % po
     write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature type:' , ins_op % sop_q % basis
     write(*,'(T3,A,T30,9(G0,X))') 'number of mesh points:', n_point
+    write(*,'(T3,A,T30,9(G0,X))') 'time integrator:'      , trim(ins_ti % name)
     write(*,'(T3,A,T30,9(G0,X))') 'time step size:'       , dt
   end if
 
@@ -276,7 +289,6 @@ program INS_TimeIntegrator_3D_Test
   ! Time integration
 
   ! initial conditions
-
   call problem % GetExactSolution(ins_op % sem_v % metrics % x, t, u)
 
   do nt = 1, nt_max

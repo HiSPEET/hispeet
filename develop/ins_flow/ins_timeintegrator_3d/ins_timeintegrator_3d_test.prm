@@ -4,6 +4,7 @@
 ! flow_problem =  'VariableViscosity'
 ! problem_file =  'variable_viscosity'
   flow_domain  =  1
+  time_method  =  1
 ! 
 ! ins_op_opts%mu_0 = 0
   ins_op_opts%eop_v%StandardOperatorOptions_1D%po = 15 ! %StandardOperatorOptions_1D
@@ -16,6 +17,10 @@
   ins_ti_euler_opts%i_max_p = 5
   ins_ti_euler_opts%i_max_v = 5
   ins_ti_euler_opts%r_red   = 1e-5
+!
+  ins_ti_bdf2_opts%i_max_p = 5
+  ins_ti_bdf2_opts%i_max_v = 5
+  ins_ti_bdf2_opts%r_red   = 1e-5
 !
   t_end  = 0.1
   dt     = 1E-5

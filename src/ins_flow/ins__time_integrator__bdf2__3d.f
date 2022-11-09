@@ -127,7 +127,7 @@ contains
     ! control
     real(RNP), save :: t_0 = -huge(ONE)
     real(RNP), save :: t_1 = -huge(ONE)
-    logical,   save :: euler
+    logical,   save :: first
 
     ! auxiliary
     real(RNP), allocatable :: w(:,:,:)
@@ -157,11 +157,11 @@ contains
 
       if (allocated(v_0)) then
 
-        euler = t_0 /= t .or. abs(t_1 + dt - t) > epsilon(ONE)
+        first = t_0 /= t .or. abs(t_1 + dt - t) > epsilon(ONE)
 
       else
 
-        euler = .true.
+        first = .true.
 
         allocate( inv_mm  (np, np, np, mesh % n_elem   ), source = ZERO )
         allocate( v_0     (np, np, np, mesh % n_elem, 3), source = ZERO )
@@ -201,60 +201,52 @@ contains
 
       allocate(w(np,np,np))
 
-      ! convective terms .......................................................
+      ! BC at time t₀ ...........................................................
 
-      if (euler) then
+      if (first) then
         do b = 1, mesh % n_bound
           call problem % GetBoundaryValues(b, bv_x(b) % val, t_0, bv_u(b) % val)
+          call ins_op % SetVelocityBC(bv_v, vp, sp)
         end do
-        call GetOuterTraces_3D(mesh, v, vp)
-        call ins_op % SetVelocityBC(bv_v, vp, sp)
       end if
 
+      ! viscous and convective RHS .............................................
+      ! so far ν is constant and boundaries are periodic or have Dirichlet BC
+
+      call ins_op % GetDiffusionTerm(v, vp, sp, F_d)
       call ins_op % GetConvectionTerm(v, vp, F_c)
 
-      if (euler) then
-        call SetArray(F_c_old, F_c, multi=.true.)
+      if (first) then
+        a0 = 1
+        a1 = 0
       else
-        !$omp do
-        do e = 1, mesh % n_elem
-          do d = 1, 3
-            w = inv_mm(:,:,:,e) * F_c(:,:,:,e,d)
-            F_c(:,:,:,e,d) = beta_0 * w + beta_1 * F_c_old(:,:,:,e,d)
-            F_c_old(:,:,:,e,d) = w
-          end do
-        end do
+        a0 = beta_0
+        a1 = beta_1
       end if
 
-      ! viscous diffusion term .................................................
-      ! so far ν is constant and boundaries are periodic or have Dirichlet BC
+      !$omp do
+      do e = 1, mesh % n_elem
+        do d = 1, 3
+          w = inv_mm(:,:,:,e) * F_c(:,:,:,e,d)
+          F_c     (:,:,:,e,d) = a0 * w + a1 * F_c_old(:,:,:,e,d)
+          F_c_old (:,:,:,e,d) = w
+          w = inv_mm(:,:,:,e) * F_d(:,:,:,e,d)
+          F_d     (:,:,:,e,d) = a0 * w + a1 * F_d_old(:,:,:,e,d)
+          F_d_old (:,:,:,e,d) = w
+        end do
+      end do
+
+      ! sources and BC at time t ...............................................
+
+      call problem % GetExternalSources(sem_v % metrics % x, t, Q)
 
       do b = 1, mesh % n_bound
         call problem % GetBoundaryValues(b, bv_x(b) % val, t, bv_u(b) % val)
       end do
-      call ins_op % SetVelocityBC(bv_v, vp, sp)
-      call ins_op % GetDiffusionTerm(v, vp, sp, F_d)
-
-      if (euler) then
-        call SetArray(F_d_old, F_d, multi=.true.)
-      else
-        !$omp do
-        do e = 1, mesh % n_elem
-          do d = 1, 3
-            w = inv_mm(:,:,:,e) * F_d(:,:,:,e,d)
-            F_d(:,:,:,e,d) = beta_0 * w + beta_1 * F_d_old(:,:,:,e,d)
-            F_d_old(:,:,:,e,d) = w
-          end do
-        end do
-      end if
-
-      ! sources at time t ......................................................
-
-      call problem % GetExternalSources(sem_v % metrics % x, t, Q)
 
       ! initial velocity effective step size ...................................
 
-      if (euler) then
+      if (first) then
         !$omp do
         do e = 1, mesh % n_elem
           do d = 1, 3
@@ -283,6 +275,11 @@ contains
                                 , this % r_red  , this % r_max   )
 
       ! cleanup ................................................................
+
+      !$omp master
+      t_1 = t_0
+      t_0 = t
+      !$omp end master
 
       if (present(standby)) then
         if (standby) return

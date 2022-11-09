@@ -14,6 +14,7 @@ add_library(HiINSFlow
             ins__time_integrator__3d.f
             ins__time_integrator__3d__mp_projectionstep.f
             ins__time_integrator__euler__3d.f
+            ins__time_integrator__bdf2__3d.f
             )
 
 

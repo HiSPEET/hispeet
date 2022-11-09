@@ -118,7 +118,7 @@ contains
 
     ! control
     real(RNP), save :: t_0 = -huge(ONE)
-    logical,   save :: fresh
+    logical,   save :: first
 
     ! auxiliary
     integer :: b, e, d, np, po
@@ -145,11 +145,11 @@ contains
 
       if (allocated(v_0)) then
 
-        fresh = abs(t_0 - t) > epsilon(ONE)
+        first = abs(t_0 - t) > epsilon(ONE)
 
       else
 
-        fresh = .true.
+        first = .true.
 
         allocate( inv_mm (np, np, np, mesh % n_elem   ), source = ZERO )
         allocate( v_0    (np, np, np, mesh % n_elem, 3), source = ZERO )
@@ -183,28 +183,20 @@ contains
       inv_mm = 1 / inv_mm
       !$omp end workshare nowait
 
-      ! convective terms at time t₀ ............................................
+      ! BC at time t₀ ...........................................................
 
-      if (fresh) then
+      if (first) then
         do b = 1, mesh % n_bound
           call problem % GetBoundaryValues(b, bv_x(b) % val, t_0, bv_u(b) % val)
+          call ins_op % SetVelocityBC(bv_v, vp, sp)
         end do
-        call GetOuterTraces_3D(mesh, v, vp)
-        call ins_op % SetVelocityBC(bv_v, vp, sp)
       end if
 
-      call ins_op % GetConvectionTerm(v, vp, F_c)
-
-      ! viscous diffusion term at time t .......................................
+      ! viscous and convective RHS .............................................
       ! so far ν is constant and boundaries are periodic or have Dirichlet BC
 
-      do b = 1, mesh % n_bound
-        call problem % GetBoundaryValues(b, bv_x(b) % val, t, bv_u(b) % val)
-      end do
-      call ins_op % SetVelocityBC(bv_v, vp, sp)
       call ins_op % GetDiffusionTerm(v, vp, sp, F_d)
-
-      ! viscous and convective RHS .............................................
+      call ins_op % GetConvectionTerm(v, vp, F_c)
 
       !$omp do
       do e = 1, mesh % n_elem
@@ -214,9 +206,13 @@ contains
         end do
       end do
 
-      ! sources at time t ......................................................
+      ! sources and BC at time t ...............................................
 
       call problem % GetExternalSources(sem_v % metrics % x, t, Q)
+
+      do b = 1, mesh % n_bound
+        call problem % GetBoundaryValues(b, bv_x(b) % val, t, bv_u(b) % val)
+      end do
 
       ! initial velocity .......................................................
 
