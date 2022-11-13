@@ -68,44 +68,26 @@ contains
 
   !-----------------------------------------------------------------------------
   !> TBP for computing the volume of the computational domain
-  !>
-  !> The otional argument `scope` allows to modify the scope of collective MPI
-  !> operations. If it is absent or equal `'parts'`, the latter are restricted
-  !> to the active partitions governed by `this%mesh%comm_parts`.
-  !> Passing `scope = 'world'` selects `this%mesh%comm_world` and thus includes
-  !> the inactive (empty) partitions.
 
-  subroutine Get_Volume(this, vol, scope)
+  subroutine Get_Volume(this, vol)
     class(SpectralElementMesh_3D), intent(in) :: this
     real(RNP), intent(out) :: vol !< volume, should be PRIVATE with OpenMP
-    character(len=*), optional, intent(in) :: scope !< scope of communication
 
-    type(MPI_Comm), save :: comm
     real(RNP), save :: v_loc, v_glob
 
     real(RNP), allocatable :: www(:,:,:)
     integer :: e, i, j, k
 
-    !$omp master
-    comm = this % mesh % comm_parts
-    if (present(scope)) then
-      if (scope == 'world') then
-        comm = this % mesh % comm_world
-      end if
+    if (this % mesh % part < 0) then
+      vol = 0
+      return
     end if
-    !$omp end master
 
     associate( mesh   => this % mesh         &
              , std_op => this % std_op       &
              , Jd     => this % metrics % Jd )
 
-      if (mesh % part < 0) then
-
-        !$omp master
-        v_loc = 0
-        !$omp end master
-
-      else if (mesh % regular) then
+      if (mesh % regular) then
 
         !$omp master
         v_loc = product(mesh % dx)  *  mesh % n_elem
@@ -135,7 +117,7 @@ contains
       end if
 
       !$omp master
-      call XMPI_Allreduce(v_loc, v_glob, MPI_SUM, comm)
+      call XMPI_Allreduce(v_loc, v_glob, MPI_SUM, mesh % comm_parts)
       !$omp end master
       !$omp barrier
 
@@ -147,88 +129,69 @@ contains
 
   !-----------------------------------------------------------------------------
   !> TBP for computing the areas of the boundary surfaces
-  !>
-  !> The otional argument `scope` allows to modify the scope of collective MPI
-  !> operations. If it is absent or equal `'parts'`, the latter are restricted
-  !> to the active partitions governed by `this%mesh%comm_parts`.
-  !> Passing `scope = 'world'` selects `this%mesh%comm_world` and thus includes
-  !> the inactive (empty) partitions.
 
-  subroutine Get_SurfaceAreas(this, area, scope)
+  subroutine Get_SurfaceAreas(this, area)
     class(SpectralElementMesh_3D), intent(in) :: this
     real(RNP), intent(out) :: area(:) !< areas, should be PRIVATE with OpenMP
-    character(len=*), optional, intent(in) :: scope !< scope of communication
 
-    type(MPI_Comm), save :: comm
+    real(RNP), allocatable, save :: a_loc(:), a_glob(:)
+
+    if (this % mesh % part < 0) then
+      area = 0
+      return
+    end if
 
     !$omp master
-    comm = this % mesh % comm_parts
-    if (present(scope)) then
-      if (scope == 'world') then
-        comm = this % mesh % comm_world
-      end if
-    end if
+    allocate(a_loc (this % mesh % n_bound), source = ZERO)
+    allocate(a_glob(this % mesh % n_bound))
     !$omp end master
+    !$omp barrier
 
     if (this % mesh % regular) then
-      call Get_SurfaceAreas_R(this, comm, area)
+      call Get_SurfaceAreas_R(this, a_loc)
     else
-      call Get_SurfaceAreas_G(this, comm, area)
+      call Get_SurfaceAreas_G(this, a_loc)
     end if
+
+    !$omp master
+    call XMPI_Allreduce(a_loc, a_glob, MPI_SUM, this % mesh % comm_parts)
+    !$omp end master
+    !$omp barrier
+
+    area = a_glob
 
   end subroutine Get_SurfaceAreas
 
   !-----------------------------------------------------------------------------
   !> Computation of the surface areas for a regular mesh
 
-  subroutine Get_SurfaceAreas_R(this, comm, area)
+  subroutine Get_SurfaceAreas_R(this, area)
     class(SpectralElementMesh_3D), intent(in) :: this
-    type(MPI_Comm), intent(in) :: comm !< communicator for MPI reductions
-    real(RNP), intent(out) :: area(this%mesh%n_bound) !< surface areas
+    real(RNP), intent(inout) :: area(this%mesh%n_bound)
 
-
-    real(RNP), allocatable, save :: a_loc(:), a_glob(:)
     real(RNP), save :: a_face(6)
+    real(RNP) :: a_priv
     integer :: b, f
 
     associate(mesh => this % mesh)
 
-      !$omp master
+      if (mesh % part < 0) return
 
-      if (mesh % part < 0) then
+      a_face(1:2) = mesh % dx(2) * mesh % dx(3)
+      a_face(3:4) = mesh % dx(3) * mesh % dx(1)
+      a_face(5:6) = mesh % dx(1) * mesh % dx(2)
 
-        a_loc = 0
-
-      else
-
-        ! element-face area
-        a_face(1:2) = mesh % dx(2) * mesh % dx(3)
-        a_face(3:4) = mesh % dx(3) * mesh % dx(1)
-        a_face(5:6) = mesh % dx(1) * mesh % dx(2)
-
-        allocate(a_loc (mesh % n_bound), source = ZERO)
-        allocate(a_glob(mesh % n_bound))
-
-        do b = 1, mesh % n_bound
-          do f = 1, mesh % boundary(b) % n_face
-            a_loc(b) = a_loc(b) &
-                     + a_face(mesh % boundary(b) % face(f) % element_face)
-          end do
+      do b = 1, mesh % n_bound
+        a_priv = ZERO
+        !$omp do
+        do f = 1, mesh % boundary(b) % n_face
+          a_priv = a_priv + a_face(mesh % boundary(b) % face(f) % element_face)
         end do
-
-      end if
-
-      call XMPI_Allreduce(a_loc, a_glob, MPI_SUM, comm)
-
-      !$omp end master
-      !$omp barrier
-
-      area = a_glob
-
-      !$omp barrier
-      !$omp master
-      deallocate(a_loc, a_glob)
-      !$omp end master
+        !$omp end do nowait
+        !$omp atomic
+        area(b) = area(b) + a_priv
+        !$omp barrier
+      end do
 
     end associate
 
@@ -237,12 +200,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Computation of the surface areas for a general mesh
 
-  subroutine Get_SurfaceAreas_G(this, comm, area)
+  subroutine Get_SurfaceAreas_G(this, area)
     class(SpectralElementMesh_3D), intent(in) :: this
-    type(MPI_Comm), intent(in) :: comm !< communicator for MPI reductions
-    real(RNP), intent(out) :: area(this%mesh%n_bound) !< surface areas
+    real(RNP), intent(inout) :: area(this%mesh%n_bound)
 
-    real(RNP), allocatable, save :: a_loc(:), a_glob(:)
     real(RNP), allocatable :: ww(:,:)
     real(RNP) :: a_priv
     integer :: b, e, f, i, j, s
@@ -251,63 +212,29 @@ contains
              , std_op => this % std_op      &
              , a      => this % metrics % a )
 
-      ! initialization .........................................................
+      if (mesh % part < 0) return
 
-      !$omp master
-      allocate(a_loc (mesh % n_bound), source = ZERO)
-      allocate(a_glob(mesh % n_bound))
-      !$omp end master
-      !$omp barrier
+      ! precompute 2D quadrature weights
+      allocate(ww(0:std_op%po, 0:std_op%po))
+      do j = 0, std_op%po
+      do i = 0, std_op%po
+        ww(i,j) = std_op % w(i) * std_op % w(j)
+      end do
+      end do
 
-      ! local contributions ....................................................
-
-      if (mesh % part < 0) then
-
-        !$omp master
-        a_loc = 0
-        !$omp end master
-
-      else
-
-        ! precompute 2D quadrature weights
-        allocate(ww(0:std_op%po, 0:std_op%po))
-        do j = 0, std_op%po
-        do i = 0, std_op%po
-          ww(i,j) = std_op % w(i) * std_op % w(j)
+      do b = 1, mesh % n_bound
+        a_priv = ZERO
+        !$omp do
+        do f = 1, mesh % boundary(b) % n_face
+          e = mesh % boundary(b) % face(f) % element_id   ! element ID
+          s = mesh % boundary(b) % face(f) % element_face ! element side
+          a_priv = a_priv + sum(ww * a(:,:,s,e))
         end do
-        end do
-
-        do b = 1, mesh % n_bound
-          a_priv = ZERO
-          !$omp do schedule(static)
-          do f = 1, mesh % boundary(b) % n_face
-            e = mesh % boundary(b) % face(f) % element_id   ! element ID
-            s = mesh % boundary(b) % face(f) % element_face ! element side
-            a_priv = a_priv + sum(ww * a(:,:,s,e))
-          end do
-          !$omp end do nowait
-          !$omp atomic
-          a_loc(b) = a_loc(b) + a_priv
-          !$omp barrier
-        end do
-
-      end if
-
-      ! computation and assignment of global result ............................
-
-      !$omp master
-      call XMPI_Allreduce(a_loc, a_glob, MPI_SUM, comm)
-      !$omp end master
-      !$omp barrier
-
-      area = a_glob
-
-      ! clean-up ...............................................................
-
-      !$omp barrier
-      !$omp master
-      deallocate(a_loc, a_glob)
-      !$omp end master
+        !$omp end do nowait
+        !$omp atomic
+        area(b) = area(b) + a_priv
+        !$omp barrier
+      end do
 
     end associate
 

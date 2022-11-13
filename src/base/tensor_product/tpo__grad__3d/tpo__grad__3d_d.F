@@ -11,9 +11,9 @@ module TPO__Grad__3D_D
   implicit none
   private
 
-  public :: TPO_Grad
+  public :: TPO_Grad_D
 
-  interface TPO_Grad
+  interface TPO_Grad_D
     module procedure TPO_Grad_D_RDP
   end interface
 

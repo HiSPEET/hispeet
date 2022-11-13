@@ -6,7 +6,7 @@
 !===============================================================================
 
 submodule(DG__Elliptic_Operator__3D) MP_Eval_RC
-  use TPO__Elliptic__3D
+  use TPO__Elliptic__3D_RLCI
   use Mesh_Element__3D
   use Mesh__3D
   use Element_Face_Transfer_Buffer__3D
@@ -48,8 +48,8 @@ contains
 
     if (this % sem % mesh % part < 0) return
 
-    associate( mesh => this % sem % mesh &
-             , eop  => this % eop        )
+    associate( eop  => this % eop        &
+             , mesh => this % sem % mesh )
 
       ! initialization .........................................................
 
@@ -89,11 +89,14 @@ contains
 
       ! apply element diffusion operator .......................................
 
-      call TPO_Elliptic( eop%w, As, mesh%dx & !  As r may contain ghost entries
-                       , lambda, ONE, u     & !  it is explicitly restricted to
-                       , r(:,:,:,:ne), Bs   & !  local elements since no proper
-                       , ub = tr(:,:,:,:,1) & !  bound checking is performed in
-                       , qb = tr(:,:,:,:,2) ) !  TPO_Elliptic.
+      ! r is restricted to local elements, as it may contain ghost
+      ! entries and no bound checking is performed in TPO_Elliptic
+
+      call TPO_Elliptic_RLCI( eop%w, As, mesh%dx &
+                            , lambda, ONE, u     &
+                            , r(:,:,:,:ne), Bs   &
+                            , ub = tr(:,:,:,:,1) &
+                            , qb = tr(:,:,:,:,2) )
 
       ! transfer traces and apply boundary conditions ..........................
 

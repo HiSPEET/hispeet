@@ -21,7 +21,11 @@ module TPO__Stress__3D_DLCI__XSMM_RDP
 
 contains
 
+#ifdef __INS_PENALTY__
+#include "tpo__stress__3d_dlci__xsmm_kernel-ins_penalty.f"
+#else
 #include "tpo__stress__3d_dlci__xsmm_kernel.f"
+#endif
 
 #endif
 

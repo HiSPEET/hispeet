@@ -208,11 +208,11 @@ program Validate__TPO__Div_3d_D
 
     !$omp parallel
 
-    call TPO_Div(Ds=Ds, Ji=Ji, u=u, v=v)
+    call TPO_Div_D(Ds=Ds, Ji=Ji, u=u, v=v)
 
     call system_clock(count0, rate)
     do i = 1, nt
-      call TPO_Div(Ds=Ds, Ji=Ji, u=u, v=v)
+      call TPO_Div_D(Ds=Ds, Ji=Ji, u=u, v=v)
     end do
 
     call system_clock(count)

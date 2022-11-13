@@ -14,13 +14,13 @@ module TPO__AAA__3D
   public :: TPO_AAA
 
   interface TPO_AAA
-    module procedure TPO_AAA_RDP
+    module procedure TPO_AAA_RDP, TPO_AAA_RDP_Array
   end interface
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> 3D AxAxA (interpolation) operator
+  !> 3D AxAxA (interpolation) operator for RDP
 
   subroutine TPO_AAA_RDP(A, u, v)
     real(RDP), intent(in)  :: A(:,:)     !< 1D operator
@@ -44,6 +44,37 @@ contains
     end select
 
   end subroutine TPO_AAA_RDP
+
+  !-----------------------------------------------------------------------------
+  !> 3D AxAxA (interpolation) operator for RDP array variables
+
+  subroutine TPO_AAA_RDP_Array(A, u, v)
+    real(RDP), intent(in)  :: A(:,:)       !< 1D operator
+    real(RDP), intent(in)  :: u(:,:,:,:,:) !< operand
+    real(RDP), intent(out) :: v(:,:,:,:,:) !< result
+
+    integer :: nc, ne, ni, np
+
+    ni = size(A,1)
+    np = size(A,2)
+    ne = size(u,4)
+    nc = size(u,5)
+
+    call ArrayOperator(ni, np, ne, nc, A, u, v)
+
+  contains
+
+    subroutine ArrayOperator(ni, np, ne, nc, A, u, v)
+      integer, intent(in) :: ni, np, ne, nc
+      real(RDP), intent(in)  :: A(ni,np)          !< 1D operator
+      real(RDP), intent(in)  :: u(np,np,np,ne*nc) !< operand
+      real(RDP), intent(out) :: v(ni,ni,ni,ne*nc) !< result
+
+      call TPO_AAA_RDP(A, u, v)
+
+    end subroutine ArrayOperator
+
+  end subroutine TPO_AAA_RDP_Array
 
   !=============================================================================
 

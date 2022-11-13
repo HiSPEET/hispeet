@@ -273,12 +273,12 @@ program Validate__TPO_Elliptic_DLCI
 
     !$omp parallel
 
-    call TPO_Elliptic(Ms, Ds, Jd, G, lambda, nu, u, v)
+    call TPO_Elliptic_DLCI(Ms, Ds, Jd, G, lambda, nu, u, v)
 
     call system_clock(count0, rate)
 
     do i = 1, nt
-      call TPO_Elliptic(Ms, Ds, Jd, G, lambda, nu, u, v)
+      call TPO_Elliptic_DLCI(Ms, Ds, Jd, G, lambda, nu, u, v)
     end do
 
     call system_clock(count)

@@ -63,7 +63,7 @@ contains
 
       ! compute velocity gradient, grad_v(:,:,:,:,1:3,i) = ∇vᵢ
       do i = 1, 3
-        call TPO_Grad(eop%w, eop%D, mesh%dx, u(:,:,:,:,i), v=grad_v(:,:,:,:,:,i))
+        call TPO_Grad_R(eop%w, eop%D, mesh%dx, u(:,:,:,:,i), v=grad_v(:,:,:,:,:,i))
       end do
 
       ! evaluation of model constant ...........................................

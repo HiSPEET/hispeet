@@ -104,6 +104,10 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug")
     add_compile_definitions(DEBUG)
 endif ()
 
+# Preprocessor setting for using the INS grad-div penalty instead bulk viscosity
+if (INS_PENALTY)
+    add_compile_definitions(__INS_PENALTY__)
+endif ()
 
 #-------------------------------------------------------------------------------
 # GNU

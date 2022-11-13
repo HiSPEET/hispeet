@@ -34,15 +34,15 @@ contains
     real(RDP),           intent(out) :: v(:,:,:,:)    !< divergence of u
 
     if (sem % mesh % regular) then
-      call TPO_Div( eop % w, eop % D, sem % mesh % dx, u, up, v )
+      call TPO_Div_R( eop % w, eop % D, sem % mesh % dx, u, up, v )
     else
-      call TPO_Div( eop % w            &
-                  , eop % D            &
-                  , sem % metrics % Jd &
-                  , sem % metrics % Ji &
-                  , sem % metrics % a  &
-                  , sem % metrics % n  &
-                  , u, up, v           )
+      call TPO_Div_D( eop % w            &
+                    , eop % D            &
+                    , sem % metrics % Jd &
+                    , sem % metrics % Ji &
+                    , sem % metrics % a  &
+                    , sem % metrics % n  &
+                    , u, up, v           )
     end if
 
   end subroutine TPO_Div_RDP

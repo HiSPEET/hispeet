@@ -43,8 +43,9 @@ contains
 
     if (this % sem % mesh % part < 0) return
 
-    associate( mesh => this % sem % mesh &
-             , eop  => this % eop        )
+    associate( eop  => this % eop        &
+             , sem  => this % sem        &
+             , mesh => this % sem % mesh )
 
       ! initialization .........................................................
 
@@ -62,12 +63,12 @@ contains
 
       ! apply element diffusion operator .......................................
 
-      call TPO_Elliptic( eop%w, eop%D, mesh%dx & ! As r may contain ghost entries
-                       , lambda, nu, u         & ! it is explicitly restricted to
-                       , r(:,:,:,:ne)          & ! local elements since no proper
-                       , nub = tr(:,:,:,:,1)   & ! bound checking is performed in
-                       , ub  = tr(:,:,:,:,2)   & ! TPO_Elliptic.
-                       , qb  = tr(:,:,:,:,3)   )
+      call TPO_Elliptic( eop, sem            & ! As r may contain ghost entries
+                       , lambda, nu, u       & ! it is explicitly restricted to
+                       , r(:,:,:,:ne)        & ! local elements since no proper
+                       , nub = tr(:,:,:,:,1) & ! bound checking is performed in
+                       , ub  = tr(:,:,:,:,2) & ! TPO_Elliptic.
+                       , qb  = tr(:,:,:,:,3) )
 
       ! transfer traces and apply boundary conditions ..........................
 

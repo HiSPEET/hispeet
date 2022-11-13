@@ -11,9 +11,9 @@ module TPO__Elliptic__3D_RLVI
   implicit none
   private
 
-  public :: TPO_Elliptic
+  public :: TPO_Elliptic_RLVI
 
-  interface TPO_Elliptic
+  interface TPO_Elliptic_RLVI
     module procedure TPO_Elliptic_RLVI_RDP
   end interface
 

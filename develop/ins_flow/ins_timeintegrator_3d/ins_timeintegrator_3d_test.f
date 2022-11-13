@@ -17,8 +17,13 @@ program INS_TimeIntegrator_3D_Test
   use Array_Assignments
   use Array_Reductions
 
-  use Export_VTK_Volume_Data__3D
+  use TPO__AAA__3D
+  use TPO__Div__3D
+
   use Mesh__3D
+  use Trace_Operators__3D
+  use Volume_Integrals__3D
+  use Export_VTK_Volume_Data__3D
 
   use INS__Problem__3D
   use INS__Problem__Vortex_TG__3D
@@ -118,7 +123,8 @@ program INS_TimeIntegrator_3D_Test
 
   character(len=80) :: domain_name = ''
 ! real(RDP) :: time, time0
-  real(RNP) :: e_p, e_v
+  real(RNP) :: domain_volume
+  real(RNP) :: e_p, e_v, e_div_vv, e_div_vp, e_div_vq
   logical   :: exists, last
   integer   :: io, stat
   integer   :: n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po
@@ -268,6 +274,8 @@ program INS_TimeIntegrator_3D_Test
 
   ! info .......................................................................
 
+  call ins_op % sem_v % Get_Volume(domain_volume)
+
   call XMPI_Reduce(n_elem, n_elem_tot, MPI_SUM, 0, comm)
   n_point = n_elem_tot * (po+1)**3
 
@@ -275,6 +283,7 @@ program INS_TimeIntegrator_3D_Test
     write(*,'(/,A)') 'problem and discretization parameters'
     write(*,'(T3,A,T30,9(G0,X))') 'flow problem:', trim(flow_problem)
     write(*,'(T3,A,T30,9(G0,X))') 'domain:',  trim(domain_name)
+    write(*,'(T3,A,T30,9(G0,X))') 'domain volume:', domain_volume
     write(*,'(T3,A,T30,9(G0,X))') 'boundary conditions:'  , problem % bc_v
     write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of v:', ins_op % eop_v % po
     write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of p:', ins_op % eop_p % po
@@ -308,15 +317,31 @@ program INS_TimeIntegrator_3D_Test
     call CalibrateArray(p   , comm=ins_op % mesh % comm_parts)
     call CalibrateArray(p_ex, comm=ins_op % mesh % comm_parts)
 
-    ! w = u - u_ex,
+    ! w = u - u_ex
     call SetArray(w, u, multi=.true.)
     call MergeArrays(ONE, w, -ONE, u_ex, multi=.true.)
 
-    e_v = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), ins_op % mesh % comm_parts)
-    e_v = sqrt(e_v / n_point)
+    !$omp do
+    do i = 1, ins_op % mesh % n_elem
+      w(:,:,:,i,1) = w(:,:,:,i,1) ** 2 + w(:,:,:,i,2) ** 2 + w(:,:,:,i,3) ** 2
+    end do
+    call GetVolumeIntegral(ins_op%sem_v, w(:,:,:,:,1), e_v)
+    e_v = sqrt(e_v)
 
-    e_p = ScalarProduct(w(:,:,:,:,4), w(:,:,:,:,4), ins_op % mesh % comm_parts)
-    e_p = sqrt(e_p / n_point)
+    !$omp do
+    do i = 1, ins_op % mesh % n_elem
+      w(:,:,:,i,4) = w(:,:,:,i,4) ** 2
+    end do
+    call GetVolumeIntegral(ins_op%sem_v, w(:,:,:,:,4), e_p)
+    e_p = sqrt(e_p)
+
+    call EvalDivError(ins_op, v, e_div_vv, e_div_vp, e_div_vq)
+
+    e_v      = e_v      / domain_volume
+    e_p      = e_p      / domain_volume
+    e_div_vv = e_div_vv / domain_volume
+    e_div_vp = e_div_vp / domain_volume
+    e_div_vq = e_div_vq / domain_volume
 
   end if
 
@@ -325,6 +350,9 @@ program INS_TimeIntegrator_3D_Test
     write(*,'(T3,A,T29,ES12.5)') 'final time          t    =', t
     write(*,'(T3,A,T30,ES12.5)') 'velocity error      ε_v  =', e_v
     write(*,'(T3,A,T30,ES12.5)') 'pressure error      ε_p  =', e_p
+    write(*,'(T3,A,T30,ES12.5)') 'div errors     ε_div_vv  =', e_div_vv
+    write(*,'(T3,A,T30,ES12.5)') 'div errors     ε_div_vp  =', e_div_vp
+    write(*,'(T3,A,T30,ES12.5)') 'div errors     ε_div_vq  =', e_div_vq
     write(*,*)
   end if
 
@@ -344,6 +372,81 @@ program INS_TimeIntegrator_3D_Test
   ! Finalization
 
   call MPI_Finalize()
+
+contains
+
+  !-----------------------------------------------------------------------------
+  !> Evaluation of the divergence error
+
+  subroutine EvalDivError(ins_op, v, e_div_vv, e_div_vp, e_div_vq)
+    class(INS_Operator_3D), intent(in) :: ins_op
+    real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
+    real(RNP), intent(out) :: e_div_vv
+    real(RNP), intent(out) :: e_div_vp
+    real(RNP), intent(out) :: e_div_vq
+
+    real(RNP), allocatable, save :: vp(:,:,:,:,:), div_v(:,:,:,:), q(:,:,:,:)
+
+    integer :: ne, np, nq
+    integer :: e
+
+    ! L2 divergence in velocity space ..........................................
+
+    ne = ins_op % mesh % n_elem
+    np = ins_op % eop_v % po + 1
+
+    !$omp master
+    allocate(vp(np,np,6,ne,3), div_v(np,np,np,ne), q(np,np,np,ne))
+    !$omp end master
+
+    call GetOuterTraces_3D(ins_op%mesh, v, vp)
+    call TPO_Div(ins_op % eop_v, ins_op % sem_v, v, vp, div_v)
+    !$omp do
+    do e = 1, ne
+      q(:,:,:,e) = div_v(:,:,:,e) ** 2
+    end do
+    call GetVolumeIntegral(ins_op%sem_v, q, e_div_vv)
+    e_div_vv = sqrt(e_div_vv)
+
+    ! L2 divergence in pressure space ..........................................
+
+    nq = ins_op % eop_p % po + 1
+
+    !$omp master
+    deallocate(q)
+    allocate(q(nq,nq,nq,ne))
+    !$omp end master
+
+    call TPO_AAA(ins_op % iop_vp % A, div_v, q)
+    !$omp do
+    do e = 1, ne
+      q(:,:,:,e) = q(:,:,:,e) ** 2
+    end do
+    call GetVolumeIntegral(ins_op%sem_p, q, e_div_vp)
+    e_div_vp = sqrt(e_div_vp)
+
+    ! L2 divergence in quadrature space ........................................
+
+    nq = ins_op % sop_q % po + 1
+
+    !$omp master
+    deallocate(q)
+    allocate(q(nq,nq,nq,ne))
+    !$omp end master
+
+    call TPO_AAA(ins_op % iop_vq % A, div_v, q)
+    !$omp do
+    do e = 1, ne
+      q(:,:,:,e) = q(:,:,:,e) ** 2
+    end do
+    call GetVolumeIntegral(ins_op%sem_q, q, e_div_vq)
+    e_div_vq = sqrt(e_div_vq)
+
+    !$omp master
+    deallocate(vp, div_v, q)
+    !$omp end master
+
+  end subroutine EvalDivError
 
   !=============================================================================
 

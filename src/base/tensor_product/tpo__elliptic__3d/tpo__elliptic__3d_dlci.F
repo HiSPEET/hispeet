@@ -11,9 +11,9 @@ module TPO__Elliptic__3D_DLCI
   implicit none
   private
 
-  public :: TPO_Elliptic
+  public :: TPO_Elliptic_DLCI
 
-  interface TPO_Elliptic
+  interface TPO_Elliptic_DLCI
     module procedure TPO_Elliptic_DLCI_RDP
   end interface
 

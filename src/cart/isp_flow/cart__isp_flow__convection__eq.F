@@ -86,7 +86,7 @@ contains
         end do
       end do
 
-      call TPO_Div(Ms=sop%w, Ds=sop%D, dx=mesh%dx, u=fc, v=div_f(:,:,:,:,c))
+      call TPO_Div_R(Ms=sop%w, Ds=sop%D, dx=mesh%dx, u=fc, v=div_f(:,:,:,:,c))
 
     end do
 
