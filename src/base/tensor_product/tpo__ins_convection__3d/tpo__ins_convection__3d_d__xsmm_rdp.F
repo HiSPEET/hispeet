@@ -78,6 +78,7 @@ contains
     type(LIBXSMM_DMMFunction), save :: xmm_add_1, xmm_add_2, xmm_add_3
     type(LIBXSMM_DMMFunction), save :: xmm_set_1t, xmm_set_2t, xmm_set_3t
     type(LIBXSMM_DMMFunction), save :: xmm_set_f1, xmm_set_f2, xmm_set_f3
+    type(LIBXSMM_DMMFunction), save :: xmm_set_f
     type(LIBXSMM_DMMFunction), save :: xmm_add_f
 
     real(RDP), parameter :: ONE  = 1
@@ -116,10 +117,11 @@ contains
     call LIBXSMM_Dispatch(xmm_set_3t, nq**2, nq   , nv, alpha=ONE, beta=ZERO)
 
     ! for face integral
-    call LIBXSMM_Dispatch(xmm_set_f1, nq, nv, nv, alpha=ONE, beta=ZERO) !qv-ipol
-    call LIBXSMM_Dispatch(xmm_set_f2, nq, nq, nv, alpha=ONE, beta=ZERO) !qq-ipol
-    call LIBXSMM_Dispatch(xmm_set_f3, nq, nv, nq, alpha=ONE, beta=ZERO) !qv-int
-    call LIBXSMM_Dispatch(xmm_add_f , nv, nv, nq, alpha=ONE, beta=ONE)  !vv-int
+    call LIBXSMM_Dispatch(xmm_set_f1, nq, nv, nv, alpha=ONE, beta=ZERO)
+    call LIBXSMM_Dispatch(xmm_set_f2, nq, nq, nv, alpha=ONE, beta=ZERO)
+    call LIBXSMM_Dispatch(xmm_set_f3, nq, nv, nq, alpha=ONE, beta=ZERO)
+    call LIBXSMM_Dispatch(xmm_set_f , nv, nv, nq, alpha=ONE, beta=ZERO)
+    call LIBXSMM_Dispatch(xmm_add_f , nv, nv, nq, alpha=ONE, beta=ONE)
 
     !$omp end master
     !$omp barrier
@@ -415,14 +417,15 @@ contains
 
         if (interpolate) then
 
-          associate(zf => z1(:,:,1))
+          associate(zf => z1(:,:,1), F_cf => zd(:,:,1))
             do c = 1, 3
 
               ! integration over direction 3
               call LIBXSMM_DMMCall(xmm_set_f3, ff(:,:,c), I_vq, zf)
 
               ! integration over direction 2
-              call LIBXSMM_DMMCall(xmm_add_f, I_vq_t, zf, F_c(iv,:,:,e,c))
+              call LIBXSMM_DMMCall(xmm_set_f, I_vq_t, zf, F_cf)
+              F_c(iv,:,:,e,c) = F_c(iv,:,:,e,c) + F_cf
 
             end do
           end associate
@@ -549,14 +552,15 @@ contains
 
         if (interpolate) then
 
-          associate(zf => z1(:,:,1))
+          associate(zf => z1(:,:,1), F_cf => zd(:,:,1))
             do c = 1, 3
 
               ! integration over direction 3
               call LIBXSMM_DMMCall(xmm_set_f3, ff(:,:,c), I_vq, zf)
 
               ! integration over direction 1
-              call LIBXSMM_DMMCall(xmm_add_f, I_vq_t, zf, F_c(:,jv,:,e,c))
+              call LIBXSMM_DMMCall(xmm_set_f, I_vq_t, zf, F_cf)
+              F_c(:,jv,:,e,c) = F_c(:,jv,:,e,c) + F_cf
 
             end do
           end associate
