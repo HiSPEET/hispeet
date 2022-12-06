@@ -24,6 +24,8 @@ program Potpourri_1
   v = 0
   call MPI_Init()
 
+  print *
+
   !.............................................................................
   ! Test with baseline variant
 
@@ -35,6 +37,8 @@ program Potpourri_1
 
   stop_time = MPI_Wtime()
 
+  print *
+  print '(A)', 'Baseline variant'
   call Print_MLUPS(n_dof, n_repetition, start_time, stop_time)
 
   !.............................................................................
@@ -48,6 +52,8 @@ program Potpourri_1
 
   stop_time = MPI_Wtime()
 
+  print *
+  print '(A)', 'Improved variant'
   call Print_MLUPS(n_dof, n_repetition, start_time, stop_time)
 
   !.............................................................................

@@ -23,6 +23,7 @@ subroutine MatrixMatrixSimple(n, A, B, C)
   integer   :: i,j,k
   real(RDP) :: tmp_sum
 
+  ! TODO
   A = 0
   
 end subroutine MatrixMatrixSimple
@@ -46,8 +47,8 @@ subroutine MatrixMatrixBlocked(n, A, B, C)
   real(RDP), intent(in)  :: B(n,n)
   real(RDP), intent(in)  :: C(n,n)
 
-  ! this is definitly incorrect, change this
-  A = B + C
+  ! TODO
+  A = 0
 
 end subroutine MatrixMatrixBlocked
 

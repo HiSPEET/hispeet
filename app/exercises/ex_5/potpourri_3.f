@@ -45,6 +45,8 @@ program Potpourri_3
 
   stop_time = MPI_Wtime()
 
+  print *
+  print '(A)', 'Baseline variant'
   call Print_MLUPS(n_dof, n_repetition, start_time, stop_time)
 
   !.............................................................................
@@ -58,6 +60,8 @@ program Potpourri_3
 
   stop_time = MPI_Wtime()
 
+  print *
+  print '(A)', 'Improved variant'
   call Print_MLUPS(n_dof, n_repetition, start_time, stop_time)
 
   !.............................................................................
@@ -101,16 +105,9 @@ subroutine Improved(n, h, u, v, w)
   real(RDP), intent(in)  :: v(n) !< convection velocity
   real(RDP), intent(out) :: w(n) !< convection term
 
-integer :: i
+  integer :: i
 
-  do i = 2, n-1
-
-    w(i) = max(v(i),ZERO) * (u(i  ) - u(i-1)) / h          &
-         + min(v(i),ZERO) * (u(i+1) - u(i  )) / h
-
-  end do
-
-
+  ! TODO
 
 end subroutine Improved
 

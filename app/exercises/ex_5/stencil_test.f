@@ -157,6 +157,8 @@ program Stencil_Test
 
   u = sin(2 * PI * x) * cos(2 * PI * x)
 
+  print *
+
   !.............................................................................
   ! Baseline implementation
 
@@ -171,9 +173,10 @@ program Stencil_Test
   time_taken           = stop_time - start_time
   time_per_application = time_taken / n_repetition
   
+  print *
+  print '(A)',          'Baseline implementation'
   print '(A,1X,E15.7)', 'Time taken:',            time_per_application
   print '(A,1X,E15.7)', 'MLUPS:     ', (n-1)**2 / time_per_application
-  print *
 
   !.............................................................................
   ! Direct implementation
@@ -189,9 +192,10 @@ program Stencil_Test
   time_taken           = stop_time - start_time
   time_per_application = time_taken / n_repetition
   
+  print *
+  print '(A)',          'Direct implementation'
   print '(A,1X,E15.7)', 'Time taken:',            time_per_application
   print '(A,1X,E15.7)', 'MLUPS:     ', (n-1)**2 / time_per_application
-  print *
 
   !.............................................................................
   ! Blocked variant
@@ -207,9 +211,10 @@ program Stencil_Test
   time_taken           = stop_time - start_time
   time_per_application = time_taken / n_repetition
   
+  print *
+  print '(A)',          'Blocked variant'
   print '(A,1X,E15.7)', 'Time taken:',            time_per_application
   print '(A,1X,E15.7)', 'MLUPS:     ', (n-1)**2 / time_per_application
-  print *
 
   !.............................................................................
   ! Cleanup
