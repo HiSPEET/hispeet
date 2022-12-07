@@ -206,16 +206,21 @@ contains
       if (first) then
         do b = 1, mesh % n_bound
           call problem % GetBoundaryValues(b, bv_x(b) % val, t_0, bv_u(b) % val)
-          call ins_op % SetVelocityBC(bv_v, vp, sp)
         end do
       end if
+      call GetBoundaryTraces_3D(mesh, v, vp)     ! vp = v⁻ on ∂Ω
+      call ins_op % ApplyVelocityBC(bv_v, vp, sp)  ! vp = v⁺ on ∂Ω, ...
 
       ! viscous and convective RHS .............................................
       ! so far ν is constant and boundaries are periodic or have Dirichlet BC
 
-      call ins_op % GetDiffusionTerm(v, vp, sp, F_d)
+      ! diffusion term based on rotational form
+      call ins_op % GetDiffusionTerm(v, vp, sp, F_d, form=2)
       call ins_op % GetConvectionTerm(v, vp, F_c)
 
+!### CHECK
+print '(9(G0,1X))', 'first =', first
+!### CHECK END
       if (first) then
         a0 = 1
         a1 = 0

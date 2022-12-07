@@ -86,7 +86,7 @@ contains
       if (check_convergence) then
         rr = ScalarProduct(r, r, mesh%comm_parts)
 !### CHECK
-print '(99(G0,1X))', '#Diffusion >>> i =',0,',  |r| =', sqrt(rr)
+!print '(99(G0,1X))', '#Diffusion >>> i =',0,',  |r| =', sqrt(rr)
 !### CHECK END
         !$omp master
         if (present(r_red)) then
@@ -159,7 +159,7 @@ print '(99(G0,1X))', '#Diffusion >>> i =',0,',  |r| =', sqrt(rr)
         if (check_convergence) then
           rr = ScalarProduct(r, r, mesh%comm_parts)
 !### CHECK
-print '(99(G0,1X))', '#Diffusion >>> i =',i,',  |r| =', sqrt(rr)
+!print '(99(G0,1X))', '#Diffusion >>> i =',i,',  |r| =', sqrt(rr)
 !### CHECK END
           !$omp master
           converged = rr <= rr_term
@@ -168,7 +168,12 @@ print '(99(G0,1X))', '#Diffusion >>> i =',i,',  |r| =', sqrt(rr)
           !$omp barrier
         end if
 
-        if (converged .or. i == i_max_) exit
+        if (converged .or. i == i_max_) then
+!### CHECK
+print '(99(G0,1X))', '#Diffusion >>> ni =',i,',  |r| =', sqrt(rr)
+!### CHECK END
+          exit
+        end if
 
       end do
 

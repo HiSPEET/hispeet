@@ -1,3 +1,9 @@
+!> summary:  Incompressible Navier-Stokes pressure solver
+!> author:   Joerg Stiller
+!> date:     2022/09/20
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!===============================================================================
+
 submodule(INS__Operator__3D) MP_PressureSolver
   use TPO__AAA__3D
   use Mesh_Boundary__3D
@@ -124,7 +130,7 @@ contains
     class(INS_Operator_3D), intent(in) :: ins_op
     !< time integration method
     real(RNP), intent(in) :: cs
-    !< !< scaling dactor, usually ~ 1/dt
+    !< scaling factor, usually ~ 1/dt
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< preliminary velocity
     class(BoundaryVariable_3D), intent(in) :: bv_v(:)

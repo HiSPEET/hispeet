@@ -566,8 +566,21 @@ program DG_Elliptic_3D_Test
         call elliptic_op % &
                  Schwarz_Method(lambda, nu_0, u, f, bv_u, i_max, r_red, ni=ni)
       case(3) ! Schwarz-preconditioned conjugate gradient method
+!### CHECK
+print '(99(G0,1X))', '#ET05# min/max(f) =',minval(f),maxval(f)
+print '(99(G0,1X))', '#ET05# min/max(p) =',minval(u),maxval(u)
+print '(99(G0,1X))', '#ET05# elliptic_op%bc =',elliptic_op%bc
+do i = 1, mesh % n_bound
+  if (elliptic_op%bc(i) /= 'N') cycle
+  print '(99(G0,1X))', '#PS05e# min/max(bv_p(',i,')) =',&
+    minval(bv_u(i)%val),maxval(bv_u(i)%val)
+end do
+!### CHECK END
         call elliptic_op % &
                  SchwarzPCG_Method(lambda, nu_0, u, f, bv_u, i_max, r_red, ni=ni)
+!### CHECK
+print '(99(G0,1X))', '#ET06# min/max(p) =',minval(u),maxval(u)
+!### CHECK END
       end select
     end if
 
@@ -630,9 +643,7 @@ program DG_Elliptic_3D_Test
       elem(:,:,:,i) = i
     end do
 
-
-call problem % GetExactSolution (sem % metrics % x, s)
-
+!!! call problem % GetExactSolution (sem % metrics % x, s)
 
     call ExportVTK_VolumeData( sem % metrics % x         &
                              , s       = var             &

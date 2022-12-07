@@ -270,6 +270,9 @@ contains
 
         if (check_convergence) then
           rr = ScalarProduct(r, r, mesh%comm_parts)
+!### CHECK
+!print '(99(G0,1X))', '#Elliptic >>> i =',i,',  |r| =', sqrt(rr)
+!### CHECK END
           !$omp master
           converged = rr <= rr_term
           call XMPI_Bcast(converged, root=0, comm=mesh%comm_parts)
@@ -277,7 +280,12 @@ contains
           !$omp barrier
         end if
 
-        if (converged .or. i == i_max_) exit
+        if (converged .or. i == i_max_) then
+!### CHECK
+print '(99(G0,1X))', '#Elliptic >>> ni =',i,',  |r| =', sqrt(rr)
+!### CHECK END
+          exit
+        end if
 
       end do
 

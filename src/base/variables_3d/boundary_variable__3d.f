@@ -53,8 +53,8 @@ module Boundary_Variable__3D
 
     procedure :: ExtractNormalComponent
 
-    generic :: CopyToTraceVariable => CopyToTraceVar_S, CopyToTraceVar_A
-    procedure, private :: CopyToTraceVar_S, CopyToTraceVar_A
+    generic :: MergeWithTraceVariable => MergeWithTraceVar_S, MergeWithTraceVar_A
+    procedure, private :: MergeWithTraceVar_S, MergeWithTraceVar_A
 
   end type BoundaryVariable_3D
 
@@ -406,14 +406,16 @@ contains
   end subroutine ExtractNormalComponent_D
 
   !=============================================================================
-  ! Copy boundary values to element-face variable
+  ! Merge boundary values with element-face variable
 
   !-----------------------------------------------------------------------------
-  !> Copy first component of boundary variable to scalar element-face variable
+  !> Merge first component of boundary variable with scalar element-face variable
 
-  subroutine CopyToTraceVar_S(this, v)
+  subroutine MergeWithTraceVar_S(this, cb, ct, vt)
     class(BoundaryVariable_3D), intent(in) :: this
-    real(RNP), intent(inout) :: v(:,:,:,:)
+    real(RNP), intent(in)    :: cb !< coefficient of boundary variable
+    real(RNP), intent(in)    :: ct !< coefficient of trace variable
+    real(RNP), intent(inout) :: vt(:,:,:,:)
 
     integer :: f, e, m
 
@@ -423,18 +425,20 @@ contains
       e = this % boundary % face(f) % element_id
       m = this % boundary % face(f) % element_face
 
-      v(:,:,m,e) = this % val(:,:,f,1)
+      vt(:,:,m,e) = ct * vt(:,:,m,e) + cb * this % val(:,:,f,1)
 
     end do
 
-  end subroutine CopyToTraceVar_S
+  end subroutine MergeWithTraceVar_S
 
   !-----------------------------------------------------------------------------
-  !> Copy boundary variable to matching array-valued element-face variable
+  !> Merge boundary variable with matching array-valued element-face variable
 
-  subroutine CopyToTraceVar_A(this, v)
+  subroutine MergeWithTraceVar_A(this, cb, ct, vt)
     class(BoundaryVariable_3D), intent(in) :: this
-    real(RNP), intent(inout) :: v(:,:,:,:,:)
+    real(RNP), intent(in)    :: cb !< coefficient of boundary variable
+    real(RNP), intent(in)    :: ct !< coefficient of trace variable
+    real(RNP), intent(inout) :: vt(:,:,:,:,:)
 
     integer :: c, e, f, m, nc
 
@@ -447,12 +451,12 @@ contains
       m = this % boundary % face(f) % element_face
 
       do c = 1, nc
-        v(:,:,m,e,c) = this % val(:,:,f,c)
+        vt(:,:,m,e,c) = ct * vt(:,:,m,e,c) + cb * this % val(:,:,f,c)
       end do
 
     end do
 
-  end subroutine CopyToTraceVar_A
+  end subroutine MergeWithTraceVar_A
 
   !=============================================================================
 

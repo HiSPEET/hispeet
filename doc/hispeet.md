@@ -3,12 +3,11 @@ summary:          HiSPEET - High Performance SPEctral Element Techniques.
 author:           Jörg Stiller
 css:              hispeet.css
 src_dir:          ../src
-                  ../example
+exclude_dir:      ../src/base/tensor_product
 output_dir:       ./html
 fixed_extensions: for
                   FOR
 extensions:       f
-                  ft
 fpp_extensions:   F
 preprocess:       false
 display:          public

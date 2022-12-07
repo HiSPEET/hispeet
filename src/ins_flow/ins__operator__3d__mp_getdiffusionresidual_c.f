@@ -23,7 +23,7 @@ contains
   !> the sources, which comprise the remaining coefficients of the momentum
   !> equation.
 
-  module subroutine GetDiffusionResidual_C(this, tau, f, bv_v, v, r)
+  module subroutine GetDiffusionResidual_C(this, tau, f, bv_v, v, r, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -42,6 +42,9 @@ contains
 
     real(RNP), contiguous, intent(out) :: r(:,:,:,:,:)
     !< residual, r(np,np,np,ne,3)
+
+    integer, optional, intent(in) :: form
+    !< form of `∇⋅τ`: 0/1/2 ↔︎ default/diffusion/rotational [0]
 
     ! local variables ..........................................................
 
@@ -68,12 +71,13 @@ contains
 
       call this % sem_v % Get_DG_DiagonalMassMatrix(mm)
 
-      call this % SetVelocityBC(bv_v, vp, sp)
+      call GetBoundaryTraces_3D(mesh, v, vp)   ! vp = v⁻ on ∂Ω
+      call this % ApplyVelocityBC(bv_v, vp, sp)  ! vp = v⁺ on ∂Ω, ...
       lambda = 1 / tau
 
       ! compute residual .......................................................
 
-      call this % GetDiffusionTerm(v, vp, sp, r)
+      call this % GetDiffusionTerm(v, vp, sp, r, form)
 
       !$omp do collapse(2)
       do e = 1, mesh % n_elem

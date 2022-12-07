@@ -23,6 +23,7 @@ module INS__Operator__3D
   use DG__Schwarz_Operator__3D
 
   use Mesh__3D
+  use Trace_Operators__3D
   use Spectral_Element_Mesh__3D
   use Boundary_Variable__3D
 
@@ -65,7 +66,7 @@ module INS__Operator__3D
 
     generic   :: Init => Init_INS_Operator_3D
     procedure :: Init_INS_Operator_3D
-    procedure :: SetVelocityBC
+    procedure :: ApplyVelocityBC
     procedure :: PressureSolver
     procedure :: GetConvectionTerm
     generic   :: GetDiffusionTerm       => GetDiffusionTerm_C
@@ -104,6 +105,16 @@ module INS__Operator__3D
   interface
 
     !---------------------------------------------------------------------------
+    !> Application of velocity boundary conditions to trace variables
+
+    module subroutine ApplyVelocityBC(this, bv_v, tr_v, tr_s)
+      class(INS_Operator_3D),               intent(in)    :: this
+      class(BoundaryVariable_3D), optional, intent(in)    :: bv_v(:)
+      real(RNP), contiguous,      optional, intent(inout) :: tr_v(:,:,:,:,:)
+      real(RNP), contiguous,      optional, intent(inout) :: tr_s(:,:,:,:,:)
+    end subroutine ApplyVelocityBC
+
+    !---------------------------------------------------------------------------
     !> Projection-based pressure solver
 
     module subroutine PressureSolver( this, tau, bv_v, v, f, bv_p, p &
@@ -126,34 +137,37 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion term with constant viscosity on irregular (deformed) mesh
 
-    module subroutine GetDiffusionTerm_DC(this, v, vp, sp, F_d)
+    module subroutine GetDiffusionTerm_DC(this, v, vp, sp, F_d, form)
       class(INS_Operator_3D), intent(in)    :: this
       real(RNP), contiguous,  intent(in)    :: v(:,:,:,:,:)
       real(RNP), contiguous,  intent(inout) :: vp(:,:,:,:,:)
       real(RNP), contiguous,  intent(inout) :: sp(:,:,:,:,:)
       real(RNP), contiguous,  intent(out)   :: F_d(:,:,:,:,:)
+      integer,     optional,  intent(in)    :: form
     end subroutine GetDiffusionTerm_DC
 
     !---------------------------------------------------------------------------
     !> Homogeneous diffusion operator with constant viscosity
 
-    module subroutine ApplyDiffusionOperator_C(this, tau, v, r)
+    module subroutine ApplyDiffusionOperator_C(this, tau, v, r, form)
       class(INS_Operator_3D), intent(in)  :: this
       real(RNP),              intent(in)  :: tau
       real(RNP), contiguous,  intent(in)  :: v(:,:,:,:,:)
       real(RNP), contiguous,  intent(out) :: r(:,:,:,:,:)
+      integer,     optional,  intent(in)  :: form
     end subroutine ApplyDiffusionOperator_C
 
     !---------------------------------------------------------------------------
     !> Diffusion residual with constant viscosity
 
-    module subroutine GetDiffusionResidual_C(this, tau, f, bv_v, v, r)
+    module subroutine GetDiffusionResidual_C(this, tau, f, bv_v, v, r, form)
       class(INS_Operator_3D),     intent(in)  :: this
       real(RNP),                  intent(in)  :: tau
       real(RNP), contiguous,      intent(in)  :: f(:,:,:,:,:)
       class(BoundaryVariable_3D), intent(in)  :: bv_v(:)
       real(RNP), contiguous,      intent(in)  :: v(:,:,:,:,:)
       real(RNP), contiguous,      intent(out) :: r(:,:,:,:,:)
+      integer,     optional,      intent(in)  :: form
     end subroutine GetDiffusionResidual_C
 
     !---------------------------------------------------------------------------
@@ -261,50 +275,6 @@ contains
   end subroutine Init_INS_Operator_3D
 
   !-----------------------------------------------------------------------------
-  !> Inject the velocity boundary conditions into trace variables
-  !>
-  !> The boundary variable `bv_v` is expected to contain the velocity boundary
-  !> values in the first three components. Velocity values will be injected
-  !> into `tr_v` and stresses into `tr_s`, if present.
-  !>
-  !> The traces are stored as element face variables defined as
-  !>
-  !>     tr_v(np,np,6,nl,3)
-  !>     tr_s(np,np,6,nl,3)
-  !>
-  !> where `np` is the number of velocity element points per direction and
-  !> `nl` is the number of elements, possibly including the ghosts.
-  !>
-  !> @note
-  !> So far, only Dirichlet conditions ('D') are supported.
-
-  subroutine SetVelocityBC(this, bv_v, tr_v, tr_s)
-    class(INS_Operator_3D) , intent(in) :: this
-    !< Navier-Stokes operator
-    class(BoundaryVariable_3D), intent(in) :: bv_v(:)
-    !< boundary values
-    real(RNP), optional, intent(inout) :: tr_v(:,:,:,:,:)
-    !< velocity on element faces
-    real(RNP), optional, intent(inout) :: tr_s(:,:,:,:,:)
-    !< stress vector on element faces
-
-    integer :: b
-
-    if (present(tr_v)) then
-      do b = 1, this % mesh % n_bound
-        if (this % bc_v(b) == 'D') then
-          call bv_v(b) % CopyToTraceVariable(tr_v)
-        end if
-      end do
-    end if
-
-    if (present(tr_s)) then
-      return ! nothing to do yet
-    end if
-
-  end subroutine SetVelocityBC
-
-  !-----------------------------------------------------------------------------
   !> Diffusion term with constant viscosity
 
   subroutine GetConvectionTerm(this, v, vp, F_c)
@@ -336,7 +306,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Diffusion term with constant viscosity
 
-  subroutine GetDiffusionTerm_C(this, v, vp, sp, F_d)
+  subroutine GetDiffusionTerm_C(this, v, vp, sp, F_d, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -357,10 +327,16 @@ contains
     real(RNP), contiguous, intent(out) :: F_d(:,:,:,:,:)
     !< diffusion term (np,np,np,ne,3)
 
+    integer, optional, intent(in) :: form
+    !< switch form of the approximated diffusion term `∇⋅τ`
+    !!   - `0` :  `∇⋅ν[∇v + (∇v)ᵀ] + ∇[(μ-2/3ν)∇⋅v]`               (default)
+    !!   - `1` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[      ν ∇⋅v] =  ν∇²v`       (diffusion)
+    !!   - `2` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[     2ν ∇⋅v] = -ν∇×(∇×v)`   (rotation)
+
 !   if (this % mesh % regular) then
 !     not implemented yet
 !   else
-      call GetDiffusionTerm_DC(this, v, vp, sp, F_d)
+      call GetDiffusionTerm_DC(this, v, vp, sp, F_d, form)
 !   end if
 
   end subroutine GetDiffusionTerm_C

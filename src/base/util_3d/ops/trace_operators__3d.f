@@ -15,6 +15,7 @@ module Trace_Operators__3D
   public :: GetInnerTraces_3D
   public :: GetOuterTraces_3D
   public :: ConvertInnerToOuterTraces_3D
+  public :: GetBoundaryTraces_3D
 
   interface GetInnerTraces_3D
     module procedure GetInnerTraces_S
@@ -29,6 +30,11 @@ module Trace_Operators__3D
   interface ConvertInnerToOuterTraces_3D
     module procedure ConvertInnerToOuterTraces_S
     module procedure ConvertInnerToOuterTraces_A
+  end interface
+
+  interface GetBoundaryTraces_3D
+    module procedure GetBoundaryTraces_S
+    module procedure GetBoundaryTraces_A
   end interface
 
 contains
@@ -323,6 +329,88 @@ contains
     end do
 
   end subroutine ConvertInnerToOuterTraces_A
+
+  !=============================================================================
+  ! GetBoundaryTraces_3D variants
+
+  !-----------------------------------------------------------------------------
+  !> Extract the traces `u⁻` of scalar mesh variable `u` at boundaries
+
+  subroutine GetBoundaryTraces_S(mesh, u, um)
+    class(Mesh_3D),        intent(in)    :: mesh
+    real(RNP), contiguous, intent(in)    :: u (:,:,:,:) !< u
+    real(RNP), contiguous, intent(inout) :: um(:,:,:,:) !< u⁻ at boundaries
+
+    integer :: b, e, f, l, m, np
+
+    np = size(u,1)
+
+    !$omp do collapse(2)
+    do b = 1, mesh % n_bound
+    do f = 1, mesh % boundary(b) % n_face
+
+      e = mesh % boundary(b) % face(f) % element_id
+      m = mesh % boundary(b) % face(f) % element_face
+
+      select case(m)
+      case(1:2)
+        l = 1 + (m-1) * (np-1)
+        um(:,:,m,e) = u(l,:,:,e)
+      case(3:4)
+        l = 1 + (m-3) * (np-1)
+        um(:,:,m,e) = u(:,l,:,e)
+      case(5:6)
+        l = 1 + (m-5) * (np-1)
+        um(:,:,m,e) = u(:,:,l,e)
+      end select
+
+    end do
+    end do
+
+  end subroutine GetBoundaryTraces_S
+
+  !-----------------------------------------------------------------------------
+  !> Extract the traces `u⁻` of array mesh variable `u` at boundaries
+
+  subroutine GetBoundaryTraces_A(mesh, u, um)
+    class(Mesh_3D),        intent(in)    :: mesh
+    real(RNP), contiguous, intent(in)    :: u (:,:,:,:,:) !< u
+    real(RNP), contiguous, intent(inout) :: um(:,:,:,:,:) !< u⁻ at boundaries
+
+    integer :: b, c, e, f, l, m, nc, np
+
+    np = size(u,1)
+    nc = size(u,5)
+
+    !$omp do collapse(2)
+    do b = 1, mesh % n_bound
+    do f = 1, mesh % boundary(b) % n_face
+
+      e = mesh % boundary(b) % face(f) % element_id
+      m = mesh % boundary(b) % face(f) % element_face
+
+      select case(m)
+      case(1:2)
+        l = 1 + (m-1) * (np-1)
+        do c = 1, nc
+          um(:,:,m,e,c) = u(l,:,:,e,c)
+        end do
+      case(3:4)
+        l = 1 + (m-3) * (np-1)
+        do c = 1, nc
+          um(:,:,m,e,c) = u(:,l,:,e,c)
+        end do
+      case(5:6)
+        l = 1 + (m-5) * (np-1)
+        do c = 1, nc
+          um(:,:,m,e,c) = u(:,:,l,e,c)
+        end do
+      end select
+
+    end do
+    end do
+
+  end subroutine GetBoundaryTraces_A
 
   !=============================================================================
 

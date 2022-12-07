@@ -26,7 +26,7 @@ contains
   !> For homogeneous conditions pass `vp = sp = 0`.
   !> To obtain the node values, apply the inverse mass matrix to `F_d`.
 
-  module subroutine GetDiffusionTerm_DC(this, v, vp, sp, F_d)
+  module subroutine GetDiffusionTerm_DC(this, v, vp, sp, F_d, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -36,7 +36,7 @@ contains
 
     real(RNP), contiguous, intent(inout) :: vp(:,:,:,:,:)
     !< exterior velocity traces (np,np,6,ne,3)
-    !<   - in:  v   at Dirichlet faces, nn⋅v at free-slip faces, undefined else
+    !<   - in:  v⁺  at boundary faces
     !<   - out: v⁺  at all element faces
 
     real(RNP), contiguous, intent(inout) :: sp(:,:,:,:,:)
@@ -47,6 +47,12 @@ contains
     real(RNP), contiguous, intent(out) :: F_d(:,:,:,:,:)
     !< diffusion term (np,np,np,ne,3)
 
+    integer, optional, intent(in) :: form
+    !< switch form of the approximated diffusion term `∇⋅τ`
+    !!   - `0` :  `∇⋅ν[∇v + (∇v)ᵀ] + ∇[(μ-2/3ν)∇⋅v]`               (default)
+    !!   - `1` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[      ν ∇⋅v] =  ν∇²v`       (diffusion)
+    !!   - `2` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[     2ν ∇⋅v] = -ν∇×(∇×v)`   (rotation)
+
     ! local variables ..........................................................
 
     ! trace transfer buffers operators
@@ -55,15 +61,30 @@ contains
     ! trace variables
     real(RNP), allocatable, save :: tr(:,:,:,:,:) ! traces of v and n⋅τ
 
+    real(RNP) :: mu, nu
+
+    nu = this % nu_0
+
+    if (present(form)) then
+      select case(form)
+      case(1)
+        mu = -THIRD * nu
+      case(2)
+        mu = -THIRD * 4 * nu
+    case default
+        mu = this % mu_0
+      end select
+    else
+      mu = this % mu_0
+    end if
+
     associate( mesh   => this % sem_v % mesh         &
              , Jd     => this % sem_v % metrics % Jd &
              , Ji     => this % sem_v % metrics % Ji &
              , a      => this % sem_v % metrics % a  &
              , n      => this % sem_v % metrics % n  &
              , eop    => this % eop_v                &
-             , bc     => this % bc_v                 &
-             , mu     => this % mu_0                 &
-             , nu     => this % nu_0                 )
+             , bc     => this % bc_v                 )
 
       ! initialization .........................................................
 

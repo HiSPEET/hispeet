@@ -13,14 +13,14 @@ contains
   !> Homogeneous diffusion operator with constant viscosity
   !>
   !> Computes the homogeneous DG-SEM viscous diffusion operator including the
-  !>implicit part of the discretized time derivative, i.e.,
+  !> implicit part of the discretized time derivative, i.e.,
   !>
   !>     r = Mv/τ - Fd(v, vb=0, sb=0)
   !>
   !> where `Fd` is the weak form of the diffusion term for the given velocity
   !> `v` with zero boundary values `vb`, `sb` and `M` is diagonal mass matrix.
 
-  module subroutine ApplyDiffusionOperator_C(this, tau, v, r)
+  module subroutine ApplyDiffusionOperator_C(this, tau, v, r, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -33,6 +33,9 @@ contains
 
     real(RNP), contiguous, intent(out) :: r(:,:,:,:,:)
     !< result, r(np,np,np,ne,3)
+
+    integer, optional, intent(in) :: form
+    !< form of `∇⋅τ`: 0/1/2 ↔︎ default/diffusion/rotational [0]
 
     ! local variables ..........................................................
 
@@ -63,7 +66,9 @@ contains
 
       ! compute residual .......................................................
 
-      call this % GetDiffusionTerm(v, vp, sp, r)
+      call GetBoundaryTraces_3D(mesh, v, vp) ! vp = v⁻              on ∂Ω
+      call this % ApplyVelocityBC(tr_v = vp) ! vp = v⁺ with zero BV on ∂Ω
+      call this % GetDiffusionTerm(v, vp, sp, r, form)
 
       !$omp do collapse(2)
       do e = 1, mesh % n_elem

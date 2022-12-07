@@ -127,14 +127,13 @@ contains
 
       associate(div_v => w(:,:,:,:,4))
 
-        ! generate outer traces of intermediate velocity
-        call buf_vm % Transfer(mesh, vm, tag=100)       ! transfer v⁻ from masters
-        call ins_op % SetVelocityBC(bv_v, vm)           ! set boundary values
-        call buf_vm % Merge(vm)                         ! merge received traces
-        call ConvertInnerToOuterTraces_3D(mesh, vm, vp) ! vm → vp = v⁺
+        ! outer traces of intermediate velocity using homogeneous Neumann BC
+        call buf_vm % Transfer(mesh, vm, tag=100)
+        call buf_vm % Merge(vm)
+        call ConvertInnerToOuterTraces_3D(mesh, vm, vp)
 
         ! divergence of intermediate velocity
-         call TPO_Div(ins_op % eop_v, ins_op % sem_v, v, vp, div_v)
+        call TPO_Div(ins_op % eop_v, ins_op % sem_v, v, vp, div_v)
 
         ! solve pressure equation
         call ins_op % PressureSolver( tau, bv_v, v, div_v, bv_p, p &
