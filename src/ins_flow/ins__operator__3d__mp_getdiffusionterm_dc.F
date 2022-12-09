@@ -23,7 +23,6 @@ contains
   !>
   !> The diffusion term `F_d` comprises the viscous contributions to the weak
   !> form of the momentum equation including the boundary conditions.
-  !> For homogeneous conditions pass `vp = sp = 0`.
   !> To obtain the node values, apply the inverse mass matrix to `F_d`.
 
   module subroutine GetDiffusionTerm_DC(this, v, vp, sp, F_d, form)
@@ -97,24 +96,26 @@ contains
 
       ! element volume contributions ...........................................
 
+      ! element integrals and local contributions to inner traces v⁻ and s⁻
       call TPO_Stress( eop%w, eop%D, Jd, Ji, n, mu, nu, v &
                      , fv = F_d                           &
-                     , vb = tr(:,:,:,:,1:3)               &
-                     , sb = tr(:,:,:,:,4:6)               )
+                     , vb = tr(:,:,:,:,1:3)               & ! v⁻(:,:,:,1:ne,1:3)
+                     , sb = tr(:,:,:,:,4:6)               ) ! s⁻(:,:,:,1:ne,1:3)
 
       ! transfer traces ........................................................
 
-      call buf_tr % Transfer(mesh, tr, tag=1000)
-      call buf_tr % Merge(tr)
+      call buf_tr % Transfer(mesh, tr, tag=1000) ! send traces to remote ghosts
+      call buf_tr % Merge(tr)                    ! recv traces of local  ghosts
 
       ! add fluxes .............................................................
 
+      ! add element boundary contributions and complete/build outer traces
       call AddViscousFluxes( eop%po, mesh, eop, bc &
                            , a, n, Ji, mu, nu      &
                            , vm = tr(:,:,:,:,1:3)  &
                            , sm = tr(:,:,:,:,4:6)  &
-                           , vp = vp               &
-                           , sp = sp               &
+                           , vp = vp               & ! v⁺
+                           , sp = sp               & ! s⁺
                            , F_d = F_d             )
 
       ! cleanup ................................................................
@@ -236,7 +237,7 @@ contains
 
             i = (f - 1) * P
 
-            call GetExteriorTraces(P, element, struct, bc, e,f,n, vm,sm, vp,sp)
+            call BuildOuterTraces(P, element, struct, bc, e,f,n, vm,sm, vp,sp)
 
             cip = eop % PenaltyFactor(element % geometry % dx_m(f))
 
@@ -319,13 +320,13 @@ contains
 
           end do ! faces 1+2
 
-          ! faces 3+4 (south + north) ............................................
+          ! faces 3+4 (south + north) ..........................................
 
           do f = 3, 4
 
             j = (f - 3) * P
 
-            call GetExteriorTraces(P, element, struct, bc, e,f,n, vm,sm, vp,sp)
+            call BuildOuterTraces(P, element, struct, bc, e,f,n, vm,sm, vp,sp)
 
             cip = eop % PenaltyFactor(element % geometry % dx_m(f))
 
@@ -414,7 +415,7 @@ contains
 
             k = (f - 5) * P
 
-            call GetExteriorTraces(P, element, struct, bc, e,f,n, vm,sm, vp,sp)
+            call BuildOuterTraces(P, element, struct, bc, e,f,n, vm,sm, vp,sp)
 
             cip = eop % PenaltyFactor(element % geometry % dx_m(f))
 
@@ -525,7 +526,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Compose exterior traces at element boundary
 
-  subroutine GetExteriorTraces(P, element, struct, bc, e, f, n, vm, sm, vp, sp)
+  subroutine BuildOuterTraces(P, element, struct, bc, e, f, n, vm, sm, vp, sp)
 
     integer,               intent(in)    :: P       !< polynomial order
     class(MeshElement_3D), intent(in)    :: element !< element
@@ -541,7 +542,7 @@ contains
 
     ! local variables ..........................................................
 
-    real(RNP) :: n1, n2, n3, vm_n, vp_n
+!!  real(RNP) :: n1, n2, n3, vm_n, vp_n
     integer   :: c, i, j, k, l, m
 
     i  = element % face(f) % i_neighbor
@@ -578,49 +579,48 @@ contains
         do c = 1, 3
           do k = 0, P
           do j = 0, P
-            vp(j,k,f,e,c) = -vm(j,k,f,e,c) + 2 * vp(j,k,f,e,c)
             sp(j,k,f,e,c) = -sm(j,k,f,e,c)
           end do
           end do
         end do
 
-      case('S') ! free slip
-        do k =0, P
-        do j =0, P
-
-          n1 = n(j,k,f,e,1)
-          n2 = n(j,k,f,e,2)
-          n3 = n(j,k,f,e,3)
-
-          vm_n = n1 * vm(j,k,f,e,1) + n2 * vm(j,k,f,e,2) + n3 * vm(j,k,f,e,3)
-          vp_n = n1 * vp(j,k,f,e,1) + n2 * vp(j,k,f,e,2) + n3 * vp(j,k,f,e,3)
-
-          vp(j,k,f,e,1) =  vm(j,k,f,e,1) + 2 * n1 * (vp_n - vm_n)
-          vp(j,k,f,e,2) =  vm(j,k,f,e,2) + 2 * n2 * (vp_n - vm_n)
-          vp(j,k,f,e,3) =  vm(j,k,f,e,3) + 2 * n3 * (vp_n - vm_n)
-
-          sp(j,k,f,e,1) = -sm(j,k,f,e,1)
-          sp(j,k,f,e,2) = -sm(j,k,f,e,2)
-          sp(j,k,f,e,3) = -sm(j,k,f,e,3)
-
-        end do
-        end do
-
-      case default
-        do c = 1, 3
-          do k =0, P
-          do j =0, P
-            vp(j,k,f,e,c) =  vm(j,k,f,e,c)
-            sp(j,k,f,e,c) = -sm(j,k,f,e,c)
-          end do
-          end do
-        end do
+!!       case('S') ! free slip
+!!         do k =0, P
+!!         do j =0, P
+!!
+!!           n1 = n(j,k,f,e,1)
+!!           n2 = n(j,k,f,e,2)
+!!           n3 = n(j,k,f,e,3)
+!!
+!!           vm_n = n1 * vm(j,k,f,e,1) + n2 * vm(j,k,f,e,2) + n3 * vm(j,k,f,e,3)
+!!           vp_n = n1 * vp(j,k,f,e,1) + n2 * vp(j,k,f,e,2) + n3 * vp(j,k,f,e,3)
+!!
+!!           vp(j,k,f,e,1) =  vm(j,k,f,e,1) + 2 * n1 * (vp_n - vm_n)
+!!           vp(j,k,f,e,2) =  vm(j,k,f,e,2) + 2 * n2 * (vp_n - vm_n)
+!!           vp(j,k,f,e,3) =  vm(j,k,f,e,3) + 2 * n3 * (vp_n - vm_n)
+!!
+!!           sp(j,k,f,e,1) = -sm(j,k,f,e,1)
+!!           sp(j,k,f,e,2) = -sm(j,k,f,e,2)
+!!           sp(j,k,f,e,3) = -sm(j,k,f,e,3)
+!!
+!!         end do
+!!         end do
+!!
+!!       case default
+!!         do c = 1, 3
+!!           do k =0, P
+!!           do j =0, P
+!!             vp(j,k,f,e,c) =  vm(j,k,f,e,c)
+!!             sp(j,k,f,e,c) = -sm(j,k,f,e,c)
+!!           end do
+!!           end do
+!!         end do
 
       end select
 
     end if
 
-  end subroutine GetExteriorTraces
+  end subroutine BuildOuterTraces
 
   !-----------------------------------------------------------------------------
   !> Computation of tangential derivatives
