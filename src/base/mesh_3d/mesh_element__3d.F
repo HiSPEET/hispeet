@@ -268,8 +268,8 @@ module Mesh_Element__3D
 
   contains
 
-   procedure :: MeshFaceSide
-   procedure :: NeigborEdgeIsAligned
+    procedure :: MeshFaceSide
+    procedure :: NeigborEdgeIsAligned
 
     generic   :: AlignFromNeighborEdge => AlignFromNeighborEdge_IDK, &
                                           AlignFromNeighborEdge_RNP
