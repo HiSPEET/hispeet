@@ -47,22 +47,17 @@ contains
   !>
   !> The traces are stored as element-face variables. If `align` is passed `T`
   !> they are aligned with the mesh faces, otherwise with the element faces.
-  !> Traces of remote elements are stored in their ghost entries. Therefore,
-  !> the trace values must be dimensioned as `um(np,np,6,ne+ng,nc)`, where
-  !>
-  !>   - `np` is the number of element values per direction, i.e. `size(u,1)`
-  !>   - `ne` is the number of local elements, i.e. `mesh % n_elem`
-  !>   - `ng` is the number of ghost elements, i.e. `mesh % n_ghost`
+  !> If `um` contains the ghost entries, these are generated as well.
 
   subroutine GetInnerTraces_S(mesh, u, um, align)
     class(Mesh_3D),        intent(in)    :: mesh
     real(RNP), contiguous, intent(in)    :: u (:,:,:,:) !< u
-    real(RNP), contiguous, intent(inout) :: um(:,:,:,:) !< u⁻ with ghosts
+    real(RNP), contiguous, intent(inout) :: um(:,:,:,:) !< u⁻
     logical, optional,     intent(in)    :: align !< align u⁻ with mesh face [F]
 
     type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_um
     integer :: e, o, p
-    logical :: as_is
+    logical :: as_is, has_ghosts
 
     if (present(align)) then
       as_is = .not. align
@@ -70,12 +65,16 @@ contains
       as_is = .true.
     end if
 
+    has_ghosts = size(um,4) == mesh%n_elem + mesh%n_ghost
+
     ! initialization ...........................................................
 
-    !$omp master
-    buf_um = ElementFaceTransferBuffer_3D(mesh, um)
-    !$omp end master
-    !$omp barrier
+    if (has_ghosts) then
+      !$omp master
+      buf_um = ElementFaceTransferBuffer_3D(mesh, um)
+      !$omp end master
+      !$omp barrier
+    end if
 
     ! local traces .............................................................
 
@@ -106,12 +105,16 @@ contains
 
     ! transfer to/from adjoining partitions ....................................
 
-    call buf_um % Transfer(mesh, um, tag=100)
-    call buf_um % Merge(um)
+    if (has_ghosts) then
 
-    !$omp master
-    deallocate(buf_um)
-    !$omp end master
+      call buf_um % Transfer(mesh, um, tag=100)
+      call buf_um % Merge(um)
+
+      !$omp master
+      deallocate(buf_um)
+      !$omp end master
+
+    end if
 
    end subroutine GetInnerTraces_S
 
@@ -120,23 +123,17 @@ contains
   !>
   !> The traces are stored as element-face variables. If `align` is passed `T`
   !> they are aligned with the mesh faces, otherwise with the element faces.
-  !> Traces of remote elements are stored in their ghost entries. Therefore,
-  !> the trace values must be dimensioned as `um(np,np,6,ne+ng,nc)`, where
-  !>
-  !>   - `np` is the number of element values per direction, i.e. `size(u,1)`
-  !>   - `ne` is the number of local elements, i.e. `mesh % n_elem`
-  !>   - `ng` is the number of ghost elements, i.e. `mesh % n_ghost`
-  !>   - `nc` is the number of components
+  !> If `um` contains the ghost entries, these are generated as well.
 
   subroutine GetInnerTraces_A(mesh, u, um, align)
     class(Mesh_3D),        intent(in)    :: mesh
     real(RNP), contiguous, intent(in)    :: u (:,:,:,:,:) !< u
     real(RNP), contiguous, intent(inout) :: um(:,:,:,:,:) !< u⁻ with ghosts
-    logical, optional,     intent(in)    :: align !< align u⁻ with mesh face [F]
+    logical,   optional,   intent(in)    :: align !< align u⁻ with mesh face [F]
 
     type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_um
     integer :: c, e, nc, o, p
-    logical :: as_is
+    logical :: as_is, has_ghosts
 
     if (present(align)) then
       as_is = .not. align
@@ -144,12 +141,16 @@ contains
       as_is = .true.
     end if
 
+    has_ghosts = size(um,4) == mesh%n_elem + mesh%n_ghost
+
     ! initialization ...........................................................
 
-    !$omp master
-    buf_um = ElementFaceTransferBuffer_3D(mesh, um)
-    !$omp end master
-    !$omp barrier
+    if (has_ghosts) then
+      !$omp master
+      buf_um = ElementFaceTransferBuffer_3D(mesh, um)
+      !$omp end master
+      !$omp barrier
+    end if
 
     nc = size(um,5)
 
@@ -186,12 +187,16 @@ contains
 
     ! transfer to/from adjoining partitions ....................................
 
-    call buf_um % Transfer(mesh, um, tag=100)
-    call buf_um % Merge(um)
+    if (has_ghosts) then
 
-    !$omp master
-    deallocate(buf_um)
-    !$omp end master
+      call buf_um % Transfer(mesh, um, tag=000)
+      call buf_um % Merge(um)
+
+      !$omp master
+      deallocate(buf_um)
+      !$omp end master
+
+    end if
 
    end subroutine GetInnerTraces_A
 
@@ -216,7 +221,7 @@ contains
     !$omp master
     np = size(u,1)
     nc = size(u,5)
-    allocate(um(np, np, np, mesh%n_elem + mesh%n_ghost, nc), source = ZERO)
+    allocate(um(np, np, 6, mesh%n_elem + mesh%n_ghost, nc), source = ZERO)
     !$omp end master
     ! no barrier required ;)
 
@@ -246,7 +251,7 @@ contains
 
     !$omp master
     np = size(u,1)
-    allocate(um(np, np, np, mesh%n_elem + mesh%n_ghost), source = ZERO)
+    allocate(um(np, np, 6, mesh%n_elem + mesh%n_ghost), source = ZERO)
     !$omp end master
     ! no barrier required ;)
 
