@@ -518,6 +518,11 @@ program DG_Elliptic_3D_Test
     if (mesh%part >= 0) then
 
       call SetArray(u, ZERO)
+!### CHECK
+!u = 100 * sem % metrics % x(:,:,:,:,1) &
+!  +  10 * sem % metrics % x(:,:,:,:,2) &
+!  +       sem % metrics % x(:,:,:,:,3)
+!### CHECK END
 
       if (has_variable_nu) then
         call elliptic_op % Residual(lambda, nu, f, bv_u, u, r)
