@@ -218,9 +218,6 @@ contains
       call ins_op % GetDiffusionTerm(v, vp, sp, F_d, form=2)
       call ins_op % GetConvectionTerm(v, vp, F_c)
 
-!### CHECK
-print '(9(G0,1X))', 'first =', first
-!### CHECK END
       if (first) then
         a0 = 1
         a1 = 0
