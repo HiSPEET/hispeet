@@ -85,9 +85,6 @@ contains
       ! termination conditions
       if (check_convergence) then
         rr = ScalarProduct(r, r, mesh%comm_parts)
-!### CHECK
-!print '(99(G0,1X))', '#Diffusion >>> i =',0,',  |r| =', sqrt(rr)
-!### CHECK END
         !$omp master
         if (present(r_red)) then
           rr_term  = max(ZERO, sqrt(rr) * r_red)**2
@@ -158,9 +155,6 @@ contains
 
         if (check_convergence) then
           rr = ScalarProduct(r, r, mesh%comm_parts)
-!### CHECK
-!print '(99(G0,1X))', '#Diffusion >>> i =',i,',  |r| =', sqrt(rr)
-!### CHECK END
           !$omp master
           converged = rr <= rr_term
           call XMPI_Bcast(converged, root=0, comm=mesh%comm_parts)
@@ -170,7 +164,11 @@ contains
 
         if (converged .or. i == i_max_) then
 !### CHECK
+if (mesh%part == 0) then
+!$omp master
 print '(99(G0,1X))', '#Diffusion >>> ni =',i,',  |r| =', sqrt(rr)
+!$omp end master
+end if
 !### CHECK END
           exit
         end if
