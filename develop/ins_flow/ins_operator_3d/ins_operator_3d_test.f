@@ -268,8 +268,8 @@ program INS_Operator_3D_Test
   allocate(mm (0:po,0:po,0:po,1:n_elem)     )
   allocate(w  (0:po,0:po,0:po,1:n_elem,1:4) )
 
-  allocate(up (0:po,0:po,1:6,1:n_elem        ,1:4), source = ZERO )
-  allocate(sp (0:po,0:po,1:6,1:n_elem        ,1:3), source = ZERO )
+  allocate(up (0:po,0:po,1:6,1:n_elem,1:4), source = ZERO )
+  allocate(sp (0:po,0:po,1:6,1:n_elem,1:3), source = ZERO )
 
   call ins_op % sem_v % Get_DG_DiagonalMassMatrix(mm)
 
