@@ -5,7 +5,8 @@
 !===============================================================================
 
 module Boundary_Variable__3D
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters,   only: RNP
+  use Execution_Control, only: Error
   use Mesh_Boundary__3D
   use Spectral_Element_Mesh__3D
   implicit none
@@ -38,6 +39,9 @@ module Boundary_Variable__3D
   !> the values to copied into fresh memory which removes this risk.
 
   type BoundaryVariable_3D
+
+    integer :: po = 0 !< polynomial order
+    integer :: nc = 0 !< number of components
 
     class(MeshBoundary_3D), pointer :: boundary => null()
     real(RNP), contiguous,  pointer :: val(:,:,:,:) => null() !< value access
@@ -111,6 +115,9 @@ contains
     if (allocated(this % mem)) deallocate(this % mem)
     allocate(this % mem(0:po, 0:po, boundary%n_face, nc))
 
+    this % po = po
+    this % nc = nc
+
     this % boundary         => boundary
     this % val(0:,0:,1:,1:) => this % mem
 
@@ -135,6 +142,8 @@ contains
 
     !$omp master
 
+    slice % po = this % po
+    slice % nc = 1 + last - first
     slice % boundary => this % boundary
 
     if (present(copy)) then
@@ -167,12 +176,15 @@ contains
     class(BoundaryVariable_3D), intent(inout) :: this
     real(RNP), contiguous, target, intent(in) :: v(0:,0:,0:,:,:)
 
-    integer :: c, e, f, i, j, k, m, nc, po
+    integer :: c, e, f, i, j, k, m
 
-    associate(vb => this % val)
+    !$omp master
+    if (ubound(v,1) /= this%po .or. size(v,5) /= this%nc) then
+      call Error('Extract_A', 'arguments do not match', 'Boundary_Variable__3D')
+    end if
+    !$omp end master
 
-      po = ubound(v,1)
-      nc = ubound(v,5)
+    associate(vb => this % val, po => this%po, nc => this%nc)
 
       !$omp do
       do f = 1, this % boundary % n_face
@@ -228,11 +240,15 @@ contains
     class(BoundaryVariable_3D), intent(inout) :: this
     real(RNP), contiguous, target, intent(in) :: v(0:,0:,0:,:)
 
-    integer :: e, f, i, j, k, m, po
+    integer :: e, f, i, j, k, m
 
-    associate(vb => this % val)
+    !$omp master
+    if (ubound(v,1) /= this%po) then
+      call Error('Extract_S', 'arguments do not match', 'Boundary_Variable__3D')
+    end if
+    !$omp end master
 
-      po = ubound(v,1)
+    associate(vb => this % val, po => this%po)
 
       !$omp do
       do f = 1, this % boundary % n_face
@@ -283,6 +299,14 @@ contains
     class(SpectralElementMesh_3D), intent(in) :: sem
     real(RNP), contiguous, target, intent(in) :: v(0:,0:,0:,:,:)
 
+    !$omp master
+    if (this%po  /= ubound(v,1) .or. this%nc /= 1 .or. size(v,5) /= 3) then
+      call Error( 'ExtractNormalComponent' &
+                , 'arguments do not match' &
+                , 'Boundary_Variable__3D'  )
+    end if
+    !$omp end master
+
     if (sem % mesh % regular) then
       call ExtractNormalComponent_R(this, v)
     else
@@ -298,11 +322,9 @@ contains
     class(BoundaryVariable_3D), intent(inout) :: this
     real(RNP), contiguous, target, intent(in) :: v(0:,0:,0:,:,:)
 
-    integer :: e, f, i, j, k, m, n, po
+    integer :: e, f, i, j, k, m, n
 
-    associate(vb_n => this % val)
-
-      po = ubound(v,1)
+    associate(vb_n => this % val, po => this%po)
 
       !$omp do
       do f = 1, this % boundary % n_face
@@ -354,11 +376,9 @@ contains
     class(SpectralElementMesh_3D), intent(in) :: sem
     real(RNP), contiguous, target, intent(in) :: v(0:,0:,0:,:,:)
 
-    integer :: e, f, i, j, k, m, po
+    integer :: e, f, i, j, k, m
 
-    associate(vb_n => this % val, n => sem % metrics % n)
-
-      po = ubound(v,1)
+    associate(vb_n => this%val, n => sem%metrics % n, po => this%po)
 
       !$omp do
       do f = 1, this % boundary % n_face
@@ -419,6 +439,14 @@ contains
 
     integer :: f, e, m
 
+    !$omp master
+    if (this%po + 1 /= size(vt,1)) then
+      call Error( 'MergeWithTraceVar_S'    &
+                , 'arguments do not match' &
+                , 'Boundary_Variable__3D'  )
+    end if
+    !$omp end master
+
     !$omp do
     do f = 1, this % boundary % n_face
 
@@ -440,9 +468,15 @@ contains
     real(RNP), intent(in)    :: ct !< coefficient of trace variable
     real(RNP), intent(inout) :: vt(:,:,:,:,:)
 
-    integer :: c, e, f, m, nc
+    integer :: c, e, f, m
 
-    nc = size(this % val, 4)
+    !$omp master
+    if (this%po + 1 /= size(vt,1) .or. this%nc /= size(vt,5)) then
+      call Error( 'MergeWithTraceVar_A'    &
+                , 'arguments do not match' &
+                , 'Boundary_Variable__3D'  )
+    end if
+    !$omp end master
 
     !$omp do
     do f = 1, this % boundary % n_face
@@ -450,7 +484,7 @@ contains
       e = this % boundary % face(f) % element_id
       m = this % boundary % face(f) % element_face
 
-      do c = 1, nc
+      do c = 1, this%nc
         vt(:,:,m,e,c) = ct * vt(:,:,m,e,c) + cb * this % val(:,:,f,c)
       end do
 
