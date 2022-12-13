@@ -127,6 +127,7 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
               mesh_3d/generate_regular_mesh__3d.f
               mesh_3d/mesh_metrics__3d.f
               mesh_3d/spectral_element_mesh__3d.f
+              mesh_3d/boundary_variable__3d.f
               )
 
 #===============================================================================
@@ -151,6 +152,7 @@ set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/ops/assembly__3d__sm_0u.f
              util_3d/ops/trace_operators__3d.f
              util_3d/ops/volume_integrals__3d.f
+             util_3d/ops/surface_integrals__3d.f
              util_3d/verification/verify_mesh__3d.f
              util_3d/adaptation/element_distribution_map__3d.f
              util_3d/adaptation/element_distribution_data__3d.f
@@ -160,15 +162,6 @@ set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
 if (Exodus_FOUND)
     set (UTIL_3D ${UTIL_3D} util_3d/import/import_exodus__3d.f)
 endif ()
-
-#===============================================================================
-# variables_3d
-
-set( VARIABLES_3D variables_3d/boundary_variable__3d.f
-                  variables_3d/sem__variable__3d.f
-                  variables_3d/sem__scalar__3d.f
-                  variables_3d/sem__vector__3d.f
-                  )
 
 #===============================================================================
 # elliptic_3d
