@@ -21,8 +21,10 @@ program INS_TimeIntegrator_3D_Test
   use TPO__Div__3D
 
   use Mesh__3D
+  use Boundary_Variable__3D
   use Trace_Operators__3D
   use Volume_Integrals__3D
+  use Surface_Integrals__3D
   use Export_VTK_Volume_Data__3D
 
   use INS__Problem__3D
@@ -117,7 +119,10 @@ program INS_TimeIntegrator_3D_Test
   real(RNP), pointer, contiguous, save :: v_ex(:,:,:,:,:) ! exact velocity
   real(RNP), pointer, contiguous, save :: p_ex(:,:,:,:)   ! exact pressure
 
-  real(RNP), allocatable, save :: w (:,:,:,:,:)   ! workspace
+  real(RNP), allocatable, save :: w(:,:,:,:,:)   ! workspace
+
+  type(BoundaryVariable_3D), allocatable, save :: bv_vn(:) ! n⋅v on Γ=∂Ω
+  real(RNP), allocatable, save :: int_vn(:,:) ! ∫n⋅v dΓ
 
   ! auxiliaries ................................................................
 
@@ -309,6 +314,8 @@ program INS_TimeIntegrator_3D_Test
   !-----------------------------------------------------------------------------
   ! evaluation
 
+  ! errors .....................................................................
+
   if (ins_op % mesh % part >= 0) then
 
     call problem % GetExactSolution(ins_op % sem_v % metrics % x, t, u_ex)
@@ -346,14 +353,45 @@ program INS_TimeIntegrator_3D_Test
   end if
 
   if (ins_op % mesh % part == 0) then
+    !$omp master
     write(*,'(/,A)') 'time integration'
-    write(*,'(T3,A,T29,ES12.5)') 'final time          t    =', t
-    write(*,'(T3,A,T30,ES12.5)') 'velocity error      ε_v  =', e_v
-    write(*,'(T3,A,T30,ES12.5)') 'pressure error      ε_p  =', e_p
-    write(*,'(T3,A,T30,ES12.5)') 'div errors     ε_div_vv  =', e_div_vv
-    write(*,'(T3,A,T30,ES12.5)') 'div errors     ε_div_vp  =', e_div_vp
-    write(*,'(T3,A,T30,ES12.5)') 'div errors     ε_div_vq  =', e_div_vq
+    write(*,'(T3,A,T29,ES12.5)') 'final time         t    =', t
+    write(*,'(T3,A,T30,ES12.5)') 'velocity error     ε_v  =', e_v
+    write(*,'(T3,A,T30,ES12.5)') 'pressure error     ε_p  =', e_p
+    write(*,'(T3,A,T30,ES12.5)') 'div errors    ε_div_vv  =', e_div_vv
+    write(*,'(T3,A,T30,ES12.5)') 'div errors    ε_div_vp  =', e_div_vp
+    write(*,'(T3,A,T30,ES12.5)') 'div errors    ε_div_vq  =', e_div_vq
+    !$omp end master
+  end if
+
+  ! boundary fluxes ............................................................
+
+  if (ins_op % mesh % part >= 0) then
+
+    !$omp master
+    allocate(bv_vn(n_bound), int_vn(1,n_bound))
+    !$omp end master
+    !$omp barrier
+
+    do i = 1, n_bound
+      bv_vn(i) = BoundaryVariable_3D(ins_op % mesh % boundary(i), po, nc=1)
+      call bv_vn(i) % ExtractNormalComponent(ins_op % sem_v, v)
+    end do
+
+    call GetSurfaceIntegrals(ins_op % sem_v, bv_vn, int_vn)
+
+  end if
+
+  if (ins_op % mesh % part == 0) then
+    !$omp master
+    write(*,'(/,A)') 'boundary fluxes'
+    do i = 1, n_bound
+       write(*,'(T3,A,I3,A,T29,ES12.5)') &
+           'boundary',i,',   int(vn)  =', int_vn(1,i)
+    end do
+    write(*,'(T3,A,T29,ES12.5)') 'total:     sum(int(vn)) =', sum(int_vn)
     write(*,*)
+    !$omp end master
   end if
 
   !-----------------------------------------------------------------------------
