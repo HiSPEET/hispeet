@@ -398,36 +398,6 @@ program INS_Operator_3D_Test
 
   ! pressure ...................................................................
 
-  if (all(ins_op%bc_v == 'P')) then
-  associate( mesh   => ins_op % mesh &
-           , div_Fc => F_ph(:,:,:,:,1)  )
-!### CHECK
-print '(99(G0,1X))', '#### min/max(F_c) =', minval(F_ch), maxval(F_ch)
-!### CHECK END
-
-    call GetOuterTraces_3D(mesh, F_ch, up(:,:,:,:,1:3))
-    call TPO_Div(ins_op % eop_v, ins_op % sem_v, F_ch, up(:,:,:,:,1:3), div_Fc)
-!### CHECK
-print '(99(G0,1X))', '#### min/max(div_Fc) =', minval(div_Fc), maxval(div_Fc)
-!### CHECK END
-    div_Fc = -mm * div_Fc
-!### CHECK
-print '(99(G0,1X))', '#### min/max(-M div_Fc) =', minval(div_Fc), maxval(div_Fc)
-!### CHECK END
-
-    allocate(bv_p(n_bound))
-    do b = 1, n_bound
-      call bv_u(b) % GetSlice(bv_p(b), first=4, last=4)
-    end do
-
-    if (pq == pq) then
-      call ins_op % laplacian_p % &
-             SchwarzPCG_Method(ZERO, ONE, p_h, div_Fc, bv_p, i_max, r_red, r_max)
-    end if
-
-  end associate
-  end if
-
   !-----------------------------------------------------------------------------
   ! Result info
 
