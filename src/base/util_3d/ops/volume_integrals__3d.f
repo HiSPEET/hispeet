@@ -14,14 +14,18 @@ module Volume_Integrals__3D
   private
 
   public :: GetVolumeIntegral
-  public :: GetVolumeIntegrals
+
+  interface GetVolumeIntegral
+    module procedure GetVolumeIntegral_S
+    module procedure GetVolumeIntegral_A
+  end interface
 
 contains
 
   !-----------------------------------------------------------------------------
   !> Compute the volume integral of a scalar variable
 
-  subroutine GetVolumeIntegral(sem, u, int_u)
+  subroutine GetVolumeIntegral_S(sem, u, int_u)
     class(SpectralElementMesh_3D), intent(in) :: sem
     real(RNP), contiguous, intent(in) :: u(:,:,:,:)
     real(RNP), intent(out) :: int_u
@@ -29,40 +33,40 @@ contains
     real(RNP) :: int_u_(1)
 
     if (sem % mesh % part >= 0) then
-      call GetVolumeIntegrals_X( sem                 &
-                               , sem % std_op % po   &
-                               , sem % mesh % n_elem &
-                               , 1, u, int_u_        )
+      call GetVolumeIntegral_X( sem                 &
+                              , sem % std_op % po   &
+                              , sem % mesh % n_elem &
+                              , 1, u, int_u_        )
       int_u = int_u_(1)
     else
       int_u = 0
     end if
 
-  end subroutine GetVolumeIntegral
+  end subroutine GetVolumeIntegral_S
 
   !-----------------------------------------------------------------------------
   !> Compute the volume integral of an array variable
 
-  subroutine GetVolumeIntegrals(sem, u, int_u)
+  subroutine GetVolumeIntegral_A(sem, u, int_u)
     class(SpectralElementMesh_3D), intent(in) :: sem
     real(RNP), contiguous, intent(in) :: u(:,:,:,:,:)
     real(RNP), intent(out) :: int_u(:)
 
     if (sem % mesh % part >= 0) then
-      call GetVolumeIntegrals_X( sem                 &
-                               , sem % std_op % po   &
-                               , sem % mesh % n_elem &
-                               , size(u,5), u, int_u )
+      call GetVolumeIntegral_X( sem                 &
+                              , sem % std_op % po   &
+                              , sem % mesh % n_elem &
+                              , size(u,5), u, int_u )
     else
       int_u = 0
     end if
 
-  end subroutine GetVolumeIntegrals
+  end subroutine GetVolumeIntegral_A
 
   !-----------------------------------------------------------------------------
   !> Computation of volume integrals, explicit shape
 
-  subroutine GetVolumeIntegrals_X(sem, po, ne, nc, u, int_u)
+  subroutine GetVolumeIntegral_X(sem, po, ne, nc, u, int_u)
     class(SpectralElementMesh_3D), intent(in) :: sem
     integer,   intent(in)  :: po
     integer,   intent(in)  :: ne
@@ -82,52 +86,51 @@ contains
       allocate(int_u_priv(nc), source = ZERO)
 
       !$omp master
-      allocate(int_u_loc (nc), source = ZERO)
+      if (allocated(int_u_glob)) deallocate(int_u_glob)
+      if (allocated(int_u_loc )) deallocate(int_u_loc)
+
       allocate(int_u_glob(nc), source = ZERO)
+      allocate(int_u_loc (nc), source = ZERO)
       !$omp end master
       !$omp barrier
 
-      if (mesh % part >= 0) then
+      ! precompute 3D quadrature weights
+      allocate(www(0:po, 0:po, 0:po))
+      do k = 0, po
+      do j = 0, po
+      do i = 0, po
+        www(i,j,k) = std_op % w(i) * std_op % w(j) * std_op % w(k)
+      end do
+      end do
+      end do
 
-        ! precompute 3D quadrature weights
-        allocate(www(0:po, 0:po, 0:po))
-        do k = 0, po
-        do j = 0, po
-        do i = 0, po
-          www(i,j,k) = std_op % w(i) * std_op % w(j) * std_op % w(k)
-        end do
-        end do
-        end do
+      if (mesh % regular) then
 
-        if (mesh % regular) then
+        Jd0 = product(mesh % dx) / 8
 
-          Jd0 = product(mesh % dx) / 8
-
-          !$omp do schedule(static)
-          do e = 1, mesh % n_elem
-            do c = 1, nc
-              int_u_priv(c) = int_u_priv(c) + Jd0 * sum(www * u(:,:,:,e,c))
-            end do
+        !$omp do schedule(static)
+        do e = 1, mesh % n_elem
+          do c = 1, nc
+            int_u_priv(c) = int_u_priv(c) + Jd0 * sum(www * u(:,:,:,e,c))
           end do
-          !$omp end do nowait
+        end do
+        !$omp end do nowait
 
-        else
+      else
 
-          !$omp do schedule(static)
-          do e = 1, mesh % n_elem
-            do c = 1, nc
-              int_u_priv(c) = int_u_priv(c) &
-                            + sum(www * Jd(:,:,:,e) * u(:,:,:,e,c))
-            end do
+        !$omp do schedule(static)
+        do e = 1, mesh % n_elem
+          do c = 1, nc
+            int_u_priv(c) = int_u_priv(c) &
+                          + sum(www * Jd(:,:,:,e) * u(:,:,:,e,c))
           end do
-          !$omp end do nowait
-
-        end if
-
-        !$omp atomic
-        int_u_loc = int_u_loc + int_u_priv
+        end do
+        !$omp end do nowait
 
       end if
+
+      !$omp atomic
+      int_u_loc = int_u_loc + int_u_priv
       !$omp barrier
 
       !$omp master
@@ -137,14 +140,9 @@ contains
 
       int_u = int_u_glob
 
-      !$omp barrier
-      !$omp master
-      deallocate(int_u_loc, int_u_glob)
-      !$omp end master
-
     end associate
 
-  end subroutine GetVolumeIntegrals_X
+  end subroutine GetVolumeIntegral_X
 
   !=============================================================================
 
