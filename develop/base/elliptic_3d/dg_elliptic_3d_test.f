@@ -22,8 +22,6 @@ program DG_Elliptic_3D_Test
   use Element_Distribution_Map__3D
   use Partition_Root_Mesh__3D
   use Spectral_Element_Mesh__3D
-  use SEM__Scalar__3D
-  use SEM__Vector__3D
   use Boundary_Variable__3D
   use DG__Schwarz_Operator__3D
   use DG__Elliptic_Operator__3D
@@ -169,8 +167,6 @@ program DG_Elliptic_3D_Test
 
   ! auxiliary variables ........................................................
 
-  type(SEM_Scalar_3D) :: se_u
-  type(SEM_Vector_3D) :: se_q
   type(BoundaryVariable_3D), allocatable :: bv_u(:)
 
   character(len=80) :: config_name = '', test_case_name = ''
@@ -393,8 +389,6 @@ program DG_Elliptic_3D_Test
 
   call sem % Get_DG_DiagonalMassMatrix(mm)
 
-  se_u = SEM_Scalar_3D(sem, u)
-  se_q = SEM_Vector_3D(sem, q)
   allocate(bv_u(n_bound))
   do i = 1, n_bound
     bv_u(i) = BoundaryVariable_3D(sem%mesh%boundary(i), po, nc = 1)
@@ -571,21 +565,8 @@ program DG_Elliptic_3D_Test
         call elliptic_op % &
                  Schwarz_Method(lambda, nu_0, u, f, bv_u, i_max, r_red, ni=ni)
       case(3) ! Schwarz-preconditioned conjugate gradient method
-!### CHECK
-print '(99(G0,1X))', '#ET05# min/max(f) =',minval(f),maxval(f)
-print '(99(G0,1X))', '#ET05# min/max(p) =',minval(u),maxval(u)
-print '(99(G0,1X))', '#ET05# elliptic_op%bc =',elliptic_op%bc
-do i = 1, mesh % n_bound
-  if (elliptic_op%bc(i) /= 'N') cycle
-  print '(99(G0,1X))', '#PS05e# min/max(bv_p(',i,')) =',&
-    minval(bv_u(i)%val),maxval(bv_u(i)%val)
-end do
-!### CHECK END
         call elliptic_op % &
                  SchwarzPCG_Method(lambda, nu_0, u, f, bv_u, i_max, r_red, ni=ni)
-!### CHECK
-print '(99(G0,1X))', '#ET06# min/max(p) =',minval(u),maxval(u)
-!### CHECK END
       end select
     end if
 
