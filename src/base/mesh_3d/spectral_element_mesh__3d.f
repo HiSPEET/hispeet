@@ -150,7 +150,7 @@ contains
     if (this % mesh % regular) then
       call Get_SurfaceAreas_R(this, a_loc)
     else
-      call Get_SurfaceAreas_G(this, a_loc)
+      call Get_SurfaceAreas_D(this, a_loc)
     end if
 
     !$omp master
@@ -175,8 +175,6 @@ contains
 
     associate(mesh => this % mesh)
 
-      if (mesh % part < 0) return
-
       a_face(1:2) = mesh % dx(2) * mesh % dx(3)
       a_face(3:4) = mesh % dx(3) * mesh % dx(1)
       a_face(5:6) = mesh % dx(1) * mesh % dx(2)
@@ -200,7 +198,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Computation of the surface areas for a general mesh
 
-  subroutine Get_SurfaceAreas_G(this, area)
+  subroutine Get_SurfaceAreas_D(this, area)
     class(SpectralElementMesh_3D), intent(in) :: this
     real(RNP), intent(inout) :: area(this%mesh%n_bound)
 
@@ -211,8 +209,6 @@ contains
     associate( mesh   => this % mesh        &
              , std_op => this % std_op      &
              , a      => this % metrics % a )
-
-      if (mesh % part < 0) return
 
       ! precompute 2D quadrature weights
       allocate(ww(0:std_op%po, 0:std_op%po))
@@ -238,7 +234,7 @@ contains
 
     end associate
 
-  end subroutine Get_SurfaceAreas_G
+  end subroutine Get_SurfaceAreas_D
 
   !-----------------------------------------------------------------------------
   !> TBP to compute the quadrature-based diagonal mass matrix for DG-SEM
