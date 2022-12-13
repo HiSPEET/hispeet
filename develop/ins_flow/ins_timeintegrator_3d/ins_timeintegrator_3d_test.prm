@@ -5,7 +5,7 @@
 ! problem_file =  'variable_viscosity'
   flow_domain  =  1
   time_method  =  1
-! 
+!
 ! ins_op_opts%mu_0 = 0
   ins_op_opts%eop_v%StandardOperatorOptions_1D%po = 15 ! %StandardOperatorOptions_1D
   ins_op_opts%eop_p%StandardOperatorOptions_1D%po = 14 ! required with ifort < 2021.7
@@ -35,9 +35,12 @@
   xo = 3*-0.5
   lx = 3*1
   np = 1,1,1
-  ep = 3*2
+  ep = 2,2,2
+! np = 2,2,1
+! ep = 1,1,2
 ! pg = 1
-  periodic = 3*T
+! periodic = 3*T
+  periodic = T,F,T
 /
 
 &cuboid_diamonds_prm
