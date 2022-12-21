@@ -261,7 +261,7 @@ contains
 
   subroutine Init_MPI_ElementAdaptation()
 
-    integer, parameter :: N = 6 ! number of static components
+    integer, parameter :: N = 7 ! number of static components
 
     integer(MPI_ADDRESS_KIND) :: addr0       ! address of element(1)
     integer(MPI_ADDRESS_KIND) :: addr(N)     ! addresses of static components
@@ -284,7 +284,8 @@ contains
     call MPI_Get_address(adaptation % child_proc  , addr(3))
     call MPI_Get_address(adaptation % child_id    , addr(4))
     call MPI_Get_address(adaptation % refinement  , addr(5))
-    call MPI_Get_address(adaptation % mark        , addr(6))
+    call MPI_Get_address(adaptation % sublevels   , addr(6))
+    call MPI_Get_address(adaptation % mark        , addr(7))
 
     ! block lengths
     blen = 1
@@ -296,7 +297,7 @@ contains
 
     ! types
     typ(1:4) = MPI_INTEGER
-    typ(5:6) = MPI_INTEGER_IXS
+    typ(5:7) = MPI_INTEGER_IXS
 
     ! MPI datatype .............................................................
 

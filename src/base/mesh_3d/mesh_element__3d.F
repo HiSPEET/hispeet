@@ -158,13 +158,20 @@ module Mesh_Element__3D
 
   !-----------------------------------------------------------------------------
   !> Element adaptation information
+  !>
+  !> For adaptation, an element can be uniformly subdivided into eight smaller
+  !> elements. In the regular case, `refinement = 0`, all child elements join
+  !> the next finer mesh level. With `refinement = c > 0`, only the children
+  !> adjacent to component `c` are adopted. In the case `refinement = 1`, the
+  !> element has no descendants.
 
   type MeshElementAdaptation_3D
     integer      :: parent_proc = -1 !< parent partition ID in comm_world
     integer      :: parent_id   = -1 !< parent element ID
     integer      :: child_proc  = -1 !< child partition ID in comm_world
     integer      :: child_id    = -1 !< first child element ID
-    integer(IXS) :: refinement  = -1 !< refinement type: -1,0,1 = none,copy,full
+    integer(IXS) :: refinement  = -1 !< refinement: -1:26, none, regular, comp
+    integer(IXS) :: sublevels   = -1 !< number of subsequent levels
     integer(IXS) :: mark        = -1 !< adaptation mark
   end type MeshElementAdaptation_3D
 

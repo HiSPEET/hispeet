@@ -21,6 +21,17 @@ module Mesh__3D
   !-----------------------------------------------------------------------------
   !> 3D mesh partition type
   !>
+  !> ### Frozen elements
+  !>
+  !> Frozen elements are elements whose values are defined by interpolation from
+  !> the next lower grid level. To easily exclude them from certain operations,
+  !> they are paced at the end of the element list. In most other aspects they
+  !> are treated as ordinary mesh elements.
+  !>
+  !> The main purpose of frozen elements is to enclose refinement zones and to
+  !> provide boundary conditions for the latter. Due to their external position,
+  !> they may have no neighbors at certain faces, edges or vertices.
+  !>
   !> ### Ghost elements
   !>
   !> The ghost elements stored in `ghost(1:n_ghost)` ...
@@ -53,13 +64,14 @@ module Mesh__3D
 
     ! dimensions ...............................................................
 
-    integer :: n_vert  = 0        !< number of mesh vertices
-    integer :: n_edge  = 0        !< number of mesh edges
-    integer :: n_face  = 0        !< number of mesh faces
-    integer :: n_elem  = 0        !< number of mesh elements
-    integer :: n_ghost = 0        !< number of ghost elements
-    integer :: n_link  = 0        !< number of mesh links
-    integer :: p_geom  = 0        !< max polynomial order of element geometry
+    integer :: n_vert   = 0       !< number of mesh vertices
+    integer :: n_edge   = 0       !< number of mesh edges
+    integer :: n_face   = 0       !< number of mesh faces
+    integer :: n_elem   = 0       !< number of mesh elements
+    integer :: n_frozen = 0       !< number of frozen elements
+    integer :: n_ghost  = 0       !< number of ghost elements
+    integer :: n_link   = 0       !< number of mesh links
+    integer :: p_geom   = 0       !< max polynomial order of element geometry
 
     integer :: max_vert_val = 0   !< maximum vertex valency
     integer :: max_edge_val = 0   !< maximum edge valency
