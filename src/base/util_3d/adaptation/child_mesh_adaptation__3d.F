@@ -105,7 +105,7 @@ contains
       allocate(vtx_elem(n_elem + n_ghost), source = -1)
       i = 0
       do e = 1, n_elem
-        if (parent_mesh % element(e) % adaptation % mark > 0) then
+        if (parent_mesh % element(e) % adaptation % mark >= 0) then
           vtx_elem(e) = i
           i = i + 1
         end if
@@ -201,11 +201,22 @@ contains
         if (vtx_elem(e) < 0) cycle
         associate(element => parent_mesh % element(e))
 
-          select case(ncon)
-          case(1)
-            vwgt(0,i) = weight(1)
-          case(2)
-            select case(element % adaptation % mark)
+          ! primary weight set proportional to designated number of children
+          select case(element % adaptation % mark)
+          case(1:6)
+            m = 4      ! face refined
+          case(7:18)
+            m = 2      ! edge refined
+          case(19:26)
+            m = 1      ! vertex refined
+          case default
+            m = 8      ! regular refinement
+          end select
+          vwgt(0,i) = weight(1) * m
+
+          ! secondary weight according to number of sublevels
+          if (ncon >= 2) then
+            select case(element % adaptation % sublevels)
             case(2)
               m = 8     ! = 8^1
             case(3)
@@ -217,9 +228,8 @@ contains
             case default
               m = 0
             end select
-            vwgt(0,i) = weight(1)
             vwgt(1,i) = weight(1) * m
-          end select
+          end if
 
           i = i + 1
 
