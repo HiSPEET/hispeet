@@ -1,39 +1,18 @@
-module Partition_Root_Mesh__3D
+module Root_Mesh_Partitioning__3D
   use XMPI
   use Mesh__3D
   use Element_Transfer_Buffer__3D
   use Element_Distribution_Map__3D
   use Element_Distribution_Data__3D
+  use Partitioner_Interface__3D
 
   implicit none
   private
 
-  public :: RootMeshPartitioningOptions_3D
+  public :: PartitioningOptions_3D   ! from Partitioner_Interface__3D
   public :: RootMeshPartitioning_3D
 
-  type RootMeshPartitioningOptions_3D
-    integer :: n_parts   = 1         !< number of new partitions
-    integer :: method    = 1         !< weighting method
-    integer :: weight(4) = [1,0,0,0] !< element and connectivity weights
-  contains
-    procedure :: Bcast => Bcast_PartitioningOptions
-  end type RootMeshPartitioningOptions_3D
-
 contains
-
-  !=============================================================================
-  ! RootMeshPartitioningOptions_3D: type-bound procedures
-
-  subroutine Bcast_PartitioningOptions(opt, root, comm)
-    class(RootMeshPartitioningOptions_3D), intent(inout) :: opt !< options
-    integer       , intent(in) :: root !< rank root process
-    type(MPI_Comm), intent(in) :: comm !< MPI communicator
-
-    call XMPI_Bcast(opt % n_parts , root, comm)
-    call XMPI_Bcast(opt % method  , root, comm)
-    call XMPI_Bcast(opt % weight  , root, comm)
-
-  end subroutine Bcast_PartitioningOptions
 
   !=============================================================================
   ! Partitioning routines
@@ -42,7 +21,7 @@ contains
   !>
 
   subroutine RootMeshPartitioning_3D(opt, old_mesh, new_mesh, map)
-    class(RootMeshPartitioningOptions_3D), intent(in) :: opt
+    class(PartitioningOptions_3D), intent(in) :: opt
     class(Mesh_3D), intent(in)  :: old_mesh
     class(Mesh_3D), intent(out) :: new_mesh
     class(ElementDistributionMap_3D), intent(out) :: map
@@ -189,7 +168,7 @@ contains
   !> Computes the new target partitions and element IDs
 
   subroutine BuildDistributionMap(opt, old_mesh, map)
-    class(RootMeshPartitioningOptions_3D), intent(in) :: opt
+    class(PartitioningOptions_3D), intent(in) :: opt
     class(Mesh_3D), intent(in) :: old_mesh
     type(ElementDistributionMap_3D), intent(out) :: map
 
@@ -200,7 +179,7 @@ contains
     allocate(tp_elem(old_mesh%n_elem + old_mesh%n_ghost), source = -1)
 
     ! graph-based partitioning
-    call ParMETIS_Partitioner(opt, old_mesh, tp_elem)
+    call ParMETIS_Partitioner_3D(opt, old_mesh, tp_elem)
 
     ! transfer target partitio ID to ghosts
     if (old_mesh % n_ghost > 0) then
@@ -214,247 +193,6 @@ contains
     map = ElementDistributionMap_3D(old_mesh, opt%n_parts, tp_elem)
 
   end subroutine BuildDistributionMap
-
-  !-----------------------------------------------------------------------------
-  !> Partitioning with ParMETIS
-
-  subroutine ParMETIS_Partitioner(opt, old_mesh, tp_elem)
-    use ParMETIS_Binding
-
-    ! arguments ................................................................
-
-    class(RootMeshPartitioningOptions_3D), intent(in) :: opt
-    class(Mesh_3D), intent(in) :: old_mesh
-    integer, intent(inout) :: tp_elem(:) !< element target partitions
-
-    ! internal variables .......................................................
-
-    ! ParMETIS arguments
-    integer(METIS_IDX_T) :: wgtflag, numflag, ncon, nparts, edgecut
-    integer(METIS_IDX_T) :: options(3) = 0
-    integer(METIS_IDX_T), allocatable :: vtxdist(:), xadj(:), adjncy(:)
-    integer(METIS_IDX_T), allocatable :: vwgt(:,:)
-    integer(METIS_IDX_T), allocatable :: adjwgt(:)
-    real(METIS_REAL_T),   allocatable :: tpwgts(:,:)
-    real(METIS_REAL_T),   allocatable :: ubvec(:)
-    integer(METIS_IDX_T), allocatable :: part(:)
-
-    integer, allocatable :: nvtx_proc(:)        ! num graph vertices per process
-    integer, allocatable, target :: vtx_elem(:) ! graph vertex IDs
-    integer, pointer :: var_vtx_elem(:,:,:,:)   ! maps o element variable
-
-    type(ElementTransferBuffer_3D), asynchronous :: buf_vtx_elem
-
-    integer :: e, i, j, k, m, n
-
-    !---------------------------------------------------------------------------
-    ! Body, using ParMETIS-style naming
-
-    associate( comm   => old_mesh % comm_parts  &
-             , proc   => old_mesh % part        &
-             , nproc  => old_mesh % n_parts     &
-             , nvtx   => old_mesh % n_elem      &
-             , weight => opt % weight           )
-
-      ! initialization .........................................................
-
-      ! use C-style numbering for ParMETIS
-      numflag = 0
-
-      ! set default to unweighted graph
-      ncon    = 0
-      wgtflag = 0
-
-      ! element weighting
-      if (weight(1) > 0) then
-        wgtflag = 2 ! activate vertex constraints
-        select case(opt % method)
-        case(1)
-          ncon = 1  ! consider only child level
-        case(2)
-          ncon = 2  ! consider also higher level descendants
-        end select
-      end if
-
-      ! adjacency weighting
-      if (any(weight(1:3) > 0)) then
-        wgtflag = wgtflag + 1
-      end if
-
-      ! number of new partitions
-      nparts = opt % n_parts
-
-      ! ParMETIS array arguments, using C-style numbering
-      allocate( vtxdist ( 0:nproc              ) )
-      allocate( vwgt    ( 0:ncon-1, 0:nvtx-1   ) )
-      allocate( tpwgts  ( 0:ncon-1, 0:nparts-1 ) )
-      allocate( xadj    ( 0:nvtx               ) )
-      allocate( ubvec   ( 0:ncon-1             ) )
-      allocate( part    ( 0:nvtx-1             ) )
-
-      ! auxiliary arrays
-      allocate( nvtx_proc ( 0:nproc-1               ) )
-      allocate( vtx_elem  ( 1:nvtx+old_mesh%n_ghost ) )
-
-      ! graph vertex ID element variable and transfer buffer
-      var_vtx_elem(1:1, 1:1, 1:1, 1:size(vtx_elem)) => vtx_elem
-      buf_vtx_elem = ElementTransferBuffer_3D(old_mesh, var_vtx_elem)
-
-      if (ncon > 0) then
-        ubvec  = 1.05          ! tolerances for multi-constraint weighting
-        tpwgts = 1.00 / nparts ! fractions of vertex weight per partition
-      end if
-
-      ! graph vertex distribution ..............................................
-
-      ! build list of element counts per partition
-      m = max(nvtx, 0)
-      call MPI_Allgather(m, 1, MPI_INTEGER, nvtx_proc, 1, MPI_INTEGER, comm)
-
-      ! compute graph vertex offsets
-      vtxdist(0) = 0
-      do i = 1, nproc
-        vtxdist(i) = vtxdist(i-1) + nvtx_proc(i-1)
-      end do
-
-      ! graph vertex IDs by element index (local+ghost) ........................
-
-      ! graph vertex ID of local elements
-      m = vtxdist(proc) - 1
-      do e = 1, nvtx
-        vtx_elem(e) = e + m
-      end do
-
-      ! transfer graph vertex IDs to ghosts
-      call buf_vtx_elem % Transfer(old_mesh, var_vtx_elem, tag=1000)
-      call buf_vtx_elem % Merge(var_vtx_elem)
-
-      ! graph vertex weights and adjacency offsets .............................
-
-      xadj(0) = 0
-
-      do e = 1, nvtx
-        associate(element => old_mesh % element(e))
-
-          i = e - 1
-
-          select case(ncon)
-          case(1)
-            vwgt(0,i) = weight(1)
-          case(2)
-            select case(element % adaptation % mark)
-            case(1)
-              m = 8     ! = 8^1
-            case(2)
-              m = 64    ! = 8^2
-            case(3)
-              m = 576   ! = 8^2 + 8^3
-            case(4:)
-              m = 4672  ! = 8^2 + 8^3 + 8^4
-            case default
-              m = 0
-            end select
-            vwgt(0,i) = weight(1)
-            vwgt(1,i) = weight(1) * m
-          end select
-
-          i = i + 1
-
-          xadj(i) = xadj(i-1)
-          do k = 1, 6
-            xadj(i) = xadj(i) + element % face(k) % n_neighbor
-          end do
-
-          if (weight(3) > 0) then ! include element-edge neighbors
-            do k = 1, 12
-              xadj(i) = xadj(i) + element % edge(k) % n_neighbor
-            end do
-          end if
-
-          if (weight(4) > 0) then ! include element-vertex neighbors
-            do k = 1, 8
-              xadj(i) = xadj(i) + element % vertex(k) % n_neighbor
-            end do
-          end if
-
-        end associate
-      end do
-
-      ! adjacency and adjacency weights ........................................
-
-      m = xadj(nvtx) - 1 ! number of graph edges
-      allocate(adjncy(0:m))
-      if (any(weight(1:3) > 0)) then
-        allocate(adjwgt(0:m))
-      else
-        allocate(adjwgt(0:0))
-      end if
-
-      m = 0
-
-      do e = 1, nvtx
-        associate(element => old_mesh % element(e))
-
-          ! element faces
-          do k = 1, 6
-            n = element % face(k) % n_neighbor - 1
-            if (n < 0) cycle
-            i = element % face(k) % i_neighbor
-            do j = i, i+n
-              adjncy(m) = vtx_elem(element % neighbor(j) % id)
-              if (weight(2) > 0) then
-                adjwgt(m) = weight(2)
-              end if
-              m = m + 1
-            end do
-          end do
-
-          ! element edges
-          if (weight(3) > 0) then
-            do k = 1, 12
-              n = element % edge(k) % n_neighbor - 1
-              if (n < 0) cycle
-              i = element % edge(k) % i_neighbor
-              do j = i, i+n
-                adjncy(m) = vtx_elem(element % neighbor(j) % id)
-                adjwgt(m) = weight(3)
-                m = m + 1
-              end do
-            end do
-          end if
-
-          ! element vertices
-          if (weight(4) > 0) then
-            do k = 1, 8
-              n = element % vertex(k) % n_neighbor - 1
-              if (n < 0) cycle
-              i = element % vertex(k) % i_neighbor
-              do j = i, i+n
-                adjncy(m) = vtx_elem(element % neighbor(j) % id)
-                adjwgt(m) = weight(4)
-                m = m + 1
-              end do
-            end do
-          end if
-
-        end associate
-      end do
-
-      ! ParMETIS ...............................................................
-
-      call ParMETIS_V3_PartKway( vtxdist, xadj, adjncy, vwgt, adjwgt, wgtflag  &
-                               , numflag, ncon, nparts, tpwgts, ubvec, options &
-                               , edgecut, part, comm % MPI_VAL                 )
-
-      ! result .................................................................
-
-      tp_elem(1:nvtx) = part
-
-    end associate
-
-    !---------------------------------------------------------------------------
-
-  end subroutine ParMETIS_Partitioner
 
   !=============================================================================
   ! Distribution routines
@@ -643,4 +381,4 @@ contains
 
   !=============================================================================
 
-end module Partition_Root_Mesh__3D
+end module Root_Mesh_Partitioning__3D

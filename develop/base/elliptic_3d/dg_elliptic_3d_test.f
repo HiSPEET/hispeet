@@ -20,7 +20,7 @@ program DG_Elliptic_3D_Test
   use Mesh__3D
   use Element_Transfer_Buffer__3D
   use Element_Distribution_Map__3D
-  use Partition_Root_Mesh__3D
+  use Root_Mesh_Partitioning__3D
   use Spectral_Element_Mesh__3D
   use Boundary_Variable__3D
   use DG__Schwarz_Operator__3D
@@ -130,9 +130,9 @@ program DG_Elliptic_3D_Test
 
   ! partitioning
   logical :: repartition = .false.
-  type(RootMeshPartitioningOptions_3D) :: part_opt
-  type(ElementDistributionMap_3D)      :: part_map
-  type(Mesh_3D), allocatable           :: orig_mesh
+  type(PartitioningOptions_3D)    :: part_opt
+  type(ElementDistributionMap_3D) :: part_map
+  type(Mesh_3D), allocatable      :: orig_mesh
 
   namelist /partition_prm/ repartition, part_opt
 
@@ -235,6 +235,7 @@ program DG_Elliptic_3D_Test
     end if
 
     part_opt % n_parts = min(part_opt%n_parts, n_proc)
+    part_opt % mode    = 1
 
   end if
 

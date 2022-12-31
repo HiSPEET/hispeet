@@ -154,6 +154,7 @@ set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/ops/volume_integrals__3d.f
              util_3d/ops/surface_integrals__3d.f
              util_3d/verification/verify_mesh__3d.f
+             util_3d/adaptation/partitioner_interface__3d.f
              util_3d/adaptation/element_distribution_map__3d.f
              util_3d/adaptation/element_distribution_data__3d.f
              util_3d/adaptation/root_mesh_partitioning__3d.F
