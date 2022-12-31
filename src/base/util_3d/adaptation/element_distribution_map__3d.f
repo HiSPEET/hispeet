@@ -27,8 +27,8 @@ module Element_Distribution_Map__3D
   !>
   !>
   !>  – `id_elem(1:n_elem + n_ghost)` with
-  !>       *  `tid_elem(1:n_elem) `   element IDs in target partition
-  !>       *  `tid_elem(n_elem+1:)`   ghosts' master IDs in target partition
+  !>       *  `id_elem(1:n_elem) `    element IDs in target partition
+  !>       *  `id_elem(n_elem+1:)`    ghosts' master IDs in target partition
   !>
   !>  - `ne_part(0:n_parts-1)` number of elements contributed to the new
   !>     partitions, ghosts are not counted
@@ -164,7 +164,7 @@ contains
                        , size       =  buf_size       &
                        , disp_unit  =  disp_unit      &
                        , info       =  MPI_INFO_NULL  &
-                       , comm       =  comm_parts &
+                       , comm       =  comm_parts     &
                        , win        =  window         )
 
     ! compute offsets via accumulation .........................................
