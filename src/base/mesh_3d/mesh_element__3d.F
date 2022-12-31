@@ -159,11 +159,25 @@ module Mesh_Element__3D
   !-----------------------------------------------------------------------------
   !> Element adaptation information
   !>
-  !> For adaptation, an element can be uniformly subdivided into eight smaller
-  !> elements. In the regular case, `refinement = 0`, all child elements join
-  !> the next finer mesh level. With `refinement = c > 0`, only the children
-  !> adjacent to component `c` are adopted. In the case `refinement = 1`, the
-  !> element has no descendants.
+  !> For adaptation, an element can be uniformly subdivided into smaller ones.
+  !> The `refinement` component indicates which children are included in the
+  !> next finer mesh:
+  !>
+  !>   |  value   | refinement | children |  role   |
+  !>   | --------:|:---------- | -------- | ------- |
+  !>   |    `-1`  | none       |     0    |         |
+  !>   |   `100`  | regular    |     8    | active  |
+  !>   |    `50`  | regular    |     8    | closure |
+  !>   |   `1:6`  | face 1:6   |     4    | closure |
+  !>   |  `7:18`  | edge 1:12  |     2    | closure |
+  !>   | `19:26`  | vertex 1:8 |     1    | closure |
+  !>
+  !> Only the children of elements with `refinement = 100` adopt an active role
+  !> on the fine mesh. The other refinement types serve to generate a layer of
+  !> interpolation elements enclosing the active refinement zones.
+  !>
+  !> `mark` indicates the refinement targeted in the ongoing adaptation and
+  !> `sublevels` the number of finer levels to which the element contributes.
 
   type MeshElementAdaptation_3D
     integer      :: parent_proc = -1 !< parent partition ID in comm_world
