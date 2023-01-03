@@ -82,6 +82,7 @@ contains
 
     type(ElementTransferBuffer_3D), allocatable, asynchronous :: id_elem_buf
     integer, contiguous , pointer :: id_elem_val(:,:,:,:)
+    integer, allocatable :: id_elem(:), ne_part(:)
     integer :: id_part(0:n_parts-1)
     integer :: i, p
 
@@ -93,30 +94,27 @@ contains
     this % tp_elem = tp_elem
     this % tp_elem = max(this % tp_elem, -1)
 
-    if (allocated(this % id_elem)) deallocate(this % id_elem)
-    if (allocated(this % ne_part)) deallocate(this % ne_part)
-
-    allocate(this % id_elem(1 : this%n_elem + this%n_ghost), source = -1)
-    allocate(this % ne_part(0 : n_parts-1), source = 0)
+    allocate(id_elem(1 : this%n_elem + this%n_ghost), source = 0)
+    allocate(ne_part(0 : n_parts - 1               ), source = 0)
 
     ! number of local elements targeted to partition ...........................
 
     do i = 1, this % n_elem
       p = tp_elem(i)
       if (p >= 0) then
-        this % ne_part(p) = this % ne_part(p) + 1
+        ne_part(p) = ne_part(p) + 1
       end if
     end do
 
     ! IDs of local elements in their target partitions .........................
 
-    call ComputeElementOffsets(mesh%comm_parts, this%ne_part, id_part)
+    call ComputeElementOffsets(mesh%comm_parts, ne_part, id_part)
 
     do i = 1, this % n_elem
       p = tp_elem(i)
       if (p >= 0) then
-        id_part(p) = id_part(p) + 1    ! increment element counter
-        this % id_elem(i) = id_part(p) ! element ID in new partition
+        id_part(p) = id_part(p) + 1 ! increment element counter
+        id_elem(i) = id_part(p)     ! element ID in new partition
       end if
     end do
 
@@ -129,10 +127,23 @@ contains
       call id_elem_buf % Merge(id_elem_val)
     end if
 
+    call move_alloc(id_elem, this % id_elem)
+    call move_alloc(ne_part, this % ne_part)
+
   end subroutine BuildMap
 
   !-----------------------------------------------------------------------------
   !> Computes the offsets for numbering the redistributed elements
+  !>
+  !> On input, `ne_part(n)` is the number of local elements moving to the new
+  !> partition `n`. For current  partition `p`, the offset of elements moved to
+  !> new partition `n` equals the sum of corresponding elements contributed by
+  !> partitions `q < p`, i.e.
+  !>
+  !>       id_part[p](n) = sum(q < p) ne_part[q](n)
+  !>
+  !> This sum is evaluated using one-sided communication based on MPI's
+  !> window facility.
 
   subroutine ComputeElementOffsets(comm_parts, ne_part, id_part)
     type(MPI_Comm), intent(in) :: comm_parts

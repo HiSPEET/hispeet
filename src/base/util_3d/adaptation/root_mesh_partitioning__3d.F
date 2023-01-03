@@ -18,7 +18,7 @@ contains
   ! Partitioning routines
 
   !-----------------------------------------------------------------------------
-  !>
+  !> Redistribution of root mesh data
 
   subroutine RootMeshPartitioning_3D(opt, old_mesh, new_mesh, map)
     class(PartitioningOptions_3D), intent(in) :: opt
@@ -168,8 +168,8 @@ contains
   !> Computes the new target partitions and element IDs
 
   subroutine BuildDistributionMap(opt, old_mesh, map)
-    class(PartitioningOptions_3D), intent(in) :: opt
-    class(Mesh_3D), intent(in) :: old_mesh
+    class(PartitioningOptions_3D),   intent(in)  :: opt
+    class(Mesh_3D),                  intent(in)  :: old_mesh
     type(ElementDistributionMap_3D), intent(out) :: map
 
     integer, allocatable, target :: tp_elem(:)
@@ -181,7 +181,7 @@ contains
     ! graph-based partitioning
     call ParMETIS_Partitioner_3D(opt, old_mesh, tp_elem)
 
-    ! transfer target partitio ID to ghosts
+    ! transfer target partition IDs to ghosts
     if (old_mesh % n_ghost > 0) then
       tp_elem_val(1:1,1:1,1:1,1:old_mesh%n_elem+old_mesh%n_ghost) => tp_elem
       tp_elem_buf = ElementTransferBuffer_3D(old_mesh, tp_elem_val)
@@ -198,7 +198,7 @@ contains
   ! Distribution routines
 
   !-----------------------------------------------------------------------------
-  !> Build element distribution data fro sending from old to new partitions
+  !> Build element distribution data for sending from old to new partitions
 
   subroutine BuildDistributionData(old_mesh, new_mesh, map, dist_data)
 
