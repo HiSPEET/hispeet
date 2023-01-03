@@ -207,7 +207,7 @@ module Mesh_Element__3D
   !> and `dx₂` of the cuboids adjacent to a given face, the mean spacing is
   !> defined as
   !>
-  !>       dx_me = 2 / (1/dx₁ + 1/dx₂)
+  !>       dx_m = 2 / (1/dx₁ + 1/dx₂)
   !>
   !> Note that mean spacing is a unique property of the shared mesh face, which
   !> is stored element-wise for convenience.
