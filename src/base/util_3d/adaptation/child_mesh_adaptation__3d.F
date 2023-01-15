@@ -3,6 +3,7 @@ module Child_Mesh_Adaptation__3D
   use Execution_Control
   use XMPI
   use Mesh__3D
+  use Mesh_Element__3D
   use Element_Transfer_Buffer__3D
   use Element_Distribution_Map__3D
   use Element_Distribution_Data__3D
@@ -108,7 +109,8 @@ contains
     class(ChildDistributionMap_3D),    intent(in)  :: map
     class(ElementDistributionData_3D), intent(out) :: dist_data(0:)
 
-    ! internal variables .......................................................
+    !---------------------------------------------------------------------------
+    ! internal variables
 
     integer, allocatable :: id_child_face(:,:,:) ! IDs of neighbor children
     integer, allocatable :: id_child_edge(:,:,:) ! at parent element faces,
@@ -125,12 +127,14 @@ contains
     integer :: nc, nn, np, tp
     integer :: nn_max, nn_face, nn_edge, nn_vert
     integer :: e, i, j, k, l, m
+    integer :: ce
 
     if (parent % part < 0) return
 
     associate(id_child => map % id_child, tp_child => map % tp_child)
 
-      ! MPI and dimensions .....................................................
+      !-------------------------------------------------------------------------
+      ! MPI and dimensions
 
       ! basic initialization
       do tp = 0, map%n_parts-1
@@ -202,7 +206,10 @@ contains
                   , 'Child_Mesh_Adaptation__3D'                         )
       end if
 
-      ! build components .......................................................
+      !-------------------------------------------------------------------------
+      ! build components
+
+      ! setup ..................................................................
 
       ! allocate components
       do tp = 0, map%n_parts-1
@@ -226,11 +233,14 @@ contains
 
       ! generate child element data
       do e = 1, parent % n_elem
-        associate(element => parent % element(e))
-          tp = tp_child(e)
-          if (tp < 0) cycle
 
-          ! child TPs and IDs of parent face neighbors
+        tp = tp_child(e)
+        if (tp < 0) cycle
+
+        associate(element => parent % element(e), dd => dist_data(tp))
+
+          ! child TPs and IDs of parent face neighbors .........................
+
           id_child_face =  0
           tp_child_face = -1
           do j = 1, 6
@@ -261,7 +271,8 @@ contains
             tp_child_face(j) = tp_child(l)
           end do
 
-          ! child TPs and IDs of parent edge neighbors
+          ! child TPs and IDs of parent edge neighbors .........................
+
           id_child_edge =  0
           tp_child_edge = -1
           do j = 1, 12
@@ -311,7 +322,8 @@ contains
             end do
           end do
 
-          ! child TPs and IDs of parent vertex neighbors
+          ! child TPs and IDs of parent vertex neighbors .......................
+
           id_child_vert =  0
           tp_child_vert = -1
           do j = 1, 8
@@ -341,8 +353,49 @@ contains
             end do
           end do
 
-          ! child 1,1,1
+          ! child 1,1,1 ........................................................
+
           if (id_child(1,1,1,e) > 0) then
+
+            ! rank in children contributed to partition tp
+            ce = ce_part(tp) + 1
+
+            ! element data
+            dd % element(ce) % id = id_child(1,1,1,e)
+            dd % element(ce) % adaptation % parent_proc = parent % proc
+            dd % element(ce) % adaptation % parent_id   = e
+
+            ! face data
+            dd % element(ce) % face(1) % boundary = element % face(1) % boundary
+            dd % element(ce) % face(3) % boundary = element % face(3) % boundary
+            dd % element(ce) % face(5) % boundary = element % face(5) % boundary
+
+            ! initialization of neighbor counters
+            cn = cn_part(tp)
+            nn = 0
+
+            ! neighbors at faces 1:6, update cn and nn
+            call FaceNeighbor_NF(1, id_child_face(1,1,1), tp_child_face(1))
+            call FaceNeighbor_SI(2, id_child(2,1,1,e)   , tp              )
+            call FaceNeighbor_NF(3, id_child_face(1,1,3), tp_child_face(3))
+            call FaceNeighbor_SI(4, id_child(1,2,1,e)   , tp              )
+            call FaceNeighbor_NF(5, id_child_face(1,1,5), tp_child_face(5))
+            call FaceNeighbor_SI(6, id_child(1,1,2,e)   , tp              )
+
+            ! neighbors at edges 1:12
+            call EdgeNeighbor_NE(1, id_child_edge(1,:,1), tp_child_edge(:,1))
+
+            call EdgeNeighbor_NE(5, id_child_edge(1,:,5), tp_child_edge(:,5))
+
+            call EdgeNeighbor_NE(9, id_child_edge(1,:,9), tp_child_edge(:,9))
+
+            ! neighbors at vertices 1:8
+
+
+            ! element geometry
+
+            ce_part(tp) = ce
+            cn_part(tp) = cn
           end if
 
         end associate
@@ -350,7 +403,108 @@ contains
 
     end associate
 
+  contains
+
+    !---------------------------------------------------------------------------
+    !> Sibling face neighbor
+
+    subroutine FaceNeighbor_SI(ef, nb_id, nb_tp)
+      integer, intent(in) :: ef    !< element face
+      integer, intent(in) :: nb_id !< neighbor ID
+      integer, intent(in) :: nb_tp !< neighbor target partition
+
+      if (nb_id <= 0) return
+
+      cn = cn + 1
+      nn = nn + 1
+
+      dd % element(ce) % face(ef) % n_neighbor = 1
+      dd % element(ce) % face(ef) % i_neighbor = nn
+
+      dd % neighbor_id   (cn) = nb_id
+      dd % neighbor_part (cn) = nb_tp
+
+      select case(ef)
+      case(1)
+        dd % neighbor_component (cn) = 2
+      case(2)
+        dd % neighbor_component (cn) = 1
+      case(3)
+        dd % neighbor_component (cn) = 4
+      case(4)
+        dd % neighbor_component (cn) = 3
+      case(5)
+        dd % neighbor_component (cn) = 6
+      case(6)
+        dd % neighbor_component (cn) = 5
+      end select
+
+      dd % neighbor_orientation (cn) = 12  ! always aligned !
+
+    end subroutine FaceNeighbor_SI
+
+    !---------------------------------------------------------------------------
+    !> Face neighbor at parent neighbor face
+
+    subroutine FaceNeighbor_NF(ef, nb_id, nb_tp)
+      integer, intent(in) :: ef    !< element face
+      integer, intent(in) :: nb_id !< neighbor ID
+      integer, intent(in) :: nb_tp !< neighbor target partition
+
+      integer :: ii
+
+      if (nb_id <= 0) return
+
+      cn = cn + 1
+      nn = nn + 1
+
+      dd % element(ce) % face(ef) % n_neighbor = 1
+      dd % element(ce) % face(ef) % i_neighbor = nn
+
+      ii = element % face(ef) % i_neighbor
+
+      dd % neighbor_id          (cn) = nb_id
+      dd % neighbor_part        (cn) = nb_tp
+      dd % neighbor_component   (cn) = element % neighbor(ii) % component
+      dd % neighbor_orientation (cn) = element % neighbor(ii) % orientation
+
+    end subroutine FaceNeighbor_NF
+
+    !---------------------------------------------------------------------------
+    !> Edge neighbors at parent neighbor edge
+
+    subroutine EdgeNeighbor_NE(ee, nb_id, nb_tp)
+      integer, intent(in) :: ee       !< element edge
+      integer, intent(in) :: nb_id(:) !< neighbor IDs
+      integer, intent(in) :: nb_tp(:) !< neighbor target partitions
+
+      integer :: ii, jj, nn_ce
+
+      nn_ce = count(nb_id > 0)
+      if (nn_ce== 0) return
+
+      dd % element(ce) % edge(ee) % n_neighbor = nn_ce
+      dd % element(ce) % edge(ee) % i_neighbor = nn + 1
+
+      ii = element % edge(ee) % i_neighbor
+      do jj = 1, element % edge(ee) % n_neighbor
+        if (nb_id(jj) > 0) then
+          cn = cn + 1
+          dd % neighbor_id          (cn) = nb_id(jj)
+          dd % neighbor_part        (cn) = nb_tp(jj)
+          dd % neighbor_component   (cn) = element % neighbor(ii) % component
+          dd % neighbor_orientation (cn) = element % neighbor(ii) % orientation
+        end if
+        ii = ii + 1
+      end do
+      nn = nn + nn_ce
+
+    end subroutine EdgeNeighbor_NE
+
+    !---------------------------------------------------------------------------
+
   end subroutine BuildDistributionData
+
 
   !=============================================================================
 
