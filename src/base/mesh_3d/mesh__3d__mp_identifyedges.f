@@ -16,6 +16,7 @@ contains
   !>
   !> Requires
   !>   - mesh % element % vertex % id
+  !>   - mesh % element % face   % boundary
   !>
   !> Generates
   !>   - mesh % n_edge

@@ -11,10 +11,13 @@ submodule(Mesh__3D) MP_IdentifyVertices
 contains
 
   !-----------------------------------------------------------------------------
-  !> Identification of mesh edges
+  !> Identification of mesh vertices
   !>
   !> Requires
-  !>   - `mesh % element % neighbor` for local elements
+  !>   - mesh % element % face   % {n_neighbor, i_neighbor}
+  !>   - mesh % element % edge   % {n_neighbor, i_neighbor}
+  !>   - mesh % element % vertex % {n_neighbor, i_neighbor}
+  !>   - mesh % element % neighbor for local elements
   !>
   !> Generates
   !>   - mesh % n_vert
