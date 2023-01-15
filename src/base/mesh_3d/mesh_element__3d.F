@@ -24,6 +24,7 @@ module Mesh_Element__3D
   public :: MeshElementGeometry_3D
 
   public :: TransformIndex
+  public :: TransformedEdgeAlignment
   public :: Get_MPI_MeshElement_3D
 
   !-----------------------------------------------------------------------------
@@ -155,6 +156,41 @@ module Mesh_Element__3D
     integer(IXS) :: component   = -1 !< coupled component {1:26}
     integer(IXS) :: orientation = -1 !< neighbor orientation
   end type MeshElementNeighbor_3D
+  !
+  ! overview of possible orientations
+  !
+  ! neighbor                           edge alignment
+  ! orientation     d1   d2   d3       ex    ey    ez
+  !
+  !     12           x    y    z        +     +     +
+  !     13           x    z   -y        +     +     -
+  !     15           x   -y   -z        +     -     -
+  !     16           x   -z    y        +     -     +
+  !
+  !     21           y    x   -z        +     +     -
+  !     23           y    z    x        +     +     +
+  !     24           y   -x    z        +     -     +
+  !     26           y   -z   -x        +     -     -
+  !
+  !     31           z    x    y        +     +     +
+  !     32           z    y   -x        +     +     -
+  !     34           z   -x   -y        +     -     -
+  !     35           z   -y    x        +     -     +
+  !
+  !     42          -x    y   -z        -     +     -
+  !     43          -x    z    y        -     +     +
+  !     45          -x   -y    z        -     -     +
+  !     46          -x   -z   -y        -     -     -
+  !
+  !     51          -y    x    z        -     +     +
+  !     53          -y    z   -x        -     +     -
+  !     54          -y   -x   -z        -     -     -
+  !     56          -y   -z    x        -     -     +
+  !
+  !     61          -z    x   -y        -     +     -
+  !     62          -z    y    x        -     +     +
+  !     64          -z   -x    y        -     -     +
+  !     65          -z   -y   -x        -     -     -
 
   !-----------------------------------------------------------------------------
   !> Element adaptation information
@@ -849,6 +885,47 @@ contains
     if (present(s)) s = s_
 
   end subroutine TransformIndex
+
+  !-----------------------------------------------------------------------------
+  !> Alignment of an element edge with respect to rotated coordinate system
+  !>
+  !> Returns `+1` if the edge is aligned with one of the transformed directions
+  !> and `-1` if the corresponding direction has the opposite sense.
+
+  pure integer function TransformedEdgeAlignment(orientation, e) result(a)
+
+    integer(IXS), intent(in) :: orientation  !< orientation of transformed coords
+    integer,      intent(in) :: e            !< element edge ID
+
+    select case(e)
+
+    case(1:4) ! ξ edges
+      select case(int(orientation))
+      case(12,13,15,16,21,23,24,26,31,32,34,35)
+        a = +1
+      case default
+        a = -1
+      end select
+
+    case(5:8) ! η edges
+      select case(int(orientation))
+      case(12,13,21,23,31,32,42,43,51,53,61,62)
+        a = +1
+      case default
+        a = -1
+      end select
+
+    case default ! ζ edges
+      select case(int(orientation))
+      case(12,16,23,24,31,35,43,45,51,56,62,64)
+        a = +1
+      case default
+        a = -1
+      end select
+
+    end select
+
+  end function TransformedEdgeAlignment
 
   !=============================================================================
 
