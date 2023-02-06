@@ -132,7 +132,7 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
 
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -free -heap-arrays")
     set(CMAKE_Fortran_FLAGS_CHECK   "-warn all -CA -traceback -fpe0")
-    set(CMAKE_Fortran_FLAGS_DEBUG   "-warn all -CA -traceback -fpe0 -ftrapuv -g -gsplit-dwarf")
+    set(CMAKE_Fortran_FLAGS_DEBUG   "-warn all -CA -traceback -fpe0 -g -gsplit-dwarf")
     set(CMAKE_Fortran_FLAGS_RELEASE "-ip" )
 
     if (OPT)
