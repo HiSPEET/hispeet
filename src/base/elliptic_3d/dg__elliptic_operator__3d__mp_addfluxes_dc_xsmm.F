@@ -9,7 +9,14 @@ submodule(DG__Elliptic_Operator__3D:MP_Eval_DC) MP_AddFluxes_DC_XSMM
 
 #ifdef __LIBXSMM__
 
-  use LIBXSMM
+  use, intrinsic ::  ISO_C_Binding
+
+  use LIBXSMM, only: LIBXSMM_XMMCall_ABC,  &
+                     LIBXSMM_XMMDispatch,  &
+                     LIBXSMM_BLASINT_KIND, &
+                     LIBXSMM_DATATYPE_F32, &
+                     LIBXSMM_DATATYPE_F64
+
   implicit none
 
 contains
@@ -38,9 +45,11 @@ contains
     ! LIBXSMM kernel handle
     type(C_FunPtr), save :: xmm
 
-    real(RNP), dimension(0:eop%po, 0:eop%po)    :: Mf, Ds_t, jmp_u, avg_q
-    real(RNP), dimension(0:eop%po, 0:eop%po, 2) :: Ct, Ds_Ct
-    real(RNP), dimension(0:eop%po, 0:eop%po, 6) :: Cn
+    ! target attribute required in call to LIBXSMM_XMMCall_ABC
+    real(RNP), target, dimension(0:eop%po, 0:eop%po)    :: Mf, jmp_u, avg_q
+    real(RNP), target, dimension(0:eop%po, 0:eop%po)    :: Ds_t
+    real(RNP), target, dimension(0:eop%po, 0:eop%po, 2) :: Ct, Ds_Ct
+    real(RNP), target, dimension(0:eop%po, 0:eop%po, 6) :: Cn
     real(RNP) :: mu_nu, tmp
     integer   :: e, i, j, k, m
     logical   :: residual, struct
@@ -102,7 +111,8 @@ contains
             end do
 
             ! derivatives of tangential jump contributions
-            call LIBXSMM_XMMCall(xmm, Ds_t, Ct, Ds_Ct)
+            call LIBXSMM_XMMCall_ABC(xmm, C_LOC(Ds_t), C_LOC(Ct), C_LOC(Ds_Ct))
+            ! passing C addresses required by C interface
 
             ! add flux contributions, accounting for transposition of Ct(:,:,2)
             do k = 0, P
@@ -136,7 +146,7 @@ contains
             end do
             end do
 
-            call LIBXSMM_XMMCall(xmm, Ds_t, Ct, Ds_Ct)
+            call LIBXSMM_XMMCall_ABC(xmm, C_LOC(Ds_t), C_LOC(Ct), C_LOC(Ds_Ct))
 
             do k = 0, P
             do i = 0, P
@@ -169,7 +179,7 @@ contains
             end do
             end do
 
-            call LIBXSMM_XMMCall(xmm, Ds_t, Ct, Ds_Ct)
+            call LIBXSMM_XMMCall_ABC(xmm, C_LOC(Ds_t), C_LOC(Ct), C_LOC(Ds_Ct))
 
             do j = 0, P
             do i = 0, P
