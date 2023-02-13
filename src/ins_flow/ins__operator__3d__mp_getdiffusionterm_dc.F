@@ -268,6 +268,7 @@ contains
 
               tmp = HALF * M_f(j,k) * a(j,k,f,e)
 
+              ! ξ-direction is "normal"
               do c = 1, 3
 
                 Cn(j,k,f,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
@@ -357,15 +358,16 @@ contains
 
               tmp = HALF * M_f(i,k) * a(i,k,f,e)
 
+              ! η-direction is "normal"
               do c = 1, 3
 
-                Cn(i,k,f,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
-                                    + Ji(i,j,k,e,1,2) * tau(2,c) &
-                                    + Ji(i,j,k,e,1,3) * tau(3,c) )
-
-                Ct(i,k,1,c) = tmp * ( Ji(i,j,k,e,2,1) * tau(1,c) &
+                Cn(i,k,f,c) = tmp * ( Ji(i,j,k,e,2,1) * tau(1,c) &
                                     + Ji(i,j,k,e,2,2) * tau(2,c) &
                                     + Ji(i,j,k,e,2,3) * tau(3,c) )
+
+                Ct(i,k,1,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
+                                    + Ji(i,j,k,e,1,2) * tau(2,c) &
+                                    + Ji(i,j,k,e,1,3) * tau(3,c) )
 
                 Ct(k,i,2,c) = tmp * ( Ji(i,j,k,e,3,1) * tau(1,c) & ! first two
                                     + Ji(i,j,k,e,3,2) * tau(2,c) & ! directions
@@ -446,19 +448,20 @@ contains
 
               tmp = HALF * M_f(i,j) * a(i,j,f,e)
 
+              ! ζ-direction is "normal"
               do c = 1, 3
 
-                Cn(i,j,f,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
+                Cn(i,j,f,c) = tmp * ( Ji(i,j,k,e,3,1) * tau(1,c) &
+                                    + Ji(i,j,k,e,3,2) * tau(2,c) &
+                                    + Ji(i,j,k,e,3,3) * tau(3,c) )
+
+                Ct(i,j,1,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
                                     + Ji(i,j,k,e,1,2) * tau(2,c) &
                                     + Ji(i,j,k,e,1,3) * tau(3,c) )
 
-                Ct(i,j,1,c) = tmp * ( Ji(i,j,k,e,2,1) * tau(1,c) &
-                                    + Ji(i,j,k,e,2,2) * tau(2,c) &
-                                    + Ji(i,j,k,e,2,3) * tau(3,c) )
-
-                Ct(j,i,2,c) = tmp * ( Ji(i,j,k,e,3,1) * tau(1,c) & ! first two
-                                    + Ji(i,j,k,e,3,2) * tau(2,c) & ! directions
-                                    + Ji(i,j,k,e,3,3) * tau(3,c) ) ! transposed
+                Ct(j,i,2,c) = tmp * ( Ji(i,j,k,e,2,1) * tau(1,c) & ! first two
+                                    + Ji(i,j,k,e,2,2) * tau(2,c) & ! directions
+                                    + Ji(i,j,k,e,2,3) * tau(3,c) ) ! transposed
 
                 C0(i,j,c)   = tmp * ( sm(i,j,f,e,c)               &
                                     - sp(i,j,f,e,c)               &
