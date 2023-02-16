@@ -16,11 +16,12 @@ subroutine PROC(TPO_Schwarz_I_Hand__,_NP_)(nc, nd, S, V, W, g, cfg, lambda, nu, 
 
   real(RWP), parameter :: alpha = 1
   real(RWP), parameter :: beta  = 0
+  real(RWP), parameter :: eps   = epsilon(lambda)
 
   real(RWP) :: WS_t ( _NP_, _NP_,  nc  )
   real(RWP) :: y    ( _NP_, _NP_, _NP_ )
   real(RWP) :: z    ( _NP_, _NP_, _NP_ )
-  real(RWP) :: a1, a2, a3, a4
+  real(RWP) :: a1, a2, a3, a4, d
 
   integer :: i, j, k, l
   integer :: c, c1, c2, c3
@@ -75,7 +76,8 @@ subroutine PROC(TPO_Schwarz_I_Hand__,_NP_)(nc, nd, S, V, W, g, cfg, lambda, nu, 
     do k = 1, _NP_
     do j = 1, _NP_
     do i = 1, _NP_
-      y(i,j,k) = y(i,j,k) / (a1 * V(i,c1) + a2 * V(j,c2) + a3 * V(k,c3) + a4)
+      d = a1 * V(i,c1) + a2 * V(j,c2) + a3 * V(k,c3) + a4
+      y(i,j,k) = y(i,j,k) / sign(max(abs(d),eps), d)
     end do
     end do
     end do

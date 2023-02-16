@@ -15,13 +15,15 @@ subroutine TPO_Schwarz_I_Gen_RWP(S, V, W, g, cfg, lambda, nu, f, u)
   real(RWP), intent(in)  :: f(:,:,:,:)     !< RHS               (np,np,np,nd)
   real(RWP), intent(out) :: u(:,:,:,:)     !< solution          (np,np,np,nd)
 
+  real(RWP), parameter :: eps = epsilon(lambda)
+
   !-----------------------------------------------------------------------------
   ! local variables
 
   real(RWP) :: WS_t ( size(S,1), size(S,2), size(S,3) )
   real(RWP) :: y    ( size(f,1), size(f,2), size(f,3) )
   real(RWP) :: z    ( size(f,1), size(f,2), size(f,3) )
-  real(RWP) :: a1, a2, a3, a4, tmp
+  real(RWP) :: a1, a2, a3, a4, d, tmp
 
   integer :: nc, nd, np
   integer :: i, j, k, l, p
@@ -107,7 +109,8 @@ subroutine TPO_Schwarz_I_Gen_RWP(S, V, W, g, cfg, lambda, nu, f, u)
         do p = 1, np
           tmp = tmp + S(p,i,c1) * z(p,j,k)
         end do
-        y(i,j,k) = tmp / (a1 * V(i,c1) + a2 * V(j,c2) + a3 * V(k,c3) + a4)
+        d = a1 * V(i,c1) + a2 * V(j,c2) + a3 * V(k,c3) + a4
+        y(i,j,k) = tmp / sign(max(abs(d),eps), d)
       end do
     end do
     end do

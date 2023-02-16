@@ -34,8 +34,9 @@ contains
     real(RSP), intent(in)  :: f(:,:,:,:)     !< RHS
     real(RSP), intent(out) :: u(:,:,:,:)     !< solution
 
-    real(RSP), parameter :: alpha  = 1
-    real(RSP), parameter :: beta   = 0
+    real(RSP), parameter :: alpha = 1
+    real(RSP), parameter :: beta  = 0
+    real(RSP), parameter :: eps   = epsilon(lambda)
 
     !-----------------------------------------------------------------------------
     ! local variables
@@ -47,7 +48,7 @@ contains
     real(RSP) :: WS_t ( size(S,1), size(S,2), size(S,3) )
     real(RSP) :: y    ( size(f,1), size(f,2), size(f,3) )
     real(RSP) :: z    ( size(f,1), size(f,2), size(f,3) )
-    real(RSP) :: a1, a2, a3, a4
+    real(RSP) :: a1, a2, a3, a4, d
 
     integer :: nc, nd, np
     integer :: i, j, k, l, p
@@ -134,7 +135,8 @@ contains
       do k = 1, np
       do j = 1, np
       do i = 1, np
-        y(i,j,k) = y(i,j,k) / (a1 * V(i,c1) + a2 * V(j,c2) + a3 * V(k,c3) + a4)
+        d = a1 * V(i,c1) + a2 * V(j,c2) + a3 * V(k,c3) + a4
+        y(i,j,k) = y(i,j,k) / sign(max(abs(d),eps), d)
       end do
       end do
       end do
