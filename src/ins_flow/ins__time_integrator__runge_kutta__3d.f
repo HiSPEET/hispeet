@@ -1,0 +1,474 @@
+!> summary:  Runge-Kutta method for incompressible flows
+!> author:   Joerg Stiller
+!> date:     2023/02/08
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!===============================================================================
+
+module INS__Time_Integrator__Runge_Kutta__3D
+  use Kind_Parameters
+  use Constants
+  use Array_Assignments
+  use IMEX_Runge_Kutta_Method
+  use XMPI
+
+  use Trace_Operators__3D
+  use Element_Face_Transfer_Buffer__3D
+  use Boundary_Variable__3D
+
+  use INS__Time_Integrator__3D
+  use INS__Problem__3D
+  use INS__Operator__3D
+
+  implicit none
+  private
+
+  public :: INS_TimeIntegrator_RungeKutta_3D
+  public :: INS_TimeIntegrator_RungeKutta_Options_3D
+
+  !-----------------------------------------------------------------------------
+  !> Runge-Kutta method for incompressible flows
+
+  type, extends(INS_TimeIntegrator_3D) :: INS_TimeIntegrator_RungeKutta_3D
+    type(IMEX_RK_Method) :: imex_rk !< IMEX Runge-Kutta method
+    integer   :: i_max_p !< max num p-iterations   in projection step
+    integer   :: i_max_v !< max num v-iterations   in projection step
+    real(RNP) :: r_red   !< min residual reduction in projection step, if > 0
+    real(RNP) :: r_max   !< max residual to reach  in projection step, if > 0
+  contains
+    procedure, non_overridable :: Init_INS_TimeIntegrator_RungeKutta_3D
+    procedure :: TimeStep
+  end type INS_TimeIntegrator_RungeKutta_3D
+
+  ! constructor
+  interface INS_TimeIntegrator_RungeKutta_3D
+    module procedure New_INS_TimeIntegrator_RungeKutta_3D
+  end interface
+
+  !-----------------------------------------------------------------------------
+  !> Type for providing Runge-Kutta time-integrator options
+
+  type, extends(INS_TimeIntegratorOptions_3D) :: &
+    INS_TimeIntegrator_RungeKutta_Options_3D
+    integer   :: n_stage = 5 !< number of stages
+    integer   :: method  = 1 !< RK method selector, if more than one exist
+    integer   :: i_max_p = 5 !< max num p-iterations   in projection step
+    integer   :: i_max_v = 2 !< max num v-iterations   in projection step
+    real(RNP) :: r_red   = 0 !< min residual reduction in projection step, if > 0
+    real(RNP) :: r_max   = 0 !< max residual to reach  in projection step, if > 0
+  contains
+    procedure :: Bcast => Bcast_TimeIntegrator_RungeKutta_Options
+  end type INS_TimeIntegrator_RungeKutta_Options_3D
+
+contains
+
+  !-----------------------------------------------------------------------------
+  !> Constructor for objects of type INS_TimeIntegrator_RungeKutta_3D
+
+  function New_INS_TimeIntegrator_RungeKutta_3D(problem, ins_op, opt) result(this)
+    class(INS_Problem_3D),  intent(in) :: problem
+    class(INS_Operator_3D), intent(in) :: ins_op
+    class(INS_TimeIntegrator_RungeKutta_Options_3D), optional, intent(in) :: opt
+    type(INS_TimeIntegrator_RungeKutta_3D) :: this
+
+    call Init_INS_TimeIntegrator_RungeKutta_3D(this, problem, ins_op, opt)
+
+  end function New_INS_TimeIntegrator_RungeKutta_3D
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of a INS_TimeIntegrator_RungeKutta_3D object
+
+  subroutine Init_INS_TimeIntegrator_RungeKutta_3D(this, problem, ins_op, opt)
+    class(INS_TimeIntegrator_RungeKutta_3D), intent(inout) :: this
+    class(INS_Problem_3D),                   intent(in)    :: problem
+    class(INS_Operator_3D),                  intent(in)    :: ins_op
+    class(INS_TimeIntegrator_RungeKutta_Options_3D), optional, intent(in) :: opt
+
+    ! intialize parent type
+    call this % Init_INS_TimeIntegrator_3D(problem, ins_op, opt)
+
+    ! initialize RK method
+    call this % imex_rk % Init_IMEX_RK_Method(opt % n_stage, opt % method)
+
+    this % name    = 'Runge-Kutta method'
+    this % i_max_p = opt % i_max_p
+    this % i_max_v = opt % i_max_v
+    this % r_red   = opt % r_red
+    this % r_max   = opt % r_max
+
+  end subroutine Init_INS_TimeIntegrator_RungeKutta_3D
+
+  !-----------------------------------------------------------------------------
+  !> Execution of an Runge-Kutta time step
+
+  subroutine TimeStep(this, t, dt, u, standby)
+    class(INS_TimeIntegrator_RungeKutta_3D), intent(inout) :: this
+    real(RNP),             intent(inout) :: t            !< time t₀ → t
+    real(RNP),             intent(in)    :: dt           !< step size ∆t = t-t₀
+    real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:) !< u(x,t₀) → u(x,t)
+    logical,     optional, intent(in)    :: standby      !< reuse workspace [F]
+
+    ! internal variables .......................................................
+
+    real(RNP), allocatable, save :: u_i(:,:,:,:,:)   ! stage solution uᵢ
+    real(RNP), allocatable, save :: vp (:,:,:,:,:)   ! velocity traces v⁺
+    real(RNP), allocatable, save :: sp (:,:,:,:,:)   ! viscous flux traces s⁺
+    real(RNP), allocatable, save :: pp (:,:,:,:)     ! pressure traces p⁺
+    real(RNP), allocatable, save :: inv_mm(:,:,:,:)  ! inv diagonal mass matrix
+
+    ! stage contributions to RHS
+    real(RNP), allocatable, save :: F_c (:,:,:,:,:,:) ! convection
+    real(RNP), allocatable, save :: F_ds(:,:,:,:,:,:) ! diffusion, standard form
+    real(RNP), allocatable, save :: F_dr(:,:,:,:,:,:) ! diffusion, rotational form
+    real(RNP), allocatable, save :: F_p (:,:,:,:,:,:) ! pressure
+    real(RNP), allocatable, save :: F_s (:,:,:,:,:,:) ! sources
+
+    ! boundary points and values
+    type(BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:), bv_v(:)
+
+    ! control
+    real(RNP), save :: t_0 = -huge(ONE)
+    logical,   save :: fsal
+
+    ! auxiliary
+    real(RNP), allocatable :: w(:,:,:)
+    real(RNP) :: t_i, tau
+    real(RNP) :: ca, cc, cr, cs, cq
+
+    integer   :: b, e, d, i, j, k, l, m, np, po
+
+    associate( problem => this % problem           &
+             , ins_op  => this % ins_op            &
+             , mesh    => this % ins_op % mesh     &
+             , sem_v   => this % ins_op % sem_v    &
+             , v_0     => u(:,:,:,:,1:3)           &
+             , p_0     => u(:,:,:,:, 4 )           &
+             , a_im    => this % imex_rk % a_im    &
+             , a_ex    => this % imex_rk % a_ex    &
+             , b_im    => this % imex_rk % b_im    &
+             , b_ex    => this % imex_rk % b_ex    &
+             , c       => this % imex_rk % c       &
+             , n_stage => this % imex_rk % n_stage &
+             )
+
+      !-------------------------------------------------------------------------
+      ! initialization
+
+      po = ins_op % eop_v % po
+      np = po + 1
+
+      !$omp master
+
+      if (allocated(u_i)) then
+        if (any(shape(u_i) /= shape(u))) then
+          deallocate(u_i, vp, sp, pp, inv_mm, F_c, F_ds, F_dr, F_p, F_s)
+          deallocate(bv_x, bv_u, bv_v)
+        end if
+      end if
+
+      ! check first-same-as-last condition
+      fsal = c(n_stage) == ONE .and. t == t_0 .and. allocated(u_i)
+
+      if (.not. allocated(u_i)) then
+
+        allocate( u_i    (np, np, np, mesh % n_elem, 4), source = ZERO )
+        allocate( vp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
+        allocate( sp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
+        allocate( pp     (np, np,  6, mesh % n_elem   ), source = ZERO )
+        allocate( inv_mm (np, np, np, mesh % n_elem   ), source = ZERO )
+
+        allocate( F_c  (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
+        allocate( F_ds (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
+        allocate( F_dr (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
+        allocate( F_p  (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
+        allocate( F_s  (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
+
+        allocate(bv_x(mesh % n_bound))
+        allocate(bv_u(mesh % n_bound))
+        allocate(bv_v(mesh % n_bound))
+
+        do b = 1, mesh % n_bound
+          bv_u(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 4)
+          bv_v(b) = BoundaryVariable_3D(bv_u(b), first=1, last=3)
+          bv_x(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 3)
+          call bv_x(b) % Extract(sem_v % metrics % x)
+        end do
+
+      end if
+
+      t_0 = t
+      t   = t + dt
+
+      !$omp end master
+      !$omp barrier
+
+      ! inverse diagonal mass matrix
+      call sem_v % Get_DG_DiagonalMassMatrix(inv_mm)
+      !$omp workshare
+      inv_mm = 1 / inv_mm
+      !$omp end workshare nowait
+
+      allocate(w(np,np,np))
+
+      !-------------------------------------------------------------------------
+      ! stage 1
+
+      t_i = t_0
+
+      if (fsal) then
+
+        ! reuse last stage of previous step
+        call SetArray(F_c (:,:,:,:,:,1), F_c (:,:,:,:,:,n_stage), multi = .true.)
+        call SetArray(F_ds(:,:,:,:,:,1), F_ds(:,:,:,:,:,n_stage), multi = .true.)
+        call SetArray(F_dr(:,:,:,:,:,1), F_dr(:,:,:,:,:,n_stage), multi = .true.)
+        call SetArray(F_p (:,:,:,:,:,1), F_p (:,:,:,:,:,n_stage), multi = .true.)
+        call SetArray(F_s (:,:,:,:,:,1), F_s (:,:,:,:,:,n_stage), multi = .true.)
+
+      else
+        associate(v => u(:,:,:,:,1:3), p => u(:,:,:,:,4))
+
+          ! boundary conditions
+          do b = 1, mesh % n_bound
+            call problem % GetBoundaryValues(b, bv_x(b) % val, t_i, bv_u(b) % val)
+          end do
+          call GetBoundaryTraces_3D(mesh, v, vp)       ! vp = v⁻ on ∂Ω
+          call ins_op % ApplyVelocityBC(bv_v, vp, sp)  ! vp = v⁺ on ∂Ω, ...
+
+          ! viscous and convective RHS
+          call ins_op % GetDiffusionTerm  (v, vp, sp, F_ds(:,:,:,:.:,1)        )
+          call ins_op % GetDiffusionTerm  (v, vp, sp, F_dr(:,:,:,:.:,1), form=2)
+          call ins_op % GetConvectionTerm (v, vp,     F_c (:,:,:,:.:,1)        )
+
+          !$omp do
+          do e = 1, mesh % n_elem
+            do d = 1, 3
+              F_c (:,:,:,e,d,1) = inv_mm(:,:,:,e) * F_c (:,:,:,e,d,1)
+              F_ds(:,:,:,e,d,1) = inv_mm(:,:,:,e) * F_ds(:,:,:,e,d,1)
+              F_dr(:,:,:,e,d,1) = inv_mm(:,:,:,e) * F_dr(:,:,:,e,d,1)
+            end do
+          end do
+
+          ! pressure
+          call GetOuterTraces_3D(mesh, p, pp)
+          call TPO_Grad(ins_op % eop_v, sem_v, p, pp, F_p(:,:,:,:.:,1))
+          call ScaleArray(F_p, -ONE, multi = .true.)
+
+          ! source term
+          call problem % GetExternalSources( sem_v % metrics % x, t_i &
+                                           , F_s(:,:,:,:.:,1)         )
+
+        end associate
+      end if
+
+      !-------------------------------------------------------------------------
+      ! stages 2 to n_stage
+
+      Stages: do i = 2, n_stage
+
+        associate( F_c_proj => F_c  (:,:,:,:,:,i) &
+                 , F_d_proj => F_ds (:,:,:,:,:,i) &
+                 , Q_proj   => F_dr (:,:,:,:,:,i) )
+
+          tau = c(i) * dt
+          t_i = t_0 + tau
+
+          ! uᵢ = u₀ ............................................................
+
+          call SetArray(u_i, u, multi=.true.)
+
+          ! boundary conditions and source term ...............................
+
+          do b = 1, mesh % n_bound
+            call problem % GetBoundaryValues(b, bv_x(b)%val, t_i, bv_u(b)%val)
+          end do
+
+          call problem % GetExternalSources( sem_v % metrics % x, t_i &
+                                           , F_s(:,:,:,:.:,i)         )
+
+          ! RHS and Q for projection step ......................................
+
+          !$omp do collapse(2)
+          do e = 1, mesh % n_elem
+          do d = 1, 3
+
+            ca = ONE / a_im(i,i)
+            cc = ca * (a_ex(i,1) - a_im(i,1))
+            cr = ca * a_ex(i,1) / 2
+            cs = ca * a_im(i,1) / 2
+            cq = ca * a_im(i,1)
+
+            do m = 1, np
+            do l = 1, np
+            do k = 1, np
+
+              F_c_proj(k,l,m,e,d) = cc * F_c(k,l,m,e,d,1)
+
+              F_d_proj(k,l,m,e,d) = cr * F_dr(k,l,m,e,d,1)  &
+                                  - cs * F_ds(k,l,m,e,d,1)
+
+              Q_proj(k,l,m,e,d) = cq * ( F_c(k,l,m,e,d,1)   &
+                                       + F_p(k,l,m,e,d,1)   &
+                                       + F_s(k,l,m,e,d,1) ) &
+                                + cr * F_dr(k,l,m,e,d,1)    &
+                                + cs * F_ds(k,l,m,e,d,1)
+            end do
+            end do
+            end do
+
+            do j = 2, i-1
+
+              cc = ca * (a_ex(i,j) - a_im(i,j))
+              cr = ca * a_ex(i,j) / 2
+              cs = ca * a_im(i,j) / 2
+              cq = ca * a_im(i,j)
+
+              do m = 1, np
+              do l = 1, np
+              do k = 1, np
+
+                F_c_proj(k,l,m,e,d) = F_c_proj(k,l,m,e,d      &
+                                    + cc * F_c(k,l,m,e,d,j)
+
+                F_d_proj(k,l,m,e,d) = F_d_proj(k,l,m,e,d)     &
+                                    + cr * F_dr(k,l,m,e,d,j)  &
+                                    - cs * F_ds(k,l,m,e,d,j)
+
+                Q_proj(k,l,m,e,d) = Q_proj(k,l,m,e,d)         &
+                                  + cq * ( F_c(k,l,m,e,d,j)   &
+                                         + F_p(k,l,m,e,d,j)   &
+                                         + F_s(k,l,m,e,d,j) ) &
+                                  + cr * F_dr(k,l,m,e,d,j)    &
+                                  + cs * F_ds(k,l,m,e,d,j)
+              end do
+              end do
+              end do
+
+            end do
+
+            Q_proj(:,:,:,e,d) = Q_proj(:,:,:,e,d) + F_s(:,:,:,e,d,i)
+
+          end do
+          end do
+
+          ! projection-diffusion step ..........................................
+
+          call this % ProjectionStep( tau     = tau            &
+                                    , v_0     = v_0            &
+                                    , F_c     = F_c_proj       &
+                                    , F_d     = F_d_proj       &
+                                    , Q       = Q_proj         &
+                                    , bv_u    = bv_u           &
+                                    , u       = u_i            &
+                                    , i_max_p = this % i_max_p &
+                                    , i_max_v = this % i_max_v &
+                                    , r_red   = this % r_red   &
+                                    , r_max   = this % r_max   )
+
+        end associate
+
+        ! RHS contributions ....................................................
+
+        associate(v => u_i(:,:,:,:,1:3), p => u_i(:,:,:,:,4))
+
+          call GetBoundaryTraces_3D(mesh, v, vp)       ! vp = v⁻ on ∂Ω
+          call ins_op % ApplyVelocityBC(bv_v, vp, sp)  ! vp = v⁺ on ∂Ω, ...
+
+          ! viscous and convective RHS
+          call ins_op % GetDiffusionTerm  (v, vp, sp, F_ds(:,:,:,:.:,i)        )
+          call ins_op % GetDiffusionTerm  (v, vp, sp, F_dr(:,:,:,:.:,i), form=2)
+          call ins_op % GetConvectionTerm (v, vp,     F_c (:,:,:,:.:,i)        )
+
+          !$omp do
+          do e = 1, mesh % n_elem
+            do d = 1, 3
+              F_c (:,:,:,e,d,i) = inv_mm(:,:,:,e) * F_c (:,:,:,e,d,i)
+              F_ds(:,:,:,e,d,i) = inv_mm(:,:,:,e) * F_ds(:,:,:,e,d,i)
+              F_dr(:,:,:,e,d,i) = inv_mm(:,:,:,e) * F_dr(:,:,:,e,d,i)
+            end do
+          end do
+
+          ! pressure
+          call GetOuterTraces_3D(mesh, p, pp)
+          call TPO_Grad(ins_op % eop_v, sem_v, p, pp, F_p(:,:,:,:.:,i))
+          call ScaleArray(F_p, -ONE, multi = .true.)
+
+          ! source term, already done ;)
+
+        end associate
+
+      end do Stages
+
+      !-------------------------------------------------------------------------
+      ! assembly
+
+      call SetArray(u, u_i, multi=.true.)
+
+      if ( any( b_ex /= this % imex_rk % a_ex(n_stage,:)) .or.   &
+           any( b_im /= this % imex_rk % a_im(n_stage,:))      ) &
+      then
+        associate(v => u(:,:,:,:,1:3))
+
+          !$omp do collapse(2)
+          do e = 1, mesh % n_elem
+          do d = 1, 3
+            do i = 1, n_stage
+              v(:,:,:,e,d) = v(:,:,:,e,d)                                  &
+                  + dt * (b_ex(i) - a_ex(n_stage,i)) *   F_c (:,:,:,e,d,i) &
+                  + dt * (b_im(i) - a_im(n_stage,i)) * ( F_ds(:,:,:,e,d,i) &
+                                                       + F_p (:,:,:,e,d,i) &
+                                                       + F_s (:,:,:,e,d,i) )
+            end do
+          end do
+          end do
+
+        end associate
+      end if
+
+      !-------------------------------------------------------------------------
+      ! finalization
+
+      !$omp master
+
+      t_0 = t
+
+      if (.not. standby) then
+        deallocate(u_i, vp, sp, pp, inv_mm, F_c, F_ds, F_dr, F_p, F_s)
+        deallocate(bv_x, bv_u, bv_v)
+      end if
+
+      !$omp end master
+
+    end associate
+
+  end subroutine TimeStep
+
+  !=============================================================================
+  ! TBP of INS_TimeIntegrator_RungeKutta_Options_3D
+
+  !-----------------------------------------------------------------------------
+  !> MPI broadcasting of Runge-Kutta time-integrator options
+
+  subroutine Bcast_TimeIntegrator_RungeKutta_Options(this, root, comm)
+    class(INS_TimeIntegrator_RungeKutta_Options_3D), intent(inout) :: this
+    integer,        intent(in) :: root !< rank of broadcast root
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
+
+    type(MPI_Request) :: request(6)
+    integer :: n
+
+    call this % INS_TimeIntegratorOptions_3D % Bcast(root, comm)
+
+    n = 1
+    call XMPI_Ibcast( this % n_stage, root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % method , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % i_max_p, root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % i_max_v, root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % r_red  , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % r_max  , root, comm, request(n) )
+
+    call MPI_Waitall( n, request, MPI_STATUSES_IGNORE )
+
+  end subroutine Bcast_TimeIntegrator_RungeKutta_Options
+
+  !=============================================================================
+
+end module INS__Time_Integrator__Runge_Kutta__3D
