@@ -16,9 +16,7 @@ program INS_TimeIntegrator_3D_Test
   use Execution_Control
   use Array_Assignments
   use Array_Reductions
-
-  use TPO__AAA__3D
-  use TPO__Div__3D
+  use Logging_Levels
 
   use Mesh__3D
   use Boundary_Variable__3D
@@ -34,6 +32,7 @@ program INS_TimeIntegrator_3D_Test
   use INS__Time_Integrator__3D
   use INS__Time_Integrator__Euler__3D
   use INS__Time_Integrator__BDF2__3D
+  use INS__Flow_Characteristics__3D
 
   use Create_Cuboid_Cartesian
   use Create_Cuboid_Diamonds
@@ -88,12 +87,21 @@ program INS_TimeIntegrator_3D_Test
 
   namelist/control_prm/ ins_op_opts, ins_ti_euler_opts, ins_ti_bdf2_opts
 
-  real(RNP) :: t_end      = 1        ! final time
-  real(RNP) :: dt         = 1        ! time step size
-  integer   :: nt_max     = 0        ! max num time steps
-  logical   :: export_vtk = .false.  ! generate VTK files
+  real(RNP) :: t_end    = 1  ! final time
+  real(RNP) :: dt       = 1  ! time step size
+  integer   :: nt_max   = 0  ! max num time steps
 
-  namelist/control_prm/ t_end, dt, nt_max, export_vtk
+  namelist/control_prm/ t_end, dt, nt_max
+
+  logical :: export_vtk = .false.  ! generate VTK files
+  integer :: char_freq  = 1        ! characteristics output frequency
+
+  namelist/control_prm/ export_vtk, char_freq
+
+  ! control of logging levels
+  namelist/control_prm/ log_level
+  namelist/control_prm/ log_level_inner_iteration
+  namelist/control_prm/ log_level_outer_iteration
 
   ! operators and variables ....................................................
 
@@ -105,6 +113,8 @@ program INS_TimeIntegrator_3D_Test
 
   class(INS_TimeIntegrator_3D), allocatable, save :: ins_ti
   ! incompressible Navier-Stokes time integrator
+
+  type(INS_FlowCharacteristics_3D) :: flow_char
 
   real(RNP) :: t = 0 ! problem time
 
@@ -119,6 +129,10 @@ program INS_TimeIntegrator_3D_Test
   real(RNP), pointer, contiguous, save :: v_ex(:,:,:,:,:) ! exact velocity
   real(RNP), pointer, contiguous, save :: p_ex(:,:,:,:)   ! exact pressure
 
+  real(RNP), pointer, contiguous, save :: err_u(:,:,:,:,:) ! error, u - u_ex
+  real(RNP), pointer, contiguous, save :: err_v(:,:,:,:,:) ! velocity error
+  real(RNP), pointer, contiguous, save :: err_p(:,:,:,:)   ! pressure error
+
   real(RNP), allocatable, save :: w(:,:,:,:,:)   ! workspace
 
   type(BoundaryVariable_3D), allocatable, save :: bv_vn(:) ! n⋅v on Γ=∂Ω
@@ -129,11 +143,13 @@ program INS_TimeIntegrator_3D_Test
   character(len=80) :: domain_name = ''
 ! real(RDP) :: time, time0
   real(RNP) :: domain_volume
-  real(RNP) :: e_p, e_v, e_div_vv, e_div_vp, e_div_vq
   logical   :: exists, last
   integer   :: io, stat
   integer   :: n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po
   integer   :: i, nt
+!### CHECK
+  real(RNP) :: e_p_rms, e_v_rms
+!### CHECK END
 
   !-----------------------------------------------------------------------------
   ! Initialization
@@ -192,6 +208,10 @@ program INS_TimeIntegrator_3D_Test
   call XMPI_Bcast(dt          , 0, comm)
   call XMPI_Bcast(nt_max      , 0, comm)
   call XMPI_Bcast(export_vtk  , 0, comm)
+  call XMPI_Bcast(char_freq   , 0, comm)
+
+  ! globalize logging levels
+  call XMPI_Bcast_LoggingLevels(0, comm)
 
   ! globalize options
   call ins_op_opts       % Bcast(0, comm)
@@ -258,7 +278,7 @@ program INS_TimeIntegrator_3D_Test
   ! variables ..................................................................
 
   po = ins_op % eop_v % po
-  n_var = 8
+  n_var = 12
 
   allocate(var(0:po,0:po,0:po,1:n_elem,1:n_var), source = ZERO)
   allocate(var_name(1:n_var))
@@ -275,7 +295,13 @@ program INS_TimeIntegrator_3D_Test
 
   var_name(5:8) = [ 'v_x__exact', 'v_y__exact', 'v_z__exact', 'p__exact  ']
 
-  allocate(w  (0:po,0:po,0:po,1:n_elem,1:4) )
+  err_u(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,9:12)
+  err_v(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,9:11)
+  err_p(0:,0:,0:,1:)     =>  var(:,:,:,:,12)
+
+  var_name(9:12) = [ 'error(v_x)', 'error(v_y)', 'error(v_z)', 'error(p)  ']
+
+  allocate(w(0:po,0:po,0:po,1:n_elem,1:4) )
 
   ! info .......................................................................
 
@@ -305,9 +331,19 @@ program INS_TimeIntegrator_3D_Test
   ! initial conditions
   call problem % GetExactSolution(ins_op % sem_v % metrics % x, t, u)
 
+  if (char_freq > 0) then
+    call flow_char % Evaluate(problem, ins_op, t, u, domain_volume)
+    call flow_char % PrintHeader()
+    call flow_char % PrintValues()
+  end if
+
   do nt = 1, nt_max
     last = t + dt >= t_end .or. nt == nt_max
     call ins_ti % TimeStep(t, dt, u, standby = .not. last)
+    if (mod(nt, char_freq) == 0) then
+      call flow_char % Evaluate(problem, ins_op, t, u, domain_volume)
+      call flow_char % PrintValues()
+    end if
     if (last) exit
   end do
 
@@ -320,48 +356,10 @@ program INS_TimeIntegrator_3D_Test
 
     call problem % GetExactSolution(ins_op % sem_v % metrics % x, t, u_ex)
 
-    ! calibrate pressure to zero mean value
-    call CalibrateArray(p   , comm=ins_op % mesh % comm_parts)
-    call CalibrateArray(p_ex, comm=ins_op % mesh % comm_parts)
+    call SetArray(err_u, u, multi=.true.)
+    call MergeArrays(ONE, err_u, -ONE, u_ex, multi=.true.)
+    call CalibrateArray(err_p, comm = ins_op % mesh % comm_parts)
 
-    ! w = u - u_ex
-    call SetArray(w, u, multi=.true.)
-    call MergeArrays(ONE, w, -ONE, u_ex, multi=.true.)
-
-    !$omp do
-    do i = 1, ins_op % mesh % n_elem
-      w(:,:,:,i,1) = w(:,:,:,i,1) ** 2 + w(:,:,:,i,2) ** 2 + w(:,:,:,i,3) ** 2
-    end do
-    call GetVolumeIntegral(ins_op%sem_v, w(:,:,:,:,1), e_v)
-    e_v = sqrt(e_v)
-
-    !$omp do
-    do i = 1, ins_op % mesh % n_elem
-      w(:,:,:,i,4) = w(:,:,:,i,4) ** 2
-    end do
-    call GetVolumeIntegral(ins_op%sem_v, w(:,:,:,:,4), e_p)
-    e_p = sqrt(e_p)
-
-    call EvalDivError(ins_op, v, e_div_vv, e_div_vp, e_div_vq)
-
-    e_v      = e_v      / domain_volume
-    e_p      = e_p      / domain_volume
-    e_div_vv = e_div_vv / domain_volume
-    e_div_vp = e_div_vp / domain_volume
-    e_div_vq = e_div_vq / domain_volume
-
-  end if
-
-  if (ins_op % mesh % part == 0) then
-    !$omp master
-    write(*,'(/,A)') 'time integration'
-    write(*,'(T3,A,T29,ES12.5)') 'final time         t    =', t
-    write(*,'(T3,A,T30,ES12.5)') 'velocity error     ε_v  =', e_v
-    write(*,'(T3,A,T30,ES12.5)') 'pressure error     ε_p  =', e_p
-    write(*,'(T3,A,T30,ES12.5)') 'div errors    ε_div_vv  =', e_div_vv
-    write(*,'(T3,A,T30,ES12.5)') 'div errors    ε_div_vp  =', e_div_vp
-    write(*,'(T3,A,T30,ES12.5)') 'div errors    ε_div_vq  =', e_div_vq
-    !$omp end master
   end if
 
   ! boundary fluxes ............................................................
@@ -410,82 +408,5 @@ program INS_TimeIntegrator_3D_Test
   ! Finalization
 
   call MPI_Finalize()
-
-contains
-
-  !-----------------------------------------------------------------------------
-  !> Evaluation of the divergence error
-
-  subroutine EvalDivError(ins_op, v, e_div_vv, e_div_vp, e_div_vq)
-    class(INS_Operator_3D), intent(in) :: ins_op
-    real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
-    real(RNP), intent(out) :: e_div_vv
-    real(RNP), intent(out) :: e_div_vp
-    real(RNP), intent(out) :: e_div_vq
-
-    real(RNP), allocatable, save :: vp(:,:,:,:,:), div_v(:,:,:,:), q(:,:,:,:)
-
-    integer :: ne, np, nq
-    integer :: e
-
-    ! L2 divergence in velocity space ..........................................
-
-    ne = ins_op % mesh % n_elem
-    np = ins_op % eop_v % po + 1
-
-    !$omp master
-    allocate(vp(np,np,6,ne,3), div_v(np,np,np,ne), q(np,np,np,ne))
-    !$omp end master
-
-    call GetOuterTraces_3D(ins_op%mesh, v, vp)
-    call TPO_Div(ins_op % eop_v, ins_op % sem_v, v, vp, div_v)
-    !$omp do
-    do e = 1, ne
-      q(:,:,:,e) = div_v(:,:,:,e) ** 2
-    end do
-    call GetVolumeIntegral(ins_op%sem_v, q, e_div_vv)
-    e_div_vv = sqrt(e_div_vv)
-
-    ! L2 divergence in pressure space ..........................................
-
-    nq = ins_op % eop_p % po + 1
-
-    !$omp master
-    deallocate(q)
-    allocate(q(nq,nq,nq,ne))
-    !$omp end master
-
-    call TPO_AAA(ins_op % iop_vp % A, div_v, q)
-    !$omp do
-    do e = 1, ne
-      q(:,:,:,e) = q(:,:,:,e) ** 2
-    end do
-    call GetVolumeIntegral(ins_op%sem_p, q, e_div_vp)
-    e_div_vp = sqrt(e_div_vp)
-
-    ! L2 divergence in quadrature space ........................................
-
-    nq = ins_op % sop_q % po + 1
-
-    !$omp master
-    deallocate(q)
-    allocate(q(nq,nq,nq,ne))
-    !$omp end master
-
-    call TPO_AAA(ins_op % iop_vq % A, div_v, q)
-    !$omp do
-    do e = 1, ne
-      q(:,:,:,e) = q(:,:,:,e) ** 2
-    end do
-    call GetVolumeIntegral(ins_op%sem_q, q, e_div_vq)
-    e_div_vq = sqrt(e_div_vq)
-
-    !$omp master
-    deallocate(vp, div_v, q)
-    !$omp end master
-
-  end subroutine EvalDivError
-
-  !=============================================================================
 
 end program INS_TimeIntegrator_3D_Test

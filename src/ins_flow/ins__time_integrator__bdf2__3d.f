@@ -250,22 +250,22 @@ contains
 
       if (first) then
         !$omp do
+        do d = 1, 3
         do e = 1, mesh % n_elem
-          do d = 1, 3
-            v_0  (:,:,:,e,d) = v(:,:,:,e,d)
-            v_old(:,:,:,e,d) = v(:,:,:,e,d)
-          end do
+          v_0  (:,:,:,e,d) = v(:,:,:,e,d)
+          v_old(:,:,:,e,d) = v(:,:,:,e,d)
+        end do
         end do
         tau = dt
       else
         a0 = alpha_0 / gamma_0
         a1 = alpha_1 / gamma_0
-        !$omp do
+        !$omp do collapse(2)
+        do d = 1, 3
         do e = 1, mesh % n_elem
-          do d = 1, 3
-            v_0  (:,:,:,e,d) = a0 * v(:,:,:,e,d) + a1 * v_old(:,:,:,e,d)
-            v_old(:,:,:,e,d) = v(:,:,:,e,d)
-          end do
+          v_0  (:,:,:,e,d) = a0 * v(:,:,:,e,d) + a1 * v_old(:,:,:,e,d)
+          v_old(:,:,:,e,d) = v(:,:,:,e,d)
+        end do
         end do
         tau = dt / gamma_0
       end if

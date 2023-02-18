@@ -122,7 +122,7 @@ contains
       !$omp end master
       !$omp barrier
 
-      check_convergence = .false.
+      check_convergence = log_level_inner_iteration > 0
       if (present(r_red)) check_convergence = r_red > 0
       if (present(r_max)) check_convergence = r_max > 0 .or. check_convergence
 
@@ -177,6 +177,10 @@ contains
         end if
         converged = rr <= rr_term
         call XMPI_Bcast(converged, root=0, comm=mesh%comm_parts)
+        if (log_level_inner_iteration > 1 .and. mesh%part == 0) then
+          print '(A,T25,A,I5,A,ES12.5)', &
+                '#Elliptic:SchwarzPCG','>>>  i  =',0,',  |r| =', sqrt(rr)
+        end if
         !$omp end master
         !$omp barrier
       else
@@ -277,18 +281,23 @@ contains
           !$omp barrier
         end if
 
-        if (converged .or. i == i_max_) then
-!### CHECK
-if (mesh%part == 0) then
-!$omp master
-print '(99(G0,1X))', '#Elliptic >>> ni =',i,',  |r| =', sqrt(rr)
-!$omp end master
-end if
-!### CHECK END
-          exit
+        if (converged .or. i == i_max_) exit
+
+        !$omp master
+        if (log_level_inner_iteration > 1 .and. mesh%part == 0) then
+          print '(A,T25,A,I5,A,ES12.5)', &
+                '#Elliptic:SchwarzPCG','>>>  i  =',i,',  |r| =', sqrt(rr)
         end if
+        !$omp end master
 
       end do
+
+      !$omp master
+      if (log_level_inner_iteration > 0 .and. mesh%part == 0) then
+        print '(A,T25,A,I5,A,ES12.5)', &
+              '#Elliptic:SchwarzPCG','>>>  ni =',i,',  |r| =', sqrt(rr)
+      end if
+      !$omp end master
 
       ! finalization ...........................................................
 

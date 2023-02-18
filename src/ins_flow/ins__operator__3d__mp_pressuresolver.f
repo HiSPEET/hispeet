@@ -95,8 +95,14 @@ contains
           g(:,:,:,e) = -cs * mm(:,:,:,e) * g(:,:,:,e)
         end do
         ! apply Schwarz-PCG with λ=0 and ν=1
+!### CHECK
+!!         call laplacian_p % CG_Method( ZERO, ONE, q, g, bv_q   &
+!!                                     , i_max, r_red, r_max, ni )
+!!         call laplacian_p % Schwarz_Method( ZERO, ONE, q, g, bv_q   &
+!!                                          , i_max, r_red, r_max, ni )
         call laplacian_p % SchwarzPCG_Method( ZERO, ONE, q, g, bv_q   &
                                             , i_max, r_red, r_max, ni )
+!### CHECK END
         ! interpolate result to order po
         call TPO_AAA(this % iop_pv % A, q, p)
       else

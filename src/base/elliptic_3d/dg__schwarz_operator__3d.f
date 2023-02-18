@@ -426,7 +426,10 @@ contains
   !> Otherwise, the existence of a neighbor element is assumed.
   !>
   !> Although no exterior node layers exist at boundaries, the corresponding
-  !> entries are retained for regularity and set to `0`.
+  !> entries are retained for regularity. They are, however set to `0` in the
+  !> eigenvectors and weights. The corresponding eigenvalues are set `1` in
+  !> order to avoid floating points exceptions when used as a divisor.
+
 
   subroutine InitSuboperators(eop, no, bc, Ws, S, V, W, r_nu_s)
     class(DG_ElementOperators_1D), intent(in) :: eop !< IP-DG element operators
@@ -468,7 +471,7 @@ contains
 
     ! initialization of eigenvectors S, eigenvalues V and weights W
     S = 0
-    V = 0
+    V = 1
     W = 0
 
     associate(Ms => eop % w)

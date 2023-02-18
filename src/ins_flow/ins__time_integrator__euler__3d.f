@@ -190,7 +190,7 @@ contains
           call problem % GetBoundaryValues(b, bv_x(b) % val, t_0, bv_u(b) % val)
         end do
       end if
-      call GetBoundaryTraces_3D(mesh, v, vp)     ! vp = v⁻ on ∂Ω
+      call GetBoundaryTraces_3D(mesh, v, vp)       ! vp = v⁻ on ∂Ω
       call ins_op % ApplyVelocityBC(bv_v, vp, sp)  ! vp = v⁺ on ∂Ω, ...
 
       ! viscous and convective RHS .............................................
@@ -254,7 +254,6 @@ contains
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
     type(MPI_Request) :: request(4)
-    type(MPI_Status)  :: stat(size(request))
     integer :: n
 
     call this % INS_TimeIntegratorOptions_3D % Bcast(root, comm)
@@ -265,7 +264,7 @@ contains
     call XMPI_Ibcast( this % r_red  , root, comm, request(n) );  n = n + 1
     call XMPI_Ibcast( this % r_max  , root, comm, request(n) )
 
-    call MPI_Waitall( n, request, stat )
+    call MPI_Waitall( n, request, MPI_STATUSES_IGNORE )
 
   end subroutine Bcast_INS_TimeIntegrator_Euler_3D
 
