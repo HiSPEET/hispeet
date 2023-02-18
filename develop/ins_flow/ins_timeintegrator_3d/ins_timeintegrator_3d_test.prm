@@ -34,12 +34,12 @@
   ins_ti_bdf2_opts%r_max    = 1e-12 ! 1e-14
 !
   t_end  = 0.25
-  dt     = 1e-4
-  nt_max = 10
+  dt     = 1e-5
+  nt_max = 200
 !
-! export_vtk = T
-! char_freq  = 2
-! log_level_inner_iteration = 1
+! export_vtk = T                 ! set T for generating plot files
+! char_freq  = 2                 ! set to control frequency of control output
+! log_level_inner_iteration = 1  ! set log level > 0 for higher verbosity
 /
 
 ! flow_domain  =  1
