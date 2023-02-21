@@ -44,9 +44,6 @@ contains
 
     real(RNP), parameter :: eps = epsilon(ONE)
 
-    complex(RDP), allocatable, save :: Lambda_A(:)
-    real(RDP)   , allocatable, save :: Lambda_L(:), A(:,:), L(:,:)
-
     real(RNP), save :: tau_conv_v_loc = huge(ONE)
     real(RNP), save :: tau_conv_r_loc = huge(ONE)
     real(RNP), save :: tau_diff_r_loc = huge(ONE)
