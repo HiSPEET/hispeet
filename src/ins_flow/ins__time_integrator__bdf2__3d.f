@@ -216,7 +216,11 @@ contains
 
       ! diffusion term based on rotational form
       call ins_op % GetDiffusionTerm(v, vp, sp, F_d, form=2)
-      call ins_op % GetConvectionTerm(v, vp, F_c)
+      if (problem % stokes) then
+        call SetArray(F_c, ZERO, multi = .true.)
+      else
+        call ins_op % GetConvectionTerm(v, vp, F_c)
+      end if
 
       if (first) then
         a0 = 1
