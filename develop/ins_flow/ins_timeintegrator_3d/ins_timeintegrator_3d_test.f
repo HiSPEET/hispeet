@@ -29,9 +29,11 @@ program INS_TimeIntegrator_3D_Test
   use INS__Problem__Vortex_TG__3D
   use INS__Problem__Variable_Viscosity__3D
   use INS__Operator__3D
+  use INS__Time_Scales__3D
   use INS__Time_Integrator__3D
   use INS__Time_Integrator__Euler__3D
   use INS__Time_Integrator__BDF2__3D
+  use INS__Time_Integrator__Runge_Kutta__3D
   use INS__Flow_Characteristics__3D
 
   use Create_Cuboid_Cartesian
@@ -78,14 +80,19 @@ program INS_TimeIntegrator_3D_Test
   integer :: time_method = 1
   ! 1  Euler
   ! 2  BDF2
+  ! 3  Runge-Kutta
 
   namelist/control_prm/ time_method
 
   type(INS_OperatorOptions_3D) :: ins_op_opts
-  type(INS_TimeIntegrator_Euler_Options_3D) :: ins_ti_euler_opts
-  type(INS_TimeIntegrator_BDF2_Options_3D)  :: ins_ti_bdf2_opts
+  type(INS_TimeIntegrator_Euler_Options_3D)      :: ins_ti_euler_opts
+  type(INS_TimeIntegrator_BDF2_Options_3D)       :: ins_ti_bdf2_opts
+  type(INS_TimeIntegrator_RungeKutta_Options_3D) :: ins_ti_runge_kutta_opts
 
-  namelist/control_prm/ ins_op_opts, ins_ti_euler_opts, ins_ti_bdf2_opts
+  namelist/control_prm/ ins_op_opts,            &
+                        ins_ti_euler_opts,      &
+                        ins_ti_bdf2_opts,       &
+                        ins_ti_runge_kutta_opts
 
   real(RNP) :: t_end    = 1  ! final time
   real(RNP) :: dt       = 1  ! time step size
@@ -114,6 +121,7 @@ program INS_TimeIntegrator_3D_Test
   class(INS_TimeIntegrator_3D), allocatable, save :: ins_ti
   ! incompressible Navier-Stokes time integrator
 
+  type(INS_TimeScales_3D)          :: time_scales
   type(INS_FlowCharacteristics_3D) :: flow_char
 
   real(RNP) :: t = 0 ! problem time
@@ -147,9 +155,6 @@ program INS_TimeIntegrator_3D_Test
   integer   :: io, stat
   integer   :: n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po
   integer   :: i, nt
-!### CHECK
-  real(RNP) :: e_p_rms, e_v_rms
-!### CHECK END
 
   !-----------------------------------------------------------------------------
   ! Initialization
@@ -214,9 +219,10 @@ program INS_TimeIntegrator_3D_Test
   call XMPI_Bcast_LoggingLevels(0, comm)
 
   ! globalize options
-  call ins_op_opts       % Bcast(0, comm)
-  call ins_ti_euler_opts % Bcast(0, comm)
-  call ins_ti_bdf2_opts  % Bcast(0, comm)
+  call ins_op_opts             % Bcast(0, comm)
+  call ins_ti_euler_opts       % Bcast(0, comm)
+  call ins_ti_bdf2_opts        % Bcast(0, comm)
+  call ins_ti_runge_kutta_opts % Bcast(0, comm)
 
   ! mesh .......................................................................
 
@@ -267,12 +273,15 @@ program INS_TimeIntegrator_3D_Test
   ! Navier-Stokes operator
   call ins_op % Init(ins_op_opts, problem)
 
-  ! time integrator: up to now only Euler
+  ! time integrator
   select case(time_method)
   case(1)
     ins_ti = INS_TimeIntegrator_Euler_3D(problem, ins_op, ins_ti_euler_opts)
   case(2)
     ins_ti = INS_TimeIntegrator_BDF2_3D(problem, ins_op, ins_ti_bdf2_opts)
+  case(3)
+    ins_ti = INS_TimeIntegrator_RungeKutta_3D &
+                 (problem, ins_op, ins_ti_runge_kutta_opts)
   end select
 
   ! variables ..................................................................
@@ -303,6 +312,13 @@ program INS_TimeIntegrator_3D_Test
 
   allocate(w(0:po,0:po,0:po,1:n_elem,1:4) )
 
+  ! initial conditions .........................................................
+
+  call problem % GetExactSolution(ins_op % sem_v % metrics % x, t, u)
+
+  ! time scales
+  call time_scales % Evaluate(problem, ins_op, u)
+
   ! info .......................................................................
 
   call ins_op % sem_v % Get_Volume(domain_volume)
@@ -322,14 +338,19 @@ program INS_TimeIntegrator_3D_Test
     write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature type:' , ins_op % sop_q % basis
     write(*,'(T3,A,T30,9(G0,X))') 'number of mesh points:', n_point
     write(*,'(T3,A,T30,9(G0,X))') 'time integrator:'      , trim(ins_ti % name)
-    write(*,'(T3,A,T30,9(G0,X))') 'time step size:'       , dt
+    write(*,'(T3,A,T29,ES18.11)') 'time step size:'       , dt
+    write(*,'((T7,A,T29,ES12.5,2X,A,ES12.5,X,A))')  &
+            'dt / tau_c(v_0)'   , dt / time_scales % tau_conv_ve     , &
+                            '(' , dt / time_scales % tau_conv_vm,')' , &
+            'dt / tau_c(v_ref)' , dt / time_scales % tau_conv_re     , &
+                            '(' , dt / time_scales % tau_conv_rm,')' , &
+            'dt / tau_d(nu_ref)', dt / time_scales % tau_diff_re     , &
+                             '(', dt / time_scales % tau_diff_rm,')'
+    write(*,*)
   end if
 
   !-----------------------------------------------------------------------------
   ! Time integration
-
-  ! initial conditions
-  call problem % GetExactSolution(ins_op % sem_v % metrics % x, t, u)
 
   if (char_freq > 0) then
     call flow_char % Evaluate(problem, ins_op, t, u, domain_volume)
