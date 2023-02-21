@@ -92,8 +92,8 @@ contains
       allocate(bv_v( mesh%n_bound ))
       allocate(bv_p( mesh%n_bound ))
       do b = 1, mesh % n_bound
-        bv_v(b) = BoundaryVariable_3D(bv_u(b), first=1, last=3)
-        bv_p(b) = BoundaryVariable_3D(bv_u(b), first=4, last=4)
+        call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v(b))
+        call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p(b))
       end do
       !$omp end master
       !$omp barrier

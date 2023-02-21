@@ -71,7 +71,7 @@ contains
         allocate(q, mold = mm)
         allocate(bv_q(mesh % n_bound))
         do b = 1, mesh % n_bound
-          bv_q(b) = BoundaryVariable_3D(mesh%boundary(b), pq, nc=1)
+          call bv_q(b) % Init(mesh%boundary(b), pq, nc=1)
         end do
       end if
       !$omp end master

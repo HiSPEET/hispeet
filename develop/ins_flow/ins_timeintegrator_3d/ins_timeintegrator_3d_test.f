@@ -393,7 +393,7 @@ program INS_TimeIntegrator_3D_Test
     !$omp barrier
 
     do i = 1, n_bound
-      bv_vn(i) = BoundaryVariable_3D(ins_op % mesh % boundary(i), po, nc=1)
+      call bv_vn(i) % Init(ins_op % mesh % boundary(i), po, nc=1)
       call bv_vn(i) % ExtractNormalComponent(ins_op % sem_v, v)
     end do
 

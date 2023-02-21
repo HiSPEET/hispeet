@@ -179,9 +179,9 @@ contains
         allocate(bv_u(mesh % n_bound))
         allocate(bv_v(mesh % n_bound))
         do b = 1, mesh % n_bound
-          bv_u(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 4)
-          bv_v(b) = BoundaryVariable_3D(bv_u(b), first=1, last=3)
-          bv_x(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 3)
+          call bv_u(b) % Init(mesh % boundary(b), po, nc = 4)
+          call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v(b))
+          call bv_x(b) % Init(mesh % boundary(b), po, nc = 3)
           call bv_x(b) % Extract(sem_v % metrics % x)
         end do
 

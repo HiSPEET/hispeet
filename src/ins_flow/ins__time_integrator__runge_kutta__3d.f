@@ -117,10 +117,10 @@ contains
     real(RNP), allocatable, save :: inv_mm(:,:,:,:)  ! inv diagonal mass matrix
 
     ! stage contributions to RHS
-    real(RNP), allocatable, save :: F_c (:,:,:,:,:,:) ! convection
-    real(RNP), allocatable, save :: F_ds(:,:,:,:,:,:) ! diffusion, standard form
-    real(RNP), allocatable, save :: F_dr(:,:,:,:,:,:) ! diffusion, rotational form
-    real(RNP), allocatable, save :: F_s (:,:,:,:,:,:) ! sources
+    real(RNP), allocatable, save :: F_c     (:,:,:,:,:,:) ! convection
+    real(RNP), allocatable, save :: F_d     (:,:,:,:,:,:) ! diffusion, standard
+    real(RNP), allocatable, save :: F_d_rot (:,:,:,:,:,:) ! diffusion, rotational
+    real(RNP), allocatable, save :: F_s     (:,:,:,:,:,:) ! sources
 
     ! boundary points and values
     type(BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:), &
@@ -160,7 +160,7 @@ contains
 
       if (allocated(u_i)) then
         if (any(shape(u_i) /= shape(u))) then
-          deallocate(u_i, vp, sp, inv_mm, F_c, F_ds, F_dr, F_s)
+          deallocate(u_i, vp, sp, inv_mm, F_c, F_d, F_d_rot, F_s)
           deallocate(bv_x, bv_u, bv_v, bv_p)
         end if
       end if
@@ -178,10 +178,10 @@ contains
         allocate( sp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
         allocate( inv_mm (np, np, np, mesh % n_elem   ), source = ZERO )
 
-        allocate( F_c  (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
-        allocate( F_ds (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
-        allocate( F_dr (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
-        allocate( F_s  (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
+        allocate( F_c     (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
+        allocate( F_d     (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
+        allocate( F_d_rot (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
+        allocate( F_s     (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
 
         allocate(bv_x(mesh % n_bound))
         allocate(bv_u(mesh % n_bound))
@@ -189,10 +189,10 @@ contains
         allocate(bv_p(mesh % n_bound))
 
         do b = 1, mesh % n_bound
-          bv_u(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 4)
-          bv_v(b) = BoundaryVariable_3D(bv_u(b), first=1, last=3)
-          bv_p(b) = BoundaryVariable_3D(bv_u(b), first=4, last=4)
-          bv_x(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 3)
+          call bv_u(b) % Init(mesh % boundary(b), po, nc = 4)
+          call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v(b))
+          call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p(b))
+          call bv_x(b) % Init(mesh % boundary(b), po, nc = 3)
           call bv_x(b) % Extract(sem_v % metrics % x)
         end do
 
@@ -219,10 +219,12 @@ contains
 
       if (reuse) then
 
-        call SetArray(F_c (:,:,:,:,:,1), F_c (:,:,:,:,:,n_stage), multi = .true.)
-        call SetArray(F_ds(:,:,:,:,:,1), F_ds(:,:,:,:,:,n_stage), multi = .true.)
-        call SetArray(F_dr(:,:,:,:,:,1), F_dr(:,:,:,:,:,n_stage), multi = .true.)
-        call SetArray(F_s (:,:,:,:,:,1), F_s (:,:,:,:,:,n_stage), multi = .true.)
+        call SetArray( F_s(:,:,:,:,:,1), F_s(:,:,:,:,:,n_stage), multi = .true. )
+        call SetArray( F_c(:,:,:,:,:,1), F_c(:,:,:,:,:,n_stage), multi = .true. )
+        call SetArray( F_d(:,:,:,:,:,1), F_d(:,:,:,:,:,n_stage), multi = .true. )
+        call SetArray( F_d_rot (:,:,:,:,:,1)       &
+                     , F_d_rot (:,:,:,:,:,n_stage) &
+                     , multi = .true.              )
 
       else
         associate(v => u(:,:,:,:,1:3), p => u(:,:,:,:,4))
@@ -234,9 +236,13 @@ contains
           call GetBoundaryTraces_3D(mesh, v, vp)       ! vp = v⁻ on ∂Ω
           call ins_op % ApplyVelocityBC(bv_v, vp, sp)  ! vp = v⁺ on ∂Ω, ...
 
+          ! source term
+          call problem % GetExternalSources( sem_v % metrics % x, t_i &
+                                           , F_s(:,:,:,:,:,1)         )
+
           ! viscous and convective RHS
-          call ins_op % GetDiffusionTerm(v, vp, sp, F_ds(:,:,:,:,:,1)        )
-          call ins_op % GetDiffusionTerm(v, vp, sp, F_dr(:,:,:,:,:,1), form=2)
+          call ins_op % GetDiffusionTerm(v, vp, sp, F_d    (:,:,:,:,:,1)        )
+          call ins_op % GetDiffusionTerm(v, vp, sp, F_d_rot(:,:,:,:,:,1), form=2)
           if (problem % stokes) then
             call SetArray(F_c(:,:,:,:,:,1), ZERO, multi = .true.)
           else
@@ -246,15 +252,11 @@ contains
           !$omp do
           do e = 1, mesh % n_elem
             do d = 1, 3
-              F_c (:,:,:,e,d,1) = inv_mm(:,:,:,e) * F_c (:,:,:,e,d,1)
-              F_ds(:,:,:,e,d,1) = inv_mm(:,:,:,e) * F_ds(:,:,:,e,d,1)
-              F_dr(:,:,:,e,d,1) = inv_mm(:,:,:,e) * F_dr(:,:,:,e,d,1)
+              F_c     (:,:,:,e,d,1) = inv_mm(:,:,:,e) * F_c     (:,:,:,e,d,1)
+              F_d     (:,:,:,e,d,1) = inv_mm(:,:,:,e) * F_d     (:,:,:,e,d,1)
+              F_d_rot (:,:,:,e,d,1) = inv_mm(:,:,:,e) * F_d_rot (:,:,:,e,d,1)
             end do
           end do
-
-          ! source term
-          call problem % GetExternalSources( sem_v % metrics % x, t_i &
-                                           , F_s(:,:,:,:,:,1)         )
 
         end associate
       end if
@@ -264,9 +266,9 @@ contains
 
       Stages: do i = 2, n_stage
 
-        associate( F_c_i => F_c  (:,:,:,:,:,i) &
-                 , F_d_i => F_ds (:,:,:,:,:,i) &
-                 , Q_i   => F_dr (:,:,:,:,:,i) )
+        associate( F_c_i => F_c     (:,:,:,:,:,i) &
+                 , F_d_i => F_d     (:,:,:,:,:,i) &
+                 , Q_i   => F_d_rot (:,:,:,:,:,i) )
 
           t_i = t_0 + c(i) * dt
 
@@ -299,14 +301,14 @@ contains
             do l = 1, np
             do k = 1, np
 
-              F_c_i(k,l,m,e,d) = cc * F_c(k,l,m,e,d,1)
+              F_c_i(k,l,m,e,d) = cc * F_c (k,l,m,e,d,1)
 
-              F_d_i(k,l,m,e,d) = cr * F_dr(k,l,m,e,d,1) &
-                               - cs * F_ds(k,l,m,e,d,1)
+              F_d_i(k,l,m,e,d) = cr * F_d_rot (k,l,m,e,d,1) &
+                               - cs * F_d     (k,l,m,e,d,1)
 
               Q_i(k,l,m,e,d) = cs * ( F_c (k,l,m,e,d,1) &
                                     + F_s (k,l,m,e,d,1) &
-                                    + F_ds(k,l,m,e,d,1) )
+                                    + F_d (k,l,m,e,d,1) )
             end do
             end do
             end do
@@ -324,14 +326,14 @@ contains
                 F_c_i(k,l,m,e,d) = F_c_i(k,l,m,e,d)    &
                                  + cc * F_c(k,l,m,e,d,j)
 
-                F_d_i(k,l,m,e,d) = F_d_i(k,l,m,e,d)       &
-                                 + cr * F_dr(k,l,m,e,d,j) &
-                                 - cs * F_ds(k,l,m,e,d,j)
+                F_d_i(k,l,m,e,d) = F_d_i(k,l,m,e,d)           &
+                                 + cr * F_d_rot (k,l,m,e,d,j) &
+                                 - cs * F_d     (k,l,m,e,d,j)
 
-                Q_i(k,l,m,e,d) = Q_i(k,l,m,e,d)             &
-                               + cs * ( F_c (k,l,m,e,d,j)   &
-                                      + F_s (k,l,m,e,d,j)   &
-                                      + F_ds(k,l,m,e,d,j)   )
+                Q_i(k,l,m,e,d) = Q_i(k,l,m,e,d)           &
+                               + cs * ( F_c(k,l,m,e,d,j)  &
+                                      + F_s(k,l,m,e,d,j)  &
+                                      + F_d(k,l,m,e,d,j)  )
               end do
               end do
               end do
@@ -367,8 +369,8 @@ contains
           call ins_op % ApplyVelocityBC(bv_v, vp, sp)  ! vp = v⁺ on ∂Ω, ...
 
           ! viscous and convective RHS
-          call ins_op % GetDiffusionTerm(v, vp, sp, F_ds(:,:,:,:,:,i)        )
-          call ins_op % GetDiffusionTerm(v, vp, sp, F_dr(:,:,:,:,:,i), form=2)
+          call ins_op % GetDiffusionTerm(v, vp, sp, F_d     (:,:,:,:,:,i)        )
+          call ins_op % GetDiffusionTerm(v, vp, sp, F_d_rot (:,:,:,:,:,i), form=2)
           if (problem % stokes) then
             call SetArray(F_c(:,:,:,:,:,i), ZERO, multi = .true.)
           else
@@ -378,9 +380,9 @@ contains
           !$omp do
           do e = 1, mesh % n_elem
             do d = 1, 3
-              F_c (:,:,:,e,d,i) = inv_mm(:,:,:,e) * F_c (:,:,:,e,d,i)
-              F_ds(:,:,:,e,d,i) = inv_mm(:,:,:,e) * F_ds(:,:,:,e,d,i)
-              F_dr(:,:,:,e,d,i) = inv_mm(:,:,:,e) * F_dr(:,:,:,e,d,i)
+              F_c     (:,:,:,e,d,i) = inv_mm(:,:,:,e) * F_c     (:,:,:,e,d,i)
+              F_d     (:,:,:,e,d,i) = inv_mm(:,:,:,e) * F_d     (:,:,:,e,d,i)
+              F_d_rot (:,:,:,e,d,i) = inv_mm(:,:,:,e) * F_d_rot (:,:,:,e,d,i)
             end do
           end do
 
@@ -406,10 +408,10 @@ contains
           do e = 1, mesh % n_elem
           do d = 1, 3
             do i = 1, n_stage
-              v(:,:,:,e,d) = v(:,:,:,e,d)                                  &
-                  + dt * (b_ex(i) - a_ex(n_stage,i)) *   F_c (:,:,:,e,d,i) &
-                  + dt * (b_im(i) - a_im(n_stage,i)) * ( F_ds(:,:,:,e,d,i) &
-                                                       + F_s (:,:,:,e,d,i) )
+              v(:,:,:,e,d) = v(:,:,:,e,d)                                 &
+                  + dt * (b_ex(i) - a_ex(n_stage,i)) *   F_c(:,:,:,e,d,i) &
+                  + dt * (b_im(i) - a_im(n_stage,i)) * ( F_d(:,:,:,e,d,i) &
+                                                       + F_s(:,:,:,e,d,i) )
             end do
           end do
           end do
@@ -455,7 +457,7 @@ contains
       end if
 
       !$omp master
-      deallocate(u_i, vp, sp, inv_mm, F_c, F_ds, F_dr, F_s)
+      deallocate(u_i, vp, sp, inv_mm, F_c, F_d, F_d_rot, F_s)
       deallocate(bv_x, bv_u, bv_v, bv_p)
       !$omp end master
 
