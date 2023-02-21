@@ -45,7 +45,7 @@ contains
     !< boundary values at final time t
     !!   - for velocity, to be given in components 1-3 on input, and
     !!   - for pressure, returned in component 4 on output
-    real(RNP), contiguous, intent(out) :: u(:,:,:,:,:)
+    real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
     !< u = [v, p], velocity and pressure at final time u
 
     integer, intent(in) :: i_max_p !< max num iterations of pressure solver
