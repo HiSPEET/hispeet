@@ -2,6 +2,11 @@
 !> author:   Joerg Stiller
 !> date:     2022/10/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @note
+!>   -  works
+!>   -  allocates memory directly to `val` pointer
+!>   -  requires more bookkeeping and tailored finalization
 !===============================================================================
 
 module Boundary_Variable__3D
@@ -33,19 +38,19 @@ module Boundary_Variable__3D
   !> The number of components `nc` can be equal or different.
   !>
   !> If the variable is initialized with the constructor, new memory is
-  !> allocated in `mem` for storing the values.
-  !> Variables generated via `GetSlice`are linke to the source by default
+  !> allocated for storing the values.
+  !> Variables generated via `GetSlice`are linked to the source by default
   !> and may get lost if the latter is deleted. Passing `copy = T` causes
-  !> the values to copied into fresh memory which removes this risk.
+  !> the values to copied into fresh memory.
 
   type BoundaryVariable_3D
 
     integer :: po = 0 !< polynomial order
     integer :: nc = 0 !< number of components
+    logical :: is_allocated = .false.
 
-    class(MeshBoundary_3D), pointer :: boundary => null()
-    real(RNP), contiguous,  pointer :: val(:,:,:,:) => null() !< value access
-    real(RNP), allocatable, private :: mem(:,:,:,:) !< memory allocated to val
+    class(MeshBoundary_3D), pointer :: boundary     => null()
+    real(RNP), contiguous,  pointer :: val(:,:,:,:) => null() !< values
 
   contains
 
@@ -60,6 +65,8 @@ module Boundary_Variable__3D
     generic :: MergeWithTraceVariable => MergeWithTraceVar_S, MergeWithTraceVar_A
     procedure, private :: MergeWithTraceVar_S, MergeWithTraceVar_A
 
+    final :: Delete_BoundaryVariable_3D
+
   end type BoundaryVariable_3D
 
 contains
@@ -71,19 +78,23 @@ contains
   !> 3D boundary variable initialization
 
   subroutine Init_BoundaryVariable_3D(this, boundary, po, nc)
-    class(BoundaryVariable_3D), target, intent(inout) :: this
+    class(BoundaryVariable_3D), intent(inout) :: this
     class(MeshBoundary_3D), target, intent(in) :: boundary
     integer, intent(in) :: po
     integer, intent(in) :: nc
 
-    if (allocated(this % mem)) deallocate(this % mem)
-    allocate(this % mem(0:po, 0:po, boundary%n_face, nc))
+    if (this % is_allocated) then
+      deallocate(this % val)
+    else
+      nullify(this % val)
+    end if
+
+    allocate(this % val(0:po, 0:po, boundary%n_face, nc))
 
     this % po = po
     this % nc = nc
-
-    this % boundary         => boundary
-    this % val(0:,0:,1:,1:) => this % mem
+    this % is_allocated = .true.
+    this % boundary => boundary
 
   end subroutine Init_BoundaryVariable_3D
 
@@ -91,8 +102,8 @@ contains
   !> Create a new boundary variable as a slice of the given one
   !>
   !> The values of the new variable refer to `this % val` if `copy` is false
-  !> or absent. Otherwise they are stored in fresh memory, i.e. `slice % mem`.
-  !> In an OpenMP parallel section the routine is executed only by the master
+  !> or absent. Otherwise they are stored in fresh memory.
+  !> In an OpenMP parallel region the routine is executed only by the master
   !> thread.
 
   subroutine GetSlice(this, slice, first, last, copy)
@@ -106,23 +117,25 @@ contains
 
     !$omp master
 
-    slice % po = this % po
-    slice % nc = 1 + last - first
-    slice % boundary => this % boundary
-
     if (present(copy)) then
       copy_ = copy
     else
       copy_ = .false.
     end if
 
-    if (copy_) then
-      slice % mem = this % val(:,:,:,first:last)
-      slice % val(0:,0:,1:,1:) => slice % mem
-    else
-      slice % val(0:,0:,1:,1:) => this % val(:,:,:,first:last)
-      if (allocated(slice % mem)) deallocate(slice % mem)
-    end if
+    slice % po = this % po
+    slice % nc = 1 + last - first
+    slice % is_allocated = copy_
+    slice % boundary => this % boundary
+
+    associate(po => slice % po, nc => slice % nc, boundary => slice % boundary)
+      if (copy_) then
+        allocate(slice % val(0:po, 0:po,  boundary % n_face, nc))
+        slice % val(0:,0:,1:,1:) =  this % val(:,:,:,first:last)
+      else
+        slice % val(0:,0:,1:,1:) => this % val(:,:,:,first:last)
+      end if
+    end associate
 
     !$omp end master
 
@@ -455,6 +468,24 @@ contains
     end do
 
   end subroutine MergeWithTraceVar_A
+
+  !-----------------------------------------------------------------------------
+  !> Finalization
+
+  subroutine Delete_BoundaryVariable_3D(this)
+    type(BoundaryVariable_3D), intent(inout) :: this
+
+    if (this % is_allocated) then
+      deallocate(this % val)
+    end if
+
+    this % po = 0
+    this % nc = 0
+    this % is_allocated = .false.
+    this % boundary => null()
+    this % val => null()
+
+  end subroutine Delete_BoundaryVariable_3D
 
   !=============================================================================
 
