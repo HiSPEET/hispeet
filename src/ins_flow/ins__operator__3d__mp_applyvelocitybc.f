@@ -33,9 +33,9 @@ contains
     class(BoundaryVariable_3D), optional, intent(in) :: bv_v(:)
     !< boundary values
     real(RNP), contiguous, optional, intent(inout) :: tr_v(:,:,:,:,:)
-    !< velocity on element faces: v⁻ → v⁺
+    !< velocity on element faces ∊ ∂Ω: v⁻ → v⁺
     real(RNP), contiguous, optional, intent(inout) :: tr_s(:,:,:,:,:)
-    !< stress vector on element faces: s⁻ → s⁺
+    !< stress vector on element faces ∊ ∂Ω: s⁻ → s⁺
 
     integer :: b, c, e, f, m
 

@@ -2,6 +2,11 @@
 !> author:   Joerg Stiller
 !> date:     2022/10/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @note
+!>   -  unsafe
+!>   -  memory allocated in constructor gets (possibly) deallocated after being
+!>      assigned to a variable
 !===============================================================================
 
 module Boundary_Variable__3D
@@ -49,7 +54,7 @@ module Boundary_Variable__3D
 
   contains
 
-    procedure :: Init => Init_BoundaryVariable_3D
+    procedure :: Init_BoundaryVariable_3D
     procedure :: GetSlice
 
     generic :: Extract => Extract_A, Extract_S
@@ -62,7 +67,43 @@ module Boundary_Variable__3D
 
   end type BoundaryVariable_3D
 
+  ! constructor
+  interface BoundaryVariable_3D
+    module procedure New_Scratch
+    module procedure New_Slice
+  end interface
+
 contains
+
+  !=============================================================================
+  ! Constructors
+
+  !-----------------------------------------------------------------------------
+  !> New 3D boundary variable generated from scratch
+
+  function New_Scratch(boundary, po, nc) result(this)
+    class(MeshBoundary_3D), target, intent(in) :: boundary
+    integer, intent(in) :: po
+    integer, intent(in) :: nc
+    type(BoundaryVariable_3D) :: this
+
+    call Init_BoundaryVariable_3D(this, boundary, po, nc)
+
+  end function New_Scratch
+
+  !-----------------------------------------------------------------------------
+  !> New 3D boundary variable generated from slice
+
+  function New_Slice(bv, first, last, copy) result(this)
+    class(BoundaryVariable_3D), intent(in) :: bv
+    integer,           intent(in) :: first !< first component of slice
+    integer,           intent(in) :: last  !< last component of slice
+    logical, optional, intent(in) :: copy  !< copy into fresh memory [F]
+    type(BoundaryVariable_3D) :: this
+
+    call bv % GetSlice(this, first, last, copy)
+
+  end function New_Slice
 
   !=============================================================================
   ! Initializers

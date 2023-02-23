@@ -51,7 +51,7 @@ module INS__Time_Integrator__3D
       real(RNP), contiguous,        intent(in)    :: F_d(:,:,:,:,:)
       real(RNP), contiguous,        intent(in)    :: Q(:,:,:,:,:)
       class(BoundaryVariable_3D),   intent(inout) :: bv_u(:)
-      real(RNP), contiguous,        intent(out)   :: u(:,:,:,:,:)
+      real(RNP), contiguous,        intent(inout) :: u(:,:,:,:,:)
       integer,                      intent(in)    :: i_max_p
       integer,                      intent(in)    :: i_max_v
       real(RNP),          optional, intent(in)    :: r_red

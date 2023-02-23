@@ -12,10 +12,13 @@ add_library(HiINSFlow
             ins__problem__3d.f
             ins__problem__vortex_tg__3d.f
             ins__problem__variable_viscosity__3d.f
+            ins__time_scales__3d.f
             ins__time_integrator__3d.f
             ins__time_integrator__3d__mp_projectionstep.f
             ins__time_integrator__euler__3d.f
             ins__time_integrator__bdf2__3d.f
+            ins__time_integrator__runge_kutta__3d.f
+            ins__flow_characteristics__3d.f
             )
 
 

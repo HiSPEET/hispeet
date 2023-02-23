@@ -111,7 +111,7 @@ contains
             end do
 
             ! derivatives of tangential jump contributions
-            call LIBXSMM_XMMCall_ABC(xmm, C_LOC(Ds_t), C_LOC(Ct), C_LOC(Ds_Ct))
+            call LIBXSMM_XMMCall_ABC(xmm, c_loc(Ds_t), c_loc(Ct), c_loc(Ds_Ct))
             ! passing C addresses required by C interface
 
             ! add flux contributions, accounting for transposition of Ct(:,:,2)
@@ -146,7 +146,7 @@ contains
             end do
             end do
 
-            call LIBXSMM_XMMCall_ABC(xmm, C_LOC(Ds_t), C_LOC(Ct), C_LOC(Ds_Ct))
+            call LIBXSMM_XMMCall_ABC(xmm, c_loc(Ds_t), c_loc(Ct), c_loc(Ds_Ct))
 
             do k = 0, P
             do i = 0, P
@@ -179,7 +179,7 @@ contains
             end do
             end do
 
-            call LIBXSMM_XMMCall_ABC(xmm, C_LOC(Ds_t), C_LOC(Ct), C_LOC(Ds_Ct))
+            call LIBXSMM_XMMCall_ABC(xmm, c_loc(Ds_t), c_loc(Ct), c_loc(Ds_Ct))
 
             do j = 0, P
             do i = 0, P

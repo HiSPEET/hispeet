@@ -1,14 +1,6 @@
 # Git Wiki
 
-Topics
-
-1. [First-Time Git setup](#setup)
-2. [Starting a new repository](#new-repo)
-3. [Cloning _HiSPEET_ from FusionForge](#cloning)
-4. [Working with branches](#branches)
-5. [Making changes](#changes)
-6. [Merging](#merging)
-7. [Submodules](#submodules)
+[toc]
 
 For a more comprehensive description consider the Git [documentation](https://git-scm.com/docs) at `git-scm.com`.
 
@@ -110,7 +102,7 @@ Create a new local branch
 
     git checkout -b <new_branch>
 
-Push the branch on the remote repository
+This command preserves uncommited changes and thus can be used to create a working branch  without spoiling the existing branch. To add the new branch to the remote repository it needs to be pushed as follows
 
     git push --set-upstream origin <new_branch>
 

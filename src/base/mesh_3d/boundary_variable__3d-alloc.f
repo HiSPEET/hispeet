@@ -2,6 +2,10 @@
 !> author:   Joerg Stiller
 !> date:     2022/10/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @note
+!>   -  works
+!>   -  based on the original variant with unsafe constructors removed
 !===============================================================================
 
 module Boundary_Variable__3D

@@ -14,8 +14,8 @@ file( COPY
       DESTINATION
           ${CMAKE_CURRENT_BINARY_DIR} )
 
-#configure_file( ins_operator_3d_test.slurm
-#                ins_operator_3d_test.slurm COPYONLY )
-#
+ configure_file( ins_timeintegrator_3d_test.slurm
+                 ins_timeintegrator_3d_test.slurm COPYONLY )
+ 
 #configure_file( ins_operator_3d_test.tmpl
 #                ins_operator_3d_test.tmpl COPYONLY )

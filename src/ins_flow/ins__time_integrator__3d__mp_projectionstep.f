@@ -45,7 +45,7 @@ contains
     !< boundary values at final time t
     !!   - for velocity, to be given in components 1-3 on input, and
     !!   - for pressure, returned in component 4 on output
-    real(RNP), contiguous, intent(out) :: u(:,:,:,:,:)
+    real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
     !< u = [v, p], velocity and pressure at final time u
 
     integer, intent(in) :: i_max_p !< max num iterations of pressure solver
@@ -92,8 +92,8 @@ contains
       allocate(bv_v( mesh%n_bound ))
       allocate(bv_p( mesh%n_bound ))
       do b = 1, mesh % n_bound
-        bv_v(b) = BoundaryVariable_3D(bv_u(b), first=1, last=3)
-        bv_p(b) = BoundaryVariable_3D(bv_u(b), first=4, last=4)
+        call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v(b))
+        call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p(b))
       end do
       !$omp end master
       !$omp barrier
