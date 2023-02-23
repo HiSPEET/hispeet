@@ -4,7 +4,7 @@
 ! flow_problem =  'VariableViscosity'
 ! problem_file =  'variable_viscosity'
   flow_domain  =  1
-  time_method  =  2   ! 1 Euler, 2 BDF2, 3 Runge-Kutta
+  time_method  =  3   ! 1 Euler, 2 BDF2, 3 Runge-Kutta
 !
 ! ins_op_opts%mu_0 =   1.0                                ! μ ≫ ν
 ! ins_op_opts%mu_0 =   0.016                              ! μ = √(ν² + v²h²)
@@ -54,7 +54,7 @@
 
   t_end  = 0.25
   dt     = 1e-3
-  nt_max = 10!00
+  nt_max = 1000
 !
 ! export_vtk = T                 ! set T for generating plot files
 ! char_freq  = 2                 ! set to control frequency of control output
@@ -67,10 +67,10 @@
   structured = F ! mimic unstructured mesh
   xo = -0.5,-0.5,-0.0625
   lx =  1.0, 1.0, 0.125
-! np =  2,2,1
-! ep =  4,4,1
-  np =  1,1,1
-  ep =  8,8,1
+  np =  2,2,1
+  ep =  4,4,1
+! np =  1,1,1
+! ep =  8,8,1
 ! pg = 1
 ! periodic = 3*T
 ! periodic = 3*F
