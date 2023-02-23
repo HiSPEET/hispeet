@@ -36,5 +36,5 @@ fi
 export KMP_AFFINITY=compact,1,0
 
 # 4 processes using 1 cpu
-OMP_NUM_THREADS=1  srun -n 4 ./ins_timeintegrator_3d_test ins_timeintegrator_3d_test-taurus
+OMP_NUM_THREADS=1  srun -n 4 ./ins_timeintegrator_3d_test
 
