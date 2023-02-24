@@ -397,7 +397,7 @@ contains
 
       call SetArray(u, u_i, multi=.true.)
 
-      if (globally_stiffly_accurate) then
+      if (.not. globally_stiffly_accurate) then
         associate( v       =>  u  (:,:,:,:,1:3)   &
                  , div_v   =>  F_c(:,:,:,:,1  ,1) &
                  , p       =>  F_c(:,:,:,:,2  ,1) &
