@@ -41,7 +41,7 @@ contains
 
   type(EmbeddedInterpolation_3D) function New_SX(eop, xi) result(this)
     class(StandardOperators_1D), intent(in) :: eop !< standard operators
-    real(RNP), intent(in) :: xi(0:) !< points in [-1,1]
+    real(RNP), intent(in) :: xi(:) !< points in [-1,1]
 
     call this % Init_EmbeddedInterpolation_1D(eop, xi)
 

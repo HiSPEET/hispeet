@@ -18,12 +18,16 @@
 
 ## Child level partitioning
 
-1. Check if ParMetis interface can be unified
-2. New type ChildDistributionMap_3D 
-   - Generalization of ElementDistributionMap_3D
-   - ?
+1. Check if ParMetis interface can be unified: yes :white_check_mark:
+2. New type ChildDistributionMap_3D :white_check_mark:
 
 ## Child generation
+
+1. Child TPs and IDs of parent face neighbors :white_check_mark:
+2. Child TPs and IDs of parent edge neighbors :white_check_mark:
+3. Child TPs and IDs of parent vertex neighbors :white_check_mark:
+4. Child element data, face data, neighbors and geometry :white_check_mark:
+5. ?
 
 ## Child transfer
 

@@ -152,38 +152,38 @@ contains
 
     integer :: i, j, k, p
 
-      do k = 0, pg
-      do j = 0, pg
-      do i = 0, pm
-        z1(i,j,k) = 0
-        do p = 0, pg
-          z1(i,j,k) = z1(i,j,k) + A(i,p) * xg(p,j,k)
-        end do
+    do k = 0, pg
+    do j = 0, pg
+    do i = 0, pm
+      z1(i,j,k) = 0
+      do p = 0, pg
+        z1(i,j,k) = z1(i,j,k) + A(i,p) * xg(p,j,k)
       end do
-      end do
-      end do
+    end do
+    end do
+    end do
 
-      do k = 0, pg
-      do j = 0, pm
-      do i = 0, pm
-        z2(i,j,k) = 0
-        do p = 0, pg
-          z2(i,j,k) = z2(i,j,k) + A(j,p) * z1(i,p,k)
-        end do
+    do k = 0, pg
+    do j = 0, pm
+    do i = 0, pm
+      z2(i,j,k) = 0
+      do p = 0, pg
+        z2(i,j,k) = z2(i,j,k) + A(j,p) * z1(i,p,k)
       end do
-      end do
-      end do
+    end do
+    end do
+    end do
 
-      do k = 0, pm
-      do j = 0, pm
-      do i = 0, pm
-        xm(i,j,k) = 0
-        do p = 0, pg
-          xm(i,j,k) = xm(i,j,k) + A(k,p) * z2(i,j,p)
-        end do
+    do k = 0, pm
+    do j = 0, pm
+    do i = 0, pm
+      xm(i,j,k) = 0
+      do p = 0, pg
+        xm(i,j,k) = xm(i,j,k) + A(k,p) * z2(i,j,p)
       end do
-      end do
-      end do
+    end do
+    end do
+    end do
 
   end subroutine InterpolateCoords
 

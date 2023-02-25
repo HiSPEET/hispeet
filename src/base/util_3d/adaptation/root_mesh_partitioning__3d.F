@@ -209,65 +209,101 @@ contains
 
     ! internal variables .......................................................
 
-    integer :: ce_part(0:map%n_parts-1)  ! element counters
-    integer :: cn_part(0:map%n_parts-1)  ! neighbor counters
-    integer :: cp_part(0:map%n_parts-1)  ! element point counters
+    integer, allocatable, save :: rk_elem(:) ! rank among local elements in tp
+    integer, allocatable, save :: ce_part(:) ! element counters
+    integer, allocatable, save :: cn_part(:) ! neighbor counters
+    integer, allocatable, save :: cp_part(:) ! element point counters
 
-    integer :: ce, cn, cp, nn, np, po, tp
+    integer :: ce, cn, cp, ne, nn, np, po, tp
     integer :: i, j, k, l
 
     if (old_mesh % part < 0) return
 
-    ! MPI and dimensions .......................................................
+    !---------------------------------------------------------------------------
+    ! initialization
 
-    ! basic initialization
+    !!$omp master
+
+    allocate(rk_elem( old_mesh%n_elem ))
+    allocate(ce_part( 0:map%n_parts-1 ))
+    allocate(cn_part( 0:map%n_parts-1 ))
+    allocate(cp_part( 0:map%n_parts-1 ))
+
+    ! basic initialization .....................................................
+
     do tp = 0, map%n_parts-1
+
+      ne = map % ne_part(tp)
+
       dist_data(tp) % proc       = new_mesh % proc_part(tp)
       dist_data(tp) % comm       = old_mesh % comm_world
-      dist_data(tp) % n_element  = map % ne_part(tp)
+      dist_data(tp) % n_element  = ne
       dist_data(tp) % n_neighbor = 0
       dist_data(tp) % n_point    = 0
-    end do
 
-    ! counting neighbors and element points
-    do l = 1, old_mesh % n_elem
-
-      tp = map % tp_elem(l)
-      nn = size(old_mesh % element(l) % neighbor)
-      np = (old_mesh % element(l) % geometry % po + 1) ** 3
-
-      dist_data(tp) % n_neighbor  =  dist_data(tp) % n_neighbor  +  nn
-      dist_data(tp) % n_point     =  dist_data(tp) % n_point     +  np
+      allocate(dist_data(tp) % element        (ne) )
+      allocate(dist_data(tp) % start_neighbor (ne) )
+      allocate(dist_data(tp) % start_point    (ne) )
 
     end do
 
-    ! build components .........................................................
+    ! counts and start indices .................................................
 
-    ! allocate components
-    do tp = 0, map%n_parts-1
-      associate(dd => dist_data(tp))
-        allocate( dd % element              ( dd % n_element  ) )
-        allocate( dd % neighbor_id          ( dd % n_neighbor ) )
-        allocate( dd % neighbor_part        ( dd % n_neighbor ) )
-        allocate( dd % neighbor_component   ( dd % n_neighbor ) )
-        allocate( dd % neighbor_orientation ( dd % n_neighbor ) )
-        allocate( dd % x_e                  ( dd % n_point, 3 ) )
-      end associate
-    end do
-
-    ! initialize counters
     ce_part = 0
     cn_part = 0
     cp_part = 0
 
+    do l = 1, old_mesh % n_elem
+
+      tp = map % tp_elem(l)
+      ce = ce_part(tp) + 1
+      nn = size(old_mesh % element(l) % neighbor)
+      np = (old_mesh % element(l) % geometry % po + 1) ** 3
+
+      rk_elem(l) = ce
+
+      dist_data(tp) % start_neighbor (ce) = cn_part(tp) + 1
+      dist_data(tp) % start_point    (ce) = cp_part(tp) + 1
+
+      ce_part(tp) = ce_part(tp) + 1
+      cn_part(tp) = cn_part(tp) + nn
+      cp_part(tp) = cp_part(tp) + np
+
+    end do
+
+    ! remaining components .....................................................
+
+    do tp = 0, map%n_parts-1
+
+      nn = cn_part(tp)
+      np = cp_part(tp)
+
+      dist_data(tp) % n_neighbor  =  nn
+      dist_data(tp) % n_point     =  np
+
+      allocate(dist_data(tp) % neighbor_id          ( nn    ) )
+      allocate(dist_data(tp) % neighbor_part        ( nn    ) )
+      allocate(dist_data(tp) % neighbor_component   ( nn    ) )
+      allocate(dist_data(tp) % neighbor_orientation ( nn    ) )
+      allocate(dist_data(tp) % x_e                  ( np, 3 ) )
+
+    end do
+
+    !!$omp end master
+    !!$omp end barrier
+    !---------------------------------------------------------------------------
+
+    ! build components .........................................................
+
     ! extract and transform element data
+    !!$omp do
     do l = 1, old_mesh % n_elem
       tp = map % tp_elem(l)
       associate(dd => dist_data(tp))
 
         ! static element components
         associate(element => old_mesh % element(l))
-          ce = ce_part(tp) + 1
+          ce = rk_elem(l)
           dd % element(ce) % id              = map % id_elem(l)
           dd % element(ce) % vertex          = element % vertex
           dd % element(ce) % edge            = element % edge
@@ -276,42 +312,44 @@ contains
           dd % element(ce) % geometry % po   = element % geometry % po
           dd % element(ce) % geometry % x_c  = element % geometry % x_c
           dd % element(ce) % geometry % dx_m = element % geometry % dx_m
-          ce_part(tp) = ce
         end associate
 
         ! neighbor data
         associate(neighbor => old_mesh % element(l) % neighbor)
-          cn = cn_part(tp)
+          cn = dd % start_neighbor(ce)
           nn = size(neighbor)
           do i = 1, nn
-            cn = cn + 1
             dd % neighbor_id          (cn) = map % id_elem( neighbor(i)% id )
             dd % neighbor_part        (cn) = map % tp_elem( neighbor(i)% id )
             dd % neighbor_component   (cn) = neighbor(i) % component
             dd % neighbor_orientation (cn) = neighbor(i) % orientation
+            cn = cn + 1
           end do
-          cn_part(tp) = cn
         end associate
 
         ! element points
         associate(x_e => old_mesh % element(l) % geometry % x_e)
           po = old_mesh % element(l) % geometry % po
-          cp = cp_part(tp)
+          cp = dd % start_point(ce)
           do k = 0, po
           do j = 0, po
           do i = 0, po
-            cp = cp + 1
             dd % x_e(cp,1) = x_e(i,j,k,1)
             dd % x_e(cp,2) = x_e(i,j,k,2)
             dd % x_e(cp,3) = x_e(i,j,k,3)
+            cp = cp + 1
           end do
           end do
           end do
-          cp_part(tp) = cp
         end associate
 
       end associate
     end do
+
+    !!$omp master
+    deallocate(rk_elem, ce_part, cn_part, cp_part)
+    !!$omp end master
+    !!$omp end barrier
 
   end subroutine BuildDistributionData
 
@@ -325,14 +363,12 @@ contains
     integer :: cn, cp, nn, po
     integer :: e, i, j, k, l
 
-    ! initialization ...........................................................
-
-    cn = 0 ! neighbor counter
-    cp = 0 ! point counter
-
+    !!$omp do
     do l = 1, dist_data % n_element
 
-      e = dist_data % element(l) % id
+      e  = dist_data % element(l) % id
+      cn = dist_data % start_neighbor(l)
+      cp = dist_data % start_point(l)
 
       ! static element components ..............................................
 
@@ -348,11 +384,11 @@ contains
 
       associate(neighbor => new_mesh % element(e) % neighbor)
         do i = 1, nn
-          cn = cn + 1
           neighbor(i) % id          = dist_data % neighbor_id          (cn)
           neighbor(i) % part        = dist_data % neighbor_part        (cn)
           neighbor(i) % component   = dist_data % neighbor_component   (cn)
           neighbor(i) % orientation = dist_data % neighbor_orientation (cn)
+          cn = cn + 1
         end do
       end associate
 
@@ -366,10 +402,10 @@ contains
         do k = 0, po
         do j = 0, po
         do i = 0, po
-          cp = cp + 1
           x_e(i,j,k,1) = dist_data % x_e(cp, 1)
           x_e(i,j,k,2) = dist_data % x_e(cp, 2)
           x_e(i,j,k,3) = dist_data % x_e(cp, 3)
+          cp = cp + 1
         end do
         end do
         end do

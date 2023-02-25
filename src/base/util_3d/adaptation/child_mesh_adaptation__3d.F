@@ -3,6 +3,7 @@ module Child_Mesh_Adaptation__3D
   use Constants
   use Execution_Control
   use XMPI
+  use Parent_To_Child_Interpolation__1D
   use Mesh__3D
   use Mesh_Element__3D
   use Mesh_Element_Indexing__3D
@@ -114,21 +115,31 @@ contains
     !---------------------------------------------------------------------------
     ! internal variables
 
-    integer, allocatable :: id_child_face(:,:,:) ! IDs of neighbor children
-    integer, allocatable :: id_child_edge(:,:,:) ! at parent element faces,
-    integer, allocatable :: id_child_vert(:,:)   ! edges and vertices
+    ! start position of element contributions to the respective target partition
+    integer, allocatable, save :: start_child_element(:)  ! child elements
+    integer, allocatable, save :: start_child_neighbor(:) ! child neighbor data
+    integer, allocatable, save :: start_child_point(:)    ! child geometry data
 
-    integer, allocatable :: tp_child_face(:)     ! TPs of neighbor children
-    integer, allocatable :: tp_child_edge(:,:)   ! at parent element faces,
-    integer, allocatable :: tp_child_vert(:,:)   ! edges and vertices
+    integer, allocatable, save :: id_child_face(:,:,:) ! IDs of neighbor children
+    integer, allocatable, save :: id_child_edge(:,:,:) ! at parent element faces,
+    integer, allocatable, save :: id_child_vert(:,:)   ! edges and vertices
 
-    integer :: ce_part(0:map%n_parts-1)  ! element counters
-    integer :: cn_part(0:map%n_parts-1)  ! neighbor counters
-    integer :: cp_part(0:map%n_parts-1)  ! element point counters
+    integer, allocatable, save :: tp_child_face(:)     ! TPs of neighbor children
+    integer, allocatable, save :: tp_child_edge(:,:)   ! at parent element faces,
+    integer, allocatable, save :: tp_child_vert(:,:)   ! edges and vertices
 
-    integer :: nc, nn, np, tp
-    integer :: nn_max, nn_face, nn_edge, nn_vert
-    integer :: e, i, j, k, l, m
+    integer, allocatable, save :: ce_part(:)  ! element counters
+    integer, allocatable, save :: cn_part(:)  ! neighbor counters
+    integer, allocatable, save :: cp_part(:)  ! element point counters
+
+    type(StandardOperators_1D),          allocatable, save :: eop(:)
+    type(ParentToChildInterpolation_1D), allocatable, save :: iop(:)
+
+    integer, save :: nn_max, nn_face, nn_edge, nn_vert
+    integer, save :: po_min, po_max
+
+    integer :: nc, nn, np, po, tp
+    integer :: e, f, i, j, k, l, m, v
     integer :: ce
 
     if (parent % part < 0) return
@@ -136,9 +147,20 @@ contains
     associate(id_child => map % id_child, tp_child => map % tp_child)
 
       !-------------------------------------------------------------------------
-      ! MPI and dimensions
+      ! initialization
 
-      ! basic initialization
+      !!$omp master
+
+      allocate(start_child_element  ( old_mesh%n_elem ), source = -1)
+      allocate(start_child_neighbor ( old_mesh%n_elem ), source = -1)
+      allocate(start_child_point    ( old_mesh%n_elem ), source = -1)
+
+      allocate(ce_part( 0:map%n_parts-1 ))
+      allocate(cn_part( 0:map%n_parts-1 ))
+      allocate(cp_part( 0:map%n_parts-1 ))
+
+      ! basic initialization ...................................................
+
       do tp = 0, map%n_parts-1
         dist_data(tp) % proc       = child % proc_part(tp)
         dist_data(tp) % comm       = child % comm_world
@@ -147,16 +169,20 @@ contains
         dist_data(tp) % n_point    = 0
       end do
 
-      ! counters
-      ce_part = 0  ! count of child elements per partition
-      cn_part = 0  ! upper bound for count of child neighbors
-      cp_part = 0  ! upper bound for count of child geometry points
-
       ! max dimensions
       nn_max  = 0  ! max number of neighbors per child element
       nn_face = 0  ! max number of neighbors per child element face
       nn_edge = 0  ! max number of neighbors per child element edge
       nn_vert = 0  ! max number of neighbors per child element vertex
+
+      ! polynomial degree of geometry
+      po_min = parent % p_geom
+      po_max = 1
+
+      ! counters
+      ce_part = 0  ! count of child elements per partition
+      cn_part = 0  ! upper bound for count of child neighbors
+      cp_part = 0  ! upper bound for count of child geometry points
 
       ! counts of elements, neighbors and geometry points per partition
       do e = 1, parent % n_elem
@@ -178,14 +204,19 @@ contains
 
             ! max number of neighbors at faces, edges and vertices
             i = max( element % face   % n_neighbor, 1)
-            j = max( element % edge   % n_neighbor, 1)
-            k = max( element % vertex % n_neighbor, 1)
+            j = max( element % edge   % n_neighbor, i)
+            k = max( element % vertex % n_neighbor, j)
 
             ! max number of neighbors per child
             nn = 6 * i + 12 * j + 8 * k
 
             ! number of element points per child
             np = (element % geometry % po + 1) ** 3
+
+            ! start entries
+            start_child_element  (e) = ce_part(tp) + 1
+            start_child_neighbor (e) = cn_part(tp) + 1
+            start_child_point    (e) = cp_part(tp) + 1
 
             ! update counters
             ce_part(tp) = ce_part(tp) + nc
@@ -198,6 +229,10 @@ contains
             nn_edge = max(j, nn_edge)
             nn_vert = max(k, nn_vert)
 
+            ! update bounds of geometry polynomial degree
+            po_min = min(po_min, element % geometry % po)
+            po_max = max(po_max, element % geometry % po)
+
           end if
         end associate
       end do
@@ -208,19 +243,22 @@ contains
                   , 'Child_Mesh_Adaptation__3D'                         )
       end if
 
-      !-------------------------------------------------------------------------
-      ! build components
-
-      ! setup ..................................................................
-
       ! allocate components
       do tp = 0, map%n_parts-1
-        allocate( dist_data(tp) % element              ( ce_part(tp)    ) )
-        allocate( dist_data(tp) % neighbor_id          ( cn_part(tp)    ) )
-        allocate( dist_data(tp) % neighbor_part        ( cn_part(tp)    ) )
-        allocate( dist_data(tp) % neighbor_component   ( cn_part(tp)    ) )
-        allocate( dist_data(tp) % neighbor_orientation ( cn_part(tp)    ) )
-        allocate( dist_data(tp) % x_e                  ( cp_part(tp), 3 ) )
+
+        nc = ce_part(tp)
+        nn = cn_part(tp)
+        np = cp_part(tp)
+
+        allocate( dist_data(tp) % element              ( nc    ) )
+        allocate( dist_data(tp) % start_neighbor       ( nc    ) )
+        allocate( dist_data(tp) % neighbor_id          ( nn    ) )
+        allocate( dist_data(tp) % neighbor_part        ( nn    ) )
+        allocate( dist_data(tp) % neighbor_component   ( nn    ) )
+        allocate( dist_data(tp) % neighbor_orientation ( nn    ) )
+        allocate( dist_data(tp) % start_point          ( nc    ) )
+        allocate( dist_data(tp) % x_e                  ( np, 3 ) )
+
       end do
 
       ! auxiliary arrays
@@ -228,10 +266,20 @@ contains
       allocate( id_child_edge (2,nn_edge,12) , tp_child_edge (nn_edge,12) )
       allocate( id_child_vert (nn_vert,8)    , tp_child_vert (nn_vert,8)  )
 
-      ! reset counters
-      ce_part = 0
-      cn_part = 0
-      cp_part = 0
+      ! interpolation operators
+      allocate( eop(po_min:po_max) )
+      allocate( iop(po_min:po_max) )
+      do po = po_min, po_max
+        eop(po) = StandardOperators_1D(po, basis = 'L', no_vdm = .true.)
+        iop(po) = ParentToChildInterpolation_1D(eop(po))
+      end do
+
+      !!$omp end master
+      !!$omp end barrier
+      !-------------------------------------------------------------------------
+
+      !-------------------------------------------------------------------------
+      ! build components
 
       ! generate child element data
       do e = 1, parent % n_elem
@@ -240,6 +288,14 @@ contains
         if (tp < 0) cycle
 
         associate(element => parent % element(e), dd => dist_data(tp))
+
+          ! set counter offsets to start - 1
+          ce = start_child_element  (e) - 1
+          cn = start_child_neighbor (e) - 1
+          cp = start_child_point    (e) - 1
+
+          po = element % geometry % po
+          np = (po + 1)**3
 
           ! child TPs and IDs of parent face neighbors .........................
 
@@ -359,8 +415,7 @@ contains
 
           if (id_child(1,1,1,e) > 0) then
 
-            ! rank in children contributed to partition tp
-            ce = ce_part(tp) + 1
+            ce = ce + 1
 
             ! element data
             dd % element(ce) % id = id_child(1,1,1,e)
@@ -372,50 +427,518 @@ contains
             dd % element(ce) % face(3) % boundary = element % face(3) % boundary
             dd % element(ce) % face(5) % boundary = element % face(5) % boundary
 
-            ! initialization of neighbor counters
-            cn = cn_part(tp)
+            ! initialization of neighbor counter
             nn = 0
 
-            ! neighbors at faces 1:6, update cn and nn
-            call FaceNeighbor_NF(1, id_child_face(1,1,1), tp_child_face(1))
-            call FaceNeighbor_SI(2, id_child(2,1,1,e)   , tp              )
-            call FaceNeighbor_NF(3, id_child_face(1,1,3), tp_child_face(3))
-            call FaceNeighbor_SI(4, id_child(1,2,1,e)   , tp              )
-            call FaceNeighbor_NF(5, id_child_face(1,1,5), tp_child_face(5))
-            call FaceNeighbor_SI(6, id_child(1,1,2,e)   , tp              )
+            ! neighbors at faces 1:6
+            call FaceNeighbor_NF(ef=1, i1=1, i2=1      )
+            call FaceNeighbor_SI(ef=2, i1=2, i2=1, i3=1)
+            call FaceNeighbor_NF(ef=3, i1=1, i2=1      )
+            call FaceNeighbor_SI(ef=4, i1=1, i2=2, i3=1)
+            call FaceNeighbor_NF(ef=5, i1=1, i2=1      )
+            call FaceNeighbor_SI(ef=6, i1=1, i2=1, i3=2)
 
             ! neighbors at edges 1:12
-            call EdgeNeighbor_NE( 1,    id_child_edge(1,:,1), tp_child_edge(:,1))
-            call EdgeNeighbor_NF( 2, 5, id_child_face(1,2,5), tp_child_face(5)  )
-            call EdgeNeighbor_NF( 3, 3, id_child_face(1,2,3), tp_child_face(3)  )
-            call EdgeNeighbor_SI( 4,    id_child(1,2,2,e)   , tp                )
-            call EdgeNeighbor_NE( 5,    id_child_edge(1,:,5), tp_child_edge(:,5))
-            call EdgeNeighbor_NF( 6, 5, id_child_face(2,1,5), tp_child_face(5)  )
-            call EdgeNeighbor_NF( 7, 1, id_child_face(1,2,1), tp_child_face(1)  )
-            call EdgeNeighbor_SI( 8,    id_child(2,1,2,e)   , tp                )
-            call EdgeNeighbor_NE( 9,    id_child_edge(1,:,9), tp_child_edge(:,9))
-            call EdgeNeighbor_NF(10, 3, id_child_face(2,1,3), tp_child_face(3)  )
-            call EdgeNeighbor_NF(11, 1, id_child_face(2,1,1), tp_child_face(1)  )
-            call EdgeNeighbor_SI(12,    id_child(2,2,1,e)   , tp                )
+            call EdgeNeighbor_NE(ee= 1, i1=1            )
+            call EdgeNeighbor_NF(ee= 2, ef=5, i1=1, i2=2)
+            call EdgeNeighbor_NF(ee= 3, ef=3, i1=1, i2=2)
+            call EdgeNeighbor_SI(ee= 4, i1=1, i2=2, i3=2)
+            call EdgeNeighbor_NE(ee= 5, i1=1            )
+            call EdgeNeighbor_NF(ee= 6, ef=5, i1=2, i2=1)
+            call EdgeNeighbor_NF(ee= 7, ef=1, i1=1, i2=2)
+            call EdgeNeighbor_SI(ee= 8, i1=2, i2=1, i3=2)
+            call EdgeNeighbor_NE(ee= 9, i1=1            )
+            call EdgeNeighbor_NF(ee=10, ef=3, i1=2, i2=1)
+            call EdgeNeighbor_NF(ee=11, ef=1, i1=2, i2=1)
+            call EdgeNeighbor_SI(ee=12, i1=2, i2=2, i3=1)
 
             ! neighbors at vertices 1:8
-            call VertNeighbor_NV(1,    id_child_vert(  :,1), tp_child_vert(:,1)   )
-            call VertNeighbor_NE(2, 1, id_child_edge(2,:,1), tp_child_edge(:,1), 1)
-            call VertNeighbor_NE(3, 5, id_child_edge(2,:,5), tp_child_edge(:,5), 1)
-            call VertNeighbor_NF(4, 5, id_child_face(2,2,5), tp_child_face(5)     )
-            call VertNeighbor_NE(5, 9, id_child_edge(2,:,9), tp_child_edge(:,9), 1)
-            call VertNeighbor_NF(6, 3, id_child_face(2,2,3), tp_child_face(3)     )
-            call VertNeighbor_NF(7, 1, id_child_face(2,2,1), tp_child_face(1)     )
-            call VertNeighbor_SI(8,    id_child(2,2,2,e)   , tp                   )
+            call VertNeighbor_NV(ev=1                  )
+            call VertNeighbor_NE(ev=2, ee=1, i1=2      )
+            call VertNeighbor_NE(ev=3, ee=5, i1=2      )
+            call VertNeighbor_NF(ev=4, ef=5, i1=2, i2=2)
+            call VertNeighbor_NE(ev=5, ee=9, i1=2      )
+            call VertNeighbor_NF(ev=6, ef=3, i1=2, i2=2)
+            call VertNeighbor_NF(ev=7, ef=1, i1=2, i2=2)
+            call VertNeighbor_SI(ev=8, i1=2, i2=2, i3=2)
 
-            ! element geometry
+            ! geometry
+            dd % element(ce) % geometry % po = po
+            call InterpolateCoords( po = po                        &
+                                  , A1  = iop(po) % A(:,:,1)       &
+                                  , A2  = iop(po) % A(:,:,1)       &
+                                  , A3  = iop(po) % A(:,:,1)       &
+                                  , xp  = element % geometry % x_e &
+                                  , xc1 = dd % x_e(cp+1:cp+np,1)   &
+                                  , xc2 = dd % x_e(cp+1:cp+np,2)   &
+                                  , xc3 = dd % x_e(cp+1:cp+np,3)   )
+            cp = cp + np
 
-            ce_part(tp) = ce
-            cn_part(tp) = cn
+          end if
+
+          ! child 2,1,1 ........................................................
+
+          if (id_child(2,1,1,e) > 0) then
+
+            ce = ce + 1
+
+            ! element data
+            dd % element(ce) % id = id_child(2,1,1,e)
+            dd % element(ce) % adaptation % parent_proc = parent % proc
+            dd % element(ce) % adaptation % parent_id   = e
+
+            ! face data
+            dd % element(ce) % face(2) % boundary = element % face(2) % boundary
+            dd % element(ce) % face(3) % boundary = element % face(3) % boundary
+            dd % element(ce) % face(5) % boundary = element % face(5) % boundary
+
+            nn = 0
+
+            ! neighbors at faces 1:6
+            call FaceNeighbor_SI(ef=1, i1=1, i2=1, i3=1)
+            call FaceNeighbor_NF(ef=2, i1=1, i2=1      )
+            call FaceNeighbor_NF(ef=3, i1=2, i2=1      )
+            call FaceNeighbor_SI(ef=4, i1=2, i2=2, i3=1)
+            call FaceNeighbor_NF(ef=5, i1=2, i2=1      )
+            call FaceNeighbor_SI(ef=6, i1=2, i2=1, i3=2)
+
+            ! neighbors at edges 1:12
+            call EdgeNeighbor_NE(ee= 1, i1=2            )
+            call EdgeNeighbor_NF(ee= 2, ef=5, i1=2, i2=2)
+            call EdgeNeighbor_NF(ee= 3, ef=3, i1=2, i2=2)
+            call EdgeNeighbor_SI(ee= 4, i1=2, i2=2, i3=2)
+            call EdgeNeighbor_NF(ee= 5, ef=5, i1=1, i2=1)
+            call EdgeNeighbor_NE(ee= 6, i1=1            )
+            call EdgeNeighbor_SI(ee= 7, i1=1, i2=1, i3=2)
+            call EdgeNeighbor_NF(ee= 8, ef=2, i1=1, i2=2)
+            call EdgeNeighbor_NF(ee= 9, ef=3, i1=1, i2=1)
+            call EdgeNeighbor_NE(ee=10, i1=1            )
+            call EdgeNeighbor_SI(ee=11, i1=1, i2=2, i3=1)
+            call EdgeNeighbor_NF(ee=12, ef=2, i1=2, i2=1)
+
+            ! neighbors at vertices 1:8
+            call VertNeighbor_NE(ev=1, ee=1,  i1=1      )
+            call VertNeighbor_NV(ev=2                   )
+            call VertNeighbor_NF(ev=3, ef=5,  i1=1, i2=2)
+            call VertNeighbor_NE(ev=4, ee=6,  i1=2      )
+            call VertNeighbor_NF(ev=5, ef=3,  i1=1, i2=2)
+            call VertNeighbor_NE(ev=6, ee=10, i1=2      )
+            call VertNeighbor_SI(ev=7, i1=1,  i2=2, i3=2)
+            call VertNeighbor_NF(ev=8, ef=2,  i1=2, i2=2)
+
+            ! geometry
+            dd % element(ce) % geometry % po = po
+            call InterpolateCoords( po = po                        &
+                                  , A1  = iop(po) % A(:,:,2)       &
+                                  , A2  = iop(po) % A(:,:,1)       &
+                                  , A3  = iop(po) % A(:,:,1)       &
+                                  , xp  = element % geometry % x_e &
+                                  , xc1 = dd % x_e(cp+1:cp+np,1)   &
+                                  , xc2 = dd % x_e(cp+1:cp+np,2)   &
+                                  , xc3 = dd % x_e(cp+1:cp+np,3)   )
+            cp = cp + np
+
+          end if
+
+          ! child 1,2,1 ........................................................
+
+          if (id_child(1,2,1,e) > 0) then
+
+            ce = ce + 1
+
+            ! element data
+            dd % element(ce) % id = id_child(1,2,1,e)
+            dd % element(ce) % adaptation % parent_proc = parent % proc
+            dd % element(ce) % adaptation % parent_id   = e
+
+            ! face data
+            dd % element(ce) % face(1) % boundary = element % face(1) % boundary
+            dd % element(ce) % face(4) % boundary = element % face(4) % boundary
+            dd % element(ce) % face(5) % boundary = element % face(5) % boundary
+
+            nn = 0
+
+            ! neighbors at faces 1:6
+            call FaceNeighbor_NF(ef=1, i1=2, i2=1      )
+            call FaceNeighbor_SI(ef=2, i1=2, i2=2, i3=1)
+            call FaceNeighbor_SI(ef=3, i1=1, i2=1, i3=1)
+            call FaceNeighbor_NF(ef=4, i1=1, i2=1      )
+            call FaceNeighbor_NF(ef=5, i1=1, i2=2      )
+            call FaceNeighbor_SI(ef=6, i1=1, i2=2, i3=2)
+
+            ! neighbors at edges 1:12
+            call EdgeNeighbor_NF(ee= 1, ef=5, i1=1, i2=1)
+            call EdgeNeighbor_NE(ee= 2, i1=1            )
+            call EdgeNeighbor_SI(ee= 3, i1=1, i2=1, i3=2)
+            call EdgeNeighbor_NF(ee= 4, ef=4, i1=1, i2=2)
+            call EdgeNeighbor_NE(ee= 5, i1=2            )
+            call EdgeNeighbor_NF(ee= 6, ef=5, i1=2, i2=2)
+            call EdgeNeighbor_NF(ee= 7, ef=1, i1=2, i2=2)
+            call EdgeNeighbor_SI(ee= 8, i1=2, i2=2, i3=2)
+            call EdgeNeighbor_NF(ee= 9, ef=1, i1=1, i2=1)
+            call EdgeNeighbor_SI(ee=10, i1=2, i2=1, i3=1)
+            call EdgeNeighbor_NE(ee=11, i1=1            )
+            call EdgeNeighbor_NF(ee=12, ef=4, i1=2, i2=1)
+
+            ! neighbors at vertices 1:8
+            call VertNeighbor_NE(ev=1, ee= 5, i1=1      )
+            call VertNeighbor_NF(ev=2, ef= 5, i1=2, i2=1)
+            call VertNeighbor_NV(ev=3                   )
+            call VertNeighbor_NE(ev=4, ee= 2, i1=2      )
+            call VertNeighbor_NF(ev=5, ef= 1, i1=1, i2=2)
+            call VertNeighbor_SI(ev=6, i1= 2, i2=1, i3=2)
+            call VertNeighbor_NE(ev=7, ee=11, i1=2      )
+            call VertNeighbor_NF(ev=8, ef= 4, i1=2, i2=2)
+
+            ! geometry
+            dd % element(ce) % geometry % po = po
+            call InterpolateCoords( po = po                        &
+                                  , A1  = iop(po) % A(:,:,1)       &
+                                  , A2  = iop(po) % A(:,:,2)       &
+                                  , A3  = iop(po) % A(:,:,1)       &
+                                  , xp  = element % geometry % x_e &
+                                  , xc1 = dd % x_e(cp+1:cp+np,1)   &
+                                  , xc2 = dd % x_e(cp+1:cp+np,2)   &
+                                  , xc3 = dd % x_e(cp+1:cp+np,3)   )
+            cp = cp + np
+
+          end if
+
+          ! child 2,2,1 ........................................................
+
+          if (id_child(2,2,1,e) > 0) then
+
+            ce = ce + 1
+
+            ! element data
+            dd % element(ce) % id = id_child(2,2,1,e)
+            dd % element(ce) % adaptation % parent_proc = parent % proc
+            dd % element(ce) % adaptation % parent_id   = e
+
+            ! face data
+            dd % element(ce) % face(2) % boundary = element % face(2) % boundary
+            dd % element(ce) % face(4) % boundary = element % face(4) % boundary
+            dd % element(ce) % face(5) % boundary = element % face(5) % boundary
+
+            nn = 0
+
+            ! neighbors at faces 1:6
+            call FaceNeighbor_SI(ef=1, i1=1, i2=2, i3=1)
+            call FaceNeighbor_NF(ef=2, i1=2, i2=1      )
+            call FaceNeighbor_SI(ef=3, i1=2, i2=1, i3=1)
+            call FaceNeighbor_NF(ef=4, i1=2, i2=1      )
+            call FaceNeighbor_NF(ef=5, i1=2, i2=2      )
+            call FaceNeighbor_SI(ef=6, i1=2, i2=2, i3=2)
+
+            ! neighbors at edges 1:12
+            call EdgeNeighbor_NF(ee= 1, ef=5, i1=2, i2=1)
+            call EdgeNeighbor_NE(ee= 2, i1=2           )
+            call EdgeNeighbor_SI(ee= 3, i1=2, i2=1, i3=2)
+            call EdgeNeighbor_NF(ee= 4, ef=4, i1=2, i2=2)
+            call EdgeNeighbor_NF(ee= 5, ef=5, i1=1, i2=2)
+            call EdgeNeighbor_NE(ee= 6, i1=2            )
+            call EdgeNeighbor_SI(ee= 7, i1=1, i2=2, i3=2)
+            call EdgeNeighbor_NF(ee= 8, ef=2, i1=2, i2=2)
+            call EdgeNeighbor_SI(ee= 9, i1=1, i2=1, i3=1)
+            call EdgeNeighbor_NF(ee=10, ef=2, i1=1, i2=1)
+            call EdgeNeighbor_NF(ee=11, ef=4, i1=1, i2=1)
+            call EdgeNeighbor_NE(ee=12, i1=1            )
+
+            ! neighbors at vertices 1:8
+            call VertNeighbor_NF(ev=1, ef= 5, i1=1, i2=1)
+            call VertNeighbor_NE(ev=2, ee= 6, i1=1      )
+            call VertNeighbor_NE(ev=3, ee= 2, i1=1      )
+            call VertNeighbor_NV(ev=4                   )
+            call VertNeighbor_SI(ev=5, i1= 1, i2=1, i3=2)
+            call VertNeighbor_NF(ev=6, ef= 2, i1=1, i2=2)
+            call VertNeighbor_NF(ev=7, ef= 4, i1=1, i2=2)
+            call VertNeighbor_NE(ev=8, ee=12, i1=2      )
+
+            ! geometry
+            dd % element(ce) % geometry % po = po
+            call InterpolateCoords( po = po                        &
+                                  , A1  = iop(po) % A(:,:,2)       &
+                                  , A2  = iop(po) % A(:,:,2)       &
+                                  , A3  = iop(po) % A(:,:,1)       &
+                                  , xp  = element % geometry % x_e &
+                                  , xc1 = dd % x_e(cp+1:cp+np,1)   &
+                                  , xc2 = dd % x_e(cp+1:cp+np,2)   &
+                                  , xc3 = dd % x_e(cp+1:cp+np,3)   )
+            cp = cp + np
+
+          end if
+
+          ! child 1,1,2 ........................................................
+
+          if (id_child(1,1,2,e) > 0) then
+
+            ce = ce + 1
+
+            ! element data
+            dd % element(ce) % id = id_child(1,1,2,e)
+            dd % element(ce) % adaptation % parent_proc = parent % proc
+            dd % element(ce) % adaptation % parent_id   = e
+
+            ! face data
+            dd % element(ce) % face(1) % boundary = element % face(1) % boundary
+            dd % element(ce) % face(3) % boundary = element % face(3) % boundary
+            dd % element(ce) % face(6) % boundary = element % face(6) % boundary
+
+            nn = 0
+
+            ! neighbors at faces 1:6
+            call FaceNeighbor_NF(ef=1, i1=1, i2=2      )
+            call FaceNeighbor_SI(ef=2, i1=2, i2=1, i3=2)
+            call FaceNeighbor_NF(ef=3, i1=1, i2=2      )
+            call FaceNeighbor_SI(ef=4, i1=1, i2=2, i3=2)
+            call FaceNeighbor_SI(ef=5, i1=1, i2=1, i3=1)
+            call FaceNeighbor_NF(ef=6, i1=1, i2=1      )
+
+            ! neighbors at edges 1:12
+            call EdgeNeighbor_NF(ee= 1, ef=3, i1=1, i2=1)
+            call EdgeNeighbor_SI(ee= 2, i1=1, i2=2, i3=1)
+            call EdgeNeighbor_NE(ee= 3, i1=1            )
+            call EdgeNeighbor_NF(ee= 4, ef=6, i1=2, i2=1)
+            call EdgeNeighbor_NF(ee= 5, ef=1, i1=1, i2=1)
+            call EdgeNeighbor_SI(ee= 6, i1=2, i2=1, i3=1)
+            call EdgeNeighbor_NE(ee= 7, i1=1            )
+            call EdgeNeighbor_NF(ee= 8, ef=6, i1=2, i2=1)
+            call EdgeNeighbor_NE(ee= 9, i1=2            )
+            call EdgeNeighbor_NF(ee=10, ef=3, i1=2, i2=2)
+            call EdgeNeighbor_NF(ee=11, ef=1, i1=2, i2=2)
+            call EdgeNeighbor_SI(ee=12, i1=2, i2=2, i3=2)
+
+            ! neighbors at vertices 1:8
+            call VertNeighbor_NE(ev=1, ee= 9, i1=1      )
+            call VertNeighbor_NF(ev=2, ef= 3, i1=2, i2=1)
+            call VertNeighbor_NF(ev=3, ef= 1, i1=2, i2=1)
+            call VertNeighbor_SI(ev=4, i1= 2, i2=2, i3=1)
+            call VertNeighbor_NV(ev=5                   )
+            call VertNeighbor_NE(ev=6, ee= 3, i1=2      )
+            call VertNeighbor_NE(ev=7, ee= 7, i1=2      )
+            call VertNeighbor_NF(ev=8, ef= 6, i1=2, i2=2)
+
+            ! geometry
+            dd % element(ce) % geometry % po = po
+            call InterpolateCoords( po = po                        &
+                                  , A1  = iop(po) % A(:,:,1)       &
+                                  , A2  = iop(po) % A(:,:,1)       &
+                                  , A3  = iop(po) % A(:,:,2)       &
+                                  , xp  = element % geometry % x_e &
+                                  , xc1 = dd % x_e(cp+1:cp+np,1)   &
+                                  , xc2 = dd % x_e(cp+1:cp+np,2)   &
+                                  , xc3 = dd % x_e(cp+1:cp+np,3)   )
+            cp = cp + np
+
+          end if
+
+          ! child 2,1,2 ........................................................
+
+          if (id_child(2,1,2,e) > 0) then
+
+            ce = ce + 1
+
+            ! element data
+            dd % element(ce) % id = id_child(2,1,2,e)
+            dd % element(ce) % adaptation % parent_proc = parent % proc
+            dd % element(ce) % adaptation % parent_id   = e
+
+            ! face data
+            dd % element(ce) % face(2) % boundary = element % face(2) % boundary
+            dd % element(ce) % face(3) % boundary = element % face(3) % boundary
+            dd % element(ce) % face(6) % boundary = element % face(6) % boundary
+
+            nn = 0
+
+            ! neighbors at faces 1:6
+            call FaceNeighbor_SI(ef=1, i1=1, i2=1, i3=2)
+            call FaceNeighbor_NF(ef=2, i1=1, i2=2      )
+            call FaceNeighbor_NF(ef=3, i1=2, i2=2      )
+            call FaceNeighbor_SI(ef=4, i1=2, i2=2, i3=2)
+            call FaceNeighbor_SI(ef=5, i1=2, i2=1, i3=1)
+            call FaceNeighbor_NF(ef=6, i1=2, i2=1      )
+
+            ! neighbors at edges 1:12
+            call EdgeNeighbor_NF(ee= 1, ef=3, i1=2, i2=1)
+            call EdgeNeighbor_SI(ee= 2, i1=2, i2=2, i3=1)
+            call EdgeNeighbor_NE(ee= 3, i1=2            )
+            call EdgeNeighbor_NF(ee= 4, ef=6, i1=2, i2=2)
+            call EdgeNeighbor_SI(ee= 5, i1=1, i2=1, i3=1)
+            call EdgeNeighbor_NF(ee= 6, ef=2, i1=1, i2=1)
+            call EdgeNeighbor_NF(ee= 7, ef=6, i1=1, i2=1)
+            call EdgeNeighbor_NE(ee= 8, i1=1            )
+            call EdgeNeighbor_NF(ee= 9, ef=3, i1=1, i2=2)
+            call EdgeNeighbor_NE(ee=10, i1=2            )
+            call EdgeNeighbor_SI(ee=11, i1=1, i2=2, i3=2)
+            call EdgeNeighbor_NF(ee=12, ef=2, i1=2, i2=2)
+
+            ! neighbors at vertices 1:8
+            call VertNeighbor_NF(ev=1, ef= 3, i1=1, i2=1)
+            call VertNeighbor_NE(ev=2, ee=10, i1=1      )
+            call VertNeighbor_SI(ev=3, i1= 1, i2=2, i3=1)
+            call VertNeighbor_NF(ev=4, ef= 2, i1=2, i2=1)
+            call VertNeighbor_NE(ev=5, ee= 3, i1=1      )
+            call VertNeighbor_NV(ev=6                   )
+            call VertNeighbor_NF(ev=7, ef= 6, i1=1, i2=2)
+            call VertNeighbor_NE(ev=8, ee= 8, i1=2      )
+
+            ! geometry
+            dd % element(ce) % geometry % po = po
+            call InterpolateCoords( po = po                        &
+                                  , A1  = iop(po) % A(:,:,2)       &
+                                  , A2  = iop(po) % A(:,:,1)       &
+                                  , A3  = iop(po) % A(:,:,2)       &
+                                  , xp  = element % geometry % x_e &
+                                  , xc1 = dd % x_e(cp+1:cp+np,1)   &
+                                  , xc2 = dd % x_e(cp+1:cp+np,2)   &
+                                  , xc3 = dd % x_e(cp+1:cp+np,3)   )
+            cp = cp + np
+
+          end if
+
+          ! child 1,2,2 ........................................................
+
+          if (id_child(1,2,2,e) > 0) then
+
+            ce = ce + 1
+
+            ! element data
+            dd % element(ce) % id = id_child(1,2,2,e)
+            dd % element(ce) % adaptation % parent_proc = parent % proc
+            dd % element(ce) % adaptation % parent_id   = e
+
+            ! face data
+            dd % element(ce) % face(1) % boundary = element % face(1) % boundary
+            dd % element(ce) % face(4) % boundary = element % face(4) % boundary
+            dd % element(ce) % face(6) % boundary = element % face(6) % boundary
+
+            nn = 0
+
+            ! neighbors at faces 1:6
+            call FaceNeighbor_NF(ef=1, i1=2, i2=2      )
+            call FaceNeighbor_SI(ef=2, i1=2, i2=2, i3=2)
+            call FaceNeighbor_SI(ef=3, i1=1, i2=1, i3=2)
+            call FaceNeighbor_NF(ef=4, i1=1, i2=2      )
+            call FaceNeighbor_SI(ef=5, i1=1, i2=2, i3=1)
+            call FaceNeighbor_NF(ef=6, i1=1, i2=2      )
+
+            ! neighbors at edges 1:12
+            call EdgeNeighbor_SI(ee= 1, i1=1, i2=1, i3=1)
+            call EdgeNeighbor_NF(ee= 2, ef=4, i1=1, i2=1)
+            call EdgeNeighbor_NF(ee= 3, ef=6, i1=1, i2=1)
+            call EdgeNeighbor_NE(ee= 4, i1=1            )
+            call EdgeNeighbor_NF(ee= 5, ef=1, i1=2, i2=1)
+            call EdgeNeighbor_SI(ee= 6, i1=2, i2=2, i3=1)
+            call EdgeNeighbor_NE(ee= 7, i1=2            )
+            call EdgeNeighbor_NF(ee= 8, ef=6, i1=2, i2=2)
+            call EdgeNeighbor_NF(ee= 9, ef=1, i1=1, i2=2)
+            call EdgeNeighbor_SI(ee=10, i1=2, i2=1, i3=2)
+            call EdgeNeighbor_NE(ee=11, i1=2            )
+            call EdgeNeighbor_NF(ee=12, ef=4, i1=2, i2=2)
+
+            ! neighbors at vertices 1:8
+            call VertNeighbor_NF(ev=1, ef= 1, i1=1, i2=1)
+            call VertNeighbor_SI(ev=2, i1= 2, i2=1, i3=1)
+            call VertNeighbor_NE(ev=3, ee=11, i1=1      )
+            call VertNeighbor_NF(ev=4, ef= 4, i1=2, i2=1)
+            call VertNeighbor_NE(ev=5, ee= 7, i1=1      )
+            call VertNeighbor_NF(ev=6, ef= 6, i1=2, i2=1)
+            call VertNeighbor_NV(ev=7                   )
+            call VertNeighbor_NE(ev=8, ee= 4, i1=2      )
+
+            ! geometry
+            dd % element(ce) % geometry % po = po
+            call InterpolateCoords( po = po                        &
+                                  , A1  = iop(po) % A(:,:,1)       &
+                                  , A2  = iop(po) % A(:,:,2)       &
+                                  , A3  = iop(po) % A(:,:,2)       &
+                                  , xp  = element % geometry % x_e &
+                                  , xc1 = dd % x_e(cp+1:cp+np,1)   &
+                                  , xc2 = dd % x_e(cp+1:cp+np,2)   &
+                                  , xc3 = dd % x_e(cp+1:cp+np,3)   )
+            cp = cp + np
+
+          end if
+
+          ! child 2,2,2 ........................................................
+
+          if (id_child(2,2,2,e) > 0) then
+
+            ce = ce + 1
+
+            ! element data
+            dd % element(ce) % id = id_child(2,2,2,e)
+            dd % element(ce) % adaptation % parent_proc = parent % proc
+            dd % element(ce) % adaptation % parent_id   = e
+
+            ! face data
+            dd % element(ce) % face(2) % boundary = element % face(2) % boundary
+            dd % element(ce) % face(4) % boundary = element % face(4) % boundary
+            dd % element(ce) % face(6) % boundary = element % face(6) % boundary
+
+            nn = 0
+
+            ! neighbors at faces 1:6
+            call FaceNeighbor_SI(ef=1, i1=1, i2=2, i3=2)
+            call FaceNeighbor_NF(ef=2, i1=2, i2=2      )
+            call FaceNeighbor_SI(ef=3, i1=2, i2=1, i3=2)
+            call FaceNeighbor_NF(ef=4, i1=2, i2=2      )
+            call FaceNeighbor_SI(ef=5, i1=2, i2=2, i3=1)
+            call FaceNeighbor_NF(ef=6, i1=2, i2=2      )
+
+            ! neighbors at edges 1:12
+            call EdgeNeighbor_SI(ee= 1, i1=2, i2=1, i3=1)
+            call EdgeNeighbor_NF(ee= 2, ef=4, i1=2, i2=1)
+            call EdgeNeighbor_NF(ee= 3, ef=6, i1=2, i2=1)
+            call EdgeNeighbor_NE(ee= 4, i1=2            )
+            call EdgeNeighbor_SI(ee= 5, i1=1, i2=2, i3=1)
+            call EdgeNeighbor_NF(ee= 6, ef=2, i1=2, i2=1)
+            call EdgeNeighbor_NF(ee= 7, ef=6, i1=1, i2=2)
+            call EdgeNeighbor_NE(ee= 8, i1=2            )
+            call EdgeNeighbor_SI(ee= 9, i1=1, i2=1, i3=2)
+            call EdgeNeighbor_NF(ee=10, ef=2, i1=1, i2=2)
+            call EdgeNeighbor_NF(ee=11, ef=4, i1=1, i2=2)
+            call EdgeNeighbor_NE(ee=12, i1=2            )
+
+            ! neighbors at vertices 1:8
+            call VertNeighbor_SI(ev=1, i1= 1, i2=1, i3=1)
+            call VertNeighbor_NF(ev=2, ef= 2, i1=1, i2=1)
+            call VertNeighbor_NF(ev=3, ef= 4, i1=1, i2=1)
+            call VertNeighbor_NE(ev=4, ee=12, i1=1      )
+            call VertNeighbor_NF(ev=5, ef= 6, i1=1, i2=1)
+            call VertNeighbor_NE(ev=6, ee= 8, i1=1      )
+            call VertNeighbor_NE(ev=7, ee= 4, i1=1      )
+            call VertNeighbor_NV(ev=8                   )
+
+            ! geometry
+            dd % element(ce) % geometry % po = po
+            call InterpolateCoords( po = po                        &
+                                  , A1  = iop(po) % A(:,:,2)       &
+                                  , A2  = iop(po) % A(:,:,2)       &
+                                  , A3  = iop(po) % A(:,:,2)       &
+                                  , xp  = element % geometry % x_e &
+                                  , xc1 = dd % x_e(cp+1:cp+np,1)   &
+                                  , xc2 = dd % x_e(cp+1:cp+np,2)   &
+                                  , xc3 = dd % x_e(cp+1:cp+np,3)   )
+            cp = cp + np
+
           end if
 
         end associate
       end do
+
+      !-------------------------------------------------------------------------
+      ! finalization
+
+      !!$omp master
+      deallocate( start_child_element, start_child_neighbor, start_child_point )
+      deallocate( ce_part, cn_part, cp_part )
+      deallocate( id_child_face, tp_child_face )
+      deallocate( id_child_edge, tp_child_edge )
+      deallocate( id_child_vert, tp_child_vert )
+      deallocate( eop, iop )
+      !!$omp end master
+      !!$omp end barrier
 
     end associate
 
@@ -424,375 +947,398 @@ contains
     !---------------------------------------------------------------------------
     !> Face neighbor at parent neighbor face
 
-    subroutine FaceNeighbor_NF(ef, nb_id, nb_tp)
-      integer, intent(in) :: ef    !< element face
-      integer, intent(in) :: nb_id !< neighbor ID
-      integer, intent(in) :: nb_tp !< neighbor target partition
+    subroutine FaceNeighbor_NF(ef=ef, i1, i2)
+      integer, intent(in) :: ef     !< element face
+      integer, intent(in) :: i1, i2 !< neighbor face child double index
 
       integer :: ii
 
-      if (nb_id <= 0) return
+      associate(nb_id => id_child_face(i1,i2,ef), nb_tp => tp_child_face(ef))
 
-      cn = cn + 1
-      nn = nn + 1
+        if (nb_id <= 0) return
 
-      dd % element(ce) % face(ef) % n_neighbor = 1
-      dd % element(ce) % face(ef) % i_neighbor = nn
+        cn = cn + 1
+        nn = nn + 1
 
-      ii = element % face(ef) % i_neighbor
+        dd % element(ce) % face(ef) % n_neighbor = 1
+        dd % element(ce) % face(ef) % i_neighbor = nn
 
-      dd % neighbor_id          (cn) = nb_id
-      dd % neighbor_part        (cn) = nb_tp
-      dd % neighbor_component   (cn) = element % neighbor(ii) % component
-      dd % neighbor_orientation (cn) = element % neighbor(ii) % orientation
+        ii = element % face(ef) % i_neighbor
+
+        dd % neighbor_id          (cn) = nb_id
+        dd % neighbor_part        (cn) = nb_tp
+        dd % neighbor_component   (cn) = element % neighbor(ii) % component
+        dd % neighbor_orientation (cn) = element % neighbor(ii) % orientation
+
+      end associate
 
     end subroutine FaceNeighbor_NF
 
     !---------------------------------------------------------------------------
     !> Sibling face neighbor
 
-    subroutine FaceNeighbor_SI(ef, nb_id, nb_tp)
-      integer, intent(in) :: ef    !< element face
-      integer, intent(in) :: nb_id !< neighbor ID
-      integer, intent(in) :: nb_tp !< neighbor target partition
+    subroutine FaceNeighbor_SI(ef, i1, i2, i3)
+      integer, intent(in) :: ef         !< element face
+      integer, intent(in) :: i1, i2, i3 !< element child triple index
 
-      if (nb_id <= 0) return
+      associate(nb_id => id_child(i1,i2,i3,e), nb_tp => tp)
 
-      cn = cn + 1
-      nn = nn + 1
+        if (nb_id <= 0) return
 
-      dd % element(ce) % face(ef) % n_neighbor = 1
-      dd % element(ce) % face(ef) % i_neighbor = nn
+        cn = cn + 1
+        nn = nn + 1
 
-      dd % neighbor_id   (cn) = nb_id
-      dd % neighbor_part (cn) = nb_tp
+        dd % element(ce) % face(ef) % n_neighbor = 1
+        dd % element(ce) % face(ef) % i_neighbor = nn
 
-      select case(ef)
-      case(1)
-        dd % neighbor_component (cn) = 2
-      case(2)
-        dd % neighbor_component (cn) = 1
-      case(3)
-        dd % neighbor_component (cn) = 4
-      case(4)
-        dd % neighbor_component (cn) = 3
-      case(5)
-        dd % neighbor_component (cn) = 6
-      case(6)
-        dd % neighbor_component (cn) = 5
-      end select
+        dd % neighbor_id   (cn) = nb_id
+        dd % neighbor_part (cn) = nb_tp
 
-      dd % neighbor_orientation (cn) = 12  ! always aligned !
+        select case(ef)
+        case(1)
+          dd % neighbor_component (cn) = 2
+        case(2)
+          dd % neighbor_component (cn) = 1
+        case(3)
+          dd % neighbor_component (cn) = 4
+        case(4)
+          dd % neighbor_component (cn) = 3
+        case(5)
+          dd % neighbor_component (cn) = 6
+        case(6)
+          dd % neighbor_component (cn) = 5
+        end select
+
+        dd % neighbor_orientation (cn) = 12  ! always aligned !
+
+      end associate
 
     end subroutine FaceNeighbor_SI
 
     !---------------------------------------------------------------------------
     !> Edge neighbors at parent neighbor edge
 
-    subroutine EdgeNeighbor_NE(ee, nb_id, nb_tp)
-      integer, intent(in) :: ee       !< element edge
-      integer, intent(in) :: nb_id(:) !< neighbor IDs
-      integer, intent(in) :: nb_tp(:) !< neighbor target partitions
+    subroutine EdgeNeighbor_NE(ee, i1)
+      integer, intent(in) :: ee !< element edge
+      integer, intent(in) :: i1 !< neighbor edge child index
 
       integer :: ii, jj, nn_ce
 
-      nn_ce = count(nb_id > 0)
-      if (nn_ce == 0) return
+      associate(nb_id => id_child_edge(i1,:,ee), nb_tp => tp_child_edge(:,ee))
 
-      dd % element(ce) % edge(ee) % n_neighbor = nn_ce
-      dd % element(ce) % edge(ee) % i_neighbor = nn + 1
+        nn_ce = count(nb_id > 0)
+        if (nn_ce == 0) return
 
-      ii = element % edge(ee) % i_neighbor
-      do jj = 1, element % edge(ee) % n_neighbor
-        if (nb_id(jj) > 0) then
-          cn = cn + 1
-          dd % neighbor_id          (cn) = nb_id(jj)
-          dd % neighbor_part        (cn) = nb_tp(jj)
-          dd % neighbor_component   (cn) = element % neighbor(ii) % component
-          dd % neighbor_orientation (cn) = element % neighbor(ii) % orientation
-        end if
-        ii = ii + 1
-      end do
-      nn = nn + nn_ce
+        dd % element(ce) % edge(ee) % n_neighbor = nn_ce
+        dd % element(ce) % edge(ee) % i_neighbor = nn + 1
+
+        ii = element % edge(ee) % i_neighbor
+        do jj = 1, element % edge(ee) % n_neighbor
+          if (nb_id(jj) > 0) then
+            cn = cn + 1
+            dd % neighbor_id          (cn) = nb_id(jj)
+            dd % neighbor_part        (cn) = nb_tp(jj)
+            dd % neighbor_component   (cn) = element % neighbor(ii) % component
+            dd % neighbor_orientation (cn) = element % neighbor(ii) % orientation
+          end if
+          ii = ii + 1
+        end do
+        nn = nn + nn_ce
+
+      end associate
 
     end subroutine EdgeNeighbor_NE
 
     !---------------------------------------------------------------------------
     !> Edge neighbor at parent neighbor face
 
-    subroutine EdgeNeighbor_NF(ee, ef, nb_id, nb_tp)
-      integer, intent(in) :: ee    !< element edge
-      integer, intent(in) :: ef    !< element face
-      integer, intent(in) :: nb_id !< neighbor ID
-      integer, intent(in) :: nb_tp !< neighbor target partition
+    subroutine EdgeNeighbor_NF(ee, ef, i1, i2)
+      integer, intent(in) :: ee     !< element edge
+      integer, intent(in) :: ef     !< element face
+      integer, intent(in) :: i1, i2 !< neighbor face child double index
 
       integer(IXS) :: component, orientation
       integer :: xi_o(3), xi_t(3)
       integer :: ii, nee
 
-      if (nb_id <= 0) return
+      associate(nb_id => id_child_face(i1,i2,ef), nb_tp => tp_child_face(ef))
 
-      cn = cn + 1
-      nn = nn + 1
+        if (nb_id <= 0) return
 
-      dd % element(ce) % edge(ee) % n_neighbor = 1
-      dd % element(ce) % edge(ee) % i_neighbor = nn
+        cn = cn + 1
+        nn = nn + 1
 
-      ! adopt orientation from parent face neighbor .............................
+        dd % element(ce) % edge(ee) % n_neighbor = 1
+        dd % element(ce) % edge(ee) % i_neighbor = nn
 
-      ii = element % face(ef) % i_neighbor
-      orientation = element % neighbor(ii) % orientation
+        ! adopt orientation from parent face neighbor ...........................
 
-      ! identify matching adjacent child edge ...................................
+        ii = element % face(ef) % i_neighbor
+        orientation = element % neighbor(ii) % orientation
 
-      ! 1: midpoint (ξ,η,ζ) coordinates of aligned neighbor edge → xi_o
-      select case(ee)
-      case( 1)
-        xi_o = [  0,  1,  1 ]
-      case( 2)
-        xi_o = [  0, -1,  1 ]
-      case( 3)
-        xi_o = [  0,  1, -1 ]
-      case( 4)
-        xi_o = [  0, -1, -1 ]
-      case( 5)
-        xi_o = [  1,  0,  1 ]
-      case( 6)
-        xi_o = [ -1,  0,  1 ]
-      case( 7)
-        xi_o = [  1,  0, -1 ]
-      case( 8)
-        xi_o = [ -1,  0, -1 ]
-      case( 9)
-        xi_o = [  1,  1,  0 ]
-      case(10)
-        xi_o = [ -1,  1,  0 ]
-      case(11)
-        xi_o = [  1, -1,  0 ]
-      case(12)
-        xi_o = [ -1, -1,  0 ]
-      end select
+        ! identify matching adjacent child edge .................................
 
-      ! 2: transformed neighbor edge coordinates → xi_t
-      call TransformIndex(orientation, 3, o0 = -1, o = xi_o, t0 = -1, t = xi_t)
+        ! 1: midpoint (ξ,η,ζ) coordinates of aligned neighbor edge → xi_o
+        select case(ee)
+        case( 1)
+          xi_o = [  0,  1,  1 ]
+        case( 2)
+          xi_o = [  0, -1,  1 ]
+        case( 3)
+          xi_o = [  0,  1, -1 ]
+        case( 4)
+          xi_o = [  0, -1, -1 ]
+        case( 5)
+          xi_o = [  1,  0,  1 ]
+        case( 6)
+          xi_o = [ -1,  0,  1 ]
+        case( 7)
+          xi_o = [  1,  0, -1 ]
+        case( 8)
+          xi_o = [ -1,  0, -1 ]
+        case( 9)
+          xi_o = [  1,  1,  0 ]
+        case(10)
+          xi_o = [ -1,  1,  0 ]
+        case(11)
+          xi_o = [  1, -1,  0 ]
+        case(12)
+          xi_o = [ -1, -1,  0 ]
+        end select
 
-      ! 3: ID of neighbor element edge
-      if (xi_o(1) == 0) then
-        nee = 1 + (xi_o(2) + 1)/2 + (xi_o(3) + 1)
-      else if (xi_o(2) == 0) then
-        nee = 5 + (xi_o(1) + 1)/2 + (xi_o(3) + 1)
-      else if (xi_o(3) == 0) then
-        nee = 9 + (xi_o(1) + 1)/2 + (xi_o(2) + 1)
-      else ! should not happen, trigger error by providing invalid number
-        nee = -100
-      end if
+        ! 2: transformed neighbor edge coordinates → xi_t
+        call TransformIndex(orientation, 3, o0 = -1, o = xi_o, t0 = -1, t = xi_t)
 
-      ! 4: neighbor component ID
-      component = int(6 + nee, IXS)
+        ! 3: ID of neighbor element edge
+        if (xi_o(1) == 0) then
+          nee = 1 + (xi_o(2) + 1)/2 + (xi_o(3) + 1)
+        else if (xi_o(2) == 0) then
+          nee = 5 + (xi_o(1) + 1)/2 + (xi_o(3) + 1)
+        else if (xi_o(3) == 0) then
+          nee = 9 + (xi_o(1) + 1)/2 + (xi_o(2) + 1)
+        else ! should not happen, trigger error by providing invalid number
+          nee = -100
+        end if
 
-      ! assign neighbor data ...................................................
+        ! 4: neighbor component ID
+        component = int(6 + nee, IXS)
 
-      dd % neighbor_id          (cn) = nb_id
-      dd % neighbor_part        (cn) = nb_tp
-      dd % neighbor_component   (cn) = component
-      dd % neighbor_orientation (cn) = orientation
+        ! assign neighbor data .................................................
+
+        dd % neighbor_id          (cn) = nb_id
+        dd % neighbor_part        (cn) = nb_tp
+        dd % neighbor_component   (cn) = component
+        dd % neighbor_orientation (cn) = orientation
+
+      end associate
 
     end subroutine EdgeNeighbor_NF
 
     !---------------------------------------------------------------------------
     !> Sibling edge neighbor
 
-    subroutine EdgeNeighbor_SI(ee, nb_id, nb_tp)
-      integer, intent(in) :: ee    !< element edge
-      integer, intent(in) :: nb_id !< neighbor ID
-      integer, intent(in) :: nb_tp !< neighbor target partition
+    subroutine EdgeNeighbor_SI(ee, i1, i2, i3)
+      integer, intent(in) :: ee         !< element edge
+      integer, intent(in) :: i1, i2, i3 !< element child triple index
 
-      if (nb_id <= 0) return
+      associate(nb_id => id_child(i1,i2,i3,e), nb_tp => tp)
 
-      cn = cn + 1
-      nn = nn + 1
+        if (nb_id <= 0) return
 
-      dd % element(ce) % edge(ee) % n_neighbor = 1
-      dd % element(ce) % edge(ee) % i_neighbor = nn
+        cn = cn + 1
+        nn = nn + 1
 
-      dd % neighbor_id   (cn) = nb_id
-      dd % neighbor_part (cn) = nb_tp
+        dd % element(ce) % edge(ee) % n_neighbor = 1
+        dd % element(ce) % edge(ee) % i_neighbor = nn
 
-      ! ID of coupled component = ID of opposite element edge
-      select case(ee)
-      case(1:4)
-        dd % neighbor_component (cn) = 6 +  5 - ee
-      case(5:8)
-        dd % neighbor_component (cn) = 6 + 13 - ee
-      case(9:12)
-        dd % neighbor_component (cn) = 6 + 21 - ee
-      end select
+        dd % neighbor_id   (cn) = nb_id
+        dd % neighbor_part (cn) = nb_tp
 
-      dd % neighbor_orientation (cn) = 12  ! always aligned !
+        ! ID of coupled component = ID of opposite element edge
+        select case(ee)
+        case(1:4)
+          dd % neighbor_component (cn) = 6 +  5 - ee
+        case(5:8)
+          dd % neighbor_component (cn) = 6 + 13 - ee
+        case(9:12)
+          dd % neighbor_component (cn) = 6 + 21 - ee
+        end select
+
+        dd % neighbor_orientation (cn) = 12  ! always aligned !
+
+      end associate
 
     end subroutine EdgeNeighbor_SI
 
     !---------------------------------------------------------------------------
     !> Vertex neighbors at parent neighbor vertex
 
-    subroutine VertNeighbor_NV(ev, nb_id, nb_tp)
-      integer, intent(in) :: ev       !< element vertex
-      integer, intent(in) :: nb_id(:) !< neighbor IDs
-      integer, intent(in) :: nb_tp(:) !< neighbor target partitions
+    subroutine VertNeighbor_NV(ev)
+      integer, intent(in) :: ev !< element vertex
 
-       integer :: ii, jj, nn_ce
+      integer :: ii, jj, nn_ce
 
-      nn_ce = count(nb_id > 0)
-      if (nn_ce== 0) return
+      associate(nb_id => id_child_vert(:,ev), nb_tp => tp_child_vert(ev))
 
-      dd % element(ce) % vertex(ev) % n_neighbor = nn_ce
-      dd % element(ce) % vertex(ev) % i_neighbor = nn + 1
+        nn_ce = count(nb_id > 0)
+        if (nn_ce== 0) return
 
-      ii = element % vertex(ev) % i_neighbor
-      do jj = 1, element % vertex(ev) % n_neighbor
-        if (nb_id(jj) > 0) then
-          cn = cn + 1
-          dd % neighbor_id          (cn) = nb_id(jj)
-          dd % neighbor_part        (cn) = nb_tp(jj)
-          dd % neighbor_component   (cn) = element % neighbor(ii) % component
-          dd % neighbor_orientation (cn) = element % neighbor(ii) % orientation
-        end if
-        ii = ii + 1
-      end do
-      nn = nn + nn_ce
+        dd % element(ce) % vertex(ev) % n_neighbor = nn_ce
+        dd % element(ce) % vertex(ev) % i_neighbor = nn + 1
+
+        ii = element % vertex(ev) % i_neighbor
+        do jj = 1, element % vertex(ev) % n_neighbor
+          if (nb_id(jj) > 0) then
+            cn = cn + 1
+            dd % neighbor_id          (cn) = nb_id(jj)
+            dd % neighbor_part        (cn) = nb_tp(jj)
+            dd % neighbor_component   (cn) = element % neighbor(ii) % component
+            dd % neighbor_orientation (cn) = element % neighbor(ii) % orientation
+          end if
+          ii = ii + 1
+        end do
+        nn = nn + nn_ce
+
+      end associate
 
     end subroutine VertNeighbor_NV
 
     !---------------------------------------------------------------------------
     !> Vertex neighbors at parent neighbor edge
 
-    subroutine VertNeighbor_NE(ev, ee, nb_id, nb_tp, ec_rank)
-      integer, intent(in) :: ev       !< element vertex
-      integer, intent(in) :: ee       !< element edge
-      integer, intent(in) :: nb_id(:) !< neighbor IDs
-      integer, intent(in) :: nb_tp(:) !< neighbor target partitions
-      integer, intent(in) :: ec_rank  !< edge child rank: first (1) or second (2)
+    subroutine VertNeighbor_NE(ev, ee, i1)
+      integer, intent(in) :: ev !< element vertex
+      integer, intent(in) :: ee !< element edge
+      integer, intent(in) :: i1 !< neighbor edge child index
 
       integer :: ii, jj, nee, nev, nn_ce
 
-      nn_ce = count(nb_id > 0)
-      if (nn_ce == 0) return
+      associate(nb_id => id_child_edge(i1,:,ee), nb_tp => tp_child_edge(:,ee))
 
-      dd % element(ce) % vertex(ev) % n_neighbor = nn_ce
-      dd % element(ce) % vertex(ev) % i_neighbor = nn + 1
+        nn_ce = count(nb_id > 0)
+        if (nn_ce == 0) return
 
-      ii = element % edge(ee) % i_neighbor
-      do jj = 1, element % edge(ee) % n_neighbor
-        if (nb_id(jj) > 0) then
-          cn = cn + 1
+        dd % element(ce) % vertex(ev) % n_neighbor = nn_ce
+        dd % element(ce) % vertex(ev) % i_neighbor = nn + 1
 
-          ! parent neighbor edge
-          nee = ElementEdgeID(element % neighbor(ii) % component)
+        ii = element % edge(ee) % i_neighbor
+        do jj = 1, element % edge(ee) % n_neighbor
+          if (nb_id(jj) > 0) then
+            cn = cn + 1
 
-          ! matching neighbor vertex
-          if (element % NeigborEdgeIsAligned(ee, ii)) then
-            nev = V_EDGE(ec_rank, nee)
-          else
-            nev = V_EDGE(3 - ec_rank, nee)  ! edge vertex order reversed !
+            ! parent neighbor edge
+            nee = ElementEdgeID(element % neighbor(ii) % component)
+
+            ! matching neighbor vertex
+            if (element % NeigborEdgeIsAligned(ee, ii)) then
+              nev = V_EDGE(3 - i1, nee)
+            else
+              nev = V_EDGE(i1, nee)
+            end if
+
+            dd % neighbor_id          (cn) = nb_id(jj)
+            dd % neighbor_part        (cn) = nb_tp(jj)
+            dd % neighbor_component   (cn) = 18 + nev
+            dd % neighbor_orientation (cn) = element % neighbor(ii) % orientation
+
           end if
+          ii = ii + 1
+        end do
+        nn = nn + nn_ce
 
-          ! assign neighbor data .................................................
-
-          dd % neighbor_id          (cn) = nb_id(jj)
-          dd % neighbor_part        (cn) = nb_tp(jj)
-          dd % neighbor_component   (cn) = 18 + nev
-          dd % neighbor_orientation (cn) = element % neighbor(ii) % orientation
-
-        end if
-        ii = ii + 1
-      end do
-      nn = nn + nn_ce
+      end associate
 
     end subroutine VertNeighbor_NE
 
     !---------------------------------------------------------------------------
     !> Vertex neighbor at parent neighbor face
 
-    subroutine VertNeighbor_NF(ev, ef, nb_id, nb_tp)
-      integer, intent(in) :: ev    !< element vertex
-      integer, intent(in) :: ef    !< element face
-      integer, intent(in) :: nb_id !< neighbor ID
-      integer, intent(in) :: nb_tp !< neighbor target partition
+    subroutine VertNeighbor_NF(ev, ef, i1, i2)
+      integer, intent(in) :: ev     !< element vertex
+      integer, intent(in) :: ef     !< element face
+      integer, intent(in) :: i1, i2 !< neighbor face child double index
 
       integer(IXS) :: orientation
       integer :: xi_o(3), xi_t(3)
       integer :: ii, nev
 
-      if (nb_id <= 0) return
+      associate(nb_id => id_child_face(i1,i2,ef), nb_tp => tp_child_face(ef))
 
-      cn = cn + 1
-      nn = nn + 1
+        if (nb_id <= 0) return
 
-      dd % element(ce) % vertex(ev) % n_neighbor = 1
-      dd % element(ce) % vertex(ev) % i_neighbor = nn
+        cn = cn + 1
+        nn = nn + 1
 
-      ! adopt orientation from parent face neighbor .............................
+        dd % element(ce) % vertex(ev) % n_neighbor = 1
+        dd % element(ce) % vertex(ev) % i_neighbor = nn
 
-      ii = element % face(ef) % i_neighbor
-      orientation = element % neighbor(ii) % orientation
+        ! adopt orientation from parent face neighbor ..........................
 
-      ! identify matching adjacent child vertex ...............................
+        ii = element % face(ef) % i_neighbor
+        orientation = element % neighbor(ii) % orientation
 
-      ! 1: (ξ,η,ζ) coordinates of aligned neighbor vertex → xi_o
-      select case(ev)
-      case( 1)
-        xi_o = [  1,  1,  1 ]
-      case(2)
-        xi_o = [ -1,  1,  1 ]
-      case(3)
-        xi_o = [  1, -1,  1 ]
-      case(4)
-        xi_o = [ -1, -1,  1 ]
-      case(5)
-        xi_o = [  1,  1, -1 ]
-      case( 6)
-        xi_o = [ -1,  1, -1 ]
-      case(7)
-        xi_o = [  1, -1, -1 ]
-      case(8)
-        xi_o = [ -1, -1, -1 ]
-      end select
+        ! identify matching adjacent child vertex ..............................
 
-      ! 2: transformed neighbor vertex coordinates → xi_t
-      call TransformIndex(orientation, 3, o0 = -1, o = xi_o, t0 = -1, t = xi_t)
+        ! 1: (ξ,η,ζ) coordinates of aligned neighbor vertex → xi_o
+        select case(ev)
+        case( 1)
+          xi_o = [  1,  1,  1 ]
+        case(2)
+          xi_o = [ -1,  1,  1 ]
+        case(3)
+          xi_o = [  1, -1,  1 ]
+        case(4)
+          xi_o = [ -1, -1,  1 ]
+        case(5)
+          xi_o = [  1,  1, -1 ]
+        case( 6)
+          xi_o = [ -1,  1, -1 ]
+        case(7)
+          xi_o = [  1, -1, -1 ]
+        case(8)
+          xi_o = [ -1, -1, -1 ]
+        end select
 
-      ! 3: ID of neighbor element vertex
-      nev = 1 + (xi_o(1) + 1)/2 + (xi_o(2) + 1) + (xi_o(3) + 1)*2
+        ! 2: transformed neighbor vertex coordinates → xi_t
+        call TransformIndex(orientation, 3, o0 = -1, o = xi_o, t0 = -1, t = xi_t)
 
-      ! assign neighbor data ...................................................
+        ! 3: ID of neighbor element vertex
+        nev = 1 + (xi_o(1) + 1)/2 + (xi_o(2) + 1) + (xi_o(3) + 1)*2
 
-      dd % neighbor_id          (cn) = nb_id
-      dd % neighbor_part        (cn) = nb_tp
-      dd % neighbor_component   (cn) = 18 + nev
-      dd % neighbor_orientation (cn) = orientation
+        ! assign neighbor data .................................................
+
+        dd % neighbor_id          (cn) = nb_id
+        dd % neighbor_part        (cn) = nb_tp
+        dd % neighbor_component   (cn) = 18 + nev
+        dd % neighbor_orientation (cn) = orientation
+
+      end associate
 
     end subroutine VertNeighbor_NF
 
     !---------------------------------------------------------------------------
     !> Sibling vertex neighbor
 
-    subroutine VertNeighbor_SI(ev, nb_id, nb_tp)
-      integer, intent(in) :: ev    !< element vertex
-      integer, intent(in) :: nb_id !< neighbor ID
-      integer, intent(in) :: nb_tp !< neighbor target partition
+    subroutine VertNeighbor_SI(ev, i1, i2, i3)
+      integer, intent(in) :: ev         !< element vertex
+      integer, intent(in) :: i1, i2, i3 !< element child triple index
 
-      if (nb_id <= 0) return
+      associate(nb_id => id_child(i1,i2,i3,e), nb_tp => tp)
 
-      cn = cn + 1
-      nn = nn + 1
+        if (nb_id <= 0) return
 
-      dd % element(ce) % vertex(ev) % n_neighbor = 1
-      dd % element(ce) % vertex(ev) % i_neighbor = nn
+        cn = cn + 1
+        nn = nn + 1
 
-      dd % neighbor_id          (cn) = nb_id
-      dd % neighbor_part        (cn) = nb_tp
-      dd % neighbor_component   (cn) = 18 + 9 - ev ! diagonally opposite vertex
-      dd % neighbor_orientation (cn) = 12          ! always aligned !
+        dd % element(ce) % vertex(ev) % n_neighbor = 1
+        dd % element(ce) % vertex(ev) % i_neighbor = nn
+
+        dd % neighbor_id          (cn) = nb_id
+        dd % neighbor_part        (cn) = nb_tp
+        dd % neighbor_component   (cn) = 18 + 9 - ev ! diagonally opposite vertex
+        dd % neighbor_orientation (cn) = 12          ! always aligned !
+
+      end associate
 
     end subroutine VertNeighbor_SI
 
@@ -800,6 +1346,70 @@ contains
 
   end subroutine BuildDistributionData
 
+  !-----------------------------------------------------------------------------
+  !> Interpolates parent element points to child
+
+  subroutine InterpolateCoords(po, A1, A2, A3, xp, xc1, xc2, xc3)
+    integer,   intent(in)  :: po               !< polynomial order
+    real(RNP), intent(in)  :: A1  (0:po, 0:po) !< x₁ interpolation operator
+    real(RNP), intent(in)  :: A2  (0:po, 0:po) !< x₂ interpolation operator
+    real(RNP), intent(in)  :: A3  (0:po, 0:po) !< x₃ interpolation operator
+    real(RNP), intent(in)  :: xp  (0:po, 0:po, 0:po, 3) !< parent coordinates
+    real(RNP), intent(out) :: xc1 (0:po, 0:po, 0:po)    !< child x₁ coordinates
+    real(RNP), intent(out) :: xc2 (0:po, 0:po, 0:po)    !< child x₂ coordinates
+    real(RNP), intent(out) :: xc3 (0:po, 0:po, 0:po)    !< child x₃ coordinates
+
+    real(RNP) :: z1(0:po, 0:po, 0:po, 3)
+    real(RNP) :: z2(0:po, 0:po, 0:po, 3)
+
+    integer :: i, j, k, p
+
+    do k = 0, po
+    do j = 0, po
+    do i = 0, po
+      z1(i,j,k,1) = 0
+      z1(i,j,k,2) = 0
+      z1(i,j,k,3) = 0
+      do p = 0, po
+        z1(i,j,k,1) = z1(i,j,k,1) + A1(i,p) * xp(p,j,k,1)
+        z1(i,j,k,2) = z1(i,j,k,2) + A1(i,p) * xp(p,j,k,2)
+        z1(i,j,k,3) = z1(i,j,k,3) + A1(i,p) * xp(p,j,k,3)
+      end do
+    end do
+    end do
+    end do
+
+    do k = 0, po
+    do j = 0, po
+    do i = 0, po
+      z2(i,j,k,1) = 0
+      z2(i,j,k,2) = 0
+      z2(i,j,k,3) = 0
+      do p = 0, po
+        z2(i,j,k,1) = z2(i,j,k,1) + A2(j,p) * z1(i,p,k,1)
+        z2(i,j,k,2) = z2(i,j,k,2) + A2(j,p) * z1(i,p,k,2)
+        z2(i,j,k,3) = z2(i,j,k,3) + A2(j,p) * z1(i,p,k,3)
+      end do
+    end do
+    end do
+    end do
+
+    do k = 0, po
+    do j = 0, po
+    do i = 0, po
+      xc1(i,j,k) = 0
+      xc2(i,j,k) = 0
+      xc3(i,j,k) = 0
+      do p = 0, po
+        xc1(i,j,k) = xc1(i,j,k) + A3(k,p) * z2(i,j,p,1)
+        xc2(i,j,k) = xc2(i,j,k) + A3(k,p) * z2(i,j,p,2)
+        xc3(i,j,k) = xc3(i,j,k) + A3(k,p) * z2(i,j,p,3)
+      end do
+    end do
+    end do
+    end do
+
+  end subroutine InterpolateCoords
 
   !=============================================================================
 

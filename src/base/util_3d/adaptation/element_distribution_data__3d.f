@@ -17,7 +17,7 @@ module Element_Distribution_Data__3D
     integer            :: proc = -1   !< MPI rank of source/destination
     type(MPI_Comm)     :: comm        !< MPI communicator
     type(MPI_Request)  :: req_dim(3)  !< MPI request for dimensions
-    type(MPI_Request)  :: req_dat(6)  !< MPI request for data arrays
+    type(MPI_Request)  :: req_dat(8)  !< MPI request for data arrays
 
     ! dimensions
     integer :: n_element  = 0         !< number of elements
@@ -27,14 +27,16 @@ module Element_Distribution_Data__3D
     ! static element components
     type(MeshElement_3D), allocatable :: element(:)      !< static components
 
-    ! concatenated element neighbor components
+    ! neighbor components, data of element `e` starts at `start_neighbor(e)`
+    integer     , allocatable :: start_neighbor(:)       !< neighbor start indices
     integer     , allocatable :: neighbor_id(:)          !< neighbor%id
     integer     , allocatable :: neighbor_part(:)        !< neighbor%part
     integer(IXS), allocatable :: neighbor_component(:)   !< neighbor%component
     integer(IXS), allocatable :: neighbor_orientation(:) !< neighbor%orientation
 
-    ! concatenated element points
-    real(RNP), allocatable :: x_e(:,:)                   !< geometry%x_e
+    ! element points, data of element `e` starts at `start_point(e)`
+    integer     , allocatable :: start_point(:)          !< point start indices
+    real(RNP)   , allocatable :: x_e(:,:)                !< geometry%x_e
 
   contains
 
@@ -92,11 +94,13 @@ contains
                       , comm                    &
                       , req_dat(1)              )
 
-        call XMPI_Isend(this%neighbor_id         , dest, 202, comm, req_dat(2))
-        call XMPI_Isend(this%neighbor_part       , dest, 203, comm, req_dat(3))
-        call XMPI_Isend(this%neighbor_component  , dest, 204, comm, req_dat(4))
-        call XMPI_Isend(this%neighbor_orientation, dest, 205, comm, req_dat(5))
-        call XMPI_Isend(this%x_e                 , dest, 206, comm, req_dat(6))
+        call XMPI_Isend(this%start_neighbor      , dest, 202, comm, req_dat(2))
+        call XMPI_Isend(this%neighbor_id         , dest, 203, comm, req_dat(3))
+        call XMPI_Isend(this%neighbor_part       , dest, 204, comm, req_dat(4))
+        call XMPI_Isend(this%neighbor_component  , dest, 205, comm, req_dat(5))
+        call XMPI_Isend(this%neighbor_orientation, dest, 206, comm, req_dat(6))
+        call XMPI_Isend(this%start_point         , dest, 207, comm, req_dat(7))
+        call XMPI_Isend(this%x_e                 , dest, 208, comm, req_dat(8))
 
       else
         req_dat = MPI_REQUEST_NULL
@@ -163,10 +167,12 @@ contains
       if (this % n_element > 0) then
 
         allocate( this % element              ( this % n_element  ) )
+        allocate( this % start_neighbor       ( this % n_element  ) )
         allocate( this % neighbor_id          ( this % n_neighbor ) )
         allocate( this % neighbor_part        ( this % n_neighbor ) )
         allocate( this % neighbor_component   ( this % n_neighbor ) )
         allocate( this % neighbor_orientation ( this % n_neighbor ) )
+        allocate( this % start_point          ( this % n_element  ) )
         allocate( this % x_e                  ( this % n_point, 3 ) )
 
         call MPI_Irecv( this % element(1) % id  &
@@ -177,11 +183,13 @@ contains
                       , comm                    &
                       , req_dat(1)              )
 
-        call XMPI_Irecv(this%neighbor_id         , source, 202, comm, req_dat(2))
-        call XMPI_Irecv(this%neighbor_part       , source, 203, comm, req_dat(3))
-        call XMPI_Irecv(this%neighbor_component  , source, 204, comm, req_dat(4))
-        call XMPI_Irecv(this%neighbor_orientation, source, 205, comm, req_dat(5))
-        call XMPI_Irecv(this%x_e                 , source, 206, comm, req_dat(6))
+        call XMPI_Irecv(this%start_neighbor      , source, 202, comm, req_dat(2))
+        call XMPI_Irecv(this%neighbor_id         , source, 203, comm, req_dat(3))
+        call XMPI_Irecv(this%neighbor_part       , source, 204, comm, req_dat(4))
+        call XMPI_Irecv(this%neighbor_component  , source, 205, comm, req_dat(5))
+        call XMPI_Irecv(this%neighbor_orientation, source, 206, comm, req_dat(6))
+        call XMPI_Irecv(this%start_point         , source, 207, comm, req_dat(7))
+        call XMPI_Irecv(this%x_e                 , source, 208, comm, req_dat(8))
 
       else
         req_dat = MPI_REQUEST_NULL

@@ -22,14 +22,16 @@ module Embedded_Interpolation__1D
 
   contains
 
-    generic :: Init_EmbeddedInterpolation_1D => Init_SX
-    procedure, private :: Init_SX
+    generic :: Init_EmbeddedInterpolation_1D => Init_Nodes, Init_StdOps
+    procedure, private :: Init_Points
+    procedure, private :: Init_StdOps
 
   end type EmbeddedInterpolation_1D
 
   ! constructor interface
   interface EmbeddedInterpolation_1D
-    module procedure New_SX
+    module procedure New_Points
+    module procedure New_StdOps
   end interface
 
 contains
@@ -38,57 +40,68 @@ contains
   ! Constructors
 
   !-----------------------------------------------------------------------------
-  !> New EmbeddedInterpolation_1D from 1D standard operators and interpolation
-  !> points
+  !> New interpolation operator from basis type and points
 
-  type(EmbeddedInterpolation_1D) function New_SX(eop, xi) result(this)
-    class(StandardOperators_1D), intent(in) :: eop    !< standard operators
-    real(RNP),                   intent(in) :: xi(0:) !< points in [-1,1]
+  type(EmbeddedInterpolation_1D) function New_Points(basis, xo, xi) result(this)
+    character, intent(in) :: basis  !< basis type
+    real(RNP), intent(in) :: xo(0:) !< basis points
+    real(RNP), intent(in) :: xi(1:) !< interpolation points in [-1,1]
 
-    call Init_SX(this, eop, xi)
+    call Init_Points(this, basis, xo, xi)
 
-  end function New_SX
+  end function New_Points
+
+  !-----------------------------------------------------------------------------
+  !> New interpolation operator from standard operators and interpolation points
+
+  type(EmbeddedInterpolation_1D) function New_StdOps(eop, xi) result(this)
+    class(StandardOperators_1D), intent(in) :: eop !< standard operators
+    real(RNP), intent(in) :: xi(1:) !< interpolation points in [-1,1]
+
+    call Init_StdOps(this, eop, xi)
+
+  end function New_StdOps
 
   !=============================================================================
   ! Type-bound procedures
 
   !-----------------------------------------------------------------------------
-  !> Initialization for given 1D standard operators and interpolation points
+  !> Initialization for given nodes and interpolation points
 
-  subroutine Init_SX(this, eop, xi)
+  subroutine Init_Points(this, basis, xo, xi)
     class(EmbeddedInterpolation_1D), intent(inout) :: this
-    class(StandardOperators_1D), intent(in) :: eop    !< standard operators
-    real(RNP),                   intent(in) :: xi(0:) !< points in [-1,1]
+    character, intent(in) :: basis  !< basis type
+    real(RNP), intent(in) :: xo(0:) !< basis points
+    real(RNP), intent(in) :: xi(1:) !< interpolation points in [-1,1]
 
-    integer :: j, k, pi
+    integer :: j, k, po
 
-    if (this % no > 0) call Delete_InterpolationOperator(this)
+    if (allocated(this % A)) deallocate(this % A)
 
-    associate(po => eop%po, xo => eop%x)
+    associate(no => this % no, ni => this % ni)
 
-      pi = ubound(xi,1)
+      po = ubound(xo, 1)
+      no = size(xo)
+      ni = size(xi)
 
-      this % no = size(xo)
-      this % ni = size(xi)
+      allocate(this % A(ni,0:po))
 
-      allocate(this % A(0:pi,0:po))
-
-      select case(eop % basis)
+      select case(basis)
       case('G') ! Gauss
         do k = 0, po
-        do j = 0, pi
+        do j = 1, ni
           this % A(j,k) = GaussPolynomial(k, xo, xi(j))
         end do
         end do
       case('R') ! Radau
         do k = 0, po
-        do j = 0, pi
+        do j = 1, ni
           this % A(j,k) = RadauPolynomial(k, xo, xi(j))
         end do
         end do
       case default ! Lobatto
         do k = 0, po
-        do j = 0, pi
+        do j = 1, ni
           this % A(j,k) = LobattoPolynomial(k, xo, xi(j))
         end do
         end do
@@ -96,17 +109,19 @@ contains
 
     end associate
 
-  end subroutine Init_SX
+  end subroutine Init_Points
 
   !-----------------------------------------------------------------------------
-  !> Delete EmbeddedInterpolation_1D object
+  !> Initialization for given 1D standard operators and interpolation points
 
-  subroutine Delete_InterpolationOperator(this)
+  subroutine Init_StdOps(this, eop, xi)
     class(EmbeddedInterpolation_1D), intent(inout) :: this
+    class(StandardOperators_1D), intent(in) :: eop  !< standard operators
+    real(RNP), intent(in) :: xi(1:) !< interpolation points in [-1,1]
 
-    if (allocated(this % A)) deallocate(this % A)
+    call Init_Points(this, eop%basis, eop%x, xi)
 
-  end subroutine Delete_InterpolationOperator
+  end subroutine Init_StdOps
 
   !=============================================================================
 
