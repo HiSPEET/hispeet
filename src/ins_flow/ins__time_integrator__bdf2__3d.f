@@ -179,9 +179,9 @@ contains
         allocate(bv_u(mesh % n_bound))
         allocate(bv_v(mesh % n_bound))
         do b = 1, mesh % n_bound
-          bv_u(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 4)
-          bv_v(b) = BoundaryVariable_3D(bv_u(b), first=1, last=3)
-          bv_x(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 3)
+          call bv_u(b) % Init(mesh % boundary(b), po, nc = 4)
+          call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v(b))
+          call bv_x(b) % Init(mesh % boundary(b), po, nc = 3)
           call bv_x(b) % Extract(sem_v % metrics % x)
         end do
 
@@ -216,7 +216,11 @@ contains
 
       ! diffusion term based on rotational form
       call ins_op % GetDiffusionTerm(v, vp, sp, F_d, form=2)
-      call ins_op % GetConvectionTerm(v, vp, F_c)
+      if (problem % stokes) then
+        call SetArray(F_c, ZERO, multi = .true.)
+      else
+        call ins_op % GetConvectionTerm(v, vp, F_c)
+      end if
 
       if (first) then
         a0 = 1
@@ -250,22 +254,22 @@ contains
 
       if (first) then
         !$omp do
+        do d = 1, 3
         do e = 1, mesh % n_elem
-          do d = 1, 3
-            v_0  (:,:,:,e,d) = v(:,:,:,e,d)
-            v_old(:,:,:,e,d) = v(:,:,:,e,d)
-          end do
+          v_0  (:,:,:,e,d) = v(:,:,:,e,d)
+          v_old(:,:,:,e,d) = v(:,:,:,e,d)
+        end do
         end do
         tau = dt
       else
         a0 = alpha_0 / gamma_0
         a1 = alpha_1 / gamma_0
-        !$omp do
+        !$omp do collapse(2)
+        do d = 1, 3
         do e = 1, mesh % n_elem
-          do d = 1, 3
-            v_0  (:,:,:,e,d) = a0 * v(:,:,:,e,d) + a1 * v_old(:,:,:,e,d)
-            v_old(:,:,:,e,d) = v(:,:,:,e,d)
-          end do
+          v_0  (:,:,:,e,d) = a0 * v(:,:,:,e,d) + a1 * v_old(:,:,:,e,d)
+          v_old(:,:,:,e,d) = v(:,:,:,e,d)
+        end do
         end do
         tau = dt / gamma_0
       end if

@@ -163,9 +163,9 @@ contains
         allocate(bv_u (mesh % n_bound) )
         allocate(bv_v (mesh % n_bound) )
         do b = 1, mesh % n_bound
-          bv_u(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 4)
-          bv_v(b) = BoundaryVariable_3D(bv_u(b), first=1, last=3)
-          bv_x(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 3)
+          call bv_u(b) % Init(mesh % boundary(b), po, nc = 4)
+          call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v(b))
+          call bv_x(b) % Init(mesh % boundary(b), po, nc = 3)
           call bv_x(b) % Extract(sem_v % metrics % x)
         end do
 
@@ -190,7 +190,7 @@ contains
           call problem % GetBoundaryValues(b, bv_x(b) % val, t_0, bv_u(b) % val)
         end do
       end if
-      call GetBoundaryTraces_3D(mesh, v, vp)     ! vp = v⁻ on ∂Ω
+      call GetBoundaryTraces_3D(mesh, v, vp)       ! vp = v⁻ on ∂Ω
       call ins_op % ApplyVelocityBC(bv_v, vp, sp)  ! vp = v⁺ on ∂Ω, ...
 
       ! viscous and convective RHS .............................................
@@ -198,7 +198,11 @@ contains
 
       ! diffusion term based on rotational form
       call ins_op % GetDiffusionTerm(v, vp, sp, F_d, form=2)
-      call ins_op % GetConvectionTerm(v, vp, F_c)
+      if (problem % stokes) then
+        call SetArray(F_c, ZERO, multi = .true.)
+      else
+        call ins_op % GetConvectionTerm(v, vp, F_c)
+      end if
 
       !$omp do
       do e = 1, mesh % n_elem
@@ -254,7 +258,6 @@ contains
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
     type(MPI_Request) :: request(4)
-    type(MPI_Status)  :: stat(size(request))
     integer :: n
 
     call this % INS_TimeIntegratorOptions_3D % Bcast(root, comm)
@@ -265,7 +268,7 @@ contains
     call XMPI_Ibcast( this % r_red  , root, comm, request(n) );  n = n + 1
     call XMPI_Ibcast( this % r_max  , root, comm, request(n) )
 
-    call MPI_Waitall( n, request, stat )
+    call MPI_Waitall( n, request, MPI_STATUSES_IGNORE )
 
   end subroutine Bcast_INS_TimeIntegrator_Euler_3D
 

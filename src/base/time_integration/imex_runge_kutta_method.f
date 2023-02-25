@@ -620,20 +620,6 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
 
 end subroutine Init_IMEX_RK_Method
 
-!-------------------------------------------------------------------------------
-!> Deletes the given `IMEX_RK_Method` object.
-
-subroutine Delete_IMEX_RK_Method(this)
-  type(IMEX_RK_Method), intent(inout) :: this
-
-  if (allocated( this % c    )) deallocate( this % c    )
-  if (allocated( this % b_im )) deallocate( this % b_im )
-  if (allocated( this % b_ex )) deallocate( this % b_ex )
-  if (allocated( this % a_im )) deallocate( this % a_im )
-  if (allocated( this % a_ex )) deallocate( this % a_ex )
-
-end subroutine Delete_IMEX_RK_Method
-
 !===============================================================================
 
 subroutine Show_IMEX_RK_Method(this, unit)

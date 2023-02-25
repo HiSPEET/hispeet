@@ -6,14 +6,19 @@
 
 submodule(INS__Operator__3D) MP_GetDiffusionTerm_DC
 
-#ifdef __LIBXSMM__
-  use LIBXSMM
-#endif
-
   use C_Binding
   use TPO__Stress__3D
   use Mesh_Element__3D
   use Element_Face_Transfer_Buffer__3D
+
+#ifdef __LIBXSMM__
+  use LIBXSMM, only: LIBXSMM_XMMCall_ABC,  &
+                     LIBXSMM_XMMDispatch,  &
+                     LIBXSMM_BLASINT_KIND, &
+                     LIBXSMM_DATATYPE_F32, &
+                     LIBXSMM_DATATYPE_F64
+#endif
+
   implicit none
 
 contains
@@ -184,10 +189,11 @@ contains
 
     type(C_FunPtr), save :: xmm
 
-    real(RNP), dimension(0:P, 0:P)       :: M_f, Ds_t
-    real(RNP), dimension(0:P, 0:P, 3)    :: C0
-    real(RNP), dimension(0:P, 0:P, 2, 3) :: Ct, Ds_Ct
-    real(RNP), dimension(0:P, 0:P, 6, 3) :: Cn
+    ! target attribute required in call to LIBXSMM_XMMCall_ABC
+    real(RNP), target, dimension(0:P, 0:P)       :: M_f, Ds_t
+    real(RNP), target, dimension(0:P, 0:P, 3)    :: C0
+    real(RNP), target, dimension(0:P, 0:P, 2, 3) :: Ct, Ds_Ct
+    real(RNP), target, dimension(0:P, 0:P, 6, 3) :: Cn
     real(RNP) :: chi, cip, dv1, dv2, dv3, n1, n2, n3, tau(3,3)
     real(RNP) :: tmp
     integer   :: c, e, f, i, j, k
@@ -268,6 +274,7 @@ contains
 
               tmp = HALF * M_f(j,k) * a(j,k,f,e)
 
+              ! ξ-direction is "normal"
               do c = 1, 3
 
                 Cn(j,k,f,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
@@ -300,7 +307,8 @@ contains
               call TangentialDerivatives(2, Ds, Ct, Ds_Ct)
             case default
 #ifdef __LIBXSMM__
-              call LIBXSMM_XMMCall(xmm, Ds_t, Ct, Ds_Ct)
+              call LIBXSMM_XMMCall_ABC(xmm, c_loc(Ds_t), c_loc(Ct), c_loc(Ds_Ct))
+              ! passing C addresses required by C interface
 #else
               call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
 #endif
@@ -357,15 +365,16 @@ contains
 
               tmp = HALF * M_f(i,k) * a(i,k,f,e)
 
+              ! η-direction is "normal"
               do c = 1, 3
 
-                Cn(i,k,f,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
-                                    + Ji(i,j,k,e,1,2) * tau(2,c) &
-                                    + Ji(i,j,k,e,1,3) * tau(3,c) )
-
-                Ct(i,k,1,c) = tmp * ( Ji(i,j,k,e,2,1) * tau(1,c) &
+                Cn(i,k,f,c) = tmp * ( Ji(i,j,k,e,2,1) * tau(1,c) &
                                     + Ji(i,j,k,e,2,2) * tau(2,c) &
                                     + Ji(i,j,k,e,2,3) * tau(3,c) )
+
+                Ct(i,k,1,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
+                                    + Ji(i,j,k,e,1,2) * tau(2,c) &
+                                    + Ji(i,j,k,e,1,3) * tau(3,c) )
 
                 Ct(k,i,2,c) = tmp * ( Ji(i,j,k,e,3,1) * tau(1,c) & ! first two
                                     + Ji(i,j,k,e,3,2) * tau(2,c) & ! directions
@@ -389,7 +398,7 @@ contains
               call TangentialDerivatives(2, Ds, Ct, Ds_Ct)
             case default
 #ifdef __LIBXSMM__
-              call LIBXSMM_XMMCall(xmm, Ds_t, Ct, Ds_Ct)
+              call LIBXSMM_XMMCall_ABC(xmm, c_loc(Ds_t), c_loc(Ct), c_loc(Ds_Ct))
 #else
               call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
 #endif
@@ -446,19 +455,20 @@ contains
 
               tmp = HALF * M_f(i,j) * a(i,j,f,e)
 
+              ! ζ-direction is "normal"
               do c = 1, 3
 
-                Cn(i,j,f,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
+                Cn(i,j,f,c) = tmp * ( Ji(i,j,k,e,3,1) * tau(1,c) &
+                                    + Ji(i,j,k,e,3,2) * tau(2,c) &
+                                    + Ji(i,j,k,e,3,3) * tau(3,c) )
+
+                Ct(i,j,1,c) = tmp * ( Ji(i,j,k,e,1,1) * tau(1,c) &
                                     + Ji(i,j,k,e,1,2) * tau(2,c) &
                                     + Ji(i,j,k,e,1,3) * tau(3,c) )
 
-                Ct(i,j,1,c) = tmp * ( Ji(i,j,k,e,2,1) * tau(1,c) &
-                                    + Ji(i,j,k,e,2,2) * tau(2,c) &
-                                    + Ji(i,j,k,e,2,3) * tau(3,c) )
-
-                Ct(j,i,2,c) = tmp * ( Ji(i,j,k,e,3,1) * tau(1,c) & ! first two
-                                    + Ji(i,j,k,e,3,2) * tau(2,c) & ! directions
-                                    + Ji(i,j,k,e,3,3) * tau(3,c) ) ! transposed
+                Ct(j,i,2,c) = tmp * ( Ji(i,j,k,e,2,1) * tau(1,c) & ! first two
+                                    + Ji(i,j,k,e,2,2) * tau(2,c) & ! directions
+                                    + Ji(i,j,k,e,2,3) * tau(3,c) ) ! transposed
 
                 C0(i,j,c)   = tmp * ( sm(i,j,f,e,c)               &
                                     - sp(i,j,f,e,c)               &
@@ -478,7 +488,7 @@ contains
               call TangentialDerivatives(2, Ds, Ct, Ds_Ct)
             case default
 #ifdef __LIBXSMM__
-              call LIBXSMM_XMMCall(xmm, Ds_t, Ct, Ds_Ct)
+              call LIBXSMM_XMMCall_ABC(xmm, c_loc(Ds_t), c_loc(Ct), c_loc(Ds_Ct))
 #else
               call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
 #endif

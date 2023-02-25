@@ -50,10 +50,9 @@ contains
     real(RDP) :: WS3_t ( size(S3,1), size(S3,2), size(S3,3) )
     real(RDP) :: y     ( size(f ,1), size(f ,2), size(f ,3) )
     real(RDP) :: z     ( size(f ,1), size(f ,2), size(f ,3) )
-    real(RDP) :: tmp
 
     integer :: n1, n2, n3, nc, nd
-    integer :: i, j, k, l, p
+    integer :: i, j, k, l
     integer :: c, c1, c2, c3
 
     !-----------------------------------------------------------------------------

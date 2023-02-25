@@ -43,8 +43,9 @@ contains
     real(RDP), intent(in)  :: f(:,:,:,:) !< RHS                (n1,n2,n3,nd)
     real(RDP), intent(out) :: u(:,:,:,:) !< solution           (n1,n2,n3,nd)
 
-    real(RDP), parameter :: alpha  = 1
-    real(RDP), parameter :: beta   = 0
+    real(RDP), parameter :: alpha = 1
+    real(RDP), parameter :: beta  = 0
+    real(RDP), parameter :: eps   = epsilon(lambda)
 
     !---------------------------------------------------------------------------
     ! local variables
@@ -57,7 +58,7 @@ contains
     real(RDP) :: WS3_t ( size(S3,1), size(S3,2), size(S3,3) )
     real(RDP) :: y     ( size(f ,1), size(f ,2), size(f ,3) )
     real(RDP) :: z     ( size(f ,1), size(f ,2), size(f ,3) )
-    real(RDP) :: a1, a2, a3, a4
+    real(RDP) :: a1, a2, a3, a4, d
 
     integer :: n1, n2, n3, nc, nd
     integer :: i, j, k, l
@@ -155,7 +156,8 @@ contains
       do k = 1, n3
       do j = 1, n2
       do i = 1, n1
-        y(i,j,k) = y(i,j,k) / (a1 * V1(i,c1) + a2 * V2(j,c2) + a3 * V3(k,c3) + a4)
+        d = a1 * V1(i,c1) + a2 * V2(j,c2) + a3 * V3(k,c3) + a4
+        y(i,j,k) = y(i,j,k) / sign(max(abs(d),eps), d)
       end do
       end do
       end do
