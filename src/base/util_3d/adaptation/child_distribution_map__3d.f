@@ -74,9 +74,10 @@ contains
 
     type(ElementTransferBuffer_3D), allocatable, asynchronous :: id_child_buf
 
-    integer, parameter :: ic_regular (2,2,2) = reshape([1:8:1], [2,2,2])
-    integer, parameter :: ic_face    (2,2)   = reshape([1:4:1], [2,2]  )
-    integer, parameter :: ic_edge    (2)     = reshape([1:2:1], [2]    )
+    integer, parameter :: &
+        ic_regular (2,2,2) = reshape( [1,2,3,4,5,6,7,8], [2,2,2] ), &
+        ic_face    (2,2)   = reshape( [1,2,3,4],         [2,2]   ), &
+        ic_edge    (2)     = reshape( [1,2],             [2]     )
 
     integer, allocatable :: id_child(:,:,:,:), nc_part(:,:)
 
@@ -126,7 +127,7 @@ contains
       p = tp_child(i)
       if (p >= 0) then
 
-        m = (parent % element(i) % adaptation % mark
+        m = parent % element(i) % adaptation % mark
 
         if (m == 100) then
 

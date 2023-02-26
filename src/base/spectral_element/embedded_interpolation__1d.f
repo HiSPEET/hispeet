@@ -22,7 +22,7 @@ module Embedded_Interpolation__1D
 
   contains
 
-    generic :: Init_EmbeddedInterpolation_1D => Init_Nodes, Init_StdOps
+    generic :: Init_EmbeddedInterpolation_1D => Init_Points, Init_StdOps
     procedure, private :: Init_Points
     procedure, private :: Init_StdOps
 
