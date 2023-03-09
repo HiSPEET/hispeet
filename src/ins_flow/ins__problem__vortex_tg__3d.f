@@ -124,6 +124,8 @@ contains
     problem % stokes = stokes
     problem % exact_solution = .true.
 
+    ! set v_ref to reasonable approximation of initial velocity magnitude
+    problem % v_ref  = sqrt( (sqrt(1 + vt(1)**2 + vt(2)**2))**2 + vt(3)**2 )
     problem % nu_ref = nu
 
     problem % vt = vt
