@@ -78,8 +78,8 @@ endif ()
 # External libraries and utilities
 
 find_package(LAPACK REQUIRED)
-#outdated#find_package(VTK REQUIRED COMPONENTS vtkIOXML)
-find_package(VTK REQUIRED COMPONENTS IOXML)
+find_package(VTK REQUIRED COMPONENTS vtkIOXML)
+#new#find_package(VTK REQUIRED COMPONENTS IOXML)
 find_package(PythonInterp 3 REQUIRED)
 find_package(Slurm)
 find_package(FFTW)
