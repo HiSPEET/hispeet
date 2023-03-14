@@ -2,6 +2,7 @@ module Element_Distribution_Data__3D
   use Kind_Parameters
   use XMPI
   use Mesh_Element__3D
+  use Mesh__3D
 
   implicit none
   private
@@ -46,6 +47,7 @@ module Element_Distribution_Data__3D
     procedure :: Recv_Dimensions
     procedure :: Recv_Data
     procedure :: Recv_Finish
+    procedure :: Assign_Data
 
   end type ElementDistributionData_3D
 
@@ -215,6 +217,68 @@ contains
     !$omp end master
 
   end subroutine Recv_Finish
+
+  !-----------------------------------------------------------------------------
+  !> Assign element distribution data to new mesh partition
+
+  subroutine Assign_Data(this, mesh)
+    class(ElementDistributionData_3D), intent(in) :: this
+    class(Mesh_3D), intent(inout) :: mesh
+
+    integer :: cn, cp, nn, po
+    integer :: e, i, j, k, l
+
+    !$omp do
+    do l = 1, this % n_element
+
+      e  = this % element(l) % id
+      cn = this % start_neighbor(l)
+      cp = this % start_point(l)
+
+      ! static element components ..............................................
+
+      mesh % element(e) = this % element(l)
+
+      ! neighbors ..............................................................
+
+      nn = sum( mesh % element(e) % face   % n_neighbor ) &
+         + sum( mesh % element(e) % edge   % n_neighbor ) &
+         + sum( mesh % element(e) % vertex % n_neighbor )
+
+      allocate(mesh % element(e) % neighbor(nn))
+
+      associate(neighbor => mesh % element(e) % neighbor)
+        do i = 1, nn
+          neighbor(i) % id          = this % neighbor_id          (cn)
+          neighbor(i) % part        = this % neighbor_part        (cn)
+          neighbor(i) % component   = this % neighbor_component   (cn)
+          neighbor(i) % orientation = this % neighbor_orientation (cn)
+          cn = cn + 1
+        end do
+      end associate
+
+      ! element points .........................................................
+
+      po = mesh % element(e) % geometry % po
+
+      allocate(mesh % element(e) % geometry % x_e(0:po,0:po,0:po,3))
+
+      associate(x_e => mesh % element(e) % geometry % x_e)
+        do k = 0, po
+        do j = 0, po
+        do i = 0, po
+          x_e(i,j,k,1) = this % x_e(cp, 1)
+          x_e(i,j,k,2) = this % x_e(cp, 2)
+          x_e(i,j,k,3) = this % x_e(cp, 3)
+          cp = cp + 1
+        end do
+        end do
+        end do
+      end associate
+
+    end do
+
+  end subroutine Assign_Data
 
   !=============================================================================
 

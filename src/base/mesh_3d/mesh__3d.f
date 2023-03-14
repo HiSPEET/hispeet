@@ -16,6 +16,7 @@ module Mesh__3D
   private
 
   public :: Mesh_3D
+  public :: ChildMeshInfo_3D
   public :: MeshAttributes_3D
 
   !-----------------------------------------------------------------------------
@@ -59,35 +60,38 @@ module Mesh__3D
     integer :: proc = -1 !< process    =  ID in comm_world ≥ 0
     integer :: part = -1 !< partition  =  ID in comm_parts ≥ 0
 
-    integer, allocatable :: proc_active(:) !< list of active processes
-    integer, pointer     :: proc_part(:)   !< map from partition to process IDs
+    integer, allocatable :: proc_part(:) !< map from partition to process IDs
 
     ! dimensions ...............................................................
 
-    integer :: n_vert   = 0       !< number of mesh vertices
-    integer :: n_edge   = 0       !< number of mesh edges
-    integer :: n_face   = 0       !< number of mesh faces
-    integer :: n_elem   = 0       !< number of mesh elements
-    integer :: n_frozen = 0       !< number of frozen elements
-    integer :: n_ghost  = 0       !< number of ghost elements
-    integer :: n_link   = 0       !< number of mesh links
-    integer :: p_geom   = 0       !< max polynomial order of element geometry
+    integer :: n_vert        = 0  !< number of mesh vertices
+    integer :: n_edge        = 0  !< number of mesh edges
+    integer :: n_face        = 0  !< number of mesh faces
+    integer :: n_elem        = 0  !< number of mesh elements
+    integer :: n_elem_active = 0  !< number of active elements
+    integer :: n_elem_frozen = 0  !< number of frozen elements
+    integer :: n_ghost       = 0  !< number of ghost elements
+    integer :: n_link        = 0  !< number of mesh links
+    integer :: n_child       = 0  !< number of child partitions
 
-    integer :: max_vert_val = 0   !< maximum vertex valency
-    integer :: max_edge_val = 0   !< maximum edge valency
+    integer :: p_geom        = 0  !< max polynomial order of element geometry
+
+    integer :: max_vert_val  = 0  !< maximum vertex valency
+    integer :: max_edge_val  = 0  !< maximum edge valency
 
     ! structured mesh only
-    integer :: n_elem_1 = 0       !< number of elements in direction 1
-    integer :: n_elem_2 = 0       !< number of elements in direction 2
-    integer :: n_elem_3 = 0       !< number of elements in direction 3
+    integer :: n_elem_1      = 0  !< number of elements in direction 1
+    integer :: n_elem_2      = 0  !< number of elements in direction 2
+    integer :: n_elem_3      = 0  !< number of elements in direction 3
 
     ! mesh components and links ................................................
 
-    type(MeshFace_3D)    , allocatable :: face(:)     !< mesh faces
-    type(MeshElement_3D) , allocatable :: element(:)  !< mesh elements
-    type(MeshElement_3D) , allocatable :: ghost(:)    !< ghost elements
-    type(MeshBoundary_3D), allocatable :: boundary(:) !< mesh boundaries
-    type(MeshLink_3D)    , allocatable :: link(:)     !< mesh links
+    type(MeshFace_3D)     , allocatable :: face(:)     !< mesh faces
+    type(MeshElement_3D)  , allocatable :: element(:)  !< mesh elements
+    type(MeshElement_3D)  , allocatable :: ghost(:)    !< ghost elements
+    type(MeshBoundary_3D) , allocatable :: boundary(:) !< mesh boundaries
+    type(MeshLink_3D)     , allocatable :: link(:)     !< mesh links
+    type(ChildMeshInfo_3D), allocatable :: child(:)    !< child partition info
 
   contains
 
@@ -104,6 +108,7 @@ module Mesh__3D
     procedure :: BuildGhosts
     procedure :: BuildLinks
     procedure :: BuildCuboids
+    procedure :: BuildChildInfo
     procedure :: IdentifyVertices
     procedure :: IdentifyEdges
     procedure :: IdentifyRanks
@@ -156,7 +161,7 @@ module Mesh__3D
     !> Build communicator between active partitions
 
     module subroutine BuildCommunicator(mesh)
-      class(Mesh_3D), target, intent(inout) :: mesh !< mesh partition
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
     end subroutine BuildCommunicator
 
     !---------------------------------------------------------------------------
@@ -170,7 +175,7 @@ module Mesh__3D
     !> Generation of ghost elements
 
     module subroutine BuildGhosts(mesh)
-      class(Mesh_3D), intent(inout) :: mesh !< local partition
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
     end subroutine BuildGhosts
 
     !---------------------------------------------------------------------------
@@ -191,8 +196,15 @@ module Mesh__3D
     !> Generation of mesh links from global element neighbor information
 
     module subroutine BuildLinks(mesh)
-      class(Mesh_3D), intent(inout) :: mesh !< local partition
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
     end subroutine BuildLinks
+
+    !---------------------------------------------------------------------------
+    !> Generation of information on child mesh partitions
+
+    module subroutine BuildChildInfo(mesh)
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
+    end subroutine BuildChildInfo
 
     !---------------------------------------------------------------------------
     !> Identification of mesh vertices
@@ -226,6 +238,16 @@ module Mesh__3D
     end subroutine ImportGenericMesh
 
   end interface
+
+  !-----------------------------------------------------------------------------
+  !> Type for keeping information about a child partition
+
+  type ChildMeshInfo_3D
+    integer :: proc          = -1  !< child process ID in `comm_world`
+    integer :: n_elem        = -1  !< num elements contributed to child
+    integer :: n_elem_active = -1  !< num active elements contributed to child
+    integer :: n_elem_frozen = -1  !< num frozen elements contributed to child
+  end type ChildMeshInfo_3D
 
   !-----------------------------------------------------------------------------
   !> Type for collecting and transmitting the mesh attributes

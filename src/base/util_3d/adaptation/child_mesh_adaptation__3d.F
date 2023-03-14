@@ -70,7 +70,7 @@ contains
     if (child % part >= 0) then
       allocate(recv_data(0:parent%n_parts-1))
       do i = 0, parent%n_parts-1
-        recv_data(i) % proc = parent % proc_active(i)
+        recv_data(i) % proc = parent % proc_part(i)
         recv_data(i) % comm = parent % comm_world
       end do
     end if
@@ -142,10 +142,54 @@ contains
       end do
     end if
 
-!!     ! nothing more to do if new partition is empty
-!!     if (child % part < 0) return
+    !$omp end master
+
+    ! assign child element data ................................................
+
+    !$omp master
+
+    ! number of elements
+    if (parent % part >= 0) then
+      child % n_elem = sum(recv_data % n_element) &
+                     + send_data(parent % part) % n_element
+    else
+      child % n_elem = sum(recv_data % n_element)
+    end if
+
+    allocate(child % element(child % n_elem))
 
     !$omp end master
+
+    ! assign received data
+    if (child % part >= 0) then
+      do i = 0, parent%n_parts-1
+        if (recv_data(i) % proc /= parent % proc) then
+          call recv_data(i) % Assign_Data(child)
+        else
+          call send_data(parent%part) % Assign_Data(child)
+        end if
+      end do
+    end if
+
+    ! complete mesh.............................................................
+
+    if (child % part >= 0) then
+
+      !$omp master
+      child % n_elem_frozen = count(child % element % frozen)
+      child % n_elem_active = child % n_elem - child % n_elem_frozen
+      !$omp end master
+
+      call child % IdentifyVertices()
+      call child % IdentifyEdges()
+      call child % BuildFaces()
+      call child % BuildBoundaryFaces()
+      call child % BuildLinks()
+      call child % BuildGhosts()
+      call child % BuildCuboids()
+      call child % IdentifyRanks()
+
+    end if
 
     ! finalization .............................................................
 
@@ -366,7 +410,7 @@ contains
       !-------------------------------------------------------------------------
 
       !-------------------------------------------------------------------------
-      ! generate child element dat
+      ! generate child element data
 
       !$omp do
       do e = 1, parent % n_elem
@@ -506,6 +550,7 @@ contains
 
             ! element data
             dd % element(ce) % id = id_child(1,1,1,e)
+            dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
 
@@ -571,6 +616,7 @@ contains
 
             ! element data
             dd % element(ce) % id = id_child(2,1,1,e)
+            dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
 
@@ -635,6 +681,7 @@ contains
 
             ! element data
             dd % element(ce) % id = id_child(1,2,1,e)
+            dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
 
@@ -699,6 +746,7 @@ contains
 
             ! element data
             dd % element(ce) % id = id_child(2,2,1,e)
+            dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
 
@@ -763,6 +811,7 @@ contains
 
             ! element data
             dd % element(ce) % id = id_child(1,1,2,e)
+            dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
 
@@ -827,6 +876,7 @@ contains
 
             ! element data
             dd % element(ce) % id = id_child(2,1,2,e)
+            dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
 
@@ -891,6 +941,7 @@ contains
 
             ! element data
             dd % element(ce) % id = id_child(1,2,2,e)
+            dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
 
@@ -955,6 +1006,7 @@ contains
 
             ! element data
             dd % element(ce) % id = id_child(2,2,2,e)
+            dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
 

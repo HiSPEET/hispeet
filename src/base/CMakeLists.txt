@@ -110,6 +110,7 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
               mesh_3d/mesh_link__3d.f
               mesh_3d/mesh__3d.f
               mesh_3d/mesh__3d__mp_buildboundaryfaces.f
+              mesh_3d/mesh__3d__mp_buildchildinfo.f
               mesh_3d/mesh__3d__mp_buildcommunicator.f
               mesh_3d/mesh__3d__mp_buildcuboids.f
               mesh_3d/mesh__3d__mp_buildfaces.f

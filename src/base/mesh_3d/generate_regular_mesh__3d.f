@@ -96,6 +96,9 @@ contains
       mesh % n_elem_2 = n2
       mesh % n_elem_3 = n3
 
+      mesh % n_elem_active = mesh % n_elem
+      mesh % n_elem_frozen = 0
+
       ! elements, faces and boundaries .........................................
 
       call GenerateRegularElements(mesh, np, ep, periodic, self, i0, j0, k0)
@@ -128,6 +131,9 @@ contains
       call mesh % BuildLinks()
       call mesh % BuildGhosts()
       call mesh % IdentifyRanks()
+
+      mesh % n_child = 0
+      allocate(mesh % child(0))
 
     end if
 

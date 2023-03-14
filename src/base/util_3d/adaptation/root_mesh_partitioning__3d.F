@@ -71,7 +71,7 @@ contains
     if (new_mesh % part >= 0) then
       allocate(recv_data(0:old_mesh%n_parts-1))
       do i = 0, old_mesh%n_parts-1
-        recv_data(i) % proc = old_mesh % proc_active(i)
+        recv_data(i) % proc = old_mesh % proc_part(i)
         recv_data(i) % comm = old_mesh % comm_world
       end do
     end if
@@ -134,6 +134,8 @@ contains
     else
       new_mesh % n_elem = sum(recv_data % n_element)
     end if
+    new_mesh % n_elem_active = new_mesh % n_elem
+    new_mesh % n_elem_frozen = 0
 
     allocate(new_mesh % element(new_mesh % n_elem))
 
@@ -141,9 +143,9 @@ contains
     if (new_mesh % part >= 0) then
       do i = 0, old_mesh%n_parts-1
         if (recv_data(i) % proc /= old_mesh % proc) then
-          call AssignDistributionData(new_mesh, recv_data(i))
+          call recv_data(i) % Assign_Data(new_mesh)
         else
-          call AssignDistributionData(new_mesh, send_data(old_mesh % part))
+          call send_data(old_mesh%part) % Assign_Data(new_mesh)
         end if
       end do
     end if
@@ -158,6 +160,7 @@ contains
     call new_mesh % BuildGhosts()
     call new_mesh % BuildCuboids()
     call new_mesh % IdentifyRanks()
+    call new_mesh % BuildChildInfo()
 
     !---------------------------------------------------------------------------
     !$omp end master
@@ -352,68 +355,6 @@ contains
     !!$omp end barrier
 
   end subroutine BuildDistributionData
-
-  !-----------------------------------------------------------------------------
-  !> Assign element distribution data to new mesh partition
-
-  subroutine AssignDistributionData(new_mesh, dist_data)
-    class(Mesh_3D), intent(inout) :: new_mesh
-    type(ElementDistributionData_3D), intent(in) :: dist_data
-
-    integer :: cn, cp, nn, po
-    integer :: e, i, j, k, l
-
-    !!$omp do
-    do l = 1, dist_data % n_element
-
-      e  = dist_data % element(l) % id
-      cn = dist_data % start_neighbor(l)
-      cp = dist_data % start_point(l)
-
-      ! static element components ..............................................
-
-      new_mesh % element(e) = dist_data % element(l)
-
-      ! neighbors ..............................................................
-
-      nn = sum( new_mesh % element(e) % face   % n_neighbor ) &
-         + sum( new_mesh % element(e) % edge   % n_neighbor ) &
-         + sum( new_mesh % element(e) % vertex % n_neighbor )
-
-      allocate(new_mesh % element(e) % neighbor(nn))
-
-      associate(neighbor => new_mesh % element(e) % neighbor)
-        do i = 1, nn
-          neighbor(i) % id          = dist_data % neighbor_id          (cn)
-          neighbor(i) % part        = dist_data % neighbor_part        (cn)
-          neighbor(i) % component   = dist_data % neighbor_component   (cn)
-          neighbor(i) % orientation = dist_data % neighbor_orientation (cn)
-          cn = cn + 1
-        end do
-      end associate
-
-      ! element points .........................................................
-
-      po = new_mesh % element(e) % geometry % po
-
-      allocate(new_mesh % element(e) % geometry % x_e(0:po,0:po,0:po,3))
-
-      associate(x_e => new_mesh % element(e) % geometry % x_e)
-        do k = 0, po
-        do j = 0, po
-        do i = 0, po
-          x_e(i,j,k,1) = dist_data % x_e(cp, 1)
-          x_e(i,j,k,2) = dist_data % x_e(cp, 2)
-          x_e(i,j,k,3) = dist_data % x_e(cp, 3)
-          cp = cp + 1
-        end do
-        end do
-        end do
-      end associate
-
-    end do
-
-  end subroutine AssignDistributionData
 
   !=============================================================================
 
