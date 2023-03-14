@@ -9,8 +9,10 @@ target_link_libraries(ins_timeintegrator_3d_test HiINSFlow)
 
 file( COPY
           ins_timeintegrator_3d_test.prm
-          vortex_tg.prm
-          variable_viscosity.prm
+          stokes_dkm
+          stokes_linke
+          variable_viscosity
+          vortex_tg
       DESTINATION
           ${CMAKE_CURRENT_BINARY_DIR} )
 
