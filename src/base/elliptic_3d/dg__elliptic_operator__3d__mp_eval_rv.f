@@ -112,8 +112,8 @@ contains
     ! local variables ..........................................................
 
     real(RNP), dimension(0:eop%po, 0:eop%po) :: Mf1, Mf2, Mf3
-    real(RNP), dimension(0:eop%po, 0:eop%po) :: nu_mx_0, jmp_u_0, avg_q_0
-    real(RNP), dimension(0:eop%po, 0:eop%po) :: nu_mx_P, jmp_u_P, avg_q_P
+    real(RNP), dimension(0:eop%po, 0:eop%po) :: nu_max_0, jmp_u_0, avg_q_0
+    real(RNP), dimension(0:eop%po, 0:eop%po) :: nu_max_P, jmp_u_P, avg_q_P
     real(RNP), dimension(0:eop%po)           :: delta_0, delta_P
     real(RNP) :: g(3), mu(3)
     real(RNP) :: cd_0, cd_P, cp_0, cp_P
@@ -184,16 +184,16 @@ contains
           !   n⋅[u]   =  (   u⁻(j,k) -    u⁺(j,k))₂     =  jmp_u_P(j,k)
           !   n⋅{ν∇u} =  (n⁻⋅q⁻(j,k) - n⁺⋅q⁺(j,k))₂ / 2 =  avg_q_P(j,k)
 
-          call GetBoundaryFluxes(element, struct, e, 1, tr, nu_mx_0, jmp_u_0, avg_q_0)
-          call GetBoundaryFluxes(element, struct, e, 2, tr, nu_mx_P, jmp_u_P, avg_q_P)
+          call GetBoundaryFluxes(element, struct, e, 1, tr, nu_max_0, jmp_u_0, avg_q_0)
+          call GetBoundaryFluxes(element, struct, e, 2, tr, nu_max_P, jmp_u_P, avg_q_P)
 
           do k = 0, P
           do j = 0, P
 
             cd_0 = -nu(0,j,k,e) * g(1)
             cd_P =  nu(P,j,k,e) * g(1)
-            cp_0 = -nu_mx_0(j,k) * mu(1)
-            cp_P = -nu_mx_P(j,k) * mu(1)
+            cp_0 = -nu_max_0(j,k) * mu(1)
+            cp_P = -nu_max_P(j,k) * mu(1)
 
             do i = 0, P
 
@@ -209,16 +209,16 @@ contains
           ! r = r - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₃
           !       - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₄
 
-          call GetBoundaryFluxes(element, struct, e, 3, tr, nu_mx_0, jmp_u_0, avg_q_0)
-          call GetBoundaryFluxes(element, struct, e, 4, tr, nu_mx_P, jmp_u_P, avg_q_P)
+          call GetBoundaryFluxes(element, struct, e, 3, tr, nu_max_0, jmp_u_0, avg_q_0)
+          call GetBoundaryFluxes(element, struct, e, 4, tr, nu_max_P, jmp_u_P, avg_q_P)
 
           do k = 0, P
           do i = 0, P
 
             cd_0 = -nu(i,0,k,e) * g(2)
             cd_P =  nu(i,P,k,e) * g(2)
-            cp_0 = -nu_mx_0(i,k) * mu(2)
-            cp_P = -nu_mx_P(i,k) * mu(2)
+            cp_0 = -nu_max_0(i,k) * mu(2)
+            cp_P = -nu_max_P(i,k) * mu(2)
 
             do j = 0, P
 
@@ -234,16 +234,16 @@ contains
           ! r = r - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₅
           !       - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₆
 
-          call GetBoundaryFluxes(element, struct, e, 5, tr, nu_mx_0, jmp_u_0, avg_q_0)
-          call GetBoundaryFluxes(element, struct, e, 6, tr, nu_mx_P, jmp_u_P, avg_q_P)
+          call GetBoundaryFluxes(element, struct, e, 5, tr, nu_max_0, jmp_u_0, avg_q_0)
+          call GetBoundaryFluxes(element, struct, e, 6, tr, nu_max_P, jmp_u_P, avg_q_P)
 
           do j = 0, P
           do i = 0, P
 
             cd_0 = -nu(i,j,0,e) * g(3)
             cd_P =  nu(i,j,P,e) * g(3)
-            cp_0 = -nu_mx_0(i,j) * mu(3)
-            cp_P = -nu_mx_P(i,j) * mu(3)
+            cp_0 = -nu_max_0(i,j) * mu(3)
+            cp_P = -nu_max_P(i,j) * mu(3)
 
             do k = 0, P
 
@@ -277,18 +277,18 @@ contains
   !-----------------------------------------------------------------------------
   !> Compose element-boundary fluxes from flux traces for homogeneous BC
 
-  subroutine GetBoundaryFluxes(element, struct, e, f, tr, nu_mx, jmp_u, avg_q)
+  subroutine GetBoundaryFluxes(element, struct, e, f, tr, nu_max, jmp_u, avg_q)
 
     class(MeshElement_3D), intent(in) :: element
     logical,   intent(in)  :: struct        !< F/T for un/structured mesh
     integer,   intent(in)  :: e             !< element ID
     integer,   intent(in)  :: f             !< element face
     real(RNP), intent(in)  :: tr(:,:,:,:,:) !< traces of ν, u, q_n
-    real(RNP), intent(out) :: nu_mx(:,:)    !< max(ν⁻,ν⁺)
+    real(RNP), intent(out) :: nu_max(:,:)   !< max(ν⁻,ν⁺)
     real(RNP), intent(out) :: jmp_u(:,:)    !< normal jump n⋅[u]
     real(RNP), intent(out) :: avg_q(:,:)    !< average normal flux n⋅{q}
 
-    contiguous :: tr, nu_mx, jmp_u, avg_q
+    contiguous :: tr, nu_max, jmp_u, avg_q
 
     integer :: i, l, m
 
@@ -297,19 +297,19 @@ contains
       l = element % neighbor(i) % id
       m = element % neighbor(i) % component
       if (struct) then
-        nu_mx = max(tr(:,:,f,e,1), tr(:,:,m,l,1))
+        nu_max = max(tr(:,:,f,e,1), tr(:,:,m,l,1))
         jmp_u = (tr(:,:,f,e,2) - tr(:,:,m,l,2))
         avg_q = (tr(:,:,f,e,3) - tr(:,:,m,l,3)) * HALF
       else
-        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), nu_mx)
+        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), nu_max)
         call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), jmp_u)
         call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,3), avg_q)
-        nu_mx = max(tr(:,:,f,e,1), nu_mx)
+        nu_max = max(tr(:,:,f,e,1), nu_max)
         jmp_u = (tr(:,:,f,e,2) - jmp_u)
         avg_q = (tr(:,:,f,e,3) - avg_q) * HALF
       end if
     else
-      nu_mx = tr(:,:,f,e,1)
+      nu_max = tr(:,:,f,e,1)
       jmp_u = tr(:,:,f,e,2)
       avg_q = tr(:,:,f,e,3)
    end if

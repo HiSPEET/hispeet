@@ -261,7 +261,7 @@ contains
     real(RNP), intent(in)  :: u (:,:,:,:,:) !< flow variables
     real(RNP), intent(out) :: nu(:,:,:,:)   !< viscosity
 
-    integer :: m, n
+    integer :: n
 
     n = size(nu)
 
@@ -680,7 +680,7 @@ contains
     call GetVelocityTimeDerivative(n, x, t, dt_v)
     call GetDiffusiveTerm(problem, n, x, t, F_d)
 
-    if(problem % stokes) then
+    if (problem % stokes) then
 
       do l = 1, 3
         !$omp do

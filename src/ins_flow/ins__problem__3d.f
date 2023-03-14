@@ -51,6 +51,7 @@ module INS__Problem__3D
     procedure :: HasExactSolution
     procedure :: GetVariableNames
     procedure :: GetPressureBC
+    procedure :: GetExternalSources
     procedure :: GetViscosity
 
     procedure :: GetExactSolution
@@ -62,7 +63,6 @@ module INS__Problem__3D
     procedure(SetProblem),         deferred :: SetProblem
     procedure(GetInitialValues),   deferred :: GetInitialValues
     procedure(GetBoundaryValues),  deferred :: GetBoundaryValues
-    procedure(GetExternalSources), deferred :: GetExternalSources
 
   end type INS_Problem_3D
 
@@ -106,17 +106,6 @@ module INS__Problem__3D
       real(RNP), intent(in)  :: t           !< time
       real(RNP), intent(out) :: ub(:,:,:,:) !< flow variables
     end subroutine GetBoundaryValues
-
-    !---------------------------------------------------------------------------
-    !> Provides the external sources for all variables at points x and time t
-
-    subroutine GetExternalSources(problem, x, t, F_s)
-      import :: INS_Problem_3D, RNP
-      class(INS_Problem_3D), intent(in)  :: problem
-      real(RNP), intent(in)  :: x(:,:,:,:,:)   !< mesh points
-      real(RNP), intent(in)  :: t              !< time
-      real(RNP), intent(out) :: F_s(:,:,:,:,:) !< external sources
-    end subroutine GetExternalSources
 
   end interface
 
@@ -197,6 +186,19 @@ contains
     end associate
 
   end subroutine GetPressureBC
+
+  !-----------------------------------------------------------------------------
+  !> Dummy procedure for external sources
+
+  subroutine GetExternalSources(problem, x, t, F_s)
+    class(INS_Problem_3D), intent(in)  :: problem
+    real(RNP), intent(in)  :: x(:,:,:,:,:)   !< mesh points
+    real(RNP), intent(in)  :: t              !< time
+    real(RNP), intent(out) :: F_s(:,:,:,:,:) !< external sources
+
+    call SetArray(F_s, ZERO, multi=.true.)
+
+  end subroutine GetExternalSources
 
   !-----------------------------------------------------------------------------
   !> Dummy procedure for variable viscosity

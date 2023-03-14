@@ -58,7 +58,7 @@ contains
 
     real(RNP), allocatable, save :: vp(:,:,:,:,:), w(:,:,:,:,:)
     real(RNP), save :: v_max, vv_max = 0
-    real(RNP), save :: e_kin, vv_sum = 0
+    real(RNP), save :: e_kin
     real(RNP) :: div_v, err_v, err_p, vv
 
     integer :: e, i, j, k, ne, np
@@ -132,23 +132,28 @@ contains
 
       ! maximum velocity and energy ............................................
 
-      !$omp do reduction(max:vv_max, sum:vv_sum)
-      do e = 1, ne
-        do k = 1, np
-        do j = 1, np
-        do i = 1, np
-          vv = u(i,j,k,e,1)**2 + u(i,j,k,e,2)**2 + u(i,j,k,e,3)**2
-          vv_max = max(vv_max, vv)
-          vv_sum = vv_sum + vv
-        end do
-        end do
-        end do
-      end do
+      associate(v => u(:,:,:,:,1:3), q => w(:,:,:,:,4))
 
-      !$omp master
-      call XMPI_Allreduce(sqrt(vv_max), v_max, MPI_MAX, mesh%comm_parts)
-      call XMPI_Allreduce(HALF*vv_sum , e_kin, MPI_SUM, mesh%comm_parts)
-      !$omp end master
+        !$omp do reduction(max:vv_max)
+        do e = 1, ne
+          do k = 1, np
+          do j = 1, np
+          do i = 1, np
+            vv = u(i,j,k,e,1)**2 + u(i,j,k,e,2)**2 + u(i,j,k,e,3)**2
+            vv_max = max(vv_max, vv)
+            q(j,j,k,e) = vv
+          end do
+          end do
+          end do
+        end do
+
+        !$omp master
+        call XMPI_Allreduce(sqrt(vv_max), v_max, MPI_MAX, mesh%comm_parts)
+        !$omp end master
+
+        call GetVolumeIntegral(ins_op%sem_v, q, e_kin)
+
+      end associate
 
       ! finalization ...........................................................
 
@@ -158,16 +163,16 @@ contains
         this % err_v = err_v / volume
         this % err_p = err_p / volume
         this % div_v = div_v / volume
-        this % e_kin = e_kin / volume
+        this % e_kin = e_kin / (2 * volume)
       else
-        this % err_v  = err_v
-        this % err_p  = err_p
-        this % div_v  = div_v
+        this % err_v = err_v
+        this % err_p = err_p
+        this % div_v = div_v
+        this % e_kin = e_kin / 2
       end if
       this % v_max = v_max
 
       vv_max = 0
-      vv_sum = 0
 
       deallocate(vp, w)
 

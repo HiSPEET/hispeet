@@ -26,8 +26,8 @@ program INS_TimeIntegrator_3D_Test
   use Export_VTK_Volume_Data__3D
 
   use INS__Problem__3D
-  use INS__Problem__Vortex_TG__3D
-  use INS__Problem__Variable_Viscosity__3D
+  use INS__Problem__Test_Suite__3D
+
   use INS__Operator__3D
   use INS__Time_Scales__3D
   use INS__Time_Integrator__3D
@@ -56,17 +56,12 @@ program INS_TimeIntegrator_3D_Test
   ! control parameters .........................................................
 
   character(len=*), parameter :: default_case = 'ins_timeintegrator_3d_test'
-  character(len=80) :: flow_case
-  character(len=80) :: case_file
+  character(len=80) :: flow_case ! flow case name
+  character(len=80) :: case_file ! flow case input file: trim(flow_case).prm
   ! input file (*.prm)
 
-  character(len=80) :: flow_problem = 'Vortex_TG'
-  ! flow problem:
-  !   'Vortex_TG'          2D Taylor-Green vortex
-  !   'VariableViscosity'  3D Vortex array with variable viscosity
-
-  character(len=80) :: problem_file = 'vortex_tg'
-  ! file containing the problem parameters (*.prm)
+  character(len=80) :: flow_problem = 'Vortex_TG' ! problem name
+  character(len=80) :: problem_file = 'vortex_tg' ! problem parameters file
 
   integer :: flow_domain = 1
   ! computational flow domain (u/s = un/structured, r = regular, d = deformed)
@@ -247,14 +242,7 @@ program INS_TimeIntegrator_3D_Test
 
   ! problem ....................................................................
 
-  select case(flow_problem)
-  case('Vortex_TG')
-    allocate(INS_Problem_Vortex_TG_3D         :: problem)
-  case default
-    allocate(INS_Problem_VariableViscosity_3D :: problem)
-  end select
-
-  call problem % SetProblem(n_bound, problem_file, comm)
+  call Set_INS_TestProblem_3D(problem, flow_problem, problem_file, n_bound, comm)
 
   ! check & fix boundary conditions
   do i = 1, n_bound
