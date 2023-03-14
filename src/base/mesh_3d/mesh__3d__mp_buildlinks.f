@@ -28,7 +28,7 @@ contains
   !>     is completed by inserting the ghost ID of adjacent remote elements
 
   module subroutine BuildLinks(mesh)
-    class(Mesh_3D), intent(inout) :: mesh !< local partition
+    class(Mesh_3D), intent(inout) :: mesh !< mesh partition
 
     integer, allocatable :: nf(:), nm(:), ng(:), og(:)
     integer, allocatable :: link_face(:,:)
