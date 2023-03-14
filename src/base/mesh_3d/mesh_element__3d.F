@@ -199,30 +199,36 @@ module Mesh_Element__3D
   !> The `refinement` component indicates which children are included in the
   !> next finer mesh:
   !>
+  !>
   !>   |  value   | refinement | children |  role   |
   !>   | --------:|:---------- | -------- | ------- |
-  !>   |    `-1`  | none       |     0    |         |
-  !>   |   `100`  | regular    |     8    | active  |
-  !>   |    `50`  | regular    |     8    | closure |
-  !>   |   `1:6`  | face 1:6   |     4    | closure |
-  !>   |  `7:18`  | edge 1:12  |     2    | closure |
-  !>   | `19:26`  | vertex 1:8 |     1    | closure |
+  !>   |     `0`  | none       |    0     |         |
+  !>   |   `100`  | regular    |    8     | active  |
+  !>   |    `50`  | regular    |    8     | closure |
+  !>   |   `1:6`  | face 1:6   |    4     | closure |
+  !>   |  `7:18`  | edge 1:12  |    2     | closure |
+  !>   | `19:26`  | vertex 1:8 |    1     | closure |
   !>
   !> Only the children of elements with `refinement = 100` adopt an active role
   !> on the fine mesh. The other refinement types serve to generate a layer of
   !> interpolation elements enclosing the active refinement zones.
   !>
-  !> `mark` indicates the refinement targeted in the ongoing adaptation and
   !> `sublevels` the number of finer levels to which the element contributes.
+  !>
+  !> `mark` is used for different purposes. Before adaptation, it is set to
+  !> indicate the intended refinement of the existing elements. In course of
+  !> the adaptation process it may take different roles to assist the creation
+  !> of new elements or to remap sustained data.
 
   type MeshElementAdaptation_3D
-    integer      :: parent_proc = -1 !< parent partition ID in comm_world
-    integer      :: parent_id   = -1 !< parent element ID
-    integer      :: child_proc  = -1 !< child partition ID in comm_world
-    integer      :: child_id    = -1 !< first child element ID
-    integer(IXS) :: refinement  = -1 !< refinement: -1:26, none, regular, comp
-    integer(IXS) :: sublevels   = -1 !< number of subsequent levels
-    integer(IXS) :: mark        = -1 !< adaptation mark
+    integer      :: parent_proc   = -1 !< parent partition ID in comm_world
+    integer      :: parent_id     = -1 !< parent element ID
+    integer(IXS) :: parent_octant = -1 !< originating parent octant
+    integer(IXS) :: refinement    = -1 !< refinement type
+    integer      :: sublevels     = -1 !< number of subsequent levels
+    integer      :: child_proc    = -1 !< child partition ID in comm_world
+    integer      :: child_id      = -1 !< first child element ID
+    integer      :: mark          = -1 !< adaptation mark or auxiliary data
   end type MeshElementAdaptation_3D
 
   !-----------------------------------------------------------------------------
@@ -312,7 +318,8 @@ module Mesh_Element__3D
 
   type MeshElement_3D
 
-    integer :: id = -1  !< local  element ID
+    integer :: id     = -1       !< local element ID
+    logical :: frozen = .false.  !< switch to indicate frozen elements
 
     type(MeshElementVertex_3D)  :: vertex(8)  !< vertex data
     type(MeshElementEdge_3D)    :: edge(12)   !< edge data
