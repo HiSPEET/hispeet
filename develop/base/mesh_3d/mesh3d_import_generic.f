@@ -9,10 +9,8 @@ program Mesh3d_Import_Generic
   use Verify_Mesh__3D
   use Assembly__3D
   use Export_VTK_Volume_Data__3D
-!### CHECK
   use Element_Distribution_Map__3D
-  use Partition_Root_Mesh__3D
-!### CHECK END
+  use Root_Mesh_Partitioning__3D
   implicit none
 
   character(len=*), parameter :: input_file = 'mesh3d_import_generic.prm'
@@ -63,12 +61,11 @@ program Mesh3d_Import_Generic
   integer   :: i, j, k, l
   integer   :: i_err, j_err, k_err, l_err
 
-!### CHECK
-  type(RootMeshPartitioningOptions_3D) :: part_opt
+!!   type(RootMeshPartitioningOptions_3D) :: part_opt
+  type(PartitioningOptions_3D) :: part_opt
   type(ElementDistributionMap_3D) :: part_map
   type(Mesh_3D) :: new_mesh
   integer :: n_proc
-!### CHECK END
 
   call Init_MPI_Binding()
   call MPI_Comm_rank(comm, rank)
@@ -125,16 +122,16 @@ program Mesh3d_Import_Generic
 !?!      write(*,'(2X,A,I0,A,G0)') 'area(',i,') = ', area(i)
 !?!    end do
 !?!
-!?!    ! set up data ..............................................................
-!?!
-!?!    if (test_avg .or. export_vtk) then
-!?!      call mesh % GetPoints(po, 'L', x)
-!?!      allocate(v  (0:po, 0:po, 0:po, mesh%n_elem + mesh%n_ghost))
-!?!      allocate(var(0:po, 0:po, 0:po, mesh%n_elem, 2), source = ZERO)
-!?!      r(0:,0:,0:,1:) => var(:,:,:,:,1)
-!?!      e(0:,0:,0:,1:) => var(:,:,:,:,2)
-!?!    end if
-!?!
+    ! set up data ..............................................................
+
+    if (test_avg .or. export_vtk) then
+      call mesh % GetPoints(po, 'L', x)
+      allocate(v  (0:po, 0:po, 0:po, mesh%n_elem + mesh%n_ghost))
+      allocate(var(0:po, 0:po, 0:po, mesh%n_elem, 2), source = ZERO)
+      r(0:,0:,0:,1:) => var(:,:,:,:,1)
+      e(0:,0:,0:,1:) => var(:,:,:,:,2)
+    end if
+
 !?!    ! averaging test ...........................................................
 !?!
 !?!    if (test_avg) then
@@ -179,22 +176,22 @@ program Mesh3d_Import_Generic
 !?!                                  err, ' at ', i_err, j_err, k_err, l_err
 !?!    end if
 !?!
-!?!    ! export mesh and data .....................................................
-!?!
-!?!    if (export_vtk) then
-!?!      call ExportVTK_VolumeData( x, var                   &
-!?!                               , sname   = ['r','e']      &
-!?!                               , file    = 'element_mesh' &
-!?!                               , part    = mesh % part    &
-!?!                               , n_parts = mesh % n_parts )
-!?!
-!?!      call mesh % GetCuboids(x)
-!?!      call ExportVTK_VolumeData( x                        &
-!?!                               , file    = 'cuboid_mesh'  &
-!?!                               , part    = mesh % part    &
-!?!                               , n_parts = mesh % n_parts )
-!?!
-!?!    end if
+    ! export mesh and data .....................................................
+
+    if (export_vtk) then
+      call ExportVTK_VolumeData( x, var                   &
+                               , sname   = ['r','e']      &
+                               , file    = 'element_mesh' &
+                               , part    = mesh % part    &
+                               , n_parts = mesh % n_parts )
+
+      call mesh % GetCuboids(x)
+      call ExportVTK_VolumeData( x                        &
+                               , file    = 'cuboid_mesh'  &
+                               , part    = mesh % part    &
+                               , n_parts = mesh % n_parts )
+
+    end if
 
 !### CHECK
   call MPI_Barrier(comm)
@@ -205,6 +202,7 @@ program Mesh3d_Import_Generic
   print '(9(G0,1X))', 'rank =', rank, ', n_bound =', mesh % n_bound
   print '(9(G0,1X))', 'rank =', rank, ', n_elem  =', mesh % n_elem
   part_opt % n_parts = n_proc
+  part_opt % mode    = 1
   call RootMeshPartitioning_3D(part_opt, mesh, new_mesh, part_map)
   call MPI_Barrier(comm)
   call MPI_Comm_size(comm, n_proc)

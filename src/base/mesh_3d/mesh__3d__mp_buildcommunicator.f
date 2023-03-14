@@ -13,7 +13,7 @@ contains
   !> Build communicator between active partitions
 
   module subroutine BuildCommunicator(mesh)
-    class(Mesh_3D), target, intent(inout) :: mesh !< mesh partition
+    class(Mesh_3D), intent(inout) :: mesh !< mesh partition
 
     type(MPI_Comm)  :: comm_split
     type(MPI_Group) :: group_world, group_split, group_active
@@ -27,7 +27,7 @@ contains
       ! preparations ...........................................................
 
       ! prepare list of active processes
-      allocate(mesh % proc_active(0:n_parts-1))
+      allocate(mesh % proc_part(0:n_parts-1))
 
       ! distinguish between active and inactive processes
       if (mesh % part >= 0) then
@@ -57,10 +57,8 @@ contains
         mesh % comm_parts = comm_split
 
         ! list of active processes within comm_world
-        call MPI_Group_translate_ranks( group_split, n_parts, ranks     &
-                                      , group_world, mesh % proc_active )
-
-        mesh % proc_part(0:) => mesh % proc_active
+        call MPI_Group_translate_ranks( group_split, n_parts, ranks   &
+                                      , group_world, mesh % proc_part )
 
         call MPI_Group_free(group_world)
         call MPI_Group_free(group_split)
@@ -75,9 +73,7 @@ contains
         ! list of active processes within comm_world
         call MPI_Group_difference(group_world, group_split, group_active )
         call MPI_Group_translate_ranks( group_active, n_parts, ranks  &
-                                      , group_world, mesh % proc_active )
-
-        mesh % proc_part => null()
+                                      , group_world, mesh % proc_part )
 
         call MPI_Comm_free(comm_split)
         call MPI_Group_free(group_world)

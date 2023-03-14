@@ -110,6 +110,7 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
               mesh_3d/mesh_link__3d.f
               mesh_3d/mesh__3d.f
               mesh_3d/mesh__3d__mp_buildboundaryfaces.f
+              mesh_3d/mesh__3d__mp_buildchildinfo.f
               mesh_3d/mesh__3d__mp_buildcommunicator.f
               mesh_3d/mesh__3d__mp_buildcuboids.f
               mesh_3d/mesh__3d__mp_buildfaces.f
@@ -154,9 +155,12 @@ set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/ops/volume_integrals__3d.f
              util_3d/ops/surface_integrals__3d.f
              util_3d/verification/verify_mesh__3d.f
+             util_3d/adaptation/partitioner_interface__3d.f
              util_3d/adaptation/element_distribution_map__3d.f
              util_3d/adaptation/element_distribution_data__3d.f
              util_3d/adaptation/root_mesh_partitioning__3d.F
+             util_3d/adaptation/child_distribution_map__3d.f
+             util_3d/adaptation/child_mesh_adaptation__3d.F
              )
 
 if (Exodus_FOUND)

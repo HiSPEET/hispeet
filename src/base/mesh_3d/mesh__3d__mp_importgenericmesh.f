@@ -84,6 +84,9 @@ contains
       call mesh % BuildCuboids()
       call mesh % IdentifyRanks()
 
+      mesh % n_child = 0
+      allocate(mesh % child(0))
+
     end if
 
     ! empty partitions and intracommunicator ...................................
@@ -126,6 +129,9 @@ contains
     integer :: b, i, j, k, n
 
     mesh % n_elem = size(generic_mesh % element)
+    mesh % n_elem_active = mesh % n_elem
+    mesh % n_elem_frozen = 0
+
     allocate(mesh % element( mesh % n_elem ))
 
     ! element and vertex IDs ...................................................
