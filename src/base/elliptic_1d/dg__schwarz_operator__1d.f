@@ -270,16 +270,18 @@ contains
       end do
 
       !$omp master
-      if (ne > 1) then
-        rs(ns+1-no:ns,  1) = r(    0:no-1,    2)
-        rs(      1:no, ne) = r(np-no:po  , ne-1)
-      end if
-      if (this % periodic) then
-        rs(      1:no,  1) = r(np-no:po  , ne)
-        rs(ns+1-no:ns, ne) = r(    0:no-1,  1)
-      else
-        rs(      1:no,  1) = 0
-        rs(ns+1-no:ns, ne) = 0
+      if no > 0) then
+        if (ne > 1) then
+          rs(ns+1-no:ns,  1) = r(    0:no-1,    2)
+          rs(      1:no, ne) = r(np-no:po  , ne-1)
+        end if
+        if (this % periodic) then
+          rs(      1:no,  1) = r(np-no:po  , ne)
+          rs(ns+1-no:ns, ne) = r(    0:no-1,  1)
+        else
+          rs(      1:no,  1) = 0
+          rs(ns+1-no:ns, ne) = 0
+        end if
       end if
       !$omp end master
 
@@ -318,13 +320,15 @@ contains
       end do
 
       !$omp master
-      if (ne > 1) then
-        u(np-no:po  ,  1) = u(np-no:po  ,  1) + us(      1:no,    2)
-        u(    0:no-1, ne) = u(    0:no-1, ne) + us(ns+1-no:ns, ne-1)
-      end if
-      if (this % periodic) then
-        u(    0:no-1,  1) = u(    0:no-1,  1) + us(ns+1-no:ns, ne)
-        u(np-no:po  , ne) = u(np-no:po  , ne) + us(      1:no,  1)
+      if no > 0) then
+        if (ne > 1) then
+          u(np-no:po  ,  1) = u(np-no:po  ,  1) + us(      1:no,    2)
+          u(    0:no-1, ne) = u(    0:no-1, ne) + us(ns+1-no:ns, ne-1)
+        end if
+        if (this % periodic) then
+          u(    0:no-1,  1) = u(    0:no-1,  1) + us(ns+1-no:ns, ne)
+          u(np-no:po  , ne) = u(np-no:po  , ne) + us(      1:no,  1)
+        end if
       end if
       !$omp end master
 
