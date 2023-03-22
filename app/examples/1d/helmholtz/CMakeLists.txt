@@ -23,6 +23,17 @@ target_link_libraries(cg_helmholtz_1d_acc HiBase)
 configure_file( cg_helmholtz_1d_acc.prm
                 cg_helmholtz_1d_acc.prm COPYONLY )
 
+# dg_helmholtz_1d ..............................................................
+
+add_executable( dg_helmholtz_1d
+                dg_helmholtz_1d.f
+                helmholtz_1d_test_cases.f )
+
+target_link_libraries(dg_helmholtz_1d HiBase)
+
+configure_file( dg_helmholtz_1d.prm
+                dg_helmholtz_1d.prm COPYONLY )
+
 # ip_helmholtz_1d ..............................................................
 
 add_executable( ip_helmholtz_1d
