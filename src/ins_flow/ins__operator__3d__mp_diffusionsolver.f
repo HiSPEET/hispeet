@@ -120,7 +120,7 @@ contains
       ! element-averaged viscosity .............................................
 
 !     if (present(nu)) then
-!       call TPO_Average(ONE/8, eop%w, nu_v, nu_avg)
+!       call TPO_Average(eop%w, nu_v, nu_avg)
 !     else
         call SetArray(nu_avg, this % nu_0)
 !     end if

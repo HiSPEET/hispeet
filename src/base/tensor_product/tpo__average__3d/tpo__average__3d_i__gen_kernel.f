@@ -7,15 +7,17 @@
 !-------------------------------------------------------------------------------
 !> 3D generic isotropic averaging operator
 
-subroutine TPO_Average_I_Gen_RWP(np, ne, s, w, u, v)
+subroutine TPO_Average_I_Gen_RWP(np, ne, w, u, v)
   integer,   intent(in)  :: np             !< number of points per direction
   integer,   intent(in)  :: ne             !< number of elements
-  real(RWP), intent(in)  :: s              !< scaling factor
   real(RWP), intent(in)  :: w(np)          !< 1D averaging operator
   real(RWP), intent(in)  :: u(np,np,np,ne) !< operand
   real(RWP), intent(out) :: v(ne)          !< elementwise average
 
+  real(RWP) :: s
   integer   :: e, i, j, k
+
+  s = 1 / sum(w)**3
 
   !$omp do
   do e = 1, ne

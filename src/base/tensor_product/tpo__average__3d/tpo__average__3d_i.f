@@ -17,8 +17,7 @@ contains
   !-----------------------------------------------------------------------------
   !> 3D scaled isotropic averaging operator
 
-  subroutine TPO_Average_I_RDP(s, w, u, v)
-    real(RDP), intent(in)  :: s          !< scaling factor
+  subroutine TPO_Average_I_RDP(w, u, v)
     real(RDP), intent(in)  :: w(:)       !< 1D averaging operator
     real(RDP), intent(in)  :: u(:,:,:,:) !< operand
     real(RDP), intent(out) :: v(:)       !< result
@@ -28,7 +27,7 @@ contains
     np = size(w)
     ne = size(u,4)
 
-    call TPO_Average_I_Gen(np, ne, s, w, u, v)
+    call TPO_Average_I_Gen(np, ne, w, u, v)
 
   end subroutine TPO_Average_I_RDP
 
