@@ -42,17 +42,17 @@ program IP_Helmholtz_1D
 
   ! solution parameters
   type(DG_ElementOptions_1D) :: eop_opt ! options for IP element operator
-  integer                   :: ne = 10 ! number of elements
+  integer                    :: ne = 10 ! number of elements
 
   namelist /solution_parameters/ eop_opt, ne
 
   ! discrete variables and operators
   type(DG_ElementOperators_1D) :: eop    ! element operators
-  real(RNP), allocatable      :: x(:,:) ! mesh points
-  real(RNP), allocatable      :: u(:,:) ! discrete solution
-  real(RNP), allocatable      :: f(:,:) ! right hand side (RHS)
-  real(RNP), allocatable      :: s(:,:) ! projected exact solution
-  real(RNP), allocatable      :: e(:,:) ! error
+  real(RNP), allocatable       :: x(:,:) ! mesh points
+  real(RNP), allocatable       :: u(:,:) ! discrete solution
+  real(RNP), allocatable       :: f(:,:) ! right hand side (RHS)
+  real(RNP), allocatable       :: s(:,:) ! projected exact solution
+  real(RNP), allocatable       :: e(:,:) ! error
 
   ! auxiliary variables
   logical      :: exists, singular
@@ -159,11 +159,11 @@ contains
 !> Right hand side
 
 subroutine GetRHS(eop, dx, bc, x, f)
-  class(DG_ElementOperators_1D), intent(in)  :: eop     !< IP-H element operators
-  real(RNP),                    intent(in)  :: dx      !< element extension
-  character,                    intent(in)  :: bc(2)   !< boundary conditions
-  real(RNP),                    intent(in)  :: x(0:,:) !< mesh points
-  real(RNP),                    intent(out) :: f(0:,:) !< RHS
+  class(DG_ElementOperators_1D), intent(in)  :: eop !< IP-H element operators
+  real(RNP), intent(in)  :: dx      !< element extension
+  character, intent(in)  :: bc(2)   !< boundary conditions
+  real(RNP), intent(in)  :: x(0:,:) !< mesh points
+  real(RNP), intent(out) :: f(0:,:) !< RHS
 
   real(RNP), allocatable :: delta_0(:), delta_P(:)
   real(RNP) :: tau
