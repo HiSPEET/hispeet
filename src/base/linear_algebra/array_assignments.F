@@ -31,24 +31,28 @@ module Array_Assignments
     module procedure SetArray_5S
     module procedure SetArray_6S
     ! set array by assigning a matching array
+    module procedure SetArray_2A
     module procedure SetArray_3A
     module procedure SetArray_4A
     module procedure SetArray_5A
   end interface
 
   interface MergeArrays
+    module procedure MergeArrays_2
     module procedure MergeArrays_3
     module procedure MergeArrays_4
     module procedure MergeArrays_5
   end interface
 
   interface ScaleArray
+    module procedure ScaleArray_2
     module procedure ScaleArray_3
     module procedure ScaleArray_4
     module procedure ScaleArray_5
   end interface
 
   interface CalibrateArray
+    module procedure CalibrateArray_2
     module procedure CalibrateArray_3
     module procedure CalibrateArray_4
     module procedure CalibrateArray_5
@@ -189,6 +193,31 @@ subroutine SetArray_XS(ne, nc, a, s)
 end subroutine SetArray_XS
 
 !-------------------------------------------------------------------------------
+!> Assigment of array b to array a (2D)
+
+subroutine SetArray_2A(a, b, multi)
+  real(RNP),         intent(out) :: a(:,:) !< target array
+  real(RNP),         intent(in)  :: b(:,:) !< assigned array
+  logical, optional, intent(in)  :: multi  !< switch to multiple components
+
+  integer :: nc
+
+#ifdef DEBUG
+  if (any(shape(a) /= shape(b))) then
+    call Error('SetArray_2A', 'shape mismatch', 'Array_Assignments')
+  end if
+#endif
+
+  nc = 1
+  if (present(multi)) then
+    if (multi) nc = size(a,2)
+  end if
+
+  call SetArray_XA(size(a)/nc, nc, a, b)
+
+end subroutine SetArray_2A
+
+!-------------------------------------------------------------------------------
 !> Assigment of array b to array a (3D)
 
 subroutine SetArray_3A(a, b, multi)
@@ -288,6 +317,34 @@ end subroutine SetArray_XA
 
 !===============================================================================
 ! MergeArrays
+
+!-------------------------------------------------------------------------------
+!> Performs  a = alpha * a + beta * b + s  with vectors a,b and scalar s (2D)
+
+subroutine MergeArrays_2(alpha, a, beta, b, s, multi)
+  real(RNP),           intent(in)    :: alpha  !< coefficient to a
+  real(RNP),           intent(in)    :: beta   !< coefficient to b
+  real(RNP),           intent(inout) :: a(:,:) !< target array
+  real(RNP),           intent(in)    :: b(:,:) !< merged array
+  real(RNP), optional, intent(in)    :: s      !< scalar [0]
+  logical,   optional, intent(in)    :: multi  !< switch to multiple comps.
+
+  integer :: nc
+
+#ifdef DEBUG
+  if (any(shape(a) /= shape(b))) then
+    call Error('MergeArrays_2', 'shape mismatch', 'Array_Assignments')
+  end if
+#endif
+
+  nc = 1
+  if (present(multi)) then
+    if (multi) nc = size(a,2)
+  end if
+
+  call MergeArrays_X(size(a)/nc, nc, alpha, a, beta, b, s)
+
+end subroutine MergeArrays_2
 
 !-------------------------------------------------------------------------------
 !> Performs  a = alpha * a + beta * b + s  with vectors a,b and scalar s (3D)
@@ -428,6 +485,25 @@ end subroutine MergeArrays_X
 ! ScaleArray
 
 !-------------------------------------------------------------------------------
+!> Scale single-component array a by a factor of s (2D)
+
+subroutine ScaleArray_2(a, s, multi)
+  real(RNP),         intent(inout) :: a(:,:) !< target array
+  real(RNP),         intent(in)    :: s      !< scaling factor
+  logical, optional, intent(in)    :: multi  !< switch to multiple comps.
+
+  integer :: nc
+
+  nc = 1
+  if (present(multi)) then
+    if (multi) nc = size(a,2)
+  end if
+
+  call ScaleArray_X(size(a)/nc, nc, a, s)
+
+end subroutine ScaleArray_2
+
+!-------------------------------------------------------------------------------
 !> Scale single-component array a by a factor of s (3D)
 
 subroutine ScaleArray_3(a, s, multi)
@@ -509,6 +585,17 @@ end subroutine ScaleArray_X
 
 !===============================================================================
 ! CalibrateArray
+
+!-------------------------------------------------------------------------------
+!> Remove non-zero arithmetic mean value (2D)
+
+subroutine CalibrateArray_2(a, comm)
+  real(RNP),                intent(inout) :: a(:,:) !< array
+  type(MPI_Comm), optional, intent(in)    :: comm   !< MPI communicator
+
+  call CalibrateArray_X(size(a), a, comm)
+
+end subroutine CalibrateArray_2
 
 !-------------------------------------------------------------------------------
 !> Remove non-zero arithmetic mean value (3D)
