@@ -21,9 +21,9 @@ contains
                                , i_max, r_red, r_max, ni            )
 
     class(DG_EllipticOperator_3D),   intent(in)    :: this
-    real(RNP),                       intent(in)    :: lambda
-    real(RNP),             optional, intent(in)    :: nu_c
-    real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:)
+    real(RNP),                       intent(in)    :: lambda        !< λ
+    real(RNP),             optional, intent(in)    :: nu_c          !< νᵖ+νˢ
+    real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:) !< νᵖ
     real(RNP), contiguous,           intent(inout) :: u(:,:,:,:)
     real(RNP), contiguous,           intent(in)    :: f(:,:,:,:)
     class(BoundaryVariable_3D),      intent(in)    :: bv(:)

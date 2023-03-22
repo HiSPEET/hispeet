@@ -60,7 +60,7 @@ contains
   module subroutine Eval_DC(this, lambda, nu, u, r, f, bv)
     class(DG_EllipticOperator_3D),   intent(in)  :: this
     real(RNP),                       intent(in)  :: lambda     !< λ
-    real(RNP),                       intent(in)  :: nu         !< ν
+    real(RNP),                       intent(in)  :: nu         !< ν = νᵖ
     real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
     real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
     real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS

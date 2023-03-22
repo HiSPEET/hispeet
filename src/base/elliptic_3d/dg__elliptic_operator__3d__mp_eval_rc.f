@@ -24,7 +24,7 @@ contains
   module subroutine Eval_RC(this, lambda, nu, u, r, f, bv)
     class(DG_EllipticOperator_3D),   intent(in)  :: this
     real(RNP),                       intent(in)  :: lambda     !< λ
-    real(RNP),                       intent(in)  :: nu         !< ν
+    real(RNP),                       intent(in)  :: nu         !< ν = νᵖ+νˢ
     real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
     real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
     real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
@@ -58,13 +58,8 @@ contains
       ng = mesh % n_ghost
       np = po + 1
 
-      if (this % r_nu_s < 1) then
-        nu_p = nu
-        nu_s = this % SpectralDiffusivity(nu)
-      else
-        nu_p = 0
-        nu_s = nu
-      end if
+      nu_p = this % PhysicalDiffusivity(nu)
+      nu_s = this % SpectralDiffusivity(nu)
 
       ! computation of 1D standard diffusion and standard flux operator
       if (nu_s > 0) then

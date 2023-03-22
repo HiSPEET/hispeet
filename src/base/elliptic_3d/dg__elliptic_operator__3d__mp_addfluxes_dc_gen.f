@@ -22,7 +22,7 @@ contains
 
     real(RNP), intent(in)    :: a(0:,0:,:,:)      !< area coeff @ element faces
     real(RNP), intent(in)    :: Ji_n(0:,0:,:,:,:) !< J⁻¹⋅n      @ element faces
-    real(RNP), intent(in)    :: nu                !< diffusivity
+    real(RNP), intent(in)    :: nu                !< diffusivity, ν = νᵖ
     real(RNP), intent(in)    :: tr(0:,0:,:,:,:)   !< traces of u, q_n
     real(RNP), intent(inout) :: r(0:,0:,0:,:)     !< result
     real(RNP), intent(in), optional :: f(0:,0:,0:,:) !< RHS

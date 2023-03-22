@@ -24,9 +24,9 @@ contains
                                     , i_max, r_red, r_max, ni            )
 
     class(DG_EllipticOperator_3D),   intent(in)    :: this
-    real(RNP),                       intent(in)    :: lambda
-    real(RNP),             optional, intent(in)    :: nu_c
-    real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:)
+    real(RNP),                       intent(in)    :: lambda        !< λ
+    real(RNP),             optional, intent(in)    :: nu_c          !< νᵖ+νˢ
+    real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:) !< νᵖ
     real(RNP), contiguous,           intent(inout) :: u(:,:,:,:)
     real(RNP), contiguous,           intent(in)    :: f(:,:,:,:)
     class(BoundaryVariable_3D),      intent(in)    :: bv(:)
@@ -124,9 +124,9 @@ contains
 
       ! element-averaged diffusivity
       if (present(nu_c)) then
-        call SetArray(nu_avg, this % TotalDiffusivity(nu_c))
+        call SetArray(nu_avg, nu_c)
       else
-        call TPO_Average(ONE/8, eop%w, nu_v, nu_avg)
+        call TPO_Average(eop%w, nu_v, nu_avg)
       end if
 
       !$omp master

@@ -1,4 +1,4 @@
-!> summary:  Abstract 3D elliptic operator
+!> summary:  3D elliptic operator
 !> author:   Joerg Stiller
 !> date:     2021/08/02
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -19,6 +19,8 @@ module DG__Elliptic_Operator__3D
   use Spectral_Element_Mesh__3D
   use Boundary_Variable__3D
 
+  implicit none
+
   !-----------------------------------------------------------------------------
   !> Base type for scalar diffusion operators for 3D DG-SEM
 
@@ -28,29 +30,29 @@ module DG__Elliptic_Operator__3D
     type(DG_ElementOperators_1D) :: eop
     type(DG_SchwarzOperator_3D)  :: schwarz
     character, allocatable       :: bc(:)  !< boundary conditions {P,D,N}
-    real(RNP)                    :: r_nu_s !< ratio νˢ/(ν+νˢ)
+    real(RNP)                    :: r_nu_s !< ratio νˢ/(νᵖ+νˢ)
 
   contains
 
     procedure :: Init_DG_EllipticOperator_3D
 
-    generic :: Apply => Apply_C, Apply_V
-    procedure, private :: Apply_C, Apply_V
+    generic :: Apply              =>  Apply_C, Apply_V
+    procedure, private ::             Apply_C, Apply_V
 
-    generic :: Residual => Residual_C, Residual_V
-    procedure, private :: Residual_C, Residual_V
+    generic :: Residual           =>  Residual_C, Residual_V
+    procedure, private ::             Residual_C, Residual_V
 
-    generic :: CG_Method => CG_Method_C, CG_Method_V
-    procedure, private :: CG_Method_C, CG_Method_V
+    generic :: CG_Method          =>  CG_Method_C, CG_Method_V
+    procedure, private ::             CG_Method_C, CG_Method_V
 
-    generic :: Schwarz_Method => Schwarz_Method_C, Schwarz_Method_V
-    procedure, private :: Schwarz_Method_C, Schwarz_Method_V
+    generic :: Schwarz_Method     =>  Schwarz_Method_C, Schwarz_Method_V
+    procedure, private ::             Schwarz_Method_C, Schwarz_Method_V
 
-    generic :: SchwarzPCG_Method => SchwarzPCG_Method_C, SchwarzPCG_Method_V
-    procedure, private :: SchwarzPCG_Method_C, SchwarzPCG_Method_V
+    generic :: SchwarzPCG_Method  =>  SchwarzPCG_Method_C, SchwarzPCG_Method_V
+    procedure, private ::             SchwarzPCG_Method_C, SchwarzPCG_Method_V
 
+    procedure :: PhysicalDiffusivity
     procedure :: SpectralDiffusivity
-    procedure :: TotalDiffusivity
 
   end type DG_EllipticOperator_3D
 
@@ -70,7 +72,7 @@ module DG__Elliptic_Operator__3D
     module subroutine Eval_RC(this, lambda, nu, u, r, f, bv)
       class(DG_EllipticOperator_3D),   intent(in)  :: this
       real(RNP),                       intent(in)  :: lambda     !< λ
-      real(RNP),                       intent(in)  :: nu         !< ν
+      real(RNP),                       intent(in)  :: nu         !< ν = νᵖ + νˢ
       real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
       real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
       real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
@@ -83,7 +85,7 @@ module DG__Elliptic_Operator__3D
     module subroutine Eval_RV(this, lambda, nu, u, r, f, bv)
       class(DG_EllipticOperator_3D),   intent(in)  :: this
       real(RNP),                       intent(in)  :: lambda      !< λ
-      real(RNP), contiguous,           intent(in)  :: nu(:,:,:,:) !< ν
+      real(RNP), contiguous,           intent(in)  :: nu(:,:,:,:) !< ν = νᵖ
       real(RNP), contiguous,           intent(in)  :: u (:,:,:,:) !< operand
       real(RNP), contiguous,           intent(out) :: r (:,:,:,:) !< result
       real(RNP), contiguous, optional, intent(in)  :: f (:,:,:,:) !< RHS
@@ -96,7 +98,7 @@ module DG__Elliptic_Operator__3D
     module subroutine Eval_DC(this, lambda, nu, u, r, f, bv)
       class(DG_EllipticOperator_3D),   intent(in)  :: this
       real(RNP),                       intent(in)  :: lambda     !< λ
-      real(RNP),                       intent(in)  :: nu         !< ν
+      real(RNP),                       intent(in)  :: nu         !< ν = νᵖ
       real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
       real(RNP), contiguous,           intent(out) :: r(:,:,:,:) !< result
       real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:) !< RHS
@@ -110,9 +112,9 @@ module DG__Elliptic_Operator__3D
                                  , i_max, r_red, r_max, ni            )
 
       class(DG_EllipticOperator_3D),   intent(in)    :: this
-      real(RNP),                       intent(in)    :: lambda
-      real(RNP),             optional, intent(in)    :: nu_c
-      real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:)
+      real(RNP),                       intent(in)    :: lambda        !< λ
+      real(RNP),             optional, intent(in)    :: nu_c          !< νᵖ+νˢ
+      real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:) !< νᵖ
       real(RNP), contiguous,           intent(inout) :: u(:,:,:,:)
       real(RNP), contiguous,           intent(in)    :: f(:,:,:,:)
       class(BoundaryVariable_3D),      intent(in)    :: bv(:)
@@ -130,9 +132,9 @@ module DG__Elliptic_Operator__3D
                                       , i_max, r_red, r_max, ni            )
 
       class(DG_EllipticOperator_3D),   intent(in)    :: this
-      real(RNP),                       intent(in)    :: lambda
-      real(RNP),             optional, intent(in)    :: nu_c
-      real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:)
+      real(RNP),                       intent(in)    :: lambda        !< λ
+      real(RNP),             optional, intent(in)    :: nu_c          !< νᵖ+νˢ
+      real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:) !< νᵖ
       real(RNP), contiguous,           intent(inout) :: u(:,:,:,:)
       real(RNP), contiguous,           intent(in)    :: f(:,:,:,:)
       class(BoundaryVariable_3D),      intent(in)    :: bv(:)
@@ -150,9 +152,9 @@ module DG__Elliptic_Operator__3D
                                          , i_max, r_red, r_max, ni            )
 
       class(DG_EllipticOperator_3D),   intent(in)    :: this
-      real(RNP),                       intent(in)    :: lambda
-      real(RNP),             optional, intent(in)    :: nu_c
-      real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:)
+      real(RNP),                       intent(in)    :: lambda        !< λ
+      real(RNP),             optional, intent(in)    :: nu_c          !< νᵖ+νˢ
+      real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:) !< νᵖ
       real(RNP), contiguous,           intent(inout) :: u(:,:,:,:)
       real(RNP), contiguous,           intent(in)    :: f(:,:,:,:)
       class(BoundaryVariable_3D),      intent(in)    :: bv(:)
@@ -180,7 +182,7 @@ contains
     class(DG_ElementOptions_1D),           intent(in) :: dg_opt
     class(DG_SchwarzOptions_3D),           intent(in) :: schwarz_opt
     character,                             intent(in) :: bc(:)
-    real(RNP),                   optional, intent(in) :: r_nu_s !< νˢ/(ν+νˢ) [0]
+    real(RNP),                   optional, intent(in) :: r_nu_s   !< [0]
 
     type(DG_EllipticOperator_3D) :: this
 
@@ -225,7 +227,7 @@ contains
   subroutine Apply_C(this, lambda, nu, u, r)
     class(DG_EllipticOperator_3D), intent(in)  :: this
     real(RNP),                     intent(in)  :: lambda     !< λ
-    real(RNP),                     intent(in)  :: nu         !< ν
+    real(RNP),                     intent(in)  :: nu         !< ν = νᵖ+νˢ
     real(RNP), contiguous,         intent(in)  :: u(:,:,:,:) !< operand
     real(RNP), contiguous,         intent(out) :: r(:,:,:,:) !< result
 
@@ -243,7 +245,7 @@ contains
   subroutine Apply_V(this, lambda, nu, u, r)
     class(DG_EllipticOperator_3D), intent(in)  :: this
     real(RNP),                     intent(in)  :: lambda      !< λ
-    real(RNP), contiguous,         intent(in)  :: nu(:,:,:,:) !< ν
+    real(RNP), contiguous,         intent(in)  :: nu(:,:,:,:) !< ν = νᵖ
     real(RNP), contiguous,         intent(in)  :: u (:,:,:,:) !< operand
     real(RNP), contiguous,         intent(out) :: r (:,:,:,:) !< result
 
@@ -265,7 +267,7 @@ contains
   subroutine Residual_C(this, lambda, nu, f, bv, u, r)
     class(DG_EllipticOperator_3D), intent(in)  :: this
     real(RNP),                     intent(in)  :: lambda     !< λ
-    real(RNP),                     intent(in)  :: nu         !< ν
+    real(RNP),                     intent(in)  :: nu         !< ν = νᵖ+νˢ
     real(RNP), contiguous,         intent(in)  :: f(:,:,:,:) !< RHS
     real(RNP), contiguous,         intent(in)  :: u(:,:,:,:) !< operand
     class(BoundaryVariable_3D),    intent(in)  :: bv(:)      !< boundary values
@@ -285,7 +287,7 @@ contains
   subroutine Residual_V(this, lambda, nu, f, bv, u, r)
     class(DG_EllipticOperator_3D), intent(in)  :: this
     real(RNP),                     intent(in)  :: lambda      !< λ
-    real(RNP), contiguous,         intent(in)  :: nu(:,:,:,:) !< ν
+    real(RNP), contiguous,         intent(in)  :: nu(:,:,:,:) !< ν = νᵖ
     real(RNP), contiguous,         intent(in)  :: u (:,:,:,:) !< operand
     real(RNP), contiguous,         intent(in)  :: f (:,:,:,:) !< RHS
     class(BoundaryVariable_3D),    intent(in)  :: bv(:)       !< boundary values
@@ -308,7 +310,7 @@ contains
     class(DG_EllipticOperator_3D), intent(in) :: this
 
     real(RNP),             intent(in)    :: lambda     !< λ
-    real(RNP),             intent(in)    :: nu         !< ν
+    real(RNP),             intent(in)    :: nu         !< ν = νᵖ+νˢ
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:) !< approximate solution
     real(RNP), contiguous, intent(in)    :: f(:,:,:,:) !< right hand side
 
@@ -333,7 +335,7 @@ contains
     class(DG_EllipticOperator_3D), intent(in) :: this
 
     real(RNP),             intent(in)    :: lambda      !< λ
-    real(RNP), contiguous, intent(in)    :: nu(:,:,:,:) !< ν
+    real(RNP), contiguous, intent(in)    :: nu(:,:,:,:) !< ν = νᵖ
     real(RNP), contiguous, intent(inout) :: u (:,:,:,:) !< approximate solution
     real(RNP), contiguous, intent(in)    :: f (:,:,:,:) !< right hand side
 
@@ -359,7 +361,7 @@ contains
     class(DG_EllipticOperator_3D), intent(in) :: this
 
     real(RNP),             intent(in)    :: lambda     !< λ
-    real(RNP),             intent(in)    :: nu         !< ν
+    real(RNP),             intent(in)    :: nu         !< ν = νᵖ+νˢ
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:) !< approximate solution
     real(RNP), contiguous, intent(in)    :: f(:,:,:,:) !< right hand side
 
@@ -385,7 +387,7 @@ contains
     class(DG_EllipticOperator_3D), intent(in) :: this
 
     real(RNP),             intent(in)    :: lambda      !< λ
-    real(RNP), contiguous, intent(in)    :: nu(:,:,:,:) !< ν
+    real(RNP), contiguous, intent(in)    :: nu(:,:,:,:) !< ν = νᵖ
     real(RNP), contiguous, intent(inout) :: u (:,:,:,:) !< approximate solution
     real(RNP), contiguous, intent(in)    :: f (:,:,:,:) !< right hand side
 
@@ -413,7 +415,7 @@ contains
 
     class(DG_EllipticOperator_3D), intent(in) :: this
     real(RNP),             intent(in)    :: lambda      !< λ
-    real(RNP),             intent(in)    :: nu          !< ν
+    real(RNP),             intent(in)    :: nu          !< ν = νᵖ+νˢ
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:)  !< approximate solution
     real(RNP), contiguous, intent(in)    :: f(:,:,:,:)  !< right hand side
     class(BoundaryVariable_3D), intent(in) :: bv(:) !< BC
@@ -436,7 +438,7 @@ contains
 
     class(DG_EllipticOperator_3D), intent(in) :: this
     real(RNP),             intent(in)    :: lambda      !< λ
-    real(RNP), contiguous, intent(in)    :: nu(:,:,:,:) !< ν
+    real(RNP), contiguous, intent(in)    :: nu(:,:,:,:) !< ν = νᵖ
     real(RNP), contiguous, intent(inout) :: u (:,:,:,:) !< approximate solution
     real(RNP), contiguous, intent(in)    :: f (:,:,:,:) !< right hand side
     class(BoundaryVariable_3D), intent(in) :: bv(:) !< BC
@@ -451,42 +453,31 @@ contains
 
   end subroutine SchwarzPCG_Method_V
 
-  !=============================================================================
-  ! Helper routines
+  !-----------------------------------------------------------------------------
+  !> Physical diffusivity coefficient νᵖ
+
+  pure real(RNP) function PhysicalDiffusivity(this, nu) result(nu_p)
+    class(DG_EllipticOperator_3D), intent(in) :: this
+    real(RNP), intent(in) :: nu !< ν = νᵖ + νˢ
+
+    associate(r => this % r_nu_s)
+      nu_p = (1 - r) * nu
+    end associate
+
+  end function PhysicalDiffusivity
 
   !-----------------------------------------------------------------------------
   !> Spectral diffusivity coefficient νˢ
 
   pure real(RNP) function SpectralDiffusivity(this, nu) result(nu_s)
     class(DG_EllipticOperator_3D), intent(in) :: this
-    real(RNP), intent(in) :: nu
+    real(RNP), intent(in) :: nu !< ν = νᵖ + νˢ
 
-    associate(r_nu_s => this % r_nu_s)
-      if (r_nu_s < 1) then
-        nu_s = nu * r_nu_s / (1 + r_nu_s)
-      else
-        nu_s = nu
-      end if
+    associate(r => this % r_nu_s)
+      nu_s = r * nu
     end associate
 
   end function SpectralDiffusivity
-
-  !-----------------------------------------------------------------------------
-  !> Sum of diffusivity coefficients, ν + νˢ
-
-  pure real(RNP) function TotalDiffusivity(this, nu) result(nu_t)
-    class(DG_EllipticOperator_3D), intent(in) :: this
-    real(RNP), intent(in) :: nu
-
-    associate(r_nu_s => this % r_nu_s)
-      if (r_nu_s < 1) then
-        nu_t = nu / (1 + r_nu_s)
-      else
-        nu_t = nu
-      end if
-    end associate
-
-  end function TotalDiffusivity
 
   !-----------------------------------------------------------------------------
   !> Weak enforcement of boundary conditions
