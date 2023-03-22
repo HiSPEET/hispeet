@@ -270,7 +270,7 @@ contains
       end do
 
       !$omp master
-      if no > 0) then
+      if (no > 0) then
         if (ne > 1) then
           rs(ns+1-no:ns,  1) = r(    0:no-1,    2)
           rs(      1:no, ne) = r(np-no:po  , ne-1)
@@ -320,7 +320,7 @@ contains
       end do
 
       !$omp master
-      if no > 0) then
+      if (no > 0) then
         if (ne > 1) then
           u(np-no:po  ,  1) = u(np-no:po  ,  1) + us(      1:no,    2)
           u(    0:no-1, ne) = u(    0:no-1, ne) + us(ns+1-no:ns, ne-1)
