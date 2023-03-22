@@ -1,0 +1,206 @@
+!> summary:  1D DG elliptic operator: IPCG with Schwarz preconditioner
+!> author:   Joerg Stiller
+!> date:     2022/03/17
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!===============================================================================
+
+submodule(DG__Elliptic_Operator__1D) MP_SchwarzPCG_Method_RX
+  use Array_Assignments
+  use Array_Reductions
+  implicit none
+
+contains
+
+  !-----------------------------------------------------------------------------
+  !> Schwarz-IPCG method with constant or variable ν
+  !>
+  !> @remark
+  !> One and only one of the parameters `nu_c` and `nu_v` is to be passed
+
+  module subroutine SchwarzPCG_Method_RX( this, dx, lambda, nu_c, nu_v, u, f &
+                                        , bv, i_max, r_red, r_max, ni        )
+
+    class(DG_EllipticOperator_1D),   intent(in)    :: this
+    real(RNP),                       intent(in)    :: dx
+    real(RNP),                       intent(in)    :: lambda    !< λ
+    real(RNP),             optional, intent(in)    :: nu_c      !< νᵖ+νˢ
+    real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:) !< νᵖ
+    real(RNP), contiguous,           intent(inout) :: u(:,:)
+    real(RNP), contiguous,           intent(in)    :: f(:,:)
+    real(RNP),                       intent(in)    :: bv(2)
+    integer,                         intent(in)    :: i_max
+    real(RNP),             optional, intent(in)    :: r_red
+    real(RNP),             optional, intent(in)    :: r_max
+    integer,               optional, intent(out)   :: ni
+
+    ! internal variables .......................................................
+
+    real(RNP), dimension(:)  , allocatable, save :: nu_avg
+    real(RNP), dimension(:,:), allocatable, save :: r, p, q, s, z
+    real(RNP), dimension(:,:), allocatable, save :: rs, zs
+    real(RNP), save :: rr_term
+    logical  , save :: converged
+
+    real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
+    real(RNP) :: alpha, beta, delta, rr
+    logical   :: check_convergence, singular
+    integer   :: ne, np, ns
+    integer   :: e, i, i_max_
+
+    associate(eop => this%eop, schwarz => this%schwarz)
+
+      ! initialization .........................................................
+
+      ne = schwarz % ne
+      np = schwarz % po + 1
+      ns = schwarz % no * 2 + np
+
+      check_convergence = .false.
+      if (present(r_red)) check_convergence = r_red > 0
+      if (present(r_max)) check_convergence = r_max > 0 .or. check_convergence
+
+      singular = abs(lambda) < epsilon(ONE) .and. all(this%bc /= 'D')
+
+      ! work space
+      !$omp master
+      allocate(nu_avg(ne))
+      allocate(r, mold = u)
+      allocate(p, mold = u)
+      allocate(q, mold = u)
+      allocate(s, mold = u)
+      allocate(z, mold = u)
+      allocate(rs(ns,ne))
+      allocate(zs(ns,ne))
+      !$omp end master
+      !$omp barrier
+
+      ! element-averaged diffusivity
+      if (present(nu_c)) then
+        call SetArray(nu_avg, nu_c)
+      else
+        !$omp do
+        do e = 1, ne
+          nu_avg(e) = HALF * sum(eop%w * nu_v(:,e))
+        end do
+      end if
+
+      ! initial residual .......................................................
+
+      ! r = f - Au
+      if (present(nu_c)) then
+        call this % Residual(dx, lambda, nu_c, f, bv, u, r)
+      else
+        call this % Residual(dx, lambda, nu_v, f, bv, u, r)
+      end if
+      if (singular) then
+        call CalibrateArray(r)
+      end if
+
+      ! termination conditions
+      if (check_convergence) then
+        rr = ScalarProduct(r, r)
+        !$omp master
+        if (present(r_red)) then
+          rr_term  = max(ZERO, sqrt(rr) * r_red)**2
+        else
+          rr_term = 0
+        end if
+        if (present(r_max)) then
+          rr_term = max(rr_term, max(ZERO, r_max)**2)
+        end if
+        converged = rr <= rr_term
+        !$omp end master
+        !$omp barrier
+      else
+        !$omp master
+        converged = .false.
+        !$omp end master
+        !$omp barrier
+      end if
+
+      if (converged) then
+        i_max_ = 0
+        i      = 0
+      else
+        i_max_ = i_max
+      end if
+
+      ! iteration ...............................................................
+
+      do i = 1, i_max_
+
+        ! Schwarz preconditioner, z = (Aˢ)⁻¹ r
+        call SetArray(z, ZERO)
+        call schwarz % RestrictResidual(r, rs)
+        call schwarz % Apply(dx, lambda, nu_avg, rs, zs)
+        call schwarz % MergeCorrections(zs, z)
+
+        ! set/update search vector
+        if (i == 1) then
+          if (singular) then
+            call CalibrateArray(z)
+          end if
+          call SetArray(p, z)                   ! p = z
+        else
+          call SetArray(q, r)                   ! q = r
+          call MergeArrays(ONE, q, -ONE, s)     ! q = r - s
+          beta = ScalarProduct(q, z) / delta
+          call MergeArrays(beta, p, ONE, z)     ! p = beta p + z
+        end if
+
+        ! save old residual
+        call SetArray(s, r)
+
+        ! operator application with no source and homogeneous BC
+        if (present(nu_c)) then
+          call this % Apply(dx, lambda, nu_c, p, q)
+        else
+          call this % Apply(dx, lambda, nu_v, p, q)
+        end if
+
+        ! correction
+        delta = ScalarProduct(r, z)
+        alpha = delta / ScalarProduct(p, q)
+        call MergeArrays(ONE, u, alpha, p)
+
+        if (mod(i,50) == 0) then
+          ! compute true residual to get rid of round-off errors
+          if (present(nu_c)) then
+            call this % Residual(dx, lambda, nu_c, f, bv, u, r)
+          else
+            call this % Residual(dx, lambda, nu_v, f, bv, u, r)
+          end if
+          if (singular) then
+            call CalibrateArray(r)
+          end if
+        else
+          call MergeArrays(ONE, r, -alpha, q)
+        end if
+
+        if (check_convergence) then
+          rr = ScalarProduct(r, r)
+          !$omp master
+          converged = rr <= rr_term
+          !$omp end master
+          !$omp barrier
+        end if
+
+        if (converged .or. i == i_max_) exit
+
+      end do
+
+      ! finalization ...........................................................
+
+      if (present(ni)) ni = i
+
+      !$omp master
+      deallocate(nu_avg, r, p, q, s, z, rs, zs)
+      !$omp end master
+
+    end associate
+
+  end subroutine SchwarzPCG_Method_RX
+
+  !=============================================================================
+
+end submodule MP_SchwarzPCG_Method_RX

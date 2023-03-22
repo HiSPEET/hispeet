@@ -168,6 +168,19 @@ if (Exodus_FOUND)
 endif ()
 
 #===============================================================================
+# elliptic_1d
+
+set( ELLIPTIC_1D elliptic_1d/dg__elliptic_operator__1d.f
+                 elliptic_1d/dg__elliptic_operator__1d__mp_cg_method_rx.f
+                 elliptic_1d/dg__elliptic_operator__1d__mp_eval_rc.f
+                 elliptic_1d/dg__elliptic_operator__1d__mp_eval_rv.f
+                 elliptic_1d/dg__elliptic_operator__1d__mp_schwarz_method_rx.f
+                 elliptic_1d/dg__elliptic_operator__1d__mp_schwarzpcg_method_rx.f
+                 elliptic_1d/dg__elliptic_operator__1d__mp_hybrid_solver_rc.f
+                 elliptic_1d/dg__schwarz_operator__1d.f
+                 )
+
+#===============================================================================
 # elliptic_3d
 
 set( ELLIPTIC_3D elliptic_3d/dg__elliptic_operator__3d.f
@@ -207,6 +220,7 @@ set(BASE_SRC ${ESSENTIALS}
              ${MESH_3D}
              ${UTIL_3D}
              ${VARIABLES_3D}
+             ${ELLIPTIC_1D}
              ${ELLIPTIC_3D}
              )
 
