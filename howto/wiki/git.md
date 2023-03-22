@@ -48,7 +48,7 @@ and on macOS
 
     git config --global credential.helper osxkeychain
 
-## Starting a new repository  <a name="new-repo"></a>
+## Starting a new repository
 
 This is how the HiSPEET repository was created :smile:
 
