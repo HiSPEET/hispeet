@@ -2,11 +2,15 @@
 !> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2016/03/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @todo
+!> To make the module more transparent, large procedures should be outsourced to
+!> submodules
 !===============================================================================
 
 module DG__Element_Operators__1D
-  use Kind_Parameters,   only: RNP
-  use Constants,         only: ZERO, ONE
+  use Kind_Parameters
+  use Constants
   use Execution_Control, only: Error
   use Eigenproblems,     only: SolveGeneralizedEigenproblem
   use Standard_Operators__1D
@@ -64,6 +68,8 @@ module DG__Element_Operators__1D
 
     procedure, private :: Get_EllipticSuboperators__w_svv
     procedure, private :: Get_EllipticSuboperators__n_svv
+
+    procedure :: Get_SchwarzSuboperators
 
   end type DG_ElementOperators_1D
 
@@ -485,7 +491,8 @@ contains
     real(RNP), intent(out) :: S(0:,0:)   !< eigenvectors
     real(RNP), intent(out) :: Lambda(0:) !< eigenvalues
 
-    real(RNP), allocatable :: Mii(:), Aii(:,:,:)
+    real(RNP), allocatable :: Le(:,:,:)
+    real(RDP), allocatable :: Aii(:,:), Mii(:), Sd(:,:), vd(:)
 
     if (.not. this%hybrid) then
       call Error( 'Get_EllipticEigensystem',            &
@@ -493,13 +500,20 @@ contains
                   'DG__Element_Operators__1D'             )
     end if
 
-    ! hybrid element operators
-    allocate(Mii(0:this%po), Aii(0:this%po, 0:this%po, -1:1))
-    Mii = dx(0)/2 * this % w
-    call this % Get_DiffusionMatrix(dx, bc, nu, nu_svv, Aii, form='flux')
+    allocate(Sd, mold = S     )
+    allocate(vd, mold = Lambda)
 
-    ! solve eigenproblem
-    call SolveGeneralizedEigenproblem(Aii(:,:,0), Mii, Lambda, S)
+    allocate(Le(0:this%po, 0:this%po, -1:1))
+
+    call this % Get_DiffusionMatrix(dx, bc, nu, nu_svv, Le, form='flux')
+
+    Mii = real( dx(0)/2 * this % w          , RDP )
+    Aii = real( Le(0:this%po, 0:this%po, 0) , RDP )
+
+    call SolveGeneralizedEigenproblem(Aii, Mii, vd, Sd)
+
+    Lambda = real(vd, RNP)
+    S      = real(Sd, RNP)
 
     ! singular case
     if (all(bc == 'N') .or. all(bc == 'P')) then
@@ -541,8 +555,8 @@ contains
     real(RNP), intent(out) :: Aib(0:,:) !< interior-boundary part, Â(0:P,1:2)
     real(RNP), intent(out) :: Aii_inv(0:,0:) !< inv interior part, Ã⁺(0:P,0:P)
 
-    real(RNP), allocatable :: S(:,:), Lambda(:), D_inv(:)
-    real(RNP), allocatable :: delta_0(:), delta_P(:)
+    real(RNP), allocatable :: S(:,:), Lambda(:)
+    real(RNP), allocatable :: delta_0(:), delta_P(:), D_inv(:)
     real(RNP) :: Bs(0:this%po, 0:this%po) ! standard "flux" operator (ν+νˢQ)D
     real(RNP) :: mu_0, mu_P
     integer   :: P, i, j
@@ -625,6 +639,244 @@ contains
     call Get_EllipticSuboperators__w_svv(this, dx, bc, c, nu, ZERO, Aib, Aii_inv)
 
   end subroutine Get_EllipticSuboperators__n_svv
+
+  !-----------------------------------------------------------------------------
+  !> Computes eigenvectors, eigenvalues and weights for a Schwarz subdomain
+  !>
+  !> This procedure provides the eigenvectors and eigenvalues for 1D subdomains
+  !> assuming a constant element width of ∆x = 1.
+  !> The argument `bc` specifies the left and right boundary conditions, with
+  !> `D` for Dirichlet and `N` for Neumann conditions. Otherwise the existence
+  !> of neighbor elements is assumed.
+  !>
+  !> Although no exterior node layers exist at boundaries, the corresponding
+  !> entries are retained, but set to `0` in the eigenvectors and weights,
+  !> whereas the eigenvalues are set to `1` to avoid floating point exceptions
+  !> when used as a divisor.
+
+  subroutine Get_SchwarzSuboperators(this, no, bc, Ws, S, V, W, r_nu_s)
+    class(DG_ElementOperators_1D), intent(in) :: this
+    integer,   intent(in)  :: no              !< overlap
+    character, intent(in)  :: bc(2)           !< left/right boundary conditions
+    real(RNP), intent(in)  :: Ws(-no:)        !< standard weights
+    real(RNP), intent(out) :: S (-no:,-no:)   !< subdomain eigenvectors
+    real(RNP), intent(out) :: V (-no:)        !< subdomain eigenvalues
+    real(RNP), intent(out) :: W (-no:)        !< subdomain weights
+    real(RNP), optional, intent(in) :: r_nu_s !< ratio νˢ/(ν + νˢ) [0]
+
+    character, parameter   :: ii(2) = [ ' ', ' ' ]
+    real(RNP), parameter   :: dx(-1:1) = 1
+    real(RNP), allocatable :: Le_ii(:,:,:), Le_bc(:,:,:)
+    real(RDP), allocatable :: Ld(:,:), Md(:), Sd(:,:), vd(:)
+
+    real(RNP) :: nu, nu_svv
+    integer   :: po, np
+    integer   :: k
+
+    po = this%po
+    np = po + 1
+
+    allocate(Le_ii(0:po,0:po,-1:1))
+    allocate(Le_bc(0:po,0:po,-1:1))
+
+    if (present(r_nu_s)) then
+      nu_svv = r_nu_s
+    else
+      nu_svv = ZERO
+    end if
+    nu = max(ONE - nu_svv, ZERO)
+
+    ! stiffness matrix for interior element with dx=1, bc = ii
+    call this % Get_DiffusionMatrix(dx, ii, nu, nu_svv, Ae = Le_ii)
+
+    ! stiffness matrix for given boundary conditions
+    call this % Get_DiffusionMatrix(dx, bc, nu, nu_svv, Ae = Le_bc)
+
+    ! initialization of eigenvectors S, eigenvalues V and weights W
+    S = 0
+    V = 1
+    W = 0
+
+    associate(Ms => this % w)
+
+      if (all(bc == ' ')) then
+
+        !-----------------------------------------------------------------------
+        ! interior-interior configuration
+
+        ! mass matrix ..........................................................
+
+        allocate(Md(-no:po+no))
+
+        Md(-no:-1   ) = real( HALF * Ms( np-no:po   ), kind = RDP )
+        Md(  0:po   ) = real( HALF * Ms(     0:po   ), kind = RDP )
+        Md( np:po+no) = real( HALF * Ms(     0:no-1 ), kind = RDP )
+
+        ! stiffness matrix .....................................................
+
+        allocate(Ld(-no:po+no,-no:po+no), source = ZERO)
+
+        ! lines from preceding element
+        Ld(-no:-1, -no:-1) = real( Le_ii(np-no:po, np-no:po,  0), RDP )
+        Ld(-no:-1,   0:po) = real( Le_ii(np-no:po,     0:po,  1), RDP )
+
+        ! lines from present element
+        Ld(0:po, -no:-1   ) = real(Le_ii(0:po, np-no:po  , -1), RDP )
+        Ld(0:po,   0:po   ) = real(Le_ii(0:po,     0:po  ,  0), RDP )
+        Ld(0:po,  np:po+no) = real(Le_ii(0:po,     0:no-1,  1), RDP )
+
+        ! lines from following element
+        Ld(np:po+no,  0:po   ) = real(Le_ii(0:no-1, 0:po  , -1), RDP )
+        Ld(np:po+no, np:po+no) = real(Le_ii(0:no-1, 0:no-1,  0), RDP )
+
+        ! eigenvectors and eigenvalues .........................................
+
+        allocate(Sd, mold = Ld)
+        allocate(Vd, mold = Md)
+
+        call SolveGeneralizedEigenproblem(Ld, Md, Vd, Sd)
+
+        ! inject eigenvectors and eigenvalues
+        S = real( Sd, kind = RNP )
+        V = real( Vd, kind = RNP )
+
+        ! weights ..............................................................
+
+        W = Ws
+
+      else if (all(bc /= ' ')) then
+
+        !-----------------------------------------------------------------------
+        ! boundary-boundary configuration
+
+        ! mass matrix ..........................................................
+
+        allocate(Md(0:po))
+
+        Md(0:po) = real( HALF * Ms, kind = RDP )
+
+        ! stiffness matrix .....................................................
+
+        allocate(Ld(0:po,0:po))
+
+        Ld(0:po,0:po) = real( Le_bc(:,:,0), kind = RDP )
+
+        ! eigenvectors and eigenvalues .........................................
+
+        allocate(Sd(0:po,0:po), Vd(0:po))
+
+        call SolveGeneralizedEigenproblem(Ld, Md, Vd, Sd)
+
+        ! inject eigenvectors and eigenvalues
+        S(0:po,0:po) = real( Sd, kind = RNP )
+        V(0:po)      = real( Vd, kind = RNP )
+
+        ! weights ..............................................................
+
+        W(0:po) = Ws(0:po)
+
+        ! left boundary zone
+        do k = 0, no-1
+          W(k) = W(k) + Ws(-k-1)
+        end do
+
+        ! right boundary zone
+        do k = po-no+1, po
+          W(k) = W(k) + Ws(2*po + 1 - k)
+        end do
+
+      else if (bc(1) /= ' ') then
+
+        !-----------------------------------------------------------------------
+        ! boundary-interior configuration
+
+        ! mass matrix ..........................................................
+
+        allocate(Md(0:po+no))
+
+        Md(  0:po   ) = real( HALF * Ms(     0:po   ), kind = RDP )
+        Md( np:po+no) = real( HALF * Ms(     0:no-1 ), kind = RDP )
+
+        ! stiffness matrix .....................................................
+
+        allocate(Ld(0:po+no,0:po+no), source = 0D0)
+
+        ! lines from present element
+        Ld( 0:po,  0:po   ) = real( Le_bc(0:po, 0:po  ,  0), RDP )
+        Ld( 0:po, np:po+no) = real( Le_bc(0:po, 0:no-1,  1), RDP )
+
+        ! lines from following element
+        Ld(np:po+no,  0:po   ) = real(Le_ii(0:no-1, 0:po  , -1), RDP )
+        Ld(np:po+no, np:po+no) = real(Le_ii(0:no-1, 0:no-1,  0), RDP )
+
+        ! eigenvectors and eigenvalues .........................................
+
+        allocate(Sd(0:po+no,0:po+no), Vd(0:po+no))
+
+        call SolveGeneralizedEigenproblem(Ld, Md, Vd, Sd)
+
+        ! inject eigenvectors and eigenvalues
+
+        S(0:po+no,0:po+no) = real( Sd, kind = RNP )
+        V(0:po+no)         = real( Vd, kind = RNP )
+
+        ! weights ..............................................................
+
+        W(0:) = Ws(0:)
+
+        ! boundary zone
+        do k = 0, no-1
+          W(k) = W(k) + Ws(-k-1)
+        end do
+
+      else
+
+        !-----------------------------------------------------------------------
+        ! interior-boundary configuration
+
+        ! mass matrix ..........................................................
+
+        allocate(Md(-no:po))
+
+        Md(-no:-1   ) = real( HALF * Ms( np-no:po   ), kind = RDP )
+        Md(  0:po   ) = real( HALF * Ms(     0:po   ), kind = RDP )
+
+        ! stiffness matrix .....................................................
+
+        allocate(Ld(-no:po,-no:po), source = 0D0)
+
+        ! lines from preceding element
+        Ld(-no:-1, -no:-1) = real( Le_ii(np-no:po, np-no:po,  0), RDP )
+        Ld(-no:-1,   0:po) = real( Le_ii(np-no:po,     0:po,  1), RDP )
+
+        ! lines from present element
+        Ld(0:po, -no:-1) = real( Le_bc(0:po, np-no:po, -1), RDP )
+        Ld(0:po,   0:po) = real( Le_bc(0:po,     0:po,  0), RDP )
+
+        ! eigenvectors and eigenvalues .........................................
+
+        allocate(Sd(-no:po,-no:po), Vd(-no:po))
+
+        call SolveGeneralizedEigenproblem(Ld, Md, Vd, Sd)
+
+        ! inject eigenvectors and eigenvalues
+        S(-no:po,-no:po) = real( Sd, kind = RNP )
+        V(-no:po)        = real( Vd, kind = RNP )
+
+        ! weights ..............................................................
+
+        W(-no:po) = Ws(-no:po)
+
+        ! right boundary zone
+        do k = po-no+1, po
+          W(k) = W(k) + Ws(2*po + 1 - k)
+        end do
+
+      end if
+
+    end associate
+
+  end subroutine Get_SchwarzSuboperators
 
   !=============================================================================
   ! DG_ElementOptions_1D constructors and type-bound procedures
