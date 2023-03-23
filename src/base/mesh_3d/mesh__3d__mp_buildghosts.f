@@ -44,6 +44,13 @@ contains
     if (mesh % n_ghost == 0) return
 
     !---------------------------------------------------------------------------
+    ! ghost IDs
+
+    do l = 1, mesh % n_ghost
+      mesh % ghost(l) % id = mesh % n_elem + l
+    end do
+
+    !---------------------------------------------------------------------------
     ! copy face, edge and vertex IDs from elements to adjoining ghosts
 
     do l = 1, mesh % n_elem
