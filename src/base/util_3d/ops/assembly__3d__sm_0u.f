@@ -33,9 +33,12 @@ contains
 
     !$omp master
     ni = size(u,1) - 2
-    allocate(m_face(mesh%n_face), u_face(ni,ni,              2, mesh%n_face))
-    allocate(m_edge(mesh%n_edge), u_edge(ni, mesh%max_edge_val, mesh%n_edge))
-    allocate(m_vert(mesh%n_vert), u_vert(    mesh%max_vert_val, mesh%n_vert))
+    allocate(m_face(mesh%n_face), source = -1)
+    allocate(m_edge(mesh%n_edge), source = -1)
+    allocate(m_vert(mesh%n_vert), source = -1)
+    allocate(u_face(ni,ni,              2, mesh%n_face), source = ZERO)
+    allocate(u_edge(ni, mesh%max_edge_val, mesh%n_edge), source = ZERO)
+    allocate(u_vert(    mesh%max_vert_val, mesh%n_vert), source = ZERO)
     !$omp end master
     !$omp barrier
 

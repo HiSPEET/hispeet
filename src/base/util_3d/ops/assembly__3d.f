@@ -6,7 +6,7 @@
 
 module Assembly__3D
   use Kind_Parameters, only: RNP
-  use Constants      , only: ONE
+  use Constants      , only: ONE, ZERO
   use Execution_Control
   use Mesh__3D
   use Element_Transfer_Buffer__3D
