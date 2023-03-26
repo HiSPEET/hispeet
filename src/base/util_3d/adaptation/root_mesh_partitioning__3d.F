@@ -20,14 +20,14 @@ contains
   !-----------------------------------------------------------------------------
   !> Redistribution of root mesh data
 
-  subroutine RootMeshPartitioning_3D(opt, old_mesh, new_mesh, map)
+  subroutine RootMeshPartitioning_3D(opt, old_mesh, new_mesh)
     class(PartitioningOptions_3D), intent(in) :: opt
     class(Mesh_3D), intent(in)  :: old_mesh
     class(Mesh_3D), intent(out) :: new_mesh
-    class(ElementDistributionMap_3D), intent(out) :: map
 
     ! internal variables .......................................................
 
+    type(ElementDistributionMap_3D) :: map
     type(ElementDistributionData_3D), allocatable :: send_data(:)
     type(ElementDistributionData_3D), allocatable :: recv_data(:)
 

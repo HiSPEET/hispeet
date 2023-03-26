@@ -27,15 +27,15 @@ contains
   !-----------------------------------------------------------------------------
   !> Generation of an adapted child mesh
 
-  subroutine ChildMeshAdaptation_3D(opt, parent, child, child_map)
+  subroutine ChildMeshAdaptation_3D(opt, parent, child)
     class(PartitioningOptions_3D), intent(in) :: opt
     class(Mesh_3D), intent(inout) :: parent
     class(Mesh_3D), intent(out)   :: child
-    class(ChildDistributionMap_3D), intent(out) :: child_map
 
     ! internal variables .......................................................
 
     type(MeshAttributes_3D)         , allocatable, save :: attrib
+    type(ChildDistributionMap_3D)   , allocatable, save :: child_map
     type(ElementDistributionData_3D), allocatable, save :: send_data(:)
     type(ElementDistributionData_3D), allocatable, save :: recv_data(:)
 
@@ -81,6 +81,7 @@ contains
 
     !$omp master
     if (parent % part >= 0) then
+      allocate(child_map)
       call BuildChildMap(opt, parent, child_map)
     end if
     !$ omp end master
@@ -195,6 +196,7 @@ contains
 
     !$omp master
     if (allocated(attrib))     deallocate(attrib)
+    if (allocated(child_map))  deallocate(child_map)
     if (allocated(send_data))  deallocate(send_data)
     if (allocated(recv_data))  deallocate(recv_data)
     !$omp end master

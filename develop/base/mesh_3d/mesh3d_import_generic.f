@@ -9,16 +9,16 @@ program Mesh3d_Import_Generic
   use Verify_Mesh__3D
   use Assembly__3D
   use Export_VTK_Volume_Data__3D
-  use Element_Distribution_Map__3D
   use Root_Mesh_Partitioning__3D
   implicit none
 
   character(len=*), parameter :: input_file = 'mesh3d_import_generic.prm'
 
   integer :: config = 1 ! configuration (1 cylinder, 2 annular gap, 3 diamonds)
-  logical :: test_avg   = .false. ! perform averaging test
-  logical :: export_vtk = .false. ! generate VTK file
-  namelist/control/ config, test_avg, export_vtk
+  logical :: test_sem    = .false. ! test SEM finctionality
+  logical :: test_avg    = .false. ! perform averaging test
+  logical :: export_vtk  = .false. ! generate VTK file
+  namelist/control/ config, test_sem, test_avg, export_vtk
 
   real(RNP) :: r0   = 0.5 ! inner radius  (annular gap only)
   real(RNP) :: r1   = 1   ! outer radius
@@ -61,9 +61,6 @@ program Mesh3d_Import_Generic
   integer   :: i, j, k, l
   integer   :: i_err, j_err, k_err, l_err
 
-!!   type(RootMeshPartitioningOptions_3D) :: part_opt
-  type(PartitioningOptions_3D) :: part_opt
-  type(ElementDistributionMap_3D) :: part_map
   type(Mesh_3D) :: new_mesh
   integer :: n_proc
 
@@ -89,39 +86,39 @@ program Mesh3d_Import_Generic
     ! create generic mesh ......................................................
 
     select case(config)
+    case(1)
+      call generic_mesh % CreateCylinder(r1, h, nr, nz, po, periodic)
     case(2)
       call generic_mesh % CreateAnnulus(r0, r1, h, nr, np, nz, po, periodic)
     case(3)
       call generic_mesh % CreateDiamonds(lx, ly, lz, nx, ny, nz, po, periodic)
     case default
-      call generic_mesh % CreateCylinder(r1, h, nr, nz, po, periodic)
     end select
 
-  end if
-
-  ! import generic mesh ........................................................
-
-    ! verification .............................................................
+    ! import generic mesh ......................................................
 
     call mesh % ImportGenericMesh(generic_mesh, comm = comm)
-!    call VerifyMesh_3D(mesh, passed)
+    call VerifyMesh_3D(mesh, passed)
     write(*,'(/,A,G0,/)') 'verification of imported mesh: passed = ', passed
 
-!?!
-!?!    ! spectral element functionality ...........................................
-!?!
-!?!    se_mesh = SpectralElementMesh_3D(mesh, po)
-!?!
-!?!    allocate(area(mesh % n_bound))
-!?!    call se_mesh % Get_Volume(vol)
-!?!    call se_mesh % Get_SurfaceAreas(area)
-!?!
-!?!    write(*,'(A)') 'Spectral element mesh'
-!?!    write(*,'(2X,A,G0)') 'volume  = ', vol
-!?!    do i = 1, mesh % n_bound
-!?!      write(*,'(2X,A,I0,A,G0)') 'area(',i,') = ', area(i)
-!?!    end do
-!?!
+    ! spectral element functionality ...........................................
+
+    if (test_sem) then
+
+      se_mesh = SpectralElementMesh_3D(mesh, po)
+
+      allocate(area(mesh % n_bound))
+      call se_mesh % Get_Volume(vol)
+      call se_mesh % Get_SurfaceAreas(area)
+
+      write(*,'(A)') 'Spectral element mesh'
+      write(*,'(2X,A,G0)') 'volume  = ', vol
+      do i = 1, mesh % n_bound
+        write(*,'(2X,A,I0,A,G0)') 'area(',i,') = ', area(i)
+      end do
+
+    end if
+
     ! set up data ..............................................................
 
     if (test_avg .or. export_vtk) then
@@ -132,50 +129,50 @@ program Mesh3d_Import_Generic
       e(0:,0:,0:,1:) => var(:,:,:,:,2)
     end if
 
-!?!    ! averaging test ...........................................................
-!?!
-!?!    if (test_avg) then
-!?!
-!?!      kappa = 2 * PI / h
-!?!
-!?!      do l = 1, mesh%n_elem
-!?!        do k = 0, po
-!?!        do j = 0, po
-!?!        do i = 0, po
-!?!          y(1) = x(i,j,k,l,1)
-!?!          y(2) = x(i,j,k,l,2)
-!?!          y(3) = x(i,j,k,l,3)
-!?!          r(i,j,k,l) = cos(sum(kappa * y))
-!?!          v(i,j,k,l) = r(i,j,k,l)
-!?!        end do
-!?!        end do
-!?!        end do
-!?!      end do
-!?!
-!?!      buf_v = ElementTransferBuffer_3D(mesh, v)
-!?!      call Assembly_3D(mesh, v, buf_v, avg=.true.)
-!?!
-!?!      err = 0
-!?!      do l = 1, mesh%n_elem
-!?!        do k = 0, po
-!?!        do j = 0, po
-!?!        do i = 0, po
-!?!          e(i,j,k,l) = v(i,j,k,l) - r(i,j,k,l)
-!?!          if (abs(e(i,j,k,l)) > err) then
-!?!            err   = abs(e(i,j,k,l))
-!?!            i_err = i
-!?!            j_err = j
-!?!            k_err = k
-!?!            l_err = l
-!?!          end if
-!?!        end do
-!?!        end do
-!?!        end do
-!?!      end do
-!?!      write(*,'(A,ES10.3,A,4I5)') 'Average over element boundaries: err = ', &
-!?!                                  err, ' at ', i_err, j_err, k_err, l_err
-!?!    end if
-!?!
+    ! averaging test ...........................................................
+
+    if (test_avg) then
+
+      kappa = 2 * PI / h
+
+      do l = 1, mesh%n_elem
+        do k = 0, po
+        do j = 0, po
+        do i = 0, po
+          y(1) = x(i,j,k,l,1)
+          y(2) = x(i,j,k,l,2)
+          y(3) = x(i,j,k,l,3)
+          r(i,j,k,l) = cos(sum(kappa * y))
+          v(i,j,k,l) = r(i,j,k,l)
+        end do
+        end do
+        end do
+      end do
+
+      buf_v = ElementTransferBuffer_3D(mesh, v)
+      call Assembly_3D(mesh, v, buf_v, avg=.true.)
+
+      err = 0
+      do l = 1, mesh%n_elem
+        do k = 0, po
+        do j = 0, po
+        do i = 0, po
+          e(i,j,k,l) = v(i,j,k,l) - r(i,j,k,l)
+          if (abs(e(i,j,k,l)) > err) then
+            err   = abs(e(i,j,k,l))
+            i_err = i
+            j_err = j
+            k_err = k
+            l_err = l
+          end if
+        end do
+        end do
+        end do
+      end do
+      write(*,'(A,ES10.3,A,4I5)') 'Average over element boundaries: err = ', &
+                                  err, ' at ', i_err, j_err, k_err, l_err
+    end if
+
     ! export mesh and data .....................................................
 
     if (export_vtk) then
@@ -193,59 +190,7 @@ program Mesh3d_Import_Generic
 
     end if
 
-!### CHECK
-  call MPI_Barrier(comm)
-  call MPI_Comm_size(comm, n_proc)
-  print '(9(G0,1X))', 'rank =', rank, ', proc    =', mesh % proc
-  print '(9(G0,1X))', 'rank =', rank, ', part    =', mesh % part
-  print '(9(G0,1X))', 'rank =', rank, ', n_parts =', mesh % n_parts
-  print '(9(G0,1X))', 'rank =', rank, ', n_bound =', mesh % n_bound
-  print '(9(G0,1X))', 'rank =', rank, ', n_elem  =', mesh % n_elem
-  part_opt % n_parts = n_proc
-  part_opt % mode    = 1
-  call RootMeshPartitioning_3D(part_opt, mesh, new_mesh, part_map)
-  call MPI_Barrier(comm)
-  call MPI_Comm_size(comm, n_proc)
-  print '(9(G0,1X))', 'rank =', rank, ', n_parts  =', new_mesh % n_parts
-  print '(9(G0,1X))', 'rank =', rank, ', n_bound  =', new_mesh % n_bound
-  print '(9(G0,1X))', 'rank =', rank, ', n_vert   =', new_mesh % n_vert
-  print '(9(G0,1X))', 'rank =', rank, ', n_edge   =', new_mesh % n_edge
-  print '(9(G0,1X))', 'rank =', rank, ', n_face   =', new_mesh % n_face
-  print '(9(G0,1X))', 'rank =', rank, ', n_elem   =', new_mesh % n_elem
-  print '(9(G0,1X))', 'rank =', rank, ', n_ghost  =', new_mesh % n_ghost
-  print '(9(G0,1X))', 'rank =', rank, ', n_link   =', new_mesh % n_link
-  block
-    integer :: min_vid, min_eid, min_fid, min_lid
-    integer :: max_vid, max_eid, max_fid, max_lid
-    min_vid =  huge(1)
-    min_eid =  huge(1)
-    min_fid =  huge(1)
-    min_lid =  huge(1)
-    max_vid = -huge(1)
-    max_eid = -huge(1)
-    max_fid = -huge(1)
-    max_lid = -huge(1)
-    do l = 1, new_mesh % n_elem
-      min_vid = min(min_vid, minval(new_mesh % element(l) % vertex % id))
-      min_eid = min(min_eid, minval(new_mesh % element(l) % edge   % id))
-      min_fid = min(min_fid, minval(new_mesh % element(l) % face   % id))
-      min_lid = min(min_lid,        new_mesh % element(l) % id          )
-      max_vid = max(max_vid, maxval(new_mesh % element(l) % vertex % id))
-      max_eid = max(max_eid, maxval(new_mesh % element(l) % edge   % id))
-      max_fid = max(max_fid, maxval(new_mesh % element(l) % face   % id))
-      max_lid = max(max_lid,        new_mesh % element(l) % id          )
-    end do
-    print '(9(G0,1X))', 'rank =', rank, ', min_vid =', min_vid
-    print '(9(G0,1X))', 'rank =', rank, ', min_eid =', min_eid
-    print '(9(G0,1X))', 'rank =', rank, ', min_fid =', min_fid
-    print '(9(G0,1X))', 'rank =', rank, ', min_lid =', min_lid
-    print '(9(G0,1X))', 'rank =', rank, ', max_vid =', max_vid
-    print '(9(G0,1X))', 'rank =', rank, ', max_eid =', max_eid
-    print '(9(G0,1X))', 'rank =', rank, ', max_fid =', max_fid
-    print '(9(G0,1X))', 'rank =', rank, ', max_lid =', max_lid
-  end block
-! call MPI_Barrier(comm)
-!### CHECK END
+  end if
 
   call MPI_Finalize()
 

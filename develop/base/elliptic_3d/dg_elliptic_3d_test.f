@@ -7,6 +7,7 @@
 !> as the base name of the control file. If omitted, the program looks for
 !> `dg_elliptic_3d_test.prm`.
 !===============================================================================
+
 program DG_Elliptic_3D_Test
   use Kind_Parameters
   use Constants
@@ -19,7 +20,6 @@ program DG_Elliptic_3D_Test
   use TPO__Diagonal__3D
   use Mesh__3D
   use Element_Transfer_Buffer__3D
-  use Element_Distribution_Map__3D
   use Root_Mesh_Partitioning__3D
   use Spectral_Element_Mesh__3D
   use Boundary_Variable__3D
@@ -61,7 +61,6 @@ program DG_Elliptic_3D_Test
   !   3  cuboidal domain with  3x3x3 elements and rotated center           (u+r)
   !   4  cylindrical domain                                                (u+d)
   !   5  annular domain                                                    (u+d)
-  ! configuration > 1 currently available only with one MPI process
 
   integer :: n_test = 1            ! repetitions of consistency test
 
@@ -131,7 +130,6 @@ program DG_Elliptic_3D_Test
   ! partitioning
   logical :: repartition = .false.
   type(PartitioningOptions_3D)    :: part_opt
-  type(ElementDistributionMap_3D) :: part_map
   type(Mesh_3D), allocatable      :: orig_mesh
 
   namelist /partition_prm/ repartition, part_opt
@@ -243,6 +241,7 @@ program DG_Elliptic_3D_Test
   call XMPI_Bcast( config           , 0, comm )
   call XMPI_Bcast( n_test           , 0, comm )
   call XMPI_Bcast( plot_file        , 0, comm )
+  call XMPI_Bcast( plot_subdiv      , 0, comm )
   call XMPI_Bcast( schwarz_test_file, 0, comm )
   call XMPI_Bcast( schwarz_test_part, 0, comm )
   call XMPI_Bcast( schwarz_test_elem, 0, comm )
@@ -299,7 +298,7 @@ program DG_Elliptic_3D_Test
 
   if (repartition) then
     allocate(mesh)
-    call RootMeshPartitioning_3D(part_opt, orig_mesh, mesh, part_map)
+    call RootMeshPartitioning_3D(part_opt, orig_mesh, mesh)
   else
     call move_alloc(orig_mesh, mesh)
   end if
