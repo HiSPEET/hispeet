@@ -67,22 +67,22 @@ contains
     case('G') ! Gauss
       do j = 0, po
       do i = 0, po
-        A(i,j,1) = GaussPolynomial(j, xi, HALF * (xi(j) - ONE))
-        A(i,j,2) = GaussPolynomial(j, xi, HALF * (xi(j) + ONE))
+        A(i,j,1) = GaussPolynomial(j, xi, HALF * (xi(i) - ONE))
+        A(i,j,2) = GaussPolynomial(j, xi, HALF * (xi(i) + ONE))
       end do
       end do
     case('R') ! Radau
       do j = 0, po
       do i = 0, po
-        A(i,j,1) = RadauPolynomial(j, xi, HALF * (xi(j) - ONE))
-        A(i,j,2) = RadauPolynomial(j, xi, HALF * (xi(j) + ONE))
+        A(i,j,1) = RadauPolynomial(j, xi, HALF * (xi(i) - ONE))
+        A(i,j,2) = RadauPolynomial(j, xi, HALF * (xi(i) + ONE))
       end do
       end do
     case default
       do j = 0, po
       do i = 0, po
-        A(i,j,1) = LobattoPolynomial(j, xi, HALF * (xi(j) - ONE))
-        A(i,j,2) = LobattoPolynomial(j, xi, HALF * (xi(j) + ONE))
+        A(i,j,1) = LobattoPolynomial(j, xi, HALF * (xi(i) - ONE))
+        A(i,j,2) = LobattoPolynomial(j, xi, HALF * (xi(i) + ONE))
       end do
       end do
     end select
