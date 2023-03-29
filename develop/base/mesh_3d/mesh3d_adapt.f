@@ -22,17 +22,20 @@ program Mesh3d_Adapt
   use Create_Annulus
 
   use Mesh__3D
+  use Spectral_Element_Mesh__3D
   use Root_Mesh_Partitioning__3D
+  use Child_Mesh_Adaptation__3D
+  use Export_VTK_Volume_Data__3D
 
   implicit none
 
   !-----------------------------------------------------------------------------
   ! Declarations
 
-  ! control parameters .........................................................
+  ! input parameters ...........................................................
 
   ! input file (*.prm)
-  character(len=*), parameter :: input_default = 'dg_elliptic_3d_test'
+  character(len=*), parameter :: input_default = 'mesh3d_adapt'
   character(len=80) :: input_file = ''
 
   integer :: config = 1
@@ -43,11 +46,18 @@ program Mesh3d_Adapt
   !   4  cylindrical domain                                                (u+d)
   !   5  annular domain                                                    (u+d)
 
-  ! plotting
-  character(len=80) :: plot_file  = ''
-  logical :: plot_subdiv = .true.
+  ! SE mesh and plotting
+  logical :: export_vtk = .true.
+  integer :: po = 3
 
-  namelist/control_prm/ config, plot_file, plot_subdiv
+  namelist/control_prm/ config, export_vtk, po
+
+  ! adaptation
+  integer :: n_level        = 1
+  integer :: n_parts_base   = 1
+  integer :: n_parts_growth = 1
+
+  namelist/adaptation_prm/ n_level, n_parts_base, n_parts_growth
 
   ! MPI and OpenMP variables ...................................................
 
@@ -58,21 +68,20 @@ program Mesh3d_Adapt
 
   ! mesh and variables .........................................................
 
-  integer :: n_level       = 1
-  integer :: n_parts_base   = 1
-  integer :: n_parts_growth = 1
-
   type(PartitioningOptions_3D), allocatable, save :: part_opt(:)
-  type(Mesh_3D), allocatable, save :: orig_mesh(:), mesh(:)
-
-  namelist/adaptation_prm/ n_level, n_parts_base, n_parts_growth
+  type(Mesh_3D),                allocatable, save :: orig_mesh(:), mesh(:)
+  type(SpectralElementMesh_3D), allocatable, save :: sem(:)
 
   ! auxiliary variables ........................................................
 
+  logical, allocatable, save :: mask(:)
+
   character(len=80) :: config_name = ''
+  character(len=80) :: plot_file   = ''
+  character(len=80) :: tag         = ''
   logical :: exists
   integer :: io, stat
-  integer :: i
+  integer :: l
 
   !-----------------------------------------------------------------------------
   ! Initialization
@@ -107,6 +116,7 @@ program Mesh3d_Adapt
     inquire(file=trim(input_file), exist=exists)
     if (exists) then
       write(*,'(2X,A)') 'reading ' // trim(input_file)
+      open(newunit = io, file = input_file)
       read(io, nml = control_prm)
       read(io, nml = adaptation_prm)
       close(io)
@@ -122,16 +132,17 @@ program Mesh3d_Adapt
     allocate(part_opt(n_level))
 
     part_opt(1) % n_parts = n_parts_base
-    do i = 2, n_level
-      part_opt(i)%n_parts = min(n_parts_growth * part_opt(i-1)%n_parts, n_proc)
+    do l = 2, n_level
+      part_opt(l) % mode    = 2 ! switch child partitioning
+      part_opt(l) % n_parts = min(n_parts_growth * part_opt(l-1)%n_parts, n_proc)
     end do
 
   end if
 
   ! globalize parameters
-  call XMPI_Bcast( plot_file     , 0, comm )
-  call XMPI_Bcast( plot_subdiv   , 0, comm )
   call XMPI_Bcast( config        , 0, comm )
+  call XMPI_Bcast( export_vtk    , 0, comm )
+  call XMPI_Bcast( po            , 0, comm )
   call XMPI_Bcast( n_level       , 0, comm )
   call XMPI_Bcast( n_parts_base  , 0, comm )
   call XMPI_Bcast( n_parts_growth, 0, comm )
@@ -141,13 +152,15 @@ program Mesh3d_Adapt
   end if
 
   ! globalize partitioning parameters
-  do i = 1, n_level
-    call part_opt(i) % Bcast( 0, comm )
+  do l = 1, n_level
+    call part_opt(l) % Bcast( 0, comm )
   end do
 
-  ! mesh generation ............................................................
-
   allocate(orig_mesh(n_level))
+  allocate(mesh(n_level))
+  allocate(sem(n_level))
+
+  ! mesh generation ............................................................
 
   select case(config)
   case(2)
@@ -169,13 +182,68 @@ program Mesh3d_Adapt
 
   ! root mesh partitioning .....................................................
 
-  allocate(mesh(n_level))
-
   if (orig_mesh(1) % n_parts /= part_opt(1) % n_parts) then
     call RootMeshPartitioning_3D(part_opt(1), orig_mesh(1), mesh(1))
   else
     mesh(1) = orig_mesh(1)
   end if
+
+  sem(1) = SpectralElementMesh_3D(mesh(1), po)
+
+  !-----------------------------------------------------------------------------
+  ! Adaptation
+
+!### CHECK
+print '(99(G0,1X))', '# 0'
+!### CHECK END
+  do l = 2, n_level
+
+    mesh(l-1) % element % adaptation % mark = 0
+    mesh(l-1) % element(1) % adaptation % mark = 100
+    call ChildMeshAdaptation_3D(part_opt(l), mesh(l-1), mesh(l))
+!### CHECK
+print '(99(G0,1X))', '# 1a, l =',l
+!### CHECK END
+    sem(l) = SpectralElementMesh_3D(mesh(l), po)
+!### CHECK
+print '(99(G0,1X))', '# 1b, l =',l
+!### CHECK END
+
+  end do
+!### CHECK
+print '(99(G0,1X))', '# 1'
+!### CHECK END
+
+  !-----------------------------------------------------------------------------
+  ! Plotting
+
+  if (export_vtk) then
+    do l = 1, n_level
+
+      write(tag, fmt='(A2,I0)') '_l', l
+      plot_file = trim(input_file) // trim(tag)
+
+      allocate(mask(mesh(l)%n_elem))
+      if (l < n_level) then
+        mask = mesh(l) % element % adaptation % mark == 0
+      else
+        mask = .true.
+      end if
+
+      call ExportVTK_VolumeData( sem(l) % metrics % x        &!, s =, sname =
+                               , file    = plot_file         &
+                               , part    = mesh(l) % part    &
+                               , n_parts = mesh(l) % n_parts &
+                               , mask    = mask              )
+      deallocate(mask)
+!### CHECK
+print '(99(G0,1X))', '# 1, l =', l
+!### CHECK END
+    end do
+  end if
+!### CHECK
+print '(99(G0,1X))', '# X'
+!### CHECK END
 
   !-----------------------------------------------------------------------------
   ! Finalization

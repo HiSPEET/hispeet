@@ -1,7 +1,6 @@
 module Child_Mesh_Adaptation__3D
   use Kind_Parameters
   use Constants
-  use Execution_Control
   use XMPI
   use Parent_To_Child_Interpolation__1D
   use Mesh__3D
@@ -40,6 +39,9 @@ contains
     type(ElementDistributionData_3D), allocatable, save :: recv_data(:)
 
     integer :: i
+!### CHECK
+print '(99(G0,1X))', '## 0'
+!### CHECK END
 
     ! prepare new partitions ...................................................
 
@@ -84,14 +86,20 @@ contains
       allocate(child_map)
       call BuildChildMap(opt, parent, child_map)
     end if
-    !$ omp end master
+    !$omp end master
     !$omp barrier
+!### CHECK
+print '(99(G0,1X))', '## 1, child % n_parts =',child % n_parts
+!### CHECK END
 
     ! create child element data ................................................
 
     if (parent % part >= 0) then
       call BuildDistributionData(parent, child, child_map, send_data)
     end if
+!### CHECK
+print '(99(G0,1X))', '## 2'
+!### CHECK END
 
     ! transfer child element data ................................................
 
@@ -144,6 +152,9 @@ contains
     end if
 
     !$omp end master
+!### CHECK
+print '(99(G0,1X))', '## 3'
+!### CHECK END
 
     ! assign child element data ................................................
 
@@ -156,6 +167,9 @@ contains
     else
       child % n_elem = sum(recv_data % n_element)
     end if
+!### CHECK
+print '(99(G0,1X))', '## 4, child % n_elem = ',child % n_elem
+!### CHECK END
 
     allocate(child % element(child % n_elem))
 
@@ -171,6 +185,9 @@ contains
         end if
       end do
     end if
+!### CHECK
+print '(99(G0,1X))', '## 5'
+!### CHECK END
 
     ! complete mesh.............................................................
 
@@ -180,15 +197,43 @@ contains
       child % n_elem_frozen = count(child % element % frozen)
       child % n_elem_active = child % n_elem - child % n_elem_frozen
       !$omp end master
+!### CHECK
+print '(99(G0,1X))', '## 6, child % n_elem_frozen =',child % n_elem_frozen
+print '(99(G0,1X))', '## 6, child % n_elem_active =',child % n_elem_active
+!### CHECK END
 
       call child % IdentifyVertices()
+!### CHECK
+print '(99(G0,1X))', '## 7'
+!### CHECK END
       call child % IdentifyEdges()
+!### CHECK
+print '(99(G0,1X))', '## 8'
+!### CHECK END
       call child % BuildFaces()
+!### CHECK
+print '(99(G0,1X))', '## 9'
+!### CHECK END
       call child % BuildBoundaryFaces()
+!### CHECK
+print '(99(G0,1X))', '## 10'
+!### CHECK END
       call child % BuildLinks()
+!### CHECK
+print '(99(G0,1X))', '## 11'
+!### CHECK END
       call child % BuildGhosts()
+!### CHECK
+print '(99(G0,1X))', '## 12'
+!### CHECK END
       call child % BuildCuboids()
+!### CHECK
+print '(99(G0,1X))', '## 13'
+!### CHECK END
       call child % IdentifyRanks()
+!### CHECK
+print '(99(G0,1X))', '## 14'
+!### CHECK END
 
     end if
 
@@ -200,6 +245,9 @@ contains
     if (allocated(send_data))  deallocate(send_data)
     if (allocated(recv_data))  deallocate(recv_data)
     !$omp end master
+!### CHECK
+print '(99(G0,1X))', '## X'
+!### CHECK END
 
   end subroutine ChildMeshAdaptation_3D
 
@@ -214,6 +262,9 @@ contains
     integer, allocatable, target :: tp_child(:)
     integer, contiguous, pointer :: tp_child_val(:,:,:,:)
     type(ElementTransferBuffer_3D), allocatable, asynchronous :: tp_child_buf
+!### CHECK
+print '(99(G0,1X))', '###BuildChildMap: 0'
+!### CHECK END
 
     allocate(tp_child(parent%n_elem + parent%n_ghost), source = -1)
 
@@ -227,8 +278,14 @@ contains
       call tp_child_buf % Transfer(parent, tp_child_val, tag = 1000)
       call tp_child_buf % Merge(tp_child_val)
     end if
+!### CHECK
+print '(99(G0,1X))', '###BuildChildMap: 1, tp_child =', tp_child
+!### CHECK END
 
     map = ChildDistributionMap_3D(parent, opt%n_parts, tp_child)
+!### CHECK
+print '(99(G0,1X))', '###BuildChildMap: X'
+!### CHECK END
 
   end subroutine BuildChildMap
 
@@ -268,12 +325,15 @@ contains
     type(StandardOperators_1D),          allocatable, save :: eop(:)
     type(ParentToChildInterpolation_1D), allocatable, save :: iop(:)
 
-    integer, save :: nn_max, nn_face, nn_edge, nn_vert
+    integer, save :: nn_edge, nn_vert
     integer, save :: po_min, po_max
 
     integer :: nc, nn, np, po, tp
     integer :: e, i, j, k, l, m
     integer :: ce, cn, cp
+!### CHECK
+print '(99(G0,1X))', '###BuildDistributionData: 0, size(dist_data) =',size(dist_data)
+!### CHECK END
 
     if (parent % part < 0) return
 
@@ -303,8 +363,6 @@ contains
       end do
 
       ! max dimensions
-      nn_max  = 0  ! max number of neighbors per child element
-      nn_face = 0  ! max number of neighbors per child element face
       nn_edge = 0  ! max number of neighbors per child element edge
       nn_vert = 0  ! max number of neighbors per child element vertex
 
@@ -316,6 +374,9 @@ contains
       ce_part = 0  ! count of child elements per partition
       cn_part = 0  ! upper bound for count of child neighbors
       cp_part = 0  ! upper bound for count of child geometry points
+!### CHECK
+print '(99(G0,1X))', '###BuildDistributionData: 1, n(mark=100) =',count(parent%element%adaptation%mark==100)
+!### CHECK END
 
       ! counts of elements, neighbors and geometry points per partition
       do e = 1, parent % n_elem
@@ -357,8 +418,6 @@ contains
             cp_part(tp) = cp_part(tp) + nc * np
 
             ! update dimensions
-            nn_max  = max(nn, nn_max)
-            nn_face = max(i, nn_face)
             nn_edge = max(j, nn_edge)
             nn_vert = max(k, nn_vert)
 
@@ -369,12 +428,12 @@ contains
           end if
         end associate
       end do
-
-      if (nn_face > 1) then
-        call Error( 'BuildDistributionData'                             &
-                  , 'adaptation of nonconforming mesh is not supported' &
-                  , 'Child_Mesh_Adaptation__3D'                         )
-      end if
+!### CHECK
+print '(99(G0,1X))', '###BuildDistributionData: 2, ce_part =',ce_part
+print '(99(G0,1X))', '###BuildDistributionData: 2, cn_part =',cn_part
+print '(99(G0,1X))', '###BuildDistributionData: 2, cp_part =',cp_part
+print '(99(G0,1X))', '###BuildDistributionData: 2, start_child_neighbor =',start_child_neighbor
+!### CHECK END
 
       ! allocate components
       do tp = 0, map%n_parts-1
@@ -382,6 +441,10 @@ contains
         nc = ce_part(tp)
         nn = cn_part(tp)
         np = cp_part(tp)
+
+        dist_data(tp) % n_element  = nc
+        dist_data(tp) % n_neighbor = nn
+        dist_data(tp) % n_point    = np
 
         allocate( dist_data(tp) % element              ( nc    ) )
         allocate( dist_data(tp) % start_neighbor       ( nc    ) )
@@ -561,6 +624,9 @@ contains
             dd % element(ce) % face(3) % boundary = element % face(3) % boundary
             dd % element(ce) % face(5) % boundary = element % face(5) % boundary
 
+            ! start index of child neighbor data
+            dd % start_neighbor(ce) = cn + 1
+
             ! initialization of neighbor counter
             nn = 0
 
@@ -598,6 +664,7 @@ contains
 
             ! geometry
             dd % element(ce) % geometry % po = po
+            dd % start_point(ce) = cp + 1
             call InterpolateCoords( po = po                        &
                                   , A1  = iop(po) % A(:,:,1)       &
                                   , A2  = iop(po) % A(:,:,1)       &
@@ -606,6 +673,22 @@ contains
                                   , xc1 = dd % x_e(cp+1:cp+np,1)   &
                                   , xc2 = dd % x_e(cp+1:cp+np,2)   &
                                   , xc3 = dd % x_e(cp+1:cp+np,3)   )
+!### CHECK
+if (ce == 1) then
+print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_1) =',&
+minval(element % geometry % x_e(:,:,:,1)),maxval(element % geometry % x_e(:,:,:,1))
+print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_2) =',&
+minval(element % geometry % x_e(:,:,:,2)),maxval(element % geometry % x_e(:,:,:,2))
+print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_3) =',&
+minval(element % geometry % x_e(:,:,:,3)),maxval(element % geometry % x_e(:,:,:,3))
+print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_1) =',&
+minval(dd % x_e(cp+1:cp+np,1)),maxval(dd % x_e(cp+1:cp+np,1))
+print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_2) =',&
+minval(dd % x_e(cp+1:cp+np,2)),maxval(dd % x_e(cp+1:cp+np,2))
+print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_3) =',&
+minval(dd % x_e(cp+1:cp+np,3)),maxval(dd % x_e(cp+1:cp+np,3))
+end if
+!### CHECK END
             cp = cp + np
 
           end if
@@ -626,6 +709,8 @@ contains
             dd % element(ce) % face(2) % boundary = element % face(2) % boundary
             dd % element(ce) % face(3) % boundary = element % face(3) % boundary
             dd % element(ce) % face(5) % boundary = element % face(5) % boundary
+
+            dd % start_neighbor(ce) = cn + 1
 
             nn = 0
 
@@ -663,6 +748,7 @@ contains
 
             ! geometry
             dd % element(ce) % geometry % po = po
+            dd % start_point(ce) = cp + 1
             call InterpolateCoords( po = po                        &
                                   , A1  = iop(po) % A(:,:,2)       &
                                   , A2  = iop(po) % A(:,:,1)       &
@@ -691,6 +777,8 @@ contains
             dd % element(ce) % face(1) % boundary = element % face(1) % boundary
             dd % element(ce) % face(4) % boundary = element % face(4) % boundary
             dd % element(ce) % face(5) % boundary = element % face(5) % boundary
+
+            dd % start_neighbor(ce) = cn + 1
 
             nn = 0
 
@@ -728,6 +816,7 @@ contains
 
             ! geometry
             dd % element(ce) % geometry % po = po
+            dd % start_point(ce) = cp + 1
             call InterpolateCoords( po = po                        &
                                   , A1  = iop(po) % A(:,:,1)       &
                                   , A2  = iop(po) % A(:,:,2)       &
@@ -756,6 +845,8 @@ contains
             dd % element(ce) % face(2) % boundary = element % face(2) % boundary
             dd % element(ce) % face(4) % boundary = element % face(4) % boundary
             dd % element(ce) % face(5) % boundary = element % face(5) % boundary
+
+            dd % start_neighbor(ce) = cn + 1
 
             nn = 0
 
@@ -793,6 +884,7 @@ contains
 
             ! geometry
             dd % element(ce) % geometry % po = po
+            dd % start_point(ce) = cp + 1
             call InterpolateCoords( po = po                        &
                                   , A1  = iop(po) % A(:,:,2)       &
                                   , A2  = iop(po) % A(:,:,2)       &
@@ -821,6 +913,8 @@ contains
             dd % element(ce) % face(1) % boundary = element % face(1) % boundary
             dd % element(ce) % face(3) % boundary = element % face(3) % boundary
             dd % element(ce) % face(6) % boundary = element % face(6) % boundary
+
+            dd % start_neighbor(ce) = cn + 1
 
             nn = 0
 
@@ -858,6 +952,7 @@ contains
 
             ! geometry
             dd % element(ce) % geometry % po = po
+            dd % start_point(ce) = cp + 1
             call InterpolateCoords( po = po                        &
                                   , A1  = iop(po) % A(:,:,1)       &
                                   , A2  = iop(po) % A(:,:,1)       &
@@ -886,6 +981,8 @@ contains
             dd % element(ce) % face(2) % boundary = element % face(2) % boundary
             dd % element(ce) % face(3) % boundary = element % face(3) % boundary
             dd % element(ce) % face(6) % boundary = element % face(6) % boundary
+
+            dd % start_neighbor(ce) = cn + 1
 
             nn = 0
 
@@ -923,6 +1020,7 @@ contains
 
             ! geometry
             dd % element(ce) % geometry % po = po
+            dd % start_point(ce) = cp + 1
             call InterpolateCoords( po = po                        &
                                   , A1  = iop(po) % A(:,:,2)       &
                                   , A2  = iop(po) % A(:,:,1)       &
@@ -951,6 +1049,8 @@ contains
             dd % element(ce) % face(1) % boundary = element % face(1) % boundary
             dd % element(ce) % face(4) % boundary = element % face(4) % boundary
             dd % element(ce) % face(6) % boundary = element % face(6) % boundary
+
+            dd % start_neighbor(ce) = cn + 1
 
             nn = 0
 
@@ -988,6 +1088,7 @@ contains
 
             ! geometry
             dd % element(ce) % geometry % po = po
+            dd % start_point(ce) = cp + 1
             call InterpolateCoords( po = po                        &
                                   , A1  = iop(po) % A(:,:,1)       &
                                   , A2  = iop(po) % A(:,:,2)       &
@@ -1016,6 +1117,8 @@ contains
             dd % element(ce) % face(2) % boundary = element % face(2) % boundary
             dd % element(ce) % face(4) % boundary = element % face(4) % boundary
             dd % element(ce) % face(6) % boundary = element % face(6) % boundary
+
+            dd % start_neighbor(ce) = cn + 1
 
             nn = 0
 
@@ -1053,6 +1156,7 @@ contains
 
             ! geometry
             dd % element(ce) % geometry % po = po
+            dd % start_point(ce) = cp + 1
             call InterpolateCoords( po = po                        &
                                   , A1  = iop(po) % A(:,:,2)       &
                                   , A2  = iop(po) % A(:,:,2)       &
@@ -1061,6 +1165,22 @@ contains
                                   , xc1 = dd % x_e(cp+1:cp+np,1)   &
                                   , xc2 = dd % x_e(cp+1:cp+np,2)   &
                                   , xc3 = dd % x_e(cp+1:cp+np,3)   )
+!### CHECK
+if (ce == 64) then
+print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_1) =',&
+minval(element % geometry % x_e(:,:,:,1)),maxval(element % geometry % x_e(:,:,:,1))
+print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_2) =',&
+minval(element % geometry % x_e(:,:,:,2)),maxval(element % geometry % x_e(:,:,:,2))
+print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_3) =',&
+minval(element % geometry % x_e(:,:,:,3)),maxval(element % geometry % x_e(:,:,:,3))
+print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_1) =',&
+minval(dd % x_e(cp+1:cp+np,1)),maxval(dd % x_e(cp+1:cp+np,1))
+print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_2) =',&
+minval(dd % x_e(cp+1:cp+np,2)),maxval(dd % x_e(cp+1:cp+np,2))
+print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_3) =',&
+minval(dd % x_e(cp+1:cp+np,3)),maxval(dd % x_e(cp+1:cp+np,3))
+end if
+!### CHECK END
             cp = cp + np
 
           end if
@@ -1082,6 +1202,13 @@ contains
       !$omp end barrier
 
     end associate
+!### CHECK
+print '(99(G0,1X))', '###BuildDistributionData: X'
+print '(99(G0,1X))', '###BuildDistributionData: X, dist_data(0)%n_neighbor(1)',dist_data(0)%n_neighbor
+print '(99(G0,1X))', '###BuildDistributionData: X, size(dist_data(0)%neighbor_id)',size(dist_data(0)%neighbor_id)
+print '(99(G0,1X))', '###BuildDistributionData: X, dist_data(0)%start_neighbor',dist_data(0)%start_neighbor
+print '(99(G0,1X))', '###BuildDistributionData: X, dist_data(0)%neighbor_id(1:10)',dist_data(0)%neighbor_id(1:10)
+!### CHECK END
 
   contains
 
