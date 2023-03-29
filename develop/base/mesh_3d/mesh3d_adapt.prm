@@ -1,5 +1,13 @@
 &control_prm
-  config = 1
+  config     = 1      ! 1
+! export_vtk = T      ! T
+! po         = 5      ! 3
+/
+
+&adaptation_prm
+! n_level        = 2  ! 1
+! n_parts_base   = 1  ! 1
+! n_parts_growth = 2  ! 1
 /
 
 ! config = 1
