@@ -77,32 +77,32 @@ endif ()
 #===============================================================================
 # utilities
 
-file(UTILITIES utilities/cache_blocking.f
-               utilities/execution_control.f
-               utilities/logging_levels.f
-               utilities/quick_sort.f
-               utilities/schwarz_weighting.f
-               )
+set ( UTILITIES utilities/cache_blocking.f
+                utilities/execution_control.f
+                utilities/logging_levels.f
+                utilities/quick_sort.f
+                utilities/schwarz_weighting.f
+                )
 
 #===============================================================================
 # spectral_element
 
-file(SPECTRAL_ELEMENT spectral_element/cg__element_operators__1d.f
-                      spectral_element/dg__element_operators__1d.f
-                      spectral_element/embedded_interpolation__1d.f
-                      spectral_element/embedded_interpolation__3d.f
-                      spectral_element/parent_to_child_interpolation__1d.f
-                      spectral_element/projection_operator__1d.f
-                      spectral_element/projection_operator__3d.f
-                      spectral_element/standard_operators__1d.f
-                      )
+set ( SPECTRAL_ELEMENT spectral_element/cg__element_operators__1d.f
+                       spectral_element/dg__element_operators__1d.f
+                       spectral_element/embedded_interpolation__1d.f
+                       spectral_element/embedded_interpolation__3d.f
+                       spectral_element/parent_to_child_interpolation__1d.f
+                       spectral_element/projection_operator__1d.f
+                       spectral_element/projection_operator__3d.f
+                       spectral_element/standard_operators__1d.f
+                       )
 
 #===============================================================================
 # time_integration
 
-file(TIME_INTEGRATION time_integration/imex_runge_kutta_method.f
-                      time_integration/spectral_deferred_correction.f
-                      )
+set ( TIME_INTEGRATION time_integration/imex_runge_kutta_method.f
+                       time_integration/spectral_deferred_correction.f
+                       )
 
 #===============================================================================
 # mesh

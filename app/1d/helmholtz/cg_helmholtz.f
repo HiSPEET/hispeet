@@ -37,13 +37,13 @@
 !>
 !===============================================================================
 
-program CG_Helmholtz_1D
+program CG_Helmholtz
   use Kind_Parameters,  only: RNP, IXL
   use Constants,        only: ONE, ZERO
   use CG__Element_Operators__1D
   use CG__Utilities__1D
   use CG__Condensed_Solver__1D
-  use Helmholtz_Test_Cases__1D
+  use Helmholtz_Test_Cases
 
   implicit none
 
@@ -93,9 +93,9 @@ program CG_Helmholtz_1D
   write(*,'(/,A)') 'Spectral element solver for 1D Helmholtz equation'
 
   ! load parameters
-  inquire(file='cg_helmholtz_1d.prm', exist=exists)
+  inquire(file='cg_helmholtz.prm', exist=exists)
   if (exists) then
-    open(newunit=io, file='cg_helmholtz_1d.prm')
+    open(newunit=io, file='cg_helmholtz.prm')
     read(io, nml=problem_parameters )
     read(io, nml=solution_parameters)
     close(io)
@@ -385,4 +385,4 @@ end subroutine CG_Method
 
 !===============================================================================
 
-end program CG_Helmholtz_1D
+end program CG_Helmholtz

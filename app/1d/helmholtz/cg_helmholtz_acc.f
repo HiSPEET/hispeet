@@ -32,14 +32,14 @@
 !>
 !===============================================================================
 
-program CG_Helmholtz_1D_Acc
+program CG_Helmholtz_Acc
   use Kind_Parameters,  only: RNP, IXL
   use Constants,        only: ZERO, ONE
   use Matrix_Operators, only: Inverse
   use Linear_Equations, only: TridiagonalSolver
   use Standard_Operators__1D ! provides the SEM standard operators
   use CG__Utilities__1D
-  use Helmholtz_Test_Cases__1D
+  use Helmholtz_Test_Cases
 
   implicit none
 
@@ -86,9 +86,9 @@ program CG_Helmholtz_1D_Acc
   write(*,'(/,A)') 'Accelerated CG-SEM for 1D Helmholtz equation'
 
   ! load parameters
-  inquire(file='cg_helmholtz_1d_acc.prm', exist=exists)
+  inquire(file='cg_helmholtz_acc.prm', exist=exists)
   if (exists) then
-    open(newunit=io, file='cg_helmholtz_1d_acc.prm')
+    open(newunit=io, file='cg_helmholtz_acc.prm')
     read(io, nml=problem_parameters)
     read(io, nml=solution_parameters)
     close(io)
@@ -548,4 +548,4 @@ end subroutine CG_Method
 
 !===============================================================================
 
-end program CG_Helmholtz_1D_Acc
+end program CG_Helmholtz_Acc

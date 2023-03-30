@@ -98,7 +98,6 @@ contains
 
     real(RNP), allocatable, dimension(:,:,:), save :: f, u0, u1, u2
     real(RNP) :: c0, c1, c2, ct
-    integer   :: e, k
 
     associate( po => problem % eop % po &
              , ne => problem % ne       &

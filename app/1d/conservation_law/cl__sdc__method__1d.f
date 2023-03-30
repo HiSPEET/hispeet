@@ -209,7 +209,6 @@ contains
     real(RNP), allocatable :: F_ex_new(:,:,:,:)  ! [F_exᵢ]ᵏ⁺¹
     real(RNP), allocatable :: F_im_new(:,:,:,:)  ! [F_imᵢ]ᵏ⁺¹
 
-    integer :: n_sub, n_sweep
     integer :: i, j, n
 
     !---------------------------------------------------------------------------

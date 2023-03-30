@@ -96,9 +96,7 @@ contains
     real(RNP), intent(in)    :: M_inv(:,:,:)
 
     real(RNP), allocatable, dimension(:,:,:), save :: u1, u2, u3
-
     real(RNP), allocatable, dimension(:,:,:), save :: f
-    integer                     :: e, k
 
     associate( po => problem % eop % po &
              , ne => problem % ne       &

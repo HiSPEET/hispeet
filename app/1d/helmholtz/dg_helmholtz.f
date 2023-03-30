@@ -20,12 +20,12 @@
 !>
 !===============================================================================
 
-program DG_Helmholtz_1D
+program DG_Helmholtz
   use Kind_Parameters, only: RNP, IXL
   use Constants,       only: ZERO, ONE, TWO, HALF
   use DG__Element_Operators__1D
   use DG__Elliptic_Operator__1D
-  use Helmholtz_Test_Cases__1D
+  use Helmholtz_Test_Cases
 
   implicit none
 
@@ -81,9 +81,9 @@ program DG_Helmholtz_1D
   write(*,'(/,A)') 'IP/DG-SEM for 1D Helmholtz equation'
 
   ! load parameters
-  inquire(file='dg_helmholtz_1d.prm', exist=exists)
+  inquire(file='dg_helmholtz.prm', exist=exists)
   if (exists) then
-    open(newunit=io, file='dg_helmholtz_1d.prm')
+    open(newunit=io, file='dg_helmholtz.prm')
     read(io, nml=problem_parameters )
     read(io, nml=solution_parameters)
     close(io)
@@ -271,4 +271,4 @@ contains
 
   !=============================================================================
 
-end program DG_Helmholtz_1D
+end program DG_Helmholtz

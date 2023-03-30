@@ -12,7 +12,7 @@
 !>
 !===============================================================================
 
-module Helmholtz_Test_Cases__1D
+module Helmholtz_Test_Cases
   use Kind_Parameters, only: RNP
   use Constants,       only: PI
   implicit none
@@ -90,4 +90,4 @@ end function ddu_exact
 
 !===============================================================================
 
-end module Helmholtz_Test_Cases__1D
+end module Helmholtz_Test_Cases

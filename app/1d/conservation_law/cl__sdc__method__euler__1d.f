@@ -103,8 +103,6 @@ contains
     real(RNP), intent(out)   :: F_ex(:,:,:)  !< explicit RHS for corrector
     real(RNP), intent(out)   :: F_im(:,:,:)  !< implicit RHS for corrector
 
-    integer :: i
-
     select case (this % impl)
     case(0) ! explicit
       F_im = 0
@@ -192,7 +190,7 @@ contains
     real(RNP), allocatable   :: u2(:,:,:)
     real(RNP)    :: t0, t1, dt_sub
     real(RNP)    :: dt
-    integer      :: j, k, e
+    integer      :: j
 
     associate( po => problem % eop % po &
              , ne => problem % ne       &

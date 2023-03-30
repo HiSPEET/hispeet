@@ -242,7 +242,7 @@ contains
     real(RNP), allocatable :: F_im_rk(:,:,:)
     real(RNP) :: t0, t1, ti, dt, dt_sub
 
-    integer :: i, j, e, k
+    integer :: i, j
 
     associate( a_im    => this % imex_rk % a_im    &
              , a_ex    => this % imex_rk % a_ex    &
@@ -255,12 +255,11 @@ contains
              , impl    => this % impl              &
              , n_sub   => this % n_sub             &
              , w_sub   => this % w_sub             &
-    !bounds ....................................................................
              , po      => problem % eop % po       &
              , ne      => problem % ne             &
              , nc      => problem % nc             )
 
-      ! allocation .............................................................
+      ! workspace ..............................................................
 
       allocate( G_im(0:po, ne, nc, n_stage) )
       allocate( G_ex(0:po, ne, nc, n_stage) )
