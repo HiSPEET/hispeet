@@ -7,7 +7,7 @@
 !>
 !> Provides common routines for Lobatto-based nodal DG-SEM, including
 !>
-!>   *  mesh generation (`GetMeshPoints`)
+!>   *  mesh generation (`DG_GetMeshPoints_1D`)
 !>
 !> Some routines require conditions for the left and right boundary points,
 !> which are passed in the character array `bc(1:2)`. The following boundary
@@ -22,14 +22,14 @@
 !>
 !===============================================================================
 
-module DG_Utilities_1D
+module DG__Utilities__1D
   use Kind_Parameters,   only: RNP
   use Constants,         only: HALF
   use Standard_Operators__1D
   implicit none
   private
 
-  public :: GetMeshPoints
+  public :: DG_GetMeshPoints_1D
 
 contains
 
@@ -43,12 +43,12 @@ contains
   !>
   !> Works with all nodal bases.
 
-  subroutine GetMeshPoints(sop, a, b, dx, x)
-    class(StandardOperators_1D), intent(in)  :: sop     !< standard operators
-    real(RNP),                  intent(in)  :: a       !< left border
-    real(RNP),                  intent(in)  :: b       !< right border
-    real(RNP),                  intent(out) :: dx      !< element length
-    real(RNP), contiguous,      intent(out) :: x(0:,:) !< mesh points x(0:po,1:ne)
+  subroutine DG_GetMeshPoints_1D(sop, a, b, dx, x)
+    class(StandardOperators_1D), intent(in) :: sop !< standard operators
+    real(RNP),             intent(in)  :: a        !< left border
+    real(RNP),             intent(in)  :: b        !< right border
+    real(RNP),             intent(out) :: dx       !< element length
+    real(RNP), contiguous, intent(out) :: x(0:,:)  !< mesh points x(0:po,1:ne)
 
     integer   :: k, ne
     real(RNP) :: xe
@@ -64,8 +64,8 @@ contains
       end do
     end associate
 
-  end subroutine GetMeshPoints
+  end subroutine DG_GetMeshPoints_1D
 
   !=============================================================================
 
-end module DG_Utilities_1D
+end module DG__Utilities__1D
