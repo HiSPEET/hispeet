@@ -1,0 +1,551 @@
+!> summary:  Spectral element solver for 1D Helmholtz equation with OpenMP/ACC
+!> author:   Joerg Stiller
+!> date:     2016/10/28
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!>### Spectral element solver for 1D Helmholtz equation with OpenMP/ACC
+!
+!> Solves the Helmholtz equation
+!>
+!>     lambda u - u" = f(x),    lambda = 1
+!>
+!> in the domain (-1,1) with u(-1) and u'(1) given. Test cases are based on the
+!> exact solution
+!>
+!>     u = sin(PI x), or
+!>     u = abs(x)^3
+!>
+!> Discretization is performed using continuous nodal spectral elements based
+!> on Lobatto points. The conjugate gradient (CG) method is used as the solver.
+!>
+!> Implementation largely follows the approach described in the course "Höhere
+!> Numerische Strömungsmechanik" given at TU Dresden in 2016/17. The CG method
+!> was adopted from J.R. Shewchuk, An Introduction to the Conjugate Gradient
+!> Method Without the Agonizing Pain, Carnegie Mellon University, 1994.
+!> For the treatment of the singular problem, i.e. Poisson with Neumann BC, see
+!> E.F. Kaasschieter, Preconditioned conjugate gradients for solving singular
+!> systems J. Comput. Appl. Math., 1988, 24, 265-275.
+!>
+!> @note
+!> With OpenACC, currently only the compute part is parallelized.
+!> @endnote
+!>
+!===============================================================================
+
+program CG_Helmholtz_1D_Acc
+  use Kind_Parameters,  only: RNP, IXL
+  use Constants,        only: ZERO, ONE
+  use Matrix_Operators, only: Inverse
+  use Linear_Equations, only: TridiagonalSolver
+  use Standard_Operators__1D ! provides the SEM standard operators
+  use CG__Utilities__1D
+  use Helmholtz_Test_Cases__1D
+
+  implicit none
+
+  ! Variables ..................................................................
+
+  ! problem parameters
+  real(RNP) :: lambda  = 1      ! Helmholtz parameter
+  integer   :: test    = 1      ! test case
+  integer   :: init    = 1      ! intial conditions (0: zero, 1: random)
+  character :: bc(2)   = 'D'    ! left/right BC ('D': Dirichlet, 'N': Neumann)
+
+  namelist /problem_parameters/ lambda, test, init, bc
+
+  ! solution parameters
+  integer   :: po     = 16      ! polynomial order
+  integer   :: ne     = 10      ! number of elements
+  integer   :: i_max  = huge(1) ! maximum number of CG iterations
+  real(RNP) :: r_max  = 1E-12   ! maximum CG residual
+
+  namelist /solution_parameters/ po, ne, r_max, i_max
+
+  ! discrete variables and operators
+  type(StandardOperators_1D) :: standard_op   ! standard element operators
+  real(RNP), allocatable    :: x(:,:)        ! mesh points
+  real(RNP), allocatable    :: u(:,:)        ! discrete solution
+  real(RNP), allocatable    :: f(:,:)        ! right hand side (RHS)
+  real(RNP), allocatable    :: r(:,:)        ! residual
+  real(RNP), allocatable    :: s(:,:)        ! projected exact solution
+  real(RNP), allocatable    :: e(:,:)        ! error
+  real(RNP), allocatable    :: w(:,:)        ! node weights
+  real(RNP), allocatable    :: Me(:)         ! element mass matrix
+  real(RNP), allocatable    :: He(:,:)       ! element Helmholtz matrix
+
+  ! auxiliary variables
+  logical      :: exists, periodic, singular
+  integer      :: j, k, n, io
+  integer(IXL) :: count0, count1, count_rate
+  real(RNP)    :: dx, t_pre, t_sol
+  real(RNP)    :: sw, sf, df
+
+  ! Initialization .............................................................
+
+  ! greeting
+  write(*,'(/,A)') 'Accelerated CG-SEM for 1D Helmholtz equation'
+
+  ! load parameters
+  inquire(file='cg_helmholtz_1d_acc.prm', exist=exists)
+  if (exists) then
+    open(newunit=io, file='cg_helmholtz_1d_acc.prm')
+    read(io, nml=problem_parameters)
+    read(io, nml=solution_parameters)
+    close(io)
+  end if
+
+  call SetTestCase(test)
+  periodic = all(bc == 'P')
+
+  ! start system clock
+  call system_clock(count0, count_rate = count_rate)
+
+  ! workspace
+  allocate( x(0:po,ne), u(0:po,ne), f(0:po,ne), r(0:po,ne), &
+            s(0:po,ne), e(0:po,ne), w(0:po,ne)              )
+
+  ! standard operators
+  standard_op = StandardOperators_1D(po = po)
+
+  ! check if problem is singular
+  singular = lambda == 0 .and. all(bc == 'N')
+
+  !$omp parallel default(shared)
+
+  ! mesh
+  call CG_GetMeshPoints_1D(standard_op, -ONE, ONE, dx, x)
+  call CG_GetPointWeights_1D(w, periodic)
+
+  ! element operators
+  !$omp single
+  allocate(Me(0:po), He(0:po,0:po))
+  call GetElementOperators(standard_op, dx, lambda, Me, He)
+  !$omp end single
+
+  ! right hand side
+  call GetRHS(Me, bc, x, f)
+  if (singular) then ! project f to nullspace
+    sw = 0
+    sf = 0
+    !$omp barrier
+    !$omp do reduction(+:sw,sf)
+    do k = 1, ne
+    do j = 0, po
+      sw = sw + w(j,k)
+      sf = sf + w(j,k) * f(j,k)
+    end do
+    end do
+    df = -sf / sw
+    !$omp do
+    do k = 1, ne
+    do j = 0, po
+      f(j,k) = f(j,k) + df
+    end do
+    end do
+  end if
+
+  ! initial values
+  if (init == 0) then ! start from zero
+    do k = 1, ne
+    do j = 0, po
+      u(j,k) = 0
+    end do
+    end do
+  else ! intial guess, chosen at random from [0,1]
+    call random_number(u)
+    call CG_MakeContinuous_1D(u, periodic)
+  end if
+
+  ! inject Dirichlet BC
+  !$omp single
+  if (bc(1) == 'D')  u( 0,  1) = u_exact(-ONE)
+  if (bc(2) == 'D')  u(po, ne) = u_exact( ONE)
+  !$omp end single
+
+  !$omp end parallel
+
+  ! read system clock
+  call system_clock(count1)
+
+  ! time consumed with preprocessing
+  t_pre = (count1 - count0) / real(count_rate, RNP)
+
+  ! solution ...................................................................
+
+  call system_clock(count0)
+
+  !$omp parallel default(shared)
+  !$acc data copy(u) copyin(He,bc,f,w)
+  call CG_Method(He, bc, u, f, w, r_max, i_max)
+  !$acc end data
+  !$omp end parallel
+
+  call system_clock(count1)
+  t_sol = (count1 - count0) / real(count_rate, RNP)
+
+  ! evaluation .................................................................
+
+  !$omp parallel default(shared)
+
+  ! number of unknowns
+  n = po * ne
+
+  ! consistency error
+  !$omp workshare
+  s = u_exact(x)
+  !$omp end workshare
+  !$acc data copy(r) copyin(He,bc,s,f)
+  call HelmholtzResidual(He, bc, s, f, r)
+  !$acc end data
+  !$omp master
+  write(*,'(/,A)') 'consistency error'
+  write(*,'(2X,A,ES12.5)') 'c_max', maxval(abs(r))
+  write(*,'(2X,A,ES12.5)') 'c_rms', sqrt(sum(w*r*r)/n)
+  !$omp end master
+  !$omp barrier
+
+  ! final residual
+  !$acc data copy(r) copyin(He,bc,u,f)
+  call HelmholtzResidual(He, bc, u, f, r)
+  !$acc end data
+  !$omp barrier
+  !$omp master
+  write(*,'(/,A)') 'final residual'
+  write(*,'(2X,A,ES12.5)') 'r_max', maxval(abs(r))
+  write(*,'(2X,A,ES12.5)') 'r_rms', sqrt(sum(w*r*r)/n)
+  !$omp end master
+
+  ! error
+  !$omp workshare
+  e = u - s
+  !$omp end workshare
+  ! remove constant in singular case
+  if (singular) then
+    !$omp workshare
+    e = e - (maxval(e) + minval(e))/2
+    !$omp end workshare
+  end if
+  !$omp barrier
+  !$omp master
+  write(*,'(/,A)') 'error'
+  write(*,'(2X,A,ES12.5)') 'e_max', maxval(abs(e))
+  write(*,'(2X,A,ES12.5)') 'e_rms', sqrt(sum(w*e*e)/n)
+  !$omp end master
+
+  !$omp end parallel
+
+  ! timing
+  write(*,'(/,A)') 'runtime'
+  write(*,'(2X,A,ES12.5)') 't_pre', t_pre
+  write(*,'(2X,A,ES12.5)') 't_sol', t_sol
+
+  ! save results
+  open(newunit=io, file='cg_helmholtz_1d_acc.dat')
+  write(io,'(A)') '# x, u, s, e, f, r'
+  do k = 1, ne
+  do j = 0, po
+    write(io,'(10(ES17.10,1X))') x(j,k), u(j,k), s(j,k), e(j,k), f(j,k), r(j,k)
+  end do
+  end do
+  close(io)
+
+contains
+
+!-------------------------------------------------------------------------------
+!> Element operators
+
+subroutine GetElementOperators(standard_op, dx, lambda, Me, He)
+  class(StandardOperators_1D), intent(in) :: standard_op !< standard operators
+  real(RNP), intent(in)  :: dx        !< element length
+  real(RNP), intent(in)  :: lambda    !< Helmholtz parameter
+  real(RNP), intent(out) :: Me(0:)    !< element mass matrix (main diagonal)
+  real(RNP), intent(out) :: He(0:,0:) !< element Helmholtz operator
+
+  integer :: i, po
+
+  po = ubound(Me,1)
+
+  associate( Ms => standard_op % w, &
+             Ls => standard_op % L  )
+
+    ! element mass matrix
+    Me = dx/2 * Ms
+
+    ! element Helmhotz operator
+    He = 2/dx * Ls
+    if (lambda > 0) then
+      do i = 0, po
+        He(i,i) = He(i,i) + lambda * Me(i)
+      end do
+    end if
+
+  end associate
+
+end subroutine GetElementOperators
+
+!-------------------------------------------------------------------------------
+!> Weigthed dot product
+
+subroutine WeightedDotProduct(w, u, v, r)
+  real(RNP), intent(in)  :: w(0:,:) !< node weights                     !shared!
+  real(RNP), intent(in)  :: u(0:,:) !< left factor                      !shared!
+  real(RNP), intent(in)  :: v(0:,:) !< right factor                     !shared!
+  real(RNP), intent(out) :: r       !< weighted dot product of u and v
+
+  integer :: j, k, po, ne
+  real(RNP), save :: s
+
+  po = ubound(w,1)
+  ne = ubound(w,2)
+
+  s = 0
+
+  !$omp barrier
+  !$omp do reduction(+:s)
+  !$acc parallel loop collapse(2) reduction(+:s) present(u,v,w)
+  do k = 1, ne
+  do j = 0, po
+    s = s + w(j,k) * u(j,k) * v(j,k)
+  end do
+  end do
+  !$acc end parallel
+
+  r = s
+
+end subroutine WeightedDotProduct
+
+!-------------------------------------------------------------------------------
+!> Right hand side
+
+subroutine GetRHS(Me, bc, x, f)
+  real(RNP), intent(in)  :: Me(0:)  !< diagonal element mass matrix     !shared!
+  character, intent(in)  :: bc(2)   !< boundary conditions              !shared!
+  real(RNP), intent(in)  :: x(0:,:) !< mesh points                      !shared!
+  real(RNP), intent(out) :: f(0:,:) !< RHS                              !shared!
+
+  integer :: k, po, ne
+
+  po = ubound(x,1)
+  ne = ubound(x,2)
+
+  ! projection of the source term
+  !$omp do
+  do k = 1, ne
+     f(:,k) = Me * (lambda*u_exact(x(:,k)) - ddu_exact(x(:,k)))
+  end do
+
+  ! Neumann BC
+  !$omp single
+  if (bc(1) == 'N')  f( 0,  1) = f( 0,  1) - du_exact(-ONE)
+  if (bc(2) == 'N')  f(po, ne) = f(po, ne) + du_exact( ONE)
+  !$omp end single
+
+  ! assemble element contributions
+  !$acc data copy(f)
+  call CG_Assembly_1D(f, periodic = bc(1)=='P')
+  !$acc end data
+
+  ! nullify RHS at Dirichlet boundaries
+  !$omp single
+  !$acc parallel present(bc,f)
+  if (bc(1) == 'D')  f( 0,  1) = 0
+  if (bc(2) == 'D')  f(po, ne) = 0
+  !$acc parallel
+  !$omp end single
+
+end subroutine GetRHS
+
+!------------------------------------------------------------------------------
+!> Application of Helmholtz operator, `v = Au`, `v = 0` at Dirichlet boundaries
+
+subroutine HelmholtzOperator(He, bc, u, v)
+  real(RNP), intent(in)  :: He(0:,0:) !< element Helmholtz operator
+  character, intent(in)  :: bc(2)     !< boundary conditions
+  real(RNP), intent(in)  :: u(0:,:)   !< approximate solution
+  real(RNP), intent(out) :: v(0:,:)   !< residual, r = f - Au
+
+  integer :: i, j, k, po, ne
+  real(RNP) :: s
+
+  ! dimensions
+  po = ubound(u,1)
+  ne = ubound(u,2)
+
+  ! element contributions
+  !$omp do
+  !$acc parallel loop collapse(2) present(He,u,v)
+  do k = 1, ne
+    do i = 0, po
+      s = 0
+      !$acc loop seq
+      do j = 0, po
+        s = s + He(i,j) * u(j,k)
+      end do
+      v(i,k) = s
+    end do
+  end do
+  !$acc end parallel
+
+  ! assembly
+  call CG_Assembly_1D(v, periodic = bc(1)=='P')
+
+  ! nullify residual at Dirichlet points
+  !$omp single
+  !$acc parallel present(bc,v)
+  if (bc(1) == 'D')  v( 0,  1) = 0
+  if (bc(2) == 'D')  v(po, ne) = 0
+  !$acc end parallel
+  !$omp end single
+
+end subroutine HelmholtzOperator
+
+!------------------------------------------------------------------------------
+!> Residual of a given approximate solution -- to be placed in parallel region
+
+subroutine HelmholtzResidual(He, bc, u, f, r)
+  real(RNP), intent(in)  :: He(0:,0:) !< element Helmholtz operator     !shared!
+  character, intent(in)  :: bc(2)     !< boundary conditions            !shared!
+  real(RNP), intent(in)  :: u(0:,:)   !< approximate solution           !shared!
+  real(RNP), intent(in)  :: f(0:,:)   !< RHS, default: f = 0            !shared!
+  real(RNP), intent(out) :: r(0:,:)   !< residual, r = f - Au           !shared!
+
+  integer :: j, k, po, ne
+
+  ! dimensions
+  po = ubound(u,1)
+  ne = ubound(u,2)
+
+  call HelmholtzOperator(He, bc, u, r)
+
+  !$omp do
+  !$acc parallel loop collapse(2) present(r,f)
+  do k = 1, ne
+  do j = 0, po
+    r(j,k) = f(j,k) - r(j,k)
+  end do
+  end do
+  !$acc end parallel
+
+end subroutine HelmholtzResidual
+
+!------------------------------------------------------------------------------
+!> Conjugate gradient method
+
+subroutine CG_Method(He, bc, u, f, w, r_max, i_max)
+  real(RNP), intent(in)    :: He(0:,0:) !< element Helmholtz operator
+  character, intent(in)    :: bc(2)     !< boundary conditions
+  real(RNP), intent(inout) :: u(0:,:)   !< approximate solution
+  real(RNP), intent(in)    :: f(0:,:)   !< right hand side
+  real(RNP), intent(in)    :: w(0:,:)   !< node weights
+  real(RNP), intent(in)    :: r_max     !< target residual
+  integer,   intent(in)    :: i_max     !< max number of iterations
+
+  ! shared variables
+  real(RNP), dimension(:,:), allocatable, save :: r, p, q
+  logical, save :: finished
+
+  ! private variables
+  real(RNP) :: alpha, beta, delta, delta_old, pq
+  integer   :: i, j, k, po, ne, ni
+
+  ! initialization .............................................................
+
+  ! dimensions
+  po = ubound(u,1)
+  ne = ubound(u,2)
+
+  ! max number of iterations
+  ni = min(i_max, 10 * ne * po*po)
+
+  ! workspace
+  !$omp single
+  allocate(r(0:po,1:ne), p(0:po,1:ne), q(0:po,1:ne))
+  !$omp end single
+
+  !$acc data create(r, p, q) present(u)
+
+  ! initial residual, providing r = 0 in Dirichlet points
+  call HelmholtzResidual(He, bc, u, f, r)
+
+  ! iteration ..................................................................
+
+  ! Note that scalar products are weighted because r,p,q represent local arrays
+  ! with interior element boundary values listed twice.
+
+  ! delta = sum(w*r*r)
+  call WeightedDotProduct(w, r, r, delta)
+
+  !$omp do
+  !$acc parallel loop collapse(2)
+  do k = 1, ne
+  do j = 0, po
+    p(j,k) = r(j,k)
+  end do
+  end do
+  !$acc end parallel
+
+  do i = 1, ni
+
+    ! termination check  . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+    !$omp single
+    finished = delta <= r_max**2
+    !$omp end single
+
+    if (finished) exit
+
+    ! next iteration . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+    ! q = Ap, 0 in Dirichlet points
+    call HelmholtzOperator(He, bc, p, q)
+
+    call WeightedDotProduct(w, p, q, pq)
+    alpha = delta / pq
+    delta_old = delta
+
+    !$omp do
+    !$acc parallel loop collapse(2)
+    do k = 1, ne
+    do j = 0, po
+      u(j,k) = u(j,k) + alpha * p(j,k)
+    end do
+    end do
+    !$acc end parallel
+
+    if (mod(i,50) == 0) then
+      ! r = f - Au, evaluated explicitly eliminate accumulated round-off errors
+      call HelmholtzResidual(He, bc, u, f, r)
+    else
+      !$omp do
+      !$acc parallel loop collapse(2)
+      do k = 1, ne
+      do j = 0, po
+        r(j,k) = r(j,k) - alpha * q(j,k)
+      end do
+      end do
+      !$acc end parallel
+    end if
+
+    !$omp barrier
+    call WeightedDotProduct(w, r, r, delta)
+
+    beta = delta / delta_old
+
+    !$omp do
+    !$acc parallel loop collapse(2)
+    do k = 1, ne
+    do j = 0, po
+      p(j,k) = r(j,k) + beta * p(j,k)
+    end do
+    end do
+    !$acc end parallel
+
+  end do
+
+  !$acc end data
+
+end subroutine CG_Method
+
+!===============================================================================
+
+end program CG_Helmholtz_1D_Acc
