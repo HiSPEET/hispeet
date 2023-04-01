@@ -8,6 +8,7 @@ module CL__Problem__1D
 
   use Kind_Parameters, only: RNP
   use DG__Element_Operators__1D
+  use DG__Elliptic_Operator__1D
   use DG__Utilities__1D
 
   implicit none
@@ -22,17 +23,21 @@ module CL__Problem__1D
 
     ! problem parameters .......................................................
 
-    integer                      :: nc = -1 !< number of conservation variables
-    real(RNP)                    :: xb1     !< position of 1st boundary (left)
-    real(RNP)                    :: xb2     !< position of 2nd boundary (right)
-    character, allocatable       :: bc(:,:) !< BC type per boundary and variable
+    integer                :: nc  = -1 !< number of conservation variables
+    real(RNP)              :: xb1 = -1 !< position of 1st boundary (left)
+    real(RNP)              :: xb2 = -1 !< position of 2nd boundary (right)
+    character, allocatable :: bc(:,:)  !< BC type per boundary and variable
 
     ! space discretization .....................................................
 
-    integer                      :: ne = -1 !< number of elements
-    real(RNP)                    :: dx      !< element size
-    type(DG_ElementOperators_1D) :: eop     !< IP-DG element operators
-    real(RNP), allocatable       :: x(:,:)  !< mesh points
+    integer                      :: ne = -1  !< number of elements
+    real(RNP)                    :: dx       !< element size
+    type(DG_ElementOperators_1D) :: eop      !< IP/DG-SEM operators of order po
+    real(RNP), allocatable       :: x (:,:)  !< mesh points
+    real(RNP), allocatable       :: mm(:,:)  !< diagonal mass matrix
+
+    !> elliptic operators and solvers for each component
+    type(DG_EllipticOperator_1D), allocatable :: elliptic_op(:)
 
     ! private control parameters ...............................................
 
@@ -129,26 +134,44 @@ module CL__Problem__1D
 contains
 
   !-----------------------------------------------------------------------------
-  !> Initialization of space-discretization
+  !> Initialization of spatial discretization
 
-  subroutine SetSpaceDiscretization(problem, opt, ne)
+  subroutine SetSpaceDiscretization(problem, dg_opt, schwarz_opt, ne)
     class(CL_Problem_1D),        intent(inout) :: problem
-    class(DG_ElementOptions_1D), intent(in)    :: opt !< IP/DG-SEM options
+    class(DG_ElementOptions_1D), intent(in)    :: dg_opt
+    class(DG_SchwarzOptions_1D), intent(in)    :: schwarz_opt
     integer,                     intent(in)    :: ne  !< number of elements
 
-    problem % eop = DG_ElementOperators_1D(opt)
+    integer :: i
+
+    if (allocated( problem % x           ))  deallocate( problem % x           )
+    if (allocated( problem % mm          ))  deallocate( problem % mm          )
+    if (allocated( problem % elliptic_op ))  deallocate( problem % elliptic_op )
+
+    problem % eop = DG_ElementOperators_1D(dg_opt)
     problem % ne  = ne
 
-    if (allocated(problem % x)) then
-      deallocate(problem % x)
-    end if
-    allocate(problem % x(0:problem%eop%po, ne))
+    allocate(problem % x           (0:problem%eop%po, ne))
+    allocate(problem % mm          (0:problem%eop%po, ne))
+    allocate(problem % elliptic_op (1:problem%nc        ))
 
+    ! mesh points
     call DG_GetMeshPoints_1D( problem % eop  &
                             , problem % xb1  &
                             , problem % xb2  &
                             , problem % dx   &
                             , problem % x    )
+
+    ! diagonal mass matrix
+    do i = 1, ne
+      problem % mm(:,i) = problem % dx/2 * problem % eop % w
+    end do
+
+    ! elliptic operators
+    do i = 1, problem % nc
+      problem % elliptic_op(i) = DG_EllipticOperator_1D( dg_opt, schwarz_opt   &
+                                                       , ne, problem % bc(:,i) )
+    end do
 
   end subroutine SetSpaceDiscretization
 

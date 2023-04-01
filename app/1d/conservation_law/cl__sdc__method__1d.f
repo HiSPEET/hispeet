@@ -49,11 +49,10 @@ module CL__SDC__Method__1D
 
   contains
 
-    procedure, non_overridable :: Init_C_SDC_Method
-    procedure, non_overridable :: Show_C_SDC_Method
+    procedure, non_overridable :: Init_CL_SDC_Method_1D
+    procedure, non_overridable :: Show_CL_SDC_Method_1D
     procedure :: TimeStep
     procedure(CorrectorRHS ), deferred :: CorrectorRHS
-    procedure(CorrectorRHSSweep ), deferred :: CorrectorRHSSweep !used as long as I do not understand function overloading
     procedure(CorrectorStep), deferred :: CorrectorStep
 
   end type CL_SDC_Method_1D
@@ -75,22 +74,6 @@ module CL__SDC__Method__1D
       real(RNP), intent(out)   :: F_im(:,:,:)   !< implicit RHS for corrector
 
      end subroutine CorrectorRHS
-
-    !---------------------------------------------------------------------------
-    !> Overload of CorrectorRHS(...)
-
-    subroutine CorrectorRHSSweep(this, problem, t, dt, u, F_ex, F_im)
-      import
-
-      class(CL_SDC_Method_1D), intent(in)    :: this
-      class(CL_Problem_Scalar_1D), intent(in) :: problem
-      real(RNP), intent(in)    :: t(:)
-      real(RNP), intent(in)    :: dt(:)           !< step size ∆t
-      real(RNP), intent(inout) :: u(:,:,:,:)      !< u(t) → u(t+ ∆t)
-      real(RNP), intent(out)   :: F_ex(:,:,:,:)   !< explicit RHS for corrector
-      real(RNP), intent(out)   :: F_im(:,:,:,:)   !< implicit RHS for corrector
-
-     end subroutine CorrectorRHSSweep
 
     !---------------------------------------------------------------------------
     !> Execution of a single correction step
@@ -124,7 +107,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Initialization of CL_SDC_Method_1D object
 
-  subroutine Init_C_SDC_Method(this, pre_opt, sdc_opt)
+  subroutine Init_CL_SDC_Method_1D(this, pre_opt, sdc_opt)
 
     ! arguments ................................................................
 
@@ -154,12 +137,12 @@ contains
 
     this % impl = sdc_opt % impl
 
-  end subroutine Init_C_SDC_Method
+  end subroutine Init_CL_SDC_Method_1D
 
   !-----------------------------------------------------------------------------
   !> Output of CL_SDC_Method_1D settings
 
-  subroutine Show_C_SDC_Method(this, unit)
+  subroutine Show_CL_SDC_Method_1D(this, unit)
     class(CL_SDC_Method_1D), intent(in) :: this
     integer, optional, intent(in)   :: unit  !< output unit
 
@@ -183,7 +166,7 @@ contains
     write(io,'(/,A)') 'Corrector settings'
     write(io,'(A,/)') repeat('=',80)
 
-  end subroutine Show_C_SDC_Method
+  end subroutine Show_CL_SDC_Method_1D
 
   !-----------------------------------------------------------------------------
   !> SDC time step
@@ -260,7 +243,14 @@ contains
         end do
 
         ! RHS for corrector
-        call this % CorrectorRHSSweep(problem, t_, dt_, u_, F_ex_, F_im_) ! F_ex_ = f( u^0_m )
+        do i = 0, n_sub
+          call this % CorrectorRHS( problem         &
+                                  , t_    (i)       &
+                                  , dt_   (i)       &
+                                  , u_    (:,:,:,i) &
+                                  , F_ex_ (:,:,:,i) &
+                                  , F_im_ (:,:,:,i) )
+        end do
         F_ex_new(:,:,:,0) = F_ex_(:,:,:,0) ! RHS on first sub-timestep
         F_im_new(:,:,:,0) = F_im_(:,:,:,0)
 

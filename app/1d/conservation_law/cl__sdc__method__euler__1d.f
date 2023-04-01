@@ -23,7 +23,6 @@ module CL__SDC__Method__Euler__1D
     procedure :: Init_CL_SDC_Method_Euler_1D
     procedure :: Show => Show_CL_SDC_Method_Euler_1D
     procedure :: CorrectorRHS
-    procedure :: CorrectorRHSSweep !used as long as I do not understand function overloading
     procedure :: CorrectorStep
   end type CL_SDC_Method_Euler_1D
 
@@ -64,7 +63,7 @@ contains
     class(CL_SDC_Options_Euler_1D),      intent(in) :: sdc_opt !< SDC options
 
     ! intialize parent type
-    call this % Init_C_SDC_Method(pre_opt, sdc_opt)
+    call this % Init_CL_SDC_Method_1D(pre_opt, sdc_opt)
 
     this % corrector_name = 'IMEX Euler method'
   end subroutine Init_CL_SDC_Method_Euler_1D
@@ -84,7 +83,7 @@ contains
       io = OUTPUT_UNIT
     end if
 
-    call this % Show_C_SDC_Method(unit)
+    call this % Show_CL_SDC_Method_1D(unit)
 
     write(io,'(2X,A,T15,G0)') 'name:', this % corrector_name
 
@@ -122,48 +121,6 @@ contains
     if (dt > 0) return  ! just to avoid compiler warnings
 
   end subroutine CorrectorRHS
-
-  !-----------------------------------------------------------------------------
-  !> Computes F_ex and F_im as defined in the corrector for a vecor of matrices u(t_i) replaces elemental. If overloading is for some reason possible, one should use that
-
-  subroutine CorrectorRHSsweep(this, problem, t, dt, u, F_ex, F_im)
-
-    class(CL_SDC_Method_Euler_1D), intent(in)    :: this
-    class(CL_Problem_Scalar_1D), intent(in)       :: problem
-    real(RNP), intent(in)    :: t(0:)
-    real(RNP), intent(in)    :: dt(0:)            !< step size ∆t
-    real(RNP), intent(inout) :: u(0:,:,:,0:)      !< u(t) → u(t+ ∆t)
-    real(RNP), intent(out)   :: F_ex(0:,:,:,0:)   !< explicit RHS for corrector
-    real(RNP), intent(out)   :: F_im(0:,:,:,0:)   !< implicit RHS for corrector
-
-    integer :: i, n_sub
-
-    n_sub = this % n_sub
-
-    !Number of steps between. Taken from u because it is needed in u later on.
-
-    select case (this % impl)
-    case(0) ! explicit
-      F_im = 0
-
-      do i = 0, n_sub
-        F_ex(:,:,:,i) = problem % RHS_Convection(t(i), u(:,:,:,i)) &  ! t is the wrong time here, but
-                      + problem % RHS_Diffusion (t(i), u(:,:,:,i))    ! does not matter with periodic BC
-      end do
-
-    case(1) ! implicit
-!      F_im = lambda * u
-!      F_ex = 0
-
-    case(2) ! IMEXcorre
-!      F_im =     lambda % re * u
-!      F_ex = i * lambda % im * u
-
-    end select
-
-    !if (dt > 0) return  ! just to avoid compiler warnings ! Robin says: but need scalar-type
-
-  end subroutine CorrectorRHSsweep
 
   !-----------------------------------------------------------------------------
   !> Execution of a single correction step

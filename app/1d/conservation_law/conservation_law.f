@@ -4,6 +4,7 @@ program Conservation_Law
   use Constants
 
   use DG__Element_Operators__1D
+  use DG__Elliptic_Operator__1D
 
   use CL__Problem__Scalar__1D
   use CL__Problem__Scalar__Burgers__Breaking_Wave__1D
@@ -23,19 +24,18 @@ program Conservation_Law
   implicit none
   class(CL_Problem_Scalar_1D), allocatable :: problem
   type(DG_ElementOptions_1D) :: dg_opt
+  type(DG_SchwarzOptions_1D) :: schwarz_opt
   real(RNP), allocatable     :: u(:,:,:)     ! discrete solution
   real(RNP), allocatable     :: M_inv(:,:,:) ! transformation matrix
 
   real(RNP) :: start, finish !for time measurement
 
   integer   :: po         ! polynomial degree
-  integer   :: po_cut_svv !
   integer   :: ne         ! number of elements
   real(RNP) :: penalty    ! disc. gal. penalty
   real(RNP) :: cfl
   real(RNP) :: t_end
-  logical   :: svv        !
-  namelist /discretization_prm/ po, po_cut_svv, ne, penalty, cfl, t_end, svv
+  namelist /discretization_prm/ po, ne, penalty, cfl, t_end
 
   logical   :: exists
   integer   :: prm
@@ -199,7 +199,6 @@ program Conservation_Law
   end select
 
   ! read options and parameters ................................................
-  po_cut_svv = dg_opt % po_cut_svv
   inquire(file='conservation_law.prm', exist=exists)
   if (exists) then
     open(newunit=prm, file='conservation_law.prm', action='READ')
@@ -207,19 +206,17 @@ program Conservation_Law
     close(prm)
   end if
 
-  dg_opt = DG_ElementOptions_1D( po         = po         &
-                               , penalty    = penalty    &
+  dg_opt = DG_ElementOptions_1D( po         =  po        &
+                               , penalty    =  penalty   &
                                , hybrid     = .true.     &
-                               , svv        = svv        &
-                               , po_cut_svv = po_cut_svv )
+                               , svv        = .false.    )
 
   allocate(CL_Problem_Scalar_Burgers_BreakingWave_1D :: problem)
-  call problem % SetProblem('burgers_problem_1d__breaking_wave')
-  call problem % SetSpaceDiscretization(dg_opt, ne)
+  call problem % SetProblem('cl__problem__scalar__burgers__breaking_wave__1d')
+  call problem % SetSpaceDiscretization(dg_opt, schwarz_opt, ne)
   allocate(u(0:po, ne, problem%nc))
   u(0:,:,:) = problem % InitialValues()
-  dt = min(cfl   *  problem%dx     /  po**2,                                  &
-           cfl/2 * (problem%dx)**2 / (po**4 * (problem%nu_0r + problem%nu_0s)))
+  dt = cfl * problem%dx / po**2
 
   allocate(M_inv, mold = u)
   do e = 1, problem % ne

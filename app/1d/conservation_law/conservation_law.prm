@@ -1,9 +1,7 @@
 &discretization_prm
   po         = 16
-  po_cut_svv = 
   ne         = 3
   penalty    = 2
   cfl        = 1
   t_end      = 1
-  svv        = T
 /

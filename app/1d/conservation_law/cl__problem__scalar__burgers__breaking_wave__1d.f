@@ -38,10 +38,9 @@ contains
     real(RNP) :: xb1    = -1  ! position of first boundary  (left)
     real(RNP) :: xb2    =  1  ! position of second boundary (right)
     character :: bc(2)  = 'P' ! boundary conditions
-    real(RNP) :: nu_0r  =  0  ! constant regular  viscosity
-    real(RNP) :: nu_0s  =  0  ! constant spectral viscosity
+    real(RNP) :: nu_c   =  0  ! constant regular  viscosity
 
-    namelist /burgers_breaking_wave_prm/ nu_0r, nu_0s
+    namelist /burgers_breaking_wave_prm/ nu_c
 
     logical :: exists, opened
     integer :: prm
@@ -57,10 +56,10 @@ contains
       else if (opened) then
         rewind(prm)
       else
-        call Warning('SetProblem',                                      &
+        call Error('SetProblem',                                      &
                      'Input file "'//trim(file)//'.prm" not found, '//  &
                      'using defaults',                                  &
-                     'Burgers_Problem_1D__Breaking_Wave')
+                     'CL_Problem_Scalar_Burgers_BreakingWave_1D')
       end if
 
     else
@@ -76,12 +75,11 @@ contains
 
     ! set parameters ...........................................................
 
-    problem % nc    = 1
-    problem % xb1   = xb1
-    problem % xb2   = xb2
-    problem % bc    = reshape(bc, shape = [2,1])
-    problem % nu_0r = nu_0r
-    problem % nu_0s = nu_0s
+    problem % nc   = 1
+    problem % xb1  = xb1
+    problem % xb2  = xb2
+    problem % bc   = reshape(bc, shape = [2,1])
+    problem % nu_c = nu_c
 
   end subroutine SetProblem
 

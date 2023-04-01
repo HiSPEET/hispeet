@@ -97,10 +97,12 @@ contains
     real(RNP), intent(in)    :: M_inv(:,:,:)
 
     real(RNP), allocatable, dimension(:,:,:), save :: f
+    real(RNP) :: bv(2) = 0
 
     associate( po => problem % eop % po &
              , ne => problem % ne       &
-             , nc => problem % nc       )
+             , nc => problem % nc       &
+             , M  => problem % mm       )
 
       if (.not. allocated(f)) then
         allocate(f, mold = u)
@@ -111,7 +113,7 @@ contains
           ! explicit Euler step: u₁ = u₀ + ∆t λ u₀
           f  = problem % RHS_Convection(t, u)  &
              + problem % RHS_Diffusion (t, u)
-          u = u + dt * M_inv * f
+          u(:,:,1) = u(:,:,1) + dt / M * f(:,:,1)
         case(1)
 
           ! implicit Euler step: u₁ = u₀ + ∆t λ u₀
@@ -123,11 +125,17 @@ contains
         case default
 
           ! IMEX Euler step: u₁ = u₀ + ∆t λ u₀
+          f(:,:,1) = 1/dt * M * u(:,:,1)
+          f(:,:,:) = f + problem % RHS_Convection(t, u)
 
-          !u = u + dt * (ZERO, ONE) * lambda%im * u  ! explicit convection with i λᵢ
-          !u = u / (ONE - dt * lambda%re)            ! implicit diffusion with λᵣ
-          print *, "Actually there is no way to use an implicit method at this moment!"
-          stop
+          call problem % elliptic_op(1) &
+                           % HybridSolver( dx      =  problem % dx   &
+                                         , lambda  =  ONE/dt         &
+                                         , nu      =  problem % nu_c &
+                                         , f       =  f(:,:,1)       &
+                                         , bv      =  bv             &
+                                         , u       =  u(:,:,1)       &
+                                         , standby = .true.          )
 
       end select
 

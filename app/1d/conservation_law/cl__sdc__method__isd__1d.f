@@ -63,7 +63,7 @@ contains
     class(CL_SDC_Options_ISD_1D),       intent(in) :: sdc_opt !< SDC options
 
     ! intialize parent type
-    call this % Init_C_SDC_Method(pre_opt, sdc_opt)
+    call this % Init_CL_SDC_Method_1D(pre_opt, sdc_opt)
 
     this % corrector_name = 'ISD IMEX method of order 1'
 
@@ -84,7 +84,7 @@ contains
       io = OUTPUT_UNIT
     end if
 
-    call this % Show_C_SDC_Method(unit)
+    call this % Show_CL_SDC_Method_1D(unit)
 
     write(io,'(2X,A,T15,G0)') 'name:', this % corrector_name
 

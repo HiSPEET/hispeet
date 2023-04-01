@@ -30,7 +30,6 @@ module CL__SDC__Method__RK__1D
     procedure :: Init_CL_SDC_Method_RK_1D
     procedure :: Show => Show_CL_SDC_Method_RK_1D
     procedure :: CorrectorRHS
-    procedure :: CorrectorRHSSweep !used as long as I do not understand function overloading
     procedure :: CorrectorStep
   end type CL_SDC_Method_RK_1D
 
@@ -76,7 +75,7 @@ contains
     integer   :: i, j, m
 
     ! intialize parent type
-    call this % Init_C_SDC_Method(pre_opt, sdc_opt)
+    call this % Init_CL_SDC_Method_1D(pre_opt, sdc_opt)
 
     ! initialize RK method
     call this % imex_rk % Init_IMEX_RK_Method(sdc_opt % n_stage, sdc_opt % method)
@@ -136,7 +135,7 @@ contains
     end if
 
     ! show parent settings
-    call this % Show_C_SDC_Method(unit)
+    call this % Show_CL_SDC_Method_1D(unit)
 
     ! show IMEX RK settings
     call this % imex_rk % Show(unit)
@@ -175,45 +174,6 @@ contains
     if (dt > 0) return  ! just to avoid compiler warnings
 
   end subroutine CorrectorRHS
-
-  !-----------------------------------------------------------------------------
-  !> Computes F_ex and F_im as defined in the corrector for a vecor of matrices u(t_i) replaces elemental. If overloading is for some reason possible, one should use that
-
-  subroutine CorrectorRHSSweep(this, problem, t, dt, u, F_ex, F_im)
-
-    class(CL_SDC_Method_RK_1D), intent(in) :: this
-    class(CL_Problem_Scalar_1D), intent(in) :: problem
-    real(RNP), intent(in)    :: t(0:)
-    real(RNP), intent(in)    :: dt(0:)            !< step size, used with ISD only
-    real(RNP), intent(inout) :: u(0:,:,:,0:)      !< u
-    real(RNP), intent(out)   :: F_ex(0:,:,:,0:)   !< explicit RHS for corrector
-    real(RNP), intent(out)   :: F_im(0:,:,:,0:)   !< implicit RHS for corrector
-
-    integer :: i, n_sub
-
-    n_sub = this % n_sub
-
-    select case (this % impl)
-    case(0) ! explicit
-      F_im = 0
-      do i = 0, n_sub
-        F_ex(:,:,:,i) = problem % RHS_Convection(t(i), u(:,:,:,i)) & ! t is the wrong time here, but
-                      + problem % RHS_Diffusion (t(i), u(:,:,:,i))   ! does not matter with periodic BC
-      end do
-
-    case(1) ! implicit
-!      F_im = lambda * u
-!      F_ex = 0
-
-    case default ! IMEX
-!      F_im =     lambda % re * u
-!      F_ex = i * lambda % im * u
-
-    end select
-
-!    if (dt > 0) return  ! just to avoid compiler warnings !
-
-  end subroutine CorrectorRHSSweep
 
   !-----------------------------------------------------------------------------
   !> Execution of a single correction step
