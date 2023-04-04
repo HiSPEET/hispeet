@@ -57,6 +57,7 @@ module CL__Problem__1D
     procedure(RHS_Convection), deferred :: RHS_Convection
     procedure(RHS_Diffusion),  deferred :: RHS_Diffusion
 
+
   end type CL_Problem_1D
 
   abstract interface
@@ -186,20 +187,22 @@ contains
   end function HasExactSolution
 
   !-----------------------------------------------------------------------------
-  !> Dummy procedure for the exact solution u(x,t)
+  !> Dummy procedure for writing the exact solution u(x,t) into a file
 
-  function ExactSolution(problem, x, t) result(u)
+  subroutine ExactSolution(problem, x, t, N, ou)
     class(CL_Problem_1D),  intent(in) :: problem
     real(RNP), contiguous, intent(in) :: x(0:,:)
     real(RNP),             intent(in) :: t
+    integer,   intent(in), optional   :: N              ! series expansion degree
+    integer   :: ou             ! series expansion degree
     real(RNP) :: u(0:ubound(x,1), size(x,2), problem%nc)
 
-    u = 0
+    !u = 0
 
     ! just to avoid compiler warnings ;)
     if (abs(t) >= 0) return
 
-  end function ExactSolution
+  end subroutine ExactSolution
 
   !=============================================================================
 

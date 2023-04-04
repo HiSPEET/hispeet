@@ -241,7 +241,9 @@ contains
     !bounds ....................................................................
              , po      => problem % eop % po       &
              , ne      => problem % ne             &
-             , nc      => problem % nc             )
+             , nc      => problem % nc             &
+    !transformation matrix
+             , Mat     => problem % mm             )
 
       ! allocation .............................................................
 

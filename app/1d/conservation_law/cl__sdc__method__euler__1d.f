@@ -149,9 +149,10 @@ contains
     real(RNP)    :: dt
     integer      :: j
 
-    associate( po => problem % eop % po &
-             , ne => problem % ne       &
-             , nc => problem % nc       )
+    associate( po   => problem % eop % po &
+             , ne   => problem % ne       &
+             , nc   => problem % nc       &
+             , Mat  => problem % mm       )
 
       ! workspace ..............................................................
 

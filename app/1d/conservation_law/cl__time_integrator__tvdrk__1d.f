@@ -88,20 +88,20 @@ contains
   !-----------------------------------------------------------------------------
   !> 3rd order TVD Runge-Kutta step
 
-  subroutine TimeStep(this, problem, t, dt, u, M_inv)
+  subroutine TimeStep(this, problem, t, dt, u)
     class(CL_TimeIntegrator_TVDRK_1D), intent(inout) :: this
     class(CL_Problem_Scalar_1D),       intent(in)    :: problem
     real(RNP), intent(inout) :: t
     real(RNP), intent(in)    :: dt              !< step size ∆t
     real(RNP), intent(inout) :: u(0:,:,:)       !< u(t) → u(t+ ∆t)
-    real(RNP), intent(in)    :: M_inv(:,:,:)
 
     real(RNP), allocatable, dimension(:,:,:), save :: f, u0, u1, u2
     real(RNP) :: c0, c1, c2, ct
 
-    associate( po => problem % eop % po &
-             , ne => problem % ne       &
-             , nc => problem % nc       )
+    associate( po  => problem % eop % po &
+             , ne  => problem % ne       &
+             , nc  => problem % nc       &
+             , Mat => problem % mm       )
 
       ! workspace
       if (.not. allocated(f)) then
@@ -115,7 +115,7 @@ contains
       ct = dt
       f  = problem % RHS_Convection(t, u0)  & ! t is the wrong time here, but
          + problem % RHS_Diffusion (t, u0)    ! does not matter with periodic BC
-      u1 = u0 + ct * M_inv * f
+      u1(:,:,1) = u0(:,:,1) + ct / Mat * f(:,:,1)
 
       ! step 2
       c0 = 0.75_RNP
@@ -123,7 +123,7 @@ contains
       ct = 0.25_RNP * dt
       f  = problem % RHS_Convection(t, u1)  & ! t is the wrong time here, but
          + problem % RHS_Diffusion (t, u1)    ! does not matter with periodic BC
-      u2 = c0 * u0 + c1 * u1 + ct * M_inv * f
+      u2(:,:,1) = c0 * u0(:,:,1) + c1 * u1(:,:,1) + ct / Mat * f(:,:,1)
 
       ! step 3
       c0 = THIRD
@@ -131,7 +131,14 @@ contains
       ct = TWO * THIRD * dt
       f  = problem % RHS_Convection(t, u2)  & ! t is the wrong time here, but
          + problem % RHS_Diffusion (t, u2)    ! does not matter with periodic BC
-      u  = c0 * u0 + c2 * u2 + ct * M_inv * f
+      u(:,:,1)  = c0 * u0(:,:,1) + c2 * u2(:,:,1) + ct / Mat * f(:,:,1)
+
+!     Control because I'm not sure whether this is stable or not.
+!      if( maxval(dt * M_inv(:,:,1)  * f(:,:,1)  - dt / M * f(:,:,1))  >  0.01 ) then
+!        write(*,*) maxval(dt * M_inv(:,:,1)  * f(:,:,1)  - dt / M * f(:,:,1))
+!        write(*,*) "Inversion-error is exploding!"
+!      end if
+
 
     end associate
 

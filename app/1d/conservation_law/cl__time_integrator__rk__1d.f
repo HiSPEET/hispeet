@@ -96,25 +96,24 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs an RK time step
 
-  subroutine TimeStep(this, problem, t, dt, u, M_inv)
+  subroutine TimeStep(this, problem, t, dt, u)
     class(CL_TimeIntegrator_RK_1D), intent(inout) :: this
     class(CL_Problem_Scalar_1D),    intent(in)    :: problem
     real(RNP),    intent(inout) :: t
     real(RNP),    intent(in)    :: dt              !< step size ∆t
     real(RNP),    intent(inout) :: u(0:,:,:)       !< u(t) → u(t+ ∆t)
-    real(RNP),    intent(in)    :: M_inv(:,:,:)
 
     select case(this%impl)
     case(0)
       !print *, 'Proceding explicit timestep'
-      call TimeStep_EX(this, problem, t, dt, u, M_inv)
+      call TimeStep_EX(this, problem, t, dt, u)
 
     case(1)
       print *, 'Implicit integrator doesnt exist yet!'
-      !call TimeStep_IM(this, problem, t, dt, u, M_inv)
+      !call TimeStep_IM(this, problem, t, dt, u)
     case default
       print *, 'IMEX integrator doesnt exist yet!'
-      !call TimeStep_IMEX(this, problem, t, dt, u, M_inv)
+      !call TimeStep_IMEX(this, problem, t, dt, u)
     end select
 
   end subroutine TimeStep
@@ -122,25 +121,25 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs an IMEX RK step
 
-  subroutine TimeStep_IMEX(this, problem, t, dt, u, M_inv)
+  subroutine TimeStep_IMEX(this, problem, t, dt, u)
     class(CL_TimeIntegrator_RK_1D), intent(inout) :: this
     class(CL_Problem_Scalar_1D),    intent(in)    :: problem
     real(RNP), intent(inout) :: t
     real(RNP), intent(in)    :: dt              !< step size ∆t
     real(RNP), intent(inout) :: u(0:,:,:)       !< u(t) → u(t+ ∆t)
-    real(RNP), intent(in)    :: M_inv(:,:,:)
 
     complex(RNP), allocatable :: u_s(:,:,:,:)  ! stage solutions
     integer :: i, j, a
 
-    associate( a_im    => this % imex_rk % a_im    &
-             , a_ex    => this % imex_rk % a_ex    &
-             , b_im    => this % imex_rk % b_im    &
-             , b_ex    => this % imex_rk % b_ex    &
-             , ns      => this % imex_rk % n_stage &
-             , po      => problem % eop % po       &
-             , ne      => problem % ne             &
-             , nc      => problem % nc             )
+    associate( a_im  => this % imex_rk % a_im    &
+             , a_ex  => this % imex_rk % a_ex    &
+             , b_im  => this % imex_rk % b_im    &
+             , b_ex  => this % imex_rk % b_ex    &
+             , ns    => this % imex_rk % n_stage &
+             , po    => problem % eop % po       &
+             , ne    => problem % ne             &
+             , nc    => problem % nc             &
+             , Mat   => problem % mm               )
 
       ! initialization .........................................................
 
@@ -178,13 +177,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs an implicit RK step
 
-  subroutine TimeStep_IM(this, problem, t, dt, u, M_inv)
+  subroutine TimeStep_IM(this, problem, t, dt, u)
     class(CL_TimeIntegrator_RK_1D), intent(inout) :: this
     class(CL_Problem_Scalar_1D),    intent(in)    :: problem
     real(RNP), intent(inout) :: t
     real(RNP), intent(in)    :: dt              !< step size ∆t
     real(RNP), intent(inout) :: u(0:,:,:)       !< u(t) → u(t+ ∆t)
-    real(RNP), intent(in)    :: M_inv(:,:,:)
 
     real(RNP), allocatable :: u_s(:,:,:,:)   ! stage solutions
     integer :: i, j, e, k, a
@@ -192,9 +190,10 @@ contains
     associate( a_im  => this % imex_rk % a_im    &
              , b_im  => this % imex_rk % b_im    &
              , ns    => this % imex_rk % n_stage &
-             , po => problem % eop % po          &
-             , ne => problem % ne                &
-             , nc => problem % nc                )
+             , po    => problem % eop % po          &
+             , ne    => problem % ne                &
+             , nc    => problem % nc                &
+             , Mat   => problem % mm             )
 
       ! initialization .........................................................
 
@@ -227,26 +226,26 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs a single explicit RK step
 
-  subroutine TimeStep_EX(this, problem, t, dt, u, M_inv)
+  subroutine TimeStep_EX(this, problem, t, dt, u)
     class(CL_TimeIntegrator_RK_1D), intent(inout) :: this
     class(CL_Problem_Scalar_1D),    intent(in)    :: problem
     real(RNP), intent(inout) :: t
     real(RNP), intent(in)    :: dt              !< step size ∆t
     real(RNP), intent(inout) :: u(0:,:,:)       !< u(t) → u(t+ ∆t)
-    real(RNP), intent(in)    :: M_inv(:,:,:)
 
-    real(RNP), allocatable :: u_s(:,:,:,:)         ! stage solutions
+    real(RNP), allocatable :: u_s(:,:,:,:)      ! stage solutions
     real(RNP), allocatable :: f(:,:,:)
     real(RNP) :: ct
     integer   :: i, j
 
     associate( a_ex  => this % imex_rk % a_ex    &
              , b_ex  => this % imex_rk % b_ex    &
-             , c     => this % imex_rk % c    &
+             , c     => this % imex_rk % c       &
              , ns    => this % imex_rk % n_stage &
-             , po => problem % eop % po &
-             , ne => problem % ne       &
-             , nc => problem % nc       )
+             , po    => problem % eop % po &
+             , ne    => problem % ne       &
+             , nc    => problem % nc       &
+             , Mat   => problem % mm       )
 
       ! workspace ..............................................................
 
@@ -273,7 +272,7 @@ contains
         end do
         f  = problem % RHS_Convection( t+ct , u_s(:,:,:,i) )  & ! from tvdrk: t is the wrong time here, but with periodic bc doesn't matter t+ct should be correct
            + problem % RHS_Diffusion ( t+ct , u_s(:,:,:,i) )  ! k_i = M_inv * f ( t+c_i*dt , u_t + dt*sum_j=1^(i-1) ( aij*u_j )
-        u_s(:,:,:,i) = M_inv * f
+        u_s(:,:,1,i) = 1 / Mat * f(:,:,1)
       end do
 
       ! assembly ...............................................................

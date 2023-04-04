@@ -225,7 +225,7 @@ contains
       u_(:,:,:,0) = u
       do i = 1, n_sub
         u_(:,:,:,i) = u_(:,:,:,i-1)
-        call this % predictor % TimeStep(problem, t_(i-1), dt_(i), u_(:,:,:,i), M_inv) !Timestep from TimeIntegrator needs t!
+        call this % predictor % TimeStep(problem, t_(i-1), dt_(i), u_(:,:,:,i)) !Timestep from TimeIntegrator needs t!
 
       end do
 
