@@ -1,0 +1,206 @@
+!> summary:  Interface to 1D conservation problems discretized with DG-SEM
+!> author:   Joerg Stiller
+!> date:     2019/11/08
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!===============================================================================
+
+module CL__Problem__1D
+
+  use Kind_Parameters, only: RNP
+  use DG__Element_Operators__1D
+  use DG__Elliptic_Operator__1D
+  use DG__Utilities__1D
+
+  implicit none
+  private
+
+  public :: CL_Problem_1D
+
+  !-----------------------------------------------------------------------------
+  !> Abstract type for defining and handling 1D conservation problems
+
+  type, abstract :: CL_Problem_1D
+
+    ! problem parameters .......................................................
+
+    integer                :: nc  = -1 !< number of conservation variables
+    real(RNP)              :: xb1 = -1 !< position of 1st boundary (left)
+    real(RNP)              :: xb2 = -1 !< position of 2nd boundary (right)
+    character, allocatable :: bc(:,:)  !< BC type per boundary and variable
+
+    ! space discretization .....................................................
+
+    integer                      :: ne = -1  !< number of elements
+    real(RNP)                    :: dx       !< element size
+    type(DG_ElementOperators_1D) :: eop      !< IP/DG-SEM operators of order po
+    real(RNP), allocatable       :: x (:,:)  !< mesh points
+    real(RNP), allocatable       :: mm(:,:)  !< diagonal mass matrix
+
+    !> elliptic operators and solvers for each component
+    type(DG_EllipticOperator_1D), allocatable :: elliptic_op(:)
+
+    ! private control parameters ...............................................
+
+    logical, private :: exact_solution     = .false.
+    logical, private :: implicit_diffusion = .false.
+
+  contains
+
+    procedure :: SetSpaceDiscretization
+    procedure :: HasExactSolution
+    procedure :: ExactSolution
+
+    procedure(SetProblem),     deferred :: SetProblem
+    procedure(InitialValues),  deferred :: InitialValues
+    procedure(ConvectiveFlux), deferred :: ConvectiveFlux
+    procedure(DiffusiveFlux),  deferred :: DiffusiveFlux
+    procedure(RHS_Convection), deferred :: RHS_Convection
+    procedure(RHS_Diffusion),  deferred :: RHS_Diffusion
+
+  end type CL_Problem_1D
+
+  abstract interface
+
+    !---------------------------------------------------------------------------
+    !> Initialization of the flow problem
+
+    subroutine SetProblem(problem, file)
+      import
+      class(CL_Problem_1D),       intent(inout) :: problem
+      character(len=*), optional, intent(in)    :: file !< (*.prm)
+    end subroutine SetProblem
+
+    !---------------------------------------------------------------------------
+    !> Provides the initial values u(x,0) for mesh points x
+
+    function InitialValues(problem) result(u)
+      import
+      class(CL_Problem_1D), intent(in) :: problem
+      real(RNP) :: u(0:problem%eop%po, problem%ne, problem%nc)
+    end function InitialValues
+
+    !---------------------------------------------------------------------------
+    !> Convective flux of the given conservation problem
+
+    function ConvectiveFlux(problem, u) result(fc)
+      import
+      class(CL_Problem_1D),  intent(in) :: problem
+      real(RNP), contiguous, intent(in) :: u(0:,:,:) !< u(x,t)
+
+      real(RNP) :: fc(0:ubound(u,1), size(u,2), problem%nc)
+
+    end function ConvectiveFlux
+
+    !---------------------------------------------------------------------------
+    !> Diffusive flux of the given conservation problem
+
+    function DiffusiveFlux(problem, u) result(fd)
+      import
+      class(CL_Problem_1D),  intent(in) :: problem
+      real(RNP), contiguous, intent(in) :: u   (0:,:,:) !< u(x,t)
+
+      real(RNP) :: fd(0:ubound(u,1), size(u,2), problem%nc)
+
+    end function DiffusiveFlux
+
+    !---------------------------------------------------------------------------
+    !> Convective contribution to RHS of DG-SEM formulation
+
+    function RHS_Convection(problem, t, u) result(rc)
+      import
+      class(CL_Problem_1D),  intent(in) :: problem
+      real(RNP),             intent(in) :: t         !< time
+      real(RNP), contiguous, intent(in) :: u(0:,:,:) !< u(x,t)
+
+      real(RNP) :: rc(0:ubound(u,1), size(u,2), problem%nc)
+
+    end function RHS_Convection
+
+    !---------------------------------------------------------------------------
+    !> Diffusive contribution to RHS of DG-SEM formulation
+
+    function RHS_Diffusion(problem, t, u) result(rd)
+      import
+      class(CL_Problem_1D),  intent(in) :: problem
+      real(RNP),             intent(in) :: t         !< time
+      real(RNP), contiguous, intent(in) :: u(0:,:,:) !< u(x,t)
+
+      real(RNP) :: rd(0:ubound(u,1), size(u,2), problem%nc)
+
+    end function RHS_Diffusion
+
+  end interface
+
+contains
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of spatial discretization
+
+  subroutine SetSpaceDiscretization(problem, dg_opt, schwarz_opt, ne)
+    class(CL_Problem_1D),        intent(inout) :: problem
+    class(DG_ElementOptions_1D), intent(in)    :: dg_opt
+    class(DG_SchwarzOptions_1D), intent(in)    :: schwarz_opt
+    integer,                     intent(in)    :: ne  !< number of elements
+
+    integer :: i
+
+    if (allocated( problem % x           ))  deallocate( problem % x           )
+    if (allocated( problem % mm          ))  deallocate( problem % mm          )
+    if (allocated( problem % elliptic_op ))  deallocate( problem % elliptic_op )
+
+    problem % eop = DG_ElementOperators_1D(dg_opt)
+    problem % ne  = ne
+
+    allocate(problem % x           (0:problem%eop%po, ne))
+    allocate(problem % mm          (0:problem%eop%po, ne))
+    allocate(problem % elliptic_op (1:problem%nc        ))
+
+    ! mesh points
+    call DG_GetMeshPoints_1D( problem % eop  &
+                            , problem % xb1  &
+                            , problem % xb2  &
+                            , problem % dx   &
+                            , problem % x    )
+
+    ! diagonal mass matrix
+    do i = 1, ne
+      problem % mm(:,i) = problem % dx/2 * problem % eop % w
+    end do
+
+    ! elliptic operators
+    do i = 1, problem % nc
+      problem % elliptic_op(i) = DG_EllipticOperator_1D( dg_opt, schwarz_opt   &
+                                                       , ne, problem % bc(:,i) )
+    end do
+
+  end subroutine SetSpaceDiscretization
+
+  !-----------------------------------------------------------------------------
+  !> Function for enquiring wether an exact solution is available
+
+  logical function HasExactSolution(problem)
+    class(CL_Problem_1D), intent(in) :: problem
+
+    HasExactSolution = problem % exact_solution
+
+  end function HasExactSolution
+
+  !-----------------------------------------------------------------------------
+  !> Dummy procedure for the exact solution u(x,t)
+
+  function ExactSolution(problem, x, t) result(u)
+    class(CL_Problem_1D),  intent(in) :: problem
+    real(RNP), contiguous, intent(in) :: x(0:,:)
+    real(RNP),             intent(in) :: t
+    real(RNP) :: u(0:ubound(x,1), size(x,2), problem%nc)
+
+    u = 0
+
+    ! just to avoid compiler warnings ;)
+    if (abs(t) >= 0) return
+
+  end function ExactSolution
+
+  !=============================================================================
+
+end module CL__Problem__1D

@@ -77,17 +77,32 @@ endif ()
 #===============================================================================
 # utilities
 
-file(GLOB UTILITIES utilities/*.f)
+set ( UTILITIES utilities/cache_blocking.f
+                utilities/execution_control.f
+                utilities/logging_levels.f
+                utilities/quick_sort.f
+                utilities/schwarz_weighting.f
+                )
 
 #===============================================================================
 # spectral_element
 
-file(GLOB SPECTRAL_ELEMENT spectral_element/*.f)
+set ( SPECTRAL_ELEMENT spectral_element/cg__element_operators__1d.f
+                       spectral_element/dg__element_operators__1d.f
+                       spectral_element/embedded_interpolation__1d.f
+                       spectral_element/embedded_interpolation__3d.f
+                       spectral_element/parent_to_child_interpolation__1d.f
+                       spectral_element/projection_operator__1d.f
+                       spectral_element/projection_operator__3d.f
+                       spectral_element/standard_operators__1d.f
+                       )
 
 #===============================================================================
 # time_integration
 
-file(GLOB TIME_INTEGRATION time_integration/*.f)
+set ( TIME_INTEGRATION time_integration/imex_runge_kutta_method.f
+                       time_integration/spectral_deferred_correction.f
+                       )
 
 #===============================================================================
 # mesh
@@ -130,6 +145,14 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
               mesh_3d/spectral_element_mesh__3d.f
               mesh_3d/boundary_variable__3d.f
               )
+
+#===============================================================================
+# util_1d
+
+set( UTIL_1D util_1d/cg__condensed_solver__1d.f
+             util_1d/cg__utilities__1d.f
+             util_1d/dg__utilities__1d.f
+             )
 
 #===============================================================================
 # util_3d
@@ -218,6 +241,7 @@ set(BASE_SRC ${ESSENTIALS}
              ${UTILITIES}
              ${MESH}
              ${MESH_3D}
+             ${UTIL_1D}
              ${UTIL_3D}
              ${VARIABLES_3D}
              ${ELLIPTIC_1D}
