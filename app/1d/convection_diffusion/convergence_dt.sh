@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # path to program
-PROGRAM="./cg_convdiff_1d"
+PROGRAM="./convection_diffusion"
 
 # test case
 CASE="convergence_dt"

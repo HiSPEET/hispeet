@@ -5,8 +5,8 @@
 !>
 !>### IMEX Runge-Kutta method with CG-SEM for 1D convection-diffusion
 !>
-!> This module provides the type `CD_IMEX_RK_Method_1D` which extends the IMEX
-!> Runge-Kutta methods defined in `CD_IMEX_RK_Method_1D` for advancing the solution
+!> This module provides the type `CD_IMEX_RK_1D` which extends the IMEX
+!> Runge-Kutta methods defined in `CD_IMEX_RK_1D` for advancing the solution
 !> of the semi-discrete 1D convection-diffusion equation
 !>
 !>     ∂u/∂t = -v ∂u/∂v + nu ∂²u/∂u² ≡ C(u) + D(u)
@@ -16,9 +16,9 @@
 !>
 !> Typical usage:
 !>
-!>     type(CD_IMEX_RK_Method_1D) :: imex_rk
+!>     type(CD_IMEX_RK_1D) :: imex_rk
 !>
-!>     imex_rk = CD_IMEX_RK_Method_1D(ns, method, po, ne)
+!>     imex_rk = CD_IMEX_RK_1D(ns, method, po, ne)
 !>     ! ns     :  number of stages
 !>     ! method :  method, if several with ns stages exist (optional)
 !>     ! po     :  polynomial order and
@@ -29,7 +29,7 @@
 !>
 !===============================================================================
 
-module CD__IMEX_RK_Method__1D
+module CD__IMEX_RK__1D
   use Kind_Parameters, only: RNP
   use CD__Utils__1D
   use CG__Element_Operators__1D
@@ -39,22 +39,22 @@ module CD__IMEX_RK_Method__1D
   implicit none
   private
 
-  public :: CD_IMEX_RK_Method_1D
+  public :: CD_IMEX_RK_1D
 
   !-----------------------------------------------------------------------------
   !> Implementation of the IMEX RK method for 1D convection-diffusion
 
-  type, extends(IMEX_RK_Method) :: CD_IMEX_RK_Method_1D
+  type, extends(IMEX_RK_Method) :: CD_IMEX_RK_1D
     real(RNP), allocatable :: F_ex(:,:,:) !< explicit RHS per stage
     real(RNP), allocatable :: F_im(:,:,:) !< implicit RHS per stage
   contains
-    procedure :: Init_CD_IMEX_RK_Method_1D
+    procedure :: Init_CD_IMEX_RK_1D
     procedure :: TimeStep
-  end type CD_IMEX_RK_Method_1D
+  end type CD_IMEX_RK_1D
 
   ! constructor
-  interface CD_IMEX_RK_Method_1D
-    module procedure New_CD_IMEX_RK_Method_1D
+  interface CD_IMEX_RK_1D
+    module procedure New_CD_IMEX_RK_1D
   end interface
 
 contains
@@ -62,23 +62,21 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor
 
-  type(CD_IMEX_RK_Method_1D) function New_CD_IMEX_RK_Method_1D &
-                                               (po, ne, ns, method) result(this)
-
+  type(CD_IMEX_RK_1D) function New_CD_IMEX_RK_1D(po, ne, ns, method) result(this)
     integer,           intent(in) :: po     !< polynomial order
     integer,           intent(in) :: ne     !< number of elements
     integer,           intent(in) :: ns     !< number of stages
     integer, optional, intent(in) :: method !< RK scheme [1]
 
-    call Init_CD_IMEX_RK_Method_1D(this, po, ne, ns, method)
+    call Init_CD_IMEX_RK_1D(this, po, ne, ns, method)
 
-  end function New_CD_IMEX_RK_Method_1D
+  end function New_CD_IMEX_RK_1D
 
   !-----------------------------------------------------------------------------
   !> Init IMEX RK method for 1D CG-SE convection diffusion solver
 
-  subroutine Init_CD_IMEX_RK_Method_1D(this, po, ne, ns, method)
-    class(CD_IMEX_RK_Method_1D), intent(inout) :: this
+  subroutine Init_CD_IMEX_RK_1D(this, po, ne, ns, method)
+    class(CD_IMEX_RK_1D), intent(inout) :: this
     integer,                 intent(in)    :: po     !< polynomial order
     integer,                 intent(in)    :: ne     !< number of elements
     integer,                 intent(in)    :: ns     !< number of stages
@@ -92,13 +90,13 @@ contains
     allocate(this % F_ex(0:po, ne, ns))
     allocate(this % F_im(0:po, ne, ns))
 
-  end subroutine Init_CD_IMEX_RK_Method_1D
+  end subroutine Init_CD_IMEX_RK_1D
 
   !-----------------------------------------------------------------------------
   !> Performs a single IMEX RK time step
 
   subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
-    class(CD_IMEX_RK_Method_1D),   intent(inout) :: this
+    class(CD_IMEX_RK_1D),          intent(inout) :: this
     class(CG_ElementOperators_1D), intent(in)    :: eop      !< element operators
     real(RNP),                     intent(in)    :: dx       !< element length
     real(RNP),                     intent(in)    :: dt       !< time step size
@@ -129,7 +127,8 @@ contains
       ! stage 1 ................................................................
 
       if (first .or. this%c(ns) /= 1) then
-        call CD_GetDiffusionTerm_1D(eop, dx, wave, v, nu, bc, x, t0, u0, F_im(:,:,1))
+        call CD_GetDiffusionTerm_1D(eop, dx, wave, v, nu, bc, x, t0, u0, &
+                                    F_im(:,:,1))
         call CD_GetLinearConvectionTerm_1D(eop, v, bc, u0, F_ex(:,:,1))
       else
         ! assume FSAL scheme
@@ -158,7 +157,8 @@ contains
           call CD_ApplyBoundaryConditions_1D(wave, v, nu, bc, x, t, u)
         end if
 
-        call CD_GetDiffusionTerm_1D(eop, dx, wave, v, nu, bc, x, t, u, F_im(:,:,i))
+        call CD_GetDiffusionTerm_1D(eop, dx, wave, v, nu, bc, x, t, u, &
+                                    F_im(:,:,i))
         call CD_GetLinearConvectionTerm_1D(eop, v, bc, u, F_ex(:,:,i))
         ! NOTE that the diffusion term could be obtained cheaper from
         ! F_im(:,:,i) = c * M * u - f
@@ -182,4 +182,4 @@ contains
 
   !=============================================================================
 
-end module CD__IMEX_RK_Method__1D
+end module CD__IMEX_RK__1D

@@ -112,11 +112,11 @@ contains
     class(HarmonicWavePackage),  intent(in)  :: wave    !< exact wave solution
     real(RNP),                   intent(in)  :: v       !< convection velocity
     real(RNP),                   intent(in)  :: nu      !< diffusivity
-    character,                  intent(in)  :: bc(:)   !< boundary conditions
-    real(RNP),                  intent(in)  :: x(0:,:) !< mesh points
-    real(RNP),                  intent(in)  :: t       !< time
-    real(RNP),                  intent(in)  :: u(0:,:) !< approximate solution
-    real(RNP),                  intent(out) :: F(0:,:) !< F = ∂u/∂t
+    character,                   intent(in)  :: bc(:)   !< boundary conditions
+    real(RNP),                   intent(in)  :: x(0:,:) !< mesh points
+    real(RNP),                   intent(in)  :: t       !< time
+    real(RNP),                   intent(in)  :: u(0:,:) !< approximate solution
+    real(RNP),                   intent(out) :: F(0:,:) !< F = ∂u/∂t
 
     real(RNP), allocatable :: w(:,:)
 
@@ -150,17 +150,17 @@ contains
     ne = ubound(x,2)
 
     if (present(u)) then
-      if (bc(1) == 'D') call wave % GetAmplitude(v, nu, x(0,1), t, u(0,1))
-      if (bc(2) == 'D') call wave % GetAmplitude(v, nu, x(po,ne), t, u(po,ne))
+      if (bc(1) == 'D') call wave % Get_Amplitude(v, nu, x(0,1), t, u(0,1))
+      if (bc(2) == 'D') call wave % Get_Amplitude(v, nu, x(po,ne), t, u(po,ne))
     end if
 
     if (present(f)) then
       if (bc(1) == 'N') then
-        call wave % GetDerivative(v, nu, x(0,1), t, dx_u)
+        call wave % Get_FirstDerivative(v, nu, x(0,1), t, dx_u)
         f(0,1) = f(0,1) - nu * dx_u
       end if
       if (bc(2) == 'N') then
-        call wave % GetDerivative(v, nu, x(po,ne), t, dx_u)
+        call wave % Get_FirstDerivative(v, nu, x(po,ne), t, dx_u)
         f(po,ne) = f(po,ne) + nu * dx_u
       end if
     end if

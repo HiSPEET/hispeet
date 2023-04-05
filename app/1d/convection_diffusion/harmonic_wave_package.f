@@ -11,7 +11,7 @@
 !> shifts. For details see the description of the type `HarmonicWavePackage`.
 !>
 !> @todo
-!>   *  Extend GetDerivative to second and time derivative using optional
+!>   *  Extend Get_FirstDerivative to second and time derivative using optional
 !>      arguments as needed
 !> @endtodo
 !===============================================================================
@@ -47,284 +47,285 @@ module Harmonic_Wave_Package
 
   contains
 
-    generic,   public  :: New => New_from_Args, New_from_File
-    procedure, private :: New_from_Args
-    procedure, private :: New_from_File
+    generic,   public  :: Get_Amplitude =>   &
+                            Get_Amplitude_0, &
+                            Get_Amplitude_1, &
+                            Get_Amplitude_2
+    procedure, private :: Get_Amplitude_0
+    procedure, private :: Get_Amplitude_1
+    procedure, private :: Get_Amplitude_2
 
-    generic,   public  :: GetAmplitude =>   &
-                            GetAmplitude_0, &
-                            GetAmplitude_1, &
-                            GetAmplitude_2
-    procedure, private :: GetAmplitude_0
-    procedure, private :: GetAmplitude_1
-    procedure, private :: GetAmplitude_2
-
-    generic,   public  :: GetDerivative =>   &
-                            GetDerivative_0, &
-                            GetDerivative_1, &
-                            GetDerivative_2
-    procedure, private :: GetDerivative_0
-    procedure, private :: GetDerivative_1
-    procedure, private :: GetDerivative_2
+    generic,   public  :: Get_FirstDerivative =>   &
+                            Get_FirstDerivative_0, &
+                            Get_FirstDerivative_1, &
+                            Get_FirstDerivative_2
+    procedure, private :: Get_FirstDerivative_0
+    procedure, private :: Get_FirstDerivative_1
+    procedure, private :: Get_FirstDerivative_2
 
   end type HarmonicWavePackage
 
+  ! overload constructors
+  interface HarmonicWavePackage
+    module procedure :: New_from_Args
+    module procedure :: New_from_File
+  end interface
+
 contains
 
-!===============================================================================
-! New
+  !=============================================================================
+  ! Constructors
 
-!-------------------------------------------------------------------------------
-!> Generate new wave package from arguments
+  !-----------------------------------------------------------------------------
+  !> Generate new wave package from arguments
 
-subroutine New_from_Args(this, nw, lw, k, a, s)
-  class(HarmonicWavePackage), intent(inout) :: this
-  integer,   intent(in) :: nw    !< number of waves
-  real(RNP), intent(in) :: lw    !< length of waves with k=1
-  integer,   intent(in) :: k(nw) !< integer wave numbers kᵢ
-  real(RNP), intent(in) :: a(nw) !< start amplitudes aᵢ
-  real(RNP), intent(in) :: s(nw) !< start positions sᵢ
+  type(HarmonicWavePackage) function New_from_Args(nw, lw, k, a, s) result(this)
+    integer,   intent(in) :: nw    !< number of waves
+    real(RNP), intent(in) :: lw    !< length of waves with k=1
+    integer,   intent(in) :: k(nw) !< integer wave numbers kᵢ
+    real(RNP), intent(in) :: a(nw) !< start amplitudes aᵢ
+    real(RNP), intent(in) :: s(nw) !< start positions sᵢ
 
-  this % nw = nw
-  this % lw = lw
-  this % k  = k
-  this % a  = a
-  this % s  = s
+    this % nw = nw
+    this % lw = lw
 
-end subroutine New_from_Args
+    allocate(this % k, source = k)
+    allocate(this % a, source = a)
+    allocate(this % s, source = s)
 
-!-------------------------------------------------------------------------------
-!> Generate new wave package from namelist input specified in a file
-!>
-!> The `wave_file` must contain sections for the following two namelists
-!>
-!>     namelist /wave_package_dimensions/ nw, lw
-!>     namelist /wave_parameters/ k, a, s
-!>
-!> e.g.,
-!>
-!>     &wave_package_dimensions
-!>       nw = 2             ! default: 0
-!>       lw = 1.0D0         ! default: 1
-!>     /
-!>     &wave_parameters
-!>       k = 1, 3           ! default: 1
-!>       a = 1.0D0, 0.5D0   ! default: 1
-!>       s = 0.0D0, 0.2D0   ! default: 0
-!>     /
-!>
-!> If the file is open, it will be read from the current position.
-!> Otherwise, it will be opened for read and closed afterwards.
+  end function New_from_Args
 
-subroutine New_from_File(this, wave_file)
-  class(HarmonicWavePackage), intent(inout) :: this
-  character(len=*), intent(in) :: wave_file !< input file
+  !-----------------------------------------------------------------------------
+  !> Generate new wave package from namelist input specified in a file
+  !>
+  !> The `wave_file` must contain sections for the following two namelists
+  !>
+  !>     namelist /wave_package_dim/ nw, lw
+  !>     namelist /wave_package_prm/ k, a, s
+  !>
+  !> e.g.,
+  !>
+  !>     &wave_package_dim
+  !>       nw = 2             ! default: 0
+  !>       lw = 1.0D0         ! default: 1
+  !>     /
+  !>     &wave_package_prm
+  !>       k = 1, 3           ! default: 1
+  !>       a = 1.0D0, 0.5D0   ! default: 1
+  !>       s = 0.0D0, 0.2D0   ! default: 0
+  !>     /
+  !>
+  !> If the file is open, it will be read from the current position.
+  !> Otherwise, it will be opened for read and closed afterwards.
 
-  logical   :: opened, exists
-  integer   :: io
+  type(HarmonicWavePackage) function New_from_File(wave_file) result(this)
+    character(len=*), intent(in) :: wave_file !< input file
 
-  integer   :: nw = 0
-  real(RNP) :: lw = 1
-  integer,   allocatable :: k(:)
-  real(RNP), allocatable :: a(:)
-  real(RNP), allocatable :: s(:)
+    integer,   allocatable :: k(:)
+    real(RNP), allocatable :: a(:)
+    real(RNP), allocatable :: s(:)
 
-  namelist /wave_package_dimensions/ nw, lw
-  namelist /wave_parameters/ k, a, s
+    logical   :: opened, exists
+    integer   :: io
+    integer   :: nw = 0
+    real(RNP) :: lw = 1
 
-  inquire(file=wave_file, opened=opened, exist=exists, number=io)
+    namelist /wave_package_dim/ nw, lw
+    namelist /wave_package_prm/ k, a, s
 
-  if (.not. opened) then
-    if (exists) then
-      open(newunit=io, file=wave_file, action='READ')
-    else
-      call Error('New_from_File',                                         &
-                 'input file "' // trim(wave_file) // '" does not exist', &
-                 'Harmonic_Wave_Package'                                  )
+    inquire(file=wave_file, opened=opened, exist=exists, number=io)
+
+    if (.not. opened) then
+      if (exists) then
+        open(newunit=io, file=wave_file, action='READ')
+      else
+        call Error('New_from_File',                                         &
+                   'input file "' // trim(wave_file) // '" does not exist', &
+                   'Harmonic_Wave_Package'                                  )
+      end if
     end if
-  end if
 
-  read(io, nml=wave_package_dimensions)
+    read(io, nml=wave_package_dim)
 
-  allocate(k(nw), source = 1)
-  allocate(a(nw), source = ONE)
-  allocate(s(nw), source = ZERO)
+    allocate(k(nw), source = 1)
+    allocate(a(nw), source = ONE)
+    allocate(s(nw), source = ZERO)
 
-  read(io, nml=wave_parameters)
+    read(io, nml=wave_package_prm)
 
-  call New_from_Args(this, nw, lw, k, a, s)
+    this = New_from_Args(nw, lw, k, a, s)
 
-  ! close IO unit if file was closed on entry
-  if (.not. opened) then
-    close(io)
-  end if
+    ! close IO unit if file was closed on entry
+    if (.not. opened) then
+      close(io)
+    end if
 
-end subroutine New_from_File
+  end function New_from_File
 
-!===============================================================================
-! GetAmplitude
+  !=============================================================================
+  ! Get_Amplitude
 
-!-------------------------------------------------------------------------------
-!> Amplitude at given positions and time -- eXplicit version
+  !-----------------------------------------------------------------------------
+  !> Amplitude at given positions and time -- eXplicit version
 
-subroutine GetAmplitude_X(this, v, nu, np, x, t, u)
-  class(HarmonicWavePackage), intent(in) :: this
-  real(RNP), intent(in)  :: v      !< velocity
-  real(RNP), intent(in)  :: nu     !< diffusivity
-  integer,   intent(in)  :: np     !< number of points
-  real(RNP), intent(in)  :: x(np)  !< points
-  real(RNP), intent(in)  :: t      !< time
-  real(RNP), intent(out) :: u(np)  !< amplitude u(x,t)
+  subroutine Get_Amplitude_X(this, v, nu, np, x, t, u)
+    class(HarmonicWavePackage), intent(in) :: this
+    real(RNP), intent(in)  :: v      !< velocity
+    real(RNP), intent(in)  :: nu     !< diffusivity
+    integer,   intent(in)  :: np     !< number of points
+    real(RNP), intent(in)  :: x(np)  !< points
+    real(RNP), intent(in)  :: t      !< time
+    real(RNP), intent(out) :: u(np)  !< amplitude u(x,t)
 
-  integer   :: i
-  real(RNP) :: c, d, z
+    integer   :: i
+    real(RNP) :: c, d, z
 
-  associate(lw => this%lw, k => this%k, a => this%a, s => this%s)
+    associate(lw => this%lw, k => this%k, a => this%a, s => this%s)
 
-    u = 0
-    do i = 1, this % nw
-      c = 2 * PI * k(i) / lw
-      d = 1 / exp((2 * PI * k(i))**2 * nu * t)
-      z = s(i) + v*t
-      u = u + a(i) * d * sin(c * (x - z))
-    end do
+      u = 0
+      do i = 1, this % nw
+        c = 2 * PI * k(i) / lw
+        d = 1 / exp((2 * PI * k(i))**2 * nu * t)
+        z = s(i) + v*t
+        u = u + a(i) * d * sin(c * (x - z))
+      end do
 
-  end associate
+    end associate
 
-end subroutine GetAmplitude_X
+  end subroutine Get_Amplitude_X
 
-!-------------------------------------------------------------------------------
-!> Amplitude at given positions and time -- single point
+  !-----------------------------------------------------------------------------
+  !> Amplitude at given positions and time -- single point
 
-subroutine GetAmplitude_0(this, v, nu, x, t, u)
-  class(HarmonicWavePackage), intent(in) :: this
-  real(RNP), intent(in)  :: v      !< velocity
-  real(RNP), intent(in)  :: nu     !< diffusivity
-  real(RNP), intent(in)  :: x      !< point
-  real(RNP), intent(in)  :: t      !< time
-  real(RNP), intent(out) :: u      !< amplitudes u(x,t)
+  subroutine Get_Amplitude_0(this, v, nu, x, t, u)
+    class(HarmonicWavePackage), intent(in) :: this
+    real(RNP), intent(in)  :: v      !< velocity
+    real(RNP), intent(in)  :: nu     !< diffusivity
+    real(RNP), intent(in)  :: x      !< point
+    real(RNP), intent(in)  :: t      !< time
+    real(RNP), intent(out) :: u      !< amplitudes u(x,t)
 
-  real(RNP) :: x_(1), u_(1)
+    real(RNP) :: x_(1), u_(1)
 
-  x_ = x
-  call GetAmplitude_X(this, v, nu, 1, x_, t, u_)
-  u = u_(1)
+    x_ = x
+    call Get_Amplitude_X(this, v, nu, 1, x_, t, u_)
+    u = u_(1)
 
-end subroutine GetAmplitude_0
+  end subroutine Get_Amplitude_0
 
-!-------------------------------------------------------------------------------
-!> Amplitude at given positions and time -- 1d array of points
+  !-----------------------------------------------------------------------------
+  !> Amplitude at given positions and time -- 1d array of points
 
-subroutine GetAmplitude_1(this, v, nu, x, t, u)
-  class(HarmonicWavePackage), intent(in) :: this
-  real(RNP), intent(in)  :: v      !< velocity
-  real(RNP), intent(in)  :: nu     !< diffusivity
-  real(RNP), intent(in)  :: x(:)   !< points
-  real(RNP), intent(in)  :: t      !< time
-  real(RNP), intent(out) :: u(:)   !< amplitudes u(x,t)
+  subroutine Get_Amplitude_1(this, v, nu, x, t, u)
+    class(HarmonicWavePackage), intent(in) :: this
+    real(RNP), intent(in)  :: v      !< velocity
+    real(RNP), intent(in)  :: nu     !< diffusivity
+    real(RNP), intent(in)  :: x(:)   !< points
+    real(RNP), intent(in)  :: t      !< time
+    real(RNP), intent(out) :: u(:)   !< amplitudes u(x,t)
 
-  call GetAmplitude_X(this, v, nu, size(x), x, t, u)
+    call Get_Amplitude_X(this, v, nu, size(x), x, t, u)
 
-end subroutine GetAmplitude_1
+  end subroutine Get_Amplitude_1
 
-!-------------------------------------------------------------------------------
-!> Amplitude at given positions and time -- 2d array of points
+  !-----------------------------------------------------------------------------
+  !> Amplitude at given positions and time -- 2d array of points
 
-subroutine GetAmplitude_2(this, v, nu, x, t, u)
-  class(HarmonicWavePackage), intent(in) :: this
-  real(RNP), intent(in)  :: v      !< velocity
-  real(RNP), intent(in)  :: nu     !< diffusivity
-  real(RNP), intent(in)  :: x(:,:) !< points
-  real(RNP), intent(in)  :: t      !< time
-  real(RNP), intent(out) :: u(:,:) !< amplitudes u(x,t)
+  subroutine Get_Amplitude_2(this, v, nu, x, t, u)
+    class(HarmonicWavePackage), intent(in) :: this
+    real(RNP), intent(in)  :: v      !< velocity
+    real(RNP), intent(in)  :: nu     !< diffusivity
+    real(RNP), intent(in)  :: x(:,:) !< points
+    real(RNP), intent(in)  :: t      !< time
+    real(RNP), intent(out) :: u(:,:) !< amplitudes u(x,t)
 
-  call GetAmplitude_X(this, v, nu, size(x), x, t, u)
+    call Get_Amplitude_X(this, v, nu, size(x), x, t, u)
 
-end subroutine GetAmplitude_2
+  end subroutine Get_Amplitude_2
 
-!===============================================================================
-! GetDerivative
+  !=============================================================================
+  ! Get_FirstDerivative
 
-!-------------------------------------------------------------------------------
-!> Derivative at given positions and time -- eXplicit version
-!>
-!>     ∂u/∂x = ∑ᵢ aᵢ 2πkᵢ/lw cos[2πkᵢ/lw (x - sᵢ - vt)] exp[-(2πkᵢ)² nu t]
+  !-----------------------------------------------------------------------------
+  !> Derivative at given positions and time -- eXplicit version
+  !>
+  !>     ∂u/∂x = ∑ᵢ aᵢ 2πkᵢ/lw cos[2πkᵢ/lw (x - sᵢ - vt)] exp[-(2πkᵢ)² nu t]
 
-subroutine GetDerivative_X(this, v, nu, np, x, t, dx_u)
-  class(HarmonicWavePackage), intent(in) :: this
-  real(RNP), intent(in)  :: v         !< velocity
-  real(RNP), intent(in)  :: nu        !< diffusivity
-  integer,   intent(in)  :: np        !< number of points
-  real(RNP), intent(in)  :: x(np)     !< points
-  real(RNP), intent(in)  :: t         !< time
-  real(RNP), intent(out) :: dx_u(np)  !< derivatives ∂u/∂x(x,t)
+  subroutine Get_FirstDerivative_X(this, v, nu, np, x, t, dx_u)
+    class(HarmonicWavePackage), intent(in) :: this
+    real(RNP), intent(in)  :: v         !< velocity
+    real(RNP), intent(in)  :: nu        !< diffusivity
+    integer,   intent(in)  :: np        !< number of points
+    real(RNP), intent(in)  :: x(np)     !< points
+    real(RNP), intent(in)  :: t         !< time
+    real(RNP), intent(out) :: dx_u(np)  !< derivatives ∂u/∂x(x,t)
 
-  integer   :: i
-  real(RNP) :: c, d, z
+    integer   :: i
+    real(RNP) :: c, d, z
 
-  associate(lw => this%lw, k => this%k, a => this%a, s => this%s)
+    associate(lw => this%lw, k => this%k, a => this%a, s => this%s)
 
-    dx_u = 0
-    do i = 1, this % nw
-      c = 2 * PI * k(i) / lw
-      d = 1 / exp((2 * PI * k(i))**2 * nu * t)
-      z = s(i) + v*t
-      dx_u = dx_u + a(i) * c * d * cos(c * (x - z))
-    end do
+      dx_u = 0
+      do i = 1, this % nw
+        c = 2 * PI * k(i) / lw
+        d = 1 / exp((2 * PI * k(i))**2 * nu * t)
+        z = s(i) + v*t
+        dx_u = dx_u + a(i) * c * d * cos(c * (x - z))
+      end do
 
-  end associate
+    end associate
 
-end subroutine GetDerivative_X
+  end subroutine Get_FirstDerivative_X
 
-!-------------------------------------------------------------------------------
-!> Derivative at given positions and time -- single point
+  !-----------------------------------------------------------------------------
+  !> Derivative at given positions and time -- single point
 
-subroutine GetDerivative_0(this, v, nu, x, t, dx_u)
-  class(HarmonicWavePackage), intent(in) :: this
-  real(RNP), intent(in)  :: v         !< velocity
-  real(RNP), intent(in)  :: nu        !< diffusivity
-  real(RNP), intent(in)  :: x         !< point
-  real(RNP), intent(in)  :: t         !< time
-  real(RNP), intent(out) :: dx_u      !< derivative ∂u/∂x(x,t)
+  subroutine Get_FirstDerivative_0(this, v, nu, x, t, dx_u)
+    class(HarmonicWavePackage), intent(in) :: this
+    real(RNP), intent(in)  :: v         !< velocity
+    real(RNP), intent(in)  :: nu        !< diffusivity
+    real(RNP), intent(in)  :: x         !< point
+    real(RNP), intent(in)  :: t         !< time
+    real(RNP), intent(out) :: dx_u      !< derivative ∂u/∂x(x,t)
 
-  real(RNP) :: x_(1), dx_u_(1)
+    real(RNP) :: x_(1), dx_u_(1)
 
-  x_ = x
-  call GetDerivative_X(this, v, nu, 1, x_, t, dx_u_)
-  dx_u = dx_u_(1)
+    x_ = x
+    call Get_FirstDerivative_X(this, v, nu, 1, x_, t, dx_u_)
+    dx_u = dx_u_(1)
 
-end subroutine GetDerivative_0
+  end subroutine Get_FirstDerivative_0
 
-!-------------------------------------------------------------------------------
-!> Derivative at given positions and time -- 1d array of points
+  !-----------------------------------------------------------------------------
+  !> Derivative at given positions and time -- 1d array of points
 
-subroutine GetDerivative_1(this, v, nu, x, t, dx_u)
-  class(HarmonicWavePackage), intent(in) :: this
-  real(RNP), intent(in)  :: v         !< velocity
-  real(RNP), intent(in)  :: nu        !< diffusivity
-  real(RNP), intent(in)  :: x(:)      !< points
-  real(RNP), intent(in)  :: t         !< time
-  real(RNP), intent(out) :: dx_u(:)   !< derivatives ∂u/∂x(x,t)
+  subroutine Get_FirstDerivative_1(this, v, nu, x, t, dx_u)
+    class(HarmonicWavePackage), intent(in) :: this
+    real(RNP), intent(in)  :: v         !< velocity
+    real(RNP), intent(in)  :: nu        !< diffusivity
+    real(RNP), intent(in)  :: x(:)      !< points
+    real(RNP), intent(in)  :: t         !< time
+    real(RNP), intent(out) :: dx_u(:)   !< derivatives ∂u/∂x(x,t)
 
-  call GetDerivative_X(this, v, nu, size(x), x, t, dx_u)
+    call Get_FirstDerivative_X(this, v, nu, size(x), x, t, dx_u)
 
-end subroutine GetDerivative_1
+  end subroutine Get_FirstDerivative_1
 
-!-------------------------------------------------------------------------------
-!> Derivative at given positions and time -- 2d array of points
+  !-----------------------------------------------------------------------------
+  !> Derivative at given positions and time -- 2d array of points
 
-subroutine GetDerivative_2(this, v, nu, x, t, dx_u)
-  class(HarmonicWavePackage), intent(in) :: this
-  real(RNP), intent(in)  :: v         !< velocity
-  real(RNP), intent(in)  :: nu        !< diffusivity
-  real(RNP), intent(in)  :: x(:,:)    !< points
-  real(RNP), intent(in)  :: t         !< time
-  real(RNP), intent(out) :: dx_u(:,:) !< derivatives ∂u/∂x(x,t)
+  subroutine Get_FirstDerivative_2(this, v, nu, x, t, dx_u)
+    class(HarmonicWavePackage), intent(in) :: this
+    real(RNP), intent(in)  :: v         !< velocity
+    real(RNP), intent(in)  :: nu        !< diffusivity
+    real(RNP), intent(in)  :: x(:,:)    !< points
+    real(RNP), intent(in)  :: t         !< time
+    real(RNP), intent(out) :: dx_u(:,:) !< derivatives ∂u/∂x(x,t)
 
-  call GetDerivative_X(this, v, nu, size(x), x, t, dx_u)
+    call Get_FirstDerivative_X(this, v, nu, size(x), x, t, dx_u)
 
-end subroutine GetDerivative_2
+  end subroutine Get_FirstDerivative_2
 
-!===============================================================================
+  !=============================================================================
 
 end module Harmonic_Wave_Package

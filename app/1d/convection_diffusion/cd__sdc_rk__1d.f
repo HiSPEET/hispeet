@@ -5,8 +5,8 @@
 !>
 !>### IMEX Runge-Kutta method with CG-SEM for 1D convection-diffusion
 !>
-!> This module provides the type `CD_IMEX_RK_Method_1D` which extends the IMEX
-!> Runge-Kutta methods defined in `CD_IMEX_RK_Method_1D` for advancing the solution
+!> This module provides the type `CD_IMEX_RK_1D` which extends the IMEX
+!> Runge-Kutta methods defined in `CD_IMEX_RK_1D` for advancing the solution
 !> of the semi-discrete 1D convection-diffusion equation
 !>
 !>     ∂u/∂t = -v ∂u/∂v + nu ∂²u/∂u² ≡ C(u) + D(u)
@@ -16,9 +16,9 @@
 !>
 !> Typical usage:
 !>
-!>     type(CD_IMEX_RK_Method_1D) :: imex_rk
+!>     type(CD_IMEX_RK_1D) :: imex_rk
 !>
-!>     imex_rk = CD_IMEX_RK_Method_1D(ns, method, po, ne)
+!>     imex_rk = CD_IMEX_RK_1D(ns, method, po, ne)
 !>     ! ns     :  number of stages
 !>     ! method :  method, if several with ns stages exist (optional)
 !>     ! po     :  polynomial order and
@@ -29,7 +29,7 @@
 !>
 !===============================================================================
 
-module CD__RK_SDC_Method__1D
+module CD__SDC_RK__1D
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO
   use Gauss_Jacobi
@@ -43,7 +43,7 @@ module CD__RK_SDC_Method__1D
   implicit none
   private
 
-  public :: CD_RK_SDC_Method_1D
+  public :: CD_SDC_RK_1D
 
   !-----------------------------------------------------------------------------
   !> Implementation of the IMEX-RK-SDC method for 1D convection-diffusion
@@ -105,7 +105,7 @@ module CD__RK_SDC_Method__1D
   !>      w_rk(0:n_sub, 1:n_stage, 1:n_sub)
   !>
 
-  type, extends(SDC_Method) :: CD_RK_SDC_Method_1D
+  type, extends(SDC_Method) :: CD_SDC_RK_1D
 
     integer :: po = -1 !< polynomial order
     integer :: ne = -1 !< number of elements
@@ -116,14 +116,14 @@ module CD__RK_SDC_Method__1D
 
   contains
 
-    procedure :: Init_CD_RK_SDC_Method_1D
+    procedure :: Init_CD_SDC_RK_1D
     procedure :: TimeStep
 
-  end type CD_RK_SDC_Method_1D
+  end type CD_SDC_RK_1D
 
   ! constructor
-  interface CD_RK_SDC_Method_1D
-    module procedure New_CD_RK_SDC_Method_1D
+  interface CD_SDC_RK_1D
+    module procedure New_CD_SDC_RK_1D
   end interface
 
 contains
@@ -131,29 +131,29 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor
 
-  function New_CD_RK_SDC_Method_1D(po, ne, sdc_opt, n_stage, method) result(this)
+  function New_CD_SDC_RK_1D(po, ne, sdc_opt, n_stage, method) result(this)
     integer,           intent(in) :: po      !< polynomial order
     integer,           intent(in) :: ne      !< number of elements
     type(SDC_Options), intent(in) :: sdc_opt !< SDC options
     integer,           intent(in) :: n_stage !< number of RK stages
     integer, optional, intent(in) :: method  !< RK scheme [1]
 
-    type(CD_RK_SDC_Method_1D) :: this
+    type(CD_SDC_RK_1D) :: this
 
-    call Init_CD_RK_SDC_Method_1D(this, po, ne, sdc_opt, n_stage, method)
+    call Init_CD_SDC_RK_1D(this, po, ne, sdc_opt, n_stage, method)
 
-  end function New_CD_RK_SDC_Method_1D
+  end function New_CD_SDC_RK_1D
 
   !-----------------------------------------------------------------------------
   !> Init IMEX RK SDC method for 1D CG-SE convection diffusion solver
 
-  subroutine Init_CD_RK_SDC_Method_1D(this, po, ne, sdc_opt, n_stage, method)
-    class(CD_RK_SDC_Method_1D), intent(inout) :: this
-    integer,              intent(in)  :: po      !< polynomial order
-    integer,              intent(in)  :: ne      !< number of elements
-    type(SDC_Options),    intent(in)  :: sdc_opt !< SDC options
-    integer,              intent(in)  :: n_stage !< number of RK stages
-    integer,    optional, intent(in)  :: method  !< RK method [1]
+  subroutine Init_CD_SDC_RK_1D(this, po, ne, sdc_opt, n_stage, method)
+    class(CD_SDC_RK_1D), intent(inout) :: this
+    integer,             intent(in)  :: po      !< polynomial order
+    integer,             intent(in)  :: ne      !< number of elements
+    type(SDC_Options),   intent(in)  :: sdc_opt !< SDC options
+    integer,             intent(in)  :: n_stage !< number of RK stages
+    integer,   optional, intent(in)  :: method  !< RK method [1]
 
     ! local variables ..........................................................
 
@@ -218,13 +218,13 @@ contains
 
     end associate
 
-  end subroutine Init_CD_RK_SDC_Method_1D
+  end subroutine Init_CD_SDC_RK_1D
 
   !-----------------------------------------------------------------------------
   !> Performs a single RK-SDC time step
 
   subroutine TimeStep(this, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
-    class(CD_RK_SDC_Method_1D),    intent(inout) :: this
+    class(CD_SDC_RK_1D),           intent(inout) :: this
     class(CG_ElementOperators_1D), intent(in)    :: eop      !< element operators
     real(RNP),                     intent(in)    :: dx       !< element length
     real(RNP),                     intent(in)    :: dt       !< time step size
@@ -366,7 +366,7 @@ contains
 
     do i = 1, size(t)
       call CD_GetDiffusionTerm_1D(eop, dx, wave, v, nu, bc, x,  &
-                            t(i),u(:,:,i), F_im(:,:,i)    )
+                                 t(i), u(:,:,i), F_im(:,:,i)    )
       call CD_GetLinearConvectionTerm_1D(eop, v, bc, u(:,:,i), F_ex(:,:,i))
     end do
 
@@ -588,4 +588,4 @@ contains
 
   !=============================================================================
 
-end module CD__RK_SDC_Method__1D
+end module CD__SDC_RK__1D

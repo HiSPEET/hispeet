@@ -23,11 +23,12 @@
 !>
 !> The following methods are available for time integration:
 !>
-!>   *  IMEX Euler
-!>   *  IMEX BDF2
-!>   *  IMEX BDF3
-!>   *  IMEX Runge-Kutta
-!>   *  SDC based on IMEX Euler
+!>   -  IMEX Euler
+!>   -  IMEX BDF2
+!>   -  IMEX BDF3
+!>   -  IMEX Runge-Kutta
+!>   -  SDC based on IMEX Euler
+!>   -  SDC based on IMEX Runge-Kutta
 !>
 !>#### Usage
 !>
@@ -45,14 +46,14 @@
 !>
 !> The input file must provide the following namelist records
 !>
-!>   *  problem_parameters
-!>   *  wave_package_dimensions
-!>   *  wave_parameters
-!>   *  discretization_parameters
+!>   -  problem_prm
+!>   -  wave_package_dim
+!>   -  wave_package_prm
+!>   -  discretization_prm
 !>
 !> and, additionally, if an IMEX Runge-Kutta method is used
 !>
-!>   *  imex_runge_kutta
+!>   -  imex_rk_prm
 !>
 !> For the description of the input parameters see below and corresponding
 !> sections of modules Harmonic_Wave_Package and IMEX_Runge_Kutta_Method.
@@ -61,10 +62,10 @@
 !> Upon successful execution the program writes an output file named according
 !> to the case identifier with suffix `.dat`. It contains
 !>
-!>   *  the mesh points `x`,
-!>   *  the numerical solution `u`,
-!>   *  the exact solution `u_ex`, and
-!>   *  the error `err`
+!>   -  the mesh points `x`,
+!>   -  the numerical solution `u`,
+!>   -  the exact solution `u_ex`, and
+!>   -  the error `err`
 !>
 !> after the final time step.
 !>
@@ -75,17 +76,16 @@ program Convection_Diffusion_1D
   use Constants,         only: ZERO, ONE
   use Execution_Control, only: Error
   use CG__Element_Operators__1D
-  use CG_Utilities_1D
+  use CG__Utilities__1D
   use Spectral_Deferred_Correction
   use Harmonic_Wave_Package
 
   use CD__IMEX_Euler__1D
   use CD__IMEX_BDF2__1D
   use CD__IMEX_BDF3__1D
-  use CD__IMEX_RK_Method__1D
-  use CD__IMEX_Euler_SDC__1D
-  use CD__RK_SDC_Method__1D
-  use CD__IMEX_TR_SDC__1D
+  use CD__IMEX_RK__1D
+  use CD__SDC_Euler__1D
+  use CD__SDC_RK__1D
 
   implicit none
 
@@ -106,10 +106,10 @@ program Convection_Diffusion_1D
   real(RNP) :: t_end = 1         ! integration time
   character :: bc(2) = ['D','N'] ! left/right BC ('D': Dirichlet, 'N': Neumann)
 
-  namelist /problem_parameters/ v, nu, t_end, bc
+  namelist /problem_prm/ v, nu, t_end, bc
 
   ! wave package representing the exact solution, initialized through namelists
-  ! `wave_package_dimensions` and `wave_parameters`, provided in the case file
+  ! `wave_package_dim` and `wave_package_prm`, provided in the case file
   type(HarmonicWavePackage) :: wave
 
   ! discretization .............................................................
@@ -119,7 +119,7 @@ program Convection_Diffusion_1D
   integer   :: ne = 10         ! number of elements
   real(RNP) :: dx              ! element width
 
-  namelist /discretization_parameters/ po, ne
+  namelist /discretization_prm/ po, ne
 
   ! time                                               priority:
   real(RNP) :: cfl    = -1     ! CFL number              1  if > 0 and v ≠ 0
@@ -132,30 +132,24 @@ program Convection_Diffusion_1D
   ! 3   IMEX BDF3
   ! 4   IMEX Runge-Kutta
   ! 5   SDC based on IMEX Euler
+  ! 6   SDC based on IMEX Runge-Kutta
   logical :: flying_start = .false. ! use exact solution for t < 0
 
-  namelist /discretization_parameters/ cfl, dt, nt, method, flying_start
-
+  namelist /discretization_prm/ cfl, dt, nt, method, flying_start
 
   ! operators ..................................................................
 
-  type(CG_ElementOperators_1D) :: eop          ! element operators
-
-  type(CD_IMEX_RK_Method_1D)      :: imex_rk      ! IMEX Runge-Kutta method
-
-  type(SDC_Method)            :: sdc          ! Euler SDC method
-  type(SDC_Options)           :: sdc_opt      ! Euler SDC options
-  namelist /sdc_parameters/      sdc_opt
-
-  type(CD_RK_SDC_Method_1D)       :: rk_sdc       ! IMEX RK method
-
-  real(RNP), allocatable      :: M(:,:)       ! global mass matrix
+  type(CG_ElementOperators_1D) :: eop     ! element operators
+  type(CD_IMEX_RK_1D)          :: imex_rk ! IMEX Runge-Kutta method
+  type(CD_SDC_RK_1D)           :: sdc_rk  ! IMEX RK method
+  type(SDC_Method)             :: sdc     ! Euler SDC method
 
   ! variables ..................................................................
 
   real(RNP)              :: t           ! time
   real(RNP), allocatable :: x    (:,:)  ! mesh points
   real(RNP), allocatable :: w    (:,:)  ! point weights
+  real(RNP), allocatable :: M    (:,:)  ! global mass matrix
   real(RNP), allocatable :: u    (:,:)  ! solution at t = t₀ +  ∆t
   real(RNP), allocatable :: u0   (:,:)  ! solution at t = t₀
   real(RNP), allocatable :: u1   (:,:)  ! solution at t = t₀ -  ∆t
@@ -190,21 +184,19 @@ program Convection_Diffusion_1D
   inquire(file=input_file, exist=exists)
   if (exists) then
     open(newunit=io, file=input_file)
-    read(io, nml=problem_parameters)
-    read(io, nml=discretization_parameters)
+    read(io, nml=problem_prm)
+    read(io, nml=discretization_prm)
 
     select case (method)
     case(4)
       call Init_IMEX_RK(imex_rk, po, ne, io)
     case(5)
-      call Init_Euler_SDC(sdc, io)
+      call Init_SDC_Euler(sdc, io)
     case(6)
-      call Init_RK_SDC(rk_sdc, po, ne, io)
-    case(7)
-      call Init_TR_SDC(sdc, io)
+      call Init_SDC_RK(sdc_rk, po, ne, io)
     end select
     rewind(io)
-    call wave % New(input_file)
+    wave = HarmonicWavePackage(input_file)
     close(io)
   else
     call Error('Convection_Diffusion_1D', &
@@ -236,9 +228,9 @@ program Convection_Diffusion_1D
   ! initial conditions .........................................................
 
   t = 0
-  call wave % GetAmplitude(v, nu, x, t       , u0)
-  call wave % GetAmplitude(v, nu, x, t -   dt, u1)
-  call wave % GetAmplitude(v, nu, x, t - 2*dt, u2)
+  call wave % Get_Amplitude(v, nu, x, t       , u0)
+  call wave % Get_Amplitude(v, nu, x, t -   dt, u1)
+  call wave % Get_Amplitude(v, nu, x, t - 2*dt, u2)
 
   ! time integration ...........................................................
 
@@ -277,14 +269,10 @@ program Convection_Diffusion_1D
         call imex_rk % TimeStep(eop, dx, dt, M, wave, v, nu, bc, x, t, u0, u)
 
       case(5)
-        call CD_IMEX_Euler_SDC_1D(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t, u0, u)
+        call CD_SDC_Euler_1D(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t, u0, u)
 
       case(6)
-        call rk_sdc % TimeStep(eop, dx, dt, M, wave, v, nu, bc, x, t, u0, u)
-
-      case(7)
-        call CD_IMEX_TR_SDC_1D(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t, u0, u)
-
+        call sdc_rk % TimeStep(eop, dx, dt, M, wave, v, nu, bc, x, t, u0, u)
 
       end select
 
@@ -303,7 +291,7 @@ program Convection_Diffusion_1D
   ! Evaluation
 
   ! exact solution
-  call wave % GetAmplitude(v, nu, x, t, u_ex)
+  call wave % Get_Amplitude(v, nu, x, t, u_ex)
 
   ! error
   err = u - u_ex
@@ -368,7 +356,7 @@ contains
   !> Initialization of the IMEX Runge-Kutta method
 
   subroutine Init_IMEX_RK(imex_rk, po, ne, io)
-    type(CD_IMEX_RK_Method_1D), intent(inout) :: imex_rk !< IMEX RK method
+    type(CD_IMEX_RK_1D), intent(inout) :: imex_rk !< IMEX RK method
     integer, intent(in) :: po !< polynomial order
     integer, intent(in) :: ne !< number of elements
     integer, intent(in) :: io !< unit number of input file
@@ -377,10 +365,10 @@ contains
     integer :: method = 1 ! RK method, if several with `ns`stages exist
     logical :: show   = .false. ! print IMEX RK properties and coefficients
 
-    namelist /imex_rk_parameters/ ns, method, show
+    namelist /imex_rk_prm/ ns, method, show
 
-    read(io, nml=imex_rk_parameters)
-    imex_rk = CD_IMEX_RK_Method_1D(po, ne, ns, method)
+    read(io, nml=imex_rk_prm)
+    imex_rk = CD_IMEX_RK_1D(po, ne, ns, method)
 
     if (show) then
       call imex_rk % Show()
@@ -391,18 +379,18 @@ contains
   !-----------------------------------------------------------------------------
   !> Initialization of the Euler-SDC method
 
-  subroutine Init_Euler_SDC(sdc, io)
+  subroutine Init_SDC_Euler(sdc, io)
     type(SDC_Method), intent(inout) :: sdc !< SDC method
     integer, intent(in) :: io !< unit number of input file
 
     integer   :: n_sub     =  1      ! number of subintervals (M)
     integer   :: n_sweep   =  0      ! max num correction sweeps (K)
     integer   :: point_set =  1      ! equidistant (1) or Lobatto (2) points
-    namelist /euler_sdc_parameters/ n_sub, n_sweep, point_set
+    namelist /sdc_euler_prm/ n_sub, n_sweep, point_set
 
     type(SDC_Options) :: opt ! Euler-SDC options
 
-    read(io, nml=euler_sdc_parameters)
+    read(io, nml=sdc_euler_prm)
 
     opt = SDC_Options( n_sub     = n_sub,       &
                        n_sweep   = n_sweep,     &
@@ -410,14 +398,13 @@ contains
 
     sdc = SDC_Method(opt)
 
-  end subroutine Init_Euler_SDC
-
+  end subroutine Init_SDC_Euler
 
   !-----------------------------------------------------------------------------
   !> Initialization of the IMEX-RK-SDC method
 
-  subroutine Init_RK_SDC(rk_sdc, po, ne, io)
-    type(CD_RK_SDC_Method_1D), intent(inout) :: rk_sdc !< RK-SDC method
+  subroutine Init_SDC_RK(sdc_rk, po, ne, io)
+    type(CD_SDC_RK_1D), intent(inout) :: sdc_rk !< RK-SDC method
     integer, intent(in) :: po !< polynomial order
     integer, intent(in) :: ne !< number of elements
     integer, intent(in) :: io !< unit number of input file
@@ -442,49 +429,14 @@ contains
                            n_sweep   = n_sweep,   &
                            point_set = point_set  )
 
-    rk_sdc = CD_RK_SDC_Method_1D(po, ne, sdc_opt, n_stage, method)
+    sdc_rk = CD_SDC_RK_1D(po, ne, sdc_opt, n_stage, method)
 
     if (show) then
-      call rk_sdc % imex_rk % Show()
+      call sdc_rk % imex_rk % Show()
     end if
 
-  end subroutine Init_RK_SDC
+  end subroutine Init_SDC_RK
 
- !-----------------------------------------------------------------------------
- !> Initialization of the IMEX-TR-SDC method
-
-
-  subroutine Init_TR_SDC(sdc, io)
-    type(SDC_Method), intent(inout) :: sdc !< SDC method
-    integer, intent(in) :: io !< unit number of input file
-
-    ! TR-SDC parameters
-    integer   :: n_sub      =  1      ! number of subintervals (M)
-    integer   :: n_sweep    =  0      ! max num correction sweeps (K)
-    integer   :: point_set  =  2      ! equidistant (1) or Lobatto (2) points
-
-    logical :: show   = .false. ! print IMEX TR properties and coefficients
-
-    namelist /tr_sdc_parameters/ n_sub, n_sweep, point_set, show
-
-    type(SDC_Options) :: opt ! SDC options
-
-    read(io, nml=tr_sdc_parameters)
-
-    opt = SDC_Options( n_sub     = n_sub,     &
-                       n_sweep   = n_sweep,   &
-                       point_set = point_set  )
-
-    sdc = SDC_Method(opt)
-
-    !if (show) then
-     ! call sdc % Write()
-    !end if
-
-
-  end subroutine Init_TR_SDC
-
-
-!==============================================================================
+  !=============================================================================
 
 end program Convection_Diffusion_1D

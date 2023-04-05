@@ -24,7 +24,7 @@
 !>
 !===============================================================================
 
-module CD__IMEX_Euler_SDC__1D
+module CD__SDC_Euler__1D
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO
   use CG__Element_Operators__1D
@@ -35,14 +35,14 @@ module CD__IMEX_Euler_SDC__1D
   implicit none
   private
 
-  public :: CD_IMEX_Euler_SDC_1D
+  public :: CD_SDC_Euler_1D
 
 contains
 
   !-------------------------------------------------------------------------------
   !> IMEX-Euler SDC method with CG-SEM for 1D convection-diffusion equation
 
-  subroutine CD_IMEX_Euler_SDC_1D(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
+  subroutine CD_SDC_Euler_1D(sdc, eop, dx, dt, M, wave, v, nu, bc, x, t0, u0, u)
     class(SDC_Method),             intent(in)  :: sdc      !< SDC parameters
     class(CG_ElementOperators_1D), intent(in)  :: eop      !< element operators
     real(RNP),                     intent(in)  :: dx       !< element length
@@ -127,7 +127,7 @@ contains
 
     u = us(:,:,ns)
 
-  end subroutine CD_IMEX_Euler_SDC_1D
+  end subroutine CD_SDC_Euler_1D
 
   !-----------------------------------------------------------------------------
   !> Computes the integrals of the time derivative F over subintervals [tᵢ₋₁,tᵢ]
@@ -219,4 +219,4 @@ contains
 
   !=============================================================================
 
-end module CD__IMEX_Euler_SDC__1D
+end module CD__SDC_Euler__1D
