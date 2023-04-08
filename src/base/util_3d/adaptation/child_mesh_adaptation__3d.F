@@ -162,10 +162,10 @@ print '(99(G0,1X))', '## 3'
 
     ! number of elements
     if (parent % part >= 0) then
-      child % n_elem = sum(recv_data % n_element) &
-                     + send_data(parent % part) % n_element
+      child % n_elem = sum(recv_data % n_elem) &
+                     + send_data(parent % part) % n_elem
     else
-      child % n_elem = sum(recv_data % n_element)
+      child % n_elem = sum(recv_data % n_elem)
     end if
 !### CHECK
 print '(99(G0,1X))', '## 4, child % n_elem = ',child % n_elem
@@ -357,7 +357,7 @@ print '(99(G0,1X))', '###BuildDistributionData: 0, size(dist_data) =',size(dist_
       do tp = 0, map%n_parts-1
         dist_data(tp) % proc       = child % proc_part(tp)
         dist_data(tp) % comm       = child % comm_world
-        dist_data(tp) % n_element  = 0
+        dist_data(tp) % n_elem  = 0
         dist_data(tp) % n_neighbor = 0
         dist_data(tp) % n_point    = 0
       end do
@@ -442,7 +442,7 @@ print '(99(G0,1X))', '###BuildDistributionData: 2, start_child_neighbor =',start
         nn = cn_part(tp)
         np = cp_part(tp)
 
-        dist_data(tp) % n_element  = nc
+        dist_data(tp) % n_elem  = nc
         dist_data(tp) % n_neighbor = nn
         dist_data(tp) % n_point    = np
 
