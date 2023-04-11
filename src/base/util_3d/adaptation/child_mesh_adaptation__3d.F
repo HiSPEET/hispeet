@@ -234,6 +234,18 @@ print '(99(G0,1X))', '## 13'
 !### CHECK
 print '(99(G0,1X))', '## 14'
 !### CHECK END
+      call child % IdentifyClusters()
+!### CHECK
+print '(99(G0,1X))', '## 15'
+!### CHECK END
+      call child % BuildMapToParent()
+!### CHECK
+print '(99(G0,1X))', '## 16'
+!### CHECK END
+      call child % BuildMapToChild()
+!### CHECK
+print '(99(G0,1X))', '## 17'
+!### CHECK END
 
     end if
 
@@ -263,7 +275,7 @@ print '(99(G0,1X))', '## X'
     integer, contiguous, pointer :: tp_child_val(:,:,:,:)
     type(ElementTransferBuffer_3D), allocatable, asynchronous :: tp_child_buf
 !### CHECK
-print '(99(G0,1X))', '###BuildChildMap: 0'
+!! print '(99(G0,1X))', '###BuildChildMap: 0'
 !### CHECK END
 
     allocate(tp_child(parent%n_elem + parent%n_ghost), source = -1)
@@ -279,12 +291,12 @@ print '(99(G0,1X))', '###BuildChildMap: 0'
       call tp_child_buf % Merge(tp_child_val)
     end if
 !### CHECK
-print '(99(G0,1X))', '###BuildChildMap: 1, tp_child =', tp_child
+!! print '(99(G0,1X))', '###BuildChildMap: 1, tp_child =', tp_child
 !### CHECK END
 
     map = ChildDistributionMap_3D(parent, opt%n_parts, tp_child)
 !### CHECK
-print '(99(G0,1X))', '###BuildChildMap: X'
+!! print '(99(G0,1X))', '###BuildChildMap: X'
 !### CHECK END
 
   end subroutine BuildChildMap
@@ -332,7 +344,7 @@ print '(99(G0,1X))', '###BuildChildMap: X'
     integer :: e, i, j, k, l, m
     integer :: ce, cn, cp
 !### CHECK
-print '(99(G0,1X))', '###BuildDistributionData: 0, size(dist_data) =',size(dist_data)
+!! print '(99(G0,1X))', '###BuildDistributionData: 0, size(dist_data) =',size(dist_data)
 !### CHECK END
 
     if (parent % part < 0) return
@@ -375,7 +387,7 @@ print '(99(G0,1X))', '###BuildDistributionData: 0, size(dist_data) =',size(dist_
       cn_part = 0  ! upper bound for count of child neighbors
       cp_part = 0  ! upper bound for count of child geometry points
 !### CHECK
-print '(99(G0,1X))', '###BuildDistributionData: 1, n(mark=100) =',count(parent%element%adaptation%mark==100)
+!! print '(99(G0,1X))', '###BuildDistributionData: 1, n(mark=100) =',count(parent%element%adaptation%mark==100)
 !### CHECK END
 
       ! counts of elements, neighbors and geometry points per partition
@@ -429,10 +441,10 @@ print '(99(G0,1X))', '###BuildDistributionData: 1, n(mark=100) =',count(parent%e
         end associate
       end do
 !### CHECK
-print '(99(G0,1X))', '###BuildDistributionData: 2, ce_part =',ce_part
-print '(99(G0,1X))', '###BuildDistributionData: 2, cn_part =',cn_part
-print '(99(G0,1X))', '###BuildDistributionData: 2, cp_part =',cp_part
-print '(99(G0,1X))', '###BuildDistributionData: 2, start_child_neighbor =',start_child_neighbor
+!! print '(99(G0,1X))', '###BuildDistributionData: 2, ce_part =',ce_part
+!! print '(99(G0,1X))', '###BuildDistributionData: 2, cn_part =',cn_part
+!! print '(99(G0,1X))', '###BuildDistributionData: 2, cp_part =',cp_part
+!! print '(99(G0,1X))', '###BuildDistributionData: 2, start_child_neighbor =',start_child_neighbor
 !### CHECK END
 
       ! allocate components
@@ -615,6 +627,7 @@ print '(99(G0,1X))', '###BuildDistributionData: 2, start_child_neighbor =',start
 
             ! element data
             dd % element(ce) % id = id_child(1,1,1,e)
+            dd % element(ce) % cluster_oct = 1
             dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
@@ -674,20 +687,20 @@ print '(99(G0,1X))', '###BuildDistributionData: 2, start_child_neighbor =',start
                                   , xc2 = dd % x_e(cp+1:cp+np,2)   &
                                   , xc3 = dd % x_e(cp+1:cp+np,3)   )
 !### CHECK
-if (ce == 1) then
-print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_1) =',&
-minval(element % geometry % x_e(:,:,:,1)),maxval(element % geometry % x_e(:,:,:,1))
-print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_2) =',&
-minval(element % geometry % x_e(:,:,:,2)),maxval(element % geometry % x_e(:,:,:,2))
-print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_3) =',&
-minval(element % geometry % x_e(:,:,:,3)),maxval(element % geometry % x_e(:,:,:,3))
-print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_1) =',&
-minval(dd % x_e(cp+1:cp+np,1)),maxval(dd % x_e(cp+1:cp+np,1))
-print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_2) =',&
-minval(dd % x_e(cp+1:cp+np,2)),maxval(dd % x_e(cp+1:cp+np,2))
-print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_3) =',&
-minval(dd % x_e(cp+1:cp+np,3)),maxval(dd % x_e(cp+1:cp+np,3))
-end if
+!! if (ce == 1) then
+!! print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_1) =',&
+!! minval(element % geometry % x_e(:,:,:,1)),maxval(element % geometry % x_e(:,:,:,1))
+!! print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_2) =',&
+!! minval(element % geometry % x_e(:,:,:,2)),maxval(element % geometry % x_e(:,:,:,2))
+!! print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_3) =',&
+!! minval(element % geometry % x_e(:,:,:,3)),maxval(element % geometry % x_e(:,:,:,3))
+!! print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_1) =',&
+!! minval(dd % x_e(cp+1:cp+np,1)),maxval(dd % x_e(cp+1:cp+np,1))
+!! print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_2) =',&
+!! minval(dd % x_e(cp+1:cp+np,2)),maxval(dd % x_e(cp+1:cp+np,2))
+!! print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_3) =',&
+!! minval(dd % x_e(cp+1:cp+np,3)),maxval(dd % x_e(cp+1:cp+np,3))
+!! end if
 !### CHECK END
             cp = cp + np
 
@@ -701,6 +714,7 @@ end if
 
             ! element data
             dd % element(ce) % id = id_child(2,1,1,e)
+            dd % element(ce) % cluster_oct = 2
             dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
@@ -769,6 +783,7 @@ end if
 
             ! element data
             dd % element(ce) % id = id_child(1,2,1,e)
+            dd % element(ce) % cluster_oct = 3
             dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
@@ -837,6 +852,7 @@ end if
 
             ! element data
             dd % element(ce) % id = id_child(2,2,1,e)
+            dd % element(ce) % cluster_oct = 4
             dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
@@ -905,6 +921,7 @@ end if
 
             ! element data
             dd % element(ce) % id = id_child(1,1,2,e)
+            dd % element(ce) % cluster_oct = 5
             dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
@@ -973,6 +990,7 @@ end if
 
             ! element data
             dd % element(ce) % id = id_child(2,1,2,e)
+            dd % element(ce) % cluster_oct = 6
             dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
@@ -1041,6 +1059,7 @@ end if
 
             ! element data
             dd % element(ce) % id = id_child(1,2,2,e)
+            dd % element(ce) % cluster_oct = 7
             dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
@@ -1109,6 +1128,7 @@ end if
 
             ! element data
             dd % element(ce) % id = id_child(2,2,2,e)
+            dd % element(ce) % cluster_oct = 8
             dd % element(ce) % frozen = element % adaptation % mark < 100
             dd % element(ce) % adaptation % parent_proc = parent % proc
             dd % element(ce) % adaptation % parent_id   = e
@@ -1166,20 +1186,20 @@ end if
                                   , xc2 = dd % x_e(cp+1:cp+np,2)   &
                                   , xc3 = dd % x_e(cp+1:cp+np,3)   )
 !### CHECK
-if (ce == 64) then
-print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_1) =',&
-minval(element % geometry % x_e(:,:,:,1)),maxval(element % geometry % x_e(:,:,:,1))
-print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_2) =',&
-minval(element % geometry % x_e(:,:,:,2)),maxval(element % geometry % x_e(:,:,:,2))
-print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_3) =',&
-minval(element % geometry % x_e(:,:,:,3)),maxval(element % geometry % x_e(:,:,:,3))
-print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_1) =',&
-minval(dd % x_e(cp+1:cp+np,1)),maxval(dd % x_e(cp+1:cp+np,1))
-print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_2) =',&
-minval(dd % x_e(cp+1:cp+np,2)),maxval(dd % x_e(cp+1:cp+np,2))
-print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_3) =',&
-minval(dd % x_e(cp+1:cp+np,3)),maxval(dd % x_e(cp+1:cp+np,3))
-end if
+!! if (ce == 64) then
+!! print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_1) =',&
+!! minval(element % geometry % x_e(:,:,:,1)),maxval(element % geometry % x_e(:,:,:,1))
+!! print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_2) =',&
+!! minval(element % geometry % x_e(:,:,:,2)),maxval(element % geometry % x_e(:,:,:,2))
+!! print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xp_3) =',&
+!! minval(element % geometry % x_e(:,:,:,3)),maxval(element % geometry % x_e(:,:,:,3))
+!! print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_1) =',&
+!! minval(dd % x_e(cp+1:cp+np,1)),maxval(dd % x_e(cp+1:cp+np,1))
+!! print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_2) =',&
+!! minval(dd % x_e(cp+1:cp+np,2)),maxval(dd % x_e(cp+1:cp+np,2))
+!! print '(99(G0,1X))', '###BuildDistributionData: x_e, ce =',ce,', min/max(xc_3) =',&
+!! minval(dd % x_e(cp+1:cp+np,3)),maxval(dd % x_e(cp+1:cp+np,3))
+!! end if
 !### CHECK END
             cp = cp + np
 
@@ -1203,11 +1223,11 @@ end if
 
     end associate
 !### CHECK
-print '(99(G0,1X))', '###BuildDistributionData: X'
-print '(99(G0,1X))', '###BuildDistributionData: X, dist_data(0)%n_neighbor(1)',dist_data(0)%n_neighbor
-print '(99(G0,1X))', '###BuildDistributionData: X, size(dist_data(0)%neighbor_id)',size(dist_data(0)%neighbor_id)
-print '(99(G0,1X))', '###BuildDistributionData: X, dist_data(0)%start_neighbor',dist_data(0)%start_neighbor
-print '(99(G0,1X))', '###BuildDistributionData: X, dist_data(0)%neighbor_id(1:10)',dist_data(0)%neighbor_id(1:10)
+!! print '(99(G0,1X))', '###BuildDistributionData: X'
+!! print '(99(G0,1X))', '###BuildDistributionData: X, dist_data(0)%n_neighbor(1)',dist_data(0)%n_neighbor
+!! print '(99(G0,1X))', '###BuildDistributionData: X, size(dist_data(0)%neighbor_id)',size(dist_data(0)%neighbor_id)
+!! print '(99(G0,1X))', '###BuildDistributionData: X, dist_data(0)%start_neighbor',dist_data(0)%start_neighbor
+!! print '(99(G0,1X))', '###BuildDistributionData: X, dist_data(0)%neighbor_id(1:10)',dist_data(0)%neighbor_id(1:10)
 !### CHECK END
 
   contains

@@ -9,14 +9,15 @@ module Mesh__3D
   use XMPI
   use Mesh_Face__3D
   use Mesh_Element__3D
+  use Mesh_Element_Indexing__3D
   use Mesh_Boundary__3D
   use Mesh_Link__3D
-  use Mesh_Element_Indexing__3D
+  use Mesh_Map_To_Child__3D
+  use Mesh_Map_To_Parent__3D
   implicit none
   private
 
   public :: Mesh_3D
-  public :: ChildMeshInfo_3D
   public :: MeshAttributes_3D
 
   !-----------------------------------------------------------------------------
@@ -70,9 +71,11 @@ module Mesh__3D
     integer :: n_elem        = 0  !< number of mesh elements
     integer :: n_elem_active = 0  !< number of active elements
     integer :: n_elem_frozen = 0  !< number of frozen elements
+    integer :: n_cluster     = 0  !< number of sibling element clusters
     integer :: n_ghost       = 0  !< number of ghost elements
     integer :: n_link        = 0  !< number of mesh links
     integer :: n_child       = 0  !< number of child partitions
+    integer :: n_parent      = 0  !< number of parent partitions
 
     integer :: p_geom        = 0  !< max polynomial order of element geometry
 
@@ -86,12 +89,13 @@ module Mesh__3D
 
     ! mesh components and links ................................................
 
-    type(MeshFace_3D)     , allocatable :: face(:)     !< mesh faces
-    type(MeshElement_3D)  , allocatable :: element(:)  !< mesh elements
-    type(MeshElement_3D)  , allocatable :: ghost(:)    !< ghost elements
-    type(MeshBoundary_3D) , allocatable :: boundary(:) !< mesh boundaries
-    type(MeshLink_3D)     , allocatable :: link(:)     !< mesh links
-    type(ChildMeshInfo_3D), allocatable :: child(:)    !< child partition info
+    type(MeshFace_3D)       , allocatable :: face(:)       !< mesh faces
+    type(MeshElement_3D)    , allocatable :: element(:)    !< mesh elements
+    type(MeshElement_3D)    , allocatable :: ghost(:)      !< ghost elements
+    type(MeshBoundary_3D)   , allocatable :: boundary(:)   !< mesh boundaries
+    type(MeshLink_3D)       , allocatable :: link(:)       !< mesh links
+    type(MeshMapToChild_3D) , allocatable :: map_child(:)  !< map to children
+    type(MeshMapToParent_3D), allocatable :: map_parent(:) !< map to parents
 
   contains
 
@@ -108,7 +112,9 @@ module Mesh__3D
     procedure :: BuildGhosts
     procedure :: BuildLinks
     procedure :: BuildCuboids
-    procedure :: BuildChildInfo
+    procedure :: BuildMapToChild
+    procedure :: BuildMapToParent
+    procedure :: IdentifyClusters
     procedure :: IdentifyVertices
     procedure :: IdentifyEdges
     procedure :: IdentifyRanks
@@ -200,11 +206,25 @@ module Mesh__3D
     end subroutine BuildLinks
 
     !---------------------------------------------------------------------------
-    !> Generation of information on child mesh partitions
+    !> Generation of map to child elements
 
-    module subroutine BuildChildInfo(mesh)
+    module subroutine BuildMapToChild(mesh)
       class(Mesh_3D), intent(inout) :: mesh !< mesh partition
-    end subroutine BuildChildInfo
+    end subroutine BuildMapToChild
+
+    !---------------------------------------------------------------------------
+    !> Generation of map to child elements
+
+    module subroutine BuildMapToParent(mesh)
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
+    end subroutine BuildMapToParent
+
+    !---------------------------------------------------------------------------
+    !> Identification of sibling element clusters
+
+    module subroutine IdentifyClusters(mesh)
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
+    end subroutine IdentifyClusters
 
     !---------------------------------------------------------------------------
     !> Identification of mesh vertices
@@ -238,16 +258,6 @@ module Mesh__3D
     end subroutine ImportGenericMesh
 
   end interface
-
-  !-----------------------------------------------------------------------------
-  !> Type for keeping information about a child partition
-
-  type ChildMeshInfo_3D
-    integer :: proc          = -1  !< child process ID in `comm_world`
-    integer :: n_elem        = -1  !< num elements contributed to child
-    integer :: n_elem_active = -1  !< num active elements contributed to child
-    integer :: n_elem_frozen = -1  !< num frozen elements contributed to child
-  end type ChildMeshInfo_3D
 
   !-----------------------------------------------------------------------------
   !> Type for collecting and transmitting the mesh attributes

@@ -173,7 +173,7 @@ contains
     call new_mesh % BuildGhosts()
     call new_mesh % BuildCuboids()
     call new_mesh % IdentifyRanks()
-    call new_mesh % BuildChildInfo()
+    call new_mesh % BuildMapToChild()
 
     ! redistribution maps for retained data ....................................
 

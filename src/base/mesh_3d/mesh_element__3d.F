@@ -221,14 +221,13 @@ module Mesh_Element__3D
   !> of new elements or to remap sustained data.
 
   type MeshElementAdaptation_3D
-    integer      :: parent_proc   = -1 !< parent partition ID in comm_world
-    integer      :: parent_id     = -1 !< parent element ID
-    integer(IXS) :: parent_octant = -1 !< originating parent octant
-    integer(IXS) :: refinement    = -1 !< refinement type
-    integer      :: sublevels     = -1 !< number of subsequent levels
-    integer      :: child_proc    = -1 !< child partition ID in comm_world
-    integer      :: child_id      = -1 !< first child element ID
-    integer      :: mark          = -1 !< adaptation mark or auxiliary data
+    integer :: parent_proc   = -1 !< parent partition ID in comm_world
+    integer :: parent_id     = -1 !< parent element ID
+    integer :: refinement    = -1 !< refinement type
+    integer :: sublevels     = -1 !< number of subsequent levels
+    integer :: child_proc    = -1 !< child partition ID in comm_world
+    integer :: child_id      = -1 !< first child element ID
+    integer :: mark          = -1 !< adaptation mark or auxiliary data
   end type MeshElementAdaptation_3D
 
   !-----------------------------------------------------------------------------
@@ -318,12 +317,14 @@ module Mesh_Element__3D
 
   type MeshElement_3D
 
-    integer :: id     = -1       !< local element ID
-    logical :: frozen = .false.  !< switch to indicate frozen elements
+    integer :: id          = -1 !< local element ID
+    integer :: cluster_id  = -1 !< sibling cluster ID
+    integer :: cluster_oct = -1 !< sibling cluster octant (1:8)
+    logical :: frozen = .false. !< switch for elements
 
-    type(MeshElementVertex_3D)  :: vertex(8)  !< vertex data
-    type(MeshElementEdge_3D)    :: edge(12)   !< edge data
-    type(MeshElementFace_3D)    :: face(6)    !< face data
+    type(MeshElementVertex_3D)  :: vertex(8) !< vertex data
+    type(MeshElementEdge_3D)    :: edge(12)  !< edge data
+    type(MeshElementFace_3D)    :: face(6)   !< face data
 
     type(MeshElementNeighbor_3D), allocatable :: neighbor(:) !< neighbor data
 
