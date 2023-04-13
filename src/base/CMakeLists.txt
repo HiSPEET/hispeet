@@ -140,6 +140,7 @@ set ( MESH_3D mesh_3d/generic_mesh__3d.f
 
 set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/export/export_vtk_schwarz_domain__3d.f
+             util_3d/transfer/data_exchange__3d.f
              util_3d/transfer/element_transfer_buffer__3d.f
              util_3d/transfer/element_transfer_buffer__3d__sm_integer_idk.F
              util_3d/transfer/element_transfer_buffer__3d__sm_integer_ixs.F
@@ -161,7 +162,6 @@ set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
              util_3d/verification/verify_mesh__3d.f
              util_3d/adaptation/child_distribution_map__3d.f
              util_3d/adaptation/child_mesh_adaptation__3d.F
-             util_3d/adaptation/data_redistribution__3d.f
              util_3d/adaptation/element_distribution_map__3d.f
              util_3d/adaptation/element_distribution_data__3d.f
              util_3d/adaptation/partitioner_interface__3d.f

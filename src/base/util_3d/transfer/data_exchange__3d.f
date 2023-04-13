@@ -1,38 +1,36 @@
-module Data_Redistribution__3D
+module Data_Exchange__3D
   use Kind_Parameters
   use XMPI
+  use Mesh_Map_To_Child__3D
+  use Mesh_Map_To_Parent__3D
 
   implicit none
   private
 
-  public :: RedistributionSendMap_3D
-  public :: RedistributionRecvMap_3D
-  public :: RedistributionSendData_3D
-  public :: RedistributionRecvData_3D
+  public :: DataExchangeMap_3D
+  public :: DataExchangeSendBuf_3D
+  public :: DataExchangeRecvBuf_3D
 
   !-----------------------------------------------------------------------------
-  !> Map indicating the new location of retained elements
+  !> Map for exchanging element data
 
-  type RedistributionSendMap_3D
+  type DataExchangeMap_3D
     type(MPI_Comm)       :: comm       !< MPI communicator
-    integer              :: dest       !< MPI destination rank
-    integer, allocatable :: id_elem(:) !< elements with data to be send
-  end type RedistributionSendMap_3D
+    integer              :: proc       !< MPI destination or source rank
+    integer, allocatable :: id_elem(:) !< elements with data to be exchanged
+  end type DataExchangeMap_3D
 
-  !-----------------------------------------------------------------------------
-  !> Map indicating the old location of retained elements
-
-  type RedistributionRecvMap_3D
-    type(MPI_Comm)       :: comm       !< MPI communicator
-    integer              :: source     !< MPI source rank
-    integer, allocatable :: id_elem(:) !< elements with data to be received
-  end type RedistributionRecvMap_3D
+  ! constructors
+  interface DataExchangeMap_3D
+    module procedure New_ExchangeMap_from_MapToChild
+    module procedure New_ExchangeMap_from_MapToParent
+  end interface
 
   !-----------------------------------------------------------------------------
   !> Structure for sending data of retained elements to new location
 
-  type RedistributionSendData_3D
-    class(RedistributionSendMap_3D), pointer :: map => null()
+  type DataExchangeSendBuf_3D
+    class(DataExchangeMap_3D), pointer :: map => null()
     integer :: ne = -1 !< number of elements with data to be send
     integer :: na = -1 !< number of attribute entries per element
     integer :: np = -1 !< number of element points per direction
@@ -46,13 +44,13 @@ module Data_Redistribution__3D
     procedure, private :: Extract_ScalarData, Extract_ArrayData
     procedure :: Send_Start
     procedure :: Send_Finish
-  end type RedistributionSendData_3D
+  end type DataExchangeSendBuf_3D
 
   !-----------------------------------------------------------------------------
   !> Structure for receiving data of retained elements from old location
 
-  type RedistributionRecvData_3D
-    class(RedistributionRecvMap_3D), pointer :: map => null()
+  type DataExchangeRecvBuf_3D
+    class(DataExchangeMap_3D), pointer :: map => null()
     integer :: ne = -1 !< number of elements with data to be received
     integer :: na = -1 !< number of attribute entries per element
     integer :: np = -1 !< number of element points per direction
@@ -68,21 +66,80 @@ module Data_Redistribution__3D
     procedure :: Recv_Finish
     generic :: Assign_Data => Assign_ScalarData, Assign_ArrayData
     procedure, private :: Assign_ScalarData, Assign_ArrayData
-  end type RedistributionRecvData_3D
+  end type DataExchangeRecvBuf_3D
 
 contains
 
   !=============================================================================
-  ! TBP of RedistributionSendData_3D
+  ! TBP of DataExchangeMap_3D
 
   !-----------------------------------------------------------------------------
-  !> Extraction of retained element data for sending
+  !> New exchange map from map to child
+
+  elemental function New_ExchangeMap_from_MapToChild(map_child, frozen) &
+      result(this)
+
+    class(MeshMapToChild_3D), intent(in) :: map_child
+    logical, optional, intent(in) :: frozen !< in/exclude frozen elements [T]
+
+    type(DataExchangeMap_3D) :: this
+    integer :: n_elem
+
+    ! default: send to all children
+    n_elem = map_child % n_elem
+
+    ! optional: exclude frozen children
+    if (present(frozen)) then
+      if (frozen) then
+        n_elem = map_child % n_active
+      end if
+    end if
+
+    this % comm    = map_child % comm
+    this % proc    = map_child % proc
+    this % id_elem = map_child % id_elem(:n_elem)
+
+  end function New_ExchangeMap_from_MapToChild
+
+  !-----------------------------------------------------------------------------
+  !> New send map from map to parent
+
+  elemental function New_ExchangeMap_from_MapToParent(map_parent, frozen) &
+      result(this)
+
+    class(MeshMapToParent_3D), intent(in) :: map_parent
+    logical, optional, intent(in) :: frozen !< in/exclude frozen clusters [T]
+
+    type(DataExchangeMap_3D) :: this
+    integer :: n_cluster
+
+    ! default: send to all parents
+    n_cluster = map_parent % n_cluster
+
+    ! optional: exclude frozen clusters
+    if (present(frozen)) then
+      if (frozen) then
+        n_cluster = map_parent % n_active
+      end if
+    end if
+
+    this % comm    = map_parent % comm
+    this % proc    = map_parent % proc
+    this % id_elem = map_parent % id_cluster(:n_cluster)
+
+  end function New_ExchangeMap_from_MapToParent
+
+  !=============================================================================
+  ! TBP of DataExchangeSendBuf_3D
+
+  !-----------------------------------------------------------------------------
+  !> Extraction of attributes and/or scalar data for sending
 
   subroutine Extract_ScalarData(this, map, a, v)
-    class(RedistributionSendData_3D),        intent(inout) :: this
-    class(RedistributionSendMap_3D), target, intent(in)    :: map
-    integer,           contiguous, optional, intent(in)    :: a(:,:)
-    real(RNP),         contiguous, optional, intent(in)    :: v(:,:,:,:)
+    class(DataExchangeSendBuf_3D),     intent(inout) :: this
+    class(DataExchangeMap_3D), target, intent(in)    :: map
+    integer,     contiguous, optional, intent(in)    :: a(:,:)
+    real(RNP),   contiguous, optional, intent(in)    :: v(:,:,:,:)
 
     this % map => map
     this % ne  =  size(map % id_elem)
@@ -92,11 +149,14 @@ contains
 
   end subroutine Extract_ScalarData
 
+  !-----------------------------------------------------------------------------
+  !> Extraction of attributes and/or array data for sending
+
   subroutine Extract_ArrayData(this, map, a, v)
-    class(RedistributionSendData_3D),        intent(inout) :: this
-    class(RedistributionSendMap_3D), target, intent(in)    :: map
-    integer,           contiguous, optional, intent(in)    :: a(:,:)
-    real(RNP),         contiguous,           intent(in)    :: v(:,:,:,:,:)
+    class(DataExchangeSendBuf_3D),     intent(inout) :: this
+    class(DataExchangeMap_3D), target, intent(in)    :: map
+    integer,     contiguous, optional, intent(in)    :: a(:,:)
+    real(RNP),   contiguous,           intent(in)    :: v(:,:,:,:,:)
 
     this % map => map
     this % ne  =  size(map % id_elem)
@@ -106,9 +166,11 @@ contains
 
   end subroutine Extract_ArrayData
 
+  !-----------------------------------------------------------------------------
+  !> Extraction of attributes for sending
 
   subroutine Extract_Attributes(this, a)
-    class(RedistributionSendData_3D), intent(inout) :: this
+    class(DataExchangeSendBuf_3D), intent(inout) :: this
     integer, contiguous, optional, intent(in) :: a(:,:)
 
     integer :: e
@@ -148,9 +210,11 @@ contains
 
   end subroutine Extract_Attributes
 
+  !-----------------------------------------------------------------------------
+  !> Extraction of scalar data for sending
 
   subroutine Extract_ScalarVariable(this, v)
-    class(RedistributionSendData_3D), intent(inout) :: this
+    class(DataExchangeSendBuf_3D), intent(inout) :: this
     real(RNP), contiguous, optional, intent(in) :: v(:,:,:,:)
 
     integer :: e
@@ -193,9 +257,11 @@ contains
 
   end subroutine Extract_ScalarVariable
 
+  !-----------------------------------------------------------------------------
+  !> Extraction of array data for sending
 
   subroutine Extract_ArrayVariable(this, v)
-    class(RedistributionSendData_3D), intent(inout) :: this
+    class(DataExchangeSendBuf_3D), intent(inout) :: this
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
 
     integer :: e, k
@@ -229,23 +295,27 @@ contains
 
   end subroutine Extract_ArrayVariable
 
+  !-----------------------------------------------------------------------------
+  !> Nonblocking sending of attributes and data
 
   subroutine Send_Start(this)
-    class(RedistributionSendData_3D), asynchronous, intent(inout) :: this
+    class(DataExchangeSendBuf_3D), asynchronous, intent(inout) :: this
 
     if (this % na > 0) then
-      call XMPI_Isend(this%buf_a, this%map%dest, 71, this%map%comm, this%req_a)
+      call XMPI_Isend(this%buf_a, this%map%proc, 71, this%map%comm, this%req_a)
     end if
 
     if (this % nv > 0) then
-      call XMPI_Isend(this%buf_v, this%map%dest, 72, this%map%comm, this%req_v)
+      call XMPI_Isend(this%buf_v, this%map%proc, 72, this%map%comm, this%req_v)
     end if
 
   end subroutine Send_Start
 
+  !-----------------------------------------------------------------------------
+  !> Finalization of sending
 
   subroutine Send_Finish(this)
-    class(RedistributionSendData_3D), asynchronous, intent(inout) :: this
+    class(DataExchangeSendBuf_3D), asynchronous, intent(inout) :: this
 
     if (this % na > 0) call MPI_Wait(this % req_a, MPI_STATUS_IGNORE)
     if (this % nv > 0) call MPI_Wait(this % req_v, MPI_STATUS_IGNORE)
@@ -253,13 +323,16 @@ contains
   end subroutine Send_Finish
 
   !=============================================================================
-  ! TBP of RedistributionRecvData_3D
+  ! TBP of DataExchangeRecvBuf_3D
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of receive buffer for attributes and/or scalar data
 
   subroutine Init_Recv_ScalarData(this, map, a, v)
-    class(RedistributionRecvData_3D),        intent(inout) :: this
-    class(RedistributionRecvMap_3D), target, intent(in)    :: map
-    integer,           contiguous, optional, intent(in)    :: a(:,:)
-    real(RNP),         contiguous, optional, intent(in)    :: v(:,:,:,:)
+    class(DataExchangeRecvBuf_3D),     intent(inout) :: this
+    class(DataExchangeMap_3D), target, intent(in)    :: map
+    integer,     contiguous, optional, intent(in)    :: a(:,:)
+    real(RNP),   contiguous, optional, intent(in)    :: v(:,:,:,:)
 
     this % map => map
     this % ne  =  size(map % id_elem)
@@ -269,12 +342,14 @@ contains
 
   end subroutine Init_Recv_ScalarData
 
+  !-----------------------------------------------------------------------------
+  !> Initialization of receive buffer for attributes and/or array data
 
   subroutine Init_Recv_ArrayData(this, map, a, v)
-    class(RedistributionRecvData_3D),        intent(inout) :: this
-    class(RedistributionRecvMap_3D), target, intent(in)    :: map
-    integer,           contiguous, optional, intent(in)    :: a(:,:)
-    real(RNP),         contiguous,           intent(in)    :: v(:,:,:,:,:)
+    class(DataExchangeRecvBuf_3D),         intent(inout) :: this
+    class(DataExchangeMap_3D), target, intent(in)    :: map
+    integer,         contiguous, optional, intent(in)    :: a(:,:)
+    real(RNP),       contiguous,           intent(in)    :: v(:,:,:,:,:)
 
     this % map => map
     this % ne  =  size(map % id_elem)
@@ -284,9 +359,11 @@ contains
 
   end subroutine Init_Recv_ArrayData
 
+  !-----------------------------------------------------------------------------
+  !> Initialization of receive buffer for attributes
 
   subroutine Init_Recv_Attributes(this, a)
-    class(RedistributionRecvData_3D), intent(inout) :: this
+    class(DataExchangeRecvBuf_3D), intent(inout) :: this
     integer, contiguous, optional, intent(in) :: a(:,:)
 
     associate( ne => this % ne &
@@ -317,9 +394,11 @@ contains
 
   end subroutine Init_Recv_Attributes
 
+  !-----------------------------------------------------------------------------
+  !> Initialization of receive buffer for scalar data
 
   subroutine Init_Recv_ScalarVariable(this, v)
-    class(RedistributionRecvData_3D), intent(inout) :: this
+    class(DataExchangeRecvBuf_3D), intent(inout) :: this
     real(RNP), contiguous, optional, intent(in) :: v(:,:,:,:)
 
     associate( ne => this % ne &
@@ -353,9 +432,11 @@ contains
 
   end subroutine Init_Recv_ScalarVariable
 
+  !-----------------------------------------------------------------------------
+  !> Initialization of receive buffer for array data
 
   subroutine Init_Recv_ArrayVariable(this, v)
-    class(RedistributionRecvData_3D), intent(inout) :: this
+    class(DataExchangeRecvBuf_3D), intent(inout) :: this
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
 
     associate( ne => this % ne &
@@ -378,32 +459,38 @@ contains
 
   end subroutine Init_Recv_ArrayVariable
 
+  !-----------------------------------------------------------------------------
+  !> Nonblocking receiving of attributes and data
 
   subroutine Recv_Start(this)
-    class(RedistributionRecvData_3D), asynchronous, intent(inout) :: this
+    class(DataExchangeRecvBuf_3D), asynchronous, intent(inout) :: this
 
     if (this % na > 0) then
-      call XMPI_Irecv(this%buf_a, this%map%source, 71, this%map%comm, this%req_a)
+      call XMPI_Irecv(this%buf_a, this%map%proc, 71, this%map%comm, this%req_a)
     end if
 
     if (this % nv > 0) then
-      call XMPI_Irecv(this%buf_v, this%map%source, 72, this%map%comm, this%req_v)
+      call XMPI_Irecv(this%buf_v, this%map%proc, 72, this%map%comm, this%req_v)
     end if
 
   end subroutine Recv_Start
 
+  !-----------------------------------------------------------------------------
+  !> Finalization of receiving
 
   subroutine Recv_Finish(this)
-    class(RedistributionRecvData_3D), asynchronous, intent(inout) :: this
+    class(DataExchangeRecvBuf_3D), asynchronous, intent(inout) :: this
 
     if (this % na > 0) call MPI_Wait(this % req_a, MPI_STATUS_IGNORE)
     if (this % nv > 0) call MPI_Wait(this % req_v, MPI_STATUS_IGNORE)
 
   end subroutine Recv_Finish
 
+  !-----------------------------------------------------------------------------
+  !> Assignment of received attributes and/or scalar data
 
   subroutine Assign_ScalarData(this, a, v)
-    class(RedistributionRecvData_3D), asynchronous, intent(in) :: this
+    class(DataExchangeRecvBuf_3D), asynchronous, intent(in) :: this
     integer,   contiguous, optional, intent(inout) :: a(:,:)
     real(RNP), contiguous, optional, intent(inout) :: v(:,:,:,:)
 
@@ -431,9 +518,11 @@ contains
 
   end subroutine Assign_ScalarData
 
+  !-----------------------------------------------------------------------------
+  !> Assignment of received attributes and/or array data
 
   subroutine Assign_ArrayData(this, a, v)
-    class(RedistributionRecvData_3D), asynchronous, intent(in) :: this
+    class(DataExchangeRecvBuf_3D), asynchronous, intent(in) :: this
     integer,   contiguous, optional, intent(inout) :: a(:,:)
     real(RNP), contiguous,           intent(inout) :: v(:,:,:,:,:)
 
@@ -463,4 +552,4 @@ contains
 
   !=============================================================================
 
-end module Data_Redistribution__3D
+end module Data_Exchange__3D

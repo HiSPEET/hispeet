@@ -5,7 +5,7 @@ module Root_Mesh_Partitioning__3D
   use Element_Distribution_Map__3D
   use Element_Distribution_Data__3D
   use Partitioner_Interface__3D
-  use Data_Redistribution__3D
+  use Data_Exchange__3D
 
   implicit none
   private
@@ -32,10 +32,10 @@ contains
     class(Mesh_3D),           intent(out)   :: new_mesh !< new root partition
     class(Mesh_3D), optional, intent(inout) :: child    !< child partition
 
-    type(RedistributionSendMap_3D), allocatable, optional, intent(out) :: &
+    type(DataExchangeMap_3D), allocatable, optional, intent(out) :: &
         rd_send_map(:) !< map for sending retained data to the new mesh
 
-    type(RedistributionRecvMap_3D), allocatable, optional, intent(out) :: &
+    type(DataExchangeMap_3D), allocatable, optional, intent(out) :: &
         rd_recv_map(:) !< map for receiving retained data from the old mesh
 
     ! internal variables .......................................................
@@ -180,12 +180,12 @@ contains
     allocate(rd_send_map( 0 : new_mesh % n_parts - 1 ))
     do i = 0, new_mesh % n_parts - 1
       rd_send_map(i) % comm = new_mesh % comm_world
-      rd_send_map(i) % dest = new_mesh % proc_part(i)
+      rd_send_map(i) % proc = new_mesh % proc_part(i)
     end do
-    call BuildRedistributionSendMap(ed_map, rd_send_map)
+    call BuildDataExchangeSendMap(ed_map, rd_send_map)
 
     allocate(rd_recv_map( 0 : old_mesh % n_parts - 1 ))
-    call BuildRedistributionRecvMap(ed_recv_data, rd_recv_map)
+    call BuildDataExchangeRecvMap(ed_recv_data, rd_recv_map)
 
     !---------------------------------------------------------------------------
     !$omp end master
@@ -387,9 +387,9 @@ contains
   !-----------------------------------------------------------------------------
   !> Build map indicating the new location of retained elements
 
-  subroutine BuildRedistributionSendMap(ed_map, rd_send_map)
-    class(ElementDistributionMap_3D), intent(in) :: ed_map
-    class(RedistributionSendMap_3D),  intent(inout) :: rd_send_map(0:)
+  subroutine BuildDataExchangeSendMap(ed_map, rd_send_map)
+    class(ElementDistributionMap_3D), intent(in)    :: ed_map
+    class(DataExchangeMap_3D),        intent(inout) :: rd_send_map(0:)
 
     integer, allocatable, save :: e(:)
     integer :: i, p
@@ -413,27 +413,27 @@ contains
 
     end associate
 
-  end subroutine BuildRedistributionSendMap
+  end subroutine BuildDataExchangeSendMap
 
   !-----------------------------------------------------------------------------
   !> Build map indicating the old location of retained elements
 
-  subroutine BuildRedistributionRecvMap(ed_recv_data, rd_recv_map)
+  subroutine BuildDataExchangeRecvMap(ed_recv_data, rd_recv_map)
     class(ElementDistributionData_3D), intent(in)  :: ed_recv_data(0:)
-    class(RedistributionRecvMap_3D),   intent(out) :: rd_recv_map(0:)
+    class(DataExchangeMap_3D),         intent(out) :: rd_recv_map(0:)
 
     integer :: i, e
 
     do i = 0, ubound(ed_recv_data,1)
-      rd_recv_map(i) % comm   = ed_recv_data(i) % comm
-      rd_recv_map(i) % source = ed_recv_data(i) % proc
+      rd_recv_map(i) % comm = ed_recv_data(i) % comm
+      rd_recv_map(i) % proc = ed_recv_data(i) % proc
       allocate(rd_recv_map(i) % id_elem( ed_recv_data(i) % n_elem ))
       do e = 1, ed_recv_data(i) % n_elem
         rd_recv_map(i) % id_elem(e) = ed_recv_data(i) % element(e) % id
       end do
     end do
 
-  end subroutine BuildRedistributionRecvMap
+  end subroutine BuildDataExchangeRecvMap
 
   !=============================================================================
 
