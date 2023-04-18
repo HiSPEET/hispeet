@@ -1,3 +1,5 @@
+!> @note  *** WORK IN PROGRESS ***
+
 module CL__SDC__Method__Euler__1D
 
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
@@ -16,7 +18,7 @@ module CL__SDC__Method__Euler__1D
   public :: CL_SDC_Options_Euler_1D
 
   !-----------------------------------------------------------------------------
-  !> IMEX Euler SDC ...
+  !> IMEX Euler SDC
 
   type, extends(CL_SDC_Method_1D) :: CL_SDC_Method_Euler_1D
   contains
@@ -113,8 +115,8 @@ contains
 !      F_ex = 0
 
     case(2) ! IMEX
-!      F_im =     lambda % re * u
-!      F_ex = i * lambda % im * u
+      F_im = problem % RHS_Diffusion (t, u(:,:,:))
+      F_ex = problem % RHS_Convection(t, u(:,:,:))
 
     end select
 
@@ -125,15 +127,14 @@ contains
   !-----------------------------------------------------------------------------
   !> Execution of a single correction step
 
-  subroutine CorrectorStep( this, problem, m, t, u, M_inv, F &
-                          , F_ex, F_im, F_ex_new, F_im_new   )
+  subroutine CorrectorStep( this, problem, m, t, u, F      &
+                          , F_ex, F_im, F_ex_new, F_im_new )
 
     class(CL_SDC_Method_Euler_1D), intent(inout) :: this
     class(CL_Problem_Scalar_1D), intent(in)       :: problem
     integer  , intent(in)    :: m                   !< current SDC interval index
     real(RNP), intent(in)    :: t(0:)               !< SDC time nodes
     real(RNP), intent(inout) :: u(0:,:,:,0:)        !< uᵏ⁺¹(:m-1),uᵏ→uᵏ⁺¹(m),uᵏ(m+1:)
-    real(RNP), intent(in)    :: M_inv(:,:,:)
     real(RNP), intent(in)    :: F(0:,:,:,0:)        !< Fᵏ
     real(RNP), intent(in)    :: F_ex(0:,:,:,0:)     !< F_exᵏ
     real(RNP), intent(in)    :: F_im(0:,:,:,0:)     !< F_imᵏ
@@ -149,15 +150,25 @@ contains
     real(RNP)    :: dt
     integer      :: j
 
-    associate( po => problem % eop % po &
-             , ne => problem % ne       &
-             , nc => problem % nc       )
+    real(RNP), allocatable, save :: G(:,:,:)
+    real(RNP), allocatable, save :: mm_inv(:,:)
+    real(RNP) :: bv(2) = 0
+
+    associate( po  => problem % eop % po &
+             , ne  => problem % ne       &
+             , nc  => problem % nc       &
+             , mm  => problem % mm       )
 
       ! workspace ..............................................................
 
       allocate(S  (0:po, ne, nc))
       allocate(u1 (0:po, ne, nc))
       allocate(u2 (0:po, ne, nc))
+
+      if (.not. allocated(G)) then
+        allocate(G(0:po, ne, nc))
+        allocate(mm_inv, source = 1/mm)
+      end if
 
       ! initialization .........................................................
 
@@ -169,13 +180,12 @@ contains
 
       associate(n_sub => this % n_sub, w_sub => this % w_sub)
 
-        dt = t(n_sub) - t(0) ! original t(n_sub) - t(0)
+        dt = t(n_sub) - t(0)
         S = 0
         do j = 0, n_sub
-          S = S + dt * M_inv * F(:,:,:,j) * w_sub(j,m) !Why is here a dt_swub. Isn't that in w_sub = int_(t_m-1)^(t_m) \alpha(t)dt incoporated? Seems like not because solution explodes if dt_sub missing!
+          S(:,:,1) = S(:,:,1) + dt * mm_inv * F(:,:,1,j) * w_sub(j,m)
         end do
-        u1 = u(:,:,:,m-1) + S  ! in christlieb paper 2009a:     u(:,:,:,m-1) would be u(:,:,:,m-1)^k  in Timeste one uses i instead of k as index.
-                               ! if one uses m instead of m-1 the solution is usable. With m-1 the corrected solution is worse than the predicted one.
+        u1 = u(:,:,:,m-1) + S
 
       end associate
 
@@ -183,7 +193,7 @@ contains
 
       select case(this % impl)
       case(0) ! explicit
-        u2 = u1 + dt_sub * M_inv * (F_ex_new(:,:,:,m-1) - F_ex(:,:,:,m-1)) !F_new_(...,0) wo wird das denn definiert?
+        u2(:,:,1) = u1(:,:,1) + dt_sub * mm_inv * (F_ex_new(:,:,1,m-1) - F_ex(:,:,1,m-1))
       case(1) ! implicit
          print *, 'Implicit euler-based SDC doesnt exist yet!'
   !      u2 = (u1 - dt_sub * F_im(m)) / (ONE - dt_sub * lambda)
@@ -191,6 +201,24 @@ contains
          print *, 'IMEX Euler-based SDC doesnt exist yet!'
   !      u1 = u1 + dt_sub * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
   !      u2 = u1 / (ONE - dt_sub * lambda%re)
+        u1(:,:,1) = 1/dt_sub * mm * u1(:,:,1)
+        u1(:,:,1) = u1(:,:,1) + ( F_ex_new(:,:,1,m-1) - F_ex(:,:,1,m-1) - F_im(:,:,1,m) )!( F_im_new(:,:,1,m-1) - F_ex_new(:,:,1,m)- F_im(:,:,1,m) )
+        !                       ( F_ex(u^k+1_m)       - F_ex(u^k_m)     - F_im(u^k_m+1) )
+        ! Das scheint soweit richtig zu sein, vgl. TeX
+
+        !u1(:,:,1) = 1/dt_sub * mm * ( F_ex_new(:,:,1,m-1) - F_ex(:,:,1,m-1)- F_im(:,:,1,m) )
+        !G(:,:,:) = u1 + problem % RHS_Convection(t(m), u1(:,:,:))
+        ! t(m) oder t(m-1) oder loop ueber t und u(:,:,1,m-1), u(:,:,1,m) oder u1 oder u2
+
+        call problem % elliptic_op(1) &
+                     % HybridSolver( dx      =  problem % dx   &
+                                   , lambda  =  ONE/dt_sub     &
+                                   , nu      =  problem % nu_c &
+                                   , f       =  u1(:,:,1)      &
+                                   , bv      =  bv             &
+                                   , u       =  u2(:,:,1)      &
+                                   , standby = .false.         ) ! Do not change this into .true. or you will get numerical-analysts nightmare!
+
       case(3) ! IMEX partitioned
          print *, 'Partitioned IMEX Euler-based SDC doesnt exist yet!'
   !      u2 = u1 + dt_sub * (F_ex_new(m-1) - F_ex(m-1) + F_im_new(m-1) - F_im(m-1))
@@ -198,10 +226,10 @@ contains
   !      u2 = u2 / (ONE - dt_sub * lambda%re)
       end select
 
-      u(:,:,:,m) = u2 ! if uncommented one can see just the predictor-solution which is much better than the one after the corrector step. that is be u^k+1_m
+      u(:,:,:,m) = u2
 
       ! update RHS F_ex_new = f( t_m, u^k+1_m )
-      call this % CorrectorRHS(problem, t(m), dt_sub, u(:,:,:,m), F_ex_new(:,:,:,m), F_im_new(:,:,:,m)) ! -> F_ex_new = f( t_(m-1), u^k_m ) but should be f( t_(m), u^k_m ) for computation of u^k_m+1
+      call this % CorrectorRHS(problem, t(m), dt_sub, u(:,:,:,m), F_ex_new(:,:,:,m), F_im_new(:,:,:,m))
 
     end associate
 

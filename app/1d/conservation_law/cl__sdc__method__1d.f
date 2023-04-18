@@ -78,7 +78,7 @@ module CL__SDC__Method__1D
     !---------------------------------------------------------------------------
     !> Execution of a single correction step
 
-    subroutine CorrectorStep( this, problem, m, t, u, M_inv, F      &
+    subroutine CorrectorStep( this, problem, m, t, u, F      &
                             , F_ex, F_im, F_ex_new, F_im_new )
       import
 
@@ -86,8 +86,7 @@ module CL__SDC__Method__1D
       class(CL_Problem_Scalar_1D), intent(in) :: problem
       real(RNP), intent(in)    :: t(0:)              !< SDC time nodes
       integer  , intent(in)    :: m                  !< current SDC interval index
-      real(RNP), intent(inout) :: u(0:,:,:,0:)           !< uᵏ⁺¹(:m-1),uᵏ→uᵏ⁺¹(m),uᵏ(m+1:)
-      real(RNP), intent(in)    :: M_inv(:,:,:)
+      real(RNP), intent(inout) :: u(0:,:,:,0:)       !< uᵏ⁺¹(:m-1),uᵏ→uᵏ⁺¹(m),uᵏ(m+1:)
       real(RNP), intent(in)    :: F(:,:,:,0:)        !< Fᵏ
       real(RNP), intent(in)    :: F_ex(:,:,:,0:)     !< F_exᵏ
       real(RNP), intent(in)    :: F_im(:,:,:,0:)     !< F_imᵏ
@@ -154,8 +153,8 @@ contains
       io = OUTPUT_UNIT
     end if
 
-    !write(io,'(/,A)') 'CL_SDC_Method_1D settings'
-    !write(io,'(A,/)') repeat('≡',80)
+    write(io,'(/,A)') 'CL_SDC_Method_1D settings'
+    write(io,'(A,/)') repeat('≡',80)
     write(io,'(2X,A,T15,I0)') 'n_sub:'     , this % n_sub
     write(io,'(2X,A,T15,I0)') 'n_sweeps:'  , this % n_sweep
     write(io,'(2X,A,T15,I0)') 'point_set:' , this % point_set
@@ -171,7 +170,7 @@ contains
   !-----------------------------------------------------------------------------
   !> SDC time step
 
-  subroutine TimeStep(this, problem, t, dt, u, M_inv)
+  subroutine TimeStep(this, problem, t, dt, u)
     ! arguments ................................................................
 
     class(CL_SDC_Method_1D), intent(inout) :: this
@@ -179,12 +178,11 @@ contains
     real(RNP),    intent(inout) :: t
     real(RNP),    intent(in)    :: dt              !< step size ∆t
     real(RNP),    intent(inout) :: u(0:,:,:)       !< u(t) → u(t+ ∆t)
-    real(RNP),    intent(in)    :: M_inv(0:,:,:)    !< transformation matrix
 
     ! local variables  .........................................................
 
     real(RNP), allocatable :: t_(:)              ! [tᵢ]  between t and t+dt
-    real(RNP), allocatable :: dt_(:)             ! [∆tᵢ] ! dimension(:): seems to be needed because of overgiving it to functions
+    real(RNP), allocatable :: dt_(:)             ! [∆tᵢ]
     real(RNP), allocatable :: u_(:,:,:,:)        ! [uᵢ]
     real(RNP), allocatable :: F_(:,:,:,:)        ! [Fᵢ]ᵏ
     real(RNP), allocatable :: F_ex_(:,:,:,:)     ! [F_exᵢ]ᵏ
@@ -225,7 +223,7 @@ contains
       u_(:,:,:,0) = u
       do i = 1, n_sub
         u_(:,:,:,i) = u_(:,:,:,i-1)
-        call this % predictor % TimeStep(problem, t_(i-1), dt_(i), u_(:,:,:,i), M_inv) !Timestep from TimeIntegrator needs t!
+        call this % predictor % TimeStep(problem, t_(i-1), dt_(i), u_(:,:,:,i))
 
       end do
 
@@ -258,16 +256,15 @@ contains
 
         Sweeps: do n = 1, n_sweep ! in christlieb n->k
 
-          do i = 1, n_sub ! Loop for de-jure-computation of δ^k_m and alternating η^k+1_m over subinterval de-facto one uses η^k_m and η^k+1_m because δ^k+1_m + η^k_m = η^k+1_m
-            call this % CorrectorStep( problem             & ! performs a corrector timestep on sub-timesteps in Christlieb they are indicated with m
+          do i = 1, n_sub
+            call this % CorrectorStep( problem             &
                                      , m        = i        &
-                                     , t        = t_       & ! could cause problems with inout <- actually does not but could
+                                     , t        = t_       &
                                      , u        = u_       &
-                                     , M_inv    = M_inv    &
                                      , F        = F_       &
-                                     , F_ex     = F_ex_    & ! -> F_ex_    = f( t_(i-1), u^(k-1)_i )  i in (1, ..., n_sub)
+                                     , F_ex     = F_ex_    &
                                      , F_im     = F_im_    &
-                                     , F_ex_new = F_ex_new & ! -> F_ex_new = f( t_(m-1), u^k_m )
+                                     , F_ex_new = F_ex_new &
                                      , F_im_new = F_im_new )
           end do          ! k <- k+1
 
@@ -275,10 +272,10 @@ contains
 
           do j = n, n_sub
             F_(:,:,:,j) = problem % RHS_Convection(t_(j),u_(:,:,:,j)) &
-                        + problem % RHS_Diffusion (t_(j),u_(:,:,:,j)) ! same stuff as in correctorRHS is done
+                        + problem % RHS_Diffusion (t_(j),u_(:,:,:,j))
           end do
 
-          F_ex_(:,:,:,1:n_sub) = F_ex_new(:,:,:,1:n_sub)     ! F_ex_ = f( t_(i-1), u^k_i )  i in (1, ..., n_sub)
+          F_ex_(:,:,:,1:n_sub) = F_ex_new(:,:,:,1:n_sub)
           F_im_(:,:,:,1:n_sub) = F_im_new(:,:,:,1:n_sub)
 
         end do Sweeps

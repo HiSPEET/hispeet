@@ -181,7 +181,7 @@ contains
     select case (this % impl)
     case(0) ! explicit
       F_im = 0
-      F_ex(:,:,:) = problem % RHS_Convection(t, u(:,:,:)) & ! t is the wrong time here, but
+      F_ex(:,:,:) = problem % RHS_Convection(t, u(:,:,:)) &  ! t is the wrong time here, but
                   + problem % RHS_Diffusion (t, u(:,:,:))    ! does not matter with periodic BC
 
     case(1) ! implicit
@@ -201,7 +201,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Execution of a single correction step
 
-  subroutine CorrectorStep( this, problem, m, t, u, M_inv, F      &
+  subroutine CorrectorStep( this, problem, m, t, u, F      &
                           , F_ex, F_im, F_ex_new, F_im_new )
 
     class(CL_SDC_Method_TVDRK_1D), intent(inout) :: this
@@ -209,7 +209,6 @@ contains
     integer  , intent(in)    :: m                    !< current SDC interval index
     real(RNP), intent(in)    :: t(0:)                !< SDC time nodes
     real(RNP), intent(inout) :: u(0:,:,:,0:)         !< uᵏ⁺¹(:m-1),uᵏ→uᵏ⁺¹(m),uᵏ(m+1:)
-    real(RNP), intent(in)    :: M_inv(:,:,:)
     real(RNP), intent(in)    :: F(0:,:,:,0:)         !< Fᵏ
     real(RNP), intent(in)    :: F_ex(0:,:,:,0:)      !< F_exᵏ
     real(RNP), intent(in)    :: F_im(0:,:,:,0:)      !< F_imᵏ
@@ -238,10 +237,10 @@ contains
              , impl    => this % impl              &
              , n_sub   => this % n_sub             &
              , w_sub   => this % w_sub             &
-    !bounds ....................................................................
              , po      => problem % eop % po       &
              , ne      => problem % ne             &
-             , nc      => problem % nc             )
+             , nc      => problem % nc             &
+             , mm      => problem % mm             )
 
       ! allocation .............................................................
 
@@ -284,7 +283,7 @@ contains
         ! SDC quadrature .......................................................
 
         do j = 0, this % n_sub
-          S_rk    = S_rk + dt * M_inv *  F(:,:,:,j) * w_rk(j,i,m)
+          S_rk(:,:,1)    = S_rk(:,:,1) + dt / mm *  F(:,:,1,j) * w_rk(j,i,m)
           G_ex(:,:,:,i) = G_ex(:,:,:,i) - l_rk(j,i,m) * F_ex(:,:,:,j) ! lagrangian interpolation
           G_im(:,:,:,i) = G_im(:,:,:,i) - l_rk(j,i,m) * F_im(:,:,:,j)
         end do
@@ -292,11 +291,11 @@ contains
         ! correction ...........................................................
 
         do j = 1, i-1 ! explicit correction
-          u_rk = u_rk + dt_sub * ( a_ex(i,j) * M_inv * G_ex(:,:,:,j) )
+          u_rk(:,:,1) = u_rk(:,:,1) + dt_sub * ( a_ex(i,j) / mm * G_ex(:,:,1,j) )
         end do
 
         do j = 1, i   ! implicit correction
-          u_rk = u_rk + dt_sub * ( a_im(i,j) * M_inv * G_im(:,:,:,j) )
+          u_rk(:,:,1) = u_rk(:,:,1) + dt_sub * ( a_im(i,j) / mm * G_im(:,:,1,j) )
         end do
 
         u_rk = u_rk + S_rk
@@ -331,15 +330,15 @@ contains
         S = 0
 
         do i = 0, n_sub
-          S = S + dt * M_inv * F(:,:,:,i) * w_sub(i,m) ! Is that used somewhere?
+          S(:,:,1) = S(:,:,1) + dt / mm * F(:,:,1,i) * w_sub(i,m) ! Is that used somewhere?
         end do
 
         ! assembly .............................................................
 
         u_rk = u_rk - S_rk
         do i = 1, 3
-          u_rk = u_rk + dt_sub * ( (b_ex(i) - a_ex(3,i)) * M_inv *G_ex(:,:,:,i) &
-                                 + (b_im(i) - a_im(3,i)) * M_inv *G_im(:,:,:,i) )
+          u_rk(:,:,1) = u_rk(:,:,1) + dt_sub * ( (b_ex(i) - a_ex(3,i)) / mm *G_ex(:,:,1,i) &
+                                 + (b_im(i) - a_im(3,i)) / mm *G_im(:,:,1,i) )
         end do
 
       end if

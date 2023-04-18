@@ -26,7 +26,6 @@ program Conservation_Law
   type(DG_ElementOptions_1D) :: dg_opt
   type(DG_SchwarzOptions_1D) :: schwarz_opt
   real(RNP), allocatable     :: u(:,:,:)     ! discrete solution
-  real(RNP), allocatable     :: M_inv(:,:,:) ! transformation matrix
 
   real(RNP) :: start, finish !for time measurement
 
@@ -218,13 +217,6 @@ program Conservation_Law
   u(0:,:,:) = problem % InitialValues()
   dt = cfl * problem%dx / po**2
 
-  allocate(M_inv, mold = u)
-  do e = 1, problem % ne
-  do k = 1, problem % nc
-    M_inv(:,e,k) = (2 / problem % dx) / problem % eop % w
-  end do
-  end do
-
   k = 1
   t = 0
 
@@ -233,10 +225,10 @@ program Conservation_Law
   do
     select case(sdc_method)
     case(0)      ! standalone time-integrator
-      call tint % TimeStep(problem, t, dt, u, M_inv)
+      call tint % TimeStep(problem, t, dt, u)
       t  = t + dt
     case default ! SDC method
-      call sdc % TimeStep(problem, t, dt, u, M_inv)
+      call sdc % TimeStep(problem, t, dt, u)
       t  = t + dt
     end select
 

@@ -87,20 +87,20 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs an IMEX TR step
 
-  subroutine TimeStep(this, problem, t, dt, u, M_inv)
+  subroutine TimeStep(this, problem, t, dt, u)
     class(CL_TimeIntegrator_TR_1D), intent(inout) :: this
     class(CL_Problem_Scalar_1D),    intent(in)    :: problem
     real(RNP), intent(inout) :: t
     real(RNP), intent(in)    :: dt              !< step size ∆t
     real(RNP), intent(inout) :: u(0:,:,:)       !< u(t) → u(t+ ∆t)
-    real(RNP), intent(in)    :: M_inv(:,:,:)
 
     real(RNP), allocatable, dimension(:,:,:), save :: u1, u2, u3
     real(RNP), allocatable, dimension(:,:,:), save :: f
 
     associate( po => problem % eop % po &
              , ne => problem % ne       &
-             , nc => problem % nc       )
+             , nc => problem % nc       &
+             , mm => problem % mm       )
 
       ! workspace
       if (.not. allocated(f)) then
@@ -118,12 +118,12 @@ contains
         f  = problem % RHS_Convection(t, u)  &
            + problem % RHS_Diffusion (t, u)
 
-        u2 = u + dt * M_inv * f
+        u2(:,:,1) = u(:,:,1) + dt / mm * f(:,:,1)
 
         f  = problem % RHS_Convection(t+dt, u2)  &
            + problem % RHS_Diffusion (t+dt, u2)
 
-        u  = u + dt * HALF * M_inv * f
+        u(:,:,1)  = u(:,:,1) + dt * HALF / mm * f(:,:,1)
 
       case(1)
 
