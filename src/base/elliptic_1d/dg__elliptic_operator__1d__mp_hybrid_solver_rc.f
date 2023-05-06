@@ -13,15 +13,16 @@ contains
   !-----------------------------------------------------------------------------
   !> Direct elliptic solver based on hybridization including SVV
 
-  module subroutine HybridSolver_RC(this, dx, lambda, nu, f, bv, u, standby)
+  module subroutine HybridSolver_RC(this, bc, bv, dx, lambda, nu, f, u, standby)
 
-    class(DG_EllipticOperator_1D), intent(in)  :: this
-    real(RNP),             intent(in)    :: dx       !< element width
-    real(RNP),             intent(in)    :: lambda   !< λ
-    real(RNP),             intent(in)    :: nu       !< diffusivity, ν = νᵖ+νˢ
-    real(RNP),             intent(in)    :: bv(2)    !< boundary values, u or u'
-    real(RNP), contiguous, intent(inout) :: f(0:,:)  !< source, being destroyed
-    real(RNP), contiguous, intent(out)   :: u(0:,:)  !< solution
+    class(DG_EllipticOperator_1D), intent(in) :: this
+    character,             intent(in)    :: bc(2)   !< BC {D,N,P}
+    real(RNP),             intent(in)    :: bv(2)   !< boundary values, u or u'
+    real(RNP),             intent(in)    :: dx      !< ∆xᵉ
+    real(RNP),             intent(in)    :: lambda  !< λ
+    real(RNP),             intent(in)    :: nu      !< diffusivity, ν = νᵖ+νˢ
+    real(RNP), contiguous, intent(inout) :: f(0:,:) !< source, being destroyed
+    real(RNP), contiguous, intent(out)   :: u(0:,:) !< solution
 
     !> optionally keep suboperators for repeated application [F]
     logical, optional, intent(in) :: standby
@@ -41,7 +42,7 @@ contains
     character :: bc_sub(2)
     integer   :: po, ne
 
-    associate(eop => this % eop, bc => this % bc)
+    associate(eop => this % eop)
 
       ! preprocessing ..........................................................
 

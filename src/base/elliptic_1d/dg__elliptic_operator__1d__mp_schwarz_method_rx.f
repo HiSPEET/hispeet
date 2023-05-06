@@ -17,17 +17,20 @@ contains
   !> @remark
   !> One and only one of the parameters `nu_c` and `nu_v` is to be passed
 
-  module subroutine Schwarz_Method_RX( this, dx, lambda, nu_c, nu_v, u, f, bv &
-                                     , i_max, r_red, r_max, ni                )
+  module subroutine Schwarz_Method_RX( this, bc, bv, mask, dx    &
+                                     , lambda, nu_c, nu_v , f, u &
+                                     , i_max, r_red, r_max, ni   )
 
     class(DG_EllipticOperator_1D),   intent(in)    :: this
+    character,                       intent(in)    :: bc(2)     !< BC {D,N,P}
+    real(RNP),                       intent(in)    :: bv(2)     !< BV, u or u'
+    logical,                         intent(in)    :: mask(:)   !< element mask
     real(RNP),                       intent(in)    :: dx
     real(RNP),                       intent(in)    :: lambda    !< λ
     real(RNP),             optional, intent(in)    :: nu_c      !< νᵖ+νˢ
     real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:) !< νᵖ
-    real(RNP), contiguous,           intent(inout) :: u(:,:)
     real(RNP), contiguous,           intent(in)    :: f(:,:)
-    real(RNP),                       intent(in)    :: bv(2)
+    real(RNP), contiguous,           intent(inout) :: u(:,:)
     integer,                         intent(in)    :: i_max
     real(RNP),             optional, intent(in)    :: r_red
     real(RNP),             optional, intent(in)    :: r_max
@@ -35,29 +38,32 @@ contains
 
     ! internal variables .......................................................
 
-    real(RNP), allocatable, save :: nu_avg(:)  ! element averaged ν
-    real(RNP), allocatable, save :: r (:,:)    ! residual
-    real(RNP), allocatable, save :: rs(:,:)    ! subdomain residuals
-    real(RNP), allocatable, save :: us(:,:)    ! subdomain corrections
+    integer,   allocatable, save :: cfg(:)    ! subdomain boundary configuration
+    real(RNP), allocatable, save :: nu_avg(:) ! element averaged ν
+    real(RNP), allocatable, save :: r (:,:)   ! residual
+    real(RNP), allocatable, save :: rs(:,:)   ! subdomain residuals
+    real(RNP), allocatable, save :: us(:,:)   ! subdomain corrections
 
     real(RNP), save :: rr_term, rr_red
     logical  , save :: converged
 
     real(RNP) :: rr
     integer   :: e, i, ne, np, ns
-    logical   :: check_convergence
+    logical   :: check_convergence, periodic
 
     associate(eop => this%eop, schwarz => this%schwarz)
 
       ! initialization .........................................................
 
-      ne = schwarz % ne
+      ne = size(mask)
       np = schwarz % po + 1
       ns = schwarz % no * 2 + np
 
       check_convergence = .false.
       if (present(r_red)) check_convergence = r_red > 0
       if (present(r_max)) check_convergence = r_max > 0 .or. check_convergence
+
+      periodic = all(bc == 'P')
 
       !$omp master
 
@@ -77,10 +83,12 @@ contains
         converged = .false.
       end if
 
-      allocate(nu_avg(ne), r(np,ne), rs(ns,ne), us(ns,ne))
+      allocate(cfg(ne), nu_avg(ne), r(np,ne), rs(ns,ne), us(ns,ne))
 
       !$omp end master
       !$omp barrier
+
+      call schwarz % ConfigureSubdomains(bc, cfg, mask)
 
       ! element-averaged diffusivity
       if (present(nu_c)) then
@@ -88,7 +96,11 @@ contains
       else
         !$omp do
         do e = 1, ne
-          nu_avg(e) = HALF * sum(eop%w * nu_v(:,e))
+          if (mask(e)) then
+            nu_avg(e) = HALF * dot_product(eop%w, nu_v(:,e))
+          else
+            nu_avg(e) = ONE
+          end if
         end do
       end if
 
@@ -98,9 +110,9 @@ contains
 
         ! residual
         if (present(nu_c)) then
-          call this % Residual(dx, lambda, nu_c, f, bv, u, r)
+          call this % Residual(bc, bv, dx, lambda, nu_c, f, u, r, mask)
         else
-          call this % Residual(dx, lambda, nu_v, f, bv, u, r)
+          call this % Residual(bc, bv, dx, lambda, nu_v, f, u, r, mask)
         end if
 
         ! termination check
@@ -117,9 +129,9 @@ contains
         if (converged) exit
 
         ! Schwarz sweep
-        call schwarz % RestrictResidual(r, rs)
-        call schwarz % Apply(dx, lambda, nu_avg, rs, us)
-        call schwarz % MergeCorrections(us, u)
+        call schwarz % RestrictResidual(periodic, r, rs)
+        call schwarz % Apply(cfg, dx, lambda, nu_avg, rs, us)
+        call schwarz % MergeCorrections(periodic, us, u)
 
       end do
 
@@ -128,7 +140,7 @@ contains
       ! cleanup ................................................................
 
       !$omp master
-      deallocate(nu_avg, r, rs, us)
+      deallocate(cfg, nu_avg, r, rs, us)
       !$omp end master
 
     end associate
