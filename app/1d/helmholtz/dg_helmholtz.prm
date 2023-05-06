@@ -11,7 +11,7 @@
   dg_opt%hybrid  = T     ! T/F: hybridizable/standard IP method
   dg_opt%svv     = F     ! T/F: with/without SVV
   dg_opt%penalty = 2     ! penalty parameter > 1
-  schwarz_opt%no = 8     ! Schwarz overlap
+  schwarz_opt%no = 1     ! Schwarz overlap
   ne             = 2     ! number of elements
   method         = 1     ! 1/2/3/4: hybrid/CG/Schwarz/Schwarz-IPCG
 ! i_max          = 1000  ! max num iterations

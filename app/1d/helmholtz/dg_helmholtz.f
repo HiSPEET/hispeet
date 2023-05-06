@@ -105,16 +105,16 @@ program DG_Helmholtz
   singular = lambda == 0 .and. (all(bc == 'N') .or. all(bc == 'P'))
 
   ! initialize operator
-  elliptic_op = DG_EllipticOperator_1D(dg_opt, schwarz_opt, ne, bc, r_nu_s)
+  elliptic_op = DG_EllipticOperator_1D(dg_opt, schwarz_opt, r_nu_s)
 
   associate(eop => elliptic_op%eop, po => elliptic_op%eop%po)
 
     ! workspace
     allocate(u(0:po,ne), x(0:po,ne), f(0:po,ne))
     allocate(r(0:po,ne), s(0:po,ne), e(0:po,ne))
-!    call random_number(u)
-!    u = u - HALF
-    u = 0
+    call random_number(u)
+    u = u - HALF
+!   u = 0
 
     ! mesh
     dx = TWO / ne
@@ -137,7 +137,7 @@ program DG_Helmholtz
     ! consistency error ........................................................
 
     call system_clock(count0)
-    call elliptic_op % Residual(dx, lambda, nu, f, bv, s, r)
+    call elliptic_op % Residual(bc, bv, dx, lambda, nu, f, s, r)
     call system_clock(count1)
 
     t_res = (count1 - count0) / real(count_rate, RNP)
@@ -147,16 +147,16 @@ program DG_Helmholtz
     call system_clock(count0)
     select case(method)
     case(1)
-      call elliptic_op % HybridSolver(dx, lambda, nu, f, bv, u)
+      call elliptic_op % HybridSolver(bc, bv, dx, lambda, nu, f, u)
     case(2)
-      call elliptic_op % CG_Method &
-                            (dx, lambda, nu, u, f, bv, i_max, r_red, r_max, ni)
+      call elliptic_op % CG_Method( bc, bv, dx, lambda, nu, f, u &
+                                  , i_max, r_red, r_max, ni = ni )
     case(3)
-      call elliptic_op % Schwarz_Method &
-                            (dx, lambda, nu, u, f, bv, i_max, r_red, r_max, ni)
+      call elliptic_op % Schwarz_Method( bc, bv, dx, lambda, nu, f, u &
+                                       , i_max, r_red, r_max, ni = ni )
     case(4)
-      call elliptic_op % SchwarzPCG_Method &
-                            (dx, lambda, nu, u, f, bv, i_max, r_red, r_max, ni)
+      call elliptic_op % SchwarzPCG_Method( bc, bv, dx, lambda, nu, f, u &
+                                          , i_max, r_red, r_max, ni = ni )
     end select
     call system_clock(count1)
 
