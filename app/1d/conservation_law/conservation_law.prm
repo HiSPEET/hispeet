@@ -1,7 +1,22 @@
-&discretization_prm
-  po         = 16
-  ne         = 5
-  penalty    = 2
-  cfl        = 0.1
-  t_end      = 0.75
+&space_discretization_prm
+  cl_operator_opt%ne          = 41
+  cl_operator_opt%eop%po      = 15 
+  cl_operator_opt%eop%penalty =  2
+  cl_operator_opt%schwarz%no  =  0
+  cl_operator_opt%qop%po      = 15 
+/
+
+&time_integration_prm
+  time_method = 2
+
+  t_end  = 0.5
+  dt     = 1e-3
+  nt_max = 1000000
+
+  cl_tint_euler_opt%impl = 1
+  cl_tint_isd1_opt%impl  = 1
+/
+
+&burgers_moving_front_prm
+  nu = 1e-6
 /
