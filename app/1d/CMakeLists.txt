@@ -1,0 +1,3 @@
+add_subdirectory(helmholtz)
+add_subdirectory(convection_diffusion)
+add_subdirectory(conservation_law)

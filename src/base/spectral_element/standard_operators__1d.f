@@ -283,13 +283,13 @@ contains
   !> Get the Legendre-Vandermonde matrix
 
   subroutine Get_Legendre_VDM(this, VL)
-    class(StandardOperators_1D), intent(in) :: this    !< standard operators
+    class(StandardOperators_1D), intent(in) :: this   !< standard operators
     real(RNP), intent(out) :: VL(0:this%po,0:this%po) !< Vandermonde matrix
 
     if (.not. allocated(this % VL)) then
       call Error( 'Get_Legendre_VDM'                   &
                 , 'Vandermonde matrix not initialized' &
-                , 'Standard_Operators__1D'              )
+                , 'Standard_Operators__1D'             )
     end if
 
     VL = this % VL
@@ -384,13 +384,13 @@ contains
   !> Get the SVV standard differentiation matrix based on the root of SVV kernel
 
   subroutine Get_SVV_StandardRootDiffMatrix(this, D_root_svv)
-    class(StandardOperators_1D), intent(in) :: this            !< standard operators
+    class(StandardOperators_1D), intent(in) :: this           !< standard operators
     real(RNP), intent(out) :: D_root_svv(0:this%po,0:this%po) !< SVV diff matrix
 
     if (.not. allocated(this % D_root_svv)) then
       call Error( 'Get_SVV_StandardRootDiffMatrix' &
                 , 'SVV not initialized'            &
-                , 'Standard_Operators__1D'          )
+                , 'Standard_Operators__1D'         )
     end if
 
     D_root_svv = this % D_root_svv
@@ -401,13 +401,13 @@ contains
   !> Get the SVV standard differentiation matrix
 
   subroutine Get_SVV_StandardDiffMatrix(this, D_svv)
-    class(StandardOperators_1D), intent(in) :: this       !< standard operators
+    class(StandardOperators_1D), intent(in) :: this      !< standard operators
     real(RNP), intent(out) :: D_svv(0:this%po,0:this%po) !< SVV diff matrix
 
     if (.not. allocated(this % D_svv)) then
       call Error( 'Get_SVV_StandardDiffMatrix' &
                 , 'SVV not initialized'        &
-                , 'Standard_Operators__1D'      )
+                , 'Standard_Operators__1D'     )
     end if
 
     D_svv = this % D_svv

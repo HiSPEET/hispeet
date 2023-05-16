@@ -1,0 +1,29 @@
+&space_discretization_prm
+  cl_operator_opt%ne          = 41
+  cl_operator_opt%eop%po      = 15 
+  cl_operator_opt%eop%penalty =  2
+! cl_operator_opt%eop%hybrid  =  T ! use only with diffusion_method = 1
+  cl_operator_opt%schwarz%no  =  0
+  cl_operator_opt%qop%po      = 15 
+/
+
+&time_integration_prm
+  time_method = 2
+
+  t_end  = 0.5
+  dt     = 1e-3
+  nt_max = 1000000
+
+  cl_tint_euler_opt%impl = 1
+  cl_tint_euler_opt%diffusion_method = 4
+  cl_tint_euler_opt%diffusion_i_max  = 100
+
+  cl_tint_isd1_opt%impl  = 1
+  cl_tint_isd1_opt%diffusion_method = 4
+  cl_tint_isd1_opt%diffusion_i_max  = 100
+/
+
+&burgers_moving_front_prm
+  nu = 1e-6
+! nu_sd_filter = 1 ! activate to use elementwise max streamline diffusivity
+/

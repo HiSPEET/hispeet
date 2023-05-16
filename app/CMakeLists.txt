@@ -1,2 +1,2 @@
-add_subdirectory(examples)
+add_subdirectory(1d)
 add_subdirectory(exercises)
