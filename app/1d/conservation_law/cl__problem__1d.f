@@ -38,6 +38,10 @@ module CL__Problem__1D
     real(RNP)         :: xb2   !< position of right boundary
     character(len=80) :: bc(2) !< BC types at left and right boundaries
 
+    ! solution parameters ......................................................
+
+    integer :: nu_sd_filter = -1 !< streamline-diffusivity filtering mode
+
     ! private control parameters ...............................................
 
     logical, private :: has_exact_solution = .false.

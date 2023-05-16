@@ -2,7 +2,11 @@
 !> author:   Joerg Stiller
 !> date:     2023/05/01
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @todo
+!>   Consistent approach to filtering of streamline-diffusivity
 !===============================================================================
+
 module CL__Problem__Burgers__1D
 
   use Kind_Parameters, only: RNP
@@ -122,7 +126,6 @@ contains
           r_c(po,e,1) = r_c(po,e,1) - h_c(e)
         end if
       end do
-print '(99(G0,1X))', 'r_c(0,1) =', r_c( 0,1,1)
 
       ! finalization ...........................................................
 
@@ -281,7 +284,8 @@ print '(99(G0,1X))', 'r_c(0,1) =', r_c( 0,1,1)
 
       !$omp master
       allocate(f    (0:po,ne), source = ZERO)
-      allocate(nu_sd(0:po,ne), source = tau/2 * u(:,:,1)**2)
+      allocate(nu_sd(0:po,ne))
+      call GetStreamlineDiffusivity(this, tau, u(:,:,1), nu_sd)
 
       elliptic_bc = this % bc(:)(1:1)
       where(elliptic_bc == 'D')
@@ -385,19 +389,8 @@ print '(99(G0,1X))', 'r_c(0,1) =', r_c( 0,1,1)
 
       if (tau > ZERO) then
 
-        allocate(nu_tot(0:po,ne), source = tau/2 * u(:,:,1)**2)
-        ! element-based smoothing of streamline diffusivity
-        select case(0)
-        case(1)
-          ! apply cut-off filter
-          ! TBD
-        case(2)
-          ! set to maximum
-          do e = 1, ne
-            nu_tot(:,e) = maxval(nu_tot(:,e))
-          end do
-        end select
-        ! add viscosity
+        allocate(nu_tot(0:po,ne))
+        call GetStreamlineDiffusivity(this, tau, u(:,:,1), nu_tot)
         nu_tot = nu_tot + this % nu
 
         select case(method)
@@ -448,6 +441,29 @@ print '(99(G0,1X))', 'r_c(0,1) =', r_c( 0,1,1)
     end associate
 
   end subroutine DiffusionSolver
+
+  !---------------------------------------------------------------------------
+  !> Computation of streamline diffusivity
+
+  subroutine GetStreamlineDiffusivity(cl_problem, tau, u, nu_sd)
+    class(CL_Problem_Burgers_1D), intent(in) :: cl_problem
+    real(RNP),             intent(in)  :: tau         !< SD time scale τ
+    real(RNP), contiguous, intent(in)  :: u    (0:,:) !< approx solution u
+    real(RNP), contiguous, intent(out) :: nu_sd(0:,:) !< approx solution u
+
+    integer :: e
+
+    nu_sd = tau/2 * u**2
+
+    select case(cl_problem % nu_sd_filter)
+    case(1)
+      ! element maximum
+      do e = 1, size(nu_sd,2)
+        nu_sd(:,e) = maxval(nu_sd(:,e))
+      end do
+    end select
+
+  end subroutine GetStreamlineDiffusivity
 
   !=============================================================================
 

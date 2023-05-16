@@ -57,8 +57,9 @@ contains
 
     real(RNP) :: nu = 0.1
     character :: bc(2) = ['D','N']
+    integer   :: nu_sd_filter = -1
 
-    namelist /burgers_moving_front_prm/ nu, bc
+    namelist /burgers_moving_front_prm/ nu, bc, nu_sd_filter
 
     logical :: exists, opened
     integer :: prm
@@ -93,6 +94,8 @@ contains
     this % xb2 =  1  ! position of right boundary
     this % bc  =  bc ! BC types at left and right boundaries
     this % nu  =  nu ! viscosity
+
+    this % nu_sd_filter = nu_sd_filter
 
   end subroutine SetProblem
 
