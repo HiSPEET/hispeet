@@ -135,57 +135,80 @@ contains
       end do
     end if
 
-    ! nothing more to do if new partition is empty
-    if (new_mesh % part < 0) return
-
     ! assign element data ......................................................
 
-    ! number of new elements
-    if (old_mesh % part >= 0) then
-      new_mesh % n_elem = sum(ed_recv_data % n_elem) &
-                        + ed_send_data(old_mesh % part) % n_elem
-    else
-      new_mesh % n_elem = sum(ed_recv_data % n_elem)
-    end if
-    new_mesh % n_elem_active = new_mesh % n_elem
-    new_mesh % n_elem_frozen = 0
-
-    allocate(new_mesh % element(new_mesh % n_elem))
-
-    ! assign received data
     if (new_mesh % part >= 0) then
-      do i = 0, old_mesh%n_parts-1
-        if (ed_recv_data(i) % proc /= old_mesh % proc) then
-          call ed_recv_data(i) % Assign_Data(new_mesh)
-        else
-          call ed_send_data(old_mesh%part) % Assign_Data(new_mesh)
-        end if
-      end do
+
+      ! number of new elements
+      if (old_mesh % part >= 0) then
+        new_mesh % n_elem = sum(ed_recv_data % n_elem) &
+                          + ed_send_data(old_mesh % part) % n_elem
+      else
+        new_mesh % n_elem = sum(ed_recv_data % n_elem)
+      end if
+      new_mesh % n_elem_active = new_mesh % n_elem
+      new_mesh % n_elem_frozen = 0
+
+      allocate(new_mesh % element(new_mesh % n_elem))
+
+      ! assign received data
+      if (new_mesh % part >= 0) then
+        do i = 0, old_mesh%n_parts-1
+          if (ed_recv_data(i) % proc /= old_mesh % proc) then
+            call ed_recv_data(i) % Assign_Data(new_mesh)
+          else
+            call ed_send_data(old_mesh%part) % Assign_Data(new_mesh)
+          end if
+        end do
+      end if
+
     end if
 
     ! complete mesh.............................................................
 
-    call new_mesh % IdentifyVertices()
-    call new_mesh % IdentifyEdges()
-    call new_mesh % BuildFaces()
-    call new_mesh % BuildBoundaryFaces()
-    call new_mesh % BuildLinks()
-    call new_mesh % BuildGhosts()
-    call new_mesh % BuildCuboids()
-    call new_mesh % IdentifyRanks()
-    call new_mesh % BuildMapToChild()
+    if (new_mesh % part >= 0) then
+
+      call new_mesh % IdentifyVertices()
+      call new_mesh % IdentifyEdges()
+      call new_mesh % BuildFaces()
+      call new_mesh % BuildBoundaryFaces()
+      call new_mesh % BuildLinks()
+      call new_mesh % BuildGhosts()
+      call new_mesh % BuildCuboids()
+      call new_mesh % IdentifyRanks()
+      call new_mesh % BuildMapToChild()
+
+    end if
 
     ! redistribution maps for retained data ....................................
 
-    allocate(rd_send_map( 0 : new_mesh % n_parts - 1 ))
-    do i = 0, new_mesh % n_parts - 1
-      rd_send_map(i) % comm = new_mesh % comm_world
-      rd_send_map(i) % proc = new_mesh % proc_part(i)
-    end do
-    call BuildDataExchangeSendMap(ed_map, rd_send_map)
+    if (present(rd_send_map)) then
+      if (new_mesh % part >= 0) then
+        allocate(rd_send_map( 0 : new_mesh % n_parts - 1 ))
+        do i = 0, new_mesh % n_parts - 1
+          rd_send_map(i) % comm = new_mesh % comm_world
+          rd_send_map(i) % proc = new_mesh % proc_part(i)
+        end do
+        call BuildDataExchangeSendMap(ed_map, rd_send_map)
+      else
+        allocate(rd_send_map(0))
+      end if
+    end if
 
-    allocate(rd_recv_map( 0 : old_mesh % n_parts - 1 ))
-    call BuildDataExchangeRecvMap(ed_recv_data, rd_recv_map)
+    if (present(rd_recv_map)) then
+      if (new_mesh % part >= 0) then
+        allocate(rd_recv_map( 0 : old_mesh % n_parts - 1 ))
+        call BuildDataExchangeRecvMap(ed_recv_data, rd_recv_map)
+      else
+        allocate(rd_recv_map(0))
+      end if
+    end if
+
+    ! update child partitions ..................................................
+
+    if (present(child)) then
+      call UpdateChild(old_mesh, new_mesh, ed_map, child)
+    end if
 
     !---------------------------------------------------------------------------
     !$omp end master
@@ -434,6 +457,79 @@ contains
     end do
 
   end subroutine BuildDataExchangeRecvMap
+
+  !=============================================================================
+  ! Child update
+
+  !-----------------------------------------------------------------------------
+  !> Update parent info and maps in child level partitions
+
+  subroutine UpdateChild(old_mesh, new_mesh, ed_map, child)
+    class(Mesh_3D), intent(in) :: old_mesh
+    class(Mesh_3D), intent(in) :: new_mesh
+    class(ElementDistributionMap_3D), target, intent(in) :: ed_map
+    class(Mesh_3D), intent(inout) :: child
+
+    type(DataExchangeMap_3D), allocatable :: send_map(:)
+    type(DataExchangeMap_3D), allocatable :: recv_map(:)
+
+    type(DataExchangeSendBuf_3D), allocatable :: send_buf(:)
+    type(DataExchangeRecvBuf_3D), allocatable :: recv_buf(:)
+
+    integer, allocatable :: new_proc(:)
+    integer :: n_recv, n_send
+    integer :: i
+
+    ! initialization ...........................................................
+
+    n_send = old_mesh % n_child
+    allocate(send_map(n_send), send_buf(n_send))
+    do i = 1, n_send
+      send_map(i) = DataExchangeMap_3D(old_mesh % map_child(i))
+    end do
+
+    n_recv = child % n_parent
+    allocate(recv_map(n_recv), recv_buf(n_recv))
+    do i = 1, n_recv
+      recv_map(i) = DataExchangeMap_3D(child % map_parent(i))
+    end do
+
+    ! translate parent element target partition into process ID
+    allocate(new_proc(old_mesh % n_elem))
+    do i = 1, old_mesh % n_elem
+      new_proc(i) = new_mesh % proc_part(ed_map % tp_elem(i))
+    end do
+
+    ! pass target partitions to children .......................................
+
+    associate(parent_proc => child % element % adaptation % parent_proc)
+
+      do i = 1, n_send
+        call send_buf(i) % Extract_Data(send_map(i), new_proc)
+        call send_buf(i) % Send_Start()
+      end do
+
+      do i = 1, n_recv
+        call recv_buf(i) % Init(recv_map(i), parent_proc)
+        call recv_buf(i) % Recv_Start()
+      end do
+
+      do i = 1, n_send
+        call send_buf(i) % Send_Finish()
+      end do
+
+      do i = 1, n_recv
+        call recv_buf(i) % Recv_Finish()
+        call recv_buf(i) % Assign_Data(parent_proc)
+      end do
+
+    end associate
+
+    ! rebuild map from child to parent .........................................
+
+    call child % BuildMapToParent()
+
+  end subroutine UpdateChild
 
   !=============================================================================
 
