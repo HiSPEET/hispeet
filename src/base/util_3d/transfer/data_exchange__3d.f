@@ -30,6 +30,7 @@ module Data_Exchange__3D
   !> Structure for sending data of retained elements to new location
 
   type DataExchangeSendBuf_3D
+
     class(DataExchangeMap_3D), pointer :: map => null()
     integer :: ne = -1 !< number of elements with data to be send
     integer :: na = -1 !< number of attribute entries per element
@@ -39,17 +40,24 @@ module Data_Exchange__3D
     real(RNP), allocatable :: buf_v(:,:,:,:,:) !< send buffer for variables
     type(MPI_Request)      :: req_a            !< MPI request for attributes
     type(MPI_Request)      :: req_v            !< MPI request for variables
+
   contains
-    generic :: Extract_Data => Extract_ScalarData, Extract_ArrayData
-    procedure, private :: Extract_ScalarData, Extract_ArrayData
+
+    generic :: Extract_Data => Extract_Data_00, Extract_Data_10, &
+                               Extract_Data_01, Extract_Data_11
+    procedure, private ::      Extract_Data_00, Extract_Data_10, &
+                               Extract_Data_01, Extract_Data_11
+
     procedure :: Send_Start
     procedure :: Send_Finish
+
   end type DataExchangeSendBuf_3D
 
   !-----------------------------------------------------------------------------
   !> Structure for receiving data of retained elements from old location
 
   type DataExchangeRecvBuf_3D
+
     class(DataExchangeMap_3D), pointer :: map => null()
     integer :: ne = -1 !< number of elements with data to be received
     integer :: na = -1 !< number of attribute entries per element
@@ -59,13 +67,22 @@ module Data_Exchange__3D
     real(RNP), allocatable :: buf_v(:,:,:,:,:) !< recv buffer for variables
     type(MPI_Request)      :: req_a            !< MPI request for attributes
     type(MPI_Request)      :: req_v            !< MPI request for variables
+
   contains
-    generic :: Init => Init_Recv_ScalarData, Init_Recv_ArrayData
-    procedure, private :: Init_Recv_ScalarData, Init_Recv_ArrayData
+
+    generic :: Init =>    Init_Recv_00, Init_Recv_10, &
+                          Init_Recv_01, Init_Recv_11
+    procedure, private :: Init_Recv_00, Init_Recv_10, &
+                          Init_Recv_01, Init_Recv_11
+
     procedure :: Recv_Start
     procedure :: Recv_Finish
-    generic :: Assign_Data => Assign_ScalarData, Assign_ArrayData
-    procedure, private :: Assign_ScalarData, Assign_ArrayData
+
+    generic :: Assign_Data => Assign_Data_00, Assign_Data_10, &
+                              Assign_Data_01, Assign_Data_11
+    procedure, private ::     Assign_Data_00, Assign_Data_10, &
+                              Assign_Data_01, Assign_Data_11
+
   end type DataExchangeRecvBuf_3D
 
 contains
@@ -95,9 +112,9 @@ contains
       end if
     end if
 
-    this % comm    = map_child % comm
-    this % proc    = map_child % proc
-    this % id_elem = map_child % id_elem(:n_elem)
+    this % comm = map_child % comm
+    this % proc = map_child % proc
+    allocate(this % id_elem, source = map_child % id_elem(:n_elem))
 
   end function New_ExchangeMap_from_MapToChild
 
@@ -123,9 +140,9 @@ contains
       end if
     end if
 
-    this % comm    = map_parent % comm
-    this % proc    = map_parent % proc
-    this % id_elem = map_parent % id_cluster(:n_cluster)
+    this % comm = map_parent % comm
+    this % proc = map_parent % proc
+    allocate(this % id_elem, source = map_parent % id_cluster(:n_cluster))
 
   end function New_ExchangeMap_from_MapToParent
 
@@ -133,45 +150,123 @@ contains
   ! TBP of DataExchangeSendBuf_3D
 
   !-----------------------------------------------------------------------------
-  !> Extraction of attributes and/or scalar data for sending
+  !> Extraction of single attribute and/or scalar data for sending
 
-  subroutine Extract_ScalarData(this, map, a, v)
+  subroutine Extract_Data_00(this, map, a, v)
     class(DataExchangeSendBuf_3D),     intent(inout) :: this
     class(DataExchangeMap_3D), target, intent(in)    :: map
-    integer,     contiguous, optional, intent(in)    :: a(:,:)
-    real(RNP),   contiguous, optional, intent(in)    :: v(:,:,:,:)
+    integer,                 optional, intent(in)    :: a(:)
+    real(RNP),               optional, intent(in)    :: v(:,:,:,:)
 
     this % map => map
     this % ne  =  size(map % id_elem)
 
-    call Extract_Attributes(this, a)
-    call Extract_ScalarVariable(this, v)
+    call Extract_Attributes_0 (this, a)
+    call Extract_Variables_0  (this, v)
 
-  end subroutine Extract_ScalarData
+  end subroutine Extract_Data_00
 
   !-----------------------------------------------------------------------------
-  !> Extraction of attributes and/or array data for sending
+  !> Extraction of multiple attributes and scalar data for sending
 
-  subroutine Extract_ArrayData(this, map, a, v)
+  subroutine Extract_Data_10(this, map, a, v)
     class(DataExchangeSendBuf_3D),     intent(inout) :: this
     class(DataExchangeMap_3D), target, intent(in)    :: map
-    integer,     contiguous, optional, intent(in)    :: a(:,:)
-    real(RNP),   contiguous,           intent(in)    :: v(:,:,:,:,:)
+    integer,                           intent(in)    :: a(:,:)
+    real(RNP),               optional, intent(in)    :: v(:,:,:,:)
 
     this % map => map
     this % ne  =  size(map % id_elem)
 
-    call Extract_Attributes(this, a)
-    call Extract_ArrayVariable(this, v)
+    call Extract_Attributes_1 (this, a)
+    call Extract_Variables_0  (this, v)
 
-  end subroutine Extract_ArrayData
+  end subroutine Extract_Data_10
 
   !-----------------------------------------------------------------------------
-  !> Extraction of attributes for sending
+  !> Extraction of single attribute and/or array data for sending
 
-  subroutine Extract_Attributes(this, a)
+  subroutine Extract_Data_01(this, map, a, v)
+    class(DataExchangeSendBuf_3D),     intent(inout) :: this
+    class(DataExchangeMap_3D), target, intent(in)    :: map
+    integer,                 optional, intent(in)    :: a(:)
+    real(RNP),                         intent(in)    :: v(:,:,:,:,:)
+
+    this % map => map
+    this % ne  =  size(map % id_elem)
+
+    call Extract_Attributes_0 (this, a)
+    call Extract_Variables_1  (this, v)
+
+  end subroutine Extract_Data_01
+
+  !-----------------------------------------------------------------------------
+  !> Extraction of multiple attributes and/or array data for sending
+
+  subroutine Extract_Data_11(this, map, a, v)
+    class(DataExchangeSendBuf_3D),     intent(inout) :: this
+    class(DataExchangeMap_3D), target, intent(in)    :: map
+    integer,                           intent(in)    :: a(:,:)
+    real(RNP),                         intent(in)    :: v(:,:,:,:,:)
+
+    this % map => map
+    this % ne  =  size(map % id_elem)
+
+    call Extract_Attributes_1 (this, a)
+    call Extract_Variables_1  (this, v)
+
+  end subroutine Extract_Data_11
+
+  !-----------------------------------------------------------------------------
+  !> Extraction of single attributes for sending
+
+  subroutine Extract_Attributes_0(this, a)
     class(DataExchangeSendBuf_3D), intent(inout) :: this
-    integer, contiguous, optional, intent(in) :: a(:,:)
+    integer, optional, intent(in) :: a(:)
+
+    integer :: e
+
+    associate( ne => this % ne &
+             , na => this % na &
+             , id_elem => this % map % id_elem )
+
+      if (present(a)) then
+
+        na = 1
+
+        ! check and possibly (re)allocate attribute send buffer
+        if (allocated(this % buf_a)) then
+          if (any(shape(this % buf_a) /= [na,ne])) then
+            deallocate(this % buf_a)
+          end if
+        end if
+        if (.not. allocated(this % buf_a)) then
+          allocate(this % buf_a(na,ne))
+        end if
+
+        ! extract attributes to send buffer
+        do e = 1, ne
+          this % buf_a(1,e) = a(id_elem(e))
+        end do
+
+      else
+
+        na = 0
+        if (allocated(this % buf_a)) then
+          deallocate(this % buf_a)
+        end if
+
+      end if
+    end associate
+
+  end subroutine Extract_Attributes_0
+
+  !-----------------------------------------------------------------------------
+  !> Extraction of multiple attributes for sending
+
+  subroutine Extract_Attributes_1(this, a)
+    class(DataExchangeSendBuf_3D), intent(inout) :: this
+    integer, optional, intent(in) :: a(:,:)
 
     integer :: e
 
@@ -208,14 +303,14 @@ contains
       end if
     end associate
 
-  end subroutine Extract_Attributes
+  end subroutine Extract_Attributes_1
 
   !-----------------------------------------------------------------------------
   !> Extraction of scalar data for sending
 
-  subroutine Extract_ScalarVariable(this, v)
+  subroutine Extract_Variables_0(this, v)
     class(DataExchangeSendBuf_3D), intent(inout) :: this
-    real(RNP), contiguous, optional, intent(in) :: v(:,:,:,:)
+    real(RNP), optional, intent(in) :: v(:,:,:,:)
 
     integer :: e
 
@@ -255,14 +350,14 @@ contains
       end if
     end associate
 
-  end subroutine Extract_ScalarVariable
+  end subroutine Extract_Variables_0
 
   !-----------------------------------------------------------------------------
   !> Extraction of array data for sending
 
-  subroutine Extract_ArrayVariable(this, v)
+  subroutine Extract_Variables_1(this, v)
     class(DataExchangeSendBuf_3D), intent(inout) :: this
-    real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
+    real(RNP), intent(in) :: v(:,:,:,:,:)
 
     integer :: e, k
 
@@ -293,7 +388,7 @@ contains
 
     end associate
 
-  end subroutine Extract_ArrayVariable
+  end subroutine Extract_Variables_1
 
   !-----------------------------------------------------------------------------
   !> Nonblocking sending of attributes and data
@@ -326,45 +421,114 @@ contains
   ! TBP of DataExchangeRecvBuf_3D
 
   !-----------------------------------------------------------------------------
-  !> Initialization of receive buffer for attributes and/or scalar data
+  !> Initialization of receive buffer for single attribute and/or scalar data
 
-  subroutine Init_Recv_ScalarData(this, map, a, v)
+  subroutine Init_Recv_00(this, map, a, v)
     class(DataExchangeRecvBuf_3D),     intent(inout) :: this
     class(DataExchangeMap_3D), target, intent(in)    :: map
-    integer,     contiguous, optional, intent(in)    :: a(:,:)
-    real(RNP),   contiguous, optional, intent(in)    :: v(:,:,:,:)
+    integer,                 optional, intent(in)    :: a(:)
+    real(RNP),               optional, intent(in)    :: v(:,:,:,:)
 
     this % map => map
     this % ne  =  size(map % id_elem)
 
-    call Init_Recv_Attributes(this, a)
-    call Init_Recv_ScalarVariable(this, v)
+    call Init_Recv_Attributes_0 (this, a)
+    call Init_Recv_Variables_0  (this, v)
 
-  end subroutine Init_Recv_ScalarData
+  end subroutine Init_Recv_00
 
   !-----------------------------------------------------------------------------
-  !> Initialization of receive buffer for attributes and/or array data
+  !> Initialization of receive buffer for multiple attributes and scalar data
 
-  subroutine Init_Recv_ArrayData(this, map, a, v)
-    class(DataExchangeRecvBuf_3D),         intent(inout) :: this
+  subroutine Init_Recv_10(this, map, a, v)
+    class(DataExchangeRecvBuf_3D),     intent(inout) :: this
     class(DataExchangeMap_3D), target, intent(in)    :: map
-    integer,         contiguous, optional, intent(in)    :: a(:,:)
-    real(RNP),       contiguous,           intent(in)    :: v(:,:,:,:,:)
+    integer,                           intent(in)    :: a(:,:)
+    real(RNP),               optional, intent(in)    :: v(:,:,:,:)
 
     this % map => map
     this % ne  =  size(map % id_elem)
 
-    call Init_Recv_Attributes(this, a)
-    call Init_Recv_ArrayVariable(this, v)
+    call Init_Recv_Attributes_1 (this, a)
+    call Init_Recv_Variables_0  (this, v)
 
-  end subroutine Init_Recv_ArrayData
+  end subroutine Init_Recv_10
 
   !-----------------------------------------------------------------------------
-  !> Initialization of receive buffer for attributes
+  !> Initialization of receive buffer for single attribute and array data
 
-  subroutine Init_Recv_Attributes(this, a)
+  subroutine Init_Recv_01(this, map, a, v)
+    class(DataExchangeRecvBuf_3D),     intent(inout) :: this
+    class(DataExchangeMap_3D), target, intent(in)    :: map
+    integer,                 optional, intent(in)    :: a(:)
+    real(RNP),                         intent(in)    :: v(:,:,:,:,:)
+
+    this % map => map
+    this % ne  =  size(map % id_elem)
+
+    call Init_Recv_Attributes_0 (this, a)
+    call Init_Recv_Variables_1  (this, v)
+
+  end subroutine Init_Recv_01
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of receive buffer for multiple attributes and/or array data
+
+  subroutine Init_Recv_11(this, map, a, v)
+    class(DataExchangeRecvBuf_3D),     intent(inout) :: this
+    class(DataExchangeMap_3D), target, intent(in)    :: map
+    integer,                           intent(in)    :: a(:,:)
+    real(RNP),                         intent(in)    :: v(:,:,:,:,:)
+
+    this % map => map
+    this % ne  =  size(map % id_elem)
+
+    call Init_Recv_Attributes_1 (this, a)
+    call Init_Recv_Variables_1  (this, v)
+
+  end subroutine Init_Recv_11
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of receive buffer for multiple attributes
+
+  subroutine Init_Recv_Attributes_0(this, a)
     class(DataExchangeRecvBuf_3D), intent(inout) :: this
-    integer, contiguous, optional, intent(in) :: a(:,:)
+    integer, optional, intent(in) :: a(:)
+
+    associate( ne => this % ne &
+             , na => this % na )
+
+      if (present(a)) then
+
+        na = 1
+
+        if (allocated(this % buf_a)) then
+          if (any(shape(this % buf_a) /= [na,ne])) then
+            deallocate(this % buf_a)
+          end if
+        end if
+        if (.not. allocated(this % buf_a)) then
+          allocate(this % buf_a(na,ne))
+        end if
+
+      else
+
+        na = 0
+        if (allocated(this % buf_a)) then
+          deallocate(this % buf_a)
+        end if
+
+      end if
+    end associate
+
+  end subroutine Init_Recv_Attributes_0
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of receive buffer for multiple attributes
+
+  subroutine Init_Recv_Attributes_1(this, a)
+    class(DataExchangeRecvBuf_3D), intent(inout) :: this
+    integer, optional, intent(in) :: a(:,:)
 
     associate( ne => this % ne &
              , na => this % na )
@@ -392,14 +556,14 @@ contains
       end if
     end associate
 
-  end subroutine Init_Recv_Attributes
+  end subroutine Init_Recv_Attributes_1
 
   !-----------------------------------------------------------------------------
   !> Initialization of receive buffer for scalar data
 
-  subroutine Init_Recv_ScalarVariable(this, v)
+  subroutine Init_Recv_Variables_0(this, v)
     class(DataExchangeRecvBuf_3D), intent(inout) :: this
-    real(RNP), contiguous, optional, intent(in) :: v(:,:,:,:)
+    real(RNP), optional, intent(in) :: v(:,:,:,:)
 
     associate( ne => this % ne &
              , np => this % np &
@@ -430,14 +594,14 @@ contains
       end if
     end associate
 
-  end subroutine Init_Recv_ScalarVariable
+  end subroutine Init_Recv_Variables_0
 
   !-----------------------------------------------------------------------------
   !> Initialization of receive buffer for array data
 
-  subroutine Init_Recv_ArrayVariable(this, v)
+  subroutine Init_Recv_Variables_1(this, v)
     class(DataExchangeRecvBuf_3D), intent(inout) :: this
-    real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
+    real(RNP), intent(in) :: v(:,:,:,:,:)
 
     associate( ne => this % ne &
              , np => this % np &
@@ -457,7 +621,7 @@ contains
 
     end associate
 
-  end subroutine Init_Recv_ArrayVariable
+  end subroutine Init_Recv_Variables_1
 
   !-----------------------------------------------------------------------------
   !> Nonblocking receiving of attributes and data
@@ -487,68 +651,97 @@ contains
   end subroutine Recv_Finish
 
   !-----------------------------------------------------------------------------
-  !> Assignment of received attributes and/or scalar data
+  !> Assignment of single attribute and scalar data
 
-  subroutine Assign_ScalarData(this, a, v)
+  subroutine Assign_Data_00(this, a, v)
     class(DataExchangeRecvBuf_3D), asynchronous, intent(in) :: this
-    integer,   contiguous, optional, intent(inout) :: a(:,:)
-    real(RNP), contiguous, optional, intent(inout) :: v(:,:,:,:)
+    integer,   optional, intent(inout) :: a(:)
+    real(RNP), optional, intent(inout) :: v(:,:,:,:)
 
     integer :: e
 
-    associate( ne => this % ne &
-             , na => this % na &
-             , np => this % np &
-             , nv => this % nv &
-             , id_elem => this % map % id_elem )
+    if (present(a)) then
+      do e = 1, this % ne
+        a(this % map % id_elem(e)) = this % buf_a(1,e)
+      end do
+    end if
 
-      if (present(a) .and. na > 0) then
-        do e = 1, ne
-          a(:,id_elem(e)) = this % buf_a(:,e)
-        end do
-      end if
+    if (present(v)) then
+      do e = 1, this % ne
+        v(:,:,:, this % map % id_elem(e)) = this % buf_v(:,:,:,e,1)
+      end do
+    end if
 
-      if (present(v) .and. nv > 0) then
-        do e = 1, ne
-          v(:,:,:,id_elem(e)) = this % buf_v(:,:,:,e,1)
-        end do
-      end if
+  end subroutine Assign_Data_00
 
-    end associate
-
-  end subroutine Assign_ScalarData
 
   !-----------------------------------------------------------------------------
-  !> Assignment of received attributes and/or array data
+  !> Assignment of multiple attributes and scalar data
 
-  subroutine Assign_ArrayData(this, a, v)
+  subroutine Assign_Data_10(this, a, v)
     class(DataExchangeRecvBuf_3D), asynchronous, intent(in) :: this
-    integer,   contiguous, optional, intent(inout) :: a(:,:)
-    real(RNP), contiguous,           intent(inout) :: v(:,:,:,:,:)
+    integer,             intent(inout) :: a(:,:)
+    real(RNP), optional, intent(inout) :: v(:,:,:,:)
+
+    integer :: e
+
+    do e = 1, this % ne
+      a(:, this % map % id_elem(e)) = this % buf_a(:,e)
+    end do
+
+    if (present(v)) then
+      do e = 1, this % ne
+        v(:,:,:, this % map % id_elem(e)) = this % buf_v(:,:,:,e,1)
+      end do
+    end if
+
+  end subroutine Assign_Data_10
+
+  !-----------------------------------------------------------------------------
+  !> Assignment of single attribute and array data
+
+  subroutine Assign_Data_01(this, a, v)
+    class(DataExchangeRecvBuf_3D), asynchronous, intent(in) :: this
+    integer,   optional, intent(inout) :: a(:)
+    real(RNP),           intent(inout) :: v(:,:,:,:,:)
 
     integer :: e, k
 
-    associate( ne => this % ne &
-             , na => this % na &
-             , np => this % np &
-             , nv => this % nv &
-             , id_elem => this % map % id_elem )
-
-      if (present(a) .and. na > 0) then
-        do e = 1, ne
-          a(:,id_elem(e)) = this % buf_a(:,e)
-        end do
-      end if
-
-      do k = 1, nv
-      do e = 1, ne
-        v(:,:,:,id_elem(e),k) = this % buf_v(:,:,:,e,k)
+    if (present(a)) then
+      do e = 1, this % ne
+        a(this % map % id_elem(e)) = this % buf_a(1,e)
       end do
-      end do
+    end if
 
-    end associate
+    do k = 1, this % nv
+    do e = 1, this % ne
+      v(:,:,:, this % map % id_elem(e), k) = this % buf_v(:,:,:,e,k)
+    end do
+    end do
 
-  end subroutine Assign_ArrayData
+  end subroutine Assign_Data_01
+
+  !-----------------------------------------------------------------------------
+  !> Assignment of multiple attributes and array data
+
+  subroutine Assign_Data_11(this, a, v)
+    class(DataExchangeRecvBuf_3D), asynchronous, intent(in) :: this
+    integer,   intent(inout) :: a(:,:)
+    real(RNP), intent(inout) :: v(:,:,:,:,:)
+
+    integer :: e, k
+
+    do e = 1, this % ne
+      a(:, this % map % id_elem(e)) = this % buf_a(:,e)
+    end do
+
+    do k = 1, this % nv
+    do e = 1, this % ne
+      v(:,:,:, this % map % id_elem(e), k) = this % buf_v(:,:,:,e,k)
+    end do
+    end do
+
+  end subroutine Assign_Data_11
 
   !=============================================================================
 
