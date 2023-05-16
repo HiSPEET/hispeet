@@ -50,7 +50,7 @@ contains
   !> Constructor for objects of type CL_TimeIntegrator_Euler_1D with options
 
   function New_CL_TimeIntegrator_Euler_1D(opt) result(this)
-    class(CL_TimeIntegrator_Options_Euler_1D), optional, intent(in) :: opt
+    class(CL_TimeIntegrator_Options_Euler_1D), intent(in) :: opt
     type(CL_TimeIntegrator_Euler_1D) :: this
 
     call Init_CL_TimeIntegrator_Euler_1D(this, opt)
@@ -61,8 +61,8 @@ contains
   !> Initialization of a Init_CL_TimeIntegrator_Euler_1D object
 
   subroutine Init_CL_TimeIntegrator_Euler_1D(this, opt)
-    class(CL_TimeIntegrator_Euler_1D),                   intent(inout) :: this
-    class(CL_TimeIntegrator_Options_Euler_1D), optional, intent(in)    :: opt
+    class(CL_TimeIntegrator_Euler_1D),         intent(inout) :: this
+    class(CL_TimeIntegrator_Options_Euler_1D), intent(in)    :: opt
 
     ! intialize parent type
     call this % Init_CL_TimeIntegrator_1D(opt)
@@ -181,7 +181,10 @@ contains
 
         ! implicit diffusion step
         call cl_problem % DiffusionSolver( cl_operator, dt, ZERO, bv, u_i, u &
-                                         , method = 4, i_max = 10             )
+                                         , method = this % diffusion_method  &
+                                         , i_max  = this % diffusion_i_max   &
+                                         , r_red  = this % diffusion_r_red   &
+                                         , r_max  = this % diffusion_r_max   )
 
       end select
 
