@@ -17,7 +17,7 @@ contains
 
     class(DG_EllipticOperator_1D), intent(in) :: this
     character,             intent(in)    :: bc(2)   !< BC {D,N,P}
-    real(RNP),             intent(in)    :: bv(2)   !< boundary values, u or u'
+    real(RNP),             intent(in)    :: bv(2)   !< boundary values, u or q
     real(RNP),             intent(in)    :: dx      !< ∆xᵉ
     real(RNP),             intent(in)    :: lambda  !< λ
     real(RNP),             intent(in)    :: nu      !< diffusivity, ν = νᵖ+νˢ
@@ -85,7 +85,7 @@ contains
         end select
       end if
 
-      call ApplyBoundaryConditions(eop, dx, bc, bv, f)
+      call ApplyBoundaryConditions(eop, dx, bc, bv, nu_p, nu_s, f)
       if (lambda == 0 .and. (all(bc == 'N') .or. all(bc == 'P'))) then
         f = f - sum(f) / size(f)
       end if
@@ -120,22 +120,25 @@ contains
   !-----------------------------------------------------------------------------
   !> Apply boundary conditions to RHS
 
-  subroutine ApplyBoundaryConditions(eop, dx, bc, bv, f)
+  subroutine ApplyBoundaryConditions(eop, dx, bc, bv, nu_p, nu_s, f)
     class(DG_ElementOperators_1D), intent(in) :: eop !< IP-H element operators
     real(RNP), intent(in)    :: dx      !< element extension
     character, intent(in)    :: bc(2)   !< boundary conditions
     real(RNP), intent(in)    :: bv(2)   !< boundary values
+    real(RNP), intent(in)    :: nu_p    !< physical viscosity
+    real(RNP), intent(in)    :: nu_s    !< spectral viscosity
     real(RNP), intent(inout) :: f(0:,:) !< RHS
 
-    real(RNP), allocatable :: delta_0(:), delta_P(:)
+    real(RNP), allocatable :: delta_0(:), delta_P(:), Ds_s(:,:)
     real(RNP) :: tau
     integer   :: ne
+    logical   :: has_svv
 
-    ne = ubound(f,2)
+    associate(po => eop%po, Ms => eop%w, Ds_p => eop%D)
 
-    associate(po => eop%po, Ms => eop%w, Ds => eop%D)
+      ne  = ubound(f,2)
 
-      tau = 2 * eop % PenaltyFactor(dx)
+      tau = eop % PenaltyFactor(dx) * nu_p
 
       allocate(delta_0(0:po), source = ZERO)
       delta_0(0) = ONE
@@ -143,16 +146,28 @@ contains
       allocate(delta_P(0:po), source = ZERO)
       delta_P(po) = ONE
 
+      has_svv = eop % Has_SVV() .and. nu_s > 0
+      if (has_svv) then
+        allocate(Ds_s(0:po,0:po))
+        call eop % Get_SVV_StandardDiffMatrix(Ds_s)
+      end if
+
       ! left boundary
       if (bc(1) == 'D') then
-        f(:,1) = f(:,1) + (2/dx * Ds(0,:) + tau * delta_0) * bv(1)
+        f(:,1) = f(:,1) + (nu_p/dx * Ds_p(0,:) + tau * delta_0) * 2 * bv(1)
+        if (has_svv) then
+          f(:,1) = f(:,1) + nu_s/dx * Ds_s(0,:) * 2 * bv(1)
+        end if
       else if (bc(1) == 'N') then
         f(0,1) = f(0,1) - bv(1)
       end if
 
       ! right boundary
       if (bc(2) == 'D') then
-        f(:,ne) = f(:,ne) + (-2/dx * Ds(po,:) + tau * delta_P) * bv(2)
+        f(:,ne) = f(:,ne) + (-nu_p/dx * Ds_p(po,:) + tau * delta_P) * 2 * bv(2)
+        if (has_svv) then
+          f(:,ne) = f(:,ne) - nu_s/dx * Ds_s(po,:) * 2 * bv(2)
+        end if
       else if (bc(2) == 'N') then
         f(po,ne) = f(po,ne) + bv(2)
       end if
