@@ -151,7 +151,7 @@ contains
       case('N')
         nu_max(ne) = nu(po,ne)
         if (has_bv) then
-          avg_q(ne) = 0
+          avg_q(ne) = bv(2)
         end if
 
       case('P')
