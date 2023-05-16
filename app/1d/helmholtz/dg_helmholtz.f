@@ -126,7 +126,7 @@ program DG_Helmholtz
     s = u_exact(x)
 
     ! right hand side and boundary values
-    call GetRHS(eop, dx, lambda, bc, x, f, bv)
+    call GetRHS(eop, dx, lambda, nu_p, bc, x, f, bv)
 
     ! read system clock
     call system_clock(count1)
@@ -211,7 +211,7 @@ program DG_Helmholtz
     write(*,'(2X,A,ES12.5)') 't_sol =', t_sol
 
     ! save results
-    open(newunit=io, file='dg_helmholtz_1d.dat')
+    open(newunit=io, file='dg_helmholtz.dat')
     write(io,'(10(A17,1X))') '# x', 'u', 's', 'e', 'f'
     do l = 1, ne
     do i = 0, po
@@ -227,10 +227,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Right hand side
 
-  subroutine GetRHS(eop, dx, lambda, bc, x, f, bv)
+  subroutine GetRHS(eop, dx, lambda, nu, bc, x, f, bv)
     class(DG_ElementOperators_1D), intent(in)  :: eop !< IP-H element operators
     real(RNP), intent(in)  :: dx      !< element extension
     real(RNP), intent(in)  :: lambda  !< Helmholtz parameter
+    real(RNP), intent(in)  :: nu      !< diffusivity
     character, intent(in)  :: bc(2)   !< boundary conditions
     real(RNP), intent(in)  :: x(0:,:) !< mesh points
     real(RNP), intent(out) :: f(0:,:) !< RHS
@@ -242,7 +243,7 @@ contains
 
       ! projection of the source term
       do l = 1, ubound(x,2)
-        f(:,l) = dx/2 * Ms * (lambda * u_exact(x(:,l)) - ddu_exact(x(:,l)))
+        f(:,l) = dx/2 * Ms * (lambda * u_exact(x(:,l)) - nu*ddu_exact(x(:,l)))
       end do
 
       ! left boundary
@@ -250,7 +251,7 @@ contains
       case('D')
         bv(1) = u_exact( x(0,1) )
       case('N')
-        bv(1) = du_exact( x(0,1) )
+        bv(1) = nu * du_exact( x(0,1) )
       case default
         bv(1) = ZERO
       end select
@@ -260,7 +261,7 @@ contains
       case('D')
         bv(2) = u_exact( x(po,ne) )
       case('N')
-        bv(2) = du_exact( x(po,ne) )
+        bv(2) = nu * du_exact( x(po,ne) )
       case default
         bv(2) = ZERO
       end select
