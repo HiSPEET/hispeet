@@ -19,6 +19,21 @@ module DG__Elliptic_Operator__1D
 
   !-----------------------------------------------------------------------------
   !> Base type for scalar diffusion operators for 1D DG-SEM
+  !>
+  !> ## Boundary conditions
+  !>
+  !> The following table lists the supported boundary conditions along with
+  !> the corresponding type specifiers `bc` and boundary values `bv`.
+  !>
+  !>   | name      | `bc`  | `bv`         |
+  !>   | :-------- | ----- | :----------- |
+  !>   | Dirichlet | `'D'` |  u           |
+  !>   | Neumann   | `'N'` |  q = ν ∂u/∂x |
+  !>   | Periodic  | `'P'` |  -           |
+  !>
+  !> With Neumann conditions, the diffusive flux in x direction has to be given
+  !> and not the normal flux.
+  !> In the periodic case, `bc` must be set to `'P'` on both sides.
 
   type DG_EllipticOperator_1D
 
@@ -103,7 +118,7 @@ module DG__Elliptic_Operator__1D
 
       class(DG_EllipticOperator_1D),   intent(in)    :: this
       character,                       intent(in)    :: bc(2)     !< BC {D,N,P}
-      real(RNP),                       intent(in)    :: bv(2)     !< BV, u or u'
+      real(RNP),                       intent(in)    :: bv(2)     !< bound vals
       logical,                         intent(in)    :: mask(:)   !< elem mask
       real(RNP),                       intent(in)    :: dx        !< ∆xᵉ
       real(RNP),                       intent(in)    :: lambda    !< λ
@@ -127,7 +142,7 @@ module DG__Elliptic_Operator__1D
 
       class(DG_EllipticOperator_1D),   intent(in)    :: this
       character,                       intent(in)    :: bc(2)     !< BC {D,N,P}
-      real(RNP),                       intent(in)    :: bv(2)     !< BV, u or u'
+      real(RNP),                       intent(in)    :: bv(2)     !< bound vals
       logical,                         intent(in)    :: mask(:)   !< elem mask
       real(RNP),                       intent(in)    :: dx        !< ∆xᵉ
       real(RNP),                       intent(in)    :: lambda    !< λ
@@ -151,7 +166,7 @@ module DG__Elliptic_Operator__1D
 
       class(DG_EllipticOperator_1D),   intent(in)    :: this
       character,                       intent(in)    :: bc(2)     !< BC {D,N,P}
-      real(RNP),                       intent(in)    :: bv(2)     !< BV, u or u'
+      real(RNP),                       intent(in)    :: bv(2)     !< bound vals
       logical,                         intent(in)    :: mask(:)   !< elem mask
       real(RNP),                       intent(in)    :: dx        !< ∆xᵉ
       real(RNP),                       intent(in)    :: lambda    !< λ
@@ -174,7 +189,7 @@ module DG__Elliptic_Operator__1D
 
       class(DG_EllipticOperator_1D), intent(in) :: this
       character,             intent(in)    :: bc(2)   !< BC {D,N,P}
-      real(RNP),             intent(in)    :: bv(2)   !< boundary values, u or u'
+      real(RNP),             intent(in)    :: bv(2)   !< boundary values
       real(RNP),             intent(in)    :: dx      !< ∆xᵉ
       real(RNP),             intent(in)    :: lambda  !< λ
       real(RNP),             intent(in)    :: nu      !< νᵖ+νˢ
