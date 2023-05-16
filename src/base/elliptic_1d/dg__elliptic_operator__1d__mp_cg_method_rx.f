@@ -22,7 +22,7 @@ contains
 
     class(DG_EllipticOperator_1D),   intent(in)    :: this
     character,                       intent(in)    :: bc(2)     !< BC {'D','N','P'}
-    real(RNP),                       intent(in)    :: bv(2)     !< BV, u or u'
+    real(RNP),                       intent(in)    :: bv(2)     !< boundary vals
     logical,                         intent(in)    :: mask(:)   !< element mask
     real(RNP),                       intent(in)    :: dx
     real(RNP),                       intent(in)    :: lambda    !< λ
