@@ -467,7 +467,7 @@ contains
   subroutine UpdateChild(old_mesh, new_mesh, ed_map, child)
     class(Mesh_3D), intent(in) :: old_mesh
     class(Mesh_3D), intent(in) :: new_mesh
-    class(ElementDistributionMap_3D), target, intent(in) :: ed_map
+    class(ElementDistributionMap_3D), intent(in) :: ed_map
     class(Mesh_3D), intent(inout) :: child
 
     type(DataExchangeMap_3D), allocatable :: send_map(:)
@@ -476,7 +476,8 @@ contains
     type(DataExchangeSendBuf_3D), allocatable :: send_buf(:)
     type(DataExchangeRecvBuf_3D), allocatable :: recv_buf(:)
 
-    integer, allocatable :: new_proc(:)
+    integer, allocatable :: send_attrib(:,:)
+    integer, allocatable :: recv_attrib(:,:)
     integer :: n_recv, n_send
     integer :: i
 
@@ -494,36 +495,45 @@ contains
       recv_map(i) = DataExchangeMap_3D(child % map_parent(i))
     end do
 
-    ! translate parent element target partition into process ID
-    allocate(new_proc(old_mesh % n_elem))
+    allocate(send_attrib(2, old_mesh % n_elem   ), source = -1)
+    allocate(recv_attrib(2, child    % n_cluster), source = -1)
+
+    ! prepare send data ........................................................
+
     do i = 1, old_mesh % n_elem
-      new_proc(i) = new_mesh % proc_part(ed_map % tp_elem(i))
+      send_attrib(1,i) = new_mesh % proc_part(ed_map % tp_elem(i)) ! new process
+      send_attrib(2,i) = ed_map % id_elem(i)                       ! new ID
     end do
 
-    ! pass target partitions to children .......................................
+    ! pass parent attributes to children .......................................
 
-    associate(parent_proc => child % element % adaptation % parent_proc)
+    do i = 1, n_send
+      call send_buf(i) % Extract_Data(send_map(i), send_attrib)
+      call send_buf(i) % Send_Start()
+    end do
 
-      do i = 1, n_send
-        call send_buf(i) % Extract_Data(send_map(i), new_proc)
-        call send_buf(i) % Send_Start()
-      end do
+    do i = 1, n_recv
+      call recv_buf(i) % Init(recv_map(i), recv_attrib)
+      call recv_buf(i) % Recv_Start()
+    end do
 
-      do i = 1, n_recv
-        call recv_buf(i) % Init(recv_map(i), parent_proc)
-        call recv_buf(i) % Recv_Start()
-      end do
+    do i = 1, n_send
+      call send_buf(i) % Send_Finish()
+    end do
 
-      do i = 1, n_send
-        call send_buf(i) % Send_Finish()
-      end do
+    do i = 1, n_recv
+      call recv_buf(i) % Recv_Finish()
+      call recv_buf(i) % Assign_Data(recv_attrib)
+    end do
 
-      do i = 1, n_recv
-        call recv_buf(i) % Recv_Finish()
-        call recv_buf(i) % Assign_Data(parent_proc)
-      end do
+    ! extract received attributes ..............................................
 
-    end associate
+    do i = 1, child % n_elem
+      associate(element => child % element(i))
+        element % adaptation % parent_proc = recv_attrib(1, element%cluster_id)
+        element % adaptation % parent_id   = recv_attrib(2, element%cluster_id)
+      end associate
+    end do
 
     ! rebuild map from child to parent .........................................
 
