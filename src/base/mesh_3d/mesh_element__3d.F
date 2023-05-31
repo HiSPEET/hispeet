@@ -213,8 +213,6 @@ module Mesh_Element__3D
   !> on the fine mesh. The other refinement types serve to generate a layer of
   !> interpolation elements enclosing the active refinement zones.
   !>
-  !> `sublevels` the number of finer levels to which the element contributes.
-  !>
   !> `mark` is used for different purposes. Before adaptation, it is set to
   !> indicate the intended refinement of the existing elements. In course of
   !> the adaptation process it may take different roles to assist the creation
@@ -224,9 +222,7 @@ module Mesh_Element__3D
     integer :: parent_proc   = -1 !< parent partition ID in comm_world
     integer :: parent_id     = -1 !< parent element ID
     integer :: refinement    = -1 !< refinement type
-    integer :: sublevels     = -1 !< number of subsequent levels
     integer :: child_proc    = -1 !< child partition ID in comm_world
-    integer :: child_id      = -1 !< first child element ID
     integer :: mark          = -1 !< adaptation mark or auxiliary data
   end type MeshElementAdaptation_3D
 
