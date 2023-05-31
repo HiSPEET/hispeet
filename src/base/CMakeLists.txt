@@ -77,32 +77,35 @@ endif ()
 #===============================================================================
 # utilities
 
-set ( UTILITIES utilities/cache_blocking.f
-                utilities/execution_control.f
-                utilities/logging_levels.f
-                utilities/quick_sort.f
-                utilities/schwarz_weighting.f
-                )
+set ( UTILITIES 
+      utilities/cache_blocking.f
+      utilities/execution_control.f
+      utilities/logging_levels.f
+      utilities/quick_sort.f
+      utilities/schwarz_weighting.f
+    )
 
 #===============================================================================
 # spectral_element
 
-set ( SPECTRAL_ELEMENT spectral_element/cg__element_operators__1d.f
-                       spectral_element/dg__element_operators__1d.f
-                       spectral_element/embedded_interpolation__1d.f
-                       spectral_element/embedded_interpolation__3d.f
-                       spectral_element/parent_to_child_interpolation__1d.f
-                       spectral_element/projection_operator__1d.f
-                       spectral_element/projection_operator__3d.f
-                       spectral_element/standard_operators__1d.f
-                       )
+set ( SPECTRAL_ELEMENT 
+      spectral_element/cg__element_operators__1d.f
+      spectral_element/dg__element_operators__1d.f
+      spectral_element/embedded_interpolation__1d.f
+      spectral_element/embedded_interpolation__3d.f
+      spectral_element/parent_to_child_interpolation__1d.f
+      spectral_element/projection_operator__1d.f
+      spectral_element/projection_operator__3d.f
+      spectral_element/standard_operators__1d.f
+    )
 
 #===============================================================================
 # time_integration
 
-set ( TIME_INTEGRATION time_integration/imex_runge_kutta_method.f
-                       time_integration/spectral_deferred_correction.f
-                       )
+set ( TIME_INTEGRATION 
+      time_integration/imex_runge_kutta_method.f
+      time_integration/spectral_deferred_correction.f
+    )
 
 #===============================================================================
 # mesh
@@ -112,126 +115,143 @@ file(GLOB MESH mesh/*.f)
 #===============================================================================
 # mesh_3d
 
-set ( MESH_3D mesh_3d/generic_mesh__3d.f
-              mesh_3d/generic_mesh__3d__mp_createannulus.f
-              mesh_3d/generic_mesh__3d__mp_createcylinder.f
-              mesh_3d/generic_mesh__3d__mp_creatediamonds.f
-              mesh_3d/generic_mesh__3d__mp_createonerotated.f
-              mesh_3d/mesh_boundary__3d.f
-              mesh_3d/mesh_element__3d.F
-              mesh_3d/mesh_element__3d__sm_mpi.f
-              mesh_3d/mesh_element_indexing__3d.f
-              mesh_3d/mesh_face__3d.f
-              mesh_3d/mesh_link__3d.f
-              mesh_3d/mesh_map_to_child__3d.f
-              mesh_3d/mesh_map_to_parent__3d.f
-              mesh_3d/mesh__3d.f
-              mesh_3d/mesh__3d__mp_buildboundaryfaces.f
-              mesh_3d/mesh__3d__mp_buildcommunicator.f
-              mesh_3d/mesh__3d__mp_buildcuboids.f
-              mesh_3d/mesh__3d__mp_buildfaces.f
-              mesh_3d/mesh__3d__mp_buildghosts.f
-              mesh_3d/mesh__3d__mp_buildlinks.f
-              mesh_3d/mesh__3d__mp_buildmaptochild.f
-              mesh_3d/mesh__3d__mp_buildmaptoparent.f
-              mesh_3d/mesh__3d__mp_getcuboids.f
-              mesh_3d/mesh__3d__mp_getpoints.f
-              mesh_3d/mesh__3d__mp_getpointvalency.f
-              mesh_3d/mesh__3d__mp_identifyclusters.f
-              mesh_3d/mesh__3d__mp_identifyedges.f
-              mesh_3d/mesh__3d__mp_identifyelementneighbors.f
-              mesh_3d/mesh__3d__mp_identifyranks.f
-              mesh_3d/mesh__3d__mp_identifyvertices.f
-              mesh_3d/mesh__3d__mp_importgenericmesh.f
-              mesh_3d/structured_mesh_indexing__3d.f
-              mesh_3d/generate_regular_mesh__3d.f
-              mesh_3d/mesh_metrics__3d.f
-              mesh_3d/spectral_element_mesh__3d.f
-              mesh_3d/boundary_variable__3d.f
-              )
+set ( MESH_3D 
+      mesh_3d/generic_mesh__3d.f
+      mesh_3d/generic_mesh__3d__mp_createannulus.f
+      mesh_3d/generic_mesh__3d__mp_createcylinder.f
+      mesh_3d/generic_mesh__3d__mp_creatediamonds.f
+      mesh_3d/generic_mesh__3d__mp_createonerotated.f
+      mesh_3d/mesh_boundary__3d.f
+      mesh_3d/mesh_element__3d.F
+      mesh_3d/mesh_element__3d__sm_mpi.f
+      mesh_3d/mesh_element_indexing__3d.f
+      mesh_3d/mesh_face__3d.f
+      mesh_3d/mesh_link__3d.f
+      mesh_3d/mesh_map_to_child__3d.f
+      mesh_3d/mesh_map_to_parent__3d.f
+      mesh_3d/mesh__3d.f
+      mesh_3d/mesh__3d__mp_buildboundaryfaces.f
+      mesh_3d/mesh__3d__mp_buildcommunicator.f
+      mesh_3d/mesh__3d__mp_buildcuboids.f
+      mesh_3d/mesh__3d__mp_buildfaces.f
+      mesh_3d/mesh__3d__mp_buildghosts.f
+      mesh_3d/mesh__3d__mp_buildlinks.f
+      mesh_3d/mesh__3d__mp_buildmaptochild.f
+      mesh_3d/mesh__3d__mp_buildmaptoparent.f
+      mesh_3d/mesh__3d__mp_getcuboids.f
+      mesh_3d/mesh__3d__mp_getpoints.f
+      mesh_3d/mesh__3d__mp_getpointvalency.f
+      mesh_3d/mesh__3d__mp_identifyclusters.f
+      mesh_3d/mesh__3d__mp_identifyedges.f
+      mesh_3d/mesh__3d__mp_identifyelementneighbors.f
+      mesh_3d/mesh__3d__mp_identifyranks.f
+      mesh_3d/mesh__3d__mp_identifyvertices.f
+      mesh_3d/mesh__3d__mp_importgenericmesh.f
+      mesh_3d/structured_mesh_indexing__3d.f
+      mesh_3d/generate_regular_mesh__3d.f
+      mesh_3d/mesh_metrics__3d.f
+      mesh_3d/spectral_element_mesh__3d.f
+      mesh_3d/boundary_variable__3d.f
+    )
 
 #===============================================================================
 # util_1d
 
-set( UTIL_1D util_1d/cg__condensed_solver__1d.f
-             util_1d/cg__utilities__1d.f
-             util_1d/dg__utilities__1d.f
-             )
+set( UTIL_1D 
+     util_1d/cg__condensed_solver__1d.f
+     util_1d/cg__utilities__1d.f
+     util_1d/dg__utilities__1d.f
+    )
 
 #===============================================================================
 # util_3d
 
-set( UTIL_3D util_3d/export/export_vtk_volume_data__3d.f
-             util_3d/export/export_vtk_schwarz_domain__3d.f
-             util_3d/transfer/data_exchange__3d.f
-             util_3d/transfer/element_transfer_buffer__3d.f
-             util_3d/transfer/element_transfer_buffer__3d__sm_integer_idk.F
-             util_3d/transfer/element_transfer_buffer__3d__sm_integer_ixs.F
-             util_3d/transfer/element_transfer_buffer__3d__sm_integer_ixl.F
-             util_3d/transfer/element_transfer_buffer__3d__sm_real_rdp.F
-             util_3d/transfer/element_transfer_buffer__3d__sm_real_rsp.F
-             util_3d/transfer/element_face_transfer_buffer__3d.f
-             util_3d/transfer/element_face_transfer_buffer__3d__sm_real_rdp.F
-             util_3d/meshgen/create_annulus.f
-             util_3d/meshgen/create_cuboid_cartesian.f
-             util_3d/meshgen/create_cuboid_diamonds.f
-             util_3d/meshgen/create_cuboid_onerotated.f
-             util_3d/meshgen/create_cylinder.f
-             util_3d/ops/assembly__3d.f
-             util_3d/ops/assembly__3d__sm_0u.f
-             util_3d/ops/trace_operators__3d.f
-             util_3d/ops/volume_integrals__3d.f
-             util_3d/ops/surface_integrals__3d.f
-             util_3d/verification/verify_mesh__3d.f
-             util_3d/adaptation/child_distribution_map__3d.f
-             util_3d/adaptation/child_mesh_adaptation__3d.F
-             util_3d/adaptation/element_distribution_map__3d.f
-             util_3d/adaptation/element_distribution_data__3d.f
-             util_3d/adaptation/partitioner_interface__3d.f
-             util_3d/adaptation/root_mesh_partitioning__3d.F
-             )
+set( UTIL_3D util_3d/verification/verify_mesh__3d.f )
 
-if (Exodus_FOUND)
-    set (UTIL_3D ${UTIL_3D} util_3d/import/import_exodus__3d.f)
-endif ()
+set( UTIL_3D ${UTIL_3D}
+     util_3d/export/export_vtk_volume_data__3d.f
+     util_3d/export/export_vtk_schwarz_domain__3d.f
+    )
+
+set( UTIL_3D ${UTIL_3D}
+     util_3d/meshgen/create_annulus.f
+     util_3d/meshgen/create_cuboid_cartesian.f
+     util_3d/meshgen/create_cuboid_diamonds.f
+     util_3d/meshgen/create_cuboid_onerotated.f
+     util_3d/meshgen/create_cylinder.f
+    )
+
+set( UTIL_3D ${UTIL_3D}
+     util_3d/transfer/data_exchange__3d.f
+     util_3d/transfer/element_transfer_buffer__3d.f
+     util_3d/transfer/element_transfer_buffer__3d__sm_integer_idk.F
+     util_3d/transfer/element_transfer_buffer__3d__sm_integer_ixs.F
+     util_3d/transfer/element_transfer_buffer__3d__sm_integer_ixl.F
+     util_3d/transfer/element_transfer_buffer__3d__sm_real_rdp.F
+     util_3d/transfer/element_transfer_buffer__3d__sm_real_rsp.F
+     util_3d/transfer/element_face_transfer_buffer__3d.f
+     util_3d/transfer/element_face_transfer_buffer__3d__sm_real_rdp.F
+    )
+
+set( UTIL_3D ${UTIL_3D}
+     util_3d/ops/assembly__3d.f
+     util_3d/ops/assembly__3d__sm_0u.f
+     util_3d/ops/trace_operators__3d.f
+     util_3d/ops/volume_integrals__3d.f
+     util_3d/ops/surface_integrals__3d.f
+    )
+
+set( UTIL_3D ${UTIL_3D}
+     util_3d/adaptation/child_distribution_map__3d.f
+     util_3d/adaptation/child_mesh_adaptation__3d.F
+     util_3d/adaptation/child_mesh_adaptation__3d__mp_buildchilddata.f
+     util_3d/adaptation/child_mesh_adaptation__3d__mp_buildchildmap.f
+     util_3d/adaptation/child_mesh_adaptation__3d__mp_buildconnections.f
+     util_3d/adaptation/element_distribution_map__3d.f
+     util_3d/adaptation/element_distribution_data__3d.f
+     util_3d/adaptation/partitioner_interface__3d.f
+     util_3d/adaptation/root_mesh_partitioning__3d.F
+    )
 
 #===============================================================================
 # elliptic_1d
 
-set( ELLIPTIC_1D elliptic_1d/dg__elliptic_operator__1d.f
-                 elliptic_1d/dg__elliptic_operator__1d__mp_cg_method_rx.f
-                 elliptic_1d/dg__elliptic_operator__1d__mp_eval_rc.f
-                 elliptic_1d/dg__elliptic_operator__1d__mp_eval_rv.f
-                 elliptic_1d/dg__elliptic_operator__1d__mp_schwarz_method_rx.f
-                 elliptic_1d/dg__elliptic_operator__1d__mp_schwarzpcg_method_rx.f
-                 elliptic_1d/dg__elliptic_operator__1d__mp_hybrid_solver_rc.f
-                 elliptic_1d/dg__schwarz_operator__1d.f
-                 )
+set( ELLIPTIC_1D 
+     elliptic_1d/dg__elliptic_operator__1d.f
+     elliptic_1d/dg__elliptic_operator__1d__mp_cg_method_rx.f
+     elliptic_1d/dg__elliptic_operator__1d__mp_eval_rc.f
+     elliptic_1d/dg__elliptic_operator__1d__mp_eval_rv.f
+     elliptic_1d/dg__elliptic_operator__1d__mp_schwarz_method_rx.f
+     elliptic_1d/dg__elliptic_operator__1d__mp_schwarzpcg_method_rx.f
+     elliptic_1d/dg__elliptic_operator__1d__mp_hybrid_solver_rc.f
+     elliptic_1d/dg__schwarz_operator__1d.f
+   )
 
 #===============================================================================
 # elliptic_3d
 
-set( ELLIPTIC_3D elliptic_3d/dg__elliptic_operator__3d.f
-                 elliptic_3d/dg__elliptic_operator__3d__mp_eval_rc.f
-                 elliptic_3d/dg__elliptic_operator__3d__mp_eval_rv.f
-                 elliptic_3d/dg__elliptic_operator__3d__mp_eval_dc.F
-                 elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_gen.f
-                 elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_xsmm.F
-                 elliptic_3d/dg__elliptic_operator__3d__mp_cg_method_x.f
-                 elliptic_3d/dg__elliptic_operator__3d__mp_schwarz_method_x.f
-                 elliptic_3d/dg__elliptic_operator__3d__mp_schwarzpcg_method_x.f
-                 elliptic_3d/dg__schwarz_operator__3d.f
-                 elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_core.F
-                 elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_structured.F
-                 elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_unstructured.F
-                 elliptic_3d/dg__schwarz_operator__3d__rdp__mp_restrict_structured.F
-                 elliptic_3d/dg__schwarz_operator__3d__rdp__mp_restrict_unstructured.F
-                 elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_core.F
-                 elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_structured.F
-                 elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_unstructured.F
-                 elliptic_3d/dg__schwarz_operator__3d__rsp__mp_restrict_structured.F
-                 elliptic_3d/dg__schwarz_operator__3d__rsp__mp_restrict_unstructured.F
-                 )
+set( ELLIPTIC_3D 
+     elliptic_3d/dg__elliptic_operator__3d.f
+     elliptic_3d/dg__elliptic_operator__3d__mp_eval_rc.f
+     elliptic_3d/dg__elliptic_operator__3d__mp_eval_rv.f
+     elliptic_3d/dg__elliptic_operator__3d__mp_eval_dc.F
+     elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_gen.f
+     elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_xsmm.F
+     elliptic_3d/dg__elliptic_operator__3d__mp_cg_method_x.f
+     elliptic_3d/dg__elliptic_operator__3d__mp_schwarz_method_x.f
+     elliptic_3d/dg__elliptic_operator__3d__mp_schwarzpcg_method_x.f
+     elliptic_3d/dg__schwarz_operator__3d.f
+     elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_core.F
+     elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_structured.F
+     elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_unstructured.F
+     elliptic_3d/dg__schwarz_operator__3d__rdp__mp_restrict_structured.F
+     elliptic_3d/dg__schwarz_operator__3d__rdp__mp_restrict_unstructured.F
+     elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_core.F
+     elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_structured.F
+     elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_unstructured.F
+     elliptic_3d/dg__schwarz_operator__3d__rsp__mp_restrict_structured.F
+     elliptic_3d/dg__schwarz_operator__3d__rsp__mp_restrict_unstructured.F
+   )
 
 #===============================================================================
 # base library
