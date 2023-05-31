@@ -24,6 +24,9 @@ contains
   !>   -  `mesh % element % frozen`
   !>   -  `mesh % element % adaptation % parent_proc`
   !>   -  `mesh % element % adaptation % parent_id`
+  !>
+  !> The procedure is capable to cope with orphaned elements whose parents have
+  !> been removed in course of an ongoing adaptation process.
 
   module subroutine BuildMapToParent(mesh)
     class(Mesh_3D), intent(inout) :: mesh  !< mesh parition
@@ -46,6 +49,10 @@ contains
 
     !$omp master
 
+    if (allocated(mesh % map_parent)) then
+      deallocate(mesh % map_parent))
+    end if
+
     if (mesh % is_root .or. mesh % n_elem < 1) then
 
       ! root or empty mesh .....................................................
@@ -60,9 +67,9 @@ contains
       call MPI_Comm_size(mesh % comm_world, n_proc)
 
       allocate( n_cluster   (0:n_proc-1))
-      allocate( n_active    (0:n_proc-1), source = 0)
-      allocate( n_frozen    (0:n_proc-1), source = 0)
-      allocate( parent_proc (0:n_proc-1), source = 0)
+      allocate( n_active    (0:n_proc-1), source =  0)
+      allocate( n_frozen    (0:n_proc-1), source =  0)
+      allocate( parent_proc (0:n_proc-1), source = -1)
 
       p_min = n_proc-1
       p_max = 0
@@ -72,7 +79,8 @@ contains
       cluster_id = 0
       do e = 1, mesh % n_elem
         associate(element => mesh % element(e))
-          if (element % cluster_id == cluster_id) cycle
+          if (element % cluster_id == cluster_id)     cycle ! skip siblings
+          if (element % adaptation % parent_proc < 0) cycle ! skip orphans
           cluster_id = element % cluster_id
           p = element % adaptation % parent_proc
           p_min = min(p_min, p)
@@ -131,7 +139,8 @@ contains
       n_frozen   = 0
       do e = 1, mesh % n_elem
         associate(element => mesh % element(e))
-          if (element % cluster_id == cluster_id) cycle
+          if (element % cluster_id == cluster_id)     cycle ! skip siblings
+          if (element % adaptation % parent_proc < 0) cycle ! skip orphans
           cluster_id = element % cluster_id
           p = element % adaptation % parent_proc
           i = parent_proc(p)
@@ -159,7 +168,8 @@ contains
 
       do e = 1, mesh % n_elem
         associate(element => mesh % element(e))
-          if (element % cluster_id == cluster_id) cycle
+          if (element % cluster_id == cluster_id)     cycle ! skip siblings
+          if (element % adaptation % parent_proc < 0) cycle ! skip orphans
           cluster_id = element % cluster_id
           p = element % adaptation % parent_proc
           i = parent_proc(p)
