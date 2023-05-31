@@ -6,6 +6,22 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Build connections between parent, new child, old child and grandchildren
+  !>
+  !> Entities being built:
+  !>
+  !> - mapping from parent to new children
+  !>     + `parent % n_child`
+  !>     + `parent % map_child`
+  !>
+  !> - mapping from grandchildren to new children
+  !>     + `grandchild % n_parent`
+  !>     + `grandchild % map_parent`
+  !>     + `grandchild % element % adaptation % parent_proc`
+  !>     + `grandchild % element % adaptation % parent_id`
+  !>
+  !>  - mapping between old and new children
+  !>     + `rd_send_map` for sending retained data
+  !>     + `rd_recv_map` for receiving retained data
 
   module subroutine BuildConnections( parent, new_child_map, new_child &
                                     , old_child, grandchild            &
