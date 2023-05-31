@@ -12,30 +12,43 @@ module Partitioner_Interface__3D
   !-----------------------------------------------------------------------------
   !> Partitioning options
   !>
-  !> The partitioner can be applied either to the current mesh or to the child
-  !> mesh by selecting `mode=1` or `mode=2 respectively. The value of `n_parts`
-  !> defines the number of partitions that are generated.
-  !>
   !> For partitioning, an abstract graph is formed. The vertices of this graph
   !> represent the mesh elements, while its edges correspond to connections
   !> between elements. Depending to the adjacency type, the graph edges are
   !> classified into three groups: element face, element edge and element
   !> vertex connections.
-  !> The relative weight of these graph components is defined using the `weight`
-  !> option:
   !>
-  !>   - `weight(1)` for vertices, i.e. elements
-  !>   - `weight(2)` for element face connections
-  !>   - `weight(3)` for element edge connections
-  !>   - `weight(4)` for element vertex connections
+  !> The number of partitions is set via `n_parts`.
   !>
-  !> The vertex weight is multiplied by the actual workload. Elements with zero
-  !> workload are not included into the graph.
+  !> The `mode` option activates one of the following partitioning modes:
+  !>
+  !>   - `1` single-level
+  !>   - `2` parent
+  !>   - `3` child
+  !>   - `4` weighted
+  !>
+  !> In single-level mode, all graph vertices are weighted equally. In parent
+  !> mode, a second constraint is derived from `mesh%element%adaptation%mark`.
+  !> The child mode is intended for generating and distributing a new child
+  !> mesh. In this case the constraint is identical to the second constraint
+  !> in the parent mode. In the weighted mode, precomputed weights are passed
+  !> by an additional argument.
+  !>
+  !> The `weight` option assigns relative weights to the graph components:
+  !>
+  !>   - `weight(1) ≥ 1` graph vertices, i.e. mesh elements
+  !>   - `weight(2) ≥ 0` graph edges emerging from element face connections
+  !>   - `weight(3) ≥ 0` graph edges emerging from element edge connections
+  !>   - `weight(4) ≥ 0` graph edges emerging from element vertex connections
+  !>
+  !> The vertex weight is multiplied by the workload determined by the selected
+  !> partitioning mode. Vertices with no workload are excluded from the graph.
+  !> Connections that have no weight can be cut without penalty.
+  !> Note that the lower bounds of the weights are enforced for regularity.
 
   type PartitioningOptions_3D
-    integer :: mode      = 1         !< current or child mesh partitioning {1,2}
     integer :: n_parts   = 1         !< number of new partitions
-    integer :: sublevels = 0         !< number of sublevels to consider
+    integer :: mode      = 1         !< partitioning mode
     integer :: weight(4) = [1,0,0,0] !< element and connectivity weights
   contains
     procedure :: Bcast => Bcast_PartitioningOptions
@@ -51,9 +64,8 @@ contains
     integer       , intent(in) :: root !< rank root process
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    call XMPI_Bcast(opt % mode      , root, comm)
     call XMPI_Bcast(opt % n_parts   , root, comm)
-    call XMPI_Bcast(opt % sublevels , root, comm)
+    call XMPI_Bcast(opt % mode      , root, comm)
     call XMPI_Bcast(opt % weight    , root, comm)
 
   end subroutine Bcast_PartitioningOptions
@@ -110,10 +122,9 @@ contains
       allocate(vtx_elem(n_elem + n_ghost), source = -1)
       i = 0
       do e = 1, n_elem
-        if (opt % mode == 1 .or. mesh % element(e) % adaptation % mark > 0) then
-          vtx_elem(e) = i
-          i = i + 1
-        end if
+        if (opt%mode == 3 .and. mesh%element(e)%adaptation%mark < 1) cycle
+        vtx_elem(e) = i
+        i = i + 1
       end do
       nvtx = i
 
@@ -128,33 +139,36 @@ contains
       call MPI_Comm_rank(comm, proc)
       call MPI_Comm_size(comm, nproc)
 
+      ! graph vertex ID element variable and transfer buffer
+      var_vtx_elem(1:1, 1:1, 1:1, 1:size(vtx_elem)) => vtx_elem
+      buf_vtx_elem = ElementTransferBuffer_3D(mesh, var_vtx_elem)
+
       ! ParMetis input arguments ...............................................
 
       ! use C-style numbering for ParMETIS
       numflag = 0
 
-      ! set default to unweighted graph
-      ncon    = 0
-      wgtflag = 0
-
-      ! element weighting
-      if (weight(1) > 0) then
-        wgtflag = 2 ! activate vertex constraints
-        select case(opt % sublevels)
-        case(0)
-          ncon = 1
-        case(1:)
-          ncon = 2
-        end select
-      end if
-
-      ! adjacency weighting
-      if (any(weight(1:3) > 0)) then
-        wgtflag = wgtflag + 1
-      end if
-
       ! number of new partitions
       nparts = opt % n_parts
+
+      ! number of constraints
+      select case(opt % mode)
+      case(1)
+        ncon = 1
+      case(2)
+        ncon = 2
+      case(3)
+        ncon = 1
+      end select
+
+      ! weight flag
+      if (any(weight(1:3) > 0)) then
+        ! vertex and edge constraints
+        wgtflag = 3
+      else
+        ! vertex constraints only
+        wgtflag = 2
+      end if
 
       ! ParMETIS array arguments, using C-style numbering
       allocate( vtxdist ( 0:nproc              ) )
@@ -164,14 +178,11 @@ contains
       allocate( ubvec   ( 0:ncon-1             ) )
       allocate( part    ( 0:nvtx-1             ) )
 
-      ! graph vertex ID element variable and transfer buffer
-      var_vtx_elem(1:1, 1:1, 1:1, 1:size(vtx_elem)) => vtx_elem
-      buf_vtx_elem = ElementTransferBuffer_3D(mesh, var_vtx_elem)
+      ! tolerance for multi-constraint weighting
+      ubvec  = 1.05
 
-      if (ncon > 0) then
-        ubvec  = 1.05          ! tolerances for multi-constraint weighting
-        tpwgts = 1.00 / nparts ! fractions of vertex weight per partition
-      end if
+      ! fractions of vertex weight per partition
+      tpwgts = 1.00 / nparts
 
       ! graph vertex distribution ..............................................
 
@@ -218,38 +229,16 @@ contains
             m = 8      ! regular refinement
           end select
 
-          ! primary weight and number of further levels to consider
+          ! vertex weights
           select case(opt % mode)
           case(1)
             vwgt(0,i) = weight(1)
-            l = min(element % adaptation % sublevels, opt % sublevels)
+          case(1)
+            vwgt(0,i) = weight(1)
+            vwgt(1,i) = weight(1) * m
           case(2)
             vwgt(0,i) = weight(1) * m
-            l = min(element % adaptation % sublevels, opt % sublevels + 1)
           end select
-
-          ! secondary weight based on sublevel contributions
-          if (ncon >= 2) then
-
-            select case(l)
-            case(2)
-              n = 64    ! = 8^2
-            case(3)
-              n = 576   ! = 8^2 + 8^3
-            case(4:)
-              n = 4672  ! = 8^2 + 8^3 + 8^4
-            case default
-              n = 0
-            end select
-
-            select case(opt % mode)
-            case(1)
-              vwgt(1,i) = weight(1) * (m + n)
-            case(2)
-              vwgt(1,i) = weight(1) * n
-            end select
-
-          end if
 
           i = i + 1
 
