@@ -35,7 +35,7 @@ contains
     !$omp master
 
     if (allocated(mesh % map_child)) then
-      deallocate(mesh % map_child))
+      deallocate(mesh % map_child)
     end if
 
     if (mesh % is_top .or. mesh % n_elem < 1) then

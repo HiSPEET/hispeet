@@ -90,7 +90,7 @@ contains
     integer, allocatable :: cluster_rank(:)
     integer, allocatable :: e(:), m(:)
     integer :: n_recv, n_send, n_attrib
-    integer :: a, c, i, j, k, l
+    integer :: a, c, i, j, k, l, n, p
     logical :: has_grandchild
 
     ! initialization ...........................................................
@@ -117,7 +117,7 @@ contains
       n_attrib = 1  ! transfer new child part only
     end if
 
-    allocate(send_attrib(n_attrib, parent % n_elem, source = -1))
+    allocate(send_attrib(n_attrib, parent % n_elem), source = -1)
     do l = 1, parent % n_elem
       if (parent % element(l) % adaptation % refinement /= 100) cycle
       if (parent % element(l) % adaptation % mark       /= 100) cycle
@@ -166,14 +166,12 @@ contains
 
     ! number of retained element clusters per new partition
     allocate(m(0:new_child%n_parts-1), source = 0)
-    associate(tp_child => recv_attrib(1,:))
-      do i = 1, old_child % n_cluster
-        p = tp_child(i)
-        if (p >= 0) then
-          m(p) = m(p) + 1
-        end if
-      end do
-    end associate
+    do i = 1, old_child % n_cluster
+      p = recv_attrib(1,i)
+      if (p >= 0) then
+        m(p) = m(p) + 1
+      end if
+    end do
 
     ! sort clusters according to 1) parent proc and 2) parent ID
     allocate(cluster_rank(old_child % n_cluster))
@@ -187,7 +185,7 @@ contains
         n = n + 1
         rd_send_map(n) % comm = new_child % comm_world
         rd_send_map(n) % proc = new_child % proc_part(p)
-        allocate(rd_send_map(n) % id_child(8 * m(p)))
+        allocate(rd_send_map(n) % id_elem(8 * m(p)))
         m(p) = n
       end if
     end do
@@ -198,7 +196,7 @@ contains
     ! build maps
     do i = 1, old_child % n_cluster
       c = cluster_rank(i)
-      p = recv_attrib(c)
+      p = recv_attrib(1,c)
       if (p < 0) cycle
       n = m(p)        ! map index
       l = e(n)        ! map element ID offset
@@ -282,7 +280,7 @@ contains
 
   subroutine ConnectGrandchild(old_child, send_attrib, grandchild)
     class(Mesh_3D), intent(in)    :: old_child
-    integer,        intent(in)    :: send_attrib
+    integer,        intent(in)    :: send_attrib(:,:)
     class(Mesh_3D), intent(inout) :: grandchild
 
     type(DataExchangeMap_3D), allocatable :: send_map(:)
@@ -392,7 +390,7 @@ contains
     integer, allocatable :: e(:), m(:)
     integer :: i, p, n, n_proc
 
-    call MPI_Comm_size(new_child % comm_world)
+    call MPI_Comm_size(new_child % comm_world, n_proc)
 
     allocate(e(0:n_proc-1), source = 0)
     allocate(m(0:n_proc-1), source = 0)
@@ -414,7 +412,7 @@ contains
         n = n + 1
         rd_recv_map(n) % comm = new_child % comm_world
         rd_recv_map(n) % proc = p
-        allocate(rd_recv_map(n) % id_child(m(p)))
+        allocate(rd_recv_map(n) % id_elem(m(p)))
         m(p) = n
       end if
     end do
@@ -433,3 +431,4 @@ contains
   !=============================================================================
 
 end submodule MP_BuildConnections
+

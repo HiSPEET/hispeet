@@ -71,8 +71,8 @@ contains
   !-----------------------------------------------------------------------------
   !> Generation of an adapted child mesh
 
-  subroutine ChildMeshAdaptation_3D &
-                 (opt, parent, new_child, old_child, rd_send_map, rd_recv_map)
+  subroutine ChildMeshAdaptation_3D( opt, parent, new_child, old_child    &
+                                   , grandchild, rd_send_map, rd_recv_map )
 
     ! arguments ................................................................
 
@@ -80,6 +80,7 @@ contains
     class(Mesh_3D),                intent(inout) :: parent
     class(Mesh_3D),                intent(out)   :: new_child
     class(Mesh_3D),      optional, intent(in)    :: old_child
+    class(Mesh_3D),      optional, intent(inout) :: grandchild
 
     type(DataExchangeMap_3D), allocatable, optional, intent(out) :: &
         rd_send_map(:) !< map for sending retained data to the new child
@@ -323,10 +324,10 @@ contains
 
     ! prepare send data ........................................................
 
-    do i = 1, old_mesh % n_elem_active
-      send_attrib(1,i) = old_child % element(i) % refinement
-      send_attrib(2,i) = old_child % element(i) % child_proc
-      send_attrib(3,i) = old_child % element(i) % mark
+    do i = 1, old_child % n_elem_active
+      send_attrib(1,i) = old_child % element(i) % adaptation % refinement
+      send_attrib(2,i) = old_child % element(i) % adaptation % child_proc
+      send_attrib(3,i) = old_child % element(i) % adaptation % mark
     end do
 
     ! pass attributes to new children ..........................................
@@ -365,3 +366,4 @@ contains
   !=============================================================================
 
 end module Child_Mesh_Adaptation__3D
+

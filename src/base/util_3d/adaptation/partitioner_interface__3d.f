@@ -107,7 +107,7 @@ contains
 
     type(ElementTransferBuffer_3D), asynchronous :: buf_vtx_elem
 
-    integer :: e, i, j, k, l, m, n
+    integer :: e, i, j, k, m, n
 
     !---------------------------------------------------------------------------
     ! Body
@@ -233,10 +233,10 @@ contains
           select case(opt % mode)
           case(1)
             vwgt(0,i) = weight(1)
-          case(1)
+          case(2)
             vwgt(0,i) = weight(1)
             vwgt(1,i) = weight(1) * m
-          case(2)
+          case(3)
             vwgt(0,i) = weight(1) * m
           end select
 
@@ -354,3 +354,4 @@ contains
   !=============================================================================
 
 end module Partitioner_Interface__3D
+

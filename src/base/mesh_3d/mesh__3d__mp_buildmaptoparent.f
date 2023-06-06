@@ -50,7 +50,7 @@ contains
     !$omp master
 
     if (allocated(mesh % map_parent)) then
-      deallocate(mesh % map_parent))
+      deallocate(mesh % map_parent)
     end if
 
     if (mesh % is_root .or. mesh % n_elem < 1) then
