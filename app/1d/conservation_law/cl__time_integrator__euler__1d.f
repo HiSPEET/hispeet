@@ -93,7 +93,7 @@ contains
   end subroutine Show_CL_TimeIntegrator_Euler_1D
 
   !-----------------------------------------------------------------------------
-  !> Performs an IMEX Euler step: u₁ = u₀ + ∆t (iλᵢ u₀ + λᵣ u₁)
+  !> Performs an IMEX Euler step
 
   subroutine TimeStep(this, cl_problem, cl_operator, dt, t_0, u_0, u)
     class(CL_TimeIntegrator_Euler_1D), intent(inout) :: this
@@ -110,10 +110,9 @@ contains
     real(RNP), allocatable, save :: u_i(:,:,:)
     real(RNP), allocatable, save :: bv(:,:)
 
-    real(RNP), save :: t
-
     real(RNP), allocatable :: Me_inv(:)
-    integer :: e, k
+    real(RNP) :: t
+    integer   :: e, k
 
     associate( nc   => cl_problem  % nc       &
              , bc   => cl_problem  % bc       &

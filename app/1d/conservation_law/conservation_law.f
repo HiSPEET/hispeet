@@ -11,6 +11,8 @@ program Conservation_Law
   use CL__Time_Integrator__1D
   use CL__Time_Integrator__Euler__1D
   use CL__Time_Integrator__ISD1__1D
+  use CL__Time_Integrator__ISD2__1D
+  use CL__Time_Integrator__RK__1D
 
   implicit none
 
@@ -43,9 +45,13 @@ program Conservation_Law
   class(CL_TimeIntegrator_1D), allocatable :: cl_tint
   type(CL_TimeIntegrator_Options_Euler_1D) :: cl_tint_euler_opt
   type(CL_TimeIntegrator_Options_ISD1_1D)  :: cl_tint_isd1_opt
+  type(CL_TimeIntegrator_Options_ISD2_1D)  :: cl_tint_isd2_opt
+  type(CL_TimeIntegrator_Options_RK_1D)    :: cl_tint_rk_opt
 
   namelist/time_integration_prm/ cl_tint_euler_opt, &
-                                 cl_tint_isd1_opt
+                                 cl_tint_isd1_opt,  &
+                                 cl_tint_isd2_opt,  &
+                                 cl_tint_rk_opt
 
   ! declarations: variables ....................................................
 
@@ -94,6 +100,10 @@ program Conservation_Law
     cl_tint = CL_TimeIntegrator_Euler_1D(cl_tint_euler_opt)
   case(2)
     cl_tint = CL_TimeIntegrator_ISD1_1D(cl_tint_isd1_opt)
+  case(3)
+    cl_tint = CL_TimeIntegrator_ISD2_1D(cl_tint_isd2_opt)
+  case(4)
+    cl_tint = CL_TimeIntegrator_RK_1D(cl_tint_rk_opt)
   end select
 
   ! show settings: TBD

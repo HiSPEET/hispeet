@@ -23,7 +23,7 @@ module CL__Time_Integrator__ISD1__1D
   public :: CL_TimeIntegrator_Options_ISD1_1D
 
   !-----------------------------------------------------------------------------
-  !> IMEX ISD1 method for Dahlquist equation
+  !> IMEX ISD1 method for 1D conservation laws
 
   type, extends(CL_TimeIntegrator_1D) :: CL_TimeIntegrator_ISD1_1D
   contains
@@ -111,10 +111,9 @@ contains
     real(RNP), allocatable, save :: u_i(:,:,:)
     real(RNP), allocatable, save :: bv(:,:)
 
-    real(RNP), save :: t
-
     real(RNP), allocatable :: Me_inv(:)
-    integer :: e, k
+    real(RNP) :: t
+    integer   :: e, k
 
     associate( nc   => cl_problem  % nc       &
              , bc   => cl_problem  % bc       &
