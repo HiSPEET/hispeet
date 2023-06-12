@@ -41,6 +41,8 @@ module CL__Problem__Burgers__1D
     procedure :: GetDiffusionTerm
     procedure :: GetSDTerm
     procedure :: DiffusionSolver
+    procedure :: GetMaxVelocity
+    procedure :: GetMaxDiffusivity
 
   end type CL_Problem_Burgers_1D
 
@@ -190,7 +192,6 @@ contains
     end select
 
     h_c = RiemannFlux(ul, ur)
-!   h_c = LLF_Flux(ul, ur)
 
   end subroutine GetNumericalConvectiveFlux
 
@@ -211,18 +212,6 @@ contains
     end if
 
   end function RiemannFlux
-
-  !-----------------------------------------------------------------------------
-  !> Numerical convective flux hc(ul,ur) based on Riemann solver
-
-  elemental function LLF_Flux(ul, ur) result(h_c)
-    real(RNP), intent(in) :: ul
-    real(RNP), intent(in) :: ur
-    real(RNP) :: h_c
-
-    h_c = (ul**2 + ur**2)/4 + max(abs(ul),abs(ur)) * (ul - ur)
-
-  end function LLF_Flux
 
   !-----------------------------------------------------------------------------
   !> Diffusive contribution to RHS of DG-SEM formulation
@@ -464,6 +453,46 @@ contains
     end select
 
   end subroutine GetStreamlineDiffusivity
+
+  !-----------------------------------------------------------------------------
+  !> Provides the maximum velocity based on eigenvalues of advective Jacobian
+
+  subroutine GetMaxVelocity(this, cl_operator, u, v_max)
+    class(CL_Problem_Burgers_1D), intent(in)  :: this
+    class(CL_Operator_1D),        intent(in)  :: cl_operator
+    real(RNP), contiguous,        intent(in)  :: u(0:,:,:) !< solution variable
+    real(RNP),                    intent(out) :: v_max     !< maximum velocity
+
+    integer :: e
+
+    v_max = 0
+
+    do e = 1, cl_operator % ne
+      if (cl_operator % mask(e)) then
+        v_max = max(v_max, maxval(abs(u(:,e,1))))
+      end if
+    end do
+
+    ! avoid compiler warning
+    if (this % nc > 0) return
+
+  end subroutine GetMaxVelocity
+
+  !-----------------------------------------------------------------------------
+  !> Provides the maximum diffusivity
+
+  subroutine GetMaxDiffusivity(this, cl_operator, u, nu_max)
+    class(CL_Problem_Burgers_1D), intent(in)  :: this
+    class(CL_Operator_1D),        intent(in)  :: cl_operator
+    real(RNP), contiguous,        intent(in)  :: u(0:,:,:) !< solution variable
+    real(RNP),                    intent(out) :: nu_max     !< maximum velocity
+
+    nu_max = this % nu
+
+    ! avoid compiler warnings
+    if (this % nc > 0 .or. cl_operator % ne > 1 .or. size(u) > 0) return
+
+  end subroutine GetMaxDiffusivity
 
   !=============================================================================
 

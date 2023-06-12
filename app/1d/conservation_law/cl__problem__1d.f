@@ -6,7 +6,10 @@
 
 module CL__Problem__1D
 
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters, only: RNP, RDP
+  use Constants,       only: ONE, HALF, THIRD
+  use Eigenproblems
+
   use CL__Operator__1D
 
   implicit none
@@ -45,12 +48,13 @@ module CL__Problem__1D
     ! private control parameters ...............................................
 
     logical, private :: has_exact_solution = .false.
-    logical, private :: has_sources        = .false.
 
   contains
 
+    procedure :: HasExactSolution
     procedure :: GetExactSolution
     procedure :: GetSources
+    procedure :: GetTimeScales
 
     procedure(SetProblem       ), deferred :: SetProblem
     procedure(GetInitialValues ), deferred :: GetInitialValues
@@ -59,6 +63,8 @@ module CL__Problem__1D
     procedure(GetDiffusionTerm ), deferred :: GetDiffusionTerm
     procedure(GetSDTerm        ), deferred :: GetSDTerm
     procedure(DiffusionSolver  ), deferred :: DiffusionSolver
+    procedure(GetMaxVelocity   ), deferred :: GetMaxVelocity
+    procedure(GetMaxDiffusivity), deferred :: GetMaxDiffusivity
 
   end type CL_Problem_1D
 
@@ -185,9 +191,41 @@ module CL__Problem__1D
       real(RNP), optional,   intent(in)    :: r_max       !< max residual
     end subroutine DiffusionSolver
 
+    !---------------------------------------------------------------------------
+    !> Provides the maximum velocity based on eigenvalues of advective Jacobian
+
+    subroutine GetMaxVelocity(this, cl_operator, u, v_max)
+      import
+      class(CL_Problem_1D),  intent(in)  :: this
+      class(CL_Operator_1D), intent(in)  :: cl_operator
+      real(RNP), contiguous, intent(in)  :: u(0:,:,:) !< solution variable
+      real(RNP),             intent(out) :: v_max     !< maximum velocity
+    end subroutine GetMaxVelocity
+
+    !---------------------------------------------------------------------------
+    !> Provides the maximum diffusivity
+
+    subroutine GetMaxDiffusivity(this, cl_operator, u, nu_max)
+      import
+      class(CL_Problem_1D),  intent(in)  :: this
+      class(CL_Operator_1D), intent(in)  :: cl_operator
+      real(RNP), contiguous, intent(in)  :: u(0:,:,:) !< solution variable
+      real(RNP),             intent(out) :: nu_max    !< maximum diffusivity
+    end subroutine GetMaxDiffusivity
+
   end interface
 
 contains
+
+  !-----------------------------------------------------------------------------
+  !> Query whether an exact solution is available
+
+  logical function HasExactSolution(this)
+    class(CL_Problem_1D), intent(in) :: this
+
+    HasExactSolution = this % has_exact_solution
+
+  end function HasExactSolution
 
   !-----------------------------------------------------------------------------
   !> Dummy procedure for the exact solution u(x,t)
@@ -225,6 +263,83 @@ contains
     if (this%nc * cl_operator%ne * t * size(u) > 0) return
 
   end subroutine GetSources
+
+  !-----------------------------------------------------------------------------
+  !> Evaluation of convective and diffusive time scales
+  !>
+  !> The time scales are derived from the eigenvalues of the convection and
+  !> diffusion operators for a single element with Dirichlet conditions on
+  !> one or both sides, respectively. These eigenvalues are computed for the
+  !> standard element with normalized coefficients and then scaled to the
+  !> actual element size and maximum velocity or diffusivity. The convective
+  !> and diffusive time scales are obtained from the minimum of the inverse
+  !> magnitude of the respective eigenvalues.
+  !>
+  !> In case of no advection or diffusion, a negative value is returned for the
+  !> corresponding time scale.
+
+  subroutine GetTimeScales(this, cl_operator, u, tau_conv, tau_diff)
+    class(CL_Problem_1D),  intent(in)  :: this        !< CL problem
+    class(CL_Operator_1D), intent(in)  :: cl_operator !< CL operator
+    real(RNP), contiguous, intent(in)  :: u(:,:,:)    !< conservative variables
+    real(RNP),             intent(out) :: tau_conv    !< convective time scale
+    real(RNP),             intent(out) :: tau_diff    !< diffusive  time scale
+
+    real(RNP), parameter :: eps = epsilon(ONE)
+
+    complex(RDP), allocatable :: lmb_conv(:)
+    real(RDP),    allocatable :: lmb_diff(:), A_conv(:,:), A_diff(:,:)
+
+    real(RNP) :: lmb_conv_max, lmb_diff_max, nu_max, v_max
+
+    associate( eop => cl_operator % eop      &
+             , po  => cl_operator % eop % po &
+             , dx  => cl_operator % dx       )
+
+      ! eigenvalues of model problems ..........................................
+
+      select case(po)
+
+      case(0:1)
+
+        lmb_conv_max = HALF
+        lmb_diff_max = ONE
+
+      case default
+
+        ! convection problem with unit velocity in standard element
+        allocate(A_conv(po,po), lmb_conv(po))
+        A_conv = eop % D(1:,1:)
+        call SolveNonsymmetricEigenproblem(A_conv, lmb_conv)
+        lmb_conv_max = real(maxval(abs(lmb_conv)), RNP)
+
+        ! diffusion problem with Dirichlet conditions in standard element
+        allocate(A_diff(po-1,po-1), lmb_diff(po-1))
+        A_diff = eop % L(1:po-1,1:po-1)
+        call SolveSymmetricEigenproblem(A_diff, lmb_diff)
+        lmb_diff_max = real(maxval(abs(lmb_diff)), RNP)
+
+      end select
+
+      ! time scales ............................................................
+
+      call this % GetMaxVelocity(cl_operator, u, v_max)
+      if (v_max > 0) then
+        tau_conv = dx / max(2 * lmb_conv_max * v_max, eps)
+      else
+        tau_conv = -1
+      end if
+
+      call this % GetMaxDiffusivity (cl_operator, u, nu_max)
+      if (nu_max > 0) then
+        tau_diff = dx**2 / max(4 * lmb_diff_max * nu_max, eps)
+      else
+        tau_diff = -1
+      end if
+
+    end associate
+
+  end subroutine GetTimeScales
 
   !=============================================================================
 
