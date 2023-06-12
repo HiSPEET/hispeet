@@ -60,6 +60,7 @@ program Conservation_Law
   ! declarations: auxiliary ....................................................
 
   real(RNP) :: t, t_run, t_run_0
+  real(RNP) :: tau_conv, tau_diff
   logical   :: exists
   integer   :: io, nt
   integer   :: i, k
@@ -106,7 +107,8 @@ program Conservation_Law
     cl_tint = CL_TimeIntegrator_RK_1D(cl_tint_rk_opt)
   end select
 
-  ! show settings: TBD
+  ! show settings
+  call cl_tint % Show()
 
   ! variables
   allocate(u(0:cl_operator%eop%po, cl_operator%ne, cl_problem%nc))
@@ -118,9 +120,23 @@ program Conservation_Law
 
   ! time integration ...........................................................
 
+  write(*,*)
+  write(*,'(A)') 'Time integration'
+  write(*,'(A)') repeat('=',80)
+  write(*,*)
+
+  ! CFL and diffusion numbers
+  call cl_problem % GetTimeScales(cl_operator, u, tau_conv, tau_diff)
+  if (tau_conv > 0) then
+    write(*,'(2X,A,ES12.5)') 'c_conv =', dt / tau_conv
+  end if
+  if (tau_conv > 0) then
+    write(*,'(2X,A,ES12.5)') 'c_diff =', dt / tau_diff
+  end if
+  write(*,*)
+
   t = 0
   k = 1
-  write(*,*)
 
   call cpu_time(t_run_0)
 
@@ -139,7 +155,8 @@ program Conservation_Law
 
   call cpu_time(t_run)
 
-  write(*,'(/,A,ES12.5)') 't_run =', t_run  - t_run_0
+  write(*,*)
+  write(*,'(2X,A,ES12.5)') 't_run  =', t_run  - t_run_0
 
   ! save results
   open(newunit=io, file=trim(case_name)//'.dat')
