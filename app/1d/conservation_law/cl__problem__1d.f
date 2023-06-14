@@ -135,13 +135,17 @@ module CL__Problem__1D
 
     !---------------------------------------------------------------------------
     !> Streamline-diffusion contribution to RHS of DG-SEM formulation
+    !>
+    !> Evaluates the weak form of the streamline-diffusion operators for `u`
+    !> using `u₀` for computing the streamline diffusivity.
 
-    subroutine GetSDTerm(this, cl_operator, tau, bv, u, r_sd)
+    subroutine GetSDTerm(this, cl_operator, tau, bv, u_0, u, r_sd)
       import
       class(CL_Problem_1D),  intent(in)  :: this
       class(CL_Operator_1D), intent(in)  :: cl_operator
       real(RNP),             intent(in)  :: tau          !< SD time scale τ
       real(RNP),             intent(in)  :: bv  (:,:)    !< boundary values
+      real(RNP), contiguous, intent(in)  :: u_0 (0:,:,:) !< u₀(x,t)
       real(RNP), contiguous, intent(in)  :: u   (0:,:,:) !< u(x,t)
       real(RNP), contiguous, intent(out) :: r_sd(0:,:,:) !< SD-RHS
     end subroutine GetSDTerm
@@ -151,9 +155,10 @@ module CL__Problem__1D
     !>
     !> Implicit method for solving or relaxing the diffusion subproblem
     !>
-    !>       u = u₀ + ∆t [r_d(bv,u) + r_ds(bv,τ,u)]
+    !>       u = f + ∆t [r_d(bv,u) + r_ds(bv,τ,u₀,u)]
     !>
-    !> The streamline-diffusion term `r_ds` is included only if τ > 0.
+    !> The streamline-diffusion term `r_ds` is evaluated with `u₀` and included
+    !> only if τ > 0.
     !> At present, the following solution methods are available:
     !>
     !> 1. Direct hybrid solver
@@ -175,16 +180,17 @@ module CL__Problem__1D
     !>      - best iterative solver when used with no overlap, `schwarz%no = 0`
     !>      - good smoother when used with overlap `schwarz%no ≈ po/4`
 
-    subroutine DiffusionSolver( this, cl_operator, dt, tau, bv, u_0, u &
-                              , method, i_max, r_red, r_max            )
+    subroutine DiffusionSolver( this, cl_operator, dt, tau, bv, f, u_0, u &
+                              , method, i_max, r_red, r_max               )
       import
       class(CL_Problem_1D),  intent(in)    :: this
       class(CL_Operator_1D), intent(in)    :: cl_operator
       real(RNP),             intent(in)    :: dt          !< ∆t = t - t₀
       real(RNP),             intent(in)    :: tau         !< SD time scale τ
       real(RNP),             intent(in)    :: bv (:,:)    !< boundary values
-      real(RNP), contiguous, intent(in)    :: u_0(0:,:,:) !< initial value u₀
-      real(RNP), contiguous, intent(inout) :: u  (0:,:,:) !< approx solution u
+      real(RNP), contiguous, intent(in)    :: f  (0:,:,:) !< sources
+      real(RNP), contiguous, intent(in)    :: u_0(0:,:,:) !< frozen solution
+      real(RNP), contiguous, intent(inout) :: u  (0:,:,:) !< approx solution
       integer,               intent(in)    :: method      !< solution method
       integer,               intent(in)    :: i_max       !< max num iterations
       real(RNP), optional,   intent(in)    :: r_red       !< residual reduction

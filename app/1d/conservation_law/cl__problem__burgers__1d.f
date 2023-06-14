@@ -256,11 +256,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Streamline-diffusion contribution to RHS of DG-SEM formulation
 
-  subroutine GetSDTerm(this, cl_operator, tau, bv, u, r_sd)
+  subroutine GetSDTerm(this, cl_operator, tau, bv, u_0, u, r_sd)
     class(CL_Problem_Burgers_1D), intent(in)  :: this
     class(CL_Operator_1D),        intent(in)  :: cl_operator
     real(RNP),                    intent(in)  :: tau
     real(RNP),                    intent(in)  :: bv (:,:)
+    real(RNP), contiguous,        intent(in)  :: u_0 (0:,:,:)
     real(RNP), contiguous,        intent(in)  :: u   (0:,:,:)
     real(RNP), contiguous,        intent(out) :: r_sd(0:,:,:)
 
@@ -274,7 +275,7 @@ contains
       !$omp master
       allocate(f    (0:po,ne), source = ZERO)
       allocate(nu_sd(0:po,ne))
-      call GetStreamlineDiffusivity(this, tau, u(:,:,1), nu_sd)
+      call GetStreamlineDiffusivity(this, tau, u_0(:,:,1), nu_sd)
 
       elliptic_bc = this % bc(:)(1:1)
       where(elliptic_bc == 'D')
@@ -305,9 +306,10 @@ contains
   !>
   !> Implicit method for solving or relaxing the diffusion subproblem
   !>
-  !>       u = u₀ + ∆t [r_d(bv,u) + r_ds(bv,τ,u)]
+  !>       u = f + ∆t [r_d(bv,u) + r_ds(bv,τ,u₀,u)]
   !>
-  !> The streamline-diffusion term `f_ds` is included only if τ > 0.
+  !> The streamline-diffusion term `r_ds` is evaluated with `u₀` and included
+  !> only if τ > 0.
   !> At present, the following solution methods are available:
   !>
   !> 1. Direct hybrid solver
@@ -329,21 +331,22 @@ contains
   !>      - best iterative solver when used with no overlap, `schwarz%no = 0`
   !>      - good smoother when used with overlap `schwarz%no ≈ po/4`
 
-  subroutine DiffusionSolver( this, cl_operator, dt, tau, bv, u_0, u &
-                            , method, i_max, r_red, r_max            )
+  subroutine DiffusionSolver( this, cl_operator, dt, tau, bv, f, u_0, u &
+                            , method, i_max, r_red, r_max               )
     class(CL_Problem_Burgers_1D), intent(in) :: this
     class(CL_Operator_1D), intent(in)    :: cl_operator
     real(RNP),             intent(in)    :: dt          !< ∆t = t - t₀
     real(RNP),             intent(in)    :: tau         !< SD time scale τ
     real(RNP),             intent(in)    :: bv (:,:)    !< boundary values
-    real(RNP), contiguous, intent(in)    :: u_0(0:,:,:) !< initial value u₀
-    real(RNP), contiguous, intent(inout) :: u  (0:,:,:) !< approx solution u
+    real(RNP), contiguous, intent(in)    :: f  (0:,:,:) !< sources
+    real(RNP), contiguous, intent(in)    :: u_0(0:,:,:) !< frozen solution
+    real(RNP), contiguous, intent(inout) :: u  (0:,:,:) !< approx solution
     integer,               intent(in)    :: method      !< solution method
     integer,               intent(in)    :: i_max       !< max num iterations
     real(RNP), optional,   intent(in)    :: r_red       !< residual reduction
     real(RNP), optional,   intent(in)    :: r_max       !< max residual
 
-    real(RNP), allocatable, save :: f(:,:), nu_tot(:,:)
+    real(RNP), allocatable, save :: g(:,:), nu_tot(:,:)
     character :: elliptic_bc(2)
     real(RNP) :: elliptic_bv(2)
     real(RNP) :: lambda
@@ -367,19 +370,19 @@ contains
       lambda = 1 / dt
 
       ! sources
-      allocate(f(0:po,ne))
+      allocate(g(0:po,ne))
       do e = 1, ne
         if (mask(e)) then
-          f(:,e) = lambda * Me * u_0(:,e,1)
+          g(:,e) = lambda * Me * f(:,e,1)
         else
-          f(:,e) = 0
+          g(:,e) = 0
         end if
       end do
 
       if (tau > ZERO) then
 
         allocate(nu_tot(0:po,ne))
-        call GetStreamlineDiffusivity(this, tau, u(:,:,1), nu_tot)
+        call GetStreamlineDiffusivity(this, tau, u_0(:,:,1), nu_tot)
         nu_tot = nu_tot + this % nu
 
         select case(method)
@@ -389,15 +392,15 @@ contains
                     , 'CL__Problem__Burgers__1D'    )
         case(2)
           call elliptic_op % CG_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, f, u(:,:,1) &
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, g, u(:,:,1) &
                   , i_max, r_red, r_max, mask )
         case(3)
           call elliptic_op % Schwarz_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, f, u(:,:,1) &
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, g, u(:,:,1) &
                   , i_max, r_red, r_max, mask )
         case(4)
           call elliptic_op % SchwarzPCG_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, f, u(:,:,1) &
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, g, u(:,:,1) &
                   , i_max, r_red, r_max, mask )
         end select
 
@@ -406,24 +409,24 @@ contains
         select case(method)
         case(1)
           call elliptic_op % HybridSolver &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, f, u(:,:,1) )
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, g, u(:,:,1) )
         case(2)
           call elliptic_op % CG_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, f, u(:,:,1) &
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, g, u(:,:,1) &
                   , i_max, r_red, r_max, mask )
         case(3)
           call elliptic_op % Schwarz_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, f, u(:,:,1) &
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, g, u(:,:,1) &
                   , i_max, r_red, r_max, mask )
         case(4)
           call elliptic_op % SchwarzPCG_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, f, u(:,:,1) &
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, g, u(:,:,1) &
                   , i_max, r_red, r_max, mask )
         end select
 
       end if
 
-      deallocate(f)
+      deallocate(g)
       if (allocated(nu_tot)) deallocate(nu_tot)
       !$omp end master
 
