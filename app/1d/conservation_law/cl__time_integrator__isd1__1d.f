@@ -88,21 +88,19 @@ contains
     ! show parent settings
     call this % Show_CL_TimeIntegrator_1D(unit)
 
-    write(io,'(2X,A,T15,G0)')  'impl:', this % impl
-
   end subroutine Show_CL_TimeIntegrator_ISD1_1D
 
   !-----------------------------------------------------------------------------
   !> Performs an IMEX ISD1 step: u₁ = u₀ + ∆t (iλᵢ u₀ + λᵣ u₁)
 
   subroutine TimeStep(this, cl_problem, cl_operator, dt, t_0, u_0, u)
-    class(CL_TimeIntegrator_ISD1_1D), intent(inout) :: this
-    class(CL_Problem_1D),  intent(in) :: cl_problem
-    class(CL_Operator_1D), intent(in) :: cl_operator
-    real(RNP), intent(in)    :: dt          !< step size ∆t
-    real(RNP), intent(in)    :: t_0         !< initial time
-    real(RNP), intent(in)    :: u_0(0:,:,:) !< u(t₀)
-    real(RNP), intent(inout) :: u  (0:,:,:) !< u(t₀+∆t)
+    class(CL_TimeIntegrator_ISD1_1D), intent(in) :: this
+    class(CL_Problem_1D),  intent(in)    :: cl_problem
+    class(CL_Operator_1D), intent(in)    :: cl_operator
+    real(RNP),             intent(in)    :: dt          !< step size ∆t
+    real(RNP),             intent(in)    :: t_0         !< initial time
+    real(RNP), contiguous, intent(in)    :: u_0(0:,:,:) !< u(t₀)
+    real(RNP), contiguous, intent(inout) :: u  (0:,:,:) !< u(t₀+∆t)
 
     real(RNP), allocatable, save :: r_c(:,:,:)
     real(RNP), allocatable, save :: r_d(:,:,:)
@@ -116,10 +114,10 @@ contains
     integer   :: e, k
 
     associate( nc   => cl_problem  % nc       &
-             , bc   => cl_problem  % bc       &
+             , eop  => cl_operator % eop      &
+             , dx   => cl_operator % dx       &
              , po   => cl_operator % eop % po &
              , ne   => cl_operator % ne       &
-             , Me   => cl_operator % Me       &
              , mask => cl_operator % mask     )
 
       !$omp master
@@ -135,7 +133,7 @@ contains
       allocate(u_i , mold = u)
       allocate(bv(nc,2))
 
-      allocate(Me_inv(0:po), source = 1/Me)
+      allocate(Me_inv(0:po), source = ONE/(dx/2 * eop%w))
 
       select case(this%impl)
 
@@ -146,7 +144,7 @@ contains
         call cl_problem % GetBoundaryValues(t_0, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
         call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
-        call cl_problem % GetSDTerm(cl_operator, dt, bv, u_0, r_sd)
+        call cl_problem % GetSDTerm(cl_operator, dt, bv, u_0, u_0, r_sd)
         call cl_problem % GetSources(cl_operator, t_0, u_0, f_s)
 
         do k = 1, nc
@@ -179,11 +177,15 @@ contains
           else
             u_i(:,e,k) = u_0(:,e,k)
           end if
+          u(:,e,k) = u_0(:,e,k)
         end do
         end do
 
         ! implicit diffusion step
-        call cl_problem % DiffusionSolver( cl_operator, dt, dt, bv, u_i, u  &
+        call cl_problem % DiffusionSolver( cl_operator, dt, dt, bv          &
+                                         , f      = u_i                     &
+                                         , u_0    = u_0                     &
+                                         , u      = u                       &
                                          , method = this % diffusion_method &
                                          , i_max  = this % diffusion_i_max  &
                                          , r_red  = this % diffusion_r_red  &
