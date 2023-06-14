@@ -88,21 +88,19 @@ contains
     ! show parent settings
     call this % Show_CL_TimeIntegrator_1D(unit)
 
-    write(io,'(2X,A,T15,G0)')  'impl:', this % impl
-
   end subroutine Show_CL_TimeIntegrator_Euler_1D
 
   !-----------------------------------------------------------------------------
   !> Performs an IMEX Euler step
 
   subroutine TimeStep(this, cl_problem, cl_operator, dt, t_0, u_0, u)
-    class(CL_TimeIntegrator_Euler_1D), intent(inout) :: this
-    class(CL_Problem_1D),  intent(in) :: cl_problem
-    class(CL_Operator_1D), intent(in) :: cl_operator
-    real(RNP), intent(in)    :: dt          !< step size ∆t
-    real(RNP), intent(in)    :: t_0         !< initial time
-    real(RNP), intent(in)    :: u_0(0:,:,:) !< u(t₀)
-    real(RNP), intent(inout) :: u  (0:,:,:) !< u(t₀+∆t)
+    class(CL_TimeIntegrator_Euler_1D), intent(in) :: this
+    class(CL_Problem_1D),  intent(in)    :: cl_problem
+    class(CL_Operator_1D), intent(in)    :: cl_operator
+    real(RNP),             intent(in)    :: dt          !< step size ∆t
+    real(RNP),             intent(in)    :: t_0         !< initial time
+    real(RNP), contiguous, intent(in)    :: u_0(0:,:,:) !< u(t₀)
+    real(RNP), contiguous, intent(inout) :: u  (0:,:,:) !< u(t₀+∆t)
 
     real(RNP), allocatable, save :: r_c(:,:,:)
     real(RNP), allocatable, save :: r_d(:,:,:)
@@ -115,7 +113,6 @@ contains
     integer   :: e, k
 
     associate( nc   => cl_problem  % nc       &
-             , bc   => cl_problem  % bc       &
              , po   => cl_operator % eop % po &
              , ne   => cl_operator % ne       &
              , Me   => cl_operator % Me       &
@@ -179,7 +176,8 @@ contains
         end do
 
         ! implicit diffusion step
-        call cl_problem % DiffusionSolver( cl_operator, dt, ZERO, bv, u_i, u &
+        call cl_problem % DiffusionSolver( cl_operator, dt, ZERO, bv         &
+                                         , u_i, u_0, u                       &
                                          , method = this % diffusion_method  &
                                          , i_max  = this % diffusion_i_max   &
                                          , r_red  = this % diffusion_r_red   &

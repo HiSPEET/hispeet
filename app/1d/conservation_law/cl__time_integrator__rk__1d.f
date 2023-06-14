@@ -98,8 +98,6 @@ contains
     ! show parent settings
     call this % Show_CL_TimeIntegrator_1D(unit)
 
-    write(io,'(2X,A,T15,G0)')  'impl:', this % impl
-
     ! show IMEX RK settings
     call this % imex_rk % Show(unit)
 
@@ -109,13 +107,13 @@ contains
   !> Performs an IMEX Runge-Kutta step
 
   subroutine TimeStep(this, cl_problem, cl_operator, dt, t_0, u_0, u)
-    class(CL_TimeIntegrator_RK_1D), intent(inout) :: this
-    class(CL_Problem_1D),  intent(in) :: cl_problem
-    class(CL_Operator_1D), intent(in) :: cl_operator
-    real(RNP), intent(in)    :: dt          !< step size ∆t
-    real(RNP), intent(in)    :: t_0         !< initial time
-    real(RNP), intent(in)    :: u_0(0:,:,:) !< u(t₀)
-    real(RNP), intent(inout) :: u  (0:,:,:) !< u(t₀+∆t)
+    class(CL_TimeIntegrator_RK_1D), intent(in) :: this
+    class(CL_Problem_1D),  intent(in)    :: cl_problem
+    class(CL_Operator_1D), intent(in)    :: cl_operator
+    real(RNP),             intent(in)    :: dt          !< step size ∆t
+    real(RNP),             intent(in)    :: t_0         !< initial time
+    real(RNP), contiguous, intent(in)    :: u_0(0:,:,:) !< u(t₀)
+    real(RNP), contiguous, intent(inout) :: u  (0:,:,:) !< u(t₀+∆t)
 
     real(RNP), allocatable, save :: r_c(:,:,:)
     real(RNP), allocatable, save :: r_d(:,:,:)
@@ -137,7 +135,6 @@ contains
              , c    => this % imex_rk % c       &
              , ns   => this % imex_rk % n_stage &
              , nc   => cl_problem  % nc         &
-             , bc   => cl_problem  % bc         &
              , po   => cl_operator % eop % po   &
              , ne   => cl_operator % ne         &
              , Me   => cl_operator % Me         &
@@ -232,7 +229,8 @@ contains
           call MergeArrays(ONE, r_d, dt_a_ii, f_s, multi=.true.)
 
           call cl_problem % DiffusionSolver( cl_operator, dt_a_ii, ZERO, bv    &
-                                           , u_0    = r_d                      &
+                                           , f      = r_d                      &
+                                           , u_0    = u_0                      &
                                            , u      = u_i                      &
                                            , method = this % diffusion_method  &
                                            , i_max  = this % diffusion_i_max   &
