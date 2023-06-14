@@ -88,21 +88,19 @@ contains
     ! show parent settings
     call this % Show_CL_TimeIntegrator_1D(unit)
 
-    write(io,'(2X,A,T15,G0)')  'impl:', this % impl
-
   end subroutine Show_CL_TimeIntegrator_ISD2_1D
 
   !-----------------------------------------------------------------------------
   !> Performs an IMEX ISD2
 
   subroutine TimeStep(this, cl_problem, cl_operator, dt, t_0, u_0, u)
-    class(CL_TimeIntegrator_ISD2_1D), intent(inout) :: this
-    class(CL_Problem_1D),  intent(in) :: cl_problem
-    class(CL_Operator_1D), intent(in) :: cl_operator
-    real(RNP), intent(in)    :: dt          !< step size ∆t
-    real(RNP), intent(in)    :: t_0         !< initial time
-    real(RNP), intent(in)    :: u_0(0:,:,:) !< u(t₀)
-    real(RNP), intent(inout) :: u  (0:,:,:) !< u(t₀+∆t)
+    class(CL_TimeIntegrator_ISD2_1D), intent(in) :: this
+    class(CL_Problem_1D),  intent(in)    :: cl_problem
+    class(CL_Operator_1D), intent(in)    :: cl_operator
+    real(RNP),             intent(in)    :: dt          !< step size ∆t
+    real(RNP),             intent(in)    :: t_0         !< initial time
+    real(RNP), contiguous, intent(in)    :: u_0(0:,:,:) !< u(t₀)
+    real(RNP), contiguous, intent(inout) :: u  (0:,:,:) !< u(t₀+∆t)
 
     real(RNP), allocatable, save :: r_c(:,:,:)
     real(RNP), allocatable, save :: r_d(:,:,:)
@@ -117,7 +115,6 @@ contains
     integer   :: e, k
 
     associate( nc   => cl_problem  % nc       &
-             , bc   => cl_problem  % bc       &
              , po   => cl_operator % eop % po &
              , ne   => cl_operator % ne       &
              , Me   => cl_operator % Me       &
@@ -147,7 +144,7 @@ contains
         call cl_problem % GetBoundaryValues(t_0, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
         call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
-        call cl_problem % GetSDTerm(cl_operator, dt, bv, u_0, r_sd)
+        call cl_problem % GetSDTerm(cl_operator, dt, bv, u_0, u_0, r_sd)
         call cl_problem % GetSources(cl_operator, t_0, u_0, f_s)
 
         ! stage 1
@@ -203,16 +200,20 @@ contains
           else
             u_i(:,e,k) = u_0(:,e,k)
           end if
+          u_1(:,e,k) = u_0(:,e,k)
         end do
         end do
 
         ! stage 1: implicit diffusion step
         call cl_problem % GetBoundaryValues(t, bv)
-        call cl_problem % DiffusionSolver( cl_operator, dt/2, dt, bv, u_i, u_1 &
-                                         , method = this % diffusion_method    &
-                                         , i_max  = this % diffusion_i_max     &
-                                         , r_red  = this % diffusion_r_red     &
-                                         , r_max  = this % diffusion_r_max     )
+        call cl_problem % DiffusionSolver( cl_operator, dt/2, dt, bv        &
+                                         , f      = u_i                     &
+                                         , u_0    = u_0                     &
+                                         , u      = u_1                     &
+                                         , method = this % diffusion_method &
+                                         , i_max  = this % diffusion_i_max  &
+                                         , r_red  = this % diffusion_r_red  &
+                                         , r_max  = this % diffusion_r_max  )
 
         ! stage 2: preliminaries
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_1, r_c)
@@ -235,11 +236,14 @@ contains
 
         ! implicit diffusion step
         call cl_problem % GetBoundaryValues(t, bv)
-        call cl_problem % DiffusionSolver( cl_operator, dt/2, ZERO, bv, u_i, u &
-                                         , method = this % diffusion_method    &
-                                         , i_max  = this % diffusion_i_max     &
-                                         , r_red  = this % diffusion_r_red     &
-                                         , r_max  = this % diffusion_r_max     )
+        call cl_problem % DiffusionSolver( cl_operator, dt/2, ZERO, bv      &
+                                         , f      = u_i                     &
+                                         , u_0    = u_0                     &
+                                         , u      = u                       &
+                                         , method = this % diffusion_method &
+                                         , i_max  = this % diffusion_i_max  &
+                                         , r_red  = this % diffusion_r_red  &
+                                         , r_max  = this % diffusion_r_max  )
 
       end select
 
