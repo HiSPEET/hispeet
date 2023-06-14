@@ -14,6 +14,9 @@ program Conservation_Law
   use CL__Time_Integrator__ISD2__1D
   use CL__Time_Integrator__RK__1D
 
+  use CL__SDC__Method__1D
+  use CL__SDC__Method__ISD1__1D
+
   implicit none
 
   ! declarations: control ......................................................
@@ -34,13 +37,16 @@ program Conservation_Law
 
   ! declarations: time integration .............................................
 
-  integer   :: time_method = 1
-
   real(RNP) :: t_end   =  0.1
   real(RNP) :: dt      =  0.001
   integer   :: nt_max  = -1
 
-  namelist/time_integration_prm/ time_method, t_end, dt, nt_max
+  namelist/time_integration_prm/ t_end, dt, nt_max
+
+  integer   :: time_method = 1  ! standalone integrator or predictor
+  integer   :: sdc_method  = 0  ! SDC method
+
+  namelist/time_integration_prm/ time_method, sdc_method
 
   class(CL_TimeIntegrator_1D), allocatable :: cl_tint
   type(CL_TimeIntegrator_Options_Euler_1D) :: cl_tint_euler_opt
@@ -52,6 +58,12 @@ program Conservation_Law
                                  cl_tint_isd1_opt,  &
                                  cl_tint_isd2_opt,  &
                                  cl_tint_rk_opt
+
+
+  class(CL_SDC_Method_1D), allocatable :: cl_sdc
+  type(CL_SDC_Options_ISD1_1D) :: cl_sdc_isd1_opt
+
+  namelist/time_integration_prm/ cl_sdc_isd1_opt
 
   ! declarations: variables ....................................................
 
@@ -96,19 +108,46 @@ program Conservation_Law
   cl_operator = CL_Operator_1D(cl_operator_opt)
 
   ! time integration
-  select case(time_method)
-  case(1)
-    cl_tint = CL_TimeIntegrator_Euler_1D(cl_tint_euler_opt)
+  select case(sdc_method)
+
+  ! case(1)
+    ! SDC based on Euler -- not implemented yet
+
   case(2)
-    cl_tint = CL_TimeIntegrator_ISD1_1D(cl_tint_isd1_opt)
-  case(3)
-    cl_tint = CL_TimeIntegrator_ISD2_1D(cl_tint_isd2_opt)
-  case(4)
-    cl_tint = CL_TimeIntegrator_RK_1D(cl_tint_rk_opt)
+
+    ! SDC based on ISD1
+    select case(time_method)
+    case(1)
+      cl_sdc = CL_SDC_Method_ISD1_1D(cl_tint_euler_opt, cl_sdc_isd1_opt)
+    case(2)
+      cl_sdc = CL_SDC_Method_ISD1_1D(cl_tint_isd1_opt, cl_sdc_isd1_opt)
+    case(3)
+      cl_sdc = CL_SDC_Method_ISD1_1D(cl_tint_isd2_opt, cl_sdc_isd1_opt)
+    case(4)
+      cl_sdc = CL_SDC_Method_ISD1_1D(cl_tint_rk_opt, cl_sdc_isd1_opt)
+    end select
+
+  case default
+
+    ! standalone integrator
+    select case(time_method)
+    case(1)
+      cl_tint = CL_TimeIntegrator_Euler_1D(cl_tint_euler_opt)
+    case(2)
+      cl_tint = CL_TimeIntegrator_ISD1_1D(cl_tint_isd1_opt)
+    case(3)
+      cl_tint = CL_TimeIntegrator_ISD2_1D(cl_tint_isd2_opt)
+    case(4)
+      cl_tint = CL_TimeIntegrator_RK_1D(cl_tint_rk_opt)
+    end select
   end select
 
   ! show settings
-  call cl_tint % Show()
+  if (sdc_method > 0) then
+    call cl_sdc % Show()
+  else
+    call cl_tint % Show()
+  end if
 
   ! variables
   allocate(u(0:cl_operator%eop%po, cl_operator%ne, cl_problem%nc))
@@ -142,7 +181,11 @@ program Conservation_Law
 
   do i = 1, nt
 
-    call cl_tint % TimeStep(cl_problem, cl_operator, dt, t, u_0, u)
+    if (sdc_method > 0) then
+      call cl_sdc % TimeStep(cl_problem, cl_operator, dt, t, u_0, u)
+    else
+      call cl_tint % TimeStep(cl_problem, cl_operator, dt, t, u_0, u)
+    end if
     call SetArray(u_0, u)
     t = t + dt
 
