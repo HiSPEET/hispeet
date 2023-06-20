@@ -239,7 +239,7 @@ contains
           allocate(xo(0:po), xi(0:po))
           ! original points (equidistant)
           do i = 0, po
-            xo = TWO * i/po - ONE
+            xo(i) = TWO * i/po - ONE
           end do
           ! interpolation points (Lobatto)
           xi = LobattoPoints(po)
@@ -322,7 +322,7 @@ contains
       do i = 0, po
         tmp = 0
         do p = 0, po
-          tmp = tmp + A(i,p) * z3(p,j,k)
+          tmp = tmp + A(i,p) * z2(p,j,k)
         end do
         x_e(i,j,k,d) = tmp
       end do
