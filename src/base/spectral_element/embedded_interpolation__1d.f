@@ -2,11 +2,21 @@
 !> author:   Joerg Stiller
 !> date:     2018/03/09
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> Provides one-dimensional interpolation operators for the following `basis`
+!> types
+!>
+!>   - `'G'`  Lagrangian with Gauss points
+!>   - `'R'`  Lagrangian with left-sided Radau points, `xo(0) = -1`
+!>   - `'L'`  Lagrangian with on Lobatto points
+!>   - `'N'`  Lagrangian with arbitrary nodes
+!>
 !===============================================================================
 
 module Embedded_Interpolation__1D
   use Kind_Parameters, only: RNP
   use Gauss_Jacobi
+  use Lagrange_Interpolation
   use Standard_Operators__1D
   implicit none
   private
@@ -99,10 +109,16 @@ contains
           this % A(j,k) = RadauPolynomial(k, xo, xi(j))
         end do
         end do
-      case default ! Lobatto
+      case('L') ! Lobatto
         do k = 0, po
         do j = 1, ni
           this % A(j,k) = LobattoPolynomial(k, xo, xi(j))
+        end do
+        end do
+      case('N') ! Nodal with arbitrary spacing
+        do k = 0, po
+        do j = 1, ni
+          this % A(j,k) = LagrangePolynomial(k, xo, xi(j))
         end do
         end do
       end select
