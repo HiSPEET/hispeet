@@ -27,6 +27,8 @@ program Mesh3d_Adapt
   use Child_Mesh_Adaptation__3D
   use Export_VTK_Volume_Data__3D
 
+  use Smiling_Face
+
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -74,7 +76,10 @@ program Mesh3d_Adapt
 
   ! auxiliary variables ........................................................
 
-  logical, allocatable, save :: mask(:)
+  type(SmilingFace), save :: smiley
+
+  real(RNP), allocatable, save :: s(:,:,:,:,:)
+  logical,   allocatable, save :: mask(:)
 
   character(len=80) :: config_name = ''
   character(len=80) :: plot_file   = ''
@@ -220,6 +225,9 @@ print '(99(G0,1X))', '# 1'
   if (export_vtk) then
     do l = 1, n_level
 
+allocate(s(0:po,0:po,0:po,mesh(l)%n_elem,1))
+s(:,:,:,:,1) = smiley % Density(sem(l)%metrics%x(:,:,:,:,1), sem(l)%metrics%x(:,:,:,:,2))
+
       write(tag, fmt='(A2,I0)') '_l', l
       plot_file = trim(input_file) // trim(tag)
 
@@ -230,12 +238,14 @@ print '(99(G0,1X))', '# 1'
         mask = .true.
       end if
 
-      call ExportVTK_VolumeData( sem(l) % metrics % x        &!, s =, sname =
+      call ExportVTK_VolumeData( sem(l) % metrics % x        &
+                               , s, sname = ['f']            &
                                , file    = plot_file         &
                                , part    = mesh(l) % part    &
                                , n_parts = mesh(l) % n_parts &
                                , mask    = mask              )
       deallocate(mask)
+deallocate(s)
 !### CHECK
 print '(99(G0,1X))', '# 1, l =', l
 !### CHECK END
