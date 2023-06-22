@@ -7,6 +7,12 @@
 
 contains
 
+  !-----------------------------------------------------------------------------
+  !> Restrict adaptation pattern from child to parent level
+  !>
+  !> Upgrades the adaptation mark for all parent elements with active children
+  !> to `max(mark, child_mark+1)`, where `child_mark` is the highest mark of all
+  !> children.
 
   subroutine RestrictAdaptationPattern(child, parent)
     class(Mesh_3D), intent(in)    :: child

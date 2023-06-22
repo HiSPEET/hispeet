@@ -7,6 +7,11 @@
 
 contains
 
+  !-----------------------------------------------------------------------------
+  !> Make adaptation pattern globally consistent
+  !>
+  !> Upgrades the adaptation mark to `max(mark,0)` for all active elements which
+  !> possess a neighbor with `mark > 0`
 
   subroutine GlobalizeAdaptationPattern(mesh)
     class(Mesh_3D), intent(inout) :: mesh
