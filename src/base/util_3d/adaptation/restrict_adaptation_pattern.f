@@ -1,9 +1,11 @@
-
+module Restrict_Adaptation_Pattern
   use Mesh__3D
   use Data_Exchange__3D
 
   implicit none
   private
+
+  public :: RestrictAdaptationPattern
 
 contains
 
@@ -87,3 +89,5 @@ contains
     end do
 
   end subroutine RestrictAdaptationPattern
+
+end module Restrict_Adaptation_Pattern
