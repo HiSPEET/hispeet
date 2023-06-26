@@ -211,6 +211,7 @@ set( UTIL_3D ${UTIL_3D}
      util_3d/adaptation/element_distribution_data__3d.f
      util_3d/adaptation/globalize_adaptation_pattern.f
      util_3d/adaptation/partitioner_interface__3d.f
+     util_3d/adaptation/process_adaptation_pattern__3d.f
      util_3d/adaptation/restrict_adaptation_pattern.f
      util_3d/adaptation/root_mesh_partitioning__3d.F
     )
