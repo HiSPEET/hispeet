@@ -1,5 +1,6 @@
 module Process_Adaptation_Pattern__3D
   use Mesh__3D
+  use Mesh_Element_Indexing__3D
   use Element_Transfer_Buffer__3D
 
   implicit none
@@ -66,7 +67,7 @@ contains
               i2 = i1 + nn - 1
               do i = i1, i2
                 if (mark(element % neighbor(i) % id) > 0) then
-                  comp_refined(l) = true
+                  comp_refined(l) = .true.
                   exit
                 end if
               end do
@@ -82,7 +83,7 @@ contains
               i2 = i1 + nn - 1
               do i = i1, i2
                 if (mark(element % neighbor(i) % id) > 0) then
-                  comp_refined(l) = true
+                  comp_refined(l) = .true.
                   exit
                 end if
               end do
