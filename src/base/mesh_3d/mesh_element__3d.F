@@ -223,6 +223,7 @@ module Mesh_Element__3D
     integer :: parent_id     = -1 !< parent element ID
     integer :: refinement    = -1 !< refinement type
     integer :: child_proc    = -1 !< child partition ID in comm_world
+    integer :: sublevels     = -1 !< number of active sublevels
     integer :: mark          = -1 !< adaptation mark or auxiliary data
   end type MeshElementAdaptation_3D
 
