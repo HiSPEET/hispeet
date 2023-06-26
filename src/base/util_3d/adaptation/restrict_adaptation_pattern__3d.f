@@ -1,11 +1,11 @@
-module Restrict_Adaptation_Pattern
+module Restrict_Adaptation_Pattern__3D
   use Mesh__3D
   use Data_Exchange__3D
 
   implicit none
   private
 
-  public :: RestrictAdaptationPattern
+  public :: RestrictAdaptationPattern_3D
 
 contains
 
@@ -16,7 +16,7 @@ contains
   !> to `max(mark, child_mark+1)`, where `child_mark` is the highest mark of all
   !> children.
 
-  subroutine RestrictAdaptationPattern(child, parent)
+  subroutine RestrictAdaptationPattern_3D(child, parent)
     class(Mesh_3D), intent(in)    :: child
     class(Mesh_3D), intent(inout) :: parent
 
@@ -88,6 +88,8 @@ contains
       end associate
     end do
 
-  end subroutine RestrictAdaptationPattern
+  end subroutine RestrictAdaptationPattern_3D
 
-end module Restrict_Adaptation_Pattern
+  !=============================================================================
+
+end module Restrict_Adaptation_Pattern__3D

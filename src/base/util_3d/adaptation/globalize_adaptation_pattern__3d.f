@@ -1,11 +1,11 @@
-module Globalize_Adaptation_Pattern
+module Globalize_Adaptation_Pattern__3D
   use Mesh__3D
   use Element_Transfer_Buffer__3D
 
   implicit none
   private
 
-  public :: GlobalizeAdaptationPattern
+  public :: GlobalizeAdaptationPattern_3D
 
 contains
 
@@ -15,7 +15,7 @@ contains
   !> Upgrades the adaptation mark to `max(mark,0)` for all active elements which
   !> possess a neighbor with `mark > 0`
 
-  subroutine GlobalizeAdaptationPattern(mesh)
+  subroutine GlobalizeAdaptationPattern_3D(mesh)
     class(Mesh_3D), intent(inout) :: mesh
 
     integer, allocatable, target :: mark(:)
@@ -53,6 +53,8 @@ contains
       end associate
     end do
 
-  end subroutine GlobalizeAdaptationPattern
+  end subroutine GlobalizeAdaptationPattern_3D
 
-end module Globalize_Adaptation_Pattern
+  !=============================================================================
+
+end module Globalize_Adaptation_Pattern__3D
