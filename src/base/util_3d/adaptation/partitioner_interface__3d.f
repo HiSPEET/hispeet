@@ -22,37 +22,57 @@ module Partitioner_Interface__3D
   !>
   !> The `mode` option activates one of the following partitioning modes:
   !>
-  !>   - `1` single-level
-  !>   - `2` parent
-  !>   - `3` child
-  !>   - `4` weighted
+  !>   - `1` parent
+  !>   - `2` child
   !>
-  !> In single-level mode, all graph vertices are weighted equally. In parent
-  !> mode, a second constraint is derived from `mesh%element%adaptation%mark`.
-  !> The child mode is intended for generating and distributing a new child
-  !> mesh. In this case the constraint is identical to the second constraint
-  !> in the parent mode. In the weighted mode, precomputed weights are passed
-  !> by an additional argument.
+  !> In parent mode, the given mesh itself is (re)partitioned and in child mode,
+  !> the child mesh is partitioned. This choice determines the constraints that
+  !> are considered as follows:
   !>
-  !> The `weight` option assigns relative weights to the graph components:
+  !>   | constraint | parent | child |
+  !>   | ---------- | ------ | ----- |
+  !>   |     1      |  `1`   |  `r`  |
+  !>   |     2      |  `r`   |  `c`  |
+  !>   |     3      |  `c`   |  `g`  |
   !>
-  !>   - `weight(1) ≥ 1` graph vertices, i.e. mesh elements
-  !>   - `weight(2) ≥ 0` graph edges emerging from element face connections
-  !>   - `weight(3) ≥ 0` graph edges emerging from element edge connections
-  !>   - `weight(4) ≥ 0` graph edges emerging from element vertex connections
+  !> where
   !>
-  !> The vertex weight is multiplied by the workload determined by the selected
-  !> partitioning mode. Vertices with no workload are excluded from the graph.
+  !>   - `1`  unit workload assigned to all elements
+  !>   - `r`  workload derived from planned refinement of given (parent) mesh
+  !>   - `c`  workload derived from planned refinement of child mesh
+  !>   - `g`  workload derived from planned refinement of grandchild mesh
+  !>
+  !> For the parent the refinement is evaluated from `element%adaptation%mark`
+  !> and for the child and grandchild from `element%adaptation%sublevels`.
+  !>
+  !> The option `n_const` determines the number of constraints to be considered,
+  !> i.e. `1` for the first one only, `2` for the first two, and `3` for all.
+  !>
+  !> The `w_comp` option assigns relative weights to the graph components:
+  !>
+  !>   - `w_comp(1) ≥ 1` graph vertices, i.e. mesh elements
+  !>   - `w_comp(2) ≥ 0` graph edges emerging from element face connections
+  !>   - `w_comp(3) ≥ 0` graph edges emerging from element edge connections
+  !>   - `w_comp(4) ≥ 0` graph edges emerging from element vertex connections
+  !>
+  !> The vertex weight is multiplied with the costs determined by the selected
+  !> partitioning mode. Vertices with no cost are excluded from the graph.
   !> Connections that have no weight can be cut without penalty.
   !> Note that the lower bounds of the weights are enforced for regularity.
 
   type PartitioningOptions_3D
-    integer :: n_parts   = 1         !< number of new partitions
     integer :: mode      = 1         !< partitioning mode
-    integer :: weight(4) = [1,0,0,0] !< element and connectivity weights
+    integer :: n_parts   = 1         !< number of new partitions
+    integer :: n_const   = 1         !< number of constraints (1 .. 3)
+    integer :: c_active  = 5         !< cost of active elements
+    integer :: c_frozen  = 1         !< cost of frozen elements
+    integer :: w_comp(4) = [1,0,0,0] !< element and connectivity weights
   contains
     procedure :: Bcast => Bcast_PartitioningOptions
   end type PartitioningOptions_3D
+
+  integer, parameter :: parent_mode = 1
+  integer, parameter :: child_mode  = 2
 
 contains
 
@@ -64,9 +84,12 @@ contains
     integer       , intent(in) :: root !< rank root process
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    call XMPI_Bcast(opt % n_parts   , root, comm)
     call XMPI_Bcast(opt % mode      , root, comm)
-    call XMPI_Bcast(opt % weight    , root, comm)
+    call XMPI_Bcast(opt % n_parts   , root, comm)
+    call XMPI_Bcast(opt % n_const   , root, comm)
+    call XMPI_Bcast(opt % c_active  , root, comm)
+    call XMPI_Bcast(opt % c_frozen  , root, comm)
+    call XMPI_Bcast(opt % w_comp    , root, comm)
 
   end subroutine Bcast_PartitioningOptions
 
@@ -107,14 +130,17 @@ contains
 
     type(ElementTransferBuffer_3D), asynchronous :: buf_vtx_elem
 
+    integer :: c(0:3)
     integer :: e, i, j, k, m, n
 
     !---------------------------------------------------------------------------
     ! Body
 
-    associate( n_elem  => mesh % n_elem   &
-             , n_ghost => mesh % n_ghost  &
-             , weight  => opt % weight           )
+    associate( n_elem   => mesh % n_elem   &
+             , n_ghost  => mesh % n_ghost  &
+             , c_active => opt % c_active  &
+             , c_frozen => opt % c_frozen  &
+             , w_comp   => opt % w_comp    )
 
       ! initialization .........................................................
 
@@ -122,7 +148,9 @@ contains
       allocate(vtx_elem(n_elem + n_ghost), source = -1)
       i = 0
       do e = 1, n_elem
-        if (opt%mode == 3 .and. mesh%element(e)%adaptation%mark < 1) cycle
+        if (opt%mode == child_mode) then
+          if (mesh%element(e)%adaptation%mark < 1) cycle
+        end if
         vtx_elem(e) = i
         i = i + 1
       end do
@@ -151,18 +179,11 @@ contains
       ! number of new partitions
       nparts = opt % n_parts
 
-      ! number of constraints
-      select case(opt % mode)
-      case(1)
-        ncon = 1
-      case(2)
-        ncon = 2
-      case(3)
-        ncon = 1
-      end select
+      ! number of constraints, 1 ≤ ncon ≤ 3
+      ncon = max(min(opt % n_const,3), 1)
 
-      ! weight flag
-      if (any(weight(1:3) > 0)) then
+      ! w_comp flag
+      if (any(w_comp(1:3) > 0)) then
         ! vertex and edge constraints
         wgtflag = 3
       else
@@ -217,27 +238,41 @@ contains
         if (vtx_elem(e) < 0) cycle
         associate(element => mesh % element(e))
 
-          ! number of children
+          ! initialize costs
+          c = 0
+
+          ! cost associated with parent
+          c(0) = 1
+
+          ! cost associated with children
           select case(element % adaptation % mark)
           case(1:6)
-            m = 4      ! face refined
+            c(1) = 4 * c_frozen  ! 4 frozen children @ face
           case(7:18)
-            m = 2      ! edge refined
+            c(1) = 2 * c_frozen  ! 2 frozen children @ edge
           case(19:26)
-            m = 1      ! vertex refined
-          case default
-            m = 8      ! regular refinement
+            c(1) = 1 * c_frozen  ! 1 frozen children @ vertex
+          case(50)
+            c(1) = 8 * c_frozen  ! 8 frozen children @ element
+          case(100)
+            c(1) = 8 * c_active  ! 8 active children @ element
+          end select
+
+          ! cost associated with grandchildren and great-grandchildren
+          select case(element % adaptation % sublevels)
+          case(2)
+            c(2) = 1
+          case(3:)
+            c(2) = 1
+            c(3) = 1
           end select
 
           ! vertex weights
           select case(opt % mode)
-          case(1)
-            vwgt(0,i) = weight(1)
-          case(2)
-            vwgt(0,i) = weight(1)
-            vwgt(1,i) = weight(1) * m
-          case(3)
-            vwgt(0,i) = weight(1) * m
+          case(parent_mode)
+            vwgt(0:ncon-1,i) = c(0:ncon-1)
+          case(child_mode)
+            vwgt(0:ncon-1,i) = c(1:ncon)
           end select
 
           i = i + 1
@@ -247,13 +282,13 @@ contains
             xadj(i) = xadj(i) + element % face(k) % n_neighbor
           end do
 
-          if (weight(3) > 0) then ! include element-edge neighbors
+          if (w_comp(3) > 0) then ! include element-edge neighbors
             do k = 1, 12
               xadj(i) = xadj(i) + element % edge(k) % n_neighbor
             end do
           end if
 
-          if (weight(4) > 0) then ! include element-vertex neighbors
+          if (w_comp(4) > 0) then ! include element-vertex neighbors
             do k = 1, 8
               xadj(i) = xadj(i) + element % vertex(k) % n_neighbor
             end do
@@ -266,7 +301,7 @@ contains
 
       m = xadj(nvtx) - 1 ! number of graph edges
       allocate(adjncy(0:m))
-      if (any(weight(1:3) > 0)) then
+      if (any(w_comp(1:3) > 0)) then
         allocate(adjwgt(0:m))
       else
         allocate(adjwgt(0:0))
@@ -285,36 +320,36 @@ contains
             i = element % face(k) % i_neighbor
             do j = i, i+n
               adjncy(m) = vtx_elem(element % neighbor(j) % id)
-              if (weight(2) > 0) then
-                adjwgt(m) = weight(2)
+              if (w_comp(2) > 0) then
+                adjwgt(m) = w_comp(2)
               end if
               m = m + 1
             end do
           end do
 
           ! element edges
-          if (weight(3) > 0) then
+          if (w_comp(3) > 0) then
             do k = 1, 12
               n = element % edge(k) % n_neighbor - 1
               if (n < 0) cycle
               i = element % edge(k) % i_neighbor
               do j = i, i+n
                 adjncy(m) = vtx_elem(element % neighbor(j) % id)
-                adjwgt(m) = weight(3)
+                adjwgt(m) = w_comp(3)
                 m = m + 1
               end do
             end do
           end if
 
           ! element vertices
-          if (weight(4) > 0) then
+          if (w_comp(4) > 0) then
             do k = 1, 8
               n = element % vertex(k) % n_neighbor - 1
               if (n < 0) cycle
               i = element % vertex(k) % i_neighbor
               do j = i, i+n
                 adjncy(m) = vtx_elem(element % neighbor(j) % id)
-                adjwgt(m) = weight(4)
+                adjwgt(m) = w_comp(4)
                 m = m + 1
               end do
             end do
