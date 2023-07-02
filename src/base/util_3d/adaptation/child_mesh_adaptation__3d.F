@@ -1,6 +1,7 @@
 module Child_Mesh_Adaptation__3D
   use Kind_Parameters
   use Constants
+  use Execution_Control
   use XMPI
   use Parent_To_Child_Interpolation__1D
   use Mesh__3D
@@ -19,7 +20,7 @@ module Child_Mesh_Adaptation__3D
   public :: PartitioningOptions_3D   ! from Partitioner_Interface__3D
   public :: ChildMeshAdaptation_3D
 
-  !===========================================================================
+  !=============================================================================
   ! module procedures defined in submodules
 
   interface
@@ -47,17 +48,14 @@ module Child_Mesh_Adaptation__3D
     !> Build connections between parent, new child, old child and grandchildren
 
     module subroutine BuildConnections( parent, new_child_map, new_child &
-                                      , old_child, grandchild            &
-                                      , rd_send_map, rd_recv_map         )
+                                      , old_child, grandchild, exch_plan )
 
-      class(Mesh_3D),                 intent(inout) :: parent
-      class(ChildDistributionMap_3D), intent(in)    :: new_child_map
-      class(Mesh_3D),                 intent(in)    :: new_child
-      class(Mesh_3D),       optional, intent(in)    :: old_child
-      class(Mesh_3D),       optional, intent(inout) :: grandchild
-
-      type(DataExchangeMap_3D), allocatable, optional, intent(out) :: &
-          rd_send_map(:), rd_recv_map(:)
+      class(Mesh_3D),                       intent(inout) :: parent
+      class(ChildDistributionMap_3D),       intent(in)    :: new_child_map
+      class(Mesh_3D),                       intent(in)    :: new_child
+      class(Mesh_3D),             optional, intent(in)    :: old_child
+      class(Mesh_3D),             optional, intent(inout) :: grandchild
+      class(DataExchangePlan_3D), optional, intent(out)   :: exch_plan
 
     end subroutine BuildConnections
 
@@ -71,22 +69,17 @@ contains
   !-----------------------------------------------------------------------------
   !> Generation of an adapted child mesh
 
-  subroutine ChildMeshAdaptation_3D( opt, parent, new_child, old_child    &
-                                   , grandchild, rd_send_map, rd_recv_map )
+  subroutine ChildMeshAdaptation_3D( opt, parent, new_child, old_child &
+                                   , grandchild, exch_plan             )
 
     ! arguments ................................................................
 
-    class(PartitioningOptions_3D), intent(in)    :: opt
-    class(Mesh_3D),                intent(inout) :: parent
-    class(Mesh_3D),                intent(out)   :: new_child
-    class(Mesh_3D),      optional, intent(in)    :: old_child
-    class(Mesh_3D),      optional, intent(inout) :: grandchild
-
-    type(DataExchangeMap_3D), allocatable, optional, intent(out) :: &
-        rd_send_map(:) !< map for sending retained data to the new child
-
-    type(DataExchangeMap_3D), allocatable, optional, intent(out) :: &
-        rd_recv_map(:) !< map for receiving retained data from the old child
+    class(PartitioningOptions_3D),        intent(in)    :: opt
+    class(Mesh_3D),                       intent(inout) :: parent
+    class(Mesh_3D),                       intent(out)   :: new_child
+    class(Mesh_3D),             optional, intent(in)    :: old_child
+    class(Mesh_3D),             optional, intent(inout) :: grandchild
+    class(DataExchangePlan_3D), optional, intent(out)   :: exch_plan
 
     ! internal variables .......................................................
 
@@ -96,6 +89,16 @@ contains
     type(ElementDistributionData_3D), allocatable, save :: recv_data(:)
 
     integer :: i
+
+    ! sanity check .............................................................
+
+    if (present(old_child)) then
+      if (.not. present(exch_plan)) then
+        call Error( 'ChildMeshAdaptation_3D' &
+                  , 'exch_plan is required, when old_child is present' &
+                  , 'Child_Mesh_Adaptation__3D' )
+      end if
+    end if
 
     ! prepare new partitions ...................................................
 
@@ -237,8 +240,55 @@ contains
       !$omp end master
 
       call new_child % IdentifyVertices()
+!### CHECK
+!! do i = 1, new_child % n_elem
+!!   write(*,'(99(G0,1X))') 'elem:',i,', vid =',new_child%element(i)%vertex%id
+!!   if (any(new_child%element(i)%vertex%id < 1)) stop "SOMETHING IS WRONG"
+!! end do
+!### CHECK END
       call new_child % IdentifyEdges()
+!### CHECK
+!! do i = 1, new_child % n_elem
+!!   write(*,'(99(G0,1X))') 'elem:',i,', eid =',new_child%element(i)%edge%id
+!!   if (any(new_child%element(i)%edge%id < 1)) stop "SOMETHING IS WRONG"
+!! end do
+!### CHECK END
       call new_child % BuildFaces()
+!### CHECK
+!! do i = 1, new_child % n_elem
+!!   write(*,'(99(G0,1X))') 'elem:',i,', fid =',new_child%element(i)%face%id
+!!   if (any(new_child%element(i)%face%id < 1)) then
+!!     block
+!!       integer :: j
+!!       do j = 1, 12
+!!         write(*,'(99(G0,1X))') 'edge:',j,', vid =', &
+!!           new_child%element(i)%edge(j)%vertex
+!!       end do
+!!     end block
+!!     stop "SOMETHING IS WRONG"
+!!   end if
+!! end do
+!! block
+!!   integer :: j
+!!   associate(element => new_child%element(1))
+!!     j = element%face(2)%i_neighbor
+!!     write(*,'(99(G0,1X))') 'e1%f2%i_neighbor =',j
+!!     write(*,'(99(G0,1X))') 'e1%f2%neighbor%id =',element%neighbor(j)%id
+!!     write(*,'(99(G0,1X))') 'e1%f2%neighbor%orientation =',element%neighbor(j)%orientation
+!!     write(*,'(99(G0,1X))') 'e1%edge%id(f2) =',element%edge(E_Face(:,2))%id
+!!     write(*,'(99(G0,1X))') 'e1%vert%id(f2) =',element%vertex(V_Face(:,2))%id
+!!   end associate
+!!   associate(element => new_child%element(2))
+!!     j = element%face(1)%i_neighbor
+!!     write(*,'(99(G0,1X))') 'e2%f1%i_neighbor =',j
+!!     write(*,'(99(G0,1X))') 'e2%f1%neighbor%id =',element%neighbor(j)%id
+!!     write(*,'(99(G0,1X))') 'e2%f1%neighbor%orientation =',element%neighbor(j)%orientation
+!!     write(*,'(99(G0,1X))') 'e1%f1%edge%id(f1) =',element%edge(E_Face(:,1))%id
+!!     write(*,'(99(G0,1X))') 'e1%f1%vert%id(f1) =',element%vertex(V_Face(:,1))%id
+!!   end associate
+!! end block
+!! stop "CHECK"
+!### CHECK END
       call new_child % BuildBoundaryFaces()
       call new_child % BuildLinks()
       call new_child % BuildGhosts()
@@ -246,6 +296,9 @@ contains
       call new_child % IdentifyRanks()
       call new_child % IdentifyClusters()
       call new_child % BuildMapToParent()
+!### CHECK
+write(*,'(99(G0,1X))') '# CMA  I'
+!### CHECK END
 
     end if
 
@@ -262,20 +315,26 @@ contains
     !     + `grandchild % element % adaptation % parent_id`
     !
     !  - mapping between old and new children
-    !     + `rd_send_map` for sending retained data
-    !     + `rd_recv_map` for receiving retained data
+    !     + `exch_plan` for redistributing retained data
 
     call BuildConnections( parent, new_child_map, new_child &
-                         , old_child, grandchild            &
-                         , rd_send_map, rd_recv_map         )
+                         , old_child, grandchild, exch_plan )
 
     ! copy retained element attributes .........................................
     !
     ! - `new_child % element % adaptation % refinement`
     ! - `new_child % element % adaptation % child_proc`
     ! - `new_child % element % adaptation % mark`
+!### CHECK
+write(*,'(99(G0,1X))') '# CMA  J'
+!### CHECK END
 
-    call CopyRetainedData(old_child, new_child, rd_send_map, rd_recv_map)
+    if (present(old_child)) then
+      call CopyRetainedData(old_child, new_child, exch_plan)
+    end if
+!### CHECK
+write(*,'(99(G0,1X))') '# CMA  K'
+!### CHECK END
 
     ! connect new child with grandchild ........................................
     !
@@ -285,26 +344,36 @@ contains
     if (new_child % part >= 0 .and. present(grandchild)) then
       call new_child % BuildMapToChild()
     end if
+!### CHECK
+write(*,'(99(G0,1X))') '# CMA  L'
+!### CHECK END
 
     ! finalization .............................................................
 
     !$omp master
+
+    parent    % is_top  = .false.
+    new_child % is_root = .false.
+
     if (allocated(attrib))         deallocate(attrib)
     if (allocated(new_child_map))  deallocate(new_child_map)
     if (allocated(send_data))      deallocate(send_data)
     if (allocated(recv_data))      deallocate(recv_data)
+
     !$omp end master
+!### CHECK
+write(*,'(99(G0,1X))') '# CMA  X'
+!### CHECK END
 
   end subroutine ChildMeshAdaptation_3D
 
   !-----------------------------------------------------------------------------
   !> Copy retained element attributes
 
-  subroutine CopyRetainedData(old_child, new_child, send_map, recv_map)
-    class(Mesh_3D),            intent(in)    :: old_child
-    class(Mesh_3D),            intent(inout) :: new_child
-    class(DataExchangeMap_3D), intent(in)    :: send_map(:)
-    class(DataExchangeMap_3D), intent(in)    :: recv_map(:)
+  subroutine CopyRetainedData(old_child, new_child, exch_plan)
+    class(Mesh_3D),             intent(in)    :: old_child
+    class(Mesh_3D),             intent(inout) :: new_child
+    class(DataExchangePlan_3D), intent(in)    :: exch_plan
 
     type(DataExchangeSendBuf_3D), allocatable :: send_buf(:)
     type(DataExchangeRecvBuf_3D), allocatable :: recv_buf(:)
@@ -314,52 +383,57 @@ contains
     integer :: n_recv, n_send
     integer :: i
 
-    ! initialization ...........................................................
+    associate( send_map => exch_plan % send_map &
+             , recv_map => exch_plan % recv_map )
 
-    n_send = size(send_map)
-    n_recv = size(recv_map)
+      ! initialization .........................................................
 
-    allocate(send_buf(n_send), send_attrib(3,old_child%n_elem_active))
-    allocate(recv_buf(n_recv), recv_attrib(3,new_child%n_elem_active))
+      n_send = size(send_map)
+      n_recv = size(recv_map)
 
-    ! prepare send data ........................................................
+      allocate(send_buf(n_send), send_attrib(3,old_child%n_elem_active))
+      allocate(recv_buf(n_recv), recv_attrib(3,new_child%n_elem_active))
 
-    do i = 1, old_child % n_elem_active
-      send_attrib(1,i) = old_child % element(i) % adaptation % refinement
-      send_attrib(2,i) = old_child % element(i) % adaptation % child_proc
-      send_attrib(3,i) = old_child % element(i) % adaptation % mark
-    end do
+      ! prepare send data ......................................................
 
-    ! pass attributes to new children ..........................................
+      do i = 1, old_child % n_elem_active
+        send_attrib(1,i) = old_child % element(i) % adaptation % refinement
+        send_attrib(2,i) = old_child % element(i) % adaptation % child_proc
+        send_attrib(3,i) = old_child % element(i) % adaptation % mark
+      end do
 
-    do i = 1, n_send
-      call send_buf(i) % Extract_Data(send_map(i), send_attrib)
-      call send_buf(i) % Send_Start()
-    end do
+      ! pass attributes to new children ........................................
 
-    do i = 1, n_recv
-      call recv_buf(i) % Init(recv_map(i), recv_attrib)
-      call recv_buf(i) % Recv_Start()
-    end do
+      do i = 1, n_send
+        call send_buf(i) % Extract_Data(send_map(i), send_attrib)
+        call send_buf(i) % Send_Start()
+      end do
 
-    do i = 1, n_send
-      call send_buf(i) % Send_Finish()
-    end do
+      do i = 1, n_recv
+        call recv_buf(i) % Init(recv_map(i), recv_attrib)
+        call recv_buf(i) % Recv_Start()
+      end do
 
-    do i = 1, n_recv
-      call recv_buf(i) % Recv_Finish()
-      call recv_buf(i) % Assign_Data(recv_attrib)
-    end do
+      do i = 1, n_send
+        call send_buf(i) % Send_Finish()
+      end do
 
-    ! extract received attributes ..............................................
+      do i = 1, n_recv
+        call recv_buf(i) % Recv_Finish()
+        call recv_buf(i) % Assign_Data(recv_attrib)
+      end do
 
-    do i = 1, new_child % n_elem_active
-      associate(element => new_child % element(i))
-        element % adaptation % refinement = recv_attrib(1,i)
-        element % adaptation % child_proc = recv_attrib(2,i)
-        element % adaptation % mark       = recv_attrib(3,i)
-      end associate
-    end do
+      ! extract received attributes ............................................
+
+      do i = 1, new_child % n_elem_active
+        associate(element => new_child % element(i))
+          element % adaptation % refinement = recv_attrib(1,i)
+          element % adaptation % child_proc = recv_attrib(2,i)
+          element % adaptation % mark       = recv_attrib(3,i)
+        end associate
+      end do
+
+    end associate
 
   end subroutine CopyRetainedData
 

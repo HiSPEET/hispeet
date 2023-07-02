@@ -110,6 +110,7 @@ contains
       do p = p_min, p_max
         if (n_cluster(p) > 0) then
           i = i + 1
+          mesh % map_parent(i) % comm      = mesh % comm_world
           mesh % map_parent(i) % proc      = p
           mesh % map_parent(i) % n_cluster = n_cluster(p)
           mesh % map_parent(i) % n_active  = n_active(p)

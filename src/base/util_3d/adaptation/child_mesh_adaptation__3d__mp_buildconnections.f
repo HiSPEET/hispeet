@@ -20,42 +20,50 @@ contains
   !>     + `grandchild % element % adaptation % parent_id`
   !>
   !>  - mapping between old and new children
-  !>     + `rd_send_map` for sending retained data
-  !>     + `rd_recv_map` for receiving retained data
+  !>     + `exch_plan` for sending and receiving retained data
 
   module subroutine BuildConnections( parent, new_child_map, new_child &
-                                    , old_child, grandchild            &
-                                    , rd_send_map, rd_recv_map         )
+                                    , old_child, grandchild, exch_plan )
 
     ! arguments ................................................................
 
-    class(Mesh_3D),                 intent(inout) :: parent
-    class(ChildDistributionMap_3D), intent(in)    :: new_child_map
-    class(Mesh_3D),                 intent(in)    :: new_child
-    class(Mesh_3D),       optional, intent(in)    :: old_child
-    class(Mesh_3D),       optional, intent(inout) :: grandchild
-
-    type(DataExchangeMap_3D), allocatable, optional, intent(out) :: &
-        rd_send_map(:), rd_recv_map(:)
+    class(Mesh_3D),                       intent(inout) :: parent
+    class(ChildDistributionMap_3D),       intent(in)    :: new_child_map
+    class(Mesh_3D),                       intent(in)    :: new_child
+    class(Mesh_3D),             optional, intent(in)    :: old_child
+    class(Mesh_3D),             optional, intent(inout) :: grandchild
+    class(DataExchangePlan_3D), optional, intent(out)   :: exch_plan
 
     !$omp master
+!### CHECK
+write(*,'(99(G0,1X))') 'build connections 0'
+!### CHECK END
 
     ! connect old child and grandchild with new child ..........................
 
-    if (present(old_child) .and. present(rd_send_map)) then
-      call ConnectOldChild( parent, new_child_map, new_child   &
-                          , old_child, grandchild, rd_send_map )
+    if (present(old_child) .and. present(exch_plan)) then
+      call ConnectOldChild( parent, new_child_map, new_child &
+                          , old_child, grandchild, exch_plan )
     end if
+!### CHECK
+write(*,'(99(G0,1X))') 'build connections 1'
+!### CHECK END
 
     ! connect parent with new child ............................................
 
     call ConnectParent(parent, new_child_map, new_child)
+!### CHECK
+write(*,'(99(G0,1X))') 'build connections 2'
+!### CHECK END
 
     ! connect new child with old child .........................................
 
-    if (present(rd_recv_map)) then
-      call ConnectNewWithOldChild(new_child, rd_recv_map)
+    if (present(old_child) .and. present(exch_plan)) then
+      call ConnectNewWithOldChild(new_child, exch_plan)
     end if
+!### CHECK
+write(*,'(99(G0,1X))') 'build connections 3'
+!### CHECK END
 
     !$omp end master
     !$omp barrier
@@ -65,8 +73,8 @@ contains
   !-----------------------------------------------------------------------------
   !> Build connections between new child, old child and grandchildren
 
-  subroutine ConnectOldChild( parent, new_child_map, new_child   &
-                            , old_child, grandchild, rd_send_map )
+  subroutine ConnectOldChild( parent, new_child_map, new_child &
+                            , old_child, grandchild, exch_plan )
 
     ! arguments ................................................................
 
@@ -75,8 +83,7 @@ contains
     class(Mesh_3D),                 intent(in)    :: new_child
     class(Mesh_3D),                 intent(in)    :: old_child
     class(Mesh_3D),       optional, intent(inout) :: grandchild
-
-    type(DataExchangeMap_3D), allocatable, intent(out) :: rd_send_map(:)
+    class(DataExchangePlan_3D),     intent(inout) :: exch_plan
 
     ! internal variables .......................................................
 
@@ -177,35 +184,44 @@ contains
     allocate(cluster_rank(old_child % n_cluster))
     call SortElementClusters(old_child, cluster_rank)
 
-    ! prepare exchange maps
-    allocate(rd_send_map(count(m > 0)))
-    n = 0
-    do p = 0, new_child%n_parts-1
-      if (m(p) > 0) then
-        n = n + 1
-        rd_send_map(n) % comm = new_child % comm_world
-        rd_send_map(n) % proc = new_child % proc_part(p)
-        allocate(rd_send_map(n) % id_elem(8 * m(p)))
-        m(p) = n
-      end if
-    end do
+    ! set up exchange send maps
+    if (allocated(exch_plan % send_map)) then
+      deallocate(exch_plan % send_map)
+    end if
+    allocate(exch_plan % send_map(count(m > 0)))
 
-    ! initialize element counter
-    allocate(e(size(rd_send_map)), source = 0)
+    associate(exch_send_map => exch_plan % send_map)
 
-    ! build maps
-    do i = 1, old_child % n_cluster
-      c = cluster_rank(i)
-      p = recv_attrib(1,c)
-      if (p < 0) cycle
-      n = m(p)        ! map index
-      l = e(n)        ! map element ID offset
-      k = 8 * (c - 1) ! mesh element ID offset
-      do j = 1, 8
-        rd_send_map(n) % id_elem(l + j) = k + j
+      ! prepare exchange send maps
+      n = 0
+      do p = 0, new_child%n_parts-1
+        if (m(p) > 0) then
+          n = n + 1
+          exch_send_map(n) % comm = new_child % comm_world
+          exch_send_map(n) % proc = new_child % proc_part(p)
+          allocate(exch_send_map(n) % id_elem(8 * m(p)))
+          m(p) = n
+        end if
       end do
-      e(n) = e(n) + 8
-    end do
+
+      ! initialize element counter
+      allocate(e(size(exch_send_map)), source = 0)
+
+      ! build maps
+      do i = 1, old_child % n_cluster
+        c = cluster_rank(i)
+        p = recv_attrib(1,c)
+        if (p < 0) cycle
+        n = m(p)        ! map index
+        l = e(n)        ! map element ID offset
+        k = 8 * (c - 1) ! mesh element ID offset
+        do j = 1, 8
+          exch_send_map(n) % id_elem(l + j) = k + j
+        end do
+        e(n) = e(n) + 8
+      end do
+
+    end associate
 
     ! connect grandchild .......................................................
 
@@ -249,7 +265,7 @@ contains
     integer :: n_cluster_active
     integer :: c, e
 
-    n_cluster_active = mesh % n_elem_active / 4
+    n_cluster_active = mesh % n_elem_active / 8
 
     allocate(attrib(3,n_cluster_active))
 
@@ -383,17 +399,17 @@ contains
   !> Only active child elements can be retained. This implies that old and the
   !> new child both emerge from regular refinement and are not frozen.
 
-  subroutine ConnectNewWithOldChild(new_child, rd_recv_map)
-    class(Mesh_3D), intent(in) :: new_child
-    type(DataExchangeMap_3D), allocatable, intent(out) :: rd_recv_map(:)
+  subroutine ConnectNewWithOldChild(new_child, exch_plan)
+    class(Mesh_3D),             intent(in)    :: new_child
+    class(DataExchangePlan_3D), intent(inout) :: exch_plan
 
     integer, allocatable :: e(:), m(:)
     integer :: i, p, n, n_proc
 
     call MPI_Comm_size(new_child % comm_world, n_proc)
 
-    allocate(e(0:n_proc-1), source = 0)
     allocate(m(0:n_proc-1), source = 0)
+    allocate(e(1:n_proc  ), source = 0)
 
     ! count retained elements per process
     do i = 1, new_child % n_elem_active
@@ -404,27 +420,36 @@ contains
       end if
     end do
 
-    ! prepare exchange maps
-    allocate(rd_recv_map(count(m > 0)))
-    n = 0
-    do p = 0, n_proc-1
-      if (m(p) > 0) then
-        n = n + 1
-        rd_recv_map(n) % comm = new_child % comm_world
-        rd_recv_map(n) % proc = p
-        allocate(rd_recv_map(n) % id_elem(m(p)))
-        m(p) = n
-      end if
-    end do
+    ! set up exchange recveive maps
+    if (allocated(exch_plan % recv_map)) then
+      deallocate(exch_plan % recv_map)
+    end if
+    allocate(exch_plan % recv_map(count(m > 0)))
 
-    ! build maps
-    do i = 1, new_child % n_elem_active
-      p = new_child % element(i) % adaptation % mark
-      if (p < 0) cycle
-      n    = m(p)
-      e(n) = e(n) + 1
-      rd_recv_map(n) % id_elem(e(n)) = i
-    end do
+    associate(exch_recv_map => exch_plan % recv_map)
+
+      ! prepare exchange receive maps
+      n = 0
+      do p = 0, n_proc-1
+        if (m(p) > 0) then
+          n = n + 1
+          exch_recv_map(n) % comm = new_child % comm_world
+          exch_recv_map(n) % proc = p
+          allocate(exch_recv_map(n) % id_elem(m(p)))
+          m(p) = n
+        end if
+      end do
+
+      ! build exchange recveive maps
+      do i = 1, new_child % n_elem_active
+        p = new_child % element(i) % adaptation % mark
+        if (p < 0) cycle
+        n    = m(p)
+        e(n) = e(n) + 1
+        exch_recv_map(n) % id_elem(e(n)) = i
+      end do
+
+    end associate
 
   end subroutine ConnectNewWithOldChild
 

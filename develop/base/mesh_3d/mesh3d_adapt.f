@@ -22,9 +22,15 @@ program Mesh3d_Adapt
   use Create_Annulus
 
   use Mesh__3D
+  use Data_Exchange__3D
   use Spectral_Element_Mesh__3D
-  use Root_Mesh_Partitioning__3D
+
   use Child_Mesh_Adaptation__3D
+  use Globalize_Adaptation_Pattern__3D
+  use Process_Adaptation_Pattern__3D
+  use Restrict_Adaptation_Pattern__3D
+  use Root_Mesh_Partitioning__3D
+
   use Export_VTK_Volume_Data__3D
 
   use Smiling_Face
@@ -36,9 +42,9 @@ program Mesh3d_Adapt
 
   ! input parameters ...........................................................
 
-  ! input file (*.prm)
-  character(len=*), parameter :: input_default = 'mesh3d_adapt'
-  character(len=80) :: input_file = ''
+  ! case file
+  character(len=*), parameter :: case_default = 'mesh3d_adapt'
+  character(len=80) :: case_file = 'mesh3d_adapt'
 
   integer :: config = 1
   ! configuration (u/s = un/structured, r = regular, d = deformed)
@@ -55,11 +61,12 @@ program Mesh3d_Adapt
   namelist/control_prm/ config, export_vtk, po
 
   ! adaptation
+  integer :: scenario       = 1 ! 1 global
   integer :: n_level        = 1
   integer :: n_parts_base   = 1
   integer :: n_parts_growth = 1
 
-  namelist/adaptation_prm/ n_level, n_parts_base, n_parts_growth
+  namelist/adaptation_prm/ scenario, n_level, n_parts_base, n_parts_growth
 
   ! MPI and OpenMP variables ...................................................
 
@@ -71,7 +78,8 @@ program Mesh3d_Adapt
   ! mesh and variables .........................................................
 
   type(PartitioningOptions_3D), allocatable, save :: part_opt(:)
-  type(Mesh_3D),                allocatable, save :: orig_mesh(:), mesh(:)
+  type(Mesh_3D),                allocatable, save :: old_mesh(:), mesh(:)
+  type(DataExchangePlan_3D),    allocatable, save :: exch_plan(:)
   type(SpectralElementMesh_3D), allocatable, save :: sem(:)
 
   ! auxiliary variables ........................................................
@@ -82,11 +90,12 @@ program Mesh3d_Adapt
   logical,   allocatable, save :: mask(:)
 
   character(len=80) :: config_name = ''
+  character(len=80) :: input_file  = ''
   character(len=80) :: plot_file   = ''
   character(len=80) :: tag         = ''
   logical :: exists
   integer :: io, stat
-  integer :: l
+  integer :: l, m
 
   !-----------------------------------------------------------------------------
   ! Initialization
@@ -112,11 +121,11 @@ program Mesh3d_Adapt
     write(*,'(A)') 'Test of mesh adaptation'
     write(*,*)
 
-    call get_command_argument(1, input_file, status=stat)
-    if (stat /= 0 .or. len_trim(input_file) == 0) then
-      input_file = input_default
+    call get_command_argument(1, case_file, status=stat)
+    if (stat /= 0 .or. len_trim(case_file) == 0) then
+      case_file = case_default
     end if
-    input_file = trim(input_file) // '.prm'
+    input_file = trim(case_file) // '.prm'
 
     inquire(file=trim(input_file), exist=exists)
     if (exists) then
@@ -148,6 +157,7 @@ program Mesh3d_Adapt
   call XMPI_Bcast( config        , 0, comm )
   call XMPI_Bcast( export_vtk    , 0, comm )
   call XMPI_Bcast( po            , 0, comm )
+  call XMPI_Bcast( scenario      , 0, comm )
   call XMPI_Bcast( n_level       , 0, comm )
   call XMPI_Bcast( n_parts_base  , 0, comm )
   call XMPI_Bcast( n_parts_growth, 0, comm )
@@ -161,7 +171,7 @@ program Mesh3d_Adapt
     call part_opt(l) % Bcast( 0, comm )
   end do
 
-  allocate(orig_mesh(n_level))
+  allocate(old_mesh(n_level))
   allocate(mesh(n_level))
   allocate(sem(n_level))
 
@@ -169,28 +179,28 @@ program Mesh3d_Adapt
 
   select case(config)
   case(2)
-    call CreateCuboidDiamonds(comm, input_file, orig_mesh(1))
+    call CreateCuboidDiamonds(comm, input_file, old_mesh(1))
     config_name = 'Cuboidal domain with unstructured "diamond" mesh'
   case(3)
-    call CreateCuboidOneRotated(comm, input_file, orig_mesh(1))
+    call CreateCuboidOneRotated(comm, input_file, old_mesh(1))
     config_name = 'Cuboidal domain with 3x3x3 elements and rotated center'
   case(4)
-    call CreateCylinder(comm, input_file, orig_mesh(1))
+    call CreateCylinder(comm, input_file, old_mesh(1))
     config_name = 'Cylindrical domain with unstructured mesh'
   case(5)
-    call CreateAnnulus(comm, input_file, orig_mesh(1))
+    call CreateAnnulus(comm, input_file, old_mesh(1))
     config_name = 'Annular domain with unstructured mesh'
   case default
-    call CreateCuboidCartesian(comm, input_file, orig_mesh(1))
+    call CreateCuboidCartesian(comm, input_file, old_mesh(1))
     config_name = 'Cuboidal domain with Cartesian mesh'
   end select
 
   ! root mesh partitioning .....................................................
 
-  if (orig_mesh(1) % n_parts /= part_opt(1) % n_parts) then
-    call RootMeshPartitioning_3D(part_opt(1), orig_mesh(1), mesh(1))
+  if (old_mesh(1) % n_parts /= part_opt(1) % n_parts) then
+    call RootMeshPartitioning_3D(part_opt(1), old_mesh(1), mesh(1))
   else
-    mesh(1) = orig_mesh(1)
+    mesh(1) = old_mesh(1)
   end if
 
   sem(1) = SpectralElementMesh_3D(mesh(1), po)
@@ -198,26 +208,111 @@ program Mesh3d_Adapt
   !-----------------------------------------------------------------------------
   ! Adaptation
 
+  do m = 1, n_level-1
 !### CHECK
-print '(99(G0,1X))', '# 0'
+write(*,'(99(G0,1X))') 'starting cycle m =', m
 !### CHECK END
-  do l = 2, n_level
 
-    mesh(l-1) % element % adaptation % mark = 0
-    mesh(l-1) % element(1) % adaptation % mark = 100
-    call ChildMeshAdaptation_3D(part_opt(l), mesh(l-1), mesh(l))
+    ! set adaptation marks
+    mesh(m) % element % adaptation % mark = 1
+
 !### CHECK
-print '(99(G0,1X))', '# 1a, l =',l
+write(*,'(99(G0,1X))') 'make adaptation pattern consistent'
 !### CHECK END
-    sem(l) = SpectralElementMesh_3D(mesh(l), po)
+    ! make adaptation pattern consistent
+    do l = m, 2, -1
 !### CHECK
-print '(99(G0,1X))', '# 1b, l =',l
+write(*,'(99(G0,1X))') '... level l =',l
 !### CHECK END
+      call GlobalizeAdaptationPattern_3D(mesh(l))
+!### CHECK
+write(*,'(99(G0,1X))') '...... globalized'
+!### CHECK END
+      call RestrictAdaptationPattern_3D(mesh(l), mesh(l-1))
+!### CHECK
+write(*,'(99(G0,1X))') '...... restricted'
+!### CHECK END
+    end do
+!### CHECK
+write(*,'(99(G0,1X))') '... level l =',1
+!### CHECK END
+    call GlobalizeAdaptationPattern_3D(mesh(1))
+
+!### CHECK
+write(*,'(99(G0,1X))') 'make present mesh the original one'
+!### CHECK END
+    ! make present mesh the original one
+    call move_alloc(mesh, old_mesh)
+    allocate(mesh(n_level))
+
+    ! create data exchange plan for redistribution of retained data
+    allocate(exch_plan(n_level))
+
+!### CHECK
+write(*,'(99(G0,1X))') 'root level'
+!### CHECK END
+    ! root level
+    call ProcessAdaptationPattern_3D(old_mesh(1))
+    if (max(old_mesh(1) % n_parts, part_opt(1) % n_parts) == 1) then
+      mesh(1) = old_mesh(1)
+    else if (old_mesh(1) % is_top) then
+      call RootMeshPartitioning_3D( opt       = part_opt(1)  &
+                                  , old_mesh  = old_mesh(1)  &
+                                  , new_mesh  = mesh(1)      &
+                                  , exch_plan = exch_plan(1) )
+    else
+      call RootMeshPartitioning_3D( opt       = part_opt(1)  &
+                                  , old_mesh  = old_mesh(1)  &
+                                  , new_mesh  = mesh(1)      &
+                                  , child     = old_mesh(2)  &
+                                  , exch_plan = exch_plan(1) )
+    end if
+
+    do l = 1, m
+!### CHECK
+write(*,'(99(G0,1X))') 'refining level l =', l
+!### CHECK END
+      if (l > 1) then
+        call ProcessAdaptationPattern_3D(mesh(l))
+      end if
+!### CHECK
+write(*,'(99(G0,1X))') 'creating level', l+1
+write(*,'(99(G0,1X))') 'mesh(',l,')%mark =', mesh(l)%element%adaptation%mark
+write(*,'(99(G0,1X))') 'mesh(',l,')%subl =', mesh(l)%element%adaptation%sublevels
+!### CHECK END
+      select case(m-l)
+      case(0)
+        call ChildMeshAdaptation_3D( opt        = part_opt(l+1) &
+                                   , parent     = mesh(l)       &
+                                   , new_child  = mesh(l+1)     )
+!### CHECK
+write(*,'(99(G0,1X))') 'mesh(',l,')%n_child =',mesh(l)%n_child
+write(*,'(99(G0,1X))') 'mesh(',l+1,')%n_elem =',mesh(l+1)%n_elem
+!### CHECK END
+      case(1)
+        call ChildMeshAdaptation_3D( opt       = part_opt(l+1)  &
+                                   , parent    = mesh(l)        &
+                                   , new_child = mesh(l+1)      &
+                                   , old_child = old_mesh(l+1)  &
+                                   , exch_plan = exch_plan(l+1) )
+      case(2:)
+        call ChildMeshAdaptation_3D( opt        = part_opt(l+1)  &
+                                   , parent     = mesh(l)        &
+                                   , new_child  = mesh(l+1)      &
+                                   , old_child  = old_mesh(l+1)  &
+                                   , grandchild = old_mesh(l+2)  &
+                                   , exch_plan  = exch_plan(l+1) )
+      end select
+!### CHECK
+write(*,'(99(G0,1X))') 'finished child mesh adaptation'
+!### CHECK END
+     sem(l+1) = SpectralElementMesh_3D(mesh(l+1), po)
+
+    end do
+
+    deallocate(exch_plan)
 
   end do
-!### CHECK
-print '(99(G0,1X))', '# 1'
-!### CHECK END
 
   !-----------------------------------------------------------------------------
   ! Plotting
@@ -229,7 +324,7 @@ allocate(s(0:po,0:po,0:po,mesh(l)%n_elem,1))
 s(:,:,:,:,1) = smiley % Density(sem(l)%metrics%x(:,:,:,:,1), sem(l)%metrics%x(:,:,:,:,2))
 
       write(tag, fmt='(A2,I0)') '_l', l
-      plot_file = trim(input_file) // trim(tag)
+      plot_file = trim(case_file) // trim(tag)
 
       allocate(mask(mesh(l)%n_elem))
       if (l < n_level) then

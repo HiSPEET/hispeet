@@ -1,7 +1,7 @@
 &control_prm
-  config     = 1      ! 1
+  config     = 4      ! 1
 ! export_vtk = T      ! T
-! po         = 5      ! 3
+  po         = 15     ! 3
 /
 
 &adaptation_prm
@@ -37,9 +37,9 @@
 &cylinder_prm
   r  = 0.5
   h  = 1.0
-  nr = 2
-  nz = 3
-  pg = 7
+  nr = 1
+  nz = 2
+  pg = 15
 /
 
 ! config = 5

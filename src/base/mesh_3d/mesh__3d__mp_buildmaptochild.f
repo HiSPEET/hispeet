@@ -38,7 +38,7 @@ contains
       deallocate(mesh % map_child)
     end if
 
-    if (mesh % is_top .or. mesh % n_elem < 1) then
+    if (mesh % n_elem < 1) then
 
       ! top or empty mesh ......................................................
 
@@ -92,6 +92,7 @@ contains
       do p = p_min, p_max
         if (n_elem(p) > 0) then
           c = c + 1
+          mesh % map_child(c) % comm     = mesh % comm_world
           mesh % map_child(c) % proc     = p
           mesh % map_child(c) % n_elem   = n_elem(p)
           mesh % map_child(c) % n_active = n_active(p)
