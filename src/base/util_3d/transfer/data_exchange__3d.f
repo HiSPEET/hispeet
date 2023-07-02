@@ -8,6 +8,7 @@ module Data_Exchange__3D
   private
 
   public :: DataExchangeMap_3D
+  public :: DataExchangePlan_3D
   public :: DataExchangeSendBuf_3D
   public :: DataExchangeRecvBuf_3D
 
@@ -25,6 +26,14 @@ module Data_Exchange__3D
     module procedure New_ExchangeMap_from_MapToChild
     module procedure New_ExchangeMap_from_MapToParent
   end interface
+
+  !-----------------------------------------------------------------------------
+  !> Plan containing complete set of maps for exchanging element data
+
+  type DataExchangePlan_3D
+    type(DataExchangeMap_3D), allocatable :: send_map(:) !< send maps
+    type(DataExchangeMap_3D), allocatable :: recv_map(:) !< receive maps
+  end type DataExchangePlan_3D
 
   !-----------------------------------------------------------------------------
   !> Structure for sending data of retained elements to new location
