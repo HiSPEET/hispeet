@@ -98,7 +98,7 @@ contains
           ! faces ...
           do k = 1, 6
             i = element % face(k) % i_neighbor
-            if (i < 1) then
+            if (i > 0) then
               comp_refined(k) = mark(element % neighbor(i) % id) > 0
             end if
             if (comp_refined(k)) then

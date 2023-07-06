@@ -217,7 +217,8 @@ contains
   !> `m` contributed to child partition `n` equals the sum of corresponding
   !> children contributed by parents `q < p`, i.e.
   !>
-  !>       oc_part[p](m,n) = sum(q < p) nc_part[q](m,n)
+  !>       oc_part[p](1,n) = sum(q < p) nc_part[q](1,n)
+  !>       oc_part[p](2,n) = sum(q < p) nc_part[q](2,n) + sum(q) nc_part[q](1,n)
   !>
   !> This sum is evaluated using one-sided communication based on MPI's
   !> window facility.
@@ -277,6 +278,8 @@ contains
                       , window )
 
     call MPI_Win_free(window)
+
+    oc_part(2,:) = oc_part(2,:) + sum(nc_part(1,:))
 
   end subroutine ComputeChildOffsets
 

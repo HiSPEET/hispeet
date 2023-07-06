@@ -24,6 +24,7 @@ program Mesh3d_Adapt
   use Mesh__3D
   use Data_Exchange__3D
   use Spectral_Element_Mesh__3D
+  use Verify_Mesh__3D
 
   use Child_Mesh_Adaptation__3D
   use Globalize_Adaptation_Pattern__3D
@@ -62,11 +63,19 @@ program Mesh3d_Adapt
 
   ! adaptation
   integer :: scenario       = 1 ! 1 global
-  integer :: n_level        = 1
+  integer :: n_level        = 1 ! maximum top level L ≤ L_max ≡ n_level
   integer :: n_parts_base   = 1
   integer :: n_parts_growth = 1
 
   namelist/adaptation_prm/ scenario, n_level, n_parts_base, n_parts_growth
+
+  ! adaptation criterion: elements on level l will be refined if the quantity
+  ! of interest equals or exceeds c(l) = c₁ + ∆c⋅(l-1)/(L_max-1) in any point
+  real(RNP) :: c1 = 0  ! c₁
+  real(RNP) :: dc = 0  ! ∆c
+  real(RNP), allocatable :: c(:)
+
+  namelist/adaptation_prm/ c1, dc
 
   ! MPI and OpenMP variables ...................................................
 
@@ -89,13 +98,14 @@ program Mesh3d_Adapt
   real(RNP), allocatable, save :: s(:,:,:,:,:)
   logical,   allocatable, save :: mask(:)
 
+  real(RNP), allocatable :: s_e(:,:,:)
   character(len=80) :: config_name = ''
   character(len=80) :: input_file  = ''
   character(len=80) :: plot_file   = ''
   character(len=80) :: tag         = ''
-  logical :: exists
+  logical :: exists, passed, passed_loc
   integer :: io, stat
-  integer :: l, m
+  integer :: e, l, m
 
   !-----------------------------------------------------------------------------
   ! Initialization
@@ -161,6 +171,8 @@ program Mesh3d_Adapt
   call XMPI_Bcast( n_level       , 0, comm )
   call XMPI_Bcast( n_parts_base  , 0, comm )
   call XMPI_Bcast( n_parts_growth, 0, comm )
+  call XMPI_Bcast( c1            , 0, comm )
+  call XMPI_Bcast( dc            , 0, comm )
 
   if (rank > 0) then
     allocate(part_opt(n_level))
@@ -170,6 +182,14 @@ program Mesh3d_Adapt
   do l = 1, n_level
     call part_opt(l) % Bcast( 0, comm )
   end do
+
+  ! adaptation criterion
+  allocate(c(n_level-1))
+  do l = 1, n_level-1
+    c(l) = c1 + dc * (l - 1) / (n_level - 1)
+  end do
+
+  allocate(s_e(0:po,0:po,0:po))
 
   allocate(old_mesh(n_level))
   allocate(mesh(n_level))
@@ -202,6 +222,11 @@ program Mesh3d_Adapt
   else
     mesh(1) = old_mesh(1)
   end if
+  call VerifyMesh_3D(mesh(1), passed)
+
+  if (passed) then
+    write(*,'(2X,A,/)') 'Root mesh successfully partitioned'
+  end if
 
   sem(1) = SpectralElementMesh_3D(mesh(1), po)
 
@@ -209,12 +234,30 @@ program Mesh3d_Adapt
   ! Adaptation
 
   do m = 1, n_level-1
-!### CHECK
-write(*,'(99(G0,1X))') 'starting cycle m =', m
-!### CHECK END
+
+    if (rank == 0) then
+      write(*,'(2X,99G0,/)') 'Adaptation cycle ', m
+    end if
 
     ! set adaptation marks
-    mesh(m) % element % adaptation % mark = 1
+    do l = 1, m
+      associate(x => sem(l) % metrics % x)
+        do e = 1, mesh(l) % n_elem
+          associate(element => mesh(l) % element(e))
+            if (element % frozen) then
+              element % adaptation % mark = -1
+            else
+              s_e = smiley % Density(x = x(:,:,:,e,1), y = x(:,:,:,e,2))
+              if (any(s_e >= c(l))) then
+                element % adaptation % mark = 1
+              else
+                element % adaptation % mark = -1
+              end if
+            end if
+          end associate
+        end do
+      end associate
+    end do
 
 !### CHECK
 write(*,'(99(G0,1X))') 'make adaptation pattern consistent'
@@ -267,6 +310,7 @@ write(*,'(99(G0,1X))') 'root level'
                                   , child     = old_mesh(2)  &
                                   , exch_plan = exch_plan(1) )
     end if
+    sem(1) = SpectralElementMesh_3D(mesh(1), po)
 
     do l = 1, m
 !### CHECK
@@ -310,6 +354,35 @@ write(*,'(99(G0,1X))') 'finished child mesh adaptation'
 
     end do
 
+
+    if (rank == 0) then
+      write(*,'(4X,99G0)') 'verify mesh'
+    end if
+!### CHECK
+write(*,'(99(G0,1X))') 'mesh(1)%element(1:5)%adaptation%refinement =',mesh(1)%element(1:6)%adaptation%refinement
+write(*,'(99(G0,1X))') 'mesh(1)%element(1)%face%boundary        =',mesh(1)%element(1)%face%boundary
+write(*,'(99(G0,1X))') 'mesh(1)%element(1)%neighbor%id          =',mesh(1)%element(1)%neighbor%id
+write(*,'(99(G0,1X))') 'mesh(1)%element(1)%neighbor%component   =',mesh(1)%element(1)%neighbor%component
+write(*,'(99(G0,1X))') 'mesh(1)%element(1)%neighbor%orientation =',mesh(1)%element(1)%neighbor%orientation
+write(*,'(99(G0,1X))') 'mesh(1)%element(6)%face%boundary        =',mesh(1)%element(6)%face%boundary
+write(*,'(99(G0,1X))') 'mesh(1)%element(6)%neighbor%id          =',mesh(1)%element(6)%neighbor%id
+write(*,'(99(G0,1X))') 'mesh(1)%element(6)%neighbor%component   =',mesh(1)%element(6)%neighbor%component
+write(*,'(99(G0,1X))') 'mesh(1)%element(6)%neighbor%orientation =',mesh(1)%element(6)%neighbor%orientation
+!! l = mesh(1)%element(1)%edge(3)%i_neighbor
+!! write(*,'(99(G0,1X))') 'mesh(1)%element(1)%edge(3)%i_neighbor =',l
+!! write(*,'(99(G0,1X))') 'mesh(1)%element(1)%neighbor(',l,')%id =',mesh(1)%element(1)%neighbor(l)%id
+!! l = mesh(1)%element(5)%edge(2)%i_neighbor
+!! write(*,'(99(G0,1X))') 'mesh(1)%element(5)%edge(2)%i_neighbor =',l
+!! write(*,'(99(G0,1X))') 'mesh(1)%element(5)%neighbor(',l,')%id =',mesh(1)%element(5)%neighbor(l)%id
+!### CHECK END
+    do l = 1, min(m+1, n_level)
+      call VerifyMesh_3D(mesh(l), passed_loc)
+      call XMPI_Reduce(passed_loc, passed, MPI_LAND, 0, comm)
+      if (rank == 0) then
+        write(*,'(6X,A,I3,2X,A,2X,L1)') 'level',l,'passed:',passed
+      end if
+    end do
+
     deallocate(exch_plan)
 
   end do
@@ -322,15 +395,19 @@ write(*,'(99(G0,1X))') 'finished child mesh adaptation'
 
 allocate(s(0:po,0:po,0:po,mesh(l)%n_elem,1))
 s(:,:,:,:,1) = smiley % Density(sem(l)%metrics%x(:,:,:,:,1), sem(l)%metrics%x(:,:,:,:,2))
+!! do e = 1, mesh(l)%n_elem
+!! s(:,:,:,e,1) = e
+!! end do
 
       write(tag, fmt='(A2,I0)') '_l', l
       plot_file = trim(case_file) // trim(tag)
 
       allocate(mask(mesh(l)%n_elem))
       if (l < n_level) then
-        mask = mesh(l) % element % adaptation % mark == 0
+        mask = mesh(l) % element % adaptation % refinement < 100 &
+               .and. .not. mesh(l) % element % frozen
       else
-        mask = .true.
+        mask = .not. mesh(l) % element % frozen
       end if
 
       call ExportVTK_VolumeData( sem(l) % metrics % x        &

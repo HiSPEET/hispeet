@@ -229,6 +229,12 @@ contains
             case(5)
               call element % AlignFromNeighborFace &
                        (j, k, id_child(:,:,1,l), id_child_face(:,:,j))
+!### CHECK
+if (e == 1) then
+write(*,'(99(G0,1X))') 'e,j,l,m =',e,j,l,m
+write(*,'(99(G0,1X))') 'id_child_face(:,:,j) =',id_child_face(:,:,j)
+end if
+!### CHECK END
             case(6)
               call element % AlignFromNeighborFace &
                        (j, k, id_child(:,:,2,l), id_child_face(:,:,j))
@@ -635,7 +641,7 @@ contains
             call EdgeNeighbor_NF(cd_tp, element, ee= 1, ef=3, i1=1, i2=1)
             call EdgeNeighbor_SI(cd_tp, ee= 2, i1=1, i2=2, i3=1)
             call EdgeNeighbor_NE(cd_tp, element, ee= 3, i1=1)
-            call EdgeNeighbor_NF(cd_tp, element, ee= 4, ef=6, i1=2, i2=1)
+            call EdgeNeighbor_NF(cd_tp, element, ee= 4, ef=6, i1=1, i2=2)
             call EdgeNeighbor_NF(cd_tp, element, ee= 5, ef=1, i1=1, i2=1)
             call EdgeNeighbor_SI(cd_tp, ee= 6, i1=2, i2=1, i3=1)
             call EdgeNeighbor_NE(cd_tp, element, ee= 7, i1=1)
@@ -1073,15 +1079,28 @@ contains
         call TransformIndex(orientation, 3, o0 = -1, o = xi_o, t0 = -1, t = xi_t)
 
         ! 3: ID of neighbor element edge
-        if (xi_o(1) == 0) then
-          nee = 1 + (xi_o(2) + 1)/2 + (xi_o(3) + 1)
-        else if (xi_o(2) == 0) then
-          nee = 5 + (xi_o(1) + 1)/2 + (xi_o(3) + 1)
-        else if (xi_o(3) == 0) then
-          nee = 9 + (xi_o(1) + 1)/2 + (xi_o(2) + 1)
+!### ORIG  -- cannot be true, because xi_t is never used
+!!         if (xi_o(1) == 0) then
+!!           nee = 1 + (xi_o(2) + 1)/2 + (xi_o(3) + 1)
+!!         else if (xi_o(2) == 0) then
+!!           nee = 5 + (xi_o(1) + 1)/2 + (xi_o(3) + 1)
+!!         else if (xi_o(3) == 0) then
+!!           nee = 9 + (xi_o(1) + 1)/2 + (xi_o(2) + 1)
+!!         else ! should not happen, trigger error by providing invalid number
+!!           nee = -100
+!!         end if
+!### ORIG END
+!### CHECK
+        if (xi_t(1) == 0) then
+          nee = 1 + (xi_t(2) + 1)/2 + (xi_t(3) + 1)
+        else if (xi_t(2) == 0) then
+          nee = 5 + (xi_t(1) + 1)/2 + (xi_t(3) + 1)
+        else if (xi_t(3) == 0) then
+          nee = 9 + (xi_t(1) + 1)/2 + (xi_t(2) + 1)
         else ! should not happen, trigger error by providing invalid number
           nee = -100
         end if
+!### CHECK END
 
         ! 4: neighbor component ID
         component = int(6 + nee, IXS)
@@ -1273,7 +1292,12 @@ contains
         call TransformIndex(orientation, 3, o0 = -1, o = xi_o, t0 = -1, t = xi_t)
 
         ! 3: ID of neighbor element vertex
-        nev = 1 + (xi_o(1) + 1)/2 + (xi_o(2) + 1) + (xi_o(3) + 1)*2
+!### ORIG  -- cannot be true, because xi_t is never used
+!!         nev = 1 + (xi_o(1) + 1)/2 + (xi_o(2) + 1) + (xi_o(3) + 1)*2
+!### ORIG END
+!### CHECK
+        nev = 1 + (xi_t(1) + 1)/2 + (xi_t(2) + 1) + (xi_t(3) + 1)*2
+!### CHECK END
 
         ! assign neighbor data .................................................
 

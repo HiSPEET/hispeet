@@ -24,11 +24,13 @@ contains
     type(Mesh_3D), intent(in)  :: mesh !< mesh partition
     logical,       intent(out) :: passed !< test result
 
-    logical :: con_passed
+    logical :: passed_connection
+    logical :: passed_enclosure
 
-    call ElementConnectivityTest(mesh, con_passed)
+    call ElementConnectivityTest (mesh, passed_connection)
+    call ElementEnclosureTest    (mesh, passed_enclosure)
 
-    passed = con_passed
+    passed = passed_connection .and. passed_enclosure
 
   end subroutine VerifyMesh_3D
 
@@ -39,7 +41,7 @@ contains
     type(Mesh_3D), intent(in)  :: mesh   !< mesh partition
     logical,       intent(out) :: passed !< test result
 
-    integer :: c, e, i, j, k, l, n
+    integer :: c, e, i, j, k, l, n, o
 
     passed = .true.
 
@@ -57,7 +59,8 @@ contains
             l = neighbor(j) % id
             if (l > 0 .and. l <= mesh % n_elem) then
               c = ElementFaceID(neighbor(j) % component)
-              passed = FaceMatch(mesh%element(l), c, e)
+              o = ElementFaceID(neighbor(j) % orientation)
+              passed = FaceMatch(mesh%element(l), c, e, o)
               if (.not. passed) then
                 write(*,'(99G0)') '*** part ', mesh%part,': no match between ', &
                                   'element ', e, ', face ', k, ' and ',         &
@@ -80,11 +83,38 @@ contains
             l = neighbor(j) % id
             if (l > 0 .and. l <= mesh % n_elem) then
               c = ElementEdgeID(neighbor(j) % component)
-              passed = EdgeMatch(mesh%element(l), c, e)
+              o = ElementFaceID(neighbor(j) % orientation)
+              passed = EdgeMatch(mesh%element(l), c, e, o)
               if (.not. passed) then
                 write(*,'(99G0)') '*** part ', mesh%part,': no match between ', &
                                   'element ', e, ', edge ', k, ' and ',         &
                                   'element ', l, ', edge ', c
+!### CHECK
+write(*,'(99G0)') 'element(',e,')%edge(',k,')%n_neighbor = ',mesh%element(e)%edge(k)%n_neighbor
+write(*,'(99G0)') 'element(',e,')%edge(',k,')%i_neighbor = ',mesh%element(e)%edge(k)%i_neighbor
+if (mesh%element(e)%edge(k)%i_neighbor > 0) then
+  write(*,'(99G0)') 'element(',e,')%edge(',k,'):neighbor%id          = ',&
+  mesh%element(e)%neighbor(mesh%element(e)%edge(k)%i_neighbor)%id
+  write(*,'(99G0)') 'element(',e,')%edge(',k,'):neighbor%component   = ',&
+  mesh%element(e)%neighbor(mesh%element(e)%edge(k)%i_neighbor)%component
+  write(*,'(99G0)') 'element(',e,')%edge(',k,'):neighbor%orientation = ',&
+  mesh%element(e)%neighbor(mesh%element(e)%edge(k)%i_neighbor)%orientation
+end if
+write(*,'(99G0)') 'element(',l,')%edge(',c,')%n_neighbor = ',mesh%element(l)%edge(c)%n_neighbor
+write(*,'(99G0)') 'element(',l,')%edge(',c,')%i_neighbor = ',mesh%element(l)%edge(c)%i_neighbor
+if (mesh%element(l)%edge(c)%i_neighbor > 0) then
+  write(*,'(99G0)') 'element(',l,')%edge(',c,'):neighbor%id          = ',&
+  mesh%element(l)%neighbor(mesh%element(l)%edge(c)%i_neighbor)%id
+  write(*,'(99G0)') 'element(',l,')%edge(',c,'):neighbor%component   = ',&
+  mesh%element(l)%neighbor(mesh%element(l)%edge(c)%i_neighbor)%component
+  write(*,'(99G0)') 'element(',l,')%edge(',c,'):neighbor%orientation = ',&
+  mesh%element(l)%neighbor(mesh%element(l)%edge(c)%i_neighbor)%orientation
+end if
+write(*,'(99G0)') 'element(',e,')%cluster_oct = ',mesh%element(e)%cluster_oct
+write(*,'(99G0)') 'element(',l,')%cluster_oct = ',mesh%element(l)%cluster_oct
+write(*,'(99G0)') 'element(',e,')%adaptation%parent_id = ',mesh%element(e)%adaptation%parent_id
+write(*,'(99G0)') 'element(',l,')%adaptation%parent_id = ',mesh%element(l)%adaptation%parent_id
+!### CHECK END
               end if
             else if (l < 0 .or. l > mesh%n_elem + mesh%n_ghost) then
               passed = .false.
@@ -103,7 +133,8 @@ contains
             l = neighbor(j) % id
             if (l > 0 .and. l <= mesh % n_elem) then
               c = ElementVertexID(neighbor(j) % component)
-              passed = VertexMatch(mesh%element(l), c, e)
+              o = ElementFaceID(neighbor(j) % orientation)
+              passed = VertexMatch(mesh%element(l), c, e, o)
               if (.not. passed) then
                 write(*,'(99G0)') '*** part ', mesh%part,': no match between ',  &
                                   'element ', e, ', vertex ', k, ' and ',        &
@@ -126,10 +157,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Face matching test
 
-  logical function FaceMatch(element, ef, ml) result(match)
+  logical function FaceMatch(element, ef, ml, no) result(match)
     class(MeshElement_3D), intent(in) :: element !< given element
     integer, intent(in) :: ef !< coupled element face
     integer, intent(in) :: ml !< mesh element ID to match
+    integer, intent(in) :: no !< neighbor orientation
 
     integer :: i, j, n
 
@@ -139,6 +171,8 @@ contains
     i = element % face(ef) % i_neighbor
     do j = i, i+n-1
       match = element % neighbor(j) % id == ml
+      if (.not. match) cycle
+      match = element % neighbor(j) % orientation == ReverseOrientation(no)
       if (match) exit
     end do
 
@@ -147,10 +181,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Edge matching test
 
-  logical function EdgeMatch(element, ee, ml) result(match)
+  logical function EdgeMatch(element, ee, ml, no) result(match)
     class(MeshElement_3D), intent(in) :: element !< given element
     integer, intent(in) :: ee !< coupled element edge
     integer, intent(in) :: ml !< mesh element ID to match
+    integer, intent(in) :: no !< neighbor orientation
 
     integer :: i, j, n
 
@@ -160,6 +195,8 @@ contains
     i = element % edge(ee) % i_neighbor
     do j = i, i+n-1
       match = element % neighbor(j) % id == ml
+      if (.not. match) cycle
+      match = element % neighbor(j) % orientation == ReverseOrientation(no)
       if (match) exit
     end do
 
@@ -168,10 +205,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Vertex matching test
 
-  logical function VertexMatch(element, ev, ml) result(match)
+  logical function VertexMatch(element, ev, ml, no) result(match)
     class(MeshElement_3D), intent(in) :: element !< given element
     integer, intent(in) :: ev !< coupled element vertex
     integer, intent(in) :: ml !< mesh element ID to match
+    integer, intent(in) :: no !< neighbor orientation
 
     integer :: i, j, n
 
@@ -181,13 +219,100 @@ contains
     i = element % vertex(ev) % i_neighbor
     do j = i, i+n-1
       match = element % neighbor(j) % id == ml
+      if (.not. match) cycle
+      match = element % neighbor(j) % orientation == ReverseOrientation(no)
       if (match) exit
     end do
 
   end function VertexMatch
 
   !-----------------------------------------------------------------------------
-  !> Averaging check
+  ! Returns the reverse orientation
+
+  integer function ReverseOrientation(o) result(r)
+    integer, intent(in) :: o
+
+    select case(o)
+
+    case(12);  r = 12
+    case(13);  r = 16
+    case(15);  r = 15
+    case(16);  r = 13
+
+    case(21);  r = 21
+    case(23);  r = 31
+    case(24);  r = 51
+    case(26);  r = 61
+
+    case(31);  r = 23
+    case(32);  r = 62
+    case(34);  r = 56
+    case(35);  r = 35
+
+    case(42);  r = 42
+    case(43);  r = 43
+    case(45);  r = 45
+    case(46);  r = 46
+
+    case(51);  r = 24
+    case(53);  r = 64
+    case(54);  r = 54
+    case(56);  r = 34
+
+    case(61);  r = 26
+    case(62);  r = 32
+    case(64);  r = 53
+    case(65);  r = 65
+
+    case default
+      r = -1
+
+    end select
+
+  end function ReverseOrientation
+
+  !-----------------------------------------------------------------------------
+  !> Enclosure check
+  !>
+  !> For each active element, check if there is a neighbor on all interior
+  !> faces. For frozen elements, check if they have at least one neighbor.
+
+  subroutine ElementEnclosureTest(mesh, passed)
+    type(Mesh_3D), intent(in)  :: mesh   !< mesh partition
+    logical,       intent(out) :: passed !< test result
+
+    integer :: e, k
+
+    passed = .true.
+
+    ELEMENTS: do e = 1, mesh % n_elem
+      associate(element => mesh % element(e))
+
+        if (element % frozen) then
+
+          if (size(element % neighbor) < 1) then
+            passed = .false.
+            write(*,'(99G0)') '*** part ', mesh%part, &
+                              ': isolated frozen element ', e
+          end if
+
+        else
+
+          do k = 1, 6
+            if (element % face(k) % boundary   > 0) cycle
+            if (element % face(k) % n_neighbor < 1) then
+              passed = .false.
+              write(*,'(99G0)') '*** part ', mesh%part, &
+                                ': missing neighbor at element ',e,', face ',k
+            end if
+          end do
+
+        end if
+
+      end associate
+    end do ELEMENTS
+
+  end subroutine ElementEnclosureTest
 
   !=============================================================================
 

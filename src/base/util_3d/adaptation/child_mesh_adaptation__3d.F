@@ -229,6 +229,26 @@ contains
         end if
       end do
     end if
+!### CHECK
+write(*,'(99(G0,1X))') 'child mesh adaptation: new_child element(65) parent_id   =', &
+  new_child%element(65)%adaptation%parent_id
+write(*,'(99(G0,1X))') 'child mesh adaptation: new_child element(65) cluster_oct =', &
+  new_child%element(65)%cluster_oct
+write(*,'(99(G0,1X))') 'child mesh adaptation: send_data n_elem =', &
+  send_data(0) % n_elem
+write(*,'(99(G0,1X))') 'child mesh adaptation: send_data element(64) id          =', &
+  send_data(0) % element(64)%id
+write(*,'(99(G0,1X))') 'child mesh adaptation: send_data element(64) parent_id   =', &
+  send_data(0) % element(64)%adaptation%parent_id
+write(*,'(99(G0,1X))') 'child mesh adaptation: send_data element(64) cluster_oct =', &
+  send_data(0) % element(64)%cluster_oct
+write(*,'(99(G0,1X))') 'child mesh adaptation: send_data element(65) id          =', &
+  send_data(0) % element(65)%id
+write(*,'(99(G0,1X))') 'child mesh adaptation: send_data element(65) parent_id   =', &
+  send_data(0) % element(65)%adaptation%parent_id
+write(*,'(99(G0,1X))') 'child mesh adaptation: send_data element(65) cluster_oct =', &
+  send_data(0) % element(65)%cluster_oct
+!### CHECK END
 
     ! complete mesh.............................................................
 
@@ -254,41 +274,6 @@ contains
 !! end do
 !### CHECK END
       call new_child % BuildFaces()
-!### CHECK
-!! do i = 1, new_child % n_elem
-!!   write(*,'(99(G0,1X))') 'elem:',i,', fid =',new_child%element(i)%face%id
-!!   if (any(new_child%element(i)%face%id < 1)) then
-!!     block
-!!       integer :: j
-!!       do j = 1, 12
-!!         write(*,'(99(G0,1X))') 'edge:',j,', vid =', &
-!!           new_child%element(i)%edge(j)%vertex
-!!       end do
-!!     end block
-!!     stop "SOMETHING IS WRONG"
-!!   end if
-!! end do
-!! block
-!!   integer :: j
-!!   associate(element => new_child%element(1))
-!!     j = element%face(2)%i_neighbor
-!!     write(*,'(99(G0,1X))') 'e1%f2%i_neighbor =',j
-!!     write(*,'(99(G0,1X))') 'e1%f2%neighbor%id =',element%neighbor(j)%id
-!!     write(*,'(99(G0,1X))') 'e1%f2%neighbor%orientation =',element%neighbor(j)%orientation
-!!     write(*,'(99(G0,1X))') 'e1%edge%id(f2) =',element%edge(E_Face(:,2))%id
-!!     write(*,'(99(G0,1X))') 'e1%vert%id(f2) =',element%vertex(V_Face(:,2))%id
-!!   end associate
-!!   associate(element => new_child%element(2))
-!!     j = element%face(1)%i_neighbor
-!!     write(*,'(99(G0,1X))') 'e2%f1%i_neighbor =',j
-!!     write(*,'(99(G0,1X))') 'e2%f1%neighbor%id =',element%neighbor(j)%id
-!!     write(*,'(99(G0,1X))') 'e2%f1%neighbor%orientation =',element%neighbor(j)%orientation
-!!     write(*,'(99(G0,1X))') 'e1%f1%edge%id(f1) =',element%edge(E_Face(:,1))%id
-!!     write(*,'(99(G0,1X))') 'e1%f1%vert%id(f1) =',element%vertex(V_Face(:,1))%id
-!!   end associate
-!! end block
-!! stop "CHECK"
-!### CHECK END
       call new_child % BuildBoundaryFaces()
       call new_child % BuildLinks()
       call new_child % BuildGhosts()

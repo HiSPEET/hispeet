@@ -159,38 +159,38 @@ module Mesh_Element__3D
   !
   ! overview of possible orientations
   !
-  ! neighbor                           edge alignment
-  ! orientation     d1   d2   d3       ex    ey    ez
+  ! neighbor                           edge alignment     reverse
+  ! orientation     d1   d2   d3       ex    ey    ez     orientation
   !
-  !     12           x    y    z        +     +     +
-  !     13           x    z   -y        +     +     -
-  !     15           x   -y   -z        +     -     -
-  !     16           x   -z    y        +     -     +
+  !     12           x    y    z        +     +     +        12
+  !     13           x    z   -y        +     +     -        16
+  !     15           x   -y   -z        +     -     -        15
+  !     16           x   -z    y        +     -     +        13
   !
-  !     21           y    x   -z        +     +     -
-  !     23           y    z    x        +     +     +
-  !     24           y   -x    z        +     -     +
-  !     26           y   -z   -x        +     -     -
+  !     21           y    x   -z        +     +     -        21
+  !     23           y    z    x        +     +     +        31
+  !     24           y   -x    z        +     -     +        51
+  !     26           y   -z   -x        +     -     -        61
   !
-  !     31           z    x    y        +     +     +
-  !     32           z    y   -x        +     +     -
-  !     34           z   -x   -y        +     -     -
-  !     35           z   -y    x        +     -     +
+  !     31           z    x    y        +     +     +        23
+  !     32           z    y   -x        +     +     -        62
+  !     34           z   -x   -y        +     -     -        56
+  !     35           z   -y    x        +     -     +        35
   !
-  !     42          -x    y   -z        -     +     -
-  !     43          -x    z    y        -     +     +
-  !     45          -x   -y    z        -     -     +
-  !     46          -x   -z   -y        -     -     -
+  !     42          -x    y   -z        -     +     -        42
+  !     43          -x    z    y        -     +     +        43
+  !     45          -x   -y    z        -     -     +        45
+  !     46          -x   -z   -y        -     -     -        46
   !
-  !     51          -y    x    z        -     +     +
-  !     53          -y    z   -x        -     +     -
-  !     54          -y   -x   -z        -     -     -
-  !     56          -y   -z    x        -     -     +
+  !     51          -y    x    z        -     +     +        24
+  !     53          -y    z   -x        -     +     -        64
+  !     54          -y   -x   -z        -     -     -        54
+  !     56          -y   -z    x        -     -     +        34
   !
-  !     61          -z    x   -y        -     +     -
-  !     62          -z    y    x        -     +     +
-  !     64          -z   -x    y        -     -     +
-  !     65          -z   -y   -x        -     -     -
+  !     61          -z    x   -y        -     +     -        26
+  !     62          -z    y    x        -     +     +        32
+  !     64          -z   -x    y        -     -     +        53
+  !     65          -z   -y   -x        -     -     -        65
 
   !-----------------------------------------------------------------------------
   !> Element adaptation information
