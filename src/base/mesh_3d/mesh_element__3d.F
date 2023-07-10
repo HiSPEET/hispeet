@@ -344,6 +344,9 @@ module Mesh_Element__3D
 
     generic   :: AlignWithNeighborFace => AlignWithNeighborFace_IDK, &
                                           AlignFromNeighborFace_RNP
+    procedure :: MarkForRefinement
+    procedure :: MarkForRetention
+    procedure :: MarkForRemoval
 
     procedure, private :: AlignFromNeighborEdge_IDK
     procedure, private :: AlignFromNeighborEdge_RNP
@@ -762,6 +765,36 @@ contains
 #include "mesh__3d__mp_alignwithneighborface-body.f"
 
   end subroutine AlignWithNeighborFace_RNP
+
+  !-----------------------------------------------------------------------------
+  !> Mark element for refinement
+
+  elemental subroutine MarkForRefinement(element)
+    class(MeshElement_3D), intent(inout) :: element  !< mesh element
+
+    element % adaptation % mark = 1000
+
+  end subroutine MarkForRefinement
+
+  !-----------------------------------------------------------------------------
+  !> Mark element for retention
+
+  elemental subroutine MarkForRetention(element)
+    class(MeshElement_3D), intent(inout) :: element  !< mesh element
+
+    element % adaptation % mark = 0
+
+  end subroutine MarkForRetention
+
+  !-----------------------------------------------------------------------------
+  !> Mark element for removal
+
+  elemental subroutine MarkForRemoval(element)
+    class(MeshElement_3D), intent(inout) :: element  !< mesh element
+
+    element % adaptation % mark = -1
+
+  end subroutine MarkForRemoval
 
   !-----------------------------------------------------------------------------
   !> Transforms the given triple index range into a rotated coordinate system

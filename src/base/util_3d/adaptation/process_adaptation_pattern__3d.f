@@ -128,7 +128,7 @@ contains
 
         ! number of sublevels ..................................................
 
-        element % adaptation % sublevels = max(mark(e), 0)
+        element % adaptation % sublevels = max(mark(e), 0) / 1000
 
       end associate
     end do

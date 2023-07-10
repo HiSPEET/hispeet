@@ -304,6 +304,9 @@ write(*,'(99G0)') 'element(',l,')%adaptation%parent_id = ',mesh%element(l)%adapt
               passed = .false.
               write(*,'(99G0)') '*** part ', mesh%part, &
                                 ': missing neighbor at element ',e,', face ',k
+!### CHECK
+write(*,'(99G0)') 'element(',e,')%adaptation%parent_id = ',mesh%element(e)%adaptation%parent_id
+!### CHECK
             end if
           end do
 

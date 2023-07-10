@@ -245,13 +245,13 @@ program Mesh3d_Adapt
         do e = 1, mesh(l) % n_elem
           associate(element => mesh(l) % element(e))
             if (element % frozen) then
-              element % adaptation % mark = -1
+              call element % MarkForRemoval()
             else
               s_e = smiley % Density(x = x(:,:,:,e,1), y = x(:,:,:,e,2))
               if (any(s_e >= c(l))) then
-                element % adaptation % mark = 1
+                call element % MarkForRefinement()
               else
-                element % adaptation % mark = -1
+                call element % MarkForRemoval()
               end if
             end if
           end associate
@@ -259,31 +259,13 @@ program Mesh3d_Adapt
       end associate
     end do
 
-!### CHECK
-write(*,'(99(G0,1X))') 'make adaptation pattern consistent'
-!### CHECK END
     ! make adaptation pattern consistent
     do l = m, 2, -1
-!### CHECK
-write(*,'(99(G0,1X))') '... level l =',l
-!### CHECK END
       call GlobalizeAdaptationPattern_3D(mesh(l))
-!### CHECK
-write(*,'(99(G0,1X))') '...... globalized'
-!### CHECK END
       call RestrictAdaptationPattern_3D(mesh(l), mesh(l-1))
-!### CHECK
-write(*,'(99(G0,1X))') '...... restricted'
-!### CHECK END
     end do
-!### CHECK
-write(*,'(99(G0,1X))') '... level l =',1
-!### CHECK END
     call GlobalizeAdaptationPattern_3D(mesh(1))
 
-!### CHECK
-write(*,'(99(G0,1X))') 'make present mesh the original one'
-!### CHECK END
     ! make present mesh the original one
     call move_alloc(mesh, old_mesh)
     allocate(mesh(n_level))
@@ -291,9 +273,6 @@ write(*,'(99(G0,1X))') 'make present mesh the original one'
     ! create data exchange plan for redistribution of retained data
     allocate(exch_plan(n_level))
 
-!### CHECK
-write(*,'(99(G0,1X))') 'root level'
-!### CHECK END
     ! root level
     call ProcessAdaptationPattern_3D(old_mesh(1))
     if (max(old_mesh(1) % n_parts, part_opt(1) % n_parts) == 1) then
@@ -359,15 +338,10 @@ write(*,'(99(G0,1X))') 'finished child mesh adaptation'
       write(*,'(4X,99G0)') 'verify mesh'
     end if
 !### CHECK
-write(*,'(99(G0,1X))') 'mesh(1)%element(1:5)%adaptation%refinement =',mesh(1)%element(1:6)%adaptation%refinement
-write(*,'(99(G0,1X))') 'mesh(1)%element(1)%face%boundary        =',mesh(1)%element(1)%face%boundary
-write(*,'(99(G0,1X))') 'mesh(1)%element(1)%neighbor%id          =',mesh(1)%element(1)%neighbor%id
-write(*,'(99(G0,1X))') 'mesh(1)%element(1)%neighbor%component   =',mesh(1)%element(1)%neighbor%component
-write(*,'(99(G0,1X))') 'mesh(1)%element(1)%neighbor%orientation =',mesh(1)%element(1)%neighbor%orientation
-write(*,'(99(G0,1X))') 'mesh(1)%element(6)%face%boundary        =',mesh(1)%element(6)%face%boundary
-write(*,'(99(G0,1X))') 'mesh(1)%element(6)%neighbor%id          =',mesh(1)%element(6)%neighbor%id
-write(*,'(99(G0,1X))') 'mesh(1)%element(6)%neighbor%component   =',mesh(1)%element(6)%neighbor%component
-write(*,'(99(G0,1X))') 'mesh(1)%element(6)%neighbor%orientation =',mesh(1)%element(6)%neighbor%orientation
+!! write(*,'(99(G0,1X))') 'mesh(1)%element(6)%face%boundary        =',mesh(1)%element(6)%face%boundary
+!! write(*,'(99(G0,1X))') 'mesh(1)%element(6)%neighbor%id          =',mesh(1)%element(6)%neighbor%id
+!! write(*,'(99(G0,1X))') 'mesh(1)%element(6)%neighbor%component   =',mesh(1)%element(6)%neighbor%component
+!! write(*,'(99(G0,1X))') 'mesh(1)%element(6)%neighbor%orientation =',mesh(1)%element(6)%neighbor%orientation
 !! l = mesh(1)%element(1)%edge(3)%i_neighbor
 !! write(*,'(99(G0,1X))') 'mesh(1)%element(1)%edge(3)%i_neighbor =',l
 !! write(*,'(99(G0,1X))') 'mesh(1)%element(1)%neighbor(',l,')%id =',mesh(1)%element(1)%neighbor(l)%id
@@ -382,6 +356,24 @@ write(*,'(99(G0,1X))') 'mesh(1)%element(6)%neighbor%orientation =',mesh(1)%eleme
         write(*,'(6X,A,I3,2X,A,2X,L1)') 'level',l,'passed:',passed
       end if
     end do
+!### CHECK
+write(*,'(99(G0,1X))') 'mesh(2)%element(3)%frozen =',mesh(2)%element(3)%frozen
+write(*,'(99(G0,1X))') 'mesh(2)%element(3)%face%boundary =',mesh(2)%element(3)%face%boundary
+write(*,'(99(G0,1X))') 'mesh(2)%element(3)%face%i_neighbor =',mesh(2)%element(3)%face%i_neighbor
+write(*,'(99(G0,1X))') 'mesh(2)%element(3)%neighbor%id =',mesh(2)%element(3)%neighbor%id
+write(*,'(99(G0,1X))') 'mesh(2)%element( 3)%adaptation%refinement =',mesh(2)%element( 3)%adaptation%refinement
+write(*,'(99(G0,1X))') 'mesh(2)%element(17)%adaptation%refinement =',mesh(2)%element(17)%adaptation%refinement
+write(*,'(99(G0,1X))') 'mesh(2)%element( 4)%adaptation%refinement =',mesh(2)%element( 4)%adaptation%refinement
+write(*,'(99(G0,1X))') 'mesh(2)%element( 1)%adaptation%refinement =',mesh(2)%element( 1)%adaptation%refinement
+write(*,'(99(G0,1X))') 'mesh(2)%element(67)%adaptation%refinement =',mesh(2)%element(67)%adaptation%refinement
+write(*,'(99(G0,1X))') 'mesh(2)%element( 7)%adaptation%refinement =',mesh(2)%element( 7)%adaptation%refinement
+write(*,'(99(G0,1X))') 'mesh(2)%element( 3)%frozen =',mesh(2)%element( 3)%frozen
+write(*,'(99(G0,1X))') 'mesh(2)%element(17)%frozen =',mesh(2)%element(17)%frozen
+write(*,'(99(G0,1X))') 'mesh(2)%element( 4)%frozen =',mesh(2)%element( 4)%frozen
+write(*,'(99(G0,1X))') 'mesh(2)%element( 1)%frozen =',mesh(2)%element( 1)%frozen
+write(*,'(99(G0,1X))') 'mesh(2)%element(67)%frozen =',mesh(2)%element(67)%frozen
+write(*,'(99(G0,1X))') 'mesh(2)%element( 7)%frozen =',mesh(2)%element( 7)%frozen
+!### CHECK END
 
     deallocate(exch_plan)
 

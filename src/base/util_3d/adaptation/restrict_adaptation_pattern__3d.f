@@ -26,10 +26,11 @@ contains
     type(DataExchangeSendBuf_3D), allocatable :: send_buf(:)
     type(DataExchangeRecvBuf_3D), allocatable :: recv_buf(:)
 
+    integer, allocatable :: child_mark(:,:)
     integer, allocatable :: send_mark(:)
     integer, allocatable :: recv_mark(:)
     integer :: n_recv, n_send
-    integer :: i
+    integer :: c, i, o
 
 
     ! initialization ...........................................................
@@ -46,16 +47,29 @@ contains
       recv_map(i) = DataExchangeMap_3D(parent % map_child(i))
     end do
 
-    allocate(send_mark(child  % n_cluster), source = -1)
-    allocate(recv_mark(parent % n_elem   ), source = -1)
+    allocate(child_mark(8, child  % n_cluster), source = -1)
+    allocate( send_mark(   child  % n_cluster), source = -1)
+    allocate( recv_mark(   parent % n_elem   ), source = -1)
 
     ! prepare child marks for sending ..........................................
 
     do i = 1, child % n_elem
       associate(element => child % element(i))
-        send_mark(element%cluster_id) = max( send_mark(element%cluster_id) &
-                                           , element % adaptation % mark   )
+        if (element % frozen) cycle
+        c = element % cluster_id
+        o = element % cluster_oct
+        child_mark(o,c) = element % adaptation % mark
       end associate
+    end do
+
+    do c = 1, child % n_cluster
+      send_mark(c) = maxval(child_mark(:,c))
+      if (send_mark(c) <= 0) cycle
+      do i = 0, 7
+        if (child_mark(i+1,c) > 0) then
+          send_mark(c) = send_mark(c) + IBset(0,i)
+        end if
+      end do
     end do
 
     ! pass child marks to parent  ..............................................
@@ -83,8 +97,8 @@ contains
 
     do i = 1, parent % n_elem
       associate(adaptation => parent % element(i) % adaptation)
-        if (adaptation % refinement < 100) cycle
-        adaptation % mark = max(adaptation % mark, recv_mark(i) + 1)
+        if (adaptation % refinement < 1000) cycle
+        adaptation % mark = max(adaptation % mark, recv_mark(i) + 1000)
       end associate
     end do
 
