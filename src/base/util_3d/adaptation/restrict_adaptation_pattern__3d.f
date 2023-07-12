@@ -97,24 +97,8 @@ contains
 
     do i = 1, parent % n_elem
       associate(adaptation => parent % element(i) % adaptation)
-!### CHECK
-if (i == 1) then
-write(*,'(99(G0,1X))') 'parent % element(1) % adaptation % refinement =', &
-                        parent % element(1) % adaptation % refinement
-write(*,'(99(G0,1X))') 'parent % element(1) % adaptation % mark       =', &
-                        parent % element(1) % adaptation % mark
-write(*,'(99(G0,1X))') 'recv_mark       (1)                           =', &
-                        recv_mark       (1)
-end if
-!### CHECK END
         if (adaptation % refinement < 100) cycle
         adaptation % mark = max(adaptation % mark, recv_mark(i) + 1000)
-!### CHECK
-if (i == 1) then
-write(*,'(99(G0,1X))') 'parent % element(1) % adaptation % refinement =', &
-                        parent % element(1) % adaptation % refinement
-end if
-!### CHECK END
       end associate
     end do
 

@@ -89,32 +89,6 @@ contains
                 write(*,'(99G0)') '*** part ', mesh%part,': no match between ', &
                                   'element ', e, ', edge ', k, ' and ',         &
                                   'element ', l, ', edge ', c
-!### CHECK
-write(*,'(99G0)') 'element(',e,')%edge(',k,')%n_neighbor = ',mesh%element(e)%edge(k)%n_neighbor
-write(*,'(99G0)') 'element(',e,')%edge(',k,')%i_neighbor = ',mesh%element(e)%edge(k)%i_neighbor
-if (mesh%element(e)%edge(k)%i_neighbor > 0) then
-  write(*,'(99G0)') 'element(',e,')%edge(',k,'):neighbor%id          = ',&
-  mesh%element(e)%neighbor(mesh%element(e)%edge(k)%i_neighbor)%id
-  write(*,'(99G0)') 'element(',e,')%edge(',k,'):neighbor%component   = ',&
-  mesh%element(e)%neighbor(mesh%element(e)%edge(k)%i_neighbor)%component
-  write(*,'(99G0)') 'element(',e,')%edge(',k,'):neighbor%orientation = ',&
-  mesh%element(e)%neighbor(mesh%element(e)%edge(k)%i_neighbor)%orientation
-end if
-write(*,'(99G0)') 'element(',l,')%edge(',c,')%n_neighbor = ',mesh%element(l)%edge(c)%n_neighbor
-write(*,'(99G0)') 'element(',l,')%edge(',c,')%i_neighbor = ',mesh%element(l)%edge(c)%i_neighbor
-if (mesh%element(l)%edge(c)%i_neighbor > 0) then
-  write(*,'(99G0)') 'element(',l,')%edge(',c,'):neighbor%id          = ',&
-  mesh%element(l)%neighbor(mesh%element(l)%edge(c)%i_neighbor)%id
-  write(*,'(99G0)') 'element(',l,')%edge(',c,'):neighbor%component   = ',&
-  mesh%element(l)%neighbor(mesh%element(l)%edge(c)%i_neighbor)%component
-  write(*,'(99G0)') 'element(',l,')%edge(',c,'):neighbor%orientation = ',&
-  mesh%element(l)%neighbor(mesh%element(l)%edge(c)%i_neighbor)%orientation
-end if
-write(*,'(99G0)') 'element(',e,')%cluster_oct = ',mesh%element(e)%cluster_oct
-write(*,'(99G0)') 'element(',l,')%cluster_oct = ',mesh%element(l)%cluster_oct
-write(*,'(99G0)') 'element(',e,')%adaptation%parent_id = ',mesh%element(e)%adaptation%parent_id
-write(*,'(99G0)') 'element(',l,')%adaptation%parent_id = ',mesh%element(l)%adaptation%parent_id
-!### CHECK END
               end if
             else if (l < 0 .or. l > mesh%n_elem + mesh%n_ghost) then
               passed = .false.
@@ -305,7 +279,8 @@ write(*,'(99G0)') 'element(',l,')%adaptation%parent_id = ',mesh%element(l)%adapt
               write(*,'(99G0)') '*** part ', mesh%part, &
                                 ': missing neighbor at element ',e,', face ',k
 !### CHECK
-write(*,'(99G0)') 'element(',e,')%adaptation%parent_id = ',mesh%element(e)%adaptation%parent_id
+!! write(*,'(99(G0,1X))') 'mesh%element(',e,')%adaptation%parent_id =', &
+!!                         mesh%element(  e  )%adaptation%parent_id
 !### CHECK
             end if
           end do

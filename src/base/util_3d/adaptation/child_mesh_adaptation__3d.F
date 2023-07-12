@@ -229,12 +229,6 @@ contains
         end if
       end do
     end if
-!### CHECK
-!! write(*,'(99(G0,1X))') 'child mesh adaptation: new_child element(65) parent_id   =', &
-!!   new_child%element(65)%adaptation%parent_id
-!! write(*,'(99(G0,1X))') 'child mesh adaptation: new_child element(65) cluster_oct =', &
-!!   new_child%element(65)%cluster_oct
-!### CHECK END
 
     ! complete mesh.............................................................
 
@@ -383,37 +377,17 @@ contains
       end do
 
       ! extract received attributes ............................................
-!### CHECK
-!! if (new_child%n_elem == 608) then
-write(*,'(99(G0,1X))') 'new_child % n_elem =',new_child%n_elem
-write(*,'(99(G0,1X))') 'count(new_child % element % adaptation % mark >= 0) =', &
-                        count(new_child % element % adaptation % mark >= 0)
-!! end if
-!### CHECK END
+
       do i = 1, new_child % n_elem_active
-!### CHECK
-if (new_child%n_elem == 608) then
-if (73 <= i .and. i <= 80) then
-write(*,'(99(G0,1X))') 'new_child % element(',i,') % adaptation % mark =', &
-                        new_child % element(  i  ) % adaptation % mark
-end if
-end if
-!### CHECK END
         associate(element => new_child % element(i))
+          ! retained elements are indicated by a non-negative mark,
+          ! non-retained elements have a negative mark and are skipped
           if (element % adaptation % mark >= 0) then
             element % adaptation % refinement = recv_attrib(1,i)
             element % adaptation % child_proc = recv_attrib(2,i)
             element % adaptation % mark       = recv_attrib(3,i)
           end if
         end associate
-!### CHECK
-if (new_child%n_elem == 608) then
-if (73 <= i .and. i <= 80) then
-write(*,'(99(G0,1X))') 'new_child % element(',i,') % adaptation % mark =', &
-                        new_child % element(  i  ) % adaptation % mark
-end if
-end if
-!### CHECK END
       end do
 
     end associate

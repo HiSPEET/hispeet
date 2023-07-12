@@ -401,15 +401,8 @@ contains
 
     ! count retained elements per process
     do i = 1, new_child % n_elem_active
-      ! process of retained child is stored in mark
-!### CHECK
-if (new_child%n_elem == 608) then
-if (73 <= i .and. i <= 80) then
-write(*,'(99(G0,1X))') 'new_child % element(',i,') % adaptation % mark =', &
-                        new_child % element(  i  ) % adaptation % mark
-end if
-end if
-!### CHECK END
+      ! for retained elements, mark is non-negative and indicates its process ID in
+      ! the old mesh; negative marks care used to identify non-retained children
       p = new_child % element(i) % adaptation % mark
       if (p >= 0) then
         m(p) = m(p) + 1

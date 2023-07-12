@@ -1,13 +1,15 @@
 &control_prm
   config     = 4      ! 1
 ! export_vtk = T      ! T
-  po         = 15     ! 3
+  po         = 5      ! 3
 /
 
 &adaptation_prm
 ! n_level        = 2  ! 1
 ! n_parts_base   = 1  ! 1
 ! n_parts_growth = 2  ! 1
+  c1 = 0.6
+  dc = 0.37
 /
 
 ! config = 1
@@ -39,7 +41,7 @@
   h  = 1.0
   nr = 1
   nz = 2
-  pg = 15
+  pg = 5
 /
 
 ! config = 5
