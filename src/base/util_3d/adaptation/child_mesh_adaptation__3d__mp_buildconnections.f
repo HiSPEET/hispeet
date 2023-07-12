@@ -35,9 +35,6 @@ contains
     class(DataExchangePlan_3D), optional, intent(out)   :: exch_plan
 
     !$omp master
-!### CHECK
-write(*,'(99(G0,1X))') 'build connections 0'
-!### CHECK END
 
     ! connect old child and grandchild with new child ..........................
 
@@ -45,25 +42,16 @@ write(*,'(99(G0,1X))') 'build connections 0'
       call ConnectOldChild( parent, new_child_map, new_child &
                           , old_child, grandchild, exch_plan )
     end if
-!### CHECK
-write(*,'(99(G0,1X))') 'build connections 1'
-!### CHECK END
-
-    ! connect parent with new child ............................................
-
-    call ConnectParent(parent, new_child_map, new_child)
-!### CHECK
-write(*,'(99(G0,1X))') 'build connections 2'
-!### CHECK END
 
     ! connect new child with old child .........................................
 
     if (present(old_child) .and. present(exch_plan)) then
       call ConnectNewWithOldChild(new_child, exch_plan)
     end if
-!### CHECK
-write(*,'(99(G0,1X))') 'build connections 3'
-!### CHECK END
+
+    ! connect parent with new child ............................................
+
+    call ConnectParent(parent, new_child_map, new_child)
 
     !$omp end master
     !$omp barrier
@@ -414,6 +402,14 @@ write(*,'(99(G0,1X))') 'build connections 3'
     ! count retained elements per process
     do i = 1, new_child % n_elem_active
       ! process of retained child is stored in mark
+!### CHECK
+if (new_child%n_elem == 608) then
+if (73 <= i .and. i <= 80) then
+write(*,'(99(G0,1X))') 'new_child % element(',i,') % adaptation % mark =', &
+                        new_child % element(  i  ) % adaptation % mark
+end if
+end if
+!### CHECK END
       p = new_child % element(i) % adaptation % mark
       if (p >= 0) then
         m(p) = m(p) + 1

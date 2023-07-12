@@ -230,24 +230,10 @@ contains
       end do
     end if
 !### CHECK
-write(*,'(99(G0,1X))') 'child mesh adaptation: new_child element(65) parent_id   =', &
-  new_child%element(65)%adaptation%parent_id
-write(*,'(99(G0,1X))') 'child mesh adaptation: new_child element(65) cluster_oct =', &
-  new_child%element(65)%cluster_oct
-write(*,'(99(G0,1X))') 'child mesh adaptation: send_data n_elem =', &
-  send_data(0) % n_elem
-write(*,'(99(G0,1X))') 'child mesh adaptation: send_data element(64) id          =', &
-  send_data(0) % element(64)%id
-write(*,'(99(G0,1X))') 'child mesh adaptation: send_data element(64) parent_id   =', &
-  send_data(0) % element(64)%adaptation%parent_id
-write(*,'(99(G0,1X))') 'child mesh adaptation: send_data element(64) cluster_oct =', &
-  send_data(0) % element(64)%cluster_oct
-write(*,'(99(G0,1X))') 'child mesh adaptation: send_data element(65) id          =', &
-  send_data(0) % element(65)%id
-write(*,'(99(G0,1X))') 'child mesh adaptation: send_data element(65) parent_id   =', &
-  send_data(0) % element(65)%adaptation%parent_id
-write(*,'(99(G0,1X))') 'child mesh adaptation: send_data element(65) cluster_oct =', &
-  send_data(0) % element(65)%cluster_oct
+!! write(*,'(99(G0,1X))') 'child mesh adaptation: new_child element(65) parent_id   =', &
+!!   new_child%element(65)%adaptation%parent_id
+!! write(*,'(99(G0,1X))') 'child mesh adaptation: new_child element(65) cluster_oct =', &
+!!   new_child%element(65)%cluster_oct
 !### CHECK END
 
     ! complete mesh.............................................................
@@ -260,19 +246,7 @@ write(*,'(99(G0,1X))') 'child mesh adaptation: send_data element(65) cluster_oct
       !$omp end master
 
       call new_child % IdentifyVertices()
-!### CHECK
-!! do i = 1, new_child % n_elem
-!!   write(*,'(99(G0,1X))') 'elem:',i,', vid =',new_child%element(i)%vertex%id
-!!   if (any(new_child%element(i)%vertex%id < 1)) stop "SOMETHING IS WRONG"
-!! end do
-!### CHECK END
       call new_child % IdentifyEdges()
-!### CHECK
-!! do i = 1, new_child % n_elem
-!!   write(*,'(99(G0,1X))') 'elem:',i,', eid =',new_child%element(i)%edge%id
-!!   if (any(new_child%element(i)%edge%id < 1)) stop "SOMETHING IS WRONG"
-!! end do
-!### CHECK END
       call new_child % BuildFaces()
       call new_child % BuildBoundaryFaces()
       call new_child % BuildLinks()
@@ -282,7 +256,7 @@ write(*,'(99(G0,1X))') 'child mesh adaptation: send_data element(65) cluster_oct
       call new_child % IdentifyClusters()
       call new_child % BuildMapToParent()
 !### CHECK
-write(*,'(99(G0,1X))') '# CMA  I'
+!! write(*,'(99(G0,1X))') '# CMA  I'
 !### CHECK END
 
     end if
@@ -311,14 +285,14 @@ write(*,'(99(G0,1X))') '# CMA  I'
     ! - `new_child % element % adaptation % child_proc`
     ! - `new_child % element % adaptation % mark`
 !### CHECK
-write(*,'(99(G0,1X))') '# CMA  J'
+!! write(*,'(99(G0,1X))') '# CMA  J'
 !### CHECK END
 
     if (present(old_child)) then
       call CopyRetainedData(old_child, new_child, exch_plan)
     end if
 !### CHECK
-write(*,'(99(G0,1X))') '# CMA  K'
+!! write(*,'(99(G0,1X))') '# CMA  K'
 !### CHECK END
 
     ! connect new child with grandchild ........................................
@@ -330,7 +304,7 @@ write(*,'(99(G0,1X))') '# CMA  K'
       call new_child % BuildMapToChild()
     end if
 !### CHECK
-write(*,'(99(G0,1X))') '# CMA  L'
+!! write(*,'(99(G0,1X))') '# CMA  L'
 !### CHECK END
 
     ! finalization .............................................................
@@ -347,7 +321,7 @@ write(*,'(99(G0,1X))') '# CMA  L'
 
     !$omp end master
 !### CHECK
-write(*,'(99(G0,1X))') '# CMA  X'
+!! write(*,'(99(G0,1X))') '# CMA  X'
 !### CHECK END
 
   end subroutine ChildMeshAdaptation_3D
@@ -409,13 +383,37 @@ write(*,'(99(G0,1X))') '# CMA  X'
       end do
 
       ! extract received attributes ............................................
-
+!### CHECK
+!! if (new_child%n_elem == 608) then
+write(*,'(99(G0,1X))') 'new_child % n_elem =',new_child%n_elem
+write(*,'(99(G0,1X))') 'count(new_child % element % adaptation % mark >= 0) =', &
+                        count(new_child % element % adaptation % mark >= 0)
+!! end if
+!### CHECK END
       do i = 1, new_child % n_elem_active
+!### CHECK
+if (new_child%n_elem == 608) then
+if (73 <= i .and. i <= 80) then
+write(*,'(99(G0,1X))') 'new_child % element(',i,') % adaptation % mark =', &
+                        new_child % element(  i  ) % adaptation % mark
+end if
+end if
+!### CHECK END
         associate(element => new_child % element(i))
-          element % adaptation % refinement = recv_attrib(1,i)
-          element % adaptation % child_proc = recv_attrib(2,i)
-          element % adaptation % mark       = recv_attrib(3,i)
+          if (element % adaptation % mark >= 0) then
+            element % adaptation % refinement = recv_attrib(1,i)
+            element % adaptation % child_proc = recv_attrib(2,i)
+            element % adaptation % mark       = recv_attrib(3,i)
+          end if
         end associate
+!### CHECK
+if (new_child%n_elem == 608) then
+if (73 <= i .and. i <= 80) then
+write(*,'(99(G0,1X))') 'new_child % element(',i,') % adaptation % mark =', &
+                        new_child % element(  i  ) % adaptation % mark
+end if
+end if
+!### CHECK END
       end do
 
     end associate
