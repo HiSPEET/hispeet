@@ -79,6 +79,10 @@ This creates a clone of the git repository in the directory `hispeet`. Next init
       cd hispeet
       git submodule update --init
 
+If the branch of the external submodule has changed, the entry in `.gitmodules` and the corresponding `cmake` module need to be updated. Following this run
+
+      git submodule update --init --remote
+
 
 ## Working with branches <a name="branches"></a>
 
