@@ -82,7 +82,7 @@ contains
 
     type(ElementTransferBuffer_3D), allocatable, asynchronous :: id_elem_buf
     integer, contiguous , pointer :: id_elem_val(:,:,:,:)
-    integer, allocatable :: id_elem(:), ne_part(:)
+    integer, allocatable, target  :: id_elem(:), ne_part(:)
     integer :: id_part(0:n_parts-1)
     integer :: i, p
 
@@ -121,7 +121,7 @@ contains
     ! IDs of the ghosts' masters in their target partition .....................
 
     if (this % n_ghost > 0) then
-      id_elem_val(1:1,1:1,1:1,1:this%n_elem+this%n_ghost) => this % id_elem
+      id_elem_val(1:1,1:1,1:1,1:this%n_elem+this%n_ghost) => id_elem
       id_elem_buf = ElementTransferBuffer_3D(mesh, id_elem_val)
       call id_elem_buf % Transfer(mesh, id_elem_val, tag = 1000)
       call id_elem_buf % Merge(id_elem_val)

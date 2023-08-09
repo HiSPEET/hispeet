@@ -25,10 +25,10 @@ contains
   module subroutine BuildMapToChild(mesh)
     class(Mesh_3D), intent(inout) :: mesh  !< mesh parition
 
-    integer, allocatable :: n_elem(:)
-    integer, allocatable :: n_active(:)
-    integer, allocatable :: n_frozen(:)
-    integer, allocatable :: child_proc(:)
+    integer, allocatable :: n_elem(:)    ! total num elements  per proc
+    integer, allocatable :: n_active(:)  ! num active elements per proc
+    integer, allocatable :: n_frozen(:)  ! num frozen elements per proc
+    integer, allocatable :: map_proc(:)  ! map entry per proc
     integer :: n_proc
     integer :: c, e, p, p_min, p_max
 
@@ -51,10 +51,10 @@ contains
 
       call MPI_Comm_size(mesh % comm_world, n_proc)
 
-      allocate( n_elem     (0:n_proc-1))
-      allocate( n_active   (0:n_proc-1), source = 0)
-      allocate( n_frozen   (0:n_proc-1), source = 0)
-      allocate( child_proc (0:n_proc-1), source = 0)
+      allocate( n_elem  (0:n_proc-1), source = 0)
+      allocate( n_active(0:n_proc-1), source = 0)
+      allocate( n_frozen(0:n_proc-1), source = 0)
+      allocate( map_proc(0:n_proc-1), source = 0)
 
       p_min = n_proc-1
       p_max = 0
@@ -65,7 +65,7 @@ contains
         p = mesh % element(e) % adaptation % child_proc
         if (p >= 0) then
           p_min = min(p_min, p)
-          p_max = min(p_max, p)
+          p_max = max(p_max, p)
           select case(mesh % element(e) % adaptation % refinement)
           case(100)
             n_active(p) = n_active(p) + 1
@@ -82,7 +82,7 @@ contains
         n_elem(p) = n_active(p) + n_frozen(p)
         if (n_elem(p) > 0) then
           c = c + 1
-          child_proc(p) = c
+          map_proc(p) = c
         end if
       end do
       mesh % n_child = c
@@ -113,7 +113,7 @@ contains
         do e = 1, mesh % n_elem
           p = mesh % element(e) % adaptation % child_proc
           if (p >= 0) then
-            c = child_proc(p)
+            c = map_proc(p)
             select case(mesh % element(e) % adaptation % refinement)
             case(100)
               n_active(p) = n_active(p) + 1

@@ -31,10 +31,10 @@ contains
   module subroutine BuildMapToParent(mesh)
     class(Mesh_3D), intent(inout) :: mesh  !< mesh parition
 
-    integer, allocatable :: n_cluster(:)
-    integer, allocatable :: n_active(:)
-    integer, allocatable :: n_frozen(:)
-    integer, allocatable :: parent_proc(:)
+    integer, allocatable :: n_cluster(:)   ! total num clusters  per proc
+    integer, allocatable :: n_active(:)    ! num active clusters per proc
+    integer, allocatable :: n_frozen(:)    ! num frozen clusters per proc
+    integer, allocatable :: map_proc(:)    ! map entry per proc
 
     type ParentRanking
       integer, allocatable :: id_active(:) ! active element parent ID
@@ -66,13 +66,13 @@ contains
 
       call MPI_Comm_size(mesh % comm_world, n_proc)
 
-      allocate( n_cluster   (0:n_proc-1))
-      allocate( n_active    (0:n_proc-1), source =  0)
-      allocate( n_frozen    (0:n_proc-1), source =  0)
-      allocate( parent_proc (0:n_proc-1), source = -1)
+      allocate( n_cluster(0:n_proc-1), source = 0)
+      allocate( n_active (0:n_proc-1), source = 0)
+      allocate( n_frozen (0:n_proc-1), source = 0)
+      allocate( map_proc (0:n_proc-1), source = 0)
 
-      p_min = n_proc-1
-      p_max = 0
+      p_min = n_proc
+      p_max = -1
 
       ! counts .................................................................
 
@@ -84,7 +84,7 @@ contains
           cluster_id = element % cluster_id
           p = element % adaptation % parent_proc
           p_min = min(p_min, p)
-          p_max = min(p_max, p)
+          p_max = max(p_max, p)
           if (mesh % element(e) % frozen) then
             n_frozen(p) = n_frozen(p) + 1
           else
@@ -100,7 +100,7 @@ contains
         n_cluster(p) = n_active(p) + n_frozen(p)
         if (n_cluster(p) > 0) then
           i = i + 1
-          parent_proc(p) = i
+          map_proc(p) = i
         end if
       end do
       mesh % n_parent = i
@@ -144,7 +144,7 @@ contains
           if (element % adaptation % parent_proc < 0) cycle ! skip orphans
           cluster_id = element % cluster_id
           p = element % adaptation % parent_proc
-          i = parent_proc(p)
+          i = map_proc(p)
           if (element % frozen) then
             n_frozen(p) = n_frozen(p) + 1
             parent(i) % id_frozen(n_frozen(p)) = element % adaptation % parent_id
@@ -173,7 +173,7 @@ contains
           if (element % adaptation % parent_proc < 0) cycle ! skip orphans
           cluster_id = element % cluster_id
           p = element % adaptation % parent_proc
-          i = parent_proc(p)
+          i = map_proc(p)
           associate(map => mesh % map_parent(i))
             if (element % frozen) then
               n_frozen(p) = n_frozen(p) + 1
