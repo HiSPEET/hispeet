@@ -347,7 +347,7 @@ program Mesh3d_Adapt
         call ProcessAdaptationPattern_3D(mesh(l))
       end if
 !### CHECK
-!! write(*,'(99(G0,1X))') 'creating level', l+1
+write(*,'(99(G0,1X))') 'proc',mesh(1)%proc,'creating level', l+1
 !### CHECK END
       select case(m-l)
       case(0)
@@ -369,9 +369,14 @@ program Mesh3d_Adapt
                                    , exch_plan  = exch_plan(l+1) )
       end select
 !### CHECK
-!! write(*,'(99(G0,1X))') 'finished child mesh adaptation'
+write(*,'(99(G0,1X))') 'proc',mesh(1)%proc,'finished child mesh adaptation'
+!call MPI_Barrier(comm)
 !### CHECK END
      sem(l+1) = SpectralElementMesh_3D(mesh(l+1), po)
+!### CHECK
+write(*,'(99(G0,1X))') 'proc',mesh(1)%proc,'built spectral element mesh'
+!call MPI_Barrier(comm)
+!### CHECK END
 
     end do
 
@@ -387,6 +392,10 @@ program Mesh3d_Adapt
           'level',l,', n_elem =',mesh(l)%n_elem,', passed:',passed
       end if
     end do
+!### CHECK
+write(*,'(99(G0,1X))') 'proc',mesh(1)%proc,'verified mesh'
+!call MPI_Barrier(comm)
+!### CHECK END
 
     deallocate(exch_plan)
 
@@ -421,10 +430,15 @@ program Mesh3d_Adapt
   if (export_vtk) then
     do l = 1, n_level
 
-allocate(s(0:po,0:po,0:po,mesh(l)%n_elem,2))
+!### CHECK
+if (mesh(l)%part < 0) cycle
+!### CHECK END
+
+allocate(s(0:po,0:po,0:po,mesh(l)%n_elem,3))
 s(:,:,:,:,1) = smiley % Density(sem(l)%metrics%x(:,:,:,:,1), sem(l)%metrics%x(:,:,:,:,2))
 do e = 1, mesh(l)%n_elem
   s(:,:,:,e,2) = e
+  s(:,:,:,e,3) = mesh(l) % part
 end do
 
       write(tag, fmt='(A2,I0)') '_l', l
@@ -439,7 +453,7 @@ end do
       end if
 
       call ExportVTK_VolumeData( sem(l) % metrics % x        &
-                               , s, sname = ['f','e']        &
+                               , s, sname = ['f','e','p']    &
                                , file    = plot_file         &
                                , part    = mesh(l) % part    &
                                , n_parts = mesh(l) % n_parts &
