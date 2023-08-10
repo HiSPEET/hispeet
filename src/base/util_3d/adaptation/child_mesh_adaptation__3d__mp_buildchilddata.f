@@ -43,6 +43,9 @@ contains
     integer :: e, i, j, k, l, m
     integer :: ce, cn, cp
     integer :: child_mark
+!### CHECK
+write(*,'(99(G0,1X))') '# BCD  0',', parent%proc',parent%proc
+!### CHECK END
 
     if (parent % part < 0) return
 
@@ -134,6 +137,9 @@ contains
           end if
         end associate
       end do
+!### CHECK
+write(*,'(99(G0,1X))') '# BCD  1',', parent%proc',parent%proc
+!### CHECK END
 
       ! allocate components
       do tp = 0, map%n_parts-1
@@ -156,6 +162,9 @@ contains
         allocate( child_data(tp) % x_e                  ( np, 3 ) )
 
       end do
+!### CHECK
+write(*,'(99(G0,1X))') '# BCD  2',', parent%proc',parent%proc
+!### CHECK END
 
       ! auxiliary arrays
       allocate( id_child_face (2,2,6)        , tp_child_face (6)          )
@@ -169,6 +178,9 @@ contains
         eop(po) = StandardOperators_1D(po, basis = 'L', no_vdm = .true.)
         iop(po) = ParentToChildInterpolation_1D(eop(po))
       end do
+!### CHECK
+write(*,'(99(G0,1X))') '# BCD  3',', parent%proc',parent%proc
+!### CHECK END
 
       !$omp end master
       !$omp end barrier
@@ -882,6 +894,9 @@ contains
 
         end associate
       end do
+!### CHECK
+write(*,'(99(G0,1X))') '# BCD  4',', parent%proc',parent%proc
+!### CHECK END
 
       !-------------------------------------------------------------------------
       ! finalization
@@ -897,6 +912,9 @@ contains
       !$omp end barrier
 
     end associate
+!### CHECK
+write(*,'(99(G0,1X))') '# BCD  X',', parent%proc',parent%proc
+!### CHECK END
 
   contains
 
