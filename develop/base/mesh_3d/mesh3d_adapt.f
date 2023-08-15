@@ -320,6 +320,21 @@ program Mesh3d_Adapt
     ! make present mesh the original one
     call move_alloc(mesh, old_mesh)
     allocate(mesh(n_level))
+!### CHECK
+!! if (m == 3) then
+!! if (old_mesh(3)%part == 1) then
+!! l = 3
+!! e = 36
+!! print '(99(G0,1X))', ''
+!! print '(99(G0,1X))', 'L2 P1 ne =',old_mesh(l-1)%n_elem
+!! print '(99(G0,1X))', 'L3 P1 E36: frozen      =',old_mesh(l)%element(e)%frozen
+!! print '(99(G0,1X))', 'L3 P1 E36: mark        =',old_mesh(l)%element(e)%adaptation%mark
+!! print '(99(G0,1X))', 'L3 P1 E36: parent_proc =',old_mesh(l)%element(e)%adaptation%parent_proc
+!! print '(99(G0,1X))', 'L3 P1 E36: parent_id   =',old_mesh(l)%element(e)%adaptation%parent_id
+!! print '(G0,3(1X,ES10.3))', 'L3 P1 E36: x_c(0) =',old_mesh(l)%element(e)%geometry%x_c(0,1:3)
+!! end if
+!! end if
+!### CHECK END
 
     ! create data exchange plan for redistribution of retained data
     allocate(exch_plan(n_level))
@@ -360,6 +375,20 @@ write(*,'(99(G0,1X))') 'proc',mesh(1)%proc,'creating level', l+1
                                    , new_child = mesh(l+1)      &
                                    , old_child = old_mesh(l+1)  &
                                    , exch_plan = exch_plan(l+1) )
+!### CHECK
+!! if (m == 3) then
+!! if (mesh(3)%part == 1) then
+!! e = 76
+!! print '(99(G0,1X))', ''
+!! print '(99(G0,1X))', 'L2 P1 ne =',mesh(l)%n_elem
+!! print '(99(G0,1X))', 'L3 P1 E76: frozen      =',mesh(l+1)%element(e)%frozen
+!! print '(99(G0,1X))', 'L3 P1 E76: mark        =',mesh(l+1)%element(e)%adaptation%mark
+!! print '(99(G0,1X))', 'L3 P1 E76: parent_proc =',mesh(l+1)%element(e)%adaptation%parent_proc
+!! print '(99(G0,1X))', 'L3 P1 E76: parent_id   =',mesh(l+1)%element(e)%adaptation%parent_id
+!! print '(G0,3(1X,ES10.3))', 'L3 P1 E76: x_c(0) =',mesh(l+1)%element(e)%geometry%x_c(0,1:3)
+!! end if
+!! end if
+!### CHECK END
       case(2:)
         call ChildMeshAdaptation_3D( opt        = part_opt(l+1)  &
                                    , parent     = mesh(l)        &
@@ -439,6 +468,12 @@ s(:,:,:,:,1) = smiley % Density(sem(l)%metrics%x(:,:,:,:,1), sem(l)%metrics%x(:,
 do e = 1, mesh(l)%n_elem
   s(:,:,:,e,2) = e
   s(:,:,:,e,3) = mesh(l) % part
+!### CHECK
+!! if (n_level == 4 .and. l == 3 .and. mesh(l)%part == 1 .and. e == 76) then
+!! print '(99(G0,1X))', 'L3 P1 E76: frozen     =',mesh(l)%element(e)%frozen
+!! print '(99(G0,1X))', 'L3 P1 E76: refinement =',mesh(l)%element(e)%adaptation%refinement
+!! end if
+!### CHECK END
 end do
 
       write(tag, fmt='(A2,I0)') '_l', l

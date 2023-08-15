@@ -215,6 +215,13 @@ write(*,'(99(G0,1X))') '# BCD  3',', parent%proc',parent%proc
           else
             child_mark = -1
           end if
+!### CHECK
+!! if (parent%part == 1 .and. parent%n_elem == 40 .and. e == 25) then
+!! print '(99(G0,1X))', 'L2 P1 E25','refinement =',element % adaptation % refinement
+!! print '(99(G0,1X))', 'L2 P1 E25','mark       =',element % adaptation % mark
+!! print '(99(G0,1X))', 'L2 P1 E25','child_mark =',child_mark
+!! end if
+!### CHECK END
 
           ! child TPs and IDs of parent face neighbors .........................
 

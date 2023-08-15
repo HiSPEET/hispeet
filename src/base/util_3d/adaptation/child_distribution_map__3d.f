@@ -236,12 +236,13 @@ contains
     integer, allocatable :: na_loc(:), na_tot(:)
 
     integer :: disp_unit
-    integer :: proc
+    integer :: proc, n_proc
     integer :: i, n
 
     ! preliminaries ............................................................
 
     call MPI_Comm_rank(comm_parts, proc)
+    call MPI_Comm_size(comm_parts, n_proc)
 
     n = size(nc_part)
 
@@ -264,8 +265,8 @@ contains
 
     call MPI_Win_fence(MPI_MODE_NOSTORE + MPI_MODE_NOPRECEDE, window)
 
-
-    do i = 0, proc - 1
+    ! add local nc_part to oc_part in processes of higher rank
+    do i = proc + 1, n_proc - 1
       call MPI_Accumulate( origin_addr     = nc_part       &
                          , origin_count    = n             &
                          , origin_datatype = MPI_INTEGER   &

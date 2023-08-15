@@ -131,7 +131,10 @@ contains
     type(ElementTransferBuffer_3D), asynchronous :: buf_vtx_elem
 
     integer :: c(0:3)
-    integer :: e, i, j, k, m, n
+    integer :: e, i, j, k, l, m, n
+!### CHECK
+print '(99(G0,1X))', 'PMP 0, proc',mesh%proc
+!### CHECK END
 
     !---------------------------------------------------------------------------
     ! Body
@@ -155,6 +158,12 @@ contains
         i = i + 1
       end do
       nvtx = i
+!### CHECK
+print '(99(G0,1X))', 'PMP 1, proc',mesh%proc
+print '(99(G0,1X))', 'PMP 1, proc',mesh%proc,'w_comp =', w_comp
+print '(99(G0,1X))', 'PMP 1, proc',mesh%proc,'min/max mark =', &
+minval(mesh%element%adaptation%mark),maxval(mesh%element%adaptation%mark)
+!### CHECK END
 
       ! create MPI communicator comprising all parent meshes with nvtx > 0
       if (nvtx > 0) then
@@ -166,10 +175,19 @@ contains
 
       call MPI_Comm_rank(comm, proc)
       call MPI_Comm_size(comm, nproc)
+!### CHECK
+print '(99(G0,1X))', 'PMP 2, proc',mesh%proc
+print '(99(G0,1X))', 'PMP 2, proc',mesh%proc,'m =',m
+print '(99(G0,1X))', 'PMP 2, proc',mesh%proc,'ParMetis proc  =',proc
+print '(99(G0,1X))', 'PMP 2, proc',mesh%proc,'ParMetis nproc =',nproc
+!### CHECK END
 
       ! graph vertex ID element variable and transfer buffer
       var_vtx_elem(1:1, 1:1, 1:1, 1:size(vtx_elem)) => vtx_elem
       buf_vtx_elem = ElementTransferBuffer_3D(mesh, var_vtx_elem)
+!### CHECK
+print '(99(G0,1X))', 'PMP 3, proc',mesh%proc
+!### CHECK END
 
       ! ParMetis input arguments ...............................................
 
@@ -204,6 +222,9 @@ contains
 
       ! fractions of vertex weight per partition
       tpwgts = 1.00 / nparts
+!### CHECK
+print '(99(G0,1X))', 'PMP 4, proc',mesh%proc
+!### CHECK END
 
       ! graph vertex distribution ..............................................
 
@@ -217,6 +238,9 @@ contains
       do i = 1, nproc
         vtxdist(i) = vtxdist(i-1) + nvtx_proc(i-1)
       end do
+!### CHECK
+print '(99(G0,1X))', 'PMP 5, proc',mesh%proc
+!### CHECK END
 
       ! graph vertex IDs by element index (local+ghost) ........................
 
@@ -224,16 +248,22 @@ contains
       where(vtx_elem >= 0)
         vtx_elem = vtx_elem + vtxdist(proc)
       end where
+!### CHECK
+print '(99(G0,1X))', 'PMP 6, proc',mesh%proc
+!### CHECK END
 
       ! transfer graph vertex IDs to ghosts
       call buf_vtx_elem % Transfer(mesh, var_vtx_elem, tag=1000)
       call buf_vtx_elem % Merge(var_vtx_elem)
+!### CHECK
+print '(99(G0,1X))', 'PMP 7, proc',mesh%proc
+!### CHECK END
 
       ! graph vertex weights and adjacency offsets .............................
 
       xadj(0) = 0
 
-      i = 0
+      m = 0
       do e = 1, n_elem
         if (vtx_elem(e) < 0) cycle
         associate(element => mesh % element(e))
@@ -270,39 +300,64 @@ contains
           ! vertex weights
           select case(opt % mode)
           case(parent_mode)
-            vwgt(0:ncon-1,i) = c(0:ncon-1)
+            vwgt(0:ncon-1,m) = c(0:ncon-1)
           case(child_mode)
-            vwgt(0:ncon-1,i) = c(1:ncon)
+            vwgt(0:ncon-1,m) = c(1:ncon)
           end select
 
-          i = i + 1
+          m = m + 1
 
-          xadj(i) = xadj(i-1)
+          xadj(m) = xadj(m-1)
+
+          ! count graph edges contributed by element faces
           do k = 1, 6
-            xadj(i) = xadj(i) + element % face(k) % n_neighbor
+            n = element % face(k) % n_neighbor - 1
+            if (n < 0) cycle
+            i = element % face(k) % i_neighbor
+            do j = i, i+n
+              if (vtx_elem(element % neighbor(j) % id) < 0) cycle
+              xadj(m) = xadj(m) + 1
+            end do
           end do
 
-          if (w_comp(3) > 0) then ! include element-edge neighbors
+          if (w_comp(3) > 0) then
+            ! count graph edges contributed by element edges
             do k = 1, 12
-              xadj(i) = xadj(i) + element % edge(k) % n_neighbor
+              n = element % edge(k) % n_neighbor - 1
+              if (n < 0) cycle
+              i = element % edge(k) % i_neighbor
+              do j = i, i+n
+                if (vtx_elem(element % neighbor(j) % id) < 0) cycle
+                xadj(m) = xadj(m) + 1
+              end do
             end do
           end if
 
-          if (w_comp(4) > 0) then ! include element-vertex neighbors
+          if (w_comp(4) > 0) then
+            ! count graph edges contributed by element vertices
             do k = 1, 8
-              xadj(i) = xadj(i) + element % vertex(k) % n_neighbor
+              n = element % vertex(k) % n_neighbor - 1
+              if (n < 0) cycle
+              i = element % vertex(k) % i_neighbor
+              do j = i, i+n
+                if (vtx_elem(element % neighbor(j) % id) < 0) cycle
+                xadj(m) = xadj(m) + 1
+              end do
             end do
           end if
 
         end associate
       end do
+!### CHECK
+print '(99(G0,1X))', 'PMP 8, proc',mesh%proc
+!### CHECK END
 
       ! adjacency and adjacency weights ........................................
 
       m = xadj(nvtx) - 1 ! number of graph edges
       allocate(adjncy(0:m))
       if (any(w_comp(1:3) > 0)) then
-        allocate(adjwgt(0:m))
+        allocate(adjwgt(0:m), source = 0)
       else
         allocate(adjwgt(0:0))
       end if
@@ -319,7 +374,9 @@ contains
             if (n < 0) cycle
             i = element % face(k) % i_neighbor
             do j = i, i+n
-              adjncy(m) = vtx_elem(element % neighbor(j) % id)
+              l = vtx_elem(element % neighbor(j) % id)
+              if (l < 0) cycle
+              adjncy(m) = l
               if (w_comp(2) > 0) then
                 adjwgt(m) = w_comp(2)
               end if
@@ -334,7 +391,9 @@ contains
               if (n < 0) cycle
               i = element % edge(k) % i_neighbor
               do j = i, i+n
-                adjncy(m) = vtx_elem(element % neighbor(j) % id)
+                l = vtx_elem(element % neighbor(j) % id)
+                if (l < 0) cycle
+                adjncy(m) = l
                 adjwgt(m) = w_comp(3)
                 m = m + 1
               end do
@@ -348,7 +407,9 @@ contains
               if (n < 0) cycle
               i = element % vertex(k) % i_neighbor
               do j = i, i+n
-                adjncy(m) = vtx_elem(element % neighbor(j) % id)
+                l = vtx_elem(element % neighbor(j) % id)
+                if (l < 0) cycle
+                adjncy(m) = l
                 adjwgt(m) = w_comp(4)
                 m = m + 1
               end do
@@ -357,6 +418,26 @@ contains
 
         end associate
       end do
+!### CHECK
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', wgtflag          =',wgtflag
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', numflag          =',numflag
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', ncon             =',ncon
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', nparts           =',nparts
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', ubvec            =',ubvec
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', options          =',options
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(vtxdist)    =',size(vtxdist)
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(xadj)       =',size(xadj)
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(adjncy)     =',size(adjncy)
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(vwgt)       =',size(vwgt)
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(adjwgt)     =',size(adjwgt)
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(vtxdist) =',minval(vtxdist),maxval(vtxdist)
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(xadj)    =',minval(xadj),maxval(xadj)
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(adjncy)  =',minval(adjncy),maxval(adjncy)
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(vwgt)    =',minval(vwgt),maxval(vwgt)
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(adjwgt)  =',minval(adjwgt),maxval(adjwgt)
+print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(tpwgts)  =',minval(tpwgts),maxval(tpwgts)
+!### CHECK END
 
       ! ParMETIS ...............................................................
 
@@ -365,6 +446,9 @@ contains
                                , edgecut, part, comm % MPI_VAL                 )
 
       ! result .................................................................
+!### CHECK
+print '(99(G0,1X))', 'PMP 10, proc',mesh%proc
+!### CHECK END
 
       i = 0
       do e = 1, n_elem
@@ -383,6 +467,9 @@ contains
     end associate
 
     !---------------------------------------------------------------------------
+!### CHECK
+print '(99(G0,1X))', 'PMP X, proc',mesh%proc
+!### CHECK END
 
   end subroutine ParMETIS_Partitioner_3D
 

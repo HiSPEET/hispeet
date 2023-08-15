@@ -15,10 +15,19 @@ contains
     integer, contiguous, pointer :: tp_child_val(:,:,:,:)
     type(ElementTransferBuffer_3D), allocatable, asynchronous :: tp_child_buf
 
+!### CHECK
+print '(99(G0,1X))', 'BCM 0, proc',parent%proc
+!### CHECK END
     allocate(tp_child(parent%n_elem + parent%n_ghost), source = -1)
+!### CHECK
+print '(99(G0,1X))', 'BCM 1, proc',parent%proc,', size(tp_child) =',size(tp_child)
+!### CHECK END
 
     ! graph-based partitioning
     call ParMETIS_Partitioner_3D(opt, parent, tp_child)
+!### CHECK
+print '(99(G0,1X))', 'BCM 2, proc',parent%proc
+!### CHECK END
 
     ! transfer target partition IDs to ghosts
     if (parent % n_ghost > 0) then
@@ -27,8 +36,14 @@ contains
       call tp_child_buf % Transfer(parent, tp_child_val, tag = 1000)
       call tp_child_buf % Merge(tp_child_val)
     end if
+!### CHECK
+print '(99(G0,1X))', 'BCM 3, proc',parent%proc
+!### CHECK END
 
     map = ChildDistributionMap_3D(parent, opt%n_parts, tp_child)
+!### CHECK
+print '(99(G0,1X))', 'BCM X, proc',parent%proc
+!### CHECK END
 
   end subroutine BuildChildMap
 
