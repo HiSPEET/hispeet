@@ -11,6 +11,9 @@ module Fine_To_Coarse_Interpolation__1D
   use Lagrange_Interpolation
   use Execution_Control
 
+  implicit none
+  private
+
   !-----------------------------------------------------------------------------
   !> Fine-to-coarse hp-interpolation operator
   !>
@@ -23,9 +26,9 @@ module Fine_To_Coarse_Interpolation__1D
   !> In the case of hp-coarsening, the switch `smooth` can be used to activate
   !> or deactivate the removal of jumps between the 2 fine elements.
 
-  type FineToCoarseInterpolation_1D
-    integer   :: pf     = -1           !< polynomial order of fine mesh
-    integer   :: pc     = -1           !< polynomial order of coarse mesh
+  type, public :: FineToCoarseInterpolation_1D
+    integer   :: po_f   = -1           !< polynomial order of fine mesh
+    integer   :: po_c   = -1           !< polynomial order of coarse mesh
     integer   :: mode   = -1           !< coarsening mode {0,1,2}
     character :: basis  = 'L'          !< basis type {'E','G','L'}
     logical   :: smooth = .true.       !< apply linear blending to remove jumps
@@ -44,37 +47,39 @@ contains
   !> Fine-to-coarse interpolation constructor
 
   function New_FineToCoarseInterpolation &
-               (pf, pc, mode, basis, smooth) result(this)
+               (po_f, po_c, mode, basis, smooth) result(this)
 
-    integer,             intent(in) :: pf     !< polynomial order of child
-    integer,             intent(in) :: pc     !< polynomial order of parent
+    integer,             intent(in) :: po_f   !< polynomial order of child
+    integer,             intent(in) :: po_c   !< polynomial order of parent
     integer,             intent(in) :: mode   !< coarsening mode
     character, optional, intent(in) :: basis  !< basis type  ['L']
     logical,   optional, intent(in) :: smooth !< switch for blending  [T]
     type(FineToCoarseInterpolation_1D) :: this
 
-    call Init_FineToCoarseInterpolation(this, pf, pc, mode, basis, smooth)
+    call Init_FineToCoarseInterpolation(this, po_f, po_c, mode, basis, smooth)
 
   end New_FineToCoarseInterpolation
 
   !-----------------------------------------------------------------------------
   !> Build fine-to-coarse interpolation
 
-  subroutine Init_FineToCoarseInterpolation(this, pf, pc, mode, basis, smooth)
+  subroutine Init_FineToCoarseInterpolation &
+                 (this, po_f, po_c, mode, basis, smooth)
+
     class(FineToCoarseInterpolation_1D), intent(inout) :: this
-    integer,             intent(in) :: pf     !< polynomial order of child
-    integer,             intent(in) :: pc     !< polynomial order of parent
+    integer,             intent(in) :: po_f   !< polynomial order of child
+    integer,             intent(in) :: po_c   !< polynomial order of parent
     integer,             intent(in) :: mode   !< coarsening mode
     character, optional, intent(in) :: basis  !< basis type  ['L']
     logical,   optional, intent(in) :: smooth !< switch for blending  [T]
 
-    real(RNP), allocatable :: xf(:), xc(:)
+    real(RNP), allocatable :: x_f(:), x_c(:)
     integer :: i, j, k, qc
 
     ! initialization ...........................................................
 
-    this % pf = pf
-    this % pc = pc
+    this % po_f = po_f
+    this % po_c = po_c
     this % mode = mode
 
     if (present(smooth)) then
@@ -98,11 +103,11 @@ contains
     case(0)
       return
     case(1)
-      allocate(this % A(0:pc,0:pf,1))
+      allocate(this % A(0:po_c,0:po_f,1))
     case(2)
-      allocate(this % A(0:pc/2,0:pf,2))
+      allocate(this % A(0:po_c/2,0:po_f,2))
       if (this % smooth) then
-        allocate(this % B(0:pf,2))
+        allocate(this % B(0:po_f,2))
       end if
     end select
 
@@ -110,14 +115,14 @@ contains
 
     select case(this % basis)
     case('E')
-      allocate(xf(0:pf), source = [(i * TWO/pf - ONE, i = 0, pf)])
-      allocate(xc(0:pc), source = [(i * TWO/pc - ONE, i = 0, pc)])
+      allocate(x_f(0:po_f), source = [(i * TWO/po_f - ONE, i = 0, po_f)])
+      allocate(x_c(0:po_c), source = [(i * TWO/po_c - ONE, i = 0, po_c)])
     case('G')
-      allocate(xf(0:pf), source = GaussPoints(pf))
-      allocate(xc(0:pc), source = GaussPoints(pc))
+      allocate(x_f(0:po_f), source = GaussPoints(po_f))
+      allocate(x_c(0:po_c), source = GaussPoints(po_c))
     case('L')
-      allocate(xf(0:pf), source = LobattoPoints(pf))
-      allocate(xc(0:pc), source = LobattoPoints(pc))
+      allocate(x_f(0:po_f), source = LobattoPoints(po_f))
+      allocate(x_c(0:po_c), source = LobattoPoints(po_c))
     end select
 
     ! interpolation matrices ...................................................
@@ -128,54 +133,54 @@ contains
       ! 1:1 interpolation
       select case(this % basis)
       case('E') ! Nodal with equidistant spacing
-        do i = 0, pc
-        do j = 0, pf
-          this % A(i,j,1) = LagrangePolynomial(j, xf, xc(i))
+        do i = 0, po_c
+        do j = 0, po_f
+          this % A(i,j,1) = LagrangePolynomial(j, x_f, x_c(i))
         end do
         end do
       case('G') ! Gauss
-        do i = 0, pc
-        do j = 0, pf
-          this % A(i,j,1) = GaussPolynomial(j, xf, xc(i))
+        do i = 0, po_c
+        do j = 0, po_f
+          this % A(i,j,1) = GaussPolynomial(j, x_f, x_c(i))
         end do
         end do
       case('L') ! Lobatto
-        do i = 0, pc
-        do j = 0, pf
-          this % A(i,j,1) = LobattoPolynomial(j, xf, xc(i))
+        do i = 0, po_c
+        do j = 0, po_f
+          this % A(i,j,1) = LobattoPolynomial(j, x_f, x_c(i))
         end do
         end do
       end select
 
     case(2)
       ! 2:1 interpolation
-      qc = pc/2
+      qc = po_c/2
       do k = 1, 2
         x0 = 3 - 2 * k
         select case(this % basis)
         case('E') ! Nodal with equidistant spacing
           do i = 0, qc
-          do j = 0, pf
-            this % A(i,j,k) = LagrangePolynomial(j, xf, x0 + 2*xc(i))
+          do j = 0, po_f
+            this % A(i,j,k) = LagrangePolynomial(j, x_f, x0 + 2*x_c(i))
           end do
           end do
         case('G') ! Gauss
           do i = 0, qc
-          do j = 0, pf
-            this % A(i,j,k) = GaussPolynomial(j, xf, x0 + 2*xc(i))
+          do j = 0, po_f
+            this % A(i,j,k) = GaussPolynomial(j, x_f, x0 + 2*x_c(i))
           end do
           end do
         case('L') ! Lobatto
           do i = 0, qc
-          do j = 0, pf
-            this % A(i,j,k) = LobattoPolynomial(j, xf, x0 + 2*xc(i))
+          do j = 0, po_f
+            this % A(i,j,k) = LobattoPolynomial(j, x_f, x0 + 2*x_c(i))
           end do
           end do
         end select
         if (this % smooth) then
-          do i = 0, pf
-            this % B(i,1) = -(ONE + xf(i)) / 4
-            this % B(i,2) =  (ONE - xf(i)) / 4
+          do i = 0, po_f
+            this % B(i,1) = -(ONE + x_f(i)) / 4
+            this % B(i,2) =  (ONE - x_f(i)) / 4
           end do
         end if
       end do
