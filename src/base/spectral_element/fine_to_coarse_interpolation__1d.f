@@ -23,15 +23,21 @@ module Fine_To_Coarse_Interpolation__1D
   !> When initializing set `mode` to 1 for p-coarsening and 2 for hp-coarsening.
   !> `mode = 0` indicates the identity, i.e., no interpolation is performed and,
   !> hence, no interpolation operator is provided.
-  !> In the case of hp-coarsening, the switch `smooth` can be used to activate
-  !> or deactivate the removal of jumps between the 2 fine elements.
+  !> In the case of hp-coarsening, the treatment of discontinuities between the
+  !> two fine elements is controlled by the `smoothing` parameter. The following
+  !> choices are available:
+  !>   - `0`  no discontinuity handling
+  !>   - `1`  jump removal using antisymmetric linear correction
+  !>   - `2`  jump removal by averaging interface coefficients
+  !> Option `2` requires a boundary-interior decomposition and, hence, is
+  !> available only with equidistant (`E`) or Lobatto (`L`) nodal bases.
 
   type, public :: FineToCoarseInterpolation_1D
-    integer   :: po_f   = -1           !< polynomial order of fine mesh
-    integer   :: po_c   = -1           !< polynomial order of coarse mesh
-    integer   :: mode   = -1           !< coarsening mode {0,1,2}
-    character :: basis  = 'L'          !< basis type {'E','G','L'}
-    logical   :: smooth = .true.       !< apply linear blending to remove jumps
+    integer   :: po_f      = -1        !< polynomial order of fine mesh
+    integer   :: po_c      = -1        !< polynomial order of coarse mesh
+    integer   :: mode      = -1        !< coarsening mode {0,1,2}
+    character :: basis     = 'L'       !< basis type {'E','G','L'}
+    integer   :: smoothing =  0        !< discontinuity handling {0,1,2}
     real(RNP), allocatable :: A(:,:,:) !< interpolation operators
     real(RNP), allocatable :: B(:,:)   !< blending operators
   end type FineToCoarseInterpolation_1D
@@ -47,44 +53,41 @@ contains
   !> Fine-to-coarse interpolation constructor
 
   function New_FineToCoarseInterpolation &
-               (po_f, po_c, mode, basis, smooth) result(this)
+               (po_f, po_c, mode, basis, smoothing) result(this)
 
-    integer,             intent(in) :: po_f   !< polynomial order of child
-    integer,             intent(in) :: po_c   !< polynomial order of parent
-    integer,             intent(in) :: mode   !< coarsening mode
-    character, optional, intent(in) :: basis  !< basis type  ['L']
-    logical,   optional, intent(in) :: smooth !< switch for blending  [T]
+    integer,             intent(in) :: po_f      !< polynomial order of child
+    integer,             intent(in) :: po_c      !< polynomial order of parent
+    integer,             intent(in) :: mode      !< coarsening mode
+    character, optional, intent(in) :: basis     !< basis type  ['L']
+    integer,   optional, intent(in) :: smoothing !< discontinuity handling [0]
     type(FineToCoarseInterpolation_1D) :: this
 
-    call Init_FineToCoarseInterpolation(this, po_f, po_c, mode, basis, smooth)
+    call Init_FineToCoarseInterpolation(this, po_f, po_c, mode, basis, smoothing)
 
-  end New_FineToCoarseInterpolation
+  end function New_FineToCoarseInterpolation
 
   !-----------------------------------------------------------------------------
   !> Build fine-to-coarse interpolation
 
   subroutine Init_FineToCoarseInterpolation &
-                 (this, po_f, po_c, mode, basis, smooth)
+                 (this, po_f, po_c, mode, basis, smoothing)
 
     class(FineToCoarseInterpolation_1D), intent(inout) :: this
-    integer,             intent(in) :: po_f   !< polynomial order of child
-    integer,             intent(in) :: po_c   !< polynomial order of parent
-    integer,             intent(in) :: mode   !< coarsening mode
-    character, optional, intent(in) :: basis  !< basis type  ['L']
-    logical,   optional, intent(in) :: smooth !< switch for blending  [T]
+    integer,             intent(in) :: po_f      !< polynomial order of child
+    integer,             intent(in) :: po_c      !< polynomial order of parent
+    integer,             intent(in) :: mode      !< coarsening mode
+    character, optional, intent(in) :: basis     !< basis type  ['L']
+    integer,   optional, intent(in) :: smoothing !< discontinuity handling [0]
 
     real(RNP), allocatable :: x_f(:), x_c(:)
-    integer :: i, j, k, qc
+    real(RNP) :: x0
+    integer   :: i, j, k, qc
 
     ! initialization ...........................................................
 
     this % po_f = po_f
     this % po_c = po_c
     this % mode = mode
-
-    if (present(smooth)) then
-      this % smooth = smooth
-    end if
 
     if (present(basis)) then
       if (scan(basis, 'EGL') > 0) then
@@ -94,6 +97,15 @@ contains
                   , 'basis "' // basis // '" not supported' &
                   , 'Fine_To_Coarse_Interpolation__1D'      )
       end if
+    end if
+
+    if (present(smoothing)) then
+      select case(this % basis)
+      case('E','L')
+        this % smoothing = max(min(smoothing, 2), 0)
+      case default
+        this % smoothing = max(min(smoothing, 1), 0)
+      end select
     end if
 
     if (allocated(this % A)) deallocate(this % A)
@@ -106,7 +118,7 @@ contains
       allocate(this % A(0:po_c,0:po_f,1))
     case(2)
       allocate(this % A(0:po_c/2,0:po_f,2))
-      if (this % smooth) then
+      if (this % smoothing == 1) then
         allocate(this % B(0:po_f,2))
       end if
     end select
@@ -177,13 +189,23 @@ contains
           end do
           end do
         end select
-        if (this % smooth) then
-          do i = 0, po_f
-            this % B(i,1) = -(ONE + x_f(i)) / 4
-            this % B(i,2) =  (ONE - x_f(i)) / 4
-          end do
-        end if
       end do
+
+      ! averaging at interface
+      if (mod(po_c,2) == 0) then
+        do j = 0, po_f
+          this % A(qc,j,1) = HALF * this % A(qc,j,1)
+          this % A( 0,j,2) = HALF * this % A( 0,j,2)
+        end do
+      end if
+
+      ! smoothing
+      if (this % smoothing == 1) then
+        do i = 0, po_f
+          this % B(i,1) = -(ONE + x_f(i)) / 4
+          this % B(i,2) =  (ONE - x_f(i)) / 4
+        end do
+      end if
 
     end select
 

@@ -17,7 +17,7 @@ module Coarse_To_Fine_Interpolation__1D
   !-----------------------------------------------------------------------------
   !> Coarse-to-fine hp-interpolation operator
   !>
-  !> Provides 1D operators for interpolating data from a fine mesh to a coarser
+  !> Provides 1D operators for interpolating data from a coarse mesh to a finer
   !> a coarser one. Pure p-refinement as well as hp-refinement are supported. In
   !> the latter case, a regular 2:1 refinement of the coarse element is assumed.
   !> When initializing set `mode` to 1 for p-refinement and 2 for hp-refinement.
@@ -51,7 +51,7 @@ contains
 
     call Init_CoarseToFineInterpolation(this, po_c, po_f, mode, basis)
 
-  end New_CoarseToFineInterpolation
+  end function New_CoarseToFineInterpolation
 
   !-----------------------------------------------------------------------------
   !> Build fine-to-coarse interpolation

@@ -91,10 +91,15 @@ set ( SPECTRAL_ELEMENT spectral_element/cg__element_operators__1d.f
                        spectral_element/dg__element_operators__1d.f
                        spectral_element/embedded_interpolation__1d.f
                        spectral_element/embedded_interpolation__3d.f
-                       spectral_element/parent_to_child_interpolation__1d.f
                        spectral_element/projection_operator__1d.f
                        spectral_element/projection_operator__3d.f
                        spectral_element/standard_operators__1d.f
+
+                       spectral_element/parent_to_child_interpolation__1d.f # obsolete
+
+                       spectral_element/coarse_to_fine_interpolation__1d.f
+                       spectral_element/fine_to_coarse_interpolation__1d.f
+                       
                        )
 
 #===============================================================================
