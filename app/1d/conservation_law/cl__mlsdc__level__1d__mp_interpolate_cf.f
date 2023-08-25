@@ -1,6 +1,6 @@
 !> summary:  Coarse-to-fine space-time solution interpolation
 !> author:   Joerg Stiller
-!> date:     2022/08/25
+!> date:     2023/08/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
@@ -29,8 +29,8 @@ contains
     logical :: is_consistent
     integer :: c, e, l, m, n, n1, n2
 
-    associate( iop_x => this % iop_fc_x &
-             , iop_t => this % iop_fc_t &
+    associate( iop_x => this % iop_cf_x &
+             , iop_t => this % iop_cf_t &
              , mask  => this % cl_operator % mask )
 
       ! initialization .........................................................

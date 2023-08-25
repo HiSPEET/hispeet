@@ -80,8 +80,7 @@ contains
     integer,   optional, intent(in) :: smoothing !< discontinuity handling [0]
 
     real(RNP), allocatable :: x_f(:), x_c(:)
-    real(RNP) :: x0
-    integer   :: i, j, k, qc
+    integer   :: i, i2, j, qc
 
     ! initialization ...........................................................
 
@@ -167,29 +166,30 @@ contains
     case(2)
       ! 2:1 interpolation
       qc = po_c/2
-      do k = 1, 2
-        x0 = 3 - 2 * k
-        select case(this % basis)
-        case('E') ! Nodal with equidistant spacing
-          do i = 0, qc
-          do j = 0, po_f
-            this % A(i,j,k) = LagrangePolynomial(j, x_f, x0 + 2*x_c(i))
-          end do
-          end do
-        case('G') ! Gauss
-          do i = 0, qc
-          do j = 0, po_f
-            this % A(i,j,k) = GaussPolynomial(j, x_f, x0 + 2*x_c(i))
-          end do
-          end do
-        case('L') ! Lobatto
-          do i = 0, qc
-          do j = 0, po_f
-            this % A(i,j,k) = LobattoPolynomial(j, x_f, x0 + 2*x_c(i))
-          end do
-          end do
-        end select
-      end do
+      i2 = qc + mod(po_c,2)
+      select case(this % basis)
+      case('E') ! Nodal with equidistant spacing
+        do i = 0, qc
+        do j = 0, po_f
+          this % A(i,j,1) = LagrangePolynomial(j, x_f, 2*x_c(i   ) + ONE)
+          this % A(i,j,2) = LagrangePolynomial(j, x_f, 2*x_c(i+i2) - ONE)
+        end do
+        end do
+      case('G') ! Gauss
+        do i = 0, qc
+        do j = 0, po_f
+          this % A(i,j,1) = GaussPolynomial(j, x_f, 2*x_c(i   ) + ONE)
+          this % A(i,j,2) = GaussPolynomial(j, x_f, 2*x_c(i+i2) - ONE)
+        end do
+        end do
+      case('L') ! Lobatto
+        do i = 0, qc
+        do j = 0, po_f
+          this % A(i,j,1) = LobattoPolynomial(j, x_f, 2*x_c(i   ) + ONE)
+          this % A(i,j,2) = LobattoPolynomial(j, x_f, 2*x_c(i+i2) - ONE)
+        end do
+        end do
+      end select
 
       ! averaging at interface
       if (mod(po_c,2) == 0) then

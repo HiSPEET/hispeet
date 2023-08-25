@@ -1,6 +1,6 @@
 !> summary:  Fine-to-coarse space-time solution interpolation
 !> author:   Joerg Stiller
-!> date:     2022/08/25
+!> date:     2023/08/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
@@ -109,16 +109,10 @@ contains
         ! nt_f = 2 * nt_c
 
         ! index ranges
-        m0 = 0         ! first coarse point interpolated from fine element 1
-        m1 = ns_c / 2  ! last  coarse point interpolated from fine element 1
-        m3 = ns_c      ! last  coarse point interpolated from fine element 2
-        if (mod(ns_c, 2) == 0) then
-          ! uneven number of coarse points
-          m2 = m1
-        else
-          ! even number of coarse points
-          m2 = m1 + 1
-        end if
+        m0 = 0                ! first coarse point interpolated from fine element 1
+        m1 = ns_c / 2         ! last  coarse point interpolated from fine element 1
+        m2 = m1 + mod(ns_c,2) ! first coarse point interpolated from fine element 2
+        m3 = ns_c             ! last  coarse point interpolated from fine element 2
 
         ! workspace
         allocate(u_t(0:po_f,0:ns_f,2), jmp_u_t(0:po_f))
@@ -158,7 +152,7 @@ contains
             end do
             do m = m2, m3
               do l = 0, ns_f
-                u_i(:,e,c,m,n) = u_i(:,e,c,m,n) + iop_t % A(m,l,2) * u_t(:,l,2)
+                u_i(:,e,c,m,n) = u_i(:,e,c,m,n) + iop_t % A(m-m2,l,2) * u_t(:,l,2)
               end do
             end do
 
@@ -194,16 +188,10 @@ contains
         ! ne_f = 2 * ne_c
 
         ! index ranges
-        i0 = 0         ! first coarse point interpolated from fine element 1
-        i1 = po_c / 2  ! last  coarse point interpolated from fine element 1
-        i3 = po_c      ! last  coarse point interpolated from fine element 2
-        if (mod(po_c, 2) == 0) then
-          ! uneven number of coarse points
-          i2 = i1
-        else
-          ! even number of coarse points
-          i2 = i1 + 1
-        end if
+        i0 = 0                ! first coarse point interpolated from fine element 1
+        i1 = po_c / 2         ! last  coarse point interpolated from fine element 1
+        i2 = i1 + mod(po_c,2) ! first coarse point interpolated from fine element 2
+        i3 = po_c             ! last  coarse point interpolated from fine element 2
 
         ! workspace
         allocate(u_x(0:po_f,2))
