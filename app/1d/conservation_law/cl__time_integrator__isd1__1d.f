@@ -113,12 +113,12 @@ contains
     real(RNP) :: t
     integer   :: e, k
 
-    associate( nc   => cl_problem  % nc       &
-             , eop  => cl_operator % eop      &
-             , dx   => cl_operator % dx       &
-             , po   => cl_operator % eop % po &
-             , ne   => cl_operator % ne       &
-             , mask => cl_operator % mask     )
+    associate( nc       => cl_problem  % nc       &
+             , eop      => cl_operator % eop      &
+             , dx       => cl_operator % dx       &
+             , po       => cl_operator % eop % po &
+             , ne       => cl_operator % ne       &
+             , activity => cl_operator % activity )
 
       !$omp master
 
@@ -149,7 +149,7 @@ contains
 
         do k = 1, nc
         do e = 1, ne
-          if (mask(e)) then
+          if (activity(e) > 0) then
             u(:,e,k) = u_0(:,e,k) &
                      + dt * ( Me_inv * (r_c(:,e,k) + r_d(:,e,k) + r_sd(:,e,k)) &
                             + f_s(:,e,k))
@@ -172,7 +172,7 @@ contains
         ! intermediate solution
         do k = 1, nc
         do e = 1, ne
-          if (mask(e)) then
+          if (activity(e) > 0) then
             u_i(:,e,k) = u_0(:,e,k) + dt * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
           else
             u_i(:,e,k) = u_0(:,e,k)

@@ -128,17 +128,17 @@ contains
     real(RNP) :: d_ex, d_im, dt_a_ii, t_i
     integer   :: e, i, j, k
 
-    associate( a_ex => this % imex_rk % a_ex    &
-             , a_im => this % imex_rk % a_im    &
-             , b_ex => this % imex_rk % b_ex    &
-             , b_im => this % imex_rk % b_im    &
-             , c    => this % imex_rk % c       &
-             , ns   => this % imex_rk % n_stage &
-             , nc   => cl_problem  % nc         &
-             , po   => cl_operator % eop % po   &
-             , ne   => cl_operator % ne         &
-             , Me   => cl_operator % Me         &
-             , mask => cl_operator % mask       )
+    associate( a_ex     => this % imex_rk % a_ex    &
+             , a_im     => this % imex_rk % a_im    &
+             , b_ex     => this % imex_rk % b_ex    &
+             , b_im     => this % imex_rk % b_im    &
+             , c        => this % imex_rk % c       &
+             , ns       => this % imex_rk % n_stage &
+             , nc       => cl_problem  % nc         &
+             , po       => cl_operator % eop % po   &
+             , ne       => cl_operator % ne         &
+             , Me       => cl_operator % Me         &
+             , activity => cl_operator % activity   )
 
       !$omp master
 
@@ -168,7 +168,7 @@ contains
 
       do k = 1, nc
       do e = 1, ne
-        if (mask(e)) then
+        if (activity(e) > 0) then
           f_ex(:,e,k,1) = Me_inv * r_c(:,e,k)
           f_im(:,e,k,1) = Me_inv * r_d(:,e,k) + f_s(:,e,k)
         else
@@ -205,7 +205,7 @@ contains
         do j = 1, i-1
         do k = 1, nc
         do e = 1, ne
-          if (mask(e)) then
+          if (activity(e) > 0) then
 
             ! extrapolation of stage solution
             u_i(:,e,k) = u_i(:,e,k) &
@@ -246,7 +246,7 @@ contains
 
         do k = 1, nc
         do e = 1, ne
-          if (mask(e)) then
+          if (activity(e) > 0) then
             f_ex(:,e,k,i) = Me_inv * r_c(:,e,k)
             f_im(:,e,k,i) = Me_inv * r_d(:,e,k) + f_s(:,e,k)
           else
@@ -272,7 +272,7 @@ contains
         if (d_ex /= ZERO .or. d_im /= ZERO) cycle
         do k = 1, nc
         do e = 1, ne
-          if (mask(e)) then
+          if (activity(e) > 0) then
             u_i(:,e,k) = u_i(:,e,k)            &
                        + d_ex * f_ex(:,e,k,i)  &
                        + d_im * f_im(:,e,k,i)

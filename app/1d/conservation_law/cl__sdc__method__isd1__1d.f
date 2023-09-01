@@ -117,12 +117,12 @@ contains
     real(RNP), allocatable :: Me_inv(:)
     integer :: e, k
 
-    associate( nc   => cl_problem  % nc       &
-             , eop  => cl_operator % eop      &
-             , dx   => cl_operator % dx       &
-             , po   => cl_operator % eop % po &
-             , ne   => cl_operator % ne       &
-             , mask => cl_operator % mask     )
+    associate( nc       => cl_problem  % nc       &
+             , eop      => cl_operator % eop      &
+             , dx       => cl_operator % dx       &
+             , po       => cl_operator % eop % po &
+             , ne       => cl_operator % ne       &
+             , activity => cl_operator % activity )
 
       allocate(r_c , mold = u)
       allocate(r_d , mold = u)
@@ -138,7 +138,7 @@ contains
 
       do k = 1, nc
       do e = 1, ne
-        if (mask(e)) then
+        if (activity(e) > 0) then
           F_ex(:,e,k) = Me_inv * r_c(:,e,k)
           F_im(:,e,k) = Me_inv * (r_d(:,e,k) + r_sd(:,e,k))
         else
@@ -199,14 +199,14 @@ contains
     real(RNP) :: dt, dt_sub
     integer   :: e, i, k
 
-    associate( n_sub => this % n_sub           &
-             , w_sub => this % w_sub           &
-             , nc    => cl_problem  % nc       &
-             , eop   => cl_operator % eop      &
-             , dx    => cl_operator % dx       &
-             , po    => cl_operator % eop % po &
-             , ne    => cl_operator % ne       &
-             , mask  => cl_operator % mask     )
+    associate( n_sub    => this % n_sub           &
+             , w_sub    => this % w_sub           &
+             , nc       => cl_problem  % nc       &
+             , eop      => cl_operator % eop      &
+             , dx       => cl_operator % dx       &
+             , po       => cl_operator % eop % po &
+             , ne       => cl_operator % ne       &
+             , activity => cl_operator % activity )
 
       ! initialization .........................................................
 
@@ -247,7 +247,7 @@ contains
       ! intermediate solution
       do k = 1, nc
       do e = 1, ne
-        if (mask(e)) then
+        if (activity(e) > 0) then
           u_i(:,e,k) = u_0(:,e,k)                       &
                      + S  (:,e,k)                       &
                      + dt_sub * ( F_ex_new (:,e,k,m-1)  &
@@ -278,7 +278,7 @@ contains
 
       do k = 1, nc
       do e = 1, ne
-        if (mask(e)) then
+        if (activity(e) > 0) then
           u(:,e,k,m) = u_1(:,e,k)
           F_ex_new(:,e,k,m) = Me_inv * r_c(:,e,k)
           F_im_new(:,e,k,m) = Me_inv * (r_d(:,e,k) + r_sd(:,e,k))

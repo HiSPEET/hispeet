@@ -36,7 +36,7 @@ contains
 
     associate( iop_x => this % iop_fc_x &
              , iop_t => this % iop_fc_t &
-             , mask  => this % cl_operator % mask )
+             , activity => this % cl_operator % activity )
 
       ! initialization .........................................................
 
@@ -95,7 +95,7 @@ contains
         do m = 0, ns_c
         do c = 1, nc
         do e = 1, ne_f
-          if (mask(e)) then
+          if (activity(e) > 0) then
             do l = 0, ns_f
               u_i(:,e,c,m,n) = u_i(:,e,c,m,n) + iop_t % A(m,l,1) * u_f(:,e,c,l,n)
             end do
@@ -121,7 +121,7 @@ contains
         do n = 1, nt_c
         do c = 1, nc
         do e = 1, ne_f
-          if (mask(e)) then
+          if (activity(e) > 0) then
 
             ! extract solution from involved fine elements
             do m = 0, ns_f
@@ -176,7 +176,7 @@ contains
         do m = 0, ns_c
         do c = 1, nc
         do e = 1, ne_c
-          if (mask(e)) then
+          if (activity(e) > 0) then
             u_c(:,e,c,m,n) = matmul(iop_x % A(:,:,1), u_i(:,e,c,m,n))
           end if
         end do
@@ -201,7 +201,7 @@ contains
         do m = 0, ns_c
         do c = 1, nc
         do e = 1, ne_c
-          if (mask(e)) then
+          if (activity(e) > 0) then
 
             ! extract solution from involved fine elements
             u_x(:,1) = u_f(:,2*e - 1,c,m,n)

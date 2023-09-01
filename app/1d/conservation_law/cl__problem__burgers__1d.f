@@ -64,13 +64,13 @@ contains
     logical :: use_interpolation
     integer :: e, i, j, j0
 
-    associate( eop  => cl_operator % eop      &
-             , qop  => cl_operator % qop      &
-             , iop  => cl_operator % iop_uq   &
-             , mask => cl_operator % mask     &
-             , po   => cl_operator % eop % po &
-             , qo   => cl_operator % qop % po &
-             , ne   => cl_operator % ne       )
+    associate( eop      => cl_operator % eop      &
+             , qop      => cl_operator % qop      &
+             , iop      => cl_operator % iop_uq   &
+             , po       => cl_operator % eop % po &
+             , qo       => cl_operator % qop % po &
+             , ne       => cl_operator % ne       &
+             , activity => cl_operator % activity )
 
       ! initialization .........................................................
 
@@ -100,7 +100,7 @@ contains
 
       !$omp do
       do e = 1, ne
-        if (mask(e)) then
+        if (activity(e) > 0) then
 
           ! compute fluxes in quadrature points
           if (use_interpolation) then
@@ -123,7 +123,7 @@ contains
       call GetNumericalConvectiveFlux(this, bv, u(:,:,1), h_c)
 
       do e = 1, ne
-        if (mask(e)) then
+        if (activity(e) > 0) then
           r_c( 0,e,1) = r_c( 0,e,1) + h_c(e-1)
           r_c(po,e,1) = r_c(po,e,1) - h_c(e)
         end if
@@ -224,6 +224,7 @@ contains
     real(RNP), contiguous,        intent(out) :: r_d(0:,:,:)
 
     real(RNP), allocatable, save :: f(:,:)
+    logical,   allocatable, save :: mask(:)
     character :: elliptic_bc(2)
     real(RNP) :: elliptic_bv(2)
 
@@ -231,22 +232,23 @@ contains
              , ne => cl_operator % ne       )
 
       !$omp master
+      allocate(mask(ne), source = cl_operator % activity > 0)
       allocate(f(0:po,ne), source = ZERO)
 
       elliptic_bc = this % bc(:)(1:1)
       elliptic_bv = bv(1,:)
 
-      call cl_operator % elliptic_op % Residual( elliptic_bc                 &
-                                               , elliptic_bv                 &
-                                               , dx     = cl_operator % dx   &
-                                               , lambda = ZERO               &
-                                               , nu     = this % nu          &
-                                               , f      = f                  &
-                                               , u      = u  (:,:,1)         &
-                                               , r      = r_d(:,:,1)         &
-                                               , mask   = cl_operator % mask )
+      call cl_operator % elliptic_op % Residual( elliptic_bc               &
+                                               , elliptic_bv               &
+                                               , dx     = cl_operator % dx &
+                                               , lambda = ZERO             &
+                                               , nu     = this % nu        &
+                                               , f      = f                &
+                                               , u      = u  (:,:,1)       &
+                                               , r      = r_d(:,:,1)       &
+                                               , mask   = mask             )
 
-      deallocate(f)
+      deallocate(f, mask)
       !$omp end master
 
     end associate
@@ -266,6 +268,7 @@ contains
     real(RNP), contiguous,        intent(out) :: r_sd(0:,:,:)
 
     real(RNP), allocatable, save :: f(:,:), nu_sd(:,:)
+    logical,   allocatable, save :: mask(:)
     character :: elliptic_bc(2)
     real(RNP) :: elliptic_bv(2)
 
@@ -273,7 +276,8 @@ contains
              , ne => cl_operator % ne       )
 
       !$omp master
-      allocate(f    (0:po,ne), source = ZERO)
+      allocate(mask(ne), source = cl_operator % activity > 0)
+      allocate(f(0:po,ne), source = ZERO)
       allocate(nu_sd(0:po,ne))
       call GetStreamlineDiffusivity(this, tau, u_0(:,:,1), nu_sd)
 
@@ -284,17 +288,17 @@ contains
         elliptic_bv = 0
       end where
 
-      call cl_operator % elliptic_op % Residual( elliptic_bc                 &
-                                               , elliptic_bv                 &
-                                               , dx     = cl_operator % dx   &
-                                               , lambda = ZERO               &
-                                               , nu     = nu_sd              &
-                                               , f      = f                  &
-                                               , u      = u   (:,:,1)        &
-                                               , r      = r_sd(:,:,1)        &
-                                               , mask   = cl_operator % mask )
+      call cl_operator % elliptic_op % Residual( elliptic_bc               &
+                                               , elliptic_bv               &
+                                               , dx     = cl_operator % dx &
+                                               , lambda = ZERO             &
+                                               , nu     = nu_sd            &
+                                               , f      = f                &
+                                               , u      = u   (:,:,1)      &
+                                               , r      = r_sd(:,:,1)      &
+                                               , mask   = mask             )
 
-      deallocate(f, nu_sd)
+      deallocate(f, mask, nu_sd)
       !$omp end master
 
     end associate
@@ -347,6 +351,7 @@ contains
     real(RNP), optional,   intent(in)    :: r_max       !< max residual
 
     real(RNP), allocatable, save :: g(:,:), nu_tot(:,:)
+    logical,   allocatable, save :: mask(:)
     character :: elliptic_bc(2)
     real(RNP) :: elliptic_bv(2)
     real(RNP) :: lambda
@@ -356,8 +361,8 @@ contains
              , po          => cl_operator % eop % po    &
              , ne          => cl_operator % ne          &
              , dx          => cl_operator % dx          &
-             , mask        => cl_operator % mask        &
              , Me          => cl_operator % Me          &
+             , activity    => cl_operator % activity    &
              , elliptic_op => cl_operator % elliptic_op )
 
       !$omp master
@@ -368,6 +373,9 @@ contains
 
       ! Helmholtz parameter
       lambda = 1 / dt
+
+      ! activity mask
+      allocate(mask(ne), source = activity > 0)
 
       ! sources
       allocate(g(0:po,ne))
@@ -426,7 +434,7 @@ contains
 
       end if
 
-      deallocate(g)
+      deallocate(g, mask)
       if (allocated(nu_tot)) deallocate(nu_tot)
       !$omp end master
 
@@ -471,7 +479,7 @@ contains
     v_max = 0
 
     do e = 1, cl_operator % ne
-      if (cl_operator % mask(e)) then
+      if (cl_operator % activity(e) > 0) then
         v_max = max(v_max, maxval(abs(u(:,e,1))))
       end if
     end do

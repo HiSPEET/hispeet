@@ -22,8 +22,10 @@ module CL__MLSDC__Level__1D
 
   type, public :: CL_MLSDC_Level_1D
 
-    logical :: is_root = .true.   !< T if root (bottom) level mesh
-    logical :: is_top  = .true.   !< T if top level mesh
+    logical :: is_root = .true. !< T if root (bottom) level mesh
+    logical :: is_top  = .true. !< T if top level mesh
+    integer :: x_refinement = 0 !< spatial refinement:  {0,1,2} = {none,p,h}
+    integer :: t_refinement = 0 !< temporal refinement: {0,1,2} = {none,p,h}
 
     ! discretization and solvers ...............................................
 
@@ -43,18 +45,22 @@ module CL__MLSDC__Level__1D
 
     ! data .....................................................................
 
-    !! real(RNP), allocatable :: u(:,:,:,:,:)
-    !! !< approximate solution dimensioned as `u(0:po,1:ne,1:nc,0:ns,1:nt)`, where
+    real(RNP), allocatable :: u(:,:,:,:,:)
+    !< approximate solution dimensioned as `u(0:po,1:ne,1:nc,0:ns,1:nt)`, where
     !!  - 'po'  is the polynomial order (degree) in space
     !!  - 'ne'  is the number of elements in space
     !!  - 'nc'  is the number of solution components
     !!  - 'ns'  is the number of subintervals in each time step (degree in time)
-    !!  - 'nt'  is the number of time steps
+    !!  - 'nt'  is the number of time steps, as defined above
 
-    ! possibly some more/auxiliary data
+    real(RNP), allocatable :: g(:,:,:,:,:) !< FAS part of right hand side
+    real(RNP), allocatable :: v(:,:,:,:,:) !< restricted solution or correction
 
   contains
 
+!   procedure :: GetResidual    !< compute residual of collocation method
+!   procedure :: ApplyPredictor !< application of SDC predictor
+!   procedure :: ApplyCorrector !< application of SDC corrector
     procedure :: Interpolate_CF !< solution interpolation to next finer   level
     procedure :: Interpolate_FC !< solution interpolation to next coarser level
 !   procedure :: Restrict_FC    !< residual restriction   to next coarser level
@@ -73,7 +79,7 @@ module CL__MLSDC__Level__1D
       class(CL_MLSDC_Level_1D), intent(in) :: this !< coarse level
       real(RNP), intent(in)    :: u_c(0:,:,:,0:,:) !< coarse solution variable
       real(RNP), intent(inout) :: u_f(0:,:,:,0:,:) !< fine solution variable
-      logical,   intent(in)    :: complete !< T/F for all/active coarse elements
+      logical,   intent(in)    :: complete         !< T/F for all/refined elements
     end subroutine Interpolate_CF
 
     !-----------------------------------------------------------------------------

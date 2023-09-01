@@ -3,6 +3,7 @@ add_executable(conservation_law
     
     cl__operator__1d.f
     cl__problem__1d.f
+    cl__problem__convection_diffusion__1d.f
     cl__problem__burgers__1d.f
     cl__problem__burgers__moving_front__1d.f
     

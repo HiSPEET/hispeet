@@ -32,9 +32,20 @@ module CL__Operator__1D
     type(EmbeddedInterpolation_1D) :: iop_uq !< interpolation from u to q points
     type(DG_EllipticOperator_1D)   :: elliptic_op !< elliptic solvers+smoothers
 
-    logical,   allocatable :: mask(:) !< T/F for active/frozen elements
     real(RNP), allocatable :: x(:,:)  !< mesh points
     real(RNP), allocatable :: Me(:)   !< element mass matrix
+
+    ! element attributes
+    integer, allocatable :: activity(:)   !< element activity
+    !! - ` 1`  active
+    !! - ` 0`  frozen
+    !! - `-1`  undefined
+    integer, allocatable :: refinement(:) !< element refinement
+    !! - ` 1`  regular (active children)
+    !! - ` 0`  closure (frozen children)
+    !! - `-1`  none
+    integer, allocatable :: mark(:)       !< element mark
+
 
   contains
 
@@ -85,9 +96,11 @@ contains
 
     ! free allocated components ................................................
 
-    if (allocated(this % mask))  deallocate(this % mask)
-    if (allocated(this % x   ))  deallocate(this % x   )
-    if (allocated(this % Me  ))  deallocate(this % Me  )
+    if (allocated(this % x         ))  deallocate(this % x         )
+    if (allocated(this % Me        ))  deallocate(this % Me        )
+    if (allocated(this % activity  ))  deallocate(this % activity  )
+    if (allocated(this % refinement))  deallocate(this % refinement)
+    if (allocated(this % mark      ))  deallocate(this % mark      )
 
     ! basic initialization .....................................................
 
@@ -107,15 +120,17 @@ contains
 
     associate(ne => this % ne, po => this % eop % po)
 
-      ! mask, true by default for all elements
-      allocate(this % mask(ne), source = .true.)
-
       ! mesh points
       allocate(this % x(0:po,ne))
       call DG_GetMeshPoints_1D(this%eop, opt%xb1, opt%xb2, this%dx, this%x)
 
       ! element mass matrix
       allocate(this % Me(0:po), source = this%dx/2 * this%eop%w)
+
+      ! attributes
+      allocate(this % activity  (ne), source =  1) ! default: active
+      allocate(this % refinement(ne), source = -1) ! default: no refinement
+      allocate(this % mark      (ne), source = -1) ! default: no mark
 
     end associate
 

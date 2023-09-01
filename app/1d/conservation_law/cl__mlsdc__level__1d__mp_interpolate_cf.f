@@ -16,7 +16,7 @@ contains
     class(CL_MLSDC_Level_1D), intent(in) :: this !< coarse level
     real(RNP), intent(in)    :: u_c(0:,:,:,0:,:) !< coarse solution variable
     real(RNP), intent(inout) :: u_f(0:,:,:,0:,:) !< fine solution variable
-    logical,   intent(in)    :: complete !< T/F for all/active coarse elements
+    logical,   intent(in)    :: complete         !< T/F for all/refined elements
 
     real(RNP), allocatable :: u_i(:,:,:,:,:) ! intermediate interpolant
 
@@ -31,7 +31,7 @@ contains
 
     associate( iop_x => this % iop_cf_x &
              , iop_t => this % iop_cf_t &
-             , mask  => this % cl_operator % mask )
+             , refinement => this % cl_operator % refinement )
 
       ! initialization .........................................................
 
@@ -103,7 +103,7 @@ contains
         do m = 0, ns_c
         do c = 1, nc
         do e = 1, ne_c
-          if (complete .or. mask(e)) then
+          if (complete .or. refinement(e) >= 0) then
             u_i(:,e,c,m,n) = matmul(iop_x % A(:,:,1), u_c(:,e,c,m,n))
           end if
         end do
@@ -117,7 +117,7 @@ contains
         do m = 0, ns_c
         do c = 1, nc
         do e = 1, ne_c
-          if (complete .or. mask(e)) then
+          if (complete .or. refinement(e) >= 0) then
             u_i(:,2*e-1,c,m,n) = matmul(iop_x % A(:,:,1), u_c(:,e,c,m,n))
             u_i(:,2*e  ,c,m,n) = matmul(iop_x % A(:,:,2), u_c(:,e,c,m,n))
           end if
@@ -141,7 +141,7 @@ contains
         do m = 0, ns_f
         do c = 1, nc
         do e = 1, ne_f
-          if (complete .or. mask(e)) then
+          if (complete .or. refinement(e) >= 0) then
             u_f(:,e,c,m,n) = 0
             do l = 0, ns_c
               u_f(:,e,c,m,n) = u_f(:,e,c,m,n) + iop_t % A(m,l,1) * u_i(:,e,c,l,n)
@@ -158,7 +158,7 @@ contains
         do m = 0, ns_f
         do c = 1, nc
         do e = 1, ne_f
-          if (complete .or. mask(e)) then
+          if (complete .or. refinement(e) >= 0) then
             n1 = 2 * n - 1
             n2 = 2 * n
             u_f(:,e,c,m,n1) = 0
