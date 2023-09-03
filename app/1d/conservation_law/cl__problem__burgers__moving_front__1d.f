@@ -1,4 +1,4 @@
-!> summary:  Moving front problem for Burgers equations
+!> summary:  Moving front problem for Burgers equation
 !> author:   Joerg Stiller
 !> date:     2023/05/04
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -49,7 +49,7 @@ module CL__Problem__Burgers__Moving_Front__1D
 contains
 
   !-----------------------------------------------------------------------------
-  !> Initialization of the Burges moving front problem
+  !> Initialization of the Burgers moving front problem
 
   subroutine SetProblem(this, file)
     class(CL_Problem_Burgers_MovingFront_1D), intent(inout) :: this
@@ -96,6 +96,7 @@ contains
     this % nu  =  nu ! viscosity
 
     this % nu_sd_filter = nu_sd_filter
+    this % has_exact_solution = .true.
 
   end subroutine SetProblem
 
@@ -176,7 +177,7 @@ contains
   end function ExactSolution
 
   !-----------------------------------------------------------------------------
-  !> Exact solution derivative ∂u/∂x(x,t)
+  !> Exact viscous flux q = ν ∂u/∂x(x,t)
 
   elemental function ExactViscousFlux(nu, x, t) result(q)
     real(RNP), intent(in) :: nu

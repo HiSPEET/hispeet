@@ -156,11 +156,11 @@ contains
 
     if (present(f)) then
       if (bc(1) == 'N') then
-        call wave % Get_FirstDerivative(v, nu, x(0,1), t, dx_u)
+        call wave % Get_SpatialDerivative(v, nu, x(0,1), t, dx_u)
         f(0,1) = f(0,1) - nu * dx_u
       end if
       if (bc(2) == 'N') then
-        call wave % Get_FirstDerivative(v, nu, x(po,ne), t, dx_u)
+        call wave % Get_SpatialDerivative(v, nu, x(po,ne), t, dx_u)
         f(po,ne) = f(po,ne) + nu * dx_u
       end if
     end if

@@ -145,7 +145,7 @@ contains
     real(RNP), intent(in) :: u
     real(RNP) :: f_c
 
-    f_c = -v * u
+    f_c = v * u
 
   end function ConvectiveFlux
 

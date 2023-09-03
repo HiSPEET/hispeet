@@ -4,8 +4,10 @@ add_executable(conservation_law
     cl__operator__1d.f
     cl__problem__1d.f
     cl__problem__convection_diffusion__1d.f
+    cl__problem__convection_diffusion__wave_package__1d.f
     cl__problem__burgers__1d.f
     cl__problem__burgers__moving_front__1d.f
+    cl__problem__burgers__wave_package__1d.f
     
 #   cl__problem__cns__1d               # NOT IMPLEMENTED YET!
 #   cl__problem__cns__shock_tube__1d   # NOT IMPLEMENTED YET!
@@ -26,7 +28,7 @@ add_executable(conservation_law
 
     )
 
-target_link_libraries(conservation_law HiBase)
+target_link_libraries(conservation_law HiBase HiPhysics)
 
 #===============================================================================
 # Configure files
@@ -34,9 +36,14 @@ target_link_libraries(conservation_law HiBase)
 #configure_file( time_integration.prm 
 #                time_integration.prm COPYONLY)
 
-configure_file( conservation_law.prm 
-                conservation_law.prm COPYONLY )
+configure_file( cl__problem__convection_diffusion__wave_package__1d.prm
+                cl__problem__convection_diffusion__wave_package__1d.prm 
+                COPYONLY )
 
-#configure_file( cl__problem__scalar__burgers__breaking_wave__1d.prm 
-#                cl__problem__scalar__burgers__breaking_wave__1d.prm COPYONLY )
+configure_file( cl__problem__burgers__wave_package__1d.prm
+                cl__problem__burgers__wave_package__1d.prm 
+                COPYONLY )
 
+configure_file( cl__problem__burgers__moving_front__1d.prm
+                cl__problem__burgers__moving_front__1d.prm 
+                COPYONLY )

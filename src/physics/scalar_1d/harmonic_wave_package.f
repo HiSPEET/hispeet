@@ -54,13 +54,13 @@ module Harmonic_Wave_Package
     procedure, private :: Get_Amplitude_1
     procedure, private :: Get_Amplitude_2
 
-    generic,   public  :: Get_SpatialDerivatives =>   &
-                            Get_SpatialDerivatives_0, &
-                            Get_SpatialDerivatives_1, &
-                            Get_SpatialDerivatives_2
-    procedure, private :: Get_SpatialDerivatives_0
-    procedure, private :: Get_SpatialDerivatives_1
-    procedure, private :: Get_SpatialDerivatives_2
+    generic,   public  :: Get_SpatialDerivative =>   &
+                            Get_SpatialDerivative_0, &
+                            Get_SpatialDerivative_1, &
+                            Get_SpatialDerivative_2
+    procedure, private :: Get_SpatialDerivative_0
+    procedure, private :: Get_SpatialDerivative_1
+    procedure, private :: Get_SpatialDerivative_2
 
     generic,   public  :: Get_TimeDerivative =>   &
                             Get_TimeDerivative_0, &
@@ -251,7 +251,7 @@ contains
   end subroutine Get_Amplitude_2
 
   !=============================================================================
-  ! Get_SpatialDerivatives
+  ! Get_SpatialDerivative
 
   !-----------------------------------------------------------------------------
   !> Spatial derivatives at given positions and time -- eXplicit version
@@ -259,7 +259,7 @@ contains
   !>     ∂u/∂x   =  ∑ᵢ aᵢ κᵢ    cos[κᵢ(x - sᵢ - vt)] exp[-(κᵢ)² nu t]
   !>     ∂²u/∂x² = -∑ᵢ aᵢ (κᵢ)² sin[κᵢ(x - sᵢ - vt)] exp[-(κᵢ)² nu t]
 
-  subroutine Get_SpatialDerivatives_X(this, v, nu, np, x, t, dx_u, dxx_u)
+  subroutine Get_SpatialDerivative_X(this, v, nu, np, x, t, dx_u, dxx_u)
     class(HarmonicWavePackage), intent(in) :: this
     real(RNP),           intent(in)  :: v         !< velocity
     real(RNP),           intent(in)  :: nu        !< diffusivity
@@ -298,12 +298,12 @@ contains
 
     end associate
 
-  end subroutine Get_SpatialDerivatives_X
+  end subroutine Get_SpatialDerivative_X
 
   !-----------------------------------------------------------------------------
   !> Spatial derivatives at given positions and time -- single point
 
-  subroutine Get_SpatialDerivatives_0(this, v, nu, x, t, dx_u, dxx_u)
+  subroutine Get_SpatialDerivative_0(this, v, nu, x, t, dx_u, dxx_u)
     class(HarmonicWavePackage), intent(in) :: this
     real(RNP),           intent(in)  :: v     !< velocity
     real(RNP),           intent(in)  :: nu    !< diffusivity
@@ -316,17 +316,17 @@ contains
 
     x_ = x
 
-    call Get_SpatialDerivatives_X(this, v, nu, 1, x_, t, dx_u_, dxx_u_)
+    call Get_SpatialDerivative_X(this, v, nu, 1, x_, t, dx_u_, dxx_u_)
 
     if (present( dx_u  ))  dx_u  = dx_u_(1)
     if (present( dxx_u ))  dxx_u = dxx_u_(1)
 
-  end subroutine Get_SpatialDerivatives_0
+  end subroutine Get_SpatialDerivative_0
 
   !-----------------------------------------------------------------------------
   !> Spatial derivatives at given positions and time -- 1d array of points
 
-  subroutine Get_SpatialDerivatives_1(this, v, nu, x, t, dx_u, dxx_u)
+  subroutine Get_SpatialDerivative_1(this, v, nu, x, t, dx_u, dxx_u)
     class(HarmonicWavePackage), intent(in) :: this
     real(RNP),           intent(in)  :: v        !< velocity
     real(RNP),           intent(in)  :: nu       !< diffusivity
@@ -335,14 +335,14 @@ contains
     real(RNP), optional, intent(out) :: dx_u(:)  !< 1st derivative, ∂u/∂x(x,t)
     real(RNP), optional, intent(out) :: dxx_u(:) !< 2nd derivative, ∂²u/∂x²(x,t)
 
-    call Get_SpatialDerivatives_X(this, v, nu, size(x), x, t, dx_u, dxx_u)
+    call Get_SpatialDerivative_X(this, v, nu, size(x), x, t, dx_u, dxx_u)
 
-  end subroutine Get_SpatialDerivatives_1
+  end subroutine Get_SpatialDerivative_1
 
   !-----------------------------------------------------------------------------
   !> Spatial derivatives at given positions and time -- 2d array of points
 
-  subroutine Get_SpatialDerivatives_2(this, v, nu, x, t, dx_u, dxx_u)
+  subroutine Get_SpatialDerivative_2(this, v, nu, x, t, dx_u, dxx_u)
     class(HarmonicWavePackage), intent(in) :: this
     real(RNP),           intent(in)  :: v          !< velocity
     real(RNP),           intent(in)  :: nu         !< diffusivity
@@ -351,9 +351,9 @@ contains
     real(RNP), optional, intent(out) :: dx_u(:,:)  !< 1st derivative, ∂u/∂x(x,t)
     real(RNP), optional, intent(out) :: dxx_u(:,:) !< 2nd derivative, ∂²u/∂x²(x,t)
 
-    call Get_SpatialDerivatives_X(this, v, nu, size(x), x, t, dx_u, dxx_u)
+    call Get_SpatialDerivative_X(this, v, nu, size(x), x, t, dx_u, dxx_u)
 
-  end subroutine Get_SpatialDerivatives_2
+  end subroutine Get_SpatialDerivative_2
 
   !=============================================================================
   ! Get_TimeDerivatives
@@ -395,11 +395,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Time derivative at given positions and time -- single point
 
-  subroutine Get_TimeDerivative_0(this, v, nu, np, x, t, dt_u)
+  subroutine Get_TimeDerivative_0(this, v, nu, x, t, dt_u)
     class(HarmonicWavePackage), intent(in) :: this
     real(RNP), intent(in)  :: v     !< velocity
     real(RNP), intent(in)  :: nu    !< diffusivity
-    integer,   intent(in)  :: np    !< number of points
     real(RNP), intent(in)  :: x     !< point
     real(RNP), intent(in)  :: t     !< time
     real(RNP), intent(out) :: dt_u  !< time derivative, ∂u/∂t(x,t)
@@ -415,11 +414,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Time derivative at given positions and time -- 1d array of points
 
-  subroutine Get_TimeDerivative_1(this, v, nu, np, x, t, dt_u)
+  subroutine Get_TimeDerivative_1(this, v, nu, x, t, dt_u)
     class(HarmonicWavePackage), intent(in) :: this
     real(RNP), intent(in)  :: v       !< velocity
     real(RNP), intent(in)  :: nu      !< diffusivity
-    integer,   intent(in)  :: np      !< number of points
     real(RNP), intent(in)  :: x(:)    !< point
     real(RNP), intent(in)  :: t       !< time
     real(RNP), intent(out) :: dt_u(:) !< time derivative, ∂u/∂t(x,t)
@@ -431,11 +429,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Time derivative at given positions and time -- 2d array of points
 
-  subroutine Get_TimeDerivative_2(this, v, nu, np, x, t, dt_u)
+  subroutine Get_TimeDerivative_2(this, v, nu, x, t, dt_u)
     class(HarmonicWavePackage), intent(in) :: this
     real(RNP), intent(in)  :: v         !< velocity
     real(RNP), intent(in)  :: nu        !< diffusivity
-    integer,   intent(in)  :: np        !< number of points
     real(RNP), intent(in)  :: x(:,:)    !< point
     real(RNP), intent(in)  :: t         !< time
     real(RNP), intent(out) :: dt_u(:,:) !< time derivative, ∂u/∂t(x,t)

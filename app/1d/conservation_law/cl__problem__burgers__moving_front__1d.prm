@@ -1,3 +1,7 @@
+&problem_prm
+  problem_name = 'burgers__moving_front'
+/
+
 &space_discretization_prm
   cl_operator_opt%ne          = 41
   cl_operator_opt%eop%po      = 15
