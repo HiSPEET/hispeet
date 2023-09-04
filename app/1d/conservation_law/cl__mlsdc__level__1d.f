@@ -58,7 +58,7 @@ module CL__MLSDC__Level__1D
 
   contains
 
-!   procedure :: GetResidual    !< compute residual of collocation method
+    procedure :: GetResidual    !< compute multi-step collocation residual
 !   procedure :: ApplyPredictor !< application of SDC predictor
 !   procedure :: ApplyCorrector !< application of SDC corrector
     procedure :: Interpolate_CF !< solution interpolation to next finer   level
@@ -71,6 +71,17 @@ module CL__MLSDC__Level__1D
   ! module procedures
 
   interface
+
+    !---------------------------------------------------------------------------
+    !> Residual of the collocation method
+
+    module subroutine GetResidual(this, dt, t_0, u, r)
+      class(CL_MLSDC_Level_1D), intent(in) :: this !< MLSDC level
+      real(RNP), intent(in)  :: dt             !< size of the time slice
+      real(RNP), intent(in)  :: t_0            !< start time of the slice
+      real(RNP), intent(in)  :: u(0:,:,:,0:,:) !< approximate solution
+      real(RNP), intent(out) :: r(0:,:,:,0:,:) !< residual
+    end subroutine GetResidual
 
     !---------------------------------------------------------------------------
     !> Coarse-to-fine space-time interpolation of solution-like variables
