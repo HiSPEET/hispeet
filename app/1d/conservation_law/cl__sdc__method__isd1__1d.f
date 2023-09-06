@@ -161,7 +161,7 @@ contains
   !> Execution of a single correction step
 
   subroutine CorrectorStep( this, cl_problem, cl_operator, m, t, u &
-                          , F, F_ex, F_im, F_ex_new, F_im_new      )
+                          , F, F_ex, F_im, F_ex_new, F_im_new, G   )
 
     class(CL_SDC_Method_ISD1_1D), intent(in) :: this
     class(CL_Problem_1D),         intent(in) :: cl_problem
@@ -183,6 +183,8 @@ contains
       !< explicit of new low-order RHS, in: F_exᵏ⁺¹(0:m-1), out: F_exᵏ⁺¹(0:m)
     real(RNP), contiguous, intent(inout) :: F_im_new(0:,:,:,0:)
       !< implicit of new low-order RHS, in: F_imᵏ⁺¹(0:m-1), out: F_imᵏ⁺¹(0:m)
+    real(RNP), contiguous, optional, intent(in) :: G(0:,:,:,0:)
+      !< FAS defect correction term
 
     ! auxiliary variables ......................................................
 
@@ -253,6 +255,9 @@ contains
                      + dt_sub * ( F_ex_new (:,e,k,m-1)  &
                                 - F_ex     (:,e,k,m-1)  &
                                 - F_im     (:,e,k,m)    )
+          if (present(G)) then
+            u_i(:,e,k) = u_i(:,e,k) + Me_inv * (G(:,e,k,m) - G(:,e,k,m-1))
+          end if
         else
           u_i(:,e,k) = u_0(:,e,k)
         end if

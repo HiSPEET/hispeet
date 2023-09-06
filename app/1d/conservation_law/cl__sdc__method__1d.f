@@ -60,6 +60,7 @@ module CL__SDC__Method__1D
     procedure :: Init_CL_SDC_Method_1D
     procedure :: Show_CL_SDC_Method_1D
     procedure :: TimeStep
+    procedure, nopass :: GetHighOrderRHS
 
     procedure(GetCorrectorRHS), deferred :: GetCorrectorRHS
     procedure(CorrectorStep),   deferred :: CorrectorStep
@@ -93,7 +94,7 @@ module CL__SDC__Method__1D
     !> Execution of a single correction step
 
     subroutine CorrectorStep( this, cl_problem, cl_operator, m, t, u &
-                            , F, F_ex, F_im, F_ex_new, F_im_new      )
+                            , F, F_ex, F_im, F_ex_new, F_im_new, G   )
       import
 
       class(CL_SDC_Method_1D), intent(in) :: this
@@ -116,6 +117,8 @@ module CL__SDC__Method__1D
         !< explicit of new low-order RHS, in: F_exᵏ⁺¹(0:m-1), out: F_exᵏ⁺¹(0:m)
       real(RNP), contiguous, intent(inout) :: F_im_new(0:,:,:,0:)
         !< implicit of new low-order RHS, in: F_imᵏ⁺¹(0:m-1), out: F_imᵏ⁺¹(0:m)
+      real(RNP), contiguous, optional, intent(in) :: G(0:,:,:,0:)
+        !< FAS defect correction term
 
     end subroutine CorrectorStep
 
@@ -324,7 +327,7 @@ contains
 
       ! clean-up ...............................................................
 
-      deallocate(t_, dt_, u_, F_, F_ex_, F_im_, F_ex_new, F_im_new )
+      deallocate(t_, dt_, u_, F_, F_ex_, F_im_, F_ex_new, F_im_new)
 
     end associate
 

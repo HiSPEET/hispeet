@@ -20,7 +20,7 @@ contains
     real(RNP), intent(out) :: r(0:,:,:,0:,:) !< residual
 
     real(RNP), allocatable, save :: t(:)       ! subinterval time nodes
-    real(RNP), allocatable, save :: F(:)       ! RHS
+    real(RNP), allocatable, save :: f(:)       ! RHS
     real(RNP), allocatable, save :: r_c(:,:,:) ! convection term
     real(RNP), allocatable, save :: r_d(:,:,:) ! diffusion term
     real(RNP), allocatable, save :: f_s(:,:,:) ! sources
@@ -45,7 +45,7 @@ contains
 
       ! work space
       allocate(t(0:ns))
-      allocate(F(0:po))
+      allocate(f(0:po))
       allocate(r_c(0:po,ne,nc))
       allocate(r_d, mold = r_c)
       allocate(f_s, mold = r_c)
@@ -84,9 +84,9 @@ contains
           associate(Me => cl_operator % Me, w_col => cl_sdc % w_col)
             do k = 1, nc
             do e = 1, ne
-              F = r_c(:,e,k) + r_d(:,e,k) + Me * f_s(:,e,k)
+              f = r_c(:,e,k) + r_d(:,e,k) + Me * f_s(:,e,k)
               do m = 1, ns
-                r(:,e,k,m,n) = r(:,e,k,m,n) + dt_step * w_col(i,m) * F
+                r(:,e,k,m,n) = r(:,e,k,m,n) + dt_step * w_col(i,m) * f
               end do
             end do
             end do
@@ -95,7 +95,7 @@ contains
         end do
       end do
 
-      deallocate(t, F, r_c, r_d, f_s, bv)
+      deallocate(t, f, r_c, r_d, f_s, bv)
 
     end associate
 

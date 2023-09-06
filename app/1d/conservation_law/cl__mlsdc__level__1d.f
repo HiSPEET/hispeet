@@ -7,6 +7,7 @@
 module CL__MLSDC__Level__1D
   use Kind_Parameters
   use Constants
+  use Array_Assignments
   use Execution_Control
   use Coarse_To_Fine_Interpolation__1D
   use Fine_To_Coarse_Interpolation__1D
@@ -33,7 +34,7 @@ module CL__MLSDC__Level__1D
     class(CL_Operator_1D),   allocatable :: cl_operator
     class(CL_SDC_Method_1D), allocatable :: cl_sdc
 
-    integer :: nt = 1  !< number of time steps in one space-time slice
+    integer :: n_step = 1  !< number of time steps in one space-time slice
 
     ! interpolation operators ..................................................
 
@@ -47,11 +48,11 @@ module CL__MLSDC__Level__1D
 
     real(RNP), allocatable :: u(:,:,:,:,:)
     !< approximate solution dimensioned as `u(0:po,1:ne,1:nc,0:ns,1:nt)`, where
-    !!  - 'po'  is the polynomial order (degree) in space
-    !!  - 'ne'  is the number of elements in space
-    !!  - 'nc'  is the number of solution components
-    !!  - 'ns'  is the number of subintervals in each time step (degree in time)
-    !!  - 'nt'  is the number of time steps, as defined above
+    !!  - 'po         '  is the polynomial order (degree) in space
+    !!  - 'ne = n_elem'  is the number of elements in space
+    !!  - 'nc = n_comp'  is the number of solution components
+    !!  - 'ns = n_sub '  is the number of subintervals in each time step
+    !!  - 'nt = n_step'  is the number of time steps, as defined above
 
     real(RNP), allocatable :: g(:,:,:,:,:) !< FAS part of right hand side
     real(RNP), allocatable :: v(:,:,:,:,:) !< restricted solution or correction
@@ -59,7 +60,7 @@ module CL__MLSDC__Level__1D
   contains
 
     procedure :: GetResidual    !< compute multi-step collocation residual
-!   procedure :: ApplyPredictor !< application of SDC predictor
+    procedure :: ApplyPredictor !< application of SDC predictor
 !   procedure :: ApplyCorrector !< application of SDC corrector
     procedure :: Interpolate_CF !< solution interpolation to next finer   level
     procedure :: Interpolate_FC !< solution interpolation to next coarser level
@@ -71,6 +72,16 @@ module CL__MLSDC__Level__1D
   ! module procedures
 
   interface
+
+    !---------------------------------------------------------------------------
+    !> Application of the SDC predictor
+
+    module subroutine ApplyPredictor(this, dt, t_0, u)
+      class(CL_MLSDC_Level_1D), intent(in) :: this
+      real(RNP), intent(in)    :: dt             !< size of the time slice
+      real(RNP), intent(in)    :: t_0            !< start time of the slice
+      real(RNP), intent(inout) :: u(0:,:,:,0:,:) !< approximate solution
+    end subroutine ApplyPredictor
 
     !---------------------------------------------------------------------------
     !> Residual of the collocation method
