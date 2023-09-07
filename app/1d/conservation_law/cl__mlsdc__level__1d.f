@@ -84,6 +84,18 @@ module CL__MLSDC__Level__1D
     end subroutine ApplyPredictor
 
     !---------------------------------------------------------------------------
+    !> Application of the SDC corrector
+
+    module subroutine ApplyCorrector(this, dt, t_0, G, u, n_sweep)
+      class(CL_MLSDC_Level_1D), intent(in) :: this
+      real(RNP), intent(in)    :: dt             !< size of the time slice
+      real(RNP), intent(in)    :: t_0            !< start time of the slice
+      real(RNP), intent(in)    :: G(0:,:,:,0:,:) !< FAS defect correction
+      real(RNP), intent(inout) :: u(0:,:,:,0:,:) !< approximate solution
+      integer,   intent(in)    :: n_sweep        !< number of sweeps
+    end subroutine ApplyCorrector
+
+    !---------------------------------------------------------------------------
     !> Residual of the collocation method
 
     module subroutine GetResidual(this, dt, t_0, u, r)
@@ -93,6 +105,9 @@ module CL__MLSDC__Level__1D
       real(RNP), intent(in)  :: u(0:,:,:,0:,:) !< approximate solution
       real(RNP), intent(out) :: r(0:,:,:,0:,:) !< residual
     end subroutine GetResidual
+
+    !---------------------------------------------------------------------------
+    !> Computation of the FAS defect correction
 
     !---------------------------------------------------------------------------
     !> Coarse-to-fine space-time interpolation of solution-like variables
