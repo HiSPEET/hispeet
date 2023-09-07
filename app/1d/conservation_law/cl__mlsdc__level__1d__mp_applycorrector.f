@@ -10,7 +10,7 @@ submodule(CL__MLSDC__Level__1D) MP_ApplyCorrector
 contains
 
   !-----------------------------------------------------------------------------
-  !> Application of the SDC predictor
+  !> Application of the SDC corrector
 
   module subroutine ApplyCorrector(this, dt, t_0, G, u, n_sweep)
     class(CL_MLSDC_Level_1D), intent(in) :: this
