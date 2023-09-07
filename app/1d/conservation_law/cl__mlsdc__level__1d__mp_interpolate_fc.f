@@ -14,8 +14,8 @@ contains
 
   module subroutine Interpolate_FC(this, u_f, u_c)
     class(CL_MLSDC_Level_1D), intent(in) :: this !< coarse level
-    real(RNP), intent(in)    :: u_f(0:,:,:,0:,:) !< coarse solution variable
-    real(RNP), intent(inout) :: u_c(0:,:,:,0:,:) !< fine solution variable
+    real(RNP), intent(in)    :: u_f(0:,:,:,0:,:) !< fine solution variable
+    real(RNP), intent(inout) :: u_c(0:,:,:,0:,:) !< coarse solution variable
 
     real(RNP), allocatable :: u_i(:,:,:,:,:) ! intermediate interpolant
     real(RNP), allocatable :: u_t(:,:,:)     ! variable smoothed in time
