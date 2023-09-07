@@ -28,6 +28,7 @@ add_executable(conservation_law
     cl__mlsdc__level__1d__mp_getresidual.f
     cl__mlsdc__level__1d__mp_interpolate_cf.f
     cl__mlsdc__level__1d__mp_interpolate_fc.f
+    cl__mlsdc__level__1d__mp_restrict_fc.f
 
     )
 

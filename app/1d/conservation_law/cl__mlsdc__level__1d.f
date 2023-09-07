@@ -61,10 +61,10 @@ module CL__MLSDC__Level__1D
 
     procedure :: GetResidual    !< compute multi-step collocation residual
     procedure :: ApplyPredictor !< application of SDC predictor
-!   procedure :: ApplyCorrector !< application of SDC corrector
+    procedure :: ApplyCorrector !< application of SDC corrector
     procedure :: Interpolate_CF !< solution interpolation to next finer   level
     procedure :: Interpolate_FC !< solution interpolation to next coarser level
-!   procedure :: Restrict_FC    !< residual restriction   to next coarser level
+    procedure :: Restrict_FC    !< residual restriction from next finer   level
 
   end type CL_MLSDC_Level_1D
 
@@ -104,14 +104,23 @@ module CL__MLSDC__Level__1D
       logical,   intent(in)    :: complete         !< T/F for all/refined elements
     end subroutine Interpolate_CF
 
-    !-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     !> Fine-to-coarse space-time interpolation of solution-like variables
 
     module subroutine Interpolate_FC(this, u_f, u_c)
       class(CL_MLSDC_Level_1D), intent(in) :: this !< coarse level
-      real(RNP), intent(in)    :: u_f(0:,:,:,0:,:) !< coarse solution variable
-      real(RNP), intent(inout) :: u_c(0:,:,:,0:,:) !< fine solution variable
-    end subroutine
+      real(RNP), intent(in)    :: u_f(0:,:,:,0:,:) !< fine solution variable
+      real(RNP), intent(inout) :: u_c(0:,:,:,0:,:) !< coarse solution variable
+    end subroutine Interpolate_FC
+
+    !---------------------------------------------------------------------------
+    !> Fine-to-coarse restriction of residual-like variables
+
+    module subroutine Restrict_FC(this, r_f, r_c)
+      class(CL_MLSDC_Level_1D), intent(in) :: this !< coarse level
+      real(RNP), intent(in)    :: r_f(0:,:,:,0:,:) !< fine residual variable
+      real(RNP), intent(inout) :: r_c(0:,:,:,0:,:) !< coarse residual variable
+    end subroutine Restrict_FC
 
   end interface
 
