@@ -49,7 +49,7 @@ contains
 
   function New_CL_SDC_Method_ISD1_1D(pre_opt, sdc_opt) result(this)
     class(CL_TimeIntegrator_Options_1D), intent(in) :: pre_opt !< predictor opts
-    class(CL_SDC_Options_ISD1_1D),        intent(in) :: sdc_opt !< SDC options
+    class(CL_SDC_Options_ISD1_1D),       intent(in) :: sdc_opt !< SDC options
     type(CL_SDC_Method_ISD1_1D) :: this
 
     call Init_CL_SDC_Method_ISD1_1D(this, pre_opt, sdc_opt)

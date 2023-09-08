@@ -16,7 +16,7 @@ module CL__Operator__1D
   private
 
   public :: CL_Operator_1D
-  public :: CL_OperatorOptions_1D
+  public :: CL_Operator_Options_1D
 
   !-----------------------------------------------------------------------------
   !> DG-SEM mesh and operators for 1D conservation problems
@@ -65,7 +65,7 @@ module CL__Operator__1D
   !> related problem. It is recommended to extract them from the corresponding
   !> instance of CL_Problem_1D.
 
-  type CL_OperatorOptions_1D
+  type CL_Operator_Options_1D
     integer                          :: ne = 1  !< number of elements
     integer                          :: nc      !< number of components
     real(RNP)                        :: xb1     !< position of left boundary
@@ -73,7 +73,7 @@ module CL__Operator__1D
     type(DG_ElementOptions_1D)       :: eop     !< DG operator options for v
     type(StandardOperatorOptions_1D) :: qop     !< quadrature for convection
     type(DG_SchwarzOptions_1D)       :: schwarz !< Schwarz preconditioner
-  end type CL_OperatorOptions_1D
+  end type CL_Operator_Options_1D
 
 contains
 
@@ -81,7 +81,7 @@ contains
   !> Returns a new CL_Operator_1D object
 
   type(CL_Operator_1D) function New_CL_Operator_1D(opt) result(this)
-    class(CL_OperatorOptions_1D), intent(in) :: opt
+    class(CL_Operator_Options_1D), intent(in) :: opt
 
     call Init_CL_Operator_1D(this, opt)
 
@@ -91,8 +91,8 @@ contains
   !> Initialization of CL_Operator_1D
 
   subroutine Init_CL_Operator_1D(this, opt)
-    class(CL_Operator_1D),        intent(inout) :: this
-    class(CL_OperatorOptions_1D), intent(in)    :: opt
+    class(CL_Operator_1D),         intent(inout) :: this
+    class(CL_Operator_Options_1D), intent(in)    :: opt
 
     ! free allocated components ................................................
 

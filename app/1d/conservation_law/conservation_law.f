@@ -41,8 +41,8 @@ program Conservation_Law
 
   ! declarations: space discretization .........................................
 
-  type(CL_Operator_1D)        :: cl_operator
-  type(CL_OperatorOptions_1D) :: cl_operator_opt
+  type(CL_Operator_1D)         :: cl_operator
+  type(CL_Operator_Options_1D) :: cl_operator_opt
 
   namelist/space_discretization_prm/ cl_operator_opt
 

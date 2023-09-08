@@ -13,7 +13,9 @@ module CL__MLSDC__Level__1D
   use Fine_To_Coarse_Interpolation__1D
   use CL__Problem__1D
   use CL__Operator__1D
+  use CL__Time_Integrator__1D
   use CL__SDC__Method__1D
+  use CL__SDC__Method__ISD1__1D
 
   implicit none
   private
@@ -23,10 +25,11 @@ module CL__MLSDC__Level__1D
 
   type, public :: CL_MLSDC_Level_1D
 
-    logical :: is_root = .true. !< T if root (bottom) level mesh
-    logical :: is_top  = .true. !< T if top level mesh
-    integer :: x_refinement = 0 !< spatial refinement:  {0,1,2} = {none,p,h}
-    integer :: t_refinement = 0 !< temporal refinement: {0,1,2} = {none,p,h}
+    logical :: is_root      !< T if root (bottom) level mesh
+    logical :: is_top       !< T if top level mesh
+    integer :: n_step       !< number of time steps in one space-time slice
+    integer :: x_refinement !< spatial refinement:  {0,1,2} = {none,p,h}
+    integer :: t_refinement !< temporal refinement: {0,1,2} = {none,p,h}
 
     ! discretization and solvers ...............................................
 
@@ -34,7 +37,6 @@ module CL__MLSDC__Level__1D
     class(CL_Operator_1D),   allocatable :: cl_operator
     class(CL_SDC_Method_1D), allocatable :: cl_sdc
 
-    integer :: n_step = 1  !< number of time steps in one space-time slice
 
     ! interpolation operators ..................................................
 
@@ -54,8 +56,8 @@ module CL__MLSDC__Level__1D
     !!  - 'ns = n_sub '  is the number of subintervals in each time step
     !!  - 'nt = n_step'  is the number of time steps, as defined above
 
-    real(RNP), allocatable :: g(:,:,:,:,:) !< FAS part of right hand side
     real(RNP), allocatable :: v(:,:,:,:,:) !< restricted solution or correction
+    real(RNP), allocatable :: g(:,:,:,:,:) !< FAS part of right hand side
 
   contains
 
@@ -67,6 +69,29 @@ module CL__MLSDC__Level__1D
     procedure :: Restrict_FC    !< residual restriction from next finer   level
 
   end type CL_MLSDC_Level_1D
+
+  ! constructor
+  interface CL_MLSDC_Level_1D
+    module procedure New_CL_MLSDC_Level_1D
+  end interface
+
+  !-----------------------------------------------------------------------------
+  !> Options for CL_MLSDC_Level_1D initialization
+
+  type CL_MLSDC_Level_Options_1D
+
+    logical :: is_root = .true. !< T if root (bottom) level mesh
+    logical :: is_top  = .true. !< T if top level mesh
+    integer :: n_step  = 1      !< number of time steps in one space-time slice
+    integer :: x_refinement = 0 !< spatial refinement:  {0,1,2} = {none,p,h}
+    integer :: t_refinement = 0 !< temporal refinement: {0,1,2} = {none,p,h}
+
+    type(CL_Operator_Options_1D) :: cl_operator
+
+    class(CL_TimeIntegrator_Options_1D), allocatable :: cl_predictor
+    class(CL_SDC_Options_1D),            allocatable :: cl_sdc
+
+  end type CL_MLSDC_Level_Options_1D
 
   !=============================================================================
   ! module procedures
@@ -107,9 +132,6 @@ module CL__MLSDC__Level__1D
     end subroutine GetResidual
 
     !---------------------------------------------------------------------------
-    !> Computation of the FAS defect correction
-
-    !---------------------------------------------------------------------------
     !> Coarse-to-fine space-time interpolation of solution-like variables
 
     module subroutine Interpolate_CF(this, u_c, u_f, complete)
@@ -138,6 +160,62 @@ module CL__MLSDC__Level__1D
     end subroutine Restrict_FC
 
   end interface
+
+contains
+
+  !-----------------------------------------------------------------------------
+  !> Returns a new CL_MLSDC_Level_1D object
+
+  function New_CL_MLSDC_Level_1D(opt, cl_problem) result(this)
+    class(CL_MLSDC_Level_Options_1D), intent(in) :: opt
+    class(CL_Problem_1D), target,     intent(in) :: cl_problem
+    type(CL_MLSDC_Level_1D) :: this
+
+    call Init_CL_MLSDC_Level_1D(this, opt, cl_problem)
+
+  end function New_CL_MLSDC_Level_1D
+
+  !-----------------------------------------------------------------------------
+  !> Inititialization of an MLSDC level
+
+  subroutine Init_CL_MLSDC_Level_1D(this, opt, cl_problem)
+    class(CL_MLSDC_Level_1D),         intent(inout) :: this
+    class(CL_MLSDC_Level_Options_1D), intent(in)    :: opt
+    class(CL_Problem_1D), target,     intent(in)    :: cl_problem
+
+    ! safeguard ................................................................
+
+    if (.not. allocated(opt % cl_predictor)) then
+      call Error( 'Init_CL_MLSDC_Level_1D', 'opt % cl_predictor not allocated')
+    end if
+
+    if (.not. allocated(opt % cl_sdc)) then
+      call Error( 'Init_CL_MLSDC_Level_1D', 'opt % cl_sdc not allocated')
+    end if
+
+    if (allocated(this % u)) deallocate(this % u)
+    if (allocated(this % v)) deallocate(this % v)
+    if (allocated(this % g)) deallocate(this % g)
+
+    ! parameters ...............................................................
+
+    this % is_root       =  opt % is_root
+    this % is_top        =  opt % is_top
+    this % n_step        =  opt % n_step
+    this % x_refinement  =  opt % x_refinement
+    this % t_refinement  =  opt % t_refinement
+
+    ! problem and operators ....................................................
+
+    this % cl_problem    => cl_problem
+    this % cl_operator   =  CL_Operator_1D(opt % cl_operator)
+
+    select type(sdc_opt => opt % cl_sdc)
+    type is(CL_SDC_Options_ISD1_1D)
+      this % cl_sdc = CL_SDC_Method_ISD1_1D(opt % cl_predictor, sdc_opt)
+    end select
+
+  end subroutine Init_CL_MLSDC_Level_1D
 
   !=============================================================================
 
