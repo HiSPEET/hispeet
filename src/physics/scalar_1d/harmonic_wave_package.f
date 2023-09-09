@@ -185,16 +185,17 @@ contains
     real(RNP), intent(out) :: u(np)  !< amplitude u(x,t)
 
     integer   :: i
-    real(RNP) :: c, d, z
+    real(RNP) :: kappa, c, d, z
 
     associate(lw => this%lw, k => this%k, a => this%a, s => this%s)
 
       u = 0
       do i = 1, this % nw
-        c = 2 * PI * k(i) / lw
-        d = 1 / exp((2 * PI * k(i))**2 * nu * t)
+        kappa = 2 * PI * k(i) / lw
+        c = -kappa ** 2
+        d = exp(c * nu * t)
         z = s(i) + v*t
-        u = u + a(i) * d * sin(c * (x - z))
+        u = u + a(i) * d * sin(kappa * (x - z))
       end do
 
     end associate
