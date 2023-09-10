@@ -138,7 +138,7 @@ contains
     case('D')
       bv(1,1) = ExactSolution(this%nu, this%xb1, t)
     case('N')
-      bv(1,1) = ExactViscousFlux(this%nu, this%xb1, t)
+      bv(1,1) = ExactDerivative(this%nu, this%xb1, t)
     case default
       bv(1,1) = 0
     end select
@@ -148,7 +148,7 @@ contains
     case('D')
       bv(1,2) = ExactSolution(this%nu, this%xb2, t)
     case('N')
-      bv(1,2) = ExactViscousFlux(this%nu, this%xb2, t)
+      bv(1,2) = ExactDerivative(this%nu, this%xb2, t)
     case default
       bv(1,2) = 0
     end select
@@ -179,19 +179,19 @@ contains
   !-----------------------------------------------------------------------------
   !> Exact viscous flux q = ν ∂u/∂x(x,t)
 
-  elemental function ExactViscousFlux(nu, x, t) result(q)
+  elemental function ExactDerivative(nu, x, t) result(q)
     real(RNP), intent(in) :: nu
     real(RNP), intent(in) :: x
     real(RNP), intent(in) :: t
     real(RNP) :: q
 
     if (nu > 0) then
-      q = HALF * (tanh((x + HALF - t) / (2*nu))**2 - ONE)
+      q = ONE/(2*nu) * (tanh((x + HALF - t) / (2*nu))**2 - ONE)
     else
       q = 0
     end if
 
-  end function ExactViscousFlux
+  end function ExactDerivative
 
   !=============================================================================
 

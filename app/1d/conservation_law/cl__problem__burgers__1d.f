@@ -28,7 +28,7 @@ module CL__Problem__Burgers__1D
   !> with constant diffusivity ν. Available boundary conditions are
   !>
   !>   - Dirichlet with `bc = 'D'` and `bv = u`
-  !>   - Neumann   with `bc = 'N'` and `bv = q = ν∂u/∂x`
+  !>   - Neumann   with `bc = 'N'` and `bv = ∂u/∂x`
   !>   - Periodic  with `bc = 'P'`
 
   type, abstract, extends(CL_Problem_1D) :: CL_Problem_Burgers_1D
@@ -184,7 +184,7 @@ contains
     ! right boundary
     select case(this % bc(2))
     case('D')
-      ur(ne) = 2 * bv(1,2)- u(po,ne)
+      ur(ne) = 2 * bv(1,2) - u(po,ne)
     case('P')
       ur(ne) = u(0,1)
     case default
@@ -282,11 +282,7 @@ contains
       call GetStreamlineDiffusivity(this, tau, u_0(:,:,1), nu_sd)
 
       elliptic_bc = this % bc(:)(1:1)
-      where(elliptic_bc == 'D')
-        elliptic_bv = bv(1,:)
-      else where
-        elliptic_bv = 0
-      end where
+      elliptic_bv = bv(1,:)
 
       call cl_operator % elliptic_op % Residual( elliptic_bc               &
                                                , elliptic_bv               &

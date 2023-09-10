@@ -170,7 +170,6 @@ contains
         call wave % Get_Amplitude(v, nu, this%xb1, t, bv(1,1))
       case('N')
         call wave % Get_SpatialDerivative(v, nu, this%xb1, t, dx_u = bv(1,1))
-        bv(1,1) = nu * bv(1,1)
       case default
         bv(1,1) = 0
       end select
@@ -181,7 +180,6 @@ contains
         call wave % Get_Amplitude(v, nu, this%xb2, t, bv(1,2))
       case('N')
         call wave % Get_SpatialDerivative(v, nu, this%xb2, t, dx_u = bv(1,2))
-        bv(1,2) =  nu * bv(1,2)
       case default
         bv(1,2) = 0
       end select
