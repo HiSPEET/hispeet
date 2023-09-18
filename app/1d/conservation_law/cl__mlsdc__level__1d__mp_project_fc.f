@@ -1,18 +1,18 @@
-!> summary:  Fine-to-coarse space-time solution interpolation
+!> summary:  Fine-to-coarse space-time solution projection
 !> author:   Joerg Stiller
 !> date:     2023/08/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(CL__MLSDC__Level__1D) MP_Interpolate_FC
+submodule(CL__MLSDC__Level__1D) MP_Project_FC
   implicit none
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Fine-to-coarse space-time interpolation of solution-like variables
+  !> Fine-to-coarse space-time projection of solution-like variables
 
-  module subroutine Interpolate_FC(this, u_f, u_c)
+  module subroutine Project_FC(this, u_f, u_c)
     class(CL_MLSDC_Level_1D), intent(in) :: this !< coarse level
     real(RNP), intent(in)    :: u_f(0:,:,:,0:,:) !< fine solution variable
     real(RNP), intent(inout) :: u_c(0:,:,:,0:,:) !< coarse solution variable
@@ -31,11 +31,11 @@ contains
 
     logical :: is_consistent
     integer :: c, e, l, m, n
-    integer :: i0, i1, i2, i3
-    integer :: m0, m1, m2, m3
+    integer :: i0_1, i1_1, i0_2, i1_2
+    integer :: m0_1, m1_1, m0_2, m1_2
 
-    associate( iop_x => this % iop_fc_x &
-             , iop_t => this % iop_fc_t &
+    associate( pop_x => this % pop_fc_x &
+             , pop_t => this % pop_fc_t &
              , activity => this % cl_operator % activity )
 
       ! initialization .........................................................
@@ -61,11 +61,11 @@ contains
 
       ! consistency of spatial dimensions
       is_consistent = is_consistent        .and. &
-                      po_f == iop_x % po_f .and. &
-                      po_c == iop_x % po_c
+                      po_f == pop_x % po_f .and. &
+                      po_c == pop_x % po_c
 
-      ! consistency with spatial interpolation mode
-      select case(iop_x % mode)
+      ! consistency with spatial projection mode
+      select case(pop_x % mode)
       case(1)
         is_consistent = is_consistent .and. ne_f == ne_c
       case(2)
@@ -74,7 +74,7 @@ contains
 
       ! evaluate result of checks
       if (.not. is_consistent) then
-        call Error( 'Interpolate_FC'           &
+        call Error( 'Project_FC'           &
                   , 'failed consistency check' &
                   , 'CL__MLSDC__Level__1D'     )
       end if
@@ -82,9 +82,9 @@ contains
       ! workspace
       allocate(u_i(0:po_f,1:ne_f,nc,0:ns_c,1:nt_c), source = ZERO)
 
-      ! temporal interpolation .................................................
+      ! temporal projection ....................................................
 
-      select case(iop_t % mode)
+      select case(pop_t % mode)
 
       case(0)
         u_i = u_f
@@ -97,7 +97,7 @@ contains
         do e = 1, ne_f
           if (activity(e) > 0) then
             do l = 0, ns_f
-              u_i(:,e,c,m,n) = u_i(:,e,c,m,n) + iop_t % A(m,l,1) * u_f(:,e,c,l,n)
+              u_i(:,e,c,m,n) = u_i(:,e,c,m,n) + pop_t % A(m,l,1) * u_f(:,e,c,l,n)
             end do
           end if
         end do
@@ -108,16 +108,26 @@ contains
       case(2)
         ! nt_f = 2 * nt_c
 
-        ! index ranges
-        m0 = 0                ! first coarse point interpolated from fine element 1
-        m1 = ns_c / 2         ! last  coarse point interpolated from fine element 1
-        m2 = m1 + mod(ns_c,2) ! first coarse point interpolated from fine element 2
-        m3 = ns_c             ! last  coarse point interpolated from fine element 2
+        ! coarse point ranges
+        select case(pop_t % method)
+        case('P')
+          ! L² projection: all fine points contribute to all coarse points
+          m0_1 = 0
+          m1_1 = ns_c
+          m0_2 = 0
+          m1_2 = ns_c
+        case('I')
+          ! interpolation: fine points contribute to left/right half only
+          m0_1 = 0                  ! first point interpolated from element 1
+          m1_1 = ns_c / 2           ! last  ..
+          m0_2 = m1_1 + mod(ns_c,2) ! first point interpolated from element 2
+          m1_2 = ns_c               ! last  ..
+        end select
 
         ! workspace
         allocate(u_t(0:po_f,0:ns_f,2), jmp_u_t(0:po_f))
 
-        ! interpolation
+        ! projection
         do n = 1, nt_c
         do c = 1, nc
         do e = 1, ne_f
@@ -131,12 +141,12 @@ contains
 
             ! optional smoothing, e.g. when using DG in time
             jmp_u_t = u_t(:,ns_f,1) - u_t(:,0,2)
-            select case(iop_t % smoothing)
+            select case(pop_t % smoothing)
             case(1)
               ! linear
               do m = 0, ns_f
-                u_t(:,m,1) = u_t(:,m,1) + jmp_u_t * iop_t % B(m,1)
-                u_t(:,m,2) = u_t(:,m,2) + jmp_u_t * iop_t % B(m,2)
+                u_t(:,m,1) = u_t(:,m,1) + jmp_u_t * pop_t % B(m,1)
+                u_t(:,m,2) = u_t(:,m,2) + jmp_u_t * pop_t % B(m,2)
               end do
             case(2)
               ! averaging interface coefficients
@@ -144,15 +154,17 @@ contains
               u_t(:,   0,2) = u_t(:,   0,2) + HALF * jmp_u_t
             end select
 
-            ! interpolation of smoothed variable
-            do m = m0, m1
+            ! projection of smoothed variable
+            do m = m0_1, m1_1
               do l = 0, ns_f
-                u_i(:,e,c,m,n) = u_i(:,e,c,m,n) + iop_t % A(m,l,1) * u_t(:,l,1)
+                u_i(:,e,c,m,n) = u_i(:,e,c,m,n) &
+                               + pop_t % A(m,l,1) * u_t(:,l,1)
               end do
             end do
-            do m = m2, m3
+            do m = m0_2, m1_2
               do l = 0, ns_f
-                u_i(:,e,c,m,n) = u_i(:,e,c,m,n) + iop_t % A(m-m2,l,2) * u_t(:,l,2)
+                u_i(:,e,c,m,n) = u_i(:,e,c,m,n) &
+                               + pop_t % A(m-m0_2,l,2) * u_t(:,l,2)
               end do
             end do
 
@@ -163,9 +175,9 @@ contains
 
       end select
 
-      ! spatial interpolation ..................................................
+      ! spatial projection .....................................................
 
-      select case(iop_x % mode)
+      select case(pop_x % mode)
 
       case(0)
         u_c = u_i
@@ -177,7 +189,7 @@ contains
         do c = 1, nc
         do e = 1, ne_c
           if (activity(e) > 0) then
-            u_c(:,e,c,m,n) = matmul(iop_x % A(:,:,1), u_i(:,e,c,m,n))
+            u_c(:,e,c,m,n) = matmul(pop_x % A(:,:,1), u_i(:,e,c,m,n))
           end if
         end do
         end do
@@ -187,16 +199,26 @@ contains
       case(2)
         ! ne_f = 2 * ne_c
 
-        ! index ranges
-        i0 = 0                ! first coarse point interpolated from fine element 1
-        i1 = po_c / 2         ! last  coarse point interpolated from fine element 1
-        i2 = i1 + mod(po_c,2) ! first coarse point interpolated from fine element 2
-        i3 = po_c             ! last  coarse point interpolated from fine element 2
+        ! point ranges
+        select case(pop_x % method)
+        case('P')
+          ! L² projection: all fine points contribute to all coarse points
+          i0_1 = 0
+          i1_1 = po_c
+          i0_2 = 0
+          i1_2 = po_c
+        case('I')
+          ! interpolation: fine points contribute to left/right half only
+          i0_1 = 0                  ! first point interpolated from element 1
+          i1_1 = po_c / 2           ! last  ..
+          i0_2 = i1_1 + mod(po_c,2) ! first point interpolated from element 2
+          i1_2 = po_c               ! last  ..
+        end select
 
         ! workspace
         allocate(u_x(0:po_f,2))
 
-        ! interpolation
+        ! projection
         do n = 1, nt_c
         do m = 0, ns_c
         do c = 1, nc
@@ -209,22 +231,22 @@ contains
 
             ! optional smoothing
             jmp_u_x = u_x(po_f,1) - u_x(0,2)
-            select case(iop_x % smoothing)
+            select case(pop_x % smoothing)
             case(1)
               ! linear
-              u_x(:,1) = u_x(:,1) + jmp_u_x * iop_x % B(:,1)
-              u_x(:,2) = u_x(:,2) + jmp_u_x * iop_x % B(:,2)
+              u_x(:,1) = u_x(:,1) + jmp_u_x * pop_x % B(:,1)
+              u_x(:,2) = u_x(:,2) + jmp_u_x * pop_x % B(:,2)
             case(2)
               ! averaging interface coefficients
               u_x(po_f,1) = u_x(po_f,1) - HALF * jmp_u_x
               u_x(   0,2) = u_x(   0,2) + HALF * jmp_u_x
             end select
 
-            ! interpolation of smoothed variable
-            u_c(i0:i1,e,c,m,n) = u_c(i0:i1,e,c,m,n) &
-                               + matmul(iop_x % A(:,:,1), u_x(:,1))
-            u_c(i2:i3,e,c,m,n) = u_c(i2:i3,e,c,m,n) &
-                               + matmul(iop_x % A(:,:,2), u_x(:,2))
+            ! projection of smoothed variable
+            u_c(i0_1:i1_1,e,c,m,n) = u_c(i0_1:i1_1,e,c,m,n) &
+                                   + matmul(pop_x % A(:,:,1), u_x(:,1))
+            u_c(i0_2:i1_2,e,c,m,n) = u_c(i0_2:i1_2,e,c,m,n) &
+                                   + matmul(pop_x % A(:,:,2), u_x(:,2))
 
           end if
         end do
@@ -236,8 +258,8 @@ contains
 
     end associate
 
-  end subroutine Interpolate_FC
+  end subroutine Project_FC
 
   !=============================================================================
 
-end submodule MP_Interpolate_FC
+end submodule MP_Project_FC

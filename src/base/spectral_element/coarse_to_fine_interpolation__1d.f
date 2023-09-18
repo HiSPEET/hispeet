@@ -27,9 +27,9 @@ module Coarse_To_Fine_Interpolation__1D
   type, public :: CoarseToFineInterpolation_1D
     integer   :: po_c   = -1           !< polynomial order of coarse mesh
     integer   :: po_f   = -1           !< polynomial order of fine mesh
-    integer   :: mode   = -1           !< refinement mode {0,1,2}
-    character :: basis  = 'L'          !< basis type {'E','G','L'}
-    real(RNP), allocatable :: A(:,:,:) !< interpolation operators
+    integer   :: mode   = -1           !< refinement mode
+    character :: basis  = 'L'          !< basis type
+    real(RNP), allocatable :: A(:,:,:) !< interpolation operator(s)
   end type CoarseToFineInterpolation_1D
 
   ! constructor interface
@@ -37,50 +37,50 @@ module Coarse_To_Fine_Interpolation__1D
     procedure New_CoarseToFineInterpolation
   end interface
 
+  !-----------------------------------------------------------------------------
+  !> Options for initializing the coarse-to-fine hp-interpolation operator
+
+  type, public :: CoarseToFineInterpolationOptions_1D
+    integer   :: po_c   = -1  !< polynomial order of coarse mesh
+    integer   :: po_f   = -1  !< polynomial order of fine mesh
+    integer   :: mode   = -1  !< refinement mode {0,1,2}
+    character :: basis  = 'L' !< basis type {'E','G','L'}
+  end type CoarseToFineInterpolationOptions_1D
+
 contains
 
   !-----------------------------------------------------------------------------
   !> Fine-to-coarse interpolation constructor
 
-  function New_CoarseToFineInterpolation(po_c, po_f, mode, basis) result(this)
-    integer,             intent(in) :: po_c  !< polynomial order of parent
-    integer,             intent(in) :: po_f  !< polynomial order of child
-    integer,             intent(in) :: mode  !< coarsening mode
-    character, optional, intent(in) :: basis !< basis type  ['L']
+  function New_CoarseToFineInterpolation(opt) result(this)
+    class(CoarseToFineInterpolationOptions_1D), intent(in) :: opt
     type(CoarseToFineInterpolation_1D) :: this
 
-    call Init_CoarseToFineInterpolation(this, po_c, po_f, mode, basis)
+    call Init_CoarseToFineInterpolation(this, opt)
 
   end function New_CoarseToFineInterpolation
 
   !-----------------------------------------------------------------------------
   !> Build fine-to-coarse interpolation
 
-  subroutine Init_CoarseToFineInterpolation(this, po_c, po_f, mode, basis)
+  subroutine Init_CoarseToFineInterpolation(this, opt)
     class(CoarseToFineInterpolation_1D), intent(inout) :: this
-    integer,             intent(in) :: po_f  !< polynomial order of child
-    integer,             intent(in) :: po_c  !< polynomial order of parent
-    integer,             intent(in) :: mode  !< coarsening mode
-    character, optional, intent(in) :: basis !< basis type  ['L']
+    class(CoarseToFineInterpolationOptions_1D), intent(in) :: opt
 
     real(RNP), allocatable :: x_f(:), x_c(:)
+    integer :: po_c, po_f
     integer :: i, j
 
     ! initialization ...........................................................
 
-    this % po_c = po_c
-    this % po_f = po_f
-    this % mode = mode
+    this % po_c  = opt % po_c
+    this % po_f  = opt % po_f
+    this % mode  = opt % mode
+    this % basis = opt % basis
 
-    if (present(basis)) then
-      if (scan(basis, 'EGL') > 0) then
-        this % basis = basis
-      else
-        call Error( 'Init_CoarseToFineInterpolation'        &
-                  , 'basis "' // basis // '" not supported' &
-                  , 'Coarse_To_Fine_Interpolation__1D'      )
-      end if
-    end if
+    ! shorthands
+    po_c = this % po_c
+    po_f = this % po_f
 
     if (allocated(this % A)) deallocate(this % A)
 
@@ -88,7 +88,7 @@ contains
     case(0)
       return
     case(1:2)
-      allocate(this % A(0:po_f,0:po_c,mode))
+      allocate(this % A(0:po_f, 0:po_c, this%mode))
     end select
 
     ! collocation points .......................................................

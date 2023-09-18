@@ -28,16 +28,22 @@ module DG__Schwarz_Operator__1D
   !> Options for initializing the Schwarz operator
 
   type DG_SchwarzOptions_1D
-    integer :: no = 1         !< number of overlapped points
-    integer :: weighting = 5  !< weighting method {0,1,3,5,7,9}
+    real(RNP) :: delta     = -1 !< relative overlap ≤ 1
+    integer   :: no_min    = -1 !< min overlap in points
+    integer   :: weighting =  5 !< weighting method {0,1,3,5,7,9}
   end type DG_SchwarzOptions_1D
 
   !-----------------------------------------------------------------------------
   !> Schwarz operator
   !>
-  !> In the Schwarz method we consider a subdomain comprising one element
-  !> located in its center and `no` layers of collocation points which are
-  !> are adopted from the adjoining elements.
+  !> In the Schwarz method we consider a rectangular subdomain surrounding an
+  !> element located in its center. The subdomain is constructed by adopting a
+  !> layer of collocation points from the adjoining elements. The thickness of
+  !> this layer is a directional property, which depends on two parameters:
+  !> the relative thickness `delta` and the minimal number of overlapped points
+  !> `no_min`. Typically, the thickness assumes a value between 0 and 1, though
+  !> a negative value can be chosen for restricting the subdomain to the element
+  !> alone.
   !>
   !> The Schwarz operator is the inverse of the truncated diffusion operator,
   !> which is given in tensor-product form by
@@ -175,8 +181,14 @@ contains
     po = eop % po                  ! polynomial order of elements
     nb = size(DG_SCHWARZ_BC_1D)    ! number of supported boundary conditions
     nc = nb ** 2                   ! number of 1D boundary configurations
-    no = max(0, min(opt%no, po+1)) ! number of overlapped points
-    ns = po + 1 + 2*no             ! number of subdomain points per direction
+
+    ! number of overlapped points
+    no = count(eop % x <= 2 * opt%delta - 1)  ! apply overlap
+    no = max(no, opt % no_min)                ! apply minimum
+    no = max(0, min(no, po+1))                ! enforce bounds
+
+    ! number of subdomain points per direction
+    ns = po + 1 + 2*no
 
     allocate(Ws(ns))
 

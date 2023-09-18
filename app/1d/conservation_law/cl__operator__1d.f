@@ -70,7 +70,7 @@ module CL__Operator__1D
     integer                          :: nc      !< number of components
     real(RNP)                        :: xb1     !< position of left boundary
     real(RNP)                        :: xb2     !< position of right boundary
-    type(DG_ElementOptions_1D)       :: eop     !< DG operator options for v
+    type(DG_ElementOptions_1D)       :: eop     !< DG operator options for u
     type(StandardOperatorOptions_1D) :: qop     !< quadrature for convection
     type(DG_SchwarzOptions_1D)       :: schwarz !< Schwarz preconditioner
   end type CL_Operator_Options_1D

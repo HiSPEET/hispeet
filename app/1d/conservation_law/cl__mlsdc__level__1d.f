@@ -1,4 +1,4 @@
-!> summary:  MultiLevel Spectral Deferred Correction of 1D conservation laws
+!> summary:  MLSDC level of 1D conservation laws
 !> author:   Joerg Stiller
 !> date:     2023/08/22
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -10,7 +10,7 @@ module CL__MLSDC__Level__1D
   use Array_Assignments
   use Execution_Control
   use Coarse_To_Fine_Interpolation__1D
-  use Fine_To_Coarse_Interpolation__1D
+  use Fine_To_Coarse_Projection__1D
   use CL__Problem__1D
   use CL__Operator__1D
   use CL__Time_Integrator__1D
@@ -28,8 +28,6 @@ module CL__MLSDC__Level__1D
     logical :: is_root      !< T if root (bottom) level mesh
     logical :: is_top       !< T if top level mesh
     integer :: n_step       !< number of time steps in one space-time slice
-    integer :: x_refinement !< spatial refinement:  {0,1,2} = {none,p,h}
-    integer :: t_refinement !< temporal refinement: {0,1,2} = {none,p,h}
 
     ! discretization and solvers ...............................................
 
@@ -37,27 +35,13 @@ module CL__MLSDC__Level__1D
     class(CL_Operator_1D),   allocatable :: cl_operator
     class(CL_SDC_Method_1D), allocatable :: cl_sdc
 
-
-    ! interpolation operators ..................................................
+    ! transfer operators .......................................................
 
     type(CoarseToFineInterpolation_1D) :: iop_cf_x !< C-F interpolation in x
     type(CoarseToFineInterpolation_1D) :: iop_cf_t !< C-F interpolation in t
 
-    type(FineToCoarseInterpolation_1D) :: iop_fc_x !< F-C interpolation in x
-    type(FineToCoarseInterpolation_1D) :: iop_fc_t !< F-C interpolation in t
-
-    ! data .....................................................................
-
-    real(RNP), allocatable :: u(:,:,:,:,:)
-    !< approximate solution dimensioned as `u(0:po,1:ne,1:nc,0:ns,1:nt)`, where
-    !!  - 'po         '  is the polynomial order (degree) in space
-    !!  - 'ne = n_elem'  is the number of elements in space
-    !!  - 'nc = n_comp'  is the number of solution components
-    !!  - 'ns = n_sub '  is the number of subintervals in each time step
-    !!  - 'nt = n_step'  is the number of time steps, as defined above
-
-    real(RNP), allocatable :: v(:,:,:,:,:) !< restricted solution or correction
-    real(RNP), allocatable :: g(:,:,:,:,:) !< FAS part of right hand side
+    type(FineToCoarseProjection_1D)    :: pop_fc_x !< F-C projection in x
+    type(FineToCoarseProjection_1D)    :: pop_fc_t !< F-C projection in t
 
   contains
 
@@ -65,7 +49,7 @@ module CL__MLSDC__Level__1D
     procedure :: ApplyPredictor !< application of SDC predictor
     procedure :: ApplyCorrector !< application of SDC corrector
     procedure :: Interpolate_CF !< solution interpolation to next finer   level
-    procedure :: Interpolate_FC !< solution interpolation to next coarser level
+    procedure :: Project_FC     !< solution interpolation to next coarser level
     procedure :: Restrict_FC    !< residual restriction from next finer   level
 
   end type CL_MLSDC_Level_1D
@@ -78,18 +62,20 @@ module CL__MLSDC__Level__1D
   !-----------------------------------------------------------------------------
   !> Options for CL_MLSDC_Level_1D initialization
 
-  type CL_MLSDC_Level_Options_1D
+  type, public :: CL_MLSDC_Level_Options_1D
 
-    logical :: is_root = .true. !< T if root (bottom) level mesh
-    logical :: is_top  = .true. !< T if top level mesh
     integer :: n_step  = 1      !< number of time steps in one space-time slice
-    integer :: x_refinement = 0 !< spatial refinement:  {0,1,2} = {none,p,h}
-    integer :: t_refinement = 0 !< temporal refinement: {0,1,2} = {none,p,h}
 
     type(CL_Operator_Options_1D) :: cl_operator
 
-    class(CL_TimeIntegrator_Options_1D), allocatable :: cl_predictor
+    class(CL_TimeIntegrator_Options_1D), allocatable :: cl_pre
     class(CL_SDC_Options_1D),            allocatable :: cl_sdc
+
+    type(CoarseToFineInterpolationOptions_1D) :: iop_cf_x
+    type(CoarseToFineInterpolationOptions_1D) :: iop_cf_t
+
+    type(FineToCoarseProjectionOptions_1D) :: pop_fc_x
+    type(FineToCoarseProjectionOptions_1D) :: pop_fc_t
 
   end type CL_MLSDC_Level_Options_1D
 
@@ -142,13 +128,13 @@ module CL__MLSDC__Level__1D
     end subroutine Interpolate_CF
 
     !---------------------------------------------------------------------------
-    !> Fine-to-coarse space-time interpolation of solution-like variables
+    !> Fine-to-coarse space-time projection of solution-like variables
 
-    module subroutine Interpolate_FC(this, u_f, u_c)
+    module subroutine Project_FC(this, u_f, u_c)
       class(CL_MLSDC_Level_1D), intent(in) :: this !< coarse level
       real(RNP), intent(in)    :: u_f(0:,:,:,0:,:) !< fine solution variable
       real(RNP), intent(inout) :: u_c(0:,:,:,0:,:) !< coarse solution variable
-    end subroutine Interpolate_FC
+    end subroutine Project_FC
 
     !---------------------------------------------------------------------------
     !> Fine-to-coarse restriction of residual-like variables
@@ -185,35 +171,41 @@ contains
 
     ! safeguard ................................................................
 
-    if (.not. allocated(opt % cl_predictor)) then
-      call Error( 'Init_CL_MLSDC_Level_1D', 'opt % cl_predictor not allocated')
+    if (.not. allocated(opt % cl_pre)) then
+      call Error( 'Init_CL_MLSDC_Level_1D', 'opt % cl_pre not allocated')
     end if
 
     if (.not. allocated(opt % cl_sdc)) then
       call Error( 'Init_CL_MLSDC_Level_1D', 'opt % cl_sdc not allocated')
     end if
 
-    if (allocated(this % u)) deallocate(this % u)
-    if (allocated(this % v)) deallocate(this % v)
-    if (allocated(this % g)) deallocate(this % g)
-
     ! parameters ...............................................................
 
-    this % is_root       =  opt % is_root
-    this % is_top        =  opt % is_top
-    this % n_step        =  opt % n_step
-    this % x_refinement  =  opt % x_refinement
-    this % t_refinement  =  opt % t_refinement
+    this % is_root = opt % iop_cf_x % po_c <= 0 .or. opt % iop_cf_t % po_c <= 0
+    this % is_top  = opt % iop_cf_x % po_f <= 0 .or. opt % iop_cf_t % po_f <= 0
+    this % n_step  = opt % n_step
 
-    ! problem and operators ....................................................
+    ! discretization and solvers ...............................................
 
     this % cl_problem    => cl_problem
     this % cl_operator   =  CL_Operator_1D(opt % cl_operator)
 
     select type(sdc_opt => opt % cl_sdc)
     type is(CL_SDC_Options_ISD1_1D)
-      this % cl_sdc = CL_SDC_Method_ISD1_1D(opt % cl_predictor, sdc_opt)
+      this % cl_sdc = CL_SDC_Method_ISD1_1D(opt % cl_pre, sdc_opt)
     end select
+
+    ! transfer operators .......................................................
+
+    if (.not. this % is_top) then
+      this % iop_cf_x = CoarseToFineInterpolation_1D(opt % iop_cf_x)
+      this % iop_cf_t = CoarseToFineInterpolation_1D(opt % iop_cf_t)
+    end if
+
+    if (.not. this % is_root) then
+      this % pop_fc_x = FineToCoarseProjection_1D(opt % pop_fc_x)
+      this % pop_fc_t = FineToCoarseProjection_1D(opt % pop_fc_t)
+    end if
 
   end subroutine Init_CL_MLSDC_Level_1D
 

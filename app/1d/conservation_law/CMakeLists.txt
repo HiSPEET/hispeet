@@ -22,12 +22,13 @@ add_executable(conservation_law
 #   cl__sdc__method__euler__1d.f              # NOT IMPLEMENTED YET!
     cl__sdc__method__isd1__1d.f   
 
+    cl__mlsdc__1d.f
     cl__mlsdc__level__1d.f
     cl__mlsdc__level__1d__mp_applycorrector.f
     cl__mlsdc__level__1d__mp_applypredictor.f
     cl__mlsdc__level__1d__mp_getresidual.f
     cl__mlsdc__level__1d__mp_interpolate_cf.f
-    cl__mlsdc__level__1d__mp_interpolate_fc.f
+    cl__mlsdc__level__1d__mp_project_fc.f
     cl__mlsdc__level__1d__mp_restrict_fc.f
 
     )

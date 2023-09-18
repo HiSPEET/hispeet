@@ -324,12 +324,13 @@ contains
   !> 3. Schwarz method
   !>      - requires proper initialization of `cl_operator%eop%schwarz`
   !>      - bad solver
-  !>      - good smoother when used with overlap `schwarz%no ≈ po/4`
+  !>      - good smoother when used with overlap `schwarz % delta ≈ 0.25`
   !>
   !> 4. Inexact preconditioned conjugate gradient method (IPCG)
   !>      - requires proper initialization of `cl_operator%eop%schwarz`
-  !>      - best iterative solver when used with no overlap, `schwarz%no = 0`
-  !>      - good smoother when used with overlap `schwarz%no ≈ po/4`
+  !>      - best iterative solver when used with no overlap, i.e.,
+  !>        `schwarz % delta = -1`, `schwarz % no_min = -1`
+  !>      - good smoother when used with overlap `schwarz % delta ≈ 0.25`
 
   subroutine DiffusionSolver( this, cl_operator, dt, tau, bv, f, u_0, u &
                             , method, i_max, r_red, r_max               )
