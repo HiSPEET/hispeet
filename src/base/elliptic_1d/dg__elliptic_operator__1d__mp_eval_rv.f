@@ -15,9 +15,18 @@ contains
   !> Usage
   !>   1) `f` and `bv` given:  computation of the residual, `r = f - Au`
   !>   2) `f` and `bv` absent: evaluation of the homogeneous operator, `r = Au`
+  !>
+  !> Boundary conditions and values
+  !>   - Dirichlet:  `bc = 'D',  bv = u`
+  !>   - Neumann:    `bc = 'N',  bv = ∂u/∂x`
+  !>
+  !> The operator is applied only to elements for which `mask` is true.
+  !> For other elements, the result is set to zero.
 
-  module subroutine Eval_RV(this, dx, lambda, nu, u, r, f, bv)
+  module subroutine Eval_RV(this, bc, mask, dx, lambda, nu, u, r, f, bv)
     class(DG_EllipticOperator_1D),   intent(in)  :: this
+    character,                       intent(in)  :: bc(2)    !< BC {'D','N','P'}
+    logical,                         intent(in)  :: mask(:)  !< element mask
     real(RNP),                       intent(in)  :: dx       !< ∆xᵉ
     real(RNP),                       intent(in)  :: lambda   !< λ
     real(RNP), contiguous,           intent(in)  :: nu(0:,:) !< ν = νᵖ
@@ -48,9 +57,9 @@ contains
 
       ! initialization .........................................................
 
-      has_bv = present(bv)
-      has_f  = present(f)
-      hybrid = eop % hybrid
+      has_bv   = present(bv)
+      has_f    = present(f)
+      hybrid   = eop % hybrid
 
       po = eop % po
       ne = size(u,2)
@@ -71,8 +80,14 @@ contains
 
       !$omp do
       do e = 1, ne
-        dx_u(:,e) = g1 * matmul(D, u(:,e))
-        r(:,e) = lambda * g0 * M * u(:,e)  +  matmul(M * nu(:,e) * dx_u(:,e), D)
+        if (mask(e)) then
+          dx_u(:,e) = g1 * matmul(D, u(:,e))
+          r(:,e) = lambda * g0 * M * u(:,e) + matmul(M * nu(:,e) * dx_u(:,e), D)
+        else
+          dx_u( 0,e) = g1 * dot_product(D( 0,:), u(:,e))
+          dx_u(po,e) = g1 * dot_product(D(po,:), u(:,e))
+          r(:,e) = ZERO
+        end if
       end do
 
       ! interior fluxes ........................................................
@@ -92,7 +107,7 @@ contains
       !$omp master
 
       ! left boundary
-      select case(this % bc(1))
+      select case(bc(1))
 
       case('D')
         nu_max(0) = nu(0,1)
@@ -106,7 +121,7 @@ contains
       case('N')
         nu_max(0) = nu(0,1)
         if (has_bv) then
-          avg_q(0) = bv(1)
+          avg_q(0) = nu(0,1) * bv(1)
         end if
 
       case('P')
@@ -119,7 +134,7 @@ contains
       end select
 
       ! right boundary
-      select case(this % bc(2))
+      select case(bc(2))
 
       case('D')
         nu_max(ne) = nu(po,ne)
@@ -133,7 +148,7 @@ contains
       case('N')
         nu_max(ne) = nu(po,ne)
         if (has_bv) then
-          avg_q(ne) = 0
+          avg_q(ne) = nu(po,ne) * bv(2)
         end if
 
       case('P')
@@ -147,35 +162,37 @@ contains
 
       !$omp do
       do e = 1, ne
+        if (mask(e)) then
 
-        ! - {ν∂v/∂x}[u]
-        cl = -g1/2 * nu( 0,e) * jmp_u(e-1)
-        cr = -g1/2 * nu(po,e) * jmp_u(e  )
-        do i = 0, po
-          r(i,e) = r(i,e) + cl * D(0,i) + cr * D(po,i)
-        end do
-
-        ! - [v]{ν∂u/∂x}
-        r( 0,e) = r( 0,e) + avg_q(e-1)
-        r(po,e) = r(po,e) - avg_q(e  )
-
-        ! + μ⟨ν⟩[v][u]
-        r( 0,e) = r( 0,e) - mu * nu_max(e-1) * jmp_u(e-1)
-        r(po,e) = r(po,e) + mu * nu_max(e  ) * jmp_u(e  )
-
-        ! - 1/4μ⟨ν⟩ [ν∂v/∂x][ν∂u/∂x]
-        if (hybrid) then
-          cl =  gh / nu_max(e-1) * jmp_q(e-1)
-          cr = -gh / nu_max(e  ) * jmp_q(e  )
+          ! - {ν∂v/∂x}[u]
+          cl = -g1/2 * nu( 0,e) * jmp_u(e-1)
+          cr = -g1/2 * nu(po,e) * jmp_u(e  )
           do i = 0, po
             r(i,e) = r(i,e) + cl * D(0,i) + cr * D(po,i)
           end do
-        end if
 
-        if (has_f) then
-          r(:,e) = f(:,e) - r(:,e)
-        end if
+          ! - [v]{ν∂u/∂x}
+          r( 0,e) = r( 0,e) + avg_q(e-1)
+          r(po,e) = r(po,e) - avg_q(e  )
 
+          ! + μ⟨ν⟩[v][u]
+          r( 0,e) = r( 0,e) - mu * nu_max(e-1) * jmp_u(e-1)
+          r(po,e) = r(po,e) + mu * nu_max(e  ) * jmp_u(e  )
+
+          ! - 1/4μ⟨ν⟩ [ν∂v/∂x][ν∂u/∂x]
+          if (hybrid) then
+            cl =  gh / nu_max(e-1) * jmp_q(e-1)
+            cr = -gh / nu_max(e  ) * jmp_q(e  )
+            do i = 0, po
+              r(i,e) = r(i,e) + cl * D(0,i) + cr * D(po,i)
+            end do
+          end if
+
+          if (has_f) then
+            r(:,e) = f(:,e) - r(:,e)
+          end if
+
+        end if
       end do
 
       ! clean-up ...............................................................

@@ -83,8 +83,8 @@ module DG__Element_Operators__1D
   !> Options for DG_ElementOperators_1D
 
   type, extends(StandardOperatorOptions_1D) :: DG_ElementOptions_1D
-    real(RNP) :: penalty    =  2       !< penalty parameter > 1
-    logical   :: hybrid     = .false.  !< switch to hybridized method
+    real(RNP) :: penalty =  2       !< penalty parameter > 1
+    logical   :: hybrid  = .false.  !< switch to hybridized method
   contains
     procedure :: Bcast => Bcast_IP_ElementOptions1D
   end type DG_ElementOptions_1D

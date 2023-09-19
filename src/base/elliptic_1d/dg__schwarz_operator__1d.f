@@ -28,16 +28,22 @@ module DG__Schwarz_Operator__1D
   !> Options for initializing the Schwarz operator
 
   type DG_SchwarzOptions_1D
-    integer :: no = 1         !< number of overlapped points
-    integer :: weighting = 5  !< weighting method {0,1,3,5,7,9}
+    real(RNP) :: delta     = -1 !< relative overlap ≤ 1
+    integer   :: no_min    = -1 !< min overlap in points
+    integer   :: weighting =  5 !< weighting method {0,1,3,5,7,9}
   end type DG_SchwarzOptions_1D
 
   !-----------------------------------------------------------------------------
   !> Schwarz operator
   !>
-  !> In the Schwarz method we consider a subdomain comprising one element
-  !> located in its center and `no` layers of collocation points which are
-  !> are adopted from the adjoining elements.
+  !> In the Schwarz method we consider a rectangular subdomain surrounding an
+  !> element located in its center. The subdomain is constructed by adopting a
+  !> layer of collocation points from the adjoining elements. The thickness of
+  !> this layer is a directional property, which depends on two parameters:
+  !> the relative thickness `delta` and the minimal number of overlapped points
+  !> `no_min`. Typically, the thickness assumes a value between 0 and 1, though
+  !> a negative value can be chosen for restricting the subdomain to the element
+  !> alone.
   !>
   !> The Schwarz operator is the inverse of the truncated diffusion operator,
   !> which is given in tensor-product form by
@@ -112,17 +118,15 @@ module DG__Schwarz_Operator__1D
     integer :: po = -1     !< polynomial order
     integer :: no = -1     !< number of overlapped layers
     integer :: nc = -1     !< number of 1D configurations
-    integer :: ne = -1     !< number of elements
     logical :: restrictive !< T/F for ex/including neighbor results
-    logical :: periodic    !< T/F for indicating periodicity
 
-    integer,   allocatable :: cfg(:)   !< subdomain configurations
     real(RNP), allocatable :: S(:,:,:) !< eigenvectors per config
     real(RNP), allocatable :: V(:,:)   !< eigenvalues  per config
     real(RNP), allocatable :: W(:,:)   !< weights      per config
 
   contains
 
+    procedure :: ConfigureSubdomains
     procedure :: RestrictResidual
     procedure :: MergeCorrections
     generic   :: Apply => Apply_R
@@ -143,34 +147,31 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor
 
-  function New_DG_SchwarzOperator_1D(opt, eop, ne, bc, r_nu_s) result(this)
+  function New_DG_SchwarzOperator_1D(opt, eop, r_nu_s) result(this)
+
     class(DG_SchwarzOptions_1D),   intent(in) :: opt    !< operator options
     class(DG_ElementOperators_1D), intent(in) :: eop    !< DG element operators
-    integer,                       intent(in) :: ne     !< number of elements
-    character,                     intent(in) :: bc(2)  !< BC {'D','N','P'}
     real(RNP),           optional, intent(in) :: r_nu_s !< ratio νˢ/(ν + νˢ) [0]
 
     type(DG_SchwarzOperator_1D) :: this
 
-    call InitSchwarzOperator(this, opt, eop, ne, bc, r_nu_s)
+    call InitSchwarzOperator(this, opt, eop, r_nu_s)
 
   end function New_DG_SchwarzOperator_1D
 
   !-----------------------------------------------------------------------------
   !> Build the 1D eigenvalues, eigenvectors and weights
 
-  subroutine InitSchwarzOperator(this, opt, eop, ne, bc, r_nu_s)
+  subroutine InitSchwarzOperator(this, opt, eop, r_nu_s)
     class(DG_SchwarzOperator_1D),  intent(inout) :: this
     class(DG_SchwarzOptions_1D),   intent(in) :: opt    !< operator options
     class(DG_ElementOperators_1D), intent(in) :: eop    !< DG element operators
-    integer,                       intent(in) :: ne     !< number of elements
-    character,                     intent(in) :: bc(2)  !< BC {'D','N','P'}
     real(RNP),           optional, intent(in) :: r_nu_s !< ratio νˢ/(ν + νˢ) [0]
 
     ! local variables ..........................................................
 
     real(RNP), allocatable :: Ws(:)
-    character :: bc_e(2)
+    character :: bc(2)
 
     integer :: nb, nc, no, ns, po
     integer :: i, j, k
@@ -180,8 +181,14 @@ contains
     po = eop % po                  ! polynomial order of elements
     nb = size(DG_SCHWARZ_BC_1D)    ! number of supported boundary conditions
     nc = nb ** 2                   ! number of 1D boundary configurations
-    no = max(0, min(opt%no, po+1)) ! number of overlapped points
-    ns = po + 1 + 2*no             ! number of subdomain points per direction
+
+    ! number of overlapped points
+    no = count(eop % x <= 2 * opt%delta - 1)  ! apply overlap
+    no = max(no, opt % no_min)                ! apply minimum
+    no = max(0, min(no, po+1))                ! enforce bounds
+
+    ! number of subdomain points per direction
+    ns = po + 1 + 2*no
 
     allocate(Ws(ns))
 
@@ -190,26 +197,11 @@ contains
     this % po = po
     this % no = no
     this % nc = nc
-    this % ne = ne
     this % restrictive = opt % weighting == 9 .or. no == 0
-    this % periodic = all(bc == 'P')
 
-    if (allocated(this % cfg)) deallocate(this % cfg)
     if (allocated(this % S  )) deallocate(this % S  )
     if (allocated(this % V  )) deallocate(this % V  )
     if (allocated(this % W  )) deallocate(this % W  )
-
-    allocate(this % cfg(ne))
-    if (ne == 1) then
-      this % cfg(1) = ConfigurationID(bc)
-    else if (ne > 1) then
-      bc_e = [ bc(1), ' ' ]
-      this % cfg(1) = ConfigurationID(bc_e)
-      bc_e = [ ' ', ' ' ]
-      this % cfg(2:ne-1) = ConfigurationID(bc_e)
-      bc_e = [ ' ', bc(2) ]
-      this % cfg(ne) = ConfigurationID(bc_e)
-    end if
 
     allocate(this % S(ns,ns,nc))
     allocate(this % V(ns,nc)   )
@@ -228,10 +220,10 @@ contains
 
       k = i + nb * (j - 1)
 
-      bc_e(1) = DG_SCHWARZ_BC_1D(i)
-      bc_e(2) = DG_SCHWARZ_BC_1D(j)
+      bc(1) = DG_SCHWARZ_BC_1D(i)
+      bc(2) = DG_SCHWARZ_BC_1D(j)
 
-      call eop % Get_SchwarzSuboperators( this%no, bc_e, Ws, this%S(:,:,k) &
+      call eop % Get_SchwarzSuboperators( this%no, bc, Ws, this%S(:,:,k)   &
                                         , this%V(:,k), this%W(:,k), r_nu_s )
     end do
     end do
@@ -239,156 +231,74 @@ contains
   end subroutine InitSchwarzOperator
 
   !-----------------------------------------------------------------------------
-  !> Restrict mesh variable to subdomains
+  !> Configure subdomains for automatic operator selection
 
-  subroutine RestrictResidual(this, r, rs)
+  subroutine ConfigureSubdomains(this, bc, cfg, mask)
     class(DG_SchwarzOperator_1D), intent(in) :: this
-    real(RNP), contiguous, intent(in)  :: r(0:,:) !< mesh variable
-    real(RDP), contiguous, intent(out) :: rs(:,:) !< subdomain variable
+    character,         intent(in)  :: bc(2)  !< BC {'D','N','P'}
+    integer,           intent(out) :: cfg(:) !< subdomain configurations
+    logical, optional, intent(in)  :: mask(:)
 
-    integer :: np, ns, e
+    character :: bc_e(2)
+    integer   :: e, ne
 
-    associate(po => this%po, no => this%no, ne => this%ne)
+    ne = size(cfg)
 
-      np = size(r ,1)
-      ns = size(rs,1)
+    if (ne == 1) then
+      cfg(1) = ConfigurationID(bc)
 
-      ! core regions ...........................................................
-
-      !$omp do
+    else if (present(mask)) then
+      ! masked configuration
       do e = 1, ne
-        rs(no+1:no+np, e) = r(:, e)
-      end do
-      !$omp end do nowait
 
-      ! overlap regions ........................................................
+        if (mask(e)) then
 
-      !$omp do
-      do e = 2, ne-1
-        rs(      1:no, e) = r(np-no:po  , e-1)
-        rs(ns+1-no:ns, e) = r(    0:no-1, e+1)
-      end do
+          ! subdomain bc on left side
+          if (e == 1) then
+            ! left boundary
+            bc_e(1) = bc(1)
+          else if (mask(e-1)) then
+            ! left neighbor is active
+            bc_e(1) = ' '
+          else
+            ! left neighbor is frozen
+            bc_e(1) = 'D'
+          end if
 
-      !$omp master
-      if (no > 0) then
-        if (ne > 1) then
-          rs(ns+1-no:ns,  1) = r(    0:no-1,    2)
-          rs(      1:no, ne) = r(np-no:po  , ne-1)
-        end if
-        if (this % periodic) then
-          rs(      1:no,  1) = r(np-no:po  , ne)
-          rs(ns+1-no:ns, ne) = r(    0:no-1,  1)
+          ! subdomain bc on right side
+          if (e == ne) then
+            ! right boundary
+            bc_e(2) = bc(2)
+          else if (mask(e+1)) then
+            ! right neighbor is active
+            bc_e(2) = ' '
+          else
+            ! right neighbor is frozen
+            bc_e(2) = 'D'
+          end if
+
+          cfg(e) = ConfigurationID(bc_e)
+
         else
-          rs(      1:no,  1) = 0
-          rs(ns+1-no:ns, ne) = 0
+
+          ! skip configuration of subdomain for frozen elements
+          cfg(e) = 0
+
         end if
-      end if
-      !$omp end master
-
-    end associate
-
-  end subroutine RestrictResidual
-
-  !-----------------------------------------------------------------------------
-  !> Merge subdomain contributions into mesh variable
-
-  subroutine MergeCorrections(this, us, u)
-    class(DG_SchwarzOperator_1D), intent(in) :: this
-    real(RNP), contiguous, intent(inout) :: u(0:,:) !< subdomain solutions
-    real(RNP), contiguous, intent(in)    :: us(:,:) !< mesh variable
-
-    integer :: np, ns, e
-
-    associate(po => this%po, no => this%no, ne => this%ne)
-
-      np = size(u ,1)
-      ns = size(us,1)
-
-      ! core regions ...........................................................
-
-      !$omp do
-      do e = 1, ne
-        u(:, e) = u(:, e) + us(no+1:no+np, e)
       end do
 
-      ! overlap regions ........................................................
+    else
+      ! default configuration
+      bc_e = [ bc(1),   ' ' ];  cfg(1     ) = ConfigurationID(bc_e)
+      bc_e = [   ' ',   ' ' ];  cfg(2:ne-1) = ConfigurationID(bc_e)
+      bc_e = [   ' ', bc(2) ];  cfg(  ne  ) = ConfigurationID(bc_e)
 
-      !$omp do
-      do e = 2, ne-1
-        u(    0:no-1, e) = u(    0:no-1, e) + us(ns+1-no:ns, e-1)
-        u(np-no:po  , e) = u(np-no:po  , e) + us(      1:no, e+1)
-      end do
+    end if
 
-      !$omp master
-      if (no > 0) then
-        if (ne > 1) then
-          u(np-no:po  ,  1) = u(np-no:po  ,  1) + us(      1:no,    2)
-          u(    0:no-1, ne) = u(    0:no-1, ne) + us(ns+1-no:ns, ne-1)
-        end if
-        if (this % periodic) then
-          u(    0:no-1,  1) = u(    0:no-1,  1) + us(ns+1-no:ns, ne)
-          u(np-no:po  , ne) = u(np-no:po  , ne) + us(      1:no,  1)
-        end if
-      end if
-      !$omp end master
+    ! silence compiler warnings ;)
+    if (this % po > 0) return
 
-    end associate
-
-  end subroutine MergeCorrections
-
-  !-----------------------------------------------------------------------------
-  !> Application with regular mesh
-  !>
-  !> For flexibility, ν is allowed to vary from subdomain to subdomain.
-
-  subroutine Apply_R(this, dx, lambda, nu, rs, us)
-    class(DG_SchwarzOperator_1D), intent(in)  :: this
-    real(RNP),                    intent(in)  :: dx      !< ∆xᵉ
-    real(RNP),                    intent(in)  :: lambda  !< λ
-    real(RNP),                    intent(in)  :: nu(:)   !< ν = νᵖ + νˢ
-    real(RNP), contiguous,        intent(in)  :: rs(:,:) !< operand
-    real(RNP), contiguous,        intent(out) :: us(:,:) !< result
-
-    real(RNP), parameter :: eps = epsilon(lambda)
-    real(RNP) :: a0, a1, d, tmp, z(size(rs,1))
-    integer   :: c, i, j, l, ns
-
-    associate(S => this%S, V => this%V, W => this%W)
-
-      ns = size(rs,1)
-      a0 = lambda * dx
-
-      !$omp do
-      do l = 1, this % ne
-
-        c = this % cfg(l)
-        a1 = nu(l) / dx
-
-        do i = 1, ns
-          tmp = 0
-          do j = 1, ns
-            tmp = tmp + S(j,i,c) * rs(j,l)
-          end do
-          d = a0 + a1 * V(i,c)
-          z(i) = tmp / sign(max(abs(d),eps), d)
-        end do
-
-        do i = 1, ns
-          tmp = 0
-          do j = 1, ns
-            tmp = tmp + S(i,j,c) * z(j)
-          end do
-          us(i,l) = W(i,c) * tmp
-        end do
-
-      end do
-
-    end associate
-
-  end subroutine Apply_R
-
-  !=============================================================================
-  ! Utilities
+  end subroutine ConfigureSubdomains
 
   !-----------------------------------------------------------------------------
   !> Returns the 1D subdomain configuration ID corresponding to the given BCs
@@ -419,6 +329,167 @@ contains
     cfg = i1 + (i2 - 1) * size(DG_SCHWARZ_BC_1D)
 
   end function ConfigurationID
+
+  !-----------------------------------------------------------------------------
+  !> Restrict mesh variable to subdomains
+
+  subroutine RestrictResidual(this, periodic, r, rs)
+    class(DG_SchwarzOperator_1D), intent(in) :: this
+    logical,               intent(in)  :: periodic !< T/F for periodicity
+    real(RNP), contiguous, intent(in)  :: r(0:,:)  !< mesh variable
+    real(RDP), contiguous, intent(out) :: rs(:,:)  !< subdomain variable
+
+    integer :: e, ne, np, ns
+
+    associate(po => this%po, no => this%no)
+
+      np = size(r ,1)
+      ne = size(r ,2)
+      ns = size(rs,1)
+
+      ! core regions ...........................................................
+
+      !$omp do
+      do e = 1, ne
+        rs(no+1:no+np, e) = r(:, e)
+      end do
+      !$omp end do nowait
+
+      ! overlap regions ........................................................
+
+      !$omp do
+      do e = 2, ne-1
+        rs(      1:no, e) = r(np-no:po  , e-1)
+        rs(ns+1-no:ns, e) = r(    0:no-1, e+1)
+      end do
+
+      !$omp master
+      if (no > 0) then
+        if (ne > 1) then
+          rs(ns+1-no:ns,  1) = r(    0:no-1,    2)
+          rs(      1:no, ne) = r(np-no:po  , ne-1)
+        end if
+        if (periodic) then
+          rs(      1:no,  1) = r(np-no:po  , ne)
+          rs(ns+1-no:ns, ne) = r(    0:no-1,  1)
+        else
+          rs(      1:no,  1) = 0
+          rs(ns+1-no:ns, ne) = 0
+        end if
+      end if
+      !$omp end master
+
+    end associate
+
+  end subroutine RestrictResidual
+
+  !-----------------------------------------------------------------------------
+  !> Merge subdomain contributions into mesh variable
+
+  subroutine MergeCorrections(this, periodic, us, u)
+    class(DG_SchwarzOperator_1D), intent(in) :: this
+    logical,               intent(in)    :: periodic !< T/F for periodicity
+    real(RNP), contiguous, intent(inout) :: u(0:,:)  !< subdomain solutions
+    real(RNP), contiguous, intent(in)    :: us(:,:)  !< mesh variable
+
+    integer :: e, ne, np, ns
+
+    associate(po => this%po, no => this%no)
+
+      np = size(u ,1)
+      ne = size(u ,2)
+      ns = size(us,1)
+
+      ! core regions ...........................................................
+
+      !$omp do
+      do e = 1, ne
+        u(:, e) = u(:, e) + us(no+1:no+np, e)
+      end do
+
+      ! overlap regions ........................................................
+
+      !$omp do
+      do e = 2, ne-1
+        u(    0:no-1, e) = u(    0:no-1, e) + us(ns+1-no:ns, e-1)
+        u(np-no:po  , e) = u(np-no:po  , e) + us(      1:no, e+1)
+      end do
+
+      !$omp master
+      if (no > 0) then
+        if (ne > 1) then
+          u(np-no:po  ,  1) = u(np-no:po  ,  1) + us(      1:no,    2)
+          u(    0:no-1, ne) = u(    0:no-1, ne) + us(ns+1-no:ns, ne-1)
+        end if
+        if (periodic) then
+          u(    0:no-1,  1) = u(    0:no-1,  1) + us(ns+1-no:ns, ne)
+          u(np-no:po  , ne) = u(np-no:po  , ne) + us(      1:no,  1)
+        end if
+      end if
+      !$omp end master
+
+    end associate
+
+  end subroutine MergeCorrections
+
+  !-----------------------------------------------------------------------------
+  !> Application with regular mesh
+  !>
+  !> For flexibility, ν is allowed to vary from subdomain to subdomain.
+
+  subroutine Apply_R(this, cfg, dx, lambda, nu, rs, us)
+    class(DG_SchwarzOperator_1D), intent(in) :: this
+    integer,               intent(in)  :: cfg(:)  !< subdomain configurations
+    real(RNP),             intent(in)  :: dx      !< ∆xᵉ
+    real(RNP),             intent(in)  :: lambda  !< λ
+    real(RNP),             intent(in)  :: nu(:)   !< ν = νᵖ + νˢ
+    real(RNP), contiguous, intent(in)  :: rs(:,:) !< operand
+    real(RNP), contiguous, intent(out) :: us(:,:) !< result
+
+    real(RNP), parameter :: eps = epsilon(lambda)
+    real(RNP) :: a0, a1, d, tmp, z(size(rs,1))
+    integer   :: c, i, j, l, ne, ns
+
+    associate(S => this%S, V => this%V, W => this%W)
+
+      ns = size(rs,1)
+      ne = size(rs,2)
+      a0 = lambda * dx
+
+      !$omp do
+      do l = 1, ne
+
+        if (cfg(l) == 0) then
+          ! skip subdomains surrounding frozen elements
+          us(:,l) = 0
+        else
+
+          c = cfg(l)
+          a1 = nu(l) / dx
+
+          do i = 1, ns
+            tmp = 0
+            do j = 1, ns
+              tmp = tmp + S(j,i,c) * rs(j,l)
+            end do
+            d = a0 + a1 * V(i,c)
+            z(i) = tmp / sign(max(abs(d),eps), d)
+          end do
+
+          do i = 1, ns
+            tmp = 0
+            do j = 1, ns
+              tmp = tmp + S(i,j,c) * z(j)
+            end do
+            us(i,l) = W(i,c) * tmp
+          end do
+
+        end if
+      end do
+
+    end associate
+
+  end subroutine Apply_R
 
   !=============================================================================
 

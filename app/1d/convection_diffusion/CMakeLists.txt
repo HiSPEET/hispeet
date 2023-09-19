@@ -7,10 +7,9 @@ add_executable(convection_diffusion
                cd__sdc_euler__1d.f
                cd__sdc_rk__1d.f
                cd__utils__1d.f
-               harmonic_wave_package.f
                )
 
-target_link_libraries(convection_diffusion HiBase)
+target_link_libraries(convection_diffusion HiBase HiPhysics)
 
 #===============================================================================
 # Configure files

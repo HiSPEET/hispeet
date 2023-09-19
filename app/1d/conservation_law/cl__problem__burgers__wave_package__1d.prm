@@ -1,0 +1,71 @@
+&problem_prm
+  problem_name = 'burgers__wave_package'
+/
+
+&space_discretization_prm
+  cl_operator_opt%ne          = 15
+  cl_operator_opt%eop%po      = 15
+  cl_operator_opt%eop%penalty = 20
+! cl_operator_opt%eop%hybrid  =  T ! use only with diffusion_method = 1
+  cl_operator_opt%schwarz%no  =  0
+  cl_operator_opt%qop%po      = 24
+/
+
+&time_integration_prm
+
+  t_end  = 1.0
+  dt     = 2e-5
+  nt_max = 1000000
+
+  time_method = 3
+  sdc_method  = 0
+
+  ! time_method = 1: Euler
+  cl_tint_euler_opt%impl = 1
+  cl_tint_euler_opt%diffusion_method = 4
+  cl_tint_euler_opt%diffusion_i_max  = 100
+
+  ! time_method = 2: ISD of order 1
+  cl_tint_isd1_opt%impl  = 1
+  cl_tint_isd1_opt%diffusion_method = 4
+  cl_tint_isd1_opt%diffusion_i_max  = 100
+
+  ! time_method = 3: ISD of order 2
+  cl_tint_isd2_opt%impl  = 1
+  cl_tint_isd2_opt%diffusion_method = 4
+  cl_tint_isd2_opt%diffusion_i_max  = 100
+
+  ! time_method = 4: Runge-Kutta
+  cl_tint_rk_opt%impl    = 1
+  cl_tint_rk_opt%n_stage = 4
+  cl_tint_rk_opt%method  = 1
+  cl_tint_rk_opt%diffusion_method = 4
+  cl_tint_rk_opt%diffusion_i_max  = 100
+
+  ! sdc_method = 2: SDC based on ISD1
+  cl_sdc_isd1_opt%n_sub     = 1
+  cl_sdc_isd1_opt%point_set = 2
+  cl_sdc_isd1_opt%n_sweep   = 0
+  cl_sdc_isd1_opt%diffusion_method = 4
+  cl_sdc_isd1_opt%diffusion_i_max  = 100
+
+/
+
+&burgers_wave_package_prm
+! v  = 1
+  nu = 1e-4
+  bc = 2*'P'
+  nu_sd_filter = 1 ! activate to use elementwise max streamline diffusivity
+/
+
+&wave_package_dim
+  nw = 7
+  lw = 1
+/
+
+&wave_package_prm
+  k = 1,    3,    5,    7,    9,    12,   15
+  a = 1.00, 1.50, 1.80, 1.70, 1.50, 1.30, 1.15
+  s = 0.00, 0.05, 0.10, 0.15, 0.20, 0.30, 0.18
+/
+

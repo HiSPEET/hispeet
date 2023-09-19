@@ -2,265 +2,268 @@
 program Conservation_Law
   use Kind_Parameters
   use Constants
+  use Array_Assignments
+  use Execution_Control
 
-  use DG__Element_Operators__1D
-  use DG__Elliptic_Operator__1D
-
-  use CL__Problem__Scalar__1D
-  use CL__Problem__Scalar__Burgers__Breaking_Wave__1D
+  use CL__Operator__1D
+  use CL__Problem__1D
+  use CL__Problem__Convection_Diffusion__Wave_Package__1D
+  use CL__Problem__Burgers__Wave_Package__1D
+  use CL__Problem__Burgers__Moving_Front__1D
 
   use CL__Time_Integrator__1D
-  use CL__Time_Integrator__TVDRK__1D
   use CL__Time_Integrator__Euler__1D
-! use CL__Time_Integrator__ISD__1D
+  use CL__Time_Integrator__ISD1__1D
+  use CL__Time_Integrator__ISD2__1D
   use CL__Time_Integrator__RK__1D
 
   use CL__SDC__Method__1D
-  use CL__SDC__Method__Euler__1D
-! use CL__SDC__Method__ISD__1D
-  use CL__SDC__Method__RK__1D
-  use CL__SDC__Method__TVDRK__1D
+  use CL__SDC__Method__ISD1__1D
 
   implicit none
-  class(CL_Problem_Scalar_1D), allocatable :: problem
-  type(DG_ElementOptions_1D) :: dg_opt
-  type(DG_SchwarzOptions_1D) :: schwarz_opt
-  real(RNP), allocatable     :: u(:,:,:)     ! discrete solution
 
-  real(RNP) :: start, finish !for time measurement
+  ! declarations: control ......................................................
 
-  integer   :: po         ! polynomial degree
-  integer   :: ne         ! number of elements
-  real(RNP) :: penalty    ! disc. gal. penalty
-  real(RNP) :: cfl
-  real(RNP) :: t_end
-  namelist /discretization_prm/ po, ne, penalty, cfl, t_end
+  character(len=80) :: case_name = 'conservation_law'
+  character(len=80) :: case_file
 
+  ! declarations: problem ......................................................
+
+  class(CL_Problem_1D), allocatable :: cl_problem
+
+  character(len=80) :: problem_name = ''
+  ! available problems, so far:
+  !   - 'convection_diffusion__wave_package'
+  !   - 'burgers__wave_package'
+  !   - 'burgers__moving_front'
+
+  namelist/problem_prm/ problem_name
+
+  ! declarations: space discretization .........................................
+
+  type(CL_Operator_1D)         :: cl_operator
+  type(CL_Operator_Options_1D) :: cl_operator_opt
+
+  namelist/space_discretization_prm/ cl_operator_opt
+
+  ! declarations: time integration .............................................
+
+  real(RNP) :: t_end   =  0.1
+  real(RNP) :: dt      =  0.001
+  integer   :: nt_max  = -1
+
+  namelist/time_integration_prm/ t_end, dt, nt_max
+
+  integer   :: time_method = 1  ! standalone integrator or predictor
+  integer   :: sdc_method  = 0  ! SDC method
+
+  namelist/time_integration_prm/ time_method, sdc_method
+
+  class(CL_TimeIntegrator_1D), allocatable :: cl_tint
+  type(CL_TimeIntegrator_Options_Euler_1D) :: cl_tint_euler_opt
+  type(CL_TimeIntegrator_Options_ISD1_1D)  :: cl_tint_isd1_opt
+  type(CL_TimeIntegrator_Options_ISD2_1D)  :: cl_tint_isd2_opt
+  type(CL_TimeIntegrator_Options_RK_1D)    :: cl_tint_rk_opt
+
+  namelist/time_integration_prm/ cl_tint_euler_opt, &
+                                 cl_tint_isd1_opt,  &
+                                 cl_tint_isd2_opt,  &
+                                 cl_tint_rk_opt
+
+
+  class(CL_SDC_Method_1D), allocatable :: cl_sdc
+  type(CL_SDC_Options_ISD1_1D) :: cl_sdc_isd1_opt
+
+  namelist/time_integration_prm/ cl_sdc_isd1_opt
+
+  ! declarations: variables ....................................................
+
+  real(RNP), dimension(:,:,:), allocatable :: u_0, u
+
+  ! declarations: auxiliary ....................................................
+
+  real(RNP), allocatable :: err(:), err_2(:)
+  real(RNP) :: t, t_run, t_run_0
+  real(RNP) :: tau_conv, tau_diff
   logical   :: exists
-  integer   :: prm
+  integer   :: io, nt, stat
+  integer   :: i, k
 
-  real(RNP) :: dt, t
-  integer   :: e, i, k, ou
+  ! initialization .............................................................
 
-  integer   :: time_method ! standalone or predictor method
-  integer   :: sdc_method  !                     SDC method
-  namelist /input/ time_method, sdc_method
+  ! greeting
+  write(*,'(/,A)') 'DG-SEM for 1D Conservation laws'
 
-
-  ! standalone time-integrator or predictor ...................................
-
-  class(CL_TimeIntegrator_1D), allocatable :: tint
-  type(CL_TimeIntegrator_Options_Euler_1D) :: tint_opt_eu    ! options for Euler
-  !type(CL_TimeIntegrator_Options_ISD_1D)   :: tint_opt_sd    ! options for ISD
-  type(CL_TimeIntegrator_Options_RK_1D)    :: tint_opt_rk    ! options for RK
-  type(CL_TimeIntegrator_Options_TVDRK_1D) :: tint_opt_tvdrk ! options for tvdrk
-  namelist /input/ tint_opt_eu, tint_opt_rk, tint_opt_tvdrk!, tint_opt_sd
-
-
-  ! SDC .......................................................................
-
-  class(CL_SDC_Method_1D), allocatable :: sdc
-  type(CL_SDC_Options_Euler_1D)        :: sdc_opt_eu ! options for Euler-based SDC
-  !type(CL_SDC_Options_ISD_1D)          :: sdc_opt_sd ! options for ISD-based SDC
-  type(CL_SDC_Options_RK_1D)           :: sdc_opt_rk ! options for RK-based SDC
-  type(CL_SDC_Options_TVDRK_1D)        :: sdc_opt_tvdrk ! options for TVDRK-based SDC
-  namelist /input/ sdc_opt_eu, sdc_opt_rk, sdc_opt_tvdrk!, sdc_opt_sd
-
-  character(len=80) :: input_file = 'time_integration'
-  integer           :: io
-
-  ! read options and parameters ................................................
-
-  input_file = trim(input_file) // '.prm'
-
-  open(newunit=io, file=input_file)
-  read(io, nml=input)
-  close(io)
-
-  ! initialize time-integration method .........................................
-
-  select case(sdc_method)
-  case(0) ! standalone time integrator
-    select case(time_method)
-    case(1)
-      tint = CL_TimeIntegrator_Euler_1D(tint_opt_eu)
-    case(2)
-      print *, ' '
-      print *, ' '
-      print *, 'Actually there is no usable implementation of ISD at the moment!'
-      stop
-!      tint = CL_TimeIntegrator_ISD_1D(tint_opt_sd)
-    case(3)
-      tint = CL_TimeIntegrator_RK_1D(tint_opt_rk)
-    case(4)
-      tint = CL_TimeIntegrator_TVDRK_1D(tint_opt_tvdrk)
-    case default
-      tint = CL_TimeIntegrator_RK_1D(tint_opt_rk)
-    end select
-
-  case(1) ! SDC based on Euler
-    select case(time_method)
-    case(1)
-      sdc = CL_SDC_Method_Euler_1D(tint_opt_eu, sdc_opt_eu)
-    case(2)
-        print *, ' '
-        print *, ' '
-        print *, 'Actually there is no usable implementation of ISD at the moment!'
-        stop
-  !    sdc = CL_SDC_Method_Euler_1D(tint_opt_sd, sdc_opt_eu)
-    case(3)
-      sdc = CL_SDC_Method_Euler_1D(tint_opt_rk, sdc_opt_eu)
-    case(4)
-      sdc = CL_SDC_Method_Euler_1D(tint_opt_tvdrk, sdc_opt_eu)
-    case default
-      sdc = CL_SDC_Method_Euler_1D(tint_opt_rk, sdc_opt_eu)
-    end select
-
-  case(2) ! SDC based on ISD
-    print *, ' '
-    print *, ' '
-    print *, 'Actually there is no usable implementation of SDC-ISD at the moment!'
-    stop
-    select case(time_method)
-      case(1)
-    !    sdc = CL_SDC_Method_ISD_1D(tint_opt_eu, sdc_opt_sd)
-      case(2)
-    !    sdc = CL_SDC_Method_ISD_1D(tint_opt_sd, sdc_opt_sd)
-      case(3)
-    !    sdc = CL_SDC_Method_ISD_1D(tint_opt_rk, sdc_opt_sd)
-    case(4)
-    !    sdc = CL_SDC_Method_ISD_1D(tint_opt_tvdrk, sdc_opt_sd)
-    case default
-    !    sdc = CL_SDC_Method_ISD_1D(tint_opt_rk, sdc_opt_sd)
-    end select
-
-  case(3) ! SDC based on RK
-    select case(time_method)
-    case(1)
-      sdc = CL_SDC_Method_RK_1D(tint_opt_eu, sdc_opt_rk)
-    case(2)
-        print *, ' '
-        print *, ' '
-        print *, 'Actually there is no usable implementation of ISD at the moment!'
-        stop
-    case(3)
-      sdc = CL_SDC_Method_RK_1D(tint_opt_rk, sdc_opt_rk)
-    case(4)
-      sdc = CL_SDC_Method_RK_1D(tint_opt_tvdrk, sdc_opt_rk)
-    case default
-      sdc = CL_SDC_Method_RK_1D(tint_opt_rk, sdc_opt_rk)
-  end select
-
-  case(4) ! SDC based on TVDRK
-    select case(time_method)
-    case(1)
-      sdc = CL_SDC_Method_TVDRK_1D(tint_opt_eu, sdc_opt_tvdrk)
-    case(2)
-        print *, ' '
-        print *, ' '
-        print *, 'Actually there is no usable implementation of ISD at the moment!'
-        stop
-    !  sdc = CL_SDC_Method_TVDRK_1D(tint_opt_sd, sdc_opt_tvdrk)
-    case(3)
-      sdc = CL_SDC_Method_TVDRK_1D(tint_opt_rk, sdc_opt_tvdrk)
-    case(4)
-      sdc = CL_SDC_Method_TVDRK_1D(tint_opt_tvdrk, sdc_opt_tvdrk)
-    case default
-      sdc = CL_SDC_Method_TVDRK_1D(tint_opt_rk, sdc_opt_tvdrk)
-    end select
-
-  case default ! SDC based on Runge-Kutta
-    select case(time_method)
-    case(1)
-      sdc = CL_SDC_Method_RK_1D(tint_opt_eu, sdc_opt_rk)
-    case(2)
-      print *, ' '
-      print *, ' '
-      print *, 'Actually there is no usable implementation of ISD at the moment!'
-      stop
-    !  sdc = CL_SDC_Method_RK_1D(tint_opt_sd, sdc_opt_rk)
-    case(3)
-      sdc = CL_SDC_Method_RK_1D(tint_opt_rk, sdc_opt_rk)
-    case(4)
-      sdc = CL_SDC_Method_RK_1D(tint_opt_tvdrk, sdc_opt_rk)
-    case default
-      sdc = CL_SDC_Method_RK_1D(tint_opt_rk, sdc_opt_rk)
-    end select
-
-  end select
-
-  ! show settings ..............................................................
-  select case(sdc_method)
-  case(0)
-    call tint % Show()
-  case default
-    call sdc  % Show()
-  end select
-
-  ! read options and parameters ................................................
-  inquire(file='conservation_law.prm', exist=exists)
-  if (exists) then
-    open(newunit=prm, file='conservation_law.prm', action='READ')
-    read(prm, nml=discretization_prm)
-    close(prm)
+  ! identify case
+  call get_command_argument(1, case_name, status=stat)
+  if (stat /= 0 .or. len_trim(case_name) == 0) then
+    call get_command_argument(0, case_name, status=stat)
   end if
 
-  dg_opt = DG_ElementOptions_1D( po         =  po        &
-                               , penalty    =  penalty   &
-                               , hybrid     = .true.     &
-                               , svv        = .false.    )
+  case_file = trim(case_name) // '.prm'
+  inquire(file=case_file, exist=exists)
+  if (exists) then
+    open(newunit=io, file=case_file)
+    read(io, nml = problem_prm)
+    read(io, nml = space_discretization_prm)
+    read(io, nml = time_integration_prm)
+    close(io)
+  end if
 
-  allocate(CL_Problem_Scalar_Burgers_BreakingWave_1D :: problem)
-  call problem % SetProblem('cl__problem__scalar__burgers__breaking_wave__1d')
-  call problem % SetSpaceDiscretization(dg_opt, schwarz_opt, ne)
-  allocate(u(0:po, ne, problem%nc))
-  u(0:,:,:) = problem % InitialValues()
-  dt = cfl * problem%dx / po**2
+  nt = nint(t_end / dt)
+  if (nt_max > 0) then
+    nt = min(nt, nt_max)
+  end if
 
-  k = 1
-  t = 0
+  ! problem
+  select case(problem_name)
+  case('convection_diffusion__wave_package')
+    write(*,'(A)') 'Initializing Convection-Diffusion Wave Package problem'
+    allocate(CL_Problem_ConvectionDiffusion_WavePackage_1D :: cl_problem)
+  case('burgers__wave_package')
+    write(*,'(A)') 'Initializing Burgers Wave Package problem'
+    allocate(CL_Problem_Burgers_WavePackage_1D :: cl_problem)
+  case('burgers__moving_front')
+    write(*,'(A)') 'Initializing Burgers Moving Front problem'
+    allocate(CL_Problem_Burgers_MovingFront_1D :: cl_problem)
+  case default
+    call Error('Conservation_Law', 'Invalid problem name')
+  end select
+  call cl_problem % SetProblem(case_name)
 
-  call cpu_time(start) ! time measurement
+  ! operators
+  cl_operator_opt % nc  = cl_problem % nc
+  cl_operator_opt % xb1 = cl_problem % xb1
+  cl_operator_opt % xb2 = cl_problem % xb2
+  cl_operator = CL_Operator_1D(cl_operator_opt)
 
-  do
-    select case(sdc_method)
-    case(0)      ! standalone time-integrator
-      call tint % TimeStep(problem, t, dt, u)
-      t  = t + dt
-    case default ! SDC method
-      call sdc % TimeStep(problem, t, dt, u)
-      t  = t + dt
+  ! time integration
+  select case(sdc_method)
+
+  ! case(1)
+    ! SDC based on Euler -- not implemented yet
+
+  case(2)
+
+    ! SDC based on ISD1
+    select case(time_method)
+    case(1)
+      cl_sdc = CL_SDC_Method_ISD1_1D(cl_tint_euler_opt, cl_sdc_isd1_opt)
+    case(2)
+      cl_sdc = CL_SDC_Method_ISD1_1D(cl_tint_isd1_opt, cl_sdc_isd1_opt)
+    case(3)
+      cl_sdc = CL_SDC_Method_ISD1_1D(cl_tint_isd2_opt, cl_sdc_isd1_opt)
+    case(4)
+      cl_sdc = CL_SDC_Method_ISD1_1D(cl_tint_rk_opt, cl_sdc_isd1_opt)
     end select
+
+  case default
+
+    ! standalone integrator
+    select case(time_method)
+    case(1)
+      cl_tint = CL_TimeIntegrator_Euler_1D(cl_tint_euler_opt)
+    case(2)
+      cl_tint = CL_TimeIntegrator_ISD1_1D(cl_tint_isd1_opt)
+    case(3)
+      cl_tint = CL_TimeIntegrator_ISD2_1D(cl_tint_isd2_opt)
+    case(4)
+      cl_tint = CL_TimeIntegrator_RK_1D(cl_tint_rk_opt)
+    end select
+  end select
+
+  ! show settings
+  if (sdc_method > 0) then
+    call cl_sdc % Show()
+  else
+    call cl_tint % Show()
+  end if
+
+  ! variables
+  allocate(u(0:cl_operator%eop%po, cl_operator%ne, cl_problem%nc))
+  allocate(u_0, mold = u)
+
+  ! initial values
+  call cl_problem % GetInitialValues(cl_operator, u)
+  call SetArray(u_0, u)
+
+  ! time integration ...........................................................
+
+  write(*,*)
+  write(*,'(A)') 'Time integration'
+  write(*,'(A)') repeat('=',80)
+  write(*,*)
+
+  ! CFL and diffusion numbers
+  call cl_problem % GetTimeScales(cl_operator, u, tau_conv, tau_diff)
+  if (tau_conv > 0) then
+    write(*,'(2X,A,ES12.5)') 'c_conv =', dt / tau_conv
+  end if
+  if (tau_conv > 0) then
+    write(*,'(2X,A,ES12.5)') 'c_diff =', dt / tau_diff
+  end if
+  write(*,*)
+
+  t = 0
+  k = 1
+
+  call cpu_time(t_run_0)
+
+  do i = 1, nt
+
+    if (sdc_method > 0) then
+      call cl_sdc % TimeStep(cl_problem, cl_operator, dt, t, u_0, u)
+    else
+      call cl_tint % TimeStep(cl_problem, cl_operator, dt, t, u_0, u)
+    end if
+    call SetArray(u_0, u)
+    t = t + dt
 
     if (10 * t >= k * t_end) then
-      print '(2X,I3,"%")', 10*k
+      write(*,'(2X,I3,"%")') 10*k
       k = k + 1
     end if
-    if (t >= t_end) exit
+
   end do
 
-  if(isnan(maxval(abs(u)))) then   ! check if component is nan
-    print*, ""
-    print*, ""
-    print *, "         Solution exploding!"
-    stop
-  end if
+  call cpu_time(t_run)
 
-  call cpu_time(finish) ! just for time-measurement
-  print*, ""
-  print*, ""
-  print '("         Integration time = ",f20.3," seconds.")',finish-start
-  print*, ""
-  print*, ""
+  ! evaluation and output of results ...........................................
 
-  ! save results
-  open(newunit=ou, file='conservation_law.dat')
-  write(ou,'(A)') '# x, u'
-  do k = 1, ne
-  do i = 0, po
-    write(ou,'(10(ES17.10,1X))') problem % x(i,k), u(i,k,:)
-  end do
-  end do
-  close(ou)
+  associate( nc => cl_problem  % nc        &
+           , ne => cl_operator % ne        &
+           , po => cl_operator % eop % po  &
+           , Me => cl_operator % Me        )
+
+    if (cl_problem % HasExactSolution()) then
+      call cl_problem % GetExactSolution(cl_operator, t, u_0)
+    else
+      u_0 = u + 1
+    end if
+
+    allocate(err  (nc), source = ZERO)
+    allocate(err_2(nc), source = ZERO)
+
+    open(newunit=io, file=trim(case_name)//'.dat')
+
+    write(io,'(A)') '# x, u, u_ex, err'
+    do k = 1, ne
+    do i = 0, po
+      err   = u(i,k,:) - u_0(i,k,:)
+      err_2 = err_2 + Me(i) * err**2
+      write(io,'(99(ES17.10,1X))') cl_operator % x(i,k), u(i,k,:), u_0(i,k,:), err
+    end do
+    end do
+    close(io)
+
+    write(*,*)
+    write(*,'(2X,A,99(ES12.5,1X))') 't_run  =', t_run  - t_run_0
+    if (cl_problem % HasExactSolution()) then
+      write(*,'(2X,A,99(ES12.5,1X))') 'err_2  =', sqrt(err_2)
+    end if
+
+  end associate
+
+  !=============================================================================
 
 end program Conservation_Law
