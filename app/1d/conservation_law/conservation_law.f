@@ -3,14 +3,22 @@ program Conservation_Law
   use Kind_Parameters
   use Constants
   use Array_Assignments
+  use Execution_Control
 
   use CL__Operator__1D
   use CL__Problem__1D
+  use CL__Problem__Convection_Diffusion__Wave_Package__1D
+  use CL__Problem__Burgers__Wave_Package__1D
   use CL__Problem__Burgers__Moving_Front__1D
 
   use CL__Time_Integrator__1D
   use CL__Time_Integrator__Euler__1D
   use CL__Time_Integrator__ISD1__1D
+  use CL__Time_Integrator__ISD2__1D
+  use CL__Time_Integrator__RK__1D
+
+  use CL__SDC__Method__1D
+  use CL__SDC__Method__ISD1__1D
 
   implicit none
 
@@ -23,29 +31,50 @@ program Conservation_Law
 
   class(CL_Problem_1D), allocatable :: cl_problem
 
+  character(len=80) :: problem_name = ''
+  ! available problems, so far:
+  !   - 'convection_diffusion__wave_package'
+  !   - 'burgers__wave_package'
+  !   - 'burgers__moving_front'
+
+  namelist/problem_prm/ problem_name
+
   ! declarations: space discretization .........................................
 
-  type(CL_Operator_1D)        :: cl_operator
-  type(CL_OperatorOptions_1D) :: cl_operator_opt
+  type(CL_Operator_1D)         :: cl_operator
+  type(CL_Operator_Options_1D) :: cl_operator_opt
 
   namelist/space_discretization_prm/ cl_operator_opt
 
   ! declarations: time integration .............................................
 
-  integer   :: time_method = 1
-
   real(RNP) :: t_end   =  0.1
   real(RNP) :: dt      =  0.001
   integer   :: nt_max  = -1
 
-  namelist/time_integration_prm/ time_method, t_end, dt, nt_max
+  namelist/time_integration_prm/ t_end, dt, nt_max
+
+  integer   :: time_method = 1  ! standalone integrator or predictor
+  integer   :: sdc_method  = 0  ! SDC method
+
+  namelist/time_integration_prm/ time_method, sdc_method
 
   class(CL_TimeIntegrator_1D), allocatable :: cl_tint
   type(CL_TimeIntegrator_Options_Euler_1D) :: cl_tint_euler_opt
   type(CL_TimeIntegrator_Options_ISD1_1D)  :: cl_tint_isd1_opt
+  type(CL_TimeIntegrator_Options_ISD2_1D)  :: cl_tint_isd2_opt
+  type(CL_TimeIntegrator_Options_RK_1D)    :: cl_tint_rk_opt
 
   namelist/time_integration_prm/ cl_tint_euler_opt, &
-                                 cl_tint_isd1_opt
+                                 cl_tint_isd1_opt,  &
+                                 cl_tint_isd2_opt,  &
+                                 cl_tint_rk_opt
+
+
+  class(CL_SDC_Method_1D), allocatable :: cl_sdc
+  type(CL_SDC_Options_ISD1_1D) :: cl_sdc_isd1_opt
+
+  namelist/time_integration_prm/ cl_sdc_isd1_opt
 
   ! declarations: variables ....................................................
 
@@ -53,9 +82,11 @@ program Conservation_Law
 
   ! declarations: auxiliary ....................................................
 
+  real(RNP), allocatable :: err(:), err_2(:)
   real(RNP) :: t, t_run, t_run_0
+  real(RNP) :: tau_conv, tau_diff
   logical   :: exists
-  integer   :: io, nt
+  integer   :: io, nt, stat
   integer   :: i, k
 
   ! initialization .............................................................
@@ -63,11 +94,17 @@ program Conservation_Law
   ! greeting
   write(*,'(/,A)') 'DG-SEM for 1D Conservation laws'
 
-  ! load parameters
+  ! identify case
+  call get_command_argument(1, case_name, status=stat)
+  if (stat /= 0 .or. len_trim(case_name) == 0) then
+    call get_command_argument(0, case_name, status=stat)
+  end if
+
   case_file = trim(case_name) // '.prm'
   inquire(file=case_file, exist=exists)
   if (exists) then
     open(newunit=io, file=case_file)
+    read(io, nml = problem_prm)
     read(io, nml = space_discretization_prm)
     read(io, nml = time_integration_prm)
     close(io)
@@ -78,8 +115,20 @@ program Conservation_Law
     nt = min(nt, nt_max)
   end if
 
-  ! problem (only one, so far)
-  allocate(CL_Problem_Burgers_MovingFront_1D :: cl_problem)
+  ! problem
+  select case(problem_name)
+  case('convection_diffusion__wave_package')
+    write(*,'(A)') 'Initializing Convection-Diffusion Wave Package problem'
+    allocate(CL_Problem_ConvectionDiffusion_WavePackage_1D :: cl_problem)
+  case('burgers__wave_package')
+    write(*,'(A)') 'Initializing Burgers Wave Package problem'
+    allocate(CL_Problem_Burgers_WavePackage_1D :: cl_problem)
+  case('burgers__moving_front')
+    write(*,'(A)') 'Initializing Burgers Moving Front problem'
+    allocate(CL_Problem_Burgers_MovingFront_1D :: cl_problem)
+  case default
+    call Error('Conservation_Law', 'Invalid problem name')
+  end select
   call cl_problem % SetProblem(case_name)
 
   ! operators
@@ -89,14 +138,46 @@ program Conservation_Law
   cl_operator = CL_Operator_1D(cl_operator_opt)
 
   ! time integration
-  select case(time_method)
-  case(1)
-    cl_tint = CL_TimeIntegrator_Euler_1D(cl_tint_euler_opt)
+  select case(sdc_method)
+
+  ! case(1)
+    ! SDC based on Euler -- not implemented yet
+
   case(2)
-    cl_tint = CL_TimeIntegrator_ISD1_1D(cl_tint_isd1_opt)
+
+    ! SDC based on ISD1
+    select case(time_method)
+    case(1)
+      cl_sdc = CL_SDC_Method_ISD1_1D(cl_tint_euler_opt, cl_sdc_isd1_opt)
+    case(2)
+      cl_sdc = CL_SDC_Method_ISD1_1D(cl_tint_isd1_opt, cl_sdc_isd1_opt)
+    case(3)
+      cl_sdc = CL_SDC_Method_ISD1_1D(cl_tint_isd2_opt, cl_sdc_isd1_opt)
+    case(4)
+      cl_sdc = CL_SDC_Method_ISD1_1D(cl_tint_rk_opt, cl_sdc_isd1_opt)
+    end select
+
+  case default
+
+    ! standalone integrator
+    select case(time_method)
+    case(1)
+      cl_tint = CL_TimeIntegrator_Euler_1D(cl_tint_euler_opt)
+    case(2)
+      cl_tint = CL_TimeIntegrator_ISD1_1D(cl_tint_isd1_opt)
+    case(3)
+      cl_tint = CL_TimeIntegrator_ISD2_1D(cl_tint_isd2_opt)
+    case(4)
+      cl_tint = CL_TimeIntegrator_RK_1D(cl_tint_rk_opt)
+    end select
   end select
 
-  ! show settings: TBD
+  ! show settings
+  if (sdc_method > 0) then
+    call cl_sdc % Show()
+  else
+    call cl_tint % Show()
+  end if
 
   ! variables
   allocate(u(0:cl_operator%eop%po, cl_operator%ne, cl_problem%nc))
@@ -108,15 +189,33 @@ program Conservation_Law
 
   ! time integration ...........................................................
 
+  write(*,*)
+  write(*,'(A)') 'Time integration'
+  write(*,'(A)') repeat('=',80)
+  write(*,*)
+
+  ! CFL and diffusion numbers
+  call cl_problem % GetTimeScales(cl_operator, u, tau_conv, tau_diff)
+  if (tau_conv > 0) then
+    write(*,'(2X,A,ES12.5)') 'c_conv =', dt / tau_conv
+  end if
+  if (tau_conv > 0) then
+    write(*,'(2X,A,ES12.5)') 'c_diff =', dt / tau_diff
+  end if
+  write(*,*)
+
   t = 0
   k = 1
-  write(*,*)
 
   call cpu_time(t_run_0)
 
   do i = 1, nt
 
-    call cl_tint % TimeStep(cl_problem, cl_operator, dt, t, u_0, u)
+    if (sdc_method > 0) then
+      call cl_sdc % TimeStep(cl_problem, cl_operator, dt, t, u_0, u)
+    else
+      call cl_tint % TimeStep(cl_problem, cl_operator, dt, t, u_0, u)
+    end if
     call SetArray(u_0, u)
     t = t + dt
 
@@ -129,17 +228,41 @@ program Conservation_Law
 
   call cpu_time(t_run)
 
-  write(*,'(/,A,ES12.5)') 't_run =', t_run  - t_run_0
+  ! evaluation and output of results ...........................................
 
-  ! save results
-  open(newunit=io, file=trim(case_name)//'.dat')
-  write(io,'(A)') '# x, u'
-  do k = 1, cl_operator % ne
-  do i = 0, cl_operator % eop % po
-    write(io,'(99(ES17.10,1X))') cl_operator % x(i,k), u(i,k,:)
-  end do
-  end do
-  close(io)
+  associate( nc => cl_problem  % nc        &
+           , ne => cl_operator % ne        &
+           , po => cl_operator % eop % po  &
+           , Me => cl_operator % Me        )
+
+    if (cl_problem % HasExactSolution()) then
+      call cl_problem % GetExactSolution(cl_operator, t, u_0)
+    else
+      u_0 = u + 1
+    end if
+
+    allocate(err  (nc), source = ZERO)
+    allocate(err_2(nc), source = ZERO)
+
+    open(newunit=io, file=trim(case_name)//'.dat')
+
+    write(io,'(A)') '# x, u, u_ex, err'
+    do k = 1, ne
+    do i = 0, po
+      err   = u(i,k,:) - u_0(i,k,:)
+      err_2 = err_2 + Me(i) * err**2
+      write(io,'(99(ES17.10,1X))') cl_operator % x(i,k), u(i,k,:), u_0(i,k,:), err
+    end do
+    end do
+    close(io)
+
+    write(*,*)
+    write(*,'(2X,A,99(ES12.5,1X))') 't_run  =', t_run  - t_run_0
+    if (cl_problem % HasExactSolution()) then
+      write(*,'(2X,A,99(ES12.5,1X))') 'err_2  =', sqrt(err_2)
+    end if
+
+  end associate
 
   !=============================================================================
 

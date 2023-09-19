@@ -1,13 +1,10 @@
-!> summary:  Base class for Burgers problems
-!> author:   Joerg Stiller
-!> date:     2023/05/01
+!> summary:  Base class for convection-diffusion problems
+!> author:   Robin Fraenzel, Joerg Stiller
+!> date:     2023/09/01
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!> @todo
-!>   Consistent approach to filtering of streamline-diffusivity
 !===============================================================================
 
-module CL__Problem__Burgers__1D
+module CL__Problem__Convection_Diffusion__1D
 
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, HALF
@@ -18,21 +15,23 @@ module CL__Problem__Burgers__1D
   implicit none
   private
 
-  public :: CL_Problem_Burgers_1D
+  public :: CL_Problem_ConvectionDiffusion_1D
 
   !-----------------------------------------------------------------------------
-  !> Type for defining and handling 1D Burgers problems
+  !> Type for defining and handling 1D convection-diffusion problems
   !>
-  !>       ∂u/∂t + ∂(u²/2)/∂x = ν∂²u/∂x² + f_s(x,t)
+  !>     ∂u/∂t + v ∂u/∂x = nu ∂²u/∂x² + f_s(x,t)
   !>
-  !> with constant diffusivity ν. Available boundary conditions are
+  !> with constant velocity v and diffusivity ν. Available boundary conditions
+  !> are
   !>
   !>   - Dirichlet with `bc = 'D'` and `bv = u`
   !>   - Neumann   with `bc = 'N'` and `bv = ∂u/∂x`
   !>   - Periodic  with `bc = 'P'`
 
-  type, abstract, extends(CL_Problem_1D) :: CL_Problem_Burgers_1D
+  type, abstract, extends(CL_Problem_1D) :: CL_Problem_ConvectionDiffusion_1D
 
+    real(RNP) :: v  = 1  !< velocity
     real(RNP) :: nu = 0  !< viscosity
 
   contains
@@ -44,7 +43,7 @@ module CL__Problem__Burgers__1D
     procedure :: GetMaxVelocity
     procedure :: GetMaxDiffusivity
 
-  end type CL_Problem_Burgers_1D
+  end type CL_Problem_ConvectionDiffusion_1D
 
   !=============================================================================
 
@@ -54,7 +53,7 @@ contains
   !> Convective contribution to RHS of DG-SEM formulation
 
   subroutine GetConvectionTerm(this, cl_operator, bv, u, r_c)
-    class(CL_Problem_Burgers_1D), intent(in)  :: this
+    class(CL_Problem_ConvectionDiffusion_1D), intent(in)  :: this
     class(CL_Operator_1D),        intent(in)  :: cl_operator
     real(RNP),                    intent(in)  :: bv (:,:)
     real(RNP), contiguous,        intent(in)  :: u  (0:,:,:)
@@ -108,7 +107,7 @@ contains
           else
             u_q = u(:,e,1)
           end if
-          f_q = ConvectiveFlux(u_q)
+          f_q = ConvectiveFlux(this%v, u_q)
 
           ! apply mass-weighted transposed diff-matrix
           r_c(:,e,1) = matmul(MD_t, f_q)
@@ -139,13 +138,14 @@ contains
   end subroutine GetConvectionTerm
 
   !-----------------------------------------------------------------------------
-  !> Convective flux fc(u)
+  !> Convective flux fc(v,u)
 
-  elemental function ConvectiveFlux(u) result(f_c)
+  elemental function ConvectiveFlux(v, u) result(f_c)
+    real(RNP), intent(in) :: v
     real(RNP), intent(in) :: u
     real(RNP) :: f_c
 
-    f_c = HALF * u ** 2
+    f_c = v * u
 
   end function ConvectiveFlux
 
@@ -153,7 +153,7 @@ contains
   !> Get numerical convective flux
 
   subroutine GetNumericalConvectiveFlux(this, bv, u, h_c)
-    class(CL_Problem_Burgers_1D), intent(in)  :: this
+    class(CL_Problem_ConvectionDiffusion_1D), intent(in)  :: this
     real(RNP),                    intent(in)  :: bv(:,:)
     real(RNP), contiguous,        intent(in)  :: u(0:,:)
     real(RNP), contiguous,        intent(out) :: h_c(0:)
@@ -191,24 +191,23 @@ contains
       ur(ne) = u(po,ne)
     end select
 
-    h_c = RiemannFlux(ul, ur)
+    h_c = RiemannFlux(this % v, ul, ur)
 
   end subroutine GetNumericalConvectiveFlux
 
   !-----------------------------------------------------------------------------
   !> Numerical convective flux hc(ul,ur) based on Riemann solver
 
-  elemental function RiemannFlux(ul, ur) result(h_c)
+  elemental function RiemannFlux(v, ul, ur) result(h_c)
+    real(RNP), intent(in) :: v
     real(RNP), intent(in) :: ul
     real(RNP), intent(in) :: ur
     real(RNP) :: h_c
 
-    if (ul < ZERO .and. ur > ZERO) then
-      h_c = ZERO
-    else if (ul + ur > ZERO) then
-      h_c = HALF * ul ** 2
+    if (v >= ZERO) then
+      h_c = v * ul
     else
-      h_c = HALF * ur ** 2
+      h_c = v * ur
     end if
 
   end function RiemannFlux
@@ -217,7 +216,7 @@ contains
   !> Diffusive contribution to RHS of DG-SEM formulation
 
   subroutine GetDiffusionTerm(this, cl_operator, bv, u, r_d)
-    class(CL_Problem_Burgers_1D), intent(in)  :: this
+    class(CL_Problem_ConvectionDiffusion_1D), intent(in)  :: this
     class(CL_Operator_1D),        intent(in)  :: cl_operator
     real(RNP),                    intent(in)  :: bv (:,:)
     real(RNP), contiguous,        intent(in)  :: u  (0:,:,:)
@@ -259,7 +258,7 @@ contains
   !> Streamline-diffusion contribution to RHS of DG-SEM formulation
 
   subroutine GetSDTerm(this, cl_operator, tau, bv, u_0, u, r_sd)
-    class(CL_Problem_Burgers_1D), intent(in)  :: this
+    class(CL_Problem_ConvectionDiffusion_1D), intent(in)  :: this
     class(CL_Operator_1D),        intent(in)  :: cl_operator
     real(RNP),                    intent(in)  :: tau
     real(RNP),                    intent(in)  :: bv (:,:)
@@ -278,8 +277,7 @@ contains
       !$omp master
       allocate(mask(ne), source = cl_operator % activity > 0)
       allocate(f(0:po,ne), source = ZERO)
-      allocate(nu_sd(0:po,ne))
-      call GetStreamlineDiffusivity(this, tau, u_0(:,:,1), nu_sd)
+      allocate(nu_sd(0:po,ne), source = tau/2 * this%v**2)
 
       elliptic_bc = this % bc(:)(1:1)
       elliptic_bv = bv(1,:)
@@ -299,10 +297,13 @@ contains
 
     end associate
 
+    ! avoid compiler warning
+    if (size(u_0) > 0) return
+
   end subroutine GetSDTerm
 
   !---------------------------------------------------------------------------
-  !> Implicit diffusion solver for Burgers problems
+  !> Implicit diffusion solver for convection-diffusion problems
   !>
   !> Implicit method for solving or relaxing the diffusion subproblem
   !>
@@ -334,7 +335,7 @@ contains
 
   subroutine DiffusionSolver( this, cl_operator, dt, tau, bv, f, u_0, u &
                             , method, i_max, r_red, r_max               )
-    class(CL_Problem_Burgers_1D), intent(in) :: this
+    class(CL_Problem_ConvectionDiffusion_1D), intent(in) :: this
     class(CL_Operator_1D), intent(in)    :: cl_operator
     real(RNP),             intent(in)    :: dt          !< ∆t = t - t₀
     real(RNP),             intent(in)    :: tau         !< SD time scale τ
@@ -386,15 +387,13 @@ contains
 
       if (tau > ZERO) then
 
-        allocate(nu_tot(0:po,ne))
-        call GetStreamlineDiffusivity(this, tau, u_0(:,:,1), nu_tot)
-        nu_tot = nu_tot + this % nu
+        allocate(nu_tot(0:po,ne), source = this%nu + tau/2 * this%v**2)
 
         select case(method)
         case(1)
           call Error( 'DiffusionSolver'             &
                     , 'method 1 not suited for ISD' &
-                    , 'CL__Problem__Burgers__1D'    )
+                    , 'CL__Problem__Convection_Diffusion__1D'    )
         case(2)
           call elliptic_op % CG_Method &
                   ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, g, u(:,:,1) &
@@ -437,52 +436,24 @@ contains
 
     end associate
 
+    ! avoid compiler warning
+    if (size(u_0) > 0) return
+
   end subroutine DiffusionSolver
-
-  !---------------------------------------------------------------------------
-  !> Computation of streamline diffusivity
-
-  subroutine GetStreamlineDiffusivity(cl_problem, tau, u, nu_sd)
-    class(CL_Problem_Burgers_1D), intent(in) :: cl_problem
-    real(RNP),             intent(in)  :: tau         !< SD time scale τ
-    real(RNP), contiguous, intent(in)  :: u    (0:,:) !< approx solution u
-    real(RNP), contiguous, intent(out) :: nu_sd(0:,:) !< approx solution u
-
-    integer :: e
-
-    nu_sd = tau/2 * u**2
-
-    select case(cl_problem % nu_sd_filter)
-    case(1)
-      ! element maximum
-      do e = 1, size(nu_sd,2)
-        nu_sd(:,e) = maxval(nu_sd(:,e))
-      end do
-    end select
-
-  end subroutine GetStreamlineDiffusivity
 
   !-----------------------------------------------------------------------------
   !> Provides the maximum velocity based on eigenvalues of advective Jacobian
 
   subroutine GetMaxVelocity(this, cl_operator, u, v_max)
-    class(CL_Problem_Burgers_1D), intent(in)  :: this
+    class(CL_Problem_ConvectionDiffusion_1D), intent(in)  :: this
     class(CL_Operator_1D),        intent(in)  :: cl_operator
     real(RNP), contiguous,        intent(in)  :: u(0:,:,:) !< solution variable
     real(RNP),                    intent(out) :: v_max     !< maximum velocity
 
-    integer :: e
-
-    v_max = 0
-
-    do e = 1, cl_operator % ne
-      if (cl_operator % activity(e) > 0) then
-        v_max = max(v_max, maxval(abs(u(:,e,1))))
-      end if
-    end do
+    v_max = abs(this % v)
 
     ! avoid compiler warning
-    if (this % nc > 0) return
+    if (this % nc > 0 .or. cl_operator % ne > 0 .or. size(u) > 0) return
 
   end subroutine GetMaxVelocity
 
@@ -490,7 +461,7 @@ contains
   !> Provides the maximum diffusivity
 
   subroutine GetMaxDiffusivity(this, cl_operator, u, nu_max)
-    class(CL_Problem_Burgers_1D), intent(in)  :: this
+    class(CL_Problem_ConvectionDiffusion_1D), intent(in)  :: this
     class(CL_Operator_1D),        intent(in)  :: cl_operator
     real(RNP), contiguous,        intent(in)  :: u(0:,:,:) !< solution variable
     real(RNP),                    intent(out) :: nu_max     !< maximum velocity
@@ -504,5 +475,4 @@ contains
 
   !=============================================================================
 
-end module CL__Problem__Burgers__1D
-
+end module CL__Problem__Convection_Diffusion__1D

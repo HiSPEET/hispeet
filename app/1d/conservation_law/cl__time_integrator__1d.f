@@ -45,13 +45,13 @@ module CL__Time_Integrator__1D
 
     subroutine TimeStep(this, cl_problem, cl_operator, dt, t_0, u_0, u)
       import
-      class(CL_TimeIntegrator_1D), intent(inout) :: this
-      class(CL_Problem_1D),  intent(in) :: cl_problem
-      class(CL_Operator_1D), intent(in) :: cl_operator
-      real(RNP), intent(in)    :: dt          !< step size ∆t
-      real(RNP), intent(in)    :: t_0         !< initial time
-      real(RNP), intent(in)    :: u_0(0:,:,:) !< u(t₀)
-      real(RNP), intent(inout) :: u  (0:,:,:) !< u(t₀+∆t)
+      class(CL_TimeIntegrator_1D), intent(in) :: this
+      class(CL_Problem_1D),  intent(in)    :: cl_problem
+      class(CL_Operator_1D), intent(in)    :: cl_operator
+      real(RNP),             intent(in)    :: dt          !< step size ∆t
+      real(RNP),             intent(in)    :: t_0         !< initial time
+      real(RNP), contiguous, intent(in)    :: u_0(0:,:,:) !< u(t₀)
+      real(RNP), contiguous, intent(inout) :: u  (0:,:,:) !< u(t₀+∆t)
     end subroutine TimeStep
 
   end interface
@@ -119,9 +119,15 @@ contains
     write(io,'(/,A)') 'CL_TimeIntegrator_1D settings'
     write(io,'(A,/)') repeat('=',80)
 
-    write(io,'(2X,A,T15,G0)')  'name:', trim(this % name)
+    write(io,'(2X,2A)') 'name: ', trim(this % name)
 
-    ! append further settings in corresponding routines of derived types
+    write(io,'(/,A)') 'Solver'
+    write(io,'(A,/)') repeat('-',80)
+    write(io,'(2X,A,T22,I0)')     'impl:'             , this % impl
+    write(io,'(2X,A,T22,I0)')     'diffusion_method:' , this % diffusion_method
+    write(io,'(2X,A,T22,I0)')     'diffusion_i_max:'  , this % diffusion_i_max
+    write(io,'(2X,A,T21,ES12.5)') 'diffusion_r_red:'  , this % diffusion_r_red
+    write(io,'(2X,A,T21,ES12.5)') 'diffusion_r_max:'  , this % diffusion_r_max
 
   end subroutine Show_CL_TimeIntegrator_1D
 

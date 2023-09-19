@@ -1,4 +1,9 @@
 #===============================================================================
+# 1D
+
+set(SCALAR_1D scalar_1d/harmonic_wave_package.f)
+
+#===============================================================================
 # isp_flow
 
 file(GLOB ISP_FLOW isp_flow/*.f)
@@ -6,7 +11,9 @@ file(GLOB ISP_FLOW isp_flow/*.f)
 #===============================================================================
 # physics library
 
-list(APPEND PHYSICS_SRC ${ISP_FLOW})
+set(PHYSICS_SRC ${SCALAR_1D}
+                ${ISP_FLOW}
+                )
 
 add_library(HiPhysics ${PHYSICS_SRC})
 

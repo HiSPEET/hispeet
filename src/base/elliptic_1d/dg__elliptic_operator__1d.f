@@ -25,11 +25,11 @@ module DG__Elliptic_Operator__1D
   !> The following table lists the supported boundary conditions along with
   !> the corresponding type specifiers `bc` and boundary values `bv`.
   !>
-  !>   | name      | `bc`  | `bv`         |
-  !>   | :-------- | ----- | :----------- |
-  !>   | Dirichlet | `'D'` |  u           |
-  !>   | Neumann   | `'N'` |  q = ν ∂u/∂x |
-  !>   | Periodic  | `'P'` |  -           |
+  !>   | name      | `bc`  | `bv`   |
+  !>   | :-------- | ----- | :----- |
+  !>   | Dirichlet | `'D'` |  u     |
+  !>   | Neumann   | `'N'` |  ∂u/∂x |
+  !>   | Periodic  | `'P'` |  -     |
   !>
   !> With Neumann conditions, the diffusive flux in x direction has to be given
   !> and not the normal flux.
@@ -312,10 +312,7 @@ contains
   !>
   !> Boundary conditions and values
   !>   - Dirichlet:  `bc = 'D',  bv = u`
-  !>   - Neumann:    `bc = 'N',  bv = q = ν∂u/∂x`
-  !>
-  !> Note that the flux `q` is aligned with the x-direction and not with the
-  !> normal!
+  !>   - Neumann:    `bc = 'N',  bv = ∂u/∂x`
 
   subroutine Residual_RC(this, bc, bv, dx, lambda, nu, f, u, r, mask)
     class(DG_EllipticOperator_1D), intent(in)  :: this
@@ -351,7 +348,7 @@ contains
   !>
   !> Boundary conditions and values
   !>   - Dirichlet:  `bc = 'D',  bv = u`
-  !>   - Neumann:    `bc = 'N',  bv = q = ν∂u/∂x`
+  !>   - Neumann:    `bc = 'N',  bv = ∂u/∂x`
   !>
   !> Note that the flux `q` is aligned with the x-direction and not with the
   !> normal!
