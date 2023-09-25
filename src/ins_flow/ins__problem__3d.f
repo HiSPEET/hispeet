@@ -177,7 +177,9 @@ contains
         select case(bc_v(b))
         case('D') ! Dirichlet conditions for velocity
           bc_p(b) = 'N'
-        case('P') ! periodic conditions for velocity
+        case('O') ! Outflow conditions
+          bc_p(b) = 'D'
+        case('P') ! periodic conditions
           bc_p(b) = 'P'
         case default
           call Error('GetPressureBC', 'invalid velocity BC', 'INS__Problem__3D')

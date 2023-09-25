@@ -313,7 +313,7 @@ program INS_Operator_3D_Test
     ! boundary values
     allocate(bv_u(mesh % n_bound))
     do i = 1, mesh % n_bound
-      call bv_u(i) % Init(mesh % boundary(i), po, nc = 4)
+      call bv_u(i) % Create(mesh % boundary(i), po, nc = 4)
       call bv_u(i) % Extract(u)
     end do
 

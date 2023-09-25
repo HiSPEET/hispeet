@@ -189,10 +189,10 @@ contains
         allocate(bv_p(mesh % n_bound))
 
         do b = 1, mesh % n_bound
-          call bv_u(b) % Init(mesh % boundary(b), po, nc = 4)
+          call bv_u(b) % Create(mesh % boundary(b), po, nc = 4)
           call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v(b))
           call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p(b))
-          call bv_x(b) % Init(mesh % boundary(b), po, nc = 3)
+          call bv_x(b) % Create(mesh % boundary(b), po, nc = 3)
           call bv_x(b) % Extract(sem_v % metrics % x)
         end do
 
@@ -229,12 +229,19 @@ contains
       else
         associate(v => u(:,:,:,:,1:3), p => u(:,:,:,:,4))
 
-          ! boundary conditions
+          ! fetch required boundary values
           do b = 1, mesh % n_bound
-            call problem % GetBoundaryValues(b, bv_x(b) % val, t_i, bv_u(b) % val)
+            select case(problem % bc_v(b))
+            case('D')
+              call problem % GetBoundaryValues(b, bv_x(b)%val, t_i, bv_u(b)%val)
+            case('O')
+              call bv_u(b) % Extract(u)
+            end select
           end do
-          call GetBoundaryTraces_3D(mesh, v, vp)       ! vp = v⁻ on ∂Ω
-          call ins_op % ApplyVelocityBC(bv_v, vp, sp)  ! vp = v⁺ on ∂Ω, ...
+
+          ! initialize boundary traces
+          call GetBoundaryTraces_3D(mesh, v, vp)      ! vp = v⁻            on ∂Ω
+          call ins_op % ApplyVelocityBC(vp, sp, bv_u) ! vp = v⁺, sp = s_b  on ∂Ω
 
           ! source term
           call problem % GetExternalSources( sem_v % metrics % x, t_i &

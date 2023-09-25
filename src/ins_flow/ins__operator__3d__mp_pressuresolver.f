@@ -30,7 +30,7 @@ contains
     real(RNP), contiguous, intent(in)    :: f(:,:,:,:)   !< source at v-points
 
     class(BoundaryVariable_3D), intent(inout) :: bv_p(:)
-    !< pressure boundary values at p-points
+    !< pressure boundary conditions at v-points
 
     real(RNP), contiguous, intent(inout) :: p(:,:,:,:) !< pressure at v-points
 
@@ -46,10 +46,10 @@ contains
     real(RNP), allocatable, save :: q (:,:,:,:) ! pressure at p-points
 
     type(BoundaryVariable_3D), allocatable, save :: bv_q(:)
-    ! pressure boundary values at p-points
+    ! pressure boundary conditions at p-points
 
     logical   :: mixed_order
-    real(RNP) :: cs
+    real(RNP) :: ct
     integer   :: b, e
 
     associate( po          => this % eop_v % po  &
@@ -62,7 +62,7 @@ contains
       ! initialization .........................................................
 
       mixed_order = pq /= po
-      cs = 1 / tau
+      ct = 1 / tau
 
       !$omp master
       allocate(mm(0:pq, 0:pq, 0:pq, 1:mesh%n_elem))
@@ -71,7 +71,7 @@ contains
         allocate(q, mold = mm)
         allocate(bv_q(mesh % n_bound))
         do b = 1, mesh % n_bound
-          call bv_q(b) % Init(mesh%boundary(b), pq, nc=1)
+          call bv_q(b) % Create(mesh%boundary(b), pq, nc=1)
         end do
       end if
       !$omp end master
@@ -81,7 +81,7 @@ contains
 
       ! build pressure BC ......................................................
 
-      call BuildPressureBC(this, cs, v, bv_v, bv_p, bv_q)
+      call BuildPressureBC(this, ct, v, bv_v, bv_p, bv_q)
 
       ! solve ..................................................................
 
@@ -92,7 +92,7 @@ contains
         ! apply mass matrix and time scale to source
         !$omp do
         do e = 1, mesh % n_elem
-          g(:,:,:,e) = -cs * mm(:,:,:,e) * g(:,:,:,e)
+          g(:,:,:,e) = -ct * mm(:,:,:,e) * g(:,:,:,e)
         end do
         ! apply Schwarz-PCG with λ=0 and ν=1
 !### CHECK
@@ -109,7 +109,7 @@ contains
         ! apply mass matrix and time scale to source
         !$omp do
         do e = 1, mesh % n_elem
-          g(:,:,:,e) = -cs * mm(:,:,:,e) * f(:,:,:,e)
+          g(:,:,:,e) = -ct * mm(:,:,:,e) * f(:,:,:,e)
         end do
         ! apply Schwarz-PCG with λ=0 and ν=1
         call laplacian_p % SchwarzPCG_Method( ZERO, ONE, p, g, bv_p   &
@@ -132,28 +132,29 @@ contains
   !-----------------------------------------------------------------------------
   !> Build pressure boundary conditions
 
-  subroutine BuildPressureBC(ins_op, cs, v, bv_v, bv_p, bv_q)
+  subroutine BuildPressureBC(ins_op, ct, v, bv_v, bv_p, bv_q)
     class(INS_Operator_3D), intent(in) :: ins_op
     !< time integration method
-    real(RNP), intent(in) :: cs
-    !< scaling factor, usually ~ 1/dt
+    real(RNP), intent(in) :: ct
+    !< temporal scaling factor, usually ~ 1/dt
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< preliminary velocity
     class(BoundaryVariable_3D), intent(in) :: bv_v(:)
     !< velocity boundary values
     class(BoundaryVariable_3D), intent(inout) :: bv_p(:)
-    !< pressure boundary values on v-points
+    !< pressure boundary conditions on v-points
     class(BoundaryVariable_3D), optional, intent(inout) :: bv_q(:)
-    !< pressure boundary values on p-points
+    !< pressure boundary conditions on p-points
 
-    real(RNP), contiguous, pointer :: vb(:,:,:,:), hp(:,:,:), hq(:,:,:)
+    real(RNP), contiguous, pointer :: vb(:,:,:,:), pb(:,:,:), qb(:,:,:)
     integer :: b
 
     associate( boundary => ins_op % mesh % boundary     &
              , A        => ins_op % iop_vp % A          &
-             , n        => ins_op % sem_v % metrics % n )
+             , n        => ins_op % sem_v % metrics % n &
+             , delta    => ins_op % delta_outflow       )
 
-      nullify(hq)
+      nullify(qb)
 
       do b = 1, ins_op % mesh % n_bound
 
@@ -162,17 +163,23 @@ contains
         case('N')
 
           vb => bv_v(b) % val(:,:,:,1:3)
-          hp => bv_p(b) % val(:,:,:,1)
+          pb => bv_p(b) % val(:,:,:,1)
 
           if (present(bv_q)) then
-            hq => bv_q(b) % val(:,:,:,1)
+            qb => bv_q(b) % val(:,:,:,1)
+          else
+            qb => null()
           end if
 
           if (ins_op % mesh % regular) then
-            call PressureBC_NormalVelocity_R(boundary(b), cs, A, v, vb, hp, hq)
+            call BuildNeumannBC_R(boundary(b), ct, A, v, vb, pb, qb)
           else
-            call PressureBC_NormalVelocity_D(boundary(b), cs, A, n, v, vb, hp, hq)
+            call BuildNeumannBC_D(boundary(b), ct, A, n, v, vb, pb, qb)
           end if
+
+        case('D')
+
+          call BuildDirichletBC(boundary(b), delta, A, n, vb, pb, qb)
 
       end select
 
@@ -184,23 +191,23 @@ contains
   !-----------------------------------------------------------------------------
   !> Build pressure BC from normal velocity conditions -- regular mesh
 
-  subroutine PressureBC_NormalVelocity_R(boundary, cs, A, v, vb, hp, hq)
+  subroutine BuildNeumannBC_R(boundary, ct, A, v, vb, dn_p, dn_q)
     class(MeshBoundary_3D),          intent(in)  :: boundary
-    real(RNP),                       intent(in)  :: cs
+    real(RNP),                       intent(in)  :: ct
     real(RNP),                       intent(in)  :: A (0:,0:)
     real(RNP), contiguous,           intent(in)  :: v (0:,0:,0:,:,:)
     real(RNP), contiguous,           intent(in)  :: vb(0:,0:,:,:)
-    real(RNP), contiguous,           intent(out) :: hp(0:,0:,:)
-    real(RNP), contiguous, optional, intent(out) :: hq(0:,0:,:)
+    real(RNP), contiguous,           intent(out) :: dn_p(0:,0:,:)
+    real(RNP), contiguous, optional, intent(out) :: dn_q(0:,0:,:)
 
     real(RNP), allocatable :: w(:,:)
     integer :: po, pq
     integer :: e, f, i, j, k, m, n
 
-    po = ubound(hp, 1)
+    po = ubound(dn_p, 1)
 
-    if (present(hq)) then
-      pq = ubound(hq, 1)
+    if (present(dn_q)) then
+      pq = ubound(dn_q, 1)
       allocate(w(0:pq,0:po))
     else
       pq = po
@@ -219,7 +226,7 @@ contains
         n = (m - 1) * 2 - 1
         do k = 0, po
         do j = 0, po
-          hp(j,k,f) = cs * n * (v(i,j,k,e,1) - vb(j,k,f,1))
+          dn_p(j,k,f) = ct * n * (v(i,j,k,e,1) - vb(j,k,f,1))
         end do
         end do
 
@@ -228,7 +235,7 @@ contains
         n = (m - 3) * 2 - 1
         do k = 0, po
         do i = 0, po
-          hp(i,k,f) = cs * n * (v(i,j,k,e,2) - vb(i,k,f,2))
+          dn_p(i,k,f) = ct * n * (v(i,j,k,e,2) - vb(i,k,f,2))
         end do
         end do
 
@@ -237,32 +244,32 @@ contains
         n = (m - 5) * 2 - 1
         do j = 0, po
         do i = 0, po
-          hp(i,j,f) = cs * n * (v(i,j,k,e,3) - vb(i,j,f,3))
+          dn_p(i,j,f) = ct * n * (v(i,j,k,e,3) - vb(i,j,f,3))
         end do
         end do
 
       end select
 
       if (pq /= po) then
-        call InterpolateFaceData(po, pq, A, hp(:,:,f), hq(:,:,f), w)
+        call InterpolateFaceData(po, pq, A, dn_p(:,:,f), dn_q(:,:,f), w)
       end if
 
     end do
 
-  end subroutine PressureBC_NormalVelocity_R
+  end subroutine BuildNeumannBC_R
 
   !-----------------------------------------------------------------------------
   !> Build pressure BC from normal velocity conditions -- deformed mesh
 
-  subroutine PressureBC_NormalVelocity_D(boundary, cs, A, n, v, vb, hp, hq)
+  subroutine BuildNeumannBC_D(boundary, ct, A, n, v, vb, dn_p, dn_q)
     class(MeshBoundary_3D),          intent(in)  :: boundary
-    real(RNP),                       intent(in)  :: cs
+    real(RNP),                       intent(in)  :: ct
     real(RNP),                       intent(in)  :: A (0:,0:)
     real(RNP), contiguous,           intent(in)  :: n (0:,0:,:,:,:)
     real(RNP), contiguous,           intent(in)  :: v (0:,0:,0:,:,:)
     real(RNP), contiguous,           intent(in)  :: vb(0:,0:,:,:)
-    real(RNP), contiguous,           intent(out) :: hp(0:,0:,:)
-    real(RNP), contiguous, optional, intent(out) :: hq(0:,0:,:)
+    real(RNP), contiguous,           intent(out) :: dn_p(0:,0:,:)
+    real(RNP), contiguous, optional, intent(out) :: dn_q(0:,0:,:)
 
     real(RNP), allocatable :: w(:,:)
     integer :: po, pq
@@ -270,8 +277,8 @@ contains
 
     po = ubound(vb, 1)
 
-    if (present(hq)) then
-      pq = ubound(hq, 1)
+    if (present(dn_q)) then
+      pq = ubound(dn_q, 1)
       allocate(w(0:pq,0:po))
     else
       pq = po
@@ -289,9 +296,9 @@ contains
         i = (m - 1) * po
         do k = 0, po
         do j = 0, po
-          hp(j,k,f) = cs * ( n(j,k,m,e,1) * (v(i,j,k,e,1) - vb(j,k,f,1)) &
-                           + n(j,k,m,e,2) * (v(i,j,k,e,2) - vb(j,k,f,2)) &
-                           + n(j,k,m,e,3) * (v(i,j,k,e,3) - vb(j,k,f,3)) )
+          dn_p(j,k,f) = ct * ( n(j,k,m,e,1) * (v(i,j,k,e,1) - vb(j,k,f,1)) &
+                             + n(j,k,m,e,2) * (v(i,j,k,e,2) - vb(j,k,f,2)) &
+                             + n(j,k,m,e,3) * (v(i,j,k,e,3) - vb(j,k,f,3)) )
         end do
         end do
 
@@ -299,9 +306,9 @@ contains
         j = (m - 3) * po
         do k = 0, po
         do i = 0, po
-          hp(i,k,f) = cs * ( n(i,k,m,e,1) * (v(i,j,k,e,1) - vb(i,k,f,1)) &
-                           + n(i,k,m,e,2) * (v(i,j,k,e,2) - vb(i,k,f,2)) &
-                           + n(i,k,m,e,3) * (v(i,j,k,e,3) - vb(i,k,f,3)) )
+          dn_p(i,k,f) = ct * ( n(i,k,m,e,1) * (v(i,j,k,e,1) - vb(i,k,f,1)) &
+                             + n(i,k,m,e,2) * (v(i,j,k,e,2) - vb(i,k,f,2)) &
+                             + n(i,k,m,e,3) * (v(i,j,k,e,3) - vb(i,k,f,3)) )
         end do
         end do
 
@@ -309,21 +316,96 @@ contains
         k = (m - 5) * po
         do j = 0, po
         do i = 0, po
-          hp(i,j,f) = cs * ( n(i,j,m,e,1) * (v(i,j,k,e,1) - vb(i,j,f,1)) &
-                           + n(i,j,m,e,2) * (v(i,j,k,e,2) - vb(i,j,f,2)) &
-                           + n(i,j,m,e,3) * (v(i,j,k,e,3) - vb(i,j,f,3)) )
+          dn_p(i,j,f) = ct * ( n(i,j,m,e,1) * (v(i,j,k,e,1) - vb(i,j,f,1)) &
+                             + n(i,j,m,e,2) * (v(i,j,k,e,2) - vb(i,j,f,2)) &
+                             + n(i,j,m,e,3) * (v(i,j,k,e,3) - vb(i,j,f,3)) )
         end do
         end do
 
       end select
 
       if (pq /= po) then
-        call InterpolateFaceData(po, pq, A, hp(:,:,f), hq(:,:,f), w)
+        call InterpolateFaceData(po, pq, A, dn_p(:,:,f), dn_q(:,:,f), w)
       end if
 
     end do
 
-  end subroutine PressureBC_NormalVelocity_D
+  end subroutine BuildNeumannBC_D
+
+  !-----------------------------------------------------------------------------
+  !> Build pressure BC at outflow boundaries
+
+  subroutine BuildDirichletBC(boundary, delta, A, n, vb, pb, qb)
+    class(MeshBoundary_3D),          intent(in)  :: boundary
+    real(RNP),                       intent(in)  :: delta
+    real(RNP),                       intent(in)  :: A (0:,0:)
+    real(RNP), contiguous,           intent(in)  :: n (0:,0:,:,:,:)
+    real(RNP), contiguous,           intent(in)  :: vb(0:,0:,:,:)
+    real(RNP), contiguous,           intent(out) :: pb(0:,0:,:)
+    real(RNP), contiguous, optional, intent(out) :: qb(0:,0:,:)
+
+    real(RNP), allocatable :: theta(:,:), vn(:,:), vv(:,:), w(:,:)
+    real(RNP) :: v_max = 0 ! shared with OpenMP !
+    real(RNP) :: cv
+    integer   :: po, pq
+    integer   :: e, f, m
+
+    po = ubound(vb, 1)
+
+    if (present(qb)) then
+      pq = ubound(qb, 1)
+      allocate(w(0:pq,0:po))
+    else
+      pq = po
+    end if
+
+    allocate(theta(0:po,0:po))
+    allocate(vn, mold = theta)
+    allocate(vv, mold = theta)
+
+    ! determine maximum velocity ...............................................
+
+    !$omp master
+    v_max = 0
+    !$omp end master
+
+    !$omp do reduction(max:v_max)
+    do f = 1, boundary % n_face
+      e = boundary % face(f) % element_id
+      m = boundary % face(f) % element_face
+
+      v_max = max(v_max, maxval(abs( n(:,:,m,e,1) * vb(:,:,f,1)  &
+                                   + n(:,:,m,e,2) * vb(:,:,f,2)  &
+                                   + n(:,:,m,e,3) * vb(:,:,f,3) ))
+    end do
+
+    ! complete pressure BC .....................................................
+
+    !$omp do
+    do f = 1, boundary % n_face
+
+      e = boundary % face(f) % element_id
+      m = boundary % face(f) % element_face
+
+      vn = n(:,:,m,e,1) * vb(:,:,f,1)
+         + n(:,:,m,e,2) * vb(:,:,f,2)
+         + n(:,:,m,e,3) * vb(:,:,f,3)
+
+      vv = vb(:,:,m,e,1) * vb(:,:,f,1)
+         + vb(:,:,m,e,2) * vb(:,:,f,2)
+         + vb(:,:,m,e,3) * vb(:,:,f,3)
+
+      theta = HALF * tanh(cv * vn)
+
+      pb = pb - HALF * (vv + vn) * theta
+
+      if (pq /= po) then
+        call InterpolateFaceData(po, pq, A, pb(:,:,f), qb(:,:,f), w)
+      end if
+
+    end do
+
+  end subroutine BuildDirichletBC
 
   !-----------------------------------------------------------------------------
   !> Interpolation of face data

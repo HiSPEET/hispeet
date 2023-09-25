@@ -23,7 +23,7 @@ contains
   !-----------------------------------------------------------------------------
   !>  IPCG Diffusion solver with Schwarz preconditioner -- ν = constant, so far
 
-  module subroutine DiffusionSolver(this, tau, f, bv_v, v, i_max, r_red, r_max, ni)
+  module subroutine DiffusionSolver(this, tau, f, bv_u, v, i_max, r_red, r_max, ni)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -34,8 +34,8 @@ contains
     real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
     !< sources, f(np,np,np,ne,3)
 
-    class(BoundaryVariable_3D), intent(in) :: bv_v(:)
-    !< velocity boundary values, bv_v(nb)
+    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
+    !< boundary values of u = [v,p], bv_u(nb)
 
     real(RNP), contiguous, intent(inout) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)
@@ -81,7 +81,7 @@ contains
       !$omp barrier
 
       ! initial residual
-      call this % GetDiffusionResidual(tau, f, bv_v, v, r)
+      call this % GetDiffusionResidual(tau, f, bv_u, v, r)
 
       ! termination conditions
       if (check_convergence) then
@@ -153,7 +153,7 @@ contains
 
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
-          call this % GetDiffusionResidual(tau, f, bv_v, v, r)
+          call this % GetDiffusionResidual(tau, f, bv_u, v, r)
         else
           call MergeArrays(ONE, r, -alpha, q, multi = .true.)
         end if

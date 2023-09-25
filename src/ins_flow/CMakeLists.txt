@@ -3,8 +3,8 @@
 
 add_library(HiINSFlow
             ins__operator__3d.f
-            ins__operator__3d__mp_applyvelocitybc.f
             ins__operator__3d__mp_applydiffusionoperator_c.f
+            ins__operator__3d__mp_applyvelocitybc.f
             ins__operator__3d__mp_diffusionsolver.f
             ins__operator__3d__mp_getdiffusionterm_dc.F
             ins__operator__3d__mp_getdiffusionresidual_c.f

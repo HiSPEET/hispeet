@@ -45,6 +45,7 @@ module INS__Operator__3D
 
     character, allocatable :: bc_v(:) !< velocity BC, copied from problem
     character, allocatable :: bc_p(:) !< pressure BC
+    real(RNP) :: delta_outflow        !< δ parameter of outflow conditions
 
     type(DG_ElementOperators_1D) :: eop_v !< DG operators for v
     type(DG_ElementOperators_1D) :: eop_p !< DG operators for p
@@ -90,6 +91,7 @@ module INS__Operator__3D
 
   type INS_OperatorOptions_3D
     real(RNP) :: mu_0 = 0 !< bulk viscosity,  μ = ζ/ρ
+    real(RNP) :: delta_outflow = 0.01   !< δ parameter of outflow conditions
     type(DG_ElementOptions_1D) :: eop_v !< DG operator options for v
     type(DG_ElementOptions_1D) :: eop_p !< DG operator options for p
     type(StandardOperatorOptions_1D) :: sop_q !< quadrature opts for convection
@@ -107,11 +109,12 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Application of velocity boundary conditions to trace variables
 
-    module subroutine ApplyVelocityBC(this, bv_v, tr_v, tr_s)
+    module subroutine ApplyVelocityBC(this, tr_v, tr_s, bv_u, obx)
       class(INS_Operator_3D),               intent(in)    :: this
-      class(BoundaryVariable_3D), optional, intent(in)    :: bv_v(:)
-      real(RNP), contiguous,      optional, intent(inout) :: tr_v(:,:,:,:,:)
-      real(RNP), contiguous,      optional, intent(inout) :: tr_s(:,:,:,:,:)
+      real(RNP), contiguous,                intent(inout) :: tr_v(:,:,:,:,:)
+      real(RNP), contiguous,                intent(inout) :: tr_s(:,:,:,:,:)
+      class(BoundaryVariable_3D), optional, intent(in)    :: bv_u(:)
+      logical,                    optional, intent(in)    :: obx
     end subroutine ApplyVelocityBC
 
     !---------------------------------------------------------------------------
@@ -137,13 +140,14 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion term with constant viscosity on irregular (deformed) mesh
 
-    module subroutine GetDiffusionTerm_DC(this, v, vp, sp, F_d, form)
+    module subroutine GetDiffusionTerm_DC(this, v, vp, sp, F_d, form, obx)
       class(INS_Operator_3D), intent(in)    :: this
       real(RNP), contiguous,  intent(in)    :: v(:,:,:,:,:)
       real(RNP), contiguous,  intent(inout) :: vp(:,:,:,:,:)
       real(RNP), contiguous,  intent(inout) :: sp(:,:,:,:,:)
       real(RNP), contiguous,  intent(out)   :: F_d(:,:,:,:,:)
       integer,     optional,  intent(in)    :: form
+      logical,     optional,  intent(in)    :: obx
     end subroutine GetDiffusionTerm_DC
 
     !---------------------------------------------------------------------------
@@ -160,12 +164,12 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion residual with constant viscosity
 
-    module subroutine GetDiffusionResidual_C(this, tau, f, bv_v, v, r, form)
+    module subroutine GetDiffusionResidual_C(this, tau, f, bv_u, u, r, form)
       class(INS_Operator_3D),     intent(in)  :: this
       real(RNP),                  intent(in)  :: tau
       real(RNP), contiguous,      intent(in)  :: f(:,:,:,:,:)
-      class(BoundaryVariable_3D), intent(in)  :: bv_v(:)
-      real(RNP), contiguous,      intent(in)  :: v(:,:,:,:,:)
+      class(BoundaryVariable_3D), intent(in)  :: bv_u(:)
+      real(RNP), contiguous,      intent(in)  :: u(:,:,:,:,:)
       real(RNP), contiguous,      intent(out) :: r(:,:,:,:,:)
       integer,     optional,      intent(in)  :: form
     end subroutine GetDiffusionResidual_C
@@ -173,13 +177,13 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion solver
 
-    module subroutine DiffusionSolver( this, tau, f, bv_v, v   &
+    module subroutine DiffusionSolver( this, tau, f, bv_u, v   &
                                      , i_max, r_red, r_max, ni )
 
       class(INS_Operator_3D),     intent(in)    :: this
       real(RNP),                  intent(in)    :: tau
       real(RNP), contiguous,      intent(in)    :: f(:,:,:,:,:)
-      class(BoundaryVariable_3D), intent(in)    :: bv_v(:)
+      class(BoundaryVariable_3D), intent(in)    :: bv_u(:)
       real(RNP), contiguous,      intent(inout) :: v(:,:,:,:,:)
       integer,                    intent(in)    :: i_max
       real(RNP),        optional, intent(in)    :: r_red
@@ -217,11 +221,12 @@ contains
     class(INS_Problem_3D),         intent(in)    :: problem !< INS flow problem
     type(Mesh_3D),       optional, intent(in)    :: mesh    !< mesh partition
 
-    integer :: b, d
+    integer :: d
 
     this % mu_0 = opt % mu_0
     this % nu_0 = problem % nu_ref
     this % bc_v = problem % bc_v
+    this % delta_outflow = opt % delta_outflow
 
     this % eop_v = DG_ElementOperators_1D(opt % eop_v)
     this % eop_p = DG_ElementOperators_1D(opt % eop_p)
@@ -247,16 +252,7 @@ contains
 
     ! pressure BC
     allocate(this % bc_p(this % mesh % n_bound))
-    do b = 1, size(this % bc_p)
-      select case(this % bc_v(b))
-      case('D')
-        this % bc_p(b) = 'N'
-      case('P')
-        this % bc_p(b) = 'P'
-      case default
-        this % bc_p(b) = ''
-      end select
-    end do
+    call problem % GetPressureBC(this % bc_p)
 
     ! pressure operator
     this % laplacian_p = DG_EllipticOperator_3D( sem         = this % sem_p     &
@@ -352,7 +348,8 @@ contains
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    call XMPI_Bcast(this % mu_0, root, comm)
+    call XMPI_Bcast(this % mu_0         , root, comm)
+    call XMPI_Bcast(this % delta_outflow, root, comm)
 
     call this % eop_v     % Bcast(root, comm)
     call this % eop_p     % Bcast(root, comm)
