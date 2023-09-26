@@ -23,12 +23,12 @@ configure_file( mesh3d_import_generic.prm
 #===============================================================================
 # mesh3d_import_gmsh
 
-add_executable( mesh3d_import_gmsh
-                mesh3d_import_gmsh.f )
-
-target_link_libraries(mesh3d_import_gmsh HiBase)
-
-file( COPY gmsh DESTINATION . )
+#add_executable( mesh3d_import_gmsh
+#                mesh3d_import_gmsh.f )
+#
+#target_link_libraries(mesh3d_import_gmsh HiBase)
+#
+#file( COPY gmsh DESTINATION . )
 
 #===============================================================================
 # mesh3d_import_exodus

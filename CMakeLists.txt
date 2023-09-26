@@ -61,7 +61,9 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 # OpenMP
 
 if (OpenMP OR NOT SKIP_LIBXSMM)
-   find_package(OpenMP REQUIRED)
+# removed REQUIRED to circumvent Fortran problems caused by XCode 15 in MacOS
+   find_package(OpenMP)
+#   find_package(OpenMP REQUIRED)
 endif ()
 
 #-------------------------------------------------------------------------------
