@@ -7,6 +7,9 @@
 submodule(INS__Operator__3D) MP_PressureSolver
   use TPO__AAA__3D
   use Mesh_Boundary__3D
+!### CHECK
+use, intrinsic :: ieee_arithmetic
+!### CHECK END
   implicit none
 
 contains
@@ -374,12 +377,20 @@ contains
       e = boundary % face(f) % element_id
       m = boundary % face(f) % element_face
 
-      v_max = max(v_max, maxval(abs( n(:,:,m,e,1) * vb(:,:,f,1)  &
-                                   + n(:,:,m,e,2) * vb(:,:,f,2)  &
-                                   + n(:,:,m,e,3) * vb(:,:,f,3) ))
+      v_max = max( v_max, maxval(abs( n(:,:,m,e,1) * vb(:,:,f,1)    &
+                                    + n(:,:,m,e,2) * vb(:,:,f,2)    &
+                                    + n(:,:,m,e,3) * vb(:,:,f,3) )) )
     end do
 
     ! complete pressure BC .....................................................
+
+    cv = 1 / max(delta * v_max, epsilon(ONE))
+!### CHECK
+!! print '(99(G0,1X))', 'BuildDirichletBC'
+!! print '(99(G0,1X))', '  v_max =',v_max
+!! print '(99(G0,1X))', '  delta =',delta
+!! print '(99(G0,1X))', '  cv    =',cv
+!### CHECK END
 
     !$omp do
     do f = 1, boundary % n_face
@@ -387,23 +398,35 @@ contains
       e = boundary % face(f) % element_id
       m = boundary % face(f) % element_face
 
-      vn = n(:,:,m,e,1) * vb(:,:,f,1)
-         + n(:,:,m,e,2) * vb(:,:,f,2)
+      vn = n(:,:,m,e,1) * vb(:,:,f,1) &
+         + n(:,:,m,e,2) * vb(:,:,f,2) &
          + n(:,:,m,e,3) * vb(:,:,f,3)
 
-      vv = vb(:,:,m,e,1) * vb(:,:,f,1)
-         + vb(:,:,m,e,2) * vb(:,:,f,2)
-         + vb(:,:,m,e,3) * vb(:,:,f,3)
+      vv = vb(:,:,f,1)**2 + vb(:,:,f,2)**2 + vb(:,:,f,3)**2
 
-      theta = HALF * tanh(cv * vn)
+!!       theta = HALF * (ONE - tanh(cv * vn))
+!!
+!!       pb(:,:,f) = pb(:,:,f) - HALF * (vv + vn**2) * theta
 
-      pb = pb - HALF * (vv + vn) * theta
+      theta = min(vn, ZERO)
+      pb(:,:,f) = pb(:,:,f) - theta * vn
 
       if (pq /= po) then
         call InterpolateFaceData(po, pq, A, pb(:,:,f), qb(:,:,f), w)
       end if
 
     end do
+!### CHECK
+!! print '(99(G0,1X))', 'BuildDirichletBC 03'
+!! print '(99(G0,1X))', '  any(ieee_is_nan(pb)) =',any(ieee_is_nan(pb))
+!! print '(99(G0,1X))', '  minval(pb) =',minval(pb)
+!! print '(99(G0,1X))', '  maxval(pb) =',maxval(pb)
+!! if (present(qb)) then
+!! print '(99(G0,1X))', '  any(ieee_is_nan(qb)) =',any(ieee_is_nan(qb))
+!! print '(99(G0,1X))', '  minval(qb) =',minval(qb)
+!! print '(99(G0,1X))', '  maxval(qb) =',maxval(qb)
+!! end if
+!### CHECK END
 
   end subroutine BuildDirichletBC
 

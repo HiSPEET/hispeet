@@ -10,6 +10,7 @@ add_library(HiINSFlow
             ins__operator__3d__mp_getdiffusionresidual_c.f
             ins__operator__3d__mp_pressuresolver.f
             ins__problem__3d.f
+            ins__problem__poiseuille__3d.f
             ins__problem__stokes_dkm__3d.f
             ins__problem__stokes_linke__3d.f
             ins__problem__vortex_tg__3d.f

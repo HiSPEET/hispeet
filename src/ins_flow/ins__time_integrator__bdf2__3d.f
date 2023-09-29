@@ -152,12 +152,12 @@ contains
       if (allocated(v_0)) then
         if (any(shape(v_0) /= shape(v))) then
           deallocate(inv_mm, v_0, F_c, F_d, Q, vp, sp)
-          deallocate(u_old, F_c_old, F_d_old)
+          deallocate(v_old, F_c_old, F_d_old)
           deallocate(bv_x, bv_u, bv_v, bv_p, bv_nsp)
         end if
       end if
 
-      if (allocated(u_0)) then
+      if (allocated(v_0)) then
 
         first = t_0 /= t .or. abs(t_1 + dt - t) > epsilon(ONE)
 
@@ -271,9 +271,8 @@ contains
           call bv_v(b) % Merge(a0, a1, v_old)
           ! pᵇ = -n⋅(a₀ s⁺(t₀) + a₁ s⁺(t₀ - ∆t))
           call MergeArrays(ZERO, bv_p(b)%val, -a1, bv_nsp(b)%val)
-          call bv_nsp(b)%val % ExtractNormalTrace(sem_v, sp)
+          call bv_nsp(b) % ExtractNormalTrace(sem_v, sp)
           call MergeArrays(ONE, bv_p(b)%val, -a0, bv_nsp(b)%val)
-        end select
         end select
       end do
 
@@ -320,7 +319,7 @@ contains
 
       !$omp master
       deallocate(inv_mm, v_0, F_c, F_d, Q, vp, sp)
-      deallocate(u_old, F_c_old, F_d_old)
+      deallocate(v_old, F_c_old, F_d_old)
       deallocate(bv_x, bv_u, bv_v, bv_p, bv_nsp)
       !$omp end master
 

@@ -266,8 +266,8 @@ contains
 
             i = (f - 1) * P
 
-            call BuildOuterTraces( P, element, struct, bc, ex_db, ex_ob &
-                                 , e, f, n, vm, sm, vp, sp              )
+            call BuildOuterTraces( element, struct, bc, ex_db, ex_ob &
+                                 , e, f, vm, sm, vp, sp              )
 
             cip = eop % PenaltyFactor(element % geometry % dx_m(f))
 
@@ -358,8 +358,8 @@ contains
 
             j = (f - 3) * P
 
-            call BuildOuterTraces( P, element, struct, bc, ex_db, ex_ob &
-                                 , e, f, n, vm, sm, vp, sp              )
+            call BuildOuterTraces( element, struct, bc, ex_db, ex_ob &
+                                 , e, f, vm, sm, vp, sp              )
 
             cip = eop % PenaltyFactor(element % geometry % dx_m(f))
 
@@ -449,8 +449,8 @@ contains
 
             k = (f - 5) * P
 
-            call BuildOuterTraces( P, element, struct, bc, ex_db, ex_ob &
-                                 , e, f, n, vm, sm, vp, sp              )
+            call BuildOuterTraces( element, struct, bc, ex_db, ex_ob &
+                                 , e, f, vm, sm, vp, sp              )
 
             cip = eop % PenaltyFactor(element % geometry % dx_m(f))
 
@@ -562,10 +562,9 @@ contains
   !-----------------------------------------------------------------------------
   !> Compose exterior traces at element boundary
 
-  subroutine BuildOuterTraces( P, element, struct, bc, ex_db, ex_ob &
-                             , e, f, n, vm, sm, vp, sp              )
+  subroutine BuildOuterTraces( element, struct, bc, ex_db, ex_ob &
+                             , e, f, vm, sm, vp, sp              )
 
-    integer,               intent(in)    :: P       !< polynomial order
     class(MeshElement_3D), intent(in)    :: element !< element
     logical,               intent(in)    :: struct  !< F/T if un/structured
     character,             intent(in)    :: bc(:)   !< boundary conditions
@@ -573,7 +572,6 @@ contains
     logical,               intent(in)    :: ex_ob   !< extrapolation for 'O'
     integer,               intent(in)    :: e       !< element ID
     integer,               intent(in)    :: f       !< element face
-    real(RNP), contiguous, intent(in)    :: n (0:,0:,:,:,:) !< normals
     real(RNP), contiguous, intent(in)    :: vm(0:,0:,:,:,:) !< v⁻
     real(RNP), contiguous, intent(in)    :: sm(0:,0:,:,:,:) !< s⁻
     real(RNP), contiguous, intent(inout) :: vp(0:,0:,:,:,:) !< vb → v⁺
@@ -597,6 +595,14 @@ contains
           sp(:,:,f,e,c) = sm(:,:,m,l,c)
         end do
       else
+!### CHECK
+!! print *, 'element id                        e =', e
+!! print *, 'element face                      f =', f
+!! print *, 'element neighbor                  i =', i
+!! print *, 'element % neighbor(i) % id          =',l
+!! print *, 'element % neighbor(i) % component   =',m
+!! print *, 'element % neighbor(i) % orientation =',element % neighbor(i) % orientation
+!### CHECK END
         do c = 1, 3
           call element % AlignFromNeighborFace(f, i, vm(:,:,m,l,c), vp(:,:,f,e,c))
           call element % AlignFromNeighborFace(f, i, sm(:,:,m,l,c), sp(:,:,f,e,c))

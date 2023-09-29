@@ -373,7 +373,7 @@ contains
         associate(v => u_i(:,:,:,:,1:3))
 
           call GetBoundaryTraces_3D(mesh, v, vp)       ! vp = v⁻ on ∂Ω
-          call ins_op % ApplyVelocityBC(bv_v, vp, sp)  ! vp = v⁺ on ∂Ω, ...
+          call ins_op % ApplyVelocityBC(vp, sp, bv_u)  ! vp = v⁺ on ∂Ω, ...
 
           ! viscous and convective RHS
           call ins_op % GetDiffusionTerm(v, vp, sp, F_d     (:,:,:,:,:,i)        )
@@ -433,8 +433,8 @@ contains
           end if
 
           ! velocity divergence
-          call GetOuterTraces_3D(mesh, v, vp)     ! vp = v⁺ on Γᴵ and v⁻ on ∂Ω
-          call ins_op % ApplyVelocityBC(bv_v, vp) ! vp = v⁺ on ∂Ω
+          call GetOuterTraces_3D(mesh, v, vp) ! vp = v⁺ on Γᴵ and v⁻ on ∂Ω
+          call ins_op % ApplyVelocityBC(vp, bv_u = bv_u) ! vp = v⁺ on ∂Ω
           call TPO_Div(ins_op % eop_v, sem_v, v, vp, div_v)
 
           ! pressure potential

@@ -260,7 +260,7 @@ contains
           i = (m - 1) * po
           do k = 0, po
           do j = 0, po
-            vb(j,k,f) = cb * vb(j,k,f) + cv * v(i,j,k,e)
+            vb(j,k,f,1) = cb * vb(j,k,f,1) + cv * v(i,j,k,e)
           end do
           end do
 
@@ -268,7 +268,7 @@ contains
           j = (m - 3) * po
           do k = 0, po
           do i = 0, po
-            vb(i,k,f) = cb * vb(i,k,f) + cv * v(i,j,k,e)
+            vb(i,k,f,1) = cb * vb(i,k,f,1) + cv * v(i,j,k,e)
           end do
           end do
 
@@ -276,7 +276,7 @@ contains
           k = (m - 5) * po
           do j = 0, po
           do i = 0, po
-            vb(i,j,f) = cb * vb(i,j,f) + cv * v(i,j,k,e)
+            vb(i,j,f,1) = cb * vb(i,j,f,1) + cv * v(i,j,k,e)
           end do
           end do
 
@@ -381,12 +381,12 @@ contains
     class(BoundaryVariable_3D), intent(inout) :: this
     real(RNP), intent(in) :: cb !< coefficient of boundary variable
     real(RNP), intent(in) :: ct !< coefficient of trace variable
-    real(RNP), intent(in) :: vt(:,:,:,:) !< scalar trace variable
+    real(RNP), intent(in) :: vt(0:,0:,:,:) !< scalar trace variable
 
     integer :: f, e, m
 
     !$omp master
-    if (this%po + 1 /= size(vt,1)) then
+    if (this%po  /= ubound(vt,1)) then
       call Error('MergeTrace_S', 'arguments mismatch', 'Boundary_Variable__3D')
     end if
     !$omp end master
@@ -414,12 +414,12 @@ contains
     class(BoundaryVariable_3D), intent(inout) :: this
     real(RNP), intent(in) :: cb !< coefficient of boundary variable
     real(RNP), intent(in) :: ct !< coefficient of trace variable
-    real(RNP), intent(in) :: vt(:,:,:,:,:) !< array-valued trace variable
+    real(RNP), intent(in) :: vt(0:,0:,:,:,:) !< array-valued trace variable
 
     integer :: c, e, f, m
 
     !$omp master
-    if (this%po + 1 /= size(vt,1) .or. this%nc /= size(vt,5)) then
+    if (this%po  /= ubound(vt,1) .or. this%nc /= size(vt,5)) then
       call Error('MergeTrace_A', 'arguments mismatch', 'Boundary_Variable__3D')
     end if
     !$omp end master
@@ -448,7 +448,7 @@ contains
   subroutine ExtractNormalTrace(this, sem, vt)
     class(BoundaryVariable_3D), intent(inout) :: this
     class(SpectralElementMesh_3D), intent(in) :: sem
-    real(RNP), intent(in) :: vt(:,:,:,:,:) !< vector trace variable
+    real(RNP), intent(in) :: vt(0:,0:,:,:,:) !< vector trace variable
 
     call MergeNormalTrace(this, sem, ZERO, ONE, vt)
 
@@ -462,12 +462,12 @@ contains
     class(SpectralElementMesh_3D), intent(in) :: sem
     real(RNP), intent(in) :: cb !< coefficient of boundary variable
     real(RNP), intent(in) :: ct !< coefficient of trace variable
-    real(RNP), intent(in) :: vt(:,:,:,:,:) !< vector trace variable
+    real(RNP), intent(in) :: vt(0:,0:,:,:,:) !< vector trace variable
 
     integer :: e, f, m
 
     !$omp master
-    if (this%po  /= ubound(v,1) .or. this%nc /= 1 .or. size(v,5) /= 3) then
+    if (this%po  /= ubound(vt,1) .or. this%nc /= 1 .or. size(vt,5) /= 3) then
       call Error( 'MergeNormalTrace'      &
                 , 'argument mismatch'     &
                 , 'Boundary_Variable__3D' )

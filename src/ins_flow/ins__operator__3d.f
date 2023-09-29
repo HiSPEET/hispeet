@@ -109,12 +109,12 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Application of velocity boundary conditions to trace variables
 
-    module subroutine ApplyVelocityBC(this, tr_v, tr_s, bv_u, obx)
+    module subroutine ApplyVelocityBC(this, tr_v, tr_s, bv_u, extrapolate)
       class(INS_Operator_3D),               intent(in)    :: this
       real(RNP), contiguous,                intent(inout) :: tr_v(:,:,:,:,:)
-      real(RNP), contiguous,                intent(inout) :: tr_s(:,:,:,:,:)
+      real(RNP), contiguous,      optional, intent(inout) :: tr_s(:,:,:,:,:)
       class(BoundaryVariable_3D), optional, intent(in)    :: bv_u(:)
-      logical,                    optional, intent(in)    :: obx
+      character(len=*),           optional, intent(in)    :: extrapolate
     end subroutine ApplyVelocityBC
 
     !---------------------------------------------------------------------------
@@ -140,14 +140,14 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion term with constant viscosity on irregular (deformed) mesh
 
-    module subroutine GetDiffusionTerm_DC(this, v, vp, sp, F_d, form, obx)
-      class(INS_Operator_3D), intent(in)    :: this
-      real(RNP), contiguous,  intent(in)    :: v(:,:,:,:,:)
-      real(RNP), contiguous,  intent(inout) :: vp(:,:,:,:,:)
-      real(RNP), contiguous,  intent(inout) :: sp(:,:,:,:,:)
-      real(RNP), contiguous,  intent(out)   :: F_d(:,:,:,:,:)
-      integer,     optional,  intent(in)    :: form
-      logical,     optional,  intent(in)    :: obx
+    module subroutine GetDiffusionTerm_DC(this, v, vp, sp, F_d, form, extrapolate)
+      class(INS_Operator_3D),     intent(in)    :: this
+      real(RNP),      contiguous, intent(in)    :: v(:,:,:,:,:)
+      real(RNP),      contiguous, intent(inout) :: vp(:,:,:,:,:)
+      real(RNP),      contiguous, intent(inout) :: sp(:,:,:,:,:)
+      real(RNP),      contiguous, intent(out)   :: F_d(:,:,:,:,:)
+      integer,          optional, intent(in)    :: form
+      character(len=*), optional, intent(in)    :: extrapolate
     end subroutine GetDiffusionTerm_DC
 
     !---------------------------------------------------------------------------
@@ -164,12 +164,12 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion residual with constant viscosity
 
-    module subroutine GetDiffusionResidual_C(this, tau, f, bv_u, u, r, form)
+    module subroutine GetDiffusionResidual_C(this, tau, f, bv_u, v, r, form)
       class(INS_Operator_3D),     intent(in)  :: this
       real(RNP),                  intent(in)  :: tau
       real(RNP), contiguous,      intent(in)  :: f(:,:,:,:,:)
       class(BoundaryVariable_3D), intent(in)  :: bv_u(:)
-      real(RNP), contiguous,      intent(in)  :: u(:,:,:,:,:)
+      real(RNP), contiguous,      intent(in)  :: v(:,:,:,:,:)
       real(RNP), contiguous,      intent(out) :: r(:,:,:,:,:)
       integer,     optional,      intent(in)  :: form
     end subroutine GetDiffusionResidual_C
@@ -221,6 +221,7 @@ contains
     class(INS_Problem_3D),         intent(in)    :: problem !< INS flow problem
     type(Mesh_3D),       optional, intent(in)    :: mesh    !< mesh partition
 
+    character, allocatable :: bc_schwarz(:)
     integer :: d
 
     this % mu_0 = opt % mu_0
@@ -261,11 +262,15 @@ contains
                                                , bc          = this % bc_p      )
 
     ! Schwarz operators for the viscous diffusion solver
+    allocate(bc_schwarz, source = this % bc_v)
+    where(bc_schwarz == 'O')
+      bc_schwarz = 'N'
+    end where
     do d = 1, 3
       this % schwarz_v(d) = DG_SchwarzOperator_3D( opt  % schwarz_v &
                                                  , this % eop_v     &
                                                  , this % mesh      &
-                                                 , this % bc_v      )
+                                                 , bc_schwarz       )
     end do
 
   end subroutine Init_INS_Operator_3D
@@ -302,7 +307,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Diffusion term with constant viscosity
 
-  subroutine GetDiffusionTerm_C(this, v, vp, sp, F_d, form)
+  subroutine GetDiffusionTerm_C(this, v, vp, sp, F_d, form, extrapolate)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -329,10 +334,16 @@ contains
     !!   - `1` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[      ν ∇⋅v] =  ν∇²v`       (diffusion)
     !!   - `2` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[     2ν ∇⋅v] = -ν∇×(∇×v)`   (rotation)
 
+    character(len=*), optional, intent(in) :: extrapolate
+    !< switch to replace boundary conditions by extrapolation:
+    !!   - `D` :  Dirichlet conditions
+    !!   - `O` :  outflow conditions
+    !!   - `A` :  all
+
 !   if (this % mesh % regular) then
 !     not implemented yet
 !   else
-      call GetDiffusionTerm_DC(this, v, vp, sp, F_d, form)
+      call GetDiffusionTerm_DC(this, v, vp, sp, F_d, form, extrapolate)
 !   end if
 
   end subroutine GetDiffusionTerm_C

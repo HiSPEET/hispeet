@@ -29,7 +29,7 @@ contains
     !< velocity traces `tr_v(np,np,6,ne,3)`
     !!   - input:  `tr_v = v⁻`  on all faces
     !!   - output: `tr_v = v⁺`  on boundary faces
-    real(RNP), contiguous, intent(inout) :: tr_s(:,:,:,:,:)
+    real(RNP), contiguous, optional, intent(inout) :: tr_s(:,:,:,:,:)
     !< stress vector on element faces `tr_s(np,np,6,nl,3)`
     !!   - input:  `tr_s = 0  `  on all faces,
     !!   - output: `tr_s = s_b`  on outflow faces
@@ -58,9 +58,11 @@ contains
       ex_ob = .false.
     end if
 
-    allocate(theta(size(tr_s,1), size(tr_s,1)))
-    allocate(vn, mold = theta)
-    allocate(vv, mold = theta)
+    if (present(tr_s)) then
+      allocate(theta(size(tr_s,1), size(tr_s,1)))
+      allocate(vn, mold = theta)
+      allocate(vv, mold = theta)
+    end if
 
     do b = 1, this % mesh % n_bound
       associate(boundary => this % mesh % boundary(b))
@@ -76,7 +78,6 @@ contains
             do f = 1, boundary % n_face
               e = boundary % face(f) % element_id
               m = boundary % face(f) % element_face
-              if (ex_db) t
               if (present(bv_u)) then
                 do c = 1, 3
                   tr_v(:,:,m,e,c) = 2 * bv_u(b) % val(:,:,f,c) - tr_v(:,:,m,e,c)
@@ -91,9 +92,9 @@ contains
 
         case('O')
 
-          ! outflow conditions: s_b = pn + (nv⋅v + n⋅vv)/2 Θ(n⋅v)
+          ! outflow conditions: sᵇ = pn + (nv⋅v + n⋅vv)/2 Θ(n⋅v)
 
-          if (.not. ex_ob .and. present(bv_u)) then
+          if (present(tr_s) .and. present(bv_u) .and. .not. ex_ob) then
 
             !$omp master
             v_max = 0
@@ -135,11 +136,17 @@ contains
                   vn = n1 * v1 + n2 * v2 + n3 * v3
                   vv = v1 * v1 + v2 * v2 + v3 * v3
 
-                  theta = HALF * tanh(cv * vn)
+!!                   theta = HALF * (ONE - tanh(cv * vn))
+!!
+!!                   s1 = p * n1 + HALF * (vv * n1 + vn * v1) * theta
+!!                   s2 = p * n2 + HALF * (vv * n2 + vn * v2) * theta
+!!                   s3 = p * n3 + HALF * (vv * n3 + vn * v3) * theta
 
-                  s1 = p * n1 + HALF * (vv * n1 + vn * v1) * theta
-                  s2 = p * n2 + HALF * (vv * n2 + vn * v2) * theta
-                  s3 = p * n3 + HALF * (vv * n3 + vn * v3) * theta
+                  theta = min(vn, ZERO)
+
+                  s1 = p * n1 + theta * v1
+                  s2 = p * n2 + theta * v2
+                  s3 = p * n3 + theta * v3
 
                 end associate
               end do
