@@ -595,14 +595,6 @@ contains
           sp(:,:,f,e,c) = sm(:,:,m,l,c)
         end do
       else
-!### CHECK
-!! print *, 'element id                        e =', e
-!! print *, 'element face                      f =', f
-!! print *, 'element neighbor                  i =', i
-!! print *, 'element % neighbor(i) % id          =',l
-!! print *, 'element % neighbor(i) % component   =',m
-!! print *, 'element % neighbor(i) % orientation =',element % neighbor(i) % orientation
-!### CHECK END
         do c = 1, 3
           call element % AlignFromNeighborFace(f, i, vm(:,:,m,l,c), vp(:,:,f,e,c))
           call element % AlignFromNeighborFace(f, i, sm(:,:,m,l,c), sp(:,:,f,e,c))
@@ -622,14 +614,14 @@ contains
 
       case('O') ! outflow, v⁺ already set
         if (ex_ob) then
-          ! outflow conditions: s⁺ = s⁻ - 2sᵇ
-          do c = 1, 3
-            sp(:,:,f,e,c) = sm(:,:,f,e,c) - 2 * sp(:,:,f,e,c)
-          end do
-        else
           ! extrapolation: τ⁺ = τ⁻ → s⁺ = -s⁻
           do c = 1, 3
             sp(:,:,f,e,c) = -sm(:,:,f,e,c)
+          end do
+        else
+          ! outflow conditions: s⁺ = s⁻ - 2sᵇ
+          do c = 1, 3
+            sp(:,:,f,e,c) = sm(:,:,f,e,c) - 2 * sp(:,:,f,e,c)
           end do
         end if
 

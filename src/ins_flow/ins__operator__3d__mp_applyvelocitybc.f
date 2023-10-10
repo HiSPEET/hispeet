@@ -136,17 +136,11 @@ contains
                   vn = n1 * v1 + n2 * v2 + n3 * v3
                   vv = v1 * v1 + v2 * v2 + v3 * v3
 
-!!                   theta = HALF * (ONE - tanh(cv * vn))
-!!
-!!                   s1 = p * n1 + HALF * (vv * n1 + vn * v1) * theta
-!!                   s2 = p * n2 + HALF * (vv * n2 + vn * v2) * theta
-!!                   s3 = p * n3 + HALF * (vv * n3 + vn * v3) * theta
+                  theta = HALF * (ONE - tanh(cv * vn))
 
-                  theta = min(vn, ZERO)
-
-                  s1 = p * n1 + theta * v1
-                  s2 = p * n2 + theta * v2
-                  s3 = p * n3 + theta * v3
+                  s1 = p * n1 + HALF * (vv * n1 + vn * v1) * theta
+                  s2 = p * n2 + HALF * (vv * n2 + vn * v2) * theta
+                  s3 = p * n3 + HALF * (vv * n3 + vn * v3) * theta
 
                 end associate
               end do

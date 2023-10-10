@@ -131,9 +131,6 @@ contains
              , v       => u(:,:,:,:,1:3)        )
 
       ! initialization .........................................................
-!### CHECK
-!! print '(99(G0,1X))', 'Euler 00'
-!### CHECK END
 
       po = ins_op % eop_v % po
       np = po + 1
@@ -188,9 +185,6 @@ contains
       !$omp workshare
       inv_mm = 1 / inv_mm
       !$omp end workshare nowait
-!### CHECK
-!! print '(99(G0,1X))', 'Euler 01'
-!### CHECK END
 
       ! BC at time t₀ ..........................................................
 
@@ -205,18 +199,12 @@ contains
       ! initialize boundary traces
       call GetBoundaryTraces_3D(mesh, v, vp)
       call ins_op % ApplyVelocityBC(vp, bv_u = bv_u)
-!### CHECK
-!! print '(99(G0,1X))', 'Euler 02'
-!### CHECK END
 
       ! viscous and convective RHS .............................................
       ! so far ν is constant
 
       ! diffusion term based on rotational form
       call ins_op % GetDiffusionTerm(v, vp, sp, F_d, form=2, extrapolate='O')
-!### CHECK
-!! print '(99(G0,1X))', 'Euler 03'
-!### CHECK END
 
       ! convection term
       if (problem % stokes) then
@@ -232,9 +220,6 @@ contains
           F_d(:,:,:,e,d) = inv_mm(:,:,:,e) * F_d(:,:,:,e,d)
         end do
       end do
-!### CHECK
-!! print '(99(G0,1X))', 'Euler 04'
-!### CHECK END
 
       ! sources and BC at time t ...............................................
 
@@ -252,9 +237,6 @@ contains
           call bv_p(b) % MergeNormalTrace(sem_v, cb = ZERO, ct = -ONE, vt = sp)
         end select
       end do
-!### CHECK
-!! print '(99(G0,1X))', 'Euler 05'
-!### CHECK END
 
       ! initial velocity .......................................................
 
@@ -266,9 +248,6 @@ contains
                                 , this % i_max_p, this % i_max_v &
                                 , this % r_red  , this % r_max   )
 
-!### CHECK
-!! print '(99(G0,1X))', 'Euler 06'
-!### CHECK END
      ! cleanup ................................................................
 
       if (present(standby)) then

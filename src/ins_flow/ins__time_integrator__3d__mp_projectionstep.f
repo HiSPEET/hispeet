@@ -16,9 +16,6 @@ submodule (INS__Time_Integrator__3D) MP_ProjectionStep
   use TPO__Grad__3D
   use Trace_Operators__3D
   use Element_Face_Transfer_Buffer__3D
-!### CHECK
-use, intrinsic :: ieee_arithmetic
-!### CHECK END
   implicit none
 
 contains
@@ -83,9 +80,6 @@ contains
              , p       => u(:,:,:,:,4)                    )
 
       ! initialization .........................................................
-!### CHECK
-!! print '(99(G0,1X))', 'Projection 00'
-!### CHECK END
 
       np = size(v,1)
 
@@ -132,9 +126,6 @@ contains
 
       end do
       end do
-!### CHECK
-!! print '(99(G0,1X))', 'Projection 01'
-!### CHECK END
 
       ! pressure computation ...................................................
 
@@ -144,30 +135,13 @@ contains
         call buf_vm % Transfer(mesh, vm, tag=100)
         call buf_vm % Merge(vm)
         call ConvertInnerToOuterTraces_3D(mesh, vm, vp)
-!### CHECK
-!! print '(99(G0,1X))', 'Projection 02'
-!### CHECK END
 
         ! divergence of intermediate velocity
         call TPO_Div(ins_op % eop_v, ins_op % sem_v, v, vp, div_v)
-!### CHECK
-!! print '(99(G0,1X))', 'Projection 03'
-!! print '(99(G0,1X))', '  ins_op % bc_v =',ins_op % bc_v
-!! print '(99(G0,1X))', '  ins_op % bc_p =',ins_op % bc_p
-!! print '(99(G0,1X))', '  any(ieee_is_nan(bv_v(2)%val))  =',any(ieee_is_nan(bv_v(2)%val))
-!! print '(99(G0,1X))', '  any(ieee_is_nan(bv_p(2)%val))  =',any(ieee_is_nan(bv_p(2)%val))
-!! print '(99(G0,1X))', '  minval(bv_v(2)%val(:,:,:,1:3)) =',minval(bv_v(2)%val(:,:,:,1:3))
-!! print '(99(G0,1X))', '  maxval(bv_v(2)%val(:,:,:,1:3)) =',maxval(bv_v(2)%val(:,:,:,1:3))
-!! print '(99(G0,1X))', '  minval(bv_p(2)%val(:,:,:,1))   =',minval(bv_p(2)%val(:,:,:,1))
-!! print '(99(G0,1X))', '  maxval(bv_p(2)%val(:,:,:,1))   =',maxval(bv_p(2)%val(:,:,:,1))
-!### CHECK END
 
         ! solve pressure equation
         call ins_op % PressureSolver( tau, bv_v, v, div_v, bv_p, p &
                                     , i_max_p, r_red, r_max        )
-!### CHECK
-!! print '(99(G0,1X))', 'Projection 04'
-!### CHECK END
 
       end associate
 
@@ -185,9 +159,6 @@ contains
         call MergeArrays(ONE, v, -tau, grad_p, multi=.true.)
 
       end associate
-!### CHECK
-!! print '(99(G0,1X))', 'Projection 05'
-!### CHECK END
 
       ! diffusive correction ...................................................
 
@@ -211,9 +182,6 @@ contains
          call ins_op % DiffusionSolver(tau, f, bv_u, v, i_max_v, r_red, r_max)
 
       end associate
-!### CHECK
-!! print '(99(G0,1X))', 'Projection 06'
-!### CHECK END
 
       ! cleanup ................................................................
 
