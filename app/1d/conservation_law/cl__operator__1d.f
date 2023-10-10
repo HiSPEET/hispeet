@@ -24,7 +24,6 @@ module CL__Operator__1D
   type :: CL_Operator_1D
 
     integer   :: ne !< number of elements
-    integer   :: nc !< number of components
     real(RNP) :: dx !< element length
 
     type(DG_ElementOperators_1D)   :: eop    !< ops for solution u
@@ -61,13 +60,12 @@ module CL__Operator__1D
   !-----------------------------------------------------------------------------
   !> Options for CL_Operator_1D initialization
   !>
-  !> The parameters `nc`, `xb1`, `xb2` must be chosen in accordance with the
+  !> The parameters `xb1` and `xb2` must be chosen in accordance with the
   !> related problem. It is recommended to extract them from the corresponding
   !> instance of CL_Problem_1D.
 
   type CL_Operator_Options_1D
     integer                          :: ne = 1  !< number of elements
-    integer                          :: nc      !< number of components
     real(RNP)                        :: xb1     !< position of left boundary
     real(RNP)                        :: xb2     !< position of right boundary
     type(DG_ElementOptions_1D)       :: eop     !< DG operator options for u
@@ -105,7 +103,6 @@ contains
     ! basic initialization .....................................................
 
     this % ne = opt % ne
-    this % nc = opt % nc
     this % dx = (opt % xb2 - opt % xb1) / this % ne
 
     ! element operators ........................................................

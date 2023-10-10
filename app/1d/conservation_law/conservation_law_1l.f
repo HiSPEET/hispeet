@@ -1,5 +1,5 @@
 ! PROVISORIUM
-program Conservation_Law
+program Conservation_Law_1L
   use Kind_Parameters
   use Constants
   use Array_Assignments
@@ -132,7 +132,6 @@ program Conservation_Law
   call cl_problem % SetProblem(case_name)
 
   ! operators
-  cl_operator_opt % nc  = cl_problem % nc
   cl_operator_opt % xb1 = cl_problem % xb1
   cl_operator_opt % xb2 = cl_problem % xb2
   cl_operator = CL_Operator_1D(cl_operator_opt)
@@ -266,4 +265,4 @@ program Conservation_Law
 
   !=============================================================================
 
-end program Conservation_Law
+end program Conservation_Law_1L
