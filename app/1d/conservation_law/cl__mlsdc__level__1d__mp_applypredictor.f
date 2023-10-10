@@ -24,16 +24,16 @@ contains
 
     associate( cl_sdc => this % cl_sdc         &
              , n_sub  => this % cl_sdc % n_sub &
-             , n_step => this % n_step         )
+             , n_time => this % n_time         )
 
       ! initialization .........................................................
 
       allocate(t_sub(0:n_sub), dt_sub(1:n_sub))
 
-      dt_step = dt / n_step
+      dt_step = dt / n_time
       ! time steps ..............................................................
 
-      do n = 1, n_step
+      do n = 1, n_time
         t_sub  = cl_sdc % IntermediateTimes(t_0 + (n-1)*dt_step, dt_step)
         dt_sub = t_sub(1:n_sub) - t_sub(0:n_sub)
 
@@ -41,14 +41,14 @@ contains
         do m = 0, n_sub
           call cl_sdc % predictor % TimeStep( this % cl_problem     &
                                             , this % cl_operator    &
-                                            , dt  = dt_sub(m)          &
-                                            , t_0 = t_sub(m-1)         &
+                                            , dt  = dt_sub(m)       &
+                                            , t_0 = t_sub(m-1)      &
                                             , u_0 = u(:,:,:,m-1,n)  &
                                             , u   = u(:,:,:,m  ,n)  )
         end do
 
         ! set initial values for next step
-        if (n < n_step) then
+        if (n < n_time) then
           u(:,:,:,0,n+1) = u(:,:,:,m,n)
         end if
 

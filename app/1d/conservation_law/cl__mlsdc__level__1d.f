@@ -25,9 +25,13 @@ module CL__MLSDC__Level__1D
 
   type, public :: CL_MLSDC_Level_1D
 
-    logical :: is_root      !< T if root (bottom) level mesh
-    logical :: is_top       !< T if top level mesh
-    integer :: n_step       !< number of time steps in one space-time slice
+    logical :: is_root  !< T if root (bottom) level mesh
+    logical :: is_top   !< T if top level mesh
+
+    integer :: n_space  !< number of elements in space
+    integer :: p_space  !< polynomial degree in space
+    integer :: n_time   !< number of steps in time
+    integer :: p_time   !< polynomial degree in time
 
     ! discretization and solvers ...............................................
 
@@ -64,7 +68,10 @@ module CL__MLSDC__Level__1D
 
   type, public :: CL_MLSDC_Level_Options_1D
 
-    integer :: n_step  = 1      !< number of time steps in one space-time slice
+    integer :: n_space = -1 !< number of elements in space
+    integer :: p_space = -1 !< polynomial degree in space
+    integer :: n_time  = -1 !< number of steps in time
+    integer :: p_time  = -1 !< polynomial degree in time
 
     type(CL_Operator_Options_1D) :: cl_operator
 
@@ -181,14 +188,18 @@ contains
 
     ! parameters ...............................................................
 
-    this % is_root = opt % iop_cf_x % po_c <= 0 .or. opt % iop_cf_t % po_c <= 0
+    this % is_root = opt % pop_fc_x % po_c <= 0 .or. opt % pop_fc_t % po_c <= 0
     this % is_top  = opt % iop_cf_x % po_f <= 0 .or. opt % iop_cf_t % po_f <= 0
-    this % n_step  = opt % n_step
+
+    this % n_space = opt % n_space
+    this % p_space = opt % p_space
+    this % n_time  = opt % n_time
+    this % p_time  = opt % p_time
 
     ! discretization and solvers ...............................................
 
-    this % cl_problem    => cl_problem
-    this % cl_operator   =  CL_Operator_1D(opt % cl_operator)
+    this % cl_problem   => cl_problem
+    this % cl_operator  =  CL_Operator_1D(opt % cl_operator)
 
     select type(sdc_opt => opt % cl_sdc)
     type is(CL_SDC_Options_ISD1_1D)

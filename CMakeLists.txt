@@ -61,7 +61,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 # OpenMP
 
 if (OpenMP OR NOT SKIP_LIBXSMM)
-   find_package(OpenMP REQUIRED)
+#   find_package(OpenMP REQUIRED)
+   find_package(OpenMP)
 endif ()
 
 #-------------------------------------------------------------------------------
