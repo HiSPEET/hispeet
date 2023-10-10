@@ -27,7 +27,7 @@ contains
     real(RNP), allocatable, save :: bv(:,:)    ! boundary values
 
     real(RNP) :: dt_step
-    integer   :: po, ne, nc, ns, nt
+    integer   :: nc, ns, nt, ps, pt
     integer   :: e, i, k, m, n
 
     associate( cl_problem  => this % cl_problem  &
@@ -37,16 +37,16 @@ contains
       ! initialization .........................................................
 
       ! dimensions
-      po = ubound(u, 1)
-      ne = ubound(u, 2)
+      ps = ubound(u, 1)
+      ns = ubound(u, 2)
       nc = ubound(u, 3)
-      ns = ubound(u, 4)
+      pt = ubound(u, 4)
       nt = ubound(u, 5)
 
       ! work space
-      allocate(t(0:ns))
-      allocate(f(0:po))
-      allocate(r_c(0:po,ne,nc))
+      allocate(t(0:pt))
+      allocate(f(0:ps))
+      allocate(r_c(0:ps,ns,nc))
       allocate(r_d, mold = r_c)
       allocate(f_s, mold = r_c)
       allocate(bv(nc,2))
@@ -56,9 +56,9 @@ contains
       ! residual
       associate(Me => cl_operator % Me)
         do n = 1, nt
-        do m = 0, ns
+        do m = 0, pt
         do k = 1, nc
-        do e = 1, ne
+        do e = 1, ns
           r(:,e,k,m,n) = Me * (u(:,e,k,0,n) - u(:,e,k,m,n))
         end do
         end do
@@ -72,7 +72,7 @@ contains
 
         t = cl_sdc % IntermediateTimes(t_0 + (n-1)*dt_step, dt_step)
 
-        do i = 0, ns
+        do i = 0, pt
 
           associate(ui => u(:,:,:,i,n))
             call cl_problem % GetBoundaryValues (t(i), bv)
@@ -83,9 +83,9 @@ contains
 
           associate(Me => cl_operator % Me, w_col => cl_sdc % w_col)
             do k = 1, nc
-            do e = 1, ne
+            do e = 1, ns
               f = r_c(:,e,k) + r_d(:,e,k) + Me * f_s(:,e,k)
-              do m = 1, ns
+              do m = 1, pt
                 r(:,e,k,m,n) = r(:,e,k,m,n) + dt_step * w_col(i,m) * f
               end do
             end do

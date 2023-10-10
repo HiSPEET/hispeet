@@ -37,7 +37,7 @@ contains
              , ne          => this % cl_operator % ne       &
              , eop         => this % cl_operator % eop      &
              , n_sub       => this % cl_sdc % n_sub         &
-             , n_step      => this % n_step                 &
+             , n_time      => this % n_time                 &
              , cl_problem  => this % cl_problem             &
              , cl_operator => this % cl_operator            &
              , cl_sdc      => this % cl_sdc                 )
@@ -52,11 +52,11 @@ contains
 
       allocate(t_sub(0:n_sub), dt_sub(1:n_sub))
 
-      dt_step = dt / n_step
+      dt_step = dt / n_time
 
       ! time steps ..............................................................
 
-      Steps: do n = 1, n_step
+      Steps: do n = 1, n_time
 
         t_sub  = cl_sdc % IntermediateTimes(t_0 + (n-1)*dt_step, dt_step)
         dt_sub = t_sub(1:n_sub) - t_sub(0:n_sub)
@@ -120,7 +120,7 @@ contains
         end do Sweeps
 
         ! set initial values for next step
-        if (n < n_step) then
+        if (n < n_time) then
           u(:,:,:,0,n+1) = u(:,:,:,m,n)
         end if
 

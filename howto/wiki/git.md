@@ -79,10 +79,25 @@ This creates a clone of the git repository in the directory `hispeet`. Next init
       cd hispeet
       git submodule update --init
 
-If the branch of the external submodule has changed, the entry in `.gitmodules` and the corresponding `cmake` module need to be updated. Following this run
+In case of problems with a submodule
 
-      git submodule update --init --remote
+- Check the remote repository and find out which branch to use
 
+- If the branch changed correct its name in `.gitmodules` and in the corresponding configuration file, e.g., `external/cmake/libxsmm.cmake`
+
+- Remove the path containing the module, e.g.,
+
+      rm -rf external/libxsmm
+
+- Reinitialize the submodules using the command
+
+      git submodule update --init --remote --recursive
+
+- Change into the directory of the submodule and check the status. If necessary, checkout the right branch, e.g., for `libxsmm`
+
+      cd external/libxsmm
+      git status
+      git checkout main_stable
 
 ## Working with branches <a name="branches"></a>
 

@@ -35,39 +35,42 @@ module CL__MLSDC__1D
   !-----------------------------------------------------------------------------
   !> Options for initializing CL_MLSDC_1D objects
 
-  type, public :: CL_MLSDC_Options_1D(n_level)
+  type, public :: CL_MLSDC_Options_1D
 
-    integer, len :: n_level = 1  !< number of space-time levels
+    integer :: n_level = -1  !< number of space-time levels
 
-    ! level parameters .........................................................
+    ! level parameters
+    integer, allocatable :: n_space(:) !< number of elements in space
+    integer, allocatable :: p_space(:) !< polynomial degree of elements space
+    integer, allocatable :: q_conv(:)  !< quadrature degree for convection
+    integer, allocatable :: n_time(:)  !< number of time steps in one slice
+    integer, allocatable :: p_time(:)  !< polynomial degree of time step
 
-    integer :: n_elem (n_level)  !< number of elements in space
-    integer :: p_elem (n_level)  !< polynomial degree of elements space
-    integer :: q_conv (n_level)  !< quadrature degree for convection
-    integer :: n_step (n_level)  !< number of time steps in one slice
-    integer :: n_sub  (n_level)  !< number of subintervals in time step
-
-    ! space options ............................................................
-
-    real(RNP) :: penalty = 2  !< penalty parameter > 1
-
+    ! space options
+    real(RNP) :: penalty = 2                   !< IP-DG penalty parameter > 1
     type(DG_SchwarzOptions_1D) :: schwarz_root !< Schwarz opts for root level
     type(DG_SchwarzOptions_1D) :: schwarz_fine !< Schwarz opts for finer levels
-
-    ! transfer options .........................................................
 
     character :: projection_method = 'P' !< fine-to-coarse projection method:
                                          !! 'P'  L² projection,
                                          !! 'I'  interpolation
 
-    integer :: projection_smoothing = 1 !< discontinuities in 2:1 projection:
-                                        !!  0   no smoothing
-                                        !!  1   removal by linear blending
-                                        !!  0   removal by coefficient averaging
+    integer :: projection_smoothing = 1  !< discontinuities in 2:1 projection:
+                                         !!  0   no smoothing
+                                         !!  1   remove by linear blending
+                                         !!  0   remove by coefficient averaging
 
   end type CL_MLSDC_Options_1D
 
+  ! constructor
+  interface CL_MLSDC_Options_1D
+    procedure New_CL_MLSDC_Options_1D
+  end interface
+
 contains
+
+  !=============================================================================
+  ! TBP for CL_MLSDC_1D
 
   !-----------------------------------------------------------------------------
   !> New CL_MLSDC_1D object
@@ -112,17 +115,23 @@ contains
 
     do l = 1, opt % n_level
 
+      ! dimensions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+      opt_level % n_space = opt % n_space(l)
+      opt_level % p_space = opt % p_space(l)
+      opt_level % n_time  = opt % n_time (l)
+      opt_level % p_time  = opt % p_time (l)
+
       ! space options  . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
       associate(cl_operator => opt_level % cl_operator)
 
-        cl_operator % ne  = opt % n_elem(l)
-        cl_operator % nc  = cl_problem % nc
+        cl_operator % ne  = opt % n_space(l)
         cl_operator % xb1 = cl_problem % xb1
         cl_operator % xb2 = cl_problem % xb2
 
         cl_operator % eop = &
-            DG_ElementOptions_1D(po = opt % p_elem(l), penalty = opt % penalty)
+            DG_ElementOptions_1D(po = opt % p_space(l), penalty = opt % penalty)
 
         cl_operator % qop = StandardOperatorOptions_1D(po = opt % q_conv(l))
 
@@ -137,46 +146,56 @@ contains
 
       ! time options . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-      opt_level % n_step = opt % n_step(l)
-
       opt_level % cl_pre = opt_pre
       opt_level % cl_sdc = opt_sdc
-      opt_level % cl_sdc % n_sub = opt % n_sub(l)
+      opt_level % cl_sdc % n_sub = opt % p_time(l) ! num subintervals = degree
 
       ! transfer options . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
       if (l < opt % n_level) then
 
-        opt_level % iop_cf_x =                              &
-            CoarseToFineInterpolationOptions_1D(            &
-                po_c = opt % p_elem(l),                     &
-                po_f = opt % p_elem(l+1),                   &
-                mode = opt % n_elem(l+1) / opt % n_elem(l)  )
+        opt_level % iop_cf_x =                               &
+            CoarseToFineInterpolationOptions_1D(             &
+                po_c = opt % p_space(l),                     &
+                po_f = opt % p_space(l+1),                   &
+                mode = opt % n_space(l+1) / opt % n_space(l) )
 
         opt_level % iop_cf_t =                              &
             CoarseToFineInterpolationOptions_1D(            &
-                po_c = opt % n_sub(l),                      &
-                po_f = opt % n_sub(l+1),                    &
-                mode = opt % n_step(l+1) / opt % n_step(l)  )
+                po_c = opt % p_time(l),                     &
+                po_f = opt % p_time(l+1),                   &
+                mode = opt % n_time(l+1) / opt % n_time(l)  )
+
+      else
+
+        ! reset interpolation options
+        opt_level % iop_cf_x = CoarseToFineInterpolationOptions_1D()
+        opt_level % iop_cf_t = CoarseToFineInterpolationOptions_1D()
 
       end if
 
       if (l > 1) then
 
-        opt_level % pop_fc_x =                                    &
-            FineToCoarseProjectionOptions_1D(                     &
-                po_f      = opt % p_elem(l),                      &
-                po_c      = opt % p_elem(l-1),                    &
-                mode      = opt % n_elem(l) / opt % n_elem(l-1),  &
-                method    = opt % projection_method,              &
-                smoothing = opt % projection_smoothing            )
+        opt_level % pop_fc_x =                                     &
+            FineToCoarseProjectionOptions_1D(                      &
+                po_f      = opt % p_space(l),                      &
+                po_c      = opt % p_space(l-1),                    &
+                mode      = opt % n_space(l) / opt % n_space(l-1), &
+                method    = opt % projection_method,               &
+                smoothing = opt % projection_smoothing             )
 
         opt_level % pop_fc_t =                                    &
             FineToCoarseProjectionOptions_1D(                     &
-                po_f      = opt % n_sub(l),                       &
-                po_c      = opt % n_sub(l-1),                     &
-                mode      = opt % n_step(l) / opt % n_step(l-1),  &
+                po_f      = opt % p_time(l),                      &
+                po_c      = opt % p_time(l-1),                    &
+                mode      = opt % n_time(l) / opt % n_time(l-1),  &
                 method    = opt % projection_method               )
+
+      else
+
+        ! reset projection options
+        opt_level % pop_fc_x = FineToCoarseProjectionOptions_1D()
+        opt_level % pop_fc_t = FineToCoarseProjectionOptions_1D()
 
       end if
 
@@ -187,6 +206,26 @@ contains
     end do
 
   end subroutine Init_CL_MLSDC_1D
+
+  !=============================================================================
+  ! TBP for CL_MLSDC_Options_1D
+
+  !-----------------------------------------------------------------------------
+  !> New CL_MLSDC_1D options
+
+  function New_CL_MLSDC_Options_1D(n_level) result(opt)
+    integer, intent(in) :: n_level !< number of space-time levels
+    type(CL_MLSDC_Options_1D) :: opt
+
+    opt % n_level = n_level
+
+    allocate(opt % n_space(n_level))
+    allocate(opt % p_space(n_level))
+    allocate(opt % q_conv (n_level))
+    allocate(opt % n_time (n_level))
+    allocate(opt % p_time (n_level))
+
+  end function New_CL_MLSDC_Options_1D
 
   !=============================================================================
 

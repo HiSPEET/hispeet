@@ -161,8 +161,8 @@ contains
       allocate(w_g(0:po_c), source = GaussWeights(x_g))
 
       ! Gauss points and weights for exact integration
-      allocate(x_q(0:po_c), source = GaussPoints(po_q))
-      allocate(w_q(0:po_c), source = GaussWeights(x_q))
+      allocate(x_q(0:po_q), source = GaussPoints(po_q))
+      allocate(w_q(0:po_q), source = GaussWeights(x_q))
 
     end if
 
