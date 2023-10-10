@@ -22,7 +22,7 @@ x = np.array([ res_0['dt'][n], res_0['dt'][0] ])
 y = res_0['err_2'][n] * np.array([ 1.0, (x[1] / x[0])**3 ])
 plt.plot(x, y, linestyle=':', marker='None', color='C0', label=r'$\sim\Delta t^3$')
 
-plt.xscale('log', basex=2)
+plt.xscale('log', base=2)
 plt.xlabel(r'$\Delta t$', size='14')
 
 plt.yscale('log')

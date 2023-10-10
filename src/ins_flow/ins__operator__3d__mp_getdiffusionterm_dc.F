@@ -30,7 +30,7 @@ contains
   !> form of the momentum equation including the boundary conditions.
   !> To obtain the node values, apply the inverse mass matrix to `F_d`.
 
-  module subroutine GetDiffusionTerm_DC(this, v, vp, sp, F_d, form)
+  module subroutine GetDiffusionTerm_DC(this, v, vp, sp, F_d, form, extrapolate)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -40,13 +40,13 @@ contains
 
     real(RNP), contiguous, intent(inout) :: vp(:,:,:,:,:)
     !< exterior velocity traces (np,np,6,ne,3)
-    !<   - in:  v⁺  at boundary faces
-    !<   - out: v⁺  at all element faces
+    !!   - in:  v⁺  at boundary faces
+    !!   - out: v⁺  at all element faces
 
     real(RNP), contiguous, intent(inout) :: sp(:,:,:,:,:)
     !< viscous flux traces (np,np,6,ne,3)
-    !<   - in:  s  =  n⋅τ   at free-slip or traction faces, undefined else
-    !<   - out: s⁺ = -n⋅τ⁺  at all element faces, since n⁺ = -n
+    !!   - in:  s  =  sᵇ    at outflow faces, zero elsewhere
+    !!   - out: s⁺ = -n⋅τ⁺  at all element faces, since n⁺ = -n
 
     real(RNP), contiguous, intent(out) :: F_d(:,:,:,:,:)
     !< diffusion term (np,np,np,ne,3)
@@ -57,6 +57,12 @@ contains
     !!   - `1` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[      ν ∇⋅v] =  ν∇²v`       (diffusion)
     !!   - `2` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[     2ν ∇⋅v] = -ν∇×(∇×v)`   (rotation)
 
+    character(len=*), optional, intent(in) :: extrapolate
+    !< switch to replace boundary conditions by extrapolation:
+    !!   - `D` :  Dirichlet conditions
+    !!   - `O` :  outflow conditions
+    !!   - `A` :  all
+
     ! local variables ..........................................................
 
     ! trace transfer buffers operators
@@ -66,6 +72,7 @@ contains
     real(RNP), allocatable, save :: tr(:,:,:,:,:) ! traces of v and n⋅τ
 
     real(RNP) :: mu, nu
+    logical   :: ex_db, ex_ob
 
     nu = this % nu_0
 
@@ -80,6 +87,14 @@ contains
       end select
     else
       mu = this % mu_0
+    end if
+
+    if (present(extrapolate)) then
+      ex_db = scan(extrapolate,'AD') > 0
+      ex_ob = scan(extrapolate,'AO') > 0
+    else
+      ex_db = .false.
+      ex_ob = .false.
     end if
 
     associate( mesh   => this % sem_v % mesh         &
@@ -115,13 +130,14 @@ contains
       ! add fluxes .............................................................
 
       ! add element boundary contributions and complete/build outer traces
-      call AddViscousFluxes( eop%po, mesh, eop, bc &
-                           , a, n, Ji, mu, nu      &
-                           , vm = tr(:,:,:,:,1:3)  &
-                           , sm = tr(:,:,:,:,4:6)  &
-                           , vp = vp               & ! v⁺
-                           , sp = sp               & ! s⁺
-                           , F_d = F_d             )
+      call AddViscousFluxes( eop%po, mesh, eop    &
+                           , bc, ex_db, ex_ob     &
+                           , a, n, Ji, mu, nu     &
+                           , vm = tr(:,:,:,:,1:3) &
+                           , sm = tr(:,:,:,:,4:6) &
+                           , vp = vp              & ! v⁺
+                           , sp = sp              & ! s⁺
+                           , F_d = F_d            )
 
       ! cleanup ................................................................
 
@@ -136,8 +152,9 @@ contains
   !-----------------------------------------------------------------------------
   !> Compute & add viscous fluxes
 
-  subroutine AddViscousFluxes( P, mesh, eop, bc, a, n, Ji  &
-                             , mu, nu, vm, sm, vp, sp, F_d )
+  subroutine AddViscousFluxes( P, mesh, eop, bc, ex_db, ex_ob    &
+                             , a, n, Ji, mu, nu, vm, sm, vp, sp  &
+                             , F_d                               )
 
     integer, intent(in) :: P
     !< polynomial order
@@ -150,6 +167,12 @@ contains
 
     character, intent(in) :: bc(:)
     !< boundary conditions
+
+    logical, intent(in) :: ex_db
+    !< extrapolation switch for Dirichlet boundaries
+
+    logical, intent(in) :: ex_ob
+    !< extrapolation switch for open boundaries
 
     real(RNP), contiguous, intent(in) :: a(0:,0:,:,:)
     !< area coefficient at element faces (0:po,0:po,6,ne)
@@ -174,13 +197,13 @@ contains
 
     real(RNP), contiguous, intent(inout) :: vp(0:,0:,:,:,:)
     !< exterior velocity traces at element faces (0:po,0:po,6,ne,3)
-    !<   - in:  v   at Dirichlet faces, nn⋅v at free-slip faces, undefined else
-    !<   - out: v⁺  at all element faces
+    !!   - in:  v   at Dirichlet faces, nn⋅v at free-slip faces, undefined else
+    !!   - out: v⁺  at all element faces
 
     real(RNP), contiguous, intent(inout) :: sp(0:,0:,:,:,:)
     !< vicous stress vector at element faces (0:po,0:po,6,ne,3)
-    !<   - in:  s  = n⋅τ   at free-slip or traction faces, undefined else
-    !<   - out: s⁺ = n⋅τ⁺  at all element faces
+    !!   - in:  s  =  sᵇ    at outflow faces, zero elsewhere
+    !!   - out: s⁺ = -n⋅τ⁺  at all element faces, since n⁺ = -n
 
     real(RNP), contiguous, intent(inout) :: F_d(0:,0:,0:,:,:)
     !< diffusion term (0:po,0:po,0:po,ne,3)
@@ -243,7 +266,8 @@ contains
 
             i = (f - 1) * P
 
-            call BuildOuterTraces(P, element, struct, bc, e,f,n, vm,sm, vp,sp)
+            call BuildOuterTraces( element, struct, bc, ex_db, ex_ob &
+                                 , e, f, vm, sm, vp, sp              )
 
             cip = eop % PenaltyFactor(element % geometry % dx_m(f))
 
@@ -334,7 +358,8 @@ contains
 
             j = (f - 3) * P
 
-            call BuildOuterTraces(P, element, struct, bc, e,f,n, vm,sm, vp,sp)
+            call BuildOuterTraces( element, struct, bc, ex_db, ex_ob &
+                                 , e, f, vm, sm, vp, sp              )
 
             cip = eop % PenaltyFactor(element % geometry % dx_m(f))
 
@@ -424,7 +449,8 @@ contains
 
             k = (f - 5) * P
 
-            call BuildOuterTraces(P, element, struct, bc, e,f,n, vm,sm, vp,sp)
+            call BuildOuterTraces( element, struct, bc, ex_db, ex_ob &
+                                 , e, f, vm, sm, vp, sp              )
 
             cip = eop % PenaltyFactor(element % geometry % dx_m(f))
 
@@ -536,15 +562,16 @@ contains
   !-----------------------------------------------------------------------------
   !> Compose exterior traces at element boundary
 
-  subroutine BuildOuterTraces(P, element, struct, bc, e, f, n, vm, sm, vp, sp)
+  subroutine BuildOuterTraces( element, struct, bc, ex_db, ex_ob &
+                             , e, f, vm, sm, vp, sp              )
 
-    integer,               intent(in)    :: P       !< polynomial order
     class(MeshElement_3D), intent(in)    :: element !< element
     logical,               intent(in)    :: struct  !< F/T if un/structured
     character,             intent(in)    :: bc(:)   !< boundary conditions
+    logical,               intent(in)    :: ex_db   !< extrapolation for 'D'
+    logical,               intent(in)    :: ex_ob   !< extrapolation for 'O'
     integer,               intent(in)    :: e       !< element ID
     integer,               intent(in)    :: f       !< element face
-    real(RNP), contiguous, intent(in)    :: n (0:,0:,:,:,:) !< normals
     real(RNP), contiguous, intent(in)    :: vm(0:,0:,:,:,:) !< v⁻
     real(RNP), contiguous, intent(in)    :: sm(0:,0:,:,:,:) !< s⁻
     real(RNP), contiguous, intent(inout) :: vp(0:,0:,:,:,:) !< vb → v⁺
@@ -552,8 +579,7 @@ contains
 
     ! local variables ..........................................................
 
-!!  real(RNP) :: n1, n2, n3, vm_n, vp_n
-    integer   :: c, i, j, k, l, m
+    integer   :: c, i, l, m
 
     i  = element % face(f) % i_neighbor
 
@@ -565,12 +591,8 @@ contains
       m = element % neighbor(i) % component
       if (struct) then
         do c = 1, 3
-          do k = 0, P
-          do j = 0, P
-            vp(j,k,f,e,c) = vm(j,k,m,l,c)
-            sp(j,k,f,e,c) = sm(j,k,m,l,c)
-          end do
-          end do
+          vp(:,:,f,e,c) = vm(:,:,m,l,c)
+          sp(:,:,f,e,c) = sm(:,:,m,l,c)
         end do
       else
         do c = 1, 3
@@ -585,50 +607,30 @@ contains
 
       select case(bc(element % face(f) % boundary))
 
-      case('D') ! Dirichlet
+      case('D') ! Dirichlet: s⁺ = n⁺⋅τ⁻ = -s⁻, v⁺ already set
         do c = 1, 3
-          do k = 0, P
-          do j = 0, P
-            sp(j,k,f,e,c) = -sm(j,k,f,e,c)
-          end do
-          end do
+          sp(:,:,f,e,c) = -sm(:,:,f,e,c)
         end do
 
-!!       case('S') ! free slip
-!!         do k =0, P
-!!         do j =0, P
-!!
-!!           n1 = n(j,k,f,e,1)
-!!           n2 = n(j,k,f,e,2)
-!!           n3 = n(j,k,f,e,3)
-!!
-!!           vm_n = n1 * vm(j,k,f,e,1) + n2 * vm(j,k,f,e,2) + n3 * vm(j,k,f,e,3)
-!!           vp_n = n1 * vp(j,k,f,e,1) + n2 * vp(j,k,f,e,2) + n3 * vp(j,k,f,e,3)
-!!
-!!           vp(j,k,f,e,1) =  vm(j,k,f,e,1) + 2 * n1 * (vp_n - vm_n)
-!!           vp(j,k,f,e,2) =  vm(j,k,f,e,2) + 2 * n2 * (vp_n - vm_n)
-!!           vp(j,k,f,e,3) =  vm(j,k,f,e,3) + 2 * n3 * (vp_n - vm_n)
-!!
-!!           sp(j,k,f,e,1) = -sm(j,k,f,e,1)
-!!           sp(j,k,f,e,2) = -sm(j,k,f,e,2)
-!!           sp(j,k,f,e,3) = -sm(j,k,f,e,3)
-!!
-!!         end do
-!!         end do
-!!
-!!       case default
-!!         do c = 1, 3
-!!           do k =0, P
-!!           do j =0, P
-!!             vp(j,k,f,e,c) =  vm(j,k,f,e,c)
-!!             sp(j,k,f,e,c) = -sm(j,k,f,e,c)
-!!           end do
-!!           end do
-!!         end do
+      case('O') ! outflow, v⁺ already set
+        if (ex_ob) then
+          ! extrapolation: τ⁺ = τ⁻ → s⁺ = -s⁻
+          do c = 1, 3
+            sp(:,:,f,e,c) = -sm(:,:,f,e,c)
+          end do
+        else
+          ! outflow conditions: s⁺ = s⁻ - 2sᵇ
+          do c = 1, 3
+            sp(:,:,f,e,c) = sm(:,:,f,e,c) - 2 * sp(:,:,f,e,c)
+          end do
+        end if
 
       end select
 
     end if
+
+    ! ex_db has no effect here, touch to avoid compiler warning
+    if (ex_db) return
 
   end subroutine BuildOuterTraces
 

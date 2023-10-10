@@ -18,12 +18,12 @@ contains
   !>     r = Fd(v, vb, sb) - Mv/τ + Mf
   !>
   !> where `Fd` is the weak form of the diffusion term for the given velocity
-  !> `v` and boundary values `vb`, `sb` extracted from the boundary variable
-  !> `bv_v`, `M` is the diagonal mass matrix and `f` the nodal coefficients of
+  !> `v` and boundary values `vb`, `sb` obtained from the boundary variable
+  !> `bv_u`, `M` is the diagonal mass matrix and `f` the nodal coefficients of
   !> the sources, which comprise the remaining coefficients of the momentum
   !> equation.
 
-  module subroutine GetDiffusionResidual_C(this, tau, f, bv_v, v, r, form)
+  module subroutine GetDiffusionResidual_C(this, tau, f, bv_u, v, r, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -34,8 +34,10 @@ contains
     real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
     !< sources, f(np,np,np,ne,3)
 
-    class(BoundaryVariable_3D), intent(in) :: bv_v(:)
-    !< velocity boundary values, bv_v(nb)
+    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
+    !< boundary values, bv_u(nb), depending on BC type given in `this % bc_v`:
+    !!   - `'D'`:  `v  ` in components 1:3
+    !!   - `'O'`:  `v,p` in components 1:4
 
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)
@@ -71,8 +73,8 @@ contains
 
       call this % sem_v % Get_DG_DiagonalMassMatrix(mm)
 
-      call GetBoundaryTraces_3D(mesh, v, vp)   ! vp = v⁻ on ∂Ω
-      call this % ApplyVelocityBC(bv_v, vp, sp)  ! vp = v⁺ on ∂Ω, ...
+      call GetBoundaryTraces_3D(mesh, v, vp)    ! vp = v⁻ on ∂Ω
+      call this % ApplyVelocityBC(vp, sp, bv_u) ! vp = v⁺, sp = sb on ∂Ω
       lambda = 1 / tau
 
       ! compute residual .......................................................

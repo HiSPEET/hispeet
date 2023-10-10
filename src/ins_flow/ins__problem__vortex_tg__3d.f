@@ -333,7 +333,7 @@ contains
   end subroutine GetExactDiffusiveTerm
 
   !=============================================================================
-  ! problem-specific procedures
+  ! Problem-specific procedures
 
   !-----------------------------------------------------------------------------
   !> Velocity

@@ -110,7 +110,7 @@ contains
     problem % stokes         = .true.
     problem % exact_solution = .true.
 
-    problem % nu_ref =  nu
+    problem % nu_ref = nu
     problem % v_ref  = ONE / 72
     problem % x0     = x0
     problem % x1     = x1

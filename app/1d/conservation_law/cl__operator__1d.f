@@ -16,7 +16,7 @@ module CL__Operator__1D
   private
 
   public :: CL_Operator_1D
-  public :: CL_OperatorOptions_1D
+  public :: CL_Operator_Options_1D
 
   !-----------------------------------------------------------------------------
   !> DG-SEM mesh and operators for 1D conservation problems
@@ -24,7 +24,6 @@ module CL__Operator__1D
   type :: CL_Operator_1D
 
     integer   :: ne !< number of elements
-    integer   :: nc !< number of components
     real(RNP) :: dx !< element length
 
     type(DG_ElementOperators_1D)   :: eop    !< ops for solution u
@@ -32,9 +31,20 @@ module CL__Operator__1D
     type(EmbeddedInterpolation_1D) :: iop_uq !< interpolation from u to q points
     type(DG_EllipticOperator_1D)   :: elliptic_op !< elliptic solvers+smoothers
 
-    logical,   allocatable :: mask(:) !< T/F for active/frozen elements
     real(RNP), allocatable :: x(:,:)  !< mesh points
     real(RNP), allocatable :: Me(:)   !< element mass matrix
+
+    ! element attributes
+    integer, allocatable :: activity(:)   !< element activity
+    !! - ` 1`  active
+    !! - ` 0`  frozen
+    !! - `-1`  undefined
+    integer, allocatable :: refinement(:) !< element refinement
+    !! - ` 1`  regular (active children)
+    !! - ` 0`  closure (frozen children)
+    !! - `-1`  none
+    integer, allocatable :: mark(:)       !< element mark
+
 
   contains
 
@@ -50,19 +60,18 @@ module CL__Operator__1D
   !-----------------------------------------------------------------------------
   !> Options for CL_Operator_1D initialization
   !>
-  !> The parameters `nc`, `xb1`, `xb2` must be chosen in accordance with the
+  !> The parameters `xb1` and `xb2` must be chosen in accordance with the
   !> related problem. It is recommended to extract them from the corresponding
   !> instance of CL_Problem_1D.
 
-  type CL_OperatorOptions_1D
+  type CL_Operator_Options_1D
     integer                          :: ne = 1  !< number of elements
-    integer                          :: nc      !< number of components
     real(RNP)                        :: xb1     !< position of left boundary
     real(RNP)                        :: xb2     !< position of right boundary
-    type(DG_ElementOptions_1D)       :: eop     !< DG operator options for v
+    type(DG_ElementOptions_1D)       :: eop     !< DG operator options for u
     type(StandardOperatorOptions_1D) :: qop     !< quadrature for convection
     type(DG_SchwarzOptions_1D)       :: schwarz !< Schwarz preconditioner
-  end type CL_OperatorOptions_1D
+  end type CL_Operator_Options_1D
 
 contains
 
@@ -70,7 +79,7 @@ contains
   !> Returns a new CL_Operator_1D object
 
   type(CL_Operator_1D) function New_CL_Operator_1D(opt) result(this)
-    class(CL_OperatorOptions_1D), intent(in) :: opt
+    class(CL_Operator_Options_1D), intent(in) :: opt
 
     call Init_CL_Operator_1D(this, opt)
 
@@ -80,19 +89,20 @@ contains
   !> Initialization of CL_Operator_1D
 
   subroutine Init_CL_Operator_1D(this, opt)
-    class(CL_Operator_1D),        intent(inout) :: this
-    class(CL_OperatorOptions_1D), intent(in)    :: opt
+    class(CL_Operator_1D),         intent(inout) :: this
+    class(CL_Operator_Options_1D), intent(in)    :: opt
 
     ! free allocated components ................................................
 
-    if (allocated(this % mask))  deallocate(this % mask)
-    if (allocated(this % x   ))  deallocate(this % x   )
-    if (allocated(this % Me  ))  deallocate(this % Me  )
+    if (allocated(this % x         ))  deallocate(this % x         )
+    if (allocated(this % Me        ))  deallocate(this % Me        )
+    if (allocated(this % activity  ))  deallocate(this % activity  )
+    if (allocated(this % refinement))  deallocate(this % refinement)
+    if (allocated(this % mark      ))  deallocate(this % mark      )
 
     ! basic initialization .....................................................
 
     this % ne = opt % ne
-    this % nc = opt % nc
     this % dx = (opt % xb2 - opt % xb1) / this % ne
 
     ! element operators ........................................................
@@ -107,15 +117,17 @@ contains
 
     associate(ne => this % ne, po => this % eop % po)
 
-      ! mask, true by default for all elements
-      allocate(this % mask(ne), source = .true.)
-
       ! mesh points
       allocate(this % x(0:po,ne))
       call DG_GetMeshPoints_1D(this%eop, opt%xb1, opt%xb2, this%dx, this%x)
 
       ! element mass matrix
       allocate(this % Me(0:po), source = this%dx/2 * this%eop%w)
+
+      ! attributes
+      allocate(this % activity  (ne), source =  1) ! default: active
+      allocate(this % refinement(ne), source = -1) ! default: no refinement
+      allocate(this % mark      (ne), source = -1) ! default: no mark
 
     end associate
 

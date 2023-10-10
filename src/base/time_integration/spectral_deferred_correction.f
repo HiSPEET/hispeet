@@ -38,7 +38,7 @@ module Spectral_Deferred_Correction
   !> subintervals `[τᵢ₋₁,τᵢ]`. Two choices exist for the  point set `{τᵢ}`:
   !>
   !>   1. the equidistant partition of `[0,1]`, or
-  !>   2. the Gauss-Legendre-Lobatto (G) points mapped to `[0,1]`.
+  !>   2. the Gauss-Legendre-Lobatto (GLL) points mapped to `[0,1]`.
   !>
   !> Within the type, `t(i) = τᵢ` represents the i-th point, `w(i) = wᵢ` the
   !> corresponding quadrature weight and `n_sub = M` the number of subintervals.
@@ -60,6 +60,10 @@ module Spectral_Deferred_Correction
   !> where the weights \(w^s_{j,i}\), denoted `w_sub(j,i)` in Fortran, are
   !> obtained by application of the Lobatto quadrature with `M+1` points to
   !> the Lagrange interpolant constructed from `f(τᵢ)`.
+  !>
+  !> Additionally, `w_col(:,i)` provides the quadrature weights for the interval
+  !> [0,τᵢ]. The transpose of `w_col` represents the coefficients of the related
+  !> collocation method.
 
   type SDC_Method
 
@@ -70,6 +74,7 @@ module Spectral_Deferred_Correction
     real(RNP), allocatable :: t(:)       !< nodes τᵢ in [0,1]
     real(RNP), allocatable :: w(:)       !< quadrature weights for [0, 1]
     real(RNP), allocatable :: w_sub(:,:) !< quadrature weights for [τᵢ₋₁,τᵢ]
+    real(RNP), allocatable :: w_col(:,:) !< quadrature weights for [0,τᵢ]
 
     real(RNP), allocatable, private :: x_gll(:) !< Lobatto nodes in [-1,1]
     real(RNP), allocatable, private :: w_gll(:) !< Lobatto weights to x_gll
@@ -147,10 +152,12 @@ contains
       deallocate(this % t    )
       deallocate(this % w    )
       deallocate(this % w_sub)
+      deallocate(this % w_col)
     end if
-    if (.not. allocated(this % t ))    allocate(this % t     (0:n_sub)      )
-    if (.not. allocated(this % w ))    allocate(this % w     (0:n_sub)      )
+    if (.not. allocated(this % t    )) allocate(this % t     (0:n_sub)        )
+    if (.not. allocated(this % w    )) allocate(this % w     (0:n_sub)        )
     if (.not. allocated(this % w_sub)) allocate(this % w_sub (0:n_sub, n_sub) )
+    if (.not. allocated(this % w_col)) allocate(this % w_col (0:n_sub, n_sub) )
 
     this % n_sub     = n_sub
     this % n_sweep   = max(0, opt % n_sweep)
@@ -175,6 +182,13 @@ contains
 
     do i = 1, n_sub
       this % w_sub(:,i) = this % SubintervalWeights(this%t(i-1), this%t(i))
+    end do
+
+    ! quadrature weights in [0,τᵢ] .............................................
+
+    this % w_col(:,1) = this % w_sub(:,1)
+    do i = 2, n_sub
+      this % w_col(:,i) = this % w_col(:,i-1) + this % w_sub(:,i)
     end do
 
   end subroutine Init_SDC

@@ -28,7 +28,7 @@ module CL__Problem__Burgers__1D
   !> with constant diffusivity ν. Available boundary conditions are
   !>
   !>   - Dirichlet with `bc = 'D'` and `bv = u`
-  !>   - Neumann   with `bc = 'N'` and `bv = q = ν∂u/∂x`
+  !>   - Neumann   with `bc = 'N'` and `bv = ∂u/∂x`
   !>   - Periodic  with `bc = 'P'`
 
   type, abstract, extends(CL_Problem_1D) :: CL_Problem_Burgers_1D
@@ -41,6 +41,8 @@ module CL__Problem__Burgers__1D
     procedure :: GetDiffusionTerm
     procedure :: GetSDTerm
     procedure :: DiffusionSolver
+    procedure :: GetMaxVelocity
+    procedure :: GetMaxDiffusivity
 
   end type CL_Problem_Burgers_1D
 
@@ -62,13 +64,13 @@ contains
     logical :: use_interpolation
     integer :: e, i, j, j0
 
-    associate( eop  => cl_operator % eop      &
-             , qop  => cl_operator % qop      &
-             , iop  => cl_operator % iop_uq   &
-             , mask => cl_operator % mask     &
-             , po   => cl_operator % eop % po &
-             , qo   => cl_operator % qop % po &
-             , ne   => cl_operator % ne       )
+    associate( eop      => cl_operator % eop      &
+             , qop      => cl_operator % qop      &
+             , iop      => cl_operator % iop_uq   &
+             , po       => cl_operator % eop % po &
+             , qo       => cl_operator % qop % po &
+             , ne       => cl_operator % ne       &
+             , activity => cl_operator % activity )
 
       ! initialization .........................................................
 
@@ -98,7 +100,7 @@ contains
 
       !$omp do
       do e = 1, ne
-        if (mask(e)) then
+        if (activity(e) > 0) then
 
           ! compute fluxes in quadrature points
           if (use_interpolation) then
@@ -121,7 +123,7 @@ contains
       call GetNumericalConvectiveFlux(this, bv, u(:,:,1), h_c)
 
       do e = 1, ne
-        if (mask(e)) then
+        if (activity(e) > 0) then
           r_c( 0,e,1) = r_c( 0,e,1) + h_c(e-1)
           r_c(po,e,1) = r_c(po,e,1) - h_c(e)
         end if
@@ -182,7 +184,7 @@ contains
     ! right boundary
     select case(this % bc(2))
     case('D')
-      ur(ne) = 2 * bv(1,2)- u(po,ne)
+      ur(ne) = 2 * bv(1,2) - u(po,ne)
     case('P')
       ur(ne) = u(0,1)
     case default
@@ -190,7 +192,6 @@ contains
     end select
 
     h_c = RiemannFlux(ul, ur)
-!   h_c = LLF_Flux(ul, ur)
 
   end subroutine GetNumericalConvectiveFlux
 
@@ -213,18 +214,6 @@ contains
   end function RiemannFlux
 
   !-----------------------------------------------------------------------------
-  !> Numerical convective flux hc(ul,ur) based on Riemann solver
-
-  elemental function LLF_Flux(ul, ur) result(h_c)
-    real(RNP), intent(in) :: ul
-    real(RNP), intent(in) :: ur
-    real(RNP) :: h_c
-
-    h_c = (ul**2 + ur**2)/4 + max(abs(ul),abs(ur)) * (ul - ur)
-
-  end function LLF_Flux
-
-  !-----------------------------------------------------------------------------
   !> Diffusive contribution to RHS of DG-SEM formulation
 
   subroutine GetDiffusionTerm(this, cl_operator, bv, u, r_d)
@@ -235,6 +224,7 @@ contains
     real(RNP), contiguous,        intent(out) :: r_d(0:,:,:)
 
     real(RNP), allocatable, save :: f(:,:)
+    logical,   allocatable, save :: mask(:)
     character :: elliptic_bc(2)
     real(RNP) :: elliptic_bv(2)
 
@@ -242,22 +232,23 @@ contains
              , ne => cl_operator % ne       )
 
       !$omp master
+      allocate(mask(ne), source = cl_operator % activity > 0)
       allocate(f(0:po,ne), source = ZERO)
 
       elliptic_bc = this % bc(:)(1:1)
       elliptic_bv = bv(1,:)
 
-      call cl_operator % elliptic_op % Residual( elliptic_bc                 &
-                                               , elliptic_bv                 &
-                                               , dx     = cl_operator % dx   &
-                                               , lambda = ZERO               &
-                                               , nu     = this % nu          &
-                                               , f      = f                  &
-                                               , u      = u  (:,:,1)         &
-                                               , r      = r_d(:,:,1)         &
-                                               , mask   = cl_operator % mask )
+      call cl_operator % elliptic_op % Residual( elliptic_bc               &
+                                               , elliptic_bv               &
+                                               , dx     = cl_operator % dx &
+                                               , lambda = ZERO             &
+                                               , nu     = this % nu        &
+                                               , f      = f                &
+                                               , u      = u  (:,:,1)       &
+                                               , r      = r_d(:,:,1)       &
+                                               , mask   = mask             )
 
-      deallocate(f)
+      deallocate(f, mask)
       !$omp end master
 
     end associate
@@ -267,15 +258,17 @@ contains
   !-----------------------------------------------------------------------------
   !> Streamline-diffusion contribution to RHS of DG-SEM formulation
 
-  subroutine GetSDTerm(this, cl_operator, tau, bv, u, r_sd)
+  subroutine GetSDTerm(this, cl_operator, tau, bv, u_0, u, r_sd)
     class(CL_Problem_Burgers_1D), intent(in)  :: this
     class(CL_Operator_1D),        intent(in)  :: cl_operator
     real(RNP),                    intent(in)  :: tau
     real(RNP),                    intent(in)  :: bv (:,:)
+    real(RNP), contiguous,        intent(in)  :: u_0 (0:,:,:)
     real(RNP), contiguous,        intent(in)  :: u   (0:,:,:)
     real(RNP), contiguous,        intent(out) :: r_sd(0:,:,:)
 
     real(RNP), allocatable, save :: f(:,:), nu_sd(:,:)
+    logical,   allocatable, save :: mask(:)
     character :: elliptic_bc(2)
     real(RNP) :: elliptic_bv(2)
 
@@ -283,28 +276,25 @@ contains
              , ne => cl_operator % ne       )
 
       !$omp master
-      allocate(f    (0:po,ne), source = ZERO)
+      allocate(mask(ne), source = cl_operator % activity > 0)
+      allocate(f(0:po,ne), source = ZERO)
       allocate(nu_sd(0:po,ne))
-      call GetStreamlineDiffusivity(this, tau, u(:,:,1), nu_sd)
+      call GetStreamlineDiffusivity(this, tau, u_0(:,:,1), nu_sd)
 
       elliptic_bc = this % bc(:)(1:1)
-      where(elliptic_bc == 'D')
-        elliptic_bv = bv(1,:)
-      else where
-        elliptic_bv = 0
-      end where
+      elliptic_bv = bv(1,:)
 
-      call cl_operator % elliptic_op % Residual( elliptic_bc                 &
-                                               , elliptic_bv                 &
-                                               , dx     = cl_operator % dx   &
-                                               , lambda = ZERO               &
-                                               , nu     = nu_sd              &
-                                               , f      = f                  &
-                                               , u      = u   (:,:,1)        &
-                                               , r      = r_sd(:,:,1)        &
-                                               , mask   = cl_operator % mask )
+      call cl_operator % elliptic_op % Residual( elliptic_bc               &
+                                               , elliptic_bv               &
+                                               , dx     = cl_operator % dx &
+                                               , lambda = ZERO             &
+                                               , nu     = nu_sd            &
+                                               , f      = f                &
+                                               , u      = u   (:,:,1)      &
+                                               , r      = r_sd(:,:,1)      &
+                                               , mask   = mask             )
 
-      deallocate(f, nu_sd)
+      deallocate(f, mask, nu_sd)
       !$omp end master
 
     end associate
@@ -316,9 +306,10 @@ contains
   !>
   !> Implicit method for solving or relaxing the diffusion subproblem
   !>
-  !>       u = u₀ + ∆t [r_d(bv,u) + r_ds(bv,τ,u)]
+  !>       u = f + ∆t [r_d(bv,u) + r_ds(bv,τ,u₀,u)]
   !>
-  !> The streamline-diffusion term `f_ds` is included only if τ > 0.
+  !> The streamline-diffusion term `r_ds` is evaluated with `u₀` and included
+  !> only if τ > 0.
   !> At present, the following solution methods are available:
   !>
   !> 1. Direct hybrid solver
@@ -333,28 +324,31 @@ contains
   !> 3. Schwarz method
   !>      - requires proper initialization of `cl_operator%eop%schwarz`
   !>      - bad solver
-  !>      - good smoother when used with overlap `schwarz%no ≈ po/4`
+  !>      - good smoother when used with overlap `schwarz % delta ≈ 0.25`
   !>
   !> 4. Inexact preconditioned conjugate gradient method (IPCG)
   !>      - requires proper initialization of `cl_operator%eop%schwarz`
-  !>      - best iterative solver when used with no overlap, `schwarz%no = 0`
-  !>      - good smoother when used with overlap `schwarz%no ≈ po/4`
+  !>      - best iterative solver when used with no overlap, i.e.,
+  !>        `schwarz % delta = -1`, `schwarz % no_min = -1`
+  !>      - good smoother when used with overlap `schwarz % delta ≈ 0.25`
 
-  subroutine DiffusionSolver( this, cl_operator, dt, tau, bv, u_0, u &
-                            , method, i_max, r_red, r_max            )
+  subroutine DiffusionSolver( this, cl_operator, dt, tau, bv, f, u_0, u &
+                            , method, i_max, r_red, r_max               )
     class(CL_Problem_Burgers_1D), intent(in) :: this
     class(CL_Operator_1D), intent(in)    :: cl_operator
     real(RNP),             intent(in)    :: dt          !< ∆t = t - t₀
     real(RNP),             intent(in)    :: tau         !< SD time scale τ
     real(RNP),             intent(in)    :: bv (:,:)    !< boundary values
-    real(RNP), contiguous, intent(in)    :: u_0(0:,:,:) !< initial value u₀
-    real(RNP), contiguous, intent(inout) :: u  (0:,:,:) !< approx solution u
+    real(RNP), contiguous, intent(in)    :: f  (0:,:,:) !< sources
+    real(RNP), contiguous, intent(in)    :: u_0(0:,:,:) !< frozen solution
+    real(RNP), contiguous, intent(inout) :: u  (0:,:,:) !< approx solution
     integer,               intent(in)    :: method      !< solution method
     integer,               intent(in)    :: i_max       !< max num iterations
     real(RNP), optional,   intent(in)    :: r_red       !< residual reduction
     real(RNP), optional,   intent(in)    :: r_max       !< max residual
 
-    real(RNP), allocatable, save :: f(:,:), nu_tot(:,:)
+    real(RNP), allocatable, save :: g(:,:), nu_tot(:,:)
+    logical,   allocatable, save :: mask(:)
     character :: elliptic_bc(2)
     real(RNP) :: elliptic_bv(2)
     real(RNP) :: lambda
@@ -364,8 +358,8 @@ contains
              , po          => cl_operator % eop % po    &
              , ne          => cl_operator % ne          &
              , dx          => cl_operator % dx          &
-             , mask        => cl_operator % mask        &
              , Me          => cl_operator % Me          &
+             , activity    => cl_operator % activity    &
              , elliptic_op => cl_operator % elliptic_op )
 
       !$omp master
@@ -377,20 +371,23 @@ contains
       ! Helmholtz parameter
       lambda = 1 / dt
 
+      ! activity mask
+      allocate(mask(ne), source = activity > 0)
+
       ! sources
-      allocate(f(0:po,ne))
+      allocate(g(0:po,ne))
       do e = 1, ne
         if (mask(e)) then
-          f(:,e) = lambda * Me * u_0(:,e,1)
+          g(:,e) = lambda * Me * f(:,e,1)
         else
-          f(:,e) = 0
+          g(:,e) = 0
         end if
       end do
 
       if (tau > ZERO) then
 
         allocate(nu_tot(0:po,ne))
-        call GetStreamlineDiffusivity(this, tau, u(:,:,1), nu_tot)
+        call GetStreamlineDiffusivity(this, tau, u_0(:,:,1), nu_tot)
         nu_tot = nu_tot + this % nu
 
         select case(method)
@@ -400,15 +397,15 @@ contains
                     , 'CL__Problem__Burgers__1D'    )
         case(2)
           call elliptic_op % CG_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, f, u(:,:,1) &
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, g, u(:,:,1) &
                   , i_max, r_red, r_max, mask )
         case(3)
           call elliptic_op % Schwarz_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, f, u(:,:,1) &
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, g, u(:,:,1) &
                   , i_max, r_red, r_max, mask )
         case(4)
           call elliptic_op % SchwarzPCG_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, f, u(:,:,1) &
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, g, u(:,:,1) &
                   , i_max, r_red, r_max, mask )
         end select
 
@@ -417,24 +414,24 @@ contains
         select case(method)
         case(1)
           call elliptic_op % HybridSolver &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, f, u(:,:,1) )
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, g, u(:,:,1) )
         case(2)
           call elliptic_op % CG_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, f, u(:,:,1) &
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, g, u(:,:,1) &
                   , i_max, r_red, r_max, mask )
         case(3)
           call elliptic_op % Schwarz_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, f, u(:,:,1) &
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, g, u(:,:,1) &
                   , i_max, r_red, r_max, mask )
         case(4)
           call elliptic_op % SchwarzPCG_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, f, u(:,:,1) &
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, g, u(:,:,1) &
                   , i_max, r_red, r_max, mask )
         end select
 
       end if
 
-      deallocate(f)
+      deallocate(g, mask)
       if (allocated(nu_tot)) deallocate(nu_tot)
       !$omp end master
 
@@ -464,6 +461,46 @@ contains
     end select
 
   end subroutine GetStreamlineDiffusivity
+
+  !-----------------------------------------------------------------------------
+  !> Provides the maximum velocity based on eigenvalues of advective Jacobian
+
+  subroutine GetMaxVelocity(this, cl_operator, u, v_max)
+    class(CL_Problem_Burgers_1D), intent(in)  :: this
+    class(CL_Operator_1D),        intent(in)  :: cl_operator
+    real(RNP), contiguous,        intent(in)  :: u(0:,:,:) !< solution variable
+    real(RNP),                    intent(out) :: v_max     !< maximum velocity
+
+    integer :: e
+
+    v_max = 0
+
+    do e = 1, cl_operator % ne
+      if (cl_operator % activity(e) > 0) then
+        v_max = max(v_max, maxval(abs(u(:,e,1))))
+      end if
+    end do
+
+    ! avoid compiler warning
+    if (this % nc > 0) return
+
+  end subroutine GetMaxVelocity
+
+  !-----------------------------------------------------------------------------
+  !> Provides the maximum diffusivity
+
+  subroutine GetMaxDiffusivity(this, cl_operator, u, nu_max)
+    class(CL_Problem_Burgers_1D), intent(in)  :: this
+    class(CL_Operator_1D),        intent(in)  :: cl_operator
+    real(RNP), contiguous,        intent(in)  :: u(0:,:,:) !< solution variable
+    real(RNP),                    intent(out) :: nu_max     !< maximum velocity
+
+    nu_max = this % nu
+
+    ! avoid compiler warnings
+    if (this % nc > 0 .or. cl_operator % ne > 1 .or. size(u) > 0) return
+
+  end subroutine GetMaxDiffusivity
 
   !=============================================================================
 

@@ -17,7 +17,7 @@ contains
 
     class(DG_EllipticOperator_1D), intent(in) :: this
     character,             intent(in)    :: bc(2)   !< BC {D,N,P}
-    real(RNP),             intent(in)    :: bv(2)   !< boundary values, u or q
+    real(RNP),             intent(in)    :: bv(2)   !< boundary values, u or u'
     real(RNP),             intent(in)    :: dx      !< ∆xᵉ
     real(RNP),             intent(in)    :: lambda  !< λ
     real(RNP),             intent(in)    :: nu      !< diffusivity, ν = νᵖ+νˢ
@@ -159,7 +159,7 @@ contains
           f(:,1) = f(:,1) + nu_s/dx * Ds_s(0,:) * 2 * bv(1)
         end if
       else if (bc(1) == 'N') then
-        f(0,1) = f(0,1) - bv(1)
+        f(0,1) = f(0,1) - nu_p * bv(1)
       end if
 
       ! right boundary
@@ -169,7 +169,7 @@ contains
           f(:,ne) = f(:,ne) - nu_s/dx * Ds_s(po,:) * 2 * bv(2)
         end if
       else if (bc(2) == 'N') then
-        f(po,ne) = f(po,ne) + bv(2)
+        f(po,ne) = f(po,ne) + nu_p * bv(2)
       end if
 
     end associate

@@ -3,13 +3,14 @@
 
 add_library(HiINSFlow
             ins__operator__3d.f
-            ins__operator__3d__mp_applyvelocitybc.f
             ins__operator__3d__mp_applydiffusionoperator_c.f
+            ins__operator__3d__mp_applyvelocitybc.f
             ins__operator__3d__mp_diffusionsolver.f
             ins__operator__3d__mp_getdiffusionterm_dc.F
             ins__operator__3d__mp_getdiffusionresidual_c.f
             ins__operator__3d__mp_pressuresolver.f
             ins__problem__3d.f
+            ins__problem__poiseuille__3d.f
             ins__problem__stokes_dkm__3d.f
             ins__problem__stokes_linke__3d.f
             ins__problem__vortex_tg__3d.f

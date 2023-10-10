@@ -18,10 +18,7 @@ contains
   !>
   !> Boundary conditions and values
   !>   - Dirichlet:  `bc = 'D',  bv = u`
-  !>   - Neumann:    `bc = 'N',  bv = q = ν∂u/∂x`
-  !>
-  !> Note that the flux `q` is aligned with the x-direction and not with the
-  !> normal!
+  !>   - Neumann:    `bc = 'N',  bv = ∂u/∂x`
   !>
   !> The operator is applied only to elements for which `mask` is true.
   !> For other elements, the result is set to zero.
@@ -136,7 +133,7 @@ contains
 
       case('N')
         if (has_bv) then
-          avg_q(0) = bv(1)
+          avg_q(0) = nu_p * bv(1)
         end if
 
       case('P')
@@ -160,7 +157,7 @@ contains
 
       case('N')
         if (has_bv) then
-          avg_q(ne) = bv(2)
+          avg_q(ne) = nu_p * bv(2)
         end if
 
       case('P')
