@@ -7,6 +7,7 @@
 module INS__Problem__Test_Suite__3D
 
   use INS__Problem__3D                    , only: INS_Problem_3D
+  use INS__Problem__Poiseuille__3D        , only: INS_Problem_Poiseuille_3D
   use INS__Problem__Stokes_DKM__3D        , only: INS_Problem_Stokes_DKM_3D
   use INS__Problem__Stokes_Linke__3D      , only: INS_Problem_Stokes_Linke_3D
   use INS__Problem__Variable_Viscosity__3D, only: INS_Problem_VariableViscosity_3D
@@ -33,6 +34,8 @@ contains
     type(MPI_Comm),   intent(in) :: comm    !< MPI world communicator
 
     select case(name)
+    case('Poiseuille')
+      allocate(INS_Problem_Poiseuille_3D        :: problem)
     case('Stokes_DKM')
       allocate(INS_Problem_Stokes_DKM_3D        :: problem)
     case('Stokes_Linke')

@@ -21,7 +21,7 @@
         forall (i=1:m, j=1:m)  ve(l-j, l-i) = vn(i,j)
       case(45_IXS, 64_IXS, 24_IXS)
         forall (i=1:m, j=1:m)  ve(l-i,   j) = vn(i,j)
-      case default ! 43_IXS, 62_IXS, 23_IXS
+      case(43_IXS, 62_IXS, 23_IXS)
         forall (i=1:m, j=1:m)  ve(  j,   i) = vn(i,j)
       end select
     case(3,4)
@@ -36,11 +36,11 @@
         forall (i=1:m, j=1:m)  ve(  j, l-i) = vn(i,j)
       case(15_IXS, 13_IXS, 21_IXS)
         forall (i=1:m, j=1:m)  ve(  i, l-j) = vn(i,j)
-      case(35_IXS, 23_IXS, 31_IXS)
+      case(65_IXS, 53_IXS, 61_IXS)
         forall (i=1:m, j=1:m)  ve(l-j, l-i) = vn(i,j)
       case(45_IXS, 43_IXS, 51_IXS)
         forall (i=1:m, j=1:m)  ve(l-i,   j) = vn(i,j)
-      case default ! 65_IXS, 53_IXS, 61_IXS
+      case(35_IXS, 23_IXS, 31_IXS)
         forall (i=1:m, j=1:m)  ve(  j,   i) = vn(i,j)
       end select
     case default ! 5,6
@@ -55,11 +55,11 @@
         forall (i=1:m, j=1:m)  ve(  j, l-i) = vn(i,j)
       case(15_IXS, 16_IXS, 26_IXS)
         forall (i=1:m, j=1:m)  ve(  i, l-j) = vn(i,j)
-      case(21_IXS, 31_IXS, 32_IXS)
+      case(54_IXS, 64_IXS, 65_IXS)
         forall (i=1:m, j=1:m)  ve(l-j, l-i) = vn(i,j)
       case(42_IXS, 43_IXS, 53_IXS)
         forall (i=1:m, j=1:m)  ve(l-i,   j) = vn(i,j)
-      case default ! 54_IXS, 64_IXS, 65_IXS
+      case(21_IXS, 31_IXS, 32_IXS)
         forall (i=1:m, j=1:m)  ve(  j,   i) = vn(i,j)
       end select
     end select

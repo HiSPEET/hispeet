@@ -41,6 +41,10 @@ program INS_TimeIntegrator_3D_Test
   use Create_Cylinder
   use Create_Annulus
 
+  use Generic_Mesh__3D
+  use Verify_Mesh__3D
+  use Import_GMSH__3D
+
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -69,8 +73,11 @@ program INS_TimeIntegrator_3D_Test
   !   2  cuboidal domain with unstructured "diamond" mesh                  (u+d)
   !   3  cylindrical domain                                                (u+d)
   !   4  annular domain                                                    (u+d)
+  !  10  import from GMSH
 
-  namelist/control_prm/ flow_problem, problem_file, flow_domain
+  character(len=80) :: raw_mesh_file = ''
+
+  namelist/control_prm/ flow_problem, problem_file, flow_domain, raw_mesh_file
 
   integer :: time_method = 1
   ! 1  Euler
@@ -106,6 +113,9 @@ program INS_TimeIntegrator_3D_Test
   namelist/control_prm/ log_level_outer_iteration
 
   ! operators and variables ....................................................
+
+  type(GenericMesh_3D) :: generic_mesh
+  ! intermediate generic mesh for importing raw meshes
 
   class(INS_Problem_3D), allocatable, save :: problem
   ! flow problem
@@ -146,7 +156,7 @@ program INS_TimeIntegrator_3D_Test
   character(len=80) :: domain_name = ''
 ! real(RDP) :: time, time0
   real(RNP) :: domain_volume
-  logical   :: exists, last
+  logical   :: exists, last, passed
   integer   :: io, stat
   integer   :: n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po
   integer   :: i, nt
@@ -222,6 +232,9 @@ program INS_TimeIntegrator_3D_Test
   ! mesh .......................................................................
 
   select case(flow_domain)
+  case(1)
+    call CreateCuboidCartesian(comm, case_file, ins_op % mesh)
+    domain_name = 'Cuboidal domain with Cartesian mesh'
   case(2)
     call CreateCuboidDiamonds(comm, case_file, ins_op % mesh)
     domain_name = 'Cuboidal domain with unstructured "diamond" mesh'
@@ -231,10 +244,19 @@ program INS_TimeIntegrator_3D_Test
   case(4)
     call CreateAnnulus(comm, case_file, ins_op % mesh)
     domain_name = 'Annular domain with unstructured mesh'
-  case default
-    call CreateCuboidCartesian(comm, case_file, ins_op % mesh)
-    domain_name = 'Cuboidal domain with Cartesian mesh'
+  case(10)
+    call Import_GMSH_3D(raw_mesh_file, generic_mesh)
+    call ins_op % mesh % ImportGenericMesh(generic_mesh, comm)
+    domain_name = raw_mesh_file
   end select
+
+  call VerifyMesh_3D(ins_op % mesh, passed)
+  if (rank == 0) then
+    write(*,'(/,A)') 'Verification of initial mesh'
+  end if
+  if (ins_op % mesh % part >= 0) then
+    write(*,'(2X,A,I4,A,L1)') 'part:',ins_op%mesh%part,': passed = ',passed
+  end if
 
   n_elem  = ins_op % mesh % n_elem
   n_ghost = ins_op % mesh % n_ghost
@@ -302,7 +324,7 @@ program INS_TimeIntegrator_3D_Test
 
   ! initial conditions .........................................................
 
-  call problem % GetExactSolution(ins_op % sem_v % metrics % x, t, u)
+  call problem % GetInitialValues(ins_op % sem_v % metrics % x, u)
 
   ! time scales
   call time_scales % Evaluate(problem, ins_op, u)
@@ -381,7 +403,7 @@ program INS_TimeIntegrator_3D_Test
     !$omp barrier
 
     do i = 1, n_bound
-      call bv_vn(i) % Init(ins_op % mesh % boundary(i), po, nc=1)
+      call bv_vn(i) % Create(ins_op % mesh % boundary(i), po, nc=1)
       call bv_vn(i) % ExtractNormalComponent(ins_op % sem_v, v)
     end do
 

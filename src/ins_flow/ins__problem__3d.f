@@ -167,23 +167,23 @@ contains
   !> Automatic generation of pressure boundary conditions
 
   subroutine GetPressureBC(problem, bc_p)
-    class(INS_Problem_3D), intent(inout) :: problem
+    class(INS_Problem_3D), intent(in) :: problem
     character, intent(out) :: bc_p(:) !< pressure BC type per boundary
 
     integer :: b
 
-    associate(bc_v => problem % bc_v)
-      do b = 1, size(bc_v)
-        select case(bc_v(b))
-        case('D') ! Dirichlet conditions for velocity
-          bc_p(b) = 'N'
-        case('P') ! periodic conditions for velocity
-          bc_p(b) = 'P'
-        case default
-          call Error('GetPressureBC', 'invalid velocity BC', 'INS__Problem__3D')
-        end select
-      end do
-    end associate
+    do b = 1, size(problem % bc_v)
+      select case(problem % bc_v(b))
+      case('D') ! Dirichlet conditions for velocity
+        bc_p(b) = 'N'
+      case('O') ! Outflow conditions
+        bc_p(b) = 'D'
+      case('P') ! periodic conditions
+        bc_p(b) = 'P'
+      case default
+        call Error('GetPressureBC', 'invalid velocity BC', 'INS__Problem__3D')
+      end select
+    end do
 
   end subroutine GetPressureBC
 

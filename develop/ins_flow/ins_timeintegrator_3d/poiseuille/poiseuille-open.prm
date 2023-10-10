@@ -1,0 +1,9 @@
+&parameters
+! stokes = F    ! switch to Stokes problem
+! re     = 1    ! bulk flow Reynolds number, Re = 1/ν
+! alpha  = 0.1  ! max relative perturbation
+! l      = 2    ! channel length
+  w      = 0.25 ! channel width
+  bc_v   = 'D','O','D','D','P','P'
+/
+
