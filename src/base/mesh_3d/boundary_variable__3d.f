@@ -6,6 +6,7 @@
 
 module Boundary_Variable__3D
   use Kind_Parameters,   only: RNP
+  use Constants,         only: ZERO, ONE
   use Execution_Control, only: Error
   use Mesh_Boundary__3D
   use Spectral_Element_Mesh__3D
@@ -49,16 +50,23 @@ module Boundary_Variable__3D
 
   contains
 
-    procedure :: Init => Init_BoundaryVariable_3D
+    procedure :: Create => Create_BoundaryVariable_3D
     procedure :: GetSlice
 
     generic :: Extract => Extract_A, Extract_S
     procedure, private :: Extract_A, Extract_S
 
-    procedure :: ExtractNormalComponent
+    generic :: Merge   => Merge_A, Merge_S
+    procedure, private :: Merge_A, Merge_S
 
-    generic :: MergeWithTraceVariable => MergeWithTraceVar_S, MergeWithTraceVar_A
-    procedure, private :: MergeWithTraceVar_S, MergeWithTraceVar_A
+    procedure :: ExtractNormalComponent
+    procedure :: MergeNormalComponent
+
+    generic :: MergeTrace => MergeTrace_S, MergeTrace_A
+    procedure, private ::    MergeTrace_S, MergeTrace_A
+
+    procedure :: ExtractNormalTrace
+    procedure :: MergeNormalTrace
 
   end type BoundaryVariable_3D
 
@@ -70,14 +78,14 @@ contains
   !-----------------------------------------------------------------------------
   !> 3D boundary variable initialization
 
-  subroutine Init_BoundaryVariable_3D(this, boundary, po, nc)
+  subroutine Create_BoundaryVariable_3D(this, boundary, po, nc)
     class(BoundaryVariable_3D), target, intent(inout) :: this
     class(MeshBoundary_3D), target, intent(in) :: boundary
     integer, intent(in) :: po
     integer, intent(in) :: nc
 
     if (allocated(this % mem)) deallocate(this % mem)
-    allocate(this % mem(0:po, 0:po, boundary%n_face, nc))
+    allocate(this % mem(0:po, 0:po, boundary%n_face, nc), source = ZERO)
 
     this % po = po
     this % nc = nc
@@ -85,7 +93,7 @@ contains
     this % boundary         => boundary
     this % val(0:,0:,1:,1:) => this % mem
 
-  end subroutine Init_BoundaryVariable_3D
+  end subroutine Create_BoundaryVariable_3D
 
   !-----------------------------------------------------------------------------
   !> Create a new boundary variable as a slice of the given one
@@ -129,7 +137,7 @@ contains
   end subroutine GetSlice
 
   !=============================================================================
-  ! Extraction
+  ! Extraction from and merging with mesh variables
 
   !-----------------------------------------------------------------------------
   !> Extract boundary variable from array-valued mesh variable
@@ -138,13 +146,39 @@ contains
 
   subroutine Extract_A(this, v)
     class(BoundaryVariable_3D), intent(inout) :: this
-    real(RNP), contiguous, target, intent(in) :: v(0:,0:,0:,:,:)
+    real(RNP), contiguous, intent(in) :: v(0:,0:,0:,:,:)
 
-    integer :: c, e, f, i, j, k, m
+    call Merge_A(this, ZERO, ONE, v)
+
+  end subroutine Extract_A
+
+  !-----------------------------------------------------------------------------
+  !> Extract boundary variable from scalar mesh variable
+  !>
+  !> `this` must be properly initialized on input!
+
+  subroutine Extract_S(this, v)
+    class(BoundaryVariable_3D), intent(inout) :: this
+    real(RNP), contiguous, intent(in) :: v(0:,0:,0:,:)
+
+    call Merge_S(this, ZERO, ONE, v)
+
+  end subroutine Extract_S
+
+  !-----------------------------------------------------------------------------
+  !> Merge boundary variable with array-valued mesh variable
+
+  subroutine Merge_A(this, cb, cv, v)
+    class(BoundaryVariable_3D), intent(inout) :: this
+    real(RNP), intent(in) :: cb !< coefficient of boundary variable
+    real(RNP), intent(in) :: cv !< coefficient of mesh variable
+    real(RNP), contiguous, intent(in) :: v(0:,0:,0:,:,:)
+
+    integer :: e, f, i, j, k, l, m
 
     !$omp master
     if (ubound(v,1) /= this%po .or. size(v,5) /= this%nc) then
-      call Error('Extract_A', 'arguments do not match', 'Boundary_Variable__3D')
+      call Error('Merge_A', 'argument mismatch', 'Boundary_Variable__3D')
     end if
     !$omp end master
 
@@ -160,30 +194,30 @@ contains
 
         case(1,2)
           i = (m - 1) * po
-          do c = 1, nc
+          do l = 1, nc
             do k = 0, po
             do j = 0, po
-              vb(j,k,f,c) = v(i,j,k,e,c)
+              vb(j,k,f,l) = cb * vb(j,k,f,l) + cv * v(i,j,k,e,l)
             end do
             end do
           end do
 
         case(3,4)
           j = (m - 3) * po
-          do c = 1, nc
+          do l = 1, nc
             do k = 0, po
             do i = 0, po
-              vb(i,k,f,c) = v(i,j,k,e,c)
+              vb(i,k,f,l) = cb * vb(i,k,f,l) + cv * v(i,j,k,e,l)
             end do
             end do
           end do
 
         case(5,6)
           k = (m - 5) * po
-          do c = 1, nc
+          do l = 1, nc
             do j = 0, po
             do i = 0, po
-              vb(i,j,f,c) = v(i,j,k,e,c)
+              vb(i,j,f,l) = cb * vb(i,j,f,l) + cv * v(i,j,k,e,l)
             end do
             end do
           end do
@@ -193,22 +227,22 @@ contains
       end do
     end associate
 
-  end subroutine Extract_A
+  end subroutine Merge_A
 
   !-----------------------------------------------------------------------------
-  !> Extract boundary variable from scalar mesh variable
-  !>
-  !> `this` must be properly initialized on input!
+  !> Merge boundary variable with scalar mesh variable
 
-  subroutine Extract_S(this, v)
+  subroutine Merge_S(this, cb, cv, v)
     class(BoundaryVariable_3D), intent(inout) :: this
-    real(RNP), contiguous, target, intent(in) :: v(0:,0:,0:,:)
+    real(RNP), intent(in) :: cb !< coefficient of boundary variable
+    real(RNP), intent(in) :: cv !< coefficient of mesh variable
+    real(RNP), contiguous, intent(in) :: v(0:,0:,0:,:)
 
     integer :: e, f, i, j, k, m
 
     !$omp master
     if (ubound(v,1) /= this%po) then
-      call Error('Extract_S', 'arguments do not match', 'Boundary_Variable__3D')
+      call Error('Merge_S', 'argument mismatch', 'Boundary_Variable__3D')
     end if
     !$omp end master
 
@@ -226,7 +260,7 @@ contains
           i = (m - 1) * po
           do k = 0, po
           do j = 0, po
-            vb(j,k,f,1) = v(i,j,k,e)
+            vb(j,k,f,1) = cb * vb(j,k,f,1) + cv * v(i,j,k,e)
           end do
           end do
 
@@ -234,7 +268,7 @@ contains
           j = (m - 3) * po
           do k = 0, po
           do i = 0, po
-            vb(i,k,f,1) = v(i,j,k,e)
+            vb(i,k,f,1) = cb * vb(i,k,f,1) + cv * v(i,j,k,e)
           end do
           end do
 
@@ -242,7 +276,7 @@ contains
           k = (m - 5) * po
           do j = 0, po
           do i = 0, po
-            vb(i,j,f,1) = v(i,j,k,e)
+            vb(i,j,f,1) = cb * vb(i,j,f,1) + cv * v(i,j,k,e)
           end do
           end do
 
@@ -251,7 +285,7 @@ contains
       end do
     end associate
 
-  end subroutine Extract_S
+  end subroutine Merge_S
 
   !-----------------------------------------------------------------------------
   !> Extract the normal component of a spectral-element vector
@@ -261,86 +295,31 @@ contains
   subroutine ExtractNormalComponent(this, sem, v)
     class(BoundaryVariable_3D), intent(inout) :: this
     class(SpectralElementMesh_3D), intent(in) :: sem
-    real(RNP), contiguous, target, intent(in) :: v(0:,0:,0:,:,:)
+    real(RNP), contiguous, intent(in) :: v(0:,0:,0:,:,:)
 
-    !$omp master
-    if (this%po  /= ubound(v,1) .or. this%nc /= 1 .or. size(v,5) /= 3) then
-      call Error( 'ExtractNormalComponent' &
-                , 'arguments do not match' &
-                , 'Boundary_Variable__3D'  )
-    end if
-    !$omp end master
-
-    if (sem % mesh % regular) then
-      call ExtractNormalComponent_R(this, v)
-    else
-      call ExtractNormalComponent_D(this, sem, v)
-    end if
+    call MergeNormalComponent(this, sem, ZERO, ONE, v)
 
   end subroutine ExtractNormalComponent
 
   !-----------------------------------------------------------------------------
-  !> Extract the normal component of a vector: regular mesh
+  !> Merge with normal component of a vector-valued mesh variable
 
-  subroutine ExtractNormalComponent_R(this, v)
-    class(BoundaryVariable_3D), intent(inout) :: this
-    real(RNP), contiguous, target, intent(in) :: v(0:,0:,0:,:,:)
-
-    integer :: e, f, i, j, k, m, n
-
-    associate(vb_n => this % val, po => this%po)
-
-      !$omp do
-      do f = 1, this % boundary % n_face
-
-        e = this % boundary % face(f) % element_id
-        m = this % boundary % face(f) % element_face
-
-        select case(m)
-
-        case(1,2)
-          i = (m - 1) * po
-          n = (m - 1) * 2 - 1
-          do k = 0, po
-          do j = 0, po
-            vb_n(j,k,f,1) = n * v(i,j,k,e,1)
-          end do
-          end do
-
-        case(3,4)
-          j = (m - 3) * po
-          n = (m - 3) * 2 - 1
-          do k = 0, po
-          do i = 0, po
-            vb_n(i,k,f,1) = n * v(i,j,k,e,2)
-          end do
-          end do
-
-        case(5,6)
-          k = (m - 5) * po
-          n = (m - 5) * 2 - 1
-          do j = 0, po
-          do i = 0, po
-            vb_n(i,j,f,1) = n * v(i,j,k,e,3)
-          end do
-          end do
-
-        end select
-
-      end do
-    end associate
-
-  end subroutine ExtractNormalComponent_R
-
-  !-----------------------------------------------------------------------------
-  !> Extract the normal component of a vector: deformed mesh
-
-  subroutine ExtractNormalComponent_D(this, sem, v)
+  subroutine MergeNormalComponent(this, sem, cb, cv, v)
     class(BoundaryVariable_3D), intent(inout) :: this
     class(SpectralElementMesh_3D), intent(in) :: sem
-    real(RNP), contiguous, target, intent(in) :: v(0:,0:,0:,:,:)
+    real(RNP), intent(in) :: cb !< coefficient of boundary variable
+    real(RNP), intent(in) :: cv !< coefficient of mesh variable
+    real(RNP), contiguous, intent(in) :: v(0:,0:,0:,:,:)
 
     integer :: e, f, i, j, k, m
+
+    !$omp master
+    if (this%po /= ubound(v,1) .or. this%nc /= 1 .or. size(v,5) /= 3) then
+      call Error( 'MergeNormalComponent'  &
+                , 'argument mismatch'     &
+                , 'Boundary_Variable__3D' )
+    end if
+    !$omp end master
 
     associate(vb_n => this%val, n => sem%metrics % n, po => this%po)
 
@@ -356,9 +335,10 @@ contains
           i = (m - 1) * po
           do k = 0, po
           do j = 0, po
-            vb_n(j,k,f,1) = n(j,k,m,e,1) * v(i,j,k,e,1) &
-                          + n(j,k,m,e,2) * v(i,j,k,e,2) &
-                          + n(j,k,m,e,3) * v(i,j,k,e,3)
+            vb_n(j,k,f,1) = cb * vb_n(j,k,f,1)                 &
+                          + cv * ( n(j,k,m,e,1) * v(i,j,k,e,1) &
+                                 + n(j,k,m,e,2) * v(i,j,k,e,2) &
+                                 + n(j,k,m,e,3) * v(i,j,k,e,3) )
           end do
           end do
 
@@ -366,9 +346,10 @@ contains
           j = (m - 3) * po
           do k = 0, po
           do i = 0, po
-            vb_n(i,k,f,1) = n(i,k,m,e,1) * v(i,j,k,e,1) &
-                          + n(i,k,m,e,2) * v(i,j,k,e,2) &
-                          + n(i,k,m,e,3) * v(i,j,k,e,3)
+            vb_n(i,k,f,1) = cb * vb_n(i,k,f,1)                 &
+                          + cv * ( n(i,k,m,e,1) * v(i,j,k,e,1) &
+                                 + n(i,k,m,e,2) * v(i,j,k,e,2) &
+                                 + n(i,k,m,e,3) * v(i,j,k,e,3) )
           end do
           end do
 
@@ -376,9 +357,10 @@ contains
           k = (m - 5) * po
           do j = 0, po
           do i = 0, po
-            vb_n(i,j,f,1) = n(i,j,m,e,1) * v(i,j,k,e,1) &
-                          + n(i,j,m,e,2) * v(i,j,k,e,2) &
-                          + n(i,j,m,e,3) * v(i,j,k,e,3)
+            vb_n(i,j,f,1) = cb * vb_n(i,j,f,1)                 &
+                          + cv * ( n(i,j,m,e,1) * v(i,j,k,e,1) &
+                                 + n(i,j,m,e,2) * v(i,j,k,e,2) &
+                                 + n(i,j,m,e,3) * v(i,j,k,e,3) )
           end do
           end do
 
@@ -387,74 +369,128 @@ contains
       end do
     end associate
 
-  end subroutine ExtractNormalComponent_D
+  end subroutine MergeNormalComponent
 
   !=============================================================================
-  ! Merge boundary values with element-face variable
+  ! Merge boundary values with trace variable
 
   !-----------------------------------------------------------------------------
-  !> Merge first component of boundary variable with scalar element-face variable
+  !> Merge scalar trace variable with first component of boundary variable
 
-  subroutine MergeWithTraceVar_S(this, cb, ct, vt)
-    class(BoundaryVariable_3D), intent(in) :: this
-    real(RNP), intent(in)    :: cb !< coefficient of boundary variable
-    real(RNP), intent(in)    :: ct !< coefficient of trace variable
-    real(RNP), intent(inout) :: vt(:,:,:,:)
+  subroutine MergeTrace_S(this, cb, ct, vt)
+    class(BoundaryVariable_3D), intent(inout) :: this
+    real(RNP), intent(in) :: cb !< coefficient of boundary variable
+    real(RNP), intent(in) :: ct !< coefficient of trace variable
+    real(RNP), intent(in) :: vt(0:,0:,:,:) !< scalar trace variable
 
     integer :: f, e, m
 
     !$omp master
-    if (this%po + 1 /= size(vt,1)) then
-      call Error( 'MergeWithTraceVar_S'    &
-                , 'arguments do not match' &
-                , 'Boundary_Variable__3D'  )
+    if (this%po  /= ubound(vt,1)) then
+      call Error('MergeTrace_S', 'arguments mismatch', 'Boundary_Variable__3D')
     end if
     !$omp end master
 
-    !$omp do
-    do f = 1, this % boundary % n_face
+    associate(vb => this % val)
 
-      e = this % boundary % face(f) % element_id
-      m = this % boundary % face(f) % element_face
+      !$omp do
+      do f = 1, this % boundary % n_face
 
-      vt(:,:,m,e) = ct * vt(:,:,m,e) + cb * this % val(:,:,f,1)
+        e = this % boundary % face(f) % element_id
+        m = this % boundary % face(f) % element_face
 
-    end do
+        vb(:,:,f,1) = ct * vt(:,:,m,e) + cb * vb(:,:,f,1)
 
-  end subroutine MergeWithTraceVar_S
+      end do
+
+    end associate
+
+  end subroutine MergeTrace_S
 
   !-----------------------------------------------------------------------------
-  !> Merge boundary variable with matching array-valued element-face variable
+  !> Merge array-valued trace variable with boundary variable
 
-  subroutine MergeWithTraceVar_A(this, cb, ct, vt)
-    class(BoundaryVariable_3D), intent(in) :: this
-    real(RNP), intent(in)    :: cb !< coefficient of boundary variable
-    real(RNP), intent(in)    :: ct !< coefficient of trace variable
-    real(RNP), intent(inout) :: vt(:,:,:,:,:)
+  subroutine MergeTrace_A(this, cb, ct, vt)
+    class(BoundaryVariable_3D), intent(inout) :: this
+    real(RNP), intent(in) :: cb !< coefficient of boundary variable
+    real(RNP), intent(in) :: ct !< coefficient of trace variable
+    real(RNP), intent(in) :: vt(0:,0:,:,:,:) !< array-valued trace variable
 
     integer :: c, e, f, m
 
     !$omp master
-    if (this%po + 1 /= size(vt,1) .or. this%nc /= size(vt,5)) then
-      call Error( 'MergeWithTraceVar_A'    &
-                , 'arguments do not match' &
-                , 'Boundary_Variable__3D'  )
+    if (this%po  /= ubound(vt,1) .or. this%nc /= size(vt,5)) then
+      call Error('MergeTrace_A', 'arguments mismatch', 'Boundary_Variable__3D')
     end if
     !$omp end master
 
-    !$omp do
-    do f = 1, this % boundary % n_face
+    associate(vb => this % val)
 
-      e = this % boundary % face(f) % element_id
-      m = this % boundary % face(f) % element_face
+      !$omp do
+      do f = 1, this % boundary % n_face
 
-      do c = 1, this%nc
-        vt(:,:,m,e,c) = ct * vt(:,:,m,e,c) + cb * this % val(:,:,f,c)
+        e = this % boundary % face(f) % element_id
+        m = this % boundary % face(f) % element_face
+
+        do c = 1, this%nc
+          vb(:,:,f,c) = ct * vt(:,:,m,e,c) + cb * vb(:,:,f,c)
+        end do
+
       end do
 
-    end do
+    end associate
 
-  end subroutine MergeWithTraceVar_A
+  end subroutine MergeTrace_A
+
+  !-----------------------------------------------------------------------------
+  !> Extract normal component of vector trace variable
+
+  subroutine ExtractNormalTrace(this, sem, vt)
+    class(BoundaryVariable_3D), intent(inout) :: this
+    class(SpectralElementMesh_3D), intent(in) :: sem
+    real(RNP), intent(in) :: vt(0:,0:,:,:,:) !< vector trace variable
+
+    call MergeNormalTrace(this, sem, ZERO, ONE, vt)
+
+  end subroutine ExtractNormalTrace
+
+  !-----------------------------------------------------------------------------
+  !> Merge normal component of vector trace variable
+
+  subroutine MergeNormalTrace(this, sem, cb, ct, vt)
+    class(BoundaryVariable_3D), intent(inout) :: this
+    class(SpectralElementMesh_3D), intent(in) :: sem
+    real(RNP), intent(in) :: cb !< coefficient of boundary variable
+    real(RNP), intent(in) :: ct !< coefficient of trace variable
+    real(RNP), intent(in) :: vt(0:,0:,:,:,:) !< vector trace variable
+
+    integer :: e, f, m
+
+    !$omp master
+    if (this%po  /= ubound(vt,1) .or. this%nc /= 1 .or. size(vt,5) /= 3) then
+      call Error( 'MergeNormalTrace'      &
+                , 'argument mismatch'     &
+                , 'Boundary_Variable__3D' )
+    end if
+    !$omp end master
+
+    associate(vb => this%val, n => sem%metrics%n)
+
+      !$omp do
+      do f = 1, this % boundary % n_face
+
+        e = this % boundary % face(f) % element_id
+        m = this % boundary % face(f) % element_face
+
+        vb(:,:,f,1) = cb * vb(:,:,f,1)                    &
+                    + ct * ( n(:,:,m,e,1) * vt(:,:,m,e,1) &
+                           + n(:,:,m,e,2) * vt(:,:,m,e,2) &
+                           + n(:,:,m,e,3) * vt(:,:,m,e,3) )
+      end do
+
+    end associate
+
+  end subroutine MergeNormalTrace
 
   !=============================================================================
 

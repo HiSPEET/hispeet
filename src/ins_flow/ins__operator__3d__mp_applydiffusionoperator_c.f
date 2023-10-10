@@ -66,8 +66,8 @@ contains
 
       ! compute residual .......................................................
 
-      call GetBoundaryTraces_3D(mesh, v, vp) ! vp = v⁻              on ∂Ω
-      call this % ApplyVelocityBC(tr_v = vp) ! vp = v⁺ with zero BV on ∂Ω
+      call GetBoundaryTraces_3D(mesh, v, vp) ! vp = v⁻ on ∂Ω
+      call this % ApplyVelocityBC(vp, sp)    ! vp = v⁺ with zero BV on ∂Ω
       call this % GetDiffusionTerm(v, vp, sp, r, form)
 
       !$omp do collapse(2)
