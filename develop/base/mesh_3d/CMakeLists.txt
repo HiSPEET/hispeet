@@ -55,3 +55,14 @@ target_link_libraries(mesh3d_test_orientation HiBase)
 configure_file( mesh3d_test_orientation.prm
                 mesh3d_test_orientation.prm COPYONLY )
 
+#===============================================================================
+# mesh3d_adapt
+
+add_executable( mesh3d_adapt
+                mesh3d_adapt.f 
+                smiling_face.f )
+
+target_link_libraries(mesh3d_adapt HiBase)
+
+configure_file( mesh3d_adapt.prm
+                mesh3d_adapt.prm COPYONLY )
