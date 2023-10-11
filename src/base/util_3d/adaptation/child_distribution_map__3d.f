@@ -217,9 +217,10 @@ contains
   !> `m` contributed to child partition `n` equals the sum of corresponding
   !> children contributed by parents `q < p`, i.e.
   !>
-  !>       oc_part[p](m,n) = sum(q < p) nc_part[q](m,n)
+  !>       oc_part[p](1,n) = sum(q < p) nc_part[q](1,n)
+  !>       oc_part[p](2,n) = sum(q < p) nc_part[q](2,n) + sum(q) nc_part[q](1,n)
   !>
-  !> This sum is evaluated using one-sided communication based on MPI's
+  !> The partial sum is evaluated using one-sided communication based on MPI's
   !> window facility.
 
   subroutine ComputeChildOffsets(comm_parts, nc_part, oc_part)
@@ -231,14 +232,17 @@ contains
     integer(MPI_ADDRESS_KIND) :: integer_extent, lb
     integer(MPI_ADDRESS_KIND) :: buf_size
     integer(MPI_ADDRESS_KIND) :: target_disp = 0
+
+    integer, allocatable :: na_loc(:), na_tot(:)
+
     integer :: disp_unit
-    integer :: old_n_parts, old_part
+    integer :: proc, n_proc
     integer :: i, n
 
     ! preliminaries ............................................................
 
-    call MPI_Comm_rank(comm_parts, old_part)
-    call MPI_Comm_size(comm_parts, old_n_parts)
+    call MPI_Comm_rank(comm_parts, proc)
+    call MPI_Comm_size(comm_parts, n_proc)
 
     n = size(nc_part)
 
@@ -255,13 +259,14 @@ contains
                        , comm       =  comm_parts     &
                        , win        =  window         )
 
-    ! compute offsets via accumulation .........................................
+    ! compute partial sums via accumulation ....................................
 
     oc_part = 0
 
     call MPI_Win_fence(MPI_MODE_NOSTORE + MPI_MODE_NOPRECEDE, window)
 
-    do i = old_part + 1, old_n_parts - 1
+    ! add local nc_part to oc_part in processes of higher rank
+    do i = proc + 1, n_proc - 1
       call MPI_Accumulate( origin_addr     = nc_part       &
                          , origin_count    = n             &
                          , origin_datatype = MPI_INTEGER   &
@@ -277,6 +282,14 @@ contains
                       , window )
 
     call MPI_Win_free(window)
+
+    ! adjust offset of frozen elements .........................................
+
+    allocate(na_loc(0:size(nc_part,2)-1), source = nc_part(1,:))
+    allocate(na_tot, mold = na_loc)
+    call XMPI_Allreduce(na_loc, na_tot, MPI_SUM, comm_parts)
+
+    oc_part(2,:) = oc_part(2,:) + na_tot
 
   end subroutine ComputeChildOffsets
 
