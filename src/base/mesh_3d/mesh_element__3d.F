@@ -159,38 +159,38 @@ module Mesh_Element__3D
   !
   ! overview of possible orientations
   !
-  ! neighbor                           edge alignment
-  ! orientation     d1   d2   d3       ex    ey    ez
+  ! neighbor                           edge alignment     reverse
+  ! orientation     d1   d2   d3       ex    ey    ez     orientation
   !
-  !     12           x    y    z        +     +     +
-  !     13           x    z   -y        +     +     -
-  !     15           x   -y   -z        +     -     -
-  !     16           x   -z    y        +     -     +
+  !     12           x    y    z        +     +     +        12
+  !     13           x    z   -y        +     +     -        16
+  !     15           x   -y   -z        +     -     -        15
+  !     16           x   -z    y        +     -     +        13
   !
-  !     21           y    x   -z        +     +     -
-  !     23           y    z    x        +     +     +
-  !     24           y   -x    z        +     -     +
-  !     26           y   -z   -x        +     -     -
+  !     21           y    x   -z        +     +     -        21
+  !     23           y    z    x        +     +     +        31
+  !     24           y   -x    z        +     -     +        51
+  !     26           y   -z   -x        +     -     -        61
   !
-  !     31           z    x    y        +     +     +
-  !     32           z    y   -x        +     +     -
-  !     34           z   -x   -y        +     -     -
-  !     35           z   -y    x        +     -     +
+  !     31           z    x    y        +     +     +        23
+  !     32           z    y   -x        +     +     -        62
+  !     34           z   -x   -y        +     -     -        56
+  !     35           z   -y    x        +     -     +        35
   !
-  !     42          -x    y   -z        -     +     -
-  !     43          -x    z    y        -     +     +
-  !     45          -x   -y    z        -     -     +
-  !     46          -x   -z   -y        -     -     -
+  !     42          -x    y   -z        -     +     -        42
+  !     43          -x    z    y        -     +     +        43
+  !     45          -x   -y    z        -     -     +        45
+  !     46          -x   -z   -y        -     -     -        46
   !
-  !     51          -y    x    z        -     +     +
-  !     53          -y    z   -x        -     +     -
-  !     54          -y   -x   -z        -     -     -
-  !     56          -y   -z    x        -     -     +
+  !     51          -y    x    z        -     +     +        24
+  !     53          -y    z   -x        -     +     -        64
+  !     54          -y   -x   -z        -     -     -        54
+  !     56          -y   -z    x        -     -     +        34
   !
-  !     61          -z    x   -y        -     +     -
-  !     62          -z    y    x        -     +     +
-  !     64          -z   -x    y        -     -     +
-  !     65          -z   -y   -x        -     -     -
+  !     61          -z    x   -y        -     +     -        26
+  !     62          -z    y    x        -     +     +        32
+  !     64          -z   -x    y        -     -     +        53
+  !     65          -z   -y   -x        -     -     -        65
 
   !-----------------------------------------------------------------------------
   !> Element adaptation information
@@ -213,22 +213,18 @@ module Mesh_Element__3D
   !> on the fine mesh. The other refinement types serve to generate a layer of
   !> interpolation elements enclosing the active refinement zones.
   !>
-  !> `sublevels` the number of finer levels to which the element contributes.
-  !>
   !> `mark` is used for different purposes. Before adaptation, it is set to
   !> indicate the intended refinement of the existing elements. In course of
   !> the adaptation process it may take different roles to assist the creation
   !> of new elements or to remap sustained data.
 
   type MeshElementAdaptation_3D
-    integer      :: parent_proc   = -1 !< parent partition ID in comm_world
-    integer      :: parent_id     = -1 !< parent element ID
-    integer(IXS) :: parent_octant = -1 !< originating parent octant
-    integer(IXS) :: refinement    = -1 !< refinement type
-    integer      :: sublevels     = -1 !< number of subsequent levels
-    integer      :: child_proc    = -1 !< child partition ID in comm_world
-    integer      :: child_id      = -1 !< first child element ID
-    integer      :: mark          = -1 !< adaptation mark or auxiliary data
+    integer :: parent_proc   = -1 !< parent partition ID in comm_world
+    integer :: parent_id     = -1 !< parent element ID
+    integer :: refinement    = -1 !< refinement type
+    integer :: child_proc    = -1 !< child partition ID in comm_world
+    integer :: sublevels     = -1 !< number of active sublevels
+    integer :: mark          = -1 !< adaptation mark or auxiliary data
   end type MeshElementAdaptation_3D
 
   !-----------------------------------------------------------------------------
@@ -318,12 +314,14 @@ module Mesh_Element__3D
 
   type MeshElement_3D
 
-    integer :: id     = -1       !< local element ID
-    logical :: frozen = .false.  !< switch to indicate frozen elements
+    integer :: id          = -1 !< local element ID
+    integer :: cluster_id  = -1 !< sibling cluster ID
+    integer :: cluster_oct = -1 !< sibling cluster octant (1:8)
+    logical :: frozen = .false. !< switch for elements
 
-    type(MeshElementVertex_3D)  :: vertex(8)  !< vertex data
-    type(MeshElementEdge_3D)    :: edge(12)   !< edge data
-    type(MeshElementFace_3D)    :: face(6)    !< face data
+    type(MeshElementVertex_3D)  :: vertex(8) !< vertex data
+    type(MeshElementEdge_3D)    :: edge(12)  !< edge data
+    type(MeshElementFace_3D)    :: face(6)   !< face data
 
     type(MeshElementNeighbor_3D), allocatable :: neighbor(:) !< neighbor data
 
@@ -346,6 +344,9 @@ module Mesh_Element__3D
 
     generic   :: AlignWithNeighborFace => AlignWithNeighborFace_IDK, &
                                           AlignFromNeighborFace_RNP
+    procedure :: MarkForRefinement
+    procedure :: MarkForRetention
+    procedure :: MarkForRemoval
 
     procedure, private :: AlignFromNeighborEdge_IDK
     procedure, private :: AlignFromNeighborEdge_RNP
@@ -764,6 +765,36 @@ contains
 #include "mesh__3d__mp_alignwithneighborface-body.f"
 
   end subroutine AlignWithNeighborFace_RNP
+
+  !-----------------------------------------------------------------------------
+  !> Mark element for refinement
+
+  elemental subroutine MarkForRefinement(element)
+    class(MeshElement_3D), intent(inout) :: element  !< mesh element
+
+    element % adaptation % mark = 1000
+
+  end subroutine MarkForRefinement
+
+  !-----------------------------------------------------------------------------
+  !> Mark element for retention
+
+  elemental subroutine MarkForRetention(element)
+    class(MeshElement_3D), intent(inout) :: element  !< mesh element
+
+    element % adaptation % mark = 0
+
+  end subroutine MarkForRetention
+
+  !-----------------------------------------------------------------------------
+  !> Mark element for removal
+
+  elemental subroutine MarkForRemoval(element)
+    class(MeshElement_3D), intent(inout) :: element  !< mesh element
+
+    element % adaptation % mark = -1
+
+  end subroutine MarkForRemoval
 
   !-----------------------------------------------------------------------------
   !> Transforms the given triple index range into a rotated coordinate system

@@ -132,8 +132,8 @@ contains
       call mesh % BuildGhosts()
       call mesh % IdentifyRanks()
 
-      mesh % n_child = 0
-      allocate(mesh % child(0))
+      allocate(mesh % map_child(0))
+      allocate(mesh % map_parent(0))
 
     end if
 

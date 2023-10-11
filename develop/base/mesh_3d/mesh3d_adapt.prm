@@ -1,0 +1,50 @@
+&control_prm
+  config     = 4      ! 1
+! export_vtk = T      ! T
+  po         = 5      ! 3
+/
+
+&adaptation_prm
+! n_level        = 2  ! 1
+! n_parts_base   = 1  ! 1
+! n_parts_growth = 2  ! 1
+  c1 = 0.6
+  dc = 0.37
+/
+
+! config = 1
+&cuboid_cartesian_prm
+! regular    = F ! mimic irregular mesh (elements deformed or of different size)
+! structured = F ! mimic unstructured mesh
+  xo = 3*-0.5
+  lx = 3*1.0
+  np = 1,1,1
+  ep = 2,2,2
+  periodic = 3*T
+/
+
+! config = 2
+&cuboid_diamonds_prm
+/
+
+! config = 3
+&cuboid_onerotated_prm
+! rotation = 3*0   ! x/y/z-rotation of center element
+  rotation = 1,2,3 ! x/y/z-rotation of center element
+! periodic = F,F,F ! F/T for non/periodic directions
+! pg = 3           ! polynomial order of geometry
+/
+
+! config = 4
+&cylinder_prm
+  r  = 0.5
+  h  = 1.0
+  nr = 1
+  nz = 2
+  pg = 5
+/
+
+! config = 5
+&annulus_prm
+  pg = 7
+/

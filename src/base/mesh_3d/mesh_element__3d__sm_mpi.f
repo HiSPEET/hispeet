@@ -49,7 +49,7 @@ contains
 
   subroutine Init_MPI_Element()
 
-    integer, parameter :: N = 7 ! number of static components
+    integer, parameter :: N = 9 ! number of static components
 
     integer(MPI_ADDRESS_KIND) :: extent  ! extent
     integer(MPI_ADDRESS_KIND) :: lb = 0  ! lower bound
@@ -85,21 +85,25 @@ contains
 
     ! adresses
     call MPI_Get_address(element(1) % id              , addr(1))
-    call MPI_Get_address(element(1) % frozen          , addr(2))
-    call MPI_Get_address(element(1) % vertex (1) % id , addr(3))
-    call MPI_Get_address(element(1) % edge   (1) % id , addr(4))
-    call MPI_Get_address(element(1) % face   (1) % id , addr(5))
-    call MPI_Get_address(element(1) % adaptation      , addr(6))
-    call MPI_Get_address(element(1) % geometry        , addr(7))
+    call MPI_Get_address(element(1) % cluster_id      , addr(2))
+    call MPI_Get_address(element(1) % cluster_oct     , addr(3))
+    call MPI_Get_address(element(1) % frozen          , addr(4))
+    call MPI_Get_address(element(1) % vertex (1) % id , addr(5))
+    call MPI_Get_address(element(1) % edge   (1) % id , addr(6))
+    call MPI_Get_address(element(1) % face   (1) % id , addr(7))
+    call MPI_Get_address(element(1) % adaptation      , addr(8))
+    call MPI_Get_address(element(1) % geometry        , addr(9))
 
    ! types and block lengths
     typ(1) = MPI_INTEGER           ;   blen(1) =  1
-    typ(2) = MPI_LOGICAL           ;   blen(2) =  1
-    typ(3) = MPI_ElementVertex     ;   blen(3) =  8
-    typ(4) = MPI_ElementEdge       ;   blen(4) = 12
-    typ(5) = MPI_ElementFace       ;   blen(5) =  6
-    typ(6) = MPI_ElementAdaptation ;   blen(6) =  1
-    typ(7) = MPI_ElementGeometry   ;   blen(7) =  1
+    typ(2) = MPI_INTEGER           ;   blen(2) =  1
+    typ(3) = MPI_INTEGER           ;   blen(3) =  1
+    typ(4) = MPI_LOGICAL           ;   blen(4) =  1
+    typ(5) = MPI_ElementVertex     ;   blen(5) =  8
+    typ(6) = MPI_ElementEdge       ;   blen(6) = 12
+    typ(7) = MPI_ElementFace       ;   blen(7) =  6
+    typ(8) = MPI_ElementAdaptation ;   blen(8) =  1
+    typ(9) = MPI_ElementGeometry   ;   blen(9) =  1
 
     ! displacements
     do i = 1, N
@@ -263,7 +267,7 @@ contains
 
   subroutine Init_MPI_ElementAdaptation()
 
-    integer, parameter :: N = 8 ! number of static components
+    integer, parameter :: N = 6 ! number of static components
 
     integer(MPI_ADDRESS_KIND) :: addr0       ! address of element(1)
     integer(MPI_ADDRESS_KIND) :: addr(N)     ! addresses of static components
@@ -281,14 +285,12 @@ contains
     call MPI_Get_address(adaptation, addr0)
 
     ! adresses of components
-    call MPI_Get_address(adaptation % parent_proc   , addr(1))
-    call MPI_Get_address(adaptation % parent_id     , addr(2))
-    call MPI_Get_address(adaptation % parent_octant , addr(3))
-    call MPI_Get_address(adaptation % refinement    , addr(4))
-    call MPI_Get_address(adaptation % sublevels     , addr(5))
-    call MPI_Get_address(adaptation % child_proc    , addr(6))
-    call MPI_Get_address(adaptation % child_id      , addr(7))
-    call MPI_Get_address(adaptation % mark          , addr(8))
+    call MPI_Get_address(adaptation % parent_proc, addr(1))
+    call MPI_Get_address(adaptation % parent_id  , addr(2))
+    call MPI_Get_address(adaptation % refinement , addr(3))
+    call MPI_Get_address(adaptation % child_proc , addr(4))
+    call MPI_Get_address(adaptation % sublevels  , addr(5))
+    call MPI_Get_address(adaptation % mark       , addr(6))
 
     ! block lengths
     blen = 1
@@ -299,9 +301,7 @@ contains
     end do
 
     ! types
-    typ(1:2) = MPI_INTEGER
-    typ(3:4) = MPI_INTEGER_IXS
-    typ(5:8) = MPI_INTEGER
+    typ = MPI_INTEGER
 
     ! MPI datatype .............................................................
 

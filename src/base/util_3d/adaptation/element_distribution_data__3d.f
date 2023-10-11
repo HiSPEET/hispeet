@@ -21,7 +21,7 @@ module Element_Distribution_Data__3D
     type(MPI_Request)  :: req_dat(8)  !< MPI request for data arrays
 
     ! dimensions
-    integer :: n_element  = 0         !< number of elements
+    integer :: n_elem     = 0         !< number of elements
     integer :: n_neighbor = 0         !< number of neighbors
     integer :: n_point    = 0         !< number of element points
 
@@ -62,7 +62,7 @@ contains
     !$omp master
     associate(dest => this%proc, comm => this%comm, req_dim => this%req_dim)
       if (dest >= 0) then
-        call XMPI_Isend(this%n_element , dest, 101, comm, req_dim(1))
+        call XMPI_Isend(this%n_elem , dest, 101, comm, req_dim(1))
         call XMPI_Isend(this%n_neighbor, dest, 102, comm, req_dim(2))
         call XMPI_Isend(this%n_point   , dest, 103, comm, req_dim(3))
       else
@@ -84,12 +84,12 @@ contains
     !$omp master
     associate(dest => this%proc, comm => this%comm, req_dat => this%req_dat)
 
-      if (this % n_element > 0) then
+      if (this % n_elem > 0) then
 
         call Get_MPI_MeshElement_3D(MPI_MeshElement_3D)
 
         call MPI_Isend( this % element(1) % id  &
-                      , this % n_element        &
+                      , this % n_elem        &
                       , MPI_MeshElement_3D      &
                       , dest                    &
                       , 201                     &
@@ -139,7 +139,7 @@ contains
     !$omp master
     associate(source => this%proc, comm => this%comm, req_dim => this%req_dim)
       if (source >= 0) then
-        call XMPI_Irecv(this%n_element , source, 101, comm, req_dim(1))
+        call XMPI_Irecv(this%n_elem , source, 101, comm, req_dim(1))
         call XMPI_Irecv(this%n_neighbor, source, 102, comm, req_dim(2))
         call XMPI_Irecv(this%n_point   , source, 103, comm, req_dim(3))
       else
@@ -166,19 +166,19 @@ contains
 
       call MPI_Waitall(size(req_dim), req_dim, MPI_STATUSES_IGNORE)
 
-      if (this % n_element > 0) then
+      if (this % n_elem > 0) then
 
-        allocate( this % element              ( this % n_element  ) )
-        allocate( this % start_neighbor       ( this % n_element  ) )
+        allocate( this % element              ( this % n_elem  ) )
+        allocate( this % start_neighbor       ( this % n_elem  ) )
         allocate( this % neighbor_id          ( this % n_neighbor ) )
         allocate( this % neighbor_part        ( this % n_neighbor ) )
         allocate( this % neighbor_component   ( this % n_neighbor ) )
         allocate( this % neighbor_orientation ( this % n_neighbor ) )
-        allocate( this % start_point          ( this % n_element  ) )
+        allocate( this % start_point          ( this % n_elem  ) )
         allocate( this % x_e                  ( this % n_point, 3 ) )
 
         call MPI_Irecv( this % element(1) % id  &
-                      , this % n_element        &
+                      , this % n_elem        &
                       , MPI_MeshElement_3D      &
                       , source                  &
                       , 201                     &
@@ -229,7 +229,7 @@ contains
     integer :: e, i, j, k, l
 
     !$omp do
-    do l = 1, this % n_element
+    do l = 1, this % n_elem
 
       e  = this % element(l) % id
       cn = this % start_neighbor(l)
