@@ -27,7 +27,6 @@ program Mesh3d_Import_GMSH
 
   call MPI_Init()
   call Import_GMSH_3D(gmsh_file, generic_mesh)
-! call generic_mesh % SwitchToLexicalNumbering() ! do that when importing
   call mesh % ImportGenericMesh(generic_mesh, comm = MPI_COMM_WORLD)
   call VerifyMesh_3D(mesh, passed)
   write(*,'(A,G0,/)') 'VerifyMesh_3D: passed = ', passed

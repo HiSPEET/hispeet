@@ -93,10 +93,14 @@ set ( SPECTRAL_ELEMENT
       spectral_element/dg__element_operators__1d.f
       spectral_element/embedded_interpolation__1d.f
       spectral_element/embedded_interpolation__3d.f
-      spectral_element/parent_to_child_interpolation__1d.f
+      spectral_element/coarse_to_fine_interpolation__1d.f
+      spectral_element/fine_to_coarse_projection__1d.f
       spectral_element/projection_operator__1d.f
       spectral_element/projection_operator__3d.f
       spectral_element/standard_operators__1d.f
+
+      spectral_element/parent_to_child_interpolation__1d.f # obsolete
+
     )
 
 #===============================================================================
@@ -180,6 +184,11 @@ set( UTIL_3D ${UTIL_3D}
      util_3d/meshgen/create_cuboid_onerotated.f
      util_3d/meshgen/create_cylinder.f
     )
+
+set( UTIL_3D ${UTIL_3D}
+     util_3d/import/import_gmsh__3d.f
+     util_3d/import/import_gmsh__3d__mp_get_ces_points.f
+   )
 
 set( UTIL_3D ${UTIL_3D}
      util_3d/transfer/data_exchange__3d.f
