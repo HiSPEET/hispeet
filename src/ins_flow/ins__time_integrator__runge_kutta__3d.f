@@ -239,9 +239,9 @@ contains
             end select
           end do
 
-          ! initialize boundary traces
-          call GetBoundaryTraces_3D(mesh, v, vp)      ! vp = v⁻            on ∂Ω
-          call ins_op % ApplyVelocityBC(vp, sp, bv_u) ! vp = v⁺, sp = s_b  on ∂Ω
+!?!       ! initialize boundary traces
+!?!       call GetBoundaryTraces_3D(mesh, v, vp)   ! vp = v⁻ on ∂Ω
+!?!       call ins_op % ApplyEssentialBC(vp, bv_u) ! vp = v⁺ on ∂Ω
 
           ! source term
           call problem % GetExternalSources( sem_v % metrics % x, t_i &
@@ -372,8 +372,8 @@ contains
 
         associate(v => u_i(:,:,:,:,1:3))
 
-          call GetBoundaryTraces_3D(mesh, v, vp)       ! vp = v⁻ on ∂Ω
-          call ins_op % ApplyVelocityBC(vp, sp, bv_u)  ! vp = v⁺ on ∂Ω, ...
+!?!       call GetBoundaryTraces_3D(mesh, v, vp)    ! vp = v⁻ on ∂Ω
+!?!       call ins_op % ApplyEssentialBC(vp, bv_u)  ! vp = v⁺ on ∂Ω
 
           ! viscous and convective RHS
           call ins_op % GetDiffusionTerm(v, vp, sp, F_d     (:,:,:,:,:,i)        )
@@ -433,16 +433,16 @@ contains
           end if
 
           ! velocity divergence
-          call GetOuterTraces_3D(mesh, v, vp) ! vp = v⁺ on Γᴵ and v⁻ on ∂Ω
-          call ins_op % ApplyVelocityBC(vp, bv_u = bv_u) ! vp = v⁺ on ∂Ω
+!?!       call GetOuterTraces_3D(mesh, v, vp)      ! vp = v⁺ on Γᴵ and v⁻ on ∂Ω
+!?!       call ins_op % ApplyEssentialBC(vp, bv_u) ! vp = v⁺ on ∂Ω
           call TPO_Div(ins_op % eop_v, sem_v, v, vp, div_v)
 
           ! pressure potential
           call SetArray(p, ZERO)
-          call ins_op % PressureSolver( ONE, bv_v, v, div_v, bv_p, p &
-                                      , this % i_max_p               &
-                                      , this % r_red                 &
-                                      , this % r_max                 )
+          call ins_op % PressureSolver( ONE, bv_u, v, div_v, p &
+                                      , this % i_max_p         &
+                                      , this % r_red           &
+                                      , this % r_max           )
 
           ! pressure correction
           call GetOuterTraces_3D(mesh, p, pp)

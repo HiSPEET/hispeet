@@ -35,9 +35,13 @@ contains
     !< sources, f(np,np,np,ne,3)
 
     class(BoundaryVariable_3D), intent(in) :: bv_u(:)
-    !< boundary values, bv_u(nb), depending on BC type given in `this % bc_v`:
-    !!   - `'D'`:  `v  ` in components 1:3
-    !!   - `'O'`:  `v,p` in components 1:4
+    !< boundary values
+    !!   - at ∂Ωᴰ
+    !!       *  bv_u % val(*,1:3)  =  vᵇ          (inout)
+    !!       *  bv_u % val(*, 4 )  =  ∂p/∂n       (out)
+    !!   - at ∂Ωᴼ
+    !!       *  bv_u % val(*, 4 )  =  pᵇ          (inout)
+    !!       *  bv_u % val(*, 5 )  =  ∆pᵇ         (in)
 
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)
@@ -73,13 +77,11 @@ contains
 
       call this % sem_v % Get_DG_DiagonalMassMatrix(mm)
 
-      call GetBoundaryTraces_3D(mesh, v, vp)    ! vp = v⁻ on ∂Ω
-      call this % ApplyVelocityBC(vp, sp, bv_u) ! vp = v⁺, sp = sb on ∂Ω
       lambda = 1 / tau
 
       ! compute residual .......................................................
 
-      call this % GetDiffusionTerm(v, vp, sp, r, form)
+      call this % GetDiffusionTerm(v, vp, sp, r, bv_u, form=form)
 
       !$omp do collapse(2)
       do e = 1, mesh % n_elem

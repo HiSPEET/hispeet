@@ -115,9 +115,11 @@ contains
     real(RNP), allocatable, save :: F_d_old(:,:,:,:,:) ! diffusion term  (t₀-∆t)
 
     ! boundary points and values
-    type(BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:)
-    type(BoundaryVariable_3D), allocatable, save :: bv_v(:), bv_p(:)
-    type(BoundaryVariable_3D), allocatable, save :: bv_nsp(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_x(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_u(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_v(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_p(:),  bv_p_old(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_dp(:), bv_dp_old(:)
 
     ! IMEX BDF2 coefficients
     real(RNP), parameter :: gamma_0 =  3 * HALF
@@ -153,7 +155,7 @@ contains
         if (any(shape(v_0) /= shape(v))) then
           deallocate(inv_mm, v_0, F_c, F_d, Q, vp, sp)
           deallocate(v_old, F_c_old, F_d_old)
-          deallocate(bv_x, bv_u, bv_v, bv_p, bv_nsp)
+          deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp, bv_p_old, bv_dp_old)
         end if
       end if
 
@@ -177,21 +179,23 @@ contains
         allocate( F_c_old (np, np, np, mesh % n_elem, 3), source = ZERO )
         allocate( F_d_old (np, np, np, mesh % n_elem, 3), source = ZERO )
 
-        allocate(bv_x   (mesh % n_bound) )
-        allocate(bv_u   (mesh % n_bound) )
-        allocate(bv_v   (mesh % n_bound) )
-        allocate(bv_p   (mesh % n_bound) )
-        allocate(bv_nsp (mesh % n_bound) )
+        allocate( bv_x      (mesh % n_bound) )
+        allocate( bv_u      (mesh % n_bound) )
+        allocate( bv_v      (mesh % n_bound) )
+        allocate( bv_p      (mesh % n_bound) )
+        allocate( bv_dp     (mesh % n_bound) )
+        allocate( bv_p_old  (mesh % n_bound) )
+        allocate( bv_dp_old (mesh % n_bound) )
 
         do b = 1, mesh % n_bound
           call bv_x(b) % Create(mesh % boundary(b), po, nc = 3)
           call bv_x(b) % Extract(sem_v % metrics % x)
-          call bv_u(b) % Create(mesh % boundary(b), po, nc = 4)
-          call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v(b))
-          call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p(b))
-          if (scan(problem % bc_v(b), 'O') > 0) then
-            call bv_nsp(b) % Create(mesh % boundary(b), po, nc = 1)
-          end if
+          call bv_u(b) % Create(mesh % boundary(b), po, nc = 5)
+          call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v (b))
+          call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p (b))
+          call bv_u(b) % GetSlice(first=5, last=5, slice = bv_dp(b))
+          call bv_p_old(b)  % Create(mesh % boundary(b), po, nc = 1)
+          call bv_dp_old(b) % Create(mesh % boundary(b), po, nc = 1)
         end do
 
       end if
@@ -220,15 +224,11 @@ contains
         end select
       end do
 
-      ! initialize boundary traces
-      call GetBoundaryTraces_3D(mesh, v, vp)
-      call ins_op % ApplyVelocityBC(vp, sp, bv_u, extrapolate='O')
-
       ! viscous and convective RHS .............................................
       ! so far ν is constant and boundaries are periodic or have Dirichlet BC
 
-      ! diffusion term based on rotational form
-      call ins_op % GetDiffusionTerm(v, vp, sp, F_d, form=2, extrapolate='O')
+      ! diffusion term using rotational form with extrapolation: s⁺ = s⁻ at ∂Ωᴼ
+      call ins_op % GetDiffusionTerm(v, vp, sp, F_d, bv_u, xout=.true., form=2)
 
       ! convection term
       if (problem % stokes) then
@@ -266,13 +266,34 @@ contains
         case('D')
           call problem % GetBoundaryValues(b, bv_x(b) % val, t, bv_u(b) % val)
         case('O')
-          ! vᵇ = a₀ v(t₀) + a₁ v(t - ∆t)
-          call bv_v(b) % Extract(v)
-          call bv_v(b) % Merge(a0, a1, v_old)
-          ! pᵇ = -n⋅(a₀ s⁺(t₀) + a₁ s⁺(t₀ - ∆t))
-          call MergeArrays(ZERO, bv_p(b)%val, -a1, bv_nsp(b)%val)
-          call bv_nsp(b) % ExtractNormalTrace(sem_v, sp)
-          call MergeArrays(ONE, bv_p(b)%val, -a0, bv_nsp(b)%val)
+          associate( pb     => bv_p      (b) % val(:,:,:,1) &
+                   , dp     => bv_dp     (b) % val(:,:,:,1) &
+                   , pb_old => bv_p_old  (b) % val(:,:,:,1) &
+                   , dp_old => bv_dp_old (b) % val(:,:,:,1) )
+
+            call bv_p(b) % MergeNormalTrace(sem_v, cb=ZERO, ct=-ONE, vt=sp)
+
+            if (first) then
+              ! pᵇ = -n⋅s⁺ + ∆pᵇ, ∆pᵇ = -E(v,n)  for  t = t₀
+              call bv_p(b) % MergeNormalTrace(sem_v, cb=ZERO, ct=-ONE, vt=sp)
+              call ins_op % GetBackflowPenalty(problem, b, v, dp)
+              call SetArray(pb_old, pb)
+              call MergeArrays(ONE, pb, ONE, dp)
+            else
+              ! set pᵇ to values at t = t₀ - ∆t
+              call SetArray(dp, dp_old)
+              ! compute pᵇ values at time t = t₀ and store them as old values
+              call bv_p_old(b) % MergeNormalTrace(sem_v, cb=ZERO, ct=-ONE, vt=sp)
+              ! extrapolate pᵇ to t = t₀ + ∆t
+              call MergeArrays(beta_1, pb, beta_0, pb_old)
+              ! compute backflow penalty based on velocity at t = t₀
+              call ins_op % GetBackflowPenalty(problem, b, v, dp)
+              !x!! alternatively: busing 2nd order extrapolation -- no improvement
+              !x! v_0 = beta_0 * v + beta_1 * v_old
+              !x! call ins_op % GetBackflowPenalty(problem, b, v_0, dp)
+              call MergeArrays(ONE, pb, ONE, dp)
+            end if
+          end associate
         end select
       end do
 
@@ -280,7 +301,7 @@ contains
 
       if (first) then
         !$omp do
-        do c = 1, 4
+        do c = 1, 3
         do e = 1, mesh % n_elem
           v_0  (:,:,:,e,c) = v(:,:,:,e,c)
           v_old(:,:,:,e,c) = v(:,:,:,e,c)
@@ -291,7 +312,7 @@ contains
         a0 = alpha_0 / gamma_0
         a1 = alpha_1 / gamma_0
         !$omp do collapse(2)
-        do c = 1, 4
+        do c = 1, 3
         do e = 1, mesh % n_elem
           v_0  (:,:,:,e,c) = a0 * v(:,:,:,e,c) + a1 * v_old(:,:,:,e,c)
           v_old(:,:,:,e,c) = v(:,:,:,e,c)
@@ -320,7 +341,7 @@ contains
       !$omp master
       deallocate(inv_mm, v_0, F_c, F_d, Q, vp, sp)
       deallocate(v_old, F_c_old, F_d_old)
-      deallocate(bv_x, bv_u, bv_v, bv_p, bv_nsp)
+      deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp, bv_p_old, bv_dp_old)
       !$omp end master
 
     end associate
