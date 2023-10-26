@@ -35,7 +35,9 @@ contains
     !< sources, f(np,np,np,ne,3)
 
     class(BoundaryVariable_3D), intent(in) :: bv_u(:)
-    !< boundary values of u = [v,p], bv_u(nb)
+    !< boundary values at final time t
+    !!   - Γᴰ :  vᵇ    in components 1:3
+    !!   - Γᴼ :  τ_nn  in component    4
 
     real(RNP), contiguous, intent(inout) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)
