@@ -314,7 +314,7 @@ contains
     integer :: e, f, i, j, k, m
 
     !$omp master
-    if (this%po /= ubound(v,1) .or. this%nc /= 1 .or. size(v,5) /= 3) then
+    if (this%po /= ubound(v,1) .or. this%nc /= 1 .or. size(v,5) < 3) then
       call Error( 'MergeNormalComponent'  &
                 , 'argument mismatch'     &
                 , 'Boundary_Variable__3D' )
@@ -467,7 +467,7 @@ contains
     integer :: e, f, m
 
     !$omp master
-    if (this%po  /= ubound(vt,1) .or. this%nc /= 1 .or. size(vt,5) /= 3) then
+    if (this%po  /= ubound(vt,1) .or. this%nc /= 1 .or. size(vt,5) < 3) then
       call Error( 'MergeNormalTrace'      &
                 , 'argument mismatch'     &
                 , 'Boundary_Variable__3D' )
