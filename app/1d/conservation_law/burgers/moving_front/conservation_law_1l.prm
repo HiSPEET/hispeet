@@ -7,7 +7,6 @@
   cl_operator_opt%eop%po      = 15
   cl_operator_opt%eop%penalty = 20
 ! cl_operator_opt%eop%hybrid  =  T ! use only with diffusion_method = 1
-  cl_operator_opt%schwarz%no  =  0
   cl_operator_opt%qop%po      = 15
 /
 

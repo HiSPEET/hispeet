@@ -51,7 +51,7 @@ module CL__MLSDC__1D
     type(DG_SchwarzOptions_1D) :: schwarz_root !< Schwarz opts for root level
     type(DG_SchwarzOptions_1D) :: schwarz_fine !< Schwarz opts for finer levels
 
-    character :: projection_method = 'P' !< fine-to-coarse projection method:
+    character :: projection_method = 'I' !< fine-to-coarse projection method:
                                          !! 'P'  L² projection,
                                          !! 'I'  interpolation
 
