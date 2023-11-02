@@ -51,14 +51,14 @@ module CL__MLSDC__1D
     type(DG_SchwarzOptions_1D) :: schwarz_root !< Schwarz opts for root level
     type(DG_SchwarzOptions_1D) :: schwarz_fine !< Schwarz opts for finer levels
 
-    character :: projection_method = 'I' !< fine-to-coarse projection method:
+    character :: projection_method = 'P' !< fine-to-coarse projection method:
                                          !! 'P'  L² projection,
                                          !! 'I'  interpolation
 
     integer :: projection_smoothing = 1  !< discontinuities in 2:1 projection:
                                          !!  0   no smoothing
                                          !!  1   remove by linear blending
-                                         !!  0   remove by coefficient averaging
+                                         !!  2   remove by coefficient averaging
 
   end type CL_MLSDC_Options_1D
 

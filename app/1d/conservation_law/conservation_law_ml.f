@@ -57,10 +57,10 @@ program Conservation_Law_ML
   type(CL_MLSDC_1D)          :: mlsdc
   type(CL_MLSDC_Options_1D)  :: mlsdc_opt
 
-  integer :: n_space (max_n_level) ! number of elements in space
-  integer :: p_space (max_n_level) ! polynomial degree of elements space
-  integer :: n_time  (max_n_level) ! number of time steps in one slice
-  integer :: p_time  (max_n_level) ! polynomial degree of time step
+  integer :: n_space (max_n_level) = -1 ! number of elements in space
+  integer :: p_space (max_n_level) = -1 ! polynomial degree of elements space
+  integer :: n_time  (max_n_level) = -1 ! number of time steps in one slice
+  integer :: p_time  (max_n_level) = -1 ! polynomial degree of time step
 
   namelist/discretization_prm/ n_space, p_space, n_time, p_time
 
@@ -161,7 +161,7 @@ program Conservation_Law_ML
     call GetExactSolution(mlsdc%level(l), t_0, t_1, u_x % level(l)%val)
   end do
 
-  do l = n_level, 2
+  do l = n_level, 2, -1
     associate( u_hf => u_h % level(l  ) % val &
              , u_hc => u_h % level(l-1) % val &
              , u_xc => u_x % level(l-1) % val )
