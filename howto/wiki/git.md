@@ -97,7 +97,7 @@ In case of problems with a submodule
 
       cd external/libxsmm
       git status
-      git checkout main_stable
+      git checkout main
 
 ## Working with branches <a name="branches"></a>
 
