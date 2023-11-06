@@ -217,7 +217,8 @@ contains
              , w_sub   => this % w_sub             &
              , po      => problem % eop % po       &
              , ne      => problem % ne             &
-             , nc      => problem % nc             )
+             , nc      => problem % nc             &
+             , Mat     => problem % mm             )
 
       ! workspace ..............................................................
 

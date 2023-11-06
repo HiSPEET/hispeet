@@ -32,14 +32,13 @@ module CL__Time_Integrator__1D
     !---------------------------------------------------------------------------
     !> Execution of a single time step
 
-    subroutine TimeStep(this, problem, t, dt, u, M_inv)
+    subroutine TimeStep(this, problem, t, dt, u)
       import
       class(CL_TimeIntegrator_1D), intent(inout) :: this
       class(CL_Problem_Scalar_1D), intent(in)     :: problem
       real(RNP),    intent(inout) :: t
       real(RNP),    intent(in)    :: dt              !< step size ∆t
       real(RNP),    intent(inout) :: u(0:,:,:)       !< u(t) → u(t+ ∆t)
-      real(RNP),    intent(in)    :: M_inv(:,:,:)
     end subroutine TimeStep
 
   end interface

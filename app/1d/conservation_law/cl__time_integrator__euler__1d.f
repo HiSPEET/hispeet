@@ -88,21 +88,20 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs an IMEX Euler step: u₁ = u₀ + ∆t (iλᵢ u₀ + λᵣ u₁)
 
-  subroutine TimeStep(this, problem, t, dt, u, M_inv)
+  subroutine TimeStep(this, problem, t, dt, u)
     class(CL_TimeIntegrator_Euler_1D), intent(inout) :: this
     class(CL_Problem_Scalar_1D),       intent(in)    :: problem
     real(RNP), intent(inout) :: t
     real(RNP), intent(in)    :: dt              !< step size ∆t
     real(RNP), intent(inout) :: u(0:,:,:)       !< u(t) → u(t+ ∆t)
-    real(RNP), intent(in)    :: M_inv(:,:,:)
 
     real(RNP), allocatable, dimension(:,:,:), save :: f
     real(RNP) :: bv(2) = 0
 
-    associate( po => problem % eop % po &
-             , ne => problem % ne       &
-             , nc => problem % nc       &
-             , M  => problem % mm       )
+    associate( po  => problem % eop % po &
+             , ne  => problem % ne       &
+             , nc  => problem % nc       &
+             , Mat => problem % mm       )
 
       if (.not. allocated(f)) then
         allocate(f, mold = u)
@@ -113,19 +112,27 @@ contains
           ! explicit Euler step: u₁ = u₀ + ∆t λ u₀
           f  = problem % RHS_Convection(t, u)  &
              + problem % RHS_Diffusion (t, u)
-          u(:,:,1) = u(:,:,1) + dt / M * f(:,:,1)
+          u(:,:,1) = u(:,:,1) + dt / Mat * f(:,:,1)
         case(1)
 
           ! implicit Euler step: u₁ = u₀ + ∆t λ u₀
-
           !u = u / (ONE - dt * lambda)
-          print *, "Actually there is no way to use an implicit method at this moment!"
-          stop
+          f(:,:,1) = 1/dt * Mat * u(:,:,1)
+          f(:,:,:) = f + problem % RHS_Convection(t, u) &
+                       + problem % RHS_Diffusion (t, u)
 
+          call problem % elliptic_op(1) &
+                           % HybridSolver( dx      =  problem % dx   &
+                                         , lambda  =  ONE/dt         &
+                                         , nu      =  problem % nu_c &
+                                         , f       =  f(:,:,1)       &
+                                         , bv      =  bv             &
+                                         , u       =  u(:,:,1)       &
+                                         , standby = .true.          )  
         case default
 
           ! IMEX Euler step: u₁ = u₀ + ∆t λ u₀
-          f(:,:,1) = 1/dt * M * u(:,:,1)
+          f(:,:,1) = 1/dt * Mat * u(:,:,1)
           f(:,:,:) = f + problem % RHS_Convection(t, u)
 
           call problem % elliptic_op(1) &
@@ -136,7 +143,6 @@ contains
                                          , bv      =  bv             &
                                          , u       =  u(:,:,1)       &
                                          , standby = .true.          )
-
       end select
 
     end associate

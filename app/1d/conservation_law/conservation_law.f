@@ -233,7 +233,7 @@ program Conservation_Law
   do
     select case(sdc_method)
     case(0)      ! standalone time-integrator
-      call tint % TimeStep(problem, t, dt, u, M_inv)
+      call tint % TimeStep(problem, t, dt, u)
       t  = t + dt
     case default ! SDC method
       call sdc % TimeStep(problem, t, dt, u, M_inv)
@@ -269,6 +269,9 @@ program Conservation_Law
     write(ou,'(10(ES17.10,1X))') problem % x(i,k), u(i,k,:)
   end do
   end do
+
+  call ExactSolution( problem %x, t_end, ou ) 
+
   close(ou)
 
 end program Conservation_Law
