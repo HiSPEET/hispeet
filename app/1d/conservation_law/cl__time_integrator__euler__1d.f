@@ -1,11 +1,19 @@
+!> summary:  Euler time integrators for 1D conservation laws
+!> author:   Robin Fränzel, Joerg Stiller
+!> date:     2023/05/04
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!===============================================================================
+
 module CL__Time_Integrator__Euler__1D
 
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
 
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE
+  use Array_Assignments
 
-  use CL__Problem__Scalar__1D
+  use CL__Problem__1D
+  use CL__Operator__1D
   use CL__Time_Integrator__1D
 
   implicit none
@@ -42,7 +50,7 @@ contains
   !> Constructor for objects of type CL_TimeIntegrator_Euler_1D with options
 
   function New_CL_TimeIntegrator_Euler_1D(opt) result(this)
-    class(CL_TimeIntegrator_Options_Euler_1D), optional, intent(in) :: opt
+    class(CL_TimeIntegrator_Options_Euler_1D), intent(in) :: opt
     type(CL_TimeIntegrator_Euler_1D) :: this
 
     call Init_CL_TimeIntegrator_Euler_1D(this, opt)
@@ -53,12 +61,12 @@ contains
   !> Initialization of a Init_CL_TimeIntegrator_Euler_1D object
 
   subroutine Init_CL_TimeIntegrator_Euler_1D(this, opt)
-    class(CL_TimeIntegrator_Euler_1D),                   intent(inout) :: this
-    class(CL_TimeIntegrator_Options_Euler_1D), optional, intent(in)    :: opt
+    class(CL_TimeIntegrator_Euler_1D),         intent(inout) :: this
+    class(CL_TimeIntegrator_Options_Euler_1D), intent(in)    :: opt
 
     ! intialize parent type
     call this % Init_CL_TimeIntegrator_1D(opt)
-    this % name = 'IMEX Euler method'
+    this % name = 'Euler method'
 
   end subroutine Init_CL_TimeIntegrator_Euler_1D
 
@@ -80,70 +88,106 @@ contains
     ! show parent settings
     call this % Show_CL_TimeIntegrator_1D(unit)
 
-    write(io,'(2X,A,T15,G0)')  'name:', trim(this % name)
-    write(io,'(2X,A,T15,G0)')  'impl:', this % impl
-
   end subroutine Show_CL_TimeIntegrator_Euler_1D
 
   !-----------------------------------------------------------------------------
-  !> Performs an IMEX Euler step: u₁ = u₀ + ∆t (iλᵢ u₀ + λᵣ u₁)
+  !> Performs an IMEX Euler step
 
-  subroutine TimeStep(this, problem, t, dt, u)
-    class(CL_TimeIntegrator_Euler_1D), intent(inout) :: this
-    class(CL_Problem_Scalar_1D),       intent(in)    :: problem
-    real(RNP), intent(inout) :: t
-    real(RNP), intent(in)    :: dt              !< step size ∆t
-    real(RNP), intent(inout) :: u(0:,:,:)       !< u(t) → u(t+ ∆t)
+  subroutine TimeStep(this, cl_problem, cl_operator, dt, t_0, u_0, u)
+    class(CL_TimeIntegrator_Euler_1D), intent(in) :: this
+    class(CL_Problem_1D),  intent(in)    :: cl_problem
+    class(CL_Operator_1D), intent(in)    :: cl_operator
+    real(RNP),             intent(in)    :: dt          !< step size ∆t
+    real(RNP),             intent(in)    :: t_0         !< initial time
+    real(RNP), contiguous, intent(in)    :: u_0(0:,:,:) !< u(t₀)
+    real(RNP), contiguous, intent(inout) :: u  (0:,:,:) !< u(t₀+∆t)
 
-    real(RNP), allocatable, dimension(:,:,:), save :: f
-    real(RNP) :: bv(2) = 0
+    real(RNP), allocatable, save :: r_c(:,:,:)
+    real(RNP), allocatable, save :: r_d(:,:,:)
+    real(RNP), allocatable, save :: f_s(:,:,:)
+    real(RNP), allocatable, save :: u_i(:,:,:)
+    real(RNP), allocatable, save :: bv(:,:)
 
-    associate( po  => problem % eop % po &
-             , ne  => problem % ne       &
-             , nc  => problem % nc       &
-             , Mat => problem % mm       )
+    real(RNP), allocatable :: Me_inv(:)
+    real(RNP) :: t
+    integer   :: e, k
 
-      if (.not. allocated(f)) then
-        allocate(f, mold = u)
-      end if
+    associate( nc       => cl_problem  % nc       &
+             , po       => cl_operator % eop % po &
+             , ne       => cl_operator % ne       &
+             , Me       => cl_operator % Me       &
+             , activity => cl_operator % activity )
+
+      !$omp master
+
+      ! initialization .........................................................
+
+      t = t_0 + dt
+
+      allocate(r_c, mold = u)
+      allocate(r_d, mold = u)
+      allocate(f_s, mold = u)
+      allocate(u_i, mold = u)
+      allocate(bv(nc,2))
+
+      allocate(Me_inv(0:po), source = 1/Me)
 
       select case(this%impl)
-        case(0)
-          ! explicit Euler step: u₁ = u₀ + ∆t λ u₀
-          f  = problem % RHS_Convection(t, u)  &
-             + problem % RHS_Diffusion (t, u)
-          u(:,:,1) = u(:,:,1) + dt / Mat * f(:,:,1)
-        case(1)
 
-          ! implicit Euler step: u₁ = u₀ + ∆t λ u₀
-          !u = u / (ONE - dt * lambda)
-          f(:,:,1) = 1/dt * Mat * u(:,:,1)
-          f(:,:,:) = f + problem % RHS_Convection(t, u) &
-                       + problem % RHS_Diffusion (t, u)
+      case(0)
 
-          call problem % elliptic_op(1) &
-                           % HybridSolver( dx      =  problem % dx   &
-                                         , lambda  =  ONE/dt         &
-                                         , nu      =  problem % nu_c &
-                                         , f       =  f(:,:,1)       &
-                                         , bv      =  bv             &
-                                         , u       =  u(:,:,1)       &
-                                         , standby = .true.          )  
-        case default
+        ! explicit Euler step ..................................................
 
-          ! IMEX Euler step: u₁ = u₀ + ∆t λ u₀
-          f(:,:,1) = 1/dt * Mat * u(:,:,1)
-          f(:,:,:) = f + problem % RHS_Convection(t, u)
+        call cl_problem % GetBoundaryValues(t_0, bv)
+        call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
+        call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
+        call cl_problem % GetSources(cl_operator, t_0, u_0, f_s)
 
-          call problem % elliptic_op(1) &
-                           % HybridSolver( dx      =  problem % dx   &
-                                         , lambda  =  ONE/dt         &
-                                         , nu      =  problem % nu_c &
-                                         , f       =  f(:,:,1)       &
-                                         , bv      =  bv             &
-                                         , u       =  u(:,:,1)       &
-                                         , standby = .true.          )
+        do k = 1, nc
+        do e = 1, ne
+          if (activity(e) > 0) then
+            u(:,e,k) = u_0(:,e,k) &
+                     + dt * (Me_inv * (r_c(:,e,k) + r_d(:,e,k)) + f_s(:,e,k))
+          else
+            u(:,e,k) = u_0(:,e,k)
+          end if
+        end do
+        end do
+
+      case(1)
+
+        ! IMEX Euler step ......................................................
+
+        call cl_problem % GetBoundaryValues(t_0, bv)
+        call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
+
+        call cl_problem % GetBoundaryValues(t, bv)
+        call cl_problem % GetSources(cl_operator, t, u_0, f_s)
+
+        ! intermediate solution
+        do k = 1, nc
+        do e = 1, ne
+          if (activity(e) > 0) then
+            u_i(:,e,k) = u_0(:,e,k) + dt * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
+          else
+            u_i(:,e,k) = u_0(:,e,k)
+          end if
+        end do
+        end do
+
+        ! implicit diffusion step
+        call cl_problem % DiffusionSolver( cl_operator, dt, ZERO, bv         &
+                                         , u_i, u_0, u                       &
+                                         , method = this % diffusion_method  &
+                                         , i_max  = this % diffusion_i_max   &
+                                         , r_red  = this % diffusion_r_red   &
+                                         , r_max  = this % diffusion_r_max   )
+
       end select
+
+      ! finalization ...........................................................
+
+      deallocate(r_c, r_d, f_s, u_i, bv)
 
     end associate
 

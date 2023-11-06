@@ -105,16 +105,16 @@ program DG_Helmholtz
   singular = lambda == 0 .and. (all(bc == 'N') .or. all(bc == 'P'))
 
   ! initialize operator
-  elliptic_op = DG_EllipticOperator_1D(dg_opt, schwarz_opt, ne, bc, r_nu_s)
+  elliptic_op = DG_EllipticOperator_1D(dg_opt, schwarz_opt, r_nu_s)
 
   associate(eop => elliptic_op%eop, po => elliptic_op%eop%po)
 
     ! workspace
     allocate(u(0:po,ne), x(0:po,ne), f(0:po,ne))
     allocate(r(0:po,ne), s(0:po,ne), e(0:po,ne))
-!    call random_number(u)
-!    u = u - HALF
-    u = 0
+    call random_number(u)
+    u = u - HALF
+!   u = 0
 
     ! mesh
     dx = TWO / ne
@@ -126,7 +126,7 @@ program DG_Helmholtz
     s = u_exact(x)
 
     ! right hand side and boundary values
-    call GetRHS(eop, dx, lambda, bc, x, f, bv)
+    call GetRHS(eop, dx, lambda, nu_p, bc, x, f, bv)
 
     ! read system clock
     call system_clock(count1)
@@ -137,7 +137,7 @@ program DG_Helmholtz
     ! consistency error ........................................................
 
     call system_clock(count0)
-    call elliptic_op % Residual(dx, lambda, nu, f, bv, s, r)
+    call elliptic_op % Residual(bc, bv, dx, lambda, nu, f, s, r)
     call system_clock(count1)
 
     t_res = (count1 - count0) / real(count_rate, RNP)
@@ -147,16 +147,16 @@ program DG_Helmholtz
     call system_clock(count0)
     select case(method)
     case(1)
-      call elliptic_op % HybridSolver(dx, lambda, nu, f, bv, u)
+      call elliptic_op % HybridSolver(bc, bv, dx, lambda, nu, f, u)
     case(2)
-      call elliptic_op % CG_Method &
-                            (dx, lambda, nu, u, f, bv, i_max, r_red, r_max, ni)
+      call elliptic_op % CG_Method( bc, bv, dx, lambda, nu, f, u &
+                                  , i_max, r_red, r_max, ni = ni )
     case(3)
-      call elliptic_op % Schwarz_Method &
-                            (dx, lambda, nu, u, f, bv, i_max, r_red, r_max, ni)
+      call elliptic_op % Schwarz_Method( bc, bv, dx, lambda, nu, f, u &
+                                       , i_max, r_red, r_max, ni = ni )
     case(4)
-      call elliptic_op % SchwarzPCG_Method &
-                            (dx, lambda, nu, u, f, bv, i_max, r_red, r_max, ni)
+      call elliptic_op % SchwarzPCG_Method( bc, bv, dx, lambda, nu, f, u &
+                                          , i_max, r_red, r_max, ni = ni )
     end select
     call system_clock(count1)
 
@@ -211,7 +211,7 @@ program DG_Helmholtz
     write(*,'(2X,A,ES12.5)') 't_sol =', t_sol
 
     ! save results
-    open(newunit=io, file='dg_helmholtz_1d.dat')
+    open(newunit=io, file='dg_helmholtz.dat')
     write(io,'(10(A17,1X))') '# x', 'u', 's', 'e', 'f'
     do l = 1, ne
     do i = 0, po
@@ -227,10 +227,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Right hand side
 
-  subroutine GetRHS(eop, dx, lambda, bc, x, f, bv)
+  subroutine GetRHS(eop, dx, lambda, nu, bc, x, f, bv)
     class(DG_ElementOperators_1D), intent(in)  :: eop !< IP-H element operators
     real(RNP), intent(in)  :: dx      !< element extension
     real(RNP), intent(in)  :: lambda  !< Helmholtz parameter
+    real(RNP), intent(in)  :: nu      !< diffusivity
     character, intent(in)  :: bc(2)   !< boundary conditions
     real(RNP), intent(in)  :: x(0:,:) !< mesh points
     real(RNP), intent(out) :: f(0:,:) !< RHS
@@ -242,7 +243,7 @@ contains
 
       ! projection of the source term
       do l = 1, ubound(x,2)
-        f(:,l) = dx/2 * Ms * (lambda * u_exact(x(:,l)) - ddu_exact(x(:,l)))
+        f(:,l) = dx/2 * Ms * (lambda * u_exact(x(:,l)) - nu*ddu_exact(x(:,l)))
       end do
 
       ! left boundary
@@ -250,7 +251,7 @@ contains
       case('D')
         bv(1) = u_exact( x(0,1) )
       case('N')
-        bv(1) = du_exact( x(0,1) )
+        bv(1) = nu * du_exact( x(0,1) )
       case default
         bv(1) = ZERO
       end select
@@ -260,7 +261,7 @@ contains
       case('D')
         bv(2) = u_exact( x(po,ne) )
       case('N')
-        bv(2) = du_exact( x(po,ne) )
+        bv(2) = nu * du_exact( x(po,ne) )
       case default
         bv(2) = ZERO
       end select

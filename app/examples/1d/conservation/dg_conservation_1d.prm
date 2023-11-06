@@ -1,7 +1,0 @@
-&Discretization_Parameters
-  po      = 16
-  ne      = 10
-  cfl     = 0.1
-  t_end   = 1.0
-  svv     = T
-/

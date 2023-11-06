@@ -15,9 +15,18 @@ contains
   !> Usage
   !>   1) `f` and `bv` given:  computation of the residual, `r = f - Au`
   !>   2) `f` and `bv` absent: evaluation of the homogeneous operator, `r = Au`
+  !>
+  !> Boundary conditions and values
+  !>   - Dirichlet:  `bc = 'D',  bv = u`
+  !>   - Neumann:    `bc = 'N',  bv = ∂u/∂x`
+  !>
+  !> The operator is applied only to elements for which `mask` is true.
+  !> For other elements, the result is set to zero.
 
-  module subroutine Eval_RC(this, dx, lambda, nu, u, r, f, bv)
+  module subroutine Eval_RC(this, bc, mask, dx, lambda, nu, u, r, f, bv)
     class(DG_EllipticOperator_1D),   intent(in)  :: this
+    character,                       intent(in)  :: bc(2)   !< BC {'D','N','P'}
+    logical,                         intent(in)  :: mask(:) !< element mask
     real(RNP),                       intent(in)  :: dx      !< ∆xᵉ
     real(RNP),                       intent(in)  :: lambda  !< λ
     real(RNP),                       intent(in)  :: nu      !< ν = νᵖ+νˢ
@@ -51,9 +60,9 @@ contains
 
       ! initialization .........................................................
 
-      has_bv = present(bv)
-      has_f  = present(f)
-      hybrid = eop % hybrid
+      has_bv   = present(bv)
+      has_f    = present(f)
+      hybrid   = eop % hybrid
 
       nu_p = this % PhysicalDiffusivity(nu)
       nu_s = this % SpectralDiffusivity(nu)
@@ -89,7 +98,11 @@ contains
 
       !$omp do
       do e = 1, ne
-        r(:,e) = lambda * g0 * M * u(:,e)  +  g1 * matmul(As, u(:,e))
+        if (mask(e)) then
+          r(:,e) = lambda * g0 * M * u(:,e)  +  g1 * matmul(As, u(:,e))
+        else
+          r(:,e) = ZERO
+        end if
       end do
 
       ! interior fluxes ........................................................
@@ -108,7 +121,7 @@ contains
       !$omp master
 
       ! left boundary
-      select case(this % bc(1))
+      select case(bc(1))
 
       case('D')
         if (has_bv) then
@@ -120,7 +133,7 @@ contains
 
       case('N')
         if (has_bv) then
-          avg_q(0) = bv(1)
+          avg_q(0) = nu_p * bv(1)
         end if
 
       case('P')
@@ -132,7 +145,7 @@ contains
       end select
 
       ! right boundary
-      select case(this % bc(2))
+      select case(bc(2))
 
       case('D')
         if (has_bv) then
@@ -144,7 +157,7 @@ contains
 
       case('N')
         if (has_bv) then
-          avg_q(ne) = bv(2)
+          avg_q(ne) = nu_p * bv(2)
         end if
 
       case('P')
@@ -157,35 +170,37 @@ contains
 
       !$omp do
       do e = 1, ne
+        if (mask(e)) then
 
-        ! - {ν∂v/∂x}[u]
-        cl = -g1/2 * jmp_u(e-1)
-        cr = -g1/2 * jmp_u(e  )
-        do i = 0, po
-          r(i,e) = r(i,e) + cl * Bs(0,i) + cr * Bs(po,i)
-        end do
-
-        ! - [v]{ν∂u/∂x}
-        r( 0,e) = r( 0,e) + avg_q(e-1)
-        r(po,e) = r(po,e) - avg_q(e  )
-
-        ! + μ⟨ν⟩[v][u]
-        r( 0,e) = r( 0,e) - mu * (nu_p + nu_s) * jmp_u(e-1)
-        r(po,e) = r(po,e) + mu * (nu_p + nu_s) * jmp_u(e  )
-
-        ! - 1/4μ⟨ν⟩ [ν∂v/∂x][ν∂u/∂x]
-        if (hybrid) then
-          cl =  gh * jmp_q(e-1)
-          cr = -gh * jmp_q(e  )
+          ! - {ν∂v/∂x}[u]
+          cl = -g1/2 * jmp_u(e-1)
+          cr = -g1/2 * jmp_u(e  )
           do i = 0, po
-            r(i,e) = r(i,e) + cl * Bs( 0,i) + cr * Bs(po,i)
+            r(i,e) = r(i,e) + cl * Bs(0,i) + cr * Bs(po,i)
           end do
-        end if
 
-        if (has_f) then
-          r(:,e) = f(:,e) - r(:,e)
-        end if
+          ! - [v]{ν∂u/∂x}
+          r( 0,e) = r( 0,e) + avg_q(e-1)
+          r(po,e) = r(po,e) - avg_q(e  )
 
+          ! + μ⟨ν⟩[v][u]
+          r( 0,e) = r( 0,e) - mu * (nu_p + nu_s) * jmp_u(e-1)
+          r(po,e) = r(po,e) + mu * (nu_p + nu_s) * jmp_u(e  )
+
+          ! - 1/4μ⟨ν⟩ [ν∂v/∂x][ν∂u/∂x]
+          if (hybrid) then
+            cl =  gh * jmp_q(e-1)
+            cr = -gh * jmp_q(e  )
+            do i = 0, po
+              r(i,e) = r(i,e) + cl * Bs( 0,i) + cr * Bs(po,i)
+            end do
+          end if
+
+          if (has_f) then
+            r(:,e) = f(:,e) - r(:,e)
+          end if
+
+        end if
       end do
 
       ! clean-up ...............................................................

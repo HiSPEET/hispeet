@@ -43,8 +43,12 @@ contains
     !< sources at time t, older contributions and possibly correction terms
     class(BoundaryVariable_3D), intent(inout) :: bv_u(:)
     !< boundary values at final time t
-    !!   - for velocity, to be given in components 1-3 on input, and
-    !!   - for pressure, returned in component 4 on output
+    !!   - for velocity in components 1:3
+    !!       *  at ∂Ωᴰ inout:  Dirichlet conditions
+    !!       *  at ∂Ωᴼ inout:  approximate velocity
+    !!   - for pressure in component 4
+    !!       *  at ∂Ωᴰ out:    ∂p/∂n
+    !!       *  at ∂Ωᴼ inout:  approximate pressure
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
     !< u = [v, p], velocity and pressure at final time u
 
@@ -158,6 +162,14 @@ contains
 
       ! diffusive correction ...................................................
 
+      ! update boundary conditions
+      do b = 1, mesh % n_bound
+        select case(ins_op % bc_v(b))
+        case('O')
+          call bv_p(b) % Extract(p)
+        end select
+      end do
+
       associate(f => w(:,:,:,:,1:3))
 
         !$omp do collapse(2)
@@ -167,7 +179,7 @@ contains
           end do
         end do
 
-         call ins_op % DiffusionSolver(tau, f, bv_v, v, i_max_v, r_red, r_max)
+         call ins_op % DiffusionSolver(tau, f, bv_u, v, i_max_v, r_red, r_max)
 
       end associate
 

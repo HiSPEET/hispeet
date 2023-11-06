@@ -30,7 +30,7 @@ contains
   !> (PVTU).
 
   subroutine ExportVTK_VolumeData(x, s, sname, v, vname, file, part, n_parts, &
-                                  subdiv)
+                                  subdiv, mask)
 
     ! mesh element collocation points
     real(RNP), intent(in) :: x(0:,0:,0:,:,:) !< mesh points [0:po,0:po,0:po,ne,3]
@@ -50,6 +50,7 @@ contains
     integer, optional, intent(in) :: part    !< partition (piece)
     integer, optional, intent(in) :: n_parts !< number of partitions (pieces)
     logical, optional, intent(in) :: subdiv  !< T: quadratic subdivision [auto]
+    logical, optional, intent(in) :: mask(:) !< skip elements with mask(e) = F
 
     ! VTK data .................................................................
 
@@ -61,12 +62,13 @@ contains
     real(C_DOUBLE),    allocatable :: xg(:,:)
     real(C_DOUBLE),    allocatable :: sg(:,:)
     real(C_DOUBLE),    allocatable :: vg(:,:,:)
+    logical,           allocatable :: mask_(:)
 
     ! auxiliary variables ......................................................
 
     real(RNP), allocatable :: iop(:,:) ! interpolation operator
-    integer :: po, ne, ns, nv
-    integer :: interpolation_order, np, k
+    integer :: po, ne, ng, ni, nl, np, ns, nv
+    integer :: interpolation_order, k
     character(len=80) :: tag
 
     ! initialization ...........................................................
@@ -84,12 +86,23 @@ contains
     po = ubound(x,1)
     ne = ubound(x,4)
 
+    if (present(mask)) then
+      allocate(mask_(ne), source = mask)
+    else
+      allocate(mask_(ne), source = .true.)
+    end if
+
+    ! number of exported elements
+    nl = count(mask_)
+
+    ! number of scalars
     if (present(s)) then
       ns = size(s,5)
     else
       ns = 0
     end if
 
+    ! number of vectors
     if (present(v)) then
       nv = size(v,6)
     else
@@ -111,6 +124,15 @@ contains
       interpolation_order = 2
     end if
 
+    ! number of element points per direction
+    np = po + 1
+    if (interpolation_order == 2) then
+      ! number of interpolated element points with quadratic interpolation
+      ni = 2*po + 1
+    else
+      ni = np
+    end if
+
     ! set up VTK file ..........................................................
 
     call VTK_XMLWriter_New(vtk)
@@ -120,16 +142,16 @@ contains
 
     ! grid points ..............................................................
 
-    np = ne * (interpolation_order*po + 1)**3
+    ng = nl * (interpolation_order*po + 1)**3
 
-    allocate(xg(3,np))
+    allocate(xg(3,ng))
 
     select case(interpolation_order)
     case(1)
-      call BuildLinearPointCoords(np, x, xg)
+      call BuildLinearPointCoords(np, ne, nl, mask_, x, xg)
     case(2)
       call BuildInterpolationOperator(po, iop)
-      call BuildQuadraticPointCoords(iop, x, xg)
+      call BuildQuadraticPointCoords(np, ni, ne, nl, mask_, iop, x, xg)
     end select
 
     call VTK_XMLWriter_SetPoints(vtk, xg)
@@ -139,10 +161,10 @@ contains
     select case(interpolation_order)
     case(1)
       cell_type = VTK_HEXAHEDRON
-      call BuildLinearCells(po, ne, cell)
+      call BuildLinearCells(po, nl, cell)
     case(2)
       cell_type = VTK_TRIQUADRATIC_HEXAHEDRON
-      call BuildQuadraticCells(po, ne, cell)
+      call BuildQuadraticCells(po, nl, cell)
     end select
 
     call VTK_XMLWriter_SetCellsWithType(vtk, cell_type, cell)
@@ -150,13 +172,13 @@ contains
     ! scalars ..................................................................
 
     if (present(s) .and. present(sname)) then
-      allocate(sg(np,ns))
+      allocate(sg(ng,ns))
 
       select case(interpolation_order)
       case(1)
-        call BuildLinearScalarData(s, sg)
+        call BuildLinearScalarData(np, ne, nl, ns, mask_, s, sg)
       case(2)
-        call BuildQuadraticScalarData(iop, s, sg)
+        call BuildQuadraticScalarData(np, ni, ne, nl, ns, mask_, iop, s, sg)
       end select
 
       do k = 1, ns
@@ -168,13 +190,13 @@ contains
     ! vectors ..................................................................
 
     if (present(v) .and. present(vname)) then
-      allocate(vg(3,np,nv))
+      allocate(vg(3,ng,nv))
 
       select case(interpolation_order)
       case(1)
-        call BuildLinearVectorData(np, nv, v, vg)
+        call BuildLinearVectorData(np, ne, nl, nv, mask_, v, vg)
       case(2)
-        call BuildQuadraticVectorData(iop, v, vg)
+        call BuildQuadraticVectorData(np, ni, ne, nl, nv, mask_, iop, v, vg)
       end select
 
       do k = 1, nv
@@ -258,33 +280,52 @@ contains
   !-----------------------------------------------------------------------------
   !> Maps element points to linear grid cells
 
-  subroutine BuildLinearPointCoords(np, xc, xg)
-    integer,        intent(in)  :: np       !< number of mesh points
-    real(RNP),      intent(in)  :: xc(np,3) !< mesh element points
-    real(C_DOUBLE), intent(out) :: xg(3,np) !< VTK grid points
+  subroutine BuildLinearPointCoords(np, ne, nl, mask, xe, xg)
+    integer,        intent(in)  :: np       !< element points per direction
+    integer,        intent(in)  :: ne       !< num elements
+    integer,        intent(in)  :: nl       !< num exported elements
+    logical,        intent(in)  :: mask(ne) !< element mask
+    real(RNP),      intent(in)  :: xe(np,np,np,ne,3) !< mesh points
+    real(C_DOUBLE), intent(out) :: xg(3,np,np,np,nl) !< VTK grid points
 
-    xg = transpose(xc)
+    integer :: e, i, j, k, l
+
+    l = 0
+    do e = 1, ne
+      if (mask(e)) then
+        l = l + 1
+        do k = 1, np
+        do j = 1, np
+        do i = 1, np
+          xg(1,i,j,k,l) = real(xe(i,j,k,e,1), C_DOUBLE)
+          xg(2,i,j,k,l) = real(xe(i,j,k,e,2), C_DOUBLE)
+          xg(3,i,j,k,l) = real(xe(i,j,k,e,3), C_DOUBLE)
+        end do
+        end do
+        end do
+      end if
+    end do
 
   end subroutine BuildLinearPointCoords
 
   !-----------------------------------------------------------------------------
   !> Connectivity of trilinear hexahedral cells.
 
-  subroutine BuildLinearCells(po, ne, cell)
+  subroutine BuildLinearCells(po, nl, cell)
     integer, intent(in) :: po  !< order of elements
-    integer, intent(in) :: ne  !< number of elements
+    integer, intent(in) :: nl  !< number of exported elements
     integer(C_VTK_ID), allocatable, intent(out) :: cell(:,:) !< grid cells
 
     integer :: c, i, j, k, l, n, o
 
-    allocate(cell(0:8, ne * po**3))
+    allocate(cell(0:8, nl * po**3))
 
     cell(0,:) = 8    ! grid points per cell
     n = (po + 1)**3  ! grid points per element
     o = -1           ! offset of point IDs
     c =  1           ! cell counter
 
-    do l = 1, ne
+    do l = 1, nl
       do k = 1, po
       do j = 1, po
       do i = 1, po
@@ -308,27 +349,65 @@ contains
   !-----------------------------------------------------------------------------
   !> Maps scalar element variables to linear grid cells
 
-  subroutine BuildLinearScalarData(sc, sg)
-    real(RNP),      intent(in)  :: sc(:,:,:,:,:) !< scalars at collocation points
-    real(C_DOUBLE), intent(out) :: sg(:,:)       !< scalars at VTK grid points
+  subroutine BuildLinearScalarData(np, ne, nl, ns, mask, se, sg)
+    integer,        intent(in)  :: np       !< element points per direction
+    integer,        intent(in)  :: ne       !< num elements
+    integer,        intent(in)  :: nl       !< num exported elements
+    integer,        intent(in)  :: ns       !< num scalars
+    logical,        intent(in)  :: mask(ne) !< element mask
+    real(RNP),      intent(in)  :: se(np,np,np,ne,ns) !< SEM scalars
+    real(C_DOUBLE), intent(out) :: sg(np,np,np,nl,ns) !< VTK scalars
 
-    sg = reshape(sc, shape(sg))
+    integer :: e, i, j, k, l, n
+
+    do n = 1, ns
+      l = 0
+      do e = 1, ne
+        if (mask(e)) then
+          l = l + 1
+          do k = 1, np
+          do j = 1, np
+          do i = 1, np
+            sg(i,j,k,l,n) = real(se(i,j,k,e,n), C_DOUBLE)
+          end do
+          end do
+          end do
+        end if
+      end do
+    end do
 
   end subroutine BuildLinearScalarData
 
   !-----------------------------------------------------------------------------
   !> Maps vector element variables to linear grid cells
 
-  subroutine BuildLinearVectorData(np, nv, vc, vg)
-    integer,        intent(in)  :: np          !< number of mesh points
-    integer,        intent(in)  :: nv          !< number of vectors
-    real(RNP),      intent(in)  :: vc(np,3,nv) !< vectors at collocation pts.
-    real(C_DOUBLE), intent(out) :: vg(3,np,nv) !< vectors at VTK grid points
+  subroutine BuildLinearVectorData(np, ne, nl, nv, mask, ve, vg)
+    integer,        intent(in)  :: np       !< element points per direction
+    integer,        intent(in)  :: ne       !< num elements
+    integer,        intent(in)  :: nl       !< num exported elements
+    integer,        intent(in)  :: nv       !< num vectors
+    logical,        intent(in)  :: mask(ne) !< element mask
+    real(RNP),      intent(in)  :: ve(np,np,np,ne,3,nv) !< SEM vectors
+    real(C_DOUBLE), intent(out) :: vg(3,np,np,np,nl,nv) !< VTK vectors
 
-    integer :: i
+    integer :: e, i, j, k, l, n
 
-    do i = 1, nv
-      vg(:,:,i) = transpose(vc(:,:,i))
+    do n = 1, nv
+      l = 0
+      do e = 1, ne
+        if (mask(e)) then
+          l = l + 1
+          do k = 1, np
+          do j = 1, np
+          do i = 1, np
+            vg(1,i,j,k,l,n) = real(ve(i,j,k,e,1,n), C_DOUBLE)
+            vg(2,i,j,k,l,n) = real(ve(i,j,k,e,2,n), C_DOUBLE)
+            vg(3,i,j,k,l,n) = real(ve(i,j,k,e,3,n), C_DOUBLE)
+          end do
+          end do
+          end do
+        end if
+      end do
     end do
 
   end subroutine BuildLinearVectorData
@@ -363,29 +442,41 @@ contains
   !-----------------------------------------------------------------------------
   !> Interpolates element points to quadratic grid cells
 
-  subroutine BuildQuadraticPointCoords(iop, xc, xg)
-    real(RNP),      intent(in)  :: iop(:,:)      !< interpolation operator
-    real(RNP),      intent(in)  :: xc(:,:,:,:,:) !< mesh element points
-    real(C_DOUBLE), intent(out) :: xg(:,:)       !< VTK grid points
+  subroutine BuildQuadraticPointCoords(np, ni, ne, nl, mask, iop, xe, xg)
+    integer,        intent(in)  :: np         !< element points per direction
+    integer,        intent(in)  :: ni         !< interpolated points per direct.
+    integer,        intent(in)  :: ne         !< num elements
+    integer,        intent(in)  :: nl         !< number of exported elements
+    logical,        intent(in)  :: mask(ne)   !< element mask
+    real(RNP),      intent(in)  :: iop(ni,np) !< interpolation operator
+    real(RNP),      intent(in)  :: xe(np,np,np,ne,3) !< mesh points
+    real(C_DOUBLE), intent(out) :: xg(3,ni,ni,ni,nl) !< VTK grid points
 
     real(RNP), allocatable, save :: w(:,:,:,:)
-    integer :: ne, ng, np
-    integer :: i
+    integer :: d, e, i, j, k, l
 
-    ng = size(iop,1)
-    ne = size(xc,4)
-    np = size(xg,2)
+    !$omp master
+    allocate(w(ni,ni,ni,ne))
+    !$omp end master
+    !$omp barrier
 
-    !$omp single
-    allocate(w(ng,ng,ng,ne))
-    !$omp end single
-
-    do i = 1, 3
-      call TPO_AAA(iop, xc(:,:,:,:,i), w)
-      xg(i,:) = reshape(w, [np])
+    do d = 1, 3
+      call TPO_AAA(iop, xe(:,:,:,:,d), w)
+      l = 0
+      do e = 1, ne
+        if (mask(e)) then
+          l = l + 1
+          do k = 1, ni
+          do j = 1, ni
+          do i = 1, ni
+            xg(d,i,j,k,l) = real(w(i,j,k,e), C_DOUBLE)
+          end do
+          end do
+          end do
+        end if
+      end do
     end do
 
-    !$omp barrier
     !$omp master
     deallocate(w)
     !$omp end master
@@ -395,14 +486,14 @@ contains
   !-----------------------------------------------------------------------------
   !> Connectivity of triquadratic hexahedral cells.
 
-  subroutine BuildQuadraticCells(po, ne, cell)
+  subroutine BuildQuadraticCells(po, nl, cell)
     integer, intent(in) :: po  !< order of elements
-    integer, intent(in) :: ne  !< number of elements
+    integer, intent(in) :: nl  !< number of exported elements
     integer(C_VTK_ID), allocatable, intent(out) :: cell(:,:) !< grid cells
 
     integer ::  c, i, j, k, l, m, n, o
 
-    allocate(cell(0:27, ne * po**3))
+    allocate(cell(0:27, nl * po**3))
 
     cell(0,:) = 27   ! grid points per cell
     m = 2*po         ! grid intervals within one element
@@ -410,7 +501,7 @@ contains
     o = -1           ! offset of point IDs
     c =  1           ! cell counter
 
-    do l = 1, ne
+    do l = 1, nl
       do k = 1, 2*po, 2
       do j = 1, 2*po, 2
       do i = 1, 2*po, 2
@@ -453,30 +544,42 @@ contains
   !-----------------------------------------------------------------------------
   !> Interpolates scalar element variables to quadratic grid cells
 
-  subroutine BuildQuadraticScalarData(iop, sc, sg)
-    real(RNP),      intent(in)  :: iop(:,:)      !< interpolation operator
-    real(RNP),      intent(in)  :: sc(:,:,:,:,:) !< scalars at collocation points
-    real(C_DOUBLE), intent(out) :: sg(:,:)       !< scalars at VTK grid points
+  subroutine BuildQuadraticScalarData(np, ni, ne, nl, ns, mask, iop, se, sg)
+    integer,        intent(in)  :: np         !< element points per direction
+    integer,        intent(in)  :: ni         !< interpolated points per direct.
+    integer,        intent(in)  :: ne         !< num elements
+    integer,        intent(in)  :: nl         !< number of exported elements
+    integer,        intent(in)  :: ns         !< number of scalars
+    logical,        intent(in)  :: mask(ne)   !< element mask
+    real(RNP),      intent(in)  :: iop(ni,np) !< interpolation operator
+    real(RNP),      intent(in)  :: se(np,np,np,ne,ns) !< SEM scalars
+    real(C_DOUBLE), intent(out) :: sg(ni,ni,ni,nl,ns) !< VTK scalars
 
     real(RNP), allocatable, save :: w(:,:,:,:)
-    integer :: ne, ng, np, ns
-    integer :: i
+    integer :: e, i, j, k, l, n
 
-    ng = size(iop,1)
-    ne = size(sc,4)
-    ns = size(sc,5)
-    np = size(sg,1)
+    !$omp master
+    allocate(w(ni,ni,ni,ne))
+    !$omp end master
+    !$omp barrier
 
-    !$omp single
-    allocate(w(ng,ng,ng,ne))
-    !$omp end single
-
-    do i = 1, ns
-      call TPO_AAA(iop, sc(:,:,:,:,i), w)
-      sg(:,i) = reshape(w, [np])
+    do n = 1, ns
+      call TPO_AAA(iop, se(:,:,:,:,n), w)
+      l = 0
+      do e = 1, ne
+        if (mask(e)) then
+          l = l + 1
+          do k = 1, ni
+          do j = 1, ni
+          do i = 1, ni
+            sg(i,j,k,l,n) = real(w(i,j,k,e), C_DOUBLE)
+          end do
+          end do
+          end do
+        end if
+      end do
     end do
 
-    !$omp barrier
     !$omp master
     deallocate(w)
     !$omp end master
@@ -486,29 +589,42 @@ contains
   !-----------------------------------------------------------------------------
   !> Interpolates vector element variables to quadratic grid cells
 
-  subroutine BuildQuadraticVectorData(iop, vc, vg)
-    real(RNP),      intent(in)  :: iop(:,:)        !< interpolation operator
-    real(RNP),      intent(in)  :: vc(:,:,:,:,:,:) !< vectors at collocation pts.
-    real(C_DOUBLE), intent(out) :: vg(:,:,:)       !< vectors at VTK grid points
+  subroutine BuildQuadraticVectorData(np, ni, ne, nl, nv, mask, iop, ve, vg)
+    integer,        intent(in)  :: np         !< element points per direction
+    integer,        intent(in)  :: ni         !< interpolated points per direct.
+    integer,        intent(in)  :: ne         !< num elements
+    integer,        intent(in)  :: nl         !< number of exported elements
+    integer,        intent(in)  :: nv         !< number of vectors
+    logical,        intent(in)  :: mask(ne)   !< element mask
+    real(RNP),      intent(in)  :: iop(ni,np) !< interpolation operator
+    real(RNP),      intent(in)  :: ve(np,np,np,ne,3,nv) !< SEM scalars
+    real(C_DOUBLE), intent(out) :: vg(3,ni,ni,ni,nl,nv) !< VTK scalars
 
     real(RNP), allocatable, save :: w(:,:,:,:)
-    integer :: ne, ng, np, nv
-    integer :: i, j
+    integer :: d, e, i, j, k, l, n
 
-    ng = size(iop,1)
-    ne = size(vc,4)
-    nv = size(vc,6)
-    np = size(vg,2)
+    !$omp master
+    allocate(w(ni,ni,ni,ne))
+    !$omp end master
+    !$omp barrier
 
-    !$omp single
-    allocate(w(ng,ng,ng,ne))
-    !$omp end single
-
-    do j = 1, nv
-      do i = 1, 3
-        call TPO_AAA(iop, vc(:,:,:,:,i,j), w)
-        vg(i,:,j) = reshape(w, [np])
+    do n = 1, nv
+    do d = 1, 3
+      call TPO_AAA(iop, ve(:,:,:,:,d,n), w)
+      l = 0
+      do e = 1, ne
+        if (mask(e)) then
+          l = l + 1
+          do k = 1, ni
+          do j = 1, ni
+          do i = 1, ni
+            vg(d,i,j,k,l,n) = real(w(i,j,k,e), C_DOUBLE)
+          end do
+          end do
+          end do
+        end if
       end do
+    end do
     end do
 
     !$omp barrier

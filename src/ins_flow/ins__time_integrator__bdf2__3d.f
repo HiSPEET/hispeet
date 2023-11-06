@@ -110,12 +110,14 @@ contains
     real(RNP), allocatable, save :: vp (:,:,:,:,:)  ! outer velocity traces v⁺
     real(RNP), allocatable, save :: sp (:,:,:,:,:)  ! outer viscous flux traces s⁺
 
-    real(RNP), allocatable, save :: v_old  (:,:,:,:,:) ! velocity        (t₀-∆t)
+    real(RNP), allocatable, save :: v_old  (:,:,:,:,:) ! flow variables  (t₀-∆t)
     real(RNP), allocatable, save :: F_c_old(:,:,:,:,:) ! convection term (t₀-∆t)
     real(RNP), allocatable, save :: F_d_old(:,:,:,:,:) ! diffusion term  (t₀-∆t)
 
     ! boundary points and values
-    type(BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:), bv_v(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_v(:), bv_p(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_nsp(:)
 
     ! IMEX BDF2 coefficients
     real(RNP), parameter :: gamma_0 =  3 * HALF
@@ -132,7 +134,7 @@ contains
     ! auxiliary
     real(RNP), allocatable :: w(:,:,:)
     real(RNP) :: a0, a1, tau
-    integer   :: b, e, d, np, po
+    integer   :: b, c, e, np, po
 
     associate( problem => this % problem        &
              , ins_op  => this % ins_op         &
@@ -151,7 +153,7 @@ contains
         if (any(shape(v_0) /= shape(v))) then
           deallocate(inv_mm, v_0, F_c, F_d, Q, vp, sp)
           deallocate(v_old, F_c_old, F_d_old)
-          deallocate(bv_x, bv_u, bv_v)
+          deallocate(bv_x, bv_u, bv_v, bv_p, bv_nsp)
         end if
       end if
 
@@ -175,14 +177,21 @@ contains
         allocate( F_c_old (np, np, np, mesh % n_elem, 3), source = ZERO )
         allocate( F_d_old (np, np, np, mesh % n_elem, 3), source = ZERO )
 
-        allocate(bv_x(mesh % n_bound))
-        allocate(bv_u(mesh % n_bound))
-        allocate(bv_v(mesh % n_bound))
+        allocate(bv_x   (mesh % n_bound) )
+        allocate(bv_u   (mesh % n_bound) )
+        allocate(bv_v   (mesh % n_bound) )
+        allocate(bv_p   (mesh % n_bound) )
+        allocate(bv_nsp (mesh % n_bound) )
+
         do b = 1, mesh % n_bound
-          call bv_u(b) % Init(mesh % boundary(b), po, nc = 4)
-          call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v(b))
-          call bv_x(b) % Init(mesh % boundary(b), po, nc = 3)
+          call bv_x(b) % Create(mesh % boundary(b), po, nc = 3)
           call bv_x(b) % Extract(sem_v % metrics % x)
+          call bv_u(b) % Create(mesh % boundary(b), po, nc = 4)
+          call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v(b))
+          call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p(b))
+          if (scan(problem % bc_v(b), 'O') > 0) then
+            call bv_nsp(b) % Create(mesh % boundary(b), po, nc = 1)
+          end if
         end do
 
       end if
@@ -203,19 +212,25 @@ contains
 
       ! BC at time t₀ ...........................................................
 
-      if (first) then
-        do b = 1, mesh % n_bound
+      ! fetch required boundary values
+      do b = 1, mesh % n_bound
+        select case(problem % bc_v(b))
+        case('D')
           call problem % GetBoundaryValues(b, bv_x(b) % val, t_0, bv_u(b) % val)
-        end do
-      end if
-      call GetBoundaryTraces_3D(mesh, v, vp)     ! vp = v⁻ on ∂Ω
-      call ins_op % ApplyVelocityBC(bv_v, vp, sp)  ! vp = v⁺ on ∂Ω, ...
+        end select
+      end do
+
+      ! initialize boundary traces
+      call GetBoundaryTraces_3D(mesh, v, vp)
+      call ins_op % ApplyVelocityBC(vp, sp, bv_u, extrapolate='O')
 
       ! viscous and convective RHS .............................................
       ! so far ν is constant and boundaries are periodic or have Dirichlet BC
 
       ! diffusion term based on rotational form
-      call ins_op % GetDiffusionTerm(v, vp, sp, F_d, form=2)
+      call ins_op % GetDiffusionTerm(v, vp, sp, F_d, form=2, extrapolate='O')
+
+      ! convection term
       if (problem % stokes) then
         call SetArray(F_c, ZERO, multi = .true.)
       else
@@ -232,32 +247,43 @@ contains
 
       !$omp do
       do e = 1, mesh % n_elem
-        do d = 1, 3
-          w = inv_mm(:,:,:,e) * F_c(:,:,:,e,d)
-          F_c     (:,:,:,e,d) = a0 * w + a1 * F_c_old(:,:,:,e,d)
-          F_c_old (:,:,:,e,d) = w
-          w = inv_mm(:,:,:,e) * F_d(:,:,:,e,d)
-          F_d     (:,:,:,e,d) = a0 * w + a1 * F_d_old(:,:,:,e,d)
-          F_d_old (:,:,:,e,d) = w
+        do c = 1, 3
+          w = inv_mm(:,:,:,e) * F_c(:,:,:,e,c)
+          F_c     (:,:,:,e,c) = a0 * w + a1 * F_c_old(:,:,:,e,c)
+          F_c_old (:,:,:,e,c) = w
+          w = inv_mm(:,:,:,e) * F_d(:,:,:,e,c)
+          F_d     (:,:,:,e,c) = a0 * w + a1 * F_d_old(:,:,:,e,c)
+          F_d_old (:,:,:,e,c) = w
         end do
       end do
 
-      ! sources and BC at time t ...............................................
+      ! sources and boundary conditions.........................................
 
       call problem % GetExternalSources(sem_v % metrics % x, t, Q)
 
       do b = 1, mesh % n_bound
-        call problem % GetBoundaryValues(b, bv_x(b) % val, t, bv_u(b) % val)
+        select case(problem % bc_v(b))
+        case('D')
+          call problem % GetBoundaryValues(b, bv_x(b) % val, t, bv_u(b) % val)
+        case('O')
+          ! vᵇ = a₀ v(t₀) + a₁ v(t - ∆t)
+          call bv_v(b) % Extract(v)
+          call bv_v(b) % Merge(a0, a1, v_old)
+          ! pᵇ = -n⋅(a₀ s⁺(t₀) + a₁ s⁺(t₀ - ∆t))
+          call MergeArrays(ZERO, bv_p(b)%val, -a1, bv_nsp(b)%val)
+          call bv_nsp(b) % ExtractNormalTrace(sem_v, sp)
+          call MergeArrays(ONE, bv_p(b)%val, -a0, bv_nsp(b)%val)
+        end select
       end do
 
       ! initial velocity effective step size ...................................
 
       if (first) then
         !$omp do
-        do d = 1, 3
+        do c = 1, 4
         do e = 1, mesh % n_elem
-          v_0  (:,:,:,e,d) = v(:,:,:,e,d)
-          v_old(:,:,:,e,d) = v(:,:,:,e,d)
+          v_0  (:,:,:,e,c) = v(:,:,:,e,c)
+          v_old(:,:,:,e,c) = v(:,:,:,e,c)
         end do
         end do
         tau = dt
@@ -265,10 +291,10 @@ contains
         a0 = alpha_0 / gamma_0
         a1 = alpha_1 / gamma_0
         !$omp do collapse(2)
-        do d = 1, 3
+        do c = 1, 4
         do e = 1, mesh % n_elem
-          v_0  (:,:,:,e,d) = a0 * v(:,:,:,e,d) + a1 * v_old(:,:,:,e,d)
-          v_old(:,:,:,e,d) = v(:,:,:,e,d)
+          v_0  (:,:,:,e,c) = a0 * v(:,:,:,e,c) + a1 * v_old(:,:,:,e,c)
+          v_old(:,:,:,e,c) = v(:,:,:,e,c)
         end do
         end do
         tau = dt / gamma_0
@@ -294,7 +320,7 @@ contains
       !$omp master
       deallocate(inv_mm, v_0, F_c, F_d, Q, vp, sp)
       deallocate(v_old, F_c_old, F_d_old)
-      deallocate(bv_x, bv_u, bv_v)
+      deallocate(bv_x, bv_u, bv_v, bv_p, bv_nsp)
       !$omp end master
 
     end associate
@@ -303,7 +329,6 @@ contains
 
   !=============================================================================
   ! TBP of INS_TimeIntegrator_BDF2_Options_3D
-
 
   !-----------------------------------------------------------------------------
   !> MPI broadcasting of BDF2 time-integrator options

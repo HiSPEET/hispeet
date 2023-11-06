@@ -24,8 +24,8 @@ module Generic_Mesh__3D
   public :: HEXAHEDRAL_ELEMENT
 
   ! basis functions for represention the element geometry
-  public :: BEZIER_BERNSTEIN_BASIS
   public :: GAUSS_LOBATTO_BASIS
+  public :: EQUIDISTANT_NODAL_BASIS
 
   !-----------------------------------------------------------------------------
   !> Structure defining a generic 3d mesh vertex
@@ -295,8 +295,8 @@ module Generic_Mesh__3D
   !-----------------------------------------------------------------------------
   ! Basis functions for represention the element geometry
 
-  integer, parameter :: BEZIER_BERNSTEIN_BASIS = 1 ! Bezier-Bernstein basis
-  integer, parameter :: GAUSS_LOBATTO_BASIS    = 2 ! Lagrangian (hexahedra only)
+  integer, parameter :: GAUSS_LOBATTO_BASIS     = 1
+  integer, parameter :: EQUIDISTANT_NODAL_BASIS = 2
 
 contains
 

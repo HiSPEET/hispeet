@@ -41,6 +41,12 @@ program INS_TimeIntegrator_3D_Test
   use Create_Cylinder
   use Create_Annulus
 
+  use Generic_Mesh__3D
+  use Verify_Mesh__3D
+  use Import_GMSH__3D
+
+  use Root_Mesh_Partitioning__3D
+
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -69,8 +75,11 @@ program INS_TimeIntegrator_3D_Test
   !   2  cuboidal domain with unstructured "diamond" mesh                  (u+d)
   !   3  cylindrical domain                                                (u+d)
   !   4  annular domain                                                    (u+d)
+  !  10  import from GMSH
 
-  namelist/control_prm/ flow_problem, problem_file, flow_domain
+  character(len=80) :: raw_mesh_file = ''
+
+  namelist/control_prm/ flow_problem, problem_file, flow_domain, raw_mesh_file
 
   integer :: time_method = 1
   ! 1  Euler
@@ -106,6 +115,14 @@ program INS_TimeIntegrator_3D_Test
   namelist/control_prm/ log_level_outer_iteration
 
   ! operators and variables ....................................................
+
+  type(GenericMesh_3D) :: generic_mesh
+  ! intermediate generic mesh for importing raw meshes
+
+  type(Mesh_3D), allocatable, save :: initial_mesh
+  ! mesh before repartitioning
+
+  type(PartitioningOptions_3D) :: part_opt
 
   class(INS_Problem_3D), allocatable, save :: problem
   ! flow problem
@@ -146,7 +163,7 @@ program INS_TimeIntegrator_3D_Test
   character(len=80) :: domain_name = ''
 ! real(RDP) :: time, time0
   real(RNP) :: domain_volume
-  logical   :: exists, last
+  logical   :: exists, last, passed
   integer   :: io, stat
   integer   :: n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po
   integer   :: i, nt
@@ -191,7 +208,7 @@ program INS_TimeIntegrator_3D_Test
       read(io, nml = control_prm)
       close(io)
     else
-       call Error( 'INS_Operator_3D_Test', &
+       call Error( 'INS_TimeIntegrator_3D_Test', &
                    'input file "' // trim(case_file) // '" not found' )
     end if
 
@@ -221,20 +238,45 @@ program INS_TimeIntegrator_3D_Test
 
   ! mesh .......................................................................
 
+  allocate(initial_mesh)
+
   select case(flow_domain)
+  case(1)
+    call CreateCuboidCartesian(comm, case_file, initial_mesh)
+    domain_name = 'Cuboidal domain with Cartesian mesh'
   case(2)
-    call CreateCuboidDiamonds(comm, case_file, ins_op % mesh)
+    call CreateCuboidDiamonds(comm, case_file, initial_mesh)
     domain_name = 'Cuboidal domain with unstructured "diamond" mesh'
   case(3)
-    call CreateCylinder(comm, case_file, ins_op % mesh)
+    call CreateCylinder(comm, case_file, initial_mesh)
     domain_name = 'Cylindrical domain with unstructured mesh'
   case(4)
-    call CreateAnnulus(comm, case_file, ins_op % mesh)
+    call CreateAnnulus(comm, case_file, initial_mesh)
     domain_name = 'Annular domain with unstructured mesh'
-  case default
-    call CreateCuboidCartesian(comm, case_file, ins_op % mesh)
-    domain_name = 'Cuboidal domain with Cartesian mesh'
+  case(10)
+    call Import_GMSH_3D(raw_mesh_file, generic_mesh)
+    call initial_mesh % ImportGenericMesh(generic_mesh, comm)
+    domain_name = raw_mesh_file
   end select
+
+  ! root mesh partitioning .....................................................
+
+  if (initial_mesh % n_parts /= n_proc) then
+    part_opt = PartitioningOptions_3D(n_parts = n_proc, w_comp = [1,1,0,0])
+    call RootMeshPartitioning_3D(part_opt, initial_mesh, ins_op % mesh)
+  else
+    ins_op % mesh = initial_mesh
+  end if
+
+  deallocate(initial_mesh)
+
+  call VerifyMesh_3D(ins_op % mesh, passed)
+  if (rank == 0) then
+    write(*,'(/,A)') 'Verification of computational mesh'
+  end if
+  if (ins_op % mesh % part >= 0) then
+    write(*,'(2X,A,I4,A,L1)') 'part:',ins_op%mesh%part,': passed = ',passed
+  end if
 
   n_elem  = ins_op % mesh % n_elem
   n_ghost = ins_op % mesh % n_ghost
@@ -302,7 +344,7 @@ program INS_TimeIntegrator_3D_Test
 
   ! initial conditions .........................................................
 
-  call problem % GetExactSolution(ins_op % sem_v % metrics % x, t, u)
+  call problem % GetInitialValues(ins_op % sem_v % metrics % x, u)
 
   ! time scales
   call time_scales % Evaluate(problem, ins_op, u)
@@ -381,7 +423,7 @@ program INS_TimeIntegrator_3D_Test
     !$omp barrier
 
     do i = 1, n_bound
-      call bv_vn(i) % Init(ins_op % mesh % boundary(i), po, nc=1)
+      call bv_vn(i) % Create(ins_op % mesh % boundary(i), po, nc=1)
       call bv_vn(i) % ExtractNormalComponent(ins_op % sem_v, v)
     end do
 

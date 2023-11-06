@@ -1,7 +1,0 @@
-&discretization_prm
-  po         = 16
-  ne         = 5
-  penalty    = 2
-  cfl        = 0.1
-  t_end      = 0.75
-/

@@ -66,7 +66,7 @@ contains
             vid_nf(1,2) = vid(V_FACE(3,m), l)
             vid_nf(2,2) = vid(V_FACE(4,m), l)
 
-            call element(l) % AlignFromNeighborFace(k, i, vid_nf, vid_ef)
+            call element(e) % AlignFromNeighborFace(k, i, vid_nf, vid_ef)
 
             vid(V_FACE(1,k), e) = vid_ef(1,1)
             vid(V_FACE(2,k), e) = vid_ef(2,1)

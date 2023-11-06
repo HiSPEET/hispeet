@@ -1,12 +1,24 @@
+!> summary:  Runge-Kutta time integrators for 1D conservation laws
+!> author:   Robin Fränzel, Joerg Stiller
+!> date:     2023/06/06
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @note
+!> This method is essentially an implementation of the IMEX Runge-Kutta method,
+!> but can also be run in fully explicit mode.
+!===============================================================================
+
 module CL__Time_Integrator__RK__1D
 
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
 
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE
+  use Array_Assignments
   use IMEX_Runge_Kutta_Method
 
-  use CL__Problem__Scalar__1D
+  use CL__Problem__1D
+  use CL__Operator__1D
   use CL__Time_Integrator__1D
 
   implicit none
@@ -16,7 +28,7 @@ module CL__Time_Integrator__RK__1D
   public :: CL_TimeIntegrator_Options_RK_1D
 
   !-----------------------------------------------------------------------------
-  !> IMEX Runge-Kutta method for Dahlquist equation
+  !> IMEX Euler method for Dahlquist equation
 
   type, extends(CL_TimeIntegrator_1D) :: CL_TimeIntegrator_RK_1D
     type(IMEX_RK_Method) :: imex_rk  !< IMEX Runge-Kutta method
@@ -32,7 +44,7 @@ module CL__Time_Integrator__RK__1D
   end interface
 
   !-----------------------------------------------------------------------------
-  !> Type for providing RK time-integrator options
+  !> Type for providing Euler time-integrator options (none, so far)
 
   type, extends(CL_TimeIntegrator_Options_1D) :: CL_TimeIntegrator_Options_RK_1D
     integer :: n_stage = 4  !< number of stages
@@ -45,7 +57,7 @@ contains
   !> Constructor for objects of type CL_TimeIntegrator_RK_1D with options
 
   function New_CL_TimeIntegrator_RK_1D(opt) result(this)
-    class(CL_TimeIntegrator_Options_RK_1D), optional, intent(in) :: opt
+    class(CL_TimeIntegrator_Options_RK_1D), intent(in) :: opt
     type(CL_TimeIntegrator_RK_1D) :: this
 
     call Init_CL_TimeIntegrator_RK_1D(this, opt)
@@ -56,8 +68,8 @@ contains
   !> Initialization of a Init_CL_TimeIntegrator_RK_1D object
 
   subroutine Init_CL_TimeIntegrator_RK_1D(this, opt)
-    class(CL_TimeIntegrator_RK_1D),                   intent(inout) :: this
-    class(CL_TimeIntegrator_Options_RK_1D), optional, intent(in)    :: opt
+    class(CL_TimeIntegrator_RK_1D),         intent(inout) :: this
+    class(CL_TimeIntegrator_Options_RK_1D), intent(in)    :: opt
 
     ! intialize parent type
     call this % Init_CL_TimeIntegrator_1D(opt)
@@ -89,201 +101,195 @@ contains
     ! show IMEX RK settings
     call this % imex_rk % Show(unit)
 
-    write(io,'(2X,A,T15,G0)') 'impl:', this % impl
-
   end subroutine Show_CL_TimeIntegrator_RK_1D
 
   !-----------------------------------------------------------------------------
-  !> Performs an RK time step
+  !> Performs an IMEX Runge-Kutta step
 
-  subroutine TimeStep(this, problem, t, dt, u)
-    class(CL_TimeIntegrator_RK_1D), intent(inout) :: this
-    class(CL_Problem_Scalar_1D),    intent(in)    :: problem
-    real(RNP),    intent(inout) :: t
-    real(RNP),    intent(in)    :: dt              !< step size ∆t
-    real(RNP),    intent(inout) :: u(0:,:,:)       !< u(t) → u(t+ ∆t)
+  subroutine TimeStep(this, cl_problem, cl_operator, dt, t_0, u_0, u)
+    class(CL_TimeIntegrator_RK_1D), intent(in) :: this
+    class(CL_Problem_1D),  intent(in)    :: cl_problem
+    class(CL_Operator_1D), intent(in)    :: cl_operator
+    real(RNP),             intent(in)    :: dt          !< step size ∆t
+    real(RNP),             intent(in)    :: t_0         !< initial time
+    real(RNP), contiguous, intent(in)    :: u_0(0:,:,:) !< u(t₀)
+    real(RNP), contiguous, intent(inout) :: u  (0:,:,:) !< u(t₀+∆t)
 
-    select case(this%impl)
-    case(0)
-      !print *, 'Proceding explicit timestep'
-      call TimeStep_EX(this, problem, t, dt, u)
+    real(RNP), allocatable, save :: r_c(:,:,:)
+    real(RNP), allocatable, save :: r_d(:,:,:)
+    real(RNP), allocatable, save :: f_s(:,:,:)
+    real(RNP), allocatable, save :: u_i(:,:,:)
+    real(RNP), allocatable, save :: bv(:,:)
 
-    case(1)
-      print *, 'Implicit integrator doesnt exist yet!'
-      !call TimeStep_IM(this, problem, t, dt, u)
-    case default
-      print *, 'IMEX integrator doesnt exist yet!'
-      !call TimeStep_IMEX(this, problem, t, dt, u)
-    end select
+    real(RNP), allocatable, save :: f_ex(:,:,:,:) ! explicit RHS
+    real(RNP), allocatable, save :: f_im(:,:,:,:) ! implicit RHS
 
-  end subroutine TimeStep
+    real(RNP), allocatable :: Me_inv(:)
+    real(RNP) :: d_ex, d_im, dt_a_ii, t_i
+    integer   :: e, i, j, k
 
-  !-----------------------------------------------------------------------------
-  !> Performs an IMEX RK step
+    associate( a_ex     => this % imex_rk % a_ex    &
+             , a_im     => this % imex_rk % a_im    &
+             , b_ex     => this % imex_rk % b_ex    &
+             , b_im     => this % imex_rk % b_im    &
+             , c        => this % imex_rk % c       &
+             , ns       => this % imex_rk % n_stage &
+             , nc       => cl_problem  % nc         &
+             , po       => cl_operator % eop % po   &
+             , ne       => cl_operator % ne         &
+             , Me       => cl_operator % Me         &
+             , activity => cl_operator % activity   )
 
-  subroutine TimeStep_IMEX(this, problem, t, dt, u)
-    class(CL_TimeIntegrator_RK_1D), intent(inout) :: this
-    class(CL_Problem_Scalar_1D),    intent(in)    :: problem
-    real(RNP), intent(inout) :: t
-    real(RNP), intent(in)    :: dt              !< step size ∆t
-    real(RNP), intent(inout) :: u(0:,:,:)       !< u(t) → u(t+ ∆t)
-
-    complex(RNP), allocatable :: u_s(:,:,:,:)  ! stage solutions
-    integer :: i, j, a
-
-    associate( a_im  => this % imex_rk % a_im    &
-             , a_ex  => this % imex_rk % a_ex    &
-             , b_im  => this % imex_rk % b_im    &
-             , b_ex  => this % imex_rk % b_ex    &
-             , ns    => this % imex_rk % n_stage &
-             , po    => problem % eop % po       &
-             , ne    => problem % ne             &
-             , nc    => problem % nc             &
-             , Mat   => problem % mm               )
+      !$omp master
 
       ! initialization .........................................................
 
-      !allocate(u_s(ns))
+      allocate(r_c, mold = u)
+      allocate(r_d, mold = u)
+      allocate(f_s, mold = u)
+      allocate(u_i, mold = u)
+      allocate(bv(nc,2))
 
-      allocate(u_s(0:po,ne,nc,ns))
+      allocate(f_ex(0:po,ne,nc,ns))
+      allocate(f_im, mold = f_ex)
 
-      ! stage 1 ................................................................
-
-      u_s(:,:,:,1) = u
-
-      ! stages 2:ns ............................................................
-
-!      do i = 2, ns
-!        u_s(i) = u
-!        do j = 1, i-1
-!          u_s(i) = u_s(i)                                             &
-!                 + dt * a_ex(i,j) * (ZERO, ONE) * lambda%im * u_s(j)  &
-!                 + dt * a_im(i,j) *               lambda%re * u_s(j)
-!        end do
-!        u_s(i) = u_s(i) / (ONE - dt * a_im(i,i) * lambda%re)
-!      end do
-
-      ! assembly ...............................................................
-
-!      do i = 1, ns
-!        u = u + dt * b_ex(i) * (ZERO, ONE) * lambda%im * u_s(i)  &
-!              + dt * b_im(i) *               lambda%re * u_s(i)
-!      end do
-
-    end associate
-
-  end subroutine TimeStep_IMEX
-
-  !-----------------------------------------------------------------------------
-  !> Performs an implicit RK step
-
-  subroutine TimeStep_IM(this, problem, t, dt, u)
-    class(CL_TimeIntegrator_RK_1D), intent(inout) :: this
-    class(CL_Problem_Scalar_1D),    intent(in)    :: problem
-    real(RNP), intent(inout) :: t
-    real(RNP), intent(in)    :: dt              !< step size ∆t
-    real(RNP), intent(inout) :: u(0:,:,:)       !< u(t) → u(t+ ∆t)
-
-    real(RNP), allocatable :: u_s(:,:,:,:)   ! stage solutions
-    integer :: i, j, e, k, a
-
-    associate( a_im  => this % imex_rk % a_im    &
-             , b_im  => this % imex_rk % b_im    &
-             , ns    => this % imex_rk % n_stage &
-             , po    => problem % eop % po          &
-             , ne    => problem % ne                &
-             , nc    => problem % nc                &
-             , Mat   => problem % mm             )
-
-      ! initialization .........................................................
-
-      allocate(u_s(0:po,ne,nc,ns))
+      allocate(Me_inv(0:po), source = 1/Me)
 
       ! stage 1 ................................................................
 
-!      u_s(1) = u
+      t_i = t_0
 
-      ! stages 2:ns ............................................................
+      call SetArray(u_i, u_0)
 
-!      do i = 2, ns
-!        u_s(i) = u
-!        do j = 1, i-1
-!          u_s(i) = u_s(i) + dt * a_im(i,j) * lambda * u_s(j)
-!        end do
-!        u_s(i) = u_s(i) / (ONE - dt * a_im(i,i) * lambda)
-!      end do
+      call cl_problem % GetBoundaryValues(t_i, bv)
+      call cl_problem % GetConvectionTerm(cl_operator, bv, u_i, r_c)
+      call cl_problem % GetDiffusionTerm(cl_operator, bv, u_i, r_d)
+      call cl_problem % GetSources(cl_operator, t_i, u_i, f_s)
 
-      ! assembly ...............................................................
+      do k = 1, nc
+      do e = 1, ne
+        if (activity(e) > 0) then
+          f_ex(:,e,k,1) = Me_inv * r_c(:,e,k)
+          f_im(:,e,k,1) = Me_inv * r_d(:,e,k) + f_s(:,e,k)
+        else
+          f_ex(:,e,k,1) = 0
+          f_im(:,e,k,1) = 0
+        end if
+      end do
+      end do
 
-!      do i = 1, ns
-!        u = u + dt * b_im(i) * lambda * u_s(i)
-!      end do
-
-    end associate
-
-  end subroutine TimeStep_IM
-
-  !-----------------------------------------------------------------------------
-  !> Performs a single explicit RK step
-
-  subroutine TimeStep_EX(this, problem, t, dt, u)
-    class(CL_TimeIntegrator_RK_1D), intent(inout) :: this
-    class(CL_Problem_Scalar_1D),    intent(in)    :: problem
-    real(RNP), intent(inout) :: t
-    real(RNP), intent(in)    :: dt              !< step size ∆t
-    real(RNP), intent(inout) :: u(0:,:,:)       !< u(t) → u(t+ ∆t)
-
-    real(RNP), allocatable :: u_s(:,:,:,:)      ! stage solutions
-    real(RNP), allocatable :: f(:,:,:)
-    real(RNP) :: ct
-    integer   :: i, j
-
-    associate( a_ex  => this % imex_rk % a_ex    &
-             , b_ex  => this % imex_rk % b_ex    &
-             , c     => this % imex_rk % c       &
-             , ns    => this % imex_rk % n_stage &
-             , po    => problem % eop % po &
-             , ne    => problem % ne       &
-             , nc    => problem % nc       &
-             , Mat   => problem % mm       )
-
-      ! workspace ..............................................................
-
-      allocate(u_s(0:po,ne,nc,ns))
-
-      if (.not. allocated(f)) then
-        allocate(f, mold = u)
+      if (this % impl == 0) then
+        ! explicit method: f_ex = f_ex + f_im, f_im = 0
+        call MergeArrays(ONE, f_ex(:,:,:,1), ONE, f_im(:,:,:,1), multi=.true.)
+        call SetArray(f_im(:,:,:,1), ZERO)
       end if
 
-      ! stage 1 ................................................................
-
-      u_s(:,:,:,1) = u
-
       ! stages 2:ns ............................................................
 
-      do i = 2, ns
+      Stages: do i = 2, ns
 
-        ct = c(i)*dt !intermediate timesteps
+        ! initialization . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-        u_s(:,:,:,i) = u ! initialise with u_t
+        t_i      =  t_0 + dt * c(i)
+        dt_a_ii  =  dt * a_im(i,i)
+
+        do k = 1, nc
+        do e = 1, ne
+          u_i(:,e,k) = u_0(:,e,k)  ! stage solution
+          r_d(:,e,k) = u_0(:,e,k)  ! diffusion RHS
+        end do
+        end do
+
+        ! lower stage contributions  . . . . . . . . . . . . . . . . . . . . . .
 
         do j = 1, i-1
-          u_s(:,:,:,i) = u_s(:,:,:,i) + dt*a_ex(i,j)*u_s(:,:,:,j)
+        do k = 1, nc
+        do e = 1, ne
+          if (activity(e) > 0) then
+
+            ! extrapolation of stage solution
+            u_i(:,e,k) = u_i(:,e,k) &
+                       + dt * a_ex(i,j) * (f_ex(:,e,k,j) + f_im(:,e,k,j))
+
+            ! composition of diffusion RHS, used only in IMEX mode
+            r_d(:,e,k) = r_d(:,e,k)                       &
+                       + dt * ( a_ex(i,j) * f_ex(:,e,k,j) &
+                              + a_im(i,j) * f_im(:,e,k,j) )
+          end if
         end do
-        f  = problem % RHS_Convection( t+ct , u_s(:,:,:,i) )  & ! from tvdrk: t is the wrong time here, but with periodic bc doesn't matter t+ct should be correct
-           + problem % RHS_Diffusion ( t+ct , u_s(:,:,:,i) )  ! k_i = M_inv * f ( t+c_i*dt , u_t + dt*sum_j=1^(i-1) ( aij*u_j )
-        u_s(:,:,1,i) = 1 / Mat * f(:,:,1)
-      end do
+        end do
+        end do
+
+        ! implicit part  . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+        if (this % impl == 1) then
+
+          call cl_problem % GetBoundaryValues(t_i, bv)
+          call cl_problem % GetSources(cl_operator, t_i, u_i, f_s)
+          call MergeArrays(ONE, r_d, dt_a_ii, f_s, multi=.true.)
+
+          call cl_problem % DiffusionSolver( cl_operator, dt_a_ii, ZERO, bv    &
+                                           , f      = r_d                      &
+                                           , u_0    = u_0                      &
+                                           , u      = u_i                      &
+                                           , method = this % diffusion_method  &
+                                           , i_max  = this % diffusion_i_max   &
+                                           , r_red  = this % diffusion_r_red   &
+                                           , r_max  = this % diffusion_r_max   )
+
+        end if
+
+        ! RHS contributions  . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+        call cl_problem % GetConvectionTerm(cl_operator, bv, u_i, r_c)
+        call cl_problem % GetDiffusionTerm(cl_operator, bv, u_i, r_d)
+
+        do k = 1, nc
+        do e = 1, ne
+          if (activity(e) > 0) then
+            f_ex(:,e,k,i) = Me_inv * r_c(:,e,k)
+            f_im(:,e,k,i) = Me_inv * r_d(:,e,k) + f_s(:,e,k)
+          else
+            f_ex(:,e,k,i) = 0
+            f_im(:,e,k,i) = 0
+          end if
+        end do
+        end do
+
+        if (this % impl == 0) then
+          ! explicit method: f_ex = f_ex + f_im, f_im = 0
+          call MergeArrays(ONE, f_ex(:,:,:,i), ONE, f_im(:,:,:,i), multi=.true.)
+          call SetArray(f_im(:,:,:,i), ZERO)
+        end if
+
+      end do Stages
 
       ! assembly ...............................................................
 
       do i = 1, ns
-        u = u + dt * b_ex(i) * u_s(:,:,:,i) ! assembly u_(t+1) + u_t + dt*sum_i=1^ns ( b_i * k_i )
+        d_ex = dt * (b_ex(i) - a_ex(ns,i))
+        d_im = dt * (b_im(i) - a_im(ns,i))
+        if (d_ex /= ZERO .or. d_im /= ZERO) cycle
+        do k = 1, nc
+        do e = 1, ne
+          if (activity(e) > 0) then
+            u_i(:,e,k) = u_i(:,e,k)            &
+                       + d_ex * f_ex(:,e,k,i)  &
+                       + d_im * f_im(:,e,k,i)
+          end if
+        end do
+        end do
       end do
+
+      call SetArray(u, u_i)
+
+      ! finalization ...........................................................
+
+      deallocate(r_c, r_d, f_s, u_i, bv, f_ex, f_im)
 
     end associate
 
-  end subroutine TimeStep_EX
+  end subroutine TimeStep
 
   !=============================================================================
 

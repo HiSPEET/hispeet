@@ -7,6 +7,8 @@
 submodule(Mesh__3D) MP_ImportGenericMesh
   use Constants
   use Execution_Control
+  use Gauss_Jacobi
+  use Embedded_Interpolation__1D
   use Generic_Mesh__3D
   implicit none
 
@@ -84,8 +86,8 @@ contains
       call mesh % BuildCuboids()
       call mesh % IdentifyRanks()
 
-      mesh % n_child = 0
-      allocate(mesh % child(0))
+      allocate(mesh % map_child(0))
+      allocate(mesh % map_parent(0))
 
     end if
 
@@ -204,34 +206,132 @@ contains
     class(Mesh_3D),        intent(inout) :: mesh         !< mesh partition
     class(GenericMesh_3D), intent(in)    :: generic_mesh !< generic mesh
 
-    integer :: e
+    type(EmbeddedInterpolation_1D), allocatable :: iop(:)
+    real(RNP), allocatable :: xo(:), xi(:)
+    integer :: e, i, po, po_max, po_min
+    logical :: has_equidistant_basis
 
     ! preliminaries ............................................................
 
-    mesh % p_geom = -1
-    do e = 1, size(generic_mesh % element)
-      if (generic_mesh % element(e) % basis /= GAUSS_LOBATTO_BASIS) then
-        call Error('ImportElementDomains', 'basis not supported')
+    associate(p_geom => mesh % p_geom)
+
+      has_equidistant_basis = .false.
+      po_min = huge(1)
+      po_max = -1
+      p_geom = -1
+
+      do e = 1, size(generic_mesh % element)
+        po = generic_mesh % element(e) % order
+        if (generic_mesh % element(e) % basis == EQUIDISTANT_NODAL_BASIS) then
+          has_equidistant_basis = .true.
+          po_min = min(po, po_min)
+          po_max = max(po, po_max)
+        else if (generic_mesh % element(e) % basis /= GAUSS_LOBATTO_BASIS) then
+          call Error('ImportElementDomains', 'basis not supported')
+        end if
+        p_geom = max(p_geom, po)
+      end do
+
+      ! build interpolation operators
+      if (has_equidistant_basis) then
+        allocate(iop(po_min:po_max))
+        do po = po_min, po_max
+          allocate(xo(0:po), xi(0:po))
+          ! original points (equidistant)
+          do i = 0, po
+            xo(i) = TWO * i/po - ONE
+          end do
+          ! interpolation points (Lobatto)
+          xi = LobattoPoints(po)
+          iop(po) = EmbeddedInterpolation_1D('N', xo, xi)
+          deallocate(xo, xi)
+        end do
       end if
-      mesh % p_geom = max(mesh % p_geom, generic_mesh % element(e) % order)
-    end do
+
+    end associate
 
     ! element degree and points ................................................
 
     do e = 1, mesh % n_elem
-      associate( geometry => mesh % element(e) % geometry &
-               , po => generic_mesh % element(e) % order  &
-               , xg => generic_mesh % element(e) % x      )
+      associate( geometry => mesh % element(e) % geometry  &
+               , po  => generic_mesh % element(e) % order  &
+               , x_g => generic_mesh % element(e) % x      )
 
         allocate(geometry % x_e(0:po, 0:po, 0:po, 1:3))
 
         geometry % po = po
-        geometry % x_e(0:po,0:po,0:po,1:3) = reshape(xg, [po+1,po+1,po+1,3])
+
+        if (generic_mesh % element(e) % basis == EQUIDISTANT_NODAL_BASIS) then
+          call TransformToLobattoBasis(po, iop(po) % A, x_g, geometry % x_e)
+        else
+          geometry % x_e(0:po,0:po,0:po,1:3) = reshape(x_g, [po+1,po+1,po+1,3])
+        end if
 
       end associate
     end do
 
   end subroutine ImportElementDomains
+
+  !-----------------------------------------------------------------------------
+  !> Transformation to Gauss-Lobatto nodes
+
+  pure subroutine TransformToLobattoBasis(po, A, x_g, x_e)
+    integer,   intent(in)  :: po
+    real(RNP), intent(in)  :: A(0:po,0:po)
+    real(RNP), intent(in)  :: x_g(0:po,0:po,0:po,3)
+    real(RNP), intent(out) :: x_e(0:po,0:po,0:po,3)
+
+    real(RNP) :: z2(0:po,0:po,0:po), z3(0:po,0:po,0:po)
+    real(RNP) :: tmp
+    integer   :: d, i, j, k, p
+
+    do d = 1, 3
+
+      ! z3 = AxIxI x_g(:,:,:,d) ................................................
+
+      do k = 0, po
+      do j = 0, po
+      do i = 0, po
+        tmp = 0
+        do p = 0, po
+          tmp = tmp + A(k,p) * x_g(i,j,p,d)
+        end do
+        z3(i,j,k) = tmp
+      end do
+      end do
+      end do
+
+      ! z2 = IxAxI z3 ..........................................................
+
+      do k = 0, po
+      do j = 0, po
+      do i = 0, po
+        tmp = 0
+        do p = 0, po
+          tmp = tmp + A(j,p) * z3(i,p,k)
+        end do
+        z2(i,j,k) = tmp
+      end do
+      end do
+      end do
+
+      ! x_e(:,:,:,d) = IxIxA z2 ................................................
+
+      do k = 0, po
+      do j = 0, po
+      do i = 0, po
+        tmp = 0
+        do p = 0, po
+          tmp = tmp + A(i,p) * z2(p,j,k)
+        end do
+        x_e(i,j,k,d) = tmp
+      end do
+      end do
+      end do
+
+    end do
+
+  end subroutine TransformToLobattoBasis
 
   !=============================================================================
 
