@@ -66,7 +66,6 @@ module CL__Problem__1D
     procedure(GetMaxVelocity   ), deferred :: GetMaxVelocity
     procedure(GetMaxDiffusivity), deferred :: GetMaxDiffusivity
 
-
   end type CL_Problem_1D
 
   !=============================================================================
@@ -236,7 +235,7 @@ contains
   end function HasExactSolution
 
   !-----------------------------------------------------------------------------
-  !> Dummy procedure for writing the exact solution u(x,t) into a file
+  !> Dummy procedure for the exact solution u(x,t)
 
   subroutine GetExactSolution(this, cl_operator, t, u)
     class(CL_Problem_1D),  intent(in)  :: this
@@ -244,7 +243,7 @@ contains
     real(RNP),             intent(in)  :: t
     real(RNP), contiguous, intent(out) :: u(0:,:,:) !< u(x,t) at mesh points
 
-    !u = 0
+    u = 0
 
     ! just to avoid compiler warnings ;)
     if (this%nc * cl_operator%ne * t > 0) return

@@ -68,7 +68,7 @@ program Conservation_Law_ML
   type(CL_MLSDC_Variable_1D) :: u_h, u_x
 
   real(RNP) :: t_0, t_1
-  real(RNP) :: err_max
+  real(RNP) :: err_max, r_max
   logical   :: exists
   integer   :: io, stat
   integer   :: l
@@ -193,52 +193,65 @@ program Conservation_Law_ML
     end associate
   end do
 
+  ! collocation residual test ..................................................
+
+  write(*,'(/,A)') 'collocation residual test'
+
+  do l = 1, n_level
+    associate( u => u_x % level(l) % val &
+             , r => u_h % level(l) % val )
+
+      call mlsdc % level(l) % GetResidual(dt_slab, t_0, u, r)
+
+      r_max = maxval(abs(r))
+      write(*,'(2X,A,I3,A,ES10.3)') 'level',l,': r_max =',r_max
+
+    end associate
+  end do
+
 !### CHECK
 block
-  real(RNP), allocatable :: t(:)
-  real(RNP) :: dt
+  real(RNP), allocatable :: t(:,:)
   character(len=80) plot_file
   integer :: io
-  integer :: c, i, j, k, m, n
+  integer :: c, i, j, m, n
   c = 1
   do l = 1, n_level
     write(plot_file,'(9G0)') 'result_l', l, '.dat'
     open(newunit=io, file=plot_file)
     write(io,'(A)') '# x, u_h, u_x, err'
 
-    ! spatial
-    m = mlsdc % level(l) % p_time
-    n = mlsdc % level(l) % n_time
-    !m = 0
-    !n = 1
-    do j = 1, mlsdc % level(l) % n_space
-    do i = 0, mlsdc % level(l) % p_space
+!!     ! spatial
+!!     m = mlsdc % level(l) % p_time
+!!     n = mlsdc % level(l) % n_time
+!!     !m = 0
+!!     !n = 1
+!!     do j = 1, mlsdc % level(l) % n_space
+!!     do i = 0, mlsdc % level(l) % p_space
+!!       write(io,'(99(ES17.10,1X))')                &
+!!         mlsdc % level(l) % cl_operator % x(i,j) , &
+!!         u_h % level(l) % val(i,j,c,m,n)         , &
+!!         u_x % level(l) % val(i,j,c,m,n)         , &
+!!         u_h % level(l) % val(i,j,c,m,n) -         &
+!!         u_x % level(l) % val(i,j,c,m,n)
+!!     end do
+!!     end do
+
+    ! temporal
+    call mlsdc % level(l) % GetTimeMesh(t_0, t_1, t)
+    i = 0
+    j = 1
+    do n = 1, mlsdc % level(l) % n_time
+    do m = 0, mlsdc % level(l) % p_time
       write(io,'(99(ES17.10,1X))')                &
-        mlsdc % level(l) % cl_operator % x(i,j) , &
+        t(m,n)                                  , &
         u_h % level(l) % val(i,j,c,m,n)         , &
         u_x % level(l) % val(i,j,c,m,n)         , &
         u_h % level(l) % val(i,j,c,m,n) -         &
         u_x % level(l) % val(i,j,c,m,n)
     end do
     end do
-
-!!     ! temporal
-!!     allocate(t(0:mlsdc % level(l) % p_time))
-!!     dt = (t_1 - t_0) / mlsdc % level(l) % n_time
-!!     i = 0
-!!     j = 1
-!!     do n = 1, mlsdc % level(l) % n_time
-!!       t(0:) = mlsdc % level(l) % cl_sdc % IntermediateTimes(t_0 + (n-1)*dt, dt)
-!!       do m = 0, mlsdc % level(l) % p_time
-!!         write(io,'(99(ES17.10,1X))')                &
-!!           t(m)                                    , &
-!!           u_h % level(l) % val(i,j,c,m,n)         , &
-!!           u_x % level(l) % val(i,j,c,m,n)         , &
-!!           u_h % level(l) % val(i,j,c,m,n) -         &
-!!           u_x % level(l) % val(i,j,c,m,n)
-!!       end do
-!!     end do
-!!     deallocate(t)
+    deallocate(t)
 
     close(io)
   end do
