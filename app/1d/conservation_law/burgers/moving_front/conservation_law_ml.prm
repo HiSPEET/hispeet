@@ -1,0 +1,12 @@
+&problem_prm
+  problem_name = 'burgers__moving_front'
+/
+
+&discretization_prm
+! dt_slab =  0.2     ! thickness of one time slab
+  n_level =  2       ! number of space-time levels
+  n_space =  5  10
+  p_space = 15  15
+  n_time  =  2   2
+  p_time  =  3   7
+/

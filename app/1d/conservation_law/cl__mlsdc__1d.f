@@ -58,7 +58,7 @@ module CL__MLSDC__1D
     integer :: projection_smoothing = 1  !< discontinuities in 2:1 projection:
                                          !!  0   no smoothing
                                          !!  1   remove by linear blending
-                                         !!  0   remove by coefficient averaging
+                                         !!  2   remove by coefficient averaging
 
   end type CL_MLSDC_Options_1D
 

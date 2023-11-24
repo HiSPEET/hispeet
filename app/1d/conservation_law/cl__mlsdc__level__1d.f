@@ -49,6 +49,7 @@ module CL__MLSDC__Level__1D
 
   contains
 
+    procedure :: GetTimeMesh    !< get the time mesh points
     procedure :: GetResidual    !< compute multi-step collocation residual
     procedure :: ApplyPredictor !< application of SDC predictor
     procedure :: ApplyCorrector !< application of SDC corrector
@@ -219,6 +220,34 @@ contains
     end if
 
   end subroutine Init_CL_MLSDC_Level_1D
+
+  !-----------------------------------------------------------------------------
+  !> Get the time mesh points
+
+  subroutine GetTimeMesh(this, t_0, t_1, t)
+    class(CL_MLSDC_Level_1D), intent(in) :: this
+    real(RNP),                intent(in)  :: t_0    !< start time
+    real(RNP),                intent(in)  :: t_1    !< end time
+    real(RNP), allocatable,   intent(out) :: t(:,:) !< time mesh points
+
+    real(RNP) :: dt
+    integer   :: n
+
+    associate( p_time => this % p_time &
+             , n_time => this % n_time &
+             , cl_sdc => this % cl_sdc )
+
+      allocate(t(0:p_time,1:n_time))
+
+      dt = (t_1 - t_0) / n_time
+
+      do n = 1, n_time
+        t(0:,n) = cl_sdc % IntermediateTimes(t_0 + (n-1)*dt, dt)
+      end do
+
+    end associate
+
+  end subroutine GetTimeMesh
 
   !=============================================================================
 

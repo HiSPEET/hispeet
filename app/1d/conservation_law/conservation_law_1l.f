@@ -24,7 +24,7 @@ program Conservation_Law_1L
 
   ! declarations: control ......................................................
 
-  character(len=80) :: case_name = 'conservation_law'
+  character(len=80) :: case_name = 'conservation_law_1l'
   character(len=80) :: case_file
 
   ! declarations: problem ......................................................

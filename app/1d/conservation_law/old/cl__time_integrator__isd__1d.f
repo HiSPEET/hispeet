@@ -108,14 +108,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs an IMEX ISD step
 
-  subroutine TimeStep(this, problem, t, dt, u, M_inv)
+  subroutine TimeStep(this, problem, t, dt, u)
     class(CL_TimeIntegrator_ISD_1D), intent(inout) :: this
     class(CL_Problem_Scalar_1D),     intent(in)    :: problem
     real(RNP),    intent(inout) :: t
     real(RNP),    intent(in)    :: dt       !< step size ∆t
     complex(RNP), intent(in)    :: lambda  !< ...
     complex(RNP), intent(inout) :: u       !< u(t) → u(t+ ∆t)
-    real(RNP),    intent(in)    :: M_inv(:,:,:)
 
     complex(RNP), parameter :: i = (ZERO, ONE)
     complex(RNP) :: u1, u2, u3

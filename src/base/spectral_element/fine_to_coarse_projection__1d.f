@@ -175,9 +175,9 @@ contains
       ! 1:1 projection
       select case(this % method)
       case('P')
-        call Build_Interpolation_Operator_1
-      case('I')
         call Build_L2_Projection_Operator_1
+      case('I')
+        call Build_Interpolation_Operator_1
       end select
 
     case(2)
@@ -185,9 +185,9 @@ contains
       ! 2:1 projection
       select case(this % method)
       case('P')
-        call Build_Interpolation_Operator_2
-      case('I')
         call Build_L2_Projection_Operator_2
+      case('I')
+        call Build_Interpolation_Operator_2
       end select
 
       ! smoothing
@@ -223,7 +223,7 @@ contains
           z = LobattoPolynomial(j, x_f, x_q(q))
         end select
         do k = 0, po_c
-          C(k,j) = C(k,j) + w_q(q) / w_g(k) * GaussPolynomial(k, x_g, x_q(q))
+          C(k,j) = C(k,j) + w_q(q) / w_g(k) * z * GaussPolynomial(k, x_g, x_q(q))
         end do
       end do
       end do

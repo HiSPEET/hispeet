@@ -141,7 +141,7 @@ contains
         do m = 0, pt_f
         do c = 1, nc
         do e = 1, ns_f
-          if (complete .or. refinement(e) >= 0) then
+          if (complete .or. refinement((e+1)/2) >= 0) then
             u_f(:,e,c,m,n) = 0
             do l = 0, pt_c
               u_f(:,e,c,m,n) = u_f(:,e,c,m,n) + iop_t % A(m,l,1) * u_i(:,e,c,l,n)
