@@ -224,9 +224,9 @@ contains
     case(RDP)
       call DispatchKernel_RDP(xmm, eop%po)
     case default
-      call Error( 'AddFluxes'                                &
-                , 'Precision not supported'                  &
-                , 'INS__Operator__3D:MP_GetDiffusionTerm_DC' )
+      call Error( 'AddFluxes'                               &
+                , 'Precision not supported'                 &
+                , 'INS__Operator__3D:MP_GetDiffusionTerm_C' )
     end select
     !$omp end single
 
