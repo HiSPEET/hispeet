@@ -1,5 +1,5 @@
 [submodule "external/libxsmm"]
 	path = external/libxsmm
 	url = https://github.com/libxsmm/libxsmm
-	branch = main_stable
+	branch = main
 
