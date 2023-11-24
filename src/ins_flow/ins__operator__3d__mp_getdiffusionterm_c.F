@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(INS__Operator__3D) MP_GetDiffusionTerm_DC
+submodule(INS__Operator__3D) MP_GetDiffusionTerm_C
 
   use C_Binding
   use TPO__Stress__3D
@@ -30,7 +30,7 @@ contains
   !> form of the momentum equation including the boundary conditions.
   !> To obtain the node values, apply the inverse mass matrix to `F_d`.
 
-  module subroutine GetDiffusionTerm_DC(this, v, vp, sp, F_d, form, extrapolate)
+  module subroutine GetDiffusionTerm_C(this, v, vp, sp, F_d, bv_u, xout, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -38,18 +38,24 @@ contains
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< velocity (np,np,np,ne,3)
 
-    real(RNP), contiguous, intent(inout) :: vp(:,:,:,:,:)
-    !< exterior velocity traces (np,np,6,ne,3)
-    !!   - in:  v⁺  at boundary faces
-    !!   - out: v⁺  at all element faces
+    real(RNP), contiguous, intent(out) :: vp(:,:,:,:,:)
+    !< outer velocity traces (np,np,6,ne,3): vp = v⁺
 
-    real(RNP), contiguous, intent(inout) :: sp(:,:,:,:,:)
-    !< viscous flux traces (np,np,6,ne,3)
-    !!   - in:  s  =  sᵇ    at outflow faces, zero elsewhere
-    !!   - out: s⁺ = -n⋅τ⁺  at all element faces, since n⁺ = -n
+    real(RNP), contiguous, intent(out) :: sp(:,:,:,:,:)
+    !< outer viscous flux traces (np,np,6,ne,3): sp = s⁺ = -n⋅τ⁺,
 
     real(RNP), contiguous, intent(out) :: F_d(:,:,:,:,:)
     !< diffusion term (np,np,np,ne,3)
+
+    class(BoundaryVariable_3D), optional, intent(in) :: bv_u(:)
+    !< boundary values at final time t
+    !!   - Γᴰ :  vᵇ    in components 1:3
+    !!   - Γᴼ :  τ_nn  in component    4, including penalty term
+    !!
+    !! ignored at extrapolated boundaries
+
+    logical, optional, intent(in) :: xout
+    !< ignore boundary values and extrapolate `∇v` [F]
 
     integer, optional, intent(in) :: form
     !< switch form of the approximated diffusion term `∇⋅τ`
@@ -57,22 +63,22 @@ contains
     !!   - `1` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[      ν ∇⋅v] =  ν∇²v`       (diffusion)
     !!   - `2` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[     2ν ∇⋅v] = -ν∇×(∇×v)`   (rotation)
 
-    character(len=*), optional, intent(in) :: extrapolate
-    !< switch to replace boundary conditions by extrapolation:
-    !!   - `D` :  Dirichlet conditions
-    !!   - `O` :  outflow conditions
-    !!   - `A` :  all
-
     ! local variables ..........................................................
 
-    ! trace transfer buffers operators
-    type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_tr
+    type(BoundaryVariable_3D), allocatable, save :: bv_s(:)
+    ! viscous boundary flux
 
-    ! trace variables
-    real(RNP), allocatable, save :: tr(:,:,:,:,:) ! traces of v and n⋅τ
+    type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_tr
+    ! trace transfer buffers operators
+
+    real(RNP), allocatable, save :: tr(:,:,:,:,:)
+    ! traces of v and n⋅τ
 
     real(RNP) :: mu, nu
-    logical   :: ex_db, ex_ob
+    integer   :: n_bound, n_elem, n_ghost, po
+    integer   :: b
+
+    ! initialization ...........................................................
 
     nu = this % nu_0
 
@@ -89,13 +95,21 @@ contains
       mu = this % mu_0
     end if
 
-    if (present(extrapolate)) then
-      ex_db = scan(extrapolate,'AD') > 0
-      ex_ob = scan(extrapolate,'AO') > 0
-    else
-      ex_db = .false.
-      ex_ob = .false.
-    end if
+    n_bound = this % mesh % n_bound
+    n_elem  = this % mesh % n_elem
+    n_ghost = this % mesh % n_ghost
+    po      = this % eop_v % po
+
+    !$omp master
+    allocate(bv_s(n_bound), tr(0:po,0:po,6,n_elem + n_ghost,6))
+    buf_tr = ElementFaceTransferBuffer_3D(this%mesh, tr)
+    do b = 1, n_bound
+      if (scan(this % bc_v(b),'O') > 0) then
+        call bv_s(b) % Create(this%mesh%boundary(b), po, nc = 3)
+      end if
+    end do
+    !$omp end master
+    !$omp barrier
 
     associate( mesh   => this % sem_v % mesh         &
              , Jd     => this % sem_v % metrics % Jd &
@@ -103,76 +117,60 @@ contains
              , a      => this % sem_v % metrics % a  &
              , n      => this % sem_v % metrics % n  &
              , eop    => this % eop_v                &
-             , bc     => this % bc_v                 )
-
-      ! initialization .........................................................
-
-      ! workspace and operators
-      !$omp master
-      allocate(tr(0:eop%po, 0:eop%po, 6, mesh%n_elem + mesh%n_ghost,6))
-      buf_tr = ElementFaceTransferBuffer_3D(mesh, tr)
-      !$omp end master
-      !$omp barrier
+             , vm     => tr(:,:,:,:,1:3)             &
+             , sm     => tr(:,:,:,:,4:6)             )
 
       ! element volume contributions ...........................................
 
       ! element integrals and local contributions to inner traces v⁻ and s⁻
-      call TPO_Stress( eop%w, eop%D, Jd, Ji, n, mu, nu, v &
-                     , fv = F_d                           &
-                     , vb = tr(:,:,:,:,1:3)               & ! v⁻(:,:,:,1:ne,1:3)
-                     , sb = tr(:,:,:,:,4:6)               ) ! s⁻(:,:,:,1:ne,1:3)
+      call TPO_Stress(eop%w, eop%D, Jd, Ji, n, mu, nu, v, F_d, vm, sm)
 
       ! transfer traces ........................................................
 
-      call buf_tr % Transfer(mesh, tr, tag=1000) ! send traces to remote ghosts
-      call buf_tr % Merge(tr)                    ! recv traces of local  ghosts
+      call buf_tr % Transfer(mesh, tr, tag=1000) ! masters send inner traces
+      call buf_tr % Merge(tr)                    ! ghosts  recv inner traces
 
-      ! add fluxes .............................................................
+      ! outer traces with BC ...................................................
 
-      ! add element boundary contributions and complete/build outer traces
-      call AddViscousFluxes( eop%po, mesh, eop    &
-                           , bc, ex_db, ex_ob     &
-                           , a, n, Ji, mu, nu     &
-                           , vm = tr(:,:,:,:,1:3) &
-                           , sm = tr(:,:,:,:,4:6) &
-                           , vp = vp              & ! v⁺
-                           , sp = sp              & ! s⁺
-                           , F_d = F_d            )
+      ! compute viscous boundary flux, where required
+      do b = 1, mesh % n_bound
+        if (scan(this % bc_v(b),'O') > 0) then
+          associate(sb => bv_s(b) % val)
+            call this % GetViscousBoundaryStress(b, v, sb, bv_u, xout, form)
+          end associate
+        end if
+      end do
+
+      call ConvertInnerToOuterTraces_3D(mesh, vm, vp)
+      call this % ApplyEssentialBC(bv_u, vm, vp)       ! v⁺ = v(v⁻,vᵇ)  ∂Ω
+
+      call ConvertInnerToOuterTraces_3D(mesh, sm, sp)
+      call this % ApplyNaturalBC(bv_s, sm, sp)         ! s⁺ = s(s⁻,sᵇ)  ∂Ω
+
+      ! fluxes .................................................................
+
+      call AddViscousFluxes(mesh, eop, a, n, Ji, mu, nu, vm, sm, vp, sp, F_d )
 
       ! cleanup ................................................................
 
       !$omp master
-      deallocate(tr, buf_tr)
+      deallocate(bv_s, tr, buf_tr)
       !$omp end master
 
     end associate
 
-  end subroutine GetDiffusionTerm_DC
+  end subroutine GetDiffusionTerm_C
 
   !-----------------------------------------------------------------------------
   !> Compute & add viscous fluxes
 
-  subroutine AddViscousFluxes( P, mesh, eop, bc, ex_db, ex_ob    &
-                             , a, n, Ji, mu, nu, vm, sm, vp, sp  &
-                             , F_d                               )
-
-    integer, intent(in) :: P
-    !< polynomial order
+  subroutine AddViscousFluxes(mesh, eop, a, n, Ji, mu, nu, vm, sm, vp, sp, F_d)
 
     class(Mesh_3D), intent(in) :: mesh
     !< mesh partition
 
     class(DG_ElementOperators_1D), intent(in) :: eop
     !< ID-DG element operators
-
-    character, intent(in) :: bc(:)
-    !< boundary conditions
-
-    logical, intent(in) :: ex_db
-    !< extrapolation switch for Dirichlet boundaries
-
-    logical, intent(in) :: ex_ob
-    !< extrapolation switch for open boundaries
 
     real(RNP), contiguous, intent(in) :: a(0:,0:,:,:)
     !< area coefficient at element faces (0:po,0:po,6,ne)
@@ -195,15 +193,11 @@ contains
     real(RNP), contiguous, intent(in) :: sm(0:,0:,:,:,:)
     !< s⁻ = n⋅τ⁻ at element faces, including ghosts (0:po,0:po,6,ne+ng,3)
 
-    real(RNP), contiguous, intent(inout) :: vp(0:,0:,:,:,:)
-    !< exterior velocity traces at element faces (0:po,0:po,6,ne,3)
-    !!   - in:  v   at Dirichlet faces, nn⋅v at free-slip faces, undefined else
-    !!   - out: v⁺  at all element faces
+    real(RNP), contiguous, intent(in) :: vp(0:,0:,:,:,:)
+    !< outer traces of velocity, v⁺ (0:po,0:po,6,ne,3)
 
-    real(RNP), contiguous, intent(inout) :: sp(0:,0:,:,:,:)
-    !< vicous stress vector at element faces (0:po,0:po,6,ne,3)
-    !!   - in:  s  =  sᵇ    at outflow faces, zero elsewhere
-    !!   - out: s⁺ = -n⋅τ⁺  at all element faces, since n⁺ = -n
+    real(RNP), contiguous, intent(in) :: sp(0:,0:,:,:,:)
+    !< outer traces of viscous stress vector, s⁺ = n⁺⋅τ⁺ (0:po,0:po,6,ne,3)
 
     real(RNP), contiguous, intent(inout) :: F_d(0:,0:,0:,:,:)
     !< diffusion term (0:po,0:po,0:po,ne,3)
@@ -213,43 +207,40 @@ contains
     type(C_FunPtr), save :: xmm
 
     ! target attribute required in call to LIBXSMM_XMMCall_ABC
-    real(RNP), target, dimension(0:P, 0:P)       :: M_f, Ds_t
-    real(RNP), target, dimension(0:P, 0:P, 3)    :: C0
-    real(RNP), target, dimension(0:P, 0:P, 2, 3) :: Ct, Ds_Ct
-    real(RNP), target, dimension(0:P, 0:P, 6, 3) :: Cn
+    real(RNP), target, dimension(0:eop%po, 0:eop%po)       :: M_f, Ds_t
+    real(RNP), target, dimension(0:eop%po, 0:eop%po, 3)    :: C0
+    real(RNP), target, dimension(0:eop%po, 0:eop%po, 2, 3) :: Ct, Ds_Ct
+    real(RNP), target, dimension(0:eop%po, 0:eop%po, 6, 3) :: Cn
     real(RNP) :: chi, cip, dv1, dv2, dv3, n1, n2, n3, tau(3,3)
     real(RNP) :: tmp
     integer   :: c, e, f, i, j, k
-    logical   :: struct
 
 #ifdef __LIBXSMM__
 
     !$omp single
     select case(RNP)
     case(RSP)
-      call DispatchKernel_RSP(xmm, P)
+      call DispatchKernel_RSP(xmm, eop%po)
     case(RDP)
-      call DispatchKernel_RDP(xmm, P)
+      call DispatchKernel_RDP(xmm, eop%po)
     case default
-      call Error( 'AddFluxes'                                &
-                , 'Precision not supported'                  &
-                , 'INS__Operator__3D:MP_GetDiffusionTerm_DC' )
+      call Error( 'AddFluxes'                               &
+                , 'Precision not supported'                 &
+                , 'INS__Operator__3D:MP_GetDiffusionTerm_C' )
     end select
     !$omp end single
 
 #endif
 
-    associate(Ms => eop % w, Ds => eop % D)
+    associate(po => eop % po, Ms => eop % w, Ds => eop % D)
 
       ! auxiliaries ............................................................
-
-      struct  = mesh % structured
 
       chi = mu - 2 * THIRD * nu
 
       ! face standard mass matrix
-      do j = 0, P
-      do i = 0, P
+      do j = 0, po
+      do i = 0, po
         M_f(i,j) = Ms(i) * Ms(j)
       end do
       end do
@@ -264,15 +255,12 @@ contains
 
           do f = 1, 2
 
-            i = (f - 1) * P
-
-            call BuildOuterTraces( element, struct, bc, ex_db, ex_ob &
-                                 , e, f, vm, sm, vp, sp              )
+            i = (f - 1) * po
 
             cip = eop % PenaltyFactor(element % geometry % dx_m(f))
 
-            do k = 0, P
-            do j = 0, P
+            do k = 0, po
+            do j = 0, po
 
               n1 = n(j,k,f,e,1)
               n2 = n(j,k,f,e,2)
@@ -324,7 +312,7 @@ contains
             end do
             end do
 
-            select case(P)
+            select case(po)
             case(1)
               call TangentialDerivatives(1, Ds, Ct, Ds_Ct)
             case(2)
@@ -334,13 +322,13 @@ contains
               call LIBXSMM_XMMCall_ABC(xmm, c_loc(Ds_t), c_loc(Ct), c_loc(Ds_Ct))
               ! passing C addresses required by C interface
 #else
-              call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
+              call TangentialDerivatives(po, Ds, Ct, Ds_Ct)
 #endif
             end select
 
             do c = 1, 3
-              do k = 0, P
-              do j = 0, P
+              do k = 0, po
+              do j = 0, po
 
                 F_d(i,j,k,e,c) = F_d(i,j,k,e,c)  &
                                + Ds_Ct(j,k,1,c)  &
@@ -356,15 +344,12 @@ contains
 
           do f = 3, 4
 
-            j = (f - 3) * P
-
-            call BuildOuterTraces( element, struct, bc, ex_db, ex_ob &
-                                 , e, f, vm, sm, vp, sp              )
+            j = (f - 3) * po
 
             cip = eop % PenaltyFactor(element % geometry % dx_m(f))
 
-            do k = 0, P
-            do i = 0, P
+            do k = 0, po
+            do i = 0, po
 
               n1 = n(i,k,f,e,1)
               n2 = n(i,k,f,e,2)
@@ -416,7 +401,7 @@ contains
             end do
             end do
 
-            select case(P)
+            select case(po)
             case(1)
               call TangentialDerivatives(1, Ds, Ct, Ds_Ct)
             case(2)
@@ -425,13 +410,13 @@ contains
 #ifdef __LIBXSMM__
               call LIBXSMM_XMMCall_ABC(xmm, c_loc(Ds_t), c_loc(Ct), c_loc(Ds_Ct))
 #else
-              call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
+              call TangentialDerivatives(po, Ds, Ct, Ds_Ct)
 #endif
             end select
 
             do c = 1, 3
-              do k = 0, P
-              do i = 0, P
+              do k = 0, po
+              do i = 0, po
 
                 F_d(i,j,k,e,c) = F_d(i,j,k,e,c)  &
                                + Ds_Ct(i,k,1,c)  &
@@ -447,15 +432,12 @@ contains
 
           do f = 5, 6
 
-            k = (f - 5) * P
-
-            call BuildOuterTraces( element, struct, bc, ex_db, ex_ob &
-                                 , e, f, vm, sm, vp, sp              )
+            k = (f - 5) * po
 
             cip = eop % PenaltyFactor(element % geometry % dx_m(f))
 
-            do j = 0, P
-            do i = 0, P
+            do j = 0, po
+            do i = 0, po
 
               n1 = n(i,j,f,e,1)
               n2 = n(i,j,f,e,2)
@@ -507,7 +489,7 @@ contains
             end do
             end do
 
-            select case(P)
+            select case(po)
             case(1)
               call TangentialDerivatives(1, Ds, Ct, Ds_Ct)
             case(2)
@@ -516,13 +498,13 @@ contains
 #ifdef __LIBXSMM__
               call LIBXSMM_XMMCall_ABC(xmm, c_loc(Ds_t), c_loc(Ct), c_loc(Ds_Ct))
 #else
-              call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
+              call TangentialDerivatives(po, Ds, Ct, Ds_Ct)
 #endif
             end select
 
             do c = 1, 3
-              do j = 0, P
-              do i = 0, P
+              do j = 0, po
+              do i = 0, po
 
                 F_d(i,j,k,e,c) = F_d(i,j,k,e,c)  &
                                + Ds_Ct(i,j,1,c)  &
@@ -537,16 +519,16 @@ contains
          ! contributions to all points ...........................................
 
           do c = 1, 3
-            do k = 0, P
-            do j = 0, P
-            do i = 0, P
+            do k = 0, po
+            do j = 0, po
+            do i = 0, po
               F_d(i,j,k,e,c) = F_d(i,j,k,e,c)           &
-                             - ( Ds(0,i) * Cn(j,k,1,c)  &
-                               + Ds(P,i) * Cn(j,k,2,c)  &
-                               + Ds(0,j) * Cn(i,k,3,c)  &
-                               + Ds(P,j) * Cn(i,k,4,c)  &
-                               + Ds(0,k) * Cn(i,j,5,c)  &
-                               + Ds(P,k) * Cn(i,j,6,c)  &
+                             - ( Ds( 0,i) * Cn(j,k,1,c)  &
+                               + Ds(po,i) * Cn(j,k,2,c)  &
+                               + Ds( 0,j) * Cn(i,k,3,c)  &
+                               + Ds(po,j) * Cn(i,k,4,c)  &
+                               + Ds( 0,k) * Cn(i,j,5,c)  &
+                               + Ds(po,k) * Cn(i,j,6,c)  &
                                )
             end do
             end do
@@ -560,97 +542,22 @@ contains
   end subroutine AddViscousFluxes
 
   !-----------------------------------------------------------------------------
-  !> Compose exterior traces at element boundary
-
-  subroutine BuildOuterTraces( element, struct, bc, ex_db, ex_ob &
-                             , e, f, vm, sm, vp, sp              )
-
-    class(MeshElement_3D), intent(in)    :: element !< element
-    logical,               intent(in)    :: struct  !< F/T if un/structured
-    character,             intent(in)    :: bc(:)   !< boundary conditions
-    logical,               intent(in)    :: ex_db   !< extrapolation for 'D'
-    logical,               intent(in)    :: ex_ob   !< extrapolation for 'O'
-    integer,               intent(in)    :: e       !< element ID
-    integer,               intent(in)    :: f       !< element face
-    real(RNP), contiguous, intent(in)    :: vm(0:,0:,:,:,:) !< v⁻
-    real(RNP), contiguous, intent(in)    :: sm(0:,0:,:,:,:) !< s⁻
-    real(RNP), contiguous, intent(inout) :: vp(0:,0:,:,:,:) !< vb → v⁺
-    real(RNP), contiguous, intent(inout) :: sp(0:,0:,:,:,:) !< sb → s⁺
-
-    ! local variables ..........................................................
-
-    integer   :: c, i, l, m
-
-    i  = element % face(f) % i_neighbor
-
-    if (i > 0) then
-
-      ! copy fluxes from neighbor ..............................................
-
-      l = element % neighbor(i) % id
-      m = element % neighbor(i) % component
-      if (struct) then
-        do c = 1, 3
-          vp(:,:,f,e,c) = vm(:,:,m,l,c)
-          sp(:,:,f,e,c) = sm(:,:,m,l,c)
-        end do
-      else
-        do c = 1, 3
-          call element % AlignFromNeighborFace(f, i, vm(:,:,m,l,c), vp(:,:,f,e,c))
-          call element % AlignFromNeighborFace(f, i, sm(:,:,m,l,c), sp(:,:,f,e,c))
-        end do
-      end if
-
-    else
-
-      ! apply boundary conditions ..............................................
-
-      select case(bc(element % face(f) % boundary))
-
-      case('D') ! Dirichlet: s⁺ = n⁺⋅τ⁻ = -s⁻, v⁺ already set
-        do c = 1, 3
-          sp(:,:,f,e,c) = -sm(:,:,f,e,c)
-        end do
-
-      case('O') ! outflow, v⁺ already set
-        if (ex_ob) then
-          ! extrapolation: τ⁺ = τ⁻ → s⁺ = -s⁻
-          do c = 1, 3
-            sp(:,:,f,e,c) = -sm(:,:,f,e,c)
-          end do
-        else
-          ! outflow conditions: s⁺ = s⁻ - 2sᵇ
-          do c = 1, 3
-            sp(:,:,f,e,c) = sm(:,:,f,e,c) - 2 * sp(:,:,f,e,c)
-          end do
-        end if
-
-      end select
-
-    end if
-
-    ! ex_db has no effect here, touch to avoid compiler warning
-    if (ex_db) return
-
-  end subroutine BuildOuterTraces
-
-  !-----------------------------------------------------------------------------
   !> Computation of tangential derivatives
 
-  pure subroutine TangentialDerivatives(P, D, C, DC)
-    integer,   intent(in)  :: P                !< polynomial order
-    real(RNP), intent(in)  :: D  (0:P,0:P)     !< diff matrix
-    real(RNP), intent(in)  :: C  (0:P,0:P,2,3) !< tangential contributions
-    real(RNP), intent(out) :: DC (0:P,0:P,2,3) !< derivatives of C
+  pure subroutine TangentialDerivatives(po, D, C, DC)
+    integer,   intent(in)  :: po                 !< polynomial order
+    real(RNP), intent(in)  :: D  (0:po,0:po)     !< diff matrix
+    real(RNP), intent(in)  :: C  (0:po,0:po,2,3) !< tangential contributions
+    real(RNP), intent(out) :: DC (0:po,0:po,2,3) !< derivatives of C
 
     integer :: i, j, l, m
 
     do l = 1, 3
-      do j = 0, P
-      do i = 0, P
+      do j = 0, po
+      do i = 0, po
         DC(i,j,1,l) = 0
         DC(i,j,2,l) = 0
-        do m = 0, P
+        do m = 0, po
           DC(i,j,1,l) = DC(i,j,1,l) + D(m,i) * C(m,j,1,l)
           DC(i,j,2,l) = DC(i,j,2,l) + D(m,i) * C(m,j,2,l)
         end do
@@ -665,10 +572,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Routine for dispatching a single precision XSMM kernel
 
-  subroutine DispatchKernel_RSP(kernel, P, lda, ldb, ldc, flags, prefetch)
+  subroutine DispatchKernel_RSP(kernel, po, lda, ldb, ldc, flags, prefetch)
 
     type(C_FunPtr), intent(out) :: kernel
-    integer, intent(in) :: P
+    integer, intent(in) :: po
     integer(LIBXSMM_BLASINT_KIND), target, optional, intent(in) :: lda, ldb, ldc
     integer(C_INT), target, optional, intent(in) :: flags
     integer(C_INT), target, optional, intent(in) :: prefetch
@@ -676,7 +583,7 @@ contains
     integer(LIBXSMM_BLASINT_KIND) :: m, n, k
     real(C_FLOAT), target :: alpha = 1, beta = 0
 
-    m = P + 1
+    m = po + 1
     n = m * 6
     k = m
 
@@ -691,10 +598,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Routine for dispatching a double precision XSMM kernel
 
-  subroutine DispatchKernel_RDP(kernel, P, lda, ldb, ldc, flags, prefetch)
+  subroutine DispatchKernel_RDP(kernel, po, lda, ldb, ldc, flags, prefetch)
 
     type(C_FunPtr), intent(out) :: kernel
-    integer, intent(in) :: P
+    integer, intent(in) :: po
     integer(LIBXSMM_BLASINT_KIND), intent(in), optional, target :: lda, ldb, ldc
     integer(C_INT), target, optional, intent(in) :: flags
     integer(C_INT), target, optional, intent(in) :: prefetch
@@ -702,7 +609,7 @@ contains
     integer(LIBXSMM_BLASINT_KIND) :: m, n, k
     real(C_DOUBLE), target :: alpha = 1, beta = 0
 
-    m = P + 1
+    m = po + 1
     n = m * 6
     k = m
 
@@ -716,6 +623,6 @@ contains
 
 #endif
 
-    !=============================================================================
+  !=============================================================================
 
-end submodule MP_GetDiffusionTerm_DC
+end submodule MP_GetDiffusionTerm_C

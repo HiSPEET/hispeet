@@ -67,17 +67,24 @@ module INS__Operator__3D
 
     generic   :: Init => Init_INS_Operator_3D
     procedure :: Init_INS_Operator_3D
-    procedure :: ApplyVelocityBC
-    procedure :: PressureSolver
-    procedure :: GetConvectionTerm
-    generic   :: GetDiffusionTerm       => GetDiffusionTerm_C
-    generic   :: ApplyDiffusionOperator => ApplyDiffusionOperator_C
-    generic   :: GetDiffusionResidual   => GetDiffusionResidual_C
-    procedure :: DiffusionSolver
 
-    procedure, private :: GetDiffusionTerm_C
+    procedure :: ApplyEssentialBC
+    procedure :: ApplyNaturalBC
+    procedure :: GetConvectionTerm
+    procedure :: DiffusionSolver
+    procedure :: PressureSolver
+
+    generic   :: ApplyDiffusionOperator   => ApplyDiffusionOperator_C
+    generic   :: GetBackflowPenalty       => GetBackflowPenalty_C
+    generic   :: GetDiffusionResidual     => GetDiffusionResidual_C
+    generic   :: GetDiffusionTerm         => GetDiffusionTerm_C
+    generic   :: GetViscousBoundaryStress => GetViscousBoundaryStress_C
+
     procedure, private :: ApplyDiffusionOperator_C
+    procedure, private :: GetBackflowPenalty_C
     procedure, private :: GetDiffusionResidual_C
+    procedure, private :: GetDiffusionTerm_C
+    procedure, private :: GetViscousBoundaryStress_C
 
   end type INS_Operator_3D
 
@@ -102,53 +109,9 @@ module INS__Operator__3D
   end type INS_OperatorOptions_3D
 
   !=============================================================================
-  ! Module procedures
+  ! Module procedures (alphabetically)
 
   interface
-
-    !---------------------------------------------------------------------------
-    !> Application of velocity boundary conditions to trace variables
-
-    module subroutine ApplyVelocityBC(this, tr_v, tr_s, bv_u, extrapolate)
-      class(INS_Operator_3D),               intent(in)    :: this
-      real(RNP), contiguous,                intent(inout) :: tr_v(:,:,:,:,:)
-      real(RNP), contiguous,      optional, intent(inout) :: tr_s(:,:,:,:,:)
-      class(BoundaryVariable_3D), optional, intent(in)    :: bv_u(:)
-      character(len=*),           optional, intent(in)    :: extrapolate
-    end subroutine ApplyVelocityBC
-
-    !---------------------------------------------------------------------------
-    !> Projection-based pressure solver
-
-    module subroutine PressureSolver( this, tau, bv_v, v, f, bv_p, p &
-                                    , i_max, r_red, r_max, ni        )
-
-      class(INS_Operator_3D),     intent(in)    :: this
-      real(RNP),                  intent(in)    :: tau
-      class(BoundaryVariable_3D), intent(in)    :: bv_v(:)
-      real(RNP), contiguous,      intent(in)    :: v(:,:,:,:,:)
-      real(RNP), contiguous,      intent(in)    :: f(:,:,:,:)
-      class(BoundaryVariable_3D), intent(inout) :: bv_p(:)
-      real(RNP), contiguous,      intent(inout) :: p(:,:,:,:)
-      integer,                    intent(in)    :: i_max
-      real(RNP),        optional, intent(in)    :: r_red
-      real(RNP),        optional, intent(in)    :: r_max
-      integer,          optional, intent(out)   :: ni
-
-    end subroutine PressureSolver
-
-    !---------------------------------------------------------------------------
-    !> Diffusion term with constant viscosity on irregular (deformed) mesh
-
-    module subroutine GetDiffusionTerm_DC(this, v, vp, sp, F_d, form, extrapolate)
-      class(INS_Operator_3D),     intent(in)    :: this
-      real(RNP),      contiguous, intent(in)    :: v(:,:,:,:,:)
-      real(RNP),      contiguous, intent(inout) :: vp(:,:,:,:,:)
-      real(RNP),      contiguous, intent(inout) :: sp(:,:,:,:,:)
-      real(RNP),      contiguous, intent(out)   :: F_d(:,:,:,:,:)
-      integer,          optional, intent(in)    :: form
-      character(len=*), optional, intent(in)    :: extrapolate
-    end subroutine GetDiffusionTerm_DC
 
     !---------------------------------------------------------------------------
     !> Homogeneous diffusion operator with constant viscosity
@@ -156,23 +119,30 @@ module INS__Operator__3D
     module subroutine ApplyDiffusionOperator_C(this, tau, v, r, form)
       class(INS_Operator_3D), intent(in)  :: this
       real(RNP),              intent(in)  :: tau
-      real(RNP), contiguous,  intent(in)  :: v(:,:,:,:,:)
-      real(RNP), contiguous,  intent(out) :: r(:,:,:,:,:)
-      integer,     optional,  intent(in)  :: form
+      real(RNP),  contiguous, intent(in)  :: v(:,:,:,:,:)
+      real(RNP),  contiguous, intent(out) :: r(:,:,:,:,:)
+      integer,      optional, intent(in)  :: form
     end subroutine ApplyDiffusionOperator_C
 
     !---------------------------------------------------------------------------
-    !> Diffusion residual with constant viscosity
+    !> Application of velocity boundary conditions to trace variables
 
-    module subroutine GetDiffusionResidual_C(this, tau, f, bv_u, v, r, form)
-      class(INS_Operator_3D),     intent(in)  :: this
-      real(RNP),                  intent(in)  :: tau
-      real(RNP), contiguous,      intent(in)  :: f(:,:,:,:,:)
-      class(BoundaryVariable_3D), intent(in)  :: bv_u(:)
-      real(RNP), contiguous,      intent(in)  :: v(:,:,:,:,:)
-      real(RNP), contiguous,      intent(out) :: r(:,:,:,:,:)
-      integer,     optional,      intent(in)  :: form
-    end subroutine GetDiffusionResidual_C
+    module subroutine ApplyEssentialBC(this, bv_u, vm, vp)
+      class(INS_Operator_3D),               intent(in)    :: this
+      class(BoundaryVariable_3D), optional, intent(in)    :: bv_u(:)
+      real(RNP),                contiguous, intent(in)    :: vm(:,:,:,:,:)
+      real(RNP),                contiguous, intent(inout) :: vp(:,:,:,:,:)
+    end subroutine ApplyEssentialBC
+
+    !---------------------------------------------------------------------------
+    !> Application of natural boundary conditions to velocity trace variables
+
+    module subroutine ApplyNaturalBC(this, bv_s, sm, sp)
+      class(INS_Operator_3D),     intent(in)    :: this
+      class(BoundaryVariable_3D), intent(in)    :: bv_s(:)
+      real(RNP),      contiguous, intent(in)    :: sm(:,:,:,:,:)
+      real(RNP),      contiguous, intent(inout) :: sp(:,:,:,:,:)
+    end subroutine ApplyNaturalBC
 
     !---------------------------------------------------------------------------
     !> Diffusion solver
@@ -191,6 +161,76 @@ module INS__Operator__3D
       integer,          optional, intent(out)   :: ni
 
     end subroutine DiffusionSolver
+
+    !---------------------------------------------------------------------------
+    !> Backflow pressure penalty (C)
+
+    module subroutine GetBackflowPenalty_C(this, problem, b, v, dp)
+      class(INS_Operator_3D), intent(in)  :: this
+      class(INS_Problem_3D),  intent(in)  :: problem
+      integer,                intent(in)  :: b
+      real(RNP),  contiguous, intent(in)  :: v(:,:,:,:,:)
+      real(RNP),  contiguous, intent(out) :: dp(:,:,:)
+    end subroutine GetBackflowPenalty_C
+
+    !---------------------------------------------------------------------------
+    !> Diffusion residual with constant viscosity
+
+    module subroutine GetDiffusionResidual_C(this, tau, f, bv_u, v, r, form)
+      class(INS_Operator_3D),     intent(in)  :: this
+      real(RNP),                  intent(in)  :: tau
+      real(RNP),      contiguous, intent(in)  :: f(:,:,:,:,:)
+      class(BoundaryVariable_3D), intent(in)  :: bv_u(:)
+      real(RNP),      contiguous, intent(in)  :: v(:,:,:,:,:)
+      real(RNP),      contiguous, intent(out) :: r(:,:,:,:,:)
+      integer,          optional, intent(in)  :: form
+    end subroutine GetDiffusionResidual_C
+
+    !---------------------------------------------------------------------------
+    !> Diffusion term with constant viscosity on irregular (deformed) mesh
+
+    module subroutine GetDiffusionTerm_C(this, v, vp, sp, F_d, bv_u, xout, form)
+      class(INS_Operator_3D),               intent(in)  :: this
+      real(RNP),                contiguous, intent(in)  :: v(:,:,:,:,:)
+      real(RNP),                contiguous, intent(out) :: vp(:,:,:,:,:)
+      real(RNP),                contiguous, intent(out) :: sp(:,:,:,:,:)
+      real(RNP),                contiguous, intent(out) :: F_d(:,:,:,:,:)
+      class(BoundaryVariable_3D), optional, intent(in)  :: bv_u(:)
+      logical,                    optional, intent(in)  :: xout
+      integer,                    optional, intent(in)  :: form
+    end subroutine GetDiffusionTerm_C
+
+    !---------------------------------------------------------------------------
+    !> Viscous stress vector on a boundary (C)
+
+    module subroutine GetViscousBoundaryStress_C(this, b, v, sb, bv_u, xout, form)
+      class(INS_Operator_3D),               intent(in)  :: this
+      integer,                              intent(in)  :: b
+      real(RNP),                contiguous, intent(in)  :: v(:,:,:,:,:)
+      real(RNP),                contiguous, intent(out) :: sb(:,:,:,:)
+      class(BoundaryVariable_3D), optional, intent(in)  :: bv_u(:)
+      logical,                    optional, intent(in)  :: xout
+      integer,                    optional, intent(in)  :: form
+    end subroutine GetViscousBoundaryStress_C
+
+    !---------------------------------------------------------------------------
+    !> Projection-based pressure solver
+
+    module subroutine PressureSolver( this, tau, bv_u, v, f, p &
+                                    , i_max, r_red, r_max, ni  )
+
+      class(INS_Operator_3D),     intent(in)    :: this
+      real(RNP),                  intent(in)    :: tau
+      class(BoundaryVariable_3D), intent(inout) :: bv_u(:)
+      real(RNP), contiguous,      intent(in)    :: v(:,:,:,:,:)
+      real(RNP), contiguous,      intent(in)    :: f(:,:,:,:)
+      real(RNP), contiguous,      intent(inout) :: p(:,:,:,:)
+      integer,                    intent(in)    :: i_max
+      real(RNP),        optional, intent(in)    :: r_red
+      real(RNP),        optional, intent(in)    :: r_max
+      integer,          optional, intent(out)   :: ni
+
+    end subroutine PressureSolver
 
   end interface
 
@@ -303,50 +343,6 @@ contains
 !   end if
 
   end subroutine GetConvectionTerm
-
-  !-----------------------------------------------------------------------------
-  !> Diffusion term with constant viscosity
-
-  subroutine GetDiffusionTerm_C(this, v, vp, sp, F_d, form, extrapolate)
-
-    class(INS_Operator_3D), intent(in) :: this
-    !< incompressible Navier-Stokes operator
-
-    real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
-    !< velocity (np,np,np,ne,3)
-
-    real(RNP), contiguous, intent(inout) :: vp(:,:,:,:,:)
-    !< exterior velocity traces (np,np,6,ne,3)
-    !<   - in:  v   at Dirichlet faces, nn⋅v at free-slip faces, undefined else
-    !<   - out: v⁺  at all element faces
-
-    real(RNP), contiguous, intent(inout) :: sp(:,:,:,:,:)
-    !< viscous flux traces (np,np,6,ne,3)
-    !<   - in:  s  = n⋅τ   at free-slip or traction faces, undefined else
-    !<   - out: s⁺ = n⋅τ⁺  at all element faces
-
-    real(RNP), contiguous, intent(out) :: F_d(:,:,:,:,:)
-    !< diffusion term (np,np,np,ne,3)
-
-    integer, optional, intent(in) :: form
-    !< switch form of the approximated diffusion term `∇⋅τ`
-    !!   - `0` :  `∇⋅ν[∇v + (∇v)ᵀ] + ∇[(μ-2/3ν)∇⋅v]`               (default)
-    !!   - `1` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[      ν ∇⋅v] =  ν∇²v`       (diffusion)
-    !!   - `2` :  `∇⋅ν[∇v + (∇v)ᵀ] - ∇[     2ν ∇⋅v] = -ν∇×(∇×v)`   (rotation)
-
-    character(len=*), optional, intent(in) :: extrapolate
-    !< switch to replace boundary conditions by extrapolation:
-    !!   - `D` :  Dirichlet conditions
-    !!   - `O` :  outflow conditions
-    !!   - `A` :  all
-
-!   if (this % mesh % regular) then
-!     not implemented yet
-!   else
-      call GetDiffusionTerm_DC(this, v, vp, sp, F_d, form, extrapolate)
-!   end if
-
-  end subroutine GetDiffusionTerm_C
 
   !=============================================================================
   ! Type-bound procedures of INS_OperatorOptions_3D
