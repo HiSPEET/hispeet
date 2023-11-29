@@ -158,56 +158,56 @@ contains
     real(RNP), contiguous,        intent(in)  :: u(0:,:)
     real(RNP), contiguous,        intent(out) :: h_c(0:)
 
-    real(RNP), allocatable :: ul(:), ur(:)
+    real(RNP), allocatable :: u_l(:), u_r(:)
 
     integer :: po, ne
 
     po = ubound(u,1)
     ne = ubound(u,2)
 
-    allocate(ul(0:ne), ur(0:ne))
+    allocate(u_l(0:ne), u_r(0:ne))
 
     ! inner traces
-    ul(1:ne)   = u(po, 1:ne)
-    ur(0:ne-1) = u( 0, 1:ne)
+    u_l(1:ne)   = u(po, 1:ne)
+    u_r(0:ne-1) = u( 0, 1:ne)
 
     ! left boundary
     select case(this % bc(1))
     case('D')
-      ul(0) = 2 * bv(1,1) - u(0,1)
+      u_l(0) = 2 * bv(1,1) - u(0,1)
     case('P')
-      ul(0) = u(po,ne)
+      u_l(0) = u(po,ne)
     case default
-      ul(0) = u(0,1)
+      u_l(0) = u(0,1)
     end select
 
     ! right boundary
     select case(this % bc(2))
     case('D')
-      ur(ne) = 2 * bv(1,2) - u(po,ne)
+      u_r(ne) = 2 * bv(1,2) - u(po,ne)
     case('P')
-      ur(ne) = u(0,1)
+      u_r(ne) = u(0,1)
     case default
-      ur(ne) = u(po,ne)
+      u_r(ne) = u(po,ne)
     end select
 
-    h_c = RiemannFlux(this % v, ul, ur)
+    h_c = RiemannFlux(this % v, u_l, u_r)
 
   end subroutine GetNumericalConvectiveFlux
 
   !-----------------------------------------------------------------------------
-  !> Numerical convective flux hc(ul,ur) based on Riemann solver
+  !> Numerical convective flux based on Riemann solver
 
-  elemental function RiemannFlux(v, ul, ur) result(h_c)
+  elemental function RiemannFlux(v, u_l, u_r) result(h_c)
     real(RNP), intent(in) :: v
-    real(RNP), intent(in) :: ul
-    real(RNP), intent(in) :: ur
+    real(RNP), intent(in) :: u_l
+    real(RNP), intent(in) :: u_r
     real(RNP) :: h_c
 
     if (v >= ZERO) then
-      h_c = v * ul
+      h_c = v * u_l
     else
-      h_c = v * ur
+      h_c = v * u_r
     end if
 
   end function RiemannFlux
