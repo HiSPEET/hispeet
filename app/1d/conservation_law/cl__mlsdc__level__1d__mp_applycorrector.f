@@ -121,7 +121,7 @@ contains
 
         ! set initial values for next step
         if (n < n_time) then
-          u(:,:,:,0,n+1) = u(:,:,:,m,n)
+          u(:,:,:,0,n+1) = u(:,:,:,n_sub,n)
         end if
 
       end do Steps

@@ -20,7 +20,7 @@ add_library( HiConservationLaw_1D
              cl__time_integrator__rk__1d.f
 
              cl__sdc__method__1d.f
-#            cl__sdc__method__euler__1d.f
+             cl__sdc__method__euler__1d.f
              cl__sdc__method__isd1__1d.f
 
              cl__mlsdc__1d.f

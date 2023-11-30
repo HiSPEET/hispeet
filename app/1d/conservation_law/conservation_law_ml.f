@@ -18,6 +18,8 @@ program Conservation_Law_ML
   use CL__MLSDC__Level__1D
   use CL__MLSDC__Variable__1D
 
+  use Export_VTK_Spacetime_Data__1D
+
   implicit none
 
   ! declarations: control ......................................................
@@ -61,17 +63,39 @@ program Conservation_Law_ML
   integer :: p_space (max_n_level) = -1 ! polynomial degree of elements space
   integer :: n_time  (max_n_level) = -1 ! number of time steps in one slice
   integer :: p_time  (max_n_level) = -1 ! polynomial degree of time step
+  integer :: n_sweep (max_n_level) = -1 ! number of SDC sweeps corrector
 
-  namelist/discretization_prm/ n_space, p_space, n_time, p_time
+  namelist/discretization_prm/ n_space, p_space, n_time, p_time, n_sweep
 
+  ! component testing
+  integer :: projection_switch    ! switch for projection test
+  integer :: interpolation_switch ! switch for interpolation test
+  integer :: residual_switch      ! switch for collocation residual test
+  integer :: restriction_switch   ! switch for restriction test
+  integer :: predictor_switch     ! switch for predictor test
+  integer :: corrector_switch     ! switch for corrector test
 
-  type(CL_MLSDC_Variable_1D) :: u_h, u_x
+  namelist/component_testing_prm/ projection_switch, interpolation_switch, &
+                                  residual_switch, restriction_switch,     &
+                                  predictor_switch, corrector_switch
 
-  real(RNP) :: t_0, t_1
-  real(RNP) :: err_max, r_max
-  logical   :: exists
-  integer   :: io, stat
-  integer   :: l
+  type(CL_MLSDC_Variable_1D)     :: u_h, u_x
+  real(RNP)                      :: t_0, t_1, dt
+  real(RNP)                      :: err_max, r_max
+  logical                        :: exists
+  integer                        :: io, stat
+  integer                        :: l, i, j, k, c
+  character(len=80)              :: filename
+  real(RNP), allocatable         :: t_ges(:,:)
+  real(RNP), allocatable         :: s(:,:,:,:,:)
+  real(RNP), allocatable         :: u_hf(:,:,:,:,:)
+  real(RNP), allocatable         :: r_f(:,:,:,:,:)
+  real(RNP), allocatable         :: r_c(:,:,:,:,:)
+  real(RNP), allocatable         :: r_fc(:,:,:,:,:)
+  real(RNP), allocatable         :: v(:,:,:,:,:)
+  real(RNP), allocatable         :: g(:,:,:,:,:)
+  character(len=20), allocatable :: sname(:)
+  real(RNP)                      :: dt_f, int_f, int_c
 
   ! initialization .............................................................
 
@@ -90,6 +114,7 @@ program Conservation_Law_ML
     open(newunit=io, file=case_file)
     read(io, nml = problem_prm)
     read(io, nml = discretization_prm)
+    read(io, nml = component_testing_prm)
     close(io)
   end if
 
@@ -109,6 +134,7 @@ program Conservation_Law_ML
   write(*,'(A,99I5)') 'q_conv  = ', mlsdc_opt % q_conv
   write(*,'(A,99I5)') 'n_time  = ', mlsdc_opt % n_time
   write(*,'(A,99I5)') 'p_time  = ', mlsdc_opt % p_time
+  write(*,'(A,99I5)') 'n_sweep = ', n_sweep(1:n_level)
   write(*,*)
 
   ! problem
@@ -125,9 +151,11 @@ program Conservation_Law_ML
   case default
     call Error('Conservation_Law', 'Invalid problem name')
   end select
-  call cl_problem % SetProblem() ! may not work with wave package
-! use the following to configure the problem (later)
-! call cl_problem % SetProblem(case_name)
+
+  ! convdiff
+  call cl_problem % SetProblem(case_name)
+  ! burgers
+  !call cl_problem % SetProblem()
 
   ! predictor options (ISD1, so far)
   allocate(CL_TimeIntegrator_Options_ISD1_1D :: opt_pre)
@@ -148,9 +176,7 @@ program Conservation_Law_ML
   u_h = CL_MLSDC_Variable_1D(mlsdc)
   u_x = CL_MLSDC_Variable_1D(mlsdc)
 
-  ! fine-to-coarse projection test .............................................
-
-  write(*,'(/,A)') 'fine-to-coarse projection test'
+  ! testing of the components ..................................................
 
   t_0 = t_start
   t_1 = t_start + dt_slab
@@ -161,102 +187,323 @@ program Conservation_Law_ML
     call GetExactSolution(mlsdc%level(l), t_0, t_1, u_x % level(l)%val)
   end do
 
-  do l = n_level, 2, -1
-    associate( u_hf => u_h % level(l  ) % val &
-             , u_hc => u_h % level(l-1) % val &
-             , u_xc => u_x % level(l-1) % val )
+  ! fine-to-coarse projection test .............................................
 
-      call mlsdc % level(l) % Project_FC(u_hf, u_hc)
+  if (projection_switch > 0) then
 
-      err_max = maxval(abs(u_hc - u_xc))
-      write(*,'(2X,2(A,I3),A,ES10.3)') 'level',l,' to',l-1,': err_max =',err_max
+    write(*,'(/,A)') 'fine-to-coarse projection test'
 
-    end associate
-  end do
+    do l = n_level, 2, -1
+      associate( u_hf     => u_h       % level (l  ) % val &
+               , u_hc     => u_h       % level (l-1) % val &
+               , u_xc     => u_x       % level (l-1) % val &
+               , p_time_c => mlsdc_opt % p_time(l-1)       &
+               , n_time_c => mlsdc_opt % n_time(l-1)       )
+
+        call mlsdc % level(l) % Project_FC(u_hf, u_hc)
+
+        err_max = maxval(abs(u_hc - u_xc))
+        write(*,'(2X,2(A,I3),A,ES10.3)') 'level',l,' to',l-1,': err_max =',err_max
+
+        if (projection_switch > 1) then ! visualization
+
+          allocate(t_ges(0:p_time_c, 1:n_time_c))
+          call mlsdc % level(l-1) % GetTimeMesh(t_0, t_1, t_ges)
+          call Pack_SpacetimeData(u=u_hc, s=s, uname=['u_hc'], sname=sname)
+          call Pack_SpacetimeData(u=u_xc, s=s, uname=['u_xc'], sname=sname)
+          call Pack_SpacetimeData(u=u_hc-u_xc, s=s, uname=['error'], sname=sname)
+
+          write(filename, '(A,A,I0)') &
+              trim(problem_name), '__fc_projection_to_level_',l-1
+
+          call ExportVTK_SpacetimeData( x     = mlsdc%level(l-1)%cl_operator%x &
+                                      , t     = t_ges                          &
+                                      , s     = s                              &
+                                      , sname = sname                          &
+                                      , file  = trim(adjustl(filename))        )
+          deallocate(t_ges, s, sname)
+
+        end if
+
+      end associate
+    end do
+
+  end if
 
   ! coarse-to-fine interpolation test ..........................................
 
-  write(*,'(/,A)') 'coarse-to-fine interpolation test'
+  if (interpolation_switch > 0) then
 
-  call GetExactSolution(mlsdc%level(1), t_0, t_1, u_h % level(1)%val)
+    write(*,'(/,A)') 'coarse-to-fine interpolation test'
 
-  do l = 1, n_level-1
-    associate( u_hc => u_h % level(l  ) % val &
-             , u_hf => u_h % level(l+1) % val &
-             , u_xf => u_x % level(l+1) % val )
+    call GetExactSolution(mlsdc%level(1), t_0, t_1, u_h % level(1)%val)
 
-      call mlsdc % level(l) % Interpolate_CF(u_hc, u_hf, complete=.true.)
+    do l = 1, n_level-1
+      associate( u_hc     => u_h       % level (l  ) % val &
+               , u_hf     => u_h       % level (l+1) % val &
+               , u_xf     => u_x       % level (l+1) % val &
+               , p_time_f => mlsdc_opt % p_time(l+1)       &
+               , n_time_f => mlsdc_opt % n_time(l+1)       )
 
-      err_max = maxval(abs(u_hf - u_xf))
-      write(*,'(2X,2(A,I3),A,ES10.3)') 'level',l,' to',l+1,': err_max =',err_max
+        call mlsdc % level(l) % Interpolate_CF(u_hc, u_hf, complete=.true.)
 
-    end associate
-  end do
+        err_max = maxval(abs(u_hf - u_xf))
+        write(*,'(2X,2(A,I3),A,ES10.3)') 'level',l,' to',l+1,': err_max =',err_max
+
+        if (interpolation_switch > 1) then ! visualization
+
+          allocate(t_ges(0:p_time_f, 1:n_time_f))
+          call mlsdc % level(l+1) % GetTimeMesh(t_0, t_1, t_ges)
+          call Pack_SpacetimeData(u=u_hf, s=s, uname=['u_hf'], sname=sname)
+          call Pack_SpacetimeData(u=u_xf, s=s, uname=['u_xf'], sname=sname)
+          call Pack_SpacetimeData(u=u_hf-u_xf, s=s, uname=['error'], sname=sname)
+
+          write(filename, '(A,A,I0)') &
+              trim(problem_name),'__cf_interpol_to_level_',l+1
+
+          call ExportVTK_SpacetimeData( x     = mlsdc%level(l+1)%cl_operator%x &
+                                      , t     = t_ges                          &
+                                      , s     = s                              &
+                                      , sname = sname                          &
+                                      , file  = trim(adjustl(filename))        )
+          deallocate(t_ges, s, sname)
+
+        end if
+
+      end associate
+    end do
+
+  end if
 
   ! collocation residual test ..................................................
 
-  write(*,'(/,A)') 'collocation residual test'
+  if (residual_switch > 0) then
 
-  do l = 1, n_level
-    associate( u => u_x % level(l) % val &
-             , r => u_h % level(l) % val )
+    write(*,'(/,A)') 'collocation residual test'
 
-      call mlsdc % level(l) % GetResidual(dt_slab, t_0, u, r)
+    do l = 1, n_level
+      associate( u      => u_x       % level (l) % val &
+               , r      => u_h       % level (l) % val &
+               , p_time => mlsdc_opt % p_time(l)       &
+               , n_time => mlsdc_opt % n_time(l)       )
 
-      r_max = maxval(abs(r))
-      write(*,'(2X,A,I3,A,ES10.3)') 'level',l,': r_max =',r_max
+        call mlsdc % level(l) % GetResidual(dt_slab, t_0, u, r)
 
-    end associate
-  end do
+        r_max = maxval(abs(r))
+        write(*,'(2X,A,I3,A,ES10.3)') 'level',l,': r_max =',r_max
 
-!### CHECK
-block
-  real(RNP), allocatable :: t(:,:)
-  character(len=80) plot_file
-  integer :: io
-  integer :: c, i, j, m, n
-  c = 1
-  do l = 1, n_level
-    write(plot_file,'(9G0)') 'result_l', l, '.dat'
-    open(newunit=io, file=plot_file)
-    write(io,'(A)') '# x, u_h, u_x, err'
+        if (residual_switch > 1) then ! visualization
 
-!!     ! spatial
-!!     m = mlsdc % level(l) % p_time
-!!     n = mlsdc % level(l) % n_time
-!!     !m = 0
-!!     !n = 1
-!!     do j = 1, mlsdc % level(l) % n_space
-!!     do i = 0, mlsdc % level(l) % p_space
-!!       write(io,'(99(ES17.10,1X))')                &
-!!         mlsdc % level(l) % cl_operator % x(i,j) , &
-!!         u_h % level(l) % val(i,j,c,m,n)         , &
-!!         u_x % level(l) % val(i,j,c,m,n)         , &
-!!         u_h % level(l) % val(i,j,c,m,n) -         &
-!!         u_x % level(l) % val(i,j,c,m,n)
-!!     end do
-!!     end do
+          allocate(t_ges(0:p_time, 1:n_time))
+          call mlsdc % level(l) % GetTimeMesh(t_0, t_1, t_ges)
+          call Pack_SpacetimeData(u=r, s=s, uname=['r'], sname=sname)
 
-    ! temporal
-    call mlsdc % level(l) % GetTimeMesh(t_0, t_1, t)
-    i = 0
-    j = 1
-    do n = 1, mlsdc % level(l) % n_time
-    do m = 0, mlsdc % level(l) % p_time
-      write(io,'(99(ES17.10,1X))')                &
-        t(m,n)                                  , &
-        u_h % level(l) % val(i,j,c,m,n)         , &
-        u_x % level(l) % val(i,j,c,m,n)         , &
-        u_h % level(l) % val(i,j,c,m,n) -         &
-        u_x % level(l) % val(i,j,c,m,n)
+          write(filename,'(A,A,I0)') trim(problem_name),'__residual_level_',l
+
+          call ExportVTK_SpacetimeData( x     = mlsdc%level(l)%cl_operator%x &
+                                      , t     = t_ges                        &
+                                      , s     = s                            &
+                                      , sname = sname                        &
+                                      , file  = trim(adjustl(filename))      )
+          deallocate(t_ges, s, sname)
+
+        end if
+
+      end associate
     end do
-    end do
-    deallocate(t)
 
-    close(io)
-  end do
-end block
-!### CHECK END
+  end if
+
+  ! fine-to-coarse restriction test ..............................................
+
+  if (restriction_switch > 0) then
+
+    write(*,'(/,A)') 'fine-to-coarse restriction test'
+
+    do l = n_level, 2, -1
+      associate( u_xf      => u_x       % level  (l  ) % val              &
+               , p_space_f => mlsdc_opt % p_space(l  )                    &
+               , n_space_f => mlsdc_opt % n_space(l  )                    &
+               , p_time_f  => mlsdc_opt % p_time (l  )                    &
+               , n_time_f  => mlsdc_opt % n_time (l  )                    &
+               , p_time_c  => mlsdc_opt % p_time (l-1)                    &
+               , n_time_c  => mlsdc_opt % n_time (l-1)                    &
+               , r_hf      => u_h       % level  (l  ) % val              &
+               , r_hc      => u_h       % level  (l-1) % val              &
+               , Me_f      => mlsdc     % level  (l  ) % cl_operator % Me &
+               , wt_f      => mlsdc     % level  (l  ) % cl_sdc      % w  &
+               , nc        => mlsdc     % level  (l  ) % cl_problem  % nc )
+
+        ! timestep fine
+        dt_f = (t_1 - t_0) / n_time_f
+
+        ! residual like variable
+        do i = 1, n_space_f
+          do c = 1, nc
+            do j = 0, p_time_f
+              do k = 1, n_time_f
+                r_hf(:,i,c,j,k) = Me_f * wt_f(j) * dt_f * u_xf(:,i,c,j,k)
+              end do
+            end do
+          end do
+        end do
+
+        ! restrict
+        call mlsdc % level(l-1) % Restrict_FC(r_hf, r_hc)
+
+        ! integral
+        int_f = sum(r_hf)
+        int_c = sum(r_hc)
+
+        err_max = abs(int_f - int_c)
+        write(*,'(2X,2(A,I3),A,ES10.3)') 'level',l,' to',l-1,': err_max =',err_max
+
+        if (restriction_switch > 1) then ! visualization
+
+          allocate(t_ges(0:p_time_c, 1:n_time_c))
+          call mlsdc%level(l-1)%GetTimeMesh(t_0, t_1, t_ges)
+          call Pack_SpacetimeData(u=r_hc, s=s, uname=['r_h'], sname=sname)
+
+          write(filename,'(A,A,I0)') &
+              trim(problem_name),'__fc_restrict_to_level_',l-1
+
+          call ExportVTK_SpacetimeData( x     = mlsdc%level(l-1)%cl_operator%x &
+                                      , t     = t_ges                          &
+                                      , s     = s                              &
+                                      , sname = sname                          &
+                                      , file  = trim(adjustl(filename))        )
+          deallocate(t_ges, s, sname)
+
+        end if
+
+      end associate
+    end do
+
+  end if
+
+  ! test of the predictor ......................................................
+
+  if (predictor_switch > 0) then
+
+    write(*,'(/,A)') 'test of the predictor'
+
+    do l = n_level, 1, -1
+      associate( u_x    => u_x       % level (l) % val &
+               , u_h    => u_h       % level (l) % val &
+               , p_time => mlsdc_opt % p_time(l)       &
+               , n_time => mlsdc_opt % n_time(l)       )
+
+        ! set approximate solution to zero and initial condition
+        u_h = 0.
+        u_h(:,:,:,0,1) = u_x(:,:,:,0,1)
+        ! predictor
+        call mlsdc % level(l) % ApplyPredictor(dt_slab, t_0, u_h)
+
+        err_max = maxval(abs(u_h - u_x))
+        write(*,'(2X,A,I3,A,ES10.3)') 'error on level ',l,': err_max =',err_max
+
+        if (predictor_switch > 1) then ! visualization
+
+          allocate(t_ges(0:p_time, 1:n_time))
+          call mlsdc%level(l)%GetTimeMesh(t_0, t_1, t_ges)
+          call Pack_SpacetimeData(u=u_h, s=s, uname=['u_h'], sname=sname)
+          call Pack_SpacetimeData(u=u_x, s=s, uname=['u_x'], sname=sname)
+          call Pack_SpacetimeData(u=u_h-u_x, s=s, uname=['error'], sname=sname)
+
+          write(filename,'(A,A,I0)') trim(problem_name),'__predictor_level_',l
+
+          call ExportVTK_SpacetimeData( x     = mlsdc%level(l)%cl_operator%x &
+                                      , t     = t_ges                        &
+                                      , s     = s                            &
+                                      , sname = sname                        &
+                                      , file  = trim(adjustl(filename))      )
+          deallocate(t_ges, s, sname)
+
+        end if
+
+      end associate
+    end do
+
+  end if
+
+  ! test of the corrector ......................................................
+
+  if (corrector_switch > 0) then
+
+    write(*,'(/,A)') 'test of the corrector'
+
+    do l = n_level, 1, -1
+      associate( u_x     => u_x       % level  (l) % val              &
+               , u_h     => u_h       % level  (l) % val              &
+               , p_space => mlsdc_opt % p_space(l)                    &
+               , n_space => mlsdc_opt % n_space(l)                    &
+               , p_time  => mlsdc_opt % p_time (l)                    &
+               , n_time  => mlsdc_opt % n_time (l)                    &
+               , nc      => mlsdc     % level  (l) % cl_problem  % nc )
+
+        ! set approximate solution to zero and initial condition
+        u_h = 0.
+        u_h(:,:,:,0,1) = u_x(:,:,:,0,1)
+
+        ! predictor
+        call mlsdc % level(l) % ApplyPredictor(dt_slab, t_0, u_h)
+
+        ! set FAS defect correction
+        allocate(g(0:p_space, 1:n_space, 1:nc, 0:p_time, 1:n_time))
+        if (l == n_level) then
+          g = 0.
+        else
+          allocate(v(0:p_space, 1:n_space, 1:nc, 0:p_time, 1:n_time))
+          ! fine solution restriction
+          call mlsdc % level(l+1) % Project_FC(u_hf, v)
+          ! get residual
+          allocate(r_c(0:p_space, 1:n_space, 1:nc, 0:p_time, 1:n_time))
+          call mlsdc % level(l) % GetResidual(dt_slab, t_0, v, r_c)
+          ! restrict fine residual
+          allocate(r_fc(0:p_space, 1:n_space, 1:nc, 0:p_time, 1:n_time))
+          call mlsdc % level(l) % Restrict_FC(r_f, r_fc)
+          ! calculate G
+          g = r_fc - r_c
+          deallocate(u_hf, r_f, r_c, r_fc, v)
+        end if
+
+        ! corrector
+        call mlsdc % level(l) % ApplyCorrector(dt_slab, t_0, g, u_h, n_sweep(l))
+        deallocate(g)
+
+        err_max = maxval(abs(u_h - u_x))
+        write(*,'(2X,A,I3,A,ES10.3)') 'error on level ',l,': err_max =',err_max
+
+        ! save fine variables to calculate G
+        allocate(u_hf(0:p_space, 1:n_space, 1:nc, 0:p_time,1:n_time))
+        allocate(r_f(0:p_space, 1:n_space, 1:nc, 0:p_time,1:n_time))
+        u_hf = u_h
+        ! get residual
+        call mlsdc % level(l) % GetResidual(dt_slab, t_0, u_hf, r_f)
+
+        if (corrector_switch > 1) then ! visualization
+
+          allocate(t_ges(0:p_time, 1:n_time))
+          call mlsdc%level(l)%GetTimeMesh(t_0, t_1, t_ges)
+          call Pack_SpacetimeData(u=u_h, s=s, uname=['u_h'], sname=sname)
+          call Pack_SpacetimeData(u=u_x, s=s, uname=['u_x'], sname=sname)
+          call Pack_SpacetimeData(u=u_h-u_x, s=s, uname=['error'], sname=sname)
+
+          write(filename,'(A,A,I0)') trim(problem_name),'__corrector_level_',l
+
+          call ExportVTK_SpacetimeData( x     = mlsdc%level(l)%cl_operator%x &
+                                      , t     = t_ges                        &
+                                      , s     = s                            &
+                                      , sname = sname                        &
+                                      , file  = trim(adjustl(filename))      )
+          deallocate(t_ges, s, sname)
+
+        end if
+
+      end associate
+    end do
+
+  end if
 
 contains
 

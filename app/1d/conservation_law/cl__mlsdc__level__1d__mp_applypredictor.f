@@ -38,7 +38,7 @@ contains
         dt_sub = t_sub(1:n_sub) - t_sub(0:n_sub)
 
         ! sweep thru subintervals
-        do m = 0, n_sub
+        do m = 1, n_sub
           call cl_sdc % predictor % TimeStep( this % cl_problem     &
                                             , this % cl_operator    &
                                             , dt  = dt_sub(m)       &
@@ -49,7 +49,7 @@ contains
 
         ! set initial values for next step
         if (n < n_time) then
-          u(:,:,:,0,n+1) = u(:,:,:,m,n)
+          u(:,:,:,0,n+1) = u(:,:,:,n_sub,n)
         end if
 
       end do

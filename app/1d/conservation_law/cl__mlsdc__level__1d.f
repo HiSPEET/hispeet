@@ -207,6 +207,11 @@ contains
       this % cl_sdc = CL_SDC_Method_ISD1_1D(opt % cl_pre, sdc_opt)
     end select
 
+    ! default: all elements refined if not top
+    if (.not. this % is_top) then
+      this % cl_operator % refinement = 1
+    end if
+
     ! transfer operators .......................................................
 
     if (.not. this % is_top) then

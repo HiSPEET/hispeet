@@ -165,6 +165,7 @@ set( UTIL_1D
      util_1d/cg__condensed_solver__1d.f
      util_1d/cg__utilities__1d.f
      util_1d/dg__utilities__1d.f
+     util_1d/export/export_vtk_spacetime_data__1d.f
     )
 
 #===============================================================================
