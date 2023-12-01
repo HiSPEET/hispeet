@@ -139,11 +139,11 @@ module CL__Problem__1D
     !> Evaluates the weak form of the streamline-diffusion operators for `u`
     !> using `u₀` for computing the streamline diffusivity.
 
-    subroutine GetSDTerm(this, cl_operator, tau, bv, u_0, u, r_sd)
+    subroutine GetSDTerm(this, cl_operator, theta, bv, u_0, u, r_sd)
       import
       class(CL_Problem_1D),  intent(in)  :: this
       class(CL_Operator_1D), intent(in)  :: cl_operator
-      real(RNP),             intent(in)  :: tau          !< SD time scale τ
+      real(RNP),             intent(in)  :: theta        !< SD time scale θ
       real(RNP),             intent(in)  :: bv  (:,:)    !< boundary values
       real(RNP), contiguous, intent(in)  :: u_0 (0:,:,:) !< u₀(x,t)
       real(RNP), contiguous, intent(in)  :: u   (0:,:,:) !< u(x,t)
@@ -155,10 +155,10 @@ module CL__Problem__1D
     !>
     !> Implicit method for solving or relaxing the diffusion subproblem
     !>
-    !>       u = f + ∆t [r_d(bv,u) + r_ds(bv,τ,u₀,u)]
+    !>       u = f + ∆t [r_d(bv,u) + r_ds(bv,θ,u₀,u)]
     !>
     !> The streamline-diffusion term `r_ds` is evaluated with `u₀` and included
-    !> only if τ > 0.
+    !> only if θ > 0.
     !> At present, the following solution methods are available:
     !>
     !> 1. Direct hybrid solver
@@ -181,13 +181,13 @@ module CL__Problem__1D
     !>        `schwarz % delta = -1`, `schwarz % no_min = -1`
     !>      - good smoother when used with overlap `schwarz % delta ≈ 0.25`
 
-    subroutine DiffusionSolver( this, cl_operator, dt, tau, bv, f, u_0, u &
-                              , method, i_max, r_red, r_max               )
+    subroutine DiffusionSolver( this, cl_operator, dt, theta, bv, f, u_0, u &
+                              , method, i_max, r_red, r_max                 )
       import
       class(CL_Problem_1D),  intent(in)    :: this
       class(CL_Operator_1D), intent(in)    :: cl_operator
       real(RNP),             intent(in)    :: dt          !< ∆t = t - t₀
-      real(RNP),             intent(in)    :: tau         !< SD time scale τ
+      real(RNP),             intent(in)    :: theta       !< SD time scale θ
       real(RNP),             intent(in)    :: bv (:,:)    !< boundary values
       real(RNP), contiguous, intent(in)    :: f  (0:,:,:) !< sources
       real(RNP), contiguous, intent(in)    :: u_0(0:,:,:) !< frozen solution

@@ -258,10 +258,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Streamline-diffusion contribution to RHS of DG-SEM formulation
 
-  subroutine GetSDTerm(this, cl_operator, tau, bv, u_0, u, r_sd)
+  subroutine GetSDTerm(this, cl_operator, theta, bv, u_0, u, r_sd)
     class(CL_Problem_Burgers_1D), intent(in)  :: this
     class(CL_Operator_1D),        intent(in)  :: cl_operator
-    real(RNP),                    intent(in)  :: tau
+    real(RNP),                    intent(in)  :: theta
     real(RNP),                    intent(in)  :: bv (:,:)
     real(RNP), contiguous,        intent(in)  :: u_0 (0:,:,:)
     real(RNP), contiguous,        intent(in)  :: u   (0:,:,:)
@@ -279,7 +279,7 @@ contains
       allocate(mask(ne), source = cl_operator % activity > 0)
       allocate(f(0:po,ne), source = ZERO)
       allocate(nu_sd(0:po,ne))
-      call GetStreamlineDiffusivity(this, tau, u_0(:,:,1), nu_sd)
+      call GetStreamlineDiffusivity(this, theta, u_0(:,:,1), nu_sd)
 
       elliptic_bc = this % bc(:)(1:1)
       elliptic_bv = bv(1,:)
@@ -306,10 +306,10 @@ contains
   !>
   !> Implicit method for solving or relaxing the diffusion subproblem
   !>
-  !>       u = f + ∆t [r_d(bv,u) + r_ds(bv,τ,u₀,u)]
+  !>       u = f + ∆t [r_d(bv,u) + r_ds(bv,θ,u₀,u)]
   !>
   !> The streamline-diffusion term `r_ds` is evaluated with `u₀` and included
-  !> only if τ > 0.
+  !> only if θ > 0.
   !> At present, the following solution methods are available:
   !>
   !> 1. Direct hybrid solver
@@ -332,12 +332,12 @@ contains
   !>        `schwarz % delta = -1`, `schwarz % no_min = -1`
   !>      - good smoother when used with overlap `schwarz % delta ≈ 0.25`
 
-  subroutine DiffusionSolver( this, cl_operator, dt, tau, bv, f, u_0, u &
+  subroutine DiffusionSolver( this, cl_operator, dt, theta, bv, f, u_0, u &
                             , method, i_max, r_red, r_max               )
     class(CL_Problem_Burgers_1D), intent(in) :: this
     class(CL_Operator_1D), intent(in)    :: cl_operator
     real(RNP),             intent(in)    :: dt          !< ∆t = t - t₀
-    real(RNP),             intent(in)    :: tau         !< SD time scale τ
+    real(RNP),             intent(in)    :: theta       !< SD time scale θ
     real(RNP),             intent(in)    :: bv (:,:)    !< boundary values
     real(RNP), contiguous, intent(in)    :: f  (0:,:,:) !< sources
     real(RNP), contiguous, intent(in)    :: u_0(0:,:,:) !< frozen solution
@@ -384,10 +384,10 @@ contains
         end if
       end do
 
-      if (tau > ZERO) then
+      if (theta > ZERO) then
 
         allocate(nu_tot(0:po,ne))
-        call GetStreamlineDiffusivity(this, tau, u_0(:,:,1), nu_tot)
+        call GetStreamlineDiffusivity(this, theta, u_0(:,:,1), nu_tot)
         nu_tot = nu_tot + this % nu
 
         select case(method)
@@ -442,15 +442,15 @@ contains
   !---------------------------------------------------------------------------
   !> Computation of streamline diffusivity
 
-  subroutine GetStreamlineDiffusivity(cl_problem, tau, u, nu_sd)
+  subroutine GetStreamlineDiffusivity(cl_problem, theta, u, nu_sd)
     class(CL_Problem_Burgers_1D), intent(in) :: cl_problem
-    real(RNP),             intent(in)  :: tau         !< SD time scale τ
+    real(RNP),             intent(in)  :: theta       !< SD time scale θ
     real(RNP), contiguous, intent(in)  :: u    (0:,:) !< approx solution u
     real(RNP), contiguous, intent(out) :: nu_sd(0:,:) !< approx solution u
 
     integer :: e
 
-    nu_sd = tau/2 * u**2
+    nu_sd = theta/2 * u**2
 
     select case(cl_problem % nu_sd_filter)
     case(1)
