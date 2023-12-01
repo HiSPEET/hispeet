@@ -69,14 +69,78 @@ module CL__Problem__CNS__1D
     procedure :: NumericalConvectiveFlux
 
     ! diffusion
-    !#! the following routines will be provided in a separate submodule
-    ! procedure :: PhysicalDiffusivity
-    ! procedure :: StreamlineDiffusivity
-    ! procedure :: GetDiffusionTerm
-    ! procedure :: GetSDTerm
-    ! procedure :: DiffusionSolver
+    procedure :: PhysicalDiffusivity
+    procedure :: StreamlineDiffusivity
+    procedure :: GetHybridDiffusionTerm
+    procedure :: GetDiffusionTerm
+    procedure :: GetSDTerm
+    procedure :: DiffusionSolver
 
   end type CL_Problem_CNS_1D
+
+  !=============================================================================
+  ! external module procedures
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Returns the physical diffusivity matrix
+
+    pure module function PhysicalDiffusivity(this, u) result(A_pd)
+      class(CL_Problem_CNS_1D), intent(in) :: this
+      real(RNP), intent(in) :: u(:) !< conservative variables
+      real(RNP) :: A_pd(3,3)
+    end function PhysicalDiffusivity
+
+    !---------------------------------------------------------------------------
+    !> Returns the streamline diffusivity matrix
+
+    pure module function StreamlineDiffusivity(this, theta, u) result(A_d)
+      class(CL_Problem_CNS_1D), intent(in) :: this
+      real(RNP), intent(in) :: u(:)  !< conservative variables
+      real(RNP), intent(in) :: theta !< streamline-diffusion time scale
+      real(RNP) :: A_d(3,3)
+    end function StreamlineDiffusivity
+
+    !---------------------------------------------------------------------------
+    !> Unified CNS diffusion term combining physical and streamline contributions
+
+    module subroutine GetHybridDiffusionTerm &
+        (this, cl_operator, comp, theta, bv, u_0, u, r_d)
+
+      class(CL_Problem_CNS_1D), intent(in)  :: this
+      class(CL_Operator_1D),    intent(in)  :: cl_operator !< spatial operators
+      character,                intent(in)  :: comp        !< composition flag
+      real(RNP),                intent(in)  :: theta       !< SD time scale
+      real(RNP),                intent(in)  :: bv(:,:)     !< boundary values
+      real(RNP), contiguous,    intent(in)  :: u_0(0:,:,:) !< u₀(x,t)
+      real(RNP), contiguous,    intent(in)  :: u  (0:,:,:) !< u(x,t)
+      real(RNP), contiguous,    intent(out) :: r_d(0:,:,:) !< diffusion RHS
+
+    end subroutine GetHybridDiffusionTerm
+
+    !---------------------------------------------------------------------------
+    !> Implicit CNS diffusion solver
+
+    module subroutine DiffusionSolver &
+        (this, cl_operator, dt, theta, bv, f, u_0, u, method, i_max, r_red, r_max)
+
+      class(CL_Problem_CNS_1D), intent(in)    :: this
+      class(CL_Operator_1D),    intent(in)    :: cl_operator
+      real(RNP),                intent(in)    :: dt          !< ∆t = t - t₀
+      real(RNP),                intent(in)    :: theta       !< SD time scale θ
+      real(RNP),                intent(in)    :: bv (:,:)    !< boundary values
+      real(RNP), contiguous,    intent(in)    :: f  (0:,:,:) !< sources
+      real(RNP), contiguous,    intent(in)    :: u_0(0:,:,:) !< frozen solution
+      real(RNP), contiguous,    intent(inout) :: u  (0:,:,:) !< approx solution
+      integer,                  intent(in)    :: method      !< solution method
+      integer,                  intent(in)    :: i_max       !< max num iterations
+      real(RNP), optional,      intent(in)    :: r_red       !< residual reduction
+      real(RNP), optional,      intent(in)    :: r_max       !< max residual
+
+    end subroutine DiffusionSolver
+
+  end interface
 
   !=============================================================================
 
@@ -202,6 +266,44 @@ contains
 
   end subroutine GetConvectionTerm
 
+  !-----------------------------------------------------------------------------
+  !> Diffusive contribution to RHS of DG-SEM formulation
+
+  subroutine GetDiffusionTerm(this, cl_operator, bv, u, r_d)
+    class(CL_Problem_CNS_1D), intent(in)  :: this
+    class(CL_Operator_1D),    intent(in)  :: cl_operator
+    real(RNP),                intent(in)  :: bv (:,:)    !< boundary values
+    real(RNP), contiguous,    intent(in)  :: u  (0:,:,:) !< u(x,t)
+    real(RNP), contiguous,    intent(out) :: r_d(0:,:,:) !< diffusion RHS
+
+    character, parameter :: comp  = 'P'
+    real(RNP), parameter :: theta =  0
+
+    call GetHybridDiffusionTerm(this, cl_operator, comp, theta, bv, u, u, r_d)
+
+  end subroutine GetDiffusionTerm
+
+  !-----------------------------------------------------------------------------
+  !> Streamline-diffusion contribution to RHS of DG-SEM formulation
+  !>
+  !> Evaluates the weak form of the streamline-diffusion operators for `u`
+  !> using `u₀` for computing the streamline diffusivity.
+
+  subroutine GetSDTerm(this, cl_operator, theta, bv, u_0, u, r_sd)
+    class(CL_Problem_CNS_1D), intent(in)  :: this
+    class(CL_Operator_1D),    intent(in)  :: cl_operator
+    real(RNP),                intent(in)  :: theta        !< SD time scale θ
+    real(RNP),                intent(in)  :: bv  (:,:)    !< boundary values
+    real(RNP), contiguous,    intent(in)  :: u_0 (0:,:,:) !< u₀(x,t)
+    real(RNP), contiguous,    intent(in)  :: u   (0:,:,:) !< u(x,t)
+    real(RNP), contiguous,    intent(out) :: r_sd(0:,:,:) !< SD-RHS
+
+    character, parameter :: comp = 'S'
+
+    call GetHybridDiffusionTerm(this, cl_operator, comp, theta, bv, u_0, u, r_sd)
+
+  end subroutine GetSDTerm
+
   !=============================================================================
   ! CNS specific routines
 
@@ -257,9 +359,9 @@ contains
     T    = p/(u(1)*this%r_gas)
     a    = sqrt(this%gamma * this%r_gas * T)
 
-    z(1) = (TWO*a)/(this%gamma - 1) - v
+    z(1) = (2*a)/(this%gamma - 1) - v
     z(2) = this%c_p * log(T) - this%r_gas * log(p)
-    z(3) = (TWO*a)/(this%gamma - 1) + v
+    z(3) = (2*a)/(this%gamma - 1) + v
 
   end subroutine ConservativeToCharacteristic
 
@@ -313,7 +415,7 @@ contains
       e_k = HALF*v*v
       h_t = gamma*u(3)/u(1) - (gamma-1)*e_k
 
-      A(1,:) = [ZERO                  	 ,  ONE                   ,  ZERO     ]
+      A(1,:) = [ZERO                     ,  ONE                   ,  ZERO     ]
       A(2,:) = [(gamma-3)*e_k            , -(gamma-3)*v           ,  gamma-1  ]
       A(3,:) = [-v*(h_t - (gamma-1)*e_k) ,  h_t - 2*(gamma-1)*e_k ,  gamma*v  ]
 
@@ -331,33 +433,34 @@ contains
     real(RNP), optional,      intent(out) :: R(:,:)
     real(RNP), optional,      intent(out) :: L(:,:)
 
-    real(RNP) :: v, rho, p, aa, a, T, h, c1
+    real(RNP) :: a, aa, ek, h, p, rho, T, v, z2
 
     associate(gamma => this%gamma)
 
-      v = u(2)/u(1)
+      v   = u(2)/u(1)
+      ek  = HALF * v**2
       rho = u(1)
-      p = (gamma - 1) * (u(3) - HALF*u(2)*v)
-      aa = gamma * (p/rho)
-      a = sqrt(aa)
-      T = p/(u(1)*this%r_gas)
-      h = this%c_p * T
+      p   = (gamma - 1) * (u(3) - HALF*u(2)*v)
+      aa  = gamma * (p/rho)
+      a   = sqrt(aa)
+      T   = p/(u(1)*this%r_gas)
+      h   = this%c_p * T
 
       if(present(lambda)) then
         lambda = [v-a , v , v+a ]
       end if
 
       if(present(R)) then
-        R(1,1:3) = [ONE     , ONE      , ONE     ]
-        R(2,1:3) = [v-a     , v        , v+a     ]
-        R(3,1:3) = [h-(v*a) , HALF*v*v , h+(v*a) ]
+        R(1,1:3) = [ ONE     , ONE   , ONE     ]
+        R(2,1:3) = [ v-a     , v     , v+a     ]
+        R(3,1:3) = [ h-(v*a) , ek  , h+(v*a) ]
       end if
 
       if(present(L)) then
-        c1 = a/(gamma-1)
-        L(1,1:3) = [((v*v/2)+(v*c1)) , (-v-c1) ,  ONE ]
-        L(2,1:3) = [(2*h-v*v)        , 2*v     , -TWO ]
-        L(3,1:3) = [((v*v/2)-(v*c1)) , (-v+c1) ,  ONE ]
+        z2 = a/(gamma-1)
+        L(1,1:3) = [ ek  + v*z2 , -v - z2 ,  ONE ]
+        L(2,1:3) = [ 2*h - v*v  , 2*v     , -TWO ]
+        L(3,1:3) = [ ek  - v*z2 , -v + z2 ,  ONE ]
         L = HALF/h * L
       end if
     end associate
@@ -379,10 +482,10 @@ contains
 
     !JS! Entropie-Fix dann z.B. durch Anpassung der Eigenwerte
 
-  	!Calculation of the Roe-Average Value
+    ! calculation of the Roe-average
     u_roe = RoeAverage(this, u_l, u_r)
 
-    !Calculation of the Absolute Jacobian
+    ! calculation of the absolute Jacobian
     call ConvectiveEigensystem(this, u_roe, Lambda, R, L)
     Lambda = abs(Lambda)
     do i = 1, 3
@@ -391,7 +494,7 @@ contains
     end do
     end do
 
-    ! Calculation of the Roe-Flux
+    ! calculation of the Roe-Flux
     h_c = ( ConvectiveFlux(this, u_l) &
           + ConvectiveFlux(this, u_r) &
           + matmul(abs_A, u_l - u_r)  &
@@ -408,16 +511,16 @@ contains
     real(RNP), intent(in) :: u_r(:)
     real(RNP) :: u_m(3)
 
-    real(RNP) ::  r_l, v_l, p_l, T_l, H_l
-    real(RNP) ::  r_r, v_r, p_r, T_r, H_r
-    real(RNP) ::  rho_m, v_m, p_m, T_m, H_m
+    real(RNP) ::  r_l, v_l, T_l, H_l
+    real(RNP) ::  r_r, v_r, T_r, H_r
+    real(RNP) ::  rho_m, v_m, H_m
 
     r_l = sqrt(u_l(1))
     r_r = sqrt(u_r(1))
     rho_m = r_l * r_r
 
-    call ConservativeToPrimitive(this, u_l, v=v_l, T=T_l, p=p_l)
-    call ConservativeToPrimitive(this, u_r, v=v_r, T=T_r, p=p_r)
+    call ConservativeToPrimitive(this, u_l, v=v_l, T=T_l)
+    call ConservativeToPrimitive(this, u_r, v=v_r, T=T_r)
     v_m = (r_l*v_l + r_r*v_r) / (r_l + r_r)
 
     H_l = this%c_p * T_l + HALF * v_l * v_l
@@ -429,7 +532,7 @@ contains
     u_m(3) = rho_m * (H_m + (this%gamma -1) * HALF * v_m * v_m) / this%gamma
 
   end function RoeAverage
+
   !=============================================================================
 
 end module CL__Problem__CNS__1D
-

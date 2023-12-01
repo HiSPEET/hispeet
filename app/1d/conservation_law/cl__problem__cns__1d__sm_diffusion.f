@@ -1,16 +1,17 @@
 submodule(CL__Problem__CNS__1D) SM_Diffusion
+  implicit none
 
 contains
 
   !-----------------------------------------------------------------------------
   !> Returns the physical diffusivity matrix
 
-  pure function PhysicalDiffusivity(this, u) result(A_pd)
+  pure module function PhysicalDiffusivity(this, u) result(A_pd)
     class(CL_Problem_CNS_1D), intent(in) :: this
-    real(RNP), intent(in) :: u(:)
+    real(RNP), intent(in) :: u(:) !< conservative variables
     real(RNP) :: A_pd(3,3)
 
-    real(RNP) :: c1, cc, c3, d1, d2
+    real(RNP) :: amv, aev, aeT, c1, cc, c3, dv1, dv2, dT1, dT2, dT3
 
     c1  =  1  / u(1)                 ! 1/ρ
     cc  =  c1 / this % c_v           ! 1/ρc_v
@@ -35,34 +36,36 @@ contains
   !-----------------------------------------------------------------------------
   !> Returns the streamline diffusivity matrix
 
-  pure function StreamlineDiffusivity(this, tau, u) result(A_d)
+  pure module function StreamlineDiffusivity(this, theta, u) result(A_d)
     class(CL_Problem_CNS_1D), intent(in) :: this
-    real(RNP), intent(in) :: u(:)
-    real(RNP), intent(in) :: dt
+    real(RNP), intent(in) :: u(:)  !< conservative variables
+    real(RNP), intent(in) :: theta !< streamline-diffusion time scale
     real(RNP) :: A_d(3,3)
 
     A_d = ConvectiveJacobian(this, u)
-    A_d = (HALF * tau) * matmul(A_d, A_d)
+    A_d = (HALF * theta) * matmul(A_d, A_d)
 
   end function StreamlineDiffusivity
 
   !-----------------------------------------------------------------------------
-  !> Unified DG diffusion term combining physical and streamline contributions
+  !> Unified CNS diffusion term combining physical and streamline contributions
   !>
   !> The composition of the diffusion term is controlled by the argument `comp`:
   !> 'P' selects physical and 'S' streamline diffusion, whereas 'T' yields the
   !> total diffusion as the sum of both.
   !>
 
-  subroutine GetHybridDiffusionTerm(this, cl_operator, comp, tau, bv, u_0, u, r_d)
+  module subroutine GetHybridDiffusionTerm &
+      (this, cl_operator, comp, theta, bv, u_0, u, r_d)
+
     class(CL_Problem_CNS_1D), intent(in)  :: this
-    class(CL_Operator_1D),    intent(in)  :: cl_operator
-    character,                intent(in)  :: comp
-    real(RNP),                intent(in)  :: tau
-    real(RNP),                intent(in)  :: bv(:,:)
-    real(RNP), contiguous,    intent(in)  :: u_0(0:,:,:)
-    real(RNP), contiguous,    intent(in)  :: u  (0:,:,:)
-    real(RNP), contiguous,    intent(out) :: r_d(0:,:,:)
+    class(CL_Operator_1D),    intent(in)  :: cl_operator !< spatial operators
+    character,                intent(in)  :: comp        !< composition flag
+    real(RNP),                intent(in)  :: theta       !< SD time scale
+    real(RNP),                intent(in)  :: bv(:,:)     !< boundary values
+    real(RNP), contiguous,    intent(in)  :: u_0(0:,:,:) !< u₀(x,t)
+    real(RNP), contiguous,    intent(in)  :: u  (0:,:,:) !< u(x,t)
+    real(RNP), contiguous,    intent(out) :: r_d(0:,:,:) !< diffusion RHS
 
     ! local variables ..........................................................
 
@@ -105,9 +108,10 @@ contains
 
       ! work space .............................................................
 
-      allocate(mask(ne), source = cl_operator % activity > 0)
-      !BW! allocate remaining arrays here
       allocate(A(0:po,ne,3,3), source = ZERO)
+      allocate(A_hat(0:po,3))
+      allocate(jmp_u(0:po,3))
+      allocate(avg_q(0:po,3))
 
       ! diffusivity ............................................................
 
@@ -126,15 +130,15 @@ contains
           if (has_sd) then ! add streamline diffusivity
             do i = 0, po
               A(i,e,1:3,1:3) = A(i,e,1:3,1:3) &
-                             + StreamlineDiffusivity(this, u(i,e,:))
+                             + StreamlineDiffusivity(this, theta, u(i,e,:))
             end do
           end if
 
         case(0) ! frozen element, only boundary values required
 
           if (has_pd) then
-            A( 0,e,1:3,1:3) = <A_pd> !BW!
-            A(po,e,1:3,1:3) = <A_pd> !BW!
+            !BW! A( 0,e,1:3,1:3) = <A_pd>
+            !BW! A(po,e,1:3,1:3) = <A_pd>
           end if
 
           if (has_sd) then
@@ -184,8 +188,8 @@ contains
       !!! theoretical description to be derived !!!
 
       ! left boundary
-      select case(?)
-      case(<periodic>)
+      select case(this % bc(1))
+      case('P')
       case default ! nu jumps, inner fluxes
         do k = 1, 3
           jmp_u(0,k) = 0
@@ -284,15 +288,35 @@ contains
 
 !###############################################################################
 
-      deallocate(mask)
       !BW! add deallocation of remaining arrays
 
     end associate
 
     !$omp end master
 
-  end subroutine GetSDTerm
+  end subroutine GetHybridDiffusionTerm
 
-  !=============================================================================‚‘
+  !-----------------------------------------------------------------------------
+  !> Implicit CNS diffusion solver
+
+  module subroutine DiffusionSolver &
+      (this, cl_operator, dt, theta, bv, f, u_0, u, method, i_max, r_red, r_max)
+
+    class(CL_Problem_CNS_1D), intent(in)    :: this
+    class(CL_Operator_1D),    intent(in)    :: cl_operator
+    real(RNP),                intent(in)    :: dt          !< ∆t = t - t₀
+    real(RNP),                intent(in)    :: theta       !< SD time scale θ
+    real(RNP),                intent(in)    :: bv (:,:)    !< boundary values
+    real(RNP), contiguous,    intent(in)    :: f  (0:,:,:) !< sources
+    real(RNP), contiguous,    intent(in)    :: u_0(0:,:,:) !< frozen solution
+    real(RNP), contiguous,    intent(inout) :: u  (0:,:,:) !< approx solution
+    integer,                  intent(in)    :: method      !< solution method
+    integer,                  intent(in)    :: i_max       !< max num iterations
+    real(RNP), optional,      intent(in)    :: r_red       !< residual reduction
+    real(RNP), optional,      intent(in)    :: r_max       !< max residual
+
+  end subroutine DiffusionSolver
+
+  !=============================================================================
 
 end submodule SM_Diffusion
