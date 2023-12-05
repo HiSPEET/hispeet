@@ -1,4 +1,6 @@
 submodule(CL__Problem__CNS__1D) SM_Diffusion
+  use Array_Assignments
+  use Array_Reductions
   implicit none
 
 contains
@@ -11,7 +13,7 @@ contains
     real(RNP), intent(in) :: u(:) !< conservative variables
     real(RNP) :: A_pd(3,3)
 
-    real(RNP) :: amv, aev, aeT, c1, cc, c3, dv1, dv2, dT1, dT2, dT3
+    real(RNP) :: amv, aev, aeT, c1, cc, dv1, dv2, dT1, dT2, dT3
 
     c1  =  1  / u(1)                 ! 1/ρ
     cc  =  c1 / this % c_v           ! 1/ρc_v
@@ -55,6 +57,8 @@ contains
   !> total diffusion as the sum of both.
   !>
 
+!!!!!!!!!!!!!!!!!!!!!! CHOOSE SIGN FOR TERM PLACED ON RHS !!!!!!!!!!!!!!!!!!!!!!
+
   module subroutine GetHybridDiffusionTerm &
       (this, cl_operator, comp, theta, bv, u_0, u, r_d)
 
@@ -69,9 +73,6 @@ contains
 
     ! local variables ..........................................................
 
-    real(RNP), allocatable, save :: dx_u(:,:,:)
-    ! element solution derivatives ∂u/∂x (0:po,1:ne,1:3)
-
     real(RNP), allocatable, save :: A(:,:,:,:)
     ! element diffusivity matrices, A = A_pd + A_sd (0:po,1:ne,1:3,1:3)
 
@@ -84,12 +85,31 @@ contains
     real(RNP), allocatable, save :: avg_q(:,:)
     ! average of diffusive fluxes over element boundaries (0:ne,1:3)
 
-    real(RNP) :: g1, mu
+    real(RNP), allocatable, save :: u_l(:,:), u_r(:,:)
+    ! left and right traces of solution at element interfaces (0:ne,1:3)
+
+    real(RNP), allocatable, save :: q_l(:,:), q_r(:,:)
+    ! left and right diffusive fluxes at element interfaces (0:ne,1:3)
+
+    real(RNP), allocatable, save :: A_l(:,:), A_r(:,:)
+    ! left and right traces of diagonal interface diffusivity matrices (0:ne,1:3)
+
+    real(RNP), allocatable :: MD_t(:,:)
+    ! transpose of weighted derivative matrix (MD)ᵗ
+
+    real(RNP), allocatable :: dx_u(:,:)
+    ! element solution derivatives ∂u/∂x (0:po,1:3)
+
+    real(RNP), allocatable :: q(:,:)
+    ! element diffusive flux
 
     logical :: has_pd ! switch for physical diffusion
     logical :: has_sd ! switch for streamline diffusion
 
-    integer :: e, i, k
+    real(RNP) :: g, mu
+    real(RNP) :: c_0, c_po
+
+    integer :: e, i, j, k
 
     !$omp master !!! not ready for OpenMP, enforcing sequential execution !!!
 
@@ -101,17 +121,25 @@ contains
              , ne       => cl_operator % ne       &
              , dx       => cl_operator % dx       )
 
-      ! preliminaries ..........................................................
+      ! initialization .........................................................
 
       has_pd = scan(comp,'PT') > 0
       has_sd = scan(comp,'ST') > 0
 
-      ! work space .............................................................
+      ! shared workspace
+      allocate(A(0:po,ne,3,3), A_hat(0:po,3))
+      allocate(A_l, A_r, u_l, u_r, q_l, q_r, jmp_u, avg_q, mold = A_hat)
 
-      allocate(A(0:po,ne,3,3), source = ZERO)
-      allocate(A_hat(0:po,3))
-      allocate(jmp_u(0:po,3))
-      allocate(avg_q(0:po,3))
+      ! private workspace
+      allocate(MD_t(0:po,0:po), dx_u(0:po,3), q(0:po,3))
+
+      mu = eop % PenaltyFactor(dx)
+
+      do i = 0, po
+      do j = 0, po
+        MD_t(i,j) = M(j) * D(j,i)
+      end do
+      end do
 
       ! diffusivity ............................................................
 
@@ -130,165 +158,183 @@ contains
           if (has_sd) then ! add streamline diffusivity
             do i = 0, po
               A(i,e,1:3,1:3) = A(i,e,1:3,1:3) &
-                             + StreamlineDiffusivity(this, theta, u(i,e,:))
+                             + StreamlineDiffusivity(this, theta, u_0(i,e,:))
             end do
           end if
+
+          do k = 1, 3
+            A_r(e-1,k) = A( 0,e,k,k)
+            A_l(e  ,k) = A(po,e,k,k)
+          end do
 
         case(0) ! frozen element, only boundary values required
 
           if (has_pd) then
-            !BW! A( 0,e,1:3,1:3) = <A_pd>
-            !BW! A(po,e,1:3,1:3) = <A_pd>
+            A( 0,e,1:3,1:3) = PhysicalDiffusivity(this, u(0 ,e,:))
+            A(po,e,1:3,1:3) = PhysicalDiffusivity(this, u(po,e,:))
           end if
 
           if (has_sd) then
-            !BW! ...
+            A( 0,e,1:3,1:3) = A( 0,e,1:3,1:3) &
+                            + StreamlineDiffusivity(this, theta, u_0(0 ,e,:))
+            A(po,e,1:3,1:3) = A(po,e,1:3,1:3) &
+                            + StreamlineDiffusivity(this, theta, u_0(po,e,:))
           end if
+
+          do k = 1, 3
+            A_r(e-1,k) = A( 0,e,k,k)
+            A_l(e  ,k) = A(po,e,k,k)
+          end do
+
+        case default
+
+          A( 0,e,1:3,1:3) = 0
+          A(po,e,1:3,1:3) = 0
+
+          A_r(e-1,1:3) = 0
+          A_l(e  ,1:3) = 0
 
         end select
       end do
 
-!### part to be adapted from DG__Elliptic_Operator__1D  % Eval_RV ##############
-
       ! application of interior operator .......................................
 
-!BW! code for scalar case -- to be adapted
-!BW!      !$omp do
-!BW!      do e = 1, ne
-!BW!        if (mask(e)) then
-!BW!          dx_u(:,e) = g1 * matmul(D, u(:,e))
-!BW!          r(:,e) = matmul(M * nu(:,e) * dx_u(:,e), D)
-!BW!        else
-!BW!          dx_u( 0,e) = g1 * dot_product(D( 0,:), u(:,e))
-!BW!          dx_u(po,e) = g1 * dot_product(D(po,:), u(:,e))
-!BW!          r(:,e) = ZERO
-!BW!        end if
-!BW!      end do
+      g = 2 / dx
 
-      ! interior fluxes (and Â?) ..................................
+      !$omp do
+      do e = 1, ne
+        select case(activity(e))
 
-      !!! theoretical description to be derived !!!
+        case(1) ! active element
 
-!BW! code for scalar case -- to be adapted
-!BW!      !$omp do collapse(2)
-!BW!      do k = 1, 3
-!BW!      do e = 1, ne-1
-!BW!        jmp_u (e) = u(po,e) - u(0,e+1)
-!BW!        ql = nu(po,e  ) * dx_u(po,e  )
-!BW!        qr = nu( 0,e+1) * dx_u( 0,e+1)
-!BW!        jmp_q(e) = (ql - qr)
-!BW!        avg_q(e) = (ql + qr) * HALF
-!BW!        A_hat(e,k) = max(?,?)
-!BW!      end do
-!BW!      end do
+          dx_u = g * matmul(D, u(0:po,e,1:3))
 
+          do k = 1, 3
+            q(:,k) = A(:,e,k,1) * dx_u(:,1) &
+                   + A(:,e,k,2) * dx_u(:,2) &
+                   + A(:,e,k,3) * dx_u(:,3)
+          end do
 
-      ! boundary fluxes (and Â?) .............................................
+          r_d(0:po,e,1:3) = -matmul(MD_t, q)
 
-      !!! theoretical description to be derived !!!
+          ! save traces for computation of fluxes
+          u_r(e-1,1:3) = u( 0, e, 1:3)
+          u_l(e  ,1:3) = u(po, e, 1:3)
+          q_r(e-1,1:3) = q( 0,    1:3)
+          q_l(e  ,1:3) = q(po,    1:3)
+
+        case(0) ! frozen element, only traces required
+
+          r_d(0:po,e,1:3) = 0
+
+          u_r(e-1,1:3) = u( 0, e, 1:3)
+          u_l(e  ,1:3) = u(po, e, 1:3)
+
+          dx_u( 0,1:3) = g * matmul(D( 0,:), u(0:po,e,1:3))
+          dx_u(po,1:3) = g * matmul(D(po,:), u(0:po,e,1:3))
+
+          q_r(e-1,1:3) = A( 0,e,1:3,1) * dx_u( 0,1) &
+                       + A( 0,e,1:3,2) * dx_u( 0,2) &
+                       + A( 0,e,1:3,3) * dx_u( 0,3)
+
+          q_l(e  ,1:3) = A(po,e,1:3,1) * dx_u(po,1) &
+                       + A(po,e,1:3,2) * dx_u(po,2) &
+                       + A(po,e,1:3,3) * dx_u(po,3)
+
+        case default
+
+          r_d(0:po,e,1:3) = 0
+
+          u_r(e-1,1:3) = 0
+          u_l(e  ,1:3) = 0
+          q_r(e-1,1:3) = 0
+          q_l(e  ,1:3) = 0
+
+        end select
+      end do
+
+      ! application of boundary conditions .....................................
 
       ! left boundary
       select case(this % bc(1))
-      case('P')
-      case default ! nu jumps, inner fluxes
-        do k = 1, 3
-          jmp_u(0,k) = 0
-          avg_q(0,k) = A(0,1,k,1) * dx_u(0,1,1) &
-                     + A(0,1,k,2) * dx_u(0,1,2) &
-                     + A(0,1,k,3) * dx_u(0,1,3)
-          A_hat(0,k) = A(0,1,k,k)
-        end do
+
+      case('P') ! periodic
+        u_l(0,1:3) = u_l(ne,1:3)
+        q_l(0,1:3) = q_l(ne,1:3)
+        A_l(0,1:3) = A_l(ne,1:3)
+
+      case default ! extrapolation
+        u_l(0,1:3) = u_r(0,1:3)
+        q_l(0,1:3) = q_r(0,1:3)
+        A_l(0,1:3) = A_r(0,1:3)
+
       end select
-!#! !!! for start consider only Neumann and periodic cases  !!!
 
-!#! code for scalar case -- to be adapted
-!#!      ! left boundary
-!#!      select case(bc(1))
-!#!
-!#!      case('D')
-!#!        nu_max(0) = nu(0,1)
-!#!        if (has_bv) then
-!#!          jmp_u(0) = 2 * (bv(1) - u(0,1))
-!#!        else
-!#!          jmp_u(0) = 2 * (      - u(0,1))
-!#!        end if
-!#!        avg_q(0) = nu(0,1) * dx_u(0,1)
-!#!
-!#!      case('N')
-!#!        nu_max(0) = nu(0,1)
-!#!        if (has_bv) then
-!#!          avg_q(0) = nu(0,1) * bv(1)
-!#!        end if
-!#!
-!#!      case('P')
-!#!        nu_max(0) = max(nu(po,ne), nu(0,1))
-!#!        jmp_u (0) = u(po,ne) - u(0,1)
-!#!        ql = nu(po,ne) * dx_u(po,ne)
-!#!        qr = nu( 0, 1) * dx_u( 0, 1)
-!#!        jmp_q(0) = (ql - qr)
-!#!        avg_q(0) = (ql + qr) * HALF
-!#!      end select
-!#!
-!#!      ! right boundary
-!#!      select case(bc(2))
-!#!
-!#!      case('D')
-!#!        nu_max(ne) = nu(po,ne)
-!#!        if (has_bv) then
-!#!          jmp_u(ne) = 2 * (u(po,ne) - bv(2))
-!#!        else
-!#!          jmp_u(ne) = 2 * (u(po,ne)        )
-!#!        end if
-!#!        avg_q(ne) = nu(po,ne) * dx_u(po,ne)
-!#!
-!#!      case('N')
-!#!        nu_max(ne) = nu(po,ne)
-!#!        if (has_bv) then
-!#!          avg_q(ne) = nu(po,ne) * bv(2)
-!#!        end if
-!#!
-!#!      case('P')
-!#!        nu_max(ne) = nu_max(0)
-!#!        jmp_u (ne) = jmp_u (0)
-!#!        jmp_q (ne) = jmp_q (0)
-!#!        avg_q (ne) = avg_q (0)
-!#!      end select
+      ! right boundary
+      select case(this % bc(2))
 
-      ! apply ..................................................................
+      case('P') ! periodic
+        u_r(ne,1:3) = u_r(0,1:3)
+        q_r(ne,1:3) = q_r(0,1:3)
+        A_r(ne,1:3) = A_r(0,1:3)
 
-      !!! theoretical description to be derived !!!
+      case default ! extrapolation
+        u_r(ne,1:3) = u_l(ne,1:3)
+        q_r(ne,1:3) = q_l(ne,1:3)
+        A_r(ne,1:3) = A_l(ne,1:3)
 
-!#! code for scalar case -- to be adapted
-!#!      !$omp do
-!#!      do e = 1, ne
-!#!        if (mask(e)) then
-!#!
-!#!          ! - {ν∂v/∂x}[u]
-!#!          cl = -g1/2 * nu( 0,e) * jmp_u(e-1)
-!#!          cr = -g1/2 * nu(po,e) * jmp_u(e  )
-!#!          do i = 0, po
-!#!            r(i,e) = r(i,e) + cl * D(0,i) + cr * D(po,i)
-!#!          end do
-!#!
-!#!          ! - [v]{ν∂u/∂x}
-!#!          r( 0,e) = r( 0,e) + avg_q(e-1)
-!#!          r(po,e) = r(po,e) - avg_q(e  )
-!#!
-!#!          ! + μ⟨ν⟩[v][u]
-!#!          r( 0,e) = r( 0,e) - mu * nu_max(e-1) * jmp_u(e-1)
-!#!          r(po,e) = r(po,e) + mu * nu_max(e  ) * jmp_u(e  )
-!#!
-!#!
-!#!          if (has_f) then
-!#!            r(:,e) = f(:,e) - r(:,e)     !??????? VORZEICHEN ???????
-!#!          end if
-!#!
-!#!        end if
-!#!      end do
+      end select
 
-!###############################################################################
+      ! element interface values ...............................................
 
-      !BW! add deallocation of remaining arrays
+      !$omp do collapse(2)
+      do k = 1, 3
+      do e = 0, ne
+        jmp_u(e,k) =  u_l(e,k) - u_r(e,k)
+        avg_q(e,k) = (q_l(e,k) + q_r(e,k)) * HALF
+        A_hat(e,k) =  max(A_l(e,k), A_r(e,k))
+      end do
+      end do
+
+      ! apply fluxes ...........................................................
+
+      g = 1 / dx
+
+      !$omp do
+      do e = 1, ne
+        if (activity(e) < 1) cycle
+
+        do k = 1, 3
+
+          ! r_d += {v'A}[u]  . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+          c_0  = g * ( A( 0,e,k,1) * jmp_u(e-1,1) &
+                     + A( 0,e,k,2) * jmp_u(e-1,2) &
+                     + A( 0,e,k,3) * jmp_u(e-1,3) )
+
+          c_po = g * ( A(po,e,k,1) * jmp_u(e  ,1) &
+                     + A(po,e,k,2) * jmp_u(e  ,2) &
+                     + A(po,e,k,3) * jmp_u(e  ,3) )
+
+          r_d(:,e,k) = r_d(:,e,k) + D(0,i) * c_0 + D(po,:) * c_po
+
+          ! r_d += [v]{Au'}  . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+          r_d( 0,e,k) = r_d( 0,e,k) - avg_q(e-1,k)
+          r_d(po,e,k) = r_d(po,e,k) + avg_q(  e,k)
+
+          ! r_d -= μ[v]Â[u]  . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+          r_d( 0,e,k) = r_d( 0,e,k) + mu * A_hat(e-1,k) * jmp_u(e-1,k)
+          r_d(po,e,k) = r_d(po,e,k) - mu * A_hat(  e,k) * jmp_u(e  ,k)
+
+        end do
+      end do
+
+      ! finalization ...........................................................
+
+      ! free shared workspace
+      deallocate(A, A_hat, A_l, A_r, u_l, u_r, q_l, q_r, jmp_u, avg_q)
 
     end associate
 
@@ -314,6 +360,69 @@ contains
     integer,                  intent(in)    :: i_max       !< max num iterations
     real(RNP), optional,      intent(in)    :: r_red       !< residual reduction
     real(RNP), optional,      intent(in)    :: r_max       !< max residual
+
+    ! internal variables .......................................................
+
+    ! FGMGRES variables as introduced in: Y. Saad, SIAM JSC 14(2)461-469, 1993
+    real(RNP), allocatable, save :: h(:,:)     ! Hessenberg matric
+    real(RNP), allocatable, save :: r(:,:,:)   ! residual
+    real(RNP), allocatable, save :: v(:,:,:,:) ! auxiliary arrays
+    real(RNP), allocatable, save :: w(:,:,:)   ! ...
+    real(RNP), allocatable, save :: y(:)       ! ...
+    real(RNP), allocatable, save :: z(:,:,:)   ! ...
+    real(RNP) :: beta
+
+    real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
+
+    character :: comp
+    integer   :: nc, ne, nk, po
+    integer   :: e, i, j, k
+
+    !$omp master !!! so far
+
+    associate( nc => this % nc              &
+             , nk => this % n_krylov        &
+             , ne => cl_operator % ne       &
+             , po => cl_operator % eop % po &
+             , Me => cl_operator % Me       )
+
+      ! initialization .........................................................
+
+      if (theta > 0) then
+        ! physical and streamline (total) diffusion
+        comp = 'T'
+      else
+        ! physical diffusion only
+        comp = 'P'
+      end if
+
+      ! workspace
+      allocate(h(nk+1,nk), source = ZERO)
+      allocate(y(nk), v(0:po,ne,nc,nk))
+      allocate(r, w, z, mold = u)
+
+      ! start ..................................................................
+
+      call GetHybridDiffusionTerm(this, cl_operator, comp, theta, bv, u_0, u, r)
+
+      do k = 1, nc
+      do e = 1, ne
+        r(:,e,k) = r(:,e,k) + Me * (f(:,e,k) - 1/dt * u(:,e,k))
+      end do
+      end do
+
+      beta = sqrt(ScalarProduct(r, r))
+
+      call MergeArrays(ZERO, v(:,:,:,1), ONE/max(beta,eps), r, multi=.true.)
+
+
+      ! finalization ...........................................................
+
+      deallocate(h, r, v, w, y, z)
+
+    end associate
+
+    !$omp end master
 
   end subroutine DiffusionSolver
 

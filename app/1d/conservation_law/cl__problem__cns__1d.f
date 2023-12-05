@@ -39,13 +39,15 @@ module CL__Problem__CNS__1D
 
   type, abstract, extends(CL_Problem_1D) :: CL_Problem_CNS_1D
 
-    real(RNP) :: r_gas   !< specific gas constant
-    real(RNP) :: gamma   !< ratio of specific heats
-    real(RNP) :: c_p     !< specific heat for const pressure
-    real(RNP) :: c_v     !< specific heat for const volume
-    real(RNP) :: eta     !< dynamic viscosity
-    real(RNP) :: prandtl !< Prandtl
-    real(RNP) :: lambda  !< thermal conductivity
+    real(RNP) :: r_gas    !< specific gas constant
+    real(RNP) :: gamma    !< ratio of specific heats
+    real(RNP) :: c_p      !< specific heat for const pressure
+    real(RNP) :: c_v      !< specific heat for const volume
+    real(RNP) :: eta      !< dynamic viscosity
+    real(RNP) :: prandtl  !< Prandtl
+    real(RNP) :: lambda   !< thermal conductivity
+
+    integer   :: n_krylov !< dimension of GMRES Krylov subspaces
 
   contains
 
