@@ -18,6 +18,7 @@ program Conservation_Law_1L
   use CL__Time_Integrator__RK__1D
 
   use CL__SDC__Method__1D
+  use CL__SDC__Method__Euler__1D
   use CL__SDC__Method__ISD1__1D
 
   implicit none
@@ -72,9 +73,10 @@ program Conservation_Law_1L
 
 
   class(CL_SDC_Method_1D), allocatable :: cl_sdc
-  type(CL_SDC_Options_ISD1_1D) :: cl_sdc_isd1_opt
+  type(CL_SDC_Options_Euler_1D) :: cl_sdc_euler_opt
+  type(CL_SDC_Options_ISD1_1D)  :: cl_sdc_isd1_opt
 
-  namelist/time_integration_prm/ cl_sdc_isd1_opt
+  namelist/time_integration_prm/ cl_sdc_euler_opt, cl_sdc_isd1_opt
 
   ! declarations: variables ....................................................
 
@@ -139,8 +141,19 @@ program Conservation_Law_1L
   ! time integration
   select case(sdc_method)
 
-  ! case(1)
-    ! SDC based on Euler -- not implemented yet
+  case(1)
+
+    ! SDC based on Euler
+    select case(time_method)
+    case(1)
+      cl_sdc = CL_SDC_Method_Euler_1D(cl_tint_euler_opt, cl_sdc_euler_opt)
+    case(2)
+      cl_sdc = CL_SDC_Method_Euler_1D(cl_tint_isd1_opt, cl_sdc_euler_opt)
+    case(3)
+      cl_sdc = CL_SDC_Method_Euler_1D(cl_tint_isd2_opt, cl_sdc_euler_opt)
+    case(4)
+      cl_sdc = CL_SDC_Method_Euler_1D(cl_tint_rk_opt, cl_sdc_euler_opt)
+    end select
 
   case(2)
 
