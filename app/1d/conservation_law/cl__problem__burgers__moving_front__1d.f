@@ -18,6 +18,7 @@
 !>       u(x,t) = 0   for x > xs.
 !>
 !===============================================================================
+
 module CL__Problem__Burgers__Moving_Front__1D
 
   use Kind_Parameters, only: RNP
@@ -77,7 +78,7 @@ contains
       else
         call Error( 'SetProblem'                                  &
                   , 'Input file "'//trim(file)//'.prm" not found' &
-                  ,  'CL__Problem__Burgers__Moving_Front__1D'     )
+                  , 'CL__Problem__Burgers__Moving_Front__1D'      )
       end if
 
       ! read parameters ........................................................
