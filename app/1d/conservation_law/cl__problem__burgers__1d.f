@@ -498,7 +498,7 @@ contains
     nu_max = this % nu
 
     ! avoid compiler warnings
-    if (this % nc > 0 .or. cl_operator % ne > 1 .or. size(u) > 0) return
+    if (cl_operator % ne > 1 .or. size(u) > 0) return
 
   end subroutine GetMaxDiffusivity
 

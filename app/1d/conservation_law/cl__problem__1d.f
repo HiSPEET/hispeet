@@ -89,7 +89,7 @@ module CL__Problem__1D
       import
       class(CL_Problem_1D),  intent(in)  :: this
       class(CL_Operator_1D), intent(in)  :: cl_operator
-      real(RNP), contiguous, intent(out) :: u(0:,:,:) !< u⁰(0:po,1:n1,1:nc)
+      real(RNP), contiguous, intent(out) :: u(0:,:,:) !< u⁰(0:po,1:ne,1:nc)
     end subroutine GetInitialValues
 
     !---------------------------------------------------------------------------

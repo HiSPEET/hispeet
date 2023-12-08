@@ -5,14 +5,10 @@
 !>
 !> @todo
 !>   - investigate, select and implement simple + robust entropy fix
-!>   - develop IP-DG formulation of viscous terms
-!>   - develop IP-DG formulation of streamline diffusion (SD) terms
-!>   - implement viscous term
-!>   - implement SD terms
 !>   - upcoming:
 !>       * boundary conditions
-!>       * residual
-!>       * implicit solver
+!>           + in convective term
+!>           + in diffusive/SD term
 !>       * example problems
 !>           + acoustic wave
 !>           + shock tube
@@ -31,6 +27,7 @@ module CL__Problem__CNS__1D
   private
 
   public :: CL_Problem_CNS_1D
+  public :: CL_Problem_CNS_Options_1D
 
   !-----------------------------------------------------------------------------
   !> Type for defining and handling 1D compressible Navier-Stokes problems
@@ -41,10 +38,10 @@ module CL__Problem__CNS__1D
 
     real(RNP) :: r_gas    !< specific gas constant
     real(RNP) :: gamma    !< ratio of specific heats
-    real(RNP) :: c_p      !< specific heat for const pressure
-    real(RNP) :: c_v      !< specific heat for const volume
+    real(RNP) :: c_v      !< specific heat at constant volume
+    real(RNP) :: c_p      !< specific heat at constant pressure
     real(RNP) :: eta      !< dynamic viscosity
-    real(RNP) :: prandtl  !< Prandtl
+    real(RNP) :: prandtl  !< Prandtl number
     real(RNP) :: lambda   !< thermal conductivity
 
     integer   :: n_krylov !< dimension of GMRES Krylov subspaces
@@ -52,11 +49,16 @@ module CL__Problem__CNS__1D
   contains
 
     procedure :: GetConvectionTerm
-   !#! Not jet Implemented
-   ! procedure :: GetMaxVelocity
-   ! procedure :: GetMaxDiffusivity
+    procedure :: GetDiffusionTerm
+    procedure :: GetSDTerm
+    procedure :: DiffusionSolver
+    procedure :: GetMaxVelocity
+    procedure :: GetMaxDiffusivity
 
     ! CNS specific procedures ..................................................
+
+    ! initialization
+    procedure :: Init_CL_Problem_CNS_1D
 
     ! transformations
     procedure :: ConservativeToPrimitive
@@ -74,11 +76,24 @@ module CL__Problem__CNS__1D
     procedure :: PhysicalDiffusivity
     procedure :: StreamlineDiffusivity
     procedure :: GetHybridDiffusionTerm
-    procedure :: GetDiffusionTerm
-    procedure :: GetSDTerm
-    procedure :: DiffusionSolver
 
   end type CL_Problem_CNS_1D
+
+  !-----------------------------------------------------------------------------
+  !> Compressible Navier-Stokes options
+
+  type CL_Problem_CNS_Options_1D
+
+    ! fluid properties
+    real(RNP) :: r_gas    = 287.280E+0_RNP !< specific gas constant
+    real(RNP) :: gamma    =   1.400E+0_RNP !< ratio of specific heats
+    real(RNP) :: eta      =   1.800E-5_RNP !< dynamic viscosity
+    real(RNP) :: prandtl  =   0.691E+0_RNP !< Prandtl number
+
+    ! solver options
+    integer :: n_krylov = 5 !< dimension of GMRES Krylov subspaces
+
+  end type CL_Problem_CNS_Options_1D
 
   !=============================================================================
   ! external module procedures
@@ -114,7 +129,7 @@ module CL__Problem__CNS__1D
       class(CL_Operator_1D),    intent(in)  :: cl_operator !< spatial operators
       character,                intent(in)  :: comp        !< composition flag
       real(RNP),                intent(in)  :: theta       !< SD time scale
-      real(RNP),                intent(in)  :: bv(:,:)     !< boundary values
+      real(RNP), optional,      intent(in)  :: bv(:,:)     !< boundary values
       real(RNP), contiguous,    intent(in)  :: u_0(0:,:,:) !< u₀(x,t)
       real(RNP), contiguous,    intent(in)  :: u  (0:,:,:) !< u(x,t)
       real(RNP), contiguous,    intent(out) :: r_d(0:,:,:) !< diffusion RHS
@@ -147,6 +162,25 @@ module CL__Problem__CNS__1D
   !=============================================================================
 
 contains
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of the base type
+
+  subroutine Init_CL_Problem_CNS_1D(this, opt)
+    class(CL_Problem_CNS_1D),         intent(inout) :: this
+    class(CL_Problem_CNS_Options_1D), intent(in)    :: opt
+
+    this % r_gas    = opt % r_gas
+    this % gamma    = opt % gamma
+    this % eta      = opt % eta
+    this % prandtl  = opt % prandtl
+    this % n_krylov = opt % n_krylov
+
+    this % c_v      = this % r_gas / (this % gamma - 1)
+    this % c_p      = this % c_v * this % gamma
+    this % lambda   = this % c_p * this % eta / this % prandtl
+
+  end subroutine Init_CL_Problem_CNS_1D
 
   !-----------------------------------------------------------------------------
   !> Convective contribution to RHS of DG-SEM formulation
@@ -305,6 +339,58 @@ contains
     call GetHybridDiffusionTerm(this, cl_operator, comp, theta, bv, u_0, u, r_sd)
 
   end subroutine GetSDTerm
+
+  !-----------------------------------------------------------------------------
+  !> Provides the maximum velocity based on eigenvalues of advective Jacobian
+
+  subroutine GetMaxVelocity(this, cl_operator, u, v_max)
+    class(CL_Problem_CNS_1D), intent(in)  :: this
+    class(CL_Operator_1D),    intent(in)  :: cl_operator
+    real(RNP), contiguous,    intent(in)  :: u(0:,:,:) !< solution variable
+    real(RNP),                intent(out) :: v_max     !< maximum velocity
+
+    real(RNP) :: a, v, T
+    integer   :: e, i
+
+    v_max = 0
+
+    do e = 1, cl_operator % ne
+      if (cl_operator % activity(e) > 0) then
+        do i = 0, cl_operator % eop % po
+          call ConservativeToPrimitive(this, u(i,e,:), v, T)
+          a = sqrt(this%gamma * this%r_gas * T)
+          v_max = max(v_max, abs(v) + a)
+        end do
+      end if
+    end do
+
+  end subroutine GetMaxVelocity
+
+  !-----------------------------------------------------------------------------
+  !> Provides the maximum diffusivity
+
+  subroutine GetMaxDiffusivity(this, cl_operator, u, nu_max)
+    class(CL_Problem_CNS_1D), intent(in)  :: this
+    class(CL_Operator_1D),    intent(in)  :: cl_operator
+    real(RNP), contiguous,    intent(in)  :: u(0:,:,:)  !< solution variable
+    real(RNP),                intent(out) :: nu_max     !< maximum velocity
+
+    real(RNP) :: c_eta
+    integer   :: e
+
+    nu_max = 0
+
+    if (this%eta <= 0) return
+
+    c_eta = this%eta * max(4*THIRD, 1/this%prandtl)
+
+    do e = 1, cl_operator % ne
+      if (cl_operator % activity(e) > 0) then
+        nu_max = max(nu_max, c_eta / minval(u(:,e,1)))
+      end if
+    end do
+
+  end subroutine GetMaxDiffusivity
 
   !=============================================================================
   ! CNS specific routines

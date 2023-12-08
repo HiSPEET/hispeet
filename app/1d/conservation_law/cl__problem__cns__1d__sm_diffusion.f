@@ -56,6 +56,7 @@ contains
   !> 'P' selects physical and 'S' streamline diffusion, whereas 'T' yields the
   !> total diffusion as the sum of both.
   !>
+  !> Homogeneous boundary conditions are applied in the case that `bv` omitted.
 
 !!!!!!!!!!!!!!!!!!!!!! CHOOSE SIGN FOR TERM PLACED ON RHS !!!!!!!!!!!!!!!!!!!!!!
 
@@ -66,7 +67,7 @@ contains
     class(CL_Operator_1D),    intent(in)  :: cl_operator !< spatial operators
     character,                intent(in)  :: comp        !< composition flag
     real(RNP),                intent(in)  :: theta       !< SD time scale
-    real(RNP),                intent(in)  :: bv(:,:)     !< boundary values
+    real(RNP), optional,      intent(in)  :: bv(:,:)     !< boundary values
     real(RNP), contiguous,    intent(in)  :: u_0(0:,:,:) !< u₀(x,t)
     real(RNP), contiguous,    intent(in)  :: u  (0:,:,:) !< u(x,t)
     real(RNP), contiguous,    intent(out) :: r_d(0:,:,:) !< diffusion RHS
@@ -344,6 +345,8 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Implicit CNS diffusion solver
+  !>
+  !> FGMRES: Van der Vorst, Fig. 6.4
 
   module subroutine DiffusionSolver &
       (this, cl_operator, dt, theta, bv, f, u_0, u, method, i_max, r_red, r_max)
@@ -363,19 +366,28 @@ contains
 
     ! internal variables .......................................................
 
-    ! FGMGRES variables as introduced in: Y. Saad, SIAM JSC 14(2)461-469, 1993
-    real(RNP), allocatable, save :: h(:,:)     ! Hessenberg matric
-    real(RNP), allocatable, save :: r(:,:,:)   ! residual
-    real(RNP), allocatable, save :: v(:,:,:,:) ! auxiliary arrays
-    real(RNP), allocatable, save :: w(:,:,:)   ! ...
-    real(RNP), allocatable, save :: y(:)       ! ...
-    real(RNP), allocatable, save :: z(:,:,:)   ! ...
-    real(RNP) :: beta
-
     real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
 
+    real(RNP), allocatable, save :: h(:,:)     ! Hessenberg matrix
+    real(RNP), allocatable, save :: r(:,:,:)   ! residual
+    real(RNP), allocatable, save :: v(:,:,:,:) !
+    real(RNP), allocatable, save :: w(:,:,:)   ! ...
+    real(RNP), allocatable, save :: y(:)       ! ...
+    real(RNP), allocatable, save :: z(:,:,:,:) ! ...
+    real(RNP) :: beta
+
+    ! auxiliary variables for solving the least-squares problem
+    real(RNP), allocatable, save :: g(:,:) ! r       in VDV03
+    real(RNP), allocatable, save :: b(:)   ! \hat{b} in VDV03
+    real(RNP), allocatable, save :: c(:)   ! c       in VDV03
+    real(RNP), allocatable, save :: s(:)   ! s       in VDV03
+    real(RNP) :: delta, gamma, rho
+
+    real(RNP), save :: r_term
+    logical  , save :: converged
+
     character :: comp
-    integer   :: nc, ne, nk, po
+    logical   :: check_convergence
     integer   :: e, i, j, k
 
     !$omp master !!! so far
@@ -396,29 +408,151 @@ contains
         comp = 'P'
       end if
 
-      ! workspace
+      check_convergence = .false.
+      if (present(r_red)) check_convergence = r_red > 0
+      if (present(r_max)) check_convergence = r_max > 0 .or. check_convergence
+
+      !$omp master
       allocate(h(nk+1,nk), source = ZERO)
-      allocate(y(nk), v(0:po,ne,nc,nk))
-      allocate(r, w, z, mold = u)
+      allocate(g(nk  ,nk), source = ZERO)
+      allocate(b(nk+1)   , source = ZERO)
+      allocate(c(nk), s(nk), y(nk))
+      allocate(r, w, mold = u)
+      allocate(v(0:po,ne,nc,nk))
+      allocate(z, mold = v)
+      !$omp end master
+      !$omp barrier
 
-      ! start ..................................................................
+      OUTER_ITERATION: do k = 1, i_max
 
-      call GetHybridDiffusionTerm(this, cl_operator, comp, theta, bv, u_0, u, r)
+        ! initial residual, r = f - Au .........................................
 
-      do k = 1, nc
-      do e = 1, ne
-        r(:,e,k) = r(:,e,k) + Me * (f(:,e,k) - 1/dt * u(:,e,k))
-      end do
-      end do
+        call GetHybridDiffusionTerm( this, cl_operator, comp, theta &
+                                   , bv, u_0, u, r                  )
 
-      beta = sqrt(ScalarProduct(r, r))
+        !$omp do collapse(2)
+        do i = 1, nc
+        do e = 1, ne
+          r(:,e,i) = Me * (f(:,e,i) - 1/dt * u(:,e,i)) + r(:,e,i)
+        end do
+        end do
 
-      call MergeArrays(ZERO, v(:,:,:,1), ONE/max(beta,eps), r, multi=.true.)
+        beta = sqrt(ScalarProduct(r, r))
+        b(1) = beta
 
+        ! convergence check ....................................................
+
+        if (check_convergence) then
+
+          !$omp single
+          if (k == 1) then
+            ! set terminal condition
+            r_term = huge(r_term)
+            if (present(r_max)) then
+              if (r_max > 0) r_term = r_max
+            end if
+            if (present(r_red)) then
+              if (r_red > 0) r_term = min(r_term, beta * r_red)
+            end if
+          end if
+          converged = beta <= r_term
+          !$omp end single
+
+          if (converged) exit OUTER_ITERATION
+
+        end if
+
+        ! first Krylov vector ..................................................
+
+        call MergeArrays(ZERO, v(:,:,:,1), 1/max(beta,eps), r, multi=.true.)
+
+        INNER_ITERATION: do j = 1, nk
+          associate(zj => z(:,:,:,j))
+
+            ! preconditioning, z(j) = K⁻¹v(j) ..................................
+
+            ! using identity, so far
+            zj = v(:,:,:,j)
+
+            ! application of homogeneous operator, w = A z(j) ..................
+
+            call GetHybridDiffusionTerm( this, cl_operator, comp, theta &
+                                       , u_0 = u_0, u = zj, r_d = w     )
+
+            call MergeArrays(-ONE, w, 1/dt, zj, multi=.true.)
+
+            !$omp do collapse(2)
+            do i = 1, nc
+            do e = 1, ne
+              w(:,e,i) = 1/dt * Me * u(:,e,i) - w(:,e,i)
+            end do
+            end do
+
+            ! computation of new Krylov vector .................................
+
+            ! orthogonalization against old Krylov vectors
+            do i = 1, j
+              h(i,j) = ScalarProduct(w, v(:,:,:,i))
+              call MergeArrays(ONE, w, h(i,j), v(:,:,:,i), multi=.true.)
+            end do
+
+            ! normalization, v(j+1) = w / ‖w‖
+            h(j+1,j) = sqrt(ScalarProduct(w, w))
+            call MergeArrays(ZERO, v(:,:,:,j+1), 1/h(j+1,j), w, multi=.true.)
+
+            ! Givens rotation transforming h to upper triagonal matrix g .......
+
+            g(1,j) = h(1,j)
+
+            do i = 2, j
+              gamma    =  c(i-1) * g(i-1,j) + s(i-1) * h(i,j)
+              g(i,j)   = -s(i-1) * g(i-1,j) + c(i-1) * h(i,j)
+              g(i-1,j) = gamma
+            end do
+
+            delta  =  max(sqrt(g(j,j)**2 + h(j+1,j)**2), eps)
+            c(j)   =  g(j  ,j) / delta
+            s(j)   =  h(j+1,j) / delta
+            g(j,j) =  c(j) * g(j,j) + s(j) * h(j+1,j)
+            b(j+1) = -s(j) * b(j)
+            b(j)   =  c(j) * b(j)
+
+            ! convergence test .................................................
+
+            ! residual norm if inner iterations were exited now
+            rho = abs(b(j+1))
+
+            if (check_convergence) then
+              converged = rho <= r_term
+            end if
+
+            if (converged) exit INNER_ITERATION
+
+          end associate
+        end do INNER_ITERATION
+
+        ! intermediate solution ................................................
+
+        j = min(j, nk)
+
+        ! solve least-squares problem for y using backward substitution
+        y(j) = b(j) / g(j,j)
+        do i = j-1, 1, -1
+          y(i) = (b(i) - dot_product(g(i,i+1:j), y(i+1:j))) / g(i,i)
+        end do
+
+        ! improved approximate solution
+        do i = 1, j
+          call MergeArrays(ONE, u, y(i), z(:,:,:,i), multi=.true.)
+        end do
+
+      end do OUTER_ITERATION
 
       ! finalization ...........................................................
 
-      deallocate(h, r, v, w, y, z)
+      !$omp master
+      deallocate(b, c, g, h, r, s, v, w, y, z)
+      !$omp end master
 
     end associate
 
