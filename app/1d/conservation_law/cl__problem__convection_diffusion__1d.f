@@ -36,6 +36,7 @@ module CL__Problem__Convection_Diffusion__1D
 
   contains
 
+    procedure :: HasDiffusion
     procedure :: GetConvectionTerm
     procedure :: GetDiffusionTerm
     procedure :: GetSDTerm
@@ -48,6 +49,16 @@ module CL__Problem__Convection_Diffusion__1D
   !=============================================================================
 
 contains
+
+  !-----------------------------------------------------------------------------
+  !> Query whether problem has non vanishing physical diffusion
+
+  logical function HasDiffusion(this)
+    class(CL_Problem_ConvectionDiffusion_1D), intent(in) :: this
+
+    HasDiffusion = this % nu > 0
+
+  end function HasDiffusion
 
   !-----------------------------------------------------------------------------
   !> Convective contribution to RHS of DG-SEM formulation

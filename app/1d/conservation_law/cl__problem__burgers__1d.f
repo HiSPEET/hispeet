@@ -33,10 +33,12 @@ module CL__Problem__Burgers__1D
 
   type, abstract, extends(CL_Problem_1D) :: CL_Problem_Burgers_1D
 
-    real(RNP) :: nu = 0  !< viscosity
+    real(RNP) :: nu            !< viscosity
+    integer   :: nu_sd_filter  !< streamline-diffusivity filtering mode
 
   contains
 
+    procedure :: HasDiffusion
     procedure :: GetConvectionTerm
     procedure :: GetDiffusionTerm
     procedure :: GetSDTerm
@@ -49,6 +51,16 @@ module CL__Problem__Burgers__1D
   !=============================================================================
 
 contains
+
+  !-----------------------------------------------------------------------------
+  !> Query whether problem has non vanishing physical diffusion
+
+  logical function HasDiffusion(this)
+    class(CL_Problem_Burgers_1D), intent(in) :: this
+
+    HasDiffusion = this % nu > 0
+
+  end function HasDiffusion
 
   !-----------------------------------------------------------------------------
   !> Convective contribution to RHS of DG-SEM formulation

@@ -42,6 +42,8 @@ module CL__Problem__CNS__Acoustic_Wave__1D
   type, extends(CL_Problem_CNS_Options_1D) :: &
       CL_Problem_CNS_AcousticWave_Options_1D
 
+    real(RNP) :: xb1  = 0    !< left boundary position
+    real(RNP) :: xb2  = 1    !< right boundary position
     real(RNP) :: mach = 0.1  !< mean flow Mach number
     real(RNP) :: p_0  = 1E3  !< mean pressure
     real(RNP) :: T_0  = 3E2  !< mean temperature
@@ -94,7 +96,12 @@ contains
     ! initialize base type
     call this % Init_CL_Problem_CNS_1D(acoustic_wave_opt)
 
+    ! enforce periodicity
+    this % bc = 'P'
+
     ! specific parameters
+    this % xb1  = acoustic_wave_opt % xb1
+    this % xb2  = acoustic_wave_opt % xb2
     this % mach = acoustic_wave_opt % mach
     this % p_0  = acoustic_wave_opt % p_0
     this % T_0  = acoustic_wave_opt % T_0
@@ -154,10 +161,13 @@ contains
     real(RNP), intent(in)  :: t       !< time
     real(RNP), intent(out) :: bv(:,:) !< boundary values
 
-    bv = 0
-
-    ! avoid compiler warning
-    if (this % nc > 0 .or. t > 0) return
+    if (any(this % bc /= 'P')) then
+      call Error( 'GetBoundaryValues'                   &
+                , 'This problem requires periodic BC'   &
+                , 'CL__Problem__CNS__Acoustic_Wave__1D' )
+    else
+      bv = 0
+    end if
 
   end subroutine GetBoundaryValues
 

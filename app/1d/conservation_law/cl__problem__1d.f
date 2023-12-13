@@ -41,10 +41,6 @@ module CL__Problem__1D
     real(RNP)         :: xb2   !< position of right boundary
     character(len=80) :: bc(2) !< BC types at left and right boundaries
 
-    ! solution parameters ......................................................
-
-    integer :: nu_sd_filter = -1 !< streamline-diffusivity filtering mode
-
     ! control parameters .......................................................
 
     logical :: has_exact_solution = .false.
@@ -57,6 +53,7 @@ module CL__Problem__1D
     procedure :: GetTimeScales
 
     procedure(SetProblem       ), deferred :: SetProblem
+    procedure(HasDiffusion     ), deferred :: HasDiffusion
     procedure(GetInitialValues ), deferred :: GetInitialValues
     procedure(GetBoundaryValues), deferred :: GetBoundaryValues
     procedure(GetConvectionTerm), deferred :: GetConvectionTerm
@@ -81,6 +78,14 @@ module CL__Problem__1D
       class(CL_Problem_1D),       intent(inout) :: this
       character(len=*), optional, intent(in)    :: file !< (*.prm)
     end subroutine SetProblem
+
+    !---------------------------------------------------------------------------
+    !> Query whether problem has non vanishing physical diffusion
+
+    logical function HasDiffusion(this)
+      import
+      class(CL_Problem_1D), intent(in) :: this
+    end function HasDiffusion
 
     !---------------------------------------------------------------------------
     !> Provides the initial values u(x,0)

@@ -60,5 +60,6 @@ target_link_libraries(conservation_law_ml HiConservationLaw_1D)
 file( COPY
           burgers
           convection_diffusion
+          cns
       DESTINATION
           ${CMAKE_CURRENT_BINARY_DIR} )

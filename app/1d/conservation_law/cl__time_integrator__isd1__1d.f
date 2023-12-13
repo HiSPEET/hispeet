@@ -133,6 +133,10 @@ contains
       allocate(u_i , mold = u)
       allocate(bv(nc,2))
 
+      if (.not. cl_problem % HasDiffusion()) then
+        call SetArray(r_d, ZERO)
+      end if
+
       allocate(Me_inv(0:po), source = ONE/(dx/2 * eop%w))
 
       select case(this%impl)
@@ -143,7 +147,9 @@ contains
 
         call cl_problem % GetBoundaryValues(t_0, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
-        call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
+        if (cl_problem % HasDiffusion()) then
+          call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
+        end if
         call cl_problem % GetSDTerm(cl_operator, dt, bv, u_0, u_0, r_sd)
         call cl_problem % GetSources(cl_operator, t_0, u_0, f_s)
 
@@ -180,6 +186,8 @@ contains
           u(:,e,k) = u_0(:,e,k)
         end do
         end do
+
+        call SetArray(u, u_i, multi=.true.)
 
         ! implicit diffusion step
         call cl_problem % DiffusionSolver( cl_operator, dt, dt, bv          &

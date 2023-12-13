@@ -4,12 +4,14 @@ program Conservation_Law_1L
   use Constants
   use Array_Assignments
   use Execution_Control
+  use Logging_Levels
 
   use CL__Operator__1D
   use CL__Problem__1D
   use CL__Problem__Convection_Diffusion__Wave_Package__1D
   use CL__Problem__Burgers__Wave_Package__1D
   use CL__Problem__Burgers__Moving_Front__1D
+  use CL__Problem__CNS__Acoustic_Wave__1D
 
   use CL__Time_Integrator__1D
   use CL__Time_Integrator__Euler__1D
@@ -21,12 +23,19 @@ program Conservation_Law_1L
   use CL__SDC__Method__Euler__1D
   use CL__SDC__Method__ISD1__1D
 
+  use, intrinsic :: IEEE_Arithmetic
+
   implicit none
 
   ! declarations: control ......................................................
 
   character(len=80) :: case_name = 'conservation_law_1l'
   character(len=80) :: case_file
+
+  ! namelist input of log levels imported from module `Logging_Levels`
+  namelist/control_prm/ log_level
+  namelist/control_prm/ log_level_inner_iteration
+  namelist/control_prm/ log_level_outer_iteration
 
   ! declarations: problem ......................................................
 
@@ -37,6 +46,7 @@ program Conservation_Law_1L
   !   - 'convection_diffusion__wave_package'
   !   - 'burgers__wave_package'
   !   - 'burgers__moving_front'
+  !   - 'cns__acoustic_wave'
 
   namelist/problem_prm/ problem_name
 
@@ -106,6 +116,7 @@ program Conservation_Law_1L
   inquire(file=case_file, exist=exists)
   if (exists) then
     open(newunit=io, file=case_file)
+    read(io, nml = control_prm)
     read(io, nml = problem_prm)
     read(io, nml = space_discretization_prm)
     read(io, nml = time_integration_prm)
@@ -113,7 +124,7 @@ program Conservation_Law_1L
   end if
 
   nt = nint(t_end / dt)
-  if (nt_max > 0) then
+  if (nt_max >= 0) then
     nt = min(nt, nt_max)
   end if
 
@@ -128,6 +139,9 @@ program Conservation_Law_1L
   case('burgers__moving_front')
     write(*,'(A)') 'Initializing Burgers Moving Front problem'
     allocate(CL_Problem_Burgers_MovingFront_1D :: cl_problem)
+  case('cns__acoustic_wave')
+    write(*,'(A)') 'Initializing CNS acoustic wave problem'
+    allocate(CL_Problem_CNS_AcousticWave_1D :: cl_problem)
   case default
     call Error('Conservation_Law', 'Invalid problem name')
   end select
@@ -228,6 +242,11 @@ program Conservation_Law_1L
     else
       call cl_tint % TimeStep(cl_problem, cl_operator, dt, t, u_0, u)
     end if
+
+    if (any(ieee_is_nan(u))) then
+      call Error('Conservation_Law_1L', 'detected NaN')
+    end if
+
     call SetArray(u_0, u)
     t = t + dt
 

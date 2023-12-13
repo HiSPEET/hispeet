@@ -1,6 +1,7 @@
 submodule(CL__Problem__CNS__1D) SM_Diffusion
   use Array_Assignments
   use Array_Reductions
+! use, intrinsic :: IEEE_Arithmetic
   implicit none
 
 contains
@@ -57,8 +58,6 @@ contains
   !> total diffusion as the sum of both.
   !>
   !> Homogeneous boundary conditions are applied in the case that `bv` omitted.
-
-!!!!!!!!!!!!!!!!!!!!!! CHOOSE SIGN FOR TERM PLACED ON RHS !!!!!!!!!!!!!!!!!!!!!!
 
   module subroutine GetHybridDiffusionTerm &
       (this, cl_operator, comp, theta, bv, u_0, u, r_d)
@@ -152,7 +151,7 @@ contains
 
           if (has_pd) then ! add physical diffusivity
             do i = 0, po
-              A(i,e,1:3,1:3) = PhysicalDiffusivity(this, u(i,e,:))
+              A(i,e,1:3,1:3) = PhysicalDiffusivity(this, u_0(i,e,:))
             end do
           end if
 
@@ -171,8 +170,8 @@ contains
         case(0) ! frozen element, only boundary values required
 
           if (has_pd) then
-            A( 0,e,1:3,1:3) = PhysicalDiffusivity(this, u(0 ,e,:))
-            A(po,e,1:3,1:3) = PhysicalDiffusivity(this, u(po,e,:))
+            A( 0,e,1:3,1:3) = PhysicalDiffusivity(this, u_0(0 ,e,:))
+            A(po,e,1:3,1:3) = PhysicalDiffusivity(this, u_0(po,e,:))
           end if
 
           if (has_sd) then
@@ -317,7 +316,7 @@ contains
                      + A(po,e,k,2) * jmp_u(e  ,2) &
                      + A(po,e,k,3) * jmp_u(e  ,3) )
 
-          r_d(:,e,k) = r_d(:,e,k) + D(0,i) * c_0 + D(po,:) * c_po
+          r_d(:,e,k) = r_d(:,e,k) + D(0,:) * c_0 + D(po,:) * c_po
 
           ! r_d += [v]{Au'}  . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -369,15 +368,14 @@ contains
     real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
 
     real(RNP), allocatable, save :: h(:,:)     ! Hessenberg matrix
-    real(RNP), allocatable, save :: r(:,:,:)   ! residual
-    real(RNP), allocatable, save :: v(:,:,:,:) !
-    real(RNP), allocatable, save :: w(:,:,:)   ! ...
-    real(RNP), allocatable, save :: y(:)       ! ...
-    real(RNP), allocatable, save :: z(:,:,:,:) ! ...
+    real(RNP), allocatable, save :: v(:,:,:,:)
+    real(RNP), allocatable, save :: w(:,:,:)
+    real(RNP), allocatable, save :: y(:)
+    real(RNP), allocatable, save :: z(:,:,:,:)
     real(RNP) :: beta
 
     ! auxiliary variables for solving the least-squares problem
-    real(RNP), allocatable, save :: g(:,:) ! r       in VDV03
+    real(RNP), allocatable, save :: r(:,:) ! r       in VDV03
     real(RNP), allocatable, save :: b(:)   ! \hat{b} in VDV03
     real(RNP), allocatable, save :: c(:)   ! c       in VDV03
     real(RNP), allocatable, save :: s(:)   ! s       in VDV03
@@ -389,6 +387,7 @@ contains
     character :: comp
     logical   :: check_convergence
     integer   :: e, i, j, k
+    integer   :: ic
 
     !$omp master !!! so far
 
@@ -403,9 +402,11 @@ contains
       if (theta > 0) then
         ! physical and streamline (total) diffusion
         comp = 'T'
+        ic   = 1
       else
         ! physical diffusion only
         comp = 'P'
+        ic   = 2
       end if
 
       check_convergence = .false.
@@ -413,58 +414,65 @@ contains
       if (present(r_max)) check_convergence = r_max > 0 .or. check_convergence
 
       !$omp master
-      allocate(h(nk+1,nk), source = ZERO)
-      allocate(g(nk  ,nk), source = ZERO)
-      allocate(b(nk+1)   , source = ZERO)
-      allocate(c(nk), s(nk), y(nk))
-      allocate(r, w, mold = u)
-      allocate(v(0:po,ne,nc,nk))
-      allocate(z, mold = v)
+      allocate(v(0:po,ne,nc,nk+1)           , source = ZERO)
+      allocate(w(0:po,ne,nc)                , source = ZERO)
+      allocate(z(0:po,ne,nc,nk)             , source = ZERO)
+      allocate(b(nk+1), c(nk), s(nk), y(nk) , source = ZERO)
+      allocate(r(nk,nk), h(nk+1,nk)         , source = ZERO)
       !$omp end master
       !$omp barrier
 
       OUTER_ITERATION: do k = 1, i_max
 
-        ! initial residual, r = f - Au .........................................
+        ! initial residual, v₁ = f - Au ........................................
 
-        call GetHybridDiffusionTerm( this, cl_operator, comp, theta &
-                                   , bv, u_0, u, r                  )
+        associate(v1 => v(:,:,:,1))
 
-        !$omp do collapse(2)
-        do i = 1, nc
-        do e = 1, ne
-          r(:,e,i) = Me * (f(:,e,i) - 1/dt * u(:,e,i)) + r(:,e,i)
-        end do
-        end do
+          call GetHybridDiffusionTerm( this, cl_operator, comp, theta &
+                                     , bv, u_0, u, r_d = v1           )
 
-        beta = sqrt(ScalarProduct(r, r))
-        b(1) = beta
+          !$omp do collapse(2)
+          do i = ic, nc
+          do e = 1, ne
+            v1(:,e,i) = 1/dt * Me * (f(:,e,i) - u(:,e,i)) + v1(:,e,i)
+          end do
+          end do
 
-        ! convergence check ....................................................
+          beta = sqrt(ScalarProduct(v1, v1))
+          b(1) = beta
 
-        if (check_convergence) then
-
-          !$omp single
-          if (k == 1) then
-            ! set terminal condition
-            r_term = huge(r_term)
-            if (present(r_max)) then
-              if (r_max > 0) r_term = r_max
-            end if
-            if (present(r_red)) then
-              if (r_red > 0) r_term = min(r_term, beta * r_red)
-            end if
+          if (log_level_outer_iteration > 0) then
+            write(*,'(2X,A,I4,A,ES12.5)') &
+              'CNS DiffusionSolver, outer iteration k =',k,': beta =', beta
           end if
-          converged = beta <= r_term
-          !$omp end single
 
-          if (converged) exit OUTER_ITERATION
+          ! convergence check ..................................................
 
-        end if
+          if (check_convergence) then
 
-        ! first Krylov vector ..................................................
+            !$omp single
+            if (k == 1) then
+              ! set terminal condition
+              r_term = huge(r_term)
+              if (present(r_max)) then
+                if (r_max > 0) r_term = r_max
+              end if
+              if (present(r_red)) then
+                if (r_red > 0) r_term = min(r_term, beta * r_red)
+              end if
+            end if
+            converged = beta <= r_term
+            !$omp end single
 
-        call MergeArrays(ZERO, v(:,:,:,1), 1/max(beta,eps), r, multi=.true.)
+            if (converged) exit OUTER_ITERATION
+
+          end if
+
+          ! first Krylov vector ................................................
+
+          call ScaleArray(v1, 1/max(beta,eps), multi=.true.)
+
+        end associate
 
         INNER_ITERATION: do j = 1, nk
           associate(zj => z(:,:,:,j))
@@ -479,12 +487,10 @@ contains
             call GetHybridDiffusionTerm( this, cl_operator, comp, theta &
                                        , u_0 = u_0, u = zj, r_d = w     )
 
-            call MergeArrays(-ONE, w, 1/dt, zj, multi=.true.)
-
             !$omp do collapse(2)
-            do i = 1, nc
+            do i = ic, nc
             do e = 1, ne
-              w(:,e,i) = 1/dt * Me * u(:,e,i) - w(:,e,i)
+              w(:,e,i) = 1/dt * Me * zj(:,e,i) - w(:,e,i)
             end do
             end do
 
@@ -492,28 +498,28 @@ contains
 
             ! orthogonalization against old Krylov vectors
             do i = 1, j
-              h(i,j) = ScalarProduct(w, v(:,:,:,i))
-              call MergeArrays(ONE, w, h(i,j), v(:,:,:,i), multi=.true.)
+              h(i,j) = ScalarProduct(v(:,:,:,i), w)
+              call MergeArrays(ONE, w, -h(i,j), v(:,:,:,i), multi=.true.)
             end do
 
             ! normalization, v(j+1) = w / ‖w‖
             h(j+1,j) = sqrt(ScalarProduct(w, w))
             call MergeArrays(ZERO, v(:,:,:,j+1), 1/h(j+1,j), w, multi=.true.)
 
-            ! Givens rotation transforming h to upper triagonal matrix g .......
+            ! Givens rotation transforming h to upper triagonal matrix r .......
 
-            g(1,j) = h(1,j)
+            r(1,j) = h(1,j)
 
             do i = 2, j
-              gamma    =  c(i-1) * g(i-1,j) + s(i-1) * h(i,j)
-              g(i,j)   = -s(i-1) * g(i-1,j) + c(i-1) * h(i,j)
-              g(i-1,j) = gamma
+              gamma    =  c(i-1) * r(i-1,j) + s(i-1) * h(i,j)
+              r(i,j)   = -s(i-1) * r(i-1,j) + c(i-1) * h(i,j)
+              r(i-1,j) = gamma
             end do
 
-            delta  =  max(sqrt(g(j,j)**2 + h(j+1,j)**2), eps)
-            c(j)   =  g(j  ,j) / delta
+            delta  =  max(sqrt(r(j,j)**2 + h(j+1,j)**2), eps)
+            c(j)   =  r(j  ,j) / delta
             s(j)   =  h(j+1,j) / delta
-            g(j,j) =  c(j) * g(j,j) + s(j) * h(j+1,j)
+            r(j,j) =  c(j) * r(j,j) + s(j) * h(j+1,j)
             b(j+1) = -s(j) * b(j)
             b(j)   =  c(j) * b(j)
 
@@ -521,6 +527,11 @@ contains
 
             ! residual norm if inner iterations were exited now
             rho = abs(b(j+1))
+
+            if (log_level_inner_iteration > 0) then
+              write(*,'(2X,A,I4,A,ES12.5)') &
+                'CNS DiffusionSolver, inner iteration j =',j,': rho  =', rho
+            end if
 
             if (check_convergence) then
               converged = rho <= r_term
@@ -536,9 +547,9 @@ contains
         j = min(j, nk)
 
         ! solve least-squares problem for y using backward substitution
-        y(j) = b(j) / g(j,j)
+        y(j) = b(j) / r(j,j)
         do i = j-1, 1, -1
-          y(i) = (b(i) - dot_product(g(i,i+1:j), y(i+1:j))) / g(i,i)
+          y(i) = (b(i) - dot_product(r(i,i+1:j), y(i+1:j))) / r(i,i)
         end do
 
         ! improved approximate solution
@@ -551,7 +562,7 @@ contains
       ! finalization ...........................................................
 
       !$omp master
-      deallocate(b, c, g, h, r, s, v, w, y, z)
+      deallocate(b, c, h, r, s, v, w, y, z)
       !$omp end master
 
     end associate

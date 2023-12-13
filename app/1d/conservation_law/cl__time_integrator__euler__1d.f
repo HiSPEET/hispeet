@@ -139,9 +139,14 @@ contains
         ! explicit Euler step ..................................................
 
         call cl_problem % GetBoundaryValues(t_0, bv)
-        call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
-        call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
         call cl_problem % GetSources(cl_operator, t_0, u_0, f_s)
+        call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
+
+        if (cl_problem % HasDiffusion()) then
+          call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
+        else
+          call SetArray(r_d, ZERO, multi=.true.)
+        end if
 
         do k = 1, nc
         do e = 1, ne
@@ -175,13 +180,17 @@ contains
         end do
         end do
 
-        ! implicit diffusion step
-        call cl_problem % DiffusionSolver( cl_operator, dt, ZERO, bv         &
-                                         , u_i, u_0, u                       &
-                                         , method = this % diffusion_method  &
-                                         , i_max  = this % diffusion_i_max   &
-                                         , r_red  = this % diffusion_r_red   &
-                                         , r_max  = this % diffusion_r_max   )
+        call SetArray(u, u_i, multi=.true.)
+
+        if (cl_problem % HasDiffusion()) then
+          ! implicit diffusion step
+          call cl_problem % DiffusionSolver( cl_operator, dt, ZERO, bv         &
+                                           , u_i, u_0, u                       &
+                                           , method = this % diffusion_method  &
+                                           , i_max  = this % diffusion_i_max   &
+                                           , r_red  = this % diffusion_r_red   &
+                                           , r_max  = this % diffusion_r_max   )
+        end if
 
       end select
 

@@ -20,6 +20,7 @@ module CL__Problem__CNS__1D
   use Kind_Parameters, only: RNP
   use Constants,       only: ONE, ZERO, HALF, THIRD, TWO
   use Execution_Control
+  use Logging_Levels
   use CL__Problem__1D
   use CL__Operator__1D
 
@@ -48,6 +49,7 @@ module CL__Problem__CNS__1D
 
   contains
 
+    procedure :: HasDiffusion
     procedure :: GetConvectionTerm
     procedure :: GetDiffusionTerm
     procedure :: GetSDTerm
@@ -170,6 +172,8 @@ contains
     class(CL_Problem_CNS_1D),         intent(inout) :: this
     class(CL_Problem_CNS_Options_1D), intent(in)    :: opt
 
+    this % nc = 3
+
     this % r_gas    = opt % r_gas
     this % gamma    = opt % gamma
     this % eta      = opt % eta
@@ -181,6 +185,16 @@ contains
     this % lambda   = this % c_p * this % eta / this % prandtl
 
   end subroutine Init_CL_Problem_CNS_1D
+
+  !-----------------------------------------------------------------------------
+  !> Query whether problem has non vanishing physical diffusion
+
+  logical function HasDiffusion(this)
+    class(CL_Problem_CNS_1D), intent(in) :: this
+
+    HasDiffusion = this % eta > 0
+
+  end function HasDiffusion
 
   !-----------------------------------------------------------------------------
   !> Convective contribution to RHS of DG-SEM formulation
@@ -245,7 +259,7 @@ contains
           end if
 
           ! compute flux
-          do i = 0, po
+          do i = 0, qo
             f_q(i,:) = ConvectiveFlux(this, u_q(i,:))
           end do
 
@@ -408,13 +422,13 @@ contains
 
     real(RNP) ::  T_, p_
 
-    p_ = (this%gamma - 1) * (u(3) - HALF*u(2)*(u(2)/u(1)))
-    T_ = p_ / (u(1)*this%r_gas)
+    p_ = (this%gamma - 1) * (u(3) - u(2)*u(2) / (2*u(1)))
+    T_ = p_ / (u(1) * this%r_gas)
 
-    if (present(v))    v   = u(2)/u(1)
-    if (present(p))    p   = p_
-    if (present(T))    T   = T_
-    if (present(s))    s   = this%c_p * log(T_) - this%r_gas * log(p_)
+    if (present(v)) v = u(2) / u(1)
+    if (present(p)) p = p_
+    if (present(T)) T = T_
+    if (present(s)) s = this%c_p * log(T_) - this%r_gas * log(p_)
 
   end subroutine ConservativeToPrimitive
 
@@ -428,7 +442,7 @@ contains
     real(RNP),                intent(in)  :: p
     real(RNP),                intent(out) :: u(:)
 
-    u = (p/(this%r_gas*T)) * [ONE, v, this%c_v * T + HALF*v*v]
+    u = p / (this%r_gas*T) * [ONE, v, this%c_v * T + HALF*v*v]
 
   end subroutine PrimitiveToConservative
 
@@ -440,21 +454,21 @@ contains
     real(RNP),                intent(in)  :: u(:)
     real(RNP),                intent(out) :: z(:)
 
-    real(RNP) :: v, p, T, a
+    real(RNP) :: v, p, T, c
 
-    v    = u(2)/u(1)
-    p    = (this%gamma - 1) * (u(3) - HALF*u(2)*v)
-    T    = p/(u(1)*this%r_gas)
-    a    = sqrt(this%gamma * this%r_gas * T)
+    v    = u(2) / u(1)
+    p    = (this%gamma - 1) * (u(3) - HALF*v*u(2))
+    T    = p / (this%r_gas * u(1))
+    c    = 2 / (this%gamma - 1) * sqrt(this%gamma * this%r_gas * T)
 
-    z(1) = (2*a)/(this%gamma - 1) - v
+    z(1) = c - v
     z(2) = this%c_p * log(T) - this%r_gas * log(p)
-    z(3) = (2*a)/(this%gamma - 1) + v
+    z(3) = c + v
 
   end subroutine ConservativeToCharacteristic
 
   !-----------------------------------------------------------------------------
-  !> Converts conservative variable into conservative ones
+  !> Converts characteristic variable into conservative ones
 
   pure subroutine CharacteristicToConservative(this, z, u)
     class(CL_Problem_CNS_1D), intent(in)  :: this
@@ -463,11 +477,12 @@ contains
 
     real(RNP) :: v, T, p
 
-    v = (z(3) - z(1)) * HALF
-    T = (this%gamma - 1)**2 / (16 * this%r_gas * this%gamma) * (z(1) + z(3))**2
-    p = exp(-z(2)/this%r_gas) * T**(this%gamma / (this%gamma - 1))
-
-    u = p / (this%r_gas * T) * [ONE, v, this%c_v*T + HALF*v*v]
+    associate(r_gas => this%r_gas, gamma => this%gamma)
+      v = (z(3) - z(1)) * HALF
+      T = (gamma - 1)**2 / (16 * gamma * r_gas) * (z(1) + z(3))**2
+      p = T**(gamma /(gamma - 1)) * exp(-z(2)/r_gas)
+      u = p / (r_gas * T) * [ONE, v, this%c_v*T + HALF*v*v]
+    end associate
 
   end subroutine CharacteristicToConservative
 
@@ -539,8 +554,8 @@ contains
       end if
 
       if(present(R)) then
-        R(1,1:3) = [ ONE     , ONE   , ONE     ]
-        R(2,1:3) = [ v-a     , v     , v+a     ]
+        R(1,1:3) = [ ONE     , ONE , ONE     ]
+        R(2,1:3) = [ v-a     , v   , v+a     ]
         R(3,1:3) = [ h-(v*a) , ek  , h+(v*a) ]
       end if
 

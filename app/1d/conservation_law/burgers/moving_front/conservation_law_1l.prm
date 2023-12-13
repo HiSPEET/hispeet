@@ -1,3 +1,9 @@
+&control_prm
+! log_level = 1
+! log_level_inner_iteration = 1
+! log_level_outer_iteration = 1
+/
+
 &problem_prm
   problem_name = 'burgers__moving_front'
 /
