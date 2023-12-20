@@ -132,6 +132,10 @@ contains
       allocate(u_1 , mold = u)
       allocate(bv(nc,2))
 
+      if (.not. cl_problem % HasDiffusion()) then
+        call SetArray(r_d, ZERO)
+      end if
+
       allocate(Me_inv(0:po), source = 1/Me)
 
       select case(this%impl)
@@ -143,7 +147,9 @@ contains
         ! preliminaries
         call cl_problem % GetBoundaryValues(t_0, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
-        call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
+        if (cl_problem % HasDiffusion()) then
+          call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
+        end if
         call cl_problem % GetSDTerm(cl_operator, dt, bv, u_0, u_0, r_sd)
         call cl_problem % GetSources(cl_operator, t_0, u_0, f_s)
 
@@ -164,7 +170,9 @@ contains
         ! BV and RHS at intermediate time
         call cl_problem % GetBoundaryValues(t, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_1, r_c)
-        call cl_problem % GetDiffusionTerm(cl_operator, bv, u_1, r_d)
+        if (cl_problem % HasDiffusion()) then
+          call cl_problem % GetDiffusionTerm(cl_operator, bv, u_1, r_d)
+        end if
         call cl_problem % GetSources(cl_operator, t, u_1, f_s)
 
         ! stage 2
@@ -189,7 +197,9 @@ contains
         t = t_0 + dt/2
         call cl_problem % GetBoundaryValues(t_0, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
-        call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
+        if (cl_problem % HasDiffusion()) then
+          call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
+        end if
         call cl_problem % GetSources(cl_operator, t, u_0, f_s)
 
         ! stage 1: intermediate solution
@@ -233,6 +243,8 @@ contains
           end if
         end do
         end do
+
+        call SetArray(u, u_i, multi=.true.)
 
         ! implicit diffusion step
         call cl_problem % GetBoundaryValues(t, bv)

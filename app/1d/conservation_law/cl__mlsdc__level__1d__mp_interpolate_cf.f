@@ -158,7 +158,7 @@ contains
         do m = 0, pt_f
         do c = 1, nc
         do e = 1, ns_f
-          if (complete .or. refinement(e) >= 0) then
+          if (complete .or. refinement((e+1)/2) >= 0) then
             n1 = 2 * n - 1
             n2 = 2 * n
             u_f(:,e,c,m,n1) = 0
