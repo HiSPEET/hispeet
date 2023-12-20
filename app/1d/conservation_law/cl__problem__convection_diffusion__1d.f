@@ -359,11 +359,11 @@ contains
     real(RNP), optional,   intent(in)    :: r_red       !< residual reduction
     real(RNP), optional,   intent(in)    :: r_max       !< max residual
 
-    real(RNP), allocatable, save :: g(:,:), nu_tot(:,:)
+    real(RNP), allocatable, save :: g(:,:)
     logical,   allocatable, save :: mask(:)
     character :: elliptic_bc(2)
     real(RNP) :: elliptic_bv(2)
-    real(RNP) :: lambda
+    real(RNP) :: lambda, nu_tot
     integer   :: e
 
     associate( nu          => this % nu                 &
@@ -380,8 +380,13 @@ contains
       elliptic_bc = this % bc(:)(1:1)
       elliptic_bv = bv(1,:)
 
-      ! Helmholtz parameter
+      ! Helmholtz parameter abd diffusivity
       lambda = 1 / dt
+      if (theta > 0) then
+        nu_tot = this%nu + theta/2 * this%v**2
+      else
+        nu_tot = nu
+      end if
 
       ! activity mask
       allocate(mask(ne), source = activity > 0)
@@ -396,53 +401,25 @@ contains
         end if
       end do
 
-      if (theta > ZERO) then
-
-        allocate(nu_tot(0:po,ne), source = this%nu + theta/2 * this%v**2)
-
-        select case(method)
-        case(1)
-          call Error( 'DiffusionSolver'             &
-                    , 'method 1 not suited for ISD' &
-                    , 'CL__Problem__Convection_Diffusion__1D'    )
-        case(2)
-          call elliptic_op % CG_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, g, u(:,:,1) &
-                  , i_max, r_red, r_max, mask )
-        case(3)
-          call elliptic_op % Schwarz_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, g, u(:,:,1) &
-                  , i_max, r_red, r_max, mask )
-        case(4)
-          call elliptic_op % SchwarzPCG_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, g, u(:,:,1) &
-                  , i_max, r_red, r_max, mask )
-        end select
-
-      else
-
-        select case(method)
-        case(1)
-          call elliptic_op % HybridSolver &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, g, u(:,:,1) )
-        case(2)
-          call elliptic_op % CG_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, g, u(:,:,1) &
-                  , i_max, r_red, r_max, mask )
-        case(3)
-          call elliptic_op % Schwarz_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, g, u(:,:,1) &
-                  , i_max, r_red, r_max, mask )
-        case(4)
-          call elliptic_op % SchwarzPCG_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, nu, g, u(:,:,1) &
-                  , i_max, r_red, r_max, mask )
-        end select
-
-      end if
+      select case(method)
+      case(1)
+        call elliptic_op % HybridSolver &
+                ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, g, u(:,:,1) )
+      case(2)
+        call elliptic_op % CG_Method &
+                ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, g, u(:,:,1) &
+                , i_max, r_red, r_max, mask )
+      case(3)
+        call elliptic_op % Schwarz_Method &
+                ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, g, u(:,:,1) &
+                , i_max, r_red, r_max, mask )
+      case(4)
+        call elliptic_op % SchwarzPCG_Method &
+                ( elliptic_bc, elliptic_bv, dx, lambda, nu_tot, g, u(:,:,1) &
+                , i_max, r_red, r_max, mask )
+      end select
 
       deallocate(g, mask)
-      if (allocated(nu_tot)) deallocate(nu_tot)
       !$omp end master
 
     end associate
