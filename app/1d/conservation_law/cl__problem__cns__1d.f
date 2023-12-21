@@ -284,6 +284,8 @@ contains
       select case(this % bc(1))
         case('P')
           u_l(0,:) = u(po,ne,:)
+        case('S')
+          u_l(0,:) = bv(:,1)
         case default
           u_l(0,:) = u(0,1,:)
       end select
@@ -292,6 +294,8 @@ contains
       select case(this % bc(2))
         case('P')
           u_r(ne,:) = u(0,1,:)
+        case('S')
+          u_r(ne,:) = bv(:,2)
         case default
           u_r(ne,:) = u(po,ne,:)
       end select

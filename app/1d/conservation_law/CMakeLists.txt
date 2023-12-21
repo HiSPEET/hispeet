@@ -10,9 +10,10 @@ add_library( HiConservationLaw_1D
              cl__problem__burgers__moving_front__1d.f
              cl__problem__burgers__wave_package__1d.f
 
-             cl__problem__cns__1d
+             cl__problem__cns__1d.f
              cl__problem__cns__1d__sm_diffusion.f
              cl__problem__cns__acoustic_wave__1d.f
+             cl__problem__cns__contact_layer__1d.f
 #            cl__problem__cns__shock_tube__1d
 
              cl__time_integrator__1d.f

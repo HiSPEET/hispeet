@@ -12,6 +12,7 @@ program Conservation_Law_1L
   use CL__Problem__Burgers__Wave_Package__1D
   use CL__Problem__Burgers__Moving_Front__1D
   use CL__Problem__CNS__Acoustic_Wave__1D
+  use CL__Problem__CNS__Contact_Layer__1D
 
   use CL__Time_Integrator__1D
   use CL__Time_Integrator__Euler__1D
@@ -47,6 +48,7 @@ program Conservation_Law_1L
   !   - 'burgers__wave_package'
   !   - 'burgers__moving_front'
   !   - 'cns__acoustic_wave'
+  !   - 'cns__contact_layer'
 
   namelist/problem_prm/ problem_name
 
@@ -142,6 +144,9 @@ program Conservation_Law_1L
   case('cns__acoustic_wave')
     write(*,'(A)') 'Initializing CNS acoustic wave problem'
     allocate(CL_Problem_CNS_AcousticWave_1D :: cl_problem)
+  case('cns__contact_layer')
+    write(*,'(A)') 'Initializing CNS contact layer problem'
+    allocate(CL_Problem_CNS_ContactLayer_1D :: cl_problem)
   case default
     call Error('Conservation_Law', 'Invalid problem name')
   end select
