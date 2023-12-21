@@ -21,7 +21,7 @@
   dt     = 1e-5
   nt_max = 1!000000
 
-  time_method = 1
+  time_method = 2
   sdc_method  = 0
 
   ! time_method = 1: Euler
