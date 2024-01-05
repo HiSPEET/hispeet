@@ -159,14 +159,14 @@ program Conservation_Law_ML
 
   ! predictor options (ISD1, so far)
   allocate(CL_TimeIntegrator_Options_ISD1_1D :: opt_pre)
-  opt_pre % impl             = 1
-  opt_pre % diffusion_method = 4
+  opt_pre % impl             =   1
+  opt_pre % diffusion_method =   4
   opt_pre % diffusion_i_max  = 100
 
   ! SDC options (ISD1, so far)
   allocate(CL_SDC_Options_ISD1_1D :: opt_sdc)
-  opt_sdc % point_set        = 2
-  opt_sdc % diffusion_method = 4
+  opt_sdc % point_set        =  'L'
+  opt_sdc % diffusion_method =   4
   opt_sdc % diffusion_i_max  = 100
 
   ! MLSDC data structure

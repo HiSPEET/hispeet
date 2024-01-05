@@ -35,10 +35,11 @@ module CL__SDC__Method__1D
   !> Type for providing SDC options
 
   type, extends(SDC_Options) :: CL_SDC_Options_1D
-    integer   :: diffusion_method = 1     !< implicit diffusion method
-    integer   :: diffusion_i_max  = 10    !< max num iterations
-    real(RNP) :: diffusion_r_red  = 1e-10 !< residual reduction
-    real(RNP) :: diffusion_r_max  = 1e-12 !< max residual
+    integer   :: diffusion_method = 1       !< implicit diffusion method
+    integer   :: diffusion_i_max  = 10      !< max num iterations
+    real(RNP) :: diffusion_r_red  = 1e-10   !< residual reduction
+    real(RNP) :: diffusion_r_max  = 1e-12   !< max residual
+    logical   :: final_assembly   = .false. !< assembly using collocation method
   end type CL_SDC_Options_1D
 
   !-----------------------------------------------------------------------------
@@ -54,20 +55,37 @@ module CL__SDC__Method__1D
     integer   :: diffusion_i_max   !< max num iterations
     real(RNP) :: diffusion_r_red   !< residual reduction
     real(RNP) :: diffusion_r_max   !< max residual
+    logical   :: final_assembly    !< assembly using collocation method
 
   contains
 
     procedure :: Init_CL_SDC_Method_1D
     procedure :: Show_CL_SDC_Method_1D
     procedure :: TimeStep
-    procedure, nopass :: GetHighOrderRHS
+!   procedure, nopass :: GetHighOrderRHS
 
+    procedure(GetHighOrderRHS), deferred :: GetHighOrderRHS
     procedure(GetCorrectorRHS), deferred :: GetCorrectorRHS
     procedure(CorrectorStep),   deferred :: CorrectorStep
 
   end type CL_SDC_Method_1D
 
   abstract interface
+
+    !---------------------------------------------------------------------------
+    !> RHS for high-order quadrature
+
+    subroutine GetHighOrderRHS(this, cl_problem, cl_operator, t, dt, k, u, F)
+      import
+      class(CL_SDC_Method_1D), intent(in)  :: this
+      class(CL_Problem_1D),    intent(in)  :: cl_problem
+      class(CL_Operator_1D),   intent(in)  :: cl_operator
+      real(RNP),               intent(in)  :: t        !< time
+      real(RNP),               intent(in)  :: dt       !< time step size
+      integer,                 intent(in)  :: k        !< sweep counter
+      real(RNP), contiguous,   intent(in)  :: u(:,:,:) !< u(x,t)
+      real(RNP), contiguous,   intent(out) :: F(:,:,:) !< RHS
+    end subroutine GetHighOrderRHS
 
     !---------------------------------------------------------------------------
     !> Computes F_ex and F_im as defined in the corrector
@@ -161,6 +179,7 @@ contains
     this % diffusion_i_max  = sdc_opt % diffusion_i_max
     this % diffusion_r_red  = sdc_opt % diffusion_r_red
     this % diffusion_r_max  = sdc_opt % diffusion_r_max
+    this % final_assembly   = sdc_opt % final_assembly
 
   end subroutine Init_CL_SDC_Method_1D
 
@@ -181,9 +200,10 @@ contains
 
     write(io,'(/,A)') 'CL_SDC_Method_1D settings'
     write(io,'(A,/)') repeat('≡',80)
+    write(io,'(2X,A,T15,A )') 'point_set:' , this % point_set
+    write(io,'(2X,A,T15,I0)') 'n_col:'     , this % n_col
     write(io,'(2X,A,T15,I0)') 'n_sub:'     , this % n_sub
     write(io,'(2X,A,T15,I0)') 'n_sweep:'   , this % n_sweep
-    write(io,'(2X,A,T15,I0)') 'point_set:' , this % point_set
 
     call this % predictor % Show(unit)
 
@@ -194,10 +214,11 @@ contains
 
     write(io,'(/,A)') 'Solver'
     write(io,'(A,/)') repeat('-',80)
-    write(io,'(2X,A,T22,I0)')     'diffusion_method:' , this % diffusion_method
-    write(io,'(2X,A,T22,I0)')     'diffusion_i_max:'  , this % diffusion_i_max
-    write(io,'(2X,A,T21,ES12.5)') 'diffusion_r_red:'  , this % diffusion_r_red
-    write(io,'(2X,A,T21,ES12.5)') 'diffusion_r_max:'  , this % diffusion_r_max
+    write(io,'(2X,A,T22,I0)')     'diffusion_method:', this % diffusion_method
+    write(io,'(2X,A,T22,I0)')     'diffusion_i_max:' , this % diffusion_i_max
+    write(io,'(2X,A,T21,ES12.5)') 'diffusion_r_red:' , this % diffusion_r_red
+    write(io,'(2X,A,T21,ES12.5)') 'diffusion_r_max:' , this % diffusion_r_max
+    write(io,'(2X,A,T22,L0)')     'final_assembly:'  , this % final_assembly
 
   end subroutine Show_CL_SDC_Method_1D
 
@@ -244,8 +265,8 @@ contains
       allocate(F_ex_new (0:po,ne,nc,0:n_sub))
       allocate(F_im_new (0:po,ne,nc,0:n_sub))
 
-      t_  = this % IntermediateTimes(t_0, dt)
-      dt_ = t_(1:n_sub) - t_(0:n_sub-1)
+      t_ (0:) = this % IntermediateTimes(t_0, dt)
+      dt_(1:) = t_(1:n_sub) - t_(0:n_sub-1)
 
       call SetArray(u_(:,:,:,0), u_0, multi = .true.)
 
@@ -266,11 +287,13 @@ contains
 
         do i = 0, n_sub
 
-          call GetHighOrderRHS( cl_problem       &
-                              , cl_operator      &
-                              , t  = t_(i)       &
-                              , u  = u_(:,:,:,i) &
-                              , F  = F_(:,:,:,i) )
+          call this % GetHighOrderRHS( cl_problem         &
+                                     , cl_operator        &
+                                     , t  = t_(i)         &
+                                     , dt = dt_(max(i,1)) &
+                                     , k  = 0             &
+                                     , u  = u_(:,:,:,i)   &
+                                     , F  = F_(:,:,:,i)   )
 
           call this % GetCorrectorRHS( cl_problem                      &
                                      , cl_operator                     &
@@ -302,15 +325,17 @@ contains
                                      , F_im_new = F_im_new )
           end do
 
-          if (k == n_sweep) exit
+          if (k == n_sweep .and. .not. this % final_assembly) exit
 
           do i = 1, n_sub
 
-            call GetHighOrderRHS( cl_problem       &
-                                , cl_operator      &
-                                , t  = t_(i)       &
-                                , u  = u_(:,:,:,i) &
-                                , F  = F_(:,:,:,i) )
+            call this % GetHighOrderRHS( cl_problem         &
+                                       , cl_operator        &
+                                       , t  = t_(i)         &
+                                       , dt = dt_(max(i,1)) &
+                                       , k  = k             &
+                                       , u  = u_(:,:,:,i)   &
+                                       , F  = F_(:,:,:,i)   )
 
             call SetArray(F_ex_(:,:,:,i), F_ex_new(:,:,:,i), multi = .true.)
             call SetArray(F_im_(:,:,:,i), F_im_new(:,:,:,i), multi = .true.)
@@ -323,7 +348,18 @@ contains
 
       ! result .................................................................
 
-      call SetArray(u, u_(:,:,:,n_sub), multi = .true.)
+      if (this % final_assembly) then
+        call SetArray(u, u_0, multi = .true.)
+        do i = 0, n_sub
+          associate(w_i => this%w_col(i,n_sub), u_i => u_(:,:,:,i))
+            if (w_i /= 0) then
+              call MergeArrays(ONE, u, dt*w_i, u_i, multi=.true.)
+            end if
+          end associate
+        end do
+      else
+        call SetArray(u, u_(:,:,:,n_sub), multi = .true.)
+      end if
 
       ! clean-up ...............................................................
 
@@ -333,53 +369,53 @@ contains
 
   end subroutine TimeStep
 
-  !-----------------------------------------------------------------------------
-  !> RHS for high-order quadrature
-
-  subroutine GetHighOrderRHS(cl_problem, cl_operator, t, u, F)
-    class(CL_Problem_1D),    intent(in)  :: cl_problem
-    class(CL_Operator_1D),   intent(in)  :: cl_operator
-    real(RNP),               intent(in)  :: t        !< time
-    real(RNP), contiguous,   intent(in)  :: u(:,:,:) !< u(x,t)
-    real(RNP), contiguous,   intent(out) :: F(:,:,:) !< RHS
-
-    real(RNP), allocatable, save :: r_c(:,:,:)
-    real(RNP), allocatable, save :: r_d(:,:,:)
-    real(RNP), allocatable, save :: f_s(:,:,:)
-    real(RNP), allocatable, save :: bv(:,:)
-
-    real(RNP), allocatable :: Me_inv(:)
-
-    integer :: e, j
-
-    associate( eop => cl_operator % eop      &
-             , dx  => cl_operator % dx       &
-             , po  => cl_operator % eop % po &
-             , ne  => cl_operator % ne       &
-             , nc  => cl_problem  % nc       )
-
-      allocate(r_c, mold = u)
-      allocate(r_d, mold = u)
-      allocate(f_s, mold = u)
-      allocate(bv(nc,2))
-      allocate(Me_inv(0:po), source = ONE/(dx/2 * eop%w))
-
-      call cl_problem % GetBoundaryValues (t, bv)
-      call cl_problem % GetConvectionTerm (cl_operator, bv, u, r_c)
-      call cl_problem % GetDiffusionTerm  (cl_operator, bv, u, r_d)
-      call cl_problem % GetSources        (cl_operator, t , u, f_s)
-
-      do j = 1, nc
-      do e = 1, ne
-        F(:,e,j) = Me_inv * (r_c(:,e,j) + r_d(:,e,j)) + f_s(:,e,j)
-      end do
-      end do
-
-      deallocate(r_c, r_d, f_s, bv)
-
-    end associate
-
-  end subroutine GetHighOrderRHS
+!!   !-----------------------------------------------------------------------------
+!!   !> RHS for high-order quadrature
+!!
+!!   subroutine GetHighOrderRHS(cl_problem, cl_operator, t, u, F)
+!!     class(CL_Problem_1D),    intent(in)  :: cl_problem
+!!     class(CL_Operator_1D),   intent(in)  :: cl_operator
+!!     real(RNP),               intent(in)  :: t        !< time
+!!     real(RNP), contiguous,   intent(in)  :: u(:,:,:) !< u(x,t)
+!!     real(RNP), contiguous,   intent(out) :: F(:,:,:) !< RHS
+!!
+!!     real(RNP), allocatable, save :: r_c(:,:,:)
+!!     real(RNP), allocatable, save :: r_d(:,:,:)
+!!     real(RNP), allocatable, save :: f_s(:,:,:)
+!!     real(RNP), allocatable, save :: bv(:,:)
+!!
+!!     real(RNP), allocatable :: Me_inv(:)
+!!
+!!     integer :: e, j
+!!
+!!     associate( eop => cl_operator % eop      &
+!!              , dx  => cl_operator % dx       &
+!!              , po  => cl_operator % eop % po &
+!!              , ne  => cl_operator % ne       &
+!!              , nc  => cl_problem  % nc       )
+!!
+!!       allocate(r_c, mold = u)
+!!       allocate(r_d, mold = u)
+!!       allocate(f_s, mold = u)
+!!       allocate(bv(nc,2))
+!!       allocate(Me_inv(0:po), source = ONE/(dx/2 * eop%w))
+!!
+!!       call cl_problem % GetBoundaryValues (t, bv)
+!!       call cl_problem % GetConvectionTerm (cl_operator, bv, u, r_c)
+!!       call cl_problem % GetDiffusionTerm  (cl_operator, bv, u, r_d)
+!!       call cl_problem % GetSources        (cl_operator, t , u, f_s)
+!!
+!!       do j = 1, nc
+!!       do e = 1, ne
+!!         F(:,e,j) = Me_inv * (r_c(:,e,j) + r_d(:,e,j)) + f_s(:,e,j)
+!!       end do
+!!       end do
+!!
+!!       deallocate(r_c, r_d, f_s, bv)
+!!
+!!     end associate
+!!
+!!   end subroutine GetHighOrderRHS
 
   !=============================================================================
 

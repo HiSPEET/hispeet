@@ -3,7 +3,7 @@ module DQ__SDC__Method__ISD
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
 
   use Kind_Parameters, only: RNP
-  use Constants,       only: ONE, ZERO
+  use Constants,       only: ZERO, HALF, ONE
   use DQ__Time_Integrator
   use DQ__SDC__Method
 
@@ -63,7 +63,7 @@ contains
     ! intialize parent type
     call this % Init_DQ_SDC_Method(pre_opt, sdc_opt)
 
-    this % corrector_name = 'ISD IMEX method of order 1'
+    this % corrector_name = 'ISD method of order 1'
 
   end subroutine Init_DQ_SDC_Method_ISD
 
@@ -101,7 +101,7 @@ contains
 
     complex(RNP), parameter :: i = (ZERO, ONE)
 
-    F_im = (lambda % re - dt * lambda % im ** 2) * u
+    F_im = (lambda % re - HALF * dt * lambda%im ** 2) * u
     F_ex = i * lambda % im * u
 
     if (this % impl == 0) return ! just to avoid compiler warning !
@@ -156,7 +156,7 @@ contains
     ! correction ..............................................................
 
     u1 = u1 + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
-    u2 = u1 / (ONE - dt * lambda%re + (dt * lambda%im)**2)
+    u2 = u1 / (ONE - dt * (lambda%re - dt/2 * lambda%im**2))
 
     u(m) = u2
 

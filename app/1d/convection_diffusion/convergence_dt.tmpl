@@ -40,20 +40,21 @@ flying_start = T
 
 ! required with method = 5 (IMEX Euler SDC)
 &sdc_euler_prm
-  n_sub     = 3           ! number of subintervals (M)
-  n_sweep   = <n_sweep>   ! max num correction sweeps (K)
-  point_set = 2           ! equidistant (1) or Lobatto (2) points
+  point_set = 'L'       ! equidistant/Lobatto/Radau-right (E/L/RR)
+  n_col     =  4        ! number of collocation points
+  n_sweep   = <n_sweep> ! max num correction sweeps (K)
+  point_set =  2        ! equidistant (1) or Lobatto (2) points
 /
 
 ! required with method = 6 (IMEX Runge-Kutta SDC)
 &rk_sdc_parameters
   ! SDC
-  n_sub     = 3           ! number of SDC subintervals (M)
-  n_sweep   = <n_sweep>   ! max num SDC correction sweeps (K)
-  point_set = 1           ! equidistant (1) or Lobatto (2) SDC points
-  ! IMEX Runge-Kutta
-  n_stage = 4   ! number of stages, ns ∈ {2,3,4,6,8}
-  method  = 2   ! method ∈ {1,2}[1], effective only with s=4
-  show    = T   ! print RK properties and coefficients
+  point_set = 'E'       ! equidistant/Lobatto/Radau-right (E/L/RR)
+  n_col     =  4        ! number of collocation points
+  n_sweep   = <n_sweep> ! max num SDC correction sweeps (K)
+                        ! IMEX Runge-Kutta --------------------------
+  n_stage   =  4        ! number of stages, ns ∈ {2,3,4,6,8}
+  method    =  2        ! method ∈ {1,2}[1], effective only with s=4
+  show      =  T        ! print RK properties and coefficients
 /
 

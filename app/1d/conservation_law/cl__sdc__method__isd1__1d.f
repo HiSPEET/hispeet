@@ -21,9 +21,14 @@ module CL__SDC__Method__ISD1__1D
   !> SDC method based on ISD1
 
   type, extends(CL_SDC_Method_1D) :: CL_SDC_Method_ISD1_1D
+    integer :: stab_method !< stabilization method ∊ {0,1}
+    integer :: stab_base   !< basis for exponential stabilization
+    integer :: stab_power  !< power for polynomial stabilization
+    integer :: stab_cutoff !< stabilization cutoff sweep
   contains
     procedure :: Init_CL_SDC_Method_ISD1_1D
     procedure :: Show => Show_CL_SDC_Method_ISD1_1D
+    procedure :: GetHighOrderRHS
     procedure :: GetCorrectorRHS
     procedure :: CorrectorStep
   end type CL_SDC_Method_ISD1_1D
@@ -37,6 +42,10 @@ module CL__SDC__Method__ISD1__1D
   !> Type for providing SDC ISD1 options
 
   type, extends(CL_SDC_Options_1D) :: CL_SDC_Options_ISD1_1D
+    integer :: stab_method = 0 !< 0/1/3 no/exponential/polynomial stabilization
+    integer :: stab_base   = 2 !< basis for exponential stabilization
+    integer :: stab_power  = 2 !< power for polynomial stabilization
+    integer :: stab_cutoff = huge(1) !< stabilization cutoff sweep
   end type CL_SDC_Options_ISD1_1D
 
 contains
@@ -60,14 +69,18 @@ contains
   !> Initialization of a CL_SDC_Method_ISD1_1D object
 
   subroutine Init_CL_SDC_Method_ISD1_1D(this, pre_opt, sdc_opt)
-    class(CL_SDC_Method_ISD1_1D),         intent(inout) :: this
+    class(CL_SDC_Method_ISD1_1D),        intent(inout) :: this
     class(CL_TimeIntegrator_Options_1D), intent(in) :: pre_opt !< predictor opts
-    class(CL_SDC_Options_ISD1_1D),        intent(in) :: sdc_opt !< SDC options
+    class(CL_SDC_Options_ISD1_1D),       intent(in) :: sdc_opt !< SDC options
 
     ! intialize parent type
     call this % Init_CL_SDC_Method_1D(pre_opt, sdc_opt)
 
     this % corrector_name = 'ISD method of order 1'
+    this % stab_method    = sdc_opt % stab_method
+    this % stab_base      = sdc_opt % stab_base
+    this % stab_power     = sdc_opt % stab_power
+    this % stab_cutoff    = sdc_opt % stab_cutoff
 
   end subroutine Init_CL_SDC_Method_ISD1_1D
 
@@ -88,7 +101,86 @@ contains
 
     call this % Show_CL_SDC_Method_1D(unit)
 
+    write(io,'(/)')
+    write(io,'(2X,A,T22,I0)') 'stab_method:', this % stab_method
+    write(io,'(2X,A,T22,I0)') 'stab_base:'  , this % stab_base
+    write(io,'(2X,A,T22,I0)') 'stab_power:' , this % stab_power
+    write(io,'(2X,A,T22,I0)') 'stab_cutoff:', this % stab_cutoff
+
   end subroutine Show_CL_SDC_Method_ISD1_1D
+
+  !-----------------------------------------------------------------------------
+  !> RHS for high-order quadrature
+
+  subroutine GetHighOrderRHS(this, cl_problem, cl_operator, t, dt, k, u, F)
+    class(CL_SDC_Method_ISD1_1D), intent(in) :: this
+    class(CL_Problem_1D),    intent(in)  :: cl_problem
+    class(CL_Operator_1D),   intent(in)  :: cl_operator
+    real(RNP),               intent(in)  :: t        !< time
+    real(RNP),               intent(in)  :: dt       !< time step size
+    integer,                 intent(in)  :: k        !< sweep counter
+    real(RNP), contiguous,   intent(in)  :: u(:,:,:) !< u(x,t)
+    real(RNP), contiguous,   intent(out) :: F(:,:,:) !< RHS
+
+    real(RNP), allocatable, save :: r_c(:,:,:)
+    real(RNP), allocatable, save :: r_d(:,:,:)
+    real(RNP), allocatable, save :: r_sd(:,:,:)
+    real(RNP), allocatable, save :: f_s(:,:,:)
+    real(RNP), allocatable, save :: bv(:,:)
+
+    real(RNP), allocatable :: Me_inv(:)
+    real(RNP) :: theta
+
+    integer :: e, j
+
+    associate( eop => cl_operator % eop      &
+             , dx  => cl_operator % dx       &
+             , po  => cl_operator % eop % po &
+             , ne  => cl_operator % ne       &
+             , nc  => cl_problem  % nc       )
+
+      allocate(r_c , mold = u)
+      allocate(r_d , mold = u)
+      allocate(r_sd, mold = u)
+      allocate(f_s , mold = u)
+      allocate(bv(nc,2))
+      allocate(Me_inv(0:po), source = ONE/(dx/2 * eop%w))
+
+      call cl_problem % GetBoundaryValues (t, bv)
+      call cl_problem % GetConvectionTerm (cl_operator, bv, u, r_c)
+      call cl_problem % GetDiffusionTerm  (cl_operator, bv, u, r_d)
+      call cl_problem % GetSources        (cl_operator, t , u, f_s)
+
+      if (k < this % stab_cutoff .and. k >= 0) then
+        select case(this % stab_method)
+        case(1)
+          theta = 0.001 * dt / this % stab_base ** k
+        case(2)
+          theta = dt * (ONE - real(k,RNP)/this%stab_cutoff) ** this%stab_power
+        case default
+          theta = 0
+        end select
+      else
+        theta = 0
+      end if
+
+      if (theta > 0) then
+        call cl_problem % GetSDTerm(cl_operator, theta, bv, u, u, r_sd)
+      else
+        call SetArray(r_sd, ZERO, multi=.true.)
+      end if
+
+      do j = 1, nc
+      do e = 1, ne
+        F(:,e,j) = Me_inv * (r_c(:,e,j) + r_d(:,e,j) + r_sd(:,e,j))+ f_s(:,e,j)
+      end do
+      end do
+
+      deallocate(r_c, r_d, r_sd, f_s, bv)
+
+    end associate
+
+  end subroutine GetHighOrderRHS
 
   !---------------------------------------------------------------------------
   !> Computes F_ex and F_im as defined in the corrector
@@ -232,10 +324,16 @@ contains
       ! high-order quadrature ..................................................
 
       do k = 1, nc
-        ! initialize with contribution of left point (i = 0)
-        do e = 1, ne
-          S(:,e,k) = dt * w_sub(0,m) * F(:,e,k,0)
-        end do
+        select case(this % point_set)
+        case('RR')
+          ! omit left point with Radau-right
+          call SetArray(S(:,:,k), ZERO)
+        case default
+          ! initialize with contribution of left point (i = 0)
+          do e = 1, ne
+            S(:,e,k) = dt * w_sub(0,m) * F(:,e,k,0)
+          end do
+        end select
         ! add contribution of remaining points
         do i = 1, n_sub
         do e = 1, ne

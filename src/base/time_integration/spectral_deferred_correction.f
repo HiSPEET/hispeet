@@ -8,8 +8,9 @@ module Spectral_Deferred_Correction
 
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
 
-  use Kind_Parameters, only: RNP
-  use Constants,       only: ZERO, ONE, HALF
+  use Kind_Parameters,   only: RNP
+  use Constants,         only: ZERO, ONE, HALF
+  use Execution_Control, only: Error
   use Gauss_Jacobi
   use Lagrange_Interpolation
   use XMPI
@@ -17,37 +18,31 @@ module Spectral_Deferred_Correction
   implicit none
   private
 
-  public :: SDC_Options
   public :: SDC_Method
-
-  !-----------------------------------------------------------------------------
-  !> Type bundling spectral deferred correction options
-
-  type SDC_Options
-    integer :: n_sub     = 1  !< number of subintervals
-    integer :: n_sweep   = 0  !< max number of correction sweeps
-    integer :: point_set = 2  !< equidistant (1) or Lobatto (2) points
-  contains
-    procedure :: Bcast => Bcast_SDC_Options
-  end type SDC_Options
+  public :: SDC_Options
 
   !-----------------------------------------------------------------------------
   !> Spectral deferred correction parameters and procedures
   !>
   !> This type defines a subdivision of the reference interval `[0,1]` into M
-  !> subintervals `[τᵢ₋₁,τᵢ]`. Two choices exist for the  point set `{τᵢ}`:
+  !> subintervals `[τᵢ₋₁,τᵢ]`. The following choices exist for the point set
+  !> `{τᵢ}`:
   !>
-  !>   1. the equidistant partition of `[0,1]`, or
-  !>   2. the Gauss-Legendre-Lobatto (GLL) points mapped to `[0,1]`.
+  !>   - `'E'`   equidistant partition of `[0,1]`,
+  !>   - `'L'`   Lobatto nodes mapped to `[0,1]`,
+  !>   - `'RR'`  right-sided Radau nodes mapped to `[0,1]`.
   !>
   !> Within the type, `t(i) = τᵢ` represents the i-th point, `w(i) = wᵢ` the
   !> corresponding quadrature weight and `n_sub = M` the number of subintervals.
+  !> For a unified approach, the leftmost point is always set to `τ₀ = 0`.
+  !>
   !> The integral of a function f over the reference interval is approximated by
   !>
   !>   \[ \int_{0}^{1} f d\tau \approx \sum_{i=0}^{M} w_i\, f(\tau_i) \]
   !>
   !> The quadrature will be exact for polynomials of degree `M` with equidistant
-  !> points and degree `2M-1` with Lobatto points.
+  !> points, `2M-1` with Lobatto nodes and `2M-2` with right-sided Radau nodes.
+  !> Note that the latter are less accurate because they do not include `τ₀`.
   !>
   !> Similarly, integrals over the subintervals `[τᵢ₋₁,τᵢ]` can be evaluated by
   !>
@@ -67,24 +62,23 @@ module Spectral_Deferred_Correction
 
   type SDC_Method
 
-    integer :: n_sub     = -1  !< number of subintervals (M)
-    integer :: n_sweep   = -1  !< max num correction sweeps (K)
-    integer :: point_set = -1  !< equidistant (1) or Lobatto (2) points
+    character(2) :: point_set !< point set {'E','L','RR'}
+    integer      :: n_col     !< number of collocation points
+    integer      :: n_sub     !< number of subintervals (M)
+    integer      :: n_sweep   !< max num correction sweeps (K)
 
     real(RNP), allocatable :: t(:)       !< nodes τᵢ in [0,1]
     real(RNP), allocatable :: w(:)       !< quadrature weights for [0, 1]
     real(RNP), allocatable :: w_sub(:,:) !< quadrature weights for [τᵢ₋₁,τᵢ]
     real(RNP), allocatable :: w_col(:,:) !< quadrature weights for [0,τᵢ]
 
-    real(RNP), allocatable, private :: x_gll(:) !< Lobatto nodes in [-1,1]
-    real(RNP), allocatable, private :: w_gll(:) !< Lobatto weights to x_gll
+    real(RNP), allocatable, private :: x_quad(:) !< quadrature nodes   in [-1,1]
+    real(RNP), allocatable, private :: w_quad(:) !< quadrature weights in [-1,1]
 
   contains
 
     procedure :: Init_SDC_Method  =>  Init_SDC
     procedure :: Show             =>  Show_SDC_Method
-    procedure :: HasEquidistantPoints
-    procedure :: HasLobattoPoints
     procedure :: IntermediateTimes
     procedure :: SubintervalWeights
 
@@ -94,6 +88,17 @@ module Spectral_Deferred_Correction
   interface SDC_Method
     module procedure New_SDC
   end interface
+
+  !-----------------------------------------------------------------------------
+  !> Type bundling spectral deferred correction options
+
+  type SDC_Options
+    character(2) :: point_set = 'L' !< point set ∊ {'E','L','RR'}
+    integer      :: n_col     =  1  !< number of collocation points
+    integer      :: n_sweep   =  0  !< max number of correction sweeps
+  contains
+    procedure :: Bcast => Bcast_SDC_Options
+  end type SDC_Options
 
 contains
 
@@ -108,13 +113,13 @@ contains
     integer,            intent(in)    :: root !< rank of broadcast root
     type(MPI_Comm),     intent(in)    :: comm !< MPI communicator
 
-    type(MPI_Request)  :: request(3)
+    type(MPI_Request) :: request(3)
     integer :: n
 
     n = 1
-    call XMPI_Ibcast( this % n_sub    , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % n_sweep  , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % point_set, root, comm, request(n) )
+    call XMPI_Ibcast( this % point_set, root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % n_col    , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % n_sweep  , root, comm, request(n) )
 
     call MPI_Waitall(n, request, MPI_STATUSES_IGNORE)
 
@@ -142,54 +147,89 @@ contains
 
     ! local variables ..........................................................
 
-    integer :: i, n_sub
+    integer :: i, p_col
 
     ! initialization ...........................................................
 
-    n_sub = opt % n_sub
+    if (allocated(this % t     ))  deallocate(this % t     )
+    if (allocated(this % w     ))  deallocate(this % w     )
+    if (allocated(this % w_sub ))  deallocate(this % w_sub )
+    if (allocated(this % w_col ))  deallocate(this % w_col )
+    if (allocated(this % w_quad))  deallocate(this % w_quad)
+    if (allocated(this % w_quad))  deallocate(this % w_quad)
 
-    if (this % n_sub > 0 .and. this % n_sub /= n_sub) then
-      deallocate(this % t    )
-      deallocate(this % w    )
-      deallocate(this % w_sub)
-      deallocate(this % w_col)
-    end if
-    if (.not. allocated(this % t    )) allocate(this % t     (0:n_sub)        )
-    if (.not. allocated(this % w    )) allocate(this % w     (0:n_sub)        )
-    if (.not. allocated(this % w_sub)) allocate(this % w_sub (0:n_sub, n_sub) )
-    if (.not. allocated(this % w_col)) allocate(this % w_col (0:n_sub, n_sub) )
-
-    this % n_sub     = n_sub
+    this % point_set = opt % point_set
+    this % n_col     = opt % n_col
     this % n_sweep   = max(0, opt % n_sweep)
-    this % point_set = max(1, min(2, opt % point_set))
-
-    ! Lobatto points and weights in [-1,1]
-    allocate(this % x_gll(0:n_sub), source = LobattoPoints(n_sub))
-    allocate(this % w_gll(0:n_sub), source = LobattoWeights(this % x_gll))
-
-    ! points and quadrature weights in [0,1] ...................................
 
     select case(this % point_set)
-    case(1) ! equidistant
-      this % t(0:n_sub) = [ ZERO, (i*ONE/n_sub, i = 1,n_sub-1), ONE ]
-      this % w(0:n_sub) = GaussLagrangeWeights(this % t)
-    case default ! Lobatto
-      this % t(0:n_sub) = HALF * (this % x_gll + ONE)
-      this % w(0:n_sub) = HALF *  this % w_gll
+    case('E','L')
+      this % n_sub = this % n_col - 1
+    case('RR')
+      this % n_sub = this % n_col
+    case default
+      call Error( 'Init_SDC' &
+                , 'point set "' // trim(this%point_set) // '" not supported' &
+                , 'Spectral_Deferred_Correction')
     end select
 
-    ! quadrature weights in [τᵢ₋₁,τᵢ] ..........................................
+    ! polynomial degree of the interpolation polynomial
+    p_col = this % n_col - 1
 
-    do i = 1, n_sub
-      this % w_sub(:,i) = this % SubintervalWeights(this%t(i-1), this%t(i))
-    end do
+    associate(n_sub => this % n_sub)
 
-    ! quadrature weights in [0,τᵢ] .............................................
+      ! auxiliary quadrature points and weights in [-1,1] ......................
 
-    this % w_col(:,1) = this % w_sub(:,1)
-    do i = 2, n_sub
-      this % w_col(:,i) = this % w_col(:,i-1) + this % w_sub(:,i)
-    end do
+      allocate(this % x_quad(0:n_sub), source = GaussPoints(n_sub))
+      allocate(this % w_quad(0:n_sub), source = GaussWeights(this % x_quad))
+
+      ! points and quadrature weights in [0,1] .................................
+
+      allocate(this % t(0:n_sub), source = ZERO)
+      allocate(this % w(0:n_sub), source = ZERO)
+
+      select case(this % point_set)
+      case('E')
+        ! equidistant
+        this % t(0:n_sub) = [ ZERO, (i*ONE/n_sub, i = 1,p_col-1), ONE ]
+        this % w(0:n_sub) = GaussLagrangeWeights(this % t)
+      case('L')
+        ! Lobatto points and weights in [-1,1]
+        this % t(0:n_sub) = LobattoPoints(p_col)
+        this % w(0:n_sub) = LobattoWeights(this % t)
+        ! transform to [0,1]
+        this % t(0:n_sub) = HALF * (this % t + ONE)
+        this % w(0:n_sub) = HALF * this % w
+      case('RR') ! Radau right
+        ! right-sided Radau points and weights in [-1,1]
+        this % t(1:n_sub) = RadauPoints(p_col, right = .true.)
+        this % w(1:n_sub) = RadauWeights(this % t)
+        ! transform to [0,1]
+        this % t(1:n_sub) = HALF * (this % t(1:n_sub) + ONE)
+        this % w(1:n_sub) = HALF *  this % w(1:n_sub)
+        ! set leftmost entries
+        this % t(0) = 0
+        this % w(0) = 0
+      end select
+
+      ! quadrature weights in [τᵢ₋₁,τᵢ] ........................................
+
+      allocate(this % w_sub (0:n_sub, n_sub) )
+
+      do i = 1, n_sub
+        this % w_sub(:,i) = this % SubintervalWeights(this%t(i-1), this%t(i))
+      end do
+
+      ! quadrature weights in [0,τᵢ] ...........................................
+
+      allocate(this % w_col (0:n_sub, n_sub) )
+
+      this % w_col(:,1) = this % w_sub(:,1)
+      do i = 2, n_sub
+        this % w_col(:,i) = this % w_col(:,i-1) + this % w_sub(:,i)
+      end do
+
+    end associate
 
   end subroutine Init_SDC
 
@@ -210,31 +250,11 @@ contains
 
     write(io,'(/,A)') 'SDC_Method settings'
     write(io,'(A,/)') repeat('≡',80)
+    write(io,'(2X,A,T15,A )') 'point_set:' , this % point_set
     write(io,'(2X,A,T15,I0)') 'n_sub'      , this % n_sub
     write(io,'(2X,A,T15,I0)') 'n_sweeps:'  , this % n_sweep
-    write(io,'(2X,A,T15,I0)') 'point_set:' , this % point_set
 
   end subroutine Show_SDC_Method
-
-  !-----------------------------------------------------------------------------
-  !> Query if point set is equidistant
-
-  pure logical function HasEquidistantPoints(this)
-    class(SDC_Method), intent(in) :: this
-
-    HasEquidistantPoints = this % point_set == 1
-
-  end function HasEquidistantPoints
-
-  !-----------------------------------------------------------------------------
-  !> Query if point set is based on Lobatto (G) points
-
-  pure logical function HasLobattoPoints(this)
-    class(SDC_Method), intent(in) :: this
-
-    HasLobattoPoints = this % point_set == 2
-
-  end function HasLobattoPoints
 
   !-----------------------------------------------------------------------------
   !> Returns the intermediate times within a given time interval
@@ -271,26 +291,37 @@ contains
     real(RNP)             :: ws(0:this%n_sub) !< weights
 
     real(RNP) :: delta, tk, yk
-    integer   :: j, k
+    integer   :: j, k, n0, nq
 
-    integer :: n_quad
+    associate(t => this % t, xq => this % x_quad, wq => this % w_quad )
 
-    associate(n_sub => this%n_sub, t => this%t, x => this%x_gll, w => this%w_gll)
+      nq = ubound(xq,1)
 
-      n_quad = ubound(x,1)
-      delta  = (tb - ta) * HALF
-      do j = 0, n_sub
+      ! identify first SDC point
+      select case(this % point_set)
+      case('RR')
+        n0 = 1
+      case default
+        n0 = 0
+      end select
+
+      ! metric factor
+      delta = HALF * (tb - ta)
+
+      do j = 0, this % n_sub
         ws(j) = 0
-        do k = 0, n_quad
-          ! tk = τ(x(k)) = k-th quadrature point mapped to [τa,τb]
-          tk  = ta + delta * (x(k) + 1)
-          ! yk = value of j-th Lagrange polynomial to SDC points t(:) at tk
-          yk = LagrangePolynomial(j, t, tk)
-          ! add contribution of k-th Lobatto point
-          ws(j) = ws(j) + w(k) * yk
-        end do
-        ! scale the weight to match the length of interval [τa,τb]
-        ws(j) = delta * ws(j)
+        if (j >= n0) then
+          do k = 0, nq
+            ! tk = τ(xq(k)) = k-th quadrature point mapped to [τa,τb]
+            tk  = ta + delta * (xq(k) + 1)
+            ! yk = value of j-th Lagrange polynomial to SDC points t(:) at tk
+            yk = LagrangePolynomial(j-n0, t(n0:), tk)
+            ! add contribution of k-th collocation point
+            ws(j) = ws(j) + wq(k) * yk
+          end do
+          ! scale the weight to match the length of interval [τa,τb]
+          ws(j) = delta * ws(j)
+        end if
       end do
 
     end associate

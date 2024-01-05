@@ -34,23 +34,26 @@
   ! SDC options ................................................................
 
   ! SDC based on Euler
-  sdc_opt_eu%n_sub     = 3  ! number of subintervals
-  sdc_opt_eu%n_sweep   = 5  ! max number of correction sweeps
-  sdc_opt_eu%point_set = 2  ! equidistant (1) or Lobatto (2) points
-  sdc_opt_eu%impl      = 2  ! 0/1/2: explicit/implicit/IMEX
+  sdc_opt_eu%point_set = 'L'  ! 'E'/'L'/'RR': equidistant/Lobatto/Radau-right
+  sdc_opt_eu%n_col     =  4   ! number of collocation points
+  sdc_opt_eu%n_sweep   =  5   ! max number of correction sweeps
+  sdc_opt_eu%impl      =  2   ! 0/1/2: explicit/implicit/IMEX
+  sdc_opt_eu%assembly  =  F   ! perform final assembly with collocation method
 
   ! SDC based on ISD
-  sdc_opt_sd%n_sub     = 3  ! number of subintervals
-  sdc_opt_sd%n_sweep   = 5  ! max number of correction sweeps
-  sdc_opt_sd%point_set = 2  ! equidistant (1) or Lobatto (2) points
+  sdc_opt_sd%point_set = 'RR' ! 'E'/'L'/'RR': equidistant/Lobatto/Radau-right
+  sdc_opt_sd%n_col     =  4   ! number of collocation points
+  sdc_opt_sd%n_sweep   =  6   ! max number of correction sweeps
+  sdc_opt_sd%assembly  =  T   ! perform final assembly with collocation method
 
   ! SDC based on Runge-Kutta
-  sdc_opt_rk%n_sub     = 3  ! number of subintervals
-  sdc_opt_rk%n_sweep   = 5  ! max number of correction sweeps
-  sdc_opt_rk%point_set = 2  ! equidistant (1) or Lobatto (2) points
-  sdc_opt_rk%impl      = 2  ! 0/1/2: explicit/implicit/IMEX
-  sdc_opt_rk%n_stage   = 4  !< number of stages of the RK corrector
-  sdc_opt_rk%method    = 2  !< RK method selector, if more than one exist
+  sdc_opt_rk%point_set = 'E'  ! 'E'/'L'/'RR': equidistant/Lobatto/Radau-right
+  sdc_opt_rk%n_col     =  4   ! number of collocation points
+  sdc_opt_rk%n_sweep   =  3   ! max number of correction sweeps
+  sdc_opt_rk%impl      =  2   ! 0/1/2: explicit/implicit/IMEX
+  sdc_opt_rk%n_stage   =  4   !< number of stages of the RK corrector
+  sdc_opt_rk%method    =  2   !< RK method selector, if more than one exist
+  sdc_opt_rk%assembly  =  F   ! perform final assembly with collocation method
 
   ! test parameters ............................................................
 

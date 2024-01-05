@@ -2,6 +2,9 @@
 !> author:   Joerg Stiller, Gustav Tschirschnitz
 !> date:     2018/09/22
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @note
+!> This implementation supports only Lagrange elements with Lobatto nodes.
 !===============================================================================
 
 module CG__Element_Operators__1D

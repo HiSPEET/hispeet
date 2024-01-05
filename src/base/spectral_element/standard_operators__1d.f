@@ -22,15 +22,16 @@ module Standard_Operators__1D
   !>
   !> Supports the following types of nodal base functions
   !>
-  !>   * Lagrange polynomials to Gauss-Legendre points:         `basis = 'G'`
-  !>   * Lagrange polynomials to Gauss-Lobatto-Legendre points: `basis = 'L'`
-  !>   * Lagrange polynomials to Gauss-Radau-Legendre points:   `basis = 'R'`
+  !>   - Lagrange polynomials to Gauss-Legendre points:             basis = 'G'
+  !>   - Lagrange polynomials to Gauss-Lobatto-Legendre points:     basis = 'L'
+  !>   - Lagrange polynomials to left  Gauss-Radau-Legendre points: basis = 'RL'
+  !>   - Lagrange polynomials to right Gauss-Radau-Legendre points: basis = 'RR'
 
   type StandardOperators_1D
     private
 
     ! public components
-    character             , public :: basis   !< basis type
+    character(len=2)      , public :: basis   !< basis type
     integer               , public :: po = -1 !< polynomial order
     real(RNP), allocatable, public :: x(:)    !< collocation points
     real(RNP), allocatable, public :: w(:)    !< quadrature weights
@@ -75,11 +76,11 @@ module Standard_Operators__1D
   !> Options for StandardOperators_1D
 
   type StandardOperatorOptions_1D
-    integer   :: po         = -1       !< polynomial order
-    character :: basis      = 'L'      !< basis type
-    logical   :: no_vdm     = .false.  !< skip Vandermonde matrix
-    logical   :: svv        = .false.  !< activate SVV model
-    integer   :: po_cut_svv = -huge(1) !< cut-off PO for SVV
+    integer      :: po         = -1       !< polynomial order
+    character(2) :: basis      = 'L'      !< basis type
+    logical      :: no_vdm     = .false.  !< skip Vandermonde matrix
+    logical      :: svv        = .false.  !< activate SVV model
+    integer      :: po_cut_svv = -huge(1) !< cut-off order for SVV
   contains
     procedure :: Bcast => Bcast_StandardOperatorOptions1D
   end type StandardOperatorOptions_1D
@@ -95,11 +96,11 @@ contains
   function New_StandardOperators_1D__f(po, basis, no_vdm, svv, po_cut_svv)     &
      result(this)
 
-    integer,             intent(in) :: po         !< polynomial order
-    character, optional, intent(in) :: basis      !< points {G,L,R} [L]
-    logical  , optional, intent(in) :: no_vdm     !< skip Vandermonde matrix [F]
-    logical  , optional, intent(in) :: svv        !< activate SVV model      [F]
-    integer  , optional, intent(in) :: po_cut_svv !< cut-off PO for SVV   [po/2]
+    integer,                intent(in) :: po     !< polynomial order
+    character(*), optional, intent(in) :: basis  !< points {G,L,RR,RL}       [L]
+    logical     , optional, intent(in) :: no_vdm !< skip Vandermonde matrix  [F]
+    logical     , optional, intent(in) :: svv    !< activate SVV model       [F]
+    integer     , optional, intent(in) :: po_cut_svv !< SVV cut-off order [po/2]
 
     type(StandardOperators_1D)       :: this
     type(StandardOperatorOptions_1D) :: opt
@@ -167,10 +168,13 @@ contains
         call Error('Init_StandardOperators_1D', 'Invalid order (po < 0)')
       else if (po == 0) then
         this%basis = 'G'
-      else if (any(basis == [ 'G', 'L', 'R' ])) then
-        this%basis = basis
       else
-        call Error('Init_StandardOperators_1D', 'Invalid basis')
+        select case(basis)
+        case('G','L','RL','RR')
+          this%basis = basis
+        case default
+          call Error('Init_StandardOperators_1D', 'Invalid basis')
+        end select
       end if
 
       ! operators available from Gauss-Jacobi module ...........................
@@ -184,27 +188,34 @@ contains
         allocate(this%w(0:0),       source = TWO)
         allocate(this%D(0:0,0:0),   source = ZERO)
 
-      else if (this%basis == 'G') then
-
-        ! Gauss-Legendre
-        allocate(this%x(0:po),      source = GaussPoints(po))
-        allocate(this%w(0:po),      source = GaussWeights(this%x))
-        allocate(this%D(0:po,0:po), source = GaussDiffMatrix(this%x))
-
-      else if (this%basis == 'L') then
-
-        ! Gauss-Lobatto-Legendre points
-        allocate(this%x(0:po),      source = LobattoPoints(po))
-        allocate(this%w(0:po),      source = LobattoWeights(this%x))
-        allocate(this%D(0:po,0:po), source = LobattoDiffMatrix(this%x))
-
       else
+        select case(this%basis)
 
-        ! Gauss-Radau-Legendre
-        allocate(this%x(0:po),      source = RadauPoints(po))
-        allocate(this%w(0:po),      source = RadauWeights(this%x))
-        allocate(this%D(0:po,0:po), source = RadauDiffMatrix(this%x))
+        case('G')
+          ! Gauss-Legendre
+          allocate(this%x(0:po),      source = GaussPoints(po))
+          allocate(this%w(0:po),      source = GaussWeights(this%x))
+          allocate(this%D(0:po,0:po), source = GaussDiffMatrix(this%x))
 
+        case('L')
+          ! Gauss-Lobatto-Legendre points
+          allocate(this%x(0:po),      source = LobattoPoints(po))
+          allocate(this%w(0:po),      source = LobattoWeights(this%x))
+          allocate(this%D(0:po,0:po), source = LobattoDiffMatrix(this%x))
+
+        case('RL')
+          ! left-sided Gauss-Radau-Legendre
+          allocate(this%x(0:po),      source = RadauPoints(po, right = .false.))
+          allocate(this%w(0:po),      source = RadauWeights(this%x))
+          allocate(this%D(0:po,0:po), source = RadauDiffMatrix(this%x))
+
+        case('RR')
+          ! right-sided Gauss-Radau-Legendre
+          allocate(this%x(0:po),      source = RadauPoints(po, right = .true.))
+          allocate(this%w(0:po),      source = RadauWeights(this%x))
+          allocate(this%D(0:po,0:po), source = RadauDiffMatrix(this%x))
+
+        end select
       end if
 
       ! stiffness matrix .......................................................
