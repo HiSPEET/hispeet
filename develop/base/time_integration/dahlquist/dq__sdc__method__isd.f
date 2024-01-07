@@ -17,6 +17,7 @@ module DQ__SDC__Method__ISD
   !> IMEX ISD SDC ...
 
   type, extends(DQ_SDC_Method) :: DQ_SDC_Method_ISD
+    integer :: method !< method selector
   contains
     procedure :: Init_DQ_SDC_Method_ISD
     procedure :: Show => Show_DQ_SDC_Method_ISD
@@ -33,6 +34,7 @@ module DQ__SDC__Method__ISD
   !> Type for providing SDC-ISD options
 
   type, extends(DQ_SDC_Options) :: DQ_SDC_Options_ISD
+    integer :: method = 0 !< method, 1: one-stage, default: two-stage
   end type DQ_SDC_Options_ISD
 
 contains
@@ -63,7 +65,14 @@ contains
     ! intialize parent type
     call this % Init_DQ_SDC_Method(pre_opt, sdc_opt)
 
-    this % corrector_name = 'ISD method of order 1'
+    this % method = sdc_opt % method
+
+    select case(this % method)
+    case(2)
+      this % corrector_name = 'ISD method of order 1 with two stages'
+    case default
+      this % corrector_name = 'ISD method of order 1 with one stage'
+    end select
 
   end subroutine Init_DQ_SDC_Method_ISD
 
@@ -127,10 +136,11 @@ contains
 
     ! auxiliary variables .....................................................
 
-    complex(RNP) :: S, u1, u2
+    complex(RNP), parameter :: i = (ZERO, ONE)
+    complex(RNP) :: ui, u1, u2, S
     real(RNP)    :: t0, t1, dt
-    real(RNP)    :: delta
-    integer      :: i
+    real(RNP)    :: a_inv, delta
+    integer      :: j
 
     ! initialization ..........................................................
 
@@ -144,21 +154,31 @@ contains
 
       delta = t(n_sub) - t(0)
       S = 0
-      do i = 0, n_sub
-        S = S + delta * F(i) * w_sub(i,m)
+      do j = 0, n_sub
+        S = S + delta * F(j) * w_sub(j,m)
       end do
 
       ! u' = u₀ + Sᵏ
-      u1 = u(m-1) + S
+      ui = u(m-1) + S
 
     end associate
 
     ! correction ..............................................................
 
-    u1 = u1 + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
-    u2 = u1 / (ONE - dt * (lambda%re - dt/2 * lambda%im**2))
+    a_inv = ONE / (ONE - dt * (lambda%re - dt/2 * lambda%im**2))
 
-    u(m) = u2
+    select case(this % method)
+    case(2)
+      u1 = ui + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
+      u1 = u1 * a_inv
+      u2 = ui + dt * (i * lambda%im * u1 - F_ex(m) - F_im(m))
+      u2 = u2 * a_inv
+      u(m) = u2
+    case default
+      u1 = ui + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
+      u1 = u1  * a_inv
+      u(m) = u1
+    end select
 
     ! update RHS
     call this % CorrectorRHS(lambda, dt, u(m), F_ex_new(m), F_im_new(m))

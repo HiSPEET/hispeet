@@ -17,7 +17,7 @@ module DQ__Time_Integrator__ISD
 
   type, extends(DQ_TimeIntegrator) :: DQ_TimeIntegrator_ISD
     integer :: order  !< theoretical order of convergence {1,2}
-    integer :: method !< 1: MP, 2: TR, default: TR/MP, for order 2 only
+    integer :: method !< method selector
   contains
     procedure :: Init_DQ_TimeIntegrator_ISD
     procedure :: Show => Show_DQ_TimeIntegrator_ISD
@@ -34,7 +34,9 @@ module DQ__Time_Integrator__ISD
 
   type, extends(DQ_TimeIntegratorOptions) :: DQ_TimeIntegrator_Options_ISD
     integer :: order  = 1 !< theoretical order of convergence {1,2}
-    integer :: method = 0 !< 1: MP, 2: TR, default: TR/MP, for order 2 only
+    integer :: method = 0 !< method
+                          !! - with order 1, 1: one-stage, default: two-stage
+                          !! - with order 2, 1: MP, 2: TR, default: TR/MP
   end type DQ_TimeIntegrator_Options_ISD
 
 contains
@@ -65,7 +67,12 @@ contains
 
     select case(this % order)
     case(1)
-      this % name = 'ISD method of order 1'
+      select case(this % method)
+      case(2)
+        this % name = 'ISD method of order 1 with two stages'
+      case default
+        this % name = 'ISD method of order 1 with one stage'
+      end select
     case(2)
       select case(this % method)
       case(1)
@@ -98,7 +105,6 @@ contains
     call this % Show_DQ_TimeIntegrator(unit)
 
     write(io,'(2X,A,T15,G0)')  'name:' , trim(this % name)
-    write(io,'(2X,A,T15,G0)')  'order:', this % impl
 
   end subroutine Show_DQ_TimeIntegrator_ISD
 
@@ -121,8 +127,30 @@ contains
 
     case(1)
 
-      u = u + dt * (ZERO, ONE) * lambda%im * u
-      u = u / (ONE - dt * (lambda%re - hdt * lambda%im**2))
+      select case(this%method)
+
+      case(2)
+
+        ! two-stage ............................................................
+
+        u0 = u
+
+        u1 = u0 + dt * (ZERO, ONE) * lambda%im * u0
+        u1 = u1 / (ONE - dt * (lambda%re - hdt * lambda%im**2))
+
+        u2 = u0 + dt * (ZERO, ONE) * lambda%im * u1
+        u2 = u2 / (ONE - dt * (lambda%re - hdt * lambda%im**2))
+
+        u = u2
+
+      case default
+
+        ! one-stage ............................................................
+
+        u = u + dt * (ZERO, ONE) * lambda%im * u
+        u = u / (ONE - dt * (lambda%re - hdt * lambda%im**2))
+
+      end select
 
     case(2)
 
