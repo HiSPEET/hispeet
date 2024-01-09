@@ -21,14 +21,10 @@ module CL__SDC__Method__ISD1__1D
   !> SDC method based on ISD1
 
   type, extends(CL_SDC_Method_1D) :: CL_SDC_Method_ISD1_1D
-    integer :: stab_method !< stabilization method ∊ {0,1}
-    integer :: stab_base   !< basis for exponential stabilization
-    integer :: stab_power  !< power for polynomial stabilization
-    integer :: stab_cutoff !< stabilization cutoff sweep
+    integer :: method !< method selector
   contains
     procedure :: Init_CL_SDC_Method_ISD1_1D
     procedure :: Show => Show_CL_SDC_Method_ISD1_1D
-    procedure :: GetHighOrderRHS
     procedure :: GetCorrectorRHS
     procedure :: CorrectorStep
   end type CL_SDC_Method_ISD1_1D
@@ -42,10 +38,7 @@ module CL__SDC__Method__ISD1__1D
   !> Type for providing SDC ISD1 options
 
   type, extends(CL_SDC_Options_1D) :: CL_SDC_Options_ISD1_1D
-    integer :: stab_method = 0 !< 0/1/3 no/exponential/polynomial stabilization
-    integer :: stab_base   = 2 !< basis for exponential stabilization
-    integer :: stab_power  = 2 !< power for polynomial stabilization
-    integer :: stab_cutoff = huge(1) !< stabilization cutoff sweep
+    integer :: method = 0 !< method, 1: one-stage, default: two-stage
   end type CL_SDC_Options_ISD1_1D
 
 contains
@@ -76,11 +69,14 @@ contains
     ! intialize parent type
     call this % Init_CL_SDC_Method_1D(pre_opt, sdc_opt)
 
-    this % corrector_name = 'ISD method of order 1'
-    this % stab_method    = sdc_opt % stab_method
-    this % stab_base      = sdc_opt % stab_base
-    this % stab_power     = sdc_opt % stab_power
-    this % stab_cutoff    = sdc_opt % stab_cutoff
+    this % method = sdc_opt % method
+
+    select case(this % method)
+    case(2)
+      this % corrector_name = 'ISD method of order 1 with two stages'
+    case default
+      this % corrector_name = 'ISD method of order 1 with one stage'
+    end select
 
   end subroutine Init_CL_SDC_Method_ISD1_1D
 
@@ -101,86 +97,7 @@ contains
 
     call this % Show_CL_SDC_Method_1D(unit)
 
-    write(io,'(/)')
-    write(io,'(2X,A,T22,I0)') 'stab_method:', this % stab_method
-    write(io,'(2X,A,T22,I0)') 'stab_base:'  , this % stab_base
-    write(io,'(2X,A,T22,I0)') 'stab_power:' , this % stab_power
-    write(io,'(2X,A,T22,I0)') 'stab_cutoff:', this % stab_cutoff
-
   end subroutine Show_CL_SDC_Method_ISD1_1D
-
-  !-----------------------------------------------------------------------------
-  !> RHS for high-order quadrature
-
-  subroutine GetHighOrderRHS(this, cl_problem, cl_operator, t, dt, k, u, F)
-    class(CL_SDC_Method_ISD1_1D), intent(in) :: this
-    class(CL_Problem_1D),    intent(in)  :: cl_problem
-    class(CL_Operator_1D),   intent(in)  :: cl_operator
-    real(RNP),               intent(in)  :: t        !< time
-    real(RNP),               intent(in)  :: dt       !< time step size
-    integer,                 intent(in)  :: k        !< sweep counter
-    real(RNP), contiguous,   intent(in)  :: u(:,:,:) !< u(x,t)
-    real(RNP), contiguous,   intent(out) :: F(:,:,:) !< RHS
-
-    real(RNP), allocatable, save :: r_c(:,:,:)
-    real(RNP), allocatable, save :: r_d(:,:,:)
-    real(RNP), allocatable, save :: r_sd(:,:,:)
-    real(RNP), allocatable, save :: f_s(:,:,:)
-    real(RNP), allocatable, save :: bv(:,:)
-
-    real(RNP), allocatable :: Me_inv(:)
-    real(RNP) :: theta
-
-    integer :: e, j
-
-    associate( eop => cl_operator % eop      &
-             , dx  => cl_operator % dx       &
-             , po  => cl_operator % eop % po &
-             , ne  => cl_operator % ne       &
-             , nc  => cl_problem  % nc       )
-
-      allocate(r_c , mold = u)
-      allocate(r_d , mold = u)
-      allocate(r_sd, mold = u)
-      allocate(f_s , mold = u)
-      allocate(bv(nc,2))
-      allocate(Me_inv(0:po), source = ONE/(dx/2 * eop%w))
-
-      call cl_problem % GetBoundaryValues (t, bv)
-      call cl_problem % GetConvectionTerm (cl_operator, bv, u, r_c)
-      call cl_problem % GetDiffusionTerm  (cl_operator, bv, u, r_d)
-      call cl_problem % GetSources        (cl_operator, t , u, f_s)
-
-      if (k < this % stab_cutoff .and. k >= 0) then
-        select case(this % stab_method)
-        case(1)
-          theta = 0.001 * dt / this % stab_base ** k
-        case(2)
-          theta = dt * (ONE - real(k,RNP)/this%stab_cutoff) ** this%stab_power
-        case default
-          theta = 0
-        end select
-      else
-        theta = 0
-      end if
-
-      if (theta > 0) then
-        call cl_problem % GetSDTerm(cl_operator, theta, bv, u, u, r_sd)
-      else
-        call SetArray(r_sd, ZERO, multi=.true.)
-      end if
-
-      do j = 1, nc
-      do e = 1, ne
-        F(:,e,j) = Me_inv * (r_c(:,e,j) + r_d(:,e,j) + r_sd(:,e,j))+ f_s(:,e,j)
-      end do
-      end do
-
-      deallocate(r_c, r_d, r_sd, f_s, bv)
-
-    end associate
-
-  end subroutine GetHighOrderRHS
 
   !---------------------------------------------------------------------------
   !> Computes F_ex and F_im as defined in the corrector
@@ -285,8 +202,8 @@ contains
     real(RNP), allocatable, save :: r_d(:,:,:)
     real(RNP), allocatable, save :: r_sd(:,:,:)
     real(RNP), allocatable, save :: u_0(:,:,:)
-    real(RNP), allocatable, save :: u_1(:,:,:)
     real(RNP), allocatable, save :: u_i(:,:,:)
+    real(RNP), allocatable, save :: u_m(:,:,:)
     real(RNP), allocatable, save :: bv(:,:)
 
     real(RNP), allocatable :: Me_inv(:)
@@ -309,8 +226,8 @@ contains
       allocate(r_d , mold = S)
       allocate(r_sd, mold = S)
       allocate(u_0 , mold = S)
-      allocate(u_1 , mold = S)
       allocate(u_i , mold = S)
+      allocate(u_m , mold = S)
       allocate(bv(nc,2))
 
       allocate(Me_inv(0:po), source = ONE / (dx/2 * eop%w))
@@ -319,7 +236,7 @@ contains
       dt_sub  =  t(m)     - t(m-1)  ! subinterval length
 
       call SetArray(u_0, u(:,:,:,m-1), multi = .true.)
-      call SetArray(u_1, u(:,:,:,m  ), multi = .true.)
+      call SetArray(u_m, u(:,:,:,m  ), multi = .true.)
 
       ! high-order quadrature ..................................................
 
@@ -342,7 +259,7 @@ contains
         end do
       end do
 
-      ! IMEX ISD1 correction ...................................................
+      ! correction stage 1: u_m = u₁ ...........................................
 
       ! intermediate solution
       do k = 1, nc
@@ -354,7 +271,7 @@ contains
                                 - F_ex     (:,e,k,m-1)  &
                                 - F_im     (:,e,k,m)    )
           if (present(G)) then
-            u_i(:,e,k) = u_i(:,e,k) + Me_inv * (G(:,e,k,m) - G(:,e,k,m-1))
+            u_i(:,e,k) = u_i(:,e,k) + Me_inv * G(:,e,k,m)
           end if
         else
           u_i(:,e,k) = u_0(:,e,k)
@@ -367,22 +284,54 @@ contains
       call cl_problem % DiffusionSolver( cl_operator, dt_sub, dt_sub, bv  &
                                        , f      = u_i                     &
                                        , u_0    = u_0                     &
-                                       , u      = u_1                     &
+                                       , u      = u_m                     &
                                        , method = this % diffusion_method &
                                        , i_max  = this % diffusion_i_max  &
                                        , r_red  = this % diffusion_r_red  &
                                        , r_max  = this % diffusion_r_max  )
 
+      if (this % method == 2) then
+
+        ! correction stage 2: u_m = u₁ → u₂ ....................................
+
+        call cl_problem % GetConvectionTerm(cl_operator, bv, u_m, r_c)
+
+        ! intermediate solution
+        do k = 1, nc
+        do e = 1, ne
+          if (activity(e) > 0) then
+            ! add approximate ∆F_ex(m) and remove ∆F_ex(m-1)
+            u_i(:,e,k) = u_i(:,e,k)                       &
+                       + dt_sub * ( Me_inv * r_c(:,e,k)   & ! + F_ex(u₁  (m  ))
+                                  - F_ex     (:,e,k,m)    & ! - F_ex(uᵏ  (m  ))
+                                  - F_ex_new (:,e,k,m-1)  & ! - F_ex(uᵏ⁺¹(m-1))
+                                  + F_ex     (:,e,k,m-1)  ) ! + F_ex(uᵏ  (m-1))
+          end if
+        end do
+        end do
+
+        ! implicit diffusion step
+        call cl_problem % DiffusionSolver( cl_operator, dt_sub, dt_sub, bv  &
+                                         , f      = u_i                     &
+                                         , u_0    = u_0                     &
+                                         , u      = u_m                     &
+                                         , method = this % diffusion_method &
+                                         , i_max  = this % diffusion_i_max  &
+                                         , r_red  = this % diffusion_r_red  &
+                                         , r_max  = this % diffusion_r_max  )
+
+      end if
+
       ! update solution and corrector RHS ......................................
 
-      call cl_problem % GetConvectionTerm(cl_operator, bv, u_1, r_c)
-      call cl_problem % GetDiffusionTerm (cl_operator, bv, u_1, r_d)
-      call cl_problem % GetSDTerm(cl_operator, dt_sub, bv, u_0, u_1, r_sd)
+      call cl_problem % GetConvectionTerm(cl_operator, bv, u_m, r_c)
+      call cl_problem % GetDiffusionTerm (cl_operator, bv, u_m, r_d)
+      call cl_problem % GetSDTerm(cl_operator, dt_sub, bv, u_0, u_m, r_sd)
 
       do k = 1, nc
       do e = 1, ne
         if (activity(e) > 0) then
-          u(:,e,k,m) = u_1(:,e,k)
+          u(:,e,k,m) = u_m(:,e,k)
           F_ex_new(:,e,k,m) = Me_inv * r_c(:,e,k)
           F_im_new(:,e,k,m) = Me_inv * (r_d(:,e,k) + r_sd(:,e,k))
         else
@@ -394,7 +343,7 @@ contains
 
       ! clean-up ...............................................................
 
-      deallocate(S, r_c, r_d, r_sd, u_0, u_1, u_i, bv)
+      deallocate(S, r_c, r_d, r_sd, u_0, u_i, u_m, bv)
 
     end associate
 

@@ -24,7 +24,6 @@ module CL__SDC__Method__Euler__1D
   contains
     procedure :: Init_CL_SDC_Method_Euler_1D
     procedure :: Show => Show_CL_SDC_Method_Euler_1D
-    procedure :: GetHighOrderRHS
     procedure :: GetCorrectorRHS
     procedure :: CorrectorStep
   end type CL_SDC_Method_Euler_1D
@@ -91,59 +90,6 @@ contains
 
   end subroutine Show_CL_SDC_Method_Euler_1D
 
-  !-----------------------------------------------------------------------------
-  !> RHS for high-order quadrature
-
-  subroutine GetHighOrderRHS(this, cl_problem, cl_operator, t, dt, k, u, F)
-    class(CL_SDC_Method_Euler_1D), intent(in) :: this
-    class(CL_Problem_1D),    intent(in)  :: cl_problem
-    class(CL_Operator_1D),   intent(in)  :: cl_operator
-    real(RNP),               intent(in)  :: t        !< time
-    real(RNP),               intent(in)  :: dt       !< time step size
-    integer,                 intent(in)  :: k        !< sweep counter
-    real(RNP), contiguous,   intent(in)  :: u(:,:,:) !< u(x,t)
-    real(RNP), contiguous,   intent(out) :: F(:,:,:) !< RHS
-
-    real(RNP), allocatable, save :: r_c(:,:,:)
-    real(RNP), allocatable, save :: r_d(:,:,:)
-    real(RNP), allocatable, save :: f_s(:,:,:)
-    real(RNP), allocatable, save :: bv(:,:)
-
-    real(RNP), allocatable :: Me_inv(:)
-
-    integer :: e, j
-
-    associate( eop => cl_operator % eop      &
-             , dx  => cl_operator % dx       &
-             , po  => cl_operator % eop % po &
-             , ne  => cl_operator % ne       &
-             , nc  => cl_problem  % nc       )
-
-      allocate(r_c , mold = u)
-      allocate(r_d , mold = u)
-      allocate(f_s , mold = u)
-      allocate(bv(nc,2))
-      allocate(Me_inv(0:po), source = ONE/(dx/2 * eop%w))
-
-      call cl_problem % GetBoundaryValues (t, bv)
-      call cl_problem % GetConvectionTerm (cl_operator, bv, u, r_c)
-      call cl_problem % GetDiffusionTerm  (cl_operator, bv, u, r_d)
-      call cl_problem % GetSources        (cl_operator, t , u, f_s)
-
-      do j = 1, nc
-      do e = 1, ne
-        F(:,e,j) = Me_inv * (r_c(:,e,j) + r_d(:,e,j))+ f_s(:,e,j)
-      end do
-      end do
-
-      deallocate(r_c, r_d, f_s, bv)
-
-    end associate
-
-    if (this%n_sub > 0 .or. dt > 0 .or. k > 0) return
-
-  end subroutine GetHighOrderRHS
-
   !---------------------------------------------------------------------------
   !> Computes F_ex and F_im as defined in the corrector
   !>
@@ -204,7 +150,7 @@ contains
     end associate
 
     ! silence compiler warnings
-    if (this % n_sub > 0) return
+    if (this % n_sub > 0 .or. dt > 0 .or. size(u_0) > 0) return
 
   end subroutine GetCorrectorRHS
 

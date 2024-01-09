@@ -203,7 +203,7 @@ contains
       case('RR') ! Radau right
         ! right-sided Radau points and weights in [-1,1]
         this % t(1:n_sub) = RadauPoints(p_col, right = .true.)
-        this % w(1:n_sub) = RadauWeights(this % t)
+        this % w(1:n_sub) = RadauWeights(this % t(1:n_sub))
         ! transform to [0,1]
         this % t(1:n_sub) = HALF * (this % t(1:n_sub) + ONE)
         this % w(1:n_sub) = HALF *  this % w(1:n_sub)

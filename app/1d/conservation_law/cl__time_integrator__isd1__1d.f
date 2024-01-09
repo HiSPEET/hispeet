@@ -26,6 +26,7 @@ module CL__Time_Integrator__ISD1__1D
   !> IMEX ISD1 method for 1D conservation laws
 
   type, extends(CL_TimeIntegrator_1D) :: CL_TimeIntegrator_ISD1_1D
+    integer :: method !< method selector: 1/2 for one or two stages, if impl = 1
   contains
     procedure :: Init_CL_TimeIntegrator_ISD1_1D
     procedure :: Show => Show_CL_TimeIntegrator_ISD1_1D
@@ -41,7 +42,8 @@ module CL__Time_Integrator__ISD1__1D
   !> Type for providing ISD1 time-integrator options (none, so far)
 
   type, extends(CL_TimeIntegrator_Options_1D) :: &
-    CL_TimeIntegrator_Options_ISD1_1D
+      CL_TimeIntegrator_Options_ISD1_1D
+    integer :: method = 1 !< 1: one-stage, 2: two-stage method, if impl = 1
   end type CL_TimeIntegrator_Options_ISD1_1D
 
 contains
@@ -66,7 +68,14 @@ contains
 
     ! intialize parent type
     call this % Init_CL_TimeIntegrator_1D(opt)
-    this % name = 'Streamline-diffusion method of order 1'
+
+    this % method = opt % method
+
+    if (this%impl == 1 .and. this%method == 2) then
+      this % name = 'Streamline-diffusion method of order 1 with two stages'
+    else
+      this % name = 'Streamline-diffusion method of order 1 with one stage'
+    end if
 
   end subroutine Init_CL_TimeIntegrator_ISD1_1D
 
@@ -167,7 +176,7 @@ contains
 
       case(1)
 
-        ! IMEX ISD1 step ......................................................
+        ! semi-implicit ISD1, stage 1 ..........................................
 
         call cl_problem % GetBoundaryValues(t_0, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
@@ -187,8 +196,6 @@ contains
         end do
         end do
 
-        call SetArray(u, u_i, multi=.true.)
-
         ! implicit diffusion step
         call cl_problem % DiffusionSolver( cl_operator, dt, dt, bv          &
                                          , f      = u_i                     &
@@ -198,6 +205,33 @@ contains
                                          , i_max  = this % diffusion_i_max  &
                                          , r_red  = this % diffusion_r_red  &
                                          , r_max  = this % diffusion_r_max  )
+
+        if (this % method == 2) then
+
+          ! semi-implicit ISD1, stage 2 ........................................
+
+           call cl_problem % GetConvectionTerm(cl_operator, bv, u, r_c)
+
+          ! intermediate solution
+          do k = 1, nc
+          do e = 1, ne
+            if (activity(e) > 0) then
+              u_i(:,e,k) = u_0(:,e,k) + dt * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
+            end if
+          end do
+          end do
+
+          ! implicit diffusion step
+          call cl_problem % DiffusionSolver( cl_operator, dt, dt, bv          &
+                                           , f      = u_i                     &
+                                           , u_0    = u_0                     &
+                                           , u      = u                       &
+                                           , method = this % diffusion_method &
+                                           , i_max  = this % diffusion_i_max  &
+                                           , r_red  = this % diffusion_r_red  &
+                                           , r_max  = this % diffusion_r_max  )
+
+        end if
 
       end select
 

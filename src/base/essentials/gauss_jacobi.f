@@ -363,8 +363,8 @@ contains
   !> Quadrature weights at Gauss-Radau-Legendre points x(0:q)
 
   pure function RadauWeights(x) result(w)
-    real(RNP), intent(in) :: x(0:)  !< quadrature points
-    real(RNP) :: w(0:ubound(x,1)) !< quadrature weights
+    real(RNP), intent(in) :: x(0:)             !< quadrature points
+    real(RNP)             :: w(0:ubound(x,1))  !< quadrature weights
 
     integer :: i, q
 

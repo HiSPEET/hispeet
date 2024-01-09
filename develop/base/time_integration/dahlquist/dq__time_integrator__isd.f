@@ -34,8 +34,8 @@ module DQ__Time_Integrator__ISD
 
   type, extends(DQ_TimeIntegratorOptions) :: DQ_TimeIntegrator_Options_ISD
     integer :: order  = 1 !< theoretical order of convergence {1,2}
-    integer :: method = 0 !< method
-                          !! - with order 1, 1: one-stage, default: two-stage
+    integer :: method = 1 !< method
+                          !! - with order 1, 1: one-stage, 2: two-stage
                           !! - with order 2, 1: MP, 2: TR, default: TR/MP
   end type DQ_TimeIntegrator_Options_ISD
 

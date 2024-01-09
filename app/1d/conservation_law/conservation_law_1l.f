@@ -230,7 +230,7 @@ program Conservation_Law_1L
   if (tau_conv > 0) then
     write(*,'(2X,A,ES12.5)') 'c_conv =', dt / tau_conv
   end if
-  if (tau_conv > 0) then
+  if (tau_diff > 0) then
     write(*,'(2X,A,ES12.5)') 'c_diff =', dt / tau_diff
   end if
   write(*,*)
