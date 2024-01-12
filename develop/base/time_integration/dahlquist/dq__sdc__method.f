@@ -208,7 +208,7 @@ contains
     allocate(F_ex_new (0:n_sub))
     allocate(F_im_new (0:n_sub))
 
-    t_  = this % IntermediateTimes(ZERO, dt)
+    t_  = this % SubintervalPoints(ZERO, dt)
 
     dt_(0)       = 0 ! never used !
     dt_(1:n_sub) = t_(1:n_sub) - t_(0:n_sub-1)

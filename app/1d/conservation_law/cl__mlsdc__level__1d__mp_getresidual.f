@@ -70,7 +70,7 @@ contains
 
       do n = 1, nt
 
-        t = cl_sdc % IntermediateTimes(t_0 + (n-1)*dt_step, dt_step)
+        t = cl_sdc % SubintervalPoints(t_0 + (n-1)*dt_step, dt_step)
 
         do i = 0, pt
 

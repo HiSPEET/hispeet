@@ -26,16 +26,16 @@ add_library( HiConservationLaw_1D
              cl__sdc__method__euler__1d.f
              cl__sdc__method__isd1__1d.f
 
-#            cl__mlsdc__1d.f
-#            cl__mlsdc__level__1d.f
-#            cl__mlsdc__level__1d__mp_applycorrector.f
-#            cl__mlsdc__level__1d__mp_applypredictor.f
-#            cl__mlsdc__level__1d__mp_getresidual.f
-#            cl__mlsdc__level__1d__mp_interpolate_cf.f
-#            cl__mlsdc__level__1d__mp_project_fc.f
-#            cl__mlsdc__level__1d__mp_restrict_fc.f
-#            cl__mlsdc__variable__1d.f
-#            cl__mlsdc__v_cycle__1d.f
+             cl__mlsdc__1d.f
+             cl__mlsdc__level__1d.f
+             cl__mlsdc__level__1d__mp_applycorrector.f
+             cl__mlsdc__level__1d__mp_applypredictor.f
+             cl__mlsdc__level__1d__mp_getresidual.f
+             cl__mlsdc__level__1d__mp_interpolate_cf.f
+             cl__mlsdc__level__1d__mp_project_fc.f
+             cl__mlsdc__level__1d__mp_restrict_fc.f
+             cl__mlsdc__variable__1d.f
+             cl__mlsdc__v_cycle__1d.f
 
            )
 
@@ -51,9 +51,9 @@ target_link_libraries(conservation_law_1l HiConservationLaw_1D)
 #===============================================================================
 # Multi-level program
 
-#add_executable(conservation_law_ml conservation_law_ml.f)
-#
-#target_link_libraries(conservation_law_ml HiConservationLaw_1D)
+add_executable(conservation_law_ml conservation_law_ml.f)
+
+target_link_libraries(conservation_law_ml HiConservationLaw_1D)
 
 #===============================================================================
 # Input files

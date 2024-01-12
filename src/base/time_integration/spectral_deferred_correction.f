@@ -67,7 +67,7 @@ module Spectral_Deferred_Correction
     integer      :: n_sub     !< number of subintervals (M)
     integer      :: n_sweep   !< max num correction sweeps (K)
 
-    real(RNP), allocatable :: t(:)       !< nodes τᵢ in [0,1]
+    real(RNP), allocatable :: t(:)       !< subinterval points τᵢ in [0,1]
     real(RNP), allocatable :: w(:)       !< quadrature weights for [0, 1]
     real(RNP), allocatable :: w_sub(:,:) !< quadrature weights for [τᵢ₋₁,τᵢ]
     real(RNP), allocatable :: w_col(:,:) !< quadrature weights for [0,τᵢ]
@@ -79,7 +79,8 @@ module Spectral_Deferred_Correction
 
     procedure :: Init_SDC_Method  =>  Init_SDC
     procedure :: Show             =>  Show_SDC_Method
-    procedure :: IntermediateTimes
+    procedure :: CollocationlPoints
+    procedure :: SubintervalPoints
     procedure :: SubintervalWeights
 
   end type SDC_Method
@@ -257,9 +258,27 @@ contains
   end subroutine Show_SDC_Method
 
   !-----------------------------------------------------------------------------
-  !> Returns the intermediate times within a given time interval
+  !> Returns the collocation points transformed to [t0, t0+dt]
 
-  pure function IntermediateTimes(this, t0, dt) result(t)
+  pure function CollocationlPoints(this, t0, dt) result(t)
+    class(SDC_Method), intent(in) :: this
+    real(RNP), intent(in)  :: t0              !< start of the time interval
+    real(RNP), intent(in)  :: dt              !< length of the time interval
+    real(RNP)              :: t(0:this%n_col) !< intermediate times
+
+    select case(this % point_set)
+    case('RR')
+      t = t0 + dt * this % t(1:this%n_sub)
+    case default
+      t = t0 + dt * this % t
+    end select
+
+  end function CollocationlPoints
+
+  !-----------------------------------------------------------------------------
+  !> Returns the subinterval points transformed to [t0, t0+dt]
+
+  pure function SubintervalPoints(this, t0, dt) result(t)
     class(SDC_Method), intent(in) :: this
     real(RNP), intent(in)  :: t0              !< start of the time interval
     real(RNP), intent(in)  :: dt              !< length of the time interval
@@ -267,7 +286,7 @@ contains
 
     t = t0 + dt * this % t
 
-  end function IntermediateTimes
+  end function SubintervalPoints
 
   !-----------------------------------------------------------------------------
   !> Returns the quadrature weigths for an arbitrary subinterval of [0,1]

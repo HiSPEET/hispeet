@@ -23,9 +23,9 @@ contains
     real(RNP), allocatable :: jmp_u_t(:)     ! jump in time
     real(RNP)              :: jmp_u_x        ! jump in space
 
-    integer :: ps_c, ps_f ! polynomial order in space
+    integer :: ps_c, ps_f ! polynomial degree in space
     integer :: ns_c, ns_f ! number of elements in space
-    integer :: pt_c, pt_f ! number of subintervals in each time step
+    integer :: pt_c, pt_f ! polynomial degree in time
     integer :: nt_c, nt_f ! number of time steps
     integer :: nc         ! number of components, must not change
 

@@ -249,7 +249,7 @@ contains
       allocate(F_ex_new (0:po,ne,nc,0:n_sub))
       allocate(F_im_new (0:po,ne,nc,0:n_sub))
 
-      t_ (0:) = this % IntermediateTimes(t_0, dt)
+      t_ (0:) = this % SubintervalPoints(t_0, dt)
       dt_(1:) = t_(1:n_sub) - t_(0:n_sub-1)
 
       call SetArray(u_(:,:,:,0), u_0, multi = .true.)

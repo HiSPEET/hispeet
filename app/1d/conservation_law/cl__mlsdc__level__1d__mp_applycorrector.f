@@ -58,7 +58,7 @@ contains
 
       Steps: do n = 1, n_time
 
-        t_sub  = cl_sdc % IntermediateTimes(t_0 + (n-1)*dt_step, dt_step)
+        t_sub  = cl_sdc % SubintervalPoints(t_0 + (n-1)*dt_step, dt_step)
         dt_sub = t_sub(1:n_sub) - t_sub(0:n_sub)
 
         ! prerequisites for SDC sweeps

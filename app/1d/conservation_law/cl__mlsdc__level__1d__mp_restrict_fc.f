@@ -19,9 +19,9 @@ contains
 
     real(RNP), allocatable :: r_i(:,:,:,:,:) ! intermediate result
 
-    integer :: po_c, po_f ! polynomial order in space
-    integer :: ne_c, ne_f ! number of elements in space
-    integer :: ns_c, ns_f ! number of subintervals in each time step
+    integer :: ps_c, ps_f ! polynomial degree in space
+    integer :: ns_c, ns_f ! number of elements in space
+    integer :: pt_c, pt_f ! polynomial degree in time
     integer :: nt_c, nt_f ! number of time steps
     integer :: nc         ! number of components, must not change
 
@@ -35,15 +35,15 @@ contains
       ! initialization .........................................................
 
       ! coarse dimensions
-      po_c = ubound(r_c, 1)
-      ne_c = ubound(r_c, 2)
-      ns_c = ubound(r_c, 4)
+      ps_c = ubound(r_c, 1)
+      ns_c = ubound(r_c, 2)
+      pt_c = ubound(r_c, 4)
       nt_c = ubound(r_c, 5)
 
       ! fine dimensions
-      po_f = ubound(r_f, 1)
-      ne_f = ubound(r_f, 2)
-      ns_f = ubound(r_f, 4)
+      ps_f = ubound(r_f, 1)
+      ns_f = ubound(r_f, 2)
+      pt_f = ubound(r_f, 4)
       nt_f = ubound(r_f, 5)
 
       ! number of components
@@ -55,21 +55,21 @@ contains
 
       ! consistency of spatial dimensions
       is_consistent = is_consistent        .and. &
-                      po_c == iop_x % po_c .and. &
-                      po_f == iop_x % po_f
+                      ps_c == iop_x % po_c .and. &
+                      ps_f == iop_x % po_f
 
       ! consistency with spatial interpolation mode
       select case(iop_x % mode)
       case(1)
-        is_consistent = is_consistent .and. ne_f == ne_c
+        is_consistent = is_consistent .and. ns_f == ns_c
       case(2)
-        is_consistent = is_consistent .and. ne_f == ne_c * 2
+        is_consistent = is_consistent .and. ns_f == ns_c * 2
       end select
 
       ! consistency of temporal dimensions
       is_consistent = is_consistent        .and. &
-                      ns_c == iop_t % po_c .and. &
-                      ns_f == iop_t % po_f
+                      pt_c == iop_t % po_c .and. &
+                      pt_f == iop_t % po_f
 
       ! consistency with spatial interpolation mode
       select case(iop_t % mode)
@@ -87,7 +87,7 @@ contains
       end if
 
       ! workspace
-      allocate(r_i(0:po_c,1:ne_c,nc,0:ns_f,1:nt_f))
+      allocate(r_i(0:ps_c,1:ns_c,nc,0:pt_f,1:nt_f))
 
       ! spatial interpolation ..................................................
 
@@ -97,11 +97,11 @@ contains
         r_i = r_f
 
       case(1)
-        ! ne_f = ne_c
+        ! ns_f = ns_c
         do n = 1, nt_f
-        do m = 0, ns_f
+        do m = 0, pt_f
         do c = 1, nc
-        do e = 1, ne_c
+        do e = 1, ns_c
           if (refinement(e) >= 0) then
             r_i(:,e,c,m,n) = matmul(r_f(:,e,c,m,n), iop_x % A(:,:,1))
           end if
@@ -111,11 +111,11 @@ contains
         end do
 
       case(2)
-        ! ne_f = 2 * ne_c
+        ! ns_f = 2 * ns_c
         do n = 1, nt_f
-        do m = 0, ns_f
+        do m = 0, pt_f
         do c = 1, nc
-        do e = 1, ne_c
+        do e = 1, ns_c
           if (refinement(e) >= 0) then
             r_i(:,e,c,m,n) = matmul(r_f(:,2*e-1,c,m,n), iop_x % A(:,:,1)) &
                            + matmul(r_f(:,2*e  ,c,m,n), iop_x % A(:,:,2))
@@ -137,12 +137,12 @@ contains
       case(1)
         ! nt_f = nt_c
         do n = 1, nt_c
-        do m = 0, ns_c
+        do m = 0, pt_c
         do c = 1, nc
-        do e = 1, ne_c
+        do e = 1, ns_c
           if (refinement(e) >= 0) then
             r_c(:,e,c,m,n) = 0
-            do l = 0, ns_f
+            do l = 0, pt_f
               r_c(:,e,c,m,n) = r_c(:,e,c,m,n) + iop_t % A(l,m,1) * r_i(:,e,c,l,n)
             end do
           end if
@@ -154,14 +154,14 @@ contains
       case(2)
         ! nt_f = 2 * nt_c
         do n = 1, nt_c
-        do m = 0, ns_c
+        do m = 0, pt_c
         do c = 1, nc
-        do e = 1, ne_c
+        do e = 1, ns_c
           if (refinement(e) >= 0) then
             n1 = 2 * n - 1
             n2 = 2 * n
             r_c(:,e,c,m,n) = 0
-            do l = 0, ns_f
+            do l = 0, pt_f
               r_c(:,e,c,m,n) = r_c(:,e,c,m,n)                      &
                              + iop_t % A(l,m,1) * r_i(:,e,c,l,n1)  &
                              + iop_t % A(l,m,2) * r_i(:,e,c,l,n2)
