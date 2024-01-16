@@ -43,7 +43,7 @@ module CL__Time_Integrator__ISD1__1D
 
   type, extends(CL_TimeIntegrator_Options_1D) :: &
       CL_TimeIntegrator_Options_ISD1_1D
-    integer :: method = 1 !< 1: one-stage, 2: two-stage method, if impl = 1
+    integer :: method = 2 !< 1: one-stage, 2: two-stage method, if impl = 1
   end type CL_TimeIntegrator_Options_ISD1_1D
 
 contains
