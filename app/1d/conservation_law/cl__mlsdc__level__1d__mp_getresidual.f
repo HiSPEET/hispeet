@@ -1,5 +1,5 @@
 !> summary:  Computation of the collocation residual for the time slice
-!> author:   Joerg Stiller
+!> author:   Joerg Stiller, Erik Pfister
 !> date:     2023/09/04
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
@@ -27,7 +27,7 @@ contains
     real(RNP), allocatable, save :: bv(:,:)    ! boundary values
 
     real(RNP) :: dt_step
-    integer   :: nc, ns, nt, ps, pt
+    integer   :: nc, ns, nt, ps, pt, mt, ot
     integer   :: e, i, k, m, n
 
     associate( cl_problem  => this % cl_problem  &
@@ -40,11 +40,23 @@ contains
       ps = ubound(u, 1)
       ns = ubound(u, 2)
       nc = ubound(u, 3)
-      pt = ubound(u, 4)
+      mt = ubound(u, 4)
       nt = ubound(u, 5)
 
+      ! polynomial degree in time and offset collocation points
+      select case(this % cl_sdc % point_set)
+      case('RR')
+        ! Radau-right
+        pt = mt - 1
+        ot = 1
+      case('E','L')
+        ! equidistant of Lobatto points
+        pt = mt
+        ot = 0
+      end select
+
       ! work space
-      allocate(t(0:pt))
+      allocate(t(0:mt))
       allocate(f(0:ps))
       allocate(r_c(0:ps,ns,nc))
       allocate(r_d, mold = r_c)
@@ -55,11 +67,12 @@ contains
 
       ! residual
       associate(Me => cl_operator % Me)
+        r(:,:,:,0,:) = 0
         do n = 1, nt
-        do m = 0, pt
+        do m = 1, mt
         do k = 1, nc
         do e = 1, ns
-          r(:,e,k,m,n) = Me * (u(:,e,k,0,n) - u(:,e,k,m,n))
+          r(:,e,k,m,n) = Me * (u(:,e,k,m-1,n) - u(:,e,k,m,n))
         end do
         end do
         end do
@@ -72,7 +85,7 @@ contains
 
         t = cl_sdc % SubintervalPoints(t_0 + (n-1)*dt_step, dt_step)
 
-        do i = 0, pt
+        do i = 0, mt
 
           associate(ui => u(:,:,:,i,n))
             call cl_problem % GetBoundaryValues (t(i), bv)
@@ -81,12 +94,12 @@ contains
             call cl_problem % GetSources        (cl_operator, t(i), ui, f_s)
           end associate
 
-          associate(Me => cl_operator % Me, w_col => cl_sdc % w_col)
+          associate(Me => cl_operator % Me, w_sub => cl_sdc % w_sub)
             do k = 1, nc
             do e = 1, ns
               f = r_c(:,e,k) + r_d(:,e,k) + Me * f_s(:,e,k)
-              do m = 1, pt
-                r(:,e,k,m,n) = r(:,e,k,m,n) + dt_step * w_col(i,m) * f
+              do m = 1, mt
+                r(:,e,k,m,n) = r(:,e,k,m,n) + dt_step * w_sub(i,m) * f
               end do
             end do
             end do

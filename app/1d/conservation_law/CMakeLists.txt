@@ -55,6 +55,13 @@ add_executable(conservation_law_1l conservation_law_1l.f)
 target_link_libraries(conservation_law_1l HiConservationLaw_1D)
 
 #===============================================================================
+# Multi-level component tests
+
+add_executable(test_components_ml test_components_ml.f)
+
+target_link_libraries(test_components_ml HiConservationLaw_1D)
+
+#===============================================================================
 # Multi-level program
 
 add_executable(conservation_law_ml conservation_law_ml.f)

@@ -1,5 +1,5 @@
 !> summary:  Fine-to-coarse restriction of residual-like variables
-!> author:   Joerg Stiller
+!> author:   Joerg Stiller, Erik Pfister
 !> date:     2023/09/07
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
@@ -22,7 +22,9 @@ contains
     integer :: ps_c, ps_f ! polynomial degree in space
     integer :: ns_c, ns_f ! number of elements in space
     integer :: pt_c, pt_f ! polynomial degree in time
+    integer :: mt_c, mt_f ! number of subintervals per time step
     integer :: nt_c, nt_f ! number of time steps
+    integer :: o_t        ! offset of time collocation points
     integer :: nc         ! number of components, must not change
 
     logical :: is_consistent
@@ -37,14 +39,28 @@ contains
       ! coarse dimensions
       ps_c = ubound(r_c, 1)
       ns_c = ubound(r_c, 2)
-      pt_c = ubound(r_c, 4)
+      mt_c = ubound(r_c, 4)
       nt_c = ubound(r_c, 5)
 
       ! fine dimensions
       ps_f = ubound(r_f, 1)
       ns_f = ubound(r_f, 2)
-      pt_f = ubound(r_f, 4)
+      mt_f = ubound(r_f, 4)
       nt_f = ubound(r_f, 5)
+
+      ! polynomial degree in time and offset collocation points
+      select case(this % cl_sdc % point_set)
+      case('RR')
+        ! Radau-right
+        pt_c = mt_c - 1
+        pt_f = mt_f - 1
+        o_t  = 1
+      case('E','L')
+        ! equidistant of Lobatto points
+        pt_c = mt_c
+        pt_f = mt_f
+        o_t  = 0
+      end select
 
       ! number of components
       nc = this % cl_problem % nc
@@ -87,7 +103,7 @@ contains
       end if
 
       ! workspace
-      allocate(r_i(0:ps_c,1:ns_c,nc,0:pt_f,1:nt_f))
+      allocate(r_i(0:ps_c,1:ns_c,nc,0:mt_f,1:nt_f))
 
       ! spatial interpolation ..................................................
 
@@ -99,7 +115,7 @@ contains
       case(1)
         ! ns_f = ns_c
         do n = 1, nt_f
-        do m = 0, pt_f
+        do m = 0, mt_f
         do c = 1, nc
         do e = 1, ns_c
           if (refinement(e) >= 0) then
@@ -113,7 +129,7 @@ contains
       case(2)
         ! ns_f = 2 * ns_c
         do n = 1, nt_f
-        do m = 0, pt_f
+        do m = 0, mt_f
         do c = 1, nc
         do e = 1, ns_c
           if (refinement(e) >= 0) then
@@ -136,14 +152,18 @@ contains
 
       case(1)
         ! nt_f = nt_c
-        do n = 1, nt_c
-        do m = 0, pt_c
-        do c = 1, nc
-        do e = 1, ns_c
+        if (o_t == 1) then
+          r_c(:,:,:,0,:) = 0
+        end if
+        do n = 1  , nt_c
+        do m = o_t, mt_c
+        do c = 1  , nc
+        do e = 1  , ns_c
           if (refinement(e) >= 0) then
             r_c(:,e,c,m,n) = 0
-            do l = 0, pt_f
-              r_c(:,e,c,m,n) = r_c(:,e,c,m,n) + iop_t % A(l,m,1) * r_i(:,e,c,l,n)
+            do l = o_t, mt_f
+              r_c(:,e,c,m,n) = r_c(:,e,c,m,n) &
+                             + iop_t % A(l-o_t,m-o_t,1) * r_i(:,e,c,l,n)
             end do
           end if
         end do
@@ -153,18 +173,21 @@ contains
 
       case(2)
         ! nt_f = 2 * nt_c
-        do n = 1, nt_c
-        do m = 0, pt_c
-        do c = 1, nc
-        do e = 1, ns_c
-          if (refinement(e) >= 0) then
+        if (o_t == 1) then
+          r_c(:,:,:,0,:) = 0
+        end if
+        do n = 1  , nt_c
+        do m = o_t, mt_c
+        do c = 1  , nc
+        do e = 1  , ns_c
+            if (refinement(e) >= 0) then
             n1 = 2 * n - 1
             n2 = 2 * n
             r_c(:,e,c,m,n) = 0
-            do l = 0, pt_f
-              r_c(:,e,c,m,n) = r_c(:,e,c,m,n)                      &
-                             + iop_t % A(l,m,1) * r_i(:,e,c,l,n1)  &
-                             + iop_t % A(l,m,2) * r_i(:,e,c,l,n2)
+            do l = o_t, mt_f
+              r_c(:,e,c,m,n) = r_c(:,e,c,m,n)                            &
+                             + iop_t % A(l-o_t,m-o_t,1) * r_i(:,e,c,l,n1)  &
+                             + iop_t % A(l-o_t,m-o_t,2) * r_i(:,e,c,l,n2)
             end do
           end if
         end do

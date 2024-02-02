@@ -27,7 +27,7 @@ contains
     integer :: pt_c, pt_f ! polynomial degree in time
     integer :: mt_c, mt_f ! number of subintervals per time step
     integer :: nt_c, nt_f ! number of time steps
-    integer :: ot         ! offset of time collocation points
+    integer :: o_t        ! offset of time collocation points
     integer :: nc         ! number of components, must not change
 
     logical :: is_consistent
@@ -57,12 +57,12 @@ contains
         ! Radau-right
         pt_c = mt_c - 1
         pt_f = mt_f - 1
-        ot   = 1
+        o_t  = 1
       case('E','L')
-        ! equidistant of Lobatto points
+        ! equidistant or Lobatto points
         pt_c = mt_c
         pt_f = mt_f
-        ot   = 0
+        o_t  = 0
       end select
 
       ! number of components
@@ -191,9 +191,9 @@ contains
               if (eval_elem_f(e)) then
                 u_f(:,e,c,m,n) = 0
                 do l = 0, pt_c
-                  !! offset ot = 1 required with right-sided points !!
+                  !! offset o_t = 1 required with right-sided points !!
                   u_f(:,e,c,m,n) = u_f(:,e,c,m,n) &
-                                 + iop_t % A(m-ot,l,1) * u_i(:,e,c,l+ot,n)
+                                 + iop_t % A(m-o_t,l,1) * u_i(:,e,c,l+o_t,n)
                 end do
               end if
             end do
@@ -237,11 +237,11 @@ contains
                 u_f(:,e,c,m,n1) = 0
                 u_f(:,e,c,m,n2) = 0
                 do l = 0, pt_c
-                  !! offset ot = 1 required with right-sided points !!
+                  !! offset o_t = 1 required with right-sided points !!
                   u_f(:,e,c,m,n1) = u_f(:,e,c,m,n1) &
-                                  + iop_t % A(m-ot,l,1) * u_i(:,e,c,l+ot,n)
+                                  + iop_t % A(m-o_t,l,1) * u_i(:,e,c,l+o_t,n)
                   u_f(:,e,c,m,n2) = u_f(:,e,c,m,n2) &
-                                  + iop_t % A(m-ot,l,2) * u_i(:,e,c,l+ot,n)
+                                  + iop_t % A(m-o_t,l,2) * u_i(:,e,c,l+o_t,n)
                 end do
               end if
             end do

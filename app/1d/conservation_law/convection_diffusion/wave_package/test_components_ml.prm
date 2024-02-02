@@ -23,11 +23,12 @@
   residual_switch      = 1 ! collocation residual test switch
   restriction_switch   = 1 ! restriction test switch
   predictor_switch     = 1 ! predictor test switch
-!  corrector_switch    = 1 ! corrector test switch
+  corrector_switch     = 1 ! corrector test switch
+  vcycle_switch        = 1 ! v cycle test switch 0|1
 /
 
 &convection_diffusion_wave_package_prm
-! v  = 1
+  v  = 1
   nu = 1e-4
   bc = 2*'P'
 /

@@ -387,13 +387,16 @@ contains
 
       end do
 
-      ! averaging at interface
-      if (mod(po_c,2) == 0) then
-        do j = 0, po_f
-          this % A(ph_c,j,1) = HALF * this % A(ph_c,j,1)
-          this % A(   0,j,2) = HALF * this % A(   0,j,2)
-        end do
-      end if
+      select case(this % basis)
+      case('E','G','L')
+        ! averaging at interface
+        if (mod(po_c,2) == 0) then
+          do j = 0, po_f
+            this % A(ph_c,j,1) = HALF * this % A(ph_c,j,1)
+            this % A(   0,j,2) = HALF * this % A(   0,j,2)
+          end do
+        end if
+      end select
 
     end subroutine Build_Interpolation_Operator_2
 
