@@ -11,15 +11,23 @@
 &space_discretization_prm
   cl_operator_opt%ne          =  5
   cl_operator_opt%eop%po      = 15
-  cl_operator_opt%eop%penalty = 20
-  cl_operator_opt%qop%po      = 22
+  cl_operator_opt%eop%penalty =  2
+  cl_operator_opt%qop%po      = 30
 /
 
 &time_integration_prm
 
   t_end  = 1e-2
-  dt     = 1e-5
-  nt_max = 1!000000
+! dt     = 1.37662620e-5 ! cfl =  0.125
+! dt     = 2.75325241e-5 ! cfl =  0.25
+! dt     = 5.50650483e-5 ! cfl =  0.5
+  dt     = 1.10130097e-4 ! cfl =  1
+! dt     = 2.20260193e-4 ! cfl =  2
+! dt     = 4.40520387e-4 ! cfl =  4
+! dt     = 8.81040773e-4 ! cfl =  8
+! dt     = 1.76208155e-3 ! cfl = 16
+! dt     = 3.52416309e-3 ! cfl = 32
+  nt_max = 1000000
 
   time_method = 2
   sdc_method  = 0
