@@ -88,8 +88,8 @@ contains
     real(RNP), allocatable, save :: A(:,:,:,:)
     ! element diffusivity matrices, A(0:po,1:ne,1:3,1:3)
 
-    real(RNP), allocatable, save :: A_hat(:,:)
-    ! diagonal interface diffusivity matrices Â (0:ne,1:3)
+    real(RNP), allocatable, save :: A_hat(:,:,:)
+    ! interface diffusivity matrices Â (0:ne,1:3.1:3)
 
     real(RNP), allocatable, save :: jmp_u(:,:)
     ! jump of solution across element boundaries (0:ne,1:3)
@@ -103,8 +103,8 @@ contains
     real(RNP), allocatable, save :: q_l(:,:), q_r(:,:)
     ! left and right diffusive fluxes at element interfaces (0:ne,1:3)
 
-    real(RNP), allocatable, save :: A_l(:,:), A_r(:,:)
-    ! left and right traces of diagonal interface diffusivity matrices (0:ne,1:3)
+    real(RNP), allocatable, save :: A_l(:,:,:), A_r(:,:,:)
+    ! left and right traces of diffusivity matrices (0:ne,1:3,1:3)
 
     real(RNP), allocatable :: MD_t(:,:)
     ! transpose of weighted derivative matrix (MD)ᵗ
@@ -141,9 +141,12 @@ contains
       has_sd = scan(comp,'ST') > 0 .and. 0 < theta
 
       ! shared workspace
-      allocate(A(0:po,ne,3,3), source = ZERO)
-      allocate(A_hat(0:ne,3),  source = ZERO)
-      allocate(A_l, A_r, u_l, u_r, q_l, q_r, jmp_u, avg_q, mold = A_hat)
+      allocate(A(0:po,ne,3,3),  source = ZERO)
+      allocate(A_hat(0:ne,3,3), source = ZERO)
+      allocate(A_l, A_r, mold = A_hat)
+
+      allocate(avg_q(0:ne,3), source = ZERO)
+      allocate(u_l, u_r, q_l, q_r, jmp_u, mold = avg_q)
 
       ! private workspace
       allocate(MD_t(0:po,0:po), dx_u(0:po,3), q(0:po,3))
@@ -166,14 +169,12 @@ contains
         select case(activity(e))
 
         case(0:)
-          do k = 1, 3
-            A_r(e-1,k) = A( 0,e,k,k)
-            A_l(e  ,k) = A(po,e,k,k)
-          end do
+          A_r(e-1,1:3,1:3) = A( 0,e,:,:)
+          A_l(e  ,1:3,1:3) = A(po,e,:,:)
 
         case default
-          A_r(e-1,1:3) = 0
-          A_l(e  ,1:3) = 0
+          A_r(e-1,1:3,1:3) = 0
+          A_l(e  ,1:3,1:3) = 0
 
         end select
       end do
@@ -240,22 +241,22 @@ contains
       select case(this % bc(1))
 
       case('P') ! periodic
-        u_l(0,1:3) = u_l(ne,1:3)
-        q_l(0,1:3) = q_l(ne,1:3)
-        A_l(0,1:3) = A_l(ne,1:3)
+        u_l(0,1:3)     = u_l(ne,1:3)
+        q_l(0,1:3)     = q_l(ne,1:3)
+        A_l(0,1:3,1:3) = A_l(ne,1:3,1:3)
 
       case('D','S')
-        u_l(0,1:3) = -u_r(0,1:3)
-        q_l(0,1:3) =  q_r(0,1:3)
-        A_l(0,1:3) =  A_r(0,1:3)
+        u_l(0,1:3)     = -u_r(0,1:3)
+        q_l(0,1:3)     =  q_r(0,1:3)
+        A_l(0,1:3,1:3) =  A_r(0,1:3,1:3)
         if (present(bv)) then
           u_l(0,1:3) = u_l(0,1:3) + 2*bv(:,1)
         end if
 
       case default ! extrapolation
-        u_l(0,1:3) =  u_r(0,1:3)
-        q_l(0,1:3) = -q_r(0,1:3)
-        A_l(0,1:3) =  A_r(0,1:3)
+        u_l(0,1:3)     =  u_r(0,1:3)
+        q_l(0,1:3)     = -q_r(0,1:3)
+        A_l(0,1:3,1:3) =  A_r(0,1:3,1:3)
 
       end select
 
@@ -263,34 +264,40 @@ contains
       select case(this % bc(2))
 
       case('P') ! periodic
-        u_r(ne,1:3) = u_r(0,1:3)
-        q_r(ne,1:3) = q_r(0,1:3)
-        A_r(ne,1:3) = A_r(0,1:3)
+        u_r(ne,1:3)     = u_r(0,1:3)
+        q_r(ne,1:3)     = q_r(0,1:3)
+        A_r(ne,1:3,1:3) = A_r(0,1:3,1:3)
 
       case('D','S')
-        u_r(ne,1:3) = -u_l(ne,1:3)
-        q_r(ne,1:3) =  q_l(ne,1:3)
-        A_r(ne,1:3) =  A_l(ne,1:3)
+        u_r(ne,1:3)     = -u_l(ne,1:3)
+        q_r(ne,1:3)     =  q_l(ne,1:3)
+        A_r(ne,1:3,1:3) =  A_l(ne,1:3,1:3)
         if (present(bv)) then
           u_r(ne,1:3) = u_r(ne,1:3) + 2*bv(:,2)
         end if
 
       case default ! extrapolation
-        u_r(ne,1:3) =  u_l(ne,1:3)
-        q_r(ne,1:3) = -q_l(ne,1:3)
-        A_r(ne,1:3) =  A_l(ne,1:3)
+        u_r(ne,1:3)     =  u_l(ne,1:3)
+        q_r(ne,1:3)     = -q_l(ne,1:3)
+        A_r(ne,1:3,1:3) =  A_l(ne,1:3,1:3)
 
       end select
 
       ! element interface values ...............................................
 
       !$omp do collapse(2)
-      do k = 1, 3
       do e = 0, ne
-        jmp_u(e,k) =  u_l(e,k) - u_r(e,k)
-        avg_q(e,k) = (q_l(e,k) + q_r(e,k)) * HALF
-        A_hat(e,k) =  max(A_l(e,k), A_r(e,k))
-      end do
+        do k = 1, 3
+          jmp_u(e,k) =  u_l(e,k) - u_r(e,k)
+          avg_q(e,k) = (q_l(e,k) + q_r(e,k)) * HALF
+          do i = 1, 3
+            if (i == k) then
+              A_hat(e,i,k) =  max(A_l(e,i,k), A_r(e,i,k))
+            else
+              A_hat(e,i,k) =  (A_l(e,i,k) + A_r(e,i,k)) * HALF
+            end if
+          end do
+        end do
       end do
 
       ! apply fluxes ...........................................................
@@ -322,8 +329,15 @@ contains
 
           ! r_d -= μ[v]Â[u]  . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-          r_d( 0,e,k) = r_d( 0,e,k) + mu * A_hat(e-1,k) * jmp_u(e-1,k)
-          r_d(po,e,k) = r_d(po,e,k) - mu * A_hat(  e,k) * jmp_u(e  ,k)
+          r_d( 0,e,k) = r_d( 0,e,k)                          &
+                      + mu * ( A_hat(e-1,k,1) * jmp_u(e-1,1) &
+                             + A_hat(e-1,k,2) * jmp_u(e-1,2) &
+                             + A_hat(e-1,k,3) * jmp_u(e-1,3) )
+
+          r_d(po,e,k) = r_d(po,e,k)                      &
+                      - mu * ( A_hat(e,k,1) * jmp_u(e,1) &
+                             + A_hat(e,k,2) * jmp_u(e,2) &
+                             + A_hat(e,k,3) * jmp_u(e,3) )
 
         end do
       end do
