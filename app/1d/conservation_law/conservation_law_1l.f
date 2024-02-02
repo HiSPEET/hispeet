@@ -9,10 +9,13 @@ program Conservation_Law_1L
   use CL__Operator__1D
   use CL__Problem__1D
   use CL__Problem__Convection_Diffusion__Wave_Package__1D
-  use CL__Problem__Burgers__Wave_Package__1D
+  use CL__Problem__Burgers__Sine_Wave__1D
   use CL__Problem__Burgers__Moving_Front__1D
+  use CL__Problem__Burgers__Wave_Package__1D
   use CL__Problem__CNS__Acoustic_Wave__1D
   use CL__Problem__CNS__Contact_Layer__1D
+  use CL__Problem__CNS__Shock_Tube__1D
+  use CL__Problem__CNS__Shu_Osher__1D
 
   use CL__Time_Integrator__1D
   use CL__Time_Integrator__Euler__1D
@@ -49,6 +52,8 @@ program Conservation_Law_1L
   !   - 'burgers__moving_front'
   !   - 'cns__acoustic_wave'
   !   - 'cns__contact_layer'
+  !   - 'cns__shock_tube'
+  !   - 'cns__shu_osher'
 
   namelist/problem_prm/ problem_name
 
@@ -135,18 +140,27 @@ program Conservation_Law_1L
   case('convection_diffusion__wave_package')
     write(*,'(A)') 'Initializing Convection-Diffusion Wave Package problem'
     allocate(CL_Problem_ConvectionDiffusion_WavePackage_1D :: cl_problem)
-  case('burgers__wave_package')
-    write(*,'(A)') 'Initializing Burgers Wave Package problem'
-    allocate(CL_Problem_Burgers_WavePackage_1D :: cl_problem)
+  case('burgers__sine_wave')
+    write(*,'(A)') 'Initializing Burgers Sine Wave problem'
+    allocate(CL_Problem_Burgers_SineWave_1D :: cl_problem)
   case('burgers__moving_front')
     write(*,'(A)') 'Initializing Burgers Moving Front problem'
     allocate(CL_Problem_Burgers_MovingFront_1D :: cl_problem)
+  case('burgers__wave_package')
+    write(*,'(A)') 'Initializing Burgers Wave Package problem'
+    allocate(CL_Problem_Burgers_WavePackage_1D :: cl_problem)
   case('cns__acoustic_wave')
     write(*,'(A)') 'Initializing CNS acoustic wave problem'
     allocate(CL_Problem_CNS_AcousticWave_1D :: cl_problem)
   case('cns__contact_layer')
     write(*,'(A)') 'Initializing CNS contact layer problem'
     allocate(CL_Problem_CNS_ContactLayer_1D :: cl_problem)
+  case('cns__shock_tube')
+    write(*,'(A)') 'Initializing CNS shock tube problem'
+    allocate(CL_Problem_CNS_ShockTube_1D :: cl_problem)
+  case('cns__shu_osher')
+    write(*,'(A)') 'Initializing CNS Shu-Osher problem'
+    allocate(CL_Problem_CNS_ShuOsher_1D :: cl_problem)
   case default
     call Error('Conservation_Law', 'Invalid problem name')
   end select
@@ -287,7 +301,7 @@ program Conservation_Law_1L
     do i = 0, po
       err   = u(i,k,:) - u_0(i,k,:)
       err_2 = err_2 + Me(i) * err**2
-      write(io,'(99(ES17.10,1X))') cl_operator % x(i,k), u(i,k,:), u_0(i,k,:), err
+      write(io,'(99(ES17.9E3,1X))') cl_operator % x(i,k), u(i,k,:), u_0(i,k,:), err
     end do
     end do
     close(io)

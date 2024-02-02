@@ -344,41 +344,48 @@ contains
 
     subroutine Build_Interpolation_Operator_2
 
-      integer :: o2_f, ph_c
-      integer :: i, j
+      real(RNP) :: x_c2f(2)
+      integer   :: o2_f, ph_c
+      integer   :: i, j
 
       ph_c = po_c/2
       o2_f = ph_c + mod(po_c,2)
-      select case(this % basis)
-      case('E') ! Nodal with equidistant spacing
-        do i = 0, ph_c
-        do j = 0, po_f
-          this % A(i,j,1) = LagrangePolynomial(j, x_f, 2*x_c(i     ) + ONE)
-          this % A(i,j,2) = LagrangePolynomial(j, x_f, 2*x_c(i+o2_f) - ONE)
-        end do
-        end do
-      case('G') ! Gauss
-        do i = 0, ph_c
-        do j = 0, po_f
-          this % A(i,j,1) = GaussPolynomial(j, x_f, 2*x_c(i     ) + ONE)
-          this % A(i,j,2) = GaussPolynomial(j, x_f, 2*x_c(i+o2_f) - ONE)
-        end do
-        end do
-      case('L') ! Lobatto
-        do i = 0, ph_c
-        do j = 0, po_f
-          this % A(i,j,1) = LobattoPolynomial(j, x_f, 2*x_c(i     ) + ONE)
-          this % A(i,j,2) = LobattoPolynomial(j, x_f, 2*x_c(i+o2_f) - ONE)
-        end do
-        end do
-      case('RL','RR') ! Radau
-        do i = 0, ph_c
-        do j = 0, po_f
-          this % A(i,j,1) = RadauPolynomial(j, x_f, 2*x_c(i     ) + ONE)
-          this % A(i,j,2) = RadauPolynomial(j, x_f, 2*x_c(i+o2_f) - ONE)
-        end do
-        end do
-      end select
+
+      do i = 0, ph_c
+
+        x_c2f(1) = 2*x_c(i     ) + ONE ! coarse point mapped to left  element
+        x_c2f(2) = 2*x_c(i+o2_f) - ONE ! coarse point mapped to right element
+
+        select case(this % basis)
+        case('E') ! Nodal with equidistant spacing
+          do j = 0, po_f
+            this % A(i,j,1) = LagrangePolynomial(j, x_f, x_c2f(1))
+            this % A(i,j,2) = LagrangePolynomial(j, x_f, x_c2f(2))
+          end do
+        case('G') ! Gauss
+          do j = 0, po_f
+            this % A(i,j,1) = GaussPolynomial(j, x_f, x_c2f(1))
+            this % A(i,j,2) = GaussPolynomial(j, x_f, x_c2f(2))
+          end do
+        case('L') ! Lobatto
+          do j = 0, po_f
+            this % A(i,j,1) = LobattoPolynomial(j, x_f, x_c2f(1))
+            this % A(i,j,2) = LobattoPolynomial(j, x_f, x_c2f(2))
+          end do
+        case('RL','RR') ! Radau: take care of asymmetry
+          if (x_c2f(1) <= ONE) then
+            do j = 0, po_f
+              this % A(i,j,1) = RadauPolynomial(j, x_f, x_c2f(1))
+            end do
+          end if
+          if (x_c2f(2) >= -ONE) then
+            do j = 0, po_f
+              this % A(i,j,2) = RadauPolynomial(j, x_f, x_c2f(2))
+            end do
+          end if
+        end select
+
+      end do
 
       ! averaging at interface
       if (mod(po_c,2) == 0) then

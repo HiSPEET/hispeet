@@ -21,7 +21,7 @@ module CL__SDC__Method__ISD1__1D
   !> SDC method based on ISD1
 
   type, extends(CL_SDC_Method_1D) :: CL_SDC_Method_ISD1_1D
-    integer :: method !< method selector
+    integer :: n_stages !< number of corrector stages
   contains
     procedure :: Init_CL_SDC_Method_ISD1_1D
     procedure :: Show => Show_CL_SDC_Method_ISD1_1D
@@ -38,7 +38,7 @@ module CL__SDC__Method__ISD1__1D
   !> Type for providing SDC ISD1 options
 
   type, extends(CL_SDC_Options_1D) :: CL_SDC_Options_ISD1_1D
-    integer :: method = 0 !< method, 1: one-stage, default: two-stage
+    integer :: n_stages = 2 !< number of corrector stages {1,2}
   end type CL_SDC_Options_ISD1_1D
 
 contains
@@ -69,9 +69,9 @@ contains
     ! intialize parent type
     call this % Init_CL_SDC_Method_1D(pre_opt, sdc_opt)
 
-    this % method = sdc_opt % method
+    this % n_stages = sdc_opt % n_stages
 
-    select case(this % method)
+    select case(this % n_stages)
     case(2)
       this % corrector_name = 'ISD method of order 1 with two stages'
     case default
@@ -290,9 +290,14 @@ contains
                                        , r_red  = this % diffusion_r_red  &
                                        , r_max  = this % diffusion_r_max  )
 
-      if (this % method == 2) then
+      if (this % n_stages == 2) then
 
         ! correction stage 2: u_m = u₁ → u₂ ....................................
+
+        if (cl_problem % limiting_method == 1 .and. &
+            cl_problem % limiting_scope  == 2       ) then
+          call cl_problem % MomentLimiter(cl_operator, u_m)
+        end if
 
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_m, r_c)
 
@@ -340,6 +345,12 @@ contains
         end if
       end do
       end do
+
+      ! limiting ...............................................................
+
+      if (cl_problem % limiting_method == 1) then
+        call cl_problem % MomentLimiter(cl_operator, u(:,:,:,m))
+      end if
 
       ! clean-up ...............................................................
 

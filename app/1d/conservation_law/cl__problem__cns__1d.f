@@ -18,7 +18,7 @@
 module CL__Problem__CNS__1D
 
   use Kind_Parameters, only: RNP
-  use Constants,       only: ONE, ZERO, HALF, THIRD, TWO
+  use Constants
   use Execution_Control
   use Logging_Levels
   use CL__Problem__1D
@@ -50,6 +50,9 @@ module CL__Problem__CNS__1D
   contains
 
     procedure :: HasDiffusion
+    procedure :: ConvectiveFlux
+    procedure :: ConvectiveJacobian
+    procedure :: ConvectiveEigensystem
     procedure :: GetConvectionTerm
     procedure :: GetDiffusionTerm
     procedure :: GetSDTerm
@@ -69,14 +72,10 @@ module CL__Problem__CNS__1D
     procedure :: CharacteristicToConservative
 
     ! convection
-    procedure :: ConvectiveFlux
-    procedure :: ConvectiveJacobian
-    procedure :: ConvectiveEigensystem
     procedure :: NumericalConvectiveFlux
 
     ! diffusion
     procedure :: PhysicalDiffusivity
-    procedure :: StreamlineDiffusivity
     procedure :: GetHybridDiffusionTerm
 
   end type CL_Problem_CNS_1D
@@ -84,42 +83,34 @@ module CL__Problem__CNS__1D
   !-----------------------------------------------------------------------------
   !> Compressible Navier-Stokes options
 
-  type CL_Problem_CNS_Options_1D
+  type, extends(CL_Problem_Options_1D) :: CL_Problem_CNS_Options_1D
 
     ! fluid properties
-    real(RNP) :: r_gas    = 287.280E+0_RNP !< specific gas constant
-    real(RNP) :: gamma    =   1.400E+0_RNP !< ratio of specific heats
-    real(RNP) :: eta      =   1.800E-5_RNP !< dynamic viscosity
-    real(RNP) :: prandtl  =   0.691E+0_RNP !< Prandtl number
+    real(RNP) :: r_gas   = 287.280E+0_RNP !< specific gas constant
+    real(RNP) :: gamma   =   1.400E+0_RNP !< ratio of specific heats
+    real(RNP) :: eta     =   1.800E-5_RNP !< dynamic viscosity
+    real(RNP) :: prandtl =   0.750E+0_RNP !< Prandtl number
 
     ! solver options
-    integer :: n_krylov = 5 !< dimension of GMRES Krylov subspaces
+    integer :: n_krylov = 1 !< dimension of GMRES Krylov subspaces
 
   end type CL_Problem_CNS_Options_1D
 
   !=============================================================================
-  ! external module procedures
+  ! Procedures defined in submodules
 
   interface
 
     !---------------------------------------------------------------------------
     !> Returns the physical diffusivity matrix
 
-    pure module function PhysicalDiffusivity(this, u) result(A_pd)
+    pure module function PhysicalDiffusivity(this, u, eta, prandtl) result(A_d)
       class(CL_Problem_CNS_1D), intent(in) :: this
-      real(RNP), intent(in) :: u(:) !< conservative variables
-      real(RNP) :: A_pd(3,3)
-    end function PhysicalDiffusivity
-
-    !---------------------------------------------------------------------------
-    !> Returns the streamline diffusivity matrix
-
-    pure module function StreamlineDiffusivity(this, theta, u) result(A_d)
-      class(CL_Problem_CNS_1D), intent(in) :: this
-      real(RNP), intent(in) :: u(:)  !< conservative variables
-      real(RNP), intent(in) :: theta !< streamline-diffusion time scale
+      real(RNP),           intent(in) :: u(:)    !< conservative variables
+      real(RNP), optional, intent(in) :: eta     !< dynamic viscosity
+      real(RNP), optional, intent(in) :: prandtl !< prandtl number
       real(RNP) :: A_d(3,3)
-    end function StreamlineDiffusivity
+    end function PhysicalDiffusivity
 
     !---------------------------------------------------------------------------
     !> Unified CNS diffusion term combining physical and streamline contributions
@@ -172,6 +163,8 @@ contains
     class(CL_Problem_CNS_1D),         intent(inout) :: this
     class(CL_Problem_CNS_Options_1D), intent(in)    :: opt
 
+    call this % Init_CL_Problem_1D(opt)
+
     this % nc = 3
 
     this % r_gas    = opt % r_gas
@@ -195,6 +188,91 @@ contains
     HasDiffusion = this % eta > 0
 
   end function HasDiffusion
+
+  !-----------------------------------------------------------------------------
+  !> Calculates the convective flux with given conservative variables
+
+  pure function ConvectiveFlux(this, u) result(f_c)
+    class(CL_Problem_CNS_1D), intent(in) :: this
+    real(RNP), intent(in) :: u(:)
+    real(RNP) :: f_c(this%nc)
+
+    real(RNP) ::  v, p
+
+    v = u(2) / u(1)
+    p = (this%gamma - 1) * (u(3) - u(2)*u(2) / (2*u(1)))
+
+    f_c(1:3) = v * u(1:3) + [ ZERO, p, v*p ]
+
+  end function ConvectiveFlux
+
+  !-----------------------------------------------------------------------------
+  !> Calculates the Jacobian ot the Convective Term
+
+  pure function ConvectiveJacobian(this, u) result(A_c)
+    class(CL_Problem_CNS_1D), intent(in) :: this
+    real(RNP), intent(in) :: u(:)
+    real(RNP) :: A_c(this%nc,this%nc)
+
+    real(RNP) :: v, e_k, h_t
+
+    associate(gamma => this % gamma)
+
+      v   = u(2)/u(1)
+      e_k = HALF*v*v
+      h_t = gamma*u(3)/u(1) - (gamma-1)*e_k
+
+      A_c(1,1:3) = [ ZERO                    ,  ONE                  , ZERO    ]
+      A_c(2,1:3) = [ (gamma-3)*e_k           , -(gamma-3)*v          , gamma-1 ]
+      A_c(3,1:3) = [ -v*(h_t - (gamma-1)*e_k),  h_t - 2*(gamma-1)*e_k, gamma*v ]
+
+    end associate
+
+  end function ConvectiveJacobian
+
+  !-----------------------------------------------------------------------------
+  !> Calculates the Eigendecomposition of the Convective Jacobian
+
+  pure subroutine ConvectiveEigensystem(this, u, lambda, R, L)
+    class(CL_Problem_CNS_1D), intent(in)  :: this
+    real(RNP),                intent(in)  :: u(:)
+    real(RNP), optional,      intent(out) :: lambda(:)
+    real(RNP), optional,      intent(out) :: R(:,:)
+    real(RNP), optional,      intent(out) :: L(:,:)
+
+    real(RNP) :: a, aa, ek, h, p, rho, T, v, z2
+
+    associate(gamma => this%gamma)
+
+      v   = u(2)/u(1)
+      ek  = HALF * v**2
+      rho = u(1)
+      p   = (gamma - 1) * (u(3) - HALF*u(2)*v)
+      aa  = gamma * (p/rho)
+      a   = sqrt(aa)
+      T   = p/(u(1)*this%r_gas)
+      h   = this%c_p * T
+
+      if(present(lambda)) then
+        lambda(1:3) = [v-a , v , v+a ]
+      end if
+
+      if(present(R)) then
+        R(1,1:3) = [ ONE     , ONE , ONE     ]
+        R(2,1:3) = [ v-a     , v   , v+a     ]
+        R(3,1:3) = [ h-(v*a) , ek  , h+(v*a) ]
+      end if
+
+      if(present(L)) then
+        z2 = a/(gamma-1)
+        L(1,1:3) = [ ek  + v*z2 , -v - z2 ,  ONE ]
+        L(2,1:3) = [ 2*h - v*v  , 2*v     , -TWO ]
+        L(3,1:3) = [ ek  - v*z2 , -v + z2 ,  ONE ]
+        L = HALF/h * L
+      end if
+    end associate
+
+  end subroutine ConvectiveEigensystem
 
   !-----------------------------------------------------------------------------
   !> Convective contribution to RHS of DG-SEM formulation
@@ -286,6 +364,8 @@ contains
           u_l(0,:) = u(po,ne,:)
         case('S')
           u_l(0,:) = bv(:,1)
+        case('D')
+          u_l(0,:) = 2*bv(:,1) - u(0,1,:)
         case default
           u_l(0,:) = u(0,1,:)
       end select
@@ -296,6 +376,8 @@ contains
           u_r(ne,:) = u(0,1,:)
         case('S')
           u_r(ne,:) = bv(:,2)
+        case('D')
+          u_r(ne,:) = 2*bv(:,2) - u(po,ne,:)
         case default
           u_r(ne,:) = u(po,ne,:)
       end select
@@ -491,90 +573,6 @@ contains
   end subroutine CharacteristicToConservative
 
   !-----------------------------------------------------------------------------
-  !> Calculates the convective flux with given conservative variables
-
-  pure function ConvectiveFlux(this, u) result(f_c)
-    class(CL_Problem_CNS_1D), intent(in) :: this
-    real(RNP), intent(in) :: u(:)
-    real(RNP) :: f_c(3)
-
-    real(RNP) ::  v, p
-
-    v = u(2) / u(1)
-    p = (this%gamma - 1) * (u(3) - u(2)*u(2) / (2*u(1)))
-    f_c = v * u + [ ZERO, p, v*p ]
-
-  end function ConvectiveFlux
-
-  !-----------------------------------------------------------------------------
-  !> Calculates the Jacobian ot the Convective Term
-
-  pure function ConvectiveJacobian(this, u) result(A)
-    class(CL_Problem_CNS_1D), intent(in) :: this
-    real(RNP), intent(in) :: u(:)
-    real(RNP) :: A(3,3)
-
-    real(RNP) :: v, e_k, h_t
-
-    associate(gamma => this % gamma)
-
-      v   = u(2)/u(1)
-      e_k = HALF*v*v
-      h_t = gamma*u(3)/u(1) - (gamma-1)*e_k
-
-      A(1,:) = [ZERO                     ,  ONE                   ,  ZERO     ]
-      A(2,:) = [(gamma-3)*e_k            , -(gamma-3)*v           ,  gamma-1  ]
-      A(3,:) = [-v*(h_t - (gamma-1)*e_k) ,  h_t - 2*(gamma-1)*e_k ,  gamma*v  ]
-
-    end associate
-
-  end function ConvectiveJacobian
-
-  !-----------------------------------------------------------------------------
-  !> Calculates the Eigendecomposition of the Convective Jacobian
-
-  pure subroutine ConvectiveEigensystem(this, u, Lambda, R, L)
-    class(CL_Problem_CNS_1D), intent(in)  :: this
-    real(RNP),                intent(in)  :: u(:)
-    real(RNP), optional,      intent(out) :: Lambda(:)
-    real(RNP), optional,      intent(out) :: R(:,:)
-    real(RNP), optional,      intent(out) :: L(:,:)
-
-    real(RNP) :: a, aa, ek, h, p, rho, T, v, z2
-
-    associate(gamma => this%gamma)
-
-      v   = u(2)/u(1)
-      ek  = HALF * v**2
-      rho = u(1)
-      p   = (gamma - 1) * (u(3) - HALF*u(2)*v)
-      aa  = gamma * (p/rho)
-      a   = sqrt(aa)
-      T   = p/(u(1)*this%r_gas)
-      h   = this%c_p * T
-
-      if(present(lambda)) then
-        lambda = [v-a , v , v+a ]
-      end if
-
-      if(present(R)) then
-        R(1,1:3) = [ ONE     , ONE , ONE     ]
-        R(2,1:3) = [ v-a     , v   , v+a     ]
-        R(3,1:3) = [ h-(v*a) , ek  , h+(v*a) ]
-      end if
-
-      if(present(L)) then
-        z2 = a/(gamma-1)
-        L(1,1:3) = [ ek  + v*z2 , -v - z2 ,  ONE ]
-        L(2,1:3) = [ 2*h - v*v  , 2*v     , -TWO ]
-        L(3,1:3) = [ ek  - v*z2 , -v + z2 ,  ONE ]
-        L = HALF/h * L
-      end if
-    end associate
-
-  end subroutine ConvectiveEigensystem
-
-  !-----------------------------------------------------------------------------
   !> Calculates the Numerical Roe-Flux without entropy fix
 
   pure function NumericalConvectiveFlux(this, u_l, u_r) result(h_c)
@@ -583,21 +581,26 @@ contains
     real(RNP), intent(in) :: u_r(:)
     real(RNP) :: h_c(3)
 
-    real(RNP) :: u_roe(3), Lambda(3)
-    real(RNP) :: abs_A(3,3), R(3,3), L(3,3)
-    integer   :: i,j
+    real(RNP), dimension(3)   :: delta, lambda, lambda_l, lambda_r, u_roe
+    real(RNP), dimension(3,3) :: abs_A, R, L
+    integer :: i, j
 
-    !JS! Entropie-Fix dann z.B. durch Anpassung der Eigenwerte
+    ! left and right eigenvalues
+    call ConvectiveEigensystem(this, u_l, lambda_l)
+    call ConvectiveEigensystem(this, u_l, lambda_r)
 
-    ! calculation of the Roe-average
+    ! Roe average and eigensystem,
     u_roe = RoeAverage(this, u_l, u_r)
+    call ConvectiveEigensystem(this, u_roe, lambda, R, L)
 
-    ! calculation of the absolute Jacobian
-    call ConvectiveEigensystem(this, u_roe, Lambda, R, L)
-    Lambda = abs(Lambda)
+    ! absolute eigenvalues with first entropy fix of Harten and Hyman
+    delta  = max(ZERO, lambda - lambda_l, lambda_r - lambda)
+    lambda = max(abs(lambda), delta)
+
+    ! absolute Jacobian
     do i = 1, 3
     do j = 1, 3
-      abs_A(i,j) = sum(R(i,:) * Lambda(:) * L(:,j))
+      abs_A(i,j) = sum(R(i,:) * lambda(:) * L(:,j))
     end do
     end do
 

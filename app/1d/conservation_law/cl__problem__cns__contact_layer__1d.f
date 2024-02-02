@@ -1,5 +1,5 @@
 !> summary:  Shock Tube Problem for the compressible Navier-Stokes equations
-!> author:   Benedikt Wex
+!> author:   Benedikt Wex, Joerg Stiller
 !> date:     2023/12/14
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
@@ -34,6 +34,7 @@ module CL__Problem__CNS__Contact_Layer__1D
     procedure :: GetInitialValues
     procedure :: GetBoundaryValues
     procedure :: GetSources
+    procedure :: GetExactSolution
 
   end type CL_Problem_CNS_ContactLayer_1D
 
@@ -43,12 +44,10 @@ module CL__Problem__CNS__Contact_Layer__1D
   type, extends(CL_Problem_CNS_Options_1D) :: &
       CL_Problem_CNS_ContactLayer_Options_1D
 
-    real(RNP) :: xb1   =   -1    !< left boundary position
-    real(RNP) :: xb2   =    1    !< right boundary position
-    real(RNP) :: p_0   = 1000    !< pressure
-    real(RNP) :: T_0   =   15    !< mean temperature
-    real(RNP) :: dT    =    5    !< temperature difference
-    real(RNP) :: delta =    1D-1 !< thickness of the layer
+    real(RNP) :: p_0   = 1000        !< pressure
+    real(RNP) :: T_0   =   15        !< mean temperature
+    real(RNP) :: dT    =    5        !< temperature difference
+    real(RNP) :: delta =    1E-1_RNP !< thickness of the layer
 
   end type CL_Problem_CNS_ContactLayer_Options_1D
 
@@ -61,12 +60,17 @@ contains
     class(CL_Problem_CNS_ContactLayer_1D), intent(inout) :: this
     character(len=*), optional, intent(in) :: file !< (*.prm)
 
-    type(CL_Problem_CNS_ContactLayer_Options_1D) :: contact_layer_opt
-
-    namelist/cns_contact_layer_prm/ contact_layer_opt
+    type(CL_Problem_CNS_ContactLayer_Options_1D) :: opt
+    namelist/cns_contact_layer_prm/ opt
 
     logical :: exists, opened
     integer :: prm
+
+    ! preset options ...........................................................
+
+    opt % xb1 = -1
+    opt % xb2 =  1
+    opt % bc  = 'S'
 
     ! check for input file .....................................................
 
@@ -94,18 +98,15 @@ contains
     ! set parameters ...........................................................
 
     ! initialize base type
-    call this % Init_CL_Problem_CNS_1D(contact_layer_opt)
-
-    ! enforce static BC
-    this % bc = 'S'
+    call this % Init_CL_Problem_CNS_1D(opt)
 
     ! specific parameters
-    this % xb1   = contact_layer_opt % xb1
-    this % xb2   = contact_layer_opt % xb2
-    this % p_0   = contact_layer_opt % p_0
-    this % T_0   = contact_layer_opt % T_0
-    this % dT    = contact_layer_opt % dT
-    this % delta = contact_layer_opt % delta
+    this % p_0   = opt % p_0
+    this % T_0   = opt % T_0
+    this % dT    = opt % dT
+    this % delta = opt % delta
+
+    this % has_exact_solution = .true.
 
   end subroutine SetProblem
 
@@ -212,6 +213,22 @@ contains
     if (t > 0 .or. size(u) > 0) return
 
   end subroutine GetSources
+
+  !-----------------------------------------------------------------------------
+  !> Provides the exact solution u(x,t)
+
+  subroutine GetExactSolution(this, cl_operator, t, u)
+    class(CL_Problem_CNS_ContactLayer_1D), intent(in)  :: this
+    class(CL_Operator_1D), intent(in)  :: cl_operator
+    real(RNP),             intent(in)  :: t
+    real(RNP), contiguous, intent(out) :: u(0:,:,:) !< u(x,t) at mesh points
+
+    call GetInitialValues(this, cl_operator, u)
+
+    ! just to avoid compiler warnings ;)
+    if ( t > 0) return
+
+  end subroutine GetExactSolution
 
   !=============================================================================
 

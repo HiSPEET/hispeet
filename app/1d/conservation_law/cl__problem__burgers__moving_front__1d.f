@@ -31,6 +31,7 @@ module CL__Problem__Burgers__Moving_Front__1D
   private
 
   public :: CL_Problem_Burgers_MovingFront_1D
+  public :: CL_Problem_Burgers_MovingFront_Options_1D
 
   !-----------------------------------------------------------------------------
   !> Type for defining and handling 1D Burgers moving front problem
@@ -45,6 +46,13 @@ module CL__Problem__Burgers__Moving_Front__1D
 
   end type CL_Problem_Burgers_MovingFront_1D
 
+  !-----------------------------------------------------------------------------
+  !> 1D Burgers moving front options
+
+  type, extends(CL_Problem_Burgers_Options_1D) :: &
+      CL_Problem_Burgers_MovingFront_Options_1D
+  end type CL_Problem_Burgers_MovingFront_Options_1D
+
   !=============================================================================
 
 contains
@@ -56,14 +64,18 @@ contains
     class(CL_Problem_Burgers_MovingFront_1D), intent(inout) :: this
     character(len=*), optional, intent(in) :: file !< (*.prm)
 
-    real(RNP) :: nu = 0.1
-    character :: bc(2) = ['D','N']
-    integer   :: nu_sd_filter = -1
-
-    namelist /burgers_moving_front_prm/ nu, bc, nu_sd_filter
+    type(CL_Problem_Burgers_MovingFront_Options_1D) :: opt
+    namelist /burgers_moving_front_prm/ opt
 
     logical :: exists, opened
     integer :: prm
+
+    ! preset options ...........................................................
+
+    opt % xb1 = -1
+    opt % xb2 =  1
+    opt % nu  =  0.1
+    opt % bc  = ['D','N']
 
     ! check for input file .....................................................
 
@@ -90,13 +102,9 @@ contains
 
     ! set parameters ...........................................................
 
-    this % nc  =  1  ! number of conservation variables
-    this % xb1 = -1  ! position of left boundary
-    this % xb2 =  1  ! position of right boundary
-    this % bc  =  bc ! BC types at left and right boundaries
-    this % nu  =  nu ! viscosity
+    ! initialize base type
+    call this % Init_CL_Problem_Burgers_1D(opt)
 
-    this % nu_sd_filter = nu_sd_filter
     this % has_exact_solution = .true.
 
   end subroutine SetProblem
@@ -140,6 +148,8 @@ contains
       bv(1,1) = ExactSolution(this%nu, this%xb1, t)
     case('N')
       bv(1,1) = ExactDerivative(this%nu, this%xb1, t)
+    case('S')
+      bv(1,1) = ExactSolution(this%nu, this%xb1, t = ZERO)
     case default
       bv(1,1) = 0
     end select
@@ -150,6 +160,8 @@ contains
       bv(1,2) = ExactSolution(this%nu, this%xb2, t)
     case('N')
       bv(1,2) = ExactDerivative(this%nu, this%xb2, t)
+    case('S')
+      bv(1,2) = ExactSolution(this%nu, this%xb2, t = ZERO)
     case default
       bv(1,2) = 0
     end select

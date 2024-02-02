@@ -3,18 +3,24 @@
 
 add_library( HiConservationLaw_1D 
              cl__operator__1d.f
+
              cl__problem__1d.f
+             cl__problem__1d__sm__moment_limiter.f
+
              cl__problem__convection_diffusion__1d.f
              cl__problem__convection_diffusion__wave_package__1d.f
+
              cl__problem__burgers__1d.f
              cl__problem__burgers__moving_front__1d.f
+             cl__problem__burgers__sine_wave__1d.f
              cl__problem__burgers__wave_package__1d.f
 
              cl__problem__cns__1d.f
              cl__problem__cns__1d__sm_diffusion.f
              cl__problem__cns__acoustic_wave__1d.f
              cl__problem__cns__contact_layer__1d.f
-#            cl__problem__cns__shock_tube__1d
+             cl__problem__cns__shock_tube__1d.f
+             cl__problem__cns__shu_osher__1d.f
 
              cl__time_integrator__1d.f
              cl__time_integrator__euler__1d.f

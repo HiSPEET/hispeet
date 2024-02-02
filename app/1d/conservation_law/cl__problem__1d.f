@@ -16,6 +16,7 @@ module CL__Problem__1D
   private
 
   public :: CL_Problem_1D
+  public :: CL_Problem_Options_1D
 
   !-----------------------------------------------------------------------------
   !> Abstract type for defining and handling 1D conservation problems
@@ -43,27 +44,110 @@ module CL__Problem__1D
 
     ! control parameters .......................................................
 
+    integer   :: ad_filter_method  !< artificial diffusivity filtering method:
+                                   !! - `0` no filtering
+                                   !! - `1` reduction to specified degree
+                                   !! - `2` reduction to half degree
+                                   !! - `3` diagonal maximum
+
+    integer   :: ad_filter_basis   !< artificial diffusivity filtering basis:
+                                   !! - `1` Legendre
+                                   !! - `2` linear+bubble
+                                   !! - `3` interpolation
+
+    integer   :: ad_filter_degree  !< artificial diffusivity max degree:
+                                   !! - with Legendre basis      ≥ 0
+                                   !! - with linear+bubble basis ≥ 1
+
+    integer   :: dc_diffusivity    !< discontinuity capturing (DC) diffusivity:
+                                   !! - `0` none
+                                   !! - `1` Persson & Preraire (2006)
+
+    integer   :: dc_sensor_var     !< DC sensor variable
+    real(RNP) :: dc_sensor_coeff   !< DC sensor coefficient
+    real(RNP) :: dc_sensor_const   !< DC sensor constant
+    real(RNP) :: dc_sensor_delta   !< DC sensor half width
+    real(RNP) :: dc_scaling_coeff  !< DC max diffusivity scaling factor
+
+    integer   :: limiting_method   !< limiting method:
+                                   !! - `0` none
+                                   !! - `1` momentum (Burbeau et al. 2001)
+
+    integer   :: limiting_scope    !< limiting scope:
+                                   !! - `1` step
+                                   !! - `2` stages or substeps
+
+    ! automatic parameters .....................................................
+
     logical :: has_exact_solution = .false.
 
   contains
+
+    procedure :: Init_CL_Problem_1D
 
     procedure :: HasExactSolution
     procedure :: GetExactSolution
     procedure :: GetSources
     procedure :: GetTimeScales
 
-    procedure(SetProblem       ), deferred :: SetProblem
-    procedure(HasDiffusion     ), deferred :: HasDiffusion
-    procedure(GetInitialValues ), deferred :: GetInitialValues
-    procedure(GetBoundaryValues), deferred :: GetBoundaryValues
-    procedure(GetConvectionTerm), deferred :: GetConvectionTerm
-    procedure(GetDiffusionTerm ), deferred :: GetDiffusionTerm
-    procedure(GetSDTerm        ), deferred :: GetSDTerm
-    procedure(DiffusionSolver  ), deferred :: DiffusionSolver
-    procedure(GetMaxVelocity   ), deferred :: GetMaxVelocity
-    procedure(GetMaxDiffusivity), deferred :: GetMaxDiffusivity
+    procedure :: MomentLimiter
+
+    procedure(SetProblem           ), deferred :: SetProblem
+    procedure(HasDiffusion         ), deferred :: HasDiffusion
+    procedure(ConvectiveFlux       ), deferred :: ConvectiveFlux
+    procedure(ConvectiveJacobian   ), deferred :: ConvectiveJacobian
+    procedure(ConvectiveEigensystem), deferred :: ConvectiveEigensystem
+    procedure(GetInitialValues     ), deferred :: GetInitialValues
+    procedure(GetBoundaryValues    ), deferred :: GetBoundaryValues
+    procedure(GetConvectionTerm    ), deferred :: GetConvectionTerm
+    procedure(GetDiffusionTerm     ), deferred :: GetDiffusionTerm
+    procedure(GetSDTerm            ), deferred :: GetSDTerm
+    procedure(DiffusionSolver      ), deferred :: DiffusionSolver
+    procedure(GetMaxVelocity       ), deferred :: GetMaxVelocity
+    procedure(GetMaxDiffusivity    ), deferred :: GetMaxDiffusivity
 
   end type CL_Problem_1D
+
+  !-----------------------------------------------------------------------------
+  !> 1D conservation problem options
+
+  type CL_Problem_Options_1D
+
+    real(RNP)         :: xb1   =  0    !< position of left boundary
+    real(RNP)         :: xb2   =  1    !< position of right boundary
+    character(len=80) :: bc(2) = 'P'   !< BC types at left and right boundaries
+
+    integer   :: ad_filter_method =  0 !< SD diffusivity filtering method
+    integer   :: ad_filter_basis  =  1 !< SD diffusivity filtering basis
+    integer   :: ad_filter_degree =  0 !< SD diffusivity max degree
+
+    integer   :: dc_diffusivity   =  0 !< DC diffusivity method
+    integer   :: dc_sensor_var    =  1 !< DC sensor variable
+    real(RNP) :: dc_sensor_coeff  = -4 !< DC sensor coefficient
+    real(RNP) :: dc_sensor_const  = -4 !< DC sensor constant
+    real(RNP) :: dc_sensor_delta  =  1 !< DC sensor half width
+    real(RNP) :: dc_scaling_coeff =  1 !< DC max diffusivity scaling factor
+
+    integer   :: limiting_method  =  0 !< limiting method
+    integer   :: limiting_scope   =  1 !< limiting scope
+
+  end type CL_Problem_Options_1D
+
+  !=============================================================================
+  ! Procedures of type CL_Problem_1D defined in submodules
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Application of moment limiter
+
+    module subroutine MomentLimiter(this, cl_operator, u)
+      class(CL_Problem_1D),  intent(in)    :: this
+      class(CL_Operator_1D), intent(in)    :: cl_operator
+      real(RNP), contiguous, intent(inout) :: u(0:,:,:)
+    end subroutine MomentLimiter
+
+  end interface
 
   !=============================================================================
   ! Procedures that are defined in extensions of type CL_Problem_1D
@@ -74,7 +158,7 @@ module CL__Problem__1D
     !> Initialization of the flow problem
 
     subroutine SetProblem(this, file)
-      import
+      import :: CL_Problem_1D
       class(CL_Problem_1D),       intent(inout) :: this
       character(len=*), optional, intent(in)    :: file !< (*.prm)
     end subroutine SetProblem
@@ -83,15 +167,47 @@ module CL__Problem__1D
     !> Query whether problem has non vanishing physical diffusion
 
     logical function HasDiffusion(this)
-      import
+      import :: CL_Problem_1D
       class(CL_Problem_1D), intent(in) :: this
     end function HasDiffusion
+
+    !---------------------------------------------------------------------------
+    !> Calculates the convective flux with given conservative variables
+
+    pure function ConvectiveFlux(this, u) result(f_c)
+      import :: CL_Problem_1D, RNP
+      class(CL_Problem_1D), intent(in) :: this
+      real(RNP), intent(in) :: u(:)
+      real(RNP) :: f_c(this%nc)
+    end function ConvectiveFlux
+
+    !---------------------------------------------------------------------------
+    !> Calculates the Jacobian ot the Convective Term
+
+    pure function ConvectiveJacobian(this, u) result(A_c)
+      import :: CL_Problem_1D, RNP
+      class(CL_Problem_1D), intent(in) :: this
+      real(RNP), intent(in) :: u(:)
+      real(RNP) :: A_c(this%nc,this%nc)
+    end function ConvectiveJacobian
+
+    !---------------------------------------------------------------------------
+    !> Calculates the eigendecomposition of the Convective Jacobian
+
+    pure subroutine ConvectiveEigensystem(this, u, lambda, R, L)
+      import :: CL_Problem_1D, RNP
+      class(CL_Problem_1D), intent(in)  :: this
+      real(RNP),                intent(in)  :: u(:)
+      real(RNP), optional,      intent(out) :: lambda(:)
+      real(RNP), optional,      intent(out) :: R(:,:)
+      real(RNP), optional,      intent(out) :: L(:,:)
+    end subroutine ConvectiveEigensystem
 
     !---------------------------------------------------------------------------
     !> Provides the initial values u(x,0)
 
     subroutine GetInitialValues(this, cl_operator, u)
-      import
+      import :: CL_Problem_1D, CL_Operator_1D, RNP
       class(CL_Problem_1D),  intent(in)  :: this
       class(CL_Operator_1D), intent(in)  :: cl_operator
       real(RNP), contiguous, intent(out) :: u(0:,:,:) !< u⁰(0:po,1:ne,1:nc)
@@ -108,7 +224,7 @@ module CL__Problem__1D
     !> boundary type, which is given in `this%bc`.
 
     subroutine GetBoundaryValues(this, t, bv)
-      import
+      import :: CL_Problem_1D, RNP
       class(CL_Problem_1D), intent(in)  :: this
       real(RNP),            intent(in)  :: t       !< time
       real(RNP),            intent(out) :: bv(:,:) !< boundary values
@@ -118,7 +234,7 @@ module CL__Problem__1D
     !> Convective contribution to RHS of DG-SEM formulation
 
     subroutine GetConvectionTerm(this, cl_operator, bv, u, r_c)
-      import
+      import :: CL_Problem_1D, CL_Operator_1D, RNP
       class(CL_Problem_1D),  intent(in)  :: this
       class(CL_Operator_1D), intent(in)  :: cl_operator
       real(RNP),             intent(in)  :: bv (:,:)    !< boundary values
@@ -130,7 +246,7 @@ module CL__Problem__1D
     !> Diffusive contribution to RHS of DG-SEM formulation
 
     subroutine GetDiffusionTerm(this, cl_operator, bv, u, r_d)
-      import
+      import :: CL_Problem_1D, CL_Operator_1D, RNP
       class(CL_Problem_1D),  intent(in)  :: this
       class(CL_Operator_1D), intent(in)  :: cl_operator
       real(RNP),             intent(in)  :: bv (:,:)    !< boundary values
@@ -145,7 +261,7 @@ module CL__Problem__1D
     !> using `u₀` for computing the streamline diffusivity.
 
     subroutine GetSDTerm(this, cl_operator, theta, bv, u_0, u, r_sd)
-      import
+      import :: CL_Problem_1D, CL_Operator_1D, RNP
       class(CL_Problem_1D),  intent(in)  :: this
       class(CL_Operator_1D), intent(in)  :: cl_operator
       real(RNP),             intent(in)  :: theta        !< SD time scale θ
@@ -188,7 +304,8 @@ module CL__Problem__1D
 
     subroutine DiffusionSolver( this, cl_operator, dt, theta, bv, f, u_0, u &
                               , method, i_max, r_red, r_max                 )
-      import
+
+      import :: CL_Problem_1D, CL_Operator_1D, RNP
       class(CL_Problem_1D),  intent(in)    :: this
       class(CL_Operator_1D), intent(in)    :: cl_operator
       real(RNP),             intent(in)    :: dt          !< ∆t = t - t₀
@@ -201,13 +318,14 @@ module CL__Problem__1D
       integer,               intent(in)    :: i_max       !< max num iterations
       real(RNP), optional,   intent(in)    :: r_red       !< residual reduction
       real(RNP), optional,   intent(in)    :: r_max       !< max residual
+
     end subroutine DiffusionSolver
 
     !---------------------------------------------------------------------------
     !> Provides the maximum velocity based on eigenvalues of advective Jacobian
 
     subroutine GetMaxVelocity(this, cl_operator, u, v_max)
-      import
+      import :: CL_Problem_1D, CL_Operator_1D, RNP
       class(CL_Problem_1D),  intent(in)  :: this
       class(CL_Operator_1D), intent(in)  :: cl_operator
       real(RNP), contiguous, intent(in)  :: u(0:,:,:) !< solution variable
@@ -218,7 +336,7 @@ module CL__Problem__1D
     !> Provides the maximum diffusivity
 
     subroutine GetMaxDiffusivity(this, cl_operator, u, nu_max)
-      import
+      import :: CL_Problem_1D, CL_Operator_1D, RNP
       class(CL_Problem_1D),  intent(in)  :: this
       class(CL_Operator_1D), intent(in)  :: cl_operator
       real(RNP), contiguous, intent(in)  :: u(0:,:,:) !< solution variable
@@ -228,6 +346,33 @@ module CL__Problem__1D
   end interface
 
 contains
+
+  !-----------------------------------------------------------------------------
+  !> Initialization from options
+
+  subroutine Init_CL_Problem_1D(this, opt)
+    class(CL_Problem_1D),         intent(inout) :: this
+    class(CL_Problem_Options_1D), intent(in)    :: opt
+
+    this % xb1 = opt % xb1
+    this % xb2 = opt % xb2
+    this % bc  = opt % bc
+
+    this % ad_filter_method = opt % ad_filter_method
+    this % ad_filter_basis  = opt % ad_filter_basis
+    this % ad_filter_degree = opt % ad_filter_degree
+
+    this % dc_diffusivity   = opt % dc_diffusivity
+    this % dc_sensor_var    = opt % dc_sensor_var
+    this % dc_sensor_coeff  = opt % dc_sensor_coeff
+    this % dc_sensor_const  = opt % dc_sensor_const
+    this % dc_sensor_delta  = opt % dc_sensor_delta
+    this % dc_scaling_coeff = opt % dc_scaling_coeff
+
+    this % limiting_method  = opt % limiting_method
+    this % limiting_scope   = opt % limiting_scope
+
+  end subroutine Init_CL_Problem_1D
 
   !-----------------------------------------------------------------------------
   !> Query whether an exact solution is available

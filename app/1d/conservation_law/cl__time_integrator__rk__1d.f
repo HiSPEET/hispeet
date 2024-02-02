@@ -239,6 +239,13 @@ contains
 
         end if
 
+        ! limiting . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+        if (cl_problem % limiting_method == 1 .and. &
+            cl_problem % limiting_scope  == 2       ) then
+          call cl_problem % MomentLimiter(cl_operator, u)
+        end if
+
         ! RHS contributions  . . . . . . . . . . . . . . . . . . . . . . . . . .
 
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_i, r_c)
@@ -282,6 +289,12 @@ contains
       end do
 
       call SetArray(u, u_i)
+
+      ! limiting ...............................................................
+
+      if (cl_problem % limiting_method == 1) then
+        call cl_problem % MomentLimiter(cl_operator, u)
+      end if
 
       ! finalization ...........................................................
 

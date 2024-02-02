@@ -8,73 +8,85 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Returns the physical diffusivity matrix
+  !>
+  !> If present, `eta` overrides `this%eta`. Specification of `prandtl` implies
+  !> the recomputation of `lamdda`as  well.
 
-  pure module function PhysicalDiffusivity(this, u) result(A_pd)
+  pure module function PhysicalDiffusivity(this, u, eta, prandtl) result(A_d)
     class(CL_Problem_CNS_1D), intent(in) :: this
-    real(RNP), intent(in) :: u(:) !< conservative variables
-    real(RNP) :: A_pd(3,3)
+    real(RNP),           intent(in) :: u(:)    !< conservative variables
+    real(RNP), optional, intent(in) :: eta     !< dynamic viscosity
+    real(RNP), optional, intent(in) :: prandtl !< prandtl number
+    real(RNP) :: A_d(3,3)
 
+    real(RNP) :: eta_, lambda_
     real(RNP) :: amv, aev, aeT, c1, cc, dv1, dv2, dT1, dT2, dT3
 
-    c1  =  1  / u(1)                 ! 1/ρ
-    cc  =  c1 / this % c_v           ! 1/ρc_v
+    if (present(eta)) then
+      eta_ = eta
+    else
+      eta_ = this % eta
+    end if
 
-    amv =  4 * THIRD * this % eta    !  momentum diffusivity related to ∂v/∂x
-    aev =  amv * c1 * u(2)           !  energy   diffusivity related to ∂v/∂x
-    aeT =  this % lambda             !  energy   diffusivity related to ∂T/∂x
+    if (present(prandtl)) then
+      lambda_ = eta_ * this%c_p / prandtl
+    else
+      lambda_ = this % lambda
+    end if
 
-    dv1 = -c1 * u(2)                 ! ∂v/∂u₁
-    dv2 =  c1                        ! ∂v/∂u₂
+    c1  =  1  / u(1)          ! 1/ρ
+    cc  =  c1 / this % c_v    ! 1/ρc_v
+
+    amv =  4 * THIRD * eta_   !  momentum diffusivity related to ∂v/∂x
+    aev =  amv * c1 * u(2)    !  energy   diffusivity related to ∂v/∂x
+    aeT =  lambda_            !  energy   diffusivity related to ∂T/∂x
+
+    dv1 = -c1 * u(2)          ! ∂v/∂u₁
+    dv2 =  c1                 ! ∂v/∂u₂
 
     dT1 =  cc * c1**2 * (u(2)**2 - u(1)*u(3))  ! ∂T/∂u₁
     dT2 = -cc * c1 * u(2)                      ! ∂T/∂u₂
     dT3 =  cc                                  ! ∂T/∂u₃
 
-    A_pd(1,:) = [ ZERO                  , ZERO                  , ZERO      ]
-    A_pd(2,:) = [ amv * dv1             , amv * dv2             , ZERO      ]
-    A_pd(3,:) = [ aev * dv1 + aeT * dT1 , aev * dv2 + aeT * dT2 , aeT * dT3 ]
+    A_d(1,:) = [ ZERO                  , ZERO                  , ZERO      ]
+    A_d(2,:) = [ amv * dv1             , amv * dv2             , ZERO      ]
+    A_d(3,:) = [ aev * dv1 + aeT * dT1 , aev * dv2 + aeT * dT2 , aeT * dT3 ]
 
   end function PhysicalDiffusivity
 
   !-----------------------------------------------------------------------------
-  !> Returns the streamline diffusivity matrix
-
-  pure module function StreamlineDiffusivity(this, theta, u) result(A_d)
-    class(CL_Problem_CNS_1D), intent(in) :: this
-    real(RNP), intent(in) :: u(:)  !< conservative variables
-    real(RNP), intent(in) :: theta !< streamline-diffusion time scale
-    real(RNP) :: A_d(3,3)
-
-    A_d = ConvectiveJacobian(this, u)
-    A_d = (HALF * theta) * matmul(A_d, A_d)
-
-  end function StreamlineDiffusivity
-
-  !-----------------------------------------------------------------------------
   !> Unified CNS diffusion term combining physical and streamline contributions
   !>
-  !> The composition of the diffusion term is controlled by the argument `comp`:
-  !> 'P' selects physical and 'S' streamline diffusion, whereas 'T' yields the
-  !> total diffusion as the sum of both.
+  !> The composition of the diffusion term is controlled by the flags contained
+  !> in the argument `comp`:
+  !>
+  !>   - `P`  physical
+  !>   - `D`  discontinuity capturing
+  !>   - `S`  streamline
+  !>   - `T`  total
+  !>
+  !> Several flags can be specified, e.g. 'PS' combines physical and streamline
+  !> diffusion. Flag `T` yields the total diffusion resulting from adding all
+  !> contributions.
   !>
   !> Homogeneous boundary conditions are applied in the case that `bv` omitted.
 
   module subroutine GetHybridDiffusionTerm &
       (this, cl_operator, comp, theta, bv, u_0, u, r_d)
 
-    class(CL_Problem_CNS_1D), intent(in)  :: this
-    class(CL_Operator_1D),    intent(in)  :: cl_operator !< spatial operators
-    character,                intent(in)  :: comp        !< composition flag
-    real(RNP),                intent(in)  :: theta       !< SD time scale
-    real(RNP), optional,      intent(in)  :: bv(:,:)     !< boundary values
-    real(RNP), contiguous,    intent(in)  :: u_0(0:,:,:) !< u₀(x,t)
-    real(RNP), contiguous,    intent(in)  :: u  (0:,:,:) !< u(x,t)
-    real(RNP), contiguous,    intent(out) :: r_d(0:,:,:) !< diffusion RHS
+    class(CL_Problem_CNS_1D), intent(in) :: this
+    class(CL_Operator_1D), intent(in)  :: cl_operator !< spatial operators
+    character(len=*),      intent(in)  :: comp        !< composition flag
+    real(RNP),             intent(in)  :: theta       !< SD time scale
+    real(RNP), optional,   intent(in)  :: bv(:,:)     !< boundary values
+    real(RNP), contiguous, intent(in)  :: u_0(0:,:,:) !< u₀(x,t)
+    real(RNP), contiguous, intent(in)  :: u  (0:,:,:) !< u(x,t)
+    real(RNP), contiguous, intent(out) :: r_d(0:,:,:) !< diffusion RHS
 
     ! local variables ..........................................................
 
     real(RNP), allocatable, save :: A(:,:,:,:)
-    ! element diffusivity matrices, A = A_pd + A_sd (0:po,1:ne,1:3,1:3)
+    ! element diffusivity matrices, A(0:po,1:ne,1:3,1:3)
 
     real(RNP), allocatable, save :: A_hat(:,:)
     ! diagonal interface diffusivity matrices Â (0:ne,1:3)
@@ -104,6 +116,7 @@ contains
     ! element diffusive flux
 
     logical :: has_pd ! switch for physical diffusion
+    logical :: has_dc ! switch for physical diffusion
     logical :: has_sd ! switch for streamline diffusion
 
     real(RNP) :: g, mu
@@ -123,11 +136,13 @@ contains
 
       ! initialization .........................................................
 
-      has_pd = scan(comp,'PT') > 0
-      has_sd = scan(comp,'ST') > 0
+      has_pd = scan(comp,'PT') > 0 .and. 0 < this % eta
+      has_dc = scan(comp,'DT') > 0 .and. 0 < this % dc_diffusivity
+      has_sd = scan(comp,'ST') > 0 .and. 0 < theta
 
       ! shared workspace
-      allocate(A(0:po,ne,3,3), A_hat(0:po,3))
+      allocate(A(0:po,ne,3,3), source = ZERO)
+      allocate(A_hat(0:ne,3),  source = ZERO)
       allocate(A_l, A_r, u_l, u_r, q_l, q_r, jmp_u, avg_q, mold = A_hat)
 
       ! private workspace
@@ -143,54 +158,20 @@ contains
 
       ! diffusivity ............................................................
 
+      call GetHybridDiffusity(this, cl_operator, comp, theta, u_0, A)
+
       !$omp do
       do e = 1, ne
+
         select case(activity(e))
 
-        case(1) ! active element
-
-          if (has_pd) then ! add physical diffusivity
-            do i = 0, po
-              A(i,e,1:3,1:3) = PhysicalDiffusivity(this, u_0(i,e,:))
-            end do
-          end if
-
-          if (has_sd) then ! add streamline diffusivity
-            do i = 0, po
-              A(i,e,1:3,1:3) = A(i,e,1:3,1:3) &
-                             + StreamlineDiffusivity(this, theta, u_0(i,e,:))
-            end do
-          end if
-
-          do k = 1, 3
-            A_r(e-1,k) = A( 0,e,k,k)
-            A_l(e  ,k) = A(po,e,k,k)
-          end do
-
-        case(0) ! frozen element, only boundary values required
-
-          if (has_pd) then
-            A( 0,e,1:3,1:3) = PhysicalDiffusivity(this, u_0(0 ,e,:))
-            A(po,e,1:3,1:3) = PhysicalDiffusivity(this, u_0(po,e,:))
-          end if
-
-          if (has_sd) then
-            A( 0,e,1:3,1:3) = A( 0,e,1:3,1:3) &
-                            + StreamlineDiffusivity(this, theta, u_0(0 ,e,:))
-            A(po,e,1:3,1:3) = A(po,e,1:3,1:3) &
-                            + StreamlineDiffusivity(this, theta, u_0(po,e,:))
-          end if
-
+        case(0:)
           do k = 1, 3
             A_r(e-1,k) = A( 0,e,k,k)
             A_l(e  ,k) = A(po,e,k,k)
           end do
 
         case default
-
-          A( 0,e,1:3,1:3) = 0
-          A(po,e,1:3,1:3) = 0
-
           A_r(e-1,1:3) = 0
           A_l(e  ,1:3) = 0
 
@@ -263,10 +244,18 @@ contains
         q_l(0,1:3) = q_l(ne,1:3)
         A_l(0,1:3) = A_l(ne,1:3)
 
+      case('D','S')
+        u_l(0,1:3) = -u_r(0,1:3)
+        q_l(0,1:3) =  q_r(0,1:3)
+        A_l(0,1:3) =  A_r(0,1:3)
+        if (present(bv)) then
+          u_l(0,1:3) = u_l(0,1:3) + 2*bv(:,1)
+        end if
+
       case default ! extrapolation
-        u_l(0,1:3) = u_r(0,1:3)
-        q_l(0,1:3) = q_r(0,1:3)
-        A_l(0,1:3) = A_r(0,1:3)
+        u_l(0,1:3) =  u_r(0,1:3)
+        q_l(0,1:3) = -q_r(0,1:3)
+        A_l(0,1:3) =  A_r(0,1:3)
 
       end select
 
@@ -278,10 +267,18 @@ contains
         q_r(ne,1:3) = q_r(0,1:3)
         A_r(ne,1:3) = A_r(0,1:3)
 
+      case('D','S')
+        u_r(ne,1:3) = -u_l(ne,1:3)
+        q_r(ne,1:3) =  q_l(ne,1:3)
+        A_r(ne,1:3) =  A_l(ne,1:3)
+        if (present(bv)) then
+          u_r(ne,1:3) = u_r(ne,1:3) + 2*bv(:,2)
+        end if
+
       case default ! extrapolation
-        u_r(ne,1:3) = u_l(ne,1:3)
-        q_r(ne,1:3) = q_l(ne,1:3)
-        A_r(ne,1:3) = A_l(ne,1:3)
+        u_r(ne,1:3) =  u_l(ne,1:3)
+        q_r(ne,1:3) = -q_l(ne,1:3)
+        A_r(ne,1:3) =  A_l(ne,1:3)
 
       end select
 
@@ -343,6 +340,243 @@ contains
   end subroutine GetHybridDiffusionTerm
 
   !-----------------------------------------------------------------------------
+  !> Composition of hybrid diffusivity
+
+  subroutine GetHybridDiffusity(this, cl_operator, comp, theta, u, A_d)
+    class(CL_Problem_CNS_1D), intent(in) :: this
+    class(CL_Operator_1D), intent(in)  :: cl_operator   !< spatial operators
+    character(len=*),      intent(in)  :: comp          !< composition flags
+    real(RNP),             intent(in)  :: theta         !< SD time scale
+    real(RNP), contiguous, intent(in)  :: u(0:,:,:)     !< u(x,t)
+    real(RNP), contiguous, intent(out) :: A_d(0:,:,:,:) !< diffusivity tensor
+
+    logical :: has_pd ! switch for physical diffusion
+    logical :: has_dc ! switch for discontinuity capturing diffusion
+    logical :: has_sd ! switch for streamline diffusion
+    logical :: has_ad ! switch for artificial diffusion
+
+    ! discontinuity capturing
+    real(RNP), allocatable :: V_inv_dc(:,:) ! inverse Vandermonde matrix
+    real(RNP) :: c_dc, d_dc, s_dc           ! parameters
+
+    ! artificial diffusivity filtering
+    real(RNP), allocatable :: Q_ad(:,:)     ! filtering operator
+
+    ! element variables
+    real(RNP), allocatable :: A_de(:,:,:), u_e(:,:), v_e(:), eta_e(:)
+
+    real(RNP) :: A_c(3,3)
+    integer   :: po_cut
+    integer   :: e, i, j, k
+
+    associate( dx => cl_operator % dx       &
+             , po => cl_operator % eop % po &
+             , ne => cl_operator % ne       )
+
+      ! initialization .........................................................
+
+      has_pd = scan(comp,'PT') > 0 .and. 0 < this % eta
+      has_dc = scan(comp,'DT') > 0 .and. 0 < this % dc_diffusivity
+      has_sd = scan(comp,'ST') > 0 .and. 0 < theta
+      has_ad = has_dc .or. has_sd
+
+      ! discontinuity capturing
+      if (has_dc) then
+
+        c_dc = this % dc_scaling_coeff * dx / po
+        d_dc = this % dc_sensor_delta
+        s_dc = this % dc_sensor_coeff * log10(real(po,RNP)) &
+             + this % dc_sensor_const
+
+        select case(this % dc_diffusivity)
+        case(1)
+          allocate(V_inv_dc(0:po,0:po))
+          call cl_operator % eop % Get_Inverse_Legendre_VDM(V_inv_dc)
+        end select
+
+      end if
+
+      ! artificial diffusivity filtering
+      if (has_ad) then
+
+        select case(this % ad_filter_method)
+        case(1)
+          po_cut = this % ad_filter_degree
+        case(2)
+          po_cut = po / 2
+        case default
+          po_cut = -1
+        end select
+
+        if (po_cut >= 0)  then
+          allocate(Q_ad(0:po,0:po), source = ZERO)
+          select case(this % ad_filter_basis)
+          case(1)
+            call cl_operator % eop % Get_Legendre_CutoffFilter(po_cut, Q_ad)
+          case(2)
+            call cl_operator % eop % Get_Bubble_CutoffFilter(po_cut, Q_ad)
+          end select
+        end if
+
+      end if
+
+      ! element variables
+      allocate(A_de(0:po,3,3), u_e(0:po,3), v_e(0:po), eta_e(0:po))
+
+      ! composition of hybrid diffusivity ......................................
+
+      do e = 1, ne
+
+        A_de = 0
+
+        if (cl_operator % activity(e) >= 0) then
+
+          u_e = u(0:po,e,1:3)
+
+          ! streamline diffusivity
+          if (has_sd) then
+
+            ! streamline diffusivity tensor
+            do i = 0, po
+              A_c = ConvectiveJacobian(this, u(i,e,1:3))
+              A_de(i,1:3,1:3) = theta/2 * matmul(A_c, A_c)
+            end do
+
+            ! filtering
+            select case(this % ad_filter_method)
+            case(1:2)
+              do k = 1, 3
+                A_de(:,:,k) = matmul(Q_ad, A_de(:,:,k))
+              end do
+            case(3)
+              do k = 1, 3
+              do j = 1, 3
+                if (j == k) then
+                  A_de(:,j,k) = maxval(A_de(:,j,k))
+                else
+                  A_de(:,j,k) = 0
+                end if
+              end do
+              end do
+            end select
+
+          end if
+
+          ! discontinuity capturing diffusivity
+          if (has_dc) then
+
+            ! sensor variable
+            select case(this % dc_sensor_var)
+            case(1)
+              ! density
+              v_e = u_e(:,1)
+            case(2)
+              ! entropy
+              do i = 0, po
+                call ConservativeToPrimitive(this, u_e(i,:), s = v_e(i))
+              end do
+            end select
+
+            ! dynamic viscosity
+            select case(this % dc_diffusivity)
+            case(1)
+              eta_e = PerssonViscosity(this, c_dc, d_dc, s_dc, v_e, u_e, V_inv_dc)
+            case(2)
+              ! ...
+              ! filtering
+              select case(this % ad_filter_method)
+              case(1:2)
+                eta_e = matmul(Q_ad, eta_e)
+              case(3)
+                eta_e = maxval(eta_e)
+              end select
+            end select
+
+            ! diffusivity tensor
+            do i = 0, po
+              A_de(i,1:3,1:3) = A_de(i,1:3,1:3) &
+                              + PhysicalDiffusivity(this, u_e(i,1:3), eta_e(i))
+            end do
+
+          end if
+
+          ! physical diffusivity
+          if (has_pd) then
+            do i = 0, po
+              A_de(i,1:3,1:3) = A_de(i,1:3,1:3) &
+                              + PhysicalDiffusivity(this, u_e(i,1:3))
+            end do
+          end if
+
+        end if
+
+        A_d(0:po,e,1:3,1:3) = A_de
+
+      end do
+
+    end associate
+
+  end subroutine GetHybridDiffusity
+
+  !-----------------------------------------------------------------------------
+  !> Discontinuity capturing viscosity in spirit of Persson & Preraire (2006)
+
+
+  pure function PerssonViscosity(this, c_max, delta_s, s_ref, v, u, V_inv) &
+      result(eta)
+
+    class(CL_Problem_CNS_1D), intent(in) :: this
+    real(RNP), intent(in) :: c_max        !< max diffusivity scaling factor
+    real(RNP), intent(in) :: delta_s      !< sensor half width
+    real(RNP), intent(in) :: s_ref        !< sensor reference value
+    real(RNP), intent(in) :: v(0:)        !< sensor variable
+    real(RNP), intent(in) :: u(0:,:)      !< conservation variables
+    real(RNP), intent(in) :: V_inv(0:,0:) !< inverse Vandermonde matrix
+    real(RNP) :: eta
+
+    real(RNP), parameter :: eps = epsilon(ONE)
+    real(RNP) :: v_hat(0:ubound(u,1))
+    real(RNP) :: lambda(3)
+    real(RNP) :: norm_v, eta_max, s
+    integer   :: i, po
+
+    po = ubound(u,1)
+
+    ! sensoring
+    v_hat  = matmul(V_inv, v)
+    norm_v = 0
+    do i = 0, po
+      norm_v = norm_v + v_hat(i)**2 / (2*i + 1)
+    end do
+    s = (v_hat(po)**2 / (2*po + 1)) / max(norm_v, eps)
+    s = log10(max(s, eps))
+
+    ! evaluation
+    if (s <= s_ref - delta_s) then
+
+      eta = 0
+
+    else
+
+      ! maximum artificial viscosity: η_max = c_max max(ρ|Λ(u)|)
+      eta_max = 0
+      do i = 0, po
+        call ConvectiveEigensystem(this, u(i,:), lambda)
+        eta_max = max(eta_max, u(i,1) * maxval(abs(lambda)))
+      end do
+      eta_max = c_max * eta_max
+
+      if (s > s_ref + delta_s) then
+        eta = eta_max
+      else
+        eta = eta_max/2 * (1 + sin(PI * (s - s_ref) / (2*delta_s)))
+      end if
+
+    end if
+
+  end function PerssonViscosity
+
+  !-----------------------------------------------------------------------------
   !> Implicit CNS diffusion solver
   !>
   !> FGMRES: Van der Vorst, Fig. 6.4
@@ -384,7 +618,6 @@ contains
     real(RNP), save :: r_term
     logical  , save :: converged
 
-    character :: comp
     logical   :: check_convergence
     integer   :: e, i, j, k
     integer   :: ic
@@ -400,13 +633,11 @@ contains
       ! initialization .........................................................
 
       if (theta > 0) then
-        ! physical and streamline (total) diffusion
-        comp = 'T'
-        ic   = 1
+        ! full diffusivity tensor, including first component
+        ic   =  1
       else
-        ! physical diffusion only
-        comp = 'P'
-        ic   = 2
+        ! no difffusion in first component (density)
+        ic   =  2
       end if
 
       check_convergence = .false.
@@ -428,8 +659,8 @@ contains
 
         associate(v1 => v(:,:,:,1))
 
-          call GetHybridDiffusionTerm( this, cl_operator, comp, theta &
-                                     , bv, u_0, u, r_d = v1           )
+          call GetHybridDiffusionTerm( this, cl_operator, 'T', theta &
+                                     , bv, u_0, u, r_d = v1          )
 
           !$omp do collapse(2)
           do i = ic, nc
@@ -484,8 +715,8 @@ contains
 
             ! application of homogeneous operator, w = A z(j) ..................
 
-            call GetHybridDiffusionTerm( this, cl_operator, comp, theta &
-                                       , u_0 = u_0, u = zj, r_d = w     )
+            call GetHybridDiffusionTerm( this, cl_operator, 'T', theta &
+                                       , u_0 = u_0, u = zj, r_d = w    )
 
             !$omp do collapse(2)
             do i = ic, nc

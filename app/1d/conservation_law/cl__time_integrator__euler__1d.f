@@ -194,6 +194,12 @@ contains
 
       end select
 
+      ! limiting ...............................................................
+
+      if (cl_problem % limiting_method == 1) then
+        call cl_problem % MomentLimiter(cl_operator, u)
+      end if
+
       ! finalization ...........................................................
 
       deallocate(r_c, r_d, f_s, u_i, bv)

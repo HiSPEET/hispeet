@@ -26,7 +26,7 @@ module CL__Time_Integrator__ISD1__1D
   !> IMEX ISD1 method for 1D conservation laws
 
   type, extends(CL_TimeIntegrator_1D) :: CL_TimeIntegrator_ISD1_1D
-    integer :: method !< method selector: 1/2 for one or two stages, if impl = 1
+    integer :: n_stages !< number of stages, ignored with `impl=0`
   contains
     procedure :: Init_CL_TimeIntegrator_ISD1_1D
     procedure :: Show => Show_CL_TimeIntegrator_ISD1_1D
@@ -43,7 +43,7 @@ module CL__Time_Integrator__ISD1__1D
 
   type, extends(CL_TimeIntegrator_Options_1D) :: &
       CL_TimeIntegrator_Options_ISD1_1D
-    integer :: method = 2 !< 1: one-stage, 2: two-stage method, if impl = 1
+    integer :: n_stages = 2 !< number of stages with `impl=1` {1,2}
   end type CL_TimeIntegrator_Options_ISD1_1D
 
 contains
@@ -69,9 +69,9 @@ contains
     ! intialize parent type
     call this % Init_CL_TimeIntegrator_1D(opt)
 
-    this % method = opt % method
+    this % n_stages = opt % n_stages
 
-    if (this%impl == 1 .and. this%method == 2) then
+    if (this%impl == 1 .and. this%n_stages == 2) then
       this % name = 'Streamline-diffusion method of order 1 with two stages'
     else
       this % name = 'Streamline-diffusion method of order 1 with one stage'
@@ -192,7 +192,7 @@ contains
           else
             u_i(:,e,k) = u_0(:,e,k)
           end if
-          u(:,e,k) = u_0(:,e,k)
+          u(:,e,k) = u_i(:,e,k)
         end do
         end do
 
@@ -206,11 +206,16 @@ contains
                                          , r_red  = this % diffusion_r_red  &
                                          , r_max  = this % diffusion_r_max  )
 
-        if (this % method == 2) then
+        if (this % n_stages == 2) then
 
           ! semi-implicit ISD1, stage 2 ........................................
 
-           call cl_problem % GetConvectionTerm(cl_operator, bv, u, r_c)
+          if (cl_problem % limiting_method == 1 .and. &
+              cl_problem % limiting_scope  == 2       ) then
+            call cl_problem % MomentLimiter(cl_operator, u)
+          end if
+
+          call cl_problem % GetConvectionTerm(cl_operator, bv, u, r_c)
 
           ! intermediate solution
           do k = 1, nc
@@ -234,6 +239,12 @@ contains
         end if
 
       end select
+
+      ! limiting ...............................................................
+
+      if (cl_problem % limiting_method == 1) then
+        call cl_problem % MomentLimiter(cl_operator, u)
+      end if
 
       ! finalization ...........................................................
 

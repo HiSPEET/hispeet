@@ -300,6 +300,12 @@ contains
       end do
       end do
 
+      ! limiting ...............................................................
+
+      if (cl_problem % limiting_method == 1) then
+        call cl_problem % MomentLimiter(cl_operator, u(:,:,:,m))
+      end if
+
       ! clean-up ...............................................................
 
       deallocate(S, r_c, r_d, u_0, u_1, u_i, bv)
