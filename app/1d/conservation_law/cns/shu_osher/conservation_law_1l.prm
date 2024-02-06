@@ -1,0 +1,94 @@
+&control_prm
+! log_level = 1
+! log_level_inner_iteration = 1
+! log_level_outer_iteration = 1
+/
+
+&problem_prm
+  problem_name = 'cns__shu_osher'
+/
+
+&space_discretization_prm
+  cl_operator_opt%ne          = 400
+  cl_operator_opt%eop%po      =   2
+  cl_operator_opt%eop%penalty =   2
+  cl_operator_opt%qop%po      =   2
+/
+
+&time_integration_prm
+
+  t_end  = 1.8
+
+! po = 2, ne = 400
+! dt = 3.3235888e-4  ! cfl =  0.125
+  dt = 6.6471800e-4  ! cfl =  0.25
+! dt = 1.3294380e-3  ! cfl =  0.5
+! dt = 2.6588760e-3  ! cfl =  1
+! dt = 5.3177520e-3  ! cfl =  2
+! dt = 6.6471900e-3  ! cfl =  2.5
+! dt = 7.9766280e-3  ! cfl =  3
+! dt = 1.0635504e-2  ! cfl =  4
+
+  nt_max = 1000000
+  adjust_dt = T
+
+  time_method = 3
+  sdc_method  = 0
+
+  ! time_method = 1: Euler
+  cl_tint_euler_opt%impl             =    1
+  cl_tint_euler_opt%diffusion_method =    4
+  cl_tint_euler_opt%diffusion_i_max  =  100
+
+  ! time_method = 2: ISD of order 1
+  cl_tint_isd1_opt%impl              =    1
+  cl_tint_isd1_opt%diffusion_method  =    4
+  cl_tint_isd1_opt%diffusion_i_max   =  100
+! cl_tint_isd1_opt%n_stages          =    2
+
+  ! time_method = 3: ISD of order 2
+  cl_tint_isd2_opt%impl              =    1
+  cl_tint_isd2_opt%diffusion_method  =    4
+  cl_tint_isd2_opt%diffusion_i_max   = 1000
+
+  ! time_method = 4: Runge-Kutta
+  cl_tint_rk_opt%impl                =    0
+  cl_tint_rk_opt%n_stage             =    4
+  cl_tint_rk_opt%method              =    2
+  cl_tint_rk_opt%diffusion_method    =    4
+  cl_tint_rk_opt%diffusion_i_max     =  100
+
+  ! time_method = 5: TVD Runge-Rutta of order 3, no options needed
+
+  ! sdc_method = 1: SDC based on Euler
+  cl_sdc_euler_opt%point_set         =   'L'
+  cl_sdc_euler_opt%n_col             =    1
+  cl_sdc_euler_opt%n_sweep           =    0
+  cl_sdc_euler_opt%diffusion_method  =    4
+  cl_sdc_euler_opt%diffusion_i_max   =  100
+
+  ! sdc_method = 2: SDC based on ISD1
+  cl_sdc_isd1_opt%point_set          =  'RR'
+  cl_sdc_isd1_opt%n_col              =    2
+  cl_sdc_isd1_opt%n_sweep            =    0
+  cl_sdc_isd1_opt%diffusion_method   =    4
+  cl_sdc_isd1_opt%diffusion_i_max    =  100
+! cl_sdc_isd1_opt%n_stages           =    2
+
+/
+
+&cns_shu_osher_prm
+  opt%eta = 0e-0
+  opt%ad_filter_method =  0    !  0
+  opt%ad_filter_basis  =  2    !  1
+  opt%ad_filter_degree =  0    !  0
+  opt%dc_diffusivity   =  1
+! opt%dc_sensor_var    =  2    !  1
+! opt%dc_sensor_coeff  = -4    ! -4
+! opt%dc_sensor_const  = -4    ! -4
+! opt%dc_sensor_delta  =  0.5  !  1  --> 0.5  sharper resolution, less stable?
+! opt%dc_scaling_coeff =  0.5  !  1  --> 0.5  sharper resolution, less stable?
+  opt%limiting_method  =  1
+  opt%limiting_scope   =  2
+  opt%limiting_initial =  T
+/
