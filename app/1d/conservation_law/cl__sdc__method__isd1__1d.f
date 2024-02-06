@@ -232,7 +232,6 @@ contains
       dt_sub  =  t(m)     - t(m-1)  ! subinterval length
 
       call SetArray(u_0, u(:,:,:,m-1), multi = .true.)
-      call SetArray(u_m, u(:,:,:,m  ), multi = .true.)
 
       ! high-order quadrature ..................................................
 
@@ -258,22 +257,48 @@ contains
       ! correction stage 1: u_m = u₁ ...........................................
 
       ! intermediate solution
-      do k = 1, nc
-      do e = 1, ne
-        if (activity(e) > 0) then
-          u_i(:,e,k) = u_0(:,e,k)                       &
-                     + S  (:,e,k)                       &
-                     + dt_sub * ( F_ex_new (:,e,k,m-1)  &
-                                - F_ex     (:,e,k,m-1)  &
-                                - F_im     (:,e,k,m)    )
-          if (present(G)) then
-            u_i(:,e,k) = u_i(:,e,k) + Me_inv * G(:,e,k,m)
+      select case(this % diffusion_start)
+      case(1)
+        ! start from current approximation
+        do k = 1, nc
+        do e = 1, ne
+          if (activity(e) > 0) then
+            u_i(:,e,k) = u_0(:,e,k)                       &
+                       + S  (:,e,k)                       &
+                       + dt_sub * ( F_ex_new (:,e,k,m-1)  &
+                                  - F_ex     (:,e,k,m-1)  &
+                                  - F_im     (:,e,k,m)    )
+            if (present(G)) then
+              u_i(:,e,k) = u_i(:,e,k) + Me_inv * G(:,e,k,m)
+            end if
+          else
+            u_i(:,e,k) = u_0(:,e,k)
           end if
-        else
-          u_i(:,e,k) = u_0(:,e,k)
-        end if
-      end do
-      end do
+        end do
+        end do
+        call SetArray(u_m, u(:,:,:,m), multi = .true.)
+
+      case(2)
+        ! start from extrapolated solution
+        do k = 1, nc
+        do e = 1, ne
+          if (activity(e) > 0) then
+            u_m(:,e,k) = u_0(:,e,k)                       &
+                       + S  (:,e,k)                       &
+                       + dt_sub * ( F_ex_new (:,e,k,m-1)  &
+                                  - F_ex     (:,e,k,m-1)  )
+            if (present(G)) then
+              u_m(:,e,k) = u_m(:,e,k) + Me_inv * G(:,e,k,m)
+            end if
+            u_i(:,e,k) = u_m(:,e,k) - dt_sub * F_im(:,e,k,m)
+          else
+            u_i(:,e,k) = u(:,e,k,m)
+            u_m(:,e,k) = u(:,e,k,m)
+          end if
+        end do
+        end do
+
+      end select
 
       ! implicit diffusion step
       call cl_problem % GetBoundaryValues(t(m), bv)

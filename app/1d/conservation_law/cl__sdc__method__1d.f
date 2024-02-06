@@ -35,6 +35,7 @@ module CL__SDC__Method__1D
   !> Type for providing SDC options
 
   type, extends(SDC_Options) :: CL_SDC_Options_1D
+    integer   :: diffusion_start  = 2       !< old (1) or extrapolated (2)
     integer   :: diffusion_method = 1       !< implicit diffusion method
     integer   :: diffusion_i_max  = 10      !< max num iterations
     real(RNP) :: diffusion_r_red  = 1e-10   !< residual reduction
@@ -51,6 +52,7 @@ module CL__SDC__Method__1D
 
     character(len=80) :: corrector_name = ''
 
+    integer   :: diffusion_start   !< start with old or extrapolated solution
     integer   :: diffusion_method  !< implicit diffusion method
     integer   :: diffusion_i_max   !< max num iterations
     real(RNP) :: diffusion_r_red   !< residual reduction
@@ -159,6 +161,7 @@ contains
 
     ! SDC ......................................................................
 
+    this % diffusion_start  = sdc_opt % diffusion_start
     this % diffusion_method = sdc_opt % diffusion_method
     this % diffusion_i_max  = sdc_opt % diffusion_i_max
     this % diffusion_r_red  = sdc_opt % diffusion_r_red
@@ -198,6 +201,7 @@ contains
 
     write(io,'(/,A)') 'Solver'
     write(io,'(A,/)') repeat('-',80)
+    write(io,'(2X,A,T22,I0)')     'diffusion_start:' , this % diffusion_start
     write(io,'(2X,A,T22,I0)')     'diffusion_method:', this % diffusion_method
     write(io,'(2X,A,T22,I0)')     'diffusion_i_max:' , this % diffusion_i_max
     write(io,'(2X,A,T21,ES12.5)') 'diffusion_r_red:' , this % diffusion_r_red
