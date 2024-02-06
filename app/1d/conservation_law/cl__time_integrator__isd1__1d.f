@@ -26,7 +26,7 @@ module CL__Time_Integrator__ISD1__1D
   !> IMEX ISD1 method for 1D conservation laws
 
   type, extends(CL_TimeIntegrator_1D) :: CL_TimeIntegrator_ISD1_1D
-    integer :: n_stages !< number of stages, ignored with `impl=0`
+    integer :: n_stages !< number of stages, ignored with `imex_mode=0`
   contains
     procedure :: Init_CL_TimeIntegrator_ISD1_1D
     procedure :: Show => Show_CL_TimeIntegrator_ISD1_1D
@@ -43,7 +43,7 @@ module CL__Time_Integrator__ISD1__1D
 
   type, extends(CL_TimeIntegrator_Options_1D) :: &
       CL_TimeIntegrator_Options_ISD1_1D
-    integer :: n_stages = 2 !< number of stages with `impl=1` {1,2}
+    integer :: n_stages = 2 !< number of stages with `imex_mode > 0` {1,2}
   end type CL_TimeIntegrator_Options_ISD1_1D
 
 contains
@@ -71,7 +71,7 @@ contains
 
     this % n_stages = opt % n_stages
 
-    if (this%impl == 1 .and. this%n_stages == 2) then
+    if (this%imex_mode > 0 .and. this%n_stages == 2) then
       this % name = 'Streamline-diffusion method of order 1 with two stages'
     else
       this % name = 'Streamline-diffusion method of order 1 with one stage'
@@ -113,7 +113,6 @@ contains
 
     real(RNP), allocatable, save :: r_c(:,:,:)
     real(RNP), allocatable, save :: r_d(:,:,:)
-    real(RNP), allocatable, save :: r_sd(:,:,:)
     real(RNP), allocatable, save :: f_s(:,:,:)
     real(RNP), allocatable, save :: u_i(:,:,:)
     real(RNP), allocatable, save :: bv(:,:)
@@ -137,7 +136,6 @@ contains
 
       allocate(r_c , mold = u)
       allocate(r_d , mold = u)
-      allocate(r_sd, mold = u)
       allocate(f_s , mold = u)
       allocate(u_i , mold = u)
       allocate(bv(nc,2))
@@ -148,7 +146,7 @@ contains
 
       allocate(Me_inv(0:po), source = ONE/(dx/2 * eop%w))
 
-      select case(this%impl)
+      select case(this%imex_mode)
 
       case(0)
 
@@ -156,30 +154,34 @@ contains
 
         call cl_problem % GetBoundaryValues(t_0, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
-        if (cl_problem % HasDiffusion()) then
-          call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
-        end if
-        call cl_problem % GetSDTerm(cl_operator, dt, bv, u_0, u_0, r_sd)
+        call cl_problem % GetHybridDiffusionTerm &
+                              (cl_operator, 'T', dt, bv, u_0, u_0, r_d)
         call cl_problem % GetSources(cl_operator, t_0, u_0, f_s)
 
         do k = 1, nc
         do e = 1, ne
           if (activity(e) > 0) then
             u(:,e,k) = u_0(:,e,k) &
-                     + dt * ( Me_inv * (r_c(:,e,k) + r_d(:,e,k) + r_sd(:,e,k)) &
-                            + f_s(:,e,k))
+                     + dt * (Me_inv * (r_c(:,e,k) + r_d(:,e,k)) + f_s(:,e,k))
           else
             u(:,e,k) = u_0(:,e,k)
           end if
         end do
         end do
 
-      case(1)
+      case(1:2)
 
         ! semi-implicit ISD1, stage 1 ..........................................
 
         call cl_problem % GetBoundaryValues(t_0, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
+
+        if (this % imex_mode == 2) then
+          call cl_problem % GetHybridDiffusionTerm &
+                                (cl_operator, 'T', dt, bv, u_0, u_0, r_d)
+        else
+          call SetArray(r_d, ZERO, multi=.true.)
+        end if
 
         call cl_problem % GetBoundaryValues(t, bv)
         call cl_problem % GetSources(cl_operator, t, u_0, f_s)
@@ -189,10 +191,10 @@ contains
         do e = 1, ne
           if (activity(e) > 0) then
             u_i(:,e,k) = u_0(:,e,k) + dt * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
+            u  (:,e,k) = u_i(:,e,k) + dt *  Me_inv * r_d(:,e,k)
           else
             u_i(:,e,k) = u_0(:,e,k)
           end if
-          u(:,e,k) = u_i(:,e,k)
         end do
         end do
 
@@ -217,11 +219,17 @@ contains
 
           call cl_problem % GetConvectionTerm(cl_operator, bv, u, r_c)
 
+          if (this % imex_mode == 2) then
+            call cl_problem % GetHybridDiffusionTerm &
+                                  (cl_operator, 'T', dt, bv, u_0, u, r_d)
+          end if
+
           ! intermediate solution
           do k = 1, nc
           do e = 1, ne
             if (activity(e) > 0) then
               u_i(:,e,k) = u_0(:,e,k) + dt * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
+              u  (:,e,k) = u_i(:,e,k) + dt *  Me_inv * r_d(:,e,k)
             end if
           end do
           end do
@@ -248,7 +256,7 @@ contains
 
       ! finalization ...........................................................
 
-      deallocate(r_c, r_d, r_sd, f_s, u_i, bv)
+      deallocate(r_c, r_d, f_s, u_i, bv)
 
     end associate
 

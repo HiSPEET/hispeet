@@ -39,23 +39,23 @@
   sdc_method  = 2
 
   ! time_method = 1: Euler
-  cl_tint_euler_opt%impl             =   1
+  cl_tint_euler_opt%imex_mode        =   1
   cl_tint_euler_opt%diffusion_method =   4
   cl_tint_euler_opt%diffusion_i_max  = 100
 
   ! time_method = 2: ISD of order 1
-  cl_tint_isd1_opt%impl              =   1
+  cl_tint_isd1_opt%imex_mode         =   1
   cl_tint_isd1_opt%diffusion_method  =   4
   cl_tint_isd1_opt%diffusion_i_max   = 100
 ! cl_tint_isd1_opt%n_stages          =   2
 
   ! time_method = 3: ISD of order 2
-  cl_tint_isd2_opt%impl              =   1
+  cl_tint_isd2_opt%imex_mode         =   1
   cl_tint_isd2_opt%diffusion_method  =   4
   cl_tint_isd2_opt%diffusion_i_max   = 100
 
   ! time_method = 4: Runge-Kutta
-  cl_tint_rk_opt%impl                =   1
+  cl_tint_rk_opt%imex_mode           =   1
   cl_tint_rk_opt%n_stage             =   4
   cl_tint_rk_opt%method              =   1
   cl_tint_rk_opt%diffusion_method    =   4

@@ -170,7 +170,7 @@ program Test_Components_MLSDC
 
   ! predictor options (ISD1, so far)
   allocate(CL_TimeIntegrator_Options_ISD1_1D :: opt_pre)
-  opt_pre % impl             =   1
+  opt_pre % imex_mode        =   1
   opt_pre % diffusion_method =   4
   opt_pre % diffusion_i_max  = 100
 
@@ -556,7 +556,7 @@ program Test_Components_MLSDC
       write(*,'(2X,A,I3,A,ES10.3)') 'v error on level ',l,': err_max =',err_max
     end do
 
-  end if 
+  end if
 
 contains
 

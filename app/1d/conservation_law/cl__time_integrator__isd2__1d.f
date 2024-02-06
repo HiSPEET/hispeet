@@ -105,7 +105,6 @@ contains
 
     real(RNP), allocatable, save :: r_c(:,:,:)
     real(RNP), allocatable, save :: r_d(:,:,:)
-    real(RNP), allocatable, save :: r_sd(:,:,:)
     real(RNP), allocatable, save :: f_s(:,:,:)
     real(RNP), allocatable, save :: u_i(:,:,:)
     real(RNP), allocatable, save :: u_1(:,:,:)
@@ -127,7 +126,6 @@ contains
 
       allocate(r_c , mold = u)
       allocate(r_d , mold = u)
-      allocate(r_sd, mold = u)
       allocate(f_s , mold = u)
       allocate(u_i , mold = u)
       allocate(u_1 , mold = u)
@@ -139,7 +137,7 @@ contains
 
       allocate(Me_inv(0:po), source = 1/Me)
 
-      select case(this%impl)
+      select case(this%imex_mode)
 
       case(0)
 
@@ -148,10 +146,8 @@ contains
         ! preliminaries
         call cl_problem % GetBoundaryValues(t_0, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
-        if (cl_problem % HasDiffusion()) then
-          call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
-        end if
-        call cl_problem % GetSDTerm(cl_operator, dt, bv, u_0, u_0, r_sd)
+        call cl_problem % GetHybridDiffusionTerm &
+                              (cl_operator, 'T', dt, bv, u_0, u_0, r_d)
         call cl_problem % GetSources(cl_operator, t_0, u_0, f_s)
 
         ! stage 1
@@ -159,11 +155,8 @@ contains
         do k = 1, nc
         do e = 1, ne
           if (activity(e) > 0) then
-            u_1(:,e,k) = u_0(:,e,k)                        &
-                       + dt/2 * ( Me_inv * ( r_c (:,e,k)   &
-                                           + r_d (:,e,k)   &
-                                           + r_sd(:,e,k) ) &
-                                + f_s(:,e,k) )
+            u_1(:,e,k) = u_0(:,e,k) &
+                       + dt/2 * (Me_inv * (r_c(:,e,k) + r_d(:,e,k)) + f_s(:,e,k))
           end if
         end do
         end do
@@ -178,6 +171,8 @@ contains
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_1, r_c)
         if (cl_problem % HasDiffusion()) then
           call cl_problem % GetDiffusionTerm(cl_operator, bv, u_1, r_d)
+        else
+          call SetArray(r_d, ZERO, multi = .true.)
         end if
         call cl_problem % GetSources(cl_operator, t, u_1, f_s)
 
@@ -185,17 +180,13 @@ contains
         do k = 1, nc
         do e = 1, ne
           if (activity(e) > 0) then
-            u(:,e,k) = u_0(:,e,k)                                  &
-                     + dt * ( Me_inv * (r_c (:,e,k) + r_d (:,e,k)) &
-                            + f_s(:,e,k)                           &
-                            )
-          else
-            u(:,e,k) = u_0(:,e,k)
+            u(:,e,k) = u_0(:,e,k) &
+                     + dt * (Me_inv * (r_c(:,e,k) + r_d(:,e,k)) + f_s(:,e,k))
           end if
         end do
         end do
 
-      case(1)
+      case(1:2)
 
         ! stage 0 ..............................................................
 
@@ -203,9 +194,14 @@ contains
 
         call cl_problem % GetBoundaryValues(t_0, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
-        if (cl_problem % HasDiffusion()) then
-          call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
+
+        if (this % imex_mode == 2) then
+          call cl_problem % GetHybridDiffusionTerm &
+                                (cl_operator, 'T', dt, bv, u_0, u_0, r_d)
+        else
+          call SetArray(r_d, ZERO, multi=.true.)
         end if
+
         call cl_problem % GetSources(cl_operator, t, u_0, f_s)
 
         ! stage 1 ..............................................................
@@ -215,10 +211,11 @@ contains
         do e = 1, ne
           if (activity(e) > 0) then
             u_i(:,e,k) = u_0(:,e,k) + dt/2 * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
+            u_1(:,e,k) = u_i(:,e,k) + dt/2 *  Me_inv * r_d(:,e,k)
           else
             u_i(:,e,k) = u_0(:,e,k)
+            u_1(:,e,k) = u  (:,e,k)
           end if
-          u_1(:,e,k) = u_0(:,e,k)
         end do
         end do
 
@@ -245,17 +242,22 @@ contains
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_1, r_c)
         call cl_problem % GetSources(cl_operator, t, u_1, f_s)
 
+        if (this % imex_mode == 2) then
+          call cl_problem % GetHybridDiffusionTerm &
+                                (cl_operator, 'T', dt, bv, u_0, u_1, r_d)
+        end if
+
         ! intermediate solution
         do k = 1, nc
         do e = 1, ne
           if (activity(e) > 0) then
             u_i(:,e,k) = u_0(:,e,k) + dt/2 * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
+            u  (:,e,k) = u_i(:,e,k) + dt/2 *  Me_inv * r_d(:,e,k)
           end if
         end do
         end do
 
         ! implicit diffusion step
-        call SetArray(u, u_1, multi=.true.)
         call cl_problem % DiffusionSolver( cl_operator, dt/2, dt, bv        &
                                          , f      = u_i                     &
                                          , u_0    = u_0                     &
@@ -275,11 +277,18 @@ contains
         call cl_problem % GetConvectionTerm(cl_operator, bv, u, r_c)
         call cl_problem % GetSources(cl_operator, t, u, f_s)
 
+        if (cl_problem % HasDiffusion() .and. this % imex_mode == 2) then
+          call cl_problem % GetDiffusionTerm(cl_operator, bv, u, r_d)
+        else
+          call SetArray(r_d, ZERO, multi = .true.)
+        end if
+
         ! intermediate solution
         do k = 1, nc
         do e = 1, ne
           if (activity(e) > 0) then
             u_i(:,e,k) = u_0(:,e,k) + dt * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
+            u  (:,e,k) = u_i(:,e,k) + dt *  Me_inv * r_d(:,e,k)
           end if
         end do
         end do
@@ -305,7 +314,7 @@ contains
 
       ! finalization ...........................................................
 
-      deallocate(r_c, r_d, r_sd, f_s, u_i, u_1, bv)
+      deallocate(r_c, r_d, f_s, u_i, u_1, bv)
 
     end associate
 

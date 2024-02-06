@@ -257,7 +257,7 @@ contains
                                 - F_ex     (:,e,k,m-1)  &
                                 - F_im     (:,e,k,m)    )
           if (present(G)) then
-            u_i(:,e,k) = u_i(:,e,k) + Me_inv * (G(:,e,k,m) - G(:,e,k,m-1))
+            u_i(:,e,k) = u_i(:,e,k) + Me_inv * G(:,e,k,m)
           end if
         else
           u_i(:,e,k) = u_0(:,e,k)

@@ -130,11 +130,6 @@ contains
     real(RNP) :: d_ex, d_im, dt_a_ii, t_i
     integer   :: e, i, j, k
 
-!### CHECK
-if (log_level > 0) then
-print '(99(G0,X))','TI RK: #0'
-end if
-!### CHECK END
     associate( a_ex     => this % imex_rk % a_ex    &
              , a_im     => this % imex_rk % a_im    &
              , b_ex     => this % imex_rk % b_ex    &
@@ -150,82 +145,29 @@ end if
       !$omp master
 
       ! initialization .........................................................
-!### CHECK
-if (log_level > 1) then
-print '(99(G0,X))','TI RK: #0.1 '
-print '(99(G0,X))','TI RK: #0.1  minval(u_0(:,:,1)) =',minval(u_0(:,:,1))
-print '(99(G0,X))','TI RK: #0.1  minval(u_0(:,:,2)) =',minval(u_0(:,:,2))
-print '(99(G0,X))','TI RK: #0.1  minval(u_0(:,:,3)) =',minval(u_0(:,:,3))
-end if
-!### CHECK END
 
       allocate(r_c, mold = u)
       allocate(r_d, mold = u)
       allocate(f_s, mold = u)
       allocate(u_i, mold = u)
       allocate(bv(nc,2))
-!### CHECK
-if (log_level > 1) then
-print '(99(G0,X))','TI RK: #0.2'
-end if
-!### CHECK END
 
       allocate(f_ex(0:po,ne,nc,ns))
       allocate(f_im, mold = f_ex)
-!### CHECK
-if (log_level > 1) then
-print '(99(G0,X))','TI RK: #0.3'
-end if
-!### CHECK END
 
       allocate(Me_inv(0:po), source = 1/Me)
-!### CHECK
-if (log_level > 1) then
-print '(99(G0,X))','TI RK: #0.4'
-end if
-!### CHECK END
 
       ! stage 1 ................................................................
 
       t_i = t_0
 
       call SetArray(u_i, u_0, multi = .true.)
-!### CHECK
-if (log_level > 1) then
-print '(99(G0,X))','TI RK: #0.5'
-print '(99(G0,X))','TI RK: #0.5  minval(u_i(:,:,1)) =',minval(u_i(:,:,1))
-print '(99(G0,X))','TI RK: #0.5  minval(u_i(:,:,2)) =',minval(u_i(:,:,2))
-print '(99(G0,X))','TI RK: #0.5  minval(u_i(:,:,3)) =',minval(u_i(:,:,3))
-end if
-!### CHECK END
 
       call cl_problem % GetBoundaryValues(t_i, bv)
-!### CHECK
-if (log_level > 1) then
-print '(99(G0,X))','TI RK: #0.6'
-end if
-!### CHECK END
       call cl_problem % GetConvectionTerm(cl_operator, bv, u_i, r_c)
-!### CHECK
-if (log_level > 1) then
-print '(99(G0,X))','TI RK: #0.7'
-end if
-!### CHECK END
       call cl_problem % GetHybridDiffusionTerm &
                             (cl_operator, 'T', ZERO, bv, u_0, u_i, r_d)
-!### CHECK
-if (log_level > 1) then
-print '(99(G0,X))','TI RK: #0.8'
-end if
-!### CHECK END
       call cl_problem % GetSources(cl_operator, t_i, u_i, f_s)
-!### CHECK
-if (log_level > 0) then
-print '(99(G0,X))','TI RK: #1  any(ieee_is_nan(r_c))  =',any(ieee_is_nan(r_c))
-print '(99(G0,X))','TI RK: #1  any(ieee_is_nan(r_d))  =',any(ieee_is_nan(r_d))
-print '(99(G0,X))','TI RK: #1  any(ieee_is_nan(f_s))  =',any(ieee_is_nan(f_s))
-end if
-!### CHECK END
 
       do k = 1, nc
       do e = 1, ne
@@ -239,17 +181,11 @@ end if
       end do
       end do
 
-      if (this % impl == 0) then
+      if (this % imex_mode == 0) then
         ! explicit method: f_ex = f_ex + f_im, f_im = 0
         call MergeArrays(ONE, f_ex(:,:,:,1), ONE, f_im(:,:,:,1), multi=.true.)
         call SetArray(f_im(:,:,:,1), ZERO)
       end if
-!### CHECK
-if (log_level > 0) then
-print '(99(G0,X))','TI RK: #1  any(ieee_is_nan(f_ex)) =',any(ieee_is_nan(f_ex))
-print '(99(G0,X))','TI RK: #1  any(ieee_is_nan(f_im)) =',any(ieee_is_nan(f_im))
-end if
-!### CHECK END
 
       ! stages 2:ns ............................................................
 
@@ -289,7 +225,7 @@ end if
 
         ! implicit part  . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-        if (this % impl == 1) then
+        if (this % imex_mode > 0) then
 
           call cl_problem % GetBoundaryValues(t_i, bv)
           call cl_problem % GetSources(cl_operator, t_i, u_i, f_s)
@@ -331,23 +267,11 @@ end if
         end do
         end do
 
-        if (this % impl == 0) then
+        if (this % imex_mode == 0) then
           ! explicit method: f_ex = f_ex + f_im, f_im = 0
           call MergeArrays(ONE, f_ex(:,:,:,i), ONE, f_im(:,:,:,i), multi=.true.)
           call SetArray(f_im(:,:,:,i), ZERO)
         end if
-!### CHECK
-if (log_level > 0) then
-print '(99(G0,X))','TI RK: #',i,' minval(u_i(:,:,1))     =',minval(u_i(:,:,1))
-print '(99(G0,X))','TI RK: #',i,' minval(u_i(:,:,2))     =',minval(u_i(:,:,2))
-print '(99(G0,X))','TI RK: #',i,' minval(u_i(:,:,3))     =',minval(u_i(:,:,3))
-print '(99(G0,X))','TI RK: #',i,' any(ieee_is_nan(r_c))  =',any(ieee_is_nan(r_c))
-print '(99(G0,X))','TI RK: #',i,' any(ieee_is_nan(r_d))  =',any(ieee_is_nan(r_d))
-print '(99(G0,X))','TI RK: #',i,' any(ieee_is_nan(f_s))  =',any(ieee_is_nan(f_s))
-print '(99(G0,X))','TI RK: #',i,' any(ieee_is_nan(f_ex)) =',any(ieee_is_nan(f_ex))
-print '(99(G0,X))','TI RK: #',i,' any(ieee_is_nan(f_im)) =',any(ieee_is_nan(f_im))
-end if
-!### CHECK END
 
       end do Stages
 

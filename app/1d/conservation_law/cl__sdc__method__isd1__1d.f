@@ -120,7 +120,6 @@ contains
 
     real(RNP), allocatable, save :: r_c(:,:,:)
     real(RNP), allocatable, save :: r_d(:,:,:)
-    real(RNP), allocatable, save :: r_sd(:,:,:)
     real(RNP), allocatable, save :: bv(:,:)
 
     real(RNP), allocatable :: Me_inv(:)
@@ -135,21 +134,20 @@ contains
 
       allocate(r_c , mold = u)
       allocate(r_d , mold = u)
-      allocate(r_sd, mold = u)
       allocate(bv(nc,2))
 
       allocate(Me_inv(0:po), source = ONE / (dx/2 * eop%w))
 
-      call cl_problem % GetBoundaryValues (t, bv)
-      call cl_problem % GetConvectionTerm (cl_operator, bv, u, r_c)
-      call cl_problem % GetDiffusionTerm  (cl_operator, bv, u, r_d)
-      call cl_problem % GetSDTerm         (cl_operator, dt, bv, u_0, u, r_sd)
+      call cl_problem % GetBoundaryValues(t, bv)
+      call cl_problem % GetConvectionTerm(cl_operator, bv, u, r_c)
+      call cl_problem % GetHybridDiffusionTerm &
+                            (cl_operator, 'T', dt, bv, u_0, u, r_d)
 
       do k = 1, nc
       do e = 1, ne
         if (activity(e) > 0) then
           F_ex(:,e,k) = Me_inv * r_c(:,e,k)
-          F_im(:,e,k) = Me_inv * (r_d(:,e,k) + r_sd(:,e,k))
+          F_im(:,e,k) = Me_inv * r_d(:,e,k)
         else
           F_ex(:,e,k) = 0
           F_im(:,e,k) = 0
@@ -157,7 +155,7 @@ contains
       end do
       end do
 
-      deallocate(r_c, r_d, r_sd, bv)
+      deallocate(r_c, r_d, bv)
 
     end associate
 
@@ -200,7 +198,6 @@ contains
     real(RNP), allocatable, save :: S(:,:,:)
     real(RNP), allocatable, save :: r_c(:,:,:)
     real(RNP), allocatable, save :: r_d(:,:,:)
-    real(RNP), allocatable, save :: r_sd(:,:,:)
     real(RNP), allocatable, save :: u_0(:,:,:)
     real(RNP), allocatable, save :: u_i(:,:,:)
     real(RNP), allocatable, save :: u_m(:,:,:)
@@ -224,7 +221,6 @@ contains
       allocate(S(0:po,ne,nc))
       allocate(r_c , mold = S)
       allocate(r_d , mold = S)
-      allocate(r_sd, mold = S)
       allocate(u_0 , mold = S)
       allocate(u_i , mold = S)
       allocate(u_m , mold = S)
@@ -294,9 +290,10 @@ contains
 
         ! correction stage 2: u_m = u₁ → u₂ ....................................
 
-        if (cl_problem % limiting_method == 1 .and. &
-            cl_problem % limiting_scope  == 2       ) then
-          call cl_problem % MomentLimiter(cl_operator, u_m)
+        if (cl_problem % limiting_scope > 1) then
+          if (cl_problem % limiting_method == 1) then
+            call cl_problem % MomentLimiter(cl_operator, u_m)
+          end if
         end if
 
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_m, r_c)
@@ -330,15 +327,15 @@ contains
       ! update solution and corrector RHS ......................................
 
       call cl_problem % GetConvectionTerm(cl_operator, bv, u_m, r_c)
-      call cl_problem % GetDiffusionTerm (cl_operator, bv, u_m, r_d)
-      call cl_problem % GetSDTerm(cl_operator, dt_sub, bv, u_0, u_m, r_sd)
+      call cl_problem % GetHybridDiffusionTerm &
+                            (cl_operator, 'T', dt_sub, bv, u_0, u_m, r_d)
 
       do k = 1, nc
       do e = 1, ne
         if (activity(e) > 0) then
           u(:,e,k,m) = u_m(:,e,k)
           F_ex_new(:,e,k,m) = Me_inv * r_c(:,e,k)
-          F_im_new(:,e,k,m) = Me_inv * (r_d(:,e,k) + r_sd(:,e,k))
+          F_im_new(:,e,k,m) = Me_inv * r_d(:,e,k)
         else
           F_ex_new(:,e,k,m) = 0
           F_im_new(:,e,k,m) = 0
@@ -348,13 +345,15 @@ contains
 
       ! limiting ...............................................................
 
-      if (cl_problem % limiting_method == 1) then
-        call cl_problem % MomentLimiter(cl_operator, u(:,:,:,m))
+      if (cl_problem % limiting_scope > 0) then
+        if (cl_problem % limiting_method == 1) then
+          call cl_problem % MomentLimiter(cl_operator, u(:,:,:,m))
+        end if
       end if
 
       ! clean-up ...............................................................
 
-      deallocate(S, r_c, r_d, r_sd, u_0, u_i, u_m, bv)
+      deallocate(S, r_c, r_d, u_0, u_i, u_m, bv)
 
     end associate
 

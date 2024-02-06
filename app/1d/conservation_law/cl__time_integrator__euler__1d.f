@@ -118,11 +118,6 @@ contains
              , ne       => cl_operator % ne       &
              , Me       => cl_operator % Me       &
              , activity => cl_operator % activity )
-!### CHECK
-!! if (any(ieee_is_nan(u))) then
-!!   print '(99(G0,X))', 'TI Euler: #0 detected NaN'
-!! end if
-!### CHECK END
 
       !$omp master
 
@@ -138,7 +133,7 @@ contains
 
       allocate(Me_inv(0:po), source = 1/Me)
 
-      select case(this%impl)
+      select case(this%imex_mode)
 
       case(0)
 
@@ -165,44 +160,33 @@ contains
         end do
         end do
 
-      case(1)
+      case(1:2)
 
         ! IMEX Euler step ......................................................
 
         call cl_problem % GetBoundaryValues(t_0, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
 
+        if (cl_problem % HasDiffusion() .and. this % imex_mode == 2) then
+          call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
+        else
+          call SetArray(r_d, ZERO, multi=.true.)
+        end if
+
         call cl_problem % GetBoundaryValues(t, bv)
         call cl_problem % GetSources(cl_operator, t, u_0, f_s)
-!### CHECK
-!! if (any(ieee_is_nan(u_0))) then
-!!   print '(99(G0,X))', 'TI Euler: #2 detected NaN in u_0'
-!! end if
-!! if (any(ieee_is_nan(r_c))) then
-!!   print '(99(G0,X))', 'TI Euler: #2 detected NaN in r_c'
-!! end if
-!! if (any(ieee_is_nan(f_s))) then
-!!   print '(99(G0,X))', 'TI Euler: #2 detected NaN in f_s'
-!! end if
-!### CHECK END
 
         ! intermediate solution
         do k = 1, nc
         do e = 1, ne
           if (activity(e) > 0) then
             u_i(:,e,k) = u_0(:,e,k) + dt * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
+            u  (:,e,k) = u_i(:,e,k) + dt *  Me_inv * r_d(:,e,k)
           else
             u_i(:,e,k) = u_0(:,e,k)
           end if
         end do
         end do
-!### CHECK
-!! if (any(ieee_is_nan(u_i))) then
-!!   print '(99(G0,X))', 'TI Euler: #5 detected NaN in u_i'
-!! end if
-!### CHECK END
-
-        call SetArray(u, u_i, multi=.true.)
 
         if (cl_problem % HasDiffusion()) then
           ! implicit diffusion step
