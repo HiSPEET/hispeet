@@ -22,6 +22,7 @@ program Conservation_Law_1L
   use CL__Time_Integrator__ISD1__1D
   use CL__Time_Integrator__ISD2__1D
   use CL__Time_Integrator__RK__1D
+  use CL__Time_Integrator__TVD_RK3__1D
 
   use CL__SDC__Method__1D
   use CL__SDC__Method__Euler__1D
@@ -66,28 +67,31 @@ program Conservation_Law_1L
 
   ! declarations: time integration .............................................
 
-  real(RNP) :: t_end   =  0.1
-  real(RNP) :: dt      =  0.001
-  integer   :: nt_max  = -1
+  real(RNP) :: t_end     =  0.1    ! problem time to reach
+  real(RNP) :: dt        =  0.001  ! time step width
+  integer   :: nt_max    = -1      ! max number of time steps
+  integer   :: nt                  ! number of time steps to execute
+  logical   :: adjust_dt = .false. ! adjust time step to dt = t_end / nt
 
-  namelist/time_integration_prm/ t_end, dt, nt_max
+  namelist/time_integration_prm/ t_end, dt, nt_max, adjust_dt
 
   integer   :: time_method = 1  ! standalone integrator or predictor
   integer   :: sdc_method  = 0  ! SDC method
 
   namelist/time_integration_prm/ time_method, sdc_method
 
-  class(CL_TimeIntegrator_1D), allocatable :: cl_tint
-  type(CL_TimeIntegrator_Options_Euler_1D) :: cl_tint_euler_opt
-  type(CL_TimeIntegrator_Options_ISD1_1D)  :: cl_tint_isd1_opt
-  type(CL_TimeIntegrator_Options_ISD2_1D)  :: cl_tint_isd2_opt
-  type(CL_TimeIntegrator_Options_RK_1D)    :: cl_tint_rk_opt
+  class(CL_TimeIntegrator_1D), allocatable   :: cl_tint
+  type(CL_TimeIntegrator_Options_Euler_1D)   :: cl_tint_euler_opt
+  type(CL_TimeIntegrator_Options_ISD1_1D)    :: cl_tint_isd1_opt
+  type(CL_TimeIntegrator_Options_ISD2_1D)    :: cl_tint_isd2_opt
+  type(CL_TimeIntegrator_Options_RK_1D)      :: cl_tint_rk_opt
+  type(CL_TimeIntegrator_Options_TVD_RK3_1D) :: cl_tint_tvd_rk3_opt
 
-  namelist/time_integration_prm/ cl_tint_euler_opt, &
-                                 cl_tint_isd1_opt,  &
-                                 cl_tint_isd2_opt,  &
-                                 cl_tint_rk_opt
-
+  namelist/time_integration_prm/ cl_tint_euler_opt,  &
+                                 cl_tint_isd1_opt,   &
+                                 cl_tint_isd2_opt,   &
+                                 cl_tint_rk_opt,     &
+                                 cl_tint_tvd_rk3_opt
 
   class(CL_SDC_Method_1D), allocatable :: cl_sdc
   type(CL_SDC_Options_Euler_1D) :: cl_sdc_euler_opt
@@ -105,7 +109,7 @@ program Conservation_Law_1L
   real(RNP) :: t, t_run, t_run_0
   real(RNP) :: tau_conv, tau_diff
   logical   :: exists
-  integer   :: io, nt, stat
+  integer   :: io, stat
   integer   :: i, k
 
   ! initialization .............................................................
@@ -133,6 +137,9 @@ program Conservation_Law_1L
   nt = nint(t_end / dt)
   if (nt_max >= 0) then
     nt = min(nt, nt_max)
+  end if
+  if (adjust_dt .and. nt > 0) then
+    dt = t_end / nt
   end if
 
   ! problem
@@ -214,6 +221,8 @@ program Conservation_Law_1L
       cl_tint = CL_TimeIntegrator_ISD2_1D(cl_tint_isd2_opt)
     case(4)
       cl_tint = CL_TimeIntegrator_RK_1D(cl_tint_rk_opt)
+    case(5)
+      cl_tint = CL_TimeIntegrator_TVD_RK3_1D(cl_tint_tvd_rk3_opt)
     end select
   end select
 
@@ -230,6 +239,11 @@ program Conservation_Law_1L
 
   ! initial values
   call cl_problem % GetInitialValues(cl_operator, u)
+  if (cl_problem % limiting_initial) then
+    if (cl_problem % limiting_method == 1) then
+      call cl_problem % MomentLimiter(cl_operator, u)
+    end if
+  end if
   call SetArray(u_0, u)
 
   ! time integration ...........................................................
@@ -307,6 +321,7 @@ program Conservation_Law_1L
     close(io)
 
     write(*,*)
+    write(*,'(2X,A,99(ES12.5,1X))') 't_end  =', t
     write(*,'(2X,A,99(ES12.5,1X))') 't_run  =', t_run  - t_run_0
     if (cl_problem % HasExactSolution()) then
       write(*,'(2X,A,99(ES12.5,1X))') 'err_2  =', sqrt(err_2)

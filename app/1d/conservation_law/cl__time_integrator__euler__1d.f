@@ -7,6 +7,7 @@
 module CL__Time_Integrator__Euler__1D
 
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
+  use, intrinsic :: IEEE_Arithmetic
 
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE
@@ -117,6 +118,11 @@ contains
              , ne       => cl_operator % ne       &
              , Me       => cl_operator % Me       &
              , activity => cl_operator % activity )
+!### CHECK
+!! if (any(ieee_is_nan(u))) then
+!!   print '(99(G0,X))', 'TI Euler: #0 detected NaN'
+!! end if
+!### CHECK END
 
       !$omp master
 
@@ -168,6 +174,17 @@ contains
 
         call cl_problem % GetBoundaryValues(t, bv)
         call cl_problem % GetSources(cl_operator, t, u_0, f_s)
+!### CHECK
+!! if (any(ieee_is_nan(u_0))) then
+!!   print '(99(G0,X))', 'TI Euler: #2 detected NaN in u_0'
+!! end if
+!! if (any(ieee_is_nan(r_c))) then
+!!   print '(99(G0,X))', 'TI Euler: #2 detected NaN in r_c'
+!! end if
+!! if (any(ieee_is_nan(f_s))) then
+!!   print '(99(G0,X))', 'TI Euler: #2 detected NaN in f_s'
+!! end if
+!### CHECK END
 
         ! intermediate solution
         do k = 1, nc
@@ -179,6 +196,11 @@ contains
           end if
         end do
         end do
+!### CHECK
+!! if (any(ieee_is_nan(u_i))) then
+!!   print '(99(G0,X))', 'TI Euler: #5 detected NaN in u_i'
+!! end if
+!### CHECK END
 
         call SetArray(u, u_i, multi=.true.)
 
@@ -199,6 +221,12 @@ contains
       if (cl_problem % limiting_method == 1) then
         call cl_problem % MomentLimiter(cl_operator, u)
       end if
+
+!### CHECK
+!! if (any(ieee_is_nan(u))) then
+!!   print '(99(G0,X))', 'TI Euler: detected NaN'
+!! end if
+!### CHECK END
 
       ! finalization ...........................................................
 

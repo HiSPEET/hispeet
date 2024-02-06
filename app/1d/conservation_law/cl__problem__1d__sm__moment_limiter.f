@@ -79,7 +79,7 @@ contains
       ! transform to nodal basis ...............................................
 
       do e = 1, ne
-        if (activity(e) < 1) cycle
+        if (activity(e) < 0) cycle
         u(0:po,e,1:nc) = matmul(VL, u(0:po,e,1:nc))
       end do
 
@@ -134,7 +134,7 @@ contains
     real(RNP), intent(in)    :: u_r(0:,:) !< unlimited solution in right element
 
     real(RNP), dimension(this%nc,this%nc) :: L, R
-    real(RNP), dimension(this%nc) :: du_l, du_r, dz_l, dz_r, dz_0, dz_m, dz_max
+    real(RNP), dimension(this%nc) :: dz_l, dz_r, dz_0, dz_m, dz_max
     logical  , dimension(this%nc) :: skip
 
     real(RNP) :: c
@@ -149,10 +149,8 @@ contains
 
     do m = po-1, 0, -1
       c = ONE / (2*m + 1)
-      du_l = c * (u  (m,1:nc) - u_l(m,1:nc))
-      du_r = c * (u_r(m,1:nc) - u  (m,1:nc))
-      dz_r = matmul(L, du_r)
-      dz_l = matmul(L, du_l)
+      dz_r = c * matmul(L, u_r(m,1:nc) - u  (m,1:nc))
+      dz_l = c * matmul(L, u  (m,1:nc) - u_l(m,1:nc))
       dz_0 = matmul(L, u(m+1,1:nc))
       dz_m = minmod(dz_0, dz_r, dz_l)
       skip = skip .or. dz_m == dz_0
@@ -183,9 +181,9 @@ contains
     a_min = min(a_1, a_2, a_3)
     a_max = max(a_1, a_2, a_3)
 
-    if (a_max <= 0) then
+    if (a_max < 0) then
       a = a_max
-    else if (a_min >= 0) then
+    else if (a_min > 0) then
       a = a_min
     else
       a = 0

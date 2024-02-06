@@ -77,6 +77,8 @@ module CL__Problem__1D
                                    !! - `1` step
                                    !! - `2` stages or substeps
 
+    logical   :: limiting_initial  !< limit initial conditions
+
     ! automatic parameters .....................................................
 
     logical :: has_exact_solution = .false.
@@ -92,19 +94,20 @@ module CL__Problem__1D
 
     procedure :: MomentLimiter
 
-    procedure(SetProblem           ), deferred :: SetProblem
-    procedure(HasDiffusion         ), deferred :: HasDiffusion
-    procedure(ConvectiveFlux       ), deferred :: ConvectiveFlux
-    procedure(ConvectiveJacobian   ), deferred :: ConvectiveJacobian
-    procedure(ConvectiveEigensystem), deferred :: ConvectiveEigensystem
-    procedure(GetInitialValues     ), deferred :: GetInitialValues
-    procedure(GetBoundaryValues    ), deferred :: GetBoundaryValues
-    procedure(GetConvectionTerm    ), deferred :: GetConvectionTerm
-    procedure(GetDiffusionTerm     ), deferred :: GetDiffusionTerm
-    procedure(GetSDTerm            ), deferred :: GetSDTerm
-    procedure(DiffusionSolver      ), deferred :: DiffusionSolver
-    procedure(GetMaxVelocity       ), deferred :: GetMaxVelocity
-    procedure(GetMaxDiffusivity    ), deferred :: GetMaxDiffusivity
+    procedure(SetProblem            ), deferred :: SetProblem
+    procedure(HasDiffusion          ), deferred :: HasDiffusion
+    procedure(ConvectiveFlux        ), deferred :: ConvectiveFlux
+    procedure(ConvectiveJacobian    ), deferred :: ConvectiveJacobian
+    procedure(ConvectiveEigensystem ), deferred :: ConvectiveEigensystem
+    procedure(GetInitialValues      ), deferred :: GetInitialValues
+    procedure(GetBoundaryValues     ), deferred :: GetBoundaryValues
+    procedure(GetConvectionTerm     ), deferred :: GetConvectionTerm
+    procedure(GetHybridDiffusionTerm), deferred :: GetHybridDiffusionTerm
+    procedure(GetDiffusionTerm      ), deferred :: GetDiffusionTerm
+    procedure(GetSDTerm             ), deferred :: GetSDTerm
+    procedure(DiffusionSolver       ), deferred :: DiffusionSolver
+    procedure(GetMaxVelocity        ), deferred :: GetMaxVelocity
+    procedure(GetMaxDiffusivity     ), deferred :: GetMaxDiffusivity
 
   end type CL_Problem_1D
 
@@ -128,8 +131,9 @@ module CL__Problem__1D
     real(RNP) :: dc_sensor_delta  =  1 !< DC sensor half width
     real(RNP) :: dc_scaling_coeff =  1 !< DC max diffusivity scaling factor
 
-    integer   :: limiting_method  =  0 !< limiting method
-    integer   :: limiting_scope   =  1 !< limiting scope
+    integer   :: limiting_method  =  0      !< limiting method
+    integer   :: limiting_scope   =  0      !< limiting scope
+    logical   :: limiting_initial = .false. !< limit initial conditions
 
   end type CL_Problem_Options_1D
 
@@ -241,6 +245,24 @@ module CL__Problem__1D
       real(RNP), contiguous, intent(in)  :: u  (0:,:,:) !< u(x,t)
       real(RNP), contiguous, intent(out) :: r_c(0:,:,:) !< convective RHS
     end subroutine GetConvectionTerm
+
+    !---------------------------------------------------------------------------
+    !> Unified physical, artificial and streamline diffusion term
+
+    subroutine GetHybridDiffusionTerm &
+        (this, cl_operator, comp, theta, bv, u_0, u, r_d)
+
+      import :: CL_Problem_1D, CL_Operator_1D, RNP
+      class(CL_Problem_1D),  intent(in)  :: this
+      class(CL_Operator_1D), intent(in)  :: cl_operator !< spatial operators
+      character,             intent(in)  :: comp        !< composition flag
+      real(RNP),             intent(in)  :: theta       !< SD time scale
+      real(RNP), optional,   intent(in)  :: bv(:,:)     !< boundary values
+      real(RNP), contiguous, intent(in)  :: u_0(0:,:,:) !< u₀(x,t)
+      real(RNP), contiguous, intent(in)  :: u  (0:,:,:) !< u(x,t)
+      real(RNP), contiguous, intent(out) :: r_d(0:,:,:) !< diffusion RHS
+
+    end subroutine GetHybridDiffusionTerm
 
     !---------------------------------------------------------------------------
     !> Diffusive contribution to RHS of DG-SEM formulation
@@ -371,6 +393,7 @@ contains
 
     this % limiting_method  = opt % limiting_method
     this % limiting_scope   = opt % limiting_scope
+    this % limiting_initial = opt % limiting_initial
 
   end subroutine Init_CL_Problem_1D
 

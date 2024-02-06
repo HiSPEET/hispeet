@@ -53,7 +53,6 @@
   cl_tint_isd2_opt%impl              =   1
   cl_tint_isd2_opt%diffusion_method  =   4
   cl_tint_isd2_opt%diffusion_i_max   = 100
-! cl_tint_isd1_opt%n_stages          =   3
 
   ! time_method = 4: Runge-Kutta
   cl_tint_rk_opt%impl                =   1

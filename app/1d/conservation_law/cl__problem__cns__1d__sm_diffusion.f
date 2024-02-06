@@ -1,7 +1,6 @@
 submodule(CL__Problem__CNS__1D) SM_Diffusion
   use Array_Assignments
   use Array_Reductions
-! use, intrinsic :: IEEE_Arithmetic
   implicit none
 
 contains
@@ -12,7 +11,8 @@ contains
   !> If present, `eta` overrides `this%eta`. Specification of `prandtl` implies
   !> the recomputation of `lamdda`as  well.
 
-  pure module function PhysicalDiffusivity(this, u, eta, prandtl) result(A_d)
+!  pure
+function PhysicalDiffusivity(this, u, eta, prandtl) result(A_d)
     class(CL_Problem_CNS_1D), intent(in) :: this
     real(RNP),           intent(in) :: u(:)    !< conservative variables
     real(RNP), optional, intent(in) :: eta     !< dynamic viscosity
@@ -31,7 +31,7 @@ contains
     if (present(prandtl)) then
       lambda_ = eta_ * this%c_p / prandtl
     else
-      lambda_ = this % lambda
+      lambda_ = eta_ * this%c_p / this % prandtl
     end if
 
     c1  =  1  / u(1)          ! 1/ρ
@@ -51,6 +51,18 @@ contains
     A_d(1,:) = [ ZERO                  , ZERO                  , ZERO      ]
     A_d(2,:) = [ amv * dv1             , amv * dv2             , ZERO      ]
     A_d(3,:) = [ aev * dv1 + aeT * dT1 , aev * dv2 + aeT * dT2 , aeT * dT3 ]
+!### CHECK
+if (log_level > 1) then
+if (any(ieee_is_nan(A_d))) then
+print '(99(G0,X))','PhyDiff: #X  ieee_is_nan(A_d) =',ieee_is_nan(A_d)
+print '(99(G0,X))','PhyDiff: #X  ieee_is_nan(u)   =',ieee_is_nan(u)
+print '(99(G0,X))','PhyDiff: #X  u       =',u
+print '(99(G0,X))','PhyDiff: #X  eta_    =',eta_
+print '(99(G0,X))','PhyDiff: #X  lambda_ =',lambda_
+stop
+end if
+end if
+!### CHECK END
 
   end function PhysicalDiffusivity
 
@@ -115,9 +127,9 @@ contains
     real(RNP), allocatable :: q(:,:)
     ! element diffusive flux
 
-    logical :: has_pd ! switch for physical diffusion
-    logical :: has_dc ! switch for physical diffusion
-    logical :: has_sd ! switch for streamline diffusion
+!!     logical :: has_pd ! switch for physical diffusion
+!!     logical :: has_dc ! switch for physical diffusion
+!!     logical :: has_sd ! switch for streamline diffusion
 
     real(RNP) :: g, mu
     real(RNP) :: c_0, c_po
@@ -136,9 +148,9 @@ contains
 
       ! initialization .........................................................
 
-      has_pd = scan(comp,'PT') > 0 .and. 0 < this % eta
-      has_dc = scan(comp,'DT') > 0 .and. 0 < this % dc_diffusivity
-      has_sd = scan(comp,'ST') > 0 .and. 0 < theta
+!!       has_pd = scan(comp,'PT') > 0 .and. 0 < this % eta
+!!       has_dc = scan(comp,'DT') > 0 .and. 0 < this % dc_diffusivity
+!!       has_sd = scan(comp,'ST') > 0 .and. 0 < theta
 
       ! shared workspace
       allocate(A(0:po,ne,3,3),  source = ZERO)
@@ -160,6 +172,14 @@ contains
       end do
 
       ! diffusivity ............................................................
+!### CHECK
+if (log_level > 0) then
+print '(99(G0,X))','HybDiffTerm: #2'
+print '(99(G0,X))','HybDiffTerm: #2  minval(u_0(:,:,1)) =',minval(u_0(:,:,1))
+print '(99(G0,X))','HybDiffTerm: #2  minval(u_0(:,:,2)) =',minval(u_0(:,:,2))
+print '(99(G0,X))','HybDiffTerm: #2  minval(u_0(:,:,3)) =',minval(u_0(:,:,3))
+end if
+!### CHECK END
 
       call GetHybridDiffusity(this, cl_operator, comp, theta, u_0, A)
 
@@ -377,11 +397,20 @@ contains
     real(RNP), allocatable :: Q_ad(:,:)     ! filtering operator
 
     ! element variables
-    real(RNP), allocatable :: A_de(:,:,:), u_e(:,:), v_e(:), eta_e(:)
+    real(RNP), allocatable :: A_de(:,:,:), u_e(:,:), v_e(:)
 
-    real(RNP) :: A_c(3,3)
+    real(RNP) :: A_c(3,3), A_dc_0(3,3)
+    real(RNP) :: rho_0, eta_0, nu_0
     integer   :: po_cut
     integer   :: e, i, j, k
+!### CHECK
+if (log_level > 0) then
+print '(99(G0,X))','HybDiff: #0'
+print '(99(G0,X))','HybDiff: #0  minval(u(:,:,1)) =',minval(u(:,:,1))
+print '(99(G0,X))','HybDiff: #0  minval(u(:,:,2)) =',minval(u(:,:,2))
+print '(99(G0,X))','HybDiff: #0  minval(u(:,:,3)) =',minval(u(:,:,3))
+end if
+!### CHECK END
 
     associate( dx => cl_operator % dx       &
              , po => cl_operator % eop % po &
@@ -435,7 +464,7 @@ contains
       end if
 
       ! element variables
-      allocate(A_de(0:po,3,3), u_e(0:po,3), v_e(0:po), eta_e(0:po))
+      allocate(A_de(0:po,3,3), u_e(0:po,3), v_e(0:po))
 
       ! composition of hybrid diffusivity ......................................
 
@@ -491,26 +520,21 @@ contains
               end do
             end select
 
-            ! dynamic viscosity
+            ! diffusivity tensor
             select case(this % dc_diffusivity)
             case(1)
-              eta_e = PerssonViscosity(this, c_dc, d_dc, s_dc, v_e, u_e, V_inv_dc)
-            case(2)
-              ! ...
-              ! filtering
-              select case(this % ad_filter_method)
-              case(1:2)
-                eta_e = matmul(Q_ad, eta_e)
-              case(3)
-                eta_e = maxval(eta_e)
-              end select
+              rho_0  = maxval(u_e(:,1))
+              nu_0   = PerssonDiffusivity(this, c_dc, d_dc, s_dc, v_e, u_e, V_inv_dc)
+              eta_0  = rho_0 * nu_0
+!! eta_0  = 1
+              do i = 0, po
+!!                 A_de(i,1:3,1:3) = A_de(i,1:3,1:3) &
+!!                                 + PhysicalDiffusivity(this, u_e(i,1:3), eta_0)
+                A_de(i,1,1) = A_de(i,1,1) + nu_0
+                A_de(i,2,2) = A_de(i,2,2) + nu_0
+                A_de(i,3,3) = A_de(i,3,3) + nu_0
+              end do
             end select
-
-            ! diffusivity tensor
-            do i = 0, po
-              A_de(i,1:3,1:3) = A_de(i,1:3,1:3) &
-                              + PhysicalDiffusivity(this, u_e(i,1:3), eta_e(i))
-            end do
 
           end if
 
@@ -525,19 +549,34 @@ contains
         end if
 
         A_d(0:po,e,1:3,1:3) = A_de
+!### CHECK
+if (log_level > 0) then
+if (any(ieee_is_nan(A_de))) then
+print '(99(G0,X))','HybDiff: #9  e =',e,', ieee_is_nan(A_de) =',ieee_is_nan(A_de)
+print '(99(G0,X))','HybDiff: #9  e =',e,', ieee_is_nan(u_e(:,1))  =',ieee_is_nan(u_e(:,1))
+print '(99(G0,X))','HybDiff: #9  e =',e,', ieee_is_nan(u_e(:,2))  =',ieee_is_nan(u_e(:,2))
+print '(99(G0,X))','HybDiff: #9  e =',e,', ieee_is_nan(u_e(:,3))  =',ieee_is_nan(u_e(:,3))
+stop
+end if
+end if
+!### CHECK END
 
       end do
 
     end associate
+!### CHECK
+if (log_level > 0) then
+print '(99(G0,X))','HybDiff: #X  any(ieee_is_nan(A_d)) =',any(ieee_is_nan(A_d))
+end if
+!### CHECK END
 
   end subroutine GetHybridDiffusity
 
   !-----------------------------------------------------------------------------
   !> Discontinuity capturing viscosity in spirit of Persson & Preraire (2006)
 
-
-  pure function PerssonViscosity(this, c_max, delta_s, s_ref, v, u, V_inv) &
-      result(eta)
+  pure function PerssonDiffusivity(this, c_max, delta_s, s_ref, v, u, V_inv) &
+      result(nu)
 
     class(CL_Problem_CNS_1D), intent(in) :: this
     real(RNP), intent(in) :: c_max        !< max diffusivity scaling factor
@@ -546,12 +585,12 @@ contains
     real(RNP), intent(in) :: v(0:)        !< sensor variable
     real(RNP), intent(in) :: u(0:,:)      !< conservation variables
     real(RNP), intent(in) :: V_inv(0:,0:) !< inverse Vandermonde matrix
-    real(RNP) :: eta
+    real(RNP) :: nu
 
     real(RNP), parameter :: eps = epsilon(ONE)
-    real(RNP) :: v_hat(0:ubound(u,1))
+    real(RNP) :: v_hat(0:ubound(v,1))
     real(RNP) :: lambda(3)
-    real(RNP) :: norm_v, eta_max, s
+    real(RNP) :: norm_v, nu_max, s
     integer   :: i, po
 
     po = ubound(u,1)
@@ -568,27 +607,27 @@ contains
     ! evaluation
     if (s <= s_ref - delta_s) then
 
-      eta = 0
+      nu = 0
 
     else
 
       ! maximum artificial viscosity: η_max = c_max max(ρ|Λ(u)|)
-      eta_max = 0
+      nu_max = 0
       do i = 0, po
         call ConvectiveEigensystem(this, u(i,:), lambda)
-        eta_max = max(eta_max, u(i,1) * maxval(abs(lambda)))
+        nu_max = max(nu_max, maxval(abs(lambda)))
       end do
-      eta_max = c_max * eta_max
+      nu_max = c_max * nu_max
 
       if (s > s_ref + delta_s) then
-        eta = eta_max
+        nu = nu_max
       else
-        eta = eta_max/2 * (1 + sin(PI * (s - s_ref) / (2*delta_s)))
+        nu = nu_max/2 * (1 + sin(PI * (s - s_ref) / (2*delta_s)))
       end if
 
     end if
 
-  end function PerssonViscosity
+  end function PerssonDiffusivity
 
   !-----------------------------------------------------------------------------
   !> Implicit CNS diffusion solver
@@ -651,7 +690,7 @@ contains
         ic   =  1
       else
         ! no difffusion in first component (density)
-        ic   =  2
+        ic   =  1!2
       end if
 
       check_convergence = .false.

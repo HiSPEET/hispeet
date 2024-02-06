@@ -2,20 +2,11 @@
 !> author:   Joerg Stiller, Benedikt Wex
 !> date:     2023/11/03
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!> @todo
-!>   - investigate, select and implement simple + robust entropy fix
-!>   - upcoming:
-!>       * boundary conditions
-!>           + in convective term
-!>           + in diffusive/SD term
-!>       * example problems
-!>           + acoustic wave
-!>           + shock tube
-!>           + Shu-Osher test case
 !===============================================================================
 
 module CL__Problem__CNS__1D
+
+  use, intrinsic :: IEEE_Arithmetic
 
   use Kind_Parameters, only: RNP
   use Constants
@@ -54,6 +45,7 @@ module CL__Problem__CNS__1D
     procedure :: ConvectiveJacobian
     procedure :: ConvectiveEigensystem
     procedure :: GetConvectionTerm
+    procedure :: GetHybridDiffusionTerm
     procedure :: GetDiffusionTerm
     procedure :: GetSDTerm
     procedure :: DiffusionSolver
@@ -75,8 +67,7 @@ module CL__Problem__CNS__1D
     procedure :: NumericalConvectiveFlux
 
     ! diffusion
-    procedure :: PhysicalDiffusivity
-    procedure :: GetHybridDiffusionTerm
+!!     procedure :: PhysicalDiffusivity
 
   end type CL_Problem_CNS_1D
 
@@ -101,16 +92,16 @@ module CL__Problem__CNS__1D
 
   interface
 
-    !---------------------------------------------------------------------------
-    !> Returns the physical diffusivity matrix
-
-    pure module function PhysicalDiffusivity(this, u, eta, prandtl) result(A_d)
-      class(CL_Problem_CNS_1D), intent(in) :: this
-      real(RNP),           intent(in) :: u(:)    !< conservative variables
-      real(RNP), optional, intent(in) :: eta     !< dynamic viscosity
-      real(RNP), optional, intent(in) :: prandtl !< prandtl number
-      real(RNP) :: A_d(3,3)
-    end function PhysicalDiffusivity
+!!     !---------------------------------------------------------------------------
+!!     !> Returns the physical diffusivity matrix
+!!
+!!     pure module function PhysicalDiffusivity(this, u, eta, prandtl) result(A_d)
+!!       class(CL_Problem_CNS_1D), intent(in) :: this
+!!       real(RNP),           intent(in) :: u(:)    !< conservative variables
+!!       real(RNP), optional, intent(in) :: eta     !< dynamic viscosity
+!!       real(RNP), optional, intent(in) :: prandtl !< prandtl number
+!!       real(RNP) :: A_d(3,3)
+!!     end function PhysicalDiffusivity
 
     !---------------------------------------------------------------------------
     !> Unified CNS diffusion term combining physical and streamline contributions
@@ -185,7 +176,7 @@ contains
   logical function HasDiffusion(this)
     class(CL_Problem_CNS_1D), intent(in) :: this
 
-    HasDiffusion = this % eta > 0
+    HasDiffusion = this % eta > 0 .or. this % dc_diffusivity > 0
 
   end function HasDiffusion
 
@@ -258,21 +249,68 @@ contains
       end if
 
       if(present(R)) then
-        R(1,1:3) = [ ONE     , ONE , ONE     ]
-        R(2,1:3) = [ v-a     , v   , v+a     ]
-        R(3,1:3) = [ h-(v*a) , ek  , h+(v*a) ]
+        R(1,1:3) = [ ONE          , ONE , ONE          ]
+        R(2,1:3) = [ v - a        , v   , v + a        ]
+        R(3,1:3) = [ h + ek - v*a , ek  , h + ek + v*a ]
       end if
 
       if(present(L)) then
         z2 = a/(gamma-1)
         L(1,1:3) = [ ek  + v*z2 , -v - z2 ,  ONE ]
-        L(2,1:3) = [ 2*h - v*v  , 2*v     , -TWO ]
+        L(2,1:3) = [ 2*h - 2*ek , 2*v     , -TWO ]
         L(3,1:3) = [ ek  - v*z2 , -v + z2 ,  ONE ]
         L = HALF/h * L
       end if
+
     end associate
 
   end subroutine ConvectiveEigensystem
+
+  subroutine ConvectiveEigensystem_(this, u, lambda, R, L)
+    class(CL_Problem_CNS_1D), intent(in)  :: this
+    real(RNP),                intent(in)  :: u(:)
+    real(RNP), optional,      intent(out) :: lambda(:)
+    real(RNP), optional,      intent(out) :: R(:,:)
+    real(RNP), optional,      intent(out) :: L(:,:)
+
+    real(RNP) :: a, aa, ek, h, p, rho, T, v, z2
+
+    associate(gamma => this%gamma)
+
+      v   = u(2)/u(1)
+      ek  = HALF * v**2
+      rho = u(1)
+      p   = (gamma - 1) * (u(3) - HALF*u(2)*v)
+      aa  = gamma * (p/rho)
+      a   = sqrt(aa)
+      T   = p/(u(1)*this%r_gas)
+      h   = this%c_p * T
+  print '(A,9(X,ES12.5))', 'rho =', rho
+  print '(A,9(X,ES12.5))', 'p   =', p
+  print '(A,9(X,ES12.5))', 'a   =', a
+  print '(A,9(X,ES12.5))', 'T   =', T
+
+      if(present(lambda)) then
+        lambda(1:3) = [v-a , v , v+a ]
+      end if
+
+      if(present(R)) then
+        R(1,1:3) = [ ONE          , ONE , ONE          ]
+        R(2,1:3) = [ v - a        , v   , v + a        ]
+        R(3,1:3) = [ h + ek - v*a , ek  , h + ek + v*a ]
+      end if
+
+      if(present(L)) then
+        z2 = a/(gamma-1)
+        L(1,1:3) = [ ek  + v*z2 , -v - z2 ,  ONE ]
+        L(2,1:3) = [ 2*h - 2*ek , 2*v     , -TWO ]
+        L(3,1:3) = [ ek  - v*z2 , -v + z2 ,  ONE ]
+        L = HALF/h * L
+      end if
+
+    end associate
+
+  end subroutine ConvectiveEigensystem_
 
   !-----------------------------------------------------------------------------
   !> Convective contribution to RHS of DG-SEM formulation
@@ -298,6 +336,11 @@ contains
              , activity => cl_operator % activity )
 
       ! initialization .........................................................
+!### CHECK
+!! if (any(ieee_is_nan(u))) then
+!!   print '(99(G0,X))', 'GetConvectionTerm GetConvectionTermr: #0 NaN in u'
+!! end if
+!### CHECK END
 
       !$omp master
       allocate(MD_t(0:po, 0:qo), f_q(0:qo,3), u_q(0:qo,3), h_c(0:ne,3))
@@ -350,6 +393,11 @@ contains
           r_c(:,e,:) = 0
         end if
       end do
+!### CHECK
+!! if (any(ieee_is_nan(r_c))) then
+!!   print '(99(G0,X))', 'GetConvectionTerm GetConvectionTermr: #1 NaN in r_c'
+!! end if
+!### CHECK END
 
       ! element boundary fluxes ................................................
 
@@ -385,6 +433,11 @@ contains
       do e = 0, ne
         h_c(e,:) = NumericalConvectiveFlux(this, u_l(e,:), u_r(e,:))
       end do
+!### CHECK
+!! if (any(ieee_is_nan(h_c))) then
+!!   print '(99(G0,X))', 'GetConvectionTerm GetConvectionTermr: #8 NaN in h_c'
+!! end if
+!### CHECK END
 
       do e = 1, ne
         if (activity(e) > 0) then
@@ -392,6 +445,11 @@ contains
           r_c(po,e,:) = r_c(po,e,:) - h_c(e,:)
         end if
       end do
+!### CHECK
+!! if (any(ieee_is_nan(r_c))) then
+!!   print '(99(G0,X))', 'GetConvectionTerm GetConvectionTermr: #X NaN in r_c'
+!! end if
+!### CHECK END
 
       ! finalization ...........................................................
 
@@ -412,10 +470,9 @@ contains
     real(RNP), contiguous,    intent(in)  :: u  (0:,:,:) !< u(x,t)
     real(RNP), contiguous,    intent(out) :: r_d(0:,:,:) !< diffusion RHS
 
-    character, parameter :: comp  = 'P'
-    real(RNP), parameter :: theta =  0
+    real(RNP), parameter :: theta = 0
 
-    call GetHybridDiffusionTerm(this, cl_operator, comp, theta, bv, u, u, r_d)
+    call GetHybridDiffusionTerm(this, cl_operator, 'PD', theta, bv, u, u, r_d)
 
   end subroutine GetDiffusionTerm
 
@@ -575,7 +632,8 @@ contains
   !-----------------------------------------------------------------------------
   !> Calculates the Numerical Roe-Flux without entropy fix
 
-  pure function NumericalConvectiveFlux(this, u_l, u_r) result(h_c)
+!  pure
+function NumericalConvectiveFlux(this, u_l, u_r) result(h_c)
     class(CL_Problem_CNS_1D), intent(in) :: this
     real(RNP), intent(in) :: u_l(:)
     real(RNP), intent(in) :: u_r(:)
@@ -587,14 +645,18 @@ contains
 
     ! left and right eigenvalues
     call ConvectiveEigensystem(this, u_l, lambda_l)
-    call ConvectiveEigensystem(this, u_l, lambda_r)
+    call ConvectiveEigensystem(this, u_r, lambda_r)
 
     ! Roe average and eigensystem,
     u_roe = RoeAverage(this, u_l, u_r)
     call ConvectiveEigensystem(this, u_roe, lambda, R, L)
+!### CHECK
+!!     call ConvectiveEigensystem_(this, u_roe, lambda, R, L)
+!### CHECK END
 
     ! absolute eigenvalues with first entropy fix of Harten and Hyman
     delta  = max(ZERO, lambda - lambda_l, lambda_r - lambda)
+!! delta = 0
     lambda = max(abs(lambda), delta)
 
     ! absolute Jacobian
@@ -603,6 +665,22 @@ contains
       abs_A(i,j) = sum(R(i,:) * lambda(:) * L(:,j))
     end do
     end do
+!### CHECK
+!! if (any(ieee_is_nan(abs_A))) then
+!!   print '(99(G0,X))', 'GetConvectionTerm GetConvectionTermr: #0 NaN in abs_A'
+!!   print '(99(G0,X))', 'ieee_is_nan(lambda) =',ieee_is_nan(lambda)
+!!   print '(99(G0,X))', 'ieee_is_nan(R) =',ieee_is_nan(R)
+!!   print '(99(G0,X))', 'ieee_is_nan(L) =',ieee_is_nan(L)
+!!   print '(A,9(X,ES12.5))', 'u_l   =', u_l
+!!   print '(A,9(X,ES12.5))', 'u_r   =', u_r
+!!   print '(A,9(X,ES12.5))', 'u_roe =', u_roe
+!!   print '(A,9(X,ES12.5))', 'p_roe =', &
+!!            (this%gamma - 1) * (u_roe(3) - u_roe(2)*u_roe(2) / (2*u_roe(1)))
+!!   print '(A,9(X,ES12.5))', 'lambda_l =', lambda_l
+!!   print '(A,9(X,ES12.5))', 'lambda_r =', lambda_r
+!! stop
+!! end if
+!### CHECK END
 
     ! calculation of the Roe-Flux
     h_c = ( ConvectiveFlux(this, u_l) &
@@ -615,7 +693,8 @@ contains
   !-----------------------------------------------------------------------------
   !> Calculates the Roe average of the Conservative Variables at two Points
 
-  pure function RoeAverage(this, u_l, u_r) result(u_m)
+!  pure
+  function RoeAverage(this, u_l, u_r) result(u_m)
     class(CL_Problem_CNS_1D), intent(in) :: this
     real(RNP), intent(in) :: u_l(:)
     real(RNP), intent(in) :: u_r(:)
