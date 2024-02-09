@@ -660,7 +660,7 @@ contains
     character :: elliptic_bc(2)
     real(RNP) :: elliptic_bv(2)
     real(RNP) :: lambda
-    integer   :: e
+    integer   :: e, i
 
     associate( po          => cl_operator % eop % po    &
              , ne          => cl_operator % ne          &
@@ -672,8 +672,19 @@ contains
       ! check for variable diffusivity
       has_variable_nu = 0 < this%dc_diffusivity .or. 0 < theta
 
-      ! elliptic boundary conditions and boundary values
-      elliptic_bc = this % bc(:)(1:1)
+      ! elliptic boundary conditions
+      do i = 1, 2
+        select case(this % bc(i))
+        case('P')
+          elliptic_bc(i) = 'P'
+        case('D','S')
+          elliptic_bc(i) = 'D'
+        case default
+          elliptic_bc(i) = 'N'
+        end select
+      end do
+
+      ! boundary values
       elliptic_bv = bv(1,:)
 
       ! Helmholtz parameter
