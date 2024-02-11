@@ -155,6 +155,7 @@ contains
     this % eta      = opt % eta
     this % prandtl  = opt % prandtl
     this % n_krylov = opt % n_krylov
+    this % precon   = opt % precon
 
     this % c_v      = this % r_gas / (this % gamma - 1)
     this % c_p      = this % c_v * this % gamma

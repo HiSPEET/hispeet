@@ -501,8 +501,8 @@ contains
             case(2)
               ! physical diffusion eigensystem ← average of mean diagonal values
               lmb_0 = THIRD * dot_product(VL_inv(0,:), A_de(:,1,1) &
-                                                   + A_de(:,2,2) &
-                                                   + A_de(:,3,3) )
+                                                     + A_de(:,2,2) &
+                                                     + A_de(:,3,3) )
             case(3)
               ! streamline diffusion eigensystem
               call ConvectiveEigensystem(this, u_0, lmb_0, vr_0, vl_0)
@@ -807,9 +807,16 @@ contains
                 if (r_max > 0) r_term = r_max
               end if
               if (present(r_red)) then
-                if (r_red > 0) r_term = min(r_term, beta * r_red)
+                if (r_red > 0) r_term = max(r_term, beta * r_red)
               end if
             end if
+
+            if (log_level > 0) then
+              if (present(r_red)) print '(99(G0,X))', 'r_red  = ', r_red
+              if (present(r_max)) print '(99(G0,X))', 'r_max  = ', r_max
+              print '(99(G0,X))', 'r_term = ', r_term
+            end if
+
             converged = beta <= r_term
             !$omp end single
 
@@ -829,12 +836,12 @@ contains
             ! preconditioning, z(j) = K⁻¹v(j) ..................................
 
             select case(this % precon)
-!           case(1)
-!             call DiagonalPreconditioner( this, cl_operator, cfg &
-!                                        , lmb_d, vj, zj          )
-!           case(2:3)
-!             call SpectralPreconditioner( this, cl_operator, cfg    &
-!                                        , lmb_d, vr_d, vl_d, vj, zj )
+            case(1)
+              call DiagonalPreconditioner( cl_operator, bc, cfg, dt  &
+                                         , lmb_d, vj, zj             )
+            case(2:3)
+              call SpectralPreconditioner( cl_operator, bc, cfg, dt  &
+                                         , lmb_d, vr_d, vl_d, vj, zj )
             case default
               call SetArray(zj, vj, multi = .true.)
             end select
@@ -932,6 +939,124 @@ contains
     !$omp end master
 
   end subroutine DiffusionSolver
+
+  !-----------------------------------------------------------------------------
+  !>
+
+  subroutine DiagonalPreconditioner(cl_operator, bc, cfg, dt, nu, r, z)
+    class(CL_Operator_1D), intent(in)  :: cl_operator
+    character,             intent(in)  :: bc(2)
+    integer,               intent(in)  :: cfg(:)
+    real(RNP),             intent(in)  :: dt
+    real(RNP), contiguous, intent(in)  :: nu(:,:)
+    real(RNP), contiguous, intent(in)  :: r(:,:,:)
+    real(RNP), contiguous, intent(out) :: z(:,:,:)
+
+    real(RNP), dimension(:,:), allocatable, save :: rs, zs
+
+    real(RNP) :: lambda
+    logical   :: periodic
+    integer   :: nc, ne, np, ns
+    integer   :: c
+
+    associate( schwarz => cl_operator % elliptic_op % schwarz &
+             , dx      => cl_operator % dx                    )
+
+      ne = size(nu,1)
+      nc = size(nu,2)
+      np = schwarz % po + 1
+      ns = schwarz % no * 2 + np
+
+      allocate(rs(ns,ne))
+      allocate(zs(ns,ne))
+
+      lambda   = 1 / dt
+      periodic = all(bc == 'P')
+
+      do c = 1, nc
+        call SetArray(z(:,:,c), ZERO)
+        call schwarz % RestrictResidual(periodic, r(:,:,c), rs)
+        call schwarz % Apply(cfg, dx, lambda, nu(:,c), rs, zs)
+        call schwarz % MergeCorrections(periodic, zs, z(:,:,c))
+      end do
+
+      deallocate(rs, zs)
+
+    end associate
+
+  end subroutine DiagonalPreconditioner
+
+  !-----------------------------------------------------------------------------
+  !>
+
+  subroutine SpectralPreconditioner(cl_operator, bc, cfg, dt, nu, vr, vl, r, z)
+    class(CL_Operator_1D), intent(in)  :: cl_operator
+    character,             intent(in)  :: bc(2)
+    integer,               intent(in)  :: cfg(:)
+    real(RNP),             intent(in)  :: dt
+    real(RNP), contiguous, intent(in)  :: nu(:,:)
+    real(RNP), contiguous, intent(in)  :: vr(:,:,:)
+    real(RNP), contiguous, intent(in)  :: vl(:,:,:)
+    real(RNP), contiguous, intent(in)  :: r(:,:,:)
+    real(RNP), contiguous, intent(out) :: z(:,:,:)
+
+    real(RNP), dimension(:,:,:), allocatable, save :: rs, zs
+
+    real(RNP), allocatable :: v_t(:,:)
+    real(RNP) :: lambda
+    logical   :: periodic
+    integer   :: nc, ne, np, ns
+    integer   :: c, e
+
+    associate( schwarz => cl_operator % elliptic_op % schwarz &
+             , dx      => cl_operator % dx                    )
+
+      ne = size(nu,1)
+      nc = size(nu,2)
+      np = schwarz % po + 1
+      ns = schwarz % no * 2 + np
+
+      allocate(rs(ns,ne,nc))
+      allocate(zs(ns,ne,nc))
+
+      lambda   = 1 / dt
+      periodic = all(bc == 'P')
+
+      ! restrict residual to subdomains
+      do c = 1, nc
+        call schwarz % RestrictResidual(periodic, r(:,:,c), rs(:,:,c))
+      end do
+
+      ! transform residual to eigenspace
+      do e = 1, ne
+        if (cl_operator % activity(e) > 0) then
+          rs(:,e,:) = matmul(rs(:,e,:), transpose(vl(e,:,:)))
+        end if
+      end do
+
+      ! apply Schwarz operator
+      do c = 1, nc
+        call schwarz % Apply(cfg, dx, lambda, nu(:,c), rs(:,:,c), zs(:,:,c))
+      end do
+
+      ! transform subdomain results back from eigenspace
+      do e = 1, ne
+        if (cl_operator % activity(e) > 0) then
+          zs(:,e,:) = matmul(zs(:,e,:), transpose(vr(e,:,:)))
+        end if
+      end do
+
+      ! merge results
+      do c = 1, nc
+        call SetArray(z(:,:,c), ZERO)
+        call schwarz % MergeCorrections(periodic, zs(:,:,c), z(:,:,c))
+      end do
+
+      deallocate(rs, zs)
+
+    end associate
+
+  end subroutine SpectralPreconditioner
 
   !=============================================================================
 
