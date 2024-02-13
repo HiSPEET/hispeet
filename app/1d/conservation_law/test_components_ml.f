@@ -20,6 +20,7 @@ program Test_Components_MLSDC
   use CL__Time_Integrator__ISD1__1D
   use CL__SDC__Method__1D
   use CL__SDC__Method__ISD1__1D
+  use CL__SDC__Method__Euler__1D
   use CL__MLSDC__1D
   use CL__MLSDC__Level__1D
   use CL__MLSDC__Variable__1D
@@ -60,14 +61,6 @@ program Test_Components_MLSDC
 
   namelist/discretization_prm/ dt_slab, n_level, n_cycle, n_coarse
 
-  ! time integration -- still needs to be configured
-  class(CL_TimeIntegrator_Options_1D), allocatable :: opt_pre
-  class(CL_SDC_Options_1D)           , allocatable :: opt_sdc
-
-  ! MLSDC
-  type(CL_MLSDC_1D)          :: mlsdc
-  type(CL_MLSDC_Options_1D)  :: mlsdc_opt
-
   integer :: p_space (max_n_level) = -1 ! polynomial degree of elements space
   integer :: n_space (max_n_level) = -1 ! number of elements in space
   integer :: p_time  (max_n_level) = -1 ! polynomial degree of time step
@@ -75,6 +68,19 @@ program Test_Components_MLSDC
   integer :: n_sweep (max_n_level) = -1 ! number of SDC sweeps corrector
 
   namelist/discretization_prm/ p_space, n_space, p_time, n_time, n_sweep
+
+  ! time integration -- still needs to be configured
+  class(CL_TimeIntegrator_Options_1D), allocatable :: opt_pre
+  class(CL_SDC_Options_1D)           , allocatable :: opt_sdc
+
+  integer :: sdc_method = 2
+
+  namelist/time_integration_prm/ sdc_method
+
+  type(CL_SDC_Options_Euler_1D) :: opt_sdc_euler
+  type(CL_SDC_Options_ISD1_1D)  :: opt_sdc_isd1
+
+  namelist/time_integration_prm/ opt_sdc_euler, opt_sdc_isd1
 
   ! component testing
   integer :: projection_switch    ! switch for projection test
@@ -89,6 +95,10 @@ program Test_Components_MLSDC
                                   residual_switch, restriction_switch,     &
                                   predictor_switch, corrector_switch,      &
                                   vcycle_switch
+
+  ! MLSDC
+  type(CL_MLSDC_1D)          :: mlsdc
+  type(CL_MLSDC_Options_1D)  :: mlsdc_opt
 
   type(CL_MLSDC_Variable_1D)     :: u_h, u_x
   real(RNP)                      :: t_0, t_1, dt
@@ -111,7 +121,7 @@ program Test_Components_MLSDC
   ! initialization .............................................................
 
   ! greeting
-  write(*,'(/,A)') 'MLSDC DG-SEM for 1D Conservation laws'
+  write(*,'(/,A)') 'MLSDC Component Testprogram'
 
   ! identify case
   call get_command_argument(1, case_name, status=stat)
@@ -125,6 +135,7 @@ program Test_Components_MLSDC
     open(newunit=io, file=case_file)
     read(io, nml = problem_prm)
     read(io, nml = discretization_prm)
+    read(io, nml = time_integration_prm)
     read(io, nml = component_testing_prm)
     close(io)
   end if
@@ -170,15 +181,19 @@ program Test_Components_MLSDC
 
   ! predictor options (ISD1, so far)
   allocate(CL_TimeIntegrator_Options_ISD1_1D :: opt_pre)
-  opt_pre % imex_mode        =   1
+  opt_pre % impl             =   1
   opt_pre % diffusion_method =   4
   opt_pre % diffusion_i_max  = 100
 
-  ! SDC options (ISD1, so far)
-  allocate(CL_SDC_Options_ISD1_1D :: opt_sdc)
-  opt_sdc % point_set        = 'RR'
-  opt_sdc % diffusion_method =   4
-  opt_sdc % diffusion_i_max  = 100
+  ! SDC options (ISD1 and Euler so far)
+  select case(sdc_method)
+  case(1)
+    allocate(CL_SDC_Options_Euler_1D :: opt_sdc)
+    opt_sdc = opt_sdc_euler
+  case(2)
+    allocate(CL_SDC_Options_ISD1_1D :: opt_sdc)
+    opt_sdc = opt_sdc_isd1
+  end select
 
   ! MLSDC data structure
   mlsdc = CL_MLSDC_1D(mlsdc_opt, opt_pre, opt_sdc, cl_problem)
@@ -556,7 +571,7 @@ program Test_Components_MLSDC
       write(*,'(2X,A,I3,A,ES10.3)') 'v error on level ',l,': err_max =',err_max
     end do
 
-  end if
+  end if 
 
 contains
 

@@ -27,10 +27,25 @@
   vcycle_switch        = 1 ! v cycle test switch 0|1
 /
 
+&time_integration_prm
+  !time_method = 0
+  sdc_method  = 2
+
+  ! sdc_method 1: SDC based on Euler
+  opt_sdc_euler%point_set        = 'L'
+  opt_sdc_euler%diffusion_method = 4
+  opt_sdc_euler%diffusion_i_max  = 100
+
+  ! sdc_method = 2: SDC based on ISD1
+  opt_sdc_isd1%point_set        = 'L'
+  opt_sdc_isd1%diffusion_method = 4
+  opt_sdc_isd1%diffusion_i_max  = 1000
+/
+
 &convection_diffusion_wave_package_prm
-  opt%v  = 1
-  opt%nu = 1e-4
-  opt%bc = 2*'P'
+  v  = 1
+  nu = 1e-4
+  bc = 2*'P'
 /
 
 &wave_package_dim
