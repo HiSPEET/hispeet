@@ -43,9 +43,9 @@
 /
 
 &convection_diffusion_wave_package_prm
-  v  = 1
-  nu = 1e-4
-  bc = 2*'P'
+  opt%v  = 1
+  opt%nu = 1e-4
+  opt%bc = 2*'P'
 /
 
 &wave_package_dim
