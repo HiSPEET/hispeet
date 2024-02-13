@@ -5,26 +5,13 @@
 &discretization_prm
 ! dt_slab  = 0.2     ! thickness of one time slab
   n_level  =  2      ! number of space-time levels
-  n_cycle  =  5
+  n_cycle  = 15
   n_coarse =  2
   n_space  = 50 100
   p_space  =  9  15
   n_time   =  1   1
   p_time   =  3   6
   n_sweep  = 15  15
-/
-
-&component_testing_prm
-! 0 = no testing
-! 1 = testing, no visualization
-! 2 = testing with visualization 
-  projection_switch    = 1 ! projection test switch
-  interpolation_switch = 1 ! interpolation test switch
-  residual_switch      = 1 ! collocation residual test switch
-  restriction_switch   = 1 ! restriction test switch
-  predictor_switch     = 1 ! predictor test switch
-  corrector_switch     = 1 ! corrector test switch
-  vcycle_switch        = 1 ! v cycle test switch 0|1
 /
 
 &time_integration_prm
@@ -40,6 +27,19 @@
   opt_sdc_isd1%point_set        = 'L'
   opt_sdc_isd1%diffusion_method = 4
   opt_sdc_isd1%diffusion_i_max  = 1000
+/
+
+&component_testing_prm
+! 0 = no testing
+! 1 = testing, no visualization
+! 2 = testing with visualization 
+  projection_switch    = 1 ! projection test switch
+  interpolation_switch = 1 ! interpolation test switch
+  residual_switch      = 1 ! collocation residual test switch
+  restriction_switch   = 1 ! restriction test switch
+  predictor_switch     = 1 ! predictor test switch
+  corrector_switch     = 1 ! corrector test switch
+  vcycle_switch        = 1 ! v cycle test switch 0|1
 /
 
 &convection_diffusion_wave_package_prm
