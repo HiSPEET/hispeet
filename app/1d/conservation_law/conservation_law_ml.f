@@ -47,7 +47,7 @@ program Conservation_Law_ML
 
   integer, parameter :: max_n_level = 20 ! upper bound for number of levels
 
-  real(RNP) :: dt_slab  = 0.01 ! thickness of one time slab
+  real(RNP) :: dt_slab  = 0.1  ! thickness of one time slab
   integer   :: n_level  = 2    ! number of space-time levels
   integer   :: n_cycle  = 2    ! number of v-cycles
   integer   :: n_coarse = 2    ! number of coarse sweeps
@@ -58,9 +58,8 @@ program Conservation_Law_ML
   integer :: n_space (max_n_level) = -1 ! number of elements in space
   integer :: p_time  (max_n_level) = -1 ! polynomial degree of time step
   integer :: n_time  (max_n_level) = -1 ! number of time steps in one slice
-  integer :: n_sweep (max_n_level) = -1 ! number of SDC sweeps corrector
 
-  namelist/discretization_prm/ p_space, n_space, p_time, n_time, n_sweep
+  namelist/discretization_prm/ p_space, n_space, p_time, n_time
 
   ! MLSDC
   type(CL_MLSDC_1D)          :: mlsdc
@@ -81,10 +80,11 @@ program Conservation_Law_ML
 
   ! auxiliary variables
   type(CL_MLSDC_Variable_1D) :: u_h, u_x
-  real(RNP)                  :: t_0, t_1, err_max
+  real(RNP)                  :: t_0, t_1, t, err_max
   real(RNP)                  :: t_run, t_run_0
   logical                    :: exists
-  integer                    :: io, stat, l, nt, nt_max
+  integer                    :: io, stat
+  integer                    :: l, nt, nt_max, i, k
 
   ! initialization .............................................................
 
@@ -108,7 +108,7 @@ program Conservation_Law_ML
   end if
 
   nt_max = 10000
-  nt = nint(t_end / dt_slab)
+  nt = nint((t_end-t_start) / dt_slab)
   if (nt_max >= 0) then
     nt = min(nt, nt_max)
   end if
@@ -129,7 +129,6 @@ program Conservation_Law_ML
   write(*,'(A,99I5)') 'n_space = ', mlsdc_opt % n_space
   write(*,'(A,99I5)') 'p_time  = ', mlsdc_opt % p_time
   write(*,'(A,99I5)') 'n_time  = ', mlsdc_opt % n_time
-  write(*,'(A,99I5)') 'n_sweep = ', n_sweep(1:n_level)
   write(*,*)
 
   ! problem
@@ -179,11 +178,6 @@ program Conservation_Law_ML
   t_0 = t_start
   t_1 = t_start + dt_slab
 
-  ! set exact solution for now
-  do l = 1, n_level
-    call GetExactSolution(mlsdc%level(l), t_0, t_1, u_x % level(l) % val)
-  end do
-
   ! time integration ...........................................................
 
   write(*,*)
@@ -191,7 +185,7 @@ program Conservation_Law_ML
   write(*,'(A)') repeat('=',80)
   write(*,*)
 
-  ! Initial values of coars grid 
+  ! initial values of coars grid 
   ! (spter nur local refinement und mit coarse grid starten)
   ! cl_problem % GetInitialValues nur für t0 = 0!!!
   call cl_problem % GetExactSolution( mlsdc % level(1) % cl_operator    &
@@ -200,11 +194,13 @@ program Conservation_Law_ML
 
   call cpu_time(t_run_0)
 
-  ! Schleife über Zeitschritte?
+  t = t_0
+  k = 1
 
-  ! Upward leg, interpolate solution to finer grid
-  !!! n_coarse grade noch n_s!!!
-  call CL_MLSDC_Upward_Leg_1D(mlsdc, t_0, dt_slab, n_coarse, u_h, u_x)
+  do i = 1, nt
+
+    ! upward leg
+    call CL_MLSDC_Upward_Leg_1D(mlsdc, t, dt_slab, 1, u_h)
 
   ! check converged
   ! if not, only enter 1(!) v_cycle? --> pre and post smoothing?
@@ -218,12 +214,32 @@ program Conservation_Law_ML
 !  end if
 !  if (converged .or. i == this%i_max) exit
 
-  ! enter v cycle
-  call CL_MLSDC_V_Cycle_1D(mlsdc, t_0, dt_slab, 1, 1, n_coarse, n_cycle, u_h, u_x)
+    ! enter v cycle
+    call CL_MLSDC_V_Cycle_1D(mlsdc, t, dt_slab, 1, 1, n_coarse, n_cycle, u_h)
+
+    ! set new initial value for the coarse grid
+    u_h%level(1)%val(:,:,:,0 ,1 ) = u_h%level(1)%val(:,:,:,p_time(1),n_time(1))
+    u_h%level(1)%val(:,:,:,1:,2:) = 0
+
+    ! Update t
+    t = t + dt_slab
+    
+    if (10 * (t-t_0) >= k * (t_end-t_start)) then
+      write(*,'(2X,I3,"%")') 10*k
+      k = k + 1
+    end if
+
+  end do 
 
   call cpu_time(t_run)
 
   ! evaluation and output of results ...........................................
+
+  ! set exact solution for now
+  do l = 1, n_level
+    call GetExactSolution( mlsdc%level(l), t_end - dt_slab &
+                         , t_end, u_x % level(l) % val     )
+  end do
 
   write(*,'(2X,A,99(ES12.5,1X))') 't_run  =', t_run  - t_run_0
   err_max = maxval(abs(u_h % level(n_level) % val - u_x % level(n_level) % val))

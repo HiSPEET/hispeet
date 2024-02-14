@@ -563,7 +563,8 @@ program Test_Components_MLSDC
     end do
 
     ! enter v cycle
-    call CL_MLSDC_V_Cycle_1D(mlsdc, t_0, dt_slab, 1, 1, n_coarse, n_cycle, u_h, u_x)
+    !call CL_MLSDC_V_Cycle_1D(mlsdc, t_0, dt_slab, 1, 1, n_coarse, n_cycle, u_h, u_x)
+    call CL_MLSDC_V_Cycle_1D(mlsdc, t_0, dt_slab, 1, 1, n_coarse, n_cycle, u_h)
 
     do l = n_level, 1, -1
       if (l == n_level) print*, "error after ", n_cycle," cycles"

@@ -23,7 +23,7 @@ contains
   !> Index f indicates the finer grid of the iteration
   !> Index c indicates the coarser grid of the iteration
 
-  subroutine CL_MLSDC_V_Cycle_1D(mlsdc, t, dt, n_s1, n_s2, n_coarse, n_cycle, u, u_x)
+  subroutine CL_MLSDC_V_Cycle_1D(mlsdc, t, dt, n_s1, n_s2, n_coarse, n_cycle, u)
     class(CL_MLSDC_1D), intent(in) :: mlsdc
     real(RNP), intent(in) :: t        !< start time
     real(RNP), intent(in) :: dt       !< thickness of time slab
@@ -32,7 +32,6 @@ contains
     integer,   intent(in) :: n_coarse !< number of sweeps for coarse solution
     integer,   intent(in) :: n_cycle  !< number of cycles to perform
     class(CL_MLSDC_Variable_1D), intent(inout) :: u   !< approximate solution
-    class(CL_MLSDC_Variable_1D), intent(in)    :: u_x !< exact solution
 
     ! internal variables .......................................................
 
@@ -78,7 +77,6 @@ contains
 
           ! pre-smoothing
           call mlsdc % level(l) % ApplyCorrector(dt, t, g_f, u_f, n_s1)
-          if(l == 3) call Monitoring(u, u_x, l, 'pre_smooth')
 
           ! get residual on fine grid
           call mlsdc % level(l) % GetResidual(dt, t, u_f, r_f)
@@ -138,6 +136,8 @@ contains
           ! interpolate to finer grid
           call mlsdc % level(l-1) % Interpolate_CF(v_cr, Iv_c, complete=.true.)
           ! hacky Abbruchkriterium
+          ! turn off manually for tests
+          abort = .false.
           if(.not. abort) then
             u_f = u_f + Iv_c
           end if
@@ -156,22 +156,5 @@ contains
     deallocate(g, r, v)
 
   end subroutine CL_MLSDC_V_Cycle_1D
-
-  !-------------------------------------------------------------------------------
-  !> Monitoring of error
-
-  subroutine Monitoring(u_h, u_x, l, step)
-    class(CL_MLSDC_Variable_1D), intent(in) :: u_h  !< approximate solution
-    class(CL_MLSDC_Variable_1D), intent(in) :: u_x  !< exact solution
-    integer,                     intent(in) :: l    !< level
-    character(len=*),            intent(in) :: step !< current step
-
-    real(RNP) :: err
-
-    err = maxval(abs(u_h%level(l)%val - u_x%level(l)%val))
-    print '(2X,A,I2,3A,ES10.3)', 'measured error on level ' &
-           , l, ': err[', step, '] =', err
-
-  end subroutine Monitoring
 
 end module CL__MLSDC__V_Cycle__1D

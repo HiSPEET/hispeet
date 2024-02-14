@@ -23,13 +23,12 @@ contains
   !> Index f indicates the finer grid of the iteration
   !> Index c indicates the coarser grid of the iteration
 
-  subroutine CL_MLSDC_Upward_Leg_1D(mlsdc, t, dt, n_s, u, u_x)
+  subroutine CL_MLSDC_Upward_Leg_1D(mlsdc, t, dt, n_s, u)
     class(CL_MLSDC_1D), intent(in) :: mlsdc
     real(RNP), intent(in) :: t   !< start time
     real(RNP), intent(in) :: dt  !< thickness of time slab
     integer,   intent(in) :: n_s !< number of smoothing sweeps 
     class(CL_MLSDC_Variable_1D), intent(inout) :: u   !< approximate solution
-    class(CL_MLSDC_Variable_1D), intent(in)    :: u_x !< exact solution
 
     ! internal variables .......................................................
 
@@ -68,22 +67,5 @@ contains
     ! deallocate(g, r, v)
 
   end subroutine CL_MLSDC_Upward_Leg_1D
-
-  !-------------------------------------------------------------------------------
-  !> Monitoring of error
-
-  subroutine Monitoring(u_h, u_x, l, step)
-    class(CL_MLSDC_Variable_1D), intent(in) :: u_h  !< approximate solution
-    class(CL_MLSDC_Variable_1D), intent(in) :: u_x  !< exact solution
-    integer,                     intent(in) :: l    !< level
-    character(len=*),            intent(in) :: step !< current step
-
-    real(RNP) :: err
-
-    err = maxval(abs(u_h%level(l)%val - u_x%level(l)%val))
-    print '(2X,A,I2,3A,ES10.3)', 'measured error on level ' &
-           , l, ': err[', step, '] =', err
-
-  end subroutine Monitoring
 
 end module CL__MLSDC__Upward_Leg__1D
