@@ -236,11 +236,13 @@ program Conservation_Law_ML
 
   ! evaluation and output of results ...........................................
 
+  ! p_time für RR?
+
   associate( u_h => u_h       % level  (n_level) % val              &
            , u_x => u_x       % level  (n_level) % val              &
-           , ne  => mlsdc_opt % p_space(n_level)                    &
-           , po  => mlsdc_opt % n_space(n_level)                    &
-           , ns  => mlsdc     % level  (n_level) % m_time           &
+           , ne  => mlsdc_opt % n_space(n_level)                    &
+           , po  => mlsdc_opt % p_space(n_level)                    &
+           , ns  => mlsdc_opt % p_time (n_level)                    &
            , nt  => mlsdc_opt % n_time (n_level)                    &
            , Me  => mlsdc     % level  (n_level) % cl_operator % Me &
            , nc  => mlsdc     % level  (n_level) % cl_problem  % nc )
