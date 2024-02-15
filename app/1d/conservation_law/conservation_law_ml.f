@@ -80,8 +80,9 @@ program Conservation_Law_ML
 
   ! auxiliary variables
   type(CL_MLSDC_Variable_1D) :: u_h, u_x
-  real(RNP)                  :: t_0, t_1, t, err_max
-  real(RNP)                  :: t_run, t_run_0
+  real(RNP)                  :: t_0, t_1, t
+  real(RNP), allocatable     :: err_2(:), err(:)
+  real(RNP)                  :: err_max, t_run, t_run_0
   logical                    :: exists
   integer                    :: io, stat
   integer                    :: l, nt, nt_max, i, k
@@ -235,15 +236,36 @@ program Conservation_Law_ML
 
   ! evaluation and output of results ...........................................
 
-  ! set exact solution for now
-  do l = 1, n_level
-    call GetExactSolution( mlsdc%level(l), t_end - dt_slab &
-                         , t_end, u_x % level(l) % val     )
-  end do
+  associate( u_h => u_h       % level  (n_level) % val              &
+           , u_x => u_x       % level  (n_level) % val              &
+           , ne  => mlsdc_opt % p_space(n_level)                    &
+           , po  => mlsdc_opt % n_space(n_level)                    &
+           , ns  => mlsdc     % level  (n_level) % m_time           &
+           , nt  => mlsdc_opt % n_time (n_level)                    &
+           , Me  => mlsdc     % level  (n_level) % cl_operator % Me &
+           , nc  => mlsdc     % level  (n_level) % cl_problem  % nc )
 
-  write(*,'(2X,A,99(ES12.5,1X))') 't_run  =', t_run  - t_run_0
-  err_max = maxval(abs(u_h % level(n_level) % val - u_x % level(n_level) % val))
-  write(*,'(2X,A,I3,A,ES10.3)') 'Error on level ',n_level,': err_max =',err_max
+    ! set exact solution for now
+    do l = 1, n_level
+      call GetExactSolution( mlsdc%level(l), t_end - dt_slab, t_end, u_x)
+    end do
+
+    allocate(err  (nc), source = ZERO)
+    allocate(err_2(nc), source = ZERO)
+
+    do k = 1, ne
+    do i = 0, po
+      err   = u_h(i, k, :, ns, nt) - u_x(i, k, :, ns, nt)
+      err_2 = err_2 + Me(i) * err**2
+    end do
+    end do
+    err_max = maxval(abs(u_h - u_x))
+
+    write(*,'(2X,A,99(ES12.5,1X))') 't_run  =', t_run  - t_run_0
+    write(*,'(2X,A,I3,A,ES10.3)') 'Error on level ',n_level,': err_2 =',sqrt(err_2)
+    write(*,'(2X,A,I3,A,ES10.3)') 'Error on level ',n_level,': err_max =',err_max
+
+  end associate
 
 contains
 

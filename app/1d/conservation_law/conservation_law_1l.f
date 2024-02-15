@@ -106,7 +106,7 @@ program Conservation_Law_1L
   ! declarations: auxiliary ....................................................
 
   real(RNP), allocatable :: err(:), err_2(:)
-  real(RNP) :: t, t_run, t_run_0
+  real(RNP) :: t, t_run, t_run_0, err_max
   real(RNP) :: tau_conv, tau_diff
   logical   :: exists
   integer   :: io, stat
@@ -310,6 +310,8 @@ program Conservation_Law_1L
 
     open(newunit=io, file=trim(case_name)//'.dat')
 
+    err_max = maxval(abs(u - u_0))
+
     write(io,'(A)') '# x, u, u_ex, err'
     do k = 1, ne
     do i = 0, po
@@ -325,6 +327,7 @@ program Conservation_Law_1L
     write(*,'(2X,A,99(ES12.5,1X))') 't_run  =', t_run  - t_run_0
     if (cl_problem % HasExactSolution()) then
       write(*,'(2X,A,99(ES12.5,1X))') 'err_2  =', sqrt(err_2)
+      write(*,'(2X,A,99(ES12.5,1X))') 'err_max  =', err_max
     end if
 
   end associate
