@@ -265,13 +265,13 @@ program Test_Components_MLSDC
     call GetExactSolution(mlsdc%level(1), t_0, t_1, u_h % level(1)%val)
 
     do l = 1, n_level-1
-      associate( u_hc     => u_h       % level (l  ) % val &
-               , u_hf     => u_h       % level (l+1) % val &
-               , u_xf     => u_x       % level (l+1) % val &
-               , m_time_f => mlsdc % level(l+1) % m_time   &
-               , n_time_f => mlsdc % level(l+1) % n_time   )
+      associate( u_xc     => u_x   % level(l  ) % val    &  
+               , u_hf     => u_h   % level(l+1) % val    &
+               , u_xf     => u_x   % level(l+1) % val    &
+               , m_time_f => mlsdc % level(l+1) % m_time &
+               , n_time_f => mlsdc % level(l+1) % n_time )
 
-        call mlsdc % level(l) % Interpolate_CF(u_hc, u_hf, complete=.true.)
+        call mlsdc % level(l) % Interpolate_CF(u_xc, u_hf, complete=.true.)
 
         err_max = maxval(abs(u_hf - u_xf))
         write(*,'(2X,2(A,I3),A,ES10.3)') 'level',l,' to',l+1,': err_max =',err_max
@@ -314,7 +314,7 @@ program Test_Components_MLSDC
                 , m_time => mlsdc     % level (l) % m_time &
                 , n_time => mlsdc_opt % n_time(l)          )
 
-         call mlsdc % level(l) % GetResidual(dt_slab, t_0, u, r)
+         call mlsdc % level(l) % GetResidual(dt_slab, t_0, u=u, r=r)
 
          r_max = maxval(abs(r))
          write(*,'(2X,A,I3,A,ES10.3)') 'level',l,': r_max =',r_max
@@ -484,7 +484,7 @@ program Test_Components_MLSDC
            call mlsdc % level(l+1) % Project_FC(u_hf, v)
            ! get residual
            allocate(r_c(0:p_space, 1:n_space, 1:nc, 0:m_time, 1:n_time))
-           call mlsdc % level(l) % GetResidual(dt_slab, t_0, v, r_c)
+           call mlsdc % level(l) % GetResidual(dt_slab, t_0, u=v, r=r_c)
            ! restrict fine residual
            allocate(r_fc(0:p_space, 1:n_space, 1:nc, 0:m_time, 1:n_time))
            call mlsdc % level(l) % Restrict_FC(r_f, r_fc)
@@ -505,7 +505,7 @@ program Test_Components_MLSDC
          allocate(r_f(0:p_space, 1:n_space, 1:nc, 0:m_time,1:n_time))
          u_hf = u_h
          ! get residual
-         call mlsdc % level(l) % GetResidual(dt_slab, t_0, u_hf, r_f)
+         call mlsdc % level(l) % GetResidual(dt_slab, t_0, u=u_hf, r=r_f)
 
          if (corrector_switch > 1) then ! visualization
 
