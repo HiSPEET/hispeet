@@ -67,8 +67,7 @@ contains
                  , g_f  => g % level(l  ) % val &
                  , g_c  => g % level(l-1) % val &
                  , v_c  => v % level(l-1) % val &
-                 , u_f  => u % level(l  ) % val &
-                 , u_c  => u % level(l-1) % val )
+                 , u_f  => u % level(l  ) % val )
     
           ! set FAS correction to zero for top level
           if (l == l_top) then
@@ -79,14 +78,13 @@ contains
           call mlsdc % level(l) % ApplyCorrector(dt, t, g_f, u_f, n_s1)
 
           ! get residual on fine grid
-          call mlsdc % level(l) % GetResidual(dt, t, u_f, r_f)
+          call mlsdc % level(l) % GetResidual(dt, t, G=g_f, u=u_f, r=r_f)
 
           ! restrict fine solution
           call mlsdc % level(l) % Project_FC(u_f, v_c)
 
           ! where regular refinement condition
-          ! get residual on coarse grid: g_c = -L(v(l-1))
-          call mlsdc % level(l-1) % GetResidual(dt, t, v_c, g_c)
+          call mlsdc % level(l-1) % GetResidual(dt, t, u=v_c, r=g_c)
 
           ! restrict residual to coarse level
           call mlsdc % level(l-1) % Restrict_FC(r_f, Rr_f)
@@ -97,7 +95,7 @@ contains
         end associate
       end do
 
-      ! hacky Abbruchkriterium
+      ! hacky Abbruchkriterium  -> auf Multilevel erweitern?
       associate( Rr_f => r % level(1) % val )
         if (allocated(r_old)) then
           if (maxval(Rr_f) > maxval(r_old)) then

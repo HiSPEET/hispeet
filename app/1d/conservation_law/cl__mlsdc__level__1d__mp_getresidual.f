@@ -12,12 +12,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Multi-step collocation residual
 
-  module subroutine GetResidual(this, dt, t_0, u, r)
+  module subroutine GetResidual(this, dt, t_0, G, u, r)
     class(CL_MLSDC_Level_1D), intent(in) :: this
-    real(RNP), intent(in)  :: dt             !< size of the time slice
-    real(RNP), intent(in)  :: t_0            !< start time of the slice
-    real(RNP), intent(in)  :: u(0:,:,:,0:,:) !< approximate solution
-    real(RNP), intent(out) :: r(0:,:,:,0:,:) !< residual
+    real(RNP), intent(in)            :: dt             !< size of the time slice
+    real(RNP), intent(in)            :: t_0            !< start time of the slice
+    real(RNP), optional, intent(in)  :: G(0:,:,:,0:,:) !< FAS correction
+    real(RNP), intent(in)            :: u(0:,:,:,0:,:) !< approximate solution
+    real(RNP), intent(out)           :: r(0:,:,:,0:,:) !< residual
 
     real(RNP), allocatable, save :: t(:)       ! subinterval time nodes
     real(RNP), allocatable, save :: f(:)       ! RHS
@@ -72,7 +73,12 @@ contains
         do m = 1, mt
         do k = 1, nc
         do e = 1, ns
-          r(:,e,k,m,n) = Me * (u(:,e,k,m-1,n) - u(:,e,k,m,n))
+          if(present(G)) then
+            r(:,e,k,m,n) = Me * (u(:,e,k,m-1,n) - u(:,e,k,m,n)) &
+                         + G(:,e,k,m,n)
+          else
+            r(:,e,k,m,n) = Me * (u(:,e,k,m-1,n) - u(:,e,k,m,n))
+          end if
         end do
         end do
         end do
