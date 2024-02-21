@@ -53,6 +53,7 @@ module CL__MLSDC__Level__1D
 
     procedure :: GetTimeMesh    !< get the time mesh points
     procedure :: GetResidual    !< compute multi-step collocation residual
+    procedure :: ApplyOperator  !< application of operator
     procedure :: ApplyPredictor !< application of SDC predictor
     procedure :: ApplyCorrector !< application of SDC corrector
     procedure :: Interpolate_CF !< solution interpolation to next finer   level
@@ -117,14 +118,24 @@ module CL__MLSDC__Level__1D
     end subroutine ApplyCorrector
 
     !---------------------------------------------------------------------------
-    !> Residual of the collocation method
+    !> Application of the operator
 
-    module subroutine GetResidual(this, dt, t_0, u, r)
-      class(CL_MLSDC_Level_1D), intent(in) :: this !< MLSDC level
+    module subroutine ApplyOperator(this, dt, t_0, u, v)
+      class(CL_MLSDC_Level_1D), intent(in) :: this
       real(RNP), intent(in)  :: dt             !< size of the time slice
       real(RNP), intent(in)  :: t_0            !< start time of the slice
       real(RNP), intent(in)  :: u(0:,:,:,0:,:) !< approximate solution
-      real(RNP), intent(out) :: r(0:,:,:,0:,:) !< residual
+      real(RNP), intent(out) :: v(0:,:,:,0:,:) !< u after operator applied
+    end subroutine ApplyOperator
+
+    !---------------------------------------------------------------------------
+    !> Residual of the collocation method
+
+    module subroutine GetResidual(this, G, v, r)
+      class(CL_MLSDC_Level_1D), intent(in) :: this !< MLSDC level
+      real(RNP), optional, intent(in) :: G(0:,:,:,0:,:) !< FAS defect correction
+      real(RNP), intent(in)           :: v(0:,:,:,0:,:) !< approximate solution
+      real(RNP), intent(out)          :: r(0:,:,:,0:,:) !< residual
     end subroutine GetResidual
 
     !---------------------------------------------------------------------------

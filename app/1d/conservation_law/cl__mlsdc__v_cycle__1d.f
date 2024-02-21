@@ -78,13 +78,19 @@ contains
           call mlsdc % level(l) % ApplyCorrector(dt, t, g_f, u_f, n_s1)
 
           ! get residual on fine grid
-          call mlsdc % level(l) % GetResidual(dt, t, G=g_f, u=u_f, r=r_f)
+          ! r_f = L(u_f)
+          call mlsdc % level(l) % ApplyOperator(dt, t, u_f, r_f)
+          ! r_f = f^ - L(u_f)
+          call mlsdc % level(l) % GetResidual(G=g_f, v=r_f, r=r_f)
 
           ! restrict fine solution
           call mlsdc % level(l) % Project_FC(u_f, v_c)
 
           ! where regular refinement condition
-          call mlsdc % level(l-1) % GetResidual(dt, t, u=v_c, r=g_c)
+          ! g_c = L(v_c)
+          call mlsdc % level(l-1) % ApplyOperator(dt, t, v_c, g_c)
+          ! g_c = 0 - L(v_c)
+          call mlsdc % level(l-1) % GetResidual(v=g_c, r=g_c)
 
           ! restrict residual to coarse level
           call mlsdc % level(l-1) % Restrict_FC(r_f, Rr_f)

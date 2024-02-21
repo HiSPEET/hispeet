@@ -46,7 +46,7 @@ program Test_Components_MLSDC
   !   - 'burgers__moving_front'
 
   real(RNP) :: t_start = 0.40  ! start time
-  real(RNP) :: t_end   = 0.41  ! end time
+  real(RNP) :: t_end   = 0.42  ! end time
 
   namelist/problem_prm/ problem_name, t_start, t_end
 
@@ -54,7 +54,7 @@ program Test_Components_MLSDC
 
   integer, parameter :: max_n_level = 20 ! upper bound for number of levels
 
-  real(RNP) :: dt_slab  = 0.01 ! thickness of one time slab
+  real(RNP) :: dt_slab  = 0.02 ! thickness of one time slab
   integer   :: n_level  = 2    ! number of space-time levels
   integer   :: n_cycle  = 2    ! number of v-cycles
   integer   :: n_coarse = 2    ! number of coarse sweeps
@@ -314,7 +314,8 @@ program Test_Components_MLSDC
                 , m_time => mlsdc     % level (l) % m_time &
                 , n_time => mlsdc_opt % n_time(l)          )
 
-         call mlsdc % level(l) % GetResidual(dt_slab, t_0, u=u, r=r)
+         call mlsdc % level(l) % ApplyOperator(dt_slab, t_0, u, r)
+         call mlsdc % level(l) % GetResidual(v=r, r=r)
 
          r_max = maxval(abs(r))
          write(*,'(2X,A,I3,A,ES10.3)') 'level',l,': r_max =',r_max
@@ -484,12 +485,13 @@ program Test_Components_MLSDC
            call mlsdc % level(l+1) % Project_FC(u_hf, v)
            ! get residual
            allocate(r_c(0:p_space, 1:n_space, 1:nc, 0:m_time, 1:n_time))
-           call mlsdc % level(l) % GetResidual(dt_slab, t_0, u=v, r=r_c)
+           call mlsdc % level(l) % ApplyOperator(dt_slab, t_0, v, r_c)
+           call mlsdc % level(l) % GetResidual(v=r_c, r=r_c)
            ! restrict fine residual
            allocate(r_fc(0:p_space, 1:n_space, 1:nc, 0:m_time, 1:n_time))
            call mlsdc % level(l) % Restrict_FC(r_f, r_fc)
            ! calculate G
-           g = r_fc - r_c
+           g = r_fc - r_c 
            deallocate(u_hf, r_f, r_c, r_fc, v)
          end if
 
@@ -505,7 +507,8 @@ program Test_Components_MLSDC
          allocate(r_f(0:p_space, 1:n_space, 1:nc, 0:m_time,1:n_time))
          u_hf = u_h
          ! get residual
-         call mlsdc % level(l) % GetResidual(dt_slab, t_0, u=u_hf, r=r_f)
+         call mlsdc % level(l) % ApplyOperator(dt_slab, t_0, u_hf, r_f)
+         call mlsdc % level(l) % GetResidual(v=r_f, r=r_f)
 
          if (corrector_switch > 1) then ! visualization
 
