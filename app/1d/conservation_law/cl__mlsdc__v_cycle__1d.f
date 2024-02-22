@@ -40,8 +40,6 @@ contains
     type(CL_MLSDC_Variable_1D), allocatable, save :: v   ! auxiliary
 
     integer                :: c, l, l_top
-    real(RNP), allocatable :: r_old(:,:,:,:,:)
-    logical                :: abort
 
     ! initialization ...........................................................
 
@@ -53,9 +51,6 @@ contains
     g   = CL_MLSDC_Variable_1D(mlsdc)
     r   = CL_MLSDC_Variable_1D(mlsdc)
     v   = CL_MLSDC_Variable_1D(mlsdc)
-
-    ! hacky Abbruchkriterium
-    abort     = .FALSE.
 
     do c = 1, n_cycle
 
@@ -82,36 +77,22 @@ contains
           call mlsdc % level(l) % ApplyOperator(dt, t, u_f, r_f)
           ! r_f = f^ - L(u_f)
           call mlsdc % level(l) % GetResidual(G=g_f, v=r_f, r=r_f)
+          ! restrict residual to coarse level
+          call mlsdc % level(l-1) % Restrict_FC(r_f, Rr_f)
 
           ! restrict fine solution
           call mlsdc % level(l) % Project_FC(u_f, v_c)
-
           ! where regular refinement condition
           ! g_c = L(v_c)
           call mlsdc % level(l-1) % ApplyOperator(dt, t, v_c, g_c)
           ! g_c = 0 - L(v_c)
           call mlsdc % level(l-1) % GetResidual(v=g_c, r=g_c)
 
-          ! restrict residual to coarse level
-          call mlsdc % level(l-1) % Restrict_FC(r_f, Rr_f)
-
-          ! compute FAS correction
+          ! compute FAS correction G
           g_c = Rr_f - g_c
 
         end associate
       end do
-
-      ! hacky Abbruchkriterium  -> auf Multilevel erweitern?
-      associate( Rr_f => r % level(1) % val )
-        if (allocated(r_old)) then
-          if (maxval(Rr_f) > maxval(r_old)) then
-            abort = .TRUE.
-          endif
-          deallocate(r_old)
-        end if
-        allocate(r_old, mold=Rr_f)
-        r_old = Rr_f
-      end associate
 
       ! coarse solution ..........................................................
 
@@ -139,12 +120,9 @@ contains
 
           ! interpolate to finer grid
           call mlsdc % level(l-1) % Interpolate_CF(v_cr, Iv_c, complete=.true.)
-          ! hacky Abbruchkriterium
-          ! turn off manually for tests
-          abort = .false.
-          if(.not. abort) then
-            u_f = u_f + Iv_c
-          end if
+ 
+          ! u_NEW
+          u_f = u_f + Iv_c
 
           if (l /= l_top .or. (l == l_top .and. c == n_cycle)) then
             call mlsdc % level(l) % ApplyCorrector(dt, t, g, u_f, n_s2)
