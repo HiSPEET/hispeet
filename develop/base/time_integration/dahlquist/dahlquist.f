@@ -110,7 +110,10 @@ program Dahlquist
 
   character(len=80) :: input_file = 'dahlquist'
   complex(RNP) :: z
-  real(RNP)    :: delta_c, delta_d
+  complex(RNP) :: zr_oo, lambda_r_oo
+  complex(RNP) :: zr_mm, lambda_r_mm
+  complex(RNP) :: zi_oo, lambda_i_oo
+  real(RNP)    :: c0, delta_c, delta_d
   integer      :: i, j, io
 
   ! read options and parameters ................................................
@@ -261,6 +264,29 @@ program Dahlquist
     write(io,*)
   end do
   close(io)
+
+  ! amplification for large |z| ................................................
+
+  write(*,*)
+  write(*,'(/,A)') '# c, |R(-c)|, |R(c)|, |R(ic)|'
+  c0 = 1
+  do i = 0, 12
+    zr_mm =  1;  lambda_r_mm = -c0
+    zr_oo =  1;  lambda_r_oo =  c0
+    zi_oo =  1;  lambda_i_oo =  c0 * (ZERO, ONE)
+    select case(sdc_method)
+    case(0) ! standalone time-integrator
+      call tint % TimeStep(lambda_r_mm, ONE, zr_mm)
+      call tint % TimeStep(lambda_r_oo, ONE, zr_oo)
+      call tint % TimeStep(lambda_i_oo, ONE, zi_oo)
+    case default ! SDC method
+      call sdc % TimeStep(lambda_r_mm, ONE, zr_mm)
+      call sdc % TimeStep(lambda_r_oo, ONE, zr_oo)
+      call sdc % TimeStep(lambda_i_oo, ONE, zi_oo)
+    end select
+    write(*,'(4(ES12.5,2X))') c0, abs(zr_mm), abs(zr_oo), abs(zi_oo)
+    c0 = c0 * 10
+  end do
 
   !=============================================================================
 

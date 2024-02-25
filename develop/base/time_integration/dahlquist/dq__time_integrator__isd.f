@@ -75,12 +75,10 @@ contains
       end select
     case(2)
       select case(this % method)
-      case(1)
-        this % name = 'ISD midpoint rule'
       case(2)
-        this % name = 'ISD trapezoidal rule'
+        this % name = 'ISD method of order 2 with two stages'
       case default
-        this % name = 'ISD trapezoidal/midpoint rule'
+        this % name = 'ISD method of order 2 with three stages'
       end select
     end select
 
@@ -118,7 +116,7 @@ contains
     complex(RNP), intent(inout) :: u       !< u(t) → u(t+ ∆t)
 
     complex(RNP), parameter :: i = (ZERO, ONE)
-    complex(RNP) :: u0, u1, u2
+    complex(RNP) :: u0, u1, u2, u3
     real(RNP) :: hdt
 
     hdt = HALF * dt
@@ -156,46 +154,36 @@ contains
 
       select case(this%method)
 
-      case(1)
+      case(2)
 
-        ! midpoint .............................................................
+        ! two-stage ............................................................
 
         u0 = u
 
         u1 = u0 +  hdt * i * lambda%im * u0
-        u1 = u1 / (ONE  - hdt * lambda%re + (hdt * lambda%im)**2)
+        u1 = u1 / (ONE - hdt * lambda%re + (hdt * lambda%im)**2)
 
-        u2 = u0 +  dt * lambda * u1
+        u2 = u0 +  hdt * i * lambda%im * u1
+        u2 = u2 / (ONE - hdt * lambda%re + (hdt * lambda%im)**2)
 
-        u = u2
-
-      case(2)
-
-        ! trapezoid ............................................................
-
-        u0 = u
-
-        u1 = u0 +  dt * i * lambda%im * u0
-        u1 = u1 / (ONE - dt * lambda%re + (dt * lambda%im)**2)
-
-        u2 = u0 +  hdt * (lambda * u0 + i * lambda%im * u1 )
-        u2 = u2 / (ONE - hdt * lambda%re)
-
-        u = u2
+        u = u0 +  dt * lambda * u2
 
       case default
 
-        ! trapezoid/midpoint ...................................................
+        ! three-stage ..........................................................
 
         u0 = u
 
         u1 = u0 +  hdt * i * lambda%im * u0
-        u1 = u1 / (ONE  - hdt * (lambda%re - hdt * lambda%im**2))
+        u1 = u1 / (ONE - hdt * lambda%re + (hdt * lambda%im)**2)
 
-        u2 = u0 +  hdt * lambda%re * u0  +  dt * i * lambda%im * u1
-        u2 = u2 / (ONE - hdt * lambda%re)
+        u2 = u0 +  hdt * i * lambda%im * u1
+        u2 = u2 / (ONE - hdt * lambda%re + (hdt * lambda%im)**2)
 
-        u = u2
+        u3 = u0 +  dt * i * lambda%im * u2
+        u3 = u3 / (ONE - dt * lambda%re)
+
+        u = u3
 
       end select
 

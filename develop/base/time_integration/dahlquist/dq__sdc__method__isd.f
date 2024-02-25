@@ -176,7 +176,7 @@ contains
       u(m) = u2
     case default
       u1 = ui + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
-      u1 = u1  * a_inv
+      u1 = u1 * a_inv
       u(m) = u1
     end select
 
