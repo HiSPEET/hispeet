@@ -18,6 +18,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Execution of one MLSDC V-cycle
   !> Variable names:
+  !> P before a variable name indicates a projected variable
   !> R before a variable name indicates a restricted variable
   !> I bevore a variable name indicates an interpolated variable
   !> Index f indicates the finer grid of the iteration
@@ -36,7 +37,7 @@ contains
 
     ! internal variables .......................................................
 
-    type(CL_MLSDC_Variable_1D), allocatable, save :: g   ! FAS correction
+    type(CL_MLSDC_Variable_1D), allocatable, save :: g   ! FAS RHS
     type(CL_MLSDC_Variable_1D), allocatable, save :: r   ! residual
     type(CL_MLSDC_Variable_1D), allocatable, save :: v   ! auxiliary
 
@@ -62,10 +63,10 @@ contains
                  , Rr_f => r % level(l-1) % val &
                  , g_f  => g % level(l  ) % val &
                  , g_c  => g % level(l-1) % val &
-                 , v_c  => v % level(l-1) % val &
+                 , Pu_f => v % level(l-1) % val &
                  , u_f  => u % level(l  ) % val )
     
-          ! set FAS correction to zero for top level
+          ! set FAS RHS to zero for top level
           if (l == l_top) then
             g_f = 0.
           end if
@@ -73,26 +74,25 @@ contains
           ! pre-smoothing
           call mlsdc % level(l) % ApplyCorrector(dt, t, g_f, u_f, n_s1)
 
-          ! gib exakte Lösung auf Level 2 und 3 vor
+          ! provide exact solution on level 2 and 3
 !          if(l == 3) u_f = u_x % level(3) % val
 !          if(l == 2) u_f = u_x % level(2) % val
-          !call Monitoring(u_x, u_x, 3, "sanity")
 
           ! get residual on fine grid
-          ! r_f = f^ - L(u_f)
+          ! r_f = g_f - L(u_f)
           call mlsdc % level(l) % GetResidual(dt, t, g_f, u_f, r_f)
           ! restrict residual to coarse level
           call mlsdc % level(l-1) % Restrict_FC(r_f, Rr_f)
 
           ! restrict fine solution
-          call mlsdc % level(l) % Project_FC(u_f, v_c)
+          call mlsdc % level(l) % Project_FC(u_f, Pu_f)
           ! where regular refinement condition
-          ! g_c = L(v_c)
-          call mlsdc % level(l-1) % ApplyOperator(dt, t, v_c, g_c)
+          ! g_c = L(Pu_f)
+          call mlsdc % level(l-1) % ApplyOperator(dt, t, Pu_f, g_c)
 
-          ! compute FAS correction G (= f^)
-          ! Gl. 8.5b bei Brandt
-          ! f^_c = L(P(u_f)) + R(f^_f - L(u_f))
+          ! compute FAS RHS g (= f^ for Brandt)
+          ! Gl. 8.5b in Multigrid techniques (1984, Achi Brandt)
+          ! g_c = L(Pu_f)) + R(g_f - L(u_f))
           g_c = g_c + Rr_f
 
         end associate
@@ -110,22 +110,22 @@ contains
       ! coarse to fine ...........................................................
 
       do l = 2, l_top
-        associate( g    => g % level(l  ) % val &
-                 , v_cr => r % level(l-1) % val &
-                 , Iv_c => r % level(l  ) % val &
-                 , v_c  => v % level(l-1) % val &
-                 , u_f  => u % level(l  ) % val &
-                 , u_c  => u % level(l-1) % val )
+        associate( g     => g % level(l  ) % val &
+                 , v_cr  => r % level(l-1) % val &
+                 , Iv_cr => r % level(l  ) % val &
+                 , Pu_f  => v % level(l-1) % val &
+                 , u_f   => u % level(l  ) % val &
+                 , u_c   => u % level(l-1) % val )
 
           ! where regular refinement condition
           ! calculate correction v_cr
-          v_cr = u_c - v_c
+          v_cr = u_c - Pu_f
 
           ! interpolate to finer grid
-          call mlsdc % level(l-1) % Interpolate_CF(v_cr, Iv_c, complete=.true.)
+          call mlsdc % level(l-1) % Interpolate_CF(v_cr, Iv_cr, complete=.true.)
 
           ! u_NEW
-          u_f = u_f + Iv_c
+          u_f = u_f + Iv_cr
 
           if (l /= l_top .or. (l == l_top .and. c == n_cycle)) then
             call mlsdc % level(l) % ApplyCorrector(dt, t, g, u_f, n_s2)

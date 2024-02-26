@@ -10,20 +10,20 @@ submodule(CL__MLSDC__Level__1D) MP_GetResidual
 contains
 
   !-----------------------------------------------------------------------------
-  !> Multi-step collocation residual r = f^ - L(u)
+  !> Multi-step collocation residual r = g - L(u)
 
   module subroutine GetResidual(this, dt, t_0, G, u, r)
     class(CL_MLSDC_Level_1D), intent(in) :: this
     real(RNP), intent(in)  :: dt             !< size of the time slice
     real(RNP), intent(in)  :: t_0            !< start time of the slice
-    real(RNP), intent(in)  :: G(0:,:,:,0:,:) !< FAS defect correction
+    real(RNP), intent(in)  :: g(0:,:,:,0:,:) !< FAS RHS
     real(RNP), intent(in)  :: u(0:,:,:,0:,:) !< variable
     real(RNP), intent(out) :: r(0:,:,:,0:,:) !< residual
 
     call this % ApplyOperator(dt, t_0, u, r)
 
     ! refinement condition
-    r = G - r
+    r = g - r
 
   end subroutine GetResidual
 

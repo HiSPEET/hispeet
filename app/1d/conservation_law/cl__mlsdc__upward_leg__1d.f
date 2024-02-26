@@ -32,7 +32,7 @@ contains
 
     ! internal variables .......................................................
 
-    type(CL_MLSDC_Variable_1D), allocatable, save :: g ! FAS correction
+    type(CL_MLSDC_Variable_1D), allocatable, save :: g ! FAS RHS
     integer :: l, l_top
 
     ! initialization ...........................................................
