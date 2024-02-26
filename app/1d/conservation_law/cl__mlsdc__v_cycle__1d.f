@@ -23,7 +23,7 @@ contains
   !> Index f indicates the finer grid of the iteration
   !> Index c indicates the coarser grid of the iteration
 
-  subroutine CL_MLSDC_V_Cycle_1D(mlsdc, t, dt, n_s1, n_s2, n_coarse, n_cycle, u)
+  subroutine CL_MLSDC_V_Cycle_1D(mlsdc, t, dt, n_s1, n_s2, n_coarse, n_cycle, u, u_x)
     class(CL_MLSDC_1D), intent(in) :: mlsdc
     real(RNP), intent(in) :: t        !< start time
     real(RNP), intent(in) :: dt       !< thickness of time slab
@@ -32,6 +32,7 @@ contains
     integer,   intent(in) :: n_coarse !< number of sweeps for coarse solution
     integer,   intent(in) :: n_cycle  !< number of cycles to perform
     class(CL_MLSDC_Variable_1D), intent(inout) :: u   !< approximate solution
+    class(CL_MLSDC_Variable_1D), intent(in)    :: u_x !< exact solution
 
     ! internal variables .......................................................
 
@@ -39,7 +40,7 @@ contains
     type(CL_MLSDC_Variable_1D), allocatable, save :: r   ! residual
     type(CL_MLSDC_Variable_1D), allocatable, save :: v   ! auxiliary
 
-    integer                :: c, l, l_top
+    integer :: c, l, l_top
 
     ! initialization ...........................................................
 
@@ -72,11 +73,14 @@ contains
           ! pre-smoothing
           call mlsdc % level(l) % ApplyCorrector(dt, t, g_f, u_f, n_s1)
 
+          ! gib exakte Lösung auf Level 2 und 3 vor
+!          if(l == 3) u_f = u_x % level(3) % val
+!          if(l == 2) u_f = u_x % level(2) % val
+          !call Monitoring(u_x, u_x, 3, "sanity")
+
           ! get residual on fine grid
-          ! r_f = L(u_f)
-          call mlsdc % level(l) % ApplyOperator(dt, t, u_f, r_f)
           ! r_f = f^ - L(u_f)
-          call mlsdc % level(l) % GetResidual(G=g_f, v=r_f, r=r_f)
+          call mlsdc % level(l) % GetResidual(dt, t, g_f, u_f, r_f)
           ! restrict residual to coarse level
           call mlsdc % level(l-1) % Restrict_FC(r_f, Rr_f)
 
@@ -85,11 +89,11 @@ contains
           ! where regular refinement condition
           ! g_c = L(v_c)
           call mlsdc % level(l-1) % ApplyOperator(dt, t, v_c, g_c)
-          ! g_c = 0 - L(v_c)
-          call mlsdc % level(l-1) % GetResidual(v=g_c, r=g_c)
 
-          ! compute FAS correction G
-          g_c = Rr_f - g_c
+          ! compute FAS correction G (= f^)
+          ! Gl. 8.5b bei Brandt
+          ! f^_c = L(P(u_f)) + R(f^_f - L(u_f))
+          g_c = g_c + Rr_f
 
         end associate
       end do
@@ -114,13 +118,12 @@ contains
                  , u_c  => u % level(l-1) % val )
 
           ! where regular refinement condition
-
           ! calculate correction v_cr
           v_cr = u_c - v_c
 
           ! interpolate to finer grid
           call mlsdc % level(l-1) % Interpolate_CF(v_cr, Iv_c, complete=.true.)
- 
+
           ! u_NEW
           u_f = u_f + Iv_c
 
@@ -138,5 +141,23 @@ contains
     deallocate(g, r, v)
 
   end subroutine CL_MLSDC_V_Cycle_1D
+
+  !-------------------------------------------------------------------------------
+  !> Monitoring of error
+
+  subroutine Monitoring(u_h, u_x, l, step)
+    class(CL_MLSDC_Variable_1D), intent(in) :: u_h  !< approximate solution
+    class(CL_MLSDC_Variable_1D), intent(in) :: u_x  !< exact solution
+    integer,                     intent(in) :: l    !< level
+    character(len=*),            intent(in) :: step !< current step
+
+    real(RNP) :: err
+
+    err = maxval(abs(u_h%level(l)%val - u_x%level(l)%val))
+    print '(2X,A,I2,3A,ES10.3)', 'measured error on level ' &
+           , l, ': err[', step, '] =', err
+
+  end subroutine Monitoring
+
 
 end module CL__MLSDC__V_Cycle__1D

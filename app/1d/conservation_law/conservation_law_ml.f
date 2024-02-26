@@ -216,7 +216,7 @@ program Conservation_Law_ML
 !  if (converged .or. i == this%i_max) exit
 
     ! enter v cycle
-    call CL_MLSDC_V_Cycle_1D(mlsdc, t, dt_slab, 1, 1, n_coarse, n_cycle, u_h)
+    call CL_MLSDC_V_Cycle_1D(mlsdc, t, dt_slab, 1, 1, n_coarse, n_cycle, u_h, u_x)
 
     ! set new initial value for the coarse grid
     u_h%level(1)%val(:,:,:,0 ,1 ) = u_h%level(1)%val(:,:,:,p_time(1),n_time(1))

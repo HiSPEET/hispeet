@@ -220,13 +220,13 @@ program Test_Components_MLSDC
     write(*,'(/,A)') 'fine-to-coarse projection test'
 
     do l = n_level, 2, -1
-      associate( u_hf     => u_h       % level (l  ) % val    &
+      associate( u_xf     => u_x       % level (l  ) % val    &
                , u_hc     => u_h       % level (l-1) % val    &
                , u_xc     => u_x       % level (l-1) % val    &
                , m_time_c => mlsdc     % level (l-1) % m_time &
                , n_time_c => mlsdc_opt % n_time(l-1)          )
 
-        call mlsdc % level(l) % Project_FC(u_hf, u_hc)
+        call mlsdc % level(l) % Project_FC(u_xf, u_hc)
 
         err_max = maxval(abs(u_hc - u_xc))
         write(*,'(2X,2(A,I3),A,ES10.3)') 'level',l,' to',l-1,': err_max =',err_max
@@ -315,7 +315,6 @@ program Test_Components_MLSDC
                 , n_time => mlsdc_opt % n_time(l)          )
 
          call mlsdc % level(l) % ApplyOperator(dt_slab, t_0, u, r)
-         call mlsdc % level(l) % GetResidual(v=r, r=r)
 
          r_max = maxval(abs(r))
          write(*,'(2X,A,I3,A,ES10.3)') 'level',l,': r_max =',r_max
@@ -486,12 +485,11 @@ program Test_Components_MLSDC
            ! get residual
            allocate(r_c(0:p_space, 1:n_space, 1:nc, 0:m_time, 1:n_time))
            call mlsdc % level(l) % ApplyOperator(dt_slab, t_0, v, r_c)
-           call mlsdc % level(l) % GetResidual(v=r_c, r=r_c)
            ! restrict fine residual
            allocate(r_fc(0:p_space, 1:n_space, 1:nc, 0:m_time, 1:n_time))
            call mlsdc % level(l) % Restrict_FC(r_f, r_fc)
            ! calculate G
-           g = r_fc - r_c 
+           g = r_c - r_fc
            deallocate(u_hf, r_f, r_c, r_fc, v)
          end if
 
@@ -508,7 +506,6 @@ program Test_Components_MLSDC
          u_hf = u_h
          ! get residual
          call mlsdc % level(l) % ApplyOperator(dt_slab, t_0, u_hf, r_f)
-         call mlsdc % level(l) % GetResidual(v=r_f, r=r_f)
 
          if (corrector_switch > 1) then ! visualization
 
@@ -566,11 +563,11 @@ program Test_Components_MLSDC
     end do
 
     ! enter v cycle
-    !call CL_MLSDC_V_Cycle_1D(mlsdc, t_0, dt_slab, 1, 1, n_coarse, n_cycle, u_h, u_x)
-    call CL_MLSDC_V_Cycle_1D(mlsdc, t_0, dt_slab, 1, 1, n_coarse, n_cycle, u_h)
+    call CL_MLSDC_V_Cycle_1D(mlsdc, t_0, dt_slab, 1, 1, n_coarse, n_cycle, u_h, u_x)
+    !call CL_MLSDC_V_Cycle_1D(mlsdc, t_0, dt_slab, 1, 1, n_coarse, n_cycle, u_h)
 
     do l = n_level, 1, -1
-      if (l == n_level) print*, "error after ", n_cycle," cycles"
+      if (l == n_level) print*, "error after ", n_cycle+1," Iterations"
       err_max = maxval(abs(u_h%level(l)%val - u_x%level(l)%val))
       write(*,'(2X,A,I3,A,ES10.3)') 'v error on level ',l,': err_max =',err_max
     end do

@@ -12,12 +12,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Application of Operator v = L(u)
 
-  module subroutine ApplyOperator(this, dt, t_0, u, v)
+  module subroutine ApplyOperator(this, dt, t_0, u, r)
     class(CL_MLSDC_Level_1D), intent(in) :: this
     real(RNP), intent(in)  :: dt             !< size of the time slice
     real(RNP), intent(in)  :: t_0            !< start time of the slice
     real(RNP), intent(in)  :: u(0:,:,:,0:,:) !< approximate solution
-    real(RNP), intent(out) :: v(0:,:,:,0:,:) !< u after operator applied
+    real(RNP), intent(out) :: r(0:,:,:,0:,:) !< u after operator applied
 
     real(RNP), allocatable, save :: t(:)       ! subinterval time nodes
     real(RNP), allocatable, save :: f(:)       ! RHS
@@ -67,12 +67,12 @@ contains
 
       ! residual
       associate(Me => cl_operator % Me)
-        v(:,:,:,0,:) = 0
+        r(:,:,:,0,:) = 0
         do n = 1, nt
         do m = 1, mt
         do k = 1, nc
         do e = 1, ns
-          v(:,e,k,m,n) = Me * (u(:,e,k,m,n) - u(:,e,k,m-1,n))
+          r(:,e,k,m,n) = Me * (u(:,e,k,m,n) - u(:,e,k,m-1,n))
         end do
         end do
         end do
@@ -99,7 +99,7 @@ contains
             do e = 1, ns
               f = r_c(:,e,k) + r_d(:,e,k) + Me * f_s(:,e,k)
               do m = 1, mt
-                v(:,e,k,m,n) = v(:,e,k,m,n) - dt_step * w_sub(i,m) * f
+                r(:,e,k,m,n) = r(:,e,k,m,n) - dt_step * w_sub(i,m) * f
               end do
             end do
             end do

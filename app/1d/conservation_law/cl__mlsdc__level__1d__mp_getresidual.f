@@ -12,17 +12,18 @@ contains
   !-----------------------------------------------------------------------------
   !> Multi-step collocation residual r = f^ - L(u)
 
-  module subroutine GetResidual(this, G, v, r)
+  module subroutine GetResidual(this, dt, t_0, G, u, r)
     class(CL_MLSDC_Level_1D), intent(in) :: this
-    real(RNP), optional, intent(in)  :: G(0:,:,:,0:,:) !< FAS defect correction
-    real(RNP), intent(in)            :: v(0:,:,:,0:,:) !< u after operator applied
-    real(RNP), intent(out)           :: r(0:,:,:,0:,:) !< residual
+    real(RNP), intent(in)  :: dt             !< size of the time slice
+    real(RNP), intent(in)  :: t_0            !< start time of the slice
+    real(RNP), intent(in)  :: G(0:,:,:,0:,:) !< FAS defect correction
+    real(RNP), intent(in)  :: u(0:,:,:,0:,:) !< variable
+    real(RNP), intent(out) :: r(0:,:,:,0:,:) !< residual
 
-    if(present(G)) then
-      r = G - v
-    else
-      r = - v
-    end if
+    call this % ApplyOperator(dt, t_0, u, r)
+
+    ! refinement condition
+    r = G - r
 
   end subroutine GetResidual
 
