@@ -53,8 +53,8 @@ contains
 
         ! smoothing step
         g_c = ZERO
-        !call mlsdc % level(l-1) % ApplyPredictor(dt, t, u_c)
-        call mlsdc % level(l-1) % ApplyCorrector(dt, t, g_c, u_c, n_s) 
+        call mlsdc % level(l-1) % ApplyPredictor(dt, t, u_c)
+        !call mlsdc % level(l-1) % ApplyCorrector(dt, t, g_c, u_c, n_s) 
 
         ! interpolate to finer grid
         call mlsdc % level(l-1) % Interpolate_CF(u_c, Iu_c, complete=.true.)
