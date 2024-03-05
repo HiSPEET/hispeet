@@ -37,11 +37,13 @@ add_library( HiConservationLaw_1D
              cl__mlsdc__level__1d.f
              cl__mlsdc__level__1d__mp_applycorrector.f
              cl__mlsdc__level__1d__mp_applypredictor.f
-             cl__mlsdc__level__1d__mp_getresidual.f
+	     cl__mlsdc__level__1d__mp_applyoperator.f
+	     cl__mlsdc__level__1d__mp_getresidual.f
              cl__mlsdc__level__1d__mp_interpolate_cf.f
              cl__mlsdc__level__1d__mp_project_fc.f
              cl__mlsdc__level__1d__mp_restrict_fc.f
              cl__mlsdc__variable__1d.f
+	     cl__mlsdc__upward_leg__1d.f
              cl__mlsdc__v_cycle__1d.f
 
            )

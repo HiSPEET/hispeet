@@ -20,6 +20,7 @@ program Test_Components_MLSDC
   use CL__Time_Integrator__ISD1__1D
   use CL__SDC__Method__1D
   use CL__SDC__Method__ISD1__1D
+  use CL__SDC__Method__Euler__1D
   use CL__MLSDC__1D
   use CL__MLSDC__Level__1D
   use CL__MLSDC__Variable__1D
@@ -45,7 +46,7 @@ program Test_Components_MLSDC
   !   - 'burgers__moving_front'
 
   real(RNP) :: t_start = 0.40  ! start time
-  real(RNP) :: t_end   = 0.41  ! end time
+  real(RNP) :: t_end   = 0.42  ! end time
 
   namelist/problem_prm/ problem_name, t_start, t_end
 
@@ -53,20 +54,12 @@ program Test_Components_MLSDC
 
   integer, parameter :: max_n_level = 20 ! upper bound for number of levels
 
-  real(RNP) :: dt_slab  = 0.01 ! thickness of one time slab
+  real(RNP) :: dt_slab  = 0.02 ! thickness of one time slab
   integer   :: n_level  = 2    ! number of space-time levels
   integer   :: n_cycle  = 2    ! number of v-cycles
   integer   :: n_coarse = 2    ! number of coarse sweeps
 
   namelist/discretization_prm/ dt_slab, n_level, n_cycle, n_coarse
-
-  ! time integration -- still needs to be configured
-  class(CL_TimeIntegrator_Options_1D), allocatable :: opt_pre
-  class(CL_SDC_Options_1D)           , allocatable :: opt_sdc
-
-  ! MLSDC
-  type(CL_MLSDC_1D)          :: mlsdc
-  type(CL_MLSDC_Options_1D)  :: mlsdc_opt
 
   integer :: p_space (max_n_level) = -1 ! polynomial degree of elements space
   integer :: n_space (max_n_level) = -1 ! number of elements in space
@@ -75,6 +68,19 @@ program Test_Components_MLSDC
   integer :: n_sweep (max_n_level) = -1 ! number of SDC sweeps corrector
 
   namelist/discretization_prm/ p_space, n_space, p_time, n_time, n_sweep
+
+  ! time integration -- still needs to be configured
+  class(CL_TimeIntegrator_Options_1D), allocatable :: opt_pre
+  class(CL_SDC_Options_1D)           , allocatable :: opt_sdc
+
+  integer :: sdc_method = 2
+
+  namelist/time_integration_prm/ sdc_method
+
+  type(CL_SDC_Options_Euler_1D) :: opt_sdc_euler
+  type(CL_SDC_Options_ISD1_1D)  :: opt_sdc_isd1
+
+  namelist/time_integration_prm/ opt_sdc_euler, opt_sdc_isd1
 
   ! component testing
   integer :: projection_switch    ! switch for projection test
@@ -89,6 +95,10 @@ program Test_Components_MLSDC
                                   residual_switch, restriction_switch,     &
                                   predictor_switch, corrector_switch,      &
                                   vcycle_switch
+
+  ! MLSDC
+  type(CL_MLSDC_1D)          :: mlsdc
+  type(CL_MLSDC_Options_1D)  :: mlsdc_opt
 
   type(CL_MLSDC_Variable_1D)     :: u_h, u_x
   real(RNP)                      :: t_0, t_1, dt
@@ -111,7 +121,7 @@ program Test_Components_MLSDC
   ! initialization .............................................................
 
   ! greeting
-  write(*,'(/,A)') 'MLSDC DG-SEM for 1D Conservation laws'
+  write(*,'(/,A)') 'MLSDC Component Testprogram'
 
   ! identify case
   call get_command_argument(1, case_name, status=stat)
@@ -125,6 +135,7 @@ program Test_Components_MLSDC
     open(newunit=io, file=case_file)
     read(io, nml = problem_prm)
     read(io, nml = discretization_prm)
+    read(io, nml = time_integration_prm)
     read(io, nml = component_testing_prm)
     close(io)
   end if
@@ -174,11 +185,15 @@ program Test_Components_MLSDC
   opt_pre % diffusion_method =   4
   opt_pre % diffusion_i_max  = 100
 
-  ! SDC options (ISD1, so far)
-  allocate(CL_SDC_Options_ISD1_1D :: opt_sdc)
-  opt_sdc % point_set        = 'RR'
-  opt_sdc % diffusion_method =   4
-  opt_sdc % diffusion_i_max  = 100
+  ! SDC options (ISD1 and Euler so far)
+  select case(sdc_method)
+  case(1)
+    allocate(CL_SDC_Options_Euler_1D :: opt_sdc)
+    opt_sdc = opt_sdc_euler
+  case(2)
+    allocate(CL_SDC_Options_ISD1_1D :: opt_sdc)
+    opt_sdc = opt_sdc_isd1
+  end select
 
   ! MLSDC data structure
   mlsdc = CL_MLSDC_1D(mlsdc_opt, opt_pre, opt_sdc, cl_problem)
@@ -205,13 +220,13 @@ program Test_Components_MLSDC
     write(*,'(/,A)') 'fine-to-coarse projection test'
 
     do l = n_level, 2, -1
-      associate( u_hf     => u_h       % level (l  ) % val    &
+      associate( u_xf     => u_x       % level (l  ) % val    &
                , u_hc     => u_h       % level (l-1) % val    &
                , u_xc     => u_x       % level (l-1) % val    &
                , m_time_c => mlsdc     % level (l-1) % m_time &
                , n_time_c => mlsdc_opt % n_time(l-1)          )
 
-        call mlsdc % level(l) % Project_FC(u_hf, u_hc)
+        call mlsdc % level(l) % Project_FC(u_xf, u_hc)
 
         err_max = maxval(abs(u_hc - u_xc))
         write(*,'(2X,2(A,I3),A,ES10.3)') 'level',l,' to',l-1,': err_max =',err_max
@@ -250,13 +265,13 @@ program Test_Components_MLSDC
     call GetExactSolution(mlsdc%level(1), t_0, t_1, u_h % level(1)%val)
 
     do l = 1, n_level-1
-      associate( u_hc     => u_h       % level (l  ) % val &
-               , u_hf     => u_h       % level (l+1) % val &
-               , u_xf     => u_x       % level (l+1) % val &
-               , m_time_f => mlsdc % level(l+1) % m_time   &
-               , n_time_f => mlsdc % level(l+1) % n_time   )
+      associate( u_xc     => u_x   % level(l  ) % val    &  
+               , u_hf     => u_h   % level(l+1) % val    &
+               , u_xf     => u_x   % level(l+1) % val    &
+               , m_time_f => mlsdc % level(l+1) % m_time &
+               , n_time_f => mlsdc % level(l+1) % n_time )
 
-        call mlsdc % level(l) % Interpolate_CF(u_hc, u_hf, complete=.true.)
+        call mlsdc % level(l) % Interpolate_CF(u_xc, u_hf, complete=.true.)
 
         err_max = maxval(abs(u_hf - u_xf))
         write(*,'(2X,2(A,I3),A,ES10.3)') 'level',l,' to',l+1,': err_max =',err_max
@@ -299,7 +314,7 @@ program Test_Components_MLSDC
                 , m_time => mlsdc     % level (l) % m_time &
                 , n_time => mlsdc_opt % n_time(l)          )
 
-         call mlsdc % level(l) % GetResidual(dt_slab, t_0, u, r)
+         call mlsdc % level(l) % ApplyOperator(dt_slab, t_0, u, r)
 
          r_max = maxval(abs(r))
          write(*,'(2X,A,I3,A,ES10.3)') 'level',l,': r_max =',r_max
@@ -469,12 +484,12 @@ program Test_Components_MLSDC
            call mlsdc % level(l+1) % Project_FC(u_hf, v)
            ! get residual
            allocate(r_c(0:p_space, 1:n_space, 1:nc, 0:m_time, 1:n_time))
-           call mlsdc % level(l) % GetResidual(dt_slab, t_0, v, r_c)
+           call mlsdc % level(l) % ApplyOperator(dt_slab, t_0, v, r_c)
            ! restrict fine residual
            allocate(r_fc(0:p_space, 1:n_space, 1:nc, 0:m_time, 1:n_time))
            call mlsdc % level(l) % Restrict_FC(r_f, r_fc)
            ! calculate G
-           g = r_fc - r_c
+           g = r_c - r_fc
            deallocate(u_hf, r_f, r_c, r_fc, v)
          end if
 
@@ -490,7 +505,7 @@ program Test_Components_MLSDC
          allocate(r_f(0:p_space, 1:n_space, 1:nc, 0:m_time,1:n_time))
          u_hf = u_h
          ! get residual
-         call mlsdc % level(l) % GetResidual(dt_slab, t_0, u_hf, r_f)
+         call mlsdc % level(l) % ApplyOperator(dt_slab, t_0, u_hf, r_f)
 
          if (corrector_switch > 1) then ! visualization
 
@@ -549,14 +564,15 @@ program Test_Components_MLSDC
 
     ! enter v cycle
     call CL_MLSDC_V_Cycle_1D(mlsdc, t_0, dt_slab, 1, 1, n_coarse, n_cycle, u_h, u_x)
+    !call CL_MLSDC_V_Cycle_1D(mlsdc, t_0, dt_slab, 1, 1, n_coarse, n_cycle, u_h)
 
     do l = n_level, 1, -1
-      if (l == n_level) print*, "error after ", n_cycle," cycles"
+      if (l == n_level) print*, "error after ", n_cycle+1," Iterations"
       err_max = maxval(abs(u_h%level(l)%val - u_x%level(l)%val))
       write(*,'(2X,A,I3,A,ES10.3)') 'v error on level ',l,': err_max =',err_max
     end do
 
-  end if
+  end if 
 
 contains
 
