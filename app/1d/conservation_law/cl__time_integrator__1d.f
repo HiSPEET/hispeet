@@ -78,7 +78,7 @@ module CL__Time_Integrator__1D
   !> See there and the problem specific implementations for more details.
 
   type CL_TimeIntegrator_Options_1D
-    integer   :: imex_mode        = 0     !< IMEX approach, 0/1/2: EX/IMEX/EX→IM
+    integer   :: imex_mode        = 0     !< IMEX approach
     integer   :: diffusion_method = 1     !< implicit diffusion method
     integer   :: diffusion_i_max  = 10    !< max num iterations
     real(RNP) :: diffusion_r_red  = 1e-10 !< residual reduction

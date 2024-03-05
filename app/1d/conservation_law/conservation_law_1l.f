@@ -320,12 +320,26 @@ program Conservation_Law_1L
     end do
     close(io)
 
+    t_run = t_run  - t_run_0
+    if (cl_problem % HasExactSolution()) then
+      err = sqrt(err_2)
+    else
+      err = -1
+    end if
+
     write(*,*)
     write(*,'(2X,A,99(ES12.5,1X))') 't_end  =', t
-    write(*,'(2X,A,99(ES12.5,1X))') 't_run  =', t_run  - t_run_0
-    if (cl_problem % HasExactSolution()) then
-      write(*,'(2X,A,99(ES12.5,1X))') 'err_2  =', sqrt(err_2)
-    end if
+    write(*,'(2X,A,99(ES12.5,1X))') 't_run  =', t_run
+    write(*,'(2X,A,99(ES12.5,1X))') 'err_2  =', err_2
+
+    open(newunit=io, file=trim(case_name)//'.run')
+    write(io,'(A)',advance='NO') '# cfl, dt, t_end, t_run'
+    do k = 1, nc
+      write(io,'(A,I0)',advance='NO') ', err_',k
+    end do
+    write(io,'(A)',advance='YES')
+    write(io,'(99(ES17.9E3,1X))') dt/tau_conv, dt, t_end, t_run, err_2
+    close(io)
 
   end associate
 

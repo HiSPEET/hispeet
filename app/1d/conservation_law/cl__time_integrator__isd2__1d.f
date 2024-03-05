@@ -26,6 +26,8 @@ module CL__Time_Integrator__ISD2__1D
   !> IMEX ISD2 method for 1D conservation laws
 
   type, extends(CL_TimeIntegrator_1D) :: CL_TimeIntegrator_ISD2_1D
+    integer :: diffusion_i_max_1 !< max number of iterations in stage 1
+    integer :: diffusion_i_max_2 !< max number of iterations in stage 2
   contains
     procedure :: Init_CL_TimeIntegrator_ISD2_1D
     procedure :: Show => Show_CL_TimeIntegrator_ISD2_1D
@@ -42,6 +44,8 @@ module CL__Time_Integrator__ISD2__1D
 
   type, extends(CL_TimeIntegrator_Options_1D) :: &
       CL_TimeIntegrator_Options_ISD2_1D
+    integer :: diffusion_i_max_1 = -1 !< max number of iterations in stage 1
+    integer :: diffusion_i_max_2 = -1 !< max number of iterations in stage 2
   end type CL_TimeIntegrator_Options_ISD2_1D
 
 contains
@@ -67,6 +71,18 @@ contains
     ! intialize parent type
     call this % Init_CL_TimeIntegrator_1D(opt)
 
+    if (opt % diffusion_i_max_1 >= 0) then
+      this % diffusion_i_max_1 = opt % diffusion_i_max_1
+    else
+      this % diffusion_i_max_1 = opt % diffusion_i_max
+    end if
+
+    if (opt % diffusion_i_max_2 >= 0) then
+      this % diffusion_i_max_2 = opt % diffusion_i_max_2
+    else
+      this % diffusion_i_max_2 = opt % diffusion_i_max
+    end if
+
     this % name = 'Streamline-diffusion method of order 2'
 
   end subroutine Init_CL_TimeIntegrator_ISD2_1D
@@ -88,6 +104,10 @@ contains
 
     ! show parent settings
     call this % Show_CL_TimeIntegrator_1D(unit)
+
+    write(io,*)
+    write(io,'(2X,A,T22,I0)') 'diffusion_i_max_1:', this % diffusion_i_max_1
+    write(io,'(2X,A,T22,I0)') 'diffusion_i_max_2:', this % diffusion_i_max_2
 
   end subroutine Show_CL_TimeIntegrator_ISD2_1D
 
@@ -211,24 +231,37 @@ contains
         do e = 1, ne
           if (activity(e) > 0) then
             u_i(:,e,k) = u_0(:,e,k) + dt/2 * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
-            u_1(:,e,k) = u_i(:,e,k) + dt/2 *  Me_inv * r_d(:,e,k)
           else
             u_i(:,e,k) = u_0(:,e,k)
-            u_1(:,e,k) = u  (:,e,k)
           end if
         end do
         end do
 
+        ! start values
+        if (this%imex_mode == 2) then
+          do k = 1, nc
+          do e = 1, ne
+            if (activity(e) > 0) then
+              u_1(:,e,k) = u_i(:,e,k) + dt/2 *  Me_inv * r_d(:,e,k)
+            else
+              u_1(:,e,k) = u(:,e,k)
+            end if
+          end do
+          end do
+        else
+          call SetArray(u, u_0, multi=.true.)
+        end if
+
         ! implicit diffusion step
         call cl_problem % GetBoundaryValues(t, bv)
-        call cl_problem % DiffusionSolver( cl_operator, dt/2, dt, bv        &
-                                         , f      = u_i                     &
-                                         , u_0    = u_0                     &
-                                         , u      = u_1                     &
-                                         , method = this % diffusion_method &
-                                         , i_max  = this % diffusion_i_max  &
-                                         , r_red  = this % diffusion_r_red  &
-                                         , r_max  = this % diffusion_r_max  )
+        call cl_problem % DiffusionSolver( cl_operator, dt/2, dt, bv         &
+                                         , f      = u_i                      &
+                                         , u_0    = u_0                      &
+                                         , u      = u_1                      &
+                                         , method = this % diffusion_method  &
+                                         , i_max  = this % diffusion_i_max_1 &
+                                         , r_red  = this % diffusion_r_red   &
+                                         , r_max  = this % diffusion_r_max   )
 
 
         if (cl_problem % limiting_method == 1 .and. &
@@ -252,20 +285,30 @@ contains
         do e = 1, ne
           if (activity(e) > 0) then
             u_i(:,e,k) = u_0(:,e,k) + dt/2 * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
-            u  (:,e,k) = u_i(:,e,k) + dt/2 *  Me_inv * r_d(:,e,k)
           end if
         end do
         end do
 
+        ! start values
+        if (this%imex_mode == 2) then
+          do k = 1, nc
+          do e = 1, ne
+            if (activity(e) > 0) then
+              u(:,e,k) = u_i(:,e,k) + dt/2 *  Me_inv * r_d(:,e,k)
+            end if
+          end do
+          end do
+        end if
+
         ! implicit diffusion step
-        call cl_problem % DiffusionSolver( cl_operator, dt/2, dt, bv        &
-                                         , f      = u_i                     &
-                                         , u_0    = u_0                     &
-                                         , u      = u                       &
-                                         , method = this % diffusion_method &
-                                         , i_max  = this % diffusion_i_max  &
-                                         , r_red  = this % diffusion_r_red  &
-                                         , r_max  = this % diffusion_r_max  )
+        call cl_problem % DiffusionSolver( cl_operator, dt/2, dt, bv         &
+                                         , f      = u_i                      &
+                                         , u_0    = u_0                      &
+                                         , u      = u                        &
+                                         , method = this % diffusion_method  &
+                                         , i_max  = this % diffusion_i_max_2 &
+                                         , r_red  = this % diffusion_r_red   &
+                                         , r_max  = this % diffusion_r_max   )
 
         ! stage 3 ..............................................................
 

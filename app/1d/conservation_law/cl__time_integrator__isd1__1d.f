@@ -9,7 +9,7 @@ module CL__Time_Integrator__ISD1__1D
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
 
   use Kind_Parameters, only: RNP
-  use Constants,       only: ZERO, ONE
+  use Constants,       only: ZERO, ONE, HALF
   use Array_Assignments
 
   use CL__Problem__1D
@@ -26,7 +26,10 @@ module CL__Time_Integrator__ISD1__1D
   !> IMEX ISD1 method for 1D conservation laws
 
   type, extends(CL_TimeIntegrator_1D) :: CL_TimeIntegrator_ISD1_1D
-    integer :: n_stages !< number of stages, ignored with `imex_mode=0`
+    integer   :: n_stage           !< number of stages, ignored with `imex_mode=0`
+    integer   :: diffusion_i_max_1 !< max number of iterations in stage 1
+    integer   :: diffusion_i_max_2 !< max number of iterations in stage 2
+    real(RNP) :: sigma             !< ISD scaling factor
   contains
     procedure :: Init_CL_TimeIntegrator_ISD1_1D
     procedure :: Show => Show_CL_TimeIntegrator_ISD1_1D
@@ -43,7 +46,10 @@ module CL__Time_Integrator__ISD1__1D
 
   type, extends(CL_TimeIntegrator_Options_1D) :: &
       CL_TimeIntegrator_Options_ISD1_1D
-    integer :: n_stages = 2 !< number of stages with `imex_mode > 0` {1,2}
+    integer   :: n_stage = 2            !< number of stages
+    integer   :: diffusion_i_max_1 = -1 !< max number of iterations in stage 1
+    integer   :: diffusion_i_max_2 = -1 !< max number of iterations in stage 2
+    real(RNP) :: sigma = HALF           !< ISD scaling factor
   end type CL_TimeIntegrator_Options_ISD1_1D
 
 contains
@@ -69,9 +75,27 @@ contains
     ! intialize parent type
     call this % Init_CL_TimeIntegrator_1D(opt)
 
-    this % n_stages = opt % n_stages
+    if (this % imex_mode > 0) then
+      this % n_stage = opt % n_stage
+    else
+      this % n_stage = 1
+    end if
 
-    if (this%imex_mode > 0 .and. this%n_stages == 2) then
+    if (opt % diffusion_i_max_1 >= 0) then
+      this % diffusion_i_max_1 = opt % diffusion_i_max_1
+    else
+      this % diffusion_i_max_1 = opt % diffusion_i_max
+    end if
+
+    if (opt % diffusion_i_max_2 >= 0) then
+      this % diffusion_i_max_2 = opt % diffusion_i_max_2
+    else
+      this % diffusion_i_max_2 = opt % diffusion_i_max
+    end if
+
+    this % sigma = opt % sigma
+
+    if (this%n_stage == 2) then
       this % name = 'Streamline-diffusion method of order 1 with two stages'
     else
       this % name = 'Streamline-diffusion method of order 1 with one stage'
@@ -97,6 +121,11 @@ contains
     ! show parent settings
     call this % Show_CL_TimeIntegrator_1D(unit)
 
+    write(io,*)
+    write(io,'(2X,A,T22,I0)') 'diffusion_i_max_1:', this % diffusion_i_max_1
+    write(io,'(2X,A,T22,I0)') 'diffusion_i_max_2:', this % diffusion_i_max_2
+    write(io,'(2X,A,T21,ES12.5)') 'sigma:', this % sigma
+
   end subroutine Show_CL_TimeIntegrator_ISD1_1D
 
   !-----------------------------------------------------------------------------
@@ -118,8 +147,9 @@ contains
     real(RNP), allocatable, save :: bv(:,:)
 
     real(RNP), allocatable :: Me_inv(:)
-    real(RNP) :: t
+    real(RNP) :: t, theta
     integer   :: e, k
+    integer   :: i_max_1, i_max_2
 
     associate( nc       => cl_problem  % nc       &
              , eop      => cl_operator % eop      &
@@ -133,6 +163,7 @@ contains
       ! initialization .........................................................
 
       t = t_0 + dt
+      theta = 2 * this%sigma * dt
 
       allocate(r_c , mold = u)
       allocate(r_d , mold = u)
@@ -155,7 +186,7 @@ contains
         call cl_problem % GetBoundaryValues(t_0, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
         call cl_problem % GetHybridDiffusionTerm &
-                              (cl_operator, 'T', dt, bv, u_0, u_0, r_d)
+                              (cl_operator, 'T', theta, bv, u_0, u_0, r_d)
         call cl_problem % GetSources(cl_operator, t_0, u_0, f_s)
 
         do k = 1, nc
@@ -163,8 +194,6 @@ contains
           if (activity(e) > 0) then
             u(:,e,k) = u_0(:,e,k) &
                      + dt * (Me_inv * (r_c(:,e,k) + r_d(:,e,k)) + f_s(:,e,k))
-          else
-            u(:,e,k) = u_0(:,e,k)
           end if
         end do
         end do
@@ -178,7 +207,7 @@ contains
 
         if (this % imex_mode == 2) then
           call cl_problem % GetHybridDiffusionTerm &
-                                (cl_operator, 'T', dt, bv, u_0, u_0, r_d)
+                                (cl_operator, 'T', theta, bv, u_0, u_0, r_d)
         else
           call SetArray(r_d, ZERO, multi=.true.)
         end if
@@ -191,24 +220,36 @@ contains
         do e = 1, ne
           if (activity(e) > 0) then
             u_i(:,e,k) = u_0(:,e,k) + dt * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
-            u  (:,e,k) = u_i(:,e,k) + dt *  Me_inv * r_d(:,e,k)
           else
             u_i(:,e,k) = u_0(:,e,k)
           end if
         end do
         end do
 
-        ! implicit diffusion step
-        call cl_problem % DiffusionSolver( cl_operator, dt, dt, bv          &
-                                         , f      = u_i                     &
-                                         , u_0    = u_0                     &
-                                         , u      = u                       &
-                                         , method = this % diffusion_method &
-                                         , i_max  = this % diffusion_i_max  &
-                                         , r_red  = this % diffusion_r_red  &
-                                         , r_max  = this % diffusion_r_max  )
+        ! start values
+        if (this%imex_mode == 2) then
+          do k = 1, nc
+          do e = 1, ne
+            if (activity(e) > 0) then
+              u(:,e,k) = u_i(:,e,k) + dt *  Me_inv * r_d(:,e,k)
+            end if
+          end do
+          end do
+        else
+          call SetArray(u, u_0, multi=.true.)
+        end if
 
-        if (this % n_stages == 2) then
+        ! implicit diffusion step
+        call cl_problem % DiffusionSolver( cl_operator, dt, theta, bv        &
+                                         , f      = u_i                      &
+                                         , u_0    = u_0                      &
+                                         , u      = u                        &
+                                         , method = this % diffusion_method  &
+                                         , i_max  = this % diffusion_i_max_1 &
+                                         , r_red  = this % diffusion_r_red   &
+                                         , r_max  = this % diffusion_r_max   )
+
+        if (this % n_stage == 2) then
 
           ! semi-implicit ISD1, stage 2 ........................................
 
@@ -221,7 +262,7 @@ contains
 
           if (this % imex_mode == 2) then
             call cl_problem % GetHybridDiffusionTerm &
-                                  (cl_operator, 'T', dt, bv, u_0, u, r_d)
+                                  (cl_operator, 'T', theta, bv, u_0, u, r_d)
           end if
 
           ! intermediate solution
@@ -229,20 +270,30 @@ contains
           do e = 1, ne
             if (activity(e) > 0) then
               u_i(:,e,k) = u_0(:,e,k) + dt * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
-              u  (:,e,k) = u_i(:,e,k) + dt *  Me_inv * r_d(:,e,k)
             end if
           end do
           end do
 
+          ! start values
+          if (this%imex_mode == 2) then
+            do k = 1, nc
+            do e = 1, ne
+              if (activity(e) > 0) then
+                u(:,e,k) = u_i(:,e,k) + dt *  Me_inv * r_d(:,e,k)
+              end if
+            end do
+            end do
+          end if
+
           ! implicit diffusion step
-          call cl_problem % DiffusionSolver( cl_operator, dt, dt, bv          &
-                                           , f      = u_i                     &
-                                           , u_0    = u_0                     &
-                                           , u      = u                       &
-                                           , method = this % diffusion_method &
-                                           , i_max  = this % diffusion_i_max  &
-                                           , r_red  = this % diffusion_r_red  &
-                                           , r_max  = this % diffusion_r_max  )
+          call cl_problem % DiffusionSolver( cl_operator, dt, theta, bv        &
+                                           , f      = u_i                      &
+                                           , u_0    = u_0                      &
+                                           , u      = u                        &
+                                           , method = this % diffusion_method  &
+                                           , i_max  = this % diffusion_i_max_2 &
+                                           , r_red  = this % diffusion_r_red   &
+                                           , r_max  = this % diffusion_r_max   )
 
         end if
 

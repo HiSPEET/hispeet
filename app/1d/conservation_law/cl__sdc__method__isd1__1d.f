@@ -3,7 +3,7 @@ module CL__SDC__Method__ISD1__1D
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
 
   use Kind_Parameters, only: RNP
-  use Constants,       only: ONE, ZERO
+  use Constants,       only: ZERO, ONE, HALF
   use Array_Assignments
 
   use CL__Problem__1D
@@ -21,7 +21,10 @@ module CL__SDC__Method__ISD1__1D
   !> SDC method based on ISD1
 
   type, extends(CL_SDC_Method_1D) :: CL_SDC_Method_ISD1_1D
-    integer :: n_stages !< number of corrector stages
+    integer   :: n_stage           !< number of corrector stages
+    integer   :: diffusion_i_max_1 !< max number of iterations in stage 1
+    integer   :: diffusion_i_max_2 !< max number of iterations in stage 2
+    real(RNP) :: sigma             !< ISD scaling factor
   contains
     procedure :: Init_CL_SDC_Method_ISD1_1D
     procedure :: Show => Show_CL_SDC_Method_ISD1_1D
@@ -38,7 +41,10 @@ module CL__SDC__Method__ISD1__1D
   !> Type for providing SDC ISD1 options
 
   type, extends(CL_SDC_Options_1D) :: CL_SDC_Options_ISD1_1D
-    integer :: n_stages = 2 !< number of corrector stages {1,2}
+    integer   :: n_stage = 2            !< number of corrector stages {1,2}
+    integer   :: diffusion_i_max_1 = -1 !< max number of iterations in stage 1
+    integer   :: diffusion_i_max_2 = -1 !< max number of iterations in stage 2
+    real(RNP) :: sigma = HALF           !< ISD scaling factor
   end type CL_SDC_Options_ISD1_1D
 
 contains
@@ -69,9 +75,23 @@ contains
     ! intialize parent type
     call this % Init_CL_SDC_Method_1D(pre_opt, sdc_opt)
 
-    this % n_stages = sdc_opt % n_stages
+    this % n_stage = sdc_opt % n_stage
 
-    select case(this % n_stages)
+    if (sdc_opt % diffusion_i_max_1 >= 0) then
+      this % diffusion_i_max_1 = sdc_opt % diffusion_i_max_1
+    else
+      this % diffusion_i_max_1 = sdc_opt % diffusion_i_max
+    end if
+
+    if (sdc_opt % diffusion_i_max_2 >= 0) then
+      this % diffusion_i_max_2 = sdc_opt % diffusion_i_max_2
+    else
+      this % diffusion_i_max_2 = sdc_opt % diffusion_i_max
+    end if
+
+    this % sigma = sdc_opt % sigma
+
+    select case(this % n_stage)
     case(2)
       this % corrector_name = 'ISD method of order 1 with two stages'
     case default
@@ -96,6 +116,11 @@ contains
     end if
 
     call this % Show_CL_SDC_Method_1D(unit)
+
+    write(io,*)
+    write(io,'(2X,A,T22,I0)') 'diffusion_i_max_1:', this % diffusion_i_max_1
+    write(io,'(2X,A,T22,I0)') 'diffusion_i_max_2:', this % diffusion_i_max_2
+    write(io,'(2X,A,T21,ES12.5)') 'sigma:', this % sigma
 
   end subroutine Show_CL_SDC_Method_ISD1_1D
 
@@ -123,7 +148,8 @@ contains
     real(RNP), allocatable, save :: bv(:,:)
 
     real(RNP), allocatable :: Me_inv(:)
-    integer :: e, k
+    real(RNP) :: theta
+    integer   :: e, k
 
     associate( nc       => cl_problem  % nc       &
              , eop      => cl_operator % eop      &
@@ -138,10 +164,12 @@ contains
 
       allocate(Me_inv(0:po), source = ONE / (dx/2 * eop%w))
 
+      theta = 2 * this%sigma * dt
+
       call cl_problem % GetBoundaryValues(t, bv)
       call cl_problem % GetConvectionTerm(cl_operator, bv, u, r_c)
       call cl_problem % GetHybridDiffusionTerm &
-                            (cl_operator, 'T', dt, bv, u_0, u, r_d)
+                            (cl_operator, 'T', theta, bv, u_0, u, r_d)
 
       do k = 1, nc
       do e = 1, ne
@@ -205,6 +233,7 @@ contains
 
     real(RNP), allocatable :: Me_inv(:)
     real(RNP) :: dt, dt_sub
+    real(RNP) :: theta
     integer   :: e, i, k
 
     associate( n_sub    => this % n_sub           &
@@ -228,8 +257,9 @@ contains
 
       allocate(Me_inv(0:po), source = ONE / (dx/2 * eop%w))
 
-      dt      =  t(n_sub) - t(0)    ! full interval length
-      dt_sub  =  t(m)     - t(m-1)  ! subinterval length
+      dt      =  t(n_sub) - t(0)         ! full interval length
+      dt_sub  =  t(m)     - t(m-1)       ! subinterval length
+      theta   =  2 * this%sigma * dt_sub ! ISD time scale
 
       call SetArray(u_0, u(:,:,:,m-1), multi = .true.)
 
@@ -302,16 +332,16 @@ contains
 
       ! implicit diffusion step
       call cl_problem % GetBoundaryValues(t(m), bv)
-      call cl_problem % DiffusionSolver( cl_operator, dt_sub, dt_sub, bv  &
-                                       , f      = u_i                     &
-                                       , u_0    = u_0                     &
-                                       , u      = u_m                     &
-                                       , method = this % diffusion_method &
-                                       , i_max  = this % diffusion_i_max  &
-                                       , r_red  = this % diffusion_r_red  &
-                                       , r_max  = this % diffusion_r_max  )
+      call cl_problem % DiffusionSolver( cl_operator, dt_sub, theta, bv    &
+                                       , f      = u_i                      &
+                                       , u_0    = u_0                      &
+                                       , u      = u_m                      &
+                                       , method = this % diffusion_method  &
+                                       , i_max  = this % diffusion_i_max_1 &
+                                       , r_red  = this % diffusion_r_red   &
+                                       , r_max  = this % diffusion_r_max   )
 
-      if (this % n_stages == 2) then
+      if (this % n_stage == 2) then
 
         ! correction stage 2: u_m = u₁ → u₂ ....................................
 
@@ -338,14 +368,14 @@ contains
         end do
 
         ! implicit diffusion step
-        call cl_problem % DiffusionSolver( cl_operator, dt_sub, dt_sub, bv  &
-                                         , f      = u_i                     &
-                                         , u_0    = u_0                     &
-                                         , u      = u_m                     &
-                                         , method = this % diffusion_method &
-                                         , i_max  = this % diffusion_i_max  &
-                                         , r_red  = this % diffusion_r_red  &
-                                         , r_max  = this % diffusion_r_max  )
+        call cl_problem % DiffusionSolver( cl_operator, dt_sub, theta, bv    &
+                                         , f      = u_i                      &
+                                         , u_0    = u_0                      &
+                                         , u      = u_m                      &
+                                         , method = this % diffusion_method  &
+                                         , i_max  = this % diffusion_i_max_2 &
+                                         , r_red  = this % diffusion_r_red   &
+                                         , r_max  = this % diffusion_r_max   )
 
       end if
 
@@ -353,7 +383,7 @@ contains
 
       call cl_problem % GetConvectionTerm(cl_operator, bv, u_m, r_c)
       call cl_problem % GetHybridDiffusionTerm &
-                            (cl_operator, 'T', dt_sub, bv, u_0, u_m, r_d)
+                            (cl_operator, 'T', theta, bv, u_0, u_m, r_d)
 
       do k = 1, nc
       do e = 1, ne
