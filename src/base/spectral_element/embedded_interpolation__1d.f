@@ -6,15 +6,17 @@
 !> Provides one-dimensional interpolation operators for the following `basis`
 !> types
 !>
-!>   - `'G'`  Lagrangian with Gauss points
-!>   - `'R'`  Lagrangian with left-sided Radau points, `xo(0) = -1`
-!>   - `'L'`  Lagrangian with on Lobatto points
-!>   - `'N'`  Lagrangian with arbitrary nodes
+!>   - `'G'`   Lagrangian with Gauss points
+!>   - `'L'`   Lagrangian with on Lobatto points
+!>   - `'RL'`  Lagrangian with left-sided Radau points
+!>   - `'RR'`  Lagrangian with right-sided Radau points
+!>   - `'N'`   Lagrangian with arbitrary nodes
 !>
 !===============================================================================
 
 module Embedded_Interpolation__1D
   use Kind_Parameters, only: RNP
+  use Execution_Control, only: Error
   use Gauss_Jacobi
   use Lagrange_Interpolation
   use Standard_Operators__1D
@@ -53,9 +55,9 @@ contains
   !> New interpolation operator from basis type and points
 
   type(EmbeddedInterpolation_1D) function New_Points(basis, xo, xi) result(this)
-    character, intent(in) :: basis  !< basis type
-    real(RNP), intent(in) :: xo(0:) !< basis points
-    real(RNP), intent(in) :: xi(1:) !< interpolation points in [-1,1]
+    character(*), intent(in) :: basis  !< basis type
+    real(RNP),    intent(in) :: xo(0:) !< basis points
+    real(RNP),    intent(in) :: xi(1:) !< interpolation points in [-1,1]
 
     call Init_Points(this, basis, xo, xi)
 
@@ -80,9 +82,9 @@ contains
 
   subroutine Init_Points(this, basis, xo, xi)
     class(EmbeddedInterpolation_1D), intent(inout) :: this
-    character, intent(in) :: basis  !< basis type
-    real(RNP), intent(in) :: xo(0:) !< basis points
-    real(RNP), intent(in) :: xi(1:) !< interpolation points in [-1,1]
+    character(*), intent(in) :: basis  !< basis type
+    real(RNP),    intent(in) :: xo(0:) !< basis points
+    real(RNP),    intent(in) :: xi(1:) !< interpolation points in [-1,1]
 
     integer :: j, k, po
 
@@ -103,7 +105,7 @@ contains
           this % A(j,k) = GaussPolynomial(k, xo, xi(j))
         end do
         end do
-      case('R') ! Radau
+      case('RL','RR') ! Radau left or right
         do k = 0, po
         do j = 1, ni
           this % A(j,k) = RadauPolynomial(k, xo, xi(j))
@@ -121,6 +123,8 @@ contains
           this % A(j,k) = LagrangePolynomial(k, xo, xi(j))
         end do
         end do
+      case default
+        call Error('Init_Points', 'Invalid basis', 'Embedded_Interpolation__1D')
       end select
 
     end associate

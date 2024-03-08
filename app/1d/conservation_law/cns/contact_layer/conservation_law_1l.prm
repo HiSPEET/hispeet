@@ -11,50 +11,69 @@
 &space_discretization_prm
   cl_operator_opt%ne          =  5
   cl_operator_opt%eop%po      = 15
-  cl_operator_opt%eop%penalty = 20
-  cl_operator_opt%qop%po      = 22
+  cl_operator_opt%eop%penalty =  2
+  cl_operator_opt%qop%po      = 30
 /
 
 &time_integration_prm
 
   t_end  = 1e-2
-  dt     = 1e-5
-  nt_max = 1!000000
+! dt     = 1.37662620e-5 ! cfl =  0.125
+! dt     = 2.75325241e-5 ! cfl =  0.25
+! dt     = 5.50650483e-5 ! cfl =  0.5
+  dt     = 1.10130097e-4 ! cfl =  1
+! dt     = 2.20260193e-4 ! cfl =  2
+! dt     = 4.40520387e-4 ! cfl =  4
+! dt     = 8.81040773e-4 ! cfl =  8
+! dt     = 1.76208155e-3 ! cfl = 16
+! dt     = 3.52416309e-3 ! cfl = 32
+  nt_max = 1000000
 
   time_method = 2
   sdc_method  = 0
 
   ! time_method = 1: Euler
-  cl_tint_euler_opt%impl = 1
-! cl_tint_euler_opt%diffusion_method = 4
-  cl_tint_euler_opt%diffusion_i_max  = 10!0
+  cl_tint_euler_opt%imex_mode        =   1
+  cl_tint_euler_opt%diffusion_method =   4
+  cl_tint_euler_opt%diffusion_i_max  = 100
 
   ! time_method = 2: ISD of order 1
-  cl_tint_isd1_opt%impl  = 1
-  cl_tint_isd1_opt%diffusion_method = 4
-  cl_tint_isd1_opt%diffusion_i_max  = 100
+  cl_tint_isd1_opt%imex_mode         =   1
+  cl_tint_isd1_opt%diffusion_method  =   4
+  cl_tint_isd1_opt%diffusion_i_max   = 100
+! cl_tint_isd1_opt%n_stage           =   2
 
   ! time_method = 3: ISD of order 2
-  cl_tint_isd2_opt%impl  = 1
-  cl_tint_isd2_opt%diffusion_method = 4
-  cl_tint_isd2_opt%diffusion_i_max  = 100
+  cl_tint_isd2_opt%imex_mode         =   1
+  cl_tint_isd2_opt%diffusion_method  =   4
+  cl_tint_isd2_opt%diffusion_i_max   = 100
 
   ! time_method = 4: Runge-Kutta
-  cl_tint_rk_opt%impl    = 1
-  cl_tint_rk_opt%n_stage = 4
-  cl_tint_rk_opt%method  = 1
-  cl_tint_rk_opt%diffusion_method = 4
-  cl_tint_rk_opt%diffusion_i_max  = 100
+  cl_tint_rk_opt%imex_mode           =   1
+  cl_tint_rk_opt%n_stage             =   4
+  cl_tint_rk_opt%method              =   1
+  cl_tint_rk_opt%diffusion_method    =   4
+  cl_tint_rk_opt%diffusion_i_max     = 100
+
+  ! sdc_method = 1: SDC based on Euler
+  cl_sdc_euler_opt%point_set         =  'L'
+  cl_sdc_euler_opt%n_col             =   1
+! cl_sdc_euler_opt%diffusion_start   =   1
+  cl_sdc_euler_opt%n_sweep           =   0
+  cl_sdc_euler_opt%diffusion_method  =   4
+  cl_sdc_euler_opt%diffusion_i_max   = 100
 
   ! sdc_method = 2: SDC based on ISD1
-  cl_sdc_isd1_opt%n_sub     = 1
-  cl_sdc_isd1_opt%point_set = 2
-  cl_sdc_isd1_opt%n_sweep   = 0
-  cl_sdc_isd1_opt%diffusion_method = 4
-  cl_sdc_isd1_opt%diffusion_i_max  = 100
+  cl_sdc_isd1_opt%point_set          =  'L'
+  cl_sdc_isd1_opt%n_col              =   1
+  cl_sdc_isd1_opt%n_sweep            =   0
+! cl_sdc_isd1_opt%diffusion_start    =   1
+  cl_sdc_isd1_opt%diffusion_method   =   4
+  cl_sdc_isd1_opt%diffusion_i_max    = 100
+! cl_sdc_isd1_opt%n_stage            =   2
 
 /
 
 &cns_contact_layer_prm
-  contact_layer_opt%eta = 1e-3
+  opt%eta = 1e-3
 /

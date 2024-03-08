@@ -150,7 +150,7 @@ contains
     end associate
 
     ! silence compiler warnings
-    if (this % n_sub > 0) return
+    if (this % n_sub > 0 .or. dt > 0 .or. size(u_0) > 0) return
 
   end subroutine GetCorrectorRHS
 
@@ -222,15 +222,20 @@ contains
       dt_sub  =  t(m)     - t(m-1)  ! subinterval length
 
       call SetArray(u_0, u(:,:,:,m-1), multi = .true.)
-      call SetArray(u_1, u(:,:,:,m  ), multi = .true.)
 
       ! high-order quadrature ..................................................
 
       do k = 1, nc
-        ! initialize with contribution of left point (i = 0)
-        do e = 1, ne
-          S(:,e,k) = dt * w_sub(0,m) * F(:,e,k,0)
-        end do
+        select case(this % point_set)
+        case('RR')
+          ! omit left point with Radau-right
+          call SetArray(S(:,:,k), ZERO)
+        case default
+          ! initialize with contribution of left point (i = 0)
+          do e = 1, ne
+            S(:,e,k) = dt * w_sub(0,m) * F(:,e,k,0)
+          end do
+        end select
         ! add contribution of remaining points
         do i = 1, n_sub
         do e = 1, ne
@@ -242,33 +247,65 @@ contains
       ! IMEX Euler correction ...................................................
 
       ! intermediate solution
-      do k = 1, nc
-      do e = 1, ne
-        if (activity(e) > 0) then
-          u_i(:,e,k) = u_0(:,e,k)                       &
-                     + S  (:,e,k)                       &
-                     + dt_sub * ( F_ex_new (:,e,k,m-1)  &
-                                - F_ex     (:,e,k,m-1)  &
-                                - F_im     (:,e,k,m)    )
-          if (present(G)) then
-            u_i(:,e,k) = u_i(:,e,k) + Me_inv * (G(:,e,k,m) - G(:,e,k,m-1))
+      select case(this % diffusion_start)
+      case(1)
+        ! start from current approximation
+        do k = 1, nc
+        do e = 1, ne
+          if (activity(e) > 0) then
+            u_i(:,e,k) = u_0(:,e,k)                       &
+                       + S  (:,e,k)                       &
+                       + dt_sub * ( F_ex_new (:,e,k,m-1)  &
+                                  - F_ex     (:,e,k,m-1)  &
+                                  - F_im     (:,e,k,m)    )
+            if (present(G)) then
+              u_i(:,e,k) = u_i(:,e,k) + Me_inv * G(:,e,k,m)
+            end if
+          else
+            u_i(:,e,k) = u(:,e,k,m)
           end if
-        else
-          u_i(:,e,k) = u_0(:,e,k)
-        end if
-      end do
-      end do
+        end do
+        end do
+        call SetArray(u_1, u(:,:,:,m), multi = .true.)
+
+      case(2)
+        ! start from extrapolated solution
+        do k = 1, nc
+        do e = 1, ne
+          if (activity(e) > 0) then
+            u_1(:,e,k) = u_0(:,e,k)                       &
+                       + S  (:,e,k)                       &
+                       + dt_sub * ( F_ex_new (:,e,k,m-1)  &
+                                  - F_ex     (:,e,k,m-1)  )
+            if (present(G)) then
+              u_1(:,e,k) = u_1(:,e,k) + Me_inv * G(:,e,k,m)
+            end if
+            u_i(:,e,k) = u_1(:,e,k) - dt_sub * F_im(:,e,k,m)
+          else
+            u_i(:,e,k) = u(:,e,k,m)
+            u_1(:,e,k) = u(:,e,k,m)
+          end if
+        end do
+        end do
+
+      end select
+
+      ! update boundary values
+      call cl_problem % GetBoundaryValues(t(m), bv)
 
       ! implicit diffusion step
-      call cl_problem % GetBoundaryValues(t(m), bv)
-      call cl_problem % DiffusionSolver( cl_operator, dt_sub, ZERO, bv    &
-                                       , f      = u_i                     &
-                                       , u_0    = u_0                     &
-                                       , u      = u_1                     &
-                                       , method = this % diffusion_method &
-                                       , i_max  = this % diffusion_i_max  &
-                                       , r_red  = this % diffusion_r_red  &
-                                       , r_max  = this % diffusion_r_max  )
+      if (cl_problem % HasDiffusion()) then
+        call cl_problem % DiffusionSolver( cl_operator, dt_sub, ZERO, bv    &
+                                         , f      = u_i                     &
+                                         , u_0    = u_0                     &
+                                         , u      = u_1                     &
+                                         , method = this % diffusion_method &
+                                         , i_max  = this % diffusion_i_max  &
+                                         , r_red  = this % diffusion_r_red  &
+                                         , r_max  = this % diffusion_r_max  )
+      else
+        call SetArray(u_1, u_i, multi = .true.)
+      end if
 
       ! update solution and corrector RHS ......................................
 
@@ -287,6 +324,12 @@ contains
         end if
       end do
       end do
+
+      ! limiting ...............................................................
+
+      if (cl_problem % limiting_method == 1) then
+        call cl_problem % MomentLimiter(cl_operator, u(:,:,:,m))
+      end if
 
       ! clean-up ...............................................................
 

@@ -9,16 +9,20 @@ program Conservation_Law_1L
   use CL__Operator__1D
   use CL__Problem__1D
   use CL__Problem__Convection_Diffusion__Wave_Package__1D
-  use CL__Problem__Burgers__Wave_Package__1D
+  use CL__Problem__Burgers__Sine_Wave__1D
   use CL__Problem__Burgers__Moving_Front__1D
+  use CL__Problem__Burgers__Wave_Package__1D
   use CL__Problem__CNS__Acoustic_Wave__1D
   use CL__Problem__CNS__Contact_Layer__1D
+  use CL__Problem__CNS__Shock_Tube__1D
+  use CL__Problem__CNS__Shu_Osher__1D
 
   use CL__Time_Integrator__1D
   use CL__Time_Integrator__Euler__1D
   use CL__Time_Integrator__ISD1__1D
   use CL__Time_Integrator__ISD2__1D
   use CL__Time_Integrator__RK__1D
+  use CL__Time_Integrator__TVD_RK3__1D
 
   use CL__SDC__Method__1D
   use CL__SDC__Method__Euler__1D
@@ -49,6 +53,8 @@ program Conservation_Law_1L
   !   - 'burgers__moving_front'
   !   - 'cns__acoustic_wave'
   !   - 'cns__contact_layer'
+  !   - 'cns__shock_tube'
+  !   - 'cns__shu_osher'
 
   namelist/problem_prm/ problem_name
 
@@ -61,28 +67,31 @@ program Conservation_Law_1L
 
   ! declarations: time integration .............................................
 
-  real(RNP) :: t_end   =  0.1
-  real(RNP) :: dt      =  0.001
-  integer   :: nt_max  = -1
+  real(RNP) :: t_end     =  0.1    ! problem time to reach
+  real(RNP) :: dt        =  0.001  ! time step width
+  integer   :: nt_max    = -1      ! max number of time steps
+  integer   :: nt                  ! number of time steps to execute
+  logical   :: adjust_dt = .false. ! adjust time step to dt = t_end / nt
 
-  namelist/time_integration_prm/ t_end, dt, nt_max
+  namelist/time_integration_prm/ t_end, dt, nt_max, adjust_dt
 
   integer   :: time_method = 1  ! standalone integrator or predictor
   integer   :: sdc_method  = 0  ! SDC method
 
   namelist/time_integration_prm/ time_method, sdc_method
 
-  class(CL_TimeIntegrator_1D), allocatable :: cl_tint
-  type(CL_TimeIntegrator_Options_Euler_1D) :: cl_tint_euler_opt
-  type(CL_TimeIntegrator_Options_ISD1_1D)  :: cl_tint_isd1_opt
-  type(CL_TimeIntegrator_Options_ISD2_1D)  :: cl_tint_isd2_opt
-  type(CL_TimeIntegrator_Options_RK_1D)    :: cl_tint_rk_opt
+  class(CL_TimeIntegrator_1D), allocatable   :: cl_tint
+  type(CL_TimeIntegrator_Options_Euler_1D)   :: cl_tint_euler_opt
+  type(CL_TimeIntegrator_Options_ISD1_1D)    :: cl_tint_isd1_opt
+  type(CL_TimeIntegrator_Options_ISD2_1D)    :: cl_tint_isd2_opt
+  type(CL_TimeIntegrator_Options_RK_1D)      :: cl_tint_rk_opt
+  type(CL_TimeIntegrator_Options_TVD_RK3_1D) :: cl_tint_tvd_rk3_opt
 
-  namelist/time_integration_prm/ cl_tint_euler_opt, &
-                                 cl_tint_isd1_opt,  &
-                                 cl_tint_isd2_opt,  &
-                                 cl_tint_rk_opt
-
+  namelist/time_integration_prm/ cl_tint_euler_opt,  &
+                                 cl_tint_isd1_opt,   &
+                                 cl_tint_isd2_opt,   &
+                                 cl_tint_rk_opt,     &
+                                 cl_tint_tvd_rk3_opt
 
   class(CL_SDC_Method_1D), allocatable :: cl_sdc
   type(CL_SDC_Options_Euler_1D) :: cl_sdc_euler_opt
@@ -100,7 +109,7 @@ program Conservation_Law_1L
   real(RNP) :: t, t_run, t_run_0
   real(RNP) :: tau_conv, tau_diff
   logical   :: exists
-  integer   :: io, nt, stat
+  integer   :: io, stat
   integer   :: i, k
 
   ! initialization .............................................................
@@ -129,24 +138,36 @@ program Conservation_Law_1L
   if (nt_max >= 0) then
     nt = min(nt, nt_max)
   end if
+  if (adjust_dt .and. nt > 0) then
+    dt = t_end / nt
+  end if
 
   ! problem
   select case(problem_name)
   case('convection_diffusion__wave_package')
     write(*,'(A)') 'Initializing Convection-Diffusion Wave Package problem'
     allocate(CL_Problem_ConvectionDiffusion_WavePackage_1D :: cl_problem)
-  case('burgers__wave_package')
-    write(*,'(A)') 'Initializing Burgers Wave Package problem'
-    allocate(CL_Problem_Burgers_WavePackage_1D :: cl_problem)
+  case('burgers__sine_wave')
+    write(*,'(A)') 'Initializing Burgers Sine Wave problem'
+    allocate(CL_Problem_Burgers_SineWave_1D :: cl_problem)
   case('burgers__moving_front')
     write(*,'(A)') 'Initializing Burgers Moving Front problem'
     allocate(CL_Problem_Burgers_MovingFront_1D :: cl_problem)
+  case('burgers__wave_package')
+    write(*,'(A)') 'Initializing Burgers Wave Package problem'
+    allocate(CL_Problem_Burgers_WavePackage_1D :: cl_problem)
   case('cns__acoustic_wave')
     write(*,'(A)') 'Initializing CNS acoustic wave problem'
     allocate(CL_Problem_CNS_AcousticWave_1D :: cl_problem)
   case('cns__contact_layer')
     write(*,'(A)') 'Initializing CNS contact layer problem'
     allocate(CL_Problem_CNS_ContactLayer_1D :: cl_problem)
+  case('cns__shock_tube')
+    write(*,'(A)') 'Initializing CNS shock tube problem'
+    allocate(CL_Problem_CNS_ShockTube_1D :: cl_problem)
+  case('cns__shu_osher')
+    write(*,'(A)') 'Initializing CNS Shu-Osher problem'
+    allocate(CL_Problem_CNS_ShuOsher_1D :: cl_problem)
   case default
     call Error('Conservation_Law', 'Invalid problem name')
   end select
@@ -200,6 +221,8 @@ program Conservation_Law_1L
       cl_tint = CL_TimeIntegrator_ISD2_1D(cl_tint_isd2_opt)
     case(4)
       cl_tint = CL_TimeIntegrator_RK_1D(cl_tint_rk_opt)
+    case(5)
+      cl_tint = CL_TimeIntegrator_TVD_RK3_1D(cl_tint_tvd_rk3_opt)
     end select
   end select
 
@@ -216,6 +239,11 @@ program Conservation_Law_1L
 
   ! initial values
   call cl_problem % GetInitialValues(cl_operator, u)
+  if (cl_problem % limiting_initial) then
+    if (cl_problem % limiting_method == 1) then
+      call cl_problem % MomentLimiter(cl_operator, u)
+    end if
+  end if
   call SetArray(u_0, u)
 
   ! time integration ...........................................................
@@ -230,7 +258,7 @@ program Conservation_Law_1L
   if (tau_conv > 0) then
     write(*,'(2X,A,ES12.5)') 'c_conv =', dt / tau_conv
   end if
-  if (tau_conv > 0) then
+  if (tau_diff > 0) then
     write(*,'(2X,A,ES12.5)') 'c_diff =', dt / tau_diff
   end if
   write(*,*)
@@ -287,16 +315,31 @@ program Conservation_Law_1L
     do i = 0, po
       err   = u(i,k,:) - u_0(i,k,:)
       err_2 = err_2 + Me(i) * err**2
-      write(io,'(99(ES17.10,1X))') cl_operator % x(i,k), u(i,k,:), u_0(i,k,:), err
+      write(io,'(99(ES17.9E3,1X))') cl_operator % x(i,k), u(i,k,:), u_0(i,k,:), err
     end do
     end do
     close(io)
 
-    write(*,*)
-    write(*,'(2X,A,99(ES12.5,1X))') 't_run  =', t_run  - t_run_0
+    t_run = t_run  - t_run_0
     if (cl_problem % HasExactSolution()) then
-      write(*,'(2X,A,99(ES12.5,1X))') 'err_2  =', sqrt(err_2)
+      err = sqrt(err_2)
+    else
+      err = -1
     end if
+
+    write(*,*)
+    write(*,'(2X,A,99(ES12.5,1X))') 't_end  =', t
+    write(*,'(2X,A,99(ES12.5,1X))') 't_run  =', t_run
+    write(*,'(2X,A,99(ES12.5,1X))') 'err_2  =', err_2
+
+    open(newunit=io, file=trim(case_name)//'.run')
+    write(io,'(A)',advance='NO') '# cfl, dt, t_end, t_run'
+    do k = 1, nc
+      write(io,'(A,I0)',advance='NO') ', err_',k
+    end do
+    write(io,'(A)',advance='YES')
+    write(io,'(99(ES17.9E3,1X))') dt/tau_conv, dt, t_end, t_run, err_2
+    close(io)
 
   end associate
 

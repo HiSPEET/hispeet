@@ -9,57 +9,91 @@
 /
 
 &space_discretization_prm
-  cl_operator_opt%ne          = 15
-  cl_operator_opt%eop%po      = 15
-  cl_operator_opt%eop%penalty = 20
-! cl_operator_opt%eop%hybrid  =  T ! use only with diffusion_method = 1
-  cl_operator_opt%qop%po      = 15
+  cl_operator_opt%ne          =  15
+  cl_operator_opt%eop%po      =  15
+  cl_operator_opt%eop%penalty =   2
+  cl_operator_opt%qop%po      =  15
 /
 
 &time_integration_prm
 
   t_end  = 1.0
-  dt     = 1e-4
+
+! for ne = 75 and po = 3
+! dt     = 2.057769e-4  ! cfl =  0.125
+! dt     = 4.115537e-4  ! cfl =  0.25
+! dt     = 8.231075e-4  ! cfl =  0.5
+  dt     = 1.646215e-3  ! cfl =  1
+! dt     = 3.292430e-3  ! cfl =  2
+! dt     = 4.938645e-2  ! cfl =  3
+! dt     = 6.584860e-2  ! cfl =  4
+! dt     = 8.231075e-2  ! cfl =  5
+! dt     = 9.877290e-2  ! cfl =  6
+! dt     = 1.152350e-1  ! cfl =  7
+! dt     = 1.316972e-1  ! cfl =  8
+! dt     = 2.633944e-1  ! cfl = 16
+
   nt_max = 1000000
 
-  time_method = 3
-  sdc_method  = 0
+  time_method = 2
+  sdc_method  = 2
 
   ! time_method = 1: Euler
-  cl_tint_euler_opt%impl = 1
-  cl_tint_euler_opt%diffusion_method = 4
+  cl_tint_euler_opt%imex_mode        =   1
+  cl_tint_euler_opt%diffusion_method =   4
   cl_tint_euler_opt%diffusion_i_max  = 100
 
   ! time_method = 2: ISD of order 1
-  cl_tint_isd1_opt%impl  = 1
-  cl_tint_isd1_opt%diffusion_method = 4
-  cl_tint_isd1_opt%diffusion_i_max  = 100
+  cl_tint_isd1_opt%imex_mode         =   1
+  cl_tint_isd1_opt%diffusion_method  =   4
+  cl_tint_isd1_opt%diffusion_i_max   = 100
+! cl_tint_isd1_opt%n_stage           =   2
 
   ! time_method = 3: ISD of order 2
-  cl_tint_isd2_opt%impl  = 1
-  cl_tint_isd2_opt%diffusion_method = 4
-  cl_tint_isd2_opt%diffusion_i_max  = 100
+  cl_tint_isd2_opt%imex_mode         =   1
+  cl_tint_isd2_opt%diffusion_method  =   4
+  cl_tint_isd2_opt%diffusion_i_max   = 100
 
   ! time_method = 4: Runge-Kutta
-  cl_tint_rk_opt%impl    = 1
-  cl_tint_rk_opt%n_stage = 4
-  cl_tint_rk_opt%method  = 1
-  cl_tint_rk_opt%diffusion_method = 4
-  cl_tint_rk_opt%diffusion_i_max  = 100
+  cl_tint_rk_opt%imex_mode           =   1
+  cl_tint_rk_opt%n_stage             =   4
+  cl_tint_rk_opt%method              =   1
+  cl_tint_rk_opt%diffusion_method    =   4
+  cl_tint_rk_opt%diffusion_i_max     = 100
+
+  ! sdc_method = 1: SDC based on Euler
+  cl_sdc_euler_opt%point_set         = 'RR'
+  cl_sdc_euler_opt%n_col             =   3
+  cl_sdc_euler_opt%n_sweep           =   6
+! cl_sdc_euler_opt%diffusion_start   =   1
+  cl_sdc_euler_opt%diffusion_method  =   4
+  cl_sdc_euler_opt%diffusion_i_max   = 100
 
   ! sdc_method = 2: SDC based on ISD1
-  cl_sdc_isd1_opt%n_sub     = 1
-  cl_sdc_isd1_opt%point_set = 2
-  cl_sdc_isd1_opt%n_sweep   = 0
-  cl_sdc_isd1_opt%diffusion_method = 4
-  cl_sdc_isd1_opt%diffusion_i_max  = 100
+  cl_sdc_isd1_opt%point_set          = 'RR'
+  cl_sdc_isd1_opt%n_col              =   3
+  cl_sdc_isd1_opt%n_sweep            =   6
+! cl_sdc_isd1_opt%diffusion_start    =   1
+  cl_sdc_isd1_opt%diffusion_method   =   4
+  cl_sdc_isd1_opt%diffusion_i_max    = 100
+! cl_sdc_isd1_opt%n_stage            =   2
 
 /
 
 &convection_diffusion_wave_package_prm
-! v  = 1
-  nu = 1e-4
-  bc = 2*'P'
+! opt%v  = 1
+  opt%nu = 1e-5
+  opt%bc = 2*'P'
+! opt%ad_filter_method =  3    !  0
+! opt%ad_filter_basis  =  2    !  1
+! opt%ad_filter_degree =  1    !  0
+! opt%dc_diffusivity   =  1
+! opt%dc_sensor_coeff  = -4    ! -4
+! opt%dc_sensor_const  = -4    ! -4
+! opt%dc_sensor_delta  =  0.5  !  1
+! opt%dc_scaling_coeff =  0.5  !  1
+! opt%limiting_method  =  1
+! opt%limiting_scope   =  2
 /
 
 &wave_package_dim

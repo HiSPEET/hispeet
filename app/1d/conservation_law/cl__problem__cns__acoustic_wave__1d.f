@@ -42,13 +42,11 @@ module CL__Problem__CNS__Acoustic_Wave__1D
   type, extends(CL_Problem_CNS_Options_1D) :: &
       CL_Problem_CNS_AcousticWave_Options_1D
 
-    real(RNP) :: xb1  = 0    !< left boundary position
-    real(RNP) :: xb2  = 1    !< right boundary position
-    real(RNP) :: mach = 0.1  !< mean flow Mach number
-    real(RNP) :: p_0  = 1E3  !< mean pressure
-    real(RNP) :: T_0  = 3E2  !< mean temperature
-    real(RNP) :: c_w  = 1E-3 !< wave amplitude
-    integer   :: k_w  = 1    !< wave number
+    real(RNP) :: mach = 1E-1_RNP !< mean flow Mach number
+    real(RNP) :: p_0  = 1E+3_RNP !< mean pressure
+    real(RNP) :: T_0  = 3E+2_RNP !< mean temperature
+    real(RNP) :: c_w  = 1E-3_RNP !< wave amplitude
+    integer   :: k_w  = 1        !< wave number
 
   end type CL_Problem_CNS_AcousticWave_Options_1D
 
@@ -61,12 +59,17 @@ contains
     class(CL_Problem_CNS_AcousticWave_1D), intent(inout) :: this
     character(len=*), optional, intent(in) :: file !< (*.prm)
 
-    type(CL_Problem_CNS_AcousticWave_Options_1D) :: acoustic_wave_opt
-
-    namelist/cns_acoustic_wave_prm/ acoustic_wave_opt
+    type(CL_Problem_CNS_AcousticWave_Options_1D) :: opt
+    namelist/cns_acoustic_wave_prm/ opt
 
     logical :: exists, opened
     integer :: prm
+
+    ! preset options ...........................................................
+
+    opt % xb1 =  0
+    opt % xb2 =  1
+    opt % bc  = 'P'
 
     ! check for input file .....................................................
 
@@ -94,19 +97,14 @@ contains
     ! set parameters ...........................................................
 
     ! initialize base type
-    call this % Init_CL_Problem_CNS_1D(acoustic_wave_opt)
-
-    ! enforce periodicity
-    this % bc = 'P'
+    call this % Init_CL_Problem_CNS_1D(opt)
 
     ! specific parameters
-    this % xb1  = acoustic_wave_opt % xb1
-    this % xb2  = acoustic_wave_opt % xb2
-    this % mach = acoustic_wave_opt % mach
-    this % p_0  = acoustic_wave_opt % p_0
-    this % T_0  = acoustic_wave_opt % T_0
-    this % c_w  = acoustic_wave_opt % c_w
-    this % k_w  = acoustic_wave_opt % k_w
+    this % mach = opt % mach
+    this % p_0  = opt % p_0
+    this % T_0  = opt % T_0
+    this % c_w  = opt % c_w
+    this % k_w  = opt % k_w
 
   end subroutine SetProblem
 

@@ -25,10 +25,10 @@ module Coarse_To_Fine_Interpolation__1D
   !> hence, no interpolation operator is provided.
 
   type, public :: CoarseToFineInterpolation_1D
-    integer   :: po_c   = -1           !< polynomial order of coarse mesh
-    integer   :: po_f   = -1           !< polynomial order of fine mesh
-    integer   :: mode   = -1           !< refinement mode
-    character :: basis  = 'L'          !< basis type
+    character(len=2) :: basis  = 'L'   !< basis type
+    integer          :: po_c   = -1    !< polynomial order of coarse mesh
+    integer          :: po_f   = -1    !< polynomial order of fine mesh
+    integer          :: mode   = -1    !< refinement mode
     real(RNP), allocatable :: A(:,:,:) !< interpolation operator(s)
   end type CoarseToFineInterpolation_1D
 
@@ -41,10 +41,10 @@ module Coarse_To_Fine_Interpolation__1D
   !> Options for initializing the coarse-to-fine hp-interpolation operator
 
   type, public :: CoarseToFineInterpolationOptions_1D
-    integer   :: po_c   = -1  !< polynomial order of coarse mesh
-    integer   :: po_f   = -1  !< polynomial order of fine mesh
-    integer   :: mode   = -1  !< refinement mode {0,1,2}
-    character :: basis  = 'L' !< basis type {'E','G','L'}
+    character(len=2) :: basis  = 'L' !< basis type {'E','G','L','RL','RR'}
+    integer          :: po_c   = -1  !< polynomial order of coarse mesh
+    integer          :: po_f   = -1  !< polynomial order of fine mesh
+    integer          :: mode   = -1  !< refinement mode {0,1,2}
   end type CoarseToFineInterpolationOptions_1D
 
 contains
@@ -73,10 +73,10 @@ contains
 
     ! initialization ...........................................................
 
+    this % basis = opt % basis
     this % po_c  = opt % po_c
     this % po_f  = opt % po_f
     this % mode  = opt % mode
-    this % basis = opt % basis
 
     ! shorthands
     po_c = this % po_c
@@ -103,6 +103,12 @@ contains
     case('L')
       allocate(x_c(0:po_c), source = LobattoPoints(po_c))
       allocate(x_f(0:po_f), source = LobattoPoints(po_f))
+    case('RL')
+      allocate(x_c(0:po_c), source = RadauPoints(po_c, right = .false.))
+      allocate(x_f(0:po_f), source = RadauPoints(po_f, right = .false.))
+    case('RR')
+      allocate(x_c(0:po_c), source = RadauPoints(po_c, right = .true.))
+      allocate(x_f(0:po_f), source = RadauPoints(po_f, right = .true.))
     end select
 
     ! interpolation matrices ...................................................
@@ -130,6 +136,12 @@ contains
           this % A(i,j,1) = LobattoPolynomial(j, x_c, x_f(i))
         end do
         end do
+      case('RL','RR') ! Radau
+        do i = 0, po_f
+        do j = 0, po_c
+          this % A(i,j,1) = RadauPolynomial(j, x_c, x_f(i))
+        end do
+        end do
       end select
 
     case(2)
@@ -154,6 +166,13 @@ contains
         do j = 0, po_c
           this % A(i,j,1) = LobattoPolynomial(j, x_c, HALF * (x_f(i) - ONE))
           this % A(i,j,2) = LobattoPolynomial(j, x_c, HALF * (x_f(i) + ONE))
+        end do
+        end do
+      case('RL','RR') ! Radau
+        do i = 0, po_f
+        do j = 0, po_c
+          this % A(i,j,1) = RadauPolynomial(j, x_c, HALF * (x_f(i) - ONE))
+          this % A(i,j,2) = RadauPolynomial(j, x_c, HALF * (x_f(i) + ONE))
         end do
         end do
       end select

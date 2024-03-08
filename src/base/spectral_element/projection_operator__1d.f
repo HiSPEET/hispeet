@@ -103,7 +103,7 @@ contains
             MA(i,k) = GaussPolynomial(i, xo, xq(k)) * wq(k)
           end do
           end do
-        case('R') ! Radau
+        case('RL','RR') ! Radau
           do k = 1, nq
           do i = 0, po
             MA(i,k) = RadauPolynomial(i, xo, xq(k)) * wq(k)

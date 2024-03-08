@@ -7,6 +7,7 @@
 module CL__Time_Integrator__Euler__1D
 
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
+  use, intrinsic :: IEEE_Arithmetic
 
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE
@@ -132,7 +133,7 @@ contains
 
       allocate(Me_inv(0:po), source = 1/Me)
 
-      select case(this%impl)
+      select case(this%imex_mode)
 
       case(0)
 
@@ -159,12 +160,18 @@ contains
         end do
         end do
 
-      case(1)
+      case(1:2)
 
         ! IMEX Euler step ......................................................
 
         call cl_problem % GetBoundaryValues(t_0, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
+
+        if (cl_problem % HasDiffusion() .and. this % imex_mode == 2) then
+          call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
+        else
+          call SetArray(r_d, ZERO, multi=.true.)
+        end if
 
         call cl_problem % GetBoundaryValues(t, bv)
         call cl_problem % GetSources(cl_operator, t, u_0, f_s)
@@ -174,13 +181,12 @@ contains
         do e = 1, ne
           if (activity(e) > 0) then
             u_i(:,e,k) = u_0(:,e,k) + dt * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
+            u  (:,e,k) = u_i(:,e,k) + dt *  Me_inv * r_d(:,e,k)
           else
             u_i(:,e,k) = u_0(:,e,k)
           end if
         end do
         end do
-
-        call SetArray(u, u_i, multi=.true.)
 
         if (cl_problem % HasDiffusion()) then
           ! implicit diffusion step
@@ -193,6 +199,18 @@ contains
         end if
 
       end select
+
+      ! limiting ...............................................................
+
+      if (cl_problem % limiting_method == 1) then
+        call cl_problem % MomentLimiter(cl_operator, u)
+      end if
+
+!### CHECK
+!! if (any(ieee_is_nan(u))) then
+!!   print '(99(G0,X))', 'TI Euler: detected NaN'
+!! end if
+!### CHECK END
 
       ! finalization ...........................................................
 

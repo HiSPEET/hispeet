@@ -26,13 +26,15 @@ module Fine_To_Coarse_Projection__1D
   !>
   !> The fine and coarse variables are given as nodal values according to one
   !> of the following Lagrange bases:
-  !>   - `E` equidistant,
-  !>   - `G` Gauss,
-  !>   - `L` Lobatto.
+  !>   - `E`  equidistant,
+  !>   - `G`  Gauss,
+  !>   - `L`  Lobatto,
+  !>   - `RL` Radau left,
+  !>   - `RR` Radau right.
   !>
   !> Two different projection methods are provided:
-  !>   - `P` L² projection,
-  !>   - `I` interpolation using the fine basis.
+  !>   - `P`  L² projection,
+  !>   - `I`  interpolation using the fine basis.
   !>
   !> In the case of hp-coarsening, the treatment of discontinuities between the
   !> two fine elements is controlled by the `smoothing` parameter. The following
@@ -45,12 +47,12 @@ module Fine_To_Coarse_Projection__1D
   !> restricted to equidistant (`E`) or Lobatto (`L`) bases.
 
   type, public :: FineToCoarseProjection_1D
-    integer   :: po_f                  !< polynomial order of fine mesh
-    integer   :: po_c                  !< polynomial order of coarse mesh
-    integer   :: mode                  !< coarsening mode
-    character :: basis                 !< basis type
-    character :: method                !< projection method
-    integer   :: smoothing             !< discontinuity handling
+    character(len=2) :: basis          !< basis type
+    integer          :: po_f           !< polynomial order of fine mesh
+    integer          :: po_c           !< polynomial order of coarse mesh
+    integer          :: mode           !< coarsening mode
+    character        :: method         !< projection method
+    integer          :: smoothing      !< discontinuity handling
     real(RNP), allocatable :: A(:,:,:) !< interpolation operator(s)
     real(RNP), allocatable :: B(:,:)   !< blending operators
   end type FineToCoarseProjection_1D
@@ -64,12 +66,12 @@ module Fine_To_Coarse_Projection__1D
   !> Options for initializing the fine-to-coarse hp-projection operator
 
   type, public :: FineToCoarseProjectionOptions_1D
-    integer   :: po_f      = -1  !< polynomial order of fine mesh
-    integer   :: po_c      = -1  !< polynomial order of coarse mesh
-    integer   :: mode      = -1  !< coarsening mode {0,1,2}
-    character :: basis     = 'L' !< basis type {'E','G','L'}
-    character :: method    = 'P' !< L² projection 'P' or interpolation 'I'
-    integer   :: smoothing =  0  !< discontinuity handling {0,1,2}
+    character(len=2) :: basis     = 'L' !< basis type {'E','G','L','RL','RR'}
+    integer          :: po_f      = -1  !< polynomial order of fine mesh
+    integer          :: po_c      = -1  !< polynomial order of coarse mesh
+    integer          :: mode      = -1  !< coarsening mode {0,1,2}
+    character        :: method    = 'I' !< L² projection 'P' or interpolation 'I'
+    integer          :: smoothing =  0  !< discontinuity handling {0,1,2}
   end type FineToCoarseProjectionOptions_1D
 
 contains
@@ -150,6 +152,12 @@ contains
     case('L')
       allocate(x_f(0:po_f), source = LobattoPoints(po_f))
       allocate(x_c(0:po_c), source = LobattoPoints(po_c))
+    case('RL')
+      allocate(x_f(0:po_f), source = RadauPoints(po_f, right = .false.))
+      allocate(x_c(0:po_c), source = RadauPoints(po_c, right = .false.))
+    case('RR')
+      allocate(x_f(0:po_f), source = RadauPoints(po_f, right = .true.))
+      allocate(x_c(0:po_c), source = RadauPoints(po_c, right = .true.))
     end select
 
     ! quadrature points and weights ............................................
@@ -221,6 +229,8 @@ contains
           z = GaussPolynomial(j, x_f, x_q(q))
         case('L')
           z = LobattoPolynomial(j, x_f, x_q(q))
+        case('RL','RR')
+          z = RadauPolynomial(j, x_f, x_q(q))
         end select
         do k = 0, po_c
           C(k,j) = C(k,j) + w_q(q) / w_g(k) * z * GaussPolynomial(k, x_g, x_q(q))
@@ -271,6 +281,13 @@ contains
         end do
         end do
 
+      case('RL','RR') ! Radau
+        do i = 0, po_c
+        do j = 0, po_f
+          this % A(i,j,1) = RadauPolynomial(j, x_f, x_c(i))
+        end do
+        end do
+
       end select
 
     end subroutine Build_Interpolation_Operator_1
@@ -297,6 +314,8 @@ contains
           z = GaussPolynomial(j, x_f, x_q(q))
         case('L')
           z = LobattoPolynomial(j, x_f, x_q(q))
+        case('RL','RR') ! Radau
+          z = RadauPolynomial(j, x_f, x_q(q))
         end select
         do k = 0, po_c
           w = w_q(q) / (2 * w_g(k)) * z
@@ -325,42 +344,59 @@ contains
 
     subroutine Build_Interpolation_Operator_2
 
-      integer :: o2_f, ph_c
-      integer :: i, j
+      real(RNP) :: x_c2f(2)
+      integer   :: o2_f, ph_c
+      integer   :: i, j
 
       ph_c = po_c/2
       o2_f = ph_c + mod(po_c,2)
-      select case(this % basis)
-      case('E') ! Nodal with equidistant spacing
-        do i = 0, ph_c
-        do j = 0, po_f
-          this % A(i,j,1) = LagrangePolynomial(j, x_f, 2*x_c(i     ) + ONE)
-          this % A(i,j,2) = LagrangePolynomial(j, x_f, 2*x_c(i+o2_f) - ONE)
-        end do
-        end do
-      case('G') ! Gauss
-        do i = 0, ph_c
-        do j = 0, po_f
-          this % A(i,j,1) = GaussPolynomial(j, x_f, 2*x_c(i     ) + ONE)
-          this % A(i,j,2) = GaussPolynomial(j, x_f, 2*x_c(i+o2_f) - ONE)
-        end do
-        end do
-      case('L') ! Lobatto
-        do i = 0, ph_c
-        do j = 0, po_f
-          this % A(i,j,1) = LobattoPolynomial(j, x_f, 2*x_c(i     ) + ONE)
-          this % A(i,j,2) = LobattoPolynomial(j, x_f, 2*x_c(i+o2_f) - ONE)
-        end do
-        end do
-      end select
 
-      ! averaging at interface
-      if (mod(po_c,2) == 0) then
-        do j = 0, po_f
-          this % A(ph_c,j,1) = HALF * this % A(ph_c,j,1)
-          this % A(   0,j,2) = HALF * this % A(   0,j,2)
-        end do
-      end if
+      do i = 0, ph_c
+
+        x_c2f(1) = 2*x_c(i     ) + ONE ! coarse point mapped to left  element
+        x_c2f(2) = 2*x_c(i+o2_f) - ONE ! coarse point mapped to right element
+
+        select case(this % basis)
+        case('E') ! Nodal with equidistant spacing
+          do j = 0, po_f
+            this % A(i,j,1) = LagrangePolynomial(j, x_f, x_c2f(1))
+            this % A(i,j,2) = LagrangePolynomial(j, x_f, x_c2f(2))
+          end do
+        case('G') ! Gauss
+          do j = 0, po_f
+            this % A(i,j,1) = GaussPolynomial(j, x_f, x_c2f(1))
+            this % A(i,j,2) = GaussPolynomial(j, x_f, x_c2f(2))
+          end do
+        case('L') ! Lobatto
+          do j = 0, po_f
+            this % A(i,j,1) = LobattoPolynomial(j, x_f, x_c2f(1))
+            this % A(i,j,2) = LobattoPolynomial(j, x_f, x_c2f(2))
+          end do
+        case('RL','RR') ! Radau: take care of asymmetry
+          if (x_c2f(1) <= ONE) then
+            do j = 0, po_f
+              this % A(i,j,1) = RadauPolynomial(j, x_f, x_c2f(1))
+            end do
+          end if
+          if (x_c2f(2) >= -ONE) then
+            do j = 0, po_f
+              this % A(i,j,2) = RadauPolynomial(j, x_f, x_c2f(2))
+            end do
+          end if
+        end select
+
+      end do
+
+      select case(this % basis)
+      case('E','G','L')
+        ! averaging at interface
+        if (mod(po_c,2) == 0) then
+          do j = 0, po_f
+            this % A(ph_c,j,1) = HALF * this % A(ph_c,j,1)
+            this % A(   0,j,2) = HALF * this % A(   0,j,2)
+          end do
+        end if
+      end select
 
     end subroutine Build_Interpolation_Operator_2
 

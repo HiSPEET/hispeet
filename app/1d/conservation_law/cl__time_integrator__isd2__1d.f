@@ -26,6 +26,8 @@ module CL__Time_Integrator__ISD2__1D
   !> IMEX ISD2 method for 1D conservation laws
 
   type, extends(CL_TimeIntegrator_1D) :: CL_TimeIntegrator_ISD2_1D
+    integer :: diffusion_i_max_1 !< max number of iterations in stage 1
+    integer :: diffusion_i_max_2 !< max number of iterations in stage 2
   contains
     procedure :: Init_CL_TimeIntegrator_ISD2_1D
     procedure :: Show => Show_CL_TimeIntegrator_ISD2_1D
@@ -41,7 +43,9 @@ module CL__Time_Integrator__ISD2__1D
   !> Type for providing ISD2 time-integrator options (none, so far)
 
   type, extends(CL_TimeIntegrator_Options_1D) :: &
-    CL_TimeIntegrator_Options_ISD2_1D
+      CL_TimeIntegrator_Options_ISD2_1D
+    integer :: diffusion_i_max_1 = -1 !< max number of iterations in stage 1
+    integer :: diffusion_i_max_2 = -1 !< max number of iterations in stage 2
   end type CL_TimeIntegrator_Options_ISD2_1D
 
 contains
@@ -66,6 +70,19 @@ contains
 
     ! intialize parent type
     call this % Init_CL_TimeIntegrator_1D(opt)
+
+    if (opt % diffusion_i_max_1 >= 0) then
+      this % diffusion_i_max_1 = opt % diffusion_i_max_1
+    else
+      this % diffusion_i_max_1 = opt % diffusion_i_max
+    end if
+
+    if (opt % diffusion_i_max_2 >= 0) then
+      this % diffusion_i_max_2 = opt % diffusion_i_max_2
+    else
+      this % diffusion_i_max_2 = opt % diffusion_i_max
+    end if
+
     this % name = 'Streamline-diffusion method of order 2'
 
   end subroutine Init_CL_TimeIntegrator_ISD2_1D
@@ -88,6 +105,10 @@ contains
     ! show parent settings
     call this % Show_CL_TimeIntegrator_1D(unit)
 
+    write(io,*)
+    write(io,'(2X,A,T22,I0)') 'diffusion_i_max_1:', this % diffusion_i_max_1
+    write(io,'(2X,A,T22,I0)') 'diffusion_i_max_2:', this % diffusion_i_max_2
+
   end subroutine Show_CL_TimeIntegrator_ISD2_1D
 
   !-----------------------------------------------------------------------------
@@ -104,7 +125,6 @@ contains
 
     real(RNP), allocatable, save :: r_c(:,:,:)
     real(RNP), allocatable, save :: r_d(:,:,:)
-    real(RNP), allocatable, save :: r_sd(:,:,:)
     real(RNP), allocatable, save :: f_s(:,:,:)
     real(RNP), allocatable, save :: u_i(:,:,:)
     real(RNP), allocatable, save :: u_1(:,:,:)
@@ -126,7 +146,6 @@ contains
 
       allocate(r_c , mold = u)
       allocate(r_d , mold = u)
-      allocate(r_sd, mold = u)
       allocate(f_s , mold = u)
       allocate(u_i , mold = u)
       allocate(u_1 , mold = u)
@@ -138,7 +157,7 @@ contains
 
       allocate(Me_inv(0:po), source = 1/Me)
 
-      select case(this%impl)
+      select case(this%imex_mode)
 
       case(0)
 
@@ -147,10 +166,8 @@ contains
         ! preliminaries
         call cl_problem % GetBoundaryValues(t_0, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
-        if (cl_problem % HasDiffusion()) then
-          call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
-        end if
-        call cl_problem % GetSDTerm(cl_operator, dt, bv, u_0, u_0, r_sd)
+        call cl_problem % GetHybridDiffusionTerm &
+                              (cl_operator, 'T', dt, bv, u_0, u_0, r_d)
         call cl_problem % GetSources(cl_operator, t_0, u_0, f_s)
 
         ! stage 1
@@ -158,20 +175,24 @@ contains
         do k = 1, nc
         do e = 1, ne
           if (activity(e) > 0) then
-            u_1(:,e,k) = u_0(:,e,k)                        &
-                       + dt/2 * ( Me_inv * ( r_c (:,e,k)   &
-                                           + r_d (:,e,k)   &
-                                           + r_sd(:,e,k) ) &
-                                + f_s(:,e,k) )
+            u_1(:,e,k) = u_0(:,e,k) &
+                       + dt/2 * (Me_inv * (r_c(:,e,k) + r_d(:,e,k)) + f_s(:,e,k))
           end if
         end do
         end do
+
+        if (cl_problem % limiting_method == 1 .and. &
+            cl_problem % limiting_scope  == 2       ) then
+          call cl_problem % MomentLimiter(cl_operator, u_1)
+        end if
 
         ! BV and RHS at intermediate time
         call cl_problem % GetBoundaryValues(t, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_1, r_c)
         if (cl_problem % HasDiffusion()) then
           call cl_problem % GetDiffusionTerm(cl_operator, bv, u_1, r_d)
+        else
+          call SetArray(r_d, ZERO, multi = .true.)
         end if
         call cl_problem % GetSources(cl_operator, t, u_1, f_s)
 
@@ -179,30 +200,33 @@ contains
         do k = 1, nc
         do e = 1, ne
           if (activity(e) > 0) then
-            u(:,e,k) = u_0(:,e,k)                                  &
-                     + dt * ( Me_inv * (r_c (:,e,k) + r_d (:,e,k)) &
-                            + f_s(:,e,k)                           &
-                            )
-          else
-            u(:,e,k) = u_0(:,e,k)
+            u(:,e,k) = u_0(:,e,k) &
+                     + dt * (Me_inv * (r_c(:,e,k) + r_d(:,e,k)) + f_s(:,e,k))
           end if
         end do
         end do
 
-      case(1)
+      case(1:2)
 
-        ! IMEX ISD2 step ......................................................
+        ! stage 0 ..............................................................
 
-        ! preliminaries
         t = t_0 + dt/2
+
         call cl_problem % GetBoundaryValues(t_0, bv)
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_0, r_c)
-        if (cl_problem % HasDiffusion()) then
-          call cl_problem % GetDiffusionTerm(cl_operator, bv, u_0, r_d)
+
+        if (this % imex_mode == 2) then
+          call cl_problem % GetHybridDiffusionTerm &
+                                (cl_operator, 'T', dt, bv, u_0, u_0, r_d)
+        else
+          call SetArray(r_d, ZERO, multi=.true.)
         end if
+
         call cl_problem % GetSources(cl_operator, t, u_0, f_s)
 
-        ! stage 1: intermediate solution
+        ! stage 1 ..............................................................
+
+        ! intermediate solution
         do k = 1, nc
         do e = 1, ne
           if (activity(e) > 0) then
@@ -210,45 +234,110 @@ contains
           else
             u_i(:,e,k) = u_0(:,e,k)
           end if
-          u_1(:,e,k) = u_0(:,e,k)
         end do
         end do
 
-        ! stage 1: implicit diffusion step
+        ! start values
+        if (this%imex_mode == 2) then
+          do k = 1, nc
+          do e = 1, ne
+            if (activity(e) > 0) then
+              u_1(:,e,k) = u_i(:,e,k) + dt/2 *  Me_inv * r_d(:,e,k)
+            else
+              u_1(:,e,k) = u(:,e,k)
+            end if
+          end do
+          end do
+        else
+          call SetArray(u, u_0, multi=.true.)
+        end if
+
+        ! implicit diffusion step
         call cl_problem % GetBoundaryValues(t, bv)
-        call cl_problem % DiffusionSolver( cl_operator, dt/2, dt, bv        &
-                                         , f      = u_i                     &
-                                         , u_0    = u_0                     &
-                                         , u      = u_1                     &
-                                         , method = this % diffusion_method &
-                                         , i_max  = this % diffusion_i_max  &
-                                         , r_red  = this % diffusion_r_red  &
-                                         , r_max  = this % diffusion_r_max  )
+        call cl_problem % DiffusionSolver( cl_operator, dt/2, dt, bv         &
+                                         , f      = u_i                      &
+                                         , u_0    = u_0                      &
+                                         , u      = u_1                      &
+                                         , method = this % diffusion_method  &
+                                         , i_max  = this % diffusion_i_max_1 &
+                                         , r_red  = this % diffusion_r_red   &
+                                         , r_max  = this % diffusion_r_max   )
 
-        ! stage 2: preliminaries
+
+        if (cl_problem % limiting_method == 1 .and. &
+            cl_problem % limiting_scope  == 2       ) then
+          call cl_problem % MomentLimiter(cl_operator, u_1)
+        end if
+
+        ! stage 2 ..............................................................
+
+        ! preliminaries
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_1, r_c)
         call cl_problem % GetSources(cl_operator, t, u_1, f_s)
-        t = t_0 + dt
 
-        ! stage 2: intermediate solution
+        if (this % imex_mode == 2) then
+          call cl_problem % GetHybridDiffusionTerm &
+                                (cl_operator, 'T', dt, bv, u_0, u_1, r_d)
+        end if
+
+        ! intermediate solution
         do k = 1, nc
         do e = 1, ne
           if (activity(e) > 0) then
-            u_i(:,e,k) = u_0(:,e,k)                                       &
-                       + dt * ( Me_inv * (r_c(:,e,k) + HALF * r_d(:,e,k)) &
-                              + f_s(:,e,k)                                &
-                              )
-          else
-            u_i(:,e,k) = u_0(:,e,k)
+            u_i(:,e,k) = u_0(:,e,k) + dt/2 * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
           end if
         end do
         end do
 
-        call SetArray(u, u_i, multi=.true.)
+        ! start values
+        if (this%imex_mode == 2) then
+          do k = 1, nc
+          do e = 1, ne
+            if (activity(e) > 0) then
+              u(:,e,k) = u_i(:,e,k) + dt/2 *  Me_inv * r_d(:,e,k)
+            end if
+          end do
+          end do
+        end if
 
         ! implicit diffusion step
-        call cl_problem % GetBoundaryValues(t, bv)
-        call cl_problem % DiffusionSolver( cl_operator, dt/2, ZERO, bv      &
+        call cl_problem % DiffusionSolver( cl_operator, dt/2, dt, bv         &
+                                         , f      = u_i                      &
+                                         , u_0    = u_0                      &
+                                         , u      = u                        &
+                                         , method = this % diffusion_method  &
+                                         , i_max  = this % diffusion_i_max_2 &
+                                         , r_red  = this % diffusion_r_red   &
+                                         , r_max  = this % diffusion_r_max   )
+
+        ! stage 3 ..............................................................
+
+        if (cl_problem % limiting_method == 1 .and. &
+            cl_problem % limiting_scope  == 2       ) then
+          call cl_problem % MomentLimiter(cl_operator, u)
+        end if
+
+        call cl_problem % GetConvectionTerm(cl_operator, bv, u, r_c)
+        call cl_problem % GetSources(cl_operator, t, u, f_s)
+
+        if (cl_problem % HasDiffusion() .and. this % imex_mode == 2) then
+          call cl_problem % GetDiffusionTerm(cl_operator, bv, u, r_d)
+        else
+          call SetArray(r_d, ZERO, multi = .true.)
+        end if
+
+        ! intermediate solution
+        do k = 1, nc
+        do e = 1, ne
+          if (activity(e) > 0) then
+            u_i(:,e,k) = u_0(:,e,k) + dt * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
+            u  (:,e,k) = u_i(:,e,k) + dt *  Me_inv * r_d(:,e,k)
+          end if
+        end do
+        end do
+
+        ! implicit diffusion step
+        call cl_problem % DiffusionSolver( cl_operator, dt, ZERO, bv        &
                                          , f      = u_i                     &
                                          , u_0    = u_0                     &
                                          , u      = u                       &
@@ -259,9 +348,16 @@ contains
 
       end select
 
+      ! limiting ...............................................................
+
+      if (cl_problem % limiting_method == 1 .and. &
+          cl_problem % limiting_scope  >  0       ) then
+        call cl_problem % MomentLimiter(cl_operator, u)
+      end if
+
       ! finalization ...........................................................
 
-      deallocate(r_c, r_d, r_sd, f_s, u_i, u_1, bv)
+      deallocate(r_c, r_d, f_s, u_i, u_1, bv)
 
     end associate
 
