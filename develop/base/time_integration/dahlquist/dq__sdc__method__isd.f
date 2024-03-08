@@ -17,8 +17,7 @@ module DQ__SDC__Method__ISD
   !> IMEX ISD SDC ...
 
   type, extends(DQ_SDC_Method) :: DQ_SDC_Method_ISD
-    integer   :: n_stage !< number of stages
-    real(RNP) :: sigma   !< ISD scaling factor
+    integer :: n_stage !< number of stages
   contains
     procedure :: Init_DQ_SDC_Method_ISD
     procedure :: Show => Show_DQ_SDC_Method_ISD
@@ -35,8 +34,7 @@ module DQ__SDC__Method__ISD
   !> Type for providing SDC-ISD options
 
   type, extends(DQ_SDC_Options) :: DQ_SDC_Options_ISD
-    integer   :: n_stage = 1  !< number of stages {1,2}
-    real(RNP) :: sigma = HALF !< ISD scaling factor
+    integer :: n_stage = 1  !< number of stages
   end type DQ_SDC_Options_ISD
 
 contains
@@ -68,14 +66,9 @@ contains
     call this % Init_DQ_SDC_Method(pre_opt, sdc_opt)
 
     this % n_stage = sdc_opt % n_stage
-    this % sigma   = sdc_opt % sigma
 
-    select case(this % n_stage)
-    case(2)
-      this % corrector_name = 'ISD method of order 1 with two stages'
-    case default
-      this % corrector_name = 'ISD method of order 1 with one stage'
-    end select
+    write(this%corrector_name,'(A,G0,A)') &
+        'ISD method of order 1 with ', this%n_stage, ' stage(s)'
 
   end subroutine Init_DQ_SDC_Method_ISD
 
@@ -96,8 +89,7 @@ contains
 
     call this % Show_DQ_SDC_Method(unit)
 
-    write(io,'(2X,A,T15,G0)')     'name:',  this % corrector_name
-    write(io,'(2X,A,T14,ES12.5)') 'sigma:', this % sigma
+    write(io,'(2X,A,T15,G0)') 'name:',  this % corrector_name
 
   end subroutine Show_DQ_SDC_Method_ISD
 
@@ -114,7 +106,7 @@ contains
 
     complex(RNP), parameter :: i = (ZERO, ONE)
 
-    F_im = (lambda % re - this%sigma * dt * lambda%im ** 2) * u
+    F_im = (lambda % re - HALF * dt * lambda%im ** 2) * u
     F_ex = i * lambda % im * u
 
     if (this % impl == 0) return ! just to avoid compiler warning !
@@ -141,7 +133,7 @@ contains
     ! auxiliary variables .....................................................
 
     complex(RNP), parameter :: i = (ZERO, ONE)
-    complex(RNP) :: ui, u1, u2, S
+    complex(RNP) :: ui, uj, S
     real(RNP)    :: t0, t1, dt
     real(RNP)    :: a_inv, delta
     integer      :: j
@@ -169,20 +161,13 @@ contains
 
     ! correction ..............................................................
 
-    a_inv = ONE / (ONE - dt * (lambda%re - this%sigma * dt * lambda%im**2))
+    a_inv = ONE / (ONE - dt * (lambda%re - HALF * dt * lambda%im**2))
 
-    select case(this % n_stage)
-    case(2)
-      u1 = ui + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
-      u1 = u1 * a_inv
-      u2 = ui + dt * (i * lambda%im * u1 - F_ex(m) - F_im(m))
-      u2 = u2 * a_inv
-      u(m) = u2
-    case default
-      u1 = ui + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))
-      u1 = u1 * a_inv
-      u(m) = u1
-    end select
+    uj = (ui + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))) * a_inv
+    do j = 2, this%n_stage
+      uj = (ui + dt * (i * lambda%im * uj - F_ex(m) - F_im(m))) * a_inv
+    end do
+    u(m) = uj
 
     ! update RHS
     call this % CorrectorRHS(lambda, dt, u(m), F_ex_new(m), F_im_new(m))

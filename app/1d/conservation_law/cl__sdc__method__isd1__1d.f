@@ -3,7 +3,7 @@ module CL__SDC__Method__ISD1__1D
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
 
   use Kind_Parameters, only: RNP
-  use Constants,       only: ZERO, ONE, HALF
+  use Constants,       only: ZERO, ONE
   use Array_Assignments
 
   use CL__Problem__1D
@@ -21,10 +21,9 @@ module CL__SDC__Method__ISD1__1D
   !> SDC method based on ISD1
 
   type, extends(CL_SDC_Method_1D) :: CL_SDC_Method_ISD1_1D
-    integer   :: n_stage           !< number of corrector stages
-    integer   :: diffusion_i_max_1 !< max number of iterations in stage 1
-    integer   :: diffusion_i_max_2 !< max number of iterations in stage 2
-    real(RNP) :: sigma             !< ISD scaling factor
+    integer :: n_stage           !< number of corrector stages
+    integer :: diffusion_i_max_1 !< max number of iterations in stage 1
+    integer :: diffusion_i_max_2 !< max number of iterations in stage 2
   contains
     procedure :: Init_CL_SDC_Method_ISD1_1D
     procedure :: Show => Show_CL_SDC_Method_ISD1_1D
@@ -41,10 +40,9 @@ module CL__SDC__Method__ISD1__1D
   !> Type for providing SDC ISD1 options
 
   type, extends(CL_SDC_Options_1D) :: CL_SDC_Options_ISD1_1D
-    integer   :: n_stage = 2            !< number of corrector stages {1,2}
-    integer   :: diffusion_i_max_1 = -1 !< max number of iterations in stage 1
-    integer   :: diffusion_i_max_2 = -1 !< max number of iterations in stage 2
-    real(RNP) :: sigma = HALF           !< ISD scaling factor
+    integer :: n_stage = 2            !< number of corrector stages {1,2}
+    integer :: diffusion_i_max_1 = -1 !< max number of iterations in stage 1
+    integer :: diffusion_i_max_2 = -1 !< max number of iterations in stage 2
   end type CL_SDC_Options_ISD1_1D
 
 contains
@@ -89,8 +87,6 @@ contains
       this % diffusion_i_max_2 = sdc_opt % diffusion_i_max
     end if
 
-    this % sigma = sdc_opt % sigma
-
     select case(this % n_stage)
     case(2)
       this % corrector_name = 'ISD method of order 1 with two stages'
@@ -120,7 +116,6 @@ contains
     write(io,*)
     write(io,'(2X,A,T22,I0)') 'diffusion_i_max_1:', this % diffusion_i_max_1
     write(io,'(2X,A,T22,I0)') 'diffusion_i_max_2:', this % diffusion_i_max_2
-    write(io,'(2X,A,T21,ES12.5)') 'sigma:', this % sigma
 
   end subroutine Show_CL_SDC_Method_ISD1_1D
 
@@ -148,8 +143,7 @@ contains
     real(RNP), allocatable, save :: bv(:,:)
 
     real(RNP), allocatable :: Me_inv(:)
-    real(RNP) :: theta
-    integer   :: e, k
+    integer :: e, k
 
     associate( nc       => cl_problem  % nc       &
              , eop      => cl_operator % eop      &
@@ -164,12 +158,10 @@ contains
 
       allocate(Me_inv(0:po), source = ONE / (dx/2 * eop%w))
 
-      theta = 2 * this%sigma * dt
-
       call cl_problem % GetBoundaryValues(t, bv)
       call cl_problem % GetConvectionTerm(cl_operator, bv, u, r_c)
       call cl_problem % GetHybridDiffusionTerm &
-                            (cl_operator, 'T', theta, bv, u_0, u, r_d)
+                            (cl_operator, 'T', dt, bv, u_0, u, r_d)
 
       do k = 1, nc
       do e = 1, ne
@@ -233,7 +225,6 @@ contains
 
     real(RNP), allocatable :: Me_inv(:)
     real(RNP) :: dt, dt_sub
-    real(RNP) :: theta
     integer   :: e, i, k
 
     associate( n_sub    => this % n_sub           &
@@ -259,7 +250,6 @@ contains
 
       dt      =  t(n_sub) - t(0)         ! full interval length
       dt_sub  =  t(m)     - t(m-1)       ! subinterval length
-      theta   =  2 * this%sigma * dt_sub ! ISD time scale
 
       call SetArray(u_0, u(:,:,:,m-1), multi = .true.)
 
@@ -332,7 +322,7 @@ contains
 
       ! implicit diffusion step
       call cl_problem % GetBoundaryValues(t(m), bv)
-      call cl_problem % DiffusionSolver( cl_operator, dt_sub, theta, bv    &
+      call cl_problem % DiffusionSolver( cl_operator, dt_sub, dt_sub, bv   &
                                        , f      = u_i                      &
                                        , u_0    = u_0                      &
                                        , u      = u_m                      &
@@ -368,7 +358,7 @@ contains
         end do
 
         ! implicit diffusion step
-        call cl_problem % DiffusionSolver( cl_operator, dt_sub, theta, bv    &
+        call cl_problem % DiffusionSolver( cl_operator, dt_sub, dt_sub, bv   &
                                          , f      = u_i                      &
                                          , u_0    = u_0                      &
                                          , u      = u_m                      &
@@ -383,7 +373,7 @@ contains
 
       call cl_problem % GetConvectionTerm(cl_operator, bv, u_m, r_c)
       call cl_problem % GetHybridDiffusionTerm &
-                            (cl_operator, 'T', theta, bv, u_0, u_m, r_d)
+                            (cl_operator, 'T', dt_sub, bv, u_0, u_m, r_d)
 
       do k = 1, nc
       do e = 1, ne

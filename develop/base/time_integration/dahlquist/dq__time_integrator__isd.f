@@ -16,9 +16,8 @@ module DQ__Time_Integrator__ISD
   !> ISD methods for Dahlquist equation
 
   type, extends(DQ_TimeIntegrator) :: DQ_TimeIntegrator_ISD
-    integer   :: order   !< theoretical order of convergence {1,2}
-    integer   :: n_stage !< number of stages {1,2}, ignored with order 2
-    real(RNP) :: sigma   !< ISD scaling factor
+    integer :: order   !< theoretical order of convergence {1,2}
+    integer :: n_stage !< number of stages {1,2}, ignored with order 2
   contains
     procedure :: Init_DQ_TimeIntegrator_ISD
     procedure :: Show => Show_DQ_TimeIntegrator_ISD
@@ -34,9 +33,8 @@ module DQ__Time_Integrator__ISD
   !> Type for providing ISD time-integrator options (none, so far)
 
   type, extends(DQ_TimeIntegratorOptions) :: DQ_TimeIntegrator_Options_ISD
-    integer   :: order   = 1    !< theoretical order of convergence
-    integer   :: n_stage = 1    !< number of stages, ignored with order 2
-    real(RNP) :: sigma   = HALF !< ISD scaling factor
+    integer :: order   = 1 !< theoretical order of convergence
+    integer :: n_stage = 1 !< number of stages, ignored with order 2
   end type DQ_TimeIntegrator_Options_ISD
 
 contains
@@ -64,16 +62,11 @@ contains
 
     this % order   = opt % order
     this % n_stage = opt % n_stage
-    this % sigma   = opt % sigma
 
     select case(this % order)
     case(1)
-      select case(this % n_stage)
-      case(2)
-        this % name = 'ISD method of order 1 with two stages'
-      case default
-        this % name = 'ISD method of order 1 with one stage'
-      end select
+      write(this % name,'(A,G0,A)') &
+          'ISD method of order 1 with ', this%n_stage, ' stage(s)'
     case(2)
       this % name = 'ISD method of order 2 with two stages'
     end select
@@ -98,8 +91,7 @@ contains
     ! show parent settings
     call this % Show_DQ_TimeIntegrator(unit)
 
-    write(io,'(2X,A,T15,G0)')     'name:' , trim(this % name)
-    write(io,'(2X,A,T14,ES12.5)') 'sigma:', this % sigma
+    write(io,'(2X,A,T15,G0)') 'name:' , trim(this % name)
 
   end subroutine Show_DQ_TimeIntegrator_ISD
 
@@ -114,56 +106,35 @@ contains
 
     complex(RNP), parameter :: i = (ZERO, ONE)
     complex(RNP) :: u0, u1, u2, u3
-    real(RNP) :: hdt
+    real(RNP) :: a_inv, hdt
+    integer :: j
 
-    associate(sigma => this % sigma)
+    hdt = HALF * dt
 
-      hdt = HALF * dt
+    select case(this%order)
 
-      select case(this%order)
+    case(1)
 
-      case(1)
+      a_inv = ONE / (ONE - dt * (lambda%re - hdt * lambda%im**2))
 
-        select case(this%n_stage)
+      u0 = u
+      u  = (u0 + dt * (ZERO, ONE) * lambda%im * u0) * a_inv
 
-        case(2)
+      do j = 2, this%n_stage
+        u = (u0 + dt * (ZERO, ONE) * lambda%im * u) * a_inv
+      end do
 
-          ! two-stage ............................................................
+    case(2)
 
-          u0 = u
+      a_inv = ONE / (ONE - hdt * lambda%re + (hdt * lambda%im)**2)
 
-          u1 = u0 + dt * (ZERO, ONE) * lambda%im * u0
-          u1 = u1 / (ONE - dt * (lambda%re - sigma * dt * lambda%im**2))
+      u0 = u
+      u1 = (u0 +  hdt * i * lambda%im * u0) * a_inv
+      u2 = (u0 +  hdt * i * lambda%im * u1) * a_inv
 
-          u2 = u0 + dt * (ZERO, ONE) * lambda%im * u1
-          u2 = u2 / (ONE - dt * (lambda%re - sigma * dt * lambda%im**2))
+      u = u0 +  dt * lambda * u2
 
-          u = u2
-
-        case default
-
-          ! one-stage ............................................................
-
-          u = u + dt * (ZERO, ONE) * lambda%im * u
-          u = u / (ONE - dt * (lambda%re - sigma * dt * lambda%im**2))
-
-        end select
-
-      case(2)
-
-        u0 = u
-
-        u1 = u0 +  hdt * i * lambda%im * u0
-        u1 = u1 / (ONE - sigma * dt * lambda%re + (hdt * lambda%im)**2)
-
-        u2 = u0 +  hdt * i * lambda%im * u1
-        u2 = u2 / (ONE - sigma * dt * lambda%re + (hdt * lambda%im)**2)
-
-        u = u0 +  dt * lambda * u2
-
-      end select
-
-    end associate
+    end select
 
   end subroutine TimeStep
 
