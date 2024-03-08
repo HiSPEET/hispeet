@@ -1,0 +1,95 @@
+&control_prm
+! log_level = 1
+! log_level_inner_iteration = 1
+! log_level_outer_iteration = 1
+/
+
+&problem_prm
+  problem_name = 'cns__acoustic_wave'
+/
+
+&space_discretization_prm
+  cl_operator_opt%ne            = 10
+  cl_operator_opt%eop%po        = 15
+  cl_operator_opt%eop%penalty   =  2
+  cl_operator_opt%qop%po        = 30
+  cl_operator_opt%schwarz%delta = 0.125
+/
+
+&time_integration_prm
+
+  t_end  = 1e-3
+! dt     = 4.036930e-7 ! cfl =  0.0625
+! dt     = 8.073860e-7 ! cfl =  0.125
+! dt     = 1.614772e-6 ! cfl =  0.25
+! dt     = 3.229544e-6 ! cfl =  0.5
+  dt     = 6.459088e-6 ! cfl =  1
+! dt     = 1.291818e-5 ! cfl =  2
+! dt     = 2.583635e-5 ! cfl =  4
+! dt     = 5.167270e-5 ! cfl =  8
+! dt     = 1.033454e-4 ! cfl = 16
+! dt     = 2.066908e-4 ! cfl = 32
+! dt     = 4.133816e-4 ! cfl = 64
+  nt_max = 1000000
+
+  time_method = 2
+  sdc_method  = 0
+
+  ! time_method = 1: Euler
+  cl_tint_euler_opt%imex_mode        =   1
+  cl_tint_euler_opt%diffusion_method =   4
+  cl_tint_euler_opt%diffusion_i_max  = 100
+
+  ! time_method = 2: ISD of order 1
+! cl_tint_isd1_opt%imex_mode         =   1
+  cl_tint_isd1_opt%diffusion_method  =   4
+  cl_tint_isd1_opt%diffusion_i_max   = 100
+! cl_tint_isd1_opt%n_stage           =   2
+
+  ! time_method = 3: ISD of order 2
+! cl_tint_isd2_opt%imex_mode         =   1
+  cl_tint_isd2_opt%diffusion_method  =   4
+  cl_tint_isd2_opt%diffusion_i_max   = 100
+
+  ! time_method = 4: Runge-Kutta
+  cl_tint_rk_opt%imex_mode           =   1
+  cl_tint_rk_opt%n_stage             =   4
+  cl_tint_rk_opt%method              =   1
+  cl_tint_rk_opt%diffusion_method    =   4
+  cl_tint_rk_opt%diffusion_i_max     = 100
+
+  ! sdc_method = 1: SDC based on Euler
+  cl_sdc_euler_opt%point_set         =  'L'
+  cl_sdc_euler_opt%n_col             =   1
+  cl_sdc_euler_opt%n_sweep           =   0
+! cl_sdc_euler_opt%diffusion_start   =   1
+  cl_sdc_euler_opt%diffusion_method  =   4
+  cl_sdc_euler_opt%diffusion_i_max   = 100
+
+  ! sdc_method = 2: SDC based on ISD1
+  cl_sdc_isd1_opt%point_set          = 'RR'
+  cl_sdc_isd1_opt%n_col              =   2
+  cl_sdc_isd1_opt%n_sweep            =   4
+! cl_sdc_isd1_opt%diffusion_start    =   1
+  cl_sdc_isd1_opt%diffusion_method   =   4
+  cl_sdc_isd1_opt%diffusion_i_max    = 100
+! cl_sdc_isd1_opt%n_stage            =   2
+
+/
+
+&cns_acoustic_wave_prm
+  opt%eta      = 1e-5
+! opt%n_krylov = 50
+! opt%precon   = 3
+  opt%ad_filter_method =  0    !  0
+  opt%ad_filter_basis  =  2    !  1
+  opt%ad_filter_degree =  1    !  0
+! opt%dc_diffusivity   =  1
+! opt%dc_sensor_var    =  1    !  1
+! opt%dc_sensor_coeff  = -4    ! -4
+! opt%dc_sensor_const  = -4    ! -4
+! opt%dc_sensor_delta  =  0.5  !  1
+! opt%dc_scaling_coeff =  0.5  !  1
+! opt%limiting_method  =  1
+! opt%limiting_scope   =  2
+/

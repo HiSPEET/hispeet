@@ -13,10 +13,13 @@ program Conservation_Law_ML
   use CL__Time_Integrator__Euler__1D
   use CL__Time_Integrator__ISD1__1D
   use CL__SDC__Method__1D
+  use CL__SDC__Method__Euler__1D
   use CL__SDC__Method__ISD1__1D
   use CL__MLSDC__1D
   use CL__MLSDC__Level__1D
   use CL__MLSDC__Variable__1D
+  use CL__MLSDC__Upward_Leg__1D
+  use CL__MLSDC__V_Cycle__1D
 
   implicit none
 
@@ -35,8 +38,8 @@ program Conservation_Law_ML
   !   - 'burgers__wave_package'
   !   - 'burgers__moving_front'
 
-  real(RNP) :: t_start = 0.4  ! start time
-  real(RNP) :: t_end   = 0.6  ! end time
+  real(RNP) :: t_start = 0.40  ! start time
+  real(RNP) :: t_end   = 0.41  ! end time
 
   namelist/problem_prm/ problem_name, t_start, t_end
 
@@ -44,34 +47,45 @@ program Conservation_Law_ML
 
   integer, parameter :: max_n_level = 20 ! upper bound for number of levels
 
-  real(RNP) :: dt_slab = 0.2  ! thickness of one time slab
-  integer   :: n_level = 2    ! number of space-time levels
+  real(RNP) :: dt_slab  = 0.1  ! thickness of one time slab
+  integer   :: n_level  = 2    ! number of space-time levels
+  integer   :: n_cycle  = 2    ! number of v-cycles
+  integer   :: n_coarse = 2    ! number of coarse sweeps
 
-  namelist/discretization_prm/ dt_slab, n_level
+  namelist/discretization_prm/ dt_slab, n_level, n_cycle, n_coarse
 
-  ! time integration -- still needs to be configured
-  class(CL_TimeIntegrator_Options_1D), allocatable :: opt_pre
-  class(CL_SDC_Options_1D)           , allocatable :: opt_sdc
+  integer :: p_space (max_n_level) = -1 ! polynomial degree of elements space
+  integer :: n_space (max_n_level) = -1 ! number of elements in space
+  integer :: p_time  (max_n_level) = -1 ! polynomial degree of time step
+  integer :: n_time  (max_n_level) = -1 ! number of time steps in one slice
+
+  namelist/discretization_prm/ p_space, n_space, p_time, n_time
 
   ! MLSDC
   type(CL_MLSDC_1D)          :: mlsdc
   type(CL_MLSDC_Options_1D)  :: mlsdc_opt
 
-  integer :: n_space (max_n_level) = -1 ! number of elements in space
-  integer :: p_space (max_n_level) = -1 ! polynomial degree of elements space
-  integer :: n_time  (max_n_level) = -1 ! number of time steps in one slice
-  integer :: p_time  (max_n_level) = -1 ! polynomial degree of time step
+  ! time integration -- still needs to be configured
+  class(CL_TimeIntegrator_Options_1D), allocatable :: opt_pre
+  class(CL_SDC_Options_1D)           , allocatable :: opt_sdc
 
-  namelist/discretization_prm/ n_space, p_space, n_time, p_time
+  integer :: sdc_method = 2
 
+  namelist/time_integration_prm/ sdc_method
 
+  type(CL_SDC_Options_Euler_1D) :: opt_sdc_euler
+  type(CL_SDC_Options_ISD1_1D)  :: opt_sdc_isd1
+
+  namelist/time_integration_prm/ opt_sdc_euler, opt_sdc_isd1
+
+  ! auxiliary variables
   type(CL_MLSDC_Variable_1D) :: u_h, u_x
-
-  real(RNP) :: t_0, t_1
-  real(RNP) :: err_max, r_max
-  logical   :: exists
-  integer   :: io, stat
-  integer   :: l
+  real(RNP)                  :: t_0, t_1, t
+  real(RNP), allocatable     :: err_2(:), err(:)
+  real(RNP)                  :: err_max, t_run, t_run_0
+  logical                    :: exists
+  integer                    :: io, stat
+  integer                    :: l, nt, nt_max, i, k
 
   ! initialization .............................................................
 
@@ -90,25 +104,32 @@ program Conservation_Law_ML
     open(newunit=io, file=case_file)
     read(io, nml = problem_prm)
     read(io, nml = discretization_prm)
+    read(io, nml = time_integration_prm)
     close(io)
+  end if
+
+  nt_max = 10000
+  nt = nint((t_end-t_start) / dt_slab)
+  if (nt_max >= 0) then
+    nt = min(nt, nt_max)
   end if
 
   ! MLSDC options
   mlsdc_opt = CL_MLSDC_Options_1D(n_level)
   do l = 1, n_level
-    mlsdc_opt % n_space (l) = n_space(l)
     mlsdc_opt % p_space (l) = p_space(l)
-    mlsdc_opt % q_conv  (l) = (p_space(l) * 3 + 1) / 2
-    mlsdc_opt % n_time  (l) = n_time(l)
+    mlsdc_opt % n_space (l) = n_space(l)
     mlsdc_opt % p_time  (l) = p_time(l)
+    mlsdc_opt % n_time  (l) = n_time(l)
+    mlsdc_opt % q_conv  (l) = (p_space(l) * 3 + 1) / 2
   end do
   write(*,*)
   write(*,'(A,99I5)') 'n_level = ', mlsdc_opt % n_level
-  write(*,'(A,99I5)') 'n_space = ', mlsdc_opt % n_space
   write(*,'(A,99I5)') 'p_space = ', mlsdc_opt % p_space
   write(*,'(A,99I5)') 'q_conv  = ', mlsdc_opt % q_conv
-  write(*,'(A,99I5)') 'n_time  = ', mlsdc_opt % n_time
+  write(*,'(A,99I5)') 'n_space = ', mlsdc_opt % n_space
   write(*,'(A,99I5)') 'p_time  = ', mlsdc_opt % p_time
+  write(*,'(A,99I5)') 'n_time  = ', mlsdc_opt % n_time
   write(*,*)
 
   ! problem
@@ -125,21 +146,27 @@ program Conservation_Law_ML
   case default
     call Error('Conservation_Law', 'Invalid problem name')
   end select
-  call cl_problem % SetProblem() ! may not work with wave package
-! use the following to configure the problem (later)
-! call cl_problem % SetProblem(case_name)
+
+  ! convdiff
+  call cl_problem % SetProblem(case_name)
+  ! burgers
+  !call cl_problem % SetProblem()
 
   ! predictor options (ISD1, so far)
   allocate(CL_TimeIntegrator_Options_ISD1_1D :: opt_pre)
-  opt_pre % impl             = 1
-  opt_pre % diffusion_method = 4
+  opt_pre % imex_mode        =   1
+  opt_pre % diffusion_method =   4
   opt_pre % diffusion_i_max  = 100
 
-  ! SDC options (ISD1, so far)
-  allocate(CL_SDC_Options_ISD1_1D :: opt_sdc)
-  opt_sdc % point_set        = 2
-  opt_sdc % diffusion_method = 4
-  opt_sdc % diffusion_i_max  = 100
+  ! SDC options (ISD1 and Euler so far)
+  select case(sdc_method)
+  case(1)
+    allocate(CL_SDC_Options_Euler_1D :: opt_sdc)
+    opt_sdc = opt_sdc_euler
+  case(2)
+    allocate(CL_SDC_Options_ISD1_1D :: opt_sdc)
+    opt_sdc = opt_sdc_isd1
+  end select
 
   ! MLSDC data structure
   mlsdc = CL_MLSDC_1D(mlsdc_opt, opt_pre, opt_sdc, cl_problem)
@@ -148,115 +175,99 @@ program Conservation_Law_ML
   u_h = CL_MLSDC_Variable_1D(mlsdc)
   u_x = CL_MLSDC_Variable_1D(mlsdc)
 
-  ! fine-to-coarse projection test .............................................
-
-  write(*,'(/,A)') 'fine-to-coarse projection test'
-
+  ! initialiuation
   t_0 = t_start
   t_1 = t_start + dt_slab
 
-  ! set to exact solution
-  do l = 1, n_level
-    call GetExactSolution(mlsdc%level(l), t_0, t_1, u_h % level(l)%val)
-    call GetExactSolution(mlsdc%level(l), t_0, t_1, u_x % level(l)%val)
-  end do
+  ! time integration ...........................................................
 
-  do l = n_level, 2, -1
-    associate( u_hf => u_h % level(l  ) % val &
-             , u_hc => u_h % level(l-1) % val &
-             , u_xc => u_x % level(l-1) % val )
+  write(*,*)
+  write(*,'(A)') 'Time integration'
+  write(*,'(A)') repeat('=',80)
+  write(*,*)
 
-      call mlsdc % level(l) % Project_FC(u_hf, u_hc)
+  ! initial values of coars grid 
+  ! (spter nur local refinement und mit coarse grid starten)
+  ! cl_problem % GetInitialValues nur für t0 = 0!!!
+  call cl_problem % GetExactSolution( mlsdc % level(1) % cl_operator    &
+                                    , t_0                               &
+                                    , u_h   % level(1) % val(:,:,:,0,1) )
 
-      err_max = maxval(abs(u_hc - u_xc))
-      write(*,'(2X,2(A,I3),A,ES10.3)') 'level',l,' to',l-1,': err_max =',err_max
+  call cpu_time(t_run_0)
 
-    end associate
-  end do
+  t = t_0
+  k = 1
 
-  ! coarse-to-fine interpolation test ..........................................
+  do i = 1, nt
 
-  write(*,'(/,A)') 'coarse-to-fine interpolation test'
+    ! upward leg
+    call CL_MLSDC_Upward_Leg_1D(mlsdc, t, dt_slab, 1, u_h)
 
-  call GetExactSolution(mlsdc%level(1), t_0, t_1, u_h % level(1)%val)
+  ! check converged
+  ! if not, only enter 1(!) v_cycle? --> pre and post smoothing?
+!  if (check_convergence) then
+!
+!    r_new = ...
+!
+!    converged = r_new <= r_max .or. abs(r_new - r_old) <= dr_min
+!
+!    r_old = r_new
+!  end if
+!  if (converged .or. i == this%i_max) exit
 
-  do l = 1, n_level-1
-    associate( u_hc => u_h % level(l  ) % val &
-             , u_hf => u_h % level(l+1) % val &
-             , u_xf => u_x % level(l+1) % val )
+    ! enter v cycle
+    call CL_MLSDC_V_Cycle_1D(mlsdc, t, dt_slab, 1, 1, n_coarse, n_cycle, u_h, u_x)
 
-      call mlsdc % level(l) % Interpolate_CF(u_hc, u_hf, complete=.true.)
+    ! set new initial value for the coarse grid
+    u_h%level(1)%val(:,:,:,0 ,1 ) = u_h%level(1)%val(:,:,:,p_time(1),n_time(1))
+    u_h%level(1)%val(:,:,:,1:,2:) = 0
 
-      err_max = maxval(abs(u_hf - u_xf))
-      write(*,'(2X,2(A,I3),A,ES10.3)') 'level',l,' to',l+1,': err_max =',err_max
+    ! Update t
+    t = t + dt_slab
+    
+    if (10 * (t-t_0) >= k * (t_end-t_start)) then
+      write(*,'(2X,I3,"%")') 10*k
+      k = k + 1
+    end if
 
-    end associate
-  end do
+  end do 
 
-  ! collocation residual test ..................................................
+  call cpu_time(t_run)
 
-  write(*,'(/,A)') 'collocation residual test'
+  ! evaluation and output of results ...........................................
 
-  do l = 1, n_level
-    associate( u => u_x % level(l) % val &
-             , r => u_h % level(l) % val )
+  ! p_time für RR?
 
-      call mlsdc % level(l) % GetResidual(dt_slab, t_0, u, r)
+  associate( u_h => u_h       % level  (n_level) % val              &
+           , u_x => u_x       % level  (n_level) % val              &
+           , ne  => mlsdc_opt % n_space(n_level)                    &
+           , po  => mlsdc_opt % p_space(n_level)                    &
+           , ns  => mlsdc_opt % p_time (n_level)                    &
+           , nt  => mlsdc_opt % n_time (n_level)                    &
+           , Me  => mlsdc     % level  (n_level) % cl_operator % Me &
+           , nc  => mlsdc     % level  (n_level) % cl_problem  % nc )
 
-      r_max = maxval(abs(r))
-      write(*,'(2X,A,I3,A,ES10.3)') 'level',l,': r_max =',r_max
+    ! set exact solution for now
+    do l = 1, n_level
+      call GetExactSolution( mlsdc%level(l), t_end - dt_slab, t_end, u_x)
+    end do
 
-    end associate
-  end do
+    allocate(err  (nc), source = ZERO)
+    allocate(err_2(nc), source = ZERO)
 
-!### CHECK
-block
-  real(RNP), allocatable :: t(:,:)
-  character(len=80) plot_file
-  integer :: io
-  integer :: c, i, j, m, n
-  c = 1
-  do l = 1, n_level
-    write(plot_file,'(9G0)') 'result_l', l, '.dat'
-    open(newunit=io, file=plot_file)
-    write(io,'(A)') '# x, u_h, u_x, err'
-
-!!     ! spatial
-!!     m = mlsdc % level(l) % p_time
-!!     n = mlsdc % level(l) % n_time
-!!     !m = 0
-!!     !n = 1
-!!     do j = 1, mlsdc % level(l) % n_space
-!!     do i = 0, mlsdc % level(l) % p_space
-!!       write(io,'(99(ES17.10,1X))')                &
-!!         mlsdc % level(l) % cl_operator % x(i,j) , &
-!!         u_h % level(l) % val(i,j,c,m,n)         , &
-!!         u_x % level(l) % val(i,j,c,m,n)         , &
-!!         u_h % level(l) % val(i,j,c,m,n) -         &
-!!         u_x % level(l) % val(i,j,c,m,n)
-!!     end do
-!!     end do
-
-    ! temporal
-    call mlsdc % level(l) % GetTimeMesh(t_0, t_1, t)
-    i = 0
-    j = 1
-    do n = 1, mlsdc % level(l) % n_time
-    do m = 0, mlsdc % level(l) % p_time
-      write(io,'(99(ES17.10,1X))')                &
-        t(m,n)                                  , &
-        u_h % level(l) % val(i,j,c,m,n)         , &
-        u_x % level(l) % val(i,j,c,m,n)         , &
-        u_h % level(l) % val(i,j,c,m,n) -         &
-        u_x % level(l) % val(i,j,c,m,n)
+    do k = 1, ne
+    do i = 0, po
+      err   = u_h(i, k, :, ns, nt) - u_x(i, k, :, ns, nt)
+      err_2 = err_2 + Me(i) * err**2
     end do
     end do
-    deallocate(t)
+    err_max = maxval(abs(u_h - u_x))
 
-    close(io)
-  end do
-end block
-!### CHECK END
+    write(*,'(2X,A,99(ES12.5,1X))') 't_run  =', t_run  - t_run_0
+    write(*,'(2X,A,I3,A,ES10.3)') 'Error on level ',n_level,': err_2 =',sqrt(err_2)
+    write(*,'(2X,A,I3,A,ES10.3)') 'Error on level ',n_level,': err_max =',err_max
+
+  end associate
 
 contains
 
@@ -271,22 +282,22 @@ contains
 
     real(RNP), allocatable :: t(:)
     real(RNP) :: dt
-    integer   :: nt, pt
+    integer   :: nt, mt
     integer   :: i, j
 
-    pt = ubound(u,4)
+    mt = ubound(u,4)
     nt = ubound(u,5)
     dt = (t_1 - t_0) / nt
 
-    allocate(t(0:pt))
+    allocate(t(0:mt))
 
     associate( cl_problem  => level % cl_problem  &
              , cl_operator => level % cl_operator &
              , cl_sdc      => level % cl_sdc      )
 
       do j = 1, nt
-        t(0:) = cl_sdc % IntermediateTimes(t_0 + (j-1)*dt, dt)
-        do i = 0, pt
+        t(0:) = cl_sdc % SubintervalPoints(t_0 + (j-1)*dt, dt)
+        do i = 0, mt
           call cl_problem % GetExactSolution(cl_operator, t(i), u(:,:,:,i,j))
         end do
       end do
