@@ -322,9 +322,9 @@ program Conservation_Law_1L
 
     t_run = t_run  - t_run_0
     if (cl_problem % HasExactSolution()) then
-      err = sqrt(err_2)
+      err_2 = sqrt(err_2)
     else
-      err = -1
+      err_2 = -1
     end if
 
     write(*,*)
