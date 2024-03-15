@@ -249,7 +249,7 @@ contains
           end do
           end do
         else
-          call SetArray(u, u_0, multi=.true.)
+          call SetArray(u_1, u_0, multi=.true.)
         end if
 
         ! implicit diffusion step
@@ -310,7 +310,7 @@ contains
                                          , r_red  = this % diffusion_r_red   &
                                          , r_max  = this % diffusion_r_max   )
 
-        ! stage 3 ..............................................................
+        ! assembly .............................................................
 
         if (cl_problem % limiting_method == 1 .and. &
             cl_problem % limiting_scope  == 2       ) then
@@ -320,31 +320,20 @@ contains
         call cl_problem % GetConvectionTerm(cl_operator, bv, u, r_c)
         call cl_problem % GetSources(cl_operator, t, u, f_s)
 
-        if (cl_problem % HasDiffusion() .and. this % imex_mode == 2) then
+        if (cl_problem % HasDiffusion()) then
           call cl_problem % GetDiffusionTerm(cl_operator, bv, u, r_d)
         else
           call SetArray(r_d, ZERO, multi = .true.)
         end if
 
-        ! intermediate solution
         do k = 1, nc
         do e = 1, ne
           if (activity(e) > 0) then
-            u_i(:,e,k) = u_0(:,e,k) + dt * (Me_inv * r_c(:,e,k) + f_s(:,e,k))
-            u  (:,e,k) = u_i(:,e,k) + dt *  Me_inv * r_d(:,e,k)
+            u(:,e,k) = u_0(:,e,k) &
+                     + dt * (Me_inv * (r_c(:,e,k) + r_d(:,e,k)) + f_s(:,e,k))
           end if
         end do
         end do
-
-        ! implicit diffusion step
-        call cl_problem % DiffusionSolver( cl_operator, dt, ZERO, bv        &
-                                         , f      = u_i                     &
-                                         , u_0    = u_0                     &
-                                         , u      = u                       &
-                                         , method = this % diffusion_method &
-                                         , i_max  = this % diffusion_i_max  &
-                                         , r_red  = this % diffusion_r_red  &
-                                         , r_max  = this % diffusion_r_max  )
 
       end select
 
