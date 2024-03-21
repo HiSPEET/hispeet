@@ -29,6 +29,7 @@ module CL__Time_Integrator__ISD1__1D
     integer :: n_stage           !< number of stages, ignored with `imex_mode=0`
     integer :: diffusion_i_max_1 !< max number of iterations in stage 1
     integer :: diffusion_i_max_2 !< max number of iterations in stage 2
+    logical :: diffusion_update  !< update diffusivity in stage 2
   contains
     procedure :: Init_CL_TimeIntegrator_ISD1_1D
     procedure :: Show => Show_CL_TimeIntegrator_ISD1_1D
@@ -48,6 +49,7 @@ module CL__Time_Integrator__ISD1__1D
     integer :: n_stage = 2            !< number of stages
     integer :: diffusion_i_max_1 = -1 !< max number of iterations in stage 1
     integer :: diffusion_i_max_2 = -1 !< max number of iterations in stage 2
+    logical :: diffusion_update = .false. !< update diffusivity in stage 2
   end type CL_TimeIntegrator_Options_ISD1_1D
 
 contains
@@ -91,6 +93,8 @@ contains
       this % diffusion_i_max_2 = opt % diffusion_i_max
     end if
 
+    this % diffusion_update = opt % diffusion_update
+
     if (this%n_stage == 2) then
       this % name = 'Streamline-diffusion method of order 1 with two stages'
     else
@@ -118,8 +122,9 @@ contains
     call this % Show_CL_TimeIntegrator_1D(unit)
 
     write(io,*)
-    write(io,'(2X,A,T22,I0)') 'diffusion_i_max_1:', this % diffusion_i_max_1
-    write(io,'(2X,A,T22,I0)') 'diffusion_i_max_2:', this % diffusion_i_max_2
+    write(io,'(2X,A,T22,G0)') 'diffusion_i_max_1:', this % diffusion_i_max_1
+    write(io,'(2X,A,T22,G0)') 'diffusion_i_max_2:', this % diffusion_i_max_2
+    write(io,'(2X,A,T22,G0)') 'diffusion_update:' , this % diffusion_update
 
   end subroutine Show_CL_TimeIntegrator_ISD1_1D
 
@@ -138,6 +143,7 @@ contains
     real(RNP), allocatable, save :: r_c(:,:,:)
     real(RNP), allocatable, save :: r_d(:,:,:)
     real(RNP), allocatable, save :: f_s(:,:,:)
+    real(RNP), allocatable, save :: u_d(:,:,:)
     real(RNP), allocatable, save :: u_i(:,:,:)
     real(RNP), allocatable, save :: bv(:,:)
 
@@ -162,6 +168,7 @@ contains
       allocate(r_c , mold = u)
       allocate(r_d , mold = u)
       allocate(f_s , mold = u)
+      allocate(u_d , mold = u)
       allocate(u_i , mold = u)
       allocate(bv(nc,2))
 
@@ -279,10 +286,17 @@ contains
             end do
           end if
 
+          ! approximate solution for computing diffusivity
+          if (this % diffusion_update) then
+            call SetArray(u_d, u, multi=.true.)
+          else
+            call SetArray(u_d, u_0, multi=.true.)
+          end if
+
           ! implicit diffusion step
           call cl_problem % DiffusionSolver( cl_operator, dt, dt, bv           &
                                            , f      = u_i                      &
-                                           , u_0    = u_0                      &
+                                           , u_0    = u_d                      &
                                            , u      = u                        &
                                            , method = this % diffusion_method  &
                                            , i_max  = this % diffusion_i_max_2 &
@@ -301,7 +315,7 @@ contains
 
       ! finalization ...........................................................
 
-      deallocate(r_c, r_d, f_s, u_i, bv)
+      deallocate(r_c, r_d, f_s, u_d, u_i, bv)
 
     end associate
 

@@ -370,11 +370,6 @@ contains
       do e = 0, ne
         h_c(e,:) = NumericalConvectiveFlux(this, u_l(e,:), u_r(e,:))
       end do
-!### CHECK
-!! if (any(ieee_is_nan(h_c))) then
-!!   print '(99(G0,X))', 'GetConvectionTerm GetConvectionTermr: #8 NaN in h_c'
-!! end if
-!### CHECK END
 
       do e = 1, ne
         if (activity(e) > 0) then
@@ -382,11 +377,6 @@ contains
           r_c(po,e,:) = r_c(po,e,:) - h_c(e,:)
         end if
       end do
-!### CHECK
-!! if (any(ieee_is_nan(r_c))) then
-!!   print '(99(G0,X))', 'GetConvectionTerm GetConvectionTermr: #X NaN in r_c'
-!! end if
-!### CHECK END
 
       ! finalization ...........................................................
 

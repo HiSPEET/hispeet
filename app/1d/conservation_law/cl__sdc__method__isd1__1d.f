@@ -1,9 +1,12 @@
 module CL__SDC__Method__ISD1__1D
 
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
+  use, intrinsic :: IEEE_Arithmetic
 
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE
+  use Execution_Control
+  use Logging_Levels
   use Array_Assignments
 
   use CL__Problem__1D
@@ -21,9 +24,11 @@ module CL__SDC__Method__ISD1__1D
   !> SDC method based on ISD1
 
   type, extends(CL_SDC_Method_1D) :: CL_SDC_Method_ISD1_1D
-    integer :: n_stage           !< number of corrector stages
-    integer :: diffusion_i_max_1 !< max number of iterations in stage 1
-    integer :: diffusion_i_max_2 !< max number of iterations in stage 2
+    integer :: n_stage            !< number of corrector stages
+    integer :: diffusion_i_max_1  !< max number of iterations in stage 1
+    integer :: diffusion_i_max_2  !< max number of iterations in stage 2
+    logical :: diffusion_update_1 !< diffusivity update in stage 1
+    logical :: diffusion_update_2 !< diffusivity update in stage 2
   contains
     procedure :: Init_CL_SDC_Method_ISD1_1D
     procedure :: Show => Show_CL_SDC_Method_ISD1_1D
@@ -43,6 +48,8 @@ module CL__SDC__Method__ISD1__1D
     integer :: n_stage = 2            !< number of corrector stages {1,2}
     integer :: diffusion_i_max_1 = -1 !< max number of iterations in stage 1
     integer :: diffusion_i_max_2 = -1 !< max number of iterations in stage 2
+    logical :: diffusion_update_1 = .false. !< diffusivity update in stage 1
+    logical :: diffusion_update_2 = .false. !< diffusivity update in stage 2
   end type CL_SDC_Options_ISD1_1D
 
 contains
@@ -87,6 +94,9 @@ contains
       this % diffusion_i_max_2 = sdc_opt % diffusion_i_max
     end if
 
+    this % diffusion_update_1 = sdc_opt % diffusion_update_1
+    this % diffusion_update_2 = sdc_opt % diffusion_update_2
+
     select case(this % n_stage)
     case(2)
       this % corrector_name = 'ISD method of order 1 with two stages'
@@ -114,8 +124,10 @@ contains
     call this % Show_CL_SDC_Method_1D(unit)
 
     write(io,*)
-    write(io,'(2X,A,T22,I0)') 'diffusion_i_max_1:', this % diffusion_i_max_1
-    write(io,'(2X,A,T22,I0)') 'diffusion_i_max_2:', this % diffusion_i_max_2
+    write(io,'(2X,A,T24,G0)') 'diffusion_i_max_1:',  this % diffusion_i_max_1
+    write(io,'(2X,A,T24,G0)') 'diffusion_i_max_2:',  this % diffusion_i_max_2
+    write(io,'(2X,A,T24,G0)') 'diffusion_update_1:', this % diffusion_update_1
+    write(io,'(2X,A,T24,G0)') 'diffusion_update_2:', this % diffusion_update_2
 
   end subroutine Show_CL_SDC_Method_ISD1_1D
 
@@ -219,6 +231,7 @@ contains
     real(RNP), allocatable, save :: r_c(:,:,:)
     real(RNP), allocatable, save :: r_d(:,:,:)
     real(RNP), allocatable, save :: u_0(:,:,:)
+    real(RNP), allocatable, save :: u_d(:,:,:)
     real(RNP), allocatable, save :: u_i(:,:,:)
     real(RNP), allocatable, save :: u_m(:,:,:)
     real(RNP), allocatable, save :: bv(:,:)
@@ -242,6 +255,7 @@ contains
       allocate(r_c , mold = S)
       allocate(r_d , mold = S)
       allocate(u_0 , mold = S)
+      allocate(u_d , mold = S)
       allocate(u_i , mold = S)
       allocate(u_m , mold = S)
       allocate(bv(nc,2))
@@ -320,11 +334,24 @@ contains
 
       end select
 
+      ! approximate solution for computing diffusivity
+      if (this % diffusion_update_1) then
+        call SetArray(u_d, u_m, multi=.true.)
+      else
+        call SetArray(u_d, u_0, multi=.true.)
+      end if
+
+      if (log_level > 0) then
+        if (any(ieee_is_nan(u_i))) then
+          call Error('DiffusionSolver', 'detected NaN in u_i @1')
+        end if
+      end if
+
       ! implicit diffusion step
       call cl_problem % GetBoundaryValues(t(m), bv)
       call cl_problem % DiffusionSolver( cl_operator, dt_sub, dt_sub, bv   &
                                        , f      = u_i                      &
-                                       , u_0    = u_0                      &
+                                       , u_0    = u_d                      &
                                        , u      = u_m                      &
                                        , method = this % diffusion_method  &
                                        , i_max  = this % diffusion_i_max_1 &
@@ -357,10 +384,23 @@ contains
         end do
         end do
 
+        ! approximate solution for computing diffusivity
+        if (this % diffusion_update_2) then
+          call SetArray(u_d, u_m, multi=.true.)
+        else
+          call SetArray(u_d, u_0, multi=.true.)
+        end if
+
+        if (log_level > 0) then
+          if (any(ieee_is_nan(u_i))) then
+            call Error('DiffusionSolver', 'detected NaN in u_i @2')
+          end if
+        end if
+
         ! implicit diffusion step
         call cl_problem % DiffusionSolver( cl_operator, dt_sub, dt_sub, bv   &
                                          , f      = u_i                      &
-                                         , u_0    = u_0                      &
+                                         , u_0    = u_d                      &
                                          , u      = u_m                      &
                                          , method = this % diffusion_method  &
                                          , i_max  = this % diffusion_i_max_2 &
@@ -373,7 +413,7 @@ contains
 
       call cl_problem % GetConvectionTerm(cl_operator, bv, u_m, r_c)
       call cl_problem % GetHybridDiffusionTerm &
-                            (cl_operator, 'T', dt_sub, bv, u_0, u_m, r_d)
+                            (cl_operator, 'T', dt_sub, bv, u_d, u_m, r_d)
 
       do k = 1, nc
       do e = 1, ne
@@ -398,7 +438,7 @@ contains
 
       ! clean-up ...............................................................
 
-      deallocate(S, r_c, r_d, u_0, u_i, u_m, bv)
+      deallocate(S, r_c, r_d, u_0, u_d, u_i, u_m, bv)
 
     end associate
 

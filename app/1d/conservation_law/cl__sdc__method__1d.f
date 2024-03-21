@@ -201,12 +201,12 @@ contains
 
     write(io,'(/,A)') 'Solver'
     write(io,'(A,/)') repeat('-',80)
-    write(io,'(2X,A,T22,I0)')     'diffusion_start:' , this % diffusion_start
-    write(io,'(2X,A,T22,I0)')     'diffusion_method:', this % diffusion_method
-    write(io,'(2X,A,T22,I0)')     'diffusion_i_max:' , this % diffusion_i_max
-    write(io,'(2X,A,T21,ES12.5)') 'diffusion_r_red:' , this % diffusion_r_red
-    write(io,'(2X,A,T21,ES12.5)') 'diffusion_r_max:' , this % diffusion_r_max
-    write(io,'(2X,A,T22,L0)')     'final_assembly:'  , this % final_assembly
+    write(io,'(2X,A,T24,I0)')     'diffusion_start:' , this % diffusion_start
+    write(io,'(2X,A,T24,I0)')     'diffusion_method:', this % diffusion_method
+    write(io,'(2X,A,T24,I0)')     'diffusion_i_max:' , this % diffusion_i_max
+    write(io,'(2X,A,T23,ES12.5)') 'diffusion_r_red:' , this % diffusion_r_red
+    write(io,'(2X,A,T23,ES12.5)') 'diffusion_r_max:' , this % diffusion_r_max
+    write(io,'(2X,A,T24,L0)')     'final_assembly:'  , this % final_assembly
 
   end subroutine Show_CL_SDC_Method_1D
 
