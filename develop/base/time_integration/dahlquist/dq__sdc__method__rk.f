@@ -85,7 +85,7 @@ contains
     if (allocated(this % w_rk)) deallocate(this % w_rk)
     if (allocated(this % l_rk)) deallocate(this % l_rk)
 
-    associate(n_sub => sdc_opt % n_sub, imex_rk => this % imex_rk)
+    associate(n_sub => this % n_sub, imex_rk => this % imex_rk)
 
       allocate(this % w_rk(0:n_sub, 1:imex_rk%n_stage, 1:n_sub), source = ZERO)
       allocate(this % l_rk(0:n_sub, 1:imex_rk%n_stage, 1:n_sub), source = ZERO)

@@ -40,25 +40,25 @@ module CL__MLSDC__1D
     integer :: n_level = -1  !< number of space-time levels
 
     ! level parameters
-    integer, allocatable :: n_space(:) !< number of elements in space
     integer, allocatable :: p_space(:) !< polynomial degree of elements space
-    integer, allocatable :: q_conv(:)  !< quadrature degree for convection
-    integer, allocatable :: n_time(:)  !< number of time steps in one slice
+    integer, allocatable :: n_space(:) !< number of elements in space
     integer, allocatable :: p_time(:)  !< polynomial degree of time step
+    integer, allocatable :: n_time(:)  !< number of time steps in one slice
+    integer, allocatable :: q_conv(:)  !< quadrature degree for convection
 
     ! space options
     real(RNP) :: penalty = 2                   !< IP-DG penalty parameter > 1
     type(DG_SchwarzOptions_1D) :: schwarz_root !< Schwarz opts for root level
     type(DG_SchwarzOptions_1D) :: schwarz_fine !< Schwarz opts for finer levels
 
-    character :: projection_method = 'P' !< fine-to-coarse projection method:
+    character :: projection_method = 'I' !< fine-to-coarse projection method:
                                          !! 'P'  L² projection,
                                          !! 'I'  interpolation
 
     integer :: projection_smoothing = 1  !< discontinuities in 2:1 projection:
                                          !!  0   no smoothing
                                          !!  1   remove by linear blending
-                                         !!  0   remove by coefficient averaging
+                                         !!  2   remove by coefficient averaging
 
   end type CL_MLSDC_Options_1D
 
@@ -117,10 +117,10 @@ contains
 
       ! dimensions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-      opt_level % n_space = opt % n_space(l)
       opt_level % p_space = opt % p_space(l)
-      opt_level % n_time  = opt % n_time (l)
+      opt_level % n_space = opt % n_space(l)
       opt_level % p_time  = opt % p_time (l)
+      opt_level % n_time  = opt % n_time (l)
 
       ! space options  . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -148,23 +148,26 @@ contains
 
       opt_level % cl_pre = opt_pre
       opt_level % cl_sdc = opt_sdc
-      opt_level % cl_sdc % n_sub = opt % p_time(l) ! num subintervals = degree
+
+      ! number of collocation points = polynomial degree + 1
+      opt_level % cl_sdc % n_col = opt % p_time(l) + 1
 
       ! transfer options . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
       if (l < opt % n_level) then
 
-        opt_level % iop_cf_x =                               &
-            CoarseToFineInterpolationOptions_1D(             &
-                po_c = opt % p_space(l),                     &
-                po_f = opt % p_space(l+1),                   &
-                mode = opt % n_space(l+1) / opt % n_space(l) )
+        opt_level % iop_cf_x =                                &
+            CoarseToFineInterpolationOptions_1D(              &
+                po_c  = opt % p_space(l),                     &
+                po_f  = opt % p_space(l+1),                   &
+                mode  = opt % n_space(l+1) / opt % n_space(l) )
 
-        opt_level % iop_cf_t =                              &
-            CoarseToFineInterpolationOptions_1D(            &
-                po_c = opt % p_time(l),                     &
-                po_f = opt % p_time(l+1),                   &
-                mode = opt % n_time(l+1) / opt % n_time(l)  )
+        opt_level % iop_cf_t =                                &
+            CoarseToFineInterpolationOptions_1D(              &
+                basis = opt_sdc % point_set,                  &
+                po_c  = opt % p_time(l),                      &
+                po_f  = opt % p_time(l+1),                    &
+                mode  = opt % n_time(l+1) / opt % n_time(l)   )
 
       else
 
@@ -184,12 +187,13 @@ contains
                 method    = opt % projection_method,               &
                 smoothing = opt % projection_smoothing             )
 
-        opt_level % pop_fc_t =                                    &
-            FineToCoarseProjectionOptions_1D(                     &
-                po_f      = opt % p_time(l),                      &
-                po_c      = opt % p_time(l-1),                    &
-                mode      = opt % n_time(l) / opt % n_time(l-1),  &
-                method    = opt % projection_method               )
+        opt_level % pop_fc_t =                                     &
+            FineToCoarseProjectionOptions_1D(                      &
+                basis     = opt_sdc % point_set,                   &
+                po_f      = opt % p_time(l),                       &
+                po_c      = opt % p_time(l-1),                     &
+                mode      = opt % n_time(l) / opt % n_time(l-1),   &
+                method    = opt % projection_method                )
 
       else
 
@@ -219,11 +223,11 @@ contains
 
     opt % n_level = n_level
 
-    allocate(opt % n_space(n_level))
     allocate(opt % p_space(n_level))
-    allocate(opt % q_conv (n_level))
-    allocate(opt % n_time (n_level))
+    allocate(opt % n_space(n_level))
     allocate(opt % p_time (n_level))
+    allocate(opt % n_time (n_level))
+    allocate(opt % q_conv (n_level))
 
   end function New_CL_MLSDC_Options_1D
 

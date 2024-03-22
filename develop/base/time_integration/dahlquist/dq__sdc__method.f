@@ -31,7 +31,8 @@ module DQ__SDC__Method
   !> Type for providing SDC options
 
   type, extends(SDC_Options) :: DQ_SDC_Options
-    integer :: impl = 2  !< 0: explicit, 1: implicit, 2/default: IMEX
+    integer :: impl     = 2       !< 0: explicit, 1: implicit, 2/default: IMEX
+    logical :: assembly = .false. !< perform final assembly
   end type DQ_SDC_Options
 
   !-----------------------------------------------------------------------------
@@ -42,7 +43,8 @@ module DQ__SDC__Method
     class(DQ_TimeIntegrator), allocatable :: predictor !< predictor method
 
     character(len=80) :: corrector_name = ''
-    integer :: impl !< switch to explicit/implicit/IMEX corrector (0/1/2)
+    integer :: impl     !< switch to explicit/implicit/IMEX corrector (0/1/2)
+    logical :: assembly !< switch to final assembly with collocation method
 
   contains
 
@@ -130,7 +132,8 @@ contains
 
     ! SDC ......................................................................
 
-    this % impl = sdc_opt % impl
+    this % impl     = sdc_opt % impl
+    this % assembly = sdc_opt % assembly
 
   end subroutine Init_DQ_SDC_Method
 
@@ -151,10 +154,11 @@ contains
 
     write(io,'(/,A)') 'DQ_SDC_Method settings'
     write(io,'(A,/)') repeat('≡',80)
+    write(io,'(2X,A,T15,A)')  'point_set:' , this % point_set
     write(io,'(2X,A,T15,I0)') 'n_sub:'     , this % n_sub
-    write(io,'(2X,A,T15,I0)') 'n_sweeps:'  , this % n_sweep
-    write(io,'(2X,A,T15,I0)') 'point_set:' , this % point_set
+    write(io,'(2X,A,T15,I0)') 'n_sweep:'   , this % n_sweep
     write(io,'(2X,A,T15,I0)') 'impl:'      , this % impl
+    write(io,'(2X,A,T15,L0)') 'assembly:'  , this % assembly
 
     call this % predictor % Show(unit)
 
@@ -204,7 +208,7 @@ contains
     allocate(F_ex_new (0:n_sub))
     allocate(F_im_new (0:n_sub))
 
-    t_  = this % IntermediateTimes(ZERO, dt)
+    t_  = this % SubintervalPoints(ZERO, dt)
 
     dt_(0)       = 0 ! never used !
     dt_(1:n_sub) = t_(1:n_sub) - t_(0:n_sub-1)
@@ -228,7 +232,7 @@ contains
       ! prerequisites ..........................................................
 
       ! RHS for high-order quadrature
-      F_ = lambda * u_
+      F_(0:n_sub) = lambda * u_(0:n_sub)
 
       ! RHS for corrector
       call this % CorrectorRHS(lambda, dt_, u_, F_ex_, F_im_)
@@ -252,7 +256,7 @@ contains
                                    , F_im_new = F_im_new )
         end do
 
-        if (n == n_sweep) exit
+        if (n == n_sweep .and. .not. this%assembly) exit
 
         F_(1:n_sub) = lambda * u_(1:n_sub)
         F_ex_(1:n_sub) = F_ex_new(1:n_sub)
@@ -264,7 +268,11 @@ contains
 
     ! result ...................................................................
 
-    u = u_(n_sub)
+    if (this % assembly) then
+      u = u + dt * dot_product(F_, this % w_col(:,n_sub))
+    else
+      u = u_(n_sub)
+    end if
 
   end subroutine TimeStep
 

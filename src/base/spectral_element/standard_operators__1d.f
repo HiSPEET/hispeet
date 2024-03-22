@@ -22,15 +22,16 @@ module Standard_Operators__1D
   !>
   !> Supports the following types of nodal base functions
   !>
-  !>   * Lagrange polynomials to Gauss-Legendre points:         `basis = 'G'`
-  !>   * Lagrange polynomials to Gauss-Lobatto-Legendre points: `basis = 'L'`
-  !>   * Lagrange polynomials to Gauss-Radau-Legendre points:   `basis = 'R'`
+  !>   - Lagrange polynomials to Gauss-Legendre points:             basis = 'G'
+  !>   - Lagrange polynomials to Gauss-Lobatto-Legendre points:     basis = 'L'
+  !>   - Lagrange polynomials to left  Gauss-Radau-Legendre points: basis = 'RL'
+  !>   - Lagrange polynomials to right Gauss-Radau-Legendre points: basis = 'RR'
 
   type StandardOperators_1D
     private
 
     ! public components
-    character             , public :: basis   !< basis type
+    character(len=2)      , public :: basis   !< basis type
     integer               , public :: po = -1 !< polynomial order
     real(RNP), allocatable, public :: x(:)    !< collocation points
     real(RNP), allocatable, public :: w(:)    !< quadrature weights
@@ -38,9 +39,10 @@ module Standard_Operators__1D
     real(RNP), allocatable, public :: L(:,:)  !< stiffness (Laplace) matrix
 
     ! private components
-    real(RNP), allocatable :: VL(:,:)         !< Legendre-Vandermonde matrix
-    real(RNP), allocatable :: VL_inv(:,:)     !< inverse Legendre-Vandermonde
-                                              !! matrix
+    real(RNP), allocatable :: VL(:,:)     !< Legendre-Vandermonde matrix
+    real(RNP), allocatable :: VL_inv(:,:) !< inverse Legendre-Vandermonde matrix
+    real(RNP), allocatable :: VB(:,:)     !< Bubble-Vandermonde matrix
+    real(RNP), allocatable :: VB_inv(:,:) !< inverse Bubble-Vandermonde matrix
 
     real(RNP), allocatable :: D_root_svv(:,:) !< SVV root-based diff matrix: √Q D
     real(RNP), allocatable :: D_svv(:,:)      !< SVV differentiation matrix:  Q D
@@ -56,6 +58,13 @@ module Standard_Operators__1D
     procedure :: Has_Legendre_VDM
     procedure :: Get_Legendre_VDM
     procedure :: Get_Inverse_Legendre_VDM
+    procedure :: Get_Legendre_CutoffFilter
+
+    procedure :: Init_Bubble_VDM
+    procedure :: Has_Bubble_VDM
+    procedure :: Get_Bubble_VDM
+    procedure :: Get_Inverse_Bubble_VDM
+    procedure :: Get_Bubble_CutoffFilter
 
     procedure :: Init_SVV
     procedure :: Has_SVV
@@ -75,11 +84,11 @@ module Standard_Operators__1D
   !> Options for StandardOperators_1D
 
   type StandardOperatorOptions_1D
-    integer   :: po         = -1       !< polynomial order
-    character :: basis      = 'L'      !< basis type
-    logical   :: no_vdm     = .false.  !< skip Vandermonde matrix
-    logical   :: svv        = .false.  !< activate SVV model
-    integer   :: po_cut_svv = -huge(1) !< cut-off PO for SVV
+    integer      :: po         = -1       !< polynomial order
+    character(2) :: basis      = 'L'      !< basis type
+    logical      :: no_vdm     = .false.  !< skip Vandermonde matrix
+    logical      :: svv        = .false.  !< activate SVV model
+    integer      :: po_cut_svv = -huge(1) !< cut-off order for SVV
   contains
     procedure :: Bcast => Bcast_StandardOperatorOptions1D
   end type StandardOperatorOptions_1D
@@ -95,11 +104,11 @@ contains
   function New_StandardOperators_1D__f(po, basis, no_vdm, svv, po_cut_svv)     &
      result(this)
 
-    integer,             intent(in) :: po         !< polynomial order
-    character, optional, intent(in) :: basis      !< points {G,L,R} [L]
-    logical  , optional, intent(in) :: no_vdm     !< skip Vandermonde matrix [F]
-    logical  , optional, intent(in) :: svv        !< activate SVV model      [F]
-    integer  , optional, intent(in) :: po_cut_svv !< cut-off PO for SVV   [po/2]
+    integer,                intent(in) :: po     !< polynomial order
+    character(*), optional, intent(in) :: basis  !< points {G,L,RR,RL}       [L]
+    logical     , optional, intent(in) :: no_vdm !< skip Vandermonde matrix  [F]
+    logical     , optional, intent(in) :: svv    !< activate SVV model       [F]
+    integer     , optional, intent(in) :: po_cut_svv !< SVV cut-off order [po/2]
 
     type(StandardOperators_1D)       :: this
     type(StandardOperatorOptions_1D) :: opt
@@ -167,10 +176,13 @@ contains
         call Error('Init_StandardOperators_1D', 'Invalid order (po < 0)')
       else if (po == 0) then
         this%basis = 'G'
-      else if (any(basis == [ 'G', 'L', 'R' ])) then
-        this%basis = basis
       else
-        call Error('Init_StandardOperators_1D', 'Invalid basis')
+        select case(basis)
+        case('G','L','RL','RR')
+          this%basis = basis
+        case default
+          call Error('Init_StandardOperators_1D', 'Invalid basis')
+        end select
       end if
 
       ! operators available from Gauss-Jacobi module ...........................
@@ -184,27 +196,34 @@ contains
         allocate(this%w(0:0),       source = TWO)
         allocate(this%D(0:0,0:0),   source = ZERO)
 
-      else if (this%basis == 'G') then
-
-        ! Gauss-Legendre
-        allocate(this%x(0:po),      source = GaussPoints(po))
-        allocate(this%w(0:po),      source = GaussWeights(this%x))
-        allocate(this%D(0:po,0:po), source = GaussDiffMatrix(this%x))
-
-      else if (this%basis == 'L') then
-
-        ! Gauss-Lobatto-Legendre points
-        allocate(this%x(0:po),      source = LobattoPoints(po))
-        allocate(this%w(0:po),      source = LobattoWeights(this%x))
-        allocate(this%D(0:po,0:po), source = LobattoDiffMatrix(this%x))
-
       else
+        select case(this%basis)
 
-        ! Gauss-Radau-Legendre
-        allocate(this%x(0:po),      source = RadauPoints(po))
-        allocate(this%w(0:po),      source = RadauWeights(this%x))
-        allocate(this%D(0:po,0:po), source = RadauDiffMatrix(this%x))
+        case('G')
+          ! Gauss-Legendre
+          allocate(this%x(0:po),      source = GaussPoints(po))
+          allocate(this%w(0:po),      source = GaussWeights(this%x))
+          allocate(this%D(0:po,0:po), source = GaussDiffMatrix(this%x))
 
+        case('L')
+          ! Gauss-Lobatto-Legendre points
+          allocate(this%x(0:po),      source = LobattoPoints(po))
+          allocate(this%w(0:po),      source = LobattoWeights(this%x))
+          allocate(this%D(0:po,0:po), source = LobattoDiffMatrix(this%x))
+
+        case('RL')
+          ! left-sided Gauss-Radau-Legendre
+          allocate(this%x(0:po),      source = RadauPoints(po, right = .false.))
+          allocate(this%w(0:po),      source = RadauWeights(this%x))
+          allocate(this%D(0:po,0:po), source = RadauDiffMatrix(this%x))
+
+        case('RR')
+          ! right-sided Gauss-Radau-Legendre
+          allocate(this%x(0:po),      source = RadauPoints(po, right = .true.))
+          allocate(this%w(0:po),      source = RadauWeights(this%x))
+          allocate(this%D(0:po,0:po), source = RadauDiffMatrix(this%x))
+
+        end select
       end if
 
       ! stiffness matrix .......................................................
@@ -217,10 +236,11 @@ contains
       end do
       end do
 
-      ! Vandermonde matrix and its inverse .....................................
+      ! Vandermonde matrices and their inverse .................................
 
       if (.not. no_vdm .or. svv) then
         call Init_Legendre_VDM(this)
+        call Init_Bubble_VDM(this)
       end if
 
       ! SVV differentiation and stiffness matrix ...............................
@@ -300,12 +320,12 @@ contains
   !> Get the inverse Legendre-Vandermonde matrix
 
   subroutine Get_Inverse_Legendre_VDM(this, VL_inv)
-    class(StandardOperators_1D), intent(in) :: this        !< standard operators
+    class(StandardOperators_1D), intent(in) :: this       !< standard operators
     real(RNP), intent(out) :: VL_inv(0:this%po,0:this%po) !< inverse VDM matrix
 
     if (.not. allocated(this%VL_inv)) then
       call Error( 'Get_Inverse_Legendre_VDM'            &
-                , 'Vandermonde matrix not initialized' &
+                , 'Vandermonde matrix not initialized'  &
                 , 'Standard_Operators__1D'              )
     end if
 
@@ -314,11 +334,142 @@ contains
   end subroutine Get_Inverse_Legendre_VDM
 
   !-----------------------------------------------------------------------------
+  !> Get a filter matrix based on spectral cutoff in Legendre space
+  !>
+  !> The returned filter matrix removes all Legendre modes with a degree greater
+  !> than `po_cut`.
+
+  subroutine Get_Legendre_CutoffFilter(this, po_cut, A)
+    class(StandardOperators_1D), intent(in) :: this  !< standard operators
+    integer,   intent(in)  :: po_cut                 !< cutoff degree
+    real(RNP), intent(out) :: A(0:this%po,0:this%po) !< filter matrix
+
+    if (.not. this%Has_Legendre_VDM()) then
+      call Error( 'Get_Legendre_CutoffFilter'           &
+                , 'Vandermonde matrix not initialized'  &
+                , 'Standard_Operators__1D'              )
+    end if
+
+    if (po_cut >= 0 .and. po_cut <= this%po) then
+      A = matmul(this % VL(:,0:po_cut), this % VL_inv(0:po_cut,:))
+    else
+      A = ZERO
+    end if
+
+  end subroutine Get_Legendre_CutoffFilter
+
+  !-----------------------------------------------------------------------------
+  !> Intializes the Vandermonde matrix for basis with linear and bubble modes.
+
+  subroutine Init_Bubble_VDM(this)
+    class(StandardOperators_1D), intent(inout) :: this !< standard operators
+
+    real(RNP) :: x
+    integer   :: i, j, po
+
+    ! safeguard ................................................................
+
+    if (allocated(this % VB    )) deallocate(this % VB    )
+    if (allocated(this % VB_inv)) deallocate(this % VB_inv)
+
+    ! prerequisites ............................................................
+
+    po = this % po
+
+    ! Vandermonde matrix .......................................................
+
+    allocate(this % VB(0:po,0:po))
+    associate(VB => this % VB)
+      do i = 0, po
+        x = this % x(i)
+        VB(i,0) = (1 - x) / 2
+        VB(i,1) = (1 + x) / 2
+        do j = 2, po
+          VB(i,j) = ((1-x)*(1+x)/4) * JacobiPolynomial(a=ONE, b=ONE, n=j-2, x=x)
+        end do
+      end do
+    end associate
+
+    ! inverse Vandermonde matrix ...............................................
+
+    allocate(this % VB_inv(0:po,0:po), source=this%VB)
+    this % VB_inv = Inverse(this % VB)
+
+  end subroutine Init_Bubble_VDM
+
+  !-----------------------------------------------------------------------------
+  !> Query if Bubble VDM is available
+
+  logical function Has_Bubble_VDM(this) result(has)
+    class(StandardOperators_1D), intent(in) :: this    !< standard operators
+    has = allocated(this % VB)
+  end function Has_Bubble_VDM
+
+  !-----------------------------------------------------------------------------
+  !> Get the Bubble-Vandermonde matrix
+
+  subroutine Get_Bubble_VDM(this, VB)
+    class(StandardOperators_1D), intent(in) :: this   !< standard operators
+    real(RNP), intent(out) :: VB(0:this%po,0:this%po) !< Vandermonde matrix
+
+    if (.not. allocated(this % VB)) then
+      call Error( 'Get_Bubble_VDM'                     &
+                , 'Vandermonde matrix not initialized' &
+                , 'Standard_Operators__1D'             )
+    end if
+
+    VB = this % VB
+
+  end subroutine Get_Bubble_VDM
+
+  !-----------------------------------------------------------------------------
+  !> Get the inverse Bubble-Vandermonde matrix
+
+  subroutine Get_Inverse_Bubble_VDM(this, VB_inv)
+    class(StandardOperators_1D), intent(in) :: this       !< standard operators
+    real(RNP), intent(out) :: VB_inv(0:this%po,0:this%po) !< inverse VDM matrix
+
+    if (.not. allocated(this%VB_inv)) then
+      call Error( 'Get_Inverse_Bubble_VDM'              &
+                , 'Vandermonde matrix not initialized'  &
+                , 'Standard_Operators__1D'              )
+    end if
+
+    VB_inv = this % VB_inv
+
+  end subroutine Get_Inverse_Bubble_VDM
+
+  !-----------------------------------------------------------------------------
+  !> Get a filter matrix based on spectral cutoff of bubble modes
+  !>
+  !> The returned filter matrix removes all modes with a degree greater than
+  !> `po_cut`.
+
+  subroutine Get_Bubble_CutoffFilter(this, po_cut, A)
+    class(StandardOperators_1D), intent(in) :: this  !< standard operators
+    integer,   intent(in)  :: po_cut                 !< cutoff degree
+    real(RNP), intent(out) :: A(0:this%po,0:this%po) !< filter matrix
+
+    if (.not. this%Has_Bubble_VDM()) then
+      call Error( 'Get_Bubble_CutoffFilter'             &
+                , 'Vandermonde matrix not initialized'  &
+                , 'Standard_Operators__1D'              )
+    end if
+
+    if (po_cut >= 0 .and. po_cut <= this%po) then
+      A = matmul(this % VB(:,0:po_cut), this % VB_inv(0:po_cut,:))
+    else
+      A = ZERO
+    end if
+
+  end subroutine Get_Bubble_CutoffFilter
+
+  !-----------------------------------------------------------------------------
   !> Initializes SVV operators
 
   subroutine Init_SVV(this, po_cut)
     class(StandardOperators_1D), intent(inout) :: this !< standard operators
-    integer, intent(in) :: po_cut !< cut-off polynomial degree
+    integer, intent(in) :: po_cut !< cutoff polynomial degree
 
     real(RNP), allocatable :: Q_hat(:,:) ! SVV filter coefficients
 
@@ -424,7 +575,7 @@ contains
     if (.not. allocated(this % L_svv)) then
       call Error( 'Get_SVV_StandardStiffnessMatrix' &
                 , 'SVV not initialized'             &
-                , 'Standard_Operators__1D'           )
+                , 'Standard_Operators__1D'          )
     end if
 
     L_svv = this % L_svv

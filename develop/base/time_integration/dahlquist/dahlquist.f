@@ -110,7 +110,10 @@ program Dahlquist
 
   character(len=80) :: input_file = 'dahlquist'
   complex(RNP) :: z
-  real(RNP)    :: delta_c, delta_d
+  complex(RNP) :: zr_oo, lambda_r_oo
+  complex(RNP) :: zr_mm, lambda_r_mm
+  complex(RNP) :: zi_oo, lambda_i_oo
+  real(RNP)    :: c0, delta_c, delta_d, tol
   integer      :: i, j, io
 
   ! read options and parameters ................................................
@@ -126,13 +129,13 @@ program Dahlquist
   allocate(c(0:nc), d(0:nd), lambda(0:nd,0:nc), a(0:nd,0:nc), e(0:nd,0:nc))
 
   ! cfl numbers
-  delta_c = (c_max - c_min) / nc
+  delta_c = (c_max - c_min) / max(nc,1)
   do j = 0, nc
     c(j) = c_min + j * delta_c
   end do
 
   ! diffusion numbers
-  delta_d = (d_max - d_min) / nd
+  delta_d = (d_max - d_min) / max(nd,1)
   do i = 0, nd
     d(i) = d_min + i * delta_d
   end do
@@ -261,6 +264,58 @@ program Dahlquist
     write(io,*)
   end do
   close(io)
+
+  ! amplification for large |z| ................................................
+
+  write(*,*)
+  write(*,'(/,A)') '# c, |R(-c)|, |R(c)|, |R(ic)|'
+  c0 = 1
+  do i = 0, 12
+    zr_mm =  1;  lambda_r_mm = -c0
+    zr_oo =  1;  lambda_r_oo =  c0
+    zi_oo =  1;  lambda_i_oo =  c0 * (ZERO, ONE)
+    select case(sdc_method)
+    case(0) ! standalone time-integrator
+      call tint % TimeStep(lambda_r_mm, ONE, zr_mm)
+      call tint % TimeStep(lambda_r_oo, ONE, zr_oo)
+      call tint % TimeStep(lambda_i_oo, ONE, zi_oo)
+    case default ! SDC method
+      call sdc % TimeStep(lambda_r_mm, ONE, zr_mm)
+      call sdc % TimeStep(lambda_r_oo, ONE, zr_oo)
+      call sdc % TimeStep(lambda_i_oo, ONE, zi_oo)
+    end select
+    write(*,'(4(ES17.10,2X))') c0, abs(zr_mm), abs(zr_oo), abs(zi_oo)
+    c0 = c0 * 10
+  end do
+
+  ! max stable z_i for largest non-positive z_r ................................
+
+  write(*,'(/,A)') 'convective stability limit'
+
+  ! tolerance
+  tol = 1E-8_RNP
+
+  ! largest zr ≤ 0
+  do i = 0, nd
+    if (lambda(i,0) % re > tol) exit
+  end do
+  i = max(i-1, 0)
+
+  ! largest zi before |R| > 1
+  do j = 0, nc
+    if (lambda(i,j) % im < tol) cycle
+    if (a(i,j) > ONE + tol) exit
+  end do
+  j = j - 1
+  if (j >= 0) then
+    write(*,'(2X,A,ES17.10)') 'zr      = ', lambda(i,j) % re
+    write(*,'(2X,A,ES17.10)') 'zi      = ', lambda(i,j) % im
+    write(*,'(2X,A,ES17.10)') 'a(zi)   = ', a(i,j)
+    write(*,'(2X,A,ES17.10)') 'a(zi+∆) = ', a(i,min(j+1,nc))
+    write(*,'(2X,A,ES17.10)') 'tol     = ', tol
+  else
+    write(*,'(2X,A)') '.. outside range'
+  end if
 
   !=============================================================================
 

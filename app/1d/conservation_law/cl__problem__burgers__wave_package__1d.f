@@ -41,6 +41,7 @@ module CL__Problem__Burgers__Wave_Package__1D
   private
 
   public :: CL_Problem_Burgers_WavePackage_1D
+  public :: CL_Problem_Burgers_WavePackage_Options_1D
 
   !-----------------------------------------------------------------------------
   !> Type for defining and handling 1D Burgers wave package problem
@@ -48,7 +49,7 @@ module CL__Problem__Burgers__Wave_Package__1D
   type, extends(CL_Problem_Burgers_1D) :: CL_Problem_Burgers_WavePackage_1D
 
     type(HarmonicWavePackage) :: wave !< exact wave package solution
-    real(RNP) :: v = 1 !< phase speed of the wave package
+    real(RNP) :: v !< phase speed of the wave package
 
   contains
 
@@ -60,6 +61,18 @@ module CL__Problem__Burgers__Wave_Package__1D
 
   end type CL_Problem_Burgers_WavePackage_1D
 
+  !-----------------------------------------------------------------------------
+  !> 1D Burgers wave package options
+
+  type, extends(CL_Problem_Burgers_Options_1D) :: &
+      CL_Problem_Burgers_WavePackage_Options_1D
+
+    real(RNP) :: v = 1 !< phase speed of the wave package
+
+  end type CL_Problem_Burgers_WavePackage_Options_1D
+
+  !=============================================================================
+
 contains
 
   !-----------------------------------------------------------------------------
@@ -69,15 +82,18 @@ contains
     class(CL_Problem_Burgers_WavePackage_1D), intent(inout) :: this
     character(len=*), optional, intent(in) :: file !< (*.prm)
 
-    real(RNP) :: v  = 1.0
-    real(RNP) :: nu = 0.1
-    character :: bc(2) = ['D','N']
-    integer   :: nu_sd_filter = -1
-
-    namelist /burgers_wave_package_prm/ v, nu, bc, nu_sd_filter
+    type(CL_Problem_Burgers_WavePackage_Options_1D) :: opt
+    namelist /burgers_wave_package_prm/ opt
 
     logical :: exists, opened
     integer :: prm
+
+    ! preset options ...........................................................
+
+    opt % xb1 =  0
+    opt % xb2 =  1
+    opt % nu  =  0.1
+    opt % bc  = 'P'
 
     ! check for input file .....................................................
 
@@ -105,19 +121,14 @@ contains
 
     ! read and set parameters  .................................................
 
+
     read(prm, nml=burgers_wave_package_prm)
 
-    this % nc  =  1  ! number of conservation variables
-    this % xb1 =  0  ! position of left boundary
-    this % xb2 =  1  ! position of right boundary
-    this % bc  =  bc ! BC types at left and right boundaries
-    this % v   =  v  ! phase speed of the wave package
-    this % nu  =  nu ! viscosity
+    call this % Init_CL_Problem_Burgers_1D(opt)
 
-    this % nu_sd_filter = nu_sd_filter
-    this % has_exact_solution = .true.
-
+    this % v    = opt % v
     this % wave = HarmonicWavePackage(trim(file)//'.prm')
+    this % has_exact_solution = .true.
 
     if (.not. opened) close(prm)
 
@@ -170,6 +181,8 @@ contains
         call wave % Get_Amplitude(v, nu, this%xb1, t, bv(1,1))
       case('N')
         call wave % Get_SpatialDerivative(v, nu, this%xb1, t, dx_u = bv(1,1))
+      case('S')
+        call wave % Get_Amplitude(v, nu, this%xb1, ZERO, bv(1,1))
       case default
         bv(1,1) = 0
       end select
@@ -180,6 +193,8 @@ contains
         call wave % Get_Amplitude(v, nu, this%xb2, t, bv(1,2))
       case('N')
         call wave % Get_SpatialDerivative(v, nu, this%xb2, t, dx_u = bv(1,2))
+      case('S')
+        call wave % Get_Amplitude(v, nu, this%xb2, ZERO, bv(1,2))
       case default
         bv(1,2) = 0
       end select

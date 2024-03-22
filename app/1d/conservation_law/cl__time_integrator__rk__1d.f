@@ -11,9 +11,11 @@
 module CL__Time_Integrator__RK__1D
 
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
+  use, intrinsic :: IEEE_Arithmetic
 
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE
+  use Logging_Levels
   use Array_Assignments
   use IMEX_Runge_Kutta_Method
 
@@ -159,11 +161,12 @@ contains
 
       t_i = t_0
 
-      call SetArray(u_i, u_0)
+      call SetArray(u_i, u_0, multi = .true.)
 
       call cl_problem % GetBoundaryValues(t_i, bv)
       call cl_problem % GetConvectionTerm(cl_operator, bv, u_i, r_c)
-      call cl_problem % GetDiffusionTerm(cl_operator, bv, u_i, r_d)
+      call cl_problem % GetHybridDiffusionTerm &
+                            (cl_operator, 'T', ZERO, bv, u_0, u_i, r_d)
       call cl_problem % GetSources(cl_operator, t_i, u_i, f_s)
 
       do k = 1, nc
@@ -178,7 +181,7 @@ contains
       end do
       end do
 
-      if (this % impl == 0) then
+      if (this % imex_mode == 0) then
         ! explicit method: f_ex = f_ex + f_im, f_im = 0
         call MergeArrays(ONE, f_ex(:,:,:,1), ONE, f_im(:,:,:,1), multi=.true.)
         call SetArray(f_im(:,:,:,1), ZERO)
@@ -222,7 +225,7 @@ contains
 
         ! implicit part  . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-        if (this % impl == 1) then
+        if (this % imex_mode > 0) then
 
           call cl_problem % GetBoundaryValues(t_i, bv)
           call cl_problem % GetSources(cl_operator, t_i, u_i, f_s)
@@ -239,10 +242,18 @@ contains
 
         end if
 
+        ! limiting . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+        if (cl_problem % limiting_method == 1 .and. &
+            cl_problem % limiting_scope  == 2       ) then
+          call cl_problem % MomentLimiter(cl_operator, u)
+        end if
+
         ! RHS contributions  . . . . . . . . . . . . . . . . . . . . . . . . . .
 
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_i, r_c)
-        call cl_problem % GetDiffusionTerm(cl_operator, bv, u_i, r_d)
+        call cl_problem % GetHybridDiffusionTerm &
+                              (cl_operator, 'T', ZERO, bv, u_0, u_i, r_d)
 
         do k = 1, nc
         do e = 1, ne
@@ -256,7 +267,7 @@ contains
         end do
         end do
 
-        if (this % impl == 0) then
+        if (this % imex_mode == 0) then
           ! explicit method: f_ex = f_ex + f_im, f_im = 0
           call MergeArrays(ONE, f_ex(:,:,:,i), ONE, f_im(:,:,:,i), multi=.true.)
           call SetArray(f_im(:,:,:,i), ZERO)
@@ -282,6 +293,12 @@ contains
       end do
 
       call SetArray(u, u_i)
+
+      ! limiting ...............................................................
+
+      if (cl_problem % limiting_method == 1) then
+        call cl_problem % MomentLimiter(cl_operator, u)
+      end if
 
       ! finalization ...........................................................
 

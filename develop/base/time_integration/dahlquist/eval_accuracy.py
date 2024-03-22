@@ -4,6 +4,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 
+plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "Helvetica",
+    "font.size": 12
+})
+
 # name of the method
 method = "sdc_eu-eu_35"
 
@@ -37,17 +43,18 @@ fig1, ax = plt.subplots()
 diag = plt.contour( x, y, e, levels=[1.e-5], colors='red' 
                   , linestyles='-', linewidths= 0.75 ) 
 
-lines  = [ diag.collections[0] ]
-labels = [ method ]
+handles, labels = diag.legend_elements()
 
-plt.legend(lines, labels)
+labels = [r"$\varepsilon = 10^{-5}$"]
+plt.legend(handles, labels)
 
-ax.set_xlim([-0.12, 0.12])
-ax.set_ylim([ 0.00, 0.13])
+plt.xlim(left=-0.12, right=0.12)
+plt.ylim(bottom=0.00, top=0.13)
 
-plt.xlabel("Re($z_{\mathrm{s}}$)")
-plt.ylabel("Im($z_{\mathrm{s}}$)")
+plt.xlabel(r"Re($z_{\mathrm{s}}$)")
+plt.ylabel(r"Im($z_{\mathrm{s}}$)")
 
+fig1.tight_layout(rect=[0, 0.0, 1, 1.0])
 fig1.savefig("accuracy-05_"+method+".pdf")
 
 
@@ -58,17 +65,18 @@ fig2, ax = plt.subplots()
 diag = plt.contour( x, y, e, levels=[1.e-10], colors='red' 
                   , linestyles='-', linewidths= 0.75 ) 
 
-lines  = [ diag.collections[0] ]
-labels = [ method ]
+handles, labels = diag.legend_elements()
 
-plt.legend(lines, labels)
+labels = [r"$\varepsilon = 10^{-10}$"]
+plt.legend(handles, labels)
 
 ax.set_xlim([-0.012, 0.012])
 ax.set_ylim([ 0.000, 0.013])
 
-plt.xlabel("Re($z_{\mathrm{s}}$)")
-plt.ylabel("Im($z_{\mathrm{s}}$)")
+plt.xlabel(r"Re($z_{\mathrm{s}}$)")
+plt.ylabel(r"Im($z_{\mathrm{s}}$)")
 
+fig2.tight_layout(rect=[0, 0.0, 1, 1.0])
 fig2.savefig("accuracy-10_"+method+".pdf")
 
 

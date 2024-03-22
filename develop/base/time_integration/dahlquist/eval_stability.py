@@ -4,17 +4,23 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 
+plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "Helvetica",
+    "font.size": 12
+})
+
 # name of the method
 method = "sdc_eu-eu_35"
 
 # number of subintervals
-ns = 3
+ns = 4
 # standalone or predictor method stages
 sp = 2
 # standalone or corrector method stages
 sc = 2
 # number of correction sweeps
-nc = 5
+nc = 6
 
 # work units
 nw = max(ns,1) * (max(sp-1,1) + nc * max(sc-1,1))
@@ -35,23 +41,27 @@ a = np.loadtxt("amplification.dat")
 fig1, ax = plt.subplots()
 
 diag = plt.contour( x, y, a, levels=[1], colors='red' 
-                  , linestyles='-', linewidths= 0.75 ) 
+                  , linestyles='-', linewidths=0.5 ) 
 
-#diag = plt.contourf( x, y, a, levels=[0,1,10], colors=['green','yellow','red'] 
+#diag = plt.contourf( x, y, a, levels=[0,1], colors=['green','white'] 
 #                  , linestyles='-', linewidths= 0.75, extend='both' ) 
 
-lines  = [ diag.collections[0] ]
-labels = [ method ]
+handles, labels = diag.legend_elements()
 
-plt.legend(lines, labels)
+plt.axvline(0, color='grey', linewidth=0.5, linestyle='--')
 
-ax.set_xlim([-10, 2])
-ax.set_ylim([  0, 8])
+labels = [r"$|R| = 1$"]
+plt.legend(handles, labels, loc = "upper left")
 
-plt.xlabel("Re($z$)")
-plt.ylabel("Im($z$)")
+plt.xlim(left=-10, right=2)
+plt.ylim(bottom=0, top=8)
+
+plt.xlabel(r"Re($z$)")
+plt.ylabel(r"Im($z$)")
+
 #plt.grid(which='both', axis='y')
 
+fig1.tight_layout(rect=[0, 0.0, 1, 1.0])
 fig1.savefig("stability_"+method+".pdf")
 
 # scaled -----------------------------------------------------------------------
@@ -61,17 +71,20 @@ fig2, ax = plt.subplots()
 diag = plt.contour( x/nw, y/nw, a, levels=[1], colors='red' 
                   , linestyles='-', linewidths= 0.75 ) 
 
-lines  = [ diag.collections[0] ]
-labels = [ method ]
+handles, labels = diag.legend_elements()
 
-plt.legend(lines, labels)
+plt.axvline(0, color='grey', linewidth=0.5, linestyle='--')
 
-ax.set_xlim([-0.6, 0.2])
-ax.set_ylim([ 0.0, 1.6])
+labels = [r"$|R| = 1$"]
+plt.legend(handles, labels, loc = "upper left")
 
-plt.xlabel("Re($z_{\mathrm{s}}$)")
-plt.ylabel("Im($z_{\mathrm{s}}$)")
+plt.xlim(left=-0.6, right=0.2)
+plt.ylim(bottom=0.0, top=1.6)
 
+plt.xlabel(r"Re($z_{\mathrm{s}}$)")
+plt.ylabel(r"Im($z_{\mathrm{s}}$)")
+
+fig2.tight_layout(rect=[0, 0.0, 1, 1.0])
 fig2.savefig("stability-scaled_"+method+".pdf")
 
 print("ready")

@@ -48,14 +48,14 @@ contains
     !< diffusion term (np,np,np,ne,3)
 
     class(BoundaryVariable_3D), optional, intent(in) :: bv_u(:)
-    !< boundary values at final time t
+    !< boundary values
     !!   - Γᴰ :  vᵇ    in components 1:3
     !!   - Γᴼ :  τ_nn  in component    4, including penalty term
     !!
-    !! ignored at extrapolated boundaries
+    !! skipping `bv_u` yields the homogeneous operator
 
     logical, optional, intent(in) :: xout
-    !< ignore boundary values and extrapolate `∇v` [F]
+    !< extrapolate `∇v` at outflow boundaries [F]
 
     integer, optional, intent(in) :: form
     !< switch form of the approximated diffusion term `∇⋅τ`
@@ -224,9 +224,9 @@ contains
     case(RDP)
       call DispatchKernel_RDP(xmm, eop%po)
     case default
-      call Error( 'AddFluxes'                                &
-                , 'Precision not supported'                  &
-                , 'INS__Operator__3D:MP_GetDiffusionTerm_DC' )
+      call Error( 'AddFluxes'                               &
+                , 'Precision not supported'                 &
+                , 'INS__Operator__3D:MP_GetDiffusionTerm_C' )
     end select
     !$omp end single
 

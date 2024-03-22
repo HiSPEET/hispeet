@@ -73,7 +73,7 @@ contains
 
     allocate(  ts (0:ns)) ! {tᵢ}
     allocate( dts (1:ns)) ! {∆tᵢ}
-    ts (0:ns) = sdc % IntermediateTimes(t0, dt)
+    ts (0:ns) = sdc % SubintervalPoints(t0, dt)
     dts(1:ns) = ts(1:) - ts(0:ns-1)
 
     allocate(  us (0:po, 1:ne, 0:ns), source = ZERO) ! {uᵢ}

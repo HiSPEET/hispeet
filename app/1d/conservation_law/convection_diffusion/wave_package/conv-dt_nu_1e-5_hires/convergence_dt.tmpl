@@ -1,0 +1,101 @@
+&control_prm
+! log_level = 1
+! log_level_inner_iteration = 1
+! log_level_outer_iteration = 1
+/
+
+&problem_prm
+  problem_name = 'convection_diffusion__wave_package'
+/
+
+&space_discretization_prm
+  cl_operator_opt%ne          =  64
+  cl_operator_opt%eop%po      =  15
+  cl_operator_opt%eop%penalty =   2
+  cl_operator_opt%qop%po      =  15
+/
+
+&time_integration_prm
+
+  t_end = <T_END>
+  dt    = <DT>
+
+  nt_max = 1000000
+
+  time_method = <TIME_METHOD>
+  sdc_method  = <SDC_METHOD>
+
+  ! time_method = 1: Euler
+  cl_tint_euler_opt%imex_mode        =   1
+  cl_tint_euler_opt%diffusion_method =   4
+  cl_tint_euler_opt%diffusion_i_max  = 100
+
+  ! time_method = 2: ISD of order 1
+  cl_tint_isd1_opt%imex_mode         =   2
+  cl_tint_isd1_opt%diffusion_method  =   4
+  cl_tint_isd1_opt%diffusion_i_max   = 100
+  cl_tint_isd1_opt%n_stage           =   1
+! cl_tint_isd1_opt%sigma             =   0.5
+
+  ! time_method = 3: ISD of order 2
+  cl_tint_isd2_opt%imex_mode         =   2
+  cl_tint_isd2_opt%diffusion_method  =   4
+  cl_tint_isd2_opt%diffusion_i_max   = 100
+
+  ! time_method = 4: Runge-Kutta
+  cl_tint_rk_opt%imex_mode           =   1
+  cl_tint_rk_opt%n_stage             =   5
+  cl_tint_rk_opt%method              =   1
+  cl_tint_rk_opt%diffusion_method    =   4
+  cl_tint_rk_opt%diffusion_i_max     = 100
+
+  ! time_method = 5: TVD Runge-Kutta of order 3
+  ! no options required
+
+  ! sdc_method = 1: SDC based on Euler
+  cl_sdc_euler_opt%point_set         =  '<SDC_POINT_SET>'
+  cl_sdc_euler_opt%n_col             =   <SDC_N_COL>
+  cl_sdc_euler_opt%n_sweep           =   <SDC_N_SWEEP>
+! cl_sdc_euler_opt%diffusion_start   =   1
+  cl_sdc_euler_opt%diffusion_method  =   4
+  cl_sdc_euler_opt%diffusion_i_max   = 100
+
+  ! sdc_method = 2: SDC based on ISD1
+  cl_sdc_isd1_opt%point_set          =  '<SDC_POINT_SET>'
+  cl_sdc_isd1_opt%n_col              =   <SDC_N_COL>
+  cl_sdc_isd1_opt%n_sweep            =   <SDC_N_SWEEP>
+! cl_sdc_isd1_opt%diffusion_start    =   1
+  cl_sdc_isd1_opt%diffusion_method   =   4
+  cl_sdc_isd1_opt%diffusion_i_max    = 100
+  cl_sdc_isd1_opt%n_stage            =   <SDC_N_STAGE>
+! cl_sdc_isd1_opt%sigma              =   1.5
+
+/
+
+&convection_diffusion_wave_package_prm
+! opt%v  = 1
+  opt%nu = <NU>
+  opt%bc = 2*'P'
+! opt%ad_filter_method =  3    !  0
+! opt%ad_filter_basis  =  2    !  1
+! opt%ad_filter_degree =  1    !  0
+! opt%dc_diffusivity   =  1
+! opt%dc_sensor_coeff  = -4    ! -4
+! opt%dc_sensor_const  = -4    ! -4
+! opt%dc_sensor_delta  =  0.5  !  1
+! opt%dc_scaling_coeff =  0.5  !  1
+! opt%limiting_method  =  1
+! opt%limiting_scope   =  2
+/
+
+&wave_package_dim
+  nw = 7
+  lw = 1
+/
+
+&wave_package_prm
+  k = 1,    3,    5,    7,    9,    12,   15
+  a = 1.00, 1.50, 1.80, 1.70, 1.50, 1.30, 1.15
+  s = 0.00, 0.05, 0.10, 0.15, 0.20, 0.30, 0.18
+/
+

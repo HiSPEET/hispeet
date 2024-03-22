@@ -15,6 +15,7 @@ module CL__MLSDC__Level__1D
   use CL__Operator__1D
   use CL__Time_Integrator__1D
   use CL__SDC__Method__1D
+  use CL__SDC__Method__Euler__1D
   use CL__SDC__Method__ISD1__1D
 
   implicit none
@@ -28,10 +29,11 @@ module CL__MLSDC__Level__1D
     logical :: is_root  !< T if root (bottom) level mesh
     logical :: is_top   !< T if top level mesh
 
-    integer :: n_space  !< number of elements in space
     integer :: p_space  !< polynomial degree in space
-    integer :: n_time   !< number of steps in time
+    integer :: n_space  !< number of elements in space
     integer :: p_time   !< polynomial degree in time
+    integer :: m_time   !< number of subintervals per time step
+    integer :: n_time   !< number of steps in time
 
     ! discretization and solvers ...............................................
 
@@ -49,7 +51,9 @@ module CL__MLSDC__Level__1D
 
   contains
 
+    procedure :: GetTimeMesh    !< get the time mesh points
     procedure :: GetResidual    !< compute multi-step collocation residual
+    procedure :: ApplyOperator  !< application of operator
     procedure :: ApplyPredictor !< application of SDC predictor
     procedure :: ApplyCorrector !< application of SDC corrector
     procedure :: Interpolate_CF !< solution interpolation to next finer   level
@@ -68,10 +72,10 @@ module CL__MLSDC__Level__1D
 
   type, public :: CL_MLSDC_Level_Options_1D
 
-    integer :: n_space = -1 !< number of elements in space
     integer :: p_space = -1 !< polynomial degree in space
-    integer :: n_time  = -1 !< number of steps in time
+    integer :: n_space = -1 !< number of elements in space
     integer :: p_time  = -1 !< polynomial degree in time
+    integer :: n_time  = -1 !< number of steps in time
 
     type(CL_Operator_Options_1D) :: cl_operator
 
@@ -114,12 +118,24 @@ module CL__MLSDC__Level__1D
     end subroutine ApplyCorrector
 
     !---------------------------------------------------------------------------
+    !> Application of the operator
+
+    module subroutine ApplyOperator(this, dt, t_0, u, r)
+      class(CL_MLSDC_Level_1D), intent(in) :: this
+      real(RNP), intent(in)  :: dt             !< size of the time slice
+      real(RNP), intent(in)  :: t_0            !< start time of the slice
+      real(RNP), intent(in)  :: u(0:,:,:,0:,:) !< approximate solution
+      real(RNP), intent(out) :: r(0:,:,:,0:,:) !< u after operator applied
+    end subroutine ApplyOperator
+
+    !---------------------------------------------------------------------------
     !> Residual of the collocation method
 
-    module subroutine GetResidual(this, dt, t_0, u, r)
+    module subroutine GetResidual(this, dt, t_0, g, u, r)
       class(CL_MLSDC_Level_1D), intent(in) :: this !< MLSDC level
       real(RNP), intent(in)  :: dt             !< size of the time slice
       real(RNP), intent(in)  :: t_0            !< start time of the slice
+      real(RNP), intent(in)  :: g(0:,:,:,0:,:) !< FAS RHS
       real(RNP), intent(in)  :: u(0:,:,:,0:,:) !< approximate solution
       real(RNP), intent(out) :: r(0:,:,:,0:,:) !< residual
     end subroutine GetResidual
@@ -191,10 +207,10 @@ contains
     this % is_root = opt % pop_fc_x % po_c <= 0 .or. opt % pop_fc_t % po_c <= 0
     this % is_top  = opt % iop_cf_x % po_f <= 0 .or. opt % iop_cf_t % po_f <= 0
 
-    this % n_space = opt % n_space
     this % p_space = opt % p_space
-    this % n_time  = opt % n_time
+    this % n_space = opt % n_space
     this % p_time  = opt % p_time
+    this % n_time  = opt % n_time
 
     ! discretization and solvers ...............................................
 
@@ -202,9 +218,18 @@ contains
     this % cl_operator  =  CL_Operator_1D(opt % cl_operator)
 
     select type(sdc_opt => opt % cl_sdc)
+    type is(CL_SDC_Options_Euler_1D)
+      this % cl_sdc = CL_SDC_Method_Euler_1D(opt % cl_pre, sdc_opt)
     type is(CL_SDC_Options_ISD1_1D)
       this % cl_sdc = CL_SDC_Method_ISD1_1D(opt % cl_pre, sdc_opt)
     end select
+
+    this % m_time = this % cl_sdc % n_sub
+
+    ! default: all elements refined if not top
+    if (.not. this % is_top) then
+      this % cl_operator % refinement = 1
+    end if
 
     ! transfer operators .......................................................
 
@@ -219,6 +244,34 @@ contains
     end if
 
   end subroutine Init_CL_MLSDC_Level_1D
+
+  !-----------------------------------------------------------------------------
+  !> Get the time mesh points
+
+  subroutine GetTimeMesh(this, t_0, t_1, t)
+    class(CL_MLSDC_Level_1D), intent(in)  :: this
+    real(RNP),                intent(in)  :: t_0    !< start time
+    real(RNP),                intent(in)  :: t_1    !< end time
+    real(RNP), allocatable,   intent(out) :: t(:,:) !< time mesh points
+
+    real(RNP) :: dt
+    integer   :: n
+
+    associate( m_time => this % m_time &
+             , n_time => this % n_time &
+             , cl_sdc => this % cl_sdc )
+
+      allocate(t(0:m_time,1:n_time))
+
+      dt = (t_1 - t_0) / n_time
+
+      do n = 1, n_time
+        t(0:,n) = cl_sdc % SubintervalPoints(t_0 + (n-1)*dt, dt)
+      end do
+
+    end associate
+
+  end subroutine GetTimeMesh
 
   !=============================================================================
 

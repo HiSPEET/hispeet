@@ -1,0 +1,25 @@
+&problem_prm
+  problem_name = 'burgers__moving_front'
+/
+
+&discretization_prm
+! dt_slab =  0.2     ! thickness of one time slab
+  n_level =  2       ! number of space-time levels
+  n_space = 10  10
+  p_space = 11  11
+  n_time  = 10  20
+  p_time  =  7   9
+  n_sweep =  4   4
+/
+
+&component_testing_prm
+! 0 = no testing
+! 1 = testing, no visualization
+! 2 = testing with visualization
+  pro_s = 2 ! projection test switch
+  int_s = 2 ! interpolation test switch
+  crs_s = 2 ! collocation residual test switch
+  res_s = 2 ! restriction test switch
+  prd_s = 2 ! predictor test switch
+  cor_s = 2 ! corrector test switch
+/

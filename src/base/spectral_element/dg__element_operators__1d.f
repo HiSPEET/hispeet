@@ -3,6 +3,9 @@
 !> date:     2016/03/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
+!> @note
+!> This implementation supports only Lagrange elements with Lobatto nodes.
+!>
 !> @todo
 !> To make the module more transparent, large procedures should be outsourced to
 !> submodules

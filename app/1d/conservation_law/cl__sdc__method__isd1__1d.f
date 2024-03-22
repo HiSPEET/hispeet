@@ -1,9 +1,12 @@
 module CL__SDC__Method__ISD1__1D
 
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
+  use, intrinsic :: IEEE_Arithmetic
 
   use Kind_Parameters, only: RNP
-  use Constants,       only: ONE, ZERO
+  use Constants,       only: ZERO, ONE
+  use Execution_Control
+  use Logging_Levels
   use Array_Assignments
 
   use CL__Problem__1D
@@ -21,6 +24,11 @@ module CL__SDC__Method__ISD1__1D
   !> SDC method based on ISD1
 
   type, extends(CL_SDC_Method_1D) :: CL_SDC_Method_ISD1_1D
+    integer :: n_stage            !< number of corrector stages
+    integer :: diffusion_i_max_1  !< max number of iterations in stage 1
+    integer :: diffusion_i_max_2  !< max number of iterations in stage 2
+    logical :: diffusion_update_1 !< diffusivity update in stage 1
+    logical :: diffusion_update_2 !< diffusivity update in stage 2
   contains
     procedure :: Init_CL_SDC_Method_ISD1_1D
     procedure :: Show => Show_CL_SDC_Method_ISD1_1D
@@ -37,6 +45,11 @@ module CL__SDC__Method__ISD1__1D
   !> Type for providing SDC ISD1 options
 
   type, extends(CL_SDC_Options_1D) :: CL_SDC_Options_ISD1_1D
+    integer :: n_stage = 2            !< number of corrector stages {1,2}
+    integer :: diffusion_i_max_1 = -1 !< max number of iterations in stage 1
+    integer :: diffusion_i_max_2 = -1 !< max number of iterations in stage 2
+    logical :: diffusion_update_1 = .false. !< diffusivity update in stage 1
+    logical :: diffusion_update_2 = .false. !< diffusivity update in stage 2
   end type CL_SDC_Options_ISD1_1D
 
 contains
@@ -60,14 +73,36 @@ contains
   !> Initialization of a CL_SDC_Method_ISD1_1D object
 
   subroutine Init_CL_SDC_Method_ISD1_1D(this, pre_opt, sdc_opt)
-    class(CL_SDC_Method_ISD1_1D),         intent(inout) :: this
+    class(CL_SDC_Method_ISD1_1D),        intent(inout) :: this
     class(CL_TimeIntegrator_Options_1D), intent(in) :: pre_opt !< predictor opts
-    class(CL_SDC_Options_ISD1_1D),        intent(in) :: sdc_opt !< SDC options
+    class(CL_SDC_Options_ISD1_1D),       intent(in) :: sdc_opt !< SDC options
 
     ! intialize parent type
     call this % Init_CL_SDC_Method_1D(pre_opt, sdc_opt)
 
-    this % corrector_name = 'ISD method of order 1'
+    this % n_stage = sdc_opt % n_stage
+
+    if (sdc_opt % diffusion_i_max_1 >= 0) then
+      this % diffusion_i_max_1 = sdc_opt % diffusion_i_max_1
+    else
+      this % diffusion_i_max_1 = sdc_opt % diffusion_i_max
+    end if
+
+    if (sdc_opt % diffusion_i_max_2 >= 0) then
+      this % diffusion_i_max_2 = sdc_opt % diffusion_i_max_2
+    else
+      this % diffusion_i_max_2 = sdc_opt % diffusion_i_max
+    end if
+
+    this % diffusion_update_1 = sdc_opt % diffusion_update_1
+    this % diffusion_update_2 = sdc_opt % diffusion_update_2
+
+    select case(this % n_stage)
+    case(2)
+      this % corrector_name = 'ISD method of order 1 with two stages'
+    case default
+      this % corrector_name = 'ISD method of order 1 with one stage'
+    end select
 
   end subroutine Init_CL_SDC_Method_ISD1_1D
 
@@ -87,6 +122,12 @@ contains
     end if
 
     call this % Show_CL_SDC_Method_1D(unit)
+
+    write(io,*)
+    write(io,'(2X,A,T24,G0)') 'diffusion_i_max_1:',  this % diffusion_i_max_1
+    write(io,'(2X,A,T24,G0)') 'diffusion_i_max_2:',  this % diffusion_i_max_2
+    write(io,'(2X,A,T24,G0)') 'diffusion_update_1:', this % diffusion_update_1
+    write(io,'(2X,A,T24,G0)') 'diffusion_update_2:', this % diffusion_update_2
 
   end subroutine Show_CL_SDC_Method_ISD1_1D
 
@@ -111,7 +152,6 @@ contains
 
     real(RNP), allocatable, save :: r_c(:,:,:)
     real(RNP), allocatable, save :: r_d(:,:,:)
-    real(RNP), allocatable, save :: r_sd(:,:,:)
     real(RNP), allocatable, save :: bv(:,:)
 
     real(RNP), allocatable :: Me_inv(:)
@@ -126,21 +166,20 @@ contains
 
       allocate(r_c , mold = u)
       allocate(r_d , mold = u)
-      allocate(r_sd, mold = u)
       allocate(bv(nc,2))
 
       allocate(Me_inv(0:po), source = ONE / (dx/2 * eop%w))
 
-      call cl_problem % GetBoundaryValues (t, bv)
-      call cl_problem % GetConvectionTerm (cl_operator, bv, u, r_c)
-      call cl_problem % GetDiffusionTerm  (cl_operator, bv, u, r_d)
-      call cl_problem % GetSDTerm         (cl_operator, dt, bv, u_0, u, r_sd)
+      call cl_problem % GetBoundaryValues(t, bv)
+      call cl_problem % GetConvectionTerm(cl_operator, bv, u, r_c)
+      call cl_problem % GetHybridDiffusionTerm &
+                            (cl_operator, 'T', dt, bv, u_0, u, r_d)
 
       do k = 1, nc
       do e = 1, ne
         if (activity(e) > 0) then
           F_ex(:,e,k) = Me_inv * r_c(:,e,k)
-          F_im(:,e,k) = Me_inv * (r_d(:,e,k) + r_sd(:,e,k))
+          F_im(:,e,k) = Me_inv * r_d(:,e,k)
         else
           F_ex(:,e,k) = 0
           F_im(:,e,k) = 0
@@ -148,7 +187,7 @@ contains
       end do
       end do
 
-      deallocate(r_c, r_d, r_sd, bv)
+      deallocate(r_c, r_d, bv)
 
     end associate
 
@@ -191,10 +230,10 @@ contains
     real(RNP), allocatable, save :: S(:,:,:)
     real(RNP), allocatable, save :: r_c(:,:,:)
     real(RNP), allocatable, save :: r_d(:,:,:)
-    real(RNP), allocatable, save :: r_sd(:,:,:)
     real(RNP), allocatable, save :: u_0(:,:,:)
-    real(RNP), allocatable, save :: u_1(:,:,:)
+    real(RNP), allocatable, save :: u_d(:,:,:)
     real(RNP), allocatable, save :: u_i(:,:,:)
+    real(RNP), allocatable, save :: u_m(:,:,:)
     real(RNP), allocatable, save :: bv(:,:)
 
     real(RNP), allocatable :: Me_inv(:)
@@ -215,27 +254,32 @@ contains
       allocate(S(0:po,ne,nc))
       allocate(r_c , mold = S)
       allocate(r_d , mold = S)
-      allocate(r_sd, mold = S)
       allocate(u_0 , mold = S)
-      allocate(u_1 , mold = S)
+      allocate(u_d , mold = S)
       allocate(u_i , mold = S)
+      allocate(u_m , mold = S)
       allocate(bv(nc,2))
 
       allocate(Me_inv(0:po), source = ONE / (dx/2 * eop%w))
 
-      dt      =  t(n_sub) - t(0)    ! full interval length
-      dt_sub  =  t(m)     - t(m-1)  ! subinterval length
+      dt      =  t(n_sub) - t(0)         ! full interval length
+      dt_sub  =  t(m)     - t(m-1)       ! subinterval length
 
       call SetArray(u_0, u(:,:,:,m-1), multi = .true.)
-      call SetArray(u_1, u(:,:,:,m  ), multi = .true.)
 
       ! high-order quadrature ..................................................
 
       do k = 1, nc
-        ! initialize with contribution of left point (i = 0)
-        do e = 1, ne
-          S(:,e,k) = dt * w_sub(0,m) * F(:,e,k,0)
-        end do
+        select case(this % point_set)
+        case('RR')
+          ! omit left point with Radau-right
+          call SetArray(S(:,:,k), ZERO)
+        case default
+          ! initialize with contribution of left point (i = 0)
+          do e = 1, ne
+            S(:,e,k) = dt * w_sub(0,m) * F(:,e,k,0)
+          end do
+        end select
         ! add contribution of remaining points
         do i = 1, n_sub
         do e = 1, ne
@@ -244,49 +288,139 @@ contains
         end do
       end do
 
-      ! IMEX ISD1 correction ...................................................
+      ! correction stage 1: u_m = u₁ ...........................................
 
       ! intermediate solution
-      do k = 1, nc
-      do e = 1, ne
-        if (activity(e) > 0) then
-          u_i(:,e,k) = u_0(:,e,k)                       &
-                     + S  (:,e,k)                       &
-                     + dt_sub * ( F_ex_new (:,e,k,m-1)  &
-                                - F_ex     (:,e,k,m-1)  &
-                                - F_im     (:,e,k,m)    )
-          if (present(G)) then
-            u_i(:,e,k) = u_i(:,e,k) + Me_inv * (G(:,e,k,m) - G(:,e,k,m-1))
+      select case(this % diffusion_start)
+      case(1)
+        ! start from current approximation
+        do k = 1, nc
+        do e = 1, ne
+          if (activity(e) > 0) then
+            u_i(:,e,k) = u_0(:,e,k)                       &
+                       + S  (:,e,k)                       &
+                       + dt_sub * ( F_ex_new (:,e,k,m-1)  &
+                                  - F_ex     (:,e,k,m-1)  &
+                                  - F_im     (:,e,k,m)    )
+            if (present(G)) then
+              u_i(:,e,k) = u_i(:,e,k) + Me_inv * G(:,e,k,m)
+            end if
+          else
+            u_i(:,e,k) = u_0(:,e,k)
           end if
-        else
-          u_i(:,e,k) = u_0(:,e,k)
+        end do
+        end do
+        call SetArray(u_m, u(:,:,:,m), multi = .true.)
+
+      case(2)
+        ! start from extrapolated solution
+        do k = 1, nc
+        do e = 1, ne
+          if (activity(e) > 0) then
+            u_m(:,e,k) = u_0(:,e,k)                       &
+                       + S  (:,e,k)                       &
+                       + dt_sub * ( F_ex_new (:,e,k,m-1)  &
+                                  - F_ex     (:,e,k,m-1)  )
+            if (present(G)) then
+              u_m(:,e,k) = u_m(:,e,k) + Me_inv * G(:,e,k,m)
+            end if
+            u_i(:,e,k) = u_m(:,e,k) - dt_sub * F_im(:,e,k,m)
+          else
+            u_i(:,e,k) = u(:,e,k,m)
+            u_m(:,e,k) = u(:,e,k,m)
+          end if
+        end do
+        end do
+
+      end select
+
+      ! approximate solution for computing diffusivity
+      if (this % diffusion_update_1) then
+        call SetArray(u_d, u_m, multi=.true.)
+      else
+        call SetArray(u_d, u_0, multi=.true.)
+      end if
+
+      if (log_level > 0) then
+        if (any(ieee_is_nan(u_i))) then
+          call Error('DiffusionSolver', 'detected NaN in u_i @1')
         end if
-      end do
-      end do
+      end if
 
       ! implicit diffusion step
       call cl_problem % GetBoundaryValues(t(m), bv)
-      call cl_problem % DiffusionSolver( cl_operator, dt_sub, dt_sub, bv  &
-                                       , f      = u_i                     &
-                                       , u_0    = u_0                     &
-                                       , u      = u_1                     &
-                                       , method = this % diffusion_method &
-                                       , i_max  = this % diffusion_i_max  &
-                                       , r_red  = this % diffusion_r_red  &
-                                       , r_max  = this % diffusion_r_max  )
+      call cl_problem % DiffusionSolver( cl_operator, dt_sub, dt_sub, bv   &
+                                       , f      = u_i                      &
+                                       , u_0    = u_d                      &
+                                       , u      = u_m                      &
+                                       , method = this % diffusion_method  &
+                                       , i_max  = this % diffusion_i_max_1 &
+                                       , r_red  = this % diffusion_r_red   &
+                                       , r_max  = this % diffusion_r_max   )
+
+      if (this % n_stage == 2) then
+
+        ! correction stage 2: u_m = u₁ → u₂ ....................................
+
+        if (cl_problem % limiting_scope > 1) then
+          if (cl_problem % limiting_method == 1) then
+            call cl_problem % MomentLimiter(cl_operator, u_m)
+          end if
+        end if
+
+        call cl_problem % GetConvectionTerm(cl_operator, bv, u_m, r_c)
+
+        ! intermediate solution
+        do k = 1, nc
+        do e = 1, ne
+          if (activity(e) > 0) then
+            ! add approximate ∆F_ex(m) and remove ∆F_ex(m-1)
+            u_i(:,e,k) = u_i(:,e,k)                       &
+                       + dt_sub * ( Me_inv * r_c(:,e,k)   & ! + F_ex(u₁  (m  ))
+                                  - F_ex     (:,e,k,m)    & ! - F_ex(uᵏ  (m  ))
+                                  - F_ex_new (:,e,k,m-1)  & ! - F_ex(uᵏ⁺¹(m-1))
+                                  + F_ex     (:,e,k,m-1)  ) ! + F_ex(uᵏ  (m-1))
+          end if
+        end do
+        end do
+
+        ! approximate solution for computing diffusivity
+        if (this % diffusion_update_2) then
+          call SetArray(u_d, u_m, multi=.true.)
+        else
+          call SetArray(u_d, u_0, multi=.true.)
+        end if
+
+        if (log_level > 0) then
+          if (any(ieee_is_nan(u_i))) then
+            call Error('DiffusionSolver', 'detected NaN in u_i @2')
+          end if
+        end if
+
+        ! implicit diffusion step
+        call cl_problem % DiffusionSolver( cl_operator, dt_sub, dt_sub, bv   &
+                                         , f      = u_i                      &
+                                         , u_0    = u_d                      &
+                                         , u      = u_m                      &
+                                         , method = this % diffusion_method  &
+                                         , i_max  = this % diffusion_i_max_2 &
+                                         , r_red  = this % diffusion_r_red   &
+                                         , r_max  = this % diffusion_r_max   )
+
+      end if
 
       ! update solution and corrector RHS ......................................
 
-      call cl_problem % GetConvectionTerm(cl_operator, bv, u_1, r_c)
-      call cl_problem % GetDiffusionTerm (cl_operator, bv, u_1, r_d)
-      call cl_problem % GetSDTerm(cl_operator, dt_sub, bv, u_0, u_1, r_sd)
+      call cl_problem % GetConvectionTerm(cl_operator, bv, u_m, r_c)
+      call cl_problem % GetHybridDiffusionTerm &
+                            (cl_operator, 'T', dt_sub, bv, u_d, u_m, r_d)
 
       do k = 1, nc
       do e = 1, ne
         if (activity(e) > 0) then
-          u(:,e,k,m) = u_1(:,e,k)
+          u(:,e,k,m) = u_m(:,e,k)
           F_ex_new(:,e,k,m) = Me_inv * r_c(:,e,k)
-          F_im_new(:,e,k,m) = Me_inv * (r_d(:,e,k) + r_sd(:,e,k))
+          F_im_new(:,e,k,m) = Me_inv * r_d(:,e,k)
         else
           F_ex_new(:,e,k,m) = 0
           F_im_new(:,e,k,m) = 0
@@ -294,9 +428,17 @@ contains
       end do
       end do
 
+      ! limiting ...............................................................
+
+      if (cl_problem % limiting_scope > 0) then
+        if (cl_problem % limiting_method == 1) then
+          call cl_problem % MomentLimiter(cl_operator, u(:,:,:,m))
+        end if
+      end if
+
       ! clean-up ...............................................................
 
-      deallocate(S, r_c, r_d, r_sd, u_0, u_1, u_i, bv)
+      deallocate(S, r_c, r_d, u_0, u_d, u_i, u_m, bv)
 
     end associate
 

@@ -41,9 +41,10 @@ module CL__Problem__Convection_Diffusion__Wave_Package__1D
   private
 
   public :: CL_Problem_ConvectionDiffusion_WavePackage_1D
+  public :: CL_Problem_ConvectionDiffusion_WavePackage_Options_1D
 
   !-----------------------------------------------------------------------------
-  !> Type for defining and handling 1D convection-diffusion convection-diffusion problem
+  !> Type for defining and handling 1D convection-diffusion problem
 
   type, extends(CL_Problem_ConvectionDiffusion_1D) :: &
       CL_Problem_ConvectionDiffusion_WavePackage_1D
@@ -59,6 +60,15 @@ module CL__Problem__Convection_Diffusion__Wave_Package__1D
 
   end type CL_Problem_ConvectionDiffusion_WavePackage_1D
 
+  !-----------------------------------------------------------------------------
+  !> 1D convection-diffusion wave package options
+
+  type, extends(CL_Problem_ConvectionDiffusion_Options_1D) :: &
+      CL_Problem_ConvectionDiffusion_WavePackage_Options_1D
+  end type CL_Problem_ConvectionDiffusion_WavePackage_Options_1D
+
+  !=============================================================================
+
 contains
 
   !-----------------------------------------------------------------------------
@@ -68,14 +78,19 @@ contains
     class(CL_Problem_ConvectionDiffusion_WavePackage_1D), intent(inout) :: this
     character(len=*), optional, intent(in) :: file !< (*.prm)
 
-    real(RNP) :: v  = 1.0
-    real(RNP) :: nu = 0.1
-    character :: bc(2) = ['D','N']
-
-    namelist /convection_diffusion_wave_package_prm/ v, nu, bc
+    type(CL_Problem_ConvectionDiffusion_WavePackage_Options_1D) :: opt
+    namelist /convection_diffusion_wave_package_prm/ opt
 
     logical :: exists, opened
     integer :: prm
+
+    ! preset options ...........................................................
+
+    opt % xb1 =  0
+    opt % xb2 =  1
+    opt % v   =  1
+    opt % nu  =  0.1
+    opt % bc  = ['D','N']
 
     ! check for input file .....................................................
 
@@ -105,16 +120,10 @@ contains
 
     read(prm, nml=convection_diffusion_wave_package_prm)
 
-    this % nc  =  1  ! number of conservation variables
-    this % xb1 =  0  ! position of left boundary
-    this % xb2 =  1  ! position of right boundary
-    this % bc  =  bc ! BC types at left and right boundaries
-    this % v   =  v  ! phase speed of the wave package
-    this % nu  =  nu ! viscosity
-
-    this % has_exact_solution = .true.
+    call this % Init_CL_Problem_ConvectionDiffusion_1D(opt)
 
     this % wave = HarmonicWavePackage(trim(file)//'.prm')
+    this % has_exact_solution = .true.
 
     if (.not. opened) close(prm)
 
