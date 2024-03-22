@@ -24,8 +24,7 @@
 
   ! implicit streamline diffusion
   tint_opt_sd%order   = 1  ! theoretical order of convergence {1,2} [1]
-  tint_opt_sd%n_stage = 2  ! number of stages {1,2}, ignored with order 2
-! tint_opt_sd%sigma   = 1  ! ISD scaling factor
+  tint_opt_sd%n_stage = 2  ! number of stages, ignored with order 2
 
   ! Runge-Kutta
   tint_opt_rk%impl    = 1  ! 0/1/2: explicit/implicit/IMEX
@@ -39,15 +38,12 @@
   sdc_opt_eu%n_col     =  4   ! number of collocation points
   sdc_opt_eu%n_sweep   =  5   ! max number of correction sweeps
   sdc_opt_eu%impl      =  2   ! 0/1/2: explicit/implicit/IMEX
-  sdc_opt_eu%assembly  =  F   ! perform final assembly with collocation method
 
   ! SDC based on ISD
   sdc_opt_sd%point_set = 'RR' ! 'E'/'L'/'RR': equidistant/Lobatto/Radau-right
   sdc_opt_sd%n_col     =  4   ! number of collocation points
   sdc_opt_sd%n_sweep   =  6   ! max number of correction sweeps
   sdc_opt_sd%n_stage   =  2   ! 1/2 for 1- or 2-stage corrector
-! sdc_opt_sd%sigma     =  0   ! ISD scaling factor
-! sdc_opt_sd%assembly  =  F   ! perform final assembly with collocation method
 
   ! SDC based on Runge-Kutta
   sdc_opt_rk%point_set = 'E'  ! 'E'/'L'/'RR': equidistant/Lobatto/Radau-right
@@ -56,15 +52,14 @@
   sdc_opt_rk%impl      =  2   ! 0/1/2: explicit/implicit/IMEX
   sdc_opt_rk%n_stage   =  4   !< number of stages of the RK corrector
   sdc_opt_rk%method    =  2   !< RK method selector, if more than one exist
-  sdc_opt_rk%assembly  =  F   ! perform final assembly with collocation method
 
   ! test parameters ............................................................
 
   c_min =     0  ! min convective CFL number            ! for stability
-  c_max =    10  ! max convective CFL number            !
+  c_max =    20  ! max convective CFL number            !
   d_min =   -10  ! min diffusion number                 !
   d_max =    10  ! max diffusion number                 !
-  nc    =  1000  ! num intervals along imaginary axis   !
+  nc    =  2000  ! num intervals along imaginary axis   !
   nd    =  2000  ! num intervals along real axis        !
 
 ! c_min =     0  ! min convective CFL number            ! accuracy 1e-05 with
