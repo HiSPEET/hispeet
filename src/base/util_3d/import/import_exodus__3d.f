@@ -4,7 +4,8 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !> @note
-!> This version is restricted to hexahedral elements.
+!> Exodus is no longer supported. This file is kept as an example for designing
+!> similar import filters.
 !===============================================================================
 
 module Import_Exodus__3D

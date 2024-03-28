@@ -9,131 +9,132 @@
 
 module Import_GMSH__3D
   use Kind_Parameters
-  use Execution_Control   ! to throw warnings or errors
+  use Execution_Control
   use Generic_Mesh__3D
 
   implicit none
   private
 
-  public :: Import_GMSH_3D
+  public :: ImportGMSH_3D
 
   interface
 
-    module subroutine getCESpoints(v,e,s,shellOrder,p)
-      integer, intent(in)  :: shellOrder                !< shell order
-      integer, intent(in)  :: v(:), e(:), s(:)          !< points of vertices, edges, surfaces
-      integer, allocatable, intent(out) :: p(:,:,:)     !< 3D point array to be returned
-    end subroutine getCESpoints
+    !---------------------------------------------------------------------------
+    !> Maps shell vertex, edge and surface points to collocation points
+
+    module subroutine MapShellNodes(v, e, s, shellOrder, points)
+      integer, intent(in)  :: shellOrder !< shell order
+      integer, intent(in)  :: v(:)       !< vertex nodes
+      integer, intent(in)  :: e(:)       !< edge nodes without end nodes
+      integer, intent(in)  :: s(:)       !< surface nodes without boundary
+      integer, allocatable, intent(out) :: points(:,:,:) !< collocation points
+    end subroutine MapShellNodes
 
   end interface
 
+  !-----------------------------------------------------------------------------
+  !> GMSH mesh node
 
-  ! -----------------------------------------------------------------------
-  !> Typ description
-  type :: MshNode
-    integer :: nodeTag     = 0            !< node tag
-    real(RNP) :: nodeCoord(3) = 0         !< node coordinates
+  type MshNode
+    integer   :: nodeTag      = 0 !< node tag
+    real(RNP) :: nodeCoord(3) = 0 !< node coordinates
   end type MshNode
 
-  type :: MshElement
+  !-----------------------------------------------------------------------------
+  !> GMSH mesh element
+
+  type MshElement
     integer :: id          = 0            !< element id
     integer :: elementTag  = 0            !< element tag
-    integer :: vertices(8) = 0            !< hexadedral element corner vertices
-    integer, allocatable :: faces(:,:)    !< array to map vertex ids to face id
+    integer :: vertices(8) = 0            !< element vertices
+    integer, allocatable :: faces(:,:)    !< map of vertex to face IDs
     integer, allocatable :: nodes(:)      !< 1D node vector
     integer, allocatable :: points(:,:,:) !< 3D point array
   end type MshElement
 
-  type :: MshBoundary
-    character(len = 127) :: physicalName  !< boundary name
-    integer :: physicalTag = 0            !< corresponding physical tags
-    integer :: nElem       = 0            !< number of corresponding elements
+  !-----------------------------------------------------------------------------
+  !>  GMSH mesh boundary
+
+  type MshBoundary
+    character(len = 127) :: physicalName !< boundary name
+    integer :: physicalTag = 0           !< corresponding physical tags
+    integer :: nElem       = 0           !< number of corresponding elements
   end type MshBoundary
 
-  type :: MshBoundaryFace
-    integer :: id          = 0            !< numeration id
-    integer :: surfaceID   = 0            !< numeration id of corresponding surface
-    integer :: surfaceTag  = 0            !< tag of corresponding surface
-    integer :: physicalTag = 0            !< corresponding physical tags
-    integer :: nodes(4)    = 0            !< 4 corner nodes (= hexa element vertices)
-    integer :: elem_id     = 0            !< element tag
-    integer :: elem_face   = 0            !< element face
+  !-----------------------------------------------------------------------------
+  !> GMSH mesh boundary face, stored by GMSH as 2D element
+
+  type MshBoundaryFace
+    integer :: id          = 0 !< numeration id
+    integer :: surfaceID   = 0 !< numeration id of corresponding surface
+    integer :: surfaceTag  = 0 !< tag of corresponding surface
+    integer :: physicalTag = 0 !< corresponding physical tags
+    integer :: nodes(4)    = 0 !< 4 corner nodes
+    integer :: elem_id     = 0 !< element tag
+    integer :: elem_face   = 0 !< element face
   end type MshBoundaryFace
 
-
 contains
-
 
   !-----------------------------------------------------------------------------
   !> Reads the mesh from file and converts it to a GenericMesh_3D object
 
-  subroutine Import_GMSH_3D(mshfile, generic_mesh)
-    character(len=*),      intent(in)  :: mshfile       !< GMSH file (*.msh)
-    class(GenericMesh_3D), intent(out) :: generic_mesh  !< output generic mesh
+  subroutine ImportGMSH_3D(mshfile, mesh)
+    character(len=*),      intent(in)  :: mshfile !< GMSH file (*.msh)
+    class(GenericMesh_3D), intent(out) :: mesh    !< output generic mesh
 
-    ! MSH types declared above
-
-    type(MshNode),         allocatable  :: node(:)
-    type(MshElement),      allocatable  :: element(:)
-    type(MshBoundary),     allocatable  :: boundary(:)
-    type(MshBoundaryFace), allocatable  :: bface(:)
-
-
-    ! auxiliary variables ......................................................
+    type(MshNode),         allocatable :: node(:)
+    type(MshElement),      allocatable :: element(:)
+    type(MshBoundary),     allocatable :: boundary(:)
+    type(MshBoundaryFace), allocatable :: bface(:)
 
     integer :: i, io, j, k, l, m, MSH, n, param, pT, sT
     integer :: numPoints, numCurves, numSurfaces, numVolumes
-    integer :: numnodes, numElements, numVertices
+    integer :: numNodes, numElements, numVertices
     integer :: numBoundaries, numBfaces, numHexElem
     integer :: numEntityBlocks, entityDim, entityTag
-    integer :: numPhysicalNames, numPhysicalTags, physicalTag
+    integer :: numPhysicalNames, numPhysicalTags
     integer :: numNodesInBlock, numElementsInBlock
     integer :: numPeriodicLinks, entityTagMaster, nodeTagMaster
     integer :: numCorrespondingNodes, numAffine, nodeTag, maxNodeTag
-    integer :: elementType, meshOrder, numShells_total, shellOrder
-    integer :: edgecenter, np_dir, np_total
-    integer :: iv(8), mask(4), p_vert(8)
+    integer :: elementType, meshOrder, numShells, shellOrder
+    integer :: edgeCenter, np
+    integer :: mask(4), p_vert(8)
     real    :: minX, minY, minZ, maxX, maxY, maxZ
     character(len = 100) :: mshblock
 
-    integer, allocatable :: node_nodeTag(:)     !< mask to identify the node tags for efficient point coordinate mapping
-    integer, allocatable :: vertexmask(:)       !< mask to identify the element corner nodes that correspond to a vertex
+    integer, allocatable :: node_tag(:)   ! mask to identify the node tags
+    integer, allocatable :: vertex_mask(:)    ! mask to extract vertices from nodes
 
-    integer, allocatable :: boundarymap(:,:)    !< map surface ids & tags to boundary physical tag and number of elements
-    integer, allocatable :: periodicSurf(:,:)   !< array to store physical tags [...] of periodical surfaces
+    integer, allocatable :: boundaryList(:,:) ! list of boundaries surface
+    integer, allocatable :: periodicSurf(:,:) ! tags of periodical surfaces
 
-    integer, allocatable :: shellarray(:,:,:)   !< 3D array containing the node tags of a hexaedral cube shell
-    integer, allocatable :: p_shell(:)          !< vector to extract current shell node tags from element%nodes vector
-    integer, allocatable :: p_edge(:)           !< vector to extract edge node tags from p_shell vector
-    integer, allocatable :: p_surface(:)        !< vector to extract surface node tags from p_shell vector
-
-
-integer :: most_frequent, max_count, counter
+    integer, allocatable :: points(:,:,:)      !< collocation nodes
+    integer, allocatable :: p_shell(:)        !< list of shell nodes
+    integer, allocatable :: p_edge(:)         !< list of edge nodes
+    integer, allocatable :: p_face(:)         !< list of face nodes
 
     !---------------------------------------------------------------------------
     ! Read Gmsh mesh file
 
     ! open GMSH file
-    write(*,'(/,A,/)') 'Opening GMSH file '//trim(mshfile)//'.msh'
+    write(*,'(/,A,/)') 'Opening GMSH file ' // trim(mshfile)
 
     open(newunit = MSH, file = trim(mshfile)//'.msh')
 
     ! skip first three lines
     read(MSH,'(2/)')
 
-
     ! check if boundaries have been specified properly
     read(MSH,*) mshblock
     if(mshblock /= '$PhysicalNames') then
-      print *, 'Error: No boundaries specified. Program will abort'
-      stop
+      call Error('ImportGMSH_3D', 'No boundaries specified', 'Import_GMSH__3D')
     end if
-
 
     ! read $PhysicalNames block ................................................
 
     read(MSH,*) numPhysicalNames
-    numBoundaries = numPhysicalNames - 1    ! ignore volume entity
+    numBoundaries = numPhysicalNames - 1  ! ignore volume entity
     allocate(boundary(numBoundaries))
 
     do i = 1, numBoundaries
@@ -142,35 +143,31 @@ integer :: most_frequent, max_count, counter
 
     read(MSH,'(2/)')
 
-
-
     ! read $Entities block .....................................................
 
     read(MSH,*) numPoints, numCurves, numSurfaces, numVolumes
     numEntityBlocks = numPoints+numCurves+numSurfaces+numVolumes
-    allocate(boundarymap(numSurfaces,4), source = 0)
+    allocate(boundaryList(numSurfaces,4), source = 0)
 
     ! ignore points & curves
-    do i = 1, numPoints+numCurves
+    do i = 1, numPoints + numCurves
       read(MSH,*)
     end do
 
-    ! get tags of mesh boundary surfaces
+    ! tags of mesh boundary surfaces
     j = 0
     do i = 1, numSurfaces
       read(MSH,*) sT, minX, minY, minZ, &
            maxX, maxY, maxZ, numPhysicalTags, pT
       if (numPhysicalTags == 0) cycle  ! surface i is not a boundary
-      j = j+1
-      boundarymap(j,1:3) = [j, sT, pT]
+      j = j + 1
+      boundaryList(j,1:3) = [j, sT, pT]
     end do
 
     ! ignore volumes
     do i = 1, numVolumes
       read(MSH,*)
     end do
-
-
 
     ! read $Nodes block.........................................................
 
@@ -199,13 +196,11 @@ integer :: most_frequent, max_count, counter
       end if
     end do
 
-
     ! map tag to each node
-    allocate(node_nodeTag(maxNodeTag), source = -1)
+    allocate(node_tag(maxNodeTag), source = -1)
     do k = 1, numNodes
-      node_nodeTag(node(k)%nodeTag) = k
+      node_tag(node(k)%nodeTag) = k
     end do
-
 
     ! read $Elements block .....................................................
 
@@ -228,9 +223,9 @@ integer :: most_frequent, max_count, counter
         do j = 1, numElementsInBlock
           select case(entityDim)
 
-          ! 2D element faces give information about mesh boundaries
+          ! 2D element coresponds to boundary face
           case(2)
-            boundarymap(i,4) = numElementsInBlock !number of elements on each boundary surface
+            boundaryList(i,4) = numElementsInBlock ! num elements on boundary
             numBfaces = numBfaces + 1
             bface(numBfaces)%id = numBfaces
             bface(numBfaces)%surfaceTag = entityTag
@@ -241,7 +236,7 @@ integer :: most_frequent, max_count, counter
           case(3)
             numHexElem = numHexElem + 1
             element(numHexElem)%id = numHexElem
-            meshOrder = getorder(elementType)
+            meshOrder = GetMeshOrder(elementType)
             allocate(element(numHexElem)%nodes((meshOrder+1)**3))
 
             read(MSH,*) element(numHexElem)%elementTag, &
@@ -250,7 +245,6 @@ integer :: most_frequent, max_count, counter
         end do
       end if
     end do
-
 
     ! read $Periodic block .....................................................
 
@@ -276,110 +270,103 @@ integer :: most_frequent, max_count, counter
       print *, 'no periodic boundaries have been imposed'
     end if
 
-
     close(MSH)
 
-
     !---------------------------------------------------------------------------
-    !> Process Gmsh mesh data
+    ! Process Gmsh mesh data
 
-    ! perform necessary transformations ...
+    ! perform necessary transformations
     !   - identification/numbering of vertices
     !   - identification of element points
     !   - identification of boundaries
 
-    ! allocate high order points in 3D matrix for each element .................
+    ! allocate high order points in 3D array for each element .................
 
-    print *, 'reallocating high order points ...'
+    print *, 'identifying collocation points ...'
 
-    np_dir           = meshOrder+1            ! number of points per direction (edge with vertices included)
-    np_total         = np_dir**3              ! total number of points per element
-    numShells_total  = floor(meshOrder/2.)    ! total number of shells
-    edgecenter       = meshOrder/2+1          ! center point of odd edge
+    np         = meshOrder+1         ! number of nodes per direction
+    numShells  = floor(meshOrder/2.) ! number of shells
+    edgeCenter = meshOrder/2+1       ! position of center point on odd edge
 
-
-    ! map element nodes into 3D array points
+    ! map element shells into 3D array points
     do i = 1, numHexElem
-      allocate(element(i)%points(np_dir,np_dir,np_dir), source = 1)
+      allocate(element(i)%points(np,np,np), source = 1)
 
       element(i)%vertices = element(i)%nodes(1:8)
 
       if(meshOrder > 1) then
-        ! subdivide nodes vector into shells p_shell
+        ! subdivide nodes into shells
         shellOrder = meshOrder
         k = 1
         l = 0
-        do j = 1, numShells_total
-          allocate(shellarray(np_dir-l,np_dir-l,np_dir-l), source = 1)
-          allocate(p_shell(np_shell(shellOrder)))
+        do j = 1, numShells
+          allocate(points(np-l,np-l,np-l), source = 1)
+          allocate(p_shell(NumShellNodes(shellOrder)))
 
-          p_shell = element(i)%nodes(k:k+np_shell(shellOrder)-1)
+          p_shell = element(i)%nodes(k:k+NumShellNodes(shellOrder)-1)
 
-          ! subdivide p_shell into corners, edges and surfaces
+          ! subdivide nodes into vertex, edge and face nodes
           allocate(p_edge((shellOrder-1)*12), source = 1)
-          allocate(p_surface(((shellOrder-1)**2)*6), source = 1)
+          allocate(p_face(((shellOrder-1)**2)*6), source = 1)
 
-          p_vert    = p_shell(1:8)
-          p_edge    = p_shell(9:8+size(p_edge))
-          p_surface = p_shell(size(p_edge)+9:size(p_shell))
+          p_vert = p_shell(1:8)
+          p_edge = p_shell(9:8+size(p_edge))
+          p_face = p_shell(size(p_edge)+9:size(p_shell))
 
-          ! call subroutine to map the shell points on 3D shellmatrix
+          ! map the shell nodes into 3D array of collocation points
+          call MapShellNodes(p_vert,p_edge,p_face,shellOrder,points)
+          element(i)%points(j:np-(j-1),j:np-(j-1),j:np-(j-1)) = points
 
-          call getCESpoints(p_vert,p_edge,p_surface,shellOrder,shellarray)
-          element(i)%points(j:np_dir-(j-1),j:np_dir-(j-1),j:np_dir-(j-1)) = shellarray
-
-          ! prepare variables for next shell corresponding to hexaedral with order reduced by 2
-          k = k + np_shell(shellOrder)
+          ! prepare variables for next shell with order reduced by 2
+          k = k + NumShellNodes(shellOrder)
           l = l + 2
           shellOrder = shellOrder - 2
-          deallocate(p_shell,p_edge,p_surface,shellarray)
+          deallocate(p_shell ,p_edge, p_face, points)
         end do
       end if
 
-      ! map residual incomplete element points in center
+      ! map points in the element center
 
-      associate(n => element(i)%nodes, p => element(i)%points)
+      associate(n => element(i)%nodes, points => element(i)%points)
 
-      ! check if mesh order is odd or even
-      select case(mod(meshOrder,2))
-      case(0)     ! even -> one central point
-        p(edgecenter,edgecenter,edgecenter) = n(size(n))
+        ! check if mesh order is odd or even
+        select case(mod(meshOrder,2))
+        case(0) ! even -> one central point
+          points(edgeCenter,edgeCenter,edgeCenter) = n(size(n))
 
-      case(1)     ! odd  -> 8 corner points
-        p(np_dir/2+1,np_dir/2,np_dir/2)        = n(size(n) - 7)
-        p(np_dir/2+1,np_dir/2+1,np_dir/2)      = n(size(n) - 6)
-        p(np_dir/2+1,np_dir/2+1,np_dir/2+1)    = n(size(n) - 5)
-        p(np_dir/2+1,np_dir/2,np_dir/2+1)      = n(size(n) - 4)
-        p(np_dir/2,np_dir/2,np_dir/2)          = n(size(n) - 3)
-        p(np_dir/2,np_dir/2+1,np_dir/2)        = n(size(n) - 2)
-        p(np_dir/2,np_dir/2+1,np_dir/2+1)      = n(size(n) - 1)
-        p(np_dir/2,np_dir/2,np_dir/2+1)        = n(size(n))
-      end select
+        case(1) ! odd  -> 8 corner points
+          points(np/2+1,np/2,np/2)     = n(size(n) - 7)
+          points(np/2+1,np/2+1,np/2)   = n(size(n) - 6)
+          points(np/2+1,np/2+1,np/2+1) = n(size(n) - 5)
+          points(np/2+1,np/2,np/2+1)   = n(size(n) - 4)
+          points(np/2,np/2,np/2)       = n(size(n) - 3)
+          points(np/2,np/2+1,np/2)     = n(size(n) - 2)
+          points(np/2,np/2+1,np/2+1)   = n(size(n) - 1)
+          points(np/2,np/2,np/2+1)     = n(size(n)    )
+        end select
+
       end associate
 
     end do
 
-
     ! identify vertices ........................................................
 
     print *, 'identifying vertices ...'
-    allocate(vertexmask(numNodes), source = 0)
+    allocate(vertex_mask(numNodes), source = 0)
 
     ! mark element vertex nodes
     do i = 1, numHexElem
-      vertexmask(element(i)%vertices) = 1
+      vertex_mask(element(i)%vertices) = 1
     end do
 
-    ! identify mesh vertices
+    ! only choose nodes, where the vertex mask is true
     k = 0
     do i = 1, numNodes
-      if (vertexmask(i) == 0) cycle
+      if (vertex_mask(i) == 0) cycle
       k = k + 1
-      vertexmask(i) = k
+      vertex_mask(i) = k
     end do
     numVertices = k
-
-
 
     ! identify boundary elements and faces .....................................
 
@@ -390,220 +377,225 @@ integer :: most_frequent, max_count, counter
     do i = 1,numHexElem
       allocate(element(i)%faces(6,4))
       associate(v => element(i)%vertices)
-      element(i)%faces(4,:) = [v(1),v(4),v(5),v(8)] !4
-      element(i)%faces(2,:) = [v(2),v(3),v(6),v(7)] !2
-      element(i)%faces(1,:) = [v(1),v(2),v(5),v(6)] !1
-      element(i)%faces(3,:) = [v(3),v(4),v(7),v(8)] !3
-      element(i)%faces(5,:) = v(1:4) !5
-      element(i)%faces(6,:) = v(5:8) !6
+        element(i)%faces(4,:) = [v(1),v(4),v(5),v(8)]
+        element(i)%faces(2,:) = [v(2),v(3),v(6),v(7)]
+        element(i)%faces(1,:) = [v(1),v(2),v(5),v(6)]
+        element(i)%faces(3,:) = [v(3),v(4),v(7),v(8)]
+        element(i)%faces(5,:) = v(1:4)
+        element(i)%faces(6,:) = v(5:8)
       end associate
-!      print *, 'elemid:', element(i)%id, element(i)%vertices
-!        do j = 1,6
-!        print *, j, 'facenodes', element(i)%faces(j,:)
-!        end do
     end do
 
 
     ! identify elements corresponing to each boundary face .....................
 
     do i = 1,numBfaces
-!print *, bface(i)%nodes
-      do j = 1,numHexElem
-        ! check if all 4 face corners correspond to vertices of element j
-        do k = 1,4
-          do l = 1,8
-            if (bface(i)%nodes(k) == element(j)%vertices(l)) mask(k) = 1
-          end do
+    do j = 1,numHexElem
+
+      ! check if all 4 face corners correspond to vertices of element j
+      do k = 1,4
+        do l = 1,8
+          if (bface(i)%nodes(k) == element(j)%vertices(l)) mask(k) = 1
         end do
-        if(all(mask == 1)) then     ! corresponding element found
-          bface(i)%elem_id = element(j)%id
-
-          ! check which side of element is corresponding
-          do m = 1,6
-            mask(:) = 0
-            do k = 1,4
-              where (element(j)%faces(m,:) == bface(i)%nodes(k)) mask = 1
-            end do
-            if(all(mask == 1)) bface(i)%elem_face = m
-          end do
-        end if
-        mask(:) = 0
       end do
-    end do
 
+      if(all(mask == 1)) then
+        bface(i)%elem_id = element(j)%id
+
+        ! check which side of element is corresponding
+        do m = 1,6
+          mask(:) = 0
+          do k = 1,4
+            where (element(j)%faces(m,:) == bface(i)%nodes(k)) mask = 1
+          end do
+          if(all(mask == 1)) bface(i)%elem_face = m
+        end do
+      end if
+
+      mask(:) = 0
+
+    end do
+    end do
 
     ! map physical tags to boundary faces ......................................
 
     do i = 1, numBfaces
-      do j = 1, numSurfaces
-        if (boundarymap(j,1) == bface(i)%surfaceID) then
-          bface(i)%physicalTag = boundarymap(j,3)
-        end if
-      end do
+    do j = 1, numSurfaces
+      if (boundaryList(j,1) == bface(i)%surfaceID) then
+        bface(i)%physicalTag = boundaryList(j,3)
+      end if
     end do
-
+    end do
 
     ! get total number of elements on each boundary ............................
 
     do i = 1, numBoundaries
       boundary(i)%nElem = 0
       do j = 1, numSurfaces
-        if(boundary(i)%physicalTag == boundarymap(j,3)) then
-          boundary(i)%nElem = boundary(i)%nElem + boundarymap(j,4)
+        if(boundary(i)%physicalTag == boundaryList(j,3)) then
+          boundary(i)%nElem = boundary(i)%nElem + boundaryList(j,4)
         end if
       end do
     end do
 
-
-
-
     ! process periodic boundaries if specified .................................
 
-    if(io == 0) then
+    if (io == 0) then
 
       print *, 'processing periodic boundaries ...'
 
       do i = 1, numPeriodicLinks
-        ! get physical Tags of periodic surfaces
+
+        ! physical Tags of periodic surfaces
         do j = 1, numSurfaces
-          if (periodicSurf(i,1) == boundarymap(j,2)) periodicSurf(i,3) = boundarymap(j,3)
-          if (periodicSurf(i,2) == boundarymap(j,2)) periodicSurf(i,4) = boundarymap(j,3)
+          if (periodicSurf(i,1) == boundaryList(j,2)) then
+            periodicSurf(i,3) = boundaryList(j,3)
+          end if
+          if (periodicSurf(i,2) == boundaryList(j,2)) then
+            periodicSurf(i,4) = boundaryList(j,3)
+          end if
         end do
-        ! get boundary ids of periodic surfaces
+
+        ! boundary IDs of periodic surfaces
         do j = 1, numBoundaries
-          if(periodicSurf(i,3) == boundary(j)%physicalTag) periodicSurf(i,5) = j
-          if(periodicSurf(i,4) == boundary(j)%physicalTag) periodicSurf(i,6) = j
+          if(periodicSurf(i,3) == boundary(j)%physicalTag) then
+            periodicSurf(i,5) = j
+          end if
+          if(periodicSurf(i,4) == boundary(j)%physicalTag) then
+            periodicSurf(i,6) = j
+          end if
         end do
       end do
 
     end if
 
+    ! give some mesh information as display output .............................
 
-
+    write(*,'(/,A)') 'Mesh info'
+    write(*,'(2X,A,T25,G0)') 'num vertices'       , numVertices
+    write(*,'(2X,A,T25,G0)') 'num elements'       , numHexElem
+    write(*,'(2X,A,T25,G0)') 'num boundaries'     , numBoundaries
+    write(*,'(2X,A,T25,G0)') 'num boundary faces:', numBfaces
+    write(*,'(2X,A,T25,G0)') 'geometry order:'    , meshOrder
 
     !---------------------------------------------------------------------------
-    !> Create HiSPEET generic mesh
+    ! Create HiSPEET generic mesh
 
     ! create generic mesh vertices .............................................
 
-    print *, 'generating generic mesh vertices ...'
+    print *, 'creating generic mesh vertices ...'
 
-    ! map only the corner nodes of the node list which correspond to a vertex
-    allocate (generic_mesh%vertex(numVertices))
+    allocate (mesh%vertex(numVertices))
     do i = 1, numNodes
-      k = vertexmask(i)
-      if (k == 0) cycle
-        generic_mesh%vertex(k)%id = k
-        generic_mesh%vertex(k)%x  = node(i)%nodeCoord
+      k = vertex_mask(i)
+      if (k == 0) cycle ! no vertex
+        mesh%vertex(k)%id = k
+        mesh%vertex(k)%x  = node(i)%nodeCoord
     end do
-
 
     ! create generic mesh elements .............................................
 
-    print *, 'generating generic mesh elements ...'
+    print *, 'creating generic mesh elements ...'
 
     ! set rotational numbering
-    generic_mesh%numbering = ROTATIONAL_NUMBERING
+    mesh%numbering = ROTATIONAL_NUMBERING
 
-    allocate(generic_mesh%element(numHexElem))
+    allocate(mesh%element(numHexElem))
 
     do i = 1, numHexElem
+
       ! ID, type, order and basis
-      generic_mesh%element(i)%id    = element(i)%id
-      generic_mesh%element(i)%typ   = HEXAHEDRAL_ELEMENT
-      generic_mesh%element(i)%order = meshOrder
-      generic_mesh%element(i)%basis = EQUIDISTANT_NODAL_BASIS
+      mesh%element(i)%id    = element(i)%id
+      mesh%element(i)%typ   = HEXAHEDRAL_ELEMENT
+      mesh%element(i)%order = meshOrder
+      mesh%element(i)%basis = EQUIDISTANT_NODAL_BASIS
 
       ! vertices
       do k = 1,8
-      generic_mesh%element(i)%vertex(k)  = vertexmask(element(i)%vertices(k))
+        mesh%element(i)%vertex(k) = vertex_mask(element(i)%vertices(k))
       end do
 
-      ! high order points
-      allocate(generic_mesh%element(i)%x(np_total,3))
-
-      ! map 3D point array to generic mesh element following a lexical numbering
-      associate(x => generic_mesh%element(i)%x, point => element(i)%points)
-      m = 0
-      do j = np_dir,1,-1
-        do l = 1, np_dir
-          do k = 1, np_dir
-            m = m+1
-            n = node_nodeTag(point(j,k,l))
-
-            x(m,1) = node(n)%nodeCoord(1)
-            x(m,2) = node(n)%nodeCoord(2)
-            x(m,3) = node(n)%nodeCoord(3)
+      ! collocation points
+      allocate(mesh%element(i)%x(np*np*np, 3))
+      associate(x => mesh%element(i)%x, point => element(i)%points)
+        m = 0
+        do j = np,1,-1
+          do l = 1, np
+            do k = 1, np
+              m = m + 1
+              n = node_tag(point(j,k,l))
+              x(m,1) = node(n) % nodeCoord(1)
+              x(m,2) = node(n) % nodeCoord(2)
+              x(m,3) = node(n) % nodeCoord(3)
+            end do
           end do
         end do
-      end do
       end associate
 
     end do
 
-
-
     ! create generic mesh boundaries ...........................................
 
-    print *, 'generating generic mesh boundaries ...'
+    print *, 'creating generic mesh boundaries ...'
 
-    allocate(generic_mesh%boundary(numBoundaries))
+    allocate(mesh%boundary(numBoundaries))
 
+    l = 1
     do i = 1,numBoundaries
 
-      ! identifier
-      generic_mesh%boundary(i)%id = i
+      mesh%boundary(i)%id   = i
+      mesh%boundary(i)%name = boundary(i)%physicalName
 
-      ! name
-      generic_mesh%boundary(i)%name = boundary(i)%physicalName
-
-      ! create boundary faces
-      allocate(generic_mesh%boundary(i)%face(boundary(i)%nElem))
-
+      ! boundary faces
+      allocate(mesh%boundary(i)%face(boundary(i)%nElem))
       k = 0
       do j = 1,numBfaces
         if (bface(j)%physicalTag == boundary(i)%physicalTag) then
-          k = k+1
-          generic_mesh%boundary(i)%face(k)%element_id    = bface(j)%elem_id
-          generic_mesh%boundary(i)%face(k)%element_face  = bface(j)%elem_face
+          k = k + 1
+          mesh%boundary(i)%face(k)%element_id   = bface(j)%elem_id
+          mesh%boundary(i)%face(k)%element_face = bface(j)%elem_face
         end if
       end do
 
-
-      ! coupled boundaries
+      ! periodic boundaries
       if (io == 0) then
         do j = 1, numPeriodicLinks
-          if(periodicSurf(j,3) == boundary(i)%physicalTag) generic_mesh%boundary(i)%coupled = periodicSurf(j,6)
-          if(periodicSurf(j,4) == boundary(i)%physicalTag) generic_mesh%boundary(i)%coupled = periodicSurf(j,5)
+          if (periodicSurf(j,3) == boundary(i)%physicalTag) then
+            mesh%boundary(i)%coupled = periodicSurf(j,6)
+          end if
+          if (periodicSurf(j,4) == boundary(i)%physicalTag) then
+            mesh%boundary(i)%coupled = periodicSurf(j,5)
+          end if
         end do
       end if
 
+      ! map polarity for periodic boundaries
+      if (mesh%boundary(i)%coupled /= 0 .and. mesh%boundary(i)%polarity == 0) then
+        mesh%boundary(i)%polarity = l
+        mesh%boundary(mesh%boundary(i)%coupled)%polarity = -l
+        l = l + 1
+      end if
+
+      write(*,*)
+      write(*,'(2X,A,G0)') 'boundary = ', mesh%boundary(i)%id
+      write(*,'(2X,A,G0)') 'name     = ', trim(mesh%boundary(i)%name)
+      write(*,'(2X,A,G0)') 'coupled  = ', mesh%boundary(i)%coupled
+      write(*,'(2X,A,G0)') 'polarity = ', mesh%boundary(i)%polarity
+
     end do
 
-    ! enforce lexical numbering ................................................
+    ! enforce lexical numbering and generate consistent vertex IDs ..............
 
-    call generic_mesh % SwitchToLexicalNumbering()
+    call mesh % SwitchToLexicalNumbering()
+    call mesh % GenerateConsistentVertexIDs()
 
-    ! give some mesh information as display output .............................
+  end subroutine ImportGMSH_3D
 
-    write(*,*)
-    write(*,'(2X,A,I2)') 'Mesh order:', meshOrder
-    write(*,'(2X,A)') 'Mesh contains'
-    write(*,'(2X,I8,A)') numVertices,   ' vertices'
-    write(*,'(2X,I8,A)') numHexElem,    ' hexaedral elements'
-    write(*,'(2X,I8,A)') numBoundaries, ' boundaries'
-    write(*,'(2X,I8,A)') numBfaces,     ' faces on mesh boundaries'
+  !-----------------------------------------------------------------------------
+  !> Returns mesh order according to element type numbers defined by GMSH
 
-
-
-  end subroutine Import_GMSH_3D
-
-
-  !> Get mesh order: Returns mesh order according to element type numbers defined by GMSH
-
-  function getorder(elementType) result(meshOrder)
-    integer, intent (in) :: elementType         !< element type number defined by GMSH
-    integer              :: meshOrder           !< order of hexaedral mesh
+  integer function GetMeshOrder(elementType) result(meshOrder)
+    integer, intent (in) :: elementType  !< element type number defined by GMSH
 
     select case(elementType)
     case(5)
@@ -613,21 +605,20 @@ integer :: most_frequent, max_count, counter
     case(92:98)
       meshOrder = elementType - 89
     case default
-      print *, 'Element type is not supported. Program will abort ...'
-      stop
+      call Error('GetMeshOrder','Element type not supported','Import_GMSH__3D')
     end select
-  end function
 
+  end function GetMeshOrder
 
+  !-----------------------------------------------------------------------------
+  !> Returns the number of nodes per shell for a given shell order
 
-  !> Function np_shell returns number of points per shell for a given shell order
+  pure integer function NumShellNodes(shellOrder)
+    integer, intent (in) :: shellOrder !< shell order
 
-  function np_shell(shellOrder) result(npoints)
-    integer, intent (in) :: shellOrder          !< shell order
-    integer              :: npoints             !< number of points per shell
+    NumShellNodes = (shellOrder + 1)**3 - (shellOrder-1)**3
 
-    npoints = (shellOrder+1)**3 - (shellOrder-1)**3
-  end function
+  end function NumShellNodes
 
   !=============================================================================
 

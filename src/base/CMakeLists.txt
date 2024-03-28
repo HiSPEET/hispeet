@@ -19,11 +19,6 @@ if (ParMETIS_FOUND)
                          bindings/parmetis_binding.f )
 endif ()
 
-if (Exodus_FOUND)
-    list(APPEND BINDINGS bindings/exodus_wrapper.c
-                         bindings/exodus_binding.f )
-endif ()
-
 #===============================================================================
 # xmpi
 
@@ -188,7 +183,7 @@ set( UTIL_3D ${UTIL_3D}
 
 set( UTIL_3D ${UTIL_3D}
      util_3d/import/import_gmsh__3d.f
-     util_3d/import/import_gmsh__3d__mp_get_ces_points.f
+     util_3d/import/import_gmsh__3d__mp_mapshellnodes.f
    )
 
 set( UTIL_3D ${UTIL_3D}
@@ -301,7 +296,6 @@ target_include_directories(HiBase
     PRIVATE ${VTK_INCLUDE_DIRS}
             ${ParMETIS_INCLUDE_DIRS}
             ${FFTW_INCLUDE_DIRS}
-            ${Exodus_INCLUDE_DIRS}
             )
 
 target_link_libraries(HiBase
@@ -309,6 +303,5 @@ target_link_libraries(HiBase
             ${VTK_LIBRARIES}
             ${FFTW_LIBRARIES}
             ${ParMETIS_LIBRARIES}
-            ${Exodus_LIBRARIES}
             ${LIBXSMM_LIBRARIES}
             )
