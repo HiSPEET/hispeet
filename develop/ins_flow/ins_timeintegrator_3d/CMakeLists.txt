@@ -9,6 +9,8 @@ target_link_libraries(ins_timeintegrator_3d_test HiINSFlow)
 
 file( COPY
           ins_timeintegrator_3d_test.prm
+          cylinder_2d
+          hagen_poiseuille
           poiseuille
           stokes_dkm
           stokes_linke

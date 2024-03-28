@@ -254,7 +254,7 @@ program INS_TimeIntegrator_3D_Test
     call CreateAnnulus(comm, case_file, initial_mesh)
     domain_name = 'Annular domain with unstructured mesh'
   case(10)
-    call Import_GMSH_3D(raw_mesh_file, generic_mesh)
+    call ImportGMSH_3D(raw_mesh_file, generic_mesh)
     call initial_mesh % ImportGenericMesh(generic_mesh, comm)
     domain_name = raw_mesh_file
   end select
