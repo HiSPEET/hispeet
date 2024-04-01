@@ -79,6 +79,11 @@ module CL__Problem__1D
 
     logical   :: limiting_initial  !< limit initial conditions
 
+    integer   :: regularization    !< regularization method
+                                   !!   - `0` none
+                                   !!   - `1` strict
+                                   !!   - `2` weak
+
     ! automatic parameters .....................................................
 
     logical :: has_exact_solution = .false.
@@ -93,6 +98,7 @@ module CL__Problem__1D
     procedure :: GetTimeScales
 
     procedure :: MomentLimiter
+    procedure :: RegularityFilter
 
     procedure(SetProblem            ), deferred :: SetProblem
     procedure(HasDiffusion          ), deferred :: HasDiffusion
@@ -134,6 +140,8 @@ module CL__Problem__1D
     integer   :: limiting_method  =  0      !< limiting method
     integer   :: limiting_scope   =  0      !< limiting scope
     logical   :: limiting_initial = .false. !< limit initial conditions
+
+    integer   :: regularization   = 0       !< regularization method
 
   end type CL_Problem_Options_1D
 
@@ -395,6 +403,8 @@ contains
     this % limiting_scope   = opt % limiting_scope
     this % limiting_initial = opt % limiting_initial
 
+    this % regularization   = opt % regularization
+
   end subroutine Init_CL_Problem_1D
 
   !-----------------------------------------------------------------------------
@@ -520,6 +530,20 @@ contains
     end associate
 
   end subroutine GetTimeScales
+
+  !-----------------------------------------------------------------------------
+  !> Regularity filter
+
+  subroutine RegularityFilter(this, cl_operator, u)
+    class(CL_Problem_1D),  intent(in)    :: this
+    class(CL_Operator_1D), intent(in)    :: cl_operator
+    real(RNP), contiguous, intent(inout) :: u(0:,:,:)
+
+    if (this%regularization == 0 .or. cl_operator%ne > 0 .or. size(u) > 0) then
+      return
+    end if
+
+  end subroutine RegularityFilter
 
   !=============================================================================
 

@@ -52,6 +52,7 @@ module CL__Problem__CNS__1D
     procedure :: DiffusionSolver
     procedure :: GetMaxVelocity
     procedure :: GetMaxDiffusivity
+    procedure :: RegularityFilter
 
     ! CNS specific procedures ..................................................
 
@@ -81,12 +82,12 @@ module CL__Problem__CNS__1D
     real(RNP) :: prandtl =   0.750E+0_RNP !< Prandtl number
 
     ! solver options
-    integer :: n_krylov = 1 !< dimension of GMRES Krylov subspaces
-    integer :: precon   = 0 !< preconditioning method
-                            !!   - `0` none
-                            !!   - `1` Schwarz using diagonal diffusivity
-                            !!   - `2` Schwarz using PD diagonalization
-                            !!   - `3` Schwarz using SD diagonalization
+    integer :: n_krylov = 1       !< dimension of GMRES Krylov subspaces
+    integer :: precon   = 0       !< preconditioning method
+                                  !!   - `0` none
+                                  !!   - `1` Schwarz using diagonal diffusivity
+                                  !!   - `2` Schwarz using PD diagonalization
+                                  !!   - `3` Schwarz using SD diagonalization
 
   end type CL_Problem_CNS_Options_1D
 
@@ -626,6 +627,171 @@ contains
     u_m(3) = rho_m * (H_m + (this%gamma -1) * HALF * v_m * v_m) / this%gamma
 
   end function RoeAverage
+
+  !-----------------------------------------------------------------------------
+  !> Regularity filter for compressible flow
+
+  subroutine RegularityFilter(this, cl_operator, u)
+    class(CL_Problem_CNS_1D), intent(in)    :: this
+    class(CL_Operator_1D),    intent(in)    :: cl_operator
+    real(RNP), contiguous,    intent(inout) :: u(0:,:,:) !< u(0:po,1:ne,1:nc)
+
+    real(RNP), allocatable :: VL(:,:), VL_inv(:,:)
+    integer :: e, po
+
+    if (this % regularization == 0) return
+
+    associate(po => cl_operator%eop%po)
+
+      allocate(VL(0:po,0:po), VL_inv(0:po,0:po))
+      call cl_operator % eop % Get_Legendre_VDM(VL)
+      call cl_operator % eop % Get_Inverse_Legendre_VDM(VL_inv)
+
+      do e = 1, cl_operator % ne
+        if (cl_operator % activity(e) > 0) then
+          call ElementRegularityFilter(this, VL, VL_inv, u(:,e,:))
+        end if
+      end do
+
+    end associate
+
+  end subroutine RegularityFilter
+
+  !-----------------------------------------------------------------------------
+  !> Element regularity filter for compressible flow
+
+  subroutine ElementRegularityFilter(this, VL, VL_inv, u)
+    class(CL_Problem_CNS_1D), intent(in) :: this
+    real(RNP), intent(in)    :: VL(0:,0:)     !< Legendre VDM
+    real(RNP), intent(in)    :: VL_inv(0:,0:) !< inverse Legendre VDM
+    real(RNP), intent(inout) :: u(0:,:)       !< element solution
+
+    real(RNP) :: u_l(0:ubound(u,1),3)
+    real(RNP) :: d_u(0:ubound(u,1),3)
+
+    real(RNP) :: r_min = 1E3 * epsilon(ONE) ! min admissible density
+    real(RNP) :: e_min = 1E3 * epsilon(ONE) ! min admissible internal energy
+    real(RNP) :: e, r, rv
+    real(RNP) :: c1, c2(3), c3(3), cc
+    logical   :: filter(3)
+    integer   :: po
+    integer   :: i, l, n, ns, ss
+
+    po = ubound(u,1)
+
+    ! check for invalid density
+    do i = 0, po
+      if (u(i,1) < r_min) exit
+    end do
+
+    ! check for invalid internal energy
+    if (i > po) then
+      do i = 0, po
+        r = u(i,1)
+        e = (u(i,3) - HALF * u(i,2)**2 / r) / r
+        if (e < e_min) exit
+      end do
+    end if
+
+    ! return if no filtering is required
+    if (i > po) return
+
+    ! Legendre coefficients
+    u_l = matmul(VL_inv, u)
+
+    ! set initial filtered solution to average
+    do i = 1, 3
+      u(:,i) = u_l(0,i)
+    end do
+
+    ! filter and add higher degrees
+    filter = .true.
+    do l = 1, po
+
+      ! nominal contribution
+      do i = 1, 3
+        d_u(:,i) = VL(:,l) * u_l(l,i)
+      end do
+
+      ! limit density contribution
+      if (filter(1)) then
+        c1 = ONE
+        do i = 0, po
+          if (d_u(i,1) < -epsilon(ONE)) then
+            c1 = min(c1, (r_min - u(i,1))/d_u(i,1))
+          end if
+        end do
+        c1 = max(c1, ZERO)
+      else
+        c1 = ZERO
+      end if
+
+      ! initialize filter coefficients for different scenarios
+      if (filter(2)) then
+        if (filter(3)) then
+          c2 = [ ONE,   c1, ZERO ]
+          c3 = [ ONE,  ONE,  ONE ]
+          ns = 3
+        else
+          c2 = [  ONE, ZERO, ZERO ]
+          c3 = [ ZERO, ZERO, ZERO ]
+          ns = 1
+        end if
+      else if (filter(3)) then
+        c2 = [ ZERO, ZERO, ZERO ]
+        c3 = [  ONE, ZERO, ZERO ]
+        ns = 1
+      else
+        ns = 0
+      end if
+
+      ! determine energy filter coefficients for scenarios
+      if (filter(3)) then
+        do n = 1, ns
+        do i = 0, po
+          if (d_u(i,3) < -epsilon(ONE)) then
+            r  = u(i,1) + c1    * d_u(i,1)
+            rv = u(i,2) + c2(n) * d_u(i,2)
+            c3(n) = min(c3(n), (r*e_min + HALF*rv*rv/r)/d_u(i,3) - u(i,3))
+          end if
+        end do
+        end do
+      end if
+
+      ! select scenario with largest admissible coefficients
+      cc = 0
+      ss = 0
+      do n = 1, ns
+        if (c3(n) < ZERO) cycle
+        if (c2(n)**2 + c3(n)**2 > cc) then
+          cc = c2(n)**2 + c3(n)**2
+          ss = n
+        end if
+      end do
+
+      filter(1) = c1 > ZERO
+      if (ss > 0) then
+        filter(2) = c2(ss) > ZERO
+        filter(3) = c3(ss) > ZERO
+      else
+        filter(2) = .false.
+        filter(3) = .false.
+      end if
+
+      if (this % regularization == 1) then
+        ! strict regularization
+        filter = all(filter)
+      end if
+
+      if (filter(1))  u(i,1) = u(i,1) + c1     * d_u(i,1)
+      if (filter(2))  u(i,2) = u(i,2) + c2(ss) * d_u(i,2)
+      if (filter(3))  u(i,3) = u(i,3) + c3(ss) * d_u(i,3)
+
+      if (.not. any(filter)) exit
+
+    end do
+
+  end subroutine ElementRegularityFilter
 
   !=============================================================================
 
