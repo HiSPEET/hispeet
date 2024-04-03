@@ -279,6 +279,35 @@ subroutine Init_IMEX_RK_Method(this, ns, method)
       a_ex(4,2) = 3._RHP / 4._RHP
       a_ex(4,3) = 1._RHP / 4._RHP
 
+   case(3)
+
+      this % name = 'CN/RKW3 (Cavaglieri & Bewley, JCP 286, 2015)'
+      this % order = 2
+
+      c(2) =  8._RHP / 15._RHP
+      c(3) =  2._RHP /  3._RHP
+      c(4) =  1._RHP
+
+      b_im(1) = 4._RHP / 15._RHP
+      b_im(2) = 1._RHP /  3._RHP
+      b_im(3) = 7._RHP / 30._RHP
+      b_im(4) = 1._RHP /  6._RHP
+
+      b_ex = b_im
+
+      a_im(2,1) = 4._RHP / 15._RHP
+      a_im(2,2) = 4._RHP / 15._RHP
+      a_im(3,1) = 4._RHP / 15._RHP
+      a_im(3,2) = 1._RHP /  3._RHP
+      a_im(3,3) = 1._RHP / 15._RHP
+      a_im(4,:) = b_im
+
+      a_ex(2,1) = 8._RHP / 15._RHP
+      a_ex(3,1) = 1._RHP /  4._RHP
+      a_ex(3,2) = 5._RHP / 12._RHP
+      a_ex(4,1) = 1._RHP /  4._RHP
+      a_ex(4,3) = 3._RHP /  4._RHP
+
     case default
 
       call Error( 'Init_IMEX_RK_Method',            &
