@@ -367,58 +367,58 @@ contains
         call cl_problem % RegularityFilter(cl_operator, u_m)
 
 !### CHECK
-if (any(u_m(:,:,1) < 0) .or. &
-    any(u_m(:,:,3) - u_m(:,:,2)**2/(2*max(u_m(:,:,1),epsilon(ONE))) < 0)) then
-  block
-    integer :: io
-    real(RNP) :: rho, rho_v, rho_et, rho_ei, rho_ek, ek, ei
-    open(newunit=io, file='u_m1.dat')
-    write(io,'(A)') '# x, rho, rho_v, rho_et, rho_ei, ek, ei'
-    do k = 1, ne
-    do i = 0, po
-      rho    = u_m(i,k,1)
-      rho_v  = u_m(i,k,2)
-      rho_et = u_m(i,k,3)
-      if (abs(rho) > epsilon(ONE)) then
-        rho_ek = rho_v * rho_v / (2 * rho)
-        rho_ei = rho_et - rho_ek
-        ek     = rho_ek / rho
-        ei     = rho_ei / rho
-      else
-        rho_ei = -huge(ONE)
-        ek     = -huge(ONE)
-        ei     = -huge(ONE)
-      end if
-      write(io,'(99(ES17.9E3,1X))') cl_operator % x(i,k), rho, rho_v, rho_et, rho_ei, ek, ei
-    end do
-    end do
-    close(io)
-    call cl_problem % RegularityFilter(cl_operator, u_m)
-    open(newunit=io, file='u_mf.dat')
-    write(io,'(A)') '# x, rho, rho_v, rho_et, rho_ei, ek, ei'
-    do k = 1, ne
-    do i = 0, po
-      rho    = u_m(i,k,1)
-      rho_v  = u_m(i,k,2)
-      rho_et = u_m(i,k,3)
-      if (abs(rho) > epsilon(ONE)) then
-        rho_ek = rho_v * rho_v / (2 * rho)
-        rho_ei = rho_et - rho_ek
-        ek     = rho_ek / rho
-        ei     = rho_ei / rho
-      else
-        rho_ei = -huge(ONE)
-        ek     = -huge(ONE)
-        ei     = -huge(ONE)
-      end if
-      write(io,'(99(ES17.9E3,1X))') cl_operator % x(i,k), rho, rho_v, rho_et, rho_ei, ek, ei
-    end do
-    end do
-    close(io)
-  end block
-! call Warning('DiffusionSolver', 'u_m invalid')
-  call Error('DiffusionSolver', 'u_m invalid')
-end if
+!if (any(u_m(:,:,1) < 0) .or. &
+!    any(u_m(:,:,3) - u_m(:,:,2)**2/(2*max(u_m(:,:,1),epsilon(ONE))) < 0)) then
+!  block
+!    integer :: io
+!    real(RNP) :: rho, rho_v, rho_et, rho_ei, rho_ek, ek, ei
+!    open(newunit=io, file='u_m1.dat')
+!    write(io,'(A)') '# x, rho, rho_v, rho_et, rho_ei, ek, ei'
+!    do k = 1, ne
+!    do i = 0, po
+!      rho    = u_m(i,k,1)
+!      rho_v  = u_m(i,k,2)
+!      rho_et = u_m(i,k,3)
+!      if (abs(rho) > epsilon(ONE)) then
+!        rho_ek = rho_v * rho_v / (2 * rho)
+!        rho_ei = rho_et - rho_ek
+!        ek     = rho_ek / rho
+!        ei     = rho_ei / rho
+!      else
+!        rho_ei = -huge(ONE)
+!        ek     = -huge(ONE)
+!        ei     = -huge(ONE)
+!      end if
+!      write(io,'(99(ES17.9E3,1X))') cl_operator % x(i,k), rho, rho_v, rho_et, rho_ei, ek, ei
+!    end do
+!    end do
+!    close(io)
+!    call cl_problem % RegularityFilter(cl_operator, u_m)
+!    open(newunit=io, file='u_mf.dat')
+!    write(io,'(A)') '# x, rho, rho_v, rho_et, rho_ei, ek, ei'
+!    do k = 1, ne
+!    do i = 0, po
+!      rho    = u_m(i,k,1)
+!      rho_v  = u_m(i,k,2)
+!      rho_et = u_m(i,k,3)
+!      if (abs(rho) > epsilon(ONE)) then
+!        rho_ek = rho_v * rho_v / (2 * rho)
+!        rho_ei = rho_et - rho_ek
+!        ek     = rho_ek / rho
+!        ei     = rho_ei / rho
+!      else
+!        rho_ei = -huge(ONE)
+!        ek     = -huge(ONE)
+!        ei     = -huge(ONE)
+!      end if
+!      write(io,'(99(ES17.9E3,1X))') cl_operator % x(i,k), rho, rho_v, rho_et, rho_ei, ek, ei
+!    end do
+!    end do
+!    close(io)
+!  end block
+!! call Warning('DiffusionSolver', 'u_m invalid')
+!  call Error('DiffusionSolver', 'u_m invalid')
+!end if
 !### CHECK END
 
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_m, r_c)

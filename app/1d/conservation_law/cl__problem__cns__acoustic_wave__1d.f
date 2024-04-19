@@ -42,10 +42,10 @@ module CL__Problem__CNS__Acoustic_Wave__1D
   type, extends(CL_Problem_CNS_Options_1D) :: &
       CL_Problem_CNS_AcousticWave_Options_1D
 
-    real(RNP) :: mach = 1E-1_RNP !< mean flow Mach number
+    real(RNP) :: mach = 1E-1_RNP !< mean flow Mach number, v₀/a₀
     real(RNP) :: p_0  = 1E+3_RNP !< mean pressure
     real(RNP) :: T_0  = 3E+2_RNP !< mean temperature
-    real(RNP) :: c_w  = 1E-3_RNP !< wave amplitude
+    real(RNP) :: c_w  = 1E-2_RNP !< fluctuation Mach number, v'/a₀
     integer   :: k_w  = 1        !< wave number
 
   end type CL_Problem_CNS_AcousticWave_Options_1D
@@ -133,13 +133,13 @@ contains
 
       a = sqrt(gamma * r_gas * T_0)
       r = a * 2 / (gamma - 1)
-      c = a * this % c_w / 2
+      c = a * this % c_w * 2
       v = a * this % mach
       s = c_p * log(T_0) - r_gas * log(p_0)
 
       do e = 1, ne
       do i = 0, po
-        w    = c * (1 - cos(kappa * x(i,e)))
+        w    = c * sin(kappa * x(i,e))
         z(1) = r - v
         z(2) = s
         z(3) = r + v + w
