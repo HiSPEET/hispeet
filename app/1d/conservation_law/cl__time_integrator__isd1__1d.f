@@ -7,9 +7,12 @@
 module CL__Time_Integrator__ISD1__1D
 
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
+  use, intrinsic :: IEEE_Arithmetic
 
   use Kind_Parameters, only: RNP
   use Constants,       only: ZERO, ONE
+  use Execution_Control
+  use Logging_Levels
   use Array_Assignments
 
   use CL__Problem__1D
@@ -259,6 +262,14 @@ contains
             call cl_problem % MomentLimiter(cl_operator, u)
           end if
 
+          if (log_level > 0) then
+            if (any(ieee_is_nan(u))) then
+              call Warning( 'TimeStep' &
+                          , 'detected NaN in u @1' &
+                          , 'CL__Time_Integrator__ISD1__1D')
+            end if
+          end if
+
           call cl_problem % GetConvectionTerm(cl_operator, bv, u, r_c)
 
           if (this % imex_mode == 2) then
@@ -307,10 +318,18 @@ contains
 
       end select
 
-      ! limiting ...............................................................
+      ! limiting and regularization ............................................
 
       if (cl_problem % limiting_method == 1) then
         call cl_problem % MomentLimiter(cl_operator, u)
+      end if
+
+      if (log_level > 0) then
+        if (any(ieee_is_nan(u))) then
+          call Warning( 'TimeStep' &
+                      , 'detected NaN in u @X' &
+                      , 'CL__Time_Integrator__ISD1__1D')
+        end if
       end if
 
       ! finalization ...........................................................

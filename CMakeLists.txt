@@ -69,18 +69,6 @@ if (NOT MPI_Fortran_HAVE_F08_MODULE)
     message(FATAL_ERROR "MPI does not have MPI_F08 module")
 endif ()
 
-#-------------------------------------------------------------------------------
-# External libraries and utilities
-
-find_package(LAPACK REQUIRED)
-find_package(VTK REQUIRED COMPONENTS IOXML)
-#old# find_package(VTK REQUIRED COMPONENTS vtkIOXML)
-find_package(PythonInterp 3 REQUIRED)
-find_package(Slurm)
-find_package(FFTW)
-find_package(ParMETIS)
-find_package(pFUnit QUIET)
-
 #===============================================================================
 # Flags
 
@@ -164,9 +152,35 @@ elseif (NOT SKIP_LIBXSMM)
 endif (OpenMP)
 
 #===============================================================================
-# External libraries
+# External libraries and utilities
+
+#-------------------------------------------------------------------------------
+# BLAS and LAPACK
+
+if (NOT CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+    find_package(BLAS REQUIRED)
+    find_package(LAPACK REQUIRED)
+    set(LAPACK_LIBRARIES ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+    message(STATUS "Found LAPACK libraries: ${LAPACK_LIBRARIES}") 
+endif ()
+
+#-------------------------------------------------------------------------------
+# VTK XML export
+
+find_package(VTK REQUIRED COMPONENTS IOXML)
+
+#-------------------------------------------------------------------------------
+# LIBXSMM
 
 include(external/cmake/libxsmm.cmake)
+
+#-------------------------------------------------------------------------------
+# FFTW, ParMeTiS, ppFUnit, SLURM
+
+find_package(FFTW)
+find_package(ParMETIS)
+find_package(pFUnit QUIET)
+find_package(Slurm QUIET)
 
 #===============================================================================
 # Subprojects

@@ -250,17 +250,15 @@ program Conservation_Law_1L
 
   write(*,*)
   write(*,'(A)') 'Time integration'
-  write(*,'(A)') repeat('=',80)
+  write(*,'(A,/)') repeat('=',80)
+  write(*,'(2X,A,ES12.5)') 'dt  =' , dt
+  write(*,'(2X,A,I0)')     'nt  = ', nt
   write(*,*)
 
   ! CFL and diffusion numbers
   call cl_problem % GetTimeScales(cl_operator, u, tau_conv, tau_diff)
-  if (tau_conv > 0) then
-    write(*,'(2X,A,ES12.5)') 'c_conv =', dt / tau_conv
-  end if
-  if (tau_diff > 0) then
-    write(*,'(2X,A,ES12.5)') 'c_diff =', dt / tau_diff
-  end if
+  if (tau_conv > 0) write(*,'(2X,A,ES12.5)') 'c_conv =', dt/tau_conv
+  if (tau_diff > 0) write(*,'(2X,A,ES12.5)') 'c_diff =', dt/tau_diff
   write(*,*)
 
   t = 0
@@ -285,12 +283,23 @@ program Conservation_Law_1L
 
     if (10 * t >= k * t_end) then
       write(*,'(2X,I3,"%")') 10*k
+      if (k == 5) then
+        call cl_problem % GetTimeScales(cl_operator, u, tau_conv, tau_diff)
+        if (tau_conv > 0) write(*,'(2X,A,ES12.5)') 'c_conv =', dt/tau_conv
+        if (tau_diff > 0) write(*,'(2X,A,ES12.5)') 'c_diff =', dt/tau_diff
+        write(*,*)
+      end if
       k = k + 1
     end if
 
   end do
 
   call cpu_time(t_run)
+
+  call cl_problem % GetTimeScales(cl_operator, u, tau_conv, tau_diff)
+  if (tau_conv > 0) write(*,'(2X,A,ES12.5)') 'c_conv =', dt/tau_conv
+  if (tau_diff > 0) write(*,'(2X,A,ES12.5)') 'c_diff =', dt/tau_diff
+  write(*,*)
 
   ! evaluation and output of results ...........................................
 

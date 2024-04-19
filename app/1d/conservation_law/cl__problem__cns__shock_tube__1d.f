@@ -43,10 +43,10 @@ module CL__Problem__CNS__Shock_Tube__1D
   type, extends(CL_Problem_CNS_Options_1D) :: &
       CL_Problem_CNS_ShockTube_Options_1D
 
-    real(RNP) :: x_m   = 0         !< initial shock position
-    real(RNP) :: p_l   = 1E+5_RNP  !< pressure left of shock
-    real(RNP) :: p_r   = 1E+4_RNP  !< pressure right of shock
-    real(RNP) :: rho_l = 1         !< density right of shock
+    real(RNP) :: x_m   = 0.500_RNP !< initial shock position
+    real(RNP) :: p_l   = 1.000_RNP !< pressure left of shock
+    real(RNP) :: p_r   = 0.100_RNP !< pressure right of shock
+    real(RNP) :: rho_l = 1.000_RNP !< density right of shock
     real(RNP) :: rho_r = 0.125_RNP !< density left of shock
 
   end type CL_Problem_CNS_ShockTube_Options_1D
@@ -68,8 +68,8 @@ contains
 
     ! preset options ...........................................................
 
-    opt % xb1 = -4
-    opt % xb2 =  6
+    opt % xb1 =  0
+    opt % xb2 =  1
     opt % bc  = 'S'
 
     ! check for input file .....................................................

@@ -18,19 +18,18 @@
 &time_integration_prm
 
   t_end  = 6.1e-3
-! dt     = 3.062606e-6  ! cfl =  0.0625
-! dt     = 6.125212e-6  ! cfl =  0.125
-  dt     = 1.225042e-5  ! cfl =  0.25
-! dt     = 2.450085e-5  ! cfl =  0.5
-! dt     = 4.900170e-5  ! cfl =  1
-! dt     = 9.800340e-5  ! cfl =  2
-! dt     = 1.470048e-4  ! cfl =  3
-! dt     = 1.960060e-4  ! cfl =  4
-! dt     = 3.920136e-4  ! cfl =  8
-! dt     = 7.840272e-4  ! cfl = 16
+! dt     = 5.2150e-6  ! 1170 steps, CFL ≈  0.02  max dt with TVD-RK3
+! dt     = 1.9062e-5  !  320 steps, CFL ≈  0.72
+! dt     = 3.8125e-5  !  160 steps, CFL ≈  1.44
+! dt     = 7.6250e-5  !   80 steps, CFL ≈  2.88
+! dt     = 1.5250e-4  !   40 steps, CFL ≈  5.77
+  dt     = 3.0500e-4  !   20 steps, CFL ≈ 11.54
+! dt     = 4.0667e-4  !   15 steps, CFL ≈ 15.42
+
+  adjust_dt = T
   nt_max = 100000
 
-  time_method = 4
+  time_method = 5
   sdc_method  = 0
 
   ! time_method = 1: Euler
@@ -41,8 +40,9 @@
   ! time_method = 2: ISD of order 1
   cl_tint_isd1_opt%imex_mode         =    1
   cl_tint_isd1_opt%diffusion_method  =    4
-  cl_tint_isd1_opt%diffusion_i_max   =  100
+  cl_tint_isd1_opt%diffusion_i_max   =  200
 ! cl_tint_isd1_opt%n_stage           =    2
+  cl_tint_isd1_opt%diffusion_update  =    T
 
   ! time_method = 3: ISD of order 2
   cl_tint_isd2_opt%imex_mode         =    1
@@ -56,6 +56,8 @@
   cl_tint_rk_opt%diffusion_method    =    4
   cl_tint_rk_opt%diffusion_i_max     =  100
 
+  ! time_method = 5: TVD-RK3, no options
+
   ! sdc_method = 1: SDC based on Euler
   cl_sdc_euler_opt%point_set         =   'L'
   cl_sdc_euler_opt%n_col             =    1
@@ -66,12 +68,14 @@
 
   ! sdc_method = 2: SDC based on ISD1
   cl_sdc_isd1_opt%point_set          =  'RR'
-  cl_sdc_isd1_opt%n_col              =    2
-  cl_sdc_isd1_opt%n_sweep            =    2
-! cl_sdc_isd1_opt%diffusion_start    =   1
+  cl_sdc_isd1_opt%n_col              =    6
+  cl_sdc_isd1_opt%n_sweep            =   10
+! cl_sdc_isd1_opt%diffusion_start    =    1
   cl_sdc_isd1_opt%diffusion_method   =    4
-  cl_sdc_isd1_opt%diffusion_i_max    =  400
+  cl_sdc_isd1_opt%diffusion_i_max    =  200
 ! cl_sdc_isd1_opt%n_stage            =    2
+  cl_sdc_isd1_opt%diffusion_update_1 =    T
+  cl_sdc_isd1_opt%diffusion_update_2 =    T
 
 /
 
@@ -82,10 +86,11 @@
   opt%ad_filter_degree =  0    !  0
   opt%dc_diffusivity   =  1
 ! opt%dc_sensor_var    =  2    !  1
-! opt%dc_sensor_coeff  = -4    ! -4
-! opt%dc_sensor_const  = -4    ! -4
-  opt%dc_sensor_delta  =  0.5  !  1  --> 0.5  sharper resolution, less stable?
-  opt%dc_scaling_coeff =  0.5  !  1  --> 0.5  sharper resolution, less stable?
+  opt%dc_sensor_coeff  = -4    ! -4
+  opt%dc_sensor_const  = -4    ! -4
+  opt%dc_sensor_delta  =  6    !  1  --> 0.5  sharper resolution, less stable?
+  opt%dc_scaling_coeff =  0.4  !  1  --> 0.5  sharper resolution, less stable?
 ! opt%limiting_method  =  1
 ! opt%limiting_scope   =  2
+! opt%regularization   =  1
 /

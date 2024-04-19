@@ -334,17 +334,13 @@ contains
 
       end select
 
+      call cl_problem % RegularityFilter(cl_operator, u_m)
+
       ! approximate solution for computing diffusivity
       if (this % diffusion_update_1) then
         call SetArray(u_d, u_m, multi=.true.)
       else
         call SetArray(u_d, u_0, multi=.true.)
-      end if
-
-      if (log_level > 0) then
-        if (any(ieee_is_nan(u_i))) then
-          call Error('DiffusionSolver', 'detected NaN in u_i @1')
-        end if
       end if
 
       ! implicit diffusion step
@@ -367,6 +363,63 @@ contains
             call cl_problem % MomentLimiter(cl_operator, u_m)
           end if
         end if
+
+        call cl_problem % RegularityFilter(cl_operator, u_m)
+
+!### CHECK
+!if (any(u_m(:,:,1) < 0) .or. &
+!    any(u_m(:,:,3) - u_m(:,:,2)**2/(2*max(u_m(:,:,1),epsilon(ONE))) < 0)) then
+!  block
+!    integer :: io
+!    real(RNP) :: rho, rho_v, rho_et, rho_ei, rho_ek, ek, ei
+!    open(newunit=io, file='u_m1.dat')
+!    write(io,'(A)') '# x, rho, rho_v, rho_et, rho_ei, ek, ei'
+!    do k = 1, ne
+!    do i = 0, po
+!      rho    = u_m(i,k,1)
+!      rho_v  = u_m(i,k,2)
+!      rho_et = u_m(i,k,3)
+!      if (abs(rho) > epsilon(ONE)) then
+!        rho_ek = rho_v * rho_v / (2 * rho)
+!        rho_ei = rho_et - rho_ek
+!        ek     = rho_ek / rho
+!        ei     = rho_ei / rho
+!      else
+!        rho_ei = -huge(ONE)
+!        ek     = -huge(ONE)
+!        ei     = -huge(ONE)
+!      end if
+!      write(io,'(99(ES17.9E3,1X))') cl_operator % x(i,k), rho, rho_v, rho_et, rho_ei, ek, ei
+!    end do
+!    end do
+!    close(io)
+!    call cl_problem % RegularityFilter(cl_operator, u_m)
+!    open(newunit=io, file='u_mf.dat')
+!    write(io,'(A)') '# x, rho, rho_v, rho_et, rho_ei, ek, ei'
+!    do k = 1, ne
+!    do i = 0, po
+!      rho    = u_m(i,k,1)
+!      rho_v  = u_m(i,k,2)
+!      rho_et = u_m(i,k,3)
+!      if (abs(rho) > epsilon(ONE)) then
+!        rho_ek = rho_v * rho_v / (2 * rho)
+!        rho_ei = rho_et - rho_ek
+!        ek     = rho_ek / rho
+!        ei     = rho_ei / rho
+!      else
+!        rho_ei = -huge(ONE)
+!        ek     = -huge(ONE)
+!        ei     = -huge(ONE)
+!      end if
+!      write(io,'(99(ES17.9E3,1X))') cl_operator % x(i,k), rho, rho_v, rho_et, rho_ei, ek, ei
+!    end do
+!    end do
+!    close(io)
+!  end block
+!! call Warning('DiffusionSolver', 'u_m invalid')
+!  call Error('DiffusionSolver', 'u_m invalid')
+!end if
+!### CHECK END
 
         call cl_problem % GetConvectionTerm(cl_operator, bv, u_m, r_c)
 
@@ -393,6 +446,16 @@ contains
 
         if (log_level > 0) then
           if (any(ieee_is_nan(u_i))) then
+!### CHECK
+write(*,'(99(G0,X))') 'any(ieee_is_nan(r_c))       =',any(ieee_is_nan(r_c))
+write(*,'(99(G0,X))') 'any(ieee_is_nan(S))         =',any(ieee_is_nan(S))
+write(*,'(99(G0,X))') 'any(ieee_is_nan(F_ex_new))  =',any(ieee_is_nan(F_ex_new(:,:,:,m-1)))
+write(*,'(99(G0,X))') 'any(ieee_is_nan(F_ex(m-1))) =',any(ieee_is_nan(F_ex(:,:,:,m-1)))
+write(*,'(99(G0,X))') 'any(ieee_is_nan(F_ex(m)))   =',any(ieee_is_nan(F_ex(:,:,:,m)))
+write(*,'(99(G0,X))') 'any(ieee_is_nan(u_m))       =',any(ieee_is_nan(u_m))
+write(*,'(99(G0,X))') 'minval(rho_m) =',minval(u_m(:,:,1))
+write(*,'(99(G0,X))') 'minval(e_m)   =',minval((u_m(:,:,3) - u_m(:,:,3)**2/(2*max(u_m(:,:,1),epsilon(ONE))))/u_m(:,:,1))
+!### CHECK END
             call Error('DiffusionSolver', 'detected NaN in u_i @2')
           end if
         end if
@@ -407,6 +470,24 @@ contains
                                          , r_red  = this % diffusion_r_red   &
                                          , r_max  = this % diffusion_r_max   )
 
+      end if
+
+      ! limiting and regularization ............................................
+
+      if (cl_problem % limiting_scope > 0) then
+        if (cl_problem % limiting_method == 1) then
+          call cl_problem % MomentLimiter(cl_operator, u_m)
+        end if
+      end if
+
+      call cl_problem % RegularityFilter(cl_operator, u_m)
+
+      if (log_level > 0) then
+        if (any(ieee_is_nan(u_m))) then
+          call Warning( 'CorrectorStep' &
+                      , 'detected NaN in u @X' &
+                      , 'CL__SDC__Method__ISD1__1D')
+        end if
       end if
 
       ! update solution and corrector RHS ......................................
@@ -427,14 +508,6 @@ contains
         end if
       end do
       end do
-
-      ! limiting ...............................................................
-
-      if (cl_problem % limiting_scope > 0) then
-        if (cl_problem % limiting_method == 1) then
-          call cl_problem % MomentLimiter(cl_operator, u(:,:,:,m))
-        end if
-      end if
 
       ! clean-up ...............................................................
 
