@@ -5,6 +5,8 @@ program Conservation_Law_ML
 
   use CL__Operator__1D
   use CL__Problem__1D
+  use CL__Problem__CNS__Acoustic_Wave__1D
+  use CL__Problem__CNS__Shu_Osher__1D
   use CL__Problem__Convection_Diffusion__Wave_Package__1D
   use CL__Problem__Burgers__Wave_Package__1D
   use CL__Problem__Burgers__Moving_Front__1D
@@ -38,10 +40,11 @@ program Conservation_Law_ML
   !   - 'burgers__wave_package'
   !   - 'burgers__moving_front'
 
-  real(RNP) :: t_start = 0.40  ! start time
-  real(RNP) :: t_end   = 0.41  ! end time
+  real(RNP) :: t_start = 0.00   ! start time
+  real(RNP) :: t_end   = 1e-4   ! end time
+  integer   :: nt_max  = -1     ! maximal time steps
 
-  namelist/problem_prm/ problem_name, t_start, t_end
+  namelist/problem_prm/ problem_name, t_start, t_end, nt_max
 
   ! declarations: discretization ...............................................
 
@@ -69,23 +72,26 @@ program Conservation_Law_ML
   class(CL_TimeIntegrator_Options_1D), allocatable :: opt_pre
   class(CL_SDC_Options_1D)           , allocatable :: opt_sdc
 
-  integer :: sdc_method = 2
+  integer :: time_method = 2
+  integer :: sdc_method  = 2
 
-  namelist/time_integration_prm/ sdc_method
+  namelist/time_integration_prm/ time_method, sdc_method
 
-  type(CL_SDC_Options_Euler_1D) :: opt_sdc_euler
-  type(CL_SDC_Options_ISD1_1D)  :: opt_sdc_isd1
+  type(CL_TimeIntegrator_Options_ISD1_1D) :: opt_pre_isd1
+  type(CL_SDC_Options_Euler_1D)           :: opt_sdc_euler
+  type(CL_SDC_Options_ISD1_1D)            :: opt_sdc_isd1
 
-  namelist/time_integration_prm/ opt_sdc_euler, opt_sdc_isd1
+  namelist/time_integration_prm/ opt_pre_isd1, opt_sdc_euler, opt_sdc_isd1
 
   ! auxiliary variables
   type(CL_MLSDC_Variable_1D) :: u_h, u_x
   real(RNP)                  :: t_0, t_1, t
-  real(RNP), allocatable     :: err_2(:), err(:)
+  !real(RNP), allocatable     :: err_2(:), err(:)
+  real(RNP)                  :: err_2, err
   real(RNP)                  :: err_max, t_run, t_run_0
   logical                    :: exists
   integer                    :: io, stat
-  integer                    :: l, nt, nt_max, i, k
+  integer                    :: l, nt, i, k, c
 
   ! initialization .............................................................
 
@@ -108,7 +114,6 @@ program Conservation_Law_ML
     close(io)
   end if
 
-  nt_max = 10000
   nt = nint((t_end-t_start) / dt_slab)
   if (nt_max >= 0) then
     nt = min(nt, nt_max)
@@ -121,7 +126,13 @@ program Conservation_Law_ML
     mlsdc_opt % n_space (l) = n_space(l)
     mlsdc_opt % p_time  (l) = p_time(l)
     mlsdc_opt % n_time  (l) = n_time(l)
-    mlsdc_opt % q_conv  (l) = (p_space(l) * 3 + 1) / 2
+    if (index(problem_name, 'burgers') == 1) then
+      mlsdc_opt % q_conv  (l) = (p_space(l) * 3 + 1) / 2
+    elseif (index(problem_name, 'cns') == 1) then
+      mlsdc_opt % q_conv  (l) = p_space(l) * 2
+    else
+      mlsdc_opt % q_conv  (l) = p_space(l)
+    end if
   end do
   write(*,*)
   write(*,'(A,99I5)') 'n_level = ', mlsdc_opt % n_level
@@ -143,6 +154,12 @@ program Conservation_Law_ML
   case('burgers__moving_front')
     write(*,'(A)') 'Initializing Burgers Moving Front problem'
     allocate(CL_Problem_Burgers_MovingFront_1D :: cl_problem)
+  case('cns__acoustic_wave')
+    write(*,'(A)') 'Initializing CNS acoustic wave problem'
+    allocate(CL_Problem_CNS_AcousticWave_1D :: cl_problem)
+  case('cns__shu_osher')
+    write(*,'(A)') 'Initializing CNS Shu-Osher problem'
+    allocate(CL_Problem_CNS_ShuOsher_1D :: cl_problem)
   case default
     call Error('Conservation_Law', 'Invalid problem name')
   end select
@@ -153,10 +170,11 @@ program Conservation_Law_ML
   !call cl_problem % SetProblem()
 
   ! predictor options (ISD1, so far)
-  allocate(CL_TimeIntegrator_Options_ISD1_1D :: opt_pre)
-  opt_pre % imex_mode        =   1
-  opt_pre % diffusion_method =   4
-  opt_pre % diffusion_i_max  = 100
+  select case(time_method)
+  case(2)
+    allocate(CL_TimeIntegrator_Options_ISD1_1D :: opt_pre)
+    opt_pre = opt_pre_isd1
+  end select 
 
   ! SDC options (ISD1 and Euler so far)
   select case(sdc_method)
@@ -186,12 +204,10 @@ program Conservation_Law_ML
   write(*,'(A)') repeat('=',80)
   write(*,*)
 
-  ! initial values of coars grid 
-  ! (spter nur local refinement und mit coarse grid starten)
-  ! cl_problem % GetInitialValues nur für t0 = 0!!!
-  call cl_problem % GetExactSolution( mlsdc % level(1) % cl_operator    &
-                                    , t_0                               &
-                                    , u_h   % level(1) % val(:,:,:,0,1) )
+  call cl_problem % GetInitialValues( mlsdc % level(1) % cl_operator     &
+                                    , u_h   % level(1) % val(:,:,:,0,1)  )
+
+  print*, u_h%level(1)%val(1,1,1,0,1)
 
   call cpu_time(t_run_0)
 
@@ -201,26 +217,20 @@ program Conservation_Law_ML
   do i = 1, nt
 
     ! upward leg
-    call CL_MLSDC_Upward_Leg_1D(mlsdc, t, dt_slab, 1, u_h)
+    call CL_MLSDC_Upward_Leg_1D(mlsdc, t, dt_slab, u_h)
 
-  ! check converged
-  ! if not, only enter 1(!) v_cycle? --> pre and post smoothing?
-!  if (check_convergence) then
-!
-!    r_new = ...
-!
-!    converged = r_new <= r_max .or. abs(r_new - r_old) <= dr_min
-!
-!    r_old = r_new
-!  end if
-!  if (converged .or. i == this%i_max) exit
-
+    ! check converged
+    
     ! enter v cycle
     call CL_MLSDC_V_Cycle_1D(mlsdc, t, dt_slab, 1, 1, n_coarse, n_cycle, u_h, u_x)
 
-    ! set new initial value for the coarse grid
-    u_h%level(1)%val(:,:,:,0 ,1 ) = u_h%level(1)%val(:,:,:,p_time(1),n_time(1))
-    u_h%level(1)%val(:,:,:,1:,2:) = 0
+  !  if (i<nt) then 
+  !    ! set new initial value for the coarse grid
+  !    u_h%level(1)%val(:,:,:,0 ,1 ) = u_h%level(1)%val(:,:,:                 &
+  !                                                  ,mlsdc%level(1)%m_time &
+  !                                                  ,n_time(1)             ) 
+  !    u_h%level(1)%val(:,:,:,1:,2:) = 0
+  !  end if 
 
     ! Update t
     t = t + dt_slab
@@ -236,33 +246,34 @@ program Conservation_Law_ML
 
   ! evaluation and output of results ...........................................
 
-  ! p_time für RR?
-
   associate( u_h => u_h       % level  (n_level) % val              &
            , u_x => u_x       % level  (n_level) % val              &
            , ne  => mlsdc_opt % n_space(n_level)                    &
            , po  => mlsdc_opt % p_space(n_level)                    &
-           , ns  => mlsdc_opt % p_time (n_level)                    &
+           , mt  => mlsdc     % level  (n_level) % m_time           &
            , nt  => mlsdc_opt % n_time (n_level)                    &
            , Me  => mlsdc     % level  (n_level) % cl_operator % Me &
            , nc  => mlsdc     % level  (n_level) % cl_problem  % nc )
 
     ! set exact solution for now
     do l = 1, n_level
-      call GetExactSolution( mlsdc%level(l), t_end - dt_slab, t_end, u_x)
+      call GetExactSolution( mlsdc%level(l), t_start, t_end, u_x)
     end do
 
-    allocate(err  (nc), source = ZERO)
-    allocate(err_2(nc), source = ZERO)
-
+    open(newunit=io, file='conservation_law_ml.dat')
     do k = 1, ne
     do i = 0, po
-      err   = u_h(i, k, :, ns, nt) - u_x(i, k, :, ns, nt)
+      err   = u_h(i, k, 1, mt, nt) - u_x(i, k, 1, mt, nt)
       err_2 = err_2 + Me(i) * err**2
+      !do c = 1,nc
+       ! write(io,'(ES17.9E3,1X,ES17.9E3)') mlsdc%level(n_level) % cl_operator % x(i,k), u_h(i,k,nc,mt,nt)
+       write(io,'(ES17.9E3,1X,ES17.9E3)') mlsdc%level(n_level) % cl_operator % x(i,k), u_h(i,k,1,mt,nt) 
+     !end do
     end do
     end do
-    err_max = maxval(abs(u_h - u_x))
-
+    err_max = maxval(abs(u_h(:,:,:,mt,nt) - u_x(:,:,:,mt,nt)))
+    close(io)
+ 
     write(*,'(2X,A,99(ES12.5,1X))') 't_run  =', t_run  - t_run_0
     write(*,'(2X,A,I3,A,ES10.3)') 'Error on level ',n_level,': err_2 =',sqrt(err_2)
     write(*,'(2X,A,I3,A,ES10.3)') 'Error on level ',n_level,': err_max =',err_max
