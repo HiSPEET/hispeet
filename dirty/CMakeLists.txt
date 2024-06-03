@@ -1,3 +1,6 @@
+add_executable(kdtree_test kdtree_test.f)
+target_link_libraries(kdtree_test KdTree)
+
 add_executable(operatorspectrum operatorspectrum.f)
 target_link_libraries(operatorspectrum HiBase)
 

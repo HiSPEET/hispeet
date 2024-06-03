@@ -170,6 +170,11 @@ endif ()
 find_package(VTK REQUIRED COMPONENTS IOXML)
 
 #-------------------------------------------------------------------------------
+# KD-Tree
+
+include(external/cmake/kdtree.cmake)
+
+#-------------------------------------------------------------------------------
 # LIBXSMM
 
 include(external/cmake/libxsmm.cmake)
@@ -190,4 +195,5 @@ add_subdirectory(test)
 add_subdirectory(app)
 add_subdirectory(develop)
 
-add_subdirectory(dirty)
+# experimental programs excluded from make all
+add_subdirectory(dirty EXCLUDE_FROM_ALL)
