@@ -30,8 +30,10 @@ program HDF5_Test
     type(ElementGeometry) :: geometry                 !< geometry data
   end type MeshElement
 
-  type(MeshElement) :: element_orig(2)
-  type(MeshElement) :: element_read(2)
+  type(MeshElement), target :: element_orig(2)
+  type(MeshElement), target :: element_read(2)
+  !type(MeshElement) :: element_orig(2)
+  !type(MeshElement) :: element_read(2)
 
   ! HDF5 types .................................................................
 
@@ -41,7 +43,9 @@ program HDF5_Test
 
   ! auxiliary variables ........................................................
 
-  integer :: err
+  integer          :: err, i, j, k
+  integer(hid_t)   :: file_id, dataspace_id, dataset_id, dtype_id
+  integer(hsize_t) :: dims(1)
 
   ! HDF5 initialization ........................................................
 
@@ -69,15 +73,66 @@ program HDF5_Test
 
   ! create dummy data ..........................................................
 
-  ! TBD
+  do k = 1,2
+    element_orig(k)%id    = k
+    element_orig(k)%frozen = .false.
+    do i = 1,8        
+      element_orig(k)%vertex(i)%id = i * element_orig(k)%id
+    end do
+    
+    allocate(element_orig(k)%neighbor(1))
+
+    element_orig(k)%neighbor(1)%id        = 2 
+    element_orig(k)%neighbor(1)%component = 2 
+    element_orig(k)%geometry%po           = 5
+
+    do i = 0,3
+    do j = 1,3
+      element_orig(k)%geometry%x_c(i,j) = i*j
+    end do
+    end do
+  end do
 
   ! save data ..................................................................
 
-  ! TBD
+  ! Create a new file (or open an existing one)
+  call h5fcreate_f('elements.h5', H5F_ACC_TRUNC_F, file_id, err)
+  ! Create dataspace for the dataset
+  dims = size(element_orig)
+  !call h5screate_simple_f(rank, dims, dataspace_id, err)
+  call h5screate_simple_f(1, dims, dataspace_id, err)
+  ! Create the dataset
+  call h5dcreate_f(file_id, 'mesh_data', H5T_MeshElement, dataspace_id, dataset_id, err)
+  ! Write the dataset
+  !call h5dwrite_f(dataset_id, H5T_MeshElement, element_orig, dims, err)
+  call h5dwrite_f(dataset_id, H5T_MeshElement, C_LOC(element_orig(1)), err)
+  ! Close the dataset
+  call h5dclose_f(dataset_id, err)
+  ! Close the dataspace
+  call h5sclose_f(dataspace_id, err)
+  ! Close the file
+  call h5fclose_f(file_id, err)  
 
   ! read data ..................................................................
 
-  ! TBD
+  ! Open HDF5 file
+  call h5fopen_f('elements.h5', H5F_ACC_RDWR_F, file_id, err)
+  ! Open the dataspace
+  call h5dopen_f(file_id, 'mesh_data', dataset_id, err)
+  ! Get dataspace
+  !call h5dget_space_f(dataset_id, dataspace_id, err)
+  ! Read the dataset
+  call h5dget_type_f(dataset_id, dtype_id, err)
+  !call h5dread_f(dataset_id, dtype_id, element_read, dims, err)
+  !print*, dtype_id, H5T_MeshElement
+  call h5dread_f(dataset_id, dtype_id, element_read, dims, err)
+  !call h5dread_f(dataset_id, H5T_MeshElement, C_LOC(element_read(1)), err) 
+  ! Close the dataset
+  call h5dclose_f(dataset_id, err)
+  ! Close the dataspace
+  !call h5sclose_f(dataspace_id, err)
+  ! Close the file
+  call h5fclose_f(file_id, err)
 
   ! check data .................................................................
 
