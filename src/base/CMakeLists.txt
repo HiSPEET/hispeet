@@ -122,7 +122,9 @@ set ( MESH_3D
       mesh_3d/generic_mesh__3d__mp_creatediamonds.f
       mesh_3d/generic_mesh__3d__mp_createonerotated.f
       mesh_3d/mesh_boundary__3d.f
+      mesh_3d/mesh_boundary__3d__sm_hdf5.f
       mesh_3d/mesh_element__3d.F
+      mesh_3d/mesh_element__3d__sm_hdf5.f
       mesh_3d/mesh_element__3d__sm_mpi.f
       mesh_3d/mesh_element_indexing__3d.f
       mesh_3d/mesh_face__3d.f

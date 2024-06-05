@@ -1,3 +1,9 @@
+!> summary:  Generation of MPI datatype for mesh elements
+!> author:   Joerg Stiller
+!> date:     2022/06/29
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!===============================================================================
+
 submodule(Mesh_Element__3D) SM_MPI
 
   !-----------------------------------------------------------------------------
@@ -19,7 +25,7 @@ submodule(Mesh_Element__3D) SM_MPI
 contains
 
   !-----------------------------------------------------------------------------
-  !> Get MPI data type for mesh elements
+  !> Get MPI datatype for mesh elements
   !>
   !> The datatype allows to transfer the static components of elements, e.g.
   !>

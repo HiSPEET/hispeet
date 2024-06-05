@@ -79,6 +79,22 @@ module Mesh_Boundary__3D
     module procedure ExtractBoundaryAttributes
   end interface
 
+  !=============================================================================
+  ! Interfaces to submodule procedures
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Get HDF5 datatype for mesh boundary attributes
+
+    module subroutine Get_H5T_MeshBoundaryAttributes_3D &
+        ( H5T_MeshBoundaryAttributes_3D )
+      use HDF5_Binding
+      integer(hid_t), intent(out) :: H5T_MeshBoundaryAttributes_3D
+    end subroutine Get_H5T_MeshBoundaryAttributes_3D
+
+  end interface
+
 contains
 
   !=============================================================================

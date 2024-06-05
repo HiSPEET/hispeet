@@ -26,6 +26,7 @@ module Mesh_Element__3D
   public :: TransformIndex
   public :: TransformedEdgeAlignment
   public :: Get_MPI_MeshElement_3D
+  public :: Get_H5T_MeshElement_3D
 
   !-----------------------------------------------------------------------------
   !> Element vertex data
@@ -366,7 +367,7 @@ module Mesh_Element__3D
   interface
 
     !---------------------------------------------------------------------------
-    !> Get MPI data type for mesh elements
+    !> Get MPI datatype for mesh elements
     !>
     !> The datatype allows to transfer the static components of elements, e.g.
     !>
@@ -379,6 +380,14 @@ module Mesh_Element__3D
     module subroutine Get_MPI_MeshElement_3D( MPI_MeshElement_3D )
       type(MPI_Datatype), intent(out) :: MPI_MeshElement_3D
     end subroutine Get_MPI_MeshElement_3D
+
+    !---------------------------------------------------------------------------
+    !> Get HDF5 datatype for essential static components of MeshElement_3D
+
+    module subroutine Get_H5T_MeshElement_3D( H5T_MeshElement_3D )
+      use HDF5_Binding
+      integer(hid_t), intent(out) :: H5T_MeshElement_3D
+    end subroutine Get_H5T_MeshElement_3D
 
   end interface
 
