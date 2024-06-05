@@ -7,6 +7,7 @@ file(GLOB ESSENTIALS essentials/*.f)
 # bindings
 
 set(BINDINGS bindings/c_binding.f
+             bindings/hdf5_binding.f
              bindings/openmp_binding.F
              bindings/mpi_binding.F
              bindings/vtk_wrapper.c
@@ -294,6 +295,7 @@ target_include_directories(HiBase
     PUBLIC  ${PROJECT_BINARY_DIR}/modules
             ${LIBXSMM_INCLUDE_DIRS}
     PRIVATE ${VTK_INCLUDE_DIRS}
+            ${HDF5_Fortran_INCLUDE_DIRS}
             ${ParMETIS_INCLUDE_DIRS}
             ${FFTW_INCLUDE_DIRS}
             )
@@ -301,6 +303,7 @@ target_include_directories(HiBase
 target_link_libraries(HiBase
     PUBLIC  ${LAPACK_LIBRARIES}
             ${VTK_LIBRARIES}
+            ${HDF5_Fortran_LIBRARIES}
             ${FFTW_LIBRARIES}
             ${ParMETIS_LIBRARIES}
             ${LIBXSMM_LIBRARIES}
