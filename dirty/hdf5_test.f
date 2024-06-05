@@ -76,14 +76,14 @@ program HDF5_Test
   do k = 1,2
     element_orig(k)%id    = k
     element_orig(k)%frozen = .false.
-    do i = 1,8        
+    do i = 1,8
       element_orig(k)%vertex(i)%id = i * element_orig(k)%id
     end do
-    
+
     allocate(element_orig(k)%neighbor(1))
 
-    element_orig(k)%neighbor(1)%id        = 2 
-    element_orig(k)%neighbor(1)%component = 2 
+    element_orig(k)%neighbor(1)%id        = 2
+    element_orig(k)%neighbor(1)%component = 2
     element_orig(k)%geometry%po           = 5
 
     do i = 0,3
@@ -111,7 +111,7 @@ program HDF5_Test
   ! Close the dataspace
   call h5sclose_f(dataspace_id, err)
   ! Close the file
-  call h5fclose_f(file_id, err)  
+  call h5fclose_f(file_id, err)
 
   ! read data ..................................................................
 
@@ -123,10 +123,7 @@ program HDF5_Test
   !call h5dget_space_f(dataset_id, dataspace_id, err)
   ! Read the dataset
   call h5dget_type_f(dataset_id, dtype_id, err)
-  !call h5dread_f(dataset_id, dtype_id, element_read, dims, err)
-  !print*, dtype_id, H5T_MeshElement
-  call h5dread_f(dataset_id, dtype_id, element_read, dims, err)
-  !call h5dread_f(dataset_id, H5T_MeshElement, C_LOC(element_read(1)), err) 
+  call h5dread_f(dataset_id, dtype_id, C_Loc(element_read(1)), err)
   ! Close the dataset
   call h5dclose_f(dataset_id, err)
   ! Close the dataspace
@@ -137,6 +134,8 @@ program HDF5_Test
   ! check data .................................................................
 
   ! TBD
+  print '(A,99(F5.1,1X))', 'orig: e1%x_c =', element_orig(1)%geometry%x_c
+  print '(A,99(F5.1,1X))', 'read: e1%x_c =', element_read(1)%geometry%x_c
 
   call H5close_f(err)
 
