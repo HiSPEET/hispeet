@@ -15,15 +15,18 @@ submodule(Mesh_Element__3D) SM_HDF5
   integer(hid_t) :: H5T_Element = -1
 
   !-----------------------------------------------------------------------------
-  ! HDF5 datatypes element components and auxiliary data
+  !> HDF5 datatype for mesh element neighbor data
+
+  integer(hid_t) :: H5T_ElementNeighbor = -1
+
+  !-----------------------------------------------------------------------------
+  ! Auxiliary HDF5 datatypes for element components
 
   integer(hid_t) :: H5T_ElementVertex     = -1
   integer(hid_t) :: H5T_ElementEdge       = -1
   integer(hid_t) :: H5T_ElementFace       = -1
   integer(hid_t) :: H5T_ElementAdaptation = -1
   integer(hid_t) :: H5T_ElementGeometry   = -1
-
-  logical :: initialized = .false.
 
 contains
 
@@ -35,7 +38,7 @@ contains
 
     !$omp master
 
-    if (.not. initialized) then
+    if (H5T_Element < 0) then
       call Init_H5T_Element()
     end if
 
@@ -173,6 +176,57 @@ contains
     call H5Tclose_f(tid, err)
 
   end subroutine Init_H5T_ElementGeometry
+
+  !-----------------------------------------------------------------------------
+  !> Get HDF5 datatype of MeshElementNeighbor_3D
+
+  module subroutine Get_H5T_MeshElementNeighbor_3D( H5T_MeshElementNeighbor_3D )
+    integer(hid_t), intent(out) :: H5T_MeshElementNeighbor_3D
+
+    !$omp master
+
+    if (H5T_ElementNeighbor < 0) then
+      call Init_H5T_ElementNeighbor()
+    end if
+
+    H5T_MeshElementNeighbor_3D = H5T_ElementNeighbor
+
+    !$omp end master
+
+  end subroutine Get_H5T_MeshElementNeighbor_3D
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of H5T_ElementNeighbor
+
+  subroutine Init_H5T_ElementNeighbor()
+
+    type(MeshElementNeighbor_3D), target :: neighbor(2)
+    integer(size_t) :: offset
+    integer :: err
+
+    ! create datatype
+    offset = H5offsetof(C_Loc(neighbor(1)), C_Loc(neighbor(2)))
+    call H5Tcreate_f(H5T_COMPOUND_F, offset, H5T_ElementNeighbor, err)
+
+    ! insert id
+    offset = H5offsetof(C_Loc(neighbor(1)), C_Loc(neighbor(1)%po))
+    call H5Tinsert_f(H5T_ElementNeighbor, 'id', offset, H5T_INTEGER, err)
+
+    ! insert part
+    offset = H5offsetof(C_Loc(neighbor(1)), C_Loc(neighbor(1)%part))
+    call H5Tinsert_f(H5T_ElementNeighbor, 'part', offset, H5T_INTEGER, err)
+
+    ! insert component
+    offset = H5offsetof(C_Loc(neighbor(1)), C_Loc(neighbor(1)%component))
+    call H5Tinsert_f(H5T_ElementNeighbor, 'component', offset &
+                   , H5T_INTEGER_IXS, err)
+
+    ! insert orientation
+    offset = H5offsetof(C_Loc(neighbor(1)), C_Loc(neighbor(1)%orientation))
+    call H5Tinsert_f(H5T_ElementNeighbor, 'orientation', offset &
+                   , H5T_INTEGER_IXS, err)
+
+  end Init_H5T_ElementNeighbor
 
   !=============================================================================
 

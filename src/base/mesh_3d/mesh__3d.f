@@ -20,6 +20,8 @@ module Mesh__3D
   public :: Mesh_3D
   public :: MeshAttributes_3D
 
+  public :: Get_H5T_MeshAttributes_3D
+
   !-----------------------------------------------------------------------------
   !> 3D mesh partition type
   !>
@@ -256,6 +258,16 @@ module Mesh__3D
       class(GenericMesh_3D), intent(in)  :: generic_mesh !< generic mesh
       type(MPI_Comm),        intent(in)  :: comm         !< "world" communicator
     end subroutine ImportGenericMesh
+
+    !===========================================================================
+    ! Standalone routines
+
+    !---------------------------------------------------------------------------
+    !> Get HDF5 datatype for essential static components of MeshAttributes_3D
+
+    module subroutine Get_H5T_MeshAttributes_3D(H5T_MeshAttributes_3D)
+      use HDF5_Binding
+      integer(hid_t), intent(out) :: H5T_MeshAttributes_3D
 
   end interface
 
