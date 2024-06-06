@@ -79,10 +79,22 @@ contains
     call H5Tclose_f(tid, err)
 
     ! insert edge
+    dims   = size(element(1)%edge)
+    offset = H5offsetof(C_Loc(element(1)), C_Loc(element(1)%edge(1)))
+    call H5Tarray_create_f(H5T_ElementEdge, 1, dims, tid, err)
+    call H5Tinsert_f(H5T_Element, 'edge', offset, tid, err)
+    call H5Tclose_f(tid, err)
 
     ! insert face
+    dims   = size(element(1)%face)
+    offset = H5offsetof(C_Loc(element(1)), C_Loc(element(1)%face(1)))
+    call H5Tarray_create_f(H5T_ElementFace, 1, dims, tid, err)
+    call H5Tinsert_f(H5T_Element, 'face', offset, tid, err)
+    call H5Tclose_f(tid, err)
 
     ! insert adapdation
+    offset = H5offsetof(C_Loc(element(1)), C_Loc(element(1)%adaptation))
+    call H5Tinsert_f(H5T_Element, 'adaptation', offset, H5T_ElementAdaptation, err)
 
     ! insert geometry
     offset = H5offsetof(C_Loc(element(1)), C_Loc(element(1)%geometry))
@@ -91,10 +103,10 @@ contains
     ! release datatypes ........................................................
 
     call H5Tclose_f(H5T_ElementVertex, err)
-!   call H5Tclose_f(H5T_ElementEdge, err)
-!   call H5Tclose_f(H5T_ElementFace, err)
-!   call H5Tclose_f(H5T_ElementAdaptation, err)
-!   call H5Tclose_f(H5T_ElementGeometry, err)
+    call H5Tclose_f(H5T_ElementEdge, err)
+    call H5Tclose_f(H5T_ElementFace, err)
+    call H5Tclose_f(H5T_ElementAdaptation, err)
+    call H5Tclose_f(H5T_ElementGeometry, err)
 
   end subroutine Init_H5T_Element
 
@@ -107,6 +119,34 @@ contains
     integer(size_t) :: offset
     integer :: err
 
+     ! create datatype
+    offset = H5offsetof(C_Loc(vertex(1)), C_Loc(vertex(2)))
+    call H5Tcreate_f(H5T_COMPOUND_F, offset, H5T_ElementVertex, err)
+
+    ! insert id
+    offset = H5offsetof(C_Loc(vertex(1)), C_Loc(vertex(1)%id))
+    call H5Tinsert_f(H5T_ElementVertex, 'id', offset, H5T_INTEGER, err)
+
+    ! insert n_neighbor
+    offset = H5offsetof(C_Loc(vertex(1)), C_Loc(vertex(1)%n_neighbor))
+    call H5Tinsert_f(H5T_ElementVertex, 'n_neighbor', offset, &
+                     H5T_INTEGER_IXS, err)
+
+    ! insert i_neighbor
+    offset = H5offsetof(C_Loc(vertex(1)), C_Loc(vertex(1)%i_neighbor))
+    call H5Tinsert_f(H5T_ElementVertex, 'i_neighbor', offset, &
+                     H5T_INTEGER_IXS, err)
+
+    ! insert rank
+    offset = H5offsetof(C_Loc(vertex(1)), C_Loc(vertex(1)%rank))
+    call H5Tinsert_f(H5T_ElementVertex, 'rank', offset, &
+                     H5T_INTEGER_IXS, err)
+
+    ! insert val
+    offset = H5offsetof(C_Loc(vertex(1)), C_Loc(vertex(1)%val))
+    call H5Tinsert_f(H5T_ElementVertex, 'val', offset, &
+                     H5T_INTEGER_IXS, err)
+
   end subroutine Init_H5T_ElementVertex
 
   !-----------------------------------------------------------------------------
@@ -117,6 +157,39 @@ contains
     type(MeshElementEdge_3D), target :: edge(2)
     integer(size_t) :: offset
     integer :: err
+
+    ! create datatype
+    offset = H5offsetof(C_Loc(edge(1)), C_Loc(edge(2)))
+    call H5Tcreate_f(H5T_COMPOUND_F, offset, H5T_ElementEdge, err)
+
+    ! insert id
+    offset = H5offsetof(C_Loc(edge(1)), C_Loc(edge(1)%id))
+    call H5Tinsert_f(H5T_ElementEdge, 'id', offset, H5T_INTEGER, err)
+
+    ! insert orientation
+    offset = H5offsetof(C_Loc(edge(1)), C_Loc(edge(1)%orientation))
+    call H5Tinsert_f(H5T_ElementEdge, 'orientation', offset, &
+                     H5T_INTEGER_IXS, err)
+
+    ! insert n_neighbor
+    offset = H5offsetof(C_Loc(edge(1)), C_Loc(edge(1)%n_neighbor))
+    call H5Tinsert_f(H5T_ElementEdge, 'n_neighbor', offset, &
+                     H5T_INTEGER_IXS, err)
+
+    ! insert i_neighbor
+    offset = H5offsetof(C_Loc(edge(1)), C_Loc(edge(1)%i_neighbor))
+    call H5Tinsert_f(H5T_ElementEdge, 'i_neighbor', offset, &
+                     H5T_INTEGER_IXS, err)
+
+    ! insert rank
+    offset = H5offsetof(C_Loc(edge(1)), C_Loc(edge(1)%rank))
+    call H5Tinsert_f(H5T_ElementEdge, 'rank', offset, &
+                     H5T_INTEGER_IXS, err)
+
+    ! insert val
+    offset = H5offsetof(C_Loc(edge(1)), C_Loc(edge(1)%val))
+    call H5Tinsert_f(H5T_ElementEdge, 'val', offset, &
+                     H5T_INTEGER_IXS, err)
 
   end subroutine Init_H5T_ElementEdge
 
@@ -129,6 +202,49 @@ contains
     integer(size_t) :: offset
     integer :: err
 
+    ! create datatype
+    offset = H5offsetof(C_Loc(face(1)), C_Loc(face(2)))
+    call H5Tcreate_f(H5T_COMPOUND_F, offset, H5T_ElementFace, err)
+
+    ! insert id
+    offset = H5offsetof(C_Loc(face(1)), C_Loc(face(1)%id))
+    call H5Tinsert_f(H5T_ElementFace, 'id', offset, H5T_INTEGER, err)
+
+    ! insert boundary
+    offset = H5offsetof(C_Loc(face(1)), C_Loc(face(1)%boundary))
+    call H5Tinsert_f(H5T_ElementFace, 'boundary', offset, H5T_INTEGER, err)
+
+    ! insert normal
+    offset = H5offsetof(C_Loc(face(1)), C_Loc(face(1)%normal))
+    call H5Tinsert_f(H5T_ElementFace, 'normal', offset, &
+                     H5T_INTEGER_IXS, err)
+
+    ! insert rotation
+    offset = H5offsetof(C_Loc(face(1)), C_Loc(face(1)%rotation))
+    call H5Tinsert_f(H5T_ElementFace, 'rotation', offset, &
+                     H5T_INTEGER_IXS, err)
+
+    ! insert n_neighbor
+    offset = H5offsetof(C_Loc(face(1)), C_Loc(face(1)%n_neighbor))
+    call H5Tinsert_f(H5T_ElementFace, 'n_neighbor', offset, &
+                     H5T_INTEGER_IXS, err)
+
+    ! insert i_neighbor
+    offset = H5offsetof(C_Loc(face(1)), C_Loc(face(1)%i_neighbor))
+    call H5Tinsert_f(H5T_ElementFace, 'i_neighbor', offset, &
+                     H5T_INTEGER_IXS, err)
+
+    ! insert rank
+    offset = H5offsetof(C_Loc(face(1)), C_Loc(face(1)%rank))
+    call H5Tinsert_f(H5T_ElementFace, 'rank', offset, &
+                     H5T_INTEGER_IXS, err)
+
+    ! insert val
+    offset = H5offsetof(C_Loc(face(1)), C_Loc(face(1)%val))
+    call H5Tinsert_f(H5T_ElementFace, 'val', offset, &
+                     H5T_INTEGER_IXS, err)
+
+
   end subroutine Init_H5T_ElementFace
 
   !-----------------------------------------------------------------------------
@@ -139,6 +255,34 @@ contains
     type(MeshElementAdaptation_3D), target :: adaptation(2)
     integer(size_t) :: offset
     integer :: err
+
+    ! create datatype
+    offset = H5offsetof(C_Loc(adaptation(1)), C_Loc(adaptation(2)))
+    call H5Tcreate_f(H5T_COMPOUND_F, offset, H5T_ElementAdaptation, err)
+
+    ! insert parent_id
+    offset = H5offsetof(C_Loc(adaptation(1)), C_Loc(adaptation(1)%parent_id))
+    call H5Tinsert_f(H5T_ElementAdaptation, 'parent_id', offset, &
+                     H5T_INTEGER, err)
+
+    ! insert refinement
+    offset = H5offsetof(C_Loc(adaptation(1)), C_Loc(adaptation(1)%refinement))
+    call H5Tinsert_f(H5T_ElementAdaptation, 'refinement', offset, &
+                     H5T_INTEGER, err)
+
+    ! create child_proc
+    offset = H5offsetof(C_Loc(adaptation(1)), C_Loc(adaptation(1)%child_proc))
+    call H5Tinsert_f(H5T_ElementAdaptation, 'child_proc', offset, &
+                     H5T_INTEGER, err)
+
+    ! insert sublevels
+    offset = H5offsetof(C_Loc(adaptation(1)), C_Loc(adaptation(1)%sublevels))
+    call H5Tinsert_f(H5T_ElementAdaptation, 'sublevels', offset, &
+                     H5T_INTEGER, err)
+
+    ! insert mark
+    offset = H5offsetof(C_Loc(adaptation(1)), C_Loc(adaptation(1)%mark))
+    call H5Tinsert_f(H5T_ElementAdaptation, 'mark', offset, H5T_INTEGER, err)
 
   end subroutine Init_H5T_ElementAdaptation
 
