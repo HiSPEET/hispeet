@@ -97,7 +97,8 @@ contains
 
     ! insert adapdation
     offset = H5offsetof(C_Loc(element(1)), C_Loc(element(1)%adaptation))
-    call H5Tinsert_f(H5T_Element, 'adaptation', offset, H5T_ElementAdaptation, err)
+    call H5Tinsert_f(H5T_Element, 'adaptation', offset, H5T_ElementAdaptation, &
+                     err)
 
     ! insert geometry
     offset = H5offsetof(C_Loc(element(1)), C_Loc(element(1)%geometry))
@@ -263,6 +264,11 @@ contains
     offset = H5offsetof(C_Loc(adaptation(1)), C_Loc(adaptation(2)))
     call H5Tcreate_f(H5T_COMPOUND_F, offset, H5T_ElementAdaptation, err)
 
+    ! insert parent_proc
+    offset = H5offsetof(C_Loc(adaptation(1)), C_Loc(adaptation(1)%parent_proc))
+    call H5Tinsert_f(H5T_ElementAdaptation, 'parent_proc', offset, &
+                     H5T_INTEGER, err)
+
     ! insert parent_id
     offset = H5offsetof(C_Loc(adaptation(1)), C_Loc(adaptation(1)%parent_id))
     call H5Tinsert_f(H5T_ElementAdaptation, 'parent_id', offset, &
@@ -353,7 +359,7 @@ contains
     call H5Tcreate_f(H5T_COMPOUND_F, offset, H5T_ElementNeighbor, err)
 
     ! insert id
-    offset = H5offsetof(C_Loc(neighbor(1)), C_Loc(neighbor(1)%po))
+    offset = H5offsetof(C_Loc(neighbor(1)), C_Loc(neighbor(1)%id))
     call H5Tinsert_f(H5T_ElementNeighbor, 'id', offset, H5T_INTEGER, err)
 
     ! insert part
@@ -370,7 +376,7 @@ contains
     call H5Tinsert_f(H5T_ElementNeighbor, 'orientation', offset &
                    , H5T_INTEGER_IXS, err)
 
-  end Init_H5T_ElementNeighbor
+  end subroutine Init_H5T_ElementNeighbor
 
   !=============================================================================
 

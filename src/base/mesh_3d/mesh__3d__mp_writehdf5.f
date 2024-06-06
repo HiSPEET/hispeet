@@ -15,8 +15,8 @@ contains
   !> ...
 
   module subroutine WriteHDF5(this, group_id)
-    class(Mesh_3D), intent(in) :: mesh
-    integer(hid_t), intent(in) :: group_id ! ID of HDF5 group
+    class(Mesh_3D), intent(in) :: this     !< mesh parzition
+    integer(hid_t), intent(in) :: group_id !< ID of related HDF5 group
 
     ! internal data ............................................................
 
@@ -37,6 +37,7 @@ contains
     integer(size_t) :: size_rnp
     integer(size_t) :: size_int
     integer(size_t) :: size_me
+    integer(size_t) :: size_men
     integer(size_t) :: size_ma
     integer(size_t) :: size_mba
 
@@ -46,17 +47,15 @@ contains
     ! auxiliary data ...........................................................
 
     ! mesh attributes
-    attrib = MeshAttributes_3D(mesh)
-
-    if (mesh % n_ele)
+    attrib = MeshAttributes_3D(this)
 
     ! count number of neighbors and coordinates
-    allocate(nn_elem(mesh%n_elem), nc_elem(mesh%n_elem))
+    allocate(nn_elem(this%n_elem), nc_elem(this%n_elem))
     nn = 0
     nc = 0
-    do e = 1, mesh % n_elem
-      nn_elem(e) = size(mesh % element(e) % neighbor)
-      nc_elem(e) = size(mesh % element(e) % geometry % x_e)
+    do e = 1, this % n_elem
+      nn_elem(e) = size(this % element(e) % neighbor)
+      nc_elem(e) = size(this % element(e) % geometry % x_e)
       nn = nn + nn_elem(e)
       nc = nc + nc_elem(e)
     end do
@@ -64,18 +63,18 @@ contains
     ! collect neighbor data
     allocate(neighbor(nn))
     i = 1
-    do e = 1, mesh % n_elem
+    do e = 1, this % n_elem
       j = i + nn_elem(e) - 1
-      neighbor(i:j) = mesh % element(e) % neighbor
+      neighbor(i:j) = this % element(e) % neighbor
       i = i + nn_elem(e)
     end do
 
     ! collect element coordinates
     allocate(xc(nc))
     i = 1
-    do e = 1, mesh % n_elem
+    do e = 1, this % n_elem
       j = i + nc_elem(e) - 1
-      xc(i:j) = reshape(mesh % element(e) % geometry % x_e, [nc_elem(e)])
+      xc(i:j) = reshape(this % element(e) % geometry % x_e, [nc_elem(e)])
       i = i + nc_elem(e)
     end do
 

@@ -149,7 +149,7 @@ set ( MESH_3D
       mesh_3d/mesh__3d__mp_identifyranks.f
       mesh_3d/mesh__3d__mp_identifyvertices.f
       mesh_3d/mesh__3d__mp_importgenericmesh.f
-      mesh_3d/mesh__3d__mp_writehdf5
+      mesh_3d/mesh__3d__mp_writehdf5.f
       mesh_3d/mesh__3d__sm_hdf5.f
       mesh_3d/structured_mesh_indexing__3d.f
       mesh_3d/generate_regular_mesh__3d.f

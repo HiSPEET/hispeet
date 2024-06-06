@@ -268,6 +268,7 @@ module Mesh__3D
     module subroutine Get_H5T_MeshAttributes_3D(H5T_MeshAttributes_3D)
       use HDF5_Binding
       integer(hid_t), intent(out) :: H5T_MeshAttributes_3D
+    end subroutine Get_H5T_MeshAttributes_3D
 
   end interface
 
