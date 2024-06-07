@@ -286,6 +286,7 @@ add_library(HiBase ${BASE_SRC})
 set_property(TARGET HiBase
              PROPERTY Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules)
 
+add_dependencies(HiBase KdTree)
 if (NOT SKIP_LIBXSMM)
     add_dependencies(HiBase LIBXSMM)
 endif ()
