@@ -164,8 +164,7 @@ contains
     call mesh % BuildMapToParent()
     call mesh % BuildMapToChild()
 
-    ! intracommunicator between active partitions
-    call mesh % BuildCommunicator()
+  ! call mesh % BuildCommunicator()   ! moved to higher layer
 
     ! release resources ........................................................
 
