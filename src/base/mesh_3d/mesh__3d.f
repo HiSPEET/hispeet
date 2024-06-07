@@ -123,6 +123,7 @@ module Mesh__3D
 
     ! import/export
     procedure :: ImportGenericMesh
+    procedure :: WriteHDF5
 
   end type Mesh_3D
 
@@ -176,7 +177,7 @@ module Mesh__3D
     !> Generation of approximate cuboids
 
     module subroutine BuildCuboids(mesh)
-      class(Mesh_3D), intent(inout)  :: mesh !< mesh partition
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
     end subroutine BuildCuboids
 
     !---------------------------------------------------------------------------
@@ -258,6 +259,25 @@ module Mesh__3D
       class(GenericMesh_3D), intent(in)  :: generic_mesh !< generic mesh
       type(MPI_Comm),        intent(in)  :: comm         !< "world" communicator
     end subroutine ImportGenericMesh
+
+    !---------------------------------------------------------------------------
+    !> Write mesh partition into given HDF5 group
+
+    module subroutine WriteHDF5(mesh, group)
+      use HDF5_Binding
+      class(Mesh_3D), target, intent(in) :: mesh  !< mesh partition
+      integer(hid_t),         intent(in) :: group !< ID of related HDF5 group
+    end subroutine WriteHDF5
+
+    !---------------------------------------------------------------------------
+    !> Read mesh partition from given HDF5 group
+
+    module subroutine ReadHDF5(mesh, group, comm)
+      use HDF5_Binding
+      class(Mesh_3D), target, intent(inout) :: mesh  !< mesh partition
+      integer(hid_t),         intent(in)    :: group !< ID of related HDF5 group
+      type(MPI_Comm),         intent(in)    :: comm  !< "world" communicator
+    end subroutine ReadHDF5
 
     !===========================================================================
     ! Standalone routines

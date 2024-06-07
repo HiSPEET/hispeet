@@ -12,6 +12,8 @@ module Mesh_Boundary__3D
   public :: MeshBoundary_3D
   public :: MeshBoundaryAttributes_3D
 
+  public :: Get_H5T_MeshBoundaryAttributes_3D
+
   !-----------------------------------------------------------------------------
   !> 3d mesh boundary face
 
