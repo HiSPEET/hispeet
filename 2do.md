@@ -14,16 +14,13 @@
     - create & write metadata: number of partitions, levels etc.
     - create groups for meshes (one at each level) 
     - write meshes into group  (allready implemented in `mesh%WriteHDF5`)
-- Reading
+- Reading  (allready implemented in `mesh%ReadHDF5`)
     - open files
     - read metadata
     - consistency check
-    - locally (allready implemented in `mesh%ReadHDF5`)
-        - read mesh from group
-        - complete mesh except for intra-communicators
-    - globally
-        - surplus processes generate empty mesh
-        - build intra-communicators
+    - read mesh from group
+    - surplus processes generate empty mesh
+    - build intra-communicators
 
 ## Flow Solver Restart
 ### Concept
@@ -56,7 +53,7 @@ Planned re-integration of features available in _HiSPEET_  precursors (`HiSPEET-
         - src/differential_operators
         - src/util
         - program/curved
-
+    
       > HiSPEET-old/branches/js-first-flow
         - elliptic solvers
       
