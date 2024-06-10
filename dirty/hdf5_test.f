@@ -18,6 +18,7 @@ program HDF5_Test
   integer(hsize_t) :: dims(1)
 
   type(MeshElement_3D), target :: element_orig(2)
+  type(MeshElement_3D), target :: element_read(2)
 
   ! HDF5 initialization ........................................................
 
@@ -93,7 +94,7 @@ program HDF5_Test
   call h5dopen_f(group_id, 'mesh_partition', dataset_id, err)
   ! Read the dataset
   call h5dget_type_f(dataset_id, dtype_id, err)
- ! call h5dread_f(dataset_id, dtype_id, C_Loc(element_read(1)), err)
+  !call h5dread_f(dataset_id, dtype_id, C_Loc(element_read(1)), err)
   ! Close the dataset
   call h5dclose_f(dataset_id, err)
   ! Close the group
