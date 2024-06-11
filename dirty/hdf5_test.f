@@ -16,6 +16,7 @@ program HDF5_Test
   integer          :: err, i, j, e
   integer(hid_t)   :: file_id, dataspace_id, dataset_id, dtype_id, group_id
   integer(hsize_t) :: dims(1)
+  type(c_ptr)      :: f_ptr
 
   type(MeshElement_3D), target :: element_orig(2)
   type(MeshElement_3D), target :: element_read(2)
@@ -50,7 +51,13 @@ program HDF5_Test
        element_orig(e)%vertex(i)%id         = i * element_orig(e)%id
        element_orig(e)%vertex(i)%n_neighbor = 1
      end do
-   
+
+     do j = 1,3
+     do i = 0,3
+       element_orig(e)%geometry%x_c(i,j) = i*j
+     end do
+     end do
+
      allocate(element_orig(e)%neighbor(1))
      element_orig(e)%neighbor(1)%id        = 2
      element_orig(e)%neighbor(1)%component = 2
@@ -94,7 +101,8 @@ program HDF5_Test
   call h5dopen_f(group_id, 'mesh_partition', dataset_id, err)
   ! Read the dataset
   call h5dget_type_f(dataset_id, dtype_id, err)
-  !call h5dread_f(dataset_id, dtype_id, C_Loc(element_read(1)), err)
+  f_ptr = C_LOC(element_read(1))
+  call h5dread_f(dataset_id, dtype_id, f_ptr, err)
   ! Close the dataset
   call h5dclose_f(dataset_id, err)
   ! Close the group
@@ -104,9 +112,8 @@ program HDF5_Test
 
   ! check data .................................................................
 
-  ! TBD
-  !print '(A,99(F5.1,1X))', 'orig: e1%x_c =', element_orig(1)%geometry%x_c
-  !print '(A,99(F5.1,1X))', 'read: e1%x_c =', element_read(1)%geometry%x_c
+  print '(A,99(F5.1,1X))', 'orig: e1%x_c =', element_orig(1)%geometry%x_c
+  print '(A,99(F5.1,1X))', 'read: e1%x_c =', element_read(1)%geometry%x_c
 
   call H5close_f(err)
 
