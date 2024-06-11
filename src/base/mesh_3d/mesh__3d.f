@@ -102,6 +102,7 @@ module Mesh__3D
   contains
 
     procedure :: Init_Mesh_3D
+    procedure :: Delete_Mesh_3D
 
     procedure :: GetCuboids
     procedure :: GetPoints
@@ -123,6 +124,7 @@ module Mesh__3D
 
     ! import/export
     procedure :: ImportGenericMesh
+    procedure :: ReadHDF5
     procedure :: WriteHDF5
 
   end type Mesh_3D
@@ -363,6 +365,64 @@ contains
     call MPI_Comm_rank(comm, this % proc)
 
   end subroutine Init_Mesh_3D
+
+  !-----------------------------------------------------------------------------
+  !> Delete 3D mesh partition
+
+  subroutine Delete_Mesh_3D(this)
+    class(Mesh_3D), intent(inout) :: this
+
+    ! reset static components ..................................................
+
+    this % n_bound       =  0
+    this % n_parts       =  0
+
+    this % structured    = .false.
+    this % regular       = .false.
+    this % is_root       = .true.
+    this % is_top        = .true.
+
+    this % dx            =  0
+
+    this % comm_world    = MPI_COMM_NULL
+    this % comm_parts    = MPI_COMM_NULL
+
+    this % proc          = -1
+    this % part          = -1
+
+    this % n_vert        =  0
+    this % n_edge        =  0
+    this % n_face        =  0
+    this % n_elem        =  0
+    this % n_elem_active =  0
+    this % n_elem_frozen =  0
+    this % n_cluster     =  0
+    this % n_ghost       =  0
+    this % n_link        =  0
+    this % n_child       =  0
+    this % n_parent      =  0
+
+    this % p_geom        =  0
+
+    this % max_vert_val  =  0
+    this % max_edge_val  =  0
+
+    this % n_elem_1      =  0
+    this % n_elem_2      =  0
+    this % n_elem_3      =  0
+
+    ! release dynamic components ...............................................
+
+    if (allocated( this % proc_part  )) deallocate( this % proc_part  )
+    if (allocated( this % face       )) deallocate( this % face       )
+    if (allocated( this % element    )) deallocate( this % element    )
+    if (allocated( this % ghost      )) deallocate( this % ghost      )
+    if (allocated( this % boundary   )) deallocate( this % boundary   )
+    if (allocated( this % link       )) deallocate( this % link       )
+    if (allocated( this % map_child  )) deallocate( this % map_child  )
+    if (allocated( this % map_parent )) deallocate( this % map_parent )
+
+  end subroutine Delete_Mesh_3D
 
   !=============================================================================
   ! MeshAttributes_3D constructor and type-bound procedures
