@@ -45,7 +45,7 @@ program Mesh3d_Adapt
 
   ! case file
   character(len=*), parameter :: case_default = 'mesh3d_adapt'
-  character(len=80) :: case_file = 'mesh3d_adapt'
+  character(len=80) :: case_file = case_default
 
   integer :: config = 1
   ! configuration (u/s = un/structured, r = regular, d = deformed)
