@@ -45,6 +45,12 @@ contains
     integer :: e, i, j, nc, nn, np, po, rank
     integer :: err
 
+    ! safeguard ................................................................
+
+    call Init_HDF5_Binding()
+
+    call mesh % Delete_Mesh_3D()
+
     ! preliminaries ............................................................
 
     call MPI_Comm_rank(comm, rank)
@@ -60,6 +66,12 @@ contains
       call H5Dclose_f(data_id, err)
 
       ! get mesh boundary attributes ...........................................
+
+      ! reading the static components of `attributes` mysteriously changes the
+      ! status of boundary attributes to allocated, which must be fixed
+      if (allocated(attrib%boundary)) then
+        deallocate(attrib%boundary)
+      end if
 
       allocate(attrib % boundary(attrib%n_bound))
 
@@ -78,7 +90,7 @@ contains
       ! get elements ...........................................................
 
       call H5Dopen_f(group, name_me, data_id, err)
-      call H5Sget_space_f(data_id, space_id, err)
+      call H5Dget_space_f(data_id, space_id, err)
       call H5Sget_simple_extent_dims_f(space_id, dims, maxdims, err)
 
       mesh % n_elem = dims(1)
@@ -89,6 +101,20 @@ contains
         call H5Dread_f(data_id, type_id, C_Loc(mesh%element), err)
         call H5Tclose_f(type_id, err)
         call H5Dclose_f(data_id, err)
+
+        ! reading the static element components of  mysteriously changes the
+        ! status of dynamic components to allocated, which must be fixed
+        do e = 1, mesh%n_elem
+          associate(element => mesh % element(e))
+            if (allocated(element%neighbor)) then
+              deallocate(element%neighbor)
+            end if
+            if (allocated(element%geometry%x_e)) then
+              deallocate(element%geometry%x_e)
+            end if
+          end associate
+        end do
+
       end if
 
       ! get element neighbors ..................................................
@@ -96,7 +122,7 @@ contains
       if (mesh%n_elem > 0) then
 
         call H5Dopen_f(group, name_men, data_id, err)
-        call H5Sget_space_f(data_id, space_id, err)
+        call H5Dget_space_f(data_id, space_id, err)
         call H5Sget_simple_extent_dims_f(space_id, dims, maxdims, err)
 
         nn = dims(1)
@@ -112,6 +138,7 @@ contains
         i = 1
         do e = 1, mesh % n_elem
           associate(element => mesh % element(e))
+
             ! number of element neighbors
             nn = sum(element % vertex % n_neighbor) &
                + sum(element % edge   % n_neighbor) &
@@ -132,7 +159,7 @@ contains
       if (mesh%n_elem > 0) then
 
         call H5Dopen_f(group, name_mec, data_id, err)
-        call H5Sget_space_f(data_id, space_id, err)
+        call H5Dget_space_f(data_id, space_id, err)
         call H5Sget_simple_extent_dims_f(space_id, dims, maxdims, err)
 
         nc = dims(1)

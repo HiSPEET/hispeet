@@ -12,7 +12,7 @@ submodule(Mesh_Boundary__3D) SM_HDF5
   !-----------------------------------------------------------------------------
   !> HDF5 datatype for mesh boundary attributes
 
-  integer(hid_t) :: H5T_BoundaryAttributes = -1
+  integer(HID_T) :: H5T_BoundaryAttributes = -1
 
 contains
 
@@ -22,7 +22,7 @@ contains
   module subroutine Get_H5T_MeshBoundaryAttributes_3D &
       ( H5T_MeshBoundaryAttributes_3D )
 
-    integer(hid_t), intent(out) :: H5T_MeshBoundaryAttributes_3D
+    integer(HID_T), intent(out) :: H5T_MeshBoundaryAttributes_3D
 
     !$omp master
 
@@ -42,9 +42,9 @@ contains
   subroutine Init_H5T_BoundaryAttributes()
 
     type(MeshBoundaryAttributes_3D), target :: attributes(2)
-    integer(size_t)  :: offset
-    integer(hsize_t) :: dims(1)
-    integer(hid_t)   :: tid
+    integer(SIZE_T)  :: offset
+    integer(HSIZE_T) :: dims(1)
+    integer(HID_T)   :: tid
     integer :: err
 
     ! initialize datatype
@@ -55,7 +55,7 @@ contains
     offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%name(1:1)))
     call H5Tcopy_f(H5T_CHARACTER, tid, err)
 !?  call H5Tcopy_f(H5T_FORTRAN_S1, tid, err) ! according to another example
-    call H5Tset_size_f(tid, int(len(attributes(1)%name), size_t), err)
+    call H5Tset_size_f(tid, int(len(attributes(1)%name), SIZE_T), err)
     call H5Tinsert_f(H5T_BoundaryAttributes, 'name', offset, tid, err)
     call H5Tclose_f(tid, err)
 

@@ -12,21 +12,21 @@ submodule(Mesh_Element__3D) SM_HDF5
   !-----------------------------------------------------------------------------
   !> HDF5 datatype for mesh elements
 
-  integer(hid_t) :: H5T_Element = -1
+  integer(HID_T) :: H5T_Element = -1
 
   !-----------------------------------------------------------------------------
   !> HDF5 datatype for mesh element neighbor data
 
-  integer(hid_t) :: H5T_ElementNeighbor = -1
+  integer(HID_T) :: H5T_ElementNeighbor = -1
 
   !-----------------------------------------------------------------------------
   ! Auxiliary HDF5 datatypes for element components
 
-  integer(hid_t) :: H5T_ElementVertex     = -1
-  integer(hid_t) :: H5T_ElementEdge       = -1
-  integer(hid_t) :: H5T_ElementFace       = -1
-  integer(hid_t) :: H5T_ElementAdaptation = -1
-  integer(hid_t) :: H5T_ElementGeometry   = -1
+  integer(HID_T) :: H5T_ElementVertex     = -1
+  integer(HID_T) :: H5T_ElementEdge       = -1
+  integer(HID_T) :: H5T_ElementFace       = -1
+  integer(HID_T) :: H5T_ElementAdaptation = -1
+  integer(HID_T) :: H5T_ElementGeometry   = -1
 
 contains
 
@@ -34,7 +34,7 @@ contains
   !> Get HDF5 datatype for essential static components of MeshElement_3D
 
   module subroutine Get_H5T_MeshElement_3D( H5T_MeshElement_3D )
-    integer(hid_t), intent(out) :: H5T_MeshElement_3D
+    integer(HID_T), intent(out) :: H5T_MeshElement_3D
 
     !$omp master
 
@@ -54,9 +54,9 @@ contains
   subroutine Init_H5T_Element()
 
     type(MeshElement_3D), target :: element(2)
-    integer(size_t)  :: offset
-    integer(hsize_t) :: dims(1)
-    integer(hid_t)   :: tid
+    integer(SIZE_T)  :: offset
+    integer(HSIZE_T) :: dims(1)
+    integer(HID_T)   :: tid
     integer :: err
 
     ! preliminaries ............................................................
@@ -120,7 +120,7 @@ contains
   subroutine Init_H5T_ElementVertex()
 
     type(MeshElementVertex_3D), target :: vertex(2)
-    integer(size_t) :: offset
+    integer(SIZE_T) :: offset
     integer :: err
 
      ! create datatype
@@ -159,7 +159,7 @@ contains
   subroutine Init_H5T_ElementEdge()
 
     type(MeshElementEdge_3D), target :: edge(2)
-    integer(size_t) :: offset
+    integer(SIZE_T) :: offset
     integer :: err
 
     ! create datatype
@@ -203,7 +203,7 @@ contains
   subroutine Init_H5T_ElementFace()
 
     type(MeshElementFace_3D), target :: face(2)
-    integer(size_t) :: offset
+    integer(SIZE_T) :: offset
     integer :: err
 
     ! create datatype
@@ -257,7 +257,7 @@ contains
   subroutine Init_H5T_ElementAdaptation()
 
     type(MeshElementAdaptation_3D), target :: adaptation(2)
-    integer(size_t) :: offset
+    integer(SIZE_T) :: offset
     integer :: err
 
     ! create datatype
@@ -301,8 +301,8 @@ contains
   subroutine Init_H5T_ElementGeometry()
 
     type(MeshElementGeometry_3D), target :: geometry(2)
-    integer(size_t) :: offset
-    integer(hid_t)  :: tid
+    integer(SIZE_T) :: offset
+    integer(HID_T)  :: tid
     integer :: err
 
     ! create datatype
@@ -315,13 +315,13 @@ contains
 
     ! insert x_c
     offset = H5offsetof(C_Loc(geometry(1)), C_Loc(geometry(1)%x_c(0,1)))
-    call H5Tarray_create_f(H5T_REAL_RNP, 2, int([4,3], hsize_t), tid, err)
+    call H5Tarray_create_f(H5T_REAL_RNP, 2, int([4,3], HSIZE_T), tid, err)
     call H5Tinsert_f(H5T_ElementGeometry, 'x_c', offset, tid, err)
     call H5Tclose_f(tid, err)
 
     ! insert dx_m
     offset = H5offsetof(C_Loc(geometry(1)), C_Loc(geometry(1)%dx_m(1)))
-    call H5Tarray_create_f(H5T_REAL_RNP, 1, int([6], hsize_t), tid, err)
+    call H5Tarray_create_f(H5T_REAL_RNP, 1, int([6], HSIZE_T), tid, err)
     call H5Tinsert_f(H5T_ElementGeometry, 'dx_m', offset, tid, err)
     call H5Tclose_f(tid, err)
 
@@ -331,7 +331,7 @@ contains
   !> Get HDF5 datatype of MeshElementNeighbor_3D
 
   module subroutine Get_H5T_MeshElementNeighbor_3D( H5T_MeshElementNeighbor_3D )
-    integer(hid_t), intent(out) :: H5T_MeshElementNeighbor_3D
+    integer(HID_T), intent(out) :: H5T_MeshElementNeighbor_3D
 
     !$omp master
 
@@ -351,7 +351,7 @@ contains
   subroutine Init_H5T_ElementNeighbor()
 
     type(MeshElementNeighbor_3D), target :: neighbor(2)
-    integer(size_t) :: offset
+    integer(SIZE_T) :: offset
     integer :: err
 
     ! create datatype

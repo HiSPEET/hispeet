@@ -16,7 +16,7 @@ contains
 
   module subroutine WriteHDF5(mesh, group)
     class(Mesh_3D), target, intent(in) :: mesh  !< mesh partition
-    integer(hid_t),         intent(in) :: group !< ID of related HDF5 group
+    integer(HID_T),         intent(in) :: group !< ID of related HDF5 group
 
     ! internal data ............................................................
 
@@ -28,24 +28,24 @@ contains
     type(MeshElementNeighbor_3D), allocatable, target :: neighbor(:)
 
     ! HDF5 datatypes
-    integer(hid_t) :: H5T_MeshAttributes_3D
-    integer(hid_t) :: H5T_MeshBoundaryAttributes_3D
-    integer(hid_t) :: H5T_MeshElement_3D
-    integer(hid_t) :: H5T_MeshElementNeighbor_3D
+    integer(HID_T) :: H5T_MeshAttributes_3D
+    integer(HID_T) :: H5T_MeshBoundaryAttributes_3D
+    integer(HID_T) :: H5T_MeshElement_3D
+    integer(HID_T) :: H5T_MeshElementNeighbor_3D
 
     ! HDF5 dataspace IDs
-    integer(hid_t) :: space_ma    ! space ID of mesh attributes
-    integer(hid_t) :: space_mba   ! space ID of mesh boundary attributes
-    integer(hid_t) :: space_me    ! space ID of mesh elements
-    integer(hid_t) :: space_men   ! space ID of mesh element neighbor data
-    integer(hid_t) :: space_mec   ! space ID of mesh element coordinates
+    integer(HID_T) :: space_ma    ! space ID of mesh attributes
+    integer(HID_T) :: space_mba   ! space ID of mesh boundary attributes
+    integer(HID_T) :: space_me    ! space ID of mesh elements
+    integer(HID_T) :: space_men   ! space ID of mesh element neighbor data
+    integer(HID_T) :: space_mec   ! space ID of mesh element coordinates
 
     ! HDF5 dataspace dimensions
-    integer(hsize_t) :: dim_ma (1)  ! dimension of mesh attributes
-    integer(hsize_t) :: dim_mba(1)  ! dimension of mesh boundary attributes
-    integer(hsize_t) :: dim_me (1)  ! dimension of mesh elements
-    integer(hsize_t) :: dim_men(1)  ! dimension of mesh element neighbor data
-    integer(hsize_t) :: dim_mec(1)  ! dimension of mesh element coordinates
+    integer(HSIZE_T) :: dim_ma (1)  ! dimension of mesh attributes
+    integer(HSIZE_T) :: dim_mba(1)  ! dimension of mesh boundary attributes
+    integer(HSIZE_T) :: dim_me (1)  ! dimension of mesh elements
+    integer(HSIZE_T) :: dim_men(1)  ! dimension of mesh element neighbor data
+    integer(HSIZE_T) :: dim_mec(1)  ! dimension of mesh element coordinates
 
     ! HDF5 dataset names
     character(len=*), parameter :: name_ma  = 'mesh_attributes'
@@ -55,14 +55,19 @@ contains
     character(len=*), parameter :: name_mec = 'mesh_element_coordinates'
 
     ! HDF5 dataset IDs
-    integer(hid_t) :: data_ma    ! dataset ID of mesh attributes
-    integer(hid_t) :: data_mba   ! dataset ID of mesh boundary attributes
-    integer(hid_t) :: data_me    ! dataset ID of mesh elements
-    integer(hid_t) :: data_men   ! dataset ID of mesh element neighbor data
-    integer(hid_t) :: data_mec   ! dataset ID of mesh element coordinates
+    integer(HID_T) :: data_ma    ! dataset ID of mesh attributes
+    integer(HID_T) :: data_mba   ! dataset ID of mesh boundary attributes
+    integer(HID_T) :: data_me    ! dataset ID of mesh elements
+    integer(HID_T) :: data_men   ! dataset ID of mesh element neighbor data
+    integer(HID_T) :: data_mec   ! dataset ID of mesh element coordinates
 
     integer :: e, i, j, nc, nn
     integer :: err
+
+    ! preliminaries ............................................................
+
+    ! safeguard
+    call Init_HDF5_Binding()
 
     ! auxiliary data ...........................................................
 

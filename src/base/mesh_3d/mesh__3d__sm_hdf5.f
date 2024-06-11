@@ -12,7 +12,7 @@ submodule(Mesh__3D) SM_HDF5
   !-----------------------------------------------------------------------------
   !> HDF5 datatype for static components of MeshAttributes_3D
 
-  integer(hid_t) :: H5T_MeshAttributes = -1
+  integer(HID_T) :: H5T_MeshAttributes = -1
 
 contains
 
@@ -20,7 +20,7 @@ contains
   !> Get HDF5 datatype for essential static components of MeshAttributes_3D
 
   module subroutine Get_H5T_MeshAttributes_3D( H5T_MeshAttributes_3D )
-    integer(hid_t), intent(out) :: H5T_MeshAttributes_3D
+    integer(HID_T), intent(out) :: H5T_MeshAttributes_3D
 
     !$omp master
 
@@ -40,8 +40,8 @@ contains
   subroutine Init_H5T_MeshAttributes()
 
     type(MeshAttributes_3D), target :: attributes(2)
-    integer(size_t) :: offset
-    integer(hid_t)  :: tid
+    integer(SIZE_T) :: offset
+    integer(HID_T)  :: tid
     integer :: err
 
     ! create datatype
@@ -78,7 +78,7 @@ contains
 
     ! insert dx
     offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%dx(1)))
-    call H5Tarray_create_f(H5T_REAL_RNP, 1, int([3], hsize_t), tid, err)
+    call H5Tarray_create_f(H5T_REAL_RNP, 1, int([3], HSIZE_T), tid, err)
     call H5Tinsert_f(H5T_MeshAttributes, 'dx', offset, tid, err)
     call H5Tclose_f(tid, err)
 
