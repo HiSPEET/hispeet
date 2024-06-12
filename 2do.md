@@ -9,18 +9,8 @@
 - Files
     - read/write one file per process
     - detect and handle case where number of files exeeds number of processes
-- Writing
-    - create files
-    - create & write metadata: number of partitions, levels etc.
-    - create groups for meshes (one at each level) 
-    - write meshes into group  (allready implemented in `mesh%WriteHDF5`)
+- Writing  (allready implemented in `mesh%WriteHDF5`)
 - Reading  (allready implemented in `mesh%ReadHDF5`)
-    - open files
-    - read metadata
-    - consistency check
-    - read mesh from group
-    - surplus processes generate empty mesh
-    - build intra-communicators
 
 ## Flow Solver Restart
 ### Concept
