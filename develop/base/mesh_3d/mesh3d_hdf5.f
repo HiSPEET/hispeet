@@ -81,6 +81,7 @@ program Mesh3d_HDF5
 
   character(len=80) :: config_name = ''
   character(len=80) :: input_file  = ''
+  character(len=80) :: hdf5_file   = ''
   character(len=80) :: plot_file   = ''
   character(len=80) :: tag         = ''
   logical :: exists, passed, passed_loc
@@ -171,7 +172,6 @@ program Mesh3d_HDF5
     write(*,'(2X,A,/)') 'Created '//trim(config_name)
   end if
 
-
   ! root mesh partitioning .....................................................
 
   if (old_mesh % n_parts /= part_opt % n_parts) then
@@ -196,50 +196,77 @@ program Mesh3d_HDF5
   !-----------------------------------------------------------------------------
   ! HDF5 test
 
-  call Init_HDF5_Binding()
+  ! preliminaries ..............................................................
 
   ! make present mesh the original one
   old_mesh = mesh
 
-  ! create HDF5 file and group
-  call H5Fcreate_f(trim(case_file)//'.h5', H5F_ACC_TRUNC_F, file_id, err)
-  call H5Gcreate_f(file_id, 'mesh', group_id, err)
+  ! safeguard
+  call Init_HDF5_Binding()
 
-  ! write mesh partition
-  call old_mesh % WriteHDF5(group_id)
+  ! each MPI rank gets own file name
+  write(tag, fmt='(A2,I0)') '_r', rank
+  hdf5_file = trim(case_file)//trim(tag)//'.h5'
 
-  ! close HDF5 group and file
-  call H5Gclose_f(group_id, err)
-  call H5Fclose_f(file_id, err)
+  ! write mesh parts ...........................................................
+
+  if (mesh%part >= 0) then
+
+    ! create HDF5 file and group
+    call H5Fcreate_f(trim(hdf5_file), H5F_ACC_TRUNC_F, file_id, err)
+    call H5Gcreate_f(file_id, 'mesh', group_id, err)
+
+    ! write mesh partition
+    call old_mesh % WriteHDF5(group_id)
+
+    ! close HDF5 group and file
+    call H5Gclose_f(group_id, err)
+    call H5Fclose_f(file_id, err)
+
+  end if
 
   if (rank == 0) then
     if (err == 0) then
-      write(*,'(2X,A,/)') 'Wrote mesh to file "'//trim(case_file)//'.h5'//'"'
+      write(*,'(2X,A,/)') 'Wrote mesh to HDF5'
     else
-      call Error('Mesh3d_HDF5', 'Failed to write HDF5 file')
+      call Error('Mesh3d_HDF5', 'Failed to write HDF5')
     end if
   end if
 
-  ! open HDF5 file and group for reading
-  call H5Fopen_f(trim(case_file)//'.h5', H5F_ACC_RDWR_F, file_id, err)
-  call H5Gopen_f(file_id, 'mesh', group_id, err)
+  ! read mesh parts ............................................................
+
+  inquire(file=trim(hdf5_file), exist=exists)
+
+  if (exists) then
+    ! open HDF5 file and group for reading
+    call H5Fopen_f(trim(hdf5_file), H5F_ACC_RDWR_F, file_id, err)
+    call H5Gopen_f(file_id, 'mesh', group_id, err)
+  else
+    group_id = H5I_INVALID_HID_F
+  end if
 
   ! read mesh partition
   call mesh % ReadHDF5(group_id, comm)
 
-  ! close HDF5 group and file
-  call H5Gclose_f(group_id, err)
-  call H5Fclose_f(file_id, err)
+  if (exists) then
+    ! close HDF5 group and file
+    call H5Gclose_f(group_id, err)
+    call H5Fclose_f(file_id, err)
+  end if
 
   if (rank == 0) then
     if (err == 0) then
-      write(*,'(2X,A,/)') 'Read mesh from file "'//trim(case_file)//'.h5'//'"'
+      write(*,'(2X,A,/)') 'Read mesh from HDF5'
     else
-      call Error('Mesh3d_HDF5', 'Failed to read HDF5 file')
+      call Error('Mesh3d_HDF5', 'Failed to read HDF')
     end if
   end if
 
+  ! release HDF5 resources .....................................................
+
   call H5close_f(err)
+
+  ! verify mesh ................................................................
 
   call VerifyMesh_3D(mesh, passed_loc)
   call XMPI_Reduce(passed_loc, passed, MPI_LAND, 0, comm)
@@ -251,10 +278,6 @@ program Mesh3d_HDF5
       call Error('Mesh3d_HDF5', 'Restoration of the mesh failed')
     end if
   end if
-print *, 'mesh % n_elem  =', mesh % n_elem
-print *, 'mesh % part    =', mesh % part
-print *, 'mesh % n_parts =', mesh % n_parts
-mesh % part = 0
 
   !-----------------------------------------------------------------------------
   ! Plotting
@@ -273,7 +296,6 @@ mesh % part = 0
     end do
 
     plot_file = trim(case_file) !// trim(tag)
-print *, 'plot_file =', trim(plot_file)
 
     call ExportVTK_VolumeData( sem % metrics % x        &
                              , s, sname = ['f','e','p'] &

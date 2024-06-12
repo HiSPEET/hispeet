@@ -34,6 +34,7 @@ contains
     integer(HID_T) :: H5T_MeshElementNeighbor_3D
 
     ! HDF5 dataspace IDs
+    integer(HID_T) :: space_mp    ! space ID of mesh part
     integer(HID_T) :: space_ma    ! space ID of mesh attributes
     integer(HID_T) :: space_mba   ! space ID of mesh boundary attributes
     integer(HID_T) :: space_me    ! space ID of mesh elements
@@ -41,6 +42,7 @@ contains
     integer(HID_T) :: space_mec   ! space ID of mesh element coordinates
 
     ! HDF5 dataspace dimensions
+    integer(HSIZE_T) :: dim_mp (1)  ! dimension of mesh part
     integer(HSIZE_T) :: dim_ma (1)  ! dimension of mesh attributes
     integer(HSIZE_T) :: dim_mba(1)  ! dimension of mesh boundary attributes
     integer(HSIZE_T) :: dim_me (1)  ! dimension of mesh elements
@@ -48,6 +50,7 @@ contains
     integer(HSIZE_T) :: dim_mec(1)  ! dimension of mesh element coordinates
 
     ! HDF5 dataset names
+    character(len=*), parameter :: name_mp  = 'mesh_part'
     character(len=*), parameter :: name_ma  = 'mesh_attributes'
     character(len=*), parameter :: name_mba = 'mesh_boundary_attributes'
     character(len=*), parameter :: name_me  = 'mesh_elements'
@@ -55,6 +58,7 @@ contains
     character(len=*), parameter :: name_mec = 'mesh_element_coordinates'
 
     ! HDF5 dataset IDs
+    integer(HID_T) :: data_mp    ! dataset ID of mesh part
     integer(HID_T) :: data_ma    ! dataset ID of mesh attributes
     integer(HID_T) :: data_mba   ! dataset ID of mesh boundary attributes
     integer(HID_T) :: data_me    ! dataset ID of mesh elements
@@ -114,6 +118,7 @@ contains
     ! dataspaces ...............................................................
 
     ! dimensions
+    dim_mp  = 1
     dim_ma  = 1
     dim_mba = mesh % n_bound
     dim_me  = mesh % n_elem
@@ -121,6 +126,7 @@ contains
     dim_mec = nc
 
     ! spaces
+    call H5Screate_simple_f(1, dim_mp , space_mp , err)
     call H5Screate_simple_f(1, dim_ma , space_ma , err)
     call H5Screate_simple_f(1, dim_mba, space_mba, err)
     call H5Screate_simple_f(1, dim_me , space_me , err)
@@ -128,6 +134,12 @@ contains
     call H5Screate_simple_f(1, dim_mec, space_mec, err)
 
     ! datasets .................................................................
+
+    ! create mesh part dataset
+    call H5Dcreate_f(group, name_mp, H5T_INTEGER, space_mp, data_mp, err)
+
+    ! write mesh part dataset
+    call H5Dwrite_f(data_mp, H5T_INTEGER, C_Loc(mesh%part), err)
 
     ! create mesh attribute dataset
     call H5Dcreate_f(group, name_ma, H5T_MeshAttributes_3D, &
@@ -171,12 +183,14 @@ contains
       deallocate(attrib%boundary)
     end if
 
+    call H5Sclose_f(space_mp , err)
     call H5Sclose_f(space_ma , err)
     call H5Sclose_f(space_mba, err)
     call H5Sclose_f(space_me , err)
     call H5Sclose_f(space_men, err)
     call H5Sclose_f(space_mec, err)
 
+    call H5Dclose_f(data_mp , err)
     call H5Dclose_f(data_ma , err)
     call H5Dclose_f(data_mba, err)
     call H5Dclose_f(data_me , err)

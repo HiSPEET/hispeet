@@ -29,13 +29,15 @@ contains
     real(RNP), allocatable,  target :: xc(:)  ! mesh element coordinates
     type(MeshElementNeighbor_3D), allocatable, target :: neighbor(:)
 
-    ! HDF5 datatype, dataspace and dimensions
+    ! HDF5 datatype, dataspace, dimensions and buffer adress pointer
     integer(hid_t)   :: type_id
     integer(hid_t)   :: space_id
     integer(hid_t)   :: data_id
     integer(hsize_t) :: dims(1), maxdims(1)
+    type(C_Ptr)      :: buf
 
     ! HDF5 dataset names
+    character(len=*), parameter :: name_mp  = 'mesh_part'
     character(len=*), parameter :: name_ma  = 'mesh_attributes'
     character(len=*), parameter :: name_mba = 'mesh_boundary_attributes'
     character(len=*), parameter :: name_me  = 'mesh_elements'
@@ -57,11 +59,21 @@ contains
 
     if (group /= H5I_INVALID_HID_F) then
 
+      ! get mesh part ..........................................................
+
+      buf = C_Loc(mesh%part)
+      call H5Dopen_f(group, name_mp, data_id, err)
+      call H5Dget_type_f(data_id, type_id, err)
+      call H5Dread_f(data_id, type_id, buf, err)
+      call H5Tclose_f(type_id, err)
+      call H5Dclose_f(data_id, err)
+
       ! get mesh attributes ....................................................
 
+      buf = C_Loc(attrib)
       call H5Dopen_f(group, name_ma, data_id, err)
       call H5Dget_type_f(data_id, type_id, err)
-      call H5Dread_f(data_id, type_id, C_Loc(attrib), err)
+      call H5Dread_f(data_id, type_id, buf, err)
       call H5Tclose_f(type_id, err)
       call H5Dclose_f(data_id, err)
 
@@ -76,9 +88,10 @@ contains
       allocate(attrib % boundary(attrib%n_bound))
 
       if (attrib%n_bound > 0) then
+        buf = C_Loc(attrib%boundary)
         call H5Dopen_f(group, name_mba, data_id, err)
         call H5Dget_type_f(data_id, type_id, err)
-        call H5Dread_f(data_id, type_id, C_Loc(attrib%boundary), err)
+        call H5Dread_f(data_id, type_id, buf, err)
         call H5Tclose_f(type_id, err)
         call H5Dclose_f(data_id, err)
       end if
@@ -97,8 +110,9 @@ contains
       allocate(mesh % element(mesh%n_elem))
 
       if (mesh%n_elem > 0) then
+        buf = C_Loc(mesh%element)
         call H5Dget_type_f(data_id, type_id, err)
-        call H5Dread_f(data_id, type_id, C_Loc(mesh%element), err)
+        call H5Dread_f(data_id, type_id, buf, err)
         call H5Tclose_f(type_id, err)
         call H5Dclose_f(data_id, err)
 
@@ -129,8 +143,9 @@ contains
         allocate(neighbor(nn))
 
         if (nn > 0) then
+          buf = C_Loc(neighbor)
           call H5Dget_type_f(data_id, type_id, err)
-          call H5Dread_f(data_id, type_id, C_Loc(neighbor), err)
+          call H5Dread_f(data_id, type_id, buf, err)
           call H5Tclose_f(type_id, err)
           call H5Dclose_f(data_id, err)
         end if
@@ -165,8 +180,9 @@ contains
         nc = dims(1)
         allocate(xc(nc))
 
+        buf = C_Loc(xc)
         call H5Dget_type_f(data_id, type_id, err)
-        call H5Dread_f(data_id, type_id, C_Loc(xc), err)
+        call H5Dread_f(data_id, type_id, buf, err)
         call H5Tclose_f(type_id, err)
         call H5Dclose_f(data_id, err)
 
