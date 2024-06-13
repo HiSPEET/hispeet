@@ -12,12 +12,24 @@ submodule(Mesh__3D) MP_ReadHDF5
 contains
 
   !-----------------------------------------------------------------------------
+  !> Read mesh partition from given HDF5 file
+
+  module subroutine ReadHDF5_F(mesh, file, comm)
+    class(Mesh_3D), target, intent(inout) :: mesh !< mesh partition
+    character(len=*),       intent(in)    :: file !< name of HDF5 file
+    type(MPI_Comm),         intent(in)    :: comm !< MPI "world" communicator
+
+    ! TBD
+
+  end subroutine ReadHDF5_F
+
+  !-----------------------------------------------------------------------------
   !> Read mesh partition from given HDF5 group
   !>
   !> Pass `group = H5I_INVALID_HID_F` if no input data is available for the
   !> present MPI process.
 
-  module subroutine ReadHDF5(mesh, group, comm)
+  module subroutine ReadHDF5_G(mesh, group, comm)
     class(Mesh_3D), target, intent(inout) :: mesh  !< mesh partition
     integer(hid_t),         intent(in)    :: group !< ID of related HDF5 group
     type(MPI_Comm),         intent(in)    :: comm  !< MPI "world" communicator
@@ -239,7 +251,7 @@ contains
       deallocate(attrib%boundary)
     end if
 
-  end subroutine ReadHDF5
+  end subroutine ReadHDF5_G
 
   !=============================================================================
 

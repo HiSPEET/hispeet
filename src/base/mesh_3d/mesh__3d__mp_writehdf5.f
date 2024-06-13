@@ -5,16 +5,27 @@
 !===============================================================================
 
 submodule(Mesh__3D) MP_WriteHDF5
-  use, intrinsic ::  ISO_C_Binding
+  use, intrinsic :: ISO_C_Binding
   use HDF5_Binding
   implicit none
 
 contains
 
   !-----------------------------------------------------------------------------
+  !> Write mesh partition into HDF5 file
+
+  module subroutine WriteHDF5_F(mesh, file)
+    class(Mesh_3D), target, intent(in) :: mesh  !< mesh partition
+    character(len=*),       intent(in) :: file  !< name of HDF5 file
+
+    ! TBD
+
+  end subroutine WriteHDF5_F
+
+  !-----------------------------------------------------------------------------
   !> Write mesh partition into given HDF5 group
 
-  module subroutine WriteHDF5(mesh, group)
+  module subroutine WriteHDF5_G(mesh, group)
     class(Mesh_3D), target, intent(in) :: mesh  !< mesh partition
     integer(HID_T),         intent(in) :: group !< ID of related HDF5 group
 
@@ -197,7 +208,7 @@ contains
     call H5Dclose_f(data_men, err)
     call H5Dclose_f(data_mec, err)
 
-  end subroutine WriteHDF5
+  end subroutine WriteHDF5_G
 
   !=============================================================================
 
