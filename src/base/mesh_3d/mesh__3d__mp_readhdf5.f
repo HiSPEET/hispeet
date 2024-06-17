@@ -20,6 +20,31 @@ contains
     type(MPI_Comm),   intent(in)    :: comm !< MPI "world" communicator
 
     ! TBD
+    class(Mesh_3D), target, intent(inout) :: mesh !< mesh partition
+    character(len=*),       intent(in)    :: file !< name of HDF5 file
+    type(MPI_Comm),         intent(in)    :: comm !< MPI "world" communicator
+    integer(HID_T)                        :: file_id, group_id
+    integer                               :: err
+    logical                               :: exists
+
+    inquire(file=trim(file), exist=exists)
+    
+    if (exists) then
+      ! open HDF5 file and group for reading
+      call H5Fopen_f(trim(file), H5F_ACC_RDWR_F, file_id, err)
+      call H5Gopen_f(file_id, 'mesh', group_id, err)
+    else
+      group_id = H5I_INVALID_HID_F
+    end if
+
+    ! read mesh partition
+    call ReadHDF5_G(mesh, group_id, comm)
+
+    if (exists) then
+      ! close HDF5 group and file
+      call H5Gclose_f(group_id, err)
+      call H5Fclose_f(file_id, err)
+    end if
 
   end subroutine ReadHDF5_F
 

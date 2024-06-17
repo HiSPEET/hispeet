@@ -19,6 +19,21 @@ contains
     character(len=*), intent(in) :: file  !< name of HDF5 file
 
     ! TBD
+    class(Mesh_3D), target, intent(in) :: mesh    !< mesh partition
+    character(len=*),       intent(in) :: file    !< name of HDF5 file
+    integer(HID_T)                     :: file_id, group_id
+    integer                            :: err
+
+    ! create HDF5 file and group
+    call H5Fcreate_f(trim(file), H5F_ACC_TRUNC_F, file_id, err)
+    call H5Gcreate_f(file_id, 'mesh', group_id, err)
+
+    ! write mesh partition
+    call WriteHDF5_G(mesh, group_id)
+
+    ! close HDF5 file and group
+    call H5Gclose_f(group_id, err)
+    call H5Fclose_f(file_id, err)
 
   end subroutine WriteHDF5_F
 
