@@ -282,7 +282,6 @@ set(BASE_SRC ${ESSENTIALS}
              ${MESH_3D}
              ${UTIL_1D}
              ${UTIL_3D}
-             ${VARIABLES_3D}
              ${ELLIPTIC_1D}
              ${ELLIPTIC_3D}
              )

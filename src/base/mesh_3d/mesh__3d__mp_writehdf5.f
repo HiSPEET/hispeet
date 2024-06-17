@@ -1,5 +1,5 @@
-!> summary:  Writing a mesh partition into HDF5 group
-!> author:   Joerg Stiller, Erik Pfister, Moritz Kreuseler
+!> summary:  Writing a mesh partition to HDF5
+!> author:   Joerg Stiller, Erik Pfister
 !> date:     2024/06/05
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
@@ -18,11 +18,8 @@ contains
     class(Mesh_3D),   intent(in) :: mesh  !< mesh partition
     character(len=*), intent(in) :: file  !< name of HDF5 file
 
-    ! TBD
-    class(Mesh_3D), target, intent(in) :: mesh    !< mesh partition
-    character(len=*),       intent(in) :: file    !< name of HDF5 file
-    integer(HID_T)                     :: file_id, group_id
-    integer                            :: err
+    integer(HID_T) :: file_id, group_id
+    integer        :: err
 
     ! create HDF5 file and group
     call H5Fcreate_f(trim(file), H5F_ACC_TRUNC_F, file_id, err)

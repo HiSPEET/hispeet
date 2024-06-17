@@ -1,5 +1,5 @@
-!> summary:  Reading a mesh partition from HDF5 group
-!> author:   Joerg Stiller, Erik Pfister, Moritz Kreuseler
+!> summary:  Reading a mesh partition from HDF5
+!> author:   Joerg Stiller, Erik Pfister
 !> date:     2024/06/07
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
@@ -19,16 +19,12 @@ contains
     character(len=*), intent(in)    :: file !< name of HDF5 file
     type(MPI_Comm),   intent(in)    :: comm !< MPI "world" communicator
 
-    ! TBD
-    class(Mesh_3D), target, intent(inout) :: mesh !< mesh partition
-    character(len=*),       intent(in)    :: file !< name of HDF5 file
-    type(MPI_Comm),         intent(in)    :: comm !< MPI "world" communicator
-    integer(HID_T)                        :: file_id, group_id
-    integer                               :: err
-    logical                               :: exists
+    integer(HID_T) :: file_id, group_id
+    integer        :: err
+    logical        :: exists
 
     inquire(file=trim(file), exist=exists)
-    
+
     if (exists) then
       ! open HDF5 file and group for reading
       call H5Fopen_f(trim(file), H5F_ACC_RDWR_F, file_id, err)
