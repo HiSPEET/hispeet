@@ -15,8 +15,8 @@ contains
   !> Write mesh partition into HDF5 file
 
   module subroutine WriteHDF5_F(mesh, file)
-    class(Mesh_3D), target, intent(in) :: mesh  !< mesh partition
-    character(len=*),       intent(in) :: file  !< name of HDF5 file
+    class(Mesh_3D),   intent(in) :: mesh  !< mesh partition
+    character(len=*), intent(in) :: file  !< name of HDF5 file
 
     ! TBD
 
@@ -25,9 +25,9 @@ contains
   !-----------------------------------------------------------------------------
   !> Write mesh partition into given HDF5 group
 
-  module subroutine WriteHDF5_G(mesh, group)
-    class(Mesh_3D), target, intent(in) :: mesh  !< mesh partition
-    integer(HID_T),         intent(in) :: group !< ID of related HDF5 group
+  module subroutine WriteHDF5_G(mesh, group_id)
+    class(Mesh_3D), target, intent(in) :: mesh     !< mesh partition
+    integer(HID_T),         intent(in) :: group_id !< ID of related HDF5 group
 
     ! internal data ............................................................
 
@@ -147,20 +147,20 @@ contains
     ! datasets .................................................................
 
     ! create mesh part dataset
-    call H5Dcreate_f(group, name_mp, H5T_INTEGER, space_mp, data_mp, err)
+    call H5Dcreate_f(group_id, name_mp, H5T_INTEGER, space_mp, data_mp, err)
 
     ! write mesh part dataset
     call H5Dwrite_f(data_mp, H5T_INTEGER, C_Loc(mesh%part), err)
 
     ! create mesh attribute dataset
-    call H5Dcreate_f(group, name_ma, H5T_MeshAttributes_3D, &
+    call H5Dcreate_f(group_id, name_ma, H5T_MeshAttributes_3D, &
                      space_ma, data_ma, err)
 
     ! write mesh attribute dataset
     call H5Dwrite_f(data_ma, H5T_MeshAttributes_3D, C_Loc(attrib), err)
 
     ! create mesh boundary attribute dataset
-    call H5Dcreate_f(group, name_mba, H5T_MeshBoundaryAttributes_3D, &
+    call H5Dcreate_f(group_id, name_mba, H5T_MeshBoundaryAttributes_3D, &
                      space_mba, data_mba, err)
 
     ! write mesh boundary attribute dataset (may be empty!)
@@ -168,20 +168,21 @@ contains
                     C_Loc(attrib%boundary), err)
 
     ! create mesh element dataset
-    call H5Dcreate_f(group, name_me, H5T_MeshElement_3D, space_me, data_me, err)
+    call H5Dcreate_f(group_id, name_me, H5T_MeshElement_3D, &
+                     space_me, data_me, err)
 
     ! write mesh element dataset (may be empty!)
     call H5Dwrite_f(data_me, H5T_MeshElement_3D, C_Loc(mesh%element), err)
 
     ! create mesh element neighbor dataset
-    call H5Dcreate_f(group, name_men, H5T_MeshElementNeighbor_3D, &
+    call H5Dcreate_f(group_id, name_men, H5T_MeshElementNeighbor_3D, &
                      space_men, data_men, err)
 
     ! write mesh element neighbor dataset (may be empty!)
     call H5Dwrite_f(data_men, H5T_MeshElementNeighbor_3D, C_Loc(neighbor), err)
 
     ! create mesh element neighbor dataset
-    call H5Dcreate_f(group, name_mec, H5T_REAL_RNP, space_mec, data_mec, err)
+    call H5Dcreate_f(group_id, name_mec, H5T_REAL_RNP, space_mec, data_mec, err)
 
     ! write mesh element neighbor dataset (may be empty!)
     call H5Dwrite_f(data_mec, H5T_REAL_RNP, C_Loc(xc), err)

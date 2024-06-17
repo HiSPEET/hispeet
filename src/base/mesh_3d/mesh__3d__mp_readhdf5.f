@@ -15,9 +15,9 @@ contains
   !> Read mesh partition from given HDF5 file
 
   module subroutine ReadHDF5_F(mesh, file, comm)
-    class(Mesh_3D), target, intent(inout) :: mesh !< mesh partition
-    character(len=*),       intent(in)    :: file !< name of HDF5 file
-    type(MPI_Comm),         intent(in)    :: comm !< MPI "world" communicator
+    class(Mesh_3D),   intent(inout) :: mesh !< mesh partition
+    character(len=*), intent(in)    :: file !< name of HDF5 file
+    type(MPI_Comm),   intent(in)    :: comm !< MPI "world" communicator
 
     ! TBD
 
@@ -26,13 +26,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Read mesh partition from given HDF5 group
   !>
-  !> Pass `group = H5I_INVALID_HID_F` if no input data is available for the
+  !> Pass `group_id = H5I_INVALID_HID_F` if no input data is available for the
   !> present MPI process.
 
-  module subroutine ReadHDF5_G(mesh, group, comm)
+  module subroutine ReadHDF5_G(mesh, group_id, comm)
     class(Mesh_3D), target, intent(inout) :: mesh  !< mesh partition
-    integer(hid_t),         intent(in)    :: group !< ID of related HDF5 group
-    type(MPI_Comm),         intent(in)    :: comm  !< MPI "world" communicator
+    integer(hid_t), intent(in) :: group_id !< ID of related HDF5 group
+    type(MPI_Comm), intent(in) :: comm     !< MPI "world" communicator
 
     ! internal data ............................................................
 
@@ -69,12 +69,12 @@ contains
 
     call MPI_Comm_rank(comm, rank)
 
-    if (group /= H5I_INVALID_HID_F) then
+    if (group_id /= H5I_INVALID_HID_F) then
 
       ! get mesh part ..........................................................
 
       buf = C_Loc(mesh%part)
-      call H5Dopen_f(group, name_mp, data_id, err)
+      call H5Dopen_f(group_id, name_mp, data_id, err)
       call H5Dget_type_f(data_id, type_id, err)
       call H5Dread_f(data_id, type_id, buf, err)
       call H5Tclose_f(type_id, err)
@@ -83,7 +83,7 @@ contains
       ! get mesh attributes ....................................................
 
       buf = C_Loc(attrib)
-      call H5Dopen_f(group, name_ma, data_id, err)
+      call H5Dopen_f(group_id, name_ma, data_id, err)
       call H5Dget_type_f(data_id, type_id, err)
       call H5Dread_f(data_id, type_id, buf, err)
       call H5Tclose_f(type_id, err)
@@ -101,7 +101,7 @@ contains
 
       if (attrib%n_bound > 0) then
         buf = C_Loc(attrib%boundary)
-        call H5Dopen_f(group, name_mba, data_id, err)
+        call H5Dopen_f(group_id, name_mba, data_id, err)
         call H5Dget_type_f(data_id, type_id, err)
         call H5Dread_f(data_id, type_id, buf, err)
         call H5Tclose_f(type_id, err)
@@ -114,7 +114,7 @@ contains
 
       ! get elements ...........................................................
 
-      call H5Dopen_f(group, name_me, data_id, err)
+      call H5Dopen_f(group_id, name_me, data_id, err)
       call H5Dget_space_f(data_id, space_id, err)
       call H5Sget_simple_extent_dims_f(space_id, dims, maxdims, err)
 
@@ -147,7 +147,7 @@ contains
 
       if (mesh%n_elem > 0) then
 
-        call H5Dopen_f(group, name_men, data_id, err)
+        call H5Dopen_f(group_id, name_men, data_id, err)
         call H5Dget_space_f(data_id, space_id, err)
         call H5Sget_simple_extent_dims_f(space_id, dims, maxdims, err)
 
@@ -185,7 +185,7 @@ contains
 
       if (mesh%n_elem > 0) then
 
-        call H5Dopen_f(group, name_mec, data_id, err)
+        call H5Dopen_f(group_id, name_mec, data_id, err)
         call H5Dget_space_f(data_id, space_id, err)
         call H5Sget_simple_extent_dims_f(space_id, dims, maxdims, err)
 
@@ -234,7 +234,7 @@ contains
 
     call attrib % Bcast(0, comm)
 
-    if (group == H5I_INVALID_HID_F) then
+    if (group_id == H5I_INVALID_HID_F) then
       call mesh % Init_Mesh_3D(attrib, comm)
     end if
 

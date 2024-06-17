@@ -1,10 +1,10 @@
 !> summary:  Creating an SEM variable from HDF5 data
-!> author:   Joerg Stiller, Erik Pfister
+!> author:   Joerg Stiller
 !> date:     2024/06/14
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(Mesh__3D) MP_New_HDF5
+submodule(SEM__Variable__3D) MP_New_HDF5
   use, intrinsic ::  ISO_C_Binding
   use HDF5_Binding
   implicit none
@@ -13,28 +13,37 @@ contains
 
   !-----------------------------------------------------------------------------
   !> New SEM variable from spectral-element mesh and data given in HDF5 file
-  !>
-  !> An empty variable with zero bounds is created if `sem` has no elements.
 
-  module function New_HDF5_F(sem, group)
-    class(SpectralElementMesh_3D), target, intent(in) :: sem
+  module function New_HDF5_F(sem, file) result(this)
+    class(SpectralElementMesh_3D), intent(in) :: sem
     character(len=*), intent(in) :: file !< name of HDF5 file
     type(SEM_Variable_3D) :: this
 
-    ! TBD
+    integer(hid_t) :: file_id, group_id
+    integer :: err
 
-  end subroutine New_HDF5_F
+    call Init_HDF5_Binding()
+
+    call H5Fopen_f(trim(file), H5F_ACC_RDWR_F, file_id, err)
+    call H5Gopen_f(file_id, 'sev', group_id, err)
+
+    this = New_HDF5_G(sem, group_id)
+
+    call H5Gclose_f(group_id, err)
+    call H5Fclose_f(file_id, err)
+
+  end function New_HDF5_F
 
   !-----------------------------------------------------------------------------
   !> New SEM variable from spectral-element mesh and data given in HDF5 group
   !>
   !> Creates a new spectral-element variable associated with `sem` with data
-  !> provided by the HDF5 `group`.
+  !> provided by the HDF5 `group_id`.
 
-  module function New_HDF5_G(sem, group)
+  module function New_HDF5_G(sem, group_id) result(this)
     class(SpectralElementMesh_3D), target, intent(in) :: sem
-    integer(hid_t), intent(in) :: group !< ID of HDF5 group
-    type(SEM_Variable_3D) :: this
+    integer(hid_t), intent(in) :: group_id !< ID of HDF5 group
+    type(SEM_Variable_3D), target :: this
 
     ! HDF5 datatype, dataspace, dimensions and buffer adress pointer
     integer(hid_t)   :: type_id
@@ -48,7 +57,7 @@ contains
 
     call Init_HDF5_Binding()
 
-    if (group == H5I_INVALID_HID_F) then
+    if (group_id == H5I_INVALID_HID_F) then
       call Error('New_HDF5_G','invalid group given', 'SEM__Variable__3D')
     end if
 
@@ -56,7 +65,7 @@ contains
       deallocate(this % mem)
     end if
 
-    call H5Dopen_f(group, 'mem', data_id, err)
+    call H5Dopen_f(group_id, 'val', data_id, err)
     call H5Dget_space_f(data_id, space_id, err)
     call H5Sget_simple_extent_dims_f(space_id, dims, maxdims, err)
 
@@ -84,7 +93,7 @@ contains
 
     end associate
 
-  end subroutine New_HDF5_G
+  end function New_HDF5_G
 
   !=============================================================================
 

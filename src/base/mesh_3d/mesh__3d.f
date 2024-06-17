@@ -267,42 +267,40 @@ module Mesh__3D
     end subroutine ImportGenericMesh
 
     !---------------------------------------------------------------------------
-    !> Write mesh partition into HDF5 file
-
-    module subroutine WriteHDF5_F(mesh, file)
-      use HDF5_Binding
-      class(Mesh_3D), target, intent(in) :: mesh  !< mesh partition
-      character(len=*),       intent(in) :: file  !< name of HDF5 file
-    end subroutine WriteHDF5_F
-
-    !---------------------------------------------------------------------------
-    !> Write mesh partition into given HDF5 group
-
-    module subroutine WriteHDF5_G(mesh, group)
-      use HDF5_Binding
-      class(Mesh_3D), target, intent(in) :: mesh  !< mesh partition
-      integer(hid_t),         intent(in) :: group !< ID of related HDF5 group
-    end subroutine WriteHDF5_G
-
-    !---------------------------------------------------------------------------
     !> Read mesh partition from given HDF5 file
 
     module subroutine ReadHDF5_F(mesh, file, comm)
-      use HDF5_Binding
-      class(Mesh_3D), target, intent(inout) :: mesh !< mesh partition
-      character(len=*),       intent(in)    :: file !< name of HDF5 file
-      type(MPI_Comm),         intent(in)    :: comm !< MPI "world" communicator
+      class(Mesh_3D),   intent(inout) :: mesh !< mesh partition
+      character(len=*), intent(in)    :: file !< name of HDF5 file
+      type(MPI_Comm),   intent(in)    :: comm !< MPI "world" communicator
     end subroutine ReadHDF5_F
 
     !---------------------------------------------------------------------------
     !> Read mesh partition from given HDF5 group
 
-    module subroutine ReadHDF5_G(mesh, group, comm)
+    module subroutine ReadHDF5_G(mesh, group_id, comm)
       use HDF5_Binding
       class(Mesh_3D), target, intent(inout) :: mesh  !< mesh partition
-      integer(hid_t),         intent(in)    :: group !< ID of related HDF5 group
-      type(MPI_Comm),         intent(in)    :: comm  !< "world" communicator
+      integer(hid_t), intent(in) :: group_id !< ID of related HDF5 group
+      type(MPI_Comm), intent(in) :: comm     !< "world" communicator
     end subroutine ReadHDF5_G
+
+    !---------------------------------------------------------------------------
+    !> Write mesh partition into HDF5 file
+
+    module subroutine WriteHDF5_F(mesh, file)
+      class(Mesh_3D),   intent(in) :: mesh !< mesh partition
+      character(len=*), intent(in) :: file !< name of HDF5 file
+    end subroutine WriteHDF5_F
+
+    !---------------------------------------------------------------------------
+    !> Write mesh partition into given HDF5 group
+
+    module subroutine WriteHDF5_G(mesh, group_id)
+      use HDF5_Binding
+      class(Mesh_3D), target, intent(in) :: mesh     !< mesh partition
+      integer(hid_t),         intent(in) :: group_id !< ID of related HDF5 group
+    end subroutine WriteHDF5_G
 
     !===========================================================================
     ! Standalone routines
