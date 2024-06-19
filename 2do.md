@@ -1,26 +1,14 @@
 # To Do
 [toc]
-## HDF5 Read & Write
-### Concept
-- HDF5 group structure
-    - single level mesh
-    - multilevel mesh
-    - goal: design SL mesh group to fit in ML group
-- Files
-    - read/write one file per process
-    - detect and handle case where number of files exeeds number of processes
-- Writing  (allready implemented in `mesh%WriteHDF5`)
-- Reading  (allready implemented in `mesh%ReadHDF5`)
+## HDF5
+- Observe bug report. When fixed
+    - test
+    - remove redundant statements (deallocate) in `mesh%ReadHDF5` 
+- Understand HDF5 `groups`
+- I/O of multilevel data
 
 ## Flow Solver Restart
-### Concept
-- Writing
-    - HDF5 file for mesh
-    - flow data: __TBD__
-- Reading
-    - read HDF5 mesh file
-    - build SEM mesh as usual
-    - flow data: __TBD__
+- Activate and test when HDF5 is fixed
 
 ## Adaptive Multilevel Techniques
 
