@@ -7,6 +7,7 @@ file(GLOB ESSENTIALS essentials/*.f)
 # bindings
 
 set(BINDINGS bindings/c_binding.f
+             bindings/hdf5_binding.f
              bindings/openmp_binding.F
              bindings/mpi_binding.F
              bindings/vtk_wrapper.c
@@ -17,11 +18,6 @@ set(BINDINGS bindings/c_binding.f
 if (ParMETIS_FOUND)
     list(APPEND BINDINGS bindings/parmetis_wrapper.c
                          bindings/parmetis_binding.f )
-endif ()
-
-if (Exodus_FOUND)
-    list(APPEND BINDINGS bindings/exodus_wrapper.c
-                         bindings/exodus_binding.f )
 endif ()
 
 #===============================================================================
@@ -93,15 +89,15 @@ set ( SPECTRAL_ELEMENT
       spectral_element/dg__element_operators__1d.f
       spectral_element/embedded_interpolation__1d.f
       spectral_element/embedded_interpolation__3d.f
+      spectral_element/coarse_to_fine_interpolation__1d.f
+      spectral_element/fine_to_coarse_projection__1d.f
       spectral_element/projection_operator__1d.f
       spectral_element/projection_operator__3d.f
       spectral_element/standard_operators__1d.f
 
       spectral_element/parent_to_child_interpolation__1d.f # obsolete
 
-      spectral_element/coarse_to_fine_interpolation__1d.f
-      spectral_element/fine_to_coarse_projection__1d.f
-     )
+    )
 
 #===============================================================================
 # time_integration
@@ -126,7 +122,9 @@ set ( MESH_3D
       mesh_3d/generic_mesh__3d__mp_creatediamonds.f
       mesh_3d/generic_mesh__3d__mp_createonerotated.f
       mesh_3d/mesh_boundary__3d.f
+      mesh_3d/mesh_boundary__3d__sm_hdf5.f
       mesh_3d/mesh_element__3d.F
+      mesh_3d/mesh_element__3d__sm_hdf5.f
       mesh_3d/mesh_element__3d__sm_mpi.f
       mesh_3d/mesh_element_indexing__3d.f
       mesh_3d/mesh_face__3d.f
@@ -151,6 +149,9 @@ set ( MESH_3D
       mesh_3d/mesh__3d__mp_identifyranks.f
       mesh_3d/mesh__3d__mp_identifyvertices.f
       mesh_3d/mesh__3d__mp_importgenericmesh.f
+      mesh_3d/mesh__3d__mp_readhdf5.f
+      mesh_3d/mesh__3d__mp_writehdf5.f
+      mesh_3d/mesh__3d__sm_hdf5.f
       mesh_3d/structured_mesh_indexing__3d.f
       mesh_3d/generate_regular_mesh__3d.f
       mesh_3d/mesh_metrics__3d.f
@@ -165,6 +166,7 @@ set( UTIL_1D
      util_1d/cg__condensed_solver__1d.f
      util_1d/cg__utilities__1d.f
      util_1d/dg__utilities__1d.f
+     util_1d/export/export_vtk_spacetime_data__1d.f
     )
 
 #===============================================================================
@@ -184,6 +186,11 @@ set( UTIL_3D ${UTIL_3D}
      util_3d/meshgen/create_cuboid_onerotated.f
      util_3d/meshgen/create_cylinder.f
     )
+
+set( UTIL_3D ${UTIL_3D}
+     util_3d/import/import_gmsh__3d.f
+     util_3d/import/import_gmsh__3d__mp_mapshellnodes.f
+   )
 
 set( UTIL_3D ${UTIL_3D}
      util_3d/transfer/data_exchange__3d.f
@@ -219,15 +226,6 @@ set( UTIL_3D ${UTIL_3D}
      util_3d/adaptation/restrict_adaptation_pattern__3d.f
      util_3d/adaptation/root_mesh_partitioning__3d.F
     )
-    
-set( UTIL_3D ${UTIL_3D}
-     util_3d/import/import_gmsh__3d.f
-     util_3d/import/import_gmsh__3d__mp_get_ces_points.f
-    )
-
-if (Exodus_FOUND)
-    set (UTIL_3D ${UTIL_3D} util_3d/import/import_exodus__3d.f)
-endif ()
 
 #===============================================================================
 # elliptic_1d
@@ -284,7 +282,6 @@ set(BASE_SRC ${ESSENTIALS}
              ${MESH_3D}
              ${UTIL_1D}
              ${UTIL_3D}
-             ${VARIABLES_3D}
              ${ELLIPTIC_1D}
              ${ELLIPTIC_3D}
              )
@@ -294,6 +291,7 @@ add_library(HiBase ${BASE_SRC})
 set_property(TARGET HiBase
              PROPERTY Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules)
 
+add_dependencies(HiBase KdTree)
 if (NOT SKIP_LIBXSMM)
     add_dependencies(HiBase LIBXSMM)
 endif ()
@@ -301,17 +299,17 @@ endif ()
 target_include_directories(HiBase
     PUBLIC  ${PROJECT_BINARY_DIR}/modules
             ${LIBXSMM_INCLUDE_DIRS}
+            ${HDF5_Fortran_INCLUDE_DIRS}
     PRIVATE ${VTK_INCLUDE_DIRS}
             ${ParMETIS_INCLUDE_DIRS}
             ${FFTW_INCLUDE_DIRS}
-            ${Exodus_INCLUDE_DIRS}
             )
 
 target_link_libraries(HiBase
     PUBLIC  ${LAPACK_LIBRARIES}
             ${VTK_LIBRARIES}
+            ${HDF5_Fortran_LIBRARIES}
             ${FFTW_LIBRARIES}
             ${ParMETIS_LIBRARIES}
-            ${Exodus_LIBRARIES}
             ${LIBXSMM_LIBRARIES}
             )

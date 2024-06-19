@@ -59,7 +59,7 @@ contains
             l = neighbor(j) % id
             if (l > 0 .and. l <= mesh % n_elem) then
               c = ElementFaceID(neighbor(j) % component)
-              o = ElementFaceID(neighbor(j) % orientation)
+              o = neighbor(j) % orientation
               passed = FaceMatch(mesh%element(l), c, e, o)
               if (.not. passed) then
                 write(*,'(99G0)') '*** part ', mesh%part,': no match between ', &
@@ -83,7 +83,7 @@ contains
             l = neighbor(j) % id
             if (l > 0 .and. l <= mesh % n_elem) then
               c = ElementEdgeID(neighbor(j) % component)
-              o = ElementFaceID(neighbor(j) % orientation)
+              o = neighbor(j) % orientation
               passed = EdgeMatch(mesh%element(l), c, e, o)
               if (.not. passed) then
                 write(*,'(99G0)') '*** part ', mesh%part,': no match between ', &
@@ -107,7 +107,7 @@ contains
             l = neighbor(j) % id
             if (l > 0 .and. l <= mesh % n_elem) then
               c = ElementVertexID(neighbor(j) % component)
-              o = ElementFaceID(neighbor(j) % orientation)
+              o = neighbor(j) % orientation
               passed = VertexMatch(mesh%element(l), c, e, o)
               if (.not. passed) then
                 write(*,'(99G0)') '*** part ', mesh%part,': no match between ',  &

@@ -133,7 +133,7 @@ contains
     integer :: c(0:3)
     integer :: e, i, j, k, l, m, n
 !### CHECK
-print '(99(G0,1X))', 'PMP 0, proc',mesh%proc
+!! print '(99(G0,1X))', 'PMP 0, proc',mesh%proc
 !### CHECK END
 
     !---------------------------------------------------------------------------
@@ -159,10 +159,10 @@ print '(99(G0,1X))', 'PMP 0, proc',mesh%proc
       end do
       nvtx = i
 !### CHECK
-print '(99(G0,1X))', 'PMP 1, proc',mesh%proc
-print '(99(G0,1X))', 'PMP 1, proc',mesh%proc,'w_comp =', w_comp
-print '(99(G0,1X))', 'PMP 1, proc',mesh%proc,'min/max mark =', &
-minval(mesh%element%adaptation%mark),maxval(mesh%element%adaptation%mark)
+!! print '(99(G0,1X))', 'PMP 1, proc',mesh%proc
+!! print '(99(G0,1X))', 'PMP 1, proc',mesh%proc,'w_comp =', w_comp
+!! print '(99(G0,1X))', 'PMP 1, proc',mesh%proc,'min/max mark =', &
+!! minval(mesh%element%adaptation%mark),maxval(mesh%element%adaptation%mark)
 !### CHECK END
 
       ! create MPI communicator comprising all parent meshes with nvtx > 0
@@ -176,17 +176,17 @@ minval(mesh%element%adaptation%mark),maxval(mesh%element%adaptation%mark)
       call MPI_Comm_rank(comm, proc)
       call MPI_Comm_size(comm, nproc)
 !### CHECK
-print '(99(G0,1X))', 'PMP 2, proc',mesh%proc
-print '(99(G0,1X))', 'PMP 2, proc',mesh%proc,'m =',m
-print '(99(G0,1X))', 'PMP 2, proc',mesh%proc,'ParMetis proc  =',proc
-print '(99(G0,1X))', 'PMP 2, proc',mesh%proc,'ParMetis nproc =',nproc
+!! print '(99(G0,1X))', 'PMP 2, proc',mesh%proc
+!! print '(99(G0,1X))', 'PMP 2, proc',mesh%proc,'m =',m
+!! print '(99(G0,1X))', 'PMP 2, proc',mesh%proc,'ParMetis proc  =',proc
+!! print '(99(G0,1X))', 'PMP 2, proc',mesh%proc,'ParMetis nproc =',nproc
 !### CHECK END
 
       ! graph vertex ID element variable and transfer buffer
       var_vtx_elem(1:1, 1:1, 1:1, 1:size(vtx_elem)) => vtx_elem
       buf_vtx_elem = ElementTransferBuffer_3D(mesh, var_vtx_elem)
 !### CHECK
-print '(99(G0,1X))', 'PMP 3, proc',mesh%proc
+!! print '(99(G0,1X))', 'PMP 3, proc',mesh%proc
 !### CHECK END
 
       ! ParMetis input arguments ...............................................
@@ -223,7 +223,7 @@ print '(99(G0,1X))', 'PMP 3, proc',mesh%proc
       ! fractions of vertex weight per partition
       tpwgts = 1.00 / nparts
 !### CHECK
-print '(99(G0,1X))', 'PMP 4, proc',mesh%proc
+!! print '(99(G0,1X))', 'PMP 4, proc',mesh%proc
 !### CHECK END
 
       ! graph vertex distribution ..............................................
@@ -239,7 +239,7 @@ print '(99(G0,1X))', 'PMP 4, proc',mesh%proc
         vtxdist(i) = vtxdist(i-1) + nvtx_proc(i-1)
       end do
 !### CHECK
-print '(99(G0,1X))', 'PMP 5, proc',mesh%proc
+!! print '(99(G0,1X))', 'PMP 5, proc',mesh%proc
 !### CHECK END
 
       ! graph vertex IDs by element index (local+ghost) ........................
@@ -249,14 +249,14 @@ print '(99(G0,1X))', 'PMP 5, proc',mesh%proc
         vtx_elem = vtx_elem + vtxdist(proc)
       end where
 !### CHECK
-print '(99(G0,1X))', 'PMP 6, proc',mesh%proc
+!! print '(99(G0,1X))', 'PMP 6, proc',mesh%proc
 !### CHECK END
 
       ! transfer graph vertex IDs to ghosts
       call buf_vtx_elem % Transfer(mesh, var_vtx_elem, tag=1000)
       call buf_vtx_elem % Merge(var_vtx_elem)
 !### CHECK
-print '(99(G0,1X))', 'PMP 7, proc',mesh%proc
+!! print '(99(G0,1X))', 'PMP 7, proc',mesh%proc
 !### CHECK END
 
       ! graph vertex weights and adjacency offsets .............................
@@ -349,7 +349,7 @@ print '(99(G0,1X))', 'PMP 7, proc',mesh%proc
         end associate
       end do
 !### CHECK
-print '(99(G0,1X))', 'PMP 8, proc',mesh%proc
+!! print '(99(G0,1X))', 'PMP 8, proc',mesh%proc
 !### CHECK END
 
       ! adjacency and adjacency weights ........................................
@@ -419,24 +419,24 @@ print '(99(G0,1X))', 'PMP 8, proc',mesh%proc
         end associate
       end do
 !### CHECK
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', wgtflag          =',wgtflag
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', numflag          =',numflag
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', ncon             =',ncon
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', nparts           =',nparts
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', ubvec            =',ubvec
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', options          =',options
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(vtxdist)    =',size(vtxdist)
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(xadj)       =',size(xadj)
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(adjncy)     =',size(adjncy)
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(vwgt)       =',size(vwgt)
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(adjwgt)     =',size(adjwgt)
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(vtxdist) =',minval(vtxdist),maxval(vtxdist)
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(xadj)    =',minval(xadj),maxval(xadj)
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(adjncy)  =',minval(adjncy),maxval(adjncy)
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(vwgt)    =',minval(vwgt),maxval(vwgt)
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(adjwgt)  =',minval(adjwgt),maxval(adjwgt)
-print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(tpwgts)  =',minval(tpwgts),maxval(tpwgts)
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', wgtflag          =',wgtflag
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', numflag          =',numflag
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', ncon             =',ncon
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', nparts           =',nparts
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', ubvec            =',ubvec
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', options          =',options
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(vtxdist)    =',size(vtxdist)
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(xadj)       =',size(xadj)
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(adjncy)     =',size(adjncy)
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(vwgt)       =',size(vwgt)
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(adjwgt)     =',size(adjwgt)
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(vtxdist) =',minval(vtxdist),maxval(vtxdist)
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(xadj)    =',minval(xadj),maxval(xadj)
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(adjncy)  =',minval(adjncy),maxval(adjncy)
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(vwgt)    =',minval(vwgt),maxval(vwgt)
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(adjwgt)  =',minval(adjwgt),maxval(adjwgt)
+!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(tpwgts)  =',minval(tpwgts),maxval(tpwgts)
 !### CHECK END
 
       ! ParMETIS ...............................................................
@@ -447,7 +447,7 @@ print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(tpwgts)  =',minval(tpwgt
 
       ! result .................................................................
 !### CHECK
-print '(99(G0,1X))', 'PMP 10, proc',mesh%proc
+!! print '(99(G0,1X))', 'PMP 10, proc',mesh%proc
 !### CHECK END
 
       i = 0
@@ -468,7 +468,7 @@ print '(99(G0,1X))', 'PMP 10, proc',mesh%proc
 
     !---------------------------------------------------------------------------
 !### CHECK
-print '(99(G0,1X))', 'PMP X, proc',mesh%proc
+!! print '(99(G0,1X))', 'PMP X, proc',mesh%proc
 !### CHECK END
 
   end subroutine ParMETIS_Partitioner_3D

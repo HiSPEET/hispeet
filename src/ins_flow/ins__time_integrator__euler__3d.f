@@ -115,7 +115,7 @@ contains
 
     ! boundary points and values
     type(BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:)
-    type(BoundaryVariable_3D), allocatable, save :: bv_v(:), bv_p(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_v(:), bv_p(:), bv_dp(:)
 
     ! control
     real(RNP), save :: t_0 = -huge(ONE)
@@ -140,7 +140,7 @@ contains
       if (allocated(v_0)) then
         if (any(shape(v_0) /= shape(v))) then
           deallocate(inv_mm, v_0, F_c, F_d, Q, vp, sp)
-          deallocate(bv_x, bv_u, bv_v, bv_p)
+          deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp)
         end if
       end if
 
@@ -164,12 +164,14 @@ contains
         allocate(bv_u (mesh % n_bound) )
         allocate(bv_v (mesh % n_bound) )
         allocate(bv_p (mesh % n_bound) )
+        allocate(bv_dp(mesh % n_bound) )
         do b = 1, mesh % n_bound
           call bv_x(b) % Create(mesh % boundary(b), po, nc = 3)
           call bv_x(b) % Extract(sem_v % metrics % x)
-          call bv_u(b) % Create(mesh % boundary(b), po, nc = 4)
-          call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v(b))
-          call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p(b))
+          call bv_u(b) % Create(mesh % boundary(b), po, nc = 5)
+          call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v (b))
+          call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p (b))
+          call bv_u(b) % GetSlice(first=5, last=5, slice = bv_dp(b))
         end do
 
       end if
@@ -196,15 +198,11 @@ contains
         end select
       end do
 
-      ! initialize boundary traces
-      call GetBoundaryTraces_3D(mesh, v, vp)
-      call ins_op % ApplyVelocityBC(vp, bv_u = bv_u)
-
       ! viscous and convective RHS .............................................
       ! so far ν is constant
 
-      ! diffusion term based on rotational form
-      call ins_op % GetDiffusionTerm(v, vp, sp, F_d, form=2, extrapolate='O')
+      ! diffusion term using rotational form with extrapolation: s⁺ = s⁻ at ∂Ωᴼ
+      call ins_op % GetDiffusionTerm(v, vp, sp, F_d, bv_u, xout=.true., form=2)
 
       ! convection term
       if (problem % stokes) then
@@ -232,9 +230,12 @@ contains
           ! v = vᵇ  on Ωᴰ
           call problem % GetBoundaryValues(b, bv_x(b) % val, t, bv_u(b) % val)
         case('O')
-          ! v = v(t₀), p = n⋅s(t₀) = -n⋅s⁺  on Ωᴼ
-          call bv_v(b) % Extract(v)
-          call bv_p(b) % MergeNormalTrace(sem_v, cb = ZERO, ct = -ONE, vt = sp)
+          associate(pb => bv_p(b) % val(:,:,:,1), dp => bv_dp(b) % val(:,:,:,1))
+            ! pᵇ = -n⋅s⁺ + ∆pᵇ, ∆pᵇ = -E(v,n)
+            call bv_p(b) % MergeNormalTrace(sem_v, cb = ZERO, ct = -ONE, vt = sp)
+            call ins_op % GetBackflowPenalty(problem, b, v, dp)
+            call MergeArrays(ONE, pb, ONE, dp)
+          end associate
         end select
       end do
 
@@ -256,7 +257,7 @@ contains
 
       !$omp master
       deallocate(inv_mm, v_0, F_c, F_d, Q, vp, sp)
-      deallocate(bv_x, bv_u, bv_v, bv_p)
+      deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp)
       !$omp end master
 
     end associate

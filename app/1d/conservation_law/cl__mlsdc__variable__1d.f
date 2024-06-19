@@ -61,9 +61,9 @@ contains
     do l = 1, nl
       associate( ps => mlsdc % level(l) % p_space &
                , ns => mlsdc % level(l) % n_space &
-               , pt => mlsdc % level(l) % p_time  &
+               , mt => mlsdc % level(l) % m_time  &
                , nt => mlsdc % level(l) % n_time  )
-        allocate(var % level(l) % val(0:ps,1:ns,0:pt,1:nt,1:nc_), source = ZERO)
+        allocate(var % level(l) % val(0:ps,1:ns,1:nc_,0:mt,1:nt), source = ZERO)
       end associate
     end do
 

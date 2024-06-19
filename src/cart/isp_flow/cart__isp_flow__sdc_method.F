@@ -322,7 +322,7 @@ contains
 
     end if
 
-    t_sdc (0:n_sub) = this % IntermediateTimes(t, dt)
+    t_sdc (0:n_sub) = this % SubintervalPoints(t, dt)
     dt_sdc(1:n_sub) = t_sdc(1:n_sub) - t_sdc(0:n_sub-1)
 
     !$omp end single

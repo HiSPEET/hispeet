@@ -41,68 +41,69 @@ module MPI_Binding
 
 contains
 
-!-------------------------------------------------------------------------------
-!> Initializes the MPI data types defined in the module
-!>
-!> Initializes the MPI environment via MPI_Init_Thread and creates the datatypes
-!> used for MPI communication. If OpenMP is utilized, the MPI implementation is
-!> required to provide threading level MPI_THREAD_FUNNELED or higher.
+  !-----------------------------------------------------------------------------
+  !> Initializes the MPI data types defined in the module
+  !>
+  !> Initializes the MPI environment via MPI_Init_Thread and creates the
+  !> datatypes used for MPI communication. If OpenMP is utilized, the MPI
+  !> implementation is required to provide threading level MPI_THREAD_FUNNELED
+  !> or higher.
 
-subroutine Init_MPI_Binding()
-  integer :: provided_threading ! threading support, MPI 3.0 p.485-488
+  subroutine Init_MPI_Binding()
+    integer :: provided_threading ! threading support, MPI 3.0 p.485-488
 
-  ! safeguard ..................................................................
+    ! safeguard ................................................................
 
-  if (initialized) return
+    if (initialized) return
 
-  call MPI_Initialized(initialized)
+    call MPI_Initialized(initialized)
 
-  ! initialize MPI with required threading support .............................
+    ! initialize MPI with required threading support ...........................
 
-  ! when using OpenMP *only* the master thread may execute MPI calls.
-  if(.not. initialized) then
-    call MPI_Init_Thread(REQUIRED_THREADING, provided_threading)
-  else
-    call MPI_Query_thread(provided_threading)
-  end if
+    ! when using OpenMP *only* the master thread may execute MPI calls.
+    if(.not. initialized) then
+      call MPI_Init_Thread(REQUIRED_THREADING, provided_threading)
+    else
+      call MPI_Query_thread(provided_threading)
+    end if
 
-  ! bail out if requirements are not met
-  ! MPI_THREAD_SINGLE < MPI_THREAD_FUNNELED < MPI_THREAD_SERIALIZED
-  if (provided_threading < REQUIRED_THREADING) then
-    call MPI_Finalize()
-    stop 'Init_MPI_Binding: insufficient threading support, aborting'
-  end if
+    ! bail out if requirements are not met
+    ! MPI_THREAD_SINGLE < MPI_THREAD_FUNNELED < MPI_THREAD_SERIALIZED
+    if (provided_threading < REQUIRED_THREADING) then
+      call MPI_Finalize()
+      stop 'Init_MPI_Binding: insufficient threading support, aborting'
+    end if
 
-  ! integer types ..............................................................
+    ! integer types ............................................................
 
-  call MPI_Type_create_f90_integer(range(1_IXS), MPI_INTEGER_IXS)
-  call MPI_Type_create_f90_integer(range(1_IXL), MPI_INTEGER_IXL)
+    call MPI_Type_create_f90_integer(range(1_IXS), MPI_INTEGER_IXS)
+    call MPI_Type_create_f90_integer(range(1_IXL), MPI_INTEGER_IXL)
 
-  ! real types .................................................................
+    ! real types ...............................................................
 
-  MPI_REAL_RSP = MPI_REAL
-  MPI_REAL_RDP = MPI_DOUBLE_PRECISION
+    MPI_REAL_RSP = MPI_REAL
+    MPI_REAL_RDP = MPI_DOUBLE_PRECISION
 
-  select case(RHP)
-  case(RDP)
-    MPI_REAL_RHP = MPI_REAL_RDP
-  case default
-    MPI_REAL_RHP = MPI_REAL16
-  end select
+    select case(RHP)
+    case(RDP)
+      MPI_REAL_RHP = MPI_REAL_RDP
+    case default
+      MPI_REAL_RHP = MPI_REAL16
+    end select
 
-  select case(RNP)
-  case(RSP)
-    MPI_REAL_RNP = MPI_REAL_RSP
-  case(RDP)
-    MPI_REAL_RNP = MPI_REAL_RDP
-  case(RHP)
-    MPI_REAL_RNP = MPI_REAL_RHP
-  end select
+    select case(RNP)
+    case(RSP)
+      MPI_REAL_RNP = MPI_REAL_RSP
+    case(RDP)
+      MPI_REAL_RNP = MPI_REAL_RDP
+    case(RHP)
+      MPI_REAL_RNP = MPI_REAL_RHP
+    end select
 
-  initialized = .true.
+    initialized = .true.
 
-end subroutine Init_MPI_Binding
+  end subroutine Init_MPI_Binding
 
-!==============================================================================
+  !============================================================================
 
 end module MPI_Binding

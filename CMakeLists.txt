@@ -27,12 +27,6 @@
 #     -D OpenMP=⟨0|1⟩
 #         0:  compile without OpenMP (default)
 #         1:  compile with OpenMP
-#
-#     The following flag has no effect, since OpenACC is disabled
-#
-#     -D OpenACC=⟨0|1⟩
-#         0:  compile without OpenACC (default)
-#         1:  compile with OpenACC
 
 cmake_minimum_required(VERSION 3.12)
 
@@ -74,19 +68,6 @@ find_package(MPI)
 if (NOT MPI_Fortran_HAVE_F08_MODULE)
     message(FATAL_ERROR "MPI does not have MPI_F08 module")
 endif ()
-
-#-------------------------------------------------------------------------------
-# External libraries and utilities
-
-find_package(LAPACK REQUIRED)
-find_package(VTK REQUIRED COMPONENTS vtkIOXML)
-#new#find_package(VTK REQUIRED COMPONENTS IOXML)
-find_package(PythonInterp 3 REQUIRED)
-find_package(Slurm)
-find_package(FFTW)
-find_package(ParMETIS)
-find_package(Exodus)
-find_package(pFUnit QUIET)
 
 #===============================================================================
 # Flags
@@ -156,32 +137,6 @@ elseif (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
 
     endif ()
 
-#-------------------------------------------------------------------------------
-# PGI
-
-elseif (CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
-
-    set(CMAKE_Fortran_FLAGS ${CMAKE_Fortran_FLAGS}
-                            "-Mfree -Minform=inform"
-                            "-Mbackslash"
-                            "-Minfo=inline"
-                            "-Minline=maxsize:250"
-                            "-Mvect=simd"
-                            "-Munroll"
-                            )
-
-    set(CMAKE_Fortran_FLAGS_DEBUG   "-g")
-    set(CMAKE_Fortran_FLAGS_CHECK   "-Mbounds")
-    set(CMAKE_Fortran_FLAGS_RELEASE "-fast" )
-
-    if (OPT)
-        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O${OPT}")
-    else (OPT)
-        set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE} -O3" )
-    endif (OPT)
-
-    set(Fortran_FLAGS_TPO "-Minline=reshape")
-
 endif ()
 
 #-------------------------------------------------------------------------------
@@ -196,51 +151,58 @@ elseif (NOT SKIP_LIBXSMM)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif (OpenMP)
 
-#-------------------------------------------------------------------------------
-# OpenACC (disabled)
-
-#if (OpenACC)
-#
-#    # LIBXSMM is not used
-#    set(SKIP_LIBXSMM "1")
-#
-#    ## using CMake module -- not working :(
-#    ## find_package(OpenACC REQUIRED)
-#
-#    if (NOT DEFINED OpenACC_ACCEL_TARGET)
-#        set(OpenACC_ACCEL_TARGET "tesla:kepler+")
-#    endif ()
-#
-#    # Fortran and C compiler IDs must match to avoid problems with linker
-#    if ( CMAKE_Fortran_COMPILER_ID MATCHES "PGI" AND
-#         CMAKE_C_COMPILER_ID       MATCHES "PGI" )
-#
-#        set( OpenACC_C_FLAGS
-#             "-acc -Minfo=accel -Minline=3 -ta=${OpenACC_ACCEL_TARGET}" )
-#
-#        set( OpenACC_Fortran_FLAGS
-#             "-acc -Minfo=accel -Minline=3 -ta=${OpenACC_ACCEL_TARGET}" )
-#
-#        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Mcuda -lcublas")
-#
-#        set(OpenACC_FOUND TRUE)
-#        message (STATUS "Found OpenACC (PGI)")
-#
-#    else ()
-#        message(FATAL_ERROR "Could NOT find OpenACC")
-#    endif ()
-#
-#    # Add OpenACC compiler flags ()
-#    set(CMAKE_C_FLAGS       "${CMAKE_C_FLAGS} ${OpenACC_C_FLAGS}")
-#    set(CMAKE_CXX_FLAGS     "${CMAKE_CXX_FLAGS} ${OpenACC_CXX_FLAGS}")
-#    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenACC_Fortran_FLAGS}")
-#
-#endif (OpenACC)
-
 #===============================================================================
-# External libraries
+# External libraries and utilities
+
+#-------------------------------------------------------------------------------
+# BLAS and LAPACK
+
+if (NOT CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+    find_package(BLAS REQUIRED)
+    find_package(LAPACK REQUIRED)
+    set(LAPACK_LIBRARIES ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+    message(STATUS "Found LAPACK libraries: ${LAPACK_LIBRARIES}") 
+endif ()
+
+#-------------------------------------------------------------------------------
+# VTK XML export
+
+find_package(VTK REQUIRED COMPONENTS IOXML)
+
+# provides: 
+#   - VTK_INCLUDE_DIRS 
+#   - VTK_LIBRARIES
+
+#-------------------------------------------------------------------------------
+# HDF5
+
+find_package(HDF5 REQUIRED COMPONENTS Fortran HL)
+
+# provides: 
+#   - HDF5_Fortran_INCLUDE_DIRS 
+#   - HDF5_Fortran_LIBRARIES
+
+#-------------------------------------------------------------------------------
+# KD-Tree
+
+include(external/cmake/kdtree.cmake)
+
+#-------------------------------------------------------------------------------
+# LIBXSMM
 
 include(external/cmake/libxsmm.cmake)
+
+# provides: 
+#   - LIBXSMM_INCLUDE_DIRS 
+#   - LIBXSMM_LIBRARIES
+
+#-------------------------------------------------------------------------------
+# FFTW, ParMeTiS, ppFUnit, SLURM
+
+find_package(FFTW)         # FFTW_INCLUDE_DIRS    , FFTW_LIBRARIES
+find_package(ParMETIS)     # ParMETIS_INCLUDE_DIRS, ParMETIS_LIBRARIES
+find_package(pFUnit QUIET)
+find_package(Slurm QUIET)
 
 #===============================================================================
 # Subprojects
@@ -250,4 +212,5 @@ add_subdirectory(test)
 add_subdirectory(app)
 add_subdirectory(develop)
 
-add_subdirectory(dirty)
+# experimental programs excluded from make all
+add_subdirectory(dirty EXCLUDE_FROM_ALL)

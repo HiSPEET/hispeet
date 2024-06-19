@@ -43,12 +43,15 @@ contains
     !< sources at time t, older contributions and possibly correction terms
     class(BoundaryVariable_3D), intent(inout) :: bv_u(:)
     !< boundary values at final time t
-    !!   - for velocity in components 1:3
-    !!       *  at ∂Ωᴰ inout:  Dirichlet conditions
-    !!       *  at ∂Ωᴼ inout:  approximate velocity
-    !!   - for pressure in component 4
-    !!       *  at ∂Ωᴰ out:    ∂p/∂n
-    !!       *  at ∂Ωᴼ inout:  approximate pressure
+    !!   - components 1:3
+    !!       * Γᴰ :  vᵇ  →  vᵇ         (unchanged)
+    !!       * Γᴼ :  ×                 (unused)
+    !!   - component 4
+    !!       * Γᴰ :  ×   →  ∂p/∂n
+    !!       * Γᴼ :  pᵇ  →  τ_nn
+    !!   - component 5
+    !!       * Γᴰ :  ×                 (unused)
+    !!       * Γᴼ :  ∆pᵇ →  ∆pᵇ        (unchanged)
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
     !< u = [v, p], velocity and pressure at final time u
 
@@ -66,8 +69,7 @@ contains
 
     type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_vm
 
-    type(BoundaryVariable_3D), allocatable, save :: bv_v(:)
-    type(BoundaryVariable_3D), allocatable, save :: bv_p(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_v(:), bv_p(:), bv_dp(:)
 
     integer :: np
     integer :: b, d, e
@@ -93,11 +95,13 @@ contains
       buf_vm = ElementFaceTransferBuffer_3D(mesh, vm)
 
       ! handles for velocity and pressure boundary values, based on pointers
-      allocate(bv_v( mesh%n_bound ))
-      allocate(bv_p( mesh%n_bound ))
+      allocate(bv_v ( mesh%n_bound ))
+      allocate(bv_p ( mesh%n_bound ))
+      allocate(bv_dp( mesh%n_bound ))
       do b = 1, mesh % n_bound
-        call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v(b))
-        call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p(b))
+        call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v (b))
+        call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p (b))
+        call bv_u(b) % GetSlice(first=5, last=5, slice = bv_dp(b))
       end do
       !$omp end master
       !$omp barrier
@@ -140,8 +144,8 @@ contains
         call TPO_Div(ins_op % eop_v, ins_op % sem_v, v, vp, div_v)
 
         ! solve pressure equation
-        call ins_op % PressureSolver( tau, bv_v, v, div_v, bv_p, p &
-                                    , i_max_p, r_red, r_max        )
+        call ins_op % PressureSolver( tau, bv_u, v, div_v, p &
+                                    , i_max_p, r_red, r_max  )
 
       end associate
 
@@ -166,7 +170,10 @@ contains
       do b = 1, mesh % n_bound
         select case(ins_op % bc_v(b))
         case('O')
+          ! pᵇ = p - ∆pᵇ
           call bv_p(b) % Extract(p)
+          call MergeArrays( ONE, bv_p (b) % val(:,:,:,1), &
+                           -ONE, bv_dp(b) % val(:,:,:,1)  )
         end select
       end do
 
@@ -189,7 +196,7 @@ contains
       deallocate(w)
       deallocate(pp, vm, vp)
       deallocate(buf_vm)
-      deallocate(bv_v, bv_p)
+      deallocate(bv_v, bv_p, bv_dp)
       !$omp end master
 
     end associate

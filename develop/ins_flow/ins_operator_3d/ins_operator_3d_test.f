@@ -350,7 +350,7 @@ program INS_Operator_3D_Test
   ! viscous term: F_d = ∇·τ ....................................................
   ! so far ν is constant and boundaries are periodic or have Dirichlet BC
 
-  call ins_op % GetDiffusionTerm(v, up, sp, w)
+  call ins_op % GetDiffusionTerm(v, up, sp, w, bv_u)
 
   do i = 1, 3
     F_dh(:,:,:,:,i) = w(:,:,:,:,i) / mm

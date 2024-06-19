@@ -1,0 +1,51 @@
+&problem_prm
+  problem_name = 'convection_diffusion__wave_package'
+  t_start = 0.40
+  t_end   = 0.41
+/
+
+&discretization_prm
+! dt_slab  = 0.2     ! thickness of one time slab
+  n_level  =  2      ! number of space-time levels
+  n_cycle  =  5
+  n_coarse =  2
+  n_space  = 50 100
+  p_space  =  9  15
+  n_time   =  1   1
+  p_time   =  3   6
+  n_sweep  =  4   4
+/
+
+&time_integration_prm
+  !time_method = 0
+  sdc_method  = 2
+
+  ! sdc_method 1: SDC based on Euler
+  opt_sdc_euler%point_set        = 'L'
+  opt_sdc_euler%diffusion_method = 4
+  opt_sdc_euler%diffusion_i_max  = 100
+
+  ! sdc_method = 2: SDC based on ISD1
+  opt_sdc_isd1%point_set        = 'L'
+  opt_sdc_isd1%diffusion_method = 4
+  opt_sdc_isd1%diffusion_i_max  = 1000
+/
+
+&convection_diffusion_wave_package_prm
+  opt%v  = 1
+  opt%nu = 1e-4
+  opt%bc = 2*'P'
+/
+
+&wave_package_dim
+  nw = 7
+  lw = 1
+/
+
+&wave_package_prm
+  k = 1,    3,    5,    7,    9,    12,   15
+  a = 1.00, 1.50, 1.80, 1.70, 1.50, 1.30, 1.15
+  s = 0.00, 0.05, 0.10, 0.15, 0.20, 0.30, 0.18
+/
+
+

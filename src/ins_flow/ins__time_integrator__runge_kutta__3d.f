@@ -116,15 +116,16 @@ contains
     real(RNP), allocatable, save :: sp (:,:,:,:,:)   ! viscous flux traces s⁺
     real(RNP), allocatable, save :: inv_mm(:,:,:,:)  ! inv diagonal mass matrix
 
-    ! stage contributions to RHS
+    ! stage contributions to RHS and BC
     real(RNP), allocatable, save :: F_c     (:,:,:,:,:,:) ! convection
     real(RNP), allocatable, save :: F_d     (:,:,:,:,:,:) ! diffusion, standard
     real(RNP), allocatable, save :: F_d_rot (:,:,:,:,:,:) ! diffusion, rotational
     real(RNP), allocatable, save :: F_s     (:,:,:,:,:,:) ! sources
 
     ! boundary points and values
-    type(BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:), &
-                                                    bv_v(:), bv_p(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:)  &
+                                                  , bv_v(:), bv_p(:)  &
+                                                  , bv_dp(:), bv_po(:,:)
 
     ! control
     real(RNP), save :: t_0 = -huge(ONE)
@@ -161,7 +162,7 @@ contains
       if (allocated(u_i)) then
         if (any(shape(u_i) /= shape(u))) then
           deallocate(u_i, vp, sp, inv_mm, F_c, F_d, F_d_rot, F_s)
-          deallocate(bv_x, bv_u, bv_v, bv_p)
+          deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp, bv_po)
         end if
       end if
 
@@ -183,17 +184,23 @@ contains
         allocate( F_d_rot (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
         allocate( F_s     (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
 
-        allocate(bv_x(mesh % n_bound))
-        allocate(bv_u(mesh % n_bound))
-        allocate(bv_v(mesh % n_bound))
-        allocate(bv_p(mesh % n_bound))
+        allocate( bv_x  (mesh % n_bound) )
+        allocate( bv_u  (mesh % n_bound) )
+        allocate( bv_v  (mesh % n_bound) )
+        allocate( bv_p  (mesh % n_bound) )
+        allocate( bv_dp (mesh % n_bound) )
+        allocate( bv_po (mesh % n_bound, n_stage) )
 
         do b = 1, mesh % n_bound
-          call bv_u(b) % Create(mesh % boundary(b), po, nc = 4)
-          call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v(b))
-          call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p(b))
           call bv_x(b) % Create(mesh % boundary(b), po, nc = 3)
           call bv_x(b) % Extract(sem_v % metrics % x)
+          call bv_u(b) % Create(mesh % boundary(b), po, nc = 5)
+          call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v (b))
+          call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p (b))
+          call bv_u(b) % GetSlice(first=5, last=5, slice = bv_dp(b))
+          do i = 1, n_stage
+            call bv_po(b,i) % Create(mesh % boundary(b), po, nc = 1)
+          end do
         end do
 
       end if
@@ -226,6 +233,13 @@ contains
                      , F_d_rot (:,:,:,:,:,n_stage) &
                      , multi = .true.              )
 
+        ! normal stress vector and backflow penalty at ∂Ωᴼ
+        do b = 1, mesh % n_bound
+          if (problem % bc_v(b) /= 'O') cycle
+          call SetArray(bv_po(b,1)%val(:,:,:,1), bv_po(b,n_stage)%val(:,:,:,1))
+          call ins_op%GetBackflowPenalty(problem, b, v_0, bv_dp(b)%val(:,:,:,1))
+        end do
+
       else
         associate(v => u(:,:,:,:,1:3), p => u(:,:,:,:,4))
 
@@ -234,22 +248,22 @@ contains
             select case(problem % bc_v(b))
             case('D')
               call problem % GetBoundaryValues(b, bv_x(b)%val, t_i, bv_u(b)%val)
-            case('O')
-              call bv_u(b) % Extract(u)
             end select
           end do
-
-          ! initialize boundary traces
-          call GetBoundaryTraces_3D(mesh, v, vp)      ! vp = v⁻            on ∂Ω
-          call ins_op % ApplyVelocityBC(vp, sp, bv_u) ! vp = v⁺, sp = s_b  on ∂Ω
 
           ! source term
           call problem % GetExternalSources( sem_v % metrics % x, t_i &
                                            , F_s(:,:,:,:,:,1)         )
 
-          ! viscous and convective RHS
-          call ins_op % GetDiffusionTerm(v, vp, sp, F_d    (:,:,:,:,:,1)        )
-          call ins_op % GetDiffusionTerm(v, vp, sp, F_d_rot(:,:,:,:,:,1), form=2)
+          ! diffusion term using standard form with extrapolation at ∂Ωᴼ
+          call ins_op % GetDiffusionTerm( v, vp, sp, F_d(:,:,:,:,:,1) &
+                                        , bv_u, xout = .true.         )
+
+          ! diffusion term using rotational form with extrapolation at ∂Ωᴼ
+          call ins_op % GetDiffusionTerm( v, vp, sp, F_d_rot(:,:,:,:,:,1) &
+                                        , bv_u, xout = .true., form = 2   )
+
+          ! convective RHS
           if (problem % stokes) then
             call SetArray(F_c(:,:,:,:,:,1), ZERO, multi = .true.)
           else
@@ -263,6 +277,13 @@ contains
               F_d     (:,:,:,e,d,1) = inv_mm(:,:,:,e) * F_d     (:,:,:,e,d,1)
               F_d_rot (:,:,:,e,d,1) = inv_mm(:,:,:,e) * F_d_rot (:,:,:,e,d,1)
             end do
+          end do
+
+          ! normal stress vector and backflow penalty at ∂Ωᴼ
+          do b = 1, mesh % n_bound
+            if (problem % bc_v(b) /= 'O') cycle
+            call bv_po(b,1)%MergeNormalTrace(sem_v, cb=ZERO, ct=-ONE, vt=sp)
+            call ins_op%GetBackflowPenalty(problem, b, v, bv_dp(b)%val(:,:,:,1))
           end do
 
         end associate
@@ -284,14 +305,28 @@ contains
 
           call SetArray(u_i, u, multi=.true.)
 
-          ! boundary conditions and source term ...............................
-
-          do b = 1, mesh % n_bound
-            call problem % GetBoundaryValues(b, bv_x(b)%val, t_i, bv_u(b)%val)
-          end do
+          ! sources and boundary conditions ....................................
 
           call problem % GetExternalSources( sem_v % metrics % x, t_i &
                                            , F_s(:,:,:,:,:,i)         )
+
+          do b = 1, mesh % n_bound
+            select case(problem % bc_v(b))
+            case('D')
+              call problem % GetBoundaryValues(b, bv_x(b)%val, t_i, bv_u(b)%val)
+            case('O')
+              associate(pb => bv_p(b) % val(:,:,:,1))
+                ! initialize outlet pressure BC with penalty
+                call SetArray(pb, bv_dp(b) % val(:,:,:,1))
+                ! merge normal stress vectors from previous stages using
+                ! weights identical to the those for viscous terms
+                do j = 1, i-1
+                  cc = a_ex(i,j) / a_im(i,i)
+                  call MergeArrays(ONE, pb, cc, bv_po(b,j) % val(:,:,:,1))
+                end do
+              end associate
+            end select
+          end do
 
           ! RHS and Q for projection step ......................................
 
@@ -372,12 +407,15 @@ contains
 
         associate(v => u_i(:,:,:,:,1:3))
 
-          call GetBoundaryTraces_3D(mesh, v, vp)       ! vp = v⁻ on ∂Ω
-          call ins_op % ApplyVelocityBC(vp, sp, bv_u)  ! vp = v⁺ on ∂Ω, ...
+          ! diffusion term using standard form with extrapolation at ∂Ωᴼ
+          call ins_op % GetDiffusionTerm( v, vp, sp, F_d(:,:,:,:,:,i) &
+                                        , bv_u, xout = .true.         )
 
-          ! viscous and convective RHS
-          call ins_op % GetDiffusionTerm(v, vp, sp, F_d     (:,:,:,:,:,i)        )
-          call ins_op % GetDiffusionTerm(v, vp, sp, F_d_rot (:,:,:,:,:,i), form=2)
+          ! diffusion term using rotational form with extrapolation at ∂Ωᴼ
+          call ins_op % GetDiffusionTerm( v, vp, sp, F_d_rot(:,:,:,:,:,i) &
+                                        , bv_u, xout = .true., form = 2   )
+
+          ! convection term
           if (problem % stokes) then
             call SetArray(F_c(:,:,:,:,:,i), ZERO, multi = .true.)
           else
@@ -391,6 +429,12 @@ contains
               F_d     (:,:,:,e,d,i) = inv_mm(:,:,:,e) * F_d     (:,:,:,e,d,i)
               F_d_rot (:,:,:,e,d,i) = inv_mm(:,:,:,e) * F_d_rot (:,:,:,e,d,i)
             end do
+          end do
+
+          ! normal stress vector at ∂Ωᴼ
+          do b = 1, mesh % n_bound
+            if (problem % bc_v(b) /= 'O') cycle
+            call bv_po(b,i) % MergeNormalTrace(sem_v, cb=ZERO, ct=-ONE, vt=sp)
           end do
 
           ! source term, already done ;)
@@ -433,16 +477,16 @@ contains
           end if
 
           ! velocity divergence
-          call GetOuterTraces_3D(mesh, v, vp) ! vp = v⁺ on Γᴵ and v⁻ on ∂Ω
-          call ins_op % ApplyVelocityBC(vp, bv_u = bv_u) ! vp = v⁺ on ∂Ω
+          call GetOuterTraces_3D(mesh, v, vp)          ! vp = v⁺ on Γᴵ and v⁻ on ∂Ω
+          call ins_op % ApplyEssentialBC(bv_u, vp, vp) ! vp = v⁺ on ∂Ω
           call TPO_Div(ins_op % eop_v, sem_v, v, vp, div_v)
 
           ! pressure potential
           call SetArray(p, ZERO)
-          call ins_op % PressureSolver( ONE, bv_v, v, div_v, bv_p, p &
-                                      , this % i_max_p               &
-                                      , this % r_red                 &
-                                      , this % r_max                 )
+          call ins_op % PressureSolver( ONE, bv_u, v, div_v, p &
+                                      , this % i_max_p         &
+                                      , this % r_red           &
+                                      , this % r_max           )
 
           ! pressure correction
           call GetOuterTraces_3D(mesh, p, pp)
@@ -465,7 +509,7 @@ contains
 
       !$omp master
       deallocate(u_i, vp, sp, inv_mm, F_c, F_d, F_d_rot, F_s)
-      deallocate(bv_x, bv_u, bv_v, bv_p)
+      deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp, bv_po)
       !$omp end master
 
     end associate

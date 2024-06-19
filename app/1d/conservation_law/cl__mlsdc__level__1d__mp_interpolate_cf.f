@@ -18,12 +18,16 @@ contains
     real(RNP), intent(inout) :: u_f(0:,:,:,0:,:) !< fine solution variable
     logical,   intent(in)    :: complete         !< T/F for all/refined elements
 
-    real(RNP), allocatable :: u_i(:,:,:,:,:) ! intermediate interpolant
+    real(RNP), allocatable, save :: u_i(:,:,:,:,:) ! intermediate interpolant
+    logical,   allocatable, save :: eval_elem_c(:) ! switch for coarse elements
+    logical,   allocatable, save :: eval_elem_f(:) ! switch for fine elements
 
     integer :: ps_c, ps_f ! polynomial degree in space
     integer :: ns_c, ns_f ! number of elements in space
     integer :: pt_c, pt_f ! polynomial degree in time
+    integer :: mt_c, mt_f ! number of subintervals per time step
     integer :: nt_c, nt_f ! number of time steps
+    integer :: o_t        ! offset of time collocation points
     integer :: nc         ! number of components, must not change
 
     logical :: is_consistent
@@ -38,14 +42,28 @@ contains
       ! coarse dimensions
       ps_c = ubound(u_c, 1)
       ns_c = ubound(u_c, 2)
-      pt_c = ubound(u_c, 4)
+      mt_c = ubound(u_c, 4)
       nt_c = ubound(u_c, 5)
 
       ! fine dimensions
       ps_f = ubound(u_f, 1)
       ns_f = ubound(u_f, 2)
-      pt_f = ubound(u_f, 4)
+      mt_f = ubound(u_f, 4)
       nt_f = ubound(u_f, 5)
+
+      ! polynomial degree in time and offset collocation points
+      select case(this % cl_sdc % point_set)
+      case('RR')
+        ! Radau-right
+        pt_c = mt_c - 1
+        pt_f = mt_f - 1
+        o_t  = 1
+      case('E','L')
+        ! equidistant or Lobatto points
+        pt_c = mt_c
+        pt_f = mt_f
+        o_t  = 0
+      end select
 
       ! number of components
       nc = this % cl_problem % nc
@@ -88,22 +106,36 @@ contains
       end if
 
       ! workspace
-      allocate(u_i(0:ps_f,1:ns_f,nc,0:pt_c,1:nt_c))
+      allocate(u_i(0:ps_f,1:ns_f,nc,0:mt_c,1:nt_c))
+      allocate(eval_elem_c(ns_c), source = complete)
+      allocate(eval_elem_f(ns_f), source = complete)
+
+      ! identify elements to be evaluated
+      if (.not. complete) then
+        do e = 1, ns_c
+          if (refinement(e) < 0) cycle
+          eval_elem_c(e      ) = .true.
+          eval_elem_f(e*2 - 1) = .true.
+          eval_elem_f(e*2    ) = .true.
+        end do
+      end if
 
       ! spatial interpolation ..................................................
 
       select case(iop_x % mode)
 
       case(0)
+
         u_i = u_c
 
       case(1)
+
         ! ns_f = ns_c
         do n = 1, nt_c
-        do m = 0, pt_c
+        do m = 0, mt_c
         do c = 1, nc
         do e = 1, ns_c
-          if (complete .or. refinement(e) >= 0) then
+          if (eval_elem_c(e)) then
             u_i(:,e,c,m,n) = matmul(iop_x % A(:,:,1), u_c(:,e,c,m,n))
           end if
         end do
@@ -112,12 +144,13 @@ contains
         end do
 
       case(2)
+
         ! ns_f = 2 * ns_c
         do n = 1, nt_c
-        do m = 0, pt_c
+        do m = 0, mt_c
         do c = 1, nc
         do e = 1, ns_c
-          if (complete .or. refinement(e) >= 0) then
+          if (eval_elem_c(e)) then
             u_i(:,2*e-1,c,m,n) = matmul(iop_x % A(:,:,1), u_c(:,e,c,m,n))
             u_i(:,2*e  ,c,m,n) = matmul(iop_x % A(:,:,2), u_c(:,e,c,m,n))
           end if
@@ -133,47 +166,94 @@ contains
       select case(iop_t % mode)
 
       case(0)
+
         u_f = u_i
 
       case(1)
+
         ! nt_f = nt_c
         do n = 1, nt_c
-        do m = 0, pt_f
-        do c = 1, nc
-        do e = 1, ns_f
-          if (complete .or. refinement(e) >= 0) then
-            u_f(:,e,c,m,n) = 0
-            do l = 0, pt_c
-              u_f(:,e,c,m,n) = u_f(:,e,c,m,n) + iop_t % A(m,l,1) * u_i(:,e,c,l,n)
+
+          ! inject boundary values (m = 0, mt)
+          do c = 1, nc
+          do e = 1, ns_f
+            if (eval_elem_f(e)) then
+              u_f(:,e,c, 0    ,n) = u_i(:,e,c, 0    ,n)
+              u_f(:,e,c, mt_f ,n) = u_i(:,e,c, mt_c ,n)
+            end if
+          end do
+          end do
+
+          ! interpolate interior values
+          do m = 1, mt_f-1
+            do c = 1, nc
+            do e = 1, ns_f
+              if (eval_elem_f(e)) then
+                u_f(:,e,c,m,n) = 0
+                do l = 0, pt_c
+                  !! offset o_t = 1 required with right-sided points !!
+                  u_f(:,e,c,m,n) = u_f(:,e,c,m,n) &
+                                 + iop_t % A(m-o_t,l,1) * u_i(:,e,c,l+o_t,n)
+                end do
+              end if
             end do
-          end if
-        end do
-        end do
-        end do
+            end do
+          end do
         end do
 
       case(2)
+
         ! nt_f = 2 * nt_c
         do n = 1, nt_c
-        do m = 0, pt_f
-        do c = 1, nc
-        do e = 1, ns_f
-          if (complete .or. refinement(e) >= 0) then
-            n1 = 2 * n - 1
-            n2 = 2 * n
-            u_f(:,e,c,m,n1) = 0
-            u_f(:,e,c,m,n2) = 0
-            do l = 0, pt_c
-              u_f(:,e,c,m,n1) = u_f(:,e,c,m,n1) + iop_t % A(m,l,1) * u_i(:,e,c,l,n)
-              u_f(:,e,c,m,n2) = u_f(:,e,c,m,n2) + iop_t % A(m,l,2) * u_i(:,e,c,l,n)
+
+          ! left boundary values (m = 0)
+          if (n == 1) then
+            ! inject left boundary values interpolated from coarse mesh
+            do c = 1, nc
+            do e = 1, ns_f
+              if (eval_elem_f(e)) then
+                u_f(:,e,c,0,1) = u_i(:,e,c,0,1)
+              end if
+            end do
+            end do
+          else
+            ! adopt right boundary value from preceding step
+            do c = 1, nc
+            do e = 1, ns_f
+              if (eval_elem_f(e)) then
+                u_f(:,e,c,0,n) = u_f(:,e,c,mt_f,n-1)
+              end if
+            end do
             end do
           end if
-        end do
-        end do
-        end do
+
+          ! interior values
+          do m = 1, mt_f
+            do c = 1, nc
+            do e = 1, ns_f
+              if (eval_elem_f(e)) then
+                n1 = 2 * n - 1
+                n2 = 2 * n
+                u_f(:,e,c,m,n1) = 0
+                u_f(:,e,c,m,n2) = 0
+                do l = 0, pt_c
+                  !! offset o_t = 1 required with right-sided points !!
+                  u_f(:,e,c,m,n1) = u_f(:,e,c,m,n1) &
+                                  + iop_t % A(m-o_t,l,1) * u_i(:,e,c,l+o_t,n)
+                  u_f(:,e,c,m,n2) = u_f(:,e,c,m,n2) &
+                                  + iop_t % A(m-o_t,l,2) * u_i(:,e,c,l+o_t,n)
+                end do
+              end if
+            end do
+            end do
+          end do
+
         end do
 
       end select
+
+      ! release workspace
+      deallocate(u_i, eval_elem_c, eval_elem_f)
 
     end associate
 

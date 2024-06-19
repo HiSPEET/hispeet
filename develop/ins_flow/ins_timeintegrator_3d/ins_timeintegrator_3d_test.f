@@ -45,6 +45,8 @@ program INS_TimeIntegrator_3D_Test
   use Verify_Mesh__3D
   use Import_GMSH__3D
 
+  use Root_Mesh_Partitioning__3D
+
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -62,7 +64,6 @@ program INS_TimeIntegrator_3D_Test
   character(len=*), parameter :: default_case = 'ins_timeintegrator_3d_test'
   character(len=80) :: flow_case ! flow case name
   character(len=80) :: case_file ! flow case input file: trim(flow_case).prm
-  ! input file (*.prm)
 
   character(len=80) :: flow_problem = 'Vortex_TG' ! problem name
   character(len=80) :: problem_file = 'vortex_tg' ! problem parameters file
@@ -112,10 +113,30 @@ program INS_TimeIntegrator_3D_Test
   namelist/control_prm/ log_level_inner_iteration
   namelist/control_prm/ log_level_outer_iteration
 
+  ! restart options
+  character(len=80) :: restart_tag_in  = ''  ! tag for restart input files
+  character(len=80) :: restart_tag_out = ''  ! tag for restart output files
+  namelist/control_prm/ restart_tag_in, restart_tag_out
+  !
+  ! restart input is read from
+  !   - trim(flow_case)_trim(restart_tag_in)_mesh_<rank>.h5  for the mesh
+  !   - trim(flow_case)_trim(restart_tag_in)_data_<rank>.h5  for flow data
+  ! where <rank> is the process rank in mesh%comm_world
+  !
+  ! output written to
+  !   - trim(flow_case)_trim(restart_tag_out)_mesh_<rank>.h5  for the mesh
+  !   - trim(flow_case)_trim(restart_tag_out)_data_<rank>.h5  for flow data
+  !
+  ! no restart data is read or written if the corresponding tag is empty
   ! operators and variables ....................................................
 
   type(GenericMesh_3D) :: generic_mesh
   ! intermediate generic mesh for importing raw meshes
+
+  type(Mesh_3D), allocatable, save :: initial_mesh
+  ! mesh before repartitioning
+
+  type(PartitioningOptions_3D) :: part_opt
 
   class(INS_Problem_3D), allocatable, save :: problem
   ! flow problem
@@ -153,10 +174,12 @@ program INS_TimeIntegrator_3D_Test
 
   ! auxiliaries ................................................................
 
-  character(len=80) :: domain_name = ''
-! real(RDP) :: time, time0
+  character(:), allocatable :: domain_name
+  character(:), allocatable :: mesh_file
+  character(:), allocatable :: data_file
+
   real(RNP) :: domain_volume
-  logical   :: exists, last, passed
+  logical   :: exists, last, passed, restart_in, restart_out
   integer   :: io, stat
   integer   :: n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po
   integer   :: i, nt
@@ -201,24 +224,26 @@ program INS_TimeIntegrator_3D_Test
       read(io, nml = control_prm)
       close(io)
     else
-       call Error( 'INS_Operator_3D_Test', &
+       call Error( 'INS_TimeIntegrator_3D_Test', &
                    'input file "' // trim(case_file) // '" not found' )
     end if
 
   end if
 
   ! globalize control parameters
-  call XMPI_Bcast(flow_case   , 0, comm)
-  call XMPI_Bcast(case_file   , 0, comm)
-  call XMPI_Bcast(flow_problem, 0, comm)
-  call XMPI_Bcast(problem_file, 0, comm)
-  call XMPI_Bcast(flow_domain , 0, comm)
-  call XMPI_Bcast(time_method , 0, comm)
-  call XMPI_Bcast(t_end       , 0, comm)
-  call XMPI_Bcast(dt          , 0, comm)
-  call XMPI_Bcast(nt_max      , 0, comm)
-  call XMPI_Bcast(export_vtk  , 0, comm)
-  call XMPI_Bcast(char_freq   , 0, comm)
+  call XMPI_Bcast(flow_case      , 0, comm)
+  call XMPI_Bcast(case_file      , 0, comm)
+  call XMPI_Bcast(flow_problem   , 0, comm)
+  call XMPI_Bcast(problem_file   , 0, comm)
+  call XMPI_Bcast(flow_domain    , 0, comm)
+  call XMPI_Bcast(time_method    , 0, comm)
+  call XMPI_Bcast(t_end          , 0, comm)
+  call XMPI_Bcast(dt             , 0, comm)
+  call XMPI_Bcast(nt_max         , 0, comm)
+  call XMPI_Bcast(export_vtk     , 0, comm)
+  call XMPI_Bcast(char_freq      , 0, comm)
+  call XMPI_Bcast(restart_tag_in , 0, comm)
+  call XMPI_Bcast(restart_tag_out, 0, comm)
 
   ! globalize logging levels
   call XMPI_Bcast_LoggingLevels(0, comm)
@@ -229,33 +254,68 @@ program INS_TimeIntegrator_3D_Test
   call ins_ti_bdf2_opts        % Bcast(0, comm)
   call ins_ti_runge_kutta_opts % Bcast(0, comm)
 
-  ! mesh .......................................................................
+  ! restart switches
+  restart_in  = len_trim(restart_tag_in)  > 0
+  restart_out = len_trim(restart_tag_out) > 0
+
+  ! domain name ................................................................
 
   select case(flow_domain)
   case(1)
-    call CreateCuboidCartesian(comm, case_file, ins_op % mesh)
     domain_name = 'Cuboidal domain with Cartesian mesh'
   case(2)
-    call CreateCuboidDiamonds(comm, case_file, ins_op % mesh)
     domain_name = 'Cuboidal domain with unstructured "diamond" mesh'
   case(3)
-    call CreateCylinder(comm, case_file, ins_op % mesh)
     domain_name = 'Cylindrical domain with unstructured mesh'
   case(4)
-    call CreateAnnulus(comm, case_file, ins_op % mesh)
     domain_name = 'Annular domain with unstructured mesh'
   case(10)
-    call Import_GMSH_3D(raw_mesh_file, generic_mesh)
-    call ins_op % mesh % ImportGenericMesh(generic_mesh, comm)
     domain_name = raw_mesh_file
   end select
 
-  call VerifyMesh_3D(ins_op % mesh, passed)
-  if (rank == 0) then
-    write(*,'(/,A)') 'Verification of initial mesh'
-  end if
-  if (ins_op % mesh % part >= 0) then
-    write(*,'(2X,A,I4,A,L1)') 'part:',ins_op%mesh%part,': passed = ',passed
+  ! create mesh ................................................................
+
+  if (restart_in) then
+
+    mesh_file = trim(flow_case) // '_' // trim(restart_tag_in) // '_mesh'
+    call ins_op % mesh % ReadHDF5(mesh_file, comm)
+
+  else
+
+    allocate(initial_mesh)
+
+    select case(flow_domain)
+    case(1)
+      call CreateCuboidCartesian(comm, case_file, initial_mesh)
+      domain_name = 'Cuboidal domain with Cartesian mesh'
+    case(2)
+      call CreateCuboidDiamonds(comm, case_file, initial_mesh)
+      domain_name = 'Cuboidal domain with unstructured "diamond" mesh'
+    case(3)
+      call CreateCylinder(comm, case_file, initial_mesh)
+      domain_name = 'Cylindrical domain with unstructured mesh'
+    case(4)
+      call CreateAnnulus(comm, case_file, initial_mesh)
+      domain_name = 'Annular domain with unstructured mesh'
+    case(10)
+      if (rank == 0) then
+        call ImportGMSH_3D(raw_mesh_file, generic_mesh)
+      end if
+      call initial_mesh % ImportGenericMesh(generic_mesh, comm)
+      domain_name = trim(raw_mesh_file)
+    end select
+
+    ! mesh partitioning ........................................................
+
+    if (initial_mesh % n_parts /= n_proc) then
+      part_opt = PartitioningOptions_3D(n_parts = n_proc, w_comp = [1,1,0,0])
+      call RootMeshPartitioning_3D(part_opt, initial_mesh, ins_op % mesh)
+    else
+      ins_op % mesh = initial_mesh
+    end if
+
+    deallocate(initial_mesh)
+
   end if
 
   n_elem  = ins_op % mesh % n_elem
@@ -324,7 +384,14 @@ program INS_TimeIntegrator_3D_Test
 
   ! initial conditions .........................................................
 
-  call problem % GetInitialValues(ins_op % sem_v % metrics % x, u)
+  if (restart_in) then
+    data_file = trim(flow_case) // '_' // trim(restart_tag_in) // '_data'
+    call ReadRestartData(data_file, rank, t, u)
+    call XMPI_Bcast(t, 0, comm)
+  else
+    call problem % GetInitialValues(ins_op % sem_v % metrics % x, u)
+    t = 0
+  end if
 
   ! time scales
   call time_scales % Evaluate(problem, ins_op, u)
@@ -339,7 +406,7 @@ program INS_TimeIntegrator_3D_Test
   if (rank == 0) then
     write(*,'(/,A)') 'problem and discretization parameters'
     write(*,'(T3,A,T30,9(G0,X))') 'flow problem:', trim(flow_problem)
-    write(*,'(T3,A,T30,9(G0,X))') 'domain:',  trim(domain_name)
+    write(*,'(T3,A,T30,9(G0,X))') 'domain:',  domain_name
     write(*,'(T3,A,T30,9(G0,X))') 'domain volume:', domain_volume
     write(*,'(T3,A,T30,9(G0,X))') 'boundary conditions:'  , problem % bc_v
     write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of v:', ins_op % eop_v % po
@@ -436,8 +503,139 @@ program INS_TimeIntegrator_3D_Test
   end if
 
   !-----------------------------------------------------------------------------
+  ! Write restart data
+
+  if (restart_out) then
+    mesh_file = trim(flow_case) // '_' // trim(restart_tag_out) // '_mesh'
+    data_file = trim(flow_case) // '_' // trim(restart_tag_out) // '_data'
+    ! mesh
+    call ins_op % mesh % WriteHDF5(mesh_file)
+    ! flow data
+    call WriteRestartData(data_file, rank, t, u)
+  end if
+
+  !-----------------------------------------------------------------------------
   ! Finalization
 
   call MPI_Finalize()
+
+contains
+
+  !-----------------------------------------------------------------------------
+  !> Write restart data
+
+  subroutine WriteRestartData(file, rank, t, u)
+    use, intrinsic ::  ISO_C_Binding
+    use Kind_Parameters
+    use HDF5_Binding
+    implicit none
+
+    character(len=*),  intent(in) :: file              !< file base name
+    integer,           intent(in) :: rank              !< process rank
+    real(RNP), target, intent(in) :: t                 !< problem time
+    real(RNP), target, intent(in) :: u(0:,0:,0:,:,:)   !< variables
+
+    integer(hid_t)    :: data_id, file_id, group_id, space_id
+    integer(hsize_t)  :: dims_t(1), dims_var(5)
+    integer           :: err
+    character(len=80) :: tag
+    character(len=:), allocatable :: file_pr
+
+    call Init_HDF5_Binding()
+
+    ! append process rank to file name
+    write(tag,'(I0)') rank
+    file_pr = trim(file)//'_'//trim(tag)//'.h5'
+
+    ! create HDF5 file and group
+    call H5Fcreate_f(file_pr, H5F_ACC_TRUNC_F, file_id, err)
+    call H5Gcreate_f(file_id, 'data', group_id, err)
+
+    ! time
+    dims_t = 1
+    call H5Screate_simple_f(size(dims_t), dims_t, space_id, err)
+    call H5Dcreate_f(group_id, 't', H5T_REAL_RNP, space_id, data_id, err)
+    call H5Dwrite_f(data_id, H5T_REAL_RNP, C_Loc(t), err)
+    call H5Sclose_f(space_id, err)
+    call H5Dclose_f(data_id, err)
+
+    ! u
+    dims_var = shape(u)
+    call H5Screate_simple_f(size(dims_var), dims_var, space_id, err)
+    call H5Dcreate_f(group_id, 'u', H5T_REAL_RNP, space_id, data_id, err)
+    call H5Dwrite_f(data_id, H5T_REAL_RNP, C_Loc(u), err)
+    call H5Sclose_f(space_id, err)
+    call H5Dclose_f(data_id, err)
+
+    ! release resources
+    call H5Gclose_f(group_id, err)
+    call H5Fclose_f(file_id, err)
+
+  end subroutine WriteRestartData
+
+  !-----------------------------------------------------------------------------
+  !> Read restart data
+
+  subroutine ReadRestartData(file, rank, t, u)
+    use, intrinsic ::  ISO_C_Binding
+    use Kind_Parameters
+    use Execution_Control
+    use HDF5_Binding
+    implicit none
+
+    character(len=*),  intent(in)    :: file              !< file base name
+    integer,           intent(in)    :: rank              !< process rank
+    real(RNP), target, intent(inout) :: t                 !< problem time
+    real(RNP), target, intent(inout) :: u(0:,0:,0:,:,:)   !< variables
+
+    integer(hid_t)    :: data_id, file_id, group_id, space_id, type_id
+    integer(hsize_t)  :: dims_var(5), maxdims_var(5)
+    integer           :: err
+    logical           :: exists
+    type(C_Ptr)       :: buf
+    character(len=80) :: tag
+    character(len=:), allocatable :: file_pr
+
+    call Init_HDF5_Binding()
+
+    ! append process rank to file name and check if it exists
+    write(tag,'(I0)') rank
+    file_pr = trim(file)//'_'//trim(tag)//'.h5'
+    inquire(file=file_pr, exist=exists)
+
+    if (.not. exists) return
+
+    ! open HDF5 file and group for reading
+    call H5Fopen_f(file_pr, H5F_ACC_RDWR_F, file_id, err)
+    call H5Gopen_f(file_id, 'data', group_id, err)
+
+    ! time
+    buf = C_Loc(t)
+    call H5Dopen_f(group_id, 't', data_id, err)
+    call H5Dget_type_f(data_id, type_id, err)
+    call H5Dread_f(data_id, type_id, buf, err)
+    call H5Tclose_f(type_id, err)
+    call H5Dclose_f(data_id, err)
+
+    ! u
+    buf = C_Loc(u)
+    call H5Dopen_f(group_id, 'u', data_id, err)
+    call H5Dget_space_f(data_id, space_id, err)
+    call H5Sget_simple_extent_dims_f(space_id, dims_var, maxdims_var, err)
+    if (any(dims_var /= shape(u))) then
+      call Error('ReadRestartData','shape(u) not matching')
+    end if
+    call H5Dget_type_f(data_id, type_id, err)
+    call H5Dread_f(data_id, type_id, buf, err)
+    call H5Tclose_f(type_id, err)
+    call H5Dclose_f(data_id, err)
+
+    ! release resources
+    call H5Gclose_f(group_id, err)
+    call H5Fclose_f(file_id, err)
+
+  end subroutine ReadRestartData
+
+  !=============================================================================
 
 end program INS_TimeIntegrator_3D_Test

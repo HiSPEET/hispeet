@@ -1,0 +1,4 @@
+&parameters
+  test_case = 1 ! 1 for steady, and 2 for unsteady flow
+/
+

@@ -276,7 +276,7 @@ contains
     allocate(  F_ex_rk  (0:po, 1:ne, 1:n_stage, 1:n_sub), source = ZERO)
     allocate(  S_rk     (0:po, 1:ne, 1:n_stage, 1:n_sub), source = ZERO)
 
-    t_sdc = this % IntermediateTimes(t0, dt)
+    t_sdc = this % SubintervalPoints(t0, dt)
     dt_sdc = t_sdc(1:) - t_sdc(0:n_sub-1)
 
     ! first SDC point coincides with starting time t0

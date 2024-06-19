@@ -20,6 +20,8 @@ module Mesh__3D
   public :: Mesh_3D
   public :: MeshAttributes_3D
 
+  public :: Get_H5T_MeshAttributes_3D
+
   !-----------------------------------------------------------------------------
   !> 3D mesh partition type
   !>
@@ -100,6 +102,7 @@ module Mesh__3D
   contains
 
     procedure :: Init_Mesh_3D
+    procedure :: Delete_Mesh_3D
 
     procedure :: GetCuboids
     procedure :: GetPoints
@@ -121,6 +124,12 @@ module Mesh__3D
 
     ! import/export
     procedure :: ImportGenericMesh
+    generic   :: ReadHDF5  => ReadHDF5_F, ReadHDF5_G
+    generic   :: WriteHDF5 => WriteHDF5_F, WriteHDF5_G
+
+    ! specific implementations are hided
+    procedure, private :: ReadHDF5_F, ReadHDF5_G
+    procedure, private :: WriteHDF5_F, WriteHDF5_G
 
   end type Mesh_3D
 
@@ -174,7 +183,7 @@ module Mesh__3D
     !> Generation of approximate cuboids
 
     module subroutine BuildCuboids(mesh)
-      class(Mesh_3D), intent(inout)  :: mesh !< mesh partition
+      class(Mesh_3D), intent(inout) :: mesh !< mesh partition
     end subroutine BuildCuboids
 
     !---------------------------------------------------------------------------
@@ -257,6 +266,42 @@ module Mesh__3D
       type(MPI_Comm),        intent(in)  :: comm         !< "world" communicator
     end subroutine ImportGenericMesh
 
+    !---------------------------------------------------------------------------
+    !> Read mesh partition from given HDF5 file
+
+    module subroutine ReadHDF5_F(mesh, file, comm)
+      class(Mesh_3D),   intent(inout) :: mesh !< mesh partition
+      character(len=*), intent(in)    :: file !< name of HDF5 file
+      type(MPI_Comm),   intent(in)    :: comm !< MPI "world" communicator
+    end subroutine ReadHDF5_F
+
+    !---------------------------------------------------------------------------
+    !> Read mesh partition from given HDF5 group
+
+    module subroutine ReadHDF5_G(mesh, group_id, comm)
+      use HDF5_Binding
+      class(Mesh_3D), target, intent(inout) :: mesh  !< mesh partition
+      integer(hid_t), intent(in) :: group_id !< ID of related HDF5 group
+      type(MPI_Comm), intent(in) :: comm     !< "world" communicator
+    end subroutine ReadHDF5_G
+
+    !---------------------------------------------------------------------------
+    !> Write mesh partition into HDF5 file
+
+    module subroutine WriteHDF5_F(mesh, file)
+      class(Mesh_3D),   intent(in) :: mesh !< mesh partition
+      character(len=*), intent(in) :: file !< name of HDF5 file
+    end subroutine WriteHDF5_F
+
+    !---------------------------------------------------------------------------
+    !> Write mesh partition into given HDF5 group
+
+    module subroutine WriteHDF5_G(mesh, group_id)
+      use HDF5_Binding
+      class(Mesh_3D), target, intent(in) :: mesh     !< mesh partition
+      integer(hid_t),         intent(in) :: group_id !< ID of related HDF5 group
+    end subroutine WriteHDF5_G
+
   end interface
 
   !-----------------------------------------------------------------------------
@@ -282,6 +327,18 @@ module Mesh__3D
   ! constructor
   interface MeshAttributes_3D
     module procedure ExtractMeshAttributes
+  end interface
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Get HDF5 datatype for essential static components of MeshAttributes_3D
+
+    module subroutine Get_H5T_MeshAttributes_3D(H5T_MeshAttributes_3D)
+      use HDF5_Binding
+      integer(hid_t), intent(out) :: H5T_MeshAttributes_3D
+    end subroutine Get_H5T_MeshAttributes_3D
+
   end interface
 
 contains
@@ -330,6 +387,64 @@ contains
     call MPI_Comm_rank(comm, this % proc)
 
   end subroutine Init_Mesh_3D
+
+  !-----------------------------------------------------------------------------
+  !> Delete 3D mesh partition
+
+  subroutine Delete_Mesh_3D(this)
+    class(Mesh_3D), intent(inout) :: this
+
+    ! reset static components ..................................................
+
+    this % n_bound       =  0
+    this % n_parts       =  0
+
+    this % structured    = .false.
+    this % regular       = .false.
+    this % is_root       = .true.
+    this % is_top        = .true.
+
+    this % dx            =  0
+
+    this % comm_world    = MPI_COMM_NULL
+    this % comm_parts    = MPI_COMM_NULL
+
+    this % proc          = -1
+    this % part          = -1
+
+    this % n_vert        =  0
+    this % n_edge        =  0
+    this % n_face        =  0
+    this % n_elem        =  0
+    this % n_elem_active =  0
+    this % n_elem_frozen =  0
+    this % n_cluster     =  0
+    this % n_ghost       =  0
+    this % n_link        =  0
+    this % n_child       =  0
+    this % n_parent      =  0
+
+    this % p_geom        =  0
+
+    this % max_vert_val  =  0
+    this % max_edge_val  =  0
+
+    this % n_elem_1      =  0
+    this % n_elem_2      =  0
+    this % n_elem_3      =  0
+
+    ! release dynamic components ...............................................
+
+    if (allocated( this % proc_part  )) deallocate( this % proc_part  )
+    if (allocated( this % face       )) deallocate( this % face       )
+    if (allocated( this % element    )) deallocate( this % element    )
+    if (allocated( this % ghost      )) deallocate( this % ghost      )
+    if (allocated( this % boundary   )) deallocate( this % boundary   )
+    if (allocated( this % link       )) deallocate( this % link       )
+    if (allocated( this % map_child  )) deallocate( this % map_child  )
+    if (allocated( this % map_parent )) deallocate( this % map_parent )
+
+  end subroutine Delete_Mesh_3D
 
   !=============================================================================
   ! MeshAttributes_3D constructor and type-bound procedures

@@ -1,4 +1,16 @@
 #===============================================================================
+# mesh3d_adapt
+
+add_executable( mesh3d_adapt
+                mesh3d_adapt.f 
+                smiling_face.f )
+
+target_link_libraries(mesh3d_adapt HiBase)
+
+configure_file( mesh3d_adapt.prm
+                mesh3d_adapt.prm COPYONLY )
+
+#===============================================================================
 # mesh3d_explore
 
 add_executable( mesh3d_explore
@@ -8,6 +20,18 @@ target_link_libraries(mesh3d_explore HiBase)
 
 configure_file( mesh3d_explore.prm
                 mesh3d_explore.prm COPYONLY )
+
+#===============================================================================
+# mesh3d_hdf5
+
+add_executable( mesh3d_hdf5
+                mesh3d_hdf5.f 
+                smiling_face.f )
+
+target_link_libraries(mesh3d_hdf5 HiBase)
+
+configure_file( mesh3d_hdf5.prm
+                mesh3d_hdf5.prm COPYONLY )
 
 #===============================================================================
 # mesh3d_import_generic
@@ -23,26 +47,15 @@ configure_file( mesh3d_import_generic.prm
 #===============================================================================
 # mesh3d_import_gmsh
 
-#add_executable( mesh3d_import_gmsh
-#                mesh3d_import_gmsh.f )
-#
-#target_link_libraries(mesh3d_import_gmsh HiBase)
-#
-#file( COPY gmsh DESTINATION . )
+add_executable( mesh3d_import_gmsh
+                mesh3d_import_gmsh.f )
 
-#===============================================================================
-# mesh3d_import_exodus
+target_link_libraries(mesh3d_import_gmsh HiBase)
 
-if (Exodus_FOUND)
+configure_file( mesh3d_import_gmsh.prm
+                mesh3d_import_gmsh.prm COPYONLY )
 
-    add_executable( mesh3d_import_exodus
-                    mesh3d_import_exodus.f )
-
-    target_link_libraries(mesh3d_import_exodus HiBase)
-
-    file( COPY exodus DESTINATION . )
-
-endif ()
+file( COPY gmsh DESTINATION . )
 
 #===============================================================================
 # mesh3d_test_orientation
@@ -54,15 +67,3 @@ target_link_libraries(mesh3d_test_orientation HiBase)
 
 configure_file( mesh3d_test_orientation.prm
                 mesh3d_test_orientation.prm COPYONLY )
-
-#===============================================================================
-# mesh3d_adapt
-
-add_executable( mesh3d_adapt
-                mesh3d_adapt.f 
-                smiling_face.f )
-
-target_link_libraries(mesh3d_adapt HiBase)
-
-configure_file( mesh3d_adapt.prm
-                mesh3d_adapt.prm COPYONLY )

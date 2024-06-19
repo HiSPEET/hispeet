@@ -21,11 +21,7 @@ submodule(Generic_Mesh__3D) MP_CreateCylinder
 contains
 
   !-----------------------------------------------------------------------------
-  !> Creates a generic mesh for a cylinder
-  !>
-  !> The current implementation returs a uniform mesh for a cylinder of radius 1
-  !> and length 2. Future extensions may include mappings to different extension
-  !> and nonuniform spacing.
+  !> Create a uniform generic mesh for a cylinder of radius r and height h
   !>
   !> Restriction: nz = 1 or nz ≥ 3 in the periodic case.
 
@@ -193,7 +189,7 @@ contains
     integer, intent(in) :: i  !< first index
     integer, intent(in) :: j  !< second index
     integer, intent(in) :: k  !< third index (axial or z direction)
-    integer, intent(in) :: nr  !< number of intervals along the inner quadrangle
+    integer, intent(in) :: nr !< number of intervals along the inner quadrangle
 
     ! linear index within cross section ........................................
 

@@ -7,12 +7,12 @@
 !>
 !> Provides procedures for evaluating
 !>
-!>   *  the values, derivatives and zeros of Jacobi polynomials,
-!>   *  the Gauss-Legendre (G) points and weights, and the related
+!>   -  the values, derivatives and zeros of Jacobi polynomials,
+!>   -  the Gauss-Legendre (G) points and weights, and the related
 !>      Lagrange polynomials and their derivatives,
-!>   *  the Gauss-Lobatto-Legendre (L) points and weights, and the
-!>      related Lagrange polynomials and their derivatives.
-!>   *  the left-sided Gauss-Radau-Legendre (R) points and weights,
+!>   -  the Gauss-Lobatto-Legendre (L) points and weights, and the related
+!>      Lagrange polynomials and their derivatives.
+!>   -  the left/right-sided Gauss-Radau-Legendre (RL/RR) points and weights,
 !>      and the related Lagrange polynomials and their derivatives.
 !>
 !> Implementation follows G.E. Karniadakis & S.J. Sherwin,
@@ -21,7 +21,7 @@
 
 module Gauss_Jacobi
   use Kind_parameters, only: RNP
-  use Constants,       only: ZERO, HALF, ONE, FOUR, PI
+  use Constants,       only: ZERO, HALF, ONE, TWO, FOUR, PI
   implicit none
   private
 
@@ -334,14 +334,28 @@ contains
   ! Gauss-Radau-Legendre quadrature and related Lagrangre polynomials
 
   !-----------------------------------------------------------------------------
-  !> Left-sided Gauss-Radau-Legendre quadrature points of degree q
+  !> Gauss-Radau-Legendre quadrature points of degree q
 
-  pure function RadauPoints(q) result(x)
-    integer, intent(in) :: q       !< degree of the quadrature polynomial
-    real(RNP)           :: x(0:q)  !< quadrature points
+  pure function RadauPoints(q, right) result(x)
+    integer,           intent(in) :: q      !< degree of quadrature polynomial
+    logical, optional, intent(in) :: right  !< switch to Radau right [F]
+    real(RNP) :: x(0:q)  !< quadrature points
 
-    x(0)   = -1
-    x(1:q) =  JacobiPolynomialZeros(ZERO, ONE, n=q)
+    logical :: left
+
+    if (present(right)) then
+      left = .not. right
+    else
+      left = .true.
+    end if
+
+    if (left) then
+      x(0)     = -1
+      x(1:q)   =  JacobiPolynomialZeros(ZERO, ONE, n=q)
+    else
+      x(0:q-1) =  JacobiPolynomialZeros(ONE, ZERO, n=q)
+      x(q)     =  1
+    end if
 
   end function RadauPoints
 
@@ -355,9 +369,20 @@ contains
     integer :: i, q
 
     q = ubound(x,1)
-    forall(i = 0:q)
-      w(i) = (1 - x(i)) / ((q+1) * JacobiPolynomial(ZERO, ZERO, q, x(i)))**2
-    end forall
+
+    if (abs(ONE + x(0)) < TOL) then
+      ! Radau left
+      w(0) = TWO / (q+1)**2
+      do i = 1, q
+        w(i) = (1 - x(i)) / ((q+1) * JacobiPolynomial(ZERO, ZERO, q, x(i)))**2
+      end do
+    else
+      ! Radau right
+      do i = 0, q-1
+        w(i) = (1 + x(i)) / ((q+1) * JacobiPolynomial(ZERO, ZERO, q, x(i)))**2
+      end do
+      w(q) = TWO / (q+1)**2
+    end if
 
   end function RadauWeights
 
@@ -370,17 +395,33 @@ contains
     real(RNP), intent(in) :: x       !< position in [-1, 1]
     real(RNP)             :: y       !< y = l_k(x)
 
-    integer :: q
+    real(RNP) :: x_, xi_k
+    integer   :: q
 
-    q = ubound(xi,1)
     if (abs(x - xi(k)) < TOL) then
+
       y = 1
+
     else
-      y = (x+1) * JacobiPolynomial(ZERO, ONE, q, x)                          &
-        / ( ( (xi(k) + 1) * JacobiPolynomialDerivative(ZERO, ONE, q, xi(k))  &
-            + JacobiPolynomial(ZERO, ONE, q, xi(k))                          &
-            ) * (x - xi(k))                                                  &
+
+      q = ubound(xi,1)
+
+      if (abs(ONE + xi(0)) < TOL) then
+        ! Radau left
+        x_   =  x
+        xi_k =  xi(k)
+      else
+        ! Radau right
+        x_   = -x
+        xi_k = -xi(k)
+      end if
+
+      y = (1 + x_) * JacobiPolynomial(ZERO, ONE, q, x_)                    &
+        / ( ( (1 + xi_k) * JacobiPolynomialDerivative(ZERO, ONE, q, xi_k)  &
+            + JacobiPolynomial(ZERO, ONE, q, xi_k)                         &
+            ) * (x_ - xi_k)                                                &
           )
+
     end if
 
   end function RadauPolynomial
@@ -394,14 +435,38 @@ contains
     integer,   intent(in) :: p       !< point ID, 0 <= p <= q
     real(RNP)             :: dy      !< dy = pi'_k(xi(p))
 
-    integer :: q
+    real(RNP) :: xi_k, xi_p
+    integer   :: q, s
+    logical   :: left
+
+    left = abs(ONE + xi(0)) < TOL
+    if (left) then
+      s =  1
+    else
+      s = -1
+    end if
 
     q = ubound(xi,1)
-    if      (k == 0 .and. p == 0) then;  dy = -q * (q+2) / FOUR
-    else if (k == p)              then;  dy =  1 / (2 * (1 - xi(p)))
+
+    if (s == 1 .and. k == 0 .and. p == 0) then
+
+      dy = -q * (q+2) / FOUR
+
+    else if (s == -1 .and. k == q .and. p == q) then
+
+      dy =  q * (q+2) / FOUR
+
+    else if (k == p) then
+
+      dy =  s / (2 * (1 - s*xi(p)))
+
     else
-      dy =  JacobiPolynomial(ZERO, ZERO, q, xi(p)) * (1 - xi(k)) &
-         / (JacobiPolynomial(ZERO, ZERO, q, xi(k)) * (1 - xi(p)) * (xi(p)-xi(k)))
+
+      xi_k = s * xi(k)
+      xi_p = s * xi(p)
+      dy = s * JacobiPolynomial(ZERO, ZERO, q, xi_p) * (1-xi_k) &
+         / (JacobiPolynomial(ZERO, ZERO, q, xi_k) * (1-xi_p) * (xi_p-xi_k))
+
     end if
 
   end function RadauPolynomialDerivative
