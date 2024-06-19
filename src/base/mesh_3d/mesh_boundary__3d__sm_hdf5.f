@@ -43,7 +43,6 @@ contains
 
     type(MeshBoundaryAttributes_3D), target :: attributes(2)
     integer(SIZE_T)  :: offset
-    integer(HSIZE_T) :: dims(1)
     integer(HID_T)   :: tid
     integer :: err
 
@@ -54,7 +53,6 @@ contains
     ! insert name
     offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%name(1:1)))
     call H5Tcopy_f(H5T_CHARACTER, tid, err)
-!?  call H5Tcopy_f(H5T_FORTRAN_S1, tid, err) ! according to another example
     call H5Tset_size_f(tid, int(len(attributes(1)%name), SIZE_T), err)
     call H5Tinsert_f(H5T_BoundaryAttributes, 'name', offset, tid, err)
     call H5Tclose_f(tid, err)

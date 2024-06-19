@@ -18,11 +18,18 @@ contains
     class(Mesh_3D),   intent(in) :: mesh  !< mesh partition
     character(len=*), intent(in) :: file  !< name of HDF5 file
 
-    integer(HID_T) :: file_id, group_id
-    integer        :: err
+    integer(HID_T)    :: file_id, group_id
+    integer           :: err, rank
+    character(len=80) :: tag
+    character(len=:), allocatable :: file_pr
+
+    ! append process rank to file name
+    call MPI_Comm_rank(mesh%comm_world, rank)
+    write(tag,'(I0)') rank
+    file_pr = trim(file)//'_'//trim(tag)//'.h5'
 
     ! create HDF5 file and group
-    call H5Fcreate_f(trim(file), H5F_ACC_TRUNC_F, file_id, err)
+    call H5Fcreate_f(file_pr, H5F_ACC_TRUNC_F, file_id, err)
     call H5Gcreate_f(file_id, 'mesh', group_id, err)
 
     ! write mesh partition

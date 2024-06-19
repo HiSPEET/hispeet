@@ -302,17 +302,6 @@ module Mesh__3D
       integer(hid_t),         intent(in) :: group_id !< ID of related HDF5 group
     end subroutine WriteHDF5_G
 
-    !===========================================================================
-    ! Standalone routines
-
-    !---------------------------------------------------------------------------
-    !> Get HDF5 datatype for essential static components of MeshAttributes_3D
-
-    module subroutine Get_H5T_MeshAttributes_3D(H5T_MeshAttributes_3D)
-      use HDF5_Binding
-      integer(hid_t), intent(out) :: H5T_MeshAttributes_3D
-    end subroutine Get_H5T_MeshAttributes_3D
-
   end interface
 
   !-----------------------------------------------------------------------------
@@ -338,6 +327,18 @@ module Mesh__3D
   ! constructor
   interface MeshAttributes_3D
     module procedure ExtractMeshAttributes
+  end interface
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Get HDF5 datatype for essential static components of MeshAttributes_3D
+
+    module subroutine Get_H5T_MeshAttributes_3D(H5T_MeshAttributes_3D)
+      use HDF5_Binding
+      integer(hid_t), intent(out) :: H5T_MeshAttributes_3D
+    end subroutine Get_H5T_MeshAttributes_3D
+
   end interface
 
 contains

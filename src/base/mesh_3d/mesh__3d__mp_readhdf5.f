@@ -2,6 +2,9 @@
 !> author:   Joerg Stiller, Erik Pfister
 !> date:     2024/06/07
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @todo
+!> Remove deallocate statements once HDF5 is fixed
 !===============================================================================
 
 submodule(Mesh__3D) MP_ReadHDF5
@@ -19,15 +22,21 @@ contains
     character(len=*), intent(in)    :: file !< name of HDF5 file
     type(MPI_Comm),   intent(in)    :: comm !< MPI "world" communicator
 
-    integer(HID_T) :: file_id, group_id
-    integer        :: err
-    logical        :: exists
+    integer(HID_T)    :: file_id, group_id
+    integer           :: err, rank
+    logical           :: exists
+    character(len=80) :: tag
+    character(len=:), allocatable :: file_pr
 
-    inquire(file=trim(file), exist=exists)
+    ! append process rank to file name and check if it exists
+    call MPI_Comm_rank(comm, rank)
+    write(tag,'(I0)') rank
+    file_pr = trim(file)//'_'//trim(tag)//'.h5'
+    inquire(file=file_pr, exist=exists)
 
     if (exists) then
       ! open HDF5 file and group for reading
-      call H5Fopen_f(trim(file), H5F_ACC_RDWR_F, file_id, err)
+      call H5Fopen_f(file_pr, H5F_ACC_RDWR_F, file_id, err)
       call H5Gopen_f(file_id, 'mesh', group_id, err)
     else
       group_id = H5I_INVALID_HID_F
@@ -58,9 +67,10 @@ contains
     ! internal data ............................................................
 
     ! dynamical data
-    type(MeshAttributes_3D), target :: attrib ! mesh attributes
-    real(RNP), allocatable,  target :: xc(:)  ! mesh element coordinates
+    type(MeshAttributes_3D), target :: attrib
+    type(MeshBoundaryAttributes_3D), allocatable, target :: attrib_boundary(:)
     type(MeshElementNeighbor_3D), allocatable, target :: neighbor(:)
+    real(RNP), allocatable, target :: xc(:)
 
     ! HDF5 datatype, dataspace, dimensions and buffer adress pointer
     integer(hid_t)   :: type_id
@@ -77,7 +87,7 @@ contains
     character(len=*), parameter :: name_men = 'mesh_element_neighbors'
     character(len=*), parameter :: name_mec = 'mesh_element_coordinates'
 
-    integer :: e, i, j, nc, nn, np, po, rank
+    integer :: e, i, nc, nn, np, po, rank
     integer :: err
 
     ! safeguard ................................................................
