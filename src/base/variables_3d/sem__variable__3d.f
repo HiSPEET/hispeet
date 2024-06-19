@@ -43,6 +43,54 @@ module SEM__Variable__3D
     module procedure New_Scratch
     module procedure New_Slice
     module procedure New_Wrap
+    module procedure New_HDF5_F
+    module procedure New_HDF5_G
+  end interface
+
+  interface
+
+    !===========================================================================
+    ! Constructors
+
+    !---------------------------------------------------------------------------
+    !> New SEM variable from spectral-element mesh and data given in HDF5 file
+
+    module function New_HDF5_F(sem, file) result(this)
+      class(SpectralElementMesh_3D), intent(in) :: sem
+      character(len=*), intent(in) :: file !< name of HDF5 file
+      type(SEM_Variable_3D) :: this
+    end subroutine New_HDF5_F
+
+    !---------------------------------------------------------------------------
+    !> New SEM variable from spectral-element mesh and data given in HDF5 group
+
+    module function New_HDF5_G(sem, group_id) result(this)
+      use HDF5_Binding
+      class(SpectralElementMesh_3D), target, intent(in) :: sem
+      integer(hid_t), intent(in) :: group_id !< ID of HDF5 group
+      type(SEM_Variable_3D) :: this
+    end subroutine New_HDF5_G
+
+    !===========================================================================
+    ! Utilities
+
+    !---------------------------------------------------------------------------
+    !> Write SEM variable to HDF5 file
+
+    module subroutine WriteHDF5_F(this, file) result(this)
+      class(SEM_Variable_3D), intent(in) :: this
+      character(len=*),       intent(in) :: file !< name of HDF5 file
+    end subroutine WriteHDF5_F
+
+    !---------------------------------------------------------------------------
+    !> Write SEM variable into given HDF5 group
+
+    module subroutine WriteHDF5_G(this, group_id)
+      use HDF5_Binding
+      class(SEM_Variable_3D), intent(in) :: this     !< SEM variable
+      integer(HID_T),         intent(in) :: group_id !< ID of related HDF5 group
+    end subroutine WriteHDF5_G
+
   end interface
 
 contains

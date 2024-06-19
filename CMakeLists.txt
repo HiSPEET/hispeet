@@ -169,6 +169,19 @@ endif ()
 
 find_package(VTK REQUIRED COMPONENTS IOXML)
 
+# provides: 
+#   - VTK_INCLUDE_DIRS 
+#   - VTK_LIBRARIES
+
+#-------------------------------------------------------------------------------
+# HDF5
+
+find_package(HDF5 REQUIRED COMPONENTS Fortran HL)
+
+# provides: 
+#   - HDF5_Fortran_INCLUDE_DIRS 
+#   - HDF5_Fortran_LIBRARIES
+
 #-------------------------------------------------------------------------------
 # KD-Tree
 
@@ -179,11 +192,15 @@ include(external/cmake/kdtree.cmake)
 
 include(external/cmake/libxsmm.cmake)
 
+# provides: 
+#   - LIBXSMM_INCLUDE_DIRS 
+#   - LIBXSMM_LIBRARIES
+
 #-------------------------------------------------------------------------------
 # FFTW, ParMeTiS, ppFUnit, SLURM
 
-find_package(FFTW)
-find_package(ParMETIS)
+find_package(FFTW)         # FFTW_INCLUDE_DIRS    , FFTW_LIBRARIES
+find_package(ParMETIS)     # ParMETIS_INCLUDE_DIRS, ParMETIS_LIBRARIES
 find_package(pFUnit QUIET)
 find_package(Slurm QUIET)
 

@@ -7,6 +7,7 @@ file(GLOB ESSENTIALS essentials/*.f)
 # bindings
 
 set(BINDINGS bindings/c_binding.f
+             bindings/hdf5_binding.f
              bindings/openmp_binding.F
              bindings/mpi_binding.F
              bindings/vtk_wrapper.c
@@ -121,7 +122,9 @@ set ( MESH_3D
       mesh_3d/generic_mesh__3d__mp_creatediamonds.f
       mesh_3d/generic_mesh__3d__mp_createonerotated.f
       mesh_3d/mesh_boundary__3d.f
+      mesh_3d/mesh_boundary__3d__sm_hdf5.f
       mesh_3d/mesh_element__3d.F
+      mesh_3d/mesh_element__3d__sm_hdf5.f
       mesh_3d/mesh_element__3d__sm_mpi.f
       mesh_3d/mesh_element_indexing__3d.f
       mesh_3d/mesh_face__3d.f
@@ -146,6 +149,9 @@ set ( MESH_3D
       mesh_3d/mesh__3d__mp_identifyranks.f
       mesh_3d/mesh__3d__mp_identifyvertices.f
       mesh_3d/mesh__3d__mp_importgenericmesh.f
+      mesh_3d/mesh__3d__mp_readhdf5.f
+      mesh_3d/mesh__3d__mp_writehdf5.f
+      mesh_3d/mesh__3d__sm_hdf5.f
       mesh_3d/structured_mesh_indexing__3d.f
       mesh_3d/generate_regular_mesh__3d.f
       mesh_3d/mesh_metrics__3d.f
@@ -276,7 +282,6 @@ set(BASE_SRC ${ESSENTIALS}
              ${MESH_3D}
              ${UTIL_1D}
              ${UTIL_3D}
-             ${VARIABLES_3D}
              ${ELLIPTIC_1D}
              ${ELLIPTIC_3D}
              )
@@ -294,6 +299,7 @@ endif ()
 target_include_directories(HiBase
     PUBLIC  ${PROJECT_BINARY_DIR}/modules
             ${LIBXSMM_INCLUDE_DIRS}
+            ${HDF5_Fortran_INCLUDE_DIRS}
     PRIVATE ${VTK_INCLUDE_DIRS}
             ${ParMETIS_INCLUDE_DIRS}
             ${FFTW_INCLUDE_DIRS}
@@ -302,6 +308,7 @@ target_include_directories(HiBase
 target_link_libraries(HiBase
     PUBLIC  ${LAPACK_LIBRARIES}
             ${VTK_LIBRARIES}
+            ${HDF5_Fortran_LIBRARIES}
             ${FFTW_LIBRARIES}
             ${ParMETIS_LIBRARIES}
             ${LIBXSMM_LIBRARIES}
