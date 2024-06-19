@@ -298,8 +298,8 @@ endif ()
 target_include_directories(HiBase
     PUBLIC  ${PROJECT_BINARY_DIR}/modules
             ${LIBXSMM_INCLUDE_DIRS}
-    PRIVATE ${VTK_INCLUDE_DIRS}
             ${HDF5_Fortran_INCLUDE_DIRS}
+    PRIVATE ${VTK_INCLUDE_DIRS}
             ${ParMETIS_INCLUDE_DIRS}
             ${FFTW_INCLUDE_DIRS}
             )
