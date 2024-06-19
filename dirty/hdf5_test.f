@@ -1,122 +1,74 @@
 program HDF5_Test
-  use Kind_Parameters
-  USE ISO_C_BINDING   ! required for C_Loc
-  use HDF5_Binding
-  use Mesh_Element__3D
+  USE ISO_C_Binding
+  use HDF5
   implicit none
 
-  
+  type Element
+    integer :: id = -1
+    integer, allocatable :: nb(:)
+  end type Element
 
-  ! HDF5 MeshElement type .................................................................
+  type(Element), target :: elem_orig(2)
+  type(Element), target :: elem_read(2)
 
-  integer(hid_t) :: H5T_MeshElement_3D     = -1
-
-  ! auxiliary variables ........................................................
-
-  integer          :: err, i, j, e
-  integer(hid_t)   :: file_id, dataspace_id, dataset_id, dtype_id, group_id
-  integer(hsize_t) :: dims(1)
-  type(c_ptr)      :: f_ptr
-
-  type(MeshElement_3D), target :: element_orig(2)
-  type(MeshElement_3D), target :: element_read(2)
-
-  ! HDF5 initialization ........................................................
+  integer(HID_T)   :: file_id, space_id, data_id, type_id, group_id
+  integer(HSIZE_T) :: dims(1)
+  integer(SIZE_T)  :: offset
+  type(C_Ptr)      :: buf
+  integer          :: err, i
+  logical          :: alloc
 
   call H5open_f(err)
 
-  call Init_HDF5_Binding()
-  print '(A,I0)', 'H5T_INTEGER         =  ', H5T_INTEGER
-  print '(A,I0)', 'H5T_INTEGER_IXS     =  ', H5T_INTEGER_IXS
-  print '(A,I0)', 'H5T_INTEGER_IXL     =  ', H5T_INTEGER_IXL
-  print '(A,I0)', 'H5T_REAL_RSP        =  ', H5T_REAL_RSP
-  print '(A,I0)', 'H5T_REAL_RDP        =  ', H5T_REAL_RDP
-  print '(A,I0)', 'H5T_REAL_RHP        =  ', H5T_REAL_RHP
-  print '(A,I0)', 'H5T_REAL_RNP        =  ', H5T_REAL_RNP
-  print '(A,I0)', 'H5T_CHARACTER       =  ', H5T_CHARACTER
-  print '(A,I0)', 'H5T_FORTRAN_S1      =  ', H5T_FORTRAN_S1
-  print '(A,I0)', 'H5T_LOGICAL         =  ', H5T_LOGICAL
+  ! initialize data, leaving dynamic component deallocated
+  do i = 1, size(elem_orig)
+    elem_orig(i)%id =  i
+  end do
+  allocate(elem_orig(2)%nb, source = [1,2])
 
-  call Get_H5T_MeshElement_3D(H5T_MeshElement_3D)
-  print '(A,I0)', 'H5T_MeshElement     =  ', H5T_MeshElement_3D
+  ! HDF5 compound to write static component
+  offset = H5offsetof(C_Loc(elem_orig(1)), C_Loc(elem_orig(2)))
+  call H5Tcreate_f(H5T_COMPOUND_F, offset, type_id, err)
+  offset = H5offsetof(C_Loc(elem_orig(1)), C_Loc(elem_orig(1)%id))
+  call H5Tinsert_f(type_id, 'id', offset, H5T_NATIVE_INTEGER, err)
 
-  ! create dummy data ..........................................................
-  
-   do e = 1,2
-     element_orig(e)%id = e
-     element_orig(e)%cluster_id = 0
-     element_orig(e)%frozen = .true.
-   
-     do i = 1,8
-       element_orig(e)%vertex(i)%id         = i * element_orig(e)%id
-       element_orig(e)%vertex(i)%n_neighbor = 1
-     end do
+  ! write data
+  dims = size(elem_orig)
+  call H5Fcreate_f('elements.h5', H5F_ACC_TRUNC_F, file_id, err)
+  call H5Gcreate_f(file_id, 'data', group_id, err)
+  call H5Screate_simple_f(1, dims, space_id, err)
+  call H5Dcreate_f(group_id, 'elements', type_id, space_id, data_id, err)
+  call H5Dwrite_f(data_id, type_id, C_Loc(elem_orig(1)), err)
+  call H5Dclose_f(data_id, err)
+  call H5Sclose_f(space_id, err)
+  call H5Gclose_f(group_id, err)
+  call H5Fclose_f(file_id, err)
 
-     do j = 1,3
-     do i = 0,3
-       element_orig(e)%geometry%x_c(i,j) = i*j
-     end do
-     end do
-
-     allocate(element_orig(e)%neighbor(1))
-     element_orig(e)%neighbor(1)%id        = 2
-     element_orig(e)%neighbor(1)%component = 2
-    
-   end do
-       
-
-
-  ! save data ..................................................................
-  
-  ! Create a new file (or open an existing one)
-  call h5fcreate_f('elements.h5', H5F_ACC_TRUNC_F, file_id, err)
-  ! Create a group
-  call h5gcreate_f(file_id, "mesh_data", group_id, err)
-  ! Create dataspace for the dataset
-  dims = size(element_orig)
-  !call h5screate_simple_f(rank, dims, dataspace_id, err)
-  call h5screate_simple_f(1, dims, dataspace_id, err)
-  ! Create the dataset
-  call h5dcreate_f(group_id, 'mesh_partition', H5T_MeshElement_3D, &
-                   dataspace_id, dataset_id, err)
-  ! Write the dataset
-  call h5dwrite_f(dataset_id, H5T_MeshElement_3D, C_LOC(element_orig(1)), err)
-  ! Close the dataset
-  call h5dclose_f(dataset_id, err)
-  ! Close the dataspace
-  call h5sclose_f(dataspace_id, err)
-  ! Close the group
-  call h5gclose_f(group_id, err)
-  ! Close the file
-  call h5fclose_f(file_id, err)
-
-
-  ! read data ..................................................................
-  
-  ! Open HDF5 file
-  call h5fopen_f('elements.h5', H5F_ACC_RDWR_F, file_id, err)
-  ! Open the group
-  call h5gopen_f(file_id, 'mesh_data', group_id, err)
-  ! Open the dataspace
-  call h5dopen_f(group_id, 'mesh_partition', dataset_id, err)
-  ! Read the dataset
-  call h5dget_type_f(dataset_id, dtype_id, err)
-  f_ptr = C_LOC(element_read(1))
-  call h5dread_f(dataset_id, dtype_id, f_ptr, err)
-  ! Close the dataset
-  call h5dclose_f(dataset_id, err)
-  ! Close the group
-  call h5gclose_f(group_id, err)
-  ! Close the file
-  call h5fclose_f(file_id, err)
+  ! read data
+  buf = C_Loc(elem_read(1))
+  call H5Fopen_f('elements.h5', H5F_ACC_RDWR_F, file_id, err)
+  call H5Gopen_f(file_id, 'data', group_id, err)
+  call H5Dopen_f(group_id, 'elements', data_id, err)
+  call H5Dget_type_f(data_id, type_id, err)
+  call H5Dread_f(data_id, type_id, buf, err)
+  call H5Dclose_f(data_id, err)
+  call H5Gclose_f(group_id, err)
+  call H5Fclose_f(file_id, err)
 
   ! check data .................................................................
 
-  print '(A,99(F5.1,1X))', 'orig: e1%x_c =', element_orig(1)%geometry%x_c
-  print '(A,99(F5.1,1X))', 'read: e1%x_c =', element_read(1)%geometry%x_c
+  print '(9(G0,1X))', 'elem_orig%id =', elem_orig%id
+  print '(9(G0,1X))', 'elem_read%id =', elem_read%id
+
+  do i = 1, size(elem_read)
+    alloc = allocated(elem_read(i)%nb)
+    print '(9(G0,1X))', 'allocated(elem_read(',i,')%nb) =', alloc
+    if (alloc) then
+      print '(9(G0,1X))', 'size(elem_read(',i,')%nb) =', size(elem_read(i)%nb)
+      print '(9(G0,1X))', 'elem_read(',i,')%nb =', elem_read(i)%nb
+    end if
+  end do
 
   call H5close_f(err)
-
-  !=============================================================================
 
 end program HDF5_Test
