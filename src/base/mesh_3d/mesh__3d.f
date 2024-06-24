@@ -298,8 +298,8 @@ module Mesh__3D
 
     module subroutine WriteHDF5_G(mesh, group_id)
       use HDF5_Binding
-      class(Mesh_3D), target, intent(in) :: mesh     !< mesh partition
-      integer(hid_t),         intent(in) :: group_id !< ID of related HDF5 group
+      class(Mesh_3D), intent(in) :: mesh     !< mesh partition
+      integer(hid_t), intent(in) :: group_id !< ID of related HDF5 group
     end subroutine WriteHDF5_G
 
   end interface

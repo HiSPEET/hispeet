@@ -33,6 +33,9 @@ contains
     write(tag,'(I0)') rank
     file_pr = trim(file)//'_'//trim(tag)//'.h5'
     inquire(file=file_pr, exist=exists)
+!### CHECK
+print '(99G0)', '$p',rank,', ReadHDF5_F: file_pr = "',file_pr,'"'
+!### CHECK END
 
     if (exists) then
       ! open HDF5 file and group for reading
@@ -41,6 +44,9 @@ contains
     else
       group_id = H5I_INVALID_HID_F
     end if
+!### CHECK
+print '(99G0)', '$p',rank,', ReadHDF5_F: group_id = ',group_id
+!### CHECK END
 
     ! read mesh partition
     call ReadHDF5_G(mesh, group_id, comm)
@@ -106,10 +112,19 @@ contains
 
       buf = C_Loc(mesh%part)
       call H5Dopen_f(group_id, name_mp, data_id, err)
+!### CHECK
+print '(99G0)', '$p',rank,', ReadHDF5_G: data_id = ',data_id,', err = ', err
+!### CHECK END
       call H5Dget_type_f(data_id, type_id, err)
+!### CHECK
+print '(99G0)', '$p',rank,', ReadHDF5_G: data_id = ',type_id,', err = ', err
+!### CHECK END
       call H5Dread_f(data_id, type_id, buf, err)
       call H5Tclose_f(type_id, err)
       call H5Dclose_f(data_id, err)
+!### CHECK
+print '(99G0)', '$p',rank,', ReadHDF5_G: part = ',mesh%part
+!### CHECK END
 
       ! get mesh attributes ....................................................
 
@@ -121,12 +136,6 @@ contains
       call H5Dclose_f(data_id, err)
 
       ! get mesh boundary attributes ...........................................
-
-      ! reading the static components of `attributes` mysteriously changes the
-      ! status of boundary attributes to allocated, which must be fixed
-      if (allocated(attrib%boundary)) then
-        deallocate(attrib%boundary)
-      end if
 
       allocate(attrib % boundary(attrib%n_bound))
 
@@ -148,6 +157,7 @@ contains
       call H5Dopen_f(group_id, name_me, data_id, err)
       call H5Dget_space_f(data_id, space_id, err)
       call H5Sget_simple_extent_dims_f(space_id, dims, maxdims, err)
+      call H5Sclose_f(space_id, err)
 
       mesh % n_elem = dims(1)
       allocate(mesh % element(mesh%n_elem))
@@ -157,22 +167,9 @@ contains
         call H5Dget_type_f(data_id, type_id, err)
         call H5Dread_f(data_id, type_id, buf, err)
         call H5Tclose_f(type_id, err)
-        call H5Dclose_f(data_id, err)
-
-        ! reading the static element components of  mysteriously changes the
-        ! status of dynamic components to allocated, which must be fixed
-        do e = 1, mesh%n_elem
-          associate(element => mesh % element(e))
-            if (allocated(element%neighbor)) then
-              deallocate(element%neighbor)
-            end if
-            if (allocated(element%geometry%x_e)) then
-              deallocate(element%geometry%x_e)
-            end if
-          end associate
-        end do
-
       end if
+
+      call H5Dclose_f(data_id, err)
 
       ! get element neighbors ..................................................
 
@@ -181,31 +178,25 @@ contains
         call H5Dopen_f(group_id, name_men, data_id, err)
         call H5Dget_space_f(data_id, space_id, err)
         call H5Sget_simple_extent_dims_f(space_id, dims, maxdims, err)
+        call H5Sclose_f(space_id, err)
 
         nn = dims(1)
         allocate(neighbor(nn))
 
-        if (nn > 0) then
-          buf = C_Loc(neighbor)
-          call H5Dget_type_f(data_id, type_id, err)
-          call H5Dread_f(data_id, type_id, buf, err)
-          call H5Tclose_f(type_id, err)
-          call H5Dclose_f(data_id, err)
-        end if
+        buf = C_Loc(neighbor)
+        call H5Dget_type_f(data_id, type_id, err)
+        call H5Dread_f(data_id, type_id, buf, err)
+        call H5Tclose_f(type_id, err)
+        call H5Dclose_f(data_id, err)
 
         i = 1
         do e = 1, mesh % n_elem
           associate(element => mesh % element(e))
-
             ! number of element neighbors
             nn = sum(element % vertex % n_neighbor) &
                + sum(element % edge   % n_neighbor) &
                + sum(element % face   % n_neighbor)
-            if (nn > 0) then
-              allocate(element%neighbor(nn), source = neighbor(i:i+nn-1))
-            else
-              allocate(element%neighbor(0))
-            end if
+            allocate(element%neighbor(nn), source = neighbor(i:i+nn-1))
             i = i + nn
           end associate
         end do
@@ -219,6 +210,7 @@ contains
         call H5Dopen_f(group_id, name_mec, data_id, err)
         call H5Dget_space_f(data_id, space_id, err)
         call H5Sget_simple_extent_dims_f(space_id, dims, maxdims, err)
+        call H5Sclose_f(space_id, err)
 
         nc = dims(1)
         allocate(xc(nc))
