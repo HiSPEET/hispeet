@@ -190,9 +190,6 @@ program INS_TimeIntegrator_3D_Test
   ! MPI and OpenMP .............................................................
 
   call XMPI_Init()
-!### CHECK
-print '(99G0,1X)', 'Main #0'
-!### CHECK END
 
   comm = MPI_COMM_WORLD
   call MPI_Comm_rank(comm, rank)
@@ -232,9 +229,6 @@ print '(99G0,1X)', 'Main #0'
     end if
 
   end if
-!### CHECK
-print '(99G0,1X)', 'Main #1'
-!### CHECK END
 
   ! globalize control parameters
   call XMPI_Bcast(flow_case      , 0, comm)
@@ -263,9 +257,6 @@ print '(99G0,1X)', 'Main #1'
   ! restart switches
   restart_in  = len_trim(restart_tag_in)  > 0
   restart_out = len_trim(restart_tag_out) > 0
-!### CHECK
-print '(99G0,1X)', 'Main #2'
-!### CHECK END
 
   ! domain name ................................................................
 
@@ -281,18 +272,12 @@ print '(99G0,1X)', 'Main #2'
   case(10)
     domain_name = raw_mesh_file
   end select
-!### CHECK
-print '(99G0,1X)', 'Main #3'
-!### CHECK END
 
   ! create mesh ................................................................
 
   if (restart_in) then
 
     mesh_file = trim(flow_case) // '_' // trim(restart_tag_in) // '_mesh'
-!### CHECK
-print '(99G0)', 'Main #4a, mesh_file = "',trim(mesh_file),'"'
-!### CHECK END
     call ins_op % mesh % ReadHDF5(mesh_file, comm)
 
   else
@@ -319,9 +304,6 @@ print '(99G0)', 'Main #4a, mesh_file = "',trim(mesh_file),'"'
       call initial_mesh % ImportGenericMesh(generic_mesh, comm)
       domain_name = trim(raw_mesh_file)
     end select
-!### CHECK
-print '(99G0,1X)', 'Main #4'
-!### CHECK END
 
     ! mesh partitioning ........................................................
 
@@ -339,9 +321,6 @@ print '(99G0,1X)', 'Main #4'
   n_elem  = ins_op % mesh % n_elem
   n_ghost = ins_op % mesh % n_ghost
   n_bound = ins_op % mesh % n_bound
-!### CHECK
-print '(99G0,1X)', 'Main #5'
-!### CHECK END
 
   ! problem ....................................................................
 
@@ -358,9 +337,6 @@ print '(99G0,1X)', 'Main #5'
       end if
     end if
   end do
-!### CHECK
-print '(99G0,1X)', 'Main #6'
-!### CHECK END
 
   ! operators ..................................................................
 
@@ -377,9 +353,6 @@ print '(99G0,1X)', 'Main #6'
     ins_ti = INS_TimeIntegrator_RungeKutta_3D &
                  (problem, ins_op, ins_ti_runge_kutta_opts)
   end select
-!### CHECK
-print '(99G0,1X)', 'Main #7'
-!### CHECK END
 
   ! variables ..................................................................
 
@@ -408,9 +381,6 @@ print '(99G0,1X)', 'Main #7'
   var_name(9:12) = [ 'error(v_x)', 'error(v_y)', 'error(v_z)', 'error(p)  ']
 
   allocate(w(0:po,0:po,0:po,1:n_elem,1:4) )
-!### CHECK
-print '(99G0,1X)', 'Main #8'
-!### CHECK END
 
   ! initial conditions .........................................................
 
@@ -425,9 +395,6 @@ print '(99G0,1X)', 'Main #8'
 
   ! time scales
   call time_scales % Evaluate(problem, ins_op, u)
-!### CHECK
-print '(99G0,1X)', 'Main #9'
-!### CHECK END
 
   ! info .......................................................................
 
@@ -458,9 +425,6 @@ print '(99G0,1X)', 'Main #9'
                              '(', dt / time_scales % tau_diff_rm,')'
     write(*,*)
   end if
-!### CHECK
-print '(99G0,1X)', 'Main #10'
-!### CHECK END
 
   !-----------------------------------------------------------------------------
   ! Time integration
@@ -481,10 +445,7 @@ print '(99G0,1X)', 'Main #10'
     if (last) exit
   end do
 
-  !### CHECK
-print '(99G0,1X)', 'Main #11'
-!### CHECK END
-!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! evaluation
 
   ! errors .....................................................................
@@ -498,9 +459,6 @@ print '(99G0,1X)', 'Main #11'
     call CalibrateArray(err_p, comm = ins_op % mesh % comm_parts)
 
   end if
-!### CHECK
-print '(99G0,1X)', 'Main #12'
-!### CHECK END
 
   ! boundary fluxes ............................................................
 
@@ -531,9 +489,6 @@ print '(99G0,1X)', 'Main #12'
     write(*,*)
     !$omp end master
   end if
-!### CHECK
-print '(99G0,1X)', 'Main #13'
-!### CHECK END
 
   !-----------------------------------------------------------------------------
   ! Write plot files
@@ -546,9 +501,6 @@ print '(99G0,1X)', 'Main #13'
                              , part    = ins_op % mesh % part         &
                              , n_parts = ins_op % mesh % n_parts      )
   end if
-!### CHECK
-print '(99G0,1X)', 'Main #14'
-!### CHECK END
 
   !-----------------------------------------------------------------------------
   ! Write restart data
@@ -564,9 +516,6 @@ print '(99G0,1X)', 'Main #14'
 
   !-----------------------------------------------------------------------------
   ! Finalization
-!### CHECK
-print '(99G0,1X)', 'Main #X'
-!### CHECK END
 
   call MPI_Finalize()
 

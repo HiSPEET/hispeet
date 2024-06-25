@@ -30,7 +30,7 @@ contains
 
     ! create HDF5 file and group
     call H5Fcreate_f(file_pr, H5F_ACC_TRUNC_F, file_id, err)
-    call H5Gcreate_f(file_id, 'mesh', group_id, err)
+    call H5Gcreate_f(file_id, '/mesh', group_id, err)
 
     ! write mesh partition
     call WriteHDF5_G(mesh, group_id)

@@ -33,20 +33,14 @@ contains
     write(tag,'(I0)') rank
     file_pr = trim(file)//'_'//trim(tag)//'.h5'
     inquire(file=file_pr, exist=exists)
-!### CHECK
-print '(99G0)', '$p',rank,', ReadHDF5_F: file_pr = "',file_pr,'"'
-!### CHECK END
 
     if (exists) then
       ! open HDF5 file and group for reading
       call H5Fopen_f(file_pr, H5F_ACC_RDWR_F, file_id, err)
-      call H5Gopen_f(file_id, 'mesh', group_id, err)
+      call H5Gopen_f(file_id, '/mesh', group_id, err)
     else
       group_id = H5I_INVALID_HID_F
     end if
-!### CHECK
-print '(99G0)', '$p',rank,', ReadHDF5_F: group_id = ',group_id
-!### CHECK END
 
     ! read mesh partition
     call ReadHDF5_G(mesh, group_id, comm)
@@ -67,7 +61,7 @@ print '(99G0)', '$p',rank,', ReadHDF5_F: group_id = ',group_id
 
   module subroutine ReadHDF5_G(mesh, group_id, comm)
     class(Mesh_3D), target, intent(inout) :: mesh  !< mesh partition
-    integer(hid_t), intent(in) :: group_id !< ID of related HDF5 group
+    integer(HID_T), intent(in) :: group_id !< ID of related HDF5 group
     type(MPI_Comm), intent(in) :: comm     !< MPI "world" communicator
 
     ! internal data ............................................................
@@ -79,10 +73,10 @@ print '(99G0)', '$p',rank,', ReadHDF5_F: group_id = ',group_id
     real(RNP), allocatable, target :: xc(:)
 
     ! HDF5 datatype, dataspace, dimensions and buffer adress pointer
-    integer(hid_t)   :: type_id
-    integer(hid_t)   :: space_id
-    integer(hid_t)   :: data_id
-    integer(hsize_t) :: dims(1), maxdims(1)
+    integer(HID_T)   :: type_id
+    integer(HID_T)   :: space_id
+    integer(HID_T)   :: data_id
+    integer(HSIZE_T) :: dims(1), maxdims(1)
     type(C_Ptr)      :: buf
 
     ! HDF5 dataset names
@@ -112,19 +106,10 @@ print '(99G0)', '$p',rank,', ReadHDF5_F: group_id = ',group_id
 
       buf = C_Loc(mesh%part)
       call H5Dopen_f(group_id, name_mp, data_id, err)
-!### CHECK
-print '(99G0)', '$p',rank,', ReadHDF5_G: data_id = ',data_id,', err = ', err
-!### CHECK END
       call H5Dget_type_f(data_id, type_id, err)
-!### CHECK
-print '(99G0)', '$p',rank,', ReadHDF5_G: data_id = ',type_id,', err = ', err
-!### CHECK END
       call H5Dread_f(data_id, type_id, buf, err)
       call H5Tclose_f(type_id, err)
       call H5Dclose_f(data_id, err)
-!### CHECK
-print '(99G0)', '$p',rank,', ReadHDF5_G: part = ',mesh%part
-!### CHECK END
 
       ! get mesh attributes ....................................................
 

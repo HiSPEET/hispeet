@@ -281,7 +281,7 @@ module Mesh__3D
     module subroutine ReadHDF5_G(mesh, group_id, comm)
       use HDF5_Binding
       class(Mesh_3D), target, intent(inout) :: mesh  !< mesh partition
-      integer(hid_t), intent(in) :: group_id !< ID of related HDF5 group
+      integer(HID_T), intent(in) :: group_id !< ID of related HDF5 group
       type(MPI_Comm), intent(in) :: comm     !< "world" communicator
     end subroutine ReadHDF5_G
 
@@ -299,7 +299,7 @@ module Mesh__3D
     module subroutine WriteHDF5_G(mesh, group_id)
       use HDF5_Binding
       class(Mesh_3D), intent(in) :: mesh     !< mesh partition
-      integer(hid_t), intent(in) :: group_id !< ID of related HDF5 group
+      integer(HID_T), intent(in) :: group_id !< ID of related HDF5 group
     end subroutine WriteHDF5_G
 
   end interface
@@ -336,7 +336,7 @@ module Mesh__3D
 
     module subroutine Get_H5T_MeshAttributes_3D(H5T_MeshAttributes_3D)
       use HDF5_Binding
-      integer(hid_t), intent(out) :: H5T_MeshAttributes_3D
+      integer(HID_T), intent(out) :: H5T_MeshAttributes_3D
     end subroutine Get_H5T_MeshAttributes_3D
 
   end interface
