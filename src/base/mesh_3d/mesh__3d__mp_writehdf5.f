@@ -30,7 +30,7 @@ contains
 
     ! create HDF5 file and group
     call H5Fcreate_f(file_pr, H5F_ACC_TRUNC_F, file_id, err)
-    call H5Gcreate_f(file_id, 'mesh', group_id, err)
+    call H5Gcreate_f(file_id, '/mesh', group_id, err)
 
     ! write mesh partition
     call WriteHDF5_G(mesh, group_id)
@@ -45,17 +45,10 @@ contains
   !> Write mesh partition into given HDF5 group
 
   module subroutine WriteHDF5_G(mesh, group_id)
-    class(Mesh_3D), target, intent(in) :: mesh     !< mesh partition
-    integer(HID_T),         intent(in) :: group_id !< ID of related HDF5 group
+    class(Mesh_3D), intent(in) :: mesh     !< mesh partition
+    integer(HID_T), intent(in) :: group_id !< ID of related HDF5 group
 
     ! internal data ............................................................
-
-    ! dynamical data
-    integer, allocatable :: nn_elem(:)  ! number of element neighbors
-    integer, allocatable :: nc_elem(:)  ! number of element coordinates
-    type(MeshAttributes_3D), target :: attrib ! mesh attributes
-    real(RNP), allocatable,  target :: xc(:)       ! mesh element coordinates
-    type(MeshElementNeighbor_3D), allocatable, target :: neighbor(:)
 
     ! HDF5 datatypes
     integer(HID_T) :: H5T_MeshAttributes_3D
@@ -95,6 +88,16 @@ contains
     integer(HID_T) :: data_men   ! dataset ID of mesh element neighbor data
     integer(HID_T) :: data_mec   ! dataset ID of mesh element coordinates
 
+    class(Mesh_3D), allocatable, target :: copy_mesh
+
+    type(MeshAttributes_3D),                      target :: attrib
+    type(MeshBoundaryAttributes_3D), allocatable, target :: attrib_bound(:)
+    type(MeshElementNeighbor_3D),    allocatable, target :: neighbor(:)
+    real(RNP),                       allocatable, target :: xc(:)
+
+    integer, allocatable :: nn_elem(:)
+    integer, allocatable :: nc_elem(:)
+
     integer :: e, i, j, nc, nn
     integer :: err
 
@@ -105,16 +108,19 @@ contains
 
     ! auxiliary data ...........................................................
 
+    copy_mesh = mesh
+
     ! mesh attributes
-    attrib = MeshAttributes_3D(mesh)
+    attrib = MeshAttributes_3D(copy_mesh)
+    call move_alloc(attrib%boundary, attrib_bound)
 
     ! count number of neighbors and coordinates
-    allocate(nn_elem(mesh%n_elem), nc_elem(mesh%n_elem))
+    allocate(nn_elem(copy_mesh%n_elem), nc_elem(copy_mesh%n_elem))
     nn = 0
     nc = 0
-    do e = 1, mesh % n_elem
-      nn_elem(e) = size(mesh % element(e) % neighbor)
-      nc_elem(e) = size(mesh % element(e) % geometry % x_e)
+    do e = 1, copy_mesh % n_elem
+      nn_elem(e) = size(copy_mesh % element(e) % neighbor)
+      nc_elem(e) = size(copy_mesh % element(e) % geometry % x_e)
       nn = nn + nn_elem(e)
       nc = nc + nc_elem(e)
     end do
@@ -122,18 +128,20 @@ contains
     ! collect neighbor data
     allocate(neighbor(nn))
     i = 1
-    do e = 1, mesh % n_elem
+    do e = 1, copy_mesh % n_elem
       j = i + nn_elem(e) - 1
-      neighbor(i:j) = mesh % element(e) % neighbor
+      neighbor(i:j) = copy_mesh % element(e) % neighbor
+      deallocate(copy_mesh % element(e) % neighbor)
       i = i + nn_elem(e)
     end do
 
     ! collect element coordinates
     allocate(xc(nc))
     i = 1
-    do e = 1, mesh % n_elem
+    do e = 1, copy_mesh % n_elem
       j = i + nc_elem(e) - 1
-      xc(i:j) = reshape(mesh % element(e) % geometry % x_e, [nc_elem(e)])
+      xc(i:j) = reshape(copy_mesh % element(e) % geometry % x_e, [nc_elem(e)])
+      deallocate(copy_mesh % element(e) % geometry % x_e)
       i = i + nc_elem(e)
     end do
 
@@ -150,8 +158,8 @@ contains
     ! dimensions
     dim_mp  = 1
     dim_ma  = 1
-    dim_mba = mesh % n_bound
-    dim_me  = mesh % n_elem
+    dim_mba = copy_mesh % n_bound
+    dim_me  = copy_mesh % n_elem
     dim_men = nn
     dim_mec = nc
 
@@ -169,7 +177,7 @@ contains
     call H5Dcreate_f(group_id, name_mp, H5T_INTEGER, space_mp, data_mp, err)
 
     ! write mesh part dataset
-    call H5Dwrite_f(data_mp, H5T_INTEGER, C_Loc(mesh%part), err)
+    call H5Dwrite_f(data_mp, H5T_INTEGER, C_Loc(copy_mesh%part), err)
 
     ! create mesh attribute dataset
     call H5Dcreate_f(group_id, name_ma, H5T_MeshAttributes_3D, &
@@ -184,14 +192,14 @@ contains
 
     ! write mesh boundary attribute dataset (may be empty!)
     call H5Dwrite_f(data_mba, H5T_MeshBoundaryAttributes_3D, &
-                    C_Loc(attrib%boundary), err)
+                    C_Loc(attrib_bound), err)
 
     ! create mesh element dataset
     call H5Dcreate_f(group_id, name_me, H5T_MeshElement_3D, &
                      space_me, data_me, err)
 
     ! write mesh element dataset (may be empty!)
-    call H5Dwrite_f(data_me, H5T_MeshElement_3D, C_Loc(mesh%element), err)
+    call H5Dwrite_f(data_me, H5T_MeshElement_3D, C_Loc(copy_mesh%element), err)
 
     ! create mesh element neighbor dataset
     call H5Dcreate_f(group_id, name_men, H5T_MeshElementNeighbor_3D, &
@@ -209,10 +217,8 @@ contains
     ! release resources ........................................................
 
     deallocate(nn_elem, nc_elem, neighbor, xc)
-
-    if (allocated(attrib%boundary)) then
-      deallocate(attrib%boundary)
-    end if
+    deallocate(attrib_bound)
+    deallocate(copy_mesh)
 
     call H5Sclose_f(space_mp , err)
     call H5Sclose_f(space_ma , err)
