@@ -12,12 +12,28 @@
 
 ## Adaptive Multilevel Techniques
 
+- Revise refinement types
+  - new type _clone_ to allow for $$p$$​- or no refinement
+  - treat $$p$$-refinement like $$h$$-refinement using active, frozen and absent elements
+  - adapt usage in existing procedures
+
+
+| type | refinement |  value   | children |  role   |
+|:----:|:---------- | --------:|:--------:| ------- |
+| `-`  | none       |    `-1`  |    0     |         |
+| `p`  | clone      |     `0`  |    1     | active  |
+| `h`  | regular    |   `100`  |    8     | active  |
+| `h`  | regular    |    `50`  |    8     | closure |
+| `h`  | face 1:6   |   `1:6`  |    4     | closure |
+| `h`  | edge 1:12  |  `7:18`  |    2     | closure |
+| `h`  | vertex 1:8 | `19:26`  |    1     | closure |
+
 - Adaptive multilevel mesh
-    - datastructures and methods exist
-    - final design: *TBD*
-- Adaptive multilevel spectral element mesh: __TBD__
-    - based on multilevel mesh
-    - additional $$p$$-levels
+    - array of meshes
+    - auxiliary data: element & interpolation operators?
+- Adaptive multilevel spectral element mesh
+    - sequence of single-type refinements ($$p$$, $$h$$​, identity)
+    - 1:1 correspondence to multilevel mesh
 - Interweaving spatial and temporal adaptivity: __TBD__
     - working hypothesis: time mesh can be uniquely mapped to ML spectral element mesh
     - each temporal level maps to one spatial level
