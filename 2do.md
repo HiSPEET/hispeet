@@ -1,18 +1,25 @@
 # To Do
 [toc]
 ## HDF5
-- Observe bug report. When fixed
-    - test
-    - remove redundant statements (deallocate) in `mesh%ReadHDF5` 
-- Understand HDF5 `groups`
-- I/O of multilevel data
-
-## Flow Solver Restart
-- Activate and test when HDF5 is fixed
+- [ ] Observe bug report. When fixed remove auxiliary data structures and instructions.
+- [ ] I/O of multilevel data
 
 ## Adaptive Multilevel Techniques
 
-- Revise refinement types
+- [ ] Move `refinement` from `ML_Mesh_3D` into mesh components?!
+- [ ] Generalize adapation to accomodate cloning
+  - [ ] revise adaptation and refinement marks
+  - [ ] generalize existing types and procedures
+    - [ ] `ChildDistributionMap_3D` , consider setting `id_child(:,:,:,e)` to identical value
+    - [ ] `BuildChildData`, may require separate version
+    - [ ] `BuildConnections` etc. 
+
+- [ ] `ML_Mesh_3D` 
+  - [ ] Initialization
+  - [ ] Generate sequence of clones and/or regular refinements
+
+- [ ] `ML_Adaption_3D`
+- [ ] Revise refinement types
   - new type _clone_ to allow for $$p$$​- or no refinement
   - treat $$p$$-refinement like $$h$$-refinement using active, frozen and absent elements
   - adapt usage in existing procedures
@@ -27,17 +34,6 @@
 | `h`  | face 1:6   |   `1:6`  |    4     | closure |
 | `h`  | edge 1:12  |  `7:18`  |    2     | closure |
 | `h`  | vertex 1:8 | `19:26`  |    1     | closure |
-
-- Adaptive multilevel mesh
-    - array of meshes
-    - auxiliary data: element & interpolation operators?
-- Adaptive multilevel spectral element mesh
-    - sequence of single-type refinements ($$p$$, $$h$$​, identity)
-    - 1:1 correspondence to multilevel mesh
-- Interweaving spatial and temporal adaptivity: __TBD__
-    - working hypothesis: time mesh can be uniquely mapped to ML spectral element mesh
-    - each temporal level maps to one spatial level
-    - ML spectral element mesh can be used alone, e.g. for multigrid correction schemes
 
 ## Legacy
 
