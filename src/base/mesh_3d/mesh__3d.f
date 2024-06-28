@@ -44,16 +44,16 @@ module Mesh__3D
 
     ! attributes ...............................................................
 
-    integer :: n_bound    = 0        !< number of domain boundaries
-    integer :: n_parts    = 0        !< number of non-empty partitions
+    integer   :: n_bound    = 0        !< number of domain boundaries
+    integer   :: n_parts    = 0        !< number of non-empty partitions
 
-    logical :: structured = .false.  !< T if mapping to structured mesh exists
-    logical :: regular    = .false.  !< T if equidistant Cartesian
+    logical   :: structured = .false.  !< T if mapping to structured mesh exists
+    logical   :: regular    = .false.  !< T if equidistant Cartesian
+    real(RNP) :: dx(3)      =  0       !< regular mesh spacing in directions 1:3
 
-    logical :: is_root    = .true.   !< T if root (bottom) level mesh
-    logical :: is_top     = .true.   !< T if top level mesh
-
-    real(RNP) :: dx(3)    =  0       !< regular mesh spacing in directions 1:3
+    logical   :: is_root    = .true.   !< T if root (bottom) level mesh
+    logical   :: is_top     = .true.   !< T if top level mesh
+    character :: child_type = ''       !< 'c' clone or 's' subdivision
 
     ! MPI ......................................................................
 
@@ -309,14 +309,15 @@ module Mesh__3D
 
   type MeshAttributes_3D
 
-    integer :: n_bound    = 0        !< number of domain boundaries
-    integer :: n_parts    = 0        !< number of non-empty partitions
-    integer :: p_geom     = 0        !< max polynomial order of element geometry
-    logical :: structured = .false.  !< T if mapping to structured mesh exists
-    logical :: regular    = .false.  !< T if equidistant Cartesian
-    logical :: is_root    = .true.   !< T if root (bottom) level mesh
-    logical :: is_top     = .true.   !< T if top level mesh
-    real(RNP) :: dx(3)    =  0       !< regular mesh spacing in directions 1:3
+    integer   :: n_bound    = 0       !< number of domain boundaries
+    integer   :: n_parts    = 0       !< number of non-empty partitions
+    integer   :: p_geom     = 0       !< max polynomial order of element geometry
+    logical   :: structured = .false. !< T if mapping to structured mesh exists
+    logical   :: regular    = .false. !< T if equidistant Cartesian
+    real(RNP) :: dx(3)      =  0      !< regular mesh spacing in directions 1:3
+    logical   :: is_root    = .true.  !< T if root (bottom) level mesh
+    logical   :: is_top     = .true.  !< T if top level mesh
+    character :: child_type = ''      !< 'c' clone or 's' subdivision
 
     type(MeshBoundaryAttributes_3D), allocatable :: boundary(:)
 
@@ -459,11 +460,14 @@ contains
     attrib % n_bound    = mesh % n_bound
     attrib % n_parts    = mesh % n_parts
     attrib % p_geom     = mesh % p_geom
+
     attrib % structured = mesh % structured
     attrib % regular    = mesh % regular
+    attrib % dx         = mesh % dx
+
     attrib % is_root    = mesh % is_root
     attrib % is_top     = mesh % is_top
-    attrib % dx         = mesh % dx
+    attrib % child_type = mesh % child_type
 
     attrib % boundary = MeshBoundaryAttributes_3D(mesh % boundary)
 
@@ -503,7 +507,8 @@ contains
     this % is_root    = attrib_log(3)
     this % is_top     = attrib_log(4)
 
-    call XMPI_Bcast(this % dx, root, comm)
+    call XMPI_Bcast(this % dx        , root, comm)
+    call XMPI_Bcast(this % child_type, root, comm)
 
     ! boundary attributes ......................................................
 

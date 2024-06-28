@@ -68,6 +68,12 @@ contains
     offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%regular))
     call H5Tinsert_f(H5T_MeshAttributes, 'regular', offset, H5T_LOGICAL, err)
 
+    ! insert dx
+    offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%dx(1)))
+    call H5Tarray_create_f(H5T_REAL_RNP, 1, int([3], HSIZE_T), tid, err)
+    call H5Tinsert_f(H5T_MeshAttributes, 'dx', offset, tid, err)
+    call H5Tclose_f(tid, err)
+
     ! insert is_root
     offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%is_root))
     call H5Tinsert_f(H5T_MeshAttributes, 'is_root', offset, H5T_LOGICAL, err)
@@ -76,11 +82,9 @@ contains
     offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%is_top))
     call H5Tinsert_f(H5T_MeshAttributes, 'is_top', offset, H5T_LOGICAL, err)
 
-    ! insert dx
-    offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%dx(1)))
-    call H5Tarray_create_f(H5T_REAL_RNP, 1, int([3], HSIZE_T), tid, err)
-    call H5Tinsert_f(H5T_MeshAttributes, 'dx', offset, tid, err)
-    call H5Tclose_f(tid, err)
+    ! insert child_type
+    offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%child_type))
+    call H5Tinsert_f(H5T_MeshAttributes, 'child_type', offset, H5T_CHARACTER, err)
 
   end subroutine Init_H5T_MeshAttributes
 

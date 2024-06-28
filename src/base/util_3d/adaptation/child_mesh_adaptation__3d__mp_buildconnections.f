@@ -84,7 +84,7 @@ contains
     integer, allocatable :: send_attrib(:,:), recv_attrib(:,:)
     integer, allocatable :: cluster_rank(:)
     integer, allocatable :: e(:), m(:)
-    integer :: n_recv, n_send, n_attrib
+    integer :: mark, n_recv, n_send, n_attrib
     integer :: a, c, i, j, k, l, n, p
     logical :: has_grandchild
 
@@ -114,8 +114,9 @@ contains
 
     allocate(send_attrib(n_attrib, parent % n_elem), source = -1)
     do l = 1, parent % n_elem
-      if (parent % element(l) % adaptation % refinement /= 100) cycle
-      if (parent % element(l) % adaptation % mark       /= 100) cycle
+      mark = parent % element(l) % adaptation % mark
+      if (mark  < 1000) cycle
+      if (mark /= parent % element(l) % adaptation % refinement) cycle
       ! new child target partition
       send_attrib(1,l) = new_child_map % tp_child(l)
       if (has_grandchild) then

@@ -152,7 +152,7 @@ contains
       i = 0
       do e = 1, n_elem
         if (opt%mode == child_mode) then
-          if (mesh%element(e)%adaptation%mark < 1) cycle
+          if (mesh%element(e)%adaptation%mark < 100) cycle
         end if
         vtx_elem(e) = i
         i = i + 1
@@ -276,15 +276,17 @@ contains
 
           ! cost associated with children
           select case(element % adaptation % mark)
-          case(1:6)
-            c(1) = 4 * c_frozen  ! 4 frozen children @ face
-          case(7:18)
+          case(100:108)
+            c(1) = 1 * c_frozen  ! 1 frozen child @ vertex or cloned
+          case(201:212)
             c(1) = 2 * c_frozen  ! 2 frozen children @ edge
-          case(19:26)
-            c(1) = 1 * c_frozen  ! 1 frozen children @ vertex
-          case(50)
+          case(401:406)
+            c(1) = 4 * c_frozen  ! 4 frozen children @ face
+          case(800)
             c(1) = 8 * c_frozen  ! 8 frozen children @ element
-          case(100)
+          case(1000)
+            c(1) = 1 * c_active  ! 1 active child    @ element
+          case(8000)
             c(1) = 8 * c_active  ! 8 active children @ element
           end select
 

@@ -41,38 +41,44 @@ contains
       call mark_buf % Merge(mark_val)
     end if
 
-    ! set refinement marks and number of sublevels .............................
+    ! set refinement marks .....................................................
 
-    do e = 1, mesh % n_elem
-      associate(element => mesh % element(e))
+    select case(mesh % child_type)
 
-        if (element % frozen) then
+    case('s') ! global of local refinement by subividing
 
-          element % adaptation % mark = 0
+      do e = 1, mesh % n_elem
+        associate(element => mesh % element(e))
 
-        else if (mark(e) > 0) then
+          if (element % frozen) then
 
-          element % adaptation % mark = 100
+            ! no refinement
+            element % adaptation % mark = 0
 
-        else
+          else if (mark(e) > 0) then
 
-          comp_refined = .false.
+            ! regular refinement
+            element % adaptation % mark = 8000
 
-          ! vertices with neighbors marked for refinement
-          do k = 1, 8
-            nn = element % vertex(k) % n_neighbor
-            if (nn > 0) then
-              l  = k + 18
-              i1 = element % vertex(k) % i_neighbor
-              i2 = i1 + nn - 1
-              do i = i1, i2
-                if (mark(element % neighbor(i) % id) > 0) then
-                  comp_refined(l) = .true.
-                  exit
-                end if
-              end do
-            end if
-          end do
+          else
+
+            comp_refined = .false.
+
+            ! vertices with neighbors marked for refinement
+            do k = 1, 8
+              nn = element % vertex(k) % n_neighbor
+              if (nn > 0) then
+                l  = k + 18
+                i1 = element % vertex(k) % i_neighbor
+                i2 = i1 + nn - 1
+                do i = i1, i2
+                  if (mark(element % neighbor(i) % id) > 0) then
+                    comp_refined(l) = .true.
+                    exit
+                  end if
+                end do
+              end if
+            end do
 
           ! edges ...
           do k = 1, 12
@@ -118,19 +124,46 @@ contains
             do l = 1, 26
               if (comp_refined(l)) exit
             end do
-            element % adaptation % mark = l
+            select case(ElementComponentType(l))
+            case(IS_VERTEX)
+              element % adaptation % mark = 100 + ElementVertexID(l)
+            case(IS_EDGE)
+              element % adaptation % mark = 200 + ElementEdgeID(l)
+            case(IS_FACE)
+              element % adaptation % mark = 400 + ElementFaceID(l)
+            end select
           case default
-            ! refinement more than one components implies regular refinement
-            element % adaptation % mark = 50
+            ! selection of several component results in complete refinement
+            element % adaptation % mark = 800
           end select
 
         end if
 
-        ! number of sublevels ..................................................
-
-        element % adaptation % sublevels = max(mark(e), 0) / 1000
-
       end associate
+    end do
+
+    case('c') ! global or zonal cloning
+
+      do e = 1, mesh % n_elem
+        associate(element => mesh % element(e))
+          if (element % frozen) then
+            element % adaptation % mark = 0
+          else if (mark(e) > 0) then
+            element % adaptation % mark = 1000
+          else if (any(mark(element % neighbor % id) > 0)) then
+            element % adaptation % mark = 100
+          else
+            element % adaptation % mark = 0
+          end if
+        end associate
+      end do
+
+    end select
+
+    ! set number of sublevels ..................................................
+
+    do e = 1, mesh % n_elem
+       mesh % element(e) % adaptation % sublevels = max(mark(e), 0) / 1000
     end do
 
   end subroutine ProcessAdaptationPattern_3D

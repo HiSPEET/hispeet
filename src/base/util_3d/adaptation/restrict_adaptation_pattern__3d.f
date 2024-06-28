@@ -97,7 +97,9 @@ contains
 
     do i = 1, parent % n_elem
       associate(adaptation => parent % element(i) % adaptation)
-        if (adaptation % refinement < 100) cycle
+        if (adaptation % refinement < 1000) then
+          cycle ! skip elements with no active children
+        end if
         adaptation % mark = max(adaptation % mark, recv_mark(i) + 1000)
       end associate
     end do
