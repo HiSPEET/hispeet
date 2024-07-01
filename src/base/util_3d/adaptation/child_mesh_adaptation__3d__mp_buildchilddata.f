@@ -55,7 +55,7 @@ write(*,'(99(G0,1X))') '# BCD  0',', parent%proc',parent%proc
       !-------------------------------------------------------------------------
       ! initialization
 
-      cloning = parent % child_type = 'c'
+      cloning = parent % refinement == 'c'
 
       !$omp master
 
@@ -379,15 +379,15 @@ write(*,'(99(G0,1X))') '# BCD  3',', parent%proc',parent%proc
             end do
 
             ! geometry
-            cd_tp % element(ce) % geometry % po  =  po
-            cd_tp % start_point(ce)              =  cp + 1
-            cd_tp % x_e(cp+1:cp+np,1:3)          =  element % geometry % x_e
+            cd_tp % element(ce) % geometry % po = po
+            cd_tp % start_point(ce)     = cp + 1
+            cd_tp % x_e(cp+1:cp+np,1:3) = reshape(element%geometry%x_e, [np,3])
 
             cp = cp + np
 
           else
 
-            ! child 1,1,1 ........................................................
+            ! child 1,1,1 ......................................................
 
             if (id_child(1,1,1,e) > 0) then
 
@@ -459,7 +459,7 @@ write(*,'(99(G0,1X))') '# BCD  3',', parent%proc',parent%proc
 
             end if
 
-            ! child 2,1,1 ........................................................
+            ! child 2,1,1 ......................................................
 
             if (id_child(2,1,1,e) > 0) then
 
@@ -529,7 +529,7 @@ write(*,'(99(G0,1X))') '# BCD  3',', parent%proc',parent%proc
 
             end if
 
-            ! child 1,2,1 ........................................................
+            ! child 1,2,1 ......................................................
 
             if (id_child(1,2,1,e) > 0) then
 
@@ -599,7 +599,7 @@ write(*,'(99(G0,1X))') '# BCD  3',', parent%proc',parent%proc
 
             end if
 
-            ! child 2,2,1 ........................................................
+            ! child 2,2,1 ......................................................
 
             if (id_child(2,2,1,e) > 0) then
 
@@ -669,7 +669,7 @@ write(*,'(99(G0,1X))') '# BCD  3',', parent%proc',parent%proc
 
             end if
 
-            ! child 1,1,2 ........................................................
+            ! child 1,1,2 ......................................................
 
             if (id_child(1,1,2,e) > 0) then
 
@@ -739,7 +739,7 @@ write(*,'(99(G0,1X))') '# BCD  3',', parent%proc',parent%proc
 
             end if
 
-            ! child 2,1,2 ........................................................
+            ! child 2,1,2 ......................................................
 
             if (id_child(2,1,2,e) > 0) then
 
@@ -809,7 +809,7 @@ write(*,'(99(G0,1X))') '# BCD  3',', parent%proc',parent%proc
 
             end if
 
-            ! child 1,2,2 ........................................................
+            ! child 1,2,2 ......................................................
 
             if (id_child(1,2,2,e) > 0) then
 
@@ -879,7 +879,7 @@ write(*,'(99(G0,1X))') '# BCD  3',', parent%proc',parent%proc
 
             end if
 
-            ! child 2,2,2 ........................................................
+            ! child 2,2,2 ......................................................
 
             if (id_child(2,2,2,e) > 0) then
 

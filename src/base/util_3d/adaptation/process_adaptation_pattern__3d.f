@@ -43,7 +43,7 @@ contains
 
     ! set refinement marks .....................................................
 
-    select case(mesh % child_type)
+    select case(mesh % refinement)
 
     case('s') ! global of local refinement by subividing
 
