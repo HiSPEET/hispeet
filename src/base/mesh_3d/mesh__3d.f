@@ -53,7 +53,7 @@ module Mesh__3D
 
     logical   :: is_root    = .true.   !< T if root (bottom) level mesh
     logical   :: is_top     = .true.   !< T if top level mesh
-    character :: child_type = ''       !< 'c' clone or 's' subdivision
+    character :: refinement = ''       !< 'c' clone or 's' subdivision
 
     ! MPI ......................................................................
 
@@ -317,7 +317,7 @@ module Mesh__3D
     real(RNP) :: dx(3)      =  0      !< regular mesh spacing in directions 1:3
     logical   :: is_root    = .true.  !< T if root (bottom) level mesh
     logical   :: is_top     = .true.  !< T if top level mesh
-    character :: child_type = ''      !< 'c' clone or 's' subdivision
+    character :: refinement = ''      !< 'c' clone or 's' subdivision
 
     type(MeshBoundaryAttributes_3D), allocatable :: boundary(:)
 
@@ -467,7 +467,7 @@ contains
 
     attrib % is_root    = mesh % is_root
     attrib % is_top     = mesh % is_top
-    attrib % child_type = mesh % child_type
+    attrib % refinement = mesh % refinement
 
     attrib % boundary = MeshBoundaryAttributes_3D(mesh % boundary)
 
@@ -508,7 +508,7 @@ contains
     this % is_top     = attrib_log(4)
 
     call XMPI_Bcast(this % dx        , root, comm)
-    call XMPI_Bcast(this % child_type, root, comm)
+    call XMPI_Bcast(this % refinement, root, comm)
 
     ! boundary attributes ......................................................
 
