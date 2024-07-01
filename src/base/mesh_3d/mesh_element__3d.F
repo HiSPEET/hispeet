@@ -358,6 +358,7 @@ module Mesh_Element__3D
                                           AlignFromNeighborFace_RNP
     procedure :: MarkForRefinement
     procedure :: MarkForRemoval
+    procedure :: Unmark
 
     procedure, private :: AlignFromNeighborEdge_IDK
     procedure, private :: AlignFromNeighborEdge_RNP
@@ -812,6 +813,16 @@ contains
     element % adaptation % mark = -1
 
   end subroutine MarkForRemoval
+
+  !-----------------------------------------------------------------------------
+  !> Unmark element
+
+  elemental subroutine Unmark(element)
+    class(MeshElement_3D), intent(inout) :: element  !< mesh element
+
+    element % adaptation % mark = 0
+
+  end subroutine Unmark
 
   !-----------------------------------------------------------------------------
   !> Transforms the given triple index range into a rotated coordinate system
