@@ -35,7 +35,6 @@ program Mesh3d_Import_GMSH
 
   ! initialization .............................................................
 
-call MPI_Init()
   call XMPI_Init()
   call MPI_Comm_rank(MPI_COMM_WORLD, rank)
   call MPI_Comm_size(MPI_COMM_WORLD, n_proc)

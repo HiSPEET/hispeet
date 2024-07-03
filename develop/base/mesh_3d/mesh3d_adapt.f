@@ -261,80 +261,14 @@ program Mesh3d_Adapt
 
     ! make adaptation pattern consistent
     do l = m, 2, -1
-!### CHECK
-!! write(*,'(99(G0,1X))') 'make consistent: l =', l,repeat('=',60)
-!! write(*,'(99(G0,1X))') 'globalize:       l =', l,repeat('-',60)
-!! select case(l)
-!! case(2)
-!!   write(*,'(99G0)') 'mesh(2)%element( 10)%adaptation%mark       = ', &
-!!                      mesh(2)%element( 10)%adaptation%mark
-!!   write(*,'(99G0)') 'mesh(2)%element( 10)%adaptation%refinement = ', &
-!!                      mesh(2)%element( 10)%adaptation%refinement
-!!   write(*,'(99G0)') 'mesh(2)%element( 10)%frozen                = ', &
-!!                      mesh(2)%element( 10)%frozen
-!! case(3)
-!!   write(*,'(99G0)') 'mesh(3)%element( 79)%adaptation%mark       = ', &
-!!                      mesh(3)%element( 79)%adaptation%mark
-!!   write(*,'(99G0)') 'mesh(3)%element( 79)%adaptation%refinement = ', &
-!!                      mesh(3)%element( 79)%adaptation%refinement
-!!   write(*,'(99G0)') 'mesh(3)%element( 79)%frozen                = ', &
-!!                      mesh(3)%element( 79)%frozen
-!! end select
-!### CHECK END
       call GlobalizeAdaptationPattern_3D(mesh(l))
-!### CHECK
-!! select case(l)
-!! case(2)
-!!   write(*,'(99G0)') 'mesh(2)%element( 10)%adaptation%mark  = ', &
-!!                      mesh(2)%element( 10)%adaptation%mark
-!! case(3)
-!!   write(*,'(99G0)') 'mesh(3)%element( 79)%adaptation%mark  = ', &
-!!                      mesh(3)%element( 79)%adaptation%mark
-!! end select
-!! write(*,'(99(G0,1X))') 'restrict to:   l-1 =', l,repeat('-',60)
-!### CHECK END
       call RestrictAdaptationPattern_3D(mesh(l), mesh(l-1))
     end do
-!### CHECK
-!! write(*,'(99(G0,1X))') 'globalize:       l =', 1,repeat('-',60)
-!! write(*,'(99G0)') 'mesh(1)%element(  2)%adaptation%mark  = ', &
-!!                    mesh(1)%element(  2)%adaptation%mark
-!### CHECK END
     call GlobalizeAdaptationPattern_3D(mesh(1))
-!### CHECK
-!! if (m >= 1) then
-!!   write(*,'(99G0)') 'mesh(1)%element(  2)%adaptation%mark  = ', &
-!!                      mesh(1)%element(  2)%adaptation%mark
-!! end if
-!! if (m >= 2) then
-!!   write(*,'(99G0)') 'mesh(2)%element( 10)%adaptation%mark  = ', &
-!!                      mesh(2)%element( 10)%adaptation%mark
-!! end if
-!! if (m >= 3) then
-!!   write(*,'(99G0)') 'mesh(3)%element( 79)%adaptation%mark  = ', &
-!!                      mesh(3)%element( 79)%adaptation%mark
-!! end if
-!! write(*,'(99(G0,1X))') repeat('=',80)
-!### CHECK END
 
     ! make present mesh the original one
     call move_alloc(mesh, old_mesh)
     allocate(mesh(n_level))
-!### CHECK
-!! if (m == 3) then
-!! if (old_mesh(3)%part == 1) then
-!! l = 3
-!! e = 36
-!! print '(99(G0,1X))', ''
-!! print '(99(G0,1X))', 'L2 P1 ne =',old_mesh(l-1)%n_elem
-!! print '(99(G0,1X))', 'L3 P1 E36: frozen      =',old_mesh(l)%element(e)%frozen
-!! print '(99(G0,1X))', 'L3 P1 E36: mark        =',old_mesh(l)%element(e)%adaptation%mark
-!! print '(99(G0,1X))', 'L3 P1 E36: parent_proc =',old_mesh(l)%element(e)%adaptation%parent_proc
-!! print '(99(G0,1X))', 'L3 P1 E36: parent_id   =',old_mesh(l)%element(e)%adaptation%parent_id
-!! print '(G0,3(1X,ES10.3))', 'L3 P1 E36: x_c(0) =',old_mesh(l)%element(e)%geometry%x_c(0,1:3)
-!! end if
-!! end if
-!### CHECK END
 
     ! create data exchange plan for redistribution of retained data
     allocate(exch_plan(n_level))
@@ -361,9 +295,6 @@ program Mesh3d_Adapt
       if (l > 1) then
         call ProcessAdaptationPattern_3D(mesh(l))
       end if
-!### CHECK
-write(*,'(99(G0,1X))') 'proc',mesh(1)%proc,'creating level', l+1
-!### CHECK END
       select case(m-l)
       case(0)
         call ChildMeshAdaptation_3D( opt        = part_opt(l+1) &
@@ -375,20 +306,6 @@ write(*,'(99(G0,1X))') 'proc',mesh(1)%proc,'creating level', l+1
                                    , new_child = mesh(l+1)      &
                                    , old_child = old_mesh(l+1)  &
                                    , exch_plan = exch_plan(l+1) )
-!### CHECK
-!! if (m == 3) then
-!! if (mesh(3)%part == 1) then
-!! e = 76
-!! print '(99(G0,1X))', ''
-!! print '(99(G0,1X))', 'L2 P1 ne =',mesh(l)%n_elem
-!! print '(99(G0,1X))', 'L3 P1 E76: frozen      =',mesh(l+1)%element(e)%frozen
-!! print '(99(G0,1X))', 'L3 P1 E76: mark        =',mesh(l+1)%element(e)%adaptation%mark
-!! print '(99(G0,1X))', 'L3 P1 E76: parent_proc =',mesh(l+1)%element(e)%adaptation%parent_proc
-!! print '(99(G0,1X))', 'L3 P1 E76: parent_id   =',mesh(l+1)%element(e)%adaptation%parent_id
-!! print '(G0,3(1X,ES10.3))', 'L3 P1 E76: x_c(0) =',mesh(l+1)%element(e)%geometry%x_c(0,1:3)
-!! end if
-!! end if
-!### CHECK END
       case(2:)
         call ChildMeshAdaptation_3D( opt        = part_opt(l+1)  &
                                    , parent     = mesh(l)        &
@@ -397,15 +314,7 @@ write(*,'(99(G0,1X))') 'proc',mesh(1)%proc,'creating level', l+1
                                    , grandchild = old_mesh(l+2)  &
                                    , exch_plan  = exch_plan(l+1) )
       end select
-!### CHECK
-write(*,'(99(G0,1X))') 'proc',mesh(1)%proc,'finished child mesh adaptation'
-!call MPI_Barrier(comm)
-!### CHECK END
      sem(l+1) = SpectralElementMesh_3D(mesh(l+1), po)
-!### CHECK
-write(*,'(99(G0,1X))') 'proc',mesh(1)%proc,'built spectral element mesh'
-!call MPI_Barrier(comm)
-!### CHECK END
 
     end do
 
@@ -421,37 +330,10 @@ write(*,'(99(G0,1X))') 'proc',mesh(1)%proc,'built spectral element mesh'
           'level',l,', n_elem =',mesh(l)%n_elem,', passed:',passed
       end if
     end do
-!### CHECK
-write(*,'(99(G0,1X))') 'proc',mesh(1)%proc,'verified mesh'
-!call MPI_Barrier(comm)
-!### CHECK END
 
     deallocate(exch_plan)
 
   end do
-
-!### CHECK
-!! l = 2
-!! e = 10
-!! if (l <= size(mesh)) then
-!!   write(*,'(99(G0,1X))') 'mesh(',l,') % n_elem        =', mesh(l)%n_elem
-!!   write(*,'(99(G0,1X))') 'size(mesh(',l,') % element) =', size(mesh(l)%element)
-!!   if (e <= mesh(l) % n_elem) then
-!!     write(*,'(99(G0,1X))') 'mesh(',l,')%element(',e,')%face%n_neighbor       = ', &
-!!                             mesh(  l  )%element(  e  )%face%n_neighbor
-!!     write(*,'(99(G0,1X))') 'mesh(',l,')%element(',e,')%neighbor%id           = ', &
-!!                             mesh(  l  )%element(  e  )%neighbor%id
-!!     write(*,'(99(G0,1X))') 'mesh(',l,')%element(',e,')%cluster_id            = ', &
-!!                             mesh(  l  )%element(  e  )%cluster_id
-!!     write(*,'(99(G0,1X))') 'mesh(',l,')%element(',e,')%cluster_oct           = ', &
-!!                             mesh(  l  )%element(  e  )%cluster_oct
-!!     write(*,'(99(G0,1X))') 'mesh(',l,')%element(',e,')%adaptation%parent_id  = ', &
-!!                             mesh(  l  )%element(  e  )%adaptation%parent_id
-!!     write(*,'(99(G0,1X))') 'mesh(',l,')%element(',e,')%adaptation%refinement = ', &
-!!                             mesh(  l  )%element(  e  )%adaptation%refinement
-!!   end if
-!! end if
-!### CHECK END
 
   !-----------------------------------------------------------------------------
   ! Plotting
@@ -459,22 +341,13 @@ write(*,'(99(G0,1X))') 'proc',mesh(1)%proc,'verified mesh'
   if (export_vtk) then
     do l = 1, n_level
 
-!### CHECK
-if (mesh(l)%part < 0) cycle
-!### CHECK END
-
-allocate(s(0:po,0:po,0:po,mesh(l)%n_elem,3))
-s(:,:,:,:,1) = smiley % Density(sem(l)%metrics%x(:,:,:,:,1), sem(l)%metrics%x(:,:,:,:,2))
-do e = 1, mesh(l)%n_elem
-  s(:,:,:,e,2) = e
-  s(:,:,:,e,3) = mesh(l) % part
-!### CHECK
-!! if (n_level == 4 .and. l == 3 .and. mesh(l)%part == 1 .and. e == 76) then
-!! print '(99(G0,1X))', 'L3 P1 E76: frozen     =',mesh(l)%element(e)%frozen
-!! print '(99(G0,1X))', 'L3 P1 E76: refinement =',mesh(l)%element(e)%adaptation%refinement
-!! end if
-!### CHECK END
-end do
+      allocate(s(0:po,0:po,0:po,mesh(l)%n_elem,3))
+      s(:,:,:,:,1) = smiley % Density( sem(l)%metrics%x(:,:,:,:,1) &
+                                     , sem(l)%metrics%x(:,:,:,:,2) )
+      do e = 1, mesh(l)%n_elem
+        s(:,:,:,e,2) = e
+        s(:,:,:,e,3) = mesh(l) % part
+      end do
 
       write(tag, fmt='(A2,I0)') '_l', l
       plot_file = trim(case_file) // trim(tag)
@@ -493,50 +366,10 @@ end do
                                , part    = mesh(l) % part    &
                                , n_parts = mesh(l) % n_parts &
                                , mask    = mask              )
-!### CHECK
-!! mask = .false.
-!! select case(l)
-!! case(1)
-!!   e = 2
-!! case(2)
-!!   where(mesh(l)%element%adaptation%parent_id == 2) mask = .true.
-!!   e = 10
-!! case(3)
-!!   do e = 1, mesh(l)%n_elem
-!!     if (mesh(l)%element(e)%adaptation%parent_id == 10) then
-!!      write(*,'(99(G0,1X))') 'mesh(',l,')%element(',e,')%adaptation%parent_id  = ', &
-!!                              mesh(  l  )%element(  e  )%adaptation%parent_id
-!!      write(*,'(99(G0,1X))') 'mesh(',l,')%element(',e,')%adaptation%refinement = ', &
-!!                              mesh(  l  )%element(  e  )%adaptation%refinement
-!!      write(*,'(99(G0,1X))') 'mesh(',l,')%element(',e,')%frozen                = ', &
-!!                              mesh(  l  )%element(  e  )%frozen
-!!      mask = .true.
-!!     end if
-!!   end do
-!!   e = 75
-!! case(4)
-!!   e = 347
-!! case default
-!!   e = 0
-!! end select
-!! if (e > 0 .and. e <= mesh(l)%n_elem) then
-!!   mask(e) = .true.
-!!   s(:,po,:,e,1) = 10
-!!   call ExportVTK_VolumeData( sem(l) % metrics % x                 &
-!!                            , s, sname = ['f','e']                 &
-!!                            , file    = trim(plot_file)//'_select' &
-!!                            , part    = mesh(l) % part             &
-!!                            , n_parts = mesh(l) % n_parts          &
-!!                            , mask    = mask                       )
-!! end if
-!### CHECK END
       deallocate(mask)
       deallocate(s)
     end do
   end if
-!### CHECK
-!! print '(99(G0,1X))', '# X'
-!### CHECK END
 
   !-----------------------------------------------------------------------------
   ! Finalization
