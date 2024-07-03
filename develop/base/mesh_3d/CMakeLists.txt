@@ -67,3 +67,14 @@ target_link_libraries(mesh3d_test_orientation HiBase)
 
 configure_file( mesh3d_test_orientation.prm
                 mesh3d_test_orientation.prm COPYONLY )
+
+#===============================================================================
+# ml_test_functionality
+
+add_executable( ml_test_functionality
+                ml_test_functionality.f )
+
+target_link_libraries(ml_test_functionality HiBase)
+
+configure_file( ml_test_functionality.prm
+                ml_test_functionality.prm COPYONLY )
