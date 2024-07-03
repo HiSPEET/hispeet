@@ -2,40 +2,47 @@
 !> author:   Joerg Stiller
 !> date:     2024/06/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @note
+!> Can be made more generic once `typeof` is available.
 !===============================================================================
 
 module ML__Mesh__3D
   use Kind_Parameters
   use Constants
-  use Execution_Control
   use XMPI
   use Mesh__3D
   use Data_Exchange__3D
   use Child_Mesh_Adaptation__3D
+  use Globalize_Adaptation_Pattern__3D
   use Partitioner_Interface__3D
   use Process_Adaptation_Pattern__3D
+  use Restrict_Adaptation_Pattern__3D
   use Root_Mesh_Partitioning__3D
   implicit none
   private
 
   public :: ML_Mesh_3D
+  public :: ML_Mesh_Options_3D
 
   !-----------------------------------------------------------------------------
   !> 3D multilevel mesh
 
   type ML_Mesh_3D
     type(Mesh_3D), allocatable :: mesh(:) !< mesh partitions
+  contains
+    procedure :: Init_ML_Mesh_3D
   end type ML_Mesh_3D
 
   ! constructor
   interface ML_Mesh_3D
-    module procedure New_ML_Mesh_3D
+    procedure New_ML_Mesh_3D
   end interface
 
   !-----------------------------------------------------------------------------
   !> 3D multilevel mesh generation options
 
-  type ML_MeshOptions_3D
+  type ML_Mesh_Options_3D
     integer :: l_top   = 1                     !< top level
     integer :: l_adapt = huge(1)               !< first level to be adapted ≥1
     character, allocatable :: refinement(:)    !< refinement type {'c','s'}
@@ -43,33 +50,55 @@ module ML__Mesh__3D
     real(RNP), allocatable :: adapt_box(:,:,:) !< boxes to be adapted [3,2,*]
     real(RNP), allocatable :: adapt_tol(:)     !< tolerance per level
     type(PartitioningOptions_3D), allocatable :: partition(:)
-  end type ML_MeshOptions_3D
+  contains
+    procedure :: Bcast => Bcast_ML_Mesh_Options_3D
+  end type ML_Mesh_Options_3D
+
+  ! constructor
+  interface ML_Mesh_Options_3D
+    procedure Read_ML_Mesh_Options_3D
+  end interface
 
 contains
+
+  !=============================================================================
+  ! ML_Mesh_3D procedures
 
   !-----------------------------------------------------------------------------
   !> New multilevel mesh by global refinement of given mesh
 
   function New_ML_Mesh_3D(mesh, opt) result(this)
-    type(Mesh_3D),            intent(in) :: mesh
-    class(ML_MeshOptions_3D), intent(in) :: opt
+    type(Mesh_3D),             intent(in) :: mesh
+    class(ML_Mesh_Options_3D), intent(in) :: opt
     type(ML_Mesh_3D) :: this
 
-    if (opt%l_top > 1 .and. opt%l_adapt <= opt%l_top) then
-      this = Adapted_ML_Mesh_3D(mesh, opt)
-    else
-      this = Global_ML_Mesh_3D(mesh, opt)
-    end if
+    call Init_ML_Mesh_3D(this, mesh, opt)
 
   end function New_ML_Mesh_3D
 
   !-----------------------------------------------------------------------------
-  !> Multilevel mesh created by global refinement of given mesh
+  !> Create multilevel mesh by global refinement of given mesh
 
-  function Global_ML_Mesh_3D(mesh, opt) result(this)
-    type(Mesh_3D),            intent(in) :: mesh
-    class(ML_MeshOptions_3D), intent(in) :: opt
-    type(ML_Mesh_3D) :: this
+  subroutine Init_ML_Mesh_3D(this, mesh, opt)
+    class(ML_Mesh_3D),         intent(inout) :: this
+    type(Mesh_3D),             intent(in)    :: mesh
+    class(ML_Mesh_Options_3D), intent(in)    :: opt
+
+    if (opt%l_top > 1 .and. opt%l_adapt <= opt%l_top) then
+      call Create_Adapted_ML_Mesh_3D(this, mesh, opt)
+    else
+      call Create_Global_ML_Mesh_3D(this, mesh, opt)
+    end if
+
+  end subroutine Init_ML_Mesh_3D
+
+  !-----------------------------------------------------------------------------
+  !> Create multilevel mesh by global refinement of given mesh
+
+  subroutine Create_Global_ML_Mesh_3D(this, mesh, opt)
+    class(ML_Mesh_3D),         intent(inout) :: this
+    type(Mesh_3D),             intent(in)    :: mesh
+    class(ML_Mesh_Options_3D), intent(in)    :: opt
 
     integer :: l
 
@@ -90,9 +119,9 @@ contains
     if (mesh%n_parts == opt%partition(1)%n_parts) then
       this % mesh(1) = mesh
     else
-      call RootMeshPartitioning_3D( opt       = opt%partition(1) &
-                                  , old_mesh  = mesh             &
-                                  , new_mesh  = this%mesh(1)     )
+      call RootMeshPartitioning_3D( opt      = opt%partition(1) &
+                                  , old_mesh = mesh             &
+                                  , new_mesh = this%mesh(1)     )
     end if
 
     ! create higher levels .....................................................
@@ -104,20 +133,20 @@ contains
       this % mesh(l) % refinement = opt % refinement(l)
       call this % mesh(l) % element % MarkForRefinement()
       call ProcessAdaptationPattern_3D(this%mesh(l))
-      call ChildMeshAdaptation_3D( opt        = opt  % partition(l+1) &
-                                 , parent     = this % mesh(l)        &
-                                 , new_child  = this % mesh(l+1)      )
+      call ChildMeshAdaptation_3D( opt       = opt  % partition(l+1) &
+                                 , parent    = this % mesh(l)        &
+                                 , new_child = this % mesh(l+1)      )
     end do
 
-  end function Global_ML_Mesh_3D
+  end subroutine Create_Global_ML_Mesh_3D
 
   !-----------------------------------------------------------------------------
-  !> Multilevel mesh created by adaptive refinement of given mesh
+  !> Create multilevel mesh by adaptive refinement of given mesh
 
-  function Adapted_ML_Mesh_3D(mesh, opt) result(this)
-    type(Mesh_3D),            intent(in) :: mesh
-    class(ML_MeshOptions_3D), intent(in) :: opt
-    type(ML_Mesh_3D) :: this
+  subroutine Create_Adapted_ML_Mesh_3D(this, mesh, opt)
+    class(ML_Mesh_3D),         intent(inout) :: this
+    type(Mesh_3D),             intent(in)    :: mesh
+    class(ML_Mesh_Options_3D), intent(in)    :: opt
 
     type(Mesh_3D),             allocatable, save :: old_mesh(:)
     type(DataExchangePlan_3D), allocatable, save :: exch_plan(:)
@@ -284,7 +313,7 @@ contains
 
     end do ADAPTATION
 
-  end function Adapted_ML_Mesh_3D
+  end subroutine Create_Adapted_ML_Mesh_3D
 
   !-----------------------------------------------------------------------------
   !> Check for intersection of element cuboid with any of given boxes
@@ -319,6 +348,131 @@ contains
     end do
 
   end function ElementIntersectsBox
+
+  !=============================================================================
+  ! ML_Mesh_Options_3D procedures
+
+  !-----------------------------------------------------------------------------
+  !> Generate multilevel mesh options from namelist input
+
+  function Read_ML_Mesh_Options_3D(unit, n_proc) result(this)
+    integer,           intent(in) :: unit   !< unit connected for namelist input
+    integer, optional, intent(in) :: n_proc !< number of processes [∞]
+    type(ML_Mesh_Options_3D) :: this
+
+    ! static input variables ...................................................
+
+    ! adaptation
+    integer :: l_top   = 1         ! top level
+    integer :: l_adapt = huge(1)   ! first level to be adapted ≥1
+    integer :: n_bnd   = 0         ! number of boundaries to be adapted
+    integer :: n_box   = 0         ! number of boxes to be adapted
+
+    ! partitioning
+    integer :: n_parts_root   = 1  ! partition number at root level
+    integer :: n_parts_growth = 1  ! partition number growth rate
+
+    namelist/ml_mesh_options_3d__static/ l_top, l_adapt, n_bnd, n_box
+    namelist/ml_mesh_options_3d__static/ n_parts_root, n_parts_growth
+
+    ! dynamic input variables ..................................................
+
+    character, allocatable :: refinement(:)    ! refinement type {'c','s'}
+    integer,   allocatable :: adapt_bnd(:)     ! boundaries to be adapted
+    real(RNP), allocatable :: adapt_box(:,:,:) ! boxes to be adapted (3,2,*)
+    real(RNP), allocatable :: adapt_tol(:)     ! tolerance per level
+
+    namelist /ml_mesh_options_3d__dynamic/ refinement
+    namelist /ml_mesh_options_3d__dynamic/ adapt_bnd, adapt_box, adapt_tol
+
+    ! auxiliary variables ......................................................
+
+    integer :: l
+
+    ! read static input variables ..............................................
+
+    rewind(unit)
+    read(unit, nml = ml_mesh_options_3d__static)
+
+    ! read dynamic input variables .............................................
+
+    allocate(refinement(l_top),     source = '')
+    allocate(adapt_bnd (n_bnd),     source = 0 )
+    allocate(adapt_box (3,2,n_box), source = huge(ONE))
+    allocate(adapt_tol (l_top),     source = ZERO)
+
+    read(unit, nml = ml_mesh_options_3d__dynamic)
+
+    ! create multilevel mesh options ...........................................
+
+    this % l_top   = l_top
+    this % l_adapt = l_adapt
+
+    call move_alloc( refinement, this % refinement )
+    call move_alloc( adapt_bnd , this % adapt_bnd  )
+    call move_alloc( adapt_box , this % adapt_box  )
+    call move_alloc( adapt_tol , this % adapt_tol  )
+
+    ! partitioning options
+    allocate(this % partition(l_top))
+    associate(partition => this % partition)
+      partition(1) % mode    = 1
+      partition(1) % n_parts = n_parts_root
+      do l = 2, l_top
+        partition(l) % mode    = 2
+        partition(l) % n_parts = n_parts_growth * partition(l-1)%n_parts
+      end do
+      if (present(n_proc)) then
+        partition % n_parts = min(partition%n_parts, n_proc)
+      end if
+    end associate
+
+  end function Read_ML_Mesh_Options_3D
+
+  !-----------------------------------------------------------------------------
+  !> Broadcasting multilevel mesh options
+
+  subroutine Bcast_ML_Mesh_Options_3D(this, root, comm)
+    class(ML_Mesh_Options_3D), intent(inout) :: this !< options
+    integer       , intent(in) :: root !< rank root process
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
+
+    integer :: l, rank, n_bnd, n_box
+
+    associate(l_top => this%l_top, l_adapt => this%l_adapt)
+
+      call MPI_Comm_rank(comm, rank)
+
+      if (rank == root) then
+        n_bnd = size(this % adapt_bnd,1)
+        n_box = size(this % adapt_box,3)
+      end if
+
+      call XMPI_Bcast(l_top  , root, comm)
+      call XMPI_Bcast(l_adapt, root, comm)
+      call XMPI_Bcast(n_bnd  , root, comm)
+      call XMPI_Bcast(n_box  , root, comm)
+
+      if (rank /= root) then
+        allocate( this % refinement(l_top)    )
+        allocate( this % adapt_bnd(n_bnd)     )
+        allocate( this % adapt_box(3,2,n_box) )
+        allocate( this % adapt_tol(l_top)     )
+        allocate( this % partition(l_top)     )
+      end if
+
+      call XMPI_Bcast(this % refinement, root, comm)
+      call XMPI_Bcast(this % adapt_bnd , root, comm)
+      call XMPI_Bcast(this % adapt_box , root, comm)
+      call XMPI_Bcast(this % adapt_tol , root, comm)
+
+      do l = 1, l_top
+        call this % partition(l) % Bcast( 0, comm )
+      end do
+
+    end associate
+
+  end subroutine Bcast_ML_Mesh_Options_3D
 
   !=============================================================================
 

@@ -165,6 +165,8 @@ set ( MESH_3D
       mesh_3d/boundary_variable__3d.f
 
       mesh_3d/ml__mesh__3d.f
+      mesh_3d/ml__mesh_operators__3d.f
+      mesh_3d/ml__mesh_variable__3d.f
 
     )
 
