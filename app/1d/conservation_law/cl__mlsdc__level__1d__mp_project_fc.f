@@ -155,7 +155,7 @@ contains
           m1_2 = mt_c                     ! last  ..
           o_i2 = m0_2
         end select
-       
+
         allocate(u_t(0:ps_f,0:mt_f,2), jmp_u_t(0:ps_f))
 
         ! projection
@@ -194,7 +194,7 @@ contains
 
               ! optional smoothing, e.g. when using DG in time
               jmp_u_t = u_t(:,mt_f,1) - u_t(:,0,2)
-              select case(pop_t % smoothing)
+              select case(pop_t % smooth)
               case(1)
                 ! linear
                 do m = o_t, mt_f
@@ -285,7 +285,7 @@ contains
 
             ! optional smoothing
             jmp_u_x = u_x(ps_f,1) - u_x(0,2)
-            select case(pop_x % smoothing)
+            select case(pop_x % smooth)
             case(1)
               ! linear
               u_x(:,1) = u_x(:,1) + jmp_u_x * pop_x % B(:,1)
