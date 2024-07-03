@@ -23,6 +23,7 @@ module XMPI__Logical
     module procedure BcastX0
     module procedure BcastX1
     module procedure BcastX2
+    module procedure BcastX3
   end interface XMPI_Bcast
 
   !-----------------------------------------------------------------------------
@@ -114,6 +115,18 @@ subroutine BcastX2(buffer, root, comm)
   call MPI_Bcast(buffer, size(buffer), MPI_LOGICAL, root, comm)
 
 end subroutine BcastX2
+
+!-------------------------------------------------------------------------------
+!> Bcast for 3D buffers
+
+subroutine BcastX3(buffer, root, comm)
+  logical,        intent(inout) :: buffer(:,:,:) !< buffer
+  integer,        intent(in)    :: root          !< rank of broadcast root
+  type(MPI_Comm), intent(in)    :: comm          !< communicator
+
+  call MPI_Bcast(buffer, size(buffer), MPI_LOGICAL, root, comm)
+
+end subroutine BcastX3
 
 !===============================================================================
 ! XMPI_Ibcast
