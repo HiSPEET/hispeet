@@ -6,6 +6,7 @@
 
 program ML_Test_Functionality
 ! use Kind_Parameters
+  use Logging_Levels
   use XMPI
   use Import_GMSH__3D
   use Generic_Mesh__3D
@@ -24,7 +25,7 @@ program ML_Test_Functionality
   ! spectral element mesh options
   integer, allocatable :: po(:)  ! sequence of polynomial orders
 
-  namelist /control/   file
+  namelist /control/   log_level, file
   namelist /operators/ po
 
   type(GenericMesh_3D)     , save :: generic_mesh
@@ -36,8 +37,10 @@ program ML_Test_Functionality
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
   character(len=:), allocatable :: gmsh_file
   logical :: passed, all_passed
-  integer :: rank, n_proc
-  integer :: prm
+  integer :: rank, n_proc, prm
+  integer :: ne_max, ne_min, ne_tot
+
+  integer :: l
 
   ! initialization .............................................................
 
@@ -47,8 +50,8 @@ program ML_Test_Functionality
 
   ! read parameters
   if (rank == 0) then
-    write(*,'(A)') 'Testing basic multilevel functionality'
-    write(*,'(2X,A)') 'reading input parameters ..'
+    write(*,'(/,A,/)') 'Testing basic multilevel functionality'
+    write(*,'(2X,A)') 'reading input parameters'
     open(newunit = prm, file = 'ml_test_functionality.prm')
     read(prm, nml = control)
     ml_mesh_opt = ML_Mesh_Options_3D(prm, n_proc)
@@ -72,17 +75,57 @@ program ML_Test_Functionality
     call ImportGMSH_3D(gmsh_file, generic_mesh)
   end if
 
-  call base_mesh % ImportGenericMesh(generic_mesh, comm = MPI_COMM_WORLD)
-  call VerifyMesh_3D(base_mesh, passed)
+  call base_mesh % ImportGenericMesh(generic_mesh, comm)
 
-  call XMPI_Reduce(passed, all_passed, MPI_LAND, 0, MPI_COMM_WORLD)
   if (rank == 0) then
-    write(*,'(/,2X,A,G0)') 'verifying imported mesh: passed = ', all_passed
+    write(*,'(/,A)') 'verifying imported mesh'
+  end if
+
+  call VerifyMesh_3D(base_mesh, passed)
+  call XMPI_Reduce(passed, all_passed, MPI_LAND, 0, comm)
+
+  if (rank == 0) then
+    write(*,'(2X,A,G0)') 'passed = ', all_passed
   end if
 
   ! multilevel mesh ............................................................
 
   ml_mesh = ML_Mesh_3D(base_mesh, ml_mesh_opt)
+
+  associate(mesh => ml_mesh%mesh)
+
+    ! verification
+    do l = 1, size(mesh)
+      call VerifyMesh_3D(mesh(l), passed)
+      call XMPI_Allreduce(passed, all_passed, MPI_LAND, comm)
+      if (.not. all_passed) exit
+    end do
+    if (rank == 0) then
+      if (all_passed) then
+        write(*,'(2X,9G0)') 'verification: all levels passed'
+      else
+        write(*,'(2X,9G0)') 'verification of level ',l,' failed'
+      end if
+    end if
+
+    ! print info
+    do l = 1, size(mesh)
+      if (mesh(l)%part >= 0) then
+        call XMPI_Reduce(mesh(l)%n_elem, ne_min, MPI_MIN, 0, mesh(l)%comm_parts)
+        call XMPI_Reduce(mesh(l)%n_elem, ne_max, MPI_MAX, 0, mesh(l)%comm_parts)
+        call XMPI_Reduce(mesh(l)%n_elem, ne_tot, MPI_SUM, 0, mesh(l)%comm_parts)
+      end if
+      if (mesh(l)%part == 0) then
+        write(*,'(2X,9G0)') &
+          'level ',l,': min/max/sum(n_elem) = ',ne_min,' / ',ne_max,' / ',ne_tot
+      end if
+    end do
+
+  end associate
+
+  ! multilevel operators .......................................................
+
+  ml_op = ML_MeshOperators_3D(ml_mesh, po)
 
   ! finalization ...............................................................
 
