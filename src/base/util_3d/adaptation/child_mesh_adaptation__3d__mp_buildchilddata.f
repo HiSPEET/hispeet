@@ -44,11 +44,19 @@ contains
     integer :: ce, cn, cp
     integer :: child_mark
     logical :: cloning
-!### CHECK
-write(*,'(99(G0,1X))') '# BCD  0',', parent%proc',parent%proc
-!### CHECK END
+
+    character(len=:), allocatable :: prefix
+    logical :: logging
 
     if (parent % part < 0) return
+
+    logging = parent%proc == 0 .and. log_level > 0 .or. &
+              parent%proc  > 0 .and. log_level > 1
+    prefix  = LoggingPrefix('BuildChildData', parent%proc)
+
+    if (logging) then
+      print '(2A)', prefix, 'start'
+    end if
 
     associate(id_child => map % id_child, tp_child => map % tp_child)
 
@@ -140,9 +148,6 @@ write(*,'(99(G0,1X))') '# BCD  0',', parent%proc',parent%proc
           end if
         end associate
       end do
-!### CHECK
-write(*,'(99(G0,1X))') '# BCD  1',', parent%proc',parent%proc
-!### CHECK END
 
       ! allocate components
       do tp = 0, map%n_parts-1
@@ -165,9 +170,6 @@ write(*,'(99(G0,1X))') '# BCD  1',', parent%proc',parent%proc
         allocate( child_data(tp) % x_e                  ( np, 3 ) )
 
       end do
-!### CHECK
-write(*,'(99(G0,1X))') '# BCD  2',', parent%proc',parent%proc
-!### CHECK END
 
       ! auxiliary arrays
       allocate( id_child_face (2,2,6)        , tp_child_face (6)          )
@@ -181,9 +183,6 @@ write(*,'(99(G0,1X))') '# BCD  2',', parent%proc',parent%proc
         eop(po) = StandardOperators_1D(po, basis = 'L', no_vdm = .true.)
         iop(po) = ParentToChildInterpolation_1D(eop(po))
       end do
-!### CHECK
-write(*,'(99(G0,1X))') '# BCD  3',', parent%proc',parent%proc
-!### CHECK END
 
       !$omp end master
       !$omp end barrier
@@ -952,9 +951,6 @@ write(*,'(99(G0,1X))') '# BCD  3',', parent%proc',parent%proc
           end if
         end associate
       end do
-!### CHECK
-write(*,'(99(G0,1X))') '# BCD  4',', parent%proc',parent%proc
-!### CHECK END
 
       !-------------------------------------------------------------------------
       ! finalization
@@ -970,9 +966,10 @@ write(*,'(99(G0,1X))') '# BCD  4',', parent%proc',parent%proc
       !$omp end barrier
 
     end associate
-!### CHECK
-write(*,'(99(G0,1X))') '# BCD  X',', parent%proc',parent%proc
-!### CHECK END
+
+    if (logging) then
+      print '(2A)', prefix, 'exit'
+    end if
 
   contains
 

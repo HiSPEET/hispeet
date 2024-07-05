@@ -1,4 +1,5 @@
 module Root_Mesh_Partitioning__3D
+  use Logging_Levels
   use XMPI
   use Mesh__3D
   use Element_Transfer_Buffer__3D
@@ -38,10 +39,22 @@ contains
     type(ElementDistributionData_3D), allocatable :: dist_recv_data(:)
 
     type(MeshAttributes_3D) :: attrib
+    character(len=:), allocatable :: prefix
+    logical :: logging
     integer :: i
 
     !---------------------------------------------------------------------------
     !$omp master
+
+    ! initialize logging .......................................................
+
+    logging = old_mesh%proc == 0 .and. log_level > 0 .or. &
+              old_mesh%proc  > 0 .and. log_level > 1
+    prefix  = LoggingPrefix('RootMeshPartitioning_3D', old_mesh%proc)
+
+    if (logging) then
+      print '(2A)', prefix, 'start'
+    end if
 
     ! prepare new partitions ...................................................
 
@@ -202,6 +215,10 @@ contains
 
     if (present(child)) then
       call UpdateChild(old_mesh, new_mesh, dist_map, child)
+    end if
+
+    if (logging) then
+      print '(2A)', prefix, 'exit'
     end if
 
     !---------------------------------------------------------------------------
