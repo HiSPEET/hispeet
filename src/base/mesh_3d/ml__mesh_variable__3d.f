@@ -16,7 +16,11 @@ module ML__Mesh_Variable__3D
   !> 3D mesh variable
 
   type MeshVariable_3D
-    real(RNP), allocatable :: var(:,:,:,:,:) ! (0:po,0:po,0:po,1:ne,1:nc)
+    real(RNP), pointer :: val(:,:,:,:,:) => null()
+    logical,   private :: is_original = .false.
+    logical,   private :: is_handle   = .false.
+  contains
+    final :: Delete_MeshVariable_3D
   end type MeshVariable_3D
 
   !-----------------------------------------------------------------------------
@@ -62,10 +66,31 @@ contains
     do l = 1, size(this%level)
       po = ml_op % sem(l) % std_op % po
       ne = ml_op % sem(l) % mesh % n_elem
-      allocate(this%level(l)%var(0:po,0:po,0:po,ne,nc))
+      allocate(this%level(l)%val(0:po,0:po,0:po,ne,nc))
     end do
 
+    this % level % is_original = .true.
+
   end subroutine Init_ML_MeshVariable_3D
+
+  !=============================================================================
+  ! Finalization
+
+  !-----------------------------------------------------------------------------
+  !>  Finalization of MeshVariable_3D
+
+  subroutine Delete_MeshVariable_3D(this)
+    type(MeshVariable_3D), intent(inout) :: this
+
+    if (this%is_original .and. associated(this%val)) then
+      deallocate(this%val)
+    end if
+
+    this % val => null()
+    this % is_original = .false.
+    this % is_handle   = .false.
+
+  end subroutine Delete_MeshVariable_3D
 
   !=============================================================================
 

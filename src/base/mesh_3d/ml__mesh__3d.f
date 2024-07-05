@@ -47,7 +47,7 @@ module ML__Mesh__3D
     integer :: l_adapt = huge(1)               !< first level to be adapted ≥1
     character, allocatable :: refinement(:)    !< refinement type {'c','s'}
     integer,   allocatable :: adapt_bnd(:)     !< boundaries to be adapted
-    real(RNP), allocatable :: adapt_box(:,:,:) !< boxes to be adapted [3,2,*]
+    real(RNP), allocatable :: adapt_box(:,:,:) !< boxes to be adapted (3,2,*)
     real(RNP), allocatable :: adapt_tol(:)     !< tolerance per level
     type(PartitioningOptions_3D), allocatable :: partition(:)
   contains
@@ -105,7 +105,7 @@ contains
     ! preliminaries ............................................................
 
     if (mesh%part == 0) then
-      write(*,'(/,2X,A)') 'creating global multilevel mesh'
+      write(*,'(/,A)') 'creating global multilevel mesh'
     end if
 
     allocate(this % mesh(opt%l_top))
@@ -113,7 +113,7 @@ contains
     ! partition root level .....................................................
 
     if (mesh%part == 0) then
-      write(*,'(4X,A)') 'partitioning root mesh'
+      write(*,'(2X,A)') 'partitioning root mesh'
     end if
 
     if (mesh%n_parts == opt%partition(1)%n_parts) then
@@ -128,10 +128,12 @@ contains
 
     do l = 1, opt%l_top-1
       if (mesh%part == 0) then
-        write(*,'(4X,A,I0)') 'creating level ', l+1
+        write(*,'(2X,A,I0)') 'creating level ', l+1
       end if
       this % mesh(l) % refinement = opt % refinement(l)
-      call this % mesh(l) % element % MarkForRefinement()
+      if (this%mesh(l)%n_elem > 0) then
+        call this % mesh(l) % element % MarkForRefinement()
+      end if
       call ProcessAdaptationPattern_3D(this%mesh(l))
       call ChildMeshAdaptation_3D( opt       = opt  % partition(l+1) &
                                  , parent    = this % mesh(l)        &
@@ -158,7 +160,7 @@ contains
     ! preliminaries ............................................................
 
     if (mesh%part == 0) then
-      write(*,'(/,2X,A)') 'creating adapted multilevel mesh'
+      write(*,'(/,A)') 'creating adapted multilevel mesh'
     end if
 
     if (allocated(opt%adapt_bnd)) then
@@ -178,7 +180,7 @@ contains
     ADAPTATION: do m = 1, opt%l_top - 1
 
       if (mesh%part == 0) then
-        write(*,'(4X,9G0)') 'adaptation cycle ',m,'/',opt%l_top-1
+        write(*,'(2X,9G0)') 'adaptation cycle ',m,'/',opt%l_top-1
       end if
 
       ! set adaptation marks ...................................................
@@ -242,7 +244,7 @@ contains
 
       if (finish) then
         if (mesh%part == 0) then
-          write(*,'(4X,9G0)') 'adaptation finished with ',m, 'levels'
+          write(*,'(2X,9G0)') 'adaptation finished with ',m, 'levels'
         end if
         exit ADAPTATION
       end if
@@ -396,10 +398,10 @@ contains
 
     ! read dynamic input variables .............................................
 
-    allocate(refinement(l_top),     source = '')
+    allocate(refinement(l_top-1),   source = '')
     allocate(adapt_bnd (n_bnd),     source = 0 )
     allocate(adapt_box (3,2,n_box), source = huge(ONE))
-    allocate(adapt_tol (l_top),     source = ZERO)
+    allocate(adapt_tol (l_top-1),   source = ZERO)
 
     read(unit, nml = ml_mesh_options_3d__dynamic)
 
@@ -454,10 +456,10 @@ contains
       call XMPI_Bcast(n_box  , root, comm)
 
       if (rank /= root) then
-        allocate( this % refinement(l_top)    )
+        allocate( this % refinement(l_top-1)  )
         allocate( this % adapt_bnd(n_bnd)     )
         allocate( this % adapt_box(3,2,n_box) )
-        allocate( this % adapt_tol(l_top)     )
+        allocate( this % adapt_tol(l_top-1)   )
         allocate( this % partition(l_top)     )
       end if
 

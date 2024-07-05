@@ -374,9 +374,10 @@ contains
     this % p_geom     = attrib % p_geom
     this % structured = attrib % structured
     this % regular    = attrib % regular
+    this % dx         = attrib % dx
     this % is_root    = attrib % is_root
     this % is_top     = attrib % is_top
-    this % dx         = attrib % dx
+    this % refinement = attrib % refinement
 
     allocate(this % boundary( this%n_bound ))
     do b = 1, this % n_bound
