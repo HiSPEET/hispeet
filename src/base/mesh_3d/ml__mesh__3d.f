@@ -10,6 +10,7 @@
 module ML__Mesh__3D
   use Kind_Parameters
   use Constants
+  use Execution_Control
   use XMPI
   use Mesh__3D
   use Data_Exchange__3D
@@ -83,6 +84,14 @@ contains
     class(ML_Mesh_3D),         intent(inout) :: this
     type(Mesh_3D),             intent(in)    :: mesh
     class(ML_Mesh_Options_3D), intent(in)    :: opt
+
+    integer :: l
+
+    do l = 1, opt%l_top-1
+      if (scan(opt%refinement(l),'cs') == 0) then
+        call Error('Init_ML_Mesh_3D','invalid opt%refinement')
+      end if
+    end do
 
     if (opt%l_top > 1 .and. opt%l_adapt <= opt%l_top) then
       call Create_Adapted_ML_Mesh_3D(this, mesh, opt)
@@ -190,6 +199,8 @@ contains
 
           parent % refinement = opt % refinement(l)
 
+          if (parent%part < 0) cycle
+
           if (l < opt%l_adapt) then
 
             call parent % element % MarkForRefinement()
@@ -239,12 +250,18 @@ contains
 
       ! check wether to continue adaptation ....................................
 
-      finish_loc = .not. any(this%mesh(m)%element%adaptation%mark > 0)
+      finish_loc = .true.
+      do e = 1, this%mesh(m)%n_elem
+        if (this%mesh(m)%element(e)%adaptation%mark > 0) then
+          finish_loc = .false.
+          exit
+        end if
+      end do
       call XMPI_Allreduce(finish_loc, finish, MPI_LAND, mesh%comm_world)
 
       if (finish) then
         if (mesh%part == 0) then
-          write(*,'(2X,9G0)') 'adaptation finished with ',m, 'levels'
+          write(*,'(2X,9G0)') 'adaptation finished with ',m, ' levels'
         end if
         exit ADAPTATION
       end if
@@ -283,6 +300,8 @@ contains
 
       ! higher levels
       do l = 1, m
+
+        this%mesh(l)%refinement = opt%refinement(l)
 
         if (l > 1) then
           call ProcessAdaptationPattern_3D(this%mesh(l))
@@ -336,14 +355,14 @@ contains
     tol2 = tol * tol
 
     ! cuboid center position ∓ approximate half width in directions 1:3
-    x_cub_min = x_cub(0,:) - (x_cub(1,:) + x_cub(2,:) + x_cub(3,:))
-    x_cub_max = x_cub(0,:) + (x_cub(1,:) + x_cub(2,:) + x_cub(3,:))
+    dx = abs(x_cub(1,:)) + abs(x_cub(2,:)) + abs(x_cub(3,:))
+    x_cub_min = x_cub(0,:) - dx
+    x_cub_max = x_cub(0,:) + dx
 
     do i = 1, n_box
-      x_box_min = x_box(3,1,i)
-      x_box_max = x_box(3,2,i)
-      dx = max(x_box_min - x_cub_min, x_cub_max - x_box_min, ZERO)
-      if (dx(1)**2 + dx(2)**2 + dx(3)**2 <= tol2) then
+      x_box_min = x_box(:,1,i) - tol
+      x_box_max = x_box(:,2,i) + tol
+      if (all(x_box_min < x_cub_max .and. x_box_max > x_cub_min)) then
         ElementIntersectsBox = .true.
         exit
       end if

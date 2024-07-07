@@ -67,7 +67,7 @@ module Partitioner_Interface__3D
     integer :: n_const   = 1         !< number of constraints (1 .. 3)
     integer :: c_active  = 5         !< cost of active elements
     integer :: c_frozen  = 1         !< cost of frozen elements
-    integer :: w_comp(4) = [1,0,0,0] !< element and connectivity weights
+    integer :: w_comp(4) = [1,1,0,0] !< element and connectivity weights
   contains
     procedure :: Bcast => Bcast_PartitioningOptions
   end type PartitioningOptions_3D

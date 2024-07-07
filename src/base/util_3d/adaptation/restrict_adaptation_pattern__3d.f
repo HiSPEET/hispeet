@@ -1,4 +1,5 @@
 module Restrict_Adaptation_Pattern__3D
+  use Execution_Control
   use Mesh__3D
   use Data_Exchange__3D
 
@@ -7,14 +8,25 @@ module Restrict_Adaptation_Pattern__3D
 
   public :: RestrictAdaptationPattern_3D
 
+  logical :: ibset_is_safe = .false.
+
 contains
 
   !-----------------------------------------------------------------------------
   !> Restrict adaptation pattern from child to parent level
   !>
   !> Upgrades the adaptation mark for all parent elements with active children
-  !> to `max(mark, child_mark+1)`, where `child_mark` is the highest mark of all
-  !> children.
+  !> to `max(mark, child_mark+1000)`, where `child_mark` is the highest mark of
+  !> all children.
+  !>
+  !> Additionally, the value `2^(i-1)` is added to `mark` for each child `i`
+  !> that exists and is retained. These indicators are later used to produce a
+  !> consistent adaptation pattern.
+  !>
+  !> The current implementation uses the intrinsics `IBset` and `BTest` to set
+  !> and query the indicators, which requires that `IBset(0,i) == 2^i` is
+  !> fulfilled for `i < 8`. To verify this, a compatibility check is carried on
+  !> the first call.
 
   subroutine RestrictAdaptationPattern_3D(child, parent)
     class(Mesh_3D), intent(in)    :: child
@@ -29,11 +41,31 @@ contains
     integer, allocatable :: child_mark(:,:)
     integer, allocatable :: send_mark(:)
     integer, allocatable :: recv_mark(:)
-    integer :: n_recv, n_send
+    integer :: n_recv, n_send, n_cpe
     integer :: c, i, o
 
+    ! compatibility check ......................................................
+
+    if (.not. ibset_is_safe) then
+      do i = 0, 7
+        if (IBset(0,i) /= 2**i) then
+          call Error('RestrictAdaptationPattern_3D', 'IBset is incompatible')
+        end if
+      end do
+      ibset_is_safe = .true.
+    end if
 
     ! initialization ...........................................................
+
+    ! number of children per element with regular refinement
+    select case(parent % refinement)
+    case('c')
+      n_cpe = 1  ! cloning
+    case('s')
+      n_cpe = 8  ! subdividing
+    case default
+      call Error('RestrictAdaptationPattern_3D','parent%refinement not set')
+    end select
 
     n_send = child % n_parent
     allocate(send_map(n_send), send_buf(n_send))
@@ -47,9 +79,9 @@ contains
       recv_map(i) = DataExchangeMap_3D(parent % map_child(i))
     end do
 
-    allocate(child_mark(8, child  % n_cluster), source = -1)
-    allocate( send_mark(   child  % n_cluster), source = -1)
-    allocate( recv_mark(   parent % n_elem   ), source = -1)
+    allocate(child_mark(n_cpe, child  % n_cluster), source = -1)
+    allocate( send_mark(       child  % n_cluster), source = -1)
+    allocate( recv_mark(       parent % n_elem   ), source = -1)
 
     ! prepare child marks for sending ..........................................
 
@@ -65,11 +97,19 @@ contains
     do c = 1, child % n_cluster
       send_mark(c) = maxval(child_mark(:,c))
       if (send_mark(c) <= 0) cycle
-      do i = 0, 7
-        if (child_mark(i+1,c) > 0) then
-          send_mark(c) = send_mark(c) + IBset(0,i)
-        end if
-      end do
+      if (n_cpe == 8) then
+        ! subdividing: set bit 0:7 if corresponding child is generated
+        do i = 1, 8
+          if (child_mark(i,c) > 0) then
+            send_mark(c) = send_mark(c) + IBset(0,i-1)
+          end if
+        end do
+      else
+        ! cloning: set bits 0:7
+        do i = 1, 8
+          send_mark(c) = send_mark(c) + IBset(0,i-1)
+        end do
+      end if
     end do
 
     ! pass child marks to parent  ..............................................

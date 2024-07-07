@@ -14,7 +14,12 @@ contains
   !> Make adaptation pattern globally consistent
   !>
   !> Upgrades the adaptation mark to `max(mark,0)` for all active elements which
-  !> possess a neighbor with `mark > 0`
+  !> possess a neighbor with `mark > 0` or adjacent children that are retained.
+  !>
+  !> The position of retained children is encoded with `IBset` and read with
+  !> `BTest`. This approach requires that`IBset(0,i) == 2^i` is fulfilled for
+  !> `i < 8`. A corresponding compatibility check is carried out before using
+  !> `IBset` in `RestrictAdaptationPattern_3D`.
 
   subroutine GlobalizeAdaptationPattern_3D(mesh)
     class(Mesh_3D), intent(inout) :: mesh
