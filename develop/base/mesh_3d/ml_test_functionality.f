@@ -19,13 +19,12 @@ program ML_Test_Functionality
 
   ! variables ..................................................................
 
-  ! base name of the mesh file (gmsh/*.msh)
-  character(len=80) :: file = 'cylinder_2d'
+  character(len=80) :: file = 'cylinder_2d' ! mesh file base name  (gmsh/*.msh)
 
-  ! spectral element mesh options
-  integer, allocatable :: po(:)  ! sequence of polynomial orders
+  logical :: export_vtk = .false.  ! switch for VTK export
+  integer, allocatable :: po(:)    ! sequence of polynomial orders
 
-  namelist /control/   log_level, file
+  namelist /control/   log_level, file, export_vtk
   namelist /operators/ po
 
   type(GenericMesh_3D)     , save :: generic_mesh
@@ -33,14 +32,17 @@ program ML_Test_Functionality
   type(ML_Mesh_Options_3D) , save :: ml_mesh_opt
   type(ML_Mesh_3D)         , save :: ml_mesh
   type(ML_MeshOperators_3D), save :: ml_op
+  type(ML_MeshVariable_3D) , save :: ml_var
 
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
+
   character(len=:), allocatable :: gmsh_file
+  character(len=9) :: var_name(5)
   logical :: passed, all_passed
   integer :: rank, n_proc, prm
   integer :: ne_max, ne_min, ne_tot
 
-  integer :: l
+  integer :: e, l, nc
 
   ! initialization .............................................................
 
@@ -60,12 +62,17 @@ program ML_Test_Functionality
     close(prm)
   end if
 
-  ! globalize parameters
+  ! globalize multilevel mesh options
   call ml_mesh_opt % Bcast(0, comm)
+
   if (rank > 0) then
     allocate(po(ml_mesh_opt%l_top), source = -1)
   end if
-  call XMPI_Bcast(po, 0, comm)
+
+  ! globalize remaining parameters
+  call XMPI_Bcast(file      , 0, comm)
+  call XMPI_Bcast(export_vtk, 0, comm)
+  call XMPI_Bcast(po        , 0, comm)
 
   ! mesh import ................................................................
 
@@ -88,6 +95,8 @@ program ML_Test_Functionality
     write(*,'(2X,A,G0)') 'passed = ', all_passed
   end if
 
+  call MPI_Barrier(comm)
+
   ! multilevel mesh ............................................................
 
   ml_mesh = ML_Mesh_3D(base_mesh, ml_mesh_opt)
@@ -100,6 +109,7 @@ program ML_Test_Functionality
       call XMPI_Allreduce(passed, all_passed, MPI_LAND, comm)
       if (.not. all_passed) exit
     end do
+    call MPI_Barrier(comm)
     if (rank == 0) then
       if (all_passed) then
         write(*,'(2X,9G0)') 'verification: all levels passed'
@@ -116,8 +126,9 @@ program ML_Test_Functionality
         call XMPI_Reduce(mesh(l)%n_elem, ne_tot, MPI_SUM, 0, mesh(l)%comm_parts)
       end if
       if (mesh(l)%part == 0) then
-        write(*,'(2X,9G0)') &
-          'level ',l,': min/max/sum(n_elem) = ',ne_min,' / ',ne_max,' / ',ne_tot
+        write(*,'(2X,A,I4,A,I5,A,3(A,I6))') &
+          'level ',l,': n_parts =',mesh(l)%n_parts,',  ', &
+          'min/max/sum(n_elem) = ',ne_min,' / ',ne_max,' / ',ne_tot
       end if
     end do
 
@@ -126,6 +137,43 @@ program ML_Test_Functionality
   ! multilevel operators .......................................................
 
   ml_op = ML_MeshOperators_3D(ml_mesh, po)
+
+  ! multilevel variable ........................................................
+
+  nc = size(var_name)
+  var_name(1) = 'mesh_part'
+  var_name(2) = 'elem_id'
+  var_name(3) = 'elem_type'
+  var_name(4) = 'elem_q_Js'
+  var_name(5) = 'var_order'
+
+  ml_var = ML_MeshVariable_3D(ml_op, nc, var_name)
+
+  do l = 1, size(ml_var%level)
+    associate(sem => ml_op%sem(l), var => ml_var%level(l)%val)
+      do e = 1, sem%mesh%n_elem
+        var(:,:,:,e,1) = sem%mesh%part
+        var(:,:,:,e,2) = e
+        if (sem%mesh%element(e)%frozen) then
+          var(:,:,:,e,3) = 0
+        else if (sem%mesh%element(e)%adaptation%refinement < 1000) then
+          var(:,:,:,e,3) = 1
+        else
+          var(:,:,:,e,3) = 2
+        end if
+        var(:,:,:,e,4) = minval(sem % metrics % Jd(:,:,:,e)) &
+                       / maxval(sem % metrics % Jd(:,:,:,e))
+        var(:,:,:,e,5) = po(l)
+      end do
+    end associate
+  end do
+
+  ! VTK export .................................................................
+
+  if (export_vtk) then
+    call ml_var % ExportVTK(ml_op, trim(file)//'_full', mode=1)
+    call ml_var % ExportVTK(ml_op, trim(file)//'_leaf', mode=3)
+  end if
 
   ! finalization ...............................................................
 

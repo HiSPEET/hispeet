@@ -1,24 +1,26 @@
 &control
-  log_level = 2
-  file = 'cylinder_2d' ! mesh file base name (gmsh/*.msh)
+  log_level  = 0
+  file       = 'cylinder_2d'
+  export_vtk = T
 /
 
 &ml_mesh_options_3d__static
-  l_top          =  2
-! l_adapt        =  2
-! n_bnd          =  1
-! n_box          =  1
+  l_top          =  4
+  l_adapt        =  1
+  n_bnd          =  1
+  n_box          =  1
   n_parts_root   =  1
   n_parts_growth =  2
 /
 
 &ml_mesh_options_3d__dynamic
-  refinement = 's'  ! (l_top-1)       {'c','s'}
-  adapt_bnd  =  1   ! (n_bnd)
-! adapt_box  =      ! (3,2,n_box)
-! adapt_tol  =      ! (l_top-1)
+  refinement          = 'c','c','s'     ! (l_top-1)   {'c','s'}
+  adapt_bnd(1:1)      =  7              ! (n_bnd)
+  adapt_box(1:3,1,1)  =  0.1, 0, -1     ! (1:3,1,*)
+  adapt_box(1:3,2,1)  =  1.0, 0,  1     ! (1:3,2,*)
+  adapt_tol           =  .12, .04, .02  ! (l_top-1)
 /
 
 &operators
-  po = 1, 2
+  po = 1, 2, 4, 4
 /
