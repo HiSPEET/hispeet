@@ -27,9 +27,11 @@ module ML__Mesh_Variable__3D
   !> 3D multilevel mesh variable
 
   type ML_MeshVariable_3D
-    type(MeshVariable_3D), allocatable :: level(:)
+    type(MeshVariable_3D), allocatable :: level(:) !< variable per level
+    character(len=:),      allocatable :: name(:)  !< component names
   contains
     procedure :: Init_ML_MeshVariable_3D
+    procedure :: ExportVTK
   end type ML_MeshVariable_3D
 
   ! constructor
@@ -37,29 +39,48 @@ module ML__Mesh_Variable__3D
     procedure New_ML_MeshVariable_3D
   end interface
 
+  !=============================================================================
+  ! module procedures
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Export to VTK
+
+    module subroutine ExportVTK(this, ml_op, file, mode)
+      class(ML_MeshVariable_3D),  intent(in) :: this  !< multilevel variable
+      class(ML_MeshOperators_3D), intent(in) :: ml_op !< spectral element OPs
+      character(len=*),           intent(in) :: file  !< export file base name
+      integer,                    intent(in) :: mode  !< export mode {1,2,3}
+    end subroutine ExportVTK
+
+  end interface
+
 contains
 
   !-----------------------------------------------------------------------------
   !> New multilevel variable with nc components from multilevel SE mesh
 
-  function New_ML_MeshVariable_3D(ml_op, nc) result(this)
+  function New_ML_MeshVariable_3D(ml_op, nc, name) result(this)
     class(ML_MeshOperators_3D), intent(in) :: ml_op
     integer,                    intent(in) :: nc
+    character(len=*), optional, intent(in) :: name(nc)
     type(ML_MeshVariable_3D) :: this
 
-    call Init_ML_MeshVariable_3D(this, ml_op, nc)
+    call Init_ML_MeshVariable_3D(this, ml_op, nc, name)
 
   end function New_ML_MeshVariable_3D
 
   !-----------------------------------------------------------------------------
   !> Initialize multilevel variable with nc components from multilevel SE mesh
 
-  subroutine Init_ML_MeshVariable_3D(this, ml_op, nc)
+  subroutine Init_ML_MeshVariable_3D(this, ml_op, nc, name)
     class(ML_MeshVariable_3D),  intent(inout) :: this
     class(ML_MeshOperators_3D), intent(in)    :: ml_op
     integer,                    intent(in)    :: nc
+    character(len=*), optional, intent(in)    :: name(nc)
 
-    integer :: l, ne, po
+    integer :: i, l, ne, po
 
     allocate(this % level( size(ml_op%sem) ))
 
@@ -68,8 +89,17 @@ contains
       ne = ml_op % sem(l) % mesh % n_elem
       allocate(this%level(l)%val(0:po,0:po,0:po,ne,nc))
     end do
-
     this % level % is_original = .true.
+
+    if (present(name)) then
+      this % name = name
+    else
+      l = 2 + int(log10(dble(nc)))
+      allocate(character(len=l) :: this % name(nc))
+      do i = 1, nc
+        write(this%name(i), '(A,I0)') 'v', i
+      end do
+    end if
 
   end subroutine Init_ML_MeshVariable_3D
 
