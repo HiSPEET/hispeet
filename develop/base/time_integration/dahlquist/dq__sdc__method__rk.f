@@ -53,8 +53,8 @@ contains
   !> Constructor for objects of type SDC_Corrector_RK
 
   function New_DQ_SDC_Method_RK(pre_opt, sdc_opt) result(this)
-    class(DQ_TimeIntegratorOptions), intent(in) :: pre_opt !< predictor options
-    class(DQ_SDC_Options_RK),        intent(in) :: sdc_opt !< SDC options
+    class(DQ_TimeIntegrator_Options), intent(in) :: pre_opt !< predictor options
+    class(DQ_SDC_Options_RK),         intent(in) :: sdc_opt !< SDC options
     type(DQ_SDC_Method_RK) :: this
 
     call Init_DQ_SDC_Method_RK(this, pre_opt, sdc_opt)
@@ -65,9 +65,9 @@ contains
   !> Initialization of a DQ_SDC_Method object
 
   subroutine Init_DQ_SDC_Method_RK(this, pre_opt, sdc_opt)
-    class(DQ_SDC_Method_RK),         intent(inout) :: this
-    class(DQ_TimeIntegratorOptions), intent(in) :: pre_opt !< predictor options
-    class(DQ_SDC_Options_RK),        intent(in) :: sdc_opt !< SDC options
+    class(DQ_SDC_Method_RK),          intent(inout) :: this
+    class(DQ_TimeIntegrator_Options), intent(in) :: pre_opt !< predictor options
+    class(DQ_SDC_Options_RK),         intent(in) :: sdc_opt !< SDC options
 
     real(RNP) :: t0, t1, ti
     integer   :: i, j, m
@@ -176,12 +176,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Execution of a single correction step
 
-  subroutine CorrectorStep( this, lambda, m, t, u , F      &
+  subroutine CorrectorStep( this, lambda, m, k, t, u , F   &
                           , F_ex, F_im, F_ex_new, F_im_new )
 
     class(DQ_SDC_Method_RK), intent(inout) :: this
     complex(RNP), intent(in)    :: lambda       !< λ
     integer     , intent(in)    :: m            !< current SDC interval index
+    integer     , intent(in)    :: k            !< current corrector sweep
     real   (RNP), intent(in)    :: t(0:)        !< SDC time nodes
     complex(RNP), intent(inout) :: u(0:)        !< uᵏ⁺¹(:m-1),uᵏ→uᵏ⁺¹(m),uᵏ(m+1:)
     complex(RNP), intent(in)    :: F(0:)        !< Fᵏ

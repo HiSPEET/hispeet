@@ -28,88 +28,84 @@ module Matrix_Operators
 
 contains
 
-!-------------------------------------------------------------------------------
-!> Returns the inverse of a regular matrix, or 0 in case of failure.
+  !-----------------------------------------------------------------------------
+  !> Returns the inverse of a regular matrix, or 0 in case of failure.
 
-pure function Inverse(A) result(AI)
-  real(RNP), intent(in) :: A(:,:)  !< regular matrix
-  real(RNP) :: AI(size(A,1),size(A,1))
+  pure function Inverse(A) result(AI)
+    real(RNP), intent(in) :: A(:,:)  !< regular matrix
+    real(RNP) :: AI(size(A,1),size(A,1))
 
-  real(RHP) :: C(size(A,1),size(A,1)) ! work array
-  integer   :: p(size(A,1))           ! permutation vector
-  integer   :: i
-  logical   :: success
+    real(RHP) :: C(size(A,1),size(A,1)) ! work array
+    integer   :: p(size(A,1))           ! permutation vector
+    integer   :: i
 
-  AI = 0
+    AI = 0
 
-  call LU_Decomposition(A, C, p, success)
+    call LU_Decomposition(A, C, p)
 
-  if (success) then
     forall(i=1:size(p)) AI(i,i) = 1
 
     do i = 1, size(p)
       call LU_Solver(C, p, AI(:,i))
     end do
 
-  end if
+  end function Inverse
 
-end function Inverse
+  !===========================================================================
+  ! Moore-Penrose pseudoinverse
 
-!=============================================================================
-! Moore-Penrose pseudoinverse
+  !---------------------------------------------------------------------------
+  !> Computes the Moore-Penrose pseudoinverse from given SVD
 
-!-----------------------------------------------------------------------------
-!> Computes the Moore-Penrose pseudoinverse from given SVD
+  function PseudoInverse_from_SVD(s, U, Vt) result(Ai)
+    real(RDP), intent(in) :: s(:)    !< singular values, size(s) = min(m,n)
+    real(RDP), intent(in) :: U(:,:)  !< left unitary matrix of shape [m,m]
+    real(RDP), intent(in) :: Vt(:,:) !< right unitary matrix of shape [n,n]
 
-function PseudoInverse_from_SVD(s, U, Vt) result(Ai)
-  real(RDP), intent(in) :: s(:)    !< singular values, size(s) = min(m,n)
-  real(RDP), intent(in) :: U(:,:)  !< left unitary matrix of shape [m,m]
-  real(RDP), intent(in) :: Vt(:,:) !< right unitary matrix of shape [n,n]
+    real(RDP) :: Ai(size(Vt,2),size(U,1))
 
-  real(RDP) :: Ai(size(Vt,2),size(U,1))
+    real(RDP) :: V(size(Vt,2),size(Vt,1))
+    integer   :: j, l
 
-  real(RDP) :: V(size(Vt,2),size(Vt,1))
-  integer   :: j, l
+    l = min(size(U,2), size(Vt,1), count(s > eps0))
+    do j = 1, l
+       V(:,j) = 1/s(j) * Vt(j,:)
+    end do
+    Ai = matmul(V(:,1:l), transpose(U(:,1:l)))
 
-  l = min(size(U,2), size(Vt,1), count(s > eps0))
-  do j = 1, l
-     V(:,j) = 1/s(j) * Vt(j,:)
-  end do
-  Ai = matmul(V(:,1:l), transpose(U(:,1:l)))
+  end function PseudoInverse_from_SVD
 
-end function PseudoInverse_from_SVD
+  !---------------------------------------------------------------------------
+  !> Computes the Moore-Penrose pseudoinverse for given matrix
 
-!-----------------------------------------------------------------------------
-!> Computes the Moore-Penrose pseudoinverse for given matrix
+  function PseudoInverse_from_Matrix(A) result(Ai)
+    real(RDP), intent(in)  ::  A(:,:) !< matrix of shape [m,n]
 
-function PseudoInverse_from_Matrix(A) result(Ai)
-  real(RDP), intent(in)  ::  A(:,:) !< matrix of shape [m,n]
+    real(RDP) :: Ai(size(A,2),size(A,1))
 
-  real(RDP) :: Ai(size(A,2),size(A,1))
+    real(RDP) :: s(max(size(A,1),size(A,2)))
+    real(RDP) :: U(size(A,1),size(A,1))
+    real(RDP) :: V(size(A,2),size(A,2))
+    integer   :: j, l, m, n
 
-  real(RDP) :: s(max(size(A,1),size(A,2)))
-  real(RDP) :: U(size(A,1),size(A,1))
-  real(RDP) :: V(size(A,2),size(A,2))
-  integer   :: j, l, m, n
+    ! intialization
+    m = size(A,1)
+    n = size(A,2)
 
-  ! intialization
-  m = size(A,1)
-  n = size(A,2)
+    ! SVD of A
+    call SingularValueDecomposition(A, s, U, V)
 
-  ! SVD of A
-  call SingularValueDecomposition(A, s, U, V)
+    ! compose pseudeinverse
+    l = min(m, n, count(s > eps0))
+    U = transpose(U)
+    V = transpose(V)
+    do j = 1, l
+       V(:,j) = 1/s(j) * V(:,j)
+    end do
+    Ai = matmul(V(:,1:l), U(1:l,:))
 
-  ! compose pseudeinverse
-  l = min(m, n, count(s > eps0))
-  U = transpose(U)
-  V = transpose(V)
-  do j = 1, l
-     V(:,j) = 1/s(j) * V(:,j)
-  end do
-  Ai = matmul(V(:,1:l), U(1:l,:))
+  end function PseudoInverse_from_Matrix
 
-end function PseudoInverse_from_Matrix
-
-!==============================================================================
+  !============================================================================
 
 end module Matrix_Operators

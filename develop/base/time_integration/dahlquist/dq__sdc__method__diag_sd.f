@@ -1,0 +1,200 @@
+!> summary:  Diagonal SDC method for consercation laws
+!> author:   Joerg Stiller
+!> date:     2024/07/15
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> This module implements the diagonal implicit SDC method of
+!> [Čaklović et al. 2024](https://arxiv.org/abs/2403.18641)
+!> and provides corresponding explicit and IMEX versions.
+!===============================================================================
+
+module DQ__SDC__Method__Diag_SD
+
+  use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
+
+  use Kind_Parameters,  only: RNP, RHP
+  use Constants,        only: ZERO, HALF, ONE
+  use Execution_Control
+  use DQ__Time_Integrator
+  use DQ__SDC__Method
+
+  implicit none
+  private
+
+  public :: DQ_SDC_Method_DiagSD
+  public :: DQ_SDC_Options_DiagSD
+
+  !-----------------------------------------------------------------------------
+  !> Diagonal SDC corrector
+
+  type, extends(DQ_SDC_Method) :: DQ_SDC_Method_DiagSD
+    integer :: variant !< 1: MIN-SR-NS, 2: MIN-SR-FLEX
+  contains
+    procedure :: Init_DQ_SDC_Method_DiagSD
+    procedure :: Show => Show_DQ_SDC_Method_DiagSD
+    procedure :: CorrectorRHS
+    procedure :: CorrectorStep
+  end type DQ_SDC_Method_DiagSD
+
+  ! overloading the constructor
+  interface DQ_SDC_Method_DiagSD
+    module procedure New_DQ_SDC_Method_DiagSD
+  end interface
+
+  !-----------------------------------------------------------------------------
+  !> Type for providing SDC-Euler options
+
+  type, extends(DQ_SDC_Options) :: DQ_SDC_Options_DiagSD
+    integer :: variant = 2 !< 1: MIN-SR-NS, 2: MIN-SR-FLEX
+  end type DQ_SDC_Options_DiagSD
+
+contains
+
+  !=============================================================================
+  ! SDC_Corrector_Diag: type-bound procedures
+
+  !-----------------------------------------------------------------------------
+  !> Constructor for objects of type SDC_Corrector_Diag
+
+  function New_DQ_SDC_Method_DiagSD(pre_opt, sdc_opt) result(this)
+    class(DQ_TimeIntegrator_Options), intent(in) :: pre_opt !< predictor options
+    class(DQ_SDC_Options_DiagSD),     intent(in) :: sdc_opt !< SDC options
+    type(DQ_SDC_Method_DiagSD) :: this
+
+    call Init_DQ_SDC_Method_DiagSD(this, pre_opt, sdc_opt)
+
+  end function New_DQ_SDC_Method_DiagSD
+
+  !-----------------------------------------------------------------------------
+  !> Initialization of a SDC_Corrector_Diag object
+
+  subroutine Init_DQ_SDC_Method_DiagSD(this, pre_opt, sdc_opt)
+    class(DQ_SDC_Method_DiagSD),      intent(inout) :: this
+    class(DQ_TimeIntegrator_Options), intent(in) :: pre_opt !< predictor options
+    class(DQ_SDC_Options_DiagSD),     intent(in) :: sdc_opt !< SDC options
+
+    ! intialize parent type
+    call this % Init_DQ_SDC_Method(pre_opt, sdc_opt)
+
+    this % variant = sdc_opt % variant
+
+    select case(this%variant)
+    case(1)
+      this % corrector_name = 'DiagSD MIN-SR-NS'
+    case(2)
+      this % corrector_name = 'DiagSD MIN-SR-FLEX'
+    end select
+
+  end subroutine Init_DQ_SDC_Method_DiagSD
+
+  !-----------------------------------------------------------------------------
+  !> Output of SDC_Corrector_Diag settings
+
+  subroutine Show_DQ_SDC_Method_DiagSD(this, unit)
+    class(DQ_SDC_Method_DiagSD), intent(in) :: this
+    integer, optional, intent(in) :: unit  !< output unit
+
+    integer :: io
+
+    if (present(unit)) then
+      io = unit
+    else
+      io = OUTPUT_UNIT
+    end if
+
+    call this % Show_DQ_SDC_Method(unit)
+
+    write(io,'(2X,A,T15,G0)') 'name:', this % corrector_name
+
+  end subroutine Show_DQ_SDC_Method_DiagSD
+
+  !-----------------------------------------------------------------------------
+  !> Computes F_ex and F_im as defined in the corrector
+
+  elemental subroutine CorrectorRHS(this, lambda, dt, u, F_ex, F_im)
+    class(DQ_SDC_Method_DiagSD), intent(in) :: this
+    complex(RNP), intent(in)  :: lambda !< λ
+    real   (RNP), intent(in)  :: dt     !< step size, used with ISD only
+    complex(RNP), intent(in)  :: u      !< u
+    complex(RNP), intent(out) :: F_ex   !< explicit RHS for corrector
+    complex(RNP), intent(out) :: F_im   !< implicit RHS for corrector
+
+    complex(RNP), parameter :: i = (ZERO, ONE)
+
+    F_im = (lambda % re - HALF * dt * lambda%im ** 2) * u
+    F_ex = i * lambda % im * u
+
+    if (this % impl == 0) return ! just to avoid compiler warning !
+
+  end subroutine CorrectorRHS
+
+  !-----------------------------------------------------------------------------
+  !> Execution of a single correction step
+
+  subroutine CorrectorStep( this, lambda, m, k, t, u , F   &
+                          , F_ex, F_im, F_ex_new, F_im_new )
+
+    class(DQ_SDC_Method_DiagSD), intent(inout) :: this
+    complex(RNP), intent(in)    :: lambda       !< λ
+    integer     , intent(in)    :: m            !< current SDC interval index
+    integer     , intent(in)    :: k            !< current corrector sweep
+    real   (RNP), intent(in)    :: t(0:)        !< SDC time nodes
+    complex(RNP), intent(inout) :: u(0:)        !< uᵏ⁺¹(:m-1),uᵏ→uᵏ⁺¹(m),uᵏ(m+1:)
+    complex(RNP), intent(in)    :: F(0:)        !< Fᵏ
+    complex(RNP), intent(in)    :: F_ex(0:)     !< F_exᵏ
+    complex(RNP), intent(in)    :: F_im(0:)     !< F_imᵏ
+    complex(RNP), intent(inout) :: F_ex_new(0:) !< F_exᵏ⁺¹(0:m-1) → F_exᵏ⁺¹(0:m)
+    complex(RNP), intent(inout) :: F_im_new(0:) !< F_imᵏ⁺¹(0:m-1) → F_imᵏ⁺¹(0:m)
+
+    ! auxiliary variables .....................................................
+
+    complex(RNP), parameter :: i = (ZERO, ONE)
+
+    complex(RNP) :: u1, u2, S
+    real(RNP)    :: dt_sub, dt_step, q_del
+    integer      :: j
+
+    associate( n_sub => this % n_sub &
+             , n_col => this % n_col &
+             , w_col => this % w_col &
+             , tau   => this % t     )
+
+      ! initialization ........................................................
+
+      dt_sub  = t(m) - t(m-1)
+      dt_step = t(n_sub) - t(0)
+
+      select case(this % variant)
+      case(1)
+        q_del = tau(m) / n_col
+      case(2)
+        q_del = tau(m) / min(k, n_col)
+      end select
+
+      ! SDC quadrature ........................................................
+
+      S = 0
+      do j = 0, n_sub
+        S = S + dt_step * F(j) * w_col(j,m)
+      end do
+
+      u1 = u(0) + S
+
+     ! correction ............................................................
+
+      u2 = (u1 + dt_step * q_del * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))) &
+         / (ONE - dt_step * q_del * (lambda%re - HALF * dt_sub * lambda%im**2))
+
+      u(m) = u2
+
+      ! update RHS .............................................................
+
+      call this % CorrectorRHS(lambda, dt_sub, u(m), F_ex_new(m), F_im_new(m))
+
+    end associate
+
+  end subroutine CorrectorStep
+
+  !=============================================================================
+
+end module DQ__SDC__Method__Diag_SD

@@ -16,8 +16,9 @@ module DQ__Time_Integrator__ISD
   !> ISD methods for Dahlquist equation
 
   type, extends(DQ_TimeIntegrator) :: DQ_TimeIntegrator_ISD
-    integer :: order   !< theoretical order of convergence {1,2}
-    integer :: n_stage !< number of stages {1,2}, ignored with order 2
+    integer   :: order   !< theoretical order of convergence {1,2}
+    integer   :: n_stage !< number of stages {1,2}, ignored with order 2
+    real(RNP) :: c_sd    !< artificial viscosity scaling factor for stages > 1
   contains
     procedure :: Init_DQ_TimeIntegrator_ISD
     procedure :: Show => Show_DQ_TimeIntegrator_ISD
@@ -32,9 +33,10 @@ module DQ__Time_Integrator__ISD
   !-----------------------------------------------------------------------------
   !> Type for providing ISD time-integrator options (none, so far)
 
-  type, extends(DQ_TimeIntegratorOptions) :: DQ_TimeIntegrator_Options_ISD
-    integer :: order   = 1 !< theoretical order of convergence
-    integer :: n_stage = 1 !< number of stages, ignored with order 2
+  type, extends(DQ_TimeIntegrator_Options) :: DQ_TimeIntegrator_Options_ISD
+    integer   :: order   = 1 !< theoretical order of convergence
+    integer   :: n_stage = 1 !< number of stages, ignored with order 2
+    real(RNP) :: c_sd    = 1 !< artificial viscosity factor for stages > 1
   end type DQ_TimeIntegrator_Options_ISD
 
 contains
@@ -62,6 +64,7 @@ contains
 
     this % order   = opt % order
     this % n_stage = opt % n_stage
+    this % c_sd    = opt % c_sd
 
     select case(this % order)
     case(1)
@@ -92,6 +95,7 @@ contains
     call this % Show_DQ_TimeIntegrator(unit)
 
     write(io,'(2X,A,T15,G0)') 'name:' , trim(this % name)
+    write(io,'(2X,A,T15,G0)') 'c_sd:',  this % c_sd
 
   end subroutine Show_DQ_TimeIntegrator_ISD
 
@@ -115,11 +119,11 @@ contains
 
     case(1)
 
-      a_inv = ONE / (ONE - dt * (lambda%re - hdt * lambda%im**2))
-
       u0 = u
-      u  = (u0 + dt * (ZERO, ONE) * lambda%im * u0) * a_inv
+      u  = (u0 + dt * (ZERO, ONE) * lambda%im * u0)  &
+         / (ONE - dt * (lambda%re - hdt * lambda%im**2))
 
+      a_inv = ONE / (ONE - dt * (lambda%re - this%c_sd * hdt * lambda%im**2))
       do j = 2, this%n_stage
         u = (u0 + dt * (ZERO, ONE) * lambda%im * u) * a_inv
       end do

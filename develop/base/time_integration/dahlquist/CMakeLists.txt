@@ -7,7 +7,10 @@ add_executable( dahlquist
                 dq__time_integrator__tr.f
                 dq__sdc__method.f
                 dq__sdc__method__euler.f
+                dq__sdc__method__diag.f
+                dq__sdc__method__diag_sd.f
                 dq__sdc__method__isd.f
+                dq__sdc__method__lu.f
                 dq__sdc__method__rk.f
               )
               
