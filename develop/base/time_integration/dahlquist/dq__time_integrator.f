@@ -7,7 +7,7 @@ module DQ__Time_Integrator
   private
 
   public :: DQ_TimeIntegrator
-  public :: DQ_TimeIntegratorOptions
+  public :: DQ_TimeIntegrator_Options
 
   !-----------------------------------------------------------------------------
   !> Abstract type of a one-step time integrator for Dahlquist equation
@@ -43,9 +43,9 @@ module DQ__Time_Integrator
   !-----------------------------------------------------------------------------
   !> Base type for providing time integrator options
 
-  type DQ_TimeIntegratorOptions
+  type DQ_TimeIntegrator_Options
     integer :: impl = 2  !< 0: explicit, 1: implicit, default:  IMEX
-  end type DQ_TimeIntegratorOptions
+  end type DQ_TimeIntegrator_Options
 
 contains
 
@@ -57,7 +57,7 @@ contains
 
   subroutine Init_DQ_TimeIntegrator(this, opt)
     class(DQ_TimeIntegrator),                  intent(inout) :: this
-    class(DQ_TimeIntegratorOptions), optional, intent(in)    :: opt !< options
+    class(DQ_TimeIntegrator_Options), optional, intent(in)    :: opt !< options
 
     if (present(opt)) then
       this % impl = opt % impl

@@ -32,6 +32,7 @@ module DQ__SDC__Method
 
   type, extends(SDC_Options) :: DQ_SDC_Options
     integer :: impl     = 2       !< 0: explicit, 1: implicit, 2/default: IMEX
+    logical :: predict  = .true.  !< use predictor
     logical :: assembly = .false. !< perform final assembly
   end type DQ_SDC_Options
 
@@ -44,6 +45,7 @@ module DQ__SDC__Method
 
     character(len=80) :: corrector_name = ''
     integer :: impl     !< switch to explicit/implicit/IMEX corrector (0/1/2)
+    logical :: predict  !< switch to use the predictor
     logical :: assembly !< switch to final assembly with collocation method
 
   contains
@@ -76,13 +78,14 @@ module DQ__SDC__Method
     !---------------------------------------------------------------------------
     !> Execution of a single correction step
 
-    subroutine CorrectorStep( this, lambda, m, t, u , F      &
+    subroutine CorrectorStep( this, lambda, m, k, t, u , F   &
                             , F_ex, F_im, F_ex_new, F_im_new )
       import
 
       class(DQ_SDC_Method), intent(inout) :: this
       complex(RNP), intent(in)    :: lambda       !< λ
       integer     , intent(in)    :: m            !< current SDC interval index
+      integer     , intent(in)    :: k            !< current corrector sweep
       real   (RNP), intent(in)    :: t(0:)        !< SDC time nodes
       complex(RNP), intent(inout) :: u(0:)        !< uᵏ⁺¹(:m-1),uᵏ→uᵏ⁺¹(m),uᵏ(m+1:)
       complex(RNP), intent(in)    :: F(0:)        !< Fᵏ
@@ -110,7 +113,7 @@ contains
 
     class(DQ_SDC_Method), intent(inout) :: this
 
-    class(DQ_TimeIntegratorOptions),  intent(in) :: pre_opt !< predictor options
+    class(DQ_TimeIntegrator_Options), intent(in) :: pre_opt !< predictor options
     class(DQ_SDC_Options),  intent(in) :: sdc_opt !< SDC options
 
     ! parent type initialization ...............................................
@@ -133,6 +136,7 @@ contains
     ! SDC ......................................................................
 
     this % impl     = sdc_opt % impl
+    this % predict  = sdc_opt % predict
     this % assembly = sdc_opt % assembly
 
   end subroutine Init_DQ_SDC_Method
@@ -158,6 +162,7 @@ contains
     write(io,'(2X,A,T15,I0)') 'n_sub:'     , this % n_sub
     write(io,'(2X,A,T15,I0)') 'n_sweep:'   , this % n_sweep
     write(io,'(2X,A,T15,I0)') 'impl:'      , this % impl
+    write(io,'(2X,A,T15,L0)') 'predict:'   , this % predict
     write(io,'(2X,A,T15,L0)') 'assembly:'  , this % assembly
 
     call this % predictor % Show(unit)
@@ -219,10 +224,14 @@ contains
     ! u⁰(t_0) = u(t_0)
     u_(0) = u
 
-    do i = 1, n_sub
-      u_(i) = u_(i-1)
-      call this % predictor % TimeStep(lambda, dt_(i), u_(i))
-    end do
+    if (this % predict) then
+      do i = 1, n_sub
+        u_(i) = u_(i-1)
+        call this % predictor % TimeStep(lambda, dt_(i), u_(i))
+      end do
+    else
+      u_(1:n_sub) = u
+    end if
 
     !---------------------------------------------------------------------------
     ! corrector
@@ -247,6 +256,7 @@ contains
 
           call this % CorrectorStep( lambda              &
                                    , m        = i        &
+                                   , k        = n        &
                                    , t        = t_       &
                                    , u        = u_       &
                                    , F        = F_       &

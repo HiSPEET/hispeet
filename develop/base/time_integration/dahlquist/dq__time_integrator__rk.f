@@ -32,7 +32,7 @@ module DQ__Time_Integrator__RK
   !-----------------------------------------------------------------------------
   !> Type for providing RK time-integrator options
 
-  type, extends(DQ_TimeIntegratorOptions) :: DQ_TimeIntegrator_Options_RK
+  type, extends(DQ_TimeIntegrator_Options) :: DQ_TimeIntegrator_Options_RK
     integer :: n_stage = 4  !< number of stages
     integer :: method  = 1  !< RK method selector, if more than one exist
   end type DQ_TimeIntegrator_Options_RK

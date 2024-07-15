@@ -30,7 +30,7 @@ module DQ__Time_Integrator__Euler
   !-----------------------------------------------------------------------------
   !> Type for providing Euler time-integrator options (none, so far)
 
-  type, extends(DQ_TimeIntegratorOptions) :: DQ_TimeIntegrator_Options_Euler
+  type, extends(DQ_TimeIntegrator_Options) :: DQ_TimeIntegrator_Options_Euler
   end type DQ_TimeIntegrator_Options_Euler
 
 contains
@@ -55,7 +55,7 @@ contains
 
     ! intialize parent type
     call this % Init_DQ_TimeIntegrator(opt)
-    this % name = 'IMEX Euler method'
+    this % name = 'Euler method'
 
   end subroutine Init_DQ_TimeIntegrator_Euler
 

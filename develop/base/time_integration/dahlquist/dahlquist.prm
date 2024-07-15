@@ -3,28 +3,31 @@
   ! time-integration method ....................................................
 
   ! standalone or predictor method
-  time_method = 1 ! 1  Euler
+  time_method = 3 ! 1  Euler
                   ! 2  Trapezoidal rule
                   ! 3  Implicit streamline diffusion
-                  ! 4  Runge-Kutta (default)
+                  ! 4  Runge-Kutta
 
   ! SDC method
-  sdc_method  = 1 ! 0  none (use standalone time integrator)
+  sdc_method  = 2 ! 0  none (use standalone time integrator)
                   ! 1  based on Euler
                   ! 2  based on ISD of order 1
-                  ! 3  based on Runge-Kutta (default)
+                  ! 3  based on Runge-Kutta
+                  ! 4  based on LU
+                  ! 5  diagonal
+                  ! 6  diagonal ISD
 
   ! standalone integrator and predictor options ................................
 
   ! Euler
-  tint_opt_eu%impl    = 2  ! 0/1/2: explicit/implicit/IMEX
+  tint_opt_eu%impl    = 1  ! 0/1/2: explicit/implicit/IMEX
 
   ! Trapezoidal rule
   tint_opt_tr%impl    = 2  ! 0/1/2: explicit/implicit/IMEX
 
   ! implicit streamline diffusion
   tint_opt_sd%order   = 1  ! theoretical order of convergence {1,2} [1]
-  tint_opt_sd%n_stage = 2  ! number of stages, ignored with order 2
+  tint_opt_sd%n_stage = 2 ! number of stages, ignored with order 2
 
   ! Runge-Kutta
   tint_opt_rk%impl    = 1  ! 0/1/2: explicit/implicit/IMEX
@@ -33,19 +36,21 @@
 
   ! SDC options ................................................................
 
-  ! SDC based on Euler
-  sdc_opt_eu%point_set = 'L'  ! 'E'/'L'/'RR': equidistant/Lobatto/Radau-right
-  sdc_opt_eu%n_col     =  4   ! number of collocation points
-  sdc_opt_eu%n_sweep   =  5   ! max number of correction sweeps
-  sdc_opt_eu%impl      =  2   ! 0/1/2: explicit/implicit/IMEX
+  ! 1 SDC based on Euler
+  sdc_opt_eu%point_set = 'RR' ! 'E'/'L'/'RR': equidistant/Lobatto/Radau-right
+  sdc_opt_eu%n_col     =  8   ! number of collocation points
+  sdc_opt_eu%n_sweep   = 14   ! max number of correction sweeps
+  sdc_opt_eu%impl      =  1   ! 0/1/2: explicit/implicit/IMEX
 
-  ! SDC based on ISD
+  ! 2 SDC based on ISD
   sdc_opt_sd%point_set = 'RR' ! 'E'/'L'/'RR': equidistant/Lobatto/Radau-right
-  sdc_opt_sd%n_col     =  4   ! number of collocation points
-  sdc_opt_sd%n_sweep   =  6   ! max number of correction sweeps
+  sdc_opt_sd%n_col     =  8   ! number of collocation points
+  sdc_opt_sd%n_sweep   = 14   ! max number of correction sweeps
   sdc_opt_sd%n_stage   =  2   ! 1/2 for 1- or 2-stage corrector
+  sdc_opt_sd%c_isd     =  1   ! artificial diffusivity factor [1]
+  sdc_opt_sd%scaling   =  1   ! artificial diffusivity scaling: 0/1/2 none/k/double [0]
 
-  ! SDC based on Runge-Kutta
+  ! 3 SDC based on Runge-Kutta
   sdc_opt_rk%point_set = 'E'  ! 'E'/'L'/'RR': equidistant/Lobatto/Radau-right
   sdc_opt_rk%n_col     =  4   ! number of collocation points
   sdc_opt_rk%n_sweep   =  3   ! max number of correction sweeps
@@ -53,12 +58,31 @@
   sdc_opt_rk%n_stage   =  4   !< number of stages of the RK corrector
   sdc_opt_rk%method    =  2   !< RK method selector, if more than one exist
 
+  ! 4 SDC based on LU
+  sdc_opt_lu%point_set = 'RR' ! Radau-right is required
+  sdc_opt_lu%n_col     =  4   ! number of collocation points
+  sdc_opt_lu%n_sweep   =  6   ! max number of correction sweeps
+  sdc_opt_lu%impl      =  2   ! 0/1/2: explicit/implicit/IMEX
+
+  ! 5 diagonal SDC
+  sdc_opt_di%point_set = 'RR' ! Radau-right is required
+  sdc_opt_di%n_col     =  4   ! number of collocation points
+  sdc_opt_di%n_sweep   =  5   ! max number of correction sweeps
+  sdc_opt_di%impl      =  2   ! 0/1/2/3: explicit/implicit/IMEX/Lunet
+! sdc_opt_di%variant   =  1   ! 1/2: 1: MIN-SR-NS/FLEX
+
+  ! 6 diagonal ISD-SDC
+  sdc_opt_ds%point_set = 'RR' ! Radau-right is required
+  sdc_opt_ds%n_col     =  4   ! number of collocation points
+  sdc_opt_ds%n_sweep   = 10   ! max number of correction sweeps
+! sdc_opt_ds%variant   =  1   ! 1/2: 1: MIN-SR-NS/FLEX
+
   ! test parameters ............................................................
 
   c_min =     0  ! min convective CFL number            ! for stability
-  c_max =    20  ! max convective CFL number            !
-  d_min =   -10  ! min diffusion number                 !
-  d_max =    10  ! max diffusion number                 !
+  c_max =    20  ! max convective CFL number            !  20
+  d_min =   -10  ! min diffusion number                 ! -10
+  d_max =    10  ! max diffusion number                 !  10
   nc    =  2000  ! num intervals along imaginary axis   !
   nd    =  2000  ! num intervals along real axis        !
 

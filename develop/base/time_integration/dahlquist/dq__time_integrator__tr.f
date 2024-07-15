@@ -30,7 +30,7 @@ module DQ__Time_Integrator__TR
   !-----------------------------------------------------------------------------
   !> Type for providing TR time-integrator options (none, so far)
 
-  type, extends(DQ_TimeIntegratorOptions) :: DQ_TimeIntegrator_Options_TR
+  type, extends(DQ_TimeIntegrator_Options) :: DQ_TimeIntegrator_Options_TR
   end type DQ_TimeIntegrator_Options_TR
 
 contains

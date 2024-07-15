@@ -17,7 +17,9 @@ module DQ__SDC__Method__ISD
   !> IMEX ISD SDC ...
 
   type, extends(DQ_SDC_Method) :: DQ_SDC_Method_ISD
-    integer :: n_stage !< number of stages
+    integer   :: n_stage !< number of stages
+    real(RNP) :: c_isd   !< artificial diffusivity factor
+    integer   :: scaling !< artificial diffusivity scaling: 0/1/2 none/k/double
   contains
     procedure :: Init_DQ_SDC_Method_ISD
     procedure :: Show => Show_DQ_SDC_Method_ISD
@@ -34,7 +36,9 @@ module DQ__SDC__Method__ISD
   !> Type for providing SDC-ISD options
 
   type, extends(DQ_SDC_Options) :: DQ_SDC_Options_ISD
-    integer :: n_stage = 1  !< number of stages
+    integer   :: n_stage = 2  !< number of stages
+    real(RNP) :: c_isd   = 1  !< AD amplitude factor
+    integer   :: scaling = 0  !< AD scaling: 0/1/2 none/k/double
   end type DQ_SDC_Options_ISD
 
 contains
@@ -46,8 +50,8 @@ contains
   !> Constructor for objects of type SDC_Corrector_ISD
 
   function New_DQ_SDC_Method_ISD(pre_opt, sdc_opt) result(this)
-    class(DQ_TimeIntegratorOptions), intent(in) :: pre_opt !< predictor options
-    class(DQ_SDC_Options_ISD),       intent(in) :: sdc_opt !< SDC options
+    class(DQ_TimeIntegrator_Options), intent(in) :: pre_opt !< predictor options
+    class(DQ_SDC_Options_ISD),        intent(in) :: sdc_opt !< SDC options
     type(DQ_SDC_Method_ISD) :: this
 
     call Init_DQ_SDC_Method_ISD(this, pre_opt, sdc_opt)
@@ -58,14 +62,16 @@ contains
   !> Initialization of a SDC_Corrector_ISD object
 
   subroutine Init_DQ_SDC_Method_ISD(this, pre_opt, sdc_opt)
-    class(DQ_SDC_Method_ISD),        intent(inout) :: this
-    class(DQ_TimeIntegratorOptions), intent(in) :: pre_opt !< predictor options
-    class(DQ_SDC_Options_ISD),       intent(in) :: sdc_opt !< SDC options
+    class(DQ_SDC_Method_ISD),         intent(inout) :: this
+    class(DQ_TimeIntegrator_Options), intent(in) :: pre_opt !< predictor options
+    class(DQ_SDC_Options_ISD),        intent(in) :: sdc_opt !< SDC options
 
     ! intialize parent type
     call this % Init_DQ_SDC_Method(pre_opt, sdc_opt)
 
     this % n_stage = sdc_opt % n_stage
+    this % c_isd   = sdc_opt % c_isd
+    this % scaling = sdc_opt % scaling
 
     write(this%corrector_name,'(A,G0,A)') &
         'ISD method of order 1 with ', this%n_stage, ' stage(s)'
@@ -89,7 +95,9 @@ contains
 
     call this % Show_DQ_SDC_Method(unit)
 
-    write(io,'(2X,A,T15,G0)') 'name:',  this % corrector_name
+    write(io,'(2X,A,T15,G0)') 'name:',    this % corrector_name
+    write(io,'(2X,A,T15,G0)') 'c_isd:',   this % c_isd
+    write(io,'(2X,A,T15,G0)') 'scaling:', this % scaling
 
   end subroutine Show_DQ_SDC_Method_ISD
 
@@ -106,7 +114,7 @@ contains
 
     complex(RNP), parameter :: i = (ZERO, ONE)
 
-    F_im = (lambda % re - HALF * dt * lambda%im ** 2) * u
+    F_im = (lambda % re - this%c_isd * HALF * dt * lambda%im ** 2) * u
     F_ex = i * lambda % im * u
 
     if (this % impl == 0) return ! just to avoid compiler warning !
@@ -116,12 +124,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Execution of a single correction step
 
-  subroutine CorrectorStep( this, lambda, m, t, u , F      &
+  subroutine CorrectorStep( this, lambda, m, k, t, u , F   &
                           , F_ex, F_im, F_ex_new, F_im_new )
 
     class(DQ_SDC_Method_ISD), intent(inout) :: this
     complex(RNP), intent(in)    :: lambda       !< λ
     integer     , intent(in)    :: m            !< current SDC interval index
+    integer     , intent(in)    :: k            !< current corrector sweep
     real   (RNP), intent(in)    :: t(0:)        !< SDC time nodes
     complex(RNP), intent(inout) :: u(0:)        !< uᵏ⁺¹(:m-1),uᵏ→uᵏ⁺¹(m),uᵏ(m+1:)
     complex(RNP), intent(in)    :: F(0:)        !< Fᵏ
@@ -134,43 +143,58 @@ contains
 
     complex(RNP), parameter :: i = (ZERO, ONE)
     complex(RNP) :: ui, uj, S
-    real(RNP)    :: t0, t1, dt
-    real(RNP)    :: a_inv, delta
+    real(RNP)    :: a_inv,  c_im, dt_isd, dt_step, dt_sub
     integer      :: j
 
-    ! initialization ..........................................................
+    associate( n_sub => this % n_sub &
+             , w_sub => this % w_sub &
+             , c_isd => this % c_isd )
 
-    t0 = t(m-1)
-    t1 = t(m)
-    dt = t1 - t0    ! subinterval
+      ! initialization .........................................................
 
-    ! SDC quadrature ..........................................................
+      dt_step = t(n_sub) - t(0  )
+      dt_sub  = t(m    ) - t(m-1)
+      dt_isd  = c_isd * HALF * dt_sub
 
-    associate(n_sub => this % n_sub, w_sub => this % w_sub)
+      c_im = 1
+      if (this % scaling > 0) then
+        c_im = lambda % re - dt_isd * lambda%im**2
+        if (abs(c_im) > 1000 * tiny(ONE)) then
+          select case(this % scaling)
+          case(1)
+            c_im = (lambda % re - k * dt_isd * lambda%im**2) / c_im
+          case(2)
+            c_im = (lambda % re - 2**(k-1) * dt_isd * lambda%im**2) / c_im
+          end select
+        end if
+      end if
 
-      delta = t(n_sub) - t(0)
+      a_inv = ONE / (ONE - dt_sub * c_im * (lambda%re - dt_isd * lambda%im**2))
+
+      ! SDC quadrature .........................................................
+
       S = 0
       do j = 0, n_sub
-        S = S + delta * F(j) * w_sub(j,m)
+        S = S + dt_step * F(j) * w_sub(j,m)
       end do
 
       ! u' = u₀ + Sᵏ
       ui = u(m-1) + S
 
+      ! correction .............................................................
+
+      uj = (ui + dt_sub * (F_ex_new(m-1) - F_ex(m-1) - c_im*F_im(m))) * a_inv
+      do j = 2, this%n_stage
+        uj = (ui + dt_sub * (i * lambda%im * uj - F_ex(m) - c_im * F_im(m))) &
+           * a_inv
+      end do
+      u(m) = uj
+
+      ! update RHS .............................................................
+
+      call this % CorrectorRHS(lambda, dt_sub, u(m), F_ex_new(m), F_im_new(m))
+
     end associate
-
-    ! correction ..............................................................
-
-    a_inv = ONE / (ONE - dt * (lambda%re - HALF * dt * lambda%im**2))
-
-    uj = (ui + dt * (F_ex_new(m-1) - F_ex(m-1) - F_im(m))) * a_inv
-    do j = 2, this%n_stage
-      uj = (ui + dt * (i * lambda%im * uj - F_ex(m) - F_im(m))) * a_inv
-    end do
-    u(m) = uj
-
-    ! update RHS
-    call this % CorrectorRHS(lambda, dt, u(m), F_ex_new(m), F_im_new(m))
 
   end subroutine CorrectorStep
 
