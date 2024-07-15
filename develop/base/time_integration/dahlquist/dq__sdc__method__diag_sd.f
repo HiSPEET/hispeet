@@ -1,3 +1,13 @@
+!> summary:  Diagonal SDC method for consercation laws
+!> author:   Joerg Stiller
+!> date:     2024/07/15
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> This module implements the diagonal implicit SDC method of
+!> [Čaklović et al. 2024](https://arxiv.org/abs/2403.18641)
+!> and provides corresponding explicit and IMEX versions.
+!===============================================================================
+
 module DQ__SDC__Method__Diag_SD
 
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
@@ -15,7 +25,7 @@ module DQ__SDC__Method__Diag_SD
   public :: DQ_SDC_Options_DiagSD
 
   !-----------------------------------------------------------------------------
-  !> IMEX Euler SDC ...
+  !> Diagonal SDC corrector
 
   type, extends(DQ_SDC_Method) :: DQ_SDC_Method_DiagSD
     integer :: variant !< 1: MIN-SR-NS, 2: MIN-SR-FLEX

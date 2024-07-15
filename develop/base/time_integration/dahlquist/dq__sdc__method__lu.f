@@ -1,3 +1,13 @@
+!> summary:  SDC method for consercation laws based on LU decomposition
+!> author:   Joerg Stiller
+!> date:     2024/07/15
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> This module implements the implicit SDC method of
+!> [Weiser 2015](https://link.springer.com/article/10.1007/s10543-014-0540-y)
+!> and provides corresponding explicit and IMEX versions.
+!===============================================================================
+
 module DQ__SDC__Method__LU
 
   use, intrinsic :: ISO_Fortran_Env, only: OUTPUT_UNIT
@@ -16,7 +26,7 @@ module DQ__SDC__Method__LU
   public :: DQ_SDC_Options_LU
 
   !-----------------------------------------------------------------------------
-  !> IMEX Euler SDC ...
+  !> SDC corrector using an LU decomposition of the quadrature matrix
 
   type, extends(DQ_SDC_Method) :: DQ_SDC_Method_LU
     real(RNP), allocatable :: q_del(:,:) !< LU-based iteration matrix
