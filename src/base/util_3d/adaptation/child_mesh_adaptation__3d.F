@@ -4,7 +4,8 @@ module Child_Mesh_Adaptation__3D
   use Execution_Control
   use Logging_Levels
   use XMPI
-  use Parent_To_Child_Interpolation__1D
+  use Standard_Operators__1D
+  use Coarse_To_Fine_Interpolation__1D
   use Mesh__3D
   use Mesh_Element__3D
   use Mesh_Element_Indexing__3D

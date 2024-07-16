@@ -94,9 +94,6 @@ set ( SPECTRAL_ELEMENT
       spectral_element/projection_operator__1d.f
       spectral_element/projection_operator__3d.f
       spectral_element/standard_operators__1d.f
-
-      spectral_element/parent_to_child_interpolation__1d.f # obsolete
-
     )
 
 #===============================================================================

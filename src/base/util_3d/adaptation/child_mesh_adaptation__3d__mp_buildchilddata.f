@@ -33,8 +33,8 @@ contains
     integer, allocatable, save :: cn_part(:)  ! neighbor counters
     integer, allocatable, save :: cp_part(:)  ! element point counters
 
-    type(StandardOperators_1D),          allocatable, save :: eop(:)
-    type(ParentToChildInterpolation_1D), allocatable, save :: iop(:)
+    type(StandardOperators_1D),         allocatable, save :: eop(:)
+    type(CoarseToFineInterpolation_1D), allocatable, save :: iop(:)
 
     integer, save :: nn_edge, nn_vert
     integer, save :: po_min, po_max
@@ -181,7 +181,9 @@ contains
       allocate( iop(po_min:po_max) )
       do po = po_min, po_max
         eop(po) = StandardOperators_1D(po, basis = 'L', no_vdm = .true.)
-        iop(po) = ParentToChildInterpolation_1D(eop(po))
+        iop(po) = CoarseToFineInterpolation_1D( &
+                      CoarseToFineInterpolationOptions_1D( &
+                          basis = 'L', po_c = po, po_f = po, mode = 2 ))
       end do
 
       !$omp end master
