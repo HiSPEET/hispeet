@@ -391,7 +391,7 @@ program DG_Elliptic_3D_Test
 
   allocate(bv_u(n_bound))
   do i = 1, n_bound
-    call bv_u(i) % Create(sem%mesh%boundary(i), po, nc = 1)
+    bv_u(i) = BoundaryVariable_3D(sem%mesh%boundary(i), po, nc = 1)
   end do
 
   ! solution and RHS ...........................................................

@@ -16,9 +16,8 @@ module ML__Mesh_Variable__3D
   !> 3D mesh variable
 
   type MeshVariable_3D
-    real(RNP), pointer :: val(:,:,:,:,:) => null()
-    logical,   private :: is_original = .false.
-    logical,   private :: is_handle   = .false.
+    real(RNP), contiguous, pointer :: val(:,:,:,:,:) => null()
+    logical, private :: is_original = .false.
   contains
     final :: Delete_MeshVariable_3D
   end type MeshVariable_3D
@@ -118,7 +117,6 @@ contains
 
     this % val => null()
     this % is_original = .false.
-    this % is_handle   = .false.
 
   end subroutine Delete_MeshVariable_3D
 
