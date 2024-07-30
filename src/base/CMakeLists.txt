@@ -48,6 +48,7 @@ include_directories( tensor_product/primitives/IxIxQt
                      tensor_product/primitives/CtxIxI )
 
 # parametrized operators
+include(cmake/tpo__1to8__3d.cmake)
 include(cmake/tpo__aaa__3d.cmake)
 include(cmake/tpo__average__3d.cmake)
 include(cmake/tpo__diagonal__3d.cmake)
