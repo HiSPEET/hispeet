@@ -9,9 +9,7 @@
 !-----------------------------------------------------------------------------
 !> 3d regular 1:8 interpolation using hand-crafted suboperators
 
-subroutine PROC(TPO_1to8_Hand__,_NA1_,_NA2_)(ne, A, u, v)
-
-subroutine TPO_1to8_Gen_RWP(A, u, v)
+subroutine PROC(TPO_1To8_Hand__,_NA1_,_NA2_)(ne, A, u, v)
   integer,   intent(in)  :: ne                        !< num coarse elements
   real(RWP), intent(in)  :: A(_NA1_,_NA2_,2)          !< 1D operator
   real(RWP), intent(in)  :: u(_NA2_,_NA2_,_NA2_,ne)   !< operand
@@ -74,4 +72,4 @@ subroutine TPO_1to8_Gen_RWP(A, u, v)
   end do
   !$omp end do
 
-end subroutine TPO_1to8_Gen_RWP
+end subroutine PROC(TPO_1To8_Hand__,_NA1_,_NA2_)

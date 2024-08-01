@@ -9,7 +9,7 @@
 !-----------------------------------------------------------------------------
 !> Generic 3d interpolation operator for regular 1:8 h-refinement
 
-subroutine TPO_1to8_Gen_RWP(A, u, v)
+subroutine TPO_1To8_Gen_RWP(A, u, v)
   real(RWP), intent(in)  :: A(:,:,:)   !< 1D operator (na1,na2,2)
   real(RWP), intent(in)  :: u(:,:,:,:) !< operand
   real(RWP), intent(out) :: v(:,:,:,:) !< result
@@ -83,14 +83,14 @@ subroutine TPO_1to8_Gen_RWP(A, u, v)
     do i = 1, na1
       v(i,j,k,o+1:o+8) = 0
       do p = 1, na2                                           ! position
-        v(i,j,k,o+1) = v(i,j,k,l+1) + A(i,p,1) * y(p,j,k,1,1) !  1,1,1
-        v(i,j,k,o+2) = v(i,j,k,l+2) + A(i,p,2) * y(p,j,k,1,1) !  2,1,1
-        v(i,j,k,o+3) = v(i,j,k,l+3) + A(i,p,1) * y(p,j,k,2,1) !  1,2,1
-        v(i,j,k,o+4) = v(i,j,k,l+4) + A(i,p,2) * y(p,j,k,2,1) !  2,2,1
-        v(i,j,k,o+5) = v(i,j,k,l+5) + A(i,p,1) * y(p,j,k,1,2) !  1,1,2
-        v(i,j,k,o+6) = v(i,j,k,l+6) + A(i,p,2) * y(p,j,k,1,2) !  2,1,2
-        v(i,j,k,o+7) = v(i,j,k,l+7) + A(i,p,1) * y(p,j,k,2,2) !  1,2,2
-        v(i,j,k,o+8) = v(i,j,k,l+8) + A(i,p,2) * y(p,j,k,2,2) !  2,2,2
+        v(i,j,k,o+1) = v(i,j,k,o+1) + A(i,p,1) * y(p,j,k,1,1) !  1,1,1
+        v(i,j,k,o+2) = v(i,j,k,o+2) + A(i,p,2) * y(p,j,k,1,1) !  2,1,1
+        v(i,j,k,o+3) = v(i,j,k,o+3) + A(i,p,1) * y(p,j,k,2,1) !  1,2,1
+        v(i,j,k,o+4) = v(i,j,k,o+4) + A(i,p,2) * y(p,j,k,2,1) !  2,2,1
+        v(i,j,k,o+5) = v(i,j,k,o+5) + A(i,p,1) * y(p,j,k,1,2) !  1,1,2
+        v(i,j,k,o+6) = v(i,j,k,o+6) + A(i,p,2) * y(p,j,k,1,2) !  2,1,2
+        v(i,j,k,o+7) = v(i,j,k,o+7) + A(i,p,1) * y(p,j,k,2,2) !  1,2,2
+        v(i,j,k,o+8) = v(i,j,k,o+8) + A(i,p,2) * y(p,j,k,2,2) !  2,2,2
       end do
     end do
     end do
@@ -99,4 +99,4 @@ subroutine TPO_1to8_Gen_RWP(A, u, v)
   end do
   !$omp end do
 
-end subroutine TPO_1to8_Gen_RWP
+end subroutine TPO_1To8_Gen_RWP

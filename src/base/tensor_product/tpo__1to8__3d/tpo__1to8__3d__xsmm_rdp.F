@@ -4,7 +4,7 @@
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__1to8__3D__XSMM_RDP
+module TPO__1To8__3D__XSMM_RDP
 
 #ifdef __LIBXSMM__
 
@@ -13,10 +13,10 @@ module TPO__1to8__3D__XSMM_RDP
   implicit none
   private
 
-  public :: TPO_1to8_XSMM
+  public :: TPO_1To8_XSMM
 
-  interface TPO_1to8_XSMM
-    module procedure TPO_1to8_XSMM_RDP
+  interface TPO_1To8_XSMM
+    module procedure TPO_1To8_XSMM_RDP
   end interface
 
 contains
@@ -24,7 +24,7 @@ contains
   !-----------------------------------------------------------------------------
   !> XSMM AxAxA operator
 
-  subroutine TPO_1to8_XSMM_RDP(A, u, v)
+  subroutine TPO_1To8_XSMM_RDP(A, u, v)
     real(RDP), intent(in)  :: A(:,:,:)   !< 1D operator
     real(RDP), intent(in)  :: u(:,:,:,:) !< operand
     real(RDP), intent(out) :: v(:,:,:,:) !< result
@@ -62,7 +62,7 @@ contains
                 libxsmm_available(xmm_2) .and.  &
                 libxsmm_available(xmm_3)        ) ) then
 
-      stop "TPO_1to8_XSMM_RDP: LIBXSMM_Dispatch failed"
+      stop "TPO_1To8_XSMM_RDP: LIBXSMM_Dispatch failed"
 
     end if
     !$omp end master
@@ -100,10 +100,10 @@ contains
 
     end do
 
-  end subroutine TPO_1to8_XSMM_RDP
+  end subroutine TPO_1To8_XSMM_RDP
 
   !=============================================================================
 
 #endif
 
-end module TPO__1to8__3D__XSMM_RDP
+end module TPO__1To8__3D__XSMM_RDP

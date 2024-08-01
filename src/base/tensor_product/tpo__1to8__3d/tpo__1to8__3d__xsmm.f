@@ -4,6 +4,6 @@
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__1to8__3D__XSMM
-  use TPO__1to8__3D__XSMM_RDP
-end module TPO__1to8__3D__XSMM
+module TPO__1To8__3D__XSMM
+  use TPO__1To8__3D__XSMM_RDP
+end module TPO__1To8__3D__XSMM

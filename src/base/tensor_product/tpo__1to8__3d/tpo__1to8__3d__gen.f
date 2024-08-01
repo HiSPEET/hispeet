@@ -4,6 +4,6 @@
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__1to8__3D__Gen
-  use TPO__1to8__3D__Gen_RDP
-end module TPO__1to8__3D__Gen
+module TPO__1To8__3D__Gen
+  use TPO__1To8__3D__Gen_RDP
+end module TPO__1To8__3D__Gen

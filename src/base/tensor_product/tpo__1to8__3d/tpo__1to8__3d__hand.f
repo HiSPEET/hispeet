@@ -4,6 +4,6 @@
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__1to8__3D__Hand
-  use TPO__1to8__3D__Hand_RDP
-end module TPO__1to8__3D__Hand
+module TPO__1To8__3D__Hand
+  use TPO__1To8__3D__Hand_RDP
+end module TPO__1To8__3D__Hand

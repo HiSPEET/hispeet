@@ -4,17 +4,17 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__1to8__3D
+module TPO__1To8__3D
   use Kind_Parameters, only: RDP
-  use TPO__1to8__3D__Hand
-  use TPO__1to8__3D__XSMM
+  use TPO__1To8__3D__Hand
+  use TPO__1To8__3D__XSMM
   implicit none
   private
 
-  public :: TPO_1to8
+  public :: TPO_1To8
 
-  interface TPO_1to8
-    module procedure TPO_1to8_RDP, TPO_1to8_RDP_Array
+  interface TPO_1To8
+    module procedure TPO_1To8_RDP, TPO_1To8_RDP_Array
   end interface
 
 contains
@@ -22,7 +22,7 @@ contains
   !-----------------------------------------------------------------------------
   !> 3D 1:8 interpolation operator for RDP
 
-  subroutine TPO_1to8_RDP(A, u, v)
+  subroutine TPO_1To8_RDP(A, u, v)
     real(RDP), intent(in)  :: A(:,:,:)   !< 1D operator
     real(RDP), intent(in)  :: u(:,:,:,:) !< operand
     real(RDP), intent(out) :: v(:,:,:,:) !< result
@@ -35,20 +35,20 @@ contains
 
 #ifdef __LIBXSMM__
     case(8:)
-      call TPO_1to8_XSMM(A, u, v)
+      call TPO_1To8_XSMM(A, u, v)
 #endif
 
     case default
-      call TPO_1to8_Hand(A, u, v)
+      call TPO_1To8_Hand(A, u, v)
 
     end select
 
-  end subroutine TPO_1to8_RDP
+  end subroutine TPO_1To8_RDP
 
   !-----------------------------------------------------------------------------
   !> 3D 1:8 interpolation operator for RDP array variables
 
-  subroutine TPO_1to8_RDP_Array(A, u, v)
+  subroutine TPO_1To8_RDP_Array(A, u, v)
     real(RDP), intent(in)  :: A(:,:,:)     !< 1D operator
     real(RDP), intent(in)  :: u(:,:,:,:,:) !< operand
     real(RDP), intent(out) :: v(:,:,:,:,:) !< result
@@ -70,12 +70,12 @@ contains
       real(RDP), intent(in)  :: u(np,np,np,ne*nc)   !< operand
       real(RDP), intent(out) :: v(ni,ni,ni,ne*nc*8) !< result
 
-      call TPO_1to8_RDP(A, u, v)
+      call TPO_1To8_RDP(A, u, v)
 
     end subroutine ArrayOperator
 
-  end subroutine TPO_1to8_RDP_Array
+  end subroutine TPO_1To8_RDP_Array
 
   !=============================================================================
 
-end module TPO__1to8__3D
+end module TPO__1To8__3D

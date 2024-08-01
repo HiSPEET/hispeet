@@ -2,6 +2,8 @@ module Parent_To_Child_Interpolation__3D
   use Kind_Parameters
   use Mesh__3D
   use Data_Exchange__3D
+  use TPO__AAA__3D
+  use TPO__1To8__3D
   implicit none
   private
 
@@ -74,6 +76,15 @@ contains
     end do
 
     ! interpolate parent data to child variable ................................
+
+    select case (parent % refinement)
+    case('c')
+      ! p-refinement
+      call TPO_AAA(iop%A(:,:,1), v_r, v_c)
+    case('s')
+      ! h- or hp-refinement
+      call TPO_1To8(iop%A, v_r, v_c)
+    end select
 
   end subroutine ParentToChildInterpolation_3D
 
