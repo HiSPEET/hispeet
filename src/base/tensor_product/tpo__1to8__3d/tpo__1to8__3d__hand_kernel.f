@@ -51,7 +51,7 @@ subroutine PROC(TPO_1To8_Hand__,_NA1_,_NA2_)(ne, A, u, v)
 
     ! z = AxIxI uᵉ
     call PROC(CtxIxI__,_NA2_,_NA1_)(NA2_NA2, At(:,:,1), alpha, beta, u(:,:,:,e), z(:,:,:,1))
-    call PROC(CtxIxI__,_NA2_,_NA1_)(NA2_NA2, At(:,:,1), alpha, beta, u(:,:,:,e), z(:,:,:,1))
+    call PROC(CtxIxI__,_NA2_,_NA1_)(NA2_NA2, At(:,:,2), alpha, beta, u(:,:,:,e), z(:,:,:,2))
 
     ! y = IxAxI z
     call PROC(IxBtxI__,_NA2_,_NA1_)(_NA2_, _NA1_, At(:,:,1), alpha, beta, z(:,:,:,1), y(:,:,:,1,1))

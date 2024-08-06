@@ -5,13 +5,15 @@
 !===============================================================================
 
 program ML_Test_Functionality
-! use Kind_Parameters
+  use Kind_Parameters
+  use Constants
   use Logging_Levels
   use XMPI
   use Import_GMSH__3D
   use Generic_Mesh__3D
   use Mesh__3D
   use Verify_Mesh__3D
+  use Parent_To_Child_Interpolation__3D
   use ML__Mesh__3D
   use ML__Mesh_Operators__3D
   use ML__Mesh_Variable__3D
@@ -37,9 +39,9 @@ program ML_Test_Functionality
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
 
   character(len=:), allocatable :: gmsh_file
-  character(len=9) :: var_name(5)
+  character(len=9) :: var_name(8)
   logical :: passed, all_passed
-  integer :: rank, n_proc, prm
+  integer :: n_level, n_proc, rank, prm
   integer :: ne_max, ne_min, ne_tot
 
   integer :: e, l, nc
@@ -100,11 +102,12 @@ program ML_Test_Functionality
   ! multilevel mesh ............................................................
 
   ml_mesh = ML_Mesh_3D(base_mesh, ml_mesh_opt)
+  n_level = size(ml_mesh%mesh)
 
   associate(mesh => ml_mesh%mesh)
 
     ! verification
-    do l = 1, size(mesh)
+    do l = 1, n_level
       call VerifyMesh_3D(mesh(l), passed)
       call XMPI_Allreduce(passed, all_passed, MPI_LAND, comm)
       if (.not. all_passed) exit
@@ -119,7 +122,7 @@ program ML_Test_Functionality
     end if
 
     ! print info
-    do l = 1, size(mesh)
+    do l = 1, n_level
       if (mesh(l)%part >= 0) then
         call XMPI_Reduce(mesh(l)%n_elem, ne_min, MPI_MIN, 0, mesh(l)%comm_parts)
         call XMPI_Reduce(mesh(l)%n_elem, ne_max, MPI_MAX, 0, mesh(l)%comm_parts)
@@ -146,11 +149,17 @@ program ML_Test_Functionality
   var_name(3) = 'elem_type'
   var_name(4) = 'elem_q_Js'
   var_name(5) = 'var_order'
+  var_name(6) = 'v'
+  var_name(7) = 'Iv_p'
+  var_name(8) = 'Iv_p - v'
 
   ml_var = ML_MeshVariable_3D(ml_op, nc, var_name)
 
-  do l = 1, size(ml_var%level)
-    associate(sem => ml_op%sem(l), var => ml_var%level(l)%val)
+  do l = 1, n_level
+    associate( sem => ml_op  % sem(l)               &
+             , x   => ml_op  % sem(l) % metrics % x &
+             , var => ml_var % level(l) % val      )
+
       do e = 1, sem%mesh%n_elem
         var(:,:,:,e,1) = sem%mesh%part
         var(:,:,:,e,2) = e
@@ -164,9 +173,55 @@ program ML_Test_Functionality
         var(:,:,:,e,4) = minval(sem % metrics % Jd(:,:,:,e)) &
                        / maxval(sem % metrics % Jd(:,:,:,e))
         var(:,:,:,e,5) = po(l)
+        var(:,:,:,e,6) = sin(real(2*PI,RNP) * ( x(:,:,:,e,1)  &
+                                              + x(:,:,:,e,2)  &
+                                              + x(:,:,:,e,3) ))
+        var(:,:,:,e,7) = 0
+        var(:,:,:,e,8) = 0
       end do
+
     end associate
   end do
+
+  ! coarse-to-fine interpolation ...............................................
+
+  block
+    real(RNP), allocatable :: delta(:), delta_loc(:)
+
+    allocate(delta(n_level-1), source = ZERO)
+    allocate(delta_loc, source = delta)
+
+    do l = 1, n_level - 1
+      associate( parent => ml_op  % sem(l)     % mesh &
+               , child  => ml_op  % sem(l+1)   % mesh &
+               , var_p  => ml_var % level(l  ) % val  &
+               , var_c  => ml_var % level(l+1) % val  &
+               , iop    => ml_op  % iop_cf(l)         )
+
+        call ParentToChildInterpolation_3D( parent, child, iop     &
+                                          , v_p = var_p(:,:,:,:,6) &
+                                          , v_c = var_c(:,:,:,:,7) )
+
+        do e = 1, child%n_elem
+          var_c(:,:,:,e,8) = var_c(:,:,:,e,7) - var_c(:,:,:,e,6)
+          delta_loc(l) = max(delta_loc(l), maxval(abs(var_c(:,:,:,e,8))))
+        end do
+
+      end associate
+    end do
+
+    call XMPI_Reduce(delta_loc, delta, MPI_MAX, 0, comm)
+
+    if (rank == 0) then
+      write(*,'(/,A)') 'coarse-to-fine interpolation error'
+      do l = 1, n_level-1
+        write(*,'(2X,5G0,ES10.3)') '|I v_',l,' - v_',l+1,'| =', delta(l)
+      end do
+    end if
+
+    deallocate(delta, delta_loc)
+
+  end block
 
   ! VTK export .................................................................
 

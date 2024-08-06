@@ -162,11 +162,6 @@ set ( MESH_3D
       mesh_3d/spectral_element_mesh__3d.f
       mesh_3d/boundary_variable__3d.f
 
-      mesh_3d/ml__mesh__3d.f
-      mesh_3d/ml__mesh_operators__3d.f
-      mesh_3d/ml__mesh_variable__3d.f
-      mesh_3d/ml__mesh_variable__3d__mp_exportvtk.f
-
     )
 
 #===============================================================================
@@ -222,20 +217,34 @@ set( UTIL_3D ${UTIL_3D}
      util_3d/ops/surface_integrals__3d.f
     )
 
-set( UTIL_3D ${UTIL_3D}
-     util_3d/adaptation/child_distribution_map__3d.f
-     util_3d/adaptation/child_mesh_adaptation__3d.F
-     util_3d/adaptation/child_mesh_adaptation__3d__mp_buildchilddata.f
-     util_3d/adaptation/child_mesh_adaptation__3d__mp_buildchildmap.f
-     util_3d/adaptation/child_mesh_adaptation__3d__mp_buildconnections.f
-     util_3d/adaptation/element_distribution_map__3d.f
-     util_3d/adaptation/element_distribution_data__3d.f
-     util_3d/adaptation/globalize_adaptation_pattern__3d.f
-     util_3d/adaptation/partitioner_interface__3d.f
-     util_3d/adaptation/process_adaptation_pattern__3d.f
-     util_3d/adaptation/restrict_adaptation_pattern__3d.f
-     util_3d/adaptation/root_mesh_partitioning__3d.F
-    )
+#===============================================================================
+# multilevel_3d
+
+set( MULTILEVEL_3D
+     multilevel_3d/mesh/ml__mesh__3d.f
+     multilevel_3d/mesh/ml__mesh_operators__3d.f
+     multilevel_3d/mesh/ml__mesh_variable__3d.f
+     multilevel_3d/mesh/ml__mesh_variable__3d__mp_exportvtk.f
+   )
+
+set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/ops/parent_to_child_interpolation__3d.f
+   )
+
+set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/adaptation/child_distribution_map__3d.f
+     multilevel_3d/adaptation/child_mesh_adaptation__3d.F
+     multilevel_3d/adaptation/child_mesh_adaptation__3d__mp_buildchilddata.f
+     multilevel_3d/adaptation/child_mesh_adaptation__3d__mp_buildchildmap.f
+     multilevel_3d/adaptation/child_mesh_adaptation__3d__mp_buildconnections.f
+     multilevel_3d/adaptation/element_distribution_map__3d.f
+     multilevel_3d/adaptation/element_distribution_data__3d.f
+     multilevel_3d/adaptation/globalize_adaptation_pattern__3d.f
+     multilevel_3d/adaptation/partitioner_interface__3d.f
+     multilevel_3d/adaptation/process_adaptation_pattern__3d.f
+     multilevel_3d/adaptation/restrict_adaptation_pattern__3d.f
+     multilevel_3d/adaptation/root_mesh_partitioning__3d.F
+   )
 
 #===============================================================================
 # elliptic_1d
@@ -292,6 +301,7 @@ set(BASE_SRC ${ESSENTIALS}
              ${MESH_3D}
              ${UTIL_1D}
              ${UTIL_3D}
+             ${MULTILEVEL_3D}
              ${ELLIPTIC_1D}
              ${ELLIPTIC_3D}
              )
