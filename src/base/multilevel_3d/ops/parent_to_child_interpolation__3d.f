@@ -25,7 +25,7 @@ module Parent_To_Child_Interpolation__3D
 contains
 
   !-----------------------------------------------------------------------------
-  !> 3D parent to child interpolation of scalar data
+  !> 3D parent to child interpolation of array data
 
   subroutine ParentToChildInterpolation_A( parent, child, iop, v_p, v_c &
                                          , skip_frozen                  )
@@ -35,7 +35,7 @@ contains
       !< child mesh partition
     class(CoarseToFineInterpolation_1D), intent(in) :: iop
       !< interpolation operator
-    real(RNP), contiguous, intent(in)    :: v_p(0:,0:,0:,:,:)
+    real(RNP), contiguous, intent(in) :: v_p(0:,0:,0:,:,:)
       !< parent data
     real(RNP), contiguous, intent(inout) :: v_c(0:,0:,0:,:,:)
       !< child data
@@ -48,7 +48,7 @@ contains
   end subroutine ParentToChildInterpolation_A
 
   !-----------------------------------------------------------------------------
-  !> 3D parent to child interpolation of array data
+  !> 3D parent to child interpolation of scalar data
 
   subroutine ParentToChildInterpolation_S( parent, child, iop, v_p, v_c &
                                          , skip_frozen                  )
@@ -58,7 +58,7 @@ contains
       !< child mesh partition
     class(CoarseToFineInterpolation_1D), intent(in) :: iop
       !< interpolation operator
-    real(RNP), contiguous, intent(in)    :: v_p(0:,0:,0:,:)
+    real(RNP), contiguous, intent(in) :: v_p(0:,0:,0:,:)
       !< parent data
     real(RNP), contiguous, intent(inout) :: v_c(0:,0:,0:,:)
       !< child data
@@ -81,8 +81,9 @@ contains
     class(Mesh_3D), intent(in) :: child
       !< child mesh partition
     class(CoarseToFineInterpolation_1D), intent(in) :: iop
-    integer,   intent(in) :: n_comp
       !< interpolation operator
+    integer, intent(in) :: n_comp
+      !< number of array components
     real(RNP), intent(in) :: &
       v_p(0:iop%po_c, 0:iop%po_c, 0:iop%po_c, parent% n_elem, n_comp)
       !< parent data
@@ -165,11 +166,14 @@ contains
 
     ! interpolate parent data to child variable ................................
 
-    select case (parent % refinement)
-    case('c')
+    select case (iop % mode)
+    case(0)
+      ! identity
+      call SetArray(v_i, v_r)
+    case(1)
       ! p-refinement
       call TPO_AAA(iop%A(:,:,1), v_r, v_i)
-    case('s')
+    case(2)
       ! h- or hp-refinement
       call TPO_1To8(iop%A, v_r, v_i)
     end select
