@@ -1,4 +1,5 @@
 add_subdirectory(time_integration)
 add_subdirectory(tensor_product)
 add_subdirectory(mesh_3d)
+add_subdirectory(multilevel_3d)
 add_subdirectory(elliptic_3d)
