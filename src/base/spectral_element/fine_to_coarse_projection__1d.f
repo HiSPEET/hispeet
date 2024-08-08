@@ -132,9 +132,8 @@ contains
       case('I')
         allocate(this % A(0:po_c/2,0:po_f,2), source = ZERO)
       end select
-      if (this % smooth == 1) then
-        allocate(this % B(0:po_f,2), source = ZERO)
-      end if
+      ! B is needed only with smooth=1, but always allocated for regularity
+      allocate(this % B(0:po_f,2), source = ZERO)
     end select
 
     ! collocation points .......................................................
