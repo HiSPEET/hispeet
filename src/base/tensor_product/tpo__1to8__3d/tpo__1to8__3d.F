@@ -1,4 +1,4 @@
-!> summary:  3d interpolation operator for regular 1:8 h-refinement
+!> summary:  3d interpolation operator for regular 1:8 h- or hp-refinement
 !> author:   Joerg Stiller
 !> date:     2024/07/29
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -20,12 +20,12 @@ module TPO__1To8__3D
 contains
 
   !-----------------------------------------------------------------------------
-  !> 3D 1:8 interpolation operator for RDP
+  !> 3D 1:8 interpolation operator for RDP scalar variables
 
   subroutine TPO_1To8_RDP(A, u, v)
-    real(RDP), intent(in)  :: A(:,:,:)   !< 1D operator
-    real(RDP), intent(in)  :: u(:,:,:,:) !< operand
-    real(RDP), intent(out) :: v(:,:,:,:) !< result
+    real(RDP), contiguous, intent(in)  :: A(:,:,:)   !< 1D operator
+    real(RDP), contiguous, intent(in)  :: u(:,:,:,:) !< operand
+    real(RDP), contiguous, intent(out) :: v(:,:,:,:) !< result
 
     integer :: np_max
 
@@ -49,9 +49,9 @@ contains
   !> 3D 1:8 interpolation operator for RDP array variables
 
   subroutine TPO_1To8_RDP_Array(A, u, v)
-    real(RDP), intent(in)  :: A(:,:,:)     !< 1D operator
-    real(RDP), intent(in)  :: u(:,:,:,:,:) !< operand
-    real(RDP), intent(out) :: v(:,:,:,:,:) !< result
+    real(RDP), contiguous, intent(in)  :: A(:,:,:)     !< 1D operator
+    real(RDP), contiguous, intent(in)  :: u(:,:,:,:,:) !< operand
+    real(RDP), contiguous, intent(out) :: v(:,:,:,:,:) !< result
 
     integer :: nc, ne, ni, np
 

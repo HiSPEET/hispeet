@@ -10,9 +10,9 @@
 !> Generic 3d interpolation operator for regular 1:8 h-refinement
 
 subroutine TPO_1To8_Gen_RWP(A, u, v)
-  real(RWP), intent(in)  :: A(:,:,:)   !< 1D operator (na1,na2,2)
-  real(RWP), intent(in)  :: u(:,:,:,:) !< operand
-  real(RWP), intent(out) :: v(:,:,:,:) !< result
+  real(RWP), contiguous, intent(in)  :: A(:,:,:)   !< 1D operator (na1,na2,2)
+  real(RWP), contiguous, intent(in)  :: u(:,:,:,:) !< operand
+  real(RWP), contiguous, intent(out) :: v(:,:,:,:) !< result
 
   !---------------------------------------------------------------------------
   ! local variables

@@ -17,6 +17,6 @@ module TPO__1To8__3D__Gen_RDP
 
 contains
 
-#include "tpo__1To8__3d__gen_kernel-321.f"
+#include "tpo__1to8__3d__gen_kernel-321.f"
 
 end module TPO__1To8__3D__Gen_RDP

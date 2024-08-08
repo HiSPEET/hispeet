@@ -25,9 +25,10 @@ contains
   !> XSMM AxAxA operator
 
   subroutine TPO_1To8_XSMM_RDP(A, u, v)
-    real(RDP), intent(in)  :: A(:,:,:)   !< 1D operator
-    real(RDP), intent(in)  :: u(:,:,:,:) !< operand
-    real(RDP), intent(out) :: v(:,:,:,:) !< result
+    real(RDP), contiguous, intent(in)  :: A(:,:,:)   !< 1D operator
+    real(RDP), contiguous, intent(in)  :: u(:,:,:,:) !< operand
+    real(RDP), contiguous, intent(out) :: v(:,:,:,:) !< result
+
     real(RDP), parameter :: alpha  = 1
     real(RDP), parameter :: beta   = 0
 
