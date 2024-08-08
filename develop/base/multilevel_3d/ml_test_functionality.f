@@ -13,6 +13,7 @@ program ML_Test_Functionality
   use Generic_Mesh__3D
   use Mesh__3D
   use Verify_Mesh__3D
+  use Child_To_Parent_Projection__3D
   use Parent_To_Child_Interpolation__3D
   use ML__Mesh__3D
   use ML__Mesh_Operators__3D
@@ -38,8 +39,12 @@ program ML_Test_Functionality
 
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
 
-  character(len=:), allocatable :: gmsh_file
-  character(len=9) :: var_name(8)
+  character(len=:), allocatable, save :: gmsh_file
+  character(len=9), save :: var_name(12)
+
+  real(RNP), allocatable, save :: delta(:)
+  real(RNP), allocatable, save :: delta_loc(:)
+
   logical :: passed, all_passed
   integer :: n_level, n_proc, rank, prm
   integer :: ne_max, ne_min, ne_tot
@@ -144,14 +149,18 @@ program ML_Test_Functionality
   ! multilevel variable ........................................................
 
   nc = size(var_name)
-  var_name(1) = 'mesh_part'
-  var_name(2) = 'elem_id'
-  var_name(3) = 'elem_type'
-  var_name(4) = 'elem_q_Js'
-  var_name(5) = 'var_order'
-  var_name(6) = 'v'
-  var_name(7) = 'Iv_p'
-  var_name(8) = 'Iv_p - v'
+  var_name( 1) = 'mesh_part'
+  var_name( 2) = 'elem_id'
+  var_name( 3) = 'elem_type'
+  var_name( 4) = 'elem_q_Js'
+  var_name( 5) = 'var_order'
+  var_name( 6) = 'v'
+  var_name( 7) = 'Iv_p'
+  var_name( 8) = 'Iv_p - v'
+  var_name( 9) = 'Iv_c'
+  var_name(10) = 'Iv_c - v'
+  var_name(11) = 'Pv_c'
+  var_name(12) = 'Pv_c - v'
 
   ml_var = ML_MeshVariable_3D(ml_op, nc, var_name)
 
@@ -176,8 +185,12 @@ program ML_Test_Functionality
         var(:,:,:,e,6) = sin(real(2*PI,RNP) * ( x(:,:,:,e,1)  &
                                               + x(:,:,:,e,2)  &
                                               + x(:,:,:,e,3) ))
-        var(:,:,:,e,7) = 0
-        var(:,:,:,e,8) = 0
+        var(:,:,:,e, 7) = 0
+        var(:,:,:,e, 8) = 0
+        var(:,:,:,e, 9) = 0
+        var(:,:,:,e,10) = 0
+        var(:,:,:,e,11) = 0
+        var(:,:,:,e,12) = 0
       end do
 
     end associate
@@ -185,43 +198,100 @@ program ML_Test_Functionality
 
   ! coarse-to-fine interpolation ...............................................
 
-  block
-    real(RNP), allocatable :: delta(:), delta_loc(:)
+  allocate(delta(n_level-1), source = ZERO)
+  allocate(delta_loc, source = delta)
 
-    allocate(delta(n_level-1), source = ZERO)
-    allocate(delta_loc, source = delta)
+  do l = 1, n_level - 1
+    associate( parent => ml_op  % sem(l)     % mesh &
+             , child  => ml_op  % sem(l+1)   % mesh &
+             , var_p  => ml_var % level(l  ) % val  &
+             , var_c  => ml_var % level(l+1) % val  &
+             , iop    => ml_op  % iop_cf(l)         )
 
-    do l = 1, n_level - 1
-      associate( parent => ml_op  % sem(l)     % mesh &
-               , child  => ml_op  % sem(l+1)   % mesh &
-               , var_p  => ml_var % level(l  ) % val  &
-               , var_c  => ml_var % level(l+1) % val  &
-               , iop    => ml_op  % iop_cf(l)         )
+      call ParentToChildInterpolation_3D( parent, child, iop     &
+                                        , v_p = var_p(:,:,:,:,6) &
+                                        , v_c = var_c(:,:,:,:,7) )
 
-        call ParentToChildInterpolation_3D( parent, child, iop     &
-                                          , v_p = var_p(:,:,:,:,6) &
-                                          , v_c = var_c(:,:,:,:,7) )
-
-        do e = 1, child%n_elem
-          var_c(:,:,:,e,8) = var_c(:,:,:,e,7) - var_c(:,:,:,e,6)
-          delta_loc(l) = max(delta_loc(l), maxval(abs(var_c(:,:,:,e,8))))
-        end do
-
-      end associate
-    end do
-
-    call XMPI_Reduce(delta_loc, delta, MPI_MAX, 0, comm)
-
-    if (rank == 0) then
-      write(*,'(/,A)') 'coarse-to-fine interpolation error'
-      do l = 1, n_level-1
-        write(*,'(2X,5G0,ES10.3)') '|I v_',l,' - v_',l+1,'| =', delta(l)
+      do e = 1, child%n_elem
+        var_c(:,:,:,e,8) = var_c(:,:,:,e,7) - var_c(:,:,:,e,6)
+        delta_loc(l) = max(delta_loc(l), maxval(abs(var_c(:,:,:,e,8))))
       end do
-    end if
 
-    deallocate(delta, delta_loc)
+    end associate
+  end do
 
-  end block
+  call XMPI_Reduce(delta_loc, delta, MPI_MAX, 0, comm)
+
+  if (rank == 0) then
+    write(*,'(/,A)') 'coarse-to-fine interpolation error'
+    do l = 1, n_level-1
+      write(*,'(2X,5G0,ES10.3)') '|I v_',l,' - v_',l+1,'| =', delta(l)
+    end do
+  end if
+
+  ! fine-to-coarse interpolation ...............................................
+
+  do l = 1, n_level - 1
+    associate( parent => ml_op  % sem(l)     % mesh &
+             , child  => ml_op  % sem(l+1)   % mesh &
+             , var_p  => ml_var % level(l  ) % val  &
+             , var_c  => ml_var % level(l+1) % val  &
+             , pop    => ml_op  % iop_fc(l+1)       )
+
+      call ChildToParentProjection_3D( child, parent, pop &
+                                     , var_c(:,:,:,:,6)   &
+                                     , var_p(:,:,:,:,9)   )
+
+      delta_loc(l) = 0
+      do e = 1, parent%n_elem
+        if (parent%element(e)%adaptation%refinement < 1000) cycle
+        var_p(:,:,:,e,10) = var_p(:,:,:,e,9) - var_p(:,:,:,e,6)
+        delta_loc(l) = max(delta_loc(l), maxval(abs(var_p(:,:,:,e,10))))
+      end do
+
+    end associate
+  end do
+
+  call XMPI_Reduce(delta_loc, delta, MPI_MAX, 0, comm)
+
+  if (rank == 0) then
+    write(*,'(/,A)') 'fine-to-coarse interpolation error'
+    do l = 1, n_level-1
+      write(*,'(2X,5G0,ES10.3)') '|I v_',l+1,' - v_',l,'| =', delta(l)
+    end do
+  end if
+
+  ! fine-to-coarse L2-projection ...............................................
+
+  do l = 1, n_level - 1
+    associate( parent => ml_op  % sem(l)     % mesh &
+             , child  => ml_op  % sem(l+1)   % mesh &
+             , var_p  => ml_var % level(l  ) % val  &
+             , var_c  => ml_var % level(l+1) % val  &
+             , pop    => ml_op  % pop_fc(l+1)       )
+
+      call ChildToParentProjection_3D( child, parent, pop &
+                                     , var_c(:,:,:,:,6)   &
+                                     , var_p(:,:,:,:,11)  )
+
+      delta_loc(l) = 0
+      do e = 1, parent%n_elem
+        if (parent%element(e)%adaptation%refinement < 1000) cycle
+        var_p(:,:,:,e,12) = var_p(:,:,:,e,9) - var_p(:,:,:,e,6)
+        delta_loc(l) = max(delta_loc(l), maxval(abs(var_p(:,:,:,e,12))))
+      end do
+
+    end associate
+  end do
+
+  call XMPI_Reduce(delta_loc, delta, MPI_MAX, 0, comm)
+
+  if (rank == 0) then
+    write(*,'(/,A)') 'fine-to-coarse L²-projection error'
+    do l = 1, n_level-1
+      write(*,'(2X,5G0,ES10.3)') '|P v_',l+1,' - v_',l,'| =', delta(l)
+    end do
+  end if
 
   ! VTK export .................................................................
 
@@ -231,6 +301,10 @@ program ML_Test_Functionality
   end if
 
   ! finalization ...............................................................
+
+  if ( allocated(gmsh_file) ) deallocate(gmsh_file)
+  if ( allocated(delta_loc) ) deallocate(delta_loc)
+  if ( allocated(delta)     ) deallocate(delta)
 
   call MPI_Finalize()
 
