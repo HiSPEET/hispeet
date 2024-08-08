@@ -31,10 +31,9 @@ contains
     real(RDP), contiguous, intent(in)  :: u(:,:,:,:) !< operand
     real(RDP), contiguous, intent(out) :: v(:,:,:,:) !< result
 
-
-    real(RDP), parameter :: alpha = 1
-    real(RDP), parameter :: beta  = 1
-    real(RDP), parameter :: HALF  = 0.5
+    real(RDP), parameter :: ZERO = 0
+    real(RDP), parameter :: HALF = 0.5
+    real(RDP), parameter :: ONE  = 1
 
     !---------------------------------------------------------------------------
     ! local variables
@@ -76,9 +75,9 @@ contains
     !-----------------------------------------------------------------------------
     ! XSMM dispatch
     !$omp master
-    call LIBXSMM_Dispatch(xmm_3, npu**2, na1   , na2, alpha=alpha, beta=beta)
-    call LIBXSMM_Dispatch(xmm_2, npu   , na1   , na2, alpha=alpha, beta=beta)
-    call LIBXSMM_Dispatch(xmm_1, na1   , npv**2, na2, alpha=alpha, beta=beta)
+    call LIBXSMM_Dispatch(xmm_3, npu**2, na1   , na2, alpha=ONE, beta=ONE )
+    call LIBXSMM_Dispatch(xmm_2, npu   , na1   , na2, alpha=ONE, beta=ZERO)
+    call LIBXSMM_Dispatch(xmm_1, na1   , npv**2, na2, alpha=ONE, beta=ZERO)
     !$omp end master
     !$omp barrier
 
@@ -86,7 +85,7 @@ contains
     ! evaluation
 
     !$omp do
-    do e = 1, size(u,4)
+    do e = 1, size(v,4)
 
       ! z3 = AxIxI u ...........................................................
 
