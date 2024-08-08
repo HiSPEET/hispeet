@@ -49,6 +49,7 @@ include_directories( tensor_product/primitives/IxIxQt
 
 # parametrized operators
 include(cmake/tpo__1to8__3d.cmake)
+include(cmake/tpo__8to1__3d.cmake)
 include(cmake/tpo__aaa__3d.cmake)
 include(cmake/tpo__average__3d.cmake)
 include(cmake/tpo__diagonal__3d.cmake)
@@ -228,6 +229,7 @@ set( MULTILEVEL_3D
    )
 
 set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/ops/child_to_parent_projection__3d.f
      multilevel_3d/ops/parent_to_child_interpolation__3d.f
    )
 
