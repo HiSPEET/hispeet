@@ -1,8 +1,8 @@
 !-------------------------------------------------------------------------------
-!> Parametrized 3d diffusion kernel using hand-crafted suboperators (DLCI)
+!> Parametrized 3d diffusion kernel using hand-crafted suboperators (DLVI)
 
-subroutine PROC(TPO_Elliptic_DLCI_Hand__,_NP_) &
-    (ne, Ms, Ds, Jd, G, lambda, nu, u, v, Ji_n, ub, qb)
+subroutine PROC(TPO_Elliptic_DLVI_Hand__,_NP_) &
+    (ne, Ms, Ds, Jd, G, lambda, nu, u, v, Ji_n, nub, ub, qb)
 
   integer,   intent(in)  :: ne                     !< num elements
   real(RWP), intent(in)  :: Ms(_NP_)               !< standard mass matrix
@@ -10,11 +10,12 @@ subroutine PROC(TPO_Elliptic_DLCI_Hand__,_NP_) &
   real(RWP), intent(in)  :: Jd(_NP_,_NP_,_NP_,ne)  !< Jacobian determinant
   real(RWP), intent(in)  :: G(_NP_,_NP_,_NP_,ne,6) !< Laplacian metrics
   real(RWP), intent(in)  :: lambda                 !< Helmholtz parameter λ
-  real(RWP), intent(in)  :: nu                     !< diffusivity nu
+  real(RWP), intent(in)  :: nu(_NP_,_NP_,_NP_,ne)  !< diffusivity nu
   real(RWP), intent(in)  :: u(_NP_,_NP_,_NP_,ne)   !< operand
   real(RWP), intent(out) :: v(_NP_,_NP_,_NP_,ne)   !< result
 
   real(RWP), optional, intent(in)    :: Ji_n(_NP_,_NP_,6,ne,3) !< J⁻¹⋅n @ elem faces
+  real(RWP), optional, intent(inout) :: nub(_NP_,_NP_,6,ne) !< ν at element boundary
   real(RWP), optional, intent(inout) :: ub(_NP_,_NP_,6,ne) !< element boundary values
   real(RWP), optional, intent(inout) :: qb(_NP_,_NP_,6,ne) !< element boundary fluxes
 
@@ -39,7 +40,10 @@ subroutine PROC(TPO_Elliptic_DLCI_Hand__,_NP_) &
 
   Ds_t = transpose(Ds)
 
-  get_traces = present(Ji_n) .and. present(ub) .and. present(qb)
+  get_traces = present(Ji_n) .and. &
+               present(nub)  .and. &
+               present(ub)   .and. &
+               present(qb)
 
   ! 3D standard mass matrix
   do k = 1, _NP_
@@ -87,46 +91,49 @@ subroutine PROC(TPO_Elliptic_DLCI_Hand__,_NP_) &
 
     if (get_traces) then
 
-      ! ub = u,  qb = n⋅ν∇u  @ Γ₁ ∪ Γ₂
+      ! nub = ν;  ub = u,  qb = n⋅ν∇u  @ Γ₁ ∪ Γ₂
 
       i = 1
       do f = 1, 2
         do k = 1, _NP_
         do j = 1, _NP_
-          ub(j,k,f,e) = u(i,j,k,e)
-          qb(j,k,f,e) = nu * ( Ji_n(j,k,f,e,1) * r(i,j,k) &
-                             + Ji_n(j,k,f,e,2) * s(i,j,k) &
-                             + Ji_n(j,k,f,e,3) * t(i,j,k) )
+          nub(j,k,f,e) = nu(i,j,k,e)
+          ub (j,k,f,e) = u (i,j,k,e)
+          qb (j,k,f,e) = nu(i,j,k,e) * ( Ji_n(j,k,f,e,1) * r(i,j,k) &
+                                       + Ji_n(j,k,f,e,2) * s(i,j,k) &
+                                       + Ji_n(j,k,f,e,3) * t(i,j,k) )
         end do
         end do
         i = _NP_
       end do
 
-      ! ub = u,  qb = n⋅ν∇u  @ Γ₃ ∪ Γ₄
+      ! nub = ν;  ub = u,  qb = n⋅ν∇u  @ Γ₃ ∪ Γ₄
 
       j = 1
       do f = 3, 4
         do k = 1, _NP_
         do i = 1, _NP_
-          ub(i,k,f,e) = u(i,j,k,e)
-          qb(i,k,f,e) = nu * ( Ji_n(i,k,f,e,1) * r(i,j,k) &
-                             + Ji_n(i,k,f,e,2) * s(i,j,k) &
-                             + Ji_n(i,k,f,e,3) * t(i,j,k) )
+          nub(i,k,f,e) = nu(i,j,k,e)
+          ub (i,k,f,e) = u (i,j,k,e)
+          qb (i,k,f,e) = nu(i,j,k,e) * ( Ji_n(i,k,f,e,1) * r(i,j,k) &
+                                       + Ji_n(i,k,f,e,2) * s(i,j,k) &
+                                       + Ji_n(i,k,f,e,3) * t(i,j,k) )
         end do
         end do
         j = _NP_
       end do
 
-      ! ub = u,  qb = n⋅ν∇u  @ Γ₅ ∪ Γ₆
+      ! nub = ν;  ub = u,  qb = n⋅ν∇u  @ Γ₅ ∪ Γ₆
 
       k = 1
       do f = 5, 6
         do j = 1, _NP_
         do i = 1, _NP_
-          ub(i,j,f,e) = u(i,j,k,e)
-          qb(i,j,f,e) = nu * ( Ji_n(i,j,f,e,1) * r(i,j,k) &
-                             + Ji_n(i,j,f,e,2) * s(i,j,k) &
-                             + Ji_n(i,j,f,e,3) * t(i,j,k) )
+          nub(i,j,f,e) = nu(i,j,k,e)
+          ub (i,j,f,e) = u(i,j,k,e)
+          qb (i,j,f,e) = nu(i,j,k,e) * ( Ji_n(i,j,f,e,1) * r(i,j,k) &
+                                       + Ji_n(i,j,f,e,2) * s(i,j,k) &
+                                       + Ji_n(i,j,f,e,3) * t(i,j,k) )
         end do
         end do
         k = _NP_
@@ -142,9 +149,9 @@ subroutine PROC(TPO_Elliptic_DLCI_Hand__,_NP_) &
     do k = 1, _NP_
     do j = 1, _NP_
     do i = 1, _NP_
-      z(i,j,k) = nu * M(i,j,k) * ( G(i,j,k,e,1) * r(i,j,k) &
-                                 + G(i,j,k,e,2) * s(i,j,k) &
-                                 + G(i,j,k,e,3) * t(i,j,k) )
+      z(i,j,k) = nu(i,j,k,e) * M(i,j,k) * ( G(i,j,k,e,1) * r(i,j,k) &
+                                          + G(i,j,k,e,2) * s(i,j,k) &
+                                          + G(i,j,k,e,3) * t(i,j,k) )
     end do
     end do
     end do
@@ -158,9 +165,9 @@ subroutine PROC(TPO_Elliptic_DLCI_Hand__,_NP_) &
     do k = 1, _NP_
     do j = 1, _NP_
     do i = 1, _NP_
-      z(i,j,k) = nu * M(i,j,k) * ( G(i,j,k,e,2) * r(i,j,k) &
-                                 + G(i,j,k,e,4) * s(i,j,k) &
-                                 + G(i,j,k,e,5) * t(i,j,k) )
+      z(i,j,k) = nu(i,j,k,e) * M(i,j,k) * ( G(i,j,k,e,2) * r(i,j,k) &
+                                          + G(i,j,k,e,4) * s(i,j,k) &
+                                          + G(i,j,k,e,5) * t(i,j,k) )
     end do
     end do
     end do
@@ -174,9 +181,9 @@ subroutine PROC(TPO_Elliptic_DLCI_Hand__,_NP_) &
     do k = 1, _NP_
     do j = 1, _NP_
     do i = 1, _NP_
-      z(i,j,k) = nu * M(i,j,k) * ( G(i,j,k,e,3) * r(i,j,k) &
-                                 + G(i,j,k,e,5) * s(i,j,k) &
-                                 + G(i,j,k,e,6) * t(i,j,k) )
+      z(i,j,k) = nu(i,j,k,e) * M(i,j,k) * ( G(i,j,k,e,3) * r(i,j,k) &
+                                          + G(i,j,k,e,5) * s(i,j,k) &
+                                          + G(i,j,k,e,6) * t(i,j,k) )
     end do
     end do
     end do
@@ -186,4 +193,4 @@ subroutine PROC(TPO_Elliptic_DLCI_Hand__,_NP_) &
 
   end do
 
-end subroutine PROC(TPO_Elliptic_DLCI_Hand__,_NP_)
+end subroutine PROC(TPO_Elliptic_DLVI_Hand__,_NP_)
