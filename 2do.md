@@ -42,17 +42,16 @@
 - [x] `ML_Operators_3D`
   - [x] Coarse-to-fine interpolation operator
   - [x] Fine-to-Coarse interpolation and L2 projection operators
-- [ ] Tensorproduct operators
-  - [ ] Interpolation 8:1
-  - [ ] Interpolation/projection 1:8
-  - [ ] LIBXSMM versions
-  - [ ] Validation
-
+- [x] Tensorproduct operators
+  - [x] Interpolation 8:1
+  - [x] Interpolation/projection 1:8
+  - [x] LIBXSMM versions
 - [ ] `ML_MeshVariable`
-  - [ ] Constructor and destructor
-  - [ ] HDF5 read and write
-  - [ ] Coarse-to-fine interpolation (global, parallel, adaptive)
-  - [ ] Fine-to-coarse interpolation/projection
+  - [x] Constructor and destructor
+  - [x] HDF5 read and write
+  - [x] Parent-to-child interpolation (global, parallel, adaptive)
+  - [x] Child-to-parent interpolation/projection
+  - [ ] Validation
 - [ ] Multigrid for elliptic operators
   - [ ] Dependency analysis
   - [ ] Design of data structures and interfaces
