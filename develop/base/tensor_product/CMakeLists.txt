@@ -115,6 +115,17 @@ configure_file( validate__tpo__elliptic_3d_dlci.prm
                 validate__tpo__elliptic_3d_dlci.prm COPYONLY )
 
 #===============================================================================
+# TPO Elliptic DLVI
+
+add_executable( validate__tpo__elliptic_3d_dlvi
+                validate__tpo__elliptic_3d_dlvi.f )
+
+target_link_libraries(validate__tpo__elliptic_3d_dlvi HiBase)
+
+configure_file( validate__tpo__elliptic_3d_dlvi.prm
+                validate__tpo__elliptic_3d_dlvi.prm COPYONLY )
+
+#===============================================================================
 # TPO Spectral CI
 
 add_executable( validate__tpo__spectral_3d_ci

@@ -1,15 +1,15 @@
-!> summary:  Validation of the curvilinear elliptic TPO for constant diffusivity
-!> author:   Jerome Michel, Joerg Stiller
-!> date:     2021/08/25
+!> summary:  Validation of the curvilinear elliptic TPO for variable diffusivity
+!> author:   Joerg Stiller
+!> date:     2024/08/12
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-program Validate__TPO_Elliptic_DLCI
+program Validate__TPO_Elliptic_DLVI
 ! validate
   use Kind_Parameters
   use Standard_Operators__1D
-  use TPO__Elliptic__3D_DLCI
-  use TPO__Elliptic__3D_DLCI__Gen
+  use TPO__Elliptic__3D_DLVI
+  use TPO__Elliptic__3D_DLVI__Gen
 ! mesh
   use Constants
   use XMPI
@@ -21,14 +21,14 @@ program Validate__TPO_Elliptic_DLCI
   use Assembly__3D
   use Export_VTK_Volume_Data__3D
 
-  !use TPO__Elliptic__3D_DLCI__XSMM
+  !use TPO__Elliptic__3D_DLVI__XSMM
 
   implicit none
 
   ! input parameters ...........................................................
 
   character(len=*), parameter :: &
-         input_file     = 'validate__tpo__elliptic_3d_dlci.prm'
+         input_file     = 'validate__tpo__elliptic_3d_dlvi.prm'
   integer   :: conf     = 1       ! configuration (1 cylinder, 2 annular gap)
   real(RNP) :: r0       = 0.5     ! inner radius  (annular gap only)
   real(RNP) :: r1       = 1       ! outer radius
@@ -41,9 +41,8 @@ program Validate__TPO_Elliptic_DLCI
   logical   :: periodic = .false. ! switch for axial periodicity
   logical   :: exact    = .false. ! compare with exact or approximate gradient
   real(RNP) :: lambda   = 1       ! Helmholtz parameter
-  real(RNP) :: nu       = 1       ! diffusivity
 
-  namelist/input/ conf, nt, r0, r1, h, nr, np, nz, po, exact, lambda, nu
+  namelist/input/ conf, nt, r0, r1, h, nr, np, nz, po, exact, lambda
 
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
   integer :: rank
@@ -62,7 +61,7 @@ program Validate__TPO_Elliptic_DLCI
 
   type(StandardOperators_1D) :: standard_op
 
-  real(RNP), dimension(:,:,:,:), allocatable :: u, v, w
+  real(RNP), dimension(:,:,:,:), allocatable :: nu, u, v, w
   real(RNP), dimension(:,:,:,:), allocatable :: Jd_Ji_grad_u
 
   real(RNP) :: dx_u, dy_u, dz_u, d1_u, d2_u, d3_u
@@ -133,7 +132,8 @@ program Validate__TPO_Elliptic_DLCI
 
   ne =  mesh%n_elem ! number of elements
 
-  allocate( u(0:po,0:po,0:po,ne), &
+  allocate(nu(0:po,0:po,0:po,ne), &
+            u(0:po,0:po,0:po,ne), &
             v(0:po,0:po,0:po,ne), &
             w(0:po,0:po,0:po,ne)  )
 
@@ -162,7 +162,7 @@ program Validate__TPO_Elliptic_DLCI
       do j = 0, po
       do i = 0, po
 
-        ! operand ...............................................................
+        ! operand ..............................................................
 
         u(i,j,k,e) =  x(i,j,k,e,1) ** p  *  x(i,j,k,e,2) ** pm1  &
                    +  x(i,j,k,e,2) ** p  *  x(i,j,k,e,3) ** pm1  &
@@ -225,6 +225,11 @@ program Validate__TPO_Elliptic_DLCI
       end do
       end do
 
+      ! diffusivity ............................................................
+
+      call random_number(nu(:,:,:,e))
+      nu(:,:,:,e) = nu(:,:,:,e) + 2
+
       ! reference ..............................................................
 
       do k = 0, po
@@ -234,10 +239,16 @@ program Validate__TPO_Elliptic_DLCI
         w(i,j,k,e) = lambda * Ms(i) * Ms(j) * Ms(k) * Jd(i,j,k,e) * u(i,j,k,e)
 
         do l = 0, po
-          w(i,j,k,e) = w(i,j,k,e)                                           &
-            + nu * Ms(l) * Ms(j) * Ms(k) * Ds(l,i) * Jd_Ji_grad_u(l,j,k,1)  &
-            + nu * Ms(i) * Ms(l) * Ms(k) * Ds(l,j) * Jd_Ji_grad_u(i,l,k,2)  &
-            + nu * Ms(i) * Ms(j) * Ms(l) * Ds(l,k) * Jd_Ji_grad_u(i,j,l,3)
+          w(i,j,k,e) = w(i,j,k,e)                          &
+
+                     + Ms(l) * Ms(j) * Ms(k) * Ds(l,i)     &
+                     * nu(l,j,k,e) * Jd_Ji_grad_u(l,j,k,1) &
+
+                     + Ms(i) * Ms(l) * Ms(k) * Ds(l,j)     &
+                     * nu(i,l,k,e) * Jd_Ji_grad_u(i,l,k,2) &
+
+                     + Ms(i) * Ms(j) * Ms(l) * Ds(l,k)     &
+                     * nu(i,j,l,e) * Jd_Ji_grad_u(i,j,l,3)
         end do
 
       end do
@@ -251,12 +262,12 @@ program Validate__TPO_Elliptic_DLCI
 
     !$omp parallel
 
-    call TPO_Elliptic_DLCI_Gen(Ms, Ds, Jd, G, lambda, nu, u, v)
+    call TPO_Elliptic_DLVI_Gen(Ms, Ds, Jd, G, lambda, nu, u, v)
 
     call system_clock(count0, rate)
 
     do i = 1, nt
-      call TPO_Elliptic_DLCI_Gen(Ms, Ds, Jd, G, lambda, nu, u, v)
+      call TPO_Elliptic_DLVI_Gen(Ms, Ds, Jd, G, lambda, nu, u, v)
     end do
 
     call system_clock(count)
@@ -273,12 +284,12 @@ program Validate__TPO_Elliptic_DLCI
 
     !$omp parallel
 
-    call TPO_Elliptic_DLCI(Ms, Ds, Jd, G, lambda, nu, u, v)
+    call TPO_Elliptic_DLVI(Ms, Ds, Jd, G, lambda, nu, u, v)
 
     call system_clock(count0, rate)
 
     do i = 1, nt
-      call TPO_Elliptic_DLCI(Ms, Ds, Jd, G, lambda, nu, u, v)
+      call TPO_Elliptic_DLVI(Ms, Ds, Jd, G, lambda, nu, u, v)
     end do
 
     call system_clock(count)
@@ -314,4 +325,4 @@ program Validate__TPO_Elliptic_DLCI
 
   !=============================================================================
 
-end program Validate__TPO_Elliptic_DLCI
+end program Validate__TPO_Elliptic_DLVI
