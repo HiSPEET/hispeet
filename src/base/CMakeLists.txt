@@ -270,8 +270,11 @@ set( ELLIPTIC_3D
      elliptic_3d/dg__elliptic_operator__3d__mp_eval_rc.f
      elliptic_3d/dg__elliptic_operator__3d__mp_eval_rv.f
      elliptic_3d/dg__elliptic_operator__3d__mp_eval_dc.F
+     elliptic_3d/dg__elliptic_operator__3d__mp_eval_dvi.F
      elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_gen.f
      elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_xsmm.F
+     elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dvi_gen.f
+     elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dvi_xsmm.F
      elliptic_3d/dg__elliptic_operator__3d__mp_cg_method_x.f
      elliptic_3d/dg__elliptic_operator__3d__mp_schwarz_method_x.f
      elliptic_3d/dg__elliptic_operator__3d__mp_schwarzpcg_method_x.f
