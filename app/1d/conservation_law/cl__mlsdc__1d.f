@@ -55,7 +55,7 @@ module CL__MLSDC__1D
                                          !! 'P'  L² projection,
                                          !! 'I'  interpolation
 
-    integer :: projection_smoothing = 1  !< discontinuities in 2:1 projection:
+    integer :: projection_smooth = 1     !< discontinuities in 2:1 projection:
                                          !!  0   no smoothing
                                          !!  1   remove by linear blending
                                          !!  2   remove by coefficient averaging
@@ -179,21 +179,21 @@ contains
 
       if (l > 1) then
 
-        opt_level % pop_fc_x =                                     &
-            FineToCoarseProjectionOptions_1D(                      &
-                po_f      = opt % p_space(l),                      &
-                po_c      = opt % p_space(l-1),                    &
-                mode      = opt % n_space(l) / opt % n_space(l-1), &
-                method    = opt % projection_method,               &
-                smoothing = opt % projection_smoothing             )
+        opt_level % pop_fc_x =                                  &
+            FineToCoarseProjectionOptions_1D(                   &
+                po_f   = opt % p_space(l),                      &
+                po_c   = opt % p_space(l-1),                    &
+                mode   = opt % n_space(l) / opt % n_space(l-1), &
+                method = opt % projection_method,               &
+                smooth = opt % projection_smooth                )
 
-        opt_level % pop_fc_t =                                     &
-            FineToCoarseProjectionOptions_1D(                      &
-                basis     = opt_sdc % point_set,                   &
-                po_f      = opt % p_time(l),                       &
-                po_c      = opt % p_time(l-1),                     &
-                mode      = opt % n_time(l) / opt % n_time(l-1),   &
-                method    = opt % projection_method                )
+        opt_level % pop_fc_t =                                  &
+            FineToCoarseProjectionOptions_1D(                   &
+                basis  = opt_sdc % point_set,                   &
+                po_f   = opt % p_time(l),                       &
+                po_c   = opt % p_time(l-1),                     &
+                mode   = opt % n_time(l) / opt % n_time(l-1),   &
+                method = opt % projection_method                )
 
       else
 

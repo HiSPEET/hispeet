@@ -13,6 +13,7 @@ module TPO__Elliptic__3D
   use TPO__Elliptic__3D_RLCI
   use TPO__Elliptic__3D_RLVI
   use TPO__Elliptic__3D_DLCI
+  use TPO__Elliptic__3D_DLVI
 
   private
 
@@ -97,8 +98,18 @@ contains
                             , ub     = ub                   &
                             , qb     = qb                   )
     else
-      ! not yet implemented
-      v = 0
+      call TPO_Elliptic_DLVI( Ms     = eop % w              &
+                            , Ds     = eop % D              &
+                            , Jd     = sem % metrics % Jd   &
+                            , G      = sem % metrics % G    &
+                            , lambda = lambda               &
+                            , nu     = nu                   &
+                            , u      = u                    &
+                            , v      = v                    &
+                            , Ji_n   = sem % metrics % Ji_n &
+                            , nub    = nub                  &
+                            , ub     = ub                   &
+                            , qb     = qb                   )
     end if
 
   end subroutine TPO_Elliptic_VI_RDP

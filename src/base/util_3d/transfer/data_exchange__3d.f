@@ -102,11 +102,11 @@ contains
   !-----------------------------------------------------------------------------
   !> New exchange map from map to child
 
-  elemental function New_ExchangeMap_from_MapToChild(map_child, frozen) &
+  elemental function New_ExchangeMap_from_MapToChild(map_child, skip_frozen) &
       result(this)
 
     class(MeshMapToChild_3D), intent(in) :: map_child
-    logical, optional, intent(in) :: frozen !< in/exclude frozen elements [T]
+    logical, optional, intent(in) :: skip_frozen !< exclude frozen elements [F]
 
     type(DataExchangeMap_3D) :: this
     integer :: n_elem
@@ -115,8 +115,8 @@ contains
     n_elem = map_child % n_elem
 
     ! optional: exclude frozen children
-    if (present(frozen)) then
-      if (frozen) then
+    if (present(skip_frozen)) then
+      if (skip_frozen) then
         n_elem = map_child % n_active
       end if
     end if
@@ -130,11 +130,11 @@ contains
   !-----------------------------------------------------------------------------
   !> New send map from map to parent
 
-  elemental function New_ExchangeMap_from_MapToParent(map_parent, frozen) &
+  elemental function New_ExchangeMap_from_MapToParent(map_parent, skip_frozen) &
       result(this)
 
     class(MeshMapToParent_3D), intent(in) :: map_parent
-    logical, optional, intent(in) :: frozen !< in/exclude frozen clusters [T]
+    logical, optional, intent(in) :: skip_frozen !< skip frozen clusters [F]
 
     type(DataExchangeMap_3D) :: this
     integer :: n_cluster
@@ -143,8 +143,8 @@ contains
     n_cluster = map_parent % n_cluster
 
     ! optional: exclude frozen clusters
-    if (present(frozen)) then
-      if (frozen) then
+    if (present(skip_frozen)) then
+      if (skip_frozen) then
         n_cluster = map_parent % n_active
       end if
     end if

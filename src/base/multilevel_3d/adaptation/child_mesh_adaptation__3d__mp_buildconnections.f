@@ -84,22 +84,33 @@ contains
     integer, allocatable :: send_attrib(:,:), recv_attrib(:,:)
     integer, allocatable :: cluster_rank(:)
     integer, allocatable :: e(:), m(:)
-    integer :: n_recv, n_send, n_attrib
-    integer :: a, c, i, j, k, l, n, p
+    integer :: mark, n_recv, n_send, n_attrib, n_cpe
+    integer :: c, i, j, k, l, n, p
     logical :: has_grandchild
+    logical :: skip_frozen = .true.
 
     ! initialization ...........................................................
+
+    ! number of children per element with regular refinement
+    select case(parent % refinement)
+    case('c')
+      n_cpe = 1  ! cloning
+    case('s')
+      n_cpe = 8  ! subdividing
+    case default
+      call Error('RestrictAdaptationPattern_3D','parent%refinement not set')
+    end select
 
     n_send = parent % n_child
     allocate(send_map(n_send), send_buf(n_send))
     do i = 1, n_send
-      send_map(i) = DataExchangeMap_3D(parent % map_child(i))
+      send_map(i) = DataExchangeMap_3D(parent % map_child(i), skip_frozen)
     end do
 
     n_recv = old_child % n_parent
     allocate(recv_map(n_recv), recv_buf(n_recv))
     do i = 1, n_recv
-      recv_map(i) = DataExchangeMap_3D(old_child % map_parent(i))
+      recv_map(i) = DataExchangeMap_3D(old_child % map_parent(i), skip_frozen)
     end do
 
     has_grandchild = present(grandchild)
@@ -107,30 +118,37 @@ contains
     ! extract new child attributes for transfer ................................
 
     if (has_grandchild) then
-      n_attrib = 9  ! transfer new child part and IDs
+      n_attrib = 1 + n_cpe  ! transfer new child part and IDs
     else
-      n_attrib = 1  ! transfer new child part only
+      n_attrib = 1          ! transfer new child part only
     end if
 
     allocate(send_attrib(n_attrib, parent % n_elem), source = -1)
-    do l = 1, parent % n_elem
-      if (parent % element(l) % adaptation % refinement /= 100) cycle
-      if (parent % element(l) % adaptation % mark       /= 100) cycle
-      ! new child target partition
-      send_attrib(1,l) = new_child_map % tp_child(l)
-      if (has_grandchild) then
-        a = 2
-        do k = 1, 2
-        do j = 1, 2
-        do i = 1, 2
-          ! new child IDs needed by grandchildren
-          send_attrib(a,l) = new_child_map % id_child(i,j,k,l)
-          a = a + 1
-        end do
-        end do
-        end do
-      end if
-    end do
+    select case(n_attrib)
+    case(1)
+      do l = 1, parent % n_elem
+        mark = parent % element(l) % adaptation % mark
+        if (mark  < 1000) cycle
+        if (mark /= parent % element(l) % adaptation % refinement) cycle
+        send_attrib(1,l) = new_child_map % tp_child(l)
+      end do
+    case(2)
+      do l = 1, parent % n_elem
+        mark = parent % element(l) % adaptation % mark
+        if (mark  < 1000) cycle
+        if (mark /= parent % element(l) % adaptation % refinement) cycle
+        send_attrib(1,l) = new_child_map % tp_child(l)
+        send_attrib(2,l) = new_child_map % id_child(1,1,1,l)
+      end do
+    case default
+      do l = 1, parent % n_elem
+        mark = parent % element(l) % adaptation % mark
+        if (mark  < 1000) cycle
+        if (mark /= parent % element(l) % adaptation % refinement) cycle
+        send_attrib(  1,l) = new_child_map % tp_child(l)
+        send_attrib(2:9,l) = reshape(new_child_map % id_child(:,:,:,l), [8])
+      end do
+    end select
 
     ! pass new child attributes to old children ................................
 
@@ -170,7 +188,7 @@ contains
 
     ! sort clusters according to 1) parent proc and 2) parent ID
     allocate(cluster_rank(old_child % n_cluster))
-    call SortElementClusters(old_child, cluster_rank)
+    call SortElementClusters(old_child, n_cpe, cluster_rank)
 
     ! set up exchange send maps
     if (allocated(exch_plan % send_map)) then
@@ -187,7 +205,7 @@ contains
           n = n + 1
           exch_send_map(n) % comm = new_child % comm_world
           exch_send_map(n) % proc = new_child % proc_part(p)
-          allocate(exch_send_map(n) % id_elem(8 * m(p)))
+          allocate(exch_send_map(n) % id_elem(n_cpe * m(p)))
           m(p) = n
         end if
       end do
@@ -200,13 +218,13 @@ contains
         c = cluster_rank(i)
         p = recv_attrib(1,c)
         if (p < 0) cycle
-        n = m(p)        ! map index
-        l = e(n)        ! map element ID offset
-        k = 8 * (c - 1) ! mesh element ID offset
-        do j = 1, 8
+        n = m(p)            ! map index
+        l = e(n)            ! map element ID offset
+        k = n_cpe * (c - 1) ! mesh element ID offset
+        do j = 1, n_cpe
           exch_send_map(n) % id_elem(l + j) = k + j
         end do
-        e(n) = e(n) + 8
+        e(n) = e(n) + n_cpe
       end do
 
     end associate
@@ -245,20 +263,21 @@ contains
   !> It is exploited that the active clusters always precede the frozen ones.
   !> As the latter are not retained, they do not need to be sorted.
 
-  subroutine SortElementClusters(mesh, cluster_rank)
+  subroutine SortElementClusters(mesh, n_cpe, cluster_rank)
     class(Mesh_3D), intent(in) :: mesh
+    integer, intent(in)  :: n_cpe
     integer, intent(out) :: cluster_rank(mesh%n_cluster)
 
     integer, allocatable :: attrib(:,:)
     integer :: n_cluster_active
     integer :: c, e
 
-    n_cluster_active = mesh % n_elem_active / 8
+    n_cluster_active = mesh % n_elem_active / n_cpe
 
     allocate(attrib(3,n_cluster_active))
 
     do c = 1, n_cluster_active
-      e = 1 + 8 * (c - 1)
+      e = 1 + n_cpe * (c - 1)
       attrib(1,c) = mesh % element(e) % adaptation % parent_proc
       attrib(2,c) = mesh % element(e) % adaptation % parent_id
       attrib(3,c) = c

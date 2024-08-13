@@ -1,4 +1,4 @@
-!> summary:  Validation of the curvilinear elliptic TPO for variable diffusivity
+!> summary:  Validation of the curvilinear elliptic TPO for constant diffusivity
 !> author:   Jerome Michel, Joerg Stiller
 !> date:     2021/08/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany

@@ -67,9 +67,9 @@ contains
           p_min = min(p_min, p)
           p_max = max(p_max, p)
           select case(mesh % element(e) % adaptation % refinement)
-          case(100)
+          case(1000,8000)
             n_active(p) = n_active(p) + 1
-          case(1:26, 50)
+          case(100:800)
             n_frozen(p) = n_frozen(p) + 1
           end select
         end if
@@ -115,10 +115,10 @@ contains
           if (p >= 0) then
             c = map_proc(p)
             select case(mesh % element(e) % adaptation % refinement)
-            case(100)
+            case(1000,8000)
               n_active(p) = n_active(p) + 1
               map(c) % id_elem(n_active(p)) = e
-            case(1:26, 50)
+            case(100:800)
               n_frozen(p) = n_frozen(p) + 1
               map(c) % id_elem(map(c) % n_active + n_frozen(p)) = e
             end select

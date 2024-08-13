@@ -1,4 +1,9 @@
 #===============================================================================
+# all
+
+file( COPY gmsh DESTINATION . )
+
+#===============================================================================
 # mesh3d_adapt
 
 add_executable( mesh3d_adapt
@@ -54,8 +59,6 @@ target_link_libraries(mesh3d_import_gmsh HiBase)
 
 configure_file( mesh3d_import_gmsh.prm
                 mesh3d_import_gmsh.prm COPYONLY )
-
-file( COPY gmsh DESTINATION . )
 
 #===============================================================================
 # mesh3d_test_orientation

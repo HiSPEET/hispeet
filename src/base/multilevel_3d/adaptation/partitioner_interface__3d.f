@@ -1,5 +1,6 @@
 module Partitioner_Interface__3D
   use XMPI
+  use Logging_Levels
   use Mesh__3D
   use Element_Transfer_Buffer__3D
 
@@ -66,7 +67,7 @@ module Partitioner_Interface__3D
     integer :: n_const   = 1         !< number of constraints (1 .. 3)
     integer :: c_active  = 5         !< cost of active elements
     integer :: c_frozen  = 1         !< cost of frozen elements
-    integer :: w_comp(4) = [1,0,0,0] !< element and connectivity weights
+    integer :: w_comp(4) = [1,1,0,0] !< element and connectivity weights
   contains
     procedure :: Bcast => Bcast_PartitioningOptions
   end type PartitioningOptions_3D
@@ -130,14 +131,21 @@ contains
 
     type(ElementTransferBuffer_3D), asynchronous :: buf_vtx_elem
 
+    character(len=:), allocatable :: prefix
+    logical :: logging
     integer :: c(0:3)
     integer :: e, i, j, k, l, m, n
-!### CHECK
-!! print '(99(G0,1X))', 'PMP 0, proc',mesh%proc
-!### CHECK END
 
     !---------------------------------------------------------------------------
     ! Body
+
+    logging = mesh%proc == 0 .and. log_level > 0 .or. &
+              mesh%proc  > 0 .and. log_level > 1
+    prefix  = LoggingPrefix('ParMETIS_Partitioner_3D', mesh%proc)
+
+    if (logging) then
+      print '(2A)', prefix, 'start'
+    end if
 
     associate( n_elem   => mesh % n_elem   &
              , n_ghost  => mesh % n_ghost  &
@@ -152,18 +160,12 @@ contains
       i = 0
       do e = 1, n_elem
         if (opt%mode == child_mode) then
-          if (mesh%element(e)%adaptation%mark < 1) cycle
+          if (mesh%element(e)%adaptation%mark < 100) cycle
         end if
         vtx_elem(e) = i
         i = i + 1
       end do
       nvtx = i
-!### CHECK
-!! print '(99(G0,1X))', 'PMP 1, proc',mesh%proc
-!! print '(99(G0,1X))', 'PMP 1, proc',mesh%proc,'w_comp =', w_comp
-!! print '(99(G0,1X))', 'PMP 1, proc',mesh%proc,'min/max mark =', &
-!! minval(mesh%element%adaptation%mark),maxval(mesh%element%adaptation%mark)
-!### CHECK END
 
       ! create MPI communicator comprising all parent meshes with nvtx > 0
       if (nvtx > 0) then
@@ -175,19 +177,10 @@ contains
 
       call MPI_Comm_rank(comm, proc)
       call MPI_Comm_size(comm, nproc)
-!### CHECK
-!! print '(99(G0,1X))', 'PMP 2, proc',mesh%proc
-!! print '(99(G0,1X))', 'PMP 2, proc',mesh%proc,'m =',m
-!! print '(99(G0,1X))', 'PMP 2, proc',mesh%proc,'ParMetis proc  =',proc
-!! print '(99(G0,1X))', 'PMP 2, proc',mesh%proc,'ParMetis nproc =',nproc
-!### CHECK END
 
       ! graph vertex ID element variable and transfer buffer
       var_vtx_elem(1:1, 1:1, 1:1, 1:size(vtx_elem)) => vtx_elem
       buf_vtx_elem = ElementTransferBuffer_3D(mesh, var_vtx_elem)
-!### CHECK
-!! print '(99(G0,1X))', 'PMP 3, proc',mesh%proc
-!### CHECK END
 
       ! ParMetis input arguments ...............................................
 
@@ -222,9 +215,6 @@ contains
 
       ! fractions of vertex weight per partition
       tpwgts = 1.00 / nparts
-!### CHECK
-!! print '(99(G0,1X))', 'PMP 4, proc',mesh%proc
-!### CHECK END
 
       ! graph vertex distribution ..............................................
 
@@ -238,9 +228,6 @@ contains
       do i = 1, nproc
         vtxdist(i) = vtxdist(i-1) + nvtx_proc(i-1)
       end do
-!### CHECK
-!! print '(99(G0,1X))', 'PMP 5, proc',mesh%proc
-!### CHECK END
 
       ! graph vertex IDs by element index (local+ghost) ........................
 
@@ -248,16 +235,10 @@ contains
       where(vtx_elem >= 0)
         vtx_elem = vtx_elem + vtxdist(proc)
       end where
-!### CHECK
-!! print '(99(G0,1X))', 'PMP 6, proc',mesh%proc
-!### CHECK END
 
       ! transfer graph vertex IDs to ghosts
       call buf_vtx_elem % Transfer(mesh, var_vtx_elem, tag=1000)
       call buf_vtx_elem % Merge(var_vtx_elem)
-!### CHECK
-!! print '(99(G0,1X))', 'PMP 7, proc',mesh%proc
-!### CHECK END
 
       ! graph vertex weights and adjacency offsets .............................
 
@@ -276,15 +257,17 @@ contains
 
           ! cost associated with children
           select case(element % adaptation % mark)
-          case(1:6)
-            c(1) = 4 * c_frozen  ! 4 frozen children @ face
-          case(7:18)
+          case(100:108)
+            c(1) = 1 * c_frozen  ! 1 frozen child @ vertex or cloned
+          case(201:212)
             c(1) = 2 * c_frozen  ! 2 frozen children @ edge
-          case(19:26)
-            c(1) = 1 * c_frozen  ! 1 frozen children @ vertex
-          case(50)
+          case(401:406)
+            c(1) = 4 * c_frozen  ! 4 frozen children @ face
+          case(800)
             c(1) = 8 * c_frozen  ! 8 frozen children @ element
-          case(100)
+          case(1000)
+            c(1) = 1 * c_active  ! 1 active child    @ element
+          case(8000)
             c(1) = 8 * c_active  ! 8 active children @ element
           end select
 
@@ -348,9 +331,6 @@ contains
 
         end associate
       end do
-!### CHECK
-!! print '(99(G0,1X))', 'PMP 8, proc',mesh%proc
-!### CHECK END
 
       ! adjacency and adjacency weights ........................................
 
@@ -418,26 +398,33 @@ contains
 
         end associate
       end do
-!### CHECK
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', wgtflag          =',wgtflag
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', numflag          =',numflag
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', ncon             =',ncon
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', nparts           =',nparts
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', ubvec            =',ubvec
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', options          =',options
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(vtxdist)    =',size(vtxdist)
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(xadj)       =',size(xadj)
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(adjncy)     =',size(adjncy)
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(vwgt)       =',size(vwgt)
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', size(adjwgt)     =',size(adjwgt)
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(vtxdist) =',minval(vtxdist),maxval(vtxdist)
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(xadj)    =',minval(xadj),maxval(xadj)
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(adjncy)  =',minval(adjncy),maxval(adjncy)
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(vwgt)    =',minval(vwgt),maxval(vwgt)
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(adjwgt)  =',minval(adjwgt),maxval(adjwgt)
-!! print '(99(G0,1X))', 'PMP 9, proc',mesh%proc,', min/max(tpwgts)  =',minval(tpwgts),maxval(tpwgts)
-!### CHECK END
+
+      if (logging) then
+        print '(2A)', prefix, 'parameters'
+        print '(A,2X,99(G0,1X))', prefix, 'wgtflag      =', wgtflag
+        print '(A,2X,99(G0,1X))', prefix, 'numflag      =', numflag
+        print '(A,2X,99(G0,1X))', prefix, 'ncon         =', ncon
+        print '(A,2X,99(G0,1X))', prefix, 'nparts       =', nparts
+        print '(A,2X,99(G0,1X))', prefix, 'ubvec        =', ubvec
+        print '(A,2X,99(G0,1X))', prefix, 'options      =', options
+        print '(A,2X,99(G0,1X))', prefix, 'size(vtxdist)=', size(vtxdist)
+        print '(A,2X,99(G0,1X))', prefix, 'size(xadj)   =', size(xadj)
+        print '(A,2X,99(G0,1X))', prefix, 'size(adjncy) =', size(adjncy)
+        print '(A,2X,99(G0,1X))', prefix, 'size(vwgt)   =', size(vwgt)
+        print '(A,2X,99(G0,1X))', prefix, 'size(adjwgt) =', size(adjwgt)
+        print '(A,2X,99(G0,1X))', prefix, 'min(vtxdist) =', minval(vtxdist)
+        print '(A,2X,99(G0,1X))', prefix, 'max(vtxdist) =', maxval(vtxdist)
+        print '(A,2X,99(G0,1X))', prefix, 'min(xadj)    =', minval(xadj)
+        print '(A,2X,99(G0,1X))', prefix, 'max(xadj)    =', maxval(xadj)
+        print '(A,2X,99(G0,1X))', prefix, 'min(adjncy)  =', minval(adjncy)
+        print '(A,2X,99(G0,1X))', prefix, 'max(adjncy)  =', maxval(adjncy)
+        print '(A,2X,99(G0,1X))', prefix, 'min(vwgt)    =', minval(vwgt)
+        print '(A,2X,99(G0,1X))', prefix, 'max(vwgt)    =', maxval(vwgt)
+        print '(A,2X,99(G0,1X))', prefix, 'min(adjwgt)  =', minval(adjwgt)
+        print '(A,2X,99(G0,1X))', prefix, 'max(adjwgt)  =', maxval(adjwgt)
+        print '(A,2X,99(G0,1X))', prefix, 'min(tpwgts)  =', minval(tpwgts)
+        print '(A,2X,99(G0,1X))', prefix, 'max(tpwgts)  =', maxval(tpwgts)
+      end if
 
       ! ParMETIS ...............................................................
 
@@ -446,9 +433,6 @@ contains
                                , edgecut, part, comm % MPI_VAL                 )
 
       ! result .................................................................
-!### CHECK
-!! print '(99(G0,1X))', 'PMP 10, proc',mesh%proc
-!### CHECK END
 
       i = 0
       do e = 1, n_elem
@@ -467,13 +451,13 @@ contains
     end associate
 
     !---------------------------------------------------------------------------
-!### CHECK
-!! print '(99(G0,1X))', 'PMP X, proc',mesh%proc
-!### CHECK END
+
+    if (logging) then
+      print '(2A)', prefix, 'exit'
+    end if
 
   end subroutine ParMETIS_Partitioner_3D
 
   !=============================================================================
 
 end module Partitioner_Interface__3D
-

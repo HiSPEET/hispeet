@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> Parametrized 3d diffusion kernel using hand-crafted suboperators (RLCI)
+!> Parametrized 3d diffusion kernel using hand-crafted suboperators (DLCI)
 
 subroutine PROC(TPO_Elliptic_DLCI_Hand__,_NP_) &
     (ne, Ms, Ds, Jd, G, lambda, nu, u, v, Ji_n, ub, qb)

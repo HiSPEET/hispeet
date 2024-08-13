@@ -2,8 +2,10 @@ module Child_Mesh_Adaptation__3D
   use Kind_Parameters
   use Constants
   use Execution_Control
+  use Logging_Levels
   use XMPI
-  use Parent_To_Child_Interpolation__1D
+  use Standard_Operators__1D
+  use Coarse_To_Fine_Interpolation__1D
   use Mesh__3D
   use Mesh_Element__3D
   use Mesh_Element_Indexing__3D
@@ -88,12 +90,21 @@ contains
     type(ElementDistributionData_3D), allocatable, save :: send_data(:)
     type(ElementDistributionData_3D), allocatable, save :: recv_data(:)
 
+    character(len=:), allocatable :: prefix
+    logical :: logging
     integer :: i
 
+    ! initialize logging .......................................................
+
+    logging = parent%proc == 0 .and. log_level > 0 .or. &
+              parent%proc  > 0 .and. log_level > 1
+    prefix  = LoggingPrefix('ChildMeshAdaptation_3D', parent%proc)
+
+    if (logging) then
+      print '(2A)', prefix, 'start'
+    end if
+
     ! sanity check .............................................................
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  0',', parent%proc,part',parent%proc,parent%part
-!### CHECK END
 
     if (present(old_child)) then
       if (.not. present(exch_plan)) then
@@ -113,9 +124,6 @@ write(*,'(99(G0,1X))') '# CMA  0',', parent%proc,part',parent%proc,parent%part
     attrib % dx = HALF * attrib % dx
 
     call new_child % Init_Mesh_3D(attrib, parent % comm_world)
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  1',', parent%proc',parent%proc
-!### CHECK END
 
     new_child % n_parts = opt % n_parts
 
@@ -125,9 +133,6 @@ write(*,'(99(G0,1X))') '# CMA  1',', parent%proc',parent%proc
     end if
 
     call new_child % BuildCommunicator()
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  2',', parent%proc',parent%proc
-!### CHECK END
 
     ! prepare send data
     if (parent % part >= 0) then
@@ -142,9 +147,6 @@ write(*,'(99(G0,1X))') '# CMA  2',', parent%proc',parent%proc
         recv_data(i) % comm = parent % comm_world
       end do
     end if
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  3',', parent%proc',parent%proc
-!### CHECK END
 
     !$omp end master
 
@@ -156,22 +158,12 @@ write(*,'(99(G0,1X))') '# CMA  3',', parent%proc',parent%proc
       call BuildChildMap(opt, parent, new_child_map)
     end if
     !$omp end master
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  4',', parent%proc',parent%proc
-!! write(*,'(99(G0,1X))') '# CMA  4',', parent%proc',parent%proc, &
-!!   'new_child_map%nc_part =',new_child_map%nc_part
-!! write(*,'(99(G0,1X))') '# CMA  4',', parent%proc',parent%proc, &
-!!   'maxval(new_child_map%id_child) =',maxval(new_child_map%id_child)
-!### CHECK END
 
     ! create child element data ................................................
 
     if (parent % part >= 0) then
       call BuildChildData(parent, new_child, new_child_map, send_data)
     end if
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  5',', parent%proc',parent%proc
-!### CHECK END
 
     ! transfer child element data ................................................
 
@@ -184,9 +176,6 @@ write(*,'(99(G0,1X))') '# CMA  5',', parent%proc',parent%proc
         call send_data(i) % Send_Dimensions()
       end do
     end if
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  6',', parent%proc',parent%proc
-!### CHECK END
 
     ! receive dimensions (skip local part)
     if (new_child % part >= 0) then
@@ -195,9 +184,6 @@ write(*,'(99(G0,1X))') '# CMA  6',', parent%proc',parent%proc
         call recv_data(i) % Recv_Dimensions()
       end do
     end if
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  7',', parent%proc',parent%proc
-!### CHECK END
 
     ! send data (skip local part)
     if (parent % part >= 0) then
@@ -206,9 +192,6 @@ write(*,'(99(G0,1X))') '# CMA  7',', parent%proc',parent%proc
         call send_data(i) % Send_Data()
       end do
     end if
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  8',', parent%proc',parent%proc
-!### CHECK END
 
     ! receive data (skip local part)
     if (new_child % part >= 0) then
@@ -217,9 +200,6 @@ write(*,'(99(G0,1X))') '# CMA  8',', parent%proc',parent%proc
         call recv_data(i) % Recv_Data()
       end do
     end if
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  9',', parent%proc',parent%proc
-!### CHECK END
 
     ! finalize transfer
     if (parent % part >= 0) then
@@ -236,9 +216,6 @@ write(*,'(99(G0,1X))') '# CMA  9',', parent%proc',parent%proc
     end if
 
     !$omp end master
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  10',', parent%proc',parent%proc
-!### CHECK END
 
     ! assign child element data ................................................
 
@@ -254,11 +231,6 @@ write(*,'(99(G0,1X))') '# CMA  10',', parent%proc',parent%proc
     end if
 
     allocate(new_child % element(new_child % n_elem))
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  11',', parent%proc',parent%proc
-!! write(*,'(99(G0,1X))') '# CMA  11',', parent%proc',parent%proc, &
-!!   'new_child%n_elem =',new_child%n_elem
-!### CHECK END
 
     !$omp end master
 
@@ -272,9 +244,6 @@ write(*,'(99(G0,1X))') '# CMA  11',', parent%proc',parent%proc
         end if
       end do
     end if
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  12',', parent%proc',parent%proc
-!### CHECK END
 
     ! complete mesh.............................................................
 
@@ -287,41 +256,14 @@ write(*,'(99(G0,1X))') '# CMA  12',', parent%proc',parent%proc
 
       call new_child % IdentifyVertices()
       call new_child % IdentifyEdges()
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  A',', parent%proc',parent%proc
-!### CHECK END
       call new_child % BuildFaces()
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  B',', parent%proc',parent%proc
-!### CHECK END
       call new_child % BuildBoundaryFaces()
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  C',', parent%proc',parent%proc
-!### CHECK END
       call new_child % BuildLinks()
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  D',', parent%proc',parent%proc
-!### CHECK END
       call new_child % BuildGhosts()
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  E',', parent%proc',parent%proc
-!### CHECK END
       call new_child % BuildCuboids()
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  F',', parent%proc',parent%proc
-!### CHECK END
       call new_child % IdentifyRanks()
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  G',', parent%proc',parent%proc
-!### CHECK END
       call new_child % IdentifyClusters()
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  H',', parent%proc',parent%proc
-!### CHECK END
       call new_child % BuildMapToParent()
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  I',', parent%proc',parent%proc
-!### CHECK END
 
     end if
 
@@ -348,16 +290,10 @@ write(*,'(99(G0,1X))') '# CMA  I',', parent%proc',parent%proc
     ! - `new_child % element % adaptation % refinement`
     ! - `new_child % element % adaptation % child_proc`
     ! - `new_child % element % adaptation % mark`
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  J',', parent%proc',parent%proc
-!### CHECK END
 
     if (present(old_child)) then
       call CopyRetainedData(old_child, new_child, exch_plan)
     end if
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  K',', parent%proc',parent%proc
-!### CHECK END
 
     ! connect new child with grandchild ........................................
     !
@@ -367,9 +303,6 @@ write(*,'(99(G0,1X))') '# CMA  K',', parent%proc',parent%proc
     if (new_child % part >= 0 .and. present(grandchild)) then
       call new_child % BuildMapToChild()
     end if
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  L',', parent%proc',parent%proc
-!### CHECK END
 
     ! finalization .............................................................
 
@@ -383,11 +316,11 @@ write(*,'(99(G0,1X))') '# CMA  L',', parent%proc',parent%proc
     if (allocated(send_data))      deallocate(send_data)
     if (allocated(recv_data))      deallocate(recv_data)
 
+    if (logging) then
+      print '(2A)', prefix, 'exit'
+    end if
+
     !$omp end master
-!### CHECK
-write(*,'(99(G0,1X))') '# CMA  X',', parent%proc',parent%proc
-!call MPI_Barrier(parent%comm_world)
-!### CHECK END
 
   end subroutine ChildMeshAdaptation_3D
 
@@ -410,35 +343,6 @@ write(*,'(99(G0,1X))') '# CMA  X',', parent%proc',parent%proc
     associate( send_map => exch_plan % send_map &
              , recv_map => exch_plan % recv_map )
 
-!### CKECK
-!! block
-!! integer :: j
-!! if (old_child%proc == 1 .and. old_child%n_elem == 254 .and. new_child%n_elem == 288) then
-!! print '(999(G0,1X))', 'L3 send_map(2)%proc    =',send_map(2)%proc
-!! print '(999(G0,1X))', 'L3 recv_map(2)%proc    =',recv_map(2)%proc
-!! print '(G0,999(1X,I4))', 'L3 send_map(2)% id_elem, frozen, parent_proc, parent_id'
-!! do i = 1, size(send_map(2)%id_elem)
-!! j = send_map(2)% id_elem(i)
-!! associate(element => old_child%element(j))
-!! print '(I4,L2,9I4)',j,element%frozen,element%adaptation%parent_proc,element%adaptation%parent_id
-!! end associate
-!! end do
-!! print '(G0,999(1X,I4))', 'L3 recv_map(2)% id_elem, frozen, parent_proc, parent_id'
-!! do i = 1, size(send_map(2)%id_elem)
-!! j = recv_map(2)% id_elem(i)
-!! associate(element => new_child%element(j))
-!! print '(I4,L2,9I4)',j,element%frozen,element%adaptation%parent_proc,element%adaptation%parent_id
-!! end associate
-!! end do
-!! print '(G0,999(1X,I4))', 'L3 new_child % id, frozen, parent_proc, parent_id'
-!! do j = 1, new_child % n_elem
-!! associate(element => new_child%element(j))
-!! print '(I4,L2,9I4)',j,element%frozen,element%adaptation%parent_proc,element%adaptation%parent_id
-!! end associate
-!! end do
-!! end if
-!! end block
-!### CKECK END
       ! initialization .........................................................
 
       n_send = size(send_map)
@@ -478,17 +382,6 @@ write(*,'(99(G0,1X))') '# CMA  X',', parent%proc',parent%proc
 
       ! extract received attributes ............................................
 
-!### CHECK
-!! if (new_child%part == 1 .and. new_child%n_elem == 288) then
-!! print '(99(G0,1X))', 'L3 P1 old n_elem    =',old_child%n_elem
-!! print '(99(G0,1X))', 'L3 P1 n_elem_active =',new_child%n_elem_active
-!! i = 76
-!! print '(99(G0,1X))', 'L3 P1 E76: mark =',new_child % element(i)% adaptation % mark
-!! print '(99(G0,1X))', 'L3 P1 E76: recv_attrib =',recv_attrib(:,i)
-!! i = 36
-!! print '(99(G0,1X))', 'L3 P1 E36: send_attrib =',send_attrib(:,i)
-!! end if
-!### CHECK END
       do i = 1, new_child % n_elem_active
         associate(element => new_child % element(i))
           ! retained elements are indicated by a non-negative mark,
@@ -508,4 +401,3 @@ write(*,'(99(G0,1X))') '# CMA  X',', parent%proc',parent%proc
   !=============================================================================
 
 end module Child_Mesh_Adaptation__3D
-

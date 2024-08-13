@@ -1,27 +1,89 @@
 # To Do
 [toc]
 ## HDF5
-- Observe bug report. When fixed
-    - test
-    - remove redundant statements (deallocate) in `mesh%ReadHDF5` 
-- Understand HDF5 `groups`
-- I/O of multilevel data
+- [ ] Observe bug report. When fixed remove auxiliary data structures and instructions.
 
-## Flow Solver Restart
-- Activate and test when HDF5 is fixed
+## Style of OpenMP sections
 
+- [ ] Fit mark up to existing style elements, e.g.
+  
+     ``````fortran
+     !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+     !$omp master
+     code ..
+     !$omp end master
+     !$omp barrier
+     !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+     ``````
+
+## Revision of Element Operators
+- [ ] Settle discrepancy between 1D element operators and mesh operations, e.g.
+  - current form for 1D element operator
+  
+    ``````fortran
+    type StandardOperators_1D
+        type StandardOperatorOptions_1D
+        ! vs
+    type CG_ElementOperators_1D
+    type CG_ElementOptions_1D
+    ! vs
+    type CoarseToFineInterpolation_1D
+    type CoarseToFineInterpolationOptions_1D
+        ``````
+      
+  - proposed changes
+    ``````fortran
+    type StandardElementOperators_1D               ! added 'Element'
+    type StandardElementOptions_1D                 ! removed 'Operator'
+    type EmbeddedInterpolationOperator_1D          ! added 'Operator'
+    type CoarseToFineInterpolationOperator_1D      ! ..
+    type FineToCoarseProjectionOperator_1D         ! ..
+    ``````
+      
+  - some alternatives
+    ``````fortran
+    type CoarseToFineInterpolationOperator_1D
+    type CoarseToFineInterpolation_3D
+    type CoarseToFineOperator_3D
+    type CtFInterpolationOperator_3D
+    type HpRefinementOperator_3D                   ! current favorite
+    ..
+    type HpCoarsensingOperator_3D                  ! ditto
+    ``````
+  
 ## Adaptive Multilevel Techniques
 
-- Adaptive multilevel mesh
-    - datastructures and methods exist
-    - final design: *TBD*
-- Adaptive multilevel spectral element mesh: __TBD__
-    - based on multilevel mesh
-    - additional $$p$$-levels
-- Interweaving spatial and temporal adaptivity: __TBD__
-    - working hypothesis: time mesh can be uniquely mapped to ML spectral element mesh
-    - each temporal level maps to one spatial level
-    - ML spectral element mesh can be used alone, e.g. for multigrid correction schemes
+- [ ] `ML_Mesh_3D` 
+  - [x] Generalize adapation to accomodate cloning
+  - [x] Generate sequence of clones and/or regular refinements
+  - [ ] Recursive partitioning
+- [x] `ML_Operators_3D`
+  - [x] Coarse-to-fine interpolation operator
+  - [x] Fine-to-Coarse interpolation and L2 projection operators
+- [x] Tensorproduct operators
+  - [x] Interpolation 8:1
+  - [x] Interpolation/projection 1:8 (TBD: XSMM transition threshold)
+  - [x] LIBXSMM versions
+- [ ] `ML_MeshVariable`
+  - [x] Constructor and destructor
+  - [x] HDF5 read and write
+  - [x] Parent-to-child interpolation (global, parallel, adaptive)
+  - [x] Child-to-parent interpolation/projection
+  - [ ] Validation (TBD: HDF5 I/O)
+- [ ] Elliptic operators with variable diffusivity
+  - [x] Elliptic tensor-product operators for variable diffusivity
+  - [x] Extend operator and solvers to variable diffusivity
+  - [x] Verification
+  - [ ] Serial performance
+  - [ ] Scalability with MPI, OpenMP and hybrid
+- [ ] Multigrid for elliptic operators
+  - [ ] Dependency analysis
+  - [ ] Design of data structures and interfaces
+  - [ ] Correction method
+  - [ ] FAS method
+  - [ ] Define further steps
+
+
 
 ## Legacy
 

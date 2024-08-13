@@ -37,7 +37,7 @@ module Fine_To_Coarse_Projection__1D
   !>   - `I`  interpolation using the fine basis.
   !>
   !> In the case of hp-coarsening, the treatment of discontinuities between the
-  !> two fine elements is controlled by the `smoothing` parameter. The following
+  !> two fine elements is controlled by the `smooth` parameter. The following
   !> choices are available:
   !>   - `0`  no discontinuity handling
   !>   - `1`  jump removal using antisymmetric linear correction
@@ -52,7 +52,7 @@ module Fine_To_Coarse_Projection__1D
     integer          :: po_c           !< polynomial order of coarse mesh
     integer          :: mode           !< coarsening mode
     character        :: method         !< projection method
-    integer          :: smoothing      !< discontinuity handling
+    integer          :: smooth         !< discontinuity handling
     real(RNP), allocatable :: A(:,:,:) !< interpolation operator(s)
     real(RNP), allocatable :: B(:,:)   !< blending operators
   end type FineToCoarseProjection_1D
@@ -66,12 +66,12 @@ module Fine_To_Coarse_Projection__1D
   !> Options for initializing the fine-to-coarse hp-projection operator
 
   type, public :: FineToCoarseProjectionOptions_1D
-    character(len=2) :: basis     = 'L' !< basis type {'E','G','L','RL','RR'}
-    integer          :: po_f      = -1  !< polynomial order of fine mesh
-    integer          :: po_c      = -1  !< polynomial order of coarse mesh
-    integer          :: mode      = -1  !< coarsening mode {0,1,2}
-    character        :: method    = 'I' !< L² projection 'P' or interpolation 'I'
-    integer          :: smoothing =  0  !< discontinuity handling {0,1,2}
+    character(len=2) :: basis  = 'L' !< basis type {'E','G','L','RL','RR'}
+    integer          :: po_f   = -1  !< polynomial order of fine mesh
+    integer          :: po_c   = -1  !< polynomial order of coarse mesh
+    integer          :: mode   = -1  !< coarsening mode {0,1,2}
+    character        :: method = 'I' !< L² projection 'P' or interpolation 'I'
+    integer          :: smooth =  0  !< discontinuity handling {0,1,2}
   end type FineToCoarseProjectionOptions_1D
 
 contains
@@ -107,9 +107,9 @@ contains
 
     select case(this % basis)
     case('E','L')
-      this % smoothing = max(min(opt % smoothing, 2), 0)
+      this % smooth = max(min(opt % smooth, 2), 0)
     case default
-      this % smoothing = max(min(opt % smoothing, 1), 0)
+      this % smooth = max(min(opt % smooth, 1), 0)
     end select
 
     if (allocated(this % A)) deallocate(this % A)
@@ -132,9 +132,8 @@ contains
       case('I')
         allocate(this % A(0:po_c/2,0:po_f,2), source = ZERO)
       end select
-      if (this % smoothing == 1) then
-        allocate(this % B(0:po_f,2), source = ZERO)
-      end if
+      ! B is needed only with smooth=1, but always allocated for regularity
+      allocate(this % B(0:po_f,2), source = ZERO)
     end select
 
     ! collocation points .......................................................
@@ -199,7 +198,7 @@ contains
       end select
 
       ! smoothing
-      if (this % smoothing == 1) then
+      if (this % smooth == 1) then
         call Build_Linear_Smoothing_Operator
       end if
 

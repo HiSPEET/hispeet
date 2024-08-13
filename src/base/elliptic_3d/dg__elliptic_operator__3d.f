@@ -106,6 +106,19 @@ module DG__Elliptic_Operator__3D
     end subroutine Eval_DC
 
     !---------------------------------------------------------------------------
+    !> Evaluation with deformed mesh and variable isotropic ν
+
+    module subroutine Eval_DV(this, lambda, nu, u, r, f, bv)
+      class(DG_EllipticOperator_3D),   intent(in)  :: this
+      real(RNP),                       intent(in)  :: lambda      !< λ
+      real(RNP), contiguous,           intent(in)  :: nu(:,:,:,:) !< ν
+      real(RNP), contiguous,           intent(in)  :: u(:,:,:,:)  !< operand
+      real(RNP), contiguous,           intent(out) :: r(:,:,:,:)  !< result
+      real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:)  !< RHS
+      class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
+    end subroutine Eval_DV
+
+    !---------------------------------------------------------------------------
     !> Conjugate gradient method with either constant or variable ν
 
     module subroutine CG_Method_X( this, lambda, nu_c, nu_v, u, f, bv &
@@ -252,8 +265,7 @@ contains
     if (this % sem % mesh % regular) then
       call Eval_RV(this, lambda, nu, u, r)
     else
-    ! NOT YET SUPPORTED
-    ! call Eval_DV(this, lambda, nu, u, r)
+      call Eval_DV(this, lambda, nu, u, r)
     end if
 
   end subroutine Apply_V
@@ -296,8 +308,7 @@ contains
     if (this % sem % mesh % regular) then
       call Eval_RV(this, lambda, nu, u, r, f, bv)
     else
-    ! NOT YET SUPPORTED
-    ! call Eval_DV(this, lambda, nu, u, r, f, bv)
+      call Eval_DV(this, lambda, nu, u, r, f, bv)
     end if
 
   end subroutine Residual_V

@@ -118,7 +118,7 @@ contains
     ! Read Gmsh mesh file
 
     ! open GMSH file
-    write(*,'(/,A,/)') 'Opening GMSH file ' // trim(mshfile)
+    write(*,'(/,A,/)') 'opening GMSH file ' // trim(mshfile)
 
     open(newunit = MSH, file = trim(mshfile)//'.msh')
 
@@ -171,7 +171,7 @@ contains
 
     ! read $Nodes block.........................................................
 
-    print *, 'reading node data ...'
+    write(*,'(2X,A)') 'reading node data'
     read(MSH,'(1/)')
     read(MSH,*) numEntityBlocks, numNodes
     allocate(node(numNodes))
@@ -204,7 +204,7 @@ contains
 
     ! read $Elements block .....................................................
 
-    print *, 'reading boundary and element data ...'
+    write(*,'(2X,A)') 'reading boundary and element data'
 
     read(MSH,'(/)')
     read(MSH,*) numEntityBlocks, numElements
@@ -251,8 +251,8 @@ contains
     read(MSH,*)
     read(MSH,*,iostat=io)
 
-    if(io == 0) then
-      print *, 'reading periodic boundary data ...'
+    if (io == 0) then
+      write(*,'(2X,A)') 'reading periodic boundary data'
 
       read(MSH,*) numPeriodicLinks
       allocate(periodicSurf(numPeriodicLinks,6), source = 0)
@@ -267,7 +267,7 @@ contains
         end do
       end do
     else
-      print *, 'no periodic boundaries have been imposed'
+      write(*,'(2X,A)') 'no periodic boundaries found'
     end if
 
     close(MSH)
@@ -282,7 +282,7 @@ contains
 
     ! allocate high order points in 3D array for each element .................
 
-    print *, 'identifying collocation points ...'
+    write(*,'(2X,A)') 'identifying collocation points'
 
     np         = meshOrder+1         ! number of nodes per direction
     numShells  = floor(meshOrder/2.) ! number of shells
@@ -351,7 +351,7 @@ contains
 
     ! identify vertices ........................................................
 
-    print *, 'identifying vertices ...'
+    write(*,'(2X,A)') 'identifying vertices'
     allocate(vertex_mask(numNodes), source = 0)
 
     ! mark element vertex nodes
@@ -370,7 +370,7 @@ contains
 
     ! identify boundary elements and faces .....................................
 
-    print *, 'identifying boundary elements & faces ...'
+    write(*,'(2X,A)') 'identifying boundary elements & faces'
 
     ! map node tags to faces 1 to 6
 
@@ -442,7 +442,7 @@ contains
 
     if (io == 0) then
 
-      print *, 'processing periodic boundaries ...'
+      write(*,'(2X,A)') 'processing periodic boundaries'
 
       do i = 1, numPeriodicLinks
 
@@ -471,19 +471,21 @@ contains
 
     ! give some mesh information as display output .............................
 
-    write(*,'(/,A)') 'Mesh info'
-    write(*,'(2X,A,T25,G0)') 'num vertices'       , numVertices
-    write(*,'(2X,A,T25,G0)') 'num elements'       , numHexElem
-    write(*,'(2X,A,T25,G0)') 'num boundaries'     , numBoundaries
-    write(*,'(2X,A,T25,G0)') 'num boundary faces:', numBfaces
-    write(*,'(2X,A,T25,G0)') 'geometry order:'    , meshOrder
+    write(*,*)
+    write(*,'(2X,A)') 'mesh info'
+    write(*,'(4X,A,T25,G0)') 'num vertices'       , numVertices
+    write(*,'(4X,A,T25,G0)') 'num elements'       , numHexElem
+    write(*,'(4X,A,T25,G0)') 'num boundaries'     , numBoundaries
+    write(*,'(4X,A,T25,G0)') 'num boundary faces:', numBfaces
+    write(*,'(4X,A,T25,G0)') 'geometry order:'    , meshOrder
+    write(*,*)
 
     !---------------------------------------------------------------------------
     ! Create HiSPEET generic mesh
 
     ! create generic mesh vertices .............................................
 
-    print *, 'creating generic mesh vertices ...'
+    write(*,'(2X,A)') 'creating generic mesh vertices'
 
     allocate (mesh%vertex(numVertices))
     do i = 1, numNodes
@@ -495,7 +497,7 @@ contains
 
     ! create generic mesh elements .............................................
 
-    print *, 'creating generic mesh elements ...'
+    write(*,'(2X,A)') 'creating generic mesh elements'
 
     ! set rotational numbering
     mesh%numbering = ROTATIONAL_NUMBERING
@@ -536,7 +538,7 @@ contains
 
     ! create generic mesh boundaries ...........................................
 
-    print *, 'creating generic mesh boundaries ...'
+    write(*,'(2X,A)') 'creating generic mesh boundaries'
 
     allocate(mesh%boundary(numBoundaries))
 
@@ -576,11 +578,18 @@ contains
         l = l + 1
       end if
 
+      ! print boundary info
+      write(*,'(I6,2X)',advance='NO') mesh%boundary(i)%id
+      if (len_trim(trim(mesh%boundary(i)%name)) <= 57) then
+        write(*,'(A57)',advance='NO') adjustl(mesh%boundary(i)%name)
+      else
+        write(*,'(A57)',advance='NO') adjustl(mesh%boundary(i)%name(1:56)//'')
+      end if
+      if (mesh%boundary(i)%coupled > 0) then
+        write(*,'(A4,I4)',advance='NO') 'c:' ,mesh%boundary(i)%coupled
+        write(*,'(A4,I3)',advance='NO') 'p:' ,mesh%boundary(i)%polarity
+      end if
       write(*,*)
-      write(*,'(2X,A,G0)') 'boundary = ', mesh%boundary(i)%id
-      write(*,'(2X,A,G0)') 'name     = ', trim(mesh%boundary(i)%name)
-      write(*,'(2X,A,G0)') 'coupled  = ', mesh%boundary(i)%coupled
-      write(*,'(2X,A,G0)') 'polarity = ', mesh%boundary(i)%polarity
 
     end do
 

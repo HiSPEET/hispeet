@@ -26,6 +26,9 @@ module Child_Distribution_Map__3D
   !>
   !>  – `id_child(2,2,2, 1:n_elem + n_ghost)`
   !>     child IDs in the target partition or `0` if none
+  !>       +  in the case of subdividing, id_child(i,j,k,*) is the ID of the
+  !>          child at position i,j,k
+  !>       +  in the case of cloning, all entries ar set to the child ID
   !>
   !>  – `nc_part(2, 0:n_parts -1)`
   !>     number of active (1) and frozen (2) children contributed to partitions
@@ -100,21 +103,24 @@ contains
       p = tp_child(i)
       if (p >= 0) then
         select case(parent % element(i) % adaptation % mark)
-        case(100)
-          ! active children from regular refinement
-          nc_part(1,p) = nc_part(1,p) + 8
-        case(50)
-          ! frozen children from regular refinement
-          nc_part(2,p) = nc_part(2,p) + 8
-        case(1:6)
-          ! frozen children from face refinement
-          nc_part(2,p) = nc_part(2,p) + 4
-        case(7:18)
+        case(100:108)
+          ! frozen child from vertex refinement or cloning
+          nc_part(2,p) = nc_part(2,p) + 1
+        case(201:212)
           ! frozen children from edge refinement
           nc_part(2,p) = nc_part(2,p) + 2
-        case(19:26)
-          ! frozen child from vertex refinement
-          nc_part(2,p) = nc_part(2,p) + 1
+        case(401:406)
+          ! frozen children from face refinement
+          nc_part(2,p) = nc_part(2,p) + 4
+        case(800)
+          ! frozen children from volume refinement
+          nc_part(2,p) = nc_part(2,p) + 8
+        case(1000)
+          ! active child from cloning
+          nc_part(1,p) = nc_part(1,p) + 1
+        case(8000)
+          ! active children from regular refinement
+          nc_part(1,p) = nc_part(1,p) + 8
         end select
       end if
     end do
@@ -129,64 +135,62 @@ contains
 
         m = parent % element(i) % adaptation % mark
 
-        if (m == 100) then
+        if (m < 1000) then
 
-          ! active children from regular refinement
-          id_child (:,:,:,i) = oc_part(1,p) + ic_regular
-          oc_part  (1    ,p) = oc_part(1,p) + 8
-
-        else if (m == 50) then
-
-          ! frozen children from regular refinement
-          id_child (:,:,:,i) = oc_part(2,p) + ic_regular
-          oc_part  (2    ,p) = oc_part(2,p) + 8
-
-        else if (m <= 6) then
-
-          ! frozen children from refinement of face m
           select case(m)
-          case(1); id_child(1,:,:,i) = oc_part(2,p) + ic_face
-          case(2); id_child(2,:,:,i) = oc_part(2,p) + ic_face
-          case(3); id_child(:,1,:,i) = oc_part(2,p) + ic_face
-          case(4); id_child(:,2,:,i) = oc_part(2,p) + ic_face
-          case(5); id_child(:,:,1,i) = oc_part(2,p) + ic_face
-          case(6); id_child(:,:,2,i) = oc_part(2,p) + ic_face
+
+          ! clone
+          case(100); id_child(:,:,:,i) = oc_part(2,p) + 1
+
+          ! vertex
+          case(101); id_child(1,1,1,i) = oc_part(2,p) + 1
+          case(102); id_child(2,1,1,i) = oc_part(2,p) + 1
+          case(103); id_child(1,2,1,i) = oc_part(2,p) + 1
+          case(104); id_child(2,2,1,i) = oc_part(2,p) + 1
+          case(105); id_child(1,1,2,i) = oc_part(2,p) + 1
+          case(106); id_child(2,1,2,i) = oc_part(2,p) + 1
+          case(107); id_child(1,2,2,i) = oc_part(2,p) + 1
+          case(108); id_child(2,2,2,i) = oc_part(2,p) + 1
+
+          ! edge
+          case(201); id_child(:,1,1,i) = oc_part(2,p) + ic_edge
+          case(202); id_child(:,2,1,i) = oc_part(2,p) + ic_edge
+          case(203); id_child(:,1,2,i) = oc_part(2,p) + ic_edge
+          case(204); id_child(:,2,2,i) = oc_part(2,p) + ic_edge
+          case(205); id_child(1,:,1,i) = oc_part(2,p) + ic_edge
+          case(206); id_child(2,:,1,i) = oc_part(2,p) + ic_edge
+          case(207); id_child(1,:,2,i) = oc_part(2,p) + ic_edge
+          case(208); id_child(2,:,2,i) = oc_part(2,p) + ic_edge
+          case(209); id_child(1,1,:,i) = oc_part(2,p) + ic_edge
+          case(210); id_child(2,1,:,i) = oc_part(2,p) + ic_edge
+          case(211); id_child(1,2,:,i) = oc_part(2,p) + ic_edge
+          case(212); id_child(2,2,:,i) = oc_part(2,p) + ic_edge
+
+          ! face
+          case(401); id_child(1,:,:,i) = oc_part(2,p) + ic_face
+          case(402); id_child(2,:,:,i) = oc_part(2,p) + ic_face
+          case(403); id_child(:,1,:,i) = oc_part(2,p) + ic_face
+          case(404); id_child(:,2,:,i) = oc_part(2,p) + ic_face
+          case(405); id_child(:,:,1,i) = oc_part(2,p) + ic_face
+          case(406); id_child(:,:,2,i) = oc_part(2,p) + ic_face
+
+          ! volume
+          case(800); id_child (:,:,:,i) = oc_part(2,p) + ic_regular
+
           end select
-          oc_part(2,p) = oc_part(2,p) + 4
 
-        else if (m <= 18) then
+          oc_part(2,p) = oc_part(2,p) + m / 100
 
-          ! frozen children from edge refinement
+        else
+
           select case(m)
-          case( 7); id_child(:,1,1,i) = oc_part(2,p) + ic_edge
-          case( 8); id_child(:,2,1,i) = oc_part(2,p) + ic_edge
-          case( 9); id_child(:,1,2,i) = oc_part(2,p) + ic_edge
-          case(10); id_child(:,2,2,i) = oc_part(2,p) + ic_edge
-          case(11); id_child(1,:,1,i) = oc_part(2,p) + ic_edge
-          case(12); id_child(2,:,1,i) = oc_part(2,p) + ic_edge
-          case(13); id_child(1,:,2,i) = oc_part(2,p) + ic_edge
-          case(14); id_child(2,:,2,i) = oc_part(2,p) + ic_edge
-          case(15); id_child(1,1,:,i) = oc_part(2,p) + ic_edge
-          case(16); id_child(2,1,:,i) = oc_part(2,p) + ic_edge
-          case(17); id_child(1,2,:,i) = oc_part(2,p) + ic_edge
-          case(18); id_child(2,2,:,i) = oc_part(2,p) + ic_edge
+          case(1000)
+            id_child(:,:,:,i) = oc_part(1,p) + 1
+            oc_part(1,p)      = oc_part(1,p) + 1
+          case(8000)
+            id_child(:,:,:,i) = oc_part(1,p) + ic_regular
+            oc_part(1,p)      = oc_part(1,p) + 8
           end select
-          oc_part(2,p) = oc_part(2,p) + 2
-
-        else if (m <= 26) then
-
-          ! frozen child from vertex refinement at vertex m - 18
-          select case(m)
-          case(19); id_child(1,1,1,i) = oc_part(2,p) + 1
-          case(20); id_child(2,1,1,i) = oc_part(2,p) + 1
-          case(21); id_child(1,2,1,i) = oc_part(2,p) + 1
-          case(22); id_child(2,2,1,i) = oc_part(2,p) + 1
-          case(23); id_child(1,1,2,i) = oc_part(2,p) + 1
-          case(24); id_child(2,1,2,i) = oc_part(2,p) + 1
-          case(25); id_child(1,2,2,i) = oc_part(2,p) + 1
-          case(26); id_child(2,2,2,i) = oc_part(2,p) + 1
-          end select
-          oc_part(2,p) = oc_part(2,p) + 1
 
         end if
       end if
