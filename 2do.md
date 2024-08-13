@@ -21,16 +21,34 @@
   - current form for 1D element operator
   
     ``````fortran
-    module Coarse_To_Fine_Interpolation__1D
-      type CoarseToFineInterpolation_1D
-      type CoarseToFineInterpolationOptions_1D
-    ``````
-  
-  - suggested new form indicating operator type
+    type StandardOperators_1D
+        type StandardOperatorOptions_1D
+        ! vs
+    type CG_ElementOperators_1D
+    type CG_ElementOptions_1D
+    ! vs
+    type CoarseToFineInterpolation_1D
+    type CoarseToFineInterpolationOptions_1D
+        ``````
+      
+  - proposed changes
     ``````fortran
-    module Coarse_To_Fine_Interpolation_Operator__1D
-        type CoarseToFineInterpolationOperator_1D
-        type CoarseToFineInterpolationOptions_1D
+    type StandardElementOperators_1D               ! added 'Element'
+    type StandardElementOptions_1D                 ! removed 'Operator'
+    type EmbeddedInterpolationOperator_1D          ! added 'Operator'
+    type CoarseToFineInterpolationOperator_1D      ! ..
+    type FineToCoarseProjectionOperator_1D         ! ..
+    ``````
+      
+  - some alternatives
+    ``````fortran
+    type CoarseToFineInterpolationOperator_1D
+    type CoarseToFineInterpolation_3D
+    type CoarseToFineOperator_3D
+    type CtFInterpolationOperator_3D
+    type HpRefinementOperator_3D                   ! current favorite
+    ..
+    type HpCoarsensingOperator_3D                  ! ditto
     ``````
   
 ## Adaptive Multilevel Techniques
@@ -44,17 +62,25 @@
   - [x] Fine-to-Coarse interpolation and L2 projection operators
 - [x] Tensorproduct operators
   - [x] Interpolation 8:1
-  - [x] Interpolation/projection 1:8
+  - [x] Interpolation/projection 1:8 (TBD: XSMM transition threshold)
   - [x] LIBXSMM versions
 - [ ] `ML_MeshVariable`
   - [x] Constructor and destructor
   - [x] HDF5 read and write
   - [x] Parent-to-child interpolation (global, parallel, adaptive)
   - [x] Child-to-parent interpolation/projection
-  - [ ] Validation
+  - [ ] Validation (TBD: HDF5 I/O)
+- [ ] Elliptic operators with variable diffusivity
+  - [x] Elliptic tensor-product operators for variable diffusivity
+  - [x] Extend operator and solvers to variable diffusivity
+  - [x] Verification
+  - [ ] Serial performance
+  - [ ] Scalability with MPI, OpenMP and hybrid
 - [ ] Multigrid for elliptic operators
   - [ ] Dependency analysis
   - [ ] Design of data structures and interfaces
+  - [ ] Correction method
+  - [ ] FAS method
   - [ ] Define further steps
 
 
