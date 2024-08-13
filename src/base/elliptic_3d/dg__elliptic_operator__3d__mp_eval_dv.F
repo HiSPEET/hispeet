@@ -5,7 +5,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(DG__Elliptic_Operator__3D) MP_Eval_DVI
+submodule(DG__Elliptic_Operator__3D) MP_Eval_DV
   use TPO__Elliptic__3D
   use Mesh_Metrics__3D
   use Mesh_Element__3D
@@ -21,7 +21,7 @@ submodule(DG__Elliptic_Operator__3D) MP_Eval_DVI
     !---------------------------------------------------------------------------
     !> Compute & add fluxes: generic version
 
-    module subroutine AddFluxes_DVI_Gen(mesh, eop, a, Ji_n, tr, r, f)
+    module subroutine AddFluxes_DV_Gen(mesh, eop, a, Ji_n, tr, r, f)
       class(Mesh_3D),                  intent(in)    :: mesh
       class(DG_ElementOperators_1D),   intent(in)    :: eop
       real(RNP), contiguous,           intent(in)    :: a(0:,0:,:,:)
@@ -29,12 +29,12 @@ submodule(DG__Elliptic_Operator__3D) MP_Eval_DVI
       real(RNP), contiguous,           intent(in)    :: tr(0:,0:,:,:,:)
       real(RNP), contiguous,           intent(inout) :: r(0:,0:,0:,:)
       real(RNP), contiguous, optional, intent(in)    :: f(0:,0:,0:,:)
-    end subroutine AddFluxes_DVI_Gen
+    end subroutine AddFluxes_DV_Gen
 
     !---------------------------------------------------------------------------
     !> Compute & add fluxes: LIBXSMM version
 
-    module subroutine AddFluxes_DVI_XSMM(mesh, eop, a, Ji_n, tr, r, f)
+    module subroutine AddFluxes_DV_XSMM(mesh, eop, a, Ji_n, tr, r, f)
       class(Mesh_3D),                  intent(in)    :: mesh
       class(DG_ElementOperators_1D),   intent(in)    :: eop
       real(RNP), contiguous,           intent(in)    :: a(0:,0:,:,:)
@@ -42,7 +42,7 @@ submodule(DG__Elliptic_Operator__3D) MP_Eval_DVI
       real(RNP), contiguous,           intent(in)    :: tr(0:,0:,:,:,:)
       real(RNP), contiguous,           intent(inout) :: r(0:,0:,0:,:)
       real(RNP), contiguous, optional, intent(in)    :: f(0:,0:,0:,:)
-    end subroutine AddFluxes_DVI_XSMM
+    end subroutine AddFluxes_DV_XSMM
 
   end interface
 
@@ -55,10 +55,10 @@ contains
   !>   1) `f` and `bv` given:  computation of the residual, `r = f - Au`
   !>   2) `f` and `bv` absent: evaluation of the homogeneous operator, `r = Au`
 
-  module subroutine Eval_DVI(this, lambda, nu, u, r, f, bv)
+  module subroutine Eval_DV(this, lambda, nu, u, r, f, bv)
     class(DG_EllipticOperator_3D),   intent(in)  :: this
     real(RNP),                       intent(in)  :: lambda      !< λ
-    real(RNP),                       intent(in)  :: nu(:,:,:,:) !< ν
+    real(RNP), contiguous,           intent(in)  :: nu(:,:,:,:) !< ν
     real(RNP), contiguous,           intent(in)  :: u(:,:,:,:)  !< operand
     real(RNP), contiguous,           intent(out) :: r(:,:,:,:)  !< result
     real(RNP), contiguous, optional, intent(in)  :: f(:,:,:,:)  !< RHS
@@ -120,12 +120,12 @@ contains
 
       select case(po)
       case(1:2)
-        call AddFluxes_DVI_Gen  (mesh, eop, a, Ji_n, tr, r, f)
+        call AddFluxes_DV_Gen  (mesh, eop, a, Ji_n, tr, r, f)
       case default
 #ifdef __LIBXSMM__
-        call AddFluxes_DVI_XSMM (mesh, eop, a, Ji_n, tr, r, f)
+        call AddFluxes_DV_XSMM (mesh, eop, a, Ji_n, tr, r, f)
 #else
-        call AddFluxes_DVI_Gen  (mesh, eop, a, Ji_n, tr, r, f)
+        call AddFluxes_DV_Gen  (mesh, eop, a, Ji_n, tr, r, f)
 #endif
       end select
 
@@ -137,7 +137,7 @@ contains
 
     end associate
 
-  end subroutine Eval_DVI
+  end subroutine Eval_DV
 
   !=============================================================================
   ! Shared procedures
@@ -185,4 +185,4 @@ contains
 
   !=============================================================================
 
-end submodule MP_Eval_DVI
+end submodule MP_Eval_DV

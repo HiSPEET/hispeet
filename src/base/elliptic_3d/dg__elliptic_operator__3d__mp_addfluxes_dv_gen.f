@@ -1,30 +1,19 @@
 !> summary:  3D DG elliptic operator: application of fluxes with deformed mesh
-!>           and variable isotropic diffusivity using LIBXSMM
+!>           and variable isotropic diffusivity, generic version
 !> author:   Joerg Stiller
 !> date:     2024/08/12
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(DG__Elliptic_Operator__3D:MP_Eval_DVI) MP_AddFluxes_DVI_XSMM
-
-#ifdef __LIBXSMM__
-
-  use, intrinsic ::  ISO_C_Binding
-
-  use LIBXSMM, only: LIBXSMM_XMMCall_ABC,  &
-                     LIBXSMM_XMMDispatch,  &
-                     LIBXSMM_BLASINT_KIND, &
-                     LIBXSMM_DATATYPE_F32, &
-                     LIBXSMM_DATATYPE_F64
-
+submodule(DG__Elliptic_Operator__3D:MP_Eval_DV) MP_AddFluxes_DV_Gen
   implicit none
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Compute & add fluxes: LIBXSMM version
+  !> Compute & add fluxes: generic version
 
-  module subroutine AddFluxes_DVI_XSMM(mesh, eop, a, Ji_n, tr, r, f)
+  module subroutine AddFluxes_DV_Gen(mesh, eop, a, Ji_n, tr, r, f)
 
     ! arguments ................................................................
 
@@ -41,37 +30,19 @@ contains
 
     ! local variables ..........................................................
 
-    ! LIBXSMM kernel handle
-    type(C_FunPtr), save :: xmm
-
-    ! target attribute required in call to LIBXSMM_XMMCall_ABC
-    real(RNP), target, dimension(0:eop%po, 0:eop%po)    :: Mf, Ds_t, nu
-    real(RNP), target, dimension(0:eop%po, 0:eop%po)    :: nu_max, jmp_u, avg_q
-    real(RNP), target, dimension(0:eop%po, 0:eop%po, 2) :: Ct, Ds_Ct
-    real(RNP), target, dimension(0:eop%po, 0:eop%po, 6) :: Cn
+    real(RNP), dimension(0:eop%po, 0:eop%po)    :: Mf, Ds_t
+    real(RNP), dimension(0:eop%po, 0:eop%po)    :: nu, nu_max, jmp_u, avg_q
+    real(RNP), dimension(0:eop%po, 0:eop%po, 2) :: Ct, Ds_Ct
+    real(RNP), dimension(0:eop%po, 0:eop%po, 6) :: Cn
     real(RNP) :: mu, tmp
     integer   :: e, i, j, k, m
     logical   :: residual, struct
 
-    associate( P  => eop % po, &
-               Ms => eop % w   )
+    associate( P  => eop % po &
+             , Ms => eop % w  &
+             , Ds => eop % D  )
 
       ! auxiliaries ............................................................
-
-      !$omp single
-
-      ! dispatch XSMM kernel
-      select case(RNP)
-      case(RSP)
-        call DispatchKernel_RSP(xmm, P)
-      case(RDP)
-        call DispatchKernel_RDP(xmm, P)
-      case default
-        call Error( 'AddFluxes_XSMM'                                  &
-                  , 'Precision not supported'                         &
-                  , 'DG__Elliptic_Operator__3D:MP_AddFLuxes_DVI_XSMM' )
-      end select
-      !$omp end single
 
       ! face standard mass matrix
       do j = 0, P
@@ -114,8 +85,14 @@ contains
             end do
 
             ! derivatives of tangential jump contributions
-            call LIBXSMM_XMMCall_ABC(xmm, c_loc(Ds_t), c_loc(Ct), c_loc(Ds_Ct))
-            ! passing C addresses required by C interface
+            select case(P)
+            case(1) ! allow compiler to optimize inlined code for P = 1
+              call TangentialDerivatives(1, Ds, Ct, Ds_Ct)
+            case(2) ! dito for P = 2
+              call TangentialDerivatives(2, Ds, Ct, Ds_Ct)
+            case default
+              call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
+            end select
 
             ! add flux contributions, accounting for transposition of Ct(:,:,2)
             do k = 0, P
@@ -152,7 +129,14 @@ contains
             end do
             end do
 
-            call LIBXSMM_XMMCall_ABC(xmm, c_loc(Ds_t), c_loc(Ct), c_loc(Ds_Ct))
+            select case(P)
+            case(1)
+              call TangentialDerivatives(1, Ds, Ct, Ds_Ct)
+            case(2)
+              call TangentialDerivatives(2, Ds, Ct, Ds_Ct)
+            case default
+              call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
+            end select
 
             do k = 0, P
             do i = 0, P
@@ -188,7 +172,14 @@ contains
             end do
             end do
 
-            call LIBXSMM_XMMCall_ABC(xmm, c_loc(Ds_t), c_loc(Ct), c_loc(Ds_Ct))
+            select case(P)
+            case(1)
+              call TangentialDerivatives(1, Ds, Ct, Ds_Ct)
+            case(2)
+              call TangentialDerivatives(2, Ds, Ct, Ds_Ct)
+            case default
+              call TangentialDerivatives(P, Ds, Ct, Ds_Ct)
+            end select
 
             do j = 0, P
             do i = 0, P
@@ -243,62 +234,32 @@ contains
       end do
     end associate
 
-  end subroutine AddFluxes_DVI_XSMM
+  end subroutine AddFluxes_DV_Gen
 
   !-----------------------------------------------------------------------------
-  !> Routine for dispatching a single precision XSMM kernel
+  !> Computation of tangential derivatives
 
-  subroutine DispatchKernel_RSP(kernel, P, lda, ldb, ldc, flags, prefetch)
+  pure subroutine TangentialDerivatives(P, D, C, DVI)
+    integer,   intent(in)  :: P              !< polynomial order
+    real(RNP), intent(in)  :: D  (0:P,0:P)   !< diff matrix
+    real(RNP), intent(in)  :: C  (0:P,0:P,2) !< tangential jump contributions
+    real(RNP), intent(out) :: DVI (0:P,0:P,2) !< derivatives of C
 
-    type(C_FunPtr), intent(out) :: kernel
-    integer, intent(in) :: P
-    integer(LIBXSMM_BLASINT_KIND), target, optional, intent(in) :: lda, ldb, ldc
-    integer(C_INT), target, optional, intent(in) :: flags
-    integer(C_INT), target, optional, intent(in) :: prefetch
+    integer :: i, j, m
 
-    integer(LIBXSMM_BLASINT_KIND) :: m, n, k
-    real(C_FLOAT), target :: alpha = 1, beta = 0
+    do j = 0, P
+    do i = 0, P
+      DVI(i,j,1) = 0
+      DVI(i,j,2) = 0
+      do m = 0, P
+        DVI(i,j,1) = DVI(i,j,1) + D(m,i) * C(m,j,1)
+        DVI(i,j,2) = DVI(i,j,2) + D(m,i) * C(m,j,2)
+      end do
+    end do
+    end do
 
-    m = P + 1
-    n = m * 2
-    k = m
-
-    call LIBXSMM_XMMDispatch( kernel, LIBXSMM_DATATYPE_F32       &
-                            , m, n, k                            &
-                            , c_loc(lda), c_loc(ldb), c_loc(ldc) &
-                            , c_loc(alpha), c_loc(beta)          &
-                            , c_loc(flags), c_loc(prefetch)      )
-
-  end subroutine DispatchKernel_RSP
-
-  !-----------------------------------------------------------------------------
-  !> Routine for dispatching a double precision XSMM kernel
-
-  subroutine DispatchKernel_RDP(kernel, P, lda, ldb, ldc, flags, prefetch)
-
-    type(C_FunPtr), intent(out) :: kernel
-    integer, intent(in) :: P
-    integer(LIBXSMM_BLASINT_KIND), intent(in), optional, target :: lda, ldb, ldc
-    integer(C_INT), target, optional, intent(in) :: flags
-    integer(C_INT), target, optional, intent(in) :: prefetch
-
-    integer(LIBXSMM_BLASINT_KIND) :: m, n, k
-    real(C_DOUBLE), target :: alpha = 1, beta = 0
-
-    m = P + 1
-    n = m * 2
-    k = m
-
-    call LIBXSMM_XMMDispatch( kernel, LIBXSMM_DATATYPE_F64       &
-                            , m, n, k                            &
-                            , c_loc(lda), c_loc(ldb), c_loc(ldc) &
-                            , c_loc(alpha), c_loc(beta)          &
-                            , c_loc(flags), c_loc(prefetch)      )
-
-  end subroutine DispatchKernel_RDP
+  end subroutine TangentialDerivatives
 
   !=============================================================================
 
-#endif
-
-end submodule MP_AddFluxes_DVI_XSMM
+end submodule MP_AddFluxes_DV_Gen
