@@ -17,6 +17,8 @@ program DG_Elliptic_3D_Test
   use Array_Assignments
   use Array_Reductions
 
+  use DG__Element_Operators__1D
+
   use TPO__Diagonal__3D
   use Mesh__3D
   use Element_Transfer_Buffer__3D

@@ -33,9 +33,10 @@ module DG__Schwarz_Operator__3D
   !> Options for initializing the Schwarz operator
 
   type DG_SchwarzOptions_3D
-    integer :: wp = RDP       !< working precision {RDP,RSP}
-    integer :: no = 1         !< number of overlapped points
-    integer :: weighting = 5  !< weighting method {0,1,3,5,7,9}
+    integer   :: wp        = RDP !< working precision {RDP,RSP}
+    real(RNP) :: delta     = -1  !< relative overlap ≤ 1
+    integer   :: no_min    = -1  !< min overlap in points
+    integer   :: weighting =  5  !< weighting method {0,1,3,5,7,9}
   contains
     procedure :: Bcast => Bcast_DG_SchwarzOptions_3D
   end type DG_SchwarzOptions_3D
@@ -291,7 +292,8 @@ contains
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
     call XMPI_Bcast(this % wp        , root, comm)
-    call XMPI_Bcast(this % no        , root, comm)
+    call XMPI_Bcast(this % delta     , root, comm)
+    call XMPI_Bcast(this % no_min    , root, comm)
     call XMPI_Bcast(this % weighting , root, comm)
 
   end subroutine Bcast_DG_SchwarzOptions_3D
@@ -341,8 +343,14 @@ contains
     nb = size(DG_SCHWARZ_BC_3D)    ! number of supported boundary conditions
     nc = nb ** 2                   ! number of 1D boundary configurations
     ne = mesh % n_elem             ! number of local elements / subdomains
-    no = max(0, min(opt%no, po+1)) ! number of overlapped points
-    ns = po + 1 + 2*no             ! number of subdomain points per direction
+
+    ! number of overlapped points
+    no = count(eop % x <= 2 * opt%delta - 1)  ! apply overlap
+    no = max(no, opt % no_min)                ! apply minimum
+    no = max(0, min(no, po+1))                ! enforce bounds
+
+    ! number of subdomain points per direction
+    ns = po + 1 + 2*no
 
     allocate(Ws(ns), S(ns,ns), V(ns), W(ns))
 

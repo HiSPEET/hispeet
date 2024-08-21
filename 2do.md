@@ -43,14 +43,18 @@
   - some alternatives
     ``````fortran
     type CoarseToFineInterpolationOperator_1D
-    type CoarseToFineInterpolation_3D
-    type CoarseToFineOperator_3D
-    type CtFInterpolationOperator_3D
-    type HpRefinementOperator_3D                   ! current favorite
+    type CoarseToFineInterpolation_1D
+    type CoarseToFineOperator_1D
+    type CtFInterpolationOperator_1D
+    type HpRefinementOperator_1D                   ! current favorite
     ..
-    type HpCoarsensingOperator_3D                  ! ditto
+    type HpCoarsensingOperator_1D                  ! ditto
     ``````
-  
+- [ ] Element operator data basis 
+  - avoid recomputation of element operators
+  - optional initialization of standard operators for range of polynomial degrees
+  - alternatively or additionally, tabularization of collocation points and weights
+
 ## Adaptive Multilevel Techniques
 
 - [ ] `ML_Mesh_3D` 
@@ -77,10 +81,10 @@
   - [ ] Serial performance
   - [ ] Scalability with MPI, OpenMP and hybrid
 - [ ] Multigrid for elliptic operators
-  - [ ] Dependency analysis
   - [ ] Design of data structures and interfaces
-  - [ ] Correction method
-  - [ ] FAS method
+  - [ ] Initialization
+  - [ ] FAS multigrid method
+  - [ ] FAS-accelerated multilevel Krylov method
   - [ ] Define further steps
 
 

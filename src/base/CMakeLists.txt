@@ -248,6 +248,10 @@ set( MULTILEVEL_3D ${MULTILEVEL_3D}
      multilevel_3d/adaptation/root_mesh_partitioning__3d.F
    )
 
+set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d.f
+   )
+
 #===============================================================================
 # elliptic_1d
 
