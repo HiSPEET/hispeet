@@ -11,7 +11,7 @@ module CG__Element_Operators__1D
   use Kind_Parameters, only: RNP
   use Constants,       only: ONE, ZERO
   use Eigenproblems,   only: SolveGeneralizedEigenproblem
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use XMPI
   implicit none
   private
@@ -22,7 +22,7 @@ module CG__Element_Operators__1D
   !-----------------------------------------------------------------------------
   !> Element operators for continuous Galerkin-SEM
 
-  type, extends(StandardOperators_1D) :: CG_ElementOperators_1D
+  type, extends(StandardElementOperators_1D) :: CG_ElementOperators_1D
   contains
 
     procedure :: Init_CG_ElementOperators_1D
@@ -51,9 +51,9 @@ module CG__Element_Operators__1D
   !-----------------------------------------------------------------------------
   !> Options for CG_ElementOperators_1D
   !>
-  !> @note: identical to StandardOperatorOptions_1D, so far
+  !> @note: identical to StandardElementOptions_1D, so far
 
-  type, extends(StandardOperatorOptions_1D) :: CG_ElementOptions_1D
+  type, extends(StandardElementOptions_1D) :: CG_ElementOptions_1D
   contains
     procedure :: Bcast => Bcast_CG_ElementOptions1D
   end type CG_ElementOptions_1D
@@ -107,7 +107,7 @@ contains
     class(CG_ElementOperators_1D), intent(inout) :: this
     class(CG_ElementOptions_1D),   intent(in)    :: opt
 
-    call this % Init_StandardOperators_1D(opt)
+    call this % Init_StandardElementOperators_1D(opt)
 
   end subroutine Init_CG_ElementOperators_1D
 
@@ -355,7 +355,7 @@ contains
     integer,                     intent(in)    :: root !< rank of broadcast root
     type(MPI_Comm),              intent(in)    :: comm !< MPI communicator
 
-    call this % StandardOperatorOptions_1D % Bcast(root, comm)
+    call this % StandardElementOptions_1D % Bcast(root, comm)
 
   end subroutine Bcast_CG_ElementOptions1D
 

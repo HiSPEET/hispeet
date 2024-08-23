@@ -7,7 +7,7 @@
 module CART__DG_Weak_Divergence
 
   use Kind_Parameters, only: RNP
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use TPO__Div__3D_R
   use CART__Mesh_Partition
   use CART__Boundary_Variable

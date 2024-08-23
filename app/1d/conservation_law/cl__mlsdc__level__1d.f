@@ -9,8 +9,8 @@ module CL__MLSDC__Level__1D
   use Constants
   use Array_Assignments
   use Execution_Control
-  use Coarse_To_Fine_Interpolation__1D
-  use Fine_To_Coarse_Projection__1D
+  use HP__Refinement_Operator__1D
+  use HP__Coarsening_Operator__1D
   use CL__Problem__1D
   use CL__Operator__1D
   use CL__Time_Integrator__1D
@@ -43,11 +43,11 @@ module CL__MLSDC__Level__1D
 
     ! transfer operators .......................................................
 
-    type(CoarseToFineInterpolation_1D) :: iop_cf_x !< C-F interpolation in x
-    type(CoarseToFineInterpolation_1D) :: iop_cf_t !< C-F interpolation in t
+    type(HP_RefinementOperator_1D) :: iop_cf_x !< C-F interpolation in x
+    type(HP_RefinementOperator_1D) :: iop_cf_t !< C-F interpolation in t
 
-    type(FineToCoarseProjection_1D)    :: pop_fc_x !< F-C projection in x
-    type(FineToCoarseProjection_1D)    :: pop_fc_t !< F-C projection in t
+    type(HP_CoarseningOperator_1D) :: pop_fc_x !< F-C projection in x
+    type(HP_CoarseningOperator_1D) :: pop_fc_t !< F-C projection in t
 
   contains
 
@@ -82,11 +82,11 @@ module CL__MLSDC__Level__1D
     class(CL_TimeIntegrator_Options_1D), allocatable :: cl_pre
     class(CL_SDC_Options_1D),            allocatable :: cl_sdc
 
-    type(CoarseToFineInterpolationOptions_1D) :: iop_cf_x
-    type(CoarseToFineInterpolationOptions_1D) :: iop_cf_t
+    type(HP_RefinementOptions_1D) :: iop_cf_x
+    type(HP_RefinementOptions_1D) :: iop_cf_t
 
-    type(FineToCoarseProjectionOptions_1D) :: pop_fc_x
-    type(FineToCoarseProjectionOptions_1D) :: pop_fc_t
+    type(HP_CoarseningOptions_1D) :: pop_fc_x
+    type(HP_CoarseningOptions_1D) :: pop_fc_t
 
   end type CL_MLSDC_Level_Options_1D
 
@@ -234,13 +234,13 @@ contains
     ! transfer operators .......................................................
 
     if (.not. this % is_top) then
-      this % iop_cf_x = CoarseToFineInterpolation_1D(opt % iop_cf_x)
-      this % iop_cf_t = CoarseToFineInterpolation_1D(opt % iop_cf_t)
+      this % iop_cf_x = HP_RefinementOperator_1D(opt % iop_cf_x)
+      this % iop_cf_t = HP_RefinementOperator_1D(opt % iop_cf_t)
     end if
 
     if (.not. this % is_root) then
-      this % pop_fc_x = FineToCoarseProjection_1D(opt % pop_fc_x)
-      this % pop_fc_t = FineToCoarseProjection_1D(opt % pop_fc_t)
+      this % pop_fc_x = HP_CoarseningOperator_1D(opt % pop_fc_x)
+      this % pop_fc_t = HP_CoarseningOperator_1D(opt % pop_fc_t)
     end if
 
   end subroutine Init_CL_MLSDC_Level_1D

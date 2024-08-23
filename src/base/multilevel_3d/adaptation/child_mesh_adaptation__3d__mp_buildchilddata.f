@@ -33,8 +33,8 @@ contains
     integer, allocatable, save :: cn_part(:)  ! neighbor counters
     integer, allocatable, save :: cp_part(:)  ! element point counters
 
-    type(StandardOperators_1D),         allocatable, save :: eop(:)
-    type(CoarseToFineInterpolation_1D), allocatable, save :: iop(:)
+    type(StandardElementOperators_1D), allocatable, save :: eop(:)
+    type(HP_RefinementOperator_1D),    allocatable, save :: iop(:)
 
     integer, save :: nn_edge, nn_vert
     integer, save :: po_min, po_max
@@ -180,9 +180,9 @@ contains
       allocate( eop(po_min:po_max) )
       allocate( iop(po_min:po_max) )
       do po = po_min, po_max
-        eop(po) = StandardOperators_1D(po, basis = 'L', no_vdm = .true.)
-        iop(po) = CoarseToFineInterpolation_1D( &
-                      CoarseToFineInterpolationOptions_1D( &
+        eop(po) = StandardElementOperators_1D(po, basis = 'L', no_vdm = .true.)
+        iop(po) = HP_RefinementOperator_1D( &
+                      HP_RefinementOptions_1D( &
                           basis = 'L', po_c = po, po_f = po, mode = 2 ))
       end do
 

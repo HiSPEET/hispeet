@@ -16,8 +16,8 @@ module INS__Operator__3D
 
   use TPO__INS_Convection__3D
 
-  use Standard_Operators__1D
-  use Embedded_Interpolation__1D
+  use Standard_Element_Operators__1D
+  use Embedded_Interpolation_Operator__1D
   use DG__Element_Operators__1D
   use DG__Elliptic_Operator__3D
   use DG__Schwarz_Operator__3D
@@ -47,13 +47,13 @@ module INS__Operator__3D
     character, allocatable :: bc_p(:) !< pressure BC
     real(RNP) :: delta_outflow        !< δ parameter of outflow conditions
 
-    type(DG_ElementOperators_1D) :: eop_v !< DG operators for v
-    type(DG_ElementOperators_1D) :: eop_p !< DG operators for p
-    type(StandardOperators_1D)   :: sop_q !< quadrature ops for convection
+    type(DG_ElementOperators_1D)      :: eop_v !< DG operators for v
+    type(DG_ElementOperators_1D)      :: eop_p !< DG operators for p
+    type(StandardElementOperators_1D) :: sop_q !< quadrature ops for convection
 
-    type(EmbeddedInterpolation_1D) :: iop_vp !< interpolation from v to p points
-    type(EmbeddedInterpolation_1D) :: iop_vq !< interpolation from v to q points
-    type(EmbeddedInterpolation_1D) :: iop_pv !< interpolation from p to v points
+    type(EmbeddedInterpolationOperator_1D) :: iop_vp !< v to p interpolation
+    type(EmbeddedInterpolationOperator_1D) :: iop_vq !< v to q interpolation
+    type(EmbeddedInterpolationOperator_1D) :: iop_pv !< p to v interpolation
 
     type(Mesh_3D)                :: mesh  !< local mesh partition
     type(SpectralElementMesh_3D) :: sem_v !< mesh + metrics for v
@@ -101,9 +101,9 @@ module INS__Operator__3D
     real(RNP) :: delta_outflow = 0.01   !< δ parameter of outflow conditions
     type(DG_ElementOptions_1D) :: eop_v !< DG operator options for v
     type(DG_ElementOptions_1D) :: eop_p !< DG operator options for p
-    type(StandardOperatorOptions_1D) :: sop_q !< quadrature opts for convection
-    type(DG_SchwarzOptions_3D) :: schwarz_p !< Schwarz options for p-solver
-    type(DG_SchwarzOptions_3D) :: schwarz_v !< Schwarz options for v-solver
+    type(StandardElementOptions_1D) :: sop_q !< quadrature opts for convection
+    type(DG_SchwarzOptions_3D) :: schwarz_p  !< Schwarz options for p-solver
+    type(DG_SchwarzOptions_3D) :: schwarz_v  !< Schwarz options for v-solver
   contains
     procedure :: Bcast => Bcast_INS_OperatorOptions_3D
   end type INS_OperatorOptions_3D
@@ -269,13 +269,13 @@ contains
     this % bc_v = problem % bc_v
     this % delta_outflow = opt % delta_outflow
 
-    this % eop_v = DG_ElementOperators_1D(opt % eop_v)
-    this % eop_p = DG_ElementOperators_1D(opt % eop_p)
-    this % sop_q = StandardOperators_1D  (opt % sop_q)
+    this % eop_v = DG_ElementOperators_1D     ( opt % eop_v )
+    this % eop_p = DG_ElementOperators_1D     ( opt % eop_p )
+    this % sop_q = StandardElementOperators_1D( opt % sop_q )
 
-    this % iop_vp = EmbeddedInterpolation_1D(this % eop_v, this % eop_p % x)
-    this % iop_vq = EmbeddedInterpolation_1D(this % eop_v, this % sop_q % x)
-    this % iop_pv = EmbeddedInterpolation_1D(this % eop_p, this % eop_v % x)
+    this % iop_vp = EmbeddedInterpolationOperator_1D( this%eop_v, this%eop_p%x )
+    this % iop_vq = EmbeddedInterpolationOperator_1D( this%eop_v, this%sop_q%x )
+    this % iop_pv = EmbeddedInterpolationOperator_1D( this%eop_p, this%eop_v%x )
 
     if (present(mesh)) then
       this % mesh = mesh

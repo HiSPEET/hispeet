@@ -6,7 +6,7 @@
 
 module TPO__Elliptic__3D
   use Kind_Parameters, only: RDP
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use Mesh__3D
   use Spectral_Element_Mesh__3D
 
@@ -31,7 +31,7 @@ contains
   !> and double precision
 
   subroutine TPO_Elliptic_CI_RDP(eop, sem, lambda, nu, u, v, ub, qb)
-    class(StandardOperators_1D),   intent(in) :: eop
+    class(StandardElementOperators_1D), intent(in) :: eop
     class(SpectralElementMesh_3D), intent(in) :: sem
     real(RDP),           intent(in)    :: lambda      !< Helmholtz parameter λ
     real(RDP),           intent(in)    :: nu          !< diffusivity ν
@@ -74,7 +74,7 @@ contains
   !> and double precision
 
   subroutine TPO_Elliptic_VI_RDP(eop, sem, lambda, nu, u, v, nub, ub, qb)
-    class(StandardOperators_1D),   intent(in) :: eop
+    class(StandardElementOperators_1D), intent(in) :: eop
     class(SpectralElementMesh_3D), intent(in) :: sem
     real(RDP),           intent(in)    :: lambda       !< Helmholtz parameter λ
     real(RDP),           intent(in)    :: nu(:,:,:,:)  !< diffusivity ν

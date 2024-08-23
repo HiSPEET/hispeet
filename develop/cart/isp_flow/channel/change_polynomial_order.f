@@ -16,8 +16,8 @@ program Change_Polynomial_Order
   use Array_Assignments
   use Array_Reductions
   use Gauss_Jacobi
-  use Standard_Operators__1D
-  use Embedded_Interpolation__3D
+  use Standard_Element_Operators__1D
+  use Embedded_Interpolation_Operator__3D
   use XMPI
 
   use ISP_Flow_Problem__Test_Suite
@@ -68,9 +68,9 @@ program Change_Polynomial_Order
 
   ! operators ..................................................................
 
-  type(StandardOperators_1D)    , save :: standard_op
-  type(StandardOperators_1D)    , save :: standard_op_new
-  type(EmbeddedInterpolation_3D), save :: interpol_op
+  type(StandardElementOperators_1D)    , save :: standard_op
+  type(StandardElementOperators_1D)    , save :: standard_op_new
+  type(EmbeddedInterpolationOperator_3D), save :: interpol_op
 
   ! variables ..................................................................
 
@@ -165,15 +165,15 @@ program Change_Polynomial_Order
 
   ! variables and operators ....................................................
 
-  standard_op_new = StandardOperators_1D(po_u_new)
+  standard_op_new = StandardElementOperators_1D(po_u_new)
 
   allocate(xi(po_u_new+1))
   do i = 1, po_u_new+1
     xi(i) = standard_op_new%x(i-1)
   end do
 
-  standard_op = StandardOperators_1D(po_u)
-  interpol_op = EmbeddedInterpolation_3D(standard_op, xi)
+  standard_op = StandardElementOperators_1D(po_u)
+  interpol_op = EmbeddedInterpolationOperator_3D(standard_op, xi)
 
   !-----------------------------------------------------------------------------
   ! Read, interpolate and save flow data

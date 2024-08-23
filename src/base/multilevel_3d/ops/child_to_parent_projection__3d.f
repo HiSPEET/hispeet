@@ -7,7 +7,7 @@
 module Child_To_Parent_Projection__3D
   use Kind_Parameters
   use Array_Assignments
-  use Fine_To_Coarse_Projection__1D
+  use HP__Coarsening_Operator__1D
   use Mesh__3D
   use Data_Exchange__3D
   use TPO__AAA__3D
@@ -32,7 +32,7 @@ contains
       !< child mesh partition
     class(Mesh_3D), intent(in) :: parent
       !< parent mesh partition
-    class(FineToCoarseProjection_1D), intent(in) :: pop
+    class(HP_CoarseningOperator_1D), intent(in) :: pop
       !< projection operator
     real(RNP), contiguous, intent(in) :: v_c(0:,0:,0:,:,:)
       !< child data
@@ -51,7 +51,7 @@ contains
       !< child mesh partition
     class(Mesh_3D), intent(in) :: parent
       !< parent mesh partition
-    class(FineToCoarseProjection_1D), intent(in) :: pop
+    class(HP_CoarseningOperator_1D), intent(in) :: pop
       !< projection operator
     real(RNP), contiguous, intent(in) :: v_c(0:,0:,0:,:)
       !< child data
@@ -70,7 +70,7 @@ contains
       !< child mesh partition
     class(Mesh_3D), intent(in) :: parent
       !< parent mesh partition
-    class(FineToCoarseProjection_1D), intent(in) :: pop
+    class(HP_CoarseningOperator_1D), intent(in) :: pop
       !< projection operator
     integer,intent(in) :: n_comp
       !< number of array components

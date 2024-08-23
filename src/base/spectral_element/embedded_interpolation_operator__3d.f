@@ -4,10 +4,10 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Embedded_Interpolation__3D
+module Embedded_Interpolation_Operator__3D
   use Kind_Parameters, only: RNP
-  use Standard_Operators__1D
-  use Embedded_Interpolation__1D
+  use Standard_Element_Operators__1D
+  use Embedded_Interpolation_Operator__1D
   use TPO__AAA__3D
   implicit none
   private
@@ -15,7 +15,8 @@ module Embedded_Interpolation__3D
   !-----------------------------------------------------------------------------
   !> Embedded interpolation of 3D mesh variables
 
-  type, extends(EmbeddedInterpolation_1D), public :: EmbeddedInterpolation_3D
+  type, extends(EmbeddedInterpolationOperator_1D), &
+      public :: EmbeddedInterpolationOperator_3D
 
   contains
 
@@ -23,10 +24,10 @@ module Embedded_Interpolation__3D
     procedure, private :: Interpolate_S
     procedure, private :: Interpolate_A
 
-  end type EmbeddedInterpolation_3D
+  end type EmbeddedInterpolationOperator_3D
 
   ! constructor interface
-  interface EmbeddedInterpolation_3D
+  interface EmbeddedInterpolationOperator_3D
     module procedure New_SX
   end interface
 
@@ -36,14 +37,13 @@ contains
   ! Constructor
 
   !-----------------------------------------------------------------------------
-  !> New EmbeddedInterpolation_1D from 1D standard operators and interpolation
-  !> points
+  !> New embedded 3D interpolation operator
 
-  type(EmbeddedInterpolation_3D) function New_SX(eop, xi) result(this)
-    class(StandardOperators_1D), intent(in) :: eop !< standard operators
+  type(EmbeddedInterpolationOperator_3D) function New_SX(eop, xi) result(this)
+    class(StandardElementOperators_1D), intent(in) :: eop !< standard operators
     real(RNP), intent(in) :: xi(:) !< points in [-1,1]
 
-    call this % Init_EmbeddedInterpolation_1D(eop, xi)
+    call this % Init_EmbeddedInterpolationOperator_1D(eop, xi)
 
   end function New_SX
 
@@ -54,7 +54,7 @@ contains
   !> Interpolation of scalar variables
 
   subroutine Interpolate_S(this, uo, ui)
-    class(EmbeddedInterpolation_3D), intent(in) :: this
+    class(EmbeddedInterpolationOperator_3D), intent(in) :: this
     real(RNP), intent(in)  :: uo(:,:,:,:) !< original mesh variable
     real(RNP), intent(out) :: ui(:,:,:,:) !< interpolated mesh variable
 
@@ -66,7 +66,7 @@ contains
   !> Interpolation of array variables
 
   subroutine Interpolate_A(this, uo, ui)
-    class(EmbeddedInterpolation_3D), intent(in) :: this
+    class(EmbeddedInterpolationOperator_3D), intent(in) :: this
     real(RNP), intent(in)  :: uo(:,:,:,:,:) !< original mesh variable
     real(RNP), intent(out) :: ui(:,:,:,:,:) !< interpolated mesh variable
 
@@ -80,4 +80,4 @@ contains
 
   !=============================================================================
 
-end module Embedded_Interpolation__3D
+end module Embedded_Interpolation_Operator__3D

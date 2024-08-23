@@ -7,7 +7,7 @@
 program Validate__TPO_Elliptic_DLVI
 ! validate
   use Kind_Parameters
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use TPO__Elliptic__3D_DLVI
   use TPO__Elliptic__3D_DLVI__Gen
 ! mesh
@@ -59,7 +59,7 @@ program Validate__TPO_Elliptic_DLVI
 
   ! operators and variables ....................................................
 
-  type(StandardOperators_1D) :: standard_op
+  type(StandardElementOperators_1D) :: standard_op
 
   real(RNP), dimension(:,:,:,:), allocatable :: nu, u, v, w
   real(RNP), dimension(:,:,:,:), allocatable :: Jd_Ji_grad_u
@@ -126,7 +126,7 @@ program Validate__TPO_Elliptic_DLVI
 
   ! operators ..................................................................
 
-  standard_op = StandardOperators_1D(po)
+  standard_op = StandardElementOperators_1D(po)
 
   ! workspace ..................................................................
 

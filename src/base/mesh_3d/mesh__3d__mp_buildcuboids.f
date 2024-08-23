@@ -5,7 +5,7 @@
 !===============================================================================
 
 submodule(Mesh__3D) MP_BuildCuboids
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use Element_Transfer_Buffer__3D
   implicit none
 
@@ -28,7 +28,7 @@ contains
   module subroutine BuildCuboids(mesh)
     class(Mesh_3D), intent(inout)  :: mesh !< mesh partition
 
-    type(StandardOperators_1D), allocatable :: sop(:)
+    type(StandardElementOperators_1D), allocatable :: sop(:)
     real(RNP), allocatable, target :: work(:)
     real(RNP), pointer :: VL_inv(:,:)
     integer :: e, po
@@ -45,7 +45,7 @@ contains
 
         ! cuboid from truncated Legendre representation
         if (sop(po) % po /= po) then
-          sop(po) = StandardOperators_1D(po)
+          sop(po) = StandardElementOperators_1D(po)
         end if
         VL_inv(0:po,0:po) => work(1:(po+1)**2)
         call sop(po) % Get_Inverse_Legendre_VDM(VL_inv)

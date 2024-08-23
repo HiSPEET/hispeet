@@ -6,8 +6,8 @@
 
 module ML__Mesh_Operators__3D
   use Execution_Control
-  use Coarse_To_Fine_Interpolation__1D
-  use Fine_To_Coarse_Projection__1D
+  use HP__Refinement_Operator__1D
+  use HP__Coarsening_Operator__1D
   use Spectral_Element_Mesh__3D
   use ML__Mesh__3D
   implicit none
@@ -21,11 +21,11 @@ module ML__Mesh_Operators__3D
   type ML_MeshOperators_3D
     type(SpectralElementMesh_3D), allocatable :: sem(:)
       !< sequence of spectral element meshes [1:l_top]
-    type(CoarseToFineInterpolation_1D), allocatable :: iop_cf(:)
+    type(HP_RefinementOperator_1D), allocatable :: iop_cf(:)
       !< fine-to-coarse interpolation operators [1:l_top-1]
-    type(FineToCoarseProjection_1D), allocatable :: iop_fc(:)
+    type(HP_CoarseningOperator_1D), allocatable :: iop_fc(:)
       !< coarse-to-fine interpolation operators [2:l_top]
-    type(FineToCoarseProjection_1D), allocatable :: pop_fc(:)
+    type(HP_CoarseningOperator_1D), allocatable :: pop_fc(:)
       !< coarse-to-fine L2-projection operators [2:l_top]
   contains
     procedure :: Init_ML_MeshOperators_3D
@@ -64,8 +64,8 @@ contains
     integer,   optional, intent(in) :: smooth  !< fine-to-coarse discontinuity
                                                !! smoothing {0,1,2} [0]
 
-    type(CoarseToFineInterpolationOptions_1D) :: cf_opt
-    type(FineToCoarseProjectionOptions_1D)    :: fc_opt
+    type(HP_RefinementOptions_1D) :: cf_opt
+    type(HP_CoarseningOptions_1D) :: fc_opt
 
     integer :: l, l_top
 
@@ -106,7 +106,7 @@ contains
           cf_opt % po_c    = po(l)
           cf_opt % po_f    = po(l+1)
           cf_opt % mode    = Mode(mesh(l)%refinement, po(l), po(l+1))
-          this % iop_cf(l) = CoarseToFineInterpolation_1D(cf_opt)
+          this % iop_cf(l) = HP_RefinementOperator_1D(cf_opt)
         end if
 
         ! fine-to-coarse transfers operators
@@ -116,10 +116,10 @@ contains
           fc_opt % po_c    = po(l-1)
           fc_opt % method  = 'I'
           fc_opt % mode    = Mode(mesh(l-1)%refinement, po(l-1), po(l))
-          this % iop_fc(l) = FineToCoarseProjection_1D(fc_opt)
+          this % iop_fc(l) = HP_CoarseningOperator_1D(fc_opt)
           ! L2-projection
           fc_opt % method  = 'P'
-          this % pop_fc(l) = FineToCoarseProjection_1D(fc_opt)
+          this % pop_fc(l) = HP_CoarseningOperator_1D(fc_opt)
         end if
 
         ! skip levels above toplevel mesh

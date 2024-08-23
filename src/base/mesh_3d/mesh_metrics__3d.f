@@ -9,7 +9,7 @@
 
 module Mesh_Metrics__3D
   use Kind_Parameters, only: RNP
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use Mesh__3D
   implicit none
   private
@@ -69,8 +69,8 @@ contains
   !> MeshMetrics_3D constructor
 
   function New_MeshMetrics_3D(mesh, std_op) result(this)
-    class(Mesh_3D),              intent(in) :: mesh   !< mesh partition
-    class(StandardOperators_1D), intent(in) :: std_op !< standard element ops
+    class(Mesh_3D), intent(in) :: mesh !< mesh partition
+    class(StandardElementOperators_1D), intent(in) :: std_op !< standard ops
 
     type(MeshMetrics_3D) :: this
 
@@ -82,9 +82,9 @@ contains
   !> Initialization of mesh metrics
 
   subroutine Init_MeshMetrics_3D(this, mesh, std_op)
-    class(MeshMetrics_3D),       intent(inout) :: this
-    class(Mesh_3D),              intent(in)    :: mesh   !< mesh partition
-    class(StandardOperators_1D), intent(in)    :: std_op !< standard element ops
+    class(MeshMetrics_3D), intent(inout) :: this
+    class(Mesh_3D),        intent(in)    :: mesh !< mesh partition
+    class(StandardElementOperators_1D), intent(in) :: std_op !< standard ops
 
     ! local variables ..........................................................
 

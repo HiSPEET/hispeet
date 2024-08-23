@@ -46,9 +46,9 @@
     type CoarseToFineInterpolation_1D
     type CoarseToFineOperator_1D
     type CtFInterpolationOperator_1D
-    type HpRefinementOperator_1D                   ! current favorite
+    type HP_RefinementOperator_1D                  ! current favorite
     ..
-    type HpCoarsensingOperator_1D                  ! ditto
+    type HP_CoarsensingOperator_1D                 ! ditto
     ``````
 - [ ] Element operator data basis 
   - avoid recomputation of element operators

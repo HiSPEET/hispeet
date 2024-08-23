@@ -23,7 +23,7 @@ program Channel_Post
   use Array_Assignments
   use Array_Reductions
   use Gauss_Jacobi
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use XMPI
 
   use ISP_Flow_Problem__Test_Suite
@@ -86,7 +86,7 @@ program Channel_Post
 
   ! operators ..................................................................
 
-  type(StandardOperators_1D), save :: standard_op
+  type(StandardElementOperators_1D), save :: standard_op
   type(C_PTR) :: plan
 
   ! variables ..................................................................
@@ -227,7 +227,7 @@ program Channel_Post
 
   ! variables and operators ....................................................
 
-  standard_op = StandardOperators_1D(po_u)
+  standard_op = StandardElementOperators_1D(po_u)
 
   ! interpolation points of homogeneous directions
   allocate(xi(ni))

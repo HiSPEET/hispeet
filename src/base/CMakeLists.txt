@@ -87,15 +87,19 @@ set ( UTILITIES
 # spectral_element
 
 set ( SPECTRAL_ELEMENT
+
+      spectral_element/standard_element_operators__1d.f
       spectral_element/cg__element_operators__1d.f
       spectral_element/dg__element_operators__1d.f
-      spectral_element/embedded_interpolation__1d.f
-      spectral_element/embedded_interpolation__3d.f
-      spectral_element/coarse_to_fine_interpolation__1d.f
-      spectral_element/fine_to_coarse_projection__1d.f
+
+      spectral_element/hp__coarsening_operator__1d.f
+      spectral_element/hp__refinement_operator__1d.f
+
+      spectral_element/embedded_interpolation_operator__1d.f
+      spectral_element/embedded_interpolation_operator__3d.f
+
       spectral_element/projection_operator__1d.f
       spectral_element/projection_operator__3d.f
-      spectral_element/standard_operators__1d.f
     )
 
 #===============================================================================

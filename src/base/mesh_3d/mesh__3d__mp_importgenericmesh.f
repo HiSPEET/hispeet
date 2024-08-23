@@ -8,7 +8,7 @@ submodule(Mesh__3D) MP_ImportGenericMesh
   use Constants
   use Execution_Control
   use Gauss_Jacobi
-  use Embedded_Interpolation__1D
+  use Embedded_Interpolation_Operator__1D
   use Generic_Mesh__3D
   implicit none
 
@@ -206,7 +206,7 @@ contains
     class(Mesh_3D),        intent(inout) :: mesh         !< mesh partition
     class(GenericMesh_3D), intent(in)    :: generic_mesh !< generic mesh
 
-    type(EmbeddedInterpolation_1D), allocatable :: iop(:)
+    type(EmbeddedInterpolationOperator_1D), allocatable :: iop(:)
     real(RNP), allocatable :: xo(:), xi(:)
     integer :: e, i, po, po_max, po_min
     logical :: has_equidistant_basis
@@ -243,7 +243,7 @@ contains
           end do
           ! interpolation points (Lobatto)
           xi = LobattoPoints(po)
-          iop(po) = EmbeddedInterpolation_1D('N', xo, xi)
+          iop(po) = EmbeddedInterpolationOperator_1D('N', xo, xi)
           deallocate(xo, xi)
         end do
       end if

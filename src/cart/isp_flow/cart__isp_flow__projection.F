@@ -19,7 +19,7 @@ module CART__ISP_Flow__Projection
 
   use Array_Assignments
   use Array_Reductions
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use TPO__Diagonal__3D
   use TPO__Div__3D_R
   use TPO__Grad__3D_R
@@ -90,14 +90,14 @@ contains
 !>
 
 subroutine ProjectionSolver(mesh, sop, dt, gamma, r_red, i_max, f, v)
-  class(MeshPartition),       intent(in)    :: mesh         !< mesh partition
-  class(StandardOperators_1D), intent(in)    :: sop          !< std SE operators
-  real(RNP),                  intent(in)    :: dt           !< time step size
-  real(RNP),                  intent(in)    :: gamma        !< penalty factor
-  real(RNP),                  intent(in)    :: r_red        !< min res reduction
-  integer,                    intent(in)    :: i_max        !< max num iterations
-  real(RNP),                  intent(in)    :: f(:,:,:,:,:) !< RHS
-  real(RNP),                  intent(inout) :: v(:,:,:,:,:) !< velocity
+  class(MeshPartition),               intent(in) :: mesh !< mesh partition
+  class(StandardElementOperators_1D), intent(in) :: sop  !< std SE operators
+  real(RNP), intent(in)    :: dt           !< time step size
+  real(RNP), intent(in)    :: gamma        !< penalty factor
+  real(RNP), intent(in)    :: r_red        !< min res reduction
+  integer,   intent(in)    :: i_max        !< max num iterations
+  real(RNP), intent(in)    :: f(:,:,:,:,:) !< RHS
+  real(RNP), intent(inout) :: v(:,:,:,:,:) !< velocity
 
   ! local variables ..........................................................
 

@@ -6,7 +6,7 @@
 
 module TPO__Div__3D
   use Kind_Parameters, only: RDP
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use Mesh__3D
   use Spectral_Element_Mesh__3D
 
@@ -27,7 +27,7 @@ contains
   !> Automatic divergence TPO with double precision
 
   subroutine TPO_Div_RDP(eop, sem, u, up, v)
-    class(StandardOperators_1D),   intent(in) :: eop
+    class(StandardElementOperators_1D), intent(in) :: eop
     class(SpectralElementMesh_3D), intent(in) :: sem
     real(RDP),           intent(in)  :: u(:,:,:,:,:)  !< 3D vector field
     real(RDP), optional, intent(in)  :: up(:,:,:,:,:) !< exterior traces u⁺

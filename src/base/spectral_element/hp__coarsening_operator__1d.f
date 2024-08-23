@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Fine_To_Coarse_Projection__1D
+module HP__Coarsening_Operator__1D
   use Kind_Parameters
   use Constants
   use Gauss_Jacobi
@@ -15,7 +15,7 @@ module Fine_To_Coarse_Projection__1D
   private
 
   !-----------------------------------------------------------------------------
-  !> Fine-to-coarse hp-projection operator
+  !> hp-coarsening operator
   !>
   !> Provides 1D operators to project data from a fine mesh to a coarser one.
   !> Pure p-coarsening as well as hp-coarsening are supported. In the latter
@@ -46,7 +46,7 @@ module Fine_To_Coarse_Projection__1D
   !> Option `2` requires a boundary-interior decomposition and is therefore
   !> restricted to equidistant (`E`) or Lobatto (`L`) bases.
 
-  type, public :: FineToCoarseProjection_1D
+  type, public :: HP_CoarseningOperator_1D
     character(len=2) :: basis          !< basis type
     integer          :: po_f           !< polynomial order of fine mesh
     integer          :: po_c           !< polynomial order of coarse mesh
@@ -55,44 +55,44 @@ module Fine_To_Coarse_Projection__1D
     integer          :: smooth         !< discontinuity handling
     real(RNP), allocatable :: A(:,:,:) !< interpolation operator(s)
     real(RNP), allocatable :: B(:,:)   !< blending operators
-  end type FineToCoarseProjection_1D
+  end type HP_CoarseningOperator_1D
 
   ! constructor interface
-  interface FineToCoarseProjection_1D
-    procedure New_FineToCoarseProjection
+  interface HP_CoarseningOperator_1D
+    procedure New_HP_CoarseningOperator
   end interface
 
   !-----------------------------------------------------------------------------
-  !> Options for initializing the fine-to-coarse hp-projection operator
+  !> Options for initializing the hp-coarsening operator
 
-  type, public :: FineToCoarseProjectionOptions_1D
+  type, public :: HP_CoarseningOptions_1D
     character(len=2) :: basis  = 'L' !< basis type {'E','G','L','RL','RR'}
     integer          :: po_f   = -1  !< polynomial order of fine mesh
     integer          :: po_c   = -1  !< polynomial order of coarse mesh
     integer          :: mode   = -1  !< coarsening mode {0,1,2}
     character        :: method = 'I' !< L² projection 'P' or interpolation 'I'
     integer          :: smooth =  0  !< discontinuity handling {0,1,2}
-  end type FineToCoarseProjectionOptions_1D
+  end type HP_CoarseningOptions_1D
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Fine-to-coarse interpolation constructor
+  !> hp-coarsening operator constructor
 
-  function New_FineToCoarseProjection(opt) result(this)
-    class(FineToCoarseProjectionOptions_1D), intent(in) :: opt
-    type(FineToCoarseProjection_1D) :: this
+  function New_HP_CoarseningOperator(opt) result(this)
+    class(HP_CoarseningOptions_1D), intent(in) :: opt
+    type(HP_CoarseningOperator_1D) :: this
 
-    call Init_FineToCoarseProjection(this, opt)
+    call Init_HP_CoarseningOperator(this, opt)
 
-  end function New_FineToCoarseProjection
+  end function New_HP_CoarseningOperator
 
   !-----------------------------------------------------------------------------
-  !> Build fine-to-coarse projection
+  !> Build hp-coarsening operator
 
-  subroutine Init_FineToCoarseProjection(this, opt)
-    class(FineToCoarseProjection_1D), intent(inout) :: this
-    class(FineToCoarseProjectionOptions_1D), intent(in) :: opt
+  subroutine Init_HP_CoarseningOperator(this, opt)
+    class(HP_CoarseningOperator_1D), intent(inout) :: this
+    class(HP_CoarseningOptions_1D), intent(in) :: opt
 
     real(RNP), allocatable :: x_f(:), x_c(:), x_g(:), x_q(:), w_g(:), w_q(:)
     integer :: po_c, po_f, po_q
@@ -415,8 +415,8 @@ contains
 
     !---------------------------------------------------------------------------
 
-  end subroutine Init_FineToCoarseProjection
+  end subroutine Init_HP_CoarseningOperator
 
   !=============================================================================
 
-end module Fine_To_Coarse_Projection__1D
+end module HP__Coarsening_Operator__1D

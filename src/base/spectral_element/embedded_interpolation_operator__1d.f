@@ -14,19 +14,19 @@
 !>
 !===============================================================================
 
-module Embedded_Interpolation__1D
+module Embedded_Interpolation_Operator__1D
   use Kind_Parameters, only: RNP
   use Execution_Control, only: Error
   use Gauss_Jacobi
   use Lagrange_Interpolation
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   implicit none
   private
 
   !-----------------------------------------------------------------------------
   !> Embedded interpolation operator
 
-  type, public :: EmbeddedInterpolation_1D
+  type, public :: EmbeddedInterpolationOperator_1D
 
     integer :: no = -1 !< number of original points per direction
     integer :: ni = -1 !< number of interpolated points per direction
@@ -34,14 +34,14 @@ module Embedded_Interpolation__1D
 
   contains
 
-    generic :: Init_EmbeddedInterpolation_1D => Init_Points, Init_StdOps
+    generic :: Init_EmbeddedInterpolationOperator_1D => Init_Points, Init_StdOps
     procedure, private :: Init_Points
     procedure, private :: Init_StdOps
 
-  end type EmbeddedInterpolation_1D
+  end type EmbeddedInterpolationOperator_1D
 
   ! constructor interface
-  interface EmbeddedInterpolation_1D
+  interface EmbeddedInterpolationOperator_1D
     module procedure New_Points
     module procedure New_StdOps
   end interface
@@ -54,7 +54,9 @@ contains
   !-----------------------------------------------------------------------------
   !> New interpolation operator from basis type and points
 
-  type(EmbeddedInterpolation_1D) function New_Points(basis, xo, xi) result(this)
+  type(EmbeddedInterpolationOperator_1D) function New_Points(basis, xo, xi) &
+      result(this)
+
     character(*), intent(in) :: basis  !< basis type
     real(RNP),    intent(in) :: xo(0:) !< basis points
     real(RNP),    intent(in) :: xi(1:) !< interpolation points in [-1,1]
@@ -66,8 +68,10 @@ contains
   !-----------------------------------------------------------------------------
   !> New interpolation operator from standard operators and interpolation points
 
-  type(EmbeddedInterpolation_1D) function New_StdOps(eop, xi) result(this)
-    class(StandardOperators_1D), intent(in) :: eop !< standard operators
+  type(EmbeddedInterpolationOperator_1D) function New_StdOps(eop, xi) &
+      result(this)
+
+    class(StandardElementOperators_1D), intent(in) :: eop !< standard operators
     real(RNP), intent(in) :: xi(1:) !< interpolation points in [-1,1]
 
     call Init_StdOps(this, eop, xi)
@@ -81,7 +85,7 @@ contains
   !> Initialization for given nodes and interpolation points
 
   subroutine Init_Points(this, basis, xo, xi)
-    class(EmbeddedInterpolation_1D), intent(inout) :: this
+    class(EmbeddedInterpolationOperator_1D), intent(inout) :: this
     character(*), intent(in) :: basis  !< basis type
     real(RNP),    intent(in) :: xo(0:) !< basis points
     real(RNP),    intent(in) :: xi(1:) !< interpolation points in [-1,1]
@@ -124,7 +128,8 @@ contains
         end do
         end do
       case default
-        call Error('Init_Points', 'Invalid basis', 'Embedded_Interpolation__1D')
+        call Error('Init_Points', 'Invalid basis', &
+                   'Embedded_Interpolation_Operator__1D')
       end select
 
     end associate
@@ -135,8 +140,8 @@ contains
   !> Initialization for given 1D standard operators and interpolation points
 
   subroutine Init_StdOps(this, eop, xi)
-    class(EmbeddedInterpolation_1D), intent(inout) :: this
-    class(StandardOperators_1D), intent(in) :: eop  !< standard operators
+    class(EmbeddedInterpolationOperator_1D), intent(inout) :: this
+    class(StandardElementOperators_1D), intent(in) :: eop  !< standard operators
     real(RNP), intent(in) :: xi(1:) !< interpolation points in [-1,1]
 
     call Init_Points(this, eop%basis, eop%x, xi)
@@ -145,4 +150,4 @@ contains
 
   !=============================================================================
 
-end module Embedded_Interpolation__1D
+end module Embedded_Interpolation_Operator__1D
