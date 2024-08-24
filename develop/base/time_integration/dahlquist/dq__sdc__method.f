@@ -162,8 +162,8 @@ contains
     write(io,'(2X,A,T15,I0)') 'n_sub:'     , this % n_sub
     write(io,'(2X,A,T15,I0)') 'n_sweep:'   , this % n_sweep
     write(io,'(2X,A,T15,I0)') 'impl:'      , this % impl
-    write(io,'(2X,A,T15,L0)') 'predict:'   , this % predict
-    write(io,'(2X,A,T15,L0)') 'assembly:'  , this % assembly
+    write(io,'(2X,A,T15,L1)') 'predict:'   , this % predict
+    write(io,'(2X,A,T15,L1)') 'assembly:'  , this % assembly
 
     call this % predictor % Show(unit)
 

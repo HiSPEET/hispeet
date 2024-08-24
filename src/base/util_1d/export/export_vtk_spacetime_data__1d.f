@@ -258,12 +258,16 @@ contains
   !> Maps spacetime element points to linear grid cells
 
   subroutine BuildLinearSpacetimeCoords(np, po, ne, pt, nt, xc, tc, xg)
-    integer,        intent(in)  :: np          !< number of mesh points
+    integer,        intent(in)  :: np          !< number of VTK grid points
+    integer,        intent(in)  :: po          !< polynomial degree in space
+    integer,        intent(in)  :: ne          !< number of elements in space
+    integer,        intent(in)  :: pt          !< polynomial degree in time
+    integer,        intent(in)  :: nt          !< number of elements in time
     real(RNP),      intent(in)  :: xc(0:po,ne) !< space mesh element points
     real(RNP),      intent(in)  :: tc(0:pt,nt) !< time mesh element points
     real(C_DOUBLE), intent(out) :: xg(3,np)    !< VTK grid points
 
-    integer :: i, j, k, l, idx, po, ne, pt, nt
+    integer :: i, j, k, l, idx
 
     idx = 1
     do l = 1, nt

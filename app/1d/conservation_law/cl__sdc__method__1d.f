@@ -206,7 +206,7 @@ contains
     write(io,'(2X,A,T24,I0)')     'diffusion_i_max:' , this % diffusion_i_max
     write(io,'(2X,A,T23,ES12.5)') 'diffusion_r_red:' , this % diffusion_r_red
     write(io,'(2X,A,T23,ES12.5)') 'diffusion_r_max:' , this % diffusion_r_max
-    write(io,'(2X,A,T24,L0)')     'final_assembly:'  , this % final_assembly
+    write(io,'(2X,A,T24,L1)')     'final_assembly:'  , this % final_assembly
 
   end subroutine Show_CL_SDC_Method_1D
 
