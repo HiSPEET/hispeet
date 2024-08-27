@@ -8,7 +8,7 @@
 
 submodule(CART__Mesh_Partition) MP_GetPoints
   use Constants, only: HALF
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   implicit none
 
 contains
@@ -27,7 +27,7 @@ module subroutine GetPoints(mesh, po, basis, x)
   character,              intent(in)  :: basis        !< 'G' or 'L'
   real(RNP), allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
 
-  type(StandardOperators_1D) :: sop
+  type(StandardElementOperators_1D) :: sop
 
   real(RNP), allocatable :: x1(:), x2(:), x3(:)
   real(RNP) :: dx(3)
@@ -38,7 +38,7 @@ module subroutine GetPoints(mesh, po, basis, x)
   allocate(x(0:po, 0:po, 0:po, mesh%ne, 3))
   allocate(x1(0:po), x2(0:po), x3(0:po))
 
-  sop = StandardOperators_1D(po, basis, no_vdm = .true.)
+  sop = StandardElementOperators_1D(po, basis, no_vdm = .true.)
 
   ! create element points ......................................................
 

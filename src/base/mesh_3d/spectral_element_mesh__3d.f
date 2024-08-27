@@ -8,7 +8,7 @@ module Spectral_Element_Mesh__3D
   use Kind_Parameters, only: RNP
   use Constants      , only: ZERO
   use XMPI
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use Mesh__3D
   use Mesh_Metrics__3D
   implicit none
@@ -20,9 +20,9 @@ module Spectral_Element_Mesh__3D
   !> 3D spectral element mesh
 
   type SpectralElementMesh_3D
-    class(Mesh_3D), pointer    :: mesh    !< mesh partition
-    type(StandardOperators_1D) :: std_op  !< standard element operators
-    type(MeshMetrics_3D)       :: metrics !< mesh points and metrics
+    class(Mesh_3D), pointer           :: mesh    !< mesh partition
+    type(StandardElementOperators_1D) :: std_op  !< standard element operators
+    type(MeshMetrics_3D)              :: metrics !< mesh points and metrics
   contains
     procedure :: Init_SpectralElementMesh_3D
     procedure :: Get_Volume
@@ -61,7 +61,7 @@ contains
     character,           optional, intent(in)    :: basis !< 'G' or 'L' ['L']
 
     this % mesh    => mesh
-    this % std_op  =  StandardOperators_1D(po, basis)
+    this % std_op  =  StandardElementOperators_1D(po, basis)
     this % metrics =  MeshMetrics_3D(mesh, this % std_op)
 
   end subroutine Init_SpectralElementMesh_3D

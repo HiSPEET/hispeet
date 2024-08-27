@@ -6,8 +6,8 @@
 
 module CL__Operator__1D
   use Kind_Parameters, only: RNP
-  use Standard_Operators__1D
-  use Embedded_Interpolation__1D
+  use Standard_Element_Operators__1D
+  use Embedded_Interpolation_Operator__1D
   use DG__Element_Operators__1D
   use DG__Elliptic_Operator__1D
   use DG__Utilities__1D
@@ -26,10 +26,14 @@ module CL__Operator__1D
     integer   :: ne !< number of elements
     real(RNP) :: dx !< element length
 
-    type(DG_ElementOperators_1D)   :: eop    !< ops for solution u
-    type(StandardOperators_1D)     :: qop    !< ops for quadrature of convection
-    type(EmbeddedInterpolation_1D) :: iop_uq !< interpolation from u to q points
-    type(DG_EllipticOperator_1D)   :: elliptic_op !< elliptic solvers+smoothers
+    type(DG_ElementOperators_1D) :: eop
+      !< ops for solution u
+    type(StandardElementOperators_1D) :: qop
+      !< ops for quadrature of convection
+    type(EmbeddedInterpolationOperator_1D) :: iop_uq
+      !< interpolation from u to q points
+    type(DG_EllipticOperator_1D) :: elliptic_op
+      !< elliptic solvers+smoothers
 
     real(RNP), allocatable :: x(:,:)  !< mesh points
     real(RNP), allocatable :: Me(:)   !< element mass matrix
@@ -65,12 +69,12 @@ module CL__Operator__1D
   !> instance of CL_Problem_1D.
 
   type CL_Operator_Options_1D
-    integer                          :: ne = 1  !< number of elements
-    real(RNP)                        :: xb1     !< position of left boundary
-    real(RNP)                        :: xb2     !< position of right boundary
-    type(DG_ElementOptions_1D)       :: eop     !< DG operator options for u
-    type(StandardOperatorOptions_1D) :: qop     !< quadrature for convection
-    type(DG_SchwarzOptions_1D)       :: schwarz !< Schwarz preconditioner
+    integer                         :: ne = 1  !< number of elements
+    real(RNP)                       :: xb1     !< position of left boundary
+    real(RNP)                       :: xb2     !< position of right boundary
+    type(DG_ElementOptions_1D)      :: eop     !< DG operator options for u
+    type(StandardElementOptions_1D) :: qop     !< quadrature for convection
+    type(DG_SchwarzOptions_1D)      :: schwarz !< Schwarz preconditioner
   end type CL_Operator_Options_1D
 
 contains
@@ -108,8 +112,8 @@ contains
     ! element operators ........................................................
 
     this % eop    = DG_ElementOperators_1D(opt % eop)
-    this % qop    = StandardOperators_1D(opt % qop)
-    this % iop_uq = EmbeddedInterpolation_1D(this % eop, this % qop % x)
+    this % qop    = StandardElementOperators_1D(opt % qop)
+    this % iop_uq = EmbeddedInterpolationOperator_1D(this % eop, this % qop % x)
 
     this % elliptic_op = DG_EllipticOperator_1D(opt % eop, opt % schwarz)
 

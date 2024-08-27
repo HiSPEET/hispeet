@@ -8,7 +8,7 @@ module Projection_Operator__1D
   use Kind_Parameters, only: RNP
   use Constants,       only: HALF
   use Gauss_Jacobi
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   implicit none
   private
 
@@ -56,7 +56,7 @@ contains
   !> points
 
   type(ProjectionOperator_1D) function New_SX(eop, xq, wq, dx) result(this)
-    class(StandardOperators_1D), intent(in) :: eop !< standard operators
+    class(StandardElementOperators_1D), intent(in) :: eop !< standard operators
     real(RNP), intent(in) :: xq(:) !< quadrature points
     real(RNP), intent(in) :: wq(:) !< quadrature weights
     real(RNP), intent(in) :: dx    !< element length
@@ -73,7 +73,7 @@ contains
 
   subroutine Init_SX(this, eop, xq, wq, dx)
     class(ProjectionOperator_1D),  intent(inout) :: this
-    class(StandardOperators_1D), intent(in) :: eop !< standard operators
+    class(StandardElementOperators_1D), intent(in) :: eop !< standard operators
     real(RNP), intent(in) :: xq(:) !< quadrature points
     real(RNP), intent(in) :: wq(:) !< quadrature weights
     real(RNP), intent(in) :: dx    !< element length

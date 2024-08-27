@@ -20,6 +20,10 @@ module DG__Elliptic_Operator__3D
   use Boundary_Variable__3D
 
   implicit none
+  private
+
+  public :: DG_EllipticOperator_3D
+
 
   !-----------------------------------------------------------------------------
   !> Base type for scalar diffusion operators for 3D DG-SEM
@@ -53,6 +57,8 @@ module DG__Elliptic_Operator__3D
 
     procedure :: PhysicalDiffusivity
     procedure :: SpectralDiffusivity
+
+    procedure, private :: EnforceBoundaryConditions
 
   end type DG_EllipticOperator_3D
 
@@ -514,8 +520,8 @@ contains
   !>          jmp_u  ←  n⋅[u]  =  0
   !>          avg_q  ←  n⋅{q}  =  q_b
 
-  subroutine EnforceBoundaryConditions(elliptic_op, bv, jmp_u, avg_q)
-    class(DG_EllipticOperator_3D), intent(in) :: elliptic_op
+  subroutine EnforceBoundaryConditions(this, bv, jmp_u, avg_q)
+    class(DG_EllipticOperator_3D), intent(in) :: this
     class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
     real(RNP), contiguous, intent(inout) :: jmp_u(:,:,:,:) !< trace of u
     real(RNP), contiguous, intent(inout) :: avg_q(:,:,:,:) !< trace of ν du/dn
@@ -523,15 +529,15 @@ contains
     logical :: has_bv
     integer :: b, e, f, l
 
-    if (elliptic_op % sem % mesh % n_bound < 1) return
+    if (this % sem % mesh % n_bound < 1) return
 
     has_bv = present(bv)
 
-    associate(boundary => elliptic_op % sem % mesh % boundary)
+    associate(boundary => this % sem % mesh % boundary)
 
       do b = 1, size(boundary)
 
-        select case(elliptic_op % bc(b))
+        select case(this % bc(b))
 
         case('D')  ! avg_q remains unchanged !
 

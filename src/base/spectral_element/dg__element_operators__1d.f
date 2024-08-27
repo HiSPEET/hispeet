@@ -16,7 +16,7 @@ module DG__Element_Operators__1D
   use Constants
   use Execution_Control, only: Error
   use Eigenproblems,     only: SolveGeneralizedEigenproblem
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use XMPI
   implicit none
   private
@@ -41,7 +41,7 @@ module DG__Element_Operators__1D
   !> where `Aᵢᵢ` and `Mᵢᵢ` the standard diffusion matrix and the standard
   !> diagonal mass matrix restricted to the interior points.
 
-  type, extends(StandardOperators_1D) :: DG_ElementOperators_1D
+  type, extends(StandardElementOperators_1D) :: DG_ElementOperators_1D
     real(RNP) :: penalty = 2       !< penalty parameter > 1
     logical   :: hybrid  = .false. !< switch to hybridized method
   contains
@@ -85,7 +85,7 @@ module DG__Element_Operators__1D
   !-----------------------------------------------------------------------------
   !> Options for DG_ElementOperators_1D
 
-  type, extends(StandardOperatorOptions_1D) :: DG_ElementOptions_1D
+  type, extends(StandardElementOptions_1D) :: DG_ElementOptions_1D
     real(RNP) :: penalty =  2       !< penalty parameter > 1
     logical   :: hybrid  = .false.  !< switch to hybridized method
   contains
@@ -150,7 +150,7 @@ contains
     class(DG_ElementOperators_1D), intent(inout) :: this
     class(DG_ElementOptions_1D),   intent(in)    :: opt
 
-    call this % Init_StandardOperators_1D(opt)
+    call this % Init_StandardElementOperators_1D(opt)
 
     this % penalty = opt % penalty
     this % hybrid  = opt % hybrid
@@ -888,8 +888,8 @@ contains
   !> DG_ElementOptions_1D from given operators, optionally overriding the order
 
   function New_IP_ElementOptions1D_o(eop, po) result(this)
-    class(StandardOperators_1D), intent(in) :: eop !< element operators
-    integer,           optional, intent(in) :: po  !< polynomial order
+    class(StandardElementOperators_1D), intent(in) :: eop !< element operators
+    integer, optional, intent(in) :: po  !< polynomial order
 
     type(DG_ElementOptions_1D) :: this
 
@@ -917,7 +917,7 @@ contains
     integer,                     intent(in)    :: root !< rank of broadcast root
     type(MPI_Comm),              intent(in)    :: comm !< MPI communicator
 
-    call this % StandardOperatorOptions_1D % Bcast(root, comm)
+    call this % StandardElementOptions_1D % Bcast(root, comm)
 
     call XMPI_Bcast( this % penalty , root, comm )
     call XMPI_Bcast( this % hybrid  , root, comm )

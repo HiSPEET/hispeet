@@ -4,7 +4,7 @@
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Standard_Operators__1D
+module Standard_Element_Operators__1D
   use Kind_Parameters,   only: RNP
   use Constants,         only: ZERO, ONE, TWO
   use Execution_Control, only: Warning, Error
@@ -14,8 +14,8 @@ module Standard_Operators__1D
   implicit none
   private
 
-  public :: StandardOperators_1D
-  public :: StandardOperatorOptions_1D
+  public :: StandardElementOperators_1D
+  public :: StandardElementOptions_1D
 
   !-----------------------------------------------------------------------------
   !> Standard operators for one polynomial order
@@ -27,7 +27,7 @@ module Standard_Operators__1D
   !>   - Lagrange polynomials to left  Gauss-Radau-Legendre points: basis = 'RL'
   !>   - Lagrange polynomials to right Gauss-Radau-Legendre points: basis = 'RR'
 
-  type StandardOperators_1D
+  type StandardElementOperators_1D
     private
 
     ! public components
@@ -51,7 +51,7 @@ module Standard_Operators__1D
 
   contains
 
-    procedure :: Init_StandardOperators_1D
+    procedure :: Init_StandardElementOperators_1D
     procedure :: PolynomialOrder
 
     procedure :: Init_Legendre_VDM
@@ -72,18 +72,18 @@ module Standard_Operators__1D
     procedure :: Get_SVV_StandardDiffMatrix
     procedure :: Get_SVV_StandardStiffnessMatrix
 
-  end type StandardOperators_1D
+  end type StandardElementOperators_1D
 
   ! Constructor interface
-  interface StandardOperators_1D
-    module procedure New_StandardOperators_1D__f
-    module procedure New_StandardOperators_1D__b
+  interface StandardElementOperators_1D
+    module procedure New_StandardElementOperators_1D__f
+    module procedure New_StandardElementOperators_1D__b
   end interface
 
   !-----------------------------------------------------------------------------
-  !> Options for StandardOperators_1D
+  !> Options for StandardElementOperators_1D
 
-  type StandardOperatorOptions_1D
+  type StandardElementOptions_1D
     integer      :: po         = -1       !< polynomial order
     character(2) :: basis      = 'L'      !< basis type
     logical      :: no_vdm     = .false.  !< skip Vandermonde matrix
@@ -91,7 +91,7 @@ module Standard_Operators__1D
     integer      :: po_cut_svv = -huge(1) !< cut-off order for SVV
   contains
     procedure :: Bcast => Bcast_StandardOperatorOptions1D
-  end type StandardOperatorOptions_1D
+  end type StandardElementOptions_1D
 
 contains
 
@@ -99,10 +99,10 @@ contains
   ! Constructor
 
   !-----------------------------------------------------------------------------
-  !> Constructor for StandardOperators_1D -- flat interface
+  !> Constructor for StandardElementOperators_1D -- flat interface
 
-  function New_StandardOperators_1D__f(po, basis, no_vdm, svv, po_cut_svv)     &
-     result(this)
+  function New_StandardElementOperators_1D__f &
+              (po, basis, no_vdm, svv, po_cut_svv) result(this)
 
     integer,                intent(in) :: po     !< polynomial order
     character(*), optional, intent(in) :: basis  !< points {G,L,RR,RL}       [L]
@@ -110,8 +110,8 @@ contains
     logical     , optional, intent(in) :: svv    !< activate SVV model       [F]
     integer     , optional, intent(in) :: po_cut_svv !< SVV cut-off order [po/2]
 
-    type(StandardOperators_1D)       :: this
-    type(StandardOperatorOptions_1D) :: opt
+    type(StandardElementOperators_1D) :: this
+    type(StandardElementOptions_1D)   :: opt
 
     opt % po = po
 
@@ -120,20 +120,20 @@ contains
     if (present(svv       )) opt % svv        = svv
     if (present(po_cut_svv)) opt % po_cut_svv = po_cut_svv
 
-    call Init_StandardOperators_1D(this, opt)
+    call Init_StandardElementOperators_1D(this, opt)
 
-  end function New_StandardOperators_1D__f
+  end function New_StandardElementOperators_1D__f
 
   !-----------------------------------------------------------------------------
-  !> Constructor for StandardOperators_1D -- bundled arguments
+  !> Constructor for StandardElementOperators_1D -- bundled arguments
 
-  function New_StandardOperators_1D__b(opt) result(this)
-    class(StandardOperatorOptions_1D), intent(in) :: opt
-    type(StandardOperators_1D) :: this
+  function New_StandardElementOperators_1D__b(opt) result(this)
+    class(StandardElementOptions_1D), intent(in) :: opt
+    type(StandardElementOperators_1D) :: this
 
-    call Init_StandardOperators_1D(this, opt)
+    call Init_StandardElementOperators_1D(this, opt)
 
-  end function New_StandardOperators_1D__b
+  end function New_StandardElementOperators_1D__b
 
   !=============================================================================
   ! Type-bound procedures
@@ -142,7 +142,7 @@ contains
   !> Returns the polymial order of operators, or -1 if none
 
   pure integer function PolynomialOrder(this) result(po)
-    class(StandardOperators_1D), intent(in) :: this !< standard operators
+    class(StandardElementOperators_1D), intent(in) :: this !< standard operators
 
     po = this % po
 
@@ -154,11 +154,11 @@ contains
   !> The routine provides 1D standard operators for the chosen nodal basis.
   !> Lobatto is the default, except for `po = 0` which always implies Gauss.
 
-  subroutine Init_StandardOperators_1D(this, opt)
-    !> standard operators that will be initialized
-    class(StandardOperators_1D),       intent(inout) :: this
-    !> options variable for the standard operator construction
-    class(StandardOperatorOptions_1D), intent(in)    :: opt
+  subroutine Init_StandardElementOperators_1D(this, opt)
+    class(StandardElementOperators_1D), intent(inout) :: this
+      !< standard operators that will be initialized
+    class(StandardElementOptions_1D), intent(in) :: opt
+      !< options variable for the standard operator construction
 
     integer :: i, j, po_cut
 
@@ -173,7 +173,7 @@ contains
       call Delete_StandardOperators1D(this)
 
       if (po < 0) then
-        call Error('Init_StandardOperators_1D', 'Invalid order (po < 0)')
+        call Error('Init_StandardElementOperators_1D', 'Invalid order (po < 0)')
       else if (po == 0) then
         this%basis = 'G'
       else
@@ -181,7 +181,7 @@ contains
         case('G','L','RL','RR')
           this%basis = basis
         case default
-          call Error('Init_StandardOperators_1D', 'Invalid basis')
+          call Error('Init_StandardElementOperators_1D', 'Invalid basis')
         end select
       end if
 
@@ -256,13 +256,14 @@ contains
 
     end associate
 
-  end subroutine Init_StandardOperators_1D
+  end subroutine Init_StandardElementOperators_1D
 
   !-----------------------------------------------------------------------------
   !> Intializes the Legendre-Vandermonde matrix and its inverse.
 
   subroutine Init_Legendre_VDM(this)
-    class(StandardOperators_1D), intent(inout) :: this !< standard operators
+    class(StandardElementOperators_1D), intent(inout) :: this
+      !< standard operators
 
     integer :: i, j, po
 
@@ -295,7 +296,7 @@ contains
   !> Query if Legendre VDM is available
 
   logical function Has_Legendre_VDM(this) result(has)
-    class(StandardOperators_1D), intent(in) :: this    !< standard operators
+    class(StandardElementOperators_1D), intent(in) :: this !< standard operators
     has = allocated(this % VL)
   end function Has_Legendre_VDM
 
@@ -303,13 +304,13 @@ contains
   !> Get the Legendre-Vandermonde matrix
 
   subroutine Get_Legendre_VDM(this, VL)
-    class(StandardOperators_1D), intent(in) :: this   !< standard operators
-    real(RNP), intent(out) :: VL(0:this%po,0:this%po) !< Vandermonde matrix
+    class(StandardElementOperators_1D), intent(in) :: this !< standard operators
+    real(RNP), intent(out) :: VL(0:this%po,0:this%po)      !< Vandermonde matrix
 
     if (.not. allocated(this % VL)) then
       call Error( 'Get_Legendre_VDM'                   &
                 , 'Vandermonde matrix not initialized' &
-                , 'Standard_Operators__1D'             )
+                , 'Standard_Element_Operators__1D'     )
     end if
 
     VL = this % VL
@@ -320,13 +321,13 @@ contains
   !> Get the inverse Legendre-Vandermonde matrix
 
   subroutine Get_Inverse_Legendre_VDM(this, VL_inv)
-    class(StandardOperators_1D), intent(in) :: this       !< standard operators
-    real(RNP), intent(out) :: VL_inv(0:this%po,0:this%po) !< inverse VDM matrix
+    class(StandardElementOperators_1D), intent(in) :: this !< standard operators
+    real(RNP), intent(out) :: VL_inv(0:this%po,0:this%po)  !< inverse VDM matrix
 
     if (.not. allocated(this%VL_inv)) then
       call Error( 'Get_Inverse_Legendre_VDM'            &
                 , 'Vandermonde matrix not initialized'  &
-                , 'Standard_Operators__1D'              )
+                , 'Standard_Element_Operators__1D'      )
     end if
 
     VL_inv = this % VL_inv
@@ -340,14 +341,14 @@ contains
   !> than `po_cut`.
 
   subroutine Get_Legendre_CutoffFilter(this, po_cut, A)
-    class(StandardOperators_1D), intent(in) :: this  !< standard operators
+    class(StandardElementOperators_1D), intent(in) :: this !< standard operators
     integer,   intent(in)  :: po_cut                 !< cutoff degree
     real(RNP), intent(out) :: A(0:this%po,0:this%po) !< filter matrix
 
     if (.not. this%Has_Legendre_VDM()) then
       call Error( 'Get_Legendre_CutoffFilter'           &
                 , 'Vandermonde matrix not initialized'  &
-                , 'Standard_Operators__1D'              )
+                , 'Standard_Element_Operators__1D'              )
     end if
 
     if (po_cut >= 0 .and. po_cut <= this%po) then
@@ -362,7 +363,8 @@ contains
   !> Intializes the Vandermonde matrix for basis with linear and bubble modes.
 
   subroutine Init_Bubble_VDM(this)
-    class(StandardOperators_1D), intent(inout) :: this !< standard operators
+    class(StandardElementOperators_1D), intent(inout) :: this
+      !< standard operators
 
     real(RNP) :: x
     integer   :: i, j, po
@@ -401,7 +403,7 @@ contains
   !> Query if Bubble VDM is available
 
   logical function Has_Bubble_VDM(this) result(has)
-    class(StandardOperators_1D), intent(in) :: this    !< standard operators
+    class(StandardElementOperators_1D), intent(in) :: this !< standard operators
     has = allocated(this % VB)
   end function Has_Bubble_VDM
 
@@ -409,13 +411,13 @@ contains
   !> Get the Bubble-Vandermonde matrix
 
   subroutine Get_Bubble_VDM(this, VB)
-    class(StandardOperators_1D), intent(in) :: this   !< standard operators
-    real(RNP), intent(out) :: VB(0:this%po,0:this%po) !< Vandermonde matrix
+    class(StandardElementOperators_1D), intent(in) :: this !< standard operators
+    real(RNP), intent(out) :: VB(0:this%po,0:this%po)      !< Vandermonde matrix
 
     if (.not. allocated(this % VB)) then
       call Error( 'Get_Bubble_VDM'                     &
                 , 'Vandermonde matrix not initialized' &
-                , 'Standard_Operators__1D'             )
+                , 'Standard_Element_Operators__1D'             )
     end if
 
     VB = this % VB
@@ -426,13 +428,13 @@ contains
   !> Get the inverse Bubble-Vandermonde matrix
 
   subroutine Get_Inverse_Bubble_VDM(this, VB_inv)
-    class(StandardOperators_1D), intent(in) :: this       !< standard operators
-    real(RNP), intent(out) :: VB_inv(0:this%po,0:this%po) !< inverse VDM matrix
+    class(StandardElementOperators_1D), intent(in) :: this !< standard operators
+    real(RNP), intent(out) :: VB_inv(0:this%po,0:this%po ) !< inverse VDM matrix
 
     if (.not. allocated(this%VB_inv)) then
       call Error( 'Get_Inverse_Bubble_VDM'              &
                 , 'Vandermonde matrix not initialized'  &
-                , 'Standard_Operators__1D'              )
+                , 'Standard_Element_Operators__1D'              )
     end if
 
     VB_inv = this % VB_inv
@@ -446,14 +448,14 @@ contains
   !> `po_cut`.
 
   subroutine Get_Bubble_CutoffFilter(this, po_cut, A)
-    class(StandardOperators_1D), intent(in) :: this  !< standard operators
+    class(StandardElementOperators_1D), intent(in) :: this !< standard operators
     integer,   intent(in)  :: po_cut                 !< cutoff degree
     real(RNP), intent(out) :: A(0:this%po,0:this%po) !< filter matrix
 
     if (.not. this%Has_Bubble_VDM()) then
       call Error( 'Get_Bubble_CutoffFilter'             &
                 , 'Vandermonde matrix not initialized'  &
-                , 'Standard_Operators__1D'              )
+                , 'Standard_Element_Operators__1D'              )
     end if
 
     if (po_cut >= 0 .and. po_cut <= this%po) then
@@ -468,8 +470,10 @@ contains
   !> Initializes SVV operators
 
   subroutine Init_SVV(this, po_cut)
-    class(StandardOperators_1D), intent(inout) :: this !< standard operators
-    integer, intent(in) :: po_cut !< cutoff polynomial degree
+    class(StandardElementOperators_1D), intent(inout) :: this
+      !< standard operators
+    integer, intent(in) :: po_cut
+      !< cutoff polynomial degree
 
     real(RNP), allocatable :: Q_hat(:,:) ! SVV filter coefficients
 
@@ -527,7 +531,7 @@ contains
   !> Query if SVV is used
 
   logical function Has_SVV(this) result(has)
-    class(StandardOperators_1D), intent(in) :: this !< standard operators
+    class(StandardElementOperators_1D), intent(in) :: this !< standard operators
     has = allocated(this % D_root_svv)
   end function Has_SVV
 
@@ -535,13 +539,15 @@ contains
   !> Get the SVV standard differentiation matrix based on the root of SVV kernel
 
   subroutine Get_SVV_StandardRootDiffMatrix(this, D_root_svv)
-    class(StandardOperators_1D), intent(in) :: this           !< standard operators
-    real(RNP), intent(out) :: D_root_svv(0:this%po,0:this%po) !< SVV diff matrix
+    class(StandardElementOperators_1D), intent(in) :: this
+      !< standard operators
+    real(RNP), intent(out) :: D_root_svv(0:this%po,0:this%po)
+      !< SVV diff matrix
 
     if (.not. allocated(this % D_root_svv)) then
       call Error( 'Get_SVV_StandardRootDiffMatrix' &
                 , 'SVV not initialized'            &
-                , 'Standard_Operators__1D'         )
+                , 'Standard_Element_Operators__1D'         )
     end if
 
     D_root_svv = this % D_root_svv
@@ -552,13 +558,13 @@ contains
   !> Get the SVV standard differentiation matrix
 
   subroutine Get_SVV_StandardDiffMatrix(this, D_svv)
-    class(StandardOperators_1D), intent(in) :: this      !< standard operators
-    real(RNP), intent(out) :: D_svv(0:this%po,0:this%po) !< SVV diff matrix
+    class(StandardElementOperators_1D), intent(in) :: this !< standard operators
+    real(RNP), intent(out) :: D_svv(0:this%po,0:this%po)   !< SVV diff matrix
 
     if (.not. allocated(this % D_svv)) then
       call Error( 'Get_SVV_StandardDiffMatrix' &
                 , 'SVV not initialized'        &
-                , 'Standard_Operators__1D'     )
+                , 'Standard_Element_Operators__1D'     )
     end if
 
     D_svv = this % D_svv
@@ -569,13 +575,13 @@ contains
   !> Get the SVV standard stiffness matrix
 
   subroutine Get_SVV_StandardStiffnessMatrix(this, L_svv)
-    class(StandardOperators_1D), intent(in) :: this       !< standard operators
+    class(StandardElementOperators_1D), intent(in) :: this !< standard operators
     real(RNP), intent(out) :: L_svv(0:this%po,0:this%po) !< SVV stiffness matrix
 
     if (.not. allocated(this % L_svv)) then
       call Error( 'Get_SVV_StandardStiffnessMatrix' &
                 , 'SVV not initialized'             &
-                , 'Standard_Operators__1D'          )
+                , 'Standard_Element_Operators__1D'          )
     end if
 
     L_svv = this % L_svv
@@ -586,7 +592,8 @@ contains
   !> Finalization
 
   subroutine Delete_StandardOperators1D(this)
-    type(StandardOperators_1D), intent(inout) :: this  !< standard operators
+    type(StandardElementOperators_1D), intent(inout) :: this
+      !< standard operators
 
     if(allocated(this%x          )) deallocate(this%x          )
     if(allocated(this%w          )) deallocate(this%w          )
@@ -601,10 +608,10 @@ contains
   end subroutine Delete_StandardOperators1D
 
   !-----------------------------------------------------------------------------
-  !> MPI_Bcast for objects of type StandardOperatorOptions_1D
+  !> MPI_Bcast for objects of type StandardElementOptions_1D
 
   subroutine Bcast_StandardOperatorOptions1D(this, root, comm)
-    class(StandardOperatorOptions_1D), intent(inout) :: this
+    class(StandardElementOptions_1D), intent(inout) :: this
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
@@ -618,4 +625,4 @@ contains
 
   !=============================================================================
 
-end module Standard_Operators__1D
+end module Standard_Element_Operators__1D

@@ -7,7 +7,7 @@
 module Parent_To_Child_Interpolation__3D
   use Kind_Parameters
   use Array_Assignments
-  use Coarse_To_Fine_Interpolation__1D
+  use HP__Refinement_Operator__1D
   use Mesh__3D
   use Data_Exchange__3D
   use TPO__AAA__3D
@@ -33,7 +33,7 @@ contains
       !< parent mesh partition
     class(Mesh_3D), intent(in) :: child
       !< child mesh partition
-    class(CoarseToFineInterpolation_1D), intent(in) :: iop
+    class(HP_RefinementOperator_1D), intent(in) :: iop
       !< interpolation operator
     real(RNP), contiguous, intent(in) :: v_p(0:,0:,0:,:,:)
       !< parent data
@@ -56,7 +56,7 @@ contains
       !< parent mesh partition
     class(Mesh_3D), intent(in) :: child
       !< child mesh partition
-    class(CoarseToFineInterpolation_1D), intent(in) :: iop
+    class(HP_RefinementOperator_1D), intent(in) :: iop
       !< interpolation operator
     real(RNP), contiguous, intent(in) :: v_p(0:,0:,0:,:)
       !< parent data
@@ -80,7 +80,7 @@ contains
       !< parent mesh partition
     class(Mesh_3D), intent(in) :: child
       !< child mesh partition
-    class(CoarseToFineInterpolation_1D), intent(in) :: iop
+    class(HP_RefinementOperator_1D), intent(in) :: iop
       !< interpolation operator
     integer, intent(in) :: n_comp
       !< number of array components

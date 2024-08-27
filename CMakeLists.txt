@@ -157,7 +157,11 @@ endif (OpenMP)
 #-------------------------------------------------------------------------------
 # BLAS and LAPACK
 
-if (NOT CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+if (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+    set(LAPACK_LIBRARIES "-qmkl=sequential")
+    set(LAPACK_FOUND TRUE)
+    message(STATUS "Found LAPACK: using MKL")
+else ()
     find_package(BLAS REQUIRED)
     find_package(LAPACK REQUIRED)
     set(LAPACK_LIBRARIES ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})

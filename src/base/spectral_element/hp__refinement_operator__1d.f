@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Coarse_To_Fine_Interpolation__1D
+module HP__Refinement_Operator__1D
   use Kind_Parameters
   use Constants
   use Gauss_Jacobi
@@ -15,7 +15,7 @@ module Coarse_To_Fine_Interpolation__1D
   private
 
   !-----------------------------------------------------------------------------
-  !> Coarse-to-fine hp-interpolation operator
+  !> hp-refinement operator
   !>
   !> Provides 1D operators for interpolating data from a coarse mesh to a finer
   !> a coarser one. Pure p-refinement as well as hp-refinement are supported. In
@@ -24,48 +24,48 @@ module Coarse_To_Fine_Interpolation__1D
   !> `mode = 0` indicates the identity, i.e., no interpolation is performed and,
   !> hence, no interpolation operator is provided.
 
-  type, public :: CoarseToFineInterpolation_1D
+  type, public :: HP_RefinementOperator_1D
     character(len=2) :: basis  = 'L'   !< basis type
     integer          :: po_c   = -1    !< polynomial order of coarse mesh
     integer          :: po_f   = -1    !< polynomial order of fine mesh
     integer          :: mode   = -1    !< refinement mode
     real(RNP), allocatable :: A(:,:,:) !< interpolation operator(s)
-  end type CoarseToFineInterpolation_1D
+  end type HP_RefinementOperator_1D
 
   ! constructor interface
-  interface CoarseToFineInterpolation_1D
-    procedure New_CoarseToFineInterpolation
+  interface HP_RefinementOperator_1D
+    procedure New_HP_RefinementOperator
   end interface
 
   !-----------------------------------------------------------------------------
-  !> Options for initializing the coarse-to-fine hp-interpolation operator
+  !> Options for initializing the hp-refinement operator
 
-  type, public :: CoarseToFineInterpolationOptions_1D
+  type, public :: HP_RefinementOptions_1D
     character(len=2) :: basis  = 'L' !< basis type {'E','G','L','RL','RR'}
     integer          :: po_c   = -1  !< polynomial order of coarse mesh
     integer          :: po_f   = -1  !< polynomial order of fine mesh
     integer          :: mode   = -1  !< refinement mode {0,1,2}
-  end type CoarseToFineInterpolationOptions_1D
+  end type HP_RefinementOptions_1D
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Fine-to-coarse interpolation constructor
+  !> hp-refinement operator constructor
 
-  function New_CoarseToFineInterpolation(opt) result(this)
-    class(CoarseToFineInterpolationOptions_1D), intent(in) :: opt
-    type(CoarseToFineInterpolation_1D) :: this
+  function New_HP_RefinementOperator(opt) result(this)
+    class(HP_RefinementOptions_1D), intent(in) :: opt
+    type(HP_RefinementOperator_1D) :: this
 
-    call Init_CoarseToFineInterpolation(this, opt)
+    call Init_HP_RefinementOperator(this, opt)
 
-  end function New_CoarseToFineInterpolation
+  end function New_HP_RefinementOperator
 
   !-----------------------------------------------------------------------------
-  !> Build fine-to-coarse interpolation
+  !> Build hp-refinement
 
-  subroutine Init_CoarseToFineInterpolation(this, opt)
-    class(CoarseToFineInterpolation_1D), intent(inout) :: this
-    class(CoarseToFineInterpolationOptions_1D), intent(in) :: opt
+  subroutine Init_HP_RefinementOperator(this, opt)
+    class(HP_RefinementOperator_1D), intent(inout) :: this
+    class(HP_RefinementOptions_1D), intent(in) :: opt
 
     real(RNP), allocatable :: x_f(:), x_c(:)
     integer :: po_c, po_f
@@ -179,8 +179,8 @@ contains
 
     end select
 
-  end subroutine Init_CoarseToFineInterpolation
+  end subroutine Init_HP_RefinementOperator
 
   !=============================================================================
 
-end module Coarse_To_Fine_Interpolation__1D
+end module HP__Refinement_Operator__1D

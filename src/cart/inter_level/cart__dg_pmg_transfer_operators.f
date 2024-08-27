@@ -10,7 +10,7 @@ module CART__DG_PMG_Transfer_Operators
 
   use Kind_Parameters, only: RNP
   use Gauss_Jacobi
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use TPO__AAA__3D
 
   implicit none
@@ -47,7 +47,7 @@ subroutine New_PMG_TransferOperators(this, pc, pf)
   integer, intent(in) :: pc  !< polynomial order of coarse level
   integer, intent(in) :: pf  !< polynomial order of fine level
 
-  type(StandardOperators_1D) :: sop_c, sop_f
+  type(StandardElementOperators_1D) :: sop_c, sop_f
   real(RNP), allocatable :: V_c(:,:), VI_f(:,:)
   integer :: i, k
 
@@ -57,8 +57,8 @@ subroutine New_PMG_TransferOperators(this, pc, pf)
 
   ! prerequisites ..............................................................
 
-  sop_c = StandardOperators_1D(pc)
-  sop_f = StandardOperators_1D(pf)
+  sop_c = StandardElementOperators_1D(pc)
+  sop_f = StandardElementOperators_1D(pf)
 
   allocate(V_c(0:pc,0:pc), VI_f(0:pf,0:pf))
   call sop_c % Get_Legendre_VDM(V_c)

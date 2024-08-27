@@ -8,7 +8,7 @@ module CART__ISP_Flow__Convection__EQ
 
   use Kind_Parameters, only: RNP
   use Constants,       only: HALF
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use TPO__Div__3D_R
   use CART__Mesh_Partition
   use CART__Trace_Operator
@@ -27,10 +27,10 @@ contains
 
     ! arguments ................................................................
 
-    class(MeshPartition),        intent(in)  :: mesh    !< mesh partition
-    class(StandardOperators_1D), intent(in)  :: sop     !< standard operators
-    real(RNP),                   intent(in)  :: u       !< flow variables
-    real(RNP),                   intent(out) :: div_f   !< flux divergence
+    class(MeshPartition), intent(in) :: mesh !< mesh partition
+    class(StandardElementOperators_1D), intent(in)  :: sop !< standard operators
+    real(RNP), intent(in)  :: u     !< flow variables
+    real(RNP), intent(out) :: div_f !< flux divergence
 
     dimension :: u     (0:, 0:, 0:, :, :)
     dimension :: div_f (0:, 0:, 0:, :, :)

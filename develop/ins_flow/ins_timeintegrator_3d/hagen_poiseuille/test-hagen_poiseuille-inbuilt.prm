@@ -14,10 +14,10 @@
   ins_op_opts%eop_v%penalty                       = 20
   ins_op_opts%eop_p%StandardOperatorOptions_1D%po =  6
   ins_op_opts%eop_p%penalty                       = 20
-  ins_op_opts%sop_q%po     = 11
-  ins_op_opts%sop_q%basis  = 'L'
-  ins_op_opts%schwarz_p%no = 2
-  ins_op_opts%schwarz_v%no = 2
+  ins_op_opts%sop_q%po        = 11
+  ins_op_opts%sop_q%basis     = 'L'
+  ins_op_opts%schwarz_p%delta = 0.25
+  ins_op_opts%schwarz_v%delta = 0.25
 !
 ! Euler options
   ins_ti_euler_opts%i_max_p = 1000

@@ -429,11 +429,11 @@ contains
   !> build the filter matrix F_c for dynamic procedure
 
   subroutine Filter_Construct(eop, po_c, F_c)
-    use Standard_Operators__1D
+    use Standard_Element_Operators__1D
 
-    class(StandardOperators_1D), intent(in)  :: eop
-    integer,                     intent(in)  :: po_c
-    real(RNP),                   intent(out) :: F_c(:,:)
+    class(StandardElementOperators_1D), intent(in) :: eop
+    integer,   intent(in)  :: po_c
+    real(RNP), intent(out) :: F_c(:,:)
 
     real(RNP),allocatable     :: VL(:,:), VL_I(:,:)
     real(RNP),allocatable     :: F(:,:), ws(:,:) ! workspace

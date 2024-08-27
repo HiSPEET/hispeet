@@ -6,7 +6,7 @@
 
 program Validate__TPO__Elliptic_3d_RLCI
   use Kind_Parameters, only: IXL, RNP
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use TPO__Elliptic__3D_RLCI
   use TPO__Elliptic__3D_RLCI__Gen
   implicit none
@@ -27,7 +27,7 @@ program Validate__TPO__Elliptic_3d_RLCI
 
   ! operators and variables ....................................................
 
-  type(StandardOperators_1D) :: standard_op
+  type(StandardElementOperators_1D) :: standard_op
 
   real(RNP), dimension(:,:,:,:), allocatable :: u, v, w
   real(RNP), dimension(:,:,:),   allocatable :: dx_u, dy_u, dz_u
@@ -67,7 +67,7 @@ program Validate__TPO__Elliptic_3d_RLCI
 
   ! operators ..................................................................
 
-   standard_op = StandardOperators_1D(po)
+   standard_op = StandardElementOperators_1D(po)
 
   ! workspace ..................................................................
 
