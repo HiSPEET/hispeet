@@ -223,40 +223,6 @@ set( UTIL_3D ${UTIL_3D}
     )
 
 #===============================================================================
-# multilevel_3d
-
-set( MULTILEVEL_3D
-     multilevel_3d/mesh/ml__mesh__3d.f
-     multilevel_3d/mesh/ml__mesh_operators__3d.f
-     multilevel_3d/mesh/ml__mesh_variable__3d.f
-     multilevel_3d/mesh/ml__mesh_variable__3d__mp_exportvtk.f
-   )
-
-set( MULTILEVEL_3D ${MULTILEVEL_3D}
-     multilevel_3d/ops/child_to_parent_projection__3d.f
-     multilevel_3d/ops/parent_to_child_interpolation__3d.f
-   )
-
-set( MULTILEVEL_3D ${MULTILEVEL_3D}
-     multilevel_3d/adaptation/child_distribution_map__3d.f
-     multilevel_3d/adaptation/child_mesh_adaptation__3d.F
-     multilevel_3d/adaptation/child_mesh_adaptation__3d__mp_buildchilddata.f
-     multilevel_3d/adaptation/child_mesh_adaptation__3d__mp_buildchildmap.f
-     multilevel_3d/adaptation/child_mesh_adaptation__3d__mp_buildconnections.f
-     multilevel_3d/adaptation/element_distribution_map__3d.f
-     multilevel_3d/adaptation/element_distribution_data__3d.f
-     multilevel_3d/adaptation/globalize_adaptation_pattern__3d.f
-     multilevel_3d/adaptation/partitioner_interface__3d.f
-     multilevel_3d/adaptation/process_adaptation_pattern__3d.f
-     multilevel_3d/adaptation/restrict_adaptation_pattern__3d.f
-     multilevel_3d/adaptation/root_mesh_partitioning__3d.F
-   )
-
-set( MULTILEVEL_3D ${MULTILEVEL_3D}
-     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d.f
-   )
-
-#===============================================================================
 # elliptic_1d
 
 set( ELLIPTIC_1D 
@@ -300,6 +266,45 @@ set( ELLIPTIC_3D
    )
 
 #===============================================================================
+# multilevel_3d
+
+set( MULTILEVEL_3D
+     multilevel_3d/mesh/ml__boundary_variable__3d.f
+     multilevel_3d/mesh/ml__mesh__3d.f
+     multilevel_3d/mesh/ml__mesh_operators__3d.f
+     multilevel_3d/mesh/ml__mesh_variable__3d.f
+     multilevel_3d/mesh/ml__mesh_variable__3d__mp_exportvtk.f
+   )
+
+set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/ops/child_to_parent_projection__3d.f
+     multilevel_3d/ops/parent_to_child_interpolation__3d.f
+     multilevel_3d/ops/child_to_parent_restriction__3d.f
+   )
+
+set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/adaptation/child_distribution_map__3d.f
+     multilevel_3d/adaptation/child_mesh_adaptation__3d.F
+     multilevel_3d/adaptation/child_mesh_adaptation__3d__mp_buildchilddata.f
+     multilevel_3d/adaptation/child_mesh_adaptation__3d__mp_buildchildmap.f
+     multilevel_3d/adaptation/child_mesh_adaptation__3d__mp_buildconnections.f
+     multilevel_3d/adaptation/element_distribution_map__3d.f
+     multilevel_3d/adaptation/element_distribution_data__3d.f
+     multilevel_3d/adaptation/globalize_adaptation_pattern__3d.f
+     multilevel_3d/adaptation/partitioner_interface__3d.f
+     multilevel_3d/adaptation/process_adaptation_pattern__3d.f
+     multilevel_3d/adaptation/restrict_adaptation_pattern__3d.f
+     multilevel_3d/adaptation/root_mesh_partitioning__3d.F
+   )
+
+set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d.f
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_coarsesolver.f
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_smoother.f
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_mg_solver.f
+   )
+
+#===============================================================================
 # base library
 
 set(BASE_SRC ${ESSENTIALS}
@@ -314,9 +319,9 @@ set(BASE_SRC ${ESSENTIALS}
              ${MESH_3D}
              ${UTIL_1D}
              ${UTIL_3D}
-             ${MULTILEVEL_3D}
              ${ELLIPTIC_1D}
              ${ELLIPTIC_3D}
+             ${MULTILEVEL_3D}
              )
 
 add_library(HiBase ${BASE_SRC})
