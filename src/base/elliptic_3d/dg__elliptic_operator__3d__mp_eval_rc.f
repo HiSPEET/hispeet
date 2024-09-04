@@ -107,6 +107,10 @@ contains
 
       call AddFluxes(mesh, eop, Bs, nu_p, nu_s, tr, r, f)
 
+      ! frozen and ghost elements are set to zero ..............................
+
+      call SetArray(r(:,:,:,mesh%n_elem_active+1:), ZERO)
+
       ! clean-up ...............................................................
 
       !$omp master
@@ -183,7 +187,7 @@ contains
       g = ONE / dx
 
       !$omp do private(e)
-      do e = 1, mesh % n_elem
+      do e = 1, mesh % n_elem_active
         associate(element => mesh % element(e))
 
           ! direction 1

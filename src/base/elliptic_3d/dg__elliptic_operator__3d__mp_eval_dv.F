@@ -129,6 +129,10 @@ contains
 #endif
       end select
 
+      ! frozen and ghost elements are set to zero ..............................
+
+      call SetArray(r(:,:,:,mesh%n_elem_active+1:), ZERO)
+
       ! clean-up ...............................................................
 
       !$omp master
