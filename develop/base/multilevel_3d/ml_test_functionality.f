@@ -14,6 +14,7 @@ program ML_Test_Functionality
   use Mesh__3D
   use Verify_Mesh__3D
   use Child_To_Parent_Projection__3D
+  use Child_To_Parent_Restriction__3D
   use Parent_To_Child_Interpolation__3D
   use ML__Mesh__3D
   use ML__Mesh_Operators__3D
@@ -40,16 +41,18 @@ program ML_Test_Functionality
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
 
   character(len=:), allocatable, save :: gmsh_file
-  character(len=9), save :: var_name(12)
+  character(len=9), save :: var_name(14)
 
   real(RNP), allocatable, save :: delta(:)
   real(RNP), allocatable, save :: delta_loc(:)
+  real(RNP), save :: kappa = real(2 * PI, RNP)
 
+  real(RNP) :: v
   logical :: passed, all_passed
   integer :: n_level, n_proc, rank, prm
   integer :: ne_max, ne_min, ne_tot
 
-  integer :: e, l, nc
+  integer :: e, i, j, k, l, nc
 
   ! initialization .............................................................
 
@@ -155,19 +158,23 @@ program ML_Test_Functionality
   var_name( 4) = 'elem_q_Js'
   var_name( 5) = 'var_order'
   var_name( 6) = 'v'
-  var_name( 7) = 'Iv_p'
-  var_name( 8) = 'Iv_p - v'
-  var_name( 9) = 'Iv_c'
-  var_name(10) = 'Iv_c - v'
-  var_name(11) = 'Pv_c'
-  var_name(12) = 'Pv_c - v'
+  var_name( 7) = 'Mv'
+  var_name( 8) = 'Iv_p'
+  var_name( 9) = 'Iv_p - v'
+  var_name(10) = 'Iv_c'
+  var_name(11) = 'Iv_c - v'
+  var_name(12) = 'Pv_c'
+  var_name(13) = 'Pv_c - v'
+  var_name(14) = 'R(Mv_c)'
 
   ml_var = ML_MeshVariable_3D(ml_op, nc, var_name)
 
   do l = 1, n_level
-    associate( sem => ml_op  % sem(l)               &
-             , x   => ml_op  % sem(l) % metrics % x &
-             , var => ml_var % level(l) % val      )
+    associate( sem => ml_op  % sem(l)                &
+             , eop => ml_op  % sem(l) % std_op       &
+             , x   => ml_op  % sem(l) % metrics % x  &
+             , Jd  => ml_op  % sem(l) % metrics % Jd &
+             , var => ml_var % level(l) % val        )
 
       do e = 1, sem%mesh%n_elem
         var(:,:,:,e,1) = sem%mesh%part
@@ -179,18 +186,28 @@ program ML_Test_Functionality
         else
           var(:,:,:,e,3) = 2
         end if
-        var(:,:,:,e,4) = minval(sem % metrics % Jd(:,:,:,e)) &
-                       / maxval(sem % metrics % Jd(:,:,:,e))
+        var(:,:,:,e,4) = minval(Jd(:,:,:,e)) / maxval(Jd(:,:,:,e))
         var(:,:,:,e,5) = po(l)
-        var(:,:,:,e,6) = sin(real(2*PI,RNP) * ( x(:,:,:,e,1)  &
-                                              + x(:,:,:,e,2)  &
-                                              + x(:,:,:,e,3) ))
-        var(:,:,:,e, 7) = 0
+
+        ! test function values and mass-weighted values
+        do k = 0, po(l)
+        do j = 0, po(l)
+        do i = 0, po(l)
+          v = sin(kappa * (x(i,j,k,e,1) + x(i,j,k,e,2) + x(i,j,k,e,3)))
+          var(i,j,k,e,6) = v
+          var(i,j,k,e,7) = v * eop%w(i) * eop%w(j) * eop%w(k) * Jd(i,j,k,e)
+        end do
+        end do
+        end do
+
         var(:,:,:,e, 8) = 0
         var(:,:,:,e, 9) = 0
         var(:,:,:,e,10) = 0
         var(:,:,:,e,11) = 0
         var(:,:,:,e,12) = 0
+        var(:,:,:,e,13) = 0
+        var(:,:,:,e,14) = 0
+
       end do
 
     end associate
@@ -210,11 +227,11 @@ program ML_Test_Functionality
 
       call ParentToChildInterpolation_3D( parent, child, iop     &
                                         , v_p = var_p(:,:,:,:,6) &
-                                        , v_c = var_c(:,:,:,:,7) )
+                                        , v_c = var_c(:,:,:,:,8) )
 
       do e = 1, child%n_elem
-        var_c(:,:,:,e,8) = var_c(:,:,:,e,7) - var_c(:,:,:,e,6)
-        delta_loc(l) = max(delta_loc(l), maxval(abs(var_c(:,:,:,e,8))))
+        var_c(:,:,:,e,9) = var_c(:,:,:,e,8) - var_c(:,:,:,e,6)
+        delta_loc(l) = max(delta_loc(l), maxval(abs(var_c(:,:,:,e,9))))
       end do
 
     end associate
@@ -240,13 +257,13 @@ program ML_Test_Functionality
 
       call ChildToParentProjection_3D( child, parent, pop &
                                      , var_c(:,:,:,:,6)   &
-                                     , var_p(:,:,:,:,9)   )
+                                     , var_p(:,:,:,:,10)  )
 
       delta_loc(l) = 0
       do e = 1, parent%n_elem
         if (parent%element(e)%adaptation%refinement < 1000) cycle
-        var_p(:,:,:,e,10) = var_p(:,:,:,e,9) - var_p(:,:,:,e,6)
-        delta_loc(l) = max(delta_loc(l), maxval(abs(var_p(:,:,:,e,10))))
+        var_p(:,:,:,e,11) = var_p(:,:,:,e,10) - var_p(:,:,:,e,6)
+        delta_loc(l) = max(delta_loc(l), maxval(abs(var_p(:,:,:,e,11))))
       end do
 
     end associate
@@ -272,13 +289,13 @@ program ML_Test_Functionality
 
       call ChildToParentProjection_3D( child, parent, pop &
                                      , var_c(:,:,:,:,6)   &
-                                     , var_p(:,:,:,:,11)  )
+                                     , var_p(:,:,:,:,12)  )
 
       delta_loc(l) = 0
       do e = 1, parent%n_elem
         if (parent%element(e)%adaptation%refinement < 1000) cycle
-        var_p(:,:,:,e,12) = var_p(:,:,:,e,9) - var_p(:,:,:,e,6)
-        delta_loc(l) = max(delta_loc(l), maxval(abs(var_p(:,:,:,e,12))))
+        var_p(:,:,:,e,13) = var_p(:,:,:,e,12) - var_p(:,:,:,e,6)
+        delta_loc(l) = max(delta_loc(l), maxval(abs(var_p(:,:,:,e,13))))
       end do
 
     end associate
@@ -290,6 +307,38 @@ program ML_Test_Functionality
     write(*,'(/,A)') 'fine-to-coarse L²-projection error'
     do l = 1, n_level-1
       write(*,'(2X,5G0,ES10.3)') '|P v_',l+1,' - v_',l,'| =', delta(l)
+    end do
+  end if
+
+  ! fine-to-coarse restriction .................................................
+
+  do l = 1, n_level - 1
+    associate( parent => ml_op  % sem(l)     % mesh &
+             , child  => ml_op  % sem(l+1)   % mesh &
+             , var_p  => ml_var % level(l  ) % val  &
+             , var_c  => ml_var % level(l+1) % val  &
+             , iop    => ml_op  % iop_cf(l)         )
+
+      call ChildToParentRestriction_3D( child, parent, iop &
+                                      , var_c(:,:,:,:,7)   &
+                                      , var_p(:,:,:,:,14)  )
+
+      delta_loc(l) = 0
+      do e = 1, parent%n_elem
+        if (parent%element(e)%adaptation%refinement < 1000) cycle
+        v = abs(sum(var_p(:,:,:,e,14)) - sum(var_p(:,:,:,e,7)))
+        delta_loc(l) = max(delta_loc(l), v)
+      end do
+
+    end associate
+  end do
+
+  call XMPI_Reduce(delta_loc, delta, MPI_MAX, 0, comm)
+
+  if (rank == 0) then
+    write(*,'(/,A)') 'fine-to-coarse restriction element integral error'
+    do l = 1, n_level-1
+      write(*,'(2X,5G0,ES10.3)') '|Σ R(Mv_',l+1,') - Σ Mv_',l,'| =', delta(l)
     end do
   end if
 

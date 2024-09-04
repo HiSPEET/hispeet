@@ -12,7 +12,7 @@ module Child_To_Parent_Restriction__3D
   use Mesh__3D
   use Data_Exchange__3D
   use TPO__AAA__3D
-  use TPO__1To8__3D
+  use TPO__8To1__3D
   implicit none
   private
 

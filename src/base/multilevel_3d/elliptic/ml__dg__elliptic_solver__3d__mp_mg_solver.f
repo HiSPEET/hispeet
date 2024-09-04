@@ -70,6 +70,10 @@ contains
       v = ML_MeshVariable_3D(this%ml_op, nc=1, name=['v'])
       !$omp end master
 
+      do l = 1, l_top
+        call SetArray(v % level(l) % val(:,:,:,:,1), ZERO)
+      end do
+
       ! start ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       START: select case(this % start_method)

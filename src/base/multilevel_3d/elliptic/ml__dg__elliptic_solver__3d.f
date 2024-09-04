@@ -6,6 +6,8 @@
 
 module ML__DG__Elliptic_Solver__3D
   use Kind_Parameters
+  use Constants
+  use Array_Assignments
   use DG__Element_Operators__1D
   use DG__Elliptic_Operator__3D
   use DG__Schwarz_Operator__3D
