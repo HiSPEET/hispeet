@@ -11,6 +11,8 @@ module ML__DG__Elliptic_Solver__3D
   use DG__Element_Operators__1D
   use DG__Elliptic_Operator__3D
   use DG__Schwarz_Operator__3D
+  use Child_To_Parent_Projection__3D
+  use Child_To_Parent_Restriction__3D
   use Parent_To_Child_Interpolation__3D
   use ML__Boundary_Variable__3D
   use ML__Mesh_Operators__3D
@@ -46,9 +48,10 @@ module ML__DG__Elliptic_Solver__3D
     type(DG_EllipticOperator_3D), allocatable :: elliptic_op(:)
       !< elliptic operators for each level
 
-    integer   :: start_method  !< starting method
-    integer   :: smooth_method !< smoothing method
-    integer   :: coarse_solver !< coarse grid solver
+    integer   :: start_method      !< starting method
+    integer   :: smooth_method     !< smoothing method
+    integer   :: coarse_solver     !< coarse grid solver
+    character :: projection_method !< fine-to-coarse projection method
 
     integer   :: i_crs  !< max number of coarse solver iterations
     integer   :: i_max  !< max number of multigrid iterations (cycles)
@@ -89,6 +92,7 @@ module ML__DG__Elliptic_Solver__3D
     type(DG_SchwarzOptions_3D) :: schwarz     !< Schwarz operator options
     character, allocatable     :: bc(:)       !< boundary conditions
 
+    character :: projection_method = 'I'      !< projection method {'I','P'}
     integer   :: start_method  = START_FMG    !< starting method
     integer   :: smooth_method = SOLVER_WS    !< smoothing method
     integer   :: coarse_solver = SOLVER_SPCG  !< coarse grid solver
@@ -238,9 +242,10 @@ contains
 
     this % ml_op => ml_op
 
-    this % start_method  = opt % start_method
-    this % smooth_method = opt % smooth_method
-    this % coarse_solver = opt % coarse_solver
+    this % projection_method = opt % projection_method
+    this % start_method      = opt % start_method
+    this % smooth_method     = opt % smooth_method
+    this % coarse_solver     = opt % coarse_solver
 
     this % i_crs  = opt % i_crs
     this % i_max  = opt % i_max
