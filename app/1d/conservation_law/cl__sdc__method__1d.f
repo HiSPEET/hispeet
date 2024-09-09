@@ -24,6 +24,7 @@ module CL__SDC__Method__1D
   use CL__Time_Integrator__ISD1__1D
   use CL__Time_Integrator__ISD2__1D
   use CL__Time_Integrator__RK__1D
+  use CL__Time_Integrator__TVD_RK3__1D
 
   implicit none
   private
@@ -157,6 +158,8 @@ contains
       this % predictor = CL_TimeIntegrator_ISD2_1D(pre_opt)
     class is (CL_TimeIntegrator_Options_RK_1D)
       this % predictor = CL_TimeIntegrator_RK_1D(pre_opt)
+    class is (CL_TimeIntegrator_Options_TVD_RK3_1D)
+      this % predictor = CL_TimeIntegrator_TVD_RK3_1D(pre_opt)
     end select
 
     ! SDC ......................................................................
