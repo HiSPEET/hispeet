@@ -193,6 +193,8 @@ program Conservation_Law_1L
       cl_sdc = CL_SDC_Method_Euler_1D(cl_tint_isd2_opt, cl_sdc_euler_opt)
     case(4)
       cl_sdc = CL_SDC_Method_Euler_1D(cl_tint_rk_opt, cl_sdc_euler_opt)
+    case(5)
+      cl_sdc = CL_SDC_Method_Euler_1D(cl_tint_tvd_rk3_opt, cl_sdc_euler_opt)
     end select
 
   case(2)
@@ -207,6 +209,8 @@ program Conservation_Law_1L
       cl_sdc = CL_SDC_Method_ISD1_1D(cl_tint_isd2_opt, cl_sdc_isd1_opt)
     case(4)
       cl_sdc = CL_SDC_Method_ISD1_1D(cl_tint_rk_opt, cl_sdc_isd1_opt)
+    case(5)
+      cl_sdc = CL_SDC_Method_ISD1_1D(cl_tint_tvd_rk3_opt, cl_sdc_isd1_opt)
     end select
 
   case default

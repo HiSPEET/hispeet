@@ -48,6 +48,8 @@ include_directories( tensor_product/primitives/IxIxQt
                      tensor_product/primitives/CtxIxI )
 
 # parametrized operators
+include(cmake/tpo__1to8__3d.cmake)
+include(cmake/tpo__8to1__3d.cmake)
 include(cmake/tpo__aaa__3d.cmake)
 include(cmake/tpo__average__3d.cmake)
 include(cmake/tpo__diagonal__3d.cmake)
@@ -84,19 +86,20 @@ set ( UTILITIES
 #===============================================================================
 # spectral_element
 
-set ( SPECTRAL_ELEMENT 
+set ( SPECTRAL_ELEMENT
+
+      spectral_element/standard_element_operators__1d.f
       spectral_element/cg__element_operators__1d.f
       spectral_element/dg__element_operators__1d.f
-      spectral_element/embedded_interpolation__1d.f
-      spectral_element/embedded_interpolation__3d.f
-      spectral_element/coarse_to_fine_interpolation__1d.f
-      spectral_element/fine_to_coarse_projection__1d.f
+
+      spectral_element/hp__coarsening_operator__1d.f
+      spectral_element/hp__refinement_operator__1d.f
+
+      spectral_element/embedded_interpolation_operator__1d.f
+      spectral_element/embedded_interpolation_operator__3d.f
+
       spectral_element/projection_operator__1d.f
       spectral_element/projection_operator__3d.f
-      spectral_element/standard_operators__1d.f
-
-      spectral_element/parent_to_child_interpolation__1d.f # obsolete
-
     )
 
 #===============================================================================
@@ -116,21 +119,26 @@ file(GLOB MESH mesh/*.f)
 # mesh_3d
 
 set ( MESH_3D 
+
       mesh_3d/generic_mesh__3d.f
       mesh_3d/generic_mesh__3d__mp_createannulus.f
       mesh_3d/generic_mesh__3d__mp_createcylinder.f
       mesh_3d/generic_mesh__3d__mp_creatediamonds.f
       mesh_3d/generic_mesh__3d__mp_createonerotated.f
+
       mesh_3d/mesh_boundary__3d.f
       mesh_3d/mesh_boundary__3d__sm_hdf5.f
+
       mesh_3d/mesh_element__3d.F
       mesh_3d/mesh_element__3d__sm_hdf5.f
       mesh_3d/mesh_element__3d__sm_mpi.f
       mesh_3d/mesh_element_indexing__3d.f
+
       mesh_3d/mesh_face__3d.f
       mesh_3d/mesh_link__3d.f
       mesh_3d/mesh_map_to_child__3d.f
       mesh_3d/mesh_map_to_parent__3d.f
+
       mesh_3d/mesh__3d.f
       mesh_3d/mesh__3d__mp_buildboundaryfaces.f
       mesh_3d/mesh__3d__mp_buildcommunicator.f
@@ -152,11 +160,13 @@ set ( MESH_3D
       mesh_3d/mesh__3d__mp_readhdf5.f
       mesh_3d/mesh__3d__mp_writehdf5.f
       mesh_3d/mesh__3d__sm_hdf5.f
+
       mesh_3d/structured_mesh_indexing__3d.f
       mesh_3d/generate_regular_mesh__3d.f
       mesh_3d/mesh_metrics__3d.f
       mesh_3d/spectral_element_mesh__3d.f
       mesh_3d/boundary_variable__3d.f
+
     )
 
 #===============================================================================
@@ -212,20 +222,39 @@ set( UTIL_3D ${UTIL_3D}
      util_3d/ops/surface_integrals__3d.f
     )
 
-set( UTIL_3D ${UTIL_3D}
-     util_3d/adaptation/child_distribution_map__3d.f
-     util_3d/adaptation/child_mesh_adaptation__3d.F
-     util_3d/adaptation/child_mesh_adaptation__3d__mp_buildchilddata.f
-     util_3d/adaptation/child_mesh_adaptation__3d__mp_buildchildmap.f
-     util_3d/adaptation/child_mesh_adaptation__3d__mp_buildconnections.f
-     util_3d/adaptation/element_distribution_map__3d.f
-     util_3d/adaptation/element_distribution_data__3d.f
-     util_3d/adaptation/globalize_adaptation_pattern__3d.f
-     util_3d/adaptation/partitioner_interface__3d.f
-     util_3d/adaptation/process_adaptation_pattern__3d.f
-     util_3d/adaptation/restrict_adaptation_pattern__3d.f
-     util_3d/adaptation/root_mesh_partitioning__3d.F
-    )
+#===============================================================================
+# multilevel_3d
+
+set( MULTILEVEL_3D
+     multilevel_3d/mesh/ml__mesh__3d.f
+     multilevel_3d/mesh/ml__mesh_operators__3d.f
+     multilevel_3d/mesh/ml__mesh_variable__3d.f
+     multilevel_3d/mesh/ml__mesh_variable__3d__mp_exportvtk.f
+   )
+
+set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/ops/child_to_parent_projection__3d.f
+     multilevel_3d/ops/parent_to_child_interpolation__3d.f
+   )
+
+set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/adaptation/child_distribution_map__3d.f
+     multilevel_3d/adaptation/child_mesh_adaptation__3d.F
+     multilevel_3d/adaptation/child_mesh_adaptation__3d__mp_buildchilddata.f
+     multilevel_3d/adaptation/child_mesh_adaptation__3d__mp_buildchildmap.f
+     multilevel_3d/adaptation/child_mesh_adaptation__3d__mp_buildconnections.f
+     multilevel_3d/adaptation/element_distribution_map__3d.f
+     multilevel_3d/adaptation/element_distribution_data__3d.f
+     multilevel_3d/adaptation/globalize_adaptation_pattern__3d.f
+     multilevel_3d/adaptation/partitioner_interface__3d.f
+     multilevel_3d/adaptation/process_adaptation_pattern__3d.f
+     multilevel_3d/adaptation/restrict_adaptation_pattern__3d.f
+     multilevel_3d/adaptation/root_mesh_partitioning__3d.F
+   )
+
+set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d.f
+   )
 
 #===============================================================================
 # elliptic_1d
@@ -249,8 +278,11 @@ set( ELLIPTIC_3D
      elliptic_3d/dg__elliptic_operator__3d__mp_eval_rc.f
      elliptic_3d/dg__elliptic_operator__3d__mp_eval_rv.f
      elliptic_3d/dg__elliptic_operator__3d__mp_eval_dc.F
+     elliptic_3d/dg__elliptic_operator__3d__mp_eval_dv.F
      elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_gen.f
      elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_xsmm.F
+     elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dv_gen.f
+     elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dv_xsmm.F
      elliptic_3d/dg__elliptic_operator__3d__mp_cg_method_x.f
      elliptic_3d/dg__elliptic_operator__3d__mp_schwarz_method_x.f
      elliptic_3d/dg__elliptic_operator__3d__mp_schwarzpcg_method_x.f
@@ -282,6 +314,7 @@ set(BASE_SRC ${ESSENTIALS}
              ${MESH_3D}
              ${UTIL_1D}
              ${UTIL_3D}
+             ${MULTILEVEL_3D}
              ${ELLIPTIC_1D}
              ${ELLIPTIC_3D}
              )

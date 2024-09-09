@@ -6,7 +6,7 @@
 
 program Validate__TPO__Grad__3D_D
   use Kind_Parameters
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use TPO__Grad__3D_D
   use TPO__Grad__3D_D__Gen
   use Constants
@@ -58,7 +58,7 @@ program Validate__TPO__Grad__3D_D
 
   ! operators and variables ....................................................
 
-  type(StandardOperators_1D) :: standard_op
+  type(StandardElementOperators_1D) :: standard_op
 
   real(RNP), dimension(:,:,:,:),   allocatable :: u
   real(RNP), dimension(:,:,:,:,:), allocatable :: v, w
@@ -124,7 +124,7 @@ program Validate__TPO__Grad__3D_D
 
   ! operators ..................................................................
 
-  standard_op = StandardOperators_1D(po)
+  standard_op = StandardElementOperators_1D(po)
 
   ! workspace ..................................................................
 

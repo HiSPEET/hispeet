@@ -23,4 +23,11 @@ set(TENSOR_PRODUCT ${TENSOR_PRODUCT}
                    ${TPO__ELLIPTIC__3D_DIR}/tpo__elliptic__3d_dlci__hand_rdp.F
                    ${TPO__ELLIPTIC__3D_DIR}/tpo__elliptic__3d_dlci__xsmm.f
                    ${TPO__ELLIPTIC__3D_DIR}/tpo__elliptic__3d_dlci__xsmm_rdp.F
+                   ${TPO__ELLIPTIC__3D_DIR}/tpo__elliptic__3d_dlvi.F
+                   ${TPO__ELLIPTIC__3D_DIR}/tpo__elliptic__3d_dlvi__gen.f
+                   ${TPO__ELLIPTIC__3D_DIR}/tpo__elliptic__3d_dlvi__gen_rdp.F
+                   ${TPO__ELLIPTIC__3D_DIR}/tpo__elliptic__3d_dlvi__hand.f
+                   ${TPO__ELLIPTIC__3D_DIR}/tpo__elliptic__3d_dlvi__hand_rdp.F
+                   ${TPO__ELLIPTIC__3D_DIR}/tpo__elliptic__3d_dlvi__xsmm.f
+                   ${TPO__ELLIPTIC__3D_DIR}/tpo__elliptic__3d_dlvi__xsmm_rdp.F
                    )

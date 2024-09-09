@@ -305,13 +305,13 @@ contains
         call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), jmp_u)
         call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,3), avg_q)
         nu_max = max(tr(:,:,f,e,1), nu_max)
-        jmp_u = (tr(:,:,f,e,2) - jmp_u)
-        avg_q = (tr(:,:,f,e,3) - avg_q) * HALF
+        jmp_u  = (tr(:,:,f,e,2) - jmp_u)
+        avg_q  = (tr(:,:,f,e,3) - avg_q) * HALF
       end if
     else
       nu_max = tr(:,:,f,e,1)
-      jmp_u = tr(:,:,f,e,2)
-      avg_q = tr(:,:,f,e,3)
+      jmp_u  = tr(:,:,f,e,2)
+      avg_q  = tr(:,:,f,e,3)
    end if
 
   end subroutine GetBoundaryFluxes

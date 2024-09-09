@@ -17,6 +17,8 @@ program DG_Elliptic_3D_Test
   use Array_Assignments
   use Array_Reductions
 
+  use DG__Element_Operators__1D
+
   use TPO__Diagonal__3D
   use Mesh__3D
   use Element_Transfer_Buffer__3D
@@ -391,7 +393,7 @@ program DG_Elliptic_3D_Test
 
   allocate(bv_u(n_bound))
   do i = 1, n_bound
-    call bv_u(i) % Create(sem%mesh%boundary(i), po, nc = 1)
+    bv_u(i) = BoundaryVariable_3D(sem%mesh%boundary(i), po, nc = 1)
   end do
 
   ! solution and RHS ...........................................................

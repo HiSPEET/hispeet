@@ -12,7 +12,7 @@
 module Projection_Operator__3D
   use Kind_Parameters, only: RNP
   use Constants,       only: THIRD
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use Projection_Operator__1D
   use TPO__AAA__3D
   implicit none
@@ -45,7 +45,7 @@ contains
   !> New ProjectionOperator_3D
 
   type(ProjectionOperator_3D) function New_SX(eop, xq, wq, dx) result(this)
-    class(StandardOperators_1D), intent(in) :: eop !< standard operators
+    class(StandardElementOperators_1D), intent(in) :: eop !< standard operators
     real(RNP), intent(in) :: xq(:) !< quadrature points
     real(RNP), intent(in) :: wq(:) !< quadrature weights
     real(RNP), intent(in) :: dx(3) !< element extensions

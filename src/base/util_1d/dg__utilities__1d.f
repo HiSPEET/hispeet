@@ -25,7 +25,7 @@
 module DG__Utilities__1D
   use Kind_Parameters,   only: RNP
   use Constants,         only: HALF
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   implicit none
   private
 
@@ -44,7 +44,7 @@ contains
   !> Works with all nodal bases.
 
   subroutine DG_GetMeshPoints_1D(sop, a, b, dx, x)
-    class(StandardOperators_1D), intent(in) :: sop !< standard operators
+    class(StandardElementOperators_1D), intent(in) :: sop !< standard operators
     real(RNP),             intent(in)  :: a        !< left border
     real(RNP),             intent(in)  :: b        !< right border
     real(RNP),             intent(out) :: dx       !< element length

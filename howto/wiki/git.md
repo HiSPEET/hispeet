@@ -12,72 +12,92 @@ For details see the  [Git Book](https://git-scm.com/book/en/v2/Getting-Started-F
 
 Setting your name and email address (replace mine by yours :smile:)
 
-    git config --global user.name "Joerg Stiller"
-    git config --global user.email joerg.stiller@tu-dresden.de
+```bash
+git config --global user.name "Joerg Stiller"
+git config --global user.email joerg.stiller@tu-dresden.de
+```
 
 ### Editor
 
 Customize git to use your favorite editor, e.g. `gedit`:
 
-    git config --global core.editor gedit
+```bash
+git config --global core.editor gedit
+```
 
 ### Diff and merge tool
 
 For file comparison and merging you may configure diff and merge tools with a graphical user interface, e.g., with Linux,
 
-    git config --global diff.tool meld
-    git config --global merge.tool meld
+```bsah
+git config --global diff.tool meld
+git config --global merge.tool meld
+```
 
 or, with macOS,
 
-    git config --global diff.tool opendiff
-    git config --global merge.tool opendiff
+```bash
+git config --global diff.tool opendiff
+git config --global merge.tool opendiff
+```
 
 and for automatically launching these tools
 
-    git config --global difftool.prompt false    
-    git config --global mergetool.prompt false    
+```bash
+git config --global difftool.prompt false    
+git config --global mergetool.prompt false    
+```
 
 ### Enable password caching
 
 To get rid off retyping the password every time when contacting a remote repository you may enable password caching, e.g. on Linux
 
-    git config --global credential.helper cache 
+```bash
+git config --global credential.helper cache 
+```
 
 and on macOS
 
-    git config --global credential.helper osxkeychain
+```bash
+git config --global credential.helper osxkeychain
+```
 
 ## Starting a new repository
 
 This is how the HiSPEET repository was created :smile:
 
-     mkdir HiSPEET
-     cd HiSPEET
-    
-     git init
-     mkdir doc
-     mkdir src
-     ..
-     git add doc src
-     git commit
-    
-     # stage the modified and deleted files
-     git add -u
-    
-     # add and commit only the modified and deleted files.
-     git commit -a
+```bash
+ mkdir HiSPEET
+ cd HiSPEET
+
+ git init
+ mkdir doc
+ mkdir src
+ ..
+ git add doc src
+ git commit
+
+ # stage the modified and deleted files
+ git add -u
+
+ # add and commit only the modified and deleted files.
+ git commit -a
+```
 
 ## Cloning _HiSPEET_ from GitLab <a name="cloning"></a>
 
 _HiSPEET_ can be downloaded from the GitLab server of TU Chemnitz via
 
-     git clone https://gitlab.hrz.tu-chemnitz.de/hispeet/hispeet.git
+```bash
+ git clone https://gitlab.hrz.tu-chemnitz.de/hispeet/hispeet.git
+```
 
 This creates a clone of the git repository in the directory `hispeet`. Next initialize the external libraries which are incorporated as submodules:
 
-      cd hispeet
-      git submodule update --init
+```bash
+  cd hispeet
+  git submodule update --init
+```
 
 In case of problems with a submodule
 
@@ -87,17 +107,23 @@ In case of problems with a submodule
 
 - Remove the path containing the module, e.g.,
 
-      rm -rf external/libxsmm
+  ```bash
+  rm -rf external/libxsmm
+  ```
 
 - Reinitialize the submodules using the command
 
-      git submodule update --init --remote --recursive
+  ```bash
+  git submodule update --init --remote --recursive
+  ```
 
 - Change into the directory of the submodule and check the status. If necessary, checkout the right branch, e.g., for `libxsmm`
 
-      cd external/libxsmm
-      git status
-      git checkout main
+  ```bash
+  cd external/libxsmm
+  git status
+  git checkout main
+  ```
 
 ## Working with branches <a name="branches"></a>
 
@@ -105,39 +131,55 @@ In case of problems with a submodule
 
 Show all branches
 
-    git branch -a
+```bash
+git branch -a
+```
 
 Switch to the master branch
 
-    git checkout master
+```bash
+git checkout master
+```
 
 Switch to another branch
 
-    git checkout <branch-name>
+```bash
+git checkout <branch-name>
+```
 
 ### Creating a new branch
 
 Create a new local branch
 
-    git checkout -b <new_branch>
+```bash
+git checkout -b <new_branch>
+```
 
 This command preserves uncommited changes and thus can be used to create a working branch  without spoiling the existing branch. To add the new branch to the remote repository it needs to be pushed as follows
 
-    git push --set-upstream origin <new_branch>
+```bash
+git push --set-upstream origin <new_branch>
+```
 
 ### Comparing branches <a name="comparing"></a>
 
 To compare the current branch against master branch, showing only the names of modified files
 
-    git diff --name-status master
+```bash
+git diff --name-status master
+```
 
 For details jomit the `--name-status` option. To compare a file or directory located at `path` against the master use
 
-    git diff --name-status master -- <path>
+```bash
+git diff --name-status master -- <path>
+```
 
 Similarly, you can compare against another branch. Just replace `master` by the branch name as listed with `git branch -a`.  To compare any two branches:
 
-    git diff --name-status <branch1>..<branch2>
+```bash
+git diff --name-status <branch1>..<branch2>
+```
 
 
 ## Making changes <a name="changes"></a>
@@ -146,7 +188,9 @@ Similarly, you can compare against another branch. Just replace `master` by the 
 
 Before starting to change your branch you should update the repository using
 
-    git pull
+```bash
+git pull
+```
 
 This command downloads and merges the latest changes from the _origin_ located on the server. Typically this works smoothly. If merge conflicts appear, don't hesitate to contact an experienced developer.
 
@@ -154,29 +198,41 @@ This command downloads and merges the latest changes from the _origin_ located o
 
 To save your work, visit the changes using
 
-    git status
+```bash
+git status
+```
 
 To stage new or modified file or a new directory
 
-    git add <file>
-    git add <dir>
+```bash
+git add <file>
+git add <dir>
+```
 
 Of course, files and directories can also be removed
 
-    git rm <file>
-    git rm -r <dir>
+```bash
+git rm <file>
+git rm -r <dir>
+```
 
 To remove a file from the repository but keep it on disk, use `--cache`
 
-    git rm <file> --cache
+```bash
+git rm <file> --cache
+```
 
 The next step is to commit the staged changes
 
-    commit -m '<description of changes>'
+```bash
+commit -m '<description of changes>'
+```
 
 Finally, the committed changes can pe pushed to the server
 
-      git push
+```bash
+git push
+```
 
 Note that for pushing you need developer access to the remote repository.
 
@@ -184,11 +240,15 @@ Note that for pushing you need developer access to the remote repository.
 
 To remove files from stage use reset HEAD where HEAD is the last commit of the current branch. This will unstage the file but maintain the modifications.
 
-    git reset HEAD <file>
+```bash
+git reset HEAD <file>
+```
 
 To revert the file back to the state it was in before the changes use:
 
-    git checkout -- <file>
+```bash
+git checkout -- <file>
+```
 
 
 ## Merging <a name="merging"></a>
@@ -197,15 +257,19 @@ To revert the file back to the state it was in before the changes use:
 
 Merge branch `topic` into current branch
 
-    git merge topic
+```bash
+git merge topic
+```
 
 Auto-resolve conflicts
 
-    # favor the current branch
-    git merge topic -X ours
-    
-    # favor other branch (topic)
-    git merge topic -X theirs
+```bash
+# favor the current branch
+git merge topic -X ours
+
+# favor other branch (topic)
+git merge topic -X theirs
+```
 
 ### Advanced merging
 
@@ -213,30 +277,52 @@ Disable fast-forward merging and do not create a merge commit.
 This is useful if auto-merging cannot be trusted.
 Works with `pull` as well as with `merge`
 
-    git pull --no-ff --no-commit
-    # or
-    git merge --no-ff --no-commit origin/topic
+```bash
+git pull --no-ff --no-commit
+# or
+git merge --no-ff --no-commit origin/topic
+```
 
 Now inspect the changes
 
-    git status
-    ...
-    Changes to be committed:
-            modified:   foo.f
-    ...
+```bash
+git status
+...
+Changes to be committed:
+        modified:   foo.f
+...
+```
 
 Compare/edit the changes using the difftool and commit
 
-    git difftool HEAD foo.f
-    git commit -m 'pull/merge completed'
+```bash
+git difftool HEAD foo.f
+git commit -m 'pull/merge completed'
+```
 
 Alternatively, you can proceed with the mergetool
 
-    git mergetool
+```bash
+git mergetool
+```
 
-Note: 
-To show all changes in detail omit the `name-status` option.
+### Merging from remote repositories 
 
+Forks are usually included as remotes. They can merged like branches of the present repository. In the following example the master of the INS Flow Solver repository is merged into the current branch:
+
+```bash
+  # this is how the master of the external fork is included
+  git branch -a
+  ..
+  remotes/ins-flow-solver/master
+  ..
+  # update the local copy of the remote repository
+  git fetch ins-flow-solver
+  # merge, inspect changes, remove conflicts and commit
+  git merge --no-ff --no-commit remotes/ins-flow-solver/master
+  git status
+  git commit -m 'merged ins-flow-solver/master'
+```
 
 ## Submodules <a name="submodules"></a>
 

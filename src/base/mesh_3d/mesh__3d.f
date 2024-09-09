@@ -44,16 +44,16 @@ module Mesh__3D
 
     ! attributes ...............................................................
 
-    integer :: n_bound    = 0        !< number of domain boundaries
-    integer :: n_parts    = 0        !< number of non-empty partitions
+    integer   :: n_bound    = 0        !< number of domain boundaries
+    integer   :: n_parts    = 0        !< number of non-empty partitions
 
-    logical :: structured = .false.  !< T if mapping to structured mesh exists
-    logical :: regular    = .false.  !< T if equidistant Cartesian
+    logical   :: structured = .false.  !< T if mapping to structured mesh exists
+    logical   :: regular    = .false.  !< T if equidistant Cartesian
+    real(RNP) :: dx(3)      =  0       !< regular mesh spacing in directions 1:3
 
-    logical :: is_root    = .true.   !< T if root (bottom) level mesh
-    logical :: is_top     = .true.   !< T if top level mesh
-
-    real(RNP) :: dx(3)    =  0       !< regular mesh spacing in directions 1:3
+    logical   :: is_root    = .true.   !< T if root (bottom) level mesh
+    logical   :: is_top     = .true.   !< T if top level mesh
+    character :: refinement = ''       !< 'c' clone or 's' subdivision
 
     ! MPI ......................................................................
 
@@ -281,7 +281,7 @@ module Mesh__3D
     module subroutine ReadHDF5_G(mesh, group_id, comm)
       use HDF5_Binding
       class(Mesh_3D), target, intent(inout) :: mesh  !< mesh partition
-      integer(hid_t), intent(in) :: group_id !< ID of related HDF5 group
+      integer(HID_T), intent(in) :: group_id !< ID of related HDF5 group
       type(MPI_Comm), intent(in) :: comm     !< "world" communicator
     end subroutine ReadHDF5_G
 
@@ -298,8 +298,8 @@ module Mesh__3D
 
     module subroutine WriteHDF5_G(mesh, group_id)
       use HDF5_Binding
-      class(Mesh_3D), target, intent(in) :: mesh     !< mesh partition
-      integer(hid_t),         intent(in) :: group_id !< ID of related HDF5 group
+      class(Mesh_3D), intent(in) :: mesh     !< mesh partition
+      integer(HID_T), intent(in) :: group_id !< ID of related HDF5 group
     end subroutine WriteHDF5_G
 
   end interface
@@ -309,14 +309,15 @@ module Mesh__3D
 
   type MeshAttributes_3D
 
-    integer :: n_bound    = 0        !< number of domain boundaries
-    integer :: n_parts    = 0        !< number of non-empty partitions
-    integer :: p_geom     = 0        !< max polynomial order of element geometry
-    logical :: structured = .false.  !< T if mapping to structured mesh exists
-    logical :: regular    = .false.  !< T if equidistant Cartesian
-    logical :: is_root    = .true.   !< T if root (bottom) level mesh
-    logical :: is_top     = .true.   !< T if top level mesh
-    real(RNP) :: dx(3)    =  0       !< regular mesh spacing in directions 1:3
+    integer   :: n_bound    = 0       !< number of domain boundaries
+    integer   :: n_parts    = 0       !< number of non-empty partitions
+    integer   :: p_geom     = 0       !< max polynomial order of element geometry
+    logical   :: structured = .false. !< T if mapping to structured mesh exists
+    logical   :: regular    = .false. !< T if equidistant Cartesian
+    real(RNP) :: dx(3)      =  0      !< regular mesh spacing in directions 1:3
+    logical   :: is_root    = .true.  !< T if root (bottom) level mesh
+    logical   :: is_top     = .true.  !< T if top level mesh
+    character :: refinement = ''      !< 'c' clone or 's' subdivision
 
     type(MeshBoundaryAttributes_3D), allocatable :: boundary(:)
 
@@ -336,7 +337,7 @@ module Mesh__3D
 
     module subroutine Get_H5T_MeshAttributes_3D(H5T_MeshAttributes_3D)
       use HDF5_Binding
-      integer(hid_t), intent(out) :: H5T_MeshAttributes_3D
+      integer(HID_T), intent(out) :: H5T_MeshAttributes_3D
     end subroutine Get_H5T_MeshAttributes_3D
 
   end interface
@@ -373,9 +374,10 @@ contains
     this % p_geom     = attrib % p_geom
     this % structured = attrib % structured
     this % regular    = attrib % regular
+    this % dx         = attrib % dx
     this % is_root    = attrib % is_root
     this % is_top     = attrib % is_top
-    this % dx         = attrib % dx
+    this % refinement = attrib % refinement
 
     allocate(this % boundary( this%n_bound ))
     do b = 1, this % n_bound
@@ -459,11 +461,14 @@ contains
     attrib % n_bound    = mesh % n_bound
     attrib % n_parts    = mesh % n_parts
     attrib % p_geom     = mesh % p_geom
+
     attrib % structured = mesh % structured
     attrib % regular    = mesh % regular
+    attrib % dx         = mesh % dx
+
     attrib % is_root    = mesh % is_root
     attrib % is_top     = mesh % is_top
-    attrib % dx         = mesh % dx
+    attrib % refinement = mesh % refinement
 
     attrib % boundary = MeshBoundaryAttributes_3D(mesh % boundary)
 
@@ -503,7 +508,8 @@ contains
     this % is_root    = attrib_log(3)
     this % is_top     = attrib_log(4)
 
-    call XMPI_Bcast(this % dx, root, comm)
+    call XMPI_Bcast(this % dx        , root, comm)
+    call XMPI_Bcast(this % refinement, root, comm)
 
     ! boundary attributes ......................................................
 

@@ -8,7 +8,7 @@ module CART__Elliptic_PMG_Level
   use Kind_Parameters, only: RNP
   use Gauss_Jacobi
   use TPO__AAA__3D
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use DG__Element_Operators__1D
   use CART__Mesh_Partition
   use CART__Schwarz_Operator

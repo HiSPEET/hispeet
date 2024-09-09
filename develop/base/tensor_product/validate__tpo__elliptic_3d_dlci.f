@@ -1,4 +1,4 @@
-!> summary:  Validation of the curvilinear elliptic TPO for variable diffusivity
+!> summary:  Validation of the curvilinear elliptic TPO for constant diffusivity
 !> author:   Jerome Michel, Joerg Stiller
 !> date:     2021/08/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -7,7 +7,7 @@
 program Validate__TPO_Elliptic_DLCI
 ! validate
   use Kind_Parameters
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use TPO__Elliptic__3D_DLCI
   use TPO__Elliptic__3D_DLCI__Gen
 ! mesh
@@ -60,7 +60,7 @@ program Validate__TPO_Elliptic_DLCI
 
   ! operators and variables ....................................................
 
-  type(StandardOperators_1D) :: standard_op
+  type(StandardElementOperators_1D) :: standard_op
 
   real(RNP), dimension(:,:,:,:), allocatable :: u, v, w
   real(RNP), dimension(:,:,:,:), allocatable :: Jd_Ji_grad_u
@@ -127,7 +127,7 @@ program Validate__TPO_Elliptic_DLCI
 
   ! operators ..................................................................
 
-  standard_op = StandardOperators_1D(po)
+  standard_op = StandardElementOperators_1D(po)
 
   ! workspace ..................................................................
 

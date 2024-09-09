@@ -22,7 +22,7 @@
   method = 3
   i_max  = 5
   r_red  = 1E-3
-  schwarz_opt%no = 3
+  schwarz_opt%delta = 0.2
 /
 
 &partition_prm

@@ -13,12 +13,12 @@ contains
   !> Set subdomain configurations and inverse 3D eigenvalues: variable isotropic
 
   module subroutine BuildSubdomains_VI(this, eop, mesh, lambda, nu, bc)
-    class(SchwarzOperator3D),   intent(inout) :: this  !< Schwarz operator
-    class(StandardOperators_1D), intent(in)    :: eop   !< 1D SE operators
-    class(MeshPartition),       intent(in)    :: mesh  !< mesh partition
-    real(RNP), intent(in) :: lambda                    !< Helmholtz parameter
-    real(RNP), intent(in) :: nu(0:,0:,0:,:)            !< diffusivity
-    character, intent(in) :: bc(:)                     !< BC {'D','N'}
+    class(SchwarzOperator3D), intent(inout) :: this !< Schwarz operator
+    class(StandardElementOperators_1D), intent(in) :: eop !< 1D SE operators
+    class(MeshPartition), intent(in) :: mesh  !< mesh partition
+    real(RNP), intent(in) :: lambda           !< Helmholtz parameter
+    real(RNP), intent(in) :: nu(0:,0:,0:,:)   !< diffusivity
+    character, intent(in) :: bc(:)            !< BC {'D','N'}
 
     character :: bc_face(size(bc))
     integer   :: e, i, j, k, n1, n2, n3, po

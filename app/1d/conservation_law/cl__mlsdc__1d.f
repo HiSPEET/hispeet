@@ -6,11 +6,11 @@
 
 module CL__MLSDC__1D
   use Kind_Parameters
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use DG__Element_Operators__1D
   use DG__Schwarz_Operator__1D
-  use Coarse_To_Fine_Interpolation__1D
-  use Fine_To_Coarse_Projection__1D
+  use HP__Refinement_Operator__1D
+  use HP__Coarsening_Operator__1D
   use CL__Problem__1D
   use CL__Operator__1D
   use CL__Time_Integrator__1D
@@ -55,7 +55,7 @@ module CL__MLSDC__1D
                                          !! 'P'  L² projection,
                                          !! 'I'  interpolation
 
-    integer :: projection_smoothing = 1  !< discontinuities in 2:1 projection:
+    integer :: projection_smooth = 1     !< discontinuities in 2:1 projection:
                                          !!  0   no smoothing
                                          !!  1   remove by linear blending
                                          !!  2   remove by coefficient averaging
@@ -133,7 +133,7 @@ contains
         cl_operator % eop = &
             DG_ElementOptions_1D(po = opt % p_space(l), penalty = opt % penalty)
 
-        cl_operator % qop = StandardOperatorOptions_1D(po = opt % q_conv(l))
+        cl_operator % qop = StandardElementOptions_1D(po = opt % q_conv(l))
 
         select case(l)
         case(1)
@@ -157,13 +157,13 @@ contains
       if (l < opt % n_level) then
 
         opt_level % iop_cf_x =                                &
-            CoarseToFineInterpolationOptions_1D(              &
+            HP_RefinementOptions_1D(                          &
                 po_c  = opt % p_space(l),                     &
                 po_f  = opt % p_space(l+1),                   &
                 mode  = opt % n_space(l+1) / opt % n_space(l) )
 
         opt_level % iop_cf_t =                                &
-            CoarseToFineInterpolationOptions_1D(              &
+            HP_RefinementOptions_1D(                          &
                 basis = opt_sdc % point_set,                  &
                 po_c  = opt % p_time(l),                      &
                 po_f  = opt % p_time(l+1),                    &
@@ -172,34 +172,34 @@ contains
       else
 
         ! reset interpolation options
-        opt_level % iop_cf_x = CoarseToFineInterpolationOptions_1D()
-        opt_level % iop_cf_t = CoarseToFineInterpolationOptions_1D()
+        opt_level % iop_cf_x = HP_RefinementOptions_1D()
+        opt_level % iop_cf_t = HP_RefinementOptions_1D()
 
       end if
 
       if (l > 1) then
 
-        opt_level % pop_fc_x =                                     &
-            FineToCoarseProjectionOptions_1D(                      &
-                po_f      = opt % p_space(l),                      &
-                po_c      = opt % p_space(l-1),                    &
-                mode      = opt % n_space(l) / opt % n_space(l-1), &
-                method    = opt % projection_method,               &
-                smoothing = opt % projection_smoothing             )
+        opt_level % pop_fc_x =                                  &
+            HP_CoarseningOptions_1D(                            &
+                po_f   = opt % p_space(l),                      &
+                po_c   = opt % p_space(l-1),                    &
+                mode   = opt % n_space(l) / opt % n_space(l-1), &
+                method = opt % projection_method,               &
+                smooth = opt % projection_smooth                )
 
-        opt_level % pop_fc_t =                                     &
-            FineToCoarseProjectionOptions_1D(                      &
-                basis     = opt_sdc % point_set,                   &
-                po_f      = opt % p_time(l),                       &
-                po_c      = opt % p_time(l-1),                     &
-                mode      = opt % n_time(l) / opt % n_time(l-1),   &
-                method    = opt % projection_method                )
+        opt_level % pop_fc_t =                                  &
+            HP_CoarseningOptions_1D(                            &
+                basis  = opt_sdc % point_set,                   &
+                po_f   = opt % p_time(l),                       &
+                po_c   = opt % p_time(l-1),                     &
+                mode   = opt % n_time(l) / opt % n_time(l-1),   &
+                method = opt % projection_method                )
 
       else
 
         ! reset projection options
-        opt_level % pop_fc_x = FineToCoarseProjectionOptions_1D()
-        opt_level % pop_fc_t = FineToCoarseProjectionOptions_1D()
+        opt_level % pop_fc_x = HP_CoarseningOptions_1D()
+        opt_level % pop_fc_t = HP_CoarseningOptions_1D()
 
       end if
 

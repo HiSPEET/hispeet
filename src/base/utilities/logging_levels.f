@@ -33,6 +33,36 @@ contains
 
   end subroutine XMPI_Bcast_LoggingLevels
 
+  !-----------------------------------------------------------------------------
+  !> Unique prefix for logging output
+
+  function LoggingPrefix(name, rank, n_proc) result(prefix)
+    character(len=*),  intent(in) :: name   !< program of procedure name
+    integer, optional, intent(in) :: rank   !< process rank
+    integer, optional, intent(in) :: n_proc !< number of processes
+    character(len=:), allocatable :: prefix
+
+    integer :: l
+
+    if (present(rank)) then
+
+      if (present(n_proc)) then
+        l = int(log10(dble(n_proc))) + 1
+      else
+        l = max(int(log10(dble(rank))), 2) + 1
+      end if
+      allocate(character(len=l+2) :: prefix)
+      write(prefix,'(I0,A)') rank, ':'
+      prefix = '> ' // trim(name) // ' #' // prefix
+
+    else
+
+      prefix = '> ' // trim(name) // ': '
+
+    end if
+
+  end function LoggingPrefix
+
   !=============================================================================
 
 end module Logging_Levels

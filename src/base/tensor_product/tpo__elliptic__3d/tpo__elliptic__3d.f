@@ -6,13 +6,14 @@
 
 module TPO__Elliptic__3D
   use Kind_Parameters, only: RDP
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use Mesh__3D
   use Spectral_Element_Mesh__3D
 
   use TPO__Elliptic__3D_RLCI
   use TPO__Elliptic__3D_RLVI
   use TPO__Elliptic__3D_DLCI
+  use TPO__Elliptic__3D_DLVI
 
   private
 
@@ -30,7 +31,7 @@ contains
   !> and double precision
 
   subroutine TPO_Elliptic_CI_RDP(eop, sem, lambda, nu, u, v, ub, qb)
-    class(StandardOperators_1D),   intent(in) :: eop
+    class(StandardElementOperators_1D), intent(in) :: eop
     class(SpectralElementMesh_3D), intent(in) :: sem
     real(RDP),           intent(in)    :: lambda      !< Helmholtz parameter λ
     real(RDP),           intent(in)    :: nu          !< diffusivity ν
@@ -73,7 +74,7 @@ contains
   !> and double precision
 
   subroutine TPO_Elliptic_VI_RDP(eop, sem, lambda, nu, u, v, nub, ub, qb)
-    class(StandardOperators_1D),   intent(in) :: eop
+    class(StandardElementOperators_1D), intent(in) :: eop
     class(SpectralElementMesh_3D), intent(in) :: sem
     real(RDP),           intent(in)    :: lambda       !< Helmholtz parameter λ
     real(RDP),           intent(in)    :: nu(:,:,:,:)  !< diffusivity ν
@@ -97,8 +98,18 @@ contains
                             , ub     = ub                   &
                             , qb     = qb                   )
     else
-      ! not yet implemented
-      v = 0
+      call TPO_Elliptic_DLVI( Ms     = eop % w              &
+                            , Ds     = eop % D              &
+                            , Jd     = sem % metrics % Jd   &
+                            , G      = sem % metrics % G    &
+                            , lambda = lambda               &
+                            , nu     = nu                   &
+                            , u      = u                    &
+                            , v      = v                    &
+                            , Ji_n   = sem % metrics % Ji_n &
+                            , nub    = nub                  &
+                            , ub     = ub                   &
+                            , qb     = qb                   )
     end if
 
   end subroutine TPO_Elliptic_VI_RDP

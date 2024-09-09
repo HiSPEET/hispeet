@@ -1,12 +1,12 @@
 !> summary:  Validation of the regular elliptic TPO for variable diffusivity
 !> author:   Joerg Stiller
-!> date:     2018/12/08
+!> date:     2024/0812
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
 program Validate__TPO_Elliptic_RLVI
   use Kind_Parameters, only: IXL, RNP
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use TPO__Elliptic__3D_RLVI
   use TPO__Elliptic__3D_RLVI__Gen
 
@@ -27,7 +27,7 @@ program Validate__TPO_Elliptic_RLVI
 
   ! operators and variables ....................................................
 
-  type(StandardOperators_1D) :: standard_op
+  type(StandardElementOperators_1D) :: standard_op
 
   real(RNP), dimension(:,:,:,:), allocatable :: nu, u, v, w
   real(RNP), dimension(:,:,:),   allocatable :: dx_u, dy_u, dz_u
@@ -67,7 +67,7 @@ program Validate__TPO_Elliptic_RLVI
 
   ! operators ..................................................................
 
-  standard_op = StandardOperators_1D(po)
+  standard_op = StandardElementOperators_1D(po)
 
   ! workspace ..................................................................
 

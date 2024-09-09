@@ -104,7 +104,7 @@ module CL__Problem__CNS__1D
 
       class(CL_Problem_CNS_1D), intent(in)  :: this
       class(CL_Operator_1D),    intent(in)  :: cl_operator !< spatial operators
-      character,                intent(in)  :: comp        !< composition flag
+      character(len=*),         intent(in)  :: comp        !< composition flag
       real(RNP),                intent(in)  :: theta       !< SD time scale
       real(RNP), optional,      intent(in)  :: bv(:,:)     !< boundary values
       real(RNP), contiguous,    intent(in)  :: u_0(0:,:,:) !< u₀(x,t)

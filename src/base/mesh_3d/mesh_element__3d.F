@@ -197,23 +197,33 @@ module Mesh_Element__3D
   !-----------------------------------------------------------------------------
   !> Element adaptation information
   !>
-  !> For adaptation, an element can be uniformly subdivided into smaller ones.
-  !> The `refinement` component indicates which children are included in the
-  !> next finer mesh:
+  !> Two types of adaptation are supported:
+  !>   - 'c':  global or zonal cloning of elements
+  !>   - 's':  global of local subdivision of elements
   !>
+  !> The elements selected for cloning or subdividing generate 1 or 8 "active"
+  !> children in the next higher mesh level. In addition, the surrounding
+  !> elements create "frozen" children enclosing the adaptation zone.
   !>
-  !>   |  value   | refinement | children |  role   |
-  !>   | --------:|:---------- | -------- | ------- |
-  !>   |     `0`  | none       |    0     |         |
-  !>   |   `100`  | regular    |    8     | active  |
-  !>   |    `50`  | regular    |    8     | closure |
-  !>   |   `1:6`  | face 1:6   |    4     | closure |
-  !>   |  `7:18`  | edge 1:12  |    2     | closure |
-  !>   | `19:26`  | vertex 1:8 |    1     | closure |
+  !> The `refinement` component is used to identify the the adaptation type,
+  !> number and state of the children and the associated element component:
   !>
-  !> Only the children of elements with `refinement = 100` adopt an active role
-  !> on the fine mesh. The other refinement types serve to generate a layer of
-  !> interpolation elements enclosing the active refinement zones.
+  !>   | value | type  | component | children |  state  |
+  !>   | -----:|:-----:|:--------- |:--------:| ------- |
+  !>   |     0 |       | none      |     0    |         |
+  !>   |   100 |  'c'  | volume    |     1    | frozen  |
+  !>   |   101 |  's'  | vertex 1  |     1    | frozen  |
+  !>   |    .. |  ..'  | ..        |    ..    |   ..    |
+  !>   |   108 |  's'  | vertex 8  |     1    | frozen  |
+  !>   |   201 |  's'  | edge 1    |     2    | frozen  |
+  !>   |    .. |  ..'  | ..        |    ..    |   ..    |
+  !>   |   212 |  's'  | edge 12   |     2    | frozen  |
+  !>   |   401 |  's'  | face 1    |     4    | frozen  |
+  !>   |    .. |  ..'  | ..        |    ..    |   ..    |
+  !>   |   406 |  's'  | face 6    |     4    | frozen  |
+  !>   |   800 |  's'  | volume    |     8    | frozen  |
+  !>   |  1000 |  'c'  | volume    |     1    | active  |
+  !>   |  8000 |  's'  | volume    |     8    | active  |
   !>
   !> `mark` is used for different purposes. Before adaptation, it is set to
   !> indicate the intended refinement of the existing elements. In course of
@@ -347,8 +357,8 @@ module Mesh_Element__3D
     generic   :: AlignWithNeighborFace => AlignWithNeighborFace_IDK, &
                                           AlignFromNeighborFace_RNP
     procedure :: MarkForRefinement
-    procedure :: MarkForRetention
     procedure :: MarkForRemoval
+    procedure :: Unmark
 
     procedure, private :: AlignFromNeighborEdge_IDK
     procedure, private :: AlignFromNeighborEdge_RNP
@@ -795,16 +805,6 @@ contains
   end subroutine MarkForRefinement
 
   !-----------------------------------------------------------------------------
-  !> Mark element for retention
-
-  elemental subroutine MarkForRetention(element)
-    class(MeshElement_3D), intent(inout) :: element  !< mesh element
-
-    element % adaptation % mark = 0
-
-  end subroutine MarkForRetention
-
-  !-----------------------------------------------------------------------------
   !> Mark element for removal
 
   elemental subroutine MarkForRemoval(element)
@@ -813,6 +813,16 @@ contains
     element % adaptation % mark = -1
 
   end subroutine MarkForRemoval
+
+  !-----------------------------------------------------------------------------
+  !> Unmark element
+
+  elemental subroutine Unmark(element)
+    class(MeshElement_3D), intent(inout) :: element  !< mesh element
+
+    element % adaptation % mark = 0
+
+  end subroutine Unmark
 
   !-----------------------------------------------------------------------------
   !> Transforms the given triple index range into a rotated coordinate system

@@ -2,7 +2,7 @@ program Mesh3d_Test_Orientation
   use Kind_Parameters
   use Constants
   use XMPI
-  use Standard_Operators__1D
+  use Standard_Element_Operators__1D
   use Generic_Mesh__3D
   use Mesh__3D
   use Mesh_Element__3D
@@ -23,9 +23,9 @@ program Mesh3d_Test_Orientation
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
   integer :: rank
 
-  type(GenericMesh_3D)       :: generic_mesh
-  type(Mesh_3D)              :: mesh
-  type(StandardOperators_1D) :: std_op
+  type(GenericMesh_3D) :: generic_mesh
+  type(Mesh_3D)        :: mesh
+  type(StandardElementOperators_1D) :: std_op
 
   real(RNP), allocatable, target :: var(:,:,:,:,:)
   real(RNP), allocatable  :: x(:,:,:,:,:)  ! element point coordinates
@@ -51,7 +51,7 @@ program Mesh3d_Test_Orientation
     read(io, nml = input)
     close(io)
 
-    std_op = StandardOperators_1D(po, basis='L')
+    std_op = StandardElementOperators_1D(po, basis='L')
 
     ! create and import generic mesh ...........................................
 

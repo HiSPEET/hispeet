@@ -105,7 +105,7 @@ contains
     buf_tr = ElementFaceTransferBuffer_3D(this%mesh, tr)
     do b = 1, n_bound
       if (scan(this % bc_v(b),'O') > 0) then
-        call bv_s(b) % Create(this%mesh%boundary(b), po, nc = 3)
+        bv_s(b) = BoundaryVariable_3D(this%mesh%boundary(b), po, nc = 3)
       end if
     end do
     !$omp end master

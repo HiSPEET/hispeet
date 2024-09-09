@@ -24,6 +24,7 @@ module CL__SDC__Method__1D
   use CL__Time_Integrator__ISD1__1D
   use CL__Time_Integrator__ISD2__1D
   use CL__Time_Integrator__RK__1D
+  use CL__Time_Integrator__TVD_RK3__1D
 
   implicit none
   private
@@ -157,6 +158,8 @@ contains
       this % predictor = CL_TimeIntegrator_ISD2_1D(pre_opt)
     class is (CL_TimeIntegrator_Options_RK_1D)
       this % predictor = CL_TimeIntegrator_RK_1D(pre_opt)
+    class is (CL_TimeIntegrator_Options_TVD_RK3_1D)
+      this % predictor = CL_TimeIntegrator_TVD_RK3_1D(pre_opt)
     end select
 
     ! SDC ......................................................................
@@ -206,7 +209,7 @@ contains
     write(io,'(2X,A,T24,I0)')     'diffusion_i_max:' , this % diffusion_i_max
     write(io,'(2X,A,T23,ES12.5)') 'diffusion_r_red:' , this % diffusion_r_red
     write(io,'(2X,A,T23,ES12.5)') 'diffusion_r_max:' , this % diffusion_r_max
-    write(io,'(2X,A,T24,L0)')     'final_assembly:'  , this % final_assembly
+    write(io,'(2X,A,T24,L1)')     'final_assembly:'  , this % final_assembly
 
   end subroutine Show_CL_SDC_Method_1D
 

@@ -6,8 +6,8 @@
 
 submodule(Mesh__3D) MP_GetPoints
   use Constants, only: HALF
-  use Standard_Operators__1D
-  use Embedded_Interpolation__1D
+  use Standard_Element_Operators__1D
+  use Embedded_Interpolation_Operator__1D
   implicit none
 
 contains
@@ -26,7 +26,7 @@ contains
     character,     optional, intent(in)  :: basis !< 'G' or 'L' ['L']
     real(RNP),  allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
 
-    type(StandardOperators_1D) :: sop
+    type(StandardElementOperators_1D) :: sop
 
     !$omp single
     allocate(x(0:po, 0:po, 0:po, mesh%n_elem, 3))
@@ -34,7 +34,7 @@ contains
 
     if (mesh % n_elem < 1) return
 
-    sop = StandardOperators_1D(po, basis, no_vdm = .true.)
+    sop = StandardElementOperators_1D(po, basis, no_vdm = .true.)
 
     if (mesh % regular) then
       call GetRegularMeshPoints(mesh, sop, x)
@@ -48,9 +48,9 @@ contains
   !> Generates points for a regular mesh
 
   subroutine GetRegularMeshPoints(mesh, sop, x)
-    class(Mesh_3D),              intent(in)  :: mesh !< mesh parition
-    class(StandardOperators_1D), intent(in)  :: sop  !< standard operators
-    real(RNP), contiguous,       intent(out) :: x(0:,0:,0:,:,:) !< mesh points
+    class(Mesh_3D),                     intent(in) :: mesh !< mesh parition
+    class(StandardElementOperators_1D), intent(in) :: sop  !< standard operators
+    real(RNP), contiguous, intent(out) :: x(0:,0:,0:,:,:)  !< mesh points
 
     real(RNP), dimension(0:sop%po)   :: x1, x2, x3
     real(RNP), dimension(1:sop%po-1) :: ys
@@ -95,12 +95,12 @@ contains
   !> Generates points for a nonuniform mesh
 
   subroutine GetDeformedMeshPoints(mesh, sop, x)
-    class(Mesh_3D),              intent(in)  :: mesh !< mesh parition
-    class(StandardOperators_1D), intent(in)  :: sop  !< standard operators
-    real(RNP), contiguous,       intent(out) :: x(0:,0:,0:,:,:) !< mesh points
+    class(Mesh_3D),                     intent(in) :: mesh !< mesh parition
+    class(StandardElementOperators_1D), intent(in) :: sop  !< standard operators
+    real(RNP), contiguous, intent(out) :: x(0:,0:,0:,:,:)  !< mesh points
 
-    type(StandardOperators_1D)     :: gop(1:mesh%p_geom)
-    type(EmbeddedInterpolation_1D) :: iop(1:mesh%p_geom)
+    type(StandardElementOperators_1D)      :: gop(1:mesh%p_geom)
+    type(EmbeddedInterpolationOperator_1D) :: iop(1:mesh%p_geom)
     integer :: d, e, pg, pm
 
     pm = sop % po
@@ -120,8 +120,8 @@ contains
 
           if (gop(pg) % po /= pg) then
             ! initialize interpolation operator
-            gop(pg) = StandardOperators_1D(pg, basis = 'L', no_vdm = .true.)
-            iop(pg) = EmbeddedInterpolation_1D(gop(pg), sop%x)
+            gop(pg) = StandardElementOperators_1D(pg, basis = 'L', no_vdm = .true.)
+            iop(pg) = EmbeddedInterpolationOperator_1D(gop(pg), sop%x)
           end if
 
           do d = 1, 3

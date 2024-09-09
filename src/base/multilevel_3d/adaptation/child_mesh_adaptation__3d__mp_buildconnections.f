@@ -1,0 +1,467 @@
+submodule(Child_Mesh_Adaptation__3D) MP_BuildConnections
+  use Quick_Sort
+  implicit none
+
+contains
+
+  !-----------------------------------------------------------------------------
+  !> Build connections between parent, new child, old child and grandchildren
+  !>
+  !> Entities being built:
+  !>
+  !> - mapping from parent to new children
+  !>     + `parent % n_child`
+  !>     + `parent % map_child`
+  !>
+  !> - mapping from grandchildren to new children
+  !>     + `grandchild % n_parent`
+  !>     + `grandchild % map_parent`
+  !>     + `grandchild % element % adaptation % parent_proc`
+  !>     + `grandchild % element % adaptation % parent_id`
+  !>
+  !>  - mapping between old and new children
+  !>     + `exch_plan` for sending and receiving retained data
+
+  module subroutine BuildConnections( parent, new_child_map, new_child &
+                                    , old_child, grandchild, exch_plan )
+
+    ! arguments ................................................................
+
+    class(Mesh_3D),                       intent(inout) :: parent
+    class(ChildDistributionMap_3D),       intent(in)    :: new_child_map
+    class(Mesh_3D),                       intent(in)    :: new_child
+    class(Mesh_3D),             optional, intent(in)    :: old_child
+    class(Mesh_3D),             optional, intent(inout) :: grandchild
+    class(DataExchangePlan_3D), optional, intent(out)   :: exch_plan
+
+    !$omp master
+
+    ! connect old child and grandchild with new child ..........................
+
+    if (present(old_child) .and. present(exch_plan)) then
+      call ConnectOldChild( parent, new_child_map, new_child &
+                          , old_child, grandchild, exch_plan )
+    end if
+
+    ! connect new child with old child .........................................
+
+    if (present(old_child) .and. present(exch_plan)) then
+      call ConnectNewWithOldChild(new_child, exch_plan)
+    end if
+
+    ! connect parent with new child ............................................
+
+    call ConnectParent(parent, new_child_map, new_child)
+
+    !$omp end master
+    !$omp barrier
+
+  end subroutine BuildConnections
+
+  !-----------------------------------------------------------------------------
+  !> Build connections between new child, old child and grandchildren
+
+  subroutine ConnectOldChild( parent, new_child_map, new_child &
+                            , old_child, grandchild, exch_plan )
+
+    ! arguments ................................................................
+
+    class(Mesh_3D),                 intent(inout) :: parent
+    class(ChildDistributionMap_3D), intent(in)    :: new_child_map
+    class(Mesh_3D),                 intent(in)    :: new_child
+    class(Mesh_3D),                 intent(in)    :: old_child
+    class(Mesh_3D),       optional, intent(inout) :: grandchild
+    class(DataExchangePlan_3D),     intent(inout) :: exch_plan
+
+    ! internal variables .......................................................
+
+    type(DataExchangeMap_3D), allocatable :: send_map(:)
+    type(DataExchangeMap_3D), allocatable :: recv_map(:)
+
+    type(DataExchangeSendBuf_3D), allocatable :: send_buf(:)
+    type(DataExchangeRecvBuf_3D), allocatable :: recv_buf(:)
+
+    integer, allocatable :: send_attrib(:,:), recv_attrib(:,:)
+    integer, allocatable :: cluster_rank(:)
+    integer, allocatable :: e(:), m(:)
+    integer :: mark, n_recv, n_send, n_attrib, n_cpe
+    integer :: c, i, j, k, l, n, p
+    logical :: has_grandchild
+    logical :: skip_frozen = .true.
+
+    ! initialization ...........................................................
+
+    ! number of children per element with regular refinement
+    select case(parent % refinement)
+    case('c')
+      n_cpe = 1  ! cloning
+    case('s')
+      n_cpe = 8  ! subdividing
+    case default
+      call Error('RestrictAdaptationPattern_3D','parent%refinement not set')
+    end select
+
+    n_send = parent % n_child
+    allocate(send_map(n_send), send_buf(n_send))
+    do i = 1, n_send
+      send_map(i) = DataExchangeMap_3D(parent % map_child(i), skip_frozen)
+    end do
+
+    n_recv = old_child % n_parent
+    allocate(recv_map(n_recv), recv_buf(n_recv))
+    do i = 1, n_recv
+      recv_map(i) = DataExchangeMap_3D(old_child % map_parent(i), skip_frozen)
+    end do
+
+    has_grandchild = present(grandchild)
+
+    ! extract new child attributes for transfer ................................
+
+    if (has_grandchild) then
+      n_attrib = 1 + n_cpe  ! transfer new child part and IDs
+    else
+      n_attrib = 1          ! transfer new child part only
+    end if
+
+    allocate(send_attrib(n_attrib, parent % n_elem), source = -1)
+    select case(n_attrib)
+    case(1)
+      do l = 1, parent % n_elem
+        mark = parent % element(l) % adaptation % mark
+        if (mark  < 1000) cycle
+        if (mark /= parent % element(l) % adaptation % refinement) cycle
+        send_attrib(1,l) = new_child_map % tp_child(l)
+      end do
+    case(2)
+      do l = 1, parent % n_elem
+        mark = parent % element(l) % adaptation % mark
+        if (mark  < 1000) cycle
+        if (mark /= parent % element(l) % adaptation % refinement) cycle
+        send_attrib(1,l) = new_child_map % tp_child(l)
+        send_attrib(2,l) = new_child_map % id_child(1,1,1,l)
+      end do
+    case default
+      do l = 1, parent % n_elem
+        mark = parent % element(l) % adaptation % mark
+        if (mark  < 1000) cycle
+        if (mark /= parent % element(l) % adaptation % refinement) cycle
+        send_attrib(  1,l) = new_child_map % tp_child(l)
+        send_attrib(2:9,l) = reshape(new_child_map % id_child(:,:,:,l), [8])
+      end do
+    end select
+
+    ! pass new child attributes to old children ................................
+
+    allocate(recv_attrib(n_attrib, old_child % n_cluster), source = -1)
+
+    do i = 1, n_send
+      call send_buf(i) % Extract_Data(send_map(i), send_attrib)
+      call send_buf(i) % Send_Start()
+    end do
+
+    do i = 1, n_recv
+      call recv_buf(i) % Init(recv_map(i), recv_attrib)
+      call recv_buf(i) % Recv_Start()
+    end do
+
+    do i = 1, n_send
+      call send_buf(i) % Send_Finish()
+    end do
+
+    do i = 1, n_recv
+      call recv_buf(i) % Recv_Finish()
+      call recv_buf(i) % Assign_Data(recv_attrib)
+    end do
+
+    deallocate(recv_buf, send_buf, send_attrib)
+
+    ! create child data send map ...............................................
+
+    ! number of retained element clusters per new partition
+    allocate(m(0:new_child%n_parts-1), source = 0)
+    do i = 1, old_child % n_cluster
+      p = recv_attrib(1,i)
+      if (p >= 0) then
+        m(p) = m(p) + 1
+      end if
+    end do
+
+    ! sort clusters according to 1) parent proc and 2) parent ID
+    allocate(cluster_rank(old_child % n_cluster))
+    call SortElementClusters(old_child, n_cpe, cluster_rank)
+
+    ! set up exchange send maps
+    if (allocated(exch_plan % send_map)) then
+      deallocate(exch_plan % send_map)
+    end if
+    allocate(exch_plan % send_map(count(m > 0)))
+
+    associate(exch_send_map => exch_plan % send_map)
+
+      ! prepare exchange send maps
+      n = 0
+      do p = 0, new_child%n_parts-1
+        if (m(p) > 0) then
+          n = n + 1
+          exch_send_map(n) % comm = new_child % comm_world
+          exch_send_map(n) % proc = new_child % proc_part(p)
+          allocate(exch_send_map(n) % id_elem(n_cpe * m(p)))
+          m(p) = n
+        end if
+      end do
+
+      ! initialize element counter
+      allocate(e(size(exch_send_map)), source = 0)
+
+      ! build maps
+      do i = 1, old_child % n_cluster
+        c = cluster_rank(i)
+        p = recv_attrib(1,c)
+        if (p < 0) cycle
+        n = m(p)            ! map index
+        l = e(n)            ! map element ID offset
+        k = n_cpe * (c - 1) ! mesh element ID offset
+        do j = 1, n_cpe
+          exch_send_map(n) % id_elem(l + j) = k + j
+        end do
+        e(n) = e(n) + n_cpe
+      end do
+
+    end associate
+
+    ! connect grandchild .......................................................
+
+    if (has_grandchild) then
+
+      ! convert received new child attributes for transfer to grandchild
+      allocate(send_attrib(2, old_child%n_elem), source = -1)
+      associate(proc_part => new_child % proc_part)
+        do i = 1, old_child % n_elem
+          c = old_child % element(i) % cluster_id
+          k = old_child % element(i) % cluster_oct + 1
+          p = recv_attrib(1,c)
+          if (p < 0) cycle ! element not retained
+          send_attrib(1,i) = proc_part(p)     ! new element process
+          send_attrib(2,i) = recv_attrib(k,c) ! new element ID
+        end do
+      end associate
+
+      ! received attributes are sent to grandchild
+      call ConnectGrandchild(old_child, send_attrib, grandchild)
+
+    end if
+
+  end subroutine ConnectOldChild
+
+  !-----------------------------------------------------------------------------
+  !> Sort active clusters according parent process and parent ID
+  !>
+  !> The returned array `cluster_rank` provides a ranking of the element
+  !> clusters. Its first part contains a list of the active clusters sorted
+  !> according to 1) the parent element process and 2) the parent element ID.
+  !> The second part lists the frozen clusters in the original order.
+  !> It is exploited that the active clusters always precede the frozen ones.
+  !> As the latter are not retained, they do not need to be sorted.
+
+  subroutine SortElementClusters(mesh, n_cpe, cluster_rank)
+    class(Mesh_3D), intent(in) :: mesh
+    integer, intent(in)  :: n_cpe
+    integer, intent(out) :: cluster_rank(mesh%n_cluster)
+
+    integer, allocatable :: attrib(:,:)
+    integer :: n_cluster_active
+    integer :: c, e
+
+    n_cluster_active = mesh % n_elem_active / n_cpe
+
+    allocate(attrib(3,n_cluster_active))
+
+    do c = 1, n_cluster_active
+      e = 1 + n_cpe * (c - 1)
+      attrib(1,c) = mesh % element(e) % adaptation % parent_proc
+      attrib(2,c) = mesh % element(e) % adaptation % parent_id
+      attrib(3,c) = c
+    end do
+
+    ! sort active clusters according to parent process and parent ID
+    call SortPairs(attrib)
+
+    ! build list of active clusters with ascending rank
+    do c = 1, n_cluster_active
+      cluster_rank(c) = attrib(3,c)
+    end do
+
+    ! append unsorted frozen clusters
+    do c = n_cluster_active+1, mesh % n_cluster
+      cluster_rank(c) = c
+    end do
+
+  end subroutine SortElementClusters
+
+  !-----------------------------------------------------------------------------
+  !> Update parent info and maps in grandchild partitions
+
+  subroutine ConnectGrandchild(old_child, send_attrib, grandchild)
+    class(Mesh_3D), intent(in)    :: old_child
+    integer,        intent(in)    :: send_attrib(:,:)
+    class(Mesh_3D), intent(inout) :: grandchild
+
+    type(DataExchangeMap_3D), allocatable :: send_map(:)
+    type(DataExchangeMap_3D), allocatable :: recv_map(:)
+
+    type(DataExchangeSendBuf_3D), allocatable :: send_buf(:)
+    type(DataExchangeRecvBuf_3D), allocatable :: recv_buf(:)
+
+    integer, allocatable :: recv_attrib(:,:)
+    integer :: n_recv, n_send, n_attrib
+    integer :: i
+
+    ! initialization ...........................................................
+
+    n_send = old_child % n_child
+    allocate(send_map(n_send), send_buf(n_send))
+    do i = 1, n_send
+      send_map(i) = DataExchangeMap_3D(old_child % map_child(i))
+    end do
+
+    n_recv = grandchild % n_parent
+    allocate(recv_map(n_recv), recv_buf(n_recv))
+    do i = 1, n_recv
+      recv_map(i) = DataExchangeMap_3D(grandchild % map_parent(i))
+    end do
+
+    n_attrib = size(send_attrib, 1)
+    allocate(recv_attrib(n_attrib, grandchild % n_cluster), source = -1)
+
+    ! pass new child attributes to grandchildren ...............................
+
+    do i = 1, n_send
+      call send_buf(i) % Extract_Data(send_map(i), send_attrib)
+      call send_buf(i) % Send_Start()
+    end do
+
+    do i = 1, n_recv
+      call recv_buf(i) % Init(recv_map(i), recv_attrib)
+      call recv_buf(i) % Recv_Start()
+    end do
+
+    do i = 1, n_send
+      call send_buf(i) % Send_Finish()
+    end do
+
+    do i = 1, n_recv
+      call recv_buf(i) % Recv_Finish()
+      call recv_buf(i) % Assign_Data(recv_attrib)
+    end do
+
+    ! extract received attributes ..............................................
+
+    do i = 1, grandchild % n_elem
+      associate(element => grandchild % element(i))
+        element % adaptation % parent_proc = recv_attrib(1, element%cluster_id)
+        element % adaptation % parent_id   = recv_attrib(2, element%cluster_id)
+      end associate
+    end do
+
+    ! rebuild map from grandchild to parent .........................................
+
+    call grandchild % BuildMapToParent()
+
+  end subroutine ConnectGrandchild
+
+  !-----------------------------------------------------------------------------
+  !> Connect parent with new child
+
+  subroutine ConnectParent(parent, new_child_map, new_child)
+    class(Mesh_3D),                 intent(inout) :: parent
+    class(Mesh_3D),                 intent(in)    :: new_child
+    class(ChildDistributionMap_3D), intent(in)    :: new_child_map
+
+    integer :: i
+
+    if (parent % part >= 0) then
+
+      associate(proc_part => new_child % proc_part)
+        do i = 1, parent % n_elem
+          associate(adaptation => parent % element(i) % adaptation)
+            adaptation % refinement = adaptation % mark
+            if (adaptation % refinement > 0) then
+              adaptation % child_proc = proc_part(new_child_map % tp_child(i))
+            else
+              adaptation % child_proc = -1
+            end if
+            adaptation % mark = 0
+          end associate
+        end do
+      end associate
+
+      call parent % BuildMapToChild()
+
+    end if
+  end subroutine ConnectParent
+
+  !-----------------------------------------------------------------------------
+  !> Build map indicating the old location of retained child elements
+  !>
+  !> Only active child elements can be retained. This implies that old and the
+  !> new child both emerge from regular refinement and are not frozen.
+
+  subroutine ConnectNewWithOldChild(new_child, exch_plan)
+    class(Mesh_3D),             intent(in)    :: new_child
+    class(DataExchangePlan_3D), intent(inout) :: exch_plan
+
+    integer, allocatable :: e(:), m(:)
+    integer :: i, p, n, n_proc
+
+    call MPI_Comm_size(new_child % comm_world, n_proc)
+
+    allocate(m(0:n_proc-1), source = 0)
+    allocate(e(1:n_proc  ), source = 0)
+
+    ! count retained elements per process
+    do i = 1, new_child % n_elem_active
+      ! for retained elements, mark is non-negative and indicates its process ID in
+      ! the old mesh; negative marks care used to identify non-retained children
+      p = new_child % element(i) % adaptation % mark
+      if (p >= 0) then
+        m(p) = m(p) + 1
+      end if
+    end do
+
+    ! set up exchange recveive maps
+    if (allocated(exch_plan % recv_map)) then
+      deallocate(exch_plan % recv_map)
+    end if
+    allocate(exch_plan % recv_map(count(m > 0)))
+
+    associate(exch_recv_map => exch_plan % recv_map)
+
+      ! prepare exchange receive maps
+      n = 0
+      do p = 0, n_proc-1
+        if (m(p) > 0) then
+          n = n + 1
+          exch_recv_map(n) % comm = new_child % comm_world
+          exch_recv_map(n) % proc = p
+          allocate(exch_recv_map(n) % id_elem(m(p)))
+          m(p) = n
+        end if
+      end do
+
+      ! build exchange recveive maps
+      do i = 1, new_child % n_elem_active
+        p = new_child % element(i) % adaptation % mark
+        if (p < 0) cycle
+        n    = m(p)
+        e(n) = e(n) + 1
+        exch_recv_map(n) % id_elem(e(n)) = i
+      end do
+
+    end associate
+
+  end subroutine ConnectNewWithOldChild
+
+  !=============================================================================
+
+end submodule MP_BuildConnections
+
