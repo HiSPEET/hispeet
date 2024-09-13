@@ -26,7 +26,7 @@ module subroutine Apply_CI(this, u, v)
   ! local variables ............................................................
 
   ! trace operators
-  type(TraceTransferBuffer), asynchronous, allocatable, save ::  buf_tr_u
+  type(TraceTransferBuffer), asynchronous, allocatable, save :: buf_tr_u
   type(TraceTransferBuffer), asynchronous, allocatable, save :: buf_tr_qn
 
   ! trace variables
@@ -86,7 +86,7 @@ module subroutine Apply_CI(this, u, v)
 
       ! apply element diffusion operator .......................................
 
-      call TPO_Elliptic(eop%w, As, mesh%dx, lambda, ONE, u, v)
+      call TPO_Elliptic_RLCI(eop%w, As, mesh%dx, lambda, ONE, u, v)
 
       ! finish generation of traces ............................................
 

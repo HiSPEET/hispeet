@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Structured_Mesh
+module CART__Structured_Mesh
   implicit none
   private
 
@@ -380,4 +380,4 @@ end subroutine TripleElementIndex
 
 !===============================================================================
 
-end module Structured_Mesh
+end module CART__Structured_Mesh

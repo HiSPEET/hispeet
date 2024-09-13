@@ -77,7 +77,7 @@ module subroutine Apply_VI(this, u, v)
 
       ! apply element stiffness operator .......................................
 
-      call TPO_Elliptic(eop%w, eop%D, mesh%dx, lambda, nu, u, v)
+      call TPO_Elliptic_RLVI(eop%w, eop%D, mesh%dx, lambda, nu, u, v)
 
       ! finish generation of traces ............................................
 

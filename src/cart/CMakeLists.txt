@@ -8,9 +8,12 @@ set(MESH mesh/cart__mesh_face.f
          mesh/cart__mesh_partition.f
          mesh/cart__mesh_partition__mp_getpoints.f
          mesh/cart__mesh_partition__mp_getpointvalency.f
+         mesh/cart__element_components.f
          mesh/cart__element_connectivity.f
          mesh/cart__generate_mesh_links.f
          mesh/cart__generate_structured_mesh.f
+         mesh/cart__structured_mesh.f
+         mesh/cart__export_volume_data_to_vtk.f
          )
 
 #===============================================================================

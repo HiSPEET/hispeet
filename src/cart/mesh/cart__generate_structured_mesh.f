@@ -11,10 +11,10 @@ module CART__Generate_Structured_Mesh
   use Kind_Parameters,   only: RNP
   use Constants,         only: HALF
   use Execution_Control, only: Error
-  use Element_Components
-  use Structured_Mesh
+  use CART__Structured_Mesh
 
   use XMPI
+  use CART__Element_Components
   use CART__Element_Connectivity
   use CART__Mesh_Boundary
   use CART__Mesh_Partition

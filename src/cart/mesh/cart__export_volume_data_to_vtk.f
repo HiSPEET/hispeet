@@ -6,14 +6,14 @@
 !>### Export mesh data into VTK XML file
 !===============================================================================
 
-module Export_Volume_Data_To_VTK
+module CART__Export_Volume_Data_To_VTK
   use Kind_Parameters, only: RNP
   use Constants,       only: HALF
   use Gauss_Jacobi,    only: LobattoPoints, LobattoPolynomial
   use C_Binding
   use VTK_Binding
   use TPO__AAA__3D
-  use Structured_Mesh  ! adapt vertex numbering when switching to Mesh_Structured_Indexing__3D
+  use CART__Structured_Mesh  ! adapt vertex numbering when switching to Mesh_Structured_Indexing__3D
   implicit none
   private
 
@@ -499,4 +499,4 @@ end subroutine BuildQuadraticVectorData
 
 !===============================================================================
 
-end module Export_Volume_Data_To_VTK
+end module CART__Export_Volume_Data_To_VTK
