@@ -92,8 +92,10 @@ contains
 
           if (present(nu_0)) then
             call this % CoarseSolver(lambda, nu_0, u_1, f_1, bv_1)
+                call this % Monitoring(1, 's', lambda, nu_0, f_1, bv_1, u_1)
           else
             call this % CoarseSolver(lambda, nu_1, u_1, f_1, bv_1)
+                call this % Monitoring(1, 's', lambda, nu_1, f_1, bv_1, u_1)
           end if
 
         end associate CASC_ROOT
@@ -112,11 +114,16 @@ contains
                                               , v_p    = u_p             &
                                               , v_c    = u_l             )
             ! smoothing
+            n = this % ns_2
             if (l < l_top) then
               if (present(nu_0)) then
-                call this % Smoother(lambda, nu_0, u_l, f_l, bv_l, this%ns_2)
+                call this % Monitoring(l, 'i', lambda, nu_0, f_l, bv_l, u_l)
+                call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
+                call this % Monitoring(l, '2', lambda, nu_0, f_l, bv_l, u_l)
               else
-                call this % Smoother(lambda, nu_l, u_l, f_l, bv_l, this%ns_2)
+                call this % Monitoring(l, 'i', lambda, nu_l, f_l, bv_l, u_l)
+                call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
+                call this % Monitoring(l, '2', lambda, nu_l, f_l, bv_l, u_l)
               end if
             end if
 
@@ -146,13 +153,15 @@ contains
 
               ! pre-smoothing and residual computation .........................
 
+              n = this % ns_1
               if (present(nu_0)) then
-                call this % Smoother(lambda, nu_0, u_l, f_l, bv_l, this%ns_1)
-                call ell_op(l) % Residual(lambda, nu_0, f_l, bv_l, u_l, r_l)
+                call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
+                call this % Residual(l, lambda, nu_0, f_l, bv_l, u_l, r_l)
               else
-                call this % Smoother(lambda, nu_l, u_l, f_l, bv_l, this%ns_1)
-                call ell_op(l) % Residual(lambda, nu_l, f_l, bv_l, u_l, r_l)
+                call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
+                call this % Residual(l, lambda, nu_l, f_l, bv_l, u_l, r_l)
               end if
+              call this % Monitoring(l, '1', r_l)
 
               ! restriction ....................................................
 
@@ -205,9 +214,13 @@ contains
             ! coarse grid solver ...............................................
 
             if (present(nu_0)) then
+              call this % Monitoring(1, '0', lambda, nu_0, f_1, bv_1, u_1)
               call this % CoarseSolver(lambda, nu_0, u_1, f_1, bv_1)
+              call this % Monitoring(1, 's', lambda, nu_0, f_1, bv_1, u_1)
             else
+              call this % Monitoring(1, '0', lambda, nu_1, f_1, bv_1, u_1)
               call this % CoarseSolver(lambda, nu_1, u_1, f_1, bv_1)
+              call this % Monitoring(1, 's', lambda, nu_1, f_1, bv_1, u_1)
             end if
 
           end associate FMG_COARSE
@@ -241,10 +254,15 @@ contains
 
               ! post-smoothing .................................................
 
+              n = this % ns_2
               if (present(nu_0)) then
-                call this % Smoother(lambda, nu_0, u_l, f_l, bv_l, this%ns_2)
+                call this % Monitoring(l, 'c', lambda, nu_0, f_l, bv_l, u_l)
+                call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
+                call this % Monitoring(l, '2', lambda, nu_0, f_l, bv_l, u_l)
               else
-                call this % Smoother(lambda, nu_l, u_l, f_l, bv_l, this%ns_2)
+                call this % Monitoring(l, 'c', lambda, nu_l, f_l, bv_l, u_l)
+                call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
+                call this % Monitoring(l, '2', lambda, nu_l, f_l, bv_l, u_l)
               end if
 
             end associate
@@ -282,15 +300,17 @@ contains
 
               ! pre-smoothing and residual computation .........................
 
+              n = this % ns_1
               if (l < l_top .or. m == 1) then
                 if (present(nu_0)) then
-                  call this % Smoother(lambda, nu_0, u_l, f_l, bv_l, this%ns_1)
-                  call ell_op(l) % Residual(lambda, nu_0, f_l, bv_l, u_l, r_l)
+                  call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
+                  call this % Residual(l, lambda, nu_0, f_l, bv_l, u_l, r_l)
                 else
-                  call this % Smoother(lambda, nu_l, u_l, f_l, bv_l, this%ns_1)
-                  call ell_op(l) % Residual(lambda, nu_l, f_l, bv_l, u_l, r_l)
+                  call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
+                  call this % Residual(l, lambda, nu_l, f_l, bv_l, u_l, r_l)
                 end if
               end if
+              call this % Monitoring(l, '1', r_l)
 
               ! restriction ....................................................
 
@@ -343,9 +363,13 @@ contains
             ! coarse grid solver ...............................................
 
             if (present(nu_0)) then
+              call this % Monitoring(1, '0', lambda, nu_0, f_1, bv_1, u_1)
               call this % CoarseSolver(lambda, nu_0, u_1, f_1, bv_1)
+              call this % Monitoring(1, 's', lambda, nu_0, f_1, bv_1, u_1)
             else
+              call this % Monitoring(1, '0', lambda, nu_1, f_1, bv_1, u_1)
               call this % CoarseSolver(lambda, nu_1, u_1, f_1, bv_1)
+              call this % Monitoring(1, 's', lambda, nu_1, f_1, bv_1, u_1)
             end if
 
           end associate V_COARSE
@@ -386,9 +410,13 @@ contains
               end if
 
               if (present(nu_0)) then
-                call this % Smoother(lambda, nu_0, u_l, f_l, bv_l, n)
+                call this % Monitoring(l, 'c', lambda, nu_0, f_l, bv_l, u_l)
+                call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
+                call this % Monitoring(l, '2', lambda, nu_0, f_l, bv_l, u_l)
               else
-                call this % Smoother(lambda, nu_l, u_l, f_l, bv_l, n)
+                call this % Monitoring(l, 'c', lambda, nu_l, f_l, bv_l, u_l)
+                call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
+                call this % Monitoring(l, '2', lambda, nu_l, f_l, bv_l, u_l)
               end if
 
             end associate
