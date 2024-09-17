@@ -235,6 +235,12 @@ set( ELLIPTIC_1D
 # elliptic_3d
 
 set( ELLIPTIC_3D 
+
+     elliptic_3d/elliptic_problem__3d.f
+     elliptic_3d/elliptic_problem__knotty__3d.f
+     elliptic_3d/elliptic_problem__simple__3d.f
+     elliptic_3d/elliptic_problem__tgv_pressure__3d.f
+
      elliptic_3d/dg__elliptic_operator__3d.f
      elliptic_3d/dg__elliptic_operator__3d__mp_eval_rc.f
      elliptic_3d/dg__elliptic_operator__3d__mp_eval_rv.f
@@ -247,6 +253,7 @@ set( ELLIPTIC_3D
      elliptic_3d/dg__elliptic_operator__3d__mp_cg_method_x.f
      elliptic_3d/dg__elliptic_operator__3d__mp_schwarz_method_x.f
      elliptic_3d/dg__elliptic_operator__3d__mp_schwarzpcg_method_x.f
+
      elliptic_3d/dg__schwarz_operator__3d.f
      elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_core.F
      elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_structured.F
@@ -258,6 +265,7 @@ set( ELLIPTIC_3D
      elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_unstructured.F
      elliptic_3d/dg__schwarz_operator__3d__rsp__mp_restrict_structured.F
      elliptic_3d/dg__schwarz_operator__3d__rsp__mp_restrict_unstructured.F
+
    )
 
 #===============================================================================
