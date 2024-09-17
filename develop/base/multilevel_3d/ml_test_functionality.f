@@ -23,12 +23,12 @@ program ML_Test_Functionality
 
   ! variables ..................................................................
 
-  character(len=80) :: file = 'cylinder_2d' ! mesh file base name  (gmsh/*.msh)
+  character(len=100) :: gmsh_file = '../gmsh_3d/cylinder_2d'
+  character(len=100) :: plot_file = ''
 
-  logical :: export_vtk = .false.  ! switch for VTK export
-  integer, allocatable :: po(:)    ! sequence of polynomial orders
+  integer, allocatable :: po(:) ! sequence of polynomial orders
 
-  namelist /control/   log_level, file, export_vtk
+  namelist /control/   log_level, gmsh_file, plot_file
   namelist /operators/ po
 
   type(GenericMesh_3D)     , save :: generic_mesh
@@ -40,7 +40,6 @@ program ML_Test_Functionality
 
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
 
-  character(len=:), allocatable, save :: gmsh_file
   character(len=9), save :: var_name(14)
 
   real(RNP), allocatable, save :: delta(:)
@@ -80,13 +79,11 @@ program ML_Test_Functionality
   end if
 
   ! globalize remaining parameters
-  call XMPI_Bcast(file      , 0, comm)
-  call XMPI_Bcast(export_vtk, 0, comm)
+  call XMPI_Bcast(gmsh_file , 0, comm)
+  call XMPI_Bcast(plot_file , 0, comm)
   call XMPI_Bcast(po        , 0, comm)
 
   ! mesh import ................................................................
-
-  gmsh_file = 'gmsh/' // trim(file)
 
   if (rank == 0) then
     call ImportGMSH_3D(gmsh_file, generic_mesh)
@@ -344,14 +341,13 @@ program ML_Test_Functionality
 
   ! VTK export .................................................................
 
-  if (export_vtk) then
-    call ml_var % ExportVTK(ml_op, trim(file)//'_full', mode=1)
-    call ml_var % ExportVTK(ml_op, trim(file)//'_leaf', mode=3)
+  if (len_trim(plot_file) > 0) then
+    call ml_var % ExportVTK(ml_op, trim(plot_file)//'_full', mode=1)
+    call ml_var % ExportVTK(ml_op, trim(plot_file)//'_leaf', mode=3)
   end if
 
   ! finalization ...............................................................
 
-  if ( allocated(gmsh_file) ) deallocate(gmsh_file)
   if ( allocated(delta_loc) ) deallocate(delta_loc)
   if ( allocated(delta)     ) deallocate(delta)
 

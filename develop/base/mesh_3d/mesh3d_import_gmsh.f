@@ -16,8 +16,8 @@ program Mesh3d_Import_GMSH
   use Export_VTK_Volume_Data__3D
   implicit none
 
-  character(len=80) :: file = 'pipe' ! mesh file base name (gmsh/*.msh)
-  integer           :: po   = 1      ! degree of spectral element mesh
+  character(len=80) :: file = '../gmsh_3d/pipe' ! mesh file base name (*.msh)
+  integer           :: po   = 1                 ! degree of spectral elements
 
   namelist/input/ file, po
 
@@ -50,8 +50,6 @@ program Mesh3d_Import_GMSH
   call XMPI_Bcast(po, 0, comm = MPI_COMM_WORLD)
 
   ! mesh import ................................................................
-
-  gmsh_file = 'gmsh/' // trim(file)
 
   if (rank == 0) then
     call ImportGMSH_3D(gmsh_file, generic_mesh)

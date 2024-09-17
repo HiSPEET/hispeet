@@ -1,4 +1,4 @@
 &input
-  file = 'pipe' ! mesh file base name (gmsh/*.msh)
-  po   =  3     ! degree of spectral element mesh
+  file = '../gmsh_3d/pipe' ! mesh file base name (*.msh)
+  po   =  3                ! degree of spectral elements
 /

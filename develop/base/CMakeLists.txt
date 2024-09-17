@@ -3,3 +3,5 @@ add_subdirectory(tensor_product)
 add_subdirectory(mesh_3d)
 add_subdirectory(multilevel_3d)
 add_subdirectory(elliptic_3d)
+
+file(COPY gmsh_3d DESTINATION .)

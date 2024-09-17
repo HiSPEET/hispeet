@@ -117,11 +117,11 @@ contains
             n = this % ns_2
             if (l < l_top) then
               if (present(nu_0)) then
-                call this % Monitoring(l, 'i', lambda, nu_0, f_l, bv_l, u_l)
+                call this % Monitoring(l, 'p', lambda, nu_0, f_l, bv_l, u_l)
                 call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
                 call this % Monitoring(l, '2', lambda, nu_0, f_l, bv_l, u_l)
               else
-                call this % Monitoring(l, 'i', lambda, nu_l, f_l, bv_l, u_l)
+                call this % Monitoring(l, 'p', lambda, nu_l, f_l, bv_l, u_l)
                 call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
                 call this % Monitoring(l, '2', lambda, nu_l, f_l, bv_l, u_l)
               end if
