@@ -36,12 +36,10 @@ program DG_Elliptic_3D_Test
   use Create_Cylinder
   use Create_Annulus
 
-  use Elliptic_Problem
-  use Elliptic_Problem__Simple_1D
-  use Elliptic_Problem__Simple_2D
-  use Elliptic_Problem__Simple_3D
-  use Elliptic_Problem__Knotty
-  use Elliptic_Problem__TGV_Pressure
+  use Elliptic_Problem__3D
+  use Elliptic_Problem__Simple__3D
+  use Elliptic_Problem__Knotty__3D
+  use Elliptic_Problem__TGV_Pressure__3D
 
   implicit none
 
@@ -145,7 +143,7 @@ program DG_Elliptic_3D_Test
   type(DG_EllipticOperator_3D) :: elliptic_op
 
   ! problem
-  class(EllipticProblem), allocatable :: problem
+  class(EllipticProblem_3D), allocatable :: problem
 
   ! space and names for variables
   real(RNP), allocatable, target :: var(:,:,:,:,:)
@@ -312,24 +310,18 @@ program DG_Elliptic_3D_Test
   ! problem ....................................................................
 
   select case(test_case)
-  case(1)
-    allocate(EllipticProblem_Simple1D :: problem)
-    test_case_name = 'Simple 1D'
-  case(2)
-    allocate(EllipticProblem_Simple2D :: problem)
-    test_case_name = 'Simple 2D'
-  case(3)
-    allocate(EllipticProblem_Simple3D :: problem)
-    test_case_name = 'Simple 3D'
+  case(1:3)
+    write(test_case_name,'(A,I0,A)') 'Simple ', test_case, 'D'
+    problem = EllipticProblem_Simple_3D &
+                  (lambda, nu_0, nu_1, d_nu, k_nu, k_u, dim = test_case)
   case(4)
-    allocate(EllipticProblem_Knotty :: problem)
     test_case_name = 'Knotty'
+    problem = EllipticProblem_Knotty_3D(lambda, nu_0, nu_1, d_nu, k_nu, k_u)
   case default
-    allocate(EllipticProblem_TGV_Pressure :: problem)
     test_case_name = 'TGV_Pressure'
+    problem = EllipticProblem_TGV_Pressure_3D( lambda, nu_0, nu_1 &
+                                             , d_nu, k_nu, k_u    )
   end select
-
-  call problem % SetProblem(lambda, nu_0, nu_1, d_nu, k_nu, k_u)
 
   ! adjust boundary conditions
   bc = bc(1 : mesh % n_bound)
@@ -343,7 +335,6 @@ program DG_Elliptic_3D_Test
       end if
     end if
   end do
-
 
   ! info .......................................................................
 
@@ -428,7 +419,6 @@ program DG_Elliptic_3D_Test
   end associate
 
   ! operators ..................................................................
-
 
   if (r_nu_s > 0) then
     dg_opt = DG_ElementOptions_1D(po, svv = .true., penalty = penalty)
@@ -729,89 +719,6 @@ contains
     end associate
 
   end subroutine SchwarzTest
-
-  !-----------------------------------------------------------------------------
-
-  subroutine VerifyPartitions(sem, u)
-    use Element_Face_Transfer_Buffer__3D
-    type(SpectralElementMesh_3D), intent(in) :: sem
-    real(RNP), contiguous, intent(inout) :: u(0:,0:,0:,1:)
-
-    type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_tr
-    real(RNP), allocatable, save :: tr(:,:,:,:) ! traces of u
-    real(RNP), allocatable :: ue(:,:), un(:,:), du(:,:)
-    real(RNP), parameter :: tol = 1e-6
-    integer :: po, ne, ng
-    integer :: d = 2
-    integer :: e, f, i, l, m
-
-    associate(mesh => sem % mesh)
-      po = ubound(u,1)
-      ne = mesh % n_elem
-      ng = mesh % n_ghost
-
-      allocate(ue(0:po, 0:po))
-      allocate(un(0:po, 0:po))
-      allocate(du(0:po, 0:po))
-
-      allocate(tr(0:po, 0:po, 6, ne+ng))
-      buf_tr = ElementFaceTransferBuffer_3D(sem%mesh, tr)
-
-      u = sem % metrics % x(:,:,:,:,d)
-
-      do e = 1, ne
-        tr(:,:,1,e) = u( 0,:,:,e)
-        tr(:,:,2,e) = u(po,:,:,e)
-        tr(:,:,3,e) = u(:, 0,:,e)
-        tr(:,:,4,e) = u(:,po,:,e)
-        tr(:,:,5,e) = u(:,:, 0,e)
-        tr(:,:,6,e) = u(:,:,po,e)
-      end do
-
-      call buf_tr % Transfer(mesh, tr, tag=1000)
-      call buf_tr % Merge(tr)
-
-      do e = 1, ne
-        associate(element => mesh % element(e))
-          do f = 1, 6
-            i = element % face(f) % i_neighbor
-            if (i > 0) then
-              l = element % neighbor(i) % id
-              m = element % neighbor(i) % component
-              call element % AlignFromNeighborFace(f, i, tr(:,:,m,l), un)
-              select case(f)
-              case(1)
-                ue = u( 0,:,:,e)
-              case(2)
-                ue = u(po,:,:,e)
-              case(3)
-                ue = u(:, 0,:,e)
-              case(4)
-                ue = u(:,po,:,e)
-              case(5)
-                ue = u(:,:, 0,e)
-              case(6)
-                ue = u(:,:,po,e)
-              end select
-              du = un - ue
-              if (maxval(abs(du)) > tol) then
-                print '(99(G0,1X))', '!!! part',mesh%part,': |du| > tol', &
-                  '@ e,f,i,l,m =',e,f,i,l,m
-                if (size(du) <= 9) then
-                  print '(3(G0,1X),9(ES9.2,1X))', '!!! part',mesh%part,': ue =',ue
-                  print '(3(G0,1X),9(ES9.2,1X))', '!!! part',mesh%part,': un =',un
-                  print '(3(G0,1X),9(ES9.2,1X))', '!!! part',mesh%part,': du =',du
-                  print '(3(G0,1X),9(ES9.2,1X))', '!!! part',mesh%part,': tr =',tr(:,:,m,l)
-                end if
-              end if
-            end if
-          end do
-        end associate
-      end do
-
-      deallocate(tr, buf_tr)
-    end associate
-  end subroutine VerifyPartitions
 
   !=============================================================================
 

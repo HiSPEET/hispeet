@@ -13,6 +13,7 @@ module DG__Elliptic_Operator__3D
   use Constants      , only: ZERO, ONE, HALF
   use XMPI           , only: XMPI_Bcast
   use Logging_Levels , only: log_level_inner_iteration
+  use Array_Assignments
   use Execution_Control
   use DG__Element_Operators__1D
   use DG__Schwarz_Operator__3D
@@ -58,7 +59,11 @@ module DG__Elliptic_Operator__3D
     procedure :: PhysicalDiffusivity
     procedure :: SpectralDiffusivity
 
-    procedure, private :: EnforceBoundaryConditions
+    ! procedures intended for internal use
+    procedure :: EnforceBoundaryConditions
+    procedure :: CG_Method_X
+    procedure :: Schwarz_Method_X
+    procedure :: SchwarzPCG_Method_X
 
   end type DG_EllipticOperator_3D
 

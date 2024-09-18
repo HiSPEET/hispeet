@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Element_Components
+module CART__Element_Components
   implicit none
   private
 
@@ -152,4 +152,4 @@ end function ElementComponentID_T
 
 !===============================================================================
 
-end module Element_Components
+end module CART__Element_Components

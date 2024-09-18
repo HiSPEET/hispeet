@@ -84,6 +84,10 @@ contains
 
       call AddFluxes(mesh, eop, nu, tr, r, f)
 
+      ! frozen and ghost elements are set to zero ..............................
+
+      call SetArray(r(:,:,:,mesh%n_elem_active+1:), ZERO)
+
       ! clean-up ...............................................................
 
       !$omp master

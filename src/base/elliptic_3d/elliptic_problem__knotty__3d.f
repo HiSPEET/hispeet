@@ -1,22 +1,22 @@
-!> summary:  Defines a simple periodic 2D test problem
+!> summary:  Defines a more complex elliptic test problem
 !> author:   Joerg Stiller
 !> date:     2019/01/27
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Elliptic_Problem__Simple_2D
+module Elliptic_Problem__Knotty__3D
   use Kind_Parameters, only: RNP
-  use Elliptic_Problem
+  use Elliptic_Problem__3D
 
   implicit none
   private
 
-  public :: EllipticProblem_Simple2D
+  public :: EllipticProblem_Knotty_3D
 
   !-----------------------------------------------------------------------------
-  !> Type defining a 2D test problem
+  !> Type defining a more difficult problem (pseudo-turbulent pressure)
 
-  type, extends(EllipticProblem) :: EllipticProblem_Simple2D
+  type, extends(EllipticProblem_3D) :: EllipticProblem_Knotty_3D
   contains
 
     procedure :: GetExactSolution
@@ -25,9 +25,30 @@ module Elliptic_Problem__Simple_2D
     procedure :: GetDiffusivity
     procedure :: GetDiffusivityGradient
 
-  end type EllipticProblem_Simple2D
+  end type EllipticProblem_Knotty_3D
+
+  ! constructor
+  interface EllipticProblem_Knotty_3D
+    module procedure New_Problem
+  end interface
 
 contains
+
+  !=============================================================================
+  ! Create new object of type EllipticProblem_Knotty_3D
+
+  function New_Problem(lambda, nu_0, nu_1, d_nu, k_nu, k_u) result(this)
+    type(EllipticProblem_Knotty_3D) :: this
+    real(RNP), optional :: lambda  !< Helmholtz parameter
+    real(RNP), optional :: nu_0    !< diffusivity mean value ν₀
+    real(RNP), optional :: nu_1    !< diffusivity fluctuation amplitude ν₁
+    real(RNP), optional :: d_nu    !< diffusivity phase shift
+    integer  , optional :: k_nu    !< diffusivity wave number
+    integer  , optional :: k_u     !< solution wave number
+
+    call this % SetBaseProblem(lambda, nu_0, nu_1, d_nu, k_nu, k_u)
+
+  end function New_Problem
 
   !=============================================================================
   ! GetExactSolution
@@ -35,15 +56,15 @@ contains
   !-----------------------------------------------------------------------------
   !> Exact solution
 
-  subroutine GetExactSolution(problem, x, u)
-    class(EllipticProblem_Simple2D), intent(in) :: problem
+  subroutine GetExactSolution(this, x, u)
+    class(EllipticProblem_Knotty_3D), intent(in) :: this
     real(RNP), intent(in)  :: x(:,:,:,:,:) !< mesh points
     real(RNP), intent(out) :: u(:,:,:,:)   !< solution, u(x)
 
     integer :: n
 
     n = size(x(:,:,:,:,1))
-    call GetExactSolution_X(problem % k_u, n, x, u)
+    call GetExactSolution_X(this % k_u, n, x, u)
 
   end subroutine GetExactSolution
 
@@ -56,15 +77,20 @@ contains
     real(RNP), intent(in)  :: x(n,3) !< mesh points
     real(RNP), intent(out) :: u(n)   !< solution, u(x)
 
-    real(RNP) :: x1, x2
+    real(RNP) :: x1, x2, x3
     integer   :: i
 
     do i = 1, n
 
       x1 = x(i,1)
       x2 = x(i,2)
+      x3 = x(i,3)
 
-      u(i) = sin(k * x1) * sin(k * x2)
+      u(i) = cos(k * (x1 - 3*x2 + 2*x3))   &
+           * sin(k * (1 + x1))             &
+           * sin(k * (1 - x2))             &
+           * sin(k * (2*x1 + x2))          &
+           * sin(k * (3*x1 - 2*x2 + 2*x3))
 
     end do
 
@@ -76,19 +102,19 @@ contains
   !-----------------------------------------------------------------------------
   !> Exact solution gradient
 
-  subroutine GetExactGradient(problem, x, grad_u)
-    class(EllipticProblem_Simple2D), intent(in) :: problem
+  subroutine GetExactGradient(this, x, grad_u)
+    class(EllipticProblem_Knotty_3D), intent(in) :: this
     real(RNP), intent(in)  :: x(:,:,:,:,:)      !< mesh points
     real(RNP), intent(out) :: grad_u(:,:,:,:,:) !< ∇u(x)
 
     integer :: n
 
     n = size(x(:,:,:,:,1))
-    call GetExactGradient_X(problem % k_u, n, x, grad_u)
+    call GetExactGradient_X(this % k_u, n, x, grad_u)
 
   end subroutine GetExactGradient
 
-  !-------------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   !> Exact gradient -- explicit
 
   subroutine GetExactGradient_X(k, n, x, grad_u)
@@ -97,17 +123,41 @@ contains
     real(RNP), intent(in)  :: x(n,3)      !< mesh points
     real(RNP), intent(out) :: grad_u(n,3) !< gradient, grad u(x)
 
-    real(RNP) :: x1, x2
+    real(RNP) :: x1, x2, x3
     integer   :: i
 
     do i = 1, n
 
       x1 = x(i,1)
       x2 = x(i,2)
+      x3 = x(i,3)
 
-      grad_u(i,1) = k * cos(k * x1) * sin(k * x2)
-      grad_u(i,2) = k * sin(k * x1) * cos(k * x2)
-      grad_u(i,3) = 0
+      grad_u(i,1) = ( k * (2*cos(k*(1 + x1))                                &
+                    - 5 * cos(k*(1 + 5*x1 + 2*x2))                          &
+                    + 3 * cos(k - 3*k*x1 - 2*k*x2)                          &
+                    + 5 * cos(k*(1 - 5*x1 + 4*x2 - 4*x3))                   &
+                    - cos(k*(-1 + x1 - 6*x2 + 4*x3))                        &
+                    + 3 * cos(k*(1 + 3*x1 - 6*x2 + 4*x3))                   &
+                    - 7 * cos(k*(1 + 7*x1 - 4*x2 + 4*x3))) * sin(k - k*x2)  &
+                    ) / 8
+
+      grad_u(i,2) = k * sin(k*(1 + x1))                            &
+                      * ( ( cos(k*(x1 - 3*x2 + 2*x3))              &
+                          * ( -2 * cos(k*(1 + x1 - 4*x2 + 2*x3))   &
+                            + cos(k*(-1 + x1 - 2*x2 + 2*x3))       &
+                            + cos(k*(1 + 5*x1 - 2*x2 + 2*x3))      &
+                            )                                      &
+                          ) / 2                                    &
+                        + 3 * sin(k*(2*x1 + x2))                   &
+                            * sin(k - k*x2)                        &
+                            * sin(k*(x1 - 3*x2 + 2*x3))            &
+                            * sin(k*(3*x1 - 2*x2 + 2*x3))          &
+                        )
+
+      grad_u(i,3) = 2 * k * cos(k*(4*x1 - 5*x2 + 4*x3))  &
+                          * sin(k*(1 + x1))              &
+                          * sin(k*(2*x1 + x2))           &
+                          * sin(k - k*x2)
 
     end do
 
@@ -119,15 +169,15 @@ contains
   !-----------------------------------------------------------------------------
   !> Exact laplacian
 
-  subroutine GetExactLaplacian(problem, x, laplace_u)
-    class(EllipticProblem_Simple2D), intent(in) :: problem
+  subroutine GetExactLaplacian(this, x, laplace_u)
+    class(EllipticProblem_Knotty_3D), intent(in) :: this
     real(RNP), intent(in)  :: x(:,:,:,:,:)       !< mesh points
     real(RNP), intent(out) :: laplace_u(:,:,:,:) !< ∇²u(x)
 
     integer :: n
 
     n = size(x(:,:,:,:,1))
-    call GetExactLaplacian_X(problem % k_u, n, x, laplace_u)
+    call GetExactLaplacian_X(this % k_u, n, x, laplace_u)
 
   end subroutine GetExactLaplacian
 
@@ -140,15 +190,29 @@ contains
     real(RNP), intent(in)  :: x(n,3)        !< mesh points
     real(RNP), intent(out) :: laplace_u(n)  !< laplacian, laplace u(x)
 
-    real(RNP) :: x1, x2
+    real(RNP) :: x1, x2, x3
     integer   :: i
 
     do i = 1, n
 
       x1 = x(i,1)
       x2 = x(i,2)
+      x3 = x(i,3)
 
-      laplace_u(i) = -2*k*k * sin(k * x1) * sin(k * x2)
+      laplace_u(i) = ( -4 * cos(k - k*x2) * sin(k*(1 + x1))                    &
+                          * (     sin(2*k*(2*x1 + x2))                         &
+                            + 3 * sin(2*k*(x1 - 3*x2 + 2*x3))                  &
+                            - 2 * sin(2*k*(3*x1 - 2*x2 + 2*x3))                &
+                            )                                                  &
+                     + sin(k - k*x2) * ( -2 * sin(k*(1 + x1))                  &
+                                       + 15 * sin(k*(1 + 5*x1 + 2*x2))         &
+                                       +  7 * sin(k - 3*k*x1 - 2*k*x2)         &
+                                       + 29 * sin(k*(1 - 5*x1 + 4*x2 - 4*x3))  &
+                                       + 27 * sin(k*(-1 + x1 - 6*x2 + 4*x3))   &
+                                       - 31 * sin(k*(1 + 3*x1 - 6*x2 + 4*x3))  &
+                                       + 41 * sin(k*(1 + 7*x1 - 4*x2 + 4*x3))  &
+                                       )                                       &
+                     ) * k**2 / 4
 
     end do
 
@@ -160,8 +224,8 @@ contains
   !-----------------------------------------------------------------------------
   !> Diffusivity
 
-  subroutine GetDiffusivity(problem, x, nu)
-    class(EllipticProblem_Simple2D), intent(in) :: problem
+  subroutine GetDiffusivity(this, x, nu)
+    class(EllipticProblem_Knotty_3D), intent(in) :: this
     real(RNP), intent(in)  :: x(:,:,:,:,:)  !< mesh points
     real(RNP), intent(out) :: nu(:,:,:,:)   !< ν(x)
 
@@ -169,10 +233,10 @@ contains
 
     n = size(x(:,:,:,:,1))
 
-    call GetDiffusivity_X( problem % nu_0, &
-                           problem % nu_1, &
-                           problem % k_nu, &
-                           problem % d_nu, &
+    call GetDiffusivity_X( this % nu_0, &
+                           this % nu_1, &
+                           this % k_nu, &
+                           this % d_nu, &
                            n, x, nu        )
 
   end subroutine GetDiffusivity
@@ -189,16 +253,19 @@ contains
     real(RNP), intent(in)  :: x(n,3)  !< mesh points
     real(RNP), intent(out) :: nu(n)   !< diffusivity ν(x)
 
-    real(RNP) :: x1, x2
+    real(RNP) :: x1, x2, x3
     integer   :: i
 
     do i = 1, n
 
       x1 = x(i,1)
       x2 = x(i,2)
+      x3 = x(i,3)
 
-      nu(i) = nu_0  +  nu_1 * sin(k * (x1 - d)) * sin(k * (x2 - d))
-
+      nu(i) = nu_0                      &
+            + nu_1 * sin(k * (x1 - d))  &
+                   * sin(k * (x2 - d))  &
+                   * sin(k * (x3 - d))
     end do
 
   end subroutine GetDiffusivity_X
@@ -209,8 +276,8 @@ contains
   !-----------------------------------------------------------------------------
   !> Diffusivity gradient
 
-  subroutine GetDiffusivityGradient(problem, x, grad_nu)
-    class(EllipticProblem_Simple2D), intent(in) :: problem
+  subroutine GetDiffusivityGradient(this, x, grad_nu)
+    class(EllipticProblem_Knotty_3D), intent(in) :: this
     real(RNP), intent(in)  :: x(:,:,:,:,:)       !< mesh points
     real(RNP), intent(out) :: grad_nu(:,:,:,:,:) !< ∇ν(x)
 
@@ -218,9 +285,9 @@ contains
 
     n = size(x(:,:,:,:,1))
 
-    call GetDiffusivityGradient_X( problem % nu_1, &
-                                   problem % k_nu, &
-                                   problem % d_nu, &
+    call GetDiffusivityGradient_X( this % nu_1, &
+                                   this % k_nu, &
+                                   this % d_nu, &
                                    n, x, grad_nu   )
 
   end subroutine GetDiffusivityGradient
@@ -236,8 +303,8 @@ contains
     real(RNP), intent(in)  :: x(n,3)        !< mesh points
     real(RNP), intent(out) :: grad_nu(n,3)  !< diffusivity gradient ∇ν(x)
 
-    real(RNP) :: s1, s2
-    real(RNP) :: c1, c2
+    real(RNP) :: s1, s2, s3
+    real(RNP) :: c1, c2, c3
     integer   :: i
 
     do i = 1, n
@@ -248,9 +315,12 @@ contains
       s2 = sin(k * (x(i,2) - d))
       c2 = cos(k * (x(i,2) - d))
 
-      grad_nu(i,1) = k * nu_1 * c1 * s2
-      grad_nu(i,2) = k * nu_1 * s1 * c2
-      grad_nu(i,3) = 0
+      s3 = sin(k * (x(i,3) - d))
+      c3 = cos(k * (x(i,3) - d))
+
+      grad_nu(i,1) = -k * nu_1 * c1 * s2 * s3
+      grad_nu(i,2) = -k * nu_1 * s1 * c2 * s3
+      grad_nu(i,3) = -k * nu_1 * s1 * s2 * c3
 
     end do
 
@@ -258,4 +328,4 @@ contains
 
   !=============================================================================
 
-end module Elliptic_Problem__Simple_2D
+end module Elliptic_Problem__Knotty__3D

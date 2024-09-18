@@ -111,11 +111,6 @@ set ( TIME_INTEGRATION
     )
 
 #===============================================================================
-# mesh
-
-file(GLOB MESH mesh/*.f)
-
-#===============================================================================
 # mesh_3d
 
 set ( MESH_3D 
@@ -223,9 +218,61 @@ set( UTIL_3D ${UTIL_3D}
     )
 
 #===============================================================================
+# elliptic_1d
+
+set( ELLIPTIC_1D 
+     elliptic_1d/dg__elliptic_operator__1d.f
+     elliptic_1d/dg__elliptic_operator__1d__mp_cg_method_rx.f
+     elliptic_1d/dg__elliptic_operator__1d__mp_eval_rc.f
+     elliptic_1d/dg__elliptic_operator__1d__mp_eval_rv.f
+     elliptic_1d/dg__elliptic_operator__1d__mp_schwarz_method_rx.f
+     elliptic_1d/dg__elliptic_operator__1d__mp_schwarzpcg_method_rx.f
+     elliptic_1d/dg__elliptic_operator__1d__mp_hybrid_solver_rc.f
+     elliptic_1d/dg__schwarz_operator__1d.f
+   )
+
+#===============================================================================
+# elliptic_3d
+
+set( ELLIPTIC_3D 
+
+     elliptic_3d/elliptic_problem__3d.f
+     elliptic_3d/elliptic_problem__knotty__3d.f
+     elliptic_3d/elliptic_problem__simple__3d.f
+     elliptic_3d/elliptic_problem__tgv_pressure__3d.f
+
+     elliptic_3d/dg__elliptic_operator__3d.f
+     elliptic_3d/dg__elliptic_operator__3d__mp_eval_rc.f
+     elliptic_3d/dg__elliptic_operator__3d__mp_eval_rv.f
+     elliptic_3d/dg__elliptic_operator__3d__mp_eval_dc.F
+     elliptic_3d/dg__elliptic_operator__3d__mp_eval_dv.F
+     elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_gen.f
+     elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_xsmm.F
+     elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dv_gen.f
+     elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dv_xsmm.F
+     elliptic_3d/dg__elliptic_operator__3d__mp_cg_method_x.f
+     elliptic_3d/dg__elliptic_operator__3d__mp_schwarz_method_x.f
+     elliptic_3d/dg__elliptic_operator__3d__mp_schwarzpcg_method_x.f
+
+     elliptic_3d/dg__schwarz_operator__3d.f
+     elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_core.F
+     elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_structured.F
+     elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_unstructured.F
+     elliptic_3d/dg__schwarz_operator__3d__rdp__mp_restrict_structured.F
+     elliptic_3d/dg__schwarz_operator__3d__rdp__mp_restrict_unstructured.F
+     elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_core.F
+     elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_structured.F
+     elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_unstructured.F
+     elliptic_3d/dg__schwarz_operator__3d__rsp__mp_restrict_structured.F
+     elliptic_3d/dg__schwarz_operator__3d__rsp__mp_restrict_unstructured.F
+
+   )
+
+#===============================================================================
 # multilevel_3d
 
 set( MULTILEVEL_3D
+     multilevel_3d/mesh/ml__boundary_variable__3d.f
      multilevel_3d/mesh/ml__mesh__3d.f
      multilevel_3d/mesh/ml__mesh_operators__3d.f
      multilevel_3d/mesh/ml__mesh_variable__3d.f
@@ -235,6 +282,7 @@ set( MULTILEVEL_3D
 set( MULTILEVEL_3D ${MULTILEVEL_3D}
      multilevel_3d/ops/child_to_parent_projection__3d.f
      multilevel_3d/ops/parent_to_child_interpolation__3d.f
+     multilevel_3d/ops/child_to_parent_restriction__3d.f
    )
 
 set( MULTILEVEL_3D ${MULTILEVEL_3D}
@@ -254,49 +302,13 @@ set( MULTILEVEL_3D ${MULTILEVEL_3D}
 
 set( MULTILEVEL_3D ${MULTILEVEL_3D}
      multilevel_3d/elliptic/ml__dg__elliptic_solver__3d.f
-   )
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_mg_solver.f
 
-#===============================================================================
-# elliptic_1d
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_coarsesolver.f
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_residual.f
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_smoother.f
 
-set( ELLIPTIC_1D 
-     elliptic_1d/dg__elliptic_operator__1d.f
-     elliptic_1d/dg__elliptic_operator__1d__mp_cg_method_rx.f
-     elliptic_1d/dg__elliptic_operator__1d__mp_eval_rc.f
-     elliptic_1d/dg__elliptic_operator__1d__mp_eval_rv.f
-     elliptic_1d/dg__elliptic_operator__1d__mp_schwarz_method_rx.f
-     elliptic_1d/dg__elliptic_operator__1d__mp_schwarzpcg_method_rx.f
-     elliptic_1d/dg__elliptic_operator__1d__mp_hybrid_solver_rc.f
-     elliptic_1d/dg__schwarz_operator__1d.f
-   )
-
-#===============================================================================
-# elliptic_3d
-
-set( ELLIPTIC_3D 
-     elliptic_3d/dg__elliptic_operator__3d.f
-     elliptic_3d/dg__elliptic_operator__3d__mp_eval_rc.f
-     elliptic_3d/dg__elliptic_operator__3d__mp_eval_rv.f
-     elliptic_3d/dg__elliptic_operator__3d__mp_eval_dc.F
-     elliptic_3d/dg__elliptic_operator__3d__mp_eval_dv.F
-     elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_gen.f
-     elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dc_xsmm.F
-     elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dv_gen.f
-     elliptic_3d/dg__elliptic_operator__3d__mp_addfluxes_dv_xsmm.F
-     elliptic_3d/dg__elliptic_operator__3d__mp_cg_method_x.f
-     elliptic_3d/dg__elliptic_operator__3d__mp_schwarz_method_x.f
-     elliptic_3d/dg__elliptic_operator__3d__mp_schwarzpcg_method_x.f
-     elliptic_3d/dg__schwarz_operator__3d.f
-     elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_core.F
-     elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_structured.F
-     elliptic_3d/dg__schwarz_operator__3d__rdp__mp_merge_unstructured.F
-     elliptic_3d/dg__schwarz_operator__3d__rdp__mp_restrict_structured.F
-     elliptic_3d/dg__schwarz_operator__3d__rdp__mp_restrict_unstructured.F
-     elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_core.F
-     elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_structured.F
-     elliptic_3d/dg__schwarz_operator__3d__rsp__mp_merge_unstructured.F
-     elliptic_3d/dg__schwarz_operator__3d__rsp__mp_restrict_structured.F
-     elliptic_3d/dg__schwarz_operator__3d__rsp__mp_restrict_unstructured.F
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_monitoring.f
    )
 
 #===============================================================================
@@ -314,9 +326,9 @@ set(BASE_SRC ${ESSENTIALS}
              ${MESH_3D}
              ${UTIL_1D}
              ${UTIL_3D}
-             ${MULTILEVEL_3D}
              ${ELLIPTIC_1D}
              ${ELLIPTIC_3D}
+             ${MULTILEVEL_3D}
              )
 
 add_library(HiBase ${BASE_SRC})

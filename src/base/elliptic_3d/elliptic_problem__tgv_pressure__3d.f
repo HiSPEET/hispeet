@@ -1,22 +1,26 @@
-!> summary:  Defines a simple periodic 3D test problem
+!> summary:  Test problem based on the Taylor-Green vortex
 !> author:   Joerg Stiller
-!> date:     2019/01/27
+!> date:     2022/10/31
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module Elliptic_Problem__Simple_3D
+module Elliptic_Problem__TGV_Pressure__3D
   use Kind_Parameters, only: RNP
-  use Elliptic_Problem
+  use Constants,       only: PI
+  use Elliptic_Problem__3D
 
   implicit none
   private
 
-  public :: EllipticProblem_Simple3D
+  public :: EllipticProblem_TGV_Pressure_3D
 
   !-----------------------------------------------------------------------------
-  !> Type defining a 3D test problem
+  !> Type defining a 2D test problem
 
-  type, extends(EllipticProblem) :: EllipticProblem_Simple3D
+  type, extends(EllipticProblem_3D) :: EllipticProblem_TGV_Pressure_3D
+    real(RNP) :: t     = 0                     !< time
+    real(RNP) :: vt(3) = [1.000, 1.000, 0.000] !< translation velocity
+    real(RNP) :: xt(3) = [0.000, 0.125, 0.000] !< initial displacement
   contains
 
     procedure :: GetExactSolution
@@ -25,9 +29,30 @@ module Elliptic_Problem__Simple_3D
     procedure :: GetDiffusivity
     procedure :: GetDiffusivityGradient
 
-  end type EllipticProblem_Simple3D
+  end type EllipticProblem_TGV_Pressure_3D
+
+  ! constructor
+  interface EllipticProblem_TGV_Pressure_3D
+    module procedure New_Problem
+  end interface
 
 contains
+
+  !=============================================================================
+  ! Create new object of type EllipticProblem_TGV_Pressure_3D
+
+  function New_Problem(lambda, nu_0, nu_1, d_nu, k_nu, k_u) result(this)
+    type(EllipticProblem_TGV_Pressure_3D) :: this
+    real(RNP), optional :: lambda  !< Helmholtz parameter
+    real(RNP), optional :: nu_0    !< diffusivity mean value ν₀
+    real(RNP), optional :: nu_1    !< diffusivity fluctuation amplitude ν₁
+    real(RNP), optional :: d_nu    !< diffusivity phase shift
+    integer  , optional :: k_nu    !< diffusivity wave number
+    integer  , optional :: k_u     !< solution wave number
+
+    call this % SetBaseProblem(lambda, nu_0, nu_1, d_nu, k_nu, k_u)
+
+  end function New_Problem
 
   !=============================================================================
   ! GetExactSolution
@@ -35,38 +60,38 @@ contains
   !-----------------------------------------------------------------------------
   !> Exact solution
 
-  subroutine GetExactSolution(problem, x, u)
-    class(EllipticProblem_Simple3D), intent(in) :: problem
+  subroutine GetExactSolution(this, x, u)
+    class(EllipticProblem_TGV_Pressure_3D), intent(in) :: this
     real(RNP), intent(in)  :: x(:,:,:,:,:) !< mesh points
     real(RNP), intent(out) :: u(:,:,:,:)   !< solution, u(x)
 
     integer :: n
 
     n = size(x(:,:,:,:,1))
-    call GetExactSolution_X(problem % k_u, n, x, u)
+    call GetExactSolution_X(this, n, x, u)
 
   end subroutine GetExactSolution
 
   !-----------------------------------------------------------------------------
   !> Exact solution -- explicit
 
-  subroutine GetExactSolution_X(k, n, x, u)
-    integer,   intent(in)  :: k      !< wave number
+  subroutine GetExactSolution_X(this, n, x, u)
+    class(EllipticProblem_TGV_Pressure_3D), intent(in) :: this
     integer,   intent(in)  :: n      !< number of points
     real(RNP), intent(in)  :: x(n,3) !< mesh points
     real(RNP), intent(out) :: u(n)   !< solution, u(x)
 
-    real(RNP) :: x1, x2, x3
+    real(RNP) :: a, c, phi1, phi2, t
     integer   :: i
 
+    t = this % t
+    a = real( -16 * PI**2 * this % nu_0, RNP)
+    c = real( exp(a * t) / 4           , RNP)
+
     do i = 1, n
-
-      x1 = x(i,1)
-      x2 = x(i,2)
-      x3 = x(i,3)
-
-      u(i) = sin(k * x1) * sin(k * x2) * sin(k * x3)
-
+      phi1 = real(4 * PI * (x(i,1) - this % vt(1)*t - this % xt(1)), RNP)
+      phi2 = real(4 * PI * (x(i,2) - this % vt(2)*t - this % xt(2)), RNP)
+      u(i) = c * (cos(phi1) + cos(phi2))
     end do
 
   end subroutine GetExactSolution_X
@@ -77,39 +102,42 @@ contains
   !-----------------------------------------------------------------------------
   !> Exact solution gradient
 
-  subroutine GetExactGradient(problem, x, grad_u)
-    class(EllipticProblem_Simple3D), intent(in) :: problem
+  subroutine GetExactGradient(this, x, grad_u)
+    class(EllipticProblem_TGV_Pressure_3D), intent(in) :: this
     real(RNP), intent(in)  :: x(:,:,:,:,:)      !< mesh points
     real(RNP), intent(out) :: grad_u(:,:,:,:,:) !< ∇u(x)
 
     integer :: n
 
     n = size(x(:,:,:,:,1))
-    call GetExactGradient_X(problem % k_u, n, x, grad_u)
+    call GetExactGradient_X(this, n, x, grad_u)
 
   end subroutine GetExactGradient
 
   !-----------------------------------------------------------------------------
   !> Exact gradient -- explicit
 
-  subroutine GetExactGradient_X(k, n, x, grad_u)
-    integer,   intent(in)  :: k           !< wave number
+  subroutine GetExactGradient_X(this, n, x, grad_u)
+    class(EllipticProblem_TGV_Pressure_3D), intent(in) :: this
     integer,   intent(in)  :: n           !< number of points
     real(RNP), intent(in)  :: x(n,3)      !< mesh points
     real(RNP), intent(out) :: grad_u(n,3) !< gradient, grad u(x)
 
-    real(RNP) :: x1, x2, x3
+    real(RNP) :: a, c, phi1, phi2, t
     integer   :: i
+
+    t = this % t
+    a = real( -16 * PI**2 * this % nu_0, RNP)
+    c = real( -PI * exp(a * t)            , RNP)
 
     do i = 1, n
 
-      x1 = x(i,1)
-      x2 = x(i,2)
-      x3 = x(i,3)
+      phi1 = real(4 * PI * (x(i,1) - this % vt(1)*t - this % xt(1)), RNP)
+      phi2 = real(4 * PI * (x(i,2) - this % vt(2)*t - this % xt(2)), RNP)
 
-      grad_u(i,1) = k * cos(k * x1) * sin(k * x2) * sin(k * x3)
-      grad_u(i,2) = k * sin(k * x1) * cos(k * x2) * sin(k * x3)
-      grad_u(i,3) = k * sin(k * x1) * sin(k * x2) * cos(k * x3)
+      grad_u(i,1) = c * sin(phi1)
+      grad_u(i,2) = c * sin(phi2)
+      grad_u(i,3) = 0
 
     end do
 
@@ -121,37 +149,40 @@ contains
   !-----------------------------------------------------------------------------
   !> Exact laplacian
 
-  subroutine GetExactLaplacian(problem, x, laplace_u)
-    class(EllipticProblem_Simple3D), intent(in) :: problem
+  subroutine GetExactLaplacian(this, x, laplace_u)
+    class(EllipticProblem_TGV_Pressure_3D), intent(in) :: this
     real(RNP), intent(in)  :: x(:,:,:,:,:)       !< mesh points
     real(RNP), intent(out) :: laplace_u(:,:,:,:) !< ∇²u(x)
 
     integer :: n
 
     n = size(x(:,:,:,:,1))
-    call GetExactLaplacian_X(problem % k_u, n, x, laplace_u)
+    call GetExactLaplacian_X(this, n, x, laplace_u)
 
   end subroutine GetExactLaplacian
 
   !-----------------------------------------------------------------------------
   !> Exact laplacian -- explicit
 
-  subroutine GetExactLaplacian_X(k, n, x, laplace_u)
-    integer,   intent(in)  :: k             !< wave number
+  subroutine GetExactLaplacian_X(this, n, x, laplace_u)
+    class(EllipticProblem_TGV_Pressure_3D), intent(in) :: this
     integer,   intent(in)  :: n             !< number of points
     real(RNP), intent(in)  :: x(n,3)        !< mesh points
     real(RNP), intent(out) :: laplace_u(n)  !< laplacian, laplace u(x)
 
-    real(RNP) :: x1, x2, x3
+    real(RNP) :: a, c, phi1, phi2, t
     integer   :: i
+
+    t = this % t
+    a = real( -16 * PI**2 * this % nu_0, RNP)
+    c = real( - 4 * PI**2 * exp(a * t) , RNP)
 
     do i = 1, n
 
-      x1 = x(i,1)
-      x2 = x(i,2)
-      x3 = x(i,3)
+      phi1 = real(4 * PI * (x(i,1) - this % vt(1)*t - this % xt(1)), RNP)
+      phi2 = real(4 * PI * (x(i,2) - this % vt(2)*t - this % xt(2)), RNP)
 
-      laplace_u(i) = -3*k*k * sin(k * x1) * sin(k * x2) * sin(k * x3)
+      laplace_u(i) = c * (cos(phi1) + cos(phi2))
 
     end do
 
@@ -163,8 +194,8 @@ contains
   !-----------------------------------------------------------------------------
   !> Diffusivity
 
-  subroutine GetDiffusivity(problem, x, nu)
-    class(EllipticProblem_Simple3D), intent(in) :: problem
+  subroutine GetDiffusivity(this, x, nu)
+    class(EllipticProblem_TGV_Pressure_3D), intent(in) :: this
     real(RNP), intent(in)  :: x(:,:,:,:,:)  !< mesh points
     real(RNP), intent(out) :: nu(:,:,:,:)   !< ν(x)
 
@@ -172,11 +203,11 @@ contains
 
     n = size(x(:,:,:,:,1))
 
-    call GetDiffusivity_X( problem % nu_0, &
-                           problem % nu_1, &
-                           problem % k_nu, &
-                           problem % d_nu, &
-                           n, x, nu        )
+    call GetDiffusivity_X( this % nu_0, &
+                           this % nu_1, &
+                           this % k_nu, &
+                           this % d_nu, &
+                           n, x, nu     )
 
   end subroutine GetDiffusivity
 
@@ -192,31 +223,28 @@ contains
     real(RNP), intent(in)  :: x(n,3)  !< mesh points
     real(RNP), intent(out) :: nu(n)   !< diffusivity ν(x)
 
-    real(RNP) :: x1, x2, x3
+    real(RNP) :: x1, x2
     integer   :: i
 
     do i = 1, n
 
       x1 = x(i,1)
       x2 = x(i,2)
-      x3 = x(i,3)
 
-      nu(i) = nu_0                      &
-            + nu_1 * sin(k * (x1 - d))  &
-                   * sin(k * (x2 - d))  &
-                   * sin(k * (x3 - d))
+      nu(i) = nu_0  +  nu_1 * sin(k * (x1 - d)) * sin(k * (x2 - d))
+
     end do
 
   end subroutine GetDiffusivity_X
 
-  !===============================================================================
+  !=============================================================================
   ! GetDiffusivityGradient
 
-  !---------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   !> Diffusivity gradient
 
-  subroutine GetDiffusivityGradient(problem, x, grad_nu)
-    class(EllipticProblem_Simple3D), intent(in) :: problem
+  subroutine GetDiffusivityGradient(this, x, grad_nu)
+    class(EllipticProblem_TGV_Pressure_3D), intent(in) :: this
     real(RNP), intent(in)  :: x(:,:,:,:,:)       !< mesh points
     real(RNP), intent(out) :: grad_nu(:,:,:,:,:) !< ∇ν(x)
 
@@ -224,14 +252,14 @@ contains
 
     n = size(x(:,:,:,:,1))
 
-    call GetDiffusivityGradient_X( problem % nu_1, &
-                                   problem % k_nu, &
-                                   problem % d_nu, &
-                                   n, x, grad_nu   )
+    call GetDiffusivityGradient_X( this % nu_1,  &
+                                   this % k_nu,  &
+                                   this % d_nu,  &
+                                   n, x, grad_nu )
 
   end subroutine GetDiffusivityGradient
 
-  !-------------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   !> Diffusivity gradient -- explicit
 
   subroutine GetDiffusivityGradient_X(nu_1, k, d, n, x, grad_nu)
@@ -242,8 +270,8 @@ contains
     real(RNP), intent(in)  :: x(n,3)        !< mesh points
     real(RNP), intent(out) :: grad_nu(n,3)  !< diffusivity gradient ∇ν(x)
 
-    real(RNP) :: s1, s2, s3
-    real(RNP) :: c1, c2, c3
+    real(RNP) :: s1, s2
+    real(RNP) :: c1, c2
     integer   :: i
 
     do i = 1, n
@@ -254,12 +282,9 @@ contains
       s2 = sin(k * (x(i,2) - d))
       c2 = cos(k * (x(i,2) - d))
 
-      s3 = sin(k * (x(i,3) - d))
-      c3 = cos(k * (x(i,3) - d))
-
-      grad_nu(i,1) = k * nu_1 * c1 * s2 * s3
-      grad_nu(i,2) = k * nu_1 * s1 * c2 * s3
-      grad_nu(i,3) = k * nu_1 * s1 * s2 * c3
+      grad_nu(i,1) = k * nu_1 * c1 * s2
+      grad_nu(i,2) = k * nu_1 * s1 * c2
+      grad_nu(i,3) = 0
 
     end do
 
@@ -267,4 +292,4 @@ contains
 
   !=============================================================================
 
-end module Elliptic_Problem__Simple_3D
+end module Elliptic_Problem__TGV_Pressure__3D
