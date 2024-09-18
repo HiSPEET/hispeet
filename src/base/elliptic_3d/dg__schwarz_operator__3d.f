@@ -33,10 +33,10 @@ module DG__Schwarz_Operator__3D
   !> Options for initializing the Schwarz operator
 
   type DG_SchwarzOptions_3D
-    integer   :: wp        = RDP !< working precision {RDP,RSP}
-    real(RNP) :: delta     = -1  !< relative overlap ≤ 1
-    integer   :: no_min    = -1  !< min overlap in points
-    integer   :: weighting =  5  !< weighting method {0,1,3,5,7,9}
+    integer   :: wp        = RDP   !< working precision {RDP,RSP}
+    real(RNP) :: delta     = 0.125 !< relative overlap ≤ 1
+    integer   :: no_min    = 1     !< min overlap in points
+    integer   :: weighting = 5     !< weighting method {0,1,3,5,7,9}
   contains
     procedure :: Bcast => Bcast_DG_SchwarzOptions_3D
   end type DG_SchwarzOptions_3D
