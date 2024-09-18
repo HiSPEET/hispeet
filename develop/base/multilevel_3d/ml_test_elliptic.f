@@ -207,7 +207,7 @@ program ML_Test_Elliptic
   end select
 
   if (rank == 0) then
-    write(*,'(/,A)') 'verifying base mesh'
+    write(*,'(/,2A)') 'verifying base mesh for ', trim(domain_name)
   end if
 
   call VerifyMesh_3D(base_mesh, passed)
@@ -235,25 +235,11 @@ program ML_Test_Elliptic
     call MPI_Barrier(comm)
     if (rank == 0) then
       if (all_passed) then
-        write(*,'(2X,9G0)') 'verification: all levels passed'
+        write(*,'(2X,A,/)') 'verification: all levels passed'
       else
-        write(*,'(2X,9G0)') 'verification of level ',l,' failed'
+        write(*,'(2X,A,I0,A,/)') 'verification of level ',l,' failed'
       end if
     end if
-
-    ! print info
-    do l = 1, l_top
-      if (mesh(l)%part >= 0) then
-        call XMPI_Reduce(mesh(l)%n_elem, ne_min, MPI_MIN, 0, mesh(l)%comm_parts)
-        call XMPI_Reduce(mesh(l)%n_elem, ne_max, MPI_MAX, 0, mesh(l)%comm_parts)
-        call XMPI_Reduce(mesh(l)%n_elem, ne_tot, MPI_SUM, 0, mesh(l)%comm_parts)
-      end if
-      if (mesh(l)%part == 0) then
-        write(*,'(2X,A,I4,A,I5,A,3(A,I6))') &
-          'level ',l,': n_parts =',mesh(l)%n_parts,',  ', &
-          'min/max/sum(n_elem) = ',ne_min,' / ',ne_max,' / ',ne_tot
-      end if
-    end do
 
   end associate
 
@@ -262,6 +248,7 @@ program ML_Test_Elliptic
   allocate(bc(base_mesh % n_bound), source = 'D')
 
   if (rank == 0) then
+    write(*,'(/,A)') 'initializing elliptic problem'
     open(newunit = io, file = case_file)
     read(io, nml = problem_prm)
     close(io)
@@ -298,17 +285,44 @@ program ML_Test_Elliptic
   ! enforce periodicity at coupled boundaries
   where(base_mesh % boundary % coupled > 0) bc = 'P'
 
+  if (rank == 0) then
+    write(*,'(T3,A,T26,9(G0,X))') 'problem name:'        , trim(problem_name)
+    write(*,'(T3,A,T26,9(G0,X))') 'variable diffusivity:', has_variable_nu
+    write(*,'(T3,A,T26,9(G0,X))') 'boundary conditions:' , bc
+  end if
+
   ! solver ......................................................................
 
+  allocate(po(l_top), source = 1)
+
   if (rank == 0) then
-    allocate(po(l_top), source = 1)
     open(newunit = io, file = case_file)
     read(io, nml = solver_prm)
     close(io)
+    write(*,'(/,A)') 'initializing multilevel operators'
   end if
 
   call XMPI_Bcast(po, 0, comm)
   ml_op = ML_MeshOperators_3D(ml_mesh, po)
+
+  associate(mesh => ml_mesh%mesh)
+    do l = 1, l_top
+      if (mesh(l)%part >= 0) then
+        call XMPI_Reduce(mesh(l)%n_elem, ne_min, MPI_MIN, 0, mesh(l)%comm_parts)
+        call XMPI_Reduce(mesh(l)%n_elem, ne_max, MPI_MAX, 0, mesh(l)%comm_parts)
+        call XMPI_Reduce(mesh(l)%n_elem, ne_tot, MPI_SUM, 0, mesh(l)%comm_parts)
+      end if
+      if (mesh(l)%part == 0) then
+        write(*,'(2X,A,I4,A,I5,A,3(X,A,X,I6),X,A,X,I3)') &
+          'level ',l,': n_parts =',mesh(l)%n_parts,',  ', &
+          'min/max/sum(n_elem)/po =',ne_min,'/',ne_max,'/',ne_tot,'/',po(l)
+      end if
+    end do
+  end associate
+
+  if (rank == 0) then
+    write(*,'(/,A)') 'initializing multilevel solver'
+  end if
 
   call ml_elliptic_opt % Bcast(0, comm)
   ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt, bc)

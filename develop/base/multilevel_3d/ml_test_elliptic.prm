@@ -1,4 +1,4 @@
-&control
+&control_prm
 ! log_level = 0
 ! log_level_inner_iteration = 0
 ! log_level_outer_iteration = 0
@@ -37,7 +37,7 @@
 &ml_mesh_options_3d__static
 
 ! useful options for cylinder_2d mesh:
-! l_top          =  4  ! top level                            [1]
+  l_top          =  4  ! top level                            [1]
 ! l_adapt        =  1  ! first level to be adapted ≥1         [huge(1)]
 ! n_bnd          =  1  ! number of boundaries to be adapted   [0]
 ! n_box          =  1  ! number of boxes to be adapted        [0]
@@ -50,7 +50,7 @@
 ! options must fit to dimensions given in `ml_mesh_options_3d__static`
 
 ! useful options for cylinder_2d mesh:
-! refinement          = 'c','c','s'     ! (1:l_top-1)        refinement type {'c','s'}
+  refinement          = 'c','c','s'     ! (1:l_top-1)        refinement type {'c','s'}
 ! adapt_bnd(1:1)      =  7              ! (1:n_bnd)          boundaries to be adapted
 ! adapt_box(1:3,1,1)  =  0.1, 0, -1     ! (1:3,1:2,1:n_box)
 ! adapt_box(1:3,2,1)  =  1.0, 0,  1     !
@@ -71,7 +71,7 @@
 
 &solver_prm
 
-! po = 1, 2, 4, 4  ! (1:l_top)  sequence of polynomial degrees          [1]
+  po = 1, 2, 4, 4  ! (1:l_top)  sequence of polynomial degrees          [1]
 
 ! ml_elliptic_opt % penalty           = 2.0   ! penalty parameter > 1   [2]
 ! ml_elliptic_opt % schwarz % delta   = 0.125 ! relative overlap  ≤ 1   [?]
