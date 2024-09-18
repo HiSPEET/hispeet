@@ -390,7 +390,7 @@ contains
     integer :: n_box   = 0         ! number of boxes to be adapted
 
     ! partitioning
-    integer :: n_parts_root   = 1  ! partition number at root level
+    integer :: n_parts_root   = 1  ! number of partitions at root level
     integer :: n_parts_growth = 1  ! partition number growth rate
 
     namelist/ml_mesh_options_3d__static/ l_top, l_adapt, n_bnd, n_box

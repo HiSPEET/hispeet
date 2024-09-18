@@ -99,7 +99,6 @@ module ML__DG__Elliptic_Solver__3D
 
     real(RNP)                  :: penalty = 2 !< penalty parameter > 1
     type(DG_SchwarzOptions_3D) :: schwarz     !< Schwarz operator options
-    character, allocatable     :: bc(:)       !< boundary conditions
 
     character :: projection_method = 'I'      !< projection method {'I','P'}
     integer   :: start_method  = START_FMG    !< starting method
@@ -114,10 +113,14 @@ module ML__DG__Elliptic_Solver__3D
     real(RNP) :: r_red = -1 !< min residual reduction
     real(RNP) :: r_max = -1 !< max admissible residual
 
+  contains
+
+    procedure :: Bcast => Bcast_ML_DG_EllipticOptions_3D
+
   end type ML_DG_EllipticOptions_3D
 
   !=============================================================================
-  ! External module procedures
+  ! ML_DG_EllipticSolver_3D: external type bound procedures
 
   interface
 
@@ -273,26 +276,31 @@ module ML__DG__Elliptic_Solver__3D
 
 contains
 
-  !-----------------------------------------------------------------------------
-  !> Constructor of  3D FAS multigrid solver
+  !=============================================================================
+  ! ML_DG_EllipticSolver_3D: constructor type bound procedures
 
-  function New_ML_DG_EllipticSolver_3D(ml_op, opt) result(this)
+  !-----------------------------------------------------------------------------
+  !> Constructor of 3D FAS multigrid solver
+
+  function New_ML_DG_EllipticSolver_3D(ml_op, opt, bc) result(this)
     class(ML_MeshOperators_3D), target, intent(in) :: ml_op
     class(ML_DG_EllipticOptions_3D),    intent(in) :: opt
+    character,                          intent(in) :: bc(:)
 
     type(ML_DG_EllipticSolver_3D) :: this
 
-    call Init_ML_DG_EllipticSolver_3D(this, ml_op, opt)
+    call Init_ML_DG_EllipticSolver_3D(this, ml_op, opt, bc)
 
   end function New_ML_DG_EllipticSolver_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of 3D FAS multigrid solver
 
-  subroutine Init_ML_DG_EllipticSolver_3D(this, ml_op, opt)
+  subroutine Init_ML_DG_EllipticSolver_3D(this, ml_op, opt, bc)
     class(ML_DG_EllipticSolver_3D),     intent(inout) :: this
     class(ML_MeshOperators_3D), target, intent(in)    :: ml_op
     class(ML_DG_EllipticOptions_3D),    intent(in)    :: opt
+    character,                          intent(in)    :: bc(:)
 
     type(DG_ElementOptions_1D) :: dg_opt
     integer :: l, l_top
@@ -311,7 +319,7 @@ contains
                  DG_EllipticOperator_3D( sem         = ml_op % sem(l) &
                                        , dg_opt      = dg_opt         &
                                        , schwarz_opt = opt % schwarz  &
-                                       , bc          = opt % bc       )
+                                       , bc          = bc             )
 
     end do
 
@@ -331,6 +339,34 @@ contains
     this % r_max  = opt % r_max
 
   end subroutine Init_ML_DG_EllipticSolver_3D
+
+  !=============================================================================
+  ! ML_DG_EllipticOptions_3D: constructor type bound procedures
+
+  !-----------------------------------------------------------------------------
+  !> Broadcasting multilevel mesh options
+
+  subroutine Bcast_ML_DG_EllipticOptions_3D(this, root, comm)
+    class(ML_DG_EllipticOptions_3D), intent(inout) :: this !< options
+    integer       , intent(in) :: root !< rank root process
+    type(MPI_Comm), intent(in) :: comm !< MPI communicator
+
+    call XMPI_Bcast(this % penalty           , root, comm)
+    call XMPI_Bcast(this % projection_method , root, comm)
+    call XMPI_Bcast(this % start_method      , root, comm)
+    call XMPI_Bcast(this % smooth_method     , root, comm)
+    call XMPI_Bcast(this % coarse_solver     , root, comm)
+    call XMPI_Bcast(this % i_crs             , root, comm)
+    call XMPI_Bcast(this % i_max             , root, comm)
+    call XMPI_Bcast(this % ns_1              , root, comm)
+    call XMPI_Bcast(this % ns_2              , root, comm)
+    call XMPI_Bcast(this % ns_c              , root, comm)
+    call XMPI_Bcast(this % r_red             , root, comm)
+    call XMPI_Bcast(this % r_max             , root, comm)
+
+    call this % schwarz % Bcast(root, comm)
+
+  end subroutine Bcast_ML_DG_EllipticOptions_3D
 
   !=============================================================================
 

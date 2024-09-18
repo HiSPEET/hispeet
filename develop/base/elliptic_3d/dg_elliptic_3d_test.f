@@ -420,7 +420,6 @@ program DG_Elliptic_3D_Test
 
   ! operators ..................................................................
 
-
   if (r_nu_s > 0) then
     dg_opt = DG_ElementOptions_1D(po, svv = .true., penalty = penalty)
     elliptic_op = DG_EllipticOperator_3D(sem, dg_opt, schwarz_opt, bc, r_nu_s)

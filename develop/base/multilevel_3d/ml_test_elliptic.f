@@ -15,6 +15,7 @@ program ML_Test_Elliptic
   use Elliptic_Problem__3D
   use Elliptic_Problem__Simple__3D
   use Elliptic_Problem__Knotty__3D
+  use Elliptic_Problem__TGV_Pressure__3D
 
   use Create_Cuboid_Cartesian
   use Create_Cuboid_Diamonds
@@ -27,20 +28,24 @@ program ML_Test_Elliptic
   use Verify_Mesh__3D
 
   use ML__Mesh__3D
+  use ML__Mesh_Operators__3D
+! use ML__Mesh_Variable__3D
+! use ML__Boundary_Variable__3D
+  use ML__DG__Elliptic_Solver__3D
 
   implicit none
 
   !-----------------------------------------------------------------------------
   ! Declarations
 
-  ! MPI and OpenMP variables ...................................................
+  ! MPI and OpenMP .............................................................
 
   type(MPI_Comm) :: comm      ! MPI communicator
   integer        :: rank      ! local MPI rank
   integer        :: n_proc    ! number of MPI processes
   integer        :: n_thread  ! number of OpenMP threads
 
-  ! control parameters .........................................................
+  ! control .....................................................................
 
   ! NOTE
   ! The case name is defined by the first command line argument.
@@ -59,7 +64,7 @@ program ML_Test_Elliptic
 
   namelist/control_prm/ export_vtk
 
-  ! domain parameters ..........................................................
+  ! domain .....................................................................
 
   integer :: test_domain = 1 ! computational domain
                              !   0  import from GMSH
@@ -68,13 +73,19 @@ program ML_Test_Elliptic
                              !   3  cylindrical domain
 
   character(len=80) :: gmsh_file = '../gmsh_3d/cylinder_2d'
-  integer :: pg = 1 ! polynomial degree of element geometry
 
-  namelist/domain_prm/ test_domain, gmsh_file, pg
+  namelist/domain_prm/ test_domain, gmsh_file
 
-  ! problem parameters .........................................................
+  ! mesh .......................................................................
 
-  integer :: test_problem    =  3      ! 1/2/3/4: simple_{1/2/3}d / knotty
+  type(GenericMesh_3D)     , save :: generic_mesh
+  type(Mesh_3D)            , save :: base_mesh
+  type(ML_Mesh_Options_3D) , save :: ml_mesh_opt
+  type(ML_Mesh_3D)         , save :: ml_mesh
+
+  ! problem ....................................................................
+
+  integer :: test_problem    =  3      ! 1/2/3/4/5: simple_{1/2/3}d/knotty/TGV
   logical :: has_variable_nu = .false. ! T/F: variable/constant ν
 
   namelist/problem_prm/ test_problem, has_variable_nu
@@ -92,18 +103,18 @@ program ML_Test_Elliptic
 
   namelist/problem_prm/ lambda, nu_0, nu_1, d_nu, k_nu, k_u, bc
 
-  ! mesh, operator, variables ..................................................
+  class(EllipticProblem_3D), allocatable, save :: problem
+  character(len=:),          allocatable, save :: problem_name
 
-  type(GenericMesh_3D)     , save :: generic_mesh
-  type(Mesh_3D)            , save :: base_mesh
-  type(ML_Mesh_Options_3D) , save :: ml_mesh_opt
-  type(ML_Mesh_3D)         , save :: ml_mesh
-! type(ML_MeshOperators_3D), save :: ml_op
-! type(ML_MeshVariable_3D) , save :: ml_var
+  ! solvers and variables ......................................................
 
-  integer, allocatable :: po(:)    ! sequence of polynomial orders
+  integer, allocatable, save :: po(:) ! sequence of polynomial orders
 
-  namelist/operator_prm/ po
+  type(ML_MeshOperators_3D),      save :: ml_op
+  type(ML_DG_EllipticSolver_3D),  save :: ml_elliptic
+  type(ML_DG_EllipticOptions_3D), save :: ml_elliptic_opt
+
+  namelist/solver_prm/ po, ml_elliptic_opt
 
   ! auxiliaries ................................................................
 
@@ -111,6 +122,7 @@ program ML_Test_Elliptic
 
   logical   :: exists, passed, all_passed
   integer   :: io, stat
+  integer   :: dim
   integer   :: l_top, ne_max, ne_min, ne_tot
   integer   :: l
 
@@ -153,12 +165,8 @@ program ML_Test_Elliptic
       read(io, nml = control_prm)
       read(io, nml = domain_prm)
       ml_mesh_opt = ML_Mesh_Options_3D(io, n_proc)
-      allocate(po(ml_mesh_opt%l_top), source = -1)
-      read(io, nml = operator_prm)
       close(io)
     else
-      call Error( 'ML_Test_Elliptic', &
-                  'input file "' // trim(case_file) // '" not found' )
       call Error('ML_Test_Elliptic', 'file "'// trim(case_file) //'" not found')
     end if
 
@@ -174,8 +182,6 @@ program ML_Test_Elliptic
   call XMPI_Bcast(export_vtk , 0, comm)
   call XMPI_Bcast(test_domain, 0, comm)
   call XMPI_Bcast(gmsh_file  , 0, comm)
-  call XMPI_Bcast(pg         , 0, comm)
-  call XMPI_Bcast(po         , 0, comm)
 
   ! base mesh ..................................................................
 
@@ -250,6 +256,62 @@ program ML_Test_Elliptic
     end do
 
   end associate
+
+  ! problem ....................................................................
+
+  allocate(bc(base_mesh % n_bound), source = 'D')
+
+  if (rank == 0) then
+    open(newunit = io, file = case_file)
+    read(io, nml = problem_prm)
+    close(io)
+  end if
+
+  ! globalize problem parameters
+  call XMPI_Bcast( test_problem   , 0, comm )
+  call XMPI_Bcast( has_variable_nu, 0, comm )
+  call XMPI_Bcast( lambda         , 0, comm )
+  call XMPI_Bcast( nu_0           , 0, comm )
+  call XMPI_Bcast( nu_1           , 0, comm )
+  call XMPI_Bcast( d_nu           , 0, comm )
+  call XMPI_Bcast( k_nu           , 0, comm )
+  call XMPI_Bcast( k_u            , 0, comm )
+  call XMPI_Bcast( bc             , 0, comm )
+
+  select case(test_problem)
+  case(1:3)
+    dim = test_problem
+    problem_name = 'Simple xD'
+    write(problem_name(8:8),'(I1)') dim
+    problem = EllipticProblem_Simple_3D &
+                  (lambda, nu_0, nu_1, d_nu, k_nu, k_u, dim)
+  case(4)
+    problem_name = 'Knotty'
+    problem = EllipticProblem_Knotty_3D &
+                  (lambda, nu_0, nu_1, d_nu, k_nu, k_u)
+  case default
+    problem_name = 'TGV_Pressure'
+    problem = EllipticProblem_TGV_Pressure_3D &
+                  (lambda, nu_0, nu_1, d_nu, k_nu, k_u)
+  end select
+
+  ! enforce periodicity at coupled boundaries
+  where(base_mesh % boundary % coupled > 0) bc = 'P'
+
+  ! solver ......................................................................
+
+  if (rank == 0) then
+    allocate(po(l_top), source = 1)
+    open(newunit = io, file = case_file)
+    read(io, nml = solver_prm)
+    close(io)
+  end if
+
+  call XMPI_Bcast(po, 0, comm)
+  ml_op = ML_MeshOperators_3D(ml_mesh, po)
+
+  call ml_elliptic_opt % Bcast(0, comm)
+  ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt, bc)
 
   !-----------------------------------------------------------------------------
   ! Finalization
