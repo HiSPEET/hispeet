@@ -96,13 +96,13 @@
   rk_opt%method    = 2
 !
 ! section for SDC(*,Eu) -- methods 5:6
-  sdc_opt_eu%Flow_SDC_Options%SDC_Options%n_sub    = 2
+  sdc_opt_eu%Flow_SDC_Options%SDC_Options%n_col    = 2
   sdc_opt_eu%Flow_SDC_Options%SDC_Options%n_sweep  = 1
   sdc_opt_eu%Flow_SDC_Options%project   = 0
   sdc_opt_eu%Flow_SDC_Options%pressure  = 0
 !  
 ! section for SDC(RK,RK) -- method 7
-  sdc_opt_rk%Flow_SDC_Options%SDC_Options%n_sub     = 2
+  sdc_opt_rk%Flow_SDC_Options%SDC_Options%n_col     = 2
   sdc_opt_rk%Flow_SDC_Options%SDC_Options%n_sweep   = 2
   sdc_opt_rk%Flow_SDC_Options%SDC_Options%point_set = 1 ! equidistant (1) or GLL (2) SDC points
   sdc_opt_rk%Flow_SDC_Options%project   = 0
