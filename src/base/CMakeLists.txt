@@ -160,6 +160,8 @@ set ( MESH_3D
       mesh_3d/generate_regular_mesh__3d.f
       mesh_3d/mesh_metrics__3d.f
       mesh_3d/spectral_element_mesh__3d.f
+
+      mesh_3d/mesh_variable__3d.f
       mesh_3d/boundary_variable__3d.f
 
     )

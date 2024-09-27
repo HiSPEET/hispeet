@@ -99,7 +99,7 @@ contains
   !> 3D boundary variable initialization
 
   subroutine Init_BoundaryVariable_3D(this, boundary, po, nc)
-    class(BoundaryVariable_3D), target, intent(inout) :: this
+    class(BoundaryVariable_3D), intent(inout) :: this
     class(MeshBoundary_3D), target, intent(in) :: boundary
     integer, intent(in) :: po
     integer, intent(in) :: nc
@@ -527,7 +527,10 @@ contains
       deallocate(this%val)
     end if
 
-    this % val => null()
+    this % po = 0
+    this % nc = 0
+    this % boundary => null()
+    this % val      => null()
     this % is_original = .false.
 
   end subroutine Delete_BoundaryVariable_3D

@@ -6,21 +6,12 @@
 
 module ML__Mesh_Variable__3D
   use Kind_Parameters
+  use Mesh_Variable__3D
   use ML__Mesh_Operators__3D
   implicit none
   private
 
   public :: ML_MeshVariable_3D
-
-  !-----------------------------------------------------------------------------
-  !> 3D mesh variable
-
-  type MeshVariable_3D
-    real(RNP), contiguous, pointer :: val(:,:,:,:,:) => null()
-    logical, private :: is_original = .false.
-  contains
-    final :: Delete_MeshVariable_3D
-  end type MeshVariable_3D
 
   !-----------------------------------------------------------------------------
   !> 3D multilevel mesh variable
@@ -30,6 +21,7 @@ module ML__Mesh_Variable__3D
     character(len=:),      allocatable :: name(:)  !< component names
   contains
     procedure :: Init_ML_MeshVariable_3D
+    procedure :: GetSlice
     procedure :: ExportVTK
   end type ML_MeshVariable_3D
 
@@ -79,16 +71,15 @@ contains
     integer,                    intent(in)    :: nc
     character(len=*), optional, intent(in)    :: name(nc)
 
-    integer :: i, l, ne, po
+    integer :: i, l
 
     allocate(this % level( size(ml_op%sem) ))
 
     do l = 1, size(this%level)
-      po = ml_op % sem(l) % std_op % po
-      ne = ml_op % sem(l) % mesh % n_elem
-      allocate(this%level(l)%val(0:po,0:po,0:po,ne,nc))
+      this%level(l) = MeshVariable_3D( mesh = ml_op % sem(l) % mesh        &
+                                     , po   = ml_op % sem(l) % std_op % po &
+                                     , nc   = nc                           )
     end do
-    this % level % is_original = .true.
 
     if (present(name)) then
       this % name = name
@@ -102,23 +93,33 @@ contains
 
   end subroutine Init_ML_MeshVariable_3D
 
-  !=============================================================================
-  ! Finalization
-
   !-----------------------------------------------------------------------------
-  !>  Finalization of MeshVariable_3D
+  !> Create a new multilevel mesh variable as a slice of the given one
+  !>
+  !> The values of the new variable refer to `this % val` if `copy` is false
+  !> or absent. Otherwise they are stored in fresh memory, i.e. `slice % val`.
+  !> In an OpenMP parallel section the routine is executed only by the master
+  !> thread.
 
-  subroutine Delete_MeshVariable_3D(this)
-    type(MeshVariable_3D), intent(inout) :: this
+  subroutine GetSlice(this, slice, first, last, copy)
+    class(ML_MeshVariable_3D), intent(in)    :: this
+    class(ML_MeshVariable_3D), intent(inout) :: slice
+    integer,           intent(in) :: first !< first component of slice
+    integer,           intent(in) :: last  !< last component of slice
+    logical, optional, intent(in) :: copy  !< copy into fresh memory [F]
 
-    if (this%is_original .and. associated(this%val)) then
-      deallocate(this%val)
-    end if
+    integer :: l
 
-    this % val => null()
-    this % is_original = .false.
+    !$omp master
+    allocate(slice % level(size(this % level)))
+    slice % name = this % name(first:last)
 
-  end subroutine Delete_MeshVariable_3D
+    do l = 1, size(this%level)
+      call this % level(l) % GetSlice(slice % level(l), first, last, copy)
+    end do
+    !$omp end master
+
+  end subroutine GetSlice
 
   !=============================================================================
 
