@@ -11,6 +11,7 @@ program ML_Test_Elliptic
   use XMPI
   use Execution_Control
   use Logging_Levels
+  use Array_Assignments
 
   use Elliptic_Problem__3D
   use Elliptic_Problem__Simple__3D
@@ -29,8 +30,8 @@ program ML_Test_Elliptic
 
   use ML__Mesh__3D
   use ML__Mesh_Operators__3D
-! use ML__Mesh_Variable__3D
-! use ML__Boundary_Variable__3D
+  use ML__Mesh_Variable__3D
+  use ML__Boundary_Variable__3D
   use ML__DG__Elliptic_Solver__3D
 
   implicit none
@@ -106,7 +107,7 @@ program ML_Test_Elliptic
   class(EllipticProblem_3D), allocatable, save :: problem
   character(len=:),          allocatable, save :: problem_name
 
-  ! solvers and variables ......................................................
+  ! solvers .....................................................................
 
   integer, allocatable, save :: po(:) ! sequence of polynomial orders
 
@@ -116,15 +117,29 @@ program ML_Test_Elliptic
 
   namelist/solver_prm/ po, ml_elliptic_opt
 
+  ! variables ...................................................................
+
+  character(len=:), allocatable, save :: name_var(:) ! names of variables
+
+  type(ML_MeshVariable_3D), save :: ml_var ! container of variables
+  type(ML_MeshVariable_3D), save :: ml_nu  ! diffusivity
+  type(ML_MeshVariable_3D), save :: ml_f   ! sources
+  type(ML_MeshVariable_3D), save :: ml_s   ! exact solution
+  type(ML_MeshVariable_3D), save :: ml_u   ! numerical solution
+  type(ML_MeshVariable_3D), save :: ml_e   ! error
+  type(ML_MeshVariable_3D), save :: ml_r   ! residual or just workspace
+
+  type(ML_BoundaryVariable_3D), save :: ml_bv ! boundary values
+
   ! auxiliaries ................................................................
 
-  character(:), allocatable :: domain_name
+  character(:), allocatable, save :: domain_name
 
   logical   :: exists, passed, all_passed
   integer   :: io, stat
   integer   :: dim
   integer   :: l_top, ne_max, ne_min, ne_tot
-  integer   :: l
+  integer   :: i, l
 
   !-----------------------------------------------------------------------------
   ! Initialization
@@ -326,6 +341,76 @@ program ML_Test_Elliptic
 
   call ml_elliptic_opt % Bcast(0, comm)
   ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt, bc)
+
+  ! variables ..................................................................
+
+  if (rank == 0) then
+    write(*,'(/,A)') 'initializing multilevel variables'
+  end if
+
+  name_var = [ 'nu', 'f ', 's ', 'u ', 'e ', 'r ' ]
+
+  ml_var = ML_MeshVariable_3D(ml_op, size(name_var), name_var)
+
+  ! handles for accessing individual variables
+  call ml_var % GetSlice(ml_nu, first = 1, last = 1)
+  call ml_var % GetSlice(ml_f , first = 2, last = 2)
+  call ml_var % GetSlice(ml_s , first = 3, last = 3)
+  call ml_var % GetSlice(ml_u , first = 4, last = 4)
+  call ml_var % GetSlice(ml_e , first = 5, last = 5)
+  call ml_var % GetSlice(ml_r , first = 6, last = 6)
+
+  ml_bv = ML_BoundaryVariable_3D(ml_op, nc = 1)
+
+  block
+    real(RNP), allocatable, save :: q(:,:,:,:,:)
+
+    do l = 1, l_top
+      associate( sem  => ml_op % sem(l)                    &
+               , x    => ml_op % sem(l)   % metrics % x    &
+               , nu   => ml_nu % level(l) % val(:,:,:,:,1) &
+               , f    => ml_f  % level(l) % val(:,:,:,:,1) &
+               , r    => ml_r  % level(l) % val(:,:,:,:,1) &
+               , s    => ml_s  % level(l) % val(:,:,:,:,1) &
+               , u    => ml_u  % level(l) % val(:,:,:,:,1) &
+               , mm   => ml_e  % level(l) % val(:,:,:,:,1) &
+               , bv_u => ml_bv % level(l) % var            )
+
+        call problem % GetExactSolution (x, s)
+        call problem % GetDiffusivity   (x, nu)
+        call problem % GetSource        (x, r)
+        call SetArray(u, s)
+
+        ! r = λ u - ∇·(ν ∇u)
+        call sem % Get_DG_DiagonalMassMatrix(mm)
+
+        ! project source: f = M r
+        f = mm * r
+
+        if (any(bc == 'N')) then
+          allocate(q, mold = x)
+          call problem % GetExactGradient(x, q)
+          q(:,:,:,:,1) = nu * q(:,:,:,:,1)
+          q(:,:,:,:,2) = nu * q(:,:,:,:,2)
+          q(:,:,:,:,3) = nu * q(:,:,:,:,3)
+        end if
+
+        ! extract and apply boundary conditions
+        do i = 1, size(bc)
+          select case(bc(i))
+          case('D')
+            call bv_u(i) % Extract(u)
+          case('N')
+            call bv_u(i) % ExtractNormalComponent(sem, q)
+          end select
+        end do
+
+        if (allocated(q)) deallocate(q)
+
+      end associate
+    end do
+
+  end block
 
   !-----------------------------------------------------------------------------
   ! Finalization
