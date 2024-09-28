@@ -6,9 +6,9 @@
 !
   ins_op_opts%mu_0 =  1
 
-  ins_op_opts%eop_v%StandardOperatorOptions_1D%po =  4
+  ins_op_opts%eop_v%StandardElementOptions_1D%po =  4
   ins_op_opts%eop_v%penalty                       = 20
-  ins_op_opts%eop_p%StandardOperatorOptions_1D%po =  3
+  ins_op_opts%eop_p%StandardElementOptions_1D%po =  3
   ins_op_opts%eop_p%penalty                       = 20
   ins_op_opts%sop_q%po     = 4
   ins_op_opts%sop_q%basis  = 'L'
