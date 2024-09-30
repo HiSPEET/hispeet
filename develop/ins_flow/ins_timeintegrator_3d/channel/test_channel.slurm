@@ -4,7 +4,7 @@
 # SLURM script for channel example using MPI
 # ------------------------------------------------------------------------------
 
-#SBATCH --account=p_hispeet                  # project
+##SBATCH --account=                          # project
 #SBATCH --nodes=2
 #SBATCH --ntasks=128                         # max number of MPI-processes
 #SBATCH --time=00-16:00:00                   # dd-hh:mm:ss
@@ -32,6 +32,7 @@ if ! compgen -G "*.h5" > /dev/null; then
     echo "starting ==========================================================================="
     cp test_channel_start.prm test_channel.prm
     srun --ntasks $SLURM_NTASKS --cpu_bind=cores --distribution=block:block ../ins_timeintegrator_3d_test test_channel
+    mkdir -p save
     cp *.h5 save/
 fi
 
