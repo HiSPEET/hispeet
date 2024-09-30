@@ -8,7 +8,7 @@
 !>   - flow in x-direction
 !>   - x: length l, periodic
 !>   - y: width w, periodic
-!>   - z: walls at z = 0 and z = δ
+!>   - z: walls at z = 0 and z = 2δ
 !>   - volume force in x-direction set to match prescribed Re_τ = u_τ δ / ν
 !>   - initial conditions (may be improved ;)
 !>       + parabolic profile matching expected mean velocity ū
