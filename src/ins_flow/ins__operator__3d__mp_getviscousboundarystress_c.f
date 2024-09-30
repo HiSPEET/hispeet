@@ -101,7 +101,7 @@ contains
           call ApplyOutflowBC(e, m, po, n, grad_v)
         end if
 
-        call GetViscousStressVector(f, e, m, po, n, nu, chi, grad_v, sb)
+        call GetViscousStressVector(f, e, m, po, n, chi, nu, grad_v, sb)
 
         if (outflow_bv) then
           associate(tau_nn => bv_u(b) % val(:,:,f,4))
@@ -302,7 +302,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Computation of the stress vector on a given element face
 
-  pure subroutine GetViscousStressVector(f, e, m, po, n, nu, chi, grad_v, sb)
+  pure subroutine GetViscousStressVector(f, e, m, po, n, chi, nu, grad_v, sb)
 
     integer, intent(in) :: f
     !< boundary face ID
@@ -314,10 +314,10 @@ contains
     !< polynomial order
     real(RNP), contiguous, intent(in) :: n(0:,0:,:,:,:)
     !< element face normal vector
-    real(RNP), intent(in) :: nu
-    !< shear viscosity, ν = η/ρ
     real(RNP), intent(in) :: chi
     !< bulk viscosity, χ = (ζ - 2/3 η) / ρ
+    real(RNP), intent(in) :: nu
+    !< shear viscosity, ν = η/ρ
     real(RNP), contiguous, intent(in) :: grad_v(0:,0:,:,:)
     !< velocity gradient
     real(RNP), contiguous, intent(out) :: sb(0:,0:,:,:)

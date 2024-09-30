@@ -11,9 +11,8 @@
 
 submodule(INS__Operator__3D) MP_DiffusionSolver
   use Logging_Levels , only: log_level_inner_iteration
-  use Array_Assignments
   use Array_Reductions
-! use TPO__Average__3D
+  use TPO__Average__3D
   use TPO__Schwarz__3D
   use Element_Transfer_Buffer__3D
   implicit none
@@ -21,15 +20,22 @@ submodule(INS__Operator__3D) MP_DiffusionSolver
 contains
 
   !-----------------------------------------------------------------------------
-  !>  IPCG Diffusion solver with Schwarz preconditioner -- ν = constant, so far
+  !>  IPCG Diffusion solver with Schwarz preconditioner
 
-  module subroutine DiffusionSolver(this, tau, f, bv_u, v, i_max, r_red, r_max, ni)
+  module subroutine DiffusionSolver &
+      (this, tau, mu, nu, f, bv_u, v, i_max, r_red, r_max, ni)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
 
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
+
+    real(RNP), contiguous, optional, intent(in) :: mu(:,:,:,:)
+    !< kinematic bulk viscosity, μ(np,np,np,ne,3)
+
+    real(RNP), contiguous, optional, intent(in) :: nu(:,:,:,:)
+    !< kinematic shear viscosity, ν(np,np,np,ne,3)
 
     real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
     !< sources, f(np,np,np,ne,3)
@@ -56,6 +62,7 @@ contains
 
     real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
     real(RNP) :: alpha, beta, delta, pq, rr
+    logical   :: variable_viscosity
     logical   :: check_convergence
     integer   :: i, i_max_
 
@@ -82,8 +89,14 @@ contains
       !$omp end master
       !$omp barrier
 
+      variable_viscosity = present(mu) .and. present(nu)
+
       ! initial residual
-      call this % GetDiffusionResidual(tau, f, bv_u, v, r)
+      if (variable_viscosity) then
+        call this % GetDiffusionResidual(tau, mu, nu, f, bv_u, v, r)
+      else
+        call this % GetDiffusionResidual(tau, f, bv_u, v, r)
+      end if
 
       ! termination conditions
       if (check_convergence) then
@@ -121,11 +134,11 @@ contains
 
       ! element-averaged viscosity .............................................
 
-!     if (present(nu)) then
-!       call TPO_Average(eop%w, nu_v, nu_avg)
-!     else
+      if (variable_viscosity) then
+        call TPO_Average(this%eop_v%w, nu, nu_avg)
+      else
         call SetArray(nu_avg, this % nu_0)
-!     end if
+      end if
 
       ! iteration ..............................................................
 
@@ -147,7 +160,12 @@ contains
         call SetArray(s, r, multi = .true.)
 
         ! correction
-        call this % ApplyDiffusionOperator(tau, p, q)  ! q = Ap
+        if (variable_viscosity) then
+          call this % ApplyDiffusionOperator(tau, mu, nu, p, q)  ! q = Ap
+        else
+          call this % ApplyDiffusionOperator(tau, p, q)          ! q = Ap
+        end if
+
         delta = ScalarProduct(r, z, mesh%comm_parts)
         pq    = ScalarProduct(p, q, mesh%comm_parts)
         alpha = delta / pq
@@ -155,7 +173,11 @@ contains
 
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
-          call this % GetDiffusionResidual(tau, f, bv_u, v, r)
+          if (variable_viscosity) then
+            call this % GetDiffusionResidual(tau, mu, nu, f, bv_u, v, r)
+          else
+            call this % GetDiffusionResidual(tau, f, bv_u, v, r)
+          end if
         else
           call MergeArrays(ONE, r, -alpha, q, multi = .true.)
         end if

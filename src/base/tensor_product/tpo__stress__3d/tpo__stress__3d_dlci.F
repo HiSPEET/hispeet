@@ -6,9 +6,9 @@
 
 module TPO__Stress__3D_DLCI
   use Kind_Parameters, only: RDP
-! use TPO__Stress__3D_DLCI__Hand
-  use TPO__Stress__3D_DLCI__Gen ! workaround until the upper becomes available
+  use TPO__Stress__3D_DLCI__Gen
   use TPO__Stress__3D_DLCI__XSMM
+
   implicit none
   private
 
@@ -21,7 +21,7 @@ module TPO__Stress__3D_DLCI
 contains
 
   !-----------------------------------------------------------------------------
-  !> 3D element stress operator
+  !> 3D element stress operator -- constant viscosity
 
   subroutine TPO_Stress_DLCI_RDP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
 

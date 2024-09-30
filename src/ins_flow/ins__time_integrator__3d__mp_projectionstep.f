@@ -186,7 +186,9 @@ contains
           end do
         end do
 
-         call ins_op % DiffusionSolver(tau, f, bv_u, v, i_max_v, r_red, r_max)
+        ! constant viscosity, give null pointer instead of variable μ and ν
+        call ins_op % DiffusionSolver( tau, null(), null(), f, bv_u, v &
+                                     , i_max_v, r_red, r_max           )
 
       end associate
 
