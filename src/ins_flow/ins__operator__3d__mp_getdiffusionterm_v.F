@@ -141,7 +141,8 @@ contains
       do b = 1, mesh % n_bound
         if (scan(this % bc_v(b),'O') > 0) then
           associate(sb => bv_s(b) % val)
-            call this % GetViscousBoundaryStress(b, v, sb, bv_u, xout, form)
+            call this % GetViscousBoundaryStress_V &
+                            (b, mu, nu, v, sb, bv_u, xout, form)
           end associate
         end if
       end do

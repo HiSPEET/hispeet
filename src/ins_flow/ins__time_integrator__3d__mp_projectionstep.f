@@ -23,9 +23,9 @@ contains
   !-----------------------------------------------------------------------------
   !> extrapolation-projection-diffusion step for incompressible flow
 
-  module subroutine ProjectionStep( this, tau, v_0, F_c, F_d, Q, bv_u, u &
-                                  , i_max_p, i_max_v, r_red, r_max       )
-
+  module subroutine ProjectionStep( this, tau, t, v_0, F_c, F_d, Q &
+                                  , bv_u, mu, nu, u                &
+                                  , i_max_p, i_max_v, r_red, r_max )
 
     ! arguments ................................................................
 
@@ -33,6 +33,8 @@ contains
 
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
+    real(RNP), intent(in) :: t
+    !< t, final time
     real(RNP), contiguous, intent(in) :: v_0(:,:,:,:,:)
     !< v₀, effective initial value of velocity
     real(RNP), contiguous, intent(in) :: F_c(:,:,:,:,:)
@@ -52,6 +54,10 @@ contains
     !!   - component 5
     !!       * Γᴰ :  ×                 (unused)
     !!       * Γᴼ :  ∆pᵇ →  ∆pᵇ        (unchanged)
+    real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
+    !< μ, kinematic bulk viscosity
+    real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
+    !< ν, kinematic shear viscosity
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
     !< u = [v, p], velocity and pressure at final time u
 
@@ -74,7 +80,9 @@ contains
     integer :: np
     integer :: b, d, e
 
-    associate( ins_op  => this % ins_op                   &
+    associate( problem => this % problem                  &
+             , ins_op  => this % ins_op                   &
+             , sem_v   => this % ins_op % sem_v           &
              , mesh    => this % ins_op % mesh            &
              , n_elem  => this % ins_op % mesh % n_elem   &
              , n_ghost => this % ins_op % mesh % n_ghost  &
@@ -186,9 +194,12 @@ contains
           end do
         end do
 
-        ! constant viscosity, give null pointer instead of variable μ and ν
-        call ins_op % DiffusionSolver( tau, null(), null(), f, bv_u, v &
-                                     , i_max_v, r_red, r_max           )
+        if (present(nu) .and. problem % HasVariableProperties()) then
+          call problem % GetViscosity(sem_v % metrics % x, t, u, nu)
+        end if
+
+        call ins_op % DiffusionSolver( tau, mu, nu, f, bv_u, v &
+                                     , i_max_v, r_red, r_max   )
 
       end associate
 

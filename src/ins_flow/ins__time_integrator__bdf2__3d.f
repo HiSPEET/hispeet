@@ -109,6 +109,8 @@ contains
     real(RNP), allocatable, save :: Q  (:,:,:,:,:)  ! source term
     real(RNP), allocatable, save :: vp (:,:,:,:,:)  ! outer velocity traces v⁺
     real(RNP), allocatable, save :: sp (:,:,:,:,:)  ! outer viscous flux traces s⁺
+    real(RNP), allocatable, save :: mu (:,:,:,:)    ! variable bulk diffusivity μ
+    real(RNP), allocatable, save :: nu (:,:,:,:)    ! variable shear diffusivity ν
 
     real(RNP), allocatable, save :: v_old  (:,:,:,:,:) ! flow variables  (t₀-∆t)
     real(RNP), allocatable, save :: F_c_old(:,:,:,:,:) ! convection term (t₀-∆t)
@@ -156,6 +158,8 @@ contains
           deallocate(inv_mm, v_0, F_c, F_d, Q, vp, sp)
           deallocate(v_old, F_c_old, F_d_old)
           deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp)
+          if (allocated(mu)) deallocate(mu)
+          if (allocated(nu)) deallocate(nu)
         end if
       end if
 
@@ -174,6 +178,11 @@ contains
         allocate( Q       (np, np, np, mesh % n_elem, 3), source = ZERO )
         allocate( vp      (np, np,  6, mesh % n_elem, 3), source = ZERO )
         allocate( sp      (np, np,  6, mesh % n_elem, 3), source = ZERO )
+
+        if (problem % HasVariableProperties()) then
+          allocate( mu(np, np, np, mesh % n_elem), source = this%ins_op%mu_0 )
+          allocate( nu(np, np, np, mesh % n_elem), source = ZERO )
+        end if
 
         allocate( v_old   (np, np, np, mesh % n_elem, 3), source = ZERO )
         allocate( F_c_old (np, np, np, mesh % n_elem, 3), source = ZERO )
@@ -223,8 +232,13 @@ contains
       ! viscous and convective RHS .............................................
       ! so far ν is constant and boundaries are periodic or have Dirichlet BC
 
+      if (problem % HasVariableProperties()) then
+        call problem % GetViscosity(sem_v % metrics % x, t, u, nu)
+      end if
+
       ! diffusion term using rotational form with extrapolation: s⁺ = s⁻ at ∂Ωᴼ
-      call ins_op % GetDiffusionTerm(v, vp, sp, F_d, bv_u, xout=.true., form=2)
+      call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp, F_d, bv_u &
+                                    , xout = .true., form = 2      )
 
       ! convection term
       if (problem % stokes) then
@@ -296,7 +310,8 @@ contains
 
       ! extrapolation-projection-diffusion step ................................
 
-      call this % ProjectionStep( tau, v_0, F_c, F_d, Q, bv_u, u &
+      call this % ProjectionStep( tau, t, v_0, F_c, F_d, Q       &
+                                , bv_u, mu, nu, u                &
                                 , this % i_max_p, this % i_max_v &
                                 , this % r_red  , this % r_max   )
 
@@ -315,6 +330,8 @@ contains
       deallocate(inv_mm, v_0, F_c, F_d, Q, vp, sp)
       deallocate(v_old, F_c_old, F_d_old)
       deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp)
+      if (allocated(mu)) deallocate(mu)
+      if (allocated(nu)) deallocate(nu)
       !$omp end master
 
     end associate

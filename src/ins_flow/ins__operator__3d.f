@@ -76,29 +76,21 @@ module INS__Operator__3D
     procedure :: PressureSolver
     procedure :: GetBackflowPenalty
 
-    generic   :: ApplyDiffusionOperator   => ApplyDiffusionOperator_C, &
-                                             ApplyDiffusionOperator_V
+    procedure :: ApplyDiffusionOperator
+    procedure :: ApplyDiffusionOperator_C
+    procedure :: ApplyDiffusionOperator_V
 
-    generic   :: GetDiffusionResidual     => GetDiffusionResidual_C, &
-                                             GetDiffusionResidual_V
+    procedure :: GetDiffusionResidual
+    procedure :: GetDiffusionResidual_C
+    procedure :: GetDiffusionResidual_V
 
-    generic   :: GetDiffusionTerm         => GetDiffusionTerm_C, &
-                                             GetDiffusionTerm_V
+    procedure :: GetDiffusionTerm
+    procedure :: GetDiffusionTerm_C
+    procedure :: GetDiffusionTerm_V
 
-    generic   :: GetViscousBoundaryStress => GetViscousBoundaryStress_C, &
-                                             GetViscousBoundaryStress_V
-
-    procedure, private :: ApplyDiffusionOperator_C, &
-                          ApplyDiffusionOperator_V
-
-    procedure, private :: GetDiffusionResidual_C, &
-                          GetDiffusionResidual_V
-
-    procedure, private :: GetDiffusionTerm_C, &
-                          GetDiffusionTerm_V
-
-    procedure, private :: GetViscousBoundaryStress_C, &
-                          GetViscousBoundaryStress_V
+    procedure :: GetViscousBoundaryStress
+    procedure :: GetViscousBoundaryStress_C
+    procedure :: GetViscousBoundaryStress_V
 
   end type INS_Operator_3D
 
@@ -421,6 +413,93 @@ contains
 !   end if
 
   end subroutine GetConvectionTerm
+
+  !-----------------------------------------------------------------------------
+  !> Homogeneous diffusion operator with constant or variable viscosity
+
+  subroutine ApplyDiffusionOperator(this, tau, mu, nu, v, r, form)
+    class(INS_Operator_3D),          intent(in)  :: this
+    real(RNP),                       intent(in)  :: tau
+    real(RNP), contiguous, optional, intent(in)  :: mu(:,:,:,:)
+    real(RNP), contiguous, optional, intent(in)  :: nu(:,:,:,:)
+    real(RNP), contiguous,           intent(in)  :: v(:,:,:,:,:)
+    real(RNP), contiguous,           intent(out) :: r(:,:,:,:,:)
+    integer,               optional, intent(in)  :: form
+
+    if (present(mu) .and. present(nu)) then
+      call this % ApplyDiffusionOperator_V(tau, mu, nu, v, r, form)
+    else
+      call this % ApplyDiffusionOperator_C(tau, v, r, form)
+    end if
+
+  end subroutine ApplyDiffusionOperator
+
+  !-----------------------------------------------------------------------------
+  !> Diffusion residual with constant or variable viscosity
+
+  subroutine GetDiffusionResidual(this, tau, mu, nu, f, bv_u, v, r, form)
+    class(INS_Operator_3D),          intent(in)  :: this
+    real(RNP),                       intent(in)  :: tau
+    real(RNP), contiguous, optional, intent(in)  :: mu(:,:,:,:)
+    real(RNP), contiguous, optional, intent(in)  :: nu(:,:,:,:)
+    real(RNP), contiguous,           intent(in)  :: f(:,:,:,:,:)
+    class(BoundaryVariable_3D),      intent(in)  :: bv_u(:)
+    real(RNP), contiguous,           intent(in)  :: v(:,:,:,:,:)
+    real(RNP), contiguous,           intent(out) :: r(:,:,:,:,:)
+    integer,               optional, intent(in)  :: form
+
+    if (present(mu) .and. present(nu)) then
+      call this % GetDiffusionResidual_V(tau, mu, nu, f, bv_u, v, r, form)
+    else
+      call this % GetDiffusionResidual_C(tau, f, bv_u, v, r, form)
+    end if
+
+  end subroutine GetDiffusionResidual
+
+  !-----------------------------------------------------------------------------
+  !> Diffusion term with constant or variable viscosity
+
+  subroutine GetDiffusionTerm(this, mu, nu, v, vp, sp, F_d, bv_u, xout, form)
+    class(INS_Operator_3D),               intent(in)  :: this
+    real(RNP), contiguous,      optional, intent(in)  :: mu(:,:,:,:)
+    real(RNP), contiguous,      optional, intent(in)  :: nu(:,:,:,:)
+    real(RNP), contiguous,                intent(in)  :: v(:,:,:,:,:)
+    real(RNP), contiguous,                intent(out) :: vp(:,:,:,:,:)
+    real(RNP), contiguous,                intent(out) :: sp(:,:,:,:,:)
+    real(RNP), contiguous,                intent(out) :: F_d(:,:,:,:,:)
+    class(BoundaryVariable_3D), optional, intent(in)  :: bv_u(:)
+    logical,                    optional, intent(in)  :: xout
+    integer,                    optional, intent(in)  :: form
+
+    if (present(mu) .and. present(nu)) then
+      call this % GetDiffusionTerm_V(mu, nu, v, vp, sp, F_d, bv_u, xout, form)
+    else
+      call this % GetDiffusionTerm_C(v, vp, sp, F_d, bv_u, xout, form)
+    end if
+
+  end subroutine GetDiffusionTerm
+
+  !-----------------------------------------------------------------------------
+  !> Viscous stress vector with constant or variable viscosity on a boundary
+
+  subroutine GetViscousBoundaryStress(this, b, mu, nu, v, sb, bv_u, xout, form)
+    class(INS_Operator_3D),               intent(in)  :: this
+    integer,                              intent(in)  :: b
+    real(RNP), contiguous,      optional, intent(in)  :: mu(:,:,:,:)
+    real(RNP), contiguous,      optional, intent(in)  :: nu(:,:,:,:)
+    real(RNP), contiguous,                intent(in)  :: v(:,:,:,:,:)
+    real(RNP), contiguous,                intent(out) :: sb(:,:,:,:)
+    class(BoundaryVariable_3D), optional, intent(in)  :: bv_u(:)
+    logical,                    optional, intent(in)  :: xout
+    integer,                    optional, intent(in)  :: form
+
+    if (present(mu) .and. present(nu)) then
+      call this % GetViscousBoundaryStress_V(b, mu, nu, v, sb, bv_u, xout, form)
+    else
+      call this % GetViscousBoundaryStress_C(b, v, sb, bv_u, xout, form)
+    end if
+
+  end subroutine GetViscousBoundaryStress
 
   !=============================================================================
   ! Type-bound procedures of INS_OperatorOptions_3D

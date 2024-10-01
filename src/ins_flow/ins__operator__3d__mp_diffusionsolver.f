@@ -4,7 +4,6 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !> @todo
-!>   - enable variable viscosity
 !>   - add standby option?
 !>   - ensure consistent handling of empty partitions
 !===============================================================================
@@ -62,7 +61,6 @@ contains
 
     real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
     real(RNP) :: alpha, beta, delta, pq, rr
-    logical   :: variable_viscosity
     logical   :: check_convergence
     integer   :: i, i_max_
 
@@ -89,14 +87,8 @@ contains
       !$omp end master
       !$omp barrier
 
-      variable_viscosity = present(mu) .and. present(nu)
-
       ! initial residual
-      if (variable_viscosity) then
-        call this % GetDiffusionResidual(tau, mu, nu, f, bv_u, v, r)
-      else
-        call this % GetDiffusionResidual(tau, f, bv_u, v, r)
-      end if
+      call this % GetDiffusionResidual(tau, mu, nu, f, bv_u, v, r)
 
       ! termination conditions
       if (check_convergence) then
@@ -134,7 +126,7 @@ contains
 
       ! element-averaged viscosity .............................................
 
-      if (variable_viscosity) then
+      if (present(nu)) then
         call TPO_Average(this%eop_v%w, nu, nu_avg)
       else
         call SetArray(nu_avg, this % nu_0)
@@ -160,11 +152,7 @@ contains
         call SetArray(s, r, multi = .true.)
 
         ! correction
-        if (variable_viscosity) then
-          call this % ApplyDiffusionOperator(tau, mu, nu, p, q)  ! q = Ap
-        else
-          call this % ApplyDiffusionOperator(tau, p, q)          ! q = Ap
-        end if
+        call this % ApplyDiffusionOperator(tau, mu, nu, p, q)  ! q = Ap
 
         delta = ScalarProduct(r, z, mesh%comm_parts)
         pq    = ScalarProduct(p, q, mesh%comm_parts)
@@ -173,11 +161,7 @@ contains
 
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
-          if (variable_viscosity) then
-            call this % GetDiffusionResidual(tau, mu, nu, f, bv_u, v, r)
-          else
-            call this % GetDiffusionResidual(tau, f, bv_u, v, r)
-          end if
+          call this % GetDiffusionResidual(tau, mu, nu, f, bv_u, v, r)
         else
           call MergeArrays(ONE, r, -alpha, q, multi = .true.)
         end if

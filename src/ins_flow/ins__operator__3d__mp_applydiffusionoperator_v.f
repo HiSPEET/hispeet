@@ -72,7 +72,7 @@ contains
 
       ! computation ............................................................
 
-      call this % GetDiffusionTerm(mu, nu, v, vp, sp, r, form=form)
+      call this % GetDiffusionTerm_V(mu, nu, v, vp, sp, r, form=form)
 
       !$omp do collapse(2)
       do e = 1, mesh % n_elem

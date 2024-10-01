@@ -81,7 +81,7 @@ contains
 
       ! compute residual .......................................................
 
-      call this % GetDiffusionTerm(v, vp, sp, r, bv_u, form=form)
+      call this % GetDiffusionTerm_C(v, vp, sp, r, bv_u, form=form)
 
       !$omp do collapse(2)
       do e = 1, mesh % n_elem
