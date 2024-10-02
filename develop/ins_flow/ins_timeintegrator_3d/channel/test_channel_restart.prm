@@ -43,8 +43,10 @@
   dt     = 2e-4
   nt_max = 50
 !
-  export_vtk = F                 ! set T for generating plot files
-! char_freq  = 2                 ! set to control frequency of control output
+  export_vtk = F  ! set T for generating plot files
+! char_freq  = 2  ! set to control frequency of control output
+  avg_rate   = 2  ! rate of temporal averaging, set 0 to skip
+
 ! log_level_inner_iteration = 1  ! set log level > 0 for higher verbosity
 
   restart_tag_in  = 'test1'
@@ -59,10 +61,13 @@
   lx(1) =  12.56637061435917295376d+0  ! 4π
   lx(2) =  6.28318530717958647688d+0   ! 2π
   lx(3) =  2.0
-! np =  2,2,1
-! ep =  4,4,8
-  np =  4,4,8
-  ep =  6,6,3
+
+  np =  2,2,1  ! num partitions per direction             ! small mesh for
+  ep =  4,4,8  ! num elements per direction and partition ! for playing around
+
+! np =  4,4,8  ! num partitions per direction             ! large mesh for
+! ep =  6,6,3  ! num elements per direction and partition ! real study
+
 ! pg = 1
   periodic = T,T,F
 /
