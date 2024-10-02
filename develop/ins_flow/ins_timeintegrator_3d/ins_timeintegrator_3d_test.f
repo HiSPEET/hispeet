@@ -618,7 +618,7 @@ contains
     dims_n = 1
     call H5Screate_simple_f(size(dims_n), dims_n, space_id, err)
     call H5Dcreate_f(group_id, 'n_avg', H5T_INTEGER, space_id, data_id, err)
-    call H5Dwrite_f(data_id, H5T_REAL_RNP, C_Loc(n_avg), err)
+    call H5Dwrite_f(data_id, H5T_INTEGER, C_Loc(n_avg), err)
     call H5Sclose_f(space_id, err)
     call H5Dclose_f(data_id, err)
 
@@ -713,7 +713,7 @@ contains
       call H5Dopen_f(group_id, 'q_avg', data_id, err)
       call H5Dget_space_f(data_id, space_id, err)
       call H5Sget_simple_extent_dims_f(space_id, dims_var, maxdims_var, err)
-      if (any(dims_var /= shape(u))) then
+      if (any(dims_var /= shape(q_avg))) then
         call Error('ReadRestartData','shape(q_avg) not matching')
       end if
       call H5Dget_type_f(data_id, type_id, err)
@@ -721,6 +721,7 @@ contains
       call H5Tclose_f(type_id, err)
       call H5Dclose_f(data_id, err)
     end if
+
     ! release resources
     call H5Gclose_f(group_id, err)
     call H5Fclose_f(file_id, err)
