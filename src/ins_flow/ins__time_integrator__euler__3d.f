@@ -112,6 +112,8 @@ contains
     real(RNP), allocatable, save :: Q  (:,:,:,:,:)  ! source term
     real(RNP), allocatable, save :: vp (:,:,:,:,:)  ! outer velocity traces v⁺
     real(RNP), allocatable, save :: sp (:,:,:,:,:)  ! outer viscous flux traces s⁺
+    real(RNP), allocatable, save :: mu (:,:,:,:)    ! variable bulk diffusivity μ
+    real(RNP), allocatable, save :: nu (:,:,:,:)    ! variable shear diffusivity ν
 
     ! boundary points and values
     type(BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:)
@@ -141,6 +143,8 @@ contains
         if (any(shape(v_0) /= shape(v))) then
           deallocate(inv_mm, v_0, F_c, F_d, Q, vp, sp)
           deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp)
+          if (allocated(mu)) deallocate(mu)
+          if (allocated(nu)) deallocate(nu)
         end if
       end if
 
@@ -159,6 +163,11 @@ contains
         allocate( Q      (np, np, np, mesh % n_elem, 3), source = ZERO )
         allocate( vp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
         allocate( sp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
+
+        if (problem % HasVariableProperties()) then
+          allocate( mu(np, np, np, mesh % n_elem), source = this%ins_op%mu_0 )
+          allocate( nu(np, np, np, mesh % n_elem), source = ZERO )
+        end if
 
         allocate(bv_x (mesh % n_bound) )
         allocate(bv_u (mesh % n_bound) )
@@ -199,10 +208,14 @@ contains
       end do
 
       ! viscous and convective RHS .............................................
-      ! so far ν is constant
+
+      if (problem % HasVariableProperties()) then
+        call problem % GetViscosity(sem_v % metrics % x, t, u, nu)
+      end if
 
       ! diffusion term using rotational form with extrapolation: s⁺ = s⁻ at ∂Ωᴼ
-      call ins_op % GetDiffusionTerm(v, vp, sp, F_d, bv_u, xout=.true., form=2)
+      call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp, F_d, bv_u &
+                                    , xout = .true., form = 2      )
 
       ! convection term
       if (problem % stokes) then
@@ -245,7 +258,8 @@ contains
 
       ! extrapolation-projection-diffusion step ................................
 
-      call this % ProjectionStep( dt, v_0, F_c, F_d, Q, bv_u, u  &
+      call this % ProjectionStep( dt, t, v_0, F_c, F_d, Q        &
+                                , bv_u, mu, nu, u                &
                                 , this % i_max_p, this % i_max_v &
                                 , this % r_red  , this % r_max   )
 
@@ -258,6 +272,8 @@ contains
       !$omp master
       deallocate(inv_mm, v_0, F_c, F_d, Q, vp, sp)
       deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp)
+      if (allocated(mu)) deallocate(mu)
+      if (allocated(nu)) deallocate(nu)
       !$omp end master
 
     end associate

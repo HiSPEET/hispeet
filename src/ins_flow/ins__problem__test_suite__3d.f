@@ -7,6 +7,7 @@
 module INS__Problem__Test_Suite__3D
 
   use INS__Problem__3D                    , only: INS_Problem_3D
+  use INS__Problem__Channel__3D           , only: INS_Problem_Channel_3D
   use INS__Problem__Cylinder_2D__3D       , only: INS_Problem_Cylinder2D_3D
   use INS__Problem__Hagen_Poiseuille__3D  , only: INS_Problem_HagenPoiseuille_3D
   use INS__Problem__Poiseuille__3D        , only: INS_Problem_Poiseuille_3D
@@ -36,6 +37,8 @@ contains
     type(MPI_Comm),   intent(in) :: comm    !< MPI world communicator
 
     select case(name)
+    case('Channel')
+      allocate(INS_Problem_Channel_3D           :: problem)
     case('Cylinder2D')
       allocate(INS_Problem_Cylinder2D_3D        :: problem)
     case('HagenPoiseuille')

@@ -1,19 +1,19 @@
-!> summary:  Outflow pressure penalty opposing reverse flow (C)
+!> summary:  Outflow pressure penalty opposing reverse flow
 !> author:   Joerg Stiller
 !> date:     2023/10/15
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(INS__Operator__3D) MP_GetBackflowPenalty_C
+submodule(INS__Operator__3D) MP_GetBackflowPenalty
 
   implicit none
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Backflow pressure penalty (C)
+  !> Backflow pressure penalty
 
-  module subroutine GetBackflowPenalty_C(this, problem, b, v, dp)
+  module subroutine GetBackflowPenalty(this, problem, b, v, dp)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -85,8 +85,8 @@ contains
 
     end associate
 
-  end subroutine GetBackflowPenalty_C
+  end subroutine GetBackflowPenalty
 
   !=============================================================================
 
-end submodule MP_GetBackflowPenalty_C
+end submodule MP_GetBackflowPenalty

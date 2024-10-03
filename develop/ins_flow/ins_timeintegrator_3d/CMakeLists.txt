@@ -9,6 +9,7 @@ target_link_libraries(ins_timeintegrator_3d_test HiINSFlow)
 
 file( COPY
           ins_timeintegrator_3d_test.prm
+          channel
           cylinder_2d
           hagen_poiseuille
           poiseuille

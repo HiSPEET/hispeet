@@ -111,10 +111,12 @@ contains
 
     ! internal variables .......................................................
 
-    real(RNP), allocatable, save :: u_i(:,:,:,:,:)   ! stage solution uᵢ
-    real(RNP), allocatable, save :: vp (:,:,:,:,:)   ! velocity traces v⁺
-    real(RNP), allocatable, save :: sp (:,:,:,:,:)   ! viscous flux traces s⁺
-    real(RNP), allocatable, save :: inv_mm(:,:,:,:)  ! inv diagonal mass matrix
+    real(RNP), allocatable, save :: inv_mm(:,:,:,:) ! inv diagonal mass matrix
+    real(RNP), allocatable, save :: u_i(:,:,:,:,:)  ! stage solution uᵢ
+    real(RNP), allocatable, save :: vp (:,:,:,:,:)  ! velocity traces v⁺
+    real(RNP), allocatable, save :: sp (:,:,:,:,:)  ! viscous flux traces s⁺
+    real(RNP), allocatable, save :: mu (:,:,:,:)    ! variable bulk diffusivity μ
+    real(RNP), allocatable, save :: nu (:,:,:,:)    ! variable shear diffusivity ν
 
     ! stage contributions to RHS and BC
     real(RNP), allocatable, save :: F_c     (:,:,:,:,:,:) ! convection
@@ -163,6 +165,8 @@ contains
         if (any(shape(u_i) /= shape(u))) then
           deallocate(u_i, vp, sp, inv_mm, F_c, F_d, F_d_rot, F_s)
           deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp, bv_po)
+          if (allocated(mu)) deallocate(mu)
+          if (allocated(nu)) deallocate(nu)
         end if
       end if
 
@@ -178,6 +182,11 @@ contains
         allocate( vp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
         allocate( sp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
         allocate( inv_mm (np, np, np, mesh % n_elem   ), source = ZERO )
+
+        if (problem % HasVariableProperties()) then
+          allocate( mu(np, np, np, mesh % n_elem), source = this%ins_op%mu_0 )
+          allocate( nu(np, np, np, mesh % n_elem), source = ZERO )
+        end if
 
         allocate( F_c     (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
         allocate( F_d     (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
@@ -255,13 +264,23 @@ contains
           call problem % GetExternalSources( sem_v % metrics % x, t_i &
                                            , F_s(:,:,:,:,:,1)         )
 
+          ! variable viscosity
+          if (problem % HasVariableProperties()) then
+            call problem % GetViscosity(sem_v % metrics % x, t_i, u, nu)
+          end if
+
           ! diffusion term using standard form with extrapolation at ∂Ωᴼ
-          call ins_op % GetDiffusionTerm( v, vp, sp, F_d(:,:,:,:,:,1) &
-                                        , bv_u, xout = .true.         )
+          call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp &
+                                        , F_d(:,:,:,:,:,1)  &
+                                        , bv_u              &
+                                        , xout = .true.     )
 
           ! diffusion term using rotational form with extrapolation at ∂Ωᴼ
-          call ins_op % GetDiffusionTerm( v, vp, sp, F_d_rot(:,:,:,:,:,1) &
-                                        , bv_u, xout = .true., form = 2   )
+          call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp    &
+                                        , F_d_rot(:,:,:,:,:,1) &
+                                        , bv_u                 &
+                                        , xout = .true.        &
+                                        , form = 2             )
 
           ! convective RHS
           if (problem % stokes) then
@@ -390,11 +409,14 @@ contains
           ! projection-diffusion step ..........................................
 
           call this % ProjectionStep( tau     = dt * a_im(i,i) &
+                                    , t       = t_i            &
                                     , v_0     = v_0            &
                                     , F_c     = F_c_i          &
                                     , F_d     = F_d_i          &
                                     , Q       = Q_i            &
                                     , bv_u    = bv_u           &
+                                    , mu      = mu             &
+                                    , nu      = nu             &
                                     , u       = u_i            &
                                     , i_max_p = this % i_max_p &
                                     , i_max_v = this % i_max_v &
@@ -407,13 +429,23 @@ contains
 
         associate(v => u_i(:,:,:,:,1:3))
 
+          ! variable viscosity
+          if (problem % HasVariableProperties()) then
+            call problem % GetViscosity(sem_v % metrics % x, t_i, u_i, nu)
+          end if
+
           ! diffusion term using standard form with extrapolation at ∂Ωᴼ
-          call ins_op % GetDiffusionTerm( v, vp, sp, F_d(:,:,:,:,:,i) &
-                                        , bv_u, xout = .true.         )
+          call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp &
+                                        , F_d(:,:,:,:,:,i)  &
+                                        , bv_u              &
+                                        , xout = .true.     )
 
           ! diffusion term using rotational form with extrapolation at ∂Ωᴼ
-          call ins_op % GetDiffusionTerm( v, vp, sp, F_d_rot(:,:,:,:,:,i) &
-                                        , bv_u, xout = .true., form = 2   )
+          call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp    &
+                                        , F_d_rot(:,:,:,:,:,i) &
+                                        , bv_u                 &
+                                        , xout = .true.        &
+                                        , form = 2             )
 
           ! convection term
           if (problem % stokes) then
@@ -510,6 +542,8 @@ contains
       !$omp master
       deallocate(u_i, vp, sp, inv_mm, F_c, F_d, F_d_rot, F_s)
       deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp, bv_po)
+      if (allocated(mu)) deallocate(mu)
+      if (allocated(nu)) deallocate(nu)
       !$omp end master
 
     end associate

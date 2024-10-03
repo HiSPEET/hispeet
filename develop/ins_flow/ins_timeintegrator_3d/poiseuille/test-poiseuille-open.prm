@@ -12,9 +12,9 @@
 ! ins_op_opts%mu_0 =  -3.3333333333333333333333333333D-3  ! laplacian
 ! ins_op_opts%mu_0 = -13.3333333333333333333333333333D-3  ! rotational
 
-  ins_op_opts%eop_v%StandardOperatorOptions_1D%po =  7
+  ins_op_opts%eop_v%StandardElementOptions_1D%po =  7
   ins_op_opts%eop_v%penalty                       = 20
-  ins_op_opts%eop_p%StandardOperatorOptions_1D%po =  6
+  ins_op_opts%eop_p%StandardElementOptions_1D%po =  6
   ins_op_opts%eop_p%penalty                       = 20
   ins_op_opts%sop_q%po        = 11
   ins_op_opts%sop_q%basis     = 'L'

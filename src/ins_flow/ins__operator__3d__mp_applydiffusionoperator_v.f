@@ -1,16 +1,16 @@
 !> summary:  Homogeneous incompressible Navier-Stokes DG-SEM diffusion operator
 !> author:   Joerg Stiller
-!> date:     2022/09/26
+!> date:     2024/09/30
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(INS__Operator__3D) MP_ApplyDiffusionOperator_C
+submodule(INS__Operator__3D) MP_ApplyDiffusionOperator_V
   implicit none
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Homogeneous diffusion operator with constant viscosity
+  !> Homogeneous diffusion operator with variable viscosity
   !>
   !> Computes the homogeneous DG-SEM viscous diffusion operator including the
   !> implicit part of the discretized time derivative, i.e.,
@@ -20,13 +20,19 @@ contains
   !> where `Fd` is the weak form of the diffusion term for the given velocity
   !> `v` with zero boundary values `vb`, `sb` and `M` is diagonal mass matrix.
 
-  module subroutine ApplyDiffusionOperator_C(this, tau, v, r, form)
+  module subroutine ApplyDiffusionOperator_V(this, tau, mu, nu, v, r, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
 
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
+
+    real(RNP), contiguous, intent(in) :: mu(:,:,:,:)
+    !< kinematic bulk viscosity μ (np,np,np,ne)
+
+    real(RNP), contiguous, intent(in) :: nu(:,:,:,:)
+    !< kinematic shear viscosity ν (np,np,np,ne)
 
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)
@@ -66,7 +72,7 @@ contains
 
       ! computation ............................................................
 
-      call this % GetDiffusionTerm_C(v, vp, sp, r, form=form)
+      call this % GetDiffusionTerm_V(mu, nu, v, vp, sp, r, form=form)
 
       !$omp do collapse(2)
       do e = 1, mesh % n_elem
@@ -83,8 +89,8 @@ contains
 
     end associate
 
-  end subroutine ApplyDiffusionOperator_C
+  end subroutine ApplyDiffusionOperator_V
 
   !=============================================================================
 
-end submodule MP_ApplyDiffusionOperator_C
+end submodule MP_ApplyDiffusionOperator_V

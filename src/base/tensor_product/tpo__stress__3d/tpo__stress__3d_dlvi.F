@@ -1,29 +1,28 @@
-!> summary:  3d curvilinear element stress operator (DLCI)
+!> summary:  3d curvilinear element stress operator (DLVI)
 !> author:   Joerg Stiller
-!> date:     2022/01/02
+!> date:     2024/09/30
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-module TPO__Stress__3D_DLCI
+module TPO__Stress__3D_DLVI
   use Kind_Parameters, only: RDP
-  use TPO__Stress__3D_DLCI__Gen
-  use TPO__Stress__3D_DLCI__XSMM
-
+  use TPO__Stress__3D_DLVI__Gen
+  use TPO__Stress__3D_DLVI__XSMM
   implicit none
   private
 
   public :: TPO_Stress
 
   interface TPO_Stress
-    module procedure TPO_Stress_DLCI_RDP
+    module procedure TPO_Stress_DLVI_RDP
   end interface
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> 3D element stress operator -- constant viscosity
+  !> 3D element stress operator -- variable viscosity
 
-  subroutine TPO_Stress_DLCI_RDP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
+  subroutine TPO_Stress_DLVI_RDP(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
 
     real(RDP), contiguous, intent(in) :: Ms(:)
     !< 1D diagonal standard mass matrix (np)
@@ -40,10 +39,10 @@ contains
     real(RDP), contiguous, intent(in)  :: n(:,:,:,:,:)
     !< unit normal vector at element boundary faces (np,np,6,ne,3)
 
-    real(RDP), intent(in)  :: zeta
+    real(RDP), contiguous, intent(in)  :: zeta(:,:,:,:)
     !< bulk viscosity or modulus ζ
 
-    real(RDP), intent(in)  :: eta
+    real(RDP), contiguous, intent(in)  :: eta(:,:,:,:)
     !< shear viscosity or modulus η
 
     real(RDP), contiguous, intent(in)  :: v(:,:,:,:,:)
@@ -62,15 +61,15 @@ contains
 
 #ifdef __LIBXSMM__
     case(3:)
-      call TPO_Stress_DLCI_XSMM(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
+      call TPO_Stress_DLVI_XSMM(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
 #endif
 
     case default
-      call TPO_Stress_DLCI_Gen(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
+      call TPO_Stress_DLVI_Gen(Ms, Ds, Jd, Ji, n, zeta, eta, v, fv, vb, sb)
     end select
 
-  end subroutine TPO_Stress_DLCI_RDP
+  end subroutine TPO_Stress_DLVI_RDP
 
   !=============================================================================
 
-end module TPO__Stress__3D_DLCI
+end module TPO__Stress__3D_DLVI

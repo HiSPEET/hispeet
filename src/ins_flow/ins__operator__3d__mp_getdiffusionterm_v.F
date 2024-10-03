@@ -1,10 +1,10 @@
-!> summary:  Incompressible Navier-Stokes DG-SEM diffusion term (DC)
+!> summary:  Incompressible Navier-Stokes DG-SEM diffusion term (DV)
 !> author:   Joerg Stiller
-!> date:     2022/01/30
+!> date:     2024/09/30
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(INS__Operator__3D) MP_GetDiffusionTerm_C
+submodule(INS__Operator__3D) MP_GetDiffusionTerm_V
 
   use C_Binding
   use TPO__Stress__3D
@@ -24,16 +24,23 @@ submodule(INS__Operator__3D) MP_GetDiffusionTerm_C
 contains
 
   !-----------------------------------------------------------------------------
-  !> Diffusion term with constant viscosity on irregular (deformed) mesh
+  !> Diffusion term with variable viscosity on irregular (deformed) mesh
   !>
   !> The diffusion term `F_d` comprises the viscous contributions to the weak
   !> form of the momentum equation including the boundary conditions.
   !> To obtain the node values, apply the inverse mass matrix to `F_d`.
 
-  module subroutine GetDiffusionTerm_C(this, v, vp, sp, F_d, bv_u, xout, form)
+  module subroutine GetDiffusionTerm_V &
+      (this, mu, nu, v, vp, sp, F_d, bv_u, xout, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
+
+    real(RNP), contiguous, intent(in) :: mu(:,:,:,:)
+    !< kinematic bulk viscosity μ (np,np,np,ne)
+
+    real(RNP), contiguous, intent(in) :: nu(:,:,:,:)
+    !< kinematic shear viscosity ν (np,np,np,ne)
 
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< velocity (np,np,np,ne,3)
@@ -71,29 +78,13 @@ contains
     type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_tr
     ! trace transfer buffers operators
 
-    real(RNP), allocatable, save :: tr(:,:,:,:,:)
-    ! traces of v and n⋅τ
+    real(RNP), allocatable, save :: tr(:,:,:,:,:)   ! traces of v and n⋅τ
+    real(RNP), allocatable, save :: mu_mod(:,:,:,:) ! modified μ
 
-    real(RNP) :: mu, nu
-    integer   :: n_bound, n_elem, n_ghost, po
-    integer   :: b
+    integer :: n_bound, n_elem, n_ghost, po
+    integer :: b
 
     ! initialization ...........................................................
-
-    nu = this % nu_0
-
-    if (present(form)) then
-      select case(form)
-      case(1)
-        mu = -THIRD * nu
-      case(2)
-        mu = -THIRD * 4 * nu
-    case default
-        mu = this % mu_0
-      end select
-    else
-      mu = this % mu_0
-    end if
 
     n_bound = this % mesh % n_bound
     n_elem  = this % mesh % n_elem
@@ -108,8 +99,22 @@ contains
         bv_s(b) = BoundaryVariable_3D(this%mesh%boundary(b), po, nc = 3)
       end if
     end do
+    allocate(mu_mod(0:po,0:po,0:po,n_elem))
     !$omp end master
     !$omp barrier
+
+    if (present(form)) then
+      select case(form)
+      case(1)
+        call MergeArrays(ZERO, mu_mod, -THIRD, nu)
+      case(2)
+        call MergeArrays(ZERO, mu_mod, -4*THIRD, nu)
+      case default
+        call SetArray(mu_mod, mu)
+      end select
+    else
+      call SetArray(mu_mod, mu)
+    end if
 
     associate( mesh   => this % sem_v % mesh         &
              , Jd     => this % sem_v % metrics % Jd &
@@ -123,7 +128,7 @@ contains
       ! element volume contributions ...........................................
 
       ! element integrals and local contributions to inner traces v⁻ and s⁻
-      call TPO_Stress(eop%w, eop%D, Jd, Ji, n, mu, nu, v, F_d, vm, sm)
+      call TPO_Stress(eop%w, eop%D, Jd, Ji, n, mu_mod, nu, v, F_d, vm, sm)
 
       ! transfer traces ........................................................
 
@@ -136,7 +141,8 @@ contains
       do b = 1, mesh % n_bound
         if (scan(this % bc_v(b),'O') > 0) then
           associate(sb => bv_s(b) % val)
-            call this % GetViscousBoundaryStress_C(b, v, sb, bv_u, xout, form)
+            call this % GetViscousBoundaryStress_V &
+                            (b, mu, nu, v, sb, bv_u, xout, form)
           end associate
         end if
       end do
@@ -149,17 +155,17 @@ contains
 
       ! fluxes .................................................................
 
-      call AddViscousFluxes(mesh, eop, a, n, Ji, mu, nu, vm, sm, vp, sp, F_d )
+      call AddViscousFluxes(mesh, eop, a, n, Ji, mu_mod, nu, vm, sm, vp, sp, F_d )
 
       ! cleanup ................................................................
 
       !$omp master
-      deallocate(bv_s, tr, buf_tr)
+      deallocate(bv_s, tr, buf_tr, mu_mod)
       !$omp end master
 
     end associate
 
-  end subroutine GetDiffusionTerm_C
+  end subroutine GetDiffusionTerm_V
 
   !-----------------------------------------------------------------------------
   !> Compute & add viscous fluxes
@@ -181,10 +187,10 @@ contains
     real(RNP), contiguous, intent(in) :: Ji(0:,0:,0:,:,:,:)
     !< inverse Jacobian of element mapping (0:po,0:po,0:po,ne,3,3)
 
-    real(RNP), intent(in) :: mu
+    real(RNP), contiguous, intent(in) :: mu(0:,0:,0:,:)
     !< kinematic bulk viscosity
 
-    real(RNP), intent(in) :: nu
+    real(RNP), contiguous, intent(in) :: nu(0:,0:,0:,:)
     !< kinematic shear viscosity
 
     real(RNP), contiguous, intent(in) :: vm(0:,0:,:,:,:)
@@ -226,7 +232,7 @@ contains
     case default
       call Error( 'AddFluxes'                               &
                 , 'Precision not supported'                 &
-                , 'INS__Operator__3D:MP_GetDiffusionTerm_C' )
+                , 'INS__Operator__3D:MP_GetDiffusionTerm_V' )
     end select
     !$omp end single
 
@@ -235,8 +241,6 @@ contains
     associate(po => eop % po, Ms => eop % w, Ds => eop % D)
 
       ! auxiliaries ............................................................
-
-      chi = mu - 2 * THIRD * nu
 
       ! face standard mass matrix
       do j = 0, po
@@ -270,15 +274,16 @@ contains
               dv2 = vm(j,k,f,e,2) - vp(j,k,f,e,2)
               dv3 = vm(j,k,f,e,3) - vp(j,k,f,e,3)
 
-              tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3 )
+              chi = mu(i,j,k,e) - 2 * THIRD * nu(i,j,k,e)
+              tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3)
 
-              tau(1,1) = nu * 2 * n1 * dv1 + tmp
-              tau(2,2) = nu * 2 * n2 * dv2 + tmp
-              tau(3,3) = nu * 2 * n3 * dv3 + tmp
+              tau(1,1) = nu(i,j,k,e) * 2 * n1 * dv1 + tmp
+              tau(2,2) = nu(i,j,k,e) * 2 * n2 * dv2 + tmp
+              tau(3,3) = nu(i,j,k,e) * 2 * n3 * dv3 + tmp
 
-              tau(1,2) = nu * (n1 * dv2 + n2 * dv1)
-              tau(2,3) = nu * (n2 * dv3 + n3 * dv2)
-              tau(3,1) = nu * (n3 * dv1 + n1 * dv3)
+              tau(1,2) = nu(i,j,k,e) * (n1 * dv2 + n2 * dv1)
+              tau(2,3) = nu(i,j,k,e) * (n2 * dv3 + n3 * dv2)
+              tau(3,1) = nu(i,j,k,e) * (n3 * dv1 + n1 * dv3)
 
               tau(2,1) = tau(1,2)
               tau(1,3) = tau(3,1)
@@ -359,15 +364,16 @@ contains
               dv2 = vm(i,k,f,e,2) - vp(i,k,f,e,2)
               dv3 = vm(i,k,f,e,3) - vp(i,k,f,e,3)
 
-              tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3 )
+              chi = mu(i,j,k,e) - 2 * THIRD * nu(i,j,k,e)
+              tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3)
 
-              tau(1,1) = nu * 2 * n1 * dv1 + tmp
-              tau(2,2) = nu * 2 * n2 * dv2 + tmp
-              tau(3,3) = nu * 2 * n3 * dv3 + tmp
+              tau(1,1) = nu(i,j,k,e) * 2 * n1 * dv1 + tmp
+              tau(2,2) = nu(i,j,k,e) * 2 * n2 * dv2 + tmp
+              tau(3,3) = nu(i,j,k,e) * 2 * n3 * dv3 + tmp
 
-              tau(1,2) = nu * (n1 * dv2 + n2 * dv1)
-              tau(2,3) = nu * (n2 * dv3 + n3 * dv2)
-              tau(3,1) = nu * (n3 * dv1 + n1 * dv3)
+              tau(1,2) = nu(i,j,k,e) * (n1 * dv2 + n2 * dv1)
+              tau(2,3) = nu(i,j,k,e) * (n2 * dv3 + n3 * dv2)
+              tau(3,1) = nu(i,j,k,e) * (n3 * dv1 + n1 * dv3)
 
               tau(2,1) = tau(1,2)
               tau(1,3) = tau(3,1)
@@ -447,15 +453,16 @@ contains
               dv2 = vm(i,j,f,e,2) - vp(i,j,f,e,2)
               dv3 = vm(i,j,f,e,3) - vp(i,j,f,e,3)
 
+              chi = mu(i,j,k,e) - 2 * THIRD * nu(i,j,k,e)
               tmp = chi * (n1 * dv1 + n2 * dv2 + n3 * dv3 )
 
-              tau(1,1) = nu * 2 * n1 * dv1 + tmp
-              tau(2,2) = nu * 2 * n2 * dv2 + tmp
-              tau(3,3) = nu * 2 * n3 * dv3 + tmp
+              tau(1,1) = nu(i,j,k,e) * 2 * n1 * dv1 + tmp
+              tau(2,2) = nu(i,j,k,e) * 2 * n2 * dv2 + tmp
+              tau(3,3) = nu(i,j,k,e) * 2 * n3 * dv3 + tmp
 
-              tau(1,2) = nu * (n1 * dv2 + n2 * dv1)
-              tau(2,3) = nu * (n2 * dv3 + n3 * dv2)
-              tau(3,1) = nu * (n3 * dv1 + n1 * dv3)
+              tau(1,2) = nu(i,j,k,e) * (n1 * dv2 + n2 * dv1)
+              tau(2,3) = nu(i,j,k,e) * (n2 * dv3 + n3 * dv2)
+              tau(3,1) = nu(i,j,k,e) * (n3 * dv1 + n1 * dv3)
 
               tau(2,1) = tau(1,2)
               tau(1,3) = tau(3,1)
@@ -625,4 +632,4 @@ contains
 
   !=============================================================================
 
-end submodule MP_GetDiffusionTerm_C
+end submodule MP_GetDiffusionTerm_V

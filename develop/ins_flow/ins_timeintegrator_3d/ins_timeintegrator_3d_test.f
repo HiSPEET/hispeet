@@ -87,7 +87,7 @@ program INS_TimeIntegrator_3D_Test
 
   namelist/control_prm/ time_method
 
-  type(INS_OperatorOptions_3D) :: ins_op_opts
+  type(INS_OperatorOptions_3D)                   :: ins_op_opts
   type(INS_TimeIntegrator_Euler_Options_3D)      :: ins_ti_euler_opts
   type(INS_TimeIntegrator_BDF2_Options_3D)       :: ins_ti_bdf2_opts
   type(INS_TimeIntegrator_RungeKutta_Options_3D) :: ins_ti_runge_kutta_opts
@@ -105,8 +105,9 @@ program INS_TimeIntegrator_3D_Test
 
   logical :: export_vtk = .false.  ! generate VTK files
   integer :: char_freq  = 1        ! characteristics output frequency
+  integer :: avg_rate   = 0        ! sampling rate for averaging, 0 if none
 
-  namelist/control_prm/ export_vtk, char_freq
+  namelist/control_prm/ export_vtk, char_freq, avg_rate
 
   ! control of logging levels
   namelist/control_prm/ log_level
@@ -167,6 +168,8 @@ program INS_TimeIntegrator_3D_Test
   real(RNP), pointer, contiguous, save :: err_v(:,:,:,:,:) ! velocity error
   real(RNP), pointer, contiguous, save :: err_p(:,:,:,:)   ! pressure error
 
+  real(RNP), pointer, contiguous, save :: q_avg(:,:,:,:,:) ! averaged quantities
+
   real(RNP), allocatable, save :: w(:,:,:,:,:)   ! workspace
 
   type(BoundaryVariable_3D), allocatable, save :: bv_vn(:) ! n⋅v on Γ=∂Ω
@@ -181,7 +184,7 @@ program INS_TimeIntegrator_3D_Test
   real(RNP) :: domain_volume
   logical   :: exists, last, passed, restart_in, restart_out
   integer   :: io, stat
-  integer   :: n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po
+  integer   :: n_avg, n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po
   integer   :: i, nt
 
   !-----------------------------------------------------------------------------
@@ -242,6 +245,7 @@ program INS_TimeIntegrator_3D_Test
   call XMPI_Bcast(nt_max         , 0, comm)
   call XMPI_Bcast(export_vtk     , 0, comm)
   call XMPI_Bcast(char_freq      , 0, comm)
+  call XMPI_Bcast(avg_rate       , 0, comm)
   call XMPI_Bcast(restart_tag_in , 0, comm)
   call XMPI_Bcast(restart_tag_out, 0, comm)
 
@@ -357,7 +361,16 @@ program INS_TimeIntegrator_3D_Test
   ! variables ..................................................................
 
   po = ins_op % eop_v % po
-  n_var = 12
+  n_var = 4
+
+  if (problem % HasExactSolution()) then
+    n_var = n_var + 8
+  end if
+
+  if (avg_rate > 0) then
+    n_var = n_var + 10
+  end if
+
 
   allocate(var(0:po,0:po,0:po,1:n_elem,1:n_var), source = ZERO)
   allocate(var_name(1:n_var))
@@ -368,17 +381,43 @@ program INS_TimeIntegrator_3D_Test
 
   var_name(1:4) = [ 'v_x', 'v_y', 'v_z', 'p  ']
 
-  u_ex(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,5:8)
-  v_ex(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,5:7)
-  p_ex(0:,0:,0:,1:)     =>  var(:,:,:,:,8)
+  i = 4
 
-  var_name(5:8) = [ 'v_x__exact', 'v_y__exact', 'v_z__exact', 'p__exact  ']
+  if (problem % HasExactSolution()) then
 
-  err_u(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,9:12)
-  err_v(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,9:11)
-  err_p(0:,0:,0:,1:)     =>  var(:,:,:,:,12)
+    u_ex(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,i+1:i+4)
+    v_ex(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,i+1:i+3)
+    p_ex(0:,0:,0:,1:)     =>  var(:,:,:,:,i+1)
 
-  var_name(9:12) = [ 'error(v_x)', 'error(v_y)', 'error(v_z)', 'error(p)  ']
+    var_name(i+1:i+4) = [ 'v_x__exact', 'v_y__exact', 'v_z__exact', 'p__exact  ']
+
+    i = i + 4
+
+    err_u(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,i+1:i+4)
+    err_v(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,i+1:i+3)
+    err_p(0:,0:,0:,1:)     =>  var(:,:,:,:,i+1)
+
+    var_name(9:12) = [ 'error(v_x)', 'error(v_y)', 'error(v_z)', 'error(p)  ']
+
+    i = i + 4
+
+  end if
+
+  if (avg_rate > 0) then
+    q_avg(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,i+1:i+10)
+    var_name(i+ 1) = '⟨v_x⟩'
+    var_name(i+ 2) = '⟨v_y⟩'
+    var_name(i+ 3) = '⟨v_z⟩'
+    var_name(i+ 4) = '⟨p⟩'
+    var_name(i+ 5) = '⟨v_x v_x⟩'
+    var_name(i+ 6) = '⟨v_x v_y⟩'
+    var_name(i+ 7) = '⟨v_x v_z⟩'
+    var_name(i+ 8) = '⟨v_y v_y⟩'
+    var_name(i+ 9) = '⟨v_y v_z⟩'
+    var_name(i+10) = '⟨v_z v_z⟩'
+  else
+    q_avg => null()
+  end if
 
   allocate(w(0:po,0:po,0:po,1:n_elem,1:4) )
 
@@ -386,11 +425,12 @@ program INS_TimeIntegrator_3D_Test
 
   if (restart_in) then
     data_file = trim(flow_case) // '_' // trim(restart_tag_in) // '_data'
-    call ReadRestartData(data_file, rank, t, u)
+    call ReadRestartData(data_file, rank, t, u, n_avg, q_avg)
     call XMPI_Bcast(t, 0, comm)
   else
     call problem % GetInitialValues(ins_op % sem_v % metrics % x, u)
     t = 0
+    n_avg = 0
   end if
 
   ! time scales
@@ -438,6 +478,9 @@ program INS_TimeIntegrator_3D_Test
   do nt = 1, nt_max
     last = t + dt >= t_end .or. nt == nt_max
     call ins_ti % TimeStep(t, dt, u, standby = .not. last)
+    if (avg_rate > 0 .and. mod(nt, max(avg_rate,1)) == 0) then
+      call TemporalAveraging(u, q_avg, n_avg)
+    end if
     if (mod(nt, char_freq) == 0) then
       call flow_char % Evaluate(problem, ins_op, t, u, domain_volume)
       call flow_char % PrintValues()
@@ -450,7 +493,7 @@ program INS_TimeIntegrator_3D_Test
 
   ! errors .....................................................................
 
-  if (ins_op % mesh % part >= 0) then
+  if (problem % HasExactSolution() .and. ins_op % mesh % part >= 0) then
 
     call problem % GetExactSolution(ins_op % sem_v % metrics % x, t, u_ex)
 
@@ -511,7 +554,7 @@ program INS_TimeIntegrator_3D_Test
     ! mesh
     call ins_op % mesh % WriteHDF5(mesh_file)
     ! flow data
-    call WriteRestartData(data_file, rank, t, u)
+    call WriteRestartData(data_file, rank, t, u, n_avg, q_avg)
   end if
 
   !-----------------------------------------------------------------------------
@@ -524,19 +567,23 @@ contains
   !-----------------------------------------------------------------------------
   !> Write restart data
 
-  subroutine WriteRestartData(file, rank, t, u)
+  subroutine WriteRestartData(file, rank, t, u, n_avg, q_avg)
     use, intrinsic ::  ISO_C_Binding
     use Kind_Parameters
     use HDF5_Binding
     implicit none
 
-    character(len=*),  intent(in) :: file              !< file base name
-    integer,           intent(in) :: rank              !< process rank
-    real(RNP), target, intent(in) :: t                 !< problem time
-    real(RNP), target, intent(in) :: u(0:,0:,0:,:,:)   !< variables
+    character(len=*),  intent(in) :: file                !< file base name
+    integer,           intent(in) :: rank                !< process rank
+    real(RNP), target, intent(in) :: t                   !< problem time
+    real(RNP), target, intent(in) :: u(0:,0:,0:,:,:)     !< variables
+    integer,   target, intent(in) :: n_avg               !< averaging counter
+    real(RNP), target, intent(in) :: q_avg(0:,0:,0:,:,:) !< averaged quantities
+
+    optional :: q_avg
 
     integer(hid_t)    :: data_id, file_id, group_id, space_id
-    integer(hsize_t)  :: dims_t(1), dims_var(5)
+    integer(hsize_t)  :: dims_t(1), dims_n(1), dims_var(5)
     integer           :: err
     character(len=80) :: tag
     character(len=:), allocatable :: file_pr
@@ -567,6 +614,24 @@ contains
     call H5Sclose_f(space_id, err)
     call H5Dclose_f(data_id, err)
 
+    ! n_avg
+    dims_n = 1
+    call H5Screate_simple_f(size(dims_n), dims_n, space_id, err)
+    call H5Dcreate_f(group_id, 'n_avg', H5T_INTEGER, space_id, data_id, err)
+    call H5Dwrite_f(data_id, H5T_INTEGER, C_Loc(n_avg), err)
+    call H5Sclose_f(space_id, err)
+    call H5Dclose_f(data_id, err)
+
+    ! q_avg
+    if (present(q_avg)) then
+      dims_var = shape(q_avg)
+      call H5Screate_simple_f(size(dims_var), dims_var, space_id, err)
+      call H5Dcreate_f(group_id, 'q_avg', H5T_REAL_RNP, space_id, data_id, err)
+      call H5Dwrite_f(data_id, H5T_REAL_RNP, C_Loc(q_avg), err)
+      call H5Sclose_f(space_id, err)
+      call H5Dclose_f(data_id, err)
+    end if
+
     ! release resources
     call H5Gclose_f(group_id, err)
     call H5Fclose_f(file_id, err)
@@ -576,17 +641,21 @@ contains
   !-----------------------------------------------------------------------------
   !> Read restart data
 
-  subroutine ReadRestartData(file, rank, t, u)
+  subroutine ReadRestartData(file, rank, t, u, n_avg, q_avg)
     use, intrinsic ::  ISO_C_Binding
     use Kind_Parameters
     use Execution_Control
     use HDF5_Binding
     implicit none
 
-    character(len=*),  intent(in)    :: file              !< file base name
-    integer,           intent(in)    :: rank              !< process rank
-    real(RNP), target, intent(inout) :: t                 !< problem time
-    real(RNP), target, intent(inout) :: u(0:,0:,0:,:,:)   !< variables
+    character(len=*),  intent(in)    :: file                !< file base name
+    integer,           intent(in)    :: rank                !< process rank
+    real(RNP), target, intent(inout) :: t                   !< problem time
+    real(RNP), target, intent(inout) :: u(0:,0:,0:,:,:)     !< variables
+    integer,   target, intent(inout) :: n_avg               !< averaging counter
+    real(RNP), target, intent(inout) :: q_avg(0:,0:,0:,:,:) !< averaged quantities
+
+    optional :: q_avg
 
     integer(hid_t)    :: data_id, file_id, group_id, space_id, type_id
     integer(hsize_t)  :: dims_var(5), maxdims_var(5)
@@ -630,11 +699,79 @@ contains
     call H5Tclose_f(type_id, err)
     call H5Dclose_f(data_id, err)
 
+    ! n_avg
+    buf = C_Loc(n_avg)
+    call H5Dopen_f(group_id, 'n_avg', data_id, err)
+    call H5Dget_type_f(data_id, type_id, err)
+    call H5Dread_f(data_id, type_id, buf, err)
+    call H5Tclose_f(type_id, err)
+    call H5Dclose_f(data_id, err)
+
+    ! q_avg
+    if (n_avg > 0 .and. present(q_avg)) then
+      buf = C_Loc(q_avg)
+      call H5Dopen_f(group_id, 'q_avg', data_id, err)
+      call H5Dget_space_f(data_id, space_id, err)
+      call H5Sget_simple_extent_dims_f(space_id, dims_var, maxdims_var, err)
+      if (any(dims_var /= shape(q_avg))) then
+        call Error('ReadRestartData','shape(q_avg) not matching')
+      end if
+      call H5Dget_type_f(data_id, type_id, err)
+      call H5Dread_f(data_id, type_id, buf, err)
+      call H5Tclose_f(type_id, err)
+      call H5Dclose_f(data_id, err)
+    end if
+
     ! release resources
     call H5Gclose_f(group_id, err)
     call H5Fclose_f(file_id, err)
 
   end subroutine ReadRestartData
+
+  !-----------------------------------------------------------------------------
+  !> Temporal averaging
+
+  subroutine TemporalAveraging(u, q_avg, n_avg)
+    real(RNP), contiguous, intent(in)    :: u(:,:,:,:,:)     !< sample
+    real(RNP), contiguous, intent(inout) :: q_avg(:,:,:,:,:) !< avg quantities
+    integer,               intent(inout) :: n_avg            !< counter
+
+    real(RNP) :: wa, ws
+    integer   :: e, i, j, k, ne, np
+
+    n_avg = n_avg + 1
+    if (n_avg > 1) then
+      wa = real(n_avg - 1, RNP) / n_avg   ! weight of current average
+      ws = ONE - wa                       ! weight of sample
+    else
+      wa = 0
+      ws = 1
+    end if
+
+    np = size(u,1)
+    ne = size(u,4)
+
+    !$omp do
+    do e = 1, ne
+      do k = 1, np
+      do j = 1, np
+      do i = 1, np
+        q_avg(i,j,k,e, 1) = wa * q_avg(i,j,k,e, 1) + ws * u(i,j,k,e,1)
+        q_avg(i,j,k,e, 2) = wa * q_avg(i,j,k,e, 2) + ws * u(i,j,k,e,2)
+        q_avg(i,j,k,e, 3) = wa * q_avg(i,j,k,e, 3) + ws * u(i,j,k,e,3)
+        q_avg(i,j,k,e, 4) = wa * q_avg(i,j,k,e, 4) + ws * u(i,j,k,e,4)
+        q_avg(i,j,k,e, 5) = wa * q_avg(i,j,k,e, 5) + ws * u(i,j,k,e,1) * u(i,j,k,e,1)
+        q_avg(i,j,k,e, 6) = wa * q_avg(i,j,k,e, 6) + ws * u(i,j,k,e,1) * u(i,j,k,e,2)
+        q_avg(i,j,k,e, 7) = wa * q_avg(i,j,k,e, 7) + ws * u(i,j,k,e,1) * u(i,j,k,e,3)
+        q_avg(i,j,k,e, 8) = wa * q_avg(i,j,k,e, 8) + ws * u(i,j,k,e,2) * u(i,j,k,e,2)
+        q_avg(i,j,k,e, 9) = wa * q_avg(i,j,k,e, 9) + ws * u(i,j,k,e,2) * u(i,j,k,e,3)
+        q_avg(i,j,k,e,10) = wa * q_avg(i,j,k,e,10) + ws * u(i,j,k,e,3) * u(i,j,k,e,3)
+      end do
+      end do
+      end do
+    end do
+
+  end subroutine TemporalAveraging
 
   !=============================================================================
 

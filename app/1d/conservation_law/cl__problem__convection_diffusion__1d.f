@@ -331,6 +331,7 @@ contains
 
     character :: elliptic_bc(2)
     real(RNP) :: elliptic_bv(2)
+    real(RNP) :: nu_0
 
     logical :: has_pd ! switch for physical diffusion
     logical :: has_dc ! switch for physical diffusion
@@ -371,7 +372,7 @@ contains
       allocate(nu(0:po,ne), source = ZERO)
       allocate(f(0:po,ne),  source = ZERO)
 
-      if (has_dc .or. has_sd) then
+      if (has_dc) then
 
         ! variable total diffusivity ...........................................
 
@@ -387,15 +388,17 @@ contains
                                                  , r      = r_d(:,:,1)       &
                                                  , mask   = mask             )
 
-      else if (has_pd .and. this % nu > 0) then
+      else if (has_sd .or. has_pd .and. this % nu > 0) then
 
-        ! constant physical diffusivity ........................................
+        ! constant diffusivity .................................................
+
+        nu_0 = max(this%nu, ZERO) + theta/2 * this%v**2
 
         call cl_operator % elliptic_op % Residual( elliptic_bc               &
                                                  , elliptic_bv               &
                                                  , dx     = cl_operator % dx &
                                                  , lambda = ZERO             &
-                                                 , nu     = this % nu        &
+                                                 , nu     = nu_0             &
                                                  , f      = f                &
                                                  , u      = u  (:,:,1)       &
                                                  , r      = r_d(:,:,1)       &
@@ -659,7 +662,7 @@ contains
     logical   :: has_variable_nu
     character :: elliptic_bc(2)
     real(RNP) :: elliptic_bv(2)
-    real(RNP) :: lambda
+    real(RNP) :: lambda, nu_0
     integer   :: e, i
 
     associate( po          => cl_operator % eop % po    &
@@ -670,7 +673,7 @@ contains
              , elliptic_op => cl_operator % elliptic_op )
 
       ! check for variable diffusivity
-      has_variable_nu = 0 < this%dc_diffusivity .or. 0 < theta
+      has_variable_nu = 0 < this%dc_diffusivity
 
       ! elliptic boundary conditions
       do i = 1, 2
@@ -710,9 +713,9 @@ contains
 
         select case(method)
         case(1)
-          call Error( 'DiffusionSolver'             &
-                    , 'method 1 not suited for ISD' &
-                    , 'CL__Problem__Burgers__1D'    )
+          call Error( 'DiffusionSolver'                              &
+                    , 'method 1 not suited for variable diffusivity' &
+                    , 'CL__Problem__Burgers__1D'                     )
         case(2)
           call elliptic_op % CG_Method &
                   ( elliptic_bc, elliptic_bv, dx, lambda, nu, g, u(:,:,1) &
@@ -729,21 +732,28 @@ contains
 
       else
 
+        nu_0 = max(this%nu, ZERO) + theta/2 * this%v**2
+
         select case(method)
         case(1)
+          if (.not. cl_operator % eop % hybrid) then
+            call Error( 'DiffusionSolver'                              &
+                      , 'method 1 requires hybrid DG element operator' &
+                      , 'CL__Problem__Burgers__1D'                     )
+          end if
           call elliptic_op % HybridSolver &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, this%nu, g, u(:,:,1) )
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_0, g, u(:,:,1))
         case(2)
           call elliptic_op % CG_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, this%nu, g, u(:,:,1) &
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_0, g, u(:,:,1) &
                   , i_max, r_red, r_max, mask )
         case(3)
           call elliptic_op % Schwarz_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, this%nu, g, u(:,:,1) &
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_0, g, u(:,:,1) &
                   , i_max, r_red, r_max, mask )
         case(4)
           call elliptic_op % SchwarzPCG_Method &
-                  ( elliptic_bc, elliptic_bv, dx, lambda, this%nu, g, u(:,:,1) &
+                  ( elliptic_bc, elliptic_bv, dx, lambda, nu_0, g, u(:,:,1) &
                   , i_max, r_red, r_max, mask )
         end select
 

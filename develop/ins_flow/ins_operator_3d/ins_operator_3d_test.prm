@@ -1,13 +1,13 @@
 &control_prm
 ! flow_problem =  'Vortex_TG'
 ! problem_file =  'vortex_tg'
-  flow_domain  =  3
+  flow_domain  =  1
   problem_file =  'variable_viscosity'
   flow_problem =  'VariableViscosity'
 !
 ! ins_op_opts%mu_0 = 0.1
-  ins_op_opts%eop_v%StandardOperatorOptions_1D%po =  7 ! %StandardOperatorOptions_1D
-  ins_op_opts%eop_p%StandardOperatorOptions_1D%po =  6 ! required with ifort < 2021.7
+  ins_op_opts%eop_v%StandardElementOptions_1D%po =  7 ! %StandardElementOptions_1D
+  ins_op_opts%eop_p%StandardElementOptions_1D%po =  6 ! required with ifort < 2021.7
   ins_op_opts%sop_q%po = 11
   ins_op_opts%sop_q%basis = 'L'
 !
@@ -20,9 +20,9 @@
   xo = 3*-0.5
   lx = 3*1
   np = 1,1,1
-  ep = 3*2
+  ep = 3*4
 ! pg = 1
-! periodic = 3*F
+! periodic = 3*T
 /
 
 &cuboid_diamonds_prm
@@ -33,8 +33,8 @@
 &cylinder_prm
   r  = 0.5
   h  = 1.0
-  nr = 2
-  nz = 2
+  nr = 4
+  nz = 4
   pg = 15
 ! periodic = F
 /

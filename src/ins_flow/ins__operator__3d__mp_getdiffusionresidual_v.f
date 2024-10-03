@@ -1,26 +1,29 @@
-!> summary:  Homogeneous incompressible Navier-Stokes DG-SEM diffusion operator
+!> summary:  Incompressible Navier-Stokes DG-SEM diffusion residual (DV)
 !> author:   Joerg Stiller
-!> date:     2022/09/26
+!> date:     2024/09/30
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(INS__Operator__3D) MP_ApplyDiffusionOperator_C
+submodule(INS__Operator__3D) MP_GetDiffusionResidual_V
   implicit none
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Homogeneous diffusion operator with constant viscosity
+  !> Diffusion residual with constant viscosity
   !>
-  !> Computes the homogeneous DG-SEM viscous diffusion operator including the
-  !> implicit part of the discretized time derivative, i.e.,
+  !> Computes the DG-SEM residual of  of the viscous diffusion term including
+  !> the implicit part of the discretized time derivative, i.e.,
   !>
-  !>     r = Mv/τ - Fd(v, vb=0, sb=0)
+  !>     r = Fd(v, vb, sb) - Mv/τ + Mf
   !>
   !> where `Fd` is the weak form of the diffusion term for the given velocity
-  !> `v` with zero boundary values `vb`, `sb` and `M` is diagonal mass matrix.
+  !> `v` and boundary values `vb`, `sb` obtained from the boundary variable
+  !> `bv_u`, `M` is the diagonal mass matrix and `f` the nodal coefficients of
+  !> the sources, which comprise the remaining coefficients of the momentum
+  !> equation.
 
-  module subroutine ApplyDiffusionOperator_C(this, tau, v, r, form)
+  module subroutine GetDiffusionResidual_V(this, tau, mu, nu, f, bv_u, v, r, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -28,18 +31,36 @@ contains
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
 
+    real(RNP), contiguous, intent(in) :: mu(:,:,:,:)
+    !< kinematic bulk viscosity μ (np,np,np,ne)
+
+    real(RNP), contiguous, intent(in) :: nu(:,:,:,:)
+    !< kinematic shear viscosity ν (np,np,np,ne)
+
+    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
+    !< sources, f(np,np,np,ne,3)
+
+    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
+    !< boundary values
+    !!   - at ∂Ωᴰ
+    !!       *  bv_u % val(*,1:3)  =  vᵇ          (inout)
+    !!       *  bv_u % val(*, 4 )  =  ∂p/∂n       (out)
+    !!   - at ∂Ωᴼ
+    !!       *  bv_u % val(*, 4 )  =  pᵇ          (inout)
+    !!       *  bv_u % val(*, 5 )  =  ∆pᵇ         (in)
+
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)
 
     real(RNP), contiguous, intent(out) :: r(:,:,:,:,:)
-    !< result, r(np,np,np,ne,3)
+    !< residual, r(np,np,np,ne,3)
 
     integer, optional, intent(in) :: form
     !< form of `∇⋅τ`: 0/1/2 ↔︎ default/diffusion/rotational [0]
 
     ! local variables ..........................................................
 
-    real(RNP), allocatable, save :: mm(:,:,:,:)   ! diagonal mass matrix
+    real(RNP), allocatable, save :: mm(:,:,:,:)   ! diagonal mass matrix M
     real(RNP), allocatable, save :: vp(:,:,:,:,:) ! velocity traces v⁺
     real(RNP), allocatable, save :: sp(:,:,:,:,:) ! viscous flux traces s⁺
 
@@ -64,14 +85,15 @@ contains
 
       lambda = 1 / tau
 
-      ! computation ............................................................
+      ! compute residual .......................................................
 
-      call this % GetDiffusionTerm_C(v, vp, sp, r, form=form)
+      call this % GetDiffusionTerm_V(mu, nu, v, vp, sp, r, bv_u, form=form)
 
       !$omp do collapse(2)
       do e = 1, mesh % n_elem
         do d = 1, 3
-          r(:,:,:,e,d) = lambda * mm(:,:,:,e) * v(:,:,:,e,d) - r(:,:,:,e,d)
+          r(:,:,:,e,d) = r(:,:,:,e,d) &
+                       + mm(:,:,:,e) * (f(:,:,:,e,d) - lambda * v(:,:,:,e,d))
         end do
       end do
 
@@ -83,8 +105,8 @@ contains
 
     end associate
 
-  end subroutine ApplyDiffusionOperator_C
+  end subroutine GetDiffusionResidual_V
 
   !=============================================================================
 
-end submodule MP_ApplyDiffusionOperator_C
+end submodule MP_GetDiffusionResidual_V

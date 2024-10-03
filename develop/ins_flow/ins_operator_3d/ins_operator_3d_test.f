@@ -102,6 +102,7 @@ program INS_Operator_3D_Test
   real(RNP), pointer, contiguous :: u(:,:,:,:,:)    ! u = [v,p]
   real(RNP), pointer, contiguous :: v(:,:,:,:,:)    ! velocity
   real(RNP), pointer, contiguous :: p(:,:,:,:)      ! pressure
+  real(RNP), pointer, contiguous :: nu(:,:,:,:)     ! shear viscosity ν
   real(RNP), pointer, contiguous :: F_ce(:,:,:,:,:) ! exact  F_c = -∇⋅vv
   real(RNP), pointer, contiguous :: F_de(:,:,:,:,:) ! exact  F_d =  ∇⋅τ
   real(RNP), pointer, contiguous :: F_pe(:,:,:,:,:) ! exact  F_p = -∇p
@@ -111,6 +112,7 @@ program INS_Operator_3D_Test
   real(RNP), pointer, contiguous :: p_h(:,:,:,:)    ! approx p
 
   real(RNP), allocatable :: mm(:,:,:,:)    ! diagonal mass matrix
+  real(RNP), allocatable :: mu(:,:,:,:)    ! bulk viscosity μ
   real(RNP), allocatable :: up(:,:,:,:,:)  ! exterior traces u⁺
   real(RNP), allocatable :: sp(:,:,:,:,:)  ! exterior traces s⁺ = n⋅τ⁺
   real(RNP), allocatable :: w(:,:,:,:,:)   ! workspace
@@ -234,38 +236,40 @@ program INS_Operator_3D_Test
 
   po = ins_op % eop_v % po
   pq = ins_op % eop_p % po
-  n_var = 23
+  n_var = 24
 
   allocate(var(0:po,0:po,0:po,1:n_elem,1:n_var), source = ZERO)
   allocate(var_name(1:n_var))
 
-  u(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,1:4)
-  v(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,1:3)
-  p(0:,0:,0:,1:)     =>  var(:,:,:,:,4)
+  u (0:,0:,0:,1:,1:)  =>  var(:,:,:,:,1:4)
+  v (0:,0:,0:,1:,1:)  =>  var(:,:,:,:,1:3)
+  p (0:,0:,0:,1:)     =>  var(:,:,:,:,4)
+  nu(0:,0:,0:,1:)     =>  var(:,:,:,:,5)
 
-  var_name(1:4) = [ 'v_x', 'v_y', 'v_z', 'p  ']
+  var_name(1:5) = [ 'v_x', 'v_y', 'v_z', 'p  ', 'nu ']
 
-  F_ce(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,  5 :  7)
-  F_de(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,  8 : 10)
-  F_pe(0:,0:,0:,1:,1:)  =>  var(:,:,:,:, 11 : 13)
+  F_ce(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,  6 :  8)
+  F_de(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,  9 : 11)
+  F_pe(0:,0:,0:,1:,1:)  =>  var(:,:,:,:, 12 : 14)
 
-  var_name(5:13) = [ 'F_ce_x', 'F_ce_y', 'F_ce_z' &
+  var_name(6:14) = [ 'F_ce_x', 'F_ce_y', 'F_ce_z' &
                    , 'F_de_x', 'F_de_y', 'F_de_z' &
                    , 'F_pe_x', 'F_pe_y', 'F_pe_z' ]
 
-  F_ch(0:,0:,0:,1:,1:)  =>  var(:,:,:,:, 14 : 16)
-  F_dh(0:,0:,0:,1:,1:)  =>  var(:,:,:,:, 17 : 19)
-  F_ph(0:,0:,0:,1:,1:)  =>  var(:,:,:,:, 20 : 22)
+  F_ch(0:,0:,0:,1:,1:)  =>  var(:,:,:,:, 15 : 17)
+  F_dh(0:,0:,0:,1:,1:)  =>  var(:,:,:,:, 18 : 20)
+  F_ph(0:,0:,0:,1:,1:)  =>  var(:,:,:,:, 21 : 23)
 
-  var_name(14:22) = [ 'F_ch_x', 'F_ch_y', 'F_ch_z' &
+  var_name(15:23) = [ 'F_ch_x', 'F_ch_y', 'F_ch_z' &
                     , 'F_dh_x', 'F_dh_y', 'F_dh_z' &
                     , 'F_ph_x', 'F_ph_y', 'F_ph_z' ]
 
-  p_h(0:,0:,0:,1:)  =>  var(:,:,:,:,23)
+  p_h(0:,0:,0:,1:)  =>  var(:,:,:,:,24)
 
-  var_name(23) = 'p_h'
+  var_name(24) = 'p_h'
 
   allocate(mm (0:po,0:po,0:po,1:n_elem)     )
+  allocate(mu (0:po,0:po,0:po,1:n_elem)     )
   allocate(w  (0:po,0:po,0:po,1:n_elem,1:4) )
 
   allocate(up (0:po,0:po,1:6,1:n_elem,1:4), source = ZERO )
@@ -297,11 +301,14 @@ program INS_Operator_3D_Test
   associate(x => ins_op % sem_v % metrics % x)
 
     call problem % GetExactSolution       (x, t, u)
+    call problem % GetViscosity           (x, t, u, nu)
     call problem % GetExactConvectiveTerm (x, t, F_ce)
     call problem % GetExactDiffusiveTerm  (x, t, F_de)
     call problem % GetExactPressureTerm   (x, t, F_pe)
 
   end associate
+
+  call SetArray(mu, ins_op % mu_0)
 
   ! traces and boundary values .................................................
 
@@ -348,9 +355,12 @@ program INS_Operator_3D_Test
   e_c = sqrt(e_c / n_point)
 
   ! viscous term: F_d = ∇·τ ....................................................
-  ! so far ν is constant and boundaries are periodic or have Dirichlet BC
 
-  call ins_op % GetDiffusionTerm(v, up, sp, w, bv_u)
+  if (problem % HasVariableProperties()) then
+    call ins_op % GetDiffusionTerm_V(mu, nu, v, up, sp, w, bv_u)
+  else
+    call ins_op % GetDiffusionTerm_C(v, up, sp, w, bv_u)
+  end if
 
   do i = 1, 3
     F_dh(:,:,:,:,i) = w(:,:,:,:,i) / mm
@@ -361,40 +371,54 @@ program INS_Operator_3D_Test
   e_d = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), comm)
   e_d = sqrt(e_d / n_point)
 
-  ! diffusion part: w = ∇·(ν ∇v) ...............................................
-  ! using F_ph as workspace for F_d1h
+  if (problem % HasVariableProperties()) then
 
-  elliptic_op = DG_EllipticOperator_3D( sem         = ins_op % sem_v          &
-                                      , dg_opt      = ins_op_opts % eop_v     &
-                                      , schwarz_opt = DG_SchwarzOptions_3D()  &
-                                      , bc          = ins_op % bc_v           )
+    ! skip comparison with diffusion part
+    e_d1 = -1
+    d_d1 = -1
 
-  allocate(bv_vi(n_bound))
+  else
 
-  associate(r => w(:,:,:,:,1), f => w(:,:,:,:,4))
+    ! diffusion part: w = ∇·(ν ∇v) .............................................
+    ! using F_ph as workspace for F_d1h
+
+    elliptic_op = DG_EllipticOperator_3D( sem         = ins_op % sem_v         &
+                                        , dg_opt      = ins_op_opts % eop_v    &
+                                        , schwarz_opt = DG_SchwarzOptions_3D() &
+                                        , bc          = ins_op % bc_v          )
+
+    allocate(bv_vi(n_bound))
+
     do i = 1, 3
+      associate(r => w(:,:,:,:,1), f => w(:,:,:,:,4), v_i => v(:,:,:,:,i))
 
-      f = 0
-      do b = 1, n_bound
-        call bv_u(b) % GetSlice(bv_vi(b), first=i, last=i)
-      end do
-      ! r = M ∇·(ν ∇vᵢ)
-      call elliptic_op % Residual(ZERO, problem%nu_ref, f, bv_vi, v(:,:,:,:,i), r)
-      ! compute nodal values
-      F_ph(:,:,:,:,i) = r / mm
+        f = 0
+        do b = 1, n_bound
+          call bv_u(b) % GetSlice(bv_vi(b), first=i, last=i)
+        end do
+        ! r = M ∇·(ν ∇vᵢ)
+        if (problem % HasVariableProperties()) then
+          call elliptic_op % Residual(ZERO, nu, f, bv_vi, v_i, r)
+        else
+          call elliptic_op % Residual(ZERO, problem%nu_ref, f, bv_vi, v_i, r)
+        end if
+        ! compute nodal values
+        F_ph(:,:,:,:,i) = r / mm
 
+      end associate
     end do
-  end associate
 
-  ! error (if ν is constant)
-  w(:,:,:,:,1:3) = F_ph - F_de
-  e_d1 = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), comm)
-  e_d1 = sqrt(e_d1 / n_point)
+    ! error (if ν is constant)
+    w(:,:,:,:,1:3) = F_ph - F_de
+    e_d1 = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), comm)
+    e_d1 = sqrt(e_d1 / n_point)
 
-  ! deviation between F_dh and F_d1h
-  w(:,:,:,:,1:3) = F_ph - F_dh
-  d_d1 = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), comm)
-  d_d1 = sqrt(d_d1 / n_point)
+    ! deviation between F_dh and F_d1h
+    w(:,:,:,:,1:3) = F_ph - F_dh
+    d_d1 = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), comm)
+    d_d1 = sqrt(d_d1 / n_point)
+
+  end if
 
   ! pressure ...................................................................
 
@@ -426,11 +450,5 @@ program INS_Operator_3D_Test
   ! Finalization
 
   call MPI_Finalize()
-
-contains
-
-  !-----------------------------------------------------------------------------
-  !>
-  !=============================================================================
 
 end program INS_Operator_3D_Test

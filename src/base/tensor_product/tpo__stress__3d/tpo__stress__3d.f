@@ -6,4 +6,5 @@
 
 module TPO__Stress__3D
   use TPO__Stress__3D_DLCI
+  use TPO__Stress__3D_DLVI
 end module TPO__Stress__3D

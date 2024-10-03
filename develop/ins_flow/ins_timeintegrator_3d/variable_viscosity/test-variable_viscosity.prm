@@ -1,8 +1,8 @@
 &control_prm
-  flow_problem =  'HagenPoiseuille'
-  problem_file =  'hagen_poiseuille'
-  flow_domain  =  3
-  time_method  =  1   ! 1 Euler, 2 BDF2, 3 Runge-Kutta
+  problem_file =  'variable_viscosity'
+  flow_problem =  'VariableViscosity'
+  flow_domain  =  1
+  time_method  =  2   ! 1 Euler, 2 BDF2, 3 Runge-Kutta
 !
 ! bulk viscosity
 !   - use μ = 0 for Stokes hypothesis
@@ -10,11 +10,11 @@
 !   - use μ = √(ν² + v²h²) for stabilization in convection dominant case
   ins_op_opts%mu_0 = 0.0 
 !
-  ins_op_opts%eop_v%StandardElementOptions_1D%po =  7
-  ins_op_opts%eop_v%penalty                       = 20
-  ins_op_opts%eop_p%StandardElementOptions_1D%po =  6
-  ins_op_opts%eop_p%penalty                       = 20
-  ins_op_opts%sop_q%po        = 11
+  ins_op_opts%eop_v%StandardElementOptions_1D%po = 16
+  ins_op_opts%eop_v%penalty                      = 20
+  ins_op_opts%eop_p%StandardElementOptions_1D%po = 15
+  ins_op_opts%eop_p%penalty                      = 20
+  ins_op_opts%sop_q%po        = 24
   ins_op_opts%sop_q%basis     = 'L'
   ins_op_opts%schwarz_p%delta = 0.25
   ins_op_opts%schwarz_v%delta = 0.25
@@ -27,7 +27,7 @@
 !
 ! BDF2 options
   ins_ti_bdf2_opts%i_max_p  = 1000  ! 1000
-  ins_ti_bdf2_opts%i_max_v  = 10    ! 1000
+  ins_ti_bdf2_opts%i_max_v  = 1000  ! 1000
   ins_ti_bdf2_opts%r_red    = 1e-10 ! 1e-12
   ins_ti_bdf2_opts%r_max    = 1e-12 ! 1e-14
 !
@@ -38,25 +38,26 @@
   ins_ti_runge_kutta_opts%n_stage  = 5     ! 5
   ins_ti_runge_kutta_opts%method   = 1     ! 1
   ins_ti_runge_kutta_opts%i_max_p  = 1000  ! 1000
-  ins_ti_runge_kutta_opts%i_max_v  = 10    ! 1000
+  ins_ti_runge_kutta_opts%i_max_v  = 1000  ! 1000
   ins_ti_runge_kutta_opts%r_red    = 1e-10 ! 1e-12
   ins_ti_runge_kutta_opts%r_max    = 1e-12 ! 1e-14
 
-  t_end  = 0.1
-  dt     = 1e-3
-  nt_max = 1000
+  t_end  = 0.25
+  dt     = 0.001
+  nt_max = 10!00
 !
   export_vtk = T                 ! set T for generating plot files
 ! char_freq  = 2                 ! set to control frequency of control output
 ! log_level_inner_iteration = 1  ! set log level > 0 for higher verbosity
 /
 
-! flow_domain = 3: pipe with radius r = 1 and length h
-&cylinder_prm
-  r  = 1.0
-  h  = 2.0
-  nr = 2
-  nz = 2
-  pg = 15
-  periodic = T
+&cuboid_cartesian_prm
+  regular    = F ! mimic irregular mesh (elements deformed or of different size)
+  structured = F ! mimic unstructured mesh
+  xo = 3*-0.5
+  lx = 3*1
+  np = 1,1,1
+  ep = 3*2
+! pg = 1
+! periodic = 3*T
 /

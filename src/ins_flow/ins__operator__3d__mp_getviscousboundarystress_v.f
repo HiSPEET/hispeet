@@ -1,25 +1,32 @@
-!> summary:  Incompressible Navier-Stokes viscous stress vector on boundary (DC)
+!> summary:  Incompressible Navier-Stokes viscous stress vector on boundary (DV)
 !> author:   Joerg Stiller
-!> date:     2023/10/12
+!> date:     2024/09/30
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(INS__Operator__3D) MP_GetViscousBoundaryStress_C
+submodule(INS__Operator__3D) MP_GetViscousBoundaryStress_V
 
   implicit none
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Viscous stress vector on a boundary (C)
+  !> Viscous stress vector on a boundary (V)
 
-  module subroutine GetViscousBoundaryStress_C(this, b, v, sb, bv_u, xout, form)
+  module subroutine GetViscousBoundaryStress_V &
+      (this, b, mu, nu, v, sb, bv_u, xout, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
 
     integer, intent(in) :: b
     !< boundary ID
+
+    real(RNP), contiguous, intent(in) :: mu(0:,0:,0:,:)
+    !< kinematic bulk viscosity μ
+
+    real(RNP), contiguous, intent(in) :: nu(0:,0:,0:,:)
+    !< kinematic shear viscosity ν
 
     real(RNP), contiguous, intent(in) :: v(0:,0:,0:,:,:)
     !< velocity
@@ -47,7 +54,8 @@ contains
     ! local variables ..........................................................
 
     real(RNP), allocatable :: grad_v(:,:,:,:)
-    real(RNP) :: chi, nu
+    real(RNP), allocatable :: chi_f(:,:), mu_f(:,:), nu_f(:,:)
+    real(RNP) :: c_mu, c_nu, d_nu
     logical   :: outflow_bc, outflow_bv
     integer   :: e, f, m
 
@@ -63,21 +71,26 @@ contains
     if (present(form)) then
       select case(form)
       case(1)
-        nu  = this % nu_0
-        chi = -nu
+        c_mu =  0
+        c_nu = -1
+        d_nu =  1
       case(2)
-        nu  = this % nu_0
-        chi = -2 * nu
+        c_mu =  0
+        c_nu = -2
+        d_nu =  1
       case(3)
-        nu  = 0
-        chi = this % nu_0
+        c_mu =  0
+        c_nu =  1
+        d_nu =  0
       case default
-        nu  = this % nu_0
-        chi = this % mu_0 - 2 * THIRD * nu
+        c_mu =  1
+        c_nu = -2 * THIRD
+        d_nu =  1
       end select
     else
-      nu  = this % nu_0
-      chi = this % mu_0 - 2 * THIRD * nu
+      c_mu =  1
+      c_nu = -2 * THIRD
+      d_nu =  1
     end if
 
     associate( boundary => this % sem_v % mesh % boundary(b) &
@@ -88,7 +101,8 @@ contains
 
       ! workspace ..............................................................
 
-      allocate(grad_v(0:po,0:po,3,3))
+      allocate(grad_v(0:po,0:po,3,3), chi_f(0:po,0:po))
+      allocate(mu_f, nu_f, mold = chi_f)
 
       !$omp do
       do f = 1, boundary % n_face
@@ -101,7 +115,30 @@ contains
           call ApplyOutflowBC(e, m, po, n, grad_v)
         end if
 
-        call GetViscousStressVector(f, e, m, po, n, chi, nu, grad_v, sb)
+        select case(m)
+        case(1)
+          mu_f = mu( 0,:,:,e)
+          nu_f = nu( 0,:,:,e)
+        case(2)
+          mu_f = mu(po,:,:,e)
+          nu_f = nu(po,:,:,e)
+        case(3)
+          mu_f = mu(:, 0,:,e)
+          nu_f = nu(:, 0,:,e)
+        case(4)
+          mu_f = mu(:,po,:,e)
+          nu_f = nu(:,po,:,e)
+        case(5)
+          mu_f = mu(:,:, 0,e)
+          nu_f = nu(:,:, 0,e)
+        case(6)
+          mu_f = mu(:,:,po,e)
+          nu_f = nu(:,:,po,e)
+        end select
+        chi_f = c_mu * nu_f + c_nu * nu_f
+        nu_f  = d_nu * nu_f
+
+        call GetViscousStressVector(f, e, m, po, n, chi_f, nu_f, grad_v, sb)
 
         if (outflow_bv) then
           associate(tau_nn => bv_u(b) % val(:,:,f,4))
@@ -115,7 +152,7 @@ contains
 
     end associate
 
-  end subroutine GetViscousBoundaryStress_C
+  end subroutine GetViscousBoundaryStress_V
 
   !-----------------------------------------------------------------------------
   !> Computation of the velocity gradient on a given element face
@@ -314,9 +351,9 @@ contains
     !< polynomial order
     real(RNP), contiguous, intent(in) :: n(0:,0:,:,:,:)
     !< element face normal vector
-    real(RNP), intent(in) :: chi
+    real(RNP), contiguous, intent(in) :: chi(0:,0:)
     !< bulk viscosity, χ = (ζ - 2/3 η) / ρ
-    real(RNP), intent(in) :: nu
+    real(RNP), contiguous, intent(in) :: nu(0:,0:)
     !< shear viscosity, ν = η/ρ
     real(RNP), contiguous, intent(in) :: grad_v(0:,0:,:,:)
     !< velocity gradient
@@ -333,12 +370,12 @@ contains
       div_v = grad_v(i,j,1,1) + grad_v(i,j,2,2) + grad_v(i,j,3,3)
 
       ! stress tensor
-      tau(1,1) = nu * 2 * grad_v(i,j,1,1) + chi * div_v
-      tau(2,2) = nu * 2 * grad_v(i,j,2,2) + chi * div_v
-      tau(3,3) = nu * 2 * grad_v(i,j,3,3) + chi * div_v
-      tau(1,2) = nu * (grad_v(i,j,1,2) + grad_v(i,j,2,1))
-      tau(1,3) = nu * (grad_v(i,j,1,3) + grad_v(i,j,3,1))
-      tau(2,3) = nu * (grad_v(i,j,2,3) + grad_v(i,j,3,2))
+      tau(1,1) = nu(i,j) * 2 * grad_v(i,j,1,1) + chi(i,j) * div_v
+      tau(2,2) = nu(i,j) * 2 * grad_v(i,j,2,2) + chi(i,j) * div_v
+      tau(3,3) = nu(i,j) * 2 * grad_v(i,j,3,3) + chi(i,j) * div_v
+      tau(1,2) = nu(i,j) * (grad_v(i,j,1,2) + grad_v(i,j,2,1))
+      tau(1,3) = nu(i,j) * (grad_v(i,j,1,3) + grad_v(i,j,3,1))
+      tau(2,3) = nu(i,j) * (grad_v(i,j,2,3) + grad_v(i,j,3,2))
 
       ! stress vector
       do c = 1, 3
@@ -354,4 +391,4 @@ contains
 
   !=============================================================================
 
-end submodule MP_GetViscousBoundaryStress_C
+end submodule MP_GetViscousBoundaryStress_V
