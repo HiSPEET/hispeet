@@ -399,7 +399,7 @@ program ML_Test_Elliptic
         do i = 1, size(bc)
           select case(bc(i))
           case('D')
-            call bv_u(i) % Extract(u)
+            call bv_u(i) % Extract(s)
           case('N')
             call bv_u(i) % ExtractNormalComponent(sem, q)
           end select
