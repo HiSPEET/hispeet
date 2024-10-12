@@ -55,6 +55,7 @@ contains
     integer, save :: start_method
     integer, save :: l_top
 
+    real(RNP) :: rr
     integer :: e, l, m, n
 
     associate( sem    => this % ml_op % sem    &
@@ -65,47 +66,59 @@ contains
 
       ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
+!### CHECK
+!print '(A)', 'MGS 00'
+!### CHECK END
       !$omp master
       l_top = size(sem)
       r = ML_MeshVariable_3D(this%ml_op, nc=1)
       v = ML_MeshVariable_3D(this%ml_op, nc=1)
       start_method = this % start_method
       !$omp end master
+!### CHECK
+!print '(A)', 'MGS 01'
+!### CHECK END
 
       do l = 1, l_top
         call SetArray(r % level(l) % val(:,:,:,:,1), ZERO)
         call SetArray(v % level(l) % val(:,:,:,:,1), ZERO)
       end do
+!### CHECK
+!print '(A)', 'MGS 02'
+!### CHECK END
 
       ! start ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       START: select case(start_method)
 
       case(START_CASC)
+!### CHECK
+!print '(A)', 'MGS 03c0'
+!### CHECK END
 
         ! cascade ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-        CASC_ROOT: associate( u_1  => u    % level(1) % val(:,:,:,:,1) &
-                            , f_1  => f    % level(1) % val(:,:,:,:,1) &
-                            , nu_1 => nu_v % level(1) % val(:,:,:,:,1) &
-                            , bv_1 => bv   % level(1) % var            )
+        CASC_ROOT: associate( u_1  => u  % level(1) % val(:,:,:,:,1) &
+                            , f_1  => f  % level(1) % val(:,:,:,:,1) &
+                            , bv_1 => bv % level(1) % var            )
 
           if (present(nu_0)) then
             call this % CoarseSolver(lambda, nu_0, u_1, f_1, bv_1)
-                call this % Monitoring(1, 's', lambda, nu_0, f_1, bv_1, u_1)
+            call this % Monitoring(1, 's', lambda, nu_0, f_1, bv_1, u_1)
           else
-            call this % CoarseSolver(lambda, nu_1, u_1, f_1, bv_1)
-                call this % Monitoring(1, 's', lambda, nu_1, f_1, bv_1, u_1)
+            associate(nu_1 => nu_v % level(1) % val(:,:,:,:,1))
+              call this % CoarseSolver(lambda, nu_1, u_1, f_1, bv_1)
+              call this % Monitoring(1, 's', lambda, nu_1, f_1, bv_1, u_1)
+            end associate
           end if
 
         end associate CASC_ROOT
 
         CASC_FINE: do l = 2, l_top
-          associate( u_p  => u    % level(l-1) % val(:,:,:,:,1) &
-                   , u_l  => u    % level(l  ) % val(:,:,:,:,1) &
-                   , f_l  => f    % level(l  ) % val(:,:,:,:,1) &
-                   , nu_l => nu_v % level(l  ) % val(:,:,:,:,1) &
-                   , bv_l => bv   % level(l  ) % var            )
+          associate( u_p  => u  % level(l-1) % val(:,:,:,:,1) &
+                   , u_l  => u  % level(l  ) % val(:,:,:,:,1) &
+                   , f_l  => f  % level(l  ) % val(:,:,:,:,1) &
+                   , bv_l => bv % level(l  ) % var            )
 
             ! interpolation
             call ParentToChildInterpolation_3D( parent = sem(l-1) % mesh &
@@ -114,16 +127,19 @@ contains
                                               , v_p    = u_p             &
                                               , v_c    = u_l             )
             ! smoothing
-            n = this % ns_2
+!!             n = this % ns_2
+            n = this % ns_1
             if (l < l_top) then
               if (present(nu_0)) then
                 call this % Monitoring(l, 'p', lambda, nu_0, f_l, bv_l, u_l)
                 call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
                 call this % Monitoring(l, '2', lambda, nu_0, f_l, bv_l, u_l)
               else
-                call this % Monitoring(l, 'p', lambda, nu_l, f_l, bv_l, u_l)
-                call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
-                call this % Monitoring(l, '2', lambda, nu_l, f_l, bv_l, u_l)
+                associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
+                  call this % Monitoring(l, 'p', lambda, nu_l, f_l, bv_l, u_l)
+                  call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
+                  call this % Monitoring(l, '2', lambda, nu_l, f_l, bv_l, u_l)
+                end associate
               end if
             end if
 
@@ -131,6 +147,9 @@ contains
         end do CASC_FINE
 
       case(START_FMG)
+!### CHECK
+!print '(A)', 'MGS 03f0'
+!### CHECK END
 
         ! FMG ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -138,18 +157,16 @@ contains
 
           FMG_DOWN: do l = m, 2, -1
 
-            associate( mesh_l => sem(l  ) % mesh                    &
-                     , mesh_p => sem(l-1) % mesh                    &
-                     , bv_l   => bv   % level(l  ) % var            &
-                     , nu_l   => nu_v % level(l  ) % val(:,:,:,:,1) &
-                     , f_l    => f    % level(l  ) % val(:,:,:,:,1) &
-                     , u_l    => u    % level(l  ) % val(:,:,:,:,1) &
-                     , r_l    => r    % level(l  ) % val(:,:,:,:,1) &
-                     , nu_p   => nu_v % level(l-1) % val(:,:,:,:,1) &
-                     , f_p    => f    % level(l-1) % val(:,:,:,:,1) &
-                     , u_p    => u    % level(l-1) % val(:,:,:,:,1) &
-                     , r_p    => r    % level(l-1) % val(:,:,:,:,1) &
-                     , v_p    => v    % level(l-1) % val(:,:,:,:,1) )
+            associate( mesh_l => sem(l  ) % mesh                  &
+                     , mesh_p => sem(l-1) % mesh                  &
+                     , bv_l   => bv % level(l  ) % var            &
+                     , f_l    => f  % level(l  ) % val(:,:,:,:,1) &
+                     , u_l    => u  % level(l  ) % val(:,:,:,:,1) &
+                     , r_l    => r  % level(l  ) % val(:,:,:,:,1) &
+                     , f_p    => f  % level(l-1) % val(:,:,:,:,1) &
+                     , u_p    => u  % level(l-1) % val(:,:,:,:,1) &
+                     , r_p    => r  % level(l-1) % val(:,:,:,:,1) &
+                     , v_p    => v  % level(l-1) % val(:,:,:,:,1) )
 
               ! pre-smoothing and residual computation .........................
 
@@ -158,8 +175,10 @@ contains
                 call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
                 call this % Residual(l, lambda, nu_0, f_l, bv_l, u_l, r_l)
               else
-                call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
-                call this % Residual(l, lambda, nu_l, f_l, bv_l, u_l, r_l)
+                associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
+                  call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
+                  call this % Residual(l, lambda, nu_l, f_l, bv_l, u_l, r_l)
+                end associate
               end if
               call this % Monitoring(l, '1', r_l)
 
@@ -170,11 +189,11 @@ contains
               case('I')
                 ! interpolation
                 call ChildToParentProjection_3D &
-                         (mesh_l, mesh_l, iop_fc(l), u_l, v_p)
+                         (mesh_l, mesh_p, iop_fc(l), u_l, v_p)
               case('P')
                 ! L²-projection
                 call ChildToParentProjection_3D &
-                         (mesh_l, mesh_l, pop_fc(l), u_l, v_p)
+                         (mesh_l, mesh_p, pop_fc(l), u_l, v_p)
               end select
 
               ! restrict residual
@@ -185,7 +204,7 @@ contains
 
               do e = 1, mesh_p % n_elem
                 if (mesh_p % element(e) % adaptation % refinement >= 1000) then
-                  f_p(:,:,:,e) = -r_p(:,:,:,e)
+                  f_p(:,:,:,e) = r_p(:,:,:,e)
                 else
                   v_p(:,:,:,e) = u_p(:,:,:,e)
                 end if
@@ -194,7 +213,9 @@ contains
               if (present(nu_0)) then
                 call ell_op(l-1) % Apply(lambda, nu_0, v_p, r_p)
               else
-                call ell_op(l-1) % Apply(lambda, nu_p, v_p, r_p)
+                associate(nu_p => nu_v % level(l-1) % val(:,:,:,:,1))
+                  call ell_op(l-1) % Apply(lambda, nu_p, v_p, r_p)
+                end associate
               end if
 
               do e = 1, mesh_p % n_elem
@@ -206,10 +227,9 @@ contains
             end associate
           end do FMG_DOWN
 
-          FMG_COARSE: associate( bv_1 => bv   % level(1) % var            &
-                               , nu_1 => nu_v % level(1) % val(:,:,:,:,1) &
-                               , f_1  => f    % level(1) % val(:,:,:,:,1) &
-                               , u_1  => u    % level(1) % val(:,:,:,:,1) )
+          FMG_COARSE: associate( bv_1 => bv % level(1) % var            &
+                               , f_1  => f  % level(1) % val(:,:,:,:,1) &
+                               , u_1  => u  % level(1) % val(:,:,:,:,1) )
 
             ! coarse grid solver ...............................................
 
@@ -218,37 +238,47 @@ contains
               call this % CoarseSolver(lambda, nu_0, u_1, f_1, bv_1)
               call this % Monitoring(1, 's', lambda, nu_0, f_1, bv_1, u_1)
             else
-              call this % Monitoring(1, '0', lambda, nu_1, f_1, bv_1, u_1)
-              call this % CoarseSolver(lambda, nu_1, u_1, f_1, bv_1)
-              call this % Monitoring(1, 's', lambda, nu_1, f_1, bv_1, u_1)
+              associate(nu_1 => nu_v % level(1) % val(:,:,:,:,1))
+                call this % Monitoring(1, '0', lambda, nu_1, f_1, bv_1, u_1)
+                call this % CoarseSolver(lambda, nu_1, u_1, f_1, bv_1)
+                call this % Monitoring(1, 's', lambda, nu_1, f_1, bv_1, u_1)
+              end associate
             end if
 
           end associate FMG_COARSE
 
           FMG_UP: do l = 2, m
 
-            associate( mesh_l => sem(l  ) % mesh                    &
-                     , mesh_p => sem(l-1) % mesh                    &
-                     , bv_l   => bv   % level(l  ) % var            &
-                     , nu_l   => nu_v % level(l  ) % val(:,:,:,:,1) &
-                     , f_l    => f    % level(l  ) % val(:,:,:,:,1) &
-                     , u_l    => u    % level(l  ) % val(:,:,:,:,1) &
-                     , v_l    => v    % level(l  ) % val(:,:,:,:,1) &
-                     , v_p    => v    % level(l-1) % val(:,:,:,:,1) )
+            associate( mesh_l => sem(l  ) % mesh                  &
+                     , mesh_p => sem(l-1) % mesh                  &
+                     , bv_l   => bv % level(l  ) % var            &
+                     , f_l    => f  % level(l  ) % val(:,:,:,:,1) &
+                     , u_l    => u  % level(l  ) % val(:,:,:,:,1) &
+                     , w_l    => r  % level(l  ) % val(:,:,:,:,1) &
+                     , u_p    => u  % level(l-1) % val(:,:,:,:,1) &
+                     , v_p    => v  % level(l-1) % val(:,:,:,:,1) )
 
                 ! prolongation .................................................
 
+                do e = 1, mesh_p % n_elem
+                  if (mesh_p % element(e) % adaptation % refinement >= 1000) then
+                    v_p(:,:,:,e) = u_p(:,:,:,e) - v_p(:,:,:,e)
+                  else
+                    v_p(:,:,:,e) = u_p(:,:,:,e)
+                  end if
+                end do
+
                 call ParentToChildInterpolation_3D &
-                         (mesh_p, mesh_l, iop_cf(l-1), v_p, v_l)
+                         (mesh_p, mesh_l, iop_cf(l-1), v_p, w_l)
 
                 ! update solution on current level
                 if (mesh_p % n_elem > 0) then
                   n = mesh_p % n_elem_active
                   ! apply correction to active elements
-                  call MergeArrays(ONE, u_l(:,:,:,:n), ONE, v_l(:,:,:,:n))
+                  call MergeArrays(ONE, u_l(:,:,:,:n), ONE, w_l(:,:,:,:n))
                   ! update frozen elements
                   if (mesh_p % n_elem_frozen > 0) then
-                    call SetArray(u_l(:,:,:,n+1:), v_l(:,:,:,n+1:))
+                    call SetArray(u_l(:,:,:,n+1:), w_l(:,:,:,n+1:))
                   end if
                 end if
 
@@ -260,9 +290,11 @@ contains
                 call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
                 call this % Monitoring(l, '2', lambda, nu_0, f_l, bv_l, u_l)
               else
-                call this % Monitoring(l, 'c', lambda, nu_l, f_l, bv_l, u_l)
-                call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
-                call this % Monitoring(l, '2', lambda, nu_l, f_l, bv_l, u_l)
+                associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
+                  call this % Monitoring(l, 'c', lambda, nu_l, f_l, bv_l, u_l)
+                  call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
+                  call this % Monitoring(l, '2', lambda, nu_l, f_l, bv_l, u_l)
+                end associate
               end if
 
             end associate
@@ -281,148 +313,216 @@ contains
 
       ! V cycles :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-        V_OUTER: do m = 1, this % i_max
+      V_OUTER: do m = 1, this % i_max
 
-          V_DOWN: do l = l_top, 2, -1
+        V_DOWN: do l = l_top, 2, -1
 
-            associate( mesh_l => sem(l  ) % mesh                    &
-                     , mesh_p => sem(l-1) % mesh                    &
-                     , bv_l   => bv   % level(l  ) % var            &
-                     , nu_l   => nu_v % level(l  ) % val(:,:,:,:,1) &
-                     , f_l    => f    % level(l  ) % val(:,:,:,:,1) &
-                     , u_l    => u    % level(l  ) % val(:,:,:,:,1) &
-                     , r_l    => r    % level(l  ) % val(:,:,:,:,1) &
-                     , nu_p   => nu_v % level(l-1) % val(:,:,:,:,1) &
-                     , f_p    => f    % level(l-1) % val(:,:,:,:,1) &
-                     , u_p    => u    % level(l-1) % val(:,:,:,:,1) &
-                     , r_p    => r    % level(l-1) % val(:,:,:,:,1) &
-                     , v_p    => v    % level(l-1) % val(:,:,:,:,1) )
+          associate( mesh_l => sem(l  ) % mesh                  &
+                   , mesh_p => sem(l-1) % mesh                  &
+                   , bv_l   => bv % level(l  ) % var            &
+                   , f_l    => f  % level(l  ) % val(:,:,:,:,1) &
+                   , u_l    => u  % level(l  ) % val(:,:,:,:,1) &
+                   , r_l    => r  % level(l  ) % val(:,:,:,:,1) &
+                   , f_p    => f  % level(l-1) % val(:,:,:,:,1) &
+                   , u_p    => u  % level(l-1) % val(:,:,:,:,1) &
+                   , r_p    => r  % level(l-1) % val(:,:,:,:,1) &
+                   , v_p    => v  % level(l-1) % val(:,:,:,:,1) )
 
-              ! pre-smoothing and residual computation .........................
+            ! pre-smoothing and residual computation .........................
 
-              n = this % ns_1
-              if (l < l_top .or. m == 1) then
-                if (present(nu_0)) then
-                  call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
-                  call this % Residual(l, lambda, nu_0, f_l, bv_l, u_l, r_l)
-                else
-                  call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
-                  call this % Residual(l, lambda, nu_l, f_l, bv_l, u_l, r_l)
-                end if
+            if (present(nu_0)) then
+              call this % Monitoring(l, '0', lambda, nu_0, f_l, bv_l, u_l)
+            else
+              associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
+                call this % Monitoring(l, '0', lambda, nu_l, f_l, bv_l, u_l)
+              end associate
+            end if
+
+            n = this % ns_1
+            if (present(nu_0)) then
+              call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
+              call this % Residual(l, lambda, nu_0, f_l, bv_l, u_l, r_l)
+            else
+              associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
+                call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
+                call this % Residual(l, lambda, nu_l, f_l, bv_l, u_l, r_l)
+              end associate
+            end if
+            call this % Monitoring(l, '1', r_l)
+
+            ! restriction ....................................................
+
+            ! project solution to regularly refined parent elements
+            select case(this % projection_method)
+            case('I')
+              ! interpolation
+              call ChildToParentProjection_3D &
+                       (mesh_l, mesh_p, iop_fc(l), u_l, v_p)
+            case('P')
+              ! L²-projection
+              call ChildToParentProjection_3D &
+                       (mesh_l, mesh_p, pop_fc(l), u_l, v_p)
+            end select
+!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max u_l       = ',minval(u_l),' / ',maxval(u_l)
+!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max v_p       = ',minval(v_p),' / ',maxval(v_p)
+!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max v_2       = ',minval(v%level(2)%val),' / ',maxval(v%level(2)%val)
+
+            ! restrict residual
+            call ChildToParentRestriction_3D &
+                     (mesh_l, mesh_p, iop_cf(l-1), r_l, r_p)
+
+            ! parent RHS .....................................................
+
+            do e = 1, mesh_p % n_elem
+              if (mesh_p % element(e) % adaptation % refinement >= 1000) then
+                f_p(:,:,:,e) = r_p(:,:,:,e)
+              else
+                v_p(:,:,:,e) = u_p(:,:,:,e)
               end if
-              call this % Monitoring(l, '1', r_l)
+            end do
+!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max u_p       = ',minval(u_p),' / ',maxval(u_p)
+!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max v_p       = ',minval(v_p),' / ',maxval(v_p)
+!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max u_p - v_p = ',minval(u_p-v_p),' / ',maxval(u_p-v_p)
 
-              ! restriction ....................................................
+            if (present(nu_0)) then
+              call ell_op(l-1) % Apply(lambda, nu_0, v_p, r_p)
+            else
+              associate(nu_p => nu_v % level(l-1) % val(:,:,:,:,1))
+                call ell_op(l-1) % Apply(lambda, nu_p, v_p, r_p)
+              end associate
+            end if
 
-              ! project solution to regularly refined parent elements
-              select case(this % projection_method)
-              case('I')
-                ! interpolation
-                call ChildToParentProjection_3D &
-                         (mesh_l, mesh_l, iop_fc(l), u_l, v_p)
-              case('P')
-                ! L²-projection
-                call ChildToParentProjection_3D &
-                         (mesh_l, mesh_l, pop_fc(l), u_l, v_p)
-              end select
+             do e = 1, mesh_p % n_elem
+               if (mesh_p % element(e) % adaptation % refinement >= 1000) then
+                 f_p(:,:,:,e) = f_p(:,:,:,e) + r_p(:,:,:,e)
+               end if
+             end do
 
-              ! restrict residual
-              call ChildToParentRestriction_3D &
-                       (mesh_l, mesh_p, iop_cf(l-1), r_l, r_p)
+          end associate
+        end do V_DOWN
 
-              ! parent RHS .....................................................
+        V_COARSE: associate( bv_1 => bv % level(1) % var            &
+                           , f_1  => f  % level(1) % val(:,:,:,:,1) &
+                           , u_1  => u  % level(1) % val(:,:,:,:,1) )
+
+          ! coarse grid solver ...............................................
+
+          if (present(nu_0)) then
+            call this % Monitoring(1, '0', lambda, nu_0, f_1, bv_1, u_1)
+            call this % CoarseSolver(lambda, nu_0, u_1, f_1, bv_1)
+            call this % Monitoring(1, 's', lambda, nu_0, f_1, bv_1, u_1)
+          else
+            associate(nu_1 => nu_v % level(1) % val(:,:,:,:,1))
+              call this % Monitoring(1, '0', lambda, nu_1, f_1, bv_1, u_1)
+              call this % CoarseSolver(lambda, nu_1, u_1, f_1, bv_1)
+              call this % Monitoring(1, 's', lambda, nu_1, f_1, bv_1, u_1)
+            end associate
+          end if
+
+        end associate V_COARSE
+
+        V_UP: do l = 2, l_top
+!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max v_2       = ',minval(v%level(2)%val),' / ',maxval(v%level(2)%val)
+
+          associate( mesh_l => sem(l  ) % mesh                    &
+                   , mesh_p => sem(l-1) % mesh                    &
+                   , bv_l   => bv   % level(l  ) % var            &
+                   , f_l    => f    % level(l  ) % val(:,:,:,:,1) &
+                   , u_l    => u    % level(l  ) % val(:,:,:,:,1) &
+                   , w_l    => r    % level(l  ) % val(:,:,:,:,1) &
+                   , u_p    => u    % level(l-1) % val(:,:,:,:,1) &
+                   , v_p    => v    % level(l-1) % val(:,:,:,:,1) )
+
+              ! prolongation .................................................
+!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max u_p       = ',minval(u_p),' / ',maxval(u_p)
+!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max v_p       = ',minval(v_p),' / ',maxval(v_p)
+!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max u_p - v_p = ',minval(u_p-v_p),' / ',maxval(u_p-v_p)
 
               do e = 1, mesh_p % n_elem
                 if (mesh_p % element(e) % adaptation % refinement >= 1000) then
-                  f_p(:,:,:,e) = -r_p(:,:,:,e)
+                  v_p(:,:,:,e) = u_p(:,:,:,e) - v_p(:,:,:,e)
                 else
                   v_p(:,:,:,e) = u_p(:,:,:,e)
                 end if
               end do
 
-              if (present(nu_0)) then
-                call ell_op(l-1) % Apply(lambda, nu_0, v_p, r_p)
-              else
-                call ell_op(l-1) % Apply(lambda, nu_p, v_p, r_p)
+              call ParentToChildInterpolation_3D &
+                       (mesh_p, mesh_l, iop_cf(l-1), v_p, w_l)
+
+              ! update solution on current level
+              if (mesh_l % n_elem > 0) then
+                n = mesh_l % n_elem_active
+                ! apply correction to active elements
+                call MergeArrays(ONE, u_l(:,:,:,:n), ONE, w_l(:,:,:,:n))
+                ! update frozen elements
+                if (mesh_l % n_elem_frozen > 0) then
+                  call SetArray(u_l(:,:,:,n+1:), w_l(:,:,:,n+1:))
+                end if
               end if
 
-              do e = 1, mesh_p % n_elem
-                if (mesh_p % element(e) % adaptation % refinement >= 1000) then
-                  f_p(:,:,:,e) = f_p(:,:,:,e) + r_p(:,:,:,e)
-                end if
-              end do
+            ! post-smoothing .................................................
 
-            end associate
-          end do V_DOWN
-
-          V_COARSE: associate( bv_1 => bv   % level(1) % var            &
-                             , nu_1 => nu_v % level(1) % val(:,:,:,:,1) &
-                             , f_1  => f    % level(1) % val(:,:,:,:,1) &
-                             , u_1  => u    % level(1) % val(:,:,:,:,1) )
-
-            ! coarse grid solver ...............................................
-
-            if (present(nu_0)) then
-              call this % Monitoring(1, '0', lambda, nu_0, f_1, bv_1, u_1)
-              call this % CoarseSolver(lambda, nu_0, u_1, f_1, bv_1)
-              call this % Monitoring(1, 's', lambda, nu_0, f_1, bv_1, u_1)
+            if (l < l_top .or. m == this % i_max) then
+              n = this % ns_2
             else
-              call this % Monitoring(1, '0', lambda, nu_1, f_1, bv_1, u_1)
-              call this % CoarseSolver(lambda, nu_1, u_1, f_1, bv_1)
-              call this % Monitoring(1, 's', lambda, nu_1, f_1, bv_1, u_1)
+              n = this % ns_c
             end if
 
-          end associate V_COARSE
-
-          V_UP: do l = 2, m
-
-            associate( mesh_l => sem(l  ) % mesh                    &
-                     , mesh_p => sem(l-1) % mesh                    &
-                     , bv_l   => bv   % level(l  ) % var            &
-                     , nu_l   => nu_v % level(l  ) % val(:,:,:,:,1) &
-                     , f_l    => f    % level(l  ) % val(:,:,:,:,1) &
-                     , u_l    => u    % level(l  ) % val(:,:,:,:,1) &
-                     , v_l    => v    % level(l  ) % val(:,:,:,:,1) &
-                     , v_p    => v    % level(l-1) % val(:,:,:,:,1) )
-
-                ! prolongation .................................................
-
-                call ParentToChildInterpolation_3D &
-                         (mesh_p, mesh_l, iop_cf(l-1), v_p, v_l)
-
-                ! update solution on current level
-                if (mesh_p % n_elem > 0) then
-                  n = mesh_p % n_elem_active
-                  ! apply correction to active elements
-                  call MergeArrays(ONE, u_l(:,:,:,:n), ONE, v_l(:,:,:,:n))
-                  ! update frozen elements
-                  if (mesh_p % n_elem_frozen > 0) then
-                    call SetArray(u_l(:,:,:,n+1:), v_l(:,:,:,n+1:))
-                  end if
-                end if
-
-              ! post-smoothing .................................................
-
-              if (l < l_top .or. m == this % i_max) then
-                n = this % ns_2
-              else
-                n = this % ns_c
-              end if
-
-              if (present(nu_0)) then
-                call this % Monitoring(l, 'c', lambda, nu_0, f_l, bv_l, u_l)
-                call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
-                call this % Monitoring(l, '2', lambda, nu_0, f_l, bv_l, u_l)
-              else
+            if (present(nu_0)) then
+              call this % Monitoring(l, 'c', lambda, nu_0, f_l, bv_l, u_l)
+              call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
+              call this % Monitoring(l, '2', lambda, nu_0, f_l, bv_l, u_l)
+            else
+              associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
                 call this % Monitoring(l, 'c', lambda, nu_l, f_l, bv_l, u_l)
                 call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
                 call this % Monitoring(l, '2', lambda, nu_l, f_l, bv_l, u_l)
-              end if
+              end associate
+            end if
 
-            end associate
-          end do V_UP
+          end associate
+        end do V_UP
 
-        end do V_OUTER
+      end do V_OUTER
+
+      ! optional output arguments ::::::::::::::::::::::::::::::::::::::::::::::
+
+      if (present(n_i)) then
+        !$omp master
+        n_i = min(m, this%i_max)
+        !$omp end master
+      end if
+
+      if (present(r_2)) then
+        do l = 1, l_top
+          associate( bv_l => bv   % level(l) % var            &
+                   , f_l  => f    % level(l) % val(:,:,:,:,1) &
+                   , u_l  => u    % level(l) % val(:,:,:,:,1) &
+                   , r_l  => r    % level(l) % val(:,:,:,:,1) )
+
+            if (present(nu_0)) then
+              call this % Residual(l, lambda, nu_0, f_l, bv_l, u_l, r_l)
+            else
+              associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
+                call this % Residual(l, lambda, nu_l, f_l, bv_l, u_l, r_l)
+              end associate
+            end if
+
+            if (sem(l)%mesh%part >= 0) then
+              rr = ScalarProduct(r_l, r_l, sem(l)%mesh%comm_parts)
+            else
+              rr = 0
+            end if
+            !$omp master
+            r_2(l) = sqrt(rr)
+            !$omp end master
+
+          end associate
+        end do
+      end if
+!### CHECK
+!print '(A)', 'MGS 07'
+!### CHECK END
 
       ! finalization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -431,6 +531,9 @@ contains
       !$omp end master
 
     end associate
+!### CHECK
+!print '(A)', 'MGS 0X'
+!### CHECK END
 
   end subroutine MG_Solver_X
 

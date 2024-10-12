@@ -12,6 +12,7 @@ program ML_Test_Elliptic
   use Execution_Control
   use Logging_Levels
   use Array_Assignments
+  use Array_Reductions
 
   use Elliptic_Problem__3D
   use Elliptic_Problem__Simple__3D
@@ -134,11 +135,15 @@ program ML_Test_Elliptic
   ! auxiliaries ................................................................
 
   character(:), allocatable, save :: domain_name
+  real(RNP), allocatable, save :: e_max(:), e_min(:)
+  real(RNP), allocatable, save :: r_max(:), r_rms(:)
+  real(RNP), allocatable, save :: v_loc(:)
 
+  real(RNP) :: rr
   logical   :: exists, passed, all_passed
   integer   :: io, stat
   integer   :: dim
-  integer   :: l_top, ne_max, ne_min, ne_tot
+  integer   :: l_top, ne_max, ne_min, ne_tot, n_i
   integer   :: i, l
 
   !-----------------------------------------------------------------------------
@@ -267,6 +272,9 @@ program ML_Test_Elliptic
     open(newunit = io, file = case_file)
     read(io, nml = problem_prm)
     close(io)
+    if (.not. has_variable_nu) then
+      nu_1 = 0
+    end if
   end if
 
   ! globalize problem parameters
@@ -362,6 +370,9 @@ program ML_Test_Elliptic
 
   ml_bv = ML_BoundaryVariable_3D(ml_op, nc = 1)
 
+  allocate(v_loc(l_top), source = ZERO)
+  allocate(e_min, e_max, r_max, r_rms, source = v_loc)
+
   block
     real(RNP), allocatable, save :: q(:,:,:,:,:)
 
@@ -379,7 +390,9 @@ program ML_Test_Elliptic
         call problem % GetExactSolution (x, s)
         call problem % GetDiffusivity   (x, nu)
         call problem % GetSource        (x, r)
-        call SetArray(u, s)
+        call SetArray(u, ZERO)
+!!         call SetArray(u, s)
+!! if (l == l_top) call SetArray(u, s)
 
         ! r = λ u - ∇·(ν ∇u)
         call sem % Get_DG_DiagonalMassMatrix(mm)
@@ -411,6 +424,80 @@ program ML_Test_Elliptic
     end do
 
   end block
+
+  !-----------------------------------------------------------------------------
+  ! Solution
+
+  if (rank == 0) then
+    write(*,'(/,A)') 'executing multilevel solver'
+  end if
+
+  if (has_variable_nu) then
+    call ml_elliptic % MG_Solver(lambda, ml_nu, ml_u, ml_f, ml_bv, n_i)
+  else
+    call ml_elliptic % MG_Solver(lambda, nu_0, ml_u, ml_f, ml_bv, n_i)
+  end if
+
+  !-----------------------------------------------------------------------------
+  ! Evaluation
+
+  do l = 1, l_top
+    associate( sem  => ml_op % sem(l)                    &
+             , nu   => ml_nu % level(l) % val(:,:,:,:,1) &
+             , f    => ml_f  % level(l) % val(:,:,:,:,1) &
+             , s    => ml_s  % level(l) % val(:,:,:,:,1) &
+             , u    => ml_u  % level(l) % val(:,:,:,:,1) &
+             , e    => ml_e  % level(l) % val(:,:,:,:,1) &
+             , r    => ml_r  % level(l) % val(:,:,:,:,1) &
+             , bv_u => ml_bv % level(l) % var            )
+
+      if (has_variable_nu) then
+        call ml_elliptic % elliptic_op(l) % Residual(lambda, nu, f, bv_u, u, r)
+      else
+        call ml_elliptic % elliptic_op(l) % Residual(lambda, nu_0, f, bv_u, u, r)
+      end if
+
+      if (sem%mesh%part >= 0) then
+        rr = ScalarProduct(r, r, sem%mesh%comm_parts)
+      else
+        rr = 0
+      end if
+
+      r_rms(l) = sqrt(rr)
+      r_max(l) = maxval(abs(r))
+
+      do i = 1, size(u,4)
+        e(:,:,:,i) = u(:,:,:,i) - s(:,:,:,i)
+        e_min(l) = min(e_min(l), minval(e(:,:,:,i)))
+        e_max(l) = max(e_max(l), maxval(e(:,:,:,i)))
+      end do
+
+    end associate
+  end do
+
+  v_loc = r_rms; call XMPI_Reduce(v_loc, r_rms, MPI_MAX, 0, comm)
+  v_loc = r_max; call XMPI_Reduce(v_loc, r_max, MPI_MAX, 0, comm)
+  v_loc = e_min; call XMPI_Reduce(v_loc, e_min, MPI_MIN, 0, comm)
+  v_loc = e_max; call XMPI_Reduce(v_loc, e_max, MPI_MAX, 0, comm)
+
+  if (rank == 0) then
+    write(*,'(/,A)') 'number of iterations'
+    write(*,'(2X,A,I0)') 'n_i  = ', n_i
+
+    write(*,'(/,A,/)') 'error metrics'
+    write(*,'(4X,A,5(4X,A5,3X))') 'l', 'r_rms', 'r_max', 'e_min', 'e_max'
+    do l = 1, l_top
+      write(*,'(I5,5(2X,ES10.3))') l, r_rms(l), r_max(l), e_min(l), e_max(l)
+    end do
+  end if
+
+  !-----------------------------------------------------------------------------
+  ! VTK export
+
+  if (export_vtk) then
+    call ml_var % ExportVTK(ml_op, trim(case_file)//'_full', mode=1)
+    call ml_var % ExportVTK(ml_op, trim(case_file)//'_leaf', mode=3)
+  end if
 
   !-----------------------------------------------------------------------------
   ! Finalization

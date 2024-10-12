@@ -121,7 +121,9 @@ contains
     attrib = MeshAttributes_3D(parent)
     attrib % structured = .false.
     attrib % is_root = .false.
-    attrib % dx = HALF * attrib % dx
+    if (parent % refinement == 's') then
+      attrib % dx = HALF * attrib % dx
+    end if
 
     call new_child % Init_Mesh_3D(attrib, parent % comm_world)
 
