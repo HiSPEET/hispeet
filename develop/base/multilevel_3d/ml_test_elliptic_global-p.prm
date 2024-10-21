@@ -20,7 +20,7 @@
 ! regular    = F ! mimic deformed mesh
 ! structured = F ! mimic unstructured mesh
   np = 1,1,1
-  ep = 3*2
+  ep = 3*5
   periodic = 3*T
 /
 
@@ -67,14 +67,14 @@
   lambda    = 1 ! Helmholtz parameter
 ! nu_0      = 1 ! diffusivity mean value ν₀
 ! nu_1      = 0 ! diffusivity fluctuation amplitude ν₁
-  start_val = 0 ! start values, 0/1/2: zero, exact, random
+  start_val = 2 ! start values, 0/1/2: zero, exact, random
 ! bc = 6*'N'
 /
 
 &solver_prm
 
-  po = 1, 2, 4  ! fails -- why?
-! po = 2, 4, 8  ! works
+  po = 1, 2, 4
+! po = 2, 4, 8
 
 ! ml_elliptic_opt%penalty            = 2.0   ! penalty parameter > 1   [2]
   ml_elliptic_opt%schwarz%delta      = 0.125 ! relative overlap  ≤ 1   [?]
@@ -85,7 +85,7 @@
   ml_elliptic_opt%coarse_solver      =  3    ! CG/WS/SPCG    = 1/2,3   [3]
 
   ml_elliptic_opt%i_crs =  100 ! max num coarse solver iterations      [1]
-  ml_elliptic_opt%i_max =    2 ! max num multigrid iterations          [1]
+  ml_elliptic_opt%i_max =    4 ! max num multigrid iterations          [1]
   ml_elliptic_opt%ns_1  =    1 ! num pre-smoothing steps               [1]
   ml_elliptic_opt%ns_2  =    1 ! num post-smoothing steps              [1]
   ml_elliptic_opt%ns_c  =    1 ! num continuation smoothing steps      [1]
