@@ -1,4 +1,4 @@
-submodule(ML__DG__Elliptic_Solver__3D) MP_MG_Solver
+submodule(ML__DG__Elliptic_Solver__3D) MP_FAS_MG_Solver
   implicit none
 
 contains
@@ -6,7 +6,7 @@ contains
   !-----------------------------------------------------------------------------
   !> FAS-MG solver for problems with constant diffusivity
 
-  module subroutine MG_Solver_C(this, lambda, nu, u, f, bv, n_i, r_2)
+  module subroutine FAS_MG_Solver_C(this, lambda, nu, u, f, bv, n_i, r_2)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     real(RNP), intent(in) :: lambda
     real(RNP), intent(in) :: nu
@@ -16,14 +16,14 @@ contains
     integer, optional, intent(out) :: n_i
     real(RNP), optional, intent(out) :: r_2(:)
 
-    call MG_Solver_X(this, lambda, nu, null(), u, f, bv, n_i, r_2)
+    call FAS_MG_Solver_X(this, lambda, nu, null(), u, f, bv, n_i, r_2)
 
-  end subroutine MG_Solver_C
+  end subroutine FAS_MG_Solver_C
 
   !-----------------------------------------------------------------------------
   !> FAS-MG solver for problems with variable diffusivity
 
-  module subroutine MG_Solver_V(this, lambda, nu, u, f, bv, n_i, r_2)
+  module subroutine FAS_MG_Solver_V(this, lambda, nu, u, f, bv, n_i, r_2)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     real(RNP), intent(in) :: lambda
     class(ML_MeshVariable_3D), intent(in) :: nu
@@ -33,14 +33,14 @@ contains
     integer, optional, intent(out) :: n_i
     real(RNP), optional, intent(out) :: r_2(:)
 
-    call MG_Solver_X(this, lambda, null(), nu, u, f, bv, n_i, r_2)
+    call FAS_MG_Solver_X(this, lambda, null(), nu, u, f, bv, n_i, r_2)
 
-  end subroutine MG_Solver_V
+  end subroutine FAS_MG_Solver_V
 
   !-----------------------------------------------------------------------------
   !> Generic FAS-MG solver for problems with constant or variable diffusivity
 
-  subroutine MG_Solver_X(this, lambda, nu_0, nu_v, u, f, bv, n_i, r_2)
+  subroutine FAS_MG_Solver_X(this, lambda, nu_0, nu_v, u, f, bv, n_i, r_2)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     real(RNP), intent(in) :: lambda
     real(RNP), optional, intent(in) :: nu_0
@@ -535,8 +535,8 @@ contains
 !print '(A)', 'MGS 0X'
 !### CHECK END
 
-  end subroutine MG_Solver_X
+  end subroutine FAS_MG_Solver_X
 
   !=============================================================================
 
-end submodule MP_MG_Solver
+end submodule MP_FAS_MG_Solver

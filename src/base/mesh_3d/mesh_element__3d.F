@@ -342,6 +342,9 @@ module Mesh_Element__3D
 
   contains
 
+    procedure :: IsActive
+    procedure :: IsLeaf
+
     procedure :: MeshFaceSide
     procedure :: NeigborEdgeIsAligned
 
@@ -587,6 +590,27 @@ contains
 
   !=============================================================================
   ! MeshElement_3D procedures
+
+  !-----------------------------------------------------------------------------
+  !> Checks whether the element is active
+
+  pure logical function IsActive(element)
+    class(MeshElement_3D), intent(in) :: element !< mesh element
+
+    IsActive = .not. element % frozen
+
+  end function IsActive
+
+  !-----------------------------------------------------------------------------
+  !> Checks whether the element is a leaf
+
+  pure logical function IsLeaf(element)
+    class(MeshElement_3D), intent(in) :: element !< mesh element
+
+    IsLeaf = .not. element % frozen &
+             .and. element % adaptation % refinement < 1000
+
+  end function IsLeaf
 
   !-----------------------------------------------------------------------------
   !> Side of the adjacent mesh face on which the element is located

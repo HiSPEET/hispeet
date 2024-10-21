@@ -33,6 +33,7 @@ program ML_Test_Elliptic
   use ML__Mesh_Operators__3D
   use ML__Mesh_Variable__3D
   use ML__Boundary_Variable__3D
+  use ML__Array_Reductions__3D
   use ML__DG__Elliptic_Solver__3D
 
   implicit none
@@ -95,15 +96,16 @@ program ML_Test_Elliptic
   ! NOTE
   ! The fluctuation amplitude ν₁ is ignored in case of constant ν
 
-  real(RNP) :: lambda = 0         ! Helmholtz parameter
-  real(RNP) :: nu_0   = 1         ! diffusivity mean value ν₀
-  real(RNP) :: nu_1   = 0         ! diffusivity fluctuation amplitude ν₁
-  real(RNP) :: d_nu   = 0         ! diffusivity fluctuation phase shift
-  integer   :: k_nu   = 1         ! diffusivity fluctuation wave number
-  integer   :: k_u    = 1         ! solution wave number
+  real(RNP) :: lambda    = 0      ! Helmholtz parameter
+  real(RNP) :: nu_0      = 1      ! diffusivity mean value ν₀
+  real(RNP) :: nu_1      = 0      ! diffusivity fluctuation amplitude ν₁
+  real(RNP) :: d_nu      = 0      ! diffusivity fluctuation phase shift
+  integer   :: k_nu      = 1      ! diffusivity fluctuation wave number
+  integer   :: k_u       = 1      ! solution wave number
+  integer   :: start_val = 0      ! start values, 0/1/2: zero, exact, random
   character, allocatable :: bc(:) ! boundary conditions {'D','N','P'} ['D']
 
-  namelist/problem_prm/ lambda, nu_0, nu_1, d_nu, k_nu, k_u, bc
+  namelist/problem_prm/ lambda, nu_0, nu_1, d_nu, k_nu, k_u, start_val, bc
 
   class(EllipticProblem_3D), allocatable, save :: problem
   character(len=:),          allocatable, save :: problem_name
@@ -122,29 +124,29 @@ program ML_Test_Elliptic
 
   character(len=:), allocatable, save :: name_var(:) ! names of variables
 
-  type(ML_MeshVariable_3D), save :: ml_var ! container of variables
-  type(ML_MeshVariable_3D), save :: ml_nu  ! diffusivity
-  type(ML_MeshVariable_3D), save :: ml_f   ! sources
-  type(ML_MeshVariable_3D), save :: ml_s   ! exact solution
-  type(ML_MeshVariable_3D), save :: ml_u   ! numerical solution
-  type(ML_MeshVariable_3D), save :: ml_e   ! error
-  type(ML_MeshVariable_3D), save :: ml_r   ! residual or just workspace
+  type(ML_MeshVariable_3D), save :: var ! container of variables
+  type(ML_MeshVariable_3D), save :: mm  ! diagonal mass matrix
+  type(ML_MeshVariable_3D), save :: nu  ! diffusivity
+  type(ML_MeshVariable_3D), save :: f   ! sources
+  type(ML_MeshVariable_3D), save :: s   ! exact solution
+  type(ML_MeshVariable_3D), save :: u   ! numerical solution
+  type(ML_MeshVariable_3D), save :: e   ! error
+  type(ML_MeshVariable_3D), save :: r   ! residual or just workspace
 
-  type(ML_BoundaryVariable_3D), save :: ml_bv ! boundary values
+  type(ML_BoundaryVariable_3D), save :: bv ! boundary values
 
   ! auxiliaries ................................................................
 
   character(:), allocatable, save :: domain_name
-  real(RNP), allocatable, save :: e_max(:), e_min(:)
-  real(RNP), allocatable, save :: r_max(:), r_rms(:)
-  real(RNP), allocatable, save :: v_loc(:)
+  real(RNP), dimension(:), allocatable, save :: e0_mx, r0_e2, r0_mx
+  real(RNP), dimension(:), allocatable, save :: en_mx, rn_e2, rn_mx
+  real(RNP), save :: e0_l2, en_l2, r0_l2, rn_l2
+  integer,   save :: n_i
 
-  real(RNP) :: rr
-  logical   :: exists, passed, all_passed
-  integer   :: io, stat
-  integer   :: dim
-  integer   :: l_top, ne_max, ne_min, ne_tot, n_i
-  integer   :: i, l
+  logical :: exists, passed, all_passed, singular
+  integer :: io, stat
+  integer :: dim
+  integer :: l_top, ne_max, ne_min, ne_tot
 
   !-----------------------------------------------------------------------------
   ! Initialization
@@ -199,6 +201,7 @@ program ML_Test_Elliptic
   call XMPI_Bcast_LoggingLevels(0, comm)
 
   ! globalize remaining parameters
+  call XMPI_Bcast(case_name  , 0, comm)
   call XMPI_Bcast(export_vtk , 0, comm)
   call XMPI_Bcast(test_domain, 0, comm)
   call XMPI_Bcast(gmsh_file  , 0, comm)
@@ -245,22 +248,25 @@ program ML_Test_Elliptic
   l_top   = size(ml_mesh%mesh)
 
   associate(mesh => ml_mesh%mesh)
+    block
+      integer :: l
 
-    ! verification
-    do l = 1, l_top
-      call VerifyMesh_3D(mesh(l), passed)
-      call XMPI_Allreduce(passed, all_passed, MPI_LAND, comm)
-      if (.not. all_passed) exit
-    end do
-    call MPI_Barrier(comm)
-    if (rank == 0) then
-      if (all_passed) then
-        write(*,'(2X,A,/)') 'verification: all levels passed'
-      else
-        write(*,'(2X,A,I0,A,/)') 'verification of level ',l,' failed'
+      ! verification
+      do l = 1, l_top
+        call VerifyMesh_3D(mesh(l), passed)
+        call XMPI_Allreduce(passed, all_passed, MPI_LAND, comm)
+        if (.not. all_passed) exit
+      end do
+      call MPI_Barrier(comm)
+      if (rank == 0) then
+        if (all_passed) then
+          write(*,'(2X,A,/)') 'verification: all levels passed'
+        else
+          write(*,'(2X,A,I0,A,/)') 'verification of level ',l,' failed'
+        end if
       end if
-    end if
 
+    end block
   end associate
 
   ! problem ....................................................................
@@ -286,6 +292,7 @@ program ML_Test_Elliptic
   call XMPI_Bcast( d_nu           , 0, comm )
   call XMPI_Bcast( k_nu           , 0, comm )
   call XMPI_Bcast( k_u            , 0, comm )
+  call XMPI_Bcast( start_val      , 0, comm )
   call XMPI_Bcast( bc             , 0, comm )
 
   select case(test_problem)
@@ -308,6 +315,8 @@ program ML_Test_Elliptic
   ! enforce periodicity at coupled boundaries
   where(base_mesh % boundary % coupled > 0) bc = 'P'
 
+  singular = lambda == ZERO .and. all(bc == 'P' .or. bc == 'N')
+
   if (rank == 0) then
     write(*,'(T3,A,T26,9(G0,X))') 'problem name:'        , trim(problem_name)
     write(*,'(T3,A,T26,9(G0,X))') 'variable diffusivity:', has_variable_nu
@@ -329,18 +338,23 @@ program ML_Test_Elliptic
   ml_op = ML_MeshOperators_3D(ml_mesh, po)
 
   associate(mesh => ml_mesh%mesh)
-    do l = 1, l_top
-      if (mesh(l)%part >= 0) then
-        call XMPI_Reduce(mesh(l)%n_elem, ne_min, MPI_MIN, 0, mesh(l)%comm_parts)
-        call XMPI_Reduce(mesh(l)%n_elem, ne_max, MPI_MAX, 0, mesh(l)%comm_parts)
-        call XMPI_Reduce(mesh(l)%n_elem, ne_tot, MPI_SUM, 0, mesh(l)%comm_parts)
-      end if
-      if (mesh(l)%part == 0) then
-        write(*,'(2X,A,I4,A,I5,A,3(X,A,X,I6),X,A,X,I3)') &
-          'level ',l,': n_parts =',mesh(l)%n_parts,',  ', &
-          'min/max/sum(n_elem)/po =',ne_min,'/',ne_max,'/',ne_tot,'/',po(l)
-      end if
-    end do
+    block
+      integer :: l
+
+      do l = 1, l_top
+        if (mesh(l)%part >= 0) then
+          call XMPI_Reduce(mesh(l)%n_elem, ne_min, MPI_MIN, 0, mesh(l)%comm_parts)
+          call XMPI_Reduce(mesh(l)%n_elem, ne_max, MPI_MAX, 0, mesh(l)%comm_parts)
+          call XMPI_Reduce(mesh(l)%n_elem, ne_tot, MPI_SUM, 0, mesh(l)%comm_parts)
+        end if
+        if (mesh(l)%part == 0) then
+          write(*,'(2X,A,I4,A,I5,A,3(X,A,X,I6),X,A,X,I3)')  &
+            'level ',l,': n_parts =',mesh(l)%n_parts,',  ', &
+            'min/max/sum(n_elem)/po =',ne_min,'/',ne_max,'/',ne_tot,'/',po(l)
+        end if
+      end do
+
+    end block
   end associate
 
   if (rank == 0) then
@@ -358,63 +372,73 @@ program ML_Test_Elliptic
 
   name_var = [ 'nu', 'f ', 's ', 'u ', 'e ', 'r ' ]
 
-  ml_var = ML_MeshVariable_3D(ml_op, size(name_var), name_var)
+  var = ML_MeshVariable_3D(ml_op, size(name_var), name_var)
 
   ! handles for accessing individual variables
-  call ml_var % GetSlice(ml_nu, first = 1, last = 1)
-  call ml_var % GetSlice(ml_f , first = 2, last = 2)
-  call ml_var % GetSlice(ml_s , first = 3, last = 3)
-  call ml_var % GetSlice(ml_u , first = 4, last = 4)
-  call ml_var % GetSlice(ml_e , first = 5, last = 5)
-  call ml_var % GetSlice(ml_r , first = 6, last = 6)
+  call var % GetSlice(nu, first = 1, last = 1)
+  call var % GetSlice(f , first = 2, last = 2)
+  call var % GetSlice(s , first = 3, last = 3)
+  call var % GetSlice(u , first = 4, last = 4)
+  call var % GetSlice(e , first = 5, last = 5)
+  call var % GetSlice(r , first = 6, last = 6)
 
-  ml_bv = ML_BoundaryVariable_3D(ml_op, nc = 1)
+  ! structure for keeping diagonal mass matrices
+  mm = ML_MeshVariable_3D(ml_op, 1)
 
-  allocate(v_loc(l_top), source = ZERO)
-  allocate(e_min, e_max, r_max, r_rms, source = v_loc)
+  ! structure for keeping boundary values
+  bv = ML_BoundaryVariable_3D(ml_op, nc = 1)
+
+  allocate(e0_mx(l_top), source = ZERO)
+  allocate(en_mx, r0_e2, r0_mx, rn_e2, rn_mx, source = e0_mx)
 
   block
     real(RNP), allocatable, save :: q(:,:,:,:,:)
+    integer :: i, l
 
     do l = 1, l_top
-      associate( sem  => ml_op % sem(l)                    &
-               , x    => ml_op % sem(l)   % metrics % x    &
-               , nu   => ml_nu % level(l) % val(:,:,:,:,1) &
-               , f    => ml_f  % level(l) % val(:,:,:,:,1) &
-               , r    => ml_r  % level(l) % val(:,:,:,:,1) &
-               , s    => ml_s  % level(l) % val(:,:,:,:,1) &
-               , u    => ml_u  % level(l) % val(:,:,:,:,1) &
-               , mm   => ml_e  % level(l) % val(:,:,:,:,1) &
-               , bv_u => ml_bv % level(l) % var            )
+      associate( sem_l => ml_op % sem(l)                 &
+               , x_l   => ml_op % sem(l) % metrics % x   &
+               , mm_l  => mm % level(l) % val(:,:,:,:,1) &
+               , nu_l  => nu % level(l) % val(:,:,:,:,1) &
+               , f_l   => f  % level(l) % val(:,:,:,:,1) &
+               , r_l   => r  % level(l) % val(:,:,:,:,1) &
+               , s_l   => s  % level(l) % val(:,:,:,:,1) &
+               , u_l   => u  % level(l) % val(:,:,:,:,1) &
+               , bu_l  => bv % level(l) % var            )
 
-        call problem % GetExactSolution (x, s)
-        call problem % GetDiffusivity   (x, nu)
-        call problem % GetSource        (x, r)
-        call SetArray(u, ZERO)
-!!         call SetArray(u, s)
-!! if (l == l_top) call SetArray(u, s)
+        call sem_l % Get_DG_DiagonalMassMatrix(mm_l)
 
-        ! r = λ u - ∇·(ν ∇u)
-        call sem % Get_DG_DiagonalMassMatrix(mm)
+        call problem % GetExactSolution (x_l, s_l)
+        call problem % GetDiffusivity   (x_l, nu_l)
+        call problem % GetSource        (x_l, r_l)     ! r = λ u - ∇·(ν ∇u)
+        f_l = mm_l * r_l                               ! f = M r
 
-        ! project source: f = M r
-        f = mm * r
+        ! start values
+        select case(start_val)
+        case(0)
+          call SetArray(u_l, ZERO)
+        case(1)
+          call SetArray(u_l, s_l)
+        case default
+          call random_number(u_l)
+          u_l = 2*u_l - 1
+        end select
 
         if (any(bc == 'N')) then
-          allocate(q, mold = x)
-          call problem % GetExactGradient(x, q)
-          q(:,:,:,:,1) = nu * q(:,:,:,:,1)
-          q(:,:,:,:,2) = nu * q(:,:,:,:,2)
-          q(:,:,:,:,3) = nu * q(:,:,:,:,3)
+          allocate(q, mold = x_l)
+          call problem % GetExactGradient(x_l, q)
+          q(:,:,:,:,1) = nu_l * q(:,:,:,:,1)
+          q(:,:,:,:,2) = nu_l * q(:,:,:,:,2)
+          q(:,:,:,:,3) = nu_l * q(:,:,:,:,3)
         end if
 
         ! extract and apply boundary conditions
         do i = 1, size(bc)
           select case(bc(i))
           case('D')
-            call bv_u(i) % Extract(s)
+            call bu_l(i) % Extract(s_l)
           case('N')
-            call bv_u(i) % ExtractNormalComponent(sem, q)
+            call bu_l(i) % ExtractNormalComponent(sem_l, q)
           end select
         end do
 
@@ -426,6 +450,11 @@ program ML_Test_Elliptic
   end block
 
   !-----------------------------------------------------------------------------
+  ! Initial error and residual norms
+
+  call Evaluation(r0_e2, r0_mx, r0_l2, e0_mx, e0_l2)
+
+  !-----------------------------------------------------------------------------
   ! Solution
 
   if (rank == 0) then
@@ -433,76 +462,162 @@ program ML_Test_Elliptic
   end if
 
   if (has_variable_nu) then
-    call ml_elliptic % MG_Solver(lambda, ml_nu, ml_u, ml_f, ml_bv, n_i)
+    call ml_elliptic % FAS_MG_Solver(lambda, nu, u, f, bv, n_i)
   else
-    call ml_elliptic % MG_Solver(lambda, nu_0, ml_u, ml_f, ml_bv, n_i)
+    call ml_elliptic % FAS_MG_Solver(lambda, nu_0, u, f, bv, n_i)
   end if
 
   !-----------------------------------------------------------------------------
   ! Evaluation
 
-  do l = 1, l_top
-    associate( sem  => ml_op % sem(l)                    &
-             , nu   => ml_nu % level(l) % val(:,:,:,:,1) &
-             , f    => ml_f  % level(l) % val(:,:,:,:,1) &
-             , s    => ml_s  % level(l) % val(:,:,:,:,1) &
-             , u    => ml_u  % level(l) % val(:,:,:,:,1) &
-             , e    => ml_e  % level(l) % val(:,:,:,:,1) &
-             , r    => ml_r  % level(l) % val(:,:,:,:,1) &
-             , bv_u => ml_bv % level(l) % var            )
-
-      if (has_variable_nu) then
-        call ml_elliptic % elliptic_op(l) % Residual(lambda, nu, f, bv_u, u, r)
-      else
-        call ml_elliptic % elliptic_op(l) % Residual(lambda, nu_0, f, bv_u, u, r)
-      end if
-
-      if (sem%mesh%part >= 0) then
-        rr = ScalarProduct(r, r, sem%mesh%comm_parts)
-      else
-        rr = 0
-      end if
-
-      r_rms(l) = sqrt(rr)
-      r_max(l) = maxval(abs(r))
-
-      do i = 1, size(u,4)
-        e(:,:,:,i) = u(:,:,:,i) - s(:,:,:,i)
-        e_min(l) = min(e_min(l), minval(e(:,:,:,i)))
-        e_max(l) = max(e_max(l), maxval(e(:,:,:,i)))
-      end do
-
-    end associate
-  end do
-
-  v_loc = r_rms; call XMPI_Reduce(v_loc, r_rms, MPI_MAX, 0, comm)
-  v_loc = r_max; call XMPI_Reduce(v_loc, r_max, MPI_MAX, 0, comm)
-  v_loc = e_min; call XMPI_Reduce(v_loc, e_min, MPI_MIN, 0, comm)
-  v_loc = e_max; call XMPI_Reduce(v_loc, e_max, MPI_MAX, 0, comm)
+  ! final error and residual norms
+  call Evaluation(rn_e2, rn_mx, rn_l2, en_mx, en_l2)
 
   if (rank == 0) then
     write(*,'(/,A)') 'number of iterations'
-    write(*,'(2X,A,I0)') 'n_i  = ', n_i
+    write(*,'(2X,A,I0)') 'n  = ', n_i
 
-    write(*,'(/,A,/)') 'error metrics'
-    write(*,'(4X,A,5(4X,A5,3X))') 'l', 'r_rms', 'r_max', 'e_min', 'e_max'
-    do l = 1, l_top
-      write(*,'(I5,5(2X,ES10.3))') l, r_rms(l), r_max(l), e_min(l), e_max(l)
-    end do
+    write(*,'(/,A,/)') 'L2 residual and error over leaf elements'
+
+    write(*,'(2X,A,ES10.3)') 'r0_l2  = ', r0_l2
+    write(*,'(2X,A,ES10.3)') 'rn_l2  = ', rn_l2
+    write(*,'(2X,A,ES10.3)') 'e0_l2  = ', e0_l2
+    write(*,'(2X,A,ES10.3)') 'en_l2  = ', en_l2
+
+    write(*,'(/,A,/)') 'residuals and errors over active elements per level'
+    block
+      integer :: l
+
+      write(*,'(4X,A,3X,7(A7,5X))') 'l', &
+                                    '  r0_e2', '  rn_e2', &
+                                    '  r0_mx', '  rn_mx', &
+                                    '  e0_mx', '  en_mx', &
+                                    '-lg rho'
+      do l = 1, l_top
+        write(*,'(I5,7(2X,ES10.3))') l, &
+                                     r0_e2(l), rn_e2(l), &
+                                     r0_mx(l), rn_mx(l), &
+                                     e0_mx(l), en_mx(l), &
+                                     log10(r0_e2(l) / rn_e2(l)) / n_i
+      end do
+    end block
+
   end if
 
   !-----------------------------------------------------------------------------
   ! VTK export
 
   if (export_vtk) then
-    call ml_var % ExportVTK(ml_op, trim(case_file)//'_full', mode=1)
-    call ml_var % ExportVTK(ml_op, trim(case_file)//'_leaf', mode=3)
+    call var % ExportVTK(ml_op, trim(case_name)//'_full', mode=1)
+    call var % ExportVTK(ml_op, trim(case_name)//'_leaf', mode=3)
   end if
 
   !-----------------------------------------------------------------------------
   ! Finalization
 
   call MPI_Finalize()
+
+contains
+
+  !-----------------------------------------------------------------------------
+  !> Evaluation
+
+  subroutine Evaluation(r_e2, r_mx, r_l2, e_mx, e_l2)
+    real(RNP), contiguous, intent(out) :: r_e2(:)
+    real(RNP), contiguous, intent(out) :: r_mx(:)
+    real(RNP),             intent(out) :: r_l2
+    real(RNP), contiguous, intent(out) :: e_mx(:)
+    real(RNP),             intent(out) :: e_l2
+
+    real(RNP), allocatable, save :: e_mx_loc(:), r_mx_loc(:), r_e2_loc(:)
+    real(RNP), save :: int_1, int_1_loc
+    real(RNP), save :: int_e, int_e_loc
+
+    real(RNP) :: e_avg
+    integer   :: i, l
+
+    allocate(e_mx_loc(l_top), source = ZERO)
+    allocate(r_mx_loc, r_e2_loc, source = e_mx_loc)
+
+    ! residual .................................................................
+
+    if (has_variable_nu) then
+      call ml_elliptic % FAS_Residual(lambda, nu, f, bv, u, r)
+    else
+      call ml_elliptic % FAS_Residual(lambda, nu_0, f, bv, u, r)
+    end if
+
+    ! maximum norm
+    do l = 1, l_top
+      associate( mesh_l => ml_op % sem(l) % mesh         &
+               , r_l    => r % level(l) % val(:,:,:,:,1) )
+
+        do i = 1, mesh_l % n_elem_active
+          r_mx_loc(l) = max(r_mx_loc(l), maxval(abs(r_l(:,:,:,i))))
+          r_e2_loc(l) = r_e2_loc(l) + sum(r_l(:,:,:,i)**2)
+        end do
+
+      end associate
+    end do
+    call XMPI_Reduce(r_mx_loc, r_mx, MPI_MAX, 0, comm)
+    call XMPI_Reduce(r_e2_loc, r_e2, MPI_MAX, 0, comm)
+    r_e2 = sqrt(r_e2)
+
+    ! L2 norms
+    r_l2 = sqrt(ML_WeightedScalarProduct_3D(mm, r, r, leaf = .true.))
+
+    ! error ....................................................................
+
+    int_1_loc = 0
+    int_e_loc = 0
+
+    do l = 1, l_top
+      associate( mesh_l => ml_op % sem(l) % mesh          &
+               , mm_l   => mm % level(l) % val(:,:,:,:,1) &
+               , s_l    => s  % level(l) % val(:,:,:,:,1) &
+               , u_l    => u  % level(l) % val(:,:,:,:,1) &
+               , e_l    => e  % level(l) % val(:,:,:,:,1) )
+
+        do i = 1, size(e_l,4)
+          e_l(:,:,:,i) = u_l(:,:,:,i) - s_l(:,:,:,i)
+          if (mesh_l%element(i)%IsLeaf()) then
+            int_1_loc = int_1_loc + sum(mm_l(:,:,:,i))
+            int_e_loc = int_e_loc + sum(mm_l(:,:,:,i) * e_l(:,:,:,i))
+          end if
+        end do
+
+      end associate
+    end do
+
+    ! mean error for calibration in singular case
+    if (singular) then
+      call XMPI_Allreduce(int_1_loc, int_1, MPI_SUM, comm)
+      call XMPI_Allreduce(int_e_loc, int_e, MPI_SUM, comm)
+      e_avg = int_e / int_1
+    else
+      e_avg = 0
+    end if
+
+    ! calibration and maximum norm
+    do l = 1, l_top
+      associate( mesh_l => ml_op % sem(l) % mesh         &
+               , e_l    => e % level(l) % val(:,:,:,:,1) )
+
+        do i = 1, mesh_l % n_elem_active
+          e_l(:,:,:,i) = e_l(:,:,:,i) - e_avg
+          e_mx_loc(l)  = max(e_mx_loc(l), maxval(abs(e_l(:,:,:,i))))
+        end do
+
+      end associate
+    end do
+    call XMPI_Reduce(e_mx_loc, e_mx, MPI_MAX, 0, comm)
+
+    ! L2 norm
+    e_l2 = sqrt(ML_WeightedScalarProduct_3D(mm, e, e, leaf = .true.))
+
+    deallocate(r_mx_loc, r_e2_loc, e_mx_loc)
+
+  end subroutine Evaluation
 
   !=============================================================================
 
