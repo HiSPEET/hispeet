@@ -6,8 +6,11 @@ add_executable( ml_test_functionality
 
 target_link_libraries(ml_test_functionality HiBase)
 
-configure_file( ml_test_functionality.prm
-                ml_test_functionality.prm COPYONLY )
+file( COPY 
+           ml_test_functionality.prm
+      DESTINATION
+           ${CMAKE_CURRENT_BINARY_DIR}
+    )
 
 #===============================================================================
 # ml_test_elliptic
@@ -17,5 +20,12 @@ add_executable( ml_test_elliptic
 
 target_link_libraries(ml_test_elliptic HiBase)
 
-configure_file( ml_test_elliptic.prm
-                ml_test_elliptic.prm COPYONLY )
+file( COPY 
+           ml_test_elliptic.prm
+           ml_test_elliptic_1l.prm
+           ml_test_elliptic_global-p.prm
+           ml_test_elliptic_global-h.prm
+           ml_test_elliptic_local-h.prm
+      DESTINATION
+           ${CMAKE_CURRENT_BINARY_DIR}
+    )

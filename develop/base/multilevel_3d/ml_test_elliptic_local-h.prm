@@ -1,0 +1,95 @@
+! run with
+! $MPIRUN -n 1 ml_test_elliptic ml_test_elliptic_local-h
+! $MPIRUN -n 6 ml_test_elliptic ml_test_elliptic_local-h
+
+&control_prm
+! log_level = 0
+  log_level_inner_iteration = 0
+! log_level_outer_iteration = 0
+  log_level_multigrid_cycle = 1
+
+  export_vtk = T
+/
+
+&domain_prm
+! test_domain = 1
+! gmsh_file   = '../gmsh_3d/cylinder_2d'
+/
+
+! test_domain = 1
+&cuboid_cartesian_prm
+! regular    = F ! mimic deformed mesh
+! structured = F ! mimic unstructured mesh
+  np = 1,1,1
+  ep = 3*2
+! periodic = 3*T
+/
+
+! test_domain = 2
+&cuboid_diamonds_prm
+/
+
+! config = 4
+&cylinder_prm
+  r  = 0.5
+  h  = 1.0
+  nr = 2
+  nz = 3
+  pg = 7
+/
+
+&ml_mesh_options_3d__static
+
+! useful options for cylinder_2d mesh:
+  l_top          =  4  ! top level                            [1]
+  l_adapt        =  1  ! first level to be adapted ≥1         [huge(1)]
+! n_bnd          =  1  ! number of boundaries to be adapted   [0]
+  n_box          =  1  ! number of boxes to be adapted        [0]
+
+  n_parts_root   =  1  ! number of partitions at root level   [1]
+  n_parts_growth =  2  ! partition number growth rate         [1]
+/
+
+&ml_mesh_options_3d__dynamic
+! options must fit to dimensions given in `ml_mesh_options_3d__static`
+
+! useful options for cylinder_2d mesh:
+  refinement          =  3*'s'    ! (1:l_top-1)  refinement type {'c','s'}
+! adapt_bnd(1:1)      =  4        ! (1:n_bnd)    boundaries to be adapted
+  adapt_box(1:3,1,1)  =  3*3.1316 ! (1:3,1:2,1:n_box)
+  adapt_box(1:3,2,1)  =  3*3.1516 !
+  adapt_tol           =  3*1e-2   ! (1:l_top-1)
+/
+
+&problem_prm
+! test_problem    =  3
+! has_variable_nu = .false.
+
+  lambda    = 1 ! Helmholtz parameter
+! nu_0      = 1 ! diffusivity mean value ν₀
+! nu_1      = 0 ! diffusivity fluctuation amplitude ν₁
+  start_val = 0 ! start values, 0/1/2: zero, exact, random
+! bc = 6*'N'
+/
+
+&solver_prm
+
+  po = 8, 8, 8, 8
+
+! ml_elliptic_opt%penalty           =  2.0   ! penalty parameter > 1   [2]
+  ml_elliptic_opt%schwarz%delta     =  0.125 ! relative overlap  ≤ 1   [?]
+  ml_elliptic_opt%schwarz%no_min    =   1    ! min overlap in points   [?]
+  ml_elliptic_opt%projection_method =  'I'   ! {'I','P'}               ['I']
+  ml_elliptic_opt%start_method      =   1    ! none/CASC/FMG = 0/1/2   [2]
+  ml_elliptic_opt%smooth_method     =   2    ! CG/WS/SPCG    = 1/2,3   [2]
+  ml_elliptic_opt%coarse_solver     =   3    ! CG/WS/SPCG    = 1/2,3   [3]
+
+  ml_elliptic_opt%i_crs =  100 ! max num coarse solver iterations      [1]
+  ml_elliptic_opt%i_max =    2 ! max num multigrid iterations          [1]
+  ml_elliptic_opt%ns_1  =    2 ! num pre-smoothing steps               [1]
+  ml_elliptic_opt%ns_2  =    2 ! num post-smoothing steps              [1]
+  ml_elliptic_opt%ns_c  =    2 ! num continuation smoothing steps      [1]
+! ml_elliptic_opt%r_red =   -1 ! min residual reduction                [-1]
+! ml_elliptic_opt%r_max =   -1 ! max admissible residual               [-1]
+
+/
