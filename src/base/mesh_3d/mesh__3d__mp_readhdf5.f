@@ -68,7 +68,6 @@ contains
 
     ! dynamical data
     type(MeshAttributes_3D), target :: attrib
-    type(MeshBoundaryAttributes_3D), allocatable, target :: attrib_boundary(:)
     type(MeshElementNeighbor_3D), allocatable, target :: neighbor(:)
     real(RNP), allocatable, target :: xc(:)
 
