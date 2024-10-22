@@ -1,4 +1,4 @@
-submodule(ML__DG__Elliptic_Solver__3D) MP_FAS_Residual
+submodule(ML__DG__Elliptic_Solver__3D) MP_FAS_MG_Residual
   implicit none
 
 contains
@@ -6,7 +6,7 @@ contains
   !-----------------------------------------------------------------------------
   !> FAS-MG residual with constant diffusivity
 
-  module subroutine FAS_Residual_C(this, lambda, nu, f, bv, u, r)
+  module subroutine FAS_MG_Residual_C(this, lambda, nu, f, bv, u, r)
     class(ML_DG_EllipticSolver_3D), intent(in)    :: this
     real(RNP),                      intent(in)    :: lambda
     real(RNP),                      intent(in)    :: nu
@@ -15,14 +15,14 @@ contains
     class(ML_MeshVariable_3D),      intent(in)    :: u
     class(ML_MeshVariable_3D),      intent(inout) :: r
 
-    call FAS_Residual_X(this, lambda, nu, null(), f, bv, u, r)
+    call FAS_MG_Residual_X(this, lambda, nu, null(), f, bv, u, r)
 
-  end subroutine FAS_Residual_C
+  end subroutine FAS_MG_Residual_C
 
   !-----------------------------------------------------------------------------
   !> FAS-MG residual with variable diffusivity
 
-  module subroutine FAS_Residual_V(this, lambda, nu, f, bv, u, r)
+  module subroutine FAS_MG_Residual_V(this, lambda, nu, f, bv, u, r)
     class(ML_DG_EllipticSolver_3D), intent(in)  :: this
     real(RNP),                      intent(in)  :: lambda
     class(ML_MeshVariable_3D),      intent(in)  :: nu
@@ -31,14 +31,14 @@ contains
     class(ML_MeshVariable_3D),      intent(in)  :: u
     class(ML_MeshVariable_3D),      intent(inout) :: r
 
-    call FAS_Residual_X(this, lambda, null(), nu, f, bv, u, r)
+    call FAS_MG_Residual_X(this, lambda, null(), nu, f, bv, u, r)
 
-  end subroutine FAS_Residual_V
+  end subroutine FAS_MG_Residual_V
 
   !-----------------------------------------------------------------------------
   !> Generic FAS-MG residual with constant or variable diffusivity
 
-  subroutine FAS_Residual_X(this, lambda, nu_0, nu_v, f, bv, u, r)
+  subroutine FAS_MG_Residual_X(this, lambda, nu_0, nu_v, f, bv, u, r)
     class(ML_DG_EllipticSolver_3D),      intent(in)    :: this
     real(RNP),                           intent(in)    :: lambda
     real(RNP),                 optional, intent(in)    :: nu_0
@@ -67,8 +67,8 @@ contains
       end associate
     end do
 
-  end subroutine FAS_Residual_X
+  end subroutine FAS_MG_Residual_X
 
   !=============================================================================
 
-end submodule MP_FAS_Residual
+end submodule MP_FAS_MG_Residual

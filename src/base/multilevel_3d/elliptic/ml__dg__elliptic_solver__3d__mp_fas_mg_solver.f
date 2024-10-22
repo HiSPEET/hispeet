@@ -66,35 +66,23 @@ contains
 
       ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-!### CHECK
-!print '(A)', 'MGS 00'
-!### CHECK END
       !$omp master
       l_top = size(sem)
       r = ML_MeshVariable_3D(this%ml_op, nc=1)
       v = ML_MeshVariable_3D(this%ml_op, nc=1)
       start_method = this % start_method
       !$omp end master
-!### CHECK
-!print '(A)', 'MGS 01'
-!### CHECK END
 
       do l = 1, l_top
         call SetArray(r % level(l) % val(:,:,:,:,1), ZERO)
         call SetArray(v % level(l) % val(:,:,:,:,1), ZERO)
       end do
-!### CHECK
-!print '(A)', 'MGS 02'
-!### CHECK END
 
       ! start ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       START: select case(start_method)
 
       case(START_CASC)
-!### CHECK
-!print '(A)', 'MGS 03c0'
-!### CHECK END
 
         ! cascade ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -127,8 +115,7 @@ contains
                                               , v_p    = u_p             &
                                               , v_c    = u_l             )
             ! smoothing
-!!             n = this % ns_2
-            n = this % ns_1
+            n = this % ns_0
             if (l < l_top) then
               if (present(nu_0)) then
                 call this % Monitoring(l, 'p', lambda, nu_0, f_l, bv_l, u_l)
@@ -147,9 +134,6 @@ contains
         end do CASC_FINE
 
       case(START_FMG)
-!### CHECK
-!print '(A)', 'MGS 03f0'
-!### CHECK END
 
         ! FMG ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -170,7 +154,12 @@ contains
 
               ! pre-smoothing and residual computation .........................
 
-              n = this % ns_1
+              if (l == m) then
+                n = this % ns_0
+              else
+                n = this % ns_1
+              end if
+
               if (present(nu_0)) then
                 call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
                 call this % Residual(l, lambda, nu_0, f_l, bv_l, u_l, r_l)

@@ -273,7 +273,7 @@ set( ELLIPTIC_3D
 #===============================================================================
 # multilevel_3d
 
-set( MULTILEVEL_3D ${MULTILEVEL_3D}
+set( MULTILEVEL_3D
      multilevel_3d/adaptation/child_distribution_map__3d.f
      multilevel_3d/adaptation/child_mesh_adaptation__3d.F
      multilevel_3d/adaptation/child_mesh_adaptation__3d__mp_buildchilddata.f
@@ -294,7 +294,7 @@ set( MULTILEVEL_3D ${MULTILEVEL_3D}
      multilevel_3d/transfer/child_to_parent_restriction__3d.f
    )
 
-set( MULTILEVEL_3D
+set( MULTILEVEL_3D ${MULTILEVEL_3D}
      multilevel_3d/mesh/ml__boundary_variable__3d.f
      multilevel_3d/mesh/ml__mesh__3d.f
      multilevel_3d/mesh/ml__mesh_operators__3d.f
@@ -309,7 +309,7 @@ set( MULTILEVEL_3D ${MULTILEVEL_3D}
 set( MULTILEVEL_3D ${MULTILEVEL_3D}
      multilevel_3d/elliptic/ml__dg__elliptic_solver__3d.f
      multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_fas_mg_solver.f
-     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_fas_residual.f
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_fas_mg_residual.f
      multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_coarsesolver.f
      multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_residual.f
      multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_smoother.f

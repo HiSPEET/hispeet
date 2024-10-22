@@ -542,9 +542,9 @@ contains
     ! residual .................................................................
 
     if (has_variable_nu) then
-      call ml_elliptic % FAS_Residual(lambda, nu, f, bv, u, r)
+      call ml_elliptic % FAS_MG_Residual(lambda, nu, f, bv, u, r)
     else
-      call ml_elliptic % FAS_Residual(lambda, nu_0, f, bv, u, r)
+      call ml_elliptic % FAS_MG_Residual(lambda, nu_0, f, bv, u, r)
     end if
 
     ! maximum norm
