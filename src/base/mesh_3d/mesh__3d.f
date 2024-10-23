@@ -44,16 +44,17 @@ module Mesh__3D
 
     ! attributes ...............................................................
 
-    integer   :: n_bound    = 0        !< number of domain boundaries
-    integer   :: n_parts    = 0        !< number of non-empty partitions
+    integer   :: n_bound    = 0       !< number of domain boundaries
+    integer   :: n_parts    = 0       !< number of non-empty partitions
+    integer   :: p_geom     = 0       !< max polynomial order of element geometry
 
-    logical   :: structured = .false.  !< T if mapping to structured mesh exists
-    logical   :: regular    = .false.  !< T if equidistant Cartesian
-    real(RNP) :: dx(3)      =  0       !< regular mesh spacing in directions 1:3
+    logical   :: structured = .false. !< T if mapping to structured mesh exists
+    logical   :: regular    = .false. !< T if equidistant Cartesian
+    real(RNP) :: dx(3)      =  0      !< regular mesh spacing in directions 1:3
 
-    logical   :: is_root    = .true.   !< T if root (bottom) level mesh
-    logical   :: is_top     = .true.   !< T if top level mesh
-    character :: refinement = ''       !< 'c' clone or 's' subdivision
+    logical   :: is_root    = .true.  !< T if root (bottom) level mesh
+    logical   :: is_top     = .true.  !< T if top level mesh
+    character :: refinement = ''      !< 'c' clone or 's' subdivision
 
     ! MPI ......................................................................
 
@@ -79,15 +80,15 @@ module Mesh__3D
     integer :: n_child       = 0  !< number of child partitions
     integer :: n_parent      = 0  !< number of parent partitions
 
-    integer :: p_geom        = 0  !< max polynomial order of element geometry
-
-    integer :: max_vert_val  = 0  !< maximum vertex valency
-    integer :: max_edge_val  = 0  !< maximum edge valency
-
     ! structured mesh only
     integer :: n_elem_1      = 0  !< number of elements in direction 1
     integer :: n_elem_2      = 0  !< number of elements in direction 2
     integer :: n_elem_3      = 0  !< number of elements in direction 3
+
+    ! valencies ................................................................
+
+    integer :: max_vert_val  = 0  !< maximum vertex valency
+    integer :: max_edge_val  = 0  !< maximum edge valency
 
     ! mesh components and links ................................................
 
