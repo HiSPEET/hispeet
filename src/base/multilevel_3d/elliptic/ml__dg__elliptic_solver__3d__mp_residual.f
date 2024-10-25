@@ -5,6 +5,9 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Residual with constant diffusivity
+  !>
+  !> Homogeneous boundary conditions are assumed if `bv` is absent.
+  !> This case is used for implementing the correction scheme
 
   module subroutine Residual_C(this, l, lambda, nu, f, bv, u, r)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
@@ -12,7 +15,7 @@ contains
     real(RNP), intent(in) :: lambda
     real(RNP), intent(in) :: nu
     real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-    class(BoundaryVariable_3D), intent(in) :: bv(:)
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
     real(RNP), contiguous, intent(in)  :: u(:,:,:,:)
     real(RNP), contiguous, intent(out) :: r(:,:,:,:)
 
@@ -22,6 +25,9 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Residual with variable diffusivity
+  !>
+  !> Homogeneous boundary conditions are assumed if `bv` is absent.
+  !> This case is used for implementing the correction scheme
 
   module subroutine Residual_V(this, l, lambda, nu, f, bv, u, r)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
@@ -29,7 +35,7 @@ contains
     real(RNP), intent(in) :: lambda
     real(RNP), contiguous, intent(in) :: nu(:,:,:,:)
     real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-    class(BoundaryVariable_3D), intent(in) :: bv(:)
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
     real(RNP), contiguous, intent(in)  :: u(:,:,:,:)
     real(RNP), contiguous, intent(out) :: r(:,:,:,:)
 

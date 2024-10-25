@@ -38,7 +38,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Generic FAS-MG residual with constant or variable diffusivity
 
-  subroutine FAS_MG_Residual_X(this, lambda, nu_0, nu_v, f, bv, u, r)
+  module subroutine FAS_MG_Residual_X(this, lambda, nu_0, nu_v, f, bv, u, r)
     class(ML_DG_EllipticSolver_3D),      intent(in)    :: this
     real(RNP),                           intent(in)    :: lambda
     real(RNP),                 optional, intent(in)    :: nu_0

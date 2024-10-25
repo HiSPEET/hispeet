@@ -8,13 +8,13 @@ contains
 
   module subroutine FAS_MG_Solver_C(this, lambda, nu, u, f, bv, n_i, r_2)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
-    real(RNP), intent(in) :: lambda
-    real(RNP), intent(in) :: nu
-    class(ML_MeshVariable_3D), intent(inout) :: u
-    class(ML_MeshVariable_3D), intent(inout) :: f
-    class(ML_BoundaryVariable_3D), intent(in) :: bv
-    integer, optional, intent(out) :: n_i
-    real(RNP), optional, intent(out) :: r_2(:)
+    real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
+    real(RNP), intent(in) :: nu                     !< diffusivity
+    class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
+    class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
+    class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
+    integer,   optional, intent(out) :: n_i         !< num executed cycles
+    real(RNP), optional, intent(out) :: r_2         !< Euclidic residual norm
 
     call FAS_MG_Solver_X(this, lambda, nu, null(), u, f, bv, n_i, r_2)
 
@@ -25,13 +25,13 @@ contains
 
   module subroutine FAS_MG_Solver_V(this, lambda, nu, u, f, bv, n_i, r_2)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
-    real(RNP), intent(in) :: lambda
-    class(ML_MeshVariable_3D), intent(in) :: nu
-    class(ML_MeshVariable_3D), intent(inout) :: u
-    class(ML_MeshVariable_3D), intent(inout) :: f
-    class(ML_BoundaryVariable_3D), intent(in) :: bv
-    integer, optional, intent(out) :: n_i
-    real(RNP), optional, intent(out) :: r_2(:)
+    real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
+    class(ML_MeshVariable_3D), intent(in) :: nu     !< diffusivity
+    class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
+    class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
+    class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
+    integer, optional, intent(out) :: n_i           !< num executed cycles
+    real(RNP), optional, intent(out) :: r_2         !< Euclidic residual norm
 
     call FAS_MG_Solver_X(this, lambda, null(), nu, u, f, bv, n_i, r_2)
 
@@ -39,23 +39,32 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Generic FAS-MG solver for problems with constant or variable diffusivity
+  !>
+  !> Either `nu_0` or `nu_v` must be given.
 
-  subroutine FAS_MG_Solver_X(this, lambda, nu_0, nu_v, u, f, bv, n_i, r_2)
+  module subroutine FAS_MG_Solver_X(this, lambda, nu_0, nu_v, u, f, bv, n_i, r_2)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
-    real(RNP), intent(in) :: lambda
-    real(RNP), optional, intent(in) :: nu_0
-    class(ML_MeshVariable_3D), optional, intent(in) :: nu_v
-    class(ML_MeshVariable_3D), intent(inout) :: u
-    class(ML_MeshVariable_3D), intent(inout) :: f
-    class(ML_BoundaryVariable_3D), intent(in) :: bv
-    integer, optional, intent(out) :: n_i
-    real(RNP), optional, intent(out) :: r_2(:)
+    real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
+    real(RNP), intent(in) :: nu_0                   !< constant diffusivity
+    class(ML_MeshVariable_3D), intent(in) :: nu_v   !< variable diffusivity
+    class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
+    class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
+    class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
+    integer, optional, intent(out) :: n_i           !< num executed cycles
+    real(RNP), optional, intent(out) :: r_2         !< Euclidic residual norm
 
+    optional :: nu_0, nu_v
+
+    ! internal variables :::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+    type(MPI_Comm), save :: comm_world
     type(ML_MeshVariable_3D), allocatable, save :: r, v
     integer, save :: start_method
     integer, save :: l_top
+    logical, save :: converged
 
-    real(RNP) :: rr
+    real(RNP) :: rr, r_max, r_new, r_old
+    logical :: check_convergence
     integer :: e, l, m, n
 
     associate( sem    => this % ml_op % sem    &
@@ -66,17 +75,46 @@ contains
 
       ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
+      check_convergence = max(this%r_red, this%r_max) > 0
+
       !$omp master
       l_top = size(sem)
       r = ML_MeshVariable_3D(this%ml_op, nc=1)
       v = ML_MeshVariable_3D(this%ml_op, nc=1)
       start_method = this % start_method
+      comm_world = sem(1) % mesh % comm_world
       !$omp end master
 
       do l = 1, l_top
         call SetArray(r % level(l) % val(:,:,:,:,1), ZERO)
         call SetArray(v % level(l) % val(:,:,:,:,1), ZERO)
       end do
+
+      ! termination conditions
+      if (check_convergence) then
+        call this % FAS_MG_Residual_X(lambda, nu_0, nu_v, f, bv, u, r)
+        rr = ML_ScalarProduct_3D(r, r)
+        r_old  = sqrt(rr)
+        r_max  = max(r_old * this%r_red, this%r_max)
+        !$omp master
+        converged = r_old < r_max
+        call XMPI_Bcast(converged, root = 0, comm = comm_world)
+        !$omp end master
+        !$omp barrier
+      else
+        !$omp single
+        converged = .false.
+        !$omp end single
+      end if
+
+      if (converged) then
+        !$omp master
+        deallocate(r, v)
+        if (present(n_i)) n_i = 0
+        if (present(r_2)) r_2 = r_old
+        !$omp end master
+        return
+      end if
 
       ! start ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -352,9 +390,6 @@ contains
               call ChildToParentProjection_3D &
                        (mesh_l, mesh_p, pop_fc(l), u_l, v_p)
             end select
-!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max u_l       = ',minval(u_l),' / ',maxval(u_l)
-!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max v_p       = ',minval(v_p),' / ',maxval(v_p)
-!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max v_2       = ',minval(v%level(2)%val),' / ',maxval(v%level(2)%val)
 
             ! restrict residual
             call ChildToParentRestriction_3D &
@@ -369,9 +404,6 @@ contains
                 v_p(:,:,:,e) = u_p(:,:,:,e)
               end if
             end do
-!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max u_p       = ',minval(u_p),' / ',maxval(u_p)
-!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max v_p       = ',minval(v_p),' / ',maxval(v_p)
-!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max u_p - v_p = ',minval(u_p-v_p),' / ',maxval(u_p-v_p)
 
             if (present(nu_0)) then
               call ell_op(l-1) % Apply(lambda, nu_0, v_p, r_p)
@@ -411,7 +443,6 @@ contains
         end associate V_COARSE
 
         V_UP: do l = 2, l_top
-!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max v_2       = ',minval(v%level(2)%val),' / ',maxval(v%level(2)%val)
 
           associate( mesh_l => sem(l  ) % mesh                    &
                    , mesh_p => sem(l-1) % mesh                    &
@@ -423,9 +454,6 @@ contains
                    , v_p    => v    % level(l-1) % val(:,:,:,:,1) )
 
               ! prolongation .................................................
-!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max u_p       = ',minval(u_p),' / ',maxval(u_p)
-!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max v_p       = ',minval(v_p),' / ',maxval(v_p)
-!! print '(3G0,2(ES12.5,A))', 'l = ',l,' min/max u_p - v_p = ',minval(u_p-v_p),' / ',maxval(u_p-v_p)
 
               do e = 1, mesh_p % n_elem
                 if (mesh_p % element(e) % adaptation % refinement >= 1000) then
@@ -472,6 +500,25 @@ contains
           end associate
         end do V_UP
 
+        ! termination check ....................................................
+
+        if (check_convergence .and. m < this%i_max) then
+
+          call this % FAS_MG_Residual_X(lambda, nu_0, nu_v, f, bv, u, r)
+          rr = ML_ScalarProduct_3D(r, r)
+          r_new = sqrt(rr)
+
+          !$omp master
+          converged = r_new <= r_max
+          call XMPI_Bcast(converged, root = 0, comm = comm_world)
+          !$omp end master
+          !$omp barrier
+
+          if (converged) exit
+          r_old = r_new
+
+        end if
+
       end do V_OUTER
 
       ! optional output arguments ::::::::::::::::::::::::::::::::::::::::::::::
@@ -483,35 +530,18 @@ contains
       end if
 
       if (present(r_2)) then
-        do l = 1, l_top
-          associate( bv_l => bv   % level(l) % var            &
-                   , f_l  => f    % level(l) % val(:,:,:,:,1) &
-                   , u_l  => u    % level(l) % val(:,:,:,:,1) &
-                   , r_l  => r    % level(l) % val(:,:,:,:,1) )
-
-            if (present(nu_0)) then
-              call this % Residual(l, lambda, nu_0, f_l, bv_l, u_l, r_l)
-            else
-              associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
-                call this % Residual(l, lambda, nu_l, f_l, bv_l, u_l, r_l)
-              end associate
-            end if
-
-            if (sem(l)%mesh%part >= 0) then
-              rr = ScalarProduct(r_l, r_l, sem(l)%mesh%comm_parts)
-            else
-              rr = 0
-            end if
-            !$omp master
-            r_2(l) = sqrt(rr)
-            !$omp end master
-
-          end associate
-        end do
+        if (check_convergence .and. m < this%i_max) then
+          !$omp master
+          r_2 = r_new
+          !$omp end master
+        else
+          call this % FAS_MG_Residual_X(lambda, nu_0, nu_v, f, bv, u, r)
+          rr = ML_ScalarProduct_3D(r, r)
+          !$omp master
+          r_2 = sqrt(rr)
+          !$omp end master
+        end if
       end if
-!### CHECK
-!print '(A)', 'MGS 07'
-!### CHECK END
 
       ! finalization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -520,9 +550,6 @@ contains
       !$omp end master
 
     end associate
-!### CHECK
-!print '(A)', 'MGS 0X'
-!### CHECK END
 
   end subroutine FAS_MG_Solver_X
 

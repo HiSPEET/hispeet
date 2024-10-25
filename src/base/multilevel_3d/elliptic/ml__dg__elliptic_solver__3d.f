@@ -20,6 +20,7 @@ module ML__DG__Elliptic_Solver__3D
   use ML__Boundary_Variable__3D
   use ML__Mesh_Operators__3D
   use ML__Mesh_Variable__3D
+  use ML__Array_Reductions__3D
 
   implicit none
   private
@@ -70,12 +71,10 @@ module ML__DG__Elliptic_Solver__3D
     procedure, public  :: Init_ML_DG_EllipticSolver_3D
 
     generic,   public  :: FAS_MG_Residual => FAS_MG_Residual_C, FAS_MG_Residual_V
-    procedure, private :: FAS_MG_Residual_C, FAS_MG_Residual_V
+    procedure, private :: FAS_MG_Residual_C, FAS_MG_Residual_V, FAS_MG_Residual_X
 
     generic,   public  :: FAS_MG_Solver => FAS_MG_Solver_C, FAS_MG_Solver_V
-    procedure, private :: FAS_MG_Solver_C, FAS_MG_Solver_V
-
-  ! generic, public :: FAS_MK_Solver => FAS_MK_Solver_C, FAS_MK_Solver_V
+    procedure, private :: FAS_MG_Solver_C, FAS_MG_Solver_V, FAS_MG_Solver_X
 
     generic,   private :: Residual => Residual_C, Residual_V
     procedure, private :: Residual_C, Residual_V
@@ -156,6 +155,20 @@ module ML__DG__Elliptic_Solver__3D
     end subroutine FAS_MG_Residual_V
 
     !---------------------------------------------------------------------------
+    !> Generic FAS-MG residual with constant or variable diffusivity
+
+    module subroutine FAS_MG_Residual_X(this, lambda, nu_0, nu_v, f, bv, u, r)
+      class(ML_DG_EllipticSolver_3D),      intent(in)    :: this
+      real(RNP),                           intent(in)    :: lambda
+      real(RNP),                 optional, intent(in)    :: nu_0
+      class(ML_MeshVariable_3D), optional, intent(in)    :: nu_v
+      class(ML_MeshVariable_3D),           intent(in)    :: f
+      class(ML_BoundaryVariable_3D),       intent(in)    :: bv
+      class(ML_MeshVariable_3D),           intent(in)    :: u
+      class(ML_MeshVariable_3D),           intent(inout) :: r
+    end subroutine FAS_MG_Residual_X
+
+    !---------------------------------------------------------------------------
     !> FAS-MG solver for problems with constant diffusivity
 
     module subroutine FAS_MG_Solver_C(this, lambda, nu, u, f, bv, n_i, r_2)
@@ -166,7 +179,7 @@ module ML__DG__Elliptic_Solver__3D
       class(ML_MeshVariable_3D),      intent(inout) :: f
       class(ML_BoundaryVariable_3D),  intent(in)    :: bv
       integer,              optional, intent(out)   :: n_i
-      real(RNP),            optional, intent(out)   :: r_2(:)
+      real(RNP),            optional, intent(out)   :: r_2
     end subroutine FAS_MG_Solver_C
 
     !---------------------------------------------------------------------------
@@ -180,8 +193,21 @@ module ML__DG__Elliptic_Solver__3D
       class(ML_MeshVariable_3D),      intent(inout) :: f
       class(ML_BoundaryVariable_3D),  intent(in)    :: bv
       integer,              optional, intent(out)   :: n_i
-      real(RNP),            optional, intent(out)   :: r_2(:)
+      real(RNP),            optional, intent(out)   :: r_2
     end subroutine FAS_MG_Solver_V
+
+    module subroutine FAS_MG_Solver_X(this, lambda, nu_0, nu_v, u, f, bv, &
+                                      n_i, r_2)
+      class(ML_DG_EllipticSolver_3D),      intent(in)    :: this
+      real(RNP),                           intent(in)    :: lambda
+      real(RNP),                 optional, intent(in)    :: nu_0
+      class(ML_MeshVariable_3D), optional, intent(in)    :: nu_v
+      class(ML_MeshVariable_3D),           intent(inout) :: u
+      class(ML_MeshVariable_3D),           intent(inout) :: f
+      class(ML_BoundaryVariable_3D),       intent(in)    :: bv
+      integer,                   optional, intent(out)   :: n_i
+      real(RNP),                 optional, intent(out)   :: r_2
+    end subroutine FAS_MG_Solver_X
 
   end interface
 
@@ -199,7 +225,7 @@ module ML__DG__Elliptic_Solver__3D
       real(RNP), intent(in) :: lambda
       real(RNP), intent(in) :: nu
       real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-      class(BoundaryVariable_3D), intent(in) :: bv(:)
+      class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
       real(RNP), contiguous, intent(in)  :: u(:,:,:,:)
       real(RNP), contiguous, intent(out) :: r(:,:,:,:)
     end subroutine Residual_C
@@ -213,7 +239,7 @@ module ML__DG__Elliptic_Solver__3D
       real(RNP), intent(in) :: lambda
       real(RNP), contiguous, intent(in) :: nu(:,:,:,:)
       real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-      class(BoundaryVariable_3D), intent(in) :: bv(:)
+      class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
       real(RNP), contiguous, intent(in)  :: u(:,:,:,:)
       real(RNP), contiguous, intent(out) :: r(:,:,:,:)
     end subroutine Residual_V

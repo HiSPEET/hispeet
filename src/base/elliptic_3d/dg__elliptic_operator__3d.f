@@ -289,12 +289,13 @@ contains
 
   subroutine Residual_C(this, lambda, nu, f, bv, u, r)
     class(DG_EllipticOperator_3D), intent(in)  :: this
-    real(RNP),                     intent(in)  :: lambda     !< λ
-    real(RNP),                     intent(in)  :: nu         !< ν = νᵖ+νˢ
-    real(RNP), contiguous,         intent(in)  :: f(:,:,:,:) !< RHS
-    real(RNP), contiguous,         intent(in)  :: u(:,:,:,:) !< operand
-    class(BoundaryVariable_3D),    intent(in)  :: bv(:)      !< boundary values
-    real(RNP), contiguous,         intent(out) :: r(:,:,:,:) !< result
+    real(RNP),                     intent(in)  :: lambda      !< λ
+    real(RNP),                     intent(in)  :: nu          !< ν = νᵖ+νˢ
+    real(RNP), contiguous,         intent(in)  :: f(:,:,:,:)  !< RHS
+    real(RNP), contiguous,         intent(in)  :: u(:,:,:,:)  !< operand
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:) !< boundary values
+      !! replaced by homogeneous conditions if absent
+    real(RNP), contiguous,         intent(out) :: r(:,:,:,:)  !< result
 
     if (this % sem % mesh % regular) then
       call Eval_RC(this, lambda, nu, u, r, f, bv)
@@ -313,7 +314,8 @@ contains
     real(RNP), contiguous,         intent(in)  :: nu(:,:,:,:) !< ν = νᵖ
     real(RNP), contiguous,         intent(in)  :: u (:,:,:,:) !< operand
     real(RNP), contiguous,         intent(in)  :: f (:,:,:,:) !< RHS
-    class(BoundaryVariable_3D),    intent(in)  :: bv(:)       !< boundary values
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:) !< boundary values
+      !! replaced by homogeneous conditions if absent
     real(RNP), contiguous,         intent(out) :: r (:,:,:,:) !< result
 
     if (this % sem % mesh % regular) then
