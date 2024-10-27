@@ -40,8 +40,9 @@ contains
     real(RNP),                  intent(in) :: lambda     !< λ
     real(RNP),                  intent(in) :: nu         !< diffusivity
     real(RNP), contiguous,      intent(in) :: f(:,:,:,:) !< RHS
-    class(BoundaryVariable_3D), intent(in) :: bv(:)      !< boundary values
     real(RNP), contiguous,      intent(in) :: u(:,:,:,:) !< operand
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
+      !< boundary values, replaced by homogeneous conditions, if absent
 
     real(RNP), dimension(:,:,:,:), allocatable, save :: r
 
@@ -76,7 +77,8 @@ contains
     real(RNP), contiguous,      intent(in) :: nu(:,:,:,:) !< diffusivity
     real(RNP), contiguous,      intent(in) :: f(:,:,:,:)  !< RHS
     real(RNP), contiguous,      intent(in) :: u(:,:,:,:)  !< operand
-    class(BoundaryVariable_3D), intent(in) :: bv(:)       !< boundary values
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
+      !< boundary values, replaced by homogeneous conditions, if absent
 
     real(RNP), dimension(:,:,:,:), allocatable, save :: r
 

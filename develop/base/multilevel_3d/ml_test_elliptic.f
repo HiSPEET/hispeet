@@ -63,9 +63,10 @@ program ML_Test_Elliptic
   namelist/control_prm/ log_level_outer_iteration
   namelist/control_prm/ log_level_multigrid_cycle
 
+  integer :: solution_method = 20  ! 10/20: CS-MG/FAS-MG
   logical :: export_vtk = .false.  ! switch for VTK export
 
-  namelist/control_prm/ export_vtk
+  namelist/control_prm/ solution_method, export_vtk
 
   ! domain .....................................................................
 
@@ -201,10 +202,11 @@ program ML_Test_Elliptic
   call XMPI_Bcast_LoggingLevels(0, comm)
 
   ! globalize remaining parameters
-  call XMPI_Bcast(case_name  , 0, comm)
-  call XMPI_Bcast(export_vtk , 0, comm)
-  call XMPI_Bcast(test_domain, 0, comm)
-  call XMPI_Bcast(gmsh_file  , 0, comm)
+  call XMPI_Bcast(case_name       , 0, comm)
+  call XMPI_Bcast(export_vtk      , 0, comm)
+  call XMPI_Bcast(solution_method , 0, comm)
+  call XMPI_Bcast(test_domain     , 0, comm)
+  call XMPI_Bcast(gmsh_file       , 0, comm)
 
   ! base mesh ..................................................................
 
@@ -462,9 +464,19 @@ program ML_Test_Elliptic
   end if
 
   if (has_variable_nu) then
-    call ml_elliptic % FAS_MG_Solver(lambda, nu, u, f, bv, n_i)
+    select case(solution_method)
+    case(10)
+      call ml_elliptic % CS_MG_Solver(lambda, nu, u, f, bv, n_i)
+    case(20)
+      call ml_elliptic % FAS_MG_Solver(lambda, nu, u, f, bv, n_i)
+    end select
   else
-    call ml_elliptic % FAS_MG_Solver(lambda, nu_0, u, f, bv, n_i)
+    select case(solution_method)
+    case(10)
+      call ml_elliptic % CS_MG_Solver(lambda, nu_0, u, f, bv, n_i)
+    case(20)
+      call ml_elliptic % FAS_MG_Solver(lambda, nu_0, u, f, bv, n_i)
+    end select
   end if
 
   !-----------------------------------------------------------------------------

@@ -8,6 +8,7 @@
 ! log_level_outer_iteration = 0
   log_level_multigrid_cycle = 1
 
+! solution_method = 20 ! 10/20: CS-MG/FAS-MG                  [20]
   export_vtk = F
 /
 

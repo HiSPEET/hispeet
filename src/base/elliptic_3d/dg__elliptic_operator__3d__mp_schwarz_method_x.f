@@ -17,23 +17,25 @@ contains
   !-----------------------------------------------------------------------------
   !> Element-centered overlapping Schwarz method with constant or variable ν
   !>
+  !> Homogeneous conditions are used if boundary values `bv` are absent
+  !>
   !> @remark
   !> One and only one of the parameters `nu_c` and `nu_v` is to be passed
 
   module subroutine Schwarz_Method_X( this, lambda, nu_c, nu_v, u, f, bv &
                                     , i_max, r_red, r_max, ni            )
 
-    class(DG_EllipticOperator_3D),   intent(in)    :: this
-    real(RNP),                       intent(in)    :: lambda        !< λ
-    real(RNP),             optional, intent(in)    :: nu_c          !< νᵖ+νˢ
-    real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:) !< νᵖ
-    real(RNP), contiguous,           intent(inout) :: u(:,:,:,:)
-    real(RNP), contiguous,           intent(in)    :: f(:,:,:,:)
-    class(BoundaryVariable_3D),      intent(in)    :: bv(:)
-    integer,                         intent(in)    :: i_max
-    real(RNP),             optional, intent(in)    :: r_red
-    real(RNP),             optional, intent(in)    :: r_max
-    integer,               optional, intent(out)   :: ni
+    class(DG_EllipticOperator_3D),        intent(in)    :: this
+    real(RNP),                            intent(in)    :: lambda        !< λ
+    real(RNP),                  optional, intent(in)    :: nu_c          !< νᵖ+νˢ
+    real(RNP), contiguous,      optional, intent(in)    :: nu_v(:,:,:,:) !< νᵖ
+    real(RNP), contiguous,                intent(inout) :: u(:,:,:,:)
+    real(RNP), contiguous,                intent(in)    :: f(:,:,:,:)
+    class(BoundaryVariable_3D), optional, intent(in)    :: bv(:)
+    integer,                              intent(in)    :: i_max
+    real(RNP),                  optional, intent(in)    :: r_red
+    real(RNP),                  optional, intent(in)    :: r_max
+    integer,                    optional, intent(out)   :: ni
 
     ! local variables ..........................................................
 

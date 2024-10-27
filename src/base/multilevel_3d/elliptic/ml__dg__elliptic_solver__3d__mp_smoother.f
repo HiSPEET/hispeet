@@ -13,7 +13,7 @@ contains
     real(RNP), intent(in) :: nu
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:)
     real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-    class(BoundaryVariable_3D), intent(in) :: bv(:)
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
     integer, intent(in) :: n_s
 
     call Smoother_X(this, l, lambda, nu, null(), u, f, bv, n_s)
@@ -30,7 +30,7 @@ contains
     real(RNP), contiguous, intent(in) :: nu(:,:,:,:)
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:)
     real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-    class(BoundaryVariable_3D), intent(in) :: bv(:)
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
     integer, intent(in) :: n_s
 
     call Smoother_X(this, l, lambda, null(), nu, u, f, bv, n_s)
@@ -48,7 +48,7 @@ contains
     real(RNP), contiguous, optional, intent(in) :: nu_v(:,:,:,:)
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:)
     real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-    class(BoundaryVariable_3D), intent(in) :: bv(:)
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
     integer, intent(in) :: n_s
 
     select case(this % smooth_method)

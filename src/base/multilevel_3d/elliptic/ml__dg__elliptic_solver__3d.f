@@ -70,6 +70,9 @@ module ML__DG__Elliptic_Solver__3D
 
     procedure, public  :: Init_ML_DG_EllipticSolver_3D
 
+    generic,   public  :: CS_MG_Solver => CS_MG_Solver_C, CS_MG_Solver_V
+    procedure, private :: CS_MG_Solver_C, CS_MG_Solver_V, CS_MG_Solver_X
+
     generic,   public  :: FAS_MG_Residual => FAS_MG_Residual_C, FAS_MG_Residual_V
     procedure, private :: FAS_MG_Residual_C, FAS_MG_Residual_V, FAS_MG_Residual_X
 
@@ -129,6 +132,50 @@ module ML__DG__Elliptic_Solver__3D
   interface
 
     !---------------------------------------------------------------------------
+    !> CS-MG solver for problems with global refinement and constant diffusivity
+
+    module subroutine CS_MG_Solver_C(this, lambda, nu, u, f, bv, ni, r_2)
+      class(ML_DG_EllipticSolver_3D), intent(in)    :: this
+      real(RNP),                      intent(in)    :: lambda
+      real(RNP),                      intent(in)    :: nu
+      class(ML_MeshVariable_3D),      intent(inout) :: u
+      class(ML_MeshVariable_3D),      intent(inout) :: f
+      class(ML_BoundaryVariable_3D),  intent(in)    :: bv
+      integer,              optional, intent(out)   :: ni
+      real(RNP),            optional, intent(out)   :: r_2
+    end subroutine CS_MG_Solver_C
+
+    !---------------------------------------------------------------------------
+    !> CS-MG solver for problems with global refinement and variable diffusivity
+
+    module subroutine CS_MG_Solver_V(this, lambda, nu, u, f, bv, ni, r_2)
+      class(ML_DG_EllipticSolver_3D), intent(in)    :: this
+      real(RNP),                      intent(in)    :: lambda
+      class(ML_MeshVariable_3D),      intent(in)    :: nu
+      class(ML_MeshVariable_3D),      intent(inout) :: u
+      class(ML_MeshVariable_3D),      intent(inout) :: f
+      class(ML_BoundaryVariable_3D),  intent(in)    :: bv
+      integer,              optional, intent(out)   :: ni
+      real(RNP),            optional, intent(out)   :: r_2
+    end subroutine CS_MG_Solver_V
+
+    !---------------------------------------------------------------------------
+    !> Generic CS-MG solver for problems with constant or variable diffusivity
+
+    module subroutine CS_MG_Solver_X(this, lambda, nu_0, nu_v, u, f, bv, ni, &
+                                     r_2)
+      class(ML_DG_EllipticSolver_3D),        intent(in)    :: this
+      real(RNP),                             intent(in)    :: lambda
+      real(RNP),                   optional, intent(in)    :: nu_0
+      class(ML_MeshVariable_3D),   optional, intent(in)    :: nu_v
+      class(ML_MeshVariable_3D),             intent(inout) :: u
+      class(ML_MeshVariable_3D),             intent(inout) :: f
+      class(ML_BoundaryVariable_3D), target, intent(in)    :: bv
+      integer,                     optional, intent(out)   :: ni
+      real(RNP),                   optional, intent(out)   :: r_2
+    end subroutine CS_MG_Solver_X
+
+    !---------------------------------------------------------------------------
     !> FAS-MG residual with constant diffusivity
 
     module subroutine FAS_MG_Residual_C(this, lambda, nu, f, bv, u, r)
@@ -171,33 +218,36 @@ module ML__DG__Elliptic_Solver__3D
     !---------------------------------------------------------------------------
     !> FAS-MG solver for problems with constant diffusivity
 
-    module subroutine FAS_MG_Solver_C(this, lambda, nu, u, f, bv, n_i, r_2)
+    module subroutine FAS_MG_Solver_C(this, lambda, nu, u, f, bv, ni, r_2)
       class(ML_DG_EllipticSolver_3D), intent(in)    :: this
       real(RNP),                      intent(in)    :: lambda
       real(RNP),                      intent(in)    :: nu
       class(ML_MeshVariable_3D),      intent(inout) :: u
       class(ML_MeshVariable_3D),      intent(inout) :: f
       class(ML_BoundaryVariable_3D),  intent(in)    :: bv
-      integer,              optional, intent(out)   :: n_i
+      integer,              optional, intent(out)   :: ni
       real(RNP),            optional, intent(out)   :: r_2
     end subroutine FAS_MG_Solver_C
 
     !---------------------------------------------------------------------------
     !> FAS-MG solver for problems with variable diffusivity
 
-    module subroutine FAS_MG_Solver_V(this, lambda, nu, u, f, bv, n_i, r_2)
+    module subroutine FAS_MG_Solver_V(this, lambda, nu, u, f, bv, ni, r_2)
       class(ML_DG_EllipticSolver_3D), intent(in)    :: this
       real(RNP),                      intent(in)    :: lambda
       class(ML_MeshVariable_3D),      intent(in)    :: nu
       class(ML_MeshVariable_3D),      intent(inout) :: u
       class(ML_MeshVariable_3D),      intent(inout) :: f
       class(ML_BoundaryVariable_3D),  intent(in)    :: bv
-      integer,              optional, intent(out)   :: n_i
+      integer,              optional, intent(out)   :: ni
       real(RNP),            optional, intent(out)   :: r_2
     end subroutine FAS_MG_Solver_V
 
-    module subroutine FAS_MG_Solver_X(this, lambda, nu_0, nu_v, u, f, bv, &
-                                      n_i, r_2)
+    !---------------------------------------------------------------------------
+    !> Generic FAS-MG solver for problems with constant or variable diffusivity
+
+    module subroutine FAS_MG_Solver_X(this, lambda, nu_0, nu_v, u, f, bv, ni, &
+                                      r_2)
       class(ML_DG_EllipticSolver_3D),      intent(in)    :: this
       real(RNP),                           intent(in)    :: lambda
       real(RNP),                 optional, intent(in)    :: nu_0
@@ -205,7 +255,7 @@ module ML__DG__Elliptic_Solver__3D
       class(ML_MeshVariable_3D),           intent(inout) :: u
       class(ML_MeshVariable_3D),           intent(inout) :: f
       class(ML_BoundaryVariable_3D),       intent(in)    :: bv
-      integer,                   optional, intent(out)   :: n_i
+      integer,                   optional, intent(out)   :: ni
       real(RNP),                 optional, intent(out)   :: r_2
     end subroutine FAS_MG_Solver_X
 
@@ -220,82 +270,80 @@ module ML__DG__Elliptic_Solver__3D
     !> Residual with constant diffusivity
 
     module subroutine Residual_C(this, l, lambda, nu, f, bv, u, r)
-      class(ML_DG_EllipticSolver_3D), intent(in) :: this
-      integer,   intent(in) :: l
-      real(RNP), intent(in) :: lambda
-      real(RNP), intent(in) :: nu
-      real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-      class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
-      real(RNP), contiguous, intent(in)  :: u(:,:,:,:)
-      real(RNP), contiguous, intent(out) :: r(:,:,:,:)
+      class(ML_DG_EllipticSolver_3D),       intent(in) :: this
+      integer,                              intent(in)  :: l
+      real(RNP),                            intent(in)  :: lambda
+      real(RNP),                            intent(in)  :: nu
+      real(RNP), contiguous,                intent(in)  :: f(:,:,:,:)
+      class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
+      real(RNP), contiguous,                intent(in)  :: u(:,:,:,:)
+      real(RNP), contiguous,                intent(out) :: r(:,:,:,:)
     end subroutine Residual_C
 
     !---------------------------------------------------------------------------
     !> Residual with variable diffusivity
 
     module subroutine Residual_V(this, l, lambda, nu, f, bv, u, r)
-      class(ML_DG_EllipticSolver_3D), intent(in) :: this
-      integer,   intent(in) :: l
-      real(RNP), intent(in) :: lambda
-      real(RNP), contiguous, intent(in) :: nu(:,:,:,:)
-      real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-      class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
-      real(RNP), contiguous, intent(in)  :: u(:,:,:,:)
-      real(RNP), contiguous, intent(out) :: r(:,:,:,:)
+      class(ML_DG_EllipticSolver_3D),       intent(in)  :: this
+      integer,                              intent(in)  :: l
+      real(RNP),                            intent(in)  :: lambda
+      real(RNP), contiguous,                intent(in)  :: nu(:,:,:,:)
+      real(RNP), contiguous,                intent(in)  :: f(:,:,:,:)
+      class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
+      real(RNP), contiguous,                intent(in)  :: u(:,:,:,:)
+      real(RNP), contiguous,                intent(out) :: r(:,:,:,:)
     end subroutine Residual_V
 
     !---------------------------------------------------------------------------
     !> Coarse grid solver with constant diffusivity
 
     module subroutine CoarseSolver_C(this, lambda, nu, u, f, bv)
-      use Boundary_Variable__3D
-      class(ML_DG_EllipticSolver_3D), intent(in) :: this
-      real(RNP), intent(in) :: lambda
-      real(RNP), intent(in) :: nu
-      real(RNP), contiguous, intent(inout) :: u(:,:,:,:)
-      real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-      class(BoundaryVariable_3D), intent(in) :: bv(:)
+      class(ML_DG_EllipticSolver_3D),       intent(in)    :: this
+      real(RNP),                            intent(in)    :: lambda
+      real(RNP),                            intent(in)    :: nu
+      real(RNP), contiguous,                intent(inout) :: u(:,:,:,:)
+      real(RNP), contiguous,                intent(in)    :: f(:,:,:,:)
+      class(BoundaryVariable_3D), optional, intent(in)    :: bv(:)
     end subroutine CoarseSolver_C
 
     !---------------------------------------------------------------------------
     !> Coarse grid solver with variable diffusivity
 
     module subroutine CoarseSolver_V(this, lambda, nu, u, f, bv)
-      use Boundary_Variable__3D
-      class(ML_DG_EllipticSolver_3D), intent(in) :: this
-      real(RNP), intent(in) :: lambda
-      real(RNP), contiguous, intent(in) :: nu(:,:,:,:)
-      real(RNP), contiguous, intent(inout) :: u(:,:,:,:)
-      real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-      class(BoundaryVariable_3D), intent(in) :: bv(:)
+      class(ML_DG_EllipticSolver_3D),       intent(in)    :: this
+      real(RNP),                            intent(in)    :: lambda
+      real(RNP), contiguous,                intent(in)    :: nu(:,:,:,:)
+      real(RNP), contiguous,                intent(inout) :: u(:,:,:,:)
+      real(RNP), contiguous,                intent(in)    :: f(:,:,:,:)
+      class(BoundaryVariable_3D), optional, intent(in)    :: bv(:)
     end subroutine CoarseSolver_V
 
     !---------------------------------------------------------------------------
     !> Smoother with constant diffusivity
 
     module subroutine Smoother_C(this, l, lambda, nu, u, f, bv, n_s)
-      class(ML_DG_EllipticSolver_3D), intent(in) :: this
-      integer,   intent(in) :: l
-      real(RNP), intent(in) :: lambda
-      real(RNP), intent(in) :: nu
-      real(RNP), contiguous, intent(inout) :: u(:,:,:,:)
-      real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-      class(BoundaryVariable_3D), intent(in) :: bv(:)
-      integer, intent(in) :: n_s
+      class(ML_DG_EllipticSolver_3D),       intent(in)    :: this
+      integer,                              intent(in)    :: l
+      real(RNP),                            intent(in)    :: lambda
+      real(RNP),                            intent(in)    :: nu
+      real(RNP), contiguous,                intent(inout) :: u(:,:,:,:)
+      real(RNP), contiguous,                intent(in)    :: f(:,:,:,:)
+      class(BoundaryVariable_3D), optional, intent(in)    :: bv(:)
+      integer,                              intent(in)    :: n_s
     end subroutine Smoother_C
 
     !---------------------------------------------------------------------------
     !> Smoother with variable diffusivity
 
     module subroutine Smoother_V(this, l, lambda, nu, u, f, bv, n_s)
-      class(ML_DG_EllipticSolver_3D), intent(in) :: this
-      integer,   intent(in) :: l
-      real(RNP), intent(in) :: lambda
-      real(RNP), contiguous, intent(in) :: nu(:,:,:,:)
-      real(RNP), contiguous, intent(inout) :: u(:,:,:,:)
-      real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-      class(BoundaryVariable_3D), intent(in) :: bv(:)
-      integer, intent(in) :: n_s
+      class(ML_DG_EllipticSolver_3D),       intent(in)    :: this
+      integer,                              intent(in)    :: l
+      real(RNP),                            intent(in)    :: lambda
+      real(RNP), contiguous,                intent(in)    :: nu(:,:,:,:)
+      real(RNP), contiguous,                intent(inout) :: u(:,:,:,:)
+      real(RNP), contiguous,                intent(in)    :: f(:,:,:,:)
+      class(BoundaryVariable_3D), optional, intent(in)    :: bv(:)
+      integer,                              intent(in)    :: n_s
     end subroutine Smoother_V
 
     !---------------------------------------------------------------------------
@@ -312,28 +360,28 @@ module ML__DG__Elliptic_Solver__3D
     !> Monitoring with constant diffusivity
 
     module subroutine Monitoring_C(this, l, step, lambda, nu, f, bv, u)
-      class(ML_DG_EllipticSolver_3D), intent(in) :: this
-      integer,                    intent(in) :: l          !< level
-      character(len=*),           intent(in) :: step       !< current step
-      real(RNP),                  intent(in) :: lambda     !< λ
-      real(RNP),                  intent(in) :: nu         !< diffusivity
-      real(RNP), contiguous,      intent(in) :: f(:,:,:,:) !< RHS
-      class(BoundaryVariable_3D), intent(in) :: bv(:)      !< boundary values
-      real(RNP), contiguous,      intent(in) :: u(:,:,:,:) !< operand
+      class(ML_DG_EllipticSolver_3D),       intent(in) :: this
+      integer,                              intent(in) :: l
+      character(len=*),                     intent(in) :: step
+      real(RNP),                            intent(in) :: lambda
+      real(RNP),                            intent(in) :: nu
+      real(RNP), contiguous,                intent(in) :: f(:,:,:,:)
+      real(RNP), contiguous,                intent(in) :: u(:,:,:,:)
+      class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
     end subroutine Monitoring_C
 
     !---------------------------------------------------------------------------
     !> Monitoring with variable diffusivity
 
     module subroutine Monitoring_V(this, l, step, lambda, nu, f, bv, u)
-      class(ML_DG_EllipticSolver_3D), intent(in) :: this
-      integer,                    intent(in) :: l           !< level
-      character(len=*),           intent(in) :: step        !< current step
-      real(RNP),                  intent(in) :: lambda      !< λ
-      real(RNP), contiguous,      intent(in) :: nu(:,:,:,:) !< diffusivity
-      real(RNP), contiguous,      intent(in) :: f(:,:,:,:)  !< RHS
-      real(RNP), contiguous,      intent(in) :: u(:,:,:,:)  !< operand
-      class(BoundaryVariable_3D), intent(in) :: bv(:)       !< boundary values
+      class(ML_DG_EllipticSolver_3D),       intent(in) :: this
+      integer,                              intent(in) :: l
+      character(len=*),                     intent(in) :: step
+      real(RNP),                            intent(in) :: lambda
+      real(RNP), contiguous,                intent(in) :: nu(:,:,:,:)
+      real(RNP), contiguous,                intent(in) :: f(:,:,:,:)
+      real(RNP), contiguous,                intent(in) :: u(:,:,:,:)
+      class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
     end subroutine Monitoring_V
 
   end interface

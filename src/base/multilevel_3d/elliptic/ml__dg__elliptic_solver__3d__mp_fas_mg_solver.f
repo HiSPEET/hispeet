@@ -6,34 +6,34 @@ contains
   !-----------------------------------------------------------------------------
   !> FAS-MG solver for problems with constant diffusivity
 
-  module subroutine FAS_MG_Solver_C(this, lambda, nu, u, f, bv, n_i, r_2)
+  module subroutine FAS_MG_Solver_C(this, lambda, nu, u, f, bv, ni, r_2)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
     real(RNP), intent(in) :: nu                     !< diffusivity
     class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
     class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
     class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
-    integer,   optional, intent(out) :: n_i         !< num executed cycles
-    real(RNP), optional, intent(out) :: r_2         !< Euclidic residual norm
+    integer,   optional, intent(out) :: ni          !< num executed cycles
+    real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
-    call FAS_MG_Solver_X(this, lambda, nu, null(), u, f, bv, n_i, r_2)
+    call FAS_MG_Solver_X(this, lambda, nu, null(), u, f, bv, ni, r_2)
 
   end subroutine FAS_MG_Solver_C
 
   !-----------------------------------------------------------------------------
   !> FAS-MG solver for problems with variable diffusivity
 
-  module subroutine FAS_MG_Solver_V(this, lambda, nu, u, f, bv, n_i, r_2)
+  module subroutine FAS_MG_Solver_V(this, lambda, nu, u, f, bv, ni, r_2)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
     class(ML_MeshVariable_3D), intent(in) :: nu     !< diffusivity
     class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
     class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
     class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
-    integer, optional, intent(out) :: n_i           !< num executed cycles
-    real(RNP), optional, intent(out) :: r_2         !< Euclidic residual norm
+    integer, optional, intent(out) :: ni           !< num executed cycles
+    real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
-    call FAS_MG_Solver_X(this, lambda, null(), nu, u, f, bv, n_i, r_2)
+    call FAS_MG_Solver_X(this, lambda, null(), nu, u, f, bv, ni, r_2)
 
   end subroutine FAS_MG_Solver_V
 
@@ -42,7 +42,7 @@ contains
   !>
   !> Either `nu_0` or `nu_v` must be given.
 
-  module subroutine FAS_MG_Solver_X(this, lambda, nu_0, nu_v, u, f, bv, n_i, r_2)
+  module subroutine FAS_MG_Solver_X(this, lambda, nu_0, nu_v, u, f, bv, ni, r_2)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
     real(RNP), intent(in) :: nu_0                   !< constant diffusivity
@@ -50,14 +50,13 @@ contains
     class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
     class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
     class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
-    integer, optional, intent(out) :: n_i           !< num executed cycles
-    real(RNP), optional, intent(out) :: r_2         !< Euclidic residual norm
+    integer, optional, intent(out) :: ni           !< num executed cycles
+    real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
     optional :: nu_0, nu_v
 
     ! internal variables :::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-    type(MPI_Comm), save :: comm_world
     type(ML_MeshVariable_3D), allocatable, save :: r, v
     integer, save :: start_method
     integer, save :: l_top
@@ -82,13 +81,19 @@ contains
       r = ML_MeshVariable_3D(this%ml_op, nc=1)
       v = ML_MeshVariable_3D(this%ml_op, nc=1)
       start_method = this % start_method
-      comm_world = sem(1) % mesh % comm_world
       !$omp end master
 
       do l = 1, l_top
-        call SetArray(r % level(l) % val(:,:,:,:,1), ZERO)
-        call SetArray(v % level(l) % val(:,:,:,:,1), ZERO)
+        associate(po => sem(l) % std_op % po)
+          !$omp do
+          do e = 1, sem(l) % mesh % n_elem
+            r % level(l) % val(0:po,0:po,0:po,e,1) = ZERO
+            v % level(l) % val(0:po,0:po,0:po,e,1) = ZERO
+          end do
+          !$omp end do nowait
+        end associate
       end do
+      !$omp barrier
 
       ! termination conditions
       if (check_convergence) then
@@ -98,7 +103,7 @@ contains
         r_max  = max(r_old * this%r_red, this%r_max)
         !$omp master
         converged = r_old < r_max
-        call XMPI_Bcast(converged, root = 0, comm = comm_world)
+        call XMPI_Bcast(converged, root = 0, comm = sem(1)%mesh%comm_world)
         !$omp end master
         !$omp barrier
       else
@@ -110,7 +115,7 @@ contains
       if (converged) then
         !$omp master
         deallocate(r, v)
-        if (present(n_i)) n_i = 0
+        if (present(ni)) ni = 0
         if (present(r_2)) r_2 = r_old
         !$omp end master
         return
@@ -510,7 +515,7 @@ contains
 
           !$omp master
           converged = r_new <= r_max
-          call XMPI_Bcast(converged, root = 0, comm = comm_world)
+          call XMPI_Bcast(converged, root = 0, comm = sem(1)%mesh%comm_world)
           !$omp end master
           !$omp barrier
 
@@ -523,9 +528,9 @@ contains
 
       ! optional output arguments ::::::::::::::::::::::::::::::::::::::::::::::
 
-      if (present(n_i)) then
+      if (present(ni)) then
         !$omp master
-        n_i = min(m, this%i_max)
+        ni = min(m, this%i_max)
         !$omp end master
       end if
 

@@ -17,23 +17,25 @@ contains
   !-----------------------------------------------------------------------------
   !> Inexact Schwarz-preconditioned CG method with either constant or variable ν
   !>
+  !> Homogeneous conditions are used if boundary values `bv` are absent
+  !>
   !> This routine implements the IPCG method proposed in: G. Golub & Q. Ye,
   !> SIAM J. Sci. Comput. 21(4):1305-1320, 1999
 
   module subroutine SchwarzPCG_Method_X( this, lambda, nu_c, nu_v, u, f, bv &
                                        , i_max, r_red, r_max, ni            )
 
-    class(DG_EllipticOperator_3D),   intent(in)    :: this
-    real(RNP),                       intent(in)    :: lambda        !< λ
-    real(RNP),             optional, intent(in)    :: nu_c          !< νᵖ+νˢ
-    real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:) !< νᵖ
-    real(RNP), contiguous,           intent(inout) :: u(:,:,:,:)
-    real(RNP), contiguous,           intent(in)    :: f(:,:,:,:)
-    class(BoundaryVariable_3D),      intent(in)    :: bv(:)
-    integer,                         intent(in)    :: i_max
-    real(RNP),             optional, intent(in)    :: r_red
-    real(RNP),             optional, intent(in)    :: r_max
-    integer,               optional, intent(out)   :: ni
+    class(DG_EllipticOperator_3D),        intent(in)    :: this
+    real(RNP),                            intent(in)    :: lambda        !< λ
+    real(RNP),                  optional, intent(in)    :: nu_c          !< νᵖ+νˢ
+    real(RNP), contiguous,      optional, intent(in)    :: nu_v(:,:,:,:) !< νᵖ
+    real(RNP), contiguous,                intent(inout) :: u(:,:,:,:)
+    real(RNP), contiguous,                intent(in)    :: f(:,:,:,:)
+    class(BoundaryVariable_3D), optional, intent(in)    :: bv(:)
+    integer,                              intent(in)    :: i_max
+    real(RNP),                  optional, intent(in)    :: r_red
+    real(RNP),                  optional, intent(in)    :: r_max
+    integer,                    optional, intent(out)   :: ni
 
     ! internal variables .......................................................
 

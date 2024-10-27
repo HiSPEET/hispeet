@@ -13,7 +13,7 @@ contains
     real(RNP), intent(in) :: nu
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:)
     real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-    class(BoundaryVariable_3D), intent(in) :: bv(:)
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
 
     call CoarseSolver_X(this, lambda, nu_c = nu, u = u, f = f, bv = bv)
 
@@ -28,7 +28,7 @@ contains
     real(RNP), contiguous, intent(in) :: nu(:,:,:,:)
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:)
     real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-    class(BoundaryVariable_3D), intent(in) :: bv(:)
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
 
     call CoarseSolver_X(this, lambda, nu_v = nu, u = u, f = f, bv = bv)
 
@@ -44,7 +44,7 @@ contains
     real(RNP), contiguous, optional, intent(in) :: nu_v(:,:,:,:)
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:)
     real(RNP), contiguous, intent(in) :: f(:,:,:,:)
-    class(BoundaryVariable_3D), intent(in) :: bv(:)
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
 
     select case(this % coarse_solver)
     case(SOLVER_CG)
