@@ -8,7 +8,9 @@
 ! log_level_outer_iteration = 0
   log_level_multigrid_cycle = 1
 
-  export_vtk = T
+! solution_method = 20 ! 10/20: CS-MG/FAS-MG                  [20]
+! check_hdf5 = T
+! export_vtk = T
 /
 
 &domain_prm
