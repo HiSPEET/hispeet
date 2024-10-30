@@ -2,9 +2,6 @@
 !> author:   Joerg Stiller
 !> date:     2024/06/25
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!> @note
-!> Can be made more generic once `typeof` is available.
 !===============================================================================
 
 module ML__Mesh__3D
@@ -33,6 +30,8 @@ module ML__Mesh__3D
     type(Mesh_3D), allocatable :: mesh(:) !< mesh partitions
   contains
     procedure :: Init_ML_Mesh_3D
+    procedure :: ReadHDF5
+    procedure :: WriteHDF5
   end type ML_Mesh_3D
 
   ! constructor
@@ -58,6 +57,30 @@ module ML__Mesh__3D
   ! constructor
   interface ML_Mesh_Options_3D
     procedure Read_ML_Mesh_Options_3D
+  end interface
+
+  !=============================================================================
+  ! ML_Mesh_3D: separate type-bound procedures
+
+  interface
+
+    !---------------------------------------------------------------------------
+    !> Read multilevel mesh partition from HDF5 file
+
+    module subroutine ReadHDF5(this, file, comm)
+      class(ML_Mesh_3D), intent(inout) :: this !< multilevel mesh partition
+      character(len=*),  intent(in)    :: file !< name of HDF5 file
+      type(MPI_Comm),    intent(in)    :: comm !< MPI "world" communicator
+    end subroutine ReadHDF5
+
+    !---------------------------------------------------------------------------
+    !> Write multilevel mesh partition into HDF5 file
+
+    module subroutine WriteHDF5(this, file)
+      class(ML_Mesh_3D), intent(in) :: this !< multilevel mesh partition
+      character(len=*),  intent(in) :: file !< name of HDF5 file
+    end subroutine WriteHDF5
+
   end interface
 
 contains

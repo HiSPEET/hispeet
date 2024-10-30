@@ -19,13 +19,12 @@ contains
     character(len=*), intent(in) :: file  !< name of HDF5 file
 
     integer(HID_T)    :: file_id, group_id
-    integer           :: err, rank
+    integer           :: err
     character(len=80) :: tag
     character(len=:), allocatable :: file_pr
 
     ! append process rank to file name
-    call MPI_Comm_rank(mesh%comm_world, rank)
-    write(tag,'(I0)') rank
+    write(tag,'(I0)') mesh % proc
     file_pr = trim(file)//'_'//trim(tag)//'.h5'
 
     ! create HDF5 file and group

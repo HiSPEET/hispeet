@@ -81,9 +81,9 @@ contains
       r = ML_MeshVariable_3D(this%ml_op, nc=1)
       bv_l => bv % level(l_top) % var
       if (l_top == 1) then
-        bv_1 => null()
-      else
         bv_1 => bv_l
+      else
+        bv_1 => null()
       end if
       !$omp end master
 
