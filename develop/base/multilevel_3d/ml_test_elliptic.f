@@ -250,26 +250,12 @@ program ML_Test_Elliptic
 
   ml_mesh = ML_Mesh_3D(base_mesh, ml_mesh_opt)
   l_top   = size(ml_mesh%mesh)
-!### CHECK
-associate(mesh => ml_mesh%mesh)
-print '(99(G0,1X))', 'size(ml_mesh%mesh) =', size(mesh)
-print '(99(G0,1X))', 'mesh(1)%n_elem_active =', mesh(1)%n_elem_active
-print '(99(G0,1X))', 'mesh(1)%element(1)%neighbor%id =', mesh(1)%element(1)%neighbor%id
-end associate
-!### CHECK END
 
   if (check_hdf5) then
     call ml_mesh % WriteHDF5(case_name)
     deallocate(ml_mesh % mesh)
     call ml_mesh % ReadHDF5(case_name, comm)
   end if
-!### CHECK
-associate(mesh => ml_mesh%mesh)
-print '(99(G0,1X))', 'size(ml_mesh%mesh) =', size(mesh)
-print '(99(G0,1X))', 'mesh(1)%n_elem_active =', mesh(1)%n_elem_active
-print '(99(G0,1X))', 'mesh(1)%element(1)%neighbor%id =', mesh(1)%element(1)%neighbor%id
-end associate
-!### CHECK END
 
   associate(mesh => ml_mesh%mesh)
     block
@@ -579,9 +565,6 @@ contains
       call ml_elliptic % FAS_MG_Residual(lambda, nu, f, bv, u, r)
     else
       call ml_elliptic % FAS_MG_Residual(lambda, nu_0, f, bv, u, r)
-!### CHECK
-print '(9(G0,1X))', 'r%level(1)%val(:,0,0,1,1) =', r%level(1)%val(:,0,0,1,1)
-!### CHECK END
     end if
 
     ! maximum norm
