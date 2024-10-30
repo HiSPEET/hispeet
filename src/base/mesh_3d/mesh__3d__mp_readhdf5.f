@@ -68,7 +68,6 @@ contains
 
     ! dynamical data
     type(MeshAttributes_3D),                      target :: attrib
-    type(MeshBoundaryAttributes_3D), allocatable, target :: attrib_boundary(:)
     type(MeshElementNeighbor_3D),    allocatable, target :: neighbor(:)
     real(RNP),                       allocatable, target :: xc(:)
     integer,                         allocatable, target :: mesh_dim(:)
@@ -140,7 +139,6 @@ contains
       call mesh % Init_Mesh_3D(attrib, comm)
 
       ! get mesh dimensions ....................................................
-
 
       call H5Dopen_f(group_id, name_md, data_id, err)
       call H5Dget_space_f(data_id, space_id, err)
@@ -256,15 +254,19 @@ contains
 
       ! complete mesh ..........................................................
 
-      call mesh % IdentifyEdges()
-      call mesh % BuildFaces()
-      call mesh % BuildBoundaryFaces()
-      call mesh % BuildLinks()
-      call mesh % BuildGhosts()
-    ! call mesh % BuildCuboids()            ! retain read-in values
-    ! call mesh % IdentifyRanks()           ! retain read-in values
-      call mesh % BuildMapToParent()
-      call mesh % BuildMapToChild()
+      if (mesh%n_elem > 0) then
+
+        call mesh % IdentifyEdges()
+        call mesh % BuildFaces()
+        call mesh % BuildBoundaryFaces()
+        call mesh % BuildLinks()
+        call mesh % BuildGhosts()
+      ! call mesh % BuildCuboids()            ! retain read-in values
+      ! call mesh % IdentifyRanks()           ! retain read-in values
+        call mesh % BuildMapToParent()
+        call mesh % BuildMapToChild()
+
+      end if
 
       ! release resources ......................................................
 
