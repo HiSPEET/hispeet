@@ -67,9 +67,11 @@ contains
     ! internal data ............................................................
 
     ! dynamical data
-    type(MeshAttributes_3D), target :: attrib
-    type(MeshElementNeighbor_3D), allocatable, target :: neighbor(:)
-    real(RNP), allocatable, target :: xc(:)
+    type(MeshAttributes_3D),                      target :: attrib
+    type(MeshBoundaryAttributes_3D), allocatable, target :: attrib_boundary(:)
+    type(MeshElementNeighbor_3D),    allocatable, target :: neighbor(:)
+    real(RNP),                       allocatable, target :: xc(:)
+    integer,                         allocatable, target :: mesh_dim(:)
 
     ! HDF5 datatype, dataspace, dimensions and buffer adress pointer
     integer(HID_T)   :: type_id
@@ -82,11 +84,12 @@ contains
     character(len=*), parameter :: name_mp  = 'mesh_part'
     character(len=*), parameter :: name_ma  = 'mesh_attributes'
     character(len=*), parameter :: name_mba = 'mesh_boundary_attributes'
+    character(len=*), parameter :: name_md  = 'mesh_dimensions'
     character(len=*), parameter :: name_me  = 'mesh_elements'
     character(len=*), parameter :: name_men = 'mesh_element_neighbors'
     character(len=*), parameter :: name_mec = 'mesh_element_coordinates'
 
-    integer :: e, i, nc, nn, np, po, rank
+    integer :: e, i, nc, nd, nn, np, po, rank
     integer :: err
 
     ! safeguard ................................................................
@@ -136,14 +139,46 @@ contains
 
       call mesh % Init_Mesh_3D(attrib, comm)
 
-      ! get elements ...........................................................
+      ! get mesh dimensions ....................................................
 
-      call H5Dopen_f(group_id, name_me, data_id, err)
+
+      call H5Dopen_f(group_id, name_md, data_id, err)
       call H5Dget_space_f(data_id, space_id, err)
       call H5Sget_simple_extent_dims_f(space_id, dims, maxdims, err)
       call H5Sclose_f(space_id, err)
 
-      mesh % n_elem = dims(1)
+      nd = dims(1)
+      allocate(mesh_dim(nd))
+
+      buf = C_Loc(mesh_dim)
+      call H5Dget_type_f(data_id, type_id, err)
+      call H5Dread_f(data_id, type_id, buf, err)
+      call H5Tclose_f(type_id, err)
+      call H5Dclose_f(data_id, err)
+
+      mesh % n_vert        = mesh_dim( 1)
+      mesh % n_edge        = mesh_dim( 2)
+      mesh % n_face        = mesh_dim( 3)
+      mesh % n_elem        = mesh_dim( 4)
+      mesh % n_elem_active = mesh_dim( 5)
+      mesh % n_elem_frozen = mesh_dim( 6)
+      mesh % n_cluster     = mesh_dim( 7)
+      mesh % n_ghost       = mesh_dim( 8)
+      mesh % n_link        = mesh_dim( 9)
+      mesh % n_child       = mesh_dim(10)
+      mesh % n_parent      = mesh_dim(11)
+      mesh % n_elem_1      = mesh_dim(12)
+      mesh % n_elem_2      = mesh_dim(13)
+      mesh % n_elem_3      = mesh_dim(14)
+
+      ! get elements ...........................................................
+
+      call H5Dopen_f(group_id, name_me, data_id, err)
+      call H5Dget_space_f(data_id, space_id, err)
+    ! call H5Sget_simple_extent_dims_f(space_id, dims, maxdims, err)
+      call H5Sclose_f(space_id, err)
+
+    ! mesh % n_elem = dims(1)               ! retain read-in value
       allocate(mesh % element(mesh%n_elem))
 
       if (mesh%n_elem > 0) then
@@ -226,14 +261,15 @@ contains
       call mesh % BuildBoundaryFaces()
       call mesh % BuildLinks()
       call mesh % BuildGhosts()
-    ! call mesh % BuildCuboids()        ! retain read-in values
-    ! call mesh % IdentifyRanks()       ! retain read-in values
+    ! call mesh % BuildCuboids()            ! retain read-in values
+    ! call mesh % IdentifyRanks()           ! retain read-in values
       call mesh % BuildMapToParent()
       call mesh % BuildMapToChild()
 
       ! release resources ......................................................
 
-      deallocate(neighbor, xc)
+      if (allocated(neighbor)) deallocate(neighbor)
+      if (allocated(xc))       deallocate(xc)
 
     end if
 
@@ -251,12 +287,8 @@ contains
 
     ! clean-up ................................................................
 
-    if (allocated(neighbor)) deallocate(neighbor)
-    if (allocated(xc))       deallocate(xc)
-
-    if (allocated(attrib%boundary)) then
-      deallocate(attrib%boundary)
-    end if
+    if (allocated(attrib%boundary))  deallocate(attrib%boundary)
+    if (allocated(mesh_dim))         deallocate(mesh_dim)
 
   end subroutine ReadHDF5_G
 

@@ -59,6 +59,7 @@ contains
     integer(HID_T) :: space_mp    ! space ID of mesh part
     integer(HID_T) :: space_ma    ! space ID of mesh attributes
     integer(HID_T) :: space_mba   ! space ID of mesh boundary attributes
+    integer(HID_T) :: space_md    ! space ID of mesh dimensions
     integer(HID_T) :: space_me    ! space ID of mesh elements
     integer(HID_T) :: space_men   ! space ID of mesh element neighbor data
     integer(HID_T) :: space_mec   ! space ID of mesh element coordinates
@@ -67,6 +68,7 @@ contains
     integer(HSIZE_T) :: dim_mp (1)  ! dimension of mesh part
     integer(HSIZE_T) :: dim_ma (1)  ! dimension of mesh attributes
     integer(HSIZE_T) :: dim_mba(1)  ! dimension of mesh boundary attributes
+    integer(HSIZE_T) :: dim_md (1)  ! dimension of mesh dimensions
     integer(HSIZE_T) :: dim_me (1)  ! dimension of mesh elements
     integer(HSIZE_T) :: dim_men(1)  ! dimension of mesh element neighbor data
     integer(HSIZE_T) :: dim_mec(1)  ! dimension of mesh element coordinates
@@ -75,6 +77,7 @@ contains
     character(len=*), parameter :: name_mp  = 'mesh_part'
     character(len=*), parameter :: name_ma  = 'mesh_attributes'
     character(len=*), parameter :: name_mba = 'mesh_boundary_attributes'
+    character(len=*), parameter :: name_md  = 'mesh_dimensions'
     character(len=*), parameter :: name_me  = 'mesh_elements'
     character(len=*), parameter :: name_men = 'mesh_element_neighbors'
     character(len=*), parameter :: name_mec = 'mesh_element_coordinates'
@@ -83,6 +86,7 @@ contains
     integer(HID_T) :: data_mp    ! dataset ID of mesh part
     integer(HID_T) :: data_ma    ! dataset ID of mesh attributes
     integer(HID_T) :: data_mba   ! dataset ID of mesh boundary attributes
+    integer(HID_T) :: data_md    ! dataset ID of mesh dimensions
     integer(HID_T) :: data_me    ! dataset ID of mesh elements
     integer(HID_T) :: data_men   ! dataset ID of mesh element neighbor data
     integer(HID_T) :: data_mec   ! dataset ID of mesh element coordinates
@@ -93,6 +97,7 @@ contains
     type(MeshBoundaryAttributes_3D), allocatable, target :: attrib_bound(:)
     type(MeshElementNeighbor_3D),    allocatable, target :: neighbor(:)
     real(RNP),                       allocatable, target :: xc(:)
+    integer,                         allocatable, target :: mesh_dim(:)
 
     integer, allocatable :: nn_elem(:)
     integer, allocatable :: nc_elem(:)
@@ -109,9 +114,25 @@ contains
 
     copy_mesh = mesh
 
-    ! mesh attributes
+    ! mesh and mesh boundary attributes
     attrib = MeshAttributes_3D(copy_mesh)
     call move_alloc(attrib%boundary, attrib_bound)
+
+    ! mesh dimensions
+    mesh_dim = [ copy_mesh % n_vert        &
+               , copy_mesh % n_edge        &
+               , copy_mesh % n_face        &
+               , copy_mesh % n_elem        &
+               , copy_mesh % n_elem_active &
+               , copy_mesh % n_elem_frozen &
+               , copy_mesh % n_cluster     &
+               , copy_mesh % n_ghost       &
+               , copy_mesh % n_link        &
+               , copy_mesh % n_child       &
+               , copy_mesh % n_parent      &
+               , copy_mesh % n_elem_1      &
+               , copy_mesh % n_elem_2      &
+               , copy_mesh % n_elem_3      ]
 
     ! count number of neighbors and coordinates
     allocate(nn_elem(copy_mesh%n_elem), nc_elem(copy_mesh%n_elem))
@@ -158,6 +179,7 @@ contains
     dim_mp  = 1
     dim_ma  = 1
     dim_mba = copy_mesh % n_bound
+    dim_md  = size(mesh_dim)
     dim_me  = copy_mesh % n_elem
     dim_men = nn
     dim_mec = nc
@@ -166,6 +188,7 @@ contains
     call H5Screate_simple_f(1, dim_mp , space_mp , err)
     call H5Screate_simple_f(1, dim_ma , space_ma , err)
     call H5Screate_simple_f(1, dim_mba, space_mba, err)
+    call H5Screate_simple_f(1, dim_md , space_md , err)
     call H5Screate_simple_f(1, dim_me , space_me , err)
     call H5Screate_simple_f(1, dim_men, space_men, err)
     call H5Screate_simple_f(1, dim_mec, space_mec, err)
@@ -193,6 +216,12 @@ contains
     call H5Dwrite_f(data_mba, H5T_MeshBoundaryAttributes_3D, &
                     C_Loc(attrib_bound), err)
 
+    ! create mesh dimensions dataset
+    call H5Dcreate_f(group_id, name_md, H5T_INTEGER, space_md, data_md, err)
+
+    ! write mesh dimensions dataset
+    call H5Dwrite_f(data_md, H5T_INTEGER, C_Loc(mesh_dim), err)
+
     ! create mesh element dataset
     call H5Dcreate_f(group_id, name_me, H5T_MeshElement_3D, &
                      space_me, data_me, err)
@@ -207,21 +236,22 @@ contains
     ! write mesh element neighbor dataset (may be empty!)
     call H5Dwrite_f(data_men, H5T_MeshElementNeighbor_3D, C_Loc(neighbor), err)
 
-    ! create mesh element neighbor dataset
+    ! create mesh element coordinates dataset
     call H5Dcreate_f(group_id, name_mec, H5T_REAL_RNP, space_mec, data_mec, err)
 
-    ! write mesh element neighbor dataset (may be empty!)
+    ! write mesh element coordinates dataset (may be empty!)
     call H5Dwrite_f(data_mec, H5T_REAL_RNP, C_Loc(xc), err)
 
     ! release resources ........................................................
 
     deallocate(nn_elem, nc_elem, neighbor, xc)
-    deallocate(attrib_bound)
+    deallocate(attrib_bound, mesh_dim)
     deallocate(copy_mesh)
 
     call H5Sclose_f(space_mp , err)
     call H5Sclose_f(space_ma , err)
     call H5Sclose_f(space_mba, err)
+    call H5Sclose_f(space_md , err)
     call H5Sclose_f(space_me , err)
     call H5Sclose_f(space_men, err)
     call H5Sclose_f(space_mec, err)
@@ -229,6 +259,7 @@ contains
     call H5Dclose_f(data_mp , err)
     call H5Dclose_f(data_ma , err)
     call H5Dclose_f(data_mba, err)
+    call H5Dclose_f(data_md , err)
     call H5Dclose_f(data_me , err)
     call H5Dclose_f(data_men, err)
     call H5Dclose_f(data_mec, err)
