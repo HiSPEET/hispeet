@@ -25,9 +25,8 @@
 
 export MPIRUN="srun"
 
-# test configurations
-export NP="( 2 4 4 )"  # number of partitions in directions 1-2
-export EP="( 1 1 2 )"  # number of elements per partition in directions 1-2 
+# switch to HPC test configuration
+export HPC=1
 
 # ------------------------------------------------------------------------------
 # Execution

@@ -32,14 +32,14 @@ bash -l convergence_dt.sh
 
 The following parameters are set in the script:
 
-* `TIME_METHOD` -- time integration method
-  * `1`  -- IMEX Euler
-  * `2`  -- IMEX BDF2
-  * `3`  -- IMEX Runge-Kutta
+- `TIME_METHOD` -- time integration method
+  + `1`  -- IMEX Euler
+  + `2`  -- IMEX BDF2
+  + `3`  -- IMEX Runge-Kutta
 
-* `T_END`  -- final time $$T$$ 
-* `DT_MAX`  -- maximum time step $$\Delta t_{\max}$$ 
-* `ST_MAX`  -- number of time step reductions
+- `T_END`  -- final time $$T$$ 
+- `DT_MAX`  -- maximum time step $$\Delta t_{\max}$$ 
+- `ST_MAX`  -- number of time step reductions
 
 The last two parameters define a series of time steps
 
@@ -67,21 +67,20 @@ bash -l convergence_dx.sh
 
 The following parameters are set in the script:
 
-* `TIME_METHOD` -- time integration method, see above
+- `TIME_METHOD` -- time integration method, see above
+- `T_END`  -- final time $$T$$ 
+- `DT` -- time step $$\Delta t$$ small enough to neglect the temporal error
+- `PO_U`  -- polynomial order
+- `NP`  -- array containing a series with the number of partitions in directions 1 and 2
+- `EP`  -- array containing a series with the number of elements per partition in directions 1 and 2 
 
-* `T_END`  -- final time $$T$$ 
-* `DT` -- time step $$\Delta t$$ small enough to neglect the temporal error
-* `PO_U`  -- polynomial order
-* `NP`  -- array containing a series with the number of partitions in directions 1 and 2
-* `EP`  -- array containing a series with the number of elements per partition in directions 1 and 2 
-
-The arrays `NP` and `EP` must have the same length, which defines the number of configurations `NC`. As a consequence, the mesh spacing varies according to $$\Delta x(i) = \frac{1}{N_P(i) E_P(i)}$$ for $$i=0$$ to `NC`$$-1$$ while the polynomial order remains fixed. To adjust the order it can be set as an environment variable before running the study, e.g.
+The length of the arrays `NP` and `EP`  defines the number of configurations `NC` and must be the same for both. As a consequence, the mesh spacing varies according to $$\Delta x(i) = \frac{1}{N_P(i) E_P(i)}$$ for $$i=0$$ to `NC`$$-1$$ while the polynomial order remains fixed. To adjust the order it can be set as an environment variable before executing the study, e.g.
 
 ```bash
 export PO_U=7
 ```
 
-Other parameters can be overriden in the same way. Executing the script generates the data file `convergence_dx.dat`, which can be processed by
+Running the script generates the data file `convergence_dx.dat`, which can be processed by
 
 ```bash
 python convergence_dx.py
@@ -103,9 +102,8 @@ or
 
     sbatch convergence_dx-mpi.slurm
 
-Before submitting the jobs take care of the following
+The number of partitions can be adjusted depending on the available ressources. For the temporal convergence study this can be achieved by adjusting the parameters `NP` and `EP` in `convergence_dt-mpi.slurm`. For example, the pairs `NP=1, EP=8` and `NP=4, EP=2` both result in 8 elements in directions 1-2, but 1 and 16 partitions respectively.
 
-1. check and adjust the parameters in the Slurm scripts,
-2. load the required environment modules .
+For the spatial convergence study the Slurm scrpit switches to HPC configuration arrays `NP` and `EP` that are defined in `convergence_dx.sh`. As `bash` does not support the export of array variables, they need do adjusted directly in the shell script.
 
-
+Before submitting the jobs take care to load the required *environment modules* and to check the parameters in the Slurm script.

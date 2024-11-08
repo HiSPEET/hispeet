@@ -25,7 +25,7 @@
 
 export MPIRUN="srun"
 
-# number of partitions in directions 1-2 such that NP1*NP2 = ntasks
+# number of partitions in directions 1-2 such that NP*NP equals ntasks
 export NP="4"
 
 # number of elements per partition in directions 1-2

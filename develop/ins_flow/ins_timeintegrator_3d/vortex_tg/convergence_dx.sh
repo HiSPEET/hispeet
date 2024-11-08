@@ -16,11 +16,15 @@ PROGRAM="../ins_timeintegrator_3d_test"
 NU=0.01
 
 # test configurations
-if [[ -z "$NP" || -z "$EP" ]]
+if [[ $HPC ]]
 then
-    # NP or EC not set, use fallback
-    NP="( 1 1 1 )"  # number of partitions in directions 1-2 
-    EP="( 2 4 8 )"  # number of elements per partition in directions 1-2 
+    # for HPC system
+    NP=( 2 4 4 )  # number of partitions in directions 1-2 
+    EP=( 1 1 2 )  # number of elements per partition in directions 1-2 
+else
+    # for personal computers or laptops
+    NP=( 1 1 1 )  # number of partitions in directions 1-2 
+    EP=( 2 4 8 )  # number of elements per partition in directions 1-2 
 fi
 NC=${#NP[@]}  # number of configurations used
 
@@ -39,7 +43,7 @@ DT=${DT:-"5e-5"}
 date > ${CASE}.log
 
 # test configurations 0 .. NC-1 
-for i in $(seq 0 $(bc <<< "${NC}-1")) ; do
+for i in $(seq 0 $(($NC - 1))) ; do
 
     # domain length in direction 3
     L3=$(bc -l <<< "1/(${NP[$i]} * ${EP[$i]})")
