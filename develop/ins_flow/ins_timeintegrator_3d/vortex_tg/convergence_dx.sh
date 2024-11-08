@@ -19,8 +19,8 @@ NU=0.01
 if [[ -z "$NP" || -z "$EP" ]]
 then
     # NP or EC not set, use fallback
-    NP=( 1 1 1 )  # number of partitions in directions 1-2 
-    EP=( 2 4 8 )  # number of elements per partition in directions 1-2 
+    NP="( 1 1 1 )"  # number of partitions in directions 1-2 
+    EP="( 2 4 8 )"  # number of elements per partition in directions 1-2 
 fi
 NC=${#NP[@]}  # number of configurations used
 

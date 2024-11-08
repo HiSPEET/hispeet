@@ -40,8 +40,8 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export DT="1e-5"
 
 # test configurations
-export NP=( 2 4 4 )  # number of partitions in directions 1-2
-export EP=( 1 1 2 )  # number of elements per partition in directions 1-2 
+export NP="( 2 4 4 )"  # number of partitions in directions 1-2
+export EP="( 1 1 2 )"  # number of elements per partition in directions 1-2 
 
 # ------------------------------------------------------------------------------
 # Execution
