@@ -1,0 +1,59 @@
+&control_prm
+  problem_file =  'vortex_tg'
+  flow_problem =  'Vortex_TG'
+  flow_domain  =  1
+  time_method  =  2   ! 1 Euler, 2 BDF2, 3 Runge-Kutta
+!
+! bulk viscosity
+!   - use μ = 0 for Stokes hypothesis
+!   - use μ = ν for grad-div stabilization in diffusion dominant case
+!   - use μ = √(ν² + v²h²) for stabilization in convection dominant case
+  ins_op_opts%mu_0 = 0.0 
+!
+  ins_op_opts%eop_v%StandardElementOptions_1D%po = 10
+  ins_op_opts%eop_v%penalty                      = 20
+  ins_op_opts%eop_p%StandardElementOptions_1D%po =  9
+  ins_op_opts%eop_p%penalty                      = 20
+  ins_op_opts%sop_q%po                           = 16
+!
+! Euler options
+  ins_ti_euler_opts%i_max_p = 1000
+  ins_ti_euler_opts%i_max_v = 1000
+  ins_ti_euler_opts%r_red   = 1e-12
+  ins_ti_euler_opts%r_max   = 1e-14
+!
+! BDF2 options
+  ins_ti_bdf2_opts%i_max_p  = 1000 
+  ins_ti_bdf2_opts%i_max_v  = 1000 
+  ins_ti_bdf2_opts%r_red    = 1e-10
+  ins_ti_bdf2_opts%r_max    = 1e-12
+!
+! Runge-Kutta options
+!   n_stage   method      IMEX-RK
+!      4        2         CB3e
+!      5        1         ARS443
+  ins_ti_runge_kutta_opts%n_stage  = 5     ! 5
+  ins_ti_runge_kutta_opts%method   = 1     ! 1
+  ins_ti_runge_kutta_opts%i_max_p  = 1000  ! 1000
+  ins_ti_runge_kutta_opts%i_max_v  = 1000  ! 1000
+  ins_ti_runge_kutta_opts%r_red    = 1e-10 ! 1e-12
+  ins_ti_runge_kutta_opts%r_max    = 1e-12 ! 1e-14
+
+  t_end  = 0.05
+  dt     = 0.005
+  nt_max = 1000000
+!
+! export_vtk = T                 ! set T for generating plot files
+  char_freq  = 0                 ! set frequency of control output
+! log_level_inner_iteration = 1  ! set to ≥ 1 for higher verbosity
+/
+
+&cuboid_cartesian_prm
+  regular    = F ! mimic irregular mesh (elements deformed or of different size)
+  structured = F ! mimic unstructured mesh
+  xo = 3*-0.5
+  lx = 1,1,0.25
+  np = 1,1,1
+  ep = 4,4,1
+! periodic = 3*T
+/

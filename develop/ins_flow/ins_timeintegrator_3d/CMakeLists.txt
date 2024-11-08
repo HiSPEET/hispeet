@@ -7,6 +7,14 @@ add_executable( ins_timeintegrator_3d_test
 
 target_link_libraries(ins_timeintegrator_3d_test HiINSFlow)
 
+#===============================================================================
+# Test cases
+
+add_subdirectory(vortex_tg)
+
+#===============================================================================
+# Test cases - to be revised
+
 file( COPY
           ins_timeintegrator_3d_test.prm
           channel
@@ -16,7 +24,7 @@ file( COPY
           stokes_dkm
           stokes_linke
           variable_viscosity
-          vortex_tg
+          #vortex_tg             # -- revised 
       DESTINATION
           ${CMAKE_CURRENT_BINARY_DIR} )
 
