@@ -342,6 +342,8 @@ module Mesh_Element__3D
 
   contains
 
+    procedure :: GetCuboidDimensions
+
     procedure :: MeshFaceSide
     procedure :: NeigborEdgeIsAligned
 
@@ -587,6 +589,27 @@ contains
 
   !=============================================================================
   ! MeshElement_3D procedures
+
+  !-----------------------------------------------------------------------------
+  !> Compute the dimensions of the approximate cuboid
+
+  pure subroutine GetCuboidDimensions(element, dx)
+    class(MeshElement_3D), intent(in) :: element !< mesh element
+    real(RNP), intent(out) :: dx(3) !< cuboid length in directions ξ₁,ξ₂,ξ₃
+
+    dx(1) = 2 * sqrt( element % geometry % x_c(1,1) ** 2 &
+                    + element % geometry % x_c(1,2) ** 2 &
+                    + element % geometry % x_c(1,3) ** 2 )
+
+    dx(2) = 2 * sqrt( element % geometry % x_c(2,1) ** 2 &
+                    + element % geometry % x_c(2,2) ** 2 &
+                    + element % geometry % x_c(2,3) ** 2 )
+
+    dx(3) = 2 * sqrt( element % geometry % x_c(3,1) ** 2 &
+                    + element % geometry % x_c(3,2) ** 2 &
+                    + element % geometry % x_c(3,3) ** 2 )
+
+  end subroutine GetCuboidDimensions
 
   !-----------------------------------------------------------------------------
   !> Side of the adjacent mesh face on which the element is located
