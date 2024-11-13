@@ -42,8 +42,9 @@ module INS__Time_Integrator__3D
     !> extrapolation-projection-diffusion step for incompressible flow
 
     module subroutine ProjectionStep( this, tau, t, v_0, F_c, F_d, Q &
-                                    , bv_u, mu, nu, u                &
-                                    , i_max_p, i_max_v, r_red, r_max )
+                                    , bv_u, mu, nu, u,               &
+                                    , i_max_p, i_max_v, r_red, r_max &
+                                    , freeze                         )
 
       class(INS_TimeIntegrator_3D),    intent(in)    :: this
       real(RNP),                       intent(in)    :: tau
@@ -52,7 +53,7 @@ module INS__Time_Integrator__3D
       real(RNP), contiguous,           intent(in)    :: F_c(:,:,:,:,:)
       real(RNP), contiguous,           intent(in)    :: F_d(:,:,:,:,:)
       real(RNP), contiguous,           intent(in)    :: Q(:,:,:,:,:)
-      class(BoundaryVariable_3D),      intent(inout) :: bv_u(:)
+      class(BoundaryVariable_3D),      intent(in)    :: bv_u(:)
       real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
       real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
       real(RNP), contiguous,           intent(inout) :: u(:,:,:,:,:)
@@ -60,6 +61,7 @@ module INS__Time_Integrator__3D
       integer,                         intent(in)    :: i_max_v
       real(RNP),             optional, intent(in)    :: r_red
       real(RNP),             optional, intent(in)    :: r_max
+      logical,               optional, intent(in)    :: freeze
 
     end subroutine ProjectionStep
 
