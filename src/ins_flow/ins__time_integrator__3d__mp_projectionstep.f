@@ -53,11 +53,11 @@ contains
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
     !< u = [v, p], velocity and pressure at final time u
 
-    integer, intent(in) :: i_max_p !< max num iterations of pressure solver
-    integer, intent(in) :: i_max_v !< max num iterations of diffusion solver
-    real(RNP), optional, intent(in) :: r_red  !< required L² residual reduction
-    real(RNP), optional, intent(in) :: r_max  !< allowed max L² residual
-    logical,   optional, intent(in) :: freeze !< fix viscosity [F]
+    integer,   optional, intent(in) :: i_max_p !< max iterations for pressure
+    integer,   optional, intent(in) :: i_max_v !< max iterations for diffusion
+    real(RNP), optional, intent(in) :: r_red   !< required L² residual reduction
+    real(RNP), optional, intent(in) :: r_max   !< allowed max L² residual
+    logical,   optional, intent(in) :: freeze  !< fix viscosity [F]
 
     ! internal variables .......................................................
 
@@ -70,9 +70,10 @@ contains
 
     type(BoundaryVariable_3D), allocatable, save :: bv_w(:), bv_p(:), bv_dp(:)
 
-    logical :: update_viscosity
-    integer :: np
-    integer :: b, d, e
+    real(RNP) :: r_red_, r_max_
+    integer   :: i_max_p_, i_max_v_
+    integer   :: b, d, e, np
+    logical   :: update_viscosity
 
     associate( problem => this % problem                  &
              , ins_op  => this % ins_op                   &
@@ -84,6 +85,30 @@ contains
              , p       => u(:,:,:,:,4)                    )
 
       ! initialization .........................................................
+
+      if (present(i_max_p)) then
+        i_max_p_ = i_max_p
+      else
+        i_max_p_ = this % i_max_p
+      end if
+
+      if (present(i_max_p)) then
+        i_max_v_ = i_max_v
+      else
+        i_max_v_ = this % i_max_v
+      end if
+
+      if (present(r_red)) then
+        r_red_ = r_red
+      else
+        r_red_ = this % r_red
+      end if
+
+      if (present(r_max)) then
+        r_max_ = r_max
+      else
+        r_max_ = this % r_max
+      end if
 
       update_viscosity = present(nu) .and. problem % HasVariableProperties()
       if (present(freeze)) then
@@ -153,12 +178,12 @@ contains
         call TPO_Div(ins_op % eop_v, ins_op % sem_v, v, vp, div_v)
 
         if (size(Q, 5) >= 4) then ! has additional RHS for mass conservation
-          call MergeArrays(ONE, div_v, -ONE, Q(:,:,:,e,4))
+          call MergeArrays(ONE, div_v, -ONE, Q(:,:,:,:,4))
         end if
 
         ! solve pressure equation
-        call ins_op % PressureSolver( tau, bv_w, v, div_v, p &
-                                    , i_max_p, r_red, r_max  )
+        call ins_op % PressureSolver( tau, bv_w, v, div_v, p   &
+                                    , i_max_p_, r_red_, r_max_ )
 
       end associate
 
@@ -203,8 +228,8 @@ contains
           call problem % GetViscosity(sem_v % metrics % x, t, u, nu)
         end if
 
-        call ins_op % DiffusionSolver( tau, mu, nu, f, bv_w, v &
-                                     , i_max_v, r_red, r_max   )
+        call ins_op % DiffusionSolver( tau, mu, nu, f, bv_w, v  &
+                                     , i_max_v_, r_red_, r_max_ )
 
       end associate
 

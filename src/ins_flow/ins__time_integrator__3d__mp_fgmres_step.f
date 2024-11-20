@@ -9,21 +9,20 @@
 submodule (INS__Time_Integrator__3D) MP_FGMRES_Step
   use Array_Assignments
   use Array_Reductions
+  use Logging_Levels
   implicit none
 
 contains
 
   !-----------------------------------------------------------------------------
-  !>
+  !> FGMRES for Stokes part using projection step as a preconditioner
 
-  module subroutine FGMRES_Step( this                                       &
-                               , tau, t, v_0, F_c, F_d, Q , bv_u, mu, nu, u &
-                               , n_krylov, i_pre_p, i_pre_v , r_red, r_max  )
+  module subroutine FGMRES_Step(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
 
     ! arguments ................................................................
 
     class(INS_TimeIntegrator_3D), intent(in) :: this
-
+    !< incompressible Navier-Stokes time integrator
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
     real(RNP), intent(in) :: t
@@ -36,7 +35,7 @@ contains
     !< diffusion term at final time t
     real(RNP), contiguous, intent(in) :: Q(:,:,:,:,:)
     !< sources at time t and further known terms
-    class(BoundaryVariable_3D), intent(inout) :: bv_u(:)
+    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
     !< boundary values at final time t
     !!   - Γᴰ :  [ v₁, v₂, v₃, - , -  ]
     !!   - Γᴼ :  [ - , - , - , p , ∆p ]
@@ -46,16 +45,6 @@ contains
     !< ν, kinematic shear viscosity
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
     !< u = [v, p], velocity and pressure at final time u
-    integer, intent(in) :: n_krylov
-    !< max number of GMRES iterations (Krlyov subspace dimension)
-    integer, intent(in) :: i_pre_p
-    !< number of pressure iterations for preconditioning
-    integer, intent(in) :: i_pre_v
-    !< number of velocity iterations for preconditioning
-    real(RNP), optional, intent(in) :: r_red
-    !< min reduction of Euclidian residual norm
-    real(RNP), optional, intent(in) :: r_max
-    !< max Euclidian residual norm allowed
 
     ! internal variables .......................................................
 
@@ -79,7 +68,7 @@ contains
     type(BoundaryVariable_3D), allocatable, save :: bv_z(:)
 
     ! auxiliary variables for residual computation
-    real(RNP), allocatable, save :: mm(:,:,:,:)
+    real(RNP), allocatable, save :: mm_inv(:,:,:,:)
     real(RNP), allocatable, save :: g(:,:,:,:,:)
     real(RNP), allocatable, save :: O(:,:,:,:,:)
 
@@ -96,16 +85,16 @@ contains
 
       ! preliminaries ..........................................................
 
+      ! number of Arnoldi iterations
+      ni = this%i_krylov
+
       ! dimensions
       po = ins_op % eop_v % po
       np = po + 1
       nb = mesh % n_bound
       ne = mesh % n_elem
-      ni = n_krylov
 
-      check_convergence = .false.
-      if (present(r_red)) check_convergence = r_red > 0
-      if (present(r_max)) check_convergence = r_max > 0 .or. check_convergence
+      check_convergence = this % r_red > 0 .or. this % r_max > 0
 
       !$omp master
 
@@ -121,82 +110,95 @@ contains
       end do
       call bv_z % SetToZero()
 
-      allocate(mm(np,np,np,ne))
-      allocate(g(np,np,np,ne,4))
+      allocate(mm_inv(np,np,np,ne))
+      allocate(g(np,np,np,ne,4), source=ZERO)
       allocate(O(np,np,np,ne,4), source=ZERO)
 
       !$omp end master
       !$omp barrier
 
-      call ins_op % sem_v % Get_DG_DiagonalMassMatrix(mm)
+      call ins_op % sem_v % Get_DG_DiagonalMassMatrix(mm_inv)
 
       !$omp do
       do i = 1, ne
-        g(:,:,:,i,1:4) = Q  (:,:,:,i,1:4)              ! RHS
-        g(:,:,:,i,1:3) = g  (:,:,:,i,1:3)           &  ! for
-                       + v_0(:,:,:,i,1:3) * ONE/tau &  ! residual
-                       + F_c(:,:,:,i,1:3)              ! computation
+        mm_inv(:,:,:,i) = ONE / mm_inv(:,:,:,i)
+        g(:,:,:,i,1) = Q(:,:,:,i,1) + 1/tau * v_0(:,:,:,i,1) + F_c(:,:,:,i,1)
+        g(:,:,:,i,2) = Q(:,:,:,i,2) + 1/tau * v_0(:,:,:,i,2) + F_c(:,:,:,i,2)
+        g(:,:,:,i,3) = Q(:,:,:,i,3) + 1/tau * v_0(:,:,:,i,3) + F_c(:,:,:,i,3)
+        if (size(Q,5) >= 4) then
+          g(:,:,:,i,4) = Q(:,:,:,i,4)
+        end if
       end do
 
       !$omp master
 
-      ! initial approximation ..................................................
-
-      call this % ProjectionStep( tau, t, v_0, F_c, F_d, Q, bv_u &
-                                , mu, nu, u, i_pre_p, i_pre_v    )
-
-      ! initial residual, v₁ = f - Au ..........................................
-
       associate(v1 => v(:,:,:,:,:,1))
 
-        call this % GetStokesResidual(tau, mm, g, bv_u, mu, nu, u, v1)
+        ! initial approximation ................................................
+
+        call this % ProjectionStep( tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u &
+                                  , this % i_max_p, this % i_max_v            )
+
+        ! initial residual, v₁ = f - Au ........................................
+
+        call ins_op % GetStokesResidual(tau, g, bv_u, mu, nu, u, v1)
+
         beta = sqrt(ScalarProduct(v1, v1, comm))
         b(1) = beta
 
         ! convergence check ....................................................
 
+        !$omp master
         if (check_convergence) then
-
-          !$omp master
-          if (k == 1) then
-            ! set terminal condition
-            r_term = huge(r_term)
-            if (present(r_max)) then
-              if (r_max > 0) r_term = r_max
-            end if
-            if (present(r_red)) then
-              if (r_red > 0) r_term = max(r_term, beta * r_red)
-            end if
-          end if
+          ! set terminal condition
+          r_term = huge(r_term)
+          if (this % r_max > 0) r_term = this % r_max
+          if (this % r_red > 0) r_term = max(r_term, beta * this%r_red)
           converged = beta <= r_term
           call XMPI_Bcast(converged, 0, comm)
         else
           converged = .false.
+        end if
+
+        if (mesh % part == 0 .and. log_level_outer_iteration > 0) then
+          write(*,'(2X,A,I4,A,ES12.5)') &
+              'INS FGMRES solver, iteration j =',0,': beta =', beta
         end if
         !$omp end master
         !$omp barrier
 
         if (converged) then
           ni = 0
-        else
-          call ScaleArray(v1, 1/max(beta,eps), multi=.true.)
         end if
+
+        ! first Krylov vector ..................................................
+
+        call ScaleArray(v1, 1/max(beta,eps), multi=.true.)
 
       end associate
 
-      KRYLOV_ITERATION: do j = 1, ni
+      ARNOLDI_ITERATION: do j = 1, ni
         associate( vj => v(:,:,:,:,:,j)   &
                  , w  => v(:,:,:,:,:,j+1) &
                  , zj => z(:,:,:,:,:,j)   )
 
           ! preconditioning ....................................................
 
+          !$omp do
+          do i = 1, ne
+            g(:,:,:,i,1) = mm_inv(:,:,:,i) * vj(:,:,:,i,1)
+            g(:,:,:,i,2) = mm_inv(:,:,:,i) * vj(:,:,:,i,2)
+            g(:,:,:,i,3) = mm_inv(:,:,:,i) * vj(:,:,:,i,3)
+            g(:,:,:,i,4) = mm_inv(:,:,:,i) * vj(:,:,:,i,4)
+          end do
+
           ! projection with homogeneous BC and frozen viscosity: z(j) = K⁻¹v(j)
-          call this % ProjectionStep( tau, t, O, O, O, vj, bv_z, mu, nu     &
-                                    , zj, i_pre_p, i_pre_v, freeze = .true. )
+          call this % ProjectionStep( tau, t, O, O, O, g, bv_z, mu, nu, zj &
+                                    , this % i_pre_p, this % i_pre_v       &
+                                    , freeze = .true.                      )
 
           ! application of homogeneous operator: w = A v(j)
-          call this % GetStokesResidual(tau, mm, O, bv_z, mu, nu, vj, w)
+          call ins_op % GetStokesResidual(tau, O, bv_z, mu, nu, zj, w)
           call ScaleArray(w, -ONE, multi=.true.)
 
           ! computation of new Krylov vector ...................................
@@ -209,7 +211,7 @@ contains
 
           ! normalization, v(j+1) = w / ‖w‖
           h(j+1,j) = sqrt(ScalarProduct(w, w, comm))
-          call ScaleArray(w, 1//max(h(j+1,j),eps), multi=.true.)
+          call ScaleArray(w, ONE/max(h(j+1,j),eps), multi=.true.)
 
           ! Givens rotation transforming h to upper triagonal matrix r .........
 
@@ -228,17 +230,15 @@ contains
           b(j+1) = -s(j) * b(j)
           b(j)   =  c(j) * b(j)
 
-          ! convergence test ....................................................
+          ! convergence test ...................................................
 
           ! residual norm if Krylov iterations were exited now
           rho = abs(b(j+1))
 
-          if (mesh % part == 0) then
+          if (mesh % part == 0 .and. log_level_outer_iteration > 0) then
             !$omp master
-            if (log_level_inner_iteration > 0) then
-              write(*,'(2X,A,I4,A,ES12.5)') &
-                'FGMRES iteration j =',j,': rho  =', rho
-            end if
+            write(*,'(2X,A,I4,A,ES12.5)') &
+              'INS FGMRES solver, iteration j =',j,': rho  =', rho
             !$omp end master
           end if
 
@@ -251,13 +251,13 @@ contains
           end if
 
         end associate
-      end do KRYLOV_ITERATION
+      end do ARNOLDI_ITERATION
 
-      ! improved solution ......................................................
+      ! improved solution ....................................................
 
-      if (ni > 0) then
+      j = min(j, ni)
 
-        j = min(j, ni)
+      if (j > 0) then
 
         ! solve least-squares problem for y using backward substitution
         y(j) = b(j) / r(j,j)
@@ -276,7 +276,7 @@ contains
 
       !$omp master
       deallocate(b, c, h, r, s, y, v, z)
-      deallocate(bv_z, mm, g, O)
+      deallocate(bv_z, mm_inv, g, O)
       !$omp end master
 
     end associate
