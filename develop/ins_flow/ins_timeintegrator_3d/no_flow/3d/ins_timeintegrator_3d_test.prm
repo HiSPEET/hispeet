@@ -1,16 +1,16 @@
 &control_prm
-  flow_problem =  'Stokes_Linke'
-  problem_file =  'stokes_linke'
+  problem_file =  'no_flow'
+  flow_problem =  'NoFlow'
   flow_domain  =  1
   time_method  =  1   ! 1 Euler, 2 BDF2, 3 Runge-Kutta
 !
   ins_op_opts%mu_0 =  1
 
-  ins_op_opts%eop_v%StandardElementOptions_1D%po =  4
+  ins_op_opts%eop_v%StandardElementOptions_1D%po =  3
   ins_op_opts%eop_v%penalty                      = 20
-  ins_op_opts%eop_p%StandardElementOptions_1D%po =  3
+  ins_op_opts%eop_p%StandardElementOptions_1D%po =  2
   ins_op_opts%eop_p%penalty                      = 20
-  ins_op_opts%sop_q%po                           =  4
+  ins_op_opts%sop_q%po                           =  3
   ins_op_opts%sop_q%basis                        = 'L'
 !
 ! Euler options
@@ -44,23 +44,21 @@
 
   t_end  = 1
   dt     = 1e-3
-  nt_max = 10000
+  nt_max = 10!000
 !
 ! export_vtk = T                 ! set T for generating plot files
-! char_freq  = 2                 ! set to control frequency of control output
+! char_freq  = 1                 ! set to control frequency of control output
 ! log_level_inner_iteration = 1  ! set log level > 0 for higher verbosity
 /
 
 ! flow_domain  =  1
 &cuboid_cartesian_prm
-! regular    = F ! mimic irregular mesh (elements deformed or of different size)
-! structured = F ! mimic unstructured mesh
-  xo =  0, 0, 0.000
-  lx =  1, 1, 0.250
-  np =  1, 1, 1
-  ep =  4, 4, 1
-! np =  2, 2, 1
-! ep =  2, 2, 1
+  xo =  0.0, 0.0, 0.0
+  lx =  1.0, 1.0, 1.0
+  np =    1,   1,   1
+  ep =   12,  12,  12
+! np =    1,   2,   3
+! ep =   12,   6,   4
 ! pg = 1
-  periodic = F,F,T
+  periodic = F,F,F
 /
