@@ -6,6 +6,10 @@
 !> @note
 !> The solution is dimensionally inconsistent.
 !> @endnote
+!>
+!> ### References
+!>
+!> 1. Minion ML & Saye RI, J Comput Phys 375:797-822, 2018
 !===============================================================================
 
 module INS__Problem__Vortex_TG__3D
