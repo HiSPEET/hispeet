@@ -4,8 +4,6 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !> @todo
-!>   - validate
-!>   - revise interface
 !>   - add standby mode
 !>   - possibly find a better name
 !===============================================================================
@@ -25,7 +23,8 @@ contains
 
   module subroutine ProjectionStep( this, tau, t, v_0, F_c, F_d, Q &
                                   , bv_u, mu, nu, u                &
-                                  , i_max_p, i_max_v, r_red, r_max )
+                                  , i_max_p, i_max_v, r_red, r_max &
+                                  , freeze                         )
 
     ! arguments ................................................................
 
@@ -42,18 +41,11 @@ contains
     real(RNP), contiguous, intent(in) :: F_d(:,:,:,:,:)
     !< diffusion term at final time t
     real(RNP), contiguous, intent(in) :: Q(:,:,:,:,:)
-    !< sources at time t, older contributions and possibly correction terms
-    class(BoundaryVariable_3D), intent(inout) :: bv_u(:)
+    !< sources at time t and further known terms
+    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
     !< boundary values at final time t
-    !!   - components 1:3
-    !!       * Γᴰ :  vᵇ  →  vᵇ         (unchanged)
-    !!       * Γᴼ :  ×                 (unused)
-    !!   - component 4
-    !!       * Γᴰ :  ×   →  ∂p/∂n
-    !!       * Γᴼ :  pᵇ  →  τ_nn
-    !!   - component 5
-    !!       * Γᴰ :  ×                 (unused)
-    !!       * Γᴼ :  ∆pᵇ →  ∆pᵇ        (unchanged)
+    !!   - Γᴰ :  [ v₁, v₂, v₃, - , -  ]
+    !!   - Γᴼ :  [ - , - , - , p , ∆p ]
     real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
     !< μ, kinematic bulk viscosity
     real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
@@ -61,10 +53,11 @@ contains
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
     !< u = [v, p], velocity and pressure at final time u
 
-    integer, intent(in) :: i_max_p !< max num iterations of pressure solver
-    integer, intent(in) :: i_max_v !< max num iterations of diffusion solver
-    real(RNP), optional, intent(in) :: r_red !< min L² residual reduction to reach
-    real(RNP), optional, intent(in) :: r_max !< max L² residual allowed
+    integer,   optional, intent(in) :: i_max_p !< max iterations for pressure
+    integer,   optional, intent(in) :: i_max_v !< max iterations for diffusion
+    real(RNP), optional, intent(in) :: r_red   !< required L² residual reduction
+    real(RNP), optional, intent(in) :: r_max   !< allowed max L² residual
+    logical,   optional, intent(in) :: freeze  !< fix viscosity [F]
 
     ! internal variables .......................................................
 
@@ -75,10 +68,12 @@ contains
 
     type(ElementFaceTransferBuffer_3D), asynchronous, allocatable, save :: buf_vm
 
-    type(BoundaryVariable_3D), allocatable, save :: bv_v(:), bv_p(:), bv_dp(:)
+    type(BoundaryVariable_3D), allocatable, save :: bv_w(:), bv_p(:), bv_dp(:)
 
-    integer :: np
-    integer :: b, d, e
+    real(RNP) :: r_red_, r_max_
+    integer   :: i_max_p_, i_max_v_
+    integer   :: b, d, e, np
+    logical   :: update_viscosity
 
     associate( problem => this % problem                  &
              , ins_op  => this % ins_op                   &
@@ -91,6 +86,35 @@ contains
 
       ! initialization .........................................................
 
+      if (present(i_max_p)) then
+        i_max_p_ = i_max_p
+      else
+        i_max_p_ = this % i_max_p
+      end if
+
+      if (present(i_max_p)) then
+        i_max_v_ = i_max_v
+      else
+        i_max_v_ = this % i_max_v
+      end if
+
+      if (present(r_red)) then
+        r_red_ = r_red
+      else
+        r_red_ = this % r_red
+      end if
+
+      if (present(r_max)) then
+        r_max_ = r_max
+      else
+        r_max_ = this % r_max
+      end if
+
+      update_viscosity = present(nu) .and. problem % HasVariableProperties()
+      if (present(freeze)) then
+        update_viscosity = update_viscosity .and. .not. freeze
+      end if
+
       np = size(v,1)
 
       !$omp master
@@ -102,14 +126,16 @@ contains
 
       buf_vm = ElementFaceTransferBuffer_3D(mesh, vm)
 
-      ! handles for velocity and pressure boundary values, based on pointers
-      allocate(bv_v ( mesh%n_bound ))
+      ! provide handles for velocity and pressure boundary values
+      allocate(bv_w ( mesh%n_bound ))
       allocate(bv_p ( mesh%n_bound ))
       allocate(bv_dp( mesh%n_bound ))
       do b = 1, mesh % n_bound
-        call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v (b))
-        call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p (b))
-        call bv_u(b) % GetSlice(first=5, last=5, slice = bv_dp(b))
+        ! copy bv_u to bv_w to keep the former unchanged
+        call bv_u(b) % GetSlice(first=1, last=5, slice=bv_w(b), copy=.true.)
+        ! generate pointer-based handles for pressure boundary values
+        call bv_w(b) % GetSlice(first=4, last=4, slice=bv_p (b))
+        call bv_w(b) % GetSlice(first=5, last=5, slice=bv_dp(b))
       end do
       !$omp end master
       !$omp barrier
@@ -151,9 +177,13 @@ contains
         ! divergence of intermediate velocity
         call TPO_Div(ins_op % eop_v, ins_op % sem_v, v, vp, div_v)
 
+        if (size(Q, 5) >= 4) then ! has additional RHS for mass conservation
+          call MergeArrays(ONE, div_v, -ONE, Q(:,:,:,:,4))
+        end if
+
         ! solve pressure equation
-        call ins_op % PressureSolver( tau, bv_u, v, div_v, p &
-                                    , i_max_p, r_red, r_max  )
+        call ins_op % PressureSolver( tau, bv_w, v, div_v, p   &
+                                    , i_max_p_, r_red_, r_max_ )
 
       end associate
 
@@ -194,12 +224,12 @@ contains
           end do
         end do
 
-        if (present(nu) .and. problem % HasVariableProperties()) then
+        if (update_viscosity) then
           call problem % GetViscosity(sem_v % metrics % x, t, u, nu)
         end if
 
-        call ins_op % DiffusionSolver( tau, mu, nu, f, bv_u, v &
-                                     , i_max_v, r_red, r_max   )
+        call ins_op % DiffusionSolver( tau, mu, nu, f, bv_w, v  &
+                                     , i_max_v_, r_red_, r_max_ )
 
       end associate
 
@@ -209,7 +239,7 @@ contains
       deallocate(w)
       deallocate(pp, vm, vp)
       deallocate(buf_vm)
-      deallocate(bv_v, bv_p, bv_dp)
+      deallocate(bv_w, bv_p, bv_dp)
       !$omp end master
 
     end associate

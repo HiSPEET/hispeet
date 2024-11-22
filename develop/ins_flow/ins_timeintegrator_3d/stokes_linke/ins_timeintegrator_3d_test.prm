@@ -12,12 +12,17 @@
   ins_op_opts%eop_p%penalty                      = 20
   ins_op_opts%sop_q%po                           =  4
   ins_op_opts%sop_q%basis                        = 'L'
+  ins_op_opts%schwarz_v%delta                    = 0.25
+  ins_op_opts%schwarz_p%delta                    = 0.25
 !
 ! Euler options
-  ins_ti_euler_opts%i_max_p = 1000
-  ins_ti_euler_opts%i_max_v = 1000
-  ins_ti_euler_opts%r_red   = 1e-8
-  ins_ti_euler_opts%r_max   = 1e-12
+  ins_ti_euler_opts%i_krylov = 4       ! set eg to 2 for trying GMRES
+  ins_ti_euler_opts%i_max_p  = 1000
+  ins_ti_euler_opts%i_max_v  = 1000
+  ins_ti_euler_opts%i_pre_p  = 200
+  ins_ti_euler_opts%i_pre_v  = 200
+  ins_ti_euler_opts%r_red    = 1e-08
+  ins_ti_euler_opts%r_max    = 1e-12
 !
 ! BDF2 options
   ins_ti_bdf2_opts%i_max_p  = 1000  ! 1000
@@ -43,7 +48,7 @@
   ins_ti_runge_kutta_opts%r_max    = 1e-12 ! 1e-14
 
   t_end  = 1
-  dt     = 1e-3
+  dt     = 1e-5
   nt_max = 10000
 !
 ! export_vtk = T                 ! set T for generating plot files

@@ -14,6 +14,7 @@ add_library(HiINSFlow
             ins__operator__3d__mp_getdiffusionresidual_v.f
             ins__operator__3d__mp_getdiffusionterm_c.F
             ins__operator__3d__mp_getdiffusionterm_v.F
+            ins__operator__3d__mp_getstokesresidual.f
             ins__operator__3d__mp_getviscousboundarystress_c.f
             ins__operator__3d__mp_getviscousboundarystress_v.f
             ins__operator__3d__mp_pressuresolver.f
@@ -33,6 +34,7 @@ add_library(HiINSFlow
             ins__time_scales__3d.f
 
             ins__time_integrator__3d.f
+            ins__time_integrator__3d__mp_fgmres_step.f
             ins__time_integrator__3d__mp_projectionstep.f
             ins__time_integrator__euler__3d.f
             ins__time_integrator__bdf2__3d.f

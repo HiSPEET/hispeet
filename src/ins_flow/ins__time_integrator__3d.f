@@ -25,10 +25,19 @@ module INS__Time_Integrator__3D
     class(INS_Problem_3D),  pointer :: problem => null() !< flow problem
     class(INS_Operator_3D), pointer :: ins_op  => null() !< INS operators
 
+    integer   :: i_krylov !< max num Krylov iterations
+    integer   :: i_max_p  !< max num p-iterations in projection solver
+    integer   :: i_max_v  !< max num v-iterations in projection solver
+    integer   :: i_pre_p  !< max num p-iterations in projection preconditioner
+    integer   :: i_pre_v  !< max num v-iterations in projection preconditioner
+    real(RNP) :: r_red    !< min residual reduction, if > 0
+    real(RNP) :: r_max    !< max residual to reach,  if > 0
+
     character(len=80) :: name = ''  !< time-integrator name
 
   contains
     procedure, non_overridable    :: Init_INS_TimeIntegrator_3D
+    procedure                     :: FGMRES_Step
     procedure                     :: ProjectionStep
     procedure(TimeStep), deferred :: TimeStep
   end type INS_TimeIntegrator_3D
@@ -43,7 +52,8 @@ module INS__Time_Integrator__3D
 
     module subroutine ProjectionStep( this, tau, t, v_0, F_c, F_d, Q &
                                     , bv_u, mu, nu, u                &
-                                    , i_max_p, i_max_v, r_red, r_max )
+                                    , i_max_p, i_max_v, r_red, r_max &
+                                    , freeze                         )
 
       class(INS_TimeIntegrator_3D),    intent(in)    :: this
       real(RNP),                       intent(in)    :: tau
@@ -52,16 +62,37 @@ module INS__Time_Integrator__3D
       real(RNP), contiguous,           intent(in)    :: F_c(:,:,:,:,:)
       real(RNP), contiguous,           intent(in)    :: F_d(:,:,:,:,:)
       real(RNP), contiguous,           intent(in)    :: Q(:,:,:,:,:)
-      class(BoundaryVariable_3D),      intent(inout) :: bv_u(:)
+      class(BoundaryVariable_3D),      intent(in)    :: bv_u(:)
       real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
       real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
       real(RNP), contiguous,           intent(inout) :: u(:,:,:,:,:)
-      integer,                         intent(in)    :: i_max_p
-      integer,                         intent(in)    :: i_max_v
+      integer,               optional, intent(in)    :: i_max_p
+      integer,               optional, intent(in)    :: i_max_v
       real(RNP),             optional, intent(in)    :: r_red
       real(RNP),             optional, intent(in)    :: r_max
+      logical,               optional, intent(in)    :: freeze
 
     end subroutine ProjectionStep
+
+    !---------------------------------------------------------------------------
+    !> FGMRES for Stokes part using projection step as a preconditioner
+
+    module subroutine FGMRES_Step( this                                      &
+                                 , tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u )
+
+      class(INS_TimeIntegrator_3D),    intent(in)    :: this
+      real(RNP),                       intent(in)    :: tau
+      real(RNP),                       intent(in)    :: t
+      real(RNP), contiguous,           intent(in)    :: v_0(:,:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: F_c(:,:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: F_d(:,:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: Q(:,:,:,:,:)
+      class(BoundaryVariable_3D),      intent(in)    :: bv_u(:)
+      real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
+      real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
+      real(RNP), contiguous,           intent(inout) :: u(:,:,:,:,:)
+
+    end subroutine FGMRES_Step
 
   end interface
 
@@ -90,6 +121,13 @@ module INS__Time_Integrator__3D
   !> Base type for providing time integrator options
 
   type INS_TimeIntegratorOptions_3D
+    integer   :: i_krylov =     0 !< max num Krylov iterations
+    integer   :: i_max_p  =  1000 !< max num p-iterations in projection solver
+    integer   :: i_max_v  =   200 !< max num v-iterations in projection solver
+    integer   :: i_pre_p  =     2 !< max num p-iterations in projection precon
+    integer   :: i_pre_v  =     1 !< max num v-iterations in projection precon
+    real(RNP) :: r_red    = 1e-08 !< min residual reduction, if > 0
+    real(RNP) :: r_max    = 1e-12 !< max residual to reach,  if > 0
   contains
     procedure :: Bcast => Bcast_INS_TimeIntegratorOptions_3D
   end type INS_TimeIntegratorOptions_3D
@@ -103,18 +141,21 @@ contains
   !> Initialization of TimeIntegrator object
 
   subroutine Init_INS_TimeIntegrator_3D(this, problem, ins_op, opt)
-    class(INS_TimeIntegrator_3D),                  intent(inout) :: this
-    class(INS_Problem_3D),                 target, intent(in)    :: problem
-    class(INS_Operator_3D),                target, intent(in)    :: ins_op
-    class(INS_TimeIntegratorOptions_3D), optional, intent(in)    :: opt
+    class(INS_TimeIntegrator_3D),        intent(inout) :: this
+    class(INS_Problem_3D),       target, intent(in)    :: problem
+    class(INS_Operator_3D),      target, intent(in)    :: ins_op
+    class(INS_TimeIntegratorOptions_3D), intent(in)    :: opt
 
     this % problem => problem
     this % ins_op  => ins_op
 
-    ! options
-    if (present(opt)) then
-      return ! nothing, so far
-    end if
+    this % i_krylov = opt % i_krylov
+    this % i_max_p  = opt % i_max_p
+    this % i_max_v  = opt % i_max_v
+    this % i_pre_p  = opt % i_pre_p
+    this % i_pre_v  = opt % i_pre_v
+    this % r_red    = opt % r_red
+    this % r_max    = opt % r_max
 
   end subroutine Init_INS_TimeIntegrator_3D
 
@@ -129,16 +170,19 @@ contains
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    type(MPI_Request) :: request(0)
-    type(MPI_Status)  :: stat(size(request))
+    type(MPI_Request) :: request(7)
     integer :: n
 
     n = 1
-!   call XMPI_Ibcast( this % <opt1>, root, comm, request(n) );  n = n + 1
-!   call XMPI_Ibcast( this % <opt2>, root, comm, request(n) )
-    if (size(request) == 0) return
+    call XMPI_Ibcast( this % i_krylov, root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % i_max_p , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % i_max_v , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % i_pre_p , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % i_pre_v , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % r_red   , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % r_max   , root, comm, request(n) )
 
-    call MPI_Waitall(n, request, stat)
+    call MPI_Waitall( n, request, MPI_STATUSES_IGNORE )
 
   end subroutine Bcast_INS_TimeIntegratorOptions_3D
 
