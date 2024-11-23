@@ -1,5 +1,5 @@
 &control_prm
-  problem_file =  'no_flow'
+  problem_file =  'no_flow_3d'
   flow_problem =  'NoFlow'
   flow_domain  =  1
   time_method  =  1   ! 1 Euler, 2 BDF2, 3 Runge-Kutta
@@ -43,8 +43,8 @@
   ins_ti_runge_kutta_opts%r_max    = 1e-12 ! 1e-14
 
   t_end  = 1
-  dt     = 1e-3
-  nt_max = 10!000
+  dt     = 1e-4
+  nt_max = 10000
 !
 ! export_vtk = T                 ! set T for generating plot files
 ! char_freq  = 1                 ! set to control frequency of control output
@@ -53,12 +53,16 @@
 
 ! flow_domain  =  1
 &cuboid_cartesian_prm
-  xo =  0.0, 0.0, 0.000
-  lx =  1.0, 1.0, 0.03125
-  np =    1,   1, 1
-  ep =   32,  32, 1
-! np =    2,   2, 1
-! ep =   16,  16, 1
-! pg = 1
-  periodic = F,F,T
+  regular    = T ! mimic irregular mesh (deformed elements)
+  structured = T ! mimic unstructured mesh
+  xo =  0.0, 0.0, 0.0
+  lx =  1.0, 1.0, 1.0
+
+  np =  3*1  ! use for
+  ep =  3*2  ! serial runs
+
+! np =  3*4  ! use for
+! ep =  3*3  ! parallel runs
+
+  periodic = F,F,F
 /

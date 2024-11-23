@@ -27,6 +27,11 @@
 #     -D OpenMP=⟨0|1⟩
 #         0:  compile without OpenMP (default)
 #         1:  compile with OpenMP
+#
+#     -D INS_PENALTY=⟨0|1⟩
+#         use TPO_Stress on _deformed_ elements 
+#         0:  with physically motivated bulk viscosity (default)
+#         1:  with ad-hoc grad-div and flux continuity stabilization terms
 
 cmake_minimum_required(VERSION 3.12)
 

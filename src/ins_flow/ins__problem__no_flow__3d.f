@@ -264,7 +264,7 @@ contains
     case(2)
       !$omp do
       do i = 1, n
-        F_p(i,1)  = -2*PI * cos(2*PI * (x(i,1) + x(i,2) + x(i,3)))
+        F_p(i,1)  = -2*PI * cos(2*PI * (x(i,1) + x(i,2)))
         F_p(i,2)  = F_p(i,1)
         F_p(i,3:) = ZERO
       end do
