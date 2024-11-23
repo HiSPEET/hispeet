@@ -27,12 +27,16 @@ module INS__Flow_Characteristics__3D
 
   type INS_FlowCharacteristics_3D
 
-    real(RNP) :: t     = -1 !< problem time
-    real(RNP) :: err_v = -1 !< L² velocity error
-    real(RNP) :: err_p = -1 !< L² velocity error
-    real(RNP) :: div_v = -1 !< L² velocity divergence
-    real(RNP) :: v_max = -1 !< maximum velocity
-    real(RNP) :: e_kin = -1 !< kinetic energy per unit mass
+    real(RNP) :: t      !< problem time
+    real(RNP) :: dt     !< time step width
+    real(RNP) :: dx_min !< minimum cuboid extension
+    real(RNP) :: dx_max !< maximum cuboid extension
+    integer   :: po     !< polynomial order
+    real(RNP) :: err_v  !< L² velocity error
+    real(RNP) :: err_p  !< L² velocity error
+    real(RNP) :: div_v  !< L² velocity divergence
+    real(RNP) :: v_max  !< maximum velocity
+    real(RNP) :: e_kin  !< kinetic energy per unit mass
 
     integer, private :: part = -1
     logical, private :: has_errors = .false.
@@ -48,18 +52,21 @@ contains
   !-----------------------------------------------------------------------------
   !> Evaluation of incompressible flow characteristics
 
-  subroutine Evaluate(this, problem, ins_op, t, u, volume)
+  subroutine Evaluate(this, problem, ins_op, t, u, dt, volume)
     class(INS_FlowCharacteristics_3D), intent(inout) :: this
     class(INS_Problem_3D),  intent(in) :: problem
     class(INS_Operator_3D), intent(in) :: ins_op
     real(RNP),              intent(in) :: t
     real(RNP), contiguous,  intent(in) :: u(:,:,:,:,:)
+    real(RNP), optional,    intent(in) :: dt
     real(RNP), optional,    intent(in) :: volume
 
     real(RNP), allocatable, save :: vp(:,:,:,:,:), w(:,:,:,:,:)
     real(RNP), save :: v_max, vv_max = 0
     real(RNP), save :: e_kin
+    real(RNP), save :: dx_min_loc, dx_max_loc
     real(RNP) :: div_v, err_v, err_p, vv
+    real(RNP) :: dx(3)
 
     integer :: e, i, j, k, ne, np
 
@@ -83,11 +90,38 @@ contains
       this % part       = mesh % part
       this % has_errors = problem % HasExactSolution()
 
+      if (present(dt)) then
+        this % dt = dt
+      else
+        this % dt = -1
+      end if
+
+      this % po     = ins_op % eop_v % po
+      this % err_v  = -1
+      this % err_p  = -1
+
+      dx_min_loc = huge(ONE)
+      dx_max_loc = 0
+
       allocate(vp(np,np,6,ne,3))
       allocate(w, mold = u)
 
       !$omp end master
       !$omp barrier
+
+      ! mesh spacing ...........................................................
+
+      !$omp do private(dx) reduce(min:this%dx_min, max:this%dx_max)
+      do e = 1, ne
+        call mesh % element(e) % GetCuboidDimensions(dx)
+        dx_min_loc = min(dx_min_loc, dx(1), dx(2), dx(3))
+        dx_max_loc = max(dx_max_loc, dx(1), dx(2), dx(3))
+      end do
+
+      !$omp master
+      call XMPI_Allreduce(dx_min_loc, this%dx_min, MPI_MIN, mesh%comm_parts)
+      call XMPI_Allreduce(dx_max_loc, this%dx_max, MPI_MAX, mesh%comm_parts)
+      !$omp end master
 
       ! errors .................................................................
 
@@ -185,24 +219,35 @@ contains
   !-----------------------------------------------------------------------------
   !> Print header for incompressible flow characteristics
 
-  subroutine PrintHeader(this)
+  subroutine PrintHeader(this, tag)
     class(INS_FlowCharacteristics_3D), intent(in) :: this
+    character(len=*), optional, intent(in) :: tag !< tag placed at end of line
 
     if (this % part == 0) then
 
       !$omp master
       write(*,'(A,2X)'   ,advance='NO') '#'
-      write(*,'(2X,A,8X)',advance='NO') 't'
-      write(*,'(2X,A,6X)',advance='NO') 'v_max'
-      write(*,'(2X,A,6X)',advance='NO') 'e_kin'
-      write(*,'(2X,A,6X)',advance='NO') 'div_v'
+      write(*,'(2X,A,7X)',advance='NO') 't'
+      if (this % dt >= 0) then
+        write(*,'(2X,A,6X)',advance='NO') 'dt'
+      end if
+      write(*,'(1X,A,4X)',advance='NO') 'dx_min'
+      write(*,'(1X,A,4X)',advance='NO') 'dx_max'
+      write(*,'(1X,A,2X)',advance='NO') 'po'
+      write(*,'(1X,A,5X)',advance='NO') 'v_max'
+      write(*,'(1X,A,5X)',advance='NO') 'e_kin'
+      write(*,'(1X,A,5X)',advance='NO') 'div_v'
 
       if (this % has_errors) then
-        write(*,'(2X,A,6X)',advance='NO') 'err_v'
-        write(*,'(2X,A,6X)',advance='NO') 'err_p'
+        write(*,'(1X,A,5X)',advance='NO') 'err_v'
+        write(*,'(1X,A,5X)',advance='NO') 'err_p'
       end if
 
-      write(*,'(A)') '#char#'
+      if (present(tag)) then
+        write(*,'(A)') tag
+      else
+        write(*,*)
+      end if
       !$omp end master
 
     end if
@@ -212,24 +257,35 @@ contains
   !-----------------------------------------------------------------------------
   !> Print incompressible flow characteristics
 
-  subroutine PrintValues(this)
+  subroutine PrintValues(this, tag)
     class(INS_FlowCharacteristics_3D), intent(in) :: this
+    character(len=*), optional, intent(in) :: tag !< tag placed at end of line
 
     if (this % part == 0) then
 
       !$omp master
-      write(*,'(ES12.5,1X)',advance='NO') this % t
-      write(*,'(ES12.5,1X)',advance='NO') this % v_max
-      write(*,'(ES12.5,1X)',advance='NO') this % e_kin
-      write(*,'(ES12.5,1X)',advance='NO') this % div_v
+      write(*,'(ES10.3,1X)',advance='NO') this % t
+      if (this % dt >= 0) then
+        write(*,'(ES10.3,1X)',advance='NO') this % dt
+      end if
+      write(*,'(ES10.3,1X)',advance='NO') this % dx_min
+      write(*,'(ES10.3,1X)',advance='NO') this % dx_max
+      write(*,'(I4    ,1X)',advance='NO') this % po
+      write(*,'(ES10.3,1X)',advance='NO') this % v_max
+      write(*,'(ES10.3,1X)',advance='NO') this % e_kin
+      write(*,'(ES10.3,1X)',advance='NO') this % div_v
 
       if (this % has_errors) then
-        write(*,'(ES12.5,1X)',advance='NO') this % err_v
-        write(*,'(ES12.5,1X)',advance='NO') this % err_p
+        write(*,'(ES10.3,1X)',advance='NO') this % err_v
+        write(*,'(ES10.3,1X)',advance='NO') this % err_p
       end if
 
-      write(*,'(1X,A)') '#char#'
-      !$omp end master
+      if (present(tag)) then
+        write(*,'(X,A)') tag
+      else
+        write(*,*)
+      end if
+     !$omp end master
 
     end if
 

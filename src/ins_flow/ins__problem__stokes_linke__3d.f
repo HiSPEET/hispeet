@@ -8,6 +8,8 @@
 !> and the pressure is p = x⁵ + y⁵ - 1/3. The source is set to f = ∇p - ν∇²v,
 !> so that the solution is steady.
 !>
+!> ### References
+!>
 !> 1. Linke A, Comput Meth Appl Mech Engrg 268:782-800, 2014
 !===============================================================================
 

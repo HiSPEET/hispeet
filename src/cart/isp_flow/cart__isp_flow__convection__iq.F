@@ -36,7 +36,7 @@ contains
 
     real(RNP), dimension(:,:,:,:,:), allocatable, save :: uq, div_fq
 
-    real(RNP), allocatable :: A(:,:)
+    real(RNP), allocatable :: A(:,:), J(:,:)
     integer :: nc, ne, nq, pq, pu
     integer :: i, k
 
@@ -56,15 +56,12 @@ contains
 
     ! projection operator -- with diagonal (lumped) mass matrix
     allocate(A(0:pu,0:pq))
-    associate( wu => flow_op % eop_u  % w   &
-             , wq => flow_op % eop_q  % w   &
-             , J  => flow_op % iop_uq % A )
-      do k = 0, pq
-      do i = 0, pu
-        A(i,k) = wq(k) * J(k,i) / wu(i)
-      end do
-      end do
-    end associate
+    allocate(J(0:pq,0:pu), source = flow_op % iop_uq % A)
+    do k = 0, pq
+    do i = 0, pu
+      A(i,k) = flow_op % eop_q % w(k) * J(k,i) / flow_op % eop_u % w(i)
+    end do
+    end do
 
     ! computation ..............................................................
 

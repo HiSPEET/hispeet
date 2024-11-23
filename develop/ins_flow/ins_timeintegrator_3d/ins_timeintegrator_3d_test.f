@@ -182,7 +182,7 @@ program INS_TimeIntegrator_3D_Test
   character(:), allocatable :: data_file
 
   real(RNP) :: domain_volume
-  logical   :: exists, last, passed, restart_in, restart_out
+  logical   :: exists, last, restart_in, restart_out
   integer   :: io, stat
   integer   :: n_avg, n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po
   integer   :: i, nt
@@ -226,6 +226,10 @@ program INS_TimeIntegrator_3D_Test
       open(newunit = io, file = case_file)
       read(io, nml = control_prm)
       close(io)
+      if (char_freq < 1) then
+        ! disable intermediate control output
+        char_freq = huge(1)
+      end if
     else
        call Error( 'INS_TimeIntegrator_3D_Test', &
                    'input file "' // trim(case_file) // '" not found' )
@@ -456,24 +460,25 @@ program INS_TimeIntegrator_3D_Test
     write(*,'(T3,A,T30,9(G0,X))') 'number of mesh points:', n_point
     write(*,'(T3,A,T30,9(G0,X))') 'time integrator:'      , trim(ins_ti % name)
     write(*,'(T3,A,T29,ES18.11)') 'time step size:'       , dt
-    write(*,'((T7,A,T29,ES12.5,2X,A,ES12.5,X,A))')  &
-            'dt / tau_c(v_0)'   , dt / time_scales % tau_conv_ve     , &
-                            '(' , dt / time_scales % tau_conv_vm,')' , &
-            'dt / tau_c(v_ref)' , dt / time_scales % tau_conv_re     , &
-                            '(' , dt / time_scales % tau_conv_rm,')' , &
-            'dt / tau_d(nu_ref)', dt / time_scales % tau_diff_re     , &
-                             '(', dt / time_scales % tau_diff_rm,')'
+    write(*,'(T3,A)') 'convective and diffusive CFL numbers'
+    write(*,'(T5,A,T21,ES12.5,A,T37,A,T55,ES12.5)')              &
+        'C(v_0  , τ_c) =' , dt / time_scales % tau_conv_ve, ',', &
+        'C(v_0  , ∆x/P) =', dt / time_scales % tau_conv_vm
+    write(*,'(T5,A,T21,ES12.5,A,T37,A,T55,ES12.5)')              &
+        'C(v_ref, τ_c) =' , dt / time_scales % tau_conv_re, ',', &
+        'C(v_ref, ∆x/P) =', dt / time_scales % tau_conv_rm
+    write(*,'(T5,A,T22,ES12.5,A,T38,A,T57,ES12.5)')              &
+        'D(ν_ref, τ_d) =' , dt / time_scales % tau_diff_re, ',', &
+        'D(ν_ref, ∆x/P) =', dt / time_scales % tau_diff_rm
     write(*,*)
   end if
 
   !-----------------------------------------------------------------------------
   ! Time integration
 
-  if (char_freq > 0) then
-    call flow_char % Evaluate(problem, ins_op, t, u, domain_volume)
-    call flow_char % PrintHeader()
-    call flow_char % PrintValues()
-  end if
+  call flow_char % Evaluate(problem, ins_op, t, u, dt, domain_volume)
+  call flow_char % PrintHeader()
+  call flow_char % PrintValues('#init#')
 
   do nt = 1, nt_max
     last = t + dt >= t_end .or. nt == nt_max
@@ -481,11 +486,14 @@ program INS_TimeIntegrator_3D_Test
     if (avg_rate > 0 .and. mod(nt, max(avg_rate,1)) == 0) then
       call TemporalAveraging(u, q_avg, n_avg)
     end if
-    if (mod(nt, char_freq) == 0) then
-      call flow_char % Evaluate(problem, ins_op, t, u, domain_volume)
+    if (last) then
+      call flow_char % Evaluate(problem, ins_op, t, u, dt, domain_volume)
+      call flow_char % PrintValues('#last#')
+      exit
+    else if (mod(nt, char_freq) == 0) then
+      call flow_char % Evaluate(problem, ins_op, t, u, dt, domain_volume)
       call flow_char % PrintValues()
     end if
-    if (last) exit
   end do
 
   !-----------------------------------------------------------------------------

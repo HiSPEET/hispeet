@@ -4,8 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !> @todo
-!>   - clean treatment of cases: regular/deformed mesh, constant/variable ν
-!>   - extension of velocity boundary conditions
+!>   - revision of boundary variables
 !===============================================================================
 
 module INS__Operator__3D
@@ -87,6 +86,8 @@ module INS__Operator__3D
     procedure :: GetDiffusionTerm
     procedure :: GetDiffusionTerm_C
     procedure :: GetDiffusionTerm_V
+
+    procedure :: GetStokesResidual
 
     procedure :: GetViscousBoundaryStress
     procedure :: GetViscousBoundaryStress_C
@@ -252,6 +253,20 @@ module INS__Operator__3D
       logical,                    optional, intent(in)  :: xout
       integer,                    optional, intent(in)  :: form
     end subroutine GetDiffusionTerm_V
+
+    !---------------------------------------------------------------------------
+    !> Stokes residual for incompressible flow
+
+    module subroutine GetStokesResidual(this, tau, f, bv_u, mu, nu, u, r)
+      class(INS_Operator_3D),          intent(in)    :: this
+      real(RNP),                       intent(in)    :: tau
+      real(RNP), contiguous,           intent(in)    :: f(:,:,:,:,:)
+      class(BoundaryVariable_3D),      intent(in)    :: bv_u(:)
+      real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
+      real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: u(:,:,:,:,:)
+      real(RNP), contiguous,           intent(out)   :: r(:,:,:,:,:)
+    end subroutine GetStokesResidual
 
     !---------------------------------------------------------------------------
     !> Viscous stress vector on a boundary (C)
