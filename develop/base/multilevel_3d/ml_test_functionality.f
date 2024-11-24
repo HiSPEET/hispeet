@@ -220,7 +220,7 @@ program ML_Test_Functionality
              , child  => ml_op  % sem(l+1)   % mesh &
              , var_p  => ml_var % level(l  ) % val  &
              , var_c  => ml_var % level(l+1) % val  &
-             , iop    => ml_op  % iop_cf(l)         )
+             , iop    => ml_op  % iop_cf_x(l)       )
 
       call ParentToChildInterpolation_3D( parent, child, iop     &
                                         , v_p = var_p(:,:,:,:,6) &
@@ -250,7 +250,7 @@ program ML_Test_Functionality
              , child  => ml_op  % sem(l+1)   % mesh &
              , var_p  => ml_var % level(l  ) % val  &
              , var_c  => ml_var % level(l+1) % val  &
-             , pop    => ml_op  % iop_fc(l+1)       )
+             , pop    => ml_op  % iop_fc_x(l+1)     )
 
       call ChildToParentProjection_3D( child, parent, pop &
                                      , var_c(:,:,:,:,6)   &
@@ -282,7 +282,7 @@ program ML_Test_Functionality
              , child  => ml_op  % sem(l+1)   % mesh &
              , var_p  => ml_var % level(l  ) % val  &
              , var_c  => ml_var % level(l+1) % val  &
-             , pop    => ml_op  % pop_fc(l+1)       )
+             , pop    => ml_op  % pop_fc_x(l+1)     )
 
       call ChildToParentProjection_3D( child, parent, pop &
                                      , var_c(:,:,:,:,6)   &
@@ -314,7 +314,7 @@ program ML_Test_Functionality
              , child  => ml_op  % sem(l+1)   % mesh &
              , var_p  => ml_var % level(l  ) % val  &
              , var_c  => ml_var % level(l+1) % val  &
-             , iop    => ml_op  % iop_cf(l)         )
+             , iop    => ml_op  % iop_cf_x(l)       )
 
       call ChildToParentRestriction_3D( child, parent, iop &
                                       , var_c(:,:,:,:,7)   &

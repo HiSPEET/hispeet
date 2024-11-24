@@ -319,6 +319,12 @@ set( MULTILEVEL_3D ${MULTILEVEL_3D}
      multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_monitoring.f
    )
 
+set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/spacetime/ml__spacetime_operators__3d.f
+     multilevel_3d/spacetime/ml__spacetime_variable__3d.f
+     multilevel_3d/spacetime/spacetime_variable__3d.f
+   )
+
 #===============================================================================
 # base library
 
