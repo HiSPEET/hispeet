@@ -30,7 +30,7 @@ contains
     class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
     class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
     class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
-    integer, optional, intent(out) :: ni           !< num executed cycles
+    integer, optional, intent(out) :: ni            !< num executed cycles
     real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
     call FAS_MG_Solver_X(this, lambda, null(), nu, u, f, bv, ni, r_2)
@@ -50,7 +50,7 @@ contains
     class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
     class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
     class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
-    integer, optional, intent(out) :: ni           !< num executed cycles
+    integer, optional, intent(out) :: ni            !< num executed cycles
     real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
     optional :: nu_0, nu_v
@@ -66,11 +66,11 @@ contains
     logical :: check_convergence
     integer :: e, l, m, n
 
-    associate( sem    => this % ml_op % sem    &
-             , iop_cf => this % ml_op % iop_cf &
-             , iop_fc => this % ml_op % iop_fc &
-             , pop_fc => this % ml_op % pop_fc &
-             , ell_op => this % elliptic_op    )
+    associate( sem    => this % ml_op % sem      &
+             , iop_cf => this % ml_op % iop_cf_x &
+             , iop_fc => this % ml_op % iop_fc_x &
+             , pop_fc => this % ml_op % pop_fc_x &
+             , ell_op => this % elliptic_op      )
 
       ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 

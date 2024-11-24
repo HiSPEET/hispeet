@@ -1,4 +1,4 @@
-!> summary:  3D multilevel spectral element mesh
+!> summary:  3D multilevel spectral element space operators
 !> author:   Joerg Stiller
 !> date:     2024/06/26
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -16,17 +16,17 @@ module ML__Mesh_Operators__3D
   public :: ML_MeshOperators_3D
 
   !-----------------------------------------------------------------------------
-  !> 3D multilevel spectral element mesh
+  !> 3D multilevel spectral element mesh operators
 
   type ML_MeshOperators_3D
     type(SpectralElementMesh_3D), allocatable :: sem(:)
       !< sequence of spectral element meshes [1:l_top]
-    type(HP_RefinementOperator_1D), allocatable :: iop_cf(:)
-      !< fine-to-coarse interpolation operators [1:l_top-1]
-    type(HP_CoarseningOperator_1D), allocatable :: iop_fc(:)
-      !< coarse-to-fine interpolation operators [2:l_top]
-    type(HP_CoarseningOperator_1D), allocatable :: pop_fc(:)
-      !< coarse-to-fine L2-projection operators [2:l_top]
+    type(HP_RefinementOperator_1D), allocatable :: iop_cf_x(:)
+      !< fine-to-coarse interpolation operators in space [1:l_top-1]
+    type(HP_CoarseningOperator_1D), allocatable :: iop_fc_x(:)
+      !< coarse-to-fine interpolation operators in space [2:l_top]
+    type(HP_CoarseningOperator_1D), allocatable :: pop_fc_x(:)
+      !< coarse-to-fine L2-projection operators in space [2:l_top]
   contains
     procedure :: Init_ML_MeshOperators_3D
   end type ML_MeshOperators_3D
@@ -80,10 +80,10 @@ contains
 
       l_top = size(mesh)
 
-      allocate(this % sem    (1:l_top  ))
-      allocate(this % iop_cf (1:l_top-1))
-      allocate(this % iop_fc (2:l_top  ))
-      allocate(this % pop_fc (2:l_top  ))
+      allocate(this % sem      (1:l_top  ))
+      allocate(this % iop_cf_x (1:l_top-1))
+      allocate(this % iop_fc_x (2:l_top  ))
+      allocate(this % pop_fc_x (2:l_top  ))
 
       if (present(basis)) then
         cf_opt % basis = basis
@@ -103,23 +103,23 @@ contains
         ! coarse-to-fine transfers operators
         if (l < l_top) then
           ! interpolation
-          cf_opt % po_c    = po(l)
-          cf_opt % po_f    = po(l+1)
-          cf_opt % mode    = Mode(mesh(l)%refinement, po(l), po(l+1))
-          this % iop_cf(l) = HP_RefinementOperator_1D(cf_opt)
+          cf_opt % po_c = po(l)
+          cf_opt % po_f = po(l+1)
+          cf_opt % mode = Mode(mesh(l)%refinement, po(l), po(l+1))
+          this % iop_cf_x(l) = HP_RefinementOperator_1D(cf_opt)
         end if
 
         ! fine-to-coarse transfers operators
         if (l > 1) then
           ! interpolation
-          fc_opt % po_f    = po(l)
-          fc_opt % po_c    = po(l-1)
-          fc_opt % method  = 'I'
-          fc_opt % mode    = Mode(mesh(l-1)%refinement, po(l-1), po(l))
-          this % iop_fc(l) = HP_CoarseningOperator_1D(fc_opt)
+          fc_opt % po_f   = po(l)
+          fc_opt % po_c   = po(l-1)
+          fc_opt % method = 'I'
+          fc_opt % mode   = Mode(mesh(l-1)%refinement, po(l-1), po(l))
+          this % iop_fc_x(l) = HP_CoarseningOperator_1D(fc_opt)
           ! L2-projection
-          fc_opt % method  = 'P'
-          this % pop_fc(l) = HP_CoarseningOperator_1D(fc_opt)
+          fc_opt % method = 'P'
+          this % pop_fc_x(l) = HP_CoarseningOperator_1D(fc_opt)
         end if
 
         ! skip levels above toplevel mesh

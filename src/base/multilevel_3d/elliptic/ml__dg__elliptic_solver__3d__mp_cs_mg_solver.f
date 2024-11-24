@@ -67,10 +67,10 @@ contains
     logical :: check_convergence
     integer :: e, l, m, n
 
-    associate( sem    => this % ml_op % sem    &
-             , iop_cf => this % ml_op % iop_cf &
-             , iop_fc => this % ml_op % iop_fc &
-             , ell_op => this % elliptic_op    )
+    associate( sem    => this % ml_op % sem      &
+             , iop_cf => this % ml_op % iop_cf_x &
+             , iop_fc => this % ml_op % iop_fc_x &
+             , ell_op => this % elliptic_op      )
 
       ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
