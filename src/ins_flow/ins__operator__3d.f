@@ -374,7 +374,7 @@ contains
     this % sem_p = SpectralElementMesh_3D( this % mesh, this % eop_p % po )
     this % sem_q = SpectralElementMesh_3D( this % mesh          &
                                          , this % sop_q % po    &
-                                         , this % sop_q % basis )
+                                         , this % sop_q % nodes )
 
     ! pressure BC
     allocate(this % bc_p(this % mesh % n_bound))

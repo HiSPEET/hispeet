@@ -25,7 +25,7 @@ module HP__Refinement_Operator__1D
   !> hence, no interpolation operator is provided.
 
   type, public :: HP_RefinementOperator_1D
-    character(len=2) :: basis  = 'L'   !< basis type
+    character(len=2) :: nodes  = 'L'   !< nodal basis type
     integer          :: po_c   = -1    !< polynomial order of coarse mesh
     integer          :: po_f   = -1    !< polynomial order of fine mesh
     integer          :: mode   = -1    !< refinement mode
@@ -41,7 +41,7 @@ module HP__Refinement_Operator__1D
   !> Options for initializing the hp-refinement operator
 
   type, public :: HP_RefinementOptions_1D
-    character(len=2) :: basis  = 'L' !< basis type {'E','G','L','RL','RR'}
+    character(len=2) :: nodes  = 'L' !< node set {'E','G','L','RL','RR'}
     integer          :: po_c   = -1  !< polynomial order of coarse mesh
     integer          :: po_f   = -1  !< polynomial order of fine mesh
     integer          :: mode   = -1  !< refinement mode {0,1,2}
@@ -73,7 +73,7 @@ contains
 
     ! initialization ...........................................................
 
-    this % basis = opt % basis
+    this % nodes = opt % nodes
     this % po_c  = opt % po_c
     this % po_f  = opt % po_f
     this % mode  = opt % mode
@@ -93,7 +93,7 @@ contains
 
     ! collocation points .......................................................
 
-    select case(this % basis)
+    select case(this % nodes)
     case('E')
       allocate(x_c(0:po_c), source = [(i * TWO/po_c - ONE, i = 0, po_c)])
       allocate(x_f(0:po_f), source = [(i * TWO/po_f - ONE, i = 0, po_f)])
@@ -117,7 +117,7 @@ contains
 
     case(1)
       ! 1:1 interpolation
-      select case(this % basis)
+      select case(this % nodes)
       case('E') ! Nodal with equidistant spacing
         do i = 0, po_f
         do j = 0, po_c
@@ -146,7 +146,7 @@ contains
 
     case(2)
       ! 1:2 interpolation
-      select case(this % basis)
+      select case(this % nodes)
       case('E') ! Nodal with equidistant spacing
         do i = 0, po_f
         do j = 0, po_c

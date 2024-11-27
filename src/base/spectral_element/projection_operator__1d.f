@@ -96,7 +96,7 @@ contains
       associate(A => this%A, MA => this%MA)
 
         ! mass-weighted L2 projection operator for standard element
-        select case(eop % basis)
+        select case(eop % nodes)
         case('G') ! Gauss
           do k = 1, nq
           do i = 0, po

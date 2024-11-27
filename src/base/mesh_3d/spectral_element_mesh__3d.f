@@ -40,28 +40,28 @@ contains
   !-----------------------------------------------------------------------------
   !> 3D spectral element mesh constructor
 
-  function New_SpectralElementMesh_3D(mesh, po, basis) result(this)
+  function New_SpectralElementMesh_3D(mesh, po, nodes) result(this)
     class(Mesh_3D), target, intent(in) :: mesh  !< mesh partition
     integer,                intent(in) :: po    !< polynomial order
-    character,    optional, intent(in) :: basis !< 'G' or 'L' ['L']
+    character,    optional, intent(in) :: nodes !< 'G' or 'L' ['L']
 
     type(SpectralElementMesh_3D) :: this
 
-    call Init_SpectralElementMesh_3D(this, mesh, po, basis)
+    call Init_SpectralElementMesh_3D(this, mesh, po, nodes)
 
   end function New_SpectralElementMesh_3D
 
   !-----------------------------------------------------------------------------
   !> 3D spectral element mesh initialization
 
-  subroutine Init_SpectralElementMesh_3D(this, mesh, po, basis)
+  subroutine Init_SpectralElementMesh_3D(this, mesh, po, nodes)
     class(SpectralElementMesh_3D), intent(inout) :: this
     class(Mesh_3D),        target, intent(in)    :: mesh  !< mesh partition
     integer,                       intent(in)    :: po    !< polynomial order
-    character,           optional, intent(in)    :: basis !< 'G' or 'L' ['L']
+    character,           optional, intent(in)    :: nodes !< 'G' or 'L' ['L']
 
     this % mesh    => mesh
-    this % std_op  =  StandardElementOperators_1D(po, basis)
+    this % std_op  =  StandardElementOperators_1D(po, nodes)
     this % metrics =  MeshMetrics_3D(mesh, this % std_op)
 
   end subroutine Init_SpectralElementMesh_3D

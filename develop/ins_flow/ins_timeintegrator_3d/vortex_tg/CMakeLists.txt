@@ -1,4 +1,5 @@
-file( COPY convergence_dt.py
+file( COPY README.md
+           convergence_dt.py
            convergence_dt.sh
            convergence_dx.py
            convergence_dx.sh

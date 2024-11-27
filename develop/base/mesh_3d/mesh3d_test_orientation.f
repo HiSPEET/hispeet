@@ -51,7 +51,7 @@ program Mesh3d_Test_Orientation
     read(io, nml = input)
     close(io)
 
-    std_op = StandardElementOperators_1D(po, basis='L')
+    std_op = StandardElementOperators_1D(po, nodes='L')
 
     ! create and import generic mesh ...........................................
 
