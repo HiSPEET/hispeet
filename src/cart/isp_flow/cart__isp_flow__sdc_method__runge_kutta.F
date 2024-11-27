@@ -348,7 +348,7 @@ contains
              , n_stage => this % imex_rk % n_stage &
              , w_rk    => this % w_rk              &
              , l_rk    => this % l_rk              &
-             , w_sdc   => this % w_sub             &
+             , w_sdc   => this % w_nn              &
              , eop     => this % flow_op % eop_u   )
 
       ! initialization .........................................................
@@ -431,9 +431,9 @@ contains
 
       ! u = u_s + S(t_m) - S(t_s)
       if (.not. fsal) then
-        u_i = u_i - S_i + w_sdc(0,m) * F_sdc(:,:,:,:,:,0)
+        u_i = u_i - S_i + w_sdc(m,0) * F_sdc(:,:,:,:,:,0)
         do l = 1, this % n_sub
-          u_i = u_i + w_sdc(l,m) * F_sdc(:,:,:,:,:,l)
+          u_i = u_i + w_sdc(m,l) * F_sdc(:,:,:,:,:,l)
         end do
       end if
 
