@@ -164,7 +164,7 @@ contains
 
         opt_level % iop_cf_t =                                &
             HP_RefinementOptions_1D(                          &
-                nodes = opt_sdc % point_set,                  &
+                nodes = opt_sdc % nodes,                      &
                 po_c  = opt % p_time(l),                      &
                 po_f  = opt % p_time(l+1),                    &
                 mode  = opt % n_time(l+1) / opt % n_time(l)   )
@@ -189,7 +189,7 @@ contains
 
         opt_level % pop_fc_t =                                  &
             HP_CoarseningOptions_1D(                            &
-                nodes  = opt_sdc % point_set,                   &
+                nodes  = opt_sdc % nodes,                       &
                 po_f   = opt % p_time(l),                       &
                 po_c   = opt % p_time(l-1),                     &
                 mode   = opt % n_time(l) / opt % n_time(l-1),   &

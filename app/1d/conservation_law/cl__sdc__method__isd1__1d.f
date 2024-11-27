@@ -270,7 +270,7 @@ contains
       ! high-order quadrature ..................................................
 
       do k = 1, nc
-        select case(this % point_set)
+        select case(this % nodes)
         case('RR')
           ! omit left point with Radau-right
           call SetArray(S(:,:,k), ZERO)
