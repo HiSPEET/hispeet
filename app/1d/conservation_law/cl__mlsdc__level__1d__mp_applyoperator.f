@@ -94,12 +94,12 @@ contains
             call cl_problem % GetSources        (cl_operator, t(i), ui, f_s)
           end associate
 
-          associate(Me => cl_operator % Me, w_sub => cl_sdc % w_sub)
+          associate(Me => cl_operator % Me, w_nn => cl_sdc % w_nn)
             do k = 1, nc
             do e = 1, ns
               f = r_c(:,e,k) + r_d(:,e,k) + Me * f_s(:,e,k)
               do m = 1, mt
-                r(:,e,k,m,n) = r(:,e,k,m,n) - dt_step * w_sub(i,m) * f
+                r(:,e,k,m,n) = r(:,e,k,m,n) - dt_step * w_nn(m,i) * f
               end do
             end do
             end do
