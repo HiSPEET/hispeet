@@ -81,12 +81,12 @@ module CART__Mesh_Partition
   !> Generates Gauss-Lobatto or Gauss points to all elements of a mesh partition
 
   interface
-    module subroutine GetPoints(mesh, po, basis, x)
+    module subroutine GetPoints(mesh, po, nodes, x)
       use Kind_Parameters, only: RNP
 
       class(MeshPartition),   intent(in)  :: mesh         !< mesh parition
       integer,                intent(in)  :: po           !< polynomial order
-      character,              intent(in)  :: basis        !< 'G' or 'L'
+      character,              intent(in)  :: nodes        !< 'G' or 'L'
       real(RNP), allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
 
     end subroutine GetPoints
@@ -96,9 +96,9 @@ module CART__Mesh_Partition
   !> Computes the valency of mesh points
 
   interface
-    module subroutine GetPointValency(mesh, basis, v)
+    module subroutine GetPointValency(mesh, nodes, v)
       class(MeshPartition), intent(in)  :: mesh          !< mesh parition
-      character,            intent(in)  :: basis         !< 'G' or 'L'
+      character,            intent(in)  :: nodes         !< 'G' or 'L'
       integer,              intent(out) :: v(0:,0:,0:,:) !< point valency
     end subroutine GetPointValency
   end interface
