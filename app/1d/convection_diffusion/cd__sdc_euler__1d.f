@@ -108,7 +108,7 @@ contains
       end do
 
       ! subinterval integrals: Sᵏ⁻¹(tᵢ) = F · wᵢ
-      call GetSubintegrals(dt, sdc%w_sub, F, S)
+      call GetSubintegrals(dt, sdc%w_nn, F, S)
 
       ! correction
       do i = 1, ns
@@ -132,18 +132,18 @@ contains
   !-----------------------------------------------------------------------------
   !> Computes the integrals of the time derivative F over subintervals [tᵢ₋₁,tᵢ]
 
-  subroutine GetSubintegrals(dt, w_sub, F, S)
-    real(RNP), intent(in)  :: dt         !< time step width
-    real(RNP), intent(in)  :: w_sub(:,:) !< weights
-    real(RNP), intent(in)  :: F(:,:,:)   !< time derivatives
-    real(RNP), intent(out) :: S(:,:,:)   !< subinterval integrals
+  subroutine GetSubintegrals(dt, w_nn, F, S)
+    real(RNP), intent(in)  :: dt        !< time step width
+    real(RNP), intent(in)  :: w_nn(:,:) !< weights
+    real(RNP), intent(in)  :: F(:,:,:)  !< time derivatives
+    real(RNP), intent(out) :: S(:,:,:)  !< subinterval integrals
 
     integer :: nm, ni
 
     nm = size(F,1) * size(F,2)
-    ni = size(F,3) ! = size(w,1)
+    ni = size(F,3) ! = size(w,2)
 
-    S = reshape(matmul(reshape(F,[nm,ni]), dt*w_sub), shape(S))
+    S = reshape(matmul(reshape(F,[nm,ni]), dt*transpose(w_nn)), shape(S))
 
   end subroutine GetSubintegrals
 
