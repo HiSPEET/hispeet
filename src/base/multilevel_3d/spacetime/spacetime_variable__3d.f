@@ -20,15 +20,15 @@ module Spacetime_Variable__3D
   !>
   !>  where
   !>
-  !>    - `0 ≤   m   ≤ pt`:  temporal collocation point ID
-  !>    - `1 ≤   n   ≤ nt`:  temporal element ID in given time slice
-  !>    - `0 ≤ i,j,k ≤ po`:  spatial collocation point triple index
-  !>    - `1 ≤   e   ≤ ne`:  spatial element ID
+  !>    - `0 ≤   m   ≤ po_t`:  temporal collocation point ID
+  !>    - `1 ≤   n   ≤ ne_t`:  temporal element ID in given time slice
+  !>    - `0 ≤ i,j,k ≤ po_x`:  spatial collocation point triple index
+  !>    - `1 ≤   e   ≤ ne_x`:  spatial element ID
 
   type SpacetimeVariable_3D
 
-    integer :: pt = 0 !< polynomial order in time
-    integer :: nt = 0 !< number of time elements/steps
+    integer :: po_t = 0 !< polynomial order in time
+    integer :: ne_t = 0 !< number of time elements/steps
 
     type(MeshVariable_3D), allocatable :: var(:,:)
 
