@@ -41,26 +41,26 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor of 3D multilevel mesh operators
 
-  function New_ML_MeshOperators_3D(ml_mesh, po, basis, smooth) result(this)
+  function New_ML_MeshOperators_3D(ml_mesh, po, nodes, smooth) result(this)
     class(ML_Mesh_3D),   intent(in) :: ml_mesh !< multilevel mesh partition
     integer,             intent(in) :: po(:)   !< sequence of polynomial orders
-    character, optional, intent(in) :: basis   !< 'G' or 'L' ['L']
+    character, optional, intent(in) :: nodes   !< 'G' or 'L' ['L']
     integer,   optional, intent(in) :: smooth  !< fine-to-coarse discontinuity
                                                !! smoothing {0,1,2} [0]
     type(ML_MeshOperators_3D) :: this
 
-    call Init_ML_MeshOperators_3D(this, ml_mesh, po, basis, smooth)
+    call Init_ML_MeshOperators_3D(this, ml_mesh, po, nodes, smooth)
 
   end function New_ML_MeshOperators_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of 3D multilevel mesh operators
 
-  subroutine Init_ML_MeshOperators_3D(this, ml_mesh, po, basis, smooth)
+  subroutine Init_ML_MeshOperators_3D(this, ml_mesh, po, nodes, smooth)
     class(ML_MeshOperators_3D), intent(inout) :: this
     class(ML_Mesh_3D),   intent(in) :: ml_mesh !< multilevel mesh partition
     integer,             intent(in) :: po(:)   !< sequence of polynomial orders
-    character, optional, intent(in) :: basis   !< 'G' or 'L' ['L']
+    character, optional, intent(in) :: nodes   !< 'G' or 'L' ['L']
     integer,   optional, intent(in) :: smooth  !< fine-to-coarse discontinuity
                                                !! smoothing {0,1,2} [0]
 
@@ -85,9 +85,9 @@ contains
       allocate(this % iop_fc_x (2:l_top  ))
       allocate(this % pop_fc_x (2:l_top  ))
 
-      if (present(basis)) then
-        cf_opt % basis = basis
-        fc_opt % basis = basis
+      if (present(nodes)) then
+        cf_opt % nodes = nodes
+        fc_opt % nodes = nodes
       end if
 
       if (present(smooth)) then
@@ -98,7 +98,7 @@ contains
 
         do l = 1, l_top
 
-        this % sem(l) = SpectralElementMesh_3D(mesh(l), po(l), basis)
+        this % sem(l) = SpectralElementMesh_3D(mesh(l), po(l), nodes)
 
         ! coarse-to-fine transfers operators
         if (l < l_top) then

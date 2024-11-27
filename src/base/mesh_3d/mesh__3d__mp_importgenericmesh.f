@@ -209,13 +209,13 @@ contains
     type(EmbeddedInterpolationOperator_1D), allocatable :: iop(:)
     real(RNP), allocatable :: xo(:), xi(:)
     integer :: e, i, po, po_max, po_min
-    logical :: has_equidistant_basis
+    logical :: has_equidistant_nodes
 
     ! preliminaries ............................................................
 
     associate(p_geom => mesh % p_geom)
 
-      has_equidistant_basis = .false.
+      has_equidistant_nodes = .false.
       po_min = huge(1)
       po_max = -1
       p_geom = -1
@@ -223,7 +223,7 @@ contains
       do e = 1, size(generic_mesh % element)
         po = generic_mesh % element(e) % order
         if (generic_mesh % element(e) % basis == EQUIDISTANT_NODAL_BASIS) then
-          has_equidistant_basis = .true.
+          has_equidistant_nodes = .true.
           po_min = min(po, po_min)
           po_max = max(po, po_max)
         else if (generic_mesh % element(e) % basis /= GAUSS_LOBATTO_BASIS) then
@@ -233,7 +233,7 @@ contains
       end do
 
       ! build interpolation operators
-      if (has_equidistant_basis) then
+      if (has_equidistant_nodes) then
         allocate(iop(po_min:po_max))
         do po = po_min, po_max
           allocate(xo(0:po), xi(0:po))

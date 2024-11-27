@@ -338,7 +338,7 @@ contains
       if (this % final_assembly) then
         call SetArray(u, u_0, multi = .true.)
         do i = 0, n_sub
-          associate(w_i => this%w_col(i,n_sub), u_i => u_(:,:,:,i))
+          associate(w_i => this%w_0n(n_sub,i), u_i => u_(:,:,:,i))
             if (w_i /= 0) then
               call MergeArrays(ONE, u, dt*w_i, u_i, multi=.true.)
             end if

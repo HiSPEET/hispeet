@@ -147,7 +147,7 @@ contains
     integer      :: j
 
     associate( n_sub => this % n_sub &
-             , w_sub => this % w_sub &
+             , w_nn  => this % w_nn  &
              , c_isd => this % c_isd )
 
       ! initialization .........................................................
@@ -175,7 +175,7 @@ contains
 
       S = 0
       do j = 0, n_sub
-        S = S + dt_step * F(j) * w_sub(j,m)
+        S = S + dt_step * F(j) * w_nn(m,j)
       end do
 
       ! u' = u₀ + Sᵏ

@@ -52,12 +52,12 @@ module Spectral_Deferred_Correction
   !>      \sum_{j=0}^{M} w^s_{j,i}\, f(\tau_i)
   !>   \]
   !>
-  !> where the weights \(w^s_{j,i}\), denoted `w_sub(j,i)` in Fortran, are
+  !> where the weights \(w^s_{j,i}\), denoted `w_nn(j,i)` in Fortran, are
   !> obtained by application of the Lobatto quadrature with `M+1` points to
   !> the Lagrange interpolant constructed from `f(τᵢ)`.
   !>
-  !> Additionally, `w_col(:,i)` provides the quadrature weights for the interval
-  !> [0,τᵢ]. The transpose of `w_col` represents the coefficients of the related
+  !> Additionally, `w_0n(:,i)` provides the quadrature weights for the interval
+  !> [0,τᵢ]. The transpose of `w_0n` represents the coefficients of the related
   !> collocation method.
 
   type SDC_Method
@@ -67,10 +67,10 @@ module Spectral_Deferred_Correction
     integer      :: n_sub     !< number of subintervals (M)
     integer      :: n_sweep   !< max num correction sweeps (K)
 
-    real(RNP), allocatable :: t(:)       !< subinterval points τᵢ in [0,1]
-    real(RNP), allocatable :: w(:)       !< quadrature weights for [0, 1]
-    real(RNP), allocatable :: w_sub(:,:) !< quadrature weights for [τᵢ₋₁,τᵢ]
-    real(RNP), allocatable :: w_col(:,:) !< quadrature weights for [0,τᵢ]
+    real(RNP), allocatable :: t(:)      !< subinterval points τᵢ in [0,1]
+    real(RNP), allocatable :: w(:)      !< quadrature weights for [0, 1]
+    real(RNP), allocatable :: w_nn(:,:) !< quadrature weights for [τᵢ₋₁,τᵢ]
+    real(RNP), allocatable :: w_0n(:,:) !< quadrature weights for [0,τᵢ]
 
     real(RNP), allocatable, private :: x_quad(:) !< quadrature nodes   in [-1,1]
     real(RNP), allocatable, private :: w_quad(:) !< quadrature weights in [-1,1]
@@ -154,8 +154,8 @@ contains
 
     if (allocated(this % t     ))  deallocate(this % t     )
     if (allocated(this % w     ))  deallocate(this % w     )
-    if (allocated(this % w_sub ))  deallocate(this % w_sub )
-    if (allocated(this % w_col ))  deallocate(this % w_col )
+    if (allocated(this % w_nn  ))  deallocate(this % w_nn  )
+    if (allocated(this % w_0n  ))  deallocate(this % w_0n  )
     if (allocated(this % w_quad))  deallocate(this % w_quad)
     if (allocated(this % w_quad))  deallocate(this % w_quad)
 
@@ -215,19 +215,19 @@ contains
 
       ! quadrature weights in [τᵢ₋₁,τᵢ] ........................................
 
-      allocate(this % w_sub (0:n_sub, n_sub) )
+      allocate(this % w_nn (n_sub, 0:n_sub) )
 
       do i = 1, n_sub
-        this % w_sub(:,i) = this % SubintervalWeights(this%t(i-1), this%t(i))
+        this % w_nn(i,:) = this % SubintervalWeights(this%t(i-1), this%t(i))
       end do
 
       ! quadrature weights in [0,τᵢ] ...........................................
 
-      allocate(this % w_col (0:n_sub, n_sub) )
+      allocate(this % w_0n (n_sub, 0:n_sub) )
 
-      this % w_col(:,1) = this % w_sub(:,1)
+      this % w_0n(1,:) = this % w_nn(1,:)
       do i = 2, n_sub
-        this % w_col(:,i) = this % w_col(:,i-1) + this % w_sub(:,i)
+        this % w_0n(i,:) = this % w_0n(i-1,:) + this % w_nn(i,:)
       end do
 
     end associate

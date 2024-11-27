@@ -180,10 +180,10 @@ contains
       allocate( eop(po_min:po_max) )
       allocate( iop(po_min:po_max) )
       do po = po_min, po_max
-        eop(po) = StandardElementOperators_1D(po, basis = 'L', no_vdm = .true.)
+        eop(po) = StandardElementOperators_1D(po, nodes = 'L', no_vdm = .true.)
         iop(po) = HP_RefinementOperator_1D( &
                       HP_RefinementOptions_1D( &
-                          basis = 'L', po_c = po, po_f = po, mode = 2 ))
+                          nodes = 'L', po_c = po, po_f = po, mode = 2 ))
       end do
 
       !$omp end master

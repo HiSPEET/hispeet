@@ -1,9 +1,9 @@
-!> summary:  Generation of mesh points to given order an basis type
+!> summary:  Generation of mesh points to given order an node type
 !> author:   Joerg Stiller
 !> date:     2017/04/14
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!>### Generation of mesh points to given order an basis type
+!>### Generation of mesh points to given order an node type
 !===============================================================================
 
 submodule(CART__Mesh_Partition) MP_GetPoints
@@ -18,13 +18,13 @@ contains
 !>
 !> The routine provides the element points for one of the following bases:
 !>
-!>   *  Lagrange polynomials to Gauss-Legendre points (basis = 'G')
-!>   *  Lagrange polynomials to Gauss-Lobatto-Legendre points (basis = 'L')
+!>   *  Lagrange polynomials to Gauss-Legendre points (nodes = 'G')
+!>   *  Lagrange polynomials to Gauss-Lobatto-Legendre points (nodes = 'L')
 
-module subroutine GetPoints(mesh, po, basis, x)
+module subroutine GetPoints(mesh, po, nodes, x)
   class(MeshPartition),   intent(in)  :: mesh         !< mesh parition
   integer,                intent(in)  :: po           !< polynomial order
-  character,              intent(in)  :: basis        !< 'G' or 'L'
+  character,              intent(in)  :: nodes        !< 'G' or 'L'
   real(RNP), allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
 
   type(StandardElementOperators_1D) :: sop
@@ -38,7 +38,7 @@ module subroutine GetPoints(mesh, po, basis, x)
   allocate(x(0:po, 0:po, 0:po, mesh%ne, 3))
   allocate(x1(0:po), x2(0:po), x3(0:po))
 
-  sop = StandardElementOperators_1D(po, basis, no_vdm = .true.)
+  sop = StandardElementOperators_1D(po, nodes, no_vdm = .true.)
 
   ! create element points ......................................................
 
