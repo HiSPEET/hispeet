@@ -279,7 +279,7 @@ contains
     ! result ...................................................................
 
     if (this % assembly) then
-      u = u + dt * dot_product(F_, this % w_col(:,n_sub))
+      u = u + dt * dot_product(F_, this % w_0n(n_sub,:))
     else
       u = u_(n_sub)
     end if
