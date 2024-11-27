@@ -79,7 +79,7 @@ module CD__SDC_RK__1D
   !>                                        for subinterval \( (t_{m-1}, t_m) \)
   !>
   !> Given an object of the type `SDC_Method`, the weights correspond to its
-  !>  `w_sub` component.
+  !>  `w_nn` component.
   !>
   !> The result is stored in `S(0:po, 1:ne, 1:n_sub)`.
   !>
@@ -309,7 +309,7 @@ contains
       call GetRHS(wave, eop, dx, v, nu, bc, x, t_sdc, u_sdc, F_im_sdc, F_ex_sdc)
 
       ! compute SDC subinterval integrals
-      call Get_SDC_Subintegrals(dt, this%w_sub, F_im_sdc, F_ex_sdc, S_sdc)
+      call Get_SDC_Subintegrals(dt, this%w_nn, F_im_sdc, F_ex_sdc, S_sdc)
 
       ! for all subintervals: compute RK stage integrals
       call Get_RK_Subintegrals(dt, this%w_rk, F_im_sdc, F_ex_sdc, S_rk)
@@ -373,11 +373,11 @@ contains
   end subroutine GetRHS
 
   !-----------------------------------------------------------------------------
-  !> Computes `S(:,:,i) = dt * sum_j [(F_im(:,:,j) + F_ex(:,:,j)) * w_sub(j,i)]`
+  !> Computes `S(:,:,i) = dt * sum_j [(F_im(:,:,j) + F_ex(:,:,j)) * w_nn(i,j)]`
 
-  subroutine Get_SDC_Subintegrals(dt, w_sub, F_im, F_ex, S)
+  subroutine Get_SDC_Subintegrals(dt, w_nn, F_im, F_ex, S)
     real(RNP), intent(in)  :: dt           !< time step width
-    real(RNP), intent(in)  :: w_sub(0:,:)  !< weights
+    real(RNP), intent(in)  :: w_nn(:,0:)   !< weights
     real(RNP), intent(in)  :: F_im(:,:,0:) !< implicit RHS at SDC points
     real(RNP), intent(in)  :: F_ex(:,:,0:) !< explicit RHS at SDC points
     real(RNP), intent(out) :: S(:,:,:)     !< subinterval integrals
@@ -385,13 +385,13 @@ contains
     integer :: n_sub
     integer :: j, m
 
-    n_sub = size(w_sub, 2)
+    n_sub = size(w_nn, 1)
 
     SDC_Subintervals: do m = 1, n_sub
 
       S(:,:,m) = 0
       do j = 0, n_sub
-        S(:,:,m) = S(:,:,m) + dt * (F_im(:,:,j) + F_ex(:,:,j)) * w_sub(j,m)
+        S(:,:,m) = S(:,:,m) + dt * (F_im(:,:,j) + F_ex(:,:,j)) * w_nn(m,j)
       end do
 
     end do SDC_Subintervals
