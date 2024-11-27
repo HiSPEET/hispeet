@@ -40,14 +40,14 @@ flying_start = T
 
 ! required with method = 5 (IMEX Euler SDC)
 &sdc_euler_prm
-  point_set     = 'L' ! equidistant/Lobatto/Radau-right (E/L/RR)
-  n_col         =  4  ! number of collocation points
-  n_sweep       =  5  ! max num correction sweeps (K)
+  nodes     = 'L' ! equidistant/Lobatto/Radau-right (E/L/RR)
+  n_col     =  4  ! number of collocation points
+  n_sweep   =  5  ! max num correction sweeps (K)
 /
 ! required with method = 6 (IMEX Runge-Kutta SDC)
 &rk_sdc_parameters
   ! SDC
-  point_set = 'E' ! equidistant/Lobatto/Radau-right (E/L/RR)
+  nodes     = 'E' ! equidistant/Lobatto/Radau-right (E/L/RR)
   n_col     =  4  ! number of collocation points
   n_sweep   =  1  ! max num SDC correction sweeps (K)
                   ! IMEX Runge-Kutta ----------------------------

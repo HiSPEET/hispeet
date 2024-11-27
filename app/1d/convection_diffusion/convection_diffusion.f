@@ -383,18 +383,18 @@ contains
     type(SDC_Method), intent(inout) :: sdc !< SDC method
     integer, intent(in) :: io !< unit number of input file
 
-    character(2) :: point_set = 'L' ! equidistant/Lobatto/Radau-right (E/L/RR)
-    integer      :: n_col     =  3  ! number of collocation points
-    integer      :: n_sweep   =  0  ! max num correction sweeps (K)
-    namelist /sdc_euler_prm/ point_set, n_col, n_sweep
+    character(2) :: nodes   = 'L' ! equidistant/Lobatto/Radau-right (E/L/RR)
+    integer      :: n_col   =  3  ! number of collocation points
+    integer      :: n_sweep =  0  ! max num correction sweeps (K)
+    namelist /sdc_euler_prm/ nodes, n_col, n_sweep
 
     type(SDC_Options) :: opt ! Euler-SDC options
 
     read(io, nml=sdc_euler_prm)
 
-    opt = SDC_Options( point_set = point_set,   &
-                       n_col     = n_col,       &
-                       n_sweep   = n_sweep      )
+    opt = SDC_Options( nodes   = nodes,   &
+                       n_col   = n_col,   &
+                       n_sweep = n_sweep  )
 
     sdc = SDC_Method(opt)
 
@@ -410,10 +410,10 @@ contains
     integer, intent(in) :: io !< unit number of input file
 
     ! SDC parameters
-    character(2) :: point_set = 'E' ! equidistant/Lobatto/Radau-right (E/L/RR)
-    integer      :: n_col     =  3  ! number of collocation points
-    integer      :: n_sweep   =  0  ! max num correction sweeps (K)
-    namelist /rk_sdc_parameters/ point_set, n_col, n_sweep
+    character(2) :: nodes   = 'E' ! equidistant/Lobatto/Radau-right (E/L/RR)
+    integer      :: n_col   =  3  ! number of collocation points
+    integer      :: n_sweep =  0  ! max num correction sweeps (K)
+    namelist /rk_sdc_parameters/ nodes, n_col, n_sweep
 
     ! IMEX Runge-Kutta parameters
     integer :: n_stage = 3       ! number of stages
@@ -425,9 +425,9 @@ contains
 
     read(io, nml=rk_sdc_parameters)
 
-    sdc_opt = SDC_Options( point_set = point_set, &
-                           n_col     = n_col,     &
-                           n_sweep   = n_sweep    )
+    sdc_opt = SDC_Options( nodes   = nodes,  &
+                           n_col   = n_col,  &
+                           n_sweep = n_sweep )
 
     sdc_rk = CD_SDC_RK_1D(po, ne, sdc_opt, n_stage, method)
 

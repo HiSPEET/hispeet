@@ -79,7 +79,7 @@ contains
 
     ! sanity check .............................................................
 
-    if (sdc_opt % point_set /= 'RR') then
+    if (sdc_opt % nodes /= 'RR') then
       call Error('Init_DQ_SDC_Method_LU','LU corrector requires RR points')
     end if
 

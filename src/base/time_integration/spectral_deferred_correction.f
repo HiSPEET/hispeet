@@ -62,10 +62,10 @@ module Spectral_Deferred_Correction
 
   type SDC_Method
 
-    character(2) :: point_set !< point set {'E','L','RR'}
-    integer      :: n_col     !< number of collocation points
-    integer      :: n_sub     !< number of subintervals (M)
-    integer      :: n_sweep   !< max num correction sweeps (K)
+    character(2) :: nodes   !< type of collocation points (nodes) {'E','L','RR'}
+    integer      :: n_col   !< number of collocation points
+    integer      :: n_sub   !< number of subintervals (M)
+    integer      :: n_sweep !< max num correction sweeps (K)
 
     real(RNP), allocatable :: t(:)      !< subinterval points τᵢ in [0,1]
     real(RNP), allocatable :: w(:)      !< quadrature weights for [0, 1]
@@ -94,9 +94,9 @@ module Spectral_Deferred_Correction
   !> Type bundling spectral deferred correction options
 
   type SDC_Options
-    character(2) :: point_set = 'L' !< point set ∊ {'E','L','RR'}
-    integer      :: n_col     =  1  !< number of collocation points
-    integer      :: n_sweep   =  0  !< max number of correction sweeps
+    character(2) :: nodes   = 'RR' !< type of collocation points {'E','L','RR'}
+    integer      :: n_col   =  1   !< number of collocation points
+    integer      :: n_sweep =  0   !< max number of correction sweeps
   contains
     procedure :: Bcast => Bcast_SDC_Options
   end type SDC_Options
@@ -118,9 +118,9 @@ contains
     integer :: n
 
     n = 1
-    call XMPI_Ibcast( this % point_set, root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % n_col    , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % n_sweep  , root, comm, request(n) )
+    call XMPI_Ibcast( this % nodes  , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % n_col  , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % n_sweep, root, comm, request(n) )
 
     call MPI_Waitall(n, request, MPI_STATUSES_IGNORE)
 
@@ -159,18 +159,18 @@ contains
     if (allocated(this % w_quad))  deallocate(this % w_quad)
     if (allocated(this % w_quad))  deallocate(this % w_quad)
 
-    this % point_set = opt % point_set
-    this % n_col     = opt % n_col
-    this % n_sweep   = max(0, opt % n_sweep)
+    this % nodes   = opt % nodes
+    this % n_col   = opt % n_col
+    this % n_sweep = max(0, opt % n_sweep)
 
-    select case(this % point_set)
+    select case(this % nodes)
     case('E','L')
       this % n_sub = this % n_col - 1
     case('RR')
       this % n_sub = this % n_col
     case default
       call Error( 'Init_SDC' &
-                , 'point set "' // trim(this%point_set) // '" not supported' &
+                , 'node type "' // trim(this%nodes) // '" not supported' &
                 , 'Spectral_Deferred_Correction')
     end select
 
@@ -189,7 +189,7 @@ contains
       allocate(this % t(0:n_sub), source = ZERO)
       allocate(this % w(0:n_sub), source = ZERO)
 
-      select case(this % point_set)
+      select case(this % nodes)
       case('E')
         ! equidistant
         this % t(0:n_sub) = [ ZERO, (i*ONE/n_sub, i = 1,p_col-1), ONE ]
@@ -251,9 +251,9 @@ contains
 
     write(io,'(/,A)') 'SDC_Method settings'
     write(io,'(A,/)') repeat('≡',80)
-    write(io,'(2X,A,T15,A )') 'point_set:' , this % point_set
-    write(io,'(2X,A,T15,I0)') 'n_sub'      , this % n_sub
-    write(io,'(2X,A,T15,I0)') 'n_sweeps:'  , this % n_sweep
+    write(io,'(2X,A,T15,A )') 'nodes:'   , this % nodes
+    write(io,'(2X,A,T15,I0)') 'n_sub:'   , this % n_sub
+    write(io,'(2X,A,T15,I0)') 'n_sweeps:', this % n_sweep
 
   end subroutine Show_SDC_Method
 
@@ -266,7 +266,7 @@ contains
     real(RNP), intent(in)  :: dt              !< length of the time interval
     real(RNP)              :: t(0:this%n_col) !< intermediate times
 
-    select case(this % point_set)
+    select case(this % nodes)
     case('RR')
       t = t0 + dt * this % t(1:this%n_sub)
     case default
@@ -317,7 +317,7 @@ contains
       nq = ubound(xq,1)
 
       ! identify first SDC point
-      select case(this % point_set)
+      select case(this % nodes)
       case('RR')
         n0 = 1
       case default
