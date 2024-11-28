@@ -53,7 +53,7 @@ contains
     class(ML_Mesh_3D),      intent(in) :: ml_mesh !< multilevel mesh partition
     integer, contiguous,    intent(in) :: po_x(:) !< polynomial orders in x
     integer, contiguous,    intent(in) :: po_t(:) !< polynomial orders in t
-    integer, contiguous,    intent(in) :: ne_t(:) !< elements in t
+    integer, contiguous,    intent(in) :: ne_t(:) !< elements per slice in t
     character(2), optional, intent(in) :: nodes_x !< x nodes {G,L}     ['L']
     character(2), optional, intent(in) :: nodes_t !< t nodes {E,L,RR}  ['RR']
     integer     , optional, intent(in) :: smooth  !< fine-to-coarse discontinuity

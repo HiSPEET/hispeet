@@ -1,10 +1,10 @@
-!> summary:  Program for testing basic multilevel functionality
+!> summary:  Program for testing basic multilevel mesh functionality
 !> author:   Joerg Stiller
 !> date:     2024/07/02
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-program ML_Test_Functionality
+program ML_Mesh_Functionality
   use Kind_Parameters
   use Constants
   use Logging_Levels
@@ -61,9 +61,9 @@ program ML_Test_Functionality
 
   ! read parameters
   if (rank == 0) then
-    write(*,'(/,A,/)') 'Testing basic multilevel functionality'
+    write(*,'(/,A,/)') 'Testing basic multilevel mesh functionality'
     write(*,'(2X,A)') 'reading input parameters'
-    open(newunit = prm, file = 'ml_test_functionality.prm')
+    open(newunit = prm, file = 'ml_mesh_functionality.prm')
     read(prm, nml = control)
     ml_mesh_opt = ML_Mesh_Options_3D(prm, n_proc)
     allocate(po(ml_mesh_opt%l_top), source = -1)
@@ -355,4 +355,4 @@ program ML_Test_Functionality
 
   !=============================================================================
 
-end program ML_Test_Functionality
+end program ML_Mesh_Functionality
