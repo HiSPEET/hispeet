@@ -76,8 +76,6 @@ contains
   !>
   !> The values of the new variable refer to `this % val` if `copy` is false
   !> or absent. Otherwise they are stored in fresh memory, i.e. `slice % val`.
-  !> In an OpenMP parallel section the routine is executed only by the master
-  !> thread.
 
   subroutine GetSlice(this, slice, first, last, copy)
     class(MeshVariable_3D), target, intent(in) :: this
@@ -89,7 +87,6 @@ contains
     integer :: nc
     logical :: copy_
 
-    !$omp master
     associate(po => this%po, ne => this%mesh%n_elem)
 
       nc = 1 + last - first
@@ -113,7 +110,6 @@ contains
       end if
 
     end associate
-    !$omp end master
 
   end subroutine GetSlice
 

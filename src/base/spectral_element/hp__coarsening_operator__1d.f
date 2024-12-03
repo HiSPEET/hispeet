@@ -55,6 +55,8 @@ module HP__Coarsening_Operator__1D
     integer          :: smooth         !< discontinuity handling
     real(RNP), allocatable :: A(:,:,:) !< interpolation operator(s)
     real(RNP), allocatable :: B(:,:)   !< blending operators
+    real(RNP), allocatable :: C(:,:,:) !< combined interpolation and blending
+                                       !! operators
   end type HP_CoarseningOperator_1D
 
   ! constructor interface
@@ -114,6 +116,7 @@ contains
 
     if (allocated(this % A)) deallocate(this % A)
     if (allocated(this % B)) deallocate(this % B)
+    if (allocated(this % C)) deallocate(this % C)
 
     ! shorthands
     po_f = this % po_f
@@ -132,8 +135,8 @@ contains
       case('I')
         allocate(this % A(0:po_c/2,0:po_f,2), source = ZERO)
       end select
-      ! B is needed only with smooth=1, but always allocated for regularity
-      allocate(this % B(0:po_f,2), source = ZERO)
+      allocate(this % B(0:po_f,2)       , source = ZERO)
+      allocate(this % C(0:po_c,0:po_f,2), source = ZERO)
     end select
 
     ! collocation points .......................................................
@@ -198,9 +201,17 @@ contains
       end select
 
       ! smoothing
-      if (this % smooth == 1) then
+      select case(this % smooth)
+      case(1)
         call Build_Linear_Smoothing_Operator
-      end if
+      case(2)
+        ! interface coefficient averaging, only with nodes = 'E','L'
+        this % B(po_f,1) = -HALF
+        this % B( 0  ,2) =  HALF
+      end select
+
+      ! combined smoothing + projection operator
+      call Build_Combined_Operator_2
 
     end select
 
@@ -412,6 +423,65 @@ contains
       end do
 
     end subroutine Build_Linear_Smoothing_Operator
+
+    !---------------------------------------------------------------------------
+    !> Build combined smoothing + projection operator
+
+    subroutine Build_Combined_Operator_2
+
+      real(RNP), allocatable :: A(:,:,:), L(:), R(:)
+      integer :: i, j, k
+
+      associate(B => this % B, C => this % C)
+
+        ! projection matrices expanded to cover all coarse nodes
+        allocate(A(0:po_c,0:po_f,2), source = ZERO)
+        select case(this % method)
+        case('P')
+          A = this % A
+        case('I')
+          A(0             : po_c/2 , :, 1) = this % A(:,:,1)
+          A(po_c - po_c/2 : po_c   , :, 2) = this % A(:,:,2)
+        end select
+
+        ! combined operator with no smoothing
+        C = A
+
+        if (this % smooth > 0) then
+
+          ! interpolation to left and right boundaries
+          allocate(L(0:po_f), R(0:po_f))
+          do i = 0, po_f
+            select case(this % nodes)
+            case('E') ! Nodal with equidistant spacing
+              L(i) = LagrangePolynomial(i, x_f, -ONE)
+              R(i) = LagrangePolynomial(i, x_f,  ONE)
+            case('G') ! Gauss
+              L(i) = GaussPolynomial(i, x_f, -ONE)
+              R(i) = GaussPolynomial(i, x_f,  ONE)
+            case('L') ! Lobatto
+              L(i) = LobattoPolynomial(i, x_f, -ONE)
+              R(i) = LobattoPolynomial(i, x_f,  ONE)
+            case('RL','RR') ! Radau: take care of asymmetry
+              L(i) = RadauPolynomial(i, x_f, -ONE)
+              R(i) = RadauPolynomial(i, x_f,  ONE)
+            end select
+          end do
+
+          do i = 0, po_c
+          do j = 0, po_f
+          do k = 0, po_f
+            C(i,j,1) = C(i,j,1) + (A(i,k,1) * B(k,1) + A(i,k,2) * B(k,2)) * R(j)
+            C(i,j,2) = C(i,j,2) - (A(i,k,1) * B(k,1) + A(i,k,2) * B(k,2)) * L(j)
+          end do
+          end do
+          end do
+
+        end if
+
+      end associate
+
+    end subroutine Build_Combined_Operator_2
 
     !---------------------------------------------------------------------------
 

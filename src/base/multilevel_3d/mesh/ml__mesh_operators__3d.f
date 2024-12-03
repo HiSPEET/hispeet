@@ -22,11 +22,11 @@ module ML__Mesh_Operators__3D
     type(SpectralElementMesh_3D), allocatable :: sem(:)
       !< sequence of spectral element meshes [1:l_top]
     type(HP_RefinementOperator_1D), allocatable :: iop_cf_x(:)
-      !< fine-to-coarse interpolation operators in space [1:l_top-1]
+      !< coarse-to-fine interpolation operators in space [1:l_top-1]
     type(HP_CoarseningOperator_1D), allocatable :: iop_fc_x(:)
-      !< coarse-to-fine interpolation operators in space [2:l_top]
+      !< fine-to-coarse interpolation operators in space [2:l_top]
     type(HP_CoarseningOperator_1D), allocatable :: pop_fc_x(:)
-      !< coarse-to-fine L2-projection operators in space [2:l_top]
+      !< fine-to-coarse L2-projection operators in space [2:l_top]
   contains
     procedure :: Init_ML_MeshOperators_3D
   end type ML_MeshOperators_3D

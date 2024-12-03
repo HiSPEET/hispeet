@@ -25,11 +25,11 @@ module ML__Spacetime_Operators__3D
     type(SDC_Method), allocatable :: sdc(:)
       !< temporal SDC/collocation method [1:l_top]
     type(HP_RefinementOperator_1D), allocatable :: iop_cf_t(:)
-      !< fine-to-coarse interpolation operators in time [1:l_top-1]
+      !< coarse-to-fine interpolation operators in time [1:l_top-1]
     type(HP_CoarseningOperator_1D), allocatable :: iop_fc_t(:)
-      !< coarse-to-fine interpolation operators in time [2:l_top]
+      !< fine-to-coarse interpolation operators in time [2:l_top]
     type(HP_CoarseningOperator_1D), allocatable :: pop_fc_t(:)
-      !< coarse-to-fine L2-projection operators in time [2:l_top]
+      !< fine-to-coarse L2-projection operators in time [2:l_top]
 
   contains
 

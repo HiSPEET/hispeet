@@ -320,9 +320,12 @@ set( MULTILEVEL_3D ${MULTILEVEL_3D}
    )
 
 set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/spacetime/spacetime_variable__3d.f
      multilevel_3d/spacetime/ml__spacetime_operators__3d.f
      multilevel_3d/spacetime/ml__spacetime_variable__3d.f
-     multilevel_3d/spacetime/spacetime_variable__3d.f
+     multilevel_3d/spacetime/cf__spacetime_interpolation__3d.f
+     multilevel_3d/spacetime/fc__spacetime_projection__3d.f
+     multilevel_3d/spacetime/fc__spacetime_restriction__3d.f
    )
 
 #===============================================================================
