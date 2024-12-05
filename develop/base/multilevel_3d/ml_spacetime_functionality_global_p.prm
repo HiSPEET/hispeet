@@ -1,0 +1,23 @@
+&control
+! log_level = 0
+! gmsh_file = '../gmsh_3d/cylinder_2d'
+/
+
+&ml_mesh_options_3d__static
+  l_top          =  2
+  n_parts_root   =  1
+  n_parts_growth =  2
+/
+
+&ml_mesh_options_3d__dynamic
+  refinement = 1*'c'     ! (l_top-1)   {'c','s'}
+/
+
+&discretization
+  po_x = 4, 8 !, 4, 8
+  po_t = 4, 4 !, 4, 8
+  ne_t = 1, 2 !, 1, 1
+! nodes_t = 'RR'
+! smooth  = 0
+  dt_slab = 0.05
+/

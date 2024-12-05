@@ -1,7 +1,6 @@
 &control
-  log_level  = 0
-  file       = 'cylinder_2d'
-  export_vtk = T
+! log_level  = 0
+! gmsh_file  = '../gmsh_3d/cylinder_2d'
 /
 
 &ml_mesh_options_3d__static
