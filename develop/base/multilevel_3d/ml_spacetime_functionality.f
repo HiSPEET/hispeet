@@ -8,6 +8,7 @@ program ML_Spacetime_Functionality
   use Kind_Parameters
   use Constants
   use Logging_Levels
+  use Execution_Control
   use Array_Assignments
   use XMPI
 
@@ -30,8 +31,10 @@ program ML_Spacetime_Functionality
 
   ! variables ..................................................................
 
+  character(len=*), parameter :: default_case = 'ml_spacetime_functionality'
+  character(len= 80) :: test_case ! test case name
+  character(len=100) :: case_file ! test case input file: trim(test_case).prm
   character(len=100) :: gmsh_file = '../gmsh_3d/cylinder_2d'
-  character(len=100) :: plot_file = ''
 
   integer, allocatable :: po_x(:)    ! polynomial orders in x
   integer, allocatable :: po_t(:)    ! polynomial orders in t
@@ -40,9 +43,10 @@ program ML_Spacetime_Functionality
   character(len=2) :: nodes_x = 'L'  ! type of space nodes
   character(len=2) :: nodes_t = 'RR' ! type of time nodes {E,L,RR}
   integer          :: smooth  =  0   ! discontinuity smoothing {0,1,2}
+  real(RNP)        :: dt_slab =  1
 
-  namelist /control/   log_level, gmsh_file, plot_file
-  namelist /operators/ po_x, po_t, ne_t, nodes_t, smooth
+  namelist /control/ log_level, gmsh_file
+  namelist /discretization/ po_x, po_t, ne_t, nodes_t, smooth, dt_slab
 
   type(GenericMesh_3D)          , save :: generic_mesh
   type(Mesh_3D)                 , save :: base_mesh
@@ -62,10 +66,11 @@ program ML_Spacetime_Functionality
   real(RNP), allocatable, save :: delta_loc(:)
   real(RNP), save :: kappa = real(2 * PI, RNP)
 
-  real(RNP), allocatable :: t(:)
+  real(RNP), allocatable :: t(:), wt(:)
   real(RNP) :: dt
-  logical :: passed, all_passed
-  integer :: n_level, n_proc, rank, prm
+  logical :: exists, passed, all_passed
+  integer :: n_level, n_proc, rank
+  integer :: io, stat
   integer :: ne_max, ne_min, ne_tot
 
   integer :: e, i, j, k, l, m, n, nc
@@ -79,14 +84,27 @@ program ML_Spacetime_Functionality
   ! read parameters
   if (rank == 0) then
     write(*,'(/,A,/)') 'Testing basic multilevel spacetime functionality'
-    write(*,'(2X,A)') 'reading input parameters'
-    open(newunit = prm, file = 'ml_spacetime_functionality.prm')
-    read(prm, nml = control)
-    ml_mesh_opt = ML_Mesh_Options_3D(prm, n_proc)
-    allocate(po_x(ml_mesh_opt%l_top), source = -1)
-    allocate(po_t, ne_t, source = po_x)
-    read(prm, nml = operators)
-    close(prm)
+
+    call get_command_argument(1, test_case, status=stat)
+    if (stat /= 0 .or. len_trim(test_case) == 0) then
+      test_case = default_case
+    end if
+    case_file = trim(test_case) // '.prm'
+
+    inquire(file=case_file, exist=exists)
+    if (exists) then
+      write(*,'(2X,A)') 'reading ' // trim(case_file)
+      open(newunit = io, file = case_file)
+      read(io, nml = control)
+      ml_mesh_opt = ML_Mesh_Options_3D(io, n_proc)
+      allocate(po_x(ml_mesh_opt%l_top), source = -1)
+      allocate(po_t, ne_t, source = po_x)
+      read(io, nml = discretization)
+      close(io)
+    else
+       call Error( 'ML_Spacetime_Functionality', &
+                   'input file "' // trim(case_file) // '" not found' )
+    end if
   end if
 
   ! globalize multilevel mesh options
@@ -98,14 +116,15 @@ program ML_Spacetime_Functionality
   end if
 
   ! globalize remaining parameters
+  call XMPI_Bcast(test_case , 0, comm)
   call XMPI_Bcast(gmsh_file , 0, comm)
-  call XMPI_Bcast(plot_file , 0, comm)
   call XMPI_Bcast(po_x      , 0, comm)
   call XMPI_Bcast(po_t      , 0, comm)
   call XMPI_Bcast(ne_t      , 0, comm)
   call XMPI_Bcast(nodes_x   , 0, comm)
   call XMPI_Bcast(nodes_t   , 0, comm)
   call XMPI_Bcast(smooth    , 0, comm)
+  call XMPI_Bcast(dt_slab   , 0, comm)
 
   ! mesh import ................................................................
 
@@ -195,8 +214,10 @@ program ML_Spacetime_Functionality
              , level => ml_var % level(l)              )
 
       allocate(t(0:level%po_t))
-      dt    = ONE / level % ne_t
-      t(0:) = sdc % CollocationPoints(ZERO, dt)
+      allocate(wt, mold = t)
+      dt     = dt_slab / level % ne_t
+      t(0:)  = sdc % CollocationPoints(ZERO, dt)
+      wt(0:) = sdc % CollocationWeights()
 
       do n = 1, level % ne_t
         do m = 0, level % po_t
@@ -216,7 +237,8 @@ program ML_Spacetime_Functionality
                              * eop % w(i)   &
                              * eop % w(j)   &
                              * eop % w(k)   &
-                             * Jd(i,j,k,e)
+                             * Jd(i,j,k,e)  &
+                             * dt * wt(m)
               end do
               end do
               end do
@@ -230,7 +252,7 @@ program ML_Spacetime_Functionality
         t = t + dt
       end do
 
-      deallocate(t)
+      deallocate(t, wt)
 
     end associate
   end do
@@ -279,8 +301,10 @@ program ML_Spacetime_Functionality
     delta_loc(l) = 0
     do n = 1, ml_var % level(l) % ne_t
     do m = 0, ml_var % level(l) % po_t
-      associate(v => ml_var % level(l) % var(m,n) % val)
-        do e = 1, size(v,4)
+      associate( mesh => ml_var % level(l) % var(m,n) % mesh &
+               , v    => ml_var % level(l) % var(m,n) % val  )
+        do e = 1, mesh % n_elem_active
+          if (mesh%element(e)%adaptation%refinement < 1000) cycle
           v(:,:,:,e,6) = v(:,:,:,e,5) - v(:,:,:,e,1) ! =  I_fc(v_f) - v_c
           delta_loc(l) = max(delta_loc(l), maxval(abs(v(:,:,:,e,6))))
         end do
@@ -309,8 +333,10 @@ program ML_Spacetime_Functionality
     delta_loc(l) = 0
     do n = 1, ml_var % level(l) % ne_t
     do m = 0, ml_var % level(l) % po_t
-      associate(v => ml_var % level(l) % var(m,n) % val)
-        do e = 1, size(v,4)
+      associate( mesh => ml_var % level(l) % var(m,n) % mesh &
+               , v    => ml_var % level(l) % var(m,n) % val  )
+        do e = 1, mesh % n_elem_active
+          if (mesh%element(e)%adaptation%refinement < 1000) cycle
           v(:,:,:,e,8) = v(:,:,:,e,7) - v(:,:,:,e,1) ! =  P_fc(v_f) - v_c
           delta_loc(l) = max(delta_loc(l), maxval(abs(v(:,:,:,e,8))))
         end do
@@ -343,7 +369,7 @@ program ML_Spacetime_Functionality
                , Mv_c  => ml_var % level(l) % var(m,n) % val(:,:,:,:,2) &
                , RMv_f => ml_var % level(l) % var(m,n) % val(:,:,:,:,9) )
 
-        do e = 1, mesh % n_elem
+        do e = 1, mesh % n_elem_active
           if (mesh%element(e)%adaptation%refinement < 1000) cycle
           delta_loc(l) = max( delta_loc(l)                             &
                             , abs(sum(RMv_f(:,:,:,e) - Mv_c(:,:,:,e))) )

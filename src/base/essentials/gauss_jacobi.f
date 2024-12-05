@@ -174,9 +174,9 @@ contains
     q = ubound(x,1)
     select case(q)
     case(0)
-      w(0) = 1
+      w(0) = 2
     case(1)
-      w(0:1) = HALF
+      w(0:1) = 1
     case default
       forall(i = 0:q)
         w(i) = 2 / ((1 - x(i)**2) &
@@ -282,7 +282,7 @@ contains
     q = ubound(x,1)
     select case(q)
     case(1)
-      w(0:1) = HALF
+      w(0:1) = 1
     case default
       forall(i = 0:q)
         w(i) = 2 / (q*(q+1) * JacobiPolynomial(ZERO, ZERO, q, x(i))**2)

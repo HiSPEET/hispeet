@@ -77,8 +77,8 @@ contains
       this % level(l) =                                             &
           SpacetimeVariable_3D( mesh = ml_op % sem(l) % mesh        &
                               , po_x = ml_op % sem(l) % std_op % po &
-                              , po_t = this % level(l) % po_t       &
-                              , ne_t = this % level(l) % ne_t       &
+                              , po_t = ml_op % po_t(l)              &
+                              , ne_t = ml_op % ne_t(l)              &
                               , nc   = nc                           )
     end do
 

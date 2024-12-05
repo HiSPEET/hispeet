@@ -125,7 +125,7 @@ contains
 
     select case(this % mode)
     case(0)
-      return
+      allocate(this % A(0:po_c,0:po_f,0))
     case(1)
       allocate(this % A(0:po_c,0:po_f,1), source = ZERO)
     case(2)

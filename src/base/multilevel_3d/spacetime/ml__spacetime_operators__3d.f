@@ -20,6 +20,8 @@ module ML__Spacetime_Operators__3D
 
   type, extends(ML_MeshOperators_3D) :: ML_SpacetimeOperators_3D
 
+    integer, allocatable :: po_t(:)
+      !< polynomial degree in time [1:l_top]
     integer, allocatable :: ne_t(:)
       !< number of time elements in one slice [1:l_top]
     type(SDC_Method), allocatable :: sdc(:)
@@ -95,6 +97,7 @@ contains
 
     l_top = size(ml_mesh % mesh)
 
+    this % po_t = po_t
     this % ne_t = ne_t
 
     allocate(this % sdc      (1:l_top  ))

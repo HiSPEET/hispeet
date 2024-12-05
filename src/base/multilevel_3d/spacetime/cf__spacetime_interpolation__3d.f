@@ -32,7 +32,7 @@ contains
     type(SpacetimeVariable_3D), allocatable, save :: v_i
     logical :: skip_frozen_
     integer :: l_f
-    integer :: px_c, nx_c, pt_c, nt_c
+    integer :: px_c, pt_c, nt_c
     integer :: px_f, nx_f, pt_f, nt_f
     integer :: c, e, k, m, n, n1, n2, nc
 
@@ -48,11 +48,6 @@ contains
 
     ! coarse mesh dimensions
     px_c = ml_op % sem(l_c) % std_op % po
-    if (skip_frozen_) then
-      nx_c = ml_op % sem(l_c) % mesh % n_elem_active
-    else
-      nx_c = ml_op % sem(l_c) % mesh % n_elem
-    end if
     pt_c = v_c % po_t
     nt_c = v_c % ne_t
 
@@ -67,7 +62,7 @@ contains
     nt_f = v_f % ne_t
 
     ! number of components
-    nc = v_c % var(0,1) % nc
+    nc = v_c % nc
 
     !$omp master
     allocate(v_i)
@@ -105,9 +100,10 @@ contains
         ! identity: pt_f = pt_c, nt_f = nt_c
         do n = 1, nt_c
         do m = 0, pt_c
-          call SetArray( v_f % var(m,n) % val(:,:,:,:nx_f,:) &
-                       , v_i % var(m,n) % val(:,:,:,:nx_f,:) &
-                       , multi = .true.                      )
+          do c = 1, nc
+            call SetArray( v_f % var(m,n) % val(:,:,:,:nx_f,c) &
+                         , v_i % var(m,n) % val(:,:,:,:nx_f,c) )
+          end do
         end do
         end do
 

@@ -6,7 +6,6 @@
 
 module FC__Spacetime_Projection__3D
   use Constants, only: ZERO
-  use Array_Assignments
   use HP__Coarsening_Operator__1D
   use Mesh_Variable__3D
   use Spacetime_Variable__3D
@@ -37,8 +36,8 @@ contains
     type(SpacetimeVariable_3D), allocatable, save :: v_i
     type(HP_CoarseningOperator_1D), allocatable, save :: pop_x, pop_t
     integer :: l_c
-    integer :: px_c, nx_c, pt_c, nt_c
-    integer :: px_f, nx_f, pt_f, nt_f
+    integer :: px_c, pt_c, nt_c
+    integer :: pt_f, nt_f
     integer :: c, e, k, m, n, n1, n2, nc
 
     ! initialization ...........................................................
@@ -47,18 +46,15 @@ contains
 
     ! coarse mesh dimensions
     px_c = ml_op % sem(l_c) % std_op % po
-    nx_c = ml_op % sem(l_c) % mesh % n_elem
     pt_c = v_c % po_t
     nt_c = v_c % ne_t
 
     ! fine mesh dimensions
-    px_f = ml_op % sem(l_f) % std_op % po
-    nx_f = ml_op % sem(l_f) % mesh % n_elem
     pt_f = v_f % po_t
     nt_f = v_f % ne_t
 
     ! number of components
-    nc = v_f % var(0,1) % nc
+    nc = v_f % nc
 
     !$omp master
     select case(method)
@@ -103,9 +99,15 @@ contains
       ! identity: pt_c = pt_f, nt_c = nt_f
       do n = 1, nt_c
       do m = 0, pt_c
-        call SetArray( v_f % var(m,n) % val &
-                     , v_i % var(m,n) % val &
-                     , multi = .true.       )
+        associate( mesh => ml_op % sem(l_c) % mesh)
+          !$omp do collapse(2)
+          do c = 1, nc
+          do e = 1, mesh % n_elem_active
+            if (mesh % element(e) % adaptation % refinement < 1000) cycle
+            v_c % var(m,n) % val(:,:,:,e,c) = v_i % var(m,n) % val(:,:,:,e,c)
+          end do
+          end do
+        end associate
       end do
       end do
 
@@ -114,17 +116,20 @@ contains
       ! p-coarsening: nt_c = nt_f
       do n = 1, nt_c
       do m = 0, pt_c
-        !$omp do collapse(2)
-        do c = 1, nc
-        do e = 1, nx_c
-          v_c % var(m,n) % val(:,:,:,e,c) = ZERO
-          do k = 0, pt_f
-            v_c % var(m,n) % val(:,:,:,e,c)                          &
-                = v_c % var(m,n) % val(:,:,:,e,c)                    &
-                + v_i % var(k,n) % val(:,:,:,e,c) * pop_t % A(m,k,1)
+        associate( mesh => ml_op % sem(l_c) % mesh)
+          !$omp do collapse(2)
+          do c = 1, nc
+          do e = 1, mesh % n_elem_active
+            if (mesh % element(e) % adaptation % refinement < 1000) cycle
+            v_c % var(m,n) % val(:,:,:,e,c) = ZERO
+            do k = 0, pt_f
+              v_c % var(m,n) % val(:,:,:,e,c)                          &
+                  = v_c % var(m,n) % val(:,:,:,e,c)                    &
+                  + v_i % var(k,n) % val(:,:,:,e,c) * pop_t % A(m,k,1)
+            end do
           end do
-        end do
-        end do
+          end do
+        end associate
       end do
       end do
 
@@ -136,18 +141,21 @@ contains
       do m = 0, pt_c
         n1 = 2 * n - 1
         n2 = 2 * n
-        !$omp do collapse(2)
-        do c = 1, nc
-        do e = 1, nx_c
-          v_c % var(m,n) % val(:,:,:,e,c) = ZERO
-          do k = 0, pt_f
-            v_c % var(m,n) % val(:,:,:,e,c)                            &
-                = v_c % var(m,n ) % val(:,:,:,e,c)                     &
-                + v_i % var(k,n1) % val(:,:,:,e,c) * pop_t % C(m,k,1)  &
-                + v_i % var(k,n2) % val(:,:,:,e,c) * pop_t % C(m,k,2)
+        associate( mesh => ml_op % sem(l_c) % mesh)
+          !$omp do collapse(2)
+          do c = 1, nc
+          do e = 1, mesh % n_elem_active
+            if (mesh % element(e) % adaptation % refinement < 1000) cycle
+            v_c % var(m,n) % val(:,:,:,e,c) = ZERO
+            do k = 0, pt_f
+              v_c % var(m,n) % val(:,:,:,e,c)                            &
+                  = v_c % var(m,n ) % val(:,:,:,e,c)                     &
+                  + v_i % var(k,n1) % val(:,:,:,e,c) * pop_t % C(m,k,1)  &
+                  + v_i % var(k,n2) % val(:,:,:,e,c) * pop_t % C(m,k,2)
+            end do
           end do
-        end do
-        end do
+          end do
+        end associate
       end do
       end do
 

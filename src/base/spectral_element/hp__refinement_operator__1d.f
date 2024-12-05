@@ -84,12 +84,10 @@ contains
 
     if (allocated(this % A)) deallocate(this % A)
 
-    select case(this % mode)
-    case(0)
+    allocate(this % A(0:po_f, 0:po_c, this%mode))
+    if (this % mode == 0) then
       return
-    case(1:2)
-      allocate(this % A(0:po_f, 0:po_c, this%mode))
-    end select
+    end if
 
     ! collocation points .......................................................
 

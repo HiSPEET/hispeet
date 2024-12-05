@@ -81,6 +81,7 @@ module Spectral_Deferred_Correction
     procedure :: Init_SDC_Method  =>  Init_SDC
     procedure :: Show             =>  Show_SDC_Method
     procedure :: CollocationPoints
+    procedure :: CollocationWeights
     procedure :: SubintervalPoints
     procedure :: SubintervalWeights
 
@@ -265,7 +266,7 @@ contains
     class(SDC_Method), intent(in) :: this
     real(RNP), intent(in)  :: t0              !< start of the time interval
     real(RNP), intent(in)  :: dt              !< length of the time interval
-    real(RNP)              :: t(0:this%n_col) !< intermediate times
+    real(RNP)              :: t(0:this%p_col) !< intermediate times
 
     select case(this % nodes)
     case('RR')
@@ -275,6 +276,22 @@ contains
     end select
 
   end function CollocationPoints
+
+  !-----------------------------------------------------------------------------
+  !> Returns the quadrature weigths for the collocation points1
+
+  pure function CollocationWeights(this) result(w)
+    class(SDC_Method), intent(in) :: this
+    real(RNP) :: w(0:this%p_col) !< collocation weigths
+
+    select case(this % nodes)
+    case('RR')
+      w = this % w(1:this%n_sub)
+    case default
+      w = this % w
+    end select
+
+  end function CollocationWeights
 
   !-----------------------------------------------------------------------------
   !> Returns the subinterval points transformed to [t0, t0+dt]

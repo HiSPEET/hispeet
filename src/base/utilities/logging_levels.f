@@ -49,7 +49,7 @@ contains
       if (present(n_proc)) then
         l = int(log10(dble(n_proc))) + 1
       else
-        l = max(int(log10(dble(rank))), 2) + 1
+        l = max(int(log10(dble(max(rank,1)))), 2) + 1
       end if
       allocate(character(len=l+2) :: prefix)
       write(prefix,'(I0,A)') rank, ':'
