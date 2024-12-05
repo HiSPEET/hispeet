@@ -85,9 +85,8 @@ contains
     if (allocated(this % A)) deallocate(this % A)
 
     allocate(this % A(0:po_f, 0:po_c, this%mode))
-    if (this % mode == 0) then
-      return
-    end if
+
+    if (this % mode == 0) return
 
     ! collocation points .......................................................
 
