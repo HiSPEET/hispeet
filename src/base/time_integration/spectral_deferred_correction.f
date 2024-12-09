@@ -63,6 +63,7 @@ module Spectral_Deferred_Correction
   type SDC_Method
 
     character(2) :: nodes   !< type of collocation points (nodes) {'E','L','RR'}
+    integer      :: p_col   !< polynomial degree of collocation points
     integer      :: n_col   !< number of collocation points
     integer      :: n_sub   !< number of subintervals (M)
     integer      :: n_sweep !< max num correction sweeps (K)
@@ -79,7 +80,8 @@ module Spectral_Deferred_Correction
 
     procedure :: Init_SDC_Method  =>  Init_SDC
     procedure :: Show             =>  Show_SDC_Method
-    procedure :: CollocationlPoints
+    procedure :: CollocationPoints
+    procedure :: CollocationWeights
     procedure :: SubintervalPoints
     procedure :: SubintervalWeights
 
@@ -148,7 +150,7 @@ contains
 
     ! local variables ..........................................................
 
-    integer :: i, p_col
+    integer :: i
 
     ! initialization ...........................................................
 
@@ -175,7 +177,7 @@ contains
     end select
 
     ! polynomial degree of the interpolation polynomial
-    p_col = this % n_col - 1
+    this % p_col = this % n_col - 1
 
     associate(n_sub => this % n_sub)
 
@@ -192,18 +194,18 @@ contains
       select case(this % nodes)
       case('E')
         ! equidistant
-        this % t(0:n_sub) = [ ZERO, (i*ONE/n_sub, i = 1,p_col-1), ONE ]
+        this % t(0:n_sub) = [ ZERO, (i*ONE/n_sub, i = 1,this%p_col-1), ONE ]
         this % w(0:n_sub) = GaussLagrangeWeights(this % t)
       case('L')
         ! Lobatto points and weights in [-1,1]
-        this % t(0:n_sub) = LobattoPoints(p_col)
+        this % t(0:n_sub) = LobattoPoints(this % p_col)
         this % w(0:n_sub) = LobattoWeights(this % t)
         ! transform to [0,1]
         this % t(0:n_sub) = HALF * (this % t + ONE)
         this % w(0:n_sub) = HALF * this % w
       case('RR') ! Radau right
         ! right-sided Radau points and weights in [-1,1]
-        this % t(1:n_sub) = RadauPoints(p_col, right = .true.)
+        this % t(1:n_sub) = RadauPoints(this % p_col, right = .true.)
         this % w(1:n_sub) = RadauWeights(this % t(1:n_sub))
         ! transform to [0,1]
         this % t(1:n_sub) = HALF * (this % t(1:n_sub) + ONE)
@@ -260,11 +262,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Returns the collocation points transformed to [t0, t0+dt]
 
-  pure function CollocationlPoints(this, t0, dt) result(t)
+  pure function CollocationPoints(this, t0, dt) result(t)
     class(SDC_Method), intent(in) :: this
     real(RNP), intent(in)  :: t0              !< start of the time interval
     real(RNP), intent(in)  :: dt              !< length of the time interval
-    real(RNP)              :: t(0:this%n_col) !< intermediate times
+    real(RNP)              :: t(0:this%p_col) !< intermediate times
 
     select case(this % nodes)
     case('RR')
@@ -273,7 +275,23 @@ contains
       t = t0 + dt * this % t
     end select
 
-  end function CollocationlPoints
+  end function CollocationPoints
+
+  !-----------------------------------------------------------------------------
+  !> Returns the quadrature weigths for the collocation points1
+
+  pure function CollocationWeights(this) result(w)
+    class(SDC_Method), intent(in) :: this
+    real(RNP) :: w(0:this%p_col) !< collocation weigths
+
+    select case(this % nodes)
+    case('RR')
+      w = this % w(1:this%n_sub)
+    case default
+      w = this % w
+    end select
+
+  end function CollocationWeights
 
   !-----------------------------------------------------------------------------
   !> Returns the subinterval points transformed to [t0, t0+dt]
