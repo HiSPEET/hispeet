@@ -304,6 +304,7 @@ contains
       ! save t₀ and u(x,t₀) for next step
       !$omp single
       t_1 = t_0
+      t_0 = t
       !$omp end single
       call SetArray(u_1, u, multi = .true.)
 
