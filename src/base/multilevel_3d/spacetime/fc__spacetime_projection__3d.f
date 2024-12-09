@@ -136,7 +136,6 @@ contains
     case(2)
 
       ! hp-coarsening: 2 * nt_c = nt_f
-      ! use combined smoothing+projection operator pop_t % C
       do n = 1, nt_c
       do m = 0, pt_c
         n1 = 2 * n - 1
@@ -150,8 +149,8 @@ contains
             do k = 0, pt_f
               v_c % var(m,n) % val(:,:,:,e,c)                            &
                   = v_c % var(m,n ) % val(:,:,:,e,c)                     &
-                  + v_i % var(k,n1) % val(:,:,:,e,c) * pop_t % C(m,k,1)  &
-                  + v_i % var(k,n2) % val(:,:,:,e,c) * pop_t % C(m,k,2)
+                  + v_i % var(k,n1) % val(:,:,:,e,c) * pop_t % A(m,k,1)  &
+                  + v_i % var(k,n2) % val(:,:,:,e,c) * pop_t % A(m,k,2)
             end do
           end do
           end do

@@ -18,10 +18,8 @@ contains
     real(RNP), intent(inout) :: u_c(0:,:,:,0:,:) !< coarse solution variable
 
     real(RNP), allocatable :: u_i(:,:,:,:,:) ! intermediate interpolant
-    real(RNP), allocatable :: u_t(:,:,:)     ! variable smoothed in time
-    real(RNP), allocatable :: u_x(:,:)       ! variable smoothed in space
-    real(RNP), allocatable :: jmp_u_t(:)     ! jump in time
-    real(RNP)              :: jmp_u_x        ! jump in space
+    real(RNP), allocatable :: u_t(:,:,:)
+    real(RNP), allocatable :: u_x(:,:)
 
     integer :: ps_c, ps_f ! polynomial degree in space
     integer :: ns_c, ns_f ! number of elements in space
@@ -33,9 +31,6 @@ contains
 
     logical :: is_consistent
     integer :: c, e, l, m, n
-    integer :: i0_1, i1_1, i0_2, i1_2
-    integer :: m0_1, m1_1, m0_2, m1_2
-    integer :: o_i1, o_i2
 
     associate( pop_x => this % pop_fc_x &
              , pop_t => this % pop_fc_t &
@@ -68,7 +63,6 @@ contains
         pt_f = mt_f
         o_t   = 0
       end select
-      o_i1 = o_t
 
       ! number of components
       nc = this % cl_problem % nc
@@ -138,25 +132,7 @@ contains
       case(2)
         ! nt_f = 2 * nt_c
 
-        ! coarse point ranges
-        select case(pop_t % method)
-        case('P')
-          ! L² projection: all fine points contribute to all coarse points
-          m0_1 = 1
-          m1_1 = mt_c
-          m0_2 = 1
-          m1_2 = mt_c
-          o_i2 = m0_2 + o_t - 1
-        case('I')
-          ! interpolation: fine points contribute to left/right half only
-          m0_1 = 1                        ! first point interpolated from element 1
-          m1_1 = pt_c / 2 + o_t           ! last  ..
-          m0_2 = m1_1 + mod(pt_c,2)       ! first point interpolated from element 2
-          m1_2 = mt_c                     ! last  ..
-          o_i2 = m0_2
-        end select
-
-        allocate(u_t(0:ps_f,0:mt_f,2), jmp_u_t(0:ps_f))
+        allocate(u_t(0:ps_f,0:mt_f,2))
 
         ! projection
         do n = 1, nt_c
@@ -192,32 +168,12 @@ contains
                 u_t(:,m,2) = u_f(:,e,c,m,2*n    )
               end do
 
-              ! optional smoothing, e.g. when using DG in time
-              jmp_u_t = u_t(:,mt_f,1) - u_t(:,0,2)
-              select case(pop_t % smooth)
-              case(1)
-                ! linear
-                do m = o_t, mt_f
-                  u_t(:,m,1) = u_t(:,m,1) + jmp_u_t * pop_t % B(m,1)
-                  u_t(:,m,2) = u_t(:,m,2) + jmp_u_t * pop_t % B(m,2)
-                end do
-              case(2)
-                ! averaging interface coefficients
-                u_t(:,mt_f,1) = u_t(:,mt_f,1) - HALF * jmp_u_t
-                u_t(:,   0,2) = u_t(:,   0,2) + HALF * jmp_u_t
-              end select
-
               ! projection of smoothed variable
-              do m = m0_1, m1_1
+              do m = 1, mt_c
                 do l = o_t, mt_f
-                  u_i(:,e,c,m,n) = u_i(:,e,c,m,n) &
-                                 + pop_t % A(m-o_i1,l-o_t,1) * u_t(:,l,1)
-                end do
-              end do
-              do m = m0_2, m1_2
-                do l = o_t, mt_f
-                  u_i(:,e,c,m,n) = u_i(:,e,c,m,n) &
-                                 + pop_t % A(m-o_i2,l-o_t,2) * u_t(:,l,2)
+                  u_i(:,e,c,m,n) = u_i(:,e,c,m,n)                         &
+                                 + pop_t % A(m-o_t,l-o_t,1) * u_t(:,l,1)  &
+                                 + pop_t % A(m-o_t,l-o_t,2) * u_t(:,l,2)
                 end do
               end do
 
@@ -253,22 +209,6 @@ contains
       case(2)
         ! ns_f = 2 * ns_c
 
-        ! point ranges
-        select case(pop_x % method)
-        case('P')
-          ! L² projection: all fine points contribute to all coarse points
-          i0_1 = 0
-          i1_1 = ps_c
-          i0_2 = 0
-          i1_2 = ps_c
-        case('I')
-          ! interpolation: fine points contribute to left/right half only
-          i0_1 = 0                  ! first point interpolated from element 1
-          i1_1 = ps_c / 2           ! last  ..
-          i0_2 = i1_1 + mod(ps_c,2) ! first point interpolated from element 2
-          i1_2 = ps_c               ! last  ..
-        end select
-
         ! workspace
         allocate(u_x(0:ps_f,2))
 
@@ -283,25 +223,9 @@ contains
             u_x(:,1) = u_i(:,2*e - 1,c,m,n)
             u_x(:,2) = u_i(:,2*e    ,c,m,n)
 
-            ! optional smoothing
-            jmp_u_x = u_x(ps_f,1) - u_x(0,2)
-            select case(pop_x % smooth)
-            case(1)
-              ! linear
-              u_x(:,1) = u_x(:,1) + jmp_u_x * pop_x % B(:,1)
-              u_x(:,2) = u_x(:,2) + jmp_u_x * pop_x % B(:,2)
-            case(2)
-              ! averaging interface coefficients
-              u_x(ps_f,1) = u_x(ps_f,1) - HALF * jmp_u_x
-              u_x(   0,2) = u_x(   0,2) + HALF * jmp_u_x
-            end select
-
             ! projection of smoothed variable
-            u_c(    :    ,e,c,m,n) = 0
-            u_c(i0_1:i1_1,e,c,m,n) = u_c(i0_1:i1_1,e,c,m,n) &
-                                   + matmul(pop_x % A(:,:,1), u_x(:,1))
-            u_c(i0_2:i1_2,e,c,m,n) = u_c(i0_2:i1_2,e,c,m,n) &
-                                   + matmul(pop_x % A(:,:,2), u_x(:,2))
+            u_c(:,e,c,m,n) = matmul(pop_x % A(:,:,1), u_x(:,1)) &
+                           + matmul(pop_x % A(:,:,2), u_x(:,2))
 
           end if
         end do

@@ -93,9 +93,8 @@ contains
     logical, save :: skip_frozen = .true.
     integer, save :: n_recv, n_send
 
-    real(RNP), allocatable :: A(:,:,:), B(:,:)
+    real(RNP), allocatable :: A(:,:,:)
     integer :: n_cluster_active = 0
-    integer :: smooth = 0
     integer :: i, k
 
     ! initialization ...........................................................
@@ -134,7 +133,6 @@ contains
       allocate(A(0:iop%po_c, 0:iop%po_f, 2))
       A(0:,0:,1) = transpose(iop % A(:,:,1))
       A(0:,0:,2) = transpose(iop % A(:,:,2))
-      allocate(B(0:iop%po_f,2), source = ZERO)
     end select
 
     ! restrict child data to send variable .....................................
@@ -155,7 +153,7 @@ contains
     case(2)
       ! h- or hp-coarsening
       do k = 1, n_comp
-        call TPO_8To1( A, B, smooth                      &
+        call TPO_8To1( A                                 &
                      , v_c(:,:,:,1:n_cluster_active*8,k) &
                      , v_s(:,:,:,1:n_cluster_active  ,k) )
       end do

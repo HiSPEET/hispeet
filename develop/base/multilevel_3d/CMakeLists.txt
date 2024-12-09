@@ -7,8 +7,7 @@ add_executable( ml_mesh_functionality
 target_link_libraries(ml_mesh_functionality HiBase)
 
 file( COPY 
-           ml_spacetime_functionality_global_p.prm
-           ml_spacetime_functionality_local_hp.prm
+           ml_mesh_functionality.prm
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR}
     )
@@ -22,7 +21,8 @@ add_executable( ml_spacetime_functionality
 target_link_libraries(ml_spacetime_functionality HiBase)
 
 file( COPY 
-           ml_spacetime_functionality.prm
+           ml_spacetime_functionality_global_p.prm
+           ml_spacetime_functionality_local_hp.prm
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR}
     )

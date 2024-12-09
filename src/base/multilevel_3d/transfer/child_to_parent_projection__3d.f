@@ -140,7 +140,7 @@ contains
     case(2)
       ! h- or hp-coarsening
       do k = 1, n_comp
-        call TPO_8To1( pop%A, pop%B, pop%smooth          &
+        call TPO_8To1( pop%A                             &
                      , v_c(:,:,:,1:n_cluster_active*8,k) &
                      , v_s(:,:,:,1:n_cluster_active  ,k) )
       end do

@@ -52,11 +52,7 @@ module HP__Coarsening_Operator__1D
     integer          :: po_c           !< polynomial order of coarse mesh
     integer          :: mode           !< coarsening mode
     character        :: method         !< projection method
-    integer          :: smooth         !< discontinuity handling
     real(RNP), allocatable :: A(:,:,:) !< interpolation operator(s)
-    real(RNP), allocatable :: B(:,:)   !< blending operators
-    real(RNP), allocatable :: C(:,:,:) !< combined interpolation and blending
-                                       !! operators
   end type HP_CoarseningOperator_1D
 
   ! constructor interface
@@ -97,7 +93,7 @@ contains
     class(HP_CoarseningOptions_1D), intent(in) :: opt
 
     real(RNP), allocatable :: x_f(:), x_c(:), x_g(:), x_q(:), w_g(:), w_q(:)
-    integer :: po_c, po_f, po_q
+    integer :: po_c, po_f, po_q, smooth
 
     ! initialization ...........................................................
 
@@ -109,14 +105,12 @@ contains
 
     select case(this % nodes)
     case('E','L')
-      this % smooth = max(min(opt % smooth, 2), 0)
+      smooth = max(min(opt % smooth, 2), 0)
     case default
-      this % smooth = max(min(opt % smooth, 1), 0)
+      smooth = max(min(opt % smooth, 1), 0)
     end select
 
     if (allocated(this % A)) deallocate(this % A)
-    if (allocated(this % B)) deallocate(this % B)
-    if (allocated(this % C)) deallocate(this % C)
 
     ! shorthands
     po_f = this % po_f
@@ -125,18 +119,11 @@ contains
 
     select case(this % mode)
     case(0)
-      allocate(this % A(0:po_c,0:po_f,0))
+      return
     case(1)
       allocate(this % A(0:po_c,0:po_f,1), source = ZERO)
     case(2)
-      select case(this % method)
-      case('P')
-        allocate(this % A(0:po_c,0:po_f,2), source = ZERO)
-      case('I')
-        allocate(this % A(0:po_c/2,0:po_f,2), source = ZERO)
-      end select
-      allocate(this % B(0:po_f,2)       , source = ZERO)
-      allocate(this % C(0:po_c,0:po_f,2), source = ZERO)
+      allocate(this % A(0:po_c,0:po_f,2), source = ZERO)
     end select
 
     ! collocation points .......................................................
@@ -199,19 +186,7 @@ contains
       case('I')
         call Build_Interpolation_Operator_2
       end select
-
-      ! smoothing
-      select case(this % smooth)
-      case(1)
-        call Build_Linear_Smoothing_Operator
-      case(2)
-        ! interface coefficient averaging, only with nodes = 'E','L'
-        this % B(po_f,1) = -HALF
-        this % B( 0  ,2) =  HALF
-      end select
-
-      ! combined smoothing + projection operator
-      call Build_Combined_Operator_2
+      call Add_Smoothing
 
     end select
 
@@ -356,41 +331,43 @@ contains
 
       real(RNP) :: x_c2f(2)
       integer   :: o2_f, ph_c
-      integer   :: i, j
+      integer   :: i1, i2, j
 
-      ph_c = po_c/2
-      o2_f = ph_c + mod(po_c,2)
+      ph_c = po_c / 2
+      o2_f = po_c - ph_c
 
-      do i = 0, ph_c
+      do i1 = 0, ph_c
 
-        x_c2f(1) = 2*x_c(i     ) + ONE ! coarse point mapped to left  element
-        x_c2f(2) = 2*x_c(i+o2_f) - ONE ! coarse point mapped to right element
+        i2 = i1 + o2_f
+
+        x_c2f(1) = 2*x_c(i1) + ONE ! coarse point mapped to left  element
+        x_c2f(2) = 2*x_c(i2) - ONE ! coarse point mapped to right element
 
         select case(this % nodes)
         case('E') ! Nodal with equidistant spacing
           do j = 0, po_f
-            this % A(i,j,1) = LagrangePolynomial(j, x_f, x_c2f(1))
-            this % A(i,j,2) = LagrangePolynomial(j, x_f, x_c2f(2))
+            this % A(i1,j,1) = LagrangePolynomial(j, x_f, x_c2f(1))
+            this % A(i2,j,2) = LagrangePolynomial(j, x_f, x_c2f(2))
           end do
         case('G') ! Gauss
           do j = 0, po_f
-            this % A(i,j,1) = GaussPolynomial(j, x_f, x_c2f(1))
-            this % A(i,j,2) = GaussPolynomial(j, x_f, x_c2f(2))
+            this % A(i1,j,1) = GaussPolynomial(j, x_f, x_c2f(1))
+            this % A(i2,j,2) = GaussPolynomial(j, x_f, x_c2f(2))
           end do
         case('L') ! Lobatto
           do j = 0, po_f
-            this % A(i,j,1) = LobattoPolynomial(j, x_f, x_c2f(1))
-            this % A(i,j,2) = LobattoPolynomial(j, x_f, x_c2f(2))
+            this % A(i1,j,1) = LobattoPolynomial(j, x_f, x_c2f(1))
+            this % A(i2,j,2) = LobattoPolynomial(j, x_f, x_c2f(2))
           end do
         case('RL','RR') ! Radau: take care of asymmetry
           if (x_c2f(1) <= ONE) then
             do j = 0, po_f
-              this % A(i,j,1) = RadauPolynomial(j, x_f, x_c2f(1))
+              this % A(i1,j,1) = RadauPolynomial(j, x_f, x_c2f(1))
             end do
           end if
           if (x_c2f(2) >= -ONE) then
             do j = 0, po_f
-              this % A(i,j,2) = RadauPolynomial(j, x_f, x_c2f(2))
+              this % A(i2,j,2) = RadauPolynomial(j, x_f, x_c2f(2))
             end do
           end if
         end select
@@ -403,7 +380,7 @@ contains
         if (mod(po_c,2) == 0) then
           do j = 0, po_f
             this % A(ph_c,j,1) = HALF * this % A(ph_c,j,1)
-            this % A(   0,j,2) = HALF * this % A(   0,j,2)
+            this % A(ph_c,j,2) = HALF * this % A(ph_c,j,2)
           end do
         end if
       end select
@@ -411,77 +388,65 @@ contains
     end subroutine Build_Interpolation_Operator_2
 
     !---------------------------------------------------------------------------
-    !> Build linear smoothing operator
-
-    subroutine Build_Linear_Smoothing_Operator
-
-      integer :: i
-
-      do i = 0, po_f
-        this % B(i,1) = -(ONE + x_f(i)) / 4
-        this % B(i,2) =  (ONE - x_f(i)) / 4
-      end do
-
-    end subroutine Build_Linear_Smoothing_Operator
-
-    !---------------------------------------------------------------------------
     !> Build combined smoothing + projection operator
 
-    subroutine Build_Combined_Operator_2
+    subroutine Add_Smoothing
 
-      real(RNP), allocatable :: A(:,:,:), L(:), R(:)
-      integer :: i, j, k
+      real(RNP), allocatable :: B(:,:), L(:), R(:)
+      real(RNP) :: AB
+      integer :: i, j
 
-      associate(B => this % B, C => this % C)
+      if (smooth == 0) return
 
-        ! projection matrices expanded to cover all coarse nodes
-        allocate(A(0:po_c,0:po_f,2), source = ZERO)
-        select case(this % method)
-        case('P')
-          A = this % A
-        case('I')
-          A(0             : po_c/2 , :, 1) = this % A(:,:,1)
-          A(po_c - po_c/2 : po_c   , :, 2) = this % A(:,:,2)
+      ! smothing operator ......................................................
+
+      allocate(B(0:po_f,2), source = ZERO)
+
+      select case(smooth)
+      case(1)
+        ! linear blending
+        B(:,1) = -(ONE + x_f) / 4
+        B(:,2) =  (ONE - x_f) / 4
+      case(2)
+        ! interface coefficient averaging
+        B(po_f,1) = -HALF
+        B( 0  ,2) =  HALF
+      end select
+
+      ! trace operators ........................................................
+
+      allocate(L(0:po_f), R(0:po_f))
+
+      do i = 0, po_f
+        select case(this % nodes)
+        case('E') ! Nodal with equidistant spacing
+          L(i) = LagrangePolynomial(i, x_f, -ONE)
+          R(i) = LagrangePolynomial(i, x_f,  ONE)
+        case('G') ! Gauss
+          L(i) = GaussPolynomial(i, x_f, -ONE)
+          R(i) = GaussPolynomial(i, x_f,  ONE)
+        case('L') ! Lobatto
+          L(i) = LobattoPolynomial(i, x_f, -ONE)
+          R(i) = LobattoPolynomial(i, x_f,  ONE)
+        case('RL','RR') ! Radau: take care of asymmetry
+          L(i) = RadauPolynomial(i, x_f, -ONE)
+          R(i) = RadauPolynomial(i, x_f,  ONE)
         end select
+      end do
 
-        ! combined operator with no smoothing
-        C = A
+      ! combined operator ......................................................
 
-        if (this % smooth > 0) then
-
-          ! interpolation to left and right boundaries
-          allocate(L(0:po_f), R(0:po_f))
-          do i = 0, po_f
-            select case(this % nodes)
-            case('E') ! Nodal with equidistant spacing
-              L(i) = LagrangePolynomial(i, x_f, -ONE)
-              R(i) = LagrangePolynomial(i, x_f,  ONE)
-            case('G') ! Gauss
-              L(i) = GaussPolynomial(i, x_f, -ONE)
-              R(i) = GaussPolynomial(i, x_f,  ONE)
-            case('L') ! Lobatto
-              L(i) = LobattoPolynomial(i, x_f, -ONE)
-              R(i) = LobattoPolynomial(i, x_f,  ONE)
-            case('RL','RR') ! Radau: take care of asymmetry
-              L(i) = RadauPolynomial(i, x_f, -ONE)
-              R(i) = RadauPolynomial(i, x_f,  ONE)
-            end select
-          end do
-
-          do i = 0, po_c
+      associate(A => this % A)
+        do i = 0, po_c
+          AB =  sum(A(i,:,1) * B(:,1) + A(i,:,2) * B(:,2))
           do j = 0, po_f
-          do k = 0, po_f
-            C(i,j,1) = C(i,j,1) + (A(i,k,1) * B(k,1) + A(i,k,2) * B(k,2)) * R(j)
-            C(i,j,2) = C(i,j,2) - (A(i,k,1) * B(k,1) + A(i,k,2) * B(k,2)) * L(j)
+            A(i,j,1) = A(i,j,1) + AB * R(j)
+            A(i,j,2) = A(i,j,2) - AB * L(j)
           end do
-          end do
-          end do
-
-        end if
-
+        end do
       end associate
 
-    end subroutine Build_Combined_Operator_2
+    end subroutine Add_Smoothing
 
     !---------------------------------------------------------------------------
 
