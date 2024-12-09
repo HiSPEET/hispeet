@@ -18,6 +18,7 @@ module INS__Operator__3D
 
   use Standard_Element_Operators__1D
   use Embedded_Interpolation_Operator__1D
+  use Projection_Operator__1D
   use DG__Element_Operators__1D
   use DG__Elliptic_Operator__3D
   use DG__Schwarz_Operator__3D
@@ -54,6 +55,7 @@ module INS__Operator__3D
     type(EmbeddedInterpolationOperator_1D) :: iop_vp !< v to p interpolation
     type(EmbeddedInterpolationOperator_1D) :: iop_vq !< v to q interpolation
     type(EmbeddedInterpolationOperator_1D) :: iop_pv !< p to v interpolation
+    type(ProjectionOperator_1D)            :: pop_vp !< v to p L² projection
 
     type(Mesh_3D)                :: mesh  !< local mesh partition
     type(SpectralElementMesh_3D) :: sem_v !< mesh + metrics for v
@@ -358,9 +360,18 @@ contains
     this % eop_p = DG_ElementOperators_1D     ( opt % eop_p )
     this % sop_q = StandardElementOperators_1D( opt % sop_q )
 
+!?  if (this % po_p /= this % po_v) then
+    this % pop_vp = ProjectionOperator_1D( this%eop_p,   &
+                                           this%eop_v%x, &
+                                           this%eop_v%w, &
+                                           TWO           )
     this % iop_vp = EmbeddedInterpolationOperator_1D( this%eop_v, this%eop_p%x )
-    this % iop_vq = EmbeddedInterpolationOperator_1D( this%eop_v, this%sop_q%x )
     this % iop_pv = EmbeddedInterpolationOperator_1D( this%eop_p, this%eop_v%x )
+!?  end if
+
+!?  if (po_q /= po_v) then
+    this % iop_vq = EmbeddedInterpolationOperator_1D( this%eop_v, this%sop_q%x )
+!?  end if
 
     if (present(mesh)) then
       this % mesh = mesh
