@@ -1,0 +1,6 @@
+&parameters
+  stokes = .true.
+  dim    = 3
+  nu     = 1e-4
+/
+

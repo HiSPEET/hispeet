@@ -156,7 +156,7 @@ contains
 
     associate( n_sub => this % n_sub &
              , n_col => this % n_col &
-             , w_col => this % w_col &
+             , w_0n  => this % w_0n  &
              , tau   => this % t     )
 
       ! initialization ........................................................
@@ -175,7 +175,7 @@ contains
 
       S = 0
       do j = 0, n_sub
-        S = S + dt_step * F(j) * w_col(j,m)
+        S = S + dt_step * F(j) * w_0n(m,j)
       end do
 
       u1 = u(0) + S

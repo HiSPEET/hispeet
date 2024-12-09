@@ -56,7 +56,7 @@ contains
       nt_c = ubound(u_c, 5)
 
       ! polynomial degree in time and offset collocation points
-      select case(this % cl_sdc % point_set)
+      select case(this % cl_sdc % nodes)
       case('RR')
         ! Radau-right
         pt_c = mt_c - 1

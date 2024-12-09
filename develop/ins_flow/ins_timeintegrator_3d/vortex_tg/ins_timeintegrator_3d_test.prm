@@ -15,6 +15,8 @@
   ins_op_opts%eop_p%StandardElementOptions_1D%po =  9
   ins_op_opts%eop_p%penalty                      = 20
   ins_op_opts%sop_q%po                           = 16
+! ins_op_opts%schwarz_p%delta                    =  0.125
+! ins_op_opts%schwarz_v%delta                    =  0.125
 !
 ! Euler options
   ins_ti_euler_opts%i_max_p = 1000
@@ -23,8 +25,11 @@
   ins_ti_euler_opts%r_max   = 1e-14
 !
 ! BDF2 options
+  ins_ti_bdf2_opts%i_krylov = 0       ! set eg to 2 for trying GMRES
   ins_ti_bdf2_opts%i_max_p  = 1000 
   ins_ti_bdf2_opts%i_max_v  = 1000 
+  ins_ti_bdf2_opts%i_pre_p  = 10
+  ins_ti_bdf2_opts%i_pre_v  = 10
   ins_ti_bdf2_opts%r_red    = 1e-10
   ins_ti_bdf2_opts%r_max    = 1e-12
 !
@@ -51,9 +56,16 @@
 &cuboid_cartesian_prm
   regular    = F ! mimic irregular mesh (elements deformed or of different size)
   structured = F ! mimic unstructured mesh
-  xo = 3*-0.5
-  lx = 1,1,0.25
-  np = 1,1,1
-  ep = 4,4,1
-! periodic = 3*T
+ 
+  xo = -0.5, -0.5,-0.125    ! low resolution
+  lx =  1.0,  1.0,  0.25    !
+  np =  1,1,1               !
+  ep =  4,4,1               !
+ 
+! xo = -0.5, -0.5, -0.0625  ! high resolution
+! lx =  1.0,  1.0,  0.125   !
+! np =  1,1,1               !
+! ep =  8,8,1               !
+ 
+  periodic = T,F,T
 /

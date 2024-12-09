@@ -22,18 +22,18 @@ module Standard_Element_Operators__1D
   !>
   !> Supports the following types of nodal base functions
   !>
-  !>   - Lagrange polynomials to Gauss-Legendre points:             basis = 'G'
-  !>   - Lagrange polynomials to Gauss-Lobatto-Legendre points:     basis = 'L'
-  !>   - Lagrange polynomials to left  Gauss-Radau-Legendre points: basis = 'RL'
-  !>   - Lagrange polynomials to right Gauss-Radau-Legendre points: basis = 'RR'
+  !>   - Lagrange polynomials to Gauss-Legendre nodes:             nodes = 'G'
+  !>   - Lagrange polynomials to Gauss-Lobatto-Legendre nodes:     nodes = 'L'
+  !>   - Lagrange polynomials to left  Gauss-Radau-Legendre nodes: nodes = 'RL'
+  !>   - Lagrange polynomials to right Gauss-Radau-Legendre nodes: nodes = 'RR'
 
   type StandardElementOperators_1D
     private
 
     ! public components
-    character(len=2)      , public :: basis   !< basis type
+    character(len=2)      , public :: nodes   !< node set
     integer               , public :: po = -1 !< polynomial order
-    real(RNP), allocatable, public :: x(:)    !< collocation points
+    real(RNP), allocatable, public :: x(:)    !< collocation points (nodes)
     real(RNP), allocatable, public :: w(:)    !< quadrature weights
     real(RNP), allocatable, public :: D(:,:)  !< differention matrix
     real(RNP), allocatable, public :: L(:,:)  !< stiffness (Laplace) matrix
@@ -85,7 +85,7 @@ module Standard_Element_Operators__1D
 
   type StandardElementOptions_1D
     integer      :: po         = -1       !< polynomial order
-    character(2) :: basis      = 'L'      !< basis type
+    character(2) :: nodes      = 'L'      !< node set
     logical      :: no_vdm     = .false.  !< skip Vandermonde matrix
     logical      :: svv        = .false.  !< activate SVV model
     integer      :: po_cut_svv = -huge(1) !< cut-off order for SVV
@@ -102,10 +102,10 @@ contains
   !> Constructor for StandardElementOperators_1D -- flat interface
 
   function New_StandardElementOperators_1D__f &
-              (po, basis, no_vdm, svv, po_cut_svv) result(this)
+              (po, nodes, no_vdm, svv, po_cut_svv) result(this)
 
     integer,                intent(in) :: po     !< polynomial order
-    character(*), optional, intent(in) :: basis  !< points {G,L,RR,RL}       [L]
+    character(*), optional, intent(in) :: nodes  !< nodes {G,L,RR,RL}       [L]
     logical     , optional, intent(in) :: no_vdm !< skip Vandermonde matrix  [F]
     logical     , optional, intent(in) :: svv    !< activate SVV model       [F]
     integer     , optional, intent(in) :: po_cut_svv !< SVV cut-off order [po/2]
@@ -115,7 +115,7 @@ contains
 
     opt % po = po
 
-    if (present(basis     )) opt % basis      = basis
+    if (present(nodes     )) opt % nodes      = nodes
     if (present(no_vdm    )) opt % no_vdm     = no_vdm
     if (present(svv       )) opt % svv        = svv
     if (present(po_cut_svv)) opt % po_cut_svv = po_cut_svv
@@ -163,7 +163,7 @@ contains
     integer :: i, j, po_cut
 
     associate( po          =>  opt % po          &
-             , basis       =>  opt % basis       &
+             , nodes       =>  opt % nodes       &
              , no_vdm      =>  opt % no_vdm      &
              , svv         =>  opt % svv         &
              , po_cut_svv  =>  opt % po_cut_svv  )
@@ -175,13 +175,13 @@ contains
       if (po < 0) then
         call Error('Init_StandardElementOperators_1D', 'Invalid order (po < 0)')
       else if (po == 0) then
-        this%basis = 'G'
+        this%nodes = 'G'
       else
-        select case(basis)
+        select case(nodes)
         case('G','L','RL','RR')
-          this%basis = basis
+          this%nodes = nodes
         case default
-          call Error('Init_StandardElementOperators_1D', 'Invalid basis')
+          call Error('Init_StandardElementOperators_1D', 'Invalid nodes')
         end select
       end if
 
@@ -197,7 +197,7 @@ contains
         allocate(this%D(0:0,0:0),   source = ZERO)
 
       else
-        select case(this%basis)
+        select case(this%nodes)
 
         case('G')
           ! Gauss-Legendre
@@ -206,7 +206,7 @@ contains
           allocate(this%D(0:po,0:po), source = GaussDiffMatrix(this%x))
 
         case('L')
-          ! Gauss-Lobatto-Legendre points
+          ! Gauss-Lobatto-Legendre
           allocate(this%x(0:po),      source = LobattoPoints(po))
           allocate(this%w(0:po),      source = LobattoWeights(this%x))
           allocate(this%D(0:po,0:po), source = LobattoDiffMatrix(this%x))
@@ -616,7 +616,7 @@ contains
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
     call XMPI_Bcast( this % po        , root, comm )
-    call XMPI_Bcast( this % basis     , root, comm )
+    call XMPI_Bcast( this % nodes     , root, comm )
     call XMPI_Bcast( this % no_vdm    , root, comm )
     call XMPI_Bcast( this % svv       , root, comm )
     call XMPI_Bcast( this % po_cut_svv, root, comm )

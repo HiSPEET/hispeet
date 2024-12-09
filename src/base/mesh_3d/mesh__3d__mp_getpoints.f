@@ -1,4 +1,4 @@
-!> summary:  Generation of mesh points to given order an basis type
+!> summary:  Generation of mesh points to given order and basis type
 !> author:   Joerg Stiller
 !> date:     2020/11/18
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -17,13 +17,13 @@ contains
   !>
   !> The routine provides the element points for one of the following bases:
   !>
-  !>   -  Lagrange polynomials to Gauss-Legendre points (basis = 'G')
-  !>   -  Lagrange polynomials to Gauss-Lobatto-Legendre points (basis = 'L')
+  !>   -  Lagrange polynomials to Gauss-Legendre points (nodes = 'G')
+  !>   -  Lagrange polynomials to Gauss-Lobatto-Legendre points (nodes = 'L')
 
-  module subroutine GetPoints(mesh, po, basis, x)
+  module subroutine GetPoints(mesh, po, nodes, x)
     class(Mesh_3D),          intent(in)  :: mesh  !< mesh parition
     integer,                 intent(in)  :: po    !< polynomial order
-    character,     optional, intent(in)  :: basis !< 'G' or 'L' ['L']
+    character,     optional, intent(in)  :: nodes !< 'G' or 'L' ['L']
     real(RNP),  allocatable, intent(out) :: x(:,:,:,:,:) !< mesh points
 
     type(StandardElementOperators_1D) :: sop
@@ -34,7 +34,7 @@ contains
 
     if (mesh % n_elem < 1) return
 
-    sop = StandardElementOperators_1D(po, basis, no_vdm = .true.)
+    sop = StandardElementOperators_1D(po, nodes, no_vdm = .true.)
 
     if (mesh % regular) then
       call GetRegularMeshPoints(mesh, sop, x)
@@ -120,7 +120,7 @@ contains
 
           if (gop(pg) % po /= pg) then
             ! initialize interpolation operator
-            gop(pg) = StandardElementOperators_1D(pg, basis = 'L', no_vdm = .true.)
+            gop(pg) = StandardElementOperators_1D(pg, nodes = 'L', no_vdm = .true.)
             iop(pg) = EmbeddedInterpolationOperator_1D(gop(pg), sop%x)
           end if
 

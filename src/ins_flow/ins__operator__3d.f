@@ -4,8 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !> @todo
-!>   - clean treatment of cases: regular/deformed mesh, constant/variable ν
-!>   - extension of velocity boundary conditions
+!>   - revision of boundary variables
 !===============================================================================
 
 module INS__Operator__3D
@@ -19,6 +18,7 @@ module INS__Operator__3D
 
   use Standard_Element_Operators__1D
   use Embedded_Interpolation_Operator__1D
+  use Projection_Operator__1D
   use DG__Element_Operators__1D
   use DG__Elliptic_Operator__3D
   use DG__Schwarz_Operator__3D
@@ -55,6 +55,7 @@ module INS__Operator__3D
     type(EmbeddedInterpolationOperator_1D) :: iop_vp !< v to p interpolation
     type(EmbeddedInterpolationOperator_1D) :: iop_vq !< v to q interpolation
     type(EmbeddedInterpolationOperator_1D) :: iop_pv !< p to v interpolation
+    type(ProjectionOperator_1D)            :: pop_vp !< v to p L² projection
 
     type(Mesh_3D)                :: mesh  !< local mesh partition
     type(SpectralElementMesh_3D) :: sem_v !< mesh + metrics for v
@@ -87,6 +88,8 @@ module INS__Operator__3D
     procedure :: GetDiffusionTerm
     procedure :: GetDiffusionTerm_C
     procedure :: GetDiffusionTerm_V
+
+    procedure :: GetStokesResidual
 
     procedure :: GetViscousBoundaryStress
     procedure :: GetViscousBoundaryStress_C
@@ -254,6 +257,20 @@ module INS__Operator__3D
     end subroutine GetDiffusionTerm_V
 
     !---------------------------------------------------------------------------
+    !> Stokes residual for incompressible flow
+
+    module subroutine GetStokesResidual(this, tau, f, bv_u, mu, nu, u, r)
+      class(INS_Operator_3D),          intent(in)    :: this
+      real(RNP),                       intent(in)    :: tau
+      real(RNP), contiguous,           intent(in)    :: f(:,:,:,:,:)
+      class(BoundaryVariable_3D),      intent(in)    :: bv_u(:)
+      real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
+      real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: u(:,:,:,:,:)
+      real(RNP), contiguous,           intent(out)   :: r(:,:,:,:,:)
+    end subroutine GetStokesResidual
+
+    !---------------------------------------------------------------------------
     !> Viscous stress vector on a boundary (C)
 
     module subroutine GetViscousBoundaryStress_C &
@@ -343,9 +360,18 @@ contains
     this % eop_p = DG_ElementOperators_1D     ( opt % eop_p )
     this % sop_q = StandardElementOperators_1D( opt % sop_q )
 
+!?  if (this % po_p /= this % po_v) then
+    this % pop_vp = ProjectionOperator_1D( this%eop_p,   &
+                                           this%eop_v%x, &
+                                           this%eop_v%w, &
+                                           TWO           )
     this % iop_vp = EmbeddedInterpolationOperator_1D( this%eop_v, this%eop_p%x )
-    this % iop_vq = EmbeddedInterpolationOperator_1D( this%eop_v, this%sop_q%x )
     this % iop_pv = EmbeddedInterpolationOperator_1D( this%eop_p, this%eop_v%x )
+!?  end if
+
+!?  if (po_q /= po_v) then
+    this % iop_vq = EmbeddedInterpolationOperator_1D( this%eop_v, this%sop_q%x )
+!?  end if
 
     if (present(mesh)) then
       this % mesh = mesh
@@ -359,7 +385,7 @@ contains
     this % sem_p = SpectralElementMesh_3D( this % mesh, this % eop_p % po )
     this % sem_q = SpectralElementMesh_3D( this % mesh          &
                                          , this % sop_q % po    &
-                                         , this % sop_q % basis )
+                                         , this % sop_q % nodes )
 
     ! pressure BC
     allocate(this % bc_p(this % mesh % n_bound))

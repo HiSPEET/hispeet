@@ -312,7 +312,7 @@ contains
     do l = 1, l_top
 
       dg_opt % po      = ml_op % sem(l) % std_op % po
-      dg_opt % basis   = ml_op % sem(l) % std_op % basis
+      dg_opt % nodes   = ml_op % sem(l) % std_op % nodes
       dg_opt % penalty = opt % penalty
 
       this % elliptic_op(l) = &

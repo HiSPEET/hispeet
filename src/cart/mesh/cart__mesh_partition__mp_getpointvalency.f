@@ -20,9 +20,9 @@ contains
 !> and vertices. As a result, the valency of mesh points can range between 1 and
 !> 8.
 
-module subroutine GetPointValency(mesh, basis, v)
+module subroutine GetPointValency(mesh, nodes, v)
   class(MeshPartition), intent(in)  :: mesh          !< mesh parition
-  character,            intent(in)  :: basis         !< 'G' or 'L'
+  character,            intent(in)  :: nodes         !< 'G' or 'L'
   integer,              intent(out) :: v(0:,0:,0:,:) !< point valency
 
   integer :: e, i, j, k, P
@@ -45,7 +45,7 @@ module subroutine GetPointValency(mesh, basis, v)
 
   ! Lobatto point valency ......................................................
 
-  if (basis == 'L') then
+  if (nodes == 'L') then
 
     do e = 1, mesh%ne
 

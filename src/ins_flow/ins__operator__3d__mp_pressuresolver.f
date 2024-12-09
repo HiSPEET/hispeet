@@ -92,9 +92,9 @@ contains
       ! solve ..................................................................
 
       if (mixed_order) then
-        ! interpolate current approximation and source to order pq
-        call TPO_AAA(this % iop_vp % A, p, q)
-        call TPO_AAA(this % iop_vp % A, f, g)
+        ! transfer current approximation and source to order pq
+        call TPO_AAA(this % iop_vp % A, p, q) ! interpolation of pressure
+        call TPO_AAA(this % pop_vp % A, f, g) ! L² projection of RHS
         !$omp do
         do e = 1, mesh % n_elem
           g(:,:,:,e) = -ct * mm(:,:,:,e) * g(:,:,:,e)

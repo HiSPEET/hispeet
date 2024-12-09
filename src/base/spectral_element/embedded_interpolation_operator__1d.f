@@ -3,8 +3,8 @@
 !> date:     2018/03/09
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
-!> Provides one-dimensional interpolation operators for the following `basis`
-!> types
+!> Provides one-dimensional interpolation operators for the following nodal
+!> bases
 !>
 !>   - `'G'`   Lagrangian with Gauss points
 !>   - `'L'`   Lagrangian with on Lobatto points
@@ -52,16 +52,16 @@ contains
   ! Constructors
 
   !-----------------------------------------------------------------------------
-  !> New interpolation operator from basis type and points
+  !> New interpolation operator from given nodes and interpolation points
 
-  type(EmbeddedInterpolationOperator_1D) function New_Points(basis, xo, xi) &
+  type(EmbeddedInterpolationOperator_1D) function New_Points(nodes, xo, xi) &
       result(this)
 
-    character(*), intent(in) :: basis  !< basis type
-    real(RNP),    intent(in) :: xo(0:) !< basis points
+    character(*), intent(in) :: nodes  !< nodal basis type
+    real(RNP),    intent(in) :: xo(0:) !< node coordinates
     real(RNP),    intent(in) :: xi(1:) !< interpolation points in [-1,1]
 
-    call Init_Points(this, basis, xo, xi)
+    call Init_Points(this, nodes, xo, xi)
 
   end function New_Points
 
@@ -84,10 +84,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Initialization for given nodes and interpolation points
 
-  subroutine Init_Points(this, basis, xo, xi)
+  subroutine Init_Points(this, nodes, xo, xi)
     class(EmbeddedInterpolationOperator_1D), intent(inout) :: this
-    character(*), intent(in) :: basis  !< basis type
-    real(RNP),    intent(in) :: xo(0:) !< basis points
+    character(*), intent(in) :: nodes  !< nodal basis type
+    real(RNP),    intent(in) :: xo(0:) !< node coordinates
     real(RNP),    intent(in) :: xi(1:) !< interpolation points in [-1,1]
 
     integer :: j, k, po
@@ -102,7 +102,7 @@ contains
 
       allocate(this % A(ni,0:po))
 
-      select case(basis)
+      select case(nodes)
       case('G') ! Gauss
         do k = 0, po
         do j = 1, ni
@@ -128,7 +128,7 @@ contains
         end do
         end do
       case default
-        call Error('Init_Points', 'Invalid basis', &
+        call Error('Init_Points', 'Invalid nodal basis', &
                    'Embedded_Interpolation_Operator__1D')
       end select
 
@@ -144,7 +144,7 @@ contains
     class(StandardElementOperators_1D), intent(in) :: eop  !< standard operators
     real(RNP), intent(in) :: xi(1:) !< interpolation points in [-1,1]
 
-    call Init_Points(this, eop%basis, eop%x, xi)
+    call Init_Points(this, eop%nodes, eop%x, xi)
 
   end subroutine Init_StdOps
 

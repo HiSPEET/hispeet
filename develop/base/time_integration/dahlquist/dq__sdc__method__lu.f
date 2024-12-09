@@ -79,7 +79,7 @@ contains
 
     ! sanity check .............................................................
 
-    if (sdc_opt % point_set /= 'RR') then
+    if (sdc_opt % nodes /= 'RR') then
       call Error('Init_DQ_SDC_Method_LU','LU corrector requires RR points')
     end if
 
@@ -95,14 +95,14 @@ contains
 
     associate( tau   => this % t     &
              , n_sub => this % n_sub &
-             , w_sub => this % w_sub &
+             , w_nn  => this % w_nn  &
              , q_del => this % q_del )
 
       allocate(St(n_sub,n_sub))
       allocate(LU(n_sub,n_sub))
 
       do j = 1, n_sub
-        St(1:n_sub,j) = w_sub(1:n_sub,j) / (tau(j) - tau(j-1))
+        St(1:n_sub,j) = w_nn(j,1:n_sub) / (tau(j) - tau(j-1))
       end do
 
       call LU_Decomposition(St, LU)
@@ -198,7 +198,7 @@ contains
     integer      :: j
 
     associate( n_sub => this % n_sub &
-             , w_sub => this % w_sub &
+             , w_nn  => this % w_nn  &
              , q_del => this % q_del )
 
       ! initialization ........................................................
@@ -210,7 +210,7 @@ contains
 
       S = 0
       do j = 0, n_sub
-        S = S + dt_step * F(j) * w_sub(j,m)
+        S = S + dt_step * F(j) * w_nn(m,j)
       end do
 
       ! u' = u₀ + Sᵏ

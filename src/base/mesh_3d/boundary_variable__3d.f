@@ -51,7 +51,9 @@ module Boundary_Variable__3D
   contains
 
     procedure :: Init_BoundaryVariable_3D
+    procedure :: GetClone
     procedure :: GetSlice
+    procedure :: SetToZero
 
     generic :: Extract => Extract_A, Extract_S
     procedure, private :: Extract_A, Extract_S
@@ -114,6 +116,18 @@ contains
   end subroutine Init_BoundaryVariable_3D
 
   !-----------------------------------------------------------------------------
+  !> Create a new boundary variable as a clone of the given one
+
+  subroutine GetClone(this, clone, copy)
+    class(BoundaryVariable_3D), intent(in) :: this
+    class(BoundaryVariable_3D), intent(inout) :: clone
+    logical, optional, intent(in) :: copy !< copy into fresh memory [F]
+
+    call this % GetSlice(clone, 1, this%nc, copy)
+
+  end subroutine GetClone
+
+  !-----------------------------------------------------------------------------
   !> Create a new boundary variable as a slice of the given one
   !>
   !> The values of the new variable refer to `this % val` if `copy` is false
@@ -122,8 +136,8 @@ contains
   !> thread.
 
   subroutine GetSlice(this, slice, first, last, copy)
-    class(BoundaryVariable_3D), target, intent(in) :: this
-    class(BoundaryVariable_3D), target, intent(inout) :: slice
+    class(BoundaryVariable_3D), intent(in) :: this
+    class(BoundaryVariable_3D), intent(inout) :: slice
     integer,           intent(in) :: first !< first component of slice
     integer,           intent(in) :: last  !< last component of slice
     logical, optional, intent(in) :: copy  !< copy into fresh memory [F]
@@ -157,6 +171,19 @@ contains
     !$omp end master
 
   end subroutine GetSlice
+
+  !-----------------------------------------------------------------------------
+  !> Set boundary variable to zero
+
+  elemental subroutine SetToZero(this)
+    class(BoundaryVariable_3D), intent(inout) :: this
+
+    if (associated(this % val)) then
+      this % val = ZERO
+    end if
+
+  end subroutine SetToZero
+
 
   !=============================================================================
   ! Extraction from and merging with mesh variables

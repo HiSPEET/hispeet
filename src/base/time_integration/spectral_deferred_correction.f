@@ -52,25 +52,26 @@ module Spectral_Deferred_Correction
   !>      \sum_{j=0}^{M} w^s_{j,i}\, f(\tau_i)
   !>   \]
   !>
-  !> where the weights \(w^s_{j,i}\), denoted `w_sub(j,i)` in Fortran, are
+  !> where the weights \(w^s_{j,i}\), denoted `w_nn(j,i)` in Fortran, are
   !> obtained by application of the Lobatto quadrature with `M+1` points to
   !> the Lagrange interpolant constructed from `f(τᵢ)`.
   !>
-  !> Additionally, `w_col(:,i)` provides the quadrature weights for the interval
-  !> [0,τᵢ]. The transpose of `w_col` represents the coefficients of the related
+  !> Additionally, `w_0n(:,i)` provides the quadrature weights for the interval
+  !> [0,τᵢ]. The transpose of `w_0n` represents the coefficients of the related
   !> collocation method.
 
   type SDC_Method
 
-    character(2) :: point_set !< point set {'E','L','RR'}
-    integer      :: n_col     !< number of collocation points
-    integer      :: n_sub     !< number of subintervals (M)
-    integer      :: n_sweep   !< max num correction sweeps (K)
+    character(2) :: nodes   !< type of collocation points (nodes) {'E','L','RR'}
+    integer      :: p_col   !< polynomial degree of collocation points
+    integer      :: n_col   !< number of collocation points
+    integer      :: n_sub   !< number of subintervals (M)
+    integer      :: n_sweep !< max num correction sweeps (K)
 
-    real(RNP), allocatable :: t(:)       !< subinterval points τᵢ in [0,1]
-    real(RNP), allocatable :: w(:)       !< quadrature weights for [0, 1]
-    real(RNP), allocatable :: w_sub(:,:) !< quadrature weights for [τᵢ₋₁,τᵢ]
-    real(RNP), allocatable :: w_col(:,:) !< quadrature weights for [0,τᵢ]
+    real(RNP), allocatable :: t(:)      !< subinterval points τᵢ in [0,1]
+    real(RNP), allocatable :: w(:)      !< quadrature weights for [0, 1]
+    real(RNP), allocatable :: w_nn(:,:) !< quadrature weights for [τᵢ₋₁,τᵢ]
+    real(RNP), allocatable :: w_0n(:,:) !< quadrature weights for [0,τᵢ]
 
     real(RNP), allocatable, private :: x_quad(:) !< quadrature nodes   in [-1,1]
     real(RNP), allocatable, private :: w_quad(:) !< quadrature weights in [-1,1]
@@ -79,7 +80,8 @@ module Spectral_Deferred_Correction
 
     procedure :: Init_SDC_Method  =>  Init_SDC
     procedure :: Show             =>  Show_SDC_Method
-    procedure :: CollocationlPoints
+    procedure :: CollocationPoints
+    procedure :: CollocationWeights
     procedure :: SubintervalPoints
     procedure :: SubintervalWeights
 
@@ -94,9 +96,9 @@ module Spectral_Deferred_Correction
   !> Type bundling spectral deferred correction options
 
   type SDC_Options
-    character(2) :: point_set = 'L' !< point set ∊ {'E','L','RR'}
-    integer      :: n_col     =  1  !< number of collocation points
-    integer      :: n_sweep   =  0  !< max number of correction sweeps
+    character(2) :: nodes   = 'RR' !< type of collocation points {'E','L','RR'}
+    integer      :: n_col   =  1   !< number of collocation points
+    integer      :: n_sweep =  0   !< max number of correction sweeps
   contains
     procedure :: Bcast => Bcast_SDC_Options
   end type SDC_Options
@@ -118,9 +120,9 @@ contains
     integer :: n
 
     n = 1
-    call XMPI_Ibcast( this % point_set, root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % n_col    , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % n_sweep  , root, comm, request(n) )
+    call XMPI_Ibcast( this % nodes  , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % n_col  , root, comm, request(n) );  n = n + 1
+    call XMPI_Ibcast( this % n_sweep, root, comm, request(n) )
 
     call MPI_Waitall(n, request, MPI_STATUSES_IGNORE)
 
@@ -148,34 +150,34 @@ contains
 
     ! local variables ..........................................................
 
-    integer :: i, p_col
+    integer :: i
 
     ! initialization ...........................................................
 
     if (allocated(this % t     ))  deallocate(this % t     )
     if (allocated(this % w     ))  deallocate(this % w     )
-    if (allocated(this % w_sub ))  deallocate(this % w_sub )
-    if (allocated(this % w_col ))  deallocate(this % w_col )
+    if (allocated(this % w_nn  ))  deallocate(this % w_nn  )
+    if (allocated(this % w_0n  ))  deallocate(this % w_0n  )
     if (allocated(this % w_quad))  deallocate(this % w_quad)
     if (allocated(this % w_quad))  deallocate(this % w_quad)
 
-    this % point_set = opt % point_set
-    this % n_col     = opt % n_col
-    this % n_sweep   = max(0, opt % n_sweep)
+    this % nodes   = opt % nodes
+    this % n_col   = opt % n_col
+    this % n_sweep = max(0, opt % n_sweep)
 
-    select case(this % point_set)
+    select case(this % nodes)
     case('E','L')
       this % n_sub = this % n_col - 1
     case('RR')
       this % n_sub = this % n_col
     case default
       call Error( 'Init_SDC' &
-                , 'point set "' // trim(this%point_set) // '" not supported' &
+                , 'node type "' // trim(this%nodes) // '" not supported' &
                 , 'Spectral_Deferred_Correction')
     end select
 
     ! polynomial degree of the interpolation polynomial
-    p_col = this % n_col - 1
+    this % p_col = this % n_col - 1
 
     associate(n_sub => this % n_sub)
 
@@ -189,21 +191,21 @@ contains
       allocate(this % t(0:n_sub), source = ZERO)
       allocate(this % w(0:n_sub), source = ZERO)
 
-      select case(this % point_set)
+      select case(this % nodes)
       case('E')
         ! equidistant
-        this % t(0:n_sub) = [ ZERO, (i*ONE/n_sub, i = 1,p_col-1), ONE ]
+        this % t(0:n_sub) = [ ZERO, (i*ONE/n_sub, i = 1,this%p_col-1), ONE ]
         this % w(0:n_sub) = GaussLagrangeWeights(this % t)
       case('L')
         ! Lobatto points and weights in [-1,1]
-        this % t(0:n_sub) = LobattoPoints(p_col)
+        this % t(0:n_sub) = LobattoPoints(this % p_col)
         this % w(0:n_sub) = LobattoWeights(this % t)
         ! transform to [0,1]
         this % t(0:n_sub) = HALF * (this % t + ONE)
         this % w(0:n_sub) = HALF * this % w
       case('RR') ! Radau right
         ! right-sided Radau points and weights in [-1,1]
-        this % t(1:n_sub) = RadauPoints(p_col, right = .true.)
+        this % t(1:n_sub) = RadauPoints(this % p_col, right = .true.)
         this % w(1:n_sub) = RadauWeights(this % t(1:n_sub))
         ! transform to [0,1]
         this % t(1:n_sub) = HALF * (this % t(1:n_sub) + ONE)
@@ -215,19 +217,19 @@ contains
 
       ! quadrature weights in [τᵢ₋₁,τᵢ] ........................................
 
-      allocate(this % w_sub (0:n_sub, n_sub) )
+      allocate(this % w_nn (n_sub, 0:n_sub) )
 
       do i = 1, n_sub
-        this % w_sub(:,i) = this % SubintervalWeights(this%t(i-1), this%t(i))
+        this % w_nn(i,:) = this % SubintervalWeights(this%t(i-1), this%t(i))
       end do
 
       ! quadrature weights in [0,τᵢ] ...........................................
 
-      allocate(this % w_col (0:n_sub, n_sub) )
+      allocate(this % w_0n (n_sub, 0:n_sub) )
 
-      this % w_col(:,1) = this % w_sub(:,1)
+      this % w_0n(1,:) = this % w_nn(1,:)
       do i = 2, n_sub
-        this % w_col(:,i) = this % w_col(:,i-1) + this % w_sub(:,i)
+        this % w_0n(i,:) = this % w_0n(i-1,:) + this % w_nn(i,:)
       end do
 
     end associate
@@ -251,29 +253,45 @@ contains
 
     write(io,'(/,A)') 'SDC_Method settings'
     write(io,'(A,/)') repeat('≡',80)
-    write(io,'(2X,A,T15,A )') 'point_set:' , this % point_set
-    write(io,'(2X,A,T15,I0)') 'n_sub'      , this % n_sub
-    write(io,'(2X,A,T15,I0)') 'n_sweeps:'  , this % n_sweep
+    write(io,'(2X,A,T15,A )') 'nodes:'   , this % nodes
+    write(io,'(2X,A,T15,I0)') 'n_sub:'   , this % n_sub
+    write(io,'(2X,A,T15,I0)') 'n_sweeps:', this % n_sweep
 
   end subroutine Show_SDC_Method
 
   !-----------------------------------------------------------------------------
   !> Returns the collocation points transformed to [t0, t0+dt]
 
-  pure function CollocationlPoints(this, t0, dt) result(t)
+  pure function CollocationPoints(this, t0, dt) result(t)
     class(SDC_Method), intent(in) :: this
     real(RNP), intent(in)  :: t0              !< start of the time interval
     real(RNP), intent(in)  :: dt              !< length of the time interval
-    real(RNP)              :: t(0:this%n_col) !< intermediate times
+    real(RNP)              :: t(0:this%p_col) !< intermediate times
 
-    select case(this % point_set)
+    select case(this % nodes)
     case('RR')
       t = t0 + dt * this % t(1:this%n_sub)
     case default
       t = t0 + dt * this % t
     end select
 
-  end function CollocationlPoints
+  end function CollocationPoints
+
+  !-----------------------------------------------------------------------------
+  !> Returns the quadrature weigths for the collocation points1
+
+  pure function CollocationWeights(this) result(w)
+    class(SDC_Method), intent(in) :: this
+    real(RNP) :: w(0:this%p_col) !< collocation weigths
+
+    select case(this % nodes)
+    case('RR')
+      w = this % w(1:this%n_sub)
+    case default
+      w = this % w
+    end select
+
+  end function CollocationWeights
 
   !-----------------------------------------------------------------------------
   !> Returns the subinterval points transformed to [t0, t0+dt]
@@ -317,7 +335,7 @@ contains
       nq = ubound(xq,1)
 
       ! identify first SDC point
-      select case(this % point_set)
+      select case(this % nodes)
       case('RR')
         n0 = 1
       case default

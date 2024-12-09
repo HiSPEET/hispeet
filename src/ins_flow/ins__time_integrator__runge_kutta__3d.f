@@ -32,10 +32,6 @@ module INS__Time_Integrator__Runge_Kutta__3D
 
   type, extends(INS_TimeIntegrator_3D) :: INS_TimeIntegrator_RungeKutta_3D
     type(IMEX_RK_Method) :: imex_rk !< IMEX Runge-Kutta method
-    integer   :: i_max_p !< max num p-iterations   in projection step
-    integer   :: i_max_v !< max num v-iterations   in projection step
-    real(RNP) :: r_red   !< min residual reduction in projection step, if > 0
-    real(RNP) :: r_max   !< max residual to reach  in projection step, if > 0
   contains
     procedure, non_overridable :: Init_INS_TimeIntegrator_RungeKutta_3D
     procedure :: TimeStep
@@ -51,12 +47,8 @@ module INS__Time_Integrator__Runge_Kutta__3D
 
   type, extends(INS_TimeIntegratorOptions_3D) :: &
     INS_TimeIntegrator_RungeKutta_Options_3D
-    integer   :: n_stage = 5    !< number of stages
-    integer   :: method  = 1    !< RK method selector, if more than one exist
-    integer   :: i_max_p = 1000 !< max num p-iterations   in projection step
-    integer   :: i_max_v = 20   !< max num v-iterations   in projection step
-    real(RNP) :: r_red   = 0    !< min residual reduction in projection step, if > 0
-    real(RNP) :: r_max   = 0    !< max residual to reach  in projection step, if > 0
+    integer   :: n_stage = 5 !< number of stages
+    integer   :: method  = 1 !< RK method selector, if more than one exist
   contains
     procedure :: Bcast => Bcast_TimeIntegrator_RungeKutta_Options
   end type INS_TimeIntegrator_RungeKutta_Options_3D
@@ -67,9 +59,9 @@ contains
   !> Constructor for objects of type INS_TimeIntegrator_RungeKutta_3D
 
   function New_INS_TimeIntegrator_RungeKutta_3D(problem, ins_op, opt) result(this)
-    class(INS_Problem_3D),  intent(in) :: problem
-    class(INS_Operator_3D), intent(in) :: ins_op
-    class(INS_TimeIntegrator_RungeKutta_Options_3D), optional, intent(in) :: opt
+    class(INS_Problem_3D),                           intent(in) :: problem
+    class(INS_Operator_3D),                          intent(in) :: ins_op
+    class(INS_TimeIntegrator_RungeKutta_Options_3D), intent(in) :: opt
     type(INS_TimeIntegrator_RungeKutta_3D) :: this
 
     call Init_INS_TimeIntegrator_RungeKutta_3D(this, problem, ins_op, opt)
@@ -80,10 +72,10 @@ contains
   !> Initialization of a INS_TimeIntegrator_RungeKutta_3D object
 
   subroutine Init_INS_TimeIntegrator_RungeKutta_3D(this, problem, ins_op, opt)
-    class(INS_TimeIntegrator_RungeKutta_3D), intent(inout) :: this
-    class(INS_Problem_3D),                   intent(in)    :: problem
-    class(INS_Operator_3D),                  intent(in)    :: ins_op
-    class(INS_TimeIntegrator_RungeKutta_Options_3D), optional, intent(in) :: opt
+    class(INS_TimeIntegrator_RungeKutta_3D),         intent(inout) :: this
+    class(INS_Problem_3D),                           intent(in)    :: problem
+    class(INS_Operator_3D),                          intent(in)    :: ins_op
+    class(INS_TimeIntegrator_RungeKutta_Options_3D), intent(in)    :: opt
 
     ! intialize parent type
     call this % Init_INS_TimeIntegrator_3D(problem, ins_op, opt)
@@ -91,11 +83,7 @@ contains
     ! initialize RK method
     call this % imex_rk % Init_IMEX_RK_Method(opt % n_stage, opt % method)
 
-    this % name    = 'Runge-Kutta method: '// trim(this % imex_rk % name)
-    this % i_max_p = opt % i_max_p
-    this % i_max_v = opt % i_max_v
-    this % r_red   = opt % r_red
-    this % r_max   = opt % r_max
+    this % name = 'Runge-Kutta method: '// trim(this % imex_rk % name)
 
   end subroutine Init_INS_TimeIntegrator_RungeKutta_3D
 
@@ -568,11 +556,7 @@ contains
 
     n = 1
     call XMPI_Ibcast( this % n_stage, root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % method , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % i_max_p, root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % i_max_v, root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % r_red  , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % r_max  , root, comm, request(n) )
+    call XMPI_Ibcast( this % method , root, comm, request(n) )
 
     call MPI_Waitall( n, request, MPI_STATUSES_IGNORE )
 

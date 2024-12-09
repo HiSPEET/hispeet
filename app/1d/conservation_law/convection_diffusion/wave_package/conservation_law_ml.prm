@@ -21,12 +21,12 @@
   sdc_method  = 2
 
   ! sdc_method 1: SDC based on Euler
-  opt_sdc_euler%point_set        = 'L'
+  opt_sdc_euler%nodes            = 'L'
   opt_sdc_euler%diffusion_method = 4
   opt_sdc_euler%diffusion_i_max  = 100
 
   ! sdc_method = 2: SDC based on ISD1
-  opt_sdc_isd1%point_set        = 'L'
+  opt_sdc_isd1%nodes            = 'L'
   opt_sdc_isd1%diffusion_method = 4
   opt_sdc_isd1%diffusion_i_max  = 1000
 /

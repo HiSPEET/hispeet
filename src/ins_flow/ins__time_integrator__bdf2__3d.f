@@ -28,10 +28,6 @@ module INS__Time_Integrator__BDF2__3D
   !> BDF2 method for incompressible flows
 
   type, extends(INS_TimeIntegrator_3D) :: INS_TimeIntegrator_BDF2_3D
-    integer   :: i_max_p !< max num p-iterations   in projection step
-    integer   :: i_max_v !< max num v-iterations   in projection step
-    real(RNP) :: r_red   !< min residual reduction in projection step, if > 0
-    real(RNP) :: r_max   !< max residual to reach  in projection step, if > 0
   contains
     procedure, non_overridable :: Init_INS_TimeIntegrator_BDF2_3D
     procedure :: TimeStep
@@ -47,12 +43,8 @@ module INS__Time_Integrator__BDF2__3D
 
   type, extends(INS_TimeIntegratorOptions_3D) :: &
     INS_TimeIntegrator_BDF2_Options_3D
-    integer   :: i_max_p = 5 !< max num p-iterations   in projection step
-    integer   :: i_max_v = 2 !< max num v-iterations   in projection step
-    real(RNP) :: r_red   = 0 !< min residual reduction in projection step, if > 0
-    real(RNP) :: r_max   = 0 !< max residual to reach  in projection step, if > 0
   contains
-    procedure :: Bcast => Bcast_INS_TimeIntegrator_BDF2_3D
+    procedure :: Bcast => Bcast_INS_TimeIntegrator_BDF2_Options
   end type INS_TimeIntegrator_BDF2_Options_3D
 
 contains
@@ -61,9 +53,9 @@ contains
   !> Constructor for objects of type INS_TimeIntegrator_BDF2_3D
 
   function New_INS_TimeIntegrator_BDF2_3D(problem, ins_op, opt) result(this)
-    class(INS_Problem_3D),  intent(in) :: problem
-    class(INS_Operator_3D), intent(in) :: ins_op
-    class(INS_TimeIntegrator_BDF2_Options_3D), optional, intent(in) :: opt
+    class(INS_Problem_3D),                     intent(in) :: problem
+    class(INS_Operator_3D),                    intent(in) :: ins_op
+    class(INS_TimeIntegrator_BDF2_Options_3D), intent(in) :: opt
     type(INS_TimeIntegrator_BDF2_3D) :: this
 
     call Init_INS_TimeIntegrator_BDF2_3D(this, problem, ins_op, opt)
@@ -74,19 +66,15 @@ contains
   !> Initialization of a INS_TimeIntegrator_BDF2_3D object
 
   subroutine Init_INS_TimeIntegrator_BDF2_3D(this, problem, ins_op, opt)
-    class(INS_TimeIntegrator_BDF2_3D), intent(inout) :: this
-    class(INS_Problem_3D),             intent(in)    :: problem
-    class(INS_Operator_3D),            intent(in)    :: ins_op
-    class(INS_TimeIntegrator_BDF2_Options_3D), optional, intent(in) :: opt
+    class(INS_TimeIntegrator_BDF2_3D),         intent(inout) :: this
+    class(INS_Problem_3D),                     intent(in)    :: problem
+    class(INS_Operator_3D),                    intent(in)    :: ins_op
+    class(INS_TimeIntegrator_BDF2_Options_3D), intent(in)    :: opt
 
     ! intialize parent type
     call this % Init_INS_TimeIntegrator_3D(problem, ins_op, opt)
 
     this % name    = 'BDF2 method'
-    this % i_max_p = opt % i_max_p
-    this % i_max_v = opt % i_max_v
-    this % r_red   = opt % r_red
-    this % r_max   = opt % r_max
 
   end subroutine Init_INS_TimeIntegrator_BDF2_3D
 
@@ -310,10 +298,11 @@ contains
 
       ! extrapolation-projection-diffusion step ................................
 
-      call this % ProjectionStep( tau, t, v_0, F_c, F_d, Q       &
-                                , bv_u, mu, nu, u                &
-                                , this % i_max_p, this % i_max_v &
-                                , this % r_red  , this % r_max   )
+      if (this % i_krylov > 0) then
+        call this % FGMRES_Step(tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+      else
+        call this % ProjectionStep(tau, t, v_0, F_c, F_d, Q , bv_u, mu, nu, u)
+      end if
 
       ! cleanup ................................................................
 
@@ -344,26 +333,14 @@ contains
   !-----------------------------------------------------------------------------
   !> MPI broadcasting of BDF2 time-integrator options
 
-  subroutine Bcast_INS_TimeIntegrator_BDF2_3D(this, root, comm)
+  subroutine Bcast_INS_TimeIntegrator_BDF2_Options(this, root, comm)
     class(INS_TimeIntegrator_BDF2_Options_3D), intent(inout) :: this
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    type(MPI_Request) :: request(4)
-    type(MPI_Status)  :: stat(size(request))
-    integer :: n
-
     call this % INS_TimeIntegratorOptions_3D % Bcast(root, comm)
 
-    n = 1
-    call XMPI_Ibcast( this % i_max_p, root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % i_max_v, root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % r_red  , root, comm, request(n) );  n = n + 1
-    call XMPI_Ibcast( this % r_max  , root, comm, request(n) )
-
-    call MPI_Waitall( n, request, stat )
-
-  end subroutine Bcast_INS_TimeIntegrator_BDF2_3D
+  end subroutine Bcast_INS_TimeIntegrator_BDF2_Options
 
   !=============================================================================
 
