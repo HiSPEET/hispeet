@@ -208,7 +208,7 @@ contains
              , l_rk    => this % l_rk              &
              , impl    => this % impl              &
              , n_sub   => this % n_sub             &
-             , w_sub   => this % w_sub             )
+             , w_nn    => this % w_nn              )
 
       ! initialization .........................................................
 
@@ -285,7 +285,7 @@ contains
         ! SDC subinterval integral
         S = 0
         do i = 0, n_sub
-          S = S + dt * F(i) * w_sub(i,m)
+          S = S + dt * F(i) * w_nn(m,i)
         end do
 
         ! assembly

@@ -47,7 +47,7 @@ module HP__Coarsening_Operator__1D
   !> restricted to equidistant (`E`) or Lobatto (`L`) bases.
 
   type, public :: HP_CoarseningOperator_1D
-    character(len=2) :: basis          !< basis type
+    character(len=2) :: nodes          !< nodal basis type
     integer          :: po_f           !< polynomial order of fine mesh
     integer          :: po_c           !< polynomial order of coarse mesh
     integer          :: mode           !< coarsening mode
@@ -66,7 +66,7 @@ module HP__Coarsening_Operator__1D
   !> Options for initializing the hp-coarsening operator
 
   type, public :: HP_CoarseningOptions_1D
-    character(len=2) :: basis  = 'L' !< basis type {'E','G','L','RL','RR'}
+    character(len=2) :: nodes  = 'L' !< node set {'E','G','L','RL','RR'}
     integer          :: po_f   = -1  !< polynomial order of fine mesh
     integer          :: po_c   = -1  !< polynomial order of coarse mesh
     integer          :: mode   = -1  !< coarsening mode {0,1,2}
@@ -102,10 +102,10 @@ contains
     this % po_f   = opt % po_f
     this % po_c   = opt % po_c
     this % mode   = opt % mode
-    this % basis  = opt % basis
+    this % nodes  = opt % nodes
     this % method = opt % method
 
-    select case(this % basis)
+    select case(this % nodes)
     case('E','L')
       this % smooth = max(min(opt % smooth, 2), 0)
     case default
@@ -138,7 +138,7 @@ contains
 
     ! collocation points .......................................................
 
-    select case(this % basis)
+    select case(this % nodes)
     case('E')
       block
         integer :: i
@@ -221,7 +221,7 @@ contains
 
       do j = 0, po_f
       do q = 0, po_q
-        select case(this % basis)
+        select case(this % nodes)
         case('E')
           z = LagrangePolynomial(j, x_f, x_q(q))
         case('G')
@@ -257,7 +257,7 @@ contains
 
       integer :: i, j
 
-      select case(this % basis)
+      select case(this % nodes)
 
       case('E') ! Nodal with equidistant spacing
         do i = 0, po_c
@@ -306,7 +306,7 @@ contains
 
       do j = 0, po_f
       do q = 0, po_q
-        select case(this % basis)
+        select case(this % nodes)
         case('E')
           z = LagrangePolynomial(j, x_f, x_q(q))
         case('G')
@@ -355,7 +355,7 @@ contains
         x_c2f(1) = 2*x_c(i     ) + ONE ! coarse point mapped to left  element
         x_c2f(2) = 2*x_c(i+o2_f) - ONE ! coarse point mapped to right element
 
-        select case(this % basis)
+        select case(this % nodes)
         case('E') ! Nodal with equidistant spacing
           do j = 0, po_f
             this % A(i,j,1) = LagrangePolynomial(j, x_f, x_c2f(1))
@@ -386,7 +386,7 @@ contains
 
       end do
 
-      select case(this % basis)
+      select case(this % nodes)
       case('E','G','L')
         ! averaging at interface
         if (mod(po_c,2) == 0) then

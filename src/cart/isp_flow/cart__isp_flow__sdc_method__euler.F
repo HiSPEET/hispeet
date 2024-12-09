@@ -256,7 +256,7 @@ contains
     integer   :: i
 
     associate( n_sub   => this % n_sub            &
-             , w_sub   => this % w_sub            &
+             , w_nn    => this % w_nn             &
              , problem => this % problem          &
              , flow_op => this % flow_op          &
              , mesh    => this % flow_op % mesh   &
@@ -320,7 +320,7 @@ contains
 
       ! u' = u' + Sᵏ, i.e. adding the spectral part Sᵏ = ∫F dt over subinterval m
       do i = 0, n_sub
-        call MergeArrays(ONE, u_i, dt * w_sub(i,m), F_sdc(:,:,:,:,:,i), multi=.true.)
+        call MergeArrays(ONE, u_i, dt * w_nn(m,i), F_sdc(:,:,:,:,:,i), multi=.true.)
       end do
 
       ! projection .............................................................

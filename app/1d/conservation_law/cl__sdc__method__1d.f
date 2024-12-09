@@ -190,10 +190,10 @@ contains
 
     write(io,'(/,A)') 'CL_SDC_Method_1D settings'
     write(io,'(A,/)') repeat('≡',80)
-    write(io,'(2X,A,T15,A )') 'point_set:' , this % point_set
-    write(io,'(2X,A,T15,I0)') 'n_col:'     , this % n_col
-    write(io,'(2X,A,T15,I0)') 'n_sub:'     , this % n_sub
-    write(io,'(2X,A,T15,I0)') 'n_sweep:'   , this % n_sweep
+    write(io,'(2X,A,T13,A )') 'nodes:'  , this % nodes
+    write(io,'(2X,A,T13,I0)') 'n_col:'  , this % n_col
+    write(io,'(2X,A,T13,I0)') 'n_sub:'  , this % n_sub
+    write(io,'(2X,A,T13,I0)') 'n_sweep:', this % n_sweep
 
     call this % predictor % Show(unit)
 
@@ -338,7 +338,7 @@ contains
       if (this % final_assembly) then
         call SetArray(u, u_0, multi = .true.)
         do i = 0, n_sub
-          associate(w_i => this%w_col(i,n_sub), u_i => u_(:,:,:,i))
+          associate(w_i => this%w_0n(n_sub,i), u_i => u_(:,:,:,i))
             if (w_i /= 0) then
               call MergeArrays(ONE, u, dt*w_i, u_i, multi=.true.)
             end if

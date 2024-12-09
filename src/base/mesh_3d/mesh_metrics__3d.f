@@ -99,7 +99,7 @@ contains
       np = po + 1
       ne = mesh % n_elem
 
-      call mesh % GetPoints(po, std_op % basis, this % x)
+      call mesh % GetPoints(po, std_op % nodes, this % x)
 
       allocate( this % Jm (0:po,0:po,0:po,ne,3,3) )
       allocate( this % Ji (0:po,0:po,0:po,ne,3,3) )

@@ -241,7 +241,7 @@ contains
     integer   :: e, i, k
 
     associate( n_sub    => this % n_sub           &
-             , w_sub    => this % w_sub           &
+             , w_nn     => this % w_nn            &
              , nc       => cl_problem  % nc       &
              , eop      => cl_operator % eop      &
              , dx       => cl_operator % dx       &
@@ -270,20 +270,20 @@ contains
       ! high-order quadrature ..................................................
 
       do k = 1, nc
-        select case(this % point_set)
+        select case(this % nodes)
         case('RR')
           ! omit left point with Radau-right
           call SetArray(S(:,:,k), ZERO)
         case default
           ! initialize with contribution of left point (i = 0)
           do e = 1, ne
-            S(:,e,k) = dt * w_sub(0,m) * F(:,e,k,0)
+            S(:,e,k) = dt * w_nn(m,0) * F(:,e,k,0)
           end do
         end select
         ! add contribution of remaining points
         do i = 1, n_sub
         do e = 1, ne
-          S(:,e,k) = S(:,e,k) + dt * w_sub(i,m) * F(:,e,k,i)
+          S(:,e,k) = S(:,e,k) + dt * w_nn(m,i) * F(:,e,k,i)
         end do
         end do
       end do

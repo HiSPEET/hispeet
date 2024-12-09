@@ -11,7 +11,7 @@
   ins_op_opts%eop_p%StandardElementOptions_1D%po =  2
   ins_op_opts%eop_p%penalty                      = 20
   ins_op_opts%sop_q%po                           =  3
-  ins_op_opts%sop_q%basis                        = 'L'
+  ins_op_opts%sop_q%nodes                        = 'L'
 !
 ! Euler options
   ins_ti_euler_opts%i_max_p = 1000

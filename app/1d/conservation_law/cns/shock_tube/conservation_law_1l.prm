@@ -59,7 +59,7 @@
   ! time_method = 5: TVD-RK3, no options
 
   ! sdc_method = 1: SDC based on Euler
-  cl_sdc_euler_opt%point_set         =   'L'
+  cl_sdc_euler_opt%nodes             =   'L'
   cl_sdc_euler_opt%n_col             =    1
   cl_sdc_euler_opt%n_sweep           =    0
 ! cl_sdc_euler_opt%diffusion_start   =    1
@@ -67,7 +67,7 @@
   cl_sdc_euler_opt%diffusion_i_max   =  100
 
   ! sdc_method = 2: SDC based on ISD1
-  cl_sdc_isd1_opt%point_set          =  'RR'
+  cl_sdc_isd1_opt%nodes              =  'RR'
   cl_sdc_isd1_opt%n_col              =    6
   cl_sdc_isd1_opt%n_sweep            =   10
 ! cl_sdc_isd1_opt%diffusion_start    =    1

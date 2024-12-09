@@ -158,12 +158,12 @@ contains
 
     write(io,'(/,A)') 'DQ_SDC_Method settings'
     write(io,'(A,/)') repeat('≡',80)
-    write(io,'(2X,A,T15,A)')  'point_set:' , this % point_set
-    write(io,'(2X,A,T15,I0)') 'n_sub:'     , this % n_sub
-    write(io,'(2X,A,T15,I0)') 'n_sweep:'   , this % n_sweep
-    write(io,'(2X,A,T15,I0)') 'impl:'      , this % impl
-    write(io,'(2X,A,T15,L1)') 'predict:'   , this % predict
-    write(io,'(2X,A,T15,L1)') 'assembly:'  , this % assembly
+    write(io,'(2X,A,T13,A)')  'nodes:'   , this % nodes
+    write(io,'(2X,A,T13,I0)') 'n_sub:'   , this % n_sub
+    write(io,'(2X,A,T13,I0)') 'n_sweep:' , this % n_sweep
+    write(io,'(2X,A,T13,I0)') 'impl:'    , this % impl
+    write(io,'(2X,A,T13,L1)') 'predict:' , this % predict
+    write(io,'(2X,A,T13,L1)') 'assembly:', this % assembly
 
     call this % predictor % Show(unit)
 
@@ -279,7 +279,7 @@ contains
     ! result ...................................................................
 
     if (this % assembly) then
-      u = u + dt * dot_product(F_, this % w_col(:,n_sub))
+      u = u + dt * dot_product(F_, this % w_0n(n_sub,:))
     else
       u = u_(n_sub)
     end if
