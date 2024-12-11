@@ -7,11 +7,12 @@
 program Test_HP_Coarsening
   use Kind_Parameters
   use Constants
-  use Gauss_Jacobi
   use Standard_Element_Operators__1D
   use Embedded_Interpolation_Operator__1D
-  use Projection_Operator__1D
+  use HP__Coarsening_Operator__1D
   implicit none
+
+  character(len=80) :: test_case = ''
 
   integer      :: mode    =  2    ! p coarsening (1) or hp coarsening (2)
   integer      :: po_f    =  7    ! fine element order
@@ -25,62 +26,111 @@ program Test_HP_Coarsening
 
   namelist/input/ mode, po_f, po_c, nodes, method, smooth, jmp_rot, jmp_lft, n_s
 
-  type(StandardElementOperators_1D)      :: eop_b
   type(StandardElementOperators_1D)      :: eop_c
-  type(ProjectionOperator_1D)            :: pop_cb
-  type(EmbeddedInterpolationOperator_1D) :: iop_bs
+  type(StandardElementOperators_1D)      :: eop_f
+  type(HP_CoarseningOperator_1D)         :: pop_fc
+  type(HP_CoarseningOptions_1D)          :: opt_fc
+  type(EmbeddedInterpolationOperator_1D) :: iop_fs
   type(EmbeddedInterpolationOperator_1D) :: iop_cs
 
-  real(RNP), allocatable :: x_s(:) ! sampling point coordinates
-  real(RNP), allocatable :: f_s(:) ! exact     function at sampling points
-  real(RNP), allocatable :: f_c(:) ! original  function at collocation points
-  real(RNP), allocatable :: f_i(:) ! original  function at sampling points
-  real(RNP), allocatable :: f_b(:) ! projected function at basis nodes
-  real(RNP), allocatable :: f_p(:) ! projected function at sampling points
-  logical :: exists
-  integer :: i, io
+  real(RNP), allocatable :: x_f (:,:) ! fine element nodes
+  real(RNP), allocatable :: u_f (:,:) ! fine element coefficients
+  real(RNP), allocatable :: u_c (:)   ! coarse element coefficients
+  real(RNP), allocatable :: xi_s(:)   ! sampling point standard coordinates
+  real(RNP), allocatable :: x_s (:)   ! sampling point coordinates
+  real(RNP), allocatable :: u_fs(:)   ! fine solution
+  real(RNP), allocatable :: u_cs(:)   ! coarse solution
+
+  integer :: i, io, n_s2, stat
+
+  ! initialization .............................................................
 
   ! read parameters
-  inquire(file='test_l2_projection.prm', exist=exists)
-  if (exists) then
-    open(newunit=io, file='test_l2_projection.prm')
+  call get_command_argument(1, test_case, status=stat)
+  if (stat == 0) then
+    open(newunit=io, file=trim(test_case)//'.prm')
     read(io,input)
     close(io)
+  else
+    test_case = ''
   end if
 
-  ! standard operators
-  eop_b = StandardElementOperators_1d(po_b, nodes_b) ! using basis nodes
-  eop_c = StandardElementOperators_1d(po_c, nodes_c) ! using collocation points
+  eop_c = StandardElementOperators_1d(po_c, nodes)
+  eop_f = StandardElementOperators_1d(po_f, nodes)
 
-  ! exact function at sampling points
-  allocate(x_s(0:n_s), source = [(real(TWO*i/n_s - ONE, RNP), i = 0, n_s)])
-  allocate(f_s(0:n_s), source = real(sin(PI * x_s), RNP))
+  opt_fc % nodes  = nodes
+  opt_fc % po_f   = po_f
+  opt_fc % po_c   = po_c
+  opt_fc % mode   = mode
+  opt_fc % method = method
+  opt_fc % smooth = smooth
 
-  ! projection and interpolation operators
-  pop_cb = ProjectionOperator_1D(eop_b, eop_c % x, eop_c % nodes)
-  iop_bs = EmbeddedInterpolationOperator_1D(eop_b, x_s)
-  iop_cs = EmbeddedInterpolationOperator_1D(eop_c, x_s)
+  pop_fc = HP_CoarseningOperator_1D(opt_fc)
 
-  ! original function at collocation points
-  allocate(f_c(0:po_c), source = real(sin(PI * eop_c%x), RNP))
+  ! fine element nodes and coefficients ........................................
 
-  ! projected function at basis nodes
-  allocate(f_b(0:po_b), source = matmul(pop_cb%A, f_c))
+  select case(mode)
+  case(1)
+    allocate(x_f(0:po_f,1), source = reshape(eop_f % x, [po_f+1,1]))
+    allocate(u_f(0:po_f,1), source = real(sin(PI * x_f), RNP))
 
-  ! interpolation to sampling points
-  allocate(f_i(0:n_s), source = matmul(iop_cs%A, f_c))
-  allocate(f_p(0:n_s), source = matmul(iop_bs%A, f_b))
+  case(2)
+    allocate(x_f(0:po_f,2))
+    x_f(:,1) = HALF * (eop_f % x + 1) - 1
+    x_f(:,2) = HALF * (eop_f % x + 1)
+    allocate(u_f(0:po_f,2), source = real(sin(PI * x_f), RNP))
+    ! jump by rotation
+    u_f(:,1) = u_f(:,1) + HALF * jmp_rot * (x_f(:,1) + 1)
+    u_f(:,2) = u_f(:,2) - HALF * jmp_rot *  x_f(:,2)
+    ! jump by lifting
+    u_f(:,1) = u_f(:,1) + HALF * jmp_lft
+    u_f(:,2) = u_f(:,2) - HALF * jmp_lft
 
-  ! control output
-  write(*,'(2X,A,ES10.3)') 'interpolation error =', maxval(abs(f_i - f_s))
-  write(*,'(2X,A,ES10.3)') 'projection    error =', maxval(abs(f_p - f_i))
+  end select
 
-  ! output
-  open(newunit = io, file = 'test_l2_projection.dat')
-  write(io,'(A)') '#    x             f             f_i           f_p'
-  do i = 0, n_s
-    write(io,'(4(ES12.5,2X))') x_s(i), f_s(i), f_i(i), f_p(i)
+  ! fine-to-coarse projection ..................................................
+
+  allocate(u_c(0:po_c), source = ZERO)
+  do i = 1, mode
+    u_c = u_c + matmul(pop_fc % A(:,:,i), u_f(:,i))
+  end do
+
+  ! interpolation to sampling points ...........................................
+
+  allocate(xi_s(0:n_s), source = [(real(TWO*i/n_s - ONE, RNP), i = 0, n_s)])
+
+  select case(mode)
+  case(1)
+    allocate(x_s(0:n_s), source = xi_s)
+    iop_fs = EmbeddedInterpolationOperator_1D(eop_f, xi_s)
+    iop_cs = EmbeddedInterpolationOperator_1D(eop_c, xi_s)
+    allocate(u_fs, u_cs, mold = x_s)
+    u_fs = matmul(iop_fs % A, u_f(:,1))
+    u_cs = matmul(iop_cs % A, u_c)
+
+  case(2)
+    n_s2 = 2 * n_s + 1
+    allocate(x_s(0:n_s2))
+    x_s( 0    :n_s  ) = HALF * (xi_s + 1) - 1
+    x_s( n_s+1:n_s2 ) = HALF * (xi_s + 1)
+    iop_fs = EmbeddedInterpolationOperator_1D(eop_f, xi_s)
+    iop_cs = EmbeddedInterpolationOperator_1D(eop_c, x_s)
+    allocate(u_fs, u_cs, mold = x_s)
+    u_fs( 0    :n_s  ) = matmul(iop_fs % A, u_f(:,1))
+    u_fs( n_s+1:n_s2 ) = matmul(iop_fs % A, u_f(:,2))
+    u_cs = matmul(iop_cs % A, u_c)
+
+  end select
+
+  ! output .....................................................................
+
+  open(newunit = io, file = trim(test_case)//'.dat')
+  write(io,'(A)') '#    x             u_f           u_c'
+  do i = 0, ubound(x_s,1)
+    write(io,'(3(ES12.5,2X))') x_s(i), u_fs(i), u_cs(i)
   end do
   close(io)
+
+  !=============================================================================
 
 end program Test_HP_Coarsening

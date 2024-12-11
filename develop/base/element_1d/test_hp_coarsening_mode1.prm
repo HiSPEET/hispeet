@@ -1,0 +1,11 @@
+&input
+  mode    =  1    ! p coarsening (1) or hp coarsening (2)
+  po_f    = 15    ! fine element order
+  po_c    =  7    ! coarse element order
+  nodes   = 'L'   ! node type
+  method  = 'I'   ! use interpolation 'I' or L²-projection 'P'
+  n_s     =  80   ! number of sampling intervals per element
+/
+
+
+

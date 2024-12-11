@@ -17,5 +17,8 @@ add_executable( test_hp_coarsening
 
 target_link_libraries(test_hp_coarsening HiBase)
 
-configure_file( test_hp_coarsening.prm 
-                test_hp_coarsening.prm COPYONLY )
+configure_file( test_hp_coarsening_mode1.prm 
+                test_hp_coarsening_mode1.prm COPYONLY )
+
+configure_file( test_hp_coarsening_mode2.prm 
+                test_hp_coarsening_mode2.prm COPYONLY )
