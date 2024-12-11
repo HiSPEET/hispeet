@@ -99,8 +99,8 @@ set ( SPECTRAL_ELEMENT
       spectral_element/embedded_interpolation_operator__3d.f
 
       spectral_element/projection_operator__1d.f
-      spectral_element/projection_operator__3d.f
     )
+#     spectral_element/projection_operator__3d.f
 
 #===============================================================================
 # time_integration

@@ -12,6 +12,7 @@ module CART__ISP_Flow__Pressure__MO
   use Constants,       only: ONE
   use Array_Assignments
   use Array_Reductions
+  use TPO__AAA__3D
   use TPO__Diagonal__3D
   use ISP_Flow_Problem
   use CART__Mesh_Partition
@@ -56,7 +57,7 @@ contains
     real(RNP), pointer, contiguous, save :: q(:,:,:,:)     ! pressure  @ po_p
     type(BoundaryVariable), allocatable, save :: bv_q(:)   ! boundary values for q
 
-    real(RNP) :: r_2
+    real(RNP) :: c, r_2
     integer   :: pq, pv, ne, ni
     integer   :: b
 
@@ -92,9 +93,10 @@ contains
       !$omp end single
 
       ! f = -∫ψ(∇·ṽ)dx / ∆t
+      c = -product(mesh%dx) / (8 * dt)
       call WeakDivergence(mesh, eop_u%w, eop_u%D, v_i, div_v)
-      call ScaleArray(div_v, -ONE/dt)
-      call pop_up % Apply(div_v, f)
+      call TPO_AAA(pop_up%MA, div_v, f)
+      call ScaleArray(f, c)
 
       ! compute and apply boundary conditions
       call GetImpliedBC(problem, mesh, pop_up%A, dt, v_i, flow_op%bv_u, bv_q)
@@ -188,7 +190,7 @@ contains
     real(RNP), pointer, contiguous, save :: q(:,:,:,:)     ! pressure  @ po_p
     type(BoundaryVariable), allocatable, save :: bv_q(:)   ! boundary values for q
 
-    real(RNP) :: r_2
+    real(RNP) :: c, r_2
     integer   :: pq, pv, ne, ni
     integer   :: b
 
@@ -224,9 +226,10 @@ contains
       !$omp end single
 
       ! f = -∫ψ(∇·ṽ)dx / ∆t
+      c = -product(mesh%dx) / (8 * dt)
       call WeakDivergence(mesh, eop_u%w, eop_u%D, v_i, div_v)
-      call ScaleArray(div_v, -ONE/dt)
-      call pop_up % Apply(div_v, f)
+      call TPO_AAA(pop_up%MA, div_v, f)
+      call ScaleArray(f, c)
 
       ! compute and apply boundary conditions
       call GetConsistentBC(problem, mesh, iop_up%A, flow_op%bv_x, t, F_v, bv_q)

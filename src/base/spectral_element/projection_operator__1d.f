@@ -1,150 +1,158 @@
 !> summary:  Projection operator
 !> author:   Joerg Stiller
-!> date:     2019/02/22
+!> date:     2019/02/22, 2024/12/09
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
 module Projection_Operator__1D
   use Kind_Parameters, only: RNP
-  use Constants,       only: HALF
+  use Constants,       only: ZERO, TWO
   use Gauss_Jacobi
+  use Lagrange_Interpolation
   use Standard_Element_Operators__1D
   implicit none
   private
 
+  public :: ProjectionOperator_1D
+
   !-----------------------------------------------------------------------------
   !> Element-based projection operators
   !>
-  !> Provides the one-dimensional operators `A` and `MA` such that for a single
-  !> element of length `dx`
+  !> Provides the one-dimensional operators `A` and `MA` such that
   !>
-  !>      (MA u)ᵢ = ∑ 𝓁ᵢ(ξ(:)) w(:) u(x(ξ(:))) ≈ ∫ 𝓁ᵢu dx
+  !>      (MA f)ᵢ ≈ ∫ 𝓁ᵢ(ξ) f(ξ) dξ
   !>
-  !> is the mass-weighted projection of `u` using quadrature points `ξ(:)` and
-  !> wights `w(:)` and
+  !> is the mass-weighted projection of the function f  in the standard element
+  !> [-1,1] and
   !>
-  !>      (A u)ᵢ = (M⁻¹ MA u)ᵢ ≈ ∫ 𝓁ᵢu dξ / ∫𝓁ᵢ𝓁ᵢ dξ
+  !>      (A u)ᵢ = (M⁻¹ MA u)ᵢ ≈ ∫ 𝓁ᵢ(ξ) f(ξ) dξ / ∫𝓁ᵢ𝓁ᵢ dξ
   !>
-  !> is the L2 projection of `u`.
+  !> is the L2 projection of f.
 
-  type, public :: ProjectionOperator_1D
-
-    integer :: nq = -1 !< number of quadrature points per direction
-    integer :: np = -1 !< number of projection points per direction
-    real(RNP), allocatable :: A (:,:) !< 1D L2 projection operator
-    real(RNP), allocatable :: MA(:,:) !< 1D mass-weighted projection operator
-
-  contains
-
-    generic :: Init_ProjectionOperator_1D => Init_SX
-    procedure, private :: Init_SX
-
+  type ProjectionOperator_1D
+    integer :: po_b = -1 !< polynomial order of the basis {𝓁ᵢ}
+    integer :: po_f = -1 !< polynomial order of the projected function
+    real(RNP), allocatable :: A (:,:) !< L2 projection operator (0:po_b,0:po_f)
+    real(RNP), allocatable :: MA(:,:) !< mass-weighted operator (0:po_b,0:po_f)
   end type ProjectionOperator_1D
 
   ! constructor interface
   interface ProjectionOperator_1D
-    module procedure New_SX
+    module procedure New_ProjectionOperator_1D
   end interface
 
 contains
 
-  !=============================================================================
-  ! Constructors
-
   !-----------------------------------------------------------------------------
   !> New ProjectionOperator_1D from 1D standard operators and interpolation
-  !> points
 
-  type(ProjectionOperator_1D) function New_SX(eop, xq, wq, dx) result(this)
+  function New_ProjectionOperator_1D(eop, x, nodes) result(this)
     class(StandardElementOperators_1D), intent(in) :: eop !< standard operators
-    real(RNP), intent(in) :: xq(:) !< quadrature points
-    real(RNP), intent(in) :: wq(:) !< quadrature weights
-    real(RNP), intent(in) :: dx    !< element length
+    real(RNP),              intent(in) :: x(0:) !< node coordinates
+    character(2), optional, intent(in) :: nodes !< node type
+    type(ProjectionOperator_1D) :: this
 
-    call Init_SX(this, eop, xq, wq, dx)
+    call Init_ProjectionOperator_1D(this, eop, x, nodes)
 
-  end function New_SX
-
-  !=============================================================================
-  ! Type-bound procedures
+  end function New_ProjectionOperator_1D
 
   !-----------------------------------------------------------------------------
   !> Initialization
 
-  subroutine Init_SX(this, eop, xq, wq, dx)
-    class(ProjectionOperator_1D),  intent(inout) :: this
+  subroutine Init_ProjectionOperator_1D(this, eop, x, nodes)
+    class(ProjectionOperator_1D), intent(inout) :: this
     class(StandardElementOperators_1D), intent(in) :: eop !< standard operators
-    real(RNP), intent(in) :: xq(:) !< quadrature points
-    real(RNP), intent(in) :: wq(:) !< quadrature weights
-    real(RNP), intent(in) :: dx    !< element length
+    real(RNP),              intent(in) :: x(0:) !< node coordinates
+    character(2), optional, intent(in) :: nodes !< node type
 
-    real(RNP), allocatable :: VL(:,:)
-    integer :: i, k, nq
+    real(RNP), allocatable :: x_g(:), w_g(:)
+    real(RNP), allocatable :: x_q(:), w_q(:)
+    real(RNP), allocatable :: C(:,:), VL_inv(:,:)
+    real(RNP) :: z
 
-    if (this % nq > 0) call Delete_ProjectionOperator(this)
+    character(2) :: nodes_f
+    integer :: po_b, po_f, po_q
+    integer :: i, j, k, q
 
-    associate(po => eop%po, xo => eop%x)
+    ! initialization ...........................................................
 
-      nq = size(xq)
+    po_b = eop % po
+    po_f = ubound(x, 1)
+    po_q = max(po_b, po_f)
 
-      this % nq = nq
-      this % np = po + 1
+    if (present(nodes)) then
+      nodes_f = nodes
+    else
+      nodes_f = ''
+    end if
 
-      allocate(this % A (0:po,1:nq))
-      allocate(this % MA(0:po,1:nq))
+    this % po_b = po_b
+    this % po_f = po_f
 
-      associate(A => this%A, MA => this%MA)
+    allocate(this % A  (0:po_b, 0:po_f), source = ZERO)
+    allocate(this % MA (0:po_b, 0:po_f), source = ZERO)
 
-        ! mass-weighted L2 projection operator for standard element
-        select case(eop % nodes)
-        case('G') ! Gauss
-          do k = 1, nq
-          do i = 0, po
-            MA(i,k) = GaussPolynomial(i, xo, xq(k)) * wq(k)
-          end do
-          end do
-        case('RL','RR') ! Radau
-          do k = 1, nq
-          do i = 0, po
-            MA(i,k) = RadauPolynomial(i, xo, xq(k)) * wq(k)
-          end do
-          end do
-        case default ! Lobatto
-          do k = 1, nq
-          do i = 0, po
-            MA(i,k) = LobattoPolynomial(i, xo, xq(k)) * wq(k)
-          end do
-          end do
+    ! Gauss points and weights to basis order
+    allocate(x_g(0:po_b), source = GaussPoints(po_b))
+    allocate(w_g(0:po_b), source = GaussWeights(x_g))
+
+    ! Gauss points and weights for exact integration
+    allocate(x_q(0:po_q), source = GaussPoints(po_q))
+    allocate(w_q(0:po_q), source = GaussWeights(x_q))
+
+    associate(A => this % A, MA => this % MA)
+
+      ! intermediate projection to Gauss points ................................
+
+      allocate(C(0:po_b,0:po_f), source = ZERO)
+
+      do j = 0, po_f
+      do q = 0, po_q
+        select case(nodes_f)
+        case('G')
+          z = GaussPolynomial(j, x, x_q(q))
+        case('L')
+          z = LobattoPolynomial(j, x, x_q(q))
+        case('RL','RR')
+          z = RadauPolynomial(j, x, x_q(q))
+        case default
+          z = LagrangePolynomial(j, x, x_q(q))
         end select
-
-        ! L2 projection operator
-        allocate(VL(0:po,0:po))
-        call eop % Get_Legendre_VDM(VL)
-        A = matmul(transpose(VL), MA)
-        do k = 1, nq
-        do i = 0, po
-          A(i,k) = (i + HALF) * A(i,k)
+        do k = 0, po_b
+          C(k,j) = C(k,j) + w_q(q) / w_g(k) * z * GaussPolynomial(k, x_g, x_q(q))
         end do
+      end do
+      end do
+
+      ! combine with interpolation to collocation points .......................
+
+      do i = 0, po_b
+      do k = 0, po_b
+        z = GaussPolynomial(k, x_g, eop%x(i))
+        do j = 0, po_f
+          A(i,j) = A(i,j) + z * C(k,j)
         end do
-        A = matmul(VL, A)
+      end do
+      end do
 
-        ! mass-weighted L2 projection operator for physical element
-        MA = HALF * dx * MA
+      ! mass weighted projection operator ......................................
 
-      end associate
+      ! inverse Vandermonde matrix V⁻¹
+      allocate(VL_inv(0:po_b,0:po_b))
+      call eop % Get_Inverse_Legendre_VDM(VL_inv)
+
+      ! MA = V⁻ᵀ V⁻¹ A
+      MA = matmul(VL_inv, A)
+      do k = 0, po_f
+      do i = 0, po_b
+        MA(i,k) = TWO/(2*i + 1) * A(i,k)
+      end do
+      end do
+      MA = matmul(transpose(VL_inv), MA)
+
     end associate
 
-  end subroutine Init_SX
-
-  !-----------------------------------------------------------------------------
-  !> Delete ProjectionOperator_1D object
-
-  subroutine Delete_ProjectionOperator(this)
-    class(ProjectionOperator_1D), intent(inout) :: this
-
-    if (allocated(this % MA)) deallocate(this % MA)
-
-  end subroutine Delete_ProjectionOperator
+  end subroutine Init_ProjectionOperator_1D
 
   !=============================================================================
 

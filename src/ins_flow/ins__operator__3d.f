@@ -52,10 +52,10 @@ module INS__Operator__3D
     type(DG_ElementOperators_1D)      :: eop_p !< DG operators for p
     type(StandardElementOperators_1D) :: sop_q !< quadrature ops for convection
 
-    type(EmbeddedInterpolationOperator_1D) :: iop_vp !< v to p interpolation
-    type(EmbeddedInterpolationOperator_1D) :: iop_vq !< v to q interpolation
-    type(EmbeddedInterpolationOperator_1D) :: iop_pv !< p to v interpolation
     type(ProjectionOperator_1D)            :: pop_vp !< v to p L² projection
+    type(EmbeddedInterpolationOperator_1D) :: iop_vp !< v to p interpolation
+    type(EmbeddedInterpolationOperator_1D) :: iop_pv !< p to v interpolation
+    type(EmbeddedInterpolationOperator_1D) :: iop_vq !< v to q interpolation
 
     type(Mesh_3D)                :: mesh  !< local mesh partition
     type(SpectralElementMesh_3D) :: sem_v !< mesh + metrics for v
@@ -361,12 +361,11 @@ contains
     this % sop_q = StandardElementOperators_1D( opt % sop_q )
 
 !?  if (this % po_p /= this % po_v) then
-    this % pop_vp = ProjectionOperator_1D( this%eop_p,   &
-                                           this%eop_v%x, &
-                                           this%eop_v%w, &
-                                           TWO           )
-    this % iop_vp = EmbeddedInterpolationOperator_1D( this%eop_v, this%eop_p%x )
+    this % pop_vp = ProjectionOperator_1D( this%eop_p       &
+                                         , this%eop_v%x     &
+                                         , this%eop_v%nodes )
     this % iop_pv = EmbeddedInterpolationOperator_1D( this%eop_p, this%eop_v%x )
+    this % iop_vp = EmbeddedInterpolationOperator_1D( this%eop_v, this%eop_p%x )
 !?  end if
 
 !?  if (po_q /= po_v) then

@@ -1,0 +1,14 @@
+&input
+  mode    =  2    ! p coarsening (1) or hp coarsening (2)
+  po_f    =  7    ! fine element order
+  po_c    =  7    ! coarse element order
+  nodes   = 'L'   ! node type
+  method  = 'I'   ! use interpolation 'I' or L²-projection 'P'
+  smooth  =  1    ! jump smoothing 0/1/2: none/linear/average
+  jmp_rot =  0.1  ! jump caused by rotation about endpoints
+  jmp_lft =  0.1  ! jump caused by lifting
+  n_s     =  80   ! number of sampling intervals per element
+/
+
+
+
