@@ -88,7 +88,7 @@ contains
   !> New 3D boundary variable
 
   function New_BoundaryVariable_3D(boundary, po, nc) result(this)
-    class(MeshBoundary_3D), target, intent(in) :: boundary
+    class(MeshBoundary_3D), intent(in) :: boundary
     integer, intent(in) :: po
     integer, intent(in) :: nc
     type(BoundaryVariable_3D) :: this
