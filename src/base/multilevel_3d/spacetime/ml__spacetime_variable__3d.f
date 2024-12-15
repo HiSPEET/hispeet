@@ -34,29 +34,11 @@ module ML__Spacetime_Variable__3D
     type(SpacetimeVariable_3D), allocatable :: level(:) !< variable per level
     character(len=:),           allocatable :: name(:)  !< component names
   contains
-    procedure :: Init_ML_SpacetimeVariable_3D
+    procedure :: Init => Init_ML_SpacetimeVariable_3D
     procedure :: GetSlice
   end type ML_SpacetimeVariable_3D
 
-  ! constructor
-  interface ML_SpacetimeVariable_3D
-    procedure New_ML_SpacetimeVariable_3D
-  end interface
-
 contains
-
-  !-----------------------------------------------------------------------------
-  !> Constructor of 3D multilevel spacetime variable
-
-  function New_ML_SpacetimeVariable_3D(ml_op, nc, name) result(this)
-    class(ML_SpacetimeOperators_3D), intent(in) :: ml_op
-    integer,                         intent(in) :: nc
-    character(len=*),      optional, intent(in) :: name(nc)
-    type(ML_SpacetimeVariable_3D) :: this
-
-    call Init_ML_SpacetimeVariable_3D(this, ml_op, nc, name)
-
-  end function New_ML_SpacetimeVariable_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of 3D multilevel spacetime variable
@@ -74,12 +56,11 @@ contains
     this % nc = nc
 
     do l = 1, size(this%level)
-      this % level(l) =                                             &
-          SpacetimeVariable_3D( mesh = ml_op % sem(l) % mesh        &
-                              , po_x = ml_op % sem(l) % std_op % po &
-                              , po_t = ml_op % po_t(l)              &
-                              , ne_t = ml_op % ne_t(l)              &
-                              , nc   = nc                           )
+      call this % level(l) % Init( mesh = ml_op % sem(l) % mesh        &
+                                 , po_x = ml_op % sem(l) % std_op % po &
+                                 , po_t = ml_op % po_t(l)              &
+                                 , ne_t = ml_op % ne_t(l)              &
+                                 , nc   = nc                           )
     end do
 
     if (present(name)) then

@@ -203,7 +203,7 @@ program ML_Spacetime_Functionality
   var_name(8) = 'P_fc(v) - v'
   var_name(9) = 'R_fc(Mv)'
 
-  ml_var = ML_SpacetimeVariable_3D(ml_op, nc, var_name)
+  call ml_var % Init(ml_op, nc, var_name)
 
   do l = 1, n_level
     associate( sem   => ml_op  % sem(l)                &

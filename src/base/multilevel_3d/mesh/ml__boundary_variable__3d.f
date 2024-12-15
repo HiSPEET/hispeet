@@ -26,27 +26,10 @@ module ML__Boundary_Variable__3D
     type(BoundaryVariableArray_3D), allocatable :: level(:)
       !< boundary variables per level
   contains
-    procedure :: Init_ML_BoundaryVariable_3D
+    procedure :: Init => Init_ML_BoundaryVariable_3D
   end type ML_BoundaryVariable_3D
 
-  ! constructor
-  interface ML_BoundaryVariable_3D
-    procedure New_ML_BoundaryVariable_3D
-  end interface
-
 contains
-
-  !-----------------------------------------------------------------------------
-  !> New multilevel boundary variable with nc components
-
-  function New_ML_BoundaryVariable_3D(ml_op, nc) result(this)
-    class(ML_MeshOperators_3D), intent(in) :: ml_op
-    integer,                    intent(in) :: nc
-    type(ML_BoundaryVariable_3D) :: this
-
-    call Init_ML_BoundaryVariable_3D(this, ml_op, nc)
-
-  end function New_ML_BoundaryVariable_3D
 
   !-----------------------------------------------------------------------------
   !> Initialize multilevel boundary variable with nc components

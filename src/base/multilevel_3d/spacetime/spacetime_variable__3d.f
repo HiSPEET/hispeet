@@ -32,31 +32,11 @@ module Spacetime_Variable__3D
     integer :: nc       !< number of components
     type(MeshVariable_3D), allocatable :: var(:,:)
   contains
-    procedure :: Init_SpacetimeVariable_3D
+    procedure :: Init => Init_SpacetimeVariable_3D
     procedure :: GetSlice
   end type SpacetimeVariable_3D
 
-  ! constructor
-  interface SpacetimeVariable_3D
-    procedure New_SpacetimeVariable_3D
-  end interface
-
 contains
-
-  !-----------------------------------------------------------------------------
-  !> Constructor of 3D spacetime variable
-
-  function New_SpacetimeVariable_3D(mesh, po_x, po_t, ne_t, nc) result(this)
-    class(Mesh_3D), intent(in) :: mesh !< mesh partition
-    integer,        intent(in) :: po_x !< polynomial order in space
-    integer,        intent(in) :: po_t !< polynomial order in time
-    integer,        intent(in) :: ne_t !< number of time elements/steps
-    integer,        intent(in) :: nc   !< number of components
-    type(SpacetimeVariable_3D) :: this
-
-    call Init_SpacetimeVariable_3D(this, mesh, po_x, po_t, ne_t, nc)
-
-  end function New_SpacetimeVariable_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of 3D spacetime variable
@@ -79,7 +59,7 @@ contains
 
     do n = 1, ne_t
     do m = 0, po_t
-      this % var(m,n) = MeshVariable_3D(mesh, po_x, nc)
+      call this % var(m,n) % Init(mesh, po_x, nc)
     end do
     end do
 

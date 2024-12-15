@@ -382,7 +382,7 @@ program ML_Test_Elliptic
 
   name_var = [ 'nu', 'f ', 's ', 'u ', 'e ', 'r ' ]
 
-  var = ML_MeshVariable_3D(ml_op, size(name_var), name_var)
+  call var % Init(ml_op, size(name_var), name_var)
 
   ! handles for accessing individual variables
   call var % GetSlice(nu, first = 1, last = 1)
@@ -393,10 +393,10 @@ program ML_Test_Elliptic
   call var % GetSlice(r , first = 6, last = 6)
 
   ! structure for keeping diagonal mass matrices
-  mm = ML_MeshVariable_3D(ml_op, 1)
+  call mm % Init(ml_op, 1)
 
   ! structure for keeping boundary values
-  bv = ML_BoundaryVariable_3D(ml_op, nc = 1)
+  call bv % Init(ml_op, nc = 1)
 
   allocate(e0_mx(l_top), source = ZERO)
   allocate(en_mx, r0_e2, r0_mx, rn_e2, rn_mx, source = e0_mx)

@@ -20,15 +20,10 @@ module ML__Mesh_Variable__3D
     type(MeshVariable_3D), allocatable :: level(:) !< variable per level
     character(len=:),      allocatable :: name(:)  !< component names
   contains
-    procedure :: Init_ML_MeshVariable_3D
+    procedure :: Init => Init_ML_MeshVariable_3D
     procedure :: GetSlice
     procedure :: ExportVTK
   end type ML_MeshVariable_3D
-
-  ! constructor
-  interface ML_MeshVariable_3D
-    procedure New_ML_MeshVariable_3D
-  end interface
 
   !=============================================================================
   ! module procedures
@@ -50,19 +45,6 @@ module ML__Mesh_Variable__3D
 contains
 
   !-----------------------------------------------------------------------------
-  !> New multilevel variable with nc components from multilevel SE mesh
-
-  function New_ML_MeshVariable_3D(ml_op, nc, name) result(this)
-    class(ML_MeshOperators_3D), intent(in) :: ml_op
-    integer,                    intent(in) :: nc
-    character(len=*), optional, intent(in) :: name(nc)
-    type(ML_MeshVariable_3D) :: this
-
-    call Init_ML_MeshVariable_3D(this, ml_op, nc, name)
-
-  end function New_ML_MeshVariable_3D
-
-  !-----------------------------------------------------------------------------
   !> Initialize multilevel variable with nc components from multilevel SE mesh
 
   subroutine Init_ML_MeshVariable_3D(this, ml_op, nc, name)
@@ -76,9 +58,9 @@ contains
     allocate(this % level( size(ml_op%sem) ))
 
     do l = 1, size(this%level)
-      this%level(l) = MeshVariable_3D( mesh = ml_op % sem(l) % mesh        &
-                                     , po   = ml_op % sem(l) % std_op % po &
-                                     , nc   = nc                           )
+      call this % level(l) % Init( mesh = ml_op % sem(l) % mesh        &
+                                 , po   = ml_op % sem(l) % std_op % po &
+                                 , nc   = nc                           )
     end do
 
     if (present(name)) then

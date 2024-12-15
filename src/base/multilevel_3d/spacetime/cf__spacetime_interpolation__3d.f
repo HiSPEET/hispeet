@@ -71,7 +71,7 @@ contains
     allocate(v_i % var(0:pt_c, 1:nt_c))
     do n = 1, nt_c
     do m = 0, pt_c
-      v_i % var(m,n) = MeshVariable_3D(ml_op % sem(l_f) % mesh, px_f, nc)
+      call v_i % var(m,n) % Init(ml_op % sem(l_f) % mesh, px_f, nc)
     end do
     end do
     !$omp end master

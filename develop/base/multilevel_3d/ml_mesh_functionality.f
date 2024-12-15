@@ -164,7 +164,7 @@ program ML_Mesh_Functionality
   var_name(13) = 'Pv_c - v'
   var_name(14) = 'R(Mv_c)'
 
-  ml_var = ML_MeshVariable_3D(ml_op, nc, var_name)
+  call ml_var % Init(ml_op, nc, var_name)
 
   do l = 1, n_level
     associate( sem => ml_op  % sem(l)                &

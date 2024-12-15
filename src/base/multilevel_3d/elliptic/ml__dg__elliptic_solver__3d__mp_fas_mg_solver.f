@@ -78,8 +78,8 @@ contains
 
       !$omp master
       l_top = size(sem)
-      r = ML_MeshVariable_3D(this%ml_op, nc=1)
-      v = ML_MeshVariable_3D(this%ml_op, nc=1)
+      call r % Init(this%ml_op, nc=1)
+      call v % Init(this%ml_op, nc=1)
       start_method = this % start_method
       !$omp end master
 
