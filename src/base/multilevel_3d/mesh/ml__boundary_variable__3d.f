@@ -63,10 +63,10 @@ contains
     do l = 1, size(this%level)
       allocate(this % level(l) % var( ml_op % sem(l) % mesh % n_bound ))
       do b = 1, ml_op % sem(l) % mesh % n_bound
-        this % level(l) % var(b) = BoundaryVariable_3D                       &
-                                       ( ml_op % sem(l) % mesh % boundary(b) &
-                                       , ml_op % sem(l) % std_op % po        &
-                                       , nc                                  )
+        call this % level(l) % var(b) %                    &
+                 Init( ml_op % sem(l) % mesh % boundary(b) &
+                     , ml_op % sem(l) % std_op % po        &
+                     , nc                                  )
       end do
     end do
 

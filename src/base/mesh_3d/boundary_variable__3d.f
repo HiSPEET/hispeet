@@ -46,11 +46,12 @@ module Boundary_Variable__3D
 
     class(MeshBoundary_3D), pointer :: boundary => null()
     real(RNP), contiguous,  pointer :: val(:,:,:,:) => null() !< value access
-    logical, private :: is_original = .false.
+    real(RNP), allocatable :: mem(:,:,:,:) !< value storage
 
   contains
 
-    procedure :: Init_BoundaryVariable_3D
+    procedure :: Init => Init_BoundaryVariable_3D
+
     procedure :: GetClone
     procedure :: GetSlice
     procedure :: SetToZero
@@ -70,14 +71,7 @@ module Boundary_Variable__3D
     procedure :: ExtractNormalTrace
     procedure :: MergeNormalTrace
 
-    final :: Delete_BoundaryVariable_3D
-
   end type BoundaryVariable_3D
-
-  ! constructor
-  interface BoundaryVariable_3D
-    module procedure New_BoundaryVariable_3D
-  end interface
 
 contains
 
@@ -85,33 +79,20 @@ contains
   ! Initializers
 
   !-----------------------------------------------------------------------------
-  !> New 3D boundary variable
-
-  function New_BoundaryVariable_3D(boundary, po, nc) result(this)
-    class(MeshBoundary_3D), intent(in) :: boundary
-    integer, intent(in) :: po
-    integer, intent(in) :: nc
-    type(BoundaryVariable_3D) :: this
-
-    call Init_BoundaryVariable_3D(this, boundary, po, nc)
-
-  end function New_BoundaryVariable_3D
-
-  !-----------------------------------------------------------------------------
   !> 3D boundary variable initialization
 
   subroutine Init_BoundaryVariable_3D(this, boundary, po, nc)
-    class(BoundaryVariable_3D), intent(inout) :: this
+    class(BoundaryVariable_3D), target, intent(inout) :: this
     class(MeshBoundary_3D), target, intent(in) :: boundary
     integer, intent(in) :: po
     integer, intent(in) :: nc
 
-    allocate(this % val(0:po, 0:po, boundary%n_face, nc), source = ZERO)
+    allocate(this % mem(0:po, 0:po, boundary%n_face, nc), source = ZERO)
 
     this % po = po
     this % nc = nc
     this % boundary => boundary
-    this % is_original = .true.
+    this % val => this % mem
 
   end subroutine Init_BoundaryVariable_3D
 
@@ -136,8 +117,8 @@ contains
   !> thread.
 
   subroutine GetSlice(this, slice, first, last, copy)
-    class(BoundaryVariable_3D), intent(in) :: this
-    class(BoundaryVariable_3D), intent(inout) :: slice
+    class(BoundaryVariable_3D), target, intent(in) :: this
+    class(BoundaryVariable_3D), target, intent(inout) :: slice
     integer,           intent(in) :: first !< first component of slice
     integer,           intent(in) :: last  !< last component of slice
     logical, optional, intent(in) :: copy  !< copy into fresh memory [F]
@@ -161,8 +142,8 @@ contains
       end if
 
       if (copy_) then
-        allocate(slice%val(0:po,0:po,nf,nc), source = this%val(:,:,:,first:last))
-        slice % is_original = .true.
+        allocate(slice%mem(0:po,0:po,nf,nc), source = this%val(:,:,:,first:last))
+        slice % val => slice % mem
       else
         slice % val(0:,0:,1:,1:) => this % val(:,:,:,first:last)
       end if
@@ -540,27 +521,6 @@ contains
     end associate
 
   end subroutine MergeNormalTrace
-
-  !=============================================================================
-  ! Finalization
-
-  !-----------------------------------------------------------------------------
-  !>  Finalization of BoundaryVariable_3D
-
-  subroutine Delete_BoundaryVariable_3D(this)
-    type(BoundaryVariable_3D), intent(inout) :: this
-
-    if (this%is_original .and. associated(this%val)) then
-      deallocate(this%val)
-    end if
-
-    this % po = 0
-    this % nc = 0
-    this % boundary => null()
-    this % val      => null()
-    this % is_original = .false.
-
-  end subroutine Delete_BoundaryVariable_3D
 
   !=============================================================================
 

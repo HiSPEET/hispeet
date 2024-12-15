@@ -189,14 +189,14 @@ contains
         allocate( bv_po (mesh % n_bound, n_stage) )
 
         do b = 1, mesh % n_bound
-          bv_x(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 3)
-          bv_u(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 5)
+          call bv_x(b) % Init(mesh % boundary(b), po, nc = 3)
+          call bv_u(b) % Init(mesh % boundary(b), po, nc = 5)
           call bv_x(b) % Extract(sem_v % metrics % x)
           call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v (b))
           call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p (b))
           call bv_u(b) % GetSlice(first=5, last=5, slice = bv_dp(b))
           do i = 1, n_stage
-            bv_po(b,i) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 1)
+            call bv_po(b,i) % Init(mesh % boundary(b), po, nc = 1)
           end do
         end do
 

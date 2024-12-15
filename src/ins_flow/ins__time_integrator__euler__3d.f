@@ -163,8 +163,8 @@ contains
         allocate(bv_p (mesh % n_bound) )
         allocate(bv_dp(mesh % n_bound) )
         do b = 1, mesh % n_bound
-          bv_x(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 3)
-          bv_u(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 5)
+          call bv_x(b) % Init(mesh % boundary(b), po, nc = 3)
+          call bv_u(b) % Init(mesh % boundary(b), po, nc = 5)
           call bv_x(b) % Extract(sem_v % metrics % x)
           call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v (b))
           call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p (b))
