@@ -44,16 +44,22 @@ contains
 
   module subroutine FAS_MG_Solver_X(this, lambda, nu_0, nu_v, u, f, bv, ni, r_2)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
-    real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
-    real(RNP), intent(in) :: nu_0                   !< constant diffusivity
-    class(ML_MeshVariable_3D), intent(in) :: nu_v   !< variable diffusivity
-    class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
-    class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
-    class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
-    integer, optional, intent(out) :: ni            !< num executed cycles
-    real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
-
-    optional :: nu_0, nu_v
+    real(RNP), intent(in) :: lambda
+      !< Helmholtz parameter
+    real(RNP), optional, intent(in) :: nu_0
+      !< constant diffusivity
+    class(ML_MeshVariable_3D), optional, intent(in) :: nu_v
+      !< variable diffusivity
+    class(ML_MeshVariable_3D), intent(inout) :: u
+      !< approx/final solution
+    class(ML_MeshVariable_3D), intent(inout) :: f
+      !< RHS
+    class(ML_BoundaryVariable_3D), intent(in) :: bv
+      !< boundary values
+    integer, optional, intent(out) :: ni
+      !< num executed cycles
+    real(RNP), optional, intent(out) :: r_2
+      !< Euclidean residual norm
 
     ! internal variables :::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
