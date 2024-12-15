@@ -105,8 +105,8 @@ program Test_HP_Coarsening
     iop_fs = EmbeddedInterpolationOperator_1D(eop_f, xi_s)
     iop_cs = EmbeddedInterpolationOperator_1D(eop_c, xi_s)
     allocate(u_fs, u_cs, mold = x_s)
-    u_fs = matmul(iop_fs % A, u_f(:,1))
-    u_cs = matmul(iop_cs % A, u_c)
+    u_fs(0:n_s) = matmul(iop_fs % A, u_f(:,1))
+    u_cs(0:n_s) = matmul(iop_cs % A, u_c)
 
   case(2)
     n_s2 = 2 * n_s + 1
@@ -118,7 +118,7 @@ program Test_HP_Coarsening
     allocate(u_fs, u_cs, mold = x_s)
     u_fs( 0    :n_s  ) = matmul(iop_fs % A, u_f(:,1))
     u_fs( n_s+1:n_s2 ) = matmul(iop_fs % A, u_f(:,2))
-    u_cs = matmul(iop_cs % A, u_c)
+    u_cs( 0    :n_s2 ) = matmul(iop_cs % A, u_c)
 
   end select
 
