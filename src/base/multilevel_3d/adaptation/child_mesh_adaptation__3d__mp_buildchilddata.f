@@ -63,7 +63,18 @@ contains
       !-------------------------------------------------------------------------
       ! initialization
 
-      cloning = parent % refinement == 'c'
+      select case(parent % refinement)
+      case('s')
+        ! subdivision
+        cloning = .false.
+      case('c')
+        ! cloning
+        cloning = .true.
+      case default
+        call Error( 'BuildChildData'              &
+                  , 'parent%refinement undefined' &
+                  , 'Child_Mesh_Adaptation__3D'   )
+      end select
 
       !$omp master
 
