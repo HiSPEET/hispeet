@@ -596,7 +596,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Checks whether the element is active
 
-  pure logical function IsActive(element)
+  elemental logical function IsActive(element)
     class(MeshElement_3D), intent(in) :: element !< mesh element
 
     IsActive = .not. element % frozen
@@ -606,7 +606,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Checks whether the element is a leaf
 
-  pure logical function IsLeaf(element)
+  elemental logical function IsLeaf(element)
     class(MeshElement_3D), intent(in) :: element !< mesh element
 
     IsLeaf = .not. element % frozen &
