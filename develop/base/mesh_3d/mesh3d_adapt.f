@@ -34,7 +34,9 @@ program Mesh3d_Adapt
 
   use Export_VTK_Volume_Data__3D
 
-  use Smiling_Face
+  use QOI__Distribution__3D
+  use QOI__Smiley__3D
+  use QOI__Sphere__3D
 
   implicit none
 
@@ -69,13 +71,16 @@ program Mesh3d_Adapt
 
   namelist/adaptation_prm/ scenario, n_level, n_parts_base, n_parts_growth
 
+  integer :: qoi_distribution = 1
+  class(QOI_Distribution_3D), allocatable, save :: qoi
+
   ! adaptation criterion: elements on level l will be refined if the quantity
   ! of interest equals or exceeds c(l) = c₁ + ∆c⋅(l-1)/(L_max-1) in any point
   real(RNP) :: c1 = 0  ! c₁
   real(RNP) :: dc = 0  ! ∆c
   real(RNP), allocatable :: c(:)
 
-  namelist/adaptation_prm/ c1, dc
+  namelist/adaptation_prm/ qoi_distribution, c1, dc
 
   ! MPI and OpenMP variables ...................................................
 
@@ -92,8 +97,6 @@ program Mesh3d_Adapt
   type(SpectralElementMesh_3D), allocatable, save :: sem(:)
 
   ! auxiliary variables ........................................................
-
-  type(SmilingFace), save :: smiley
 
   real(RNP), allocatable, save :: s(:,:,:,:,:)
   logical,   allocatable, save :: mask(:)
@@ -164,15 +167,16 @@ program Mesh3d_Adapt
   end if
 
   ! globalize parameters
-  call XMPI_Bcast( config        , 0, comm )
-  call XMPI_Bcast( export_vtk    , 0, comm )
-  call XMPI_Bcast( po            , 0, comm )
-  call XMPI_Bcast( scenario      , 0, comm )
-  call XMPI_Bcast( n_level       , 0, comm )
-  call XMPI_Bcast( n_parts_base  , 0, comm )
-  call XMPI_Bcast( n_parts_growth, 0, comm )
-  call XMPI_Bcast( c1            , 0, comm )
-  call XMPI_Bcast( dc            , 0, comm )
+  call XMPI_Bcast( config          , 0, comm )
+  call XMPI_Bcast( export_vtk      , 0, comm )
+  call XMPI_Bcast( po              , 0, comm )
+  call XMPI_Bcast( scenario        , 0, comm )
+  call XMPI_Bcast( n_level         , 0, comm )
+  call XMPI_Bcast( n_parts_base    , 0, comm )
+  call XMPI_Bcast( n_parts_growth  , 0, comm )
+  call XMPI_Bcast( qoi_distribution, 0, comm )
+  call XMPI_Bcast( c1              , 0, comm )
+  call XMPI_Bcast( dc              , 0, comm )
 
   if (rank > 0) then
     allocate(part_opt(n_level))
@@ -182,6 +186,14 @@ program Mesh3d_Adapt
   do l = 1, n_level
     call part_opt(l) % Bcast( 0, comm )
   end do
+
+  ! quantity of interest
+  select case(qoi_distribution)
+  case(1)
+    qoi = QOI_Smiley_3D()
+  case default
+    qoi = QOI_Sphere_3D()
+  end select
 
   ! adaptation criterion
   allocate(c(n_level-1))
@@ -224,7 +236,7 @@ program Mesh3d_Adapt
   end if
   call VerifyMesh_3D(mesh(1), passed)
 
-  if (passed) then
+  if (rank == 0 .and. passed) then
     write(*,'(2X,A,/)') 'Root mesh successfully partitioned'
   end if
 
@@ -239,6 +251,9 @@ program Mesh3d_Adapt
       write(*,'(2X,99G0,/)') 'Adaptation cycle ', m
     end if
 
+    ! request h-refinement
+    mesh % refinement = 's'
+
     ! set adaptation marks
     do l = 1, m
       associate(x => sem(l) % metrics % x)
@@ -247,7 +262,7 @@ program Mesh3d_Adapt
             if (element % frozen) then
               call element % MarkForRemoval()
             else
-              s_e = smiley % Density(x = x(:,:,:,e,1), y = x(:,:,:,e,2))
+              s_e = qoi % Density(x(:,:,:,e,1), x(:,:,:,e,2), x(:,:,:,e,3))
               if (any(s_e >= c(l))) then
                 call element % MarkForRefinement()
               else
@@ -269,6 +284,9 @@ program Mesh3d_Adapt
     ! make present mesh the original one
     call move_alloc(mesh, old_mesh)
     allocate(mesh(n_level))
+    do l = 1, min(size(mesh), size(old_mesh))
+      mesh(l) % refinement = old_mesh(l) % refinement
+    end do
 
     ! create data exchange plan for redistribution of retained data
     allocate(exch_plan(n_level))
@@ -342,8 +360,9 @@ program Mesh3d_Adapt
     do l = 1, n_level
 
       allocate(s(0:po,0:po,0:po,mesh(l)%n_elem,3))
-      s(:,:,:,:,1) = smiley % Density( sem(l)%metrics%x(:,:,:,:,1) &
-                                     , sem(l)%metrics%x(:,:,:,:,2) )
+      s(:,:,:,:,1) = qoi % Density( sem(l)%metrics%x(:,:,:,:,1) &
+                                  , sem(l)%metrics%x(:,:,:,:,2) &
+                                  , sem(l)%metrics%x(:,:,:,:,3) )
       do e = 1, mesh(l)%n_elem
         s(:,:,:,e,2) = e
         s(:,:,:,e,3) = mesh(l) % part
@@ -353,11 +372,8 @@ program Mesh3d_Adapt
       plot_file = trim(case_file) // trim(tag)
 
       allocate(mask(mesh(l)%n_elem))
-      if (l < n_level) then
-        mask = mesh(l) % element % adaptation % refinement < 100 &
-               .and. .not. mesh(l) % element % frozen
-      else
-        mask = .not. mesh(l) % element % frozen
+      if (size(mask) > 0) then
+        mask = mesh(l) % element % IsLeaf()
       end if
 
       call ExportVTK_VolumeData( sem(l) % metrics % x        &

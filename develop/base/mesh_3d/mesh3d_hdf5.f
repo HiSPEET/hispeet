@@ -27,7 +27,7 @@ program Mesh3d_HDF5
 
   use Export_VTK_Volume_Data__3D
 
-  use Smiling_Face
+  use QOI__Smiley__3D
 
   implicit none
 
@@ -75,7 +75,7 @@ program Mesh3d_HDF5
 
   ! auxiliary variables ........................................................
 
-  type(SmilingFace), save :: smiley
+  type(QOI_Smiley_3D), save :: smiley
 
   real(RNP), allocatable, save :: s(:,:,:,:,:)
 
@@ -290,7 +290,8 @@ program Mesh3d_HDF5
 
     do e = 1, mesh%n_elem
       s(:,:,:,e,1) = smiley % Density( sem%metrics%x(:,:,:,e,1) &
-                                     , sem%metrics%x(:,:,:,e,2) )
+                                     , sem%metrics%x(:,:,:,e,2) &
+                                     , sem%metrics%x(:,:,:,e,3) )
       s(:,:,:,e,2) = e
       s(:,:,:,e,3) = mesh % part
     end do

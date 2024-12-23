@@ -1,12 +1,13 @@
-module Smiling_Face
+module QOI__Smiley__3D
   use Kind_Parameters, only: RNP
   use Constants, only: ZERO, ONE, PI
+  use QOI__Distribution__3D
   implicit none
   private
 
-  public :: SmilingFace
+  public :: QOI_Smiley_3D
 
-  type SmilingFace
+  type, extends(QOI_Distribution_3D) :: QOI_Smiley_3D
     real(RNP) :: r_e     = 0.2   !< radial position of eyes
     real(RNP) :: phi_e   = PI/3  !< half angle between eyes
     real(RNP) :: sigma_e = 0.04  !< standard deviation of eye potential
@@ -16,14 +17,15 @@ module Smiling_Face
     real(RNP) :: sigma_m = 0.02  !< standard deviation of mouth
   contains
     procedure :: Density
-  end type SmilingFace
+  end type QOI_Smiley_3D
 
 contains
 
-  elemental real(RNP) function Density(this, x, y) result(f)
-    class(SmilingFace), intent(in) :: this
+  elemental real(RNP) function Density(this, x, y, z) result(f)
+    class(QOI_Smiley_3D), intent(in) :: this
     real(RNP), intent(in) :: x !< x-coordinate
     real(RNP), intent(in) :: y !< y-coordinate
+    real(RNP), intent(in) :: z !< z-coordinate
 
     real(RNP) :: a, b, d, r, phi
 
@@ -70,6 +72,12 @@ contains
 
     end associate
 
+    ! touch z to avoid warning message .........................................
+
+    if (z > huge(z)) a = 0
+
   end function Density
 
-end module Smiling_Face
+  !=============================================================================
+
+end module QOI__Smiley__3D
