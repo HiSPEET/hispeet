@@ -222,19 +222,6 @@ contains
           po = element % geometry % po
           np = (po + 1)**3
 
-!### CHECK
-if (maxval(abs(element%geometry%x_c(0,:) - [-3.50000E-01, -3.50000E-01, 1.50000E-01])) < 1e-6) then
-  print '(99G0)', '??? element e = ', e, ' @ ', parent%part
-  print '(A,I0)', '??? element % adaptation % refinement = ', &
-                       element % adaptation % refinement
-  print '(A,I0)', '??? element % adaptation % mark       = ', &
-                       element % adaptation % mark
-  print '(A,I0)', '??? element % adaptation % child_proc = ', &
-                       element % adaptation % child_proc
-  print '(A,I0)', '??? tp = ', tp
-  print '(A,I0)', '??? ce = ', ce
-end if
-!### CHECK END
           ! set child mark to old proc ID elements are retained
           m = element % adaptation % mark
           if (element % adaptation % refinement == m .and. m >= 1000) then

@@ -61,10 +61,10 @@ program Mesh3d_Adapt
 
   ! SE mesh and plotting
   integer :: po = 3
-  logical :: check_marks = .true.
-  logical :: export_vtk  = .true.
+  logical :: export_vtk = .true.
+  logical :: check_and_trace = .false.
 
-  namelist/control_prm/ config, po, check_marks, export_vtk
+  namelist/control_prm/ config, po, export_vtk, check_and_trace
 
   ! adaptation
   integer :: scenario       = 1 ! 1 global
@@ -174,7 +174,7 @@ program Mesh3d_Adapt
   call XMPI_Bcast( case_file       , 0, comm )
   call XMPI_Bcast( config          , 0, comm )
   call XMPI_Bcast( po              , 0, comm )
-  call XMPI_Bcast( check_marks     , 0, comm )
+  call XMPI_Bcast( check_and_trace , 0, comm )
   call XMPI_Bcast( export_vtk      , 0, comm )
   call XMPI_Bcast( scenario        , 0, comm )
   call XMPI_Bcast( n_level         , 0, comm )
@@ -289,12 +289,12 @@ program Mesh3d_Adapt
     call GlobalizeAdaptationPattern_3D(mesh(1))
 
     ! check marks
-    if (check_marks) then
+    if (check_and_trace) then
       do l = 1, m
         if (rank == 0) then
           write(*,'(4X,99G0)') 'check initial marks,  l = ', l
         end if
-        call CheckMarks(sem(l), c(l))
+        call CheckAndTrace(sem(l), c(l))
       end do
       if (rank == 0) then
         write(*,*)
@@ -334,11 +334,11 @@ program Mesh3d_Adapt
         call ProcessAdaptationPattern_3D(mesh(l))
       end if
 
-      if (check_marks) then
+      if (check_and_trace) then
         if (rank == 0) then
           write(*,'(4X,99G0)') 'check restored marks, l = ', l
         end if
-        call CheckMarks(sem(l), c(l))
+        call CheckAndTrace(sem(l), c(l))
         if (l == m .and. rank == 0) then
           write(*,*)
         end if
@@ -350,17 +350,11 @@ program Mesh3d_Adapt
                                    , parent     = mesh(l)       &
                                    , new_child  = mesh(l+1)     )
       case(1)
-!### CHECK
-if (m == 3) log_level = -3
-!### CHECK END
         call ChildMeshAdaptation_3D( opt       = part_opt(l+1)  &
                                    , parent    = mesh(l)        &
                                    , new_child = mesh(l+1)      &
                                    , old_child = old_mesh(l+1)  &
                                    , exch_plan = exch_plan(l+1) )
-!### CHECK
-if (m == 3) log_level = 0
-!### CHECK END
       case(2:)
         call ChildMeshAdaptation_3D( opt        = part_opt(l+1)  &
                                    , parent     = mesh(l)        &
@@ -370,73 +364,6 @@ if (m == 3) log_level = 0
                                    , exch_plan  = exch_plan(l+1) )
       end select
       sem(l+1) = SpectralElementMesh_3D(mesh(l+1), po)
-!### CHECK
-block
-integer :: i
-if (m == 3 .and. l == 1) then
-  do i = 1, mesh(2)%n_child
-    print '(99G0)', '!!! mesh(2) @ ',mesh(2)%proc,' to child @ ',mesh(2)%map_child(i)%proc, &
-                     ' n = ',size(mesh(2)%map_child(i)%id_elem)
-  end do
-  call MPI_Barrier(comm)
-  do i = 1, old_mesh(3)%n_parent
-    print '(99G0)', '!!! old_mesh(3) @ ',old_mesh(3)%proc,' to parent @ ',old_mesh(3)%map_parent(i)%proc, &
-                     ' n = ',size(old_mesh(3)%map_parent(i)%id_cluster)
-  end do
-  call MPI_Barrier(comm)
-end if
-end block
-!### CHECK END
-!### CHECK
-block
-integer :: i, j
-if (m == 3 .and. l == 1) then
-  call MPI_Barrier(comm)
-  if (mesh(2)%part == 0) then
-    do i = 1, mesh(2)%n_child
-      if (mesh(2)%map_child(i)%proc == 1) then
-        do j = 1, size(mesh(2)%map_child(i)%id_elem)
-          print '(A,I4)', '§§§ parent id', mesh(2)%map_child(i)%id_elem(j)
-        end do
-      end if
-    end do
-  end if
-  call MPI_Barrier(comm)
-  if (old_mesh(3)%part == 1) then
-    do i = 1, old_mesh(3)%n_parent
-      if (old_mesh(3)%map_parent(i)%proc == 0) then
-        do j = 1, size(old_mesh(3)%map_parent(i)%id_cluster)
-          print '(A,I4)', '$$$ child cluster id', old_mesh(3)%map_parent(i)%id_cluster(j)
-        end do
-      end if
-    end do
-  end if
-  call MPI_Barrier(comm)
-  do i = 1, size(old_mesh(3)%element)
-    if (maxval(abs(old_mesh(3)%element(i)%geometry%x_c(0,:) - [-3.75E-1, -3.25E-1, 1.25E-1])) < 1E-6) then
-      print '(A,I4)', '@@@ old child id             = ', i
-      print '(A,I4)', '@@@ old child cluster id     = ', old_mesh(3)%element(i)%cluster_id
-      print '(A,I4)', '@@@ old child id parent id   = ', old_mesh(3)%element(i)%adaptation%parent_id
-      print '(A,I4)', '@@@ old child id parent proc = ', old_mesh(3)%element(i)%adaptation%parent_proc
-    end if
-  end do
-  call MPI_Barrier(comm)
-end if
-end block
-!### CHECK END
-!### CHECK
-!! if (m == 3 .and. l == 3 .and. rank == 1) then
-!!   e = 75
-!!   write(*,'(4X,A,I3,A,I6,A,I4,A,L1,A,I5,A,3(1X,ES12.5),2(A,I0))') &
-!!       '*** control: part ', old_mesh(l) % part, ', e = ', e,      &
-!!       ', c = '     , old_mesh(l)%element(e)%cluster_id,           &
-!!       ', frozen = ', old_mesh(l)%element(e)%frozen,               &
-!!       ', mark ='   , old_mesh(l)%element(e)%adaptation%mark,      &
-!!       ', x_c ='    , old_mesh(l)%element(e)%geometry%x_c(0,:),    &
-!!       ', parent '  , old_mesh(l)%element(e)%adaptation%parent_id, &
-!!       ' @ '        , old_mesh(l)%element(e)%adaptation%parent_proc
-!! end if
-!### CHECK END
 
     end do
 
@@ -515,20 +442,19 @@ end block
 contains
 
   !-----------------------------------------------------------------------------
-  !> Check if all elements are marked for refinement as expected
+  !> Check elements marks or trace elements identified by their cuboid center
 
-  subroutine CheckMarks(sem, c)
+  subroutine CheckAndTrace(sem, c, x_0)
     class(SpectralElementMesh_3D), intent(in) :: sem
-    real(RNP), intent(in) :: c
+    real(RNP), optional, intent(in) :: c      ! refinement threshold
+    real(RNP), optional, intent(in) :: x_0(3) ! cuboid center of traced element
 
+    real(RNP), parameter :: tol = 1E-6
+    logical :: check, refine, trace
     integer :: e
-    logical :: refine
-    logical :: control = .true.
 
-    real(RNP) :: x_1(3) = [ -4.00000E-01, -4.00000E-01,  2.00000E-01]
-    real(RNP) :: x_2(3) = [ -3.50000E-01, -3.50000E-01, 1.50000E-01 ]
-    real(RNP) :: x_3(3) = [ -3.75000E-01, -3.25000E-01, 1.25000E-01 ]
-    real(RNP) :: eps = 1E-6
+    check = present(c)
+    trace = present(x_0)
 
     do e = 1, sem % mesh % n_elem
       associate( element => sem % mesh % element(e)                    &
@@ -538,36 +464,35 @@ contains
                , y_e  => sem % metrics % x(:,:,:,e,2)                  &
                , z_e  => sem % metrics % x(:,:,:,e,3)                  )
 
-        refine = any(qoi%Density(x_e, y_e, z_e) >= c)
-
-        if (refine .and.  mark < 1000) then
-          write(*,'(4X,A,I3,A,I6,A,I4,A,L1,A,I5,A,3(1X,ES12.5),2(A,I0))') &
-              '*** failed:  part ', sem % mesh % part, ', e = ', e,  &
-              ', c = ', element % cluster_id,                        &
-              ', frozen = ', element%frozen, ', mark =',  mark,      &
-              ', x_c =',  x_c, ', parent ',                          &
-              element % adaptation % parent_id, ' @ ',               &
-              element % adaptation % parent_proc
-exit
-
-        else if (control .and.                        &
-                  ( maxval(abs(x_c - x_1)) < eps .or. &
-                    maxval(abs(x_c - x_2)) < eps .or. &
-                    maxval(abs(x_c - x_3)) < eps      &
-                  ) ) then
-          write(*,'(4X,A,I3,A,I6,A,I4,A,L1,A,I5,A,3(1X,ES12.5),2(A,I0))') &
-              '*** control: part ', sem % mesh % part, ', e = ', e,  &
-              ', c = ', element % cluster_id,                        &
-              ', frozen = ', element%frozen, ', mark =',  mark,      &
-              ', x_c =',  x_c, ', parent ',                          &
-              element % adaptation % parent_id, ' @ ',               &
-              element % adaptation % parent_proc
+        if (check) then
+          refine = any(qoi%Density(x_e, y_e, z_e) >= c)
+          if (refine .and. mark < 1000) then
+            write(*,'(4X,A,I3,A,I6,A,I4,A,L1,A,I5,A,3(1X,ES12.5),2(A,I0))') &
+                '*** check:  part ', sem % mesh % part, ', e = ', e,  &
+                ', c = ', element % cluster_id,                        &
+                ', frozen = ', element%frozen, ', mark =',  mark,      &
+                ', x_c =',  x_c, ', parent ',                          &
+                element % adaptation % parent_id, ' @ ',               &
+                element % adaptation % parent_proc
+          end if
         end if
 
+        if (trace) then
+          if (maxval(abs(x_c - x_0)) < tol) then
+            write(*,'(4X,A,I3,A,I6,A,I4,A,L1,A,I5,A,3(1X,ES12.5),2(A,I0))') &
+                '*** trace: part ', sem % mesh % part, ', e = ', e,  &
+                ', c = ', element % cluster_id,                        &
+                ', frozen = ', element%frozen, ', mark =',  mark,      &
+                ', x_c =',  x_c, ', parent ',                          &
+                element % adaptation % parent_id, ' @ ',               &
+                element % adaptation % parent_proc
+          end if
+        end if
       end associate
+
     end do
 
-  end subroutine CheckMarks
+  end subroutine CheckAndTrace
 
   !=============================================================================
 

@@ -1,16 +1,16 @@
 &control_prm
   config     = 1      ! 1
-  export_vtk = F      ! T
-  po         = 5      ! 3
+  export_vtk = T      ! T
+  po         = 1      ! 3
 /
 
 &adaptation_prm
-  n_level          = 4  ! 1
+  n_level          = 3  ! 1
   n_parts_base     = 1  ! 1
   n_parts_growth   = 2  ! 1
-  qoi_distribution = 2
-  c1 = 0.60
-  dc = 0.38
+  qoi_distribution = 1
+  c1 = 0.99
+  dc = 0.00
 /
 
 ! config = 1
@@ -21,7 +21,7 @@
   lx = 3*1.0
   np = 1,1,1
   ep = 5,5,5
-  periodic = 3*T
+  periodic = 3*F
 /
 
 ! config = 2
