@@ -25,8 +25,17 @@ contains
   !>   -  `mesh % element % adaptation % parent_proc`
   !>   -  `mesh % element % adaptation % parent_id`
   !>
+  !> Generates a set of maps from local element clusters to their respective
+  !> parent elements. One map is created for each process containing any parent
+  !> element. The maps are split into one part referring to the active clusters
+  !> and a subsequent part with the froten clusters.
+  !>
   !> The procedure is capable to cope with orphaned elements whose parents have
-  !> been removed in course of an ongoing adaptation process.
+  !> been removed in course of an ongoing adaptation process. These orphans are
+  !> identified by a negative `parent_proc` entry.
+  !> Since the order of parents elements may have changed due to adaptation and
+  !> repartitioning, the child clusters are sorted by parent element IDs when
+  !> creating a map.
 
   module subroutine BuildMapToParent(mesh)
     class(Mesh_3D), intent(inout) :: mesh  !< mesh parition
@@ -124,7 +133,7 @@ contains
         allocate(mesh%map_parent(i)%id_cluster( mesh%map_parent(i)%n_cluster ))
       end do
 
-      ! ranking of parent elements .............................................
+      ! sort by parent element IDs .............................................
 
       allocate(parent(mesh % n_parent))
 
@@ -137,7 +146,7 @@ contains
         allocate(parent(i) % frozen_rk ( mesh % map_parent(i) % n_frozen ))
       end do
 
-      ! extract parent IDs
+      ! extract parent IDs separately for active and frozen clusters
       cluster_id = 0
       n_active   = 0
       n_frozen   = 0
@@ -162,7 +171,7 @@ contains
         end associate
       end do
 
-      ! parent ranking
+      ! sort active and frozen clusters according to ascending parent ID
       do i = 1, mesh % n_parent
         call SortIndex(parent(i) % active_pid, parent(i) % active_rk)
         call SortIndex(parent(i) % frozen_pid, parent(i) % frozen_rk)
