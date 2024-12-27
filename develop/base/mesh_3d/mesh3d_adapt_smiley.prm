@@ -5,9 +5,10 @@
 /
 
 &adaptation_prm
-! n_level        = 2  ! 1
+  n_level        = 1  ! 1
 ! n_parts_base   = 1  ! 1
 ! n_parts_growth = 2  ! 1
+  qoi_distribution = 3
   c1 = 0.6
   dc = 0.37
 /

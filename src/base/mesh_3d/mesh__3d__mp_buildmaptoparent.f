@@ -36,16 +36,24 @@ contains
     integer, allocatable :: n_frozen(:)    ! num frozen clusters per proc
     integer, allocatable :: map_proc(:)    ! map entry per proc
 
+    !---------------------------------------------------------------------------
+    !> Structure to identify the rank of elements descending from given parent
+    !>
+    !> `active` comprises the list of active descendents where
+    !>   - `active(1,:)` is the parent ID,
+    !>   - `active(2,:)` is the parent process,
+    !>   - `active(3,:)` is the ID of the related element cluster
+    !>
+    !> `frozen` is a corresponding list of frozen element clusters.
+
     type ParentRanking
-      integer, allocatable :: id_active(:) ! active element parent ID
-      integer, allocatable :: rk_active(:) ! active element parent rank
-      integer, allocatable :: id_frozen(:) ! frozen element parent ID
-      integer, allocatable :: rk_frozen(:) ! frozen element parent rank
+      integer, allocatable :: active(:,:) ! active element parent ID
+      integer, allocatable :: frozen(:,:) ! frozen element parent ID
     end type ParentRanking
     type(ParentRanking), allocatable :: parent(:)
 
     integer :: n_proc, cluster_id
-    integer :: e, i, p, p_min, p_max
+    integer :: e, i, j, k, p, p_min, p_max
 
     !$omp master
 
@@ -126,12 +134,9 @@ contains
 
       allocate(parent(mesh % n_parent))
 
-      i = 0
       do i = 1, mesh % n_parent
-        allocate(parent(i) % id_active( mesh % map_parent(i) % n_active ))
-        allocate(parent(i) % rk_active( mesh % map_parent(i) % n_active ))
-        allocate(parent(i) % id_frozen( mesh % map_parent(i) % n_frozen ))
-        allocate(parent(i) % rk_frozen( mesh % map_parent(i) % n_frozen ))
+        allocate(parent(i) % active(3, mesh % map_parent(i) % n_active ))
+        allocate(parent(i) % frozen(3, mesh % map_parent(i) % n_frozen ))
       end do
 
       ! extract parent IDs
@@ -147,43 +152,36 @@ contains
           i = map_proc(p)
           if (element % frozen) then
             n_frozen(p) = n_frozen(p) + 1
-            parent(i) % id_frozen(n_frozen(p)) = element % adaptation % parent_id
+            parent(i) % frozen(1,n_frozen(p)) = element % adaptation % parent_id
+            parent(i) % frozen(2,n_frozen(p)) = p
+            parent(i) % frozen(3,n_frozen(p)) = cluster_id
           else
             n_active(p) = n_active(p) + 1
-            parent(i) % id_active(n_active(p)) = element % adaptation % parent_id
+            parent(i) % active(1,n_active(p)) = element % adaptation % parent_id
+            parent(i) % active(2,n_active(p)) = p
+            parent(i) % active(3,n_active(p)) = cluster_id
           end if
         end associate
       end do
 
       ! parent ranking
       do i = 1, mesh % n_parent
-        call SortIndex(parent(i) % id_active, parent(i) % rk_active)
-        call SortIndex(parent(i) % id_frozen, parent(i) % rk_frozen)
+        call SortPairs(parent(i) % active)
+        call SortPairs(parent(i) % frozen)
       end do
 
-      ! build element lists ....................................................
+      ! build cluster lists ....................................................
 
-      cluster_id = 0
-      n_active   = 0
-      n_frozen   = 0
-
-      do e = 1, mesh % n_elem
-        associate(element => mesh % element(e))
-          if (element % cluster_id == cluster_id)     cycle ! skip siblings
-          if (element % adaptation % parent_proc < 0) cycle ! skip orphans
-          cluster_id = element % cluster_id
-          p = element % adaptation % parent_proc
-          i = map_proc(p)
-          associate(map => mesh % map_parent(i))
-            if (element % frozen) then
-              n_frozen(p) = n_frozen(p) + 1
-              map % id_cluster(n_frozen(p) + map % n_active) = cluster_id
-            else
-              n_active(p) = n_active(p) + 1
-              map % id_cluster(n_active(p)) = cluster_id
-            end if
-          end associate
-        end associate
+      do i = 1, size(parent)
+        k = 0
+        do j = 1, size(parent(i)%active, 2)
+          k = k + 1
+          mesh % map_parent(i) % id_cluster(k) = parent(i) % active(3,j)
+        end do
+        do j = 1, size(parent(i)%frozen, 2)
+          k = k + 1
+          mesh % map_parent(i) % id_cluster(k) = parent(i) % frozen(3,j)
+        end do
       end do
 
     end if

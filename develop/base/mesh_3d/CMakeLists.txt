@@ -4,16 +4,20 @@
 add_executable( mesh3d_adapt
                 mesh3d_adapt.f 
                 qoi__distribution__3d.f
-                qoi__smiley__3d.f
-                qoi__sphere__3d.f       )
+                qoi__point__3d.f
+                qoi__sphere__3d.f
+                qoi__smiley__3d.f       )
 
 target_link_libraries(mesh3d_adapt HiBase)
 
-configure_file( mesh3d_adapt_smiley.prm
-                mesh3d_adapt_smiley.prm COPYONLY )
+configure_file( mesh3d_adapt_point.prm
+                mesh3d_adapt_point.prm COPYONLY )
 
 configure_file( mesh3d_adapt_sphere.prm
                 mesh3d_adapt_sphere.prm COPYONLY )
+
+configure_file( mesh3d_adapt_smiley.prm
+                mesh3d_adapt_smiley.prm COPYONLY )
 
 #===============================================================================
 # mesh3d_explore

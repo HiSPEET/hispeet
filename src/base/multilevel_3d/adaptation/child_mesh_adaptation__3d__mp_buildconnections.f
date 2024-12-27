@@ -132,6 +132,12 @@ contains
         if (mark /= parent % element(l) % adaptation % refinement) cycle
         send_attrib(1,l) = new_child_map % tp_child(l)
       end do
+!### CHECK
+if (log_level == -3 .and. parent%part == 0) then
+  l = 196
+  print '(A,I0,A,I4)', '+++ tp(',l,') = ',new_child_map % tp_child(l)
+end if
+!### CHECK END
     case(2)
       do l = 1, parent % n_elem
         mark = parent % element(l) % adaptation % mark
@@ -188,7 +194,7 @@ contains
 
     ! sort clusters according to 1) parent proc and 2) parent ID
     allocate(cluster_rank(old_child % n_cluster))
-    call SortElementClusters(old_child, n_cpe, cluster_rank)
+    call SortClustersByParent(old_child, n_cpe, cluster_rank)
 
     ! set up exchange send maps
     if (allocated(exch_plan % send_map)) then
@@ -221,12 +227,36 @@ contains
         n = m(p)            ! map index
         l = e(n)            ! map element ID offset
         k = n_cpe * (c - 1) ! mesh element ID offset
+!### CHECK
+if (log_level == -3 .and. old_child%part == 1 .and. c == 10) then
+  print '(A,I4)', '+++ i = ',i
+  print '(A,I4)', '+++ c = ',c
+  print '(A,I4)', '+++ p = ',p
+  print '(A,I4)', '+++ n = ',n
+  print '(A,I4)', '+++ l = ',l
+  print '(A,I4)', '+++ k = ',k
+  print '(A,I4)', '+++ n_cpe = ',n_cpe
+  print '(A,I4)', '+++ exch_send_map(n)%proc = ',exch_send_map(n)%proc
+end if
+!### CHECK END
         do j = 1, n_cpe
           exch_send_map(n) % id_elem(l + j) = k + j
         end do
         e(n) = e(n) + n_cpe
       end do
 
+!### CHECK
+!! if (log_level == -3 .and. old_child%part == 1) then
+!! do n = 1, size(exch_send_map)
+!! if (exch_send_map(n) % proc == 2) then
+!!   print '(A)', '+++ exch_send_map % id_elem'
+!!   do i = 1, size(exch_send_map(n) % id_elem)
+!!     print '(A,I4)', '+++', exch_send_map(n) % id_elem(i)
+!!   end do
+!! end if
+!! end do
+!! end if
+!### CHECK END
     end associate
 
     ! connect grandchild .......................................................
@@ -263,7 +293,7 @@ contains
   !> It is exploited that the active clusters always precede the frozen ones.
   !> As the latter are not retained, they do not need to be sorted.
 
-  subroutine SortElementClusters(mesh, n_cpe, cluster_rank)
+  subroutine SortClustersByParent(mesh, n_cpe, cluster_rank)
     class(Mesh_3D), intent(in) :: mesh
     integer, intent(in)  :: n_cpe
     integer, intent(out) :: cluster_rank(mesh%n_cluster)
@@ -296,7 +326,7 @@ contains
       cluster_rank(c) = c
     end do
 
-  end subroutine SortElementClusters
+  end subroutine SortClustersByParent
 
   !-----------------------------------------------------------------------------
   !> Update parent info and maps in grandchild partitions
@@ -421,7 +451,7 @@ contains
     ! count retained elements per process
     do i = 1, new_child % n_elem_active
       ! for retained elements, mark is non-negative and indicates its process ID in
-      ! the old mesh; negative marks care used to identify non-retained children
+      ! the old mesh; negative marks are used to identify non-retained children
       p = new_child % element(i) % adaptation % mark
       if (p >= 0) then
         m(p) = m(p) + 1
