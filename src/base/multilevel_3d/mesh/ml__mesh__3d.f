@@ -30,6 +30,7 @@ module ML__Mesh__3D
     type(Mesh_3D), allocatable :: mesh(:) !< mesh partitions
   contains
     procedure :: Init_ML_Mesh_3D
+    procedure :: Adapt
     procedure :: ReadHDF5
     procedure :: WriteHDF5
   end type ML_Mesh_3D
@@ -63,6 +64,15 @@ module ML__Mesh__3D
   ! ML_Mesh_3D: separate type-bound procedures
 
   interface
+
+    !---------------------------------------------------------------------------
+    !> Adapt multilevel mesh
+
+    module subroutine Adapt(this, partition, exch_plan)
+      class(ML_Mesh_3D),                      intent(inout) :: this
+      class(PartitioningOptions_3D),          intent(in)    :: partition(:)
+      type(DataExchangePlan_3D), allocatable, intent(out)   :: exch_plan(:)
+    end subroutine Adapt
 
     !---------------------------------------------------------------------------
     !> Read multilevel mesh partition from HDF5 file
@@ -271,89 +281,9 @@ contains
         end associate
       end do
 
-      ! check wether to continue adaptation ....................................
+      ! adapt mesh .............................................................
 
-      finish_loc = .true.
-      do e = 1, this%mesh(m)%n_elem
-        if (this%mesh(m)%element(e)%adaptation%mark > 0) then
-          finish_loc = .false.
-          exit
-        end if
-      end do
-      call XMPI_Allreduce(finish_loc, finish, MPI_LAND, mesh%comm_world)
-
-      if (finish) then
-        if (mesh%part == 0) then
-          write(*,'(2X,9G0)') 'adaptation finished with ',m, ' levels'
-        end if
-        exit ADAPTATION
-      end if
-
-      ! make adaptation pattern consistent .....................................
-
-      do l = m, 2, -1
-        call GlobalizeAdaptationPattern_3D(this%mesh(l))
-        call RestrictAdaptationPattern_3D(this%mesh(l), this%mesh(l-1))
-      end do
-      call GlobalizeAdaptationPattern_3D(this%mesh(1))
-
-      ! adaptation cycle .......................................................
-
-      ! data structures
-      call move_alloc(this%mesh, old_mesh)  ! save current mesh
-      allocate(this%mesh(m+1))              ! prepare new mesh
-      allocate(exch_plan(m))                ! exchange plan for retained data
-
-      ! root level
-      call ProcessAdaptationPattern_3D(old_mesh(1))
-      if (max(old_mesh(1)%n_parts, opt%partition(1)%n_parts) == 1) then
-        this % mesh(1) = old_mesh(1)
-      else if (old_mesh(1) % is_top) then
-        call RootMeshPartitioning_3D( opt       = opt%partition(1) &
-                                    , old_mesh  = old_mesh(1)      &
-                                    , new_mesh  = this%mesh(1)     &
-                                    , exch_plan = exch_plan(1)     )
-      else
-        call RootMeshPartitioning_3D( opt       = opt%partition(1) &
-                                    , old_mesh  = old_mesh(1)      &
-                                    , new_mesh  = this%mesh(1)     &
-                                    , child     = old_mesh(2)      &
-                                    , exch_plan = exch_plan(1)     )
-      end if
-
-      ! higher levels
-      do l = 1, m
-
-        this%mesh(l)%refinement = opt%refinement(l)
-
-        if (l > 1) then
-          call ProcessAdaptationPattern_3D(this%mesh(l))
-        end if
-
-        select case(m-l)
-        case(0)
-          call ChildMeshAdaptation_3D( opt        = opt%partition(l+1) &
-                                     , parent     = this%mesh(l)       &
-                                     , new_child  = this%mesh(l+1)     )
-        case(1)
-          call ChildMeshAdaptation_3D( opt        = opt%partition(l+1) &
-                                     , parent     = this%mesh(l)       &
-                                     , new_child  = this%mesh(l+1)     &
-                                     , old_child  = old_mesh(l+1)      &
-                                     , exch_plan  = exch_plan(l+1)     )
-        case(2:)
-          call ChildMeshAdaptation_3D( opt        = opt%partition(l+1) &
-                                     , parent     = this%mesh(l)       &
-                                     , new_child  = this%mesh(l+1)     &
-                                     , old_child  = old_mesh(l+1)      &
-                                     , grandchild = old_mesh(l+2)      &
-                                     , exch_plan  = exch_plan(l+1)     )
-        end select
-
-      end do
-
-      ! release workspace
-      deallocate(old_mesh, exch_plan)
+      call this % Adapt(opt%partition, exch_plan)
 
     end do ADAPTATION
 

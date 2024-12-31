@@ -100,7 +100,6 @@ set ( SPECTRAL_ELEMENT
 
       spectral_element/projection_operator__1d.f
     )
-#     spectral_element/projection_operator__3d.f
 
 #===============================================================================
 # time_integration
@@ -297,6 +296,7 @@ set( MULTILEVEL_3D ${MULTILEVEL_3D}
 set( MULTILEVEL_3D ${MULTILEVEL_3D}
      multilevel_3d/mesh/ml__boundary_variable__3d.f
      multilevel_3d/mesh/ml__mesh__3d.f
+     multilevel_3d/mesh/ml__mesh__3d__mp_adapt.f
      multilevel_3d/mesh/ml__mesh__3d__mp_readhdf5.f
      multilevel_3d/mesh/ml__mesh__3d__mp_writehdf5.f
      multilevel_3d/mesh/ml__mesh_operators__3d.f
