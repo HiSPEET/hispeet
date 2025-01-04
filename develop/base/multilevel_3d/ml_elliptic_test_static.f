@@ -1,10 +1,10 @@
-!> summary:  Program for testing the elliptic multilevel solvers
+!> summary:  Testing elliptic multilevel solvers with static refinement
 !> author:   Joerg Stiller
 !> date:     2024/09/16
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-program ML_Test_Elliptic
+program ML_Elliptic_Test_Static
   use Kind_Parameters
   use Constants
   use OpenMP_Binding
@@ -15,8 +15,9 @@ program ML_Test_Elliptic
   use Array_Reductions
 
   use Elliptic_Problem__3D
-  use Elliptic_Problem__Simple__3D
   use Elliptic_Problem__Knotty__3D
+  use Elliptic_Problem__Simple__3D
+  use Elliptic_Problem__Sphere__3D
   use Elliptic_Problem__TGV_Pressure__3D
 
   use Create_Cuboid_Cartesian
@@ -54,7 +55,7 @@ program ML_Test_Elliptic
   ! The case name is defined by the first command line argument.
   ! If no argument is given, the default case is assumed.
 
-  character(len=*), parameter :: default_case = 'ml_test_elliptic'
+  character(len=*), parameter :: default_case = 'ml_elliptic_test_static'
   character(len=80) :: case_name ! case name
   character(len=80) :: case_file ! case input file: trim(case_name).prm
 
@@ -90,24 +91,32 @@ program ML_Test_Elliptic
 
   ! problem ....................................................................
 
-  integer :: test_problem    =  3      ! 1/2/3/4/5: simple_{1/2/3}d/knotty/TGV
-  logical :: has_variable_nu = .false. ! T/F: variable/constant ν
+  integer :: test_problem = 3 ! 1/2/3/4/5: simple_{1/2/3}d/knotty/sphere/TGV
+  integer :: start_values = 0 ! 0/1/2: zero, exact, random
 
-  namelist/problem_prm/ test_problem, has_variable_nu
+  namelist/problem_prm/ test_problem, start_values
 
-  ! NOTE
-  ! The fluctuation amplitude ν₁ is ignored in case of constant ν
+  ! common
+  real(RNP) :: lambda =  0    ! Helmholtz parameter
+  real(RNP) :: nu_0   =  1    ! constant or mean diffusivity ν₀
+  real(RNP) :: nu_1   =  0    ! diffusivity fluctuation amplitude ν₁
+  real(RNP) :: d_nu   =  0    ! diffusivity fluctuation phase shift
+  integer   :: k_nu   =  1    ! diffusivity fluctuation wave number
+  integer   :: k_u    =  1    ! solution wave number
 
-  real(RNP) :: lambda    = 0      ! Helmholtz parameter
-  real(RNP) :: nu_0      = 1      ! diffusivity mean value ν₀
-  real(RNP) :: nu_1      = 0      ! diffusivity fluctuation amplitude ν₁
-  real(RNP) :: d_nu      = 0      ! diffusivity fluctuation phase shift
-  integer   :: k_nu      = 1      ! diffusivity fluctuation wave number
-  integer   :: k_u       = 1      ! solution wave number
-  integer   :: start_val = 0      ! start values, 0/1/2: zero, exact, random
-  character, allocatable :: bc(:) ! boundary conditions {'D','N','P'} ['D']
+  namelist/problem_prm/ lambda, nu_0, nu_1, d_nu, k_nu, k_u
 
-  namelist/problem_prm/ lambda, nu_0, nu_1, d_nu, k_nu, k_u, start_val, bc
+  ! sphere
+  real(RNP) :: x_c(3) = -0.05 ! sphere center
+  real(RNP) :: r_0    =  0.7  ! sphere radius
+  real(RNP) :: alpha  =  200  ! radial scaling factor
+
+  namelist/problem_prm/ x_c, r_0, r_0
+
+  ! boundary conditions {'D','N','P'} ['D']
+  character, allocatable :: bc(:)
+
+  namelist/problem_prm/  bc
 
   class(EllipticProblem_3D), allocatable, save :: problem
   character(len=:),          allocatable, save :: problem_name
@@ -191,7 +200,8 @@ program ML_Test_Elliptic
       ml_mesh_opt = ML_Mesh_Options_3D(io, n_proc)
       close(io)
     else
-      call Error('ML_Test_Elliptic', 'file "'// trim(case_file) //'" not found')
+      call Error('ML_Elliptic_Test_Static', &
+                 'file "'// trim(case_file) //'" not found')
     end if
 
   end if
@@ -288,21 +298,20 @@ program ML_Test_Elliptic
     open(newunit = io, file = case_file)
     read(io, nml = problem_prm)
     close(io)
-    if (.not. has_variable_nu) then
-      nu_1 = 0
-    end if
   end if
 
   ! globalize problem parameters
   call XMPI_Bcast( test_problem   , 0, comm )
-  call XMPI_Bcast( has_variable_nu, 0, comm )
+  call XMPI_Bcast( start_values   , 0, comm )
   call XMPI_Bcast( lambda         , 0, comm )
   call XMPI_Bcast( nu_0           , 0, comm )
   call XMPI_Bcast( nu_1           , 0, comm )
   call XMPI_Bcast( d_nu           , 0, comm )
   call XMPI_Bcast( k_nu           , 0, comm )
   call XMPI_Bcast( k_u            , 0, comm )
-  call XMPI_Bcast( start_val      , 0, comm )
+  call XMPI_Bcast( x_c            , 0, comm )
+  call XMPI_Bcast( r_0            , 0, comm )
+  call XMPI_Bcast( alpha          , 0, comm )
   call XMPI_Bcast( bc             , 0, comm )
 
   select case(test_problem)
@@ -310,16 +319,16 @@ program ML_Test_Elliptic
     dim = test_problem
     problem_name = 'Simple xD'
     write(problem_name(8:8),'(I1)') dim
-    problem = EllipticProblem_Simple_3D &
-                  (lambda, nu_0, nu_1, d_nu, k_nu, k_u, dim)
+    problem = EllipticProblem_Simple_3D(lambda, nu_0, nu_1, d_nu, k_nu, k_u, dim)
   case(4)
     problem_name = 'Knotty'
-    problem = EllipticProblem_Knotty_3D &
-                  (lambda, nu_0, nu_1, d_nu, k_nu, k_u)
+    problem = EllipticProblem_Knotty_3D(lambda, nu_0, nu_1, d_nu, k_nu, k_u)
+  case(5)
+    problem_name = 'Sphere'
+    problem = EllipticProblem_Sphere_3D(lambda, x_c, r_0, alpha)
   case default
     problem_name = 'TGV_Pressure'
-    problem = EllipticProblem_TGV_Pressure_3D &
-                  (lambda, nu_0, nu_1, d_nu, k_nu, k_u)
+    problem = EllipticProblem_TGV_Pressure_3D(lambda, nu_0, nu_1, d_nu, k_nu)
   end select
 
   ! enforce periodicity at coupled boundaries
@@ -329,7 +338,7 @@ program ML_Test_Elliptic
 
   if (rank == 0) then
     write(*,'(T3,A,T26,9(G0,X))') 'problem name:'        , trim(problem_name)
-    write(*,'(T3,A,T26,9(G0,X))') 'variable diffusivity:', has_variable_nu
+    write(*,'(T3,A,T26,9(G0,X))') 'variable diffusivity:', problem % nu_1 > 0
     write(*,'(T3,A,T26,9(G0,X))') 'boundary conditions:' , bc
   end if
 
@@ -424,7 +433,7 @@ program ML_Test_Elliptic
         f_l = mm_l * r_l                               ! f = M r
 
         ! start values
-        select case(start_val)
+        select case(start_values)
         case(0)
           call SetArray(u_l, ZERO)
         case(1)
@@ -471,7 +480,7 @@ program ML_Test_Elliptic
     write(*,'(/,A)') 'executing multilevel solver'
   end if
 
-  if (has_variable_nu) then
+  if (problem % nu_1 > 0) then
     select case(solution_method)
     case(10)
       call ml_elliptic % CS_MG_Solver(lambda, nu, u, f, bv, n_i)
@@ -561,7 +570,7 @@ contains
 
     ! residual .................................................................
 
-    if (has_variable_nu) then
+    if (problem % nu_1 > 0) then
       call ml_elliptic % FAS_MG_Residual(lambda, nu, f, bv, u, r)
     else
       call ml_elliptic % FAS_MG_Residual(lambda, nu_0, f, bv, u, r)
@@ -641,4 +650,4 @@ contains
 
   !=============================================================================
 
-end program ML_Test_Elliptic
+end program ML_Elliptic_Test_Static

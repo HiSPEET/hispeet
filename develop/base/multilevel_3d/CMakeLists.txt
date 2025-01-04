@@ -28,19 +28,19 @@ file( COPY
     )
 
 #===============================================================================
-# ml_test_elliptic
+# ml_elliptic_test_static
 
-add_executable( ml_test_elliptic
-                ml_test_elliptic.f )
+add_executable( ml_elliptic_test_static
+                ml_elliptic_test_static.f )
 
-target_link_libraries(ml_test_elliptic HiBase)
+target_link_libraries(ml_elliptic_test_static HiBase)
 
 file( COPY 
-           ml_test_elliptic.prm
-           ml_test_elliptic_1l.prm
-           ml_test_elliptic_global-p.prm
-           ml_test_elliptic_global-h.prm
-           ml_test_elliptic_local-h.prm
+           ml_elliptic_test_static.prm
+           ml_elliptic_test_static_1l.prm
+           ml_elliptic_test_static_global-p.prm
+           ml_elliptic_test_static_global-h.prm
+           ml_elliptic_test_static_local-h.prm
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR}
     )

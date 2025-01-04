@@ -319,8 +319,7 @@ program DG_Elliptic_3D_Test
     problem = EllipticProblem_Knotty_3D(lambda, nu_0, nu_1, d_nu, k_nu, k_u)
   case default
     test_case_name = 'TGV_Pressure'
-    problem = EllipticProblem_TGV_Pressure_3D( lambda, nu_0, nu_1 &
-                                             , d_nu, k_nu, k_u    )
+    problem = EllipticProblem_TGV_Pressure_3D(lambda, nu_0, nu_1, d_nu, k_nu)
   end select
 
   ! adjust boundary conditions

@@ -18,9 +18,11 @@ module Elliptic_Problem__TGV_Pressure__3D
   !> Type defining a 2D test problem
 
   type, extends(EllipticProblem_3D) :: EllipticProblem_TGV_Pressure_3D
+
     real(RNP) :: t     = 0                     !< time
     real(RNP) :: vt(3) = [1.000, 1.000, 0.000] !< translation velocity
     real(RNP) :: xt(3) = [0.000, 0.125, 0.000] !< initial displacement
+
   contains
 
     procedure :: GetExactSolution
@@ -41,16 +43,19 @@ contains
   !=============================================================================
   ! Create new object of type EllipticProblem_TGV_Pressure_3D
 
-  function New_Problem(lambda, nu_0, nu_1, d_nu, k_nu, k_u) result(this)
+  function New_Problem(lambda, nu_0, nu_1, d_nu, k_nu) result(this)
     type(EllipticProblem_TGV_Pressure_3D) :: this
     real(RNP), optional :: lambda  !< Helmholtz parameter
     real(RNP), optional :: nu_0    !< diffusivity mean value ν₀
     real(RNP), optional :: nu_1    !< diffusivity fluctuation amplitude ν₁
-    real(RNP), optional :: d_nu    !< diffusivity phase shift
-    integer  , optional :: k_nu    !< diffusivity wave number
-    integer  , optional :: k_u     !< solution wave number
+    real(RNP), optional :: d_nu    !< diffusivity fluctuation phase shift
+    integer  , optional :: k_nu    !< diffusivity fluctuation wave number
 
-    call this % SetBaseProblem(lambda, nu_0, nu_1, d_nu, k_nu, k_u)
+    if (present(lambda))  this % lambda = lambda
+    if (present(nu_0  ))  this % nu_0   = nu_0
+    if (present(nu_1  ))  this % nu_1   = nu_1
+    if (present(d_nu  ))  this % d_nu   = d_nu
+    if (present(k_nu  ))  this % k_nu   = k_nu
 
   end function New_Problem
 

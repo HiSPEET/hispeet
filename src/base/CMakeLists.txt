@@ -240,6 +240,7 @@ set( ELLIPTIC_3D
      elliptic_3d/elliptic_problem__3d.f
      elliptic_3d/elliptic_problem__knotty__3d.f
      elliptic_3d/elliptic_problem__simple__3d.f
+     elliptic_3d/elliptic_problem__sphere__3d.f
      elliptic_3d/elliptic_problem__tgv_pressure__3d.f
 
      elliptic_3d/dg__elliptic_operator__3d.f
@@ -302,6 +303,7 @@ set( MULTILEVEL_3D ${MULTILEVEL_3D}
      multilevel_3d/mesh/ml__mesh_operators__3d.f
      multilevel_3d/mesh/ml__mesh_variable__3d.f
      multilevel_3d/mesh/ml__mesh_variable__3d__mp_exportvtk.f
+     multilevel_3d/mesh/ml__mesh_variable__3d__mp_fitadaptedmesh.f
    )
 
 set( MULTILEVEL_3D ${MULTILEVEL_3D}

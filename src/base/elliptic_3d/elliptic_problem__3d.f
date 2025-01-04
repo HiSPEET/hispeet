@@ -20,13 +20,11 @@ module Elliptic_Problem__3D
     real(RNP) :: lambda = 0  !< Helmholtz parameter
     real(RNP) :: nu_0   = 1  !< diffusivity mean value ν₀
     real(RNP) :: nu_1   = 0  !< diffusivity fluctuation amplitude ν₁
-    real(RNP) :: d_nu   = 0  !< diffusivity phase shift
-    integer   :: k_nu   = 1  !< diffusivity wave number
-    integer   :: k_u    = 1  !< solution wave number
+    real(RNP) :: d_nu   = 0  !< diffusivity fluctuation phase shift
+    integer   :: k_nu   = 1  !< diffusivity fluctuation wave number
 
   contains
 
-    procedure :: SetBaseProblem
     procedure :: GetSource
 
     procedure(GetExactSolution),       deferred :: GetExactSolution
@@ -92,27 +90,6 @@ module Elliptic_Problem__3D
   end interface
 
 contains
-
-  !-----------------------------------------------------------------------------
-  !> Set problem
-
-  subroutine SetBaseProblem(this, lambda, nu_0, nu_1, d_nu, k_nu, k_u)
-    class(EllipticProblem_3D), intent(inout) :: this
-    real(RNP), optional :: lambda  !< Helmholtz parameter
-    real(RNP), optional :: nu_0    !< diffusivity mean value ν₀
-    real(RNP), optional :: nu_1    !< diffusivity fluctuation amplitude ν₁
-    real(RNP), optional :: d_nu    !< diffusivity phase shift
-    integer  , optional :: k_nu    !< diffusivity wave number
-    integer  , optional :: k_u     !< solution wave number
-
-    if (present(lambda))  this % lambda = lambda
-    if (present(nu_0  ))  this % nu_0   = nu_0
-    if (present(nu_1  ))  this % nu_1   = nu_1
-    if (present(d_nu  ))  this % d_nu   = d_nu
-    if (present(k_nu  ))  this % k_nu   = k_nu
-    if (present(k_u   ))  this % k_u    = k_u
-
-  end subroutine SetBaseProblem
 
   !-----------------------------------------------------------------------------
   !> Exact source
