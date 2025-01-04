@@ -96,7 +96,7 @@ contains
 
       ! creation of levels .....................................................
 
-        do l = 1, l_top
+      do l = 1, l_top
 
         this % sem(l) = SpectralElementMesh_3D(mesh(l), po(l), nodes)
 

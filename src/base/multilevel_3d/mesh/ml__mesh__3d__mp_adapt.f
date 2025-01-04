@@ -12,15 +12,15 @@ contains
   !-----------------------------------------------------------------------------
   !> Adapt multilevel mesh
 
-  module subroutine Adapt(this, partition, exch_plan)
+  module subroutine Adapt(this, partition, x_plan)
     class(ML_Mesh_3D),                      intent(inout) :: this
     class(PartitioningOptions_3D),          intent(in)    :: partition(:)
-    type(DataExchangePlan_3D), allocatable, intent(out)   :: exch_plan(:)
+    type(DataExchangePlan_3D), allocatable, intent(out)   :: x_plan(:)
 
     type(Mesh_3D), allocatable, save :: old_mesh(:)
     integer, save :: l_top_loc, l_top_new, l_top_old
 
-    integer :: e, l
+    integer :: l
 
     ! initialization ...........................................................
 
@@ -35,7 +35,7 @@ contains
 
     call move_alloc(this%mesh, old_mesh)
     allocate(this%mesh(l_top_new))
-    allocate(exch_plan(min(l_top_old, l_top_new)))
+    allocate(x_plan(min(l_top_old, l_top_new)))
 
     ! make adaptation pattern consistent .....................................
 
@@ -55,13 +55,13 @@ contains
       call RootMeshPartitioning_3D( opt       = partition(1) &
                                   , old_mesh  = old_mesh(1)  &
                                   , new_mesh  = this%mesh(1) &
-                                  , exch_plan = exch_plan(1) )
+                                  , x_plan = x_plan(1) )
     else
       call RootMeshPartitioning_3D( opt       = partition(1) &
                                   , old_mesh  = old_mesh(1)  &
                                   , new_mesh  = this%mesh(1) &
                                   , child     = old_mesh(2)  &
-                                  , exch_plan = exch_plan(1) )
+                                  , x_plan = x_plan(1) )
     end if
 
     ! adaptation ...............................................................
@@ -84,14 +84,14 @@ contains
                                    , parent     = this%mesh(l)   &
                                    , new_child  = this%mesh(l+1) &
                                    , old_child  = old_mesh(l+1)  &
-                                   , exch_plan  = exch_plan(l+1) )
+                                   , x_plan     = x_plan(l+1)    )
       case(2:)
         call ChildMeshAdaptation_3D( opt        = partition(l+1) &
                                    , parent     = this%mesh(l)   &
                                    , new_child  = this%mesh(l+1) &
                                    , old_child  = old_mesh(l+1)  &
                                    , grandchild = old_mesh(l+2)  &
-                                   , exch_plan  = exch_plan(l+1) )
+                                   , x_plan     = x_plan(l+1)    )
       end select
 
     end do

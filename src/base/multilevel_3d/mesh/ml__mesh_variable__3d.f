@@ -6,6 +6,7 @@
 
 module ML__Mesh_Variable__3D
   use Kind_Parameters
+  use Data_Exchange__3D
   use Mesh_Variable__3D
   use ML__Mesh_Operators__3D
   implicit none
@@ -23,6 +24,7 @@ module ML__Mesh_Variable__3D
     procedure :: Init => Init_ML_MeshVariable_3D
     procedure :: GetSlice
     procedure :: ExportVTK
+    procedure :: FitAdaptedMesh
   end type ML_MeshVariable_3D
 
   !=============================================================================
@@ -39,6 +41,14 @@ module ML__Mesh_Variable__3D
       character(len=*),           intent(in) :: file  !< export file base name
       integer,                    intent(in) :: mode  !< export mode {1,2,3}
     end subroutine ExportVTK
+
+    !---------------------------------------------------------------------------
+    !> Fit to adapted mesh
+    module subroutine FitAdaptedMesh(this, ml_op, x_plan)
+      class(ML_MeshVariable_3D),  intent(inout) :: this
+      class(ML_MeshOperators_3D), intent(in)    :: ml_op     !< adapted operators
+      class(DataExchangePlan_3D), intent(in)    :: x_plan(:) !< reassignment plan
+    end subroutine FitAdaptedMesh
 
   end interface
 

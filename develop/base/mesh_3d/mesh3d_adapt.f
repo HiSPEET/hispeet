@@ -96,7 +96,7 @@ program Mesh3d_Adapt
 
   type(PartitioningOptions_3D), allocatable, save :: part_opt(:)
   type(Mesh_3D),                allocatable, save :: old_mesh(:), mesh(:)
-  type(DataExchangePlan_3D),    allocatable, save :: exch_plan(:)
+  type(DataExchangePlan_3D),    allocatable, save :: x_plan(:)
   type(SpectralElementMesh_3D), allocatable, save :: sem(:)
 
   ! auxiliary variables ........................................................
@@ -309,23 +309,23 @@ program Mesh3d_Adapt
     end do
 
     ! create data exchange plan for redistribution of retained data
-    allocate(exch_plan(n_level))
+    allocate(x_plan(n_level))
 
     ! root level
     call ProcessAdaptationPattern_3D(old_mesh(1))
     if (max(old_mesh(1) % n_parts, part_opt(1) % n_parts) == 1) then
       mesh(1) = old_mesh(1)
     else if (old_mesh(1) % is_top) then
-      call RootMeshPartitioning_3D( opt       = part_opt(1)  &
-                                  , old_mesh  = old_mesh(1)  &
-                                  , new_mesh  = mesh(1)      &
-                                  , exch_plan = exch_plan(1) )
+      call RootMeshPartitioning_3D( opt      = part_opt(1)  &
+                                  , old_mesh = old_mesh(1)  &
+                                  , new_mesh = mesh(1)      &
+                                  , x_plan   = x_plan(1)    )
     else
-      call RootMeshPartitioning_3D( opt       = part_opt(1)  &
-                                  , old_mesh  = old_mesh(1)  &
-                                  , new_mesh  = mesh(1)      &
-                                  , child     = old_mesh(2)  &
-                                  , exch_plan = exch_plan(1) )
+      call RootMeshPartitioning_3D( opt      = part_opt(1)  &
+                                  , old_mesh = old_mesh(1)  &
+                                  , new_mesh = mesh(1)      &
+                                  , child    = old_mesh(2)  &
+                                  , x_plan   = x_plan(1)    )
     end if
     sem(1) = SpectralElementMesh_3D(mesh(1), po)
 
@@ -354,14 +354,14 @@ program Mesh3d_Adapt
                                    , parent    = mesh(l)        &
                                    , new_child = mesh(l+1)      &
                                    , old_child = old_mesh(l+1)  &
-                                   , exch_plan = exch_plan(l+1) )
+                                   , x_plan    = x_plan(l+1)    )
       case(2:)
         call ChildMeshAdaptation_3D( opt        = part_opt(l+1)  &
                                    , parent     = mesh(l)        &
                                    , new_child  = mesh(l+1)      &
                                    , old_child  = old_mesh(l+1)  &
                                    , grandchild = old_mesh(l+2)  &
-                                   , exch_plan  = exch_plan(l+1) )
+                                   , x_plan     = x_plan(l+1)    )
       end select
       sem(l+1) = SpectralElementMesh_3D(mesh(l+1), po)
 
@@ -396,7 +396,7 @@ program Mesh3d_Adapt
       end if
     end do
 
-    deallocate(exch_plan)
+    deallocate(x_plan)
 
   end do
 

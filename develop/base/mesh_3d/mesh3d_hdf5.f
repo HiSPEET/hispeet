@@ -66,7 +66,7 @@ program Mesh3d_HDF5
 
   type(PartitioningOptions_3D), save :: part_opt
   type(Mesh_3D),                save :: old_mesh, mesh
-  type(DataExchangePlan_3D),    save :: exch_plan
+  type(DataExchangePlan_3D),    save :: x_plan
   type(SpectralElementMesh_3D), save :: sem
 
   ! HDF5 .......................................................................
@@ -175,10 +175,10 @@ program Mesh3d_HDF5
   ! root mesh partitioning .....................................................
 
   if (old_mesh % n_parts /= part_opt % n_parts) then
-    call RootMeshPartitioning_3D( opt       = part_opt  &
-                                , old_mesh  = old_mesh  &
-                                , new_mesh  = mesh      &
-                                , exch_plan = exch_plan )
+    call RootMeshPartitioning_3D( opt      = part_opt  &
+                                , old_mesh = old_mesh  &
+                                , new_mesh = mesh      &
+                                , x_plan   = x_plan    )
   else
     mesh = old_mesh
   end if

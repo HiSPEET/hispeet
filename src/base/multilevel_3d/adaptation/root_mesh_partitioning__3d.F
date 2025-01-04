@@ -22,7 +22,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Redistribution of root mesh data
 
-  subroutine RootMeshPartitioning_3D(opt, old_mesh, new_mesh, child, exch_plan)
+  subroutine RootMeshPartitioning_3D(opt, old_mesh, new_mesh, child, x_plan)
 
     ! arguments ................................................................
 
@@ -30,7 +30,7 @@ contains
     class(Mesh_3D),                       intent(in)    :: old_mesh
     class(Mesh_3D),                       intent(out)   :: new_mesh
     class(Mesh_3D),             optional, intent(inout) :: child
-    class(DataExchangePlan_3D), optional, intent(out)   :: exch_plan
+    class(DataExchangePlan_3D), optional, intent(out)   :: x_plan
 
     ! internal variables .......................................................
 
@@ -188,25 +188,25 @@ contains
 
     ! redistribution maps for retained data ....................................
 
-    if (present(exch_plan)) then
+    if (present(x_plan)) then
 
       if (new_mesh % part >= 0) then
 
-        allocate(exch_plan % send_map( 0 : new_mesh % n_parts - 1 ))
-        allocate(exch_plan % recv_map( 0 : old_mesh % n_parts - 1 ))
+        allocate(x_plan % send_map( 0 : new_mesh % n_parts - 1 ))
+        allocate(x_plan % recv_map( 0 : old_mesh % n_parts - 1 ))
 
         do i = 0, new_mesh % n_parts - 1
-          exch_plan % send_map(i) % comm = new_mesh % comm_world
-          exch_plan % send_map(i) % proc = new_mesh % proc_part(i)
+          x_plan % send_map(i) % comm = new_mesh % comm_world
+          x_plan % send_map(i) % proc = new_mesh % proc_part(i)
         end do
-        call BuildDataExchangeSendMap(dist_map, exch_plan % send_map)
+        call BuildDataExchangeSendMap(dist_map, x_plan % send_map)
 
-        call BuildDataExchangeRecvMap(dist_recv_data, exch_plan % recv_map)
+        call BuildDataExchangeRecvMap(dist_recv_data, x_plan % recv_map)
 
       else
 
-        allocate(exch_plan % send_map(0))
-        allocate(exch_plan % recv_map(0))
+        allocate(x_plan % send_map(0))
+        allocate(x_plan % recv_map(0))
 
       end if
     end if

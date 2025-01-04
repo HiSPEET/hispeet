@@ -68,10 +68,10 @@ module ML__Mesh__3D
     !---------------------------------------------------------------------------
     !> Adapt multilevel mesh
 
-    module subroutine Adapt(this, partition, exch_plan)
+    module subroutine Adapt(this, partition, x_plan)
       class(ML_Mesh_3D),                      intent(inout) :: this
       class(PartitioningOptions_3D),          intent(in)    :: partition(:)
-      type(DataExchangePlan_3D), allocatable, intent(out)   :: exch_plan(:)
+      type(DataExchangePlan_3D), allocatable, intent(out)   :: x_plan(:)
     end subroutine Adapt
 
     !---------------------------------------------------------------------------
@@ -192,9 +192,7 @@ contains
     type(Mesh_3D),             intent(in)    :: mesh
     class(ML_Mesh_Options_3D), intent(in)    :: opt
 
-    type(Mesh_3D),             allocatable, save :: old_mesh(:)
-    type(DataExchangePlan_3D), allocatable, save :: exch_plan(:)
-    logical, save :: finish, finish_loc
+    type(DataExchangePlan_3D), allocatable, save :: x_plan(:)
 
     integer :: n_box, n_bnd
     integer :: i, e, l, m
@@ -283,7 +281,7 @@ contains
 
       ! adapt mesh .............................................................
 
-      call this % Adapt(opt%partition, exch_plan)
+      call this % Adapt(opt%partition, x_plan)
 
     end do ADAPTATION
 

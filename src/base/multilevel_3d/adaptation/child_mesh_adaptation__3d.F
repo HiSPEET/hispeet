@@ -50,14 +50,14 @@ module Child_Mesh_Adaptation__3D
     !> Build connections between parent, new child, old child and grandchildren
 
     module subroutine BuildConnections( parent, new_child_map, new_child &
-                                      , old_child, grandchild, exch_plan )
+                                      , old_child, grandchild, x_plan    )
 
       class(Mesh_3D),                       intent(inout) :: parent
       class(ChildDistributionMap_3D),       intent(in)    :: new_child_map
       class(Mesh_3D),                       intent(in)    :: new_child
       class(Mesh_3D),             optional, intent(in)    :: old_child
       class(Mesh_3D),             optional, intent(inout) :: grandchild
-      class(DataExchangePlan_3D), optional, intent(out)   :: exch_plan
+      class(DataExchangePlan_3D), optional, intent(out)   :: x_plan
 
     end subroutine BuildConnections
 
@@ -72,7 +72,7 @@ contains
   !> Generation of an adapted child mesh
 
   subroutine ChildMeshAdaptation_3D( opt, parent, new_child, old_child &
-                                   , grandchild, exch_plan             )
+                                   , grandchild, x_plan                )
 
     ! arguments ................................................................
 
@@ -81,7 +81,7 @@ contains
     class(Mesh_3D),                       intent(out)   :: new_child
     class(Mesh_3D),             optional, intent(in)    :: old_child
     class(Mesh_3D),             optional, intent(inout) :: grandchild
-    class(DataExchangePlan_3D), optional, intent(out)   :: exch_plan
+    class(DataExchangePlan_3D), optional, intent(out)   :: x_plan
 
     ! internal variables .......................................................
 
@@ -107,9 +107,9 @@ contains
     ! sanity check .............................................................
 
     if (present(old_child)) then
-      if (.not. present(exch_plan)) then
+      if (.not. present(x_plan)) then
         call Error( 'ChildMeshAdaptation_3D' &
-                  , 'exch_plan is required, when old_child is present' &
+                  , 'x_plan is required, when old_child is present' &
                   , 'Child_Mesh_Adaptation__3D' )
       end if
     end if
@@ -282,10 +282,10 @@ contains
     !     + `grandchild % element % adaptation % parent_id`
     !
     !  - mapping between old and new children
-    !     + `exch_plan` for redistributing retained data
+    !     + `x_plan` for redistributing retained data
 
     call BuildConnections( parent, new_child_map, new_child &
-                         , old_child, grandchild, exch_plan )
+                         , old_child, grandchild, x_plan    )
 
     ! copy retained element attributes .........................................
     !
@@ -294,7 +294,7 @@ contains
     ! - `new_child % element % adaptation % mark`
 
     if (present(old_child)) then
-      call CopyRetainedData(old_child, new_child, exch_plan)
+      call CopyRetainedData(old_child, new_child, x_plan)
     end if
 
     ! connect new child with grandchild ........................................
@@ -329,10 +329,10 @@ contains
   !-----------------------------------------------------------------------------
   !> Copy retained element attributes
 
-  subroutine CopyRetainedData(old_child, new_child, exch_plan)
+  subroutine CopyRetainedData(old_child, new_child, x_plan)
     class(Mesh_3D),             intent(in)    :: old_child
     class(Mesh_3D),             intent(inout) :: new_child
-    class(DataExchangePlan_3D), intent(in)    :: exch_plan
+    class(DataExchangePlan_3D), intent(in)    :: x_plan
 
     type(DataExchangeSendBuf_3D), allocatable :: send_buf(:)
     type(DataExchangeRecvBuf_3D), allocatable :: recv_buf(:)
@@ -342,8 +342,8 @@ contains
     integer :: n_recv, n_send
     integer :: i
 
-    associate( send_map => exch_plan % send_map &
-             , recv_map => exch_plan % recv_map )
+    associate( send_map => x_plan % send_map &
+             , recv_map => x_plan % recv_map )
 
       ! initialization .........................................................
 
