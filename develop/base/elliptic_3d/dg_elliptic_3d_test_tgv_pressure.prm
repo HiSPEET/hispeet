@@ -1,11 +1,11 @@
 &control_prm
   config = 1
-  n_test = 1  ! 10
-  plot_file = 'dg_elliptic_3d_test_tgv_pressure'
+  n_test = 1
+! export_vtk = T
 /
 
 &problem_prm
-  test_case = 5
+  test_problem = 6
   bc = 6*'P'
 /
 
@@ -23,11 +23,6 @@
   i_max  = 5
   r_red  = 1E-3
   schwarz_opt%delta = 0.2
-/
-
-&partition_prm
-  repartition = T
-  part_opt%n_parts = 2
 /
 
 ! config = 1

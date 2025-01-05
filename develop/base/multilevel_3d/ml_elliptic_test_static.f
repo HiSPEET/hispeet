@@ -317,8 +317,7 @@ program ML_Elliptic_Test_Static
   select case(test_problem)
   case(1:3)
     dim = test_problem
-    problem_name = 'Simple xD'
-    write(problem_name(8:8),'(I1)') dim
+    write(problem_name,'(A,I0,A)') 'Simple ', dim, 'D'
     problem = EllipticProblem_Simple_3D(lambda, nu_0, nu_1, d_nu, k_nu, k_u, dim)
   case(4)
     problem_name = 'Knotty'
