@@ -303,7 +303,7 @@ set( MULTILEVEL_3D ${MULTILEVEL_3D}
      multilevel_3d/mesh/ml__mesh_operators__3d.f
      multilevel_3d/mesh/ml__mesh_variable__3d.f
      multilevel_3d/mesh/ml__mesh_variable__3d__mp_exportvtk.f
-     multilevel_3d/mesh/ml__mesh_variable__3d__mp_fitadaptedmesh.f
+     multilevel_3d/mesh/ml__mesh_variable__3d__mp_fitadapt.f
    )
 
 set( MULTILEVEL_3D ${MULTILEVEL_3D}

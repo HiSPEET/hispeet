@@ -83,6 +83,7 @@ contains
 
       !$omp master
       l_top = size(sem)
+      allocate(r)
       call r % Init(this%ml_op, nc=1)
       bv_l => bv % level(l_top) % var
       if (l_top == 1) then

@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule(ML__Mesh_Variable__3D) MP_FitAdaptedMesh
+submodule(ML__Mesh_Variable__3D) MP_FitAdapt
   use Parent_To_Child_Interpolation__3D
   implicit none
 
@@ -13,7 +13,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Fit to adapted mesh
 
-  module subroutine FitAdaptedMesh(this, ml_op, x_plan)
+  module subroutine FitAdapt(this, ml_op, x_plan)
     class(ML_MeshVariable_3D),  intent(inout) :: this
     class(ML_MeshOperators_3D), intent(in)    :: ml_op     !< adapted operators
     class(DataExchangePlan_3D), intent(in)    :: x_plan(:) !< reassignment plan
@@ -54,7 +54,7 @@ contains
 
     deallocate(old_level)
 
-  end subroutine FitAdaptedMesh
+  end subroutine FitAdapt
 
   !-----------------------------------------------------------------------------
   !> Copy retained element attributes
@@ -72,10 +72,23 @@ contains
 
     ! initialization ...........................................................
 
-    n_send = size(x_plan % send_map)
-    n_recv = size(x_plan % recv_map)
+    if (allocated(x_plan % send_map)) then
+      n_send = size(x_plan % send_map)
+    else
+      n_send = 0
+    end if
 
-    allocate(send_buf(n_send), recv_buf(n_recv))
+    if (allocated(x_plan % recv_map)) then
+      n_recv = size(x_plan % recv_map)
+    else
+      n_recv = 0
+    end if
+
+    if (max(n_send, n_recv) > 0) then
+      allocate(send_buf(n_send), recv_buf(n_recv))
+    else
+      return
+    end if
 
     ! transfer retained data ...................................................
 
@@ -106,4 +119,4 @@ contains
 
   !=============================================================================
 
-end submodule MP_FitAdaptedMesh
+end submodule MP_FitAdapt

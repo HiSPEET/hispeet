@@ -443,6 +443,9 @@ contains
         j = mesh % element(e) % face(i) % boundary
         if (j > 0) then
           bc_face(i) = bc(j)
+        else if (j == 0) then
+          ! border to frozen element treated like Dirichlet boundary
+          bc_face(i) = 'D'
         else
           bc_face(i) = ''
         end if

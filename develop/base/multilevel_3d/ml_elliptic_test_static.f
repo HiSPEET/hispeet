@@ -59,16 +59,16 @@ program ML_Elliptic_Test_Static
   character(len=80) :: case_name ! case name
   character(len=80) :: case_file ! case input file: trim(case_name).prm
 
-  namelist/control_prm/ log_level
-  namelist/control_prm/ log_level_inner_iteration
-  namelist/control_prm/ log_level_outer_iteration
-  namelist/control_prm/ log_level_multigrid_cycle
-
   integer :: solution_method = 20  ! 10/20: CS-MG/FAS-MG
   logical :: check_hdf5 = .false.  ! write and re-read ML mesh before solving
   logical :: export_vtk = .false.  ! switch for VTK export
 
   namelist/control_prm/ solution_method, check_hdf5, export_vtk
+
+  namelist/control_prm/ log_level
+  namelist/control_prm/ log_level_inner_iteration
+  namelist/control_prm/ log_level_outer_iteration
+  namelist/control_prm/ log_level_multigrid_cycle
 
   ! domain .....................................................................
 
@@ -91,7 +91,7 @@ program ML_Elliptic_Test_Static
 
   ! problem ....................................................................
 
-  integer :: test_problem = 3 ! 1/2/3/4/5: simple_{1/2/3}d/knotty/sphere/TGV
+  integer :: test_problem = 3 ! 1...6: simple_{1/2/3}d/knotty/TGV/sphere
   integer :: start_values = 0 ! 0/1/2: zero, exact, random
 
   namelist/problem_prm/ test_problem, start_values
@@ -111,7 +111,7 @@ program ML_Elliptic_Test_Static
   real(RNP) :: r_0    =  0.7  ! sphere radius
   real(RNP) :: alpha  =  200  ! radial scaling factor
 
-  namelist/problem_prm/ x_c, r_0, r_0
+  namelist/problem_prm/ x_c, r_0, alpha
 
   ! boundary conditions {'D','N','P'} ['D']
   character, allocatable :: bc(:)
@@ -119,7 +119,7 @@ program ML_Elliptic_Test_Static
   namelist/problem_prm/  bc
 
   class(EllipticProblem_3D), allocatable, save :: problem
-  character(len=:),          allocatable, save :: problem_name
+  character(len=80) :: problem_name = ''
 
   ! solvers .....................................................................
 
@@ -317,17 +317,17 @@ program ML_Elliptic_Test_Static
   select case(test_problem)
   case(1:3)
     dim = test_problem
-    write(problem_name,'(A,I0,A)') 'Simple ', dim, 'D'
+    write(problem_name,'(A,I0,A)') 'Simple_', dim, 'D'
     problem = EllipticProblem_Simple_3D(lambda, nu_0, nu_1, d_nu, k_nu, k_u, dim)
   case(4)
     problem_name = 'Knotty'
     problem = EllipticProblem_Knotty_3D(lambda, nu_0, nu_1, d_nu, k_nu, k_u)
   case(5)
-    problem_name = 'Sphere'
-    problem = EllipticProblem_Sphere_3D(lambda, x_c, r_0, alpha)
-  case default
     problem_name = 'TGV_Pressure'
     problem = EllipticProblem_TGV_Pressure_3D(lambda, nu_0, nu_1, d_nu, k_nu)
+  case(6)
+    problem_name = 'Sphere'
+    problem = EllipticProblem_Sphere_3D(lambda, x_c, r_0, alpha)
   end select
 
   ! enforce periodicity at coupled boundaries
@@ -450,7 +450,7 @@ program ML_Elliptic_Test_Static
           q(:,:,:,:,3) = nu_l * q(:,:,:,:,3)
         end if
 
-        ! extract and apply boundary conditions
+        ! extract boundary conditions
         do i = 1, size(bc)
           select case(bc(i))
           case('D')

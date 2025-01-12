@@ -8,6 +8,7 @@ module ML__Mesh_Variable__3D
   use Kind_Parameters
   use Data_Exchange__3D
   use Mesh_Variable__3D
+  use ML__Mesh__3D
   use ML__Mesh_Operators__3D
   implicit none
   private
@@ -21,10 +22,11 @@ module ML__Mesh_Variable__3D
     type(MeshVariable_3D), allocatable :: level(:) !< variable per level
     character(len=:),      allocatable :: name(:)  !< component names
   contains
-    procedure :: Init => Init_ML_MeshVariable_3D
+    generic   :: Init => Init_ML_MeshVariable_3D__M, Init_ML_MeshVariable_3D__O
+    procedure :: Init_ML_MeshVariable_3D__M, Init_ML_MeshVariable_3D__O
     procedure :: GetSlice
     procedure :: ExportVTK
-    procedure :: FitAdaptedMesh
+    procedure :: FitAdapt
   end type ML_MeshVariable_3D
 
   !=============================================================================
@@ -44,26 +46,68 @@ module ML__Mesh_Variable__3D
 
     !---------------------------------------------------------------------------
     !> Fit to adapted mesh
-    module subroutine FitAdaptedMesh(this, ml_op, x_plan)
+    module subroutine FitAdapt(this, ml_op, x_plan)
       class(ML_MeshVariable_3D),  intent(inout) :: this
       class(ML_MeshOperators_3D), intent(in)    :: ml_op     !< adapted operators
       class(DataExchangePlan_3D), intent(in)    :: x_plan(:) !< reassignment plan
-    end subroutine FitAdaptedMesh
+    end subroutine FitAdapt
 
   end interface
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> Initialize multilevel variable with nc components from multilevel SE mesh
+  !> Initialize variable from multilevel mesh
+  !>
+  !> Provides a variable with fixed polynomial order `po` and `nc` components
+  !> fitting the given multilevel mesh
 
-  subroutine Init_ML_MeshVariable_3D(this, ml_op, nc, name)
+  subroutine Init_ML_MeshVariable_3D__M(this, ml_mesh, po, nc, name)
+    class(ML_MeshVariable_3D),  intent(inout) :: this
+    class(ML_Mesh_3D),          intent(in)    :: ml_mesh
+    integer,                    intent(in)    :: po  !< polynomial order
+    integer,                    intent(in)    :: nc  !< number of components
+    character(len=*), optional, intent(in)    :: name(nc)
+
+    integer :: i, l
+
+    if (allocated(this%level)) deallocate(this%level)
+    if (allocated(this%name))  deallocate(this%name)
+
+    allocate(this % level( size(ml_mesh%mesh) ))
+
+    do l = 1, size(this%level)
+      call this % level(l) % Init(ml_mesh % mesh(l), po, nc)
+    end do
+
+    if (present(name)) then
+      this % name = name
+    else
+      l = 2 + int(log10(dble(nc)))
+      allocate(character(len=l) :: this % name(nc))
+      do i = 1, nc
+        write(this%name(i), '(A,I0)') 'v', i
+      end do
+    end if
+
+  end subroutine Init_ML_MeshVariable_3D__M
+
+  !-----------------------------------------------------------------------------
+  !> Initialize variable from multilevel mesh operators
+  !>
+  !> Provides a variable with `nc` components fitting the mesh and polynomial
+  !> order of the given multilevel operators
+
+  subroutine Init_ML_MeshVariable_3D__O(this, ml_op, nc, name)
     class(ML_MeshVariable_3D),  intent(inout) :: this
     class(ML_MeshOperators_3D), intent(in)    :: ml_op
     integer,                    intent(in)    :: nc
     character(len=*), optional, intent(in)    :: name(nc)
 
     integer :: i, l
+
+    if (allocated(this%level)) deallocate(this%level)
+    if (allocated(this%name )) deallocate(this%name)
 
     allocate(this % level( size(ml_op%sem) ))
 
@@ -83,7 +127,7 @@ contains
       end do
     end if
 
-  end subroutine Init_ML_MeshVariable_3D
+  end subroutine Init_ML_MeshVariable_3D__O
 
   !-----------------------------------------------------------------------------
   !> Create a new multilevel mesh variable as a slice of the given one
@@ -102,14 +146,16 @@ contains
 
     integer :: l
 
-    !$omp master
+    if (allocated(slice%level)) then
+      deallocate(slice%level)
+    end if
+
     allocate(slice % level(size(this % level)))
     slice % name = this % name(first:last)
 
     do l = 1, size(this%level)
       call this % level(l) % GetSlice(slice % level(l), first, last, copy)
     end do
-    !$omp end master
 
   end subroutine GetSlice
 

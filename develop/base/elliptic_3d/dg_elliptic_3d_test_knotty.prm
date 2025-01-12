@@ -5,7 +5,7 @@
 /
 
 &problem_prm
-  test_problem = 2
+  test_problem = 4
 ! bc = 6*'P'
 /
 

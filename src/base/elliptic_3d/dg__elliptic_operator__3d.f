@@ -248,17 +248,18 @@ contains
   !-----------------------------------------------------------------------------
   !> Application of the diffusion operator with constant diffusivity
 
-  subroutine Apply_C(this, lambda, nu, u, r)
+  subroutine Apply_C(this, lambda, nu, bv, u, r)
     class(DG_EllipticOperator_3D), intent(in)  :: this
     real(RNP),                     intent(in)  :: lambda     !< λ
     real(RNP),                     intent(in)  :: nu         !< ν = νᵖ+νˢ
     real(RNP), contiguous,         intent(in)  :: u(:,:,:,:) !< operand
     real(RNP), contiguous,         intent(out) :: r(:,:,:,:) !< result
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:) !< boundary values
 
     if (this % sem % mesh % regular) then
-      call Eval_RC(this, lambda, nu, u, r)
+      call Eval_RC(this, lambda, nu, u, r, bv = bv)
     else
-      call Eval_DC(this, lambda, nu, u, r)
+      call Eval_DC(this, lambda, nu, u, r, bv = bv)
     end if
 
   end subroutine Apply_C
@@ -266,17 +267,18 @@ contains
   !-----------------------------------------------------------------------------
   !> Application of the elliptic operator with variable diffusivity
 
-  subroutine Apply_V(this, lambda, nu, u, r)
+  subroutine Apply_V(this, lambda, nu, bv, u, r)
     class(DG_EllipticOperator_3D), intent(in)  :: this
     real(RNP),                     intent(in)  :: lambda      !< λ
     real(RNP), contiguous,         intent(in)  :: nu(:,:,:,:) !< ν = νᵖ
     real(RNP), contiguous,         intent(in)  :: u (:,:,:,:) !< operand
     real(RNP), contiguous,         intent(out) :: r (:,:,:,:) !< result
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:) !< boundary values
 
     if (this % sem % mesh % regular) then
-      call Eval_RV(this, lambda, nu, u, r)
+      call Eval_RV(this, lambda, nu, u, r, bv = bv)
     else
-      call Eval_DV(this, lambda, nu, u, r)
+      call Eval_DV(this, lambda, nu, u, r, bv = bv)
     end if
 
   end subroutine Apply_V
@@ -295,8 +297,8 @@ contains
     real(RNP),                     intent(in)  :: nu          !< ν = νᵖ+νˢ
     real(RNP), contiguous,         intent(in)  :: f(:,:,:,:)  !< RHS
     real(RNP), contiguous,         intent(in)  :: u(:,:,:,:)  !< operand
-    class(BoundaryVariable_3D), optional, intent(in) :: bv(:) !< boundary values
     real(RNP), contiguous,         intent(out) :: r(:,:,:,:)  !< result
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:) !< boundary values
 
     if (this % sem % mesh % regular) then
       call Eval_RC(this, lambda, nu, u, r, f, bv)
@@ -317,8 +319,8 @@ contains
     real(RNP), contiguous,         intent(in)  :: nu(:,:,:,:) !< ν = νᵖ
     real(RNP), contiguous,         intent(in)  :: u (:,:,:,:) !< operand
     real(RNP), contiguous,         intent(in)  :: f (:,:,:,:) !< RHS
-    class(BoundaryVariable_3D), optional, intent(in) :: bv(:) !< boundary values
     real(RNP), contiguous,         intent(out) :: r (:,:,:,:) !< result
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:) !< boundary values
 
     if (this % sem % mesh % regular) then
       call Eval_RV(this, lambda, nu, u, r, f, bv)

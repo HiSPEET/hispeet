@@ -125,6 +125,13 @@ contains
       attrib % dx = HALF * attrib % dx
     end if
 
+    ! correct refimenent attribute
+    if (present(old_child)) then
+      attrib % refinement = old_child % refinement
+    else
+      attrib % refinement = ''
+    end if
+
     call new_child % Init_Mesh_3D(attrib, parent % comm_world)
 
     new_child % n_parts = opt % n_parts

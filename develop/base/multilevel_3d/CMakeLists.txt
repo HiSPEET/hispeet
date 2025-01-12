@@ -44,3 +44,17 @@ file( COPY
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR}
     )
+
+#===============================================================================
+# ml_elliptic_test_adaptive
+
+add_executable( ml_elliptic_test_adaptive
+                ml_elliptic_test_adaptive.f )
+
+target_link_libraries(ml_elliptic_test_adaptive HiBase)
+
+file( COPY 
+           ml_elliptic_test_adaptive.prm
+      DESTINATION
+           ${CMAKE_CURRENT_BINARY_DIR}
+    )

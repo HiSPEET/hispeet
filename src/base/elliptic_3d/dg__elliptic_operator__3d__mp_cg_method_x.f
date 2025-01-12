@@ -111,9 +111,9 @@ contains
 
         ! operator application with no source and homogeneous BC
         if (present(nu_c)) then
-          call this % Apply(lambda, nu_c, p, q)
+          call this % Apply(lambda, nu_c, u=p, r=q)
         else
-          call this % Apply(lambda, nu_v, p, q)
+          call this % Apply(lambda, nu_v, u=p, r=q)
         end if
 
         ! correction

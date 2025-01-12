@@ -52,16 +52,16 @@ contains
     if (max(old_mesh(1)%n_parts, partition(1)%n_parts) == 1) then
       this % mesh(1) = old_mesh(1)
     else if (old_mesh(1) % is_top) then
-      call RootMeshPartitioning_3D( opt       = partition(1) &
-                                  , old_mesh  = old_mesh(1)  &
-                                  , new_mesh  = this%mesh(1) &
-                                  , x_plan = x_plan(1) )
+      call RootMeshPartitioning_3D( opt      = partition(1) &
+                                  , old_mesh = old_mesh(1)  &
+                                  , new_mesh = this%mesh(1) &
+                                  , x_plan   = x_plan(1)    )
     else
-      call RootMeshPartitioning_3D( opt       = partition(1) &
-                                  , old_mesh  = old_mesh(1)  &
-                                  , new_mesh  = this%mesh(1) &
-                                  , child     = old_mesh(2)  &
-                                  , x_plan = x_plan(1) )
+      call RootMeshPartitioning_3D( opt      = partition(1) &
+                                  , old_mesh = old_mesh(1)  &
+                                  , new_mesh = this%mesh(1) &
+                                  , child    = old_mesh(2)  &
+                                  , x_plan   = x_plan(1)    )
     end if
 
     ! adaptation ...............................................................

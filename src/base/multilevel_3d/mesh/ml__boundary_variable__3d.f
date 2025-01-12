@@ -41,7 +41,9 @@ contains
 
     integer :: b, l
 
-    allocate(this % level( size(ml_op % sem) ))
+    if (allocated(this%level)) deallocate(this%level)
+
+    allocate(this%level( size(ml_op % sem) ))
 
     do l = 1, size(this%level)
       allocate(this % level(l) % var( ml_op % sem(l) % mesh % n_bound ))

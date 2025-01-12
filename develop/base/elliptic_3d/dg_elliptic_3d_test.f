@@ -14,6 +14,7 @@ program DG_Elliptic_3D_Test
   use OpenMP_Binding
   use XMPI
   use Execution_Control
+  use Logging_Levels
   use Array_Assignments
   use Array_Reductions
 
@@ -68,6 +69,10 @@ program DG_Elliptic_3D_Test
 
   namelist/control_prm/ config, n_test, export_vtk, subdiv_vtk
 
+  namelist/control_prm/ log_level
+  namelist/control_prm/ log_level_inner_iteration
+  namelist/control_prm/ log_level_outer_iteration
+
   character(len=80) :: schwarz_test_file = '' ! Schwarz test plot file
   integer :: schwarz_test_part = 0            ! Schwarz test partition
   integer :: schwarz_test_elem = 1            ! Schwarz test core element ID
@@ -76,7 +81,7 @@ program DG_Elliptic_3D_Test
 
   ! problem parameters .........................................................
 
-  integer :: test_problem = 3 ! d/4/5/6: Simple_dD / Knotty / Sphere / TGV
+  integer :: test_problem = 3 ! 1...6: simple_{1/2/3}d/knotty/TGV/sphere
   integer :: start_values = 0 ! 0/1/2: zero, exact, random
 
   namelist/problem_prm/ test_problem, start_values
@@ -305,17 +310,17 @@ program DG_Elliptic_3D_Test
   select case(test_problem)
   case(1:3)
     dim = test_problem
-    write(problem_name,'(A,I0,A)') 'Simple ', dim, 'D'
+    write(problem_name,'(A,I0,A)') 'Simple_', dim, 'D'
     problem = EllipticProblem_Simple_3D(lambda, nu_0, nu_1, d_nu, k_nu, k_u, dim)
   case(4)
     problem_name = 'Knotty'
     problem = EllipticProblem_Knotty_3D(lambda, nu_0, nu_1, d_nu, k_nu, k_u)
   case(5)
-    problem_name = 'Sphere'
-    problem = EllipticProblem_Sphere_3D(lambda, x_c, r_0, alpha)
-  case default
     problem_name = 'TGV_Pressure'
     problem = EllipticProblem_TGV_Pressure_3D(lambda, nu_0, nu_1, d_nu, k_nu)
+  case(6)
+    problem_name = 'Sphere'
+    problem = EllipticProblem_Sphere_3D(lambda, x_c, r_0, alpha)
   end select
 
   ! enforce periodicity at coupled boundaries

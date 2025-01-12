@@ -124,7 +124,7 @@ contains
       !$omp barrier
 
       check_convergence = log_level_inner_iteration > 0
-      if (present(r_red)) check_convergence = r_red > 0
+      if (present(r_red)) check_convergence = r_red > 0 .or. check_convergence
       if (present(r_max)) check_convergence = r_max > 0 .or. check_convergence
 
       singular = abs(lambda) < epsilon(ONE) .and. all(this%bc /= 'D')
@@ -249,9 +249,9 @@ contains
 
         ! operator application with no source and homogeneous BC
         if (present(nu_c)) then
-          call this % Apply(lambda, nu_c, p, q)
+          call this % Apply(lambda, nu_c, u=p, r=q)
         else
-          call this % Apply(lambda, nu_v, p, q)
+          call this % Apply(lambda, nu_v, u=p, r=q)
         end if
 
         ! correction

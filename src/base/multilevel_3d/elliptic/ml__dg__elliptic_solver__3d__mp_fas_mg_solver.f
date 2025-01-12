@@ -84,6 +84,7 @@ contains
 
       !$omp master
       l_top = size(sem)
+      allocate(r, v)
       call r % Init(this%ml_op, nc=1)
       call v % Init(this%ml_op, nc=1)
       start_method = this % start_method
@@ -196,6 +197,7 @@ contains
                      , f_l    => f  % level(l  ) % val(:,:,:,:,1) &
                      , u_l    => u  % level(l  ) % val(:,:,:,:,1) &
                      , r_l    => r  % level(l  ) % val(:,:,:,:,1) &
+                     , bv_p   => bv % level(l-1) % var            &
                      , f_p    => f  % level(l-1) % val(:,:,:,:,1) &
                      , u_p    => u  % level(l-1) % val(:,:,:,:,1) &
                      , r_p    => r  % level(l-1) % val(:,:,:,:,1) &
@@ -249,10 +251,10 @@ contains
               end do
 
               if (present(nu_0)) then
-                call ell_op(l-1) % Apply(lambda, nu_0, v_p, r_p)
+                call ell_op(l-1) % Apply(lambda, nu_0, bv_p, v_p, r_p)
               else
                 associate(nu_p => nu_v % level(l-1) % val(:,:,:,:,1))
-                  call ell_op(l-1) % Apply(lambda, nu_p, v_p, r_p)
+                  call ell_op(l-1) % Apply(lambda, nu_p, bv_p, v_p, r_p)
                 end associate
               end if
 
@@ -361,6 +363,7 @@ contains
                    , f_l    => f  % level(l  ) % val(:,:,:,:,1) &
                    , u_l    => u  % level(l  ) % val(:,:,:,:,1) &
                    , r_l    => r  % level(l  ) % val(:,:,:,:,1) &
+                   , bv_p   => bv % level(l-1) % var            &
                    , f_p    => f  % level(l-1) % val(:,:,:,:,1) &
                    , u_p    => u  % level(l-1) % val(:,:,:,:,1) &
                    , r_p    => r  % level(l-1) % val(:,:,:,:,1) &
@@ -417,10 +420,10 @@ contains
             end do
 
             if (present(nu_0)) then
-              call ell_op(l-1) % Apply(lambda, nu_0, v_p, r_p)
+              call ell_op(l-1) % Apply(lambda, nu_0, bv_p, v_p, r_p)
             else
               associate(nu_p => nu_v % level(l-1) % val(:,:,:,:,1))
-                call ell_op(l-1) % Apply(lambda, nu_p, v_p, r_p)
+                call ell_op(l-1) % Apply(lambda, nu_p, bv_p, v_p, r_p)
               end associate
             end if
 

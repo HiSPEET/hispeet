@@ -44,12 +44,12 @@ module ML__Mesh__3D
   !> 3D multilevel mesh generation options
 
   type ML_Mesh_Options_3D
-    integer :: l_top   = 1                     !< top level
+    integer :: l_top   =  1                    !< initial top level
+    integer :: l_max   = -1                    !< ultimate top level
     integer :: l_adapt = huge(1)               !< first level to be adapted ≥1
     character, allocatable :: refinement(:)    !< refinement type {'c','s'}
-    integer,   allocatable :: adapt_bnd(:)     !< boundaries to be adapted
+    integer,   allocatable :: adapt_bnd(:)     !< boundaries to be adapted (*)
     real(RNP), allocatable :: adapt_box(:,:,:) !< boxes to be adapted (3,2,*)
-    real(RNP), allocatable :: adapt_tol(:)     !< tolerance per level
     type(PartitioningOptions_3D), allocatable :: partition(:)
   contains
     procedure :: Bcast => Bcast_ML_Mesh_Options_3D
@@ -111,7 +111,7 @@ contains
   end function New_ML_Mesh_3D
 
   !-----------------------------------------------------------------------------
-  !> Create multilevel mesh by global refinement of given mesh
+  !> Create multilevel mesh using prescribed refinement of given mesh
 
   subroutine Init_ML_Mesh_3D(this, mesh, opt)
     class(ML_Mesh_3D),         intent(inout) :: this
@@ -135,7 +135,7 @@ contains
   end subroutine Init_ML_Mesh_3D
 
   !-----------------------------------------------------------------------------
-  !> Create multilevel mesh by global refinement of given mesh
+  !> Create multilevel mesh by local refinement of given mesh
 
   subroutine Create_Global_ML_Mesh_3D(this, mesh, opt)
     class(ML_Mesh_3D),         intent(inout) :: this
@@ -232,7 +232,7 @@ contains
 
           if (parent%part < 0) cycle
 
-          if (l < opt%l_adapt) then
+          if (l+1 < opt%l_adapt) then
 
             call parent % element % MarkForRefinement()
 
@@ -263,10 +263,9 @@ contains
               do e = 1, parent % n_elem
                 associate( element => parent % element(e)                  &
                          , x_cub   => parent % element(e) % geometry % x_c &
-                         , x_box   => opt % adapt_box                      &
-                         , tol     => opt % adapt_tol(l)                   )
+                         , x_box   => opt % adapt_box                      )
 
-                  if (ElementIntersectsBox(n_box, x_box, x_cub, tol)) then
+                  if (ElementIntersectsBox(n_box, x_box, x_cub)) then
                     call element % MarkForRefinement()
                   end if
 
@@ -290,33 +289,25 @@ contains
   !-----------------------------------------------------------------------------
   !> Check for intersection of element cuboid with any of given boxes
 
-  logical function ElementIntersectsBox(n_box, x_box, x_cub, tol)
+  logical function ElementIntersectsBox(n_box, x_box, x_cub)
     integer,   intent(in) :: n_box            !< number of boxes
     real(RNP), intent(in) :: x_box(3,2,n_box) !< boxes
     real(RNP), intent(in) :: x_cub(0:3,3)     !< element cuboid
-    real(RNP), intent(in) :: tol              !< tolerance
 
-    real(RNP) :: x_cub_min(3), x_cub_max(3)
-    real(RNP) :: x_box_min(3), x_box_max(3)
-    real(RNP) :: dx(3), tol2
+    real(RNP) :: dx(3), x_cub_min(3), x_cub_max(3)
     integer   :: i
-
-    ElementIntersectsBox = .false.
-
-    tol2 = tol * tol
 
     ! cuboid center position ∓ approximate half width in directions 1:3
     dx = abs(x_cub(1,:)) + abs(x_cub(2,:)) + abs(x_cub(3,:))
     x_cub_min = x_cub(0,:) - dx
     x_cub_max = x_cub(0,:) + dx
 
+    ElementIntersectsBox = .false.
     do i = 1, n_box
-      x_box_min = x_box(:,1,i) - tol
-      x_box_max = x_box(:,2,i) + tol
-      if (all(x_box_min < x_cub_max .and. x_box_max > x_cub_min)) then
-        ElementIntersectsBox = .true.
-        exit
-      end if
+      if (any(x_cub_max <= x_box(1:3,1,i))) cycle ! cuboid left  outside the box
+      if (any(x_cub_min >= x_box(1:3,2,i))) cycle ! cuboid right outside the box
+      ElementIntersectsBox = .true.
+      exit
     end do
 
   end function ElementIntersectsBox
@@ -335,16 +326,17 @@ contains
     ! static input variables ...................................................
 
     ! adaptation
-    integer :: l_top   = 1         ! top level
-    integer :: l_adapt = huge(1)   ! first level to be adapted ≥1
-    integer :: n_bnd   = 0         ! number of boundaries to be adapted
-    integer :: n_box   = 0         ! number of boxes to be adapted
+    integer :: l_top   =  1        ! top level
+    integer :: l_max   = -1        ! top level
+    integer :: l_adapt =  huge(1)  ! first level to be adapted > 1
+    integer :: n_bnd   =  0        ! number of boundaries to be adapted
+    integer :: n_box   =  0        ! number of boxes to be adapted
 
     ! partitioning
     integer :: n_parts_root   = 1  ! number of partitions at root level
     integer :: n_parts_growth = 1  ! partition number growth rate
 
-    namelist/ml_mesh_options_3d__static/ l_top, l_adapt, n_bnd, n_box
+    namelist/ml_mesh_options_3d__static/ l_top, l_max, l_adapt, n_bnd, n_box
     namelist/ml_mesh_options_3d__static/ n_parts_root, n_parts_growth
 
     ! dynamic input variables ..................................................
@@ -352,10 +344,9 @@ contains
     character, allocatable :: refinement(:)    ! refinement type {'c','s'}
     integer,   allocatable :: adapt_bnd(:)     ! boundaries to be adapted
     real(RNP), allocatable :: adapt_box(:,:,:) ! boxes to be adapted (3,2,*)
-    real(RNP), allocatable :: adapt_tol(:)     ! tolerance per level
 
     namelist /ml_mesh_options_3d__dynamic/ refinement
-    namelist /ml_mesh_options_3d__dynamic/ adapt_bnd, adapt_box, adapt_tol
+    namelist /ml_mesh_options_3d__dynamic/ adapt_bnd, adapt_box
 
     ! auxiliary variables ......................................................
 
@@ -366,31 +357,32 @@ contains
     rewind(unit)
     read(unit, nml = ml_mesh_options_3d__static)
 
+    l_max = max(l_max, l_top)
+
     ! read dynamic input variables .............................................
 
-    allocate(refinement(l_top-1),   source = ' ')
+    allocate(refinement(l_max-1),   source = ' ')
     allocate(adapt_bnd (n_bnd),     source = 0 )
     allocate(adapt_box (3,2,n_box), source = huge(ONE))
-    allocate(adapt_tol (l_top-1),   source = ZERO)
 
     read(unit, nml = ml_mesh_options_3d__dynamic)
 
     ! create multilevel mesh options ...........................................
 
     this % l_top   = l_top
+    this % l_max   = l_max
     this % l_adapt = l_adapt
 
     call move_alloc( refinement, this % refinement )
     call move_alloc( adapt_bnd , this % adapt_bnd  )
     call move_alloc( adapt_box , this % adapt_box  )
-    call move_alloc( adapt_tol , this % adapt_tol  )
 
     ! partitioning options
-    allocate(this % partition(l_top))
+    allocate(this % partition(l_max))
     associate(partition => this % partition)
       partition(1) % mode    = 1
       partition(1) % n_parts = n_parts_root
-      do l = 2, l_top
+      do l = 2, l_max
         partition(l) % mode    = 2
         partition(l) % n_parts = n_parts_growth * partition(l-1)%n_parts
       end do
@@ -411,7 +403,9 @@ contains
 
     integer :: l, rank, n_bnd, n_box
 
-    associate(l_top => this%l_top, l_adapt => this%l_adapt)
+    associate( l_top   => this%l_top   &
+             , l_max   => this%l_max   &
+             , l_adapt => this%l_adapt )
 
       call MPI_Comm_rank(comm, rank)
 
@@ -421,24 +415,25 @@ contains
       end if
 
       call XMPI_Bcast(l_top  , root, comm)
+      call XMPI_Bcast(l_max  , root, comm)
       call XMPI_Bcast(l_adapt, root, comm)
       call XMPI_Bcast(n_bnd  , root, comm)
       call XMPI_Bcast(n_box  , root, comm)
 
+      l_max = max(l_max, l_top)
+
       if (rank /= root) then
-        allocate( this % refinement(l_top-1)  )
+        allocate( this % refinement(l_max-1)  )
         allocate( this % adapt_bnd(n_bnd)     )
         allocate( this % adapt_box(3,2,n_box) )
-        allocate( this % adapt_tol(l_top-1)   )
-        allocate( this % partition(l_top)     )
+        allocate( this % partition(l_max)     )
       end if
 
       call XMPI_Bcast(this % refinement, root, comm)
       call XMPI_Bcast(this % adapt_bnd , root, comm)
       call XMPI_Bcast(this % adapt_box , root, comm)
-      call XMPI_Bcast(this % adapt_tol , root, comm)
 
-      do l = 1, l_top
+      do l = 1, l_max
         call this % partition(l) % Bcast( 0, comm )
       end do
 
