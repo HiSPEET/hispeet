@@ -70,7 +70,7 @@ contains
 
     real(RNP) :: alpha, beta, delta, rr
     logical   :: check_convergence, singular
-    integer   :: ne, ng, nl(3), no, np, ns, wp
+    integer   :: na, ne, ng, nl(3), no, np, ns, wp
     integer   :: i, i_max_
 
     ! skip empty partition
@@ -86,6 +86,7 @@ contains
 
       ! initialization .........................................................
 
+      na = mesh % n_elem_active
       ne = mesh % n_elem
       ng = mesh % n_ghost
       wp = schwarz % wp
@@ -211,11 +212,11 @@ contains
                           , schwarz % ops_sp % V  &
                           , schwarz % ops_sp % W  &
                           , schwarz % ops_sp % g  &
-                          , schwarz % cfg         &
+                          , schwarz % cfg(:,:na)  &
                           , lambda_sp             &
-                          , nu_sp                 &
-                          , fs_sp                 &
-                          , zs_sp                 )
+                          , nu_sp(:na)            &
+                          , fs_sp(:,:,:,:na)      &
+                          , zs_sp(:,:,:,:na)      )
           call schwarz % MergeCorrections(mesh, buf_zs, zs_sp, z)
         case default
           call schwarz % RestrictResidual(mesh, buf_rg, rg, fs_dp)
@@ -223,11 +224,11 @@ contains
                           , schwarz % ops_dp % V  &
                           , schwarz % ops_dp % W  &
                           , schwarz % ops_dp % g  &
-                          , schwarz % cfg         &
+                          , schwarz % cfg(:,:na)  &
                           , lambda_dp             &
-                          , nu_dp                 &
-                          , fs_dp                 &
-                          , zs_dp                 )
+                          , nu_dp(:na)            &
+                          , fs_dp(:,:,:,:na)      &
+                          , zs_dp(:,:,:,:na)      )
           call schwarz % MergeCorrections(mesh, buf_zs, zs_dp, z)
         end select
 

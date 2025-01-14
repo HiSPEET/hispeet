@@ -167,6 +167,9 @@ contains
       call BuildChildMap(opt, parent, new_child_map)
     end if
     !$omp end master
+!### CHECK
+print '(999(G0,1X))', '$$$ BCA *, part', parent%part,'tp_child =',new_child_map%tp_child
+!### CHECK END
 
     ! create child element data ................................................
 

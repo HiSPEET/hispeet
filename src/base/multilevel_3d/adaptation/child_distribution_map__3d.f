@@ -84,10 +84,10 @@ contains
         ic_face    (2,2)   = reshape( [1,2,3,4],         [2,2]   ), &
         ic_edge    (2)     = reshape( [1,2],             [2]     )
 
-    type(ElementTransferBuffer_3D), allocatable, asynchronous :: mark_buf
-    type(ElementTransferBuffer_3D), allocatable, asynchronous :: id_child_buf
+    type(ElementTransferBuffer_3D), allocatable, asynchronous, save :: mark_buf
+    type(ElementTransferBuffer_3D), allocatable, asynchronous, save :: id_child_buf
 
-    integer, allocatable :: mark(:,:,:,:), id_child(:,:,:,:), nc_part(:,:)
+    integer, allocatable, save :: mark(:,:,:,:), id_child(:,:,:,:), nc_part(:,:)
 
     integer :: oc_part(2,0:n_parts-1)
     integer :: i, m, p
@@ -100,9 +100,9 @@ contains
     this % tp_child = tp_child
     this % tp_child = max(this % tp_child, -1)
 
-    allocate(mark    (1,1,1, 1 : this%n_elem + this%n_ghost), source = 0)
-    allocate(id_child(2,2,2, 1 : this%n_elem + this%n_ghost), source = 0)
-    allocate(nc_part (2    , 0 : n_parts - 1               ), source = 0)
+    allocate(mark    (1,1,1, 1 : this%n_elem + this%n_ghost), source = -1)
+    allocate(id_child(2,2,2, 1 : this%n_elem + this%n_ghost), source =  0)
+    allocate(nc_part (2    , 0 : n_parts - 1               ), source =  0)
 
     ! number of active and frozen children per target partition ................
     do i = 1, this % n_elem
@@ -221,6 +221,10 @@ contains
 
     call move_alloc(id_child, this % id_child)
     call move_alloc(nc_part , this % nc_part )
+
+    if (allocated(mark        )) deallocate(mark        )
+    if (allocated(mark_buf    )) deallocate(mark_buf    )
+    if (allocated(id_child_buf)) deallocate(id_child_buf)
 
   end subroutine BuildMap
 

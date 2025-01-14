@@ -39,7 +39,7 @@ contains
 
     ! make adaptation pattern consistent .....................................
 
-    do l = l_top_new-1, 2, -1
+    do l = l_top_old, 2, -1
       call GlobalizeAdaptationPattern_3D(old_mesh(l))
       call RestrictAdaptationPattern_3D(old_mesh(l), old_mesh(l-1))
     end do

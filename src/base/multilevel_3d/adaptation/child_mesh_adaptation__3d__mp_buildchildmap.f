@@ -11,9 +11,9 @@ contains
     class(Mesh_3D),                intent(in)  :: parent
     type(ChildDistributionMap_3D), intent(out) :: map
 
-    integer, allocatable, target :: tp_child(:)
-    integer, contiguous, pointer :: tp_child_val(:,:,:,:)
-    type(ElementTransferBuffer_3D), allocatable, asynchronous :: tp_child_buf
+    integer, allocatable, target, save :: tp_child(:)
+    integer, contiguous, pointer, save :: tp_child_val(:,:,:,:) => null()
+    type(ElementTransferBuffer_3D), allocatable, asynchronous, save :: tp_child_buf
 
     character(len=:), allocatable :: prefix
     logical :: logging
@@ -30,6 +30,9 @@ contains
 
     ! graph-based partitioning
     call ParMETIS_Partitioner_3D(opt, parent, tp_child)
+!### CHECK
+print '(999(G0,1X))', '$$$ BCM 1, part', parent%part,'tp_child =',tp_child
+!### CHECK END
 
     ! transfer target partition IDs to ghosts
     if (parent % n_ghost > 0) then
@@ -38,8 +41,19 @@ contains
       call tp_child_buf % Transfer(parent, tp_child_val, tag = 1000)
       call tp_child_buf % Merge(tp_child_val)
     end if
+!### CHECK
+print '(999(G0,1X))', '$$$ BCM 2, part', parent%part,'tp_child =',tp_child
+!### CHECK END
 
     map = ChildDistributionMap_3D(parent, opt%n_parts, tp_child)
+!### CHECK
+print '(999(G0,1X))', '$$$ BCM X, part', parent%part,'tp_child =',tp_child
+!call MPI_Barrier(parent%comm_parts)
+!### CHECK END
+
+    if (allocated(tp_child))     deallocate(tp_child)
+    if (allocated(tp_child_buf)) deallocate(tp_child_buf)
+    tp_child_val => null()
 
     if (logging) then
       print '(2A)', prefix, 'exit'

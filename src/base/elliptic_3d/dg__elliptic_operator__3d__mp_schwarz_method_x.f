@@ -59,7 +59,7 @@ contains
     logical  , save :: converged
 
     real(RNP) :: rr
-    integer   :: i, ne, ng, nl(3), no, np, ns, wp
+    integer   :: i, na, ne, ng, nl(3), no, np, ns, wp
     logical   :: check_convergence
 
     ! skip empty partition
@@ -78,6 +78,7 @@ contains
       if (present(r_red)) check_convergence = r_red > 0
       if (present(r_max)) check_convergence = r_max > 0 .or. check_convergence
 
+      na = mesh % n_elem_active
       ne = mesh % n_elem
       ng = mesh % n_ghost
       wp = schwarz % wp
@@ -170,7 +171,7 @@ contains
         end if
         if (converged) exit
 
-        ! Schwarz sweep
+        ! Schwarz sweep over active elements
         select case(wp)
         case(RSP)
           call schwarz % RestrictResidual(mesh, buf_r, r, fs_sp)
@@ -178,11 +179,11 @@ contains
                           , schwarz % ops_sp % V      &
                           , schwarz % ops_sp % W      &
                           , schwarz % ops_sp % g      &
-                          , schwarz % cfg             &
+                          , schwarz % cfg(:,:na)      &
                           , lambda_sp                 &
-                          , nu_sp                     &
-                          , fs_sp                     &
-                          , us_sp                     )
+                          , nu_sp(:na)                &
+                          , fs_sp(:,:,:,:na)          &
+                          , us_sp(:,:,:,:na)          )
           call schwarz % MergeCorrections(mesh, buf_us, us_sp, u)
         case default
           call schwarz % RestrictResidual(mesh, buf_r, r, fs_dp)
@@ -190,11 +191,11 @@ contains
                           , schwarz % ops_dp % V      &
                           , schwarz % ops_dp % W      &
                           , schwarz % ops_dp % g      &
-                          , schwarz % cfg             &
+                          , schwarz % cfg(:,:na)      &
                           , lambda_dp                 &
-                          , nu_dp                     &
-                          , fs_dp                     &
-                          , us_dp                     )
+                          , nu_dp(:na)                &
+                          , fs_dp(:,:,:,:na)          &
+                          , us_dp(:,:,:,:na)          )
           call schwarz % MergeCorrections(mesh, buf_us, us_dp, u)
         end select
 

@@ -653,7 +653,7 @@ contains
       qi_max_loc = 0
 
       ! evaluation
-      do l = l_adapt-1, min(l_top,l_max-1)
+      do l = l_adapt-1, l_top
         associate( mesh_l => ml_op % sem(l) % mesh          &
                  , mm_l   => mm % level(l) % val(:,:,:,:,1) &
                  , qi_l   => qi % level(l) % val(0,0,0,:,1) &
@@ -690,31 +690,40 @@ contains
       end select
 
       n_ref_loc = 0
+
+      ! l < l_max: mark elements for removal or refinement
       do l = l_adapt-1, min(l_top,l_max-1)
         do i = 1, mesh(l) % n_elem
           associate( element => mesh(l) % element(i)      &
                    , qi => qi % level(l) % val(0,0,0,i,1) )
-
-            if (qi > qi_refine) then
+            if (qi < adapt_remove) then
+              call element % MarkForRemoval()
+            else if (qi > qi_refine) then
               call element % MarkForRefinement()
               n_ref_loc = n_ref_loc + 1
-            else if (qi < adapt_remove) then
+            else
+              call element % Unmark()
+            end if
+          end associate
+        end do
+      end do
+
+      ! l = l_max: mark elements for removal
+      if (l_top == l_max) then
+        do i = 1, mesh(l_top) % n_elem
+          associate( element => mesh(l_top) % element(i)      &
+                   , qi => qi % level(l_top) % val(0,0,0,i,1) )
+            if (qi < adapt_remove) then
               call element % MarkForRemoval()
             else
               call element % Unmark()
             end if
-
           end associate
         end do
-      end do
-      ! numer of leaf elements marked for refinement
-      call XMPI_Reduce(n_ref_loc, n_ref, MPI_SUM, 0, comm)
-
-      ! unmark mark elements on ultimate level .................................
-
-      if (l_top == l_max .and. mesh(l_top)%n_elem > 0) then
-        call mesh(l_top) % element % Unmark()
       end if
+
+      ! number of leaf elements marked for refinement
+      call XMPI_Reduce(n_ref_loc, n_ref, MPI_SUM, 0, comm)
 
       ! control output .........................................................
 
