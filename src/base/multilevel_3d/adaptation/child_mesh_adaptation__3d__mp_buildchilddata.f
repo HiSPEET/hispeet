@@ -111,9 +111,6 @@ contains
       cp_part = 0  ! upper bound for count of child geometry points
 
       ! counts of elements, neighbors and geometry points per partition
-!### CHECK
-print '(9999(G0,1X))','$$$ BCD, part =',parent%part,'tp_child =',tp_child
-!### CHECK END
       do e = 1, parent % n_elem
         associate(element => parent % element(e))
           tp = tp_child(e)
