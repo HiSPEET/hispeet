@@ -206,11 +206,11 @@ contains
     ! IDs of the ghosts' masters in their target partition .....................
 
     if (this % n_ghost > 0) then
-      mark_buf     = ElementTransferBuffer_3D(parent, mark)
+      mark_buf = ElementTransferBuffer_3D(parent, mark)
+      call mark_buf % Transfer(parent, mark, tag = 1001)
+      call mark_buf % Merge(mark)
       id_child_buf = ElementTransferBuffer_3D(parent, id_child)
-      call mark_buf     % Transfer(parent, mark    , tag = 1001)
       call id_child_buf % Transfer(parent, id_child, tag = 1002)
-      call id_child_buf % Merge(mark)
       call id_child_buf % Merge(id_child)
     end if
 
