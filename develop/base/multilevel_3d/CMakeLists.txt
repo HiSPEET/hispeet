@@ -58,3 +58,7 @@ file( COPY
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR}
     )
+
+configure_file( ml_elliptic_test_adaptive.slurm
+                ml_elliptic_test_adaptive.slurm COPYONLY )
+
