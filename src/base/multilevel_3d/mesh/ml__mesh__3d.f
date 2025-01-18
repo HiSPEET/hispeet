@@ -68,9 +68,9 @@ module ML__Mesh__3D
     !---------------------------------------------------------------------------
     !> Adapt multilevel mesh
 
-    module subroutine Adapt(this, partition, x_plan)
+    module subroutine Adapt(this, part_opt, x_plan)
       class(ML_Mesh_3D),                      intent(inout) :: this
-      class(PartitioningOptions_3D),          intent(in)    :: partition(:)
+      class(PartitioningOptions_3D),          intent(in)    :: part_opt(:)
       type(DataExchangePlan_3D), allocatable, intent(out)   :: x_plan(:)
     end subroutine Adapt
 
@@ -333,19 +333,22 @@ contains
     integer :: n_box   =  0        ! number of boxes to be adapted
 
     ! partitioning
-    integer :: n_parts_root   = 1  ! number of partitions at root level
-    integer :: n_parts_growth = 1  ! partition number growth rate
+    integer :: n_parts_root   = -1 ! number of partitions at root level
+    integer :: n_parts_growth = -1 ! partition number growth rate
 
-    namelist/ml_mesh_options_3d__static/ l_top, l_max, l_adapt, n_bnd, n_box
+    namelist/ml_mesh_options_3d__static/ l_top, l_max, l_adapt
     namelist/ml_mesh_options_3d__static/ n_parts_root, n_parts_growth
+    namelist/ml_mesh_options_3d__static/ n_bnd, n_box
 
     ! dynamic input variables ..................................................
 
-    character, allocatable :: refinement(:)    ! refinement type {'c','s'}
-    integer,   allocatable :: adapt_bnd(:)     ! boundaries to be adapted
-    real(RNP), allocatable :: adapt_box(:,:,:) ! boxes to be adapted (3,2,*)
+    character, allocatable :: refinement(:)    ! refinement type {c,s} (l_max-1)
+    integer,   allocatable :: n_parts(:)       ! num partitions        (l_max)
+    integer,   allocatable :: adapt_bnd(:)     ! boundaries to adapt   (n_bnd)
+    real(RNP), allocatable :: adapt_box(:,:,:) ! boxes to be adapted (3,2,n_box)
 
     namelist /ml_mesh_options_3d__dynamic/ refinement
+    namelist /ml_mesh_options_3d__dynamic/ n_parts
     namelist /ml_mesh_options_3d__dynamic/ adapt_bnd, adapt_box
 
     ! auxiliary variables ......................................................
@@ -362,7 +365,8 @@ contains
     ! read dynamic input variables .............................................
 
     allocate(refinement(l_max-1),   source = ' ')
-    allocate(adapt_bnd (n_bnd),     source = 0 )
+    allocate(n_parts(l_max),        source = -1 )
+    allocate(adapt_bnd (n_bnd),     source = -1 )
     allocate(adapt_box (3,2,n_box), source = huge(ONE))
 
     read(unit, nml = ml_mesh_options_3d__dynamic)
@@ -373,23 +377,35 @@ contains
     this % l_max   = l_max
     this % l_adapt = l_adapt
 
-    call move_alloc( refinement, this % refinement )
-    call move_alloc( adapt_bnd , this % adapt_bnd  )
-    call move_alloc( adapt_box , this % adapt_box  )
-
     ! partitioning options
     allocate(this % partition(l_max))
     associate(partition => this % partition)
-      partition(1) % mode    = 1
-      partition(1) % n_parts = n_parts_root
-      do l = 2, l_max
-        partition(l) % mode    = 2
-        partition(l) % n_parts = n_parts_growth * partition(l-1)%n_parts
-      end do
+      partition(1 ) % mode    = 1
+      partition(2:) % mode    = 2
+
+      if (all(n_parts > 0)) then
+        ! number of partitions given for all levels
+        partition(1:l_max) % n_parts = n_parts
+      else if (n_parts_growth > 0) then
+        ! number of partitions grows geometrically
+        partition(1) % n_parts = max(n_parts_root, 1)
+        do l = 2, l_max
+          partition(l) % n_parts = n_parts_growth * partition(l-1)%n_parts
+        end do
+      else
+        ! constant number of partitions
+        partition(1:l_max) % n_parts = max(n_parts_root, 1)
+      end if
+
+      ! enforce upper limit for number of partitions
       if (present(n_proc)) then
         partition % n_parts = min(partition%n_parts, n_proc)
       end if
     end associate
+
+    call move_alloc( refinement, this % refinement )
+    call move_alloc( adapt_bnd , this % adapt_bnd  )
+    call move_alloc( adapt_box , this % adapt_box  )
 
   end function Read_ML_Mesh_Options_3D
 

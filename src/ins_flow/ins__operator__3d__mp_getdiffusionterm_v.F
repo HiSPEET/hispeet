@@ -89,7 +89,7 @@ contains
     n_bound = this % mesh % n_bound
     n_elem  = this % mesh % n_elem
     n_ghost = this % mesh % n_ghost
-    po      = this % eop_v % po
+    po      = this % eop_u % po
 
     !$omp master
     allocate(bv_s(n_bound), tr(0:po,0:po,6,n_elem + n_ghost,6))
@@ -116,12 +116,12 @@ contains
       call SetArray(mu_mod, mu)
     end if
 
-    associate( mesh   => this % sem_v % mesh         &
-             , Jd     => this % sem_v % metrics % Jd &
-             , Ji     => this % sem_v % metrics % Ji &
-             , a      => this % sem_v % metrics % a  &
-             , n      => this % sem_v % metrics % n  &
-             , eop    => this % eop_v                &
+    associate( mesh   => this % sem_u % mesh         &
+             , Jd     => this % sem_u % metrics % Jd &
+             , Ji     => this % sem_u % metrics % Ji &
+             , a      => this % sem_u % metrics % a  &
+             , n      => this % sem_u % metrics % n  &
+             , eop    => this % eop_u                &
              , vm     => tr(:,:,:,:,1:3)             &
              , sm     => tr(:,:,:,:,4:6)             )
 

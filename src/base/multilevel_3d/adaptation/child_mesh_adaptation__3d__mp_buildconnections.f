@@ -221,36 +221,12 @@ contains
         n = m(p)            ! map index
         l = e(n)            ! map element ID offset
         k = n_cpe * (c - 1) ! mesh element ID offset
-!### CHECK
-if (log_level == -3 .and. old_child%part == 1 .and. c == 10) then
-  print '(A,I4)', '+++ i = ',i
-  print '(A,I4)', '+++ c = ',c
-  print '(A,I4)', '+++ p = ',p
-  print '(A,I4)', '+++ n = ',n
-  print '(A,I4)', '+++ l = ',l
-  print '(A,I4)', '+++ k = ',k
-  print '(A,I4)', '+++ n_cpe = ',n_cpe
-  print '(A,I4)', '+++ exch_send_map(n)%proc = ',exch_send_map(n)%proc
-end if
-!### CHECK END
         do j = 1, n_cpe
           exch_send_map(n) % id_elem(l + j) = k + j
         end do
         e(n) = e(n) + n_cpe
       end do
 
-!### CHECK
-!! if (log_level == -3 .and. old_child%part == 1) then
-!! do n = 1, size(exch_send_map)
-!! if (exch_send_map(n) % proc == 2) then
-!!   print '(A)', '+++ exch_send_map % id_elem'
-!!   do i = 1, size(exch_send_map(n) % id_elem)
-!!     print '(A,I4)', '+++', exch_send_map(n) % id_elem(i)
-!!   end do
-!! end if
-!! end do
-!! end if
-!### CHECK END
     end associate
 
     ! connect grandchild .......................................................

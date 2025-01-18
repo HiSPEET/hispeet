@@ -53,7 +53,7 @@ contains
     integer   :: np
     integer   :: d, e
 
-    associate(mesh => this % sem_v % mesh)
+    associate(mesh => this % sem_u % mesh)
 
       ! initialization .........................................................
 
@@ -66,7 +66,7 @@ contains
       !$omp end master
       !$omp barrier
 
-      call this % sem_v % Get_DG_DiagonalMassMatrix(mm)
+      call this % sem_u % Get_DG_DiagonalMassMatrix(mm)
 
       lambda = 1 / tau
 

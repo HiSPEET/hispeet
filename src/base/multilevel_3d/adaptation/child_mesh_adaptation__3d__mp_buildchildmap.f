@@ -17,6 +17,7 @@ contains
 
     character(len=:), allocatable :: prefix
     logical :: logging
+    integer :: n_parts
 
     logging = parent%proc == 0 .and. log_level > 0 .or. &
               parent%proc  > 0 .and. log_level > 1
@@ -29,7 +30,7 @@ contains
     allocate(tp_child(parent%n_elem + parent%n_ghost), source = -1)
 
     ! graph-based partitioning
-    call ParMETIS_Partitioner_3D(opt, parent, tp_child)
+    call ParMETIS_Partitioner_3D(opt, parent, tp_child, n_parts)
 
     ! transfer target partition IDs to ghosts
     if (parent % n_ghost > 0) then
@@ -39,7 +40,7 @@ contains
       call tp_child_buf % Merge(tp_child_val)
     end if
 
-    map = ChildDistributionMap_3D(parent, opt%n_parts, tp_child)
+    map = ChildDistributionMap_3D(parent, n_parts, tp_child)
 
     if (allocated(tp_child))     deallocate(tp_child)
     if (allocated(tp_child_buf)) deallocate(tp_child_buf)

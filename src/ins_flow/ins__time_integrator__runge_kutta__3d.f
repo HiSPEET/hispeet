@@ -130,7 +130,7 @@ contains
     associate( problem => this % problem           &
              , ins_op  => this % ins_op            &
              , mesh    => this % ins_op % mesh     &
-             , sem_v   => this % ins_op % sem_v    &
+             , sem_u   => this % ins_op % sem_u    &
              , v_0     => u(:,:,:,:,1:3)           &
              , p_0     => u(:,:,:,:, 4 )           &
              , a_im    => this % imex_rk % a_im    &
@@ -144,7 +144,7 @@ contains
       !-------------------------------------------------------------------------
       ! initialization
 
-      po = ins_op % eop_v % po
+      po = ins_op % eop_u % po
       np = po + 1
 
       !$omp master
@@ -191,7 +191,7 @@ contains
         do b = 1, mesh % n_bound
           call bv_x(b) % Init(mesh % boundary(b), po, nc = 3)
           call bv_u(b) % Init(mesh % boundary(b), po, nc = 5)
-          call bv_x(b) % Extract(sem_v % metrics % x)
+          call bv_x(b) % Extract(sem_u % metrics % x)
           call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v (b))
           call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p (b))
           call bv_u(b) % GetSlice(first=5, last=5, slice = bv_dp(b))
@@ -209,7 +209,7 @@ contains
       !$omp barrier
 
       ! inverse diagonal mass matrix
-      call sem_v % Get_DG_DiagonalMassMatrix(inv_mm)
+      call sem_u % Get_DG_DiagonalMassMatrix(inv_mm)
       !$omp workshare
       inv_mm = 1 / inv_mm
       !$omp end workshare nowait
@@ -249,12 +249,12 @@ contains
           end do
 
           ! source term
-          call problem % GetExternalSources( sem_v % metrics % x, t_i &
+          call problem % GetExternalSources( sem_u % metrics % x, t_i &
                                            , F_s(:,:,:,:,:,1)         )
 
           ! variable viscosity
           if (problem % HasVariableProperties()) then
-            call problem % GetViscosity(sem_v % metrics % x, t_i, u, nu)
+            call problem % GetViscosity(sem_u % metrics % x, t_i, u, nu)
           end if
 
           ! diffusion term using standard form with extrapolation at ∂Ωᴼ
@@ -289,7 +289,7 @@ contains
           ! normal stress vector and backflow penalty at ∂Ωᴼ
           do b = 1, mesh % n_bound
             if (problem % bc_v(b) /= 'O') cycle
-            call bv_po(b,1)%MergeNormalTrace(sem_v, cb=ZERO, ct=-ONE, vt=sp)
+            call bv_po(b,1)%MergeNormalTrace(sem_u, cb=ZERO, ct=-ONE, vt=sp)
             call ins_op%GetBackflowPenalty(problem, b, v, bv_dp(b)%val(:,:,:,1))
           end do
 
@@ -314,7 +314,7 @@ contains
 
           ! sources and boundary conditions ....................................
 
-          call problem % GetExternalSources( sem_v % metrics % x, t_i &
+          call problem % GetExternalSources( sem_u % metrics % x, t_i &
                                            , F_s(:,:,:,:,:,i)         )
 
           do b = 1, mesh % n_bound
@@ -419,7 +419,7 @@ contains
 
           ! variable viscosity
           if (problem % HasVariableProperties()) then
-            call problem % GetViscosity(sem_v % metrics % x, t_i, u_i, nu)
+            call problem % GetViscosity(sem_u % metrics % x, t_i, u_i, nu)
           end if
 
           ! diffusion term using standard form with extrapolation at ∂Ωᴼ
@@ -454,7 +454,7 @@ contains
           ! normal stress vector at ∂Ωᴼ
           do b = 1, mesh % n_bound
             if (problem % bc_v(b) /= 'O') cycle
-            call bv_po(b,i) % MergeNormalTrace(sem_v, cb=ZERO, ct=-ONE, vt=sp)
+            call bv_po(b,i) % MergeNormalTrace(sem_u, cb=ZERO, ct=-ONE, vt=sp)
           end do
 
           ! source term, already done ;)
@@ -499,7 +499,7 @@ contains
           ! velocity divergence
           call GetOuterTraces_3D(mesh, v, vp)          ! vp = v⁺ on Γᴵ and v⁻ on ∂Ω
           call ins_op % ApplyEssentialBC(bv_u, vp, vp) ! vp = v⁺ on ∂Ω
-          call TPO_Div(ins_op % eop_v, sem_v, v, vp, div_v)
+          call TPO_Div(ins_op % eop_u, sem_u, v, vp, div_v)
 
           ! pressure potential
           call SetArray(p, ZERO)
@@ -510,7 +510,7 @@ contains
 
           ! pressure correction
           call GetOuterTraces_3D(mesh, p, pp)
-          call TPO_Grad(ins_op % eop_v, sem_v, p, pp, grad_p)
+          call TPO_Grad(ins_op % eop_u, sem_u, p, pp, grad_p)
           call MergeArrays(ONE, v, -ONE, grad_p, multi=.true.)
 
         end associate

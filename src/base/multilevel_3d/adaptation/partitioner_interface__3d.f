@@ -100,7 +100,7 @@ contains
   !-----------------------------------------------------------------------------
   !> ParMETIS interface
 
-  subroutine ParMETIS_Partitioner_3D(opt, mesh, tp_elem)
+  subroutine ParMETIS_Partitioner_3D(opt, mesh, tp_elem, n_parts)
     use ParMETIS_Binding
 
     ! arguments ................................................................
@@ -108,6 +108,7 @@ contains
     class(PartitioningOptions_3D), intent(in) :: opt
     class(Mesh_3D), intent(in) :: mesh
     integer, intent(inout) :: tp_elem(:) !< child element target partitions
+    integer, intent(out)   :: n_parts    !< actual number of partitions
 
     ! internal variables .......................................................
 
@@ -157,15 +158,15 @@ contains
 
       ! vertices = contributing elements
       allocate(vtx_elem(n_elem + n_ghost), source = -1)
-      i = 0
+      n = 0
       do e = 1, n_elem
         if (opt%mode == child_mode) then
           if (mesh%element(e)%adaptation%mark < 100) cycle
         end if
-        vtx_elem(e) = i
-        i = i + 1
+        vtx_elem(e) = n
+        n = n + 1
       end do
-      nvtx = i
+      nvtx = n
 
       ! create MPI communicator comprising all parent meshes with nvtx > 0
       if (nvtx > 0) then
@@ -178,6 +179,10 @@ contains
       call MPI_Comm_rank(comm, proc)
       call MPI_Comm_size(comm, nproc)
 
+      ! current vertex distribution over processes
+      allocate(nvtx_proc(0:nproc-1))
+      call MPI_Allgather(n, 1, MPI_INTEGER, nvtx_proc, 1, MPI_INTEGER, comm)
+
       ! graph vertex ID element variable and transfer buffer
       var_vtx_elem(1:1, 1:1, 1:1, 1:size(vtx_elem)) => vtx_elem
       buf_vtx_elem = ElementTransferBuffer_3D(mesh, var_vtx_elem)
@@ -188,10 +193,10 @@ contains
       numflag = 0
 
       ! number of new partitions
-      nparts = opt % n_parts
+      nparts = min(opt%n_parts, sum(nvtx_proc))
 
       ! number of constraints, 1 ≤ ncon ≤ 3
-      ncon = max(min(opt % n_const,3), 1)
+      ncon = max(min(opt%n_const,3), 1)
 
       ! w_comp flag
       if (any(w_comp(1:3) > 0)) then
@@ -216,14 +221,8 @@ contains
       ! fractions of vertex weight per partition
       tpwgts = 1.00 / nparts
 
-      ! graph vertex distribution ..............................................
+      ! graph vertex offsets ...................................................
 
-      ! build list of graph vertex counts per partition
-      m = max(nvtx, 0)
-      allocate(nvtx_proc(0:nproc-1))
-      call MPI_Allgather(m, 1, MPI_INTEGER, nvtx_proc, 1, MPI_INTEGER, comm)
-
-      ! compute graph vertex offsets
       vtxdist(0) = 0
       do i = 1, nproc
         vtxdist(i) = vtxdist(i-1) + nvtx_proc(i-1)
@@ -443,6 +442,8 @@ contains
           tp_elem(e) = -1
         end if
       end do
+
+      n_parts = nparts
 
       ! clean-up ...............................................................
 

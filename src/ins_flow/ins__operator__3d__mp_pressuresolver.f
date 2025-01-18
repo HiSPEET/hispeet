@@ -54,12 +54,12 @@ contains
     real(RNP) :: ct
     integer   :: b, e
 
-    associate( po          => this % eop_v % po  &
+    associate( po          => this % eop_u % po  &
              , pq          => this % eop_p % po  &
              , mesh        => this % mesh        &
              , bc_p        => this % bc_p        &
              , sem_p       => this % sem_p       &
-             , laplacian_p => this % laplacian_p )
+             , pressure_op => this % pressure_op )
 
       ! initialization .........................................................
 
@@ -93,24 +93,24 @@ contains
 
       if (mixed_order) then
         ! transfer current approximation and source to order pq
-        call TPO_AAA(this % iop_vp % A, p, q) ! interpolation of pressure
-        call TPO_AAA(this % pop_vp % A, f, g) ! L² projection of RHS
+        call TPO_AAA(this % iop_up % A, p, q) ! interpolation of pressure
+        call TPO_AAA(this % pop_up % A, f, g) ! L² projection of RHS
         !$omp do
         do e = 1, mesh % n_elem
           g(:,:,:,e) = -ct * mm(:,:,:,e) * g(:,:,:,e)
         end do
         ! apply Schwarz-PCG with λ=0 and ν=1
-        call laplacian_p % SchwarzPCG_Method( ZERO, ONE, q, g, bv_q   &
+        call pressure_op % SchwarzPCG_Method( ZERO, ONE, q, g, bv_q   &
                                             , i_max, r_red, r_max, ni )
         ! interpolate result to order po
-        call TPO_AAA(this % iop_pv % A, q, p)
+        call TPO_AAA(this % iop_pu % A, q, p)
       else
         !$omp do
         do e = 1, mesh % n_elem
           g(:,:,:,e) = -ct * mm(:,:,:,e) * f(:,:,:,e)
         end do
         ! apply Schwarz-PCG with λ=0 and ν=1
-        call laplacian_p % SchwarzPCG_Method( ZERO, ONE, p, g, bv_p   &
+        call pressure_op % SchwarzPCG_Method( ZERO, ONE, p, g, bv_p   &
                                             , i_max, r_red, r_max, ni )
       end if
 
@@ -151,7 +151,7 @@ contains
       select case(ins_op % bc_p(b))
       case('N')
         call BuildNeumannBC( boundary = ins_op % mesh % boundary(b)  &
-                           , n        = ins_op % sem_v % metrics % n &
+                           , n        = ins_op % sem_u % metrics % n &
                            , ct       = ct                           &
                            , v        = v                            &
                            , vb       = bv_u(b) % val(:,:,:,1:3)     &
@@ -161,7 +161,7 @@ contains
       end select
 
       if (present(bv_q)) then
-        call InterpolateFaceData( A = ins_op % iop_vp % A    &
+        call InterpolateFaceData( A = ins_op % iop_up % A    &
                                 , p = bv_p(b) % val(:,:,:,1) &
                                 , q = bv_q(b) % val(:,:,:,1) )
       end if

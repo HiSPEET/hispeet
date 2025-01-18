@@ -364,7 +364,7 @@ program INS_TimeIntegrator_3D_Test
 
   ! variables ..................................................................
 
-  po = ins_op % eop_v % po
+  po = ins_op % eop_u % po
   n_var = 4
 
   if (problem % HasExactSolution()) then
@@ -432,7 +432,7 @@ program INS_TimeIntegrator_3D_Test
     call ReadRestartData(data_file, rank, t, u, n_avg, q_avg)
     call XMPI_Bcast(t, 0, comm)
   else
-    call problem % GetInitialValues(ins_op % sem_v % metrics % x, u)
+    call problem % GetInitialValues(ins_op % sem_u % metrics % x, u)
     t = 0
     n_avg = 0
   end if
@@ -442,7 +442,7 @@ program INS_TimeIntegrator_3D_Test
 
   ! info .......................................................................
 
-  call ins_op % sem_v % Get_Volume(domain_volume)
+  call ins_op % sem_u % Get_Volume(domain_volume)
 
   call XMPI_Reduce(n_elem, n_elem_tot, MPI_SUM, 0, comm)
   n_point = n_elem_tot * (po+1)**3
@@ -453,7 +453,7 @@ program INS_TimeIntegrator_3D_Test
     write(*,'(T3,A,T30,9(G0,X))') 'domain:',  domain_name
     write(*,'(T3,A,T30,9(G0,X))') 'domain volume:', domain_volume
     write(*,'(T3,A,T30,9(G0,X))') 'boundary conditions:'  , problem % bc_v
-    write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of v:', ins_op % eop_v % po
+    write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of v:', ins_op % eop_u % po
     write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of p:', ins_op % eop_p % po
     write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature order:', ins_op % sop_q % po
     write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature type:' , ins_op % sop_q % nodes
@@ -503,7 +503,7 @@ program INS_TimeIntegrator_3D_Test
 
   if (problem % HasExactSolution() .and. ins_op % mesh % part >= 0) then
 
-    call problem % GetExactSolution(ins_op % sem_v % metrics % x, t, u_ex)
+    call problem % GetExactSolution(ins_op % sem_u % metrics % x, t, u_ex)
 
     call SetArray(err_u, u, multi=.true.)
     call MergeArrays(ONE, err_u, -ONE, u_ex, multi=.true.)
@@ -522,10 +522,10 @@ program INS_TimeIntegrator_3D_Test
 
     do i = 1, n_bound
       call bv_vn(i) % Init(ins_op % mesh % boundary(i), po, nc = 1)
-      call bv_vn(i) % ExtractNormalComponent(ins_op % sem_v, v)
+      call bv_vn(i) % ExtractNormalComponent(ins_op % sem_u, v)
     end do
 
-    call GetSurfaceIntegrals(ins_op % sem_v, bv_vn, int_vn)
+    call GetSurfaceIntegrals(ins_op % sem_u, bv_vn, int_vn)
 
   end if
 
@@ -545,7 +545,7 @@ program INS_TimeIntegrator_3D_Test
   ! Write plot files
 
   if (export_vtk .and. ins_op % mesh%part >= 0) then
-    call ExportVTK_VolumeData( x       = ins_op % sem_v % metrics % x &
+    call ExportVTK_VolumeData( x       = ins_op % sem_u % metrics % x &
                              , s       = var                          &
                              , sname   = var_name                     &
                              , file    = flow_case                    &

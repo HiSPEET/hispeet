@@ -41,6 +41,7 @@ contains
     type(MeshAttributes_3D) :: attrib
     character(len=:), allocatable :: prefix
     logical :: logging
+    integer :: n_parts
     integer :: i
 
     !---------------------------------------------------------------------------
@@ -56,6 +57,13 @@ contains
       print '(2A)', prefix, 'start'
     end if
 
+    ! build new element distribution map .......................................
+
+    if (old_mesh % part >= 0) then
+      call BuildElementDistributionMap(opt, old_mesh, dist_map, n_parts)
+    end if
+    call XMPI_Bcast(n_parts, 0, old_mesh % comm_world)
+
     ! prepare new partitions ...................................................
 
     attrib = MeshAttributes_3D(old_mesh)  ! adopt attributes from old mesh
@@ -63,7 +71,7 @@ contains
 
     call new_mesh % Init_Mesh_3D(attrib, old_mesh % comm_world)
 
-    new_mesh % n_parts = opt % n_parts
+    new_mesh % n_parts = n_parts
 
     ! use identity for mapping parts to processes, so far
     if (new_mesh % proc < new_mesh % n_parts) then
@@ -71,12 +79,6 @@ contains
     end if
 
     call new_mesh % BuildCommunicator()
-
-    ! build new element distribution map .......................................
-
-    if (old_mesh % part >= 0) then
-      call BuildElementDistributionMap(opt, old_mesh, dist_map)
-    end if
 
     ! distribute element data ..................................................
 
@@ -190,25 +192,24 @@ contains
 
     if (present(x_plan)) then
 
-      if (new_mesh % part >= 0) then
-
-        allocate(x_plan % send_map( 0 : new_mesh % n_parts - 1 ))
-        allocate(x_plan % recv_map( 0 : old_mesh % n_parts - 1 ))
-
-        do i = 0, new_mesh % n_parts - 1
+      if (old_mesh % part >= 0) then
+        allocate(x_plan % send_map( new_mesh % n_parts ))
+        do i = 1, new_mesh % n_parts
           x_plan % send_map(i) % comm = new_mesh % comm_world
-          x_plan % send_map(i) % proc = new_mesh % proc_part(i)
+          x_plan % send_map(i) % proc = new_mesh % proc_part(i-1)
         end do
         call BuildDataExchangeSendMap(dist_map, x_plan % send_map)
-
-        call BuildDataExchangeRecvMap(dist_recv_data, x_plan % recv_map)
-
       else
-
         allocate(x_plan % send_map(0))
-        allocate(x_plan % recv_map(0))
-
       end if
+
+      if (new_mesh % part >= 0) then
+        allocate(x_plan % recv_map( old_mesh % n_parts ))
+        call BuildDataExchangeRecvMap(dist_recv_data, x_plan % recv_map)
+      else
+        allocate(x_plan % recv_map(0))
+      end if
+
     end if
 
     ! update child partitions ..................................................
@@ -229,10 +230,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Computes the new target partitions and element IDs
 
-  subroutine BuildElementDistributionMap(opt, old_mesh, dist_map)
+  subroutine BuildElementDistributionMap(opt, old_mesh, dist_map, n_parts)
     class(PartitioningOptions_3D),   intent(in)  :: opt
     class(Mesh_3D),                  intent(in)  :: old_mesh
     type(ElementDistributionMap_3D), intent(out) :: dist_map
+    integer                        , intent(out) :: n_parts
 
     integer, allocatable, target :: tp_elem(:)
     integer, contiguous, pointer :: tp_elem_val(:,:,:,:)
@@ -241,7 +243,7 @@ contains
     allocate(tp_elem(old_mesh%n_elem + old_mesh%n_ghost), source = -1)
 
     ! graph-based partitioning
-    call ParMETIS_Partitioner_3D(opt, old_mesh, tp_elem)
+    call ParMETIS_Partitioner_3D(opt, old_mesh, tp_elem, n_parts)
 
     ! transfer target partition IDs to ghosts
     if (old_mesh % n_ghost > 0) then
@@ -252,7 +254,7 @@ contains
     end if
 
     ! new distribution map, assuming identity for proc_part
-    dist_map = ElementDistributionMap_3D(old_mesh, opt%n_parts, tp_elem)
+    dist_map = ElementDistributionMap_3D(old_mesh, n_parts, tp_elem)
 
   end subroutine BuildElementDistributionMap
 
@@ -427,6 +429,15 @@ contains
 
     integer, allocatable, save :: e(:)
     integer :: i, p
+!### CHECK
+print '(99(G0,X))', '### BDEM  dist_map%n_elem  =', dist_map%n_elem
+print '(99(G0,X))', '### BDEM  dist_map%n_ghost =', dist_map%n_ghost
+print '(99(G0,X))', '### BDEM  dist_map%n_parts =', dist_map%n_parts
+print '(99(G0,X))', '### BDEM  dist_map%tp_elem =', dist_map%tp_elem
+print '(99(G0,X))', '### BDEM  dist_map%ne_part =', dist_map%ne_part
+print '(99(G0,X))', '### BDEM  lbound(send_map) =', lbound(send_map)
+print '(99(G0,X))', '### BDEM  ubound(send_map) =', ubound(send_map)
+!### CHECK END
 
     associate(n_parts => dist_map % n_parts)
 
@@ -440,8 +451,20 @@ contains
         p = dist_map % tp_elem(i)
         if (p < 0) cycle
         e(p) = e(p) + 1
+!### CHECK
+print '(99(G0,X))', '### BDEM  i, p, e(p) =', i, p, e(p)
+print '(99(G0,X))', '### BDEM  allocated(send_map(p)%id_elem) =', allocated(send_map(p)%id_elem)
+print '(99(G0,X))', '### BDEM  lbound(send_map(p)%id_elem) =', lbound(send_map(p)%id_elem)
+print '(99(G0,X))', '### BDEM  ubound(send_map(p)%id_elem) =', ubound(send_map(p)%id_elem)
+print '(99(G0,X))', '### BDEM  send_map(0) % id_elem       =', send_map(0) % id_elem
+print '(99(G0,X))', '### BDEM  send_map(0) % id_elem(1)    =', send_map(0) % id_elem(1)
+print '(99(G0,X))', '### BDEM  send_map(p) % id_elem(e(p)) =', send_map(p) % id_elem(e(p))
+!### CHECK END
         send_map(p) % id_elem(e(p)) = i
       end do
+!### CHECK
+print '(99(G0,X))', '### BDEM  *** DONE ***'
+!### CHECK END
 
       deallocate(e)
 

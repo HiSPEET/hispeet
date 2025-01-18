@@ -39,9 +39,9 @@ contains
     ! scaling factor
     c_vn = 1 / max(eps, this % delta_outflow * problem % v_ref)
 
-    associate( boundary => this % sem_v % mesh % boundary(b) &
-             , n        => this % sem_v % metrics % n        &
-             , po       => this % eop_v % po                 )
+    associate( boundary => this % sem_u % mesh % boundary(b) &
+             , n        => this % sem_u % metrics % n        &
+             , po       => this % eop_u % po                 )
 
       !$omp do
       do f = 1, boundary % n_face

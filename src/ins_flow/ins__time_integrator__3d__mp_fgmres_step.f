@@ -89,7 +89,7 @@ contains
       ni = this%i_krylov
 
       ! dimensions
-      po = ins_op % eop_v % po
+      po = ins_op % eop_u % po
       np = po + 1
       nb = mesh % n_bound
       ne = mesh % n_elem
@@ -117,7 +117,7 @@ contains
       !$omp end master
       !$omp barrier
 
-      call ins_op % sem_v % Get_DG_DiagonalMassMatrix(mm_inv)
+      call ins_op % sem_u % Get_DG_DiagonalMassMatrix(mm_inv)
 
       !$omp do
       do i = 1, ne

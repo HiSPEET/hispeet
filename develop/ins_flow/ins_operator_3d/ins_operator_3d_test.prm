@@ -6,7 +6,7 @@
   flow_problem =  'VariableViscosity'
 !
 ! ins_op_opts%mu_0 = 0.1
-  ins_op_opts%eop_v%StandardElementOptions_1D%po =  7 ! %StandardElementOptions_1D
+  ins_op_opts%eop_u%StandardElementOptions_1D%po =  7 ! %StandardElementOptions_1D
   ins_op_opts%eop_p%StandardElementOptions_1D%po =  6 ! required with ifort < 2021.7
   ins_op_opts%sop_q%po = 11
   ins_op_opts%sop_q%nodes = 'L'

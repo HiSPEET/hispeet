@@ -234,7 +234,7 @@ program INS_Operator_3D_Test
 
   ! variables ..................................................................
 
-  po = ins_op % eop_v % po
+  po = ins_op % eop_u % po
   pq = ins_op % eop_p % po
   n_var = 24
 
@@ -275,7 +275,7 @@ program INS_Operator_3D_Test
   allocate(up (0:po,0:po,1:6,1:n_elem,1:4), source = ZERO )
   allocate(sp (0:po,0:po,1:6,1:n_elem,1:3), source = ZERO )
 
-  call ins_op % sem_v % Get_DG_DiagonalMassMatrix(mm)
+  call ins_op % sem_u % Get_DG_DiagonalMassMatrix(mm)
 
   ! info .......................................................................
 
@@ -289,7 +289,7 @@ program INS_Operator_3D_Test
     write(*,'(T3,A,T30,9(G0,X))') 'boundary conditions:'  , problem % bc_v
     write(*,'(T3,A,T30,9(G0,X))') 'number of processes:'  , n_proc
     write(*,'(T3,A,T30,9(G0,X))') 'number of threads:'    , n_thread
-    write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of v:', ins_op % eop_v % po
+    write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of v:', ins_op % eop_u % po
     write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of p:', ins_op % eop_p % po
     write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature order:', ins_op % sop_q % po
     write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature type:' , ins_op % sop_q % nodes
@@ -298,7 +298,7 @@ program INS_Operator_3D_Test
 
   ! exact solution and terms ...................................................
 
-  associate(x => ins_op % sem_v % metrics % x)
+  associate(x => ins_op % sem_u % metrics % x)
 
     call problem % GetExactSolution       (x, t, u)
     call problem % GetViscosity           (x, t, u, nu)
@@ -312,7 +312,7 @@ program INS_Operator_3D_Test
 
   ! traces and boundary values .................................................
 
-  associate(sem => ins_op % sem_v, mesh => ins_op % mesh)
+  associate(sem => ins_op % sem_u, mesh => ins_op % mesh)
 
     ! outer traces u⁺
     call GetOuterTraces_3D(mesh, u, up)
@@ -330,11 +330,11 @@ program INS_Operator_3D_Test
 
   associate(metrics => ins_op % sem_q % metrics)
 
-    call TPO_INS_Convection_D_Gen( nv   = ins_op % eop_v % po + 1  &
+    call TPO_INS_Convection_D_Gen( nv   = ins_op % eop_u % po + 1  &
                                  , nq   = ins_op % sop_q % po + 1  &
                                  , ne   = n_elem                   &
-                                 , D_v  = ins_op % eop_v  % D      &
-                                 , I_vq = ins_op % iop_vq % A      &
+                                 , D_v  = ins_op % eop_u  % D      &
+                                 , I_vq = ins_op % iop_uq % A      &
                                  , w_q  = ins_op % sop_q  % w      &
                                  , Jd_q = metrics % Jd             &
                                  , Ji_q = metrics % Ji             &
@@ -382,8 +382,8 @@ program INS_Operator_3D_Test
     ! diffusion part: w = ∇·(ν ∇v) .............................................
     ! using F_ph as workspace for F_d1h
 
-    elliptic_op = DG_EllipticOperator_3D( sem         = ins_op % sem_v         &
-                                        , dg_opt      = ins_op_opts % eop_v    &
+    elliptic_op = DG_EllipticOperator_3D( sem         = ins_op % sem_u         &
+                                        , dg_opt      = ins_op_opts % eop_u    &
                                         , schwarz_opt = DG_SchwarzOptions_3D() &
                                         , bc          = ins_op % bc_v          )
 
@@ -438,7 +438,7 @@ program INS_Operator_3D_Test
   ! Write plot files
 
   if (export_vtk) then
-    call ExportVTK_VolumeData( x       = ins_op % sem_v % metrics % x &
+    call ExportVTK_VolumeData( x       = ins_op % sem_u % metrics % x &
                              , s       = var                          &
                              , sname   = var_name                     &
                              , file    = 'ins_operator_3d_test'       &

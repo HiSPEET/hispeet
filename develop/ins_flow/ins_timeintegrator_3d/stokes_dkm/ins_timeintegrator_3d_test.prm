@@ -7,8 +7,8 @@
 ! ins_op_opts%mu_0 = -0.333333333333333d0  ! μ = -ν/3 ⟺ γ = 0
 ! ins_op_opts%mu_0 =  0.666666666666666d0  ! μ = 2ν/3 ⟺ γ = ν
 
-  ins_op_opts%eop_v%StandardElementOptions_1D%po =  4
-  ins_op_opts%eop_v%penalty                       = 20
+  ins_op_opts%eop_u%StandardElementOptions_1D%po =  4
+  ins_op_opts%eop_u%penalty                       = 20
   ins_op_opts%eop_p%StandardElementOptions_1D%po =  3
   ins_op_opts%eop_p%penalty                       = 20
   ins_op_opts%sop_q%po        = 4

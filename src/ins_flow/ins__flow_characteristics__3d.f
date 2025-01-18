@@ -71,8 +71,8 @@ contains
     integer :: e, i, j, k, ne, np
 
     associate( mesh => ins_op % mesh                &
-             , eop  => ins_op % eop_v               &
-             , x    => ins_op % sem_v % metrics % x )
+             , eop  => ins_op % eop_u               &
+             , x    => ins_op % sem_u % metrics % x )
 
       ! initialization .........................................................
 
@@ -96,7 +96,7 @@ contains
         this % dt = -1
       end if
 
-      this % po     = ins_op % eop_v % po
+      this % po     = ins_op % eop_u % po
       this % err_v  = -1
       this % err_p  = -1
 
@@ -137,7 +137,7 @@ contains
           do e = 1, ne
             q(:,:,:,e) = q(:,:,:,e)**2
           end do
-          call GetVolumeIntegral(ins_op%sem_v, q, err_p)
+          call GetVolumeIntegral(ins_op%sem_u, q, err_p)
           err_p = sqrt(err_p)
 
           ! velocity
@@ -145,7 +145,7 @@ contains
           do e = 1, ne
             q(:,:,:,e) = w(:,:,:,e,1)**2 + w(:,:,:,e,2)**2 + w(:,:,:,e,3)**2
           end do
-          call GetVolumeIntegral(ins_op%sem_v, q, err_v)
+          call GetVolumeIntegral(ins_op%sem_u, q, err_v)
           err_v = sqrt(err_v)
 
         end associate
@@ -155,12 +155,12 @@ contains
 
       associate(v => u(:,:,:,:,1:3), q => w(:,:,:,:,4))
         call GetOuterTraces_3D(mesh, v, vp)         ! vp = v⁺
-        call TPO_Div(eop, ins_op%sem_v, v, vp, q)   ! q = ∇⋅v
+        call TPO_Div(eop, ins_op%sem_u, v, vp, q)   ! q = ∇⋅v
         !$omp do
         do e = 1, ne
           q(:,:,:,e) = q(:,:,:,e) ** 2
         end do
-        call GetVolumeIntegral(ins_op%sem_v, q, div_v)
+        call GetVolumeIntegral(ins_op%sem_u, q, div_v)
         div_v = sqrt(div_v)
       end associate
 
@@ -185,7 +185,7 @@ contains
         call XMPI_Allreduce(sqrt(vv_max), v_max, MPI_MAX, mesh%comm_parts)
         !$omp end master
 
-        call GetVolumeIntegral(ins_op%sem_v, q, e_kin)
+        call GetVolumeIntegral(ins_op%sem_u, q, e_kin)
 
       end associate
 

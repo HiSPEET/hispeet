@@ -27,6 +27,7 @@ module INS__Operator__3D
   use Trace_Operators__3D
   use Spectral_Element_Mesh__3D
   use Boundary_Variable__3D
+  use ML__DG__Elliptic_Solver__3D
 
   use INS__Problem__3D
 
@@ -37,9 +38,22 @@ module INS__Operator__3D
   public :: INS_OperatorOptions_3D
 
   !-----------------------------------------------------------------------------
+  !> Pressure solver options, operators and handles
+
+  type INS_PressureOperators_3D
+    integer :: method !< solution method
+    type(DG_EllipticOperator_3D) :: elliptic_op !< operators for present level
+    type(ML_DG_EllipticSolver_3D), pointer :: ml_elliptic !< multilevel solver
+  end type INS_PressureOperators_3D
+
+  !-----------------------------------------------------------------------------
   !> DG-SEM mesh and operators for incompressible Navier-Stokes problems
 
   type INS_Operator_3D
+
+    integer :: mesh_level       !< rank in multilevel hierarchy (0 if none)
+    integer :: pressure_method  !< pressure solution method
+    integer :: diffusion_method !< velocity diffusion method
 
     real(RNP) :: mu_0 !< bulk viscosity,  μ = ζ/ρ
     real(RNP) :: nu_0 !< shear viscosity, ν = η/ρ
@@ -48,22 +62,25 @@ module INS__Operator__3D
     character, allocatable :: bc_p(:) !< pressure BC
     real(RNP) :: delta_outflow        !< δ parameter of outflow conditions
 
-    type(DG_ElementOperators_1D)      :: eop_v !< DG operators for v
+    type(DG_ElementOperators_1D)      :: eop_u !< DG operators for u \ p
     type(DG_ElementOperators_1D)      :: eop_p !< DG operators for p
     type(StandardElementOperators_1D) :: sop_q !< quadrature ops for convection
 
-    type(ProjectionOperator_1D)            :: pop_vp !< v to p L² projection
-    type(EmbeddedInterpolationOperator_1D) :: iop_vp !< v to p interpolation
-    type(EmbeddedInterpolationOperator_1D) :: iop_pv !< p to v interpolation
-    type(EmbeddedInterpolationOperator_1D) :: iop_vq !< v to q interpolation
+    type(ProjectionOperator_1D)            :: pop_up !< u to p L² projection
+    type(EmbeddedInterpolationOperator_1D) :: iop_up !< u to p interpolation
+    type(EmbeddedInterpolationOperator_1D) :: iop_pu !< p to u interpolation
+    type(EmbeddedInterpolationOperator_1D) :: iop_uq !< u to q interpolation
 
     type(Mesh_3D)                :: mesh  !< local mesh partition
-    type(SpectralElementMesh_3D) :: sem_v !< mesh + metrics for v
+    type(SpectralElementMesh_3D) :: sem_u !< mesh + metrics for u
     type(SpectralElementMesh_3D) :: sem_p !< mesh + metrics for p
     type(SpectralElementMesh_3D) :: sem_q !< mesh + metrics for convection
 
-    type(DG_EllipticOperator_3D) :: laplacian_p  !< negative Laplacian for p
+    type(DG_EllipticOperator_3D) :: pressure_op  !< elliptic operator for p
     type(DG_SchwarzOperator_3D)  :: schwarz_v(3) !< Schwarz operators for v
+
+    type(ML_DG_EllipticSolver_3D), pointer :: ml_pressure => null()
+      !< optional multilevel pressure solver
 
   contains
 
@@ -106,10 +123,13 @@ module INS__Operator__3D
   !> Options for INS_Operator_3D initialization
 
   type INS_OperatorOptions_3D
-    real(RNP) :: mu_0 = 0 !< bulk viscosity,  μ = ζ/ρ
-    real(RNP) :: delta_outflow = 0.01   !< δ parameter of outflow conditions
-    type(DG_ElementOptions_1D) :: eop_v !< DG operator options for v
-    type(DG_ElementOptions_1D) :: eop_p !< DG operator options for p
+    integer   :: mesh_level       = 0    !< rank in multilevel solver hierarchy
+    integer   :: pressure_method  = 3    !< 1/2/3/4: CG/Schwarz/SPCG/MG
+    integer   :: diffusion_method = 3    !< 1/2/3  : CG/Schwarz/SPCG
+    real(RNP) :: mu_0             = 0    !< bulk viscosity, μ = ζ/ρ
+    real(RNP) :: delta_outflow    = 0.01 !< δ parameter of outflow conditions
+    type(DG_ElementOptions_1D) :: eop_u  !< DG operator options for u
+    type(DG_ElementOptions_1D) :: eop_p  !< DG operator options for p
     type(StandardElementOptions_1D) :: sop_q !< quadrature opts for convection
     type(DG_SchwarzOptions_3D) :: schwarz_p  !< Schwarz options for p-solver
     type(DG_SchwarzOptions_3D) :: schwarz_v  !< Schwarz options for v-solver
@@ -329,47 +349,55 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor of INS_Operator_3D
 
-  function New_INS_Operator_3D(opt, problem, mesh) result(this)
-    class(INS_OperatorOptions_3D), intent(in) :: opt !< options
-    class(INS_Problem_3D), intent(in) :: problem !< INS flow problem
-    type(Mesh_3D), intent(in) :: mesh !< local mesh partition, will be copied
+  function New_INS_Operator_3D(opt, problem, mesh, ml_pressure) result(this)
+    class(INS_OperatorOptions_3D), intent(in) :: opt     !< options
+    class(INS_Problem_3D),         intent(in) :: problem !< INS flow problem
+    type(Mesh_3D),                 intent(in) :: mesh    !< mesh partition
+    type(ML_DG_EllipticSolver_3D), optional, intent(in) :: ml_pressure
+      !< multilevel pressure solver
     type(INS_Operator_3D) :: this
 
-    call Init_INS_Operator_3D(this, opt, problem, mesh)
+    call Init_INS_Operator_3D(this, opt, problem, mesh, ml_pressure)
 
   end function New_INS_Operator_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of INS_Operator_3D
 
-  subroutine Init_INS_Operator_3D(this, opt, problem, mesh)
+  subroutine Init_INS_Operator_3D(this, opt, problem, mesh, ml_pressure)
     class(INS_Operator_3D),        intent(inout) :: this    !< new INS operator
     class(INS_OperatorOptions_3D), intent(in)    :: opt     !< options
     class(INS_Problem_3D),         intent(in)    :: problem !< INS flow problem
     type(Mesh_3D),       optional, intent(in)    :: mesh    !< mesh partition
+    type(ML_DG_EllipticSolver_3D), optional, target, intent(in) :: ml_pressure
+      !< multilevel pressure solver
 
     character, allocatable :: bc_schwarz(:)
     integer :: d
+
+    this % mesh_level       = opt % mesh_level
+    this % pressure_method  = opt % pressure_method
+    this % diffusion_method = opt % diffusion_method
 
     this % mu_0 = opt % mu_0
     this % nu_0 = problem % nu_ref
     this % bc_v = problem % bc_v
     this % delta_outflow = opt % delta_outflow
 
-    this % eop_v = DG_ElementOperators_1D     ( opt % eop_v )
+    this % eop_u = DG_ElementOperators_1D     ( opt % eop_u )
     this % eop_p = DG_ElementOperators_1D     ( opt % eop_p )
     this % sop_q = StandardElementOperators_1D( opt % sop_q )
 
 !?  if (this % po_p /= this % po_v) then
-    this % pop_vp = ProjectionOperator_1D( this%eop_p       &
-                                         , this%eop_v%x     &
-                                         , this%eop_v%nodes )
-    this % iop_pv = EmbeddedInterpolationOperator_1D( this%eop_p, this%eop_v%x )
-    this % iop_vp = EmbeddedInterpolationOperator_1D( this%eop_v, this%eop_p%x )
+    this % pop_up = ProjectionOperator_1D( this%eop_p       &
+                                         , this%eop_u%x     &
+                                         , this%eop_u%nodes )
+    this % iop_pu = EmbeddedInterpolationOperator_1D( this%eop_p, this%eop_u%x )
+    this % iop_up = EmbeddedInterpolationOperator_1D( this%eop_u, this%eop_p%x )
 !?  end if
 
 !?  if (po_q /= po_v) then
-    this % iop_vq = EmbeddedInterpolationOperator_1D( this%eop_v, this%sop_q%x )
+    this % iop_uq = EmbeddedInterpolationOperator_1D( this%eop_u, this%sop_q%x )
 !?  end if
 
     if (present(mesh)) then
@@ -380,7 +408,7 @@ contains
                  'INS__Operator__3D')
     end if
 
-    this % sem_v = SpectralElementMesh_3D( this % mesh, this % eop_v % po )
+    this % sem_u = SpectralElementMesh_3D( this % mesh, this % eop_u % po )
     this % sem_p = SpectralElementMesh_3D( this % mesh, this % eop_p % po )
     this % sem_q = SpectralElementMesh_3D( this % mesh          &
                                          , this % sop_q % po    &
@@ -391,7 +419,7 @@ contains
     call problem % GetPressureBC(this % bc_p)
 
     ! pressure operator
-    this % laplacian_p = DG_EllipticOperator_3D( sem         = this % sem_p     &
+    this % pressure_op = DG_EllipticOperator_3D( sem         = this % sem_p     &
                                                , dg_opt      = opt  % eop_p     &
                                                , schwarz_opt = opt  % schwarz_p &
                                                , bc          = this % bc_p      )
@@ -403,10 +431,15 @@ contains
     end where
     do d = 1, 3
       this % schwarz_v(d) = DG_SchwarzOperator_3D( opt  % schwarz_v &
-                                                 , this % eop_v     &
+                                                 , this % eop_u     &
                                                  , this % mesh      &
                                                  , bc_schwarz       )
     end do
+
+    ! optional multilevel method(s)
+    if (present(ml_pressure)) then
+      this % ml_pressure => ml_pressure
+    end if
 
   end subroutine Init_INS_Operator_3D
 
@@ -422,11 +455,11 @@ contains
 !   if (this % mesh % regular) then
 !     not implemented yet
 !   else
-      call TPO_INS_Convection( nv   = this % eop_v % po + 1       &
+      call TPO_INS_Convection( nv   = this % eop_u % po + 1       &
                              , nq   = this % sop_q % po + 1       &
                              , ne   = this % mesh % n_elem        &
-                             , D_v  = this % eop_v  % D           &
-                             , I_vq = this % iop_vq % A           &
+                             , D_v  = this % eop_u  % D           &
+                             , I_vq = this % iop_uq % A           &
                              , w_q  = this % sop_q  % w           &
                              , Jd_q = this % sem_q % metrics % Jd &
                              , Ji_q = this % sem_q % metrics % Ji &
@@ -537,10 +570,14 @@ contains
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    call XMPI_Bcast(this % mu_0         , root, comm)
-    call XMPI_Bcast(this % delta_outflow, root, comm)
+    call XMPI_Bcast(this % mesh_level      , root, comm)
+    call XMPI_Bcast(this % pressure_method , root, comm)
+    call XMPI_Bcast(this % diffusion_method, root, comm)
 
-    call this % eop_v     % Bcast(root, comm)
+    call XMPI_Bcast(this % mu_0            , root, comm)
+    call XMPI_Bcast(this % delta_outflow   , root, comm)
+
+    call this % eop_u     % Bcast(root, comm)
     call this % eop_p     % Bcast(root, comm)
     call this % sop_q     % Bcast(root, comm)
     call this % schwarz_p % Bcast(root, comm)

@@ -90,6 +90,8 @@ contains
     type(ElementDistributionData_3D), allocatable, save :: send_data(:)
     type(ElementDistributionData_3D), allocatable, save :: recv_data(:)
 
+    integer, save :: n_parts
+
     character(len=:), allocatable :: prefix
     logical :: logging
     integer :: i
@@ -118,6 +120,14 @@ contains
 
     !$omp master
 
+    ! build new child element map
+    allocate(new_child_map)
+    if (parent % part >= 0) then
+      call BuildChildMap(opt, parent, new_child_map)
+      n_parts = new_child_map % n_parts
+    end if
+    call XMPI_Bcast(n_parts, 0, parent % comm_world)
+
     attrib = MeshAttributes_3D(parent)
     attrib % structured = .false.
     attrib % is_root = .false.
@@ -134,7 +144,7 @@ contains
 
     call new_child % Init_Mesh_3D(attrib, parent % comm_world)
 
-    new_child % n_parts = opt % n_parts
+    new_child % n_parts = n_parts
 
     ! use identity for mapping parts to processes, so far
     if (new_child % proc < new_child % n_parts) then
@@ -157,15 +167,6 @@ contains
       end do
     end if
 
-    !$omp end master
-
-    ! build new child element map ..............................................
-
-    !$omp master
-    allocate(new_child_map)
-    if (parent % part >= 0) then
-      call BuildChildMap(opt, parent, new_child_map)
-    end if
     !$omp end master
 
     ! create child element data ................................................

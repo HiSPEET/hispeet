@@ -10,8 +10,8 @@
 !   - use μ = √(ν² + v²h²) for stabilization in convection dominant case
   ins_op_opts%mu_0 = 0.0 
 !
-  ins_op_opts%eop_v%StandardElementOptions_1D%po =  7
-  ins_op_opts%eop_v%penalty                       = 20
+  ins_op_opts%eop_u%StandardElementOptions_1D%po =  7
+  ins_op_opts%eop_u%penalty                       = 20
   ins_op_opts%eop_p%StandardElementOptions_1D%po =  6
   ins_op_opts%eop_p%penalty                       = 20
   ins_op_opts%sop_q%po        = 11
