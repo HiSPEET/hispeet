@@ -469,7 +469,6 @@ print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(e(p)) =', send_map(p
       end do
 !### CHECK
 print '(99(G0,X))', '###',rank,'BDEM  *** DONE ***'
-stop
 !### CHECK END
 
       deallocate(e)
