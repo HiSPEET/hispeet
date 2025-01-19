@@ -592,6 +592,10 @@ contains
             end if
           end do
         end if
+!### CHECK
+print '(99(G0,X))', '### HIII ++++++++++'
+print '(99(G0,X))', '### part',mesh(l)%part,'n_elem =',mesh(l)%n_elem
+!### CHECK END
         call XMPI_Reduce(mesh(l)%n_elem, ne_min , MPI_MIN, 0, comm)
         call XMPI_Reduce(mesh(l)%n_elem, ne_max , MPI_MAX, 0, comm)
         call XMPI_Reduce(mesh(l)%n_elem, ne_tot , MPI_SUM, 0, comm)
@@ -640,11 +644,10 @@ contains
 
       ! mark for global refinement ..............................................
 
-      do l = 1, l_adapt-2
+      do l = 1, min(l_top,l_adapt-2)
         if (mesh(l)%n_elem > 0) then
-        call mesh(l) % element % MarkForRefinement()
-      end if
-
+          call mesh(l) % element % MarkForRefinement()
+         end if
       end do
 
       ! quantity of interest for adaptation .....................................

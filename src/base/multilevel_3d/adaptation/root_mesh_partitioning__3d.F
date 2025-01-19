@@ -430,13 +430,16 @@ contains
     integer, allocatable, save :: e(:)
     integer :: i, p
 !### CHECK
-print '(99(G0,X))', '### BDEM  dist_map%n_elem  =', dist_map%n_elem
-print '(99(G0,X))', '### BDEM  dist_map%n_ghost =', dist_map%n_ghost
-print '(99(G0,X))', '### BDEM  dist_map%n_parts =', dist_map%n_parts
-print '(99(G0,X))', '### BDEM  dist_map%tp_elem =', dist_map%tp_elem
-print '(99(G0,X))', '### BDEM  dist_map%ne_part =', dist_map%ne_part
-print '(99(G0,X))', '### BDEM  lbound(send_map) =', lbound(send_map)
-print '(99(G0,X))', '### BDEM  ubound(send_map) =', ubound(send_map)
+integer :: ne
+integer :: rank
+call MPI_Comm_rank(MPI_COMM_WORLD, rank)
+print '(99(G0,X))', '###',rank,'BDEM  dist_map%n_elem  =', dist_map%n_elem
+print '(99(G0,X))', '###',rank,'BDEM  dist_map%n_ghost =', dist_map%n_ghost
+print '(99(G0,X))', '###',rank,'BDEM  dist_map%n_parts =', dist_map%n_parts
+print '(99(G0,X))', '###',rank,'BDEM  dist_map%tp_elem =', dist_map%tp_elem
+print '(99(G0,X))', '###',rank,'BDEM  dist_map%ne_part =', dist_map%ne_part
+print '(99(G0,X))', '###',rank,'BDEM  lbound(send_map) =', lbound(send_map)
+print '(99(G0,X))', '###',rank,'BDEM  ubound(send_map) =', ubound(send_map)
 !### CHECK END
 
     associate(n_parts => dist_map % n_parts)
@@ -452,18 +455,21 @@ print '(99(G0,X))', '### BDEM  ubound(send_map) =', ubound(send_map)
         if (p < 0) cycle
         e(p) = e(p) + 1
 !### CHECK
-print '(99(G0,X))', '### BDEM  i, p, e(p) =', i, p, e(p)
-print '(99(G0,X))', '### BDEM  allocated(send_map(p)%id_elem) =', allocated(send_map(p)%id_elem)
-print '(99(G0,X))', '### BDEM  lbound(send_map(p)%id_elem) =', lbound(send_map(p)%id_elem)
-print '(99(G0,X))', '### BDEM  ubound(send_map(p)%id_elem) =', ubound(send_map(p)%id_elem)
-print '(99(G0,X))', '### BDEM  send_map(0) % id_elem       =', send_map(0) % id_elem
-print '(99(G0,X))', '### BDEM  send_map(0) % id_elem(1)    =', send_map(0) % id_elem(1)
-print '(99(G0,X))', '### BDEM  send_map(p) % id_elem(e(p)) =', send_map(p) % id_elem(e(p))
+print '(99(G0,X))', '###',rank,'BDEM  i, p, e(p) =', i, p, e(p)
+print '(99(G0,X))', '###',rank,'BDEM  allocated(send_map(p)%id_elem) =', allocated(send_map(p)%id_elem)
+print '(99(G0,X))', '###',rank,'BDEM  lbound(send_map(p)%id_elem) =', lbound(send_map(p)%id_elem)
+print '(99(G0,X))', '###',rank,'BDEM  ubound(send_map(p)%id_elem) =', ubound(send_map(p)%id_elem)
+print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem       =', send_map(p) % id_elem
+print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(1:)   =', send_map(p) % id_elem(1:)
+print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(1:2)  =', send_map(p) % id_elem(1:2)
+print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(1)    =', send_map(p) % id_elem(1)
+print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(e(p)) =', send_map(p) % id_elem(e(p))
 !### CHECK END
-        send_map(p) % id_elem(e(p)) = i
+!        send_map(p) % id_elem(e(p)) = i
       end do
 !### CHECK
-print '(99(G0,X))', '### BDEM  *** DONE ***'
+print '(99(G0,X))', '###',rank,'BDEM  *** DONE ***'
+stop
 !### CHECK END
 
       deallocate(e)
