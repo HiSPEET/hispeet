@@ -465,7 +465,7 @@ print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(1:2)  =', send_map(p
 print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(1)    =', send_map(p) % id_elem(1)
 print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(e(p)) =', send_map(p) % id_elem(e(p))
 !### CHECK END
-!        send_map(p) % id_elem(e(p)) = i
+        send_map(p) % id_elem(e(p)) = i
       end do
 !### CHECK
 print '(99(G0,X))', '###',rank,'BDEM  *** DONE ***'
