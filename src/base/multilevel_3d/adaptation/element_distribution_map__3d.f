@@ -110,7 +110,7 @@ contains
 
     ! IDs of local elements in their target partitions .........................
 
-    call ComputeElementOffsets(mesh%comm_parts, ne_part, id_part)
+    call ComputeElementOffsets(mesh%comm_parts, n_parts, ne_part, id_part)
 
     do i = 1, this % n_elem
       p = tp_elem(i)
@@ -153,10 +153,11 @@ contains
   !> This sum is evaluated using one-sided communication based on MPI's
   !> window facility.
 
-  subroutine ComputeElementOffsets(comm_parts, ne_part, id_part)
-    type(MPI_Comm), intent(in) :: comm_parts
-    integer, asynchronous, intent(in)  :: ne_part(0:)
-    integer, asynchronous, intent(out) :: id_part(0:)
+  subroutine ComputeElementOffsets(comm_parts, n_parts, ne_part, id_part)
+    type(MPI_Comm),        intent(in)  :: comm_parts
+    integer,               intent(in)  :: n_parts
+    integer, asynchronous, intent(in)  :: ne_part(0:n_parts-1)
+    integer, asynchronous, intent(out) :: id_part(0:n_parts-1)
 
     type(MPI_Win) :: window
     integer(MPI_ADDRESS_KIND) :: integer_extent, lb
@@ -164,19 +165,17 @@ contains
     integer(MPI_ADDRESS_KIND) :: target_disp = 0
     integer :: disp_unit
     integer :: old_n_parts, old_part
-    integer :: i, np
+    integer :: i
 
     ! preliminaries ............................................................
 
     call MPI_Comm_rank(comm_parts, old_part)
     call MPI_Comm_size(comm_parts, old_n_parts)
 
-    np = size(ne_part)
-
     ! create MPI window ........................................................
 
     call MPI_Type_get_extent(MPI_INTEGER, lb, integer_extent)
-    buf_size  = integer_extent * np
+    buf_size  = integer_extent * n_parts
     disp_unit = int(integer_extent)
 
     call MPI_Win_create( base       =  id_part        &
@@ -194,11 +193,11 @@ contains
 
     do i = old_part + 1, old_n_parts - 1
       call MPI_Accumulate( origin_addr     = ne_part       &
-                         , origin_count    = np            &
+                         , origin_count    = n_parts       &
                          , origin_datatype = MPI_INTEGER   &
                          , target_rank     = i             &
                          , target_disp     = target_disp   &
-                         , target_count    = np            &
+                         , target_count    = n_parts       &
                          , target_datatype = MPI_INTEGER   &
                          , op              = MPI_SUM       &
                          , win             = window        )

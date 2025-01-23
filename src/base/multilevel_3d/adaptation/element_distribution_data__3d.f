@@ -62,7 +62,7 @@ contains
     !$omp master
     associate(dest => this%proc, comm => this%comm, req_dim => this%req_dim)
       if (dest >= 0) then
-        call XMPI_Isend(this%n_elem , dest, 101, comm, req_dim(1))
+        call XMPI_Isend(this%n_elem    , dest, 101, comm, req_dim(1))
         call XMPI_Isend(this%n_neighbor, dest, 102, comm, req_dim(2))
         call XMPI_Isend(this%n_point   , dest, 103, comm, req_dim(3))
       else
@@ -139,7 +139,7 @@ contains
     !$omp master
     associate(source => this%proc, comm => this%comm, req_dim => this%req_dim)
       if (source >= 0) then
-        call XMPI_Irecv(this%n_elem , source, 101, comm, req_dim(1))
+        call XMPI_Irecv(this%n_elem    , source, 101, comm, req_dim(1))
         call XMPI_Irecv(this%n_neighbor, source, 102, comm, req_dim(2))
         call XMPI_Irecv(this%n_point   , source, 103, comm, req_dim(3))
       else

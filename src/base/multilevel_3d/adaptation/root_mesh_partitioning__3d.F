@@ -59,8 +59,8 @@ contains
 
     ! build new element distribution map .......................................
 
+    allocate(dist_map)
     if (old_mesh % part >= 0) then
-      allocate(dist_map)
       call BuildElementDistributionMap(opt, old_mesh, dist_map, n_parts)
     end if
     call XMPI_Bcast(n_parts, 0, old_mesh % comm_world)
@@ -117,6 +117,7 @@ contains
     ! send data (skip local part)
     if (old_mesh % part >= 0) then
       do i = 0, new_mesh%n_parts-1
+        if (dist_send_data(i) % proc == old_mesh % proc) cycle
         call dist_send_data(i) % Send_Data()
       end do
     end if
@@ -124,6 +125,7 @@ contains
     ! receive data (skip local part)
     if (new_mesh % part >= 0) then
       do i = 0, old_mesh%n_parts-1
+        if (dist_recv_data(i) % proc == old_mesh % proc) cycle
         call dist_recv_data(i) % Recv_Data()
       end do
     end if
@@ -164,11 +166,7 @@ contains
           call dist_recv_data(i) % Assign_Data(new_mesh)
         else
           call dist_send_data(old_mesh%part) % Assign_Data(new_mesh)
-!### CHECK
-print '(99(G0,1X))', '### old_mesh%proc',old_mesh%proc,'i =',i
           dist_recv_data(i) = dist_send_data(old_mesh%part)
-print '(99(G0,1X))', '### old_mesh%proc',old_mesh%proc,'WHATs ON MAN??????'
-!### CHECK END
         end if
       end do
 
