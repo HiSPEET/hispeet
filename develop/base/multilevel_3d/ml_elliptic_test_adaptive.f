@@ -410,7 +410,12 @@ program ML_Elliptic_Test_Adaptive
     if (l_top < l_max) then
       ml_mesh % mesh(l_top) % refinement = ml_mesh_opt % refinement(l_top)
     end if
-    call SetAdaptationMarks
+!!     call SetAdaptationMarks
+!### CHECK
+if (ml_mesh%mesh(1)%n_elem > 0) then
+ml_mesh%mesh(1)%element%adaptation%mark = 0
+end if
+!### CHECK END
 
     call ml_mesh % Adapt(ml_mesh_opt % partition, x_plan)
 
@@ -434,39 +439,39 @@ program ML_Elliptic_Test_Adaptive
     ! interpolate/redistribute solution
     call u % FitAdapt(ml_op, x_plan)
 
-    ! adjust remaining variables
-    call mm % Init(ml_op, 1)
-    call f  % Init(ml_op, 1)
-    call s  % Init(ml_op, 1)
-    call e  % Init(ml_op, 1)
-    call r  % Init(ml_op, 1)
-    call bv % Init(ml_op, 1)
-
-    ! RHS and BC
-    do l = 1, l_top
-      associate( x_l  => ml_op % sem(l) % metrics % x   &
-               , mm_l => mm % level(l) % val(:,:,:,:,1) &
-               , f_l  => f  % level(l) % val(:,:,:,:,1) &
-               , s_l  => s  % level(l) % val(:,:,:,:,1) )
-
-        ! right hand side
-        call ml_op % sem(l) % Get_DG_DiagonalMassMatrix(mm_l)
-        call problem % GetExactSolution(x_l, s_l)
-        call problem % GetSource(x_l, f_l)
-        f_l = mm_l * f_l
-
-        ! boundary conditions
-        do i = 1, size(bc)
-          select case(bc(i))
-          case('D')
-            call bv % level(l) % var(i) % Extract(s_l)
-          end select
-        end do
-
-      end associate
-    end do
-
-    call ml_elliptic % FAS_MG_Solver(lambda, problem%nu_0, u, f, bv)
+!!     ! adjust remaining variables
+!!     call mm % Init(ml_op, 1)
+!!     call f  % Init(ml_op, 1)
+!!     call s  % Init(ml_op, 1)
+!!     call e  % Init(ml_op, 1)
+!!     call r  % Init(ml_op, 1)
+!!     call bv % Init(ml_op, 1)
+!!
+!!     ! RHS and BC
+!!     do l = 1, l_top
+!!       associate( x_l  => ml_op % sem(l) % metrics % x   &
+!!                , mm_l => mm % level(l) % val(:,:,:,:,1) &
+!!                , f_l  => f  % level(l) % val(:,:,:,:,1) &
+!!                , s_l  => s  % level(l) % val(:,:,:,:,1) )
+!!
+!!         ! right hand side
+!!         call ml_op % sem(l) % Get_DG_DiagonalMassMatrix(mm_l)
+!!         call problem % GetExactSolution(x_l, s_l)
+!!         call problem % GetSource(x_l, f_l)
+!!         f_l = mm_l * f_l
+!!
+!!         ! boundary conditions
+!!         do i = 1, size(bc)
+!!           select case(bc(i))
+!!           case('D')
+!!             call bv % level(l) % var(i) % Extract(s_l)
+!!           end select
+!!         end do
+!!
+!!       end associate
+!!     end do
+!!
+!!     call ml_elliptic % FAS_MG_Solver(lambda, problem%nu_0, u, f, bv)
 
     call Evaluation
 
@@ -518,53 +523,55 @@ contains
 
     associate(mesh => ml_mesh%mesh)
 
-      ! residual .................................................................
-
-      call ml_elliptic % FAS_MG_Residual(lambda, problem%nu_0, f, bv, u, r)
-      r_l2 = sqrt(ML_WeightedScalarProduct_3D(mm, r, r, leaf = .true.))
-
-      ! error ....................................................................
-
-      int_1_loc = 0
-      int_e_loc = 0
-
-      do l = 1, l_top
-        associate( mm_l   => mm % level(l) % val(:,:,:,:,1) &
-                 , s_l    => s  % level(l) % val(:,:,:,:,1) &
-                 , u_l    => u  % level(l) % val(:,:,:,:,1) &
-                 , e_l    => e  % level(l) % val(:,:,:,:,1) )
-
-          do i = 1, mesh(l) % n_elem
-            e_l(:,:,:,i) = u_l(:,:,:,i) - s_l(:,:,:,i)
-            if (mesh(l)%element(i)%IsLeaf()) then
-              int_1_loc = int_1_loc + sum(mm_l(:,:,:,i))
-              int_e_loc = int_e_loc + sum(mm_l(:,:,:,i) * e_l(:,:,:,i))
-            end if
-          end do
-
-        end associate
-      end do
-
-      ! mean error for calibration in singular case
-      if (singular) then
-        call XMPI_Allreduce(int_1_loc, int_1, MPI_SUM, comm)
-        call XMPI_Allreduce(int_e_loc, int_e, MPI_SUM, comm)
-        e_avg = int_e / int_1
-      else
-        e_avg = 0
-      end if
-
-      ! calibration and maximum norm
-      do l = 1, l_top
-        associate(e_l => e % level(l) % val(:,:,:,:,1))
-          do i = 1, mesh(l) % n_elem
-            e_l(:,:,:,i) = e_l(:,:,:,i) - e_avg
-          end do
-        end associate
-      end do
-
-      ! L2 norm
-      e_l2 = sqrt(ML_WeightedScalarProduct_3D(mm, e, e, leaf = .true.))
+ !### CHECK
+!!       ! residual .................................................................
+!!
+!!       call ml_elliptic % FAS_MG_Residual(lambda, problem%nu_0, f, bv, u, r)
+!!       r_l2 = sqrt(ML_WeightedScalarProduct_3D(mm, r, r, leaf = .true.))
+!!
+!!       ! error ....................................................................
+!!
+!!       int_1_loc = 0
+!!       int_e_loc = 0
+!!
+!!       do l = 1, l_top
+!!         associate( mm_l   => mm % level(l) % val(:,:,:,:,1) &
+!!                  , s_l    => s  % level(l) % val(:,:,:,:,1) &
+!!                  , u_l    => u  % level(l) % val(:,:,:,:,1) &
+!!                  , e_l    => e  % level(l) % val(:,:,:,:,1) )
+!!
+!!           do i = 1, mesh(l) % n_elem
+!!             e_l(:,:,:,i) = u_l(:,:,:,i) - s_l(:,:,:,i)
+!!             if (mesh(l)%element(i)%IsLeaf()) then
+!!               int_1_loc = int_1_loc + sum(mm_l(:,:,:,i))
+!!               int_e_loc = int_e_loc + sum(mm_l(:,:,:,i) * e_l(:,:,:,i))
+!!             end if
+!!           end do
+!!
+!!         end associate
+!!       end do
+!!
+!!       ! mean error for calibration in singular case
+!!       if (singular) then
+!!         call XMPI_Allreduce(int_1_loc, int_1, MPI_SUM, comm)
+!!         call XMPI_Allreduce(int_e_loc, int_e, MPI_SUM, comm)
+!!         e_avg = int_e / int_1
+!!       else
+!!         e_avg = 0
+!!       end if
+!!
+!!       ! calibration and maximum norm
+!!       do l = 1, l_top
+!!         associate(e_l => e % level(l) % val(:,:,:,:,1))
+!!           do i = 1, mesh(l) % n_elem
+!!             e_l(:,:,:,i) = e_l(:,:,:,i) - e_avg
+!!           end do
+!!         end associate
+!!       end do
+!!
+!!       ! L2 norm
+!!       e_l2 = sqrt(ML_WeightedScalarProduct_3D(mm, e, e, leaf = .true.))
+ !### CHECK END
 
       ! mesh metrics .............................................................
 
@@ -584,22 +591,25 @@ contains
       np_leaf_sum = 0
 
       do l = 1, l_top
+
         ne_leaf_loc = 0
+
         if (mesh(l)%part >= 0) then
           do i = 1, mesh(l) % n_elem_active
             if (mesh(l) % element(i) % IsLeaf()) then
               ne_leaf_loc = ne_leaf_loc + 1
             end if
           end do
+          call XMPI_Reduce(mesh(l)%n_elem, ne_min , MPI_MIN, 0, mesh(l)%comm_parts)
+          call XMPI_Reduce(mesh(l)%n_elem, ne_max , MPI_MAX, 0, mesh(l)%comm_parts)
+          call XMPI_Reduce(mesh(l)%n_elem, ne_tot , MPI_SUM, 0, mesh(l)%comm_parts)
+          call XMPI_Reduce(ne_leaf_loc   , ne_leaf, MPI_SUM, 0, mesh(l)%comm_parts)
         end if
-!### CHECK
-print '(99(G0,X))', '### HIII ++++++++++'
-print '(99(G0,X))', '### part',mesh(l)%part,'n_elem =',mesh(l)%n_elem
-!### CHECK END
-        call XMPI_Reduce(mesh(l)%n_elem, ne_min , MPI_MIN, 0, comm)
-        call XMPI_Reduce(mesh(l)%n_elem, ne_max , MPI_MAX, 0, comm)
-        call XMPI_Reduce(mesh(l)%n_elem, ne_tot , MPI_SUM, 0, comm)
-        call XMPI_Reduce(ne_leaf_loc   , ne_leaf, MPI_SUM, 0, comm)
+
+        call XMPI_Bcast(ne_min , mesh(l)%proc_part(0), mesh(l)%comm_world)
+        call XMPI_Bcast(ne_max , mesh(l)%proc_part(0), mesh(l)%comm_world)
+        call XMPI_Bcast(ne_tot , mesh(l)%proc_part(0), mesh(l)%comm_world)
+        call XMPI_Bcast(ne_leaf, mesh(l)%proc_part(0), mesh(l)%comm_world)
 
         if (rank == 0) then
           write(*,'(I7,5I9,I5)') l, mesh(l)%n_parts,             &
@@ -620,8 +630,10 @@ print '(99(G0,X))', '### part',mesh(l)%part,'n_elem =',mesh(l)%n_elem
         write(*,'(T5,A,T16,I0)')     'np_tot  =', np_tot_sum
         write(*,'(T5,A,T16,I0)')     'ne_leaf =', ne_leaf_sum
         write(*,'(T5,A,T16,I0)')     'np_leaf =', np_leaf_sum
-        write(*,'(T5,A,T15,ES12.5)') 'r_l2    =', r_l2
-        write(*,'(T5,A,T15,ES12.5)') 'e_l2    =', e_l2
+!### CHECK
+!!         write(*,'(T5,A,T15,ES12.5)') 'r_l2    =', r_l2
+!!         write(*,'(T5,A,T15,ES12.5)') 'e_l2    =', e_l2
+!### CHECK END
       end if
 
     end associate
@@ -642,12 +654,15 @@ print '(99(G0,X))', '### part',mesh(l)%part,'n_elem =',mesh(l)%n_elem
 
     associate(mesh => ml_mesh%mesh)
 
+      n_ref_loc = 0
+
       ! mark for global refinement ..............................................
 
       do l = 1, min(l_top,l_adapt-2)
         if (mesh(l)%n_elem > 0) then
           call mesh(l) % element % MarkForRefinement()
-         end if
+          n_ref_loc = n_ref_loc + 1
+        end if
       end do
 
       ! quantity of interest for adaptation .....................................
@@ -691,8 +706,6 @@ print '(99(G0,X))', '### part',mesh(l)%part,'n_elem =',mesh(l)%n_elem
         qi_remove = adapt_remove
         qi_refine = adapt_refine
       end select
-
-      n_ref_loc = 0
 
       ! l < l_max: mark elements for removal or refinement
       do l = l_adapt-1, min(l_top,l_max-1)

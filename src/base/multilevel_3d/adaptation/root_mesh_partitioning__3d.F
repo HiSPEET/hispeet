@@ -34,11 +34,11 @@ contains
 
     ! internal variables .......................................................
 
-    type(ElementDistributionMap_3D) :: dist_map
-    type(ElementDistributionData_3D), allocatable :: dist_send_data(:)
-    type(ElementDistributionData_3D), allocatable :: dist_recv_data(:)
+    type(ElementDistributionMap_3D),  allocatable, save :: dist_map
+    type(ElementDistributionData_3D), allocatable, save :: dist_send_data(:)
+    type(ElementDistributionData_3D), allocatable, save :: dist_recv_data(:)
+    type(MeshAttributes_3D),          allocatable, save :: attrib
 
-    type(MeshAttributes_3D) :: attrib
     character(len=:), allocatable :: prefix
     logical :: logging
     integer :: n_parts
@@ -60,6 +60,7 @@ contains
     ! build new element distribution map .......................................
 
     if (old_mesh % part >= 0) then
+      allocate(dist_map)
       call BuildElementDistributionMap(opt, old_mesh, dist_map, n_parts)
     end if
     call XMPI_Bcast(n_parts, 0, old_mesh % comm_world)
@@ -116,7 +117,6 @@ contains
     ! send data (skip local part)
     if (old_mesh % part >= 0) then
       do i = 0, new_mesh%n_parts-1
-        if (dist_send_data(i) % proc == old_mesh % proc) cycle
         call dist_send_data(i) % Send_Data()
       end do
     end if
@@ -124,7 +124,6 @@ contains
     ! receive data (skip local part)
     if (new_mesh % part >= 0) then
       do i = 0, old_mesh%n_parts-1
-        if (dist_recv_data(i) % proc == old_mesh % proc) cycle
         call dist_recv_data(i) % Recv_Data()
       end do
     end if
@@ -160,15 +159,18 @@ contains
       allocate(new_mesh % element(new_mesh % n_elem))
 
       ! assign received data
-      if (new_mesh % part >= 0) then
-        do i = 0, old_mesh%n_parts-1
-          if (dist_recv_data(i) % proc /= old_mesh % proc) then
-            call dist_recv_data(i) % Assign_Data(new_mesh)
-          else
-            call dist_send_data(old_mesh%part) % Assign_Data(new_mesh)
-          end if
-        end do
-      end if
+      do i = 0, old_mesh%n_parts-1
+        if (dist_recv_data(i) % proc /= old_mesh % proc) then
+          call dist_recv_data(i) % Assign_Data(new_mesh)
+        else
+          call dist_send_data(old_mesh%part) % Assign_Data(new_mesh)
+!### CHECK
+print '(99(G0,1X))', '### old_mesh%proc',old_mesh%proc,'i =',i
+          dist_recv_data(i) = dist_send_data(old_mesh%part)
+print '(99(G0,1X))', '### old_mesh%proc',old_mesh%proc,'WHATs ON MAN??????'
+!### CHECK END
+        end if
+      end do
 
     end if
 
@@ -193,19 +195,50 @@ contains
     if (present(x_plan)) then
 
       if (old_mesh % part >= 0) then
-        allocate(x_plan % send_map( new_mesh % n_parts ))
-        do i = 1, new_mesh % n_parts
-          x_plan % send_map(i) % comm = new_mesh % comm_world
-          x_plan % send_map(i) % proc = new_mesh % proc_part(i-1)
-        end do
-        call BuildDataExchangeSendMap(dist_map, x_plan % send_map)
+        block
+          integer, allocatable :: e(:)
+          integer :: p
+
+          allocate(x_plan % send_map( new_mesh % n_parts ))
+          x_plan % send_map % comm = new_mesh % comm_world
+          x_plan % send_map % proc = new_mesh % proc_part
+
+          associate(send_map => x_plan % send_map)
+            do i = 1, size(send_map)
+              allocate(send_map(i)% id_elem(dist_map%ne_part(i-1)), source = -1)
+            end do
+            allocate(e(0:dist_map%n_parts-1), source = 0)
+            do i = 1, dist_map % n_elem
+              p = dist_map % tp_elem(i)
+              if (p < 0) cycle
+              e(p) = e(p) + 1
+              send_map(p+1) % id_elem(e(p)) = i
+            end do
+          end associate
+        end block
+
       else
         allocate(x_plan % send_map(0))
       end if
 
       if (new_mesh % part >= 0) then
-        allocate(x_plan % recv_map( old_mesh % n_parts ))
-        call BuildDataExchangeRecvMap(dist_recv_data, x_plan % recv_map)
+        block
+          integer :: e
+
+          allocate(x_plan % recv_map( old_mesh % n_parts ))
+          x_plan % recv_map % comm = dist_recv_data % comm
+          x_plan % recv_map % proc = dist_recv_data % proc
+
+          associate(recv_map => x_plan % recv_map)
+            do i = 1, size(recv_map)
+              allocate(recv_map(i) % id_elem( dist_recv_data(i-1) % n_elem ))
+              do e = 1, dist_recv_data(i-1) % n_elem
+                recv_map(i) % id_elem(e) = dist_recv_data(i-1) % element(e) % id
+              end do
+            end do
+          end associate
+        end block
+
       else
         allocate(x_plan % recv_map(0))
       end if
@@ -217,6 +250,13 @@ contains
     if (present(child)) then
       call UpdateChild(old_mesh, new_mesh, dist_map, child)
     end if
+
+    ! finalization .............................................................
+
+    if (allocated( attrib         )) deallocate( attrib         )
+    if (allocated( dist_map       )) deallocate( dist_map       )
+    if (allocated( dist_send_data )) deallocate( dist_send_data )
+    if (allocated( dist_recv_data )) deallocate( dist_recv_data )
 
     if (logging) then
       print '(2A)', prefix, 'exit'
@@ -301,7 +341,7 @@ contains
 
       dist_data(tp) % proc       = new_mesh % proc_part(tp)
       dist_data(tp) % comm       = old_mesh % comm_world
-      dist_data(tp) % n_elem  = ne
+      dist_data(tp) % n_elem     = ne
       dist_data(tp) % n_neighbor = 0
       dist_data(tp) % n_point    = 0
 
@@ -417,85 +457,85 @@ contains
 
   end subroutine BuildElementDistributionData
 
-  !=============================================================================
-  ! Retained data redistribution routines
-
-  !-----------------------------------------------------------------------------
-  !> Build map indicating the new location of retained elements
-
-  subroutine BuildDataExchangeSendMap(dist_map, send_map)
-    class(ElementDistributionMap_3D), intent(in)    :: dist_map
-    class(DataExchangeMap_3D),        intent(inout) :: send_map(0:)
-
-    integer, allocatable, save :: e(:)
-    integer :: i, p
-!### CHECK
-integer :: ne
-integer :: rank
-call MPI_Comm_rank(MPI_COMM_WORLD, rank)
-print '(99(G0,X))', '###',rank,'BDEM  dist_map%n_elem  =', dist_map%n_elem
-print '(99(G0,X))', '###',rank,'BDEM  dist_map%n_ghost =', dist_map%n_ghost
-print '(99(G0,X))', '###',rank,'BDEM  dist_map%n_parts =', dist_map%n_parts
-print '(99(G0,X))', '###',rank,'BDEM  dist_map%tp_elem =', dist_map%tp_elem
-print '(99(G0,X))', '###',rank,'BDEM  dist_map%ne_part =', dist_map%ne_part
-print '(99(G0,X))', '###',rank,'BDEM  lbound(send_map) =', lbound(send_map)
-print '(99(G0,X))', '###',rank,'BDEM  ubound(send_map) =', ubound(send_map)
-!### CHECK END
-
-    associate(n_parts => dist_map % n_parts)
-
-      do i = 0, n_parts-1
-        allocate(send_map(i) % id_elem( dist_map % ne_part(i)), source = -1)
-      end do
-
-      allocate(e(0:n_parts-1), source = 0)
-
-      do i = 1, dist_map % n_elem
-        p = dist_map % tp_elem(i)
-        if (p < 0) cycle
-        e(p) = e(p) + 1
-!### CHECK
-print '(99(G0,X))', '###',rank,'BDEM  i, p, e(p) =', i, p, e(p)
-print '(99(G0,X))', '###',rank,'BDEM  allocated(send_map(p)%id_elem) =', allocated(send_map(p)%id_elem)
-print '(99(G0,X))', '###',rank,'BDEM  lbound(send_map(p)%id_elem) =', lbound(send_map(p)%id_elem)
-print '(99(G0,X))', '###',rank,'BDEM  ubound(send_map(p)%id_elem) =', ubound(send_map(p)%id_elem)
-print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem       =', send_map(p) % id_elem
-print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(1:)   =', send_map(p) % id_elem(1:)
-print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(1:2)  =', send_map(p) % id_elem(1:2)
-print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(1)    =', send_map(p) % id_elem(1)
-print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(e(p)) =', send_map(p) % id_elem(e(p))
-!### CHECK END
-        send_map(p) % id_elem(e(p)) = i
-      end do
-!### CHECK
-print '(99(G0,X))', '###',rank,'BDEM  *** DONE ***'
-!### CHECK END
-
-      deallocate(e)
-
-    end associate
-
-  end subroutine BuildDataExchangeSendMap
-
-  !-----------------------------------------------------------------------------
-  !> Build map indicating the old location of retained elements
-
-  subroutine BuildDataExchangeRecvMap(dist_recv_data, recv_map)
-    class(ElementDistributionData_3D), intent(in)  :: dist_recv_data(0:)
-    class(DataExchangeMap_3D),         intent(out) :: recv_map(0:)
-
-    integer :: i, e
-
-    do i = 0, ubound(dist_recv_data,1)
-      recv_map(i) % comm = dist_recv_data(i) % comm
-      recv_map(i) % proc = dist_recv_data(i) % proc
-      allocate(recv_map(i) % id_elem( dist_recv_data(i) % n_elem ))
-      do e = 1, dist_recv_data(i) % n_elem
-        recv_map(i) % id_elem(e) = dist_recv_data(i) % element(e) % id
-      end do
-    end do
-
-  end subroutine BuildDataExchangeRecvMap
+!!   !=============================================================================
+!!   ! Retained data redistribution routines
+!!
+!!   !-----------------------------------------------------------------------------
+!!   !> Build map indicating the new location of retained elements
+!!
+!!   subroutine BuildDataExchangeSendMap(dist_map, send_map)
+!!     class(ElementDistributionMap_3D), intent(in)    :: dist_map
+!!     class(DataExchangeMap_3D),        intent(inout) :: send_map(0:)
+!!
+!!     integer, allocatable, save :: e(:)
+!!     integer :: i, p
+!! !### CHECK
+!! integer :: ne
+!! integer :: rank
+!! call MPI_Comm_rank(MPI_COMM_WORLD, rank)
+!! print '(99(G0,X))', '###',rank,'BDEM  dist_map%n_elem  =', dist_map%n_elem
+!! print '(99(G0,X))', '###',rank,'BDEM  dist_map%n_ghost =', dist_map%n_ghost
+!! print '(99(G0,X))', '###',rank,'BDEM  dist_map%n_parts =', dist_map%n_parts
+!! print '(99(G0,X))', '###',rank,'BDEM  dist_map%tp_elem =', dist_map%tp_elem
+!! print '(99(G0,X))', '###',rank,'BDEM  dist_map%ne_part =', dist_map%ne_part
+!! print '(99(G0,X))', '###',rank,'BDEM  lbound(send_map) =', lbound(send_map)
+!! print '(99(G0,X))', '###',rank,'BDEM  ubound(send_map) =', ubound(send_map)
+!! !### CHECK END
+!!
+!!     associate(n_parts => dist_map % n_parts)
+!!
+!!       do i = 0, n_parts-1
+!!         allocate(send_map(i) % id_elem( dist_map % ne_part(i)), source = -1)
+!!       end do
+!!
+!!       allocate(e(0:n_parts-1), source = 0)
+!!
+!!       do i = 1, dist_map % n_elem
+!!         p = dist_map % tp_elem(i)
+!!         if (p < 0) cycle
+!!         e(p) = e(p) + 1
+!! !### CHECK
+!! print '(99(G0,X))', '###',rank,'BDEM  i, p, e(p) =', i, p, e(p)
+!! print '(99(G0,X))', '###',rank,'BDEM  allocated(send_map(p)%id_elem) =', allocated(send_map(p)%id_elem)
+!! print '(99(G0,X))', '###',rank,'BDEM  lbound(send_map(p)%id_elem) =', lbound(send_map(p)%id_elem)
+!! print '(99(G0,X))', '###',rank,'BDEM  ubound(send_map(p)%id_elem) =', ubound(send_map(p)%id_elem)
+!! print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem       =', send_map(p) % id_elem
+!! print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(1:)   =', send_map(p) % id_elem(1:)
+!! print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(1:2)  =', send_map(p) % id_elem(1:2)
+!! print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(1)    =', send_map(p) % id_elem(1)
+!! print '(99(G0,X))', '###',rank,'BDEM  send_map(p) % id_elem(e(p)) =', send_map(p) % id_elem(e(p))
+!! !### CHECK END
+!!         send_map(p) % id_elem(e(p)) = i
+!!       end do
+!! !### CHECK
+!! print '(99(G0,X))', '###',rank,'BDEM  *** DONE ***'
+!! !### CHECK END
+!!
+!!       deallocate(e)
+!!
+!!     end associate
+!!
+!!   end subroutine BuildDataExchangeSendMap
+!!
+!!   !-----------------------------------------------------------------------------
+!!   !> Build map indicating the old location of retained elements
+!!
+!!   subroutine BuildDataExchangeRecvMap(dist_recv_data, recv_map)
+!!     class(ElementDistributionData_3D), intent(in)  :: dist_recv_data(0:)
+!!     class(DataExchangeMap_3D),         intent(out) :: recv_map(0:)
+!!
+!!     integer :: i, e
+!!
+!!     do i = 0, ubound(dist_recv_data,1)
+!!       recv_map(i) % comm = dist_recv_data(i) % comm
+!!       recv_map(i) % proc = dist_recv_data(i) % proc
+!!       allocate(recv_map(i) % id_elem( dist_recv_data(i) % n_elem ))
+!!       do e = 1, dist_recv_data(i) % n_elem
+!!         recv_map(i) % id_elem(e) = dist_recv_data(i) % element(e) % id
+!!       end do
+!!     end do
+!!
+!!   end subroutine BuildDataExchangeRecvMap
 
   !=============================================================================
   ! Child update

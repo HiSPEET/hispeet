@@ -42,8 +42,8 @@ module Element_Distribution_Map__3D
     integer :: n_parts = 0             !< num target partitions
     integer :: n_elem  = 0             !< num elements
     integer :: n_ghost = 0             !< num ghosts
-    integer, allocatable :: tp_elem(:) !< element target partitions
-    integer, allocatable :: id_elem(:) !< element IDs in target partitions
+    integer, allocatable :: tp_elem(:) !< element target partitions          (1:)
+    integer, allocatable :: id_elem(:) !< element IDs in target partitions   (1:)
     integer, allocatable :: ne_part(:) !< num elements targeted to partition (0:)
   end type ElementDistributionMap_3D
 
@@ -80,10 +80,11 @@ contains
 
     ! internal variables .......................................................
 
-    type(ElementTransferBuffer_3D), allocatable, asynchronous :: id_elem_buf
-    integer, contiguous , pointer :: id_elem_val(:,:,:,:)
-    integer, allocatable, target  :: id_elem(:), ne_part(:)
-    integer :: id_part(0:n_parts-1)
+    type(ElementTransferBuffer_3D), allocatable, asynchronous, save :: id_elem_buf
+    integer, contiguous , pointer, save :: id_elem_val(:,:,:,:)
+    integer, allocatable, target,  save :: id_elem(:), ne_part(:)
+    integer, allocatable,          save :: id_part(:)
+
     integer :: i, p
 
     ! basic initialization .....................................................
@@ -95,7 +96,8 @@ contains
     this % tp_elem = max(this % tp_elem, -1)
 
     allocate(id_elem(1 : this%n_elem + this%n_ghost), source = 0)
-    allocate(ne_part(0 : n_parts - 1               ), source = 0)
+    allocate(ne_part(0 : n_parts - 1)               , source = 0)
+    allocate(id_part(0 : n_parts - 1))
 
     ! number of local elements targeted to partition ...........................
 
@@ -129,6 +131,12 @@ contains
 
     call move_alloc(id_elem, this % id_elem)
     call move_alloc(ne_part, this % ne_part)
+
+    ! finalization .............................................................
+
+    if (allocated( id_elem_buf )) deallocate( id_elem_buf )
+    if (allocated( id_part     )) deallocate( id_part     )
+    id_elem_val => null()
 
   end subroutine BuildMap
 

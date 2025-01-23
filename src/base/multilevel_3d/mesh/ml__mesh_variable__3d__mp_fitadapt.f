@@ -6,6 +6,9 @@
 
 submodule(ML__Mesh_Variable__3D) MP_FitAdapt
   use Parent_To_Child_Interpolation__3D
+!### CHECK
+use XMPI
+!### CHECK END
   implicit none
 
 contains
@@ -36,19 +39,19 @@ contains
 
     ! interpolate/reassign higher levels .......................................
 
-    do l = 2, size(this%level)
-
-      call ParentToChildInterpolation_3D( parent = this % level(l-1) % mesh &
-                                        , child  = this % level(l)   % mesh &
-                                        , iop    = ml_op % iop_cf_x(l-1)    &
-                                        , v_p    = this % level(l-1) % val  &
-                                        , v_c    = this % level(l  ) % val  )
-
-      if (l <=  size(x_plan)) then
-        call CopyRetainedData(old_level(l), this%level(l), x_plan(l))
-      end if
-
-    end do
+!!     do l = 2, size(this%level)
+!!
+!!       call ParentToChildInterpolation_3D( parent = this % level(l-1) % mesh &
+!!                                         , child  = this % level(l)   % mesh &
+!!                                         , iop    = ml_op % iop_cf_x(l-1)    &
+!!                                         , v_p    = this % level(l-1) % val  &
+!!                                         , v_c    = this % level(l  ) % val  )
+!!
+!!       if (l <= size(x_plan)) then
+!!         call CopyRetainedData(old_level(l), this%level(l), x_plan(l))
+!!       end if
+!!
+!!     end do
 
     ! finalization .............................................................
 
@@ -89,6 +92,19 @@ contains
     else
       return
     end if
+!### CHECK
+block
+  integer :: rank
+  call MPI_Comm_rank(MPI_COMM_WORLD, rank)
+  print '(99(G0,X))', '### rank',rank,'n_send =',n_send,'n_recv =',n_recv
+  do i = 1, n_send
+    print '(99(G0,X))', '### rank',rank,'x_plan%send_map(',i,')%id_elem =',x_plan%send_map(i)%id_elem
+  end do
+  do i = 1, n_recv
+    print '(99(G0,X))', '### rank',rank,'x_plan%recv_map(',i,')%id_elem =',x_plan%recv_map(i)%id_elem
+  end do
+end block
+!### CHECK END
 
     ! transfer retained data ...................................................
 
