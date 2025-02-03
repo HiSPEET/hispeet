@@ -465,7 +465,7 @@ contains
     integer :: i
 
     r = .false.
-    do i = 1, 4
+    do i = 1, 6
       if (element % face(i) % n_neighbor < 1) cycle
       r = element % neighbor(element % face(i) % i_neighbor) % id == e
       if (r) exit
