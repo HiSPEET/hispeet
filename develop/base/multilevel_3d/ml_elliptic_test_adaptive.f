@@ -341,7 +341,7 @@ program ML_Elliptic_Test_Adaptive
   ! preliminaries ..............................................................
 
   ml_op = ML_MeshOperators_3D(ml_mesh, po)
-  ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt, bc)
+  ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt)
 
   call mm % Init(ml_op, 1)
   call f  % Init(ml_op, 1)
@@ -394,7 +394,7 @@ program ML_Elliptic_Test_Adaptive
      write(*,'(/,A,I0)') 'Cycle ', 1
   end if
 
-  call ml_elliptic % FAS_MG_Solver(lambda, problem%nu_0, u, f, bv)
+  call ml_elliptic % FAS_MG_Solver(bc, lambda, problem%nu_0, u, f, bv)
 
   call Evaluation
 
@@ -429,7 +429,7 @@ program ML_Elliptic_Test_Adaptive
     ml_op = ML_MeshOperators_3D(ml_mesh, po)
 
     ! rebuild elliptic operators -- can be optimized
-    ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt, bc)
+    ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt)
 
     ! interpolate/redistribute solution
     call u % FitAdapt(ml_op, x_plan)
@@ -466,7 +466,7 @@ program ML_Elliptic_Test_Adaptive
       end associate
     end do
 
-!!     call ml_elliptic % FAS_MG_Solver(lambda, problem%nu_0, u, f, bv)
+    call ml_elliptic % FAS_MG_Solver(bc, lambda, problem%nu_0, u, f, bv)
 
     call Evaluation
 
@@ -520,7 +520,7 @@ contains
 
       ! residual .................................................................
 
-      call ml_elliptic % FAS_MG_Residual(lambda, problem%nu_0, f, bv, u, r)
+      call ml_elliptic % FAS_MG_Residual(bc, lambda, problem%nu_0, f, bv, u, r)
       r_l2 = sqrt(ML_WeightedScalarProduct_3D(mm, r, r, leaf = .true.))
 
       ! error ....................................................................

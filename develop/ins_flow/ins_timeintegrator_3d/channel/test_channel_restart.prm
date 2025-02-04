@@ -14,7 +14,7 @@
   ins_op_opts%sop_q%po        = 12
   ins_op_opts%sop_q%nodes     = 'L'
   ins_op_opts%schwarz_p%delta = 0.25
-  ins_op_opts%schwarz_v%delta = 0.25
+  ins_op_opts%schwarz_u%delta = 0.25
 !
 ! BDF2 options
   ins_ti_bdf2_opts%i_max_p  = 50000 ! 1000

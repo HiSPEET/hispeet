@@ -73,12 +73,6 @@ program DG_Elliptic_3D_Test
   namelist/control_prm/ log_level_inner_iteration
   namelist/control_prm/ log_level_outer_iteration
 
-  character(len=80) :: schwarz_test_file = '' ! Schwarz test plot file
-  integer :: schwarz_test_part = 0            ! Schwarz test partition
-  integer :: schwarz_test_elem = 1            ! Schwarz test core element ID
-
-  namelist/control_prm/ schwarz_test_file, schwarz_test_elem, schwarz_test_part
-
   ! problem parameters .........................................................
 
   integer :: test_problem = 3 ! 1...6: simple_{1/2/3}d/knotty/TGV/sphere
@@ -236,9 +230,6 @@ program DG_Elliptic_3D_Test
   call XMPI_Bcast( n_test           , 0, comm )
   call XMPI_Bcast( export_vtk       , 0, comm )
   call XMPI_Bcast( subdiv_vtk       , 0, comm )
-  call XMPI_Bcast( schwarz_test_file, 0, comm )
-  call XMPI_Bcast( schwarz_test_part, 0, comm )
-  call XMPI_Bcast( schwarz_test_elem, 0, comm )
 
   ! mesh generation ............................................................
 
@@ -433,10 +424,10 @@ program DG_Elliptic_3D_Test
 
   if (r_nu_s > 0) then
     dg_opt = DG_ElementOptions_1D(po, svv = .true., penalty = penalty)
-    elliptic_op = DG_EllipticOperator_3D(sem, dg_opt, schwarz_opt, bc, r_nu_s)
+    elliptic_op = DG_EllipticOperator_3D(sem, dg_opt, schwarz_opt, r_nu_s)
   else
     dg_opt = DG_ElementOptions_1D(po, svv = .false., penalty = penalty)
-    elliptic_op = DG_EllipticOperator_3D(sem, dg_opt, schwarz_opt, bc)
+    elliptic_op = DG_EllipticOperator_3D(sem, dg_opt, schwarz_opt)
   end if
 
   !-----------------------------------------------------------------------------
@@ -450,9 +441,9 @@ program DG_Elliptic_3D_Test
 
   ! setup call
   if (has_variable_nu) then
-    call elliptic_op % Residual(lambda, nu, f, bv_u, s, r)
+    call elliptic_op % Residual(bc, lambda, nu, f, bv_u, s, r)
   else
-    call elliptic_op % Residual(lambda, nu_0, f, bv_u, s, r)
+    call elliptic_op % Residual(bc, lambda, nu_0, f, bv_u, s, r)
   end if
 
   !$omp master
@@ -461,9 +452,9 @@ program DG_Elliptic_3D_Test
 
   do i = 1, n_test
     if (has_variable_nu) then
-      call elliptic_op % Residual(lambda, nu, f, bv_u, s, r)
+      call elliptic_op % Residual(bc, lambda, nu, f, bv_u, s, r)
     else
-      call elliptic_op % Residual(lambda, nu_0, f, bv_u, s, r)
+      call elliptic_op % Residual(bc, lambda, nu_0, f, bv_u, s, r)
     end if
   end do
 
@@ -525,9 +516,9 @@ program DG_Elliptic_3D_Test
       end select
 
       if (has_variable_nu) then
-        call elliptic_op % Residual(lambda, nu, f, bv_u, u, r)
+        call elliptic_op % Residual(bc, lambda, nu, f, bv_u, u, r)
       else
-        call elliptic_op % Residual(lambda, nu_0, f, bv_u, u, r)
+        call elliptic_op % Residual(bc, lambda, nu_0, f, bv_u, u, r)
       end if
 
       r_l2_0 = ScalarProduct(r, r, mesh%comm_parts)
@@ -554,25 +545,31 @@ program DG_Elliptic_3D_Test
       select case(method)
       case(1) ! conjugate gradient method
         call elliptic_op % &
-                 CG_Method(lambda, nu, u, f, bv_u, i_max, r_red, ni=ni)
+                 CG_Method( bc, lambda, nu, u, f, bv_u &
+                          , i_max, r_red, ni = ni      )
       case(2) ! additive Schwarz method
         call elliptic_op % &
-                 Schwarz_Method(lambda, nu, u, f, bv_u, i_max, r_red, ni=ni)
+                 Schwarz_Method( bc, lambda, nu, u, f, bv_u &
+                               , i_max, r_red, ni = ni      )
       case(3) ! Schwarz-preconditioned conjugate gradient method
         call elliptic_op % &
-                 SchwarzPCG_Method(lambda, nu, u, f, bv_u, i_max, r_red, ni=ni)
+                 SchwarzPCG_Method( bc, lambda, nu, u, f, bv_u &
+                                  , i_max, r_red, ni = ni      )
       end select
     else
       select case(method)
       case(1) ! conjugate gradient method
         call elliptic_op % &
-                 CG_Method(lambda, nu_0, u, f, bv_u, i_max, r_red, ni=ni)
+                 CG_Method( bc, lambda, nu_0, u, f, bv_u &
+                          , i_max, r_red, ni = ni        )
       case(2) ! additive Schwarz method
         call elliptic_op % &
-                 Schwarz_Method(lambda, nu_0, u, f, bv_u, i_max, r_red, ni=ni)
+                 Schwarz_Method( bc, lambda, nu_0, u, f, bv_u &
+                               , i_max, r_red, ni = ni        )
       case(3) ! Schwarz-preconditioned conjugate gradient method
         call elliptic_op % &
-                 SchwarzPCG_Method(lambda, nu_0, u, f, bv_u, i_max, r_red, ni=ni)
+                 SchwarzPCG_Method( bc, lambda, nu_0, u, f, bv_u &
+                                  , i_max, r_red, ni = ni        )
       end select
     end if
 
@@ -584,9 +581,9 @@ program DG_Elliptic_3D_Test
 
     ! final residual
     if (has_variable_nu) then
-      call elliptic_op % Residual(lambda, nu, f, bv_u, u, r)
+      call elliptic_op % Residual(bc, lambda, nu, f, bv_u, u, r)
     else
-      call elliptic_op % Residual(lambda, nu_0, f, bv_u, u, r)
+      call elliptic_op % Residual(bc, lambda, nu_0, f, bv_u, u, r)
     end if
 
     !$omp end parallel
@@ -651,92 +648,10 @@ program DG_Elliptic_3D_Test
 
   end if
 
-  call SchwarzTest( elliptic_op, r   &
-                  , schwarz_test_part &
-                  , schwarz_test_elem &
-                  , schwarz_test_file )
-
   !-----------------------------------------------------------------------------
   ! Finalization
 
   call MPI_Finalize()
-
-contains
-
-  !-----------------------------------------------------------------------------
-  !>
-
-  subroutine SchwarzTest(elliptic_op, r, part, e, file)
-    class(DG_EllipticOperator_3D), intent(in) :: elliptic_op
-    real(RNP),        intent(in) :: r(:,:,:,:) !< mesh variable
-    integer,          intent(in) :: part       !< selected partition
-    integer,          intent(in) :: e          !< selected element
-    character(len=*), intent(in) :: file       !< plotfile
-
-    type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_r
-    type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_rs
-    real(RNP), allocatable, save :: r_ext(:,:,:,:)
-    real(RDP), allocatable, save :: rs_dp(:,:,:,:)
-    real(RSP), allocatable, save :: rs_sp(:,:,:,:)
-    integer :: np, ne, ng, no, ns, nl(3)
-
-    if (len_trim(file) == 0) return
-
-    associate( mesh    => elliptic_op % sem % mesh &
-             , xi      => elliptic_op % eop % x    &
-             , schwarz => elliptic_op % schwarz    )
-
-      np = size(u,1)
-      ne = mesh % n_elem
-      ng = mesh % n_ghost
-      no = schwarz % no
-      ns = np + 2*no
-      nl = no
-
-      if (no < 1) then
-        if (mesh % part == 0) then
-          !$omp master
-          write(*,'(/,A,/)') 'Skipping Schwarz test because no < 1'
-          !$omp end master
-        end if
-        return
-      end if
-
-      !$omp master
-      allocate(r_ext(np, np, np, ne+ng), source = ZERO)
-      r_ext(:,:,:,1:ne) = r
-      buf_r = ElementTransferBuffer_3D(mesh, r_ext, nl)
-      allocate(rs_dp(ns, ns, ns, ne+ng), source = 0D0)
-      allocate(rs_sp(ns, ns, ns, ne+ng), source = 0E0)
-      !$omp end master
-      !$omp barrier
-
-      if (schwarz % wp == RDP) then
-        call schwarz % RestrictResidual(mesh, buf_r, r_ext, rs_dp)
-        buf_rs = ElementTransferBuffer_3D(mesh, rs_dp, nl)
-        call schwarz % MergeCorrections(mesh, buf_rs, rs_dp, r_ext)
-      else if (schwarz % wp == RSP) then
-        call schwarz % RestrictResidual(mesh, buf_r, r_ext, rs_sp)
-        buf_rs = ElementTransferBuffer_3D(mesh, rs_sp, nl)
-        call schwarz % MergeCorrections(mesh, buf_rs, rs_sp, r_ext)
-      else
-        return
-      end if
-
-      if (part /= mesh % part .or. e < 1 .or. e > ne) return
-
-      !$omp master
-      if (schwarz % wp == RNP) then
-        call ExportVTK_SchwarzDomain( mesh % element(e) % geometry % x_c &
-                                    , xi, rs_dp(:,:,:,e), file           )
-      end if
-      deallocate(r_ext, rs_dp, rs_sp, buf_r)
-      !$omp end master
-      !$omp barrier
-
-    end associate
-
-  end subroutine SchwarzTest
 
   !=============================================================================
 

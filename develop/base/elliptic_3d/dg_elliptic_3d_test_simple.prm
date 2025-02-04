@@ -2,11 +2,6 @@
   config = 4
   n_test = 1
 ! export_vtk = T
-
-! schwarz_test_file = 'dg_elliptic_3d_test_schwarz'
-! schwarz_test_part =  0
-! schwarz_test_elem = 14   ! one rotated
-! schwarz_test_elem = 23   ! cylinder
 /
 
 &problem_prm

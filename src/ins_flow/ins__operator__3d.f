@@ -76,10 +76,10 @@ module INS__Operator__3D
     type(SpectralElementMesh_3D) :: sem_p !< mesh + metrics for p
     type(SpectralElementMesh_3D) :: sem_q !< mesh + metrics for convection
 
-    type(DG_EllipticOperator_3D) :: pressure_op  !< elliptic operator for p
-    type(DG_SchwarzOperator_3D)  :: schwarz_v(3) !< Schwarz operators for v
+    type(DG_EllipticOperator_3D) :: elliptic_p !< elliptic operator for p
+    type(DG_SchwarzOperator_3D)  :: schwarz_u  !< Schwarz operators for u
 
-    type(ML_DG_EllipticSolver_3D), pointer :: ml_pressure => null()
+    type(ML_DG_EllipticSolver_3D), pointer :: ml_p => null()
       !< optional multilevel pressure solver
 
   contains
@@ -132,7 +132,7 @@ module INS__Operator__3D
     type(DG_ElementOptions_1D) :: eop_p  !< DG operator options for p
     type(StandardElementOptions_1D) :: sop_q !< quadrature opts for convection
     type(DG_SchwarzOptions_3D) :: schwarz_p  !< Schwarz options for p-solver
-    type(DG_SchwarzOptions_3D) :: schwarz_v  !< Schwarz options for v-solver
+    type(DG_SchwarzOptions_3D) :: schwarz_u  !< Schwarz options for u-solver
   contains
     procedure :: Bcast => Bcast_INS_OperatorOptions_3D
   end type INS_OperatorOptions_3D
@@ -349,31 +349,28 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor of INS_Operator_3D
 
-  function New_INS_Operator_3D(opt, problem, mesh, ml_pressure) result(this)
+  function New_INS_Operator_3D(opt, problem, mesh, ml_p) result(this)
     class(INS_OperatorOptions_3D), intent(in) :: opt     !< options
     class(INS_Problem_3D),         intent(in) :: problem !< INS flow problem
     type(Mesh_3D),                 intent(in) :: mesh    !< mesh partition
-    type(ML_DG_EllipticSolver_3D), optional, intent(in) :: ml_pressure
+    type(ML_DG_EllipticSolver_3D), optional, intent(in) :: ml_p
       !< multilevel pressure solver
     type(INS_Operator_3D) :: this
 
-    call Init_INS_Operator_3D(this, opt, problem, mesh, ml_pressure)
+    call Init_INS_Operator_3D(this, opt, problem, mesh, ml_p)
 
   end function New_INS_Operator_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of INS_Operator_3D
 
-  subroutine Init_INS_Operator_3D(this, opt, problem, mesh, ml_pressure)
+  subroutine Init_INS_Operator_3D(this, opt, problem, mesh, ml_p)
     class(INS_Operator_3D),        intent(inout) :: this    !< new INS operator
     class(INS_OperatorOptions_3D), intent(in)    :: opt     !< options
     class(INS_Problem_3D),         intent(in)    :: problem !< INS flow problem
     type(Mesh_3D),       optional, intent(in)    :: mesh    !< mesh partition
-    type(ML_DG_EllipticSolver_3D), optional, target, intent(in) :: ml_pressure
+    type(ML_DG_EllipticSolver_3D), optional, target, intent(in) :: ml_p
       !< multilevel pressure solver
-
-    character, allocatable :: bc_schwarz(:)
-    integer :: d
 
     this % mesh_level       = opt % mesh_level
     this % pressure_method  = opt % pressure_method
@@ -419,26 +416,18 @@ contains
     call problem % GetPressureBC(this % bc_p)
 
     ! pressure operator
-    this % pressure_op = DG_EllipticOperator_3D( sem         = this % sem_p     &
-                                               , dg_opt      = opt  % eop_p     &
-                                               , schwarz_opt = opt  % schwarz_p &
-                                               , bc          = this % bc_p      )
+    this % elliptic_p = DG_EllipticOperator_3D( sem         = this % sem_p     &
+                                              , dg_opt      = opt  % eop_p     &
+                                              , schwarz_opt = opt  % schwarz_p )
 
     ! Schwarz operators for the viscous diffusion solver
-    allocate(bc_schwarz, source = this % bc_v)
-    where(bc_schwarz == 'O')
-      bc_schwarz = 'N'
-    end where
-    do d = 1, 3
-      this % schwarz_v(d) = DG_SchwarzOperator_3D( opt  % schwarz_v &
-                                                 , this % eop_u     &
-                                                 , this % mesh      &
-                                                 , bc_schwarz       )
-    end do
+    this % schwarz_u = DG_SchwarzOperator_3D( opt  % schwarz_u &
+                                            , this % eop_u     &
+                                            , this % mesh      )
 
     ! optional multilevel method(s)
-    if (present(ml_pressure)) then
-      this % ml_pressure => ml_pressure
+    if (present(ml_p)) then
+      this % ml_p => ml_p
     end if
 
   end subroutine Init_INS_Operator_3D
@@ -581,7 +570,7 @@ contains
     call this % eop_p     % Bcast(root, comm)
     call this % sop_q     % Bcast(root, comm)
     call this % schwarz_p % Bcast(root, comm)
-    call this % schwarz_v % Bcast(root, comm)
+    call this % schwarz_u % Bcast(root, comm)
 
   end subroutine Bcast_INS_OperatorOptions_3D
 

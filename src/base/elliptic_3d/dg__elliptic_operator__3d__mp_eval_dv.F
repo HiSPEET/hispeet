@@ -55,8 +55,9 @@ contains
   !>   1) `f` and `bv` given:  computation of the residual, `r = f - Au`
   !>   2) `f` and `bv` absent: evaluation of the homogeneous operator, `r = Au`
 
-  module subroutine Eval_DV(this, lambda, nu, u, r, f, bv)
+  module subroutine Eval_DV(this, bc, lambda, nu, u, r, f, bv)
     class(DG_EllipticOperator_3D),   intent(in)  :: this
+    character,                       intent(in)  :: bc(:)       !< {P,D,N}
     real(RNP),                       intent(in)  :: lambda      !< λ
     real(RNP), contiguous,           intent(in)  :: nu(:,:,:,:) !< ν
     real(RNP), contiguous,           intent(in)  :: u(:,:,:,:)  !< operand
@@ -110,7 +111,7 @@ contains
 
       call buf_tr % Transfer(mesh, tr, tag=1000)
 
-      call EnforceBoundaryConditions( this, bv              &
+      call EnforceBoundaryConditions( this, bc, bv          &
                                     , jmp_u = tr(:,:,:,:,2) &
                                     , avg_q = tr(:,:,:,:,3) )
 

@@ -384,8 +384,7 @@ program INS_Operator_3D_Test
 
     elliptic_op = DG_EllipticOperator_3D( sem         = ins_op % sem_u         &
                                         , dg_opt      = ins_op_opts % eop_u    &
-                                        , schwarz_opt = DG_SchwarzOptions_3D() &
-                                        , bc          = ins_op % bc_v          )
+                                        , schwarz_opt = DG_SchwarzOptions_3D() )
 
     allocate(bv_vi(n_bound))
 
@@ -398,9 +397,10 @@ program INS_Operator_3D_Test
         end do
         ! r = M ∇·(ν ∇vᵢ)
         if (problem % HasVariableProperties()) then
-          call elliptic_op % Residual(ZERO, nu, f, bv_vi, v_i, r)
+          call elliptic_op % Residual(ins_op%bc_v, ZERO, nu, f, bv_vi, v_i, r)
         else
-          call elliptic_op % Residual(ZERO, problem%nu_ref, f, bv_vi, v_i, r)
+          call elliptic_op % Residual(ins_op%bc_v, ZERO, problem%nu_ref, f, &
+                                      bv_vi, v_i, r)
         end if
         ! compute nodal values
         F_ph(:,:,:,:,i) = r / mm

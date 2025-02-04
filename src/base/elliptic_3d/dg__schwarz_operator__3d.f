@@ -7,6 +7,7 @@
 module DG__Schwarz_Operator__3D
   use Kind_Parameters
   use Constants
+  use Execution_Control
   use XMPI
   use Schwarz_Weighting
   use DG__Element_Operators__1D
@@ -163,11 +164,13 @@ module DG__Schwarz_Operator__3D
     integer :: nc = -1     !< number of 1D configurations
     logical :: restrictive !< T/F for ex/including neighbor results
 
-    integer, allocatable :: cfg(:,:) !< subdomain configurations (nc,*)
     type(SuboperatorsDP) :: ops_dp   !< double precision operators
     type(SuboperatorsSP) :: ops_sp   !< single precision operators
 
   contains
+
+    procedure         :: BuildSubdomainMetrics
+    procedure, nopass :: GetSubdomainConfigurations
 
     generic :: RestrictResidual => RestrictResidual_RDP, RestrictResidual_RSP
     procedure, private :: RestrictResidual_RDP, RestrictResidual_RSP
@@ -304,17 +307,15 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor
 
-  function New_DG_SchwarzOperator_3D(opt, eop, mesh, bc, r_nu_s) result(this)
+  function New_DG_SchwarzOperator_3D(opt, eop, mesh, r_nu_s) result(this)
     class(DG_SchwarzOptions_3D),   intent(in) :: opt    !< operator options
     class(DG_ElementOperators_1D), intent(in) :: eop    !< DG element operators
     class(Mesh_3D),                intent(in) :: mesh   !< mesh partition
-    character,                     intent(in) :: bc(:)  !< BC {'D','N','P'}
     real(RNP),           optional, intent(in) :: r_nu_s !< ratio νˢ/(ν + νˢ) [0]
 
     type(DG_SchwarzOperator_3D) :: this
 
-    call InitSchwarzOperator (this, opt, eop, mesh, r_nu_s)
-    call InitSchwarzDomains  (this, mesh, bc)
+    call InitSchwarzOperator(this, opt, eop, mesh, r_nu_s)
 
   end function New_DG_SchwarzOperator_3D
 
@@ -334,7 +335,7 @@ contains
     real(RNP), allocatable :: S(:,:), V(:), W(:)
     character :: bc(2)
 
-    integer :: nb, nc, ne, no, ns, po
+    integer :: nb, nc, no, ns, po
     integer :: i, j, k
 
     ! initialization ...........................................................
@@ -342,7 +343,6 @@ contains
     po = eop % po                  ! polynomial order of elements
     nb = size(DG_SCHWARZ_BC_3D)    ! number of supported boundary conditions
     nc = nb ** 2                   ! number of 1D boundary configurations
-    ne = mesh % n_elem             ! number of local elements / subdomains
 
     ! number of overlapped points
     no = count(eop % x <= 2 * opt%delta - 1)  ! apply overlap
@@ -354,14 +354,12 @@ contains
 
     allocate(Ws(ns), S(ns,ns), V(ns), W(ns))
 
-    !$omp single
+    !$omp master
 
     this % po = po
     this % no = no
     this % nc = nc
     this % restrictive = opt % weighting == 9 .or. no == 0
-
-    if (allocated(this % cfg)) deallocate(this % cfg)
 
     if (allocated( this % ops_dp % S )) deallocate( this % ops_dp % S )
     if (allocated( this % ops_dp % V )) deallocate( this % ops_dp % V )
@@ -373,23 +371,20 @@ contains
     if (allocated( this % ops_sp % W )) deallocate( this % ops_sp % W )
     if (allocated( this % ops_sp % g )) deallocate( this % ops_sp % g )
 
-    allocate(this % cfg(3,ne))
-
     if (opt % wp == RSP) then
       this % wp = RSP
       allocate( this % ops_sp % S(ns,ns,nc), source = 0E0 )
       allocate( this % ops_sp % V(ns,nc)   , source = 1E0 )
       allocate( this % ops_sp % W(ns,nc)   , source = 0E0 )
-      allocate( this % ops_sp % g(4,ne)                   )
     else
       this % wp = RDP
       allocate( this % ops_dp % S(ns,ns,nc), source = 0D0 )
       allocate( this % ops_dp % V(ns,nc)   , source = 1D0 )
       allocate( this % ops_dp % W(ns,nc)   , source = 0D0 )
-      allocate( this % ops_dp % g(4,ne)                   )
     end if
 
-    !$omp end single
+    !$omp end master
+    !$omp barrier
 
     ! eigensystems and weights .................................................
 
@@ -419,24 +414,67 @@ contains
     end do
     end do
 
+    call this % BuildSubdomainMetrics(mesh)
+
   end subroutine InitSchwarzOperator
 
   !-----------------------------------------------------------------------------
-  !> Build subdomain configurations and metrics
+  !> Build metric coefficients of subdomains
 
-  subroutine InitSchwarzDomains(this, mesh, bc)
+  subroutine BuildSubdomainMetrics(this, mesh)
     class(DG_SchwarzOperator_3D), intent(inout) :: this
     class(Mesh_3D), intent(in) :: mesh   !< mesh partition
-    character,      intent(in) :: bc(:)  !< BC {'D','N','P'}
+
+    real(RNP) :: dx(3)
+    integer   :: e
+
+    !$omp master
+    if (allocated(this % ops_sp % g)) deallocate(this % ops_sp % g)
+    if (allocated(this % ops_dp % g)) deallocate(this % ops_dp % g)
+    if (this % wp == RSP) then
+      allocate(this % ops_sp % g(4, mesh%n_elem_active))
+    else
+      allocate(this % ops_dp % g(4, mesh%n_elem_active))
+    end if
+    !$omp end master
+    !$omp barrier
+
+    !$omp do
+    do e = 1, mesh % n_elem_active
+
+      ! extensions of the corresponding cuboid
+      call mesh % element(e) % GetCuboidDimensions(dx)
+
+      ! metric coefficients
+      if (this % wp == RSP) then
+        this % ops_sp % g(1,e) = real(dx(2) * dx(3) / dx(1) , RSP)
+        this % ops_sp % g(2,e) = real(dx(3) * dx(1) / dx(2) , RSP)
+        this % ops_sp % g(3,e) = real(dx(1) * dx(2) / dx(3) , RSP)
+        this % ops_sp % g(4,e) = real(dx(1) * dx(2) * dx(3) , RSP)
+      else
+        this % ops_dp % g(1,e) = real(dx(2) * dx(3) / dx(1) , RDP)
+        this % ops_dp % g(2,e) = real(dx(3) * dx(1) / dx(2) , RDP)
+        this % ops_dp % g(3,e) = real(dx(1) * dx(2) / dx(3) , RDP)
+        this % ops_dp % g(4,e) = real(dx(1) * dx(2) * dx(3) , RDP)
+      end if
+
+    end do
+
+  end subroutine BuildSubdomainMetrics
+
+  !-----------------------------------------------------------------------------
+  !> Get subdomain boundary configurations and metrics
+
+  subroutine GetSubdomainConfigurations(mesh, bc, cfg)
+    class(Mesh_3D), intent(in)  :: mesh     !< mesh partition
+    character,      intent(in)  :: bc(:)    !< BC {'D','N','P'}
+    integer,        intent(out) :: cfg(:,:) !< subdomain configurations
 
     character :: bc_face(6)
-    real(RNP) :: dx(3), dy(3), dz(3)
-    real(RNP) :: l1, l2, l3
-    integer   :: c1, c2, c3
     integer   :: e, i, j
 
     !$omp do
-    do e = 1, mesh % n_elem
+    do e = 1, mesh % n_elem_active
 
       ! get element face boundary conditions
       do i = 1, 6
@@ -451,40 +489,13 @@ contains
         end if
       end do
 
-      ! set subdomain configuration
-      c1 = ConfigurationID( bc_face(1:2) )
-      c2 = ConfigurationID( bc_face(3:4) )
-      c3 = ConfigurationID( bc_face(5:6) )
-      this % cfg(1,e) = c1
-      this % cfg(2,e) = c2
-      this % cfg(3,e) = c3
-
-      ! extensions of the corresponding cuboid
-      associate(x_c => mesh % element(e) % geometry % x_c)
-        dx = 2 * x_c(1:3,1) ! dx(i) = ∂x/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
-        dy = 2 * x_c(1:3,2) ! dy(i) = ∂y/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
-        dz = 2 * x_c(1:3,3) ! dz(i) = ∂z/∂ξᵢ ∆ξᵢ  with  ∆ξᵢ = 2
-        l1 = sqrt(dx(1)**2 + dy(1)**2 + dz(1)**2) ! ξ₁ = ξ  extension
-        l2 = sqrt(dx(2)**2 + dy(2)**2 + dz(2)**2) ! ξ₂ = η  extension
-        l3 = sqrt(dx(3)**2 + dy(3)**2 + dz(3)**2) ! ξ₃ = ζ  extension
-      end associate
-
-      ! metric coefficients
-      if (this % wp == RSP) then
-        this % ops_sp % g(1,e) = real(l2 * l3 / l1 , RSP)
-        this % ops_sp % g(2,e) = real(l3 * l1 / l2 , RSP)
-        this % ops_sp % g(3,e) = real(l1 * l2 / l3 , RSP)
-        this % ops_sp % g(4,e) = real(l1 * l2 * l3 , RSP)
-      else
-        this % ops_dp % g(1,e) = real(l2 * l3 / l1 , RDP)
-        this % ops_dp % g(2,e) = real(l3 * l1 / l2 , RDP)
-        this % ops_dp % g(3,e) = real(l1 * l2 / l3 , RDP)
-        this % ops_dp % g(4,e) = real(l1 * l2 * l3 , RDP)
-      end if
+       cfg(1,e) = ConfigurationID( bc_face(1:2) )
+       cfg(2,e) = ConfigurationID( bc_face(3:4) )
+       cfg(3,e) = ConfigurationID( bc_face(5:6) )
 
     end do
 
-  end subroutine InitSchwarzDomains
+  end subroutine GetSubdomainConfigurations
 
   !-----------------------------------------------------------------------------
   !> Restrict mesh variable to subdomains -- double precision

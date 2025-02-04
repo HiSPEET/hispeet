@@ -380,7 +380,7 @@ program ML_Elliptic_Test_Static
   end if
 
   call ml_elliptic_opt % Bcast(0, comm)
-  ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt, bc)
+  ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt)
 
   ! variables ..................................................................
 
@@ -482,16 +482,16 @@ program ML_Elliptic_Test_Static
   if (problem % nu_1 > 0) then
     select case(solution_method)
     case(10)
-      call ml_elliptic % CS_MG_Solver(lambda, nu, u, f, bv, n_i)
+      call ml_elliptic % CS_MG_Solver(bc, lambda, nu, u, f, bv, n_i)
     case(20)
-      call ml_elliptic % FAS_MG_Solver(lambda, nu, u, f, bv, n_i)
+      call ml_elliptic % FAS_MG_Solver(bc, lambda, nu, u, f, bv, n_i)
     end select
   else
     select case(solution_method)
     case(10)
-      call ml_elliptic % CS_MG_Solver(lambda, nu_0, u, f, bv, n_i)
+      call ml_elliptic % CS_MG_Solver(bc, lambda, nu_0, u, f, bv, n_i)
     case(20)
-      call ml_elliptic % FAS_MG_Solver(lambda, nu_0, u, f, bv, n_i)
+      call ml_elliptic % FAS_MG_Solver(bc, lambda, nu_0, u, f, bv, n_i)
     end select
   end if
 
@@ -570,9 +570,9 @@ contains
     ! residual .................................................................
 
     if (problem % nu_1 > 0) then
-      call ml_elliptic % FAS_MG_Residual(lambda, nu, f, bv, u, r)
+      call ml_elliptic % FAS_MG_Residual(bc, lambda, nu, f, bv, u, r)
     else
-      call ml_elliptic % FAS_MG_Residual(lambda, nu_0, f, bv, u, r)
+      call ml_elliptic % FAS_MG_Residual(bc, lambda, nu_0, f, bv, u, r)
     end if
 
     ! maximum norm

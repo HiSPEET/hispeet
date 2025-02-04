@@ -59,7 +59,7 @@ contains
              , mesh        => this % mesh        &
              , bc_p        => this % bc_p        &
              , sem_p       => this % sem_p       &
-             , pressure_op => this % pressure_op )
+             , elliptic_op => this % elliptic_p  )
 
       ! initialization .........................................................
 
@@ -85,9 +85,9 @@ contains
 
       call sem_p % Get_DG_DiagonalMassMatrix(mm)
 
-      ! build BC ...............................................................
+      ! build boundary values ..................................................
 
-      call BuildPressureBC(this, ct, v, bv_u, bv_p, bv_q)
+      call BuildPressureBV(this, ct, v, bv_u, bv_p, bv_q)
 
       ! solve ..................................................................
 
@@ -100,8 +100,8 @@ contains
           g(:,:,:,e) = -ct * mm(:,:,:,e) * g(:,:,:,e)
         end do
         ! apply Schwarz-PCG with λ=0 and ν=1
-        call pressure_op % SchwarzPCG_Method( ZERO, ONE, q, g, bv_q   &
-                                            , i_max, r_red, r_max, ni )
+        call elliptic_op % SchwarzPCG_Method( bc_p, ZERO, ONE, q, g, bv_q &
+                                            , i_max, r_red, r_max, ni     )
         ! interpolate result to order po
         call TPO_AAA(this % iop_pu % A, q, p)
       else
@@ -110,8 +110,8 @@ contains
           g(:,:,:,e) = -ct * mm(:,:,:,e) * f(:,:,:,e)
         end do
         ! apply Schwarz-PCG with λ=0 and ν=1
-        call pressure_op % SchwarzPCG_Method( ZERO, ONE, p, g, bv_p   &
-                                            , i_max, r_red, r_max, ni )
+        call elliptic_op % SchwarzPCG_Method( bc_p, ZERO, ONE, p, g, bv_p &
+                                            , i_max, r_red, r_max, ni     )
       end if
 
       ! finalization ...........................................................
@@ -128,9 +128,9 @@ contains
   end subroutine PressureSolver
 
   !-----------------------------------------------------------------------------
-  !> Build pressure boundary conditions
+  !> Build pressure boundary values
 
-  subroutine BuildPressureBC(ins_op, ct, v, bv_u, bv_p, bv_q)
+  subroutine BuildPressureBV(ins_op, ct, v, bv_u, bv_p, bv_q)
     class(INS_Operator_3D), intent(in) :: ins_op
     !< time integration method
     real(RNP), intent(in) :: ct
@@ -150,7 +150,7 @@ contains
 
       select case(ins_op % bc_p(b))
       case('N')
-        call BuildNeumannBC( boundary = ins_op % mesh % boundary(b)  &
+        call BuildNeumannBV( boundary = ins_op % mesh % boundary(b)  &
                            , n        = ins_op % sem_u % metrics % n &
                            , ct       = ct                           &
                            , v        = v                            &
@@ -168,12 +168,12 @@ contains
 
     end do
 
-  end subroutine BuildPressureBC
+  end subroutine BuildPressureBV
 
   !-----------------------------------------------------------------------------
-  !> Build pressure BC from normal velocity conditions
+  !> Build pressure boundary values from normal velocity conditions
 
-  subroutine BuildNeumannBC(boundary, ct, n, v, vb, dn_p)
+  subroutine BuildNeumannBV(boundary, ct, n, v, vb, dn_p)
     class(MeshBoundary_3D), intent(in)  :: boundary
     real(RNP),              intent(in)  :: ct
     real(RNP), contiguous,  intent(in)  :: n (0:,0:,:,:,:)
@@ -227,7 +227,7 @@ contains
 
     end do
 
-  end subroutine BuildNeumannBC
+  end subroutine BuildNeumannBV
 
   !-----------------------------------------------------------------------------
   !> Interpolation of face data

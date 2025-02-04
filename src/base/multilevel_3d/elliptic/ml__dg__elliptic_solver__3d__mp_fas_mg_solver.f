@@ -6,8 +6,9 @@ contains
   !-----------------------------------------------------------------------------
   !> FAS-MG solver for problems with constant diffusivity
 
-  module subroutine FAS_MG_Solver_C(this, lambda, nu, u, f, bv, ni, r_2)
+  module subroutine FAS_MG_Solver_C(this, bc, lambda, nu, u, f, bv, ni, r_2)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
+    character, intent(in) :: bc(:)                  !< boundary conditions
     real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
     real(RNP), intent(in) :: nu                     !< diffusivity
     class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
@@ -16,15 +17,16 @@ contains
     integer,   optional, intent(out) :: ni          !< num executed cycles
     real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
-    call FAS_MG_Solver_X(this, lambda, nu, null(), u, f, bv, ni, r_2)
+    call FAS_MG_Solver_X(this, bc, lambda, nu, null(), u, f, bv, ni, r_2)
 
   end subroutine FAS_MG_Solver_C
 
   !-----------------------------------------------------------------------------
   !> FAS-MG solver for problems with variable diffusivity
 
-  module subroutine FAS_MG_Solver_V(this, lambda, nu, u, f, bv, ni, r_2)
+  module subroutine FAS_MG_Solver_V(this, bc, lambda, nu, u, f, bv, ni, r_2)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
+    character, intent(in) :: bc(:)                  !< boundary conditions
     real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
     class(ML_MeshVariable_3D), intent(in) :: nu     !< diffusivity
     class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
@@ -33,7 +35,7 @@ contains
     integer, optional, intent(out) :: ni            !< num executed cycles
     real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
-    call FAS_MG_Solver_X(this, lambda, null(), nu, u, f, bv, ni, r_2)
+    call FAS_MG_Solver_X(this, bc, lambda, null(), nu, u, f, bv, ni, r_2)
 
   end subroutine FAS_MG_Solver_V
 
@@ -42,8 +44,13 @@ contains
   !>
   !> Either `nu_0` or `nu_v` must be given.
 
-  module subroutine FAS_MG_Solver_X(this, lambda, nu_0, nu_v, u, f, bv, ni, r_2)
+  module subroutine FAS_MG_Solver_X( this, bc, lambda, nu_0, nu_v, u, f, bv &
+                                   , ni, r_2 )
+
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
+
+    character, intent(in) :: bc(:)
+      !< boundary conditions
     real(RNP), intent(in) :: lambda
       !< Helmholtz parameter
     real(RNP), optional, intent(in) :: nu_0
@@ -104,7 +111,7 @@ contains
 
       ! termination conditions
       if (check_convergence) then
-        call this % FAS_MG_Residual_X(lambda, nu_0, nu_v, f, bv, u, r)
+        call this % FAS_MG_Residual_X(bc, lambda, nu_0, nu_v, f, bv, u, r)
         rr = ML_ScalarProduct_3D(r, r)
         r_old  = sqrt(rr)
         r_max  = max(r_old * this%r_red, this%r_max)
@@ -141,12 +148,12 @@ contains
                             , bv_1 => bv % level(1) % var            )
 
           if (present(nu_0)) then
-            call this % CoarseSolver(lambda, nu_0, u_1, f_1, bv_1)
-            call this % Monitoring(1, 's', lambda, nu_0, f_1, bv_1, u_1)
+            call this % CoarseSolver(bc, lambda, nu_0, u_1, f_1, bv_1)
+            call this % Monitoring(1, 's', bc, lambda, nu_0, f_1, bv_1, u_1)
           else
             associate(nu_1 => nu_v % level(1) % val(:,:,:,:,1))
-              call this % CoarseSolver(lambda, nu_1, u_1, f_1, bv_1)
-              call this % Monitoring(1, 's', lambda, nu_1, f_1, bv_1, u_1)
+              call this % CoarseSolver(bc, lambda, nu_1, u_1, f_1, bv_1)
+              call this % Monitoring(1, 's', bc, lambda, nu_1, f_1, bv_1, u_1)
             end associate
           end if
 
@@ -168,14 +175,14 @@ contains
             n = this % ns_0
             if (l < l_top) then
               if (present(nu_0)) then
-                call this % Monitoring(l, 'p', lambda, nu_0, f_l, bv_l, u_l)
-                call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
-                call this % Monitoring(l, '2', lambda, nu_0, f_l, bv_l, u_l)
+                call this % Monitoring(l, 'p', bc, lambda, nu_0, f_l, bv_l, u_l)
+                call this % Smoother(l, bc, lambda, nu_0, u_l, f_l, bv_l, n)
+                call this % Monitoring(l, '2', bc, lambda, nu_0, f_l, bv_l, u_l)
               else
                 associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
-                  call this % Monitoring(l, 'p', lambda, nu_l, f_l, bv_l, u_l)
-                  call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
-                  call this % Monitoring(l, '2', lambda, nu_l, f_l, bv_l, u_l)
+                  call this % Monitoring(l, 'p', bc, lambda, nu_l, f_l, bv_l, u_l)
+                  call this % Smoother(l, bc, lambda, nu_l, u_l, f_l, bv_l, n)
+                  call this % Monitoring(l, '2', bc, lambda, nu_l, f_l, bv_l, u_l)
                 end associate
               end if
             end if
@@ -212,12 +219,12 @@ contains
               end if
 
               if (present(nu_0)) then
-                call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
-                call this % Residual(l, lambda, nu_0, f_l, bv_l, u_l, r_l)
+                call this % Smoother(l, bc, lambda, nu_0, u_l, f_l, bv_l, n)
+                call this % Residual(l, bc, lambda, nu_0, f_l, bv_l, u_l, r_l)
               else
                 associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
-                  call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
-                  call this % Residual(l, lambda, nu_l, f_l, bv_l, u_l, r_l)
+                  call this % Smoother(l, bc, lambda, nu_l, u_l, f_l, bv_l, n)
+                  call this % Residual(l, bc, lambda, nu_l, f_l, bv_l, u_l, r_l)
                 end associate
               end if
               call this % Monitoring(l, '1', r_l)
@@ -251,10 +258,10 @@ contains
               end do
 
               if (present(nu_0)) then
-                call ell_op(l-1) % Apply(lambda, nu_0, bv_p, v_p, r_p)
+                call ell_op(l-1) % Apply(bc, lambda, nu_0, bv_p, v_p, r_p)
               else
                 associate(nu_p => nu_v % level(l-1) % val(:,:,:,:,1))
-                  call ell_op(l-1) % Apply(lambda, nu_p, bv_p, v_p, r_p)
+                  call ell_op(l-1) % Apply(bc, lambda, nu_p, bv_p, v_p, r_p)
                 end associate
               end if
 
@@ -274,14 +281,14 @@ contains
             ! coarse grid solver ...............................................
 
             if (present(nu_0)) then
-              call this % Monitoring(1, '0', lambda, nu_0, f_1, bv_1, u_1)
-              call this % CoarseSolver(lambda, nu_0, u_1, f_1, bv_1)
-              call this % Monitoring(1, 's', lambda, nu_0, f_1, bv_1, u_1)
+              call this % Monitoring(1, '0', bc, lambda, nu_0, f_1, bv_1, u_1)
+              call this % CoarseSolver(bc, lambda, nu_0, u_1, f_1, bv_1)
+              call this % Monitoring(1, 's', bc, lambda, nu_0, f_1, bv_1, u_1)
             else
               associate(nu_1 => nu_v % level(1) % val(:,:,:,:,1))
-                call this % Monitoring(1, '0', lambda, nu_1, f_1, bv_1, u_1)
-                call this % CoarseSolver(lambda, nu_1, u_1, f_1, bv_1)
-                call this % Monitoring(1, 's', lambda, nu_1, f_1, bv_1, u_1)
+                call this % Monitoring(1, '0', bc, lambda, nu_1, f_1, bv_1, u_1)
+                call this % CoarseSolver(bc, lambda, nu_1, u_1, f_1, bv_1)
+                call this % Monitoring(1, 's', bc, lambda, nu_1, f_1, bv_1, u_1)
               end associate
             end if
 
@@ -326,14 +333,14 @@ contains
 
               n = this % ns_2
               if (present(nu_0)) then
-                call this % Monitoring(l, 'c', lambda, nu_0, f_l, bv_l, u_l)
-                call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
-                call this % Monitoring(l, '2', lambda, nu_0, f_l, bv_l, u_l)
+                call this % Monitoring(l, 'c', bc, lambda, nu_0, f_l, bv_l, u_l)
+                call this % Smoother(l, bc, lambda, nu_0, u_l, f_l, bv_l, n)
+                call this % Monitoring(l, '2', bc, lambda, nu_0, f_l, bv_l, u_l)
               else
                 associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
-                  call this % Monitoring(l, 'c', lambda, nu_l, f_l, bv_l, u_l)
-                  call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
-                  call this % Monitoring(l, '2', lambda, nu_l, f_l, bv_l, u_l)
+                  call this % Monitoring(l, 'c', bc, lambda, nu_l, f_l, bv_l, u_l)
+                  call this % Smoother(l, bc, lambda, nu_l, u_l, f_l, bv_l, n)
+                  call this % Monitoring(l, '2', bc, lambda, nu_l, f_l, bv_l, u_l)
                 end associate
               end if
 
@@ -372,21 +379,21 @@ contains
             ! pre-smoothing and residual computation .........................
 
             if (present(nu_0)) then
-              call this % Monitoring(l, '0', lambda, nu_0, f_l, bv_l, u_l)
+              call this % Monitoring(l, '0', bc, lambda, nu_0, f_l, bv_l, u_l)
             else
               associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
-                call this % Monitoring(l, '0', lambda, nu_l, f_l, bv_l, u_l)
+                call this % Monitoring(l, '0', bc, lambda, nu_l, f_l, bv_l, u_l)
               end associate
             end if
 
             n = this % ns_1
             if (present(nu_0)) then
-              call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
-              call this % Residual(l, lambda, nu_0, f_l, bv_l, u_l, r_l)
+              call this % Smoother(l, bc, lambda, nu_0, u_l, f_l, bv_l, n)
+              call this % Residual(l, bc, lambda, nu_0, f_l, bv_l, u_l, r_l)
             else
               associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
-                call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
-                call this % Residual(l, lambda, nu_l, f_l, bv_l, u_l, r_l)
+                call this % Smoother(l, bc, lambda, nu_l, u_l, f_l, bv_l, n)
+                call this % Residual(l, bc, lambda, nu_l, f_l, bv_l, u_l, r_l)
               end associate
             end if
             call this % Monitoring(l, '1', r_l)
@@ -420,10 +427,10 @@ contains
             end do
 
             if (present(nu_0)) then
-              call ell_op(l-1) % Apply(lambda, nu_0, bv_p, v_p, r_p)
+              call ell_op(l-1) % Apply(bc, lambda, nu_0, bv_p, v_p, r_p)
             else
               associate(nu_p => nu_v % level(l-1) % val(:,:,:,:,1))
-                call ell_op(l-1) % Apply(lambda, nu_p, bv_p, v_p, r_p)
+                call ell_op(l-1) % Apply(bc, lambda, nu_p, bv_p, v_p, r_p)
               end associate
             end if
 
@@ -443,14 +450,14 @@ contains
           ! coarse grid solver ...............................................
 
           if (present(nu_0)) then
-            call this % Monitoring(1, '0', lambda, nu_0, f_1, bv_1, u_1)
-            call this % CoarseSolver(lambda, nu_0, u_1, f_1, bv_1)
-            call this % Monitoring(1, 's', lambda, nu_0, f_1, bv_1, u_1)
+            call this % Monitoring(1, '0', bc, lambda, nu_0, f_1, bv_1, u_1)
+            call this % CoarseSolver(bc, lambda, nu_0, u_1, f_1, bv_1)
+            call this % Monitoring(1, 's', bc, lambda, nu_0, f_1, bv_1, u_1)
           else
             associate(nu_1 => nu_v % level(1) % val(:,:,:,:,1))
-              call this % Monitoring(1, '0', lambda, nu_1, f_1, bv_1, u_1)
-              call this % CoarseSolver(lambda, nu_1, u_1, f_1, bv_1)
-              call this % Monitoring(1, 's', lambda, nu_1, f_1, bv_1, u_1)
+              call this % Monitoring(1, '0', bc, lambda, nu_1, f_1, bv_1, u_1)
+              call this % CoarseSolver(bc, lambda, nu_1, u_1, f_1, bv_1)
+              call this % Monitoring(1, 's', bc, lambda, nu_1, f_1, bv_1, u_1)
             end associate
           end if
 
@@ -500,14 +507,14 @@ contains
             end if
 
             if (present(nu_0)) then
-              call this % Monitoring(l, 'c', lambda, nu_0, f_l, bv_l, u_l)
-              call this % Smoother(l, lambda, nu_0, u_l, f_l, bv_l, n)
-              call this % Monitoring(l, '2', lambda, nu_0, f_l, bv_l, u_l)
+              call this % Monitoring(l, 'c', bc, lambda, nu_0, f_l, bv_l, u_l)
+              call this % Smoother(l, bc, lambda, nu_0, u_l, f_l, bv_l, n)
+              call this % Monitoring(l, '2', bc, lambda, nu_0, f_l, bv_l, u_l)
             else
               associate(nu_l => nu_v % level(l) % val(:,:,:,:,1))
-                call this % Monitoring(l, 'c', lambda, nu_l, f_l, bv_l, u_l)
-                call this % Smoother(l, lambda, nu_l, u_l, f_l, bv_l, n)
-                call this % Monitoring(l, '2', lambda, nu_l, f_l, bv_l, u_l)
+                call this % Monitoring(l, 'c', bc, lambda, nu_l, f_l, bv_l, u_l)
+                call this % Smoother(l, bc, lambda, nu_l, u_l, f_l, bv_l, n)
+                call this % Monitoring(l, '2', bc, lambda, nu_l, f_l, bv_l, u_l)
               end associate
             end if
 
@@ -518,7 +525,7 @@ contains
 
         if (check_convergence .and. m < this%i_max) then
 
-          call this % FAS_MG_Residual_X(lambda, nu_0, nu_v, f, bv, u, r)
+          call this % FAS_MG_Residual_X(bc, lambda, nu_0, nu_v, f, bv, u, r)
           rr = ML_ScalarProduct_3D(r, r)
           r_new = sqrt(rr)
 
@@ -549,7 +556,7 @@ contains
           r_2 = r_new
           !$omp end master
         else
-          call this % FAS_MG_Residual_X(lambda, nu_0, nu_v, f, bv, u, r)
+          call this % FAS_MG_Residual_X(bc, lambda, nu_0, nu_v, f, bv, u, r)
           rr = ML_ScalarProduct_3D(r, r)
           !$omp master
           r_2 = sqrt(rr)

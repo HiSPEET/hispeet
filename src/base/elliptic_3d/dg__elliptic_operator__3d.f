@@ -34,7 +34,6 @@ module DG__Elliptic_Operator__3D
     class(SpectralElementMesh_3D), pointer :: sem => null()
     type(DG_ElementOperators_1D) :: eop
     type(DG_SchwarzOperator_3D)  :: schwarz
-    character, allocatable       :: bc(:)  !< boundary conditions {P,D,N}
     real(RNP)                    :: r_nu_s !< ratio νˢ/(νᵖ+νˢ)
 
   contains
@@ -80,8 +79,9 @@ module DG__Elliptic_Operator__3D
     !---------------------------------------------------------------------------
     !> Evaluation with regular mesh and constant ν
 
-    module subroutine Eval_RC(this, lambda, nu, u, r, f, bv)
+    module subroutine Eval_RC(this, bc, lambda, nu, u, r, f, bv)
       class(DG_EllipticOperator_3D),   intent(in)  :: this
+      character,                       intent(in)  :: bc(:)      !< {P,D,N}
       real(RNP),                       intent(in)  :: lambda     !< λ
       real(RNP),                       intent(in)  :: nu         !< ν = νᵖ + νˢ
       real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
@@ -93,8 +93,9 @@ module DG__Elliptic_Operator__3D
     !---------------------------------------------------------------------------
     !> Evaluation with regular mesh and variable ν
 
-    module subroutine Eval_RV(this, lambda, nu, u, r, f, bv)
+    module subroutine Eval_RV(this, bc, lambda, nu, u, r, f, bv)
       class(DG_EllipticOperator_3D),   intent(in)  :: this
+      character,                       intent(in)  :: bc(:)       !< {P,D,N}
       real(RNP),                       intent(in)  :: lambda      !< λ
       real(RNP), contiguous,           intent(in)  :: nu(:,:,:,:) !< ν = νᵖ
       real(RNP), contiguous,           intent(in)  :: u (:,:,:,:) !< operand
@@ -106,8 +107,9 @@ module DG__Elliptic_Operator__3D
     !---------------------------------------------------------------------------
     !> Evaluation with deformed mesh and constant ν
 
-    module subroutine Eval_DC(this, lambda, nu, u, r, f, bv)
+    module subroutine Eval_DC(this, bc, lambda, nu, u, r, f, bv)
       class(DG_EllipticOperator_3D),   intent(in)  :: this
+      character,                       intent(in)  :: bc(:)      !< {P,D,N}
       real(RNP),                       intent(in)  :: lambda     !< λ
       real(RNP),                       intent(in)  :: nu         !< ν = νᵖ
       real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
@@ -119,8 +121,9 @@ module DG__Elliptic_Operator__3D
     !---------------------------------------------------------------------------
     !> Evaluation with deformed mesh and variable isotropic ν
 
-    module subroutine Eval_DV(this, lambda, nu, u, r, f, bv)
+    module subroutine Eval_DV(this, bc, lambda, nu, u, r, f, bv)
       class(DG_EllipticOperator_3D),   intent(in)  :: this
+      character,                       intent(in)  :: bc(:)       !< {P,D,N}
       real(RNP),                       intent(in)  :: lambda      !< λ
       real(RNP), contiguous,           intent(in)  :: nu(:,:,:,:) !< ν
       real(RNP), contiguous,           intent(in)  :: u(:,:,:,:)  !< operand
@@ -132,10 +135,11 @@ module DG__Elliptic_Operator__3D
     !---------------------------------------------------------------------------
     !> Conjugate gradient method with either constant or variable ν
 
-    module subroutine CG_Method_X( this, lambda, nu_c, nu_v, u, f, bv &
-                                 , i_max, r_red, r_max, ni            )
+    module subroutine CG_Method_X( this, bc, lambda, nu_c, nu_v, u, f &
+                                 , bv, i_max, r_red, r_max, ni        )
 
       class(DG_EllipticOperator_3D),        intent(in)    :: this
+      character,                            intent(in)    :: bc(:)
       real(RNP),                            intent(in)    :: lambda
       real(RNP),             optional,      intent(in)    :: nu_c
       real(RNP), contiguous, optional,      intent(in)    :: nu_v(:,:,:,:)
@@ -152,10 +156,11 @@ module DG__Elliptic_Operator__3D
     !---------------------------------------------------------------------------
     !> Overlapping Schwarz method with either constant or variable ν
 
-    module subroutine Schwarz_Method_X( this, lambda, nu_c, nu_v, u, f, bv &
-                                      , i_max, r_red, r_max, ni            )
+    module subroutine Schwarz_Method_X( this, bc, lambda, nu_c, nu_v, u, f &
+                                      , bv, i_max, r_red, r_max, ni        )
 
       class(DG_EllipticOperator_3D),        intent(in)    :: this
+      character,                            intent(in)    :: bc(:)
       real(RNP),                            intent(in)    :: lambda
       real(RNP),                  optional, intent(in)    :: nu_c
       real(RNP), contiguous,      optional, intent(in)    :: nu_v(:,:,:,:)
@@ -172,10 +177,11 @@ module DG__Elliptic_Operator__3D
     !---------------------------------------------------------------------------
     !> Schwarz-preconditioned CG method with either constant or variable ν
 
-    module subroutine SchwarzPCG_Method_X( this, lambda, nu_c, nu_v, u, f, bv &
-                                         , i_max, r_red, r_max, ni            )
+    module subroutine SchwarzPCG_Method_X( this, bc, lambda, nu_c, nu_v, u, f &
+                                         , bv , i_max, r_red, r_max, ni       )
 
       class(DG_EllipticOperator_3D),        intent(in)    :: this
+      character,                            intent(in)    :: bc(:)
       real(RNP),                            intent(in)    :: lambda
       real(RNP),                  optional, intent(in)    :: nu_c
       real(RNP), contiguous,      optional, intent(in)    :: nu_v(:,:,:,:)
@@ -199,37 +205,33 @@ contains
   !-----------------------------------------------------------------------------
   !> New diffusion operator
 
-  function New_DG_EllipticOperator_3D(sem, dg_opt, schwarz_opt, bc, r_nu_s) &
+  function New_DG_EllipticOperator_3D(sem, dg_opt, schwarz_opt, r_nu_s) &
         result(this)
 
     class(SpectralElementMesh_3D), target, intent(in) :: sem
     class(DG_ElementOptions_1D),           intent(in) :: dg_opt
     class(DG_SchwarzOptions_3D),           intent(in) :: schwarz_opt
-    character,                             intent(in) :: bc(:)
     real(RNP),                   optional, intent(in) :: r_nu_s   !< [0]
 
     type(DG_EllipticOperator_3D) :: this
 
-    call Init_DG_EllipticOperator_3D(this, sem, dg_opt, schwarz_opt, bc, r_nu_s)
+    call Init_DG_EllipticOperator_3D(this, sem, dg_opt, schwarz_opt, r_nu_s)
 
   end function New_DG_EllipticOperator_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of the diffusion operator
 
-  subroutine Init_DG_EllipticOperator_3D( this, sem, dg_opt, schwarz_opt, bc, &
-                                          r_nu_s                              )
+  subroutine Init_DG_EllipticOperator_3D(this, sem, dg_opt, schwarz_opt, r_nu_s)
 
     class(DG_EllipticOperator_3D),         intent(inout) :: this
     class(SpectralElementMesh_3D), target, intent(in)    :: sem
     class(DG_ElementOptions_1D),           intent(in)    :: dg_opt
     class(DG_SchwarzOptions_3D),           intent(in)    :: schwarz_opt
-    character,                             intent(in)    :: bc(:)
     real(RNP),                   optional, intent(in)    :: r_nu_s !< [0]
 
     this % sem => sem
     this % eop =  DG_ElementOperators_1D(dg_opt)
-    this % bc  =  bc
 
     if (present(r_nu_s)) then
       this % r_nu_s = r_nu_s
@@ -237,8 +239,8 @@ contains
       this % r_nu_s = 0
     end if
 
-    this % schwarz  =  DG_SchwarzOperator_3D( schwarz_opt, this%eop, sem%mesh &
-                                            , bc, this%r_nu_s                 )
+    this % schwarz = DG_SchwarzOperator_3D( schwarz_opt, this%eop, sem%mesh &
+                                          , this%r_nu_s                     )
 
   end subroutine Init_DG_EllipticOperator_3D
 
@@ -248,8 +250,9 @@ contains
   !-----------------------------------------------------------------------------
   !> Application of the diffusion operator with constant diffusivity
 
-  subroutine Apply_C(this, lambda, nu, bv, u, r)
+  subroutine Apply_C(this, bc, lambda, nu, bv, u, r)
     class(DG_EllipticOperator_3D), intent(in)  :: this
+    character,                     intent(in)  :: bc(:)      !< {P,D,N}
     real(RNP),                     intent(in)  :: lambda     !< λ
     real(RNP),                     intent(in)  :: nu         !< ν = νᵖ+νˢ
     real(RNP), contiguous,         intent(in)  :: u(:,:,:,:) !< operand
@@ -257,9 +260,9 @@ contains
     class(BoundaryVariable_3D), optional, intent(in) :: bv(:) !< boundary values
 
     if (this % sem % mesh % regular) then
-      call Eval_RC(this, lambda, nu, u, r, bv = bv)
+      call Eval_RC(this, bc, lambda, nu, u, r, bv = bv)
     else
-      call Eval_DC(this, lambda, nu, u, r, bv = bv)
+      call Eval_DC(this, bc, lambda, nu, u, r, bv = bv)
     end if
 
   end subroutine Apply_C
@@ -267,8 +270,9 @@ contains
   !-----------------------------------------------------------------------------
   !> Application of the elliptic operator with variable diffusivity
 
-  subroutine Apply_V(this, lambda, nu, bv, u, r)
+  subroutine Apply_V(this, bc, lambda, nu, bv, u, r)
     class(DG_EllipticOperator_3D), intent(in)  :: this
+    character,                     intent(in)  :: bc(:)       !< {P,D,N}
     real(RNP),                     intent(in)  :: lambda      !< λ
     real(RNP), contiguous,         intent(in)  :: nu(:,:,:,:) !< ν = νᵖ
     real(RNP), contiguous,         intent(in)  :: u (:,:,:,:) !< operand
@@ -276,9 +280,9 @@ contains
     class(BoundaryVariable_3D), optional, intent(in) :: bv(:) !< boundary values
 
     if (this % sem % mesh % regular) then
-      call Eval_RV(this, lambda, nu, u, r, bv = bv)
+      call Eval_RV(this, bc, lambda, nu, u, r, bv = bv)
     else
-      call Eval_DV(this, lambda, nu, u, r, bv = bv)
+      call Eval_DV(this, bc, lambda, nu, u, r, bv = bv)
     end if
 
   end subroutine Apply_V
@@ -291,8 +295,9 @@ contains
   !>
   !> Homogeneous conditions are used if boundary values `bv` are absent
 
-  subroutine Residual_C(this, lambda, nu, f, bv, u, r)
+  subroutine Residual_C(this, bc, lambda, nu, f, bv, u, r)
     class(DG_EllipticOperator_3D), intent(in)  :: this
+    character,                     intent(in)  :: bc(:)      !< {P,D,N}
     real(RNP),                     intent(in)  :: lambda      !< λ
     real(RNP),                     intent(in)  :: nu          !< ν = νᵖ+νˢ
     real(RNP), contiguous,         intent(in)  :: f(:,:,:,:)  !< RHS
@@ -301,9 +306,9 @@ contains
     class(BoundaryVariable_3D), optional, intent(in) :: bv(:) !< boundary values
 
     if (this % sem % mesh % regular) then
-      call Eval_RC(this, lambda, nu, u, r, f, bv)
+      call Eval_RC(this, bc, lambda, nu, u, r, f, bv)
     else
-      call Eval_DC(this, lambda, nu, u, r, f, bv)
+      call Eval_DC(this, bc, lambda, nu, u, r, f, bv)
     end if
 
   end subroutine Residual_C
@@ -313,8 +318,9 @@ contains
   !>
   !> Homogeneous conditions are used if boundary values `bv` are absent
 
-  subroutine Residual_V(this, lambda, nu, f, bv, u, r)
+  subroutine Residual_V(this, bc, lambda, nu, f, bv, u, r)
     class(DG_EllipticOperator_3D), intent(in)  :: this
+    character,                     intent(in)  :: bc(:)       !< {P,D,N}
     real(RNP),                     intent(in)  :: lambda      !< λ
     real(RNP), contiguous,         intent(in)  :: nu(:,:,:,:) !< ν = νᵖ
     real(RNP), contiguous,         intent(in)  :: u (:,:,:,:) !< operand
@@ -323,9 +329,9 @@ contains
     class(BoundaryVariable_3D), optional, intent(in) :: bv(:) !< boundary values
 
     if (this % sem % mesh % regular) then
-      call Eval_RV(this, lambda, nu, u, r, f, bv)
+      call Eval_RV(this, bc, lambda, nu, u, r, f, bv)
     else
-      call Eval_DV(this, lambda, nu, u, r, f, bv)
+      call Eval_DV(this, bc, lambda, nu, u, r, f, bv)
     end if
 
   end subroutine Residual_V
@@ -335,10 +341,11 @@ contains
   !>
   !> Homogeneous conditions are used if boundary values `bv` are absent
 
-  subroutine CG_Method_C(this, lambda, nu, u, f, bv, i_max, r_red, r_max, ni)
+  subroutine CG_Method_C(this, bc, lambda, nu, u, f, bv, i_max, r_red, r_max, ni)
 
     class(DG_EllipticOperator_3D), intent(in) :: this
 
+    character,             intent(in)    :: bc(:)      !< BC {P,D,N}
     real(RNP),             intent(in)    :: lambda     !< λ
     real(RNP),             intent(in)    :: nu         !< ν = νᵖ+νˢ
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:) !< approximate solution
@@ -350,7 +357,7 @@ contains
     real(RNP), optional, intent(in)    :: r_max  !< max admissible residual
     integer,   optional, intent(out)   :: ni     !< executed num iterations
 
-    call CG_Method_X( this, lambda, nu_c = nu, u = u, f = f, bv = bv,      &
+    call CG_Method_X( this, bc, lambda, nu_c = nu, u = u, f = f, bv = bv,  &
                       i_max = i_max, r_red = r_red, r_max = r_max, ni = ni )
 
   end subroutine CG_Method_C
@@ -360,10 +367,11 @@ contains
   !>
   !> Homogeneous conditions are used if boundary values `bv` are absent
 
-  subroutine CG_Method_V(this, lambda, nu, u, f, bv, i_max, r_red, r_max, ni)
+  subroutine CG_Method_V(this, bc, lambda, nu, u, f, bv, i_max, r_red, r_max, ni)
 
     class(DG_EllipticOperator_3D), intent(in) :: this
 
+    character,             intent(in)    :: bc(:)       !< BC {P,D,N}
     real(RNP),             intent(in)    :: lambda      !< λ
     real(RNP), contiguous, intent(in)    :: nu(:,:,:,:) !< ν = νᵖ
     real(RNP), contiguous, intent(inout) :: u (:,:,:,:) !< approximate solution
@@ -375,7 +383,7 @@ contains
     real(RNP), optional, intent(in)    :: r_max  !< max admissible residual
     integer,   optional, intent(out)   :: ni     !< executed num iterations
 
-    call CG_Method_X( this, lambda, nu_v = nu, u = u, f = f, bv = bv,      &
+    call CG_Method_X( this, bc, lambda, nu_v = nu, u = u, f = f, bv = bv,  &
                       i_max = i_max, r_red = r_red, r_max = r_max, ni = ni )
 
   end subroutine CG_Method_V
@@ -385,11 +393,12 @@ contains
   !>
   !> Homogeneous conditions are used if boundary values `bv` are absent
 
-  subroutine Schwarz_Method_C( this, lambda, nu, u, f, bv &
-                             , i_max, r_red, r_max, ni    )
+  subroutine Schwarz_Method_C( this, bc, lambda, nu, u, f, bv &
+                             , i_max, r_red, r_max, ni        )
 
     class(DG_EllipticOperator_3D), intent(in) :: this
 
+    character,             intent(in)    :: bc(:)      !< BC {P,D,N}
     real(RNP),             intent(in)    :: lambda     !< λ
     real(RNP),             intent(in)    :: nu         !< ν = νᵖ+νˢ
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:) !< approximate solution
@@ -401,7 +410,7 @@ contains
     real(RNP), optional, intent(in)    :: r_max  !< max admissible residual
     integer,   optional, intent(out)   :: ni     !< executed num iterations
 
-    call Schwarz_Method_X( this, lambda, nu_c = nu, u = u, f = f, bv = bv,      &
+    call Schwarz_Method_X( this, bc, lambda, nu_c = nu, u = u, f = f, bv = bv,  &
                            i_max = i_max, r_red = r_red, r_max = r_max, ni = ni )
 
   end subroutine Schwarz_Method_C
@@ -411,11 +420,12 @@ contains
   !>
   !> Homogeneous conditions are used if boundary values `bv` are absent
 
-  subroutine Schwarz_Method_V( this, lambda, nu, u, f, bv &
-                             , i_max, r_red, r_max, ni    )
+  subroutine Schwarz_Method_V( this, bc, lambda, nu, u, f, bv &
+                             , i_max, r_red, r_max, ni        )
 
     class(DG_EllipticOperator_3D), intent(in) :: this
 
+    character,             intent(in)    :: bc(:)       !< BC {P,D,N}
     real(RNP),             intent(in)    :: lambda      !< λ
     real(RNP), contiguous, intent(in)    :: nu(:,:,:,:) !< ν = νᵖ
     real(RNP), contiguous, intent(inout) :: u (:,:,:,:) !< approximate solution
@@ -427,7 +437,7 @@ contains
     real(RNP), optional, intent(in)    :: r_max  !< max admissible residual
     integer,   optional, intent(out)   :: ni     !< executed num iterations
 
-    call Schwarz_Method_X( this, lambda, nu_v = nu, u = u, f = f, bv = bv,      &
+    call Schwarz_Method_X( this, bc, lambda, nu_v = nu, u = u, f = f, bv = bv,  &
                            i_max = i_max, r_red = r_red, r_max = r_max, ni = ni )
 
   end subroutine Schwarz_Method_V
@@ -440,10 +450,12 @@ contains
   !>
   !> Homogeneous conditions are used if boundary values `bv` are absent
 
-  subroutine SchwarzPCG_Method_C( this, lambda, nu, u, f, bv &
-                                , i_max, r_red, r_max, ni    )
+  subroutine SchwarzPCG_Method_C( this, bc, lambda, nu, u, f, bv &
+                                , i_max, r_red, r_max, ni        )
 
     class(DG_EllipticOperator_3D), intent(in) :: this
+
+    character,             intent(in)    :: bc(:)       !< BC {P,D,N}
     real(RNP),             intent(in)    :: lambda      !< λ
     real(RNP),             intent(in)    :: nu          !< ν = νᵖ+νˢ
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:)  !< approximate solution
@@ -454,9 +466,12 @@ contains
     real(RNP),   optional, intent(in)    :: r_max   !< max admissible residual
     integer,     optional, intent(out)   :: ni      !< executed num iterations
 
-    call SchwarzPCG_Method_X( this, lambda, nu_c = nu, u = u, f = f, bv = bv &
-                            , i_max = i_max, r_red = r_red, r_max = r_max    &
-                            , ni = ni                                        )
+    call SchwarzPCG_Method_X( this, bc, lambda, nu_c = nu &
+                            , u = u, f = f, bv = bv       &
+                            , i_max = i_max               &
+                            , r_red = r_red               &
+                            , r_max = r_max               &
+                            , ni = ni                     )
 
   end subroutine SchwarzPCG_Method_C
 
@@ -465,10 +480,12 @@ contains
   !>
   !> Homogeneous conditions are used if boundary values `bv` are absent
 
-  subroutine SchwarzPCG_Method_V( this, lambda, nu, u, f, bv &
-                                , i_max, r_red, r_max, ni    )
+  subroutine SchwarzPCG_Method_V( this, bc, lambda, nu, u, f, bv &
+                                , i_max, r_red, r_max, ni        )
 
     class(DG_EllipticOperator_3D), intent(in) :: this
+
+    character,             intent(in)    :: bc(:)       !< BC {P,D,N}
     real(RNP),             intent(in)    :: lambda      !< λ
     real(RNP), contiguous, intent(in)    :: nu(:,:,:,:) !< ν = νᵖ
     real(RNP), contiguous, intent(inout) :: u (:,:,:,:) !< approximate solution
@@ -479,9 +496,12 @@ contains
     real(RNP),   optional, intent(in)    :: r_max   !< max admissible residual
     integer,     optional, intent(out)   :: ni      !< executed num iterations
 
-    call SchwarzPCG_Method_X( this, lambda, nu_v = nu, u = u, f = f, bv = bv &
-                            , i_max = i_max, r_red = r_red, r_max = r_max    &
-                            , ni = ni                                        )
+    call SchwarzPCG_Method_X( this, bc, lambda, nu_v = nu &
+                            , u = u, f = f, bv = bv       &
+                            , i_max = i_max               &
+                            , r_red = r_red               &
+                            , r_max = r_max               &
+                            , ni = ni                     )
 
   end subroutine SchwarzPCG_Method_V
 
@@ -535,9 +555,10 @@ contains
   !>          jmp_u  ←  n⋅[u]  =  0
   !>          avg_q  ←  n⋅{q}  =  q_b
 
-  subroutine EnforceBoundaryConditions(this, bv, jmp_u, avg_q)
+  subroutine EnforceBoundaryConditions(this, bc, bv, jmp_u, avg_q)
     class(DG_EllipticOperator_3D), intent(in) :: this
-    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
+    character, intent(in) :: bc(:) !< boundary conditions {P,D,N}
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:) !< boundary values
     real(RNP), contiguous, intent(inout) :: jmp_u(:,:,:,:) !< trace of u
     real(RNP), contiguous, intent(inout) :: avg_q(:,:,:,:) !< trace of ν du/dn
 
@@ -552,7 +573,7 @@ contains
 
       do b = 1, size(boundary)
 
-        select case(this % bc(b))
+        select case(bc(b))
 
         case('D')  ! avg_q remains unchanged !
 

@@ -19,10 +19,11 @@ contains
   !> @remark
   !> One and only one of the parameters `nu_c` and `nu_v` is to be passed
 
-  module subroutine CG_Method_X( this, lambda, nu_c, nu_v, u, f, bv &
-                               , i_max, r_red, r_max, ni            )
+  module subroutine CG_Method_X( this, bc, lambda, nu_c, nu_v, u, f &
+                               , bv, i_max, r_red, r_max, ni        )
 
     class(DG_EllipticOperator_3D),        intent(in)    :: this
+    character,                            intent(in)    :: bc(:)
     real(RNP),                            intent(in)    :: lambda        !< λ
     real(RNP),                  optional, intent(in)    :: nu_c          !< νᵖ+νˢ
     real(RNP), contiguous,      optional, intent(in)    :: nu_v(:,:,:,:) !< νᵖ
@@ -63,14 +64,14 @@ contains
       !$omp end master
       !$omp barrier
 
-      singular = abs(lambda) < epsilon(ONE) .and. all(this%bc /= 'D')
+      singular = abs(lambda) < epsilon(ONE) .and. all(bc /= 'D')
 
       ! initial residual .......................................................
 
       if (present(nu_c)) then
-        call this % Residual(lambda, nu_c, f, bv, u, r)
+        call this % Residual(bc, lambda, nu_c, f, bv, u, r)
       else
-        call this % Residual(lambda, nu_v, f, bv, u, r)
+        call this % Residual(bc, lambda, nu_v, f, bv, u, r)
       end if
 
       if (singular) then
@@ -111,9 +112,9 @@ contains
 
         ! operator application with no source and homogeneous BC
         if (present(nu_c)) then
-          call this % Apply(lambda, nu_c, u=p, r=q)
+          call this % Apply(bc, lambda, nu_c, u=p, r=q)
         else
-          call this % Apply(lambda, nu_v, u=p, r=q)
+          call this % Apply(bc, lambda, nu_v, u=p, r=q)
         end if
 
         ! correction
@@ -125,9 +126,9 @@ contains
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
           if (present(nu_c)) then
-            call this % Residual(lambda, nu_c, f, bv, u, r)
+            call this % Residual(bc, lambda, nu_c, f, bv, u, r)
           else
-            call this % Residual(lambda, nu_v, f, bv, u, r)
+            call this % Residual(bc, lambda, nu_v, f, bv, u, r)
           end if
           if (singular) then
             call CalibrateArray(r, mesh%comm_parts)
