@@ -27,7 +27,6 @@ program Mesh3d_Import_GMSH
 
   real(RNP), allocatable :: var(:,:,:,:,:)
   character(len=20), allocatable :: var_name(:)
-  character(len=90) :: gmsh_file
   logical :: passed, all_passed
   integer :: rank, n_proc
   integer :: n_elem, n_var, prm
@@ -47,12 +46,13 @@ program Mesh3d_Import_GMSH
     read(prm, nml = input)
     close(prm)
   end if
-  call XMPI_Bcast(po, 0, comm = MPI_COMM_WORLD)
+  call XMPI_Bcast(file, 0, comm = MPI_COMM_WORLD)
+  call XMPI_Bcast(po  , 0, comm = MPI_COMM_WORLD)
 
   ! mesh import ................................................................
 
   if (rank == 0) then
-    call ImportGMSH_3D(gmsh_file, generic_mesh)
+    call ImportGMSH_3D(file, generic_mesh)
   end if
 
   call mesh % ImportGenericMesh(generic_mesh, comm = MPI_COMM_WORLD)
