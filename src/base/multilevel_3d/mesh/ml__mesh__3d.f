@@ -417,7 +417,7 @@ contains
 
     ! read dynamic input variables .............................................
 
-    allocate(refinement(l_top-1),   source = '')
+    allocate(refinement(l_top-1),   source = ' ')
     allocate(adapt_bnd (n_bnd),     source = 0 )
     allocate(adapt_box (3,2,n_box), source = huge(ONE))
     allocate(adapt_tol (l_top-1),   source = ZERO)
