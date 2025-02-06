@@ -16,6 +16,10 @@ contains
   !>   1) `f` and `bv` given:  computation of the residual, `r = f - Au`
   !>   2) `f` and `bv` absent: evaluation of the homogeneous operator, `r = Au`
   !>
+  !> Note that `bv` needs to given for the residual even in periodic case, since
+  !> it triggers also the correct treatment of interior boundaries, i.e. between
+  !> active and frozen elements
+  !>
   !> Boundary conditions and values
   !>   - Dirichlet:  `bc = 'D',  bv = u`
   !>   - Neumann:    `bc = 'N',  bv = ∂u/∂x`
@@ -48,7 +52,7 @@ contains
     real(RNP) :: mu, nu_p, nu_s
     real(RNP) :: cl, cr, g0, g1, gh, ql, qr
     integer   :: po, ne
-    integer   :: e, i
+    integer   :: e, el, er, i
     logical   :: has_bv, has_f, hybrid
 
     if (nu <= 0 .or. size(r) == 0) then
@@ -165,6 +169,51 @@ contains
         jmp_q(ne) = jmp_q(0)
         avg_q(ne) = avg_q(0)
       end select
+
+      ! correct fluxes at interior boundaries ..................................
+
+      !$omp do
+      do e = 0, ne-1
+
+        if (e == 0) then
+          if (bc(1) /= 'P') cycle ! skip boundary
+          el = ne
+          er = 1
+        else
+          el = e
+          er = e + 1
+        end if
+
+        if (mask(el) .and. .not. mask(er)) then
+          ! left element active, right frozen
+          if (has_bv) then
+            ! use frozen element data for bv
+            jmp_u(e) = 2 * (u(po,el) - u(0,er))
+          else
+            jmp_u(e) = 2 * (u(po,el)          )
+          end if
+          avg_q(e) = g1 * dot_product(Bs(po,:), u(:,el))
+          jmp_q(e) = 0
+
+        else if (.not. mask(el) .and. mask(er)) then
+          ! left element frozen, right active
+          if (has_bv) then
+            ! use frozen element data for bv
+            jmp_u(e) = 2 * (u(po,el) - u(0,er))
+          else
+            jmp_u(e) = 2 * (         - u(0,er))
+          end if
+          avg_q(e) = g1 * dot_product(Bs(0,:), u(:,er))
+          jmp_q(e) = 0
+        end if
+
+      end do
+
+      if (bc(2) == 'P') then
+        jmp_u(ne) = jmp_u(0)
+        jmp_q(ne) = jmp_q(0)
+        avg_q(ne) = avg_q(0)
+      end if
 
       ! apply fluxes and RHS ...................................................
 
