@@ -105,7 +105,7 @@ contains
               (po, nodes, no_vdm, svv, po_cut_svv) result(this)
 
     integer,                intent(in) :: po     !< polynomial order
-    character(*), optional, intent(in) :: nodes  !< nodes {G,L,RR,RL}       [L]
+    character(*), optional, intent(in) :: nodes  !< nodes {G,L,RR,RL}        [L]
     logical     , optional, intent(in) :: no_vdm !< skip Vandermonde matrix  [F]
     logical     , optional, intent(in) :: svv    !< activate SVV model       [F]
     integer     , optional, intent(in) :: po_cut_svv !< SVV cut-off order [po/2]

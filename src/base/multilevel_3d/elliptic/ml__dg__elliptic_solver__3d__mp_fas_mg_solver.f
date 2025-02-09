@@ -5,8 +5,11 @@ contains
 
   !-----------------------------------------------------------------------------
   !> FAS-MG solver for problems with constant diffusivity
+  !>
+  !> Use `l_top` to specify a top level lower than `size(this%ml_op%sem)`
 
-  module subroutine FAS_MG_Solver_C(this, bc, lambda, nu, u, f, bv, ni, r_2)
+  module subroutine FAS_MG_Solver_C( this, bc, lambda, nu, u, f, bv &
+                                   , l_top, ni, r_2)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     character, intent(in) :: bc(:)                  !< boundary conditions
     real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
@@ -14,17 +17,21 @@ contains
     class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
     class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
     class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
+    integer,   optional, intent(in)  :: l_top       !< top level
     integer,   optional, intent(out) :: ni          !< num executed cycles
     real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
-    call FAS_MG_Solver_X(this, bc, lambda, nu, null(), u, f, bv, ni, r_2)
+    call FAS_MG_Solver_X(this, bc, lambda, nu, null(), u, f, bv, l_top, ni, r_2)
 
   end subroutine FAS_MG_Solver_C
 
   !-----------------------------------------------------------------------------
   !> FAS-MG solver for problems with variable diffusivity
+  !>
+  !> Use `l_top` to specify a top level lower than `size(this%ml_op%sem)`
 
-  module subroutine FAS_MG_Solver_V(this, bc, lambda, nu, u, f, bv, ni, r_2)
+  module subroutine FAS_MG_Solver_V( this, bc, lambda, nu, u, f, bv &
+                                   , l_top, ni, r_2 )
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     character, intent(in) :: bc(:)                  !< boundary conditions
     real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
@@ -32,10 +39,11 @@ contains
     class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
     class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
     class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
-    integer, optional, intent(out) :: ni            !< num executed cycles
+    integer,   optional, intent(in)  :: l_top       !< top level
+    integer,   optional, intent(out) :: ni          !< num executed cycles
     real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
-    call FAS_MG_Solver_X(this, bc, lambda, null(), nu, u, f, bv, ni, r_2)
+    call FAS_MG_Solver_X(this, bc, lambda, null(), nu, u, f, bv, l_top, ni, r_2)
 
   end subroutine FAS_MG_Solver_V
 
@@ -45,7 +53,7 @@ contains
   !> Either `nu_0` or `nu_v` must be given.
 
   module subroutine FAS_MG_Solver_X( this, bc, lambda, nu_0, nu_v, u, f, bv &
-                                   , ni, r_2 )
+                                   , l_top, ni, r_2 )
 
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
 
@@ -63,6 +71,8 @@ contains
       !< RHS
     class(ML_BoundaryVariable_3D), intent(in) :: bv
       !< boundary values
+    integer, optional, intent(in) :: l_top
+      !< top level different from size(this%ml_op%sem)
     integer, optional, intent(out) :: ni
       !< num executed cycles
     real(RNP), optional, intent(out) :: r_2
@@ -72,7 +82,7 @@ contains
 
     type(ML_MeshVariable_3D), allocatable, save :: r, v
     integer, save :: start_method
-    integer, save :: l_top
+    integer, save :: l_top_
     logical, save :: converged
 
     real(RNP) :: rr, r_max, r_new, r_old
@@ -90,14 +100,18 @@ contains
       check_convergence = max(this%r_red, this%r_max) > 0
 
       !$omp master
-      l_top = size(sem)
+      if (present(l_top)) then
+        l_top_ = min(l_top, size(sem))
+      else
+        l_top_ = size(sem)
+      end if
       allocate(r, v)
       call r % Init(this%ml_op, nc=1)
       call v % Init(this%ml_op, nc=1)
       start_method = this % start_method
       !$omp end master
 
-      do l = 1, l_top
+      do l = 1, l_top_
         associate(po => sem(l) % std_op % po)
           !$omp do
           do e = 1, sem(l) % mesh % n_elem
@@ -111,8 +125,9 @@ contains
 
       ! termination conditions
       if (check_convergence) then
-        call this % FAS_MG_Residual_X(bc, lambda, nu_0, nu_v, f, bv, u, r)
-        rr = ML_ScalarProduct_3D(r, r)
+        call this % FAS_MG_Residual_X( bc, lambda, nu_0, nu_v, f, bv &
+                                     , u, r, l_top_ )
+        rr = ML_ScalarProduct_3D(r, r, l_top = l_top_)
         r_old  = sqrt(rr)
         r_max  = max(r_old * this%r_red, this%r_max)
         !$omp master
@@ -159,7 +174,7 @@ contains
 
         end associate CASC_ROOT
 
-        CASC_FINE: do l = 2, l_top
+        CASC_FINE: do l = 2, l_top_
           associate( u_p  => u  % level(l-1) % val(:,:,:,:,1) &
                    , u_l  => u  % level(l  ) % val(:,:,:,:,1) &
                    , f_l  => f  % level(l  ) % val(:,:,:,:,1) &
@@ -173,7 +188,7 @@ contains
                                               , v_c    = u_l             )
             ! smoothing
             n = this % ns_0
-            if (l < l_top) then
+            if (l < l_top_) then
               if (present(nu_0)) then
                 call this % Monitoring(l, 'p', bc, lambda, nu_0, f_l, bv_l, u_l)
                 call this % Smoother(l, bc, lambda, nu_0, u_l, f_l, bv_l, n)
@@ -194,7 +209,7 @@ contains
 
         ! FMG ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-        FMG_OUTER: do m = 1, l_top-1
+        FMG_OUTER: do m = 1, l_top_-1
 
           FMG_DOWN: do l = m, 2, -1
 
@@ -362,7 +377,7 @@ contains
 
       V_OUTER: do m = 1, this % i_max
 
-        V_DOWN: do l = l_top, 2, -1
+        V_DOWN: do l = l_top_, 2, -1
 
           associate( mesh_l => sem(l  ) % mesh                  &
                    , mesh_p => sem(l-1) % mesh                  &
@@ -463,7 +478,7 @@ contains
 
         end associate V_COARSE
 
-        V_UP: do l = 2, l_top
+        V_UP: do l = 2, l_top_
 
           associate( mesh_l => sem(l  ) % mesh                    &
                    , mesh_p => sem(l-1) % mesh                    &
@@ -500,7 +515,7 @@ contains
 
             ! post-smoothing .................................................
 
-            if (l < l_top .or. m == this % i_max) then
+            if (l < l_top_ .or. m == this % i_max) then
               n = this % ns_2
             else
               n = this % ns_c
@@ -525,8 +540,9 @@ contains
 
         if (check_convergence .and. m < this%i_max) then
 
-          call this % FAS_MG_Residual_X(bc, lambda, nu_0, nu_v, f, bv, u, r)
-          rr = ML_ScalarProduct_3D(r, r)
+          call this % FAS_MG_Residual_X( bc, lambda, nu_0, nu_v, f, bv&
+                                       , u, r, l_top_)
+          rr = ML_ScalarProduct_3D(r, r, l_top = l_top_)
           r_new = sqrt(rr)
 
           !$omp master
@@ -556,8 +572,9 @@ contains
           r_2 = r_new
           !$omp end master
         else
-          call this % FAS_MG_Residual_X(bc, lambda, nu_0, nu_v, f, bv, u, r)
-          rr = ML_ScalarProduct_3D(r, r)
+          call this % FAS_MG_Residual_X( bc, lambda, nu_0, nu_v, f, bv &
+                                       , u, r, l_top_)
+          rr = ML_ScalarProduct_3D(r, r, l_top = l_top_)
           !$omp master
           r_2 = sqrt(rr)
           !$omp end master

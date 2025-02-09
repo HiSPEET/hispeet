@@ -80,6 +80,7 @@ module DG__Element_Operators__1D
   interface DG_ElementOperators_1D
     module procedure New_DG_ElementOperators_1D__f
     module procedure New_DG_ElementOperators_1D__b
+    module procedure New_DG_ElementOperators_1D__s
   end interface
 
   !-----------------------------------------------------------------------------
@@ -99,26 +100,28 @@ module DG__Element_Operators__1D
 
 contains
 
-  !===============================================================================
+  !=============================================================================
   ! Constructors
 
   !-----------------------------------------------------------------------------
   !> Constructor for DG_ElementOperators_1D -- flat interface
 
-  function New_DG_ElementOperators_1D__f( po, penalty, hybrid     &
+  function New_DG_ElementOperators_1D__f( po, nodes, penalty, hybrid &
                                         , no_vdm, svv, po_cut_svv ) result(this)
 
-    integer,             intent(in) :: po         !< polynomial order
-    real(RNP), optional, intent(in) :: penalty    !< penalty parameter > 1    [2]
-    logical,   optional, intent(in) :: hybrid     !< switch to hyb. method    [F]
-    logical,   optional, intent(in) :: no_vdm     !< skip Vandermonde matrix  [F]
-    logical,   optional, intent(in) :: svv        !< activate SVV model       [F]
-    integer,   optional, intent(in) :: po_cut_svv !< cutoff PO for SVV model [-∞]
+    integer,                intent(in) :: po      !< polynomial order
+    character(*), optional, intent(in) :: nodes   !< nodes {G,L,RR,RL}       [L]
+    real(RNP),    optional, intent(in) :: penalty !< penalty parameter > 1   [2]
+    logical,      optional, intent(in) :: hybrid  !< switch to hyb. method   [F]
+    logical,      optional, intent(in) :: no_vdm  !< skip Vandermonde matrix [F]
+    logical,      optional, intent(in) :: svv     !< activate SVV model      [F]
+    integer,      optional, intent(in) :: po_cut_svv !< SVV cut-off order [po/2]
 
     type(DG_ElementOperators_1D) :: this
     type(DG_ElementOptions_1D)   :: opt
 
     opt % po = po
+    if (present(nodes     )) opt % nodes      = nodes
     if (present(penalty   )) opt % penalty    = penalty
     if (present(hybrid    )) opt % hybrid     = hybrid
     if (present(no_vdm    )) opt % no_vdm     = no_vdm
@@ -139,6 +142,39 @@ contains
     call Init_DG_ElementOperators_1D(this, opt)
 
   end function New_DG_ElementOperators_1D__b
+
+  !-----------------------------------------------------------------------------
+  !> Constructor for DG_ElementOperators_1D -- extension of standard operators
+  !>
+  !> Passing `penalty < 0` yields the default specified in DG_ElementOptions_1D
+
+  function New_DG_ElementOperators_1D__s(sop, penalty, hybrid) result(this)
+    type(StandardElementOperators_1D), intent(in) :: sop
+    real(RNP), optional, intent(in) :: penalty !< penalty parameter > 1
+    logical,   optional, intent(in) :: hybrid  !< switch to hyb. method   [F]
+    type(DG_ElementOperators_1D) :: this
+
+    type(DG_ElementOptions_1D) :: opt ! default options
+
+    this % StandardElementOperators_1D = sop
+
+    if (present(penalty)) then
+      if (penalty >= 0) then
+        this % penalty = penalty
+      else
+        this % penalty = opt % penalty
+      end if
+    else
+      this % penalty = opt % penalty
+    end if
+
+    if (present(hybrid)) then
+      this % hybrid = hybrid
+    else
+      this % hybrid = opt % hybrid
+    end if
+
+  end function New_DG_ElementOperators_1D__s
 
   !=============================================================================
   ! DG_ElementOperators_1D type-bound procedures

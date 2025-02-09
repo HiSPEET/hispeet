@@ -34,7 +34,6 @@ module DG__Elliptic_Operator__3D
     class(SpectralElementMesh_3D), pointer :: sem => null()
     type(DG_ElementOperators_1D) :: eop
     type(DG_SchwarzOperator_3D)  :: schwarz
-    real(RNP)                    :: r_nu_s !< ratio νˢ/(νᵖ+νˢ)
 
   contains
 
@@ -54,9 +53,6 @@ module DG__Elliptic_Operator__3D
 
     generic :: SchwarzPCG_Method  =>  SchwarzPCG_Method_C, SchwarzPCG_Method_V
     procedure, private ::             SchwarzPCG_Method_C, SchwarzPCG_Method_V
-
-    procedure :: PhysicalDiffusivity
-    procedure :: SpectralDiffusivity
 
     ! procedures intended for internal use
     procedure :: EnforceBoundaryConditions
@@ -204,43 +200,39 @@ contains
 
   !-----------------------------------------------------------------------------
   !> New diffusion operator
+  !>
+  !> Skipping `penalty` or passing a negative value yields the default specified
+  !> in DG_ElementOptions_1D
 
-  function New_DG_EllipticOperator_3D(sem, dg_opt, schwarz_opt, r_nu_s) &
-        result(this)
+  function New_DG_EllipticOperator_3D(sem, schwarz_opt, penalty) result(this)
 
     class(SpectralElementMesh_3D), target, intent(in) :: sem
-    class(DG_ElementOptions_1D),           intent(in) :: dg_opt
     class(DG_SchwarzOptions_3D),           intent(in) :: schwarz_opt
-    real(RNP),                   optional, intent(in) :: r_nu_s   !< [0]
+    real(RNP),                   optional, intent(in) :: penalty
 
     type(DG_EllipticOperator_3D) :: this
 
-    call Init_DG_EllipticOperator_3D(this, sem, dg_opt, schwarz_opt, r_nu_s)
+    call Init_DG_EllipticOperator_3D(this, sem, schwarz_opt, penalty)
 
   end function New_DG_EllipticOperator_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of the diffusion operator
+  !>
+  !> Skipping `penalty` or passing a negative value yields the default specified
+  !> in DG_ElementOptions_1D
 
-  subroutine Init_DG_EllipticOperator_3D(this, sem, dg_opt, schwarz_opt, r_nu_s)
+  subroutine Init_DG_EllipticOperator_3D(this, sem, schwarz_opt, penalty)
 
     class(DG_EllipticOperator_3D),         intent(inout) :: this
     class(SpectralElementMesh_3D), target, intent(in)    :: sem
-    class(DG_ElementOptions_1D),           intent(in)    :: dg_opt
     class(DG_SchwarzOptions_3D),           intent(in)    :: schwarz_opt
-    real(RNP),                   optional, intent(in)    :: r_nu_s !< [0]
+    real(RNP),                   optional, intent(in)    :: penalty
 
     this % sem => sem
-    this % eop =  DG_ElementOperators_1D(dg_opt)
+    this % eop =  DG_ElementOperators_1D(sem%std_op, penalty)
 
-    if (present(r_nu_s)) then
-      this % r_nu_s = r_nu_s
-    else
-      this % r_nu_s = 0
-    end if
-
-    this % schwarz = DG_SchwarzOperator_3D( schwarz_opt, this%eop, sem%mesh &
-                                          , this%r_nu_s                     )
+    this % schwarz = DG_SchwarzOperator_3D(schwarz_opt, this%eop, sem%mesh)
 
   end subroutine Init_DG_EllipticOperator_3D
 
@@ -504,32 +496,6 @@ contains
                             , ni = ni                     )
 
   end subroutine SchwarzPCG_Method_V
-
-  !-----------------------------------------------------------------------------
-  !> Physical diffusivity coefficient νᵖ
-
-  pure real(RNP) function PhysicalDiffusivity(this, nu) result(nu_p)
-    class(DG_EllipticOperator_3D), intent(in) :: this
-    real(RNP), intent(in) :: nu !< ν = νᵖ + νˢ
-
-    associate(r => this % r_nu_s)
-      nu_p = (1 - r) * nu
-    end associate
-
-  end function PhysicalDiffusivity
-
-  !-----------------------------------------------------------------------------
-  !> Spectral diffusivity coefficient νˢ
-
-  pure real(RNP) function SpectralDiffusivity(this, nu) result(nu_s)
-    class(DG_EllipticOperator_3D), intent(in) :: this
-    real(RNP), intent(in) :: nu !< ν = νᵖ + νˢ
-
-    associate(r => this % r_nu_s)
-      nu_s = r * nu
-    end associate
-
-  end function SpectralDiffusivity
 
   !-----------------------------------------------------------------------------
   !> Weak enforcement of boundary conditions

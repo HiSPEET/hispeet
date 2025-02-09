@@ -307,27 +307,25 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor
 
-  function New_DG_SchwarzOperator_3D(opt, eop, mesh, r_nu_s) result(this)
+  function New_DG_SchwarzOperator_3D(opt, eop, mesh) result(this)
     class(DG_SchwarzOptions_3D),   intent(in) :: opt    !< operator options
     class(DG_ElementOperators_1D), intent(in) :: eop    !< DG element operators
     class(Mesh_3D),                intent(in) :: mesh   !< mesh partition
-    real(RNP),           optional, intent(in) :: r_nu_s !< ratio νˢ/(ν + νˢ) [0]
 
     type(DG_SchwarzOperator_3D) :: this
 
-    call InitSchwarzOperator(this, opt, eop, mesh, r_nu_s)
+    call InitSchwarzOperator(this, opt, eop, mesh)
 
   end function New_DG_SchwarzOperator_3D
 
   !-----------------------------------------------------------------------------
   !> Build the 1D eigenvalues, eigenvectors and weights
 
-  subroutine InitSchwarzOperator(this, opt, eop, mesh, r_nu_s)
+  subroutine InitSchwarzOperator(this, opt, eop, mesh)
     class(DG_SchwarzOperator_3D),  intent(inout) :: this
     class(DG_SchwarzOptions_3D),   intent(in) :: opt    !< operator options
     class(DG_ElementOperators_1D), intent(in) :: eop    !< DG element operators
     class(Mesh_3D),                intent(in) :: mesh   !< mesh partition
-    real(RNP),           optional, intent(in) :: r_nu_s !< ratio νˢ/(ν+νˢ) [0]
 
     ! local variables ..........................................................
 
@@ -399,7 +397,7 @@ contains
       bc(1) = DG_SCHWARZ_BC_3D(i)
       bc(2) = DG_SCHWARZ_BC_3D(j)
 
-      call eop % Get_SchwarzSuboperators(this%no, bc, Ws, S, V, W, r_nu_s)
+      call eop % Get_SchwarzSuboperators(this%no, bc, Ws, S, V, W)
 
       if (this % wp == RDP) then
         this % ops_dp % S(:,:,k) = real(S, RDP)

@@ -52,6 +52,7 @@ module ML__Mesh__3D
     real(RNP), allocatable :: adapt_box(:,:,:) !< boxes to be adapted (3,2,*)
     type(PartitioningOptions_3D), allocatable :: partition(:)
   contains
+    procedure :: SetUp => SetUp_ML_Mesh_Options_3D
     procedure :: Bcast => Bcast_ML_Mesh_Options_3D
   end type ML_Mesh_Options_3D
 
@@ -316,6 +317,63 @@ contains
   ! ML_Mesh_Options_3D procedures
 
   !-----------------------------------------------------------------------------
+  !> Set up multilevel mesh options
+
+  subroutine SetUp_ML_Mesh_Options_3D(this, l_top, l_max, l_adapt, n_bnd, n_box)
+    class(ML_Mesh_Options_3D), intent(inout) :: this
+    integer,           intent(in) :: l_top
+    integer, optional, intent(in) :: l_max
+    integer, optional, intent(in) :: l_adapt
+    integer, optional, intent(in) :: n_bnd
+    integer, optional, intent(in) :: n_box
+
+    integer :: l_adapt_, l_max_, n_bnd_, n_box_
+
+    ! process optional arguments ...............................................
+
+    if (present(l_max)) then
+       l_max_ = max(l_top, l_max)
+    else
+       l_max_ = l_top
+    end if
+
+    if (present(l_adapt)) then
+       l_adapt_ = l_adapt
+    else
+       l_adapt_ = huge(1)
+    end if
+
+    if (present(n_bnd)) then
+       n_bnd_ = n_bnd
+    else
+       n_bnd_ = 0
+    end if
+
+    if (present(n_box)) then
+       n_box_ = n_box
+    else
+       n_box_ = 0
+    end if
+
+    ! deallocate dynamic components ............................................
+
+    if (allocated( this % refinement )) deallocate( this % refinement )
+    if (allocated( this % adapt_bnd  )) deallocate( this % adapt_bnd  )
+    if (allocated( this % adapt_box  )) deallocate( this % adapt_box  )
+    if (allocated( this % partition  )) deallocate( this % partition  )
+
+    this % l_top   = l_top
+    this % l_max   = l_max_
+    this % l_adapt = l_adapt_
+
+    allocate(this % refinement(l_max_ - 1)  , source = ' ' )
+    allocate(this % adapt_bnd(n_bnd_))
+    allocate(this % adapt_box(3, 2, n_box_))
+    allocate(this % partition(l_max_))
+
+  end subroutine SetUp_ML_Mesh_Options_3D
+
+  !-----------------------------------------------------------------------------
   !> Generate multilevel mesh options from namelist input
 
   function Read_ML_Mesh_Options_3D(unit, n_proc) result(this)
@@ -360,41 +418,36 @@ contains
     rewind(unit)
     read(unit, nml = ml_mesh_options_3d__static)
 
-    l_max = max(l_max, l_top)
+    call this % SetUp(l_top, l_max, l_adapt, n_bnd, n_box)
 
     ! read dynamic input variables .............................................
 
-    allocate(refinement(l_max-1),   source = ' ')
-    allocate(n_parts(l_max),        source = -1 )
-    allocate(adapt_bnd (n_bnd),     source = -1 )
-    allocate(adapt_box (3,2,n_box), source = huge(ONE))
+    allocate(refinement(this%l_max-1), source = ' ')
+    allocate(n_parts(this%l_max),      source = -1 )
+    allocate(adapt_bnd(n_bnd),         source = -1 )
+    allocate(adapt_box(3,2,n_box),     source = huge(ONE))
 
     read(unit, nml = ml_mesh_options_3d__dynamic)
 
     ! create multilevel mesh options ...........................................
 
-    this % l_top   = l_top
-    this % l_max   = l_max
-    this % l_adapt = l_adapt
-
     ! partitioning options
-    allocate(this % partition(l_max))
     associate(partition => this % partition)
-      partition(1 ) % mode    = 1
-      partition(2:) % mode    = 2
+      partition(1 ) % mode = 1
+      partition(2:) % mode = 2
 
       if (all(n_parts > 0)) then
         ! number of partitions given for all levels
-        partition(1:l_max) % n_parts = n_parts
+        partition(1:this%l_max) % n_parts = n_parts
       else if (n_parts_growth > 0) then
         ! number of partitions grows geometrically
         partition(1) % n_parts = max(n_parts_root, 1)
-        do l = 2, l_max
+        do l = 2, this%l_max
           partition(l) % n_parts = n_parts_growth * partition(l-1)%n_parts
         end do
       else
         ! constant number of partitions
-        partition(1:l_max) % n_parts = max(n_parts_root, 1)
+        partition(1:this%l_max) % n_parts = max(n_parts_root, 1)
       end if
 
       ! enforce upper limit for number of partitions
@@ -403,9 +456,9 @@ contains
       end if
     end associate
 
-    call move_alloc( refinement, this % refinement )
-    call move_alloc( adapt_bnd , this % adapt_bnd  )
-    call move_alloc( adapt_box , this % adapt_box  )
+    this % refinement = refinement
+    this % adapt_bnd  = adapt_bnd
+    this % adapt_box  = adapt_box
 
   end function Read_ML_Mesh_Options_3D
 
@@ -436,18 +489,21 @@ contains
       call XMPI_Bcast(n_bnd  , root, comm)
       call XMPI_Bcast(n_box  , root, comm)
 
-      l_max = max(l_max, l_top)
-
       if (rank /= root) then
-        allocate( this % refinement(l_max-1)  )
-        allocate( this % adapt_bnd(n_bnd)     )
-        allocate( this % adapt_box(3,2,n_box) )
-        allocate( this % partition(l_max)     )
+        call this % SetUp(l_top, l_max, l_adapt, n_bnd, n_box)
       end if
 
-      call XMPI_Bcast(this % refinement, root, comm)
-      call XMPI_Bcast(this % adapt_bnd , root, comm)
-      call XMPI_Bcast(this % adapt_box , root, comm)
+      if (l_max > 1) then
+        call XMPI_Bcast(this % refinement, root, comm)
+      end if
+
+      if (n_bnd > 0) then
+        call XMPI_Bcast(this % adapt_bnd , root, comm)
+      end if
+
+      if (n_box > 0) then
+        call XMPI_Bcast(this % adapt_box , root, comm)
+      end if
 
       do l = 1, l_max
         call this % partition(l) % Bcast( 0, comm )

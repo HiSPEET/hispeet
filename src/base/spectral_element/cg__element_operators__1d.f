@@ -46,6 +46,7 @@ module CG__Element_Operators__1D
   interface CG_ElementOperators_1D
     module procedure New_CG_ElementOperators_1D__f
     module procedure New_CG_ElementOperators_1D__b
+    module procedure New_CG_ElementOperators_1D__s
   end interface
 
   !-----------------------------------------------------------------------------
@@ -96,6 +97,17 @@ contains
     call Init_CG_ElementOperators_1D(this, opt)
 
   end function New_CG_ElementOperators_1D__b
+
+  !-----------------------------------------------------------------------------
+  !> Constructor for CG_ElementOperators_1D -- extension of standard operators
+
+  function New_CG_ElementOperators_1D__s(sop) result(this)
+    type(StandardElementOperators_1D), intent(in) :: sop
+    type(CG_ElementOperators_1D) :: this
+
+    this % StandardElementOperators_1D = sop
+
+  end function New_CG_ElementOperators_1D__s
 
   !=============================================================================
   ! Type-bound procedures

@@ -49,7 +49,7 @@ contains
   function New_ProjectionOperator_1D(eop, x, nodes) result(this)
     class(StandardElementOperators_1D), intent(in) :: eop !< standard operators
     real(RNP),              intent(in) :: x(0:) !< node coordinates
-    character(2), optional, intent(in) :: nodes !< node type
+    character(*), optional, intent(in) :: nodes !< node type
     type(ProjectionOperator_1D) :: this
 
     call Init_ProjectionOperator_1D(this, eop, x, nodes)
@@ -63,7 +63,7 @@ contains
     class(ProjectionOperator_1D), intent(inout) :: this
     class(StandardElementOperators_1D), intent(in) :: eop !< standard operators
     real(RNP),              intent(in) :: x(0:) !< node coordinates
-    character(2), optional, intent(in) :: nodes !< node type
+    character(*), optional, intent(in) :: nodes !< node type
 
     real(RNP), allocatable :: x_g(:), w_g(:)
     real(RNP), allocatable :: x_q(:), w_q(:)

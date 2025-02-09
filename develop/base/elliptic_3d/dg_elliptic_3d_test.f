@@ -84,12 +84,11 @@ program DG_Elliptic_3D_Test
   real(RNP) :: lambda = 0 ! Helmholtz parameter
   real(RNP) :: nu_0   = 1 ! diffusivity mean value ν₀
   real(RNP) :: nu_1   = 0 ! diffusivity fluctuation amplitude ν₁
-  real(RNP) :: r_nu_s = 0 ! relative spectral diffusivity, only with ν₁ = 0
   real(RNP) :: d_nu   = 0 ! diffusivity fluctuation phase shift
   integer   :: k_nu   = 1 ! diffusivity fluctuation wave number
   integer   :: k_u    = 1 ! solution wave number
 
-  namelist/problem_prm/ lambda, nu_0, nu_1, r_nu_s, d_nu, k_nu, k_u
+  namelist/problem_prm/ lambda, nu_0, nu_1, d_nu, k_nu, k_u
 
   ! sphere
   real(RNP) :: x_c(3) = -0.05 ! sphere center
@@ -142,7 +141,6 @@ program DG_Elliptic_3D_Test
   type(PartitioningOptions_3D) :: part_opt
 
   ! discrete operators
-  type(DG_ElementOptions_1D)   :: dg_opt
   type(DG_EllipticOperator_3D) :: elliptic_op
 
   ! problem
@@ -284,7 +282,6 @@ program DG_Elliptic_3D_Test
   call XMPI_Bcast( lambda      , 0, comm )
   call XMPI_Bcast( nu_0        , 0, comm )
   call XMPI_Bcast( nu_1        , 0, comm )
-  call XMPI_Bcast( r_nu_s      , 0, comm )
   call XMPI_Bcast( d_nu        , 0, comm )
   call XMPI_Bcast( k_nu        , 0, comm )
   call XMPI_Bcast( k_u         , 0, comm )
@@ -294,9 +291,6 @@ program DG_Elliptic_3D_Test
   call XMPI_Bcast( bc          , 0, comm )
 
   has_variable_nu = nu_1 > 0
-  if (has_variable_nu) then
-    r_nu_s = 0
-  end if
 
   select case(test_problem)
   case(1:3)
@@ -352,7 +346,6 @@ program DG_Elliptic_3D_Test
     write(*,'(/,A,/)') 'DG Elliptic Test 3D'
     write(*,'(T3,A,T25,9(G0,X))') 'configuration:',config,' ',trim(config_name)
     write(*,'(T3,A,T25,9(G0,X))') 'test case:',test_problem,' ',trim(problem_name)
-    write(*,'(T3,A,T25,9(G0,X))') 'spectral diffusivity:', r_nu_s > 0
     write(*,'(T3,A,T25,9(G0,X))') 'variable diffusivity:', has_variable_nu
     write(*,'(T3,A,T25,9(G0,X))') 'boundary conditions:' , bc
     write(*,'(T3,A,T25,9(G0,X))') 'number of processes:' , n_proc
@@ -422,13 +415,7 @@ program DG_Elliptic_3D_Test
 
   ! operators ..................................................................
 
-  if (r_nu_s > 0) then
-    dg_opt = DG_ElementOptions_1D(po, svv = .true., penalty = penalty)
-    elliptic_op = DG_EllipticOperator_3D(sem, dg_opt, schwarz_opt, r_nu_s)
-  else
-    dg_opt = DG_ElementOptions_1D(po, svv = .false., penalty = penalty)
-    elliptic_op = DG_EllipticOperator_3D(sem, dg_opt, schwarz_opt)
-  end if
+  elliptic_op = DG_EllipticOperator_3D(sem, schwarz_opt, penalty)
 
   !-----------------------------------------------------------------------------
   ! Consistency test

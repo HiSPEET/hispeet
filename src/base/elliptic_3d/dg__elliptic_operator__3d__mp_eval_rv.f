@@ -177,15 +177,17 @@ contains
           !
           ! at face 1 (ξ = -1)
           !
-          !   n⋅[𝜑]   =  δ(0,i)                         =  delta_0(i)
-          !   n⋅{ν∇𝜑} = -1/∆x Bs(0,i)                   = -g(1) * Bs(0,i)
+          !   n⋅[𝜑]   =  δ(0,i)       =  delta_0(i)
+          !   n⋅{ν∇𝜑} = -ν/∆x D(0,i)  = -g(1) * nu(0,j,k,e) * Ds(0,i)
+          !
           !   n⋅[u]   =  (   u⁻(j,k) -    u⁺(j,k))₁     =  jmp_u_0(j,k)
           !   n⋅{ν∇u} =  (n⁻⋅q⁻(j,k) - n⁺⋅q⁺(j,k))₁ / 2 =  avg_q_0(j,k)
           !
           ! and at face 2 (ξ = +1)
           !
-          !   n⋅[𝜑]   =  δ(P,i)                         =  delta_P(i)
-          !   n⋅{ν∇𝜑} =  1/∆x Bs(P,i)                   =  g(1) * Bs(P,i)
+          !   n⋅[𝜑]   =  δ(P,i)        =  delta_P(i)
+          !   n⋅{ν∇𝜑} =  ν/∆x D(P,i)   =  g(1) * nu(P,j,k,e) * Ds(P,i)
+          !
           !   n⋅[u]   =  (   u⁻(j,k) -    u⁺(j,k))₂     =  jmp_u_P(j,k)
           !   n⋅{ν∇u} =  (n⁻⋅q⁻(j,k) - n⁺⋅q⁺(j,k))₂ / 2 =  avg_q_P(j,k)
 

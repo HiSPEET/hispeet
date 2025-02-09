@@ -105,7 +105,7 @@ program ML_Elliptic_Test_Adaptive
   class(EllipticProblem_3D), allocatable, save :: problem
   character(len=80) :: problem_name = ''
 
-  ! solver parmeters ...........................................................
+  ! solver parameters ..........................................................
 
   integer, save :: n_cycle = 1 ! number of solution cycles
   integer, allocatable, save :: po(:) ! sequence of polynomial orders

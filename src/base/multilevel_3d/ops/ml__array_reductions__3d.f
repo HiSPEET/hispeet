@@ -26,17 +26,20 @@ contains
   !> The operands `a` and `b` are mesh variables with one ore more components
   !> per point. The result `r` is formed as the sum over the products of all
   !> components.
+  !>
+  !> Use `l_top` to specify a top level lower than `size(a%level)`
 
-  real(RNP) function ML_ScalarProduct_3D(a, b, leaf) result(r)
+  real(RNP) function ML_ScalarProduct_3D(a, b, leaf, l_top) result(r)
     class(ML_MeshVariable_3D), intent(in) :: a
     class(ML_MeshVariable_3D), intent(in) :: b
     logical, optional, intent(in) :: leaf
+    integer, optional, intent(in) :: l_top
 
     real(RNP), save :: r_glob, r_loc
 
     real(RNP) :: r_tmp
     logical   :: leaf_only
-    integer   :: l_top
+    integer   :: l_top_
     integer   :: i, l
 
     if (present(leaf)) then
@@ -45,10 +48,15 @@ contains
       leaf_only = .false.
     end if
 
-    l_top = size(a % level)
+    if (present(l_top)) then
+      l_top_ = min(l_top, size(a % level))
+    else
+      l_top_ = size(a % level)
+    end if
+
     r_loc = 0
 
-    do l = 1, l_top
+    do l = 1, l_top_
       associate( mesh => a % level(l) % mesh                  &
                , ne   => a % level(l) % mesh % n_elem_active  &
                , po   => a % level(l) % po                    &
@@ -56,7 +64,7 @@ contains
                , a_l  => a % level(l) % val                   &
                , b_l  => b % level(l) % val                   )
 
-        if (l < l_top .and. leaf_only) then
+        if (l < l_top_ .and. leaf_only) then
           !$omp do reduction(+:r_loc) private(i)
           do i = 1, ne
             if (mesh % element(i) % IsLeaf()) then
@@ -74,7 +82,7 @@ contains
           !$omp end master
         end if
 
-        if (l == l_top) then
+        if (l == l_top_) then
           !$omp master
           call XMPI_Allreduce(r_loc, r_glob, MPI_SUM, mesh%comm_world)
           r_loc = 0
@@ -98,18 +106,21 @@ contains
   !> The operands `a` and `b` are mesh variables with one ore more components
   !> per point. The weights `w` are associated with the mesh points and have
   !> either the same number of components ore only one.
+  !>
+  !> Use `l_top` to specify a top level lower than `size(a%level)`
 
-  real(RNP) function ML_WeightedScalarProduct_3D(w, a, b, leaf) result(r)
+  real(RNP) function ML_WeightedScalarProduct_3D(w, a, b, leaf, l_top) result(r)
     class(ML_MeshVariable_3D), intent(in) :: w
     class(ML_MeshVariable_3D), intent(in) :: a
     class(ML_MeshVariable_3D), intent(in) :: b
     logical, optional, intent(in) :: leaf
+    integer, optional, intent(in) :: l_top
 
     real(RNP), save :: r_glob, r_loc
 
     real(RNP) :: r_tmp
     logical   :: leaf_only
-    integer   :: l_top
+    integer   :: l_top_
     integer   :: i, j, k, l, nw
 
     if (present(leaf)) then
@@ -118,10 +129,15 @@ contains
       leaf_only = .false.
     end if
 
-    l_top = size(a % level)
+    if (present(l_top)) then
+      l_top_ = min(l_top, size(a % level))
+    else
+      l_top_ = size(a % level)
+    end if
+
     r_loc = 0
 
-    do l = 1, l_top
+    do l = 1, l_top_
       associate( mesh => a % level(l) % mesh                  &
                , ne   => a % level(l) % mesh % n_elem_active  &
                , po   => a % level(l) % po                    &
@@ -132,7 +148,7 @@ contains
 
         nw = size(w_l, 5)
 
-        if (l < l_top .and. leaf_only) then
+        if (l < l_top_ .and. leaf_only) then
           !$omp do collapse(2) reduction(+:r_loc) private(i,j)
           do k = 1, nc
           do i = 1, ne
@@ -156,7 +172,7 @@ contains
           !$omp end master
         end if
 
-        if (l == l_top) then
+        if (l == l_top_) then
           !$omp master
           call XMPI_Allreduce(r_loc, r_glob, MPI_SUM, mesh%comm_world)
           r_loc = 0

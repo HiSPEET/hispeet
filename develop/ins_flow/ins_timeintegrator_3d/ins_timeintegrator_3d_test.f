@@ -24,6 +24,11 @@ program INS_TimeIntegrator_3D_Test
   use Volume_Integrals__3D
   use Surface_Integrals__3D
   use Export_VTK_Volume_Data__3D
+  use Spectral_Element_Mesh__3D
+
+  use ML__Mesh__3D
+  use ML__Mesh_Operators__3D
+  use ML__DG__Elliptic_Solver__3D
 
   use INS__Problem__3D
   use INS__Problem__Test_Suite__3D
@@ -47,6 +52,10 @@ program INS_TimeIntegrator_3D_Test
 
   use Root_Mesh_Partitioning__3D
 
+  use ML__Mesh__3D
+  use ML__Mesh_Operators__3D
+  use ML__DG__Elliptic_Solver__3D
+
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -60,6 +69,11 @@ program INS_TimeIntegrator_3D_Test
   integer        :: n_thread  ! number of OpenMP threads
 
   ! control parameters .........................................................
+
+  ! control of logging levels
+  namelist/control_prm/ log_level
+  namelist/control_prm/ log_level_inner_iteration
+  namelist/control_prm/ log_level_outer_iteration
 
   character(len=*), parameter :: default_case = 'ins_timeintegrator_3d_test'
   character(len=80) :: flow_case ! flow case name
@@ -80,39 +94,11 @@ program INS_TimeIntegrator_3D_Test
 
   namelist/control_prm/ flow_problem, problem_file, flow_domain, raw_mesh_file
 
-  integer :: time_method = 1
-  ! 1  Euler
-  ! 2  BDF2
-  ! 3  Runge-Kutta
-
-  namelist/control_prm/ time_method
-
-  type(INS_OperatorOptions_3D)                   :: ins_op_opts
-  type(INS_TimeIntegrator_Euler_Options_3D)      :: ins_ti_euler_opts
-  type(INS_TimeIntegrator_BDF2_Options_3D)       :: ins_ti_bdf2_opts
-  type(INS_TimeIntegrator_RungeKutta_Options_3D) :: ins_ti_runge_kutta_opts
-
-  namelist/control_prm/ ins_op_opts,            &
-                        ins_ti_euler_opts,      &
-                        ins_ti_bdf2_opts,       &
-                        ins_ti_runge_kutta_opts
-
-  real(RNP) :: t_end    = 1  ! final time
-  real(RNP) :: dt       = 1  ! time step size
-  integer   :: nt_max   = 0  ! max num time steps
-
-  namelist/control_prm/ t_end, dt, nt_max
-
   logical :: export_vtk = .false.  ! generate VTK files
   integer :: char_freq  = 1        ! characteristics output frequency
   integer :: avg_rate   = 0        ! sampling rate for averaging, 0 if none
 
   namelist/control_prm/ export_vtk, char_freq, avg_rate
-
-  ! control of logging levels
-  namelist/control_prm/ log_level
-  namelist/control_prm/ log_level_inner_iteration
-  namelist/control_prm/ log_level_outer_iteration
 
   ! restart options
   character(len=80) :: restart_tag_in  = ''  ! tag for restart input files
@@ -129,27 +115,63 @@ program INS_TimeIntegrator_3D_Test
   !   - trim(flow_case)_trim(restart_tag_out)_data_<rank>.h5  for flow data
   !
   ! no restart data is read or written if the corresponding tag is empty
-  ! operators and variables ....................................................
 
-  type(GenericMesh_3D) :: generic_mesh
-  ! intermediate generic mesh for importing raw meshes
+  ! spatial parameters .........................................................
 
-  type(Mesh_3D), allocatable, save :: initial_mesh
-  ! mesh before repartitioning
+  type(ML_Mesh_Options_3D), save :: ml_mesh_opt
+    ! multilevel mesh options, defining top level, partitioning and refinement,
+    ! stacic components defined in namelist `ml_mesh_options_3d__static` and
+    ! dynamic components in `ml_mesh_options_3d__dynamic`
 
-  type(PartitioningOptions_3D) :: part_opt
+  integer, save :: po_u = 8
+    ! polynomial order of solution u \ p on top level
+  integer, allocatable, save :: po_p(:)
+    ! polynomial orders for pressure on levels 1:l_top,
+    ! matching condition: po_p(l_top) = ins_op % eop_p % po
+
+  type(ML_DG_EllipticOptions_3D), save :: ml_solver_p_opt
+  type(INS_OperatorOptions_3D),   save :: ins_op_opt
+
+  namelist/spatial_prm/ po_u, po_p, ml_solver_p_opt, ins_op_opt
+
+  ! temporal parameters ........................................................
+
+  real(RNP) :: t_end       = 1  ! final time
+  real(RNP) :: dt          = 1  ! time step size
+  integer   :: nt_max      = 0  ! max num time steps, < 0 if no limit
+  integer   :: time_method = 1  ! 1/2/3: Euler/BDF2/Runge-Kutta
+
+  type(INS_TimeIntegrator_Euler_Options_3D)      :: ins_ti_euler_opt
+  type(INS_TimeIntegrator_BDF2_Options_3D)       :: ins_ti_bdf2_opt
+  type(INS_TimeIntegrator_RungeKutta_Options_3D) :: ins_ti_runge_kutta_opt
+
+  namelist/temporal_prm/ t_end, dt, nt_max
+  namelist/temporal_prm/ time_method
+  namelist/temporal_prm/ ins_ti_euler_opt
+  namelist/temporal_prm/ ins_ti_bdf2_opt
+  namelist/temporal_prm/ ins_ti_runge_kutta_opt
+
+  ! mesh and operators .........................................................
+
+  type(GenericMesh_3D),          save :: generic_mesh
+  type(Mesh_3D), allocatable,    save :: base_mesh
+  type(ML_Mesh_3D),              save :: ml_mesh
+  type(ML_MeshOperators_3D),     save :: ml_op_p
+  type(ML_DG_EllipticSolver_3D), save :: ml_solver_p
+
+  ! problem, operators and solvers .............................................
 
   class(INS_Problem_3D), allocatable, save :: problem
-  ! flow problem
 
-  type(INS_Operator_3D), save :: ins_op
-  ! incompressible Navier-Stokes operator
+  type(SpectralElementMesh_3D), save :: sem_u
+  type(INS_Operator_3D),        save :: ins_op
 
   class(INS_TimeIntegrator_3D), allocatable, save :: ins_ti
-  ! incompressible Navier-Stokes time integrator
 
   type(INS_TimeScales_3D)          :: time_scales
   type(INS_FlowCharacteristics_3D) :: flow_char
+
+  ! variables ..................................................................
 
   real(RNP) :: t = 0 ! problem time
 
@@ -184,7 +206,8 @@ program INS_TimeIntegrator_3D_Test
   real(RNP) :: domain_volume
   logical   :: exists, last, restart_in, restart_out
   integer   :: io, stat
-  integer   :: n_avg, n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po
+  integer   :: n_avg, n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var
+  integer   :: l_top
   integer   :: i, nt
 
   !-----------------------------------------------------------------------------
@@ -237,30 +260,21 @@ program INS_TimeIntegrator_3D_Test
 
   end if
 
+  ! globalize logging levels
+  call XMPI_Bcast_LoggingLevels(0, comm)
+
   ! globalize control parameters
   call XMPI_Bcast(flow_case      , 0, comm)
   call XMPI_Bcast(case_file      , 0, comm)
   call XMPI_Bcast(flow_problem   , 0, comm)
   call XMPI_Bcast(problem_file   , 0, comm)
   call XMPI_Bcast(flow_domain    , 0, comm)
-  call XMPI_Bcast(time_method    , 0, comm)
-  call XMPI_Bcast(t_end          , 0, comm)
-  call XMPI_Bcast(dt             , 0, comm)
-  call XMPI_Bcast(nt_max         , 0, comm)
+  call XMPI_Bcast(raw_mesh_file  , 0, comm)
   call XMPI_Bcast(export_vtk     , 0, comm)
   call XMPI_Bcast(char_freq      , 0, comm)
   call XMPI_Bcast(avg_rate       , 0, comm)
   call XMPI_Bcast(restart_tag_in , 0, comm)
   call XMPI_Bcast(restart_tag_out, 0, comm)
-
-  ! globalize logging levels
-  call XMPI_Bcast_LoggingLevels(0, comm)
-
-  ! globalize options
-  call ins_op_opts             % Bcast(0, comm)
-  call ins_ti_euler_opts       % Bcast(0, comm)
-  call ins_ti_bdf2_opts        % Bcast(0, comm)
-  call ins_ti_runge_kutta_opts % Bcast(0, comm)
 
   ! restart switches
   restart_in  = len_trim(restart_tag_in)  > 0
@@ -281,54 +295,67 @@ program INS_TimeIntegrator_3D_Test
     domain_name = raw_mesh_file
   end select
 
-  ! create mesh ................................................................
-
   if (restart_in) then
 
+    ! read multilevel mesh .....................................................
+
     mesh_file = trim(flow_case) // '_' // trim(restart_tag_in) // '_mesh'
-    call ins_op % mesh % ReadHDF5(mesh_file, comm)
+    call ml_mesh % ReadHDF5(mesh_file, comm)
 
   else
 
-    allocate(initial_mesh)
+    ! create base mesh .........................................................
+
+    allocate(base_mesh)
 
     select case(flow_domain)
     case(1)
-      call CreateCuboidCartesian(comm, case_file, initial_mesh)
+      call CreateCuboidCartesian(comm, case_file, base_mesh)
       domain_name = 'Cuboidal domain with Cartesian mesh'
     case(2)
-      call CreateCuboidDiamonds(comm, case_file, initial_mesh)
+      call CreateCuboidDiamonds(comm, case_file, base_mesh)
       domain_name = 'Cuboidal domain with unstructured "diamond" mesh'
     case(3)
-      call CreateCylinder(comm, case_file, initial_mesh)
+      call CreateCylinder(comm, case_file, base_mesh)
       domain_name = 'Cylindrical domain with unstructured mesh'
     case(4)
-      call CreateAnnulus(comm, case_file, initial_mesh)
+      call CreateAnnulus(comm, case_file, base_mesh)
       domain_name = 'Annular domain with unstructured mesh'
     case(10)
       if (rank == 0) then
         call ImportGMSH_3D(raw_mesh_file, generic_mesh)
       end if
-      call initial_mesh % ImportGenericMesh(generic_mesh, comm)
+      call base_mesh % ImportGenericMesh(generic_mesh, comm)
       domain_name = trim(raw_mesh_file)
     end select
 
-    ! mesh partitioning ........................................................
+    ! create multilevel mesh ...................................................
 
-    if (initial_mesh % n_parts /= n_proc) then
-      part_opt = PartitioningOptions_3D(n_parts = n_proc, w_comp = [1,1,0,0])
-      call RootMeshPartitioning_3D(part_opt, initial_mesh, ins_op % mesh)
-    else
-      ins_op % mesh = initial_mesh
+    if (rank == 0) then
+      write(*,'(2X,A)') 'creating multilevel mesh'
+      if (ins_op % pressure_method > 3) then
+        ! read multilevel mesh options
+        open(newunit = io, file = case_file)
+        ml_mesh_opt = ML_Mesh_Options_3D(io, n_proc)
+        close(io)
+      else
+        ! set options for single level pressure solver
+        call ml_mesh_opt % SetUp(l_top = 1)
+        ml_mesh_opt % partition % n_parts = n_proc
+      end if
     end if
+    call ml_mesh_opt % Bcast(0, comm)
 
-    deallocate(initial_mesh)
+    ml_mesh = ML_Mesh_3D(base_mesh, ml_mesh_opt)
+
+    deallocate(base_mesh)
 
   end if
 
-  n_elem  = ins_op % mesh % n_elem
-  n_ghost = ins_op % mesh % n_ghost
-  n_bound = ins_op % mesh % n_bound
+  l_top   = size(ml_mesh % mesh)
+  n_elem  = ml_mesh % mesh(l_top) % n_elem
+  n_ghost = ml_mesh % mesh(l_top) % n_ghost
+  n_bound = ml_mesh % mesh(l_top) % n_bound
 
   ! problem ....................................................................
 
@@ -336,7 +363,7 @@ program INS_TimeIntegrator_3D_Test
 
   ! check & fix boundary conditions
   do i = 1, n_bound
-    if (ins_op % mesh % boundary(i) % coupled > 0) then
+    if (ml_mesh % mesh(l_top) % boundary(i) % coupled > 0) then
       if (problem % bc_v(i) /= 'P') then
         if (rank == 0) then
           write(*,'(A,I0)') '  *** enforcing periodic BC on coupled boundary ',i
@@ -346,25 +373,73 @@ program INS_TimeIntegrator_3D_Test
     end if
   end do
 
-  ! operators ..................................................................
+  ! spatial ....................................................................
+
+  allocate(po_p(l_top), source = 1)
+
+  ! read
+  if (rank == 0) then
+    write(*,'(2X,A)') 'creating spatial operators'
+    open(newunit = io, file = case_file)
+    read(io, nml = spatial_prm)
+    close(io)
+  end if
+
+  ! globalize parameters
+  call XMPI_Bcast(po_u, 0, comm)
+  call XMPI_Bcast(po_p, 0, comm)
+
+  ! globalize options
+  call ml_solver_p_opt % Bcast(0, comm)
+  call ins_op_opt      % Bcast(0, comm)
+
+  ! multilevel pressure solver
+  ml_op_p     = ML_MeshOperators_3D(ml_mesh, po_p)
+  ml_solver_p = ML_DG_EllipticSolver_3D(ml_op_p, ml_solver_p_opt)
 
   ! Navier-Stokes operator
-  call ins_op % Init(ins_op_opts, problem)
+  sem_u = SpectralElementMesh_3D(ml_mesh%mesh(l_top), po_u)
+  ins_op_opt % mesh_level = l_top
+  call ins_op % Init( opt         = ins_op_opt           &
+                    , problem     = problem              &
+                    , sem_u       = sem_u                &
+                    , sem_p       = ml_op_p % sem(l_top) &
+                    , ml_solver_p = ml_solver_p          )
+
+  ! temporal ...................................................................
+
+  ! read
+  if (rank == 0) then
+    write(*,'(2X,A)') 'creating temporal operators'
+    open(newunit = io, file = case_file)
+    read(io, nml = temporal_prm)
+    close(io)
+  end if
+
+  ! globalize parameters
+  call XMPI_Bcast(t_end      , 0, comm)
+  call XMPI_Bcast(dt         , 0, comm)
+  call XMPI_Bcast(nt_max     , 0, comm)
+  call XMPI_Bcast(time_method, 0, comm)
+
+  ! globalize options
+  call ins_ti_euler_opt       % Bcast(0, comm)
+  call ins_ti_bdf2_opt        % Bcast(0, comm)
+  call ins_ti_runge_kutta_opt % Bcast(0, comm)
 
   ! time integrator
   select case(time_method)
   case(1)
-    ins_ti = INS_TimeIntegrator_Euler_3D(problem, ins_op, ins_ti_euler_opts)
+    ins_ti = INS_TimeIntegrator_Euler_3D(problem, ins_op, ins_ti_euler_opt)
   case(2)
-    ins_ti = INS_TimeIntegrator_BDF2_3D(problem, ins_op, ins_ti_bdf2_opts)
+    ins_ti = INS_TimeIntegrator_BDF2_3D(problem, ins_op, ins_ti_bdf2_opt)
   case(3)
     ins_ti = INS_TimeIntegrator_RungeKutta_3D &
-                 (problem, ins_op, ins_ti_runge_kutta_opts)
+                 (problem, ins_op, ins_ti_runge_kutta_opt)
   end select
 
   ! variables ..................................................................
 
-  po = ins_op % eop_u % po
   n_var = 4
 
   if (problem % HasExactSolution()) then
@@ -375,8 +450,7 @@ program INS_TimeIntegrator_3D_Test
     n_var = n_var + 10
   end if
 
-
-  allocate(var(0:po,0:po,0:po,1:n_elem,1:n_var), source = ZERO)
+  allocate(var(0:po_u,0:po_u,0:po_u,1:n_elem,1:n_var), source = ZERO)
   allocate(var_name(1:n_var))
 
   u(0:,0:,0:,1:,1:)  =>  var(:,:,:,:,1:4)
@@ -423,7 +497,7 @@ program INS_TimeIntegrator_3D_Test
     q_avg => null()
   end if
 
-  allocate(w(0:po,0:po,0:po,1:n_elem,1:4) )
+  allocate(w(0:po_u,0:po_u,0:po_u,1:n_elem,1:4) )
 
   ! initial conditions .........................................................
 
@@ -445,7 +519,7 @@ program INS_TimeIntegrator_3D_Test
   call ins_op % sem_u % Get_Volume(domain_volume)
 
   call XMPI_Reduce(n_elem, n_elem_tot, MPI_SUM, 0, comm)
-  n_point = n_elem_tot * (po+1)**3
+  n_point = n_elem_tot * (po_u+1)**3
 
   if (rank == 0) then
     write(*,'(/,A)') 'problem and discretization parameters'
@@ -456,7 +530,6 @@ program INS_TimeIntegrator_3D_Test
     write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of v:', ins_op % eop_u % po
     write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of p:', ins_op % eop_p % po
     write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature order:', ins_op % sop_q % po
-    write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature type:' , ins_op % sop_q % nodes
     write(*,'(T3,A,T30,9(G0,X))') 'number of mesh points:', n_point
     write(*,'(T3,A,T30,9(G0,X))') 'time integrator:'      , trim(ins_ti % name)
     write(*,'(T3,A,T29,ES18.11)') 'time step size:'       , dt
@@ -521,7 +594,7 @@ program INS_TimeIntegrator_3D_Test
     !$omp barrier
 
     do i = 1, n_bound
-      call bv_vn(i) % Init(ins_op % mesh % boundary(i), po, nc = 1)
+      call bv_vn(i) % Init(ins_op % mesh % boundary(i), po_u, nc = 1)
       call bv_vn(i) % ExtractNormalComponent(ins_op % sem_u, v)
     end do
 
@@ -560,7 +633,7 @@ program INS_TimeIntegrator_3D_Test
     mesh_file = trim(flow_case) // '_' // trim(restart_tag_out) // '_mesh'
     data_file = trim(flow_case) // '_' // trim(restart_tag_out) // '_data'
     ! mesh
-    call ins_op % mesh % WriteHDF5(mesh_file)
+    call ml_mesh % WriteHDF5(mesh_file)
     ! flow data
     call WriteRestartData(data_file, rank, t, u, n_avg, q_avg)
   end if

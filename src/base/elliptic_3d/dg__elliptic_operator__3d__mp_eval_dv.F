@@ -161,7 +161,7 @@ contains
     real(RNP), intent(out) :: jmp_u(:,:)    !< normal jump n⋅[u]
     real(RNP), intent(out) :: avg_q(:,:)    !< average normal flux n⋅{q}
 
-    contiguous :: tr, jmp_u, avg_q
+    contiguous :: tr, nu_max, jmp_u, avg_q
 
     integer :: i, l, m
 
@@ -177,6 +177,7 @@ contains
         call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), nu_max)
         call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), jmp_u)
         call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,3), avg_q)
+        nu_max = max(tr(:,:,f,e,1), nu_max)
         jmp_u = (tr(:,:,f,e,2) - jmp_u)
         avg_q = (tr(:,:,f,e,3) - avg_q) * HALF
       end if
