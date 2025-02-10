@@ -39,7 +39,7 @@ contains
     integer,               intent(in)    :: i_max  !< max num iterations
     real(RNP),   optional, intent(in)    :: r_red  !< min residual reduction
     real(RNP),   optional, intent(in)    :: r_max  !< max admissible residual
-    integer,     optional, intent(out)   :: ni     !< executed num iterations
+    integer,     optional, intent(out)   :: ni     !< num iterations executed
 
     ! internal variables .......................................................
 
@@ -54,12 +54,11 @@ contains
     real(RNP) :: ct
     integer   :: b, e
 
-    associate( po          => this % eop_u % po  &
-             , pq          => this % eop_p % po  &
-             , mesh        => this % mesh        &
-             , bc_p        => this % bc_p        &
-             , sem_p       => this % sem_p       &
-             , elliptic_op => this % elliptic_p  )
+    associate( po    => this % eop_u % po &
+             , pq    => this % eop_p % po &
+             , mesh  => this % mesh       &
+             , bc_p  => this % bc_p       &
+             , sem_p => this % sem_p      )
 
       ! initialization .........................................................
 
@@ -92,6 +91,7 @@ contains
       ! solve ..................................................................
 
       if (mixed_order) then
+
         ! transfer current approximation and source to order pq
         call TPO_AAA(this % iop_up % A, p, q) ! interpolation of pressure
         call TPO_AAA(this % pop_up % A, f, g) ! L² projection of RHS
@@ -99,19 +99,45 @@ contains
         do e = 1, mesh % n_elem
           g(:,:,:,e) = -ct * mm(:,:,:,e) * g(:,:,:,e)
         end do
-        ! apply Schwarz-PCG with λ=0 and ν=1
-        call elliptic_op % SchwarzPCG_Method( bc_p, ZERO, ONE, q, g, bv_q &
-                                            , i_max, r_red, r_max, ni     )
+
+        select case(this % pressure_method)
+        case(1)
+          call this % elliptic_p % CG_Method &
+                          (bc_p, ZERO, ONE, q, g, bv_q, i_max, r_red, r_max, ni)
+        case(2)
+          call this % elliptic_p % Schwarz_Method &
+                          (bc_p, ZERO, ONE, q, g, bv_q, i_max, r_red, r_max, ni)
+        case(3)
+          call this % elliptic_p % SchwarzPCG_Method &
+                          (bc_p, ZERO, ONE, q, g, bv_q, i_max, r_red, r_max, ni)
+        case(4)
+          call ML_PressureSolver(this, q, g, bv_q, ni)
+        end select
+
         ! interpolate result to order po
         call TPO_AAA(this % iop_pu % A, q, p)
+
       else
+
         !$omp do
         do e = 1, mesh % n_elem
           g(:,:,:,e) = -ct * mm(:,:,:,e) * f(:,:,:,e)
         end do
-        ! apply Schwarz-PCG with λ=0 and ν=1
-        call elliptic_op % SchwarzPCG_Method( bc_p, ZERO, ONE, p, g, bv_p &
-                                            , i_max, r_red, r_max, ni     )
+
+        select case(this % pressure_method)
+        case(1)
+          call this % elliptic_p % CG_Method &
+                          (bc_p, ZERO, ONE, p, g, bv_p, i_max, r_red, r_max, ni)
+        case(2)
+          call this % elliptic_p % Schwarz_Method &
+                          (bc_p, ZERO, ONE, p, g, bv_p, i_max, r_red, r_max, ni)
+        case(3)
+          call this % elliptic_p % SchwarzPCG_Method &
+                          (bc_p, ZERO, ONE, p, g, bv_p, i_max, r_red, r_max, ni)
+        case(4)
+          call ML_PressureSolver(this, p, g, bv_p, ni)
+        end select
+
       end if
 
       ! finalization ...........................................................
@@ -276,6 +302,74 @@ contains
     end do
 
   end subroutine InterpolateFaceData
+
+  !-----------------------------------------------------------------------------
+  !> Multilevel pressure solver
+
+  subroutine ML_PressureSolver(this, p, f, bv, ni)
+    class(INS_Operator_3D),     intent(in)    :: this       !< INS operator
+    real(RNP), contiguous,      intent(inout) :: p(:,:,:,:) !< pressure
+    real(RNP), contiguous,      intent(in)    :: f(:,:,:,:) !< sources
+    class(BoundaryVariable_3D), intent(in)    :: bv(:)      !< boundary values
+    integer,          optional, intent(out)   :: ni         !< num iterations
+
+    type(ML_MeshVariable_3D),     allocatable, save :: ml_p, ml_f
+    type(ML_BoundaryVariable_3D), allocatable, save :: ml_bv
+
+    integer :: b, l
+
+    associate( l_top       => this % mesh_level  &
+             , ml_solver_p => this % ml_solver_p )
+
+      ! workspace ..............................................................
+
+      !$omp master
+      allocate(ml_p, ml_f, ml_bv)
+      call ml_p  % Init(ml_solver_p % ml_op, nc = 1, l_top = l_top)
+      call ml_f  % Init(ml_solver_p % ml_op, nc = 1, l_top = l_top)
+      call ml_bv % Init(ml_solver_p % ml_op, nc = 1, l_top = l_top)
+      !$omp end master
+      !$omp barrier
+
+      ! initialization .........................................................
+
+      do l = 1, l_top - 1
+        call SetArray(ml_p % level(l) % val, ZERO)
+        call SetArray(ml_f % level(l) % val, ZERO)
+        ! ml_bv already initialized with zero
+      end do
+
+      call SetArray(ml_p % level(l_top) % val(:,:,:,:,1), p)
+      call SetArray(ml_f % level(l_top) % val(:,:,:,:,1), f)
+
+      do b = 1, size(bv)
+        call SetArray(ml_bv % level(l_top) % var(b) % val, bv(b) % val)
+      end do
+
+      ! solution ...............................................................
+
+      call ml_solver_p % CS_MG_Solver( bc     = this % bc_p  &
+                                     , lambda = ZERO         &
+                                     , nu     = ONE          &
+                                     , u      = ml_p         &
+                                     , f      = ml_f         &
+                                     , bv     = ml_bv        &
+                                     , l_top  = l_top        &
+                                     , ni     = ni           )
+
+      ! copy result ............................................................
+
+      call SetArray(p, ml_p % level(l_top) % val(:,:,:,:,1))
+
+      ! finalization ...........................................................
+
+      !$omp master
+      deallocate(ml_p, ml_f, ml_bv)
+      !$omp end master
+
+    end associate
+
+  end subroutine ML_PressureSolver
 
   !=============================================================================
 

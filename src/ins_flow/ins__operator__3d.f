@@ -27,6 +27,9 @@ module INS__Operator__3D
   use Trace_Operators__3D
   use Spectral_Element_Mesh__3D
   use Boundary_Variable__3D
+
+  use ML__Mesh_Variable__3D
+  use ML__Boundary_Variable__3D
   use ML__DG__Elliptic_Solver__3D
 
   use INS__Problem__3D

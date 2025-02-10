@@ -61,20 +61,30 @@ contains
   !>
   !> Provides a variable with fixed polynomial order `po` and `nc` components
   !> fitting the given multilevel mesh
+  !>
+  !> The optional argument `l_top` can be passed to restrict the top level to a
+  !> value lower than `size(ml_mesh%mesh)`
 
-  subroutine Init_ML_MeshVariable_3D__M(this, ml_mesh, po, nc, name)
+  subroutine Init_ML_MeshVariable_3D__M(this, ml_mesh, po, nc, name, l_top)
     class(ML_MeshVariable_3D),  intent(inout) :: this
     class(ML_Mesh_3D),          intent(in)    :: ml_mesh
     integer,                    intent(in)    :: po  !< polynomial order
     integer,                    intent(in)    :: nc  !< number of components
     character(len=*), optional, intent(in)    :: name(nc)
+    integer,          optional, intent(in)    :: l_top
 
-    integer :: i, l
+    integer :: i, l, l_top_
 
     if (allocated(this%level)) deallocate(this%level)
     if (allocated(this%name))  deallocate(this%name)
 
-    allocate(this % level( size(ml_mesh%mesh) ))
+    if (present(l_top)) then
+      l_top_ = min(size(ml_mesh%mesh), l_top)
+    else
+      l_top_ = size(ml_mesh%mesh)
+    end if
+
+    allocate(this % level( l_top_ ))
 
     do l = 1, size(this%level)
       call this % level(l) % Init(ml_mesh % mesh(l), po, nc)
@@ -97,19 +107,29 @@ contains
   !>
   !> Provides a variable with `nc` components fitting the mesh and polynomial
   !> order of the given multilevel operators
+  !>
+  !> The optional argument `l_top` can be passed to restrict the top level to a
+  !> value lower than `size(ml_op%sem)`
 
-  subroutine Init_ML_MeshVariable_3D__O(this, ml_op, nc, name)
+  subroutine Init_ML_MeshVariable_3D__O(this, ml_op, nc, name, l_top)
     class(ML_MeshVariable_3D),  intent(inout) :: this
     class(ML_MeshOperators_3D), intent(in)    :: ml_op
     integer,                    intent(in)    :: nc
     character(len=*), optional, intent(in)    :: name(nc)
+    integer,          optional, intent(in)    :: l_top
 
-    integer :: i, l
+    integer :: i, l, l_top_
 
     if (allocated(this%level)) deallocate(this%level)
     if (allocated(this%name )) deallocate(this%name)
 
-    allocate(this % level( size(ml_op%sem) ))
+    if (present(l_top)) then
+      l_top_ = min(size(ml_op%sem), l_top)
+    else
+      l_top_ = size(ml_op%sem)
+    end if
+
+    allocate(this % level( l_top_ ))
 
     do l = 1, size(this%level)
       call this % level(l) % Init( mesh = ml_op % sem(l) % mesh        &

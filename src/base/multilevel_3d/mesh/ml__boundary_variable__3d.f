@@ -33,17 +33,27 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Initialize multilevel boundary variable with nc components
+  !>
+  !> The optional argument `l_top` can be passed to restrict the top level to a
+  !> value lower than `size(ml_op%sem)`
 
-  subroutine Init_ML_BoundaryVariable_3D(this, ml_op, nc)
+  subroutine Init_ML_BoundaryVariable_3D(this, ml_op, nc, l_top)
     class(ML_BoundaryVariable_3D), intent(inout) :: this
     class(ML_MeshOperators_3D),    intent(in)    :: ml_op
     integer,                       intent(in)    :: nc
+    integer,             optional, intent(in)    :: l_top
 
-    integer :: b, l
+    integer :: b, l, l_top_
 
     if (allocated(this%level)) deallocate(this%level)
 
-    allocate(this%level( size(ml_op % sem) ))
+    if (present(l_top)) then
+      l_top_ = min(size(ml_op%sem), l_top)
+    else
+      l_top_ = size(ml_op%sem)
+    end if
+
+    allocate(this%level( l_top_ ))
 
     do l = 1, size(this%level)
       allocate(this % level(l) % var( ml_op % sem(l) % mesh % n_bound ))
