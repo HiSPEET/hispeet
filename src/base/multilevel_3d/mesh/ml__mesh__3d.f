@@ -425,6 +425,7 @@ contains
       call this % SetUp(l_top, l_max, l_adapt, n_bnd, n_box)
     else if (stat == iostat_end) then
       call this % SetUp(l_top = 1)
+      this % partition % n_parts = n_proc
       return
     else
       call Error( 'Read_ML_Mesh_Options_3D' &
