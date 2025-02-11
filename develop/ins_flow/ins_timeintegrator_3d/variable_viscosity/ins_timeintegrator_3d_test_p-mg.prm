@@ -1,0 +1,106 @@
+!-------------------------------------------------------------------------------
+! Control
+
+&control_prm
+
+  ! log levels,  set to ≥ 1 for higher verbosity
+  log_level                 = 0
+  log_level_inner_iteration = 1
+  log_level_outer_iteration = 1
+  log_level_multigrid_cycle = 1
+
+  problem_file = 'variable_viscosity'
+  flow_problem = 'VariableViscosity'
+  flow_domain  = 1
+
+  ! export_vtk   = T  ! set T for generating plot files
+  ! char_freq    = 0  ! set frequency of control output
+/
+
+!-------------------------------------------------------------------------------
+! Spatial
+
+&spatial_prm
+
+  po_u = 16
+  po_p = 1 2 3 7 15 15
+
+  ins_op_opt%pressure_method  = 4
+  ins_op_opt%diffusion_method = 3
+  ins_op_opt%penalty          = 20
+  ins_op_opt%dealiasing       = T
+
+  ! bulk viscosity
+  !   - use μ = 0 for Stokes hypothesis
+  !   - use μ = ν for grad-div stabilization in diffusion dominant case
+  !   - use μ ~ √(ν² + v²h²) for stabilization in convection dominant case
+  ins_op_opt%mu_0 = 0.0
+
+  ! multilevel pressure solver
+  ml_solver_p_opt%i_crs = 1000
+  ml_solver_p_opt%i_max = 3
+  ml_solver_p_opt%r_red = 1e-08
+  ml_solver_p_opt%r_max = 1e-12
+/
+
+&ml_mesh_options_3d__static
+  l_top          =  5  ! initial top level
+  l_max          =  6  ! maximum top level
+  n_parts_root   =  8  ! number of partitions at root level   [1]
+  n_parts_growth =  8  ! partition number growth rate         [1]
+/
+
+&ml_mesh_options_3d__dynamic
+  refinement = 4*'c', 1*'s' ! (1:l_max-1)  refinement type {'c','s'}
+/
+
+!-------------------------------------------------------------------------------
+! Temporal
+
+&temporal_prm
+
+  t_end  = 0.25
+  dt     = 0.001
+  nt_max = 1!10!00000
+
+  time_method = 2  ! 1/2/3: Euler/BDF2/Runge-Kutta
+
+  ! Euler options
+  ins_ti_euler_opt%i_max_p = 1000
+  ins_ti_euler_opt%i_max_v = 1000
+  ins_ti_euler_opt%r_red   = 1e-12
+  ins_ti_euler_opt%r_max   = 1e-14
+
+  ! BDF2 options
+  ins_ti_bdf2_opt%i_krylov = 0       ! set eg to 2 for trying GMRES
+  ins_ti_bdf2_opt%i_max_p  = 1000
+  ins_ti_bdf2_opt%i_max_v  = 5       ! 1000
+  ins_ti_bdf2_opt%i_pre_p  = 10
+  ins_ti_bdf2_opt%i_pre_v  = 10
+  ins_ti_bdf2_opt%r_red    = 1e-10
+  ins_ti_bdf2_opt%r_max    = 1e-12
+
+  ! Runge-Kutta options
+  !   n_stage   method      IMEX-RK
+  !      4        2         CB3e
+  !      5        1         ARS443
+  ins_ti_runge_kutta_opt%n_stage  = 5     ! 5
+  ins_ti_runge_kutta_opt%method   = 1     ! 1
+  ins_ti_runge_kutta_opt%i_max_p  = 1000  ! 1000
+  ins_ti_runge_kutta_opt%i_max_v  = 1000  ! 1000
+  ins_ti_runge_kutta_opt%r_red    = 1e-10 ! 1e-12
+  ins_ti_runge_kutta_opt%r_max    = 1e-12 ! 1e-14
+/
+
+!-------------------------------------------------------------------------------
+! Domains
+
+&cuboid_cartesian_prm
+  regular    = F ! mimic irregular mesh (elements deformed or of different size)
+  structured = F ! mimic unstructured mesh
+  xo = 3*-0.5
+  lx = 3*1
+  np = 1,1,1
+  ep = 3*4
+! periodic = 3*T
+/

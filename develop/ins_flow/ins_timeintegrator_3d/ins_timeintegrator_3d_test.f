@@ -74,6 +74,7 @@ program INS_TimeIntegrator_3D_Test
   namelist/control_prm/ log_level
   namelist/control_prm/ log_level_inner_iteration
   namelist/control_prm/ log_level_outer_iteration
+  namelist/control_prm/ log_level_multigrid_cycle
 
   character(len=*), parameter :: default_case = 'ins_timeintegrator_3d_test'
   character(len=80) :: flow_case ! flow case name
@@ -94,11 +95,12 @@ program INS_TimeIntegrator_3D_Test
 
   namelist/control_prm/ flow_problem, problem_file, flow_domain, raw_mesh_file
 
-  logical :: export_vtk = .false.  ! generate VTK files
+  logical :: mesh_stat  = .true.   ! show mesh statistics
   integer :: char_freq  = 1        ! characteristics output frequency
   integer :: avg_rate   = 0        ! sampling rate for averaging, 0 if none
+  logical :: export_vtk = .false.  ! generate VTK files
 
-  namelist/control_prm/ export_vtk, char_freq, avg_rate
+  namelist/control_prm/ mesh_stat, char_freq, avg_rate, export_vtk
 
   ! restart options
   character(len=80) :: restart_tag_in  = ''  ! tag for restart input files
@@ -209,6 +211,7 @@ program INS_TimeIntegrator_3D_Test
   integer   :: n_avg, n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var
   integer   :: l_top
   integer   :: i, nt
+  real(RDP) :: time
 
   !-----------------------------------------------------------------------------
   ! Initialization
@@ -270,9 +273,10 @@ program INS_TimeIntegrator_3D_Test
   call XMPI_Bcast(problem_file   , 0, comm)
   call XMPI_Bcast(flow_domain    , 0, comm)
   call XMPI_Bcast(raw_mesh_file  , 0, comm)
-  call XMPI_Bcast(export_vtk     , 0, comm)
+  call XMPI_Bcast(mesh_stat      , 0, comm)
   call XMPI_Bcast(char_freq      , 0, comm)
   call XMPI_Bcast(avg_rate       , 0, comm)
+  call XMPI_Bcast(export_vtk     , 0, comm)
   call XMPI_Bcast(restart_tag_in , 0, comm)
   call XMPI_Bcast(restart_tag_out, 0, comm)
 
@@ -333,21 +337,14 @@ program INS_TimeIntegrator_3D_Test
 
     if (rank == 0) then
       write(*,'(2X,A)') 'creating multilevel mesh'
-      if (ins_op % pressure_method > 3) then
-        ! read multilevel mesh options
-        open(newunit = io, file = case_file)
-        ml_mesh_opt = ML_Mesh_Options_3D(io, n_proc)
-        close(io)
-      else
-        ! set options for single level pressure solver
-        call ml_mesh_opt % SetUp(l_top = 1)
-        ml_mesh_opt % partition % n_parts = n_proc
-      end if
+      ! read multilevel mesh options
+      open(newunit = io, file = case_file)
+      ml_mesh_opt = ML_Mesh_Options_3D(io, n_proc)
+      close(io)
     end if
+
     call ml_mesh_opt % Bcast(0, comm)
-
     ml_mesh = ML_Mesh_3D(base_mesh, ml_mesh_opt)
-
     deallocate(base_mesh)
 
   end if
@@ -375,7 +372,7 @@ program INS_TimeIntegrator_3D_Test
 
   ! spatial ....................................................................
 
-  allocate(po_p(l_top), source = 1)
+  allocate(po_p(ml_mesh_opt % l_max), source = 1)
 
   ! read
   if (rank == 0) then
@@ -533,6 +530,7 @@ program INS_TimeIntegrator_3D_Test
     write(*,'(T3,A,T30,9(G0,X))') 'number of mesh points:', n_point
     write(*,'(T3,A,T30,9(G0,X))') 'time integrator:'      , trim(ins_ti % name)
     write(*,'(T3,A,T29,ES18.11)') 'time step size:'       , dt
+    write(*,*)
     write(*,'(T3,A)') 'convective and diffusive CFL numbers'
     write(*,'(T5,A,T21,ES12.5,A,T37,A,T55,ES12.5)')              &
         'C(v_0  , τ_c) =' , dt / time_scales % tau_conv_ve, ',', &
@@ -546,12 +544,22 @@ program INS_TimeIntegrator_3D_Test
     write(*,*)
   end if
 
+  if (mesh_stat) then
+    call MeshStatistics()
+  end if
+
   !-----------------------------------------------------------------------------
   ! Time integration
 
   call flow_char % Evaluate(problem, ins_op, t, u, dt, domain_volume)
   call flow_char % PrintHeader()
   call flow_char % PrintValues('#init#')
+
+  if (rank == 0) then
+    !$omp master
+    time = MPI_Wtime()
+    !$omp end master
+  end if
 
   do nt = 1, nt_max
     last = t + dt >= t_end .or. nt == nt_max
@@ -568,6 +576,19 @@ program INS_TimeIntegrator_3D_Test
       call flow_char % PrintValues()
     end if
   end do
+
+  if (rank == 0) then
+    !$omp master
+    time = MPI_Wtime() - time
+    if (nt_max > 0) then
+      nt = max(min(nt, nt_max),1)
+      write(*,'(/,A)') 'performance'
+      write(*,'(A,ES10.3)') ' time               =', time
+      write(*,'(A,ES10.3)') ' time       / step  =', time / nt
+      write(*,'(A,ES10.3)') ' throughput / step  =', nt / time * size(u) * n_proc
+    end if
+    !$omp end master
+  end if
 
   !-----------------------------------------------------------------------------
   ! evaluation
@@ -853,6 +874,90 @@ contains
     end do
 
   end subroutine TemporalAveraging
+
+  !-----------------------------------------------------------------------------
+  !> Mesh statistics
+
+  subroutine MeshStatistics()
+
+    integer, save :: ne_max, ne_min, ne_tot, ne_leaf, ne_leaf_loc
+    integer, save :: ne_tot_sum, ne_leaf_sum
+    integer, save :: dof_p_tot, dof_p_leaf
+
+    integer :: l, m
+
+    associate(mesh => ml_mesh%mesh)
+
+      l_top = size(mesh)
+
+      if (rank == 0) then
+        write(*,'(A,/)') 'mesh statistics'
+        write(*,'(2X,A7,5A9,2A6)') '  level'   &
+                                 , '  n_parts' &
+                                 , '   ne_min' &
+                                 , '   ne_max' &
+                                 , '   ne_tot' &
+                                 , '  ne_leaf' &
+                                 , '  po_u'    &
+                                 , '  po_p'
+      end if
+
+      ne_tot_sum  = 0
+      ne_leaf_sum = 0
+      dof_p_tot   = 0
+      dof_p_leaf  = 0
+
+      do l = 1, l_top
+
+        ne_leaf_loc = 0
+
+        if (mesh(l)%part >= 0) then
+          do i = 1, mesh(l) % n_elem_active
+            if (mesh(l) % element(i) % IsLeaf()) then
+              ne_leaf_loc = ne_leaf_loc + 1
+            end if
+          end do
+          call XMPI_Reduce(mesh(l)%n_elem, ne_min , MPI_MIN, 0, mesh(l)%comm_parts)
+          call XMPI_Reduce(mesh(l)%n_elem, ne_max , MPI_MAX, 0, mesh(l)%comm_parts)
+          call XMPI_Reduce(mesh(l)%n_elem, ne_tot , MPI_SUM, 0, mesh(l)%comm_parts)
+          call XMPI_Reduce(ne_leaf_loc   , ne_leaf, MPI_SUM, 0, mesh(l)%comm_parts)
+        end if
+
+        call XMPI_Bcast(ne_min , mesh(l)%proc_part(0), mesh(l)%comm_world)
+        call XMPI_Bcast(ne_max , mesh(l)%proc_part(0), mesh(l)%comm_world)
+        call XMPI_Bcast(ne_tot , mesh(l)%proc_part(0), mesh(l)%comm_world)
+        call XMPI_Bcast(ne_leaf, mesh(l)%proc_part(0), mesh(l)%comm_world)
+
+        if (rank == 0) then
+
+          ! set m to po_u for the top level and -1 for lower levels:
+          m = (sign(1,l-l_top)*(po_u + 1) + po_u - 1)/2
+
+          write(*,'(I9,5I9,2I6)') l, mesh(l)%n_parts, ne_min, ne_max, ne_tot, &
+                                  ne_leaf, m, po_p(l)
+
+          ne_tot_sum  = ne_tot_sum  + ne_tot
+          ne_leaf_sum = ne_leaf_sum + ne_leaf
+          dof_p_tot   = dof_p_tot   + ne_tot  * (po_p(l) + 1)**3
+          dof_p_leaf  = dof_p_leaf  + ne_leaf * (po_p(l) + 1)**3
+
+        end if
+      end do
+
+      if (rank == 0) then
+        write(*,*)
+        write(*,'(4X,A)') 'global'
+        write(*,'(T7,A,T20,I0)') 'ne_tot     =', ne_tot_sum
+        write(*,'(T7,A,T20,I0)') 'ne_leaf    =', ne_leaf_sum
+        write(*,'(T7,A,T20,I0)') 'dof_p_tot  =', dof_p_tot
+        write(*,'(T7,A,T20,I0)') 'dof_p_leaf =', dof_p_leaf
+        write(*,'(T7,A,T20,I0)') 'dof_v_tot  =', 3 * ne_leaf * (po_u + 1)**3
+        write(*,*)
+      end if
+
+    end associate
+
+  end subroutine MeshStatistics
 
   !=============================================================================
 

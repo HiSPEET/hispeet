@@ -13,6 +13,7 @@ target_link_libraries(ins_timeintegrator_3d_test HiINSFlow)
 add_subdirectory(no_flow)
 add_subdirectory(stokes_linke)
 add_subdirectory(vortex_tg)
+add_subdirectory(variable_viscosity)
 
 #===============================================================================
 # Test cases - to be revised
@@ -24,8 +25,6 @@ file( COPY
           hagen_poiseuille
           poiseuille
           stokes_dkm
-          variable_viscosity
-          #vortex_tg             # -- revised 
       DESTINATION
           ${CMAKE_CURRENT_BINARY_DIR} )
 
