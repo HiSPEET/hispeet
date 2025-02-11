@@ -5,6 +5,8 @@
 !===============================================================================
 
 module ML__Mesh__3D
+  use, intrinsic :: ISO_Fortran_Env
+
   use Kind_Parameters
   use Constants
   use Execution_Control
@@ -411,14 +413,24 @@ contains
 
     ! auxiliary variables ......................................................
 
+    integer :: stat
     integer :: l
 
     ! read static input variables ..............................................
 
     rewind(unit)
-    read(unit, nml = ml_mesh_options_3d__static)
+    read(unit, nml = ml_mesh_options_3d__static, iostat = stat)
 
-    call this % SetUp(l_top, l_max, l_adapt, n_bnd, n_box)
+    if (stat == 0) then
+      call this % SetUp(l_top, l_max, l_adapt, n_bnd, n_box)
+    else if (stat == iostat_end) then
+      call this % SetUp(l_top = 1)
+      return
+    else
+      call Error( 'Read_ML_Mesh_Options_3D' &
+                , 'failed reading static ML mesh options' &
+                , 'ML__Mesh__3D')
+    end if
 
     ! read dynamic input variables .............................................
 
