@@ -17,6 +17,7 @@ module DG__Elliptic_Operator__3D
   use Execution_Control
   use DG__Element_Operators__1D
   use DG__Schwarz_Operator__3D
+  use Mesh_Element__3D
   use Spectral_Element_Mesh__3D
   use Boundary_Variable__3D
 
@@ -24,7 +25,6 @@ module DG__Elliptic_Operator__3D
   private
 
   public :: DG_EllipticOperator_3D
-
 
   !-----------------------------------------------------------------------------
   !> Base type for scalar diffusion operators for 3D DG-SEM
@@ -66,6 +66,17 @@ module DG__Elliptic_Operator__3D
   interface DG_EllipticOperator_3D
     module procedure New_DG_EllipticOperator_3D
   end interface
+
+  !-----------------------------------------------------------------------------
+  !> Composition of fluxes at internal element faces
+
+  interface GetElementBoundaryFluxes
+    module procedure GetElementBoundaryFluxes_C
+    module procedure GetElementBoundaryFluxes_V
+  end interface
+
+  ! Used only internaly, but declared public to avoid removal by compiler
+  public :: GetElementBoundaryFluxes
 
   !=============================================================================
   ! Interfaces to separate module procedures
@@ -497,6 +508,9 @@ contains
 
   end subroutine SchwarzPCG_Method_V
 
+  !=============================================================================
+  ! Shared procedures
+
   !-----------------------------------------------------------------------------
   !> Weak enforcement of boundary conditions
   !>
@@ -591,6 +605,121 @@ contains
     end associate
 
   end subroutine EnforceBoundaryConditions
+
+  !-----------------------------------------------------------------------------
+  !> Compose element-boundary fluxes from flux traces -- constant diffusivity
+
+  subroutine GetElementBoundaryFluxes_C( element, struct, hom_bc &
+                                       , e, f, tr, jmp_u, avg_q  )
+
+    class(MeshElement_3D), intent(in) :: element
+    logical,   intent(in)  :: struct   !< F/T for un/structured mesh
+    logical,   intent(in)  :: hom_bc   !< F/T for in/homogeneous internal BC
+    integer,   intent(in)  :: e        !< element ID
+    integer,   intent(in)  :: f        !< element face
+    real(RNP), contiguous, intent(in)  :: tr(:,:,:,:,:) !< traces of u, q_n
+    real(RNP), contiguous, intent(out) :: jmp_u(:,:)    !< normal jump n⋅[u]
+    real(RNP), contiguous, intent(out) :: avg_q(:,:)    !< normal flux n⋅{q}
+
+    integer :: i, l, m
+
+    if (element % face(f) % boundary == 0) then
+      ! interface to frozen element: treated as Dirichlet boundary
+      if (hom_bc) then
+        jmp_u = 2 * tr(:,:,f,e,1)
+      else
+        i = element % face(f) % i_neighbor
+        l = element % neighbor(i) % id
+        m = element % neighbor(i) % component
+        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), jmp_u)
+        jmp_u = 2 * (tr(:,:,f,e,1) - jmp_u)
+      end if
+      avg_q = tr(:,:,f,e,2)
+
+    else if (element % face(f) % i_neighbor > 0) then
+      ! active neighbor
+      i = element % face(f) % i_neighbor
+      l = element % neighbor(i) % id
+      m = element % neighbor(i) % component
+      if (struct) then
+        jmp_u = (tr(:,:,f,e,1) - tr(:,:,m,l,1))
+        avg_q = (tr(:,:,f,e,2) - tr(:,:,m,l,2)) * HALF
+      else
+        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), jmp_u)
+        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), avg_q)
+        jmp_u = (tr(:,:,f,e,1) - jmp_u)
+        avg_q = (tr(:,:,f,e,2) - avg_q) * HALF
+      end if
+
+    else
+      ! domain boundary: treated by EnforceBoundaryConditions
+      jmp_u = tr(:,:,f,e,1)
+      avg_q = tr(:,:,f,e,2)
+
+   end if
+
+  end subroutine GetElementBoundaryFluxes_C
+
+
+  !-----------------------------------------------------------------------------
+  !> Compose element-boundary fluxes from flux traces -- variable diffusivity
+
+  subroutine GetElementBoundaryFluxes_V( element, struct, hom_bc        &
+                                       , e, f, tr, nu_max, jmp_u, avg_q )
+
+    class(MeshElement_3D), intent(in) :: element
+    logical,   intent(in)  :: struct   !< F/T for un/structured mesh
+    logical,   intent(in)  :: hom_bc   !< F/T for in/homogeneous internal BC
+    integer,   intent(in)  :: e        !< element ID
+    integer,   intent(in)  :: f        !< element face
+    real(RNP), contiguous, intent(in)  :: tr(:,:,:,:,:) !< traces of u, q_n
+    real(RNP), contiguous, intent(out) :: nu_max(:,:)   !< max(ν⁻,ν⁺)
+    real(RNP), contiguous, intent(out) :: jmp_u(:,:)    !< normal jump n⋅[u]
+    real(RNP), contiguous, intent(out) :: avg_q(:,:)    !< normal flux n⋅{q}
+
+    integer :: i, l, m
+
+    if (element % face(f) % boundary == 0) then
+      ! interface to frozen element: treated as Dirichlet boundary
+      nu_max = tr(:,:,f,e,1)
+      if (hom_bc) then
+        jmp_u = 2 * tr(:,:,f,e,2)
+      else
+        i = element % face(f) % i_neighbor
+        l = element % neighbor(i) % id
+        m = element % neighbor(i) % component
+        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), jmp_u)
+        jmp_u = 2 * (tr(:,:,f,e,2) - jmp_u)
+      end if
+      avg_q = tr(:,:,f,e,3)
+
+    else if (element % face(f) % i_neighbor > 0) then
+      ! active neighbor
+      i = element % face(f) % i_neighbor
+      l = element % neighbor(i) % id
+      m = element % neighbor(i) % component
+      if (struct) then
+        nu_max = max(tr(:,:,f,e,1), tr(:,:,m,l,1))
+        jmp_u  = (tr(:,:,f,e,2) - tr(:,:,m,l,2))
+        avg_q  = (tr(:,:,f,e,3) - tr(:,:,m,l,3)) * HALF
+      else
+        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), nu_max)
+        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), jmp_u)
+        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,3), avg_q)
+        nu_max = max(tr(:,:,f,e,1), nu_max)
+        jmp_u  = (tr(:,:,f,e,2) - jmp_u)
+        avg_q  = (tr(:,:,f,e,3) - avg_q) * HALF
+      end if
+
+    else
+      ! domain boundary: treated by EnforceBoundaryConditions
+      nu_max = tr(:,:,f,e,1)
+      jmp_u  = tr(:,:,f,e,2)
+      avg_q  = tr(:,:,f,e,3)
+
+   end if
+
+  end subroutine GetElementBoundaryFluxes_V
 
   !=============================================================================
 
