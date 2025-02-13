@@ -62,10 +62,10 @@ for((s=0; s<=ST_MAX; s++)); do
         -e "s/<t_end>/$T_END/g" \
         -e "s/<dt>/$DT/g" \
         -e "s/<time_method>/$TIME_METHOD/g" \
-        ins_timeintegrator_3d_test.tmpl > \
-        ins_timeintegrator_3d_test.prm
+        test_convergence.tmpl > \
+        test_convergence.prm
 
-    ${MPIRUN} -n ${NPROC} ${PROGRAM} 2>&1 | tee -a ${CASE}.log
+    ${MPIRUN} -n ${NPROC} ${PROGRAM} test_convergence 2>&1 | tee -a ${CASE}.log
 
 done
 
