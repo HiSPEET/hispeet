@@ -21,25 +21,30 @@ then
   echo ""
 fi
 
+CASE=test_1g
+#CASE=test_mg
+
 # ------------------------------------------------------------------------------
 # Execution
 
 date
 
-module load hispeet/gnu-foss-hdf5-1.14.0
+module load hispeet/gnu12
 
 if ! compgen -G "*.h5" > /dev/null; then
     echo "starting ==========================================================================="
-    cp test_channel_start.prm test_channel.prm
-    srun --ntasks $SLURM_NTASKS --cpu_bind=cores --distribution=block:block ../ins_timeintegrator_3d_test test_channel
+    cp ${CASE}_start.prm ${CASE}.prm
+    srun --ntasks $SLURM_NTASKS --cpu_bind=cores --distribution=block:block \
+         ../ins_timeintegrator_3d_test ${CASE}
     mkdir -p save
     cp *.h5 save/
 fi
 
 for ((k = 1; k <= 10; k++)); do
     echo "restarting, k =" $k "=================================================================="
-    cp test_channel_restart.prm test_channel.prm
-    srun --ntasks $SLURM_NTASKS --cpu_bind=cores --distribution=block:block ../ins_timeintegrator_3d_test test_channel
+    cp ${CASE}_restart.prm ${CASE}.prm
+    srun --ntasks $SLURM_NTASKS --cpu_bind=cores --distribution=block:block \
+         ../ins_timeintegrator_3d_test ${CASE}
     cp *h5 save/
 done
 

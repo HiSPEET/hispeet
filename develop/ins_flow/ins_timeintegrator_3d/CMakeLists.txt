@@ -11,6 +11,7 @@ target_link_libraries(ins_timeintegrator_3d_test HiINSFlow)
 # Test cases
 
 add_subdirectory(no_flow)
+add_subdirectory(channel)
 add_subdirectory(stokes_linke)
 add_subdirectory(vortex_tg)
 add_subdirectory(variable_viscosity)
@@ -20,7 +21,6 @@ add_subdirectory(variable_viscosity)
 
 file( COPY
           ins_timeintegrator_3d_test.prm
-          channel
           cylinder_2d
           hagen_poiseuille
           poiseuille
