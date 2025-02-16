@@ -142,12 +142,14 @@ program INS_TimeIntegrator_3D_Test
   real(RNP) :: dt          = 1  ! time step size
   integer   :: nt_max      = 0  ! max num time steps, < 0 if no limit
   integer   :: time_method = 1  ! 1/2/3: Euler/BDF2/Runge-Kutta
+  logical   :: smooth_initial_data = .false.
 
   type(INS_TimeIntegrator_Euler_Options_3D)      :: ins_ti_euler_opt
   type(INS_TimeIntegrator_BDF2_Options_3D)       :: ins_ti_bdf2_opt
   type(INS_TimeIntegrator_RungeKutta_Options_3D) :: ins_ti_runge_kutta_opt
 
   namelist/temporal_prm/ t_end, dt, nt_max
+  namelist/temporal_prm/ smooth_initial_data
   namelist/temporal_prm/ time_method
   namelist/temporal_prm/ ins_ti_euler_opt
   namelist/temporal_prm/ ins_ti_bdf2_opt
@@ -372,7 +374,7 @@ program INS_TimeIntegrator_3D_Test
 
   ! spatial ....................................................................
 
-  allocate(po_p(ml_mesh_opt % l_max), source = 1)
+  allocate(po_p(l_top), source = 1)
 
   ! read
   if (rank == 0) then
@@ -414,10 +416,12 @@ program INS_TimeIntegrator_3D_Test
   end if
 
   ! globalize parameters
-  call XMPI_Bcast(t_end      , 0, comm)
-  call XMPI_Bcast(dt         , 0, comm)
-  call XMPI_Bcast(nt_max     , 0, comm)
-  call XMPI_Bcast(time_method, 0, comm)
+  call XMPI_Bcast(t_end              , 0, comm)
+  call XMPI_Bcast(dt                 , 0, comm)
+  call XMPI_Bcast(nt_max             , 0, comm)
+  call XMPI_Bcast(time_method        , 0, comm)
+  call XMPI_Bcast(smooth_initial_data, 0, comm)
+
 
   ! globalize options
   call ins_ti_euler_opt       % Bcast(0, comm)
@@ -504,6 +508,9 @@ program INS_TimeIntegrator_3D_Test
     call XMPI_Bcast(t, 0, comm)
   else
     call problem % GetInitialValues(ins_op % sem_u % metrics % x, u)
+    if (smooth_initial_data) then
+      call SmoothInitialData()
+    end if
     t = 0
     n_avg = 0
   end if
@@ -958,6 +965,44 @@ contains
     end associate
 
   end subroutine MeshStatistics
+
+  !-----------------------------------------------------------------------------
+  !> Smooth initial data
+
+  subroutine SmoothInitialData()
+    use TPO__AAA__3D
+    use Assembly__3D
+    use Element_Transfer_Buffer__3D
+
+    type(ElementTransferBuffer_3D), allocatable, asynchronous, save :: buf_s
+    real(RNP), allocatable, save :: s(:,:,:,:)
+
+    real(RNP), allocatable :: A_cut(:,:)
+    integer :: n_cut = 2
+    integer :: po_cut
+    integer :: c
+
+    !$omp master
+    allocate(s(0:po_u,0:po_u,0:po_u,1:n_elem+n_ghost), source = ZERO)
+    buf_s = ElementTransferBuffer_3D(ins_op%mesh, s)
+    !$omp end master
+    !$omp barrier
+
+    po_cut = max(1, po_u - n_cut)
+    allocate(A_cut(0:po_u,0:po_u))
+    call ins_op % eop_u % Get_Bubble_CutoffFilter(po_cut, A_cut)
+
+    do c = 1, size(u,5)
+      call SetArray(s(:,:,:,1:n_elem), u(:,:,:,:,c))
+      call Assembly_3D(ins_op%mesh, s, buf_s, avg=.true.)
+      call TPO_AAA(A_cut, s(:,:,:,1:n_elem), u(:,:,:,:,c))
+    end do
+
+    !$omp master
+    deallocate(s, buf_s)
+    !$omp end master
+
+  end subroutine SmoothInitialData
 
   !=============================================================================
 
