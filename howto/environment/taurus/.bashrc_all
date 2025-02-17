@@ -1,9 +1,0 @@
-    # Initialize environment modules if module command exists and MODULESHOME set
-    if [[ -n $MODULEPATH && -n $MODULESHOME ]]
-    then
-        module use $HOME/modulefiles
-    fi
-
-    # Customized squeue
-    alias my-squeue='squeue -u `whoami` -o "%.12i %.9P %.24j %.20S %.3t  %.8M %.6D %R"'
-

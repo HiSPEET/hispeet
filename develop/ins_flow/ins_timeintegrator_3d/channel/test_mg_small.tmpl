@@ -1,6 +1,3 @@
-!===============================================================================
-! Copy this file to 'test_mg.prm' before use
-
 !-------------------------------------------------------------------------------
 ! Control
 
@@ -18,7 +15,8 @@
 ! export_vtk   = T  ! set T for generating plot files
 ! char_freq    = 0  ! set frequency of control output
 
-  restart_tag_out = 'run1'
+  restart_tag_in  = '<restart_tag_in>'
+  restart_tag_out = '<restart_tag_out>'
 /
 
 !-------------------------------------------------------------------------------
@@ -42,14 +40,13 @@
 /
 
 &ml_mesh_options_3d__static
-  l_top          =  5  ! initial top level
-  l_max          =  5  ! maximum top level
-  n_parts_root   =  8  ! number of partitions at root level   [1]
-  n_parts_growth =  8  ! partition number growth rate         [1]
+  l_top =  5  ! initial top level
+  l_max =  5  ! maximum top level
 /
 
 &ml_mesh_options_3d__dynamic
   refinement = 2*'c', 2*'s' ! (1:l_max-1)  refinement type {'c','s'}
+  n_parts    = 4 4 4 8 64
 /
 
 !-------------------------------------------------------------------------------
