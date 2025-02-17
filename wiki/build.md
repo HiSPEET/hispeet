@@ -2,7 +2,7 @@
 
 ## Basics
 
-Initialize the computing environment as described in the [environment](./wiki/environment) wiki. Then proceed as follows:
+Initialize the computing environment as described in the [environment](./environment) wiki. Then proceed as follows:
 
 - Go to the _HiSPEET_ root directory
 
