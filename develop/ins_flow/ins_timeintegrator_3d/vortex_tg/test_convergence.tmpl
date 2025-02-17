@@ -1,52 +1,66 @@
+!-------------------------------------------------------------------------------
+! Control
+
 &control_prm
+
+! log_level                 = 1  ! activate/increase
+! log_level_inner_iteration = 1  ! for higher
+! log_level_outer_iteration = 1  ! verbosity
+
   problem_file =  'vortex_tg'
   flow_problem =  'Vortex_TG'
   flow_domain  =  1
-  time_method  =  <time_method> ! 1 Euler, 2 BDF2, 3 Runge-Kutta
-!
-! bulk viscosity
-!   - use μ = 0 for Stokes hypothesis
-!   - use μ = ν for grad-div stabilization in diffusion dominant case
-!   - use μ = √(ν² + v²∆x²) for stabilization in convection dominant case
-  ins_op_opts%mu_0 = <mu> 
-!
-  ins_op_opts%eop_u%StandardElementOptions_1D%po = <po_u>
-  ins_op_opts%eop_u%penalty                      = 20
-  ins_op_opts%eop_p%StandardElementOptions_1D%po = <po_p>
-  ins_op_opts%eop_p%penalty                      = 20
-  ins_op_opts%sop_q%po                           = <po_q>
-!
-! Euler options
-  ins_ti_euler_opts%i_max_p = 1000
-  ins_ti_euler_opts%i_max_v = 1000
-  ins_ti_euler_opts%r_red   = 1e-12
-  ins_ti_euler_opts%r_max   = 1e-14
-!
-! BDF2 options
-  ins_ti_bdf2_opts%i_max_p  = 1000 
-  ins_ti_bdf2_opts%i_max_v  = 1000 
-  ins_ti_bdf2_opts%r_red    = 1e-10
-  ins_ti_bdf2_opts%r_max    = 1e-12
-!
-! Runge-Kutta options
-!   n_stage   method      IMEX-RK
-!      4        2         CB3e
-!      5        1         ARS443
-  ins_ti_runge_kutta_opts%n_stage  = 5     ! 5
-  ins_ti_runge_kutta_opts%method   = 1     ! 1
-  ins_ti_runge_kutta_opts%i_max_p  = 1000  ! 1000
-  ins_ti_runge_kutta_opts%i_max_v  = 1000  ! 1000
-  ins_ti_runge_kutta_opts%r_red    = 1e-10 ! 1e-12
-  ins_ti_runge_kutta_opts%r_max    = 1e-12 ! 1e-14
+
+! export_vtk = T                 ! set T for generating plot file
+  char_freq  = 20                ! set frequency of control output
+/
+
+!-------------------------------------------------------------------------------
+! Spatial
+
+&spatial_prm
+
+  po_u = <po_u>
+  po_p = <po_p>
+
+  ins_op_opt%pressure_method  = 3
+  ins_op_opt%diffusion_method = 3
+  ins_op_opt%penalty          = 20    ! ???
+  ins_op_opt%dealiasing       = T
+  ins_op_opt%mu_0             = 0
+/
+
+!-------------------------------------------------------------------------------
+! Temporal
+
+&temporal_prm
 
   t_end  = <t_end>
   dt     = <dt>
   nt_max = 10000000
-!
-! export_vtk = T                 ! set T for generating plot file
-  char_freq  = 20                ! set frequency of control output
-! log_level_inner_iteration = 1  ! set to ≥ 1 for higher verbosity
+
+  time_method = <time_method> ! 1 Euler, 2 BDF2, 3 Runge-Kutta
+
+  ins_ti_euler_opt%i_max_p = 1000
+  ins_ti_euler_opt%i_max_v = 1000
+  ins_ti_euler_opt%r_red   = 1e-12
+  ins_ti_euler_opt%r_max   = 1e-14
+
+  ins_ti_bdf2_opt%i_max_p  = 1000
+  ins_ti_bdf2_opt%i_max_v  = 1000
+  ins_ti_bdf2_opt%r_red    = 1e-12
+  ins_ti_bdf2_opt%r_max    = 1e-14
+
+  ins_ti_runge_kutta_opt%n_stage  = 5      ! 4 CB3e, 5 ARS443
+  ins_ti_runge_kutta_opt%method   = 1      ! 2 CB3e, 1 ARS443
+  ins_ti_runge_kutta_opt%i_max_p  = 1000
+  ins_ti_runge_kutta_opt%i_max_v  = 1000
+  ins_ti_runge_kutta_opt%r_red    = 1e-10
+  ins_ti_runge_kutta_opt%r_max    = 1e-12
 /
+
+!-------------------------------------------------------------------------------
+! Domains
 
 &cuboid_cartesian_prm
   regular    = F ! mimic irregular mesh (elements deformed or of different size)
@@ -55,5 +69,5 @@
   lx = 1,1,<l3>
   np = <np1>,<np2>,1
   ep = <ep1>,<ep2>,1
-  periodic = F,F,T
+  periodic = T,F,T
 /
