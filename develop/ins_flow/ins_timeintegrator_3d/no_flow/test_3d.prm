@@ -1,0 +1,77 @@
+!-------------------------------------------------------------------------------
+! Control
+
+&control_prm
+
+! log_level                 = 1  ! activate/increase
+! log_level_inner_iteration = 1  ! for higher
+! log_level_outer_iteration = 1  ! verbosity
+
+  problem_file = 'no_flow_3d'
+  flow_problem = 'NoFlow'
+  flow_domain  = 1
+
+! export_vtk   = T  ! set T for generating plot files
+! char_freq    = 0  ! set frequency of control output
+/
+
+!-------------------------------------------------------------------------------
+! Spatial
+
+&spatial_prm
+
+  po_u = 3
+  po_p = 2
+
+  ins_op_opt%pressure_method  = 3
+  ins_op_opt%diffusion_method = 3
+  ins_op_opt%penalty_u        = 20
+  ins_op_opt%dealiasing       = F
+  ins_op_opt%mu_0             = 1000
+/
+
+!-------------------------------------------------------------------------------
+! Temporal
+
+&temporal_prm
+
+  t_end  = 1
+  dt     = 1e-4
+  nt_max = 10000
+
+  time_method = 2  ! BDF2
+
+  ins_ti_bdf2_opt%r_red    = 1e-8
+  ins_ti_bdf2_opt%r_max    = 1e-10
+
+! use these for coupled pressure-diffusion Krylov solver
+! ins_ti_bdf2_opt%i_krylov = 3
+! ins_ti_bdf2_opt%i_pre_p  = 1000
+! ins_ti_bdf2_opt%i_pre_v  = 1000
+! ins_ti_bdf2_opt%i_max_p  = 10000
+! ins_ti_bdf2_opt%i_max_v  = 10000
+
+! use these for segregated pressure-diffusion solver
+  ins_ti_bdf2_opt%i_max_p  = 10000
+  ins_ti_bdf2_opt%i_max_v  = 10000
+/
+
+!-------------------------------------------------------------------------------
+! Domain
+
+! flow_domain  =  1
+&cuboid_cartesian_prm
+  regular    = F ! mimic irregular mesh (deformed elements)
+  structured = F ! mimic unstructured mesh
+  xo = 0.0, 0.0, 0.0
+  lx = 1.0, 1.0, 1.0
+  periodic = F,F,F
+
+! for serial runs
+  np =  3*1  ! use for
+  ep =  3*2  ! serial runs
+
+! for parallel runs
+! np = 3*4
+! ep = 3*3
+/

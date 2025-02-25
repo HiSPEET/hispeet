@@ -25,11 +25,11 @@
 &spatial_prm
 
   po_u = 8
-  po_p = 2 3 7 7 7 
+  po_p = 2 3 7 7 7
 
   ins_op_opt%pressure_method  = 4
   ins_op_opt%diffusion_method = 3
-  ins_op_opt%penalty          = 2   ! increase: smaller jumps, more v-iterations
+  ins_op_opt%penalty_u        = 2   ! increase: smaller jumps, more v-iterations
   ins_op_opt%dealiasing       = T
   ins_op_opt%mu_0             = 100
 

@@ -6,15 +6,15 @@
 
     - sequential
 
-             $MPIRUN -n 1 ../ins_timeintegrator_3d_test test-poiseuille-periodic
+             mpirun -n 1 ../ins_timeintegrator_3d_test test-periodic
     
     - parallel, using 4 processes
 
-            $MPIRUN -n 4 ../ins_timeintegrator_3d_test test-poiseuille-periodic
+            mpirun -n 4 ../ins_timeintegrator_3d_test test-periodic
 
 ## Open boundary case
 
 - works analogously, e.g.
 
-        $MPIRUN -n 4 ../ins_timeintegrator_3d_test test-poiseuille-open
+        mpirun -n 4 ../ins_timeintegrator_3d_test test-open
 

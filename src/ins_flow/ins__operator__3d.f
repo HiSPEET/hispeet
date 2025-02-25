@@ -132,7 +132,8 @@ module INS__Operator__3D
     integer   :: pressure_method  =  3      !< 1/2/3/4: CG/Schwarz/SPCG/MG
     integer   :: diffusion_method =  3      !< 1/2/3  : CG/Schwarz/SPCG
     logical   :: dealiasing       = .false. !< F: no dealiasing, T: 3/2 rule
-    real(RNP) :: penalty          = -1      !< IP-DG penalty > 1, -1: automatic
+    real(RNP) :: penalty_p        = -1      !< penalty for p-solver, -1: auto
+    real(RNP) :: penalty_u        = -1      !< penalty for u-solver, -1: auto
     real(RNP) :: mu_0             =  0      !< bulk viscosity, μ = ζ/ρ
     real(RNP) :: delta_outflow    =  0.01   !< δ parameter of outflow conditions
     type(DG_SchwarzOptions_3D) :: schwarz_p !< Schwarz options for p-solver
@@ -401,8 +402,8 @@ contains
 
     ! element operators ........................................................
 
-    this % eop_u = DG_ElementOperators_1D(sem_u % std_op, opt % penalty)
-    this % eop_p = DG_ElementOperators_1D(sem_p % std_op, opt % penalty)
+    this % eop_u = DG_ElementOperators_1D(sem_u % std_op, opt % penalty_u)
+    this % eop_p = DG_ElementOperators_1D(sem_p % std_op, opt % penalty_p)
 
     if (this%eop_u%nodes /= 'L' .or. this%eop_p%nodes /= 'L') then
       call Error( 'Init_INS_Operator_3D'               &
@@ -457,7 +458,7 @@ contains
     ! elliptic operator for pressure
     this % elliptic_p = DG_EllipticOperator_3D( sem_p           &
                                               , opt % schwarz_p &
-                                              , opt % penalty   )
+                                              , opt % penalty_p )
 
     ! Schwarz operators for viscous diffusion
     this % schwarz_u = DG_SchwarzOperator_3D( opt  % schwarz_u &
@@ -604,7 +605,8 @@ contains
     call XMPI_Bcast(this % pressure_method , root, comm)
     call XMPI_Bcast(this % diffusion_method, root, comm)
     call XMPI_Bcast(this % dealiasing      , root, comm)
-    call XMPI_Bcast(this % penalty         , root, comm)
+    call XMPI_Bcast(this % penalty_p       , root, comm)
+    call XMPI_Bcast(this % penalty_u       , root, comm)
     call XMPI_Bcast(this % mu_0            , root, comm)
     call XMPI_Bcast(this % delta_outflow   , root, comm)
 

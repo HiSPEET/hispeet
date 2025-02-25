@@ -3,18 +3,18 @@
 
 &control_prm
 
-  ! log levels,  set to ≥ 1 for higher verbosity
-  log_level                 = 0
-  log_level_inner_iteration = 1
-  log_level_outer_iteration = 1
-  log_level_multigrid_cycle = 1
+! log levels,  set to ≥ 1 for higher verbosity
+! log_level                 = 0
+! log_level_inner_iteration = 1
+! log_level_outer_iteration = 1
+! log_level_multigrid_cycle = 1
 
   problem_file = 'variable_viscosity'
   flow_problem = 'VariableViscosity'
   flow_domain  = 1
 
-  ! export_vtk   = T  ! set T for generating plot files
-  ! char_freq    = 0  ! set frequency of control output
+! export_vtk   = T  ! set T for generating plot files
+! char_freq    = 0  ! set frequency of control output
 /
 
 !-------------------------------------------------------------------------------
@@ -27,7 +27,6 @@
 
   ins_op_opt%pressure_method  = 4
   ins_op_opt%diffusion_method = 3
-  ins_op_opt%penalty          = 20
   ins_op_opt%dealiasing       = T
 
   ! bulk viscosity

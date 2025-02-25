@@ -10,7 +10,7 @@ CASE="convergence_dt"
 MPIRUN=${MPIRUN:-"mpirun"}
 
 # path to program
-PROGRAM="../ins_timeintegrator_3d_test"
+PROG="../ins_timeintegrator_3d_test"
 
 # kinematic shear viscosity, used for scaling the stabilizing bulk viscosity
 NU=0.01
@@ -65,7 +65,7 @@ for((s=0; s<=ST_MAX; s++)); do
         test_convergence.tmpl > \
         test_convergence.prm
 
-    ${MPIRUN} -n ${NPROC} ${PROGRAM} test_convergence 2>&1 | tee -a ${CASE}.log
+    ${MPIRUN} -n ${NPROC} ${PROG} test_convergence 2>&1 | tee -a ${CASE}.log
 
 done
 
@@ -73,4 +73,3 @@ grep -e "#\s\s*t" -m 1 ${CASE}.log >  ${CASE}.dat
 grep -e "#last#"       ${CASE}.log >> ${CASE}.dat
 
 date >> ${CASE}.log
-

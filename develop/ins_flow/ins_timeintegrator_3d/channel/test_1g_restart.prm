@@ -31,7 +31,6 @@
 
   ins_op_opt%pressure_method  = 3
   ins_op_opt%diffusion_method = 3
-  ins_op_opt%penalty          = 20
   ins_op_opt%dealiasing       = T
   ins_op_opt%mu_0             = 10
 /
@@ -49,7 +48,7 @@
   time_method = 2  ! 1/2/3: Euler/BDF2/Runge-Kutta
 
   ins_ti_bdf2_opt%i_max_p  = 50000
-  ins_ti_bdf2_opt%i_max_v  = 5 
+  ins_ti_bdf2_opt%i_max_v  = 5
   ins_ti_bdf2_opt%r_red    = 1e-08
   ins_ti_bdf2_opt%r_max    = 1e-12
 /
