@@ -18,7 +18,7 @@
 !>   -  the time derivative of the exact solution
 !>   -  a variable viscosity
 !>
-!> Four cases of variable viscosity are considered:
+!> Three cases of variable viscosity are considered:
 !>
 !>   1. Position dependent viscosity `nu(x)`,
 !>      implementation follows
@@ -53,7 +53,7 @@ module INS__Problem__Variable_Viscosity__3D
 
   type, extends(INS_Problem_3D) :: INS_Problem_VariableViscosity_3D
 
-    integer   :: test_case = 1    !< variable viscosity case 1|2|3|4
+    integer   :: test_case = 1    !< variable viscosity case 1|2|3
     real(RNP) :: nu_0      = ONE  !< constant base viscosity
     real(RNP) :: nu_1      = ONE  !< coefficient of variable viscosity
 

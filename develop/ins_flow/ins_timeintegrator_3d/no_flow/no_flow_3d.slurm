@@ -25,7 +25,7 @@
 
 date
 
-srun ../ins_timeintegrator_3d_test ins_timeintegrator_3d_test_3d
+srun ../ins_timeintegrator_3d_test test_3d
 
 date
 

@@ -7,7 +7,6 @@
 
 submodule(DG__Elliptic_Operator__3D) MP_Eval_RC
   use TPO__Elliptic__3D_RLCI
-  use Mesh_Element__3D
   use Mesh__3D
   use Element_Face_Transfer_Buffer__3D
   implicit none
@@ -21,8 +20,9 @@ contains
   !>   1) `f` and `bv` given:  computation of the residual, `r = f - Au`
   !>   2) `f` and `bv` absent: evaluation of the homogeneous operator, `r = Au`
 
-  module subroutine Eval_RC(this, lambda, nu, u, r, f, bv)
+  module subroutine Eval_RC(this, bc, lambda, nu, u, r, f, bv)
     class(DG_EllipticOperator_3D),   intent(in)  :: this
+    character,                       intent(in)  :: bc(:)      !< {P,D,N}
     real(RNP),                       intent(in)  :: lambda     !< λ
     real(RNP),                       intent(in)  :: nu         !< ν = νᵖ+νˢ
     real(RNP), contiguous,           intent(in)  :: u(:,:,:,:) !< operand
@@ -39,12 +39,8 @@ contains
     ! trace variables
     real(RNP), allocatable, save :: tr(:,:,:,:,:) ! traces of u and q_n
 
-    ! 1D standard operators
-    real(RNP) :: As(0:this%eop%po, 0:this%eop%po) ! diffusion Dᵀ(ν+νˢQ)D
-    real(RNP) :: Bs(0:this%eop%po, 0:this%eop%po) ! "flux" (ν+νˢQ)D
-
-    real(RNP) :: nu_p, nu_s
-    integer   :: po, ne, ng, np
+    logical :: hom_bc
+    integer :: po, ne, ng, np
 
     if (this % sem % mesh % part < 0) return
 
@@ -53,27 +49,12 @@ contains
 
       ! initialization .........................................................
 
+      hom_bc = .not. present(bv)
+
       po = eop  % po
       ne = mesh % n_elem
       ng = mesh % n_ghost
       np = po + 1
-
-      nu_p = this % PhysicalDiffusivity(nu)
-      nu_s = this % SpectralDiffusivity(nu)
-
-      ! computation of 1D standard diffusion and standard flux operator
-      if (nu_s > 0) then
-        call eop % Get_SVV_StandardStiffnessMatrix(As)
-        call eop % Get_SVV_StandardDiffMatrix(Bs)
-        As = nu_s * As
-        Bs = nu_s * Bs
-      else
-        As = ZERO
-        Bs = ZERO
-      end if
-
-      As = As + nu_p * eop%L
-      Bs = Bs + nu_p * eop%D
 
       ! workspace and operators
       !$omp master
@@ -87,17 +68,17 @@ contains
       ! r is restricted to local elements, as it may contain ghost
       ! entries and no bound checking is performed in TPO_Elliptic
 
-      call TPO_Elliptic_RLCI( eop%w, As, mesh%dx &
-                            , lambda, ONE, u     &
-                            , r(:,:,:,:ne), Bs   &
-                            , ub = tr(:,:,:,:,1) &
-                            , qb = tr(:,:,:,:,2) )
+      call TPO_Elliptic_RLCI( eop%w, eop%L, mesh%dx  &
+                            , lambda, nu, u          &
+                            , r(:,:,:,:ne), eop%D    &
+                            , ub = tr(:,:,:,:,1)     &
+                            , qb = tr(:,:,:,:,2)     )
 
       ! transfer traces and apply boundary conditions ..........................
 
       call buf_tr % Transfer(mesh, tr, tag=1000)
 
-      call EnforceBoundaryConditions( this, bv              &
+      call EnforceBoundaryConditions( this, bc, bv          &
                                     , jmp_u = tr(:,:,:,:,1) &
                                     , avg_q = tr(:,:,:,:,2) )
 
@@ -105,7 +86,7 @@ contains
 
       ! add fluxes .............................................................
 
-      call AddFluxes(mesh, eop, Bs, nu_p, nu_s, tr, r, f)
+      call AddFluxes(mesh, eop, hom_bc, nu, tr, r, f)
 
       ! frozen and ghost elements are set to zero ..............................
 
@@ -124,21 +105,18 @@ contains
   !-----------------------------------------------------------------------------
   !> Compute & add fluxes through element boundaries and, optionally, apply RHS
 
-  subroutine AddFluxes(mesh, eop, Bs, nu_p, nu_s, tr, r, f)
+  subroutine AddFluxes(mesh, eop, hom_bc, nu, tr, r, f)
 
     ! arguments ................................................................
 
     class(Mesh_3D),                intent(in) :: mesh !< mesh partition
     class(DG_ElementOperators_1D), intent(in) :: eop  !< ID-DG element operators
 
-    real(RNP), intent(in)    :: Bs(0:,0:)        !< 1D standard "flux" operator
-    real(RNP), intent(in)    :: nu_p             !< diffusivity
-    real(RNP), intent(in)    :: nu_s             !< spectral diffusivity
-    real(RNP), intent(in)    :: tr(0:,0:,:,:,:)  !< traces of u, q_n
-    real(RNP), intent(inout) :: r(0:,0:,0:,:)    !< result
-    real(RNP), intent(in), optional :: f(0:,0:,0:,:) !< RHS
-
-    contiguous :: Bs, tr, r, f
+    logical,   intent(in) :: hom_bc  !< F/T for in/homogeneous BC
+    real(RNP), intent(in) :: nu      !< diffusivity
+    real(RNP), contiguous, intent(in)    :: tr(0:,0:,:,:,:)  !< traces of u, q_n
+    real(RNP), contiguous, intent(inout) :: r(0:,0:,0:,:)    !< result
+    real(RNP), contiguous, intent(in), optional :: f(0:,0:,0:,:) !< RHS
 
     ! local variables ..........................................................
 
@@ -152,6 +130,7 @@ contains
 
     associate( P  => eop  % po, &
                Ms => eop  % w,  &
+               Ds => eop  % D,  &
                dx => mesh % dx  )
 
       ! auxiliaries ............................................................
@@ -192,8 +171,8 @@ contains
 
           ! direction 1
           !
-          !   r = r - Mf ([𝜑]⋅{(ν+νˢQ)∇u} + ({(ν+νˢQ)∇𝜑} - μ(ν+νˢ)[𝜑])⋅[u])₁
-          !         - Mf ([𝜑]⋅{(ν+νˢQ)∇u} + ({(ν+νˢQ)∇𝜑} - μ(ν+νˢ)[𝜑])⋅[u])₂
+          !   r = r - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₁
+          !         - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₂
           !
           ! with
           !
@@ -201,74 +180,83 @@ contains
           !
           ! at face 1 (ξ = -1)
           !
-          !   n⋅[𝜑]         =  δ(0,i)                         =  delta_0(i)
-          !   n⋅{(ν+νˢQ)∇𝜑} = -1/∆x Bs(0,i)                   = -g(1) * Bs(0,i)
-          !   n⋅[u]         =  (   u⁻(j,k) -    u⁺(j,k))₁     =  jmp_u_0(j,k)
-          !   n⋅{(ν+νˢQ)∇u} =  (n⁻⋅q⁻(j,k) - n⁺⋅q⁺(j,k))₁ / 2 =  avg_q_0(j,k)
+          !   n⋅[𝜑]   =  δ(0,i)                         =  delta_0(i)
+          !   n⋅{ν∇𝜑} = -ν/∆x D(0,i)                    = -g(1) * ν Ds(0,i)
+          !   n⋅[u]   =  (   u⁻(j,k) -    u⁺(j,k))₁     =  jmp_u_0(j,k)
+          !   n⋅{ν∇u} =  (n⁻⋅q⁻(j,k) - n⁺⋅q⁺(j,k))₁ / 2 =  avg_q_0(j,k)
           !
           ! and at face 2 (ξ = +1)
           !
-          !   n⋅[𝜑]         =  δ(P,i)                         =  delta_P(i)
-          !   n⋅{(ν+νˢQ)∇𝜑} =  1/∆x Bs(P,i)                   =  g(1) * Bs(P,i)
-          !   n⋅[u]         =  (   u⁻(j,k) -    u⁺(j,k))₂     =  jmp_u_P(j,k)
-          !   n⋅{(ν+νˢQ)∇u} =  (n⁻⋅q⁻(j,k) - n⁺⋅q⁺(j,k))₂ / 2 =  avg_q_P(j,k)
+          !   n⋅[𝜑]   =  δ(P,i)                         =  delta_P(i)
+          !   n⋅{ν∇𝜑} =  ν/∆x D(P,i)                    =  g(1) * ν Ds(P,i)
+          !   n⋅[u]   =  (   u⁻(j,k) -    u⁺(j,k))₂     =  jmp_u_P(j,k)
+          !   n⋅{ν∇u} =  (n⁻⋅q⁻(j,k) - n⁺⋅q⁺(j,k))₂ / 2 =  avg_q_P(j,k)
 
-          call GetBoundaryFluxes(element, struct, e, 1, tr, jmp_u_0, avg_q_0)
-          call GetBoundaryFluxes(element, struct, e, 2, tr, jmp_u_P, avg_q_P)
+          call GetElementBoundaryFluxes( element, struct, hom_bc, e, 1 &
+                                       , tr, jmp_u_0, avg_q_0          )
+          call GetElementBoundaryFluxes( element, struct, hom_bc, e, 2 &
+                                       , tr, jmp_u_P, avg_q_P          )
 
-          cp = -(nu_p + nu_s) * mu(1)
-
-          do k = 0, P
-          do j = 0, P
-          do i = 0, P
-
-            r(i,j,k,e) = r(i,j,k,e)                                             &
-              - Mf1(j,k) * ( delta_0(i) * avg_q_0(j,k)                          &
-                           + delta_P(i) * avg_q_P(j,k)                          &
-                           + (-g(1) * Bs(0,i) + cp * delta_0(i)) * jmp_u_0(j,k) &
-                           + ( g(1) * Bs(P,i) + cp * delta_P(i)) * jmp_u_P(j,k) )
-          end do
-          end do
-          end do
-
-          ! r = r - Mf ([𝜑]⋅{(ν+νˢQ)∇u} + ({(ν+νˢQ)∇𝜑} - μ(ν+νˢ)[𝜑])⋅[u])₃
-          !       - Mf ([𝜑]⋅{(ν+νˢQ)∇u} + ({(ν+νˢQ)∇𝜑} - μ(ν+νˢ)[𝜑])⋅[u])₄
-
-          call GetBoundaryFluxes(element, struct, e, 3, tr, jmp_u_0, avg_q_0)
-          call GetBoundaryFluxes(element, struct, e, 4, tr, jmp_u_P, avg_q_P)
-
-          cp = -(nu_p + nu_s) * mu(2)
+          cp = -nu * mu(1)
 
           do k = 0, P
           do j = 0, P
           do i = 0, P
 
             r(i,j,k,e) = r(i,j,k,e)                                             &
-              - Mf2(i,k) * ( delta_0(j) * avg_q_0(i,k)                          &
-                           + delta_P(j) * avg_q_P(i,k)                          &
-                           + (-g(2) * Bs(0,j) + cp * delta_0(j)) * jmp_u_0(i,k) &
-                           + ( g(2) * Bs(P,j) + cp * delta_P(j)) * jmp_u_P(i,k) )
+                       - Mf1(j,k)                                               &
+                          * ( delta_0(i) * avg_q_0(j,k)                         &
+                            + delta_P(i) * avg_q_P(j,k)                         &
+                            + (-g(1)*nu*Ds(0,i) + cp*delta_0(i)) * jmp_u_0(j,k) &
+                            + ( g(1)*nu*Ds(P,i) + cp*delta_P(i)) * jmp_u_P(j,k) )
           end do
           end do
           end do
 
-          ! r = r - Mf ([𝜑]⋅{(ν+νˢQ)∇u} + ({(ν+νˢQ)∇𝜑} - μ(ν+νˢ)[𝜑])⋅[u])₅
-          !       - Mf ([𝜑]⋅{(ν+νˢQ)∇u} + ({(ν+νˢQ)∇𝜑} - μ(ν+νˢ)[𝜑])⋅[u])₆
+          ! r = r - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₃
+          !       - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₄
 
-          call GetBoundaryFluxes(element, struct, e, 5, tr, jmp_u_0, avg_q_0)
-          call GetBoundaryFluxes(element, struct, e, 6, tr, jmp_u_P, avg_q_P)
+          call GetElementBoundaryFluxes( element, struct, hom_bc, e, 3 &
+                                       , tr, jmp_u_0, avg_q_0          )
+          call GetElementBoundaryFluxes( element, struct, hom_bc, e, 4 &
+                                       , tr, jmp_u_P, avg_q_P          )
 
-          cp = -(nu_p + nu_s) * mu(3)
+          cp = -nu * mu(2)
 
           do k = 0, P
           do j = 0, P
           do i = 0, P
 
             r(i,j,k,e) = r(i,j,k,e)                                             &
-              - Mf3(i,j) * ( delta_0(k) * avg_q_0(i,j)                          &
-                           + delta_P(k) * avg_q_P(i,j)                          &
-                           + (-g(3) * Bs(0,k) + cp * delta_0(k)) * jmp_u_0(i,j) &
-                           + ( g(3) * Bs(P,k) + cp * delta_P(k)) * jmp_u_P(i,j) )
+                       - Mf2(i,k)                                               &
+                          * ( delta_0(j) * avg_q_0(i,k)                         &
+                            + delta_P(j) * avg_q_P(i,k)                         &
+                            + (-g(2)*nu*Ds(0,j) + cp*delta_0(j)) * jmp_u_0(i,k) &
+                            + ( g(2)*nu*Ds(P,j) + cp*delta_P(j)) * jmp_u_P(i,k) )
+          end do
+          end do
+          end do
+
+          ! r = r - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₅
+          !       - Mf ([𝜑]⋅{ν∇u} + ({ν∇𝜑} - μν[𝜑])⋅[u])₆
+
+          call GetElementBoundaryFluxes( element, struct, hom_bc, e, 5 &
+                                       , tr, jmp_u_0, avg_q_0          )
+          call GetElementBoundaryFluxes( element, struct, hom_bc, e, 6 &
+                                       , tr, jmp_u_P, avg_q_P          )
+
+          cp = -nu * mu(3)
+
+          do k = 0, P
+          do j = 0, P
+          do i = 0, P
+
+            r(i,j,k,e) = r(i,j,k,e)                                             &
+                       - Mf3(i,j)                                               &
+                          * ( delta_0(k) * avg_q_0(i,j)                         &
+                            + delta_P(k) * avg_q_P(i,j)                         &
+                            + (-g(3)*nu*Ds(0,k) + cp*delta_0(k)) * jmp_u_0(i,j) &
+                            + ( g(3)*nu*Ds(P,k) + cp*delta_P(k)) * jmp_u_P(i,j) )
           end do
           end do
           end do
@@ -291,42 +279,42 @@ contains
 
   end subroutine AddFluxes
 
-  !-----------------------------------------------------------------------------
-  !> Compose element-boundary fluxes from flux traces
-
-  subroutine GetBoundaryFluxes(element, struct, e, f, tr, jmp_u, avg_q)
-
-    class(MeshElement_3D), intent(in) :: element
-    logical,   intent(in)  :: struct        !< F/T for un/structured mesh
-    integer,   intent(in)  :: e             !< element ID
-    integer,   intent(in)  :: f             !< element face
-    real(RNP), intent(in)  :: tr(:,:,:,:,:) !< traces of u, q_n
-    real(RNP), intent(out) :: jmp_u(:,:)    !< normal jump n⋅[u]
-    real(RNP), intent(out) :: avg_q(:,:)    !< average normal flux n⋅{q}
-
-    contiguous :: tr, jmp_u, avg_q
-
-    integer :: i, l, m
-
-    i = element % face(f) % i_neighbor
-    if (i > 0) then
-      l = element % neighbor(i) % id
-      m = element % neighbor(i) % component
-      if (struct) then
-        jmp_u = (tr(:,:,f,e,1) - tr(:,:,m,l,1))
-        avg_q = (tr(:,:,f,e,2) - tr(:,:,m,l,2)) * HALF
-      else
-        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), jmp_u)
-        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), avg_q)
-        jmp_u = (tr(:,:,f,e,1) - jmp_u)
-        avg_q = (tr(:,:,f,e,2) - avg_q) * HALF
-      end if
-    else
-      jmp_u = tr(:,:,f,e,1)
-      avg_q = tr(:,:,f,e,2)
-   end if
-
-  end subroutine GetBoundaryFluxes
+!!   !-----------------------------------------------------------------------------
+!!   !> Compose element-boundary fluxes from flux traces
+!!
+!!   subroutine GetBoundaryFluxes(element, struct, e, f, tr, jmp_u, avg_q)
+!!
+!!     class(MeshElement_3D), intent(in) :: element
+!!     logical,   intent(in)  :: struct        !< F/T for un/structured mesh
+!!     integer,   intent(in)  :: e             !< element ID
+!!     integer,   intent(in)  :: f             !< element face
+!!     real(RNP), intent(in)  :: tr(:,:,:,:,:) !< traces of u, q_n
+!!     real(RNP), intent(out) :: jmp_u(:,:)    !< normal jump n⋅[u]
+!!     real(RNP), intent(out) :: avg_q(:,:)    !< average normal flux n⋅{q}
+!!
+!!     contiguous :: tr, jmp_u, avg_q
+!!
+!!     integer :: i, l, m
+!!
+!!     i = element % face(f) % i_neighbor
+!!     if (i > 0) then
+!!       l = element % neighbor(i) % id
+!!       m = element % neighbor(i) % component
+!!       if (struct) then
+!!         jmp_u = (tr(:,:,f,e,1) - tr(:,:,m,l,1))
+!!         avg_q = (tr(:,:,f,e,2) - tr(:,:,m,l,2)) * HALF
+!!       else
+!!         call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), jmp_u)
+!!         call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), avg_q)
+!!         jmp_u = (tr(:,:,f,e,1) - jmp_u)
+!!         avg_q = (tr(:,:,f,e,2) - avg_q) * HALF
+!!       end if
+!!     else
+!!       jmp_u = tr(:,:,f,e,1)
+!!       avg_q = tr(:,:,f,e,2)
+!!    end if
+!!
+!!   end subroutine GetBoundaryFluxes
 
   !=============================================================================
 

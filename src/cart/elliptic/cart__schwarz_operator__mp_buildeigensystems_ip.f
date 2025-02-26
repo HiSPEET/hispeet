@@ -236,11 +236,11 @@ subroutine GetSubdomainOperators(eop, svv_ratio, no, bc, Ws, S, V, W)
 
       ! mass matrix ............................................................
 
-      allocate(Md(0:po), source = HALF * Ms)
+      allocate(Md(0:po), source = HALF * Ms(0:po))
 
       ! stiffness matrix .......................................................
 
-      allocate(Ld(0:po,0:po), source = Le_bc(:,:,0))
+      allocate(Ld(0:po,0:po), source = Le_bc(0:po,0:po,0))
 
       ! eigenvectors and eigenvalues ...........................................
 

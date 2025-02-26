@@ -131,12 +131,12 @@ contains
     associate( problem => this % problem        &
              , ins_op  => this % ins_op         &
              , mesh    => this % ins_op % mesh  &
-             , sem_v   => this % ins_op % sem_v &
+             , sem_u   => this % ins_op % sem_u &
              , v       => u(:,:,:,:,1:3)        )
 
       ! initialization .........................................................
 
-      po = ins_op % eop_v % po
+      po = ins_op % eop_u % po
       np = po + 1
 
       !$omp master
@@ -183,9 +183,9 @@ contains
         allocate( bv_dp (mesh % n_bound) )
 
         do b = 1, mesh % n_bound
-          bv_x(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 3)
-          bv_u(b) = BoundaryVariable_3D(mesh % boundary(b), po, nc = 5)
-          call bv_x(b) % Extract(sem_v % metrics % x)
+          call bv_x(b) % Init(mesh % boundary(b), po, nc = 3)
+          call bv_u(b) % Init(mesh % boundary(b), po, nc = 5)
+          call bv_x(b) % Extract(sem_u % metrics % x)
           call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v (b))
           call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p (b))
           call bv_u(b) % GetSlice(first=5, last=5, slice = bv_dp(b))
@@ -200,7 +200,7 @@ contains
       !$omp barrier
 
       ! inverse diagonal mass matrix
-      call sem_v % Get_DG_DiagonalMassMatrix(inv_mm)
+      call sem_u % Get_DG_DiagonalMassMatrix(inv_mm)
       !$omp workshare
       inv_mm = 1 / inv_mm
       !$omp end workshare nowait
@@ -221,7 +221,7 @@ contains
       ! so far ν is constant and boundaries are periodic or have Dirichlet BC
 
       if (problem % HasVariableProperties()) then
-        call problem % GetViscosity(sem_v % metrics % x, t, u, nu)
+        call problem % GetViscosity(sem_u % metrics % x, t, u, nu)
       end if
 
       ! diffusion term using rotational form with extrapolation: s⁺ = s⁻ at ∂Ωᴼ
@@ -257,7 +257,7 @@ contains
 
       ! sources and boundary conditions.........................................
 
-      call problem % GetExternalSources(sem_v % metrics % x, t, Q)
+      call problem % GetExternalSources(sem_u % metrics % x, t, Q)
 
       do b = 1, mesh % n_bound
         select case(problem % bc_v(b))
@@ -265,7 +265,7 @@ contains
           call problem % GetBoundaryValues(b, bv_x(b) % val, t, bv_u(b) % val)
         case('O')
           associate(dp => bv_dp(b) % val(:,:,:,1) )
-            call bv_p(b) % MergeNormalTrace(sem_v, cb=ZERO, ct=-ONE, vt=sp)
+            call bv_p(b) % MergeNormalTrace(sem_u, cb=ZERO, ct=-ONE, vt=sp)
             call ins_op % GetBackflowPenalty(problem, b, v, dp)
             call MergeArrays(ONE, bv_p(b) % val(:,:,:,1), ONE, dp)
           end associate

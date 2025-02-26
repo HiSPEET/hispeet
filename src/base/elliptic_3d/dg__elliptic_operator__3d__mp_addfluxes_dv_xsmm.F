@@ -24,13 +24,14 @@ contains
   !-----------------------------------------------------------------------------
   !> Compute & add fluxes: LIBXSMM version
 
-  module subroutine AddFluxes_DV_XSMM(mesh, eop, a, Ji_n, tr, r, f)
+  module subroutine AddFluxes_DV_XSMM(mesh, eop, hom_bc, a, Ji_n, tr, r, f)
 
     ! arguments ................................................................
 
     class(Mesh_3D),                intent(in) :: mesh !< mesh partition
     class(DG_ElementOperators_1D), intent(in) :: eop  !< ID-DG element operators
 
+    logical,   intent(in)    :: hom_bc            !< F/T for in/homogeneous BC
     real(RNP), intent(in)    :: a(0:,0:,:,:)      !< area coeff @ element faces
     real(RNP), intent(in)    :: Ji_n(0:,0:,:,:,:) !< J⁻¹⋅n      @ element faces
     real(RNP), intent(in)    :: tr(0:,0:,:,:,:)   !< traces of ν, u, q_n
@@ -96,8 +97,8 @@ contains
           do m = 1, 2
 
             ! jmp_u = n·[u], avg_q = n·{ν∇u}
-            call GetBoundaryFluxes( element, struct, e, m, tr &
-                                  , nu_max, jmp_u, avg_q      )
+            call GetElementBoundaryFluxes( element, struct, hom_bc, e, m &
+                                         , tr, nu_max, jmp_u, avg_q      )
 
             nu = tr(:,:,m,e,1)
             mu = eop % PenaltyFactor(element % geometry % dx_m(m))
@@ -136,8 +137,8 @@ contains
 
           do m = 3, 4
 
-            call GetBoundaryFluxes( element, struct, e, m, tr &
-                                  , nu_max, jmp_u, avg_q      )
+            call GetElementBoundaryFluxes( element, struct, hom_bc, e, m &
+                                         , tr, nu_max, jmp_u, avg_q      )
 
             nu = tr(:,:,m,e,1)
             mu = eop % PenaltyFactor(element % geometry % dx_m(m))
@@ -172,8 +173,8 @@ contains
 
           do m = 5, 6
 
-            call GetBoundaryFluxes( element, struct, e, m, tr &
-                                  , nu_max, jmp_u, avg_q      )
+            call GetElementBoundaryFluxes( element, struct, hom_bc, e, m &
+                                         , tr, nu_max, jmp_u, avg_q      )
 
             nu = tr(:,:,m,e,1)
             mu = eop % PenaltyFactor(element % geometry % dx_m(m))

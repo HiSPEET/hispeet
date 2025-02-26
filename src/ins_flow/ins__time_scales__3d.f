@@ -57,7 +57,7 @@ contains
     integer   :: e, i, j, k, np, po
 
     associate( mesh => ins_op % mesh  &
-             , eop  => ins_op % eop_v )
+             , eop  => ins_op % eop_u )
 
       if (mesh % part < 0) return
 

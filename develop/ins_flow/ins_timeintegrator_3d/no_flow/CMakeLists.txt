@@ -1,5 +1,5 @@
-file( COPY ins_timeintegrator_3d_test_2d.prm
-           ins_timeintegrator_3d_test_3d.prm
+file( COPY test_2d.prm
+           test_3d.prm
            no_flow_2d.prm
            no_flow_3d.prm
       DESTINATION

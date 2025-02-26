@@ -98,25 +98,25 @@ contains
     n_bound = this % mesh % n_bound
     n_elem  = this % mesh % n_elem
     n_ghost = this % mesh % n_ghost
-    po      = this % eop_v % po
+    po      = this % eop_u % po
 
     !$omp master
     allocate(bv_s(n_bound), tr(0:po,0:po,6,n_elem + n_ghost,6))
     buf_tr = ElementFaceTransferBuffer_3D(this%mesh, tr)
     do b = 1, n_bound
       if (scan(this % bc_v(b),'O') > 0) then
-        bv_s(b) = BoundaryVariable_3D(this%mesh%boundary(b), po, nc = 3)
+        call bv_s(b) % Init(this%mesh%boundary(b), po, nc = 3)
       end if
     end do
     !$omp end master
     !$omp barrier
 
-    associate( mesh   => this % sem_v % mesh         &
-             , Jd     => this % sem_v % metrics % Jd &
-             , Ji     => this % sem_v % metrics % Ji &
-             , a      => this % sem_v % metrics % a  &
-             , n      => this % sem_v % metrics % n  &
-             , eop    => this % eop_v                &
+    associate( mesh   => this % sem_u % mesh         &
+             , Jd     => this % sem_u % metrics % Jd &
+             , Ji     => this % sem_u % metrics % Ji &
+             , a      => this % sem_u % metrics % a  &
+             , n      => this % sem_u % metrics % n  &
+             , eop    => this % eop_u                &
              , vm     => tr(:,:,:,:,1:3)             &
              , sm     => tr(:,:,:,:,4:6)             )
 
@@ -149,7 +149,7 @@ contains
 
       ! fluxes .................................................................
 
-      call AddViscousFluxes(mesh, eop, a, n, Ji, mu, nu, vm, sm, vp, sp, F_d )
+      call AddViscousFluxes(mesh, eop, a, n, Ji, mu, nu, vm, sm, vp, sp, F_d)
 
       ! cleanup ................................................................
 

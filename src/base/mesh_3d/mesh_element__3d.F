@@ -102,7 +102,7 @@ module Mesh_Element__3D
 
   type MeshElementFace_3D
     integer      :: id         = -1 !< local mesh face ID
-    integer      :: boundary   = -1 !< mesh boundary ID, if > 0
+    integer      :: boundary   = -1 !< boundary ID > 0, 0 for frozen neighbor
     integer(IXS) :: normal     =  1 !< normal orientation against mesh face (±1)
     integer(IXS) :: rotation   =  0 !< 1/4-rotation for aligning with mesh face
     integer(IXS) :: n_neighbor =  0 !< number of neighbor elements
@@ -341,6 +341,9 @@ module Mesh_Element__3D
     type(MeshElementGeometry_3D)   :: geometry   !< geometry data
 
   contains
+
+    procedure :: IsActive
+    procedure :: IsLeaf
 
     procedure :: GetCuboidDimensions
 
@@ -589,6 +592,27 @@ contains
 
   !=============================================================================
   ! MeshElement_3D procedures
+
+  !-----------------------------------------------------------------------------
+  !> Checks whether the element is active
+
+  elemental logical function IsActive(element)
+    class(MeshElement_3D), intent(in) :: element !< mesh element
+
+    IsActive = .not. element % frozen
+
+  end function IsActive
+
+  !-----------------------------------------------------------------------------
+  !> Checks whether the element is a leaf
+
+  elemental logical function IsLeaf(element)
+    class(MeshElement_3D), intent(in) :: element !< mesh element
+
+    IsLeaf = .not. element % frozen &
+             .and. element % adaptation % refinement < 1000
+
+  end function IsLeaf
 
   !-----------------------------------------------------------------------------
   !> Compute the dimensions of the approximate cuboid

@@ -16,7 +16,7 @@
       c0 = no + 1
 
       !$omp do
-      do e = 1, mesh % n_elem
+      do e = 1, mesh % n_elem_active
         do k = 0, po
         do j = 0, po
         do i = 0, po

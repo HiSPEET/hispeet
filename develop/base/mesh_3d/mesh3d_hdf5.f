@@ -27,7 +27,7 @@ program Mesh3d_HDF5
 
   use Export_VTK_Volume_Data__3D
 
-  use Smiling_Face
+  use QOI__Smiley__3D
 
   implicit none
 
@@ -66,7 +66,7 @@ program Mesh3d_HDF5
 
   type(PartitioningOptions_3D), save :: part_opt
   type(Mesh_3D),                save :: old_mesh, mesh
-  type(DataExchangePlan_3D),    save :: exch_plan
+  type(DataExchangePlan_3D),    save :: x_plan
   type(SpectralElementMesh_3D), save :: sem
 
   ! HDF5 .......................................................................
@@ -75,7 +75,7 @@ program Mesh3d_HDF5
 
   ! auxiliary variables ........................................................
 
-  type(SmilingFace), save :: smiley
+  type(QOI_Smiley_3D), save :: smiley
 
   real(RNP), allocatable, save :: s(:,:,:,:,:)
 
@@ -175,10 +175,10 @@ program Mesh3d_HDF5
   ! root mesh partitioning .....................................................
 
   if (old_mesh % n_parts /= part_opt % n_parts) then
-    call RootMeshPartitioning_3D( opt       = part_opt  &
-                                , old_mesh  = old_mesh  &
-                                , new_mesh  = mesh      &
-                                , exch_plan = exch_plan )
+    call RootMeshPartitioning_3D( opt      = part_opt  &
+                                , old_mesh = old_mesh  &
+                                , new_mesh = mesh      &
+                                , x_plan   = x_plan    )
   else
     mesh = old_mesh
   end if
@@ -290,7 +290,8 @@ program Mesh3d_HDF5
 
     do e = 1, mesh%n_elem
       s(:,:,:,e,1) = smiley % Density( sem%metrics%x(:,:,:,e,1) &
-                                     , sem%metrics%x(:,:,:,e,2) )
+                                     , sem%metrics%x(:,:,:,e,2) &
+                                     , sem%metrics%x(:,:,:,e,3) )
       s(:,:,:,e,2) = e
       s(:,:,:,e,3) = mesh % part
     end do

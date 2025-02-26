@@ -1,4 +1,4 @@
-!> summary:  3D multilevel spectral element mesh
+!> summary:  3D multilevel spectral element space operators
 !> author:   Joerg Stiller
 !> date:     2024/06/26
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -16,17 +16,17 @@ module ML__Mesh_Operators__3D
   public :: ML_MeshOperators_3D
 
   !-----------------------------------------------------------------------------
-  !> 3D multilevel spectral element mesh
+  !> 3D multilevel spectral element mesh operators
 
   type ML_MeshOperators_3D
     type(SpectralElementMesh_3D), allocatable :: sem(:)
       !< sequence of spectral element meshes [1:l_top]
-    type(HP_RefinementOperator_1D), allocatable :: iop_cf(:)
-      !< fine-to-coarse interpolation operators [1:l_top-1]
-    type(HP_CoarseningOperator_1D), allocatable :: iop_fc(:)
-      !< coarse-to-fine interpolation operators [2:l_top]
-    type(HP_CoarseningOperator_1D), allocatable :: pop_fc(:)
-      !< coarse-to-fine L2-projection operators [2:l_top]
+    type(HP_RefinementOperator_1D), allocatable :: iop_cf_x(:)
+      !< coarse-to-fine interpolation operators in space [1:l_top-1]
+    type(HP_CoarseningOperator_1D), allocatable :: iop_fc_x(:)
+      !< fine-to-coarse interpolation operators in space [2:l_top]
+    type(HP_CoarseningOperator_1D), allocatable :: pop_fc_x(:)
+      !< fine-to-coarse L2-projection operators in space [2:l_top]
   contains
     procedure :: Init_ML_MeshOperators_3D
   end type ML_MeshOperators_3D
@@ -64,8 +64,8 @@ contains
     integer,   optional, intent(in) :: smooth  !< fine-to-coarse discontinuity
                                                !! smoothing {0,1,2} [0]
 
-    type(HP_RefinementOptions_1D) :: cf_opt
-    type(HP_CoarseningOptions_1D) :: fc_opt
+    type(HP_RefinementOptions_1D) :: opt_cf
+    type(HP_CoarseningOptions_1D) :: opt_fc
 
     integer :: l, l_top
 
@@ -80,46 +80,46 @@ contains
 
       l_top = size(mesh)
 
-      allocate(this % sem    (1:l_top  ))
-      allocate(this % iop_cf (1:l_top-1))
-      allocate(this % iop_fc (2:l_top  ))
-      allocate(this % pop_fc (2:l_top  ))
+      allocate(this % sem      (1:l_top  ))
+      allocate(this % iop_cf_x (1:l_top-1))
+      allocate(this % iop_fc_x (2:l_top  ))
+      allocate(this % pop_fc_x (2:l_top  ))
 
       if (present(nodes)) then
-        cf_opt % nodes = nodes
-        fc_opt % nodes = nodes
+        opt_cf % nodes = nodes
+        opt_fc % nodes = nodes
       end if
 
       if (present(smooth)) then
-        fc_opt % smooth = smooth
+        opt_fc % smooth = smooth
       end if
 
       ! creation of levels .....................................................
 
-        do l = 1, l_top
+      do l = 1, l_top
 
         this % sem(l) = SpectralElementMesh_3D(mesh(l), po(l), nodes)
 
         ! coarse-to-fine transfers operators
         if (l < l_top) then
           ! interpolation
-          cf_opt % po_c    = po(l)
-          cf_opt % po_f    = po(l+1)
-          cf_opt % mode    = Mode(mesh(l)%refinement, po(l), po(l+1))
-          this % iop_cf(l) = HP_RefinementOperator_1D(cf_opt)
+          opt_cf % po_c = po(l)
+          opt_cf % po_f = po(l+1)
+          opt_cf % mode = Mode(mesh(l)%refinement, po(l), po(l+1))
+          this % iop_cf_x(l) = HP_RefinementOperator_1D(opt_cf)
         end if
 
         ! fine-to-coarse transfers operators
         if (l > 1) then
           ! interpolation
-          fc_opt % po_f    = po(l)
-          fc_opt % po_c    = po(l-1)
-          fc_opt % method  = 'I'
-          fc_opt % mode    = Mode(mesh(l-1)%refinement, po(l-1), po(l))
-          this % iop_fc(l) = HP_CoarseningOperator_1D(fc_opt)
+          opt_fc % po_f   = po(l)
+          opt_fc % po_c   = po(l-1)
+          opt_fc % method = 'I'
+          opt_fc % mode   = Mode(mesh(l-1)%refinement, po(l-1), po(l))
+          this % iop_fc_x(l) = HP_CoarseningOperator_1D(opt_fc)
           ! L2-projection
-          fc_opt % method  = 'P'
-          this % pop_fc(l) = HP_CoarseningOperator_1D(fc_opt)
+          opt_fc % method = 'P'
+          this % pop_fc_x(l) = HP_CoarseningOperator_1D(opt_fc)
         end if
 
         ! skip levels above toplevel mesh

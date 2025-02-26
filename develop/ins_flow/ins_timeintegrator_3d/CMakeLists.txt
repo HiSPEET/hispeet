@@ -11,23 +11,11 @@ target_link_libraries(ins_timeintegrator_3d_test HiINSFlow)
 # Test cases
 
 add_subdirectory(no_flow)
+add_subdirectory(channel)
+add_subdirectory(cylinder_2d)
+add_subdirectory(hagen_poiseuille)
+add_subdirectory(poiseuille)
+add_subdirectory(stokes_dkm)
 add_subdirectory(stokes_linke)
 add_subdirectory(vortex_tg)
-
-#===============================================================================
-# Test cases - to be revised
-
-file( COPY
-          ins_timeintegrator_3d_test.prm
-          channel
-          cylinder_2d
-          hagen_poiseuille
-          poiseuille
-          stokes_dkm
-          variable_viscosity
-          #vortex_tg             # -- revised 
-      DESTINATION
-          ${CMAKE_CURRENT_BINARY_DIR} )
-
- configure_file( ins_timeintegrator_3d_test.slurm
-                 ins_timeintegrator_3d_test.slurm COPYONLY )
+add_subdirectory(variable_viscosity)

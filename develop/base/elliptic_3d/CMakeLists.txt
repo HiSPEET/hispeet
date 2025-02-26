@@ -12,6 +12,9 @@ configure_file( dg_elliptic_3d_test_simple.prm
 configure_file( dg_elliptic_3d_test_knotty.prm
                 dg_elliptic_3d_test_knotty.prm COPYONLY )
 
+configure_file( dg_elliptic_3d_test_sphere.prm
+                dg_elliptic_3d_test_sphere.prm COPYONLY )
+
 configure_file( dg_elliptic_3d_test_tgv_pressure.prm
                 dg_elliptic_3d_test_tgv_pressure.prm COPYONLY )
 

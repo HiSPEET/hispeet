@@ -99,7 +99,6 @@ set ( SPECTRAL_ELEMENT
       spectral_element/embedded_interpolation_operator__3d.f
 
       spectral_element/projection_operator__1d.f
-      spectral_element/projection_operator__3d.f
     )
 
 #===============================================================================
@@ -160,6 +159,8 @@ set ( MESH_3D
       mesh_3d/generate_regular_mesh__3d.f
       mesh_3d/mesh_metrics__3d.f
       mesh_3d/spectral_element_mesh__3d.f
+
+      mesh_3d/mesh_variable__3d.f
       mesh_3d/boundary_variable__3d.f
 
     )
@@ -239,6 +240,7 @@ set( ELLIPTIC_3D
      elliptic_3d/elliptic_problem__3d.f
      elliptic_3d/elliptic_problem__knotty__3d.f
      elliptic_3d/elliptic_problem__simple__3d.f
+     elliptic_3d/elliptic_problem__sphere__3d.f
      elliptic_3d/elliptic_problem__tgv_pressure__3d.f
 
      elliptic_3d/dg__elliptic_operator__3d.f
@@ -272,20 +274,6 @@ set( ELLIPTIC_3D
 # multilevel_3d
 
 set( MULTILEVEL_3D
-     multilevel_3d/mesh/ml__boundary_variable__3d.f
-     multilevel_3d/mesh/ml__mesh__3d.f
-     multilevel_3d/mesh/ml__mesh_operators__3d.f
-     multilevel_3d/mesh/ml__mesh_variable__3d.f
-     multilevel_3d/mesh/ml__mesh_variable__3d__mp_exportvtk.f
-   )
-
-set( MULTILEVEL_3D ${MULTILEVEL_3D}
-     multilevel_3d/ops/child_to_parent_projection__3d.f
-     multilevel_3d/ops/parent_to_child_interpolation__3d.f
-     multilevel_3d/ops/child_to_parent_restriction__3d.f
-   )
-
-set( MULTILEVEL_3D ${MULTILEVEL_3D}
      multilevel_3d/adaptation/child_distribution_map__3d.f
      multilevel_3d/adaptation/child_mesh_adaptation__3d.F
      multilevel_3d/adaptation/child_mesh_adaptation__3d__mp_buildchilddata.f
@@ -301,14 +289,45 @@ set( MULTILEVEL_3D ${MULTILEVEL_3D}
    )
 
 set( MULTILEVEL_3D ${MULTILEVEL_3D}
-     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d.f
-     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_mg_solver.f
+     multilevel_3d/transfer/child_to_parent_projection__3d.f
+     multilevel_3d/transfer/parent_to_child_interpolation__3d.f
+     multilevel_3d/transfer/child_to_parent_restriction__3d.f
+   )
 
+set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/mesh/ml__boundary_variable__3d.f
+     multilevel_3d/mesh/ml__mesh__3d.f
+     multilevel_3d/mesh/ml__mesh__3d__mp_adapt.f
+     multilevel_3d/mesh/ml__mesh__3d__mp_readhdf5.f
+     multilevel_3d/mesh/ml__mesh__3d__mp_writehdf5.f
+     multilevel_3d/mesh/ml__mesh_operators__3d.f
+     multilevel_3d/mesh/ml__mesh_variable__3d.f
+     multilevel_3d/mesh/ml__mesh_variable__3d__mp_exportvtk.f
+     multilevel_3d/mesh/ml__mesh_variable__3d__mp_fitadapt.f
+   )
+
+set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/ops/ml__array_reductions__3d.f
+   )
+
+set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d.f
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_cs_mg_solver.f
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_fas_mg_residual.f
+     multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_fas_mg_solver.f
      multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_coarsesolver.f
      multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_residual.f
      multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_smoother.f
-
      multilevel_3d/elliptic/ml__dg__elliptic_solver__3d__mp_monitoring.f
+   )
+
+set( MULTILEVEL_3D ${MULTILEVEL_3D}
+     multilevel_3d/spacetime/spacetime_variable__3d.f
+     multilevel_3d/spacetime/ml__spacetime_operators__3d.f
+     multilevel_3d/spacetime/ml__spacetime_variable__3d.f
+     multilevel_3d/spacetime/cf__spacetime_interpolation__3d.f
+     multilevel_3d/spacetime/fc__spacetime_projection__3d.f
+     multilevel_3d/spacetime/fc__spacetime_restriction__3d.f
    )
 
 #===============================================================================

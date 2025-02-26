@@ -1,16 +1,11 @@
 &control_prm
   config = 4
   n_test = 1
-  plot_file = 'dg_elliptic_3d_test_simple'
-!
-! schwarz_test_file = 'dg_elliptic_3d_test_schwarz'
-! schwarz_test_part =  0
-! schwarz_test_elem = 14   ! one rotated
-! schwarz_test_elem = 23   ! cylinder
+! export_vtk = T
 /
 
 &problem_prm
-  test_case = 2
+  test_problem = 2
 ! bc = 6*'P'
 /
 
@@ -28,11 +23,6 @@
   i_max  = 5
   r_red  = 1E-3
   schwarz_opt%delta = 0.2
-/
-
-&partition_prm
-  repartition = T
-  part_opt%n_parts = 2
 /
 
 ! config = 1

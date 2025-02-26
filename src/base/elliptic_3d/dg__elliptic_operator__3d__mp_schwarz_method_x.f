@@ -17,23 +17,26 @@ contains
   !-----------------------------------------------------------------------------
   !> Element-centered overlapping Schwarz method with constant or variable ν
   !>
+  !> Homogeneous conditions are used if boundary values `bv` are absent
+  !>
   !> @remark
   !> One and only one of the parameters `nu_c` and `nu_v` is to be passed
 
-  module subroutine Schwarz_Method_X( this, lambda, nu_c, nu_v, u, f, bv &
-                                    , i_max, r_red, r_max, ni            )
+  module subroutine Schwarz_Method_X( this, bc, lambda, nu_c, nu_v, u, f, bv &
+                                    , i_max, r_red, r_max, ni                )
 
-    class(DG_EllipticOperator_3D),   intent(in)    :: this
-    real(RNP),                       intent(in)    :: lambda        !< λ
-    real(RNP),             optional, intent(in)    :: nu_c          !< νᵖ+νˢ
-    real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:) !< νᵖ
-    real(RNP), contiguous,           intent(inout) :: u(:,:,:,:)
-    real(RNP), contiguous,           intent(in)    :: f(:,:,:,:)
-    class(BoundaryVariable_3D),      intent(in)    :: bv(:)
-    integer,                         intent(in)    :: i_max
-    real(RNP),             optional, intent(in)    :: r_red
-    real(RNP),             optional, intent(in)    :: r_max
-    integer,               optional, intent(out)   :: ni
+    class(DG_EllipticOperator_3D),        intent(in)    :: this
+    character,                            intent(in)    :: bc(:)
+    real(RNP),                            intent(in)    :: lambda        !< λ
+    real(RNP),                  optional, intent(in)    :: nu_c          !< νᵖ+νˢ
+    real(RNP), contiguous,      optional, intent(in)    :: nu_v(:,:,:,:) !< νᵖ
+    real(RNP), contiguous,                intent(inout) :: u(:,:,:,:)
+    real(RNP), contiguous,                intent(in)    :: f(:,:,:,:)
+    class(BoundaryVariable_3D), optional, intent(in)    :: bv(:)
+    integer,                              intent(in)    :: i_max
+    real(RNP),                  optional, intent(in)    :: r_red
+    real(RNP),                  optional, intent(in)    :: r_max
+    integer,                    optional, intent(out)   :: ni
 
     ! local variables ..........................................................
 
@@ -50,6 +53,8 @@ contains
     real(RSP), allocatable, save :: fs_sp(:,:,:,:) ! RHS of subsystems
     real(RSP), allocatable, save :: us_sp(:,:,:,:) ! solution of subsystems
 
+    integer, allocatable, save :: cfg(:,:) ! subdomain configurations
+
     type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_r
     type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_us
 
@@ -57,7 +62,7 @@ contains
     logical  , save :: converged
 
     real(RNP) :: rr
-    integer   :: i, ne, ng, nl(3), no, np, ns, wp
+    integer   :: i, na, ne, ng, nl(3), no, np, ns, wp
     logical   :: check_convergence
 
     ! skip empty partition
@@ -76,6 +81,7 @@ contains
       if (present(r_red)) check_convergence = r_red > 0
       if (present(r_max)) check_convergence = r_max > 0 .or. check_convergence
 
+      na = mesh % n_elem_active
       ne = mesh % n_elem
       ng = mesh % n_ghost
       wp = schwarz % wp
@@ -101,6 +107,8 @@ contains
       end select
       buf_r = ElementTransferBuffer_3D(mesh, r, nl)
 
+      allocate(cfg(3,na))
+
       ! termination condition
       if (check_convergence) then
         if (present(r_max)) then
@@ -119,6 +127,8 @@ contains
 
       !$omp end master
       !$omp barrier
+
+      call schwarz % GetSubdomainConfigurations(mesh, bc, cfg)
 
       ! coefficients ...........................................................
 
@@ -139,7 +149,7 @@ contains
         nu_dp     = real(nu_avg, RDP)
       end select
       !$omp end master
-      ! omp barrier not needed because Apply is blocking
+      ! omp barrier not needed because Residual is blocking
 
       ! Schwarz iterations .....................................................
 
@@ -147,14 +157,14 @@ contains
 
         ! residual
         if (present(nu_c)) then
-          call this % Residual(lambda, nu_c, f, bv, u, r)
+          call this % Residual(bc, lambda, nu_c, f, bv, u, r)
         else
-          call this % Residual(lambda, nu_v, f, bv, u, r)
+          call this % Residual(bc, lambda, nu_v, f, bv, u, r)
         end if
 
         ! termination check
         if (check_convergence) then
-          rr = ScalarProduct(r(:,:,:,:ne), r(:,:,:,:ne), mesh%comm_parts)
+          rr = ScalarProduct(r(:,:,:,:na), r(:,:,:,:na), mesh%comm_parts)
           !$omp master
           if (mesh%part == 0) then
             if (i == 1) then
@@ -168,7 +178,7 @@ contains
         end if
         if (converged) exit
 
-        ! Schwarz sweep
+        ! Schwarz sweep over active elements
         select case(wp)
         case(RSP)
           call schwarz % RestrictResidual(mesh, buf_r, r, fs_sp)
@@ -176,11 +186,11 @@ contains
                           , schwarz % ops_sp % V      &
                           , schwarz % ops_sp % W      &
                           , schwarz % ops_sp % g      &
-                          , schwarz % cfg             &
+                          , cfg                       &
                           , lambda_sp                 &
-                          , nu_sp                     &
-                          , fs_sp                     &
-                          , us_sp                     )
+                          , nu_sp(:na)                &
+                          , fs_sp(:,:,:,:na)          &
+                          , us_sp(:,:,:,:na)          )
           call schwarz % MergeCorrections(mesh, buf_us, us_sp, u)
         case default
           call schwarz % RestrictResidual(mesh, buf_r, r, fs_dp)
@@ -188,11 +198,11 @@ contains
                           , schwarz % ops_dp % V      &
                           , schwarz % ops_dp % W      &
                           , schwarz % ops_dp % g      &
-                          , schwarz % cfg             &
+                          , cfg                       &
                           , lambda_dp                 &
-                          , nu_dp                     &
-                          , fs_dp                     &
-                          , us_dp                     )
+                          , nu_dp(:na)                &
+                          , fs_dp(:,:,:,:na)          &
+                          , us_dp(:,:,:,:na)          )
           call schwarz % MergeCorrections(mesh, buf_us, us_dp, u)
         end select
 
@@ -203,7 +213,7 @@ contains
       ! cleanup ................................................................
 
       !$omp master
-      deallocate(nu_avg, buf_r, buf_us, r)
+      deallocate(cfg, nu_avg, buf_r, buf_us, r)
       select case(wp)
       case(RSP)
         deallocate(nu_sp, fs_sp, us_sp)

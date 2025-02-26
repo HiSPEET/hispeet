@@ -22,7 +22,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Redistribution of root mesh data
 
-  subroutine RootMeshPartitioning_3D(opt, old_mesh, new_mesh, child, exch_plan)
+  subroutine RootMeshPartitioning_3D(opt, old_mesh, new_mesh, child, x_plan)
 
     ! arguments ................................................................
 
@@ -30,17 +30,18 @@ contains
     class(Mesh_3D),                       intent(in)    :: old_mesh
     class(Mesh_3D),                       intent(out)   :: new_mesh
     class(Mesh_3D),             optional, intent(inout) :: child
-    class(DataExchangePlan_3D), optional, intent(out)   :: exch_plan
+    class(DataExchangePlan_3D), optional, intent(out)   :: x_plan
 
     ! internal variables .......................................................
 
-    type(ElementDistributionMap_3D) :: dist_map
-    type(ElementDistributionData_3D), allocatable :: dist_send_data(:)
-    type(ElementDistributionData_3D), allocatable :: dist_recv_data(:)
+    type(ElementDistributionMap_3D),  allocatable, save :: dist_map
+    type(ElementDistributionData_3D), allocatable, save :: dist_send_data(:)
+    type(ElementDistributionData_3D), allocatable, save :: dist_recv_data(:)
+    type(MeshAttributes_3D),          allocatable, save :: attrib
 
-    type(MeshAttributes_3D) :: attrib
     character(len=:), allocatable :: prefix
     logical :: logging
+    integer :: n_parts
     integer :: i
 
     !---------------------------------------------------------------------------
@@ -56,6 +57,14 @@ contains
       print '(2A)', prefix, 'start'
     end if
 
+    ! build new element distribution map .......................................
+
+    allocate(dist_map)
+    if (old_mesh % part >= 0) then
+      call BuildElementDistributionMap(opt, old_mesh, dist_map, n_parts)
+    end if
+    call XMPI_Bcast(n_parts, 0, old_mesh % comm_world)
+
     ! prepare new partitions ...................................................
 
     attrib = MeshAttributes_3D(old_mesh)  ! adopt attributes from old mesh
@@ -63,7 +72,7 @@ contains
 
     call new_mesh % Init_Mesh_3D(attrib, old_mesh % comm_world)
 
-    new_mesh % n_parts = opt % n_parts
+    new_mesh % n_parts = n_parts
 
     ! use identity for mapping parts to processes, so far
     if (new_mesh % proc < new_mesh % n_parts) then
@@ -71,12 +80,6 @@ contains
     end if
 
     call new_mesh % BuildCommunicator()
-
-    ! build new element distribution map .......................................
-
-    if (old_mesh % part >= 0) then
-      call BuildElementDistributionMap(opt, old_mesh, dist_map)
-    end if
 
     ! distribute element data ..................................................
 
@@ -158,15 +161,14 @@ contains
       allocate(new_mesh % element(new_mesh % n_elem))
 
       ! assign received data
-      if (new_mesh % part >= 0) then
-        do i = 0, old_mesh%n_parts-1
-          if (dist_recv_data(i) % proc /= old_mesh % proc) then
-            call dist_recv_data(i) % Assign_Data(new_mesh)
-          else
-            call dist_send_data(old_mesh%part) % Assign_Data(new_mesh)
-          end if
-        end do
-      end if
+      do i = 0, old_mesh%n_parts-1
+        if (dist_recv_data(i) % proc /= old_mesh % proc) then
+          call dist_recv_data(i) % Assign_Data(new_mesh)
+        else
+          call dist_send_data(old_mesh%part) % Assign_Data(new_mesh)
+          dist_recv_data(i) = dist_send_data(old_mesh%part)
+        end if
+      end do
 
     end if
 
@@ -188,27 +190,57 @@ contains
 
     ! redistribution maps for retained data ....................................
 
-    if (present(exch_plan)) then
+    if (present(x_plan)) then
 
-      if (new_mesh % part >= 0) then
+      if (old_mesh % part >= 0) then
+        block
+          integer, allocatable :: e(:)
+          integer :: p
 
-        allocate(exch_plan % send_map( 0 : new_mesh % n_parts - 1 ))
-        allocate(exch_plan % recv_map( 0 : old_mesh % n_parts - 1 ))
+          allocate(x_plan % send_map( new_mesh % n_parts ))
+          x_plan % send_map % comm = new_mesh % comm_world
+          x_plan % send_map % proc = new_mesh % proc_part
 
-        do i = 0, new_mesh % n_parts - 1
-          exch_plan % send_map(i) % comm = new_mesh % comm_world
-          exch_plan % send_map(i) % proc = new_mesh % proc_part(i)
-        end do
-        call BuildDataExchangeSendMap(dist_map, exch_plan % send_map)
-
-        call BuildDataExchangeRecvMap(dist_recv_data, exch_plan % recv_map)
+          associate(send_map => x_plan % send_map)
+            do i = 1, size(send_map)
+              allocate(send_map(i)% id_elem(dist_map%ne_part(i-1)), source = -1)
+            end do
+            allocate(e(0:dist_map%n_parts-1), source = 0)
+            do i = 1, dist_map % n_elem
+              p = dist_map % tp_elem(i)
+              if (p < 0) cycle
+              e(p) = e(p) + 1
+              send_map(p+1) % id_elem(e(p)) = i
+            end do
+          end associate
+        end block
 
       else
-
-        allocate(exch_plan % send_map(0))
-        allocate(exch_plan % recv_map(0))
-
+        allocate(x_plan % send_map(0))
       end if
+
+      if (new_mesh % part >= 0) then
+        block
+          integer :: e
+
+          allocate(x_plan % recv_map( old_mesh % n_parts ))
+          x_plan % recv_map % comm = dist_recv_data % comm
+          x_plan % recv_map % proc = dist_recv_data % proc
+
+          associate(recv_map => x_plan % recv_map)
+            do i = 1, size(recv_map)
+              allocate(recv_map(i) % id_elem( dist_recv_data(i-1) % n_elem ))
+              do e = 1, dist_recv_data(i-1) % n_elem
+                recv_map(i) % id_elem(e) = dist_recv_data(i-1) % element(e) % id
+              end do
+            end do
+          end associate
+        end block
+
+      else
+        allocate(x_plan % recv_map(0))
+      end if
+
     end if
 
     ! update child partitions ..................................................
@@ -216,6 +248,13 @@ contains
     if (present(child)) then
       call UpdateChild(old_mesh, new_mesh, dist_map, child)
     end if
+
+    ! finalization .............................................................
+
+    if (allocated( attrib         )) deallocate( attrib         )
+    if (allocated( dist_map       )) deallocate( dist_map       )
+    if (allocated( dist_send_data )) deallocate( dist_send_data )
+    if (allocated( dist_recv_data )) deallocate( dist_recv_data )
 
     if (logging) then
       print '(2A)', prefix, 'exit'
@@ -229,10 +268,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Computes the new target partitions and element IDs
 
-  subroutine BuildElementDistributionMap(opt, old_mesh, dist_map)
+  subroutine BuildElementDistributionMap(opt, old_mesh, dist_map, n_parts)
     class(PartitioningOptions_3D),   intent(in)  :: opt
     class(Mesh_3D),                  intent(in)  :: old_mesh
     type(ElementDistributionMap_3D), intent(out) :: dist_map
+    integer                        , intent(out) :: n_parts
 
     integer, allocatable, target :: tp_elem(:)
     integer, contiguous, pointer :: tp_elem_val(:,:,:,:)
@@ -241,7 +281,7 @@ contains
     allocate(tp_elem(old_mesh%n_elem + old_mesh%n_ghost), source = -1)
 
     ! graph-based partitioning
-    call ParMETIS_Partitioner_3D(opt, old_mesh, tp_elem)
+    call ParMETIS_Partitioner_3D(opt, old_mesh, tp_elem, n_parts)
 
     ! transfer target partition IDs to ghosts
     if (old_mesh % n_ghost > 0) then
@@ -252,7 +292,7 @@ contains
     end if
 
     ! new distribution map, assuming identity for proc_part
-    dist_map = ElementDistributionMap_3D(old_mesh, opt%n_parts, tp_elem)
+    dist_map = ElementDistributionMap_3D(old_mesh, n_parts, tp_elem)
 
   end subroutine BuildElementDistributionMap
 
@@ -299,7 +339,7 @@ contains
 
       dist_data(tp) % proc       = new_mesh % proc_part(tp)
       dist_data(tp) % comm       = old_mesh % comm_world
-      dist_data(tp) % n_elem  = ne
+      dist_data(tp) % n_elem     = ne
       dist_data(tp) % n_neighbor = 0
       dist_data(tp) % n_point    = 0
 
@@ -414,60 +454,6 @@ contains
     !!$omp end barrier
 
   end subroutine BuildElementDistributionData
-
-  !=============================================================================
-  ! Retained data redistribution routines
-
-  !-----------------------------------------------------------------------------
-  !> Build map indicating the new location of retained elements
-
-  subroutine BuildDataExchangeSendMap(dist_map, send_map)
-    class(ElementDistributionMap_3D), intent(in)    :: dist_map
-    class(DataExchangeMap_3D),        intent(inout) :: send_map(0:)
-
-    integer, allocatable, save :: e(:)
-    integer :: i, p
-
-    associate(n_parts => dist_map % n_parts)
-
-      do i = 0, n_parts-1
-        allocate(send_map(i) % id_elem( dist_map % ne_part(i)), source = -1)
-      end do
-
-      allocate(e(0:n_parts-1), source = 0)
-
-      do i = 1, dist_map % n_elem
-        p = dist_map % tp_elem(i)
-        if (p < 0) cycle
-        e(p) = e(p) + 1
-        send_map(p) % id_elem(e(p)) = i
-      end do
-
-      deallocate(e)
-
-    end associate
-
-  end subroutine BuildDataExchangeSendMap
-
-  !-----------------------------------------------------------------------------
-  !> Build map indicating the old location of retained elements
-
-  subroutine BuildDataExchangeRecvMap(dist_recv_data, recv_map)
-    class(ElementDistributionData_3D), intent(in)  :: dist_recv_data(0:)
-    class(DataExchangeMap_3D),         intent(out) :: recv_map(0:)
-
-    integer :: i, e
-
-    do i = 0, ubound(dist_recv_data,1)
-      recv_map(i) % comm = dist_recv_data(i) % comm
-      recv_map(i) % proc = dist_recv_data(i) % proc
-      allocate(recv_map(i) % id_elem( dist_recv_data(i) % n_elem ))
-      do e = 1, dist_recv_data(i) % n_elem
-        recv_map(i) % id_elem(e) = dist_recv_data(i) % element(e) % id
-      end do
-    end do
-
-  end subroutine BuildDataExchangeRecvMap
 
   !=============================================================================
   ! Child update

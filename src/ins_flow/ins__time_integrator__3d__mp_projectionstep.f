@@ -77,7 +77,7 @@ contains
 
     associate( problem => this % problem                  &
              , ins_op  => this % ins_op                   &
-             , sem_v   => this % ins_op % sem_v           &
+             , sem_u   => this % ins_op % sem_u           &
              , mesh    => this % ins_op % mesh            &
              , n_elem  => this % ins_op % mesh % n_elem   &
              , n_ghost => this % ins_op % mesh % n_ghost  &
@@ -175,7 +175,7 @@ contains
         call ConvertInnerToOuterTraces_3D(mesh, vm, vp)
 
         ! divergence of intermediate velocity
-        call TPO_Div(ins_op % eop_v, ins_op % sem_v, v, vp, div_v)
+        call TPO_Div(ins_op % eop_u, ins_op % sem_u, v, vp, div_v)
 
         if (size(Q, 5) >= 4) then ! has additional RHS for mass conservation
           call MergeArrays(ONE, div_v, -ONE, Q(:,:,:,:,4))
@@ -195,7 +195,7 @@ contains
         call GetOuterTraces_3D(mesh, p, pp)
 
         ! pressure gradient
-        call TPO_Grad(ins_op % eop_v, ins_op % sem_v, p, pp, grad_p)
+        call TPO_Grad(ins_op % eop_u, ins_op % sem_u, p, pp, grad_p)
 
         ! correction: v = v - τ∇p
         call MergeArrays(ONE, v, -tau, grad_p, multi=.true.)
@@ -225,7 +225,7 @@ contains
         end do
 
         if (update_viscosity) then
-          call problem % GetViscosity(sem_v % metrics % x, t, u, nu)
+          call problem % GetViscosity(sem_u % metrics % x, t, u, nu)
         end if
 
         call ins_op % DiffusionSolver( tau, mu, nu, f, bv_w, v  &

@@ -33,15 +33,17 @@ contains
   !-----------------------------------------------------------------------------
   !> Monitoring with constant diffusivity
 
-  module subroutine Monitoring_C(this, l, step, lambda, nu, f, bv, u)
+  module subroutine Monitoring_C(this, l, step, bc, lambda, nu, f, bv, u)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     integer,                    intent(in) :: l          !< level
     character(len=*),           intent(in) :: step       !< current step
+    character,                  intent(in) :: bc(:)      !< boundary conditions
     real(RNP),                  intent(in) :: lambda     !< λ
     real(RNP),                  intent(in) :: nu         !< diffusivity
     real(RNP), contiguous,      intent(in) :: f(:,:,:,:) !< RHS
-    class(BoundaryVariable_3D), intent(in) :: bv(:)      !< boundary values
     real(RNP), contiguous,      intent(in) :: u(:,:,:,:) !< operand
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
+      !< boundary values, replaced by homogeneous conditions, if absent
 
     real(RNP), dimension(:,:,:,:), allocatable, save :: r
 
@@ -54,7 +56,7 @@ contains
       !$omp end master
       !$omp barrier
 
-      call this % Residual(l, lambda, nu, f, bv, u, r)
+      call this % Residual(l, bc, lambda, nu, f, bv, u, r)
       call this % Monitoring(l, step, r)
 
       !$omp master
@@ -68,15 +70,17 @@ contains
   !-----------------------------------------------------------------------------
   !> Monitoring with variable diffusivity
 
-  module subroutine Monitoring_V(this, l, step, lambda, nu, f, bv, u)
+  module subroutine Monitoring_V(this, l, step, bc, lambda, nu, f, bv, u)
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     integer,                    intent(in) :: l           !< level
     character(len=*),           intent(in) :: step        !< current step
+    character,                  intent(in) :: bc(:)       !< boundary conditions
     real(RNP),                  intent(in) :: lambda      !< λ
     real(RNP), contiguous,      intent(in) :: nu(:,:,:,:) !< diffusivity
     real(RNP), contiguous,      intent(in) :: f(:,:,:,:)  !< RHS
     real(RNP), contiguous,      intent(in) :: u(:,:,:,:)  !< operand
-    class(BoundaryVariable_3D), intent(in) :: bv(:)       !< boundary values
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
+      !< boundary values, replaced by homogeneous conditions, if absent
 
     real(RNP), dimension(:,:,:,:), allocatable, save :: r
 
@@ -89,7 +93,7 @@ contains
       !$omp end master
       !$omp barrier
 
-      call this % Residual(l, lambda, nu, f, bv, u, r)
+      call this % Residual(l, bc, lambda, nu, f, bv, u, r)
       call this % Monitoring(l, step, r)
 
       !$omp master

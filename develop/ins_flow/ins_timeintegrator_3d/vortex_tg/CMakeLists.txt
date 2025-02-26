@@ -3,8 +3,8 @@ file( COPY README.md
            convergence_dt.sh
            convergence_dx.py
            convergence_dx.sh
-           ins_timeintegrator_3d_test.prm
-           ins_timeintegrator_3d_test.tmpl
+           test.prm
+           test_convergence.tmpl
            vortex_tg.prm
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR} )

@@ -56,7 +56,7 @@ contains
     !$omp end master
     !$omp barrier
 
-    call this % sem_v % Get_DG_DiagonalMassMatrix(mm)
+    call this % sem_u % Get_DG_DiagonalMassMatrix(mm)
 
     !...........................................................................
 
@@ -74,8 +74,8 @@ contains
 
       ! pressure gradient and velocity divergence
       call GetOuterTraces_3D(this % mesh, u(:,:,:,:,1:4), up)
-      call TPO_Grad(this % eop_v, this % sem_v, p, pp, grad_p)
-      call TPO_Div( this % eop_v, this % sem_v, v, vp, r_c)
+      call TPO_Grad(this % eop_u, this % sem_u, p, pp, grad_p)
+      call TPO_Div( this % eop_u, this % sem_u, v, vp, r_c)
 
       ! diffusion
       call this % GetDiffusionResidual(tau, mu, nu, f, bv_u, v, r_m)

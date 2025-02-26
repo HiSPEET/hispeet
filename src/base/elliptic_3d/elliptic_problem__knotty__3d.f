@@ -17,6 +17,9 @@ module Elliptic_Problem__Knotty__3D
   !> Type defining a more difficult problem (pseudo-turbulent pressure)
 
   type, extends(EllipticProblem_3D) :: EllipticProblem_Knotty_3D
+
+    integer :: k_u = 1  !< solution wave number
+
   contains
 
     procedure :: GetExactSolution
@@ -46,7 +49,12 @@ contains
     integer  , optional :: k_nu    !< diffusivity wave number
     integer  , optional :: k_u     !< solution wave number
 
-    call this % SetBaseProblem(lambda, nu_0, nu_1, d_nu, k_nu, k_u)
+    if (present(lambda))  this % lambda = lambda
+    if (present(nu_0  ))  this % nu_0   = nu_0
+    if (present(nu_1  ))  this % nu_1   = nu_1
+    if (present(d_nu  ))  this % d_nu   = d_nu
+    if (present(k_nu  ))  this % k_nu   = k_nu
+    if (present(k_u   ))  this % k_u    = k_u
 
   end function New_Problem
 

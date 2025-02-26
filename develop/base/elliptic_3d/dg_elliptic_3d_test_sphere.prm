@@ -1,0 +1,41 @@
+&control_prm
+  config = 1
+  n_test = 1
+! export_vtk = T
+
+  log_level_inner_iteration = 2
+  log_level_outer_iteration = 1
+/
+
+&problem_prm
+  test_problem = 6
+  lambda = 0
+  alpha  = 10
+/
+
+&dicretization_prm
+  po = 7
+/
+
+&solver_prm
+! method:
+! 0  none
+! 1  CG
+! 2  Schwarz
+! 3  Schwarz-preconditioned CG
+  method = 3
+  i_max  = 100
+  r_red  = 1E-10
+  schwarz_opt%delta = 0.2
+/
+
+! config = 1
+&cuboid_cartesian_prm
+! regular    = F ! mimic irregular mesh (elements deformed or of different size)
+! structured = F ! mimic unstructured mesh
+  xo = 3*0.0
+  lx = 3*1.0
+  np = 3*1
+  ep = 3*4
+/
+

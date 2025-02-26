@@ -19,6 +19,7 @@ program INS_Operator_3D_Test
 
   use Mesh__3D
   use Trace_Operators__3D
+  use Spectral_Element_Mesh__3D
   use Boundary_Variable__3D
   use Export_VTK_Volume_Data__3D
   use DG__Elliptic_Operator__3D
@@ -71,10 +72,13 @@ program INS_Operator_3D_Test
   !   4  annular domain                                                    (u+d)
   ! configuration > 1 currently available only with one MPI process
 
-  type(INS_OperatorOptions_3D) :: ins_op_opts
-  ! options for the incompressible Navier-Stokes operator
+  namelist/control_prm/ flow_problem, problem_file, flow_domain
 
-  namelist/control_prm/ flow_problem, problem_file, flow_domain, ins_op_opts
+  integer :: po_u = 8 ! polynomial order of solution u \ p
+  integer :: po_p = 7 ! polynomial order of pressure p
+  type(INS_OperatorOptions_3D) :: ins_op_opt
+
+  namelist/control_prm/ po_u, po_p, ins_op_opt
 
   integer   :: n_test = 1            ! repetitions of performance test
   integer   :: i_max  = 10
@@ -87,10 +91,11 @@ program INS_Operator_3D_Test
   ! operators and variables ....................................................
 
   class(INS_Problem_3D), allocatable :: problem
-  ! flow problem
 
+  type(Mesh_3D) :: mesh
+  type(SpectralElementMesh_3D) :: sem_u
+  type(SpectralElementMesh_3D) :: sem_p
   type(INS_Operator_3D) :: ins_op
-  ! incompressible Navier-Stokes operator
 
   type(DG_EllipticOperator_3D) :: elliptic_op
 
@@ -121,14 +126,13 @@ program INS_Operator_3D_Test
 
   type(BoundaryVariable_3D), allocatable :: bv_u(:)
   type(BoundaryVariable_3D), allocatable :: bv_vi(:)
-  type(BoundaryVariable_3D), allocatable :: bv_p(:)
 
   character(len=80) :: domain_name = ''
 ! real(RDP) :: time, time0
   real(RNP) :: e_c, e_d, e_d1, d_d1
   logical   :: exists
   integer   :: io, stat
-  integer   :: n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var, po, pq
+  integer   :: n_bound, n_elem, n_elem_tot, n_ghost, n_point, n_var
   integer   :: b, i
 
   !-----------------------------------------------------------------------------
@@ -178,32 +182,32 @@ program INS_Operator_3D_Test
   call XMPI_Bcast(flow_problem, 0, comm)
   call XMPI_Bcast(problem_file, 0, comm)
   call XMPI_Bcast(flow_domain , 0, comm)
-  call ins_op_opts % Bcast(0, comm)
+
+  call XMPI_Bcast(po_u, 0, comm)
+  call XMPI_Bcast(po_p, 0, comm)
+
+  call ins_op_opt % Bcast(0, comm)
 
   ! mesh .......................................................................
 
-  associate(mesh => ins_op % mesh)
+  select case(flow_domain)
+  case(2)
+    call CreateCuboidDiamonds(comm, input_file, mesh)
+    domain_name = 'Cuboidal domain with unstructured "diamond" mesh'
+  case(3)
+    call CreateCylinder(comm, input_file, mesh)
+    domain_name = 'Cylindrical domain with unstructured mesh'
+  case(4)
+    call CreateAnnulus(comm, input_file, mesh)
+    domain_name = 'Annular domain with unstructured mesh'
+  case default
+    call CreateCuboidCartesian(comm, input_file, mesh)
+    domain_name = 'Cuboidal domain with Cartesian mesh'
+  end select
 
-    select case(flow_domain)
-    case(2)
-      call CreateCuboidDiamonds(comm, input_file, ins_op % mesh)
-      domain_name = 'Cuboidal domain with unstructured "diamond" mesh'
-    case(3)
-      call CreateCylinder(comm, input_file, ins_op % mesh)
-      domain_name = 'Cylindrical domain with unstructured mesh'
-    case(4)
-      call CreateAnnulus(comm, input_file, ins_op % mesh)
-      domain_name = 'Annular domain with unstructured mesh'
-    case default
-      call CreateCuboidCartesian(comm, input_file, ins_op % mesh)
-      domain_name = 'Cuboidal domain with Cartesian mesh'
-    end select
-
-    n_elem  = mesh % n_elem
-    n_ghost = mesh % n_ghost
-    n_bound = mesh % n_bound
-
-  end associate
+  n_elem  = mesh % n_elem
+  n_ghost = mesh % n_ghost
+  n_bound = mesh % n_bound
 
   ! problem ....................................................................
 
@@ -218,7 +222,7 @@ program INS_Operator_3D_Test
 
   ! check & fix boundary conditions
   do i = 1, n_bound
-    if (ins_op % mesh % boundary(i) % coupled > 0) then
+    if (mesh % boundary(i) % coupled > 0) then
       if (problem % bc_v(i) /= 'P') then
         if (rank == 0) then
           write(*,'(A,I0)') '  *** enforcing periodic BC on coupled boundary ',i
@@ -230,15 +234,15 @@ program INS_Operator_3D_Test
 
   ! operators ..................................................................
 
-  call ins_op % Init(ins_op_opts, problem)
+  sem_u = SpectralElementMesh_3D(mesh, po_u)
+  sem_p = SpectralElementMesh_3D(mesh, po_p)
+  call ins_op % Init(ins_op_opt, problem, sem_u, sem_p)
 
   ! variables ..................................................................
 
-  po = ins_op % eop_v % po
-  pq = ins_op % eop_p % po
   n_var = 24
 
-  allocate(var(0:po,0:po,0:po,1:n_elem,1:n_var), source = ZERO)
+  allocate(var(0:po_u,0:po_u,0:po_u,1:n_elem,1:n_var), source = ZERO)
   allocate(var_name(1:n_var))
 
   u (0:,0:,0:,1:,1:)  =>  var(:,:,:,:,1:4)
@@ -268,37 +272,38 @@ program INS_Operator_3D_Test
 
   var_name(24) = 'p_h'
 
-  allocate(mm (0:po,0:po,0:po,1:n_elem)     )
-  allocate(mu (0:po,0:po,0:po,1:n_elem)     )
-  allocate(w  (0:po,0:po,0:po,1:n_elem,1:4) )
+  allocate(mm (0:po_u,0:po_u,0:po_u,1:n_elem)     )
+  allocate(mu (0:po_u,0:po_u,0:po_u,1:n_elem)     )
+  allocate(w  (0:po_u,0:po_u,0:po_u,1:n_elem,1:4) )
 
-  allocate(up (0:po,0:po,1:6,1:n_elem,1:4), source = ZERO )
-  allocate(sp (0:po,0:po,1:6,1:n_elem,1:3), source = ZERO )
+  allocate(up (0:po_u,0:po_u,1:6,1:n_elem,1:4), source = ZERO )
+  allocate(sp (0:po_u,0:po_u,1:6,1:n_elem,1:3), source = ZERO )
 
-  call ins_op % sem_v % Get_DG_DiagonalMassMatrix(mm)
+  call ins_op % sem_u % Get_DG_DiagonalMassMatrix(mm)
 
   ! info .......................................................................
 
   call XMPI_Reduce(n_elem, n_elem_tot, MPI_SUM, 0, comm)
-  n_point = n_elem_tot * (po+1)**3
+  n_point = n_elem_tot * (po_u+1)**3
 
   if (rank == 0) then
     write(*,'(/,A)') 'initialization of operators'
     write(*,'(T3,A,T30,9(G0,X))') 'problem:', trim(flow_problem)
     write(*,'(T3,A,T30,9(G0,X))') 'domain:',  trim(domain_name)
     write(*,'(T3,A,T30,9(G0,X))') 'boundary conditions:'  , problem % bc_v
+    write(*,'(T3,A,T30,9(G0,X))') 'variable properties:'  , &
+                                               problem % HasVariableProperties()
     write(*,'(T3,A,T30,9(G0,X))') 'number of processes:'  , n_proc
     write(*,'(T3,A,T30,9(G0,X))') 'number of threads:'    , n_thread
-    write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of v:', ins_op % eop_v % po
-    write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of p:', ins_op % eop_p % po
+    write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of v:', po_u
+    write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of p:', po_p
     write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature order:', ins_op % sop_q % po
-    write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature type:' , ins_op % sop_q % nodes
     write(*,'(T3,A,T30,9(G0,X))') 'number of mesh points:', n_point
   end if
 
   ! exact solution and terms ...................................................
 
-  associate(x => ins_op % sem_v % metrics % x)
+  associate(x => ins_op % sem_u % metrics % x)
 
     call problem % GetExactSolution       (x, t, u)
     call problem % GetViscosity           (x, t, u, nu)
@@ -312,7 +317,7 @@ program INS_Operator_3D_Test
 
   ! traces and boundary values .................................................
 
-  associate(sem => ins_op % sem_v, mesh => ins_op % mesh)
+  associate(sem => ins_op % sem_u)
 
     ! outer traces u⁺
     call GetOuterTraces_3D(mesh, u, up)
@@ -320,7 +325,7 @@ program INS_Operator_3D_Test
     ! boundary values
     allocate(bv_u(mesh % n_bound))
     do i = 1, mesh % n_bound
-      bv_u(i) = BoundaryVariable_3D(mesh % boundary(i), po, nc = 4)
+      call bv_u(i) % Init(mesh % boundary(i), po_u, nc = 4)
       call bv_u(i) % Extract(u)
     end do
 
@@ -330,11 +335,11 @@ program INS_Operator_3D_Test
 
   associate(metrics => ins_op % sem_q % metrics)
 
-    call TPO_INS_Convection_D_Gen( nv   = ins_op % eop_v % po + 1  &
+    call TPO_INS_Convection_D_Gen( nv   = ins_op % eop_u % po + 1  &
                                  , nq   = ins_op % sop_q % po + 1  &
                                  , ne   = n_elem                   &
-                                 , D_v  = ins_op % eop_v  % D      &
-                                 , I_vq = ins_op % iop_vq % A      &
+                                 , D_v  = ins_op % eop_u  % D      &
+                                 , I_vq = ins_op % iop_uq % A      &
                                  , w_q  = ins_op % sop_q  % w      &
                                  , Jd_q = metrics % Jd             &
                                  , Ji_q = metrics % Ji             &
@@ -371,21 +376,12 @@ program INS_Operator_3D_Test
   e_d = ScalarProduct(w(:,:,:,:,1:3), w(:,:,:,:,1:3), comm)
   e_d = sqrt(e_d / n_point)
 
-  if (problem % HasVariableProperties()) then
-
-    ! skip comparison with diffusion part
-    e_d1 = -1
-    d_d1 = -1
-
-  else
+  if (.not. problem % HasVariableProperties()) then
 
     ! diffusion part: w = ∇·(ν ∇v) .............................................
     ! using F_ph as workspace for F_d1h
 
-    elliptic_op = DG_EllipticOperator_3D( sem         = ins_op % sem_v         &
-                                        , dg_opt      = ins_op_opts % eop_v    &
-                                        , schwarz_opt = DG_SchwarzOptions_3D() &
-                                        , bc          = ins_op % bc_v          )
+    elliptic_op = DG_EllipticOperator_3D(ins_op%sem_u, DG_SchwarzOptions_3D())
 
     allocate(bv_vi(n_bound))
 
@@ -398,9 +394,10 @@ program INS_Operator_3D_Test
         end do
         ! r = M ∇·(ν ∇vᵢ)
         if (problem % HasVariableProperties()) then
-          call elliptic_op % Residual(ZERO, nu, f, bv_vi, v_i, r)
+          call elliptic_op % Residual(ins_op%bc_v, ZERO, nu, f, bv_vi, v_i, r)
         else
-          call elliptic_op % Residual(ZERO, problem%nu_ref, f, bv_vi, v_i, r)
+          call elliptic_op % Residual(ins_op%bc_v, ZERO, problem%nu_ref, f, &
+                                      bv_vi, v_i, r)
         end if
         ! compute nodal values
         F_ph(:,:,:,:,i) = r / mm
@@ -420,8 +417,6 @@ program INS_Operator_3D_Test
 
   end if
 
-  ! pressure ...................................................................
-
   !-----------------------------------------------------------------------------
   ! Result info
 
@@ -429,8 +424,10 @@ program INS_Operator_3D_Test
     write(*,'(/,A)') 'operator evaluation'
     write(*,'(T3,A,T30,ES12.5)') 'convection          ε_c  =', e_c
     write(*,'(T3,A,T30,ES12.5)') 'diffusion           ε_d  =', e_d
-    write(*,'(T3,A,T30,ES12.5)') '                    ε_d1 =', e_d1
-    write(*,'(T3,A,T30,ES12.5)') '                    δ_d1 =', d_d1
+    if (.not. problem % HasVariableProperties()) then
+      write(*,'(T3,A,T30,ES12.5)') '                    ε_d1 =', e_d1
+      write(*,'(T3,A,T30,ES12.5)') '                    δ_d1 =', d_d1
+    end if
     write(*,*)
   end if
 
@@ -438,12 +435,12 @@ program INS_Operator_3D_Test
   ! Write plot files
 
   if (export_vtk) then
-    call ExportVTK_VolumeData( x       = ins_op % sem_v % metrics % x &
-                             , s       = var                          &
-                             , sname   = var_name                     &
-                             , file    = 'ins_operator_3d_test'       &
-                             , part    = ins_op % mesh % part         &
-                             , n_parts = ins_op % mesh % n_parts      )
+    call ExportVTK_VolumeData( x       = sem_u % metrics % x    &
+                             , s       = var                    &
+                             , sname   = var_name               &
+                             , file    = 'ins_operator_3d_test' &
+                             , part    = mesh % part            &
+                             , n_parts = mesh % n_parts         )
   end if
 
   !-----------------------------------------------------------------------------

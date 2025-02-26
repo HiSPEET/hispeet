@@ -20,10 +20,10 @@ contains
   !>     + `grandchild % element % adaptation % parent_id`
   !>
   !>  - mapping between old and new children
-  !>     + `exch_plan` for sending and receiving retained data
+  !>     + `x_plan` for sending and receiving retained data
 
   module subroutine BuildConnections( parent, new_child_map, new_child &
-                                    , old_child, grandchild, exch_plan )
+                                    , old_child, grandchild, x_plan    )
 
     ! arguments ................................................................
 
@@ -32,21 +32,21 @@ contains
     class(Mesh_3D),                       intent(in)    :: new_child
     class(Mesh_3D),             optional, intent(in)    :: old_child
     class(Mesh_3D),             optional, intent(inout) :: grandchild
-    class(DataExchangePlan_3D), optional, intent(out)   :: exch_plan
+    class(DataExchangePlan_3D), optional, intent(out)   :: x_plan
 
     !$omp master
 
     ! connect old child and grandchild with new child ..........................
 
-    if (present(old_child) .and. present(exch_plan)) then
+    if (present(old_child) .and. present(x_plan)) then
       call ConnectOldChild( parent, new_child_map, new_child &
-                          , old_child, grandchild, exch_plan )
+                          , old_child, grandchild, x_plan    )
     end if
 
     ! connect new child with old child .........................................
 
-    if (present(old_child) .and. present(exch_plan)) then
-      call ConnectNewWithOldChild(new_child, exch_plan)
+    if (present(old_child) .and. present(x_plan)) then
+      call ConnectNewWithOldChild(new_child, x_plan)
     end if
 
     ! connect parent with new child ............................................
@@ -62,7 +62,7 @@ contains
   !> Build connections between new child, old child and grandchildren
 
   subroutine ConnectOldChild( parent, new_child_map, new_child &
-                            , old_child, grandchild, exch_plan )
+                            , old_child, grandchild, x_plan    )
 
     ! arguments ................................................................
 
@@ -71,7 +71,7 @@ contains
     class(Mesh_3D),                 intent(in)    :: new_child
     class(Mesh_3D),                 intent(in)    :: old_child
     class(Mesh_3D),       optional, intent(inout) :: grandchild
-    class(DataExchangePlan_3D),     intent(inout) :: exch_plan
+    class(DataExchangePlan_3D),     intent(inout) :: x_plan
 
     ! internal variables .......................................................
 
@@ -188,15 +188,15 @@ contains
 
     ! sort clusters according to 1) parent proc and 2) parent ID
     allocate(cluster_rank(old_child % n_cluster))
-    call SortElementClusters(old_child, n_cpe, cluster_rank)
+    call SortClustersByParent(old_child, n_cpe, cluster_rank)
 
     ! set up exchange send maps
-    if (allocated(exch_plan % send_map)) then
-      deallocate(exch_plan % send_map)
+    if (allocated(x_plan % send_map)) then
+      deallocate(x_plan % send_map)
     end if
-    allocate(exch_plan % send_map(count(m > 0)))
+    allocate(x_plan % send_map(count(m > 0)))
 
-    associate(exch_send_map => exch_plan % send_map)
+    associate(exch_send_map => x_plan % send_map)
 
       ! prepare exchange send maps
       n = 0
@@ -263,7 +263,7 @@ contains
   !> It is exploited that the active clusters always precede the frozen ones.
   !> As the latter are not retained, they do not need to be sorted.
 
-  subroutine SortElementClusters(mesh, n_cpe, cluster_rank)
+  subroutine SortClustersByParent(mesh, n_cpe, cluster_rank)
     class(Mesh_3D), intent(in) :: mesh
     integer, intent(in)  :: n_cpe
     integer, intent(out) :: cluster_rank(mesh%n_cluster)
@@ -296,7 +296,7 @@ contains
       cluster_rank(c) = c
     end do
 
-  end subroutine SortElementClusters
+  end subroutine SortClustersByParent
 
   !-----------------------------------------------------------------------------
   !> Update parent info and maps in grandchild partitions
@@ -406,9 +406,9 @@ contains
   !> Only active child elements can be retained. This implies that old and the
   !> new child both emerge from regular refinement and are not frozen.
 
-  subroutine ConnectNewWithOldChild(new_child, exch_plan)
+  subroutine ConnectNewWithOldChild(new_child, x_plan)
     class(Mesh_3D),             intent(in)    :: new_child
-    class(DataExchangePlan_3D), intent(inout) :: exch_plan
+    class(DataExchangePlan_3D), intent(inout) :: x_plan
 
     integer, allocatable :: e(:), m(:)
     integer :: i, p, n, n_proc
@@ -421,7 +421,7 @@ contains
     ! count retained elements per process
     do i = 1, new_child % n_elem_active
       ! for retained elements, mark is non-negative and indicates its process ID in
-      ! the old mesh; negative marks care used to identify non-retained children
+      ! the old mesh; negative marks are used to identify non-retained children
       p = new_child % element(i) % adaptation % mark
       if (p >= 0) then
         m(p) = m(p) + 1
@@ -429,12 +429,12 @@ contains
     end do
 
     ! set up exchange recveive maps
-    if (allocated(exch_plan % recv_map)) then
-      deallocate(exch_plan % recv_map)
+    if (allocated(x_plan % recv_map)) then
+      deallocate(x_plan % recv_map)
     end if
-    allocate(exch_plan % recv_map(count(m > 0)))
+    allocate(x_plan % recv_map(count(m > 0)))
 
-    associate(exch_recv_map => exch_plan % recv_map)
+    associate(exch_recv_map => x_plan % recv_map)
 
       ! prepare exchange receive maps
       n = 0

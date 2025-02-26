@@ -26,47 +26,42 @@ module ML__Boundary_Variable__3D
     type(BoundaryVariableArray_3D), allocatable :: level(:)
       !< boundary variables per level
   contains
-    procedure :: Init_ML_BoundaryVariable_3D
+    procedure :: Init => Init_ML_BoundaryVariable_3D
   end type ML_BoundaryVariable_3D
-
-  ! constructor
-  interface ML_BoundaryVariable_3D
-    procedure New_ML_BoundaryVariable_3D
-  end interface
 
 contains
 
   !-----------------------------------------------------------------------------
-  !> New multilevel boundary variable with nc components
-
-  function New_ML_BoundaryVariable_3D(ml_op, nc) result(this)
-    class(ML_MeshOperators_3D), intent(in) :: ml_op
-    integer,                    intent(in) :: nc
-    type(ML_BoundaryVariable_3D) :: this
-
-    call Init_ML_BoundaryVariable_3D(this, ml_op, nc)
-
-  end function New_ML_BoundaryVariable_3D
-
-  !-----------------------------------------------------------------------------
   !> Initialize multilevel boundary variable with nc components
+  !>
+  !> The optional argument `l_top` can be passed to restrict the top level to a
+  !> value lower than `size(ml_op%sem)`
 
-  subroutine Init_ML_BoundaryVariable_3D(this, ml_op, nc)
+  subroutine Init_ML_BoundaryVariable_3D(this, ml_op, nc, l_top)
     class(ML_BoundaryVariable_3D), intent(inout) :: this
     class(ML_MeshOperators_3D),    intent(in)    :: ml_op
     integer,                       intent(in)    :: nc
+    integer,             optional, intent(in)    :: l_top
 
-    integer :: b, l
+    integer :: b, l, l_top_
 
-    allocate(this % level( size(ml_op % sem) ))
+    if (allocated(this%level)) deallocate(this%level)
+
+    if (present(l_top)) then
+      l_top_ = min(size(ml_op%sem), l_top)
+    else
+      l_top_ = size(ml_op%sem)
+    end if
+
+    allocate(this%level( l_top_ ))
 
     do l = 1, size(this%level)
       allocate(this % level(l) % var( ml_op % sem(l) % mesh % n_bound ))
       do b = 1, ml_op % sem(l) % mesh % n_bound
-        this % level(l) % var(b) = BoundaryVariable_3D                       &
-                                       ( ml_op % sem(l) % mesh % boundary(b) &
-                                       , ml_op % sem(l) % std_op % po        &
-                                       , nc                                  )
+        call this % level(l) % var(b) %                    &
+                 Init( ml_op % sem(l) % mesh % boundary(b) &
+                     , ml_op % sem(l) % std_op % po        &
+                     , nc                                  )
       end do
     end do
 

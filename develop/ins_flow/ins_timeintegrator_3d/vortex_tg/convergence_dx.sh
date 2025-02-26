@@ -10,7 +10,7 @@ CASE="convergence_dx"
 MPIRUN=${MPIRUN:-"mpirun"}
 
 # path to program
-PROGRAM="../ins_timeintegrator_3d_test"
+PROG="../ins_timeintegrator_3d_test"
 
 # kinematic shear viscosity, used for scaling the stabilizing bulk viscosity
 NU=0.01
@@ -65,10 +65,10 @@ for i in $(seq 0 $(($NC - 1))) ; do
         -e "s/<t_end>/$T_END/g" \
         -e "s/<dt>/$DT/g" \
         -e "s/<time_method>/$TIME_METHOD/g" \
-        ins_timeintegrator_3d_test.tmpl > \
-        ins_timeintegrator_3d_test.prm
+        test_convergence.tmpl > \
+        test_convergence.prm
 
-    ${MPIRUN} -n ${NPROC} ${PROGRAM} 2>&1 | tee -a ${CASE}.log
+    ${MPIRUN} -n ${NPROC} ${PROG} test_convergence 2>&1 | tee -a ${CASE}.log
 
 done
 

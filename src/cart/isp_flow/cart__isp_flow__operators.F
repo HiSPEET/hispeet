@@ -12,8 +12,8 @@ module CART__ISP_Flow__Operators
 
   use Standard_Element_Operators__1D
   use DG__Element_Operators__1D
+  use Projection_Operator__1D
   use Embedded_Interpolation_Operator__3D
-  use Projection_Operator__3D
 
   use ISP_Flow_Problem
 
@@ -89,7 +89,7 @@ module CART__ISP_Flow__Operators
     type(StandardElementOperators_1D) :: eop_p !< element operators for p
     type(StandardElementOperators_1D) :: eop_q !< element operators for nonlinear terms
 
-    type(ProjectionOperator_3D)            :: pop_up !< projection    from po_u to po_p
+    type(ProjectionOperator_1D)            :: pop_up !< projection    from po_u to po_p
     type(EmbeddedInterpolationOperator_3D) :: iop_up !< interpolation from po_u to po_p
     type(EmbeddedInterpolationOperator_3D) :: iop_uq !< interpolation from po_u to po_q
     type(EmbeddedInterpolationOperator_3D) :: iop_pu !< interpolation from po_p to po_u
@@ -254,10 +254,9 @@ contains
     call this % pmg_p % SetProblem(lambda=ZERO, nu=ONE, bc=problem%bc(:,4))
 
     if (this % po_p /= this % po_u) then
-      this % pop_up = ProjectionOperator_3D( this%eop_p,   &
-                                             this%eop_u%x, &
-                                             this%eop_u%w, &
-                                             mesh%dx       )
+      this % pop_up = ProjectionOperator_1D( this%eop_p,      &
+                                             this%eop_u%x,    &
+                                             this%eop_u%nodes )
 
       this % iop_up = EmbeddedInterpolationOperator_3D( this%eop_u, this%eop_p%x )
       this % iop_pu = EmbeddedInterpolationOperator_3D( this%eop_p, this%eop_u%x )

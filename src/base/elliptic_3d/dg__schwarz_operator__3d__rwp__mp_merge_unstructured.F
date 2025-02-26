@@ -50,7 +50,7 @@
       ! indices of first and last core points within subdomain
 
       !$omp do
-      do e = 1, mesh % n_elem
+      do e = 1, mesh % n_elem_active
         do k = 0, po
         do j = 0, po
         do i = 0, po
@@ -71,7 +71,7 @@
       ! overlap regions ........................................................
 
       !$omp do
-      do e = 1, mesh % n_elem
+      do e = 1, mesh % n_elem_active
         associate(element => mesh % element)
 
           merge_edge   = .true.

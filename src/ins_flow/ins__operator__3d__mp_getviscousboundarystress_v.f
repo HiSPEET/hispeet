@@ -93,11 +93,11 @@ contains
       d_nu =  1
     end if
 
-    associate( boundary => this % sem_v % mesh % boundary(b) &
-             , Ji       => this % sem_v % metrics % Ji       &
-             , n        => this % sem_v % metrics % n        &
-             , po       => this % eop_v % po                 &
-             , Ds       => this % eop_v % D                  )
+    associate( boundary => this % sem_u % mesh % boundary(b) &
+             , Ji       => this % sem_u % metrics % Ji       &
+             , n        => this % sem_u % metrics % n        &
+             , po       => this % eop_u % po                 &
+             , Ds       => this % eop_u % D                  )
 
       ! workspace ..............................................................
 

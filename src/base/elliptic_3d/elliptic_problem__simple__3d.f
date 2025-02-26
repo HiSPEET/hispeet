@@ -18,7 +18,8 @@ module Elliptic_Problem__Simple__3D
 
   type, extends(EllipticProblem_3D) :: EllipticProblem_Simple_3D
 
-    integer :: dim = 3 !< solution dimensionality {1,2,3}
+    integer :: k_u = 1  !< solution wave number
+    integer :: dim = 3  !< solution dimensionality {1,2,3}
 
   contains
 
@@ -42,17 +43,21 @@ contains
 
   function New_Problem(lambda, nu_0, nu_1, d_nu, k_nu, k_u, dim) result(this)
     type(EllipticProblem_Simple_3D) :: this
-    real(RNP), optional :: lambda  !< Helmholtz parameter
-    real(RNP), optional :: nu_0    !< diffusivity mean value ν₀
-    real(RNP), optional :: nu_1    !< diffusivity fluctuation amplitude ν₁
-    real(RNP), optional :: d_nu    !< diffusivity phase shift
-    integer  , optional :: k_nu    !< diffusivity wave number
-    integer  , optional :: k_u     !< solution wave number
-    integer  , optional :: dim     !< solution dimensionality
+    real(RNP), optional :: lambda !< Helmholtz parameter
+    real(RNP), optional :: nu_0   !< diffusivity mean value ν₀
+    real(RNP), optional :: nu_1   !< diffusivity fluctuation amplitude ν₁
+    real(RNP), optional :: d_nu   !< diffusivity fluctuation phase shift
+    integer  , optional :: k_nu   !< diffusivity fluctuation wave number
+    integer  , optional :: k_u    !< solution wave number
+    integer  , optional :: dim    !< solution dimensionality
 
-    call this % SetBaseProblem(lambda, nu_0, nu_1, d_nu, k_nu, k_u)
-
-    if (present(dim)) this % dim = dim
+    if (present(lambda))  this % lambda = lambda
+    if (present(nu_0  ))  this % nu_0   = nu_0
+    if (present(nu_1  ))  this % nu_1   = nu_1
+    if (present(d_nu  ))  this % d_nu   = d_nu
+    if (present(k_nu  ))  this % k_nu   = k_nu
+    if (present(k_u   ))  this % k_u    = k_u
+    if (present(dim   ))  this % dim    = dim
 
   end function New_Problem
 

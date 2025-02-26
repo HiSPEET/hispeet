@@ -43,6 +43,7 @@ contains
     integer :: e, i, j, k, l, m
     integer :: ce, cn, cp
     integer :: child_mark
+    integer :: boundary(6)
     logical :: cloning
 
     character(len=:), allocatable :: prefix
@@ -63,7 +64,18 @@ contains
       !-------------------------------------------------------------------------
       ! initialization
 
-      cloning = parent % refinement == 'c'
+      select case(parent % refinement)
+      case('s')
+        ! subdivision
+        cloning = .false.
+      case('c')
+        ! cloning
+        cloning = .true.
+      case default
+        call Error( 'BuildChildData'              &
+                  , 'parent%refinement undefined' &
+                  , 'Child_Mesh_Adaptation__3D'   )
+      end select
 
       !$omp master
 
@@ -211,6 +223,19 @@ contains
           po = element % geometry % po
           np = (po + 1)**3
 
+          ! identify element boundaries
+          boundary = element % face % boundary
+
+          ! check for face neighbors with frozen children
+          do i = 1, 6
+            if (element % face(i) % i_neighbor > 0) then
+              l = element % neighbor( element%face(i)%i_neighbor ) % id
+              if (map % mark(l) < 1000) then
+                boundary(i) = 0
+              end if
+            end if
+          end do
+
           ! set child mark to old proc ID elements are retained
           m = element % adaptation % mark
           if (element % adaptation % refinement == m .and. m >= 1000) then
@@ -219,7 +244,7 @@ contains
             child_mark = -1
           end if
 
-          ! child TPs and IDs of parent face neighbors .........................
+          ! child TPs, IDs and activity of parent face neighbors ...............
 
           id_child_face =  0
           tp_child_face = -1
@@ -356,7 +381,7 @@ contains
             cd_tp % element(ce) % adaptation % mark        = child_mark
 
             ! face data
-            cd_tp % element(ce) % face % boundary = element % face % boundary
+            cd_tp % element(ce) % face % boundary = boundary
 
             ! start index of child neighbor data
             cd_tp % start_neighbor(ce) = cn + 1
@@ -403,9 +428,9 @@ contains
               cd_tp % element(ce) % adaptation % mark        = child_mark
 
               ! face data
-              cd_tp % element(ce) % face(1) % boundary = element % face(1) % boundary
-              cd_tp % element(ce) % face(3) % boundary = element % face(3) % boundary
-              cd_tp % element(ce) % face(5) % boundary = element % face(5) % boundary
+              cd_tp % element(ce) % face(1) % boundary = boundary(1)
+              cd_tp % element(ce) % face(3) % boundary = boundary(3)
+              cd_tp % element(ce) % face(5) % boundary = boundary(5)
 
               ! start index of child neighbor data
               cd_tp % start_neighbor(ce) = cn + 1
@@ -475,9 +500,9 @@ contains
               cd_tp % element(ce) % adaptation % mark        = child_mark
 
               ! face data
-              cd_tp % element(ce) % face(2) % boundary = element % face(2) % boundary
-              cd_tp % element(ce) % face(3) % boundary = element % face(3) % boundary
-              cd_tp % element(ce) % face(5) % boundary = element % face(5) % boundary
+              cd_tp % element(ce) % face(2) % boundary = boundary(2)
+              cd_tp % element(ce) % face(3) % boundary = boundary(3)
+              cd_tp % element(ce) % face(5) % boundary = boundary(5)
 
               cd_tp % start_neighbor(ce) = cn + 1
 
@@ -545,9 +570,9 @@ contains
               cd_tp % element(ce) % adaptation % mark        = child_mark
 
               ! face data
-              cd_tp % element(ce) % face(1) % boundary = element % face(1) % boundary
-              cd_tp % element(ce) % face(4) % boundary = element % face(4) % boundary
-              cd_tp % element(ce) % face(5) % boundary = element % face(5) % boundary
+              cd_tp % element(ce) % face(1) % boundary = boundary(1)
+              cd_tp % element(ce) % face(4) % boundary = boundary(4)
+              cd_tp % element(ce) % face(5) % boundary = boundary(5)
 
               cd_tp % start_neighbor(ce) = cn + 1
 
@@ -615,9 +640,9 @@ contains
               cd_tp % element(ce) % adaptation % mark        = child_mark
 
               ! face data
-              cd_tp % element(ce) % face(2) % boundary = element % face(2) % boundary
-              cd_tp % element(ce) % face(4) % boundary = element % face(4) % boundary
-              cd_tp % element(ce) % face(5) % boundary = element % face(5) % boundary
+              cd_tp % element(ce) % face(2) % boundary = boundary(2)
+              cd_tp % element(ce) % face(4) % boundary = boundary(4)
+              cd_tp % element(ce) % face(5) % boundary = boundary(5)
 
               cd_tp % start_neighbor(ce) = cn + 1
 
@@ -685,9 +710,9 @@ contains
               cd_tp % element(ce) % adaptation % mark        = child_mark
 
               ! face data
-              cd_tp % element(ce) % face(1) % boundary = element % face(1) % boundary
-              cd_tp % element(ce) % face(3) % boundary = element % face(3) % boundary
-              cd_tp % element(ce) % face(6) % boundary = element % face(6) % boundary
+              cd_tp % element(ce) % face(1) % boundary = boundary(1)
+              cd_tp % element(ce) % face(3) % boundary = boundary(3)
+              cd_tp % element(ce) % face(6) % boundary = boundary(6)
 
               cd_tp % start_neighbor(ce) = cn + 1
 
@@ -755,9 +780,9 @@ contains
               cd_tp % element(ce) % adaptation % mark        = child_mark
 
               ! face data
-              cd_tp % element(ce) % face(2) % boundary = element % face(2) % boundary
-              cd_tp % element(ce) % face(3) % boundary = element % face(3) % boundary
-              cd_tp % element(ce) % face(6) % boundary = element % face(6) % boundary
+              cd_tp % element(ce) % face(2) % boundary = boundary(2)
+              cd_tp % element(ce) % face(3) % boundary = boundary(3)
+              cd_tp % element(ce) % face(6) % boundary = boundary(6)
 
               cd_tp % start_neighbor(ce) = cn + 1
 
@@ -825,9 +850,9 @@ contains
               cd_tp % element(ce) % adaptation % mark        = child_mark
 
               ! face data
-              cd_tp % element(ce) % face(1) % boundary = element % face(1) % boundary
-              cd_tp % element(ce) % face(4) % boundary = element % face(4) % boundary
-              cd_tp % element(ce) % face(6) % boundary = element % face(6) % boundary
+              cd_tp % element(ce) % face(1) % boundary = boundary(1)
+              cd_tp % element(ce) % face(4) % boundary = boundary(4)
+              cd_tp % element(ce) % face(6) % boundary = boundary(6)
 
               cd_tp % start_neighbor(ce) = cn + 1
 
@@ -895,9 +920,9 @@ contains
               cd_tp % element(ce) % adaptation % mark        = child_mark
 
               ! face data
-              cd_tp % element(ce) % face(2) % boundary = element % face(2) % boundary
-              cd_tp % element(ce) % face(4) % boundary = element % face(4) % boundary
-              cd_tp % element(ce) % face(6) % boundary = element % face(6) % boundary
+              cd_tp % element(ce) % face(2) % boundary = boundary(2)
+              cd_tp % element(ce) % face(4) % boundary = boundary(4)
+              cd_tp % element(ce) % face(6) % boundary = boundary(6)
 
               cd_tp % start_neighbor(ce) = cn + 1
 

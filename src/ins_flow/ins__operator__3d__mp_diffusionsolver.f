@@ -4,7 +4,6 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !>
 !> @todo
-!>   - add standby option?
 !>   - ensure consistent handling of empty partitions
 !===============================================================================
 
@@ -127,7 +126,7 @@ contains
       ! element-averaged viscosity .............................................
 
       if (present(nu)) then
-        call TPO_Average(this%eop_v%w, nu, nu_avg)
+        call TPO_Average(this%eop_u%w, nu, nu_avg)
       else
         call SetArray(nu_avg, this % nu_0)
       end if
@@ -239,11 +238,15 @@ contains
     real(RSP), allocatable, save :: zs_sp(:,:,:,:) ! solution of subsystems
     real(RSP), allocatable, save :: rs_sp(:,:,:,:) ! RHS of subsystems
 
+    character, allocatable, save :: bc_schwarz(:)  ! BC adapted for Schwarz
+    integer,   allocatable, save :: cfg(:,:,:)     ! subdomain configurations
+
     type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_rg
     type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_zs
 
     ! parameters saved for reuse
     integer :: np = -1  ! number of element points per direction
+    integer :: na = -1  ! number of active elements
     integer :: ne = -1  ! number of elements
     integer :: ng = -1  ! number of ghosts
     integer :: no = -1  ! overlap
@@ -252,35 +255,39 @@ contains
     integer :: d, nl(3), ns
     logical :: reuse
 
-    associate(mesh => ins_op % mesh, schwarz_v => ins_op % schwarz_v)
+    associate(mesh => ins_op % mesh, schwarz => ins_op % schwarz_u)
 
       ! initialization .........................................................
 
       !$omp master
 
-      reuse = np == size(z,1)           .and. &
-              ne == mesh % n_elem       .and. &
-              ng == mesh % n_ghost      .and. &
-              no == schwarz_v(1) % no   .and. &
-              wp == schwarz_v(1) % wp
+      reuse = np == size(z,1)            .and. &
+              na == mesh % n_elem_active .and. &
+              ne == mesh % n_elem        .and. &
+              ng == mesh % n_ghost       .and. &
+              no == schwarz % no         .and. &
+              wp == schwarz % wp
 
       if (.not. reuse) then
 
-        if (allocated( rg     )) deallocate( rg     )
-        if (allocated( nu_dp  )) deallocate( nu_dp  )
-        if (allocated( zs_dp  )) deallocate( zs_dp  )
-        if (allocated( rs_dp  )) deallocate( rs_dp  )
-        if (allocated( nu_sp  )) deallocate( nu_sp  )
-        if (allocated( zs_sp  )) deallocate( zs_sp  )
-        if (allocated( rs_sp  )) deallocate( rs_sp  )
-        if (allocated( buf_rg )) deallocate( buf_rg )
-        if (allocated( buf_zs )) deallocate( buf_zs )
+        if (allocated( rg         )) deallocate( rg         )
+        if (allocated( nu_dp      )) deallocate( nu_dp      )
+        if (allocated( zs_dp      )) deallocate( zs_dp      )
+        if (allocated( rs_dp      )) deallocate( rs_dp      )
+        if (allocated( nu_sp      )) deallocate( nu_sp      )
+        if (allocated( zs_sp      )) deallocate( zs_sp      )
+        if (allocated( rs_sp      )) deallocate( rs_sp      )
+        if (allocated( buf_rg     )) deallocate( buf_rg     )
+        if (allocated( buf_zs     )) deallocate( buf_zs     )
+        if (allocated( bc_schwarz )) deallocate( bc_schwarz )
+        if (allocated( cfg        )) deallocate( cfg        )
 
         np = size(z,1)
+        na = mesh % n_elem_active
         ne = mesh % n_elem
         ng = mesh % n_ghost
-        no = schwarz_v(1) % no
-        wp = schwarz_v(1) % wp
+        no = schwarz % no
+        wp = schwarz % wp
 
         nl = no
         ns = np + 2*no
@@ -300,9 +307,23 @@ contains
           buf_zs = ElementTransferBuffer_3D(mesh, zs_dp, nl)
         end if
 
+        allocate(bc_schwarz, source = ins_op % bc_v)
+        where(bc_schwarz == 'O')
+          bc_schwarz = 'N'
+        end where
+
+        allocate(cfg(3,na,3))
+
       end if
 
       !$omp end master
+
+      if (.not. reuse) then
+        ! subdomain configurations -- so far identical for all directions
+        call schwarz % GetSubdomainConfigurations(mesh, bc_schwarz, cfg(:,:,1))
+        cfg(:,:,2) = cfg(:,:,1)
+        cfg(:,:,3) = cfg(:,:,1)
+      end if
 
       ! coefficients
       select case(wp)
@@ -329,30 +350,30 @@ contains
         select case(wp)
 
         case(RSP)
-          call schwarz_v(d) % RestrictResidual(mesh, buf_rg, rg, rs_sp)
-          call TPO_Schwarz( schwarz_v(d) % ops_sp % S  &
-                          , schwarz_v(d) % ops_sp % V  &
-                          , schwarz_v(d) % ops_sp % W  &
-                          , schwarz_v(d) % ops_sp % g  &
-                          , schwarz_v(d) % cfg         &
-                          , lambda_sp                  &
-                          , nu_sp                      &
-                          , rs_sp                      &
-                          , zs_sp                      )
-          call schwarz_v(d) % MergeCorrections(mesh, buf_zs, zs_sp, z(:,:,:,:,d))
+          call schwarz % RestrictResidual(mesh, buf_rg, rg, rs_sp)
+          call TPO_Schwarz( schwarz % ops_sp % S  &
+                          , schwarz % ops_sp % V  &
+                          , schwarz % ops_sp % W  &
+                          , schwarz % ops_sp % g  &
+                          , cfg(:,:,d)            &
+                          , lambda_sp             &
+                          , nu_sp(:na)            &
+                          , rs_sp(:,:,:,:na)      &
+                          , zs_sp(:,:,:,:na)      )
+          call schwarz % MergeCorrections(mesh, buf_zs, zs_sp, z(:,:,:,:,d))
 
         case default
-          call schwarz_v(d) % RestrictResidual(mesh, buf_rg, rg, rs_dp)
-          call TPO_Schwarz( schwarz_v(d) % ops_dp % S  &
-                          , schwarz_v(d) % ops_dp % V  &
-                          , schwarz_v(d) % ops_dp % W  &
-                          , schwarz_v(d) % ops_dp % g  &
-                          , schwarz_v(d) % cfg         &
-                          , lambda_dp                  &
-                          , nu_dp                      &
-                          , rs_dp                      &
-                          , zs_dp                      )
-          call schwarz_v(d) % MergeCorrections(mesh, buf_zs, zs_dp, z(:,:,:,:,d))
+          call schwarz % RestrictResidual(mesh, buf_rg, rg, rs_dp)
+          call TPO_Schwarz( schwarz % ops_dp % S  &
+                          , schwarz % ops_dp % V  &
+                          , schwarz % ops_dp % W  &
+                          , schwarz % ops_dp % g  &
+                          , cfg(:,:,d)            &
+                          , lambda_dp             &
+                          , nu_dp(:na)            &
+                          , rs_dp(:,:,:,:na)      &
+                          , zs_dp(:,:,:,:na)      )
+          call schwarz % MergeCorrections(mesh, buf_zs, zs_dp, z(:,:,:,:,d))
 
         end select
 
@@ -365,17 +386,20 @@ contains
 
       !$omp master
 
-      if (allocated( rg     )) deallocate( rg     )
-      if (allocated( nu_dp  )) deallocate( nu_dp  )
-      if (allocated( zs_dp  )) deallocate( zs_dp  )
-      if (allocated( rs_dp  )) deallocate( rs_dp  )
-      if (allocated( nu_sp  )) deallocate( nu_sp  )
-      if (allocated( zs_sp  )) deallocate( zs_sp  )
-      if (allocated( rs_sp  )) deallocate( rs_sp  )
-      if (allocated( buf_rg )) deallocate( buf_rg )
-      if (allocated( buf_zs )) deallocate( buf_zs )
+      if (allocated( rg         )) deallocate( rg         )
+      if (allocated( nu_dp      )) deallocate( nu_dp      )
+      if (allocated( zs_dp      )) deallocate( zs_dp      )
+      if (allocated( rs_dp      )) deallocate( rs_dp      )
+      if (allocated( nu_sp      )) deallocate( nu_sp      )
+      if (allocated( zs_sp      )) deallocate( zs_sp      )
+      if (allocated( rs_sp      )) deallocate( rs_sp      )
+      if (allocated( buf_rg     )) deallocate( buf_rg     )
+      if (allocated( buf_zs     )) deallocate( buf_zs     )
+      if (allocated( bc_schwarz )) deallocate( bc_schwarz )
+      if (allocated( cfg        )) deallocate( cfg        )
 
       np = -1
+      na = -1
       ne = -1
       ng = -1
       no = -1

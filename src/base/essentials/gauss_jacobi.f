@@ -73,7 +73,10 @@ contains
     P0 = 1
     P1 = (a-b+(a+b+2)*x) / 2
 
-    if (n < 2) then
+    if (n < 0) then
+      y = 0
+
+    else if (n < 2) then
       y = (1-n)*P0 + n*P1
 
     else if (a > -1 .and. b > -1) then
@@ -151,7 +154,11 @@ contains
     integer, intent(in) :: q       !< degree of the quadrature polynomial
     real(RNP)           :: x(0:q)  !< quadrature points
 
-    x = JacobiPolynomialZeros(ZERO, ZERO, n=q+1)
+    if (q == 0) then
+      x(0) = ZERO
+    else
+      x = JacobiPolynomialZeros(ZERO, ZERO, n=q+1)
+    end if
 
   end function GaussPoints
 
@@ -165,9 +172,17 @@ contains
     integer :: i, q
 
     q = ubound(x,1)
-    forall(i = 0:q)
-      w(i) = 2/((1-x(i)**2) * JacobiPolynomialDerivative(ZERO,ZERO,q+1,x(i))**2)
-    end forall
+    select case(q)
+    case(0)
+      w(0) = 2
+    case(1)
+      w(0:1) = 1
+    case default
+      forall(i = 0:q)
+        w(i) = 2 / ((1 - x(i)**2) &
+             * JacobiPolynomialDerivative(ZERO, ZERO, q+1, x(i))**2)
+      end forall
+    end select
 
   end function GaussWeights
 
@@ -183,12 +198,17 @@ contains
     integer :: q
 
     q = ubound(xi,1)
-    if (abs(x - xi(k)) < TOL) then
+    select case(q)
+    case(0)
       y = 1
-    else
-      y = JacobiPolynomial(ZERO, ZERO, q+1, x)  &
-        / (JacobiPolynomialDerivative(ZERO, ZERO, q+1, xi(k)) * (x-xi(k)))
-    end if
+    case default
+      if (abs(x - xi(k)) < TOL) then
+        y = 1
+      else
+        y = JacobiPolynomial(ZERO, ZERO, q+1, x)  &
+          / (JacobiPolynomialDerivative(ZERO, ZERO, q+1, xi(k)) * (x-xi(k)))
+      end if
+    end select
 
   end function GaussPolynomial
 
@@ -260,9 +280,14 @@ contains
     integer :: i, q
 
     q = ubound(x,1)
-    forall(i = 0:q)
-      w(i) = 2 / (q*(q+1) * JacobiPolynomial(ZERO, ZERO, q, x(i))**2)
-    end forall
+    select case(q)
+    case(1)
+      w(0:1) = 1
+    case default
+      forall(i = 0:q)
+        w(i) = 2 / (q*(q+1) * JacobiPolynomial(ZERO, ZERO, q, x(i))**2)
+      end forall
+    end select
 
   end function LobattoWeights
 
@@ -398,13 +423,13 @@ contains
     real(RNP) :: x_, xi_k
     integer   :: q
 
-    if (abs(x - xi(k)) < TOL) then
+    q = ubound(xi,1)
+
+    if (q == 0 .or. abs(x - xi(k)) < TOL) then
 
       y = 1
 
     else
-
-      q = ubound(xi,1)
 
       if (abs(ONE + xi(0)) < TOL) then
         ! Radau left
@@ -448,7 +473,11 @@ contains
 
     q = ubound(xi,1)
 
-    if (s == 1 .and. k == 0 .and. p == 0) then
+    if (q == 0) then
+
+      dy = 0
+
+    else if (s == 1 .and. k == 0 .and. p == 0) then
 
       dy = -q * (q+2) / FOUR
 

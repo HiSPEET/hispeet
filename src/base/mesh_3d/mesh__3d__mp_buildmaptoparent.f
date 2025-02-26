@@ -25,8 +25,17 @@ contains
   !>   -  `mesh % element % adaptation % parent_proc`
   !>   -  `mesh % element % adaptation % parent_id`
   !>
+  !> Generates a set of maps from local element clusters to their respective
+  !> parent elements. One map is created for each process containing any parent
+  !> element. The maps are split into one part referring to the active clusters
+  !> and a subsequent part with the froten clusters.
+  !>
   !> The procedure is capable to cope with orphaned elements whose parents have
-  !> been removed in course of an ongoing adaptation process.
+  !> been removed in course of an ongoing adaptation process. These orphans are
+  !> identified by a negative `parent_proc` entry.
+  !> Since the order of parents elements may have changed due to adaptation and
+  !> repartitioning, the child clusters are sorted by parent element IDs when
+  !> creating a map.
 
   module subroutine BuildMapToParent(mesh)
     class(Mesh_3D), intent(inout) :: mesh  !< mesh parition
@@ -37,15 +46,17 @@ contains
     integer, allocatable :: map_proc(:)    ! map entry per proc
 
     type ParentRanking
-      integer, allocatable :: id_active(:) ! active element parent ID
-      integer, allocatable :: rk_active(:) ! active element parent rank
-      integer, allocatable :: id_frozen(:) ! frozen element parent ID
-      integer, allocatable :: rk_frozen(:) ! frozen element parent rank
+      integer, allocatable :: active_id(:)  ! active cluster ID
+      integer, allocatable :: active_pid(:) ! active cluster parent element ID
+      integer, allocatable :: active_rk(:)  ! active cluster rank
+      integer, allocatable :: frozen_id(:)  ! frozen cluster ID
+      integer, allocatable :: frozen_pid(:) ! frozen cluster parent element ID
+      integer, allocatable :: frozen_rk(:)  ! frozen cluster rank
     end type ParentRanking
     type(ParentRanking), allocatable :: parent(:)
 
     integer :: n_proc, cluster_id
-    integer :: e, i, p, p_min, p_max
+    integer :: e, i, j, k, p, p_min, p_max
 
     !$omp master
 
@@ -122,19 +133,20 @@ contains
         allocate(mesh%map_parent(i)%id_cluster( mesh%map_parent(i)%n_cluster ))
       end do
 
-      ! ranking of parent elements .............................................
+      ! sort by parent element IDs .............................................
 
       allocate(parent(mesh % n_parent))
 
-      i = 0
       do i = 1, mesh % n_parent
-        allocate(parent(i) % id_active( mesh % map_parent(i) % n_active ))
-        allocate(parent(i) % rk_active( mesh % map_parent(i) % n_active ))
-        allocate(parent(i) % id_frozen( mesh % map_parent(i) % n_frozen ))
-        allocate(parent(i) % rk_frozen( mesh % map_parent(i) % n_frozen ))
+        allocate(parent(i) % active_id ( mesh % map_parent(i) % n_active ))
+        allocate(parent(i) % active_pid( mesh % map_parent(i) % n_active ))
+        allocate(parent(i) % active_rk ( mesh % map_parent(i) % n_active ))
+        allocate(parent(i) % frozen_id ( mesh % map_parent(i) % n_frozen ))
+        allocate(parent(i) % frozen_pid( mesh % map_parent(i) % n_frozen ))
+        allocate(parent(i) % frozen_rk ( mesh % map_parent(i) % n_frozen ))
       end do
 
-      ! extract parent IDs
+      ! extract parent IDs separately for active and frozen clusters
       cluster_id = 0
       n_active   = 0
       n_frozen   = 0
@@ -146,43 +158,38 @@ contains
           p = element % adaptation % parent_proc
           i = map_proc(p)
           if (element % frozen) then
-            n_frozen(p) = n_frozen(p) + 1
-            parent(i) % id_frozen(n_frozen(p)) = element % adaptation % parent_id
+            k = n_frozen(p) + 1
+            parent(i) % frozen_id(k) = cluster_id
+            parent(i) % frozen_pid(k) = element % adaptation % parent_id
+            n_frozen(p) = k
           else
-            n_active(p) = n_active(p) + 1
-            parent(i) % id_active(n_active(p)) = element % adaptation % parent_id
+            k = n_active(p) + 1
+            parent(i) % active_id(k) = cluster_id
+            parent(i) % active_pid(k) = element % adaptation % parent_id
+            n_active(p) = k
           end if
         end associate
       end do
 
-      ! parent ranking
+      ! sort active and frozen clusters according to ascending parent ID
       do i = 1, mesh % n_parent
-        call SortIndex(parent(i) % id_active, parent(i) % rk_active)
-        call SortIndex(parent(i) % id_frozen, parent(i) % rk_frozen)
+        call SortIndex(parent(i) % active_pid, parent(i) % active_rk)
+        call SortIndex(parent(i) % frozen_pid, parent(i) % frozen_rk)
       end do
 
-      ! build element lists ....................................................
+      ! build cluster lists ....................................................
 
-      cluster_id = 0
-      n_active   = 0
-      n_frozen   = 0
-
-      do e = 1, mesh % n_elem
-        associate(element => mesh % element(e))
-          if (element % cluster_id == cluster_id)     cycle ! skip siblings
-          if (element % adaptation % parent_proc < 0) cycle ! skip orphans
-          cluster_id = element % cluster_id
-          p = element % adaptation % parent_proc
-          i = map_proc(p)
-          associate(map => mesh % map_parent(i))
-            if (element % frozen) then
-              n_frozen(p) = n_frozen(p) + 1
-              map % id_cluster(n_frozen(p) + map % n_active) = cluster_id
-            else
-              n_active(p) = n_active(p) + 1
-              map % id_cluster(n_active(p)) = cluster_id
-            end if
-          end associate
+      do i = 1, size(parent)
+        associate(id_cluster => mesh % map_parent(i) % id_cluster)
+          k = 0
+          do j = 1, size(parent(i)%active_rk)
+            k = k + 1
+            id_cluster(k) = parent(i) % active_id( parent(i) % active_rk(j) )
+          end do
+          do j = 1, size(parent(i)%frozen_rk)
+            k = k + 1
+            id_cluster(k) = parent(i) % frozen_id( parent(i) % frozen_rk(j) )
+          end do
         end associate
       end do
 

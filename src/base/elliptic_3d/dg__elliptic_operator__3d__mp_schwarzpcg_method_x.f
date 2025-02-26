@@ -17,23 +17,26 @@ contains
   !-----------------------------------------------------------------------------
   !> Inexact Schwarz-preconditioned CG method with either constant or variable ν
   !>
+  !> Homogeneous conditions are used if boundary values `bv` are absent
+  !>
   !> This routine implements the IPCG method proposed in: G. Golub & Q. Ye,
   !> SIAM J. Sci. Comput. 21(4):1305-1320, 1999
 
-  module subroutine SchwarzPCG_Method_X( this, lambda, nu_c, nu_v, u, f, bv &
-                                       , i_max, r_red, r_max, ni            )
+  module subroutine SchwarzPCG_Method_X( this, bc, lambda, nu_c, nu_v, u, f &
+                                       , bv, i_max, r_red, r_max, ni        )
 
-    class(DG_EllipticOperator_3D),   intent(in)    :: this
-    real(RNP),                       intent(in)    :: lambda        !< λ
-    real(RNP),             optional, intent(in)    :: nu_c          !< νᵖ+νˢ
-    real(RNP), contiguous, optional, intent(in)    :: nu_v(:,:,:,:) !< νᵖ
-    real(RNP), contiguous,           intent(inout) :: u(:,:,:,:)
-    real(RNP), contiguous,           intent(in)    :: f(:,:,:,:)
-    class(BoundaryVariable_3D),      intent(in)    :: bv(:)
-    integer,                         intent(in)    :: i_max
-    real(RNP),             optional, intent(in)    :: r_red
-    real(RNP),             optional, intent(in)    :: r_max
-    integer,               optional, intent(out)   :: ni
+    class(DG_EllipticOperator_3D),        intent(in)    :: this
+    character,                            intent(in)    :: bc(:)
+    real(RNP),                            intent(in)    :: lambda        !< λ
+    real(RNP),                  optional, intent(in)    :: nu_c          !< νᵖ+νˢ
+    real(RNP), contiguous,      optional, intent(in)    :: nu_v(:,:,:,:) !< νᵖ
+    real(RNP), contiguous,                intent(inout) :: u(:,:,:,:)
+    real(RNP), contiguous,                intent(in)    :: f(:,:,:,:)
+    class(BoundaryVariable_3D), optional, intent(in)    :: bv(:)
+    integer,                              intent(in)    :: i_max
+    real(RNP),                  optional, intent(in)    :: r_red
+    real(RNP),                  optional, intent(in)    :: r_max
+    integer,                    optional, intent(out)   :: ni
 
     ! internal variables .......................................................
 
@@ -63,12 +66,14 @@ contains
     real(RSP), allocatable, save :: fs_sp(:,:,:,:) ! RHS of subsystems
     real(RSP), allocatable, save :: zs_sp(:,:,:,:) ! solution of subsystems
 
+    integer, allocatable, save :: cfg(:,:) ! subdomain configurations
+
     type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_rg
     type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_zs
 
     real(RNP) :: alpha, beta, delta, rr
     logical   :: check_convergence, singular
-    integer   :: ne, ng, nl(3), no, np, ns, wp
+    integer   :: na, ne, ng, nl(3), no, np, ns, wp
     integer   :: i, i_max_
 
     ! skip empty partition
@@ -84,6 +89,7 @@ contains
 
       ! initialization .........................................................
 
+      na = mesh % n_elem_active
       ne = mesh % n_elem
       ng = mesh % n_ghost
       wp = schwarz % wp
@@ -118,14 +124,18 @@ contains
         buf_zs = ElementTransferBuffer_3D(mesh, zs_dp, nl)
       end select
 
+      allocate(cfg(3,na))
+
       !$omp end master
       !$omp barrier
 
+      call schwarz % GetSubdomainConfigurations(mesh, bc, cfg)
+
       check_convergence = log_level_inner_iteration > 0
-      if (present(r_red)) check_convergence = r_red > 0
+      if (present(r_red)) check_convergence = r_red > 0 .or. check_convergence
       if (present(r_max)) check_convergence = r_max > 0 .or. check_convergence
 
-      singular = abs(lambda) < epsilon(ONE) .and. all(this%bc /= 'D')
+      singular = abs(lambda) < epsilon(ONE) .and. all(bc /= 'D')
 
       ! coefficients ...........................................................
 
@@ -148,15 +158,15 @@ contains
         nu_dp = real(nu_avg, RDP)
         !$omp workshare nowait
       end select
-      ! omp barrier not needed because Apply is blocking
+      ! omp barrier not needed because Residual is blocking
 
       ! initial residual .......................................................
 
       ! r = f - Au
       if (present(nu_c)) then
-        call this % Residual(lambda, nu_c, f, bv, u, r)
+        call this % Residual(bc, lambda, nu_c, f, bv, u, r)
       else
-        call this % Residual(lambda, nu_v, f, bv, u, r)
+        call this % Residual(bc, lambda, nu_v, f, bv, u, r)
       end if
       if (singular) then
         call CalibrateArray(r, mesh%comm_parts)
@@ -209,11 +219,11 @@ contains
                           , schwarz % ops_sp % V  &
                           , schwarz % ops_sp % W  &
                           , schwarz % ops_sp % g  &
-                          , schwarz % cfg         &
+                          , cfg                   &
                           , lambda_sp             &
-                          , nu_sp                 &
-                          , fs_sp                 &
-                          , zs_sp                 )
+                          , nu_sp(:na)            &
+                          , fs_sp(:,:,:,:na)      &
+                          , zs_sp(:,:,:,:na)      )
           call schwarz % MergeCorrections(mesh, buf_zs, zs_sp, z)
         case default
           call schwarz % RestrictResidual(mesh, buf_rg, rg, fs_dp)
@@ -221,11 +231,11 @@ contains
                           , schwarz % ops_dp % V  &
                           , schwarz % ops_dp % W  &
                           , schwarz % ops_dp % g  &
-                          , schwarz % cfg         &
+                          , cfg                   &
                           , lambda_dp             &
-                          , nu_dp                 &
-                          , fs_dp                 &
-                          , zs_dp                 )
+                          , nu_dp(:na)            &
+                          , fs_dp(:,:,:,:na)      &
+                          , zs_dp(:,:,:,:na)      )
           call schwarz % MergeCorrections(mesh, buf_zs, zs_dp, z)
         end select
 
@@ -247,9 +257,9 @@ contains
 
         ! operator application with no source and homogeneous BC
         if (present(nu_c)) then
-          call this % Apply(lambda, nu_c, p, q)
+          call this % Apply(bc, lambda, nu_c, u=p, r=q)
         else
-          call this % Apply(lambda, nu_v, p, q)
+          call this % Apply(bc, lambda, nu_v, u=p, r=q)
         end if
 
         ! correction
@@ -260,9 +270,9 @@ contains
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
           if (present(nu_c)) then
-            call this % Residual(lambda, nu_c, f, bv, u, r)
+            call this % Residual(bc, lambda, nu_c, f, bv, u, r)
           else
-            call this % Residual(lambda, nu_v, f, bv, u, r)
+            call this % Residual(bc, lambda, nu_v, f, bv, u, r)
           end if
           if (singular) then
             call CalibrateArray(r, mesh%comm_parts)
@@ -312,6 +322,7 @@ contains
       case default
         deallocate(nu_dp, fs_dp, zs_dp)
       end select
+      deallocate(cfg)
       !$omp end master
 
     end associate

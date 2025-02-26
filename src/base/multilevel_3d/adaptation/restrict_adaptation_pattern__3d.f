@@ -85,9 +85,8 @@ contains
 
     ! prepare child marks for sending ..........................................
 
-    do i = 1, child % n_elem
+    do i = 1, child % n_elem_active
       associate(element => child % element(i))
-        if (element % frozen) cycle
         c = element % cluster_id
         o = element % cluster_oct
         child_mark(o,c) = element % adaptation % mark

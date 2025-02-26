@@ -1,0 +1,83 @@
+!-------------------------------------------------------------------------------
+! Control
+
+&control_prm
+
+! log_level                 = 1  ! activate/increase
+! log_level_inner_iteration = 1  ! for
+! log_level_outer_iteration = 1  ! higher
+! log_level_multigrid_cycle = 1  ! verbosity
+
+  problem_file = 'channel'
+  flow_problem = 'Channel'
+  flow_domain  = 1
+
+! export_vtk   = T  ! set T for generating plot files
+! char_freq    = 0  ! set frequency of control output
+
+  restart_tag_in  = '<restart_tag_in>'
+  restart_tag_out = '<restart_tag_out>'
+/
+
+!-------------------------------------------------------------------------------
+! Spatial
+
+&spatial_prm
+
+  po_u = 8
+  po_p = 2 3 7 7 7
+
+  ins_op_opt%pressure_method  = 4
+  ins_op_opt%diffusion_method = 3
+  ins_op_opt%penalty_u        = 2   ! increase: smaller jumps, more v-iterations
+  ins_op_opt%dealiasing       = T
+  ins_op_opt%mu_0             = 100
+
+  ml_solver_p_opt%i_crs = 1000
+  ml_solver_p_opt%i_max = 5         ! increase: better robustness, more cost
+  ml_solver_p_opt%r_red = 1e-08
+  ml_solver_p_opt%r_max = 1e-12
+/
+
+&ml_mesh_options_3d__static
+  l_top =  5  ! initial top level
+  l_max =  5  ! maximum top level
+/
+
+&ml_mesh_options_3d__dynamic
+  refinement = 2*'c', 2*'s' ! (1:l_max-1)  refinement type {'c','s'}
+  n_parts    = 4 4 4 8 64
+/
+
+!-------------------------------------------------------------------------------
+! Temporal
+
+&temporal_prm
+
+  t_end  = 0.25
+  dt     = 2e-4
+  nt_max = 100
+  smooth_initial_data = T
+
+  time_method = 2  ! 1/2/3: Euler/BDF2/Runge-Kutta
+
+  ins_ti_bdf2_opt%i_max_p  = 50000
+  ins_ti_bdf2_opt%i_max_v  = 5      ! increase: smaller divergence, more cost
+  ins_ti_bdf2_opt%r_red    = 1e-08
+  ins_ti_bdf2_opt%r_max    = 1e-12
+/
+
+!-------------------------------------------------------------------------------
+! Domains
+
+&cuboid_cartesian_prm
+  xo    =  3*0.0
+  lx(1) =  12.56637061435917295376d+0  ! 4π
+  lx(2) =  6.28318530717958647688d+0   ! 2π
+  lx(3) =  2.0
+
+  np =  1,1,1  ! num partitions per direction             ! small mesh for
+  ep =  2,2,2  ! num elements per direction and partition ! for playing around
+
+  periodic = T,T,F
+/
