@@ -7,8 +7,8 @@
 ! log_level_inner_iteration = 1  ! for higher
 ! log_level_outer_iteration = 1  ! verbosity
 
-  problem_file = 'stokes_linke'
-  flow_problem = 'Stokes_Linke'
+  problem_file = 'stokes_dkm'
+  flow_problem = 'Stokes_DKM'
   flow_domain  = 1
 
 ! export_vtk   = T  ! set T for generating plot files
@@ -35,8 +35,8 @@
 
 &temporal_prm
 
-  t_end  = 1
-  dt     = 1e-5
+  t_end  = 0.1
+  dt     = 1e-3
   nt_max = 10000
 
   time_method = 1  ! 1/2 Euler/BDF2
@@ -78,9 +78,11 @@
 ! Domain
 
 &cuboid_cartesian_prm
-  xo = 0, 0, 0.000
-  lx = 1, 1, 0.250
-  np = 1, 1, 1
-  ep = 4, 4, 1
+! regular    = F ! mimic irregular mesh (elements deformed or of different size)
+! structured = F ! mimic unstructured mesh
+  xo = -1,-1,-0.125
+  lx =  2, 2, 0.500
+  np =  1, 1, 1
+  ep =  4, 4, 1
   periodic = F,F,T
 /

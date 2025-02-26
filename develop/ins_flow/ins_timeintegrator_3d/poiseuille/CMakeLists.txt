@@ -1,7 +1,7 @@
 file( COPY README.md
-           test-open.prm
-           test-periodic.prm
-           poiseuille-open.prm
-           poiseuille-periodic.prm	
+           test_open.prm
+           test_periodic.prm
+           poiseuille_open.prm
+           poiseuille_periodic.prm	
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR} )
