@@ -43,13 +43,12 @@
 
 &ml_mesh_options_3d__static
   l_top          =  5  ! initial top level
-  l_max          =  6  ! maximum top level
   n_parts_root   =  8  ! number of partitions at root level   [1]
   n_parts_growth =  8  ! partition number growth rate         [1]
 /
 
 &ml_mesh_options_3d__dynamic
-  refinement = 2*'c', 3*'s' ! (1:l_max-1)  refinement type {'c','s'}
+  refinement = 2*'c', 3*'s' ! (1:l_top-1)  refinement type {'c','s'}
 /
 
 !-------------------------------------------------------------------------------

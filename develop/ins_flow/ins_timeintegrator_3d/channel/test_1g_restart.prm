@@ -43,7 +43,6 @@
   t_end  = 0.25
   dt     = 2e-4
   nt_max = 100
-  smooth_initial_data = T
 
   time_method = 2  ! 1/2/3: Euler/BDF2/Runge-Kutta
 
