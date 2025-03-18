@@ -77,6 +77,8 @@ endif ()
 
 set ( UTILITIES 
       utilities/cache_blocking.f
+      utilities/erfc_log_filter.f
+      utilities/exponential_filter.f
       utilities/execution_control.f
       utilities/logging_levels.f
       utilities/quick_sort.f

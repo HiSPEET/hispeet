@@ -1,7 +1,0 @@
-&input
-  po_b    =  4  ! basis polynomial order
-  nodes_b = 'L' ! basis type of nodes
-  po_c    = 11  ! test function polynomial order
-  nodes_c = 'L' ! test function type of nodes
-  n_s     = 80  ! number of sampling intervals
-/
