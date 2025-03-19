@@ -23,7 +23,7 @@ program Test_Projection
   character(2) :: nodes_p    =  'L' ! node type of projected function
   character    :: projection =  'P' ! projection method {'I','P'}
   integer      :: filter     =   0  ! 0/1/2: none/erfc-log/exponential filter
-  integer      :: po_f       =   1  ! filter order > 0
+  real(RNP)    :: po_f       =   1  ! filter order > 0
 
   namelist/input/ c_front, n_s, po_c, nodes_c, po_p, nodes_p, projection, &
                   filter, po_f

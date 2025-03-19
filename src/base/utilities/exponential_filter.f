@@ -19,7 +19,7 @@ contains
 
   pure real(RNP) function ExponentialFilter(theta, p) result(sigma)
     real(RNP), intent(in) :: theta !< non-dimensional wave number in [0,1]
-    integer,   intent(in) :: p     !< order of the filter ≥ 1
+    real(RNP), intent(in) :: p     !< order of the filter ≥ 1
 
     real(RNP), parameter :: alpha = log(epsilon(ONE))
 

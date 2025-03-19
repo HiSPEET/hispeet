@@ -24,7 +24,7 @@ contains
 
   pure real(RNP) function ErfcLogFilter(theta, p) result(sigma)
     real(RNP), intent(in) :: theta !< non-dimensional wave number in [0,1]
-    integer,   intent(in) :: p     !< order of the filter ≥ 1
+    real(RNP), intent(in) :: p     !< order of the filter ≥ 1
 
     real(RNP) :: x
 
@@ -38,7 +38,7 @@ contains
       sigma = HALF
     else
       x = 2 * theta - 1
-      sigma = HALF * erfc(x * sqrt( -real(p,RNP)/(x*x) * log(1 - x*x) ))
+      sigma = HALF * erfc(x * sqrt( -p/(x*x) * log(1 - x*x) ))
     end if
 
   end function ErfcLogFilter
