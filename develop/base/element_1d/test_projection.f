@@ -8,8 +8,6 @@ program Test_Projection
   use Kind_Parameters
   use Constants
   use Gauss_Jacobi
-  use Erfc_Log_Filter
-  use Exponential_Filter
   use Standard_Element_Operators__1D
   use Embedded_Interpolation_Operator__1D
   use Projection_Operator__1D
@@ -23,10 +21,10 @@ program Test_Projection
   character(2) :: nodes_p    =  'L' ! node type of projected function
   character    :: projection =  'P' ! projection method {'I','P'}
   integer      :: filter     =   0  ! 0/1/2: none/erfc-log/exponential filter
-  real(RNP)    :: po_f       =   1  ! filter order > 0
+  real(RNP)    :: pf         =   1  ! filter order > 0
 
   namelist/input/ c_front, n_s, po_c, nodes_c, po_p, nodes_p, projection, &
-                  filter, po_f
+                  filter, pf
 
   type(StandardElementOperators_1D)      :: eop_c
   type(StandardElementOperators_1D)      :: eop_p
@@ -44,14 +42,11 @@ program Test_Projection
   real(RNP), allocatable :: f_p (:) ! projected function at basis nodes
   real(RNP), allocatable :: f_ps(:) ! interpolant of f_p at sampling points
 
-  real(RNP), allocatable :: VL    (:,:) ! Legendre Vandermonde matrix
-  real(RNP), allocatable :: VL_inv(:,:) ! inverse Legendre Vandermonde matrix
-  real(RNP), allocatable :: A_f   (:,:) ! filtering matrix
-  real(RNP) :: sigma, theta
+  real(RNP), allocatable :: Af(:,:) ! filtering matrix
 
   logical :: exists
   integer :: io
-  integer :: i, j, k
+  integer :: i
 
   ! read parameters
   inquire(file='test_projection.prm', exist=exists)
@@ -79,33 +74,18 @@ program Test_Projection
   ! interpolant of f_c at sampling points
   allocate(f_cs(0:n_s), source = matmul(iop_cs%A, f_c))
 
-  if (filter > 0 .and. po_f > 0) then
+  if (filter > 0 .and. pf > 0) then
 
     ! filtering
-    open(newunit = io, file = 'test_projection_filter.dat')
-    write(io,'(A)') '#   theta       sigma'
-    allocate(A_f(0:po_c,0:po_c), source = ZERO)
-    allocate(VL, VL_inv,  mold = A_f)
-    call eop_c % Get_Legendre_VDM(VL)
-    call eop_c % Get_Inverse_Legendre_VDM(VL_inv)
-    do k = 0, po_c
-      theta = real(k, RNP) / po_c
-      select case(filter)
-      case(1)
-        sigma = ErfcLogFilter(theta, po_f)
-      case(2)
-        sigma = ExponentialFilter(theta, po_f)
-      end select
-      write(io,'(2(ES12.5,2X))') theta, sigma
-      do j = 0, po_c
-      do i = 0, po_c
-        A_f(i,j) = A_f(i,j) + VL(i,k) * sigma * VL_inv(k,j)
-      end do
-      end do
-    end do
-    close(io)
+    allocate(Af(0:po_c,0:po_c), source = ZERO)
+    select case(filter)
+    case(1)
+      call eop_c % Get_ErfcLogFilter(pf, Af)
+    case(2)
+      call eop_c % Get_ExponentialFilter(pf, Af)
+    end select
 
-    allocate(f_f(0:po_c), source = matmul(A_f, f_c))
+    allocate(f_f(0:po_c), source = matmul(Af, f_c))
     allocate(f_fs(0:n_s), source = matmul(iop_cs%A, f_f))
 
   else

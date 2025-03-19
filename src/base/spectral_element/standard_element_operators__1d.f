@@ -1,5 +1,5 @@
 !> summary:   Spectral element operators in the one-dimensional standard region
-!> author:    Immo Huismann, Joerg Stiller, Gustav Tschirschnitz
+!> author:    Immo Huismann, Joerg Stiller, Gustav Tschirschnitz, Erik Pfister
 !> date:      2014/11/24
 !> license:   Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
@@ -8,6 +8,8 @@ module Standard_Element_Operators__1D
   use Kind_Parameters,   only: RNP
   use Constants,         only: ZERO, ONE, TWO
   use Execution_Control, only: Warning, Error
+  use Erfc_Log_Filter
+  use Exponential_Filter
   use Gauss_Jacobi
   use Matrix_Operators,  only: Inverse
   use XMPI
@@ -59,6 +61,8 @@ module Standard_Element_Operators__1D
     procedure :: Get_Legendre_VDM
     procedure :: Get_Inverse_Legendre_VDM
     procedure :: Get_Legendre_CutoffFilter
+    procedure :: Get_ErfcLogFilter
+    procedure :: Get_ExponentialFilter
 
     procedure :: Init_Bubble_VDM
     procedure :: Has_Bubble_VDM
@@ -465,6 +469,68 @@ contains
     end if
 
   end subroutine Get_Bubble_CutoffFilter
+
+  !-----------------------------------------------------------------------------
+  !> Get erfc-log filter of order pf
+
+  subroutine Get_ErfcLogFilter(this, pf, A)
+    class(StandardElementOperators_1D), intent(in) :: this !< standard operators
+    real(RNP), intent(in)  :: pf                     !< filter order
+    real(RNP), intent(out) :: A(0:this%po,0:this%po) !< filter matrix
+
+    real(RNP), dimension(0:this%po,0:this%po) :: VL, VL_inv
+    real(RNP) :: sigma(0:this%po)
+    integer   :: i, j
+
+    associate(po => this % po)
+
+      call this % Get_Legendre_VDM(VL)
+      call this % Get_Inverse_Legendre_VDM(VL_inv)
+
+      do i = 0, this%po
+        sigma(i) = ErfcLogFilter(real(i,RNP)/po, pf)
+      end do
+
+      do j = 0, po
+      do i = 0, po
+        A(i,j) = sum(VL(i,:) * sigma(:) * VL_inv(:,j))
+      end do
+      end do
+
+    end associate
+
+  end subroutine Get_ErfcLogFilter
+
+  !-----------------------------------------------------------------------------
+  !> Get exponential filter of order pf
+
+  subroutine Get_ExponentialFilter(this, pf, A)
+    class(StandardElementOperators_1D), intent(in) :: this !< standard operators
+    real(RNP), intent(in)  :: pf                     !< filter order
+    real(RNP), intent(out) :: A(0:this%po,0:this%po) !< filter matrix
+
+    real(RNP), dimension(0:this%po,0:this%po) :: VL, VL_inv
+    real(RNP) :: sigma(0:this%po)
+    integer   :: i, j
+
+    associate(po => this % po)
+
+      call this % Get_Legendre_VDM(VL)
+      call this % Get_Inverse_Legendre_VDM(VL_inv)
+
+      do i = 0, po
+        sigma(i) = ExponentialFilter(real(i,RNP)/po, pf)
+      end do
+
+      do j = 0, po
+      do i = 0, po
+        A(i,j) = sum(VL(i,:) * sigma(:) * VL_inv(:,j))
+      end do
+      end do
+
+    end associate
+
+  end subroutine Get_ExponentialFilter
 
   !-----------------------------------------------------------------------------
   !> Initializes SVV operators

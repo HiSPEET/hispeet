@@ -7,5 +7,5 @@
   nodes_p    =  'L' ! basis type of nodes
   projection =  'I' ! projection method {'I','P'}
   filter     =   1  ! 0/1/2: none/erfc-log/exponential
-  po_f       =   4  ! filter order
+  pf         =   4  ! filter order
 /
