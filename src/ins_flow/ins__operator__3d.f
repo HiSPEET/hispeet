@@ -41,15 +41,6 @@ module INS__Operator__3D
   public :: INS_OperatorOptions_3D
 
   !-----------------------------------------------------------------------------
-  !> Pressure solver options, operators and handles
-
-  type INS_PressureOperators_3D
-    integer :: method !< solution method
-    type(DG_EllipticOperator_3D) :: elliptic_op !< operators for present level
-    type(ML_DG_EllipticSolver_3D), pointer :: ml_elliptic !< multilevel solver
-  end type INS_PressureOperators_3D
-
-  !-----------------------------------------------------------------------------
   !> DG-SEM mesh and operators for incompressible Navier-Stokes problems
 
   type INS_Operator_3D

@@ -1,13 +1,13 @@
 #===============================================================================
 # test_l2_projection
 
-add_executable( test_l2_projection
-                test_l2_projection.f )
+add_executable( test_projection
+                test_projection.f )
 
-target_link_libraries(test_l2_projection HiBase)
+target_link_libraries(test_projection HiBase)
 
-configure_file( test_l2_projection.prm 
-                test_l2_projection.prm COPYONLY )
+configure_file( test_projection.prm 
+                test_projection.prm COPYONLY )
 
 #===============================================================================
 # test_hp_coarsening
