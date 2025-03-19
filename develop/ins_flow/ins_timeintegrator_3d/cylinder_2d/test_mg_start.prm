@@ -40,8 +40,8 @@
   ml_solver_p_opt%smooth_method = 1          ! more robust than default 3
   ml_solver_p_opt%i_crs = 1000
   ml_solver_p_opt%i_max = 5
-  ml_solver_p_opt%ns_1  = 80
-  ml_solver_p_opt%ns_2  = 20
+  ml_solver_p_opt%ns_1  = 80                 ! num pre-smoothing steps
+  ml_solver_p_opt%ns_2  = 20                 ! num post-smoothing steps
   ml_solver_p_opt%r_red = 1e-08
   ml_solver_p_opt%r_max = 1e-12
 
