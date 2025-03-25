@@ -5,7 +5,7 @@ add_library(KdTree
             )
 
 set_property(TARGET KdTree
-             PROPERTY Fortran_MODULE_DIRECTORY${PROJECT_BINARY_DIR}/modules
+             PROPERTY Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules
              )
 
 target_include_directories(KdTree
