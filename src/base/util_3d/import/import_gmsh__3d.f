@@ -138,13 +138,13 @@ contains
     type(MshBoundaryFace),   allocatable :: bface(:)
     type(MshSurface),        allocatable :: surface(:)
 
-    logical, allocatable :: node_mask(:)   ! array for masking nodes
     integer, allocatable :: node_tag(:)    ! map from node tags to node IDs
-    integer, allocatable :: vertex_node(:) ! map from nodes IDs to vertices
+    integer, allocatable :: vertex_node(:) ! map from node IDs to vertices
     integer, allocatable :: points(:,:,:)  ! collocation nodes
     integer, allocatable :: p_shell(:)     ! list of shell nodes
     integer, allocatable :: p_edge(:)      ! list of edge nodes
     integer, allocatable :: p_face(:)      ! list of face nodes
+    logical, allocatable :: mask(:)        ! array for masking nodes or vertices
 
     real(RNP):: affinityMatrix(4,4) ! affinity transformation matrix
 
@@ -214,14 +214,19 @@ contains
       read(MSH,*)
     end do
 
-    ! tags of mesh boundary surfaces
+    ! identify mesh boundary surfaces (without duplicates)
     allocate(surface(numSurfaces))
+    j = 0
     do i = 1, numSurfaces
       read(MSH,*) sT, minX, minY, minZ, maxX, maxY, maxZ, numPhysicalTags, pT
-      if (numPhysicalTags == 0) cycle  ! surface i is not a boundary
-      surface(i) % physicalTag = pT
-      surface(i) % surfaceTag  = sT
+      ! ignore duplicates or internal surfaces
+      if (numPhysicalTags == 0) cycle
+      j = j + 1
+      surface(j) % physicalTag = pT
+      surface(j) % surfaceTag  = sT
     end do
+    numSurfaces = j
+    surface = surface(1:numSurfaces)
 
     ! ignore volumes
     do i = 1, numVolumes
@@ -265,7 +270,7 @@ contains
     read(MSH,'(/)')
     read(MSH,*) numEntityBlocks, numElements
 
-    allocate(node_mask(numNodes))
+    allocate(mask(numNodes))
     allocate(element(numElements))
     allocate(bface(numElements))
 
@@ -281,9 +286,14 @@ contains
       case(2)
         ! surface
         s = s + 1
+        if (entityTag /= surface(s)%surfaceTag) then
+          call Error( 'ImportGMSH_3D'                        &
+                    , 'surface tag does not match entityTag' &
+                    , 'Import_GMSH__3D'                      )
+        end if
         allocate(surface(s)%nodes(numElementsInBlock*4), source = -1)
         surface(s) % nFaces = numElementsInBlock
-        node_mask = .false.
+        mask = .false.
         l = 0
         do j = 1, numElementsInBlock
           f = f + 1
@@ -293,10 +303,10 @@ contains
           read(MSH,*) k, bface(f)%nodes
           do k = 1, 4
             n = bface(f)%nodes(k)
-            if (node_mask(n)) cycle ! node already added
+            if (mask(n)) cycle ! node already added
             l = l + 1
             surface(s)%nodes(l) = n
-            node_mask(n) = .true.
+            mask(n) = .true.
           end do
         end do
         surface(s) % nNodes = l
@@ -444,7 +454,7 @@ contains
     write(*,'(2X,A)') 'identifying vertices ...'
     allocate(vertex_node(numNodes), source = 0)
 
-   ! mark element vertex nodes
+    ! mark element vertex nodes
     do i = 1, numHexElements
       vertex_node(element(i)%vertices) = 1
     end do
@@ -458,69 +468,13 @@ contains
     end do
     numVertices = k
 
-    ! where surface(j)%nodes corresponds to vertex adopt the tag of the latter
-    do j = 1, size(surface)
-    do l = 1, size(surface(j) % nodes)
+    ! transform surface node entries to vertex IDs
+    do j = 1, numSurfaces
+    do l = 1, surface(j)%nNodes
       n = surface(j)%nodes(l)
       if (n > 0) then
         surface(j)%nodes(l) = vertex_node( node_tag(n) )
       end if
-    end do
-    end do
-
-    ! identify elements corresponing to each boundary face .....................
-
-    write(*,'(2X,A)') 'identifying boundary elements & faces'
-
-    ! mark all boundary nodes
-    node_mask = .false.
-    do i = 1, numBoundaryFaces
-      node_mask(bface(i)%nodes) = .true.
-    end do
-
-    ! identify elements adjacent to boundary faces
-    do i = 1, numBoundaryFaces
-    do j = 1, numHexElements
-
-      ! skip elements with no boundary face
-      if (count(node_mask(element(j)%vertices)) < 4) cycle
-
-      ! identify element vertices matching a vertex of the boundary face
-      match = .false.
-      do k = 1, 8
-        match(k) = any(element(j)%vertices(k) == bface(i)%nodes)
-      end do
-
-      if (count(match) < 4) then
-        cycle
-      else if (match(1) .and. match(2) .and. match(5)) then
-        ! face 1 with element vertices [1,2,5,6]
-        m = 1
-      else if (match(2) .and. match(3) .and. match(6)) then
-        ! face 2 with element vertices [2,3,6,7]
-        m = 2
-      else if (match(3) .and. match(4) .and. match(7)) then
-        ! face 3 with element vertices [3,4,7,8]
-        m = 3
-      else if (match(1) .and. match(4) .and. match(5)) then
-        ! face 4 with element vertices [1,4,5,8]
-        m = 4
-      else if (match(1) .and. match(2) .and. match(3)) then
-        ! face 5 with element vertices [1,2,3,4]
-        m = 5
-      else if (match(5) .and. match(6) .and. match(7)) then
-        ! face 6 with element vertices [5,6,7,8]
-        m = 6
-      else
-        m = 0
-      end if
-
-      if (m > 0) then
-        bface(i)%elem_id   = element(j)%id
-        bface(i)%elem_face = m
-        exit
-      end if
-
     end do
     end do
 
@@ -533,6 +487,64 @@ contains
         exit
       end if
     end do
+    end do
+
+    ! identify elements corresponing to each boundary face .....................
+
+    write(*,'(2X,A)') 'identifying boundary elements & faces'
+
+    ! mark all boundary nodes
+    mask = .false.
+    do i = 1, numBoundaryFaces
+    if (bface(i)%physicalTag == 0) cycle
+      mask(bface(i)%nodes) = .true.
+    end do
+
+    ! identify elements adjacent to boundary faces
+    do i = 1, numBoundaryFaces
+      if (bface(i)%physicalTag == 0) cycle
+      do j = 1, numHexElements
+
+        ! skip elements with no boundary face
+        if (count(mask(element(j)%vertices)) < 4) cycle
+
+        ! identify element vertices matching a vertex of the boundary face
+        match = .false.
+        do k = 1, 8
+          match(k) = any(element(j)%vertices(k) == bface(i)%nodes)
+        end do
+
+        if (count(match) < 4) then
+          cycle
+        else if (match(1) .and. match(2) .and. match(5)) then
+          ! face 1 with element vertices [1,2,5,6]
+          m = 1
+        else if (match(2) .and. match(3) .and. match(6)) then
+          ! face 2 with element vertices [2,3,6,7]
+          m = 2
+        else if (match(3) .and. match(4) .and. match(7)) then
+          ! face 3 with element vertices [3,4,7,8]
+          m = 3
+        else if (match(1) .and. match(4) .and. match(5)) then
+          ! face 4 with element vertices [1,4,5,8]
+          m = 4
+        else if (match(1) .and. match(2) .and. match(3)) then
+          ! face 5 with element vertices [1,2,3,4]
+          m = 5
+        else if (match(5) .and. match(6) .and. match(7)) then
+          ! face 6 with element vertices [5,6,7,8]
+          m = 6
+        else
+          m = 0
+        end if
+
+        if (m > 0) then
+          bface(i)%elem_id   = element(j)%id
+          bface(i)%elem_face = m
+          exit
+        end if
+
+      end do
     end do
 
     ! map surfaces for boundaries and count boundary faces .....................
