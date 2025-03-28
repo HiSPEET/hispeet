@@ -45,7 +45,7 @@ module INS__Operator__3D
 
   type INS_Operator_3D
 
-    integer :: mesh_level       !< rank in multilevel hierarchy (0 if none)
+    integer :: level            !< rank in multilevel hierarchy (0 if none)
     integer :: pressure_method  !< pressure solution method
     integer :: diffusion_method !< velocity diffusion method
 
@@ -119,7 +119,6 @@ module INS__Operator__3D
   !> Options for INS_Operator_3D initialization
 
   type INS_OperatorOptions_3D
-    integer   :: mesh_level       =  0      !< rank in multilevel hierarchy
     integer   :: pressure_method  =  3      !< 1/2/3/4: CG/Schwarz/SPCG/MG
     integer   :: diffusion_method =  3      !< 1/2/3  : CG/Schwarz/SPCG
     logical   :: dealiasing       = .false. !< F: no dealiasing, T: 3/2 rule
@@ -345,7 +344,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor of INS_Operator_3D
 
-  function New_INS_Operator_3D(opt, problem, sem_u, sem_p, ml_solver_p) &
+  function New_INS_Operator_3D(opt, problem, sem_u, sem_p, ml_solver_p, level) &
         result(this)
 
     class(INS_OperatorOptions_3D), intent(in) :: opt
@@ -357,17 +356,21 @@ contains
     type(SpectralElementMesh_3D),  optional, target, intent(in) :: sem_p
       !< spectral element mesh and operators for p, if different from `sem_u`
     type(ML_DG_EllipticSolver_3D), optional, target, intent(in) :: ml_solver_p
-      !< multilevel pressure solver
+      !< multilevel pressure solver [none]
+    integer, optional, intent(in) :: level
+      !< rank in multilevel hierarchy (0 if none) 0[]
     type(INS_Operator_3D) :: this
 
-    call Init_INS_Operator_3D(this, opt, problem, sem_u, sem_p, ml_solver_p)
+    call Init_INS_Operator_3D( this, opt, problem, sem_u, sem_p &
+                             , ml_solver_p, level               )
 
   end function New_INS_Operator_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of INS_Operator_3D
 
-  subroutine Init_INS_Operator_3D(this, opt, problem, sem_u, sem_p, ml_solver_p)
+  subroutine Init_INS_Operator_3D &
+               (this, opt, problem, sem_u, sem_p, ml_solver_p, level)
 
     class(INS_Operator_3D), intent(inout) :: this
       !< new INS operator
@@ -380,11 +383,18 @@ contains
     type(SpectralElementMesh_3D),  optional, target, intent(in) :: sem_p
       !< spectral element mesh and operators for p, if different from `sem_u`
     type(ML_DG_EllipticSolver_3D), optional, target, intent(in) :: ml_solver_p
-      !< multilevel pressure solver
+      !< multilevel pressure solver [none]
+    integer, optional, intent(in) :: level
+      !< rank in multilevel hierarchy (0 if none) 0[]
 
     ! parameters ...............................................................
 
-    this % mesh_level       = opt % mesh_level
+    if (present(level)) then
+      this % level = level
+    else
+      this % level = 0
+    end if
+
     this % pressure_method  = opt % pressure_method
     this % diffusion_method = opt % diffusion_method
 
@@ -592,7 +602,6 @@ contains
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    call XMPI_Bcast(this % mesh_level      , root, comm)
     call XMPI_Bcast(this % pressure_method , root, comm)
     call XMPI_Bcast(this % diffusion_method, root, comm)
     call XMPI_Bcast(this % dealiasing      , root, comm)

@@ -318,7 +318,7 @@ contains
 
     integer :: b, l
 
-    associate( l_top       => this % mesh_level  &
+    associate( l_top       => this % level       &
              , ml_solver_p => this % ml_solver_p )
 
       ! workspace ..............................................................
