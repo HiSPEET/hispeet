@@ -545,6 +545,14 @@ contains
         end if
 
       end do
+
+      if (bface(i)%elem_id < 1) then
+        write(*,'(A,I0,A,4(X,I0))') 'bface(',i,')%nodes =', bface(i)%nodes
+        call Error( 'Import_GMSH_3D'                                  &
+                  , 'invalid mesh: no element matching boundary face' &
+                  , 'Import__GMSH__3D'                                )
+      end if
+
     end do
 
     ! map surfaces for boundaries and count boundary faces .....................
