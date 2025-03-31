@@ -401,12 +401,12 @@ program INS_TimeIntegrator_3D_Test
 
   ! Navier-Stokes operator
   sem_u = SpectralElementMesh_3D(ml_mesh%mesh(l_top), po_u)
-  ins_op_opt % mesh_level = l_top
   call ins_op % Init( opt         = ins_op_opt           &
                     , problem     = problem              &
                     , sem_u       = sem_u                &
                     , sem_p       = ml_op_p % sem(l_top) &
-                    , ml_solver_p = ml_solver_p          )
+                    , ml_solver_p = ml_solver_p          &
+                    , level       = l_top                )
 
   ! temporal ...................................................................
 
