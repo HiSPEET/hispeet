@@ -26,10 +26,6 @@ program INS_TimeIntegrator_3D_Test
   use Export_VTK_Volume_Data__3D
   use Spectral_Element_Mesh__3D
 
-  use ML__Mesh__3D
-  use ML__Mesh_Operators__3D
-  use ML__DG__Elliptic_Solver__3D
-
   use INS__Problem__3D
   use INS__Problem__Test_Suite__3D
 
@@ -84,12 +80,12 @@ program INS_TimeIntegrator_3D_Test
   character(len=80) :: problem_file = 'vortex_tg' ! problem parameters file
 
   integer :: flow_domain = 1
-  ! computational flow domain (u/s = un/structured, r = regular, d = deformed)
-  !   1  cuboidal domain with Cartesian mesh                               (s+r)
-  !   2  cuboidal domain with unstructured "diamond" mesh                  (u+d)
-  !   3  cylindrical domain                                                (u+d)
-  !   4  annular domain                                                    (u+d)
-  !  10  import from GMSH
+    ! computational flow domain (u/s = un/structured, r = regular, d = deformed)
+    !   1  cuboidal domain with Cartesian mesh                             (s+r)
+    !   2  cuboidal domain with unstructured "diamond" mesh                (u+d)
+    !   3  cylindrical domain                                              (u+d)
+    !   4  annular domain                                                  (u+d)
+    !  10  import from GMSH
 
   character(len=80) :: raw_mesh_file = ''
 
@@ -106,17 +102,17 @@ program INS_TimeIntegrator_3D_Test
   character(len=80) :: restart_tag_in  = ''  ! tag for restart input files
   character(len=80) :: restart_tag_out = ''  ! tag for restart output files
   namelist/control_prm/ restart_tag_in, restart_tag_out
-  !
-  ! restart input is read from
-  !   - trim(flow_case)_trim(restart_tag_in)_mesh_<rank>.h5  for the mesh
-  !   - trim(flow_case)_trim(restart_tag_in)_data_<rank>.h5  for flow data
-  ! where <rank> is the process rank in mesh%comm_world
-  !
-  ! output written to
-  !   - trim(flow_case)_trim(restart_tag_out)_mesh_<rank>.h5  for the mesh
-  !   - trim(flow_case)_trim(restart_tag_out)_data_<rank>.h5  for flow data
-  !
-  ! no restart data is read or written if the corresponding tag is empty
+    !
+    ! restart input is read from
+    !   - trim(flow_case)_trim(restart_tag_in)_mesh_<rank>.h5  for the mesh
+    !   - trim(flow_case)_trim(restart_tag_in)_data_<rank>.h5  for flow data
+    ! where <rank> is the process rank in mesh%comm_world
+    !
+    ! output written to
+    !   - trim(flow_case)_trim(restart_tag_out)_mesh_<rank>.h5  for the mesh
+    !   - trim(flow_case)_trim(restart_tag_out)_data_<rank>.h5  for flow data
+    !
+    ! no restart data is read or written if the corresponding tag is empty
 
   ! spatial parameters .........................................................
 
@@ -158,7 +154,7 @@ program INS_TimeIntegrator_3D_Test
   namelist/temporal_prm/ ins_ti_bdf2_opt
   namelist/temporal_prm/ ins_ti_runge_kutta_opt
 
-  ! mesh and operators .........................................................
+  ! mesh .......................................................................
 
   type(GenericMesh_3D),          save :: generic_mesh
   type(Mesh_3D), allocatable,    save :: base_mesh
