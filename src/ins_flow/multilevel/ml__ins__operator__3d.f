@@ -42,7 +42,6 @@ module ML__INS__Operator__3D
   !> Multilevel DG-SEM INS operator options
 
   type ML_INS_OperatorOptions_3D
-    integer, allocatable :: po(:) !< sequence of polynomial orders
     logical :: mixed  = .true.    !< T/F: use mixed/equal order for (v,p)
     integer :: smooth = 0         !< FC discontinuity smoothing {0,1,2}
     type(ML_DG_EllipticOptions_3D) :: ml_solver_p !< ML pressure solver options
@@ -59,44 +58,32 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor of ML_INS_Operator_3D
 
-  function New_ML_INS_Operator_3D(opt, ml_mesh, problem) result(this)
+  function New_ML_INS_Operator_3D(opt, ml_mesh, po, problem) result(this)
     class(ML_INS_OperatorOptions_3D), intent(in) :: opt
     class(ML_Mesh_3D), target, intent(in) :: ml_mesh
+    integer, intent(in) :: po(size(ml_mesh%mesh))
     class(INS_Problem_3D), target, intent(in) :: problem
     type(ML_INS_Operator_3D) :: this
 
-    call Init_ML_INS_Operator_3D(this, opt, ml_mesh, problem)
+    call Init_ML_INS_Operator_3D(this, opt, ml_mesh, po, problem)
 
   end function New_ML_INS_Operator_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of ML_INS_Operator_3D
 
-  subroutine Init_ML_INS_Operator_3D(this, opt, ml_mesh, problem)
+  subroutine Init_ML_INS_Operator_3D(this, opt, ml_mesh, po, problem)
     class(ML_INS_Operator_3D), intent(inout) :: this
     class(ML_INS_OperatorOptions_3D), intent(in) :: opt
     class(ML_Mesh_3D), target, intent(in) :: ml_mesh
+    integer, intent(in) :: po(size(ml_mesh%mesh))
     class(INS_Problem_3D), target, intent(in) :: problem
 
     integer :: l
 
-    ! sanity check .............................................................
-
-    if (.not. allocated(opt%po)) then
-      call Error('Init_ML_INS_Operator_3D', 'opt%po not allocated')
-    end if
-
-    if (.not. allocated(ml_mesh%mesh)) then
-      call Error('Init_ML_INS_Operator_3D', 'ml_mesh%mesh not allocated')
-    end if
-
-    if (size(opt%po) < size(ml_mesh%mesh)) then
-      call Error('Init_ML_INS_Operator_3D', 'opt%po does not match ml_mesh')
-    end if
-
     ! creating components ......................................................
 
-    associate(po => opt%po, smooth => opt%smooth)
+    associate(smooth => opt%smooth)
 
       this % ml_mesh => ml_mesh
       this % problem => problem
@@ -148,24 +135,6 @@ contains
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    integer :: n, rank
-
-    call MPI_Comm_rank(comm, rank)
-
-    if (rank == root) then
-      n = size(this%po)
-    end if
-
-    call XMPI_Bcast(n, root, comm)
-
-    if (rank /= root) then
-      if (allocated(this%po)) then
-        deallocate(this%po)
-      end if
-      allocate(this%po(n))
-    end if
-
-    call XMPI_Bcast(this % po    , root, comm)
     call XMPI_Bcast(this % mixed , root, comm)
     call XMPI_Bcast(this % smooth, root, comm)
 

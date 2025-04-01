@@ -84,27 +84,28 @@ program ML_INS_Solver_3D
     !
     ! no restart data is read or written if the corresponding tag is empty
 
-  ! spatial parameters .........................................................
-
-  type(ML_Mesh_Options_3D), save :: ml_mesh_opt
-    ! multilevel mesh options, defining top level, partitioning and refinement,
-    ! stacic components defined in namelist `ml_mesh_options_3d__static` and
-    ! dynamic components in `ml_mesh_options_3d__dynamic`
-
-  type(ML_INS_OperatorOptions_3D), save :: ml_ins_opt
-
-  namelist/spatial_prm/ ml_ins_opt
-
   ! mesh .......................................................................
 
   type(GenericMesh_3D),       save :: generic_mesh
   type(Mesh_3D), allocatable, save :: base_mesh
   type(ML_Mesh_3D),           save :: ml_mesh
 
-  ! problem, operators and solvers .............................................
+  type(ML_Mesh_Options_3D), save :: ml_mesh_opt
+    ! multilevel mesh options, defining top level, partitioning and refinement,
+    ! stacic components defined in namelist `ml_mesh_options_3d__static` and
+    ! dynamic components in `ml_mesh_options_3d__dynamic`
+
+  ! problem ....................................................................
 
   class(INS_Problem_3D), allocatable, save :: problem
+
+  ! spatial operators ..........................................................
+
+  integer, allocatable, save :: po(:)
+  type(ML_INS_OperatorOptions_3D), save :: ml_ins_opt
   type(ML_INS_Operator_3D), save :: ml_ins
+
+  namelist/spatial_prm/ po, ml_ins_opt
 
   ! auxiliaries ................................................................
 
@@ -112,8 +113,8 @@ program ML_INS_Solver_3D
 
   logical   :: exists, restart_in, restart_out
   integer   :: io, stat
-  integer   :: n_bound
-  integer   :: l_top
+  integer   :: l_top, n_bound
+  integer   :: i
 
   !-----------------------------------------------------------------------------
   ! Initialization
@@ -138,8 +139,8 @@ program ML_INS_Solver_3D
     write(*,'(/,A)') repeat('=',80)
     write(*,'(A)') 'Multilevel Navier-Stokes solver for incompressible flow'
     write(*,*)
-    write(*,'(T3,A,T30,9(G0,X))') 'number of processes:'  , n_proc
-    write(*,'(T3,A,T30,9(G0,X))') 'number of threads:'    , n_thread
+    write(*,'(T3,A,T30,9(G0,X))') 'number of processes:', n_proc
+    write(*,'(T3,A,T30,9(G0,X))') 'number of threads:'  , n_thread
     write(*,*)
 
     call get_command_argument(1, flow_case, status=stat)
@@ -258,7 +259,7 @@ program ML_INS_Solver_3D
 
   ! spatial ....................................................................
 
-  allocate(ml_ins_opt % po(l_top))
+  allocate(po(l_top), source = -1)
 
   ! read
   if (rank == 0) then
@@ -271,7 +272,7 @@ program ML_INS_Solver_3D
   ! globalize
   call ml_ins_opt % Bcast(0, comm)
 
-  ml_ins = ML_INS_Operator_3D(ml_ins_opt, ml_mesh, problem)
+  ml_ins = ML_INS_Operator_3D(ml_ins_opt, ml_mesh, po, problem)
 
   !-----------------------------------------------------------------------------
   ! Finalization

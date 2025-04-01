@@ -237,8 +237,8 @@ program INS_TimeIntegrator_3D_Test
     write(*,'(/,A)') repeat('=',80)
     write(*,'(A)') 'Validation of incompressible Navier-Stokes time integrators'
     write(*,*)
-    write(*,'(T3,A,T30,9(G0,X))') 'number of processes:'  , n_proc
-    write(*,'(T3,A,T30,9(G0,X))') 'number of threads:'    , n_thread
+    write(*,'(T3,A,T30,9(G0,X))') 'number of processes:', n_proc
+    write(*,'(T3,A,T30,9(G0,X))') 'number of threads:'  , n_thread
     write(*,*)
 
     call get_command_argument(1, flow_case, status=stat)
