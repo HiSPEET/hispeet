@@ -27,14 +27,12 @@
   po_u = 8
   po_p = 2 3 7 7 7
 
-  ins_op_opt%pressure_method  = 4
-  ins_op_opt%diffusion_method = 3
-  ins_op_opt%penalty_u        = 2   ! increase: smaller jumps, more v-iterations
-  ins_op_opt%dealiasing       = T
-  ins_op_opt%mu_0             = 100
+  ins_op_opt%pressure_solver = 'MG'
+  ins_op_opt%penalty_u       = 2  ! increase: smaller jumps, more v-iterations
+  ins_op_opt%dealiasing      = T
+  ins_op_opt%mu_0            = 1  ! increase: smaller divergence, more iterations
 
   ml_solver_p_opt%i_crs = 1000
-  ml_solver_p_opt%i_max = 5         ! increase: better robustness, more cost
   ml_solver_p_opt%r_red = 1e-08
   ml_solver_p_opt%r_max = 1e-12
 /
@@ -61,10 +59,25 @@
 
   time_method = 2  ! 1/2/3: Euler/BDF2/Runge-Kutta
 
-  ins_ti_bdf2_opt%i_max_p  = 50000
+! segregated projection-diffusion solver - cheaper, less robust
+  ins_ti_bdf2_opt%i_max_p  = 5      ! increase: better robustness, more cost
   ins_ti_bdf2_opt%i_max_v  = 5      ! increase: smaller divergence, more cost
   ins_ti_bdf2_opt%r_red    = 1e-08
   ins_ti_bdf2_opt%r_max    = 1e-12
+
+! coupled projection-diffusion solver - more expensive, more robust
+! ins_ti_bdf2_opt%i_max_p  = 3      ! increase: better robustness, more cost
+! ins_ti_bdf2_opt%i_max_v  = 5      ! increase: smaller divergence, more cost
+! ins_ti_bdf2_opt%r_red    = 1e-08
+! ins_ti_bdf2_opt%r_max    = 1e-12
+! ins_ti_bdf2_opt%i_krylov = 3      ! num Krylov iterations
+! ins_ti_bdf2_opt%i_pre_p  = 1      ! num MG cycles for pressure preconditioning
+! ins_ti_bdf2_opt%i_pre_v  = 5      ! num iterations for diffusion preconditioning
+
+! filtering of intermediate velocity after extrapolation step
+! ins_ti_bdf2_opt%fex_filter =   1 ! filter, 0/1/2: none/cut-highest/exponential
+! ins_ti_bdf2_opt%fex_order  =  16 ! filter order (exponential only)
+! ins_ti_bdf2_opt%fex_weight = 0.5 ! filter weight, 0 < w ≤ 1
 /
 
 !-------------------------------------------------------------------------------

@@ -5,11 +5,11 @@
 !>
 !> @todo
 !>   - add standby mode
-!>   - possibly find a better name
 !===============================================================================
 
 submodule (INS__Time_Integrator__3D) MP_ProjectionStep
   use Array_Assignments
+  use TPO__AAA__3D
   use TPO__Div__3D
   use TPO__Grad__3D
   use Trace_Operators__3D
@@ -22,9 +22,7 @@ contains
   !> extrapolation-projection-diffusion step for incompressible flow
 
   module subroutine ProjectionStep( this, tau, t, v_0, F_c, F_d, Q &
-                                  , bv_u, mu, nu, u                &
-                                  , i_max_p, i_max_v, r_red, r_max &
-                                  , freeze                         )
+                                  , bv_u, mu, nu, u, precon        )
 
     ! arguments ................................................................
 
@@ -52,12 +50,8 @@ contains
     !< ν, kinematic shear viscosity
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
     !< u = [v, p], velocity and pressure at final time u
-
-    integer,   optional, intent(in) :: i_max_p !< max iterations for pressure
-    integer,   optional, intent(in) :: i_max_v !< max iterations for diffusion
-    real(RNP), optional, intent(in) :: r_red   !< required L² residual reduction
-    real(RNP), optional, intent(in) :: r_max   !< allowed max L² residual
-    logical,   optional, intent(in) :: freeze  !< fix viscosity [F]
+    logical, optional, intent(in) :: precon
+    !< if present, operate as preconditioner (regardless of the value)
 
     ! internal variables .......................................................
 
@@ -70,8 +64,8 @@ contains
 
     type(BoundaryVariable_3D), allocatable, save :: bv_w(:), bv_p(:), bv_dp(:)
 
-    real(RNP) :: r_red_, r_max_
-    integer   :: i_max_p_, i_max_v_
+    real(RNP) :: r_red, r_max
+    integer   :: i_max_p, i_max_v
     integer   :: b, d, e, np
     logical   :: update_viscosity
 
@@ -86,34 +80,18 @@ contains
 
       ! initialization .........................................................
 
-      if (present(i_max_p)) then
-        i_max_p_ = i_max_p
+      if (present(precon)) then
+        i_max_p = this % i_pre_p
+        i_max_v = this % i_pre_v
+        r_red   = this % r_pre_red
+        update_viscosity = .false.
       else
-        i_max_p_ = this % i_max_p
+        i_max_p = this % i_max_p
+        i_max_v = this % i_max_v
+        r_red   = this % r_red
+        update_viscosity = present(nu) .and. problem % HasVariableProperties()
       end if
-
-      if (present(i_max_p)) then
-        i_max_v_ = i_max_v
-      else
-        i_max_v_ = this % i_max_v
-      end if
-
-      if (present(r_red)) then
-        r_red_ = r_red
-      else
-        r_red_ = this % r_red
-      end if
-
-      if (present(r_max)) then
-        r_max_ = r_max
-      else
-        r_max_ = this % r_max
-      end if
-
-      update_viscosity = present(nu) .and. problem % HasVariableProperties()
-      if (present(freeze)) then
-        update_viscosity = update_viscosity .and. .not. freeze
-      end if
+      r_max = this % r_max
 
       np = size(v,1)
 
@@ -165,6 +143,14 @@ contains
       end do
       end do
 
+      ! optional filter
+      if (allocated(this % A_fex)) then
+        do d = 1, 3
+          call SetArray(w(:,:,:,:,d), v(:,:,:,:,d))
+          call TPO_AAA(this%A_fex, w(:,:,:,:,d), v(:,:,:,:,d))
+        end do
+      end if
+
       ! pressure computation ...................................................
 
       associate(div_v => w(:,:,:,:,4))
@@ -182,8 +168,9 @@ contains
         end if
 
         ! solve pressure equation
-        call ins_op % PressureSolver( tau, bv_w, v, div_v, p   &
-                                    , i_max_p_, r_red_, r_max_ )
+        call ins_op % PressureSolver( tau, bv_w, v, div_v, p &
+                                    , i_max_p, r_red, r_max  &
+                                    , precon = precon        )
 
       end associate
 
@@ -228,8 +215,8 @@ contains
           call problem % GetViscosity(sem_u % metrics % x, t, u, nu)
         end if
 
-        call ins_op % DiffusionSolver( tau, mu, nu, f, bv_w, v  &
-                                     , i_max_v_, r_red_, r_max_ )
+        call ins_op % DiffusionSolver( tau, mu, nu, f, bv_w, v &
+                                     , i_max_v, r_red, r_max   )
 
       end associate
 

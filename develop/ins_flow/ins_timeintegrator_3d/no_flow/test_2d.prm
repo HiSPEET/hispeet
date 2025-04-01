@@ -23,11 +23,9 @@
   po_u = 3
   po_p = 2
 
-  ins_op_opt%pressure_method  = 3
-  ins_op_opt%diffusion_method = 3
-  ins_op_opt%penalty_u        = 20
-  ins_op_opt%dealiasing       = F
-  ins_op_opt%mu_0             = 1000
+! ins_op_opt%penalty_u  = 20
+  ins_op_opt%dealiasing = F
+  ins_op_opt%mu_0       = 1000
 /
 
 !-------------------------------------------------------------------------------
@@ -41,8 +39,8 @@
 
   time_method = 2  ! BDF2
 
-  ins_ti_bdf2_opt%r_red    = 1e-8
-  ins_ti_bdf2_opt%r_max    = 1e-10
+  ins_ti_bdf2_opt%r_red = 1e-8
+  ins_ti_bdf2_opt%r_max = 1e-10
 
 ! use these for coupled pressure-diffusion Krylov solver
 ! ins_ti_bdf2_opt%i_krylov = 3

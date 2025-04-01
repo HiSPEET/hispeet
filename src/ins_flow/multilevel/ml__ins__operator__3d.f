@@ -108,7 +108,7 @@ contains
       end if
 
       ! multilevel pressure solver
-      if (opt % ins % pressure_method == 4) then
+      if (opt % ins % pressure_solver == 'MG') then
         if (opt%mixed) then
           this % ml_solver_p = &
               ML_DG_EllipticSolver_3D(this%ml_op_p, opt%ml_solver_p)

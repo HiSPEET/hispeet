@@ -9,7 +9,7 @@ contains
   !> Use `l_top` to specify a top level lower than `size(this%ml_op%sem)`
 
   module subroutine CS_MG_Solver_C( this, bc, lambda, nu, u, f, bv &
-                                  , l_top, ni, r_2                 )
+                                  , i_max, l_top, ni, r_2          )
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     character, intent(in) :: bc(:)                  !< boundary conditions
     real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
@@ -17,11 +17,13 @@ contains
     class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
     class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
     class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
+    integer,   optional, intent(in)  :: i_max       !< overrides max num cycles
     integer,   optional, intent(in)  :: l_top       !< top level
     integer,   optional, intent(out) :: ni          !< num executed cycles
     real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
-    call CS_MG_Solver_X(this, bc, lambda, nu, null(), u, f, bv, l_top, ni, r_2)
+    call CS_MG_Solver_X(this, bc, lambda, nu, null(), u, f, bv, i_max, l_top, &
+                        ni, r_2)
 
   end subroutine CS_MG_Solver_C
 
@@ -31,7 +33,7 @@ contains
   !> Use `l_top` to specify a top level lower than `size(this%ml_op%sem)`
 
   module subroutine CS_MG_Solver_V( this, bc, lambda, nu, u, f, bv &
-                                  , l_top, ni, r_2                 )
+                                  , i_max, l_top, ni, r_2          )
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     character, intent(in) :: bc(:)                  !< boundary conditions
     real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
@@ -39,11 +41,13 @@ contains
     class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
     class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
     class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
+    integer,   optional, intent(in)  :: i_max       !< overrides max num cycles
     integer,   optional, intent(in)  :: l_top       !< top level
     integer,   optional, intent(out) :: ni          !< num executed cycles
     real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
-    call CS_MG_Solver_X(this, bc, lambda, null(), nu, u, f, bv, l_top, ni, r_2)
+    call CS_MG_Solver_X(this, bc, lambda, null(), nu, u, f, bv, i_max, l_top, &
+                        ni, r_2)
 
   end subroutine CS_MG_Solver_V
 
@@ -53,7 +57,7 @@ contains
   !> Either `nu_0` or `nu_v` must be given.
 
   module subroutine CS_MG_Solver_X( this, bc, lambda, nu_0, nu_v, u, f, bv &
-                                  , l_top, ni, r_2 )
+                                  , i_max, l_top, ni, r_2 )
 
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
 
@@ -71,10 +75,12 @@ contains
       !< RHS
     class(ML_BoundaryVariable_3D), target, intent(in) :: bv
       !< boundary values
+    integer, optional, intent(in) :: i_max
+      !< overrides preset maximum number of cycles
     integer, optional, intent(in) :: l_top
       !< top level different from size(this%ml_op%sem)
     integer, optional, intent(out) :: ni
-      !< num executed cycles
+      !< number of executed cycles
     real(RNP), optional, intent(out) :: r_2
       !< Euclidean residual norm
 
@@ -87,6 +93,7 @@ contains
 
     real(RNP) :: rr, r_max, r_new, r_old
     logical :: check_convergence
+    integer :: i_max_
     integer :: e, l, m, n
 
     associate( sem    => this % ml_op % sem      &
@@ -99,19 +106,29 @@ contains
       check_convergence = max(this%r_red, this%r_max) > 0
 
       !$omp master
+
       if (present(l_top)) then
         l_top_ = min(l_top, size(sem))
       else
         l_top_ = size(sem)
       end if
+
+      if (present(i_max)) then
+        i_max_ = i_max
+      else
+        i_max_ = this % i_max
+      end if
+
       allocate(r)
       call r % Init(this%ml_op, nc=1)
+
       bv_l => bv % level(l_top_) % var
       if (l_top_ == 1) then
         bv_1 => bv_l
       else
         bv_1 => null()
       end if
+
       !$omp end master
 
       do l = 1, l_top_
@@ -167,7 +184,7 @@ contains
 
       ! V cycles :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-      V_OUTER: do m = 1, this % i_max
+      V_OUTER: do m = 1, i_max_
 
         V_DOWN: do l = l_top_, 2, -1
 
@@ -263,7 +280,7 @@ contains
 
             ! post-smoothing .................................................
 
-            if (l < l_top_ .or. m == this % i_max) then
+            if (l < l_top_ .or. m == i_max_) then
               n = this % ns_2
             else
               n = this % ns_c
@@ -286,7 +303,7 @@ contains
 
         ! termination check ....................................................
 
-        if (check_convergence .and. m < this%i_max) then
+        if (check_convergence .and. m < i_max_) then
 
           l = l_top_
           associate( f_l  => f  % level(l) % val(:,:,:,:,1) &
@@ -321,12 +338,12 @@ contains
 
       if (present(ni)) then
         !$omp master
-        ni = min(m, this%i_max)
+        ni = min(m, i_max_)
         !$omp end master
       end if
 
       if (present(r_2)) then
-        if (check_convergence .and. m < this%i_max) then
+        if (check_convergence .and. m < i_max_) then
           !$omp master
           r_2 = r_new
           !$omp end master

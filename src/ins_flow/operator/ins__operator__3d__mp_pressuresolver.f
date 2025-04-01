@@ -15,7 +15,8 @@ contains
   !> Projection-based pressure solver
 
   module subroutine PressureSolver( this, tau, bv_u, v, f, p &
-                                  , i_max, r_red, r_max, ni  )
+                                  , i_max, r_red, r_max, ni  &
+                                  , precon                   )
 
     ! arguments ................................................................
 
@@ -40,6 +41,8 @@ contains
     real(RNP),   optional, intent(in)    :: r_red  !< min residual reduction
     real(RNP),   optional, intent(in)    :: r_max  !< max admissible residual
     integer,     optional, intent(out)   :: ni     !< num iterations executed
+
+    logical,     optional, intent(in)    :: precon !< switch preconditioner mode
 
     ! internal variables .......................................................
 
@@ -100,17 +103,17 @@ contains
           g(:,:,:,e) = -ct * mm(:,:,:,e) * g(:,:,:,e)
         end do
 
-        select case(this % pressure_method)
-        case(1)
-          call this % elliptic_p % CG_Method &
-                          (bc_p, ZERO, ONE, q, g, bv_q, i_max, r_red, r_max, ni)
-        case(2)
+        select case(this % pressure_solver)
+        case('AS')
           call this % elliptic_p % Schwarz_Method &
                           (bc_p, ZERO, ONE, q, g, bv_q, i_max, r_red, r_max, ni)
-        case(3)
+        case('CG')
+          call this % elliptic_p % CG_Method &
+                          (bc_p, ZERO, ONE, q, g, bv_q, i_max, r_red, r_max, ni)
+        case('SPCG')
           call this % elliptic_p % SchwarzPCG_Method &
                           (bc_p, ZERO, ONE, q, g, bv_q, i_max, r_red, r_max, ni)
-        case(4)
+        case('MG')
           call ML_PressureSolver(this, q, g, bv_q, ni)
         end select
 
@@ -124,18 +127,18 @@ contains
           g(:,:,:,e) = -ct * mm(:,:,:,e) * f(:,:,:,e)
         end do
 
-        select case(this % pressure_method)
-        case(1)
-          call this % elliptic_p % CG_Method &
-                          (bc_p, ZERO, ONE, p, g, bv_p, i_max, r_red, r_max, ni)
-        case(2)
+        select case(this % pressure_solver)
+        case('AS')
           call this % elliptic_p % Schwarz_Method &
                           (bc_p, ZERO, ONE, p, g, bv_p, i_max, r_red, r_max, ni)
-        case(3)
+        case('CG')
+          call this % elliptic_p % CG_Method &
+                          (bc_p, ZERO, ONE, p, g, bv_p, i_max, r_red, r_max, ni)
+        case('SPCG')
           call this % elliptic_p % SchwarzPCG_Method &
                           (bc_p, ZERO, ONE, p, g, bv_p, i_max, r_red, r_max, ni)
-        case(4)
-          call ML_PressureSolver(this, p, g, bv_p, ni)
+        case('MG')
+          call ML_PressureSolver(this, p, g, bv_p, i_max, ni)
         end select
 
       end if
@@ -306,11 +309,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Multilevel pressure solver
 
-  subroutine ML_PressureSolver(this, p, f, bv, ni)
+  subroutine ML_PressureSolver(this, p, f, bv, i_max, ni)
     class(INS_Operator_3D),     intent(in)    :: this       !< INS operator
     real(RNP), contiguous,      intent(inout) :: p(:,:,:,:) !< pressure
     real(RNP), contiguous,      intent(in)    :: f(:,:,:,:) !< sources
     class(BoundaryVariable_3D), intent(in)    :: bv(:)      !< boundary values
+    integer,                    intent(in)    :: i_max      !< max num cycles
     integer,          optional, intent(out)   :: ni         !< num iterations
 
     type(ML_MeshVariable_3D),     allocatable, save :: ml_p, ml_f
@@ -354,6 +358,7 @@ contains
                                      , u      = ml_p         &
                                      , f      = ml_f         &
                                      , bv     = ml_bv        &
+                                     , i_max  = i_max        &
                                      , l_top  = l_top        &
                                      , ni     = ni           )
 

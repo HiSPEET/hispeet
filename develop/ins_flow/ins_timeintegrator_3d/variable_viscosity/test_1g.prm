@@ -24,9 +24,7 @@
   po_u = 16
   po_p = 15
 
-  ins_op_opt%pressure_method  = 3
-  ins_op_opt%diffusion_method = 3
-  ins_op_opt%dealiasing       = T
+  ins_op_opt%dealiasing = T
 
   ! bulk viscosity
   !   - use μ = 0 for Stokes hypothesis
