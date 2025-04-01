@@ -19,15 +19,19 @@
 ! Spatial
 
 &spatial_prm
-
-  po_u = 4
-  po_p = 3
-
   ins_op_opt%pressure_method  = 3
   ins_op_opt%diffusion_method = 3
-  ins_op_opt%penalty_u        = 20
+  ins_op_opt%penalty_u        = 2
   ins_op_opt%dealiasing       = F
   ins_op_opt%mu_0             = 1
+
+! equal order  !  k=1   k=2   k=3   k=4
+! po_u = 3     !   1     2     3     4
+! po_p = 3     !   1     2     3     4
+
+! mixed order  !  k=1   k=2   k=3   k=4
+  po_u = 4     !   2     3     4     5
+  po_p = 3     !   1     2     3     4
 /
 
 !-------------------------------------------------------------------------------
@@ -78,11 +82,30 @@
 ! Domain
 
 &cuboid_cartesian_prm
-! regular    = F ! mimic irregular mesh (elements deformed or of different size)
-! structured = F ! mimic unstructured mesh
-  xo = -1,-1,-0.125
-  lx =  2, 2, 0.500
+
+! k = 1
+! xo = -1,-1,-0.125
+! lx =  2, 2, 0.250
+! np =  1, 1, 1
+! ep =  8, 8, 1
+
+! k = 2
+! xo = -1,-1,-0.25
+! lx =  2, 2, 0.50
+! np =  1, 1, 1
+! ep =  4, 4, 1
+
+! k = 3
+  xo = -1,-1,-0.5
+  lx =  2, 2, 1.0
   np =  1, 1, 1
-  ep =  4, 4, 1
+  ep =  2, 2, 1
+
+! k = 4
+! xo = -1,-1,-1
+! lx =  2, 2, 2
+! np =  1, 1, 1
+! ep =  1, 1, 1
+
   periodic = F,F,T
 /

@@ -21,10 +21,11 @@ program Test_Projection
   character(2) :: nodes_p    =  'L' ! node type of projected function
   character    :: projection =  'P' ! projection method {'I','P'}
   integer      :: filter     =   0  ! 0/1/2: none/erfc-log/exponential filter
+  character    :: modes      =  'L' ! modal basis used for filtering {'L','B'}
   real(RNP)    :: pf         =   1  ! filter order > 0
 
   namelist/input/ c_front, n_s, po_c, nodes_c, po_p, nodes_p, projection, &
-                  filter, pf
+                  filter, modes, pf
 
   type(StandardElementOperators_1D)      :: eop_c
   type(StandardElementOperators_1D)      :: eop_p
@@ -80,9 +81,9 @@ program Test_Projection
     allocate(Af(0:po_c,0:po_c), source = ZERO)
     select case(filter)
     case(1)
-      call eop_c % Get_ErfcLogFilter(pf, Af)
+      call eop_c % Get_ErfcLogFilter(pf, Af, modes)
     case(2)
-      call eop_c % Get_ExponentialFilter(pf, Af)
+      call eop_c % Get_ExponentialFilter(pf, Af, modes)
     end select
 
     allocate(f_f(0:po_c), source = matmul(Af, f_c))

@@ -61,14 +61,15 @@ module Standard_Element_Operators__1D
     procedure :: Get_Legendre_VDM
     procedure :: Get_Inverse_Legendre_VDM
     procedure :: Get_Legendre_CutoffFilter
-    procedure :: Get_ErfcLogFilter
-    procedure :: Get_ExponentialFilter
 
     procedure :: Init_Bubble_VDM
     procedure :: Has_Bubble_VDM
     procedure :: Get_Bubble_VDM
     procedure :: Get_Inverse_Bubble_VDM
     procedure :: Get_Bubble_CutoffFilter
+
+    procedure :: Get_ErfcLogFilter
+    procedure :: Get_ExponentialFilter
 
     procedure :: Init_SVV
     procedure :: Has_SVV
@@ -472,28 +473,50 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Get erfc-log filter of order pf
+  !>
+  !> Filtering is applied either to the Legendre or Bubble modal representation.
+  !> In the latter case, the linear (first two) modes remain unchanged in order
+  !> preserve the element boundary values.
 
-  subroutine Get_ErfcLogFilter(this, pf, A)
+  subroutine Get_ErfcLogFilter(this, pf, A, modes)
     class(StandardElementOperators_1D), intent(in) :: this !< standard operators
     real(RNP), intent(in)  :: pf                     !< filter order
     real(RNP), intent(out) :: A(0:this%po,0:this%po) !< filter matrix
+    character, optional, intent(in) :: modes !< modal basis used for filtering:
+                                             !! 'L' Legendre (default),
+                                             !! 'B' Bubble
 
-    real(RNP), dimension(0:this%po,0:this%po) :: VL, VL_inv
+    real(RNP), dimension(0:this%po,0:this%po) :: V, V_inv
     real(RNP) :: sigma(0:this%po)
+    character :: modal_basis
     integer   :: i, j
 
     associate(po => this % po)
 
-      call this % Get_Legendre_VDM(VL)
-      call this % Get_Inverse_Legendre_VDM(VL_inv)
+      if (present(modes)) then
+        modal_basis = modes
+      else
+        modal_basis = 'L'
+      end if
+
+      select case(modal_basis)
+      case('B')
+        call this % Get_Bubble_VDM(V)
+        call this % Get_Inverse_Bubble_VDM(V_inv)
+      case default
+        call this % Get_Legendre_VDM(V)
+        call this % Get_Inverse_Legendre_VDM(V_inv)
+      end select
 
       do i = 0, this%po
         sigma(i) = ErfcLogFilter(real(i,RNP)/po, pf)
       end do
 
+      if (modal_basis == 'B' .and. po > 0) sigma(1) = ONE
+
       do j = 0, po
       do i = 0, po
-        A(i,j) = sum(VL(i,:) * sigma(:) * VL_inv(:,j))
+        A(i,j) = sum(V(i,:) * sigma(:) * V_inv(:,j))
       end do
       end do
 
@@ -503,28 +526,50 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Get exponential filter of order pf
+  !>
+  !> Filtering is applied either to the Legendre or Bubble modal representation.
+  !> In the latter case, the linear (first two) modes remain unchanged in order
+  !> preserve the element boundary values.
 
-  subroutine Get_ExponentialFilter(this, pf, A)
+  subroutine Get_ExponentialFilter(this, pf, A, modes)
     class(StandardElementOperators_1D), intent(in) :: this !< standard operators
     real(RNP), intent(in)  :: pf                     !< filter order
     real(RNP), intent(out) :: A(0:this%po,0:this%po) !< filter matrix
+    character, optional, intent(in) :: modes !< modal basis used for filtering:
+                                             !! 'L' Legendre (default),
+                                             !! 'B' Bubble
 
-    real(RNP), dimension(0:this%po,0:this%po) :: VL, VL_inv
+    real(RNP), dimension(0:this%po,0:this%po) :: V, V_inv
     real(RNP) :: sigma(0:this%po)
+    character :: modal_basis
     integer   :: i, j
 
     associate(po => this % po)
 
-      call this % Get_Legendre_VDM(VL)
-      call this % Get_Inverse_Legendre_VDM(VL_inv)
+      if (present(modes)) then
+        modal_basis = modes
+      else
+        modal_basis = 'L'
+      end if
+
+      select case(modal_basis)
+      case('B')
+        call this % Get_Bubble_VDM(V)
+        call this % Get_Inverse_Bubble_VDM(V_inv)
+      case default
+        call this % Get_Legendre_VDM(V)
+        call this % Get_Inverse_Legendre_VDM(V_inv)
+      end select
 
       do i = 0, po
         sigma(i) = ExponentialFilter(real(i,RNP)/po, pf)
       end do
 
+      if (modal_basis == 'B' .and. po > 0) sigma(1) = ONE
+
       do j = 0, po
       do i = 0, po
-        A(i,j) = sum(VL(i,:) * sigma(:) * VL_inv(:,j))
+        A(i,j) = sum(V(i,:) * sigma(:) * V_inv(:,j))
       end do
       end do
 
