@@ -136,8 +136,7 @@ contains
 
         ! initial approximation ................................................
 
-        call this % ProjectionStep( tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u &
-                                  , this % i_max_p, this % i_max_v            )
+        call this % ProjectionStep(tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
 
         ! initial residual, v₁ = f - Au ........................................
 
@@ -194,8 +193,7 @@ contains
 
           ! projection with homogeneous BC and frozen viscosity: z(j) = K⁻¹v(j)
           call this % ProjectionStep( tau, t, O, O, O, g, bv_z, mu, nu, zj &
-                                    , this % i_pre_p, this % i_pre_v       &
-                                    , freeze = .true.                      )
+                                    , precon = .true.                      )
 
           ! application of homogeneous operator: w = A v(j)
           call ins_op % GetStokesResidual(tau, O, bv_z, mu, nu, zj, w)

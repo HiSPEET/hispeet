@@ -45,9 +45,9 @@ module INS__Operator__3D
 
   type INS_Operator_3D
 
-    integer :: level            !< rank in multilevel hierarchy (0 if none)
-    integer :: pressure_method  !< pressure solution method
-    integer :: diffusion_method !< velocity diffusion method
+    integer :: level !< rank in multilevel hierarchy (0 if none)
+    character(len=4) :: pressure_solver  !< pressure solver
+    character(len=4) :: diffusion_solver !< diffusion solver
 
     real(RNP) :: mu_0 !< bulk viscosity,  μ = ζ/ρ
     real(RNP) :: nu_0 !< shear viscosity, ν = η/ρ
@@ -119,15 +119,15 @@ module INS__Operator__3D
   !> Options for INS_Operator_3D initialization
 
   type INS_OperatorOptions_3D
-    integer   :: pressure_method  =  3      !< 1/2/3/4: CG/Schwarz/SPCG/MG
-    integer   :: diffusion_method =  3      !< 1/2/3  : CG/Schwarz/SPCG
-    logical   :: dealiasing       = .false. !< F: no dealiasing, T: 3/2 rule
-    real(RNP) :: penalty_p        = -1      !< penalty for p-solver, -1: auto
-    real(RNP) :: penalty_u        = -1      !< penalty for u-solver, -1: auto
-    real(RNP) :: mu_0             =  0      !< bulk viscosity, μ = ζ/ρ
-    real(RNP) :: delta_outflow    =  0.01   !< δ parameter of outflow conditions
-    type(DG_SchwarzOptions_3D) :: schwarz_p !< Schwarz options for p-solver
-    type(DG_SchwarzOptions_3D) :: schwarz_u !< Schwarz options for u-solver
+    character(4) :: pressure_solver  = 'SPCP'  !< {'AS','CG','SPCG','MG'}
+    character(4) :: diffusion_solver = 'DPCG'  !< {'DPCG','SPCG'}
+    logical      :: dealiasing       = .false. !< F: no dealiasing, T: 3/2 rule
+    real(RNP)    :: penalty_p        = -1      !< penalty for p-solver, -1: auto
+    real(RNP)    :: penalty_u        = -1      !< penalty for u-solver, -1: auto
+    real(RNP)    :: mu_0             =  0      !< bulk viscosity, μ = ζ/ρ
+    real(RNP)    :: delta_outflow    =  0.01   !< outflow parameter
+    type(DG_SchwarzOptions_3D) :: schwarz_u    !< Schwarz options for u-solver
+    type(DG_SchwarzOptions_3D) :: schwarz_p    !< Schwarz options for p-solver
   contains
     procedure :: Bcast => Bcast_INS_OperatorOptions_3D
   end type INS_OperatorOptions_3D
@@ -319,7 +319,8 @@ module INS__Operator__3D
     !> Projection-based pressure solver
 
     module subroutine PressureSolver( this, tau, bv_u, v, f, p &
-                                    , i_max, r_red, r_max, ni  )
+                                    , i_max, r_red, r_max, ni  &
+                                    , precon                   )
 
       class(INS_Operator_3D),     intent(in)    :: this
       real(RNP),                  intent(in)    :: tau
@@ -331,6 +332,7 @@ module INS__Operator__3D
       real(RNP),        optional, intent(in)    :: r_red
       real(RNP),        optional, intent(in)    :: r_max
       integer,          optional, intent(out)   :: ni
+      logical,          optional, intent(in)    :: precon
 
     end subroutine PressureSolver
 
@@ -395,8 +397,8 @@ contains
       this % level = 0
     end if
 
-    this % pressure_method  = opt % pressure_method
-    this % diffusion_method = opt % diffusion_method
+    this % pressure_solver  = opt % pressure_solver
+    this % diffusion_solver = opt % diffusion_solver
 
     this % mu_0 = opt % mu_0
     this % nu_0 = problem % nu_ref
@@ -602,8 +604,8 @@ contains
     integer,        intent(in) :: root !< rank of broadcast root
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    call XMPI_Bcast(this % pressure_method , root, comm)
-    call XMPI_Bcast(this % diffusion_method, root, comm)
+    call XMPI_Bcast(this % pressure_solver , root, comm)
+    call XMPI_Bcast(this % diffusion_solver, root, comm)
     call XMPI_Bcast(this % dealiasing      , root, comm)
     call XMPI_Bcast(this % penalty_p       , root, comm)
     call XMPI_Bcast(this % penalty_u       , root, comm)

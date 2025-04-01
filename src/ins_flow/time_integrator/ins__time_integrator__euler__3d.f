@@ -249,7 +249,7 @@ contains
       if (this % i_krylov > 0) then
         call this % FGMRES_Step(dt, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
       else
-        call this % ProjectionStep(dt, t, v_0, F_c, F_d, Q , bv_u, mu, nu, u)
+        call this % ProjectionStep(dt, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
       end if
 
      ! cleanup ................................................................

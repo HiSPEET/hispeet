@@ -25,8 +25,8 @@
   po_u = 16
   po_p = 1 2 3 7 15  ! degrees to use for multilevel pressure solver (1:l_top)
 
-  ins_op_opt%pressure_method  = 4  ! select multilevel pressure solver
-  ins_op_opt%dealiasing       = T
+  ins_op_opt%pressure_solver = 'MG' ! select multilevel pressure solver
+  ins_op_opt%dealiasing      = T
 
   ! multilevel pressure solver
   ml_solver_p_opt%i_crs = 1000   ! num coarse grid iterations

@@ -135,7 +135,18 @@ contains
 
       do i = 1, i_max_
 
-        call Schwarz_Preconditioner(this, tau, nu_avg, r, z, standby = i < i_max_)
+        select case(this % diffusion_solver)
+        case('DPCG')
+          call Diagonal_Preconditioner(this, tau, r, z, standby = i < i_max_)
+        case('SPCG')
+          call Schwarz_Preconditioner(this, tau, nu_avg, r, z, standby = i < i_max_)
+        case default
+          call Error( 'DiffusionSolver'              &
+                    , 'Preconditioner "'             &
+                      // trim(this%diffusion_solver) &
+                      // '" not supported'           &
+                    , 'INS__Operator__3D'            )
+        end select
 
         ! set/update search vector
         if (i == 1) then
@@ -204,6 +215,87 @@ contains
     end associate
 
   end subroutine DiffusionSolver
+
+  !-----------------------------------------------------------------------------
+  !> Diagonal preconditioner based on the mass matrix: z = τ M⁻¹ r
+
+  subroutine Diagonal_Preconditioner(ins_op, tau, r, z, standby)
+
+    class(INS_Operator_3D), intent(in)  :: ins_op       !< INS DG operator
+    real(RNP),              intent(in)  :: tau          !< τ
+    real(RNP), contiguous,  intent(in)  :: r(:,:,:,:,:) !< residual
+    real(RNP), contiguous,  intent(out) :: z(:,:,:,:,:) !< correction
+    logical, intent(in) :: standby !< switch for reusing workspace
+
+    ! local variables ..........................................................
+
+    real(RNP), allocatable, save :: mm_inv(:,:,:,:) ! inverse mass matrix
+
+    ! parameters saved for reuse
+    integer :: np = -1  ! number of element points per direction
+    integer :: na = -1  ! number of active elements
+    integer :: ne = -1  ! number of elements
+
+    logical :: reuse
+    integer :: e
+
+    ! initialization .........................................................
+
+    !$omp master
+
+    reuse = np == size(z,1)                     .and. &
+            na == ins_op % mesh % n_elem_active .and. &
+            ne == ins_op % mesh % n_elem
+
+    if (.not. reuse) then
+      if (allocated(mm_inv)) deallocate(mm_inv)
+      np = size(z,1)
+      na = ins_op % mesh % n_elem_active
+      ne = ins_op % mesh % n_elem
+      allocate(mm_inv(np,np,np,ne))
+    end if
+
+    !$omp end master
+
+    if (.not. reuse) then
+      call ins_op % sem_u % Get_DG_DiagonalMassMatrix(mm_inv)
+
+      !$omp do
+      do e = 1, na
+        mm_inv(:,:,:,e) = ONE / mm_inv(:,:,:,e)
+      end do
+
+    end if
+
+    ! preconditioning ..........................................................
+
+    !$omp do
+    do e = 1, na
+      z(:,:,:,e,1) = tau * mm_inv(:,:,:,e) * r(:,:,:,e,1)
+      z(:,:,:,e,2) = tau * mm_inv(:,:,:,e) * r(:,:,:,e,2)
+      z(:,:,:,e,3) = tau * mm_inv(:,:,:,e) * r(:,:,:,e,3)
+    end do
+
+    !$omp do
+    do e = na+1, ne
+      z(:,:,:,e,1) = ZERO
+      z(:,:,:,e,2) = ZERO
+      z(:,:,:,e,3) = ZERO
+    end do
+
+    ! cleanup ................................................................
+
+    ! keep workspace in case of standby
+    if (standby) return
+
+    !$omp master
+    if (allocated(mm_inv)) deallocate(mm_inv)
+    np = -1
+    na = -1
+    ne = -1
+    !$omp end master
+
+  end subroutine Diagonal_Preconditioner
 
   !-----------------------------------------------------------------------------
   !> Element-centered overlapping Schwarz preconditioner

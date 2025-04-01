@@ -482,16 +482,16 @@ program ML_Elliptic_Test_Static
   if (problem % nu_1 > 0) then
     select case(solution_method)
     case(10)
-      call ml_elliptic % CS_MG_Solver(bc, lambda, nu, u, f, bv, n_i)
+      call ml_elliptic % CS_MG_Solver(bc, lambda, nu, u, f, bv, ni=n_i)
     case(20)
-      call ml_elliptic % FAS_MG_Solver(bc, lambda, nu, u, f, bv, n_i)
+      call ml_elliptic % FAS_MG_Solver(bc, lambda, nu, u, f, bv, ni=n_i)
     end select
   else
     select case(solution_method)
     case(10)
-      call ml_elliptic % CS_MG_Solver(bc, lambda, nu_0, u, f, bv, n_i)
+      call ml_elliptic % CS_MG_Solver(bc, lambda, nu_0, u, f, bv, ni=n_i)
     case(20)
-      call ml_elliptic % FAS_MG_Solver(bc, lambda, nu_0, u, f, bv, n_i)
+      call ml_elliptic % FAS_MG_Solver(bc, lambda, nu_0, u, f, bv, ni=n_i)
     end select
   end if
 

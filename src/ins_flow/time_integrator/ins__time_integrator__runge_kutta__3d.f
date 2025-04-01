@@ -405,11 +405,7 @@ contains
                                     , bv_u    = bv_u           &
                                     , mu      = mu             &
                                     , nu      = nu             &
-                                    , u       = u_i            &
-                                    , i_max_p = this % i_max_p &
-                                    , i_max_v = this % i_max_v &
-                                    , r_red   = this % r_red   &
-                                    , r_max   = this % r_max   )
+                                    , u       = u_i            )
 
         end associate
 

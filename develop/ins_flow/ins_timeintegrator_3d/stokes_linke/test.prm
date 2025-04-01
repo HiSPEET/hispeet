@@ -23,11 +23,9 @@
   po_u = 4
   po_p = 3
 
-  ins_op_opt%pressure_method  = 3
-  ins_op_opt%diffusion_method = 3
-  ins_op_opt%penalty_u        = 20
-  ins_op_opt%dealiasing       = F
-  ins_op_opt%mu_0             = 1
+! ins_op_opt%penalty_u  = 20
+  ins_op_opt%dealiasing = F
+  ins_op_opt%mu_0       = 1
 /
 
 !-------------------------------------------------------------------------------
