@@ -35,7 +35,9 @@
 
 &spatial_prm
 
-  ml_ins_op%po = 2 4 8 16 16
+  po = 2 4 8 16 16
+
+! ml_ins_opt%..
 
 /
 

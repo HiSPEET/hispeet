@@ -237,9 +237,14 @@ program ML_INS_Solver_3D
       close(io)
     end if
 
+    call ml_mesh_opt % Bcast(0, comm)
+    ml_mesh = ML_Mesh_3D(base_mesh, ml_mesh_opt)
+    deallocate(base_mesh)
+
   end if
 
-  l_top = size(ml_mesh % mesh)
+  l_top   = size(ml_mesh % mesh)
+  n_bound = ml_mesh % mesh(1) % n_bound
 
   ! problem ....................................................................
 
