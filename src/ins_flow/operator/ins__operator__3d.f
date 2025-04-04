@@ -119,7 +119,7 @@ module INS__Operator__3D
   !> Options for INS_Operator_3D initialization
 
   type INS_OperatorOptions_3D
-    character(4) :: pressure_solver  = 'SPCP'  !< {'AS','CG','SPCG','MG'}
+    character(4) :: pressure_solver  = 'SPCG'  !< {'AS','CG','SPCG','MG'}
     character(4) :: diffusion_solver = 'DPCG'  !< {'DPCG','SPCG'}
     logical      :: dealiasing       = .false. !< F: no dealiasing, T: 3/2 rule
     real(RNP)    :: penalty_p        = -1      !< penalty for p-solver, -1: auto
