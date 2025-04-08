@@ -238,7 +238,7 @@ contains
         end do
 
       else
-        associate(v => u(:,:,:,:,1:3), p => u(:,:,:,:,4))
+        associate(v => u(:,:,:,:,1:3))
 
           ! fetch required boundary values
           do b = 1, mesh % n_bound
@@ -396,16 +396,31 @@ contains
 
           ! projection-diffusion step ..........................................
 
-          call this % ProjectionStep( tau     = dt * a_im(i,i) &
-                                    , t       = t_i            &
-                                    , v_0     = v_0            &
-                                    , F_c     = F_c_i          &
-                                    , F_d     = F_d_i          &
-                                    , Q       = Q_i            &
-                                    , bv_u    = bv_u           &
-                                    , mu      = mu             &
-                                    , nu      = nu             &
-                                    , u       = u_i            )
+          if (this % i_krylov > 0) then
+
+            call this % FGMRES_Step( tau     = dt * a_im(i,i) &
+                                   , t       = t_i            &
+                                   , v_0     = v_0            &
+                                   , F_c     = F_c_i          &
+                                   , F_d     = F_d_i          &
+                                   , Q       = Q_i            &
+                                   , bv_u    = bv_u           &
+                                   , mu      = mu             &
+                                   , nu      = nu             &
+                                   , u       = u_i            )
+
+          else
+            call this % ProjectionStep( tau     = dt * a_im(i,i) &
+                                      , t       = t_i            &
+                                      , v_0     = v_0            &
+                                      , F_c     = F_c_i          &
+                                      , F_d     = F_d_i          &
+                                      , Q       = Q_i            &
+                                      , bv_u    = bv_u           &
+                                      , mu      = mu             &
+                                      , nu      = nu             &
+                                      , u       = u_i            )
+          end if
 
         end associate
 
