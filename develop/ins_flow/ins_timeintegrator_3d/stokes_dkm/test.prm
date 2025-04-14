@@ -19,8 +19,10 @@
 ! Spatial
 
 &spatial_prm
-  ins_op_opt%dealiasing       = F
-  ins_op_opt%mu_0             = 1
+  ins_op_opt%penalty_u  = 20
+  ins_op_opt%penalty_p  = 20
+  ins_op_opt%dealiasing = F
+  ins_op_opt%mu_0       = 1
 
 ! equal order  !  k=1   k=2   k=3   k=4
 ! po_u = 3     !   1     2     3     4
@@ -37,10 +39,10 @@
 &temporal_prm
 
   t_end  = 0.1
-  dt     = 1e-3
+  dt     = 1e-4
   nt_max = 10000
 
-  time_method = 1  ! 1/2 Euler/BDF2
+  time_method = 2  ! 1/2 Euler/BDF2
 
 ! Euler ........................................................................
 

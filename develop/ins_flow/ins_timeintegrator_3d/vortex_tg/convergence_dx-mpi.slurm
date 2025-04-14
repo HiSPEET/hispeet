@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==============================================================================
-# SLURM script for dt-convergence test using MPI
+# SLURM script for dx-convergence test using MPI
 # ------------------------------------------------------------------------------
 
 # Adjust the following arguments as appropriate
