@@ -552,6 +552,12 @@ program INS_TimeIntegrator_3D_Test
     write(*,'(T5,A,T22,ES12.5,A,T38,A,T57,ES12.5)')              &
         'D(ν_ref, τ_d) =' , dt / time_scales % tau_diff_re, ',', &
         'D(ν_ref, ∆x/P) =', dt / time_scales % tau_diff_rm
+    if (ins_op % mu_0 > 0) then
+      write(*,'(T5,A,G0)') 'Pe(μ₀, v_ref, τ_c) =' , &
+         time_scales % tau_conv_re * problem % v_ref**2 / ins_op % mu_0
+    else
+      write(*,'(T5,A)') 'Pe(μ₀, v_ref, τ_c) = ∞'
+    end if
     write(*,*)
   end if
 
