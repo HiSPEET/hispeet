@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==============================================================================
-# SLURM script for dx-convergence test using MPI
+# SLURM script for study using MPI
 # ------------------------------------------------------------------------------
 
 # Adjust the following arguments as appropriate
@@ -13,8 +13,8 @@
 #SBATCH --mem=100000                          # memory per node in MB
 
 #SBATCH --time=00-23:55:00                    # dd-hh:mm:ss
-#SBATCH --job-name=convergence_dx             # sensible job name
-#SBATCH --output=convergence_dx_%j.out        # output file
+#SBATCH --job-name=study                      # sensible job name
+#SBATCH --output=study_%j.out                 # output file
 
 # for performance measurements:
 ##SBATCH --cpu-freq=highm1                     # CPU frequency in kHz
@@ -24,12 +24,12 @@
 # Settings (overriding those in convergence_dt.sh)
 
 export EXEC="srun"
-export NPROC_MAX="$SLURM_NTASKS"
+export HPC="1"
 export PO_U="4" 
-export PO_P="$((${PO_U} - 1))"
-export PE_MU="1.0"
+export MU_REF="1"
+export MU_METHOD="1"
 
 # ------------------------------------------------------------------------------
 # Execution
 
-./convergence_dx.sh
+./study.sh

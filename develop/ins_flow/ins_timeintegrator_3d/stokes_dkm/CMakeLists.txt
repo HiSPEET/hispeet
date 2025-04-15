@@ -1,10 +1,10 @@
-file( COPY convergence_dx.sh
-           stokes_dkm.prm
+file( COPY stokes_dkm.prm
+           study.sh
+           study.tmpl
            test.prm
-           test_convergence.tmpl
       DESTINATION
            ${CMAKE_CURRENT_BINARY_DIR} )
 
 if (Slurm_FOUND)
-    configure_file(convergence_dx-mpi.slurm convergence_dx.slurm)
+    configure_file(study-mpi.slurm study.slurm)
 endif (Slurm_FOUND)
