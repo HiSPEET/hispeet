@@ -7,9 +7,9 @@ PROG="../ins_timeintegrator_3d_test"
 EXEC=${EXEC:-"mpirun"}
 SERIES=${SERIES:-"stokes_dkm"}
 
-# range for time steps DT = 0.1 / 2^k
-KMIN=${KMIN:-"0"}
-KMAX=${KMAX:-"4"}
+# range for time steps DT = 1 / 10^k
+KMIN=${KMIN:-"1"}
+KMAX=${KMAX:-"5"}
 
 # number of stages of substeps
 NS=${NS:-"1"}
@@ -37,39 +37,39 @@ MU_METHOD=${MU_METHOD:-"0"}
 PO_U=${PO_U:-"4"}
 PO_P=$((${PO_U} - 1))
 
-# convective length scale δ for standard element of order P = PO_U
+# convective eigenvalue λ for standard element of order P = PO_U
 case $PO_U in
-   2)  DELTA_S="1.00000000000";;
-   3)  DELTA_S="1.66481452034";;
-   4)  DELTA_S="2.47159803598";;
-   5)  DELTA_S="3.40883748057";;
-   6)  DELTA_S="4.47073758438";;
-   7)  DELTA_S="5.65599485263";;
-   8)  DELTA_S="6.96732548733";;
-   9)  DELTA_S="8.41089833351";;
-  10)  DELTA_S="9.99507344979";;
-  11)  DELTA_S="11.7283555837";;
-  12)  DELTA_S="13.6174001000";;
-  13)  DELTA_S="15.6661755899";;
-  14)  DELTA_S="17.8764016028";;
-  15)  DELTA_S="20.2484698510";;
-  16)  DELTA_S="22.7821848530";;
-  17)  DELTA_S="25.4771710732";;
-  18)  DELTA_S="28.3330470912";;
-  19)  DELTA_S="31.3494832099";;
-  20)  DELTA_S="34.5262112697";;
-  21)  DELTA_S="37.8630182223";;
-  22)  DELTA_S="41.3597359477";;
-  23)  DELTA_S="45.0162316204";;
-  24)  DELTA_S="48.8323997653";;
-  25)  DELTA_S="52.8081560476";;
-  26)  DELTA_S="56.9434325203";;
-  27)  DELTA_S="61.2381740125";;
-  28)  DELTA_S="65.6923353835";;
-  29)  DELTA_S="70.3058794266";;
-  30)  DELTA_S="75.0787752594";;
-  31)  DELTA_S="80.0109970785";;
-  32)  DELTA_S="85.1025231895";;
+   2)  LAMBDA="1.00000000000";;
+   3)  LAMBDA="1.66481452034";;
+   4)  LAMBDA="2.47159803598";;
+   5)  LAMBDA="3.40883748057";;
+   6)  LAMBDA="4.47073758438";;
+   7)  LAMBDA="5.65599485263";;
+   8)  LAMBDA="6.96732548733";;
+   9)  LAMBDA="8.41089833351";;
+  10)  LAMBDA="9.99507344979";;
+  11)  LAMBDA="11.7283555837";;
+  12)  LAMBDA="13.6174001000";;
+  13)  LAMBDA="15.6661755899";;
+  14)  LAMBDA="17.8764016028";;
+  15)  LAMBDA="20.2484698510";;
+  16)  LAMBDA="22.7821848530";;
+  17)  LAMBDA="25.4771710732";;
+  18)  LAMBDA="28.3330470912";;
+  19)  LAMBDA="31.3494832099";;
+  20)  LAMBDA="34.5262112697";;
+  21)  LAMBDA="37.8630182223";;
+  22)  LAMBDA="41.3597359477";;
+  23)  LAMBDA="45.0162316204";;
+  24)  LAMBDA="48.8323997653";;
+  25)  LAMBDA="52.8081560476";;
+  26)  LAMBDA="56.9434325203";;
+  27)  LAMBDA="61.2381740125";;
+  28)  LAMBDA="65.6923353835";;
+  29)  LAMBDA="70.3058794266";;
+  30)  LAMBDA="75.0787752594";;
+  31)  LAMBDA="80.0109970785";;
+  32)  LAMBDA="85.1025231895";;
    *)  echo "PO_U out of range";;
 esac
 
@@ -86,10 +86,10 @@ else
 fi
 NG=${#NP[@]}  # number of grids used
 
-# times step sizes DT = 0.1 / 2^k, K_MIN ≤ k ≤ K_MAX
+# times step sizes DT = 1 / 10^k, K_MIN ≤ k ≤ K_MAX
 for k in $(seq $KMIN $KMAX) ; do
 
-    DT=$(bc -l <<< "0.1 / 2^$k")
+    DT=$(bc -l <<< "1 / 10^$k")
 
     # grids 0 .. NG-1 
     for i in $(seq 0 $(($NG - 1))) ; do
@@ -101,8 +101,8 @@ for k in $(seq $KMIN $KMAX) ; do
         
         NE=$(bc -l <<< "${NP[$i]} * ${EP[$i]}")
         DX=$(bc -l <<< "2/${NE}")
-        DELTA=$(bc -l <<< "${DX}/2 * ${DELTA_S}")
-        CFL=$(bc -l <<< "${V_REF}* ${DT} / ${DELTA}")
+        DELTA=$(bc -l <<< "${DX} / (2 * ${LAMBDA})")
+        CFL=$(bc -l <<< "${V_REF} * ${DT} / ${DELTA}")
         CS=$(bc -l <<< "${CFL}/${NS}")
 
         case $MU_METHOD in
@@ -133,10 +133,10 @@ for k in $(seq $KMIN $KMAX) ; do
             -e "s/<dt>/$DT/g" \
             study.tmpl > ${CASE}.prm
 
-#        #${EXEC} -n ${NPROC} ${PROG} ${CASE} 2>&1 | tee -a ${LOGFILE}
-#
-#        echo >> ${LOGFILE}
-#        date >> ${LOGFILE}
-#
+        ${EXEC} -n ${NPROC} ${PROG} ${CASE} 2>&1 | tee -a ${LOGFILE}
+
+        echo >> ${LOGFILE}
+        date >> ${LOGFILE}
+
     done
 done
