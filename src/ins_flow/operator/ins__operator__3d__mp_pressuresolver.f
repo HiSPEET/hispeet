@@ -14,9 +14,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Projection-based pressure solver
 
-  module subroutine PressureSolver( this, tau, bv_u, v, f, p &
-                                  , i_max, r_red, r_max, ni  &
-                                  , precon                   )
+  module subroutine PressureSolver(this, tau, bv_u, v, f, p, precon, ni)
 
     ! arguments ................................................................
 
@@ -36,13 +34,8 @@ contains
     real(RNP), contiguous, intent(in)    :: v(:,:,:,:,:) !< preliminary velocity
     real(RNP), contiguous, intent(in)    :: f(:,:,:,:)   !< source at v-points
     real(RNP), contiguous, intent(inout) :: p(:,:,:,:)   !< pressure at v-points
-
-    integer,               intent(in)    :: i_max  !< max num iterations
-    real(RNP),   optional, intent(in)    :: r_red  !< min residual reduction
-    real(RNP),   optional, intent(in)    :: r_max  !< max admissible residual
-    integer,     optional, intent(out)   :: ni     !< num iterations executed
-
     logical,     optional, intent(in)    :: precon !< switch preconditioner mode
+    integer,     optional, intent(out)   :: ni     !< num iterations executed
 
     ! internal variables .......................................................
 
@@ -54,19 +47,27 @@ contains
     ! pressure boundary conditions at v- and p-points
 
     logical   :: mixed_order
-    real(RNP) :: ct
+    integer   :: i_max
+    real(RNP) :: ct, r_max, r_red
     integer   :: b, e
 
-    associate( po    => this % eop_u % po &
-             , pq    => this % eop_p % po &
-             , mesh  => this % mesh       &
-             , bc_p  => this % bc_p       &
-             , sem_p => this % sem_p      )
+    associate( po    => this % eop_u % po     &
+             , pq    => this % eop_p % po     &
+             , mesh  => this % mesh           &
+             , bc_p  => this % problem % bc_p &
+             , sem_p => this % sem_p          )
 
       ! initialization .........................................................
 
       mixed_order = pq /= po
       ct = 1 / tau
+
+      i_max = this % i_max_p
+      r_red = this % r_red
+      r_max = this % r_max
+      if (present(precon)) then
+        if (precon) i_max = this % k_pre_p
+      end if
 
       !$omp master
       allocate(mm(0:pq, 0:pq, 0:pq, 1:mesh%n_elem))
@@ -177,7 +178,7 @@ contains
 
     do b = 1, ins_op % mesh % n_bound
 
-      select case(ins_op % bc_p(b))
+      select case(ins_op % problem % bc_p(b))
       case('N')
         call BuildNeumannBV( boundary = ins_op % mesh % boundary(b)  &
                            , n        = ins_op % sem_u % metrics % n &
@@ -352,15 +353,15 @@ contains
 
       ! solution ...............................................................
 
-      call ml_solver_p % CS_MG_Solver( bc     = this % bc_p  &
-                                     , lambda = ZERO         &
-                                     , nu     = ONE          &
-                                     , u      = ml_p         &
-                                     , f      = ml_f         &
-                                     , bv     = ml_bv        &
-                                     , i_max  = i_max        &
-                                     , l_top  = l_top        &
-                                     , ni     = ni           )
+      call ml_solver_p % CS_MG_Solver( bc     = this % problem % bc_p  &
+                                     , lambda = ZERO                   &
+                                     , nu     = ONE                    &
+                                     , u      = ml_p                   &
+                                     , f      = ml_f                   &
+                                     , bv     = ml_bv                  &
+                                     , i_max  = i_max                  &
+                                     , l_top  = l_top                  &
+                                     , ni     = ni                     )
 
       ! copy result ............................................................
 

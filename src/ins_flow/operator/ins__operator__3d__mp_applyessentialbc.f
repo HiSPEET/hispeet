@@ -20,7 +20,7 @@ contains
     class(INS_Operator_3D), intent(in) :: this
     !< Navier-Stokes operator
     class(BoundaryVariable_3D), optional, intent(in) :: bv_u(:)
-    !< boundary values depending on BC type specified in `this % bc_v`
+    !< boundary values depending on BC type
     real(RNP), contiguous, intent(in) :: vm(:,:,:,:,:)
     !< inner velocity traces, `vm(np,np,6,ne,3) = v⁻`
     real(RNP), contiguous, intent(inout) :: vp(:,:,:,:,:)
@@ -32,7 +32,7 @@ contains
     do b = 1, this % mesh % n_bound
       associate(boundary => this % mesh % boundary(b))
 
-        select case(this % bc_v(b))
+        select case(this % problem % bc_v(b))
 
         case('D') ! Dirichlet: v⁺ = 2vᵇ - v⁻
 

@@ -18,6 +18,8 @@ add_library(HiINSFlow
             operator/ins__operator__3d__mp_getviscousboundarystress_c.f
             operator/ins__operator__3d__mp_getviscousboundarystress_v.f
             operator/ins__operator__3d__mp_pressuresolver.f
+            operator/ins__operator__3d__mp_stokesfgmres.f
+            operator/ins__operator__3d__mp_stokesprojection.f
 
             problem/ins__problem__3d.f
             problem/ins__problem__channel__3d.f

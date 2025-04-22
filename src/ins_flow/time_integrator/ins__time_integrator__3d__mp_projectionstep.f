@@ -168,9 +168,7 @@ contains
         end if
 
         ! solve pressure equation
-        call ins_op % PressureSolver( tau, bv_w, v, div_v, p &
-                                    , i_max_p, r_red, r_max  &
-                                    , precon = precon        )
+        call ins_op % PressureSolver(tau, bv_w, v, div_v, p, precon)
 
       end associate
 
@@ -193,7 +191,7 @@ contains
 
       ! update boundary conditions
       do b = 1, mesh % n_bound
-        select case(ins_op % bc_v(b))
+        select case(ins_op % problem % bc_v(b))
         case('O')
           ! pᵇ = p - ∆pᵇ
           call bv_p(b) % Extract(p)
@@ -215,8 +213,7 @@ contains
           call problem % GetViscosity(sem_u % metrics % x, t, u, nu)
         end if
 
-        call ins_op % DiffusionSolver( tau, mu, nu, f, bv_w, v &
-                                     , i_max_v, r_red, r_max   )
+        call ins_op % DiffusionSolver(tau, mu, nu, f, bv_w, v, precon)
 
       end associate
 

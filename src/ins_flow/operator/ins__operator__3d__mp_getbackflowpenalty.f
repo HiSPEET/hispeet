@@ -37,7 +37,7 @@ contains
     integer   :: e, f, i, j, m
 
     ! scaling factor
-    c_vn = 1 / max(eps, this % delta_outflow * problem % v_ref)
+    c_vn = 1 / max(eps, this % delta_out * problem % v_ref)
 
     associate( boundary => this % sem_u % mesh % boundary(b) &
              , n        => this % sem_u % metrics % n        &

@@ -367,6 +367,7 @@ program INS_TimeIntegrator_3D_Test
           write(*,'(A,I0)') '  *** enforcing periodic BC on coupled boundary ',i
         end if
         problem % bc_v(i) = 'P'
+        problem % bc_p(i) = 'P'
       end if
     end if
   end do
@@ -530,7 +531,8 @@ program INS_TimeIntegrator_3D_Test
     write(*,'(T3,A,T30,9(G0,X))') 'flow problem:', trim(flow_problem)
     write(*,'(T3,A,T30,9(G0,X))') 'domain:',  domain_name
     write(*,'(T3,A,T30,9(G0,X))') 'domain volume:', domain_volume
-    write(*,'(T3,A,T30,9(G0,X))') 'boundary conditions:'  , problem % bc_v
+    write(*,'(T3,A,T30,9(G0,X))') 'boundary conditions for v:', problem % bc_v
+    write(*,'(T3,A,T30,9(G0,X))') 'boundary conditions for p:', problem % bc_p
     write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of v:', ins_op % eop_u % po
     write(*,'(T3,A,T30,9(G0,X))') 'polynomial order of p:', ins_op % eop_p % po
     write(*,'(T3,A,T30,9(G0,X))') 'conv quadrature order:', ins_op % sop_q % po

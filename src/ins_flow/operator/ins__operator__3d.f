@@ -45,16 +45,14 @@ module INS__Operator__3D
 
   type INS_Operator_3D
 
+    class(INS_Problem_3D), pointer :: problem => null() !< flow problem
+
     integer :: level !< rank in multilevel hierarchy (0 if none)
     character(len=4) :: pressure_solver  !< pressure solver
     character(len=4) :: diffusion_solver !< diffusion solver
 
-    real(RNP) :: mu_0 !< bulk viscosity,  μ = ζ/ρ
-    real(RNP) :: nu_0 !< shear viscosity, ν = η/ρ
-
-    character, allocatable :: bc_v(:) !< velocity BC, copied from problem
-    character, allocatable :: bc_p(:) !< pressure BC
-    real(RNP) :: delta_outflow        !< δ parameter of outflow conditions
+    real(RNP) :: mu_0      !< bulk viscosity,  μ = ζ/ρ
+    real(RNP) :: delta_out !< δ parameter of outflow conditions
 
     ! element operators
     type(DG_ElementOperators_1D)      :: eop_u !< DG operators for u \ p
@@ -78,6 +76,15 @@ module INS__Operator__3D
     type(DG_SchwarzOperator_3D)  :: schwarz_u  !< Schwarz operators for u
     type(ML_DG_EllipticSolver_3D), pointer :: ml_solver_p ! ML pessure solver
 
+    ! iterative solver settings
+    integer   :: i_max_p   !< max num p-iterations in projection solver
+    integer   :: i_max_v   !< max num v-iterations in projection solver
+    integer   :: k_max     !< max num Krylov iterations
+    integer   :: k_pre_p   !< max num p-iterations in Krylov preconditioner
+    integer   :: k_pre_v   !< max num v-iterations in Krylov preconditioner
+    real(RNP) :: r_red     !< min residual reduction, if > 0
+    real(RNP) :: r_max     !< max residual to reach,  if > 0
+
   contains
 
     generic   :: Init => Init_INS_Operator_3D
@@ -85,10 +92,11 @@ module INS__Operator__3D
 
     procedure :: ApplyEssentialBC
     procedure :: ApplyNaturalBC
-    procedure :: GetConvectionTerm
+
     procedure :: DiffusionSolver
-    procedure :: PressureSolver
+
     procedure :: GetBackflowPenalty
+    procedure :: GetConvectionTerm
 
     procedure :: ApplyDiffusionOperator
     procedure :: ApplyDiffusionOperator_C
@@ -108,6 +116,12 @@ module INS__Operator__3D
     procedure :: GetViscousBoundaryStress_C
     procedure :: GetViscousBoundaryStress_V
 
+    procedure :: PressureSolver
+    procedure :: StokesSolver
+
+!   procedure :: StokesFGMRES
+!   procedure :: StokesProjection
+
   end type INS_Operator_3D
 
   ! constructor interface
@@ -119,15 +133,26 @@ module INS__Operator__3D
   !> Options for INS_Operator_3D initialization
 
   type INS_OperatorOptions_3D
+
     character(4) :: pressure_solver  = 'SPCG'  !< {'AS','CG','SPCG','MG'}
     character(4) :: diffusion_solver = 'DPCG'  !< {'DPCG','SPCG'}
     logical      :: dealiasing       = .false. !< F: no dealiasing, T: 3/2 rule
-    real(RNP)    :: penalty_p        = -1      !< penalty for p-solver, -1: auto
-    real(RNP)    :: penalty_u        = -1      !< penalty for u-solver, -1: auto
-    real(RNP)    :: mu_0             =  0      !< bulk viscosity, μ = ζ/ρ
-    real(RNP)    :: delta_outflow    =  0.01   !< outflow parameter
-    type(DG_SchwarzOptions_3D) :: schwarz_u    !< Schwarz options for u-solver
-    type(DG_SchwarzOptions_3D) :: schwarz_p    !< Schwarz options for p-solver
+
+    real(RNP)    :: penalty_p =    -1 !< penalty for p-solver, -1: auto
+    real(RNP)    :: penalty_u =    -1 !< penalty for u-solver, -1: auto
+    real(RNP)    :: mu_0      =     0 !< bulk viscosity, μ = ζ/ρ
+    real(RNP)    :: delta_out =  0.01 !< outflow parameter
+    integer      :: i_max_p   =  1000 !< max num p-iterations in projection
+    integer      :: i_max_v   =   200 !< max num v-iterations in projection
+    integer      :: k_max     =     0 !< max num Krylov iterations
+    integer      :: k_pre_p   =    10 !< max num p-iterations in Krylov precon
+    integer      :: k_pre_v   =    10 !< max num v-iterations in Krylov precon
+    real(RNP)    :: r_red     = 1e-08 !< min residual reduction, if > 0
+    real(RNP)    :: r_max     = 1e-12 !< max residual to reach,  if > 0
+
+    type(DG_SchwarzOptions_3D) :: schwarz_u !< Schwarz options for u-solver
+    type(DG_SchwarzOptions_3D) :: schwarz_p !< Schwarz options for p-solver
+
   contains
     procedure :: Bcast => Bcast_INS_OperatorOptions_3D
   end type INS_OperatorOptions_3D
@@ -184,8 +209,7 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion solver
 
-    module subroutine DiffusionSolver &
-        (this, tau, mu, nu, f, bv_u, v, i_max, r_red, r_max, ni)
+    module subroutine DiffusionSolver(this, tau, mu, nu, f, bv_u, v, precon, ni)
       class(INS_Operator_3D),          intent(in)    :: this
       real(RNP),                       intent(in)    :: tau
       real(RNP), contiguous, optional, intent(in)    :: mu(:,:,:,:)
@@ -193,11 +217,8 @@ module INS__Operator__3D
       real(RNP), contiguous,           intent(in)    :: f(:,:,:,:,:)
       class(BoundaryVariable_3D),      intent(in)    :: bv_u(:)
       real(RNP), contiguous,           intent(inout) :: v(:,:,:,:,:)
-      integer,                         intent(in)    :: i_max
-      real(RNP),             optional, intent(in)    :: r_red
-      real(RNP),             optional, intent(in)    :: r_max
+      logical,               optional, intent(in)    :: precon
       integer,               optional, intent(out)   :: ni
-
     end subroutine DiffusionSolver
 
     !---------------------------------------------------------------------------
@@ -318,23 +339,53 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Projection-based pressure solver
 
-    module subroutine PressureSolver( this, tau, bv_u, v, f, p &
-                                    , i_max, r_red, r_max, ni  &
-                                    , precon                   )
-
+    module subroutine PressureSolver(this, tau, bv_u, v, f, p, precon, ni)
       class(INS_Operator_3D),     intent(in)    :: this
       real(RNP),                  intent(in)    :: tau
       class(BoundaryVariable_3D), intent(inout) :: bv_u(:)
       real(RNP), contiguous,      intent(in)    :: v(:,:,:,:,:)
       real(RNP), contiguous,      intent(in)    :: f(:,:,:,:)
       real(RNP), contiguous,      intent(inout) :: p(:,:,:,:)
-      integer,                    intent(in)    :: i_max
-      real(RNP),        optional, intent(in)    :: r_red
-      real(RNP),        optional, intent(in)    :: r_max
-      integer,          optional, intent(out)   :: ni
       logical,          optional, intent(in)    :: precon
-
+      integer,          optional, intent(out)   :: ni
     end subroutine PressureSolver
+
+    !---------------------------------------------------------------------------
+    !> Projection-diffusion step for incompressible flow
+
+    module subroutine StokesProjection &
+        (this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u, precon)
+      class(INS_Operator_3D),          intent(in)    :: this
+      real(RNP),                       intent(in)    :: tau
+      real(RNP),                       intent(in)    :: t
+      real(RNP), contiguous,           intent(in)    :: v_0(:,:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: F_c(:,:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: F_d(:,:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: Q(:,:,:,:,:)
+      class(BoundaryVariable_3D),      intent(in)    :: bv_u(:)
+      real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
+      real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
+      real(RNP), contiguous,           intent(inout) :: u(:,:,:,:,:)
+      logical,               optional, intent(in)    :: precon
+    end subroutine StokesProjection
+
+    !---------------------------------------------------------------------------
+    !> FGMRES for Stokes part with projection-diffusion preconditioner
+
+    module subroutine StokesFGMRES &
+        (this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+      class(INS_Operator_3D),          intent(in)    :: this
+      real(RNP),                       intent(in)    :: tau
+      real(RNP),                       intent(in)    :: t
+      real(RNP), contiguous,           intent(in)    :: v_0(:,:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: F_c(:,:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: F_d(:,:,:,:,:)
+      real(RNP), contiguous,           intent(in)    :: Q(:,:,:,:,:)
+      class(BoundaryVariable_3D),      intent(in)    :: bv_u(:)
+      real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
+      real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
+      real(RNP), contiguous,           intent(inout) :: u(:,:,:,:,:)
+    end subroutine StokesFGMRES
 
   end interface
 
@@ -378,7 +429,7 @@ contains
       !< new INS operator
     class(INS_OperatorOptions_3D), intent(in) :: opt
       !< INS operator options
-    class(INS_Problem_3D), intent(in) :: problem
+    class(INS_Problem_3D), target, intent(in) :: problem
       !< INS flow problem
     type(SpectralElementMesh_3D), target, intent(in) :: sem_u
       !< spectral element mesh and operators for u
@@ -388,6 +439,10 @@ contains
       !< multilevel pressure solver [none]
     integer, optional, intent(in) :: level
       !< rank in multilevel hierarchy (0 if none) 0[]
+
+    ! problem ..................................................................
+
+    this % problem => problem
 
     ! parameters ...............................................................
 
@@ -399,9 +454,8 @@ contains
 
     this % pressure_solver  = opt % pressure_solver
     this % diffusion_solver = opt % diffusion_solver
-
-    this % mu_0 = opt % mu_0
-    this % nu_0 = problem % nu_ref
+    this % mu_0             = opt % mu_0
+    this % delta_out        = opt % delta_out
 
     ! element operators ........................................................
 
@@ -447,15 +501,6 @@ contains
       this % sem_q = this % sem_u
     end if
 
-    ! boundary conditions ......................................................
-
-    this % bc_v = problem % bc_v
-
-    allocate(this % bc_p(this % mesh % n_bound))
-    call problem % GetPressureBC(this % bc_p)
-
-    this % delta_outflow = opt % delta_outflow
-
     ! operators and solvers for elliptic subsystems ............................
 
     ! elliptic operator for pressure
@@ -474,6 +519,13 @@ contains
     else
       this % ml_solver_p => null()
     end if
+
+    ! iterative solver settings
+    this % i_max_p = opt % i_max_p
+    this % i_max_v = opt % i_max_v
+    this % k_max   = opt % k_max
+    this % k_pre_p = opt % k_pre_p
+    this % k_pre_v = opt % k_pre_v
 
   end subroutine Init_INS_Operator_3D
 
@@ -593,6 +645,45 @@ contains
 
   end subroutine GetViscousBoundaryStress
 
+  !-----------------------------------------------------------------------------
+  !>
+
+  subroutine StokesSolver(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+    class(INS_Operator_3D), intent(in) :: this
+    !< incompressible Navier-Stokes time integrator
+    real(RNP), intent(in) :: tau
+    !< τ, effective time step width
+    real(RNP), intent(in) :: t
+    !< t, final time
+    real(RNP), contiguous, intent(in) :: v_0(:,:,:,:,:)
+    !< v₀, effective initial value of velocity
+    real(RNP), contiguous, intent(in) :: F_c(:,:,:,:,:)
+    !< convective term at final time t
+    real(RNP), contiguous, intent(in) :: F_d(:,:,:,:,:)
+    !< diffusion term at final time t
+    real(RNP), contiguous, intent(in) :: Q(:,:,:,:,:)
+    !< sources at time t and further known terms
+    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
+    !< boundary values at final time t
+    !!   - Γᴰ :  [ v₁, v₂, v₃, - , -  ]
+    !!   - Γᴼ :  [ - , - , - , p , ∆p ]
+    real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
+    !< μ, kinematic bulk viscosity
+    real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
+    !< ν, kinematic shear viscosity
+    real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
+    !< u = [v, p], velocity and pressure at final time u
+
+    if (this % k_max > 0) then
+      call StokesFGMRES(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+!     call this % StokesFGMRES(tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+    else
+      call StokesProjection(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+!     call this % StokesProjection(tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+    end if
+
+  end subroutine StokesSolver
+
   !=============================================================================
   ! Type-bound procedures of INS_OperatorOptions_3D
 
@@ -610,7 +701,14 @@ contains
     call XMPI_Bcast(this % penalty_p       , root, comm)
     call XMPI_Bcast(this % penalty_u       , root, comm)
     call XMPI_Bcast(this % mu_0            , root, comm)
-    call XMPI_Bcast(this % delta_outflow   , root, comm)
+    call XMPI_Bcast(this % delta_out       , root, comm)
+    call XMPI_Bcast(this % i_max_p         , root, comm)
+    call XMPI_Bcast(this % i_max_v         , root, comm)
+    call XMPI_Bcast(this % k_max           , root, comm)
+    call XMPI_Bcast(this % k_pre_p         , root, comm)
+    call XMPI_Bcast(this % k_pre_v         , root, comm)
+    call XMPI_Bcast(this % r_red           , root, comm)
+    call XMPI_Bcast(this % r_max           , root, comm)
 
     call this % schwarz_p % Bcast(root, comm)
     call this % schwarz_u % Bcast(root, comm)

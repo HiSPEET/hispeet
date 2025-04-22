@@ -118,6 +118,7 @@ contains
     problem % x1     = x1
 
     allocate(problem % bc_v(nb), source = 'D')
+    call problem % SetPressureBC()
 
   end subroutine SetProblem
 

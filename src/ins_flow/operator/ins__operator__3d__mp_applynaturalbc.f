@@ -20,7 +20,7 @@ contains
     class(INS_Operator_3D), intent(in) :: this
     !< Navier-Stokes operator
     class(BoundaryVariable_3D), intent(in) :: bv_s(:)
-    !< viscous boundary fluxes depending on BC type specified in `this % bc_v`
+    !< viscous boundary fluxes depending on BC type
     real(RNP), contiguous, intent(in) :: sm(:,:,:,:,:)
     !< inner viscous flux vector, `sm(np,np,6,ne,3) = s⁻ = n⁻⋅τ⁻`
     real(RNP), contiguous, intent(inout) :: sp(:,:,:,:,:)
@@ -32,7 +32,7 @@ contains
     do b = 1, this % mesh % n_bound
       associate(boundary => this % mesh % boundary(b))
 
-        select case(this % bc_v(b))
+        select case(this % problem % bc_v(b))
 
         case('D') ! Dirichlet: s⁺ = -s⁻
 
