@@ -113,7 +113,7 @@ contains
         case('SPCG')
           call this % elliptic_p % SchwarzPCG_Method &
                           (bc_p, ZERO, ONE, q, g, bv_q, i_max, r_red, r_max, ni)
-        case('MG')
+        case('MG','MGCG')
           call ML_PressureSolver(this, q, g, bv_q, ni)
         end select
 
@@ -137,7 +137,7 @@ contains
         case('SPCG')
           call this % elliptic_p % SchwarzPCG_Method &
                           (bc_p, ZERO, ONE, p, g, bv_p, i_max, r_red, r_max, ni)
-        case('MG')
+        case('MG','MGCG')
           call ML_PressureSolver(this, p, g, bv_p, i_max, ni)
         end select
 
@@ -352,15 +352,28 @@ contains
 
       ! solution ...............................................................
 
-      call ml_solver_p % CS_MG_Solver( bc     = this % bc_p  &
-                                     , lambda = ZERO         &
-                                     , nu     = ONE          &
-                                     , u      = ml_p         &
-                                     , f      = ml_f         &
-                                     , bv     = ml_bv        &
-                                     , i_max  = i_max        &
-                                     , l_top  = l_top        &
-                                     , ni     = ni           )
+      select case(this % pressure_solver)
+      case('MG')
+        call ml_solver_p % CS_MG_Solver( bc     = this % bc_p  &
+                                       , lambda = ZERO         &
+                                       , nu     = ONE          &
+                                       , u      = ml_p         &
+                                       , f      = ml_f         &
+                                       , bv     = ml_bv        &
+                                       , i_max  = i_max        &
+                                       , l_top  = l_top        &
+                                       , ni     = ni           )
+      case('MGCG')
+        call ml_solver_p % CS_MGCG_Solver( bc     = this % bc_p  &
+                                         , lambda = ZERO         &
+                                         , nu     = ONE          &
+                                         , u      = ml_p         &
+                                         , f      = ml_f         &
+                                         , bv     = ml_bv        &
+                                         , i_max  = i_max        &
+                                         , l_top  = l_top        &
+                                         , ni     = ni           )
+      end select
 
       ! copy result ............................................................
 

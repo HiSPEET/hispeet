@@ -34,7 +34,7 @@
   ins_op_opt%mu_0       = 1e-1  !  μ ~ √(ν² + v²h²)
   ins_op_opt%dealiasing = T
 
-  ins_op_opt%pressure_solver = 'MG'
+  ins_op_opt%pressure_solver = 'MGCG'
 
   ! multilevel pressure solver
   ml_solver_p_opt%smooth_method = 1          ! more robust than default 3
