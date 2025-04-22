@@ -1,20 +1,20 @@
 #!/bin/bash
 
 # ==============================================================================
-# SLURM script for dx-convergence test using MPI
+# SLURM script for study using MPI
 # ------------------------------------------------------------------------------
 
 # Adjust the following arguments as appropriate
 
 #SBATCH --account=p_hispeet                   # project
 #SBATCH --nodes=1                             # number of nodes
-#SBATCH --ntasks=16                           # max number of MPI processes
+#SBATCH --ntasks=64                           # max number of MPI processes
 #SBATCH --cpus-per-task=1                     # number of cores per process
 #SBATCH --mem=100000                          # memory per node in MB
 
-#SBATCH --time=00-00:55:00                    # dd-hh:mm:ss
-#SBATCH --job-name=convergence_dx             # sensible job name
-#SBATCH --output=convergence_dx_%j.out        # output file
+#SBATCH --time=00-23:55:00                    # dd-hh:mm:ss
+#SBATCH --job-name=study                      # sensible job name
+#SBATCH --output=study_%j.out                 # output file
 
 # for performance measurements:
 ##SBATCH --cpu-freq=highm1                     # CPU frequency in kHz
@@ -23,12 +23,13 @@
 # ------------------------------------------------------------------------------
 # Settings (overriding those in convergence_dt.sh)
 
-export MPIRUN="srun"
-
-# switch to HPC test configuration
-export HPC=1
+export EXEC="srun"
+export HPC="1"
+export PO_U="4" 
+export MU_REF="1"
+export MU_METHOD="1"
 
 # ------------------------------------------------------------------------------
 # Execution
 
-./convergence_dx.sh
+./study.sh

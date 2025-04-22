@@ -76,6 +76,7 @@ contains
 
     ! local variables ..........................................................
 
+    logical   :: stokes = .true.
     real(RNP) :: nu    = 1                   ! kinematic viscosity
     real(RNP) :: a     = 2.883356_RNP        ! wave length
 
@@ -83,7 +84,7 @@ contains
     real(RNP) :: x0(3) = [ -real(PI, RNP), -ONE, -ONE ]
     real(RNP) :: x1(3) = [  real(PI, RNP),  ONE,  ONE ]
 
-    namelist /parameters/ nu, a, x0, x1
+    namelist /parameters/ stokes, nu, a, x0, x1
 
     logical :: exists
     integer :: prm, rank
@@ -122,13 +123,14 @@ contains
     end if
 
     if (present(comm)) then
+      call XMPI_Bcast(stokes, 0, comm)
       call XMPI_Bcast(nu, 0, comm)
       call XMPI_Bcast(a , 0, comm)
       call XMPI_Bcast(x0, 0, comm)
       call XMPI_Bcast(x1, 0, comm)
     end if
 
-    problem % stokes         = .true.
+    problem % stokes = stokes
     problem % exact_solution = .true.
 
     problem % nu_ref = nu

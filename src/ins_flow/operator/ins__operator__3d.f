@@ -119,9 +119,6 @@ module INS__Operator__3D
     procedure :: PressureSolver
     procedure :: StokesSolver
 
-!   procedure :: StokesFGMRES
-!   procedure :: StokesProjection
-
   end type INS_Operator_3D
 
   ! constructor interface
@@ -134,7 +131,7 @@ module INS__Operator__3D
 
   type INS_OperatorOptions_3D
 
-    character(4) :: pressure_solver  = 'SPCG'  !< {'AS','CG','SPCG','MG'}
+    character(4) :: pressure_solver  = 'SPCG'  !< {'AS','CG','SPCG','MG','MGCG'}
     character(4) :: diffusion_solver = 'DPCG'  !< {'DPCG','SPCG'}
     logical      :: dealiasing       = .false. !< F: no dealiasing, T: 3/2 rule
 
@@ -676,10 +673,8 @@ contains
 
     if (this % k_max > 0) then
       call StokesFGMRES(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
-!     call this % StokesFGMRES(tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
     else
       call StokesProjection(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
-!     call this % StokesProjection(tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
     end if
 
   end subroutine StokesSolver
