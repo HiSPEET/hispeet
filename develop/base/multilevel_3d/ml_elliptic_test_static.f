@@ -59,7 +59,11 @@ program ML_Elliptic_Test_Static
   character(len=80) :: case_name ! case name
   character(len=80) :: case_file ! case input file: trim(case_name).prm
 
-  integer :: solution_method = 20  ! 10/20: CS-MG/FAS-MG
+  integer :: solution_method = 21
+  ! 11:  CS-MG
+  ! 12:  CS-MGCG
+  ! 21:  FAS-MG
+
   logical :: check_hdf5 = .false.  ! write and re-read ML mesh before solving
   logical :: export_vtk = .false.  ! switch for VTK export
 
@@ -481,16 +485,20 @@ program ML_Elliptic_Test_Static
 
   if (problem % nu_1 > 0) then
     select case(solution_method)
-    case(10)
+    case(11)
       call ml_elliptic % CS_MG_Solver(bc, lambda, nu, u, f, bv, ni=n_i)
-    case(20)
+    case(12)
+      call ml_elliptic % CS_MGCG_Solver(bc, lambda, nu, u, f, bv, ni=n_i)
+    case(21)
       call ml_elliptic % FAS_MG_Solver(bc, lambda, nu, u, f, bv, ni=n_i)
     end select
   else
     select case(solution_method)
-    case(10)
+    case(11)
       call ml_elliptic % CS_MG_Solver(bc, lambda, nu_0, u, f, bv, ni=n_i)
-    case(20)
+    case(12)
+      call ml_elliptic % CS_MGCG_Solver(bc, lambda, nu_0, u, f, bv, ni=n_i)
+    case(21)
       call ml_elliptic % FAS_MG_Solver(bc, lambda, nu_0, u, f, bv, ni=n_i)
     end select
   end if

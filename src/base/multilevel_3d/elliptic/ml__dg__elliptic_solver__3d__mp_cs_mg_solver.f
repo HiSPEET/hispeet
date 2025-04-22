@@ -22,8 +22,8 @@ contains
     integer,   optional, intent(out) :: ni          !< num executed cycles
     real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
-    call CS_MG_Solver_X(this, bc, lambda, nu, null(), u, f, bv, i_max, l_top, &
-                        ni, r_2)
+    call CS_MG_Solver_X &
+             (this, bc, lambda, nu, null(), u, f, bv, i_max, l_top, ni, r_2)
 
   end subroutine CS_MG_Solver_C
 
@@ -46,8 +46,8 @@ contains
     integer,   optional, intent(out) :: ni          !< num executed cycles
     real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
-    call CS_MG_Solver_X(this, bc, lambda, null(), nu, u, f, bv, i_max, l_top, &
-                        ni, r_2)
+    call CS_MG_Solver_X &
+             (this, bc, lambda, null(), nu, u, f, bv, i_max, l_top, ni, r_2)
 
   end subroutine CS_MG_Solver_V
 
@@ -73,8 +73,8 @@ contains
       !< approx/final solution
     class(ML_MeshVariable_3D), intent(inout) :: f
       !< RHS
-    class(ML_BoundaryVariable_3D), target, intent(in) :: bv
-      !< boundary values
+    class(ML_BoundaryVariable_3D), target, optional, intent(in) :: bv
+      !< boundary values [homogeneous]
     integer, optional, intent(in) :: i_max
       !< overrides preset maximum number of cycles
     integer, optional, intent(in) :: l_top
@@ -87,47 +87,53 @@ contains
     ! internal variables :::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
     type(ML_MeshVariable_3D), allocatable, save :: r
-    type(BoundaryVariable_3D), pointer, save :: bv_l(:), bv_1(:)
-    integer, save :: l_top_
+    type(BoundaryVariable_3D), pointer, save :: bv_1(:), bv_l(:), bv_top(:)
     logical, save :: converged
 
     real(RNP) :: rr, r_max, r_new, r_old
     logical :: check_convergence
-    integer :: i_max_
+    integer :: i_max_, l_top_
     integer :: e, l, m, n
+
+    ! prerequisites ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+    if (present(l_top)) then
+      l_top_ = min(l_top, size(this % ml_op % sem))
+    else
+      l_top_ = size(this % ml_op % sem)
+    end if
+
+    if (present(i_max)) then
+      i_max_ = i_max
+    else
+      i_max_ = this % i_max
+    end if
+
+    check_convergence = i_max_ > 1 .and. max(this%r_red, this%r_max) > 0
 
     associate( sem    => this % ml_op % sem      &
              , iop_cf => this % ml_op % iop_cf_x &
-             , iop_fc => this % ml_op % iop_fc_x &
-             , ell_op => this % elliptic_op      )
+             , iop_fc => this % ml_op % iop_fc_x )
 
       ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-      check_convergence = max(this%r_red, this%r_max) > 0
-
       !$omp master
-
-      if (present(l_top)) then
-        l_top_ = min(l_top, size(sem))
-      else
-        l_top_ = size(sem)
-      end if
-
-      if (present(i_max)) then
-        i_max_ = i_max
-      else
-        i_max_ = this % i_max
-      end if
 
       allocate(r)
       call r % Init(this%ml_op, nc=1)
 
-      bv_l => bv % level(l_top_) % var
+      if (present(bv)) then
+        bv_top => bv % level(l_top_) % var
+      else
+        bv_top => null()
+      end if
+
       if (l_top_ == 1) then
-        bv_1 => bv_l
+        bv_1 => bv_top
       else
         bv_1 => null()
       end if
+      bv_l => bv_top
 
       !$omp end master
 
@@ -145,7 +151,8 @@ contains
       ! termination conditions
       if (check_convergence) then
         l = l_top_
-        associate( f_l => f % level(l) % val(:,:,:,:,1) &
+        associate( mesh_l => sem(l) % mesh              &
+                 , f_l => f % level(l) % val(:,:,:,:,1) &
                  , u_l => u % level(l) % val(:,:,:,:,1) &
                  , r_l => r % level(l) % val(:,:,:,:,1) )
 
@@ -158,20 +165,20 @@ contains
             end associate
           end if
 
-          rr = ScalarProduct(r_l, r_l)
+          rr = ScalarProduct(r_l, r_l, mesh_l%comm_parts)
           r_old  = sqrt(rr)
           r_max  = max(r_old * this%r_red, this%r_max)
           !$omp master
           converged = r_old < r_max
-          call XMPI_Bcast(converged, root = 0, comm = sem(1)%mesh%comm_world)
+          call XMPI_Bcast(converged, root = 0, comm = mesh_l%comm_parts)
           !$omp end master
-          !$omp barrier
         end associate
       else
-        !$omp single
+        !$omp master
         converged = .false.
-        !$omp end single
+        !$omp end master
       end if
+      !$omp barrier
 
       if (converged) then
         !$omp master
@@ -267,7 +274,7 @@ contains
 
             if (l == l_top_) then
               !$omp master
-              bv_l => bv % level(l) % var
+              bv_l => bv_top
               !$omp end master
             end if
 
@@ -306,9 +313,9 @@ contains
         if (check_convergence .and. m < i_max_) then
 
           l = l_top_
-          associate( f_l  => f  % level(l) % val(:,:,:,:,1) &
-                   , u_l  => u  % level(l) % val(:,:,:,:,1) &
-                   , r_l  => r  % level(l) % val(:,:,:,:,1) )
+          associate( f_l  => f % level(l) % val(:,:,:,:,1) &
+                   , u_l  => u % level(l) % val(:,:,:,:,1) &
+                   , r_l  => r % level(l) % val(:,:,:,:,1) )
 
             if (present(nu_0)) then
               call this % Residual(l, bc, lambda, nu_0, f_l, bv_l, u_l, r_l)

@@ -191,13 +191,12 @@ contains
                 '#Elliptic:SchwarzPCG','>>>  i  =',0,',  |r| =', sqrt(rr)
         end if
         !$omp end master
-        !$omp barrier
       else
         !$omp master
         converged = .false.
         !$omp end master
-        !$omp barrier
       end if
+      !$omp barrier
 
       if (converged) then
         i_max_ = 0
