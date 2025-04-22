@@ -2,6 +2,23 @@
 !> author:   Joerg Stiller
 !> date:     2019/01/27, 2024/09/17
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> Test problems with simple analytical solution
+!>
+!>       λ - ∇⋅ν∇u = f
+!>
+!> with manufactured solution
+!>
+!>   - 1D:  u = sin(k_u x)
+!>   - 2D:  u = sin(k_u x) sin(k_u y)
+!>   - 3D:  u = sin(k_u x) sin(k_u y) sin(k_u z)
+!>
+!> for constant λ and possibly variable diffusivity
+!>
+!>   - 1D:  ν = ν₀ + ν₁ sin(k_nu (x - d))
+!>   - 2D:  ν = ν₀ + ν₁ sin(k_nu (x - d)) sin(k_nu (y - d))
+!>   - 3D:  ν = ν₀ + ν₁ sin(k_nu (x - d)) sin(k_nu (y - d)) sin(k_nu (z - d))
+!>
 !===============================================================================
 
 module Elliptic_Problem__Simple__3D

@@ -73,6 +73,9 @@ module ML__DG__Elliptic_Solver__3D
     generic,   public  :: CS_MG_Solver => CS_MG_Solver_C, CS_MG_Solver_V
     procedure, private :: CS_MG_Solver_C, CS_MG_Solver_V, CS_MG_Solver_X
 
+    generic,   public  :: CS_MGCG_Solver => CS_MGCG_Solver_C, CS_MGCG_Solver_V
+    procedure, private :: CS_MGCG_Solver_C, CS_MGCG_Solver_V
+
     generic,   public  :: FAS_MG_Residual => FAS_MG_Residual_C, FAS_MG_Residual_V
     procedure, private :: FAS_MG_Residual_C, FAS_MG_Residual_V, FAS_MG_Residual_X
 
@@ -172,19 +175,55 @@ module ML__DG__Elliptic_Solver__3D
 
     module subroutine CS_MG_Solver_X( this, bc, lambda, nu_0, nu_v, u, f, bv &
                                     , i_max, l_top, ni, r_2                  )
-      class(ML_DG_EllipticSolver_3D),        intent(in)    :: this
-      character,                             intent(in)    :: bc(:)
-      real(RNP),                             intent(in)    :: lambda
-      real(RNP),                   optional, intent(in)    :: nu_0
-      class(ML_MeshVariable_3D),   optional, intent(in)    :: nu_v
-      class(ML_MeshVariable_3D),             intent(inout) :: u
-      class(ML_MeshVariable_3D),             intent(inout) :: f
-      class(ML_BoundaryVariable_3D), target, intent(in)    :: bv
-      integer,                     optional, intent(in)    :: i_max
-      integer,                     optional, intent(in)    :: l_top
-      integer,                     optional, intent(out)   :: ni
-      real(RNP),                   optional, intent(out)   :: r_2
+      class(ML_DG_EllipticSolver_3D),                  intent(in)    :: this
+      character,                                       intent(in)    :: bc(:)
+      real(RNP),                                       intent(in)    :: lambda
+      real(RNP),                             optional, intent(in)    :: nu_0
+      class(ML_MeshVariable_3D),             optional, intent(in)    :: nu_v
+      class(ML_MeshVariable_3D),                       intent(inout) :: u
+      class(ML_MeshVariable_3D),                       intent(inout) :: f
+      class(ML_BoundaryVariable_3D), target, optional, intent(in)    :: bv
+      integer,                               optional, intent(in)    :: i_max
+      integer,                               optional, intent(in)    :: l_top
+      integer,                               optional, intent(out)   :: ni
+      real(RNP),                             optional, intent(out)   :: r_2
     end subroutine CS_MG_Solver_X
+
+    !---------------------------------------------------------------------------
+    !> CS-MGCG solver for problems with global refinement and const diffusivity
+
+    module subroutine CS_MGCG_Solver_C( this, bc, lambda, nu, u, f, bv &
+                                      , i_max, l_top, ni, r_2          )
+      class(ML_DG_EllipticSolver_3D), intent(in)    :: this
+      character,                      intent(in)    :: bc(:)
+      real(RNP),                      intent(in)    :: lambda
+      real(RNP),                      intent(in)    :: nu
+      class(ML_MeshVariable_3D),      intent(inout) :: u
+      class(ML_MeshVariable_3D),      intent(inout) :: f
+      class(ML_BoundaryVariable_3D),  intent(in)    :: bv
+      integer,              optional, intent(in)    :: i_max
+      integer,              optional, intent(in)    :: l_top
+      integer,              optional, intent(out)   :: ni
+      real(RNP),            optional, intent(out)   :: r_2
+    end subroutine CS_MGCG_Solver_C
+
+    !---------------------------------------------------------------------------
+    !> CS-MG solver for problems with global refinement and variable diffusivity
+
+    module subroutine CS_MGCG_Solver_V( this, bc, lambda, nu, u, f, bv &
+                                    , i_max, l_top, ni, r_2          )
+      class(ML_DG_EllipticSolver_3D), intent(in)    :: this
+      character,                      intent(in)    :: bc(:)
+      real(RNP),                      intent(in)    :: lambda
+      class(ML_MeshVariable_3D),      intent(in)    :: nu
+      class(ML_MeshVariable_3D),      intent(inout) :: u
+      class(ML_MeshVariable_3D),      intent(inout) :: f
+      class(ML_BoundaryVariable_3D),  intent(in)    :: bv
+      integer,              optional, intent(in)    :: i_max
+      integer,              optional, intent(in)    :: l_top
+      integer,              optional, intent(out)   :: ni
+      real(RNP),            optional, intent(out)   :: r_2
+    end subroutine CS_MGCG_Solver_V
 
     !---------------------------------------------------------------------------
     !> FAS-MG residual with constant diffusivity
