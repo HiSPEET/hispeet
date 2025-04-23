@@ -191,7 +191,7 @@ contains
 
       ! element integrals ......................................................
 
-      !$omp do
+      !!$omp do
       do e = 1, ne
         if (activity(e) > 0) then
 

@@ -170,6 +170,9 @@ contains
         avg_q(ne) = avg_q(0)
       end select
 
+      !$omp end master
+      !$omp barrier
+
       ! correct fluxes at interior boundaries ..................................
 
       !$omp do

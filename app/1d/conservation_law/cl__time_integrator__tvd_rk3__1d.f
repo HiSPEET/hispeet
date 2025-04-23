@@ -121,8 +121,6 @@ contains
              , Me       => cl_operator % Me       &
              , activity => cl_operator % activity )
 
-      !$omp master
-
       ! initialization .........................................................
 
       allocate(r_c, mold = u)

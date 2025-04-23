@@ -123,9 +123,9 @@ contains
             rr_term  = max(rr_term, rr * rr_red)
           end if
           converged = rr <= rr_term
+          !$omp end master
+          !$omp barrier
         end if
-        !$omp end master
-        !$omp barrier
         if (converged) exit
 
         ! Schwarz sweep

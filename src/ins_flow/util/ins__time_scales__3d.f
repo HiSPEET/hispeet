@@ -66,7 +66,7 @@ contains
 
       ! scales neglecting polynomial order .....................................
 
-      !$omp do reduction(min: tau_conv_v, tau_conv_r, tau_diff_r)
+      !$omp do reduction(min: tau_conv_v_loc, tau_conv_r_loc, tau_diff_r_loc)
       do e = 1, mesh % n_elem
         associate(x_c => mesh % element(e) % geometry % x_c)
           h1 = 2 * sqrt(x_c(1,1)**2 + x_c(1,2)**2 + x_c(1,3)**2)  ! 2|∂x/∂ξ|

@@ -262,7 +262,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Interpolation of face data
 
-  pure subroutine InterpolateFaceData(A, p, q)
+  subroutine InterpolateFaceData(A, p, q)
     real(RNP), intent(in)  :: A(0:,0:)   !< 1D interpolation operator
     real(RNP), intent(in)  :: p(0:,0:,:) !< variable in velocity space
     real(RNP), intent(out) :: q(0:,0:,:) !< variable in pressure space

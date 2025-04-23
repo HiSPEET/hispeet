@@ -130,8 +130,6 @@ contains
         end if
       end do
 
-      !$omp master
-
       associate(v1 => v(:,:,:,:,:,1))
 
         ! initial approximation ................................................

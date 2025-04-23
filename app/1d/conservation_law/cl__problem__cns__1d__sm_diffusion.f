@@ -120,7 +120,7 @@ contains
 
     integer :: e, i, j, k
 
-    !$omp master !!! not ready for OpenMP, enforcing sequential execution !!!
+    !!$omp master !!! not ready for OpenMP, enforcing sequential execution !!!
 
     associate( activity => cl_operator % activity &
              , eop      => cl_operator % eop      &
@@ -155,7 +155,7 @@ contains
 
       call GetHybridDiffusity(this, cl_operator, comp, theta, u_0, A)
 
-      !$omp do
+      !!$omp do
       do e = 1, ne
 
         select case(activity(e))
@@ -175,7 +175,7 @@ contains
 
       g = 2 / dx
 
-      !$omp do
+      !!$omp do
       do e = 1, ne
         select case(activity(e))
 
@@ -277,7 +277,7 @@ contains
 
       ! element interface values ...............................................
 
-      !$omp do collapse(2)
+      !!$omp do collapse(2)
       do e = 0, ne
         do k = 1, 3
           jmp_u(e,k) =  u_l(e,k) - u_r(e,k)
@@ -296,7 +296,7 @@ contains
 
       g = 1 / dx
 
-      !$omp do
+      !!$omp do
       do e = 1, ne
         if (activity(e) < 1) cycle
 
@@ -341,7 +341,7 @@ contains
 
     end associate
 
-    !$omp end master
+    !!$omp end master
 
   end subroutine GetHybridDiffusionTerm
 
@@ -712,7 +712,7 @@ contains
     integer   :: e, i, j, k, ni, no
     integer   :: ic = 1
 
-    !$omp master !!! so far
+    !!$omp master !!! so far
 
     associate( nc => this % nc              &
              , ne => cl_operator % ne       &
@@ -733,7 +733,7 @@ contains
       if (present(r_red)) check_convergence = r_red > 0
       if (present(r_max)) check_convergence = r_max > 0 .or. check_convergence
 
-      !$omp master
+      !!$omp master
       allocate(v(0:po,ne,nc,ni+1)           , source = ZERO)
       allocate(w(0:po,ne,nc)                , source = ZERO)
       allocate(z(0:po,ne,nc,ni)             , source = ZERO)
@@ -743,8 +743,8 @@ contains
         allocate(mask(ne), source = cl_operator % activity > 0)
         allocate(cfg(ne), lmb_d(ne,nc), vr_d(ne,nc,nc), vl_d(ne,nc,nc))
       end if
-      !$omp end master
-      !$omp barrier
+      !!$omp end master
+      !!$omp barrier
 
       ! setup of Schwarz preconditioner
       if (this % precon > 0) then
@@ -780,7 +780,7 @@ contains
                                    , lmb_d = lmb_d, vr_d = vr_d, vl_d = vl_d )
           end if
 
-          !$omp do collapse(2)
+          !!$omp do collapse(2)
           do i = ic, nc
           do e = 1, ne
             v1(:,e,i) = 1/dt * Me * (f(:,e,i) - u(:,e,i)) + v1(:,e,i)
@@ -799,7 +799,7 @@ contains
 
           if (check_convergence) then
 
-            !$omp single
+            !!$omp single
             if (k == 1) then
               ! set terminal condition
               r_term = huge(r_term)
@@ -818,7 +818,7 @@ contains
             end if
 
             converged = beta <= r_term
-            !$omp end single
+            !!$omp end single
 
             if (converged) exit OUTER_ITERATION
 
@@ -851,7 +851,7 @@ contains
             call GetHybridDiffusionTerm( this, cl_operator, 'T', theta &
                                        , u_0 = u_0, u = zj, r_d = w    )
 
-            !$omp do collapse(2)
+            !!$omp do collapse(2)
             do i = ic, nc
             do e = 1, ne
               w(:,e,i) = 1/dt * Me * zj(:,e,i) - w(:,e,i)
@@ -925,18 +925,18 @@ contains
 
       ! finalization ...........................................................
 
-      !$omp master
+      !!$omp master
       deallocate(b, c, h, r, s, v, w, y, z)
       if (allocated(mask )) deallocate(mask)
       if (allocated(cfg  )) deallocate(cfg)
       if (allocated(lmb_d)) deallocate(lmb_d)
       if (allocated(vr_d )) deallocate(vr_d)
       if (allocated(vl_d )) deallocate(vl_d)
-      !$omp end master
+      !!$omp end master
 
     end associate
 
-    !$omp end master
+    !!$omp end master
 
   end subroutine DiffusionSolver
 
@@ -1002,7 +1002,6 @@ contains
 
     real(RNP), dimension(:,:,:), allocatable, save :: rs, zs
 
-    real(RNP), allocatable :: v_t(:,:)
     real(RNP) :: lambda
     logical   :: periodic
     integer   :: nc, ne, np, ns

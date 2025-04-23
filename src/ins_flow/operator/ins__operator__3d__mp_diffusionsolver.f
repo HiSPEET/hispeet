@@ -421,12 +421,12 @@ contains
         lambda_sp = real(1/tau, RSP)
         !$omp workshare
         nu_sp = real(nu_avg, RSP)
-        !$omp workshare nowait
+        !$omp end workshare nowait
       case default
         lambda_dp = real(1 / tau, RDP)
         !$omp workshare
         nu_dp = real(nu_avg, RDP)
-        !$omp workshare nowait
+        !$omp end workshare nowait
       end select
 
       call SetArray(z, ZERO, multi = .true.)

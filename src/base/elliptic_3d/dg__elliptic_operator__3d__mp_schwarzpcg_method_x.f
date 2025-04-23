@@ -151,12 +151,12 @@ contains
         lambda_sp = real(lambda, RSP)
         !$omp workshare
         nu_sp = real(nu_avg, RSP)
-        !$omp workshare nowait
+        !$omp end workshare nowait
       case default
         lambda_dp = real(lambda, RDP)
         !$omp workshare
         nu_dp = real(nu_avg, RDP)
-        !$omp workshare nowait
+        !$omp end workshare nowait
       end select
       ! omp barrier not needed because Residual is blocking
 

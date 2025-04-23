@@ -147,7 +147,8 @@ contains
     real(RNP), contiguous,        intent(in)  :: u  (0:,:,:)
     real(RNP), contiguous,        intent(out) :: r_c(0:,:,:)
 
-    real(RNP), allocatable :: MD_t(:,:), f_q(:), u_q(:), h_c(:)
+    real(RNP), allocatable, save :: h_c(:)
+    real(RNP), allocatable :: MD_t(:,:), f_q(:), u_q(:)
     logical :: use_interpolation
     integer :: e, i, j, j0
 
@@ -163,6 +164,7 @@ contains
 
       !$omp master
       allocate(h_c(0:ne))
+      !$omp end master
 
       allocate(MD_t(0:po, 0:qo), f_q(0:qo), u_q(0:qo))
 
@@ -220,6 +222,8 @@ contains
 
       ! finalization ...........................................................
 
+      !$omp barrier
+      !$omp master
       deallocate(h_c)
       !$omp end master
 
