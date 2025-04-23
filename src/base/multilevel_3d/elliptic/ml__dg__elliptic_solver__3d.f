@@ -135,7 +135,7 @@ module ML__DG__Elliptic_Solver__3D
     !> CS-MG solver for problems with global refinement and constant diffusivity
 
     module subroutine CS_MG_Solver_C( this, bc, lambda, nu, u, f, bv &
-                                    , l_top, ni, r_2 )
+                                    , i_max, l_top, ni, r_2 )
       class(ML_DG_EllipticSolver_3D), intent(in)    :: this
       character,                      intent(in)    :: bc(:)
       real(RNP),                      intent(in)    :: lambda
@@ -143,6 +143,7 @@ module ML__DG__Elliptic_Solver__3D
       class(ML_MeshVariable_3D),      intent(inout) :: u
       class(ML_MeshVariable_3D),      intent(inout) :: f
       class(ML_BoundaryVariable_3D),  intent(in)    :: bv
+      integer,              optional, intent(in)    :: i_max
       integer,              optional, intent(in)    :: l_top
       integer,              optional, intent(out)   :: ni
       real(RNP),            optional, intent(out)   :: r_2
@@ -152,7 +153,7 @@ module ML__DG__Elliptic_Solver__3D
     !> CS-MG solver for problems with global refinement and variable diffusivity
 
     module subroutine CS_MG_Solver_V( this, bc, lambda, nu, u, f, bv &
-                                    , l_top, ni, r_2 )
+                                    , i_max, l_top, ni, r_2          )
       class(ML_DG_EllipticSolver_3D), intent(in)    :: this
       character,                      intent(in)    :: bc(:)
       real(RNP),                      intent(in)    :: lambda
@@ -160,6 +161,7 @@ module ML__DG__Elliptic_Solver__3D
       class(ML_MeshVariable_3D),      intent(inout) :: u
       class(ML_MeshVariable_3D),      intent(inout) :: f
       class(ML_BoundaryVariable_3D),  intent(in)    :: bv
+      integer,              optional, intent(in)    :: i_max
       integer,              optional, intent(in)    :: l_top
       integer,              optional, intent(out)   :: ni
       real(RNP),            optional, intent(out)   :: r_2
@@ -169,7 +171,7 @@ module ML__DG__Elliptic_Solver__3D
     !> Generic CS-MG solver for problems with constant or variable diffusivity
 
     module subroutine CS_MG_Solver_X( this, bc, lambda, nu_0, nu_v, u, f, bv &
-                                    , l_top, ni, r_2 )
+                                    , i_max, l_top, ni, r_2                  )
       class(ML_DG_EllipticSolver_3D),        intent(in)    :: this
       character,                             intent(in)    :: bc(:)
       real(RNP),                             intent(in)    :: lambda
@@ -178,6 +180,7 @@ module ML__DG__Elliptic_Solver__3D
       class(ML_MeshVariable_3D),             intent(inout) :: u
       class(ML_MeshVariable_3D),             intent(inout) :: f
       class(ML_BoundaryVariable_3D), target, intent(in)    :: bv
+      integer,                     optional, intent(in)    :: i_max
       integer,                     optional, intent(in)    :: l_top
       integer,                     optional, intent(out)   :: ni
       real(RNP),                   optional, intent(out)   :: r_2

@@ -1,0 +1,7 @@
+&parameters
+  stokes = F
+  test_case = 2
+  nu_0 = 0.01
+  nu_1 = 0.01
+/
+

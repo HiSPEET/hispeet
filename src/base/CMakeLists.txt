@@ -77,6 +77,8 @@ endif ()
 
 set ( UTILITIES 
       utilities/cache_blocking.f
+      utilities/erfc_log_filter.f
+      utilities/exponential_filter.f
       utilities/execution_control.f
       utilities/logging_levels.f
       utilities/quick_sort.f
@@ -196,6 +198,7 @@ set( UTIL_3D ${UTIL_3D}
 set( UTIL_3D ${UTIL_3D}
      util_3d/import/import_gmsh__3d.f
      util_3d/import/import_gmsh__3d__mp_mapshellnodes.f
+     util_3d/import/import_gmsh__3d__mp_mergeperiodicvertices.f
    )
 
 set( UTIL_3D ${UTIL_3D}
@@ -376,4 +379,5 @@ target_link_libraries(HiBase
             ${FFTW_LIBRARIES}
             ${ParMETIS_LIBRARIES}
             ${LIBXSMM_LIBRARIES}
+            KdTree
             )

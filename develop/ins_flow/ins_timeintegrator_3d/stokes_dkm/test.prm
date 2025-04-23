@@ -1,0 +1,108 @@
+!-------------------------------------------------------------------------------
+! Control
+
+&control_prm
+
+! log_level                 = 1  ! activate/increase
+! log_level_inner_iteration = 1  ! for higher
+! log_level_outer_iteration = 1  ! verbosity
+
+  problem_file = 'stokes_dkm'
+  flow_problem = 'Stokes_DKM'
+  flow_domain  = 1
+
+! export_vtk   = T  ! set T for generating plot files
+! char_freq    = 0  ! set frequency of control output
+/
+
+!-------------------------------------------------------------------------------
+! Spatial
+
+&spatial_prm
+  ins_op_opt%dealiasing       = F
+  ins_op_opt%mu_0             = 1
+
+! equal order  !  k=1   k=2   k=3   k=4
+! po_u = 3     !   1     2     3     4
+! po_p = 3     !   1     2     3     4
+
+! mixed order  !  k=1   k=2   k=3   k=4
+  po_u = 4     !   2     3     4     5
+  po_p = 3     !   1     2     3     4
+/
+
+!-------------------------------------------------------------------------------
+! Temporal
+
+&temporal_prm
+
+  t_end  = 0.1
+  dt     = 1e-3
+  nt_max = 10000
+
+  time_method = 1  ! 1/2 Euler/BDF2
+
+! Euler ........................................................................
+
+  ins_ti_euler_opt%r_red    = 1e-8
+  ins_ti_euler_opt%r_max    = 1e-10
+
+! use these for coupled pressure-diffusion Krylov solver
+! ins_ti_euler_opt%i_krylov = 4
+! ins_ti_euler_opt%i_pre_p  = 200
+! ins_ti_euler_opt%i_pre_v  = 200
+! ins_ti_euler_opt%i_max_p  = 1000
+! ins_ti_euler_opt%i_max_v  = 1000
+
+! use these for segregated pressure-diffusion solver
+  ins_ti_euler_opt%i_max_p  = 10000
+  ins_ti_euler_opt%i_max_v  = 10000
+
+! BDF2 .........................................................................
+
+  ins_ti_bdf2_opt%r_red    = 1e-8
+  ins_ti_bdf2_opt%r_max    = 1e-10
+
+! use these for coupled pressure-diffusion Krylov solver
+! ins_ti_bdf2_opt%i_krylov = 3
+! ins_ti_bdf2_opt%i_pre_p  = 1000
+! ins_ti_bdf2_opt%i_pre_v  = 1000
+! ins_ti_bdf2_opt%i_max_p  = 10000
+! ins_ti_bdf2_opt%i_max_v  = 10000
+
+! use these for segregated pressure-diffusion solver
+  ins_ti_bdf2_opt%i_max_p  = 10000
+  ins_ti_bdf2_opt%i_max_v  = 10000
+/
+
+!-------------------------------------------------------------------------------
+! Domain
+
+&cuboid_cartesian_prm
+
+! k = 1
+! xo = -1,-1,-0.125
+! lx =  2, 2, 0.250
+! np =  1, 1, 1
+! ep =  8, 8, 1
+
+! k = 2
+! xo = -1,-1,-0.25
+! lx =  2, 2, 0.50
+! np =  1, 1, 1
+! ep =  4, 4, 1
+
+! k = 3
+  xo = -1,-1,-0.5
+  lx =  2, 2, 1.0
+  np =  1, 1, 1
+  ep =  2, 2, 1
+
+! k = 4
+! xo = -1,-1,-1
+! lx =  2, 2, 2
+! np =  1, 1, 1
+! ep =  1, 1, 1
+
+  periodic = F,F,T
+/

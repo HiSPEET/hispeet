@@ -59,7 +59,7 @@ for ((k = 1; k <= ${N_RESTART}; k++)); do
     for outfile in *${RESTART_TAG_OUT}*.h5; do
         infile=${outfile/$RESTART_TAG_OUT/$RESTART_TAG_IN}
         cp $outfile $infile
-	mv $outfile save/
+	    mv $outfile save/
     done
     # creating prm-file
     sed -e "s/<restart_tag_in>/$RESTART_TAG_IN/g" \

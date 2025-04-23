@@ -26,10 +26,6 @@ program INS_TimeIntegrator_3D_Test
   use Export_VTK_Volume_Data__3D
   use Spectral_Element_Mesh__3D
 
-  use ML__Mesh__3D
-  use ML__Mesh_Operators__3D
-  use ML__DG__Elliptic_Solver__3D
-
   use INS__Problem__3D
   use INS__Problem__Test_Suite__3D
 
@@ -84,12 +80,12 @@ program INS_TimeIntegrator_3D_Test
   character(len=80) :: problem_file = 'vortex_tg' ! problem parameters file
 
   integer :: flow_domain = 1
-  ! computational flow domain (u/s = un/structured, r = regular, d = deformed)
-  !   1  cuboidal domain with Cartesian mesh                               (s+r)
-  !   2  cuboidal domain with unstructured "diamond" mesh                  (u+d)
-  !   3  cylindrical domain                                                (u+d)
-  !   4  annular domain                                                    (u+d)
-  !  10  import from GMSH
+    ! computational flow domain (u/s = un/structured, r = regular, d = deformed)
+    !   1  cuboidal domain with Cartesian mesh                             (s+r)
+    !   2  cuboidal domain with unstructured "diamond" mesh                (u+d)
+    !   3  cylindrical domain                                              (u+d)
+    !   4  annular domain                                                  (u+d)
+    !  10  import from GMSH
 
   character(len=80) :: raw_mesh_file = ''
 
@@ -106,17 +102,17 @@ program INS_TimeIntegrator_3D_Test
   character(len=80) :: restart_tag_in  = ''  ! tag for restart input files
   character(len=80) :: restart_tag_out = ''  ! tag for restart output files
   namelist/control_prm/ restart_tag_in, restart_tag_out
-  !
-  ! restart input is read from
-  !   - trim(flow_case)_trim(restart_tag_in)_mesh_<rank>.h5  for the mesh
-  !   - trim(flow_case)_trim(restart_tag_in)_data_<rank>.h5  for flow data
-  ! where <rank> is the process rank in mesh%comm_world
-  !
-  ! output written to
-  !   - trim(flow_case)_trim(restart_tag_out)_mesh_<rank>.h5  for the mesh
-  !   - trim(flow_case)_trim(restart_tag_out)_data_<rank>.h5  for flow data
-  !
-  ! no restart data is read or written if the corresponding tag is empty
+    !
+    ! restart input is read from
+    !   - trim(flow_case)_trim(restart_tag_in)_mesh_<rank>.h5  for the mesh
+    !   - trim(flow_case)_trim(restart_tag_in)_data_<rank>.h5  for flow data
+    ! where <rank> is the process rank in mesh%comm_world
+    !
+    ! output written to
+    !   - trim(flow_case)_trim(restart_tag_out)_mesh_<rank>.h5  for the mesh
+    !   - trim(flow_case)_trim(restart_tag_out)_data_<rank>.h5  for flow data
+    !
+    ! no restart data is read or written if the corresponding tag is empty
 
   ! spatial parameters .........................................................
 
@@ -142,20 +138,23 @@ program INS_TimeIntegrator_3D_Test
   real(RNP) :: dt          = 1  ! time step size
   integer   :: nt_max      = 0  ! max num time steps, < 0 if no limit
   integer   :: time_method = 1  ! 1/2/3: Euler/BDF2/Runge-Kutta
+
   logical   :: smooth_initial_data = .false.
+  integer   :: smooth_filter = 3  ! 1/2/3: cut-off/erfc-log/exponential
+  integer   :: smooth_order  = 0  ! filter order (0: auto)
 
   type(INS_TimeIntegrator_Euler_Options_3D)      :: ins_ti_euler_opt
   type(INS_TimeIntegrator_BDF2_Options_3D)       :: ins_ti_bdf2_opt
   type(INS_TimeIntegrator_RungeKutta_Options_3D) :: ins_ti_runge_kutta_opt
 
   namelist/temporal_prm/ t_end, dt, nt_max
-  namelist/temporal_prm/ smooth_initial_data
+  namelist/temporal_prm/ smooth_initial_data, smooth_filter, smooth_order
   namelist/temporal_prm/ time_method
   namelist/temporal_prm/ ins_ti_euler_opt
   namelist/temporal_prm/ ins_ti_bdf2_opt
   namelist/temporal_prm/ ins_ti_runge_kutta_opt
 
-  ! mesh and operators .........................................................
+  ! mesh .......................................................................
 
   type(GenericMesh_3D),          save :: generic_mesh
   type(Mesh_3D), allocatable,    save :: base_mesh
@@ -238,8 +237,8 @@ program INS_TimeIntegrator_3D_Test
     write(*,'(/,A)') repeat('=',80)
     write(*,'(A)') 'Validation of incompressible Navier-Stokes time integrators'
     write(*,*)
-    write(*,'(T3,A,T30,9(G0,X))') 'number of processes:'  , n_proc
-    write(*,'(T3,A,T30,9(G0,X))') 'number of threads:'    , n_thread
+    write(*,'(T3,A,T30,9(G0,X))') 'number of processes:', n_proc
+    write(*,'(T3,A,T30,9(G0,X))') 'number of threads:'  , n_thread
     write(*,*)
 
     call get_command_argument(1, flow_case, status=stat)
@@ -398,12 +397,12 @@ program INS_TimeIntegrator_3D_Test
 
   ! Navier-Stokes operator
   sem_u = SpectralElementMesh_3D(ml_mesh%mesh(l_top), po_u)
-  ins_op_opt % mesh_level = l_top
   call ins_op % Init( opt         = ins_op_opt           &
                     , problem     = problem              &
                     , sem_u       = sem_u                &
                     , sem_p       = ml_op_p % sem(l_top) &
-                    , ml_solver_p = ml_solver_p          )
+                    , ml_solver_p = ml_solver_p          &
+                    , level       = l_top                )
 
   ! temporal ...................................................................
 
@@ -509,7 +508,8 @@ program INS_TimeIntegrator_3D_Test
   else
     call problem % GetInitialValues(ins_op % sem_u % metrics % x, u)
     if (smooth_initial_data) then
-      call SmoothInitialData()
+      call SmoothInitialData( smooth_filter, smooth_filter &
+                            , ins_op%mesh, ins_op%eop_u, u )
     end if
     t = 0
     n_avg = 0
@@ -969,33 +969,76 @@ contains
   !-----------------------------------------------------------------------------
   !> Smooth initial data
 
-  subroutine SmoothInitialData()
+  subroutine SmoothInitialData(filter, order, mesh, eop, u)
+    use Standard_Element_Operators__1D
     use TPO__AAA__3D
     use Assembly__3D
     use Element_Transfer_Buffer__3D
 
+    integer,        intent(in) :: filter !< 1/2/3: cut-off/erfc-log/exponential
+    integer,        intent(in) :: order  !< filter order (0: auto)
+    class(Mesh_3D), intent(in) :: mesh   !< mesh partition
+    class(StandardElementOperators_1D), intent(in)    :: eop !< element operators
+    real(RNP), dimension(0:,0:,0:,:,:), intent(inout) :: u   !< mesh variables
+
     type(ElementTransferBuffer_3D), allocatable, asynchronous, save :: buf_s
     real(RNP), allocatable, save :: s(:,:,:,:)
 
-    real(RNP), allocatable :: A_cut(:,:)
-    integer :: n_cut = 2
-    integer :: po_cut
+    real(RNP), allocatable :: A(:,:)
+    integer :: po, pf
     integer :: c
 
+    ! initialization ...........................................................
+
+    po = ubound(u,1)
+
     !$omp master
-    allocate(s(0:po_u,0:po_u,0:po_u,1:n_elem+n_ghost), source = ZERO)
-    buf_s = ElementTransferBuffer_3D(ins_op%mesh, s)
+    ! data structures for removal of discontinuities
+    allocate(s(0:po, 0:po, 0:po, mesh%n_elem + mesh%n_ghost), source = ZERO)
+    buf_s = ElementTransferBuffer_3D(mesh, s)
     !$omp end master
     !$omp barrier
 
-    po_cut = max(1, po_u - n_cut)
-    allocate(A_cut(0:po_u,0:po_u))
-    call ins_op % eop_u % Get_Bubble_CutoffFilter(po_cut, A_cut)
+    ! set filter order
+    if (order > 0) then
+      pf = order
+    else
+      select case(filter)
+      case(1)
+        ! default cut-off degree
+        pf = max(po-2, 2)
+      case(2)
+        ! default order of erfc-log filter
+        pf = 4
+      case(3)
+        ! default order of exponential filter
+        pf = 5
+      end select
+    end if
+
+    if (po > 1) then
+      ! get filter matrix
+      allocate(A(0:po,0:po))
+      select case(filter)
+      case(1)
+        call eop % Get_Bubble_CutoffFilter(pf, A)
+      case(2)
+        call eop % Get_ErfcLogFilter(real(pf,RNP), A, modes='B')
+      case(3)
+        call eop % Get_ExponentialFilter(real(pf,RNP), A, modes='B')
+      end select
+    end if
 
     do c = 1, size(u,5)
-      call SetArray(s(:,:,:,1:n_elem), u(:,:,:,:,c))
-      call Assembly_3D(ins_op%mesh, s, buf_s, avg=.true.)
-      call TPO_AAA(A_cut, s(:,:,:,1:n_elem), u(:,:,:,:,c))
+      ! step 1: remove jumps
+      call SetArray(s(:,:,:,1:mesh%n_elem), u(:,:,:,:,c))
+      call Assembly_3D(mesh, s, buf_s, avg=.true.)
+      ! step 2: filter
+      if (allocated(A)) then
+        call TPO_AAA(A, s(:,:,:,1:n_elem), u(:,:,:,:,c))
+      else
+        call SetArray(u(:,:,:,:,c), s(:,:,:,1:mesh%n_elem))
+      end if
     end do
 
     !$omp master

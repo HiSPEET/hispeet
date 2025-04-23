@@ -4,7 +4,7 @@
 # `bash -l convergence_dt.sh`
 
 # path to program
-PROGRAM="../isp_flow__sdc_test"
+PROG="../ins_timeintegrator_3d_test"
 
 # test case
 CASE="convergence_dt"
@@ -26,13 +26,10 @@ EP3=${EP3:-"2"}
 # polynomial orders for u and p and for integrating the nonlinear terms
 PO_U="16"
 PO_P="15"
-PO_Q="24"
 
 # time integration
 T_END=${T_END:-"0.25"}
 TIME_METHOD=${TIME_METHOD:-"1"}
-N_SUB="2"
-N_SWEEP="1"
 
 # investigated range of time step sizes, dt = dt_0 / 2^(k/2), k = k_min, ... k_max
 DT_MAX=${DT_MAX:-"0.025"}
@@ -55,16 +52,13 @@ date > ${CASE}.log
         -e "s/<ep3>/$EP3/g" \
         -e "s/<po_u>/$PO_U/g" \
         -e "s/<po_p>/$PO_P/g" \
-        -e "s/<po_q>/$PO_Q/g" \
         -e "s/<t_end>/$T_END/g" \
         -e "s/<dt>/$DT/g" \
         -e "s/<time_method>/$TIME_METHOD/g" \
-        -e "s/<n_sub>/$N_SUB/g" \
-        -e "s/<n_sweep>/$N_SWEEP/g" \
-        isp_flow__sdc_test.tmpl > \
-        isp_flow__sdc_test.prm
+        test_convergence.tmpl > \
+        test_convergence_dt.prm
 
-    ${EXEC} ${PROGRAM} 2>&1 | tee -a ${CASE}.log
+    ${EXEC} ${PROG} 2>&1 test_convergence_dt | tee -a ${CASE}.log
 
 done
 

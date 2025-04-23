@@ -108,7 +108,8 @@ program Mesh3d_Import_GMSH
                            , sname   = var_name       &
                            , file    = file           &
                            , part    = mesh % part    &
-                           , n_parts = mesh % n_parts )
+                           , n_parts = mesh % n_parts &
+                           , subdiv  = .false.        )
 
   ! finalization ...............................................................
 

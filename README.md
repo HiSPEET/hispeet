@@ -14,7 +14,7 @@ and, ideally,
 - Paraview for visualization
 - FFTW for some postprocessing tools.
 
-See here how to configure [Ubuntu](./howto/wiki/ubuntu.md) for use with _HiSPEET_. 
+See here how to configure [Ubuntu](./wiki/ubuntu.md) for use with _HiSPEET_. 
 
 ## Download
 
@@ -53,9 +53,4 @@ Note that all files are generated in the build directory, while the source direc
       cmake -D OpenMP=1 ..
       make
 
-For further options see the [build](./howto/wiki/build) wiki.
-
-## Running
-
-TBD
-
+For further options see the [build](./wiki/build) wiki.

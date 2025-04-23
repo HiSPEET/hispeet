@@ -1,0 +1,12 @@
+&input
+  c_front    =   2  ! front parameter (higher --> steeper)
+  n_s        = 200  ! number of sampling intervals
+  po_c       =  16  ! test function polynomial order
+  nodes_c    =  'L' ! test function type of nodes
+  po_p       =   8  ! basis polynomial order
+  nodes_p    =  'L' ! basis type of nodes
+  projection =  'I' ! projection method {'I','P'}
+  filter     =   1  ! 0/1/2: none/erfc-log/exponential
+  modes      =  'L' ! modal basis used for filtering {'L','B'}
+  pf         =   4  ! filter order
+/

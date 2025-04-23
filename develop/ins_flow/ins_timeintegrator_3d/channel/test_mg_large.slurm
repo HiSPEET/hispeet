@@ -24,9 +24,9 @@ fi
 PROG=${PROG:-"../ins_timeintegrator_3d_test"}
 CASE=${CASE:-"test_mg_large"}
 
-N_RESTART=${N_RESTART:-0}
-RESTART_TAG_IN=${RESTART_TAG_IN:-""}
-RESTART_TAG_OUT=${RESTART_TAG_OUT:-""}
+N_RESTART=${N_RESTART:-1}
+RESTART_TAG_IN=${RESTART_TAG_IN:-init}
+RESTART_TAG_OUT=${RESTART_TAG_OUT:-save}
 
 echo "PROG            =" $PROG
 echo "CASE            =" $CASE
@@ -59,7 +59,7 @@ for ((k = 1; k <= ${N_RESTART}; k++)); do
     for outfile in *${RESTART_TAG_OUT}*.h5; do
         infile=${outfile/$RESTART_TAG_OUT/$RESTART_TAG_IN}
         cp $outfile $infile
-	mv $outfile save/
+	    mv $outfile save/
     done
     # creating prm-file
     sed -e "s/<restart_tag_in>/$RESTART_TAG_IN/g" \

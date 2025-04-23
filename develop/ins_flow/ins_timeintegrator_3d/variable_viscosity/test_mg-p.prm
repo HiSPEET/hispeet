@@ -3,18 +3,18 @@
 
 &control_prm
 
-  ! log levels,  set to ≥ 1 for higher verbosity
-  log_level                 = 0
-  log_level_inner_iteration = 1
-  log_level_outer_iteration = 1
-  log_level_multigrid_cycle = 1
+! log levels,  set to ≥ 1 for higher verbosity
+! log_level                 = 0
+! log_level_inner_iteration = 1
+! log_level_outer_iteration = 1
+! log_level_multigrid_cycle = 1
 
   problem_file = 'variable_viscosity'
   flow_problem = 'VariableViscosity'
   flow_domain  = 1
 
-  ! export_vtk   = T  ! set T for generating plot files
-  ! char_freq    = 0  ! set frequency of control output
+! export_vtk   = T  ! set T for generating plot files
+! char_freq    = 0  ! set frequency of control output
 /
 
 !-------------------------------------------------------------------------------
@@ -23,35 +23,26 @@
 &spatial_prm
 
   po_u = 16
-  po_p = 1 2 3 7 15 15
+  po_p = 1 2 3 7 15  ! degrees to use for multilevel pressure solver (1:l_top)
 
-  ins_op_opt%pressure_method  = 4
-  ins_op_opt%diffusion_method = 3
-  ins_op_opt%penalty          = 20
-  ins_op_opt%dealiasing       = T
-
-  ! bulk viscosity
-  !   - use μ = 0 for Stokes hypothesis
-  !   - use μ = ν for grad-div stabilization in diffusion dominant case
-  !   - use μ ~ √(ν² + v²h²) for stabilization in convection dominant case
-  ins_op_opt%mu_0 = 0.0
+  ins_op_opt%pressure_solver = 'MG' ! select multilevel pressure solver
+  ins_op_opt%dealiasing      = T
 
   ! multilevel pressure solver
-  ml_solver_p_opt%i_crs = 1000
-  ml_solver_p_opt%i_max = 3
+  ml_solver_p_opt%i_crs = 1000   ! num coarse grid iterations
+  ml_solver_p_opt%i_max = 3      ! num V-cycles
   ml_solver_p_opt%r_red = 1e-08
   ml_solver_p_opt%r_max = 1e-12
 /
 
 &ml_mesh_options_3d__static
-  l_top          =  5  ! initial top level
-  l_max          =  6  ! maximum top level
+  l_top          =  5  ! initial top level, l_top = l_max
   n_parts_root   =  8  ! number of partitions at root level   [1]
   n_parts_growth =  8  ! partition number growth rate         [1]
 /
 
 &ml_mesh_options_3d__dynamic
-  refinement = 4*'c', 1*'s' ! (1:l_max-1)  refinement type {'c','s'}
+  refinement = 4*'c' ! (1:l_top-1)  refinement type {'c','s'}
 /
 
 !-------------------------------------------------------------------------------

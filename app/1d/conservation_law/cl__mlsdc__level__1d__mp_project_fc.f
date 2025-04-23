@@ -217,7 +217,8 @@ contains
         do m = 0, mt_c
         do c = 1, nc
         do e = 1, ns_c
-          if (activity(e) > 0) then
+          if (activity(2*e) > 0) then
+            ! note: expect both fine elements to be active
 
             ! extract solution from involved fine elements
             u_x(:,1) = u_i(:,2*e - 1,c,m,n)
