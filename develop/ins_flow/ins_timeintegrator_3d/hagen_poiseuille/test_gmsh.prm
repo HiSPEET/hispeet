@@ -23,7 +23,7 @@
   po_u = 7
   po_p = 7
 
-  ins_op_opt%mu_0 = 10 ! GMSH mesh requires divergence stabilization
+  ins_op_opt%mu_0 = 1
 /
 
 !-------------------------------------------------------------------------------

@@ -22,9 +22,7 @@
   po_u = 7
   po_p = 7
 
-! one of these might be required with po_p = po_u - 1
 ! ins_op_opt%mu_0      = 1
-! ins_op_opt%penalty_u = 20
 /
 
 !-------------------------------------------------------------------------------

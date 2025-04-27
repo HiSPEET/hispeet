@@ -23,7 +23,6 @@
   po_u = 10
   po_p = 10
   ins_op_opt%mu_0       = 1e-1  !  μ ~ √(ν² + v²h²)
-! ins_op_opt%penalty_u  = 20
   ins_op_opt%dealiasing = T
 /
 

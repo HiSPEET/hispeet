@@ -23,7 +23,6 @@
   po_u = 3
   po_p = 2
 
-! ins_op_opt%penalty_u  = 20
   ins_op_opt%dealiasing = F
   ins_op_opt%mu_0       = 1000
 /
