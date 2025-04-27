@@ -37,7 +37,7 @@ contains
     integer   :: e, f, i, j, m
 
     ! scaling factor
-    c_vn = 1 / max(eps, this % delta_outflow * problem % v_ref)
+    c_vn = 1 / max(eps, this % delta_out * problem % v_ref)
 
     associate( boundary => this % sem_u % mesh % boundary(b) &
              , n        => this % sem_u % metrics % n        &
@@ -58,13 +58,13 @@ contains
             v2 = v((m-1)*po,i,j,e,2)
             v3 = v((m-1)*po,i,j,e,3)
           case(3:4)
-            v1 = v(i,(m-1)*po,j,e,1)
-            v2 = v(i,(m-1)*po,j,e,2)
-            v3 = v(i,(m-1)*po,j,e,3)
+            v1 = v(i,(m-3)*po,j,e,1)
+            v2 = v(i,(m-3)*po,j,e,2)
+            v3 = v(i,(m-3)*po,j,e,3)
           case(5:6)
-            v1 = v(i,j,(m-1)*po,e,1)
-            v2 = v(i,j,(m-1)*po,e,2)
-            v3 = v(i,j,(m-1)*po,e,3)
+            v1 = v(i,j,(m-5)*po,e,1)
+            v2 = v(i,j,(m-5)*po,e,2)
+            v3 = v(i,j,(m-5)*po,e,3)
           end select
 
           ! normal and squared velocity

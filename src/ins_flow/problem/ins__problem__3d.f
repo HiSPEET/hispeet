@@ -44,13 +44,13 @@ module INS__Problem__3D
 
     ! boundary conditions
     character, allocatable :: bc_v(:)   !< velocity BC type per boundary
+    character, allocatable :: bc_p(:)   !< pressure BC type per boundary
 
   contains
 
     procedure :: HasVariableProperties
     procedure :: HasExactSolution
     procedure :: GetVariableNames
-    procedure :: GetPressureBC
     procedure :: GetExternalSources
     procedure :: GetViscosity
 
@@ -59,6 +59,8 @@ module INS__Problem__3D
     procedure :: GetExactConvectiveTerm
     procedure :: GetExactPressureTerm
     procedure :: GetExactDiffusiveTerm
+
+    procedure :: SetPressureBC
 
     procedure(SetProblem),         deferred :: SetProblem
     procedure(GetInitialValues),   deferred :: GetInitialValues
@@ -166,26 +168,28 @@ contains
   !-----------------------------------------------------------------------------
   !> Automatic generation of pressure boundary conditions
 
-  subroutine GetPressureBC(problem, bc_p)
-    class(INS_Problem_3D), intent(in) :: problem
-    character, intent(out) :: bc_p(:) !< pressure BC type per boundary
+  subroutine SetPressureBC(problem)
+    class(INS_Problem_3D), intent(inout) :: problem
 
     integer :: b
+
+    if (allocated(problem%bc_p)) deallocate(problem%bc_p)
+    allocate(problem%bc_p( size(problem%bc_v) ))
 
     do b = 1, size(problem % bc_v)
       select case(problem % bc_v(b))
       case('D') ! Dirichlet conditions for velocity
-        bc_p(b) = 'N'
+        problem % bc_p(b) = 'N'
       case('O') ! Outflow conditions
-        bc_p(b) = 'D'
+        problem % bc_p(b) = 'D'
       case('P') ! periodic conditions
-        bc_p(b) = 'P'
+        problem % bc_p(b) = 'P'
       case default
-        call Error('GetPressureBC', 'invalid velocity BC', 'INS__Problem__3D')
+        call Error('SetPressureBC', 'invalid velocity BC', 'INS__Problem__3D')
       end select
     end do
 
-  end subroutine GetPressureBC
+  end subroutine SetPressureBC
 
   !-----------------------------------------------------------------------------
   !> Dummy procedure for external sources

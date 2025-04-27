@@ -6,7 +6,7 @@
 !> FGMRES: Van der Vorst, Fig. 6.4
 !===============================================================================
 
-submodule (INS__Time_Integrator__3D) MP_FGMRES_Step
+submodule (INS__Operator__3D) MP_StokesFGMRES
   use Array_Assignments
   use Array_Reductions
   use Logging_Levels
@@ -17,11 +17,11 @@ contains
   !-----------------------------------------------------------------------------
   !> FGMRES for Stokes part using projection step as a preconditioner
 
-  module subroutine FGMRES_Step(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+  module subroutine StokesFGMRES(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
 
     ! arguments ................................................................
 
-    class(INS_TimeIntegrator_3D), intent(in) :: this
+    class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes time integrator
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
@@ -79,17 +79,15 @@ contains
     integer :: nb, ne, ni, np, po
     integer :: i, j
 
-    associate( ins_op => this % ins_op                     &
-             , mesh   => this % ins_op % mesh              &
-             , comm   => this % ins_op % mesh % comm_parts )
+    associate(mesh => this % mesh)
 
       ! preliminaries ..........................................................
 
       ! number of Arnoldi iterations
-      ni = this%i_krylov
+      ni = this % k_max
 
       ! dimensions
-      po = ins_op % eop_u % po
+      po = this % eop_u % po
       np = po + 1
       nb = mesh % n_bound
       ne = mesh % n_elem
@@ -117,7 +115,7 @@ contains
       !$omp end master
       !$omp barrier
 
-      call ins_op % sem_u % Get_DG_DiagonalMassMatrix(mm_inv)
+      call this % sem_u % Get_DG_DiagonalMassMatrix(mm_inv)
 
       !$omp do
       do i = 1, ne
@@ -134,13 +132,13 @@ contains
 
         ! initial approximation ................................................
 
-        call this % ProjectionStep(tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+        call StokesProjection(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
 
         ! initial residual, v₁ = f - Au ........................................
 
-        call ins_op % GetStokesResidual(tau, g, bv_u, mu, nu, u, v1)
+        call this % GetStokesResidual(tau, g, bv_u, mu, nu, u, v1)
 
-        beta = sqrt(ScalarProduct(v1, v1, comm))
+        beta = sqrt(ScalarProduct(v1, v1, mesh%comm_parts))
         b(1) = beta
 
         ! convergence check ....................................................
@@ -152,7 +150,7 @@ contains
           if (this % r_max > 0) r_term = this % r_max
           if (this % r_red > 0) r_term = max(r_term, beta * this%r_red)
           converged = beta <= r_term
-          call XMPI_Bcast(converged, 0, comm)
+          call XMPI_Bcast(converged, 0, mesh%comm_parts)
         else
           converged = .false.
         end if
@@ -190,23 +188,23 @@ contains
           end do
 
           ! projection with homogeneous BC and frozen viscosity: z(j) = K⁻¹v(j)
-          call this % ProjectionStep( tau, t, O, O, O, g, bv_z, mu, nu, zj &
-                                    , precon = .true.                      )
+          call StokesProjection( this, tau, t, O, O, O, g, bv_z, mu, nu, zj &
+                               , precon = .true.                            )
 
           ! application of homogeneous operator: w = A v(j)
-          call ins_op % GetStokesResidual(tau, O, bv_z, mu, nu, zj, w)
+          call this % GetStokesResidual(tau, O, bv_z, mu, nu, zj, w)
           call ScaleArray(w, -ONE, multi=.true.)
 
           ! computation of new Krylov vector ...................................
 
           ! orthogonalization against old Krylov vectors
           do i = 1, j
-            h(i,j) = ScalarProduct(v(:,:,:,:,:,i), w, comm)
+            h(i,j) = ScalarProduct(v(:,:,:,:,:,i), w, mesh%comm_parts)
             call MergeArrays(ONE, w, -h(i,j), v(:,:,:,:,:,i), multi=.true.)
           end do
 
           ! normalization, v(j+1) = w / ‖w‖
-          h(j+1,j) = sqrt(ScalarProduct(w, w, comm))
+          h(j+1,j) = sqrt(ScalarProduct(w, w, mesh%comm_parts))
           call ScaleArray(w, ONE/max(h(j+1,j),eps), multi=.true.)
 
           ! Givens rotation transforming h to upper triagonal matrix r .........
@@ -241,7 +239,7 @@ contains
           if (check_convergence) then
             !$omp master
             converged = beta <= r_term
-            call XMPI_Bcast(converged, 0, comm)
+            call XMPI_Bcast(converged, 0, mesh%comm_parts)
             !$omp end master
             !$omp barrier
           end if
@@ -277,8 +275,8 @@ contains
 
     end associate
 
-  end subroutine FGMRES_Step
+  end subroutine StokesFGMRES
 
   !=============================================================================
 
-end submodule MP_FGMRES_Step
+end submodule MP_StokesFGMRES

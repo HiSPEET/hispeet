@@ -228,6 +228,7 @@ program INS_Operator_3D_Test
           write(*,'(A,I0)') '  *** enforcing periodic BC on coupled boundary ',i
         end if
         problem % bc_v(i) = 'P'
+        problem % bc_p(i) = 'P'
       end if
     end if
   end do
@@ -290,7 +291,8 @@ program INS_Operator_3D_Test
     write(*,'(/,A)') 'initialization of operators'
     write(*,'(T3,A,T30,9(G0,X))') 'problem:', trim(flow_problem)
     write(*,'(T3,A,T30,9(G0,X))') 'domain:',  trim(domain_name)
-    write(*,'(T3,A,T30,9(G0,X))') 'boundary conditions:'  , problem % bc_v
+    write(*,'(T3,A,T30,9(G0,X))') 'boundary conditions for v:', problem % bc_v
+    write(*,'(T3,A,T30,9(G0,X))') 'boundary conditions for p:', problem % bc_p
     write(*,'(T3,A,T30,9(G0,X))') 'variable properties:'  , &
                                                problem % HasVariableProperties()
     write(*,'(T3,A,T30,9(G0,X))') 'number of processes:'  , n_proc
@@ -394,10 +396,11 @@ program INS_Operator_3D_Test
         end do
         ! r = M ∇·(ν ∇vᵢ)
         if (problem % HasVariableProperties()) then
-          call elliptic_op % Residual(ins_op%bc_v, ZERO, nu, f, bv_vi, v_i, r)
+          call elliptic_op % Residual( ins_op % problem % bc_v, ZERO &
+                                     , nu, f, bv_vi, v_i, r          )
         else
-          call elliptic_op % Residual(ins_op%bc_v, ZERO, problem%nu_ref, f, &
-                                      bv_vi, v_i, r)
+          call elliptic_op % Residual( ins_op % problem % bc_v, ZERO      &
+                                     , problem % nu_ref, f, bv_vi, v_i, r )
         end if
         ! compute nodal values
         F_ph(:,:,:,:,i) = r / mm

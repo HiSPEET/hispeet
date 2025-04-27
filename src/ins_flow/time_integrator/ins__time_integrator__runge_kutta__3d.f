@@ -396,31 +396,16 @@ contains
 
           ! projection-diffusion step ..........................................
 
-          if (this % i_krylov > 0) then
-
-            call this % FGMRES_Step( tau     = dt * a_im(i,i) &
-                                   , t       = t_i            &
-                                   , v_0     = v_0            &
-                                   , F_c     = F_c_i          &
-                                   , F_d     = F_d_i          &
-                                   , Q       = Q_i            &
-                                   , bv_u    = bv_u           &
-                                   , mu      = mu             &
-                                   , nu      = nu             &
-                                   , u       = u_i            )
-
-          else
-            call this % ProjectionStep( tau     = dt * a_im(i,i) &
-                                      , t       = t_i            &
-                                      , v_0     = v_0            &
-                                      , F_c     = F_c_i          &
-                                      , F_d     = F_d_i          &
-                                      , Q       = Q_i            &
-                                      , bv_u    = bv_u           &
-                                      , mu      = mu             &
-                                      , nu      = nu             &
-                                      , u       = u_i            )
-          end if
+          call ins_op % StokesSolver( tau  = dt * a_im(i,i) &
+                                    , t    = t_i            &
+                                    , v_0  = v_0            &
+                                    , F_c  = F_c_i          &
+                                    , F_d  = F_d_i          &
+                                    , Q    = Q_i            &
+                                    , bv_u = bv_u           &
+                                    , mu   = mu             &
+                                    , nu   = nu             &
+                                    , u    = u_i            )
 
         end associate
 
@@ -514,10 +499,7 @@ contains
 
           ! pressure potential
           call SetArray(p, ZERO)
-          call ins_op % PressureSolver( ONE, bv_u, v, div_v, p &
-                                      , this % i_max_p         &
-                                      , this % r_red           &
-                                      , this % r_max           )
+          call ins_op % PressureSolver(ONE, bv_u, v, div_v, p)
 
           ! pressure correction
           call GetOuterTraces_3D(mesh, p, pp)

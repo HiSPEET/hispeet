@@ -108,6 +108,7 @@ contains
     problem % test_case       =  test_case
 
     call move_alloc(bc_v, problem % bc_v)
+    call problem % SetPressureBC()
 
   end subroutine SetProblem
 

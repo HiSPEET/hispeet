@@ -62,9 +62,9 @@ contains
     ! initialization ...........................................................
 
     if (present(xout)) then
-      outflow_bc = this % bc_v(b) == 'O' .and. .not. xout
+      outflow_bc = this % problem % bc_v(b) == 'O' .and. .not. xout
     else
-      outflow_bc = this % bc_v(b) == 'O'
+      outflow_bc = this % problem % bc_v(b) == 'O'
     end if
     outflow_bv = outflow_bc .and. present(bv_u)
 

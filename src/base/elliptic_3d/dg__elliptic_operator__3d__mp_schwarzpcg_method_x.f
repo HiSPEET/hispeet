@@ -151,12 +151,12 @@ contains
         lambda_sp = real(lambda, RSP)
         !$omp workshare
         nu_sp = real(nu_avg, RSP)
-        !$omp workshare nowait
+        !$omp end workshare nowait
       case default
         lambda_dp = real(lambda, RDP)
         !$omp workshare
         nu_dp = real(nu_avg, RDP)
-        !$omp workshare nowait
+        !$omp end workshare nowait
       end select
       ! omp barrier not needed because Residual is blocking
 
@@ -191,13 +191,12 @@ contains
                 '#Elliptic:SchwarzPCG','>>>  i  =',0,',  |r| =', sqrt(rr)
         end if
         !$omp end master
-        !$omp barrier
       else
         !$omp master
         converged = .false.
         !$omp end master
-        !$omp barrier
       end if
+      !$omp barrier
 
       if (converged) then
         i_max_ = 0

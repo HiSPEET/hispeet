@@ -142,6 +142,7 @@ contains
     problem % x1              = [l, w, h]
 
     call move_alloc(bc_v, problem % bc_v)
+    call problem % SetPressureBC()
 
   end subroutine SetProblem
 

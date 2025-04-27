@@ -350,27 +350,28 @@ contains
 
     np = size(u,1)
 
-    !$omp do collapse(2)
     do b = 1, mesh % n_bound
-    do f = 1, mesh % boundary(b) % n_face
+      !$omp do
+      do f = 1, mesh % boundary(b) % n_face
 
-      e = mesh % boundary(b) % face(f) % element_id
-      m = mesh % boundary(b) % face(f) % element_face
+        e = mesh % boundary(b) % face(f) % element_id
+        m = mesh % boundary(b) % face(f) % element_face
 
-      select case(m)
-      case(1:2)
-        l = 1 + (m-1) * (np-1)
-        um(:,:,m,e) = u(l,:,:,e)
-      case(3:4)
-        l = 1 + (m-3) * (np-1)
-        um(:,:,m,e) = u(:,l,:,e)
-      case(5:6)
-        l = 1 + (m-5) * (np-1)
-        um(:,:,m,e) = u(:,:,l,e)
-      end select
-
+        select case(m)
+        case(1:2)
+          l = 1 + (m-1) * (np-1)
+          um(:,:,m,e) = u(l,:,:,e)
+        case(3:4)
+          l = 1 + (m-3) * (np-1)
+          um(:,:,m,e) = u(:,l,:,e)
+        case(5:6)
+          l = 1 + (m-5) * (np-1)
+          um(:,:,m,e) = u(:,:,l,e)
+        end select
+      end do
+      !$omp end do nowait
     end do
-    end do
+    !$omp barrier
 
   end subroutine GetBoundaryTraces_S
 
@@ -387,33 +388,35 @@ contains
     np = size(u,1)
     nc = size(u,5)
 
-    !$omp do collapse(2)
     do b = 1, mesh % n_bound
-    do f = 1, mesh % boundary(b) % n_face
+      !$omp do
+      do f = 1, mesh % boundary(b) % n_face
 
-      e = mesh % boundary(b) % face(f) % element_id
-      m = mesh % boundary(b) % face(f) % element_face
+        e = mesh % boundary(b) % face(f) % element_id
+        m = mesh % boundary(b) % face(f) % element_face
 
-      select case(m)
-      case(1:2)
-        l = 1 + (m-1) * (np-1)
-        do c = 1, nc
-          um(:,:,m,e,c) = u(l,:,:,e,c)
-        end do
-      case(3:4)
-        l = 1 + (m-3) * (np-1)
-        do c = 1, nc
-          um(:,:,m,e,c) = u(:,l,:,e,c)
-        end do
-      case(5:6)
-        l = 1 + (m-5) * (np-1)
-        do c = 1, nc
-          um(:,:,m,e,c) = u(:,:,l,e,c)
-        end do
-      end select
+        select case(m)
+        case(1:2)
+          l = 1 + (m-1) * (np-1)
+          do c = 1, nc
+            um(:,:,m,e,c) = u(l,:,:,e,c)
+          end do
+        case(3:4)
+          l = 1 + (m-3) * (np-1)
+          do c = 1, nc
+            um(:,:,m,e,c) = u(:,l,:,e,c)
+          end do
+        case(5:6)
+          l = 1 + (m-5) * (np-1)
+          do c = 1, nc
+            um(:,:,m,e,c) = u(:,:,l,e,c)
+          end do
+        end select
 
+      end do
+      !$omp end do nowait
     end do
-    end do
+    !$omp barrier
 
   end subroutine GetBoundaryTraces_A
 

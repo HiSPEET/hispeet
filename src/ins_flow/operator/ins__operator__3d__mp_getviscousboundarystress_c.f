@@ -54,29 +54,29 @@ contains
     ! initialization ...........................................................
 
     if (present(xout)) then
-      outflow_bc = this % bc_v(b) == 'O' .and. .not. xout
+      outflow_bc = this % problem % bc_v(b) == 'O' .and. .not. xout
     else
-      outflow_bc = this % bc_v(b) == 'O'
+      outflow_bc = this % problem % bc_v(b) == 'O'
     end if
     outflow_bv = outflow_bc .and. present(bv_u)
 
     if (present(form)) then
       select case(form)
       case(1)
-        nu  = this % nu_0
+        nu  = this % problem % nu_ref
         chi = -nu
       case(2)
-        nu  = this % nu_0
+        nu  = this % problem % nu_ref
         chi = -2 * nu
       case(3)
         nu  = 0
-        chi = this % nu_0
+        chi = this % problem % nu_ref
       case default
-        nu  = this % nu_0
+        nu  = this % problem % nu_ref
         chi = this % mu_0 - 2 * THIRD * nu
       end select
     else
-      nu  = this % nu_0
+      nu  = this % problem % nu_ref
       chi = this % mu_0 - 2 * THIRD * nu
     end if
 

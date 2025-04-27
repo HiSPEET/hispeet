@@ -20,8 +20,7 @@ contains
   !-----------------------------------------------------------------------------
   !>  IPCG Diffusion solver with Schwarz preconditioner
 
-  module subroutine DiffusionSolver &
-      (this, tau, mu, nu, f, bv_u, v, i_max, r_red, r_max, ni)
+  module subroutine DiffusionSolver(this, tau, mu, nu, f, bv_u, v, precon, ni)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -46,10 +45,8 @@ contains
     real(RNP), contiguous, intent(inout) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)
 
-    integer,               intent(in)    :: i_max  !< max num iterations
-    real(RNP),   optional, intent(in)    :: r_red  !< min residual reduction
-    real(RNP),   optional, intent(in)    :: r_max  !< max admissible residual
-    integer,     optional, intent(out)   :: ni     !< executed num iterations
+    logical, optional, intent(in)  :: precon !< switch preconditioner mode
+    integer, optional, intent(out) :: ni     !< executed num iterations
 
     ! internal variables .......................................................
 
@@ -60,21 +57,29 @@ contains
 
     real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
     real(RNP) :: alpha, beta, delta, pq, rr
+    real(RNP) :: r_max, r_red
+    integer   :: i, i_max
     logical   :: check_convergence
-    integer   :: i, i_max_
-
-    if (i_max < 1) return
-
-    ! skip empty partition
-    if (this % mesh % part < 0) return
 
     associate(mesh => this % mesh)
 
       ! initialization .........................................................
 
-      check_convergence = log_level_inner_iteration > 0
-      if (present(r_red)) check_convergence = r_red > 0
-      if (present(r_max)) check_convergence = r_max > 0 .or. check_convergence
+      i_max = this % i_max_v
+      r_red = this % r_red
+      r_max = this % r_max
+      if (present(precon)) then
+        if (precon) i_max = this % k_pre_v
+      end if
+
+      if (i_max < 1 .or. mesh % part < 0) then
+        if (present(ni)) ni = 0
+        return
+      end if
+
+      check_convergence = r_red > 0 .or. &
+                          r_max > 0 .or. &
+                          log_level_inner_iteration > 0
 
       !$omp master
       allocate(r, mold = f)
@@ -93,14 +98,7 @@ contains
       if (check_convergence) then
         rr = ScalarProduct(r, r, mesh%comm_parts)
         !$omp master
-        if (present(r_red)) then
-          rr_term  = max(ZERO, sqrt(rr) * r_red)**2
-        else
-          rr_term = 0
-        end if
-        if (present(r_max)) then
-          rr_term = max(rr_term, max(ZERO, r_max)**2)
-        end if
+        rr_term  = max(ZERO, sqrt(rr) * r_red, r_max)**2
         converged = rr <= rr_term
         call XMPI_Bcast(converged, root=0, comm=mesh%comm_parts)
         if (log_level_inner_iteration > 1 .and. mesh%part == 0) then
@@ -117,10 +115,10 @@ contains
       end if
 
       if (converged) then
-        i_max_ = 0
-        i      = 0
+        i_max = 0
+        i     = 0
       else
-        i_max_ = i_max
+        i_max = i_max
       end if
 
       ! element-averaged viscosity .............................................
@@ -128,18 +126,18 @@ contains
       if (present(nu)) then
         call TPO_Average(this%eop_u%w, nu, nu_avg)
       else
-        call SetArray(nu_avg, this % nu_0)
+        call SetArray(nu_avg, this % problem % nu_ref)
       end if
 
       ! iteration ..............................................................
 
-      do i = 1, i_max_
+      do i = 1, i_max
 
         select case(this % diffusion_solver)
         case('DPCG')
-          call Diagonal_Preconditioner(this, tau, r, z, standby = i < i_max_)
+          call Diagonal_Preconditioner(this, tau, r, z, standby = i < i_max)
         case('SPCG')
-          call Schwarz_Preconditioner(this, tau, nu_avg, r, z, standby = i < i_max_)
+          call Schwarz_Preconditioner(this, tau, nu_avg, r, z, standby = i < i_max)
         case default
           call Error( 'DiffusionSolver'              &
                     , 'Preconditioner "'             &
@@ -185,7 +183,7 @@ contains
           !$omp barrier
         end if
 
-        if (converged .or. i == i_max_) exit
+        if (converged .or. i == i_max) exit
 
         !$omp master
         if (log_level_inner_iteration > 1 .and. mesh%part == 0) then
@@ -399,7 +397,7 @@ contains
           buf_zs = ElementTransferBuffer_3D(mesh, zs_dp, nl)
         end if
 
-        allocate(bc_schwarz, source = ins_op % bc_v)
+        allocate(bc_schwarz, source = ins_op % problem % bc_v)
         where(bc_schwarz == 'O')
           bc_schwarz = 'N'
         end where
@@ -423,12 +421,12 @@ contains
         lambda_sp = real(1/tau, RSP)
         !$omp workshare
         nu_sp = real(nu_avg, RSP)
-        !$omp workshare nowait
+        !$omp end workshare nowait
       case default
         lambda_dp = real(1 / tau, RDP)
         !$omp workshare
         nu_dp = real(nu_avg, RDP)
-        !$omp workshare nowait
+        !$omp end workshare nowait
       end select
 
       call SetArray(z, ZERO, multi = .true.)

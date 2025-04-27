@@ -111,7 +111,7 @@ contains
 
       ! mesh spacing ...........................................................
 
-      !$omp do private(dx) reduce(min:this%dx_min, max:this%dx_max)
+      !$omp do private(dx) reduction(min:dx_min_loc) reduction(max:dx_max_loc) 
       do e = 1, ne
         call mesh % element(e) % GetCuboidDimensions(dx)
         dx_min_loc = min(dx_min_loc, dx(1), dx(2), dx(3))

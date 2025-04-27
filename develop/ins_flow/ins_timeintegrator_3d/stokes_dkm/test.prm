@@ -19,8 +19,19 @@
 ! Spatial
 
 &spatial_prm
-  ins_op_opt%dealiasing       = F
-  ins_op_opt%mu_0             = 1
+  ins_op_opt%dealiasing = F
+  ins_op_opt%mu_0       = 1
+
+! use these for coupled pressure-diffusion Krylov solver
+! ins_op_opt%i_max_p  = 1000
+! ins_op_opt%i_max_v  = 1000
+! ins_op_opt%k_max    = 4
+! ins_op_opt%k_pre_p  = 200
+! ins_op_opt%k_pre_v  = 200
+
+! use these for segregated pressure-diffusion solver
+  ins_op_opt%i_max_p  = 10000
+  ins_op_opt%i_max_v  = 10000
 
 ! equal order  !  k=1   k=2   k=3   k=4
 ! po_u = 3     !   1     2     3     4
@@ -37,42 +48,10 @@
 &temporal_prm
 
   t_end  = 0.1
-  dt     = 1e-3
+  dt     = 1e-4
   nt_max = 10000
 
-  time_method = 1  ! 1/2 Euler/BDF2
-
-! Euler ........................................................................
-
-  ins_ti_euler_opt%r_red    = 1e-8
-  ins_ti_euler_opt%r_max    = 1e-10
-
-! use these for coupled pressure-diffusion Krylov solver
-! ins_ti_euler_opt%i_krylov = 4
-! ins_ti_euler_opt%i_pre_p  = 200
-! ins_ti_euler_opt%i_pre_v  = 200
-! ins_ti_euler_opt%i_max_p  = 1000
-! ins_ti_euler_opt%i_max_v  = 1000
-
-! use these for segregated pressure-diffusion solver
-  ins_ti_euler_opt%i_max_p  = 10000
-  ins_ti_euler_opt%i_max_v  = 10000
-
-! BDF2 .........................................................................
-
-  ins_ti_bdf2_opt%r_red    = 1e-8
-  ins_ti_bdf2_opt%r_max    = 1e-10
-
-! use these for coupled pressure-diffusion Krylov solver
-! ins_ti_bdf2_opt%i_krylov = 3
-! ins_ti_bdf2_opt%i_pre_p  = 1000
-! ins_ti_bdf2_opt%i_pre_v  = 1000
-! ins_ti_bdf2_opt%i_max_p  = 10000
-! ins_ti_bdf2_opt%i_max_v  = 10000
-
-! use these for segregated pressure-diffusion solver
-  ins_ti_bdf2_opt%i_max_p  = 10000
-  ins_ti_bdf2_opt%i_max_v  = 10000
+  time_method = 2  ! 1/2 Euler/BDF2
 /
 
 !-------------------------------------------------------------------------------

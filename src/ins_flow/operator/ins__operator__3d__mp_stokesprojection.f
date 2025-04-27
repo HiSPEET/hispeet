@@ -2,12 +2,9 @@
 !> author:   Joerg Stiller
 !> date:     2022/09/24
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!> @todo
-!>   - add standby mode
 !===============================================================================
 
-submodule (INS__Time_Integrator__3D) MP_ProjectionStep
+submodule (INS__Operator__3D) MP_StokesProjection
   use Array_Assignments
   use TPO__AAA__3D
   use TPO__Div__3D
@@ -19,14 +16,14 @@ submodule (INS__Time_Integrator__3D) MP_ProjectionStep
 contains
 
   !-----------------------------------------------------------------------------
-  !> extrapolation-projection-diffusion step for incompressible flow
+  !> Projection-diffusion step for incompressible flow
 
-  module subroutine ProjectionStep( this, tau, t, v_0, F_c, F_d, Q &
-                                  , bv_u, mu, nu, u, precon        )
+  module subroutine StokesProjection( this, tau, t, v_0, F_c, F_d, Q &
+                                    , bv_u, mu, nu, u, precon        )
 
     ! arguments ................................................................
 
-    class(INS_TimeIntegrator_3D), intent(in) :: this
+    class(INS_Operator_3D), intent(in) :: this
 
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
@@ -64,34 +61,24 @@ contains
 
     type(BoundaryVariable_3D), allocatable, save :: bv_w(:), bv_p(:), bv_dp(:)
 
-    real(RNP) :: r_red, r_max
-    integer   :: i_max_p, i_max_v
     integer   :: b, d, e, np
     logical   :: update_viscosity
 
-    associate( problem => this % problem                  &
-             , ins_op  => this % ins_op                   &
-             , sem_u   => this % ins_op % sem_u           &
-             , mesh    => this % ins_op % mesh            &
-             , n_elem  => this % ins_op % mesh % n_elem   &
-             , n_ghost => this % ins_op % mesh % n_ghost  &
-             , v       => u(:,:,:,:,1:3)                  &
-             , p       => u(:,:,:,:,4)                    )
+    associate( problem => this % problem          &
+             , sem_u   => this %  sem_u           &
+             , mesh    => this %  mesh            &
+             , n_elem  => this %  mesh % n_elem   &
+             , n_ghost => this %  mesh % n_ghost  &
+             , v       => u(:,:,:,:,1:3)          &
+             , p       => u(:,:,:,:,4)            )
 
       ! initialization .........................................................
 
       if (present(precon)) then
-        i_max_p = this % i_pre_p
-        i_max_v = this % i_pre_v
-        r_red   = this % r_pre_red
         update_viscosity = .false.
       else
-        i_max_p = this % i_max_p
-        i_max_v = this % i_max_v
-        r_red   = this % r_red
         update_viscosity = present(nu) .and. problem % HasVariableProperties()
       end if
-      r_max = this % r_max
 
       np = size(v,1)
 
@@ -143,14 +130,6 @@ contains
       end do
       end do
 
-      ! optional filter
-      if (allocated(this % A_fex)) then
-        do d = 1, 3
-          call SetArray(w(:,:,:,:,d), v(:,:,:,:,d))
-          call TPO_AAA(this%A_fex, w(:,:,:,:,d), v(:,:,:,:,d))
-        end do
-      end if
-
       ! pressure computation ...................................................
 
       associate(div_v => w(:,:,:,:,4))
@@ -161,14 +140,14 @@ contains
         call ConvertInnerToOuterTraces_3D(mesh, vm, vp)
 
         ! divergence of intermediate velocity
-        call TPO_Div(ins_op % eop_u, ins_op % sem_u, v, vp, div_v)
+        call TPO_Div(this % eop_u, this % sem_u, v, vp, div_v)
 
         if (size(Q, 5) >= 4) then ! has additional RHS for mass conservation
           call MergeArrays(ONE, div_v, -ONE, Q(:,:,:,:,4))
         end if
 
         ! solve pressure equation
-        call ins_op % PressureSolver(tau, bv_w, v, div_v, p, precon)
+        call this % PressureSolver(tau, bv_w, v, div_v, p, precon)
 
       end associate
 
@@ -180,7 +159,7 @@ contains
         call GetOuterTraces_3D(mesh, p, pp)
 
         ! pressure gradient
-        call TPO_Grad(ins_op % eop_u, ins_op % sem_u, p, pp, grad_p)
+        call TPO_Grad(this % eop_u, this % sem_u, p, pp, grad_p)
 
         ! correction: v = v - τ∇p
         call MergeArrays(ONE, v, -tau, grad_p, multi=.true.)
@@ -191,7 +170,7 @@ contains
 
       ! update boundary conditions
       do b = 1, mesh % n_bound
-        select case(ins_op % problem % bc_v(b))
+        select case(problem % bc_v(b))
         case('O')
           ! pᵇ = p - ∆pᵇ
           call bv_p(b) % Extract(p)
@@ -213,7 +192,7 @@ contains
           call problem % GetViscosity(sem_u % metrics % x, t, u, nu)
         end if
 
-        call ins_op % DiffusionSolver(tau, mu, nu, f, bv_w, v, precon)
+        call this % DiffusionSolver(tau, mu, nu, f, bv_w, v, precon)
 
       end associate
 
@@ -228,8 +207,8 @@ contains
 
     end associate
 
-  end subroutine ProjectionStep
+  end subroutine StokesProjection
 
   !=============================================================================
 
-end submodule MP_ProjectionStep
+end submodule MP_StokesProjection

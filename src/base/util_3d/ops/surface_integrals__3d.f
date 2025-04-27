@@ -165,8 +165,10 @@ contains
       end do
       !$omp end do nowait
 
-      !$omp atomic
-      int_ub_loc = int_ub_loc + int_ub_priv
+      do c = 1, bv_u%nc
+        !$omp atomic
+        int_ub_loc(c) = int_ub_loc(c) + int_ub_priv(c)
+      end do
       !$omp barrier
 
     end associate

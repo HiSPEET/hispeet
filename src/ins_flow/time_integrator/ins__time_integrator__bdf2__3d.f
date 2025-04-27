@@ -298,11 +298,7 @@ contains
 
       ! extrapolation-projection-diffusion step ................................
 
-      if (this % i_krylov > 0) then
-        call this % FGMRES_Step(tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
-      else
-        call this % ProjectionStep(tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
-      end if
+      call ins_op % StokesSolver(tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
 
       ! cleanup ................................................................
 

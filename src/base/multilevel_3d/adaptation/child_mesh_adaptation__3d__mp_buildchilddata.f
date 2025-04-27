@@ -199,7 +199,7 @@ contains
       end do
 
       !$omp end master
-      !$omp end barrier
+      !$omp barrier
       !-------------------------------------------------------------------------
 
       !-------------------------------------------------------------------------
@@ -990,7 +990,7 @@ contains
       deallocate( id_child_vert, tp_child_vert )
       deallocate( eop, iop )
       !$omp end master
-      !$omp end barrier
+      !$omp barrier
 
     end associate
 

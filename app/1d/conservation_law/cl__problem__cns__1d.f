@@ -270,7 +270,8 @@ contains
     real(RNP), contiguous,    intent(in)  :: u  (0:,:,:)
     real(RNP), contiguous,    intent(out) :: r_c(0:,:,:)
 
-    real(RNP), allocatable :: MD_t(:,:), f_q(:,:), u_q(:,:), h_c(:,:)
+    real(RNP), allocatable, save :: h_c(:,:)
+    real(RNP), allocatable :: MD_t(:,:), f_q(:,:), u_q(:,:)
     real(RNP), allocatable :: u_l(:,:), u_r(:,:)
     logical :: use_interpolation
     integer :: e, i, j, j0
@@ -286,7 +287,10 @@ contains
       ! initialization .........................................................
 
       !$omp master
-      allocate(MD_t(0:po, 0:qo), f_q(0:qo,3), u_q(0:qo,3), h_c(0:ne,3))
+      allocate(h_c(0:ne,3))
+      !$omp end master
+
+      allocate(MD_t(0:po, 0:qo), f_q(0:qo,3), u_q(0:qo,3))
 
       use_interpolation = qo /= po
 
@@ -381,6 +385,8 @@ contains
 
       ! finalization ...........................................................
 
+      !$omp barrier
+      !$omp master
       deallocate(MD_t, f_q, u_q, h_c)
       !$omp end master
 

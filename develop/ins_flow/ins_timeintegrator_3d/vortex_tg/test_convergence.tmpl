@@ -24,7 +24,11 @@
   po_p = <po_p>
 
   ins_op_opt%dealiasing = T
-  ins_op_opt%mu_0       = 0
+  ins_op_opt%mu_0       = <mu>
+  ins_op_opt%i_max_p    = 1000
+  ins_op_opt%i_max_v    = 1000
+  ins_op_opt%r_red      = 1e-12
+  ins_op_opt%r_max      = 1e-14
 /
 
 !-------------------------------------------------------------------------------
@@ -38,22 +42,9 @@
 
   time_method = <time_method> ! 1 Euler, 2 BDF2, 3 Runge-Kutta
 
-  ins_ti_euler_opt%i_max_p = 1000
-  ins_ti_euler_opt%i_max_v = 1000
-  ins_ti_euler_opt%r_red   = 1e-12
-  ins_ti_euler_opt%r_max   = 1e-14
-
-  ins_ti_bdf2_opt%i_max_p  = 1000
-  ins_ti_bdf2_opt%i_max_v  = 1000
-  ins_ti_bdf2_opt%r_red    = 1e-12
-  ins_ti_bdf2_opt%r_max    = 1e-14
-
-  ins_ti_runge_kutta_opt%n_stage  = 5      ! 4 CB3e, 5 ARS443
-  ins_ti_runge_kutta_opt%method   = 1      ! 2 CB3e, 1 ARS443
-  ins_ti_runge_kutta_opt%i_max_p  = 1000
-  ins_ti_runge_kutta_opt%i_max_v  = 1000
-  ins_ti_runge_kutta_opt%r_red    = 1e-10
-  ins_ti_runge_kutta_opt%r_max    = 1e-12
+                                       ! ARS443    CB3e
+  ins_ti_runge_kutta_opt%n_stage  = 5  !   5        4
+  ins_ti_runge_kutta_opt%method   = 1  !   1        2
 /
 
 !-------------------------------------------------------------------------------

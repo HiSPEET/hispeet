@@ -119,8 +119,6 @@ contains
              , Me       => cl_operator % Me       &
              , activity => cl_operator % activity )
 
-      !$omp master
-
       ! initialization .........................................................
 
       t = t_0 + dt
@@ -205,12 +203,6 @@ contains
       if (cl_problem % limiting_method == 1) then
         call cl_problem % MomentLimiter(cl_operator, u)
       end if
-
-!### CHECK
-!! if (any(ieee_is_nan(u))) then
-!!   print '(99(G0,X))', 'TI Euler: detected NaN'
-!! end if
-!### CHECK END
 
       ! finalization ...........................................................
 

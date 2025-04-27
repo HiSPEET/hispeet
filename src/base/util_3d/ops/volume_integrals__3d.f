@@ -129,8 +129,10 @@ contains
 
       end if
 
-      !$omp atomic
-      int_u_loc = int_u_loc + int_u_priv
+      do c = 1, nc
+        !$omp atomic
+        int_u_loc(c) = int_u_loc(c) + int_u_priv(c)
+      end do
       !$omp barrier
 
       !$omp master

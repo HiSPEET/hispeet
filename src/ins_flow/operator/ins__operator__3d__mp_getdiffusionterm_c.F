@@ -80,7 +80,7 @@ contains
 
     ! initialization ...........................................................
 
-    nu = this % nu_0
+    nu = this % problem % nu_ref
 
     if (present(form)) then
       select case(form)
@@ -104,7 +104,7 @@ contains
     allocate(bv_s(n_bound), tr(0:po,0:po,6,n_elem + n_ghost,6))
     buf_tr = ElementFaceTransferBuffer_3D(this%mesh, tr)
     do b = 1, n_bound
-      if (scan(this % bc_v(b),'O') > 0) then
+      if (scan(this % problem % bc_v(b),'O') > 0) then
         call bv_s(b) % Init(this%mesh%boundary(b), po, nc = 3)
       end if
     end do
@@ -134,7 +134,7 @@ contains
 
       ! compute viscous boundary flux, where required
       do b = 1, mesh % n_bound
-        if (scan(this % bc_v(b),'O') > 0) then
+        if (scan(this % problem % bc_v(b),'O') > 0) then
           associate(sb => bv_s(b) % val)
             call this % GetViscousBoundaryStress_C(b, v, sb, bv_u, xout, form)
           end associate
