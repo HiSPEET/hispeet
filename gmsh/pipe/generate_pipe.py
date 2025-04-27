@@ -227,7 +227,7 @@ def createGeometryAndMesh(casename, l, radius, n_c, n_r, n_z, prog):
     #showModel()
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
-    gmsh.model.mesh.setOrder(3)
+    gmsh.model.mesh.setOrder(7)
     
     print(" ++++++++++ SAVING +++++++++++")
     gmsh.write(casename+".msh")
