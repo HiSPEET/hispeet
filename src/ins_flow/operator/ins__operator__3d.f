@@ -523,6 +523,8 @@ contains
     this % k_max   = opt % k_max
     this % k_pre_p = opt % k_pre_p
     this % k_pre_v = opt % k_pre_v
+    this % r_red   = opt % r_red
+    this % r_max   = opt % r_max
 
   end subroutine Init_INS_Operator_3D
 

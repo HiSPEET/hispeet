@@ -34,8 +34,6 @@ add_library(HiINSFlow
             problem/ins__problem__test_suite__3d.f
 
             time_integrator/ins__time_integrator__3d.f
-            time_integrator/ins__time_integrator__3d__mp_fgmres_step.f
-            time_integrator/ins__time_integrator__3d__mp_projectionstep.f
             time_integrator/ins__time_integrator__euler__3d.f
             time_integrator/ins__time_integrator__bdf2__3d.f
             time_integrator/ins__time_integrator__runge_kutta__3d.f
