@@ -42,7 +42,7 @@ module DG__Element_Operators__1D
   !> diagonal mass matrix restricted to the interior points.
 
   type, extends(StandardElementOperators_1D) :: DG_ElementOperators_1D
-    real(RNP) :: penalty = 2       !< penalty parameter > 1
+    real(RNP) :: penalty = 5       !< penalty parameter > 1
     logical   :: hybrid  = .false. !< switch to hybridized method
   contains
 

@@ -217,9 +217,10 @@ find_package(Slurm QUIET)
 # Subprojects
 
 add_subdirectory(src)
-add_subdirectory(test)
 add_subdirectory(app)
 add_subdirectory(develop)
+add_subdirectory(gmsh)
+add_subdirectory(test)
 
 # experimental programs excluded from make all
 add_subdirectory(dirty EXCLUDE_FROM_ALL)
