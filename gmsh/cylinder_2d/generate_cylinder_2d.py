@@ -245,7 +245,7 @@ def createGeometryAndMesh(casename, L, N, prog):
     # Mesh Generation
 
     gmsh.model.mesh.generate(3)
-    gmsh.model.mesh.setOrder(3)
+    gmsh.model.mesh.setOrder(7)
 
     print(" ++++++++++ SAVING +++++++++++")
     gmsh.write(casename+".msh")
