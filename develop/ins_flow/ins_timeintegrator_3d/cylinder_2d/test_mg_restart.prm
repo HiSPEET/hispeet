@@ -15,7 +15,7 @@
   problem_file  = 'cylinder_2d'
   flow_problem  = 'Cylinder2D'
   flow_domain   =  10
-  raw_mesh_file =  'cylinder_2d'
+  raw_mesh_file = 'cylinder_2d'
 
 ! export_vtk   = T  ! set T for generating plot files
 ! char_freq    = 0  ! set frequency of control output
@@ -36,6 +36,7 @@
   ins_op_opt%dealiasing = T
 
   ins_op_opt%pressure_solver = 'MGCG'
+  ins_op_opt%i_max_v = 50  ! reduce, be careful
 
   ! multilevel pressure solver
   ml_solver_p_opt%smooth_method = 3          ! default, works fine now
@@ -68,7 +69,4 @@
   smooth_initial_data = T                     ! not used for restart
 
   time_method = 2  ! BDF2
-  ins_ti_bdf2_opt%i_max_v  = 100              ! can be reduced after start-up
-  ins_ti_bdf2_opt%r_red    = 1e-8
-  ins_ti_bdf2_opt%r_max    = 1e-10
 /

@@ -15,7 +15,7 @@
   problem_file  = 'cylinder_2d'
   flow_problem  = 'Cylinder2D'
   flow_domain   =  10
-  raw_mesh_file =  'cylinder_2d'
+  raw_mesh_file = 'cylinder_2d'
 
 ! export_vtk   = T  ! set T for generating plot files
 ! char_freq    = 0  ! set frequency of control output
@@ -67,7 +67,4 @@
   smooth_initial_data = T
 
   time_method = 2  ! BDF2
-  ins_ti_bdf2_opt%i_max_v  = 100
-  ins_ti_bdf2_opt%r_red    = 1e-8
-  ins_ti_bdf2_opt%r_max    = 1e-10
 /
