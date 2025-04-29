@@ -10,6 +10,18 @@
   po = 15
 /
 
+&solver_prm
+! method:
+! 0  none
+! 1  CG
+! 2  Schwarz
+! 3  Schwarz-preconditioned CG
+  method = 3
+  i_max  = 100
+  r_red  = 1E-5
+  schwarz_opt%delta = 0.2
+/
+
 &cuboid_cartesian_prm
   regular    = F ! mimic irregular mesh (elements deformed or of different size)
   structured = F ! mimic unstructured mesh
