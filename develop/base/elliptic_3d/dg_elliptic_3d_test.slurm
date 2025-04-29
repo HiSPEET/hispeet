@@ -14,8 +14,7 @@
 #SBATCH --cpus-per-task=12                    # number of cores per process
 ##SBATCH --cpu-freq=highm1                    # CPU frequency in kHz
 
-#SBATCH --partition=haswell                   # partition
-#SBATCH --mem=0                               # memory per node in MB (0 = all)
+#SBATCH --mem=10000                           # memory per node in MB (0 = all)
 
 #SBATCH --time=00-00:30:00                    # dd-hh:mm:ss
 ##SBATCH --exclusive                          # don't share nodes with others
