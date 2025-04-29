@@ -1,0 +1,85 @@
+!-------------------------------------------------------------------------------
+! Control
+
+&control_prm
+
+! log levels,  set to ≥ 1 for higher verbosity
+! log_level                 = 0
+! log_level_inner_iteration = 1
+! log_level_outer_iteration = 1
+! log_level_multigrid_cycle = 1
+
+  problem_file = 'variable_viscosity'
+  flow_problem = 'VariableViscosity'
+  flow_domain  = 1
+
+! export_vtk   = T  ! set T for generating plot files
+! char_freq    = 0  ! set frequency of control output
+/
+
+!-------------------------------------------------------------------------------
+! Spatial
+
+&spatial_prm
+
+  po_u = 16
+  po_p = 3 7 15 15 15
+
+  ins_op_opt%pressure_solver = 'MG'
+  ins_op_opt%dealiasing      = T
+
+! works
+  ins_op_opt%diffusion_solver = 'SPCG'
+  ins_op_opt%mu_0       = 0
+  ins_op_opt%i_max_p    = 5
+  ins_op_opt%i_max_v    = 20
+
+! adding bulk viscosity reduces divergence but requires more iterations
+! ins_op_opt%diffusion_solver = 'SPCG'
+! ins_op_opt%mu_0       = 0.1
+! ins_op_opt%i_max_p    = 5
+! ins_op_opt%i_max_v    = 50
+
+  ml_solver_p_opt%i_crs = 1000
+  ml_solver_p_opt%r_red = 1e-08
+  ml_solver_p_opt%r_max = 1e-12
+/
+
+&ml_mesh_options_3d__static
+  l_top          =  5  ! initial top level
+  n_parts_root   =  8  ! number of partitions at root level   [1]
+  n_parts_growth =  8  ! partition number growth rate         [1]
+/
+
+&ml_mesh_options_3d__dynamic
+  refinement = 2*'c', 2*'s' ! (1:l_top-1)  refinement type {'c','s'}
+/
+
+!-------------------------------------------------------------------------------
+! Temporal
+
+&temporal_prm
+
+  t_end  = 0.25
+  dt     = 0.001
+  nt_max = 10!00000
+
+  time_method = 2  ! 1/2/3: Euler/BDF2/Runge-Kutta
+
+                              ! ARS443    CB3e
+  ins_ti_rk_opt%n_stage  = 5  !   5        4
+  ins_ti_rk_opt%method   = 1  !   1        2
+/
+
+!-------------------------------------------------------------------------------
+! Domains
+
+&cuboid_cartesian_prm
+  regular    = F ! mimic irregular mesh (elements deformed or of different size)
+  structured = F ! mimic unstructured mesh
+  xo = 3*-0.5
+  lx = 3*1
+  np = 1,1,1
+  ep = 3*1
+! periodic = 3*T
+/

@@ -33,10 +33,10 @@ add_library(HiINSFlow
             problem/ins__problem__variable_viscosity__3d.f
             problem/ins__problem__test_suite__3d.f
 
-            time_integrator/ins__time_integrator__3d.f
-            time_integrator/ins__time_integrator__euler__3d.f
-            time_integrator/ins__time_integrator__bdf2__3d.f
-            time_integrator/ins__time_integrator__runge_kutta__3d.f
+            integrator/ins__integrator__3d.f
+            integrator/ins__integrator__euler__3d.f
+            integrator/ins__integrator__bdf2__3d.f
+            integrator/ins__integrator__runge_kutta__3d.f
 
             util/ins__flow_characteristics__3d.f
             util/ins__time_scales__3d.f
