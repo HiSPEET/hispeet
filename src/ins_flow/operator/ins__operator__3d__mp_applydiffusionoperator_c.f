@@ -15,7 +15,7 @@ contains
   !> Computes the homogeneous DG-SEM viscous diffusion operator including the
   !> implicit part of the discretized time derivative, i.e.,
   !>
-  !>     r = Mv/τ - Fd(v, vb=0, sb=0)
+  !>     r = Mv/τ - F_d(v, vb=0, sb=0)
   !>
   !> where `Fd` is the weak form of the diffusion term for the given velocity
   !> `v` with zero boundary values `vb`, `sb` and `M` is diagonal mass matrix.

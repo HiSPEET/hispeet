@@ -15,15 +15,15 @@ contains
   !> Computes the DG-SEM residual of  of the viscous diffusion term including
   !> the implicit part of the discretized time derivative, i.e.,
   !>
-  !>     r = Fd(v, vb, sb) - Mv/τ + Mf
+  !>     r = F_d(v, vb, sb) - Mv/τ + Mf
   !>
-  !> where `Fd` is the weak form of the diffusion term for the given velocity
+  !> where `F_d` is the weak form of the diffusion term for the given velocity
   !> `v` and boundary values `vb`, `sb` obtained from the boundary variable
-  !> `bv_u`, `M` is the diagonal mass matrix and `f` the nodal coefficients of
+  !> `bv`, `M` is the diagonal mass matrix and `f` the nodal coefficients of
   !> the sources, which comprise the remaining coefficients of the momentum
   !> equation.
 
-  module subroutine GetDiffusionResidual_C(this, tau, f, bv_u, v, r, form)
+  module subroutine GetDiffusionResidual_C(this, tau, f, bv, v, r, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -34,14 +34,14 @@ contains
     real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
     !< sources, f(np,np,np,ne,3)
 
-    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
+    class(BoundaryVariable_3D), intent(in) :: bv(:)
     !< boundary values
     !!   - at ∂Ωᴰ
-    !!       *  bv_u % val(*,1:3)  =  vᵇ          (inout)
-    !!       *  bv_u % val(*, 4 )  =  ∂p/∂n       (out)
+    !!       *  bv % val(*,1:3)  =  vᵇ          (inout)
+    !!       *  bv % val(*, 4 )  =  ∂p/∂n       (out)
     !!   - at ∂Ωᴼ
-    !!       *  bv_u % val(*, 4 )  =  pᵇ          (inout)
-    !!       *  bv_u % val(*, 5 )  =  ∆pᵇ         (in)
+    !!       *  bv % val(*, 4 )  =  pᵇ          (inout)
+    !!       *  bv % val(*, 5 )  =  ∆pᵇ         (in)
 
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)
@@ -81,7 +81,7 @@ contains
 
       ! compute residual .......................................................
 
-      call this % GetDiffusionTerm_C(v, vp, sp, r, bv_u, form=form)
+      call this % GetDiffusionTerm_C(v, vp, sp, r, bv, form=form)
 
       !$omp do collapse(2)
       do e = 1, mesh % n_elem

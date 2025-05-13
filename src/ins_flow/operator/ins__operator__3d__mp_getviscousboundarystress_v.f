@@ -14,7 +14,7 @@ contains
   !> Viscous stress vector on a boundary (V)
 
   module subroutine GetViscousBoundaryStress_V &
-      (this, b, mu, nu, v, sb, bv_u, xout, form)
+      (this, b, mu, nu, v, sb, bv, xout, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -34,7 +34,7 @@ contains
     real(RNP), contiguous, intent(out) :: sb(0:,0:,:,:)
     !< viscous stress vector on boundary `b` (0:po,0:po,1:n_face,1:3)
 
-    class(BoundaryVariable_3D), optional, intent(in) :: bv_u(:)
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
     !< boundary values at final time t
     !!   - Γᴰ :  vᵇ    in components 1:3, currently unused
     !!   - Γᴼ :  τ_nn  in component    4, including penalty term
@@ -66,7 +66,7 @@ contains
     else
       outflow_bc = this % problem % bc_v(b) == 'O'
     end if
-    outflow_bv = outflow_bc .and. present(bv_u)
+    outflow_bv = outflow_bc .and. present(bv)
 
     if (present(form)) then
       select case(form)
@@ -141,7 +141,7 @@ contains
         call GetViscousStressVector(f, e, m, po, n, chi_f, nu_f, grad_v, sb)
 
         if (outflow_bv) then
-          associate(tau_nn => bv_u(b) % val(:,:,f,4))
+          associate(tau_nn => bv(b) % val(:,:,f,4))
             sb(:,:,f,1) = sb(:,:,f,1) + n(:,:,m,e,1) * tau_nn
             sb(:,:,f,2) = sb(:,:,f,2) + n(:,:,m,e,2) * tau_nn
             sb(:,:,f,3) = sb(:,:,f,3) + n(:,:,m,e,3) * tau_nn

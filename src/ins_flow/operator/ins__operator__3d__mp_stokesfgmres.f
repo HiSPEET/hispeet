@@ -17,7 +17,7 @@ contains
   !-----------------------------------------------------------------------------
   !> FGMRES for Stokes part using projection step as a preconditioner
 
-  module subroutine StokesFGMRES(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+  module subroutine StokesFGMRES(this, tau, f_d0, f, bv, mu, nu, u)
 
     ! arguments ................................................................
 
@@ -25,26 +25,20 @@ contains
     !< incompressible Navier-Stokes time integrator
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
-    real(RNP), intent(in) :: t
-    !< t, final time
-    real(RNP), contiguous, intent(in) :: v_0(:,:,:,:,:)
-    !< v₀, effective initial value of velocity
-    real(RNP), contiguous, intent(in) :: F_c(:,:,:,:,:)
-    !< convective term at final time t
-    real(RNP), contiguous, intent(in) :: F_d(:,:,:,:,:)
-    !< diffusion term at final time t
-    real(RNP), contiguous, intent(in) :: Q(:,:,:,:,:)
-    !< sources at time t and further known terms
-    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
-    !< boundary values at final time t
+    real(RNP), contiguous, intent(in) :: f_d0(:,:,:,:,:)
+    !< approximate diffusion term
+    real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
+    !< RHS: f = v₀/τ + F_c + f_s + ...
+    class(BoundaryVariable_3D), intent(in) :: bv(:)
+    !< boundary values
     !!   - Γᴰ :  [ v₁, v₂, v₃, - , -  ]
     !!   - Γᴼ :  [ - , - , - , p , ∆p ]
-    real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
+    real(RNP), contiguous, optional, intent(in) :: mu(:,:,:,:)
     !< μ, kinematic bulk viscosity
-    real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
+    real(RNP), contiguous, optional, intent(in) :: nu(:,:,:,:)
     !< ν, kinematic shear viscosity
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
-    !< u = [v, p], velocity and pressure at final time u
+    !< u = [v, p], velocity and pressure
 
     ! internal variables .......................................................
 
@@ -104,7 +98,7 @@ contains
 
       allocate(bv_z(nb))
       do i = 1, nb
-        call bv_u(i) % GetClone(bv_z(i), copy = .true.)
+        call bv(i) % GetClone(bv_z(i), copy = .true.)
       end do
       call bv_z % SetToZero()
 
@@ -120,23 +114,17 @@ contains
       !$omp do
       do i = 1, ne
         mm_inv(:,:,:,i) = ONE / mm_inv(:,:,:,i)
-        g(:,:,:,i,1) = Q(:,:,:,i,1) + 1/tau * v_0(:,:,:,i,1) + F_c(:,:,:,i,1)
-        g(:,:,:,i,2) = Q(:,:,:,i,2) + 1/tau * v_0(:,:,:,i,2) + F_c(:,:,:,i,2)
-        g(:,:,:,i,3) = Q(:,:,:,i,3) + 1/tau * v_0(:,:,:,i,3) + F_c(:,:,:,i,3)
-        if (size(Q,5) >= 4) then
-          g(:,:,:,i,4) = Q(:,:,:,i,4)
-        end if
       end do
 
       associate(v1 => v(:,:,:,:,:,1))
 
         ! initial approximation ................................................
 
-        call StokesProjection(this, tau, t, v_0, F_c, F_d, Q, bv_u, mu, nu, u)
+        call StokesProjection(this, tau, f_d0, f, bv, mu, nu, u)
 
         ! initial residual, v₁ = f - Au ........................................
 
-        call this % GetStokesResidual(tau, g, bv_u, mu, nu, u, v1)
+        call this % GetStokesResidual(tau, f, bv, mu, nu, u, v1)
 
         beta = sqrt(ScalarProduct(v1, v1, mesh%comm_parts))
         b(1) = beta

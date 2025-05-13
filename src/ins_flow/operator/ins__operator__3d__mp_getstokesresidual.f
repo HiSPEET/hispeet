@@ -14,7 +14,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Stokes residual for incompressible flow
 
-  module subroutine GetStokesResidual(this, tau, f, bv_u, mu, nu, u, r)
+  module subroutine GetStokesResidual(this, tau, f, bv, mu, nu, u, r)
 
     ! arguments ................................................................
 
@@ -24,11 +24,11 @@ contains
     !< τ, effective time step width
     real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
     !< f, nodal RHS, including old values, sources, convection ...
-    class(BoundaryVariable_3D), intent(in)  :: bv_u(:)
+    class(BoundaryVariable_3D), intent(in)  :: bv(:)
     !< boundary values
-    real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
+    real(RNP), contiguous, optional, intent(in) :: mu(:,:,:,:)
     !< μ, kinematic bulk viscosity
-    real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)
+    real(RNP), contiguous, optional, intent(in) :: nu(:,:,:,:)
     !< ν, kinematic shear viscosity
     real(RNP), contiguous, intent(in) :: u(:,:,:,:,:)
     !< u = [v, p], velocity and pressure
@@ -78,7 +78,7 @@ contains
       call TPO_Div( this % eop_u, this % sem_u, v, vp, r_c)
 
       ! diffusion
-      call this % GetDiffusionResidual(tau, mu, nu, f, bv_u, v, r_m)
+      call this % GetDiffusionResidual(tau, mu, nu, f, bv, v, r_m)
 
       ! complete residual ......................................................
 

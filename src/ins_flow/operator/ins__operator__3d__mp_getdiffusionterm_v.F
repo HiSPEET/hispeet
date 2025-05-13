@@ -26,12 +26,12 @@ contains
   !-----------------------------------------------------------------------------
   !> Diffusion term with variable viscosity on irregular (deformed) mesh
   !>
-  !> The diffusion term `F_d` comprises the viscous contributions to the weak
+  !> The diffusion term `f_d` comprises the viscous contributions to the weak
   !> form of the momentum equation including the boundary conditions.
-  !> To obtain the node values, apply the inverse mass matrix to `F_d`.
+  !> To obtain the node values, apply the inverse mass matrix to `f_d`.
 
   module subroutine GetDiffusionTerm_V &
-      (this, mu, nu, v, vp, sp, F_d, bv_u, xout, form)
+      (this, mu, nu, v, vp, sp, f_d, bv, xout, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -51,15 +51,15 @@ contains
     real(RNP), contiguous, intent(out) :: sp(:,:,:,:,:)
     !< outer viscous flux traces (np,np,6,ne,3): sp = s⁺ = -n⋅τ⁺,
 
-    real(RNP), contiguous, intent(out) :: F_d(:,:,:,:,:)
+    real(RNP), contiguous, intent(out) :: f_d(:,:,:,:,:)
     !< diffusion term (np,np,np,ne,3)
 
-    class(BoundaryVariable_3D), optional, intent(in) :: bv_u(:)
+    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
     !< boundary values
     !!   - Γᴰ :  vᵇ    in components 1:3
     !!   - Γᴼ :  τ_nn  in component    4, including penalty term
     !!
-    !! skipping `bv_u` yields the homogeneous operator
+    !! skipping `bv` yields the homogeneous operator
 
     logical, optional, intent(in) :: xout
     !< extrapolate `∇v` at outflow boundaries [F]
@@ -123,12 +123,13 @@ contains
              , n      => this % sem_u % metrics % n  &
              , eop    => this % eop_u                &
              , vm     => tr(:,:,:,:,1:3)             &
-             , sm     => tr(:,:,:,:,4:6)             )
+             , sm     => tr(:,:,:,:,4:6)             &
+             , bv_u   => bv                          )
 
       ! element volume contributions ...........................................
 
       ! element integrals and local contributions to inner traces v⁻ and s⁻
-      call TPO_Stress(eop%w, eop%D, Jd, Ji, n, mu_mod, nu, v, F_d, vm, sm)
+      call TPO_Stress(eop%w, eop%D, Jd, Ji, n, mu_mod, nu, v, f_d, vm, sm)
 
       ! transfer traces ........................................................
 
@@ -155,7 +156,7 @@ contains
 
       ! fluxes .................................................................
 
-      call AddViscousFluxes(mesh, eop, a, n, Ji, mu_mod, nu, vm, sm, vp, sp, F_d)
+      call AddViscousFluxes(mesh, eop, a, n, Ji, mu_mod, nu, vm, sm, vp, sp, f_d)
 
       ! cleanup ................................................................
 
@@ -170,7 +171,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Compute & add viscous fluxes
 
-  subroutine AddViscousFluxes(mesh, eop, a, n, Ji, mu, nu, vm, sm, vp, sp, F_d)
+  subroutine AddViscousFluxes(mesh, eop, a, n, Ji, mu, nu, vm, sm, vp, sp, f_d)
 
     class(Mesh_3D), intent(in) :: mesh
     !< mesh partition
@@ -205,7 +206,7 @@ contains
     real(RNP), contiguous, intent(in) :: sp(0:,0:,:,:,:)
     !< outer traces of viscous stress vector, s⁺ = n⁺⋅τ⁺ (0:po,0:po,6,ne,3)
 
-    real(RNP), contiguous, intent(inout) :: F_d(0:,0:,0:,:,:)
+    real(RNP), contiguous, intent(inout) :: f_d(0:,0:,0:,:,:)
     !< diffusion term (0:po,0:po,0:po,ne,3)
 
     ! local variables ..........................................................
@@ -335,7 +336,7 @@ contains
               do k = 0, po
               do j = 0, po
 
-                F_d(i,j,k,e,c) = F_d(i,j,k,e,c)  &
+                f_d(i,j,k,e,c) = f_d(i,j,k,e,c)  &
                                + Ds_Ct(j,k,1,c)  &
                                + Ds_Ct(k,j,2,c)  &
                                + C0(j,k,c)
@@ -424,7 +425,7 @@ contains
               do k = 0, po
               do i = 0, po
 
-                F_d(i,j,k,e,c) = F_d(i,j,k,e,c)  &
+                f_d(i,j,k,e,c) = f_d(i,j,k,e,c)  &
                                + Ds_Ct(i,k,1,c)  &
                                + Ds_Ct(k,i,2,c)  &
                                + C0(i,k,c)
@@ -513,7 +514,7 @@ contains
               do j = 0, po
               do i = 0, po
 
-                F_d(i,j,k,e,c) = F_d(i,j,k,e,c)  &
+                f_d(i,j,k,e,c) = f_d(i,j,k,e,c)  &
                                + Ds_Ct(i,j,1,c)  &
                                + Ds_Ct(j,i,2,c)  &
                                + C0(i,j,c)
@@ -529,7 +530,7 @@ contains
             do k = 0, po
             do j = 0, po
             do i = 0, po
-              F_d(i,j,k,e,c) = F_d(i,j,k,e,c)           &
+              f_d(i,j,k,e,c) = f_d(i,j,k,e,c)           &
                              - ( Ds( 0,i) * Cn(j,k,1,c)  &
                                + Ds(po,i) * Cn(j,k,2,c)  &
                                + Ds( 0,j) * Cn(i,k,3,c)  &
