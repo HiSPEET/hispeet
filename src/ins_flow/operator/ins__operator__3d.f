@@ -351,30 +351,30 @@ module INS__Operator__3D
     !> Projection-diffusion step for incompressible flow
 
     module subroutine StokesProjection &
-        (this, tau, f_d0, f, bv, mu, nu, u, precon)
+        (this, tau, f, bv, mu, nu, u, f_d0, precon)
       class(INS_Operator_3D),          intent(in)    :: this
       real(RNP),                       intent(in)    :: tau
-      real(RNP), contiguous,           intent(in)    :: f_d0(:,:,:,:,:)
       real(RNP), contiguous,           intent(in)    :: f(:,:,:,:,:)
       class(BoundaryVariable_3D),      intent(in)    :: bv(:)
       real(RNP), contiguous, optional, intent(in)    :: mu(:,:,:,:)
       real(RNP), contiguous, optional, intent(in)    :: nu(:,:,:,:)
       real(RNP), contiguous,           intent(inout) :: u(:,:,:,:,:)
+      real(RNP), contiguous, optional, intent(in)    :: f_d0(:,:,:,:,:)
       logical,               optional, intent(in)    :: precon
     end subroutine StokesProjection
 
     !---------------------------------------------------------------------------
     !> FGMRES for Stokes part with projection-diffusion preconditioner
 
-    module subroutine StokesFGMRES(this, tau, f_d0, f, bv, mu, nu, u)
+    module subroutine StokesFGMRES(this, tau, f, bv, mu, nu, u, f_d0)
       class(INS_Operator_3D),          intent(in)    :: this
       real(RNP),                       intent(in)    :: tau
-      real(RNP), contiguous,           intent(in)    :: f_d0(:,:,:,:,:)
       real(RNP), contiguous,           intent(in)    :: f(:,:,:,:,:)
       class(BoundaryVariable_3D),      intent(in)    :: bv(:)
       real(RNP), contiguous, optional, intent(in)    :: mu(:,:,:,:)
       real(RNP), contiguous, optional, intent(in)    :: nu(:,:,:,:)
       real(RNP), contiguous,           intent(inout) :: u(:,:,:,:,:)
+      real(RNP), contiguous, optional, intent(in)    :: f_d0(:,:,:,:,:)
     end subroutine StokesFGMRES
 
   end interface

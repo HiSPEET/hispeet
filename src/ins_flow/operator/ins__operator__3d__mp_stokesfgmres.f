@@ -16,8 +16,14 @@ contains
 
   !-----------------------------------------------------------------------------
   !> FGMRES for Stokes part using projection step as a preconditioner
+  !>
+  !> On input `u` contains the approximate velocity `v` and pressure `p` in
+  !> components 1:3 and 4, respectively.
+  !> If `f_d0` is present, these values are overridden in the initial projection
+  !> step, based on the extrapolated velocity `v = τ(f + f_d0)`.
+  !> If `f_d0` is absent, the projection is used to correct the given values.
 
-  module subroutine StokesFGMRES(this, tau, f_d0, f, bv, mu, nu, u)
+  module subroutine StokesFGMRES(this, tau, f, bv, mu, nu, u, f_d0)
 
     ! arguments ................................................................
 
@@ -25,8 +31,6 @@ contains
     !< incompressible Navier-Stokes time integrator
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
-    real(RNP), contiguous, intent(in) :: f_d0(:,:,:,:,:)
-    !< approximate diffusion term
     real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
     !< RHS: f = v₀/τ + F_c + f_s + ...
     class(BoundaryVariable_3D), intent(in) :: bv(:)
@@ -39,6 +43,8 @@ contains
     !< ν, kinematic shear viscosity
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
     !< u = [v, p], velocity and pressure
+    real(RNP), contiguous, optional, intent(in) :: f_d0(:,:,:,:,:)
+    !< approximate diffusion term
 
     ! internal variables .......................................................
 
@@ -120,7 +126,7 @@ contains
 
         ! initial approximation ................................................
 
-        call StokesProjection(this, tau, f_d0, f, bv, mu, nu, u)
+        call StokesProjection(this, tau, f, bv, mu, nu, u, f_d0)
 
         ! initial residual, v₁ = f - Au ........................................
 
@@ -176,8 +182,8 @@ contains
           end do
 
           ! projection with homogeneous BC and frozen viscosity: z(j) = K⁻¹v(j)
-          call StokesProjection( this, tau, t, O, O, O, g, bv_z, mu, nu, zj &
-                               , precon = .true.                            )
+          call StokesProjection( this, tau, g, bv_z, mu, nu, zj &
+                               , f_d0 = O, precon = .true.      )
 
           ! application of homogeneous operator: w = A v(j)
           call this % GetStokesResidual(tau, O, bv_z, mu, nu, zj, w)
