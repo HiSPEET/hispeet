@@ -12,6 +12,7 @@ module ML__INS__Operator__3D
   use INS__Operator__3D
   use ML__Mesh__3D
   use ML__Mesh_Operators__3D
+  use ML__Mesh_Variable__3D
   use ML__DG__Elliptic_Solver__3D
 
   implicit none
@@ -35,7 +36,7 @@ module ML__INS__Operator__3D
     type(INS_Operator_3D), allocatable :: ins_op(:)
   contains
     procedure :: Init_ML_INS_Operator_3D
-    procedure :: Stokes_V_Cycle
+  ! procedure :: Stokes_V_Cycle
   end type ML_INS_Operator_3D
 
   ! constructor interface

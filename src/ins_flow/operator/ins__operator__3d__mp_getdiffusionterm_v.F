@@ -31,7 +31,7 @@ contains
   !> To obtain the node values, apply the inverse mass matrix to `f_d`.
 
   module subroutine GetDiffusionTerm_V &
-      (this, mu, nu, v, vp, sp, f_d, bv, xout, form)
+      (this, mu, nu, v, vp, sp, f_d, bv_v, xout, form)
 
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes operator
@@ -54,12 +54,12 @@ contains
     real(RNP), contiguous, intent(out) :: f_d(:,:,:,:,:)
     !< diffusion term (np,np,np,ne,3)
 
-    class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
+    class(BoundaryVariable_3D), optional, intent(in) :: bv_v(:)
     !< boundary values
     !!   - Γᴰ :  vᵇ    in components 1:3
     !!   - Γᴼ :  τ_nn  in component    4, including penalty term
     !!
-    !! skipping `bv` yields the homogeneous operator
+    !! skipping `bv_v` yields the homogeneous operator
 
     logical, optional, intent(in) :: xout
     !< extrapolate `∇v` at outflow boundaries [F]
@@ -123,8 +123,7 @@ contains
              , n      => this % sem_u % metrics % n  &
              , eop    => this % eop_u                &
              , vm     => tr(:,:,:,:,1:3)             &
-             , sm     => tr(:,:,:,:,4:6)             &
-             , bv_u   => bv                          )
+             , sm     => tr(:,:,:,:,4:6)             )
 
       ! element volume contributions ...........................................
 
@@ -143,13 +142,13 @@ contains
         if (scan(this % problem % bc_v(b),'O') > 0) then
           associate(sb => bv_s(b) % val)
             call this % GetViscousBoundaryStress_V &
-                            (b, mu, nu, v, sb, bv_u, xout, form)
+                            (b, mu, nu, v, sb, bv_v, xout, form)
           end associate
         end if
       end do
 
       call ConvertInnerToOuterTraces_3D(mesh, vm, vp)
-      call this % ApplyEssentialBC(bv_u, vm, vp)       ! v⁺ = v(v⁻,vᵇ)  ∂Ω
+      call this % ApplyEssentialBC(bv_v, vm, vp)       ! v⁺ = v(v⁻,vᵇ)  ∂Ω
 
       call ConvertInnerToOuterTraces_3D(mesh, sm, sp)
       call this % ApplyNaturalBC(bv_s, sm, sp)         ! s⁺ = s(s⁻,sᵇ)  ∂Ω

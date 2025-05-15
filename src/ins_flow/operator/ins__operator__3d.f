@@ -261,13 +261,13 @@ module INS__Operator__3D
     !---------------------------------------------------------------------------
     !> Diffusion term with constant viscosity on irregular (deformed) mesh
 
-    module subroutine GetDiffusionTerm_C(this, v, vp, sp, f_d, bv, xout, form)
+    module subroutine GetDiffusionTerm_C(this, v, vp, sp, f_d, bv_v, xout, form)
       class(INS_Operator_3D),               intent(in)  :: this
       real(RNP),                contiguous, intent(in)  :: v(:,:,:,:,:)
       real(RNP),                contiguous, intent(out) :: vp(:,:,:,:,:)
       real(RNP),                contiguous, intent(out) :: sp(:,:,:,:,:)
       real(RNP),                contiguous, intent(out) :: f_d(:,:,:,:,:)
-      class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
+      class(BoundaryVariable_3D), optional, intent(in)  :: bv_v(:)
       logical,                    optional, intent(in)  :: xout
       integer,                    optional, intent(in)  :: form
     end subroutine GetDiffusionTerm_C
@@ -276,7 +276,7 @@ module INS__Operator__3D
     !> Diffusion term with variable viscosity on irregular (deformed) mesh
 
     module subroutine GetDiffusionTerm_V &
-        (this, mu, nu, v, vp, sp, f_d, bv, xout, form)
+        (this, mu, nu, v, vp, sp, f_d, bv_v, xout, form)
       class(INS_Operator_3D),               intent(in)  :: this
       real(RNP), contiguous,                intent(in)  :: mu(:,:,:,:)
       real(RNP), contiguous,                intent(in)  :: nu(:,:,:,:)
@@ -284,7 +284,7 @@ module INS__Operator__3D
       real(RNP), contiguous,                intent(out) :: vp(:,:,:,:,:)
       real(RNP), contiguous,                intent(out) :: sp(:,:,:,:,:)
       real(RNP), contiguous,                intent(out) :: f_d(:,:,:,:,:)
-      class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
+      class(BoundaryVariable_3D), optional, intent(in)  :: bv_v(:)
       logical,                    optional, intent(in)  :: xout
       integer,                    optional, intent(in)  :: form
     end subroutine GetDiffusionTerm_V
@@ -638,15 +638,16 @@ contains
   end subroutine GetViscousBoundaryStress
 
   !-----------------------------------------------------------------------------
+  !> Solver for Stokes part using either projection step or FGMRES
   !>
+  !> If `f_d0` is present, the velocity is initialized as `v = τ(f + f_d0)`.
+  !> Otherwise, the given `u = [v,p]` is used as the initial approximation.
 
-  subroutine StokesSolver(this, tau, f_d0, f, bv, mu, nu, u)
+  subroutine StokesSolver(this, tau, f, bv, mu, nu, u, f_d0)
     class(INS_Operator_3D), intent(in) :: this
     !< incompressible Navier-Stokes time integrator
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
-    real(RNP), contiguous, intent(in) :: f_d0(:,:,:,:,:)
-    !< approximate diffusion term
     real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
     !< RHS: f = v₀/τ + F_c + f_s + ...
     class(BoundaryVariable_3D), intent(in) :: bv(:)
@@ -659,11 +660,13 @@ contains
     !< ν, kinematic shear viscosity
     real(RNP), contiguous, intent(inout) :: u(:,:,:,:,:)
     !< u = [v, p], velocity and pressure
+    real(RNP), contiguous, optional, intent(in) :: f_d0(:,:,:,:,:)
+    !< approximate diffusion term
 
     if (this % k_max > 0) then
-      call StokesFGMRES(this, tau, f_d0, f, bv, mu, nu, u)
+      call StokesFGMRES(this, tau, f, bv, mu, nu, u, f_d0)
     else
-      call StokesProjection(this, tau, f_d0, f, bv, mu, nu, u)
+      call StokesProjection(this, tau, f, bv, mu, nu, u, f_d0)
     end if
 
   end subroutine StokesSolver

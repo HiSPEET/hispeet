@@ -59,8 +59,8 @@ contains
   !> Constructor for objects of type INS_Integrator_RungeKutta_3D
 
   function New_INS_Integrator_RungeKutta_3D(problem, ins_op, opt) result(this)
-    class(INS_Problem_3D),                           intent(in) :: problem
-    class(INS_Operator_3D),                          intent(in) :: ins_op
+    class(INS_Problem_3D),                       intent(in) :: problem
+    class(INS_Operator_3D),                      intent(in) :: ins_op
     class(INS_Integrator_RungeKutta_Options_3D), intent(in) :: opt
     type(INS_Integrator_RungeKutta_3D) :: this
 
@@ -73,8 +73,8 @@ contains
 
   subroutine Init_INS_Integrator_RungeKutta_3D(this, problem, ins_op, opt)
     class(INS_Integrator_RungeKutta_3D),         intent(inout) :: this
-    class(INS_Problem_3D),                           intent(in)    :: problem
-    class(INS_Operator_3D),                          intent(in)    :: ins_op
+    class(INS_Problem_3D),                       intent(in)    :: problem
+    class(INS_Operator_3D),                      intent(in)    :: ins_op
     class(INS_Integrator_RungeKutta_Options_3D), intent(in)    :: opt
 
     ! intialize parent type
@@ -107,10 +107,10 @@ contains
     real(RNP), allocatable, save :: nu (:,:,:,:)    ! variable shear diffusivity ν
 
     ! stage contributions to RHS and BC
-    real(RNP), allocatable, save :: F_c     (:,:,:,:,:,:) ! convection
-    real(RNP), allocatable, save :: F_d     (:,:,:,:,:,:) ! diffusion, standard
-    real(RNP), allocatable, save :: F_d_rot (:,:,:,:,:,:) ! diffusion, rotational
-    real(RNP), allocatable, save :: F_s     (:,:,:,:,:,:) ! sources
+    real(RNP), allocatable, save :: f_c     (:,:,:,:,:,:) ! convection
+    real(RNP), allocatable, save :: f_d     (:,:,:,:,:,:) ! diffusion, standard
+    real(RNP), allocatable, save :: f_d_rot (:,:,:,:,:,:) ! diffusion, rotational
+    real(RNP), allocatable, save :: f_s     (:,:,:,:,:,:) ! sources
 
     ! boundary points and values
     type(BoundaryVariable_3D), allocatable, save :: bv_x(:), bv_u(:)  &
@@ -123,9 +123,9 @@ contains
 
     ! auxiliary
     real(RNP), allocatable :: w(:,:,:)
-    real(RNP) :: ca, cc, cr, cs, t_i
+    real(RNP) :: ca, c_ex, c_im, t_i, tau
 
-    integer   :: b, e, d, i, j, k, l, m, np, po
+    integer   :: b, e, d, i, j, np, po
 
     associate( problem => this % problem           &
              , ins_op  => this % ins_op            &
@@ -151,7 +151,7 @@ contains
 
       if (allocated(u_i)) then
         if (any(shape(u_i) /= shape(u))) then
-          deallocate(u_i, vp, sp, inv_mm, F_c, F_d, F_d_rot, F_s)
+          deallocate(u_i, vp, sp, inv_mm, f_c, f_d, f_d_rot, f_s)
           deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp, bv_po)
           if (allocated(mu)) deallocate(mu)
           if (allocated(nu)) deallocate(nu)
@@ -176,10 +176,10 @@ contains
           allocate( nu(np, np, np, mesh % n_elem), source = ZERO )
         end if
 
-        allocate( F_c     (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
-        allocate( F_d     (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
-        allocate( F_d_rot (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
-        allocate( F_s     (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
+        allocate( f_c     (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
+        allocate( f_d     (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
+        allocate( f_d_rot (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
+        allocate( f_s     (np, np, np, mesh % n_elem, 3, n_stage), source = ZERO )
 
         allocate( bv_x  (mesh % n_bound) )
         allocate( bv_u  (mesh % n_bound) )
@@ -223,11 +223,11 @@ contains
 
       if (reuse) then
 
-        call SetArray( F_s(:,:,:,:,:,1), F_s(:,:,:,:,:,n_stage), multi = .true. )
-        call SetArray( F_c(:,:,:,:,:,1), F_c(:,:,:,:,:,n_stage), multi = .true. )
-        call SetArray( F_d(:,:,:,:,:,1), F_d(:,:,:,:,:,n_stage), multi = .true. )
-        call SetArray( F_d_rot (:,:,:,:,:,1)       &
-                     , F_d_rot (:,:,:,:,:,n_stage) &
+        call SetArray( f_s(:,:,:,:,:,1), f_s(:,:,:,:,:,n_stage), multi = .true. )
+        call SetArray( f_c(:,:,:,:,:,1), f_c(:,:,:,:,:,n_stage), multi = .true. )
+        call SetArray( f_d(:,:,:,:,:,1), f_d(:,:,:,:,:,n_stage), multi = .true. )
+        call SetArray( f_d_rot (:,:,:,:,:,1)       &
+                     , f_d_rot (:,:,:,:,:,n_stage) &
                      , multi = .true.              )
 
         ! normal stress vector and backflow penalty at ∂Ωᴼ
@@ -250,7 +250,7 @@ contains
 
           ! source term
           call problem % GetExternalSources( sem_u % metrics % x, t_i &
-                                           , F_s(:,:,:,:,:,1)         )
+                                           , f_s(:,:,:,:,:,1)         )
 
           ! variable viscosity
           if (problem % HasVariableProperties()) then
@@ -259,30 +259,30 @@ contains
 
           ! diffusion term using standard form with extrapolation at ∂Ωᴼ
           call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp &
-                                        , F_d(:,:,:,:,:,1)  &
+                                        , f_d(:,:,:,:,:,1)  &
                                         , bv_u              &
                                         , xout = .true.     )
 
           ! diffusion term using rotational form with extrapolation at ∂Ωᴼ
           call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp    &
-                                        , F_d_rot(:,:,:,:,:,1) &
+                                        , f_d_rot(:,:,:,:,:,1) &
                                         , bv_u                 &
                                         , xout = .true.        &
                                         , form = 2             )
 
           ! convective RHS
           if (problem % stokes) then
-            call SetArray(F_c(:,:,:,:,:,1), ZERO, multi = .true.)
+            call SetArray(f_c(:,:,:,:,:,1), ZERO, multi = .true.)
           else
-            call ins_op % GetConvectionTerm(v, vp, F_c(:,:,:,:,:,1))
+            call ins_op % GetConvectionTerm(v, vp, f_c(:,:,:,:,:,1))
           end if
 
           !$omp do
           do e = 1, mesh % n_elem
             do d = 1, 3
-              F_c     (:,:,:,e,d,1) = inv_mm(:,:,:,e) * F_c     (:,:,:,e,d,1)
-              F_d     (:,:,:,e,d,1) = inv_mm(:,:,:,e) * F_d     (:,:,:,e,d,1)
-              F_d_rot (:,:,:,e,d,1) = inv_mm(:,:,:,e) * F_d_rot (:,:,:,e,d,1)
+              f_c    (:,:,:,e,d,1) = inv_mm(:,:,:,e) * f_c    (:,:,:,e,d,1)
+              f_d    (:,:,:,e,d,1) = inv_mm(:,:,:,e) * f_d    (:,:,:,e,d,1)
+              f_d_rot(:,:,:,e,d,1) = inv_mm(:,:,:,e) * f_d_rot(:,:,:,e,d,1)
             end do
           end do
 
@@ -300,12 +300,12 @@ contains
       ! stages 2 to n_stage
 
       Stages: do i = 2, n_stage
-
-        associate( F_c_i => F_c     (:,:,:,:,:,i) &
-                 , F_d_i => F_d     (:,:,:,:,:,i) &
-                 , Q_i   => F_d_rot (:,:,:,:,:,i) )
+                                                  ! workspace for
+        associate( f_d0 => f_d_rot(:,:,:,:,:,i) & ! approximate diffusion term
+                 , f    => f_d    (:,:,:,:,:,i) ) ! Stokes RHS
 
           t_i = t_0 + c(i) * dt
+          tau = dt * a_im(i,i)
 
           ! uᵢ = u₀ ............................................................
           ! not really needed, provides initial approximation for p_i
@@ -315,7 +315,7 @@ contains
           ! sources and boundary conditions ....................................
 
           call problem % GetExternalSources( sem_u % metrics % x, t_i &
-                                           , F_s(:,:,:,:,:,i)         )
+                                           , f_s(:,:,:,:,:,i)         )
 
           do b = 1, mesh % n_bound
             select case(problem % bc_v(b))
@@ -328,84 +328,55 @@ contains
                 ! merge normal stress vectors from previous stages using
                 ! weights identical to the those for viscous terms
                 do j = 1, i-1
-                  cc = a_ex(i,j) / a_im(i,i)
-                  call MergeArrays(ONE, pb, cc, bv_po(b,j) % val(:,:,:,1))
+                  ca = a_ex(i,j) / a_im(i,i)
+                  call MergeArrays(ONE, pb, ca, bv_po(b,j) % val(:,:,:,1))
                 end do
               end associate
             end select
           end do
 
-          ! RHS and Q for projection step ......................................
+          ! RHS and f for projection step ......................................
 
           !$omp do collapse(2)
           do e = 1, mesh % n_elem
           do d = 1, 3
 
-            ca = ONE / a_im(i,i)
-            cc = ca * (a_ex(i,1) - a_im(i,1))
-            cr = ca * a_ex(i,1)
-            cs = ca * a_im(i,1)
+            c_ex = a_ex(i,1) / a_im(i,i)
+            c_im = a_im(i,1) / a_im(i,i)
 
-            do m = 1, np
-            do l = 1, np
-            do k = 1, np
+            f_d0(:,:,:,e,d) = c_ex * f_d_rot(:,:,:,e,d,1) &
+                            - c_im * f_d    (:,:,:,e,d,1)
 
-              F_c_i(k,l,m,e,d) = cc * F_c (k,l,m,e,d,1)
-
-              F_d_i(k,l,m,e,d) = cr * F_d_rot (k,l,m,e,d,1) &
-                               - cs * F_d     (k,l,m,e,d,1)
-
-              Q_i(k,l,m,e,d) = cs * ( F_c (k,l,m,e,d,1) &
-                                    + F_s (k,l,m,e,d,1) &
-                                    + F_d (k,l,m,e,d,1) )
-            end do
-            end do
-            end do
+            f(:,:,:,e,d) = c_ex *   f_c (:,:,:,e,d,1) &
+                         + c_im * ( f_s (:,:,:,e,d,1) &
+                                  + f_d (:,:,:,e,d,1) )
 
             do j = 2, i-1
 
-              cc = ca * (a_ex(i,j) - a_im(i,j))
-              cr = ca * a_ex(i,j)
-              cs = ca * a_im(i,j)
+              c_ex = a_ex(i,j) / a_im(i,i)
+              c_im = a_im(i,j) / a_im(i,i)
 
-              do m = 1, np
-              do l = 1, np
-              do k = 1, np
+              f_d0(:,:,:,e,d) = f_d0(:,:,:,e,d)              &
+                              + c_ex * f_d_rot (:,:,:,e,d,j) &
+                              - c_im * f_d     (:,:,:,e,d,j)
 
-                F_c_i(k,l,m,e,d) = F_c_i(k,l,m,e,d)    &
-                                 + cc * F_c(k,l,m,e,d,j)
-
-                F_d_i(k,l,m,e,d) = F_d_i(k,l,m,e,d)           &
-                                 + cr * F_d_rot (k,l,m,e,d,j) &
-                                 - cs * F_d     (k,l,m,e,d,j)
-
-                Q_i(k,l,m,e,d) = Q_i(k,l,m,e,d)           &
-                               + cs * ( F_c(k,l,m,e,d,j)  &
-                                      + F_s(k,l,m,e,d,j)  &
-                                      + F_d(k,l,m,e,d,j)  )
-              end do
-              end do
-              end do
+              f(:,:,:,e,d) = f(:,:,:,e,d)               &
+                           + c_ex *   f_c(:,:,:,e,d,j)  &
+                           + c_im * ( f_s(:,:,:,e,d,j)  &
+                                    + f_d(:,:,:,e,d,j)  )
 
             end do
 
-            Q_i(:,:,:,e,d) = Q_i(:,:,:,e,d) + F_s(:,:,:,e,d,i)
+            f(:,:,:,e,d) = 1/tau * v_0(:,:,:,e,d) &
+                         + f(:,:,:,e,d)           &
+                         + f_s(:,:,:,e,d,i)
 
           end do
           end do
 
           ! projection-diffusion step ..........................................
 
-          call ins_op % StokesSolver( tau  = dt * a_im(i,i) &
-                                    , t    = t_i            &
-                                    , v_0  = v_0            &
-                                    , F_c  = F_c_i          &
-                                    , F_d  = F_d_i          &
-                                    , Q    = Q_i            &
-                                    , bv_u = bv_u           &
-                                    , mu   = mu             &
-                                    , nu   = nu             &
-                                    , u    = u_i            )
+          call ins_op % StokesSolver(tau, f, bv_u, mu, nu, u_i, f_d0)
 
         end associate
 
@@ -420,30 +391,30 @@ contains
 
           ! diffusion term using standard form with extrapolation at ∂Ωᴼ
           call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp &
-                                        , F_d(:,:,:,:,:,i)  &
+                                        , f_d(:,:,:,:,:,i)  &
                                         , bv_u              &
                                         , xout = .true.     )
 
           ! diffusion term using rotational form with extrapolation at ∂Ωᴼ
           call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp    &
-                                        , F_d_rot(:,:,:,:,:,i) &
+                                        , f_d_rot(:,:,:,:,:,i) &
                                         , bv_u                 &
                                         , xout = .true.        &
                                         , form = 2             )
 
           ! convection term
           if (problem % stokes) then
-            call SetArray(F_c(:,:,:,:,:,i), ZERO, multi = .true.)
+            call SetArray(f_c(:,:,:,:,:,i), ZERO, multi = .true.)
           else
-            call ins_op % GetConvectionTerm(v, vp, F_c(:,:,:,:,:,i))
+            call ins_op % GetConvectionTerm(v, vp, f_c(:,:,:,:,:,i))
           end if
 
           !$omp do
           do e = 1, mesh % n_elem
             do d = 1, 3
-              F_c     (:,:,:,e,d,i) = inv_mm(:,:,:,e) * F_c     (:,:,:,e,d,i)
-              F_d     (:,:,:,e,d,i) = inv_mm(:,:,:,e) * F_d     (:,:,:,e,d,i)
-              F_d_rot (:,:,:,e,d,i) = inv_mm(:,:,:,e) * F_d_rot (:,:,:,e,d,i)
+              f_c     (:,:,:,e,d,i) = inv_mm(:,:,:,e) * f_c     (:,:,:,e,d,i)
+              f_d     (:,:,:,e,d,i) = inv_mm(:,:,:,e) * f_d     (:,:,:,e,d,i)
+              f_d_rot (:,:,:,e,d,i) = inv_mm(:,:,:,e) * f_d_rot (:,:,:,e,d,i)
             end do
           end do
 
@@ -466,19 +437,19 @@ contains
 
       if (.not. globally_stiffly_accurate) then
         associate( v       =>  u  (:,:,:,:,1:3)   &
-                 , div_v   =>  F_c(:,:,:,:,1  ,1) &
-                 , p       =>  F_c(:,:,:,:,2  ,1) &
+                 , div_v   =>  f_c(:,:,:,:,1  ,1) &
+                 , p       =>  f_c(:,:,:,:,2  ,1) &
                  , pp      =>  vp (:,:,:,:,1)     &
-                 , grad_p  =>  F_s(:,:,:,:,1:3,1) )
+                 , grad_p  =>  f_s(:,:,:,:,1:3,1) )
 
           !$omp do collapse(2)
           do e = 1, mesh % n_elem
           do d = 1, 3
             do i = 1, n_stage
               v(:,:,:,e,d) = v(:,:,:,e,d)                                 &
-                  + dt * (b_ex(i) - a_ex(n_stage,i)) *   F_c(:,:,:,e,d,i) &
-                  + dt * (b_im(i) - a_im(n_stage,i)) * ( F_d(:,:,:,e,d,i) &
-                                                       + F_s(:,:,:,e,d,i) )
+                  + dt * (b_ex(i) - a_ex(n_stage,i)) *   f_c(:,:,:,e,d,i) &
+                  + dt * (b_im(i) - a_im(n_stage,i)) * ( f_d(:,:,:,e,d,i) &
+                                                       + f_s(:,:,:,e,d,i) )
             end do
           end do
           end do
@@ -521,7 +492,7 @@ contains
       end if
 
       !$omp master
-      deallocate(u_i, vp, sp, inv_mm, F_c, F_d, F_d_rot, F_s)
+      deallocate(u_i, vp, sp, inv_mm, f_c, f_d, f_d_rot, f_s)
       deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp, bv_po)
       if (allocated(mu)) deallocate(mu)
       if (allocated(nu)) deallocate(nu)

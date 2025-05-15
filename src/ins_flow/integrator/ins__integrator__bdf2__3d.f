@@ -270,19 +270,19 @@ contains
 
       !$omp do
       do e = 1, mesh % n_elem
-        do d = 1, 3
+      do d = 1, 3
 
-          w = inv_mm(:,:,:,e) * f_c(:,:,:,e,d)
-          f_c     (:,:,:,e,d) = a0 * w + a1 * f_c_old(:,:,:,e,d)
-          f_c_old (:,:,:,e,d) = w
+        w = inv_mm(:,:,:,e) * f_c(:,:,:,e,d)
+        f_c     (:,:,:,e,d) = a0 * w + a1 * f_c_old(:,:,:,e,d)
+        f_c_old (:,:,:,e,d) = w
 
-          w = inv_mm(:,:,:,e) * f_d(:,:,:,e,d)
-          f_d     (:,:,:,e,d) = a0 * w + a1 * f_d_old(:,:,:,e,d)
-          f_d_old (:,:,:,e,d) = w
+        w = inv_mm(:,:,:,e) * f_d(:,:,:,e,d)
+        f_d     (:,:,:,e,d) = a0 * w + a1 * f_d_old(:,:,:,e,d)
+        f_d_old (:,:,:,e,d) = w
 
-          f(:,:,:,e,d) = 1/tau * v0(:,:,:,e,d) + f_c(:,:,:,e,d) + f(:,:,:,e,d)
+        f(:,:,:,e,d) = 1/tau * v_0(:,:,:,e,d) + f_c(:,:,:,e,d) + f(:,:,:,e,d)
 
-        end do
+      end do
       end do
 
       ! update boundary conditions .............................................

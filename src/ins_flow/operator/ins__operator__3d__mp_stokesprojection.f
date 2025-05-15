@@ -122,12 +122,12 @@ contains
         end if
 
         if (extrapolation) then
-          associate(grad_p => w(:,:,:,:,1:3)))
-            ! compute pressure
+          associate(grad_p => w(:,:,:,:,1:3))
+          ! compute pressure
             call this % PressureSolver(tau, bv_w, v, div_v, p, precon)
             ! compute pressure gradient
             call GetOuterTraces_3D(mesh, p, pp)
-            call TPO_Grad(this % eop_u, this % sem_u, p, pp, grad_dp)
+            call TPO_Grad(this % eop_u, this % sem_u, p, pp, grad_p)
             ! correct velocity: v = v - τ∇p
             call MergeArrays(ONE, v, -tau, grad_p, multi=.true.)
           end associate
