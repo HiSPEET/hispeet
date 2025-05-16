@@ -13,6 +13,7 @@ module ML__INS__Operator__3D
   use ML__Mesh__3D
   use ML__Mesh_Operators__3D
   use ML__Mesh_Variable__3D
+  use ML__Boundary_Variable__3D
   use ML__DG__Elliptic_Solver__3D
 
   implicit none
@@ -36,7 +37,7 @@ module ML__INS__Operator__3D
     type(INS_Operator_3D), allocatable :: ins_op(:)
   contains
     procedure :: Init_ML_INS_Operator_3D
-  ! procedure :: Stokes_V_Cycle
+    procedure :: Stokes_V_Cycle
   end type ML_INS_Operator_3D
 
   ! constructor interface
@@ -63,17 +64,16 @@ module ML__INS__Operator__3D
 
     !---------------------------------------------------------------------------
     !> Performs one or more FAS-MG V-cycles for the Stokes part
-
-    module subroutine Stokes_V_Cycle(this, tau, mu, nu, f, u, n_cyc, l_top, r_2)
-      class(ML_INS_Operator_3D), intent(in)    :: this
-      real(RNP),                 intent(in)    :: tau
-      class(ML_MeshVariable_3D), intent(in)    :: mu
-      class(ML_MeshVariable_3D), intent(in)    :: nu
-      class(ML_MeshVariable_3D), intent(in)    :: f
-      class(ML_MeshVariable_3D), intent(inout) :: u
-      integer,         optional, intent(in)    :: n_cyc
-      integer,         optional, intent(in)    :: l_top
-      real(RNP),       optional, intent(out)   :: r_2
+    module subroutine Stokes_V_Cycle(this, tau, mu, nu, bv, f, u, n_cyc, l_top)
+      class(ML_INS_Operator_3D),           intent(in)    :: this
+      real(RNP),                           intent(in)    :: tau
+      class(ML_MeshVariable_3D), optional, intent(in)    :: mu
+      class(ML_MeshVariable_3D), optional, intent(in)    :: nu
+      class(ML_BoundaryVariable_3D),       intent(in)    :: bv
+      class(ML_MeshVariable_3D),           intent(inout) :: f
+      class(ML_MeshVariable_3D),           intent(inout) :: u
+      integer,                   optional, intent(in)    :: n_cyc
+      integer,                   optional, intent(in)    :: l_top
     end subroutine Stokes_V_Cycle
 
   end interface

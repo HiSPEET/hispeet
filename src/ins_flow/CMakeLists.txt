@@ -42,6 +42,7 @@ add_library(HiINSFlow
             util/ins__time_scales__3d.f
             
             multilevel/ml__ins__operator__3d.f
+            multilevel/ml__ins__operator__3d__mp_stokes_v_cycle.f
 
             )
 
