@@ -106,8 +106,8 @@ contains
         l_top_ = size(sem)
       end if
       allocate(r, v)
-      call r % Init(this%ml_op, nc=1)
-      call v % Init(this%ml_op, nc=1)
+      call r % Init(this%ml_op, nc = 1, l_top = l_top_)
+      call v % Init(this%ml_op, nc = 1, l_top = l_top_)
       start_method = this % start_method
       !$omp end master
 
@@ -247,7 +247,7 @@ contains
               ! restriction ....................................................
 
               ! project solution to regularly refined parent elements
-              select case(this % projection_method)
+              select case(this % fc_projection)
               case('I')
                 ! interpolation
                 call ChildToParentProjection_3D &
@@ -416,7 +416,7 @@ contains
             ! restriction ....................................................
 
             ! project solution to regularly refined parent elements
-            select case(this % projection_method)
+            select case(this % fc_projection)
             case('I')
               ! interpolation
               call ChildToParentProjection_3D &
