@@ -93,14 +93,15 @@ module INS__Operator__3D
     procedure :: ApplyEssentialBC
     procedure :: ApplyNaturalBC
 
+    procedure :: ApplyDiffusionOperator
+    procedure :: ApplyDiffusionOperator_C
+    procedure :: ApplyDiffusionOperator_V
+    procedure :: ApplyStokesOperator
+
     procedure :: DiffusionSolver
 
     procedure :: GetBackflowPenalty
     procedure :: GetConvectionTerm
-
-    procedure :: ApplyDiffusionOperator
-    procedure :: ApplyDiffusionOperator_C
-    procedure :: ApplyDiffusionOperator_V
 
     procedure :: GetDiffusionResidual
     procedure :: GetDiffusionResidual_C
@@ -202,6 +203,19 @@ module INS__Operator__3D
       real(RNP), contiguous,      intent(in)    :: sm(:,:,:,:,:)
       real(RNP), contiguous,      intent(inout) :: sp(:,:,:,:,:)
     end subroutine ApplyNaturalBC
+
+    !---------------------------------------------------------------------------
+    !> Application of the Stokes operator
+
+    module subroutine ApplyStokesOperator(this, tau, bv, mu, nu, u, r)
+      class(INS_Operator_3D),               intent(in)  :: this
+      real(RNP),                            intent(in)  :: tau
+      class(BoundaryVariable_3D), optional, intent(in)  :: bv(:)
+      real(RNP), contiguous,      optional, intent(in)  :: mu(:,:,:,:)
+      real(RNP), contiguous,      optional, intent(in)  :: nu(:,:,:,:)
+      real(RNP), contiguous,                intent(in)  :: u(:,:,:,:,:)
+      real(RNP), contiguous,                intent(out) :: r(:,:,:,:,:)
+    end subroutine ApplyStokesOperator
 
     !---------------------------------------------------------------------------
     !> Diffusion solver

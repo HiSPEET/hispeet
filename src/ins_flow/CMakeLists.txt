@@ -8,6 +8,7 @@ add_library(HiINSFlow
             operator/ins__operator__3d__mp_applydiffusionoperator_v.f
             operator/ins__operator__3d__mp_applyessentialbc.f
             operator/ins__operator__3d__mp_applynaturalbc.f
+            operator/ins__operator__3d__mp_applystokesoperator.f
             operator/ins__operator__3d__mp_diffusionsolver.f
             operator/ins__operator__3d__mp_getbackflowpenalty.f
             operator/ins__operator__3d__mp_getdiffusionresidual_c.f
