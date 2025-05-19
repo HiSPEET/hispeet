@@ -1,4 +1,4 @@
-!> summary:  Stokes V-cycle for Stokes part in semi-implicit INS solvers
+!> summary:  V-cycle for Stokes part in semi-implicit INS solvers
 !> author:   Joerg Stiller
 !> date:     2025/05/12
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -26,7 +26,7 @@ contains
     class(ML_BoundaryVariable_3D), intent(in) :: bv
       !< boundary values
     class(ML_MeshVariable_3D), intent(inout) :: f
-      !< RHS
+      !< unweighted RHS: f = v₀/τ + f_c + f_s + ...
     class(ML_MeshVariable_3D), intent(inout) :: u
       !< solution
     integer,  optional, intent(in) :: n_cyc
@@ -36,11 +36,11 @@ contains
 
     ! internal variables :::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-    type(ML_MeshVariable_3D), allocatable, save :: mi, r, w
+    type(ML_MeshVariable_3D), allocatable, save :: mm_inv, r, w
     real(RNP), contiguous, pointer, save :: mu_l(:,:,:,:), nu_l(:,:,:,:)
     real(RNP), contiguous, pointer, save :: mu_p(:,:,:,:), nu_p(:,:,:,:)
-    integer, save :: l_top_, n_cyc_
 
+    integer :: l_top_, n_cyc_
     integer :: c, e, l, m, n
 
     associate( problem => this % problem            &
@@ -50,8 +50,6 @@ contains
              , pop_fc  => this % ml_op_u % pop_fc_x )
 
       ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-
-      !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
       if (present(n_cyc)) then
         n_cyc_ = n_cyc
@@ -65,25 +63,27 @@ contains
         l_top_ = size(sem)
       end if
 
+      !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
       mu_l => null()
       nu_l => null()
       mu_p => null()
       nu_p => null()
 
-      allocate(mi, r, w)
-      call mi % Init(this%ml_op_u, nc = problem%nc, l_top = l_top_)
-      call r  % Init(this%ml_op_u, nc = problem%nc, l_top = l_top_)
-      call w  % Init(this%ml_op_u, nc = problem%nc, l_top = l_top_)
+      allocate(mm_inv, r, w)
+      call mm_inv % Init(this%ml_op_u, nc = problem%nc, l_top = l_top_)
+      call r      % Init(this%ml_op_u, nc = problem%nc, l_top = l_top_)
+      call w      % Init(this%ml_op_u, nc = problem%nc, l_top = l_top_)
 
       !$omp end master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
       ! inverse mass matrix
       do l = 1, l_top_
-        associate(mi_l => mi % level(l) % val(:,:,:,:,1))
-          call sem(l) % Get_DG_DiagonalMassMatrix(mi_l)
+        associate(mm_inv => mm_inv % level(l) % val(:,:,:,:,1))
+          call sem(l) % Get_DG_DiagonalMassMatrix(mm_inv)
           !$omp do
           do e = 1, sem(l) % mesh % n_elem
-            mi_l(:,:,:,e) = 1 / mi_l(:,:,:,e)
+            mm_inv(:,:,:,e) = 1 / mm_inv(:,:,:,e)
           end do
           !$omp end do nowait
         end associate
@@ -95,19 +95,19 @@ contains
 
         V_DOWN: do l = l_top_, 2, -1
 
-          associate( ins_l  => this % ins_op(l)                  &
-                   , mesh_l => sem(l  ) % mesh                   &
-                   , mesh_p => sem(l-1) % mesh                   &
-                   , bv_l   => bv % level(l  ) % var            &
-                   , f_l    => f  % level(l  ) % val            &
-                   , u_l    => u  % level(l  ) % val            &
-                   , r_l    => r  % level(l  ) % val            &
-                   , bv_p   => bv % level(l-1) % var            &
-                   , f_p    => f  % level(l-1) % val            &
-                   , u_p    => u  % level(l-1) % val            &
-                   , r_p    => r  % level(l-1) % val            &
-                   , w_p    => w  % level(l-1) % val            &
-                   , mi_p   => mi % level(l-1) % val(:,:,:,:,1) )
+          associate( ins_l    => this % ins_op(l)                     &
+                   , mesh_l   => sem(l  ) % mesh                      &
+                   , mesh_p   => sem(l-1) % mesh                      &
+                   , bv_l     => bv     % level(l  ) % var            &
+                   , f_l      => f      % level(l  ) % val            &
+                   , u_l      => u      % level(l  ) % val            &
+                   , r_l      => r      % level(l  ) % val            &
+                   , bv_p     => bv     % level(l-1) % var            &
+                   , f_p      => f      % level(l-1) % val            &
+                   , u_p      => u      % level(l-1) % val            &
+                   , r_p      => r      % level(l-1) % val            &
+                   , w_p      => w      % level(l-1) % val            &
+                   , mm_inv_p => mm_inv % level(l-1) % val(:,:,:,:,1) )
 
             ! pre-smoothing and residual computation ...........................
 
@@ -142,7 +142,7 @@ contains
             call ChildToParentRestriction_3D &
                      (mesh_l, mesh_p, iop_cf(l-1), r_l, r_p)
 
-            ! parent RHS .......................................................
+            ! unweighted parent RHS ............................................
 
             !$omp do
             do e = 1, mesh_p % n_elem
@@ -160,7 +160,8 @@ contains
             do e = 1, mesh_p % n_elem
               if (mesh_p % element(e) % adaptation % refinement < 1000) cycle
               do c = 1, 4
-                f_p(:,:,:,e,c) = mi_p(:,:,:,e)*(f_p(:,:,:,e,c) + r_p(:,:,:,e,c))
+                f_p(:,:,:,e,c) = mm_inv_p(:,:,:,e) &
+                               * (f_p(:,:,:,e,c) + r_p(:,:,:,e,c))
               end do
             end do
             !$omp end do nowait
@@ -173,10 +174,10 @@ contains
 
         l = 1
 
-        V_COARSE: associate( ins_l  => this % ins_op(l)      &
-                           , bv_l   => bv % level(l  ) % var &
-                           , f_l    => f  % level(l  ) % val &
-                           , u_l    => u  % level(l  ) % val )
+        V_COARSE: associate( ins_l => this % ins_op(l)      &
+                           , bv_l  => bv % level(l  ) % var &
+                           , f_l   => f  % level(l  ) % val &
+                           , u_l   => u  % level(l  ) % val )
 
           !$omp master
           if (present(mu) .and. present(nu)) then
@@ -258,7 +259,7 @@ contains
       end do V_OUTER
 
       !$omp master
-      deallocate(mi, r, w)
+      deallocate(mm_inv, r, w)
       !$omp end master
 
     end associate
