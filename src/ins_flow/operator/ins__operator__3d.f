@@ -663,7 +663,7 @@ contains
     real(RNP), intent(in) :: tau
     !< τ, effective time step width
     real(RNP), contiguous, intent(in) :: f(:,:,:,:,:)
-    !< RHS: f = v₀/τ + F_c + f_s + ...
+    !< unweighted RHS: f = v₀/τ + f_c + f_s + ...
     class(BoundaryVariable_3D), intent(in) :: bv(:)
     !< boundary values
     !!   - Γᴰ :  [ v₁, v₂, v₃, - , -  ]
