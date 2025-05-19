@@ -41,6 +41,8 @@ module ML__INS__Operator__3D
 
   contains
     procedure :: Init_ML_INS_Operator_3D
+    procedure :: Stokes_Cascade
+    procedure :: Stokes_FMG
     procedure :: Stokes_V_Cycle
   end type ML_INS_Operator_3D
 
@@ -71,7 +73,35 @@ module ML__INS__Operator__3D
   interface
 
     !---------------------------------------------------------------------------
+    !> Cascade start procedure for the Stokes part
+
+    module subroutine Stokes_Cascade(this, tau, mu, nu, bv, f, u)
+      class(ML_INS_Operator_3D),           intent(in)    :: this
+      real(RNP),                           intent(in)    :: tau
+      class(ML_MeshVariable_3D), optional, intent(in)    :: mu
+      class(ML_MeshVariable_3D), optional, intent(in)    :: nu
+      class(ML_BoundaryVariable_3D),       intent(in)    :: bv
+      class(ML_MeshVariable_3D),           intent(inout) :: f
+      class(ML_MeshVariable_3D),           intent(inout) :: u
+    end subroutine Stokes_Cascade
+
+    !---------------------------------------------------------------------------
+    !> FMG start procedure for the Stokes part
+
+    module subroutine Stokes_FMG(this, tau, mu, nu, bv, f, u, n_cyc)
+      class(ML_INS_Operator_3D),           intent(in)    :: this
+      real(RNP),                           intent(in)    :: tau
+      class(ML_MeshVariable_3D), optional, intent(in)    :: mu
+      class(ML_MeshVariable_3D), optional, intent(in)    :: nu
+      class(ML_BoundaryVariable_3D),       intent(in)    :: bv
+      class(ML_MeshVariable_3D),           intent(inout) :: f
+      class(ML_MeshVariable_3D),           intent(inout) :: u
+      integer,                   optional, intent(in)    :: n_cyc
+    end subroutine Stokes_FMG
+
+    !---------------------------------------------------------------------------
     !> Performs one or more FAS-MG V-cycles for the Stokes part
+
     module subroutine Stokes_V_Cycle(this, tau, mu, nu, bv, f, u, n_cyc, l_top)
       class(ML_INS_Operator_3D),           intent(in)    :: this
       real(RNP),                           intent(in)    :: tau
