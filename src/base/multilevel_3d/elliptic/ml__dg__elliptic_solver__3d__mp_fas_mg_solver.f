@@ -81,12 +81,12 @@ contains
     ! internal variables :::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
     type(ML_MeshVariable_3D), allocatable, save :: r, v
-    integer, save :: start_method
-    integer, save :: l_top_
     logical, save :: converged
 
     real(RNP) :: rr, r_max, r_new, r_old
     logical :: check_convergence
+    integer :: start_method
+    integer :: l_top_
     integer :: e, l, m, n
 
     associate( sem    => this % ml_op % sem      &
@@ -97,18 +97,19 @@ contains
 
       ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-      check_convergence = max(this%r_red, this%r_max) > 0
-
-      !$omp master
       if (present(l_top)) then
         l_top_ = min(l_top, size(sem))
       else
         l_top_ = size(sem)
       end if
+
+      check_convergence = max(this%r_red, this%r_max) > 0
+      start_method = this % start_method
+
+      !$omp master
       allocate(r, v)
       call r % Init(this%ml_op, nc = 1, l_top = l_top_)
       call v % Init(this%ml_op, nc = 1, l_top = l_top_)
-      start_method = this % start_method
       !$omp end master
 
       do l = 1, l_top_
