@@ -210,7 +210,7 @@ contains
       ! initial velocity and effective step size ...............................
 
       if (first) then
-        !$omp do
+        !$omp do collapse(2)
         do d = 1, 3
         do e = 1, mesh % n_elem
           v_0  (:,:,:,e,d) = v(:,:,:,e,d)
