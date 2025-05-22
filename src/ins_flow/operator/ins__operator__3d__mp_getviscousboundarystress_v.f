@@ -36,8 +36,8 @@ contains
 
     class(BoundaryVariable_3D), optional, intent(in) :: bv(:)
     !< boundary values at final time t
-    !!   - Γᴰ :  vᵇ    in components 1:3, currently unused
-    !!   - Γᴼ :  τ_nn  in component    4, including penalty term
+    !!   - Γᴰ :  [ v₁, v₂, v₃  , - ]    (currently unused)
+    !!   - Γᴼ :  [ - , - , τ_nn, - ]
     !!
     !! ignored at extrapolated boundaries
 
@@ -376,6 +376,11 @@ contains
       tau(1,2) = nu(i,j) * (grad_v(i,j,1,2) + grad_v(i,j,2,1))
       tau(1,3) = nu(i,j) * (grad_v(i,j,1,3) + grad_v(i,j,3,1))
       tau(2,3) = nu(i,j) * (grad_v(i,j,2,3) + grad_v(i,j,3,2))
+
+      ! symmetry
+      tau(2,1) = tau(1,2)
+      tau(3,1) = tau(1,3)
+      tau(3,2) = tau(2,3)
 
       ! stress vector
       do c = 1, 3

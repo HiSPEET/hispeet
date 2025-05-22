@@ -16,6 +16,7 @@ add_library(HiINSFlow
             operator/ins__operator__3d__mp_getdiffusionterm_c.F
             operator/ins__operator__3d__mp_getdiffusionterm_v.F
             operator/ins__operator__3d__mp_getstokesresidual.f
+            operator/ins__operator__3d__mp_getvariableviscosity.f
             operator/ins__operator__3d__mp_getviscousboundarystress_c.f
             operator/ins__operator__3d__mp_getviscousboundarystress_v.f
             operator/ins__operator__3d__mp_pressuresolver.f

@@ -20,16 +20,12 @@ contains
 
     class(INS_Operator_3D), intent(in) :: this !< INS operator
 
-    real(RNP), intent(in) :: tau !<  effective time step width
+    real(RNP), intent(in) :: tau !< effective time step width
 
-    class(BoundaryVariable_3D), intent(inout) :: bv_u(:)
+    class(BoundaryVariable_3D), intent(in) :: bv_u(:)
     !< boundary values
-    !!   - components 1:3
-    !!       * Γᴰ :  vᵇ  →  vᵇ         (unchanged)
-    !!       * Γᴼ :  ×                 (unused)
-    !!   - component 4
-    !!       * Γᴰ :  ×   →  ∂p/∂n
-    !!       * Γᴼ :  pᵇ  →  pᵇ         (unchanged)
+    !!   - Γᴰ :  [ v₁, v₂, v₃, - ]    (1:3 unchanged)
+    !!   - Γᴼ :  [ - , - , - , p ]    (all unchanged)
 
     real(RNP), contiguous, intent(in)    :: v(:,:,:,:,:) !< preliminary velocity
     real(RNP), contiguous, intent(in)    :: f(:,:,:,:)   !< source at v-points
@@ -74,7 +70,7 @@ contains
       allocate(g, mold = mm)
       allocate(bv_p(mesh % n_bound))
       do b = 1, mesh % n_bound
-        call bv_u(b) % GetSlice(bv_p(b), first = 4, last = 4)
+        call bv_p(b) % Init(mesh%boundary(b), po, nc = 1)
       end do
       if (pq /= po) then
         allocate(q, mold = mm)
@@ -187,7 +183,7 @@ contains
                            , vb       = bv_u(b) % val(:,:,:,1:3)     &
                            , dn_p     = bv_p(b) % val(:,:,:,1)       )
       case('D')
-        ! Dirichlet BC already copied to bv_p(b)
+        call SetArray(bv_p(b) % val(:,:,:,1), bv_u(b) % val(:,:,:,4))
       end select
 
       if (present(bv_q)) then

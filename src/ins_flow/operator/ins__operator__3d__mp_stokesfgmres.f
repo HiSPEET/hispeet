@@ -35,8 +35,8 @@ contains
     !< RHS: f = v₀/τ + F_c + f_s + ...
     class(BoundaryVariable_3D), intent(in) :: bv(:)
     !< boundary values
-    !!   - Γᴰ :  [ v₁, v₂, v₃, - , -  ]
-    !!   - Γᴼ :  [ - , - , - , p , ∆p ]
+    !!   - Γᴰ :  [ v₁, v₂, v₃, - ]
+    !!   - Γᴼ :  [ - , - , ∆p, p ]
     real(RNP), contiguous, optional, intent(in) :: mu(:,:,:,:)
     !< μ, kinematic bulk viscosity
     real(RNP), contiguous, optional, intent(in) :: nu(:,:,:,:)

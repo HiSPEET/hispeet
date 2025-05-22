@@ -36,12 +36,8 @@ contains
 
     class(BoundaryVariable_3D), intent(in) :: bv(:)
     !< boundary values
-    !!   - at ∂Ωᴰ
-    !!       *  bv % val(*,1:3)  =  vᵇ          (inout)
-    !!       *  bv % val(*, 4 )  =  ∂p/∂n       (out)
-    !!   - at ∂Ωᴼ
-    !!       *  bv % val(*, 4 )  =  pᵇ          (inout)
-    !!       *  bv % val(*, 5 )  =  ∆pᵇ         (in)
+    !!   - Γᴰ :  [ v₁, v₂, v₃, - ]
+    !!   - Γᴼ :  [ - , - , ∆p, p ]
 
     real(RNP), contiguous, intent(in) :: v(:,:,:,:,:)
     !< velocity, v(np,np,np,ne,3)

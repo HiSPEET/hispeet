@@ -56,8 +56,8 @@ contains
 
     class(BoundaryVariable_3D), optional, intent(in) :: bv_v(:)
     !< boundary values
-    !!   - Γᴰ :  vᵇ    in components 1:3
-    !!   - Γᴼ :  τ_nn  in component    4, including penalty term
+    !!   - Γᴰ :  [ v₁, v₂, v₃, -    ]
+    !!   - Γᴼ :  [ - , - , - , τ_nn ],    τ_nn = p + ∆p
     !!
     !! skipping `bv_v` yields the homogeneous operator
 

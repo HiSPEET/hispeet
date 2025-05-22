@@ -41,8 +41,8 @@ contains
     !< RHS: f = v₀/τ + F_c + f_s + ...
     class(BoundaryVariable_3D), intent(in) :: bv(:)
     !< boundary values
-    !!   - Γᴰ :  [ v₁, v₂, v₃, - , -  ]
-    !!   - Γᴼ :  [ - , - , - , p , ∆p ]
+    !!   - Γᴰ :  [ v₁, v₂, v₃, - ]
+    !!   - Γᴼ :  [ - , - , ∆p, p ]
     real(RNP), contiguous, optional, intent(in) :: mu(:,:,:,:)
     !< μ, kinematic bulk viscosity
     real(RNP), contiguous, optional, intent(in) :: nu(:,:,:,:)
@@ -90,10 +90,10 @@ contains
       allocate(bv_dp( mesh%n_bound ))
       do b = 1, mesh % n_bound
         ! copy bv to bv_w to keep the former unchanged
-        call bv(b) % GetSlice(first=1, last=5, slice=bv_w(b), copy=.true.)
+        call bv(b) % GetSlice(first=1, last=4, slice=bv_w(b), copy=.true.)
         ! generate pointer-based handles for pressure boundary values
         call bv_w(b) % GetSlice(first=4, last=4, slice=bv_p (b))
-        call bv_w(b) % GetSlice(first=5, last=5, slice=bv_dp(b))
+        call bv_w(b) % GetSlice(first=3, last=3, slice=bv_dp(b))
       end do
       !$omp end master
       !$omp barrier

@@ -110,6 +110,9 @@ contains
     type(BoundaryVariable_3D), allocatable, save :: bv_v(:)
     type(BoundaryVariable_3D), allocatable, save :: bv_p(:)
     type(BoundaryVariable_3D), allocatable, save :: bv_dp(:)
+    ! components of bv_u
+    !   'D' - Dirichlet:  [ v₁, v₂, v₃, - ]
+    !   'O' - Outflow:    [ - , - , ∆p, p ]
 
     ! IMEX BDF2 coefficients
     real(RNP), parameter :: gamma_0 =  3 * HALF
@@ -184,11 +187,11 @@ contains
 
         do b = 1, mesh % n_bound
           call bv_x(b) % Init(mesh % boundary(b), po, nc = 3)
-          call bv_u(b) % Init(mesh % boundary(b), po, nc = 5)
+          call bv_u(b) % Init(mesh % boundary(b), po, nc = 4)
           call bv_x(b) % Extract(sem_u % metrics % x)
           call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v (b))
           call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p (b))
-          call bv_u(b) % GetSlice(first=5, last=5, slice = bv_dp(b))
+          call bv_u(b) % GetSlice(first=3, last=3, slice = bv_dp(b))
         end do
 
       end if
@@ -245,8 +248,8 @@ contains
 
       call problem % GetExternalSources(sem_u % metrics % x, t, f)
 
-      if (problem % HasVariableProperties()) then
-        call problem % GetViscosity(sem_u % metrics % x, t, u, nu)
+      if (ins_op % HasVariableViscosity()) then
+        call ins_op % GetVariableViscosity(t, u, mu, nu)
       end if
 
       ! diffusion term using rotational form with extrapolation: s⁺ = s⁻ at ∂Ωᴼ

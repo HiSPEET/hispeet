@@ -51,7 +51,8 @@ module INS__Operator__3D
     character(len=4) :: pressure_solver  !< pressure solver
     character(len=4) :: diffusion_solver !< diffusion solver
 
-    real(RNP) :: mu_0      !< bulk viscosity,  μ = ζ/ρ
+    real(RNP) :: mu_0      !< const bulk viscosity,   μ = ζ/ρ
+    real(RNP) :: nu_0      !< const shear viscosity,  ν = η/ρ
     real(RNP) :: delta_out !< δ parameter of outflow conditions
 
     ! element operators
@@ -90,6 +91,8 @@ module INS__Operator__3D
     generic   :: Init => Init_INS_Operator_3D
     procedure :: Init_INS_Operator_3D
 
+    procedure :: HasVariableViscosity
+
     procedure :: ApplyEssentialBC
     procedure :: ApplyNaturalBC
 
@@ -112,6 +115,8 @@ module INS__Operator__3D
     procedure :: GetDiffusionTerm_V
 
     procedure :: GetStokesResidual
+
+    procedure :: GetVariableViscosity
 
     procedure :: GetViscousBoundaryStress
     procedure :: GetViscousBoundaryStress_C
@@ -318,6 +323,17 @@ module INS__Operator__3D
     end subroutine GetStokesResidual
 
     !---------------------------------------------------------------------------
+    !> Variable viscosity coefficients
+
+    module subroutine GetVariableViscosity(this, t, u, mu, nu)
+      class(INS_Operator_3D), intent(in)  :: this
+      real(RNP),              intent(in)  :: t
+      real(RNP),  contiguous, intent(in)  :: u(:,:,:,:,:)
+      real(RNP),  contiguous, intent(out) :: mu(:,:,:,:)
+      real(RNP),  contiguous, intent(out) :: nu(:,:,:,:)
+    end subroutine GetVariableViscosity
+
+    !---------------------------------------------------------------------------
     !> Viscous stress vector on a boundary (C)
 
     module subroutine GetViscousBoundaryStress_C &
@@ -353,7 +369,7 @@ module INS__Operator__3D
     module subroutine PressureSolver(this, tau, bv_u, v, f, p, precon, ni)
       class(INS_Operator_3D),     intent(in)    :: this
       real(RNP),                  intent(in)    :: tau
-      class(BoundaryVariable_3D), intent(inout) :: bv_u(:)
+      class(BoundaryVariable_3D), intent(in)    :: bv_u(:)
       real(RNP), contiguous,      intent(in)    :: v(:,:,:,:,:)
       real(RNP), contiguous,      intent(in)    :: f(:,:,:,:)
       real(RNP), contiguous,      intent(inout) :: p(:,:,:,:)
@@ -459,6 +475,7 @@ contains
     this % pressure_solver  = opt % pressure_solver
     this % diffusion_solver = opt % diffusion_solver
     this % mu_0             = opt % mu_0
+    this % nu_0             = problem % nu_ref
     this % delta_out        = opt % delta_out
 
     ! element operators ........................................................
@@ -534,6 +551,18 @@ contains
     this % r_max   = opt % r_max
 
   end subroutine Init_INS_Operator_3D
+
+  !-----------------------------------------------------------------------------
+  !> Function for enquiring wether viscosity coefficients are variable
+
+  logical function HasVariableViscosity(this)
+    class(INS_Operator_3D), intent(in) :: this
+
+    HasVariableViscosity = this % problem % HasVariableProperties()
+
+    ! TBD: variation due to SGS model
+
+  end function HasVariableViscosity
 
   !-----------------------------------------------------------------------------
   !> Diffusion term with constant viscosity
@@ -666,8 +695,8 @@ contains
     !< unweighted RHS: f = v₀/τ + f_c + f_s + ...
     class(BoundaryVariable_3D), intent(in) :: bv(:)
     !< boundary values
-    !!   - Γᴰ :  [ v₁, v₂, v₃, - , -  ]
-    !!   - Γᴼ :  [ - , - , - , p , ∆p ]
+    !!   - Γᴰ :  [ v₁, v₂, v₃, - ]
+    !!   - Γᴼ :  [ - , - , ∆p, p ]
     real(RNP), contiguous, optional, intent(inout) :: mu(:,:,:,:)
     !< μ, kinematic bulk viscosity
     real(RNP), contiguous, optional, intent(inout) :: nu(:,:,:,:)

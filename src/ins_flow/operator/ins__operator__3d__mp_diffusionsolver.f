@@ -126,7 +126,7 @@ contains
       if (present(nu)) then
         call TPO_Average(this%eop_u%w, nu, nu_avg)
       else
-        call SetArray(nu_avg, this % problem % nu_ref)
+        call SetArray(nu_avg, this % nu_0)
       end if
 
       ! iteration ..............................................................
