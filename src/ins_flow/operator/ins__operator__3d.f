@@ -605,10 +605,16 @@ contains
     real(RNP), contiguous,           intent(out) :: r(:,:,:,:,:)
     integer,               optional, intent(in)  :: form
 
-    if (present(mu) .and. present(nu)) then
-      call this % ApplyDiffusionOperator_V(tau, mu, nu, v, r, form)
-    else
+    if (.not. this % HasVariableViscosity()) then
       call this % ApplyDiffusionOperator_C(tau, v, r, form)
+
+    else if (present(mu) .and. present(nu)) then
+      call this % ApplyDiffusionOperator_V(tau, mu, nu, v, r, form)
+
+    else
+      call Error( 'ApplyDiffusionOperator'                     &
+                , 'mu and nu required with variable viscosity' &
+                , 'INS_Operator_3D'                            )
     end if
 
   end subroutine ApplyDiffusionOperator
@@ -627,10 +633,16 @@ contains
     real(RNP), contiguous,           intent(out) :: r(:,:,:,:,:)
     integer,               optional, intent(in)  :: form
 
-    if (present(mu) .and. present(nu)) then
-      call this % GetDiffusionResidual_V(tau, mu, nu, f, bv, v, r, form)
-    else
+    if (.not. this % HasVariableViscosity()) then
       call this % GetDiffusionResidual_C(tau, f, bv, v, r, form)
+
+    else if (present(mu) .and. present(nu)) then
+      call this % GetDiffusionResidual_V(tau, mu, nu, f, bv, v, r, form)
+
+    else
+      call Error( 'GetDiffusionResidual'                     &
+                , 'mu and nu required with variable viscosity' &
+                , 'INS_Operator_3D'                            )
     end if
 
   end subroutine GetDiffusionResidual
@@ -650,10 +662,16 @@ contains
     logical,                    optional, intent(in)  :: xout
     integer,                    optional, intent(in)  :: form
 
-    if (present(mu) .and. present(nu)) then
-      call this % GetDiffusionTerm_V(mu, nu, v, vp, sp, f_d, bv, xout, form)
-    else
+    if (.not. this % HasVariableViscosity()) then
       call this % GetDiffusionTerm_C(v, vp, sp, f_d, bv, xout, form)
+
+    else if (present(mu) .and. present(nu)) then
+      call this % GetDiffusionTerm_V(mu, nu, v, vp, sp, f_d, bv, xout, form)
+
+    else
+      call Error( 'GetDiffusionTerm'                           &
+                , 'mu and nu required with variable viscosity' &
+                , 'INS_Operator_3D'                            )
     end if
 
   end subroutine GetDiffusionTerm
@@ -672,10 +690,16 @@ contains
     logical,                    optional, intent(in)  :: xout
     integer,                    optional, intent(in)  :: form
 
-    if (present(mu) .and. present(nu)) then
-      call this % GetViscousBoundaryStress_V(b, mu, nu, v, sb, bv, xout, form)
-    else
+    if (.not. this % HasVariableViscosity()) then
       call this % GetViscousBoundaryStress_C(b, v, sb, bv, xout, form)
+
+    else if (present(mu) .and. present(nu)) then
+      call this % GetViscousBoundaryStress_V(b, mu, nu, v, sb, bv, xout, form)
+
+    else
+      call Error( 'GetViscousBoundaryStress'                   &
+                , 'mu and nu required with variable viscosity' &
+                , 'INS_Operator_3D'                            )
     end if
 
   end subroutine GetViscousBoundaryStress
@@ -706,10 +730,26 @@ contains
     real(RNP), contiguous, optional, intent(in) :: f_d0(:,:,:,:,:)
     !< approximate diffusion term
 
-    if (this % k_max > 0) then
-      call StokesFGMRES(this, tau, f, bv, mu, nu, u, f_d0)
+    if (.not. this % HasVariableViscosity()) then
+
+      if (this % k_max > 0) then
+        call StokesFGMRES(this, tau, f, bv, null(), null(), u, f_d0)
+      else
+        call StokesProjection(this, tau, f, bv, null(), null(), u, f_d0)
+      end if
+
+    else if (present(mu) .and. present(nu)) then
+
+      if (this % k_max > 0) then
+        call StokesFGMRES(this, tau, f, bv, mu, nu, u, f_d0)
+      else
+        call StokesProjection(this, tau, f, bv, mu, nu, u, f_d0)
+      end if
+
     else
-      call StokesProjection(this, tau, f, bv, mu, nu, u, f_d0)
+      call Error( ''                     &
+                , 'mu and nu required with variable viscosity' &
+                , 'INS_Operator_3D'                            )
     end if
 
   end subroutine StokesSolver

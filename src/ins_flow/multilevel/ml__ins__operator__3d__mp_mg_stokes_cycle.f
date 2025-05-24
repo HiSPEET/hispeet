@@ -4,7 +4,7 @@
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
 !===============================================================================
 
-submodule (ML__INS__Operator__3D) MP_Stokes_V_Cycle
+submodule (ML__INS__Operator__3D) MP_MG_Stokes_Cycle
   use Child_To_Parent_Projection__3D
   use Child_To_Parent_Restriction__3D
   use Parent_To_Child_Interpolation__3D
@@ -15,13 +15,13 @@ contains
   !-----------------------------------------------------------------------------
   !> Performs one or more FAS-MG V-cycles for the Stokes part
 
-  module subroutine Stokes_V_Cycle(this, tau, mu, nu, bv, f, u, n_cyc, l_top)
+  module subroutine MG_Stokes_Cycle(this, tau, mu, nu, bv, f, u, n_cyc, l_top)
     class(ML_INS_Operator_3D), intent(in) :: this
     real(RNP), intent(in) :: tau
       !< effective time step
-    class(ML_MeshVariable_3D), optional, intent(in) :: mu
+    class(ML_MeshVariable_3D), intent(in) :: mu
       !< bulk viscosity
-    class(ML_MeshVariable_3D), optional, intent(in) :: nu
+    class(ML_MeshVariable_3D), intent(in) :: nu
       !< shear viscosity
     class(ML_BoundaryVariable_3D), intent(in) :: bv
       !< boundary values
@@ -37,8 +37,6 @@ contains
     ! internal variables :::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
     type(ML_MeshVariable_3D), allocatable, save :: mm_inv, r, w
-    real(RNP), contiguous, pointer, save :: mu_l(:,:,:,:), nu_l(:,:,:,:)
-    real(RNP), contiguous, pointer, save :: mu_p(:,:,:,:), nu_p(:,:,:,:)
 
     integer :: l_top_, n_cyc_
     integer :: c, e, l, m, n
@@ -64,11 +62,6 @@ contains
       end if
 
       !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      mu_l => null()
-      nu_l => null()
-      mu_p => null()
-      nu_p => null()
 
       allocate(mm_inv, r, w)
       call mm_inv % Init(this%ml_op_u, nc = problem%nc, l_top = l_top_)
@@ -99,10 +92,14 @@ contains
                    , mesh_l   => sem(l  ) % mesh                      &
                    , mesh_p   => sem(l-1) % mesh                      &
                    , bv_l     => bv     % level(l  ) % var            &
+                   , mu_l     => mu     % level(l  ) % val(:,:,:,:,1) &
+                   , nu_l     => nu     % level(l  ) % val(:,:,:,:,1) &
                    , f_l      => f      % level(l  ) % val            &
                    , u_l      => u      % level(l  ) % val            &
                    , r_l      => r      % level(l  ) % val            &
                    , bv_p     => bv     % level(l-1) % var            &
+                   , mu_p     => mu     % level(l-1) % val(:,:,:,:,1) &
+                   , nu_p     => nu     % level(l-1) % val(:,:,:,:,1) &
                    , f_p      => f      % level(l-1) % val            &
                    , u_p      => u      % level(l-1) % val            &
                    , r_p      => r      % level(l-1) % val            &
@@ -111,17 +108,9 @@ contains
 
             ! pre-smoothing and residual computation ...........................
 
-            !$omp master
-            if (present(mu) .and. present(nu)) then
-              mu_l => mu % level(l  ) % val(:,:,:,:,1)
-              nu_l => nu % level(l  ) % val(:,:,:,:,1)
-              mu_p => mu % level(l-1) % val(:,:,:,:,1)
-              nu_p => nu % level(l-1) % val(:,:,:,:,1)
+            if (m > 1 .or. l < l_top_) then
+              call ins_l % StokesSolver(tau, f_l, bv_l, mu_l, nu_l, u_l)
             end if
-            !$omp end master
-            !!omp barrier after initialization in StokesProjection/FGMRES
-
-            call ins_l % StokesSolver(tau, f_l, bv_l, mu_l, nu_l, u_l)
             call ins_l % GetStokesResidual(tau, f_l, bv_l, mu_l, nu_l, u_l, r_l)
 
             ! restriction ......................................................
@@ -172,35 +161,26 @@ contains
 
         ! coarse grid solver ...................................................
 
-        l = 1
-
-        V_COARSE: associate( ins_l => this % ins_op(l)      &
-                           , bv_l  => bv % level(l  ) % var &
-                           , f_l   => f  % level(l  ) % val &
-                           , u_l   => u  % level(l  ) % val )
-
-          !$omp master
-          if (present(mu) .and. present(nu)) then
-            mu_l => mu % level(l) % val(:,:,:,:,1)
-            nu_l => nu % level(l) % val(:,:,:,:,1)
-          end if
-          !$omp end master
-
-          call ins_l % StokesSolver(tau, f_l, bv_l, mu_l, nu_l, u_l)
-
-        end associate V_COARSE
+        call this % ins_op(1) % StokesSolver( tau                            &
+                                            , f  % level(1) % val            &
+                                            , bv % level(1) % var            &
+                                            , mu % level(1) % val(:,:,:,:,1) &
+                                            , nu % level(1) % val(:,:,:,:,1) &
+                                            , u  % level(1) % val            )
 
         V_UP: do l = 2, l_top_
 
-          associate( ins_l  => this % ins_op(l)      &
-                   , mesh_l => sem(l  ) % mesh       &
-                   , mesh_p => sem(l-1) % mesh       &
-                   , bv_l   => bv % level(l  ) % var &
-                   , f_l    => f  % level(l  ) % val &
-                   , u_l    => u  % level(l  ) % val &
-                   , w_l    => r  % level(l  ) % val &
-                   , u_p    => u  % level(l-1) % val &
-                   , w_p    => w  % level(l-1) % val )
+          associate( ins_l  => this % ins_op(l)                 &
+                   , mesh_l => sem(l  ) % mesh                  &
+                   , mesh_p => sem(l-1) % mesh                  &
+                   , bv_l   => bv % level(l  ) % var            &
+                   , mu_l   => mu % level(l  ) % val(:,:,:,:,1) &
+                   , nu_l   => nu % level(l  ) % val(:,:,:,:,1) &
+                   , f_l    => f  % level(l  ) % val            &
+                   , u_l    => u  % level(l  ) % val            &
+                   , w_l    => r  % level(l  ) % val            &
+                   , u_p    => u  % level(l-1) % val            &
+                   , w_p    => w  % level(l-1) % val            )
 
           ! prolongation .......................................................
 
@@ -244,13 +224,6 @@ contains
 
           ! post-smoothing .....................................................
 
-          !$omp master
-          if (present(mu) .and. present(nu)) then
-            mu_l => mu % level(l) % val(:,:,:,:,1)
-            nu_l => nu % level(l) % val(:,:,:,:,1)
-          end if
-          !$omp end master
-
           call ins_l % StokesSolver(tau, f_l, bv_l, mu_l, nu_l, u_l)
 
           end associate
@@ -264,8 +237,8 @@ contains
 
     end associate
 
-  end subroutine Stokes_V_Cycle
+  end subroutine MG_Stokes_Cycle
 
   !=============================================================================
 
-end submodule MP_Stokes_V_Cycle
+end submodule MP_MG_Stokes_Cycle

@@ -7,16 +7,12 @@
 module INS__Integrator__BDF2__3D
   use Kind_Parameters
   use Constants
-  use Array_Assignments
   use XMPI
-
-  use Trace_Operators__3D
-  use Element_Face_Transfer_Buffer__3D
   use Boundary_Variable__3D
-
   use INS__Integrator__3D
   use INS__Problem__3D
   use INS__Operator__3D
+  use INS__Integrator__BDF2__PrepStep__3D
 
   implicit none
   private
@@ -74,12 +70,12 @@ contains
     ! intialize parent type
     call this % Init_INS_Integrator_3D(problem, ins_op, opt)
 
-    this % name    = 'BDF2 method'
+    this % name = 'BDF2 method'
 
   end subroutine Init_INS_Integrator_BDF2_3D
 
   !-----------------------------------------------------------------------------
-  !> Execution of an BDF2 time step
+  !> Execution of a BDF2 time step
 
   subroutine TimeStep(this, t, dt, u, standby)
     class(INS_Integrator_BDF2_3D), intent(inout) :: this
@@ -90,228 +86,75 @@ contains
 
     ! internal variables .......................................................
 
-    real(RNP), allocatable, save :: inv_mm(:,:,:,:) ! inverse diagonal mass matrix
-    real(RNP), allocatable, save :: v_0(:,:,:,:,:)  ! initial velocity
-    real(RNP), allocatable, save :: f_c(:,:,:,:,:)  ! convection term
-    real(RNP), allocatable, save :: f_d(:,:,:,:,:)  ! diffusion term
-    real(RNP), allocatable, save :: f  (:,:,:,:,:)  ! source term / RHS
-    real(RNP), allocatable, save :: vp (:,:,:,:,:)  ! outer velocity traces v⁺
-    real(RNP), allocatable, save :: sp (:,:,:,:,:)  ! outer viscous flux traces s⁺
-    real(RNP), allocatable, save :: mu (:,:,:,:)    ! variable bulk diffusivity μ
-    real(RNP), allocatable, save :: nu (:,:,:,:)    ! variable shear diffusivity ν
+    real(RNP), allocatable, save :: f  (:,:,:,:,:) ! unweighted RHS
+    real(RNP), allocatable, save :: f_d(:,:,:,:,:) ! unweighted diffusion term
+    real(RNP), allocatable, save :: mu (:,:,:,:)   ! bulk diffusivity μ
+    real(RNP), allocatable, save :: nu (:,:,:,:)   ! shear diffusivity ν
 
-    real(RNP), allocatable, save :: v_old  (:,:,:,:,:) ! flow variables  (t₀-∆t)
-    real(RNP), allocatable, save :: f_c_old(:,:,:,:,:) ! convection term (t₀-∆t)
-    real(RNP), allocatable, save :: f_d_old(:,:,:,:,:) ! diffusion term  (t₀-∆t)
+    ! saved at time t₁ = t₀-∆t
+    real(RNP), allocatable, save :: u1  (:,:,:,:,:) ! flow variables
+    real(RNP), allocatable, save :: f_c1(:,:,:,:,:) ! unweighted convection term
+    real(RNP), allocatable, save :: f_d1(:,:,:,:,:) ! unweighted diffusion term
 
-    ! boundary points and values
-    type(BoundaryVariable_3D), allocatable, save :: bv_x(:)
-    type(BoundaryVariable_3D), allocatable, save :: bv_u(:)
-    type(BoundaryVariable_3D), allocatable, save :: bv_v(:)
-    type(BoundaryVariable_3D), allocatable, save :: bv_p(:)
-    type(BoundaryVariable_3D), allocatable, save :: bv_dp(:)
-    ! components of bv_u
-    !   'D' - Dirichlet:  [ v₁, v₂, v₃, - ]
-    !   'O' - Outflow:    [ - , - , ∆p, p ]
+    type(BoundaryVariable_3D), allocatable, save :: bv_u(:) ! boundary values
 
-    ! IMEX BDF2 coefficients
-    real(RNP), parameter :: gamma_0 =  3 * HALF
-    real(RNP), parameter :: alpha_0 =  2
-    real(RNP), parameter :: alpha_1 = -HALF
-    real(RNP), parameter :: beta_0  =  2
-    real(RNP), parameter :: beta_1  = -1
+    logical, save :: first
+    real(RNP) :: tau
+    integer   :: b, np
 
-    ! control
-    real(RNP), save :: t_0 = -huge(ONE)
-    real(RNP), save :: t_1 = -huge(ONE)
-    logical,   save :: first
-
-    ! auxiliary
-    real(RNP), allocatable :: w(:,:,:)
-    real(RNP) :: a0, a1, tau
-    integer   :: b, d, e, np, po
-
-    associate( problem => this % problem        &
-             , ins_op  => this % ins_op         &
-             , mesh    => this % ins_op % mesh  &
-             , sem_u   => this % ins_op % sem_u &
-             , v       => u(:,:,:,:,1:3)        )
+    associate( ins_op => this % ins_op              &
+             , mesh   => this % ins_op % mesh       &
+             , po     => this % ins_op % eop_u % po &
+             , nc     => this % problem % nc        )
 
       ! initialization .........................................................
 
-      po = ins_op % eop_u % po
       np = po + 1
 
-      !$omp master
+      !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-      if (allocated(v_0)) then
-        if (any(shape(v_0) /= shape(v))) then
-          deallocate(inv_mm, v_0, f_c, f_d, f, vp, sp)
-          deallocate(v_old, f_c_old, f_d_old)
-          deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp)
+      if (allocated(f)) then
+        first = any(shape(f) /= shape(u))
+        if (first) then
+          deallocate(f, bv_u, f_d, u1, f_c1, f_d1)
           if (allocated(mu)) deallocate(mu)
           if (allocated(nu)) deallocate(nu)
         end if
+      else
+        first = .true.
       end if
 
-      if (allocated(v_0)) then
+      if (first) then
 
-        first = t_0 /= t .or. abs(t_1 + dt - t) > epsilon(ONE)
+        allocate(f(np, np, np, mesh%n_elem, nc), source = ZERO)
+        allocate(f_d, u1, f_c1, f_d1, source = f)
 
-      else
-
-        first = .true.
-
-        allocate( inv_mm  (np, np, np, mesh % n_elem   ), source = ZERO )
-        allocate( v_0     (np, np, np, mesh % n_elem, 3), source = ZERO )
-        allocate( f_c     (np, np, np, mesh % n_elem, 3), source = ZERO )
-        allocate( f_d     (np, np, np, mesh % n_elem, 3), source = ZERO )
-        allocate( f       (np, np, np, mesh % n_elem, 3), source = ZERO )
-        allocate( vp      (np, np,  6, mesh % n_elem, 3), source = ZERO )
-        allocate( sp      (np, np,  6, mesh % n_elem, 3), source = ZERO )
-
-        if (problem % HasVariableProperties()) then
-          allocate( mu(np, np, np, mesh % n_elem), source = this%ins_op%mu_0 )
-          allocate( nu(np, np, np, mesh % n_elem), source = ZERO )
+        if (ins_op % HasVariableViscosity()) then
+          allocate(mu(np, np, np, mesh%n_elem))
+          allocate(nu(np, np, np, mesh%n_elem))
         end if
 
-        allocate( v_old   (np, np, np, mesh % n_elem, 3), source = ZERO )
-        allocate( f_c_old (np, np, np, mesh % n_elem, 3), source = ZERO )
-        allocate( f_d_old (np, np, np, mesh % n_elem, 3), source = ZERO )
-
-        allocate( bv_x  (mesh % n_bound) )
-        allocate( bv_u  (mesh % n_bound) )
-        allocate( bv_v  (mesh % n_bound) )
-        allocate( bv_p  (mesh % n_bound) )
-        allocate( bv_dp (mesh % n_bound) )
-
+        allocate(bv_u(mesh % n_bound))
         do b = 1, mesh % n_bound
-          call bv_x(b) % Init(mesh % boundary(b), po, nc = 3)
-          call bv_u(b) % Init(mesh % boundary(b), po, nc = 4)
-          call bv_x(b) % Extract(sem_u % metrics % x)
-          call bv_u(b) % GetSlice(first=1, last=3, slice = bv_v (b))
-          call bv_u(b) % GetSlice(first=4, last=4, slice = bv_p (b))
-          call bv_u(b) % GetSlice(first=3, last=3, slice = bv_dp(b))
+          call bv_u(b) % Init(mesh % boundary(b), po, nc = nc)
         end do
 
       end if
 
-      t_0 = t
-      t   = t + dt
+      !$omp end master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!omp barrier    !! not required because of barrier in BDF2_PrepStep_3D
 
-      !$omp end master
-      !$omp barrier
+      ! time step ..............................................................
 
-      ! inverse diagonal mass matrix
-      call sem_u % Get_DG_DiagonalMassMatrix(inv_mm)
-      !$omp workshare
-      inv_mm = 1 / inv_mm
-      !$omp end workshare nowait
-
-      allocate(w(np,np,np))
-
-      ! initial velocity and effective step size ...............................
-
-      if (first) then
-        !$omp do collapse(2)
-        do d = 1, 3
-        do e = 1, mesh % n_elem
-          v_0  (:,:,:,e,d) = v(:,:,:,e,d)
-          v_old(:,:,:,e,d) = v(:,:,:,e,d)
-        end do
-        end do
-        tau = dt
-      else
-        a0 = alpha_0 / gamma_0
-        a1 = alpha_1 / gamma_0
-        !$omp do collapse(2)
-        do d = 1, 3
-        do e = 1, mesh % n_elem
-          v_0  (:,:,:,e,d) = a0 * v(:,:,:,e,d) + a1 * v_old(:,:,:,e,d)
-          v_old(:,:,:,e,d) = v(:,:,:,e,d)
-        end do
-        end do
-        tau = dt / gamma_0
-      end if
-
-      ! BC at time t₀ ...........................................................
-
-      ! fetch required boundary values
-      do b = 1, mesh % n_bound
-        select case(problem % bc_v(b))
-        case('D')
-          call problem % GetBoundaryValues(b, bv_x(b) % val, t_0, bv_u(b) % val)
-        end select
-      end do
-
-      ! RHS ....................................................................
-
-      call problem % GetExternalSources(sem_u % metrics % x, t, f)
-
-      if (ins_op % HasVariableViscosity()) then
-        call ins_op % GetVariableViscosity(t, u, mu, nu)
-      end if
-
-      ! diffusion term using rotational form with extrapolation: s⁺ = s⁻ at ∂Ωᴼ
-      call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_u &
-                                    , xout = .true., form = 2      )
-
-      ! convection term
-      if (problem % stokes) then
-        call SetArray(f_c, ZERO, multi = .true.)
-      else
-        call ins_op % GetConvectionTerm(v, vp, f_c)
-      end if
-
-      if (first) then
-        a0 = 1
-        a1 = 0
-      else
-        a0 = beta_0
-        a1 = beta_1
-      end if
-
-      !$omp do
-      do e = 1, mesh % n_elem
-      do d = 1, 3
-
-        w = inv_mm(:,:,:,e) * f_c(:,:,:,e,d)
-        f_c     (:,:,:,e,d) = a0 * w + a1 * f_c_old(:,:,:,e,d)
-        f_c_old (:,:,:,e,d) = w
-
-        w = inv_mm(:,:,:,e) * f_d(:,:,:,e,d)
-        f_d     (:,:,:,e,d) = a0 * w + a1 * f_d_old(:,:,:,e,d)
-        f_d_old (:,:,:,e,d) = w
-
-        f(:,:,:,e,d) = 1/tau * v_0(:,:,:,e,d) + f_c(:,:,:,e,d) + f(:,:,:,e,d)
-
-      end do
-      end do
-
-      ! update boundary conditions .............................................
-
-      do b = 1, mesh % n_bound
-        select case(problem % bc_v(b))
-        case('D')
-          call problem % GetBoundaryValues(b, bv_x(b) % val, t, bv_u(b) % val)
-        case('O')
-          associate(dp => bv_dp(b) % val(:,:,:,1) )
-            call bv_p(b) % MergeNormalTrace(sem_u, cb=ZERO, ct=-ONE, vt=sp)
-            call ins_op % GetBackflowPenalty(problem, b, v, dp)
-            call MergeArrays(ONE, bv_p(b) % val(:,:,:,1), ONE, dp)
-          end associate
-        end select
-      end do
-
-      ! extrapolation-projection-diffusion step ................................
+      call INS_Integrator_BDF2_PrepStep_3D( ins_op, t, dt, u, u1, f_c1, f_d1 &
+                                          , tau, f, f_d, bv_u, mu, nu, first )
 
       call ins_op % StokesSolver(tau, f, bv_u, mu, nu, u, f_d0 = f_d)
 
       ! cleanup ................................................................
 
       !$omp master
-      t_1 = t_0
-      t_0 = t
+      t = t + dt
       !$omp end master
 
       if (present(standby)) then
@@ -319,9 +162,7 @@ contains
       end if
 
       !$omp master
-      deallocate(inv_mm, v_0, f_c, f_d, f, vp, sp)
-      deallocate(v_old, f_c_old, f_d_old)
-      deallocate(bv_x, bv_u, bv_v, bv_p, bv_dp)
+      deallocate(f, bv_u, f_d, u1, f_c1, f_d1)
       if (allocated(mu)) deallocate(mu)
       if (allocated(nu)) deallocate(nu)
       !$omp end master

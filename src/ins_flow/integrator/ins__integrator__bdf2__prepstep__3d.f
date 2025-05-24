@@ -6,18 +6,22 @@
 
 module INS__Integrator__BDF2__PrepStep__3D
   use Kind_Parameters
+  use Constants, only: ZERO, HALF, ONE
+  use Array_Assignments
   use Boundary_Variable__3D
   use INS__Operator__3D
   implicit none
   private
+
+  public :: INS_Integrator_BDF2_PrepStep_3D
 
 contains
 
   !-----------------------------------------------------------------------------
   !> Preparation of a BDF2 time step for one level
 
-  subroutine BDF2_PrepStep_3D( ins_op, t0, dt, u0, u1, f_c1, f_d1 &
-                             , tau, f_d, f, bv_u, mu, nu, first   )
+  subroutine INS_Integrator_BDF2_PrepStep_3D &
+      (ins_op, t0, dt, u0, u1, f_c1, f_d1, tau, f, f_d, bv_u, mu, nu, first)
 
     ! arguments ................................................................
 
@@ -29,8 +33,8 @@ contains
     real(RNP), contiguous,  intent(inout) :: f_c1(:,:,:,:,:) !< f_cⁿ⁻¹ → f_cⁿ
     real(RNP), contiguous,  intent(inout) :: f_d1(:,:,:,:,:) !< f_dⁿ⁻¹ → f_dⁿ
     real(RNP),              intent(out)   :: tau             !< τ
-    real(RNP), contiguous,  intent(out)   :: f_d(:,:,:,:,:)  !< approx f_dⁿ⁺¹
     real(RNP), contiguous,  intent(out)   :: f(:,:,:,:,:)    !< approx fⁿ⁺¹
+    real(RNP), contiguous,  intent(out)   :: f_d(:,:,:,:,:)  !< approx f_dⁿ⁺¹
     class(BoundaryVariable_3D), intent(inout) :: bv_u(:)     !< BV at tⁿ⁺¹
     real(RNP), contiguous, optional, intent(out) :: mu(:,:,:,:) !< approx μⁿ⁺¹
     real(RNP), contiguous, optional, intent(out) :: nu(:,:,:,:) !< approx νⁿ⁺¹
@@ -63,24 +67,21 @@ contains
 
     real(RNP), allocatable :: w(:,:,:)
     real(RNP) :: a0, a1, b0, b1, c0, c1, t
-    integer   :: b, d, e, np, po
+    integer   :: b, d, e, nc, np, po
 
     associate( problem => ins_op % problem &
              , mesh    => ins_op % mesh    &
              , sem_u   => ins_op % sem_u   &
              , v       => u0(:,:,:,:,1:3)  )
 
-      ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+      ! initialization .........................................................
 
-      t = t0 + dt
-
+      t  = t0 + dt
       po = ins_op % eop_u % po
       np = po + 1
       nc = problem % nc
 
       !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      ! workspace ..............................................................
 
       allocate( inv_mm (np, np, np, mesh % n_elem   ), source = ZERO )
       allocate( f_c    (np, np, np, mesh % n_elem, 3), source = ZERO )
@@ -88,8 +89,6 @@ contains
       allocate( sp     (np, np,  6, mesh % n_elem, 3), source = ZERO )
 
       allocate( u, source = u0 )
-
-      ! boundary points and values .............................................
 
       allocate( bv_x  (mesh % n_bound) )
       allocate( bv_v  (mesh % n_bound) )
@@ -129,8 +128,8 @@ contains
         b1  = 0
       else
         tau = dt / gamma_0
-        a0  = alpha_0 / (gamma_0
-        a1  = alpha_1 / (gamma_0
+        a0  = alpha_0 / gamma_0
+        a1  = alpha_1 / gamma_0
         b0  = beta_0
         b1  = beta_1
       end if
@@ -139,8 +138,8 @@ contains
 
       ! viscosity ..............................................................
 
-      if (ins_op % HasVariableViscosity()) then
-        ! extrapolated flo variables: u = β₀u₀ + β₁u₁
+      if (present(mu) .and. present(nu)) then
+        ! extrapolated flow variables: u = β₀u₀ + β₁u₁
         call MergeArrays(b0, u, b1, u1, multi=.true.)
         call ins_op % GetVariableViscosity(t, u, mu, nu)
       end if
@@ -156,7 +155,7 @@ contains
         select case(problem % bc_v(b))
         case('D')
           ! bv%val(*,1:3) = [ v₁, v₂, v₃ ]
-          call problem % GetBoundaryValues(b, bv_x(b) % val, t_0, bv_u(b) % val)
+          call problem % GetBoundaryValues(b, bv_x(b) % val, t0, bv_u(b) % val)
         end select
       end do
 
@@ -186,7 +185,7 @@ contains
           f_d1 (:,:,:,e,d) = w
 
           ! unweighted RHS with no diffusion and pressure terms
-          f(:,:,:,e,d) = f(:,:,:,e,d)
+          f(:,:,:,e,d) = f(:,:,:,e,d)       &
                        + c0 * u (:,:,:,e,d) &
                        + c1 * u1(:,:,:,e,d) &
                        + f_c(:,:,:,e,d)
@@ -222,7 +221,7 @@ contains
 
     end associate
 
-  end subroutine BDF2_PrepStep_3D
+  end subroutine INS_Integrator_BDF2_PrepStep_3D
 
   !=============================================================================
 

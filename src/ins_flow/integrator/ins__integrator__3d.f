@@ -81,7 +81,7 @@ contains
   end subroutine Init_INS_Integrator_3D
 
   !=============================================================================
-  ! IntegratorOptions: type-bound procedures
+  ! INS_IntegratorOptions_3D: type-bound procedures
 
   !-----------------------------------------------------------------------------
   !> MPI broadcasting of time-integrator options

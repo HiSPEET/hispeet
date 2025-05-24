@@ -36,17 +36,20 @@ add_library(HiINSFlow
             problem/ins__problem__test_suite__3d.f
 
             integrator/ins__integrator__3d.f
-            integrator/ins__integrator__euler__3d.f
+            integrator/ins__integrator__bdf2__prepstep__3d.f
             integrator/ins__integrator__bdf2__3d.f
+            integrator/ins__integrator__euler__3d.f
             integrator/ins__integrator__runge_kutta__3d.f
 
             util/ins__flow_characteristics__3d.f
             util/ins__time_scales__3d.f
             
             multilevel/ml__ins__operator__3d.f
-            multilevel/ml__ins__operator__3d__mp_stokes_cascade.f
-            multilevel/ml__ins__operator__3d__mp_stokes_fmg.f
-            multilevel/ml__ins__operator__3d__mp_stokes_v_cycle.f
+            multilevel/ml__ins__operator__3d__mp_mg_stokes_start.f
+            multilevel/ml__ins__operator__3d__mp_mg_stokes_cycle.f
+
+            multilevel/ml__ins__integrator__3d.f
+            multilevel/ml__ins__integrator__bdf2__3d.f
 
             )
 

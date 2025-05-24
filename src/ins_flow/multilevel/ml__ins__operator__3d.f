@@ -37,13 +37,13 @@ module ML__INS__Operator__3D
     class(INS_Problem_3D), pointer :: problem
     type(INS_Operator_3D), allocatable :: ins_op(:)
 
-    character :: fc_project  !< fine-to-coarse projection method
+    character :: fc_project !< fine-to-coarse projection method
+    logical   :: fmg_stokes !< switch to FMG Stokes solver
 
   contains
     procedure :: Init_ML_INS_Operator_3D
-    procedure :: Stokes_Cascade
-    procedure :: Stokes_FMG
-    procedure :: Stokes_V_Cycle
+    procedure :: MG_Stokes_Start
+    procedure :: MG_Stokes_Cycle
   end type ML_INS_Operator_3D
 
   ! constructor interface
@@ -56,9 +56,10 @@ module ML__INS__Operator__3D
 
   type ML_INS_OperatorOptions_3D
 
-    logical   :: mixed = .true.   !< T/F: use mixed/equal order for (v,p)
-    integer   :: fc_smooth  =  0  !< fine-to-coarse jump smoothing {0,1,2}
-    character :: fc_project = 'I' !< fine-to-coarse projection method {'I','P'}
+    logical   :: mixed      = .true.  !< T/F: use mixed/equal order for (v,p)
+    integer   :: fc_smooth  =  0      !< fine-to-coarse jump smoothing {0,1,2}
+    character :: fc_project = 'I'     !< fine-to-coarse projection method {I,P}
+    logical   :: fmg_stokes = .false. !< switch to FMG Stokes solver
 
     type(ML_DG_EllipticOptions_3D) :: ml_solver_p !< ML pressure solver options
     type(INS_OperatorOptions_3D)   :: ins         !< INS operator options
@@ -86,33 +87,34 @@ module ML__INS__Operator__3D
     end subroutine Stokes_Cascade
 
     !---------------------------------------------------------------------------
-    !> FMG start procedure for the Stokes part
+    !> Cascade and FMG start for the Stokes multigrid solver
 
-    module subroutine Stokes_FMG(this, tau, mu, nu, bv, f, u, n_cyc)
-      class(ML_INS_Operator_3D),           intent(in)    :: this
-      real(RNP),                           intent(in)    :: tau
-      class(ML_MeshVariable_3D), optional, intent(in)    :: mu
-      class(ML_MeshVariable_3D), optional, intent(in)    :: nu
-      class(ML_BoundaryVariable_3D),       intent(in)    :: bv
-      class(ML_MeshVariable_3D),           intent(inout) :: f
-      class(ML_MeshVariable_3D),           intent(inout) :: u
-      integer,                   optional, intent(in)    :: n_cyc
-    end subroutine Stokes_FMG
+    module subroutine MG_Stokes_Start(this, tau, mu, nu, bv, f_d0, f, u, n_cyc)
+      class(ML_INS_Operator_3D),     intent(in)    :: this
+      real(RNP),                     intent(in)    :: tau
+      class(ML_MeshVariable_3D),     intent(in)    :: mu
+      class(ML_MeshVariable_3D),     intent(in)    :: nu
+      class(ML_BoundaryVariable_3D), intent(in)    :: bv
+      class(ML_MeshVariable_3D),     intent(in)    :: f_d0
+      class(ML_MeshVariable_3D),     intent(inout) :: f
+      class(ML_MeshVariable_3D),     intent(inout) :: u
+      integer,             optional, intent(in)    :: n_cyc
+    end subroutine MG_Stokes_Start
 
     !---------------------------------------------------------------------------
     !> Performs one or more FAS-MG V-cycles for the Stokes part
 
-    module subroutine Stokes_V_Cycle(this, tau, mu, nu, bv, f, u, n_cyc, l_top)
-      class(ML_INS_Operator_3D),           intent(in)    :: this
-      real(RNP),                           intent(in)    :: tau
-      class(ML_MeshVariable_3D), optional, intent(in)    :: mu
-      class(ML_MeshVariable_3D), optional, intent(in)    :: nu
-      class(ML_BoundaryVariable_3D),       intent(in)    :: bv
-      class(ML_MeshVariable_3D),           intent(inout) :: f
-      class(ML_MeshVariable_3D),           intent(inout) :: u
-      integer,                   optional, intent(in)    :: n_cyc
-      integer,                   optional, intent(in)    :: l_top
-    end subroutine Stokes_V_Cycle
+    module subroutine MG_Stokes_Cycle(this, tau, mu, nu, bv, f, u, n_cyc, l_top)
+      class(ML_INS_Operator_3D),     intent(in)    :: this
+      real(RNP),                     intent(in)    :: tau
+      class(ML_MeshVariable_3D),     intent(in)    :: mu
+      class(ML_MeshVariable_3D),     intent(in)    :: nu
+      class(ML_BoundaryVariable_3D), intent(in)    :: bv
+      class(ML_MeshVariable_3D),     intent(inout) :: f
+      class(ML_MeshVariable_3D),     intent(inout) :: u
+      integer,             optional, intent(in)    :: n_cyc
+      integer,             optional, intent(in)    :: l_top
+    end subroutine MG_Stokes_Cycle
 
   end interface
 
@@ -160,6 +162,9 @@ contains
                                           , opt%fc_smooth )
     end if
 
+    ! switch to FMG for multigrid Stokes solver
+    this % fmg_stokes = opt % fmg_stokes
+
     ! multilevel pressure solver
     if (opt % ins % pressure_solver == 'MG') then
       if (opt%mixed) then
@@ -202,6 +207,7 @@ contains
     call XMPI_Bcast(this % mixed     , root, comm)
     call XMPI_Bcast(this % fc_smooth , root, comm)
     call XMPI_Bcast(this % fc_project, root, comm)
+    call XMPI_Bcast(this % fmg_stokes, root, comm)
 
     call this % ml_solver_p % Bcast(root, comm)
     call this % ins         % Bcast(root, comm)
