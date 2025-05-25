@@ -30,6 +30,7 @@ program ML_INS_Solver_3D
 
   use ML__Mesh__3D
   use ML__INS__Operator__3D
+  use ML__INS__Integrator__BDF2__3D
 
   implicit none
 
@@ -106,6 +107,13 @@ program ML_INS_Solver_3D
   type(ML_INS_Operator_3D), save :: ml_ins
 
   namelist/spatial_prm/ po, ml_ins_opt
+
+  ! time integration ...........................................................
+
+  type(ML_INS_Integrator_BDF2_Options_3D), save :: ml_bdf2_opt
+  type(ML_INS_Integrator_BDF2_3D), save :: ml_bdf2
+
+  namelist/temporal_prm/ ml_bdf2_opt
 
   ! auxiliaries ................................................................
 
@@ -275,9 +283,25 @@ program ML_INS_Solver_3D
   end if
 
   ! globalize
+  call XMPI_Bcast(po, 0, comm)
   call ml_ins_opt % Bcast(0, comm)
 
-  ml_ins = ML_INS_Operator_3D(ml_ins_opt, ml_mesh, po, problem)
+  ml_ins = ML_INS_Operator_3D(ml_mesh, po, problem, ml_ins_opt)
+
+  ! temporal ...................................................................
+
+  ! read
+  if (rank == 0) then
+    write(*,'(2X,A)') 'creating multilevel integrator'
+    open(newunit = io, file = case_file)
+    read(io, nml = temporal_prm)
+    close(io)
+  end if
+
+  ! globalize
+  call ml_bdf2_opt % Bcast(0, comm)
+
+  ml_bdf2 = ML_INS_Integrator_BDF2_3D(problem, ml_ins, ml_bdf2_opt)
 
   !-----------------------------------------------------------------------------
   ! Finalization

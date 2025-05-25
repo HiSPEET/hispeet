@@ -31,7 +31,7 @@ module ML__INS__Integrator__BDF2__3D
   end type ML_INS_Integrator_BDF2_3D
 
   ! constructor
-  interface ML_INS_Integrator_3D
+  interface ML_INS_Integrator_BDF2_3D
     module procedure New_ML_INS_Integrator_BDF2_3D
   end interface
 

@@ -126,26 +126,26 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor of ML_INS_Operator_3D
 
-  function New_ML_INS_Operator_3D(opt, ml_mesh, po, problem) result(this)
-    class(ML_INS_OperatorOptions_3D), intent(in) :: opt
+  function New_ML_INS_Operator_3D(ml_mesh, po, problem, opt) result(this)
     class(ML_Mesh_3D), target, intent(in) :: ml_mesh
     integer, intent(in) :: po(size(ml_mesh%mesh))
     class(INS_Problem_3D), target, intent(in) :: problem
+    class(ML_INS_OperatorOptions_3D), intent(in) :: opt
     type(ML_INS_Operator_3D) :: this
 
-    call Init_ML_INS_Operator_3D(this, opt, ml_mesh, po, problem)
+    call Init_ML_INS_Operator_3D(this, ml_mesh, po, problem, opt)
 
   end function New_ML_INS_Operator_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of ML_INS_Operator_3D
 
-  subroutine Init_ML_INS_Operator_3D(this, opt, ml_mesh, po, problem)
+  subroutine Init_ML_INS_Operator_3D(this, ml_mesh, po, problem, opt)
     class(ML_INS_Operator_3D), intent(inout) :: this
-    class(ML_INS_OperatorOptions_3D), intent(in) :: opt
     class(ML_Mesh_3D), target, intent(in) :: ml_mesh
     integer, intent(in) :: po(size(ml_mesh%mesh))
     class(INS_Problem_3D), target, intent(in) :: problem
+    class(ML_INS_OperatorOptions_3D), intent(in) :: opt
 
     integer :: l
 
