@@ -13,8 +13,8 @@
   flow_problem = 'VariableViscosity'
   flow_domain  = 1
 
-! export_vtk   = T  ! set T for generating plot files
-! char_freq    = 0  ! set frequency of control output
+! char_freq  = 0 ! set frequency of control output
+  vtk_mode   = 1 ! VTK export mode, 0/1/2/3: none/all/active/leafs
 /
 
 !-------------------------------------------------------------------------------

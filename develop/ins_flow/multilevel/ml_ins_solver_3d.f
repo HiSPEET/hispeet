@@ -29,6 +29,7 @@ program ML_INS_Solver_3D
   use INS__Problem__Test_Suite__3D
 
   use ML__Mesh__3D
+  use ML__Mesh_Variable__3D
   use ML__INS__Operator__3D
   use ML__INS__Integrator__BDF2__3D
 
@@ -65,9 +66,10 @@ program ML_INS_Solver_3D
 
   namelist/control_prm/ flow_problem, problem_file, flow_domain, raw_mesh_file
 
-  integer :: char_freq  = 1        ! characteristics output frequency
+  integer :: char_freq  = 1 ! characteristics output frequency
+  integer :: vtk_mode   = 0 ! VTK export mode, 0/1/2/3: none/all/active/leafs
 
-  namelist/control_prm/ char_freq
+  namelist/control_prm/ char_freq, vtk_mode
 
   ! restart options
   character(len=80) :: restart_tag_in  = ''  ! tag for restart input files
@@ -115,14 +117,30 @@ program ML_INS_Solver_3D
 
   namelist/temporal_prm/ ml_bdf2_opt
 
+  real(RNP) :: t_end  = 0.25
+  real(RNP) :: dt     = 1E-3
+  integer   :: nt_max = 1
+
+  namelist/temporal_prm/ t_end, dt, nt_max
+
+  ! variables ..................................................................
+
+  real(RNP) :: t = 0 ! problem time
+
+  type(ML_MeshVariable_3D), save :: var   ! container for essential variables
+  type(ML_MeshVariable_3D), save :: u     ! handle for numerical solution
+  type(ML_MeshVariable_3D), save :: u_ex  ! handle for exact solution
+  type(ML_MeshVariable_3D), save :: err_u ! handle for error, err_u = u - u_ex
+
   ! auxiliaries ................................................................
 
   character(:), allocatable :: domain_name
+  character(:), allocatable :: var_name(:)
 
-  logical   :: exists, restart_in, restart_out
-  integer   :: io, stat
-  integer   :: l_top, n_bound
-  integer   :: i
+  logical :: exists, restart_in, restart_out
+  integer :: io, stat
+  integer :: l_top, n_bound, n_var
+  integer :: i, l
 
   !-----------------------------------------------------------------------------
   ! Initialization
@@ -302,6 +320,72 @@ program ML_INS_Solver_3D
   call ml_bdf2_opt % Bcast(0, comm)
 
   ml_bdf2 = ML_INS_Integrator_BDF2_3D(problem, ml_ins, ml_bdf2_opt)
+
+  ! variables ..................................................................
+
+  associate(nc => problem % nc)
+
+    n_var = nc
+    if (problem % HasExactSolution()) then
+      n_var = n_var + 2 * nc
+    end if
+
+    allocate(character(len=20) :: var_name(n_var))
+
+    ! names of solution components
+    var_name(1:4) = [ 'v_x', 'v_y', 'v_z', 'p  ']
+    do i = 5, nc
+      write(var_name(i),'(A,I0)') 'u_', i
+    end do
+
+    ! names of exact solution and error components
+    if (problem % HasExactSolution()) then
+      do i = 1, nc
+        write(var_name(i +   nc),'(2A)') trim(var_name(i)), '__exact'
+        write(var_name(i + 2*nc),'(2A)') trim(var_name(i)), '__error'
+      end do
+    end if
+
+    ! variable container
+    call var % Init(ml_ins%ml_op_u, n_var, var_name)
+
+    ! handles
+    call var % GetSlice(u, first = 1, last = nc)
+    if (problem % HasExactSolution()) then
+      call var % GetSlice(u_ex , first = 1 +   nc, last = 2*nc)
+      call var % GetSlice(err_u, first = 1 + 2*nc, last = 3*nc)
+    end if
+
+  end associate
+
+  !-----------------------------------------------------------------------------
+  ! Initial conditions
+
+  if (restart_in) then
+
+    ! TBD ......................................................................
+
+  else
+
+    do l = 1, l_top
+      associate(ins_l => ml_ins % ins_op(l), u_l => u % level(l) % val)
+        call problem % GetInitialValues(ins_l % sem_u % metrics % x, u_l)
+      end associate
+    end do
+
+  end if
+
+  !-----------------------------------------------------------------------------
+  ! Time integration
+
+
+
+  !-----------------------------------------------------------------------------
+  ! Write plot files
+
+  if (vtk_mode > 0) then
+    call u % ExportVTK(ml_ins%ml_op_u, file = flow_case, mode = vtk_mode)
+  end if
 
   !-----------------------------------------------------------------------------
   ! Finalization
