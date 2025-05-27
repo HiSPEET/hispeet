@@ -7,6 +7,7 @@
 module ML__INS__Operator__3D
   use Kind_Parameters
   use Execution_Control
+  use Logging_Levels
   use XMPI
   use INS__Problem__3D
   use INS__Operator__3D

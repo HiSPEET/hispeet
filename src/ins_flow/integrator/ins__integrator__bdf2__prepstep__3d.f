@@ -67,7 +67,7 @@ contains
 
     real(RNP), allocatable :: w(:,:,:)
     real(RNP) :: a0, a1, b0, b1, c0, c1, t
-    integer   :: b, d, e, nc, np, po
+    integer   :: b, c, e, nc, np, po
 
     associate( problem => ins_op % problem &
              , mesh    => ins_op % mesh    &
@@ -172,25 +172,30 @@ contains
 
       !$omp do
       do e = 1, mesh % n_elem
-        do d = 1, 3
+        do c = 1, 3
 
           ! extrapolated unweighted convection term
-          w = inv_mm(:,:,:,e) * f_c(:,:,:,e,d)
-          f_c  (:,:,:,e,d) = a0 * w + a1 * f_c1(:,:,:,e,d)
-          f_c1 (:,:,:,e,d) = w
+          w = inv_mm(:,:,:,e) * f_c(:,:,:,e,c)
+          f_c  (:,:,:,e,c) = a0 * w + a1 * f_c1(:,:,:,e,c)
+          f_c1 (:,:,:,e,c) = w
 
           ! extrapolated unweighted diffusion term
-          w = inv_mm(:,:,:,e) * f_d(:,:,:,e,d)
-          f_d  (:,:,:,e,d) = a0 * w + a1 * f_d1(:,:,:,e,d)
-          f_d1 (:,:,:,e,d) = w
+          w = inv_mm(:,:,:,e) * f_d(:,:,:,e,c)
+          f_d  (:,:,:,e,c) = a0 * w + a1 * f_d1(:,:,:,e,c)
+          f_d1 (:,:,:,e,c) = w
 
           ! unweighted RHS with no diffusion and pressure terms
-          f(:,:,:,e,d) = f(:,:,:,e,d)       &
-                       + c0 * u (:,:,:,e,d) &
-                       + c1 * u1(:,:,:,e,d) &
-                       + f_c(:,:,:,e,d)
+          f(:,:,:,e,c) = f(:,:,:,e,c)       &
+                       + c0 * u (:,:,:,e,c) &
+                       + c1 * u1(:,:,:,e,c) &
+                       + f_c(:,:,:,e,c)
 
         end do
+
+        do c = 4, nc
+          f(:,:,:,e,c) = 0
+        end do
+
       end do
 
       ! boundary values at time t ..............................................

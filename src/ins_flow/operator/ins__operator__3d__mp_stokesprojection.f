@@ -132,7 +132,7 @@ contains
             call MergeArrays(ONE, v, -tau, grad_p, multi=.true.)
           end associate
         else
-          associate(grad_dp => w(:,:,:,:,1:3), dp => w(:,:,:,:, 4))
+          associate(grad_dp => w(:,:,:,:,1:3), dp => w(:,:,:,:,4))
             ! compute pressure correction
             call SetArray(dp, ZERO)
             call this % PressureSolver(tau, bv_w, v, div_v, dp, precon)
@@ -162,12 +162,22 @@ contains
 
       associate(q => w(:,:,:,:,1:3))
 
-        !$omp do collapse(2)
-        do e = 1, mesh % n_elem
+        if (extrapolation) then
+          !$omp do collapse(2)
           do d = 1, 3
+          do e = 1, mesh % n_elem
             q(:,:,:,e,d) = 1/tau * v(:,:,:,e,d) - f_d0(:,:,:,e,d)
           end do
-        end do
+          end do
+        else
+          !$omp do collapse(2)
+          do d = 1, 3
+          do e = 1, mesh % n_elem
+!           q(:,:,:,e,d) = 1/tau * v(:,:,:,e,d)
+            q(:,:,:,e,d) = f(:,:,:,e,d) - q(:,:,:,e,d)
+          end do
+          end do
+        end if
 
         call this % DiffusionSolver(tau, mu, nu, q, bv_w, v, precon)
 

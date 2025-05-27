@@ -14,6 +14,7 @@ program ML_INS_Solver_3D
   use OpenMP_Binding
   use XMPI
   use Execution_Control
+  use Logging_Levels
 
   use Create_Cuboid_Cartesian
   use Create_Cuboid_Diamonds
@@ -46,6 +47,12 @@ program ML_INS_Solver_3D
   integer        :: n_thread  ! number of OpenMP threads
 
   ! control parameters .........................................................
+
+  ! control of logging levels
+  namelist/control_prm/ log_level
+  namelist/control_prm/ log_level_inner_iteration
+  namelist/control_prm/ log_level_outer_iteration
+  namelist/control_prm/ log_level_multigrid_cycle
 
   character(len=*), parameter :: default_case = 'ml_ins_solver_3d'
   character(len=80) :: flow_case ! flow case name
@@ -138,9 +145,10 @@ program ML_INS_Solver_3D
   character(:), allocatable :: var_name(:)
 
   logical :: exists, restart_in, restart_out
+  logical :: first, last
   integer :: io, stat
   integer :: l_top, n_bound, n_var
-  integer :: i, l
+  integer :: i, l, nt
 
   !-----------------------------------------------------------------------------
   ! Initialization
@@ -378,7 +386,11 @@ program ML_INS_Solver_3D
   !-----------------------------------------------------------------------------
   ! Time integration
 
-
+  do nt = 1, nt_max
+    first = nt == 1
+    last  = t + dt >= t_end .or. nt == nt_max
+    call ml_bdf2 % TimeStep(t, dt, u, first, last)
+  end do
 
   !-----------------------------------------------------------------------------
   ! Write plot files

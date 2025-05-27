@@ -64,7 +64,7 @@ contains
       !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
       allocate(mm_inv, r, w)
-      call mm_inv % Init(this%ml_op_u, nc = problem%nc, l_top = l_top_)
+      call mm_inv % Init(this%ml_op_u, nc = 1         , l_top = l_top_)
       call r      % Init(this%ml_op_u, nc = problem%nc, l_top = l_top_)
       call w      % Init(this%ml_op_u, nc = problem%nc, l_top = l_top_)
 
@@ -72,11 +72,11 @@ contains
 
       ! inverse mass matrix
       do l = 1, l_top_
-        associate(mm_inv => mm_inv % level(l) % val(:,:,:,:,1))
-          call sem(l) % Get_DG_DiagonalMassMatrix(mm_inv)
+        associate(mm_inv_l => mm_inv % level(l) % val(:,:,:,:,1))
+          call sem(l) % Get_DG_DiagonalMassMatrix(mm_inv_l)
           !$omp do
           do e = 1, sem(l) % mesh % n_elem
-            mm_inv(:,:,:,e) = 1 / mm_inv(:,:,:,e)
+            mm_inv_l(:,:,:,e) = 1 / mm_inv_l(:,:,:,e)
           end do
           !$omp end do nowait
         end associate
@@ -88,7 +88,8 @@ contains
 
         V_DOWN: do l = l_top_, 2, -1
 
-          associate( ins_l    => this % ins_op(l)                     &
+          associate( ins_l    => this % ins_op(l  )                   &
+                   , ins_p    => this % ins_op(l-1)                   &
                    , mesh_l   => sem(l  ) % mesh                      &
                    , mesh_p   => sem(l-1) % mesh                      &
                    , bv_l     => bv     % level(l  ) % var            &
@@ -106,9 +107,17 @@ contains
                    , w_p      => w      % level(l-1) % val            &
                    , mm_inv_p => mm_inv % level(l-1) % val(:,:,:,:,1) )
 
+            if (log_level_multigrid_cycle > 0) then
+              !$omp master
+              if (mesh_l % part == 0) then
+                write(*,'(99(G0,X))') 'MG Stokes cycle',m, 'down l =',l
+              end if
+              !$omp master
+            end if
+
             ! pre-smoothing and residual computation ...........................
 
-            if (m > 1 .or. l < l_top_) then
+            if (l < l_top_) then
               call ins_l % StokesSolver(tau, f_l, bv_l, mu_l, nu_l, u_l)
             end if
             call ins_l % GetStokesResidual(tau, f_l, bv_l, mu_l, nu_l, u_l, r_l)
@@ -143,7 +152,7 @@ contains
             end do
             !$omp end do nowait
 
-            call ins_l % ApplyStokesOperator(tau, bv_p, mu_p, nu_p, u_p, r_p)
+            call ins_p % ApplyStokesOperator(tau, bv_p, mu_p, nu_p, w_p, r_p)
 
             !$omp do
             do e = 1, mesh_p % n_elem
@@ -160,6 +169,14 @@ contains
         end do V_DOWN
 
         ! coarse grid solver ...................................................
+
+        if (log_level_multigrid_cycle > 0) then
+          !$omp master
+          if (this % ins_op(1) % mesh % part == 0) then
+            write(*,'(99(G0,X))') 'MG Stokes cycle',m, 'coarse'
+          end if
+          !$omp master
+        end if
 
         call this % ins_op(1) % StokesSolver( tau                            &
                                             , f  % level(1) % val            &
@@ -181,6 +198,14 @@ contains
                    , w_l    => r  % level(l  ) % val            &
                    , u_p    => u  % level(l-1) % val            &
                    , w_p    => w  % level(l-1) % val            )
+
+            if (log_level_multigrid_cycle > 0) then
+              !$omp master
+              if (mesh_l % part == 0) then
+                write(*,'(99(G0,X))') 'MG Stokes cycle',m, 'up l =',l
+              end if
+              !$omp master
+            end if
 
           ! prolongation .......................................................
 
