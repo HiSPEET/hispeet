@@ -188,7 +188,6 @@ contains
 
       ! BC at time t₀ ..........................................................
 
-      ! fetch required boundary values
       do b = 1, mesh % n_bound
         select case(problem % bc_v(b))
         case('D')
@@ -198,17 +197,18 @@ contains
 
       ! RHS ....................................................................
 
+      ! external sources, f_s
       call problem % GetExternalSources(sem_u % metrics % x, t, f)
 
       if (ins_op % HasVariableViscosity()) then
         call ins_op % GetVariableViscosity(t, u, mu, nu)
       end if
 
-      ! diffusion term using rotational form with extrapolation: s⁺ = s⁻ at ∂Ωᴼ
+      ! rotational diffusion term F_d0 with extrapolation: s⁺ = s⁻ at ∂Ωᴼ
       call ins_op % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_u &
                                     , xout = .true., form = 2      )
 
-      ! convection term
+      ! convection term F_c
       if (problem % stokes) then
         call SetArray(f_c, ZERO, multi = .true.)
       else
@@ -218,13 +218,13 @@ contains
       !$omp do
       do e = 1, mesh % n_elem
         do d = 1, 3
-          f_c(:,:,:,e,d) = inv_mm(:,:,:,e) * f_c(:,:,:,e,d)
-          f_d(:,:,:,e,d) = inv_mm(:,:,:,e) * f_d(:,:,:,e,d)
+          f_c(:,:,:,e,d) = inv_mm(:,:,:,e) * f_c(:,:,:,e,d) ! f_c  = M⁻¹ F_c
+          f_d(:,:,:,e,d) = inv_mm(:,:,:,e) * f_d(:,:,:,e,d) ! f_d0 = M⁻¹ F_d0
           f(:,:,:,e,d) = 1/dt * v(:,:,:,e,d) + f_c(:,:,:,e,d) + f(:,:,:,e,d)
         end do
       end do
 
-      ! update boundary conditions .............................................
+      ! boundary conditions at time t = t₀ + ∆t.................................
 
       do b = 1, mesh % n_bound
         select case(problem % bc_v(b))

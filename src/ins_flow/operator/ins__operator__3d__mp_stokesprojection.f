@@ -123,7 +123,7 @@ contains
 
         if (extrapolation) then
           associate(grad_p => w(:,:,:,:,1:3))
-          ! compute pressure
+            ! compute pressure
             call this % PressureSolver(tau, bv_w, v, div_v, p, precon)
             ! compute pressure gradient
             call GetOuterTraces_3D(mesh, p, pp)
@@ -170,10 +170,12 @@ contains
           end do
           end do
         else
+
+          call GetOuterTraces_3D(mesh, p, pp)
+          call TPO_Grad(this % eop_u, this % sem_u, p, pp, q)
           !$omp do collapse(2)
           do d = 1, 3
           do e = 1, mesh % n_elem
-!           q(:,:,:,e,d) = 1/tau * v(:,:,:,e,d)
             q(:,:,:,e,d) = f(:,:,:,e,d) - q(:,:,:,e,d)
           end do
           end do
