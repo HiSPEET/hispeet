@@ -292,6 +292,7 @@ program ML_INS_Solver_3D
           write(*,'(2X,A,X,I0)') '*** enforcing periodic BC on boundary', i
         end if
         problem % bc_v(i) = 'P'
+        problem % bc_p(i) = 'P'
       end if
     end if
   end do

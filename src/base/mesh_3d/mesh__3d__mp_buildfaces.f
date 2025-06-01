@@ -73,9 +73,16 @@ contains
       do
         j = j + 1
         if (j > nef) exit
+
         if (element_face(1,j) /= element_face(1,i)) exit ! edge 1 differs
         if (element_face(2,j) /= element_face(2,i)) exit ! edge 2 differs
         if (element_face(3,j) /= element_face(3,i)) exit ! edge 3 differs
+
+        if (element_face(4,j) == element_face(4,i)) then
+          ! both faces belong to same element, count only uneven element faces
+          if (mod(element_face(5,i),2) > 0) exit
+        end if
+
       end do
       if (j > nef) exit COUNT_FACES
       i = j
