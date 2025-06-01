@@ -56,8 +56,9 @@ contains
 
     ! internal variables .......................................................
 
+    real(RNP), allocatable, save :: pp (:,:,:,:)   ! outer pressure traces p⁺
+    real(RNP), allocatable, save :: vp (:,:,:,:,:) ! outer velocity traces v⁺
     real(RNP), allocatable, save :: w  (:,:,:,:,:) ! work
-    real(RNP), allocatable, save :: wp (:,:,:,:,:) ! outer traces w⁺
 
     type(BoundaryVariable_3D), allocatable, save :: bv_w(:), bv_p(:), bv_dp(:)
 
@@ -77,12 +78,13 @@ contains
       extrapolation = present(f_d0)
       np = size(v,1)
 !### CHECK
-print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
+print '(99(G0,1X))', '*** i: extrapolation =',extrapolation
 !### CHECK END
 
       !$omp master
 
-      allocate( wp (np, np,  6, n_elem, 6), source = ZERO )
+      allocate( pp (np, np,  6, n_elem   ), source = ZERO )
+      allocate( vp (np, np,  6, n_elem, 3), source = ZERO )
       allocate( w  (np, np, np, n_elem, 4), source = ZERO )
 
       ! provide handles for velocity and pressure boundary values
@@ -102,43 +104,17 @@ print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
       ! extrapolation step .....................................................
 
       if (extrapolation) then
-
         !$omp do collapse(2)
         do c = 1, 3
         do e = 1, mesh % n_elem
           v(:,:,:,e,c) =  tau * (f(:,:,:,e,c) + f_d0(:,:,:,e,c))
         end do
         end do
-
-      else
-        associate( f_d => w (:,:,:,:,1:3) &
-                 , mm  => w (:,:,:,:, 4)  &
-                 , vp  => wp(:,:,:,:,1:3) &
-                 , sp  => wp(:,:,:,:,4:6) )
-
-          call this % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_w &
-                                      , xout = .true. , form = 2     ) ! a
-!                                     , xout = .true.                ) ! b
-
-          call this % sem_u % Get_DG_DiagonalMassMatrix( mm )
-
-          !$omp do
-          do e = 1, mesh % n_elem
-            mm(:,:,:,e) = 1 / mm(:,:,:,e)
-            do c = 1,3
-              v(:,:,:,e,c) = tau * (f(:,:,:,e,c) + f_d(:,:,:,e,c) * mm(:,:,:,e))
-            end do
-          end do
-
-        end associate
       end if
 
       ! pressure correction.....................................................
 
-      associate( grad_p => w (:,:,:,:,1:3) &
-               , div_v  => w (:,:,:,:, 4)  &
-               , vp     => wp(:,:,:,:,1:3) &
-               , pp     => wp(:,:,:,:, 4 ) )
+      associate(div_v => w(:,:,:,:,1))
 
         ! divergence of approximate velocity
         call GetOuterTraces_3D(mesh, v, vp)
@@ -148,13 +124,29 @@ print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
           call MergeArrays(ONE, div_v, -ONE, f(:,:,:,:,4))
         end if
 
-        ! compute pressure
-        call this % PressureSolver(tau, bv_w, v, div_v, p, precon)
-        ! compute pressure gradient
-        call GetOuterTraces_3D(mesh, p, pp)
-        call TPO_Grad(this % eop_u, this % sem_u, p, pp, grad_p)
-        ! correct velocity: v = v - τ∇p
-        call MergeArrays(ONE, v, -tau, grad_p, multi=.true.)
+        if (extrapolation) then
+          associate(grad_p => w(:,:,:,:,1:3))
+            ! compute pressure
+            call this % PressureSolver(tau, bv_w, v, div_v, p, precon)
+            ! compute pressure gradient
+            call GetOuterTraces_3D(mesh, p, pp)
+            call TPO_Grad(this % eop_u, this % sem_u, p, pp, grad_p)
+            ! correct velocity: v = v - τ∇p
+            call MergeArrays(ONE, v, -tau, grad_p, multi=.true.)
+          end associate
+        else
+          associate(grad_dp => w(:,:,:,:,1:3), dp => w(:,:,:,:,4))
+            ! compute pressure correction
+            call SetArray(dp, ZERO)
+            call this % PressureSolver(tau, bv_w, v, div_v, dp, precon)
+            ! compute gradient of pressure correction δp
+            call GetOuterTraces_3D(mesh, dp, pp)
+            call TPO_Grad(this % eop_u, this % sem_u, dp, pp, grad_dp)
+            ! correction: v = v - τ∇p, p = p + δp
+            call MergeArrays(ONE, v, -tau, grad_dp, multi=.true.)
+            call MergeArrays(ONE, p,  ONE, dp)
+          end associate
+        end if
 
       end associate
 
@@ -171,32 +163,25 @@ print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
         end select
       end do
 
-      associate( q  => w (:,:,:,:,1:3) &
-               , pp => wp(:,:,:,:, 4 ) )
+      associate(q => w(:,:,:,:,1:3))
 
         if (extrapolation) then
-
           !$omp do collapse(2)
           do c = 1, 3
           do e = 1, mesh % n_elem
             q(:,:,:,e,c) = 1/tau * v(:,:,:,e,c) - f_d0(:,:,:,e,c)
           end do
           end do
-
         else
 
-          ! q = ∇p
           call GetOuterTraces_3D(mesh, p, pp)
           call TPO_Grad(this % eop_u, this % sem_u, p, pp, q)
-
           !$omp do collapse(2)
           do c = 1, 3
           do e = 1, mesh % n_elem
-            ! q = f_m - ∇p
             q(:,:,:,e,c) = f(:,:,:,e,c) - q(:,:,:,e,c)
           end do
           end do
-
         end if
 
         call this % DiffusionSolver(tau, mu, nu, q, bv_w, v, precon)
@@ -206,7 +191,8 @@ print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
       ! cleanup ................................................................
 
       !$omp master
-      deallocate(w, wp)
+      deallocate(w)
+      deallocate(pp, vp)
       deallocate(bv_w, bv_p, bv_dp)
       !$omp end master
 

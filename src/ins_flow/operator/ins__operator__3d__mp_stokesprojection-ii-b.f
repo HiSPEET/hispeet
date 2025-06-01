@@ -77,7 +77,7 @@ contains
       extrapolation = present(f_d0)
       np = size(v,1)
 !### CHECK
-print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
+print '(99(G0,1X))', '*** ii-b: extrapolation =',extrapolation
 !### CHECK END
 
       !$omp master
@@ -117,8 +117,8 @@ print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
                  , sp  => wp(:,:,:,:,4:6) )
 
           call this % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_w &
-                                      , xout = .true. , form = 2     ) ! a
-!                                     , xout = .true.                ) ! b
+                                      , xout = .true.                ) ! b
+!                                     , xout = .true. , form = 2     ) ! a
 
           call this % sem_u % Get_DG_DiagonalMassMatrix( mm )
 
