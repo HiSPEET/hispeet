@@ -156,11 +156,12 @@ contains
 
             !$omp do
             do e = 1, mesh_p % n_elem
-              if (mesh_p % element(e) % adaptation % refinement < 1000) cycle
-              do c = 1, 4
-                f_p(:,:,:,e,c) = mm_inv_p(:,:,:,e) &
-                               * (f_p(:,:,:,e,c) + r_p(:,:,:,e,c))
-              end do
+              if (mesh_p % element(e) % adaptation % refinement >= 1000) then
+                do c = 1, 4
+                  f_p(:,:,:,e,c) = mm_inv_p(:,:,:,e) &
+                                 * (f_p(:,:,:,e,c) + r_p(:,:,:,e,c))
+                end do
+              end if
             end do
             !$omp end do nowait
 
@@ -207,49 +208,49 @@ contains
               !$omp master
             end if
 
-          ! prolongation .......................................................
+            ! prolongation .....................................................
 
-          !$omp do
-          do e = 1, mesh_p % n_elem
-            if (mesh_p % element(e) % adaptation % refinement >= 1000) then
-              w_p(:,:,:,e,1:4) = u_p(:,:,:,e,1:4) - w_p(:,:,:,e,1:4)
-            else
-              w_p(:,:,:,e,1:4) = u_p(:,:,:,e,1:4)
-            end if
-          end do
-          !$omp end do nowait
-
-          call ParentToChildInterpolation_3D &
-                   (mesh_p, mesh_l, iop_cf(l-1), w_p, w_l)
-
-          if (mesh_l % n_elem > 0) then
-            n = mesh_l % n_elem_active
-
-            !$omp do collapse(2)
-            do c = 1, 4
-            do e = 1, n
-              ! apply correction to active elements
-              u_l(:,:,:,e,c) = u_l(:,:,:,e,c) + w_l(:,:,:,e,c)
-            end do
+            !$omp do
+            do e = 1, mesh_p % n_elem
+              if (mesh_p % element(e) % adaptation % refinement >= 1000) then
+                w_p(:,:,:,e,1:4) = u_p(:,:,:,e,1:4) - w_p(:,:,:,e,1:4)
+              else
+                w_p(:,:,:,e,1:4) = u_p(:,:,:,e,1:4)
+              end if
             end do
             !$omp end do nowait
 
-            if (mesh_l % n_elem_frozen > 0) then
+            call ParentToChildInterpolation_3D &
+                     (mesh_p, mesh_l, iop_cf(l-1), w_p, w_l)
+
+            if (mesh_l % n_elem > 0) then
+              n = mesh_l % n_elem_active
+
               !$omp do collapse(2)
               do c = 1, 4
-              do e = n+1, mesh_l%n_elem
-                ! update frozen elements
-                u_l(:,:,:,e,c) =  w_l(:,:,:,e,c)
+              do e = 1, n
+                ! apply correction to active elements
+                u_l(:,:,:,e,c) = u_l(:,:,:,e,c) + w_l(:,:,:,e,c)
               end do
               end do
               !$omp end do nowait
+
+              if (mesh_l % n_elem_frozen > 0) then
+                !$omp do collapse(2)
+                do c = 1, 4
+                do e = n+1, mesh_l%n_elem
+                  ! update frozen elements
+                  u_l(:,:,:,e,c) = w_l(:,:,:,e,c)
+                end do
+                end do
+                !$omp end do nowait
+              end if
+
             end if
 
-          end if
+            ! post-smoothing ...................................................
 
-          ! post-smoothing .....................................................
-
-          call ins_l % StokesSolver(tau, f_l, bv_l, mu_l, nu_l, u_l)
+            call ins_l % StokesSolver(tau, f_l, bv_l, mu_l, nu_l, u_l)
 
           end associate
         end do V_UP
