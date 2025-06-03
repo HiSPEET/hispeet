@@ -45,7 +45,7 @@ contains
     logical   :: mixed_order
     integer   :: i_max
     real(RNP) :: ct, r_max, r_red
-    integer   :: b, e
+    integer   :: b, e, na, ne
 
     associate( po    => this % eop_u % po     &
              , pq    => this % eop_p % po     &
@@ -58,6 +58,9 @@ contains
       mixed_order = pq /= po
       ct = 1 / tau
 
+      na = mesh % n_elem_active
+      ne = mesh % n_elem
+
       i_max = this % i_max_p
       r_red = this % r_red
       r_max = this % r_max
@@ -66,7 +69,7 @@ contains
       end if
 
       !$omp master
-      allocate(mm(0:pq, 0:pq, 0:pq, 1:mesh%n_elem))
+      allocate(mm(0:pq, 0:pq, 0:pq, 1:ne))
       allocate(g, mold = mm)
       allocate(bv_p(mesh % n_bound))
       do b = 1, mesh % n_bound
@@ -96,7 +99,7 @@ contains
         call TPO_AAA(this % iop_up % A, p, q) ! interpolation of pressure
         call TPO_AAA(this % pop_up % A, f, g) ! L² projection of RHS
         !$omp do
-        do e = 1, mesh % n_elem
+        do e = 1, ne
           g(:,:,:,e) = -ct * mm(:,:,:,e) * g(:,:,:,e)
         end do
 
@@ -115,12 +118,12 @@ contains
         end select
 
         ! interpolate result to order po
-        call TPO_AAA(this % iop_pu % A, q, p)
+        call TPO_AAA(this % iop_pu % A, q(:,:,:,1:na), p(:,:,:,1:na))
 
       else
 
         !$omp do
-        do e = 1, mesh % n_elem
+        do e = 1, ne
           g(:,:,:,e) = -ct * mm(:,:,:,e) * f(:,:,:,e)
         end do
 

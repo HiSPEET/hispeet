@@ -39,7 +39,7 @@ contains
     type(ML_MeshVariable_3D), allocatable, save :: mm_inv, r, w
 
     integer :: l_top_, n_cyc_
-    integer :: c, e, l, m, n
+    integer :: c, e, l, m
 
     associate( problem => this % problem            &
              , sem     => this % ml_op_u % sem      &
@@ -223,30 +223,23 @@ contains
             call ParentToChildInterpolation_3D &
                      (mesh_p, mesh_l, iop_cf(l-1), w_p, w_l)
 
-            if (mesh_l % n_elem > 0) then
-              n = mesh_l % n_elem_active
+            !$omp do collapse(2)
+            do c = 1, 4
+            do e = 1, mesh_l%n_elem_active
+              ! correct active elements
+              u_l(:,:,:,e,c) = u_l(:,:,:,e,c) + w_l(:,:,:,e,c)
+            end do
+            end do
+            !$omp end do nowait
 
-              !$omp do collapse(2)
-              do c = 1, 4
-              do e = 1, n
-                ! apply correction to active elements
-                u_l(:,:,:,e,c) = u_l(:,:,:,e,c) + w_l(:,:,:,e,c)
-              end do
-              end do
-              !$omp end do nowait
-
-              if (mesh_l % n_elem_frozen > 0) then
-                !$omp do collapse(2)
-                do c = 1, 4
-                do e = n+1, mesh_l%n_elem
-                  ! update frozen elements
-                  u_l(:,:,:,e,c) = w_l(:,:,:,e,c)
-                end do
-                end do
-                !$omp end do nowait
-              end if
-
-            end if
+            !$omp do collapse(2)
+            do c = 1, 4
+            do e = mesh_l%n_elem_active + 1, mesh_l%n_elem
+              ! update frozen elements
+              u_l(:,:,:,e,c) = w_l(:,:,:,e,c)
+            end do
+            end do
+            !$omp end do nowait
 
             ! post-smoothing ...................................................
 

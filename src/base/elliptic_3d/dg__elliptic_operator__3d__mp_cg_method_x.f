@@ -39,12 +39,11 @@ contains
 
     real(RNP), dimension(:,:,:,:), allocatable, save :: r, p, q
     real(RNP), save :: rr_term
-    logical  , save :: converged
+    logical  , save :: converged, singular, singular_loc
 
     real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
     real(RNP) :: alpha, pq, rr, rr_old
-    logical   :: singular
-    integer   :: i
+    integer   :: i, na
 
     ! skip empty partition
     if (this % sem % mesh % part < 0) then
@@ -56,15 +55,25 @@ contains
 
     associate(mesh => this % sem % mesh)
 
-      ! work space
+      na = mesh % n_elem_active
+
+      !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
       !$omp master
+
+      ! work space
       allocate(r, mold = u)
       allocate(p, mold = u)
       allocate(q, mold = u)
-      !$omp end master
-      !$omp barrier
 
       singular = abs(lambda) < epsilon(ONE) .and. all(bc /= 'D')
+      if (singular .and. .not. mesh%is_root)  then
+        singular_loc = mesh%n_elem_frozen == 0
+        call XMPI_Allreduce(singular_loc, singular, MPI_LAND, mesh%comm_parts)
+      end if
+
+      !$omp end master
+      !$omp barrier
+      !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
       ! initial residual .......................................................
 
@@ -75,11 +84,11 @@ contains
       end if
 
       if (singular) then
-        call CalibrateArray(r, mesh%comm_parts)
+        call CalibrateArray(r(:,:,:,:na), mesh%comm_parts)
       end if
-      call SetArray(p, r)
+      call SetArray(p(:,:,:,:na), r(:,:,:,:na))
 
-      rr = ScalarProduct(r, r, mesh%comm_parts)
+      rr = ScalarProduct(r(:,:,:,:na), r(:,:,:,:na), mesh%comm_parts)
 
       !$omp single
       rr_term = 0
@@ -118,10 +127,10 @@ contains
         end if
 
         ! correction
-        pq = ScalarProduct(p, q, mesh%comm_parts)
+        pq = ScalarProduct(p(:,:,:,:na), q(:,:,:,:na), mesh%comm_parts)
         pq = sign(max(abs(pq),eps), pq)
         alpha = rr_old / pq
-        call MergeArrays(ONE, u, alpha, p)
+        call MergeArrays(ONE, u(:,:,:,:na), alpha, p(:,:,:,:na))
 
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
@@ -131,15 +140,15 @@ contains
             call this % Residual(bc, lambda, nu_v, f, bv, u, r)
           end if
           if (singular) then
-            call CalibrateArray(r, mesh%comm_parts)
+            call CalibrateArray(r(:,:,:,:na), mesh%comm_parts)
           end if
         else
-          call MergeArrays(ONE, r, -alpha, q)
+          call MergeArrays(ONE, r(:,:,:,:na), -alpha, q(:,:,:,:na))
         end if
 
-        rr = ScalarProduct(r, r, mesh%comm_parts)
+        rr = ScalarProduct(r(:,:,:,:na), r(:,:,:,:na), mesh%comm_parts)
 
-        call  MergeArrays(rr/rr_old, p, ONE, r)
+        call  MergeArrays(rr/rr_old, p(:,:,:,:na), ONE, r(:,:,:,:na))
 
       end do
 

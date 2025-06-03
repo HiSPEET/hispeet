@@ -279,43 +279,6 @@ contains
 
   end subroutine AddFluxes
 
-!!   !-----------------------------------------------------------------------------
-!!   !> Compose element-boundary fluxes from flux traces
-!!
-!!   subroutine GetBoundaryFluxes(element, struct, e, f, tr, jmp_u, avg_q)
-!!
-!!     class(MeshElement_3D), intent(in) :: element
-!!     logical,   intent(in)  :: struct        !< F/T for un/structured mesh
-!!     integer,   intent(in)  :: e             !< element ID
-!!     integer,   intent(in)  :: f             !< element face
-!!     real(RNP), intent(in)  :: tr(:,:,:,:,:) !< traces of u, q_n
-!!     real(RNP), intent(out) :: jmp_u(:,:)    !< normal jump n⋅[u]
-!!     real(RNP), intent(out) :: avg_q(:,:)    !< average normal flux n⋅{q}
-!!
-!!     contiguous :: tr, jmp_u, avg_q
-!!
-!!     integer :: i, l, m
-!!
-!!     i = element % face(f) % i_neighbor
-!!     if (i > 0) then
-!!       l = element % neighbor(i) % id
-!!       m = element % neighbor(i) % component
-!!       if (struct) then
-!!         jmp_u = (tr(:,:,f,e,1) - tr(:,:,m,l,1))
-!!         avg_q = (tr(:,:,f,e,2) - tr(:,:,m,l,2)) * HALF
-!!       else
-!!         call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), jmp_u)
-!!         call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), avg_q)
-!!         jmp_u = (tr(:,:,f,e,1) - jmp_u)
-!!         avg_q = (tr(:,:,f,e,2) - avg_q) * HALF
-!!       end if
-!!     else
-!!       jmp_u = tr(:,:,f,e,1)
-!!       avg_q = tr(:,:,f,e,2)
-!!    end if
-!!
-!!   end subroutine GetBoundaryFluxes
-
   !=============================================================================
 
 end submodule MP_Eval_RC

@@ -62,13 +62,11 @@ contains
     type(BoundaryVariable_3D), allocatable, save :: bv_w(:), bv_p(:), bv_dp(:)
 
     logical :: extrapolation
-    integer :: b, c, e, np
+    integer :: b, c, e, na, ne, np
 
     associate( problem => this % problem          &
              , sem_u   => this %  sem_u           &
              , mesh    => this %  mesh            &
-             , n_elem  => this %  mesh % n_elem   &
-             , n_ghost => this %  mesh % n_ghost  &
              , v       => u(:,:,:,:,1:3)          &
              , p       => u(:,:,:,:,4)            )
 
@@ -76,14 +74,16 @@ contains
 
       extrapolation = present(f_d0)
       np = size(v,1)
+      na = mesh % n_elem_active
+      ne = mesh % n_elem
 !### CHECK
 print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
 !### CHECK END
 
       !$omp master
 
-      allocate( wp (np, np,  6, n_elem, 6), source = ZERO )
-      allocate( w  (np, np, np, n_elem, 4), source = ZERO )
+      allocate( wp (np, np,  6, ne, 6), source = ZERO )
+      allocate( w  (np, np, np, ne, 4), source = ZERO )
 
       ! provide handles for velocity and pressure boundary values
       allocate(bv_w ( mesh%n_bound ))
@@ -105,7 +105,7 @@ print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
 
         !$omp do collapse(2)
         do c = 1, 3
-        do e = 1, mesh % n_elem
+        do e = 1, na
           v(:,:,:,e,c) =  tau * (f(:,:,:,e,c) + f_d0(:,:,:,e,c))
         end do
         end do
@@ -123,7 +123,7 @@ print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
           call this % sem_u % Get_DG_DiagonalMassMatrix( mm )
 
           !$omp do
-          do e = 1, mesh % n_elem
+          do e = 1, na
             mm(:,:,:,e) = 1 / mm(:,:,:,e)
             do c = 1,3
               v(:,:,:,e,c) = tau * (f(:,:,:,e,c) + f_d(:,:,:,e,c) * mm(:,:,:,e))
@@ -154,7 +154,9 @@ print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
         call GetOuterTraces_3D(mesh, p, pp)
         call TPO_Grad(this % eop_u, this % sem_u, p, pp, grad_p)
         ! correct velocity: v = v - τ∇p
-        call MergeArrays(ONE, v, -tau, grad_p, multi=.true.)
+        do c = 1, 3
+          call MergeArrays(ONE, v(:,:,:,:na,c), -tau, grad_p(:,:,:,:na,c))
+        end do
 
       end associate
 
@@ -178,7 +180,7 @@ print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
 
           !$omp do collapse(2)
           do c = 1, 3
-          do e = 1, mesh % n_elem
+          do e = 1, na
             q(:,:,:,e,c) = 1/tau * v(:,:,:,e,c) - f_d0(:,:,:,e,c)
           end do
           end do
@@ -191,7 +193,7 @@ print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
 
           !$omp do collapse(2)
           do c = 1, 3
-          do e = 1, mesh % n_elem
+          do e = 1, na
             ! q = f_m - ∇p
             q(:,:,:,e,c) = f(:,:,:,e,c) - q(:,:,:,e,c)
           end do

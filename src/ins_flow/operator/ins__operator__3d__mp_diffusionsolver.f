@@ -58,12 +58,14 @@ contains
     real(RNP), parameter :: eps = epsilon(ONE) * 1e-3
     real(RNP) :: alpha, beta, delta, pq, rr
     real(RNP) :: r_max, r_red
-    integer   :: i, i_max
+    integer   :: d, i, i_max, na
     logical   :: check_convergence
 
     associate(mesh => this % mesh)
 
       ! initialization .........................................................
+
+      na = mesh % n_elem_active
 
       i_max = this % i_max_v
       r_red = this % r_red
@@ -165,7 +167,9 @@ contains
         delta = ScalarProduct(r, z, mesh%comm_parts)
         pq    = ScalarProduct(p, q, mesh%comm_parts)
         alpha = delta / pq
-        call MergeArrays(ONE, v, alpha, p, multi = .true.)
+        do d = 1, 3
+          call MergeArrays(ONE, v(:,:,:,1:na,d), alpha, p(:,:,:,1:na,d))
+        end do
 
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
@@ -273,6 +277,7 @@ contains
       z(:,:,:,e,2) = tau * mm_inv(:,:,:,e) * r(:,:,:,e,2)
       z(:,:,:,e,3) = tau * mm_inv(:,:,:,e) * r(:,:,:,e,3)
     end do
+    !$omp end do nowait
 
     !$omp do
     do e = na+1, ne
@@ -466,6 +471,10 @@ contains
           call schwarz % MergeCorrections(mesh, buf_zs, zs_dp, z(:,:,:,:,d))
 
         end select
+
+        if (na < ne) then
+          call SetArray(z(:,:,:,na+1:ne,d), ZERO)
+        end if
 
       end do
 

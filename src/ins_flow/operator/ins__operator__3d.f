@@ -747,7 +747,7 @@ contains
       end if
 
     else
-      call Error( ''                     &
+      call Error( 'StokesSolver'                               &
                 , 'mu and nu required with variable viscosity' &
                 , 'INS_Operator_3D'                            )
     end if

@@ -66,7 +66,7 @@ contains
     ! auxiliary ................................................................
 
     real(RNP), allocatable :: w(:,:,:)
-    real(RNP) :: a0, a1, b0, b1, c0, c1, t
+    real(RNP) :: a0, a1, b0, b1, t
     integer   :: b, c, e, nc, np, po
 
     associate( problem => ins_op % problem &
@@ -133,8 +133,6 @@ contains
         b0  = beta_0
         b1  = beta_1
       end if
-      c0 = a0 / tau
-      c1 = a1 / tau
 
       ! viscosity ..............................................................
 
@@ -176,18 +174,18 @@ contains
 
           ! extrapolated unweighted convection term
           w = inv_mm(:,:,:,e) * f_c(:,:,:,e,c)
-          f_c  (:,:,:,e,c) = a0 * w + a1 * f_c1(:,:,:,e,c)
+          f_c  (:,:,:,e,c) = b0 * w + b1 * f_c1(:,:,:,e,c)
           f_c1 (:,:,:,e,c) = w
 
           ! extrapolated unweighted diffusion term
           w = inv_mm(:,:,:,e) * f_d(:,:,:,e,c)
-          f_d  (:,:,:,e,c) = a0 * w + a1 * f_d1(:,:,:,e,c)
+          f_d  (:,:,:,e,c) = b0 * w + b1 * f_d1(:,:,:,e,c)
           f_d1 (:,:,:,e,c) = w
 
           ! unweighted RHS with no diffusion and pressure terms
           f(:,:,:,e,c) = f(:,:,:,e,c)       &
-                       + c0 * u (:,:,:,e,c) &
-                       + c1 * u1(:,:,:,e,c) &
+                       + a0/tau * u (:,:,:,e,c) &
+                       + a1/tau * u1(:,:,:,e,c) &
                        + f_c(:,:,:,e,c)
 
         end do

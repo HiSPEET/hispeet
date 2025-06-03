@@ -76,8 +76,8 @@ contains
     logical  , save :: converged
 
     logical :: check_convergence
-    integer :: nb, ne, ni, np, po
-    integer :: i, j
+    integer :: na, nb, ne, ni, np, po
+    integer :: i, j, k
 
     associate(mesh => this % mesh)
 
@@ -89,8 +89,9 @@ contains
       ! dimensions
       po = this % eop_u % po
       np = po + 1
-      nb = mesh % n_bound
       ne = mesh % n_elem
+      na = mesh % n_elem_active
+      nb = mesh % n_bound
 
       check_convergence = this % r_red > 0 .or. this % r_max > 0
 
@@ -174,7 +175,7 @@ contains
           ! preconditioning ....................................................
 
           !$omp do
-          do i = 1, ne
+          do i = 1, na
             g(:,:,:,i,1) = mm_inv(:,:,:,i) * vj(:,:,:,i,1)
             g(:,:,:,i,2) = mm_inv(:,:,:,i) * vj(:,:,:,i,2)
             g(:,:,:,i,3) = mm_inv(:,:,:,i) * vj(:,:,:,i,3)
@@ -255,7 +256,9 @@ contains
 
         ! improved approximate solution
         do i = 1, j
-          call MergeArrays(ONE, u, y(i), z(:,:,:,:,:,i), multi=.true.)
+        do k = 1, 4
+          call MergeArrays(ONE, u(:,:,:,1:na,k), y(i), z(:,:,:,1:na,k,i))
+        end do
         end do
 
       end if

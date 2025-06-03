@@ -89,7 +89,7 @@ contains
       ! add fluxes .............................................................
 
       !$omp do private(e)
-      do e = 1, mesh % n_elem
+      do e = 1, mesh % n_elem_active
         associate(element => mesh % element(e))
 
           ! faces 1+2 (west + east)  . . . . . . . . . . . . . . . . . . . . . .

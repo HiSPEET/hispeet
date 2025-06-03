@@ -11,8 +11,8 @@
 module DG__Elliptic_Operator__3D
   use Kind_Parameters, only: RNP, RDP, RSP
   use Constants      , only: ZERO, ONE, HALF
-  use XMPI           , only: XMPI_Bcast
-  use Logging_Levels , only: log_level_inner_iteration
+  use XMPI
+  use Logging_Levels
   use Array_Assignments
   use Execution_Control
   use DG__Element_Operators__1D

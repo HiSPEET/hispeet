@@ -71,8 +71,10 @@ contains
     type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_rg
     type(ElementTransferBuffer_3D), asynchronous, allocatable, save :: buf_zs
 
+    logical, save :: singular, singular_loc
+
     real(RNP) :: alpha, beta, delta, rr
-    logical   :: check_convergence, singular
+    logical   :: check_convergence
     integer   :: na, ne, ng, nl(3), no, np, ns, wp
     integer   :: i, i_max_
 
@@ -81,7 +83,6 @@ contains
       if (present(ni)) ni = -1
       return
     end if
-
 
     associate( mesh    => this % sem % mesh &
              , eop     => this % eop        &
@@ -98,6 +99,7 @@ contains
       nl = no
       ns = np + 2*no
 
+      !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
       !$omp master
 
       allocate(p, mold = u)
@@ -126,16 +128,21 @@ contains
 
       allocate(cfg(3,na))
 
+      singular = abs(lambda) < epsilon(ONE) .and. all(bc /= 'D')
+      if (singular .and. .not. mesh%is_root)  then
+        singular_loc = mesh%n_elem_frozen == 0
+        call XMPI_Allreduce(singular_loc, singular, MPI_LAND, mesh%comm_parts)
+      end if
+
       !$omp end master
       !$omp barrier
+      !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
       call schwarz % GetSubdomainConfigurations(mesh, bc, cfg)
 
       check_convergence = log_level_inner_iteration > 0
       if (present(r_red)) check_convergence = r_red > 0 .or. check_convergence
       if (present(r_max)) check_convergence = r_max > 0 .or. check_convergence
-
-      singular = abs(lambda) < epsilon(ONE) .and. all(bc /= 'D')
 
       ! coefficients ...........................................................
 
@@ -169,12 +176,12 @@ contains
         call this % Residual(bc, lambda, nu_v, f, bv, u, r)
       end if
       if (singular) then
-        call CalibrateArray(r, mesh%comm_parts)
+        call CalibrateArray(r(:,:,:,:na), mesh%comm_parts)
       end if
 
       ! termination conditions
       if (check_convergence) then
-        rr = ScalarProduct(r, r, mesh%comm_parts)
+        rr = ScalarProduct(r(:,:,:,:na), r(:,:,:,:na), mesh%comm_parts)
         !$omp master
         if (present(r_red)) then
           rr_term  = max(ZERO, sqrt(rr) * r_red)**2
@@ -241,14 +248,16 @@ contains
         ! set/update search vector
         if (i == 1) then
           if (singular) then
-            call CalibrateArray(z, mesh%comm_parts)
+            call CalibrateArray(z(:,:,:,:na), mesh%comm_parts)
           end if
-          call SetArray(p, z)                                 ! p = z
+          call SetArray(p(:,:,:,:na), z(:,:,:,:na))                ! p = z
         else
-          call SetArray(q, r)                                 ! q = r
-          call MergeArrays(ONE, q, -ONE, s)                   ! q = r - s
-          beta = ScalarProduct(q, z, mesh%comm_parts) / delta
-          call MergeArrays(beta, p, ONE, z)                   ! p = beta p + z
+          call SetArray(q(:,:,:,:na), r(:,:,:,:na))                ! q = r
+          call MergeArrays(ONE, q(:,:,:,:na), -ONE, s(:,:,:,:na))  ! q = r - s
+          beta = ScalarProduct( q(:,:,:,:na) &
+                              , z(:,:,:,:na) &
+                              , mesh%comm_parts ) / delta
+          call MergeArrays(beta, p(:,:,:,:na), ONE, z(:,:,:,:na))  ! p = β p + z
         end if
 
         ! save old residual
@@ -264,7 +273,7 @@ contains
         ! correction
         delta = ScalarProduct(r, z, mesh%comm_parts)
         alpha = delta / ScalarProduct(p, q, mesh%comm_parts)
-        call MergeArrays(ONE, u, alpha, p)
+        call MergeArrays(ONE, u(:,:,:,:na), alpha, p(:,:,:,:na))
 
         if (mod(i,50) == 0) then
           ! compute true residual to get rid of round-off errors
@@ -274,14 +283,14 @@ contains
             call this % Residual(bc, lambda, nu_v, f, bv, u, r)
           end if
           if (singular) then
-            call CalibrateArray(r, mesh%comm_parts)
+            call CalibrateArray(r(:,:,:,:na), mesh%comm_parts)
           end if
         else
-          call MergeArrays(ONE, r, -alpha, q)
+          call MergeArrays(ONE, r(:,:,:,:na), -alpha, q(:,:,:,:na))
         end if
 
         if (check_convergence) then
-          rr = ScalarProduct(r, r, mesh%comm_parts)
+          rr = ScalarProduct(r(:,:,:,:na), r(:,:,:,:na), mesh%comm_parts)
           !$omp master
           converged = rr <= rr_term
           call XMPI_Bcast(converged, root=0, comm=mesh%comm_parts)

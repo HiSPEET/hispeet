@@ -63,13 +63,11 @@ contains
     type(BoundaryVariable_3D), allocatable, save :: bv_w(:), bv_p(:), bv_dp(:)
 
     logical :: extrapolation
-    integer :: b, c, e, np
+    integer :: b, c, e, na, ne, np
 
     associate( problem => this % problem          &
              , sem_u   => this %  sem_u           &
              , mesh    => this %  mesh            &
-             , n_elem  => this %  mesh % n_elem   &
-             , n_ghost => this %  mesh % n_ghost  &
              , v       => u(:,:,:,:,1:3)          &
              , p       => u(:,:,:,:,4)            )
 
@@ -77,15 +75,17 @@ contains
 
       extrapolation = present(f_d0)
       np = size(v,1)
+      na = mesh % n_elem_active
+      ne = mesh % n_elem
 !### CHECK
 print '(99(G0,1X))', '*** i: extrapolation =',extrapolation
 !### CHECK END
 
       !$omp master
 
-      allocate( pp (np, np,  6, n_elem   ), source = ZERO )
-      allocate( vp (np, np,  6, n_elem, 3), source = ZERO )
-      allocate( w  (np, np, np, n_elem, 4), source = ZERO )
+      allocate( pp (np, np,  6, ne   ), source = ZERO )
+      allocate( vp (np, np,  6, ne, 3), source = ZERO )
+      allocate( w  (np, np, np, ne, 4), source = ZERO )
 
       ! provide handles for velocity and pressure boundary values
       allocate(bv_w ( mesh%n_bound ))
@@ -106,7 +106,7 @@ print '(99(G0,1X))', '*** i: extrapolation =',extrapolation
       if (extrapolation) then
         !$omp do collapse(2)
         do c = 1, 3
-        do e = 1, mesh % n_elem
+        do e = 1, na
           v(:,:,:,e,c) =  tau * (f(:,:,:,e,c) + f_d0(:,:,:,e,c))
         end do
         end do
@@ -132,7 +132,9 @@ print '(99(G0,1X))', '*** i: extrapolation =',extrapolation
             call GetOuterTraces_3D(mesh, p, pp)
             call TPO_Grad(this % eop_u, this % sem_u, p, pp, grad_p)
             ! correct velocity: v = v - τ∇p
-            call MergeArrays(ONE, v, -tau, grad_p, multi=.true.)
+            do c = 1, 3
+              call MergeArrays(ONE, v(:,:,:,:na,c), -tau, grad_p(:,:,:,:na,c))
+            end do
           end associate
         else
           associate(grad_dp => w(:,:,:,:,1:3), dp => w(:,:,:,:,4))
@@ -143,7 +145,9 @@ print '(99(G0,1X))', '*** i: extrapolation =',extrapolation
             call GetOuterTraces_3D(mesh, dp, pp)
             call TPO_Grad(this % eop_u, this % sem_u, dp, pp, grad_dp)
             ! correction: v = v - τ∇p, p = p + δp
-            call MergeArrays(ONE, v, -tau, grad_dp, multi=.true.)
+            do c = 1, 3
+              call MergeArrays(ONE, v(:,:,:,:na,c), -tau, grad_dp(:,:,:,:na,c))
+            end do
             call MergeArrays(ONE, p,  ONE, dp)
           end associate
         end if
@@ -168,7 +172,7 @@ print '(99(G0,1X))', '*** i: extrapolation =',extrapolation
         if (extrapolation) then
           !$omp do collapse(2)
           do c = 1, 3
-          do e = 1, mesh % n_elem
+          do e = 1, na
             q(:,:,:,e,c) = 1/tau * v(:,:,:,e,c) - f_d0(:,:,:,e,c)
           end do
           end do
@@ -178,7 +182,7 @@ print '(99(G0,1X))', '*** i: extrapolation =',extrapolation
           call TPO_Grad(this % eop_u, this % sem_u, p, pp, q)
           !$omp do collapse(2)
           do c = 1, 3
-          do e = 1, mesh % n_elem
+          do e = 1, na
             q(:,:,:,e,c) = f(:,:,:,e,c) - q(:,:,:,e,c)
           end do
           end do

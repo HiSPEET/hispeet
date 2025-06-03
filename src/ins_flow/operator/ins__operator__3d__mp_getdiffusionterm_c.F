@@ -2,6 +2,9 @@
 !> author:   Joerg Stiller
 !> date:     2022/01/30
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!>
+!> @note
+!> The diffusion term is computed in all elements, including the frozen ones!
 !===============================================================================
 
 submodule(INS__Operator__3D) MP_GetDiffusionTerm_C

@@ -44,7 +44,7 @@ contains
     real(RNP), allocatable, save :: sp(:,:,:,:,:) ! viscous flux traces s⁺
 
     real(RNP) :: lambda
-    integer   :: np
+    integer   :: na, ne, np
     integer   :: d, e
 
     associate(mesh => this % sem_u % mesh)
@@ -52,11 +52,13 @@ contains
       ! initialization .........................................................
 
       np = size(v,1)
+      na = mesh % n_elem_active
+      ne = mesh % n_elem
 
       !$omp master
-      allocate( mm (np, np, np, mesh%n_elem) )
-      allocate( vp (np, np,  6, mesh%n_elem, 3), source = ZERO )
-      allocate( sp (np, np,  6, mesh%n_elem, 3), source = ZERO )
+      allocate( mm (np, np, np, ne) )
+      allocate( vp (np, np,  6, ne, 3), source = ZERO )
+      allocate( sp (np, np,  6, ne, 3), source = ZERO )
       !$omp end master
       !$omp barrier
 
@@ -69,9 +71,17 @@ contains
       call this % GetDiffusionTerm_C(v, vp, sp, r, form=form)
 
       !$omp do collapse(2)
-      do e = 1, mesh % n_elem
+      do e = 1, na
         do d = 1, 3
           r(:,:,:,e,d) = lambda * mm(:,:,:,e) * v(:,:,:,e,d) - r(:,:,:,e,d)
+        end do
+      end do
+      !$omp end do nowait
+
+      !$omp do collapse(2)
+      do e = na+1, ne
+        do d = 1, 3
+          r(:,:,:,e,d) = 0
         end do
       end do
 
