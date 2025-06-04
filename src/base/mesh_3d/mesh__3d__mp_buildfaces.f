@@ -45,6 +45,12 @@ contains
     integer :: f1, l1
     integer :: f2, l2
 
+    if (mesh%n_elem == 0) then
+      mesh%n_face = 0
+      allocate(mesh%face(0))
+      return
+    end if
+
     ! build ordered list of element faces ......................................
 
     ! extract element faces

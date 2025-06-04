@@ -33,6 +33,8 @@ contains
     real(RNP), pointer :: VL_inv(:,:)
     integer :: e, po
 
+    if (mesh%n_elem == 0) return
+
     allocate(sop( mesh%p_geom ), work( (mesh%p_geom + 1)**2 ))
 
     ! cuboids ..................................................................

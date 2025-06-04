@@ -42,21 +42,21 @@
 
   po = 1, 2, 4, 5*8 ! (1:l_max)
 
-! ml_elliptic_opt%penalty           =  2.0   ! penalty parameter > 1   [2]
-  ml_elliptic_opt%schwarz%delta     =  0.125 ! relative overlap  ≤ 1   [?]
-  ml_elliptic_opt%schwarz%no_min    =   1    ! min overlap in points   [?]
-  ml_elliptic_opt%projection_method =  'I'   ! {'I','P'}               ['I']
-  ml_elliptic_opt%start_method      =   0    ! none/CASC/FMG = 0/1/2   [2]
-  ml_elliptic_opt%smooth_method     =   3    ! CG/WS/SPCG    = 1/2,3   [2]
-  ml_elliptic_opt%coarse_solver     =   3    ! CG/WS/SPCG    = 1/2,3   [3]
+! ml_elliptic_opt%penalty         =  2.0   ! penalty parameter > 1   [2]
+  ml_elliptic_opt%schwarz%delta   =  0.125 ! relative overlap  ≤ 1   [?]
+  ml_elliptic_opt%schwarz%no_min  =   1    ! min overlap in points   [?]
+  ml_elliptic_opt%fc_projection   =  'I'   ! {'I','P'}               ['I']
+  ml_elliptic_opt%start_method    =   0    ! none/CASC/FMG = 0/1/2   [2]
+  ml_elliptic_opt%smooth_method   =   3    ! CG/WS/SPCG    = 1/2,3   [2]
+  ml_elliptic_opt%coarse_solver   =   3    ! CG/WS/SPCG    = 1/2,3   [3]
 
-  ml_elliptic_opt%i_crs =  100 ! max num coarse solver iterations      [1]
-  ml_elliptic_opt%i_max =    4 ! max num multigrid iterations          [1]
-  ml_elliptic_opt%ns_1  =    2 ! num pre-smoothing steps               [1]
-  ml_elliptic_opt%ns_2  =    2 ! num post-smoothing steps              [1]
-  ml_elliptic_opt%ns_c  =    2 ! num continuation smoothing steps      [1]
-! ml_elliptic_opt%r_red =   -1 ! min residual reduction                [-1]
-! ml_elliptic_opt%r_max =   -1 ! max admissible residual               [-1]
+  ml_elliptic_opt%i_crs =  100 ! max num coarse solver iterations    [1]
+  ml_elliptic_opt%i_max =    4 ! max num multigrid iterations        [1]
+  ml_elliptic_opt%ns_1  =    2 ! num pre-smoothing steps             [1]
+  ml_elliptic_opt%ns_2  =    2 ! num post-smoothing steps            [1]
+  ml_elliptic_opt%ns_c  =    2 ! num continuation smoothing steps    [1]
+! ml_elliptic_opt%r_red =   -1 ! min residual reduction              [-1]
+! ml_elliptic_opt%r_max =   -1 ! max admissible residual             [-1]
 
 /
 

@@ -52,6 +52,8 @@ contains
       allocate(mesh % boundary(b) % face( f_bound(b) ))
     end do
 
+    if (mesh%n_elem == 0) return
+
     f_bound = 0
 
     do e = 1, mesh % n_elem

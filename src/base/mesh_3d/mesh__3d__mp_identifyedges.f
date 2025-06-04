@@ -41,6 +41,11 @@ contains
     integer :: v1, v2, vp(3,8)
     integer(IXS) :: o
 
+    if (mesh%n_elem == 0) then
+      mesh%n_edge = 0
+      return
+    end if
+
     ! build ordered list of element edges ......................................
 
     ! extract element edges, orientation = 1 (aligned) by definition

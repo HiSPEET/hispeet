@@ -32,6 +32,11 @@ contains
     integer :: e, i, j, k, l, m, v
     logical :: periodic(3)
 
+    if (mesh%n_elem == 0) then
+      mesh%n_vert = 0
+      return
+    end if
+
     associate(element => mesh % element)
 
       ! initialization .........................................................

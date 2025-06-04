@@ -32,6 +32,8 @@ contains
     integer :: max_vert_val, max_edge_val
     integer :: e, i, k
 
+    if (mesh%n_elem == 0) return
+
     allocate(m_vert(mesh % n_vert), source = 0)
     allocate(m_edge(mesh % n_edge), source = 0)
     allocate(m_face(mesh % n_face), source = 0)
