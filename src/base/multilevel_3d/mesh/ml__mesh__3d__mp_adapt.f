@@ -51,6 +51,9 @@ contains
 
     if (max(old_mesh(1)%n_parts, part_opt(1)%n_parts) == 1) then
       this % mesh(1) = old_mesh(1)
+      x_plan(1) % identity = .true.
+      allocate(x_plan(1) % send_map(0))
+      allocate(x_plan(1) % recv_map(0))
     else if (old_mesh(1) % is_top) then
       call RootMeshPartitioning_3D( opt      = part_opt(1)  &
                                   , old_mesh = old_mesh(1)  &

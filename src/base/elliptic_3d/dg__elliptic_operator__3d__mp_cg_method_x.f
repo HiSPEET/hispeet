@@ -51,9 +51,9 @@ contains
       return
     end if
 
-    ! initialization ...........................................................
-
     associate(mesh => this % sem % mesh)
+
+      ! initialization .........................................................
 
       na = mesh % n_elem_active
 
@@ -86,7 +86,7 @@ contains
       if (singular) then
         call CalibrateArray(r(:,:,:,:na), mesh%comm_parts)
       end if
-      call SetArray(p(:,:,:,:na), r(:,:,:,:na))
+      call SetArray(p, r)
 
       rr = ScalarProduct(r(:,:,:,:na), r(:,:,:,:na), mesh%comm_parts)
 
@@ -110,6 +110,11 @@ contains
           converged = rr <= rr_term
         end if
         call XMPI_Bcast(converged, root=0, comm=mesh%comm_parts)
+
+        if (log_level_inner_iteration > 1 .and. mesh%part == 0) then
+          print '(A,T25,A,I5,A,ES12.5)', &
+                '#Elliptic:CG','>>>  i  =',i-1,',  |r| =', sqrt(rr)
+        end if
         !$omp end master
         !$omp barrier
 
@@ -152,7 +157,14 @@ contains
 
       end do
 
-      if (present(ni)) ni = i - 1
+      if (present(ni)) ni = min(i,i_max)
+
+      !$omp master
+      if (log_level_inner_iteration > 0 .and. mesh%part == 0) then
+        print '(A,T25,A,I5,A,ES12.5)', &
+              '#Elliptic:CG','>>>  ni =',min(i,i_max),',  |r| =', sqrt(rr)
+      end if
+      !$omp end master
 
       !$omp master
       deallocate(r, p, q)

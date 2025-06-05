@@ -623,21 +623,22 @@ contains
 
     integer :: i, l, m
 
-    if (element % face(f) % boundary == 0) then
-      ! interface to frozen element: treated as Dirichlet boundary
-      if (hom_bc) then
-        jmp_u = 2 * tr(:,:,f,e,1)
-      else
-        i = element % face(f) % i_neighbor
-        l = element % neighbor(i) % id
-        m = element % neighbor(i) % component
-        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), jmp_u)
-        jmp_u = 2 * (tr(:,:,f,e,1) - jmp_u)
-      end if
-      avg_q = tr(:,:,f,e,2)
-
-    else if (element % face(f) % i_neighbor > 0) then
-      ! active neighbor
+!!     if (element % face(f) % boundary == 0) then
+!!       ! interface to frozen element: treated as Dirichlet boundary
+!!       if (hom_bc) then
+!!         jmp_u = 2 * tr(:,:,f,e,1)
+!!       else
+!!         i = element % face(f) % i_neighbor
+!!         l = element % neighbor(i) % id
+!!         m = element % neighbor(i) % component
+!!         call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,1), jmp_u)
+!!         jmp_u = 2 * (tr(:,:,f,e,1) - jmp_u)
+!!       end if
+!!       avg_q = tr(:,:,f,e,2)
+!!
+!!     else
+    if (element % face(f) % i_neighbor > 0) then
+      ! active or frozen neighbor
       i = element % face(f) % i_neighbor
       l = element % neighbor(i) % id
       m = element % neighbor(i) % component
@@ -679,22 +680,23 @@ contains
 
     integer :: i, l, m
 
-    if (element % face(f) % boundary == 0) then
-      ! interface to frozen element: treated as Dirichlet boundary
-      nu_max = tr(:,:,f,e,1)
-      if (hom_bc) then
-        jmp_u = 2 * tr(:,:,f,e,2)
-      else
-        i = element % face(f) % i_neighbor
-        l = element % neighbor(i) % id
-        m = element % neighbor(i) % component
-        call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), jmp_u)
-        jmp_u = 2 * (tr(:,:,f,e,2) - jmp_u)
-      end if
-      avg_q = tr(:,:,f,e,3)
-
-    else if (element % face(f) % i_neighbor > 0) then
-      ! active neighbor
+!!     if (element % face(f) % boundary == 0) then
+!!       ! interface to frozen element: treated as Dirichlet boundary
+!!       nu_max = tr(:,:,f,e,1)
+!!       if (hom_bc) then
+!!         jmp_u = 2 * tr(:,:,f,e,2)
+!!       else
+!!         i = element % face(f) % i_neighbor
+!!         l = element % neighbor(i) % id
+!!         m = element % neighbor(i) % component
+!!         call element % AlignFromNeighborFace(f, i, tr(:,:,m,l,2), jmp_u)
+!!         jmp_u = 2 * (tr(:,:,f,e,2) - jmp_u)
+!!       end if
+!!       avg_q = tr(:,:,f,e,3)
+!!
+!!     else
+    if (element % face(f) % i_neighbor > 0) then
+      ! active or frozen neighbor
       i = element % face(f) % i_neighbor
       l = element % neighbor(i) % id
       m = element % neighbor(i) % component

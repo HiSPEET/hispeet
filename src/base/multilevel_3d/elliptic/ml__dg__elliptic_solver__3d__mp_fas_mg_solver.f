@@ -1,4 +1,7 @@
 submodule(ML__DG__Elliptic_Solver__3D) MP_FAS_MG_Solver
+!### CHECK
+!! use, intrinsic :: ieee_arithmetic
+!### CHECK END
   implicit none
 
 contains
@@ -94,6 +97,12 @@ contains
              , iop_fc => this % ml_op % iop_fc_x &
              , pop_fc => this % ml_op % pop_fc_x &
              , ell_op => this % elliptic_op      )
+!### CHECK
+!! if (any(ieee_is_nan(u  % level(1) % val(:,:,:,:,1)))) then
+!! print '(99(G0,X))', '*** u_1 has NaN on entry'
+!! stop
+!! end if
+!### CHECK END
 
       ! initialization :::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
