@@ -12,9 +12,6 @@ module Parent_To_Child_Interpolation__3D
   use Data_Exchange__3D
   use TPO__AAA__3D
   use TPO__1To8__3D
-!### CHECK
-use XMPI
-!### CHECK END
   implicit none
   private
 
@@ -197,9 +194,6 @@ contains
       end do
     end if
 
-!### CHECK
-call MPI_Barrier(MPI_COMM_WORLD)
-!### CHECK END
     ! finalization .............................................................
 
     deallocate(send_buf, send_map)
