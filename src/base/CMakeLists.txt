@@ -13,12 +13,10 @@ set(BINDINGS bindings/c_binding.f
              bindings/vtk_wrapper.c
              bindings/vtk_binding.f
              bindings/fftw_binding.f
+             bindings/metis_wrapper.c
+             bindings/parmetis_wrapper.c
+             bindings/parmetis_binding.f
              )
-
-if (ParMETIS_FOUND)
-    list(APPEND BINDINGS bindings/parmetis_wrapper.c
-                         bindings/parmetis_binding.f )
-endif ()
 
 #===============================================================================
 # xmpi
