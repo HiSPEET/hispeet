@@ -5,13 +5,13 @@ module Root_Mesh_Partitioning__3D
   use Element_Transfer_Buffer__3D
   use Element_Distribution_Map__3D
   use Element_Distribution_Data__3D
-  use Partitioner_Interface__3D
+  use Mesh_Partitioner__3D
   use Data_Exchange__3D
 
   implicit none
   private
 
-  public :: PartitioningOptions_3D   ! from Partitioner_Interface__3D
+  public :: MeshPartitionerOptions_3D   ! from Partitioner_Interface__3D
   public :: RootMeshPartitioning_3D
 
 contains
@@ -26,7 +26,7 @@ contains
 
     ! arguments ................................................................
 
-    class(PartitioningOptions_3D),        intent(in)    :: opt
+    class(MeshPartitionerOptions_3D),     intent(in)    :: opt
     class(Mesh_3D),                       intent(in)    :: old_mesh
     class(Mesh_3D),                       intent(out)   :: new_mesh
     class(Mesh_3D),             optional, intent(inout) :: child
@@ -269,10 +269,10 @@ contains
   !> Computes the new target partitions and element IDs
 
   subroutine BuildElementDistributionMap(opt, old_mesh, dist_map, n_parts)
-    class(PartitioningOptions_3D),   intent(in)  :: opt
-    class(Mesh_3D),                  intent(in)  :: old_mesh
-    type(ElementDistributionMap_3D), intent(out) :: dist_map
-    integer                        , intent(out) :: n_parts
+    class(MeshPartitionerOptions_3D), intent(in)  :: opt
+    class(Mesh_3D),                   intent(in)  :: old_mesh
+    type(ElementDistributionMap_3D),  intent(out) :: dist_map
+    integer                        ,  intent(out) :: n_parts
 
     integer, allocatable, target :: tp_elem(:)
     integer, contiguous, pointer :: tp_elem_val(:,:,:,:)
@@ -281,7 +281,7 @@ contains
     allocate(tp_elem(old_mesh%n_elem + old_mesh%n_ghost), source = -1)
 
     ! graph-based partitioning
-    call ParMETIS_Partitioner_3D(opt, old_mesh, tp_elem, n_parts)
+    call MeshPartitioner_3D(opt, old_mesh, tp_elem, n_parts)
 
     ! transfer target partition IDs to ghosts
     if (old_mesh % n_ghost > 0) then

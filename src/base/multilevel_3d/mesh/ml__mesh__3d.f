@@ -15,7 +15,7 @@ module ML__Mesh__3D
   use Data_Exchange__3D
   use Child_Mesh_Adaptation__3D
   use Globalize_Adaptation_Pattern__3D
-  use Partitioner_Interface__3D
+  use Mesh_Partitioner__3D
   use Process_Adaptation_Pattern__3D
   use Restrict_Adaptation_Pattern__3D
   use Root_Mesh_Partitioning__3D
@@ -52,7 +52,7 @@ module ML__Mesh__3D
     character, allocatable :: refinement(:)    !< refinement type {'c','s'}
     integer,   allocatable :: adapt_bnd(:)     !< boundaries to be adapted (*)
     real(RNP), allocatable :: adapt_box(:,:,:) !< boxes to be adapted (3,2,*)
-    type(PartitioningOptions_3D), allocatable :: partition(:)
+    type(MeshPartitionerOptions_3D), allocatable :: partition(:)
   contains
     procedure :: SetUp => SetUp_ML_Mesh_Options_3D
     procedure :: Bcast => Bcast_ML_Mesh_Options_3D
@@ -73,7 +73,7 @@ module ML__Mesh__3D
 
     module subroutine Adapt(this, part_opt, x_plan)
       class(ML_Mesh_3D),                      intent(inout) :: this
-      class(PartitioningOptions_3D),          intent(in)    :: part_opt(:)
+      class(MeshPartitionerOptions_3D),       intent(in)    :: part_opt(:)
       type(DataExchangePlan_3D), allocatable, intent(out)   :: x_plan(:)
     end subroutine Adapt
 
@@ -145,6 +145,7 @@ contains
     type(Mesh_3D),             intent(in)    :: mesh
     class(ML_Mesh_Options_3D), intent(in)    :: opt
 
+    type(MeshPartitionerOptions_3D) :: part_opt
     integer :: l
 
     ! preliminaries ............................................................
@@ -164,9 +165,11 @@ contains
     if (mesh%n_parts == opt%partition(1)%n_parts) then
       this % mesh(1) = mesh
     else
-      call RootMeshPartitioning_3D( opt      = opt%partition(1) &
-                                  , old_mesh = mesh             &
-                                  , new_mesh = this%mesh(1)     )
+      part_opt = opt%partition(1)
+      part_opt % n_con_root = 0
+      call RootMeshPartitioning_3D( opt      = part_opt     &
+                                  , old_mesh = mesh         &
+                                  , new_mesh = this%mesh(1) )
     end if
 
     ! create higher levels .....................................................
@@ -179,10 +182,12 @@ contains
       if (this%mesh(l)%n_elem > 0) then
         call this % mesh(l) % element % MarkForRefinement()
       end if
+      part_opt = opt%partition(l+1)
+      part_opt % n_con_child = 0
       call ProcessAdaptationPattern_3D(this%mesh(l))
-      call ChildMeshAdaptation_3D( opt       = opt  % partition(l+1) &
-                                 , parent    = this % mesh(l)        &
-                                 , new_child = this % mesh(l+1)      )
+      call ChildMeshAdaptation_3D( opt       = part_opt         &
+                                 , parent    = this % mesh(l)   &
+                                 , new_child = this % mesh(l+1) )
     end do
 
   end subroutine Create_Global_ML_Mesh_3D
@@ -393,12 +398,17 @@ contains
     integer :: n_box   =  0        ! number of boxes to be adapted
 
     ! partitioning
+    logical :: split = .false.     ! use parent subdivision for child mesh
     integer :: n_parts_root   = -1 ! number of partitions at root level
     integer :: n_parts_growth = -1 ! partition number growth rate
+    integer :: n_con_root     =  1 ! num constraints for root  partitioning ≤ 3
+    integer :: n_con_child    =  1 ! num constraints for child partitioning ≤ 2
 
     namelist/ml_mesh_options_3d__static/ l_top, l_max, l_adapt
-    namelist/ml_mesh_options_3d__static/ n_parts_root, n_parts_growth
     namelist/ml_mesh_options_3d__static/ n_bnd, n_box
+    namelist/ml_mesh_options_3d__static/ split
+    namelist/ml_mesh_options_3d__static/ n_parts_root, n_parts_growth
+    namelist/ml_mesh_options_3d__static/ n_con_root, n_con_child
 
     ! dynamic input variables ..................................................
 
@@ -440,14 +450,15 @@ contains
     allocate(adapt_bnd(n_bnd),         source = -1 )
     allocate(adapt_box(3,2,n_box),     source = huge(ONE))
 
-    read(unit, nml = ml_mesh_options_3d__dynamic)
+    read(unit, nml = ml_mesh_options_3d__dynamic, iostat = stat)
 
     ! create multilevel mesh options ...........................................
 
     ! partitioning options
     associate(partition => this % partition)
-      partition(1 ) % mode = 1
-      partition(2:) % mode = 2
+      partition(1 ) % child = .false.
+      partition(2:) % child = .true.
+      partition(2:) % split = split
 
       if (all(n_parts > 0)) then
         ! number of partitions given for all levels
@@ -467,6 +478,10 @@ contains
       if (present(n_proc)) then
         partition % n_parts = min(partition%n_parts, n_proc)
       end if
+
+      partition % n_con_root  = n_con_root
+      partition % n_con_child = n_con_child
+
     end associate
 
     this % refinement = refinement

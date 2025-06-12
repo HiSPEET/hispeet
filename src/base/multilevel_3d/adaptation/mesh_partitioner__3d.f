@@ -1,4 +1,4 @@
-module Partitioner_Interface__3D
+module Mesh_Partitioner__3D
   use XMPI
   use ParMETIS_Binding
   use Logging_Levels
@@ -8,11 +8,11 @@ module Partitioner_Interface__3D
   implicit none
   private
 
-  public :: PartitioningOptions_3D
-  public :: ParMETIS_Partitioner_3D
+  public :: MeshPartitionerOptions_3D
+  public :: MeshPartitioner_3D
 
   !-----------------------------------------------------------------------------
-  !> Partitioning options
+  !> Partitioner options
   !>
   !> For partitioning, an abstract graph is formed. The vertices of this graph
   !> represent the mesh elements, while its edges correspond to connections
@@ -25,9 +25,6 @@ module Partitioner_Interface__3D
   !>
   !> Set `split` to obtain child partitions by subdividing parent partitions.
   !> Only used with `child = T`.
-  !>
-  !> Set `lazy` to adopt the parent partitioning if the number of parts remains
-  !> the same.
   !>
   !> Set `n_parts` to the requested number of partitions
   !>
@@ -48,19 +45,19 @@ module Partitioner_Interface__3D
   !> are always taken into account, edges and vertex connections are included
   !> only if the corresponding weights do not vanish.
 
-  type PartitioningOptions_3D
-    logical :: child    = .false. !< set T/F to partition child or given level
-    logical :: split    = .false. !< use subdivision of parent partitions
-    logical :: lazy     = .false. !< adopt parent partitioning if possible
-    integer :: n_parts  = 1       !< number of partitions requested
-    integer :: n_con    = 1       !< number of constraints (1 .. 3)
-    integer :: n_sub    = huge(1) !< max number of sublevels to be weighted
-    integer :: c_active = 2       !< cost of active child elements
-    integer :: c_frozen = 1       !< cost of frozen child elements
-    integer :: w_adj(3) = [1,0,0] !< element face/edge/vertex adjacency weights
+  type MeshPartitionerOptions_3D
+    logical :: child       = .false. !< set T/F to partition child or itself
+    logical :: split       = .false. !< subdivide parent (child only)
+    integer :: n_parts     = 1       !< num partitions requested
+    integer :: n_con_root  = 1       !< max num constraints for mesh itself
+    integer :: n_con_child = 1       !< max num constraints for child mesh
+    integer :: n_sub       = 10      !< max num sublevels to be weighted
+    integer :: c_active    = 2       !< cost of active child elements
+    integer :: c_frozen    = 1       !< cost of frozen child elements
+    integer :: w_adj(3)    = [1,0,0] !< face/edge/vertex adjacency weights
   contains
-    procedure :: Bcast => Bcast_PartitioningOptions
-  end type PartitioningOptions_3D
+    procedure :: Bcast => Bcast_PartitionerOptions
+  end type MeshPartitionerOptions_3D
 
   integer, parameter :: parent_mode = 1
   integer, parameter :: child_mode  = 2
@@ -68,33 +65,33 @@ module Partitioner_Interface__3D
 contains
 
   !=============================================================================
-  ! PartitioningOptions_3D: type-bound procedures
+  ! MeshPartitionerOptions_3D: type-bound procedures
 
-  subroutine Bcast_PartitioningOptions(opt, root, comm)
-    class(PartitioningOptions_3D), intent(inout) :: opt !< options
+  subroutine Bcast_PartitionerOptions(opt, root, comm)
+    class(MeshPartitionerOptions_3D), intent(inout) :: opt !< options
     integer       , intent(in) :: root !< rank root process
     type(MPI_Comm), intent(in) :: comm !< MPI communicator
 
-    call XMPI_Bcast(opt % child    , root, comm)
-    call XMPI_Bcast(opt % split    , root, comm)
-    call XMPI_Bcast(opt % lazy     , root, comm)
-    call XMPI_Bcast(opt % n_parts  , root, comm)
-    call XMPI_Bcast(opt % n_con    , root, comm)
-    call XMPI_Bcast(opt % n_sub    , root, comm)
-    call XMPI_Bcast(opt % c_active , root, comm)
-    call XMPI_Bcast(opt % c_frozen , root, comm)
-    call XMPI_Bcast(opt % w_adj    , root, comm)
+    call XMPI_Bcast(opt % child       , root, comm)
+    call XMPI_Bcast(opt % split       , root, comm)
+    call XMPI_Bcast(opt % n_parts     , root, comm)
+    call XMPI_Bcast(opt % n_con_root  , root, comm)
+    call XMPI_Bcast(opt % n_con_child , root, comm)
+    call XMPI_Bcast(opt % n_sub       , root, comm)
+    call XMPI_Bcast(opt % c_active    , root, comm)
+    call XMPI_Bcast(opt % c_frozen    , root, comm)
+    call XMPI_Bcast(opt % w_adj       , root, comm)
 
-  end subroutine Bcast_PartitioningOptions
+  end subroutine Bcast_PartitionerOptions
 
   !=============================================================================
-
+  ! Mesh partitioner
 
   !-----------------------------------------------------------------------------
   !>
 
-  subroutine Partitioner_3D(opt, mesh, tp_elem, n_parts)
-    class(PartitioningOptions_3D), intent(in) :: opt
+  subroutine MeshPartitioner_3D(opt, mesh, tp_elem, n_parts)
+    class(MeshPartitionerOptions_3D), intent(in) :: opt
     class(Mesh_3D), intent(in) :: mesh   !< current mesh partition
     integer, intent(inout) :: tp_elem(:) !< new/child element target partitions
     integer, intent(out)   :: n_parts    !< actual number of partitions
@@ -103,86 +100,168 @@ contains
 
     integer(METIS_IDX_T), allocatable :: vtxdist(:), vwgt(:,:)
     integer(METIS_IDX_T), allocatable :: adjncy(:), adjwgt(:), xadj(:)
-    integer(METIS_IDX_T), allocatable :: part(:)
 
-    character(len=:), allocatable :: prefix
-    integer, allocatable :: vtx_elem(:)
-    integer :: nvtx
+    integer, allocatable :: vtx_elem(:), vtx_part(:), vtx_part_loc(:)
+    integer :: proc, n_proc, n_vtx
+    integer :: i, e, tp
 
     type(MPI_Comm) :: comm
 
     ! prerequisites ............................................................
 
-    call IdentifyGraphVertices(opt, mesh, vtx_elem, nvtx)
-    call GlobalizeGraphVertices(opt, mesh, nvtx, vtx_elem, comm, vtxdist)
-    call GetGraphVertexWeights(opt, mesh, nvtx, vtx_elem, vwgt)
-    call GetAdjacency(opt, mesh, nvtx, vtx_elem, xadj, adjncy, adjwgt)
+    call XMPI_Bcast(log_level, 0, mesh%comm_world)
 
-    if ( mesh%proc == 0 .and. log_level > 0 .or. &
-         mesh%proc  > 0 .and. log_level > 1 ) then
-
-      prefix  = LoggingPrefix('Partitioner_3D', mesh%proc)
-
-      print '(A,2X,99(G0,X))', prefix, 'nvtx           =', ncon
-      if (nvtx > 0) then
-        print '(A,2X,99(G0,X))', prefix, 'ncon           =', ncon
-        print '(A,2X,99(G0,X))', prefix, 'ncon           =', ncon
-        print '(A,2X,99(G0,X))', prefix, 'nparts         =', nparts
-        print '(A,2X,99(G0,X))', prefix, 'ubvec          =', ubvec
-        print '(A,2X,99(G0,X))', prefix, 'options        =', options
-        print '(A,2X,99(G0,X))', prefix, 'shape(vtxdist) =', shape(vtxdist)
-        print '(A,2X,99(G0,X))', prefix, 'shape(xadj)    =', shape(xadj)
-        print '(A,2X,99(G0,X))', prefix, 'shape(adjncy)  =', shape(adjncy)
-        print '(A,2X,99(G0,X))', prefix, 'shape(vwgt)    =', shape(vwgt)
-        print '(A,2X,99(G0,X))', prefix, 'shape(adjwgt)  =', shape(adjwgt)
-        print '(A,2X,99(G0,X))', prefix, 'min(vtxdist)   =', minval(vtxdist)
-        print '(A,2X,99(G0,X))', prefix, 'max(vtxdist)   =', maxval(vtxdist)
-        print '(A,2X,99(G0,X))', prefix, 'min(xadj)      =', minval(xadj)
-        print '(A,2X,99(G0,X))', prefix, 'max(xadj)      =', maxval(xadj)
-        print '(A,2X,99(G0,X))', prefix, 'min(adjncy)    =', minval(adjncy)
-        print '(A,2X,99(G0,X))', prefix, 'max(adjncy)    =', maxval(adjncy)
-        print '(A,2X,99(G0,X))', prefix, 'min(vwgt)      =', minval(vwgt)
-        print '(A,2X,99(G0,X))', prefix, 'max(vwgt)      =', maxval(vwgt)
-      end if
-    end if
+    call IdentifyGraphVertices(opt, mesh, vtx_elem, n_vtx)
+    call GetGraphVertexWeights(opt, mesh, n_vtx, vtx_elem, vwgt)
+    call GlobalizeGraphVertices(opt, mesh, n_vtx, vtx_elem, comm, vtxdist)
+    call GetAdjacency(opt, mesh, n_vtx, vtx_elem, xadj, adjncy, adjwgt)
 
     ! partitioning .............................................................
 
-    if (nvtx > 0) then
-      if (opt % split) then
-        call METIS_Partitioner( opt, mesh, vtx_elem, vtxdist, xadj, adjncy &
-                              , vwgt, adjwgt, comm, tp_elem, n_parts       )
+    if (n_vtx > 0) then
+
+      if (log_level > 0) then
+        call MPI_Comm_rank(comm, proc)
+        call MPI_Comm_size(comm, n_proc)
+        if (proc == 0) then
+          write(*,'(/,A)') 'partitioner input'
+          write(*,'(2X,A,X,I0)')   'opt%n_parts   =', opt%n_parts
+          write(*,'(2X,A,X,I0)')   'n_proc        =', n_proc
+          write(*,'(2X,99(G0,X))') 'vtxdist       =', vtxdist
+        end if
+        if (proc == 0 .or. log_level > 1) then
+          write(*,'(2X,999(G0,X))') 'n_elem  [',proc,'] =', mesh%n_elem
+          write(*,'(2X,999(G0,X))') 'n_ghost [',proc,'] =', mesh%n_ghost
+          write(*,'(2X,999(G0,X))') 'vtx_elem[',proc,'] =', vtx_elem
+          do i = lbound(vwgt,1),ubound(vwgt,1)
+            write(*,'(2X,999(G0,X))') 'vwgt(',i,')[',proc,'] =', vwgt(i,:)
+          end do
+        end if
+      end if
+
+      if (opt%child .and. opt%split) then
+        call METIS_Partitioner( opt, mesh, vtx_elem, xadj, adjncy    &
+                              , vwgt, adjwgt, comm, tp_elem, n_parts )
       else
         call ParMETIS_Partitioner( opt, mesh, vtx_elem, vtxdist, xadj, adjncy &
                                  , vwgt, adjwgt, comm, tp_elem, n_parts       )
       end if
+
     else
       tp_elem = -1
       n_parts = -1
+    end if
+
+    if (log_level > 0 .and. n_vtx > 0) then
+      allocate(vtx_part_loc(0:n_parts-1), source = 0)
+      allocate(vtx_part, mold = vtx_part_loc)
+      do e = 1, mesh%n_elem
+        tp = tp_elem(e)
+        if (tp >= 0) then
+          vtx_part_loc(tp) = vtx_part_loc(tp) + 1
+        end if
+      end do
+      call XMPI_Reduce(vtx_part_loc, vtx_part, MPI_SUM, 0, comm)
+      if (proc == 0) then
+        write(*,'(/,A)') 'partitioning results'
+        write(*,'(2X,A,I0)') 'n_parts    = ', n_parts
+        write(*,'(2X,A,I0)') 'sum(n_vtx) = ', sum(vtx_part)
+        write(*,'(2X,A,I0)') 'min(n_vtx) = ', minval(vtx_part)
+        write(*,'(2X,A,I0)') 'max(n_vtx) = ', maxval(vtx_part)
+      end if
+      if (proc == 0 .or. log_level > 1) then
+        write(*,'(2X,999(G0,X))') 'tp_elem[',proc,'] =', tp_elem(1:mesh%n_elem)
+      end if
     end if
 
     ! clean-up .................................................................
 
     call MPI_Comm_free(comm)
 
-  end subroutine Partitioner_3D
+  end subroutine MeshPartitioner_3D
+
+  !=============================================================================
+  ! METIS and ParMETIS graph partitioners
 
   !-----------------------------------------------------------------------------
   !> METIS partitioner
 
-  subroutine METIS_Partitioner( opt, mesh, vtx_elem, vtxdist, xadj, adjncy &
-                              , vwgt, adjwgt, comm, tp_elem, n_parts       )
+  subroutine METIS_Partitioner( opt, mesh, vtx_elem, xadj, adjncy    &
+                              , vwgt, adjwgt, comm, tp_elem, n_parts )
 
     ! arguments ...............................................................
 
-    class(PartitioningOptions_3D), intent(in) :: opt
+    class(MeshPartitionerOptions_3D), intent(in) :: opt
     class(Mesh_3D), intent(in) :: mesh
     integer, intent(in) :: vtx_elem(:)
-    integer(METIS_IDX_T), intent(in) :: vtxdist(0:), xadj(0:), adjncy(0:)
+    integer(METIS_IDX_T), intent(in) :: xadj(0:), adjncy(0:)
     integer(METIS_IDX_T), intent(in) :: vwgt(0:,0:), adjwgt(0:)
     type(MPI_Comm), intent(in) :: comm
     integer, intent(inout) :: tp_elem(:) !< child element target partitions
     integer, intent(out)   :: n_parts    !< actual number of partitions
+
+    ! internal variables .......................................................
+
+    real(METIS_REAL_T),   allocatable :: tpwgts(:,:)
+    real(METIS_REAL_T),   allocatable :: ubvec(:)
+    integer(METIS_IDX_T), allocatable :: part(:)
+
+    integer(METIS_IDX_T) :: ncon, nvtx, nparts, edgecut
+
+    integer, allocatable :: n_parts_proc(:)
+    integer :: proc, n_proc, o_parts
+    integer :: e, i
+
+    ! prerequisites ............................................................
+
+    call MPI_Comm_rank(comm, proc)
+    call MPI_Comm_size(comm, n_proc)
+
+    ncon = size(vwgt,1)
+    nvtx = size(vwgt,2)
+
+    ! number of partitions contributed by local parent
+    nparts = min(opt%n_parts/n_proc, int(nvtx))
+
+    ! METIS array arguments, using C-style numbering
+    allocate( tpwgts ( 0:ncon-1, 0:nparts-1 ) )
+    allocate( ubvec  ( 0:ncon-1             ) )
+    allocate( part   ( 0:nvtx-1             ) )
+
+    ! tolerance for multi-constraint weighting
+    if (ncon == 1) then
+      ubvec = 1.001
+    else
+      ubvec = 1.01
+    end if
+
+    ! fractions of vertex weight per partition
+    tpwgts = 1.00 / nparts
+
+    ! partitioning .............................................................
+
+    call METIS_PartGraphRecursive( nvtx, ncon, xadj, adjncy, vwgt, adjwgt &
+                                 , nparts, tpwgts, ubvec, edgecut, part   )
+
+    ! result ...................................................................
+
+    ! distribution of new partitions over processes
+    allocate(n_parts_proc(0:n_proc))
+    call MPI_Allgather( int(nparts) , 1, MPI_INTEGER       &
+                      , n_parts_proc, 1, MPI_INTEGER, comm )
+
+    ! total number of new partitions
+    n_parts = sum(n_parts_proc)
+
+    ! offset for locally generated partitions
+    o_parts = sum(n_parts_proc(0:proc-1))
+
+    i = 0
+    do e = 1, mesh % n_elem
+      if (vtx_elem(e) < 0) cycle
+      tp_elem(e) = part(i) + o_parts
+      i = i + 1
+    end do
 
   end subroutine METIS_Partitioner
 
@@ -194,7 +273,7 @@ contains
 
     ! arguments ...............................................................
 
-    class(PartitioningOptions_3D), intent(in) :: opt
+    class(MeshPartitionerOptions_3D), intent(in) :: opt
     class(Mesh_3D), intent(in) :: mesh
     integer, intent(in) :: vtx_elem(:)
     integer(METIS_IDX_T), intent(in) :: vtxdist(0:), xadj(0:), adjncy(0:)
@@ -209,21 +288,23 @@ contains
     real(METIS_REAL_T),   allocatable :: ubvec(:)
     integer(METIS_IDX_T), allocatable :: part(:)
 
-    integer(METIS_IDX_T) :: wgtflag, numflag, options(3) = 0
+    integer(METIS_IDX_T) :: wgtflag, numflag, options(3)
     integer(METIS_IDX_T) :: ncon, nvtx, nparts, edgecut
 
-    integer :: proc, nproc
+    integer :: proc, n_proc
     integer :: e, i
 
     ! prerequisites ............................................................
 
     call MPI_Comm_rank(comm, proc)
-    call MPI_Comm_size(comm, nproc)
+    call MPI_Comm_size(comm, n_proc)
 
     numflag = 0
-    nparts  = min(opt%n_parts, int(vtxdist(nproc)))
+    nparts  = min(opt%n_parts, int(vtxdist(n_proc)))
     ncon    = size(vwgt,1)
     nvtx    = size(vwgt,2)
+
+    options = 0
 
     if (any(opt % w_adj > 0)) then
       wgtflag = 3   ! graph vertex and edge constraints
@@ -250,6 +331,8 @@ contains
 
     ! result ...................................................................
 
+    n_parts = nparts
+
     i = 0
     do e = 1, mesh % n_elem
       if (vtx_elem(e) < 0) cycle
@@ -257,25 +340,26 @@ contains
       i = i + 1
     end do
 
-    n_parts = nparts
-
   end subroutine ParMETIS_Partitioner
+
+  !=============================================================================
+  ! Auxiliary routines
 
   !-----------------------------------------------------------------------------
   !> Identification of local graph vertices
 
-  subroutine IdentifyGraphVertices(opt, mesh, vtx_elem, nvtx)
-    class(PartitioningOptions_3D), intent(in) :: opt
+  subroutine IdentifyGraphVertices(opt, mesh, vtx_elem, n_vtx)
+    class(MeshPartitionerOptions_3D), intent(in) :: opt
     class(Mesh_3D), intent(in) :: mesh
       !< local mesh partition
     integer, allocatable, intent(out) :: vtx_elem(:)
       !< map from elements to graph vertices
-    integer, intent(out)   :: nvtx
+    integer, intent(out)   :: n_vtx
       !< number of local graph vertices
 
     integer :: e, n
 
-    allocate(vtx_elem(mesh%n_elem + mesh%n_ghost) source = -1)
+    allocate(vtx_elem(mesh%n_elem + mesh%n_ghost), source = -1)
 
     n = 0
     do e = 1, mesh%n_elem
@@ -283,82 +367,22 @@ contains
       vtx_elem(e) = n
       n = n + 1
     end do
-    nvtx = n
+    n_vtx = n
 
+!### CHECK
+print '(99(G0,X))', '*** mesh%part =',mesh%part,', n_vtx =',n_vtx
+print '(99(G0,X))', '*** mesh%part =',mesh%part,', min/max(vtx_elem) =',&
+  minval(vtx_elem), maxval(vtx_elem)
+!### CHECK END
   end subroutine IdentifyGraphVertices
-
-  !-----------------------------------------------------------------------------
-  !> Globalization of graph vertices
-
-  subroutine GlobalizeGraphVertices(opt, mesh, nvtx, vtx_elem, comm, vtxdist)
-    class(PartitioningOptions_3D), intent(in) :: opt
-    class(Mesh_3D), intent(in) :: mesh
-      !< local mesh partition
-    integer, intent(in)   :: nvtx
-      !< number of local graph vertices
-    integer, contiguous, target, intent(inout) :: vtx_elem(:)
-      !< map from elements to graph vertices, will be converted to global IDs
-    type(MPI_Comm) :: comm
-      !< communicator between mesh partitions contributing to the graph
-    integer(METIS_IDX_T), allocatable, intent(out) :: vtxdist(:)
-      !< distribution graph vertices over processes in comm
-
-    ! internal variables .......................................................
-
-    type(ElementTransferBuffer_3D), asynchronous :: buf_vtx_elem
-    integer, contiguous, pointer :: var_vtx_elem(:,:,:,:)
-    integer, allocatable :: nvtx_proc(:)
-    integer :: i, proc, nproc
-
-    ! MPI communicator for contributors ........................................
-
-    if (nvtx > 0) then
-      i = 1
-    else
-      i = 0
-    end if
-    call MPI_Comm_split(mesh%comm_parts, i, mesh%part, comm)
-
-    if (nvtx < 0) return
-
-    call MPI_Comm_rank(comm, proc)
-    call MPI_Comm_size(comm, nproc)
-
-    ! graph vertex distribution ................................................
-
-    allocate(vtxdist(0:nproc), nvtx_proc(0:nproc-1))
-
-    call MPI_Allgather(nvtx, 1, MPI_INTEGER, nvtx_proc, 1, MPI_INTEGER, comm)
-
-    vtxdist(0) = 0
-    do i = 1, nproc
-      vtxdist(i) = vtxdist(i-1) + nvtx_proc(i-1)
-    end do
-
-    ! globalization of graph vertex IDs ........................................
-
-    if (opt%split) return
-
-    ! global ID of local vertices
-    where(vtx_elem >= 0)
-      vtx_elem = vtx_elem + vtxdist(proc)
-    end where
-
-    ! transfer vertex IDs to ghosts
-    var_vtx_elem(1:1, 1:1, 1:1, 1:size(vtx_elem)) => vtx_elem
-    buf_vtx_elem = ElementTransferBuffer_3D(mesh, var_vtx_elem)
-    call buf_vtx_elem % Transfer(mesh, var_vtx_elem, tag=1000)
-    call buf_vtx_elem % Merge(var_vtx_elem)
-
-  end subroutine GlobalizeGraphVertices
 
   !-----------------------------------------------------------------------------
   !> Determination of graph vertex weights
 
-  subroutine GetGraphVertexWeights(opt, mesh, nvtx, vtx_elem, vwgt)
-    class(PartitioningOptions_3D), intent(in) :: opt
+  subroutine GetGraphVertexWeights(opt, mesh, n_vtx, vtx_elem, vwgt)
+    class(MeshPartitionerOptions_3D), intent(in) :: opt
     class(Mesh_3D), intent(in)  :: mesh
-    integer, intent(in) :: nvtx
+    integer, intent(in) :: n_vtx
     integer, contiguous, intent(in) :: vtx_elem(:)
     integer(METIS_IDX_T), allocatable, intent(out) :: vwgt(:,:)
       !< graph vertex weights
@@ -367,15 +391,22 @@ contains
     integer :: c_active, c_frozen
     integer :: c, e, g, i, l, w
 
-    if (nvtx == 0) return
+    if (n_vtx == 0) return
 
     if (opt%child) then
-      n_con = max(0, min(opt%n_con,2))
+      n_con = max(0, min(opt%n_con_child,2))
     else
-      n_con = max(0, min(opt%n_con,3))
+      n_con = max(0, min(opt%n_con_root,3))
     end if
 
-    allocate(vwgt(0:n_con-1, 0:nvtx-1))
+    allocate(vwgt(0:n_con-1, 0:n_vtx-1))
+!### CHECK
+print '(99(G0,X))', '+++ mesh%part =',mesh%part,', n_vtx =',n_vtx
+print '(99(G0,X))', '+++ mesh%part =',mesh%part,', n_con =',n_con
+print '(99(G0,X))', '+++ mesh%part =',mesh%part,', min/max(vtx_elem) =',&
+  minval(vtx_elem), maxval(vtx_elem)
+print '(99(G0,X))', '+++ mesh%part =',mesh%part,', shape(vwgt) =',shape(vwgt)
+!### CHECK END
 
     if (opt%child .and. n_con > 1 .or. n_con > 2) then
       c_active = opt % c_active
@@ -413,7 +444,7 @@ contains
           w = 8 * w
         end do
 
-        if (opt%children) then
+        if (opt%child) then
           select case(n_con)
           case(1)
             vwgt(0,i) = c + 64 * g
@@ -438,12 +469,82 @@ contains
   end subroutine GetGraphVertexWeights
 
   !-----------------------------------------------------------------------------
+  !> Globalization of graph vertices
+
+  subroutine GlobalizeGraphVertices(opt, mesh, n_vtx, vtx_elem, comm, vtxdist)
+    class(MeshPartitionerOptions_3D), intent(in) :: opt
+    class(Mesh_3D), intent(in) :: mesh
+      !< local mesh partition
+    integer, intent(in)   :: n_vtx
+      !< number of local graph vertices
+    integer, contiguous, target, intent(inout) :: vtx_elem(:)
+      !< map from elements to graph vertices, will be converted to global IDs
+    type(MPI_Comm) :: comm
+      !< communicator between mesh partitions contributing to the graph
+    integer(METIS_IDX_T), allocatable, intent(out) :: vtxdist(:)
+      !< distribution graph vertices over processes in comm
+
+    ! internal variables .......................................................
+
+    type(ElementTransferBuffer_3D), asynchronous :: buf_vtx_elem
+    integer, contiguous, pointer :: var_vtx_elem(:,:,:,:)
+    integer, allocatable :: nvtx_proc(:)
+    integer :: i, proc, n_proc
+
+    ! MPI communicator for contributors ........................................
+
+    if (n_vtx > 0) then
+      i = 1
+    else
+      i = 0
+    end if
+    call MPI_Comm_split(mesh%comm_parts, i, mesh%part, comm)
+
+    if (n_vtx < 0) return
+
+    call MPI_Comm_rank(comm, proc)
+    call MPI_Comm_size(comm, n_proc)
+
+    ! graph vertex distribution ................................................
+
+    allocate(vtxdist(0:n_proc), nvtx_proc(0:n_proc-1))
+
+    call MPI_Allgather(n_vtx, 1, MPI_INTEGER, nvtx_proc, 1, MPI_INTEGER, comm)
+
+    vtxdist(0) = 0
+    do i = 1, n_proc
+      vtxdist(i) = vtxdist(i-1) + nvtx_proc(i-1)
+    end do
+
+    ! globalization of graph vertex IDs ........................................
+
+    if (opt%child .and. opt%split) return
+
+    ! global ID of local vertices
+    where(vtx_elem >= 0)
+      vtx_elem = vtx_elem + vtxdist(proc)
+    end where
+
+    ! transfer vertex IDs to ghosts
+    var_vtx_elem(1:1, 1:1, 1:1, 1:size(vtx_elem)) => vtx_elem
+    buf_vtx_elem = ElementTransferBuffer_3D(mesh, var_vtx_elem)
+    call buf_vtx_elem % Transfer(mesh, var_vtx_elem, tag=1000)
+    call buf_vtx_elem % Merge(var_vtx_elem)
+!### CHECK
+print '(99(G0,X))', '??? mesh%part =',mesh%part,', n_vtx =',n_vtx
+print '(99(G0,X))', '??? mesh%part =',mesh%part,', min/max(vtx_elem) =',&
+  minval(vtx_elem(1:mesh%n_elem)), maxval(vtx_elem(1:mesh%n_elem))
+!### CHECK END
+
+  end subroutine GlobalizeGraphVertices
+
+  !-----------------------------------------------------------------------------
   !> Determine graph adjacency and corresponding weights
 
-  subroutine GetAdjacency(opt, mesh, nvtx, vtx_elem, xadj, adjncy, adjwgt)
-    class(PartitioningOptions_3D), intent(in) :: opt
+  subroutine GetAdjacency(opt, mesh, n_vtx, vtx_elem, xadj, adjncy, adjwgt)
+    class(MeshPartitionerOptions_3D), intent(in) :: opt
     class(Mesh_3D), intent(in) :: mesh
-    integer, intent(in)   :: nvtx
+    integer, intent(in)   :: n_vtx
     integer, contiguous, intent(in) :: vtx_elem(:)
     integer(METIS_IDX_T), allocatable, intent(out) :: xadj(:)
     integer(METIS_IDX_T), allocatable, intent(out) :: adjncy(:)
@@ -451,18 +552,18 @@ contains
 
     integer :: e, i, j, k, l, m, n
 
-    if (nvtx = 0) return
+    if (n_vtx == 0) return
 
     associate(w_adj => opt % w_adj)
 
       ! adjacency offsets ......................................................
 
-      allocate(xadj(0:nvtx))
+      allocate(xadj(0:n_vtx))
 
       xadj(0) = 0
 
       m = 0
-      do e = 1, n_elem
+      do e = 1, mesh%n_elem
         if (vtx_elem(e) < 0) cycle
         associate(element => mesh % element(e))
 
@@ -512,7 +613,7 @@ contains
 
       ! adjacency and weights ..................................................
 
-      m = xadj(nvtx) - 1 ! number of graph edges
+      m = xadj(n_vtx) - 1 ! number of graph edges
       allocate(adjncy(0:m))
       if (any(w_adj > 0)) then
         allocate(adjwgt(0:m), source = 0)
@@ -522,7 +623,7 @@ contains
 
       m = 0
 
-      do e = 1, n_elem
+      do e = 1, mesh%n_elem
         if (vtx_elem(e) < 0) cycle
         associate(element => mesh % element(e))
 
@@ -583,4 +684,4 @@ contains
 
   !=============================================================================
 
-end module Partitioner_Interface__3D
+end module Mesh_Partitioner__3D

@@ -283,7 +283,7 @@ set( MULTILEVEL_3D
      multilevel_3d/adaptation/element_distribution_map__3d.f
      multilevel_3d/adaptation/element_distribution_data__3d.f
      multilevel_3d/adaptation/globalize_adaptation_pattern__3d.f
-     multilevel_3d/adaptation/partitioner_interface__3d.f
+     multilevel_3d/adaptation/mesh_partitioner__3d.f
      multilevel_3d/adaptation/process_adaptation_pattern__3d.f
      multilevel_3d/adaptation/restrict_adaptation_pattern__3d.f
      multilevel_3d/adaptation/root_mesh_partitioning__3d.F

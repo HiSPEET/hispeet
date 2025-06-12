@@ -9,14 +9,15 @@
 //> to the corresponding METIS routines.
 //==============================================================================
 
+#include <stddef.h>
 #include <metis.h>
 
 //------------------------------------------------------------------------------
 //> METIS_PartGraphRecursive Fortran to C wrapper
 
-void METIS_PartGraphRecursive_F2C((idx_t *nvtxs, idx_t *ncon, idx_t *xadj, 
+void METIS_PartGraphRecursive_F2C(idx_t *nvtxs, idx_t *ncon, idx_t *xadj, 
     idx_t *adjncy, idx_t *vwgt, idx_t *adjwgt, idx_t *nparts, real_t *tpwgts,
-    real_t *ubvec, idx_t *edgecut, idx_t *part);
+    real_t *ubvec, idx_t *edgecut, idx_t *part)
 
 {
   idx_t options[METIS_NOPTIONS];
@@ -35,7 +36,7 @@ void METIS_PartGraphRecursive_F2C((idx_t *nvtxs, idx_t *ncon, idx_t *xadj,
 
 void METIS_PartGraphKway_F2C(idx_t *nvtxs, idx_t *ncon, idx_t *xadj,
     idx_t *adjncy, idx_t *vwgt, idx_t *adjwgt, idx_t *nparts, real_t *tpwgts,
-    real_t *ubvec, idx_t *edgecut, idx_t *part);
+    real_t *ubvec, idx_t *edgecut, idx_t *part)
 
 {
   idx_t options[METIS_NOPTIONS];

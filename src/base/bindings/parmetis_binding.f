@@ -1,13 +1,7 @@
-!> summary:  Interface to ParMETIS
+!> summary:  Interface to METIS and ParMETIS
 !> author:   Joerg Stiller
-!> date:     2014/10/09
+!> date:     2014/10/09, extended 2025/06/07
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
-!>
-!>### Interface to ParMETIS
-!>
-!> @todo
-!>
-!>   *  Add interfaces for further ParMETIS routines
 !===============================================================================
 
 module ParMETIS_Binding
@@ -25,15 +19,125 @@ module ParMETIS_Binding
   !> Real kind parameter matching Metis' real_t
   integer, parameter, public :: METIS_REAL_T = C_FLOAT
 
-  !------------------------------------------------------------------------------
-  !> Interface to ParMETIS_V3_PartKway.
-  !>
-  !> This interface provides a one-to-one binding to ParMETIS_V3_PartKway.
-  !> Though possible, it is not advisable to access ParMETIS directly through
-  !> the interface. We recommend to encapsulate the call in an intermediate
-  !> layer which translates the application data into ParMETIS form.
-
   interface
+
+    !--------------------------------------------------------------------------
+    !> Interface to METIS_PartGraphRecursive.
+    !>
+    !> Binding to METIS_PartGraphRecursive with the following modifications:
+    !>   - The `options` and `vsize` arguments are removed.
+    !>   - All options set to default.
+
+    subroutine METIS_PartGraphRecursive(nvtxs, ncon, xadj, adjncy, vwgt, &
+        adjwgt, nparts, tpwgts, ubvec, edgecut, part) &
+        bind(C, name='METIS_PartGraphRecursive_F2C')
+
+      import :: METIS_IDX_T, METIS_REAL_T
+
+      !> The number of vertices in the graph.
+      integer(METIS_IDX_T), intent(in) :: nvtxs
+
+      !> The number of balancing constraints. It should be at least 1.
+      integer(METIS_IDX_T), intent(in) :: ncon
+
+      !> Indices for accessing the adjacency list adjncy. The size of xadj
+      !> equals n+1, where n is the number of vertices.
+      integer(METIS_IDX_T), intent(in) :: xadj(*)
+
+      !> Adjacency list: adjncy(xadj(i):xadj(i+1)-1) identifies the vertices
+      !> that are connected with vertex i. The size of adjncy equals 2m, where
+      !> m is the number of the edges of the graph.
+      integer(METIS_IDX_T), intent(in) :: adjncy(*)
+
+      !> Specifies the vertex weights. The dimensions of vwgt are (ncon, n),
+      !> where n is the number of vertices.
+      integer(METIS_IDX_T), intent(in) :: vwgt(ncon,*)
+
+      !> Edge weights. The size of adjwgt equals that of adjncy.
+      integer(METIS_IDX_T), intent(in) :: adjwgt(*)
+
+      !> Specifies the number of partitions that are desired.
+      integer(METIS_IDX_T), intent(in) :: nparts
+
+      !> Specifies the fraction of vertex weight that should be distributed to
+      !> each partition for each balance constraint. If all of the partitions
+      !> are to be of the same size for every vertex weight, then tpwgts should
+      !> be set to a value of 1/nparts. The sum of all of the tpwgts for a given
+      !> vertex weight should be one.
+      real(METIS_REAL_T), intent(in) :: tpwgts(ncon, nparts)
+
+      !> Array of size ncon that specifying the imbalance tolerance for each
+      !> constraint, with 1 being perfect balance and nparts being perfect
+      !> imbalance. A value of 1.001 is recomended for ncon = 1 and 1.01 else.
+      real(METIS_REAL_T), intent(in) :: ubvec(ncon)
+
+      !> Number of edges that are cut by the partitioning.
+      integer(METIS_IDX_T), intent(out) :: edgecut
+
+      !> Partition vector of the vertices.
+      integer(METIS_IDX_T), intent(out) :: part(*)
+
+    end subroutine METIS_PartGraphRecursive
+
+    !--------------------------------------------------------------------------
+    !> Interface to METIS_PartGraphKway.
+    !>
+    !> Binding to METIS_PartGraphKway with the following modifications:
+    !>   - The `options` and `vsize` arguments are removed.
+    !>   - Edge-cut minimization is chosen for reducing communication cost.
+    !>   - The remaining options set to default.
+
+    subroutine METIS_PartGraphKway(nvtxs, ncon, xadj, adjncy, vwgt, adjwgt, &
+        nparts, tpwgts, ubvec, edgecut, part) &
+        bind(C, name='METIS_PartGraphKway_F2C')
+
+      import :: METIS_IDX_T, METIS_REAL_T
+
+      !> The number of vertices in the graph.
+      integer(METIS_IDX_T), intent(in) :: nvtxs
+
+      !> The number of balancing constraints. It should be at least 1.
+      integer(METIS_IDX_T), intent(in) :: ncon
+
+      !> Indices for accessing the adjacency list adjncy. The size of xadj
+      !> equals n+1, where n is the number of vertices.
+      integer(METIS_IDX_T), intent(in) :: xadj(*)
+
+      !> Adjacency list: adjncy(xadj(i):xadj(i+1)-1) identifies the vertices
+      !> that are connected with vertex i. The size of adjncy equals 2m, where
+      !> m is the number of the edges of the graph.
+      integer(METIS_IDX_T), intent(in) :: adjncy(*)
+
+      !> Specifies the vertex weights. The dimensions of vwgt are (ncon, n),
+      !> where n is the number of vertices.
+      integer(METIS_IDX_T), intent(in) :: vwgt(ncon,*)
+
+      !> Edge weights. The size of adjwgt equals that of adjncy.
+      integer(METIS_IDX_T), intent(in) :: adjwgt(*)
+
+      !> Specifies the number of partitions that are desired.
+      integer(METIS_IDX_T), intent(in) :: nparts
+
+      !> Array of size ncon that specifying the imbalance tolerance for each
+      !> constraint, with 1 being perfect balance and nparts being perfect
+      !> imbalance. A value of 1.001 is recomended for ncon = 1 and 1.01 else.
+      real(METIS_REAL_T), intent(in) :: ubvec(ncon)
+
+      !> Number of edges that are cut by the partitioning.
+      integer(METIS_IDX_T), intent(out) :: edgecut
+
+      !> Partition vector of the vertices.
+      integer(METIS_IDX_T), intent(out) :: part(*)
+
+    end subroutine METIS_PartGraphKway
+
+    !--------------------------------------------------------------------------
+    !> Interface to ParMETIS_V3_PartKway.
+    !>
+    !> This interface provides a one-to-one binding to ParMETIS_V3_PartKway.
+    !> Though possible, it is not advisable to access ParMETIS directly through
+    !> the interface. We recommend to encapsulate the call in an intermediate
+    !> layer which translates the application data into ParMETIS form.
 
     subroutine ParMETIS_V3_PartKway(vtxdist, xadj, adjncy, vwgt, adjwgt, &
         wgtflag, numflag, ncon, nparts, tpwgts, ubvec, options, edgecut, &

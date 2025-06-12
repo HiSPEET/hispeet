@@ -14,12 +14,13 @@ contains
 
   module subroutine Adapt(this, part_opt, x_plan)
     class(ML_Mesh_3D),                      intent(inout) :: this
-    class(PartitioningOptions_3D),          intent(in)    :: part_opt(:)
+    class(MeshPartitionerOptions_3D),       intent(in)    :: part_opt(:)
     type(DataExchangePlan_3D), allocatable, intent(out)   :: x_plan(:)
 
     type(Mesh_3D), allocatable, save :: old_mesh(:)
     integer, save :: l_top_loc, l_top_new, l_top_old
 
+    type(MeshPartitionerOptions_3D) :: part_opt_next
     integer :: l
 
     ! initialization ...........................................................
@@ -49,22 +50,29 @@ contains
 
     call ProcessAdaptationPattern_3D(old_mesh(1))
 
+    part_opt_next = part_opt(1)
+    if (l_top_new > 1) then
+      part_opt_next % n_con_root = min(3, l_top_new, part_opt_next % n_con_root)
+    else
+      part_opt_next % n_con_root = 0
+    end if
+
     if (max(old_mesh(1)%n_parts, part_opt(1)%n_parts) == 1) then
       this % mesh(1) = old_mesh(1)
       x_plan(1) % identity = .true.
       allocate(x_plan(1) % send_map(0))
       allocate(x_plan(1) % recv_map(0))
     else if (old_mesh(1) % is_top) then
-      call RootMeshPartitioning_3D( opt      = part_opt(1)  &
-                                  , old_mesh = old_mesh(1)  &
-                                  , new_mesh = this%mesh(1) &
-                                  , x_plan   = x_plan(1)    )
+      call RootMeshPartitioning_3D( opt      = part_opt_next &
+                                  , old_mesh = old_mesh(1)   &
+                                  , new_mesh = this%mesh(1)  &
+                                  , x_plan   = x_plan(1)     )
     else
-      call RootMeshPartitioning_3D( opt      = part_opt(1)  &
-                                  , old_mesh = old_mesh(1)  &
-                                  , new_mesh = this%mesh(1) &
-                                  , child    = old_mesh(2)  &
-                                  , x_plan   = x_plan(1)    )
+      call RootMeshPartitioning_3D( opt      = part_opt_next &
+                                  , old_mesh = old_mesh(1)   &
+                                  , new_mesh = this%mesh(1)  &
+                                  , child    = old_mesh(2)   &
+                                  , x_plan   = x_plan(1)     )
     end if
 
     ! adaptation ...............................................................
@@ -77,19 +85,26 @@ contains
         call ProcessAdaptationPattern_3D(this%mesh(l))
       end if
 
+      part_opt_next = part_opt(l+1)
+      if (l_top_new - l > 1) then
+        part_opt_next % n_con_child = min(2, part_opt_next % n_con_child)
+      else
+        part_opt_next % n_con_child = min(1, part_opt_next % n_con_child)
+      end if
+
       select case(l_top_old - l)
       case(0)
-        call ChildMeshAdaptation_3D( opt        = part_opt(l+1)  &
+        call ChildMeshAdaptation_3D( opt        = part_opt_next  &
                                    , parent     = this%mesh(l)   &
                                    , new_child  = this%mesh(l+1) )
       case(1)
-        call ChildMeshAdaptation_3D( opt        = part_opt(l+1)  &
+        call ChildMeshAdaptation_3D( opt        = part_opt_next  &
                                    , parent     = this%mesh(l)   &
                                    , new_child  = this%mesh(l+1) &
                                    , old_child  = old_mesh(l+1)  &
                                    , x_plan     = x_plan(l+1)    )
       case(2:)
-        call ChildMeshAdaptation_3D( opt        = part_opt(l+1)  &
+        call ChildMeshAdaptation_3D( opt        = part_opt_next  &
                                    , parent     = this%mesh(l)   &
                                    , new_child  = this%mesh(l+1) &
                                    , old_child  = old_mesh(l+1)  &

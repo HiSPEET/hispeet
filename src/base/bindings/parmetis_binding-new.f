@@ -59,6 +59,13 @@ module ParMETIS_Binding
       !> Specifies the number of partitions that are desired.
       integer(METIS_IDX_T), intent(in) :: nparts
 
+      !> Specifies the fraction of vertex weight that should be distributed to
+      !> each partition for each balance constraint. If all of the partitions
+      !> are to be of the same size for every vertex weight, then tpwgts should
+      !> be set to a value of 1/nparts. The sum of all of the tpwgts for a given
+      !> vertex weight should be one.
+      real(METIS_REAL_T), intent(in) :: tpwgts(ncon, nparts)
+
       !> Array of size ncon that specifying the imbalance tolerance for each
       !> constraint, with 1 being perfect balance and nparts being perfect
       !> imbalance. A value of 1.001 is recomended for ncon = 1 and 1.01 else.

@@ -13,13 +13,13 @@ module Child_Mesh_Adaptation__3D
   use Element_Distribution_Map__3D
   use Element_Distribution_Data__3D
   use Child_Distribution_Map__3D
-  use Partitioner_Interface__3D
+  use Mesh_Partitioner__3D
   use Data_Exchange__3D
 
   implicit none
   private
 
-  public :: PartitioningOptions_3D   ! from Partitioner_Interface__3D
+  public :: MeshPartitionerOptions_3D   ! from Partitioner_Interface__3D
   public :: ChildMeshAdaptation_3D
 
   !=============================================================================
@@ -31,9 +31,9 @@ module Child_Mesh_Adaptation__3D
     !> Computes the target family partitions and first child element IDs
 
     module subroutine BuildChildMap(opt, parent, map)
-      class(PartitioningOptions_3D), intent(in)  :: opt
-      class(Mesh_3D),                intent(in)  :: parent
-      type(ChildDistributionMap_3D), intent(out) :: map
+      class(MeshPartitionerOptions_3D), intent(in)  :: opt
+      class(Mesh_3D),                   intent(in)  :: parent
+      type(ChildDistributionMap_3D),    intent(out) :: map
     end subroutine BuildChildMap
 
     !---------------------------------------------------------------------------
@@ -76,7 +76,7 @@ contains
 
     ! arguments ................................................................
 
-    class(PartitioningOptions_3D),        intent(in)    :: opt
+    class(MeshPartitionerOptions_3D),     intent(in)    :: opt
     class(Mesh_3D),                       intent(inout) :: parent
     class(Mesh_3D),                       intent(out)   :: new_child
     class(Mesh_3D),             optional, intent(in)    :: old_child
@@ -126,7 +126,20 @@ contains
       call BuildChildMap(opt, parent, new_child_map)
       n_parts = new_child_map % n_parts
     end if
-    call XMPI_Bcast(n_parts, 0, parent % comm_world)
+!   call XMPI_Bcast(n_parts, 0, parent % comm_world)
+!### CHECK
+call MPI_Bcast(n_parts, 1, MPI_INTEGER, 0, MPI_COMM_WORLD)
+call MPI_Barrier(parent % comm_world)
+print '(99(G0,X))', '§1§ proc',parent%proc,', n_parts =',n_parts
+print '(99(G0,X))', '§1§ proc',parent%proc,', parent%part =',parent%part
+print '(99(G0,X))', '§1§ proc',parent%proc,', new_child_map%n_parts =',new_child_map%n_parts
+print '(99(G0,X))', '§1§ proc',parent%proc,', parent%comm_world%MPI_VAL =',parent%comm_world%MPI_VAL
+!### CHECK END
+!   call XMPI_Bcast(n_parts, 0, parent % comm_world)
+!### CHECK
+call MPI_Barrier(parent % comm_world)
+print '(99(G0,X))', '§2§ proc',parent%proc,', n_parts =',n_parts
+!### CHECK END
 
     attrib = MeshAttributes_3D(parent)
     attrib % structured = .false.

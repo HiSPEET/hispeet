@@ -50,7 +50,7 @@ program ML_Mesh_Functionality
   logical :: passed, all_passed
   integer :: n_level, n_proc, rank, prm
   integer :: ne_max, ne_min, ne_tot
-
+  integer :: stat
   integer :: e, i, j, k, l, nc
 
   ! initialization .............................................................
@@ -67,7 +67,7 @@ program ML_Mesh_Functionality
     read(prm, nml = control)
     ml_mesh_opt = ML_Mesh_Options_3D(prm, n_proc)
     allocate(po(ml_mesh_opt%l_top), source = -1)
-    read(prm, nml = operators)
+    read(prm, nml = operators, iostat = stat)
     close(prm)
   end if
 
@@ -82,6 +82,8 @@ program ML_Mesh_Functionality
   call XMPI_Bcast(gmsh_file , 0, comm)
   call XMPI_Bcast(plot_file , 0, comm)
   call XMPI_Bcast(po        , 0, comm)
+
+  call XMPI_Bcast_LoggingLevels(0, comm)
 
   ! mesh import ................................................................
 

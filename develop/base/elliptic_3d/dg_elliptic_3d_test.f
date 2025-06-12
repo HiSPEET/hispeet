@@ -135,10 +135,10 @@ program DG_Elliptic_3D_Test
   ! mesh and variables .........................................................
 
   ! mesh and spectral elements
-  type(Mesh_3D), allocatable   :: initial_mesh
-  type(Mesh_3D)                :: mesh
-  type(SpectralElementMesh_3D) :: sem
-  type(PartitioningOptions_3D) :: part_opt
+  type(Mesh_3D), allocatable      :: initial_mesh
+  type(Mesh_3D)                   :: mesh
+  type(SpectralElementMesh_3D)    :: sem
+  type(MeshPartitionerOptions_3D) :: part_opt
 
   ! discrete operators
   type(DG_EllipticOperator_3D) :: elliptic_op
@@ -254,7 +254,7 @@ program DG_Elliptic_3D_Test
   ! mesh partitioning ..........................................................
 
   if (initial_mesh % n_parts /= n_proc) then
-    part_opt = PartitioningOptions_3D(n_parts = n_proc, w_comp = [1,1,0,0])
+    part_opt = MeshPartitionerOptions_3D(n_parts = n_proc)
     call RootMeshPartitioning_3D(part_opt, initial_mesh, mesh)
   else
     mesh = initial_mesh
