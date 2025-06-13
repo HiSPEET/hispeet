@@ -125,21 +125,10 @@ contains
     if (parent % part >= 0) then
       call BuildChildMap(opt, parent, new_child_map)
       n_parts = new_child_map % n_parts
+    else
+      n_parts = -1
     end if
-!   call XMPI_Bcast(n_parts, 0, parent % comm_world)
-!### CHECK
-call MPI_Bcast(n_parts, 1, MPI_INTEGER, 0, MPI_COMM_WORLD)
-call MPI_Barrier(parent % comm_world)
-print '(99(G0,X))', '§1§ proc',parent%proc,', n_parts =',n_parts
-print '(99(G0,X))', '§1§ proc',parent%proc,', parent%part =',parent%part
-print '(99(G0,X))', '§1§ proc',parent%proc,', new_child_map%n_parts =',new_child_map%n_parts
-print '(99(G0,X))', '§1§ proc',parent%proc,', parent%comm_world%MPI_VAL =',parent%comm_world%MPI_VAL
-!### CHECK END
-!   call XMPI_Bcast(n_parts, 0, parent % comm_world)
-!### CHECK
-call MPI_Barrier(parent % comm_world)
-print '(99(G0,X))', '§2§ proc',parent%proc,', n_parts =',n_parts
-!### CHECK END
+    call XMPI_Bcast(n_parts, 0, parent % comm_world)
 
     attrib = MeshAttributes_3D(parent)
     attrib % structured = .false.

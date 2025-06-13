@@ -51,11 +51,7 @@ contains
     call ProcessAdaptationPattern_3D(old_mesh(1))
 
     part_opt_next = part_opt(1)
-    if (l_top_new > 1) then
-      part_opt_next % n_con_root = min(3, l_top_new, part_opt_next % n_con_root)
-    else
-      part_opt_next % n_con_root = 0
-    end if
+    part_opt_next % n_con_root = min(4, l_top_new, part_opt_next % n_con_root)
 
     if (max(old_mesh(1)%n_parts, part_opt(1)%n_parts) == 1) then
       this % mesh(1) = old_mesh(1)
@@ -86,11 +82,9 @@ contains
       end if
 
       part_opt_next = part_opt(l+1)
-      if (l_top_new - l > 1) then
-        part_opt_next % n_con_child = min(2, part_opt_next % n_con_child)
-      else
-        part_opt_next % n_con_child = min(1, part_opt_next % n_con_child)
-      end if
+      part_opt_next % n_con_child = min( 3                           &
+                                       , l_top_new - l               &
+                                       , part_opt_next % n_con_child )
 
       select case(l_top_old - l)
       case(0)

@@ -1,5 +1,5 @@
 &control
-! log_level = 0
+  log_level = 0
 ! gmsh_file = '../gmsh_3d/cylinder_2d'
 ! plot_file = 'ml_mesh_functionality'
 /
@@ -9,8 +9,11 @@
   l_adapt        =  1
   n_bnd          =  1
   n_box          =  1
-  n_parts_root   =  1
+! split          =  T
+  n_parts_root   =  2
   n_parts_growth =  2
+  n_con_root     =  4
+  n_con_child    =  3
 /
 
 &ml_mesh_options_3d__dynamic
@@ -18,6 +21,7 @@
   adapt_bnd(1:1)      =  7              ! (n_bnd)
   adapt_box(1:3,1,1)  =  0.0, -0.05, -1     ! (1:3,1,*)
   adapt_box(1:3,2,1)  =  1.0,  0.05,  1     ! (1:3,2,*)
+  
 /
 
 &operators

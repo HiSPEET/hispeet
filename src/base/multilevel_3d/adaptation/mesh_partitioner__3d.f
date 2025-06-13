@@ -30,15 +30,16 @@ module Mesh_Partitioner__3D
   !>
   !> The partitioning is subject to `n_con` constraints which depend on the
   !> target mesh (given or child) and the number of sublevels considered.
-  !> For any element, let be `c` the number of children and `g` the number of
-  !> grand children and further descendants in sublevels 2 up to `n_sub`. Then
-  !> the constraints are defined as follows:
+  !> For any element, let be `c` the number of children, `g` the number of
+  !> grand children and `q` further descendants in sublevels 3 up to `n_sub`.
+  !> Then the constraints are defined as follows:
   !>
-  !>   | n_con | given mesh  | child mesh |
-  !>   | ----- | ----------- | ---------- |
-  !>   |   1   |  `1`        |   `c+g`    |
-  !>   |   2   |  `1, c+g`   |   `c, g`   |
-  !>   |   3   |  `1, c, g`  |     -      |
+  !>   | n_con |  given mesh    | child mesh  |
+  !>   | ----- | -------------- | ----------- |
+  !>   |   1   |  `1`           |  `c+g+q`    |
+  !>   |   2   |  `1, c+g+q`    |  `c, g+q`   |
+  !>   |   3   |  `1, c, g+q`   |  `c, g, q`  |
+  !>   !   4   !  `1, c, g, q`  |             |
   !>
   !> The option `w_adj` determines the weights of the graph edges resulting
   !> from element adjacency at the faces, edges and vertices. While the faces
@@ -109,8 +110,6 @@ contains
 
     ! prerequisites ............................................................
 
-    call XMPI_Bcast(log_level, 0, mesh%comm_world)
-
     call IdentifyGraphVertices(opt, mesh, vtx_elem, n_vtx)
     call GetGraphVertexWeights(opt, mesh, n_vtx, vtx_elem, vwgt)
     call GlobalizeGraphVertices(opt, mesh, n_vtx, vtx_elem, comm, vtxdist)
@@ -153,6 +152,13 @@ contains
     end if
 
     if (log_level > 0 .and. n_vtx > 0) then
+      if (proc == 0) then
+        write(*,'(/,A)') 'partitioning results'
+        write(*,'(2X,A,I0)') 'n_parts    = ', n_parts
+      end if
+      if (proc == 0 .or. log_level > 1) then
+        write(*,'(2X,999(G0,X))') 'tp_elem[',proc,'] =', tp_elem(1:mesh%n_elem)
+      end if
       allocate(vtx_part_loc(0:n_parts-1), source = 0)
       allocate(vtx_part, mold = vtx_part_loc)
       do e = 1, mesh%n_elem
@@ -163,14 +169,9 @@ contains
       end do
       call XMPI_Reduce(vtx_part_loc, vtx_part, MPI_SUM, 0, comm)
       if (proc == 0) then
-        write(*,'(/,A)') 'partitioning results'
-        write(*,'(2X,A,I0)') 'n_parts    = ', n_parts
         write(*,'(2X,A,I0)') 'sum(n_vtx) = ', sum(vtx_part)
         write(*,'(2X,A,I0)') 'min(n_vtx) = ', minval(vtx_part)
         write(*,'(2X,A,I0)') 'max(n_vtx) = ', maxval(vtx_part)
-      end if
-      if (proc == 0 .or. log_level > 1) then
-        write(*,'(2X,999(G0,X))') 'tp_elem[',proc,'] =', tp_elem(1:mesh%n_elem)
       end if
     end if
 
@@ -221,27 +222,33 @@ contains
     nvtx = size(vwgt,2)
 
     ! number of partitions contributed by local parent
-    nparts = min(opt%n_parts/n_proc, int(nvtx))
+    nparts = max(0, min(opt%n_parts/n_proc, int(nvtx)))
 
     ! METIS array arguments, using C-style numbering
     allocate( tpwgts ( 0:ncon-1, 0:nparts-1 ) )
     allocate( ubvec  ( 0:ncon-1             ) )
     allocate( part   ( 0:nvtx-1             ) )
 
-    ! tolerance for multi-constraint weighting
-    if (ncon == 1) then
-      ubvec = 1.001
-    else
-      ubvec = 1.01
-    end if
-
-    ! fractions of vertex weight per partition
-    tpwgts = 1.00 / nparts
-
     ! partitioning .............................................................
 
-    call METIS_PartGraphRecursive( nvtx, ncon, xadj, adjncy, vwgt, adjwgt &
-                                 , nparts, tpwgts, ubvec, edgecut, part   )
+    if (nparts > 1) then
+
+      ! tolerance for multi-constraint weighting
+      if (ncon == 1) then
+        ubvec = 1.001
+      else
+        ubvec = 1.01
+      end if
+
+      ! fractions of vertex weight per partition
+      tpwgts = 1.00 / nparts
+
+      call METIS_PartGraphRecursive( nvtx, ncon, xadj, adjncy, vwgt, adjwgt &
+                                   , nparts, tpwgts, ubvec, edgecut, part   )
+
+    else
+      part = 0
+    end if
 
     ! result ...................................................................
 
@@ -369,11 +376,6 @@ contains
     end do
     n_vtx = n
 
-!### CHECK
-print '(99(G0,X))', '*** mesh%part =',mesh%part,', n_vtx =',n_vtx
-print '(99(G0,X))', '*** mesh%part =',mesh%part,', min/max(vtx_elem) =',&
-  minval(vtx_elem), maxval(vtx_elem)
-!### CHECK END
   end subroutine IdentifyGraphVertices
 
   !-----------------------------------------------------------------------------
@@ -389,24 +391,18 @@ print '(99(G0,X))', '*** mesh%part =',mesh%part,', min/max(vtx_elem) =',&
 
     integer :: n_con
     integer :: c_active, c_frozen
-    integer :: c, e, g, i, l, w
+    integer :: c, g, q, w
+    integer :: e, i, l
 
     if (n_vtx == 0) return
 
     if (opt%child) then
-      n_con = max(0, min(opt%n_con_child,2))
+      n_con = max(0, min(opt%n_con_child,3))
     else
-      n_con = max(0, min(opt%n_con_root,3))
+      n_con = max(0, min(opt%n_con_root,4))
     end if
 
     allocate(vwgt(0:n_con-1, 0:n_vtx-1))
-!### CHECK
-print '(99(G0,X))', '+++ mesh%part =',mesh%part,', n_vtx =',n_vtx
-print '(99(G0,X))', '+++ mesh%part =',mesh%part,', n_con =',n_con
-print '(99(G0,X))', '+++ mesh%part =',mesh%part,', min/max(vtx_elem) =',&
-  minval(vtx_elem), maxval(vtx_elem)
-print '(99(G0,X))', '+++ mesh%part =',mesh%part,', shape(vwgt) =',shape(vwgt)
-!### CHECK END
 
     if (opt%child .and. n_con > 1 .or. n_con > 2) then
       c_active = opt % c_active
@@ -436,30 +432,45 @@ print '(99(G0,X))', '+++ mesh%part =',mesh%part,', shape(vwgt) =',shape(vwgt)
           c = 8 * c_active  ! 8 active children @ element or cloned
         end select
 
-        ! grandchildren and further descendants
-        g = 0
+        ! grandchildren
+        if (element%adaptation%sublevels > 1) then
+          g = 1
+        else
+          g = 0
+        end if
+
+        ! great-grandchildren and further descendants
+        q = 0
         w = 1
-        do l = 2, min(element%adaptation%sublevels, opt%n_sub)
-          g = g + w
+        do l = 3, min(element%adaptation%sublevels, opt%n_sub)
+          q = q + w
           w = 8 * w
         end do
 
         if (opt%child) then
           select case(n_con)
           case(1)
-            vwgt(0,i) = c + 64 * g
+            vwgt(0,i) = c + 64 * (g + 8*q)
           case(2)
             vwgt(0,i) = c
+            vwgt(1,i) = g + 8 * q
+          case(3)
+            vwgt(0,i) = c
             vwgt(1,i) = g
+            vwgt(2,i) = q
           end select
         else
           vwgt(0,i) = 1
           select case(n_con)
           case(2)
-            vwgt(1,i) = c + 64 * g
+            vwgt(1,i) = c + 64 * (g + 8*q)
           case(3)
             vwgt(1,i) = c
+            vwgt(2,i) = g + 8 * q
+          case(4)
+            vwgt(1,i) = c
             vwgt(2,i) = g
+            vwgt(3,i) = q
           end select
         end if
 
@@ -500,21 +511,25 @@ print '(99(G0,X))', '+++ mesh%part =',mesh%part,', shape(vwgt) =',shape(vwgt)
     end if
     call MPI_Comm_split(mesh%comm_parts, i, mesh%part, comm)
 
-    if (n_vtx < 0) return
-
-    call MPI_Comm_rank(comm, proc)
-    call MPI_Comm_size(comm, n_proc)
-
     ! graph vertex distribution ................................................
 
-    allocate(vtxdist(0:n_proc), nvtx_proc(0:n_proc-1))
+    if (n_vtx > 0) then
 
-    call MPI_Allgather(n_vtx, 1, MPI_INTEGER, nvtx_proc, 1, MPI_INTEGER, comm)
+      call MPI_Comm_rank(comm, proc)
+      call MPI_Comm_size(comm, n_proc)
 
-    vtxdist(0) = 0
-    do i = 1, n_proc
-      vtxdist(i) = vtxdist(i-1) + nvtx_proc(i-1)
-    end do
+      allocate(vtxdist(0:n_proc), nvtx_proc(0:n_proc-1))
+
+      call MPI_Allgather(n_vtx, 1, MPI_INTEGER, nvtx_proc, 1, MPI_INTEGER, comm)
+
+      vtxdist(0) = 0
+      do i = 1, n_proc
+        vtxdist(i) = vtxdist(i-1) + nvtx_proc(i-1)
+      end do
+
+    else
+      allocate(vtxdist(0), nvtx_proc(0))
+    end if
 
     ! globalization of graph vertex IDs ........................................
 
@@ -530,11 +545,6 @@ print '(99(G0,X))', '+++ mesh%part =',mesh%part,', shape(vwgt) =',shape(vwgt)
     buf_vtx_elem = ElementTransferBuffer_3D(mesh, var_vtx_elem)
     call buf_vtx_elem % Transfer(mesh, var_vtx_elem, tag=1000)
     call buf_vtx_elem % Merge(var_vtx_elem)
-!### CHECK
-print '(99(G0,X))', '??? mesh%part =',mesh%part,', n_vtx =',n_vtx
-print '(99(G0,X))', '??? mesh%part =',mesh%part,', min/max(vtx_elem) =',&
-  minval(vtx_elem(1:mesh%n_elem)), maxval(vtx_elem(1:mesh%n_elem))
-!### CHECK END
 
   end subroutine GlobalizeGraphVertices
 
