@@ -62,7 +62,7 @@
 ! ml_elliptic_opt % penalty           = 2.0   ! penalty parameter > 1   [2]
 ! ml_elliptic_opt % schwarz % delta   = 0.125 ! relative overlap  ≤ 1   [?]
 ! ml_elliptic_opt % schwarz % no_min  =  1    ! min overlap in points   [?]
-! ml_elliptic_opt % projection_method = 'I'   ! {'I','P'}               ['I']
+! ml_elliptic_opt % fc_projection     = 'I'   ! {'I','P'}               ['I']
 ! ml_elliptic_opt % start_method      =  2    ! none/CASC/FMG = 0/1/2   [2]
 ! ml_elliptic_opt % smooth_method     =  2    ! CG/WS/SPCG    = 1/2,3   [2]
 ! ml_elliptic_opt % coarse_solver     =  3    ! CG/WS/SPCG    = 1/2,3   [3]
