@@ -20,9 +20,8 @@ submodule(DG__Elliptic_Operator__3D) MP_Eval_DC
     !---------------------------------------------------------------------------
     !> Compute & add fluxes: generic version
 
-    module subroutine AddFluxes_DC_Gen(mesh, eop, hom_bc, a, Ji_n, nu, tr, r, f)
-      class(Mesh_3D),                  intent(in)    :: mesh
-      class(DG_ElementOperators_1D),   intent(in)    :: eop
+    module subroutine AddFluxes_DC_Gen(this, hom_bc, a, Ji_n, nu, tr, r, f)
+      class(DG_EllipticOperator_3D),   intent(in)    :: this
       logical,                         intent(in)    :: hom_bc
       real(RNP), contiguous,           intent(in)    :: a(0:,0:,:,:)
       real(RNP), contiguous,           intent(in)    :: Ji_n(0:,0:,:,:,:)
@@ -35,9 +34,8 @@ submodule(DG__Elliptic_Operator__3D) MP_Eval_DC
     !---------------------------------------------------------------------------
     !> Compute & add fluxes: LIBXSMM version
 
-    module subroutine AddFluxes_DC_XSMM(mesh, eop, hom_bc, a, Ji_n, nu, tr, r, f)
-      class(Mesh_3D),                  intent(in)    :: mesh
-      class(DG_ElementOperators_1D),   intent(in)    :: eop
+    module subroutine AddFluxes_DC_XSMM(this, hom_bc, a, Ji_n, nu, tr, r, f)
+      class(DG_EllipticOperator_3D),   intent(in)    :: this
       logical,                         intent(in)    :: hom_bc
       real(RNP), contiguous,           intent(in)    :: a(0:,0:,:,:)
       real(RNP), contiguous,           intent(in)    :: Ji_n(0:,0:,:,:,:)
@@ -126,12 +124,12 @@ contains
 
       select case(po)
       case(1:2)
-        call AddFluxes_DC_Gen  (mesh, eop, hom_bc, a, Ji_n, nu, tr, r, f)
+        call AddFluxes_DC_Gen  (this, hom_bc, a, Ji_n, nu, tr, r, f)
       case default
 #ifdef __LIBXSMM__
-        call AddFluxes_DC_XSMM (mesh, eop, hom_bc, a, Ji_n, nu, tr, r, f)
+        call AddFluxes_DC_XSMM (this, hom_bc, a, Ji_n, nu, tr, r, f)
 #else
-        call AddFluxes_DC_Gen  (mesh, eop, hom_bc, a, Ji_n, nu, tr, r, f)
+        call AddFluxes_DC_Gen  (this, hom_bc, a, Ji_n, nu, tr, r, f)
 #endif
       end select
 

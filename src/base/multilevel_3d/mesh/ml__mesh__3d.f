@@ -166,7 +166,7 @@ contains
       this % mesh(1) = mesh
     else
       part_opt = opt%partition(1)
-      part_opt % n_con_root = 0
+      part_opt % n_con_root = 1
       call RootMeshPartitioning_3D( opt      = part_opt     &
                                   , old_mesh = mesh         &
                                   , new_mesh = this%mesh(1) )
@@ -183,7 +183,7 @@ contains
         call this % mesh(l) % element % MarkForRefinement()
       end if
       part_opt = opt%partition(l+1)
-      part_opt % n_con_child = 0
+      part_opt % n_con_child = 1
       call ProcessAdaptationPattern_3D(this%mesh(l))
       call ChildMeshAdaptation_3D( opt       = part_opt         &
                                  , parent    = this % mesh(l)   &

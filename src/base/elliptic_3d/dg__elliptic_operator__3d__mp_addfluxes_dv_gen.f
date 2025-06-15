@@ -13,12 +13,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Compute & add fluxes: generic version
 
-  module subroutine AddFluxes_DV_Gen(mesh, eop, hom_bc, a, Ji_n, tr, r, f)
+  module subroutine AddFluxes_DV_Gen(this, hom_bc, a, Ji_n, tr, r, f)
 
     ! arguments ................................................................
 
-    class(Mesh_3D),                intent(in) :: mesh !< mesh partition
-    class(DG_ElementOperators_1D), intent(in) :: eop  !< ID-DG element operators
+    class(DG_EllipticOperator_3D), intent(in) :: this
 
     logical,   intent(in)    :: hom_bc            !< F/T for in/homogeneous BC
     real(RNP), intent(in)    :: a(0:,0:,:,:)      !< area coeff @ element faces
@@ -31,17 +30,20 @@ contains
 
     ! local variables ..........................................................
 
-    real(RNP), dimension(0:eop%po, 0:eop%po)    :: Mf, Ds_t
-    real(RNP), dimension(0:eop%po, 0:eop%po)    :: nu, nu_max, jmp_u, avg_q
-    real(RNP), dimension(0:eop%po, 0:eop%po, 2) :: Ct, Ds_Ct
-    real(RNP), dimension(0:eop%po, 0:eop%po, 6) :: Cn
+    real(RNP), dimension(0:this%eop%po, 0:this%eop%po)    :: Mf, Ds_t
+    real(RNP), dimension(0:this%eop%po, 0:this%eop%po)    :: nu, nu_max
+    real(RNP), dimension(0:this%eop%po, 0:this%eop%po)    :: jmp_u, avg_q
+    real(RNP), dimension(0:this%eop%po, 0:this%eop%po, 2) :: Ct, Ds_Ct
+    real(RNP), dimension(0:this%eop%po, 0:this%eop%po, 6) :: Cn
     real(RNP) :: mu, tmp
     integer   :: e, i, j, k, m
     logical   :: residual, struct
 
-    associate( P  => eop % po &
-             , Ms => eop % w  &
-             , Ds => eop % D  )
+    associate( eop  => this % eop        &
+             , P    => this % eop % po   &
+             , Ms   => this % eop % w    &
+             , Ds   => this % eop % D    &
+             , mesh => this % sem % mesh )
 
       ! auxiliaries ............................................................
 
@@ -68,8 +70,8 @@ contains
           do m = 1, 2
 
             ! jmp_u = n·[u], avg_q = n·{ν∇u}
-            call GetElementBoundaryFluxes( element, struct, hom_bc, e, m &
-                                         , tr, nu_max, jmp_u, avg_q      )
+            call this % GetElementBoundaryFluxes( element, struct, hom_bc, e  &
+                                                , m, tr, nu_max, jmp_u, avg_q )
 
             nu = tr(:,:,m,e,1)
             mu = eop % PenaltyFactor(element % geometry % dx_m(m))
@@ -114,8 +116,8 @@ contains
 
           do m = 3, 4
 
-            call GetElementBoundaryFluxes( element, struct, hom_bc, e, m &
-                                         , tr, nu_max, jmp_u, avg_q      )
+            call this % GetElementBoundaryFluxes( element, struct, hom_bc, e  &
+                                                , m, tr, nu_max, jmp_u, avg_q )
 
             nu = tr(:,:,m,e,1)
             mu = eop % PenaltyFactor(element % geometry % dx_m(m))
@@ -157,8 +159,8 @@ contains
 
           do m = 5, 6
 
-            call GetElementBoundaryFluxes( element, struct, hom_bc, e, m &
-                                         , tr, nu_max, jmp_u, avg_q      )
+            call this % GetElementBoundaryFluxes( element, struct, hom_bc, e  &
+                                                , m, tr, nu_max, jmp_u, avg_q )
 
             nu = tr(:,:,m,e,1)
             mu = eop % PenaltyFactor(element % geometry % dx_m(m))

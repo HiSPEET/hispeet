@@ -138,7 +138,14 @@ contains
         end if
       end if
 
-      if (opt%child .and. opt%split) then
+      if (opt%n_parts == 1) then
+        where(vtx_elem >= 0)
+          tp_elem = 0
+        elsewhere
+          tp_elem = -1
+        end where
+        n_parts = 1
+      else if (opt%child .and. opt%split) then
         call METIS_Partitioner( opt, mesh, vtx_elem, xadj, adjncy    &
                               , vwgt, adjwgt, comm, tp_elem, n_parts )
       else
@@ -318,6 +325,9 @@ contains
     else
       wgtflag = 2   ! graph vertex constraints only
     end if
+!### CHECK
+print '(99(G0,X))', 'mesh%part =',mesh%part,', wgtflag =',wgtflag
+!### CHECK END
 
     ! ParMETIS array arguments, using C-style numbering
     allocate( tpwgts ( 0:ncon-1, 0:nparts-1 ) )
@@ -397,12 +407,13 @@ contains
     if (n_vtx == 0) return
 
     if (opt%child) then
-      n_con = max(0, min(opt%n_con_child,3))
+      n_con = max(1, min(opt%n_con_child,3))
     else
-      n_con = max(0, min(opt%n_con_root,4))
+      n_con = max(1, min(opt%n_con_root,4))
     end if
 
     allocate(vwgt(0:n_con-1, 0:n_vtx-1))
+    if (size(vwgt) == 0) return
 
     if (opt%child .and. n_con > 1 .or. n_con > 2) then
       c_active = opt % c_active
@@ -411,6 +422,10 @@ contains
       c_active = 1
       c_frozen = 1
     end if
+!### CHECK
+print '(99(G0,X))', 'mesh%part =',mesh%part,', n_vtx =',n_vtx,', n_con =',n_con, &
+    ',count(vtx_elem >=0) =',count(vtx_elem >=0)
+!### CHECK END
 
     do e = 1, mesh%n_elem
       associate(element => mesh % element(e))
