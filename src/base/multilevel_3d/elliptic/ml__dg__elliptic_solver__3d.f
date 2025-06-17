@@ -113,7 +113,8 @@ module ML__DG__Elliptic_Solver__3D
     integer   :: smooth_method = SOLVER_WS   !< smoothing method
     integer   :: coarse_solver = SOLVER_SPCG !< coarse grid solver
 
-    character :: fc_projection = 'I'         !< projection method {'I','P'}
+    character :: fc_projection = 'I' !< projection method {'I','P'}
+    character :: interior_bc   = ' ' !< coupling with frozen elements {' ','D'}
 
     integer   :: i_crs =  1 !< max number of coarse solver iterations
     integer   :: i_max =  1 !< max number of multigrid iterations (cycles)
@@ -496,9 +497,10 @@ contains
 
     do l = 1, l_top
 
-      this % elliptic_op(l) = DG_EllipticOperator_3D( ml_op % sem(l) &
-                                                    , opt % schwarz  &
-                                                    , opt % penalty  )
+      this % elliptic_op(l) = DG_EllipticOperator_3D( ml_op % sem(l)    &
+                                                    , opt % schwarz     &
+                                                    , opt % penalty     &
+                                                    , opt % interior_bc )
     end do
 
     this % ml_op => ml_op

@@ -35,6 +35,9 @@ program ML_Elliptic_Test_Adaptive
   use ML__Array_Reductions__3D
   use ML__DG__Elliptic_Solver__3D
 
+!### CHECK
+use, intrinsic :: ieee_arithmetic
+!### CHECK END
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -322,7 +325,7 @@ program ML_Elliptic_Test_Adaptive
 
   if (rank == 0) then
     open(newunit = io, file = case_file)
-    read(io, nml = solver_prm)
+    read(io, nml = solver_prm, iostat = stat)
     read(io, nml = adaptation_prm)
     close(io)
   end if
@@ -433,6 +436,15 @@ program ML_Elliptic_Test_Adaptive
 
     ! interpolate/redistribute solution
     call u % FitAdapt(ml_op, x_plan)
+!### CHECK
+do l = 1, l_top
+  associate(u_l => u  % level(l) % val(:,:,:,:,1))
+    if (any(ieee_is_nan(u_l))) then
+      print '(99G0)', '#1 [',ml_mesh%mesh(l)%proc,'] u_',l,' has NaN'
+    end if
+  end associate
+end do
+!### CHECK END
 
     ! adjust remaining variables
     call mm % Init(ml_op, 1)
@@ -467,6 +479,15 @@ program ML_Elliptic_Test_Adaptive
     end do
 
     call ml_elliptic % FAS_MG_Solver(bc, lambda, problem%nu_0, u, f, bv)
+!### CHECK
+do l = 1, l_top
+  associate(u_l => u  % level(l) % val(:,:,:,:,1))
+    if (any(ieee_is_nan(u_l))) then
+      print '(99G0)', '#2 [',ml_mesh%mesh(l)%proc,'] u_',l,' has NaN'
+    end if
+  end associate
+end do
+!### CHECK END
 
     call Evaluation
 

@@ -102,12 +102,10 @@ contains
       !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
       !$omp master
 
-      allocate(p, mold = u)
-      allocate(q, mold = u)
-      allocate(s, mold = u)
-      allocate(z, mold = u)
+      allocate(p(np, np, np, ne), source = ZERO)
+      allocate(q, s, z, source = p)
 
-      allocate(nu_avg(ne))
+      allocate(nu_avg(ne), source = ZERO)
 
       allocate(rg(np, np, np, ne+ng), source = ZERO)
       buf_rg = ElementTransferBuffer_3D(mesh, rg, nl)

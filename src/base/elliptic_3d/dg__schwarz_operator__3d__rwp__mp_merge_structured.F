@@ -16,8 +16,8 @@
     class(DG_SchwarzOperator_3D), intent(in) :: this
     class(ElementTransferBuffer_3D), asynchronous, intent(inout) :: buf_us
     class(Mesh_3D), intent(in)    :: mesh          !< mesh partition
-    real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< subdomain solutions
-    real(RWP),      intent(inout) :: us(:,:,:,:)   !< mesh variable
+    real(RWP),      intent(inout) :: us(:,:,:,:)   !< subdomain solutions
+    real(RNP),      intent(inout) :: u(0:,0:,0:,:) !< mesh variable
 
     integer :: e, i, j, k, l, m
     integer :: c0, c1, o0, o1

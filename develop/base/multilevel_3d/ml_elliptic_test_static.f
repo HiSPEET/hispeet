@@ -347,11 +347,11 @@ program ML_Elliptic_Test_Static
 
   ! solver ......................................................................
 
-  allocate(po(l_top), source = 1)
+  allocate(po(l_top), source = -1)
 
   if (rank == 0) then
     open(newunit = io, file = case_file)
-    read(io, nml = solver_prm)
+    read(io, nml = solver_prm, iostat = stat)
     close(io)
     write(*,'(/,A)') 'initializing multilevel operators'
   end if
@@ -596,7 +596,7 @@ contains
       end associate
     end do
     call XMPI_Reduce(r_mx_loc, r_mx, MPI_MAX, 0, comm)
-    call XMPI_Reduce(r_e2_loc, r_e2, MPI_MAX, 0, comm)
+    call XMPI_Reduce(r_e2_loc, r_e2, MPI_SUM, 0, comm)
     r_e2 = sqrt(r_e2)
 
     ! L2 norms

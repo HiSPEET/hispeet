@@ -103,7 +103,8 @@ contains
     integer(METIS_IDX_T), allocatable :: adjncy(:), adjwgt(:), xadj(:)
 
     integer, allocatable :: vtx_elem(:), vtx_part(:), vtx_part_loc(:)
-    integer :: proc, n_proc, n_vtx
+    integer :: n_parts_loc, n_proc, proc
+    integer :: n_vtx
     integer :: i, e, tp
 
     type(MPI_Comm) :: comm
@@ -144,19 +145,22 @@ contains
         elsewhere
           tp_elem = -1
         end where
-        n_parts = 1
-      else if (opt%child .and. opt%split) then
-        call METIS_Partitioner( opt, mesh, vtx_elem, xadj, adjncy    &
-                              , vwgt, adjwgt, comm, tp_elem, n_parts )
+        n_parts_loc = 1
+      else if (opt%child .and. opt%split .or. mesh%n_parts == 1) then
+        call METIS_Partitioner( opt, mesh, vtx_elem, xadj, adjncy        &
+                              , vwgt, adjwgt, comm, tp_elem, n_parts_loc )
       else
         call ParMETIS_Partitioner( opt, mesh, vtx_elem, vtxdist, xadj, adjncy &
-                                 , vwgt, adjwgt, comm, tp_elem, n_parts       )
+                                 , vwgt, adjwgt, comm, tp_elem, n_parts_loc   )
       end if
 
     else
-      tp_elem = -1
-      n_parts = -1
+      tp_elem     = -1
+      n_parts_loc = -1
     end if
+
+    ! globalize n_parts
+    call XMPI_Allreduce(n_parts_loc, n_parts, MPI_MAX, mesh%comm_parts)
 
     if (log_level > 0 .and. n_vtx > 0) then
       if (proc == 0) then
@@ -325,9 +329,6 @@ contains
     else
       wgtflag = 2   ! graph vertex constraints only
     end if
-!### CHECK
-print '(99(G0,X))', 'mesh%part =',mesh%part,', wgtflag =',wgtflag
-!### CHECK END
 
     ! ParMETIS array arguments, using C-style numbering
     allocate( tpwgts ( 0:ncon-1, 0:nparts-1 ) )
@@ -422,10 +423,6 @@ print '(99(G0,X))', 'mesh%part =',mesh%part,', wgtflag =',wgtflag
       c_active = 1
       c_frozen = 1
     end if
-!### CHECK
-print '(99(G0,X))', 'mesh%part =',mesh%part,', n_vtx =',n_vtx,', n_con =',n_con, &
-    ',count(vtx_elem >=0) =',count(vtx_elem >=0)
-!### CHECK END
 
     do e = 1, mesh%n_elem
       associate(element => mesh % element(e))

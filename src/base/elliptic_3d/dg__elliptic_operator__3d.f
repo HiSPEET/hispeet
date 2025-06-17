@@ -28,13 +28,18 @@ module DG__Elliptic_Operator__3D
 
   !-----------------------------------------------------------------------------
   !> Base type for scalar diffusion operators for 3D DG-SEM
+  !>
+  !> When applied with local refinement, the component `interior_bc` defines the
+  !> conditions at interior boundaries: a blank space yields a direct coupling
+  !> to adjacent frozen elements, whereas `D` results in Dirichlet boundary
+  !> conditions.
 
   type DG_EllipticOperator_3D
 
     class(SpectralElementMesh_3D), pointer :: sem => null()
     type(DG_ElementOperators_1D) :: eop
     type(DG_SchwarzOperator_3D)  :: schwarz
-    character :: interior_bc
+    character :: interior_bc = ' ' !< coupling with frozen elements {' ','D'}
 
   contains
 
@@ -253,16 +258,13 @@ contains
     this % schwarz = DG_SchwarzOperator_3D(schwarz_opt, this%eop, sem%mesh)
 
     if (present(interior_bc)) then
-      select case(interior_bc)
-      case(' ','D')
-        this % interior_bc = interior_bc
-      case default
-        call Error( 'Init_DG_EllipticOperator_3D'                  &
-                  , 'interior_bc"'//interior_bc//'" not supported' &
-                  , 'DG__Elliptic_Operator__3D'                    )
-      end select
-    else
-      this % interior_bc = ' '
+      this % interior_bc = interior_bc
+    end if
+
+    if (scan(' D', this%interior_bc) == 0) then
+      call Error( 'Init_DG_EllipticOperator_3D'                       &
+                , 'interior_bc"'//this%interior_bc//'" not supported' &
+                , 'DG__Elliptic_Operator__3D'                         )
     end if
 
   end subroutine Init_DG_EllipticOperator_3D

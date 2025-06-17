@@ -344,12 +344,12 @@ contains
                          (mesh_p, mesh_l, iop_cf(l-1), v_p, w_l)
 
                 ! update solution on current level
-                if (mesh_p % n_elem > 0) then
-                  n = mesh_p % n_elem_active
+                if (mesh_l % n_elem > 0) then
+                  n = mesh_l % n_elem_active
                   ! apply correction to active elements
                   call MergeArrays(ONE, u_l(:,:,:,:n), ONE, w_l(:,:,:,:n))
                   ! update frozen elements
-                  if (mesh_p % n_elem_frozen > 0) then
+                  if (mesh_l % n_elem_frozen > 0) then
                     call SetArray(u_l(:,:,:,n+1:), w_l(:,:,:,n+1:))
                   end if
                 end if
