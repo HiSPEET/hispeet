@@ -301,7 +301,7 @@ contains
     ! no barrier required ;)
 
     call GetInnerTraces_A(mesh, u, um)
-    call ConvertInnerToOuterTraces_A(mesh, um, up)
+    call ConvertInnerToOuterTraces_V(mesh, um, up)
 
     !$omp master
     deallocate(um)
