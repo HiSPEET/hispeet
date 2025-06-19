@@ -5,7 +5,9 @@
 !===============================================================================
 
 module Mesh_Boundary__3D
+  use Kind_Parameters
   use XMPI
+  use Affine_Transformation__3D
   implicit none
   private
 
@@ -49,11 +51,12 @@ module Mesh_Boundary__3D
 
   type MeshBoundary_3D
 
-    character(len=80) :: name     = ''  !< name
-    integer           :: id       =  0  !< boundary identifier
-    integer           :: coupled  =  0  !< ID of coupled boundary, 0 if none
-    integer           :: polarity =  0  !< position WRT to periodic direction
-    integer           :: n_face   =  0  !< number of faces
+    character(80) :: name = '' !< name
+    integer   :: id       = 0  !< boundary identifier
+    integer   :: coupled  = 0  !< ID of coupled boundary, 0 if none
+    integer   :: polarity = 0  !< position WRT to periodic direction
+    integer   :: n_face   = 0  !< number of faces
+    real(RNP) :: map(4,4) = AFFINE_IDENTITY_MAP_3D !< map to coupled boundary
 
     type(MeshBoundaryFace_3D), allocatable :: face(:) !< boundary faces
 
@@ -68,10 +71,11 @@ module Mesh_Boundary__3D
   !> Type for collecting and transmitting the mesh boundary attributes
 
   type MeshBoundaryAttributes_3D
-    character(len=80) :: name     = ''  !< name
-    integer           :: id       =  0  !< boundary identifier
-    integer           :: coupled  =  0  !< ID of coupled boundary, 0 if none
-    integer           :: polarity =  0  !< position WRT to periodic direction
+    character(80) :: name = '' !< name
+    integer   :: id       = 0  !< boundary identifier
+    integer   :: coupled  = 0  !< ID of coupled boundary, 0 if none
+    integer   :: polarity = 0  !< position WRT to periodic direction
+    real(RNP) :: map(4,4) = AFFINE_IDENTITY_MAP_3D !< map to coupled boundary
   contains
     procedure :: Bcast => Bcast_MeshBoundaryAttributes_3D
   end type MeshBoundaryAttributes_3D
@@ -128,6 +132,7 @@ contains
     this % id        =  attrib % id
     this % coupled   =  attrib % coupled
     this % polarity  =  attrib % polarity
+    this % map       =  attrib % map
 
     if (present(n_face)) then
       allocate(this % face( n_face ))
@@ -146,6 +151,7 @@ contains
     this % id        =  boundary % id
     this % coupled   =  boundary % coupled
     this % polarity  =  boundary % polarity
+    this % map       =  boundary % map
 
   end function ExtractBoundaryAttributes
 
@@ -170,6 +176,8 @@ contains
     this % id       = attrib_int(1)
     this % coupled  = attrib_int(2)
     this % polarity = attrib_int(3)
+
+    call XMPI_Bcast(this % map, root, comm)
 
   end subroutine Bcast_MeshBoundaryAttributes_3D
 

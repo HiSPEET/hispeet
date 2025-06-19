@@ -141,7 +141,7 @@ print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
                , pp     => wp(:,:,:,:, 4 ) )
 
         ! divergence of approximate velocity
-        call GetOuterTraces_3D(mesh, v, vp)
+        call GetOuterVectorTraces_3D(mesh, v, vp)
         call TPO_Div(this % eop_u, this % sem_u, v, vp, div_v)
 
         if (size(f, 5) >= 4) then ! has additional RHS for mass conservation

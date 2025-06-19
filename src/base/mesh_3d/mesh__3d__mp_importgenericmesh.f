@@ -68,6 +68,7 @@ contains
         mesh % boundary(i) % id       = i
         mesh % boundary(i) % coupled  = generic_mesh % boundary(i) % coupled
         mesh % boundary(i) % polarity = generic_mesh % boundary(i) % polarity
+        mesh % boundary(i) % map      = generic_mesh % boundary(i) % map
       end do
 
       ! mesh components ........................................................

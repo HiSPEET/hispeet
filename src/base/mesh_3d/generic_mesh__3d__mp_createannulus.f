@@ -212,8 +212,10 @@ contains
     if (periodic) then
       mesh%boundary(3) % coupled  =  4
       mesh%boundary(3) % polarity = -1
+      mesh%boundary(3) % map(3,4) =  h
       mesh%boundary(4) % coupled  =  3
       mesh%boundary(4) % polarity =  1
+      mesh%boundary(4) % map(3,4) = -h
     end if
 
     ! vertex IDs ...............................................................

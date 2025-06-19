@@ -150,10 +150,10 @@ contains
         end if
       end do
 
-      call ConvertInnerToOuterTraces_3D(mesh, vm, vp)
+      call ConvertInnerToOuterVectorTraces_3D(mesh, vm, vp)
       call this % ApplyEssentialBC(bv_v, vm, vp)       ! v⁺ = v(v⁻,vᵇ)  ∂Ω
 
-      call ConvertInnerToOuterTraces_3D(mesh, sm, sp)
+      call ConvertInnerToOuterVectorTraces_3D(mesh, sm, sp)
       call this % ApplyNaturalBC(bv_s, sm, sp)         ! s⁺ = s(s⁻,sᵇ)  ∂Ω
 
       ! fluxes .................................................................

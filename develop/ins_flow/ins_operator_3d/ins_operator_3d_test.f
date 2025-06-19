@@ -118,7 +118,7 @@ program INS_Operator_3D_Test
 
   real(RNP), allocatable :: mm(:,:,:,:)    ! diagonal mass matrix
   real(RNP), allocatable :: mu(:,:,:,:)    ! bulk viscosity μ
-  real(RNP), allocatable :: up(:,:,:,:,:)  ! exterior traces u⁺
+  real(RNP), allocatable :: vp(:,:,:,:,:)  ! exterior traces u⁺
   real(RNP), allocatable :: sp(:,:,:,:,:)  ! exterior traces s⁺ = n⋅τ⁺
   real(RNP), allocatable :: w(:,:,:,:,:)   ! workspace
 
@@ -277,7 +277,7 @@ program INS_Operator_3D_Test
   allocate(mu (0:po_u,0:po_u,0:po_u,1:n_elem)     )
   allocate(w  (0:po_u,0:po_u,0:po_u,1:n_elem,1:4) )
 
-  allocate(up (0:po_u,0:po_u,1:6,1:n_elem,1:4), source = ZERO )
+  allocate(vp (0:po_u,0:po_u,1:6,1:n_elem,1:3), source = ZERO )
   allocate(sp (0:po_u,0:po_u,1:6,1:n_elem,1:3), source = ZERO )
 
   call ins_op % sem_u % Get_DG_DiagonalMassMatrix(mm)
@@ -321,8 +321,8 @@ program INS_Operator_3D_Test
 
   associate(sem => ins_op % sem_u)
 
-    ! outer traces u⁺
-    call GetOuterTraces_3D(mesh, u, up)
+    ! outer velocity traces v⁺
+    call GetOuterVectorTraces_3D(mesh, v, vp)
 
     ! boundary values
     allocate(bv_u(mesh % n_bound))
@@ -348,8 +348,8 @@ program INS_Operator_3D_Test
                                  , a_q  = metrics % a              &
                                  , n_q  = metrics % n              &
                                  , v    = v                        &
-                                 , vp   = up(:,:,:,:,1:3)          &
-                                 , F_c  = w (:,:,:,:,1:3)          )
+                                 , vp   = vp                       &
+                                 , F_c  = w(:,:,:,:,1:3)           )
   end associate
 
   do i = 1, 3
@@ -364,9 +364,9 @@ program INS_Operator_3D_Test
   ! viscous term: F_d = ∇·τ ....................................................
 
   if (problem % HasVariableProperties()) then
-    call ins_op % GetDiffusionTerm_V(mu, nu, v, up, sp, w, bv_u)
+    call ins_op % GetDiffusionTerm_V(mu, nu, v, vp, sp, w, bv_u)
   else
-    call ins_op % GetDiffusionTerm_C(v, up, sp, w, bv_u)
+    call ins_op % GetDiffusionTerm_C(v, vp, sp, w, bv_u)
   end if
 
   do i = 1, 3

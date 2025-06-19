@@ -111,7 +111,7 @@ contains
 
       ! mesh spacing ...........................................................
 
-      !$omp do private(dx) reduction(min:dx_min_loc) reduction(max:dx_max_loc) 
+      !$omp do private(dx) reduction(min:dx_min_loc) reduction(max:dx_max_loc)
       do e = 1, ne
         call mesh % element(e) % GetCuboidDimensions(dx)
         dx_min_loc = min(dx_min_loc, dx(1), dx(2), dx(3))
@@ -154,7 +154,7 @@ contains
       ! divergence .............................................................
 
       associate(v => u(:,:,:,:,1:3), q => w(:,:,:,:,4))
-        call GetOuterTraces_3D(mesh, v, vp)         ! vp = v⁺
+        call GetOuterVectorTraces_3D(mesh, v, vp)   ! vp = v⁺
         call TPO_Div(eop, ins_op%sem_u, v, vp, q)   ! q = ∇⋅v
         !$omp do
         do e = 1, ne

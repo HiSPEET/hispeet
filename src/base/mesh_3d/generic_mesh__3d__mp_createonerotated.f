@@ -206,8 +206,10 @@ contains
         k = 2 * i
         mesh%boundary(j) % coupled  =  k
         mesh%boundary(j) % polarity = -i
+        mesh%boundary(j) % map(i,4) =  lx(i)
         mesh%boundary(k) % coupled  =  j
         mesh%boundary(k) % polarity =  i
+        mesh%boundary(k) % map(i,4) = -lx(i)
       end if
     end do
 

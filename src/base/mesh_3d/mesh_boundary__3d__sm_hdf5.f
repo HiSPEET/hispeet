@@ -69,6 +69,12 @@ contains
     offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%polarity))
     call H5Tinsert_f(H5T_BoundaryAttributes, 'polarity', offset, H5T_INTEGER, err)
 
+    ! insert map
+    offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%map(1,1)))
+    call H5Tarray_create_f(H5T_REAL_RNP, 2, int([4,4], HSIZE_T), tid, err)
+    call H5Tinsert_f(H5T_BoundaryAttributes, 'map', offset, tid, err)
+    call H5Tclose_f(tid, err)
+
   end subroutine Init_H5T_BoundaryAttributes
 
   !=============================================================================

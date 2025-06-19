@@ -467,7 +467,7 @@ contains
           end if
 
           ! velocity divergence
-          call GetOuterTraces_3D(mesh, v, vp)          ! vp = v⁺ on Γᴵ and v⁻ on ∂Ω
+          call GetOuterVectorTraces_3D(mesh, v, vp)    ! vp = v⁺ on Γᴵ and v⁻ on ∂Ω
           call ins_op % ApplyEssentialBC(bv_u, vp, vp) ! vp = v⁺ on ∂Ω
           call TPO_Div(ins_op % eop_u, sem_u, v, vp, div_v)
 
