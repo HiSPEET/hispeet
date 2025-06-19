@@ -53,7 +53,7 @@ module Mesh_Partitioner__3D
     integer :: n_con_root  = 1       !< max num constraints for mesh itself
     integer :: n_con_child = 1       !< max num constraints for child mesh
     integer :: n_sub       = 10      !< max num sublevels to be weighted
-    integer :: c_active    = 2       !< cost of active child elements
+    integer :: c_active    = 1       !< cost of active child elements
     integer :: c_frozen    = 1       !< cost of frozen child elements
     integer :: w_adj(3)    = [1,0,0] !< face/edge/vertex adjacency weights
   contains
@@ -347,6 +347,26 @@ contains
                              , numflag, ncon, nparts, tpwgts, ubvec, options &
                              , edgecut, part, comm % MPI_VAL                 )
 
+!### CHECK
+!! call MPI_Barrier(comm)
+!! if (log_level > 0) then
+!! print '(999(G0,X))', '#PMKway# proc[',proc,'] vtxdist =',vtxdist
+!! print '(999(G0,X))', '#PMKway# proc[',proc,'] xadj    =',xadj
+!! print '(999(G0,X))', '#PMKway# proc[',proc,'] adjncy  =',adjncy
+!! print '(999(G0,X))', '#PMKway# proc[',proc,'] vwgt    =',vwgt
+!! print '(999(G0,X))', '#PMKway# proc[',proc,'] adjwgt  =',adjwgt
+!! print '(999(G0,X))', '#PMKway# proc[',proc,'] wgtflag =',wgtflag
+!! print '(999(G0,X))', '#PMKway# proc[',proc,'] numflag =',numflag
+!! print '(999(G0,X))', '#PMKway# proc[',proc,'] ncon    =',ncon
+!! print '(999(G0,X))', '#PMKway# proc[',proc,'] nparts  =',nparts
+!! print '(999(G0,X))', '#PMKway# proc[',proc,'] tpwgts  =',tpwgts
+!! print '(999(G0,X))', '#PMKway# proc[',proc,'] ubvec   =',ubvec
+!! print '(999(G0,X))', '#PMKway# proc[',proc,'] options =',options
+!! print '(999(G0,X))', '#PMKway# proc[',proc,'] edgecut =',edgecut
+!! print '(999(G0,X))', '#PMKway# proc[',proc,'] part    =',part
+!! end if
+!! call MPI_Barrier(comm)
+!### CHECK END
     ! result ...................................................................
 
     n_parts = nparts

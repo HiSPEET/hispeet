@@ -1,5 +1,5 @@
 &control_prm
-  log_level = 2
+! log_level = 1
 ! log_level_inner_iteration = 2
 ! log_level_outer_iteration = 0
 ! log_level_multigrid_cycle = 1
@@ -32,9 +32,7 @@
 
 &ml_mesh_options_3d__dynamic
   refinement = 3*'c', 4*'s' ! (1:l_max-1)  refinement type {'c','s'}
-  n_parts    = 2, 2, 2, 4, 8, 16, 32, 128, 512, 2048
-! n_parts    = 5*8, 16, 32, 128, 512, 2048
-! n_parts    = 3*1, 2, 4, 16, 64, 512, 1024
+  n_parts    = 2, 2, 2, 2, 4, 8, 16, 32, 128, 512, 2048
 /
 
 &problem_prm
@@ -44,7 +42,7 @@
 /
 
 &solver_prm
-  n_cycle = 3
+  n_cycle = 6
 
   po = 1, 2, 4, 5*8 ! (1:l_max)
 
