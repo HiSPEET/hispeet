@@ -50,6 +50,7 @@ module INS__Operator__3D
     integer :: level !< rank in multilevel hierarchy (0 if none)
     character(len=4) :: pressure_solver  !< pressure solver
     character(len=4) :: diffusion_solver !< diffusion solver
+    character(len=4) :: stokes_corrector !< Stokes corrector
 
     real(RNP) :: mu_0      !< const bulk viscosity,   μ = ζ/ρ
     real(RNP) :: nu_0      !< const shear viscosity,  ν = η/ρ
@@ -139,6 +140,7 @@ module INS__Operator__3D
 
     character(4) :: pressure_solver  = 'SPCG'  !< {'AS','CG','SPCG','MG','MGCG'}
     character(4) :: diffusion_solver = 'DPCG'  !< {'DPCG','SPCG'}
+    character(4) :: stokes_corrector = 'X0PD'  !< {'PD','X0PD','X2PD'}
     logical      :: dealiasing       = .false. !< F: no dealiasing, T: 3/2 rule
 
     real(RNP)    :: penalty_p =    -1 !< penalty for p-solver, -1: auto
@@ -472,11 +474,36 @@ contains
       this % level = 0
     end if
 
-    this % pressure_solver  = opt % pressure_solver
-    this % diffusion_solver = opt % diffusion_solver
-    this % mu_0             = opt % mu_0
-    this % nu_0             = problem % nu_ref
-    this % delta_out        = opt % delta_out
+    select case(opt % pressure_solver)
+    case('AS','CG','SPCG','MG','MGCG')
+      this % pressure_solver = opt % pressure_solver
+    case default
+      call Error( 'Init_INS_Operator_3D'                                     &
+                , 'ivalid pressure solver "'//trim(opt%pressure_solver)//'"' &
+                , 'INS__Operator__3D'                                        )
+    end select
+
+    select case(opt % diffusion_solver)
+    case('DPCG','SPCG')
+      this % diffusion_solver = opt % diffusion_solver
+    case default
+      call Error( 'Init_INS_Operator_3D'                                       &
+                , 'ivalid diffusion solver "'//trim(opt%diffusion_solver)//'"' &
+                , 'INS__Operator__3D'                                          )
+    end select
+
+    select case(opt % stokes_corrector)
+    case('PD','X0PD','X2PD')
+      this % stokes_corrector = opt % stokes_corrector
+    case default
+      call Error( 'Init_INS_Operator_3D'                                       &
+                , 'ivalid stokes corrector "'//trim(opt%stokes_corrector)//'"' &
+                , 'INS__Operator__3D'                                          )
+    end select
+
+    this % mu_0      = opt % mu_0
+    this % nu_0      = problem % nu_ref
+    this % delta_out = opt % delta_out
 
     ! element operators ........................................................
 
@@ -767,6 +794,7 @@ contains
 
     call XMPI_Bcast(this % pressure_solver , root, comm)
     call XMPI_Bcast(this % diffusion_solver, root, comm)
+    call XMPI_Bcast(this % stokes_corrector, root, comm)
     call XMPI_Bcast(this % dealiasing      , root, comm)
     call XMPI_Bcast(this % penalty_p       , root, comm)
     call XMPI_Bcast(this % penalty_u       , root, comm)

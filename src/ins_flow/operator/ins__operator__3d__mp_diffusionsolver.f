@@ -135,6 +135,7 @@ contains
 
       do i = 1, i_max
 
+        ! preconditioner, result set to zero in frozen elements
         select case(this % diffusion_solver)
         case('DPCG')
           call Diagonal_Preconditioner(this, tau, r, z, standby = i < i_max)
@@ -148,7 +149,7 @@ contains
                     , 'INS__Operator__3D'            )
         end select
 
-        ! set/update search vector
+        ! set/update search vector, include frozen elements for definiteness
         if (i == 1) then
           call SetArray(p, z, multi = .true.)                 ! p = z
         else
@@ -161,9 +162,10 @@ contains
         ! save old residual
         call SetArray(s, r, multi = .true.)
 
-        ! correction
+        ! apply homogeneous operator, requires zero values in frozen elements
         call this % ApplyDiffusionOperator(tau, mu, nu, p, q)  ! q = Ap
 
+        ! correction
         delta = ScalarProduct(r, z, mesh%comm_parts)
         pq    = ScalarProduct(p, q, mesh%comm_parts)
         alpha = delta / pq

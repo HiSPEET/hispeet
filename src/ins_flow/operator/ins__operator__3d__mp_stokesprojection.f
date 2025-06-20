@@ -61,7 +61,7 @@ contains
 
     type(BoundaryVariable_3D), allocatable, save :: bv_w(:), bv_p(:), bv_dp(:)
 
-    logical :: extrapolation
+    logical :: extrapolation, predictor
     integer :: b, c, e, na, ne, np
 
     associate( problem => this % problem          &
@@ -72,18 +72,17 @@ contains
 
       ! initialization .........................................................
 
-      extrapolation = present(f_d0)
+      predictor = present(f_d0)
+      extrapolation = predictor .or. this%stokes_corrector(1:1) == 'X'
+
       np = size(v,1)
       na = mesh % n_elem_active
       ne = mesh % n_elem
-!### CHECK
-print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
-!### CHECK END
 
       !$omp master
 
       allocate( wp (np, np,  6, ne, 6), source = ZERO )
-      allocate( w  (np, np, np, ne, 4), source = ZERO )
+      allocate( w  (np, np, np, ne, 5), source = ZERO )
 
       ! provide handles for velocity and pressure boundary values
       allocate(bv_w ( mesh%n_bound ))
@@ -101,7 +100,7 @@ print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
 
       ! extrapolation step .....................................................
 
-      if (extrapolation) then
+      if (predictor) then
 
         !$omp do collapse(2)
         do c = 1, 3
@@ -110,15 +109,23 @@ print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
         end do
         end do
 
-      else
+      else if (extrapolation) then
+        ! corrector using extrapolation
+
         associate( f_d => w (:,:,:,:,1:3) &
                  , mm  => w (:,:,:,:, 4)  &
                  , vp  => wp(:,:,:,:,1:3) &
                  , sp  => wp(:,:,:,:,4:6) )
 
-          call this % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_w &
-                                      , xout = .true. , form = 2     ) ! a
-!                                     , xout = .true.                ) ! b
+          if ((this % stokes_corrector(2:2) == 'R')) then
+            ! using rotational form of the diffusion term
+            call this % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_w &
+                                        , xout = .true. , form = 2     )
+          else
+            ! using default form of the diffusion term
+            call this % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_w &
+                                        , xout = .true.                )
+          end if
 
           call this % sem_u % Get_DG_DiagonalMassMatrix( mm )
 
@@ -133,34 +140,61 @@ print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
         end associate
       end if
 
-      ! pressure correction.....................................................
+      ! projection step ........................................................
 
-      associate( grad_p => w (:,:,:,:,1:3) &
-               , div_v  => w (:,:,:,:, 4)  &
-               , vp     => wp(:,:,:,:,1:3) &
-               , pp     => wp(:,:,:,:, 4 ) )
-
-        ! divergence of approximate velocity
+      ! sources
+      associate( div_v => w (:,:,:,:, 4)  &
+               , vp    => wp(:,:,:,:,1:3) )
+        ! compute divergence of approximate velocity
         call GetOuterVectorTraces_3D(mesh, v, vp)
         call TPO_Div(this % eop_u, this % sem_u, v, vp, div_v)
-
-        if (size(f, 5) >= 4) then ! has additional RHS for mass conservation
+        ! add additional sources
+        if (size(f, 5) >= 4) then
           call MergeArrays(ONE, div_v, -ONE, f(:,:,:,:,4))
         end if
-
-        ! compute pressure
-        call this % PressureSolver(tau, bv_w, v, div_v, p, precon)
-        ! compute pressure gradient
-        call GetOuterTraces_3D(mesh, p, pp)
-        call TPO_Grad(this % eop_u, this % sem_u, p, pp, grad_p)
-        ! correct velocity: v = v - τ∇p
-        do c = 1, 3
-          call MergeArrays(ONE, v(:,:,:,:na,c), -tau, grad_p(:,:,:,:na,c))
-        end do
-
       end associate
 
-      ! diffusive correction ...................................................
+      ! pressure and velocity correction
+      if (extrapolation) then
+
+        ! predictor or corrector with extrapolation
+        associate( grad_p => w (:,:,:,:,1:3) &
+                 , div_v  => w (:,:,:,:, 4)  &
+                 , pp     => wp(:,:,:,:, 4 ) )
+          ! compute pressure
+          call this % PressureSolver(tau, bv_w, v, div_v, p, precon)
+          ! compute pressure gradient
+          call GetOuterTraces_3D(mesh, p, pp)
+          call TPO_Grad(this % eop_u, this % sem_u, p, pp, grad_p)
+          ! correct velocity: v = v - τ∇p
+          do c = 1, 3
+            call MergeArrays(ONE, v(:,:,:,:na,c), -tau, grad_p(:,:,:,:na,c))
+          end do
+        end associate
+
+      else
+
+        ! corrector without extrapolation
+        associate( grad_q => w (:,:,:,:,1:3) &
+                 , div_v  => w (:,:,:,:, 4)  &
+                 , q      => w (:,:,:,:, 5 ) &
+                 , qp     => wp(:,:,:,:, 4 ) )
+          ! compute pressure correction δp = q
+          call SetArray(q, ZERO)
+          call this % PressureSolver(tau, bv_w, v, div_v, q, precon)
+          ! compute gradient of pressure correction δp
+          call GetOuterTraces_3D(mesh, q, qp)
+          call TPO_Grad(this % eop_u, this % sem_u, q, qp, grad_q)
+          ! correction: v = v - τ∇p, p = p + δp
+          do c = 1, 3
+            call MergeArrays(ONE, v(:,:,:,:na,c), -tau, grad_q(:,:,:,:na,c))
+          end do
+          call MergeArrays(ONE, p, ONE, q)
+        end associate
+
+      end if
+
+      ! diffusion step .........................................................
 
       ! update outflow boundary conditions
       do b = 1, mesh % n_bound
@@ -176,7 +210,7 @@ print '(99(G0,1X))', '*** ii-a: extrapolation =',extrapolation
       associate( q  => w (:,:,:,:,1:3) &
                , pp => wp(:,:,:,:, 4 ) )
 
-        if (extrapolation) then
+        if (predictor) then
 
           !$omp do collapse(2)
           do c = 1, 3
