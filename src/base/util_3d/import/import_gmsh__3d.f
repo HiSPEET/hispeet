@@ -79,8 +79,8 @@ module Import_GMSH__3D
     integer :: periodicID  = 0       !< numeration ID of coupled surface
     integer :: nFaces      = 0       !< number of corresponding faces
     integer :: nNodes      = 0       !< number of corresponding nodes
-    logical :: periodic    = .FALSE. !< flag for periodic furfaces
-    logical :: master      = .FALSE. !< flag for master furfaces
+    logical :: periodic    = .FALSE. !< flag for periodic surfaces
+    logical :: master      = .FALSE. !< flag for master surfaces
     real(RNP) :: map(4,4)  = 0       !< affine map to coupled surface
     integer, allocatable :: nodes(:) !< tags of surface nodes
   end type MshSurface
@@ -148,7 +148,7 @@ contains
     integer, allocatable :: p_face(:)      ! list of face nodes
     logical, allocatable :: mask(:)        ! array for masking nodes or vertices
 
-    real(RNP):: affinityMatrix(4,4) ! affinity transformation matrix
+    real(RNP):: affinityMatrix(4,4) ! affine transformation matrix
 
     integer :: MSH, stat
     integer :: e, f, i, j, k, l, m, n, param, pT, s, sT
@@ -354,17 +354,17 @@ contains
           end do
 
           ! master surface
-          surface(m) % periodicTag    = entityTag
-          surface(m) % periodicID     = s
-          surface(m) % periodic       = .TRUE.
-          surface(m) % master         = .TRUE.
-          surface(m) % map              = transpose(affinityMatrix)
+          surface(m) % periodicTag = entityTag
+          surface(m) % periodicID  = s
+          surface(m) % periodic    = .TRUE.
+          surface(m) % master      = .TRUE.
+          surface(m) % map         = transpose(affinityMatrix)
 
           ! slave surface
-          surface(s) % periodicTag    = entityTagMaster
-          surface(s) % periodicID     = m
-          surface(s) % periodic       = .TRUE.
-          surface(s) % master         = .FALSE.
+          surface(s) % periodicTag = entityTagMaster
+          surface(s) % periodicID  = m
+          surface(s) % periodic    = .TRUE.
+          surface(s) % master      = .FALSE.
 
         end if
       end do
