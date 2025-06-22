@@ -14,6 +14,7 @@ program ML_Elliptic_Test_Adaptive
   use Array_Assignments
   use Array_Reductions
 
+  use TPO__Grad__3D
   use Elliptic_Problem__3D
   use Elliptic_Problem__Sphere__3D
 
@@ -134,12 +135,14 @@ use, intrinsic :: ieee_arithmetic
   character(len=:), allocatable, save :: name_var(:) ! names of variables
   type(ML_MeshVariable_3D), save :: var ! container of variables
 
-  type(ML_MeshVariable_3D), save :: mm  ! diagonal mass matrix
-  type(ML_MeshVariable_3D), save :: f   ! sources
-  type(ML_MeshVariable_3D), save :: u   ! numerical solution
-  type(ML_MeshVariable_3D), save :: s   ! exact solution
-  type(ML_MeshVariable_3D), save :: e   ! error
-  type(ML_MeshVariable_3D), save :: r   ! residual or just workspace
+  type(ML_MeshVariable_3D), save :: mm     ! diagonal mass matrix
+  type(ML_MeshVariable_3D), save :: f      ! sources
+  type(ML_MeshVariable_3D), save :: u      ! numerical solution
+  type(ML_MeshVariable_3D), save :: s      ! exact solution
+  type(ML_MeshVariable_3D), save :: e      ! H0/H1 errors per element
+  type(ML_MeshVariable_3D), save :: r      ! residual or just workspace
+  type(ML_MeshVariable_3D), save :: grad_u ! gradient of numerical solution
+  type(ML_MeshVariable_3D), save :: grad_s ! gradient of exact solution
 
   type(ML_BoundaryVariable_3D), save :: bv ! boundary values
 
@@ -152,7 +155,8 @@ use, intrinsic :: ieee_arithmetic
   integer, save :: l_top, l_max, l_adapt
   integer, save :: io, stat
 
-  logical :: singular
+  real(RNP), save :: max_e(2)
+
   integer :: i, l, m
 
   !-----------------------------------------------------------------------------
@@ -350,22 +354,28 @@ use, intrinsic :: ieee_arithmetic
   call f  % Init(ml_op, 1)
   call u  % Init(ml_op, 1)
   call s  % Init(ml_op, 1)
-  call e  % Init(ml_op, 1)
   call r  % Init(ml_op, 1)
   call bv % Init(ml_op, 1)
+
+  call grad_u % Init(ml_op, 3)
+  call grad_s % Init(ml_op, 3)
+
+  call e % Init(ml_mesh, po = 0, nc = 2)
+
 
   ! RHS, BC and start values ...................................................
 
   do l = 1, l_top
-    associate( x_l   => ml_op % sem(l) % metrics % x   &
-             , mm_l  => mm % level(l) % val(:,:,:,:,1) &
-             , f_l   => f  % level(l) % val(:,:,:,:,1) &
-             , s_l   => s  % level(l) % val(:,:,:,:,1) &
-             , u_l   => u  % level(l) % val(:,:,:,:,1) )
+    associate( x_l => ml_op % sem(l) % metrics % x   &
+             , mm_l=> mm % level(l) % val(:,:,:,:,1) &
+             , f_l => f  % level(l) % val(:,:,:,:,1) &
+             , s_l => s  % level(l) % val(:,:,:,:,1) &
+             , u_l => u  % level(l) % val(:,:,:,:,1) )
 
       call ml_op % sem(l) % Get_DG_DiagonalMassMatrix(mm_l)
 
       call problem % GetExactSolution(x_l, s_l)
+      call problem % GetExactGradient(x_l, grad_s % level(l) % val)
       call problem % GetSource(x_l, f_l)
       f_l = mm_l * f_l
 
@@ -450,9 +460,13 @@ end do
     call mm % Init(ml_op, 1)
     call f  % Init(ml_op, 1)
     call s  % Init(ml_op, 1)
-    call e  % Init(ml_op, 1)
     call r  % Init(ml_op, 1)
     call bv % Init(ml_op, 1)
+
+    call grad_u % Init(ml_op, 3)
+    call grad_s % Init(ml_op, 3)
+
+    call e % Init(ml_mesh, po = 0, nc = 2)
 
     ! RHS and BC
     do l = 1, l_top
@@ -464,6 +478,7 @@ end do
         ! right hand side
         call ml_op % sem(l) % Get_DG_DiagonalMassMatrix(mm_l)
         call problem % GetExactSolution(x_l, s_l)
+        call problem % GetExactGradient(x_l, grad_s % level(l) % val)
         call problem % GetSource(x_l, f_l)
         f_l = mm_l * f_l
 
@@ -496,15 +511,14 @@ end do
   !-----------------------------------------------------------------------------
   ! VTK export
 
-  name_var = [ 'f ', 'u ', 's ', 'e ', 'r ' ]
+  name_var = [ 'f ', 'u ', 's ', 'r ' ]
   call var % Init(ml_op, size(name_var), name_var)
 
   do l = 1, l_top
     call SetArray(var%level(l)%val(:,:,:,:,1), f%level(l)%val(:,:,:,:,1))
     call SetArray(var%level(l)%val(:,:,:,:,2), u%level(l)%val(:,:,:,:,1))
     call SetArray(var%level(l)%val(:,:,:,:,3), s%level(l)%val(:,:,:,:,1))
-    call SetArray(var%level(l)%val(:,:,:,:,4), e%level(l)%val(:,:,:,:,1))
-    call SetArray(var%level(l)%val(:,:,:,:,5), r%level(l)%val(:,:,:,:,1))
+    call SetArray(var%level(l)%val(:,:,:,:,4), r%level(l)%val(:,:,:,:,1))
   end do
 
   if (export_vtk) then
@@ -526,9 +540,9 @@ contains
 
     real(RNP), parameter :: eps = epsilon(ONE) / 1000
 
-    real(RNP), save :: int_1, int_1_loc
-    real(RNP), save :: int_e, int_e_loc
-    real(RNP), save :: e_l2, r_l2
+    real(RNP), save :: int_e_loc(2), int_e(2)
+    real(RNP), save :: max_e_loc(2)
+    real(RNP), save :: e_h(2), r_h0
 
     integer, save :: ne_max, ne_min, ne_tot, ne_leaf, ne_leaf_loc
     integer, save :: ne_tot_sum, ne_leaf_sum
@@ -539,53 +553,56 @@ contains
 
     associate(mesh => ml_mesh%mesh)
 
-      ! residual .................................................................
+      ! residual ...............................................................
 
       call ml_elliptic % FAS_MG_Residual(bc, lambda, problem%nu_0, f, bv, u, r)
-      r_l2 = sqrt(ML_WeightedScalarProduct_3D(mm, r, r, leaf = .true.))
+      r_h0 = sqrt(ML_WeightedScalarProduct_3D(mm, r, r, leaf = .true.))
 
-      ! error ....................................................................
+      ! H0 and H1 semi-norm errors .............................................
 
-      int_1_loc = 0
       int_e_loc = 0
+      max_e_loc = 0
 
       do l = 1, l_top
-        associate( mm_l   => mm % level(l) % val(:,:,:,:,1) &
-                 , s_l    => s  % level(l) % val(:,:,:,:,1) &
-                 , u_l    => u  % level(l) % val(:,:,:,:,1) &
-                 , e_l    => e  % level(l) % val(:,:,:,:,1) )
+
+        associate( mm_l => mm % level(l) % val(:,:,:,:,1) &
+                 , e_l  => e  % level(l) % val(0,0,0,:,:) &
+                 , s_l  => s  % level(l) % val(:,:,:,:,1) &
+                 , u_l  => u  % level(l) % val(:,:,:,:,1) &
+                 , Vs_l => grad_s % level(l) % val        &
+                 , Vu_l => grad_u % level(l) % val        )
+
+          ! gradient of approximate solution
+          call TPO_Grad( eop = ml_op % sem(l) % std_op &
+                       , sem = ml_op % sem(l)          &
+                       , u   = u_l                     &
+                       , v   = Vu_l                    )
 
           do i = 1, mesh(l) % n_elem
-            e_l(:,:,:,i) = u_l(:,:,:,i) - s_l(:,:,:,i)
+
+            ! H0 norm in element i
+            e_l(i,1) = sqrt(sum( mm_l(:,:,:,i)                        &
+                               * ( u_l(:,:,:,i) - s_l(:,:,:,i)) **2 ) )
+
+            ! H1 semi-norm in element i
+            e_l(i,2) = sqrt(sum( mm_l(:,:,:,i) &
+                               * ( (Vu_l(:,:,:,i,1) - Vs_l(:,:,:,i,1))**2    &
+                                 + (Vu_l(:,:,:,i,2) - Vs_l(:,:,:,i,2))**2    &
+                                 + (Vu_l(:,:,:,i,3) - Vs_l(:,:,:,i,3))**2 ) ))
+
             if (mesh(l)%element(i)%IsLeaf()) then
-              int_1_loc = int_1_loc + sum(mm_l(:,:,:,i))
-              int_e_loc = int_e_loc + sum(mm_l(:,:,:,i) * e_l(:,:,:,i))
+              int_e_loc = int_e_loc + e_l(i,1:2)**2
+              max_e_loc = max(max_e_loc, e_l(i,1:2))
             end if
           end do
 
         end associate
       end do
 
-      ! mean error for calibration in singular case
-      if (singular) then
-        call XMPI_Allreduce(int_1_loc, int_1, MPI_SUM, comm)
-        call XMPI_Allreduce(int_e_loc, int_e, MPI_SUM, comm)
-        e_avg = int_e / int_1
-      else
-        e_avg = 0
-      end if
-
-      ! calibration and maximum norm
-      do l = 1, l_top
-        associate(e_l => e % level(l) % val(:,:,:,:,1))
-          do i = 1, mesh(l) % n_elem
-            e_l(:,:,:,i) = e_l(:,:,:,i) - e_avg
-          end do
-        end associate
-      end do
-
-      ! L2 norm
-      e_l2 = sqrt(ML_WeightedScalarProduct_3D(mm, e, e, leaf = .true.))
+      ! global measures
+      call XMPI_Allreduce(int_e_loc, int_e, MPI_SUM, comm)
+      call XMPI_Allreduce(max_e_loc, max_e, MPI_MAX, comm)
+      e_h = sqrt(int_e)
 
       ! mesh metrics .............................................................
 
@@ -644,8 +661,11 @@ contains
         write(*,'(T5,A,T16,I0)')     'np_tot  =', np_tot_sum
         write(*,'(T5,A,T16,I0)')     'ne_leaf =', ne_leaf_sum
         write(*,'(T5,A,T16,I0)')     'np_leaf =', np_leaf_sum
-        write(*,'(T5,A,T15,ES12.5)') 'r_l2    =', r_l2
-        write(*,'(T5,A,T15,ES12.5)') 'e_l2    =', e_l2
+        write(*,'(T5,A,T15,ES12.5)') 'r_0     =', r_h0
+        write(*,'(T5,A,T15,ES12.5)') 'e_0     =', e_h(1)
+        write(*,'(T5,A,T15,ES12.5)') 'e_1     =', e_h(2)
+        write(*,'(T5,A,T15,ES12.5)') 'max e_0 =', max_e(1)
+        write(*,'(T5,A,T15,ES12.5)') 'max e_2 =', max_e(2)
       end if
 
     end associate
