@@ -138,8 +138,9 @@ contains
       associate(adaptation => parent % element(i) % adaptation)
         if (adaptation % refinement < 1000) then
           cycle ! skip elements with no active children
+        else if (recv_mark(i) >= 0) then
+          adaptation % mark = max(adaptation % mark, recv_mark(i) + 1000)
         end if
-        adaptation % mark = max(adaptation % mark, recv_mark(i) + 1000)
       end associate
     end do
 

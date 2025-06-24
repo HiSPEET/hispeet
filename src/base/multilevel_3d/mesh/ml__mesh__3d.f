@@ -450,7 +450,7 @@ contains
     allocate(adapt_bnd(n_bnd),         source = -1 )
     allocate(adapt_box(3,2,n_box),     source = huge(ONE))
 
-    read(unit, nml = ml_mesh_options_3d__dynamic, iostat = stat)
+    read(unit, nml = ml_mesh_options_3d__dynamic)
 
     ! create multilevel mesh options ...........................................
 

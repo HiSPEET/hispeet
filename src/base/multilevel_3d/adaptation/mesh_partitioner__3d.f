@@ -132,14 +132,19 @@ contains
         if (proc == 0 .or. log_level > 1) then
           write(*,'(2X,999(G0,X))') 'n_elem  [',proc,'] =', mesh%n_elem
           write(*,'(2X,999(G0,X))') 'n_ghost [',proc,'] =', mesh%n_ghost
-          write(*,'(2X,999(G0,X))') 'vtx_elem[',proc,'] =', vtx_elem
-          do i = lbound(vwgt,1),ubound(vwgt,1)
-            write(*,'(2X,999(G0,X))') 'vwgt(',i,')[',proc,'] =', vwgt(i,:)
-          end do
+          if (log_level > 2) then
+            write(*,'(2X,999(G0,X))') 'vtx_elem[',proc,'] =', vtx_elem
+            do i = lbound(vwgt,1),ubound(vwgt,1)
+              write(*,'(2X,999(G0,X))') 'vwgt(',i,')[',proc,'] =', vwgt(i,:)
+            end do
+          end if
         end if
       end if
 
-      if (opt%n_parts == 1) then
+      if (opt%n_parts == 1 .or. n_proc == 1 .and. .not. opt%child) then
+!### CHECK
+!! print '(99(G0,X))', 'part',mesh%part,'PPP 1'
+!### CHECK END
         where(vtx_elem >= 0)
           tp_elem = 0
         elsewhere
@@ -147,14 +152,23 @@ contains
         end where
         n_parts_loc = 1
       else if (opt%child .and. opt%split .or. mesh%n_parts == 1) then
+!### CHECK
+!! print '(99(G0,X))', 'part',mesh%part,'PPP 2'
+!### CHECK END
         call METIS_Partitioner( opt, mesh, vtx_elem, xadj, adjncy        &
                               , vwgt, adjwgt, comm, tp_elem, n_parts_loc )
       else
+!### CHECK
+!! print '(99(G0,X))', 'part',mesh%part,'PPP 3'
+!### CHECK END
         call ParMETIS_Partitioner( opt, mesh, vtx_elem, vtxdist, xadj, adjncy &
                                  , vwgt, adjwgt, comm, tp_elem, n_parts_loc   )
       end if
 
     else
+!### CHECK
+!! print '(99(G0,X))', 'part',mesh%part,'PPP 4'
+!### CHECK END
       tp_elem     = -1
       n_parts_loc = -1
     end if
@@ -167,7 +181,7 @@ contains
         write(*,'(/,A)') 'partitioning results'
         write(*,'(2X,A,I0)') 'n_parts    = ', n_parts
       end if
-      if (proc == 0 .or. log_level > 1) then
+      if (log_level > 2) then
         write(*,'(2X,999(G0,X))') 'tp_elem[',proc,'] =', tp_elem(1:mesh%n_elem)
       end if
       allocate(vtx_part_loc(0:n_parts-1), source = 0)
@@ -560,7 +574,7 @@ contains
       end do
 
     else
-      allocate(vtxdist(0), nvtx_proc(0))
+      allocate(vtxdist(0), nvtx_proc(0), source = 0)
     end if
 
     ! globalization of graph vertex IDs ........................................

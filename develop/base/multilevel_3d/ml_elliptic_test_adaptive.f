@@ -153,9 +153,11 @@ use, intrinsic :: ieee_arithmetic
   character(len=100), save :: message
   logical, save :: exists, passed, all_passed
   integer, save :: l_top, l_max, l_adapt
+  integer, save :: ne_leaf, ne_tot
+  integer, save :: np_leaf, np_tot
   integer, save :: io, stat
 
-  real(RNP), save :: max_e(2)
+  real(RNP), save :: max_e(4) ! max element error in different norms
 
   integer :: i, l, m
 
@@ -316,8 +318,6 @@ use, intrinsic :: ieee_arithmetic
   ! enforce periodicity at coupled boundaries
   where(base_mesh % boundary % coupled > 0) bc = 'P'
 
-  singular = lambda == ZERO .and. all(bc == 'P' .or. bc == 'N')
-
   if (rank == 0) then
     write(*,'(T3,A,T26,9(G0,X))') 'problem name:'        , trim(problem_name)
     write(*,'(T3,A,T26,9(G0,X))') 'boundary conditions:' , bc
@@ -329,7 +329,7 @@ use, intrinsic :: ieee_arithmetic
 
   if (rank == 0) then
     open(newunit = io, file = case_file)
-    read(io, nml = solver_prm, iostat = stat)
+    read(io, nml = solver_prm)
     read(io, nml = adaptation_prm)
     close(io)
   end if
@@ -360,7 +360,7 @@ use, intrinsic :: ieee_arithmetic
   call grad_u % Init(ml_op, 3)
   call grad_s % Init(ml_op, 3)
 
-  call e % Init(ml_mesh, po = 0, nc = 2)
+  call e % Init(ml_mesh, po = 0, nc = 4)
 
 
   ! RHS, BC and start values ...................................................
@@ -466,7 +466,7 @@ end do
     call grad_u % Init(ml_op, 3)
     call grad_s % Init(ml_op, 3)
 
-    call e % Init(ml_mesh, po = 0, nc = 2)
+    call e % Init(ml_mesh, po = 0, nc = 4)
 
     ! RHS and BC
     do l = 1, l_top
@@ -541,14 +541,14 @@ contains
     real(RNP), parameter :: eps = epsilon(ONE) / 1000
 
     real(RNP), save :: int_e_loc(2), int_e(2)
-    real(RNP), save :: max_e_loc(2)
+    real(RNP), save :: max_e_loc(4)
     real(RNP), save :: e_h(2), r_h0
 
-    integer, save :: ne_max, ne_min, ne_tot, ne_leaf, ne_leaf_loc
+    integer, save :: ne_max, ne_min, ne_leaf_loc
     integer, save :: ne_tot_sum, ne_leaf_sum
     integer, save :: np_tot_sum, np_leaf_sum
 
-    real(RNP) :: e_avg
+    real(RNP) :: c_norm
     integer   :: i, l
 
     associate(mesh => ml_mesh%mesh)
@@ -590,9 +590,14 @@ contains
                                  + (Vu_l(:,:,:,i,2) - Vs_l(:,:,:,i,2))**2    &
                                  + (Vu_l(:,:,:,i,3) - Vs_l(:,:,:,i,3))**2 ) ))
 
+            ! normalized errors
+            c_norm = 1 / sqrt(sum(mm_l(:,:,:,i)))
+            e_l(i,3) = e_l(i,1) * c_norm
+            e_l(i,4) = e_l(i,2) * c_norm
+
             if (mesh(l)%element(i)%IsLeaf()) then
               int_e_loc = int_e_loc + e_l(i,1:2)**2
-              max_e_loc = max(max_e_loc, e_l(i,1:2))
+              max_e_loc = max(max_e_loc, e_l(i,1:4))
             end if
           end do
 
@@ -643,8 +648,8 @@ contains
         call XMPI_Bcast(ne_leaf, mesh(l)%proc_part(0), mesh(l)%comm_world)
 
         if (rank == 0) then
-          write(*,'(I7,5I9,I5)') l, mesh(l)%n_parts,             &
-                                 ne_min, ne_max, ne_tot,ne_leaf, &
+          write(*,'(I7,5I9,I5)') l, mesh(l)%n_parts,              &
+                                 ne_min, ne_max, ne_tot, ne_leaf, &
                                  po(l)
 
           ne_tot_sum  = ne_tot_sum  + ne_tot
@@ -654,18 +659,25 @@ contains
         end if
       end do
 
+      ne_tot  = ne_tot_sum
+      np_tot  = np_tot_sum
+      ne_leaf = ne_leaf_sum
+      np_leaf = np_leaf_sum
+
       if (rank == 0) then
         write(*,*)
         write(*,'(2X,A)') 'overall metrics'
-        write(*,'(T5,A,T16,I0)')     'ne_tot  =', ne_tot_sum
-        write(*,'(T5,A,T16,I0)')     'np_tot  =', np_tot_sum
-        write(*,'(T5,A,T16,I0)')     'ne_leaf =', ne_leaf_sum
-        write(*,'(T5,A,T16,I0)')     'np_leaf =', np_leaf_sum
+        write(*,'(T5,A,T16,I0)')     'ne_tot  =', ne_tot
+        write(*,'(T5,A,T16,I0)')     'np_tot  =', np_tot
+        write(*,'(T5,A,T16,I0)')     'ne_leaf =', ne_leaf
+        write(*,'(T5,A,T16,I0)')     'np_leaf =', np_leaf
         write(*,'(T5,A,T15,ES12.5)') 'r_0     =', r_h0
         write(*,'(T5,A,T15,ES12.5)') 'e_0     =', e_h(1)
         write(*,'(T5,A,T15,ES12.5)') 'e_1     =', e_h(2)
         write(*,'(T5,A,T15,ES12.5)') 'max e_0 =', max_e(1)
-        write(*,'(T5,A,T15,ES12.5)') 'max e_2 =', max_e(2)
+        write(*,'(T5,A,T15,ES12.5)') 'max e_1 =', max_e(2)
+        write(*,'(T5,A,T16,ES12.5)') 'max ē_0 =', max_e(3)
+        write(*,'(T5,A,T16,ES12.5)') 'max ē_1 =', max_e(4)
       end if
 
     end associate
@@ -677,107 +689,83 @@ contains
 
   subroutine SetAdaptationMarks
 
-    type(ML_MeshVariable_3D), save :: qi
-    real(RNP), save :: qi_max, qi_max_loc
-    integer,   save :: n_ref_loc, n_ref
+    type(ML_MeshVariable_3D), allocatable, save :: qi
+    integer, allocatable, save :: n_refine_loc(:), n_refine(:)
+    integer, allocatable, save :: n_remove_loc(:), n_remove(:)
 
-    real(RNP) :: qi_remove, qi_refine
+    real(RNP) :: qi_refine, qi_remove
     integer   :: i, l
 
     associate(mesh => ml_mesh%mesh)
 
-      n_ref_loc = 0
+      allocate(qi)
+      allocate(n_refine_loc(l_top), n_refine(l_top), source = 0)
+      allocate(n_remove_loc(l_top), n_remove(l_top), source = 0)
 
-      ! mark for global refinement ..............................................
+      ! select quantity of interest and criteria for refinement/removal ........
+
+      call e % GetSlice(qi, adapt_criterion, adapt_criterion)
+      qi_refine = adapt_refine * max_e(adapt_criterion)
+      qi_remove = adapt_remove * max_e(adapt_criterion)
+
+      ! mark elements in globally refined levels ...............................
 
       do l = 1, min(l_top,l_adapt-2)
         if (mesh(l)%n_elem > 0) then
           call mesh(l) % element % MarkForRefinement()
-          n_ref_loc = n_ref_loc + 1
         end if
       end do
 
-      ! quantity of interest for adaptation .....................................
-
-      call qi % Init(ml_mesh, po = 0, nc = 1)
-      qi_max_loc = 0
-
-      ! evaluation
-      do l = l_adapt-1, l_top
-        associate( mesh_l => ml_op % sem(l) % mesh          &
-                 , mm_l   => mm % level(l) % val(:,:,:,:,1) &
-                 , qi_l   => qi % level(l) % val(0,0,0,:,1) &
-                 , e_l    => e  % level(l) % val(:,:,:,:,1) )
-
-          call SetArray(qi_l, ZERO)
-
-          do i = 1, mesh_l % n_elem_active
-            select case(adapt_criterion)
-            case(1)
-              qi_l(i) = sum(mm_l(:,:,:,i) * e_l(:,:,:,i)**2)
-            case default
-              qi_l(i) = sum(mm_l(:,:,:,i) * e_l(:,:,:,i)**2) &
-                      / sum(mm_l(:,:,:,i))
-            end select
-            qi_max_loc = max(qi_max_loc, qi_l(i))
-         end do
-
-        end associate
-      end do
-
-      ! global maximum
-      call XMPI_Reduce(qi_max_loc, qi_max, MPI_MAX, 0, comm)
-
       ! mark for adaptation ....................................................
-
-      select case(adapt_criterion)
-      case(1:2)
-        qi_remove = adapt_remove * qi_max
-        qi_refine = adapt_refine * qi_max
-      case default ! 3
-        qi_remove = adapt_remove
-        qi_refine = adapt_refine
-      end select
 
       ! l < l_max: mark elements for removal or refinement
       do l = l_adapt-1, min(l_top,l_max-1)
-        do i = 1, mesh(l) % n_elem
-          associate( element => mesh(l) % element(i)      &
-                   , qi => qi % level(l) % val(0,0,0,i,1) )
-            if (qi < adapt_remove) then
-              call element % MarkForRemoval()
-            else if (qi > qi_refine) then
-              call element % MarkForRefinement()
-              n_ref_loc = n_ref_loc + 1
+        associate(qi_l => qi % level(l) % val(0,0,0,:,1))
+          do i = 1, mesh(l) % n_elem
+            if (.not. mesh(l) % element(i) % IsLeaf()) then
+              call mesh(l) % element(i) % MarkForRemoval()
+            else if (qi_l(i) > qi_refine) then
+              call mesh(l) % element(i) % MarkForRefinement()
+              n_refine_loc(l) = n_refine_loc(l) + 1
+            else if (qi_l(i) < adapt_remove) then
+              call mesh(l) % element(i) % MarkForRemoval()
+              n_remove_loc(l) =  n_remove_loc(l) + 1
             else
-              call element % Unmark()
+              call mesh(l) % element(i) % Unmark()
             end if
-          end associate
-        end do
+          end do
+        end associate
       end do
 
       ! l = l_max: mark elements for removal
       if (l_top == l_max) then
-        do i = 1, mesh(l_top) % n_elem
-          associate( element => mesh(l_top) % element(i)      &
-                   , qi => qi % level(l_top) % val(0,0,0,i,1) )
-            if (qi < adapt_remove) then
-              call element % MarkForRemoval()
+        associate(qi_l => qi % level(l_top) % val(0,0,0,:,1))
+          do i = 1, mesh(l_top) % n_elem
+            if (qi_l(i) < adapt_remove) then
+              call mesh(l_top) % element(i) % MarkForRemoval()
+              n_remove_loc(l_top) =  n_remove_loc(l_top) + 1
             else
-              call element % Unmark()
+              call mesh(l_top) % element(i) % Unmark()
             end if
-          end associate
-        end do
+          end do
+        end associate
       end if
 
+      deallocate(qi)
+
       ! number of leaf elements marked for refinement
-      call XMPI_Reduce(n_ref_loc, n_ref, MPI_SUM, 0, comm)
+      call XMPI_Reduce(n_refine_loc, n_refine, MPI_SUM, 0, comm)
+      call XMPI_Reduce(n_remove_loc, n_remove, MPI_SUM, 0, comm)
 
       ! control output .........................................................
 
       if (rank == 0) then
-        write(*,'(/,2X,A,I0)') 'elements marked for refinement: ', n_ref
+        write(*,'(/,2X,A,99(X,G0))') 'elements marked for refinement: ',n_refine
+        write(*,'(  2X,A,99(X,G0))') 'elements marked for removal:    ',n_remove
       end if
+
+      deallocate(n_refine_loc, n_refine)
+      deallocate(n_remove_loc, n_remove)
 
     end associate
 

@@ -63,7 +63,6 @@ contains
           m = mark(neighbor(i)%id)
           if (m <= 0) cycle
           element % adaptation % mark = max(element % adaptation % mark, 0)
-          if (m == 0) cycle
           ! coupled neighbor face
           l = neighbor(i)%component
           ! bit-encoded neighbor child refinement
@@ -83,7 +82,6 @@ contains
             m = mark(neighbor(j)%id)
             if (m <= 0) cycle
             element % adaptation % mark = max(element % adaptation % mark, 0)
-            if (m == 0) cycle
             ! coupled neighbor edge
             l = ElementEdgeID(neighbor(j)%component)
             ! bit-encoded neighbor child refinement
@@ -104,7 +102,6 @@ contains
             m = mark(neighbor(j)%id)
             if (m <= 0) cycle
             element % adaptation % mark = max(element % adaptation % mark, 0)
-            if (m == 0) cycle
             ! coupled neighbor vertex
             l = ElementVertexID(neighbor(j)%component)
             ! bit-encoded neighbor child refinement

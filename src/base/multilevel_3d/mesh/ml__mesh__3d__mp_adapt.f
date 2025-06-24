@@ -21,17 +21,23 @@ contains
     integer, save :: l_top_loc, l_top_new, l_top_old
 
     type(MeshPartitionerOptions_3D) :: part_opt_next
-    integer :: l
+    integer :: l, m
 
     ! initialization ...........................................................
 
     l_top_old = size(this % mesh)
     do l = l_top_old, 1, -1
       if (this % mesh(l) % n_elem > 0) then
-        if (any(this % mesh(l) % element % adaptation % mark > 0)) exit
+        m = maxval(this % mesh(l) % element % adaptation % mark)
+        ! m > 0: at least one element is refined
+        ! m = 0: no element is refined, but at least one is retained
+        if (m >= 0) exit
+      else
+        m = -1
       end if
     end do
-    l_top_loc = l + 1
+
+    l_top_loc = l + min(1,m)
     call XMPI_Allreduce(l_top_loc, l_top_new, MPI_MAX, this%mesh(1)%comm_world)
 
     call move_alloc(this%mesh, old_mesh)
@@ -53,7 +59,7 @@ contains
     part_opt_next = part_opt(1)
     part_opt_next % n_con_root = min(4, l_top_new, part_opt_next % n_con_root)
 
-    if (max(old_mesh(1)%n_parts, part_opt(1)%n_parts) == 1) then
+    if (max(old_mesh(1)%n_parts, part_opt_next%n_parts) == 1) then
       this % mesh(1) = old_mesh(1)
       x_plan(1) % identity = .true.
       allocate(x_plan(1) % send_map(0))
