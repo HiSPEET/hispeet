@@ -56,8 +56,8 @@ contains
   !>
   !> Either `nu_0` or `nu_v` must be given.
 
-  module subroutine CS_MGCG_Solver_X( this, bc, lambda, nu_0, nu_v, u, f, bv &
-                                    , i_max, l_top, ni, r_2 )
+  subroutine CS_MGCG_Solver_X( this, bc, lambda, nu_0, nu_v, u, f, bv &
+                             , i_max, l_top, ni, r_2 )
 
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
 
