@@ -280,6 +280,7 @@ print '(99(G0,X))','METIS: proc =',proc,'/',n_proc,', nparts =',nparts
     ! offset for locally generated partitions
     o_parts = sum(n_parts_proc(0:proc-1))
 !### CHECK
+print '(99(G0,X))','METIS: proc =',proc,'/',n_proc,', n_parts_proc =',n_parts_proc
 print '(99(G0,X))','METIS: proc =',proc,'/',n_proc,', n_parts =',n_parts
 print '(99(G0,X))','METIS: proc =',proc,'/',n_proc,', o_parts =',o_parts
 !### CHECK END
