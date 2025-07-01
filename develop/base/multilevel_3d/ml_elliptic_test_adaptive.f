@@ -122,7 +122,7 @@ use, intrinsic :: ieee_arithmetic
 
   ! adaptation parameters ......................................................
 
-  integer   :: adapt_criterion = 1
+  integer   :: adapt_criterion = 4
   real(RNP) :: adapt_remove = 0.0
   real(RNP) :: adapt_refine = 0.7
 
@@ -739,8 +739,8 @@ contains
         write(*,'(T5,A,T15,ES12.5)') 'e_1     =', e_h(2)
         write(*,'(T5,A,T15,ES12.5)') 'max e_0 =', max_e(1)
         write(*,'(T5,A,T15,ES12.5)') 'max e_1 =', max_e(2)
-        write(*,'(T5,A,T16,ES12.5)') 'max ē_0 =', max_e(3)
-        write(*,'(T5,A,T16,ES12.5)') 'max ē_1 =', max_e(4)
+        write(*,'(T5,A,T16,ES12.5)') 'max ê_0 =', max_e(3)
+        write(*,'(T5,A,T16,ES12.5)') 'max ê_1 =', max_e(4)
       end if
 
     end associate

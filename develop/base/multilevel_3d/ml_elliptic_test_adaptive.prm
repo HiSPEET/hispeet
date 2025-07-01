@@ -26,8 +26,9 @@
 ! split          =  T  ! subdivide parent (child only)        [F]
   n_parts_root   =  1  ! number of partitions at root level   [1]
   n_parts_growth =  2  ! partition number growth rate         [1]
-  n_con_root     =  4  ! max num constraints for root level
-  n_con_child    =  3  ! max num constraints for child levels
+  n_con_root     =  1  ! max num constraints for root level    ≤ 4
+  n_con_child    =  2  ! max num constraints for child levels  ≤ 3
+  n_con_sub      =  2  ! max num constraints for child levels
 /
 
 &ml_mesh_options_3d__dynamic
@@ -66,7 +67,7 @@
 /
 
 &adaptation_prm
-  adapt_criterion = 3
-  adapt_remove    = 0
-  adapt_refine    = 1E-2
+  adapt_criterion = 4
+  adapt_remove    = 0.0
+  adapt_refine    = 0.7
 /
