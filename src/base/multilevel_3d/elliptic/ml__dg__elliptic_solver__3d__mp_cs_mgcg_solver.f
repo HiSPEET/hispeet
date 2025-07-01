@@ -33,7 +33,7 @@ contains
   !> Use `l_top` to specify a top level lower than `size(this%ml_op%sem)`
 
   module subroutine CS_MGCG_Solver_V( this, bc, lambda, nu, u, f, bv &
-                                  , i_max, l_top, ni, r_2          )
+                                    , i_max, l_top, ni, r_2          )
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     character, intent(in) :: bc(:)                  !< boundary conditions
     real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
@@ -73,7 +73,7 @@ contains
       !< approx/final solution
     class(ML_MeshVariable_3D), intent(inout) :: f
       !< RHS
-    class(ML_BoundaryVariable_3D), target, intent(in) :: bv
+    class(ML_BoundaryVariable_3D), intent(in) :: bv
       !< boundary values
     integer, optional, intent(in) :: i_max
       !< overrides preset maximum number of cycles
