@@ -157,6 +157,8 @@ use, intrinsic :: ieee_arithmetic
   integer, save :: np_leaf, np_tot
   integer, save :: io, stat
 
+  real(RNP), allocatable, save :: t_adapt(:), t_setup(:), t_solve(:)
+  real(RNP), save :: t_start
   real(RNP), save :: max_e(4) ! max element error in different norms
 
   integer :: i, l, m
@@ -215,10 +217,10 @@ use, intrinsic :: ieee_arithmetic
   call XMPI_Bcast_LoggingLevels(0, comm)
 
   ! globalize remaining parameters
-  call XMPI_Bcast(case_name       , 0, comm)
-  call XMPI_Bcast(export_vtk      , 0, comm)
-  call XMPI_Bcast(test_domain     , 0, comm)
-  call XMPI_Bcast(gmsh_file       , 0, comm)
+  call XMPI_Bcast(case_name   , 0, comm)
+  call XMPI_Bcast(export_vtk  , 0, comm)
+  call XMPI_Bcast(test_domain , 0, comm)
+  call XMPI_Bcast(gmsh_file   , 0, comm)
 
   ! base mesh ..................................................................
 
@@ -342,10 +344,17 @@ use, intrinsic :: ieee_arithmetic
   call XMPI_Bcast(adapt_remove   , 0, comm)
   call XMPI_Bcast(adapt_refine   , 0, comm)
 
+  allocate(t_adapt(n_cycle), source = ZERO)
+  allocate(t_setup, t_solve, source = t_adapt)
+
   !-----------------------------------------------------------------------------
   ! first iteration
 
   ! preliminaries ..............................................................
+
+  if (rank == 0) then
+    t_start = MPI_Wtime()
+  end if
 
   ml_op = ML_MeshOperators_3D(ml_mesh, po)
   ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt)
@@ -361,7 +370,6 @@ use, intrinsic :: ieee_arithmetic
   call grad_s % Init(ml_op, 3)
 
   call e % Init(ml_mesh, po = 0, nc = 4)
-
 
   ! RHS, BC and start values ...................................................
 
@@ -401,13 +409,22 @@ use, intrinsic :: ieee_arithmetic
     end associate
   end do
 
+  if (rank == 0) then
+    t_setup(1) = MPI_Wtime() - t_start
+  end if
+
   ! solution ...................................................................
 
   if (rank == 0) then
-     write(*,'(/,A,I0)') 'Cycle ', 1
+    write(*,'(/,A,I0)') 'Cycle ', 1
+    t_start = MPI_Wtime()
   end if
 
   call ml_elliptic % FAS_MG_Solver(bc, lambda, problem%nu_0, u, f, bv)
+
+  if (rank == 0) then
+    t_solve(1) = MPI_Wtime() - t_start
+  end if
 
   call Evaluation
 
@@ -425,7 +442,15 @@ use, intrinsic :: ieee_arithmetic
     end if
     call SetAdaptationMarks
 
+    if (rank == 0) then
+      t_start = MPI_Wtime()
+    end if
+
     call ml_mesh % Adapt(ml_mesh_opt % partition, x_plan)
+
+    if (rank == 0) then
+      t_adapt(m) = MPI_Wtime() - t_start
+    end if
 
     ! verification
     associate(mesh => ml_mesh%mesh)
@@ -441,11 +466,25 @@ use, intrinsic :: ieee_arithmetic
     l_top = size(ml_mesh % mesh)
     ml_op = ML_MeshOperators_3D(ml_mesh, po)
 
+    if (rank == 0) then
+      t_start = MPI_Wtime()
+    end if
+
     ! rebuild elliptic operators -- can be optimized
     ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt)
 
+    if (rank == 0) then
+      t_setup(m) = MPI_Wtime() - t_start
+      t_start = MPI_Wtime()
+    end if
+
     ! interpolate/redistribute solution
     call u % FitAdapt(ml_op, x_plan)
+
+    if (rank == 0) then
+      t_adapt(m) = t_adapt(m) + MPI_Wtime() - t_start
+    end if
+
 !### CHECK
 do l = 1, l_top
   associate(u_l => u  % level(l) % val(:,:,:,:,1))
@@ -455,6 +494,10 @@ do l = 1, l_top
   end associate
 end do
 !### CHECK END
+
+    if (rank == 0) then
+      t_start = MPI_Wtime()
+    end if
 
     ! adjust remaining variables
     call mm % Init(ml_op, 1)
@@ -493,7 +536,17 @@ end do
       end associate
     end do
 
+    if (rank == 0) then
+      t_setup(m) = t_setup(m) + MPI_Wtime() - t_start
+      t_start = MPI_Wtime()
+    end if
+
     call ml_elliptic % FAS_MG_Solver(bc, lambda, problem%nu_0, u, f, bv)
+
+    if (rank == 0) then
+      t_solve(m) = MPI_Wtime() - t_start
+    end if
+
 !### CHECK
 do l = 1, l_top
   associate(u_l => u  % level(l) % val(:,:,:,:,1))
@@ -507,6 +560,16 @@ end do
     call Evaluation
 
   end do
+
+  ! print times
+  if (rank == 0) then
+    write(*,'(/,2X,A5,3(4X,A7,X))') 'cycle', 't_adapt', 't_setup', 't_solve'
+    do m = 1, n_cycle
+      write(*,'(I5,2X,3(2X,ES10.3))') m, t_adapt(m), t_setup(m), t_solve(m)
+    end do
+    write(*,'(A5,2X,3(2X,ES10.3))') &
+        'sum', sum(t_adapt), sum(t_setup), sum(t_solve)
+  end if
 
   !-----------------------------------------------------------------------------
   ! VTK export
