@@ -49,6 +49,9 @@ contains
       call MPI_Comm_group(comm_world, group_world) ! identical for all
       call MPI_Comm_group(comm_split, group_split) ! differs between in/active
 
+!### CHECK
+print '(99(G0,X))','part ='mesh%part,'/',n_part,'active =',active,', proc =',mesh%proc
+!### CHECK END
       if (active > 0) then
 
         ! communicator and maps for active processes ...........................
