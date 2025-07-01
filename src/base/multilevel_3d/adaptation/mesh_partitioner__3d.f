@@ -270,7 +270,7 @@ print '(99(G0,X))','METIS: proc =',proc,'/',n_proc,', nparts =',nparts
 !### CHECK END
 
     ! distribution of new partitions over processes
-    allocate(n_parts_proc(0:n_proc))
+    allocate(n_parts_proc(0:n_proc-1))
     call MPI_Allgather( int(nparts) , 1, MPI_INTEGER       &
                       , n_parts_proc, 1, MPI_INTEGER, comm )
 
