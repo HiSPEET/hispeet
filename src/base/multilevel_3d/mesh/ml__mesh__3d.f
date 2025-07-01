@@ -391,24 +391,25 @@ contains
     ! static input variables ...................................................
 
     ! adaptation
-    integer :: l_top   =  1        ! top level
-    integer :: l_max   = -1        ! top level
-    integer :: l_adapt =  huge(1)  ! first level to be adapted > 1
-    integer :: n_bnd   =  0        ! number of boundaries to be adapted
-    integer :: n_box   =  0        ! number of boxes to be adapted
+    integer :: l_top   =  1         ! top level
+    integer :: l_max   = -1         ! top level
+    integer :: l_adapt =  huge(1)   ! first level to be adapted > 1
+    integer :: n_bnd   =  0         ! number of boundaries to be adapted
+    integer :: n_box   =  0         ! number of boxes to be adapted
 
     ! partitioning
-    logical :: split = .false.     ! use parent subdivision for child mesh
-    integer :: n_parts_root   = -1 ! number of partitions at root level
-    integer :: n_parts_growth = -1 ! partition number growth rate
-    integer :: n_con_root     =  1 ! num constraints for root  partitioning ≤ 3
-    integer :: n_con_child    =  1 ! num constraints for child partitioning ≤ 2
+    logical :: split = .false.      ! use parent subdivision for child mesh
+    integer :: n_parts_root   = -1  ! number of partitions at root level
+    integer :: n_parts_growth = -1  ! partition number growth rate
+    integer :: n_con_root     =  1  ! num constraints for root  partitioning ≤ 3
+    integer :: n_con_child    =  1  ! num constraints for child partitioning ≤ 2
+    integer :: n_con_sub      = 10  ! max num sublevels to be weighted
 
     namelist/ml_mesh_options_3d__static/ l_top, l_max, l_adapt
     namelist/ml_mesh_options_3d__static/ n_bnd, n_box
     namelist/ml_mesh_options_3d__static/ split
     namelist/ml_mesh_options_3d__static/ n_parts_root, n_parts_growth
-    namelist/ml_mesh_options_3d__static/ n_con_root, n_con_child
+    namelist/ml_mesh_options_3d__static/ n_con_root, n_con_child, n_con_sub
 
     ! dynamic input variables ..................................................
 
@@ -481,6 +482,7 @@ contains
 
       partition % n_con_root  = n_con_root
       partition % n_con_child = n_con_child
+      partition % n_con_sub   = n_con_sub
 
     end associate
 

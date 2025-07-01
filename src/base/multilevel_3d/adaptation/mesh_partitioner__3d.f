@@ -1,4 +1,5 @@
 module Mesh_Partitioner__3D
+  use Execution_Control
   use XMPI
   use ParMETIS_Binding
   use Logging_Levels
@@ -30,8 +31,8 @@ module Mesh_Partitioner__3D
   !>
   !> The partitioning is subject to `n_con` constraints which depend on the
   !> target mesh (given or child) and the number of sublevels considered.
-  !> For any element, let be `c` the number of children, `g` the number of
-  !> grand children and `q` further descendants in sublevels 3 up to `n_sub`.
+  !> For any element, let be `c` the number of children, `g` the number of grand
+  !> children and `q` further descendants in sublevels 3 up to `n_con_sub`.
   !> Then the constraints are defined as follows:
   !>
   !>   | n_con |  given mesh    | child mesh  |
@@ -52,7 +53,7 @@ module Mesh_Partitioner__3D
     integer :: n_parts     = 1       !< num partitions requested
     integer :: n_con_root  = 1       !< max num constraints for mesh itself
     integer :: n_con_child = 1       !< max num constraints for child mesh
-    integer :: n_sub       = 10      !< max num sublevels to be weighted
+    integer :: n_con_sub   = 10      !< max num sublevels to be weighted
     integer :: c_active    = 1       !< cost of active child elements
     integer :: c_frozen    = 1       !< cost of frozen child elements
     integer :: w_adj(3)    = [1,0,0] !< face/edge/vertex adjacency weights
@@ -78,7 +79,7 @@ contains
     call XMPI_Bcast(opt % n_parts     , root, comm)
     call XMPI_Bcast(opt % n_con_root  , root, comm)
     call XMPI_Bcast(opt % n_con_child , root, comm)
-    call XMPI_Bcast(opt % n_sub       , root, comm)
+    call XMPI_Bcast(opt % n_con_sub   , root, comm)
     call XMPI_Bcast(opt % c_active    , root, comm)
     call XMPI_Bcast(opt % c_frozen    , root, comm)
     call XMPI_Bcast(opt % w_adj       , root, comm)
@@ -142,9 +143,6 @@ contains
       end if
 
       if (opt%n_parts == 1 .or. n_proc == 1 .and. .not. opt%child) then
-!### CHECK
-!! print '(99(G0,X))', 'part',mesh%part,'PPP 1'
-!### CHECK END
         where(vtx_elem >= 0)
           tp_elem = 0
         elsewhere
@@ -152,23 +150,14 @@ contains
         end where
         n_parts_loc = 1
       else if (opt%child .and. opt%split .or. mesh%n_parts == 1) then
-!### CHECK
-!! print '(99(G0,X))', 'part',mesh%part,'PPP 2'
-!### CHECK END
         call METIS_Partitioner( opt, mesh, vtx_elem, xadj, adjncy        &
                               , vwgt, adjwgt, comm, tp_elem, n_parts_loc )
       else
-!### CHECK
-!! print '(99(G0,X))', 'part',mesh%part,'PPP 3'
-!### CHECK END
         call ParMETIS_Partitioner( opt, mesh, vtx_elem, vtxdist, xadj, adjncy &
                                  , vwgt, adjwgt, comm, tp_elem, n_parts_loc   )
       end if
 
     else
-!### CHECK
-!! print '(99(G0,X))', 'part',mesh%part,'PPP 4'
-!### CHECK END
       tp_elem     = -1
       n_parts_loc = -1
     end if
@@ -434,29 +423,34 @@ contains
     integer(METIS_IDX_T), allocatable, intent(out) :: vwgt(:,:)
       !< graph vertex weights
 
-    integer :: n_con
+    integer, allocatable, save :: vwgt_raw(:,:)
+    integer, allocatable, save :: max_vwgt(:), max_vwgt_loc(:)
+    integer :: n_con, n_con_raw
     integer :: c_active, c_frozen
     integer :: c, g, q, w
     integer :: e, i, l
 
-    if (n_vtx == 0) return
+    ! initialization ...........................................................
 
     if (opt%child) then
-      n_con = max(1, min(opt%n_con_child,3))
+      n_con_raw = max(1, min(opt%n_con_child,3))
     else
-      n_con = max(1, min(opt%n_con_root,4))
+      n_con_raw = max(1, min(opt%n_con_root,4))
     end if
 
-    allocate(vwgt(0:n_con-1, 0:n_vtx-1))
-    if (size(vwgt) == 0) return
+    allocate(vwgt_raw(0:n_con_raw-1, 0:n_vtx-1))
+    allocate(max_vwgt(0:n_con_raw-1), source = 0)
+    allocate(max_vwgt_loc, source = max_vwgt)
 
-    if (opt%child .and. n_con > 1 .or. n_con > 2) then
+    if (opt%child .and. n_con_raw > 1 .or. n_con_raw > 2) then
       c_active = opt % c_active
       c_frozen = opt % c_frozen
     else
       c_active = 1
       c_frozen = 1
     end if
+
+    ! raw weights ..............................................................
 
     do e = 1, mesh%n_elem
       associate(element => mesh % element(e))
@@ -488,40 +482,68 @@ contains
         ! great-grandchildren and further descendants
         q = 0
         w = 1
-        do l = 3, min(element%adaptation%sublevels, opt%n_sub)
+        do l = 3, min(element%adaptation%sublevels, opt%n_con_sub)
           q = q + w
           w = 8 * w
         end do
 
         if (opt%child) then
-          select case(n_con)
+          select case(n_con_raw)
           case(1)
-            vwgt(0,i) = c + 64 * (g + 8*q)
+            vwgt_raw(0,i) = c + 64 * (g + 8*q)
           case(2)
-            vwgt(0,i) = c
-            vwgt(1,i) = g + 8 * q
+            vwgt_raw(0,i) = c
+            vwgt_raw(1,i) = g + 8 * q
           case(3)
-            vwgt(0,i) = c
-            vwgt(1,i) = g
-            vwgt(2,i) = q
+            vwgt_raw(0,i) = c
+            vwgt_raw(1,i) = g
+            vwgt_raw(2,i) = q
           end select
         else
-          vwgt(0,i) = 1
-          select case(n_con)
+          vwgt_raw(0,i) = 1
+          select case(n_con_raw)
           case(2)
-            vwgt(1,i) = c + 64 * (g + 8*q)
+            vwgt_raw(1,i) = c + 64 * (g + 8*q)
           case(3)
-            vwgt(1,i) = c
-            vwgt(2,i) = g + 8 * q
+            vwgt_raw(1,i) = c
+            vwgt_raw(2,i) = g + 8 * q
           case(4)
-            vwgt(1,i) = c
-            vwgt(2,i) = g
-            vwgt(3,i) = q
+            vwgt_raw(1,i) = c
+            vwgt_raw(2,i) = g
+            vwgt_raw(3,i) = q
           end select
         end if
 
       end associate
     end do
+
+    ! remove constraints with zero sum weight ..................................
+
+    do i = 0, n_con_raw-1
+      max_vwgt_loc(i) = maxval(vwgt_raw(i,:))
+    end do
+    call XMPI_Allreduce(max_vwgt_loc, max_vwgt, MPI_MAX, mesh%comm_parts)
+
+    n_con = 0
+    do i = 0, n_con_raw-1
+      if (max_vwgt(i) == 0) exit
+      n_con = n_con + 1
+    end do
+
+    if (n_con == 0) then
+      call Error( 'GetGraphVertexWeights'  &
+                , 'invalid vertex weights' &
+                , 'Mesh_Partitioner__3D'   )
+    else if (n_con == n_con_raw) then
+      call move_alloc(vwgt_raw, vwgt)
+    else
+      allocate(vwgt(0:n_con-1, 0:n_vtx-1), source = vwgt_raw(0:n_con-1,:))
+      deallocate(vwgt_raw)
+    end if
+
+    ! finalization .............................................................
+
+    deallocate(max_vwgt, max_vwgt_loc)
 
   end subroutine GetGraphVertexWeights
 
@@ -582,9 +604,11 @@ contains
     if (opt%child .and. opt%split) return
 
     ! global ID of local vertices
-    where(vtx_elem >= 0)
-      vtx_elem = vtx_elem + vtxdist(proc)
-    end where
+    if (n_vtx > 0) then
+      where(vtx_elem >= 0)
+        vtx_elem = vtx_elem + vtxdist(proc)
+      end where
+    end if
 
     ! transfer vertex IDs to ghosts
     var_vtx_elem(1:1, 1:1, 1:1, 1:size(vtx_elem)) => vtx_elem
