@@ -142,7 +142,7 @@ contains
         end if
       end if
 
-      if (opt%n_parts == 1 .or. n_proc == 1 .and. .not. opt%child) then
+      if (opt%n_parts == 1) then
         where(vtx_elem >= 0)
           tp_elem = 0
         elsewhere
