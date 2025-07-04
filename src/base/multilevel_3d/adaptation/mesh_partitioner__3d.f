@@ -56,7 +56,7 @@ module Mesh_Partitioner__3D
     integer :: n_con_sub   = 10      !< max num sublevels to be weighted
     integer :: c_active    = 1       !< cost of active child elements
     integer :: c_frozen    = 0       !< cost of frozen child elements
-    integer :: w_adj(3)    = [0,0,0] !< face/edge/vertex adjacency weights
+    integer :: w_adj(3)    = [1,0,0] !< face/edge/vertex adjacency weights
   contains
     procedure :: Bcast => Bcast_PartitionerOptions
   end type MeshPartitionerOptions_3D
@@ -327,11 +327,11 @@ contains
 
     options = 0
 
-    if (any(opt % w_adj > 0)) then
-      wgtflag = 3   ! graph vertex and edge constraints
-    else
+!!     if (any(opt % w_adj > 0)) then
+!!       wgtflag = 3   ! graph vertex and edge constraints
+!!     else
       wgtflag = 2   ! graph vertex constraints only
-    end if
+!!     end if
 
     ! ParMETIS array arguments, using C-style numbering
     allocate( tpwgts ( 0:ncon-1, 0:nparts-1 ) )
