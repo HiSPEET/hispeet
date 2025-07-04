@@ -55,7 +55,7 @@ module Mesh_Partitioner__3D
     integer :: n_con_child = 1       !< max num constraints for child mesh
     integer :: n_con_sub   = 10      !< max num sublevels to be weighted
     integer :: c_active    = 1       !< cost of active child elements
-    integer :: c_frozen    = 1       !< cost of frozen child elements
+    integer :: c_frozen    = 0       !< cost of frozen child elements
     integer :: w_adj(3)    = [1,0,0] !< face/edge/vertex adjacency weights
   contains
     procedure :: Bcast => Bcast_PartitionerOptions
@@ -442,13 +442,8 @@ contains
     allocate(max_vwgt(0:n_con_raw-1), source = 0)
     allocate(max_vwgt_loc, source = max_vwgt)
 
-    if (opt%child .and. n_con_raw > 1 .or. n_con_raw > 2) then
-      c_active = opt % c_active
-      c_frozen = opt % c_frozen
-    else
-      c_active = 1
-      c_frozen = 1
-    end if
+    c_active = opt % c_active
+    c_frozen = opt % c_frozen
 
     ! raw weights ..............................................................
 

@@ -153,7 +153,7 @@ use, intrinsic :: ieee_arithmetic
   character(len=100), save :: message
   logical, save :: exists, passed, all_passed
   integer, save :: l_top, l_max, l_adapt
-  integer, save :: ne_leaf, ne_tot
+  integer, save :: ne_leaf, ne_tot, na_tot
   integer, save :: np_leaf, np_tot
   integer, save :: io, stat
 
@@ -607,12 +607,13 @@ contains
     real(RNP), save :: max_e_loc(4)
     real(RNP), save :: e_h(2), r_h0
 
+    integer, save :: na_max, na_min, na_leaf_loc
     integer, save :: ne_max, ne_min, ne_leaf_loc
     integer, save :: ne_tot_sum, ne_leaf_sum
     integer, save :: np_tot_sum, np_leaf_sum
 
     real(RNP) :: c_norm
-    integer   :: i, l
+    integer   :: i, l, na, ne
 
     associate(mesh => ml_mesh%mesh)
 
@@ -675,13 +676,16 @@ contains
       ! mesh metrics .............................................................
 
       if (rank == 0) then
-        write(*,'(/,A7,5A9,A5)') '  level'   &
-                               , '  n_parts' &
-                               , '   ne_min' &
-                               , '   ne_max' &
-                               , '   ne_tot' &
-                               , '  ne_leaf' &
-                               , '  po'
+        write(*,'(/,A3,X,8A9,A4)') '  l'       &
+                                 , '  n_parts' &
+                                 , '   na_min' &
+                                 , '   na_max' &
+                                 , '   na_tot' &
+                                 , '   ne_min' &
+                                 , '   ne_max' &
+                                 , '   ne_tot' &
+                                 , '  ne_leaf' &
+                                 , '  po'
       end if
 
       ne_tot_sum  = 0
@@ -691,29 +695,38 @@ contains
 
       do l = 1, l_top
 
+        na = mesh(l) % n_elem_active
+        ne = mesh(l) % n_elem
         ne_leaf_loc = 0
 
         if (mesh(l)%part >= 0) then
-          do i = 1, mesh(l) % n_elem_active
+          do i = 1, na
             if (mesh(l) % element(i) % IsLeaf()) then
               ne_leaf_loc = ne_leaf_loc + 1
             end if
           end do
-          call XMPI_Reduce(mesh(l)%n_elem, ne_min , MPI_MIN, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(mesh(l)%n_elem, ne_max , MPI_MAX, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(mesh(l)%n_elem, ne_tot , MPI_SUM, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(ne_leaf_loc   , ne_leaf, MPI_SUM, 0, mesh(l)%comm_parts)
+          call XMPI_Reduce(na, na_min , MPI_MIN, 0, mesh(l)%comm_parts)
+          call XMPI_Reduce(na, na_max , MPI_MAX, 0, mesh(l)%comm_parts)
+          call XMPI_Reduce(na, na_tot , MPI_SUM, 0, mesh(l)%comm_parts)
+          call XMPI_Reduce(ne, ne_min , MPI_MIN, 0, mesh(l)%comm_parts)
+          call XMPI_Reduce(ne, ne_max , MPI_MAX, 0, mesh(l)%comm_parts)
+          call XMPI_Reduce(ne, ne_tot , MPI_SUM, 0, mesh(l)%comm_parts)
+          call XMPI_Reduce(ne_leaf_loc, ne_leaf, MPI_SUM, 0, mesh(l)%comm_parts)
         end if
 
+        call XMPI_Bcast(na_min , mesh(l)%proc_part(0), mesh(l)%comm_world)
+        call XMPI_Bcast(na_max , mesh(l)%proc_part(0), mesh(l)%comm_world)
+        call XMPI_Bcast(na_tot , mesh(l)%proc_part(0), mesh(l)%comm_world)
         call XMPI_Bcast(ne_min , mesh(l)%proc_part(0), mesh(l)%comm_world)
         call XMPI_Bcast(ne_max , mesh(l)%proc_part(0), mesh(l)%comm_world)
         call XMPI_Bcast(ne_tot , mesh(l)%proc_part(0), mesh(l)%comm_world)
         call XMPI_Bcast(ne_leaf, mesh(l)%proc_part(0), mesh(l)%comm_world)
 
         if (rank == 0) then
-          write(*,'(I7,5I9,I5)') l, mesh(l)%n_parts,              &
-                                 ne_min, ne_max, ne_tot, ne_leaf, &
-                                 po(l)
+          write(*,'(I3,X,8I9,I4)') l, mesh(l)%n_parts,     &
+                                   na_min, na_max, na_tot, &
+                                   ne_min, ne_max, ne_tot, &
+                                   ne_leaf, po(l)
 
           ne_tot_sum  = ne_tot_sum  + ne_tot
           np_tot_sum  = np_tot_sum  + ne_tot  * (po(l) + 1)**3
