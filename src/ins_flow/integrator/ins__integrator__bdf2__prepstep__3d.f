@@ -7,6 +7,7 @@
 module INS__Integrator__BDF2__PrepStep__3D
   use Kind_Parameters
   use Constants, only: ZERO, HALF, ONE
+  use Execution_Control
   use Array_Assignments
   use Boundary_Variable__3D
   use INS__Operator__3D
@@ -136,10 +137,15 @@ contains
 
       ! viscosity ..............................................................
 
-      if (present(mu) .and. present(nu)) then
-        ! extrapolated flow variables: u = β₀u₀ + β₁u₁
-        call MergeArrays(b0, u, b1, u1, multi=.true.)
-        call ins_op % GetVariableViscosity(t, u, mu, nu)
+      if (ins_op%HasVariableViscosity()) then
+        if (present(mu) .and. present(nu)) then
+          ! extrapolated flow variables: u = β₀u₀ + β₁u₁
+          call MergeArrays(b0, u, b1, u1, multi=.true.)
+          call ins_op % GetVariableViscosity(t, u, mu, nu)
+        else
+          call Error( 'INS_Integrator_BDF2_PrepStep_3D'            &
+                    , 'mu and nu required with variable viscosity' )
+        end if
       end if
 
       ! external source contribution ...........................................
@@ -183,7 +189,7 @@ contains
           f_d1 (:,:,:,e,c) = w
 
           ! unweighted RHS with no diffusion and pressure terms
-          f(:,:,:,e,c) = f(:,:,:,e,c)       &
+          f(:,:,:,e,c) = f(:,:,:,e,c)           &
                        + a0/tau * u (:,:,:,e,c) &
                        + a1/tau * u1(:,:,:,e,c) &
                        + f_c(:,:,:,e,c)
