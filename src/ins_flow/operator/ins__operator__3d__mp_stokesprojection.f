@@ -113,11 +113,11 @@ contains
         ! corrector using extrapolation
 
         associate( f_d => w (:,:,:,:,1:3) &
-                 , mm  => w (:,:,:,:, 4)  &
+                 , mm  => w (:,:,:,:, 4 ) &
                  , vp  => wp(:,:,:,:,1:3) &
                  , sp  => wp(:,:,:,:,4:6) )
 
-          if ((this % stokes_corrector(2:2) == 'R')) then
+          if ((this % stokes_corrector(2:2) == '2')) then
             ! using rotational form of the diffusion term
             call this % GetDiffusionTerm( mu, nu, v, vp, sp, f_d, bv_w &
                                         , xout = .true. , form = 2     )

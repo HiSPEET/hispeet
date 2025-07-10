@@ -162,6 +162,10 @@ contains
       call ml_ins % MG_Stokes_Start(tau, mu, nu, bv, f_d, f, u, this%n_fmg)
       call ml_ins % MG_Stokes_Cycle(tau, mu, nu, bv, f, u, this%n_cyc)
 
+      !$omp master
+      t = t + dt
+      !$omp end master
+
       ! cleanup ................................................................
 
       !$omp master !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

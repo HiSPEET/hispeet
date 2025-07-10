@@ -140,7 +140,7 @@ module INS__Operator__3D
 
     character(4) :: pressure_solver  = 'SPCG'  !< {'AS','CG','SPCG','MG','MGCG'}
     character(4) :: diffusion_solver = 'DPCG'  !< {'DPCG','SPCG'}
-    character(4) :: stokes_corrector = 'X0PD'  !< {'PD','X0PD','X2PD'}
+    character(4) :: stokes_corrector = 'X2PD'  !< {'PD','X0PD','X2PD'}
     logical      :: dealiasing       = .false. !< F: no dealiasing, T: 3/2 rule
 
     real(RNP)    :: penalty_p =    -1 !< penalty for p-solver, -1: auto
