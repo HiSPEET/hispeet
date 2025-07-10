@@ -13,6 +13,7 @@ program ML_INS_Solver_3D
   use Constants
   use OpenMP_Binding
   use XMPI
+  use Array_Assignments
   use Execution_Control
   use Logging_Levels
 
@@ -33,6 +34,7 @@ program ML_INS_Solver_3D
   use ML__Mesh_Variable__3D
   use ML__INS__Operator__3D
   use ML__INS__Integrator__BDF2__3D
+  use ML__INS__Flow_Characteristics__3D
 
   implicit none
 
@@ -134,21 +136,22 @@ program ML_INS_Solver_3D
 
   real(RNP) :: t = 0 ! problem time
 
-  type(ML_MeshVariable_3D), save :: var   ! container for essential variables
   type(ML_MeshVariable_3D), save :: u     ! handle for numerical solution
-  type(ML_MeshVariable_3D), save :: u_ex  ! handle for exact solution
-  type(ML_MeshVariable_3D), save :: err_u ! handle for error, err_u = u - u_ex
+  type(ML_MeshVariable_3D), save :: var   ! container for VTK output
 
   ! auxiliaries ................................................................
+
+  type(ML_INS_FlowCharacteristics_3D) :: ml_flow_char
 
   character(:), allocatable :: domain_name
   character(:), allocatable :: var_name(:)
 
-  logical :: exists, restart_in, restart_out
-  logical :: first, last
-  integer :: io, stat
-  integer :: l_top, n_bound, n_var
-  integer :: i, l, nt
+  real(RNP) :: domain_volume
+  logical   :: exists, restart_in, restart_out
+  logical   :: first, last
+  integer   :: io, stat
+  integer   :: l_top, n_bound, n_var
+  integer   :: i, l, nt, nc
 
   !-----------------------------------------------------------------------------
   ! Initialization
@@ -297,6 +300,8 @@ program ML_INS_Solver_3D
     end if
   end do
 
+  nc = problem % nc
+
   ! spatial ....................................................................
 
   allocate(po(l_top), source = -1)
@@ -315,6 +320,8 @@ program ML_INS_Solver_3D
 
   ml_ins = ML_INS_Operator_3D(ml_mesh, po, problem, ml_ins_opt)
 
+  call ml_ins % ml_op_u % Get_Volume(domain_volume)
+
   ! temporal ...................................................................
 
   ! read
@@ -332,7 +339,50 @@ program ML_INS_Solver_3D
 
   ! variables ..................................................................
 
-  associate(nc => problem % nc)
+  call u % Init(ml_ins%ml_op_u, nc)
+
+  !-----------------------------------------------------------------------------
+  ! Initial conditions
+
+  if (restart_in) then
+
+    ! TBD ......................................................................
+
+  else
+
+    do l = 1, l_top
+      associate(ins_l => ml_ins % ins_op(l), u_l => u % level(l) % val)
+        call problem % GetInitialValues(ins_l % sem_u % metrics % x, u_l)
+      end associate
+    end do
+
+  end if
+
+  !-----------------------------------------------------------------------------
+  ! Time integration
+
+  call ml_flow_char % Evaluate(ml_ins, t, u, dt, domain_volume, leaf = .true.)
+  call ml_flow_char % PrintHeader()
+  call ml_flow_char % PrintValues('#init#')
+
+  do nt = 1, nt_max
+    first = nt == 1
+    last  = t + dt >= t_end .or. nt == nt_max
+    call ml_bdf2 % TimeStep(t, dt, u, first, last)
+    if (last) then
+      call ml_flow_char % Evaluate(ml_ins, t, u, dt, domain_volume, leaf=.true.)
+      call ml_flow_char % PrintValues('#last#')
+      exit
+    else if (mod(nt, char_freq) == 0) then
+      call ml_flow_char % Evaluate(ml_ins, t, u, dt, domain_volume, leaf=.true.)
+      call ml_flow_char % PrintValues()
+    end if
+  end do
+
+  !-----------------------------------------------------------------------------
+  ! Write plot files
+
+  if (vtk_mode > 0) then
 
     n_var = nc
     if (problem % HasExactSolution()) then
@@ -358,46 +408,22 @@ program ML_INS_Solver_3D
     ! variable container
     call var % Init(ml_ins%ml_op_u, n_var, var_name)
 
-    ! handles
-    call var % GetSlice(u, first = 1, last = nc)
-    if (problem % HasExactSolution()) then
-      call var % GetSlice(u_ex , first = 1 +   nc, last = 2*nc)
-      call var % GetSlice(err_u, first = 1 + 2*nc, last = 3*nc)
-    end if
-
-  end associate
-
-  !-----------------------------------------------------------------------------
-  ! Initial conditions
-
-  if (restart_in) then
-
-    ! TBD ......................................................................
-
-  else
-
     do l = 1, l_top
-      associate(ins_l => ml_ins % ins_op(l), u_l => u % level(l) % val)
-        call problem % GetInitialValues(ins_l % sem_u % metrics % x, u_l)
-      end associate
+      call SetArray(var%level(l)%val(:,:,:,:,1:nc), u%level(l)%val)
+      if (problem % HasExactSolution()) then
+        associate( x_l => ml_ins % ml_op_u % sem(l) % metrics % x   &
+                 , u_l => var % level(l) % val(:,:,:,:,1+0*nc:1*nc) &
+                 , s_l => var % level(l) % val(:,:,:,:,1+1*nc:2*nc) &
+                 , e_l => var % level(l) % val(:,:,:,:,1+2*nc:3*nc) )
+
+          call problem % GetExactSolution(x_l, t, s_l)
+          e_l = u_l - s_l
+        end associate
+      end if
     end do
 
-  end if
+    call var % ExportVTK(ml_ins%ml_op_u, file = flow_case, mode = vtk_mode)
 
-  !-----------------------------------------------------------------------------
-  ! Time integration
-
-  do nt = 1, nt_max
-    first = nt == 1
-    last  = t + dt >= t_end .or. nt == nt_max
-    call ml_bdf2 % TimeStep(t, dt, u, first, last)
-  end do
-
-  !-----------------------------------------------------------------------------
-  ! Write plot files
-
-  if (vtk_mode > 0) then
-    call u % ExportVTK(ml_ins%ml_op_u, file = flow_case, mode = vtk_mode)
   end if
 
   !-----------------------------------------------------------------------------
