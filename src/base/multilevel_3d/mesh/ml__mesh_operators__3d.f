@@ -5,6 +5,7 @@
 !===============================================================================
 
 module ML__Mesh_Operators__3D
+  use Kind_Parameters, only: RNP
   use Execution_Control
   use HP__Refinement_Operator__1D
   use HP__Coarsening_Operator__1D
@@ -29,12 +30,14 @@ module ML__Mesh_Operators__3D
       !< fine-to-coarse L2-projection operators in space [2:l_top]
   contains
     procedure :: Init_ML_MeshOperators_3D
+    procedure :: Get_Volume
+    procedure :: Get_SurfaceAreas
   end type ML_MeshOperators_3D
 
- ! constructor interface
- interface ML_MeshOperators_3D
-   procedure New_ML_MeshOperators_3D
- end interface
+  ! constructor interface
+  interface ML_MeshOperators_3D
+    procedure New_ML_MeshOperators_3D
+  end interface
 
 contains
 
@@ -162,6 +165,42 @@ contains
     end select
 
   end function Mode
+
+  !-----------------------------------------------------------------------------
+  !> TBP for computing the volume of the computational domain
+
+  subroutine Get_Volume(this, vol)
+    class(ML_MeshOperators_3D), intent(in) :: this
+    real(RNP), intent(out) :: vol !< volume, should be PRIVATE with OpenMP
+
+    real(RNP) :: vol_l
+    integer :: l
+
+    vol = 0
+    do l = 1, size(this % sem)
+      call this % sem(l) % Get_Volume(vol_l, leaf = .true.)
+      vol = vol + vol_l
+    end do
+
+  end subroutine Get_Volume
+
+  !-----------------------------------------------------------------------------
+  !> TBP for computing the areas of the boundary surfaces
+
+  subroutine Get_SurfaceAreas(this, area)
+    class(ML_MeshOperators_3D), intent(in) :: this
+    real(RNP), intent(out) :: area(:) !< areas, should be PRIVATE with OpenMP
+
+    real(RNP) :: area_l(size(area))
+    integer :: l
+
+    area_l = 0
+    do l = 1, size(this % sem)
+      call this % sem(l) % Get_SurfaceAreas(area_l, leaf = .true.)
+      area = area + area_l
+    end do
+
+  end subroutine Get_SurfaceAreas
 
   !=============================================================================
 
