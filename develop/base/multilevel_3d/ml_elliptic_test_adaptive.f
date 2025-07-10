@@ -374,11 +374,11 @@ use, intrinsic :: ieee_arithmetic
   ! RHS, BC and start values ...................................................
 
   do l = 1, l_top
-    associate( x_l => ml_op % sem(l) % metrics % x   &
-             , mm_l=> mm % level(l) % val(:,:,:,:,1) &
-             , f_l => f  % level(l) % val(:,:,:,:,1) &
-             , s_l => s  % level(l) % val(:,:,:,:,1) &
-             , u_l => u  % level(l) % val(:,:,:,:,1) )
+    associate( x_l  => ml_op % sem(l) % metrics % x   &
+             , mm_l => mm % level(l) % val(:,:,:,:,1) &
+             , f_l  => f  % level(l) % val(:,:,:,:,1) &
+             , s_l  => s  % level(l) % val(:,:,:,:,1) &
+             , u_l  => u  % level(l) % val(:,:,:,:,1) )
 
       call ml_op % sem(l) % Get_DG_DiagonalMassMatrix(mm_l)
 
@@ -601,8 +601,6 @@ contains
 
   subroutine Evaluation
 
-    real(RNP), parameter :: eps = epsilon(ONE) / 1000
-
     real(RNP), save :: int_e_loc(2), int_e(2)
     real(RNP), save :: max_e_loc(4)
     real(RNP), save :: e_h(2), r_h0
@@ -613,7 +611,7 @@ contains
     integer, save :: np_tot_sum, np_leaf_sum
 
     real(RNP) :: c_norm
-    integer   :: i, l, na, ne
+    integer   :: na, ne
 
     associate(mesh => ml_mesh%mesh)
 
@@ -770,7 +768,6 @@ contains
     integer, allocatable, save :: n_remove_loc(:), n_remove(:)
 
     real(RNP) :: qi_refine, qi_remove
-    integer   :: i, l
 
     associate(mesh => ml_mesh%mesh)
 
