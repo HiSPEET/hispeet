@@ -93,7 +93,7 @@ contains
     real(RNP) :: rr, r_max, r_new, r_old
     logical :: check_convergence
     integer :: i_max_, l_top_
-    integer :: e, l, m, n
+    integer :: l, m, n
 
     ! prerequisites ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -136,17 +136,6 @@ contains
       bv_l => bv_top
 
       !$omp end master
-
-      do l = 1, l_top_
-        associate(po => sem(l) % std_op % po)
-          !$omp do
-          do e = 1, sem(l) % mesh % n_elem
-            r % level(l) % val(0:po,0:po,0:po,e,1) = ZERO
-          end do
-          !$omp end do nowait
-        end associate
-      end do
-      !$omp barrier
 
       ! termination conditions
       if (check_convergence) then

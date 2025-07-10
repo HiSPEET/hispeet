@@ -121,18 +121,6 @@ contains
       call v % Init(this%ml_op, nc = 1, l_top = l_top_)
       !$omp end master
 
-      do l = 1, l_top_
-        associate(po => sem(l) % std_op % po)
-          !$omp do
-          do e = 1, sem(l) % mesh % n_elem
-            r % level(l) % val(0:po,0:po,0:po,e,1) = ZERO
-            v % level(l) % val(0:po,0:po,0:po,e,1) = ZERO
-          end do
-          !$omp end do nowait
-        end associate
-      end do
-      !$omp barrier
-
       ! termination conditions
       if (check_convergence) then
         call this % FAS_MG_Residual_X( bc, lambda, nu_0, nu_v, f, bv &

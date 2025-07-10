@@ -5,7 +5,8 @@
 !===============================================================================
 
 module Mesh_Variable__3D
-  use Kind_Parameters
+  use Kind_Parameters, only: RNP
+  use Constants,       only: ZERO
   use Mesh__3D
   implicit none
   private
@@ -42,7 +43,7 @@ contains
     integer, intent(in) :: po
     integer, intent(in) :: nc
 
-    allocate(this % mem(0:po,0:po,0:po,mesh%n_elem,nc))
+    allocate(this % mem(0:po,0:po,0:po,mesh%n_elem,nc), source = ZERO)
 
     this % po = po
     this % nc = nc
