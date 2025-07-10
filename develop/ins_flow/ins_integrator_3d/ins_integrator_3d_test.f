@@ -559,7 +559,7 @@ program INS_Integrator_3D_Test
   !-----------------------------------------------------------------------------
   ! Time integration
 
-  call flow_char % Evaluate(problem, ins_op, t, u, dt, domain_volume)
+  call flow_char % Evaluate(ins_op, t, u, dt, domain_volume)
   call flow_char % PrintHeader()
   call flow_char % PrintValues('#init#')
 
@@ -576,11 +576,11 @@ program INS_Integrator_3D_Test
       call TemporalAveraging(u, q_avg, n_avg)
     end if
     if (last) then
-      call flow_char % Evaluate(problem, ins_op, t, u, dt, domain_volume)
+      call flow_char % Evaluate(ins_op, t, u, dt, domain_volume)
       call flow_char % PrintValues('#last#')
       exit
     else if (mod(nt, char_freq) == 0) then
-      call flow_char % Evaluate(problem, ins_op, t, u, dt, domain_volume)
+      call flow_char % Evaluate(ins_op, t, u, dt, domain_volume)
       call flow_char % PrintValues()
     end if
   end do
