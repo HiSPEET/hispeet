@@ -25,10 +25,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Compute the volume integral of a scalar variable
 
-  subroutine GetVolumeIntegral_S(sem, u, int_u)
+  subroutine GetVolumeIntegral_S(sem, u, int_u, leaf)
     class(SpectralElementMesh_3D), intent(in) :: sem
     real(RNP), contiguous, intent(in) :: u(:,:,:,:)
     real(RNP), intent(out) :: int_u
+    logical, optional, intent(in) :: leaf !< constrain to leaf elements [F]
 
     real(RNP) :: int_u_(1)
 
@@ -36,7 +37,8 @@ contains
       call GetVolumeIntegral_X( sem                 &
                               , sem % std_op % po   &
                               , sem % mesh % n_elem &
-                              , 1, u, int_u_        )
+                              , 1, u, int_u_        &
+                              , leaf                )
       int_u = int_u_(1)
     else
       int_u = 0
@@ -47,16 +49,18 @@ contains
   !-----------------------------------------------------------------------------
   !> Compute the volume integral of an array variable
 
-  subroutine GetVolumeIntegral_A(sem, u, int_u)
+  subroutine GetVolumeIntegral_A(sem, u, int_u, leaf)
     class(SpectralElementMesh_3D), intent(in) :: sem
     real(RNP), contiguous, intent(in) :: u(:,:,:,:,:)
     real(RNP), intent(out) :: int_u(:)
+    logical, optional, intent(in) :: leaf !< constrain to leaf elements [F]
 
     if (sem % mesh % part >= 0) then
       call GetVolumeIntegral_X( sem                 &
                               , sem % std_op % po   &
                               , sem % mesh % n_elem &
-                              , size(u,5), u, int_u )
+                              , size(u,5), u, int_u &
+                              , leaf                )
     else
       int_u = 0
     end if
@@ -66,18 +70,26 @@ contains
   !-----------------------------------------------------------------------------
   !> Computation of volume integrals, explicit shape
 
-  subroutine GetVolumeIntegral_X(sem, po, ne, nc, u, int_u)
+  subroutine GetVolumeIntegral_X(sem, po, ne, nc, u, int_u, leaf)
     class(SpectralElementMesh_3D), intent(in) :: sem
     integer,   intent(in)  :: po
     integer,   intent(in)  :: ne
     integer,   intent(in)  :: nc
     real(RNP), intent(in)  :: u(0:po,0:po,0:po,ne,nc)
     real(RNP), intent(out) :: int_u(nc)
+    logical, optional, intent(in) :: leaf !< constrain to leaf elements [F]
 
     real(RNP), allocatable, save :: int_u_loc(:), int_u_glob(:)
     real(RNP), allocatable :: int_u_priv(:), www(:,:,:)
     real(RNP) :: Jd0
+    logical   :: complete
     integer   :: c, e, i, j, k
+
+    if (present(leaf)) then
+      complete = .not. leaf
+    else
+      complete = .true.
+    end if
 
     associate( mesh   => sem % mesh          &
              , std_op => sem % std_op        &
@@ -110,9 +122,11 @@ contains
 
         !$omp do schedule(static)
         do e = 1, mesh % n_elem
-          do c = 1, nc
-            int_u_priv(c) = int_u_priv(c) + Jd0 * sum(www * u(:,:,:,e,c))
-          end do
+          if (complete .or. mesh % element(e) % IsLeaf()) then
+            do c = 1, nc
+              int_u_priv(c) = int_u_priv(c) + Jd0 * sum(www * u(:,:,:,e,c))
+            end do
+          end if
         end do
         !$omp end do nowait
 
@@ -120,10 +134,12 @@ contains
 
         !$omp do schedule(static)
         do e = 1, mesh % n_elem
-          do c = 1, nc
-            int_u_priv(c) = int_u_priv(c) &
-                          + sum(www * Jd(:,:,:,e) * u(:,:,:,e,c))
-          end do
+          if (complete .or. mesh % element(e) % IsLeaf()) then
+            do c = 1, nc
+              int_u_priv(c) = int_u_priv(c) &
+                            + sum(www * Jd(:,:,:,e) * u(:,:,:,e,c))
+            end do
+          end if
         end do
         !$omp end do nowait
 

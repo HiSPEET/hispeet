@@ -23,10 +23,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Compute the integral of variables on a single boundary surface
 
-  subroutine GetSurfaceIntegral(sem, bv_u, int_ub)
+  subroutine GetSurfaceIntegral(sem, bv_u, int_ub, leaf)
     class(SpectralElementMesh_3D), intent(in)  :: sem
     class(BoundaryVariable_3D),    intent(in)  :: bv_u
     real(RNP),                     intent(out) :: int_ub(:)
+    logical,             optional, intent(in)  :: leaf !< constrain to leaves
 
     real(RNP), allocatable, save :: int_ub_glob(:), int_ub_loc(:)
 
@@ -63,7 +64,7 @@ contains
       end do
       end do
 
-      call GetLocalSurfaceIntegral(sem, bv_u, ww, int_ub_loc)
+      call GetLocalSurfaceIntegral(sem, bv_u, ww, int_ub_loc, leaf)
 
       !$omp master
       call XMPI_Allreduce(int_ub_loc, int_ub_glob, MPI_SUM, sem%mesh%comm_parts)
@@ -79,10 +80,11 @@ contains
   !-----------------------------------------------------------------------------
   !> Compute the integral of a variable on multiple boundary surfaces
 
-  subroutine GetSurfaceIntegrals(sem, bv_u, int_ub)
+  subroutine GetSurfaceIntegrals(sem, bv_u, int_ub, leaf)
     class(SpectralElementMesh_3D), intent(in)  :: sem
     class(BoundaryVariable_3D),    intent(in)  :: bv_u(:)
     real(RNP),                     intent(out) :: int_ub(:,:)
+    logical,             optional, intent(in)  :: leaf !< constrain to leaves
 
     real(RNP), allocatable, save :: int_ub_glob(:,:), int_ub_loc(:,:)
 
@@ -124,7 +126,7 @@ contains
       end do
 
       do b = 1, nb
-        call GetLocalSurfaceIntegral(sem, bv_u(b), ww, int_ub_loc(:,b))
+        call GetLocalSurfaceIntegral(sem, bv_u(b), ww, int_ub_loc(:,b), leaf)
       end do
 
       !$omp master
@@ -141,16 +143,24 @@ contains
   !-----------------------------------------------------------------------------
   !> Computation of local surface integrals
 
-  subroutine GetLocalSurfaceIntegral(sem, bv_u, ww, int_ub_loc)
+  subroutine GetLocalSurfaceIntegral(sem, bv_u, ww, int_ub_loc, leaf)
     class(SpectralElementMesh_3D), intent(in)    :: sem
     class(BoundaryVariable_3D),    intent(in)    :: bv_u
     real(RNP),                     intent(in)    :: ww(:,:)
     real(RNP),                     intent(inout) :: int_ub_loc(:)
+    logical,             optional, intent(in)    :: leaf !< constrain to leaves
 
     real(RNP) :: int_ub_priv(bv_u%nc)
+    logical   :: complete
     integer   :: c, e, f, s
 
-    associate(a => sem % metrics % a, boundary => bv_u % boundary)
+    if (present(leaf)) then
+      complete = .not. leaf
+    else
+      complete = .true.
+    end if
+
+    associate( a => sem % metrics % a, boundary => bv_u % boundary)
 
       int_ub_priv = ZERO
 
@@ -158,10 +168,13 @@ contains
       do f = 1, boundary % n_face
         e = boundary % face(f) % element_id   ! element ID
         s = boundary % face(f) % element_face ! element side
-        do c = 1, bv_u % nc
-          int_ub_priv(c) = int_ub_priv(c) &
-                         + sum(ww * a(:,:,s,e) * bv_u % val(:,:,f,c))
-        end do
+
+        if (complete .or. sem % mesh % element(e) % IsLeaf()) then
+          do c = 1, bv_u % nc
+            int_ub_priv(c) = int_ub_priv(c) &
+                           + sum(ww * a(:,:,s,e) * bv_u % val(:,:,f,c))
+          end do
+        end if
       end do
       !$omp end do nowait
 
