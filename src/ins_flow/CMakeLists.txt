@@ -26,8 +26,9 @@ add_library(HiINSFlow
             problem/ins__problem__3d.f
             problem/ins__problem__channel__3d.f
             problem/ins__problem__cylinder_2d__3d.f
-            problem/ins__problem__no_flow__3d.f
             problem/ins__problem__hagen_poiseuille__3d.f
+            problem/ins__problem__linear_cascade__3d.f
+            problem/ins__problem__no_flow__3d.f
             problem/ins__problem__poiseuille__3d.f
             problem/ins__problem__stokes_dkm__3d.f
             problem/ins__problem__stokes_linke__3d.f

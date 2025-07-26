@@ -1,0 +1,39 @@
+!-------------------------------------------------------------------------------
+! Control
+
+&control_prm
+
+! log_level                 = 1  ! activate/increase
+  log_level_inner_iteration = 1  ! for higher
+! log_level_outer_iteration = 1  ! verbosity
+
+  problem_file  = 'linear_cascade'
+  flow_problem  = 'LinearCascade'
+  flow_domain   =  10
+  raw_mesh_file = '../../../gmsh/linear_cascade'
+
+! export_vtk   = T  ! set T for generating plot files
+! char_freq    = 0  ! set frequency of control output
+/
+
+!-------------------------------------------------------------------------------
+! Spatial
+
+&spatial_prm
+  po_u = 4
+  po_p = 3
+  ins_op_opt%dealiasing = T
+  ins_op_opt%mu_0       = 1e-1  !  μ ~ √(ν² + v²h²)
+  ins_op_opt%i_max_p    = 10000
+/
+
+!-------------------------------------------------------------------------------
+! Temporal
+
+&temporal_prm
+  t_end  = 0.25
+  dt     = 1e-5
+  nt_max = 10!00
+
+  time_method = 2  ! BDF2
+/
