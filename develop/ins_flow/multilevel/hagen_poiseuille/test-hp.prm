@@ -22,7 +22,7 @@
 
 &ml_mesh_options_3d__static
   l_top          =  4  ! initial top level
-  l_max          =  5  ! initial top level
+  l_max          =  4  ! initial top level
   l_adapt        =  2  ! first level to be adapted > 1
   n_bnd          =  1  ! number of boundaries to be adapted
   n_parts_root   =  1  ! number of partitions at root level   [1]
@@ -31,7 +31,7 @@
 
 &ml_mesh_options_3d__dynamic
   refinement = 1*'c', 2*'s' ! (1:l_top-1)  refinement type {'c','s'}
-  adapt_bnd  = 1            ! adapt elements adjacent to the wall
+  adapt_bnd  = 1             ! adapt elements adjacent to the wall
 /
 
 !-------------------------------------------------------------------------------
@@ -41,8 +41,8 @@
 
   po = 3 7 7 7
 
-! ml_ins_opt%..
-
+! ml_ins_opt%ins%stokes_corrector = 'X2PD'
+  ml_ins_opt%ins%mu_0 = 1
 /
 
 !-------------------------------------------------------------------------------
@@ -50,11 +50,12 @@
 
 &temporal_prm
 
-! ml_bdf2_opt%..
+! ml_bdf2_opt%n_fmg = 0
+  ml_bdf2_opt%n_cyc = 1
 
 ! t_end  = 0.25
   dt     = 0.001
-  nt_max = 2!10!00000
+  nt_max = 10!10!00000
 /
 
 !-------------------------------------------------------------------------------
@@ -64,8 +65,8 @@
 &cylinder_prm
   r  = 1.0
   h  = 2.0
-  nr = 1
-  nz = 2
+  nr = 2
+  nz = 3
   pg = 15
   periodic = T
 /

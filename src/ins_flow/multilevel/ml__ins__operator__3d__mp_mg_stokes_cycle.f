@@ -41,6 +41,9 @@ contains
     integer :: l_top_, n_cyc_
     integer :: c, e, l, m
 
+!### CHECK
+!real(RNP) :: max_gc, max_sum_gc_e, sum_gc
+!### CHECK END
     associate( problem => this % problem            &
              , sem     => this % ml_op_u % sem      &
              , iop_cf  => this % ml_op_u % iop_cf_x &
@@ -153,10 +156,20 @@ contains
             !$omp end do nowait
 
             call ins_p % ApplyStokesOperator(tau, bv_p, mu_p, nu_p, w_p, r_p)
+!### CHECK
+!max_gc = maxval(abs(r_p(:,:,:,:,4)))
+!sum_gc = sum(r_p(:,:,:,:,4))
+!max_sum_gc_e = 0
+!### CHECK END
 
             !$omp do
             do e = 1, mesh_p % n_elem
               if (mesh_p % element(e) % adaptation % refinement >= 1000) then
+!### CHECK
+!max_sum_gc_e = max(max_sum_gc_e, abs(sum(r_p(:,:,:,e,4))))
+!! remove mean value of restricted residual for continuity
+!r_p(:,:,:,e,4) = r_p(:,:,:,e,4) - sum(r_p(:,:,:,e,4)) / size(r_p(:,:,:,e,4))
+!### CHECK END
                 do c = 1, 4
                   f_p(:,:,:,e,c) = mm_inv_p(:,:,:,e) &
                                  * (f_p(:,:,:,e,c) + r_p(:,:,:,e,c))
@@ -164,6 +177,11 @@ contains
               end if
             end do
             !$omp end do nowait
+!### CHECK
+!print '(A,G0)', 'max_gc = ',max_gc
+!print '(A,G0)', 'sum_gc = ',sum_gc
+!print '(A,G0)', 'max_sum_gc_e = ',max_sum_gc_e
+!### CHECK END
 
           end associate
 

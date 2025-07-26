@@ -26,6 +26,7 @@ program ML_INS_Solver_3D
   use Generic_Mesh__3D
   use Verify_Mesh__3D
   use Import_GMSH__3D
+  use Volume_Integrals__3D
 
   use INS__Problem__3D
   use INS__Problem__Test_Suite__3D
@@ -370,10 +371,12 @@ program ML_INS_Solver_3D
     last  = t + dt >= t_end .or. nt == nt_max
     call ml_bdf2 % TimeStep(t, dt, u, first, last)
     if (last) then
+      call CalibratePressure()
       call ml_flow_char % Evaluate(ml_ins, t, u, dt, domain_volume, leaf=.true.)
       call ml_flow_char % PrintValues('#last#')
       exit
     else if (mod(nt, char_freq) == 0) then
+      call CalibratePressure()
       call ml_flow_char % Evaluate(ml_ins, t, u, dt, domain_volume, leaf=.true.)
       call ml_flow_char % PrintValues()
     end if
@@ -430,6 +433,37 @@ program ML_INS_Solver_3D
   ! Finalization
 
   call MPI_Finalize()
+
+contains
+
+  !-----------------------------------------------------------------------------
+  !> Remove average pressure in case that no Dirichlet conditions apply
+  !>
+  !> Should become a TPB of ML_INS_Operator_3D
+
+  subroutine CalibratePressure()
+
+    real(RNP) :: p_avg, p_avg_l
+
+    if (any(problem % bc_p == 'D')) return
+
+    p_avg = 0
+    do l = 1, l_top
+      associate(p_l => u % level(l) % val(:,:,:,:,4))
+        call GetVolumeIntegral( ml_ins % ins_op(l) % sem_u  &
+                              , p_l, p_avg_l, leaf = .true. )
+        p_avg = p_avg + p_avg_l
+      end associate
+    end do
+    p_avg = p_avg / domain_volume
+
+    do l = 1, l_top
+      associate(p_l => u % level(l) % val(:,:,:,:,4))
+        p_l = p_l - p_avg
+      end associate
+    end do
+
+  end subroutine CalibratePressure
 
   !=============================================================================
 

@@ -37,8 +37,6 @@
   po = 2, 3, 7
 
 ! ml_ins_opt%ml_solver_p
-! ml_ins_opt%ins%stokes_corrector = 'X2PD'
-  ml_ins_opt%ins%stokes_corrector = 'PD'
   ml_ins_opt%ins%mu_0 = 1
 
 /

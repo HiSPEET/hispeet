@@ -61,6 +61,7 @@ contains
 
     type(BoundaryVariable_3D), allocatable, save :: bv_w(:), bv_p(:), bv_dp(:)
 
+    real(RNP), allocatable :: mm_inv(:,:,:)
     logical :: extrapolation, predictor
     integer :: b, c, e, na, ne, np
 
@@ -131,9 +132,9 @@ contains
 
           !$omp do
           do e = 1, na
-            mm(:,:,:,e) = 1 / mm(:,:,:,e)
-            do c = 1,3
-              v(:,:,:,e,c) = tau * (f(:,:,:,e,c) + f_d(:,:,:,e,c) * mm(:,:,:,e))
+            mm_inv = 1 / mm(:,:,:,e)
+            do c = 1, 3
+              v(:,:,:,e,c) = tau * ( f(:,:,:,e,c) + mm_inv * f_d(:,:,:,e,c) )
             end do
           end do
 
@@ -147,6 +148,9 @@ contains
                , vp    => wp(:,:,:,:,1:3) )
         ! compute divergence of approximate velocity
         call GetOuterVectorTraces_3D(mesh, v, vp)
+!### CHECK
+!       call this % ApplyEssentialBC(bv, vp, vp)
+!### CHECK END
         call TPO_Div(this % eop_u, this % sem_u, v, vp, div_v)
         ! add additional sources
         if (size(f, 5) >= 4) then
