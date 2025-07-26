@@ -5,6 +5,9 @@
 !===============================================================================
 
 program ML_Elliptic_Test_Adaptive
+
+  use, intrinsic :: ieee_arithmetic
+
   use Kind_Parameters
   use Constants
   use OpenMP_Binding
@@ -36,9 +39,6 @@ program ML_Elliptic_Test_Adaptive
   use ML__Array_Reductions__3D
   use ML__DG__Elliptic_Solver__3D
 
-!### CHECK
-use, intrinsic :: ieee_arithmetic
-!### CHECK END
   implicit none
 
   !-----------------------------------------------------------------------------
@@ -149,17 +149,14 @@ use, intrinsic :: ieee_arithmetic
   ! auxiliaries ................................................................
 
   character(:), allocatable, save :: domain_name
+  real(RNP)   , allocatable, save :: t_adapt(:), t_setup(:), t_solve(:)
 
-  character(len=100), save :: message
-  logical, save :: exists, passed, all_passed
-  integer, save :: l_top, l_max, l_adapt
-  integer, save :: ne_leaf, ne_tot, na_tot
-  integer, save :: np_leaf, np_tot
-  integer, save :: io, stat
-
-  real(RNP), allocatable, save :: t_adapt(:), t_setup(:), t_solve(:)
-  real(RNP), save :: t_start
-  real(RNP), save :: max_e(4) ! max element error in different norms
+  character(80), save :: message
+  real(RNP)    , save :: t_start
+  real(RNP)    , save :: max_e(4)
+  logical      , save :: exists, passed, all_passed
+  integer      , save :: l_top, l_max, l_adapt
+  integer      , save :: io, stat
 
   integer :: i, l, m
 
@@ -485,15 +482,13 @@ use, intrinsic :: ieee_arithmetic
       t_adapt(m) = t_adapt(m) + MPI_Wtime() - t_start
     end if
 
-!### CHECK
-do l = 1, l_top
-  associate(u_l => u  % level(l) % val(:,:,:,:,1))
-    if (any(ieee_is_nan(u_l))) then
-      print '(99G0)', '#1 [',ml_mesh%mesh(l)%proc,'] u_',l,' has NaN'
-    end if
-  end associate
-end do
-!### CHECK END
+    do l = 1, l_top
+      associate(u_l => u  % level(l) % val(:,:,:,:,1))
+        if (any(ieee_is_nan(u_l))) then
+          print '(99G0)', '#1 [',ml_mesh%mesh(l)%proc,'] u_',l,' has NaN'
+        end if
+      end associate
+    end do
 
     if (rank == 0) then
       t_start = MPI_Wtime()
@@ -547,15 +542,13 @@ end do
       t_solve(m) = MPI_Wtime() - t_start
     end if
 
-!### CHECK
-do l = 1, l_top
-  associate(u_l => u  % level(l) % val(:,:,:,:,1))
-    if (any(ieee_is_nan(u_l))) then
-      print '(99G0)', '#2 [',ml_mesh%mesh(l)%proc,'] u_',l,' has NaN'
-    end if
-  end associate
-end do
-!### CHECK END
+    do l = 1, l_top
+      associate(u_l => u  % level(l) % val(:,:,:,:,1))
+        if (any(ieee_is_nan(u_l))) then
+          print '(99G0)', '#2 [',ml_mesh%mesh(l)%proc,'] u_',l,' has NaN'
+        end if
+      end associate
+    end do
 
     call Evaluation
 
@@ -601,19 +594,59 @@ contains
 
   subroutine Evaluation
 
+    integer  , allocatable, save :: n_elem(:,:), n_active(:,:), n_leaf(:,:)
+    real(RNP), allocatable, save :: emq(:,:)
+
     real(RNP), save :: int_e_loc(2), int_e(2)
     real(RNP), save :: max_e_loc(4)
     real(RNP), save :: e_h(2), r_h0
 
-    integer, save :: na_max, na_min, na_leaf_loc
-    integer, save :: ne_max, ne_min, ne_leaf_loc
-    integer, save :: ne_tot_sum, ne_leaf_sum
-    integer, save :: np_tot_sum, np_leaf_sum
-
-    real(RNP) :: c_norm
-    integer   :: na, ne
+    integer(IXL) :: np_leaf, np_tot
+    real(RNP)    :: c_norm
 
     associate(mesh => ml_mesh%mesh)
+
+      ! mesh metrics .............................................................
+
+      call ml_op % Get_MeshCharacteristics(n_elem, n_active, n_leaf, emq)
+
+      if (rank == 0) then
+
+        write(*,'(/,A3,X,6A9,A4,2(3X,A9),2(X,A9))') &
+            '  l'       , &
+            '  n_parts' , &
+            '   na_min' , &
+            '   na_max' , &
+            '   na_tot' , &
+            '   ne_tot' , &
+            '  ne_leaf' , &
+            '  po'      , &
+            '   dx_min' , &
+            '   dx_max' , &
+            '   ar_max' , &
+            '   qj_min'
+
+        np_tot  = 0
+        np_leaf = 0
+
+        do l = 1, l_top
+
+          np_tot  = np_tot  + n_elem(l,4) * po(l)**3
+          np_leaf = np_leaf + n_leaf(l,4) * po(l)**3
+
+          write(*,'(I3,X,6I9,I4,2(2X,ES10.3),2F10.3)') &
+              l              , &
+              mesh(l)%n_parts, &
+              n_active(l,2)  , &
+              n_active(l,3)  , &
+              n_active(l,4)  , &
+              n_elem(l,4)    , &
+              n_leaf(l,4)    , &
+              po(l)          , &
+              emq(l,1:4)
+
+        end do
+      end if
 
       ! residual ...............................................................
 
@@ -671,87 +704,20 @@ contains
       call XMPI_Allreduce(max_e_loc, max_e, MPI_MAX, comm)
       e_h = sqrt(int_e)
 
-      ! mesh metrics .............................................................
-
-      if (rank == 0) then
-        write(*,'(/,A3,X,8A9,A4)') '  l'       &
-                                 , '  n_parts' &
-                                 , '   na_min' &
-                                 , '   na_max' &
-                                 , '   na_tot' &
-                                 , '   ne_min' &
-                                 , '   ne_max' &
-                                 , '   ne_tot' &
-                                 , '  ne_leaf' &
-                                 , '  po'
-      end if
-
-      ne_tot_sum  = 0
-      np_tot_sum  = 0
-      ne_leaf_sum = 0
-      np_leaf_sum = 0
-
-      do l = 1, l_top
-
-        na = mesh(l) % n_elem_active
-        ne = mesh(l) % n_elem
-        ne_leaf_loc = 0
-
-        if (mesh(l)%part >= 0) then
-          do i = 1, na
-            if (mesh(l) % element(i) % IsLeaf()) then
-              ne_leaf_loc = ne_leaf_loc + 1
-            end if
-          end do
-          call XMPI_Reduce(na, na_min , MPI_MIN, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(na, na_max , MPI_MAX, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(na, na_tot , MPI_SUM, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(ne, ne_min , MPI_MIN, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(ne, ne_max , MPI_MAX, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(ne, ne_tot , MPI_SUM, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(ne_leaf_loc, ne_leaf, MPI_SUM, 0, mesh(l)%comm_parts)
-        end if
-
-        call XMPI_Bcast(na_min , mesh(l)%proc_part(0), mesh(l)%comm_world)
-        call XMPI_Bcast(na_max , mesh(l)%proc_part(0), mesh(l)%comm_world)
-        call XMPI_Bcast(na_tot , mesh(l)%proc_part(0), mesh(l)%comm_world)
-        call XMPI_Bcast(ne_min , mesh(l)%proc_part(0), mesh(l)%comm_world)
-        call XMPI_Bcast(ne_max , mesh(l)%proc_part(0), mesh(l)%comm_world)
-        call XMPI_Bcast(ne_tot , mesh(l)%proc_part(0), mesh(l)%comm_world)
-        call XMPI_Bcast(ne_leaf, mesh(l)%proc_part(0), mesh(l)%comm_world)
-
-        if (rank == 0) then
-          write(*,'(I3,X,8I9,I4)') l, mesh(l)%n_parts,     &
-                                   na_min, na_max, na_tot, &
-                                   ne_min, ne_max, ne_tot, &
-                                   ne_leaf, po(l)
-
-          ne_tot_sum  = ne_tot_sum  + ne_tot
-          np_tot_sum  = np_tot_sum  + ne_tot  * (po(l) + 1)**3
-          ne_leaf_sum = ne_leaf_sum + ne_leaf
-          np_leaf_sum = np_leaf_sum + ne_leaf * (po(l) + 1)**3
-        end if
-      end do
-
-      ne_tot  = ne_tot_sum
-      np_tot  = np_tot_sum
-      ne_leaf = ne_leaf_sum
-      np_leaf = np_leaf_sum
-
       if (rank == 0) then
         write(*,*)
         write(*,'(2X,A)') 'overall metrics'
-        write(*,'(T5,A,T16,I0)')     'ne_tot  =', ne_tot
+        write(*,'(T5,A,T16,I0)')     'ne_tot  =', sum(n_elem(:,4))
+        write(*,'(T5,A,T16,I0)')     'ne_leaf =', sum(n_leaf(:,4))
         write(*,'(T5,A,T16,I0)')     'np_tot  =', np_tot
-        write(*,'(T5,A,T16,I0)')     'ne_leaf =', ne_leaf
         write(*,'(T5,A,T16,I0)')     'np_leaf =', np_leaf
-        write(*,'(T5,A,T15,ES12.5)') 'r_0     =', r_h0
-        write(*,'(T5,A,T15,ES12.5)') 'e_0     =', e_h(1)
-        write(*,'(T5,A,T15,ES12.5)') 'e_1     =', e_h(2)
-        write(*,'(T5,A,T15,ES12.5)') 'max e_0 =', max_e(1)
-        write(*,'(T5,A,T15,ES12.5)') 'max e_1 =', max_e(2)
-        write(*,'(T5,A,T16,ES12.5)') 'max ê_0 =', max_e(3)
-        write(*,'(T5,A,T16,ES12.5)') 'max ê_1 =', max_e(4)
+        write(*,'(T5,A,T16,ES12.5)') 'r_h0(Ω) =', r_h0
+        write(*,'(T5,A,T16,ES12.5)') 'e_h0(Ω) =', e_h(1)
+        write(*,'(T5,A,T16,ES12.5)') 'e_h1(Ω) =', e_h(2)
+        write(*,'(T5,A,T15,ES12.5)') 'e_h0(K) =', max_e(1)
+        write(*,'(T5,A,T15,ES12.5)') 'e_h1(K) =', max_e(2)
+        write(*,'(T5,A,T15,ES12.5)') 'e_r0(K) =', max_e(3)
+        write(*,'(T5,A,T15,ES12.5)') 'e_r1(K) =', max_e(4)
       end if
 
     end associate
