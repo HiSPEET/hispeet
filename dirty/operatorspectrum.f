@@ -53,7 +53,7 @@ program OperatorSpectrum
       A(i,:) = eop % D(i,1:)
     end do
     call SolveNonsymmetricEigenproblem(A, Lambda_A)
-    print '(I5,2(3X,ES18.11))', &
+    print '(I5,3(3X,ES21.14))', &
         po,                     &
         maxval(abs(Lambda_L)),  &
         maxval(abs(Lambda_A))
