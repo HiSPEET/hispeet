@@ -516,7 +516,7 @@ program INS_Integrator_3D_Test
   end if
 
   ! time scales
-  call time_scales % Evaluate(problem, ins_op, u)
+  call time_scales % Evaluate(ins_op, u, comm)
 
   ! info .......................................................................
 
@@ -540,15 +540,9 @@ program INS_Integrator_3D_Test
     write(*,'(T3,A,T29,ES18.11)') 'time step size:'       , dt
     write(*,*)
     write(*,'(T3,A)') 'convective and diffusive CFL numbers'
-    write(*,'(T5,A,T21,ES12.5,A,T37,A,T55,ES12.5)')              &
-        'C(v_0  , τ_c) =' , dt / time_scales % tau_conv_ve, ',', &
-        'C(v_0  , ∆x/P) =', dt / time_scales % tau_conv_vm
-    write(*,'(T5,A,T21,ES12.5,A,T37,A,T55,ES12.5)')              &
-        'C(v_ref, τ_c) =' , dt / time_scales % tau_conv_re, ',', &
-        'C(v_ref, ∆x/P) =', dt / time_scales % tau_conv_rm
-    write(*,'(T5,A,T22,ES12.5,A,T38,A,T57,ES12.5)')              &
-        'D(ν_ref, τ_d) =' , dt / time_scales % tau_diff_re, ',', &
-        'D(ν_ref, ∆x/P) =', dt / time_scales % tau_diff_rm
+    write(*,'(T5,A,T16,ES12.5)') 'C(v_0  ) =' , dt / time_scales % tau_conv_v
+    write(*,'(T5,A,T16,ES12.5)') 'C(v_ref) =' , dt / time_scales % tau_conv_r
+    write(*,'(T5,A,T17,ES12.5)') 'D(ν_ref) =' , dt / time_scales % tau_diff_r
     write(*,*)
   end if
 
@@ -692,8 +686,8 @@ contains
 
     optional :: q_avg
 
-    integer(hid_t)    :: data_id, file_id, group_id, space_id
-    integer(hsize_t)  :: dims_t(1), dims_n(1), dims_var(5)
+    integer(HID_T)    :: data_id, file_id, group_id, space_id
+    integer(HSIZE_T)  :: dims_t(1), dims_n(1), dims_var(5)
     integer           :: err
     character(len=80) :: tag
     character(len=:), allocatable :: file_pr
@@ -767,8 +761,8 @@ contains
 
     optional :: q_avg
 
-    integer(hid_t)    :: data_id, file_id, group_id, space_id, type_id
-    integer(hsize_t)  :: dims_var(5), maxdims_var(5)
+    integer(HID_T)    :: data_id, file_id, group_id, space_id, type_id
+    integer(HSIZE_T)  :: dims_var(5), maxdims_var(5)
     integer           :: err
     logical           :: exists
     type(C_Ptr)       :: buf
@@ -888,82 +882,63 @@ contains
 
   subroutine MeshStatistics()
 
-    integer, save :: ne_max, ne_min, ne_tot, ne_leaf, ne_leaf_loc
-    integer, save :: ne_tot_sum, ne_leaf_sum
-    integer, save :: dof_p_tot, dof_p_leaf
+    integer  , allocatable, save :: n_elem(:,:), n_active(:,:), n_leaf(:,:)
+    real(RNP), allocatable, save :: emq(:,:)
 
-    integer :: l, m
+    integer(IXL) :: dof_p_leaf, dof_p_tot, dof_v_leaf
+    integer      :: l
 
-    associate(mesh => ml_mesh%mesh)
+    call ml_op_p % Get_MeshCharacteristics(n_elem, n_active, n_leaf, emq)
 
-      l_top = size(mesh)
+    if (rank == 0) then
 
-      if (rank == 0) then
-        write(*,'(A,/)') 'mesh statistics'
-        write(*,'(2X,A7,5A9,2A6)') '  level'   &
-                                 , '  n_parts' &
-                                 , '   ne_min' &
-                                 , '   ne_max' &
-                                 , '   ne_tot' &
-                                 , '  ne_leaf' &
-                                 , '  po_u'    &
-                                 , '  po_p'
-      end if
+      write(*,'(/,A3,X,6A9,A6,2(3X,A9),2(X,A9))') &
+          '  l'       , &
+          '  n_parts' , &
+          '   na_min' , &
+          '   na_max' , &
+          '   na_tot' , &
+          '   ne_tot' , &
+          '  ne_leaf' , &
+          '  po_p'    , &
+          '   dx_min' , &
+          '   dx_max' , &
+          '   ar_max' , &
+          '   qj_min'
 
-      ne_tot_sum  = 0
-      ne_leaf_sum = 0
-      dof_p_tot   = 0
-      dof_p_leaf  = 0
+      dof_p_tot  = 0
 
       do l = 1, l_top
 
-        ne_leaf_loc = 0
+        dof_p_tot = dof_p_tot + n_elem(l,4) * (po_p(l) + 1)**3
 
-        if (mesh(l)%part >= 0) then
-          do i = 1, mesh(l) % n_elem_active
-            if (mesh(l) % element(i) % IsLeaf()) then
-              ne_leaf_loc = ne_leaf_loc + 1
-            end if
-          end do
-          call XMPI_Reduce(mesh(l)%n_elem, ne_min , MPI_MIN, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(mesh(l)%n_elem, ne_max , MPI_MAX, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(mesh(l)%n_elem, ne_tot , MPI_SUM, 0, mesh(l)%comm_parts)
-          call XMPI_Reduce(ne_leaf_loc   , ne_leaf, MPI_SUM, 0, mesh(l)%comm_parts)
-        end if
+        write(*,'(I3,X,6I9,I6,2(2X,ES10.3),2F10.3)') &
+            l                      , &
+            ml_mesh%mesh(l)%n_parts, &
+            n_active(l,2)          , &
+            n_active(l,3)          , &
+            n_active(l,4)          , &
+            n_elem(l,4)            , &
+            n_leaf(l,4)            , &
+            po_p(l)                , &
+            emq(l,1:2)             , &
+            emq(l,4:5)
 
-        call XMPI_Bcast(ne_min , mesh(l)%proc_part(0), mesh(l)%comm_world)
-        call XMPI_Bcast(ne_max , mesh(l)%proc_part(0), mesh(l)%comm_world)
-        call XMPI_Bcast(ne_tot , mesh(l)%proc_part(0), mesh(l)%comm_world)
-        call XMPI_Bcast(ne_leaf, mesh(l)%proc_part(0), mesh(l)%comm_world)
-
-        if (rank == 0) then
-
-          ! set m to po_u for the top level and -1 for lower levels:
-          m = (sign(1,l-l_top)*(po_u + 1) + po_u - 1)/2
-
-          write(*,'(I9,5I9,2I6)') l, mesh(l)%n_parts, ne_min, ne_max, ne_tot, &
-                                  ne_leaf, m, po_p(l)
-
-          ne_tot_sum  = ne_tot_sum  + ne_tot
-          ne_leaf_sum = ne_leaf_sum + ne_leaf
-          dof_p_tot   = dof_p_tot   + ne_tot  * (po_p(l) + 1)**3
-          dof_p_leaf  = dof_p_leaf  + ne_leaf * (po_p(l) + 1)**3
-
-        end if
       end do
 
-      if (rank == 0) then
-        write(*,*)
-        write(*,'(4X,A)') 'global'
-        write(*,'(T7,A,T20,I0)') 'ne_tot     =', ne_tot_sum
-        write(*,'(T7,A,T20,I0)') 'ne_leaf    =', ne_leaf_sum
-        write(*,'(T7,A,T20,I0)') 'dof_p_tot  =', dof_p_tot
-        write(*,'(T7,A,T20,I0)') 'dof_p_leaf =', dof_p_leaf
-        write(*,'(T7,A,T20,I0)') 'dof_v_tot  =', 3 * ne_leaf * (po_u + 1)**3
-        write(*,*)
-      end if
+      dof_p_leaf = int(n_leaf(l_top,4), IXL) * (po_p(l_top) + 1)**3
+      dof_v_leaf = int(n_leaf(l_top,4), IXL) * (po_u        + 1)**3 * 3
 
-    end associate
+      write(*,*)
+      write(*,'(4X,A)') 'global'
+      write(*,'(T7,A,T20,I0)') 'ne_tot     =', sum(n_elem(:,4))
+      write(*,'(T7,A,T20,I0)') 'ne_leaf    =', sum(n_leaf(:,4))
+      write(*,'(T7,A,T20,I0)') 'dof_p_tot  =', dof_p_tot
+      write(*,'(T7,A,T20,I0)') 'dof_p_leaf =', dof_p_leaf
+      write(*,'(T7,A,T20,I0)') 'dof_v_leaf =', dof_v_leaf
+      write(*,*)
+
+    end if
 
   end subroutine MeshStatistics
 

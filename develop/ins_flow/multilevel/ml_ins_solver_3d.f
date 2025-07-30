@@ -36,6 +36,7 @@ program ML_INS_Solver_3D
   use ML__INS__Operator__3D
   use ML__INS__Integrator__BDF2__3D
   use ML__INS__Flow_Characteristics__3D
+  use ML__INS__Time_Scales__3D
 
   implicit none
 
@@ -142,6 +143,7 @@ program ML_INS_Solver_3D
 
   ! auxiliaries ................................................................
 
+  type(ML_INS_TimeScales_3D)          :: ml_time_scales
   type(ML_INS_FlowCharacteristics_3D) :: ml_flow_char
 
   character(:), allocatable :: domain_name
@@ -362,6 +364,21 @@ program ML_INS_Solver_3D
   !-----------------------------------------------------------------------------
   ! Time integration
 
+  ! time scales
+  call ml_time_scales % Evaluate(ml_ins, u)
+  if (rank == 0) then
+    write(*,*)
+    write(*,'(T3,A)') 'convective and diffusive CFL numbers'
+    write(*,'(T5,A,T16,ES12.5)') 'C(v_0  ) =' , &
+        dt / minval(ml_time_scales % level % tau_conv_v)
+    write(*,'(T5,A,T16,ES12.5)') 'C(v_ref) =' , &
+        dt / minval(ml_time_scales % level % tau_conv_r)
+    write(*,'(T5,A,T17,ES12.5)') 'D(ν_ref) =' , &
+        dt / minval(ml_time_scales % level % tau_diff_r)
+    write(*,*)
+  end if
+
+  ! initial flow characteristics
   call ml_flow_char % Evaluate(ml_ins, t, u, dt, domain_volume, leaf = .true.)
   call ml_flow_char % PrintHeader()
   call ml_flow_char % PrintValues('#init#')

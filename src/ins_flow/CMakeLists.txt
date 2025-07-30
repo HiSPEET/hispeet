@@ -45,12 +45,13 @@ add_library(HiINSFlow
             util/ins__flow_characteristics__3d.f
             util/ins__time_scales__3d.f
             
+            multilevel/ml__ins__flow_characteristics.f
             multilevel/ml__ins__operator__3d.f
             multilevel/ml__ins__operator__3d__mp_mg_stokes_start.f
             multilevel/ml__ins__operator__3d__mp_mg_stokes_cycle.f
             multilevel/ml__ins__integrator__3d.f
             multilevel/ml__ins__integrator__bdf2__3d.f
-            multilevel/ml__ins__flow_characteristics.f
+            multilevel/ml__ins__time_scales__3d.f
 
             )
 
