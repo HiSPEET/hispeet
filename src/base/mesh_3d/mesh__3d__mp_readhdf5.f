@@ -109,8 +109,8 @@ contains
       call H5Dopen_f(group_id, name_mp, data_id, err)
       call H5Dget_type_f(data_id, type_id, err)
       call H5Dread_f(data_id, type_id, buf, err)
-      call H5Tclose_f(type_id, err)
       call H5Dclose_f(data_id, err)
+      call H5Tclose_f(type_id, err)
 
       ! get mesh attributes ....................................................
 
@@ -118,8 +118,8 @@ contains
       call H5Dopen_f(group_id, name_ma, data_id, err)
       call H5Dget_type_f(data_id, type_id, err)
       call H5Dread_f(data_id, type_id, buf, err)
-      call H5Tclose_f(type_id, err)
       call H5Dclose_f(data_id, err)
+      call H5Tclose_f(type_id, err)
 
       ! get mesh boundary attributes ...........................................
 
@@ -130,8 +130,8 @@ contains
         call H5Dopen_f(group_id, name_mba, data_id, err)
         call H5Dget_type_f(data_id, type_id, err)
         call H5Dread_f(data_id, type_id, buf, err)
-        call H5Tclose_f(type_id, err)
         call H5Dclose_f(data_id, err)
+        call H5Tclose_f(type_id, err)
       end if
 
       ! initialize mesh ........................................................
@@ -151,8 +151,8 @@ contains
       buf = C_Loc(mesh_dim)
       call H5Dget_type_f(data_id, type_id, err)
       call H5Dread_f(data_id, type_id, buf, err)
-      call H5Tclose_f(type_id, err)
       call H5Dclose_f(data_id, err)
+      call H5Tclose_f(type_id, err)
 
       mesh % n_vert        = mesh_dim( 1)
       mesh % n_edge        = mesh_dim( 2)
@@ -203,8 +203,8 @@ contains
         buf = C_Loc(neighbor)
         call H5Dget_type_f(data_id, type_id, err)
         call H5Dread_f(data_id, type_id, buf, err)
-        call H5Tclose_f(type_id, err)
         call H5Dclose_f(data_id, err)
+        call H5Tclose_f(type_id, err)
 
         i = 1
         do e = 1, mesh % n_elem
@@ -235,8 +235,8 @@ contains
         buf = C_Loc(xc)
         call H5Dget_type_f(data_id, type_id, err)
         call H5Dread_f(data_id, type_id, buf, err)
-        call H5Tclose_f(type_id, err)
         call H5Dclose_f(data_id, err)
+        call H5Tclose_f(type_id, err)
 
         i = 1
         do e = 1, mesh % n_elem

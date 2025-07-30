@@ -20,7 +20,7 @@ contains
 
     character(len=:), allocatable :: file_pr
     character(len=80) :: tag
-    integer(HID_T)    :: file_id, group_id
+    integer(HID_T)    :: file_id, group_id, ml_mesh_id
     integer, target   :: l_top
     integer           :: err, l
 
@@ -38,13 +38,13 @@ contains
     ! HDF5 file and base group .................................................
 
     call H5Fcreate_f(file_pr, H5F_ACC_TRUNC_F, file_id, err)
-    call H5Gcreate_f(file_id, '/ml_mesh', group_id, err)
+    call H5Gcreate_f(file_id, '/ml_mesh', ml_mesh_id, err)
 
     ! attributes ...............................................................
 
     block
-      integer(hid_t)   :: data_id, space_id
-      integer(hsize_t) :: dims(1)
+      integer(HID_T)   :: data_id, space_id
+      integer(HSIZE_T) :: dims(1)
 
       call H5Gcreate_f(file_id, '/ml_mesh/attrib', group_id, err)
 
@@ -53,8 +53,10 @@ contains
       call H5Screate_simple_f(size(dims), dims, space_id, err)
       call H5Dcreate_f(group_id, 'l_top', H5T_INTEGER, space_id, data_id, err)
       call H5Dwrite_f(data_id, H5T_INTEGER, C_Loc(l_top), err)
-      call H5Sclose_f(space_id, err)
       call H5Dclose_f(data_id, err)
+      call H5Sclose_f(space_id, err)
+
+      call H5Gclose_f(group_id, err)
 
     end block
 
@@ -69,6 +71,7 @@ contains
 
     ! finalize .................................................................
 
+    call H5Gclose_f(ml_mesh_id, err)
     call H5Fclose_f(file_id, err)
 
   end subroutine WriteHDF5

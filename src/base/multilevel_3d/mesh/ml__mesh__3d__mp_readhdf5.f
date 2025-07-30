@@ -17,7 +17,7 @@ contains
   module subroutine ReadHDF5(this, file, comm)
     class(ML_Mesh_3D), intent(inout) :: this !< multilevel mesh partition
     character(len=*),  intent(in)    :: file !< name of HDF5 file
-    type(MPI_Comm),    intent(in)    :: comm !< MPI "world" communicator
+    type(MPI_Comm),    intent(in)    :: comm !< MPI "mesh_world" communicator
 
     character(len=:), allocatable :: file_pr
     character(len=80) :: tag
@@ -44,7 +44,7 @@ contains
     ! attributes ...............................................................
 
     block
-      integer(hid_t) :: data_id, type_id
+      integer(HID_T) :: data_id, type_id
       type(C_Ptr)    :: buf
 
       if (rank == 0) then
@@ -56,8 +56,10 @@ contains
         call H5Dopen_f(group_id, 'l_top', data_id, err)
         call H5Dget_type_f(data_id, type_id, err)
         call H5Dread_f(data_id, type_id, buf, err)
-        call H5Tclose_f(type_id, err)
         call H5Dclose_f(data_id, err)
+        call H5Tclose_f(type_id, err)
+
+        call H5Gclose_f(group_id, err)
 
       end if
 

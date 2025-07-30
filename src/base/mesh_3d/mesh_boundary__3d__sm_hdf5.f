@@ -43,7 +43,7 @@ contains
 
     type(MeshBoundaryAttributes_3D), target :: attributes(2)
     integer(SIZE_T)  :: offset
-    integer(HID_T)   :: tid
+    integer(HID_T)   :: type_id
     integer :: err
 
     ! initialize datatype
@@ -52,10 +52,10 @@ contains
 
     ! insert name
     offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%name(1:1)))
-    call H5Tcopy_f(H5T_CHARACTER, tid, err)
-    call H5Tset_size_f(tid, int(len(attributes(1)%name), SIZE_T), err)
-    call H5Tinsert_f(H5T_BoundaryAttributes, 'name', offset, tid, err)
-    call H5Tclose_f(tid, err)
+    call H5Tcopy_f(H5T_CHARACTER, type_id, err)
+    call H5Tset_size_f(type_id, int(len(attributes(1)%name), SIZE_T), err)
+    call H5Tinsert_f(H5T_BoundaryAttributes, 'name', offset, type_id, err)
+    call H5Tclose_f(type_id, err)
 
     ! insert id
     offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%id))
@@ -71,9 +71,9 @@ contains
 
     ! insert map
     offset = H5offsetof(C_Loc(attributes(1)), C_Loc(attributes(1)%map(1,1)))
-    call H5Tarray_create_f(H5T_REAL_RNP, 2, int([4,4], HSIZE_T), tid, err)
-    call H5Tinsert_f(H5T_BoundaryAttributes, 'map', offset, tid, err)
-    call H5Tclose_f(tid, err)
+    call H5Tarray_create_f(H5T_REAL_RNP, 2, int([4,4], HSIZE_T), type_id, err)
+    call H5Tinsert_f(H5T_BoundaryAttributes, 'map', offset, type_id, err)
+    call H5Tclose_f(type_id, err)
 
   end subroutine Init_H5T_BoundaryAttributes
 
