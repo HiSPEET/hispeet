@@ -78,7 +78,7 @@ program ML_Elliptic_Test_Adaptive
                              !   2  cuboidal with unstructured "diamond" mesh
                              !   3  cylindrical domain
 
-  character(len=80) :: gmsh_file = '../gmsh_3d/cylinder_2d'
+  character(len=80) :: gmsh_file = '../../gmsh/cylinder_2d'
 
   namelist/domain_prm/ test_domain, gmsh_file
 
@@ -643,7 +643,8 @@ contains
               n_elem(l,4)    , &
               n_leaf(l,4)    , &
               po(l)          , &
-              emq(l,1:4)
+              emq(l,1:2)     , &
+              emq(l,4:5)
 
         end do
       end if

@@ -8,7 +8,7 @@
 
 ! test_domain = 0
 &domain_prm
-! gmsh_file = '../gmsh_3d/cylinder_2d'
+! gmsh_file = '../../gmsh/cylinder_2d'
 /
 
 ! test_domain = 1

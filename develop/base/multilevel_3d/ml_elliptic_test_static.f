@@ -82,7 +82,7 @@ program ML_Elliptic_Test_Static
                              !   2  cuboidal with unstructured "diamond" mesh
                              !   3  cylindrical domain
 
-  character(len=80) :: gmsh_file = '../gmsh_3d/cylinder_2d'
+  character(len=80) :: gmsh_file = '../../gmsh/cylinder_2d'
 
   namelist/domain_prm/ test_domain, gmsh_file
 
