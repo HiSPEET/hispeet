@@ -6,6 +6,8 @@
 
 module ML__Mesh_Variable__3D
   use Kind_Parameters
+  use Execution_Control
+  use XMPI
   use Data_Exchange__3D
   use Mesh_Variable__3D
   use ML__Mesh__3D
@@ -25,14 +27,25 @@ module ML__Mesh_Variable__3D
     generic   :: Init => Init_ML_MeshVariable_3D__M, Init_ML_MeshVariable_3D__O
     procedure :: Init_ML_MeshVariable_3D__M, Init_ML_MeshVariable_3D__O
     procedure :: GetSlice
-    procedure :: ExportVTK
     procedure :: FitAdapt
+    procedure :: ExportVTK
+    procedure :: ReadHDF5
+    procedure :: WriteHDF5
   end type ML_MeshVariable_3D
 
   !=============================================================================
   ! module procedures
 
   interface
+
+    !---------------------------------------------------------------------------
+    !> Fit to adapted mesh
+
+    module subroutine FitAdapt(this, ml_op, x_plan)
+      class(ML_MeshVariable_3D),  intent(inout) :: this
+      class(ML_MeshOperators_3D), intent(in)    :: ml_op     !< adapted operators
+      class(DataExchangePlan_3D), intent(in)    :: x_plan(:) !< reassignment plan
+    end subroutine FitAdapt
 
     !---------------------------------------------------------------------------
     !> Export to VTK
@@ -45,12 +58,20 @@ module ML__Mesh_Variable__3D
     end subroutine ExportVTK
 
     !---------------------------------------------------------------------------
-    !> Fit to adapted mesh
-    module subroutine FitAdapt(this, ml_op, x_plan)
-      class(ML_MeshVariable_3D),  intent(inout) :: this
-      class(ML_MeshOperators_3D), intent(in)    :: ml_op     !< adapted operators
-      class(DataExchangePlan_3D), intent(in)    :: x_plan(:) !< reassignment plan
-    end subroutine FitAdapt
+    !> Read multilevel mesh variable from HDF5 file
+
+    module subroutine ReadHDF5(this, file)
+      class(ML_MeshVariable_3D), intent(inout) :: this !< ML mesh variable
+      character(len=*),          intent(in)    :: file !< name of HDF5 file
+    end subroutine ReadHDF5
+
+    !---------------------------------------------------------------------------
+    !> Write multilevel mesh partition into HDF5 file
+
+    module subroutine WriteHDF5(this, file)
+      class(ML_MeshVariable_3D), target, intent(in) :: this !< ML mesh variable
+      character(len=*),                  intent(in) :: file !< name of HDF5 file
+    end subroutine WriteHDF5
 
   end interface
 

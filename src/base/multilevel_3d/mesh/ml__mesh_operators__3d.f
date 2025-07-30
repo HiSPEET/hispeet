@@ -234,147 +234,174 @@ contains
       !! - n_leaf(l,4) = tot num in level l
 
     real(RNP), allocatable, optional, intent(inout) :: emq(:,:)
-      !< emq(l_top,5), active element metrics and quality
+      !< emq(l_top,6), active element metrics and quality
       !! - emq(l,1) = min size in level l (cube root of V)
       !! - emq(l,2) = max size in level l (cube root of V)
-      !! - emq(l,3) = max aspect ratio in level l
-      !! - emq(l,4) = min scaled Jacobian level l
-      !! - emq(l,5) = max scaled Jacobian level l
+      !! - emq(l,3) = min aspect ratio in level l
+      !! - emq(l,4) = max aspect ratio in level l
+      !! - emq(l,5) = min scaled Jacobian level l
+      !! - emq(l,6) = max scaled Jacobian level l
 
-    type(MPI_Comm), save :: comm
-    real(RNP), save :: dx_min, dx_max, ar_max, qj_min, qj_max
+    real(RNP), save :: dx_min, dx_max, ar_min, ar_max, qj_min, qj_max
 
-    real(RNP) :: dx(3)
+    real(RNP) :: dx_x(3)
     real(RNP) :: dx_e, ar_e, qj_e
     integer   :: e, l, l_top
 
-    !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-    !$omp master
+    associate(comm => this % sem(1) % mesh % comm_world)
 
-    ! initialization ...........................................................
+      l_top = size(this % sem)
 
-    comm = this % sem(1) % mesh % comm_world
-    l_top = size(this % sem)
+      ! number of elements .....................................................
 
-    ! number of elements .......................................................
+      if (present(n_elem)) then
 
-    if (present(n_elem)) then
+        !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+        !$omp master
 
-      if (allocated(n_elem)) then
-        if (any(shape(n_elem) /= [l_top,4])) deallocate(n_elem)
-      end if
-      if (.not. allocated(n_elem)) then
-        allocate(n_elem(l_top,4))
-      end if
+        if (allocated(n_elem)) then
+          if (any(shape(n_elem) /= [l_top,4])) deallocate(n_elem)
+        end if
+        if (.not. allocated(n_elem)) then
+          allocate(n_elem(l_top,4))
+        end if
 
-      do l = 1, l_top
-        n_elem(l,1) = max(0, this % sem(l) % mesh % n_elem)
-      end do
+        do l = 1, l_top
+          n_elem(l,1) = max(0, this % sem(l) % mesh % n_elem)
+        end do
 
-      call XMPI_Allreduce(n_elem(:,1), n_elem(:,2), MPI_MIN, comm)
-      call XMPI_Allreduce(n_elem(:,1), n_elem(:,3), MPI_MAX, comm)
-      call XMPI_Allreduce(n_elem(:,1), n_elem(:,4), MPI_SUM, comm)
+        call XMPI_Allreduce(n_elem(:,1), n_elem(:,2), MPI_MIN, comm)
+        call XMPI_Allreduce(n_elem(:,1), n_elem(:,3), MPI_MAX, comm)
+        call XMPI_Allreduce(n_elem(:,1), n_elem(:,4), MPI_SUM, comm)
 
-    end if
+        !$omp end master
+        !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
-    ! number of active elements ................................................
-
-    if (present(n_active)) then
-
-      if (allocated(n_active)) then
-        if (any(shape(n_active) /= [l_top,4])) deallocate(n_active)
-      end if
-      if (.not. allocated(n_active)) then
-        allocate(n_active(l_top,4))
       end if
 
-      do l = 1, l_top
-        n_active(l,1) = max(0, this % sem(l) % mesh % n_elem_active)
-      end do
+      ! number of active elements ..............................................
 
-      call XMPI_Allreduce(n_active(:,1), n_active(:,2), MPI_MIN, comm)
-      call XMPI_Allreduce(n_active(:,1), n_active(:,3), MPI_MAX, comm)
-      call XMPI_Allreduce(n_active(:,1), n_active(:,4), MPI_SUM, comm)
+      if (present(n_active)) then
 
-    end if
+        !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+        !$omp master
 
-    ! number of leaf elements ..................................................
+        if (allocated(n_active)) then
+          if (any(shape(n_active) /= [l_top,4])) deallocate(n_active)
+        end if
+        if (.not. allocated(n_active)) then
+          allocate(n_active(l_top,4))
+        end if
 
-    if (present(n_leaf)) then
+        do l = 1, l_top
+          n_active(l,1) = max(0, this % sem(l) % mesh % n_elem_active)
+        end do
 
-      if (allocated(n_leaf)) then
-        if (any(shape(n_leaf) /= [l_top,4])) deallocate(n_leaf)
-      end if
-      if (.not. allocated(n_leaf)) then
-        allocate(n_leaf(l_top,4))
-      end if
+        call XMPI_Allreduce(n_active(:,1), n_active(:,2), MPI_MIN, comm)
+        call XMPI_Allreduce(n_active(:,1), n_active(:,3), MPI_MAX, comm)
+        call XMPI_Allreduce(n_active(:,1), n_active(:,4), MPI_SUM, comm)
 
-      do l = 1, l_top
-        associate(mesh => this % sem(l) % mesh)
-          if (mesh % n_elem_active > 0) then
-            n_leaf(l,1) = count(mesh % element % IsLeaf())
-          else
-            n_leaf(l,1) = 0
-          end if
-        end associate
-      end do
+        !$omp end master
+        !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
-      call XMPI_Allreduce(n_leaf(:,1), n_leaf(:,2), MPI_MIN, comm)
-      call XMPI_Allreduce(n_leaf(:,1), n_leaf(:,3), MPI_MAX, comm)
-      call XMPI_Allreduce(n_leaf(:,1), n_leaf(:,4), MPI_SUM, comm)
-
-    end if
-
-    ! element metrics and quality ..............................................
-
-    if (present(emq)) then
-
-      if (allocated(emq)) then
-        if (any(shape(emq) /= [l_top,5])) deallocate(emq)
-      end if
-      if (.not. allocated(emq)) then
-        allocate(emq(l_top,5))
       end if
 
-      do l = 1, l_top
-        associate( mesh => this % sem(l) % mesh         &
-                 , Jd   => this % sem(l) % metrics % Jd )
+      ! number of leaf elements ................................................
 
-          dx_min =  huge(ONE)
-          dx_max = -huge(ONE)
-          ar_max = -huge(ONE)
-          qj_min =  huge(ONE)
-          qj_max = -huge(ONE)
+      if (present(n_leaf)) then
 
-          do e = 1, mesh % n_elem_active
+        !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+        !$omp master
 
-            call mesh % element(e) % GetCuboidDimensions(dx)
+        if (allocated(n_leaf)) then
+          if (any(shape(n_leaf) /= [l_top,4])) deallocate(n_leaf)
+        end if
+        if (.not. allocated(n_leaf)) then
+          allocate(n_leaf(l_top,4))
+        end if
 
-            dx_e = product(dx) ** THIRD
-            ar_e = maxval(dx) / minval(dx)
-            qj_e = minval(Jd(:,:,:,e)) / maxval(Jd(:,:,:,e))
+        do l = 1, l_top
+          associate(mesh => this % sem(l) % mesh)
+            if (mesh % n_elem_active > 0) then
+              n_leaf(l,1) = count(mesh % element % IsLeaf())
+            else
+              n_leaf(l,1) = 0
+            end if
+          end associate
+        end do
 
-            dx_min = min(dx_min, dx_e)
-            dx_max = max(dx_max, dx_e)
-            ar_max = max(ar_max, ar_e)
-            qj_min = min(qj_min, qj_e)
-            qj_max = max(qj_max, qj_e)
+        call XMPI_Allreduce(n_leaf(:,1), n_leaf(:,2), MPI_MIN, comm)
+        call XMPI_Allreduce(n_leaf(:,1), n_leaf(:,3), MPI_MAX, comm)
+        call XMPI_Allreduce(n_leaf(:,1), n_leaf(:,4), MPI_SUM, comm)
 
-          end do
+        !$omp end master
+        !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
-          call XMPI_Allreduce(dx_min, emq(l,1), MPI_MIN, comm)
-          call XMPI_Allreduce(dx_max, emq(l,2), MPI_MAX, comm)
-          call XMPI_Allreduce(ar_max, emq(l,3), MPI_MAX, comm)
-          call XMPI_Allreduce(qj_min, emq(l,4), MPI_MIN, comm)
-          call XMPI_Allreduce(qj_max, emq(l,5), MPI_MAX, comm)
+      end if
 
-        end associate
-      end do
+      ! element metrics and quality ............................................
 
-    end if
+      if (present(emq)) then
 
-    !$omp end master
-    !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+        !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+        !$omp master
+
+        if (allocated(emq)) then
+          if (any(shape(emq) /= [l_top,5])) deallocate(emq)
+        end if
+        if (.not. allocated(emq)) then
+          allocate(emq(l_top,5))
+        end if
+
+        !$omp end master
+        !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+        do l = 1, l_top
+          associate( mesh => this % sem(l) % mesh         &
+                   , Jd   => this % sem(l) % metrics % Jd )
+
+            !$omp master
+            dx_min =  huge(ONE)
+            dx_max = -huge(ONE)
+            ar_min =  huge(ONE)
+            ar_max = -huge(ONE)
+            qj_min =  huge(ONE)
+            qj_max = -huge(ONE)
+            !$omp end master
+
+            !$omp do reduction(min:dx_min,ar_min,qj_min) &
+            !$omp &  reduction(max:dx_max,ar_max,qj_max)
+            do e = 1, mesh % n_elem_active
+
+              call mesh % element(e) % GetCuboidDimensions(dx_x)
+
+              dx_e = product(dx_x) ** THIRD
+              ar_e = maxval(dx_x) / minval(dx_x)
+              qj_e = minval(Jd(:,:,:,e)) / maxval(Jd(:,:,:,e))
+
+              dx_min = min(dx_min, dx_e)
+              dx_max = max(dx_max, dx_e)
+              ar_min = min(ar_min, ar_e)
+              ar_max = max(ar_max, ar_e)
+              qj_min = min(qj_min, qj_e)
+              qj_max = max(qj_max, qj_e)
+
+            end do
+
+            !$omp master
+            call XMPI_Allreduce(dx_min, emq(l,1), MPI_MIN, comm)
+            call XMPI_Allreduce(dx_max, emq(l,2), MPI_MAX, comm)
+            call XMPI_Allreduce(ar_min, emq(l,3), MPI_MAX, comm)
+            call XMPI_Allreduce(ar_max, emq(l,4), MPI_MAX, comm)
+            call XMPI_Allreduce(qj_min, emq(l,5), MPI_MIN, comm)
+            call XMPI_Allreduce(qj_max, emq(l,6), MPI_MAX, comm)
+            !$omp end master
+
+          end associate
+        end do
+
+      end if
+    end associate
 
   end subroutine Get_MeshCharacteristics
 

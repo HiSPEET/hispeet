@@ -6,7 +6,7 @@
 
 module Spectral_Element_Mesh__3D
   use Kind_Parameters, only: RNP
-  use Constants      , only: ZERO
+  use Constants
   use XMPI
   use Standard_Element_Operators__1D
   use Mesh__3D
@@ -27,6 +27,7 @@ module Spectral_Element_Mesh__3D
     procedure :: Init_SpectralElementMesh_3D
     procedure :: Get_Volume
     procedure :: Get_SurfaceAreas
+    procedure :: Get_MeshCharacteristics
     procedure :: Get_DG_DiagonalMassMatrix
   end type SpectralElementMesh_3D
 
@@ -193,6 +194,86 @@ contains
     area = a_glob
 
   end subroutine Get_SurfaceAreas
+
+  !-----------------------------------------------------------------------------
+  !> Get characteristics of the multilevel spectral element mesh
+
+  subroutine Get_MeshCharacteristics(this, dx, ar, qj)
+
+    class(SpectralElementMesh_3D), intent(in) :: this
+    real(RNP), optional, intent(out) :: dx(2) !< element size     (min,max)
+    real(RNP), optional, intent(out) :: ar(2) !< aspect ratio     (min,max)
+    real(RNP), optional, intent(out) :: qj(2) !< scaled Jacobian  (min,max)
+
+    real(RNP), save :: dx_min_loc, dx_min_glob
+    real(RNP), save :: dx_max_loc, dx_max_glob
+    real(RNP), save :: ar_min_loc, ar_min_glob
+    real(RNP), save :: ar_max_loc, ar_max_glob
+    real(RNP), save :: qj_min_loc, qj_min_glob
+    real(RNP), save :: qj_max_loc, qj_max_glob
+
+    real(RNP) :: dx_c(3), dx_e, ar_e, qj_e
+    integer   :: e
+
+    associate( mesh => this % mesh         &
+             , Jd   => this % metrics % Jd )
+
+      !$omp master
+      dx_min_loc =  huge(ONE)
+      dx_max_loc = -huge(ONE)
+      ar_min_loc =  huge(ONE)
+      ar_max_loc = -huge(ONE)
+      qj_min_loc =  huge(ONE)
+      qj_max_loc = -huge(ONE)
+      !$omp end master
+
+      !$omp do reduction(min:dx_min_loc,ar_min_loc,qj_min_loc) &
+      !$omp &  reduction(max:dx_max_loc,ar_max_loc,qj_max_loc)
+      do e = 1, mesh % n_elem_active
+
+        call mesh % element(e) % GetCuboidDimensions(dx_c)
+
+        dx_e = product(dx_c) ** THIRD
+        ar_e = maxval(dx_c) / minval(dx_c)
+        qj_e = minval(Jd(:,:,:,e)) / maxval(Jd(:,:,:,e))
+
+        dx_min_loc = min(dx_min_loc, dx_e)
+        dx_max_loc = max(dx_max_loc, dx_e)
+        ar_min_loc = min(ar_min_loc, ar_e)
+        ar_max_loc = max(ar_max_loc, ar_e)
+        qj_min_loc = min(qj_min_loc, qj_e)
+        qj_max_loc = max(qj_max_loc, qj_e)
+
+      end do
+
+      !$omp master
+      call XMPI_Allreduce(dx_min_loc, dx_min_glob, MPI_MIN, mesh%comm_world)
+      call XMPI_Allreduce(dx_max_loc, dx_max_glob, MPI_MAX, mesh%comm_world)
+      call XMPI_Allreduce(ar_min_loc, ar_min_glob, MPI_MIN, mesh%comm_world)
+      call XMPI_Allreduce(ar_max_loc, ar_max_glob, MPI_MAX, mesh%comm_world)
+      call XMPI_Allreduce(qj_min_loc, qj_min_glob, MPI_MIN, mesh%comm_world)
+      call XMPI_Allreduce(qj_max_loc, qj_max_glob, MPI_MAX, mesh%comm_world)
+      !$omp end master
+      !$omp barrier
+
+      if (present(dx)) then
+        dx(1) = dx_min_glob
+        dx(2) = dx_max_glob
+      end if
+
+      if (present(ar)) then
+        ar(1) = ar_min_glob
+        ar(2) = ar_max_glob
+      end if
+
+      if (present(qj)) then
+        qj(1) = qj_min_glob
+        qj(2) = qj_max_glob
+      end if
+
+    end associate
+
+  end subroutine Get_MeshCharacteristics
 
   !-----------------------------------------------------------------------------
   !> TBP to compute the quadrature-based diagonal mass matrix for DG-SEM
