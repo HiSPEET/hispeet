@@ -14,7 +14,11 @@
   flow_domain  = 3
 
 ! char_freq  = 0 ! set frequency of control output
-  vtk_mode   = 3 ! VTK export mode, 0/1/2/3: none/all/active/leafs
+! avg_rate   = 1 ! sampling rate for averaging, 0 if none
+! vtk_mode   = 3 ! VTK export mode, 0/1/2/3: none/all/active/leafs
+
+! restart_tag_in  = 'run1'
+  restart_tag_out = 'run1'
 /
 
 !-------------------------------------------------------------------------------
@@ -55,7 +59,7 @@
 
 ! t_end  = 0.25
   dt     = 0.001
-  nt_max = 10!10!00000
+  nt_max = 10!1000000
 /
 
 !-------------------------------------------------------------------------------
