@@ -11,6 +11,7 @@ module ML__INS__Operator__3D
   use XMPI
   use INS__Problem__3D
   use INS__Operator__3D
+  use Volume_Integrals__3D
   use ML__Mesh__3D
   use ML__Mesh_Operators__3D
   use ML__Mesh_Variable__3D
@@ -44,6 +45,7 @@ module ML__INS__Operator__3D
     procedure :: Init_ML_INS_Operator_3D
     procedure :: MG_Stokes_Start
     procedure :: MG_Stokes_Cycle
+    procedure :: CalibratePressure
   end type ML_INS_Operator_3D
 
   ! constructor interface
@@ -193,6 +195,54 @@ contains
     end do
 
   end subroutine Init_ML_INS_Operator_3D
+
+  !-----------------------------------------------------------------------------
+  !> Remove the mean pressure unless Dirichlet conditions apply
+  !>
+  !> The multilevel variable `u` must contain the either the flow variables
+  !> `[ v(1:3), p, ... ]` or only the pressure `p`.
+
+  subroutine CalibratePressure(this, u)
+    class(ML_INS_Operator_3D), intent(in)    :: this !< ML INS operator
+    class(ML_MeshVariable_3D), intent(inout) :: u    !< flow variables or p
+
+    real(RNP) :: p_mean, p_mean_l, volume
+    integer   :: c, l, l_top
+
+    if (any(this % problem % bc_p == 'D')) return
+
+    ! identify pressure component
+    select case(size(u%name))
+    case(1)
+      c = 1
+    case(4:)
+      c = 4
+    case default
+      call Error( 'CalibratePressure'                                   &
+                , 'u must contain either the flow variables or p alone' &
+                , 'ML__INS__Operator__3D'                               )
+    end select
+
+    call this % ml_op_u % Get_Volume(volume)
+
+    l_top = size(u % level)
+
+    p_mean = 0
+    do l = 1, l_top
+      associate(p_l => u % level(l) % val(:,:,:,:,c))
+        call GetVolumeIntegral(this%ins_op(l)%sem_u, p_l, p_mean_l, leaf=.true.)
+        p_mean = p_mean + p_mean_l
+      end associate
+    end do
+    p_mean = p_mean / volume
+
+    do l = 1, l_top
+      associate(p_l => u % level(l) % val(:,:,:,:,c))
+        p_l = p_l - p_mean
+      end associate
+    end do
+
+  end subroutine CalibratePressure
 
   !=============================================================================
   ! Type-bound procedures of ML_INS_OperatorOptions_3D
