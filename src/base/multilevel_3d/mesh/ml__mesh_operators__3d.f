@@ -5,7 +5,7 @@
 !===============================================================================
 
 module ML__Mesh_Operators__3D
-  use Kind_Parameters, only: RNP
+  use Kind_Parameters
   use Constants
   use XMPI
   use Execution_Control
@@ -35,6 +35,7 @@ module ML__Mesh_Operators__3D
     procedure :: Get_Volume
     procedure :: Get_SurfaceAreas
     procedure :: Get_MeshCharacteristics
+    procedure :: Print_MeshCharacteristics
   end type ML_MeshOperators_3D
 
   ! constructor interface
@@ -404,6 +405,83 @@ contains
     end associate
 
   end subroutine Get_MeshCharacteristics
+
+  !-----------------------------------------------------------------------------
+  !> Print characteristics of the multilevel spectral element mesh
+
+  subroutine Print_MeshCharacteristics(this)
+    class(ML_MeshOperators_3D), intent(in) :: this
+
+    integer  , allocatable, save :: n_elem(:,:), n_active(:,:), n_leaf(:,:)
+    real(RNP), allocatable, save :: emq(:,:)
+
+    integer(IXL) :: np_leaf, np_tot
+    integer :: l
+
+    call this % Get_MeshCharacteristics(n_elem, n_active, n_leaf, emq)
+
+    !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+    !$omp master
+
+    if (this % sem(1) % mesh % proc == 0) then
+
+      write(*,'(/,A4,X,6A9,A4,2(3X,A9),2(X,A9))') &
+          '   l'      , &
+          '  n_parts' , &
+          '   na_min' , &
+          '   na_max' , &
+          '   na_tot' , &
+          '   ne_tot' , &
+          '  ne_leaf' , &
+          '  po'      , &
+          '   dx_min' , &
+          '   dx_max' , &
+          '   ar_max' , &
+          '   qj_min'
+
+      np_tot  = 0
+      np_leaf = 0
+
+      do l = 1, size(this % sem)
+        associate( mesh => this % sem(l) % mesh        &
+                 , po   => this % sem(l) % std_op % po )
+
+        np_tot  = np_tot  + n_elem(l,4) * (po + 1)**3
+        np_leaf = np_leaf + n_leaf(l,4) * (po + 1)**3
+
+        write(*,'(I4,X,6I9,I4,2(2X,ES10.3),2F10.3)') &
+            l             , &
+            mesh%n_parts  , &
+            n_active(l,2) , &
+            n_active(l,3) , &
+            n_active(l,4) , &
+            n_elem(l,4)   , &
+            n_leaf(l,4)   , &
+            po            , &
+            emq(l,1:2)    , &
+            emq(l,4:5)
+
+        end associate
+      end do
+
+      write(*,*)
+      write(*,'(2X,A)') 'global'
+      write(*,'(T5,A,I0)') 'ne_tot  = ', sum(n_elem(:,4))
+      write(*,'(T5,A,I0)') 'ne_leaf = ', sum(n_leaf(:,4))
+      write(*,'(T5,A,I0)') 'np_tot  = ', np_tot
+      write(*,'(T5,A,I0)') 'np_leaf = ', np_leaf
+
+    end if
+
+    if (allocated( n_elem   )) deallocate( n_elem   )
+    if (allocated( n_active )) deallocate( n_active )
+    if (allocated( n_leaf   )) deallocate( n_leaf   )
+    if (allocated( emq      )) deallocate( emq      )
+
+    !$omp end master
+    !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+  end subroutine Print_MeshCharacteristics
 
   !=============================================================================
 
