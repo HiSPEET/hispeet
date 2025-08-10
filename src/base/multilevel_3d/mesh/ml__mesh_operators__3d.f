@@ -351,7 +351,7 @@ contains
           if (any(shape(emq) /= [l_top,5])) deallocate(emq)
         end if
         if (.not. allocated(emq)) then
-          allocate(emq(l_top,5))
+          allocate(emq(l_top,6))
         end if
 
         !$omp end master

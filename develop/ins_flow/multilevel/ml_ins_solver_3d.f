@@ -77,6 +77,14 @@ program ML_INS_Solver_3D
 
   namelist/control_prm/ flow_problem, problem_file, flow_domain, raw_mesh_file
 
+  character :: refinement_strategy = 'G'
+    ! mesh refinement strategy
+    !   'G'  global
+    !   'L'  local
+    !   'A'  adaptive
+
+  namelist/control_prm/ refinement_strategy
+
   integer :: char_freq  = 1 ! characteristics output frequency
   integer :: avg_rate   = 0 ! sampling rate for averaging, 0 if none
   integer :: vtk_mode   = 0 ! VTK export mode, 0/1/2/3: none/all/active/leafs
@@ -231,17 +239,18 @@ program ML_INS_Solver_3D
   end if
 
   ! globalize control parameters
-  call XMPI_Bcast(flow_case      , 0, comm)
-  call XMPI_Bcast(case_file      , 0, comm)
-  call XMPI_Bcast(flow_problem   , 0, comm)
-  call XMPI_Bcast(problem_file   , 0, comm)
-  call XMPI_Bcast(flow_domain    , 0, comm)
-  call XMPI_Bcast(raw_mesh_file  , 0, comm)
-  call XMPI_Bcast(char_freq      , 0, comm)
-  call XMPI_Bcast(avg_rate       , 0, comm)
-  call XMPI_Bcast(vtk_mode       , 0, comm)
-  call XMPI_Bcast(restart_tag_in , 0, comm)
-  call XMPI_Bcast(restart_tag_out, 0, comm)
+  call XMPI_Bcast( flow_case           , 0, comm)
+  call XMPI_Bcast( case_file           , 0, comm)
+  call XMPI_Bcast( flow_problem        , 0, comm)
+  call XMPI_Bcast( problem_file        , 0, comm)
+  call XMPI_Bcast( flow_domain         , 0, comm)
+  call XMPI_Bcast( raw_mesh_file       , 0, comm)
+  call XMPI_Bcast( refinement_strategy , 0, comm)
+  call XMPI_Bcast( char_freq           , 0, comm)
+  call XMPI_Bcast( avg_rate            , 0, comm)
+  call XMPI_Bcast( vtk_mode            , 0, comm)
+  call XMPI_Bcast( restart_tag_in      , 0, comm)
+  call XMPI_Bcast( restart_tag_out     , 0, comm)
 
   ! restart switches
   restart_in  = len_trim(restart_tag_in)  > 0
@@ -333,6 +342,15 @@ program ML_INS_Solver_3D
 
   l_top   = size(ml_mesh % mesh)
   n_bound = ml_mesh % mesh(1) % n_bound
+
+  ! compatibility check ........................................................
+
+  if (refinement_strategy == 'G') then
+    if (ml_mesh % mesh(l_top) % n_elem_frozen > 0) then
+      call Error( 'ML_INS_Solver_3D' &
+                , 'multilevel mesh violates global refinement strategy' )
+    end if
+  end if
 
   ! problem ....................................................................
 

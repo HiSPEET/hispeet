@@ -190,7 +190,7 @@ contains
 
           ! unweighted RHS with no diffusion and pressure terms
           f(:,:,:,e,c) = f(:,:,:,e,c)           &
-                       + a0/tau * u (:,:,:,e,c) &
+                       + a0/tau * u0(:,:,:,e,c) &
                        + a1/tau * u1(:,:,:,e,c) &
                        + f_c(:,:,:,e,c)
 

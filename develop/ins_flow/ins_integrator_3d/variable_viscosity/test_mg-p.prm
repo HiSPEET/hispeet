@@ -27,6 +27,10 @@
 
   ins_op_opt%pressure_solver = 'MG' ! select multilevel pressure solver
   ins_op_opt%dealiasing      = T
+  ins_op_opt%i_max_p         = 1000
+  ins_op_opt%i_max_v         = 5
+! ins_op_opt%r_red           = 1e-10
+! ins_op_opt%r_max           = 1e-12
 
   ! multilevel pressure solver
   ml_solver_p_opt%i_crs = 1000   ! num coarse grid iterations
@@ -51,12 +55,12 @@
 &temporal_prm
 
   t_end  = 0.25
-  dt     = 0.001
-  nt_max = 10!00000
+  dt     = 0.0001
+  nt_max = 100!00000
 
   time_method = 2  ! 1/2/3: Euler/BDF2/Runge-Kutta
 
-                              ! ARS443    CB3e
+  ! Runge-Kutta               ! ARS443    CB3e
   ins_ti_rk_opt%n_stage  = 5  !   5        4
   ins_ti_rk_opt%method   = 1  !   1        2
 /
