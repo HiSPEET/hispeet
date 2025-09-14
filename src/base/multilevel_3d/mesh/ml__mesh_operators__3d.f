@@ -48,28 +48,33 @@ contains
   !-----------------------------------------------------------------------------
   !> Constructor of 3D multilevel mesh operators
 
-  function New_ML_MeshOperators_3D(ml_mesh, po, nodes, smooth) result(this)
+  function New_ML_MeshOperators_3D(ml_mesh, po, nodes, smooth, filter) &
+      result(this)
     class(ML_Mesh_3D),   intent(in) :: ml_mesh !< multilevel mesh partition
     integer,             intent(in) :: po(:)   !< sequence of polynomial orders
     character, optional, intent(in) :: nodes   !< 'G' or 'L' ['L']
     integer,   optional, intent(in) :: smooth  !< fine-to-coarse discontinuity
                                                !! smoothing {0,1,2} [0]
+    integer,   optional, intent(in) :: filter  !< fine-to-coarse filter order,
+                                               !! default: no filtering
     type(ML_MeshOperators_3D) :: this
 
-    call Init_ML_MeshOperators_3D(this, ml_mesh, po, nodes, smooth)
+    call Init_ML_MeshOperators_3D(this, ml_mesh, po, nodes, smooth, filter)
 
   end function New_ML_MeshOperators_3D
 
   !-----------------------------------------------------------------------------
   !> Initialization of 3D multilevel mesh operators
 
-  subroutine Init_ML_MeshOperators_3D(this, ml_mesh, po, nodes, smooth)
+  subroutine Init_ML_MeshOperators_3D(this, ml_mesh, po, nodes, smooth, filter)
     class(ML_MeshOperators_3D), intent(inout) :: this
     class(ML_Mesh_3D),   intent(in) :: ml_mesh !< multilevel mesh partition
     integer,             intent(in) :: po(:)   !< sequence of polynomial orders
     character, optional, intent(in) :: nodes   !< 'G' or 'L' ['L']
     integer,   optional, intent(in) :: smooth  !< fine-to-coarse discontinuity
                                                !! smoothing {0,1,2} [0]
+    integer,   optional, intent(in) :: filter  !< fine-to-coarse filter order,
+                                               !! default: no filtering
 
     type(HP_RefinementOptions_1D) :: opt_cf
     type(HP_CoarseningOptions_1D) :: opt_fc
@@ -99,6 +104,10 @@ contains
 
       if (present(smooth)) then
         opt_fc % smooth = smooth
+      end if
+
+      if (present(filter)) then
+        opt_fc % filter = filter
       end if
 
       ! creation of levels .....................................................

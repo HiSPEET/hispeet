@@ -10,6 +10,7 @@ module HP__Coarsening_Operator__1D
   use Gauss_Jacobi
   use Lagrange_Interpolation
   use Execution_Control
+  use Standard_Element_Operators__1D
 
   implicit none
   private
@@ -28,7 +29,7 @@ module HP__Coarsening_Operator__1D
   !> of the following Lagrange bases:
   !>   - `E`  equidistant,
   !>   - `G`  Gauss,
-  !>   - `L`  Lobatto,
+  !>   - `L`  Lobatto (default),
   !>   - `RL` Radau left,
   !>   - `RR` Radau right.
   !>
@@ -37,14 +38,16 @@ module HP__Coarsening_Operator__1D
   !>   - `I`  interpolation using the fine basis.
   !>
   !> In the case of hp-coarsening, the treatment of discontinuities between the
-  !> two fine elements is controlled by the `smooth` parameter. The following
+  !> two fine elements is controlled by the `smooth` option. The following
   !> choices are available:
-  !>   - `0`  no discontinuity handling
+  !>   - `0`  no discontinuity handling (default)
   !>   - `1`  jump removal using antisymmetric linear correction
   !>   - `2`  jump removal by averaging interface coefficients
   !>
   !> Option `2` requires a boundary-interior decomposition and is therefore
   !> restricted to equidistant (`E`) or Lobatto (`L`) bases.
+  !>
+  !> If desired, use the option `filter` to enable exponential filtering.
 
   type, public :: HP_CoarseningOperator_1D
     character(len=2) :: nodes          !< nodal basis type
@@ -70,6 +73,7 @@ module HP__Coarsening_Operator__1D
     integer          :: mode   = -1  !< coarsening mode {0,1,2}
     character        :: method = 'I' !< L² projection 'P' or interpolation 'I'
     integer          :: smooth =  0  !< discontinuity handling {0,1,2}
+    integer          :: filter =  0  !< exponential filter order, if > 0
   end type HP_CoarseningOptions_1D
 
 contains
@@ -189,6 +193,28 @@ contains
       call Add_Smoothing
 
     end select
+
+    if (opt % filter > 0) then
+      block
+        type(StandardElementOperators_1D) :: sop
+        real(RNP) :: Af(0:po_c,0:po_c), pf
+        integer :: k
+
+        sop = StandardElementOperators_1D(po_c, this % nodes, no_vdm = .true.)
+        pf = real(opt%filter, RNP)
+        select case(this % method)
+        case('P')
+          call sop % Get_ExponentialFilter(pf, Af, modes = 'L')
+        case('I')
+          call sop % Get_ExponentialFilter(pf, Af, modes = 'B')
+        end select
+
+        do k = 1, this % mode
+          this % A(:,:,k) = matmul(Af, this % A(:,:,k))
+        end do
+
+      end block
+    end if
 
   contains
 
