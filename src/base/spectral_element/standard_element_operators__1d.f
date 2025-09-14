@@ -439,7 +439,7 @@ contains
     if (.not. allocated(this%VB_inv)) then
       call Error( 'Get_Inverse_Bubble_VDM'              &
                 , 'Vandermonde matrix not initialized'  &
-                , 'Standard_Element_Operators__1D'              )
+                , 'Standard_Element_Operators__1D'      )
     end if
 
     VB_inv = this % VB_inv
@@ -474,7 +474,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Get erfc-log filter of order pf
   !>
-  !> Filtering is applied either to the Legendre or Bubble modal representation.
+  !> Filtering is applied either to the Legendre ('L') or Bubble ('B') modes.
   !> In the latter case, the linear (first two) modes remain unchanged in order
   !> preserve the element boundary values.
 
@@ -482,9 +482,7 @@ contains
     class(StandardElementOperators_1D), intent(in) :: this !< standard operators
     real(RNP), intent(in)  :: pf                     !< filter order
     real(RNP), intent(out) :: A(0:this%po,0:this%po) !< filter matrix
-    character, optional, intent(in) :: modes !< modal basis used for filtering:
-                                             !! 'L' Legendre (default),
-                                             !! 'B' Bubble
+    character, optional, intent(in) :: modes         !< {'L','B'}  ['L']
 
     real(RNP), dimension(0:this%po,0:this%po) :: V, V_inv
     real(RNP) :: sigma(0:this%po)
@@ -527,17 +525,15 @@ contains
   !-----------------------------------------------------------------------------
   !> Get exponential filter of order pf
   !>
-  !> Filtering is applied either to the Legendre or Bubble modal representation.
+  !> Filtering is applied either to the Legendre ('L') or Bubble ('B') modes.
   !> In the latter case, the linear (first two) modes remain unchanged in order
   !> preserve the element boundary values.
 
   subroutine Get_ExponentialFilter(this, pf, A, modes)
-    class(StandardElementOperators_1D), intent(in) :: this !< standard operators
+    class(StandardElementOperators_1D), intent(in) :: this
     real(RNP), intent(in)  :: pf                     !< filter order
     real(RNP), intent(out) :: A(0:this%po,0:this%po) !< filter matrix
-    character, optional, intent(in) :: modes !< modal basis used for filtering:
-                                             !! 'L' Legendre (default),
-                                             !! 'B' Bubble
+    character, optional, intent(in) :: modes         !< {'L','B'}  ['L']
 
     real(RNP), dimension(0:this%po,0:this%po) :: V, V_inv
     real(RNP) :: sigma(0:this%po)
