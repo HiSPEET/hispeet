@@ -1,4 +1,7 @@
 submodule(ML__DG__Elliptic_Solver__3D) MP_CS_MGCG_Solver
+!### CHECK
+use, intrinsic :: ieee_arithmetic
+!### CHECK END
   implicit none
 
 contains
@@ -8,22 +11,22 @@ contains
   !>
   !> Use `l_top` to specify a top level lower than `size(this%ml_op%sem)`
 
-  module subroutine CS_MGCG_Solver_C( this, bc, lambda, nu, u, f, bv &
+  module subroutine CS_MGCG_Solver_C( this, bc, lambda, nu, bv, f, u &
                                     , i_max, l_top, ni, r_2          )
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     character, intent(in) :: bc(:)                  !< boundary conditions
     real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
     real(RNP), intent(in) :: nu                     !< diffusivity
-    class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
-    class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
     class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
+    class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
+    class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
     integer,   optional, intent(in)  :: i_max       !< overrides max num cycles
     integer,   optional, intent(in)  :: l_top       !< top level
     integer,   optional, intent(out) :: ni          !< num executed cycles
     real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
     call CS_MGCG_Solver_X &
-             (this, bc, lambda, nu, null(), u, f, bv, i_max, l_top, ni, r_2)
+             (this, bc, lambda, nu, null(), bv, f, u, i_max, l_top, ni, r_2)
 
   end subroutine CS_MGCG_Solver_C
 
@@ -32,22 +35,22 @@ contains
   !>
   !> Use `l_top` to specify a top level lower than `size(this%ml_op%sem)`
 
-  module subroutine CS_MGCG_Solver_V( this, bc, lambda, nu, u, f, bv &
+  module subroutine CS_MGCG_Solver_V( this, bc, lambda, nu, bv, f, u &
                                     , i_max, l_top, ni, r_2          )
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
     character, intent(in) :: bc(:)                  !< boundary conditions
     real(RNP), intent(in) :: lambda                 !< Helmholtz parameter
     class(ML_MeshVariable_3D), intent(in) :: nu     !< diffusivity
-    class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
-    class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
     class(ML_BoundaryVariable_3D), intent(in) :: bv !< boundary values
+    class(ML_MeshVariable_3D), intent(inout) :: f   !< RHS
+    class(ML_MeshVariable_3D), intent(inout) :: u   !< approx/final solution
     integer,   optional, intent(in)  :: i_max       !< overrides max num cycles
     integer,   optional, intent(in)  :: l_top       !< top level
     integer,   optional, intent(out) :: ni          !< num executed cycles
     real(RNP), optional, intent(out) :: r_2         !< Euclidean residual norm
 
     call CS_MGCG_Solver_X &
-             (this, bc, lambda, null(), nu, u, f, bv, i_max, l_top, ni, r_2)
+             (this, bc, lambda, null(), nu, bv, f, u, i_max, l_top, ni, r_2)
 
   end subroutine CS_MGCG_Solver_V
 
@@ -56,7 +59,7 @@ contains
   !>
   !> Either `nu_0` or `nu_v` must be given.
 
-  subroutine CS_MGCG_Solver_X( this, bc, lambda, nu_0, nu_v, u, f, bv &
+  subroutine CS_MGCG_Solver_X( this, bc, lambda, nu_0, nu_v, bv, f, u &
                              , i_max, l_top, ni, r_2 )
 
     class(ML_DG_EllipticSolver_3D), intent(in) :: this
@@ -69,12 +72,12 @@ contains
       !< constant diffusivity
     class(ML_MeshVariable_3D), optional, intent(in) :: nu_v
       !< variable diffusivity
-    class(ML_MeshVariable_3D), intent(inout) :: u
-      !< approx/final solution
-    class(ML_MeshVariable_3D), intent(inout) :: f
-      !< RHS
     class(ML_BoundaryVariable_3D), intent(in) :: bv
       !< boundary values
+    class(ML_MeshVariable_3D), intent(inout) :: f
+      !< RHS
+    class(ML_MeshVariable_3D), intent(inout) :: u
+      !< approx/final solution
     integer, optional, intent(in) :: i_max
       !< overrides preset maximum number of cycles
     integer, optional, intent(in) :: l_top
@@ -93,7 +96,7 @@ contains
     real(RNP) :: rr, r_max, r_new, r_old
     real(RNP) :: alpha, beta, delta
     logical   :: check_convergence
-    integer   :: i, i_max_, l, l_top_
+    integer   :: i, i_max_, l_top_
 
     ! prerequisites ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -191,33 +194,30 @@ contains
 
       do i = 1, i_max_
 
+        ! z = 0
+        call ML_SetArray_3D(z, ZERO, l_top = l_top_)
+
         ! MG preconditioner: z = MG(r, 0)
-        do l = 1, l_top_
-          call SetArray(z%level(l)%val(:,:,:,:,1), ZERO)
-          if (l < l_top_) then
-            call SetArray(r%level(l)%val(:,:,:,:,1), ZERO)
-          end if
-        end do
-        call CS_MG_Solver_X &
-                 (this, bc, lambda, nu_0, nu_v, z, r, i_max = 1, l_top = l_top_)
+        call this % CS_MG_Solver_X( bc, lambda, nu_0, nu_v, f = r, u = z &
+                                  , i_max = 1, l_top = l_top_            )
 
         ! set/update search vector
         if (i == 1) then
           if (singular) then
             call CalibrateArray(z_top, comm_top)
           end if
-          call SetArray(p, z_top)                             ! p = z
+          call SetArray(p, z_top)                           ! p = z
         else
-          call SetArray(q, r_top)                             ! q = r
-          call MergeArrays(ONE, q, -ONE, s)                   ! q = r - s
-          beta = ScalarProduct(q, z_top, comm_top) / delta
-          call MergeArrays(beta, p, ONE, z_top)               ! p = beta p + z
+          call SetArray(q, r_top)                           ! q = r
+          call MergeArrays(ONE, q, -ONE, s)                 ! q = r - s
+          beta = ScalarProduct(q, z_top, comm_top) / delta  ! β = (q,z) / δ
+          call MergeArrays(beta, p, ONE, z_top)             ! p = beta p + z
         end if
 
         ! save old residual
         call SetArray(s, r_top)
 
-        ! operator application with no source and homogeneous BC
+        ! apply homogeneous operator: q = Ap
         if (present(nu_0)) then
           call ell_top % Apply(bc, lambda, nu_0, u=p, r=q)
         else
@@ -228,10 +228,20 @@ contains
         end if
 
         ! correction
-        delta = ScalarProduct(r_top, z_top, comm_top)
-        alpha = delta / ScalarProduct(p, q, comm_top)
-        call MergeArrays(ONE, u_top,  alpha, p)               ! u = u + alpha p
-        call MergeArrays(ONE, r_top, -alpha, q)               ! r = r - alpha q
+        delta = ScalarProduct(r_top, z_top, comm_top)       ! δ = (r,z)
+        alpha = delta / ScalarProduct(p, q, comm_top)       ! α = δ / (p,Ap)
+        call MergeArrays(ONE, u_top,  alpha, p)             ! u = u + α p
+        call MergeArrays(ONE, r_top, -alpha, q)             ! r = r - α Ap
+!### CHECK
+print '(99(G0,X))', 'delta =',delta
+print '(99(G0,X))', 'alpha =',alpha
+print '(99(G0,X))', 'max|p| =',maxval(abs(p))
+print '(99(G0,X))', 'max|q| =',maxval(abs(q))
+print '(99(G0,X))', 'any(ieee_is_nan(p)) =',any(ieee_is_nan(p))
+print '(99(G0,X))', 'any(ieee_is_nan(q)) =',any(ieee_is_nan(q))
+print '(99(G0,X))', 'any(ieee_is_nan(u_top)) =',any(ieee_is_nan(u_top))
+print '(99(G0,X))', 'any(ieee_is_nan(r_top)) =',any(ieee_is_nan(r_top))
+!### CHECK END
 
         if (check_convergence) then
 

@@ -8,18 +8,18 @@ contains
   !>
   !> Use `l_top` to specify a top level lower than `size(this%ml_op%sem)`
 
-  module subroutine FAS_MG_Residual_C(this, bc, lambda, nu, f, bv, u, r, l_top)
+  module subroutine FAS_MG_Residual_C(this, bc, lambda, nu, bv, f, u, r, l_top)
     class(ML_DG_EllipticSolver_3D), intent(in)    :: this
     character,                      intent(in)    :: bc(:)
     real(RNP),                      intent(in)    :: lambda
     real(RNP),                      intent(in)    :: nu
-    class(ML_MeshVariable_3D),      intent(in)    :: f
     class(ML_BoundaryVariable_3D),  intent(in)    :: bv
+    class(ML_MeshVariable_3D),      intent(in)    :: f
     class(ML_MeshVariable_3D),      intent(in)    :: u
     class(ML_MeshVariable_3D),      intent(inout) :: r
-    integer,   optional,            intent(in)    :: l_top
+    integer,              optional, intent(in)    :: l_top
 
-    call FAS_MG_Residual_X(this, bc, lambda, nu, null(), f, bv, u, r, l_top)
+    call FAS_MG_Residual_X(this, bc, lambda, nu, null(), bv, f, u, r, l_top)
 
   end subroutine FAS_MG_Residual_C
 
@@ -28,39 +28,40 @@ contains
   !>
   !> Use `l_top` to specify a top level lower than `size(this%ml_op%sem)`
 
-  module subroutine FAS_MG_Residual_V(this, bc, lambda, nu, f, bv, u, r, l_top)
+  module subroutine FAS_MG_Residual_V(this, bc, lambda, nu, bv, f, u, r, l_top)
     class(ML_DG_EllipticSolver_3D), intent(in)    :: this
     character,                      intent(in)    :: bc(:)
     real(RNP),                      intent(in)    :: lambda
     class(ML_MeshVariable_3D),      intent(in)    :: nu
-    class(ML_MeshVariable_3D),      intent(in)    :: f
     class(ML_BoundaryVariable_3D),  intent(in)    :: bv
+    class(ML_MeshVariable_3D),      intent(in)    :: f
     class(ML_MeshVariable_3D),      intent(in)    :: u
     class(ML_MeshVariable_3D),      intent(inout) :: r
-    integer,   optional,            intent(in)    :: l_top
+    integer,              optional, intent(in)    :: l_top
 
-    call FAS_MG_Residual_X(this, bc, lambda, null(), nu, f, bv, u, r, l_top)
+    call FAS_MG_Residual_X(this, bc, lambda, null(), nu, bv, f, u, r, l_top)
 
   end subroutine FAS_MG_Residual_V
 
   !-----------------------------------------------------------------------------
   !> Generic FAS-MG residual with constant or variable diffusivity
   !>
-  !> Use `l_top` to specify a top  level lower than `size(this%ml_op%sem)`
+  !> Use `l_top` to specify a top level lower than `size(this%ml_op%sem)`
 
-  module subroutine FAS_MG_Residual_X( this, bc, lambda, nu_0, nu_v, f, bv &
+  module subroutine FAS_MG_Residual_X( this, bc, lambda, nu_0, nu_v, bv, f &
                                      , u, r, l_top)
-    class(ML_DG_EllipticSolver_3D),      intent(in)    :: this
-    character,                           intent(in)    :: bc(:)
-    real(RNP),                           intent(in)    :: lambda
-    real(RNP),                 optional, intent(in)    :: nu_0
-    class(ML_MeshVariable_3D), optional, intent(in)    :: nu_v
-    class(ML_MeshVariable_3D),           intent(in)    :: f
-    class(ML_BoundaryVariable_3D),       intent(in)    :: bv
-    class(ML_MeshVariable_3D),           intent(in)    :: u
-    class(ML_MeshVariable_3D),           intent(inout) :: r
-    integer,   optional,                 intent(in)    :: l_top
+    class(ML_DG_EllipticSolver_3D),                  intent(in)    :: this
+    character,                                       intent(in)    :: bc(:)
+    real(RNP),                                       intent(in)    :: lambda
+    real(RNP),                             optional, intent(in)    :: nu_0
+    class(ML_MeshVariable_3D),             optional, intent(in)    :: nu_v
+    class(ML_BoundaryVariable_3D), target, optional, intent(in)    :: bv
+    class(ML_MeshVariable_3D),                       intent(in)    :: f
+    class(ML_MeshVariable_3D),                       intent(in)    :: u
+    class(ML_MeshVariable_3D),                       intent(inout) :: r
+    integer,                               optional, intent(in)    :: l_top
 
+    type(BoundaryVariable_3D), pointer, save :: bv_l(:)
     integer :: l, l_top_
 
     if (present(l_top)) then
@@ -70,10 +71,17 @@ contains
     end if
 
     do l = 1, l_top_
-      associate( bv_l   => bv % level(l  ) % var            &
-               , f_l    => f  % level(l  ) % val(:,:,:,:,1) &
+      associate( f_l    => f  % level(l  ) % val(:,:,:,:,1) &
                , u_l    => u  % level(l  ) % val(:,:,:,:,1) &
                , r_l    => r  % level(l  ) % val(:,:,:,:,1) )
+
+        !$omp master
+        if (present(bv)) then
+          bv_l => bv % level(l) % var
+        else
+          bv_l => null()
+        end if
+        !$omp end master
 
         if (present(nu_0)) then
           call this % Residual(l, bc, lambda, nu_0, f_l, bv_l, u_l, r_l)
