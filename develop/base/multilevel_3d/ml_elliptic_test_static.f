@@ -128,12 +128,14 @@ program ML_Elliptic_Test_Static
   ! solvers .....................................................................
 
   integer, allocatable, save :: po(:) ! sequence of polynomial orders
+  integer :: fc_smooth = 0 ! fine-to-coarse discontinuity handling {0,1,2}
+  integer :: fc_filter = 0 ! fine-to-coarse filter order, 0: no filtering
 
   type(ML_MeshOperators_3D),      save :: ml_op
   type(ML_DG_EllipticSolver_3D),  save :: ml_elliptic
   type(ML_DG_EllipticOptions_3D), save :: ml_elliptic_opt
 
-  namelist/solver_prm/ po, ml_elliptic_opt
+  namelist/solver_prm/ po, fc_smooth, fc_filter, ml_elliptic_opt
 
   ! variables ...................................................................
 
@@ -356,8 +358,10 @@ program ML_Elliptic_Test_Static
     write(*,'(/,A)') 'initializing multilevel operators'
   end if
 
-  call XMPI_Bcast(po, 0, comm)
-  ml_op = ML_MeshOperators_3D(ml_mesh, po)
+  call XMPI_Bcast(po       , 0, comm)
+  call XMPI_Bcast(fc_smooth, 0, comm)
+  call XMPI_Bcast(fc_filter, 0, comm)
+  ml_op = ML_MeshOperators_3D(ml_mesh, po, smooth=fc_smooth, filter=fc_filter)
 
   associate(mesh => ml_mesh%mesh)
     block
@@ -486,20 +490,20 @@ program ML_Elliptic_Test_Static
   if (problem % nu_1 > 0) then
     select case(solution_method)
     case(11)
-      call ml_elliptic % CS_MG_Solver(bc, lambda, nu, u, f, bv, ni=n_i)
+      call ml_elliptic % CS_MG_Solver(bc, lambda, nu, bv, f, u, ni=n_i)
     case(12)
-      call ml_elliptic % CS_MGCG_Solver(bc, lambda, nu, u, f, bv, ni=n_i)
+      call ml_elliptic % CS_MGCG_Solver(bc, lambda, nu, bv, f, u, ni=n_i)
     case(21)
-      call ml_elliptic % FAS_MG_Solver(bc, lambda, nu, u, f, bv, ni=n_i)
+      call ml_elliptic % FAS_MG_Solver(bc, lambda, nu, bv, f, u, ni=n_i)
     end select
   else
     select case(solution_method)
     case(11)
-      call ml_elliptic % CS_MG_Solver(bc, lambda, nu_0, u, f, bv, ni=n_i)
+      call ml_elliptic % CS_MG_Solver(bc, lambda, nu_0, bv, f, u, ni=n_i)
     case(12)
-      call ml_elliptic % CS_MGCG_Solver(bc, lambda, nu_0, u, f, bv, ni=n_i)
+      call ml_elliptic % CS_MGCG_Solver(bc, lambda, nu_0, bv, f, u, ni=n_i)
     case(21)
-      call ml_elliptic % FAS_MG_Solver(bc, lambda, nu_0, u, f, bv, ni=n_i)
+      call ml_elliptic % FAS_MG_Solver(bc, lambda, nu_0, bv, f, u, ni=n_i)
     end select
   end if
 
@@ -578,9 +582,9 @@ contains
     ! residual .................................................................
 
     if (problem % nu_1 > 0) then
-      call ml_elliptic % FAS_MG_Residual(bc, lambda, nu, f, bv, u, r)
+      call ml_elliptic % FAS_MG_Residual(bc, lambda, nu, bv, f, u, r)
     else
-      call ml_elliptic % FAS_MG_Residual(bc, lambda, nu_0, f, bv, u, r)
+      call ml_elliptic % FAS_MG_Residual(bc, lambda, nu_0, bv, f, u, r)
     end if
 
     ! maximum norm

@@ -417,7 +417,7 @@ program ML_Elliptic_Test_Adaptive
     t_start = MPI_Wtime()
   end if
 
-  call ml_elliptic % FAS_MG_Solver(bc, lambda, problem%nu_0, u, f, bv)
+  call ml_elliptic % FAS_MG_Solver(bc, lambda, problem%nu_0, bv, f, u)
 
   if (rank == 0) then
     t_solve(1) = MPI_Wtime() - t_start
@@ -536,7 +536,7 @@ program ML_Elliptic_Test_Adaptive
       t_start = MPI_Wtime()
     end if
 
-    call ml_elliptic % FAS_MG_Solver(bc, lambda, problem%nu_0, u, f, bv)
+    call ml_elliptic % FAS_MG_Solver(bc, lambda, problem%nu_0, bv, f, u)
 
     if (rank == 0) then
       t_solve(m) = MPI_Wtime() - t_start
@@ -651,7 +651,7 @@ contains
 
       ! residual ...............................................................
 
-      call ml_elliptic % FAS_MG_Residual(bc, lambda, problem%nu_0, f, bv, u, r)
+      call ml_elliptic % FAS_MG_Residual(bc, lambda, problem%nu_0, bv, f, u, r)
       r_h0 = sqrt(ML_WeightedScalarProduct_3D(mm, r, r, leaf = .true.))
 
       ! H0 and H1 semi-norm errors .............................................
