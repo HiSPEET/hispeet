@@ -56,6 +56,7 @@ program Dahlquist
   use DQ__Time_Integrator__ISD
   use DQ__Time_Integrator__RK
   use DQ__SDC__Method
+  use DQ__SDC__Method__Picard
   use DQ__SDC__Method__Euler
   use DQ__SDC__Method__Diag
   use DQ__SDC__Method__Diag_SD
@@ -65,20 +66,22 @@ program Dahlquist
 
   implicit none
 
-  integer :: time_method = 1 ! standalone or predictor method
-                             ! 1  Euler
-                             ! 2  Trapezoidal rule
-                             ! 3  Implicit streamline diffusion
-                             ! 4  Runge-Kutta
+  integer :: time_method =  1 ! standalone or predictor method
+                              !   1  Euler
+                              !   2  Trapezoidal rule
+                              !   3  Implicit streamline diffusion
+                              !   4  Runge-Kutta
+                              !   5  SD Runge-Kutta
 
-  integer :: sdc_method  = 0 ! SDC method
-                             ! 0  none (use standalone time integrator)
-                             ! 1  Euler
-                             ! 2  ISD of order 1
-                             ! 3  Runge-Kutta
-                             ! 4  LU
-                             ! 5  Diag
-                             ! 6  DiagSD
+  integer :: sdc_method = -1 ! SDC method
+                             !  -1  none (use standalone time integrator)
+                             !   0  Picard
+                             !   1  Euler
+                             !   2  ISD of order 1
+                             !   3  Runge-Kutta
+                             !   4  LU
+                             !   5  Diag
+                             !   6  DiagSD
 
   namelist /input/ time_method, sdc_method
 
@@ -95,6 +98,7 @@ program Dahlquist
   ! SDC
   class(DQ_SDC_Method),  allocatable :: sdc
   class(DQ_SDC_Options), allocatable :: sdc_opt
+  type(DQ_SDC_Options_Picard) :: sdc_opt_pi ! options for Picard iteration
   type(DQ_SDC_Options_Euler)  :: sdc_opt_eu ! options for Euler-SDC
   type(DQ_SDC_Options_ISD)    :: sdc_opt_sd ! options for ISD-SDC
   type(DQ_SDC_Options_RK)     :: sdc_opt_rk ! options for RK-SDC
@@ -102,8 +106,8 @@ program Dahlquist
   type(DQ_SDC_Options_Diag)   :: sdc_opt_di ! options for diagonal SDC
   type(DQ_SDC_Options_DiagSD) :: sdc_opt_ds ! options for diagonal ISD-SDC
 
-  namelist /input/ sdc_opt_eu, sdc_opt_sd, sdc_opt_rk, sdc_opt_lu, &
-                   sdc_opt_di, sdc_opt_ds
+  namelist /input/ sdc_opt_pi, sdc_opt_eu, sdc_opt_sd, sdc_opt_rk, &
+                   sdc_opt_lu, sdc_opt_di, sdc_opt_ds
 
   real(RNP) :: c_min =   0  ! min CFL number
   real(RNP) :: c_max =  10  ! max CFL number
@@ -173,20 +177,10 @@ program Dahlquist
     tint_opt = tint_opt_rk
   end select
 
-
   select case(sdc_method)
 
-  case(0) ! standalone time integrator
-    select case(time_method)
-    case(1)
-      tint = DQ_TimeIntegrator_Euler(tint_opt_eu)
-    case(2)
-      tint = DQ_TimeIntegrator_TR(tint_opt_tr)
-    case(3)
-      tint = DQ_TimeIntegrator_ISD(tint_opt_sd)
-    case(4)
-      tint = DQ_TimeIntegrator_RK(tint_opt_rk)
-    end select
+  case(0) ! Picard iteration
+    sdc = DQ_SDC_Method_Picard(tint_opt, sdc_opt_pi)
 
   case(1) ! SDC based on Euler
     sdc = DQ_SDC_Method_Euler(tint_opt, sdc_opt_eu)
@@ -206,14 +200,26 @@ program Dahlquist
   case(6) ! Diagonal ISD-SDC
     sdc = DQ_SDC_Method_DiagSD(tint_opt, sdc_opt_ds)
 
+  case default ! standalone time integrator
+    select case(time_method)
+    case(1)
+      tint = DQ_TimeIntegrator_Euler(tint_opt_eu)
+    case(2)
+      tint = DQ_TimeIntegrator_TR(tint_opt_tr)
+    case(3)
+      tint = DQ_TimeIntegrator_ISD(tint_opt_sd)
+    case(4)
+      tint = DQ_TimeIntegrator_RK(tint_opt_rk)
+    end select
+
   end select
 
   ! show settings
   select case(sdc_method)
-  case(0)
-    call tint % Show()
-  case default
+  case(0:6)
     call sdc % Show()
+  case default
+    call tint % Show()
   end select
 
   ! integration with dt = 1 ....................................................
@@ -224,10 +230,10 @@ program Dahlquist
     z = (1,0)
 
     select case(sdc_method)
-    case(0) ! standalone time-integrator
-      call tint % TimeStep(lambda(i,j), ONE, z)
-    case default ! SDC method
+    case(0:6) ! SDC method
       call sdc % TimeStep(lambda(i,j), ONE, z)
+    case default ! standalone time-integrator
+      call tint % TimeStep(lambda(i,j), ONE, z)
     end select
 
     a(i,j) = abs(z)                     ! amplification
@@ -282,14 +288,14 @@ program Dahlquist
     zr_oo =  1;  lambda_r_oo =  c0
     zi_oo =  1;  lambda_i_oo =  c0 * (ZERO, ONE)
     select case(sdc_method)
-    case(0) ! standalone time-integrator
-      call tint % TimeStep(lambda_r_mm, ONE, zr_mm)
-      call tint % TimeStep(lambda_r_oo, ONE, zr_oo)
-      call tint % TimeStep(lambda_i_oo, ONE, zi_oo)
-    case default ! SDC method
+    case(0:6) ! SDC method
       call sdc % TimeStep(lambda_r_mm, ONE, zr_mm)
       call sdc % TimeStep(lambda_r_oo, ONE, zr_oo)
       call sdc % TimeStep(lambda_i_oo, ONE, zi_oo)
+    case default ! standalone time-integrator
+      call tint % TimeStep(lambda_r_mm, ONE, zr_mm)
+      call tint % TimeStep(lambda_r_oo, ONE, zr_oo)
+      call tint % TimeStep(lambda_i_oo, ONE, zi_oo)
     end select
     write(*,'(4(ES17.10,2X))') c0, abs(zr_mm), abs(zr_oo), abs(zi_oo)
     c0 = c0 * 10

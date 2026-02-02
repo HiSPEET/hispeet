@@ -18,8 +18,10 @@ module DQ__SDC__Method__ISD
 
   type, extends(DQ_SDC_Method) :: DQ_SDC_Method_ISD
     integer   :: n_stage !< number of stages
-    real(RNP) :: c_isd   !< artificial diffusivity factor
-    integer   :: scaling !< artificial diffusivity scaling: 0/1/2 none/k/double
+    integer   :: ad_typ  !< AD type: 0/1 = none/LW
+    real(RNP) :: s_base  !< AD baseline scaling factor
+    real(RNP) :: s_grow  !< AD per-sweep growth factor
+    real(RNP) :: s_max   !< AD maximum scaling factor
   contains
     procedure :: Init_DQ_SDC_Method_ISD
     procedure :: Show => Show_DQ_SDC_Method_ISD
@@ -37,8 +39,10 @@ module DQ__SDC__Method__ISD
 
   type, extends(DQ_SDC_Options) :: DQ_SDC_Options_ISD
     integer   :: n_stage = 2  !< number of stages
-    real(RNP) :: c_isd   = 1  !< AD amplitude factor
-    integer   :: scaling = 0  !< AD scaling: 0/1/2 none/k/double
+    integer   :: ad_typ  = 1  !< AD type: 0/1 = none/LW
+    real(RNP) :: s_base  = 1  !< AD baseline scaling factor
+    real(RNP) :: s_grow  = 0  !< AD per-sweep growth factor
+    real(RNP) :: s_max   = 3  !< AD maximum scaling factor
   end type DQ_SDC_Options_ISD
 
 contains
@@ -70,8 +74,10 @@ contains
     call this % Init_DQ_SDC_Method(pre_opt, sdc_opt)
 
     this % n_stage = sdc_opt % n_stage
-    this % c_isd   = sdc_opt % c_isd
-    this % scaling = sdc_opt % scaling
+    this % ad_typ  = max(0, min(2, sdc_opt % ad_typ))
+    this % s_base  = sdc_opt % s_base
+    this % s_grow  = sdc_opt % s_grow
+    this % s_max   = sdc_opt % s_max
 
     write(this%corrector_name,'(A,G0,A)') &
         'ISD method of order 1 with ', this%n_stage, ' stage(s)'
@@ -95,14 +101,21 @@ contains
 
     call this % Show_DQ_SDC_Method(unit)
 
-    write(io,'(2X,A,T15,G0)') 'name:',    this % corrector_name
-    write(io,'(2X,A,T15,G0)') 'c_isd:',   this % c_isd
-    write(io,'(2X,A,T15,G0)') 'scaling:', this % scaling
+    write(io,'(2X,A,T15,G0)') 'name:', this % corrector_name
+    select case(this % ad_typ)
+    case(1)
+      write(io,'(2X,A,T15,G0)') 'AD type:', 'LW'
+    case default
+      write(io,'(2X,A,T15,G0)') 'AD type:', 'none'
+    end select
+    write(io,'(2X,A,T15,G0)') 's_base =', this % s_base
+    write(io,'(2X,A,T15,G0)') 's_grow =', this % s_grow
+    write(io,'(2X,A,T15,G0)') 's_max  =', this % s_max
 
   end subroutine Show_DQ_SDC_Method_ISD
 
   !-----------------------------------------------------------------------------
-  !> Computes F_ex and F_im as defined in the corrector
+  !> Computes F_ex and F_im as defined in the corrector, but without AD
 
   elemental subroutine CorrectorRHS(this, lambda, dt, u, F_ex, F_im)
     class(DQ_SDC_Method_ISD), intent(in) :: this
@@ -114,10 +127,10 @@ contains
 
     complex(RNP), parameter :: i = (ZERO, ONE)
 
-    F_im = (lambda % re - this%c_isd * HALF * dt * lambda%im ** 2) * u
+    F_im = lambda % re * u
     F_ex = i * lambda % im * u
 
-    if (this % impl == 0) return ! just to avoid compiler warning !
+    if (this % impl == 0 .or. dt > 0) return ! just to avoid compiler warning !
 
   end subroutine CorrectorRHS
 
@@ -142,34 +155,35 @@ contains
     ! auxiliary variables .....................................................
 
     complex(RNP), parameter :: i = (ZERO, ONE)
-    complex(RNP) :: ui, uj, S
-    real(RNP)    :: a_inv,  c_im, dt_isd, dt_step, dt_sub
+    complex(RNP) :: u0, ui, uj, S
+    real(RNP)    :: a_inv, dt_step, dt_sub, mu
     integer      :: j
 
-    associate( n_sub => this % n_sub &
-             , w_nn  => this % w_nn  &
-             , c_isd => this % c_isd )
+    associate( n_sub  => this % n_sub  &
+             , w_nn   => this % w_nn   &
+             , ad_typ => this % ad_typ &
+             , s_base => this % s_base &
+             , s_grow => this % s_grow &
+             , s_max  => this % s_max  )
 
       ! initialization .........................................................
 
+      u0 = u(m)
+
       dt_step = t(n_sub) - t(0  )
       dt_sub  = t(m    ) - t(m-1)
-      dt_isd  = c_isd * HALF * dt_sub
 
-      c_im = 1
-      if (this % scaling > 0) then
-        c_im = lambda % re - dt_isd * lambda%im**2
-        if (abs(c_im) > 1000 * tiny(ONE)) then
-          select case(this % scaling)
-          case(1)
-            c_im = (lambda % re - k * dt_isd * lambda%im**2) / c_im
-          case(2)
-            c_im = (lambda % re - 2**(k-1) * dt_isd * lambda%im**2) / c_im
-          end select
-        end if
-      end if
+      ! artificial diffusivity
+      select case(ad_typ)
+      case(1)
+        ! LW (ISD)
+        mu = dt_sub * lambda%im**2 / 2
+      case default
+        mu = 0
+      end select
 
-      a_inv = ONE / (ONE - dt_sub * c_im * (lambda%re - dt_isd * lambda%im**2))
+      ! scale
+      mu = mu * min(s_max, s_base + k * s_grow)
 
       ! SDC quadrature .........................................................
 
@@ -183,10 +197,15 @@ contains
 
       ! correction .............................................................
 
-      uj = (ui + dt_sub * (F_ex_new(m-1) - F_ex(m-1) - c_im*F_im(m))) * a_inv
+      a_inv = ONE / (ONE - dt_sub * (lambda%re - mu))
+
+      uj = a_inv * ( ui + dt_sub * ( F_ex_new(m-1)       &
+                                   - F_ex(m-1)           &
+                                   - F_im(m) + mu * u0 ) )
       do j = 2, this%n_stage
-        uj = (ui + dt_sub * (i * lambda%im * uj - F_ex(m) - c_im * F_im(m))) &
-           * a_inv
+        uj = a_inv * ( ui + dt_sub * ( i * lambda%im * uj  &
+                                     - F_ex(m)             &
+                                     - F_im(m) + mu * u0 ) )
       end do
       u(m) = uj
 

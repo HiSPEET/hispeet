@@ -1,6 +1,7 @@
 add_executable( dahlquist 
                 dahlquist.f
                 dq__time_integrator.f
+                dq__sdc__method__picard.f
                 dq__time_integrator__euler.f
                 dq__time_integrator__isd.f
                 dq__time_integrator__rk.f
