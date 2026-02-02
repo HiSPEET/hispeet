@@ -478,14 +478,15 @@ contains
   !> In the latter case, the linear (first two) modes remain unchanged in order
   !> preserve the element boundary values.
 
-  subroutine Get_ErfcLogFilter(this, pf, A, modes)
+  subroutine Get_ErfcLogFilter(this, pf, A, modes, left_half)
     class(StandardElementOperators_1D), intent(in) :: this !< standard operators
     real(RNP), intent(in)  :: pf                     !< filter order
     real(RNP), intent(out) :: A(0:this%po,0:this%po) !< filter matrix
     character, optional, intent(in) :: modes         !< {'L','B'}  ['L']
+    logical,   optional, intent(in) :: left_half     !< use only the left half
 
     real(RNP), dimension(0:this%po,0:this%po) :: V, V_inv
-    real(RNP) :: sigma(0:this%po)
+    real(RNP) :: sigma(0:this%po), delta
     character :: modal_basis
     integer   :: i, j
 
@@ -495,6 +496,12 @@ contains
         modal_basis = modes
       else
         modal_basis = 'L'
+      end if
+
+      delta = ONE / po
+      ! if requested, halve step size to use only the left part of the filter
+      if (present(left_half)) then
+        if (left_half) delta = delta / 2
       end if
 
       select case(modal_basis)
@@ -507,7 +514,7 @@ contains
       end select
 
       do i = 0, this%po
-        sigma(i) = ErfcLogFilter(real(i,RNP)/po, pf)
+        sigma(i) = ErfcLogFilter(i * delta, pf)
       end do
 
       if (modal_basis == 'B' .and. po > 0) sigma(1) = ONE
