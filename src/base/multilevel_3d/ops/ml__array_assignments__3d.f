@@ -15,6 +15,7 @@ module ML__Array_Assignments__3D
 
   public :: ML_SetArray_3D
   public :: ML_MergeArrays_3D
+  public :: ML_ScaleArray_3D
   public :: ML_CalibrateArray_3D
 
   interface ML_SetArray_3D
@@ -99,6 +100,31 @@ contains
     end do
 
   end subroutine ML_MergeArrays_3D
+
+  !=============================================================================
+  ! ScaleArray
+
+  !-----------------------------------------------------------------------------
+  !> Scale multilevel array a by a factor of s
+
+  subroutine ML_ScaleArray_3D(a, s, l_top)
+    class(ML_MeshVariable_3D), intent(inout) :: a
+    real(RNP),         intent(in) :: s     !< assigned scalar
+    integer, optional, intent(in) :: l_top !< top level  [auto]
+
+    integer :: l, l_top_
+
+    if (present(l_top)) then
+      l_top_ = min(l_top, size(a % level))
+    else
+      l_top_ = size(a % level)
+    end if
+
+    do l = 1, l_top_
+      call ScaleArray(a % level(l) % val, s, multi = .true.)
+    end do
+
+  end subroutine ML_ScaleArray_3D
 
   !=============================================================================
   ! CalibrateArray
