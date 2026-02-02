@@ -1,4 +1,4 @@
-!> summary:  Generation of MPI datatype for mesh elements
+!> summary:  Generation of HDF5 datatype for mesh elements
 !> author:   Joerg Stiller, Erik Pfister, Moritz Kreuseler
 !> date:     2024/06/05
 !> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
@@ -73,6 +73,30 @@ contains
     call Init_H5T_ElementGeometry()
 
     ! insert components ........................................................
+
+    ! insert id
+    offset = H5offsetof(C_Loc(element(1)), C_Loc(element(1)%id))
+    call H5Tinsert_f(H5T_Element, 'id', offset, H5T_INTEGER, err)
+
+    ! insert cluster_id
+    offset = H5offsetof(C_Loc(element(1)), C_Loc(element(1)%cluster_id))
+    call H5Tinsert_f(H5T_Element, 'cluster_id', offset, H5T_INTEGER, err)
+
+    ! insert cluster_oct
+    offset = H5offsetof(C_Loc(element(1)), C_Loc(element(1)%cluster_oct))
+    call H5Tinsert_f(H5T_Element, 'cluster_oct', offset, H5T_INTEGER, err)
+
+    ! insert sfc_rank
+    offset = H5offsetof(C_Loc(element(1)), C_Loc(element(1)%sfc_rank))
+    call H5Tinsert_f(H5T_Element, 'sfc_rank', offset, H5T_INTEGER, err)
+
+    ! insert sfc_path
+    offset = H5offsetof(C_Loc(element(1)), C_Loc(element(1)%sfc_path))
+    call H5Tinsert_f(H5T_Element, 'sfc_path', offset, H5T_INTEGER, err)
+
+    ! insert frozen
+    offset = H5offsetof(C_Loc(element(1)), C_Loc(element(1)%frozen))
+    call H5Tinsert_f(H5T_Element, 'frozen', offset, H5T_LOGICAL, err)
 
     ! insert vertex
     dims   = size(element(1)%vertex)

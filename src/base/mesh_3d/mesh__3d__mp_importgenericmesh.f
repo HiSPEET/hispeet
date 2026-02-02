@@ -86,6 +86,7 @@ contains
       call mesh % BuildGhosts()
       call mesh % BuildCuboids()
       call mesh % IdentifyRanks()
+      call mesh % BuildSFC()
 
       allocate(mesh % map_child(0))
       allocate(mesh % map_parent(0))

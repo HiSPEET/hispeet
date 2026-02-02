@@ -1,3 +1,9 @@
+!> summary:  Generation of a Cartesian mesh in a cuboidal domain
+!> author:   Joerg Stiller
+!> date:     2021/06/14
+!> license:  Institute of Fluid Mechanics, TU Dresden, 01062 Dresden, Germany
+!===============================================================================
+
 module Generate_Regular_Mesh__3D
 
   use Kind_Parameters  , only: IXS, RNP
@@ -18,6 +24,9 @@ module Generate_Regular_Mesh__3D
   public :: GenerateRegularMesh
 
 contains
+
+  !-----------------------------------------------------------------------------
+  !> Generates a regular structured mesh in a cuboidal domain
 
   subroutine GenerateRegularMesh(mesh, np, ep, xo, dx, periodic, comm, pg)
 
@@ -136,6 +145,10 @@ contains
       allocate(mesh % map_child(0))
       allocate(mesh % map_parent(0))
 
+    end if
+
+    if (n_parts == 1) then
+      call mesh % BuildSFC()
     end if
 
   end subroutine GenerateRegularMesh
