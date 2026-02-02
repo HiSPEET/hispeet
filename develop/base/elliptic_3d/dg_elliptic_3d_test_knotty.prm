@@ -59,3 +59,11 @@
 &annulus_prm
   pg = 7
 /
+
+! config = 6
+&spherical_shell_segment_prm
+! structured = F ! mimic unstructured mesh
+  np = 3*1
+  ep = 3*4
+  pg = 7
+/

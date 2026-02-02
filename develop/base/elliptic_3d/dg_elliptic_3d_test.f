@@ -31,11 +31,12 @@ program DG_Elliptic_3D_Test
   use Export_VTK_Volume_Data__3D
   use Export_VTK_Schwarz_Domain__3D
 
+  use Create_Annulus
   use Create_Cuboid_Cartesian
   use Create_Cuboid_Diamonds
   use Create_Cuboid_OneRotated
   use Create_Cylinder
-  use Create_Annulus
+  use Create_Spherical_Shell_Segment
 
   use Elliptic_Problem__3D
   use Elliptic_Problem__Knotty__3D
@@ -62,6 +63,7 @@ program DG_Elliptic_3D_Test
   !   3  cuboidal domain with  3x3x3 elements and rotated center           (u+r)
   !   4  cylindrical domain                                                (u+d)
   !   5  annular domain                                                    (u+d)
+  !   6  spherical shell segment                                           (u+d)
 
   integer :: n_test     = 1        ! repetitions of consistency test
   logical :: export_vtk = .false.  ! switch for VTK export
@@ -109,7 +111,7 @@ program DG_Elliptic_3D_Test
   integer   :: po      = 7    ! polynomial degree of spectral elements
   real(RNP) :: penalty = 2    ! penalty parameter > 1
 
-  namelist/dicretization_prm/ po, penalty
+  namelist/discretization_prm/ po, penalty
 
   ! solution ...................................................................
 
@@ -223,11 +225,11 @@ program DG_Elliptic_3D_Test
 
   end if
 
-  call XMPI_Bcast( case_name        , 0, comm )
-  call XMPI_Bcast( config           , 0, comm )
-  call XMPI_Bcast( n_test           , 0, comm )
-  call XMPI_Bcast( export_vtk       , 0, comm )
-  call XMPI_Bcast( subdiv_vtk       , 0, comm )
+  call XMPI_Bcast( case_name , 0, comm )
+  call XMPI_Bcast( config    , 0, comm )
+  call XMPI_Bcast( n_test    , 0, comm )
+  call XMPI_Bcast( export_vtk, 0, comm )
+  call XMPI_Bcast( subdiv_vtk, 0, comm )
 
   ! mesh generation ............................................................
 
@@ -246,6 +248,9 @@ program DG_Elliptic_3D_Test
   case(5)
     call CreateAnnulus(comm, case_file, initial_mesh)
     config_name = 'Annular domain with unstructured mesh'
+  case(6)
+    call CreateSphericalShellSegment(comm, case_file, initial_mesh)
+    config_name = 'Spherical shell segment with (un)structured mesh'
   case default
     call CreateCuboidCartesian(comm, case_file, initial_mesh)
     config_name = 'Cuboidal domain with Cartesian mesh'
@@ -319,8 +324,8 @@ program DG_Elliptic_3D_Test
   if (rank == 0) then
     write(*,'(/,A)') 'initializing spectral element operators and solver'
     open(newunit = io, file = case_file)
-      read(io, nml = dicretization_prm)
-      read(io, nml = solver_prm)
+    read(io, nml = discretization_prm)
+    read(io, nml = solver_prm)
     close(io)
   end if
 
@@ -369,7 +374,6 @@ program DG_Elliptic_3D_Test
   e   (0:,0:,0:,1:) => var(:,:,:,:,6)
   part(0:,0:,0:,1:) => var(:,:,:,:,7)
   elem(0:,0:,0:,1:) => var(:,:,:,:,8)
-
 
   var_names = [ 's   ', 'u   ', 'nu  ', 'f   ', 'r   ', 'e   ', 'part', 'elem' ]
 
