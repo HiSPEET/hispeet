@@ -1,0 +1,44 @@
+&control_prm
+  export_vtk = T
+/
+
+&problem_prm
+  start_values = 0  ! 0/1/2: zero, exact, random
+/
+
+&discretization_prm
+! regular    = F
+! structured = F
+/
+
+&solver_prm
+  schwarz_opt%delta     = 0.24
+! schwarz_opt%weighting = 9
+
+! skip( 1) = T ! vert  1
+! skip( 2) = T ! edge  1
+! skip( 3) = T ! vert  2
+! skip( 4) = T ! edge  5
+! skip( 5) = T ! face  5
+! skip( 6) = T ! edge  6
+! skip( 7) = T ! vert  3
+! skip( 8) = T ! edge  2
+! skip( 9) = T ! vert  4
+! skip(10) = T ! edge  9
+! skip(11) = T ! face  3
+! skip(12) = T ! edge 10
+! skip(13) = T ! face  1
+! skip(15) = T ! face  2
+! skip(16) = T ! edge 11
+! skip(17) = T ! face  4
+! skip(18) = T ! edge 12
+! skip(19) = T ! vert  5
+! skip(20) = T ! edge  3
+! skip(21) = T ! vert  6
+! skip(22) = T ! edge  7
+! skip(23) = T ! face  6
+! skip(24) = T ! edge  8
+! skip(25) = T ! vert  7
+! skip(26) = T ! edge  4
+! skip(27) = T ! vert  8
+/

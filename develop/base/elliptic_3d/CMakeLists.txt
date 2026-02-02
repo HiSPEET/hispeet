@@ -24,3 +24,13 @@ configure_file( dg_elliptic_3d_test.slurm
 configure_file( dg_elliptic_3d_test.tmpl
                 dg_elliptic_3d_test.tmpl COPYONLY )
 
+#===============================================================================
+# dg_schwarz_3d_test
+
+add_executable( dg_schwarz_3d_test
+                dg_schwarz_3d_test.f )
+
+target_link_libraries(dg_schwarz_3d_test HiBase)
+
+configure_file( dg_schwarz_3d_test.prm
+                dg_schwarz_3d_test.prm COPYONLY )
