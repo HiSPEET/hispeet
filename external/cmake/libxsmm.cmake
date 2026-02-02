@@ -1,4 +1,7 @@
 # libxsmm integration ..........................................................
+#
+# NOTE:
+# GIT_TAG is fixed for stability, but should be updated from time to time
 
 if (NOT SKIP_LIBXSMM)
 
@@ -20,7 +23,8 @@ if (NOT SKIP_LIBXSMM)
   ExternalProject_Add(LIBXSMM 
       PREFIX               ${CMAKE_CURRENT_BINARY_DIR}/external
       GIT_REPOSITORY       ${CMAKE_CURRENT_SOURCE_DIR}/external/libxsmm
-      GIT_TAG              "main"
+#     GIT_TAG              "main"
+      GIT_TAG              "50c6702"
       UPDATE_DISCONNECTED  TRUE
       CONFIGURE_COMMAND    ""
       BUILD_COMMAND        test -d ${LIBXSMM_LIB_DIR} || make OMP=0 BLAS=0
