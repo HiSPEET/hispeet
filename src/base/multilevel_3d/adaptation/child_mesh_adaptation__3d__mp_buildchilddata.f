@@ -1,4 +1,5 @@
 submodule(Child_Mesh_Adaptation__3D) MP_BuildChildData
+  use Element_Hilbert_Curve__3D
   implicit none
 
 contains
@@ -42,7 +43,7 @@ contains
     integer :: nc, nn, np, po, tp
     integer :: e, i, j, k, l, m
     integer :: ce, cn, cp
-    integer :: child_mark
+    integer :: child_mark, child_path(8)
     integer :: boundary(6)
     logical :: cloning
 
@@ -59,7 +60,10 @@ contains
       print '(2A)', prefix, 'start'
     end if
 
-    associate(id_child => map % id_child, tp_child => map % tp_child)
+    associate( tp_child => map % tp_child &
+             , id_child => map % id_child &
+             , rk_child => map % rk_child &
+             , has_sfc  => map % has_sfc  )
 
       !-------------------------------------------------------------------------
       ! initialization
@@ -244,6 +248,11 @@ contains
             child_mark = -1
           end if
 
+          ! child SFC paths
+          if (has_sfc .and. .not. cloning) then
+            child_path = EHC_ChildCurvePaths(element % sfc_path)
+          end if
+
           ! child TPs, IDs and activity of parent face neighbors ...............
 
           id_child_face =  0
@@ -376,6 +385,10 @@ contains
             cd_tp % element(ce) % id = id_child(1,1,1,e)
             cd_tp % element(ce) % cluster_oct = 1
             cd_tp % element(ce) % frozen = element % adaptation % mark < 1000
+            if (has_sfc) then
+              cd_tp % element(ce) % sfc_rank = rk_child(1,1,1,e)
+              cd_tp % element(ce) % sfc_path = element % sfc_path
+            end if
             cd_tp % element(ce) % adaptation % parent_proc = parent % proc
             cd_tp % element(ce) % adaptation % parent_id   = e
             cd_tp % element(ce) % adaptation % mark        = child_mark
@@ -423,6 +436,10 @@ contains
               cd_tp % element(ce) % id = id_child(1,1,1,e)
               cd_tp % element(ce) % cluster_oct = 1
               cd_tp % element(ce) % frozen = element % adaptation % mark < 1000
+              if (has_sfc) then
+                cd_tp % element(ce) % sfc_rank = rk_child(1,1,1,e)
+                cd_tp % element(ce) % sfc_path = child_path(1)
+              end if
               cd_tp % element(ce) % adaptation % parent_proc = parent % proc
               cd_tp % element(ce) % adaptation % parent_id   = e
               cd_tp % element(ce) % adaptation % mark        = child_mark
@@ -495,6 +512,10 @@ contains
               cd_tp % element(ce) % id = id_child(2,1,1,e)
               cd_tp % element(ce) % cluster_oct = 2
               cd_tp % element(ce) % frozen = element % adaptation % mark < 1000
+              if (has_sfc) then
+                cd_tp % element(ce) % sfc_rank = rk_child(2,1,1,e)
+                cd_tp % element(ce) % sfc_path = child_path(2)
+              end if
               cd_tp % element(ce) % adaptation % parent_proc = parent % proc
               cd_tp % element(ce) % adaptation % parent_id   = e
               cd_tp % element(ce) % adaptation % mark        = child_mark
@@ -565,6 +586,10 @@ contains
               cd_tp % element(ce) % id = id_child(1,2,1,e)
               cd_tp % element(ce) % cluster_oct = 3
               cd_tp % element(ce) % frozen = element % adaptation % mark < 1000
+              if (has_sfc) then
+                cd_tp % element(ce) % sfc_rank = rk_child(1,2,1,e)
+                cd_tp % element(ce) % sfc_path = child_path(3)
+              end if
               cd_tp % element(ce) % adaptation % parent_proc = parent % proc
               cd_tp % element(ce) % adaptation % parent_id   = e
               cd_tp % element(ce) % adaptation % mark        = child_mark
@@ -635,6 +660,10 @@ contains
               cd_tp % element(ce) % id = id_child(2,2,1,e)
               cd_tp % element(ce) % cluster_oct = 4
               cd_tp % element(ce) % frozen = element % adaptation % mark < 1000
+              if (has_sfc) then
+                cd_tp % element(ce) % sfc_rank = rk_child(2,2,1,e)
+                cd_tp % element(ce) % sfc_path = child_path(4)
+              end if
               cd_tp % element(ce) % adaptation % parent_proc = parent % proc
               cd_tp % element(ce) % adaptation % parent_id   = e
               cd_tp % element(ce) % adaptation % mark        = child_mark
@@ -705,6 +734,10 @@ contains
               cd_tp % element(ce) % id = id_child(1,1,2,e)
               cd_tp % element(ce) % cluster_oct = 5
               cd_tp % element(ce) % frozen = element % adaptation % mark < 1000
+              if (has_sfc) then
+                cd_tp % element(ce) % sfc_rank = rk_child(1,1,2,e)
+                cd_tp % element(ce) % sfc_path = child_path(5)
+              end if
               cd_tp % element(ce) % adaptation % parent_proc = parent % proc
               cd_tp % element(ce) % adaptation % parent_id   = e
               cd_tp % element(ce) % adaptation % mark        = child_mark
@@ -775,6 +808,10 @@ contains
               cd_tp % element(ce) % id = id_child(2,1,2,e)
               cd_tp % element(ce) % cluster_oct = 6
               cd_tp % element(ce) % frozen = element % adaptation % mark < 1000
+              if (has_sfc) then
+                cd_tp % element(ce) % sfc_rank = rk_child(2,1,2,e)
+                cd_tp % element(ce) % sfc_path = child_path(6)
+              end if
               cd_tp % element(ce) % adaptation % parent_proc = parent % proc
               cd_tp % element(ce) % adaptation % parent_id   = e
               cd_tp % element(ce) % adaptation % mark        = child_mark
@@ -845,6 +882,10 @@ contains
               cd_tp % element(ce) % id = id_child(1,2,2,e)
               cd_tp % element(ce) % cluster_oct = 7
               cd_tp % element(ce) % frozen = element % adaptation % mark < 1000
+              if (has_sfc) then
+                cd_tp % element(ce) % sfc_rank = rk_child(1,2,2,e)
+                cd_tp % element(ce) % sfc_path = child_path(7)
+              end if
               cd_tp % element(ce) % adaptation % parent_proc = parent % proc
               cd_tp % element(ce) % adaptation % parent_id   = e
               cd_tp % element(ce) % adaptation % mark        = child_mark
@@ -915,6 +956,10 @@ contains
               cd_tp % element(ce) % id = id_child(2,2,2,e)
               cd_tp % element(ce) % cluster_oct = 8
               cd_tp % element(ce) % frozen = element % adaptation % mark < 1000
+              if (has_sfc) then
+                cd_tp % element(ce) % sfc_rank = rk_child(2,2,2,e)
+                cd_tp % element(ce) % sfc_path = child_path(8)
+              end if
               cd_tp % element(ce) % adaptation % parent_proc = parent % proc
               cd_tp % element(ce) % adaptation % parent_id   = e
               cd_tp % element(ce) % adaptation % mark        = child_mark

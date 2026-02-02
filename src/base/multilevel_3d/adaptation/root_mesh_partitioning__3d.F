@@ -407,6 +407,8 @@ contains
         associate(element => old_mesh % element(l))
           ce = rk_elem(l)
           dd % element(ce) % id              = dist_map % id_elem(l)
+          dd % element(ce) % sfc_rank        = element % sfc_rank
+          dd % element(ce) % sfc_path        = element % sfc_path
           dd % element(ce) % vertex          = element % vertex
           dd % element(ce) % edge            = element % edge
           dd % element(ce) % face            = element % face

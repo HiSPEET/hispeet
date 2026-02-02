@@ -2,6 +2,7 @@ module Child_Distribution_Map__3D
   use XMPI
   use Mesh__3D
   use Element_Transfer_Buffer__3D
+  use Element_Hilbert_Curve__3D
 
   implicit none
   private
@@ -33,6 +34,10 @@ module Child_Distribution_Map__3D
   !>          child at position i,j,k
   !>       +  in the case of cloning, all entries ar set to the child ID
   !>
+  !>  – `rk_child(2,2,2, 1:n_elem)`
+  !>     child element ranks according to their position on the space filling
+  !>     curve, if available
+  !>
   !>  – `nc_part(2, 0:n_parts -1)`
   !>     number of active (1) and frozen (2) children contributed to partitions
 
@@ -40,9 +45,11 @@ module Child_Distribution_Map__3D
     integer :: n_parts = 0                    !< num target partitions
     integer :: n_elem  = 0                    !< num elements
     integer :: n_ghost = 0                    !< num ghosts
+    logical :: has_sfc = .false.              !< switch for child SFC
     integer, allocatable :: mark(:)           !< parent refinement marks
     integer, allocatable :: tp_child(:)       !< child target partitions
     integer, allocatable :: id_child(:,:,:,:) !< child IDs in target partitions
+    integer, allocatable :: rk_child(:,:,:,:) !< child SFC ranks
     integer, allocatable :: nc_part(:,:)      !< num children per partition
   end type ChildDistributionMap_3D
 
@@ -87,10 +94,16 @@ contains
     type(ElementTransferBuffer_3D), allocatable, asynchronous, save :: mark_buf
     type(ElementTransferBuffer_3D), allocatable, asynchronous, save :: id_child_buf
 
-    integer, allocatable, save :: mark(:,:,:,:), id_child(:,:,:,:), nc_part(:,:)
+    integer, allocatable, save :: mark(:,:,:,:)
+    integer, allocatable, save :: id_child(:,:,:,:)
+    integer, allocatable, save :: rk_child(:,:,:,:)
+    integer, allocatable, save :: nc_part(:,:)
+    integer, allocatable, save :: sfc_offset(:)
 
-    integer :: oc_part(2,0:n_parts-1)
-    integer :: i, m, p
+    logical :: has_sfc
+
+    integer :: oc_part(2,0:n_parts-1), oc_tot
+    integer :: e, i, j, k, l, m, p, sfc_rank_0, seq(8)
 
     ! basic initialization .....................................................
 
@@ -102,14 +115,28 @@ contains
 
     allocate(mark    (1,1,1, 1 : this%n_elem + this%n_ghost), source = -1)
     allocate(id_child(2,2,2, 1 : this%n_elem + this%n_ghost), source =  0)
+    allocate(rk_child(2,2,2, 1 : this%n_elem               ), source =  0)
     allocate(nc_part (2    , 0 : n_parts - 1               ), source =  0)
 
+    ! check whether child SFC can be build
+    if (parent % has_sfc) then
+      ! local check
+      has_sfc = maxval(parent%element%sfc_rank) &
+              - minval(parent%element%sfc_rank) &
+              - parent%n_elem + 1 == 0
+      ! globalization
+      call XMPI_Allreduce(has_sfc, this%has_sfc, MPI_LAND, parent%comm_parts)
+    else
+      this % has_sfc = .false.
+    end if
+
     ! number of active and frozen children per target partition ................
-    do i = 1, this % n_elem
-      mark(1,1,1,i) = parent % element(i) % adaptation % mark
-      p = tp_child(i)
+
+    do e = 1, this % n_elem
+      mark(1,1,1,e) = parent % element(e) % adaptation % mark
+      p = tp_child(e)
       if (p >= 0) then
-        select case(parent % element(i) % adaptation % mark)
+        select case(parent % element(e) % adaptation % mark)
         case(100:108)
           ! frozen child from vertex refinement or cloning
           nc_part(2,p) = nc_part(2,p) + 1
@@ -134,55 +161,55 @@ contains
 
     ! IDs of local elements in their target partitions .........................
 
-    call ComputeChildOffsets(parent%comm_parts, nc_part, oc_part)
+    call ComputeChildOffsets(parent%comm_parts, nc_part, oc_part, oc_tot)
 
-    do i = 1, this % n_elem
-      p = tp_child(i)
+    do e = 1, this % n_elem
+      p = tp_child(e)
       if (p >= 0) then
 
-        m = parent % element(i) % adaptation % mark
+        m = parent % element(e) % adaptation % mark
 
         if (m < 1000) then
 
           select case(m)
 
           ! clone
-          case(100); id_child(:,:,:,i) = oc_part(2,p) + 1
+          case(100); id_child(:,:,:,e) = oc_part(2,p) + 1
 
           ! vertex
-          case(101); id_child(1,1,1,i) = oc_part(2,p) + 1
-          case(102); id_child(2,1,1,i) = oc_part(2,p) + 1
-          case(103); id_child(1,2,1,i) = oc_part(2,p) + 1
-          case(104); id_child(2,2,1,i) = oc_part(2,p) + 1
-          case(105); id_child(1,1,2,i) = oc_part(2,p) + 1
-          case(106); id_child(2,1,2,i) = oc_part(2,p) + 1
-          case(107); id_child(1,2,2,i) = oc_part(2,p) + 1
-          case(108); id_child(2,2,2,i) = oc_part(2,p) + 1
+          case(101); id_child(1,1,1,e) = oc_part(2,p) + 1
+          case(102); id_child(2,1,1,e) = oc_part(2,p) + 1
+          case(103); id_child(1,2,1,e) = oc_part(2,p) + 1
+          case(104); id_child(2,2,1,e) = oc_part(2,p) + 1
+          case(105); id_child(1,1,2,e) = oc_part(2,p) + 1
+          case(106); id_child(2,1,2,e) = oc_part(2,p) + 1
+          case(107); id_child(1,2,2,e) = oc_part(2,p) + 1
+          case(108); id_child(2,2,2,e) = oc_part(2,p) + 1
 
           ! edge
-          case(201); id_child(:,1,1,i) = oc_part(2,p) + ic_edge
-          case(202); id_child(:,2,1,i) = oc_part(2,p) + ic_edge
-          case(203); id_child(:,1,2,i) = oc_part(2,p) + ic_edge
-          case(204); id_child(:,2,2,i) = oc_part(2,p) + ic_edge
-          case(205); id_child(1,:,1,i) = oc_part(2,p) + ic_edge
-          case(206); id_child(2,:,1,i) = oc_part(2,p) + ic_edge
-          case(207); id_child(1,:,2,i) = oc_part(2,p) + ic_edge
-          case(208); id_child(2,:,2,i) = oc_part(2,p) + ic_edge
-          case(209); id_child(1,1,:,i) = oc_part(2,p) + ic_edge
-          case(210); id_child(2,1,:,i) = oc_part(2,p) + ic_edge
-          case(211); id_child(1,2,:,i) = oc_part(2,p) + ic_edge
-          case(212); id_child(2,2,:,i) = oc_part(2,p) + ic_edge
+          case(201); id_child(:,1,1,e) = oc_part(2,p) + ic_edge
+          case(202); id_child(:,2,1,e) = oc_part(2,p) + ic_edge
+          case(203); id_child(:,1,2,e) = oc_part(2,p) + ic_edge
+          case(204); id_child(:,2,2,e) = oc_part(2,p) + ic_edge
+          case(205); id_child(1,:,1,e) = oc_part(2,p) + ic_edge
+          case(206); id_child(2,:,1,e) = oc_part(2,p) + ic_edge
+          case(207); id_child(1,:,2,e) = oc_part(2,p) + ic_edge
+          case(208); id_child(2,:,2,e) = oc_part(2,p) + ic_edge
+          case(209); id_child(1,1,:,e) = oc_part(2,p) + ic_edge
+          case(210); id_child(2,1,:,e) = oc_part(2,p) + ic_edge
+          case(211); id_child(1,2,:,e) = oc_part(2,p) + ic_edge
+          case(212); id_child(2,2,:,e) = oc_part(2,p) + ic_edge
 
           ! face
-          case(401); id_child(1,:,:,i) = oc_part(2,p) + ic_face
-          case(402); id_child(2,:,:,i) = oc_part(2,p) + ic_face
-          case(403); id_child(:,1,:,i) = oc_part(2,p) + ic_face
-          case(404); id_child(:,2,:,i) = oc_part(2,p) + ic_face
-          case(405); id_child(:,:,1,i) = oc_part(2,p) + ic_face
-          case(406); id_child(:,:,2,i) = oc_part(2,p) + ic_face
+          case(401); id_child(1,:,:,e) = oc_part(2,p) + ic_face
+          case(402); id_child(2,:,:,e) = oc_part(2,p) + ic_face
+          case(403); id_child(:,1,:,e) = oc_part(2,p) + ic_face
+          case(404); id_child(:,2,:,e) = oc_part(2,p) + ic_face
+          case(405); id_child(:,:,1,e) = oc_part(2,p) + ic_face
+          case(406); id_child(:,:,2,e) = oc_part(2,p) + ic_face
 
           ! volume
-          case(800); id_child (:,:,:,i) = oc_part(2,p) + ic_regular
+          case(800); id_child (:,:,:,e) = oc_part(2,p) + ic_regular
 
           end select
 
@@ -192,10 +219,10 @@ contains
 
           select case(m)
           case(1000)
-            id_child(:,:,:,i) = oc_part(1,p) + 1
+            id_child(:,:,:,e) = oc_part(1,p) + 1
             oc_part(1,p)      = oc_part(1,p) + 1
           case(8000)
-            id_child(:,:,:,i) = oc_part(1,p) + ic_regular
+            id_child(:,:,:,e) = oc_part(1,p) + ic_regular
             oc_part(1,p)      = oc_part(1,p) + 8
           end select
 
@@ -215,11 +242,76 @@ contains
     end if
 
     allocate(this % mark(this%n_elem + this%n_ghost))
-    do i = 1, size(this%mark)
-      this % mark(i) = mark(1,1,1,i)
+    do e = 1, size(this%mark)
+      this % mark(e) = mark(1,1,1,e)
     end do
 
+    ! SFC rank of children .....................................................
+
+    if (this % has_sfc) then
+
+      allocate(sfc_offset(this%n_elem), source = 0)
+
+      ! constant bwing added for converting global to local SFC ranks
+      sfc_rank_0 = 1 - minval(parent % element % sfc_rank)
+
+      ! set SFC offsets to number of children of predecessor
+      do e = 1, this % n_elem
+        if (tp_child(e) >= 0) then
+          ! local SFC rank of predecessor
+          p = parent % element(e) % sfc_rank + sfc_rank_0 + 1
+          if (p > this%n_elem) cycle
+          m = parent % element(e) % adaptation % mark
+          if (m < 1000) then
+            sfc_offset(p) = m / 100
+          else
+            sfc_offset(p) = m / 1000
+          end if
+        end if
+      end do
+
+      ! add children of further preceding elements
+      do e = 2, this % n_elem
+        sfc_offset(e) = sfc_offset(e) + sfc_offset(e-1)
+      end do
+
+      ! add children contributed by lower rank parents
+      sfc_offset = sfc_offset + oc_tot
+
+      ! child ranks
+      do e = 1, this % n_elem
+        if (tp_child(e) < 0) cycle
+        p = sfc_offset(parent % element(e) % sfc_rank + sfc_rank_0)
+        select case(parent % refinement)
+        case('s')
+          ! subdivision
+          seq = EHC_ChildSequence(parent % element(e) % sfc_path)
+          do l = 1, 8
+            ! linear index of child l on element path
+            m = seq(l)
+            ! triple index of child l on element path
+            k = (m - 1)/4 + 1
+            j = (m - 1 - 4*(k -1))/2 + 1
+            i =  m - 2*(j - 1) - 4*(k - 1)
+            if (id_child(i,j,k,e) > 0) then
+              p = p + 1
+              rk_child(i,j,k,e) = p
+            end if
+          end do
+        case('c')
+          ! cloning
+          rk_child(1:2,1:2,1:2,e) = p + 1
+        end select
+      end do
+
+      deallocate(sfc_offset)
+
+    end if
+
+    ! finalization .............................................................
+
     call move_alloc(id_child, this % id_child)
+    call move_alloc(rk_child, this % rk_child)
     call move_alloc(nc_part , this % nc_part )
 
     if (allocated(mark        )) deallocate(mark        )
@@ -243,13 +335,19 @@ contains
   !>       oc_part[p](1,n) = sum(q < p) nc_part[q](1,n)
   !>       oc_part[p](2,n) = sum(q < p) nc_part[q](2,n) + sum(q) nc_part[q](1,n)
   !>
-  !> The partial sum is evaluated using one-sided communication based on MPI's
+  !> Further, `oc_tot` provides the total number of children generated by lower
+  !> rank partitions, i.e.,
+  !>
+  !>       oc_tot[p] = sum(q < p) nc_part[q]
+  !>
+  !> The partial sums are evaluated using one-sided communication based on MPI's
   !> window facility.
 
-  subroutine ComputeChildOffsets(comm_parts, nc_part, oc_part)
+  subroutine ComputeChildOffsets(comm_parts, nc_part, oc_part, oc_tot)
     type(MPI_Comm), intent(in) :: comm_parts
     integer, asynchronous, intent(in)  :: nc_part(:,0:)
     integer, asynchronous, intent(out) :: oc_part(:,0:)
+    integer,               intent(out) :: oc_tot
 
     type(MPI_Win) :: window
     integer(MPI_ADDRESS_KIND) :: integer_extent, lb
@@ -305,6 +403,10 @@ contains
                       , window )
 
     call MPI_Win_free(window)
+
+    ! total sum of children contributed by lower ranks .........................
+
+    oc_tot = sum(oc_part)
 
     ! adjust offset of frozen elements .........................................
 
