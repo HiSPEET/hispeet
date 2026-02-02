@@ -218,7 +218,7 @@ contains
   !-----------------------------------------------------------------------------
   !> Get characteristics of the multilevel spectral element mesh
 
-  subroutine Get_MeshCharacteristics(this, n_elem, n_active, n_leaf, emq)
+  subroutine Get_MeshCharacteristics(this, n_elem, n_active, n_leaf, cut, emq)
 
     class(ML_MeshOperators_3D), intent(in) :: this
 
@@ -243,6 +243,17 @@ contains
       !! - n_leaf(l,3) = max num per partition in level l
       !! - n_leaf(l,4) = tot num in level l
 
+    integer, allocatable, optional, intent(inout) :: cut(:,:,:)
+      !< cut(l_top,2,4), cut connections to element neighbors:
+      !! - cut(l,1,1) = loc num cut faces in level l
+      !! - cut(l,2,1) = loc num cut neighbors in level l
+      !! - cut(l,1,2) = min num cut faces per partition in level l
+      !! - cut(l,2,2) = min num cut neighbors per partition in level l
+      !! - cut(l,1,3) = max num cut faces per partition in level l
+      !! - cut(l,2,3) = max num cut neighbors per partition in level l
+      !! - cut(l,1,4) = avg num cut faces in level l
+      !! - cut(l,2,4) = avg num cut neighbors in level l
+
     real(RNP), allocatable, optional, intent(inout) :: emq(:,:)
       !< emq(l_top,6), active element metrics and quality
       !! - emq(l,1) = min size in level l (cube root of V)
@@ -256,7 +267,8 @@ contains
 
     real(RNP) :: dx_x(3)
     real(RNP) :: dx_e, ar_e, qj_e
-    integer   :: e, l, l_top
+    integer   :: l, l_top
+    integer   :: e, m
 
     associate(comm => this % sem(1) % mesh % comm_world)
 
@@ -277,11 +289,22 @@ contains
         end if
 
         do l = 1, l_top
-          n_elem(l,1) = max(0, this % sem(l) % mesh % n_elem)
+          n_elem(l,1) = this % sem(l) % mesh % n_elem
         end do
 
+        ! min num elements
+        where(n_elem(:,1) < 1)
+          n_elem(:,1) = huge(1)
+        end where
         call XMPI_Allreduce(n_elem(:,1), n_elem(:,2), MPI_MIN, comm)
+
+        ! max num elements
+        where(n_elem(:,1) == huge(1))
+          n_elem(:,1) = 0
+        end where
         call XMPI_Allreduce(n_elem(:,1), n_elem(:,3), MPI_MAX, comm)
+
+        ! sum num elements
         call XMPI_Allreduce(n_elem(:,1), n_elem(:,4), MPI_SUM, comm)
 
         !$omp end master
@@ -304,11 +327,22 @@ contains
         end if
 
         do l = 1, l_top
-          n_active(l,1) = max(0, this % sem(l) % mesh % n_elem_active)
+          n_active(l,1) = this % sem(l) % mesh % n_elem_active
         end do
 
+        ! min num active elements
+        where(n_active(:,1) < 1)
+          n_active(:,1) = huge(1)
+        end where
         call XMPI_Allreduce(n_active(:,1), n_active(:,2), MPI_MIN, comm)
+
+        ! max num active elements
+        where(n_active(:,1) == huge(1))
+          n_active(:,1) = 0
+        end where
         call XMPI_Allreduce(n_active(:,1), n_active(:,3), MPI_MAX, comm)
+
+        ! sum  num active elements
         call XMPI_Allreduce(n_active(:,1), n_active(:,4), MPI_SUM, comm)
 
         !$omp end master
@@ -330,19 +364,79 @@ contains
           allocate(n_leaf(l_top,4))
         end if
 
+        ! min num leaf elements
         do l = 1, l_top
           associate(mesh => this % sem(l) % mesh)
             if (mesh % n_elem_active > 0) then
               n_leaf(l,1) = count(mesh % element % IsLeaf())
             else
-              n_leaf(l,1) = 0
+              n_leaf(l,1) = huge(1)
             end if
           end associate
         end do
-
         call XMPI_Allreduce(n_leaf(:,1), n_leaf(:,2), MPI_MIN, comm)
+
+        ! max num leaf elements
+        where(n_leaf(:,1) == huge(1))
+          n_leaf(:,1) = 0
+        end where
         call XMPI_Allreduce(n_leaf(:,1), n_leaf(:,3), MPI_MAX, comm)
+
+        ! sum num leaf elements
         call XMPI_Allreduce(n_leaf(:,1), n_leaf(:,4), MPI_SUM, comm)
+
+        !$omp end master
+        !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+      end if
+
+      ! number of cut element neighbors ........................................
+
+      if (present(cut)) then
+
+        !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+        !$omp master
+
+        if (allocated(cut)) then
+          if (any(shape(cut) /= [l_top,2,4])) deallocate(cut)
+        end if
+        if (.not. allocated(cut)) then
+          allocate(cut(l_top,2,4), source = 0)
+        end if
+
+        do l = 1, l_top
+          associate(mesh => this % sem(l) % mesh)
+            do e = 1, mesh%n_elem
+              associate(np => mesh % element(e) % neighbor % part)
+                ! cut element faces
+                m = sum(mesh % element(e) % face % n_neighbor)
+                cut(l,1,1) = cut(l,1,1) &
+                           + count(np(1:m) >= 0 .and. np(1:m) /= mesh%part)
+                ! cut element neighbors
+                cut(l,2,1) = cut(l,2,1) &
+                           + count(np >= 0 .and. np /= mesh%part)
+              end associate
+            end do
+          end associate
+        end do
+
+        ! min cut elements
+        where(cut(:,:,1) < 1)
+          cut(:,:,1) = huge(1)
+        end where
+        call XMPI_Allreduce(cut(:,:,1), cut(:,:,2), MPI_MIN, comm)
+
+        ! max cut elements
+        where(cut(:,:,1) == huge(1))
+          cut(:,:,1) = 0
+        end where
+        call XMPI_Allreduce(cut(:,:,1), cut(:,:,3), MPI_MAX, comm)
+
+        ! avg cut elements
+        call XMPI_Allreduce(cut(:,:,1), cut(:,:,4), MPI_SUM, comm)
+        do l = 1, l_top
+          cut(l,1:2,4) = cut(l,1:2,4) / this % sem(l) % mesh % n_parts
+        end do
 
         !$omp end master
         !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
@@ -422,64 +516,60 @@ contains
     class(ML_MeshOperators_3D), intent(in) :: this
 
     integer  , allocatable, save :: n_elem(:,:), n_active(:,:), n_leaf(:,:)
+    integer  , allocatable, save :: cut(:,:,:)
     real(RNP), allocatable, save :: emq(:,:)
 
     integer(IXL) :: np_leaf, np_tot
     integer :: l
 
-    call this % Get_MeshCharacteristics(n_elem, n_active, n_leaf, emq)
+    call this % Get_MeshCharacteristics(n_elem, n_active, n_leaf, cut, emq)
 
     !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
     !$omp master
 
     if (this % sem(1) % mesh % proc == 0) then
+      associate(po => this % sem % std_op % po)
 
-      write(*,'(/,A4,X,6A9,A4,2(3X,A9),2(X,A9))') &
-          '   l'      , &
-          '  n_parts' , &
-          '   na_min' , &
-          '   na_max' , &
-          '   na_tot' , &
-          '   ne_tot' , &
-          '  ne_leaf' , &
-          '  po'      , &
-          '   dx_min' , &
-          '   dx_max' , &
-          '   ar_max' , &
-          '   qj_min'
+        write(*,'(/,A,/)') 'mesh characteristics'
 
-      np_tot  = 0
-      np_leaf = 0
+        np_tot  = 0
+        np_leaf = 0
 
-      do l = 1, size(this % sem)
-        associate( mesh => this % sem(l) % mesh        &
-                 , po   => this % sem(l) % std_op % po )
+        do l = 1, size(this % sem)
+          np_tot  = np_tot  + n_elem(l,4) * (po(l) + 1)**3
+          np_leaf = np_leaf + n_leaf(l,4) * (po(l) + 1)**3
+        end do
 
-        np_tot  = np_tot  + n_elem(l,4) * (po + 1)**3
-        np_leaf = np_leaf + n_leaf(l,4) * (po + 1)**3
+        write(*,'(2X,A)') 'global'
+        write(*,'(T5,A,I0)') 'ne_tot  = ', sum(n_elem(:,4))
+        write(*,'(T5,A,I0)') 'ne_leaf = ', sum(n_leaf(:,4))
+        write(*,'(T5,A,I0)') 'np_tot  = ', np_tot
+        write(*,'(T5,A,I0)') 'np_leaf = ', np_leaf
 
-        write(*,'(I4,X,6I9,I4,2(2X,ES10.3),2F10.3)') &
-            l             , &
-            mesh%n_parts  , &
-            n_active(l,2) , &
-            n_active(l,3) , &
-            n_active(l,4) , &
-            n_elem(l,4)   , &
-            n_leaf(l,4)   , &
-            po            , &
-            emq(l,1:2)    , &
-            emq(l,4:5)
+        write(*,'(/,3X,A,3X,A7,4(3X,A6),2X,A7,4(X,A8))') &
+            'l', 'n_parts', 'na_min', 'na_max', 'na_tot', 'ne_tot', 'ne_leaf', &
+            'cutF_max', 'cutF_avg', 'cutN_max', 'cutN_avg'
 
-        end associate
-      end do
+        do l = 1, size(this % sem)
+          write(*,'(I4,X,10I9)')               &
+              l                              , &
+              this % sem(l) % mesh % n_parts , &
+              n_active(l,2:4)                , &
+              n_elem(l,4)                    , &
+              n_leaf(l,4)                    , &
+              cut(l,1,3:4)                   , &
+              cut(l,2,3:4)
+        end do
 
-      write(*,*)
-      write(*,'(2X,A)') 'global'
-      write(*,'(T5,A,I0)') 'ne_tot  = ', sum(n_elem(:,4))
-      write(*,'(T5,A,I0)') 'ne_leaf = ', sum(n_leaf(:,4))
-      write(*,'(T5,A,I0)') 'np_tot  = ', np_tot
-      write(*,'(T5,A,I0)') 'np_leaf = ', np_leaf
+        write(*,'(/,A4,X,A4,2(6X,A6),2(4X,A6))') &
+            '   l', '  po', 'dx_min', 'dx_max', 'ar_max', 'qj_min'
 
+        do l = 1, size(this % sem)
+          write(*,'(I4,X,I4,2(2X,ES10.3),2F10.3)') &
+              l, po(l), emq(l,1:2), emq(l,4:5)
+        end do
+
+      end associate
     end if
 
     if (allocated( n_elem   )) deallocate( n_elem   )
