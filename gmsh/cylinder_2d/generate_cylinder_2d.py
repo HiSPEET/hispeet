@@ -234,12 +234,13 @@ def createGeometryAndMesh(casename, L, N, prog):
     #---------------------------------------------------------------------------
     # Physical Groups
     
-    gmsh.model.addPhysicalGroup(2, surf_in,              name=f"inlet")
-    gmsh.model.addPhysicalGroup(2, surf_out,             name=f"outlet")
-    gmsh.model.addPhysicalGroup(2, surf_side + surf_cyl, name=f"wall")
-    gmsh.model.addPhysicalGroup(2, surf_top,             name=f"top")
-    gmsh.model.addPhysicalGroup(2, surf_bottom,          name=f"bottom")
-    gmsh.model.addPhysicalGroup(3, volumes,              name=f"fluid")
+    gmsh.model.addPhysicalGroup(2, surf_in,      name=f"inlet")
+    gmsh.model.addPhysicalGroup(2, surf_out,     name=f"outlet")
+    gmsh.model.addPhysicalGroup(2, surf_cyl,     name=f"cylinder")
+    gmsh.model.addPhysicalGroup(2, surf_side,    name=f"wall")
+    gmsh.model.addPhysicalGroup(2, surf_top,     name=f"top")
+    gmsh.model.addPhysicalGroup(2, surf_bottom,  name=f"bottom")
+    gmsh.model.addPhysicalGroup(3, volumes,      name=f"fluid")
 
     #---------------------------------------------------------------------------
     # Mesh Generation
