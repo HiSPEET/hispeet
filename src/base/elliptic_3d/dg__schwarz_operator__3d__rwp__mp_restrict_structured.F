@@ -52,7 +52,7 @@
         do k = 0, po
         do j = 0, po
         do i = 0, po
-          rs(c0 + i, c0 + j, c0 + k, e) = c_sgn * real(r(i,j,k,e), RWP)
+          rs(c0+i, c0+j, c0+k, e) = c_sgn * real(r(i,j,k,e), RWP)
         end do
         end do
         end do
@@ -84,7 +84,7 @@
             do k = 0, po
             do j = 0, po
             do i = 1, no
-              rs(i, c0 + j, c0 + k, e) = c_sgn * real(r(o1 + i, j, k, l), RWP)
+              rs(i, c0+j, c0+k, e) = c_sgn * real(r(o1+i, j, k, l), RWP)
             end do
             end do
             end do
@@ -97,7 +97,7 @@
             do k = 0, po
             do j = 0, po
             do i = 1, no
-              rs(c1 + i, c0 + j, c0 + k, e) = c_sgn * real(r(o0 + i, j, k, l), RWP)
+              rs(c1+i, c0+j, c0+k, e) = c_sgn * real(r(o0+i, j, k, l), RWP)
             end do
             end do
             end do
@@ -110,7 +110,7 @@
             do k = 0, po
             do j = 1, no
             do i = 0, po
-              rs(c0 + i, j, c0 + k, e) = c_sgn * real(r(i, o1 + j, k, l), RWP)
+              rs(c0+i, j, c0+k, e) = c_sgn * real(r(i, o1+j, k, l), RWP)
             end do
             end do
             end do
@@ -123,7 +123,7 @@
             do k = 0, po
             do j = 1, no
             do i = 0, po
-              rs(c0 + i, c1 + j, c0 + k, e) = c_sgn * real(r(i, o0 + j, k, l), RWP)
+              rs(c0+i, c1+j, c0+k, e) = c_sgn * real(r(i, o0+j, k, l), RWP)
             end do
             end do
             end do
@@ -136,7 +136,7 @@
             do k = 1, no
             do j = 0, po
             do i = 0, po
-              rs(c0 + i, c0 + j, k, e) = c_sgn * real(r(i, j, o1 + k, l), RWP)
+              rs(c0+i, c0+j, k, e) = c_sgn * real(r(i, j, o1+k, l), RWP)
             end do
             end do
             end do
@@ -149,7 +149,7 @@
             do k = 1, no
             do j = 0, po
             do i = 0, po
-              rs(c0 + i, c0 + j, c1 + k, e) = c_sgn * real(r(i, j, o0 + k, l), RWP)
+              rs(c0+i, c0+j, c1+k, e) = c_sgn * real(r(i, j, o0+k, l), RWP)
             end do
             end do
             end do
@@ -162,7 +162,7 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              rs(c0 + i, j, k, e) = c_sgn * real(r(i, o1 + j, o1 + k, l), RWP)
+              rs(c0+i, j, k, e) = c_sgn * real(r(i, o1+j, o1+k, l), RWP)
             end do
             end do
             end do
@@ -175,7 +175,7 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              rs(c0 + i, c1 + j, k, e) = c_sgn * real(r(i, o0 + j, o1 + k, l), RWP)
+              rs(c0+i, c1+j, k, e) = c_sgn * real(r(i, o0+j, o1+k, l), RWP)
             end do
             end do
             end do
@@ -188,7 +188,7 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              rs(c0 + i, j, c1 + k, e) = c_sgn * real(r(i, o1 + j, o0 + k, l), RWP)
+              rs(c0+i, j, c1+k, e) = c_sgn * real(r(i, o1+j, o0+k, l), RWP)
             end do
             end do
             end do
@@ -201,7 +201,7 @@
             do k = 1, no
             do j = 1, no
             do i = 0, po
-              rs(c0 + i, c1 + j, c1 + k, e) = c_sgn * real(r(i, o0 + j, o0 + k, l), RWP)
+              rs(c0+i, c1+j, c1+k, e) = c_sgn * real(r(i, o0+j, o0+k, l), RWP)
             end do
             end do
             end do
@@ -214,7 +214,7 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              rs(i, c0 + j, k, e) = c_sgn * real(r(o1 + i, j, o1 + k, l), RWP)
+              rs(i, c0+j, k, e) = c_sgn * real(r(o1+i, j, o1+k, l), RWP)
             end do
             end do
             end do
@@ -227,7 +227,7 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              rs(c1 + i, c0 + j, k, e) = c_sgn * real(r(o0 + i, j, o1 + k, l), RWP)
+              rs(c1+i, c0+j, k, e) = c_sgn * real(r(o0+i, j, o1+k, l), RWP)
             end do
             end do
             end do
@@ -240,7 +240,7 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              rs(i, c0 + j, c1 + k, e) = c_sgn * real(r(o1 + i, j, o0 + k, l), RWP)
+              rs(i, c0+j, c1+k, e) = c_sgn * real(r(o1+i, j, o0+k, l), RWP)
             end do
             end do
             end do
@@ -253,7 +253,7 @@
             do k = 1, no
             do j = 0, po
             do i = 1, no
-              rs(c1 + i, c0 + j, c1 + k, e) = c_sgn * real(r(o0 + i, j, o0 + k, l), RWP)
+              rs(c1+i, c0+j, c1+k, e) = c_sgn * real(r(o0+i, j, o0+k, l), RWP)
             end do
             end do
             end do
@@ -266,7 +266,7 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              rs(i, j, c0 + k, e) = c_sgn * real(r(o1 + i, o1 + j, k, l), RWP)
+              rs(i, j, c0+k, e) = c_sgn * real(r(o1+i, o1+j, k, l), RWP)
             end do
             end do
             end do
@@ -279,7 +279,7 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              rs(c1 + i, j, c0 + k, e) = c_sgn * real(r(o0 + i, o1 + j, k, l), RWP)
+              rs(c1+i, j, c0+k, e) = c_sgn * real(r(o0+i, o1+j, k, l), RWP)
             end do
             end do
             end do
@@ -292,7 +292,7 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              rs(i, c1 + j, c0 + k, e) = c_sgn * real(r(o1 + i, o0 + j, k, l), RWP)
+              rs(i, c1+j, c0+k, e) = c_sgn * real(r(o1+i, o0+j, k, l), RWP)
             end do
             end do
             end do
@@ -305,7 +305,7 @@
             do k = 0, po
             do j = 1, no
             do i = 1, no
-              rs(c1 + i, c1 + j, c0 + k, e) = c_sgn * real(r(o0 + i, o0 + j, k, l), RWP)
+              rs(c1+i, c1+j, c0+k, e) = c_sgn * real(r(o0+i, o0+j, k, l), RWP)
             end do
             end do
             end do
@@ -318,7 +318,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              rs(i, j, k, e) = c_sgn * real(r(o1 + i, o1 + j, o1 + k, l), RWP)
+              rs(i, j, k, e) = c_sgn * real(r(o1+i, o1+j, o1+k, l), RWP)
             end do
             end do
             end do
@@ -331,7 +331,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              rs(c1 + i, j, k, e) = c_sgn * real(r(o0 + i, o1 + j, o1 + k, l), RWP)
+              rs(c1+i, j, k, e) = c_sgn * real(r(o0+i, o1+j, o1+k, l), RWP)
             end do
             end do
             end do
@@ -344,7 +344,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              rs(i, c1 + j, k, e) = c_sgn * real(r(o1 + i, o0 + j, o1 + k, l), RWP)
+              rs(i, c1+j, k, e) = c_sgn * real(r(o1+i, o0+j, o1+k, l), RWP)
             end do
             end do
             end do
@@ -357,7 +357,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              rs(c1 + i, c1 + j, k, e) = c_sgn * real(r(o0 + i, o0 + j, o1 + k, l), RWP)
+              rs(c1+i, c1+j, k, e) = c_sgn * real(r(o0+i, o0+j, o1+k, l), RWP)
             end do
             end do
             end do
@@ -370,7 +370,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              rs(i, j, c1 + k, e) = c_sgn * real(r(o1 + i, o1 + j, o0 + k, l), RWP)
+              rs(i, j, c1+k, e) = c_sgn * real(r(o1+i, o1+j, o0+k, l), RWP)
             end do
             end do
             end do
@@ -383,7 +383,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              rs(c1 + i, j, c1 + k, e) = c_sgn * real(r(o0 + i, o1 + j, o0 + k, l), RWP)
+              rs(c1+i, j, c1+k, e) = c_sgn * real(r(o0+i, o1+j, o0+k, l), RWP)
             end do
             end do
             end do
@@ -396,7 +396,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              rs(i, c1 + j, c1 + k, e) = c_sgn * real(r(o1 + i, o0 + j, o0 + k, l), RWP)
+              rs(i, c1+j, c1+k, e) = c_sgn * real(r(o1+i, o0+j, o0+k, l), RWP)
             end do
             end do
             end do
@@ -409,7 +409,7 @@
             do k = 1, no
             do j = 1, no
             do i = 1, no
-              rs(c1 + i, c1 + j, c1 + k, e) = c_sgn * real(r(o0 + i, o0 + j, o0 + k, l), RWP)
+              rs(c1+i, c1+j, c1+k, e) = c_sgn * real(r(o0+i, o0+j, o0+k, l), RWP)
             end do
             end do
             end do
