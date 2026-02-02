@@ -253,7 +253,7 @@ contains
                               'NumberOfComponents="3"/>'
       end do
 
-      ! close poit data section
+      ! close point data section
       write(pvtu,'(4X,A)') '</PPointData>'
 
       ! points section
