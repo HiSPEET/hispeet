@@ -14,6 +14,7 @@ program Mesh3d_Import_GMSH
   use Spectral_Element_Mesh__3D
   use Verify_Mesh__3D
   use Export_VTK_Volume_Data__3D
+  use Export_VTK_Mesh_SFC__3D
   implicit none
 
   character(len=80) :: file = '../gmsh_3d/pipe' ! mesh file base name (*.msh)
@@ -110,6 +111,11 @@ program Mesh3d_Import_GMSH
                            , part    = mesh % part    &
                            , n_parts = mesh % n_parts &
                            , subdiv  = .false.        )
+
+
+  if (mesh % has_sfc) then
+    call ExportVTK_MeshSFC(mesh, file = trim(file)//'_sfc')
+  end if
 
   ! finalization ...............................................................
 
