@@ -142,6 +142,7 @@ set ( MESH_3D
       mesh_3d/mesh__3d__mp_buildlinks.f
       mesh_3d/mesh__3d__mp_buildmaptochild.f
       mesh_3d/mesh__3d__mp_buildmaptoparent.f
+      mesh_3d/mesh__3d__mp_buildsfc.f
       mesh_3d/mesh__3d__mp_getcuboids.f
       mesh_3d/mesh__3d__mp_getpoints.f
       mesh_3d/mesh__3d__mp_getpointvalency.f
@@ -181,6 +182,7 @@ set( UTIL_1D
 set( UTIL_3D util_3d/verification/verify_mesh__3d.f )
 
 set( UTIL_3D ${UTIL_3D}
+     util_3d/export/export_vtk_mesh_sfc__3d.f
      util_3d/export/export_vtk_volume_data__3d.f
      util_3d/export/export_vtk_schwarz_domain__3d.f
     )
@@ -191,6 +193,7 @@ set( UTIL_3D ${UTIL_3D}
      util_3d/meshgen/create_cuboid_diamonds.f
      util_3d/meshgen/create_cuboid_onerotated.f
      util_3d/meshgen/create_cylinder.f
+     util_3d/meshgen/create_spherical_shell_segment.f
     )
 
 set( UTIL_3D ${UTIL_3D}
@@ -282,8 +285,11 @@ set( MULTILEVEL_3D
      multilevel_3d/adaptation/child_mesh_adaptation__3d__mp_buildconnections.f
      multilevel_3d/adaptation/element_distribution_map__3d.f
      multilevel_3d/adaptation/element_distribution_data__3d.f
+     multilevel_3d/adaptation/element_hilbert_curve__3d.f
      multilevel_3d/adaptation/globalize_adaptation_pattern__3d.f
      multilevel_3d/adaptation/mesh_partitioner__3d.f
+     multilevel_3d/adaptation/mesh_partitioner__3d__mp_graph_partitioner.f
+     multilevel_3d/adaptation/mesh_partitioner__3d__mp_sfc_partitioner.f
      multilevel_3d/adaptation/process_adaptation_pattern__3d.f
      multilevel_3d/adaptation/restrict_adaptation_pattern__3d.f
      multilevel_3d/adaptation/root_mesh_partitioning__3d.F
@@ -362,7 +368,7 @@ add_library(HiBase ${BASE_SRC})
 set_property(TARGET HiBase
              PROPERTY Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modules)
 
-add_dependencies(HiBase KdTree)
+add_dependencies(HiBase KdTree HilbertCurve)
 if (NOT SKIP_LIBXSMM)
     add_dependencies(HiBase LIBXSMM)
 endif ()
@@ -384,4 +390,5 @@ target_link_libraries(HiBase
             ${ParMETIS_LIBRARIES}
             ${LIBXSMM_LIBRARIES}
             KdTree
+            HilbertCurve
             )
