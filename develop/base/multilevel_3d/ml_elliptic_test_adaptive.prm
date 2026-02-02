@@ -33,7 +33,7 @@
 
 &ml_mesh_options_3d__dynamic
   refinement = 3*'c', 4*'s' ! (1:l_max-1)  refinement type {'c','s'}
-  n_parts    = 2, 2, 2, 2, 4, 8, 16, 32, 128, 512, 2048
+  n_parts    = 2, 2, 2, 2, 4, 8, 16, 32 !, 128, 512, 2048
 /
 
 &problem_prm

@@ -31,6 +31,7 @@ program ML_Elliptic_Test_Adaptive
   use Mesh__3D
   use Verify_Mesh__3D
   use Data_Exchange__3D
+  use Export_VTK_Mesh_SFC__3D
 
   use ML__Mesh__3D
   use ML__Mesh_Operators__3D
@@ -267,7 +268,7 @@ program ML_Elliptic_Test_Adaptive
 
   ml_mesh = ML_Mesh_3D(base_mesh, ml_mesh_opt)
 
-  l_top   = ml_mesh_opt % l_top
+  l_top   = size(ml_mesh % mesh)
   l_max   = ml_mesh_opt % l_max
   l_adapt = ml_mesh_opt % l_adapt
 
@@ -578,8 +579,24 @@ program ML_Elliptic_Test_Adaptive
   end do
 
   if (export_vtk) then
+
+    ! mesh and variables
     call var % ExportVTK(ml_op, trim(case_name)//'_full', mode=1)
     call var % ExportVTK(ml_op, trim(case_name)//'_leaf', mode=3)
+
+    ! space filling curve
+    associate(mesh => ml_mesh%mesh)
+      block
+        character(len=9) :: tag
+        do l = 1, size(mesh)
+          if (mesh(l) % has_sfc) then
+            write(tag,'(A,I0,A)') '_sfc_l', l
+            call ExportVTK_MeshSFC(mesh(l), file = trim(case_name)//trim(tag))
+          end if
+        end do
+      end block
+    end associate
+
   end if
 
   !-----------------------------------------------------------------------------
@@ -594,60 +611,17 @@ contains
 
   subroutine Evaluation
 
-    integer  , allocatable, save :: n_elem(:,:), n_active(:,:), n_leaf(:,:)
-    real(RNP), allocatable, save :: emq(:,:)
-
     real(RNP), save :: int_e_loc(2), int_e(2)
     real(RNP), save :: max_e_loc(4)
     real(RNP), save :: e_h(2), r_h0
 
-    integer(IXL) :: np_leaf, np_tot
     real(RNP)    :: c_norm
 
     associate(mesh => ml_mesh%mesh)
 
       ! mesh metrics .............................................................
 
-      call ml_op % Get_MeshCharacteristics(n_elem, n_active, n_leaf, emq)
-
-      if (rank == 0) then
-
-        write(*,'(/,A3,X,6A9,A4,2(3X,A9),2(X,A9))') &
-            '  l'       , &
-            '  n_parts' , &
-            '   na_min' , &
-            '   na_max' , &
-            '   na_tot' , &
-            '   ne_tot' , &
-            '  ne_leaf' , &
-            '  po'      , &
-            '   dx_min' , &
-            '   dx_max' , &
-            '   ar_max' , &
-            '   qj_min'
-
-        np_tot  = 0
-        np_leaf = 0
-
-        do l = 1, l_top
-
-          np_tot  = np_tot  + n_elem(l,4) * po(l)**3
-          np_leaf = np_leaf + n_leaf(l,4) * po(l)**3
-
-          write(*,'(I3,X,6I9,I4,2(2X,ES10.3),2F10.3)') &
-              l              , &
-              mesh(l)%n_parts, &
-              n_active(l,2)  , &
-              n_active(l,3)  , &
-              n_active(l,4)  , &
-              n_elem(l,4)    , &
-              n_leaf(l,4)    , &
-              po(l)          , &
-              emq(l,1:2)     , &
-              emq(l,4:5)
-
-        end do
-      end if
+      call ml_op % Print_MeshCharacteristics()
 
       ! residual ...............................................................
 
@@ -707,11 +681,7 @@ contains
 
       if (rank == 0) then
         write(*,*)
-        write(*,'(2X,A)') 'overall metrics'
-        write(*,'(T5,A,T16,I0)')     'ne_tot  =', sum(n_elem(:,4))
-        write(*,'(T5,A,T16,I0)')     'ne_leaf =', sum(n_leaf(:,4))
-        write(*,'(T5,A,T16,I0)')     'np_tot  =', np_tot
-        write(*,'(T5,A,T16,I0)')     'np_leaf =', np_leaf
+        write(*,'(2X,A)') 'error metrics'
         write(*,'(T5,A,T16,ES12.5)') 'r_h0(Ω) =', r_h0
         write(*,'(T5,A,T16,ES12.5)') 'e_h0(Ω) =', e_h(1)
         write(*,'(T5,A,T16,ES12.5)') 'e_h1(Ω) =', e_h(2)

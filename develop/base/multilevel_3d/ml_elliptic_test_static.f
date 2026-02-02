@@ -29,6 +29,7 @@ program ML_Elliptic_Test_Static
   use Generic_Mesh__3D
   use Mesh__3D
   use Verify_Mesh__3D
+  use Export_VTK_Mesh_SFC__3D
 
   use ML__Mesh__3D
   use ML__Mesh_Operators__3D
@@ -158,6 +159,7 @@ program ML_Elliptic_Test_Static
   real(RNP), dimension(:), allocatable, save :: e0_mx, r0_e2, r0_mx
   real(RNP), dimension(:), allocatable, save :: en_mx, rn_e2, rn_mx
   real(RNP), save :: e0_l2, en_l2, r0_l2, rn_l2
+  real(RNP), save :: t_start, t_solve
   integer,   save :: n_i
 
   logical :: exists, passed, all_passed, singular
@@ -363,9 +365,21 @@ program ML_Elliptic_Test_Static
   call XMPI_Bcast(fc_filter, 0, comm)
   ml_op = ML_MeshOperators_3D(ml_mesh, po, smooth=fc_smooth, filter=fc_filter)
 
+  if (rank == 0) then
+    write(*,'(/,A)') 'initializing multilevel solver'
+  end if
+
+  call ml_elliptic_opt % Bcast(0, comm)
+  ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt)
+
   associate(mesh => ml_mesh%mesh)
     block
       integer :: l
+
+      if (rank == 0) then
+        write(*,'(4X,A,4(2X,A7),2(3X,A2),8X,A2)')  &
+            'l','n_parts','min(ne)','max(ne)','sum(ne)','po','no','ns'
+      end if
 
       do l = 1, l_top
         if (mesh(l)%part >= 0) then
@@ -374,21 +388,21 @@ program ML_Elliptic_Test_Static
           call XMPI_Reduce(mesh(l)%n_elem, ne_tot, MPI_SUM, 0, mesh(l)%comm_parts)
         end if
         if (mesh(l)%part == 0) then
-          write(*,'(2X,A,I4,A,I5,A,3(X,A,X,I6),X,A,X,I3)')  &
-            'level ',l,': n_parts =',mesh(l)%n_parts,',  ', &
-            'min/max/sum(n_elem)/po =',ne_min,'/',ne_max,'/',ne_tot,'/',po(l)
+          write(*,'(I5,4I9,2I5,I6)',advance='NO') &
+              l, mesh(l)%n_parts, ne_min, ne_max, ne_tot, &
+              po(l), ml_elliptic % elliptic_op(l) % schwarz % no
+          if (l == 1) then
+            write(*,'(I10)') ml_elliptic % i_crs
+          else
+            write(*,'(2X,2(I3,X,A))') &
+                ml_elliptic % NumSmoothingSteps(l, stage = 1), '+', &
+                ml_elliptic % NumSmoothingSteps(l, stage = 2)
+          end if
         end if
       end do
 
     end block
   end associate
-
-  if (rank == 0) then
-    write(*,'(/,A)') 'initializing multilevel solver'
-  end if
-
-  call ml_elliptic_opt % Bcast(0, comm)
-  ml_elliptic = ML_DG_EllipticSolver_3D(ml_op, ml_elliptic_opt)
 
   ! variables ..................................................................
 
@@ -485,6 +499,7 @@ program ML_Elliptic_Test_Static
 
   if (rank == 0) then
     write(*,'(/,A)') 'executing multilevel solver'
+    t_start = MPI_Wtime()
   end if
 
   if (problem % nu_1 > 0) then
@@ -507,15 +522,24 @@ program ML_Elliptic_Test_Static
     end select
   end if
 
+  if (rank == 0) then
+    t_solve = MPI_Wtime() - t_start
+  end if
+
   !-----------------------------------------------------------------------------
   ! Evaluation
+
+  if (rank == 0) then
+    write(*,'(/,A)') 'evaluation'
+  end if
 
   ! final error and residual norms
   call Evaluation(rn_e2, rn_mx, rn_l2, en_mx, en_l2)
 
   if (rank == 0) then
-    write(*,'(/,A)') 'number of iterations'
-    write(*,'(2X,A,I0)') 'n  = ', n_i
+    write(*,*)
+    write(*,'(A,I0)')     'num iterations:  n_i = ', n_i
+    write(*,'(A,ES10.3)') 'solution time:   t_s =' , t_solve
 
     write(*,'(/,A,/)') 'L2 residual and error over leaf elements'
 
@@ -526,14 +550,21 @@ program ML_Elliptic_Test_Static
 
     write(*,'(/,A,/)') 'residuals and errors over active elements per level'
     block
-      integer :: l
+      integer :: l, l_min
+
+      select case(solution_method)
+      case(11,12)
+        l_min = l_top
+      case default
+        l_min = 1
+      end select
 
       write(*,'(4X,A,3X,7(A7,5X))') 'l', &
                                     '  r0_e2', '  rn_e2', &
                                     '  r0_mx', '  rn_mx', &
                                     '  e0_mx', '  en_mx', &
                                     '-lg rho'
-      do l = 1, l_top
+      do l = l_min, l_top
         write(*,'(I5,7(2X,ES10.3))') l, &
                                      r0_e2(l), rn_e2(l), &
                                      r0_mx(l), rn_mx(l), &
@@ -548,8 +579,25 @@ program ML_Elliptic_Test_Static
   ! VTK export
 
   if (export_vtk) then
+
+    ! mesh and variables
     call var % ExportVTK(ml_op, trim(case_name)//'_full', mode=1)
     call var % ExportVTK(ml_op, trim(case_name)//'_leaf', mode=3)
+
+    ! space filling curve
+    associate(mesh => ml_mesh%mesh)
+      block
+        character(len=9) :: tag
+        integer :: l
+        do l = 1, size(mesh)
+          if (mesh(l) % has_sfc) then
+            write(tag,'(A,I0,A)') '_sfc_l', l
+            call ExportVTK_MeshSFC(mesh(l), file = trim(case_name)//trim(tag))
+          end if
+        end do
+      end block
+    end associate
+
   end if
 
   !-----------------------------------------------------------------------------

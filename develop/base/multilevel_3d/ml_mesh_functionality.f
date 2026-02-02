@@ -13,6 +13,7 @@ program ML_Mesh_Functionality
   use Generic_Mesh__3D
   use Mesh__3D
   use Verify_Mesh__3D
+  use Export_VTK_Mesh_SFC__3D
   use Child_To_Parent_Projection__3D
   use Child_To_Parent_Restriction__3D
   use Parent_To_Child_Interpolation__3D
@@ -41,7 +42,7 @@ program ML_Mesh_Functionality
 
   type(MPI_Comm) :: comm = MPI_COMM_WORLD
 
-  character(len=9), save :: var_name(14)
+  character(len=9), save :: var_name(14), tag
 
   real(RNP), allocatable, save :: delta(:)
   real(RNP), allocatable, save :: delta_loc(:)
@@ -356,8 +357,20 @@ program ML_Mesh_Functionality
   ! VTK export .................................................................
 
   if (len_trim(plot_file) > 0) then
+
+    ! mesh and variables
     call ml_var % ExportVTK(ml_op, trim(plot_file)//'_full', mode=1)
     call ml_var % ExportVTK(ml_op, trim(plot_file)//'_leaf', mode=3)
+
+    ! space filling curve
+    do l = 1, n_level
+      associate(mesh => ml_op % sem(l) % mesh)
+        if (mesh % has_sfc) then
+          write(tag,'(A,I0,A)') '_sfc_l', l
+          call ExportVTK_MeshSFC(mesh, file = trim(plot_file)//trim(tag))
+        end if
+      end associate
+    end do
   end if
 
   ! HDF5 write/read ............................................................
