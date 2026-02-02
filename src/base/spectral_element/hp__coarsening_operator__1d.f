@@ -200,13 +200,13 @@ contains
         real(RNP) :: Af(0:po_c,0:po_c), pf
         integer :: k
 
-        sop = StandardElementOperators_1D(po_c, this % nodes, no_vdm = .true.)
+        sop = StandardElementOperators_1D(po_c, this % nodes)
         pf = real(opt%filter, RNP)
         select case(this % method)
         case('P')
-          call sop % Get_ExponentialFilter(pf, Af, modes = 'L')
+          call sop % Get_ErfcLogFilter(pf, Af, modes = 'L', left_half=.true.)
         case('I')
-          call sop % Get_ExponentialFilter(pf, Af, modes = 'B')
+          call sop % Get_ErfcLogFilter(pf, Af, modes = 'B', left_half=.true.)
         end select
 
         do k = 1, this % mode
